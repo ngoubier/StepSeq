@@ -1300,9 +1300,13 @@ dialog.juno-dialog { width: min(1320px, calc(100vw - 16px)); max-width: none; pa
 .jt-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 0 3px 22px; }
 .jt-l { font-size: 10px; color: var(--j-print); line-height: 1; }
 .jenv { width: 18px; height: 11px; fill: none; stroke: var(--j-print); stroke-width: 1.6; display: block; }
-.jtoggle { position: relative; width: 14px; height: 38px; padding: 0; border: 0; border-radius: 3px; background: #0a0a0a; cursor: pointer; box-shadow: inset 0 0 0 1px #2c2c2c; }
+.jtoggle { position: relative; width: 16px; height: 38px; padding: 0; border: 0; border-radius: 3px; background: #0a0a0a; cursor: pointer; box-shadow: inset 0 0 0 1px #3a3a3a; }
 .jtoggle:focus-visible { outline: 2px solid #8fb4ff; outline-offset: 3px; }
-.jt-lever { position: absolute; left: 2px; right: 2px; height: 14px; bottom: 2px; border-radius: 2px; background: linear-gradient(90deg, #a8a8a8, #fff 45%, #d2d2d2); transition: bottom .1s; }
+.jt-lever { position: absolute; left: 1px; right: 1px; height: 14px; bottom: 2px; border-radius: 2px; transition: bottom .1s;
+  background: linear-gradient(180deg, #3a3a3a, #121212 45%, #050505); box-shadow: 0 1px 2px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.15); }
+/* manette noire à deux encoches blanches, comme les capuchons des curseurs */
+.jt-lever::after { content: ""; position: absolute; left: 1px; right: 1px; top: 50%; height: 2px; margin-top: -1px;
+  background: linear-gradient(90deg, #fff 0 30%, transparent 30% 70%, #fff 70% 100%); }
 .jtoggle.up .jt-lever { bottom: 22px; }
 
 /* boutons rotatifs */
