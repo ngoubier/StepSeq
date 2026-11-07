@@ -41,34 +41,35 @@ SS.junoPanel = (() => {
     }
     if (Object.keys(j).length) track.juno = j;
     else delete track.juno;
-    if (key === 'chorus') SS.audio.applySynth(track);
+    SS.audio.applySynth(track); // comme sur le vrai synthé : les notes tenues changent aussi
     app.changed();
     syncAll();
   }
 
   /* ---------- Lectures physiques (bulle d'aide) ---------- */
-  const M = SS.JUNO_MAP;
-  const fmtT = (v) => (v < 1 ? `${Math.round(v * 1000)} ms` : `${v.toFixed(2)} s`);
+  const D = SS.JunoDSP; // conversions du moteur (modèle J106 de l'Ultramaster KR-106)
+  const fmtMs = (ms) => (ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(2)} s`);
   const fmtHz = (v) => (v < 1000 ? `${v < 10 ? v.toFixed(2) : Math.round(v)} Hz` : `${(v / 1000).toFixed(2)} kHz`);
+  const pct = (x) => `${Math.round(x * 100)} %`;
   const READOUT = {
-    lfoRate: (x) => fmtHz(M.lfoRate(x)),
-    lfoDelay: (x) => (x ? fmtT(M.lfoDelay(x)) : 'off'),
-    dcoLfo: (x) => `±${Math.round(M.dcoLfo(x))} cents`,
-    pwm: (x) => `largeur ${Math.round((0.5 - x * 0.45) * 100)} %`,
-    sub: (x) => `${Math.round(x * 100)} %`,
-    noise: (x) => `${Math.round(x * 100)} %`,
-    hpf: (v) => ['0 : renfort de graves', '1 : neutre', '2 : coupe-bas 240 Hz', '3 : coupe-bas 720 Hz'][v],
-    vcfFreq: (x) => fmtHz(M.vcfFreq(x)),
-    vcfRes: (x) => `${Math.round(x * 100)} %`,
-    vcfEnv: (x) => `${M.vcfEnv(x).toFixed(1)} oct`,
-    vcfLfo: (x) => `±${M.vcfLfo(x).toFixed(1)} oct`,
-    kybd: (x) => `${Math.round(x * 100)} %`,
-    vcaLevel: (x) => `${Math.round(x * 200)} %`,
-    attack: (x) => fmtT(M.attack(x)),
-    decay: (x) => fmtT(M.decay(x)),
-    sustain: (x) => `${Math.round(x * 100)} %`,
-    release: (x) => fmtT(M.release(x)),
-    volume: (x) => `${Math.round(x * 100)} %`,
+    lfoRate: (x) => fmtHz(D.lfoFreq(x)),
+    lfoDelay: (x) => (D.lfoHoldoff(x) > 0 ? `attente ${fmtMs(D.lfoHoldoff(x) * 1000)}` : 'off'),
+    dcoLfo: (x) => (D.dcoLfoDepth(x) ? `±${D.dcoLfoDepth(x).toFixed(2)} demi-ton` : 'off'),
+    pwm: (x) => `rapport ${Math.round((0.5 + x * 0.45) * 100)} %`,
+    sub: (x) => (x > 0 ? pct(D.subLevel(x)) : 'off'),
+    noise: (x) => (x > 0 ? pct(D.noiseLevel(x)) : 'off'),
+    hpf: (v) => `${v} : ${D.HPF_LABELS[v]}`,
+    vcfFreq: (x) => fmtHz(D.cutoffHz(x)),
+    vcfRes: pct,
+    vcfEnv: pct,
+    vcfLfo: (x) => (x ? `±${D.vcfLfoDepth(x).toFixed(1)} demi-tons` : 'off'),
+    kybd: pct,
+    vcaLevel: (x) => `${D.vcaLevelDb(x) >= 0 ? '+' : ''}${D.vcaLevelDb(x).toFixed(1)} dB`,
+    attack: (x) => fmtMs(D.attackMs(x)),
+    decay: (x) => fmtMs(D.decRelMs(x)),
+    sustain: pct,
+    release: (x) => fmtMs(D.decRelMs(x)),
+    volume: pct,
     tune: (x) => `${x >= 0.5 ? '+' : ''}${Math.round((x - 0.5) * 100)} cents`,
   };
 
@@ -164,11 +165,11 @@ SS.junoPanel = (() => {
 
   /**
    * Bouton du Juno : sérigraphie au-dessus, LED rouge (ou simple trait, opts.led === false),
-   * puis la touche colorée sans inscription (opts.color : 'yellow' crème ou 'orange').
+   * puis la touche en relief sans inscription (opts.color : 'cream', 'yellow' ou 'orange').
    */
   function button(label, isOn, onPress, opts = {}) {
     const aria = opts.aria || (typeof label === 'string' ? label : '');
-    const led = opts.led === false ? el('span', 'jb-line', { 'aria-hidden': 'true' }) : el('span', 'jb-led', { 'aria-hidden': 'true' });
+    const led = el('span', opts.led === false ? 'jb-led none' : 'jb-led', { 'aria-hidden': 'true' });
     const b = el('button', `jbtn ${opts.color || 'yellow'} ${opts.cls || ''}`, { type: 'button', 'aria-label': aria, title: aria, onclick: onPress });
     const wrap = el('div', 'jb-wrap', {}, el('span', 'jb-label', { 'aria-hidden': 'true' }, label), led, b);
     controls.push({
@@ -324,31 +325,36 @@ SS.junoPanel = (() => {
       ),
       section('VCA', 'jsec-vca', cg(toggle('vcaMode', 'env', 'ENV', 'gate', 'GATE', 'Mode du VCA'), slider('vcaLevel', 'LEVEL'))),
       section('ENV', 'jsec-env', cg(slider('attack', 'A'), slider('decay', 'D'), slider('sustain', 'S'), slider('release', 'R'))),
-      section('CHORUS', 'jsec-chorus',
+      section('CHORUS', 'jsec-chorus blue',
         cg(
           el('div', 'jrow jchorus', {},
-            button('OFF', () => !pv().chorus, () => set('chorus', 0), { led: false, aria: 'Chorus off' }),
-            button('I', () => pv().chorus === 1, () => set('chorus', 1), { color: 'orange', aria: 'Chorus I' }),
+            button('OFF', () => !pv().chorus, () => set('chorus', 0), { led: false, color: 'cream', aria: 'Chorus off' }),
+            button('I', () => pv().chorus === 1, () => set('chorus', 1), { aria: 'Chorus I' }),
             button('II', () => pv().chorus === 2, () => set('chorus', 2), { color: 'orange', aria: 'Chorus II' })
           )
         )
+      ),
+      // afficheur vert à segments (patch courant)
+      el('div', 'jdisplay', {},
+        el('div', 'jdisp-main', {}, el('span', 'jdisp-id', { id: 'junoDisplay', 'aria-live': 'polite' }), el('span', 'jdisp-name', { id: 'junoPatchName' })),
+        el('div', 'jdisp-sub', { text: 'JUNO-106' })
       )
     );
 
     // Section des patches
     const bottom = $('#junoBottom');
     const groupBtns = el('div', 'jrow', {},
-      button('A', () => groupOf() === 'A', () => pickPatch('A', bankOf() || 1, numOf() || 1), { color: 'orange', aria: 'Groupe A' }),
-      button('B', () => groupOf() === 'B', () => pickPatch('B', bankOf() || 1, numOf() || 1), { color: 'orange', aria: 'Groupe B' })
+      button('A', () => groupOf() === 'A', () => pickPatch('A', bankOf() || 1, numOf() || 1), { color: 'cream', aria: 'Groupe A' }),
+      button('B', () => groupOf() === 'B', () => pickPatch('B', bankOf() || 1, numOf() || 1), { color: 'cream', aria: 'Groupe B' })
     );
     const banks = el('div', 'jrow', {});
     const nums = el('div', 'jrow', {});
     for (let i = 1; i <= 8; i++) {
-      banks.append(button(String(i), () => bankOf() === i, () => pickPatch(groupOf() || 'A', i, numOf() || 1), { color: 'orange', cls: 'pbtn', aria: `Banque ${i}` }));
-      nums.append(button(String(i), () => numOf() === i, () => pickPatch(groupOf() || 'A', bankOf() || 1, i), { cls: 'pbtn', aria: `Numéro ${i}` }));
+      banks.append(button(String(i), () => bankOf() === i, () => pickPatch(groupOf() || 'A', i, numOf() || 1), { cls: 'pbtn', aria: `Banque ${i}` }));
+      nums.append(button(String(i), () => numOf() === i, () => pickPatch(groupOf() || 'A', bankOf() || 1, i), { color: 'orange', cls: 'pbtn', aria: `Numéro ${i}` }));
     }
     bottom.append(
-      el('div', 'jpatch-sec', {}, el('div', 'jgroup-title', { text: 'PATCH' }), el('div', 'jrow', {}, button('MANUAL', () => track.junoPatch === 'MAN', () => pickManual(), { aria: 'Manual' }))),
+      el('div', 'jpatch-sec', {}, el('div', 'jgroup-title', { text: 'PATCH' }), el('div', 'jrow', {}, button('MANUAL', () => track.junoPatch === 'MAN', () => pickManual(), { color: 'cream', aria: 'Manual' }))),
       el('div', 'jpatch-sec', {}, el('div', 'jgroup-title', { text: 'BANK GROUP' }), groupBtns),
       el('div', 'jpatch-sec banks', {}, el('div', 'jgroup-title', { text: 'BANK' }), banks),
       el('div', 'jpatch-sec nums', {}, el('div', 'jgroup-title', { text: 'NUMBER' }), nums)
@@ -409,7 +415,7 @@ SS.junoPanel = (() => {
       // mémoire vide : l'afficheur clignote, rien n'est chargé
       const d = $('#junoDisplay');
       d.textContent = id;
-      $('#junoPatchName').textContent = '— mémoire vide —';
+      $('#junoPatchName').textContent = 'EMPTY';
       d.classList.remove('blink');
       void d.offsetWidth;
       d.classList.add('blink');
@@ -442,7 +448,7 @@ SS.junoPanel = (() => {
     const edited = track.juno && Object.keys(track.juno).length;
     $('#junoDisplay').textContent = track.junoPatch === 'MAN' ? 'MAN' : track.junoPatch;
     $('#junoDisplay').classList.toggle('edited', !!edited);
-    $('#junoPatchName').textContent = patch ? patch.name + (edited ? ' (modifié)' : '') : '';
+    $('#junoPatchName').textContent = patch ? patch.name.toUpperCase() : '';
   }
 
   /* ---------- Écoute ---------- */
@@ -451,7 +457,7 @@ SS.junoPanel = (() => {
     const root = track.lastRoot ?? (track.octave + 1) * 12;
     const notes = track.category === 'mono' ? root : SS.chordNotes(root, track.chord);
     const p = params();
-    const len = Math.min(2, Math.max(0.5, M.attack(p.attack) + 0.4));
+    const len = Math.min(2, Math.max(0.5, D.attackMs(p.attack) / 1000 + 0.4));
     SS.audio.preview(track, notes, len);
   }
 

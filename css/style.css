@@ -1188,149 +1188,148 @@ body.mixer-open .songbar { display: none; }
 .synth-card dt { color: var(--muted); }
 .synth-card dd { margin: 0; }
 
-/* ---------- Façade du Roland Juno-106 ----------
- * Corps gris-bleu, bandeaux de section rouge-orangé à titre blanc, filets blancs entre les groupes,
- * graduations en traits blancs (épais à 0, 5, 10), capuchons gris foncé à trait clair dans des fentes noires,
- * touches crème ou orange sans inscription sous leur LED rouge, inverseurs noirs à manette blanche.
+/* ---------- Façade du Juno-106, d'après l'Ultramaster KR-106 ----------
+ * Panneau anthracite griffé entre deux joues rouge sombre, bandeaux de section rouges (#cc0000) ou bleus
+ * (#2233cc) à titre blanc italique, filet de la même couleur sous chaque section, sérigraphie blanche
+ * condensée italique, curseurs à graduations claires (0, 5, 10) et grises, puits noir, capuchon noir à trait blanc,
+ * touches en relief crème / jaune / orange sous une LED rouge, inverseurs noirs à manette blanche,
+ * afficheur vert à segments.
  */
+@font-face { font-family: Segment14; src: url("../fonts/Segment14.otf") format("opentype"); font-display: swap; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 dialog.juno-dialog { width: min(1320px, calc(100vw - 16px)); max-width: none; padding: 12px; }
 .juno-scroll { overflow-x: auto; padding-bottom: 6px; }
 .juno {
-  --j-body: #5a5f66;
-  --j-body-dark: #4b4f55;
-  --j-head: #bc4016;
-  --j-head-dark: #923210;
+  --j-panel: #3a3a3a;
+  --j-red: #cc0000;
+  --j-blue: #2233cc;
   --j-print: #ffffff;
-  --j-led-off: #800000;
-  --j-led-on: #cc3300;
-  --j-orange: #ff9933;
-  --j-yellow: #ffe0a3;
-  --j-cap: #33353c;
-  --j-cap-line: #cfcfcf;
+  --j-tick: #dbdbdb;
+  --j-tick-dim: #7e7e7e;
+  --j-well: #222222;
+  --j-green: #00ff00;
   width: max-content;
   min-width: 100%;
-  background: var(--j-body);
-  border-left: 16px solid #232427;
-  border-right: 16px solid #232427;
-  border-radius: 10px;
+  background:
+    repeating-linear-gradient(115deg, rgba(255,255,255,.025) 0 1px, transparent 1px 7px),
+    repeating-linear-gradient(35deg, rgba(0,0,0,.05) 0 1px, transparent 1px 11px),
+    var(--j-panel);
+  border-left: 18px solid #4a0d0d;
+  border-right: 18px solid #4a0d0d;
   color: var(--j-print);
-  font-family: Raleway, "Helvetica Neue", Arial, sans-serif;
+  font-family: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  font-style: italic;
   font-weight: 700;
   user-select: none;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 6px 18px rgba(0,0,0,.55);
+  box-shadow: 0 6px 18px rgba(0,0,0,.6);
 }
-.juno-top { display: flex; align-items: center; gap: 24px; padding: 10px 18px 10px; background: var(--j-body-dark); border-radius: 10px 10px 0 0; }
-.juno-roland { font-weight: 800; font-size: 21px; letter-spacing: .01em; font-style: italic; }
-.juno-name h2 { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: .06em; line-height: 1; font-style: italic; }
-.juno-name h2 span { letter-spacing: .1em; }
-.juno-sub { display: block; font-size: 9px; letter-spacing: .3em; color: #e6e6e6; margin-top: 4px; font-weight: 600; }
-.juno-patch { margin-left: auto; display: flex; align-items: center; gap: 10px; }
-.juno-led-display {
-  min-width: 74px; padding: 3px 8px; text-align: center;
-  font: 700 24px/1 "DSEG7 Classic", "Courier New", monospace; letter-spacing: .12em;
-  color: #ff3a14; background: #1a0503; border: 2px solid #111; border-radius: 3px;
-  text-shadow: 0 0 6px rgba(255, 58, 20, .75);
-}
-.juno-led-display.edited::after { content: "."; }
-.juno-led-display.blink { animation: jblink .3s steps(2) 3; }
-@keyframes jblink { 50% { opacity: .15; } }
-.juno-patch-name { font-size: 12px; color: #f0f0f0; min-width: 150px; font-weight: 600; }
 
-/* sections : bandeau rouge-orangé continu */
-.juno-body { display: flex; align-items: stretch; padding: 8px 8px 12px; }
-.jsec { display: flex; flex-direction: column; flex: 1 1 auto; }
+/* sections */
+.juno-body { display: flex; align-items: stretch; gap: 4px; padding: 8px 6px 0; }
+.jsec { --c: var(--j-red); display: flex; flex-direction: column; flex: 1 1 auto; border-bottom: 5px solid var(--c); padding-bottom: 8px; }
+.jsec.blue { --c: var(--j-blue); }
 .jsec-title {
-  margin: 0; padding: 0 8px; height: 28px; line-height: 28px;
-  font-size: 17px; font-weight: 800; letter-spacing: .04em; text-align: center; color: var(--j-print);
-  background: linear-gradient(0deg, var(--j-head-dark), var(--j-head));
+  margin: 0; padding: 0 8px; height: 24px; line-height: 24px;
+  font-size: 18px; font-weight: 700; font-style: italic; letter-spacing: .02em; text-align: center;
+  color: var(--j-print); background: var(--c);
 }
-.jsec + .jsec .jsec-title { box-shadow: inset 2px 0 0 var(--j-body); } /* fine séparation entre bandeaux */
-.jsec-lfo .jsec-title { border-top-left-radius: 8px; background: linear-gradient(90deg, var(--j-head-dark), var(--j-head)); }
-.jsec-chorus .jsec-title { border-top-right-radius: 8px; background: linear-gradient(270deg, var(--j-head-dark), var(--j-head)); }
-.jsec-knobs { flex: 0 0 auto; margin-right: 6px; }
-.jsec-knobs .jsec-title { background: none; box-shadow: none; }
-.jsec-body { display: flex; align-items: stretch; flex: 1; padding-top: 6px; }
-.jsec-knobs .jsec-body { flex-direction: column; justify-content: flex-end; align-items: center; gap: 10px; }
+.jsec-knobs { flex: 0 0 auto; border-bottom-color: transparent; }
+.jsec-knobs .jsec-title { background: none; }
+.jsec-body { display: flex; align-items: stretch; flex: 1; padding-top: 8px; }
+.jsec-knobs .jsec-body { flex-direction: column; justify-content: center; align-items: center; gap: 14px; }
 
-/* groupes de commandes encadrés de filets blancs */
-.jcg { display: flex; align-items: flex-end; justify-content: center; gap: 3px; flex: 1 1 auto; padding: 0 5px; border-left: 2px solid var(--j-print); }
-.jsec:last-child .jcg:last-child { border-right: 2px solid var(--j-print); }
+.jcg { display: flex; align-items: flex-end; justify-content: center; gap: 0; flex: 1 1 auto; padding: 0 4px; }
+.jcg + .jcg { border-left: 2px solid var(--j-print); }
 .jgroup { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 6px; align-self: stretch; }
-.jgroup-title { font-size: 12px; letter-spacing: .06em; color: var(--j-print); text-align: center; }
-.jrow { display: flex; gap: 6px; align-items: flex-end; }
+.jgroup-title { font-size: 14px; color: var(--j-print); text-align: center; text-transform: uppercase; }
+.jrow { display: flex; gap: 2px; align-items: flex-end; }
 
-/* curseurs */
-.jslider { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 34px; }
-.js-label { font-size: 11px; font-weight: 700; letter-spacing: .02em; text-align: center; line-height: 1.1; min-height: 27px; display: flex; align-items: flex-end; justify-content: center; color: var(--j-print); }
-.jslider.edited .js-label { text-decoration: underline; text-decoration-color: var(--j-led-on); text-decoration-thickness: 2px; text-underline-offset: 3px; }
-.js-box { position: relative; width: 34px; height: 150px; margin: 11px 0; cursor: ns-resize; outline: none; }
-.js-box:focus-visible { box-shadow: 0 0 0 2px #99ccff; border-radius: 3px; }
+/* curseurs : graduations qui se rejoignent d'un curseur à l'autre */
+.jslider { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 33px; }
+.js-label { font-size: 15px; line-height: 1; text-align: center; min-height: 30px; display: flex; align-items: flex-end; justify-content: center; color: var(--j-print); }
+.jslider.edited .js-label { color: #ffd34d; }
+.js-box { position: relative; width: 33px; height: 104px; margin: 7px 0; cursor: ns-resize; outline: none; }
+.js-box:focus-visible { box-shadow: 0 0 0 2px var(--j-green); }
 .js-scale { position: absolute; inset: 0; }
-.js-scale span { position: absolute; left: 2px; right: 2px; height: 1px; margin-bottom: -.5px; background: var(--j-print); }
-.js-scale span.heavy { height: 3px; margin-bottom: -1.5px; left: 0; right: 0; }
-.js-slot { position: absolute; left: 50%; top: 0; bottom: 0; width: 9px; transform: translateX(-50%); background: #000; border-radius: 6px; }
+.js-scale span { position: absolute; left: 0; right: 0; height: 2px; margin-bottom: -1px; background: var(--j-tick-dim); }
+.js-scale span.heavy { background: var(--j-tick); }
+.js-slot { position: absolute; left: 50%; top: -4px; bottom: -4px; width: 10px; transform: translateX(-50%); background: var(--j-well); border-radius: 3px; }
+.js-slot::after { content: ""; position: absolute; left: 4px; width: 2px; top: 3px; bottom: 3px; background: #000; }
 .js-cap {
-  position: absolute; left: 50%; width: 30px; height: 20px; margin: 0 0 -10px -15px; border-radius: 5px;
-  background: var(--j-cap); box-shadow: 1px 1px 2px #000; cursor: grab; display: flex; align-items: center;
+  position: absolute; left: 50%; z-index: 1; width: 24px; height: 11px; margin: 0 0 -5.5px -12px;
+  background: #000; border: 1px solid #000; box-shadow: inset 0 0 0 1px var(--j-well); cursor: grab;
+  display: flex; align-items: center;
 }
-.js-cap-line { display: block; width: 100%; height: 2px; margin: 0 3px; background: var(--j-cap-line); border-radius: 2px; }
-.js-box:hover .js-cap { box-shadow: 1px 1px 2px #000, 0 0 7px rgba(255,255,255,.8); }
-.jslider.drag .js-cap { cursor: grabbing; outline: 1px dashed var(--j-led-on); }
+.js-cap-line { display: block; width: 100%; height: 2px; margin: 0 2px; background: #fff; }
+.js-box:hover .js-cap { outline: 1px solid var(--j-green); }
+.jslider.drag .js-cap { cursor: grabbing; outline: 1px solid var(--j-green); }
 .js-tip {
-  position: absolute; left: 50%; bottom: -26px; transform: translateX(-50%); z-index: 3; pointer-events: none;
-  padding: 2px 6px; border-radius: 4px; font-size: 10.5px; font-weight: 600; white-space: nowrap;
-  background: #000; color: #fff; border: 1px solid #555; opacity: 0; transition: opacity .12s;
+  position: absolute; left: 50%; bottom: -28px; transform: translateX(-50%); z-index: 3; pointer-events: none;
+  padding: 2px 6px; font: 600 11px/1.3 system-ui, sans-serif; font-style: normal; white-space: nowrap;
+  background: #000; color: #fff; border: 1px solid #808080; opacity: 0; transition: opacity .12s;
 }
 .js-box:hover .js-tip, .js-box:focus-visible .js-tip, .drag .js-tip, .jk-box:hover .js-tip, .jknob:focus-visible + .js-tip { opacity: 1; }
 
-/* touches à LED */
-.jb-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.jb-label { font-size: 12px; font-weight: 700; color: var(--j-print); min-height: 14px; display: flex; align-items: flex-end; }
-.jb-led { width: 10px; height: 10px; border-radius: 50%; background: var(--j-led-off); margin: 4px 0; }
-.jb-led.on { background: var(--j-led-on); box-shadow: 0 0 8px var(--j-led-on); }
-.jb-line { width: 2px; height: 18px; background: var(--j-print); }
-.jbtn { width: 40px; height: 28px; padding: 0; border: 0; border-radius: 2px; cursor: pointer; opacity: .85; }
-.jbtn.yellow { background: linear-gradient(0deg, #ffcb61, var(--j-yellow)); }
-.jbtn.orange { background: linear-gradient(0deg, #ff8000, var(--j-orange)); }
-.jbtn.pressed { opacity: 1; }
-.jbtn:hover { box-shadow: 0 0 7px #fff; }
-.jbtn:active { transform: translateY(1px); }
-.jbtn:focus-visible { outline: 2px solid #99ccff; outline-offset: 2px; }
-.jbtn.wave { width: 36px; }
-.jbtn.pbtn { width: 36px; height: 26px; }
-.jwave svg { width: 26px; height: 14px; fill: none; stroke: var(--j-print); stroke-width: 2; display: block; }
-.jchorus { margin-bottom: 0; gap: 6px; }
+/* touches en relief et LED */
+.jb-wrap { display: flex; flex-direction: column; align-items: center; gap: 5px; width: 34px; }
+.jb-label { font-size: 15px; color: var(--j-print); min-height: 16px; display: flex; align-items: flex-end; }
+.jb-led { width: 13px; height: 13px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #6a1010, #3a0505); border: 1px solid #000; }
+.jb-led.on { background: radial-gradient(circle at 40% 35%, #ffb0a0, #ff2010 45%, #c00000); box-shadow: 0 0 7px #ff2010; }
+.jb-led.none { visibility: hidden; }
+.jbtn {
+  --face: rgb(220,220,178); --hi: rgb(253,247,203); --lo: rgb(178,179,144);
+  width: 30px; height: 30px; padding: 0; border: 1px solid #000; border-radius: 0; cursor: pointer;
+  background: var(--face); box-shadow: inset 2px 2px 0 var(--hi), inset -2px -2px 0 var(--lo);
+}
+.jbtn.cream { --face: rgb(220,220,178); --lo: rgb(178,179,144); }
+.jbtn.yellow { --face: rgb(228,229,88); --lo: rgb(180,179,69); }
+.jbtn.orange { --face: rgb(240,173,56); --lo: rgb(180,126,41); }
+.jbtn:active { box-shadow: inset 2px 2px 0 var(--lo), inset -2px -2px 0 var(--hi); }
+.jbtn:focus-visible { outline: 2px solid var(--j-green); outline-offset: 2px; }
+.jbtn.pbtn { width: 28px; height: 26px; }
+.jwave svg { width: 24px; height: 13px; fill: none; stroke: var(--j-print); stroke-width: 2; display: block; }
 .jsec-chorus .jcg { align-items: center; }
+.jchorus { gap: 4px; }
 
-/* inverseurs : fente noire, manette blanche */
-.jt-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 40px; }
-.jt-l { font-size: 12px; font-weight: 700; color: var(--j-print); line-height: 1; }
-.jenv { width: 18px; height: 11px; fill: none; stroke: var(--j-print); stroke-width: 1.6; display: block; }
-.jtoggle { position: relative; width: 11px; height: 44px; padding: 0; border: 0; border-radius: 10px; background: #000; cursor: pointer; }
-.jtoggle:focus-visible { outline: 2px solid #99ccff; outline-offset: 3px; }
-.jt-lever { position: absolute; left: 0; right: 0; height: 16px; bottom: 0; border-radius: 4px; background: #fff; transition: bottom .1s, top .1s; }
-.jtoggle.up .jt-lever { bottom: 28px; }
-.jtoggle.three { height: 66px; }
-.jtoggle.three .jt-lever { bottom: auto; top: 0; }
-.jtoggle.three[data-pos="1"] .jt-lever { top: 25px; }
-.jtoggle.three[data-pos="2"] .jt-lever { top: 50px; }
+/* inverseurs : corps noir, manette blanche */
+.jt-wrap { display: flex; flex-direction: column; align-items: center; gap: 5px; margin: 0 4px 20px; }
+.jt-l { font-size: 14px; color: var(--j-print); line-height: 1; }
+.jenv { width: 20px; height: 12px; fill: none; stroke: var(--j-print); stroke-width: 1.8; display: block; }
+.jtoggle { position: relative; width: 16px; height: 42px; padding: 0; border: 0; border-radius: 3px; background: #000; cursor: pointer;
+  box-shadow: inset 3px 0 0 #1b1b1b, inset -3px 0 0 #1b1b1b; }
+.jtoggle:focus-visible { outline: 2px solid var(--j-green); outline-offset: 3px; }
+.jt-lever { position: absolute; left: 3px; right: 3px; height: 14px; bottom: 3px; border-radius: 6px; background: linear-gradient(90deg, #9a9a9a, #fff 45%, #cfcfcf); transition: bottom .1s, top .1s; }
+.jtoggle.up .jt-lever { bottom: 25px; }
+.jtoggle.three { height: 60px; }
+.jtoggle.three .jt-lever { bottom: auto; top: 3px; }
+.jtoggle.three[data-pos="1"] .jt-lever { top: 23px; }
+.jtoggle.three[data-pos="2"] .jt-lever { top: 43px; }
 .jt3 { margin: 0; flex: 1; justify-content: center; }
-.jt3-body { display: flex; gap: 8px; align-items: stretch; }
-.jt3-labels { display: flex; flex-direction: column; justify-content: space-between; font-size: 12px; text-align: right; padding: 1px 0; }
-.jtoggle:hover .jt-lever { box-shadow: 0 0 12px var(--j-led-off); }
+.jt3-body { display: flex; gap: 6px; align-items: stretch; }
+.jt3-labels { display: flex; flex-direction: column; justify-content: space-between; font-size: 14px; text-align: right; padding: 1px 0; }
 
-/* boutons rotatifs */
-.jk-wrap { display: flex; flex-direction: column-reverse; align-items: center; gap: 6px; width: 50px; }
+/* boutons rotatifs gris */
+.jk-wrap { display: flex; flex-direction: column-reverse; align-items: center; gap: 4px; width: 50px; }
 .jk-box { position: relative; }
 .jknob {
-  --a: 0deg; width: 38px; height: 38px; border-radius: 50%; cursor: ns-resize; outline: none;
-  background: radial-gradient(circle at 40% 35%, #4a4c52, var(--j-cap) 70%); border: 2px solid #1b1c20;
-  box-shadow: 1px 2px 3px rgba(0,0,0,.7); transform: rotate(var(--a)); position: relative;
+  --a: 0deg; width: 30px; height: 30px; border-radius: 50%; cursor: ns-resize; outline: none; position: relative;
+  background: radial-gradient(circle at 38% 32%, #f0f0f0, #c0c0c0 55%, #8a8a8a); border: 1px solid #222;
+  transform: rotate(var(--a));
 }
-.jknob:focus-visible { box-shadow: 0 0 0 2px #99ccff; }
-.jk-dot { position: absolute; left: 50%; top: 3px; width: 2px; height: 11px; margin-left: -1px; background: var(--j-cap-line); border-radius: 1px; }
+.jknob:focus-visible { box-shadow: 0 0 0 2px var(--j-green); }
+.jk-dot { position: absolute; left: 50%; top: 4px; width: 5px; height: 5px; margin-left: -2.5px; background: #000; border-radius: 50%; }
+
+/* afficheur vert à segments */
+.jdisplay { flex: 0 0 168px; align-self: flex-start; display: flex; flex-direction: column; gap: 6px; margin: 0 0 0 4px; }
+.jdisp-main { background: #000; border: 1px solid #1e1e1e; box-shadow: inset 0 0 0 1px #2a2a2a; padding: 10px 10px; min-height: 64px;
+  font: 18px/1.3 Segment14, "Courier New", monospace; font-style: normal; color: var(--j-green); letter-spacing: .06em; text-shadow: 0 0 6px rgba(0,255,0,.55); display: flex; flex-direction: column; }
+.jdisp-id.edited::after { content: "*"; }
+.jdisp-id.blink { animation: jblink .3s steps(2) 3; }
+@keyframes jblink { 50% { opacity: .15; } }
+.jdisp-name { font-size: 15px; }
+.jdisp-sub { background: #000; border: 1px solid #1e1e1e; color: #006400; font: 13px/1.6 Segment14, monospace; font-style: normal; text-align: center; letter-spacing: .12em; }
 
 /* section des patches */
-.juno-bottom { display: flex; align-items: flex-end; gap: 24px; padding: 10px 26px 14px; border-top: 2px solid var(--j-print); background: var(--j-body-dark); border-radius: 0 0 10px 10px; }
+.juno-bottom { display: flex; align-items: flex-end; gap: 22px; padding: 10px 20px 14px; margin-top: 8px; border-top: 4px solid #222; }
 .jpatch-sec { display: flex; flex-direction: column; gap: 4px; }
 .juno-help { margin: 8px 2px 0; font-size: 12px; color: var(--muted); }

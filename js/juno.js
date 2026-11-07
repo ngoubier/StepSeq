@@ -11,8 +11,11 @@
  *   - 1 LFO triangle : RATE, DELAY (montée progressive après chaque note).
  *   - Chorus stéréo BBD : I (lent), II (plus rapide et plus profond).
  *
- * Les réglages d'une piste sont dans track.juno (copie complète du patch, modifiable) ;
- * track.junoPatch garde le nom du patch chargé (ex. « A11 »).
+ * Les réglages d'une piste sont dans track.juno (seulement ce qui diffère du patch) ;
+ * track.junoPatch garde le patch chargé (ex. « A11 »).
+ *
+ * Le son est produit par js/juno-dsp.js, portage du moteur de l'Ultramaster KR-106 (GPL v3) ;
+ * les 128 patches d'usine viennent aussi de KR-106.
  */
 window.SS = window.SS || {};
 
@@ -32,7 +35,8 @@ SS.ANALOG_SYNTHS = [
       ['Modulation', '1 LFO triangle (vitesse, retard), suivi de clavier'],
       ['Enveloppe', '1 ADSR partagée VCF / VCA (ou VCA en mode porte)'],
       ['Effet', 'Chorus stéréo BBD, modes I et II'],
-      ['Mémoires', '128 patches (groupes A / B, banques 1–8, numéros 1–8)'],
+      ['Mémoires', '128 patches d’usine (groupes A / B, banques 1–8, numéros 1–8)'],
+      ['Émulation', 'Moteur de l’Ultramaster KR-106 (firmware, VCF IR3109, chorus BBD)'],
     ],
   },
 ];
@@ -54,36 +58,163 @@ SS.isAnalog = (track) => !!track && track.type === 'instrument' && track.family 
 /** Réglage « Manual » : toutes les valeurs de curseur vont de 0 à 1 (graduations 0–10 du panneau). */
 SS.JUNO_INIT = {
   lfoRate: 0.5, lfoDelay: 0,
-  range: 8, dcoLfo: 0, pwm: 0, pwmMode: 'lfo', pulse: false, saw: true, sub: 0, noise: 0,
+  range: 8, dcoLfo: 0, pwm: 0, pwmMode: 'man', pulse: false, saw: true, sub: 0, noise: 0,
   hpf: 1,
-  vcfFreq: 0.75, vcfRes: 0, envPol: 1, vcfEnv: 0, vcfLfo: 0, kybd: 0.5,
+  vcfFreq: 1, vcfRes: 0, envPol: 1, vcfEnv: 0, vcfLfo: 0, kybd: 0,
   vcaMode: 'env', vcaLevel: 0.5,
-  attack: 0, decay: 0.45, sustain: 0.7, release: 0.3,
-  chorus: 0,
+  attack: 0.25, decay: 0.25, sustain: 0.9, release: 0.25,
+  chorus: 1,
   tune: 0.5, // bouton TUNE : ±50 cents (0,5 = centre)
 };
 
-const junoPatch = (id, name, p) => ({ id, name, params: { ...SS.JUNO_INIT, ...p } });
-
-/** Patches d'usine de StepSeq (réglages originaux inspirés des sons typiques du Juno-106). */
-SS.JUNO_PATCHES = [
-  junoPatch('A11', 'Strings', { saw: true, vcfFreq: 0.62, vcfRes: 0.1, vcfEnv: 0.15, kybd: 0.6, attack: 0.45, decay: 0.6, sustain: 0.85, release: 0.55, lfoRate: 0.45, dcoLfo: 0.12, lfoDelay: 0.5, chorus: 2 }),
-  junoPatch('A12', 'Brass', { saw: true, vcfFreq: 0.38, vcfRes: 0.15, vcfEnv: 0.5, kybd: 0.5, attack: 0.3, decay: 0.5, sustain: 0.65, release: 0.35, chorus: 1 }),
-  junoPatch('A13', 'Juno Bass', { range: 16, pulse: true, saw: false, pwm: 0.35, pwmMode: 'man', sub: 0.8, vcfFreq: 0.3, vcfRes: 0.25, vcfEnv: 0.45, kybd: 0.3, decay: 0.42, sustain: 0.25, release: 0.2, hpf: 0, vcaLevel: 0.55 }),
-  junoPatch('A14', 'PWM Pad', { pulse: true, saw: false, pwm: 0.7, pwmMode: 'lfo', lfoRate: 0.42, vcfFreq: 0.6, vcfRes: 0.12, vcfEnv: 0.1, attack: 0.5, decay: 0.55, sustain: 0.9, release: 0.6, chorus: 1 }),
-  junoPatch('A15', 'Lead', { saw: true, pulse: true, pwm: 0.2, pwmMode: 'man', vcfFreq: 0.55, vcfRes: 0.3, vcfEnv: 0.3, decay: 0.45, sustain: 0.6, release: 0.3, dcoLfo: 0.18, lfoRate: 0.55, lfoDelay: 0.55, chorus: 1 }),
-  junoPatch('A16', 'Pluck', { saw: true, vcfFreq: 0.28, vcfRes: 0.35, vcfEnv: 0.55, kybd: 0.6, decay: 0.38, sustain: 0, release: 0.38, chorus: 2 }),
-  junoPatch('A17', 'Organ', { pulse: true, saw: false, pwm: 0, pwmMode: 'man', sub: 0.6, vcfFreq: 0.7, vcfRes: 0, vcaMode: 'gate', release: 0.1, hpf: 2, chorus: 2, vcaLevel: 0.45 }),
-  junoPatch('A18', 'Sub Bass', { range: 16, saw: false, pulse: false, sub: 1, vcfFreq: 0.4, vcfRes: 0, vcfEnv: 0.15, decay: 0.5, sustain: 0.8, release: 0.2, hpf: 0, vcaLevel: 0.65 }),
-  junoPatch('A21', 'Hollow Pad', { pulse: true, saw: true, pwm: 0.45, pwmMode: 'lfo', lfoRate: 0.3, vcfFreq: 0.48, vcfRes: 0.45, vcfEnv: 0.2, vcfLfo: 0.1, attack: 0.6, decay: 0.7, sustain: 0.8, release: 0.65, chorus: 2 }),
-  junoPatch('A22', 'Resonant Bass', { range: 16, saw: true, sub: 0.5, vcfFreq: 0.22, vcfRes: 0.7, vcfEnv: 0.55, kybd: 0.4, decay: 0.35, sustain: 0.1, release: 0.15, hpf: 1 }),
-  junoPatch('A23', 'Clav', { pulse: true, saw: false, pwm: 0.75, pwmMode: 'man', range: 4, vcfFreq: 0.45, vcfRes: 0.3, vcfEnv: 0.5, kybd: 0.7, decay: 0.32, sustain: 0, release: 0.25, hpf: 2 }),
-  junoPatch('A24', 'Bells', { pulse: true, saw: false, pwm: 0.85, pwmMode: 'man', range: 4, vcfFreq: 0.68, vcfRes: 0.6, vcfEnv: 0.2, kybd: 1, decay: 0.62, sustain: 0, release: 0.6, hpf: 2, chorus: 2 }),
-  junoPatch('A25', 'Sweep Pad', { saw: true, pulse: true, pwm: 0.3, pwmMode: 'lfo', lfoRate: 0.25, vcfFreq: 0.3, vcfRes: 0.55, vcfEnv: 0.2, vcfLfo: 0.35, attack: 0.55, decay: 0.7, sustain: 0.9, release: 0.7, chorus: 1 }),
-  junoPatch('A26', 'Noise Wind', { saw: false, pulse: false, noise: 1, vcfFreq: 0.45, vcfRes: 0.7, vcfLfo: 0.4, lfoRate: 0.3, attack: 0.65, decay: 0.6, sustain: 0.8, release: 0.7, kybd: 1, chorus: 2 }),
-  junoPatch('A27', 'Synth Brass', { saw: true, range: 8, vcfFreq: 0.3, vcfRes: 0.2, vcfEnv: 0.6, attack: 0.35, decay: 0.55, sustain: 0.5, release: 0.4, chorus: 2, dcoLfo: 0.08, lfoDelay: 0.6 }),
-  junoPatch('A28', 'Arp Pluck', { pulse: true, saw: true, pwm: 0.25, pwmMode: 'man', vcfFreq: 0.35, vcfRes: 0.45, vcfEnv: 0.45, kybd: 0.5, decay: 0.3, sustain: 0, release: 0.3, chorus: 1 }),
+/*
+ * Les 128 patches d'usine du Juno-106 (groupe A puis B, banques 1–8, numéros 1–8),
+ * repris de l'Ultramaster KR-106 (KR106_Presets.h, GPL v3). Colonnes :
+ * id, nom, LFO rate, LFO delay, DCO LFO, PWM, SUB, NOISE, HPF, VCF freq, res, env, lfo, kybd,
+ * VCA level, A, D, S, R, pulse, saw, chorus (0/1/2), pied, PWM (0 = LFO, 1 = MAN), env inversée, VCA gate.
+ */
+const JUNO_FACTORY = [
+  ["A11", "Brass", 0.1575, 0.3858, 0.0, 0.8032, 0.0, 0.0, 1, 0.2756, 0.1024, 0.4567, 0.0, 0.6772, 0.8504, 0.0236, 0.3858, 0.3543, 0.252, 0, 1, 1, 4, 1, 0, 0],
+  ["A12", "Brass Swell", 0.0472, 0.378, 0.0, 0.4409, 0.5512, 0.0, 0, 0.3386, 0.1339, 0.2047, 0.0, 0.6614, 0.5906, 0.5039, 0.9291, 0.2992, 0.2913, 0, 1, 1, 8, 1, 0, 0],
+  ["A13", "Trumpet", 0.4094, 0.3543, 0.0884, 0.8032, 0.0, 0.0, 2, 0.4331, 0.2677, 0.189, 0.0079, 0.4646, 1.0, 0.0394, 0.5197, 0.378, 0.126, 0, 1, 0, 8, 1, 0, 0],
+  ["A14", "Flutes", 0.4724, 0.3386, 0.0082, 0.0, 0.0, 0.0, 3, 0.4331, 0.252, 0.0787, 0.0866, 0.3228, 1.0, 0.1811, 0.6378, 0.0, 0.1417, 0, 1, 0, 8, 1, 0, 0],
+  ["A15", "Moving Strings", 0.4961, 0.0, 0.0, 0.3071, 0.1102, 0.0, 1, 0.6063, 0.1575, 0.0315, 0.0, 0.874, 0.2677, 0.1024, 0.685, 0.6929, 0.2756, 1, 1, 2, 8, 0, 0, 0],
+  ["A16", "Brass & Strings", 0.2756, 0.0, 0.0, 0.4409, 0.1811, 0.0, 0, 0.5984, 0.1339, 0.0315, 0.0, 0.3228, 0.6142, 0.3465, 0.5197, 0.4173, 0.3465, 1, 0, 1, 4, 0, 0, 0],
+  ["A17", "Choir", 0.4646, 0.1102, 0.1769, 0.1968, 0.0, 0.0, 2, 0.4646, 0.7402, 0.0157, 0.0, 0.4882, 1.0, 0.5354, 0.0866, 1.0, 0.378, 1, 0, 1, 8, 1, 0, 0],
+  ["A18", "Piano I", 0.1575, 0.3858, 0.0, 0.6299, 0.6772, 0.0, 1, 0.5118, 0.0945, 0.0787, 0.0, 0.2126, 0.811, 0.0, 0.5197, 0.0, 0.2362, 1, 0, 0, 8, 1, 0, 0],
+  ["A21", "Organ I", 0.4252, 0.1181, 0.0, 0.4173, 0.1811, 0.0, 0, 0.3386, 0.5984, 0.1102, 0.0079, 1.0, 0.7874, 0.0, 0.0787, 0.6457, 0.0, 1, 0, 0, 4, 0, 0, 1],
+  ["A22", "Organ II", 0.3465, 0.1181, 0.0, 0.4173, 0.4567, 0.0, 0, 0.4173, 0.5984, 0.1102, 0.0079, 0.6693, 0.5827, 0.0, 0.0787, 0.6457, 0.0, 1, 0, 1, 8, 0, 0, 1],
+  ["A23", "Combo Organ", 0.5906, 0.1654, 0.1038, 0.4488, 0.4803, 0.0, 2, 0.4961, 0.5512, 0.0315, 0.0, 0.8583, 0.7559, 0.0, 0.378, 0.3386, 0.3622, 1, 0, 0, 16, 1, 0, 1],
+  ["A24", "Calliope", 0.6457, 0.315, 0.1382, 0.0, 0.378, 0.0, 2, 0.685, 0.2126, 0.1339, 0.0, 0.4409, 0.7008, 0.0551, 1.0, 1.0, 0.0472, 1, 0, 1, 8, 1, 1, 0],
+  ["A25", "Donald Pluck", 0.5984, 0.1654, 0.1038, 0.4488, 1.0, 0.0, 3, 0.5748, 0.8268, 0.1181, 0.0, 0.6142, 0.6457, 0.0157, 0.0394, 0.3386, 0.0787, 1, 0, 0, 16, 1, 1, 1],
+  ["A26", "Celeste", 0.2205, 0.0, 0.0, 0.0, 0.1181, 0.0, 0, 0.2598, 0.189, 0.4252, 0.0, 0.2992, 0.7559, 0.0, 0.3465, 0.0, 0.6378, 1, 0, 0, 16, 1, 0, 0],
+  ["A27", "Elect. Piano I", 0.4646, 0.0, 0.0, 0.0, 0.0, 0.0, 3, 0.126, 0.2441, 0.4803, 0.0472, 0.2756, 1.0, 0.0079, 0.6693, 0.3386, 0.315, 1, 0, 0, 4, 1, 0, 0],
+  ["A28", "Elect. Piano II", 0.0, 0.0, 0.0, 0.5591, 0.0, 0.0, 1, 0.3937, 0.5433, 0.0551, 0.0, 0.6299, 0.8032, 0.0, 0.5354, 0.0, 0.1732, 1, 0, 1, 4, 1, 0, 0],
+  ["A31", "Clock Chimes", 0.4646, 0.0, 0.0, 0.0, 1.0, 0.1732, 0, 0.3465, 1.0, 0.0, 0.0, 1.0, 0.8189, 0.0, 0.378, 0.0, 0.4016, 0, 0, 1, 16, 1, 1, 0],
+  ["A32", "Steel Drums", 0.2598, 0.4173, 0.0, 0.252, 0.2598, 0.0709, 0, 0.5591, 0.3622, 0.2047, 0.0, 1.0, 1.0, 0.0, 0.2047, 0.0, 0.2913, 1, 0, 1, 8, 1, 1, 0],
+  ["A33", "Xylophone", 0.0, 0.0, 0.0, 0.0, 0.1181, 0.0, 0, 0.2283, 0.189, 0.4252, 0.0, 0.4016, 1.0, 0.0, 0.2283, 0.2283, 0.2992, 1, 0, 0, 16, 1, 0, 0],
+  ["A34", "Brass III", 0.4094, 0.1575, 0.0, 0.2756, 0.1732, 0.0, 0, 0.5197, 0.189, 0.0866, 0.0, 0.0945, 1.0, 0.4567, 0.7874, 0.7402, 0.2913, 0, 1, 1, 8, 1, 0, 0],
+  ["A35", "Fanfare", 0.3701, 0.0, 0.0, 0.5512, 0.3937, 0.0, 0, 0.3465, 0.0, 0.252, 0.0, 0.5276, 0.2598, 0.5669, 0.8189, 0.5906, 0.3858, 1, 1, 1, 4, 0, 0, 0],
+  ["A36", "Strings III", 0.378, 0.2126, 0.0, 0.8032, 0.0, 0.0, 1, 0.5591, 0.1102, 0.0, 0.0, 0.6614, 0.5748, 0.4961, 0.2441, 1.0, 0.3543, 1, 1, 2, 8, 0, 0, 0],
+  ["A37", "Pizzicato", 0.4724, 0.1417, 0.0, 0.8032, 0.0, 0.0, 3, 0.5197, 0.0157, 0.0394, 0.0, 0.3307, 1.0, 0.0, 0.0866, 0.0, 0.0945, 1, 1, 1, 8, 0, 0, 0],
+  ["A38", "High Strings", 0.4567, 0.1102, 0.0, 0.8032, 0.0, 0.0, 2, 0.6614, 0.063, 0.0157, 0.0, 0.5591, 0.6063, 0.1417, 0.3465, 1.0, 0.315, 1, 0, 2, 16, 0, 0, 0],
+  ["A41", "Bass Clarinet", 0.4094, 0.3543, 0.0884, 0.0, 0.0, 0.0, 1, 0.378, 0.2835, 0.1968, 0.063, 0.4567, 0.8189, 0.0866, 0.5906, 0.0, 0.1968, 1, 0, 0, 4, 1, 0, 0],
+  ["A42", "English Horn", 0.3701, 0.3543, 0.1038, 0.8032, 0.0, 0.0, 3, 0.5512, 0.378, 0.0551, 0.0, 0.2126, 1.0, 0.063, 0.6378, 0.2047, 0.126, 1, 0, 0, 8, 1, 0, 0],
+  ["A43", "Brass Ensemble", 0.4094, 0.3543, 0.0, 0.8032, 0.2441, 0.0, 1, 0.3622, 0.3465, 0.2283, 0.0079, 0.4646, 0.811, 0.126, 0.811, 0.7638, 0.2677, 0, 1, 1, 8, 1, 0, 0],
+  ["A44", "Guitar", 0.6772, 0.4567, 0.0, 0.5118, 0.0, 0.0, 1, 0.0945, 0.1181, 0.5591, 0.0, 0.2362, 0.7559, 0.0, 0.4094, 0.4252, 0.2441, 1, 1, 0, 4, 1, 0, 0],
+  ["A45", "Koto", 0.7087, 0.2205, 0.0, 0.7402, 0.0157, 0.0, 3, 0.315, 0.4567, 0.2283, 0.0, 0.5906, 1.0, 0.0, 0.4409, 0.0, 0.3071, 1, 0, 1, 8, 1, 0, 0],
+  ["A46", "Dark Pluck", 0.2441, 0.0, 0.0, 0.685, 0.7638, 0.0, 0, 0.2992, 0.4803, 0.2126, 0.0, 0.5591, 0.7087, 0.0, 0.4094, 0.1181, 0.4961, 1, 0, 2, 8, 1, 0, 0],
+  ["A47", "Funky I", 0.0315, 0.0, 0.0, 0.5748, 0.5039, 0.0, 0, 0.2441, 0.1811, 0.4016, 0.0, 0.3228, 0.5591, 0.0, 0.2362, 0.2835, 0.0157, 1, 1, 1, 4, 1, 0, 1],
+  ["A48", "Synth Bass I", 0.4567, 0.126, 0.0082, 0.4488, 0.8032, 0.3937, 0, 0.252, 0.0, 0.5197, 0.0, 0.2756, 0.5906, 0.0, 0.2677, 0.0, 0.2835, 1, 0, 0, 4, 1, 0, 0],
+  ["A51", "Lead I", 0.5669, 0.6929, 0.2866, 0.0, 0.0, 0.0, 0, 0.315, 0.7638, 0.2835, 0.0, 0.4094, 0.7795, 0.0, 0.3543, 0.5748, 0.0, 1, 0, 0, 8, 1, 0, 1],
+  ["A52", "Lead II", 0.189, 0.6929, 0.0, 0.4173, 0.622, 0.0, 1, 0.3543, 0.0, 0.3386, 0.0, 0.4094, 0.4409, 0.0079, 0.1811, 0.7165, 0.5906, 1, 1, 0, 4, 0, 0, 1],
+  ["A53", "Lead III", 0.6772, 0.5591, 0.3546, 0.8032, 0.0, 0.0, 1, 0.4724, 0.2441, 0.1417, 0.0079, 0.5984, 1.0, 0.0, 0.5197, 0.378, 0.0866, 0, 1, 0, 8, 1, 0, 1],
+  ["A54", "Funky II", 0.0315, 0.0, 0.0, 0.378, 0.4488, 0.0, 1, 0.0394, 0.1811, 0.6378, 0.0, 0.3228, 0.7874, 0.0, 0.2362, 0.3071, 0.0157, 1, 0, 1, 8, 1, 0, 1],
+  ["A55", "Synth Bass II", 0.7087, 0.1654, 0.0, 0.0, 0.3543, 0.0, 0, 0.3386, 0.0, 0.3701, 0.0, 0.0, 0.6142, 0.0, 0.2913, 0.0709, 0.1732, 0, 1, 0, 4, 0, 0, 1],
+  ["A56", "Funky III", 0.0315, 0.0, 0.0, 0.0709, 1.0, 0.7953, 0, 0.2992, 0.4252, 0.3543, 0.0, 0.0787, 0.622, 0.0, 0.189, 0.0, 0.0157, 1, 1, 0, 4, 1, 0, 1],
+  ["A57", "Thud Wah", 0.4882, 0.0, 0.0, 0.8032, 0.252, 0.063, 0, 0.6142, 0.7008, 0.2677, 0.0, 0.0, 0.8346, 0.0, 0.0, 0.8032, 0.3543, 1, 1, 2, 8, 0, 1, 0],
+  ["A58", "Going Up", 0.0, 0.0, 0.0, 0.7874, 0.0, 0.2205, 1, 0.622, 1.0, 0.2913, 0.0, 0.5118, 0.5906, 0.0, 0.8504, 0.1417, 1.0, 0, 0, 0, 8, 1, 1, 0],
+  ["A61", "Piano II", 0.0079, 0.0, 0.0, 0.5669, 0.9055, 0.0, 1, 0.3701, 0.0, 0.3071, 0.0, 0.0394, 0.6142, 0.0, 0.7717, 0.0, 0.252, 1, 0, 0, 8, 0, 0, 0],
+  ["A62", "Clav.", 0.5197, 0.1181, 0.0082, 0.8032, 0.0, 0.0, 1, 0.0551, 0.0866, 0.6772, 0.0157, 0.0, 0.9449, 0.0, 0.3071, 0.378, 0.1102, 1, 0, 1, 4, 1, 0, 1],
+  ["A63", "Frontier Organ", 0.622, 0.1181, 0.0267, 0.6693, 0.2283, 0.0, 0, 0.5433, 0.4252, 0.0, 0.0, 0.4094, 1.0, 0.0, 0.0, 1.0, 0.0, 1, 0, 0, 8, 0, 0, 1],
+  ["A64", "Snare Drum", 0.4094, 0.2126, 0.0, 0.0, 0.5039, 0.7165, 1, 0.7402, 0.0866, 0.1339, 0.0, 0.0, 0.7953, 0.0, 0.1968, 0.0, 0.2362, 0, 0, 0, 8, 1, 0, 0],
+  ["A65", "Tom Toms", 0.4882, 0.126, 0.0884, 0.0, 0.4567, 1.0, 0, 0.4173, 0.0315, 0.315, 0.0, 0.1654, 0.7953, 0.0, 0.2362, 0.1181, 0.315, 0, 0, 0, 4, 0, 0, 0],
+  ["A66", "Timpani", 0.0, 0.0, 0.0, 0.2756, 0.3701, 1.0, 1, 0.1968, 0.0, 0.4252, 0.0, 0.189, 1.0, 0.0079, 0.4409, 0.2047, 0.5591, 0, 0, 0, 4, 1, 0, 0],
+  ["A67", "Shaker", 0.1654, 0.5591, 0.0, 0.4567, 0.0, 1.0, 3, 0.7008, 0.3543, 0.0079, 0.1339, 0.6299, 1.0, 0.0787, 0.0709, 0.0, 0.0, 0, 0, 0, 8, 1, 0, 0],
+  ["A68", "Synth Pad", 0.4409, 0.0, 0.0484, 0.3386, 0.2913, 0.0, 0, 0.2913, 0.0, 0.6614, 0.0, 1.0, 0.4016, 0.0, 0.6693, 0.5906, 0.4882, 1, 0, 2, 8, 0, 0, 0],
+  ["A71", "Sweep I", 0.6142, 0.0, 0.0, 0.8032, 0.3307, 0.2205, 1, 0.9055, 0.315, 0.5276, 0.0, 0.0, 0.7638, 0.0, 0.4961, 1.0, 0.6457, 1, 0, 2, 16, 0, 1, 0],
+  ["A72", "Pluck Sweep", 0.5354, 0.378, 0.0, 0.5354, 0.9843, 0.0, 2, 0.4724, 0.874, 0.0709, 0.0472, 0.7717, 0.3543, 0.0, 0.7165, 0.0, 0.6063, 1, 1, 2, 8, 0, 0, 0],
+  ["A73", "Repeater", 0.6063, 0.1575, 0.1038, 0.7953, 0.3465, 0.0, 1, 0.7638, 0.2362, 0.4409, 0.0, 0.4488, 0.685, 0.1102, 0.0, 0.3228, 0.0, 1, 0, 1, 8, 1, 1, 1],
+  ["A74", "Sweep II", 0.6929, 0.5669, 0.2192, 0.7638, 0.378, 0.0, 0, 0.5197, 0.8032, 0.5354, 0.0, 0.5512, 0.7953, 0.0, 0.7008, 0.4173, 0.6142, 1, 0, 1, 8, 1, 0, 0],
+  ["A75", "Pluck Bell", 0.4016, 0.0, 0.0484, 0.1339, 0.3858, 0.0, 0, 0.3071, 0.0, 0.3858, 0.0, 1.0, 0.3858, 0.0, 0.6693, 0.5906, 0.4173, 1, 0, 2, 16, 0, 0, 0],
+  ["A76", "Dark Synth Piano", 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0, 0.4409, 0.6772, 0.0472, 0.0, 0.5591, 0.622, 0.0, 0.3701, 0.0, 0.3937, 1, 1, 2, 8, 0, 1, 0],
+  ["A77", "Sustainer", 0.5591, 0.0, 0.0484, 0.3622, 0.3858, 0.0, 0, 0.3071, 0.0, 0.6614, 0.0, 1.0, 0.4488, 0.0, 0.6693, 0.5906, 0.5512, 1, 0, 0, 8, 0, 0, 0],
+  ["A78", "Wah Release", 0.7008, 0.1102, 0.0082, 0.1968, 0.685, 0.0, 1, 0.5669, 0.6929, 0.1496, 0.0, 0.5197, 0.8189, 0.0, 0.6614, 0.0, 0.2283, 1, 0, 2, 8, 1, 1, 0],
+  ["A81", "Gong", 1.0, 0.0, 0.0, 0.8032, 0.0, 0.4409, 1, 0.5512, 0.8425, 0.0394, 0.0, 0.5669, 0.7165, 0.0236, 0.378, 1.0, 0.7717, 1, 0, 1, 4, 1, 1, 0],
+  ["A82", "Resonance Funk", 0.4646, 0.0, 0.0, 0.0, 0.0, 0.0, 1, 0.2047, 1.0, 0.3543, 0.0, 0.7008, 1.0, 0.0, 0.1496, 0.0, 0.1732, 0, 0, 0, 4, 1, 0, 0],
+  ["A83", "Drum Booms", 0.0, 0.0, 0.0, 0.8032, 0.3622, 1.0, 0, 0.3307, 0.0, 0.2677, 0.0, 0.4567, 1.0, 0.0, 0.2835, 0.1181, 0.3858, 0, 0, 0, 4, 1, 0, 0],
+  ["A84", "Dust Storm", 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1, 0.4094, 0.6693, 0.0, 0.3465, 0.7402, 1.0, 0.6929, 0.7165, 0.2205, 0.6693, 0, 0, 0, 4, 1, 0, 0],
+  ["A85", "Rocket Men", 0.063, 0.252, 0.0, 0.8032, 0.0, 0.7638, 3, 0.5748, 0.8976, 0.063, 0.0, 0.4409, 1.0, 0.0, 0.7008, 1.0, 0.8189, 0, 0, 0, 16, 1, 1, 0],
+  ["A86", "Hand Claps", 0.4646, 0.0, 0.0, 0.0, 0.0, 1.0, 3, 0.1339, 0.6929, 0.4252, 0.0, 0.4331, 1.0, 0.0079, 0.0866, 0.0, 0.063, 0, 0, 0, 4, 1, 0, 1],
+  ["A87", "FX Sweep", 1.0, 0.5118, 0.9842, 0.8032, 1.0, 1.0, 1, 0.5591, 0.3465, 0.6535, 0.0, 0.7402, 1.0, 0.0, 0.7402, 0.0, 0.8819, 1, 0, 0, 4, 0, 1, 0],
+  ["A88", "Caverns", 0.0, 0.0, 0.0, 0.8032, 0.0, 1.0, 2, 0.5354, 0.9291, 0.0, 0.0, 0.5433, 0.8425, 0.0, 0.1024, 0.2992, 0.3701, 0, 0, 0, 4, 0, 0, 0],
+  ["B11", "Strings", 0.4488, 0.3543, 0.0, 0.4331, 0.0, 0.0, 0, 0.6693, 0.0, 0.0, 0.0, 0.8504, 0.4094, 0.4646, 0.252, 0.6772, 0.315, 1, 1, 2, 8, 0, 0, 0],
+  ["B12", "Violin", 0.5197, 0.3543, 0.3321, 0.0, 0.0, 0.0, 0, 0.6063, 0.0, 0.0, 0.0, 0.9449, 0.8661, 0.3386, 0.3543, 0.4488, 0.2047, 0, 1, 0, 8, 0, 0, 0],
+  ["B13", "Chorus Vibes", 0.5669, 0.3543, 0.0, 0.0, 0.0, 0.0, 0, 0.0787, 0.0, 0.4646, 0.0, 0.1811, 0.6929, 0.0, 0.7008, 0.3701, 0.5827, 1, 0, 1, 8, 1, 0, 0],
+  ["B14", "Organ I", 0.3543, 0.3307, 0.0, 0.5748, 0.7638, 0.0, 0, 0.4724, 0.5669, 0.1102, 0.0, 1.0, 0.4567, 0.0, 0.0, 0.0, 0.0, 1, 0, 2, 8, 1, 0, 1],
+  ["B15", "Harpsichord I", 0.1811, 0.0, 0.0, 0.4252, 0.2756, 0.0, 3, 1.0, 1.0, 0.7087, 0.0, 0.6772, 0.9843, 0.0, 0.4724, 0.0, 0.2441, 1, 0, 0, 16, 0, 0, 0],
+  ["B16", "Recorder", 0.6142, 0.0, 0.0, 0.063, 0.0, 0.0, 1, 0.0472, 0.0, 0.3622, 0.0, 1.0, 1.0, 0.0394, 0.1654, 1.0, 0.2362, 1, 0, 0, 8, 1, 0, 0],
+  ["B17", "Perc. Pluck", 0.4882, 0.2992, 0.0884, 0.0, 0.0, 0.0, 0, 0.0, 0.0, 0.7087, 0.0, 0.5748, 0.5118, 0.0, 0.126, 0.6142, 0.9134, 1, 0, 1, 8, 1, 0, 0],
+  ["B18", "Noise Sweep", 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0, 0.0157, 0.0, 0.6063, 0.0, 0.8189, 0.7244, 0.1102, 0.6142, 0.8504, 0.9449, 0, 0, 0, 4, 0, 0, 0],
+  ["B21", "Space Chimes", 0.7795, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0.5512, 1.0, 0.0, 0.0, 0.5827, 0.6693, 0.0, 0.1968, 0.0, 0.4724, 1, 0, 1, 16, 0, 0, 0],
+  ["B22", "Nylon Guitar", 0.5669, 0.3543, 0.0, 0.2283, 0.0, 0.0, 3, 0.4488, 0.0, 0.2047, 0.0, 0.1968, 0.9055, 0.0, 0.7008, 0.0, 0.252, 1, 0, 0, 8, 1, 0, 0],
+  ["B23", "Orchestral Pad", 0.1732, 0.3543, 0.0, 0.8268, 1.0, 0.0, 0, 0.2598, 0.0, 0.4331, 0.0, 0.2835, 0.0, 0.2283, 0.6929, 0.3937, 0.4094, 1, 1, 2, 8, 0, 0, 0],
+  ["B24", "Bright Pluck", 0.0, 0.0, 0.0, 0.4567, 0.0, 0.0, 1, 0.4488, 0.0, 0.315, 0.0, 0.6772, 0.8189, 0.0, 0.1968, 0.3307, 0.3465, 1, 0, 0, 8, 1, 0, 0],
+  ["B25", "Organ Bell", 0.6142, 0.0, 0.0607, 0.5354, 0.6693, 0.0, 0, 0.4803, 0.0, 0.0, 0.0, 1.0, 0.4882, 0.0, 0.0, 1.0, 0.2047, 1, 1, 1, 8, 1, 0, 0],
+  ["B26", "Accordion", 0.0, 0.0, 0.0, 0.5039, 0.6299, 0.0, 3, 0.6063, 0.0, 0.1102, 0.0, 0.5827, 0.5197, 0.063, 0.0866, 0.8661, 0.0709, 1, 1, 1, 8, 1, 0, 0],
+  ["B27", "FX Rise 1", 0.9134, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0.8504, 1.0, 0.126, 1.0, 0.5039, 0.0, 0.0, 0.0, 1.0, 0.6614, 0, 0, 1, 16, 0, 1, 0],
+  ["B28", "FX Rise 2", 0.8504, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0.7402, 1.0, 0.6299, 0.1811, 1.0, 0.0, 0.0, 1.0, 0.4016, 0.5591, 0, 0, 2, 8, 0, 1, 0],
+  ["B31", "Brass", 0.4016, 1.0, 0.0, 0.5748, 0.0, 0.0, 0, 0.0, 0.0, 0.7402, 0.0, 1.0, 0.5669, 0.0236, 0.3465, 0.4016, 0.0866, 0, 1, 1, 8, 0, 0, 1],
+  ["B32", "Helicopter", 0.8346, 0.0, 0.0, 0.378, 1.0, 0.0, 0, 0.6457, 0.0394, 0.7323, 1.0, 0.0, 0.5669, 0.0, 0.0, 0.2756, 0.5984, 1, 0, 2, 8, 1, 1, 0],
+  ["B33", "Lute", 0.4094, 0.0, 0.0171, 0.8268, 0.0, 0.0, 0, 0.2283, 0.0, 0.2756, 0.0, 0.6772, 1.0, 0.0, 0.378, 0.2677, 0.685, 1, 0, 0, 8, 1, 0, 0],
+  ["B34", "Chorus Funk", 0.6063, 0.7402, 0.0, 0.5748, 0.622, 0.0, 0, 0.3701, 0.2677, 0.4173, 0.0, 0.5118, 0.3307, 0.0, 0.0866, 0.2677, 0.0, 1, 1, 1, 8, 1, 0, 1],
+  ["B35", "Tomita", 0.6142, 0.0, 0.0, 0.8268, 0.0, 0.0, 0, 0.3858, 0.9843, 0.1181, 0.0157, 1.0, 0.4488, 0.0, 0.1102, 0.622, 0.0, 0, 0, 0, 16, 1, 1, 1],
+  ["B36", "FX Sweep 1", 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0.4567, 1.0, 0.126, 0.5984, 0.5039, 0.0, 0.0, 0.0, 1.0, 0.6693, 0, 0, 1, 16, 0, 0, 0],
+  ["B37", "Sharp Reed", 0.1654, 0.0, 0.0, 0.5748, 0.0, 0.0, 0, 0.2598, 0.0, 0.4173, 0.0, 0.5118, 0.4331, 0.0157, 0.1417, 0.8819, 0.0, 1, 1, 0, 16, 0, 0, 1],
+  ["B38", "Bass Pluck", 0.0, 0.0, 0.0, 0.4724, 0.0, 0.0, 0, 0.2913, 0.2283, 0.2205, 0.0, 0.3386, 0.7244, 0.0, 0.3307, 0.2756, 0.0, 1, 1, 0, 4, 0, 0, 0],
+  ["B41", "Resonant Rise", 0.4094, 0.0, 0.2192, 0.0, 0.0, 0.0, 0, 0.5197, 0.8425, 0.2441, 0.0, 0.5748, 0.4882, 0.0, 0.4094, 0.3071, 0.0, 0, 1, 2, 4, 0, 1, 1],
+  ["B42", "Harpsichord 2", 0.0, 0.0, 0.0, 0.8268, 0.2756, 0.0, 1, 1.0, 0.748, 0.0, 0.0, 1.0, 0.8425, 0.0, 0.3543, 0.0, 0.0, 1, 1, 0, 16, 1, 0, 0],
+  ["B43", "Dark Ensemble", 0.0, 0.0, 0.0, 0.4488, 0.5906, 0.0, 0, 0.4331, 0.0, 0.0, 0.0, 0.8425, 0.5276, 0.1654, 0.0, 1.0, 0.2756, 1, 1, 1, 8, 1, 1, 0],
+  ["B44", "Contact Wah", 0.6142, 0.0, 0.0, 0.6378, 0.0, 0.0, 1, 0.4803, 0.7953, 0.3622, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1, 0, 0, 8, 1, 1, 1],
+  ["B45", "Noise Sweep 2", 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0, 1.0, 0.0, 0.6535, 0.0, 0.8189, 0.9134, 1.0, 0.622, 0.2047, 0.6535, 0, 0, 1, 16, 0, 1, 0],
+  ["B46", "Glassy Wah", 0.0, 0.7402, 0.0, 0.2205, 0.0, 0.0, 0, 0.189, 0.2677, 0.4803, 0.0, 0.5118, 0.8819, 0.0472, 0.1417, 0.3937, 0.2992, 1, 0, 0, 8, 1, 0, 0],
+  ["B47", "Phase Ensemble", 0.0866, 0.3543, 0.0484, 0.8268, 0.0, 0.0, 0, 0.622, 0.0, 0.0, 0.0, 1.0, 0.7795, 0.6614, 0.3543, 0.4488, 0.3858, 1, 0, 2, 8, 0, 0, 0],
+  ["B48", "Chorused Bell", 0.0, 0.0866, 0.0, 0.8268, 0.7953, 0.0, 0, 0.4646, 1.0, 0.0, 0.0, 1.0, 0.4882, 0.0, 0.4882, 0.0, 0.4488, 1, 0, 1, 16, 0, 0, 0],
+  ["B51", "Clav", 0.3937, 0.0866, 0.0, 0.7165, 0.0551, 0.0, 2, 0.252, 0.0, 0.4961, 0.0, 0.0, 0.8504, 0.0, 0.3386, 0.4331, 0.0, 1, 0, 0, 4, 1, 0, 0],
+  ["B52", "Organ 2", 0.6378, 0.0, 0.0, 0.8189, 0.0, 0.0, 0, 0.4252, 0.8346, 0.0551, 0.0, 1.0, 0.622, 0.0, 0.0, 0.0, 0.0, 0, 1, 1, 4, 1, 0, 1],
+  ["B53", "Bassoon", 0.6614, 0.2992, 0.1038, 0.7087, 0.0, 0.0, 3, 0.2756, 0.0, 0.3386, 0.0709, 0.7717, 1.0, 0.0394, 1.0, 0.8346, 0.0157, 1, 0, 0, 4, 1, 0, 0],
+  ["B54", "Auto Release Noise Sweep", 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0, 1.0, 0.0, 1.0, 0.0, 0.8189, 0.8425, 0.0, 0.622, 0.4488, 0.6535, 0, 0, 1, 16, 0, 1, 0],
+  ["B55", "Brass Ensemble", 0.1968, 0.7402, 0.0, 0.5748, 0.0, 0.0, 0, 0.3701, 0.2677, 0.2756, 0.0, 0.5118, 0.3071, 0.0472, 0.5354, 0.5276, 0.2992, 1, 1, 1, 8, 0, 0, 0],
+  ["B56", "Ethereal", 0.5433, 0.0, 0.0, 0.8268, 0.4646, 0.0, 0, 0.3701, 0.9449, 0.0, 0.0, 1.0, 0.4724, 0.7244, 0.3937, 1.0, 0.4331, 1, 1, 2, 8, 0, 0, 0],
+  ["B57", "Chorus Bell 2", 0.5669, 0.3543, 0.0, 0.2283, 0.0, 0.0, 0, 0.0, 0.8032, 0.4882, 0.0, 0.7087, 0.2362, 0.0, 0.9213, 0.0, 0.9449, 1, 1, 1, 8, 1, 0, 0],
+  ["B58", "Blizzard", 0.0079, 0.0, 0.0, 0.8268, 0.0, 1.0, 3, 0.4409, 0.7008, 0.0551, 0.2992, 0.9528, 1.0, 0.6142, 0.7717, 0.685, 0.6142, 0, 0, 0, 16, 0, 0, 0],
+  ["B61", "E. Piano with Tremolo", 0.3465, 0.0, 0.0, 0.1654, 1.0, 0.0, 1, 0.1732, 0.0, 0.2756, 0.0551, 0.8425, 0.811, 0.0, 0.5118, 0.4724, 0.7717, 1, 0, 0, 16, 0, 0, 0],
+  ["B62", "Clarinet", 0.5433, 0.1732, 0.1038, 0.0, 0.0, 0.0, 3, 0.2756, 0.0, 0.3386, 0.0551, 0.7717, 0.8189, 0.0394, 1.0, 0.8346, 0.0551, 1, 0, 0, 8, 1, 0, 0],
+  ["B63", "Thunder", 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0, 0.0157, 0.0, 0.6063, 0.0, 0.8189, 0.8425, 0.0, 0.1732, 0.8504, 0.9449, 0, 0, 0, 4, 0, 0, 0],
+  ["B64", "Reedy Organ", 0.2756, 0.1417, 0.0, 0.5748, 0.0, 0.0, 0, 0.2598, 0.0, 0.4173, 0.0, 0.5118, 0.5433, 0.0236, 0.3465, 0.8583, 0.0, 1, 0, 0, 8, 0, 0, 1],
+  ["B65", "Flute - Horn", 0.2677, 0.0, 0.0, 0.4646, 0.0, 0.0, 0, 0.1968, 0.0, 0.3307, 0.0, 0.5118, 0.1732, 0.1654, 0.5748, 0.5591, 0.378, 1, 1, 2, 4, 0, 0, 0],
+  ["B66", "Toy Rhodes", 0.2362, 0.3543, 1.0, 0.0, 0.0, 0.0, 3, 0.4567, 1.0, 0.0, 0.0, 1.0, 0.8425, 0.0, 0.7008, 0.0, 0.3071, 0, 0, 0, 16, 0, 0, 0],
+  ["B67", "Surf's Up", 0.0079, 0.0, 0.0, 0.8268, 0.0, 1.0, 2, 0.6614, 0.0866, 0.0, 0.3858, 0.4252, 0.5906, 0.2598, 0.7638, 1.0, 0.9528, 0, 0, 0, 16, 0, 1, 0],
+  ["B68", "OW Bass", 0.3937, 0.0, 0.0, 0.3937, 0.3701, 0.0, 0, 0.4961, 0.6614, 0.5118, 0.0, 1.0, 0.5512, 1.0, 0.0, 0.8425, 0.0, 1, 1, 0, 4, 1, 1, 1],
+  ["B71", "Piccolo", 0.5512, 0.2205, 0.0, 0.1102, 0.0, 0.0, 2, 0.0315, 0.0, 0.4961, 0.126, 0.7717, 0.685, 0.126, 0.811, 0.8346, 0.1654, 1, 1, 0, 16, 1, 0, 0],
+  ["B72", "Melodic Taps", 0.7795, 0.0, 0.0, 0.0, 0.0, 1.0, 3, 0.5669, 0.8819, 0.0, 0.0, 1.0, 1.0, 0.0, 0.189, 0.0, 0.189, 0, 0, 1, 4, 0, 0, 0],
+  ["B73", "Meow Bass", 0.4016, 1.0, 0.0, 0.5748, 0.0, 0.0, 0, 0.3543, 0.7874, 0.2756, 0.0, 0.5118, 0.6614, 0.0315, 0.7087, 0.0, 0.2126, 0, 1, 0, 8, 0, 0, 1],
+  ["B74", "Violin high", 0.5591, 0.3543, 0.3766, 0.0, 0.0, 0.0, 0, 0.7008, 0.0, 0.0, 0.0236, 0.9449, 0.6693, 0.3386, 0.3543, 0.4488, 0.2047, 0, 1, 0, 16, 0, 0, 0],
+  ["B75", "High Bells", 0.2362, 0.3543, 1.0, 0.0, 0.0, 0.0, 3, 0.5984, 1.0, 0.0, 0.0, 1.0, 0.874, 0.0, 0.1732, 0.4094, 0.4646, 0, 0, 0, 16, 0, 0, 0],
+  ["B76", "Rolling Wah", 0.2835, 0.0, 0.0, 0.8268, 0.0, 0.0, 0, 0.4724, 0.0709, 0.0, 1.0, 0.0, 0.6063, 0.2677, 0.4331, 1.0, 0.8268, 1, 0, 0, 8, 0, 0, 0],
+  ["B77", "Ping Bell", 0.0, 0.0866, 0.0, 0.8189, 0.0, 0.0, 0, 0.5984, 1.0, 0.0, 0.0, 1.0, 0.6535, 0.0, 0.1811, 0.1811, 0.4488, 1, 0, 1, 16, 0, 0, 0],
+  ["B78", "Brassy Organ", 0.126, 0.0, 0.0, 0.5354, 0.4409, 0.0, 0, 0.063, 0.0, 0.685, 0.0, 0.4094, 0.1102, 0.0, 0.2835, 0.8583, 0.0, 1, 1, 1, 4, 0, 0, 0],
+  ["B81", "Low Dark Strings", 0.1654, 0.3543, 0.0484, 0.6378, 0.0, 0.0, 0, 0.5591, 0.0, 0.0, 0.0, 0.811, 0.315, 0.6535, 0.1811, 0.8583, 0.3307, 1, 1, 2, 4, 0, 0, 0],
+  ["B82", "Piccolo Trumpet", 0.4016, 1.0, 0.0, 0.5748, 0.0, 0.0, 0, 0.0, 0.0, 0.7402, 0.0, 1.0, 0.7638, 0.0236, 0.3465, 0.4016, 0.0866, 0, 1, 0, 8, 0, 0, 1],
+  ["B83", "Cello", 0.4488, 0.3543, 0.3546, 0.0, 0.0, 0.0, 0, 0.5906, 0.0, 0.0236, 0.0079, 0.3543, 0.8583, 0.378, 0.5118, 0.7087, 0.2677, 0, 1, 0, 4, 0, 0, 0],
+  ["B84", "High Strings", 0.6299, 0.0, 0.1204, 0.5512, 0.0, 0.0, 0, 0.7244, 0.0, 0.0, 0.0, 0.5591, 0.378, 0.2126, 0.4488, 0.4488, 0.3228, 1, 1, 2, 16, 0, 0, 0],
+  ["B85", "Rocket Men", 0.8504, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0.8661, 1.0, 0.6299, 0.4961, 1.0, 0.0, 0.0, 1.0, 0.4016, 0.7008, 0, 0, 2, 8, 0, 1, 0],
+  ["B86", "Forbidden Planet", 0.3937, 0.0866, 0.0, 0.3465, 0.0709, 0.0, 3, 0.2283, 0.0315, 0.6929, 0.0394, 0.748, 0.622, 0.0, 0.378, 0.1811, 0.3307, 1, 0, 1, 16, 1, 0, 0],
+  ["B87", "Froggy", 0.6142, 0.0, 0.0, 0.0, 1.0, 0.0, 1, 0.4331, 1.0, 0.3386, 0.0, 1.0, 0.6063, 0.0, 0.0, 0.0, 0.0, 1, 0, 0, 4, 1, 1, 1],
+  ["B88", "Owgan", 0.3937, 0.0, 0.0, 0.3543, 0.4409, 0.0, 0, 0.2992, 0.6614, 0.252, 0.0, 1.0, 0.7953, 0.0, 0.3858, 0.4331, 0.0, 1, 1, 0, 4, 1, 0, 0]
 ];
+SS.JUNO_PATCHES = JUNO_FACTORY.map((r) => ({
+  id: r[0],
+  name: r[1],
+  params: {
+    ...SS.JUNO_INIT,
+    lfoRate: r[2], lfoDelay: r[3], dcoLfo: r[4], pwm: r[5], sub: r[6], noise: r[7], hpf: r[8],
+    vcfFreq: r[9], vcfRes: r[10], vcfEnv: r[11], vcfLfo: r[12], kybd: r[13], vcaLevel: r[14],
+    attack: r[15], decay: r[16], sustain: r[17], release: r[18],
+    pulse: !!r[19], saw: !!r[20], chorus: r[21], range: r[22],
+    pwmMode: r[23] ? 'man' : 'lfo', envPol: r[24] ? -1 : 1, vcaMode: r[25] ? 'gate' : 'env',
+  },
+}));
 SS.JUNO_MANUAL = { id: 'MAN', name: 'Manual', params: { ...SS.JUNO_INIT } };
 SS.findJunoPatch = (id) => SS.JUNO_PATCHES.find((p) => p.id === id) || (id === 'MAN' ? SS.JUNO_MANUAL : null);
 
@@ -115,314 +246,95 @@ SS.cleanJuno = (obj) => {
   return out;
 };
 
-/* ---------- Juno-106 : correspondances curseur -> grandeur physique ---------- */
-SS.JUNO_MAP = {
-  lfoRate: (x) => 0.1 * Math.pow(300, x), // 0,1 Hz – 30 Hz
-  lfoDelay: (x) => 3 * x * x, // 0 – 3 s
-  dcoLfo: (x) => 1200 * x * x, // vibrato : jusqu'à ±1 octave
-  attack: (x) => 0.0015 * Math.pow(2000, x), // 1,5 ms – 3 s
-  decay: (x) => 0.0015 * Math.pow(8000, x), // 1,5 ms – 12 s
-  release: (x) => 0.0015 * Math.pow(8000, x),
-  vcfFreq: (x) => 20 * Math.pow(2, x * 10), // 20 Hz – 20 kHz
-  vcfRes: (x) => x * 30, // pic de résonance en dB (Q des filtres Web Audio)
-  vcfEnv: (x) => x * 8, // octaves
-  vcfLfo: (x) => x * 3, // octaves
-};
-
-/* ---------- Juno-106 : moteur audio ---------- */
+/*
+ * ---------- Juno-106 : moteur audio ----------
+ * Chaque piste Synthé a son propre « Juno » : un AudioWorkletNode (6 voix, LFO, HPF, chorus),
+ * dont le traitement est dans js/juno-dsp.js (portage du moteur de l'Ultramaster KR-106).
+ * Le séquenceur lui envoie ses notes avec leur heure exacte ; le processeur les place à l'échantillon près.
+ */
 SS.juno = (() => {
-  const POLY = 6;
-  const voicesByTrack = new Map(); // clé -> [{ start, end, kill(t) }]
-  const inserts = new Map(); // clé -> chaîne de chorus
+  let moduleState = null; // { ctx, promise, ready }
+  const nodes = new Map(); // clé de piste -> { node, dest, sent }
+  let nextId = 1;
 
-  /**
-   * Enveloppe ADSR sur un paramètre (de 0 au pic, puis sustain, puis 0 au relâchement).
-   * Les constantes de temps reprennent la forme exponentielle des enveloppes analogiques.
-   */
-  function adsr(param, t, tOff, peak, a, d, s, r) {
-    param.setValueAtTime(0, t);
-    param.linearRampToValueAtTime(peak, t + a);
-    param.setTargetAtTime(peak * s, t + a, d / 3);
-    param.setTargetAtTime(0, Math.max(tOff, t + a * 0.5), r / 4);
-  }
-
-  /** Coupe une voix volée (polyphonie de 6) sans clic. */
-  function steal(v, t) {
-    try {
-      const g = v.amp.gain;
-      if (g.cancelAndHoldAtTime) g.cancelAndHoldAtTime(t);
-      else g.cancelScheduledValues(t);
-      g.setTargetAtTime(0, t, 0.004);
-      v.sources.forEach((s) => s.stop(t + 0.04));
-    } catch (e) {
-      /* déjà arrêtée */
+  /** Charge le module (URL Blob : fonctionne aussi en ouvrant index.html directement). */
+  function load(ctx) {
+    if (moduleState && moduleState.ctx === ctx) return moduleState.promise;
+    const state = { ctx, ready: false, promise: null };
+    moduleState = state;
+    if (!ctx.audioWorklet || typeof junoDspModule !== 'function') {
+      state.promise = Promise.reject(new Error('AudioWorklet indisponible'));
+      return state.promise;
     }
-    v.end = t + 0.04;
+    const url = URL.createObjectURL(new Blob([`(${junoDspModule.toString()})(globalThis);`], { type: 'application/javascript' }));
+    state.promise = ctx.audioWorklet
+      .addModule(url)
+      .then(() => {
+        state.ready = true;
+      })
+      .finally(() => URL.revokeObjectURL(url));
+    state.promise.catch((e) => console.warn('Juno-106 : module audio non chargé', e));
+    return state.promise;
   }
 
-  /** Chorus BBD stéréo du Juno : une ligne à retard modulée par un triangle, en opposition gauche / droite. */
-  const CHORUS = {
-    1: { rate: 0.513, min: 0.00166, max: 0.00535 }, // Chorus I
-    2: { rate: 0.863, min: 0.00166, max: 0.00535 }, // Chorus II : plus rapide
-  };
-
-  function buildInsert(ctx) {
-    const c = {};
-    c.input = ctx.createGain();
-    c.dry = ctx.createGain();
-    c.wetL = ctx.createGain();
-    c.wetR = ctx.createGain();
-    c.tone = ctx.createBiquadFilter(); // les BBD coupent les aigus
-    c.tone.type = 'lowpass';
-    c.tone.frequency.value = 9000;
-    c.dL = ctx.createDelay(0.02);
-    c.dR = ctx.createDelay(0.02);
-    c.lfo = ctx.createOscillator();
-    c.lfo.type = 'triangle';
-    c.modL = ctx.createGain();
-    c.modR = ctx.createGain();
-    c.merge = ctx.createChannelMerger(2);
-    c.out = ctx.createGain();
-    c.lfo.connect(c.modL).connect(c.dL.delayTime);
-    c.lfo.connect(c.modR).connect(c.dR.delayTime);
-    c.lfo.start();
-    c.input.connect(c.dry).connect(c.out);
-    c.input.connect(c.tone);
-    c.tone.connect(c.dL).connect(c.wetL).connect(c.merge, 0, 0);
-    c.tone.connect(c.dR).connect(c.wetR).connect(c.merge, 0, 1);
-    c.merge.connect(c.out);
-    c.mode = -1;
-    return c;
-  }
-
-  function setChorus(ctx, c, mode) {
-    if (c.mode === mode) return;
-    c.mode = mode;
-    const now = ctx.currentTime;
-    const ramp = (p, v) => p.setTargetAtTime(v, now, 0.02);
-    const m = CHORUS[mode];
-    if (!m) {
-      ramp(c.wetL.gain, 0);
-      ramp(c.wetR.gain, 0);
-      ramp(c.dry.gain, 1);
-      return;
+  /** Nœud du Juno d'une piste, relié à `dest` (null tant que le module n'est pas prêt). */
+  function nodeFor(ctx, track, dest) {
+    const key = track.id || '__preview';
+    load(ctx);
+    if (!moduleState.ready) return null;
+    let e = nodes.get(key);
+    if (!e || e.ctx !== ctx) {
+      const node = new AudioWorkletNode(ctx, 'juno106', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2] });
+      e = { ctx, node, dest: null, sent: '' };
+      nodes.set(key, e);
     }
-    const center = (m.min + m.max) / 2;
-    const depth = (m.max - m.min) / 2;
-    c.dL.delayTime.setValueAtTime(center, now);
-    c.dR.delayTime.setValueAtTime(center, now);
-    ramp(c.lfo.frequency, m.rate);
-    ramp(c.modL.gain, depth);
-    ramp(c.modR.gain, -depth);
-    ramp(c.dry.gain, 0.75);
-    ramp(c.wetL.gain, 0.75);
-    ramp(c.wetR.gain, 0.75);
+    if (dest && e.dest !== dest) {
+      e.node.disconnect();
+      e.node.connect(dest);
+      e.dest = dest;
+    }
+    sendParams(e, track);
+    return e;
   }
 
-  /** Entrée de la chaîne « synthé » d'une piste (chorus) reliée à `dest`. */
-  function insert(ctx, key, dest, params) {
-    let c = inserts.get(key);
-    if (!c) {
-      c = buildInsert(ctx);
-      inserts.set(key, c);
-    }
-    if (c.dest !== dest) {
-      c.out.disconnect();
-      c.out.connect(dest);
-      c.dest = dest;
-    }
-    setChorus(ctx, c, params.chorus || 0);
-    return c.input;
+  function sendParams(e, track) {
+    const p = SS.junoParams(track);
+    const json = JSON.stringify(p);
+    if (json === e.sent) return;
+    e.sent = json;
+    e.node.port.postMessage({ type: 'params', p });
   }
 
-  /** Mise à jour immédiate du chorus (fenêtre de sound design, pendant la lecture). */
-  function applyChorus(ctx, track) {
+  /** Joue une note (heure en secondes du contexte audio). */
+  function play(env, track, midi, time, dur, vel, dest) {
+    const e = nodeFor(env.ctx, track, dest);
+    if (!e) return; // module en cours de chargement : la note est perdue (premier geste seulement)
+    const id = nextId++;
+    const t = Math.max(time, env.ctx.currentTime);
+    e.node.port.postMessage({ type: 'on', id, midi, vel, time: t });
+    e.node.port.postMessage({ type: 'off', id, time: t + Math.max(0.005, dur) });
+  }
+
+  /** Les réglages du panneau s'entendent tout de suite, même sur les notes tenues. */
+  function applyParams(ctx, track) {
     if (!ctx || !track) return;
-    const c = inserts.get(track.id || '__preview');
-    if (c) setChorus(ctx, c, SS.junoParams(track).chorus || 0);
+    const e = nodes.get(track.id || '__preview');
+    if (e) sendParams(e, track);
+  }
+
+  /** Coupe toutes les notes (Stop) et oublie celles déjà programmées. */
+  function allOff() {
+    nodes.forEach((e) => e.node.port.postMessage({ type: 'allOff' }));
   }
 
   function remove(key) {
-    const c = inserts.get(key);
-    if (c) {
-      c.out.disconnect();
-      c.lfo.stop();
+    const e = nodes.get(key);
+    if (e) {
+      e.node.port.postMessage({ type: 'dispose' });
+      e.node.disconnect();
     }
-    inserts.delete(key);
-    voicesByTrack.delete(key);
+    nodes.delete(key);
   }
 
-  /**
-   * Joue une note. env = { ctx, noise(kind) -> AudioBuffer, register(sources, gainNode) }.
-   */
-  function play(env, track, midi, time, dur, vel, dest) {
-    const { ctx } = env;
-    const p = SS.junoParams(track);
-    const M = SS.JUNO_MAP;
-    const key = track.id || '__preview';
-    const t = Math.max(time, ctx.currentTime);
-    const out = insert(ctx, key, dest, p);
-
-    // polyphonie : 6 voix, la plus ancienne est volée
-    let list = (voicesByTrack.get(key) || []).filter((v) => v.end > t);
-    while (list.length >= POLY) {
-      list.sort((a, b) => a.start - b.start);
-      steal(list.shift(), t);
-    }
-
-    const a = M.attack(p.attack);
-    const d = M.decay(p.decay);
-    const s = Math.max(0, Math.min(1, p.sustain));
-    const r = M.release(p.release);
-    const gate = p.vcaMode === 'gate';
-    const tOff = t + Math.max(dur, 0.005);
-    const relAmp = gate ? 0.006 : r;
-    const end = tOff + Math.max(relAmp, r) * 1.6 + 0.05; // l'enveloppe du filtre continue pendant le relâchement
-
-    // fréquence du DCO : pied 16' / 8' / 4'
-    const oct = p.range === 16 ? -1 : p.range === 4 ? 1 : 0;
-    const freq = 440 * Math.pow(2, (midi - 69) / 12 + oct);
-
-    /* ---- LFO (triangle) avec retard ---- */
-    const lfo = ctx.createOscillator();
-    lfo.type = 'triangle';
-    lfo.frequency.value = M.lfoRate(p.lfoRate);
-    const lfoAmt = ctx.createGain(); // 0 -> 1 après le retard
-    const delay = M.lfoDelay(p.lfoDelay);
-    lfoAmt.gain.setValueAtTime(delay > 0.01 ? 0 : 1, t);
-    if (delay > 0.01) {
-      lfoAmt.gain.setValueAtTime(0, t + delay * 0.4);
-      lfoAmt.gain.linearRampToValueAtTime(1, t + delay);
-    }
-    lfo.connect(lfoAmt);
-
-    /* ---- DCO ---- */
-    const sources = [lfo];
-    const mix = ctx.createGain();
-    const vibrato = ctx.createGain();
-    vibrato.gain.value = M.dcoLfo(p.dcoLfo);
-    lfoAmt.connect(vibrato);
-
-    const saw = ctx.createOscillator();
-    saw.type = 'sawtooth';
-    saw.frequency.value = freq;
-    const tune = ((p.tune ?? 0.5) - 0.5) * 100;
-    saw.detune.value = tune;
-    vibrato.connect(saw.detune);
-    sources.push(saw);
-    if (p.saw) {
-      const g = ctx.createGain();
-      g.gain.value = 0.5;
-      saw.connect(g).connect(mix);
-    }
-    if (p.pulse) {
-      // impulsion = dent de scie − la même dent de scie retardée de (largeur × période)
-      const T = 1 / freq;
-      const dl = ctx.createDelay(0.2);
-      const pw = Math.max(0, Math.min(1, p.pwm)) * 0.45;
-      const inv = ctx.createGain();
-      inv.gain.value = -0.5;
-      const pos = ctx.createGain();
-      pos.gain.value = 0.5;
-      if (p.pwmMode === 'lfo') {
-        dl.delayTime.value = 0.5 * T;
-        const pwmMod = ctx.createGain();
-        pwmMod.gain.value = pw * T;
-        lfoAmt.connect(pwmMod).connect(dl.delayTime);
-      } else dl.delayTime.value = (0.5 - pw) * T;
-      saw.connect(pos).connect(mix);
-      saw.connect(dl).connect(inv).connect(mix);
-    }
-    if (p.sub > 0) {
-      const sub = ctx.createOscillator();
-      sub.type = 'square';
-      sub.frequency.value = freq / 2;
-      sub.detune.value = tune;
-      vibrato.connect(sub.detune);
-      const g = ctx.createGain();
-      g.gain.value = 0.4 * p.sub;
-      sub.connect(g).connect(mix);
-      sources.push(sub);
-    }
-    if (p.noise > 0) {
-      const n = ctx.createBufferSource();
-      n.buffer = env.noise('white');
-      n.loop = true;
-      const g = ctx.createGain();
-      g.gain.value = 0.7 * p.noise;
-      n.connect(g).connect(mix);
-      sources.push(n);
-    }
-
-    /* ---- HPF (4 positions) ---- */
-    const hpf = ctx.createBiquadFilter();
-    if (p.hpf === 0) {
-      hpf.type = 'lowshelf'; // position 0 : renfort de graves
-      hpf.frequency.value = 110;
-      hpf.gain.value = 6;
-    } else if (p.hpf === 1) {
-      hpf.type = 'highpass';
-      hpf.frequency.value = 15;
-      hpf.Q.value = -3;
-    } else {
-      hpf.type = 'highpass';
-      hpf.frequency.value = p.hpf === 2 ? 240 : 720;
-      hpf.Q.value = -3;
-    }
-    mix.connect(hpf);
-
-    /* ---- VCF : passe-bas 24 dB/oct (2 étages), modulé en cents (detune) ---- */
-    const kyb = Math.pow(2, (p.kybd * (midi - 60)) / 12);
-    const fc = Math.min(20000, M.vcfFreq(p.vcfFreq) * kyb);
-    const f1 = ctx.createBiquadFilter();
-    const f2 = ctx.createBiquadFilter();
-    f1.type = f2.type = 'lowpass';
-    f1.frequency.value = f2.frequency.value = fc;
-    f1.Q.value = -5.35; // étage de Butterworth du 4e ordre
-    f2.Q.value = M.vcfRes(p.vcfRes) - 3;
-    hpf.connect(f1).connect(f2);
-
-    const fmod = ctx.createGain(); // somme des modulations, en cents
-    fmod.gain.value = 1;
-    fmod.connect(f1.detune);
-    fmod.connect(f2.detune);
-    if (p.vcfEnv > 0 && ctx.createConstantSource) {
-      const envSrc = ctx.createConstantSource();
-      envSrc.offset.value = 0;
-      adsr(envSrc.offset, t, tOff, 1, a, d, s, r);
-      const g = ctx.createGain();
-      g.gain.value = 1200 * M.vcfEnv(p.vcfEnv) * (p.envPol < 0 ? -1 : 1);
-      envSrc.connect(g).connect(fmod);
-      sources.push(envSrc);
-    }
-    if (p.vcfLfo > 0) {
-      const g = ctx.createGain();
-      g.gain.value = 1200 * M.vcfLfo(p.vcfLfo);
-      lfoAmt.connect(g).connect(fmod);
-    }
-
-    /* ---- VCA ---- */
-    const amp = ctx.createGain();
-    const level = 0.24 * (2 * p.vcaLevel) * Math.pow(Math.max(0, Math.min(1, vel)), 1.2);
-    if (gate) {
-      amp.gain.setValueAtTime(0, t);
-      amp.gain.linearRampToValueAtTime(level, t + 0.002);
-      amp.gain.setValueAtTime(level, tOff);
-      amp.gain.linearRampToValueAtTime(0, tOff + 0.006);
-    } else adsr(amp.gain, t, tOff, level, a, d, s, r);
-    f2.connect(amp).connect(out);
-
-    sources.forEach((src) => {
-      if (src.buffer) src.start(t, Math.random() * 1.5); // bruit : point de départ aléatoire
-      else src.start(t);
-      src.stop(end);
-    });
-
-    const v = { start: t, end, amp, sources };
-    list.push(v);
-    voicesByTrack.set(key, list);
-    env.register(sources, amp);
-  }
-
-  return { play, applyChorus, remove, POLY };
+  return { load, play, applyParams, applyChorus: applyParams, allOff, remove, POLY: 6 };
 })();

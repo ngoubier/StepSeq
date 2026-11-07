@@ -49,7 +49,8 @@ Le bouton à curseurs de l'en-tête ouvre la fenêtre de **sound design** (oscil
 
 Sur une piste **Synthé**, ce bouton ouvre la façade du synthé : pour le Juno-106, les sections LFO, DCO
 (16'/8'/4', impulsion + PWM, dent de scie, sous-oscillateur, bruit), HPF, VCF 24 dB/oct, VCA, ENV, chorus I / II,
-et la sélection des patches (groupe, banque, numéro) avec l'afficheur à LED.
+et la sélection des 128 patches d'usine (groupe, banque, numéro) avec l'afficheur vert. Le son et le look de la
+façade reprennent l'[Ultramaster KR-106](https://github.com/kayrockscreenprinting/ultramaster_kr106).
 
 Le chevron **›** dans l'en-tête d'une piste instrument affiche son piano roll :
 
@@ -96,7 +97,8 @@ Les sons proviennent des bibliothèques utilisées par [strudel.cc](https://stru
 | `js/project.js`  | Modèle de projet, enregistrement / ouverture de fichiers |
 | `js/audio.js`    | Moteur audio : chargement des échantillons, voix, séquenceur |
 | `js/sounddesign.js` | Fenêtre de sound design (VCO, filtre, ADSR, sortie) |
-| `js/juno.js`     | Synthés analogiques : catalogue, patches et moteur du Juno-106 (voix, chorus) |
+| `js/juno.js`     | Synthés analogiques : catalogue, 128 patches d'usine du Juno-106, un AudioWorklet par piste |
+| `js/juno-dsp.js` | Moteur du Juno-106 (AudioWorklet), porté de l'Ultramaster KR-106 — GPL v3 |
 | `js/junopanel.js` | Façade du Juno-106 (sound design des pistes Synthé) |
 | `js/groove.js`   | Fenêtre Groove (swing, humanisation) |
 | `js/fx.js`       | Fenêtre Effets par piste (chorus, delay, reverb) |
@@ -106,3 +108,13 @@ Les sons proviennent des bibliothèques utilisées par [strudel.cc](https://stru
 | `js/ui.js`       | Rendu des pistes, grille, piano roll, dialogue |
 | `js/main.js`     | Démarrage, barre d'outils, raccourcis |
 | `guide.html`     | Guide d'utilisation (bouton « Aide » de l'app) |
+
+## Licences
+
+- `js/juno-dsp.js` et la table des patches d'usine de `js/juno.js` sont dérivés de
+  l'[Ultramaster KR-106](https://github.com/kayrockscreenprinting/ultramaster_kr106)
+  (Karl LaRocca, David Mansfield et contributeurs), sous licence **GNU GPL v3**
+  (texte : [`licenses/GPL-3.0.txt`](licenses/GPL-3.0.txt)). Distribuer StepSeq avec ces fichiers
+  implique de le distribuer sous GPL v3.
+- La police de l'afficheur, `fonts/Segment14.otf` (Paul Flo Williams), est sous licence SIL OFL 1.1
+  ([`licenses/OFL-Segment14.txt`](licenses/OFL-Segment14.txt)).
