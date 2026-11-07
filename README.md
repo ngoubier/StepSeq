@@ -42,6 +42,8 @@ Le bouton **Écouter** permet d'entendre le son avant de valider.
 
 ### Pistes instrument
 
+Le bouton à curseurs de l'en-tête ouvre la fenêtre de **sound design** (oscillateur, filtre cutoff / résonance / enveloppe, ADSR, niveau, panoramique, saturation), inspirée des paramètres de strudel.cc.
+
 Le chevron **›** dans l'en-tête d'une piste instrument affiche son piano roll :
 
 - **Mono** : une note par position ; cliquer pour poser, glisser vers la droite pour allonger.
@@ -85,6 +87,7 @@ Les sons proviennent des bibliothèques utilisées par [strudel.cc](https://stru
 | `js/sounds.js`   | Catalogue des sons (batterie, familles d'instruments, accords) |
 | `js/project.js`  | Modèle de projet, enregistrement / ouverture de fichiers |
 | `js/audio.js`    | Moteur audio : chargement des échantillons, voix, séquenceur |
+| `js/sounddesign.js` | Fenêtre de sound design (VCO, filtre, ADSR, sortie) |
 | `js/ui.js`       | Rendu des pistes, grille, piano roll, dialogue |
 | `js/main.js`     | Démarrage, barre d'outils, raccourcis |
 | `guide.html`     | Guide d'utilisation (bouton « Aide » de l'app) |

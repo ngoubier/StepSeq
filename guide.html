@@ -88,6 +88,7 @@
       <a href="#drum">Pistes Drum</a>
       <a href="#notes">Changer une note ou un accord</a>
       <a href="#avance">Réglages avancés</a>
+      <a href="#sound-design">Sound design</a>
       <a href="#fichiers">Enregistrer et ouvrir</a>
       <a href="#raccourcis">Raccourcis et astuces</a>
     </aside>
@@ -183,6 +184,27 @@
       <p>Passer une piste Mono en Accord par ⚙ garde les notes simples déjà posées. Les nouveaux clics poseront des accords.</p>
       <p>On ne peut pas changer une piste Drum en piste Instrument : crée une nouvelle piste.</p>
       <div class="note warn"><b>Attention</b> : réduire le nombre de mesures ou de temps supprime définitivement les notes qui dépassent la nouvelle fin. Enregistre avant si tu veux pouvoir revenir en arrière.</div>
+
+      <h2 id="sound-design">Sound design</h2>
+      <p>Chaque piste instrument a sa fenêtre de sound design, inspirée des paramètres de <a href="https://strudel.cc">strudel.cc</a>. Ouvre-la avec le bouton à curseurs de l'en-tête de piste, ou avec <b>Sound design</b> dans la barre d'outils du piano roll. Les changements s'entendent tout de suite, même pendant la lecture.</p>
+      <div class="table-wrap"><table>
+        <tr><th>Bloc</th><th>Réglage</th><th>Effet</th><th>Strudel</th></tr>
+        <tr><td>Oscillateur (VCO)</td><td>Forme d'onde</td><td>Saw, Square, Triangle, Sine ou Supersaw. Seulement pour les instruments « (synthé) ».</td><td><code>s("sawtooth")</code></td></tr>
+        <tr><td></td><td>Voix, Désaccord</td><td>Plusieurs oscillateurs légèrement désaccordés, pour un son plus large</td><td><code>unison</code>, <code>detune</code></td></tr>
+        <tr><td>Filtre (VCF)</td><td>Type</td><td>Passe-bas, passe-haut ou passe-bande</td><td><code>lpf</code>, <code>hpf</code>, <code>bpf</code></td></tr>
+        <tr><td></td><td>Cutoff</td><td>Fréquence de coupure, de 20 Hz à 20 kHz</td><td><code>lpf(800)</code></td></tr>
+        <tr><td></td><td>Résonance</td><td>Accentue les fréquences autour du cutoff, de 0 à 30</td><td><code>lpq</code></td></tr>
+        <tr><td></td><td>Enveloppe du filtre</td><td>Ouvre le filtre au début de chaque note, jusqu'à +6 octaves, puis le referme selon l'ADSR</td><td><code>lpenv</code></td></tr>
+        <tr><td>Enveloppe (ADSR)</td><td>Attack, Decay, Sustain, Release</td><td>Montée, descente, niveau tenu et extinction de chaque note. Le schéma se met à jour en direct.</td><td><code>adsr("a:d:s:r")</code></td></tr>
+        <tr><td>Sortie</td><td>Niveau, Panoramique, Saturation</td><td>Volume du son, position gauche / droite, distorsion douce</td><td><code>gain</code>, <code>pan</code>, <code>distort</code></td></tr>
+      </table></div>
+      <ul>
+        <li>En haut de la fenêtre, le code affiché est l'équivalent strudel.cc des réglages.</li>
+        <li>Un point bleu marque les réglages modifiés par rapport au preset. Un double-clic sur un curseur remet sa valeur du preset, et <b>Réinitialiser</b> remet tout.</li>
+        <li><b>Annuler</b> ou Échap revient aux réglages d'avant l'ouverture. <b>OK</b> les garde. Ils sont enregistrés dans le fichier du projet.</li>
+        <li>Pour un instrument échantillonné (piano, cordes, soundfonts…), il n'y a pas de VCO : le filtre, l'enveloppe et la sortie s'appliquent à l'échantillon.</li>
+        <li>Changer d'instrument avec ⚙ remet les réglages du preset du nouvel instrument.</li>
+      </ul>
 
       <h2 id="fichiers">Enregistrer et ouvrir</h2>
       <p>Un projet s'enregistre dans un fichier <code>.stepseq.json</code>, qu'on rouvre avec <b>Ouvrir</b>.</p>

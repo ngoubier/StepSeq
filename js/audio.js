@@ -292,7 +292,77 @@ SS.audio = (() => {
     register([src], g);
   }
 
-  function sampleVoice(buffer, rate, time, dur, vel, release, dest, loop) {
+  /* Chaîne commune : sources -> filtre (VCF) -> saturation -> ampli (VCA, ADSR) -> panoramique -> sortie */
+  const driveCurves = new Map();
+  function driveCurve(amount) {
+    const k = Math.round(amount * 100);
+    if (!driveCurves.has(k)) {
+      const n = 1024;
+      const c = new Float32Array(n);
+      const kk = k * 0.6;
+      for (let i = 0; i < n; i++) {
+        const x = (i / (n - 1)) * 2 - 1;
+        c[i] = ((1 + kk) * x) / (1 + kk * Math.abs(x));
+      }
+      driveCurves.set(k, c);
+    }
+    return driveCurves.get(k);
+  }
+
+  function voiceChain(p, t, dur, vel, dest, level) {
+    const attack = Math.max(0.003, p.attack);
+    const decay = Math.max(0.005, p.decay);
+    const sustain = Math.max(0, Math.min(1, p.sustain));
+    const release = Math.max(0.01, p.release);
+    const tOff = t + Math.max(dur, attack);
+    const end = tOff + release * 1.5 + 0.05;
+
+    // VCF
+    const filter = ctx.createBiquadFilter();
+    filter.type = p.filter || 'lowpass';
+    filter.Q.value = Math.max(0.0001, p.q);
+    const base = Math.max(20, Math.min(20000, p.cutoff));
+    if (p.env > 0) {
+      const top = Math.min(20000, base * Math.pow(2, p.env * (0.4 + 0.6 * vel)));
+      filter.frequency.setValueAtTime(base, t);
+      filter.frequency.linearRampToValueAtTime(top, t + attack);
+      filter.frequency.setTargetAtTime(base + (top - base) * sustain, t + attack, decay / 3);
+      filter.frequency.setTargetAtTime(base, tOff, release / 4);
+    } else {
+      filter.frequency.setValueAtTime(base, t);
+    }
+
+    // saturation
+    let last = filter;
+    if (p.drive > 0) {
+      const ws = ctx.createWaveShaper();
+      ws.curve = driveCurve(p.drive);
+      ws.oversample = '2x';
+      last.connect(ws);
+      last = ws;
+    }
+
+    // VCA (ADSR)
+    const amp = ctx.createGain();
+    const peak = velGain(vel) * level * (p.gain ?? 1) * (p.drive > 0 ? 1 - p.drive * 0.4 : 1);
+    amp.gain.setValueAtTime(0, t);
+    amp.gain.linearRampToValueAtTime(peak, t + attack);
+    amp.gain.setTargetAtTime(peak * sustain, t + attack, decay / 3);
+    amp.gain.setTargetAtTime(0, tOff, release / 4);
+    last.connect(amp);
+
+    // panoramique
+    if (p.pan && ctx.createStereoPanner) {
+      const pan = ctx.createStereoPanner();
+      pan.pan.value = Math.max(-1, Math.min(1, p.pan));
+      amp.connect(pan).connect(dest);
+    } else amp.connect(dest);
+
+    return { input: filter, amp, end };
+  }
+
+  function sampleVoice(p, buffer, rate, time, dur, vel, dest, loop) {
+    const t = Math.max(time, ctx.currentTime);
     const src = ctx.createBufferSource();
     src.buffer = buffer;
     src.playbackRate.value = rate;
@@ -301,67 +371,43 @@ SS.audio = (() => {
       src.loopStart = loop.start;
       src.loopEnd = loop.end;
     }
-    const g = ctx.createGain();
-    const peak = velGain(vel);
-    const t = Math.max(time, ctx.currentTime);
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(peak, t + 0.005);
-    g.gain.setValueAtTime(peak, t + dur);
-    g.gain.setTargetAtTime(0, t + dur, release / 4);
-    src.connect(g).connect(dest);
+    const chain = voiceChain(p, t, dur, vel, dest, 1);
+    src.connect(chain.input);
     src.start(t);
-    src.stop(t + dur + release * 1.5 + 0.05);
-    register([src], g);
+    src.stop(chain.end);
+    register([src], chain.amp);
   }
 
   function synthVoice(p, midi, time, dur, vel, dest) {
     const t = Math.max(time, ctx.currentTime);
     const freq = 440 * Math.pow(2, (midi - 69) / 12);
-    const attack = p.attack ?? 0.005;
-    const release = p.release ?? 0.1;
-    const end = t + dur + release * 1.5 + 0.05;
-
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.Q.value = p.q ?? 1;
-    const base = p.cutoff ?? 2000;
-    const peakCut = Math.min(18000, base + (p.envAmt ?? 0) * (0.4 + 0.6 * vel));
-    filter.frequency.setValueAtTime(base, t);
-    filter.frequency.linearRampToValueAtTime(peakCut, t + attack + 0.002);
-    filter.frequency.setTargetAtTime(base + (peakCut - base) * (p.sustain ?? 0.5), t + attack, (p.decay ?? 0.2) / 3);
-
-    const amp = ctx.createGain();
-    const peak = velGain(vel) * 0.35;
-    amp.gain.setValueAtTime(0, t);
-    amp.gain.linearRampToValueAtTime(peak, t + attack);
-    amp.gain.setTargetAtTime(peak * (p.sustain ?? 0.7), t + attack, (p.decay ?? 0.2) / 3);
-    amp.gain.cancelScheduledValues(t + Math.max(dur, attack));
-    amp.gain.setTargetAtTime(0, t + Math.max(dur, attack), release / 4);
-
-    filter.connect(amp).connect(dest);
-    const waves = p.waves || ['sawtooth'];
-    const oscs = waves.map((w, i) => {
+    const chain = voiceChain(p, t, dur, vel, dest, 0.35);
+    const type = p.wave === 'supersaw' ? 'sawtooth' : p.wave || 'sawtooth';
+    const n = Math.max(1, Math.round(p.wave === 'supersaw' ? Math.max(3, p.voices || 5) : p.voices || 1));
+    const detune = p.wave === 'supersaw' ? Math.max(8, p.detune || 0) : p.detune || 0;
+    const oscs = [];
+    for (let i = 0; i < n; i++) {
       const o = ctx.createOscillator();
-      o.type = w;
+      o.type = type;
       o.frequency.value = freq;
-      if (waves.length > 1) o.detune.value = ((i / (waves.length - 1)) * 2 - 1) * (p.detune || 0);
+      if (n > 1) o.detune.value = ((i / (n - 1)) * 2 - 1) * detune;
       const og = ctx.createGain();
-      og.gain.value = 1 / Math.sqrt(waves.length);
-      o.connect(og).connect(filter);
+      og.gain.value = 1 / Math.sqrt(n);
+      o.connect(og).connect(chain.input);
       o.start(t);
-      o.stop(end);
-      return o;
-    });
-    register(oscs, amp);
+      o.stop(chain.end);
+      oscs.push(o);
+    }
+    register(oscs, chain.amp);
   }
 
   async function playNote(track, midi, time, dur, vel, dest) {
     ensureCtx();
     const out = dest || bus(track);
     const inst = instOf(track);
-    const release = inst.release ?? (inst.params && inst.params.release) ?? 0.15;
+    const p = SS.soundParams(track);
     if (inst.kind === 'synth') {
-      synthVoice(inst.params, midi, time, dur, vel, out);
+      synthVoice(p, midi, time, dur, vel, out);
     } else if (inst.kind === 'sf') {
       const entry = loadSoundfont(inst.file);
       if (!entry.zones || !entry.zones.length) return;
@@ -369,19 +415,19 @@ SS.audio = (() => {
         entry.zones.find((z) => midi >= z.low && midi <= z.high) ||
         entry.zones.reduce((b, z) => (Math.abs((z.low + z.high) / 2 - midi) < Math.abs((b.low + b.high) / 2 - midi) ? z : b));
       const rate = Math.pow(2, (100 * midi - zone.baseDetune) / 1200);
-      sampleVoice(zone.buffer, rate, time, dur, vel, release, out, zone.loop ? { start: zone.loopStart, end: zone.loopEnd } : null);
+      sampleVoice(p, zone.buffer, rate, time, dur, vel, out, zone.loop ? { start: zone.loopStart, end: zone.loopEnd } : null);
     } else if (inst.kind === 'multi') {
       const list = await multiMap(inst);
       if (!list.length) return;
       const e = nearest(list, midi);
       const entry = loadBuffer(e.url);
       if (!entry.buffer) return;
-      sampleVoice(entry.buffer, Math.pow(2, (midi - e.midi) / 12), time, dur, vel, release, out, null);
+      sampleVoice(p, entry.buffer, Math.pow(2, (midi - e.midi) / 12), time, dur, vel, out, null);
     }
   }
 
   /** Aperçu d'un son (dialogue, clic sur une note...). */
-  async function preview(track, midi) {
+  async function preview(track, midi, dur = 0.45) {
     ensureCtx();
     await prepareTrack(track);
     if (midi == null && track.type !== 'drum') midi = (SS.findFamily(track.family).octave + 1) * 12;
@@ -394,7 +440,7 @@ SS.audio = (() => {
     if (track.type === 'drum') playDrum(track, t, 0.9, master);
     else {
       const notes = Array.isArray(midi) ? midi : [midi];
-      notes.forEach((n) => playNote(track, n, t, 0.45, 0.8, master));
+      notes.forEach((n) => playNote(track, n, t, dur, notes.length > 1 ? 0.65 : 0.8, master));
     }
   }
 

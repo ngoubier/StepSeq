@@ -58,10 +58,10 @@ const synth = (id, label, params) => ({ id: 'syn_' + id, label, kind: 'synth', p
 SS.FAMILIES = [
   {
     id: 'bass', label: 'Bass', octave: 2, instruments: [
-      synth('sawbass', 'Saw Bass (synthé)', { waves: ['sawtooth'], cutoff: 500, envAmt: 2500, q: 4, decay: 0.25, sustain: 0.6, release: 0.08 }),
-      synth('acid', 'Acid Bass (synthé)', { waves: ['sawtooth'], cutoff: 300, envAmt: 4000, q: 16, decay: 0.18, sustain: 0.5, release: 0.05 }),
-      synth('sub', 'Sub Bass (synthé)', { waves: ['sine'], cutoff: 2000, envAmt: 0, q: 0, decay: 0.3, sustain: 0.9, release: 0.08 }),
-      synth('sqbass', 'Square Bass (synthé)', { waves: ['square'], cutoff: 700, envAmt: 1800, q: 3, decay: 0.2, sustain: 0.5, release: 0.06 }),
+      synth('sawbass', 'Saw Bass (synthé)', { wave: 'sawtooth', cutoff: 500, env: 2.6, q: 4, decay: 0.25, sustain: 0.6, release: 0.08 }),
+      synth('acid', 'Acid Bass (synthé)', { wave: 'sawtooth', cutoff: 300, env: 3.8, q: 16, decay: 0.18, sustain: 0.5, release: 0.05 }),
+      synth('sub', 'Sub Bass (synthé)', { wave: 'sine', cutoff: 2000, env: 0, q: 0, decay: 0.3, sustain: 0.9, release: 0.08 }),
+      synth('sqbass', 'Square Bass (synthé)', { wave: 'square', cutoff: 700, env: 1.8, q: 3, decay: 0.2, sustain: 0.5, release: 0.06 }),
       sf(38, 'Synth Bass 1'),
       sf(39, 'Synth Bass 2'),
       sf(33, 'Electric Bass (finger)'),
@@ -73,11 +73,11 @@ SS.FAMILIES = [
   },
   {
     id: 'synth', label: 'Synth Lead', octave: 4, instruments: [
-      synth('saw', 'Sawtooth (synthé)', { waves: ['sawtooth'], cutoff: 1800, envAmt: 3000, q: 2, decay: 0.3, sustain: 0.6, release: 0.12 }),
-      synth('square', 'Square (synthé)', { waves: ['square'], cutoff: 2000, envAmt: 2000, q: 2, decay: 0.3, sustain: 0.6, release: 0.12 }),
-      synth('triangle', 'Triangle (synthé)', { waves: ['triangle'], cutoff: 5000, envAmt: 0, q: 0, decay: 0.3, sustain: 0.7, release: 0.15 }),
-      synth('supersaw', 'Supersaw (synthé)', { waves: ['sawtooth', 'sawtooth', 'sawtooth'], detune: 14, cutoff: 2500, envAmt: 2500, q: 1, decay: 0.4, sustain: 0.7, release: 0.2 }),
-      synth('pluck', 'Pluck (synthé)', { waves: ['sawtooth', 'square'], detune: 6, cutoff: 400, envAmt: 5000, q: 6, decay: 0.12, sustain: 0.1, release: 0.15 }),
+      synth('saw', 'Sawtooth (synthé)', { wave: 'sawtooth', cutoff: 1800, env: 1.4, q: 2, decay: 0.3, sustain: 0.6, release: 0.12 }),
+      synth('square', 'Square (synthé)', { wave: 'square', cutoff: 2000, env: 1, q: 2, decay: 0.3, sustain: 0.6, release: 0.12 }),
+      synth('triangle', 'Triangle (synthé)', { wave: 'triangle', cutoff: 5000, env: 0, q: 0, decay: 0.3, sustain: 0.7, release: 0.15 }),
+      synth('supersaw', 'Supersaw (synthé)', { wave: 'supersaw', voices: 5, detune: 18, cutoff: 2500, env: 1, q: 1, decay: 0.4, sustain: 0.7, release: 0.2 }),
+      synth('pluck', 'Pluck (synthé)', { wave: 'sawtooth', voices: 2, detune: 6, cutoff: 400, env: 3.7, q: 6, decay: 0.12, sustain: 0.1, release: 0.15 }),
       sf(80, 'Lead 1 (square)'),
       sf(81, 'Lead 2 (sawtooth)'),
       sf(82, 'Lead 3 (calliope)'),
@@ -90,8 +90,8 @@ SS.FAMILIES = [
   },
   {
     id: 'pads', label: 'Pads', octave: 4, instruments: [
-      synth('softpad', 'Soft Pad (synthé)', { waves: ['sawtooth', 'sawtooth'], detune: 10, cutoff: 900, envAmt: 400, q: 1, attack: 0.25, decay: 0.6, sustain: 0.8, release: 0.8 }),
-      synth('glasspad', 'Glass Pad (synthé)', { waves: ['triangle', 'sine'], detune: 7, cutoff: 4000, envAmt: 0, q: 0, attack: 0.3, decay: 0.5, sustain: 0.9, release: 1.0 }),
+      synth('softpad', 'Soft Pad (synthé)', { wave: 'sawtooth', voices: 2, detune: 10, cutoff: 900, env: 0.5, q: 1, attack: 0.25, decay: 0.6, sustain: 0.8, release: 0.8 }),
+      synth('glasspad', 'Glass Pad (synthé)', { wave: 'triangle', voices: 2, detune: 7, cutoff: 4000, env: 0, q: 0, attack: 0.3, decay: 0.5, sustain: 0.9, release: 1.0 }),
       sf(88, 'Pad 1 (new age)', { release: 0.8 }),
       sf(89, 'Pad 2 (warm)', { release: 0.8 }),
       sf(90, 'Pad 3 (polysynth)', { release: 0.6 }),
@@ -223,3 +223,48 @@ SS.parseNote = (str) => {
 
 /* ---------- Couleurs ---------- */
 SS.COLORS = ['#e3179c', '#ff4d6d', '#f08a00', '#f5c400', '#3fcf3f', '#13c2a3', '#1ea7ff', '#4f6bff', '#9b5cff', '#c0c0c0'];
+
+/* ---------- Sound design (paramètres inspirés de strudel.cc) ---------- */
+SS.WAVES = [
+  { id: 'sawtooth', label: 'Saw' },
+  { id: 'square', label: 'Square' },
+  { id: 'triangle', label: 'Triangle' },
+  { id: 'sine', label: 'Sine' },
+  { id: 'supersaw', label: 'Supersaw' },
+];
+SS.FILTER_TYPES = [
+  { id: 'lowpass', label: 'Passe-bas', strudel: 'lpf' },
+  { id: 'highpass', label: 'Passe-haut', strudel: 'hpf' },
+  { id: 'bandpass', label: 'Passe-bande', strudel: 'bpf' },
+];
+
+/** Réglages par défaut du son d'une piste instrument (ceux du preset choisi). */
+SS.soundDefaults = (track) => {
+  const inst = SS.findInstrument(track.family, track.instrument);
+  const base = { filter: 'lowpass', pan: 0, drive: 0, gain: 1, voices: 1, detune: 0 };
+  if (inst.kind === 'synth') {
+    const p = inst.params;
+    return {
+      ...base,
+      wave: p.wave || 'sawtooth',
+      voices: p.voices || (p.wave === 'supersaw' ? 5 : 1),
+      detune: p.detune || 0,
+      cutoff: p.cutoff ?? 2000,
+      q: p.q ?? 1,
+      env: p.env ?? 0,
+      attack: p.attack ?? 0.005,
+      decay: p.decay ?? 0.2,
+      sustain: p.sustain ?? 0.7,
+      release: p.release ?? 0.1,
+    };
+  }
+  return { ...base, wave: null, cutoff: 20000, q: 0, env: 0, attack: 0.005, decay: 0.3, sustain: 1, release: inst.release ?? 0.15 };
+};
+
+/** Réglages effectifs : preset + modifications de l'utilisateur (track.sd). */
+SS.soundParams = (track) => {
+  const d = SS.soundDefaults(track);
+  const p = { ...d, ...(track.sd || {}) };
+  if (d.wave === null) p.wave = null; // un échantillon n'a pas de VCO
+  return p;
+};

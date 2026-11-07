@@ -199,11 +199,67 @@
     </form>
   </dialog>
 
+  <!-- Dialogue de sound design (pistes instrument) -->
+  <dialog id="soundDialog" class="sd-dialog">
+    <form method="dialog" id="sdForm">
+      <div class="sd-head">
+        <div>
+          <h2>Sound design</h2>
+          <p id="sdTrack" class="dlg-sub"></p>
+        </div>
+        <code id="sdCode" class="sd-code" title="Équivalent strudel.cc"></code>
+      </div>
+
+      <div class="sd-grid">
+        <section class="sd-panel" aria-labelledby="sdVcoTitle">
+          <h3 id="sdVcoTitle">Oscillateur <small>VCO</small></h3>
+          <div id="sdVco">
+            <div class="sd-waves" id="sdWaves" role="radiogroup" aria-label="Forme d'onde"></div>
+            <div class="sd-sliders" id="sdVcoSliders"></div>
+          </div>
+          <p id="sdNoVco" class="sd-note" hidden></p>
+        </section>
+
+        <section class="sd-panel" aria-labelledby="sdVcfTitle">
+          <h3 id="sdVcfTitle">Filtre <small>VCF</small></h3>
+          <div class="segmented sd-ftype" id="sdFilterType" role="radiogroup" aria-label="Type de filtre"></div>
+          <div class="sd-sliders" id="sdVcfSliders"></div>
+        </section>
+
+        <section class="sd-panel" aria-labelledby="sdVcaTitle">
+          <h3 id="sdVcaTitle">Enveloppe <small>ADSR</small></h3>
+          <svg id="sdAdsr" class="sd-adsr" viewBox="0 0 300 90" preserveAspectRatio="none" aria-hidden="true">
+            <path id="sdAdsrFill" class="fill-area"/>
+            <path id="sdAdsrLine" class="line"/>
+          </svg>
+          <div class="sd-sliders" id="sdVcaSliders"></div>
+        </section>
+
+        <section class="sd-panel" aria-labelledby="sdOutTitle">
+          <h3 id="sdOutTitle">Sortie</h3>
+          <div class="sd-sliders" id="sdOutSliders"></div>
+        </section>
+      </div>
+
+      <div class="dlg-footer">
+        <button type="button" id="sdPreview" class="btn">
+          <svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z" class="fill"/><path d="M16 8.5a5 5 0 0 1 0 7"/></svg>
+          Écouter
+        </button>
+        <button type="button" id="sdReset" class="btn" title="Revenir aux réglages du preset de l'instrument">Réinitialiser</button>
+        <span class="spacer"></span>
+        <button type="button" id="sdCancel" class="btn">Annuler</button>
+        <button type="submit" class="btn btn-accent">OK</button>
+      </div>
+    </form>
+  </dialog>
+
   <div id="toast" role="status"></div>
 
   <script src="js/sounds.js"></script>
   <script src="js/project.js"></script>
   <script src="js/audio.js"></script>
+  <script src="js/sounddesign.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/main.js"></script>
 </body>

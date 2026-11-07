@@ -12,6 +12,8 @@
  *     { id, type: "instrument", name, color, volume, mute, solo,
  *       category: "mono"|"arp"|"chord", family, instrument,
  *       chord: "min", arp: { mode, rate, octaves }, octave,
+ *       sd: { wave, voices, detune, filter, cutoff, q, env,      // sound design (optionnel,
+ *             attack, decay, sustain, release, pan, drive, gain } // sinon preset de l'instrument)
  *       events: [{ step, len, notes: [midi...], vel }] }
  *   ]
  * }
@@ -96,6 +98,13 @@ SS.normalizeProject = (data) => {
       track.events = Array.isArray(t.events) ? t.events : [];
       track.arp = { mode: 'up', rate: 2, octaves: 1, ...(t.arp || {}) };
       track.chord = t.chord || 'min';
+      if (t.sd && typeof t.sd === 'object') {
+        track.sd = {};
+        for (const [k, v] of Object.entries(t.sd)) {
+          if (typeof v === 'number' && Number.isFinite(v)) track.sd[k] = v;
+          else if (typeof v === 'string' && /^[a-z]{1,16}$/.test(v)) track.sd[k] = v;
+        }
+      } else delete track.sd;
       track.octave = Number.isFinite(t.octave) ? t.octave : 4;
     }
     return track;

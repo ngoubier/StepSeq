@@ -178,6 +178,8 @@
     if (track.type === 'drum') {
       Object.assign(track, { sound: opts.sound, machine: opts.machine, variant: opts.variant });
     } else {
+      // un autre instrument repart de son propre preset de sound design
+      if (opts.family !== track.family || opts.instrument !== track.instrument) delete track.sd;
       Object.assign(track, { category: opts.category, family: opts.family, instrument: opts.instrument });
     }
     SS.ui.renderTrack(track);
@@ -253,6 +255,7 @@
 
   /* ---------- Démarrage ---------- */
   SS.audio.setErrorHandler((msg) => SS.ui.toast(msg));
+  SS.soundDesign.init({ changed, renderTrack: (t) => SS.ui.renderTrack(t) });
   SS.ui.init({
     project: () => project,
     changed,
