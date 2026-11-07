@@ -172,6 +172,9 @@
           <div class="segmented dlg-libs pills-nav" id="dlgDrumLib" role="radiogroup" aria-label="Bibliothèque de batterie"></div>
           <small id="dlgDrumLibHint" class="dlg-hint"></small>
         </div>
+        <div class="dlg-row">
+          <input id="dlgDrumFilter" class="br-search" type="search" placeholder="🔍 Filtrer…" autocomplete="off" aria-label="Filtrer la liste">
+        </div>
         <div class="dlg-row" id="dlgTdm">
           <span class="dlg-label">Type de drum</span>
           <div id="dlgDrumTypes" class="chips pills-nav" role="radiogroup" aria-label="Type de drum"></div>
@@ -179,7 +182,6 @@
         <div class="browser">
           <div class="br-col">
             <div class="br-head"><span class="dlg-label" id="dlgDrumListLabel">Boîte à rythmes</span><small id="dlgDrumCount" class="dlg-hint"></small></div>
-            <input id="dlgDrumFilter" class="br-search" type="search" placeholder="Filtrer…" autocomplete="off" aria-label="Filtrer la liste">
             <div id="dlgDrumList" class="pick-list" aria-labelledby="dlgDrumListLabel"></div>
           </div>
           <div class="br-col">
@@ -195,13 +197,15 @@
           <div class="segmented pills-nav" id="dlgCategory" role="radiogroup" aria-label="Catégorie"></div>
         </div>
         <div class="dlg-row">
+          <input id="dlgInstFilter" class="br-search" type="search" placeholder="🔍 Rechercher un instrument dans toutes les familles (sitar, sax, organ…)" autocomplete="off" aria-label="Rechercher un instrument">
+        </div>
+        <div class="dlg-row">
           <span class="dlg-label">Famille</span>
           <div id="dlgFamilies" class="chips pills-nav" role="radiogroup" aria-label="Famille"></div>
         </div>
         <div class="browser">
           <div class="br-col">
             <div class="br-head"><span class="dlg-label" id="dlgInstLabel">Instrument</span><small id="dlgInstCount" class="dlg-hint"></small></div>
-            <input id="dlgInstFilter" class="br-search" type="search" placeholder="Rechercher dans toutes les familles…" autocomplete="off" aria-label="Rechercher un instrument">
             <div id="dlgInstList" class="pick-list" aria-labelledby="dlgInstLabel"></div>
           </div>
           <div class="br-col">

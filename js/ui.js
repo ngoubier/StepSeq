@@ -1901,7 +1901,7 @@ SS.ui = (() => {
     const cur = tdm ? dlg.s.machine : dlg.s.bank;
     const list = all.filter((x) => !q || x.label.toLowerCase().includes(q) || String(x.v).toLowerCase().includes(q));
     $('#dlgDrumListLabel').textContent = tdm ? 'Boîte à rythmes' : 'Banque';
-    $('#dlgDrumFilter').placeholder = tdm ? 'Filtrer (ex. 808, linn, dmx…)' : 'Filtrer (ex. 808, jazz, conga…)';
+    $('#dlgDrumFilter').placeholder = tdm ? '🔍 Filtrer les boîtes à rythmes (808, linn, dmx…)' : '🔍 Filtrer les banques (808, jazz, conga…)';
     $('#dlgDrumCount').textContent = all.length ? (q ? `${list.length} / ${all.length}` : String(all.length)) : '';
     fillList($('#dlgDrumList'), list, cur);
   }
