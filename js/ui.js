@@ -280,12 +280,14 @@ SS.ui = (() => {
       e.preventDefault();
       const s = +cell.dataset.step;
       if (s >= SS.trackLen(app.project(), track)) return; // au-delà de la boucle de la piste
-      if (track.type === 'drum') return drumGesture(track, s, e);
       const edge = noteEdgeAt(track, cell, e.clientX);
       if (edge) return resizeNote(track, edge, e);
+      const top = velEdgeAt(track, cell, e.clientY);
+      if (top) return dragVelocity(track, cell, top, e);
+      if (track.type === 'drum') return drumGesture(track, s, e);
       noteGesture(track, s, null, e);
     });
-    if (track.type === 'instrument') hoverResize(track, grid, '.cell');
+    hoverResize(track, grid, '.cell');
 
     grid.addEventListener('contextmenu', (e) => {
       const cell = e.target.closest('.cell');
@@ -896,9 +898,75 @@ SS.ui = (() => {
     grid.addEventListener('pointermove', (e) => {
       if (e.buttons) return;
       const cell = e.target.closest(sel);
-      grid.classList.toggle('edge-hover', !!noteEdgeAt(track, cell, e.clientX));
+      const right = !!noteEdgeAt(track, cell, e.clientX);
+      grid.classList.toggle('edge-hover', right);
+      // poignée de vélocité : seulement sur la ligne compacte (le piano roll est trop serré)
+      const vel = !right && sel === '.cell' && !!velEdgeAt(track, cell, e.clientY);
+      grid.classList.toggle('vel-hover', vel);
+      const prev = grid.querySelector('.vel-target');
+      if (prev && (prev !== cell || !vel)) prev.classList.remove('vel-target');
+      if (vel) cell.classList.add('vel-target');
     });
-    grid.addEventListener('pointerleave', () => grid.classList.remove('edge-hover'));
+    grid.addEventListener('pointerleave', () => {
+      grid.classList.remove('edge-hover', 'vel-hover');
+      const prev = grid.querySelector('.vel-target');
+      if (prev) prev.classList.remove('vel-target');
+    });
+  }
+
+  /* ---------- Poignée de vélocité : le haut d'un pas ou d'une note ---------- */
+  const VEL_EDGE_PX = 5;
+
+  /** Vélocité d'une case de la ligne compacte : { get, set, label } ou null si la case est vide. */
+  function velTarget(track, s) {
+    if (track.type === 'drum') {
+      if (!(track.steps[s] > 0)) return null;
+      return { get: () => track.steps[s], set: (v) => (track.steps[s] = v) };
+    }
+    const ev = findEventAt(track, s);
+    if (!ev) return null;
+    return { ev, get: () => ev.vel, set: (v) => (ev.vel = v) };
+  }
+
+  /** Le pointeur est-il sur le haut du remplissage (mode On/Off) ? */
+  function velEdgeAt(track, cell, clientY) {
+    if (app.state.editMode !== 'toggle' || !cell || !cell.classList.contains('cell')) return null;
+    const t = velTarget(track, +cell.dataset.step);
+    if (!t) return null;
+    const r = cell.getBoundingClientRect();
+    const top = r.bottom - Math.max(0.12, t.get()) * r.height; // même hauteur que l'affichage
+    return Math.abs(clientY - top) <= VEL_EDGE_PX ? t : null;
+  }
+
+  /** Glisser le haut : la hauteur suit le pointeur, la valeur (0-127) s'affiche près de la note. */
+  function dragVelocity(track, cell, target, e) {
+    e.preventDefault();
+    if (target.ev) select(track, target.ev);
+    const r = cell.getBoundingClientRect();
+    const badge = h('div', { class: 'vel-badge', role: 'status' });
+    document.body.append(badge);
+    document.body.classList.add('dragging-vel');
+    const show = () => {
+      const v = target.get();
+      badge.textContent = `Vélocité ${Math.round(v * 127)}`;
+      const top = r.bottom - v * r.height;
+      badge.style.left = r.left + r.width / 2 + 'px';
+      badge.style.top = Math.max(4, top - 30) + 'px';
+    };
+    show();
+    track_gesture(
+      (pe) => {
+        const v = clamp((r.bottom - pe.clientY) / r.height, 0.05, 1);
+        target.set(Math.round(v * 127) / 127);
+        paint(track);
+        show();
+      },
+      () => {
+        badge.remove();
+        document.body.classList.remove('dragging-vel');
+        updateNoteButton();
+      }
+    );
   }
 
   /** Glisser le bord droit : la case sous le pointeur devient la dernière de la note. */
