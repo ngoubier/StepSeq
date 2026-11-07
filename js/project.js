@@ -6,7 +6,8 @@
  *   format: "stepseq", version: 1,
  *   title, tempo, timeSig: [num, den], bars,
  *   groove: { res: 0|16|8, swing: 0.5..0.75, human: 0..1 },
- *   tracks: [   // chaque piste peut avoir fx: { chorus, chorusRate, chorusDepth, delay, delayTime,
+ *   tracks: [   // chaque piste peut avoir length (longueur de sa boucle, en pas ; absente = celle du projet)
+ *               // et fx: { chorus, chorusRate, chorusDepth, delay, delayTime,
  *               //   delayFeedback, room, roomSize, roomLp } (effets, voir SS.FX_DEFAULTS)
  *     { id, type: "drum", name, color, volume, mute, solo,
  *       source: "tdm"|"dirt"|"vcsl"|"mrid",                // bibliothèque
@@ -55,6 +56,7 @@ SS.newTrack = (opts, project) => {
     solo: false,
     type: opts.type,
   };
+  if (opts.length > 0) base.length = opts.length; // longueur propre de la piste (en pas), sinon celle du projet
   if (opts.type === 'drum') {
     return {
       ...base,
@@ -122,6 +124,8 @@ SS.normalizeProject = (data) => {
       }
     } else delete track.fx;
     track.volume = typeof t.volume === 'number' ? t.volume : 0.8;
+    if (Number.isInteger(t.length) && t.length > 0) track.length = Math.min(t.length, 128);
+    else delete track.length;
     track.mute = !!t.mute;
     track.solo = !!t.solo;
     if (t.type === 'drum') {
@@ -266,4 +270,10 @@ SS.clearAfterBars = (p, keepBars) => {
     if (t.type === 'drum') for (let s = from; s < t.steps.length; s++) t.steps[s] = 0;
     else t.events = t.events.filter((e) => e.step < from);
   });
+};
+
+/** Longueur (en pas) de la boucle d'une piste : la sienne si elle est définie, sinon celle du projet. */
+SS.trackLen = (p, t) => {
+  const total = SS.totalSteps(p);
+  return t && t.length > 0 ? Math.min(t.length, total) : total;
 };

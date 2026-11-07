@@ -199,6 +199,8 @@
     if (!opts) return;
     track.name = opts.name;
     track.color = opts.color;
+    if (opts.length > 0) track.length = opts.length;
+    else delete track.length;
     if (track.type === 'drum') {
       Object.assign(track, { source: opts.source, sound: opts.sound, machine: opts.machine, bank: opts.bank, variant: opts.variant });
     } else {

@@ -110,6 +110,16 @@
         <div id="dlgColors" class="swatches"></div>
       </div>
 
+      <div class="dlg-row">
+        <label class="dlg-label" for="dlgLen">Longueur de la piste</label>
+        <div class="len-row">
+          <select id="dlgLen"></select>
+          <input id="dlgLenSteps" type="number" min="1" step="1" aria-label="Longueur en pas">
+          <small>pas</small>
+        </div>
+        <small class="dlg-hint">Une piste plus courte que le projet tourne en boucle sur sa propre longueur (polymétrie : par ex. 3 temps contre 4). Tu peux aussi glisser la barre de fin de boucle dans la grille.</small>
+      </div>
+
       <section id="dlgDrum">
         <div class="dlg-row">
           <span class="dlg-label">Bibliothèque</span>

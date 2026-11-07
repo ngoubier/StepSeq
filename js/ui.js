@@ -58,7 +58,21 @@ SS.ui = (() => {
     return root + (CHORD_SUFFIX[ev.chord] ?? '');
   }
 
+  /** « 2 mes. », « 12 pas »… ou '' si la piste suit la longueur du projet. */
+  function lenLabel(track) {
+    const p = app.project();
+    if (!track.length || track.length >= SS.totalSteps(p)) return '';
+    const len = SS.trackLen(p, track);
+    const spb = SS.stepsPerBar(p);
+    return len % spb === 0 ? `${len / spb} mes.` : `${len} pas`;
+  }
+
   function trackSubtitle(track) {
+    const l = app && lenLabel(track);
+    return (l ? `⟲ ${l} · ` : '') + trackSubtitleBase(track);
+  }
+
+  function trackSubtitleBase(track) {
     if (track.type === 'drum') {
       if (track.source && track.source !== 'tdm') {
         const lib = SS.DRUM_LIBS.find((l) => l.id === track.source);
@@ -247,17 +261,25 @@ SS.ui = (() => {
       h('button', { class: 'th-btn', title: 'Supprimer la piste', html: ICONS.close, onclick: () => app.deleteTrack(track) })
     );
 
-    const grid = h('div', { class: 'grid' });
+    const grid = h('div', { class: 'grid track-grid' });
     for (let s = 0; s < n; s++) {
       const c = h('div', { class: cellClass(p, s, 'cell'), 'data-step': s }, h('div', { class: 'fill' }));
       ref.cells.push(c);
       grid.append(c);
     }
+    // poignée de fin de boucle : on la glisse pour changer la longueur de la piste
+    ref.lenHandle = h('div', {
+      class: 'len-handle',
+      title: 'Glisser pour changer la longueur de la piste',
+      onpointerdown: (e) => dragLength(track, e),
+    });
+    grid.append(ref.lenHandle);
     grid.addEventListener('pointerdown', (e) => {
       const cell = e.target.closest('.cell');
       if (!cell || e.button !== 0) return; // le clic droit est réservé au menu d'accord
       e.preventDefault();
       const s = +cell.dataset.step;
+      if (s >= SS.trackLen(app.project(), track)) return; // au-delà de la boucle de la piste
       if (track.type === 'drum') drumGesture(track, s, e);
       else noteGesture(track, s, null, e);
     });
@@ -427,6 +449,7 @@ SS.ui = (() => {
         const cell = e.target.closest('.rcell');
         if (!cell || e.button !== 0) return;
         e.preventDefault();
+        if (+cell.dataset.step >= SS.trackLen(app.project(), track)) return;
         noteGesture(track, +cell.dataset.step, +cell.dataset.midi, e);
       });
       inner.append(
@@ -453,6 +476,63 @@ SS.ui = (() => {
     }
     scroller.init();
     return roll;
+  }
+
+  /* ---------- Longueur de boucle propre à chaque piste ---------- */
+
+  function applyLen(track, ref) {
+    const p = app.project();
+    const len = SS.trackLen(p, track);
+    const total = SS.totalSteps(p);
+    ref.cells.forEach((c, s) => c.classList.toggle('beyond', s >= len));
+    ref.roll.forEach((cells) => cells.forEach((c, s) => c.classList.toggle('beyond', s >= len)));
+    if (ref.lenHandle) {
+      const last = ref.cells[len - 1];
+      ref.lenHandle.classList.toggle('custom', len < total);
+      // positionnée juste après la dernière case de la boucle (une fois la grille dans la page)
+      requestAnimationFrame(() => {
+        if (last && last.isConnected) ref.lenHandle.style.left = last.offsetLeft + last.offsetWidth + 1 + 'px';
+      });
+    }
+  }
+
+  function setTrackLength(track, len) {
+    const total = SS.totalSteps(app.project());
+    if (len >= total) delete track.length;
+    else track.length = Math.max(1, len);
+  }
+
+  /** Glisser la poignée de fin de boucle d'une piste. */
+  function dragLength(track, e) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const ref = refs.get(track.id);
+    ref.lenHandle.classList.add('drag');
+    const move = (ev) => {
+      // la case sous le pointeur devient la dernière de la boucle
+      const cell = ref.cells.reduce((best, c) => {
+        const r = c.getBoundingClientRect();
+        const d = Math.abs(ev.clientX - (r.left + r.width / 2));
+        return !best || d < best.d ? { c, d, right: ev.clientX > r.left + r.width / 2 } : best;
+      }, null);
+      if (!cell) return;
+      const s = +cell.c.dataset.step;
+      setTrackLength(track, s + 1);
+      applyLen(track, ref);
+      ref.lenHandle.dataset.len = lenLabel(track) || 'projet';
+    };
+    const up = () => {
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', up);
+      document.removeEventListener('pointercancel', up);
+      ref.lenHandle.classList.remove('drag');
+      renderTrack(track);
+      app.changed();
+    };
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up);
+    document.addEventListener('pointercancel', up);
   }
 
   /* ---------- Réorganiser les pistes (poignée à gauche) ---------- */
@@ -644,6 +724,7 @@ SS.ui = (() => {
   function paint(track) {
     const ref = refs.get(track.id);
     if (!ref) return;
+    applyLen(track, ref);
     if (track.type === 'drum') {
       ref.cells.forEach((c, s) => {
         const v = track.steps[s] || 0;
@@ -782,6 +863,7 @@ SS.ui = (() => {
       const c = el && el.closest('.cell');
       if (!c || !ref.cells.includes(c)) return;
       const s2 = +c.dataset.step;
+      if (s2 >= SS.trackLen(app.project(), track)) return;
       if ((track.steps[s2] > 0) !== (value > 0)) {
         track.steps[s2] = value;
         paint(track);
@@ -833,7 +915,7 @@ SS.ui = (() => {
   }
 
   function noteGesture(track, s, midi, e) {
-    const n = SS.totalSteps(app.project());
+    const n = SS.trackLen(app.project(), track);
     const existing = findEventAt(track, s);
 
     if (app.state.editMode === 'velocity') {
@@ -1113,7 +1195,7 @@ SS.ui = (() => {
     closeChordMenu();
     select(track, ev);
     const mono = track.category === 'mono';
-    const n = SS.totalSteps(app.project());
+    const n = SS.trackLen(app.project(), track);
     const next = track.events.find((x) => x !== ev && x.step > ev.step);
     nd.track = track;
     nd.ev = ev;
@@ -1144,10 +1226,20 @@ SS.ui = (() => {
       $('#position').textContent = '1 . 1 . 1';
       return;
     }
-    document.querySelectorAll(`#workspace [data-step="${step}"]`).forEach((el) => el.classList.add('now'));
+    // chaque piste a sa propre position dans sa boucle
+    const total = SS.totalSteps(p);
+    const g = step % total;
+    $('#ruler').querySelectorAll(`[data-step="${g}"]`).forEach((el) => el.classList.add('now'));
+    p.tracks.forEach((t) => {
+      const ref = refs.get(t.id);
+      if (!ref) return;
+      const s = step % SS.trackLen(p, t);
+      if (ref.cells[s]) ref.cells[s].classList.add('now');
+      ref.roll.forEach((cells) => cells[s] && cells[s].classList.add('now'));
+    });
     const spb = SS.stepsPerBar(p);
     const beat = SS.stepsPerBeat(p);
-    $('#position').textContent = `${Math.floor(step / spb) + 1} . ${Math.floor((step % spb) / beat) + 1} . ${(step % beat) + 1}`;
+    $('#position').textContent = `${Math.floor(g / spb) + 1} . ${Math.floor((g % spb) / beat) + 1} . ${(g % beat) + 1}`;
   }
 
   /* ------------------------------------------------------------------ */
@@ -1200,6 +1292,22 @@ SS.ui = (() => {
       refreshVariants(true);
     });
     $('#dlgInstFilter').addEventListener('input', fillInstruments);
+    $('#dlgLen').addEventListener('change', (e) => {
+      const v = e.target.value;
+      if (v === 'custom') {
+        $('#dlgLenSteps').focus();
+        return;
+      }
+      dlg.s.length = +v;
+      syncLen();
+    });
+    $('#dlgLenSteps').addEventListener('input', (e) => {
+      const total = SS.totalSteps(app.project());
+      const v = parseInt(e.target.value, 10);
+      if (!Number.isFinite(v)) return;
+      dlg.s.length = v >= total ? 0 : Math.max(1, v);
+      syncLen(true);
+    });
     $('#dlgSfv').addEventListener('change', (e) => {
       dlg.s.sfv = +e.target.value;
       previewDialog();
@@ -1405,6 +1513,29 @@ SS.ui = (() => {
     if (sel) sel.scrollIntoView({ block: 'nearest' });
   }
 
+  /** Liste des longueurs proposées (en mesures, selon le projet) + saisie libre en pas. */
+  function fillLen() {
+    const p = app.project();
+    const spb = SS.stepsPerBar(p);
+    const total = SS.totalSteps(p);
+    const opts = [h('option', { value: 0 }, `Comme le projet (${p.bars} mes. · ${total} pas)`)];
+    const half = spb / 2;
+    if (Number.isInteger(half)) opts.push(h('option', { value: half }, '½ mesure'));
+    [1, 2, 3, 4, 8].filter((b) => b * spb < total).forEach((b) => opts.push(h('option', { value: b * spb }, `${b} mesure${b > 1 ? 's' : ''}`)));
+    opts.push(h('option', { value: 'custom' }, 'Autre (en pas)…'));
+    $('#dlgLen').replaceChildren(...opts);
+    $('#dlgLenSteps').max = total;
+    syncLen();
+  }
+
+  function syncLen(fromInput) {
+    const total = SS.totalSteps(app.project());
+    const len = dlg.s.length || 0;
+    const sel = $('#dlgLen');
+    sel.value = [...sel.options].some((o) => o.value === String(len)) ? String(len) : 'custom';
+    if (!fromInput) $('#dlgLenSteps').value = len || total;
+  }
+
   /** Variantes de soundfont (les gm_* de strudel existent en plusieurs banques). */
   function fillSfv() {
     const inst = SS.findInstrument(dlg.s.family, dlg.s.instrument);
@@ -1469,6 +1600,7 @@ SS.ui = (() => {
           family: track.family || 'bass',
           instrument: track.instrument || SS.findFamily('bass').instruments[0].id,
           sfv: track.sfv || 0,
+          length: track.length && track.length < SS.totalSteps(p) ? track.length : 0,
         }
       : {
           editingId: null,
@@ -1485,6 +1617,7 @@ SS.ui = (() => {
           family: 'bass',
           instrument: SS.findFamily('bass').instruments[0].id,
           sfv: 0,
+          length: 0,
         };
     $('#dlgTitle').textContent = track ? 'Modifier la piste' : 'Nouvelle piste';
     $('#dlgOk').textContent = track ? 'Appliquer' : 'Valider';
@@ -1494,6 +1627,7 @@ SS.ui = (() => {
     autoName();
     fillInstruments();
     fillSfv();
+    fillLen();
     syncDialog();
     refreshDrum(false);
     dlg.el.returnValue = '';

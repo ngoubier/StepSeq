@@ -658,6 +658,17 @@ SS.audio = (() => {
     raf: null,
     getProject: null,
     onStep: null,
+    // plus petit multiple commun des longueurs de piste (limité) : période après laquelle tout se réaligne
+    cycle(project, total) {
+      const gcd = (a, b) => (b ? gcd(b, a % b) : a);
+      let l = total;
+      for (const t of project.tracks) {
+        const n = SS.trackLen(project, t);
+        l = (l * n) / gcd(l, n);
+        if (l > 1e6) return 1e6;
+      }
+      return l;
+    },
   };
 
   const stepDur = (project) => 60 / project.tempo / 4; // une case = une double-croche
@@ -678,9 +689,11 @@ SS.audio = (() => {
     return all;
   }
 
-  function scheduleStep(project, step, time) {
+  /** `tick` = compteur global de pas depuis Lecture ; chaque piste boucle sur sa propre longueur. */
+  function scheduleStep(project, tick, time) {
     const sd = stepDur(project);
     audibleTracks(project).forEach((track) => {
+      const step = tick % SS.trackLen(project, track);
       // humanisation : petites variations aléatoires de placement (±15 ms) et de vélocité (±25 %)
       const human = (project.groove && project.groove.human) || 0;
       const jt = () => (human ? (Math.random() * 2 - 1) * human * 0.015 : 0);
@@ -709,7 +722,8 @@ SS.audio = (() => {
             playNote(track, n, t + jt(), sub * 0.9, jv(ev.vel));
           }
         } else if (ev.step === step) {
-          const dur = ev.len * sd * 0.98;
+          // une note ne dépasse pas la fin de la boucle de sa piste
+          const dur = Math.min(ev.len, SS.trackLen(project, track) - ev.step) * sd * 0.98;
           const tt = time + jt();
           const vv = jv(ev.vel);
           ev.notes.forEach((n) => playNote(track, n, tt, dur, vv * (ev.notes.length > 1 ? 0.8 : 1)));
@@ -722,7 +736,9 @@ SS.audio = (() => {
     const project = seq.getProject();
     const total = SS.totalSteps(project);
     while (seq.nextTime < ctx.currentTime + 0.12) {
-      if (seq.step >= total) seq.step = 0;
+      // le compteur ne revient pas à 0 : des pistes de longueurs différentes restent décalées (polymétrie).
+      // Il repart à 0 quand toutes les boucles se retrouvent alignées.
+      if (seq.step >= seq.cycle(project, total)) seq.step = 0;
       const t = seq.nextTime + SS.grooveOffset(project, seq.step, stepDur(project));
       scheduleStep(project, seq.step, t);
       seq.queue.push({ step: seq.step, time: t });
