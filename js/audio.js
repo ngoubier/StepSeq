@@ -288,6 +288,7 @@ SS.audio = (() => {
     st.lm = bq('peaking');
     st.hm = bq('peaking');
     st.high = bq('highshelf');
+    st.lp = bq('lowpass');
     st.comp = ctx.createDynamicsCompressor();
     st.makeup = ctx.createGain();
     st.lim = ctx.createDynamicsCompressor();
@@ -296,8 +297,8 @@ SS.audio = (() => {
     st.clip.oversample = '4x';
     st.limOut = ctx.createGain();
     st.out = ctx.createGain();
-    st.entry.connect(st.hp).connect(st.low).connect(st.lm).connect(st.hm).connect(st.high);
-    st.high.connect(st.comp).connect(st.makeup).connect(st.lim).connect(st.clip).connect(st.limOut).connect(st.out);
+    st.entry.connect(st.hp).connect(st.low).connect(st.lm).connect(st.hm).connect(st.high).connect(st.lp);
+    st.lp.connect(st.comp).connect(st.makeup).connect(st.lim).connect(st.clip).connect(st.limOut).connect(st.out);
     applyStrip(st, SS.MIX_DEFAULTS);
     return st;
   }
@@ -309,6 +310,8 @@ SS.audio = (() => {
     const e = m.eq;
     set(st.hp.frequency, e.on && e.hp.on ? e.hp.f : 10);
     st.hp.Q.value = 0.707;
+    set(st.lp.frequency, e.on && e.lp.on ? e.lp.f : Math.min(22000, ctx.sampleRate / 2));
+    st.lp.Q.value = 0.707;
     set(st.low.frequency, e.low.f);
     set(st.low.gain, e.on ? e.low.g : 0);
     set(st.lm.frequency, e.lm.f);

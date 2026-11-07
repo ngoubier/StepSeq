@@ -438,6 +438,7 @@ SS.MIX_DEFAULTS = {
     lm: { f: 400, g: 0, q: 1 }, // cloche bas-médium
     hm: { f: 2500, g: 0, q: 1 }, // cloche haut-médium
     high: { f: 8000, g: 0 }, // shelf aigu
+    lp: { on: false, f: 16000 }, // passe-bas 12 dB/oct (proposé sur le Master)
   },
   comp: { on: false, th: -18, ratio: 3, att: 0.01, rel: 0.15, knee: 6, makeup: 0 },
   lim: { on: false, ceil: -1, rel: 0.1 },
@@ -477,6 +478,8 @@ SS.cleanMix = (mix, defaults = SS.MIX_DEFAULTS) => {
   e.on = !!e.on;
   e.hp.on = !!e.hp.on;
   e.hp.f = num(e.hp.f, 20, 2000, 40);
+  e.lp.on = !!e.lp.on;
+  e.lp.f = num(e.lp.f, 1000, 20000, 16000);
   for (const b of ['low', 'lm', 'hm', 'high']) {
     e[b].f = num(e[b].f, 20, 20000, defaults.eq[b].f);
     e[b].g = num(e[b].g, -18, 18, 0);
