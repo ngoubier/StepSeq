@@ -83,6 +83,7 @@
   function setProject(p) {
     stop();
     project = p;
+    SS.ui.clearSelection();
     state.openRolls = new Set();
     syncHeader();
     SS.ui.renderAll();

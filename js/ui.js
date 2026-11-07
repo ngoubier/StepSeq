@@ -115,6 +115,7 @@ SS.ui = (() => {
     $('#empty').classList.toggle('show', p.tracks.length === 0);
     $('#ruler').style.display = p.tracks.length ? '' : 'none';
     setPlayhead(nowStep);
+    updateNoteButton();
   }
 
   function renderTrack(track) {
@@ -384,11 +385,11 @@ SS.ui = (() => {
       return;
     }
     ref.cells.forEach((c) => {
-      c.classList.remove('on', 'start', 'hold', 'end', 'held');
+      c.classList.remove('on', 'start', 'hold', 'end', 'held', 'sel', 'sel-hold');
       c.querySelector('.lbl')?.remove();
       c.title = '';
     });
-    ref.roll.forEach((cells) => cells.forEach((c) => c.classList.remove('on', 'start', 'root')));
+    ref.roll.forEach((cells) => cells.forEach((c) => c.classList.remove('on', 'start', 'root', 'sel')));
 
     track.events.forEach((ev) => {
       const label = eventLabel(track, ev);
@@ -417,6 +418,51 @@ SS.ui = (() => {
         });
       }
     });
+
+    // note / accord sélectionné
+    if (sel && sel.track === track && track.events.includes(sel.ev)) {
+      const ev = sel.ev;
+      for (let s = ev.step; s < ev.step + ev.len && s < ref.cells.length; s++) {
+        ref.cells[s].classList.add(s === ev.step ? 'sel' : 'sel-hold');
+      }
+      ev.notes.forEach((m) => {
+        const rc = ref.roll.get(m);
+        if (rc && rc[ev.step]) rc[ev.step].classList.add('sel');
+      });
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Sélection : la note / l'accord en cours                             */
+  /* ------------------------------------------------------------------ */
+
+  let sel = null; // { track, ev }
+
+  function validSelection() {
+    if (sel && (!app.project().tracks.includes(sel.track) || !sel.track.events || !sel.track.events.includes(sel.ev))) sel = null;
+    return sel;
+  }
+
+  function select(track, ev) {
+    const prev = sel && sel.track;
+    sel = track && ev ? { track, ev } : null;
+    if (prev && prev !== track) paint(prev);
+    if (track) paint(track);
+    updateNoteButton();
+  }
+
+  function unselectIfRemoved(track) {
+    if (sel && sel.track === track && !track.events.includes(sel.ev)) select(null, null);
+  }
+
+  function updateNoteButton() {
+    const btn = $('#noteBtn');
+    if (!btn) return;
+    const cur = validSelection();
+    btn.disabled = !cur;
+    $('#noteBtnLabel').textContent = cur
+      ? `${cur.track.category === 'mono' ? 'Note' : 'Accord'} ${eventLabel(cur.track, cur.ev)} · ${cur.track.name}`
+      : 'Aucune note sélectionnée';
   }
 
   /* ------------------------------------------------------------------ */
@@ -523,6 +569,7 @@ SS.ui = (() => {
 
     if (app.state.editMode === 'velocity') {
       if (!existing) return;
+      select(track, existing);
       const startV = existing.vel;
       const startY = e.clientY;
       track_gesture((ev) => {
@@ -534,7 +581,7 @@ SS.ui = (() => {
 
     // Tactile : un appui long sur un accord ouvre le menu de type d'accord ;
     // un appui court garde le comportement normal (supprimer / remplacer), exécuté au relâchement.
-    if (existing && track.category !== 'mono' && e.pointerType && e.pointerType !== 'mouse' && !e.deferred) {
+    if (existing && e.pointerType && e.pointerType !== 'mouse' && !e.deferred) {
       const x = e.clientX;
       const y = e.clientY;
       longPress(
@@ -547,6 +594,7 @@ SS.ui = (() => {
 
     if (existing && (midi == null || existing.notes.includes(midi) || midi === existing.notes[0])) {
       track.events = track.events.filter((x) => x !== existing);
+      unselectIfRemoved(track);
       paint(track);
       app.changed();
       return;
@@ -565,7 +613,7 @@ SS.ui = (() => {
     track.events.push(ev);
     track.events.sort((a, b) => a.step - b.step);
     if (!SS.audio.isPlaying()) SS.audio.preview(track, ev.notes.length === 1 ? ev.notes[0] : ev.notes);
-    paint(track);
+    select(track, ev); // la note posée devient la note en cours
     if (e.deferred) {
       app.changed(); // appui court déjà relâché : pas d'allongement
       return;
@@ -610,7 +658,7 @@ SS.ui = (() => {
   }
 
   function chordMenuFromEvent(track, s, e) {
-    if (track.type !== 'instrument' || track.category === 'mono') return; // menu normal du navigateur
+    if (track.type !== 'instrument') return; // menu normal du navigateur
     e.preventDefault();
     const ev = findEventAt(track, s);
     if (!ev) return;
@@ -619,6 +667,8 @@ SS.ui = (() => {
 
   function openChordMenu(track, ev, x, y) {
     closeChordMenu();
+    select(track, ev);
+    const mono = track.category === 'mono';
     const root = ev.notes[0];
     const current = ev.chord || '';
     const rootName = SS.NOTE_NAMES[root % 12];
@@ -626,15 +676,30 @@ SS.ui = (() => {
       ev.notes = SS.chordNotes(root, id);
       ev.chord = id;
       paint(track);
+      updateNoteButton();
       app.changed();
       if (!SS.audio.isPlaying()) SS.audio.preview(track, ev.notes);
       closeChordMenu();
     };
     menuEl = h(
       'div',
-      { class: 'ctx-menu', role: 'menu', 'aria-label': 'Type d’accord' },
-      h('div', { class: 'ctx-title' }, `Accord sur ${rootName}`),
-      SS.CHORDS.map((c) =>
+      { class: 'ctx-menu', role: 'menu', 'aria-label': mono ? 'Note' : 'Type d’accord' },
+      h('div', { class: 'ctx-title' }, mono ? `Note ${SS.noteName(root)}` : `Accord sur ${rootName}`),
+      h(
+        'button',
+        {
+          type: 'button',
+          role: 'menuitem',
+          onclick: () => {
+            closeChordMenu();
+            openNoteDialog(track, ev);
+          },
+        },
+        h('span', { class: 'ctx-name' }, mono ? 'Modifier la note…' : 'Modifier l’accord…'),
+        h('span', { class: 'ctx-desc' }, 'hauteur, longueur')
+      ),
+      mono ? null : h('hr'),
+      (mono ? [] : SS.CHORDS).map((c) =>
         h(
           'button',
           { type: 'button', role: 'menuitemradio', 'aria-checked': String(c.id === current), class: c.id === current ? 'current' : null, onclick: () => apply(c.id) },
@@ -651,12 +716,13 @@ SS.ui = (() => {
           class: 'danger',
           onclick: () => {
             track.events = track.events.filter((x) => x !== ev);
+            unselectIfRemoved(track);
             paint(track);
             app.changed();
             closeChordMenu();
           },
         },
-        'Supprimer l’accord'
+        mono ? 'Supprimer la note' : 'Supprimer l’accord'
       )
     );
     document.body.append(menuEl);
@@ -671,6 +737,130 @@ SS.ui = (() => {
     document.addEventListener('keydown', onMenuKey, true);
     window.addEventListener('resize', closeChordMenu);
     document.getElementById('workspace').addEventListener('scroll', closeChordMenu);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Dialogue « Modifier la note / l'accord »                            */
+  /* ------------------------------------------------------------------ */
+
+  const nd = { track: null, ev: null, root: 60, chord: 'maj', len: 1, vel: 0.8 };
+
+  function initNoteDialog() {
+    nd.el = $('#noteDialog');
+    SS.NOTE_NAMES.forEach((n, i) => $('#ndNote').append(h('option', { value: i }, n)));
+    for (let o = 0; o <= 8; o++) $('#ndOct').append(h('option', { value: o }, String(o)));
+    SS.CHORDS.forEach((c) => $('#ndChord').append(h('option', { value: c.id }, c.label)));
+
+    const pitchChanged = () => {
+      nd.root = clamp(+$('#ndNote').value + (+$('#ndOct').value + 1) * 12, 0, 127);
+      syncNoteDialog();
+      previewNote();
+    };
+    $('#ndNote').addEventListener('change', pitchChanged);
+    $('#ndOct').addEventListener('change', pitchChanged);
+    nd.el.querySelectorAll('[data-shift]').forEach((b) =>
+      b.addEventListener('click', () => {
+        nd.root = clamp(nd.root + +b.dataset.shift, 12, 119);
+        syncNoteDialog();
+        previewNote();
+      })
+    );
+    $('#ndChord').addEventListener('change', (e) => {
+      nd.chord = e.target.value;
+      syncNoteDialog();
+      previewNote();
+    });
+    $('#ndLen').addEventListener('input', (e) => {
+      const v = parseInt(e.target.value, 10);
+      if (Number.isFinite(v)) nd.len = clamp(v, 1, nd.maxLen);
+      syncNoteDialog(true);
+    });
+    $('#ndVel').addEventListener('input', (e) => {
+      nd.vel = +e.target.value / 127;
+      syncNoteDialog(true);
+    });
+    $('#ndPreview').addEventListener('click', previewNote);
+    $('#ndCancel').addEventListener('click', () => nd.el.close('cancel'));
+    $('#ndDelete').addEventListener('click', () => nd.el.close('delete'));
+    $('#noteForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      nd.el.close('ok');
+    });
+    nd.el.addEventListener('close', () => {
+      const { track, ev } = nd;
+      const action = nd.el.returnValue;
+      if (!track || !ev || !track.events.includes(ev)) return;
+      if (action === 'ok') {
+        ev.notes = ndNotes();
+        if (track.category !== 'mono') ev.chord = nd.chord;
+        ev.len = clamp(nd.len, 1, nd.maxLen);
+        ev.vel = clamp(nd.vel, 0.05, 1);
+        track.lastRoot = nd.root;
+        select(track, ev);
+        app.changed();
+      } else if (action === 'delete') {
+        track.events = track.events.filter((x) => x !== ev);
+        unselectIfRemoved(track);
+        paint(track);
+        app.changed();
+      }
+    });
+    nd.el.addEventListener('keydown', (e) => e.stopPropagation());
+    $('#noteBtn').addEventListener('click', () => {
+      const cur = validSelection();
+      if (cur) openNoteDialog(cur.track, cur.ev);
+    });
+  }
+
+  const ndNotes = () => (nd.track.category === 'mono' ? [nd.root] : SS.chordNotes(nd.root, nd.chord));
+
+  function previewNote() {
+    if (!nd.track) return;
+    const notes = ndNotes();
+    SS.audio.preview(nd.track, notes.length === 1 ? notes[0] : notes);
+  }
+
+  function syncNoteDialog(keepInputs) {
+    const mono = nd.track.category === 'mono';
+    if (!keepInputs) {
+      $('#ndNote').value = String(nd.root % 12);
+      $('#ndOct').value = String(Math.floor(nd.root / 12) - 1);
+      $('#ndChord').value = nd.chord;
+      $('#ndLen').value = nd.len;
+      $('#ndVel').value = Math.round(nd.vel * 127);
+    }
+    $('#ndVelOut').textContent = Math.round(nd.vel * 127);
+    const notes = ndNotes();
+    const label = mono ? SS.noteName(nd.root) : SS.NOTE_NAMES[nd.root % 12] + (CHORD_SUFFIX[nd.chord] ?? '');
+    $('#ndSummary').replaceChildren(
+      h('b', {}, label),
+      mono ? '' : notes.map(SS.noteName).join(' · '),
+      h('span', { style: 'color:var(--muted)' }, `  —  ${nd.len} pas, vélocité ${Math.round(nd.vel * 127)}`)
+    );
+  }
+
+  function openNoteDialog(track, ev) {
+    if (!track || !ev || !track.events.includes(ev)) return;
+    closeChordMenu();
+    select(track, ev);
+    const mono = track.category === 'mono';
+    const n = SS.totalSteps(app.project());
+    const next = track.events.find((x) => x !== ev && x.step > ev.step);
+    nd.track = track;
+    nd.ev = ev;
+    nd.root = ev.notes[0];
+    nd.chord = ev.chord || track.chord || 'maj';
+    nd.len = ev.len;
+    nd.vel = ev.vel;
+    nd.maxLen = (next ? next.step : n) - ev.step;
+    $('#ndTitle').textContent = mono ? 'Modifier la note' : 'Modifier l’accord';
+    $('#ndPitchLabel').textContent = mono ? 'Hauteur' : 'Fondamentale';
+    $('#ndTrack').textContent = `${track.name} · pas ${ev.step + 1}`;
+    $('#ndChordRow').hidden = mono;
+    $('#ndLen').max = nd.maxLen;
+    syncNoteDialog();
+    nd.el.returnValue = '';
+    nd.el.showModal();
   }
 
   /* ------------------------------------------------------------------ */
@@ -927,7 +1117,8 @@ SS.ui = (() => {
   function init(appApi) {
     app = appApi;
     initDialog();
+    initNoteDialog();
   }
 
-  return { init, renderAll, renderTrack, paint, setPlayhead, toast, openTrackDialog, trackSubtitle };
+  return { init, renderAll, renderTrack, paint, setPlayhead, toast, openTrackDialog, trackSubtitle, clearSelection: () => select(null, null) };
 })();

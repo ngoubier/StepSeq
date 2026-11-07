@@ -43,6 +43,7 @@
     main { max-width: 760px; }
     h1 { font-size: 34px; line-height: 1.2; margin: 0 0 12px; text-wrap: balance; }
     h2 { font-size: 23px; margin: 48px 0 12px; padding-top: 8px; scroll-margin-top: 80px; text-wrap: balance; }
+    h3 { font-size: 17px; margin: 28px 0 8px; }
     h2 small { color: var(--key); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; display: block; }
     p, li { max-width: 68ch; }
     a { color: var(--accent); }
@@ -132,7 +133,21 @@
       </ul>
 
       <h2 id="notes"><small>Le plus demandé</small>Changer une note ou un accord</h2>
-      <p>On change une note ou un accord dans le <b>piano roll</b>, en cliquant sur une autre ligne à la même position. Pour l'ouvrir, clique sur le chevron <b>›</b> dans l'en-tête d'une piste instrument. Les lignes sont les notes (2 octaves), les colonnes sont les pas. Le clavier à gauche joue la note ou l'accord quand on clique dessus.</p>
+      <p>On change une note ou un accord avec le bouton <b>♫</b> de la barre du bas, ou directement dans le <b>piano roll</b>, en cliquant sur une autre ligne à la même position. Pour l'ouvrir, clique sur le chevron <b>›</b> dans l'en-tête d'une piste instrument. Les lignes sont les notes (2 octaves), les colonnes sont les pas. Le clavier à gauche joue la note ou l'accord quand on clique dessus.</p>
+      <h3>Le bouton « Note » de la barre du bas</h3>
+      <p>La façon la plus simple de changer une note ou un accord est le bouton <b>♫</b> en bas de l'écran. Il affiche la <b>note en cours</b>, par exemple « Accord Am7 · Pad 2 », et ouvre sa fenêtre de réglage.</p>
+      <p>Une note devient la note en cours quand tu la poses, quand tu fais un clic droit ou un appui long dessus, ou quand tu la touches en mode Vélocité. Elle est entourée de blanc dans la grille.</p>
+      <div class="table-wrap"><table>
+        <tr><th>Réglage de la fenêtre</th><th>Effet</th></tr>
+        <tr><td>Hauteur / Fondamentale</td><td>Choisis la note (C à B) et l'octave, ou décale avec −8ve, −½, +½, +8ve. Chaque changement fait entendre le résultat.</td></tr>
+        <tr><td>Type d'accord</td><td>Pistes Accord et Arpège : les 12 types (Majeur, Mineur, 7, Maj7…)</td></tr>
+        <tr><td>Longueur (pas)</td><td>Durée de la note. Elle ne peut pas dépasser le début de la note suivante.</td></tr>
+        <tr><td>Vélocité</td><td>Force de la note, de 1 à 127</td></tr>
+        <tr><td>Écouter, Supprimer, Appliquer</td><td>Rien ne change avant <b>Appliquer</b>. Annuler ou Échap ferme sans modifier.</td></tr>
+      </table></div>
+      <p>Le menu du clic droit (ou de l'appui long) propose aussi « Modifier la note… » ou « Modifier l'accord… », qui ouvre la même fenêtre.</p>
+
+      <h3>Directement dans la grille</h3>
       <div class="table-wrap"><table>
         <tr><th>Je veux…</th><th>Piste Mono</th><th>Piste Accord ou Arpège</th></tr>
         <tr><td>Poser</td><td>Clic sur une case vide : la note de cette ligne</td><td>Clic sur une case vide : un accord dont cette ligne est la fondamentale, du type choisi dans « Accord »</td></tr>
@@ -142,7 +157,7 @@
         <tr><td>Supprimer</td><td>Clic sur la note</td><td>Clic sur n'importe quelle note de l'accord, ou clic droit / appui long puis « Supprimer l'accord »</td></tr>
       </table></div>
       <p>Quand tu remplaces une note ou un accord, le nouveau repart avec une longueur d'un pas et une vélocité moyenne : réallonge-le en glissant. Un accord ne peut pas en chevaucher un autre : l'allongement s'arrête juste avant l'accord suivant.</p>
-      <div class="note"><b>Clic droit ou appui long sur un accord</b> (ligne compacte ou piano roll) : un menu liste les 12 types d'accord sur la même fondamentale, avec le type actuel en surbrillance. Un clic applique le type et fait entendre l'accord. Échap ferme le menu. Sur téléphone ou tablette, garde le doigt appuyé une demi-seconde sans bouger ; un appui court garde son effet habituel. Ce menu n'existe pas sur les pistes Mono.</div>
+      <div class="note"><b>Clic droit ou appui long sur une note ou un accord</b> (ligne compacte ou piano roll) : un menu propose « Modifier… », puis, pour un accord, les 12 types d'accord sur la même fondamentale avec le type actuel en surbrillance. Un clic sur un type l'applique et fait entendre l'accord. Échap ferme le menu. Sur téléphone ou tablette, garde le doigt appuyé une demi-seconde sans bouger ; un appui court garde son effet habituel.</div>
       <p><b>Sur la ligne compacte</b> (la ligne de la piste, piano roll fermé), un clic sur une case vide pose la dernière note ou le dernier accord utilisé, et un clic sur une note existante la supprime. Chaque début de note affiche son nom : A1 pour une note, Am7 ou Fmaj7 pour un accord.</p>
       <p>Une note hors des 2 octaves affichées est toujours jouée. Utilise <b>Octave − / +</b> pour la voir.</p>
 
