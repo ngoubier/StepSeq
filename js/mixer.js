@@ -771,12 +771,153 @@ SS.mixer = (() => {
         },
       }, 'Réinitialiser')
     );
-    $('#mixerDetail').replaceChildren(head, h('div', { class: 'detail-mods' }, eqBox, compBox, limBox));
+    $('#mixerDetail').replaceChildren(head, profileBar(ch), h('div', { class: 'detail-mods' }, eqBox, compBox, limBox));
     detailRefs = { eqBox, drawBig, drawTransfer, grBig, grLim, ch };
     requestAnimationFrame(() => {
       drawBig();
       drawTransfer();
     });
+  }
+
+  /* ------------------------------------------------------------------ profils */
+  let lastProfile = {}; // id du dernier profil appliqué, par tranche (pour l'afficher dans la liste)
+
+  /** Piste qui sert de source au sidechain d'un profil : le premier kick (autre que la piste elle-même). */
+  const kickOf = (track) => app.project().tracks.find((t) => t !== track && t.type === 'drum' && t.sound === 'bd');
+
+  function applyProfile(ch, prof) {
+    const clone = (o) => JSON.parse(JSON.stringify(o));
+    const m = ch.getMix();
+    m.eq = clone(prof.mix.eq);
+    m.comp = clone(prof.mix.comp);
+    m.lim = clone(prof.mix.lim);
+    ch.setMix(ch.master ? m : SS.cleanMix(m));
+    let note = '';
+    if (ch.master && Number.isFinite(prof.volume)) ch.setVol(prof.volume);
+    if (!ch.master && prof.sc) {
+      const kick = kickOf(ch.track);
+      if (kick) {
+        ch.track.fx = { ...(ch.track.fx || {}), scSource: kick.id, scDepth: prof.sc.depth, scRelease: prof.sc.release };
+        SS.audio.applyFx(ch.track);
+        note = ` · sidechain sur « ${kick.name} »`;
+      } else note = ' · pas de kick pour le sidechain';
+    }
+    lastProfile[ch.id] = prof.id;
+    app.changed();
+    render();
+    SS.ui.toast(`Profil « ${prof.name} » appliqué${note} — Ctrl+Z pour annuler`, 3500);
+  }
+
+  function currentProfileData(ch) {
+    const m = ch.getMix();
+    const data = { mix: { eq: m.eq, comp: m.comp, lim: m.lim } };
+    if (ch.master) data.volume = ch.getVol();
+    else {
+      const f = SS.fxParams(ch.track);
+      if (f.scSource && f.scDepth > 0) data.sc = { depth: f.scDepth, release: f.scRelease };
+    }
+    return data;
+  }
+
+  function profileBar(ch) {
+    const kind = ch.master ? 'master' : 'channel';
+    const { factory, user } = SS.profiles.list(kind);
+    const desc = h('span', { class: 'profile-desc' });
+    const opt = (p) => h('option', { value: p.id, selected: lastProfile[ch.id] === p.id }, p.name);
+    const sel = h(
+      'select',
+      { class: 'profile-select', 'aria-label': 'Profil de console' },
+      h('option', { value: '' }, ch.master ? '— Choisir un profil de mastering —' : '— Choisir un profil de tranche —'),
+      h('optgroup', { label: 'Profils d’usine' }, factory.map(opt)),
+      user.length ? h('optgroup', { label: 'Mes profils' }, user.map(opt)) : null
+    );
+    const showDesc = () => {
+      const p = sel.value && SS.profiles.find(sel.value);
+      desc.textContent = p ? p.desc || (p.factory ? '' : 'Profil personnel') : 'Applique d’un coup EQ, compresseur et limiteur' + (ch.master ? ' (et le niveau du Master).' : ' (et le sidechain si le profil en a un).');
+      delBtn.disabled = !p || p.factory;
+    };
+    sel.addEventListener('change', () => {
+      const p = sel.value && SS.profiles.find(sel.value);
+      if (p) applyProfile(ch, p);
+    });
+    const delBtn = h('button', {
+      type: 'button',
+      class: 'btn btn-small',
+      title: 'Supprimer le profil personnel choisi',
+      onclick: () => {
+        const p = SS.profiles.find(sel.value);
+        if (!p || p.factory || !confirm(`Supprimer le profil « ${p.name} » ?`)) return;
+        SS.profiles.remove(p.id);
+        delete lastProfile[ch.id];
+        render();
+      },
+    }, 'Supprimer');
+    const saveBtn = h('button', {
+      type: 'button',
+      class: 'btn btn-small btn-accent',
+      title: 'Mémoriser les réglages actuels de cette tranche comme profil',
+      onclick: () => {
+        const input = h('input', { type: 'text', class: 'profile-name', placeholder: 'Nom du profil', maxlength: 60, value: ch.master ? 'Mon master' : ch.name });
+        const done = (ok) => {
+          const name = input.value.trim();
+          if (ok && name) {
+            const p = SS.profiles.save(kind, name, currentProfileData(ch));
+            if (p) {
+              lastProfile[ch.id] = p.id;
+              SS.ui.toast(`Profil « ${name} » enregistré`, 2000);
+            } else SS.ui.toast('Impossible d’enregistrer le profil dans ce navigateur.', 3000);
+          }
+          render();
+        };
+        input.addEventListener('keydown', (e) => {
+          e.stopPropagation();
+          if (e.key === 'Enter') done(true);
+          if (e.key === 'Escape') done(false);
+        });
+        const form = h('span', { class: 'profile-form' }, input,
+          h('button', { type: 'button', class: 'btn btn-small btn-accent', onclick: () => done(true) }, 'OK'),
+          h('button', { type: 'button', class: 'btn btn-small', onclick: () => done(false) }, 'Annuler'));
+        saveBtn.replaceWith(form);
+        input.focus();
+        input.select();
+      },
+    }, 'Enregistrer comme profil…');
+    const exportBtn = h('button', {
+      type: 'button',
+      class: 'btn btn-small',
+      title: 'Télécharger mes profils dans un fichier (pour les sauvegarder ou les partager)',
+      onclick: () => {
+        const blob = new Blob([SS.profiles.exportJson()], { type: 'application/json' });
+        const a = h('a', { href: URL.createObjectURL(blob), download: 'stepseq-profils.json' });
+        document.body.append(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      },
+    }, 'Exporter');
+    const importBtn = h('button', {
+      type: 'button',
+      class: 'btn btn-small',
+      title: 'Ajouter les profils d’un fichier exporté',
+      onclick: () => {
+        const input = h('input', { type: 'file', accept: '.json,application/json' });
+        input.addEventListener('change', async () => {
+          const f = input.files[0];
+          if (!f) return;
+          try {
+            const n = SS.profiles.importJson(await f.text());
+            SS.ui.toast(`${n} profil(s) importé(s)`, 2500);
+            render();
+          } catch (e) {
+            SS.ui.toast('Ce fichier ne contient pas de profils StepSeq.', 3000);
+          }
+        });
+        input.click();
+      },
+    }, 'Importer');
+    showDesc();
+    sel.addEventListener('change', showDesc);
+    return h('div', { class: 'profile-bar' }, h('label', { class: 'profile-label' }, 'Profil'), sel, saveBtn, delBtn, exportBtn, importBtn, desc);
   }
 
   /** Redessine les courbes d'EQ (miniature de la tranche + grande courbe). */

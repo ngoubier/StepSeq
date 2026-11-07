@@ -305,6 +305,18 @@
         <tr><td>Limiteur</td><td>Plafond et Relâchement : le signal ne dépasse jamais le plafond. Sur le Master, il est actif par défaut à −0,3 dB, avec le compresseur « glue » que l'application utilisait déjà.</td></tr>
       </table></div>
       <p>Toucher un réglage active le module. Double-clic sur un curseur : valeur par défaut. <b>Réinitialiser</b> remet la tranche à plat. Tout est enregistré dans le projet et s'annule avec Ctrl+Z.</p>
+      <h3>Profils</h3>
+      <p>Au-dessus des modules, la liste <b>Profil</b> applique d'un coup un réglage complet à la tranche choisie (EQ, compresseur, limiteur ; plus le sidechain sur le kick si le profil en a un, ou le niveau pour le Master). Le panoramique et le volume de la piste ne changent pas. Ctrl+Z annule.</p>
+      <div class="table-wrap"><table>
+        <tr><th>Profils d'usine</th><th>Contenu</th></tr>
+        <tr><td>Tranches</td><td>Tranche à plat, Kick punchy (synthpop), Caisse claire présente, Clap aéré, Hi-hat brillant, Open hat, Toms (nettoyage), Cymbale / crash, Basse synth + pompe, Nappe large + pompe, Arpège discret + pompe, Lead synth en avant — les réglages du mixage de « Train de nuit ».</td></tr>
+        <tr><td>Master</td><td>Master synthpop / dance (≈ −11 LUFS), Master streaming (≈ −14 LUFS, 3 dB plus doux pour Spotify / YouTube), Master d'origine (sécurité).</td></tr>
+      </table></div>
+      <ul>
+        <li><b>Enregistrer comme profil…</b> mémorise les réglages actuels de la tranche sous le nom de ton choix (un nom existant est remplacé). Tes profils apparaissent sous « Mes profils », pour toutes les pistes et tous les projets.</li>
+        <li><b>Supprimer</b> efface le profil personnel choisi.</li>
+        <li>Tes profils sont gardés dans ce navigateur : <b>Exporter</b> les télécharge dans un fichier, <b>Importer</b> les recharge (sur un autre ordinateur, ou après avoir vidé le navigateur).</li>
+      </ul>
 
       <h2 id="fichiers">Enregistrer et ouvrir</h2>
       <p>Un projet s'enregistre dans un fichier <code>.stepseq.json</code>, qu'on rouvre avec <b>Ouvrir</b>.</p>
