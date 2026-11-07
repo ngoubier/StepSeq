@@ -2674,9 +2674,19 @@ SS.ui = (() => {
       { passive: true }
     );
     // clic dans le vide (fond, en-têtes, règle) : tout désélectionner
-    $('#workspace').addEventListener('pointerdown', (e) => {
+    // (sauf sur les barres de défilement de l'espace de travail, qui servent à naviguer)
+    const ws = $('#workspace');
+    ws.addEventListener('pointerdown', (e) => {
       if (e.button !== 0 || !sel) return;
       if (e.target.closest('button, input, select, label, a, .grid, .roll, .th-name, .th-grip, .len-handle')) return;
+      if (e.target === ws) {
+        const r = ws.getBoundingClientRect();
+        // barre classique : hors de la zone utile ; barre superposée (macOS) : bande de 18 px le long des bords
+        const x = e.clientX - r.left - ws.clientLeft;
+        const y = e.clientY - r.top - ws.clientTop;
+        const onScrollbar = x >= ws.clientWidth - 18 || y >= ws.clientHeight - 18;
+        if (onScrollbar) return;
+      }
       setSelection(null);
     });
     const on = (id, fn) => $(id) && $(id).addEventListener('click', fn);
