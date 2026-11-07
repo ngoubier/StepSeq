@@ -199,11 +199,16 @@ SS.ui = (() => {
     }
     grid.addEventListener('pointerdown', (e) => {
       const cell = e.target.closest('.cell');
-      if (!cell) return;
+      if (!cell || e.button !== 0) return; // le clic droit est réservé au menu d'accord
       e.preventDefault();
       const s = +cell.dataset.step;
       if (track.type === 'drum') drumGesture(track, s, e);
       else noteGesture(track, s, null, e);
+    });
+
+    grid.addEventListener('contextmenu', (e) => {
+      const cell = e.target.closest('.cell');
+      if (cell) chordMenuFromEvent(track, +cell.dataset.step, e);
     });
 
     const el = h('div', { class: 'track', style: `--c:${track.color}`, 'data-id': track.id }, h('div', { class: 'track-row' }, head, grid));
@@ -294,7 +299,7 @@ SS.ui = (() => {
         { style: 'opacity:.8' },
         track.category === 'mono'
           ? 'Cliquer pour poser une note, glisser vers la droite pour l’allonger.'
-          : 'Cliquer sur la fondamentale pour poser un accord, glisser pour l’allonger.'
+          : 'Cliquer sur la fondamentale pour poser un accord, glisser pour l’allonger. Clic droit sur un accord : changer son type.'
       ),
       h(
         'button',
@@ -325,9 +330,13 @@ SS.ui = (() => {
         grid.append(c);
       }
       ref.roll.set(midi, cells);
+      grid.addEventListener('contextmenu', (e) => {
+        const cell = e.target.closest('.rcell');
+        if (cell) chordMenuFromEvent(track, +cell.dataset.step, e);
+      });
       grid.addEventListener('pointerdown', (e) => {
         const cell = e.target.closest('.rcell');
-        if (!cell) return;
+        if (!cell || e.button !== 0) return;
         e.preventDefault();
         noteGesture(track, +cell.dataset.step, +cell.dataset.midi, e);
       });
@@ -514,6 +523,93 @@ SS.ui = (() => {
         paint(track);
       }
     });
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Menu clic droit : changer le type d'un accord                       */
+  /* ------------------------------------------------------------------ */
+
+  let menuEl = null;
+
+  function closeChordMenu() {
+    if (!menuEl) return;
+    menuEl.remove();
+    menuEl = null;
+    document.removeEventListener('pointerdown', onOutside, true);
+    document.removeEventListener('keydown', onMenuKey, true);
+    window.removeEventListener('resize', closeChordMenu);
+    document.getElementById('workspace').removeEventListener('scroll', closeChordMenu);
+  }
+  function onOutside(e) {
+    if (menuEl && !menuEl.contains(e.target)) closeChordMenu();
+  }
+  function onMenuKey(e) {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      closeChordMenu();
+    }
+  }
+
+  function chordMenuFromEvent(track, s, e) {
+    if (track.type !== 'instrument' || track.category === 'mono') return; // menu normal du navigateur
+    e.preventDefault();
+    const ev = findEventAt(track, s);
+    if (!ev) return;
+    openChordMenu(track, ev, e.clientX, e.clientY);
+  }
+
+  function openChordMenu(track, ev, x, y) {
+    closeChordMenu();
+    const root = ev.notes[0];
+    const current = ev.chord || '';
+    const rootName = SS.NOTE_NAMES[root % 12];
+    const apply = (id) => {
+      ev.notes = SS.chordNotes(root, id);
+      ev.chord = id;
+      paint(track);
+      app.changed();
+      if (!SS.audio.isPlaying()) SS.audio.preview(track, ev.notes);
+      closeChordMenu();
+    };
+    menuEl = h(
+      'div',
+      { class: 'ctx-menu', role: 'menu', 'aria-label': 'Type d’accord' },
+      h('div', { class: 'ctx-title' }, `Accord sur ${rootName}`),
+      SS.CHORDS.map((c) =>
+        h(
+          'button',
+          { type: 'button', role: 'menuitemradio', 'aria-checked': String(c.id === current), class: c.id === current ? 'current' : null, onclick: () => apply(c.id) },
+          h('span', { class: 'ctx-name' }, rootName + (CHORD_SUFFIX[c.id] ?? '')),
+          h('span', { class: 'ctx-desc' }, c.label)
+        )
+      ),
+      h('hr'),
+      h(
+        'button',
+        {
+          type: 'button',
+          role: 'menuitem',
+          class: 'danger',
+          onclick: () => {
+            track.events = track.events.filter((x) => x !== ev);
+            paint(track);
+            app.changed();
+            closeChordMenu();
+          },
+        },
+        'Supprimer l’accord'
+      )
+    );
+    document.body.append(menuEl);
+    // garde le menu dans la fenêtre
+    const r = menuEl.getBoundingClientRect();
+    menuEl.style.left = Math.max(8, Math.min(x, window.innerWidth - r.width - 8)) + 'px';
+    menuEl.style.top = Math.max(8, Math.min(y, window.innerHeight - r.height - 8)) + 'px';
+    (menuEl.querySelector('.current') || menuEl.querySelector('button')).focus();
+    document.addEventListener('pointerdown', onOutside, true);
+    document.addEventListener('keydown', onMenuKey, true);
+    window.addEventListener('resize', closeChordMenu);
+    document.getElementById('workspace').addEventListener('scroll', closeChordMenu);
   }
 
   /* ------------------------------------------------------------------ */
