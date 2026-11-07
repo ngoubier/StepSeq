@@ -152,7 +152,7 @@
       <p>Le son est joué à chaque changement de choix. Les synthés se chargent instantanément ; les autres sons sont téléchargés au premier usage. Les anciens projets s'ouvrent avec exactement le même son qu'avant.</p>
 
       <h3>Pistes Synthé : synthés analogiques</h3>
-      <p>Le type <b>Synthé</b> propose des émulations de synthés analogiques existants. La colonne de gauche liste les synthés (pour l'instant le <b>Roland Juno-106</b>, 1984), celle de droite ses patches, et une fiche résume sa configuration : polyphonie, oscillateur, filtres, modulation, enveloppe, effet, mémoires. Une piste Synthé se joue comme une piste instrument (Mono, Arpège ou Accord, piano roll).</p>
+      <p>Le type <b>Synthé</b> propose des émulations de synthés analogiques existants. La colonne de gauche liste les synthés (pour l'instant le <b>Roland Juno-106</b>, 1984), celle de droite ses 128 patches d'usine (A11 Brass à B88), et une fiche résume sa configuration : polyphonie, oscillateur, filtres, modulation, enveloppe, effet, mémoires. Une piste Synthé se joue comme une piste instrument (Mono, Arpège ou Accord, piano roll).</p>
 
       <h3>Longueur propre à chaque piste</h3>
       <p>Chaque piste peut avoir sa propre longueur de boucle, plus courte que le projet. Deux façons de la régler :</p>
@@ -248,22 +248,22 @@
       </ul>
 
       <h3 id="juno">Sound design d'une piste Synthé : la façade du Juno-106</h3>
-      <p>Sur une piste Synthé, le bouton à curseurs ouvre une copie de la façade du Juno-106 : mêmes sections, mêmes curseurs gradués de 0 à 10, mêmes boutons à LED et interrupteurs.</p>
+      <p>Sur une piste Synthé, le bouton à curseurs ouvre une copie de la façade d'origine du Juno-106 : bandeaux rouges, curseurs gradués 0–10, touches blanches, jaunes et bleu pâle à LED, inverseurs, afficheur à LED rouge. Le son vient d'un portage du moteur de KR-106 (firmware du Juno-106, filtre IR3109, chorus BBD) : les réglages s'entendent tout de suite, même sur les notes tenues.</p>
       <div class="table-wrap"><table>
         <tr><th>Section</th><th>Commandes</th></tr>
         <tr><td>TUNE / VOLUME</td><td>Accord fin (±50 cents) et volume de la piste</td></tr>
         <tr><td>LFO</td><td>RATE (0,1 à 30 Hz), DELAY TIME (le LFO entre progressivement après chaque note)</td></tr>
-        <tr><td>DCO</td><td>RANGE 16' / 8' / 4', LFO (vibrato), PWM et son interrupteur LFO / MAN, boutons impulsion et dent de scie, SUB OSC (carré une octave plus bas), NOISE</td></tr>
+        <tr><td>DCO</td><td>RANGE 16' / 8' / 4' (trois touches), LFO (vibrato), PWM et son interrupteur LFO / MAN, boutons impulsion et dent de scie, SUB OSC (carré une octave plus bas), NOISE</td></tr>
         <tr><td>HPF</td><td>FREQ à 4 crans : 0 = renfort de graves, 1 = neutre, 2 et 3 = coupe-bas</td></tr>
         <tr><td>VCF</td><td>Passe-bas résonant 24 dB/oct : FREQ, RES, polarité de l'enveloppe (+ / −), ENV, LFO, KYBD (suivi de clavier)</td></tr>
         <tr><td>VCA</td><td>ENV / GATE (enveloppe ou simple porte), LEVEL</td></tr>
         <tr><td>ENV</td><td>A, D, S, R : une seule enveloppe pour le filtre et le volume</td></tr>
         <tr><td>CHORUS</td><td>OFF, I (lent), II (plus rapide) : le chorus stéréo caractéristique du Juno</td></tr>
-        <tr><td>Patches</td><td>MANUAL, GROUP A/B, BANK 1–8, NUMBER 1–8, avec l'afficheur à LED. Les patches A11 à A28 sont fournis ; une mémoire vide fait clignoter l'afficheur.</td></tr>
+        <tr><td>Patches</td><td>SELECT (groupe A / B, LED rouge / verte), BANK 1–8, PATCH NUMBER 1–8 et MANUAL ; l'afficheur à LED indique la banque puis le numéro (ex. « 11 ») et le nom du patch s'affiche dessous. Les 128 patches d'usine du Juno-106.</td></tr>
       </table></div>
       <ul>
         <li>Glisser un curseur, la molette ou les flèches du clavier (Maj : pas plus grand) ; la bulle donne la valeur réelle (Hz, ms, octaves…). Un double-clic remet la valeur du patch.</li>
-        <li>Un point rouge marque un curseur modifié ; l'afficheur prend un point (« A14. ») quand le patch est modifié. <b>Recharger le patch</b> annule les modifications.</li>
+        <li>L'étiquette d'un curseur modifié passe en jaune ; le nom du patch prend une étoile quand il est modifié. <b>Recharger le patch</b> annule les modifications.</li>
         <li>Comme sur l'original, 6 notes au plus sonnent en même temps : la plus ancienne est coupée. Contrairement à l'original, la vélocité des notes est prise en compte.</li>
       </ul>
 

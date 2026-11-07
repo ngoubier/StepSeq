@@ -41,34 +41,35 @@ SS.junoPanel = (() => {
     }
     if (Object.keys(j).length) track.juno = j;
     else delete track.juno;
-    if (key === 'chorus') SS.audio.applySynth(track);
+    SS.audio.applySynth(track); // comme sur le vrai synthé : les notes tenues changent aussi
     app.changed();
     syncAll();
   }
 
   /* ---------- Lectures physiques (bulle d'aide) ---------- */
-  const M = SS.JUNO_MAP;
-  const fmtT = (v) => (v < 1 ? `${Math.round(v * 1000)} ms` : `${v.toFixed(2)} s`);
+  const D = SS.JunoDSP; // conversions du moteur (modèle J106 de l'Ultramaster KR-106)
+  const fmtMs = (ms) => (ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(2)} s`);
   const fmtHz = (v) => (v < 1000 ? `${v < 10 ? v.toFixed(2) : Math.round(v)} Hz` : `${(v / 1000).toFixed(2)} kHz`);
+  const pct = (x) => `${Math.round(x * 100)} %`;
   const READOUT = {
-    lfoRate: (x) => fmtHz(M.lfoRate(x)),
-    lfoDelay: (x) => (x ? fmtT(M.lfoDelay(x)) : 'off'),
-    dcoLfo: (x) => `±${Math.round(M.dcoLfo(x))} cents`,
-    pwm: (x) => `largeur ${Math.round((0.5 - x * 0.45) * 100)} %`,
-    sub: (x) => `${Math.round(x * 100)} %`,
-    noise: (x) => `${Math.round(x * 100)} %`,
-    hpf: (v) => ['0 : renfort de graves', '1 : neutre', '2 : coupe-bas 240 Hz', '3 : coupe-bas 720 Hz'][v],
-    vcfFreq: (x) => fmtHz(M.vcfFreq(x)),
-    vcfRes: (x) => `${Math.round(x * 100)} %`,
-    vcfEnv: (x) => `${M.vcfEnv(x).toFixed(1)} oct`,
-    vcfLfo: (x) => `±${M.vcfLfo(x).toFixed(1)} oct`,
-    kybd: (x) => `${Math.round(x * 100)} %`,
-    vcaLevel: (x) => `${Math.round(x * 200)} %`,
-    attack: (x) => fmtT(M.attack(x)),
-    decay: (x) => fmtT(M.decay(x)),
-    sustain: (x) => `${Math.round(x * 100)} %`,
-    release: (x) => fmtT(M.release(x)),
-    volume: (x) => `${Math.round(x * 100)} %`,
+    lfoRate: (x) => fmtHz(D.lfoFreq(x)),
+    lfoDelay: (x) => (D.lfoHoldoff(x) > 0 ? `attente ${fmtMs(D.lfoHoldoff(x) * 1000)}` : 'off'),
+    dcoLfo: (x) => (D.dcoLfoDepth(x) ? `±${D.dcoLfoDepth(x).toFixed(2)} demi-ton` : 'off'),
+    pwm: (x) => `rapport ${Math.round((0.5 + x * 0.45) * 100)} %`,
+    sub: (x) => (x > 0 ? pct(D.subLevel(x)) : 'off'),
+    noise: (x) => (x > 0 ? pct(D.noiseLevel(x)) : 'off'),
+    hpf: (v) => `${v} : ${D.HPF_LABELS[v]}`,
+    vcfFreq: (x) => fmtHz(D.cutoffHz(x)),
+    vcfRes: pct,
+    vcfEnv: pct,
+    vcfLfo: (x) => (x ? `±${D.vcfLfoDepth(x).toFixed(1)} demi-tons` : 'off'),
+    kybd: pct,
+    vcaLevel: (x) => `${D.vcaLevelDb(x) >= 0 ? '+' : ''}${D.vcaLevelDb(x).toFixed(1)} dB`,
+    attack: (x) => fmtMs(D.attackMs(x)),
+    decay: (x) => fmtMs(D.decRelMs(x)),
+    sustain: pct,
+    release: (x) => fmtMs(D.decRelMs(x)),
+    volume: pct,
     tune: (x) => `${x >= 0.5 ? '+' : ''}${Math.round((x - 0.5) * 100)} cents`,
   };
 
@@ -82,18 +83,19 @@ SS.junoPanel = (() => {
     const toUnit = (v) => (steps ? v / (steps - 1) : v);
     const fromUnit = (u) => (steps ? Math.round(u * (steps - 1)) : Math.round(u * 1000) / 1000);
 
-    const cap = el('div', 'js-cap');
+    const cap = el('div', 'js-cap', {}, el('span', 'js-cap-line'));
     const slot = el('div', 'js-slot', {}, cap);
+    // graduations du panneau : un trait par unité, traits épais à 0, 5 et 10 (HPF : un trait par cran)
     const scale = el('div', 'js-scale', { 'aria-hidden': 'true' });
-    const marks = steps ? [...Array(steps).keys()].reverse() : [10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
-    marks.forEach((m) => scale.append(el('span', '', { text: String(m) })));
+    const n = steps || 11;
+    for (let i = 0; i < n; i++) scale.append(el('span', steps || i % 5 === 0 ? 'heavy' : '', { style: `bottom:${((i / (n - 1)) * 100).toFixed(2)}%` }));
     const tip = el('div', 'js-tip');
     const box = el('div', 'js-box', { role: 'slider', tabindex: '0', 'aria-label': label, 'aria-valuemin': '0', 'aria-valuemax': String(steps ? steps - 1 : 10) }, scale, slot, tip);
-    const wrap = el('div', 'jslider' + (steps ? ' notched' : ''), {}, box, el('div', 'js-label', { text: label }));
+    const wrap = el('div', 'jslider' + (steps ? ' notched' : ''), {}, el('div', 'js-label', { text: label }), box);
 
     const valueAt = (clientY) => {
       const r = slot.getBoundingClientRect();
-      return Math.max(0, Math.min(1, 1 - (clientY - r.top - 6) / (r.height - 12)));
+      return Math.max(0, Math.min(1, 1 - (clientY - r.top) / r.height));
     };
     const commit = (u) => {
       const v = fromUnit(Math.max(0, Math.min(1, u)));
@@ -112,7 +114,7 @@ SS.junoPanel = (() => {
       if (!onCap) commit(valueAt(e.clientY));
       const move = (ev) => {
         if (onCap) {
-          const h = slot.getBoundingClientRect().height - 12;
+          const h = slot.getBoundingClientRect().height;
           commit(startU - (ev.clientY - startY) / h);
         } else commit(valueAt(ev.clientY));
       };
@@ -148,7 +150,7 @@ SS.junoPanel = (() => {
       sync() {
         const v = get();
         const u = toUnit(v);
-        cap.style.bottom = `calc(${(u * 100).toFixed(2)}% - ${(u * 12).toFixed(2)}px)`;
+        cap.style.bottom = `${(u * 100).toFixed(2)}%`; // le centre du capuchon suit la graduation
         const txt = READOUT[key] ? READOUT[key](v) : String(v);
         tip.textContent = txt;
         box.setAttribute('aria-valuenow', steps ? String(v) : (v * 10).toFixed(1));
@@ -161,16 +163,47 @@ SS.junoPanel = (() => {
     return wrap;
   }
 
-  /** Bouton du Juno avec sa LED rouge. */
-  function button(label, isOn, onPress, cls = '') {
-    const led = el('span', 'jb-led', { 'aria-hidden': 'true' });
-    const b = el('button', 'jbtn ' + cls, { type: 'button', onclick: onPress }, el('span', 'jb-cap', {}, label));
-    const wrap = el('div', 'jb-wrap', {}, led, b);
+  /**
+   * Bouton du Juno : sérigraphie au-dessus, LED rouge (ou simple trait, opts.led === false),
+   * puis la touche en relief sans inscription (opts.color : 'cream', 'yellow' ou 'orange').
+   */
+  function button(label, isOn, onPress, opts = {}) {
+    const aria = opts.aria || (typeof label === 'string' ? label : '');
+    // opts.led : true (LED rouge), false (simple trait sérigraphié), 'none' (rien : touches de patch)
+    const led = opts.led === 'none' ? null : el('span', opts.led === false ? 'jb-line' : 'jb-led', { 'aria-hidden': 'true' });
+    const b = el('button', `jbtn ${opts.color || 'white'} ${opts.cls || ''}`, { type: 'button', 'aria-label': aria, title: aria, onclick: onPress });
+    const wrap = el('div', 'jb-wrap', {}, label === '' ? null : el('span', 'jb-label', { 'aria-hidden': 'true' }, label), led, b);
     controls.push({
       sync() {
         const on = isOn();
-        led.classList.toggle('on', on);
+        if (led) led.classList.toggle('on', on);
+        b.classList.toggle('pressed', on);
         b.setAttribute('aria-pressed', String(on));
+      },
+    });
+    return wrap;
+  }
+
+  /** Inverseur à 3 positions (RANGE 4' / 8' / 16'), de haut en bas. */
+  function toggle3(key, values, labels, aria) {
+    const lever = el('span', 'jt-lever');
+    const sw = el('button', 'jtoggle three', {
+      type: 'button',
+      'aria-label': aria,
+      onclick: (e) => {
+        // clic dans le tiers haut / milieu / bas = position correspondante
+        const r = sw.getBoundingClientRect();
+        const i = Math.max(0, Math.min(2, Math.floor(((e.clientY - r.top) / r.height) * 3)));
+        set(key, values[e.detail === 0 ? (values.indexOf(params()[key]) + 1) % 3 : i]);
+      },
+    }, lever);
+    const lab = el('div', 'jt3-labels', { 'aria-hidden': 'true' }, ...labels.map((l) => el('span', '', { text: l })));
+    const wrap = el('div', 'jt-wrap jt3', {}, el('div', 'jt3-body', {}, lab, sw));
+    controls.push({
+      sync() {
+        const i = values.indexOf(params()[key]);
+        sw.dataset.pos = String(i);
+        sw.title = `${aria} : ${labels[i]}`;
       },
     });
     return wrap;
@@ -180,12 +213,13 @@ SS.junoPanel = (() => {
   function toggle(key, upVal, upLabel, downVal, downLabel, aria) {
     const lever = el('span', 'jt-lever');
     const sw = el('button', 'jtoggle', { type: 'button', 'aria-label': aria, onclick: () => set(key, params()[key] === upVal ? downVal : upVal) }, lever);
-    const wrap = el('div', 'jt-wrap', {}, el('span', 'jt-l', { text: upLabel }), sw, el('span', 'jt-l', { text: downLabel }));
+    const lab = (l) => (l instanceof Node ? el('span', 'jt-l', {}, l) : el('span', 'jt-l', { text: l }));
+    const wrap = el('div', 'jt-wrap', {}, lab(upLabel), sw, lab(downLabel));
     controls.push({
       sync() {
         const up = params()[key] === upVal;
         sw.classList.toggle('up', up);
-        sw.title = `${aria} : ${up ? upLabel : downLabel}`;
+        sw.title = `${aria} : ${up ? (typeof upLabel === 'string' ? upLabel : '+') : typeof downLabel === 'string' ? downLabel : '−'}`;
       },
     });
     return wrap;
@@ -243,6 +277,22 @@ SS.junoPanel = (() => {
   const section = (title, cls, ...kids) =>
     el('section', 'jsec ' + cls, {}, el('h3', 'jsec-title', { text: title }), el('div', 'jsec-body', {}, ...kids));
   const group = (cls, ...kids) => el('div', 'jgroup ' + (cls || ''), {}, ...kids);
+  /** Groupe de commandes encadré par les filets blancs du panneau. */
+  const cg = (...kids) => el('div', 'jcg', {}, ...kids);
+  /** Graduation chiffrée sérigraphiée à gauche / droite d'un groupe de curseurs (10-5-0, 3-2-1-0, +5-0-−5). */
+  const nums = (marks, side) =>
+    el('div', 'jnum ' + side, { 'aria-hidden': 'true' },
+      el('div', 'jnum-pad'),
+      el('div', 'jnum-box', {}, ...marks.map((m, i) => el('span', '', { text: m, style: `bottom:${((1 - i / (marks.length - 1)) * 100).toFixed(2)}%` }))));
+  /** Groupe de curseurs encadré par sa graduation chiffrée. */
+  const scaled = (marks, ...kids) => cg(nums(marks, 'l'), ...kids, nums(marks, 'r'));
+  const TEN = ['10', '5', '0'];
+  /** Petits symboles d'enveloppe sérigraphiés (polarité du VCF). */
+  const envIcon = (inv) => {
+    const sp = document.createElement('span');
+    sp.innerHTML = `<svg viewBox="0 0 16 10" class="jenv" aria-hidden="true"><path d="${inv ? 'M1 1 L5 9 L9 5 L12 5 L15 1' : 'M1 9 L5 1 L9 5 L12 5 L15 9'}"/></svg>`;
+    return sp.firstChild;
+  };
 
   /* ---------- Construction de la façade ---------- */
   function build() {
@@ -259,68 +309,73 @@ SS.junoPanel = (() => {
           syncAll();
         }, () => 0.8)
       ),
-      section('LFO', 'jsec-lfo', slider('lfoRate', 'RATE'), slider('lfoDelay', 'DELAY TIME')),
+      section('LFO', 'jsec-lfo', scaled(TEN, slider('lfoRate', 'RATE'), slider('lfoDelay', 'DELAY TIME'))),
       section('DCO', 'jsec-dco',
-        group('jrange',
-          el('div', 'jgroup-title', { text: 'RANGE' }),
+        cg(group('jrange', el('div', 'jgroup-title', { text: 'RANGE' }),
           el('div', 'jrow', {},
-            button("16'", () => pv().range === 16, () => set('range', 16)),
-            button("8'", () => pv().range === 8, () => set('range', 8)),
-            button("4'", () => pv().range === 4, () => set('range', 4))
-          )
-        ),
-        slider('dcoLfo', 'LFO'),
-        slider('pwm', 'PWM'),
-        toggle('pwmMode', 'lfo', 'LFO', 'man', 'MAN', 'Source du PWM'),
-        group('jwaves',
-          el('div', 'jrow', {},
-            button(waveIcon('pulse'), () => pv().pulse, () => set('pulse', !pv().pulse), 'wave'),
-            button(waveIcon('saw'), () => pv().saw, () => set('saw', !pv().saw), 'wave')
-          )
-        ),
-        slider('sub', 'SUB OSC'),
-        slider('noise', 'NOISE')
+            button("16'", () => pv().range === 16, () => set('range', 16), { aria: "16'" }),
+            button("8'", () => pv().range === 8, () => set('range', 8), { aria: "8'" }),
+            button("4'", () => pv().range === 4, () => set('range', 4), { aria: "4'" })
+          ))),
+        scaled(TEN,
+          slider('dcoLfo', 'LFO'),
+          slider('pwm', 'PWM')),
+        cg(toggle('pwmMode', 'lfo', 'LFO', 'man', 'MAN', 'Source du PWM'),
+          // touches de forme d'onde : même hauteur que celles du RANGE
+          group('jwaves', el('div', 'jgroup-title', { text: '\u00a0' }),
+            el('div', 'jrow', {},
+              button(waveIcon('pulse'), () => pv().pulse, () => set('pulse', !pv().pulse), { aria: 'Impulsion', cls: 'wave' }),
+              button(waveIcon('saw'), () => pv().saw, () => set('saw', !pv().saw), { aria: 'Dent de scie', cls: 'wave' })))),
+        scaled(TEN, slider('sub', 'SUB'), slider('noise', 'NOISE'))
       ),
-      section('HPF', 'jsec-hpf', slider('hpf', 'FREQ', { steps: 4 })),
+      section('HPF', 'jsec-hpf', scaled(['3', '2', '1', '0'], slider('hpf', 'FREQ', { steps: 4 }))),
       section('VCF', 'jsec-vcf',
-        slider('vcfFreq', 'FREQ'),
-        slider('vcfRes', 'RES'),
-        toggle('envPol', 1, '+', -1, '−', "Polarité de l'enveloppe du filtre"),
-        slider('vcfEnv', 'ENV'),
-        slider('vcfLfo', 'LFO'),
-        slider('kybd', 'KYBD')
+        scaled(TEN,
+          slider('vcfFreq', 'FREQ'),
+          slider('vcfRes', 'RES'),
+          toggle('envPol', 1, envIcon(false), -1, envIcon(true), "Polarité de l'enveloppe du filtre"),
+          slider('vcfEnv', 'ENV'),
+          slider('vcfLfo', 'LFO'),
+          slider('kybd', 'KYBD')
+        )
       ),
-      section('VCA', 'jsec-vca', toggle('vcaMode', 'env', 'ENV', 'gate', 'GATE', 'Mode du VCA'), slider('vcaLevel', 'LEVEL')),
-      section('ENV', 'jsec-env', slider('attack', 'A'), slider('decay', 'D'), slider('sustain', 'S'), slider('release', 'R')),
+      section('VCA', 'jsec-vca', cg(toggle('vcaMode', 'env', 'ENV', 'gate', 'GATE', 'Mode du VCA'), slider('vcaLevel', 'LEVEL'), nums(['+5', '0', '−5'], 'r'))),
+      section('ENV', 'jsec-env', scaled(TEN, slider('attack', 'A'), slider('decay', 'D'), slider('sustain', 'S'), slider('release', 'R'))),
       section('CHORUS', 'jsec-chorus',
-        el('div', 'jrow jchorus', {},
-          button('OFF', () => !pv().chorus, () => set('chorus', 0)),
-          button('I', () => pv().chorus === 1, () => set('chorus', 1)),
-          button('II', () => pv().chorus === 2, () => set('chorus', 2))
+        cg(
+          el('div', 'jrow jchorus', {},
+            button('OFF', () => !pv().chorus, () => set('chorus', 0), { led: false, aria: 'Chorus off' }),
+            button('I', () => pv().chorus === 1, () => set('chorus', 1), { color: 'yellow', cls: 'serif', aria: 'Chorus I' }),
+            button('II', () => pv().chorus === 2, () => set('chorus', 2), { color: 'yellow', cls: 'serif', aria: 'Chorus II' })
+          )
         )
       )
     );
 
-    // Section des patches
+    // Bas de façade : sélection du groupe, banques, afficheur à LED, numéros de patch
     const bottom = $('#junoBottom');
-    const groupBtns = el('div', 'jrow', {},
-      button('A', () => groupOf() === 'A', () => pickPatch('A', bankOf() || 1, numOf() || 1), 'grp'),
-      button('B', () => groupOf() === 'B', () => pickPatch('B', bankOf() || 1, numOf() || 1), 'grp')
-    );
+    const ledA = el('span', 'jb-led');
+    const ledB = el('span', 'jb-led green');
+    controls.push({ sync: () => { ledA.classList.toggle('on', groupOf() !== 'B' && track.junoPatch !== 'MAN'); ledB.classList.toggle('on', groupOf() === 'B'); } });
     const banks = el('div', 'jrow', {});
-    const nums = el('div', 'jrow', {});
+    const numsRow = el('div', 'jrow', {});
     for (let i = 1; i <= 8; i++) {
-      banks.append(button(String(i), () => bankOf() === i, () => pickPatch(groupOf() || 'A', i, numOf() || 1), 'pbtn bank'));
-      nums.append(button(String(i), () => numOf() === i, () => pickPatch(groupOf() || 'A', bankOf() || 1, i), 'pbtn num'));
+      banks.append(button(String(i), () => bankOf() === i, () => pickPatch(groupOf() || 'A', i, numOf() || 1), { color: 'blue', led: 'none', cls: 'pbtn', aria: `Banque ${i}` }));
+      numsRow.append(button(String(i), () => numOf() === i, () => pickPatch(groupOf() || 'A', bankOf() || 1, i), { color: 'blue', led: 'none', cls: 'pbtn', aria: `Patch ${i}` }));
     }
     bottom.append(
-      el('div', 'jpatch-sec', {},
-        el('div', 'jgroup-title', { text: 'MANUAL' }),
-        el('div', 'jrow', {}, button('MANUAL', () => track.junoPatch === 'MAN', () => pickManual(), 'man'))
-      ),
-      el('div', 'jpatch-sec', {}, el('div', 'jgroup-title', { text: 'GROUP' }), groupBtns),
-      el('div', 'jpatch-sec banks', {}, el('div', 'jgroup-title', { text: 'BANK' }), banks),
-      el('div', 'jpatch-sec nums', {}, el('div', 'jgroup-title', { text: 'NUMBER' }), nums)
+      el('div', 'jpatch-sec jselect', {},
+        el('div', 'jsel-leds', {},
+          el('div', 'jsel-row', {}, el('span', 'jsel-l', { text: 'GROUP A' }), ledA),
+          el('div', 'jsel-row', {}, el('span', 'jsel-l', { text: 'GROUP B' }), ledB)),
+        button('SELECT', () => false, () => pickPatch(groupOf() === 'B' ? 'A' : 'B', bankOf() || 1, numOf() || 1), { led: 'none', aria: 'Groupe A / B' })),
+      el('div', 'jpatch-sec banks', {}, el('div', 'jbar', { text: 'BANK' }), banks),
+      el('div', 'jpatch-sec jdisp', {},
+        el('div', 'jdisp-labels', { 'aria-hidden': 'true' }, el('span', '', { text: 'BANK' }), el('span', '', { text: 'PATCH NUMBER' })),
+        el('div', 'jled', { id: 'junoDisplay', 'aria-live': 'polite' }),
+        el('div', 'jdisp-name', { id: 'junoPatchName' })),
+      el('div', 'jpatch-sec nums', {}, el('div', 'jbar', { text: 'PATCH NUMBER' }), numsRow),
+      el('div', 'jpatch-sec', {}, button('MANUAL', () => track.junoPatch === 'MAN', () => pickManual(), { led: false, aria: 'Manual' }))
     );
 
     const dlg = $('#junoDialog');
@@ -360,8 +415,8 @@ SS.junoPanel = (() => {
     span.className = 'jwave';
     span.innerHTML =
       kind === 'saw'
-        ? '<svg viewBox="0 0 24 14" aria-hidden="true"><path d="M1 12 L8 2 L8 12 L15 2 L15 12 L22 2 L22 12"/></svg><span class="sr">Dent de scie</span>'
-        : '<svg viewBox="0 0 24 14" aria-hidden="true"><path d="M1 12 V2 H6 V12 H12 V2 H17 V12 H23"/></svg><span class="sr">Impulsion</span>';
+        ? '<svg viewBox="0 0 24 14" aria-hidden="true"><path d="M1 12 L8 2 L8 12 L15 2 L15 12 L22 2 L22 12"/></svg>'
+        : '<svg viewBox="0 0 24 14" aria-hidden="true"><path d="M1 12 V2 H6 V12 H12 V2 H17 V12 H23"/></svg>';
     return span;
   }
 
@@ -377,8 +432,8 @@ SS.junoPanel = (() => {
     if (!patch) {
       // mémoire vide : l'afficheur clignote, rien n'est chargé
       const d = $('#junoDisplay');
-      d.textContent = id;
-      $('#junoPatchName').textContent = '— mémoire vide —';
+      showLed(b, n);
+      $('#junoPatchName').textContent = '';
       d.classList.remove('blink');
       void d.offsetWidth;
       d.classList.add('blink');
@@ -404,14 +459,27 @@ SS.junoPanel = (() => {
     syncAll();
   }
 
+  /** Afficheur à LED : banque puis numéro (ex. « 11 »), « -- » en manuel. */
+  function showLed(bank, num) {
+    const d = $('#junoDisplay');
+    if (bank == null) {
+      d.replaceChildren(el('span', '', { text: '--' }));
+      d.setAttribute('aria-label', 'Manual');
+      return;
+    }
+    d.replaceChildren(el('span', '', { text: `${bank}${num}` }));
+    d.setAttribute('aria-label', `Banque ${bank}, patch ${num}`);
+  }
+
   function syncAll() {
     if (!track) return;
     controls.forEach((c) => c.sync());
     const patch = SS.findJunoPatch(track.junoPatch);
     const edited = track.juno && Object.keys(track.juno).length;
-    $('#junoDisplay').textContent = track.junoPatch === 'MAN' ? 'MAN' : track.junoPatch;
+    // afficheur : « banque.numéro. » comme sur le Juno-106 (« -- » en manuel)
+    showLed(track.junoPatch === 'MAN' ? null : bankOf(), numOf());
     $('#junoDisplay').classList.toggle('edited', !!edited);
-    $('#junoPatchName').textContent = patch ? patch.name + (edited ? ' (modifié)' : '') : '';
+    $('#junoPatchName').textContent = (patch ? patch.name : '') + (edited ? ' *' : '');
   }
 
   /* ---------- Écoute ---------- */
@@ -420,7 +488,7 @@ SS.junoPanel = (() => {
     const root = track.lastRoot ?? (track.octave + 1) * 12;
     const notes = track.category === 'mono' ? root : SS.chordNotes(root, track.chord);
     const p = params();
-    const len = Math.min(2, Math.max(0.5, M.attack(p.attack) + 0.4));
+    const len = Math.min(2, Math.max(0.5, D.attackMs(p.attack) / 1000 + 0.4));
     SS.audio.preview(track, notes, len);
   }
 

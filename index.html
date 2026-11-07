@@ -319,17 +319,7 @@
     <form method="dialog" id="junoForm">
       <div class="juno-scroll">
         <div class="juno" id="junoPanel">
-          <div class="juno-top">
-            <div class="juno-brand"><span class="juno-roland">Roland</span></div>
-            <div class="juno-name">
-              <h2 id="junoTitle"><span>JUNO</span>-106</h2>
-              <span class="juno-sub">PROGRAMMABLE POLYPHONIC SYNTHESIZER</span>
-            </div>
-            <div class="juno-patch">
-              <div class="juno-led-display" id="junoDisplay" aria-live="polite">A11</div>
-              <div class="juno-patch-name" id="junoPatchName"></div>
-            </div>
-          </div>
+          <h2 id="junoTitle" class="sr">Roland Juno-106</h2>
           <div class="juno-body" id="junoBody"></div>
           <div class="juno-bottom" id="junoBottom"></div>
         </div>
@@ -467,6 +457,7 @@
 
   <script src="js/library.js"></script>
   <script src="js/sounds.js"></script>
+  <script src="js/juno-dsp.js"></script>
   <script src="js/juno.js"></script>
   <script src="js/project.js"></script>
   <script src="js/audio.js"></script>

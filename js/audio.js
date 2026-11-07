@@ -31,6 +31,7 @@ SS.audio = (() => {
       masterFader.connect(ctx.destination);
       masterFader.connect(masterMeter.node);
       if (pendingMaster) applyMaster(pendingMaster);
+      if (SS.juno) SS.juno.load(ctx); // module audio du Juno-106 (pistes Synthé)
     }
     if (ctx.state === 'suspended') ctx.resume();
     return ctx;
@@ -248,7 +249,8 @@ SS.audio = (() => {
         return;
       }
       const inst = instOf(track);
-      if (inst.kind === 'sf') await loadSoundfont(SS.sfFile(inst, track)).promise;
+      if (inst.kind === 'analog') await SS.juno.load(ctx);
+      else if (inst.kind === 'sf') await loadSoundfont(SS.sfFile(inst, track)).promise;
       else if (inst.kind === 'multi') {
         const list = await multiMap(inst);
         const midis = new Set();
@@ -594,6 +596,7 @@ SS.audio = (() => {
   }
   function silenceAll() {
     if (!ctx) return;
+    if (SS.juno) SS.juno.allOff();
     const now = ctx.currentTime;
     // les pistes « sidechainées » reviennent à plein volume
     buses.forEach((b) => {
