@@ -293,6 +293,10 @@ a.btn { text-decoration: none; }
   font-size: 12px;
 }
 .roll-tools label { display: flex; align-items: center; gap: 6px; }
+.roll-tools .roll-close { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px 4px 6px; }
+.roll-tools .roll-close span { display: inline-flex; }
+.roll-tools .roll-close svg { width: 14px; height: 14px; }
+.roll-tools .roll-close:hover { background: #4a4a51; }
 .roll-tools select, .roll-tools button {
   background: var(--panel-3);
   border: 0;

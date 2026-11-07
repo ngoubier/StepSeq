@@ -316,6 +316,21 @@ SS.ui = (() => {
           },
         },
         'Effacer'
+      ),
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'roll-close',
+          title: 'Fermer le piano roll',
+          'aria-label': 'Fermer le piano roll',
+          onclick: () => {
+            app.state.openRolls.delete(track.id);
+            renderTrack(track);
+          },
+        },
+        h('span', { html: ICONS.close }),
+        'Fermer'
       )
     );
 
