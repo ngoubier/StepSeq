@@ -234,6 +234,7 @@ SS.mixer = (() => {
     const list = channels();
     if (!selected || !list.some((c) => c.id === selected)) selected = list[0].id;
     meters.clear();
+    $('#mixerTop').replaceChildren(mixsetBar());
     $('#mixerStrips').replaceChildren(...list.map(stripEl));
     renderDetail();
   }
@@ -777,6 +778,139 @@ SS.mixer = (() => {
       drawBig();
       drawTransfer();
     });
+  }
+
+  /* ------------------------------------------------------------------ profils multi-tranches */
+  let withLevels = false;
+  let lastMixset = '';
+
+  function applyMixset(prof) {
+    const p = app.project();
+    const clone = (o) => JSON.parse(JSON.stringify(o));
+    const roleOf = SS.profiles.roleOf;
+    const kick = p.tracks.find((t) => roleOf(t) === 'kick');
+    let done = 0;
+    const missing = [];
+    p.tracks.forEach((t) => {
+      const e = prof.roles[roleOf(t)];
+      if (!e) {
+        missing.push(t.name);
+        return;
+      }
+      const m = SS.mixParams(t);
+      m.eq = clone(e.mix.eq);
+      m.comp = clone(e.mix.comp);
+      m.lim = clone(e.mix.lim);
+      if (withLevels && Number.isFinite(e.pan)) m.pan = e.pan;
+      t.mix = SS.cleanMix(m);
+      if (withLevels && Number.isFinite(e.volume)) {
+        t.volume = e.volume;
+        SS.audio.setTrackGain(t, t.volume);
+      }
+      if (e.sc && kick && kick !== t) {
+        t.fx = { ...(t.fx || {}), scSource: kick.id, scDepth: e.sc.depth, scRelease: e.sc.release };
+        SS.audio.applyFx(t);
+      }
+      SS.audio.applyMix(t);
+      done++;
+    });
+    if (prof.master) {
+      p.master = { volume: prof.master.volume, mix: SS.cleanMix({ ...clone(prof.master.mix), pan: 0 }, SS.MASTER_DEFAULTS.mix) };
+      SS.audio.applyMaster(p);
+    }
+    lastMixset = prof.id;
+    app.changed();
+    render();
+    SS.ui.toast(
+      `« ${prof.name} » appliqué à ${done} piste${done > 1 ? 's' : ''}${prof.master ? ' + Master' : ''}` +
+        (missing.length ? ` · sans réglage : ${missing.join(', ')}` : '') + ' — Ctrl+Z pour annuler',
+      4500
+    );
+  }
+
+  function mixsetBar() {
+    const { factory, user } = SS.profiles.list('mixset');
+    const p = app.project();
+    const opt = (x) => h('option', { value: x.id, selected: lastMixset === x.id }, x.name);
+    const sel = h(
+      'select',
+      { class: 'profile-select', 'aria-label': 'Profil de mixage complet' },
+      h('option', { value: '' }, '— Choisir un profil de mixage complet —'),
+      h('optgroup', { label: 'Profils d’usine' }, factory.map(opt)),
+      user.length ? h('optgroup', { label: 'Mes profils' }, user.map(opt)) : null
+    );
+    const applyBtn = h('button', {
+      type: 'button',
+      class: 'btn btn-small btn-accent',
+      title: 'Régler toutes les pistes et le Master avec ce profil',
+      disabled: !lastMixset,
+      onclick: () => {
+        const prof = sel.value && SS.profiles.find(sel.value);
+        if (prof) applyMixset(prof);
+      },
+    }, 'Appliquer à tout le projet');
+    const delBtn = h('button', {
+      type: 'button',
+      class: 'btn btn-small',
+      title: 'Supprimer le profil personnel choisi',
+      onclick: () => {
+        const prof = SS.profiles.find(sel.value);
+        if (!prof || prof.factory || !confirm(`Supprimer le profil « ${prof.name} » ?`)) return;
+        SS.profiles.remove(prof.id);
+        lastMixset = '';
+        render();
+      },
+    }, 'Supprimer');
+    const desc = h('span', { class: 'profile-desc' });
+    const sync = () => {
+      const prof = sel.value && SS.profiles.find(sel.value);
+      applyBtn.disabled = !prof;
+      delBtn.disabled = !prof || prof.factory;
+      desc.textContent = prof ? prof.desc || 'Profil personnel' : 'Un seul profil règle toutes les pistes (selon leur rôle) et le Master.';
+    };
+    sel.addEventListener('change', () => {
+      lastMixset = sel.value;
+      sync();
+    });
+    const levels = h('label', { class: 'profile-check', title: 'Appliquer aussi les volumes et panoramiques du profil (sinon : seulement EQ, compresseur, limiteur et sidechain)' },
+      h('input', { type: 'checkbox', checked: withLevels, onchange: (e) => (withLevels = e.target.checked) }), ' Volumes et panoramiques');
+    const saveBtn = h('button', {
+      type: 'button',
+      class: 'btn btn-small',
+      title: 'Mémoriser le mixage actuel de toutes les pistes et du Master',
+      onclick: () => {
+        const input = h('input', { type: 'text', class: 'profile-name', placeholder: 'Nom du profil', maxlength: 60, value: `Mixage ${p.title}` });
+        const done = (ok) => {
+          const name = input.value.trim();
+          if (ok && name) {
+            const prof = SS.profiles.saveMixset(name, p);
+            if (prof) {
+              lastMixset = prof.id;
+              SS.ui.toast(`Profil de mixage « ${name} » enregistré (${Object.keys(prof.roles).length} rôles + Master)`, 2500);
+            } else SS.ui.toast('Impossible d’enregistrer le profil dans ce navigateur.', 3000);
+          }
+          render();
+        };
+        input.addEventListener('keydown', (e) => {
+          e.stopPropagation();
+          if (e.key === 'Enter') done(true);
+          if (e.key === 'Escape') done(false);
+        });
+        saveBtn.replaceWith(h('span', { class: 'profile-form' }, input,
+          h('button', { type: 'button', class: 'btn btn-small btn-accent', onclick: () => done(true) }, 'OK'),
+          h('button', { type: 'button', class: 'btn btn-small', onclick: () => done(false) }, 'Annuler')));
+        input.focus();
+        input.select();
+      },
+    }, 'Enregistrer ce mixage…');
+    // correspondance piste -> rôle, pour savoir quel réglage chaque piste recevra
+    const roles = h('div', { class: 'role-map' },
+      h('span', { class: 'profile-label' }, 'Rôles'),
+      p.tracks.map((t) => h('span', { class: 'role-chip', style: `--c:${t.color}` }, t.name, h('b', {}, SS.profiles.ROLES[SS.profiles.roleOf(t)]))));
+    sync();
+    return h('div', { class: 'mixset-bar' },
+      h('div', { class: 'profile-bar' }, h('label', { class: 'profile-label' }, 'Mixage complet'), sel, applyBtn, levels, saveBtn, delBtn, desc),
+      roles);
   }
 
   /* ------------------------------------------------------------------ profils */

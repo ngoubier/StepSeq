@@ -317,6 +317,22 @@
         <li><b>Supprimer</b> efface le profil personnel choisi.</li>
         <li>Tes profils sont gardés dans ce navigateur : <b>Exporter</b> les télécharge dans un fichier, <b>Importer</b> les recharge (sur un autre ordinateur, ou après avoir vidé le navigateur).</li>
       </ul>
+      <h3>Profils de mixage complets (multi-tranches)</h3>
+      <p>En haut de la console, la barre <b>Mixage complet</b> règle toutes les pistes et le Master d'un coup. Chaque piste reçoit le réglage de son <b>rôle</b>, affiché juste en dessous (Kick 1 → Kick, Saw Bass → Basse…) :</p>
+      <div class="table-wrap"><table>
+        <tr><th>Rôle</th><th>Pistes concernées</th></tr>
+        <tr><td>Kick, Caisse claire, Clap, Hi-hat, Open hat, Toms, Cymbales, Percussions</td><td>Pistes Drum, selon leur type de son (ou le nom de leur banque pour Dirt-Samples, VCSL, Mridangam)</td></tr>
+        <tr><td>Basse</td><td>Instruments de la famille Bass</td></tr>
+        <tr><td>Arpège</td><td>Pistes de catégorie Arpège</td></tr>
+        <tr><td>Nappe</td><td>Pads, cordes, chœurs, et les pistes Accord</td></tr>
+        <tr><td>Lead</td><td>Synth Lead, cuivres, bois et vents</td></tr>
+        <tr><td>Claviers</td><td>Pianos, orgues, mallets, guitares et le reste</td></tr>
+      </table></div>
+      <ul>
+        <li>Profils d'usine : <b>Synthpop / dance — mix « Train de nuit »</b> (≈ −11 LUFS) et sa <b>version streaming</b> (≈ −14 LUFS).</li>
+        <li><b>Appliquer à tout le projet</b> règle EQ, compresseur, limiteur et sidechain (sur le premier kick) de chaque piste, puis le Master. Coche <b>Volumes et panoramiques</b> pour reprendre aussi la balance du profil. Ctrl+Z annule le tout en une fois.</li>
+        <li><b>Enregistrer ce mixage…</b> mémorise le mixage actuel du projet (un réglage par rôle, celui de la première piste de ce rôle, plus le Master) pour le réutiliser sur d'autres morceaux. Ces profils s'exportent et s'importent avec les autres.</li>
+      </ul>
 
       <h2 id="fichiers">Enregistrer et ouvrir</h2>
       <p>Un projet s'enregistre dans un fichier <code>.stepseq.json</code>, qu'on rouvre avec <b>Ouvrir</b>.</p>
