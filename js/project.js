@@ -134,6 +134,7 @@ SS.normalizeProject = (data) => {
     else delete track.length;
     if (t.mix && typeof t.mix === 'object') track.mix = SS.cleanMix(t.mix);
     else delete track.mix;
+    if (!(t.mixProfile && typeof t.mixProfile === 'object' && typeof t.mixProfile.name === 'string')) delete track.mixProfile;
     track.mute = !!t.mute;
     track.solo = !!t.solo;
     if (t.type === 'drum') {
@@ -160,6 +161,8 @@ SS.normalizeProject = (data) => {
   });
   SS.resizeProject(p);
   SS.normalizeScenes(p, data);
+  // profil appliqué au Master (affiché dans la console)
+  if (data.masterProfile && typeof data.masterProfile === 'object' && typeof data.masterProfile.name === 'string') p.masterProfile = data.masterProfile;
   if (data.master && typeof data.master === 'object') {
     p.master = {
       volume: Number.isFinite(data.master.volume) ? Math.min(2, Math.max(0, data.master.volume)) : SS.MASTER_DEFAULTS.volume,

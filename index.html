@@ -106,10 +106,25 @@
     </div>
   </main>
 
-  <section id="mixer" class="mixer" hidden aria-label="Console de mixage">
-    <div id="mixerTop" class="mixer-top"></div>
-    <div id="mixerStrips" class="mixer-strips"></div>
-    <div id="mixerDetail" class="mixer-detail"></div>
+  <section id="mixer" class="mixer" hidden>
+    <div class="mx-window" role="region" aria-labelledby="mxTitle">
+      <div class="mx-titlebar">
+        <svg class="mx-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>
+        <h2 id="mxTitle">Console de mixage</h2>
+        <span id="mxProject" class="mx-sub"></span>
+        <span class="spacer"></span>
+        <button type="button" id="mxClose" class="mx-close" title="Fermer la console et revenir au séquenceur (Échap)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg> Fermer
+        </button>
+      </div>
+      <div class="mx-body">
+        <section class="mx-group" aria-label="Tranches de la console">
+          <div id="mixerTop" class="mx-actionbar"></div>
+          <div id="mixerStrips" class="mixer-strips"></div>
+        </section>
+        <section id="mixerDetail" class="mixer-detail" aria-label="Réglages de la tranche sélectionnée"></section>
+      </div>
+    </div>
   </section>
 
   <footer class="bottombar">

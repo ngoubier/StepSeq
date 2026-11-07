@@ -287,7 +287,7 @@
       <p>Les sons, volumes, effets, sound design et longueurs de piste sont communs à toutes les scènes ; seules les notes et le nombre de mesures changent d'une scène à l'autre. Une piste ajoutée est vide dans les autres scènes. On peut changer de scène pendant la lecture en mode Boucle, pour improviser l'enchaînement en direct.</p>
 
       <h2 id="console">Console de mixage</h2>
-      <p>Le bouton <b>Console</b> de la barre du haut remplace la grille par une table de mixage : une tranche par piste, plus le <b>Master</b> (sortie générale). Re-clique sur Console pour revenir au séquenceur. Le son passe dans chaque tranche dans cet ordre : égaliseur → compresseur → limiteur → panoramique → fader, puis les effets (chorus, delay, reverb, sidechain).</p>
+      <p>Le bouton <b>Console</b> de la barre du haut ouvre la table de mixage dans une fenêtre : une tranche par piste, plus le <b>Master</b> (sortie générale). Sa barre de titre rappelle le projet ; le bouton <b>Fermer</b> (ou la touche Échap, ou un nouveau clic sur Console) ramène au séquenceur. Pendant que la console est ouverte, la barre du mode chanson est masquée pour laisser toute la hauteur aux tranches : l'ensemble tient sur un écran 1920 × 1200. Le son passe dans chaque tranche dans cet ordre : égaliseur → compresseur → limiteur → panoramique → fader, puis les effets (chorus, delay, reverb, sidechain).</p>
       <div class="table-wrap"><table>
         <tr><th>Élément de la tranche</th><th>Utilisation</th></tr>
         <tr><td>EQ / COMP / LIM</td><td>Les trois inserts. Le témoin vert à gauche les active ou les coupe ; un clic sur le nom ouvre leur réglage dans le panneau du bas.</td></tr>
@@ -306,7 +306,8 @@
       </table></div>
       <p>Toucher un réglage active le module. Double-clic sur un curseur : valeur par défaut. <b>Réinitialiser</b> remet la tranche à plat. Tout est enregistré dans le projet et s'annule avec Ctrl+Z.</p>
       <h3>Profils</h3>
-      <p>Au-dessus des modules, la liste <b>Profil</b> applique d'un coup un réglage complet à la tranche choisie (EQ, compresseur, limiteur ; plus le sidechain sur le kick si le profil en a un, ou le niveau pour le Master). Le panoramique et le volume de la piste ne changent pas. Ctrl+Z annule.</p>
+      <p>Chaque tranche affiche sous son nom son <b>rôle</b> (Kick, Basse, Nappe… ou Sortie pour le Master) et un badge violet <b>◆</b> avec le profil appliqué ; un <b>*</b> signale que la tranche a été retouchée depuis. Un clic sur le badge ouvre le profil de la tranche. La tranche sélectionnée est reliée par une flèche au panneau du bas, qui reprend sa couleur, son nom et son badge « Profil de la tranche ».</p>
+      <p>Dans ce panneau, la liste <b>Profil de la tranche</b> applique d'un coup un réglage complet à la tranche choisie (EQ, compresseur, limiteur ; plus le sidechain sur le kick si le profil en a un, ou le niveau pour le Master). Le panoramique et le volume de la piste ne changent pas. Ctrl+Z annule.</p>
       <div class="table-wrap"><table>
         <tr><th>Profils d'usine</th><th>Contenu</th></tr>
         <tr><td>Tranches</td><td>Tranche à plat, Kick punchy (synthpop), Caisse claire présente, Clap aéré, Hi-hat brillant, Open hat, Toms (nettoyage), Cymbale / crash, Basse synth + pompe, Nappe large + pompe, Arpège discret + pompe, Lead synth en avant — les réglages du mixage de « Train de nuit ».</td></tr>
@@ -318,7 +319,7 @@
         <li>Tes profils sont gardés dans ce navigateur : <b>Exporter</b> les télécharge dans un fichier, <b>Importer</b> les recharge (sur un autre ordinateur, ou après avoir vidé le navigateur).</li>
       </ul>
       <h3>Profils de mixage complets (multi-tranches)</h3>
-      <p>En haut de la console, la barre <b>Mixage complet</b> règle toutes les pistes et le Master d'un coup. Chaque piste reçoit le réglage de son <b>rôle</b>, affiché juste en dessous (Kick 1 → Kick, Saw Bass → Basse…) :</p>
+      <p>En haut de la console, la barre d'actions <b>Profil de mixage — toutes les tranches ↓</b> encadre les tranches qu'elle pilote : elle règle toutes les pistes et le Master d'un coup. Chaque piste reçoit le réglage de son <b>rôle</b>, affiché juste en dessous (Kick 1 → Kick, Saw Bass → Basse…) :</p>
       <div class="table-wrap"><table>
         <tr><th>Rôle</th><th>Pistes concernées</th></tr>
         <tr><td>Kick, Caisse claire, Clap, Hi-hat, Open hat, Toms, Cymbales, Percussions</td><td>Pistes Drum, selon leur type de son (ou le nom de leur banque pour Dirt-Samples, VCSL, Mridangam)</td></tr>
@@ -330,8 +331,9 @@
       </table></div>
       <ul>
         <li>Profils d'usine : <b>Synthpop / dance — mix « Train de nuit »</b> (≈ −11 LUFS) et sa <b>version streaming</b> (≈ −14 LUFS).</li>
-        <li><b>Appliquer à tout le projet</b> règle EQ, compresseur, limiteur et sidechain (sur le premier kick) de chaque piste, puis le Master. Coche <b>Volumes et panoramiques</b> pour reprendre aussi la balance du profil. Ctrl+Z annule le tout en une fois.</li>
+        <li><b>Appliquer aux N tranches</b> règle EQ, compresseur, limiteur et sidechain (sur le premier kick) de chaque piste, puis le Master. Coche <b>Volumes et panoramiques</b> pour reprendre aussi la balance du profil. Ctrl+Z annule le tout en une fois.</li>
         <li><b>Enregistrer ce mixage…</b> mémorise le mixage actuel du projet (un réglage par rôle, celui de la première piste de ce rôle, plus le Master) pour le réutiliser sur d'autres morceaux. Ces profils s'exportent et s'importent avec les autres.</li>
+        <li>Après application, chaque tranche porte le badge ◆ du profil multi-tranches, avec son rôle (« Train de nuit — Basse »…).</li>
       </ul>
 
       <h2 id="fichiers">Enregistrer et ouvrir</h2>

@@ -39,10 +39,14 @@ SS.mixer = (() => {
       color: t.color,
       track: t,
       getMix: () => SS.mixParams(t),
-      setMix: (m) => {
+      // toute retouche manuelle marque le profil appliqué comme « modifié »
+      setMix: (m, opts = {}) => {
         t.mix = m;
+        if (!opts.fromProfile && t.mixProfile) t.mixProfile.modified = true;
         SS.audio.applyMix(t);
       },
+      getProfile: () => t.mixProfile || null,
+      setProfile: (pr) => (pr ? (t.mixProfile = pr) : delete t.mixProfile),
       getVol: () => (typeof t.volume === 'number' ? t.volume : 0.8),
       setVol: (v) => {
         t.volume = v;
@@ -55,10 +59,13 @@ SS.mixer = (() => {
       color: '#e8e8ee',
       master: true,
       getMix: () => SS.masterParams(p).mix,
-      setMix: (m) => {
+      setMix: (m, opts = {}) => {
         p.master = { ...SS.masterParams(p), mix: m };
+        if (!opts.fromProfile && p.masterProfile) p.masterProfile.modified = true;
         SS.audio.applyMaster(p);
       },
+      getProfile: () => p.masterProfile || null,
+      setProfile: (pr) => (pr ? (p.masterProfile = pr) : delete p.masterProfile),
       getVol: () => SS.masterParams(p).volume,
       setVol: (v) => {
         p.master = { ...SS.masterParams(p), volume: v };
@@ -234,43 +241,45 @@ SS.mixer = (() => {
     const list = channels();
     if (!selected || !list.some((c) => c.id === selected)) selected = list[0].id;
     meters.clear();
-    $('#mixerTop').replaceChildren(mixsetBar());
+    $('#mxProject').textContent = app.project().title;
+    $('#mixerTop').replaceChildren(mixsetBar(list.length));
     $('#mixerStrips').replaceChildren(...list.map(stripEl));
     renderDetail();
   }
 
-  function insertBtn(ch, key, label) {
-    const m = ch.getMix();
-    const on = m[key].on;
-    return h(
-      'div',
-      { class: 'ins' + (on ? ' on' : '') + (selected === ch.id && detailFocus === key ? ' focus' : '') },
-      h('button', {
-        type: 'button',
-        class: 'ins-led',
-        title: (on ? 'Désactiver ' : 'Activer ') + label,
-        'aria-pressed': String(on),
-        onclick: () => {
-          const mm = ch.getMix();
-          mm[key].on = !mm[key].on;
-          ch.setMix(mm);
-          app.changed();
-          render();
-        },
-      }),
-      h('button', {
-        type: 'button',
-        class: 'ins-name',
-        title: `Régler ${label}`,
-        onclick: () => {
-          selected = ch.id;
-          detailFocus = key;
-          render();
-          const sec = $(`#mixerDetail [data-mod="${key}"]`);
-          if (sec) sec.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
-        },
-      }, label)
-    );
+  /** Insert de tranche (EQ / COMP / LIM) : un clic l'active ou le coupe ; ses réglages sont dans le panneau du bas. */
+  function insertBtn(ch, key, label, full) {
+    const on = ch.getMix()[key].on;
+    return h('button', {
+      type: 'button',
+      class: 'ins' + (on ? ' on' : ''),
+      title: `${full} : ${on ? 'actif — cliquer pour le couper' : 'coupé — cliquer pour l’activer'}`,
+      'aria-pressed': String(on),
+      onclick: () => {
+        const mm = ch.getMix();
+        mm[key].on = !mm[key].on;
+        selected = ch.id;
+        ch.setMix(mm);
+        app.changed();
+        render();
+      },
+    }, label);
+  }
+
+  /** Badge du profil appliqué à la tranche (ou « sans profil »), cliquable pour en choisir un. */
+  function profileBadge(ch) {
+    const pr = ch.getProfile();
+    return h('button', {
+      type: 'button',
+      class: 'strip-prof' + (pr ? (pr.modified ? ' modified' : ' on') : ''),
+      title: pr ? `Profil : ${pr.name}${pr.modified ? ' (retouché depuis)' : ''} — cliquer pour changer` : 'Aucun profil — cliquer pour en choisir un',
+      onclick: () => {
+        selected = ch.id;
+        render();
+        const sel = $('#mixerDetail .profile-select');
+        if (sel) sel.focus();
+      },
+    }, h('span', { class: 'prof-ico', 'aria-hidden': 'true' }, '◆'), h('span', { class: 'prof-name' }, pr ? pr.short || pr.name : 'Sans profil'), pr && pr.modified ? h('i', {}, '*') : null);
   }
   let detailFocus = 'eq';
 
@@ -283,7 +292,7 @@ SS.mixer = (() => {
       detailFocus = 'eq';
       render();
     });
-    requestAnimationFrame(() => drawEq(eqCanvas, m.eq, 84, 34));
+    requestAnimationFrame(() => drawEq(eqCanvas, m.eq, 84, 28));
 
     const meterCanvas = h('canvas', { class: 'strip-meter' });
     const readout = h('div', { class: 'strip-peak', title: 'Crête (cliquer pour remettre à zéro)' }, '−∞');
@@ -339,7 +348,9 @@ SS.mixer = (() => {
         },
         ch.name
       ),
-      h('div', { class: 'strip-ins' }, insertBtn(ch, 'eq', 'EQ'), insertBtn(ch, 'comp', 'COMP'), insertBtn(ch, 'lim', 'LIM')),
+      h('div', { class: 'strip-role' }, ch.master ? 'Sortie' : SS.profiles.ROLES[SS.profiles.roleOf(t)]),
+      profileBadge(ch),
+      h('div', { class: 'strip-ins' }, insertBtn(ch, 'eq', 'EQ', 'Égaliseur'), insertBtn(ch, 'comp', 'CMP', 'Compresseur'), insertBtn(ch, 'lim', 'LIM', 'Limiteur')),
       eqCanvas,
       h('div', { class: 'strip-gr', title: 'Réduction de gain : compresseur (C) et limiteur (L)' }, h('span', {}, 'C', h('b', {}, grC)), h('span', {}, 'L', h('b', {}, grL))),
       ch.master ? h('div', { class: 'strip-pan-row' }) : h('div', { class: 'strip-pan-row' }, pan, panLbl),
@@ -377,7 +388,7 @@ SS.mixer = (() => {
   const panText = (v) => (Math.abs(v) < 0.02 ? 'C' : v < 0 ? 'L' + Math.round(-v * 100) : 'R' + Math.round(v * 100));
 
   /** Fader vertical en dB (double-clic : 0 dB). */
-  const FADER_H = 170;
+  const FADER_H = 150;
   function faderEl(ch) {
     const thumb = h('div', { class: 'fader-thumb' });
     const scale = h(
@@ -559,8 +570,14 @@ SS.mixer = (() => {
     }
     fillBands();
 
-    const EQW = () => Math.max(300, Math.min(560, (detailRefs && detailRefs.eqBox.clientWidth - 24) || 520));
-    const EQH = 210;
+    // largeur de la courbe : l'espace laissé par le tableau des bandes (à droite), ou toute la largeur sur écran étroit
+    const EQW = () => {
+      const box = detailRefs && detailRefs.eqBox;
+      if (!box) return 480;
+      const full = box.clientWidth - 26;
+      return Math.round(full > 720 ? Math.min(620, full - 300) : Math.max(280, full));
+    };
+    const EQH = 170;
     let hot = null;
     const drawBig = () => drawEq(eqCanvas, ch.getMix().eq, EQW(), EQH, { grid: true, handles: true, hot });
     const hit = (x, y) => {
@@ -656,9 +673,8 @@ SS.mixer = (() => {
       'section',
       { class: 'mod mod-eq' + (detailFocus === 'eq' ? ' focus' : ''), 'data-mod': 'eq' },
       h('div', { class: 'mod-head' }, h('h3', {}, 'Égaliseur ', h('small', {}, '5 bandes')), powerBtn(ch, 'eq', 'l’égaliseur')),
-      eqCanvas,
-      h('p', { class: 'mod-help' }, 'Glisse les points (fréquence ↔, gain ↕) : P passe-haut, 1 grave, 2 bas-médium, 3 haut-médium, 4 aigu. Molette sur 2 ou 3 : largeur (Q). Double-clic : remise à zéro.'),
-      eqTable
+      h('div', { class: 'eq-layout' }, eqCanvas, eqTable),
+      h('p', { class: 'mod-help' }, 'Glisse les points (fréquence ↔, gain ↕) · molette sur 2 ou 3 : largeur (Q) · double-clic : remise à zéro.')
     );
 
     /* --- Compresseur --- */
@@ -755,24 +771,26 @@ SS.mixer = (() => {
     const head = h(
       'div',
       { class: 'detail-head', style: `--c:${ch.color}` },
-      h('b', {}, ch.name),
-      h('span', {}, ch.master ? 'Sortie générale' : 'Inserts de la piste : égaliseur → compresseur → limiteur → panoramique → fader'),
+      h('b', { class: 'detail-name', title: ch.master ? 'Sortie générale' : 'Chaîne : égaliseur → compresseur → limiteur → panoramique → fader' }, ch.master ? 'Master' : ch.name),
+      profileBar(ch),
       h('button', {
         type: 'button',
         class: 'btn btn-small',
         title: 'Remettre cette tranche à plat (EQ, compresseur, limiteur, panoramique)',
         onclick: () => {
-          if (ch.master) ch.setMix(JSON.parse(JSON.stringify(SS.MASTER_DEFAULTS.mix)));
+          if (ch.master) ch.setMix(JSON.parse(JSON.stringify(SS.MASTER_DEFAULTS.mix)), { fromProfile: true });
           else {
             delete ch.track.mix;
             SS.audio.applyMix(ch.track);
           }
+          ch.setProfile(null);
           app.changed();
           render();
         },
       }, 'Réinitialiser')
     );
-    $('#mixerDetail').replaceChildren(head, profileBar(ch), h('div', { class: 'detail-mods' }, eqBox, compBox, limBox));
+    $('#mixerDetail').style.setProperty('--c', ch.color);
+    $('#mixerDetail').replaceChildren(head, h('div', { class: 'detail-mods' }, eqBox, compBox, limBox));
     detailRefs = { eqBox, drawBig, drawTransfer, grBig, grLim, ch };
     requestAnimationFrame(() => {
       drawBig();
@@ -803,6 +821,8 @@ SS.mixer = (() => {
       m.lim = clone(e.mix.lim);
       if (withLevels && Number.isFinite(e.pan)) m.pan = e.pan;
       t.mix = SS.cleanMix(m);
+      const roleName = SS.profiles.ROLES[SS.profiles.roleOf(t)];
+      t.mixProfile = { id: prof.id, name: `${prof.name} — ${roleName}`, short: prof.short || prof.name, modified: false };
       if (withLevels && Number.isFinite(e.volume)) {
         t.volume = e.volume;
         SS.audio.setTrackGain(t, t.volume);
@@ -816,6 +836,7 @@ SS.mixer = (() => {
     });
     if (prof.master) {
       p.master = { volume: prof.master.volume, mix: SS.cleanMix({ ...clone(prof.master.mix), pan: 0 }, SS.MASTER_DEFAULTS.mix) };
+      p.masterProfile = { id: prof.id, name: `${prof.name} — Master`, short: prof.short || prof.name, modified: false };
       SS.audio.applyMaster(p);
     }
     lastMixset = prof.id;
@@ -828,31 +849,31 @@ SS.mixer = (() => {
     );
   }
 
-  function mixsetBar() {
+  /** Barre d'action de la console : profil de mixage complet, appliqué à toutes les tranches en dessous. */
+  function mixsetBar(nStrips) {
     const { factory, user } = SS.profiles.list('mixset');
     const p = app.project();
-    const opt = (x) => h('option', { value: x.id, selected: lastMixset === x.id }, x.name);
+    const opt = (x) => h('option', { value: x.id, selected: lastMixset === x.id, title: x.desc || '' }, x.name);
     const sel = h(
       'select',
       { class: 'profile-select', 'aria-label': 'Profil de mixage complet' },
-      h('option', { value: '' }, '— Choisir un profil de mixage complet —'),
+      h('option', { value: '' }, '— Choisir un profil de mixage —'),
       h('optgroup', { label: 'Profils d’usine' }, factory.map(opt)),
       user.length ? h('optgroup', { label: 'Mes profils' }, user.map(opt)) : null
     );
     const applyBtn = h('button', {
       type: 'button',
-      class: 'btn btn-small btn-accent',
-      title: 'Régler toutes les pistes et le Master avec ce profil',
-      disabled: !lastMixset,
+      class: 'btn btn-small btn-accent mx-apply',
+      title: 'Régler toutes les tranches ci-dessous (pistes et Master) avec ce profil',
       onclick: () => {
         const prof = sel.value && SS.profiles.find(sel.value);
         if (prof) applyMixset(prof);
       },
-    }, 'Appliquer à tout le projet');
+    }, h('span', { 'aria-hidden': 'true' }, '⤓'), ` Appliquer aux ${nStrips} tranches`);
     const delBtn = h('button', {
       type: 'button',
       class: 'btn btn-small',
-      title: 'Supprimer le profil personnel choisi',
+      title: 'Supprimer le profil de mixage personnel choisi',
       onclick: () => {
         const prof = SS.profiles.find(sel.value);
         if (!prof || prof.factory || !confirm(`Supprimer le profil « ${prof.name} » ?`)) return;
@@ -861,23 +882,21 @@ SS.mixer = (() => {
         render();
       },
     }, 'Supprimer');
-    const desc = h('span', { class: 'profile-desc' });
     const sync = () => {
       const prof = sel.value && SS.profiles.find(sel.value);
       applyBtn.disabled = !prof;
       delBtn.disabled = !prof || prof.factory;
-      desc.textContent = prof ? prof.desc || 'Profil personnel' : 'Un seul profil règle toutes les pistes (selon leur rôle) et le Master.';
     };
     sel.addEventListener('change', () => {
       lastMixset = sel.value;
       sync();
     });
-    const levels = h('label', { class: 'profile-check', title: 'Appliquer aussi les volumes et panoramiques du profil (sinon : seulement EQ, compresseur, limiteur et sidechain)' },
+    const levels = h('label', { class: 'profile-check', title: 'Appliquer aussi les volumes et panoramiques du profil (sinon : EQ, compresseur, limiteur et sidechain seulement)' },
       h('input', { type: 'checkbox', checked: withLevels, onchange: (e) => (withLevels = e.target.checked) }), ' Volumes et panoramiques');
     const saveBtn = h('button', {
       type: 'button',
       class: 'btn btn-small',
-      title: 'Mémoriser le mixage actuel de toutes les pistes et du Master',
+      title: 'Mémoriser le réglage de toutes les tranches comme profil de mixage',
       onclick: () => {
         const input = h('input', { type: 'text', class: 'profile-name', placeholder: 'Nom du profil', maxlength: 60, value: `Mixage ${p.title}` });
         const done = (ok) => {
@@ -903,14 +922,54 @@ SS.mixer = (() => {
         input.select();
       },
     }, 'Enregistrer ce mixage…');
-    // correspondance piste -> rôle, pour savoir quel réglage chaque piste recevra
-    const roles = h('div', { class: 'role-map' },
-      h('span', { class: 'profile-label' }, 'Rôles'),
-      p.tracks.map((t) => h('span', { class: 'role-chip', style: `--c:${t.color}` }, t.name, h('b', {}, SS.profiles.ROLES[SS.profiles.roleOf(t)]))));
+    const exportBtn = h('button', {
+      type: 'button',
+      class: 'btn btn-small',
+      title: 'Télécharger tous mes profils (tranches, Master, mixages) dans un fichier',
+      onclick: () => {
+        const blob = new Blob([SS.profiles.exportJson()], { type: 'application/json' });
+        const a = h('a', { href: URL.createObjectURL(blob), download: 'stepseq-profils.json' });
+        document.body.append(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      },
+    }, 'Exporter');
+    const importBtn = h('button', {
+      type: 'button',
+      class: 'btn btn-small',
+      title: 'Ajouter les profils d’un fichier exporté',
+      onclick: () => {
+        const input = h('input', { type: 'file', accept: '.json,application/json' });
+        input.addEventListener('change', async () => {
+          const f = input.files[0];
+          if (!f) return;
+          try {
+            const n = SS.profiles.importJson(await f.text());
+            SS.ui.toast(`${n} profil(s) importé(s)`, 2500);
+            render();
+          } catch (e) {
+            SS.ui.toast('Ce fichier ne contient pas de profils StepSeq.', 3000);
+          }
+        });
+        input.click();
+      },
+    }, 'Importer');
     sync();
-    return h('div', { class: 'mixset-bar' },
-      h('div', { class: 'profile-bar' }, h('label', { class: 'profile-label' }, 'Mixage complet'), sel, applyBtn, levels, saveBtn, delBtn, desc),
-      roles);
+    return h(
+      'div',
+      { class: 'mx-actions' },
+      h('span', { class: 'mx-actions-label' }, h('b', {}, 'Profil de mixage'), h('small', {}, 'toutes les tranches ↓')),
+      sel,
+      applyBtn,
+      levels,
+      h('span', { class: 'mx-sep', 'aria-hidden': 'true' }),
+      saveBtn,
+      delBtn,
+      h('span', { class: 'mx-sep', 'aria-hidden': 'true' }),
+      exportBtn,
+      importBtn
+    );
   }
 
   /* ------------------------------------------------------------------ profils */
@@ -925,7 +984,8 @@ SS.mixer = (() => {
     m.eq = clone(prof.mix.eq);
     m.comp = clone(prof.mix.comp);
     m.lim = clone(prof.mix.lim);
-    ch.setMix(ch.master ? m : SS.cleanMix(m));
+    ch.setMix(ch.master ? m : SS.cleanMix(m), { fromProfile: true });
+    ch.setProfile({ id: prof.id, name: prof.name, short: prof.short || prof.name, modified: false });
     let note = '';
     if (ch.master && Number.isFinite(prof.volume)) ch.setVol(prof.volume);
     if (!ch.master && prof.sc) {
@@ -1051,13 +1111,24 @@ SS.mixer = (() => {
     }, 'Importer');
     showDesc();
     sel.addEventListener('change', showDesc);
-    return h('div', { class: 'profile-bar' }, h('label', { class: 'profile-label' }, 'Profil'), sel, saveBtn, delBtn, exportBtn, importBtn, desc);
+    const cur = ch.getProfile();
+    return h(
+      'div',
+      { class: 'profile-bar' },
+      h('span', { class: 'profile-label' }, 'Profil de la tranche'),
+      h('span', { class: 'profile-current' + (cur ? (cur.modified ? ' modified' : ' on') : '') },
+        h('span', { 'aria-hidden': 'true' }, '◆ '), cur ? cur.name + (cur.modified ? ' (retouché)' : '') : 'aucun'),
+      sel,
+      saveBtn,
+      delBtn,
+      desc
+    );
   }
 
   /** Redessine les courbes d'EQ (miniature de la tranche + grande courbe). */
   function refreshEqViews(ch, { skipBig } = {}) {
     const strip = $(`#mixerStrips .strip[data-id="${ch.id}"] .strip-eq`);
-    if (strip) drawEq(strip, ch.getMix().eq, 84, 34);
+    if (strip) drawEq(strip, ch.getMix().eq, 84, 28);
     if (!skipBig && detailRefs && detailRefs.ch.id === ch.id) detailRefs.drawBig();
   }
 
@@ -1158,6 +1229,10 @@ SS.mixer = (() => {
   function init(appApi) {
     app = appApi;
     $('#mixerBtn').addEventListener('click', () => (isOpen ? close() : open()));
+    $('#mxClose').addEventListener('click', close);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && isOpen && !document.querySelector('dialog[open]') && !document.querySelector('.ctx-menu')) close();
+    });
     window.addEventListener('resize', () => isOpen && detailRefs && detailRefs.drawBig());
   }
 

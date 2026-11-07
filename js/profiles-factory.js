@@ -646,6 +646,7 @@ SS.FACTORY_MIXSETS = [
  {
   "id": "fm_synthpop",
   "name": "Synthpop / dance — mix « Train de nuit » (≈ −11 LUFS)",
+  "short": "Train de nuit",
   "desc": "Le mixage et le mastering complets de « Train de nuit » : chaque piste reçoit le réglage de son rôle (kick, basse, nappe…), sidechain sur le kick compris.",
   "kind": "mixset",
   "factory": true,
@@ -1296,6 +1297,7 @@ SS.FACTORY_MIXSETS = [
  {
   "id": "fm_synthpop_stream",
   "name": "Synthpop / dance — version streaming (≈ −14 LUFS)",
+  "short": "Train de nuit (streaming)",
   "desc": "Le même mixage, avec le Master 3 dB plus doux pour Spotify / YouTube.",
   "kind": "mixset",
   "factory": true,

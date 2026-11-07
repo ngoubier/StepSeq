@@ -964,3 +964,160 @@ body.mixer-open #workspace { display: none; }
 .role-map { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .role-chip { display: inline-flex; gap: 6px; align-items: center; padding: 2px 8px; border-radius: 10px; background: #1d1d22; border-left: 3px solid var(--c); font-size: 11px; color: var(--muted); }
 .role-chip b { color: var(--text); font-weight: 600; }
+
+/* ================================================================== */
+/* Console : fenêtre, barre d'action, tranches compactes (1920 × 1200)  */
+/* ================================================================== */
+body.mixer-open .songbar { display: none; }
+.mixer { padding: 10px 12px; background: #101013; overflow: hidden; }
+.mx-window {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  border: 1px solid #3a3a44;
+  background: #17171b;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .6);
+  overflow: hidden;
+}
+.mx-titlebar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 40px;
+  padding: 0 8px 0 14px;
+  background: linear-gradient(#2b2b32, #222228);
+  border-bottom: 1px solid #000;
+}
+.mx-titlebar h2 { margin: 0; font-size: 14px; font-weight: 600; }
+.mx-ico { width: 18px; height: 18px; color: var(--accent-2); }
+.mx-sub { color: var(--muted); font-size: 12px; }
+.mx-sub::before { content: "— "; }
+.mx-close {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px 0 8px;
+  border: 1px solid #45454f;
+  border-radius: 7px;
+  background: #33333b;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.mx-close svg { width: 16px; height: 16px; }
+.mx-close:hover { background: #b33a3a; border-color: #d44; }
+.mx-body { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 10px; padding: 10px; }
+
+/* Le groupe « barre d'action + tranches » : la barre gère les tranches qu'elle encadre */
+.mx-group { flex: none; border: 1px solid #34343c; border-radius: 10px; background: #1b1b20; overflow: hidden; }
+.mx-actionbar { padding: 0; border-bottom: 1px dashed #3a3a44; background: #202026; }
+.mx-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; }
+.mx-actions-label { display: flex; flex-direction: column; line-height: 1.1; margin-right: 4px; }
+.mx-actions-label b { font-size: 12px; }
+.mx-actions-label small { font-size: 11px; color: var(--accent-2); }
+.mx-actions .profile-select { min-width: 330px; }
+.mx-apply span { font-size: 15px; line-height: 1; }
+.mx-sep { width: 1px; height: 22px; background: var(--line); margin: 0 2px; }
+.mixer-strips { padding: 10px 12px 12px; background: transparent; border-bottom: 0; gap: 6px; }
+
+/* Tranches compactes */
+.strip { position: relative; gap: 5px; padding: 0 6px 7px; }
+.strip-name { padding: 5px 0 0; }
+.strip-role { margin-top: -4px; font-size: 9px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); text-align: center; }
+.strip-prof {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 3px 5px;
+  border: 1px dashed #44444d;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+  text-align: left;
+}
+.strip-prof .prof-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.strip-prof .prof-ico { color: #55555f; }
+.strip-prof.on { border-style: solid; border-color: #6a4bd8; background: #2a2340; color: #e4dcff; }
+.strip-prof.on .prof-ico, .strip-prof.modified .prof-ico { color: #a48bff; }
+.strip-prof.modified { border-style: solid; border-color: #5a4f80; color: #c8c0e8; }
+.strip-prof i { font-style: normal; color: #f5a524; font-weight: 700; }
+.strip-ins { flex-direction: row; gap: 3px; }
+.ins {
+  flex: 1;
+  position: relative;
+  padding: 4px 0 3px;
+  border: 0;
+  border-radius: 4px;
+  background: #2c2c33;
+  color: #77777f;
+  font: inherit;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  cursor: pointer;
+}
+.ins::before { content: ""; display: block; width: 6px; height: 6px; margin: 0 auto 2px; border-radius: 50%; background: #444; }
+.ins.on { background: #2f3b52; color: var(--text); }
+.ins.on::before { background: #3fdc5a; box-shadow: 0 0 5px #3fdc5a; }
+.strip-fader-row { height: 150px; }
+.fader { height: 150px; }
+.strip-gr { gap: 1px; }
+
+/* La tranche sélectionnée « s'ouvre » vers le panneau de réglages */
+.strip.selected::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -13px;
+  transform: translateX(-50%);
+  border: 7px solid transparent;
+  border-top-color: var(--accent-2);
+}
+.mixer-detail {
+  flex: none;
+  padding: 10px 12px 12px;
+  border-radius: 10px;
+  border: 1px solid #34343c;
+  border-top: 3px solid var(--c, var(--accent-2));
+  background: #1b1b20;
+  gap: 8px;
+}
+.detail-head { padding-left: 0; border-left: 0; gap: 10px; flex-wrap: nowrap; align-items: center; }
+.detail-name {
+  flex: none;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--c) 30%, #1b1b20);
+  border-left: 4px solid var(--c);
+  font-size: 14px;
+}
+.detail-head .profile-bar { flex: 1; min-width: 0; padding: 4px 8px; background: transparent; border: 0; flex-wrap: nowrap; }
+.detail-head .profile-select { min-width: 250px; }
+.profile-current { padding: 3px 8px; border-radius: 5px; font-size: 12px; color: var(--muted); border: 1px dashed #44444d; white-space: nowrap; max-width: 300px; overflow: hidden; text-overflow: ellipsis; }
+.profile-current.on { border: 1px solid #6a4bd8; background: #2a2340; color: #e4dcff; }
+.profile-current.modified { border: 1px solid #5a4f80; color: #c8c0e8; }
+.detail-head .profile-desc { display: none; }
+.detail-mods { gap: 10px; }
+.mod { padding: 10px 12px; gap: 8px; }
+.mod-help { font-size: 11px; }
+.eq-band { grid-template-columns: 105px 1fr 1fr 1fr; }
+.eq-band input[type=number] { padding: 2px 4px; }
+.eq-bands { gap: 2px; }
+.mod-comp .sd-sliders, .mod-lim .sd-sliders { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; }
+.comp-top { gap: 10px; }
+.gr-meter { height: 110px; }
+
+.detail-head .profile-bar span { flex: none; }
+.detail-head .profile-bar { justify-content: flex-start; gap: 8px; }
+.eq-layout { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
+.eq-layout .eq-bands { flex: 1; min-width: 270px; }
+.eq-band { grid-template-columns: 92px 1fr 1fr 1fr; gap: 4px; }
+.eq-band input[type=number] { width: 58px; }
