@@ -269,10 +269,12 @@ SS.audio = (() => {
     if (!track || !track.id) return master;
     let b = buses.get(track.id);
     if (!b) {
-      b = { input: ctx.createGain(), pre: ctx.createGain(), chorus: null, delay: null, reverb: null };
+      // duck : gain piloté par le sidechain (1 = pas d'atténuation), placé avant le son direct et les envois
+      b = { input: ctx.createGain(), pre: ctx.createGain(), duck: ctx.createGain(), chorus: null, delay: null, reverb: null };
       b.input.gain.value = typeof track.volume === 'number' ? track.volume : 0.8;
       b.input.connect(b.pre);
-      b.pre.connect(master);
+      b.pre.connect(b.duck);
+      b.duck.connect(master);
       buses.set(track.id, b);
       applyFx(track);
     }
@@ -328,7 +330,7 @@ SS.audio = (() => {
     d.tone = ctx.createBiquadFilter();
     d.tone.type = 'lowpass';
     d.tone.frequency.value = 5000;
-    b.pre.connect(d.send).connect(d.node);
+    b.duck.connect(d.send).connect(d.node);
     d.node.connect(d.tone).connect(d.fb).connect(d.node);
     d.tone.connect(master);
     b.delay = d;
@@ -362,7 +364,7 @@ SS.audio = (() => {
     r.conv = ctx.createConvolver();
     r.out = ctx.createGain();
     r.out.gain.value = 2.2; // compense le niveau de l'IR filtrée
-    b.pre.connect(r.send).connect(r.conv).connect(r.out).connect(master);
+    b.duck.connect(r.send).connect(r.conv).connect(r.out).connect(master);
     b.reverb = r;
   }
 
@@ -423,6 +425,11 @@ SS.audio = (() => {
   function silenceAll() {
     if (!ctx) return;
     const now = ctx.currentTime;
+    // les pistes « sidechainées » reviennent à plein volume
+    buses.forEach((b) => {
+      b.duck.gain.cancelScheduledValues(now);
+      b.duck.gain.setValueAtTime(1, now);
+    });
     voices.forEach((v) => {
       try {
         v.gain.gain.cancelScheduledValues(now);
@@ -689,10 +696,38 @@ SS.audio = (() => {
     return all;
   }
 
+  /*
+   * Sidechain : quand une piste « source » joue, les pistes qui l'écoutent baissent de volume
+   * (attaque ~5 ms) puis remontent selon leur relâchement. Le déclenchement vient des notes programmées,
+   * pas d'une analyse du son : c'est précis, même si la source est muette (« ghost kick »).
+   */
+  function duckFrom(project, source, time) {
+    project.tracks.forEach((t) => {
+      if (t === source || !t.fx || t.fx.scSource !== source.id) return;
+      const f = SS.fxParams(t);
+      if (!(f.scDepth > 0)) return;
+      bus(t);
+      const g = buses.get(t.id).duck.gain;
+      const at = Math.max(time, ctx.currentTime);
+      g.setTargetAtTime(Math.max(0.0001, 1 - f.scDepth), at, 0.005);
+      g.setTargetAtTime(1, at + 0.03, Math.max(0.01, f.scRelease) / 3);
+    });
+  }
+
   /** `tick` = compteur global de pas depuis Lecture ; chaque piste boucle sur sa propre longueur. */
   function scheduleStep(project, tick, time) {
     const sd = stepDur(project);
-    audibleTracks(project).forEach((track) => {
+    // une piste muette peut quand même déclencher un sidechain
+    const audible = new Set(audibleTracks(project));
+    project.tracks.forEach((track) => {
+      if (!audible.has(track)) {
+        const isSource = project.tracks.some((t) => t.fx && t.fx.scSource === track.id);
+        if (!isSource) return;
+        const st = tick % SS.trackLen(project, track);
+        const fires = track.type === 'drum' ? track.steps[st] > 0 : (track.events || []).some((ev) => ev.step === st);
+        if (fires) duckFrom(project, track, time);
+        return;
+      }
       const step = tick % SS.trackLen(project, track);
       // humanisation : petites variations aléatoires de placement (±15 ms) et de vélocité (±25 %)
       const human = (project.groove && project.groove.human) || 0;
@@ -700,7 +735,11 @@ SS.audio = (() => {
       const jv = (v) => (human ? Math.max(0.05, Math.min(1, v * (1 + (Math.random() * 2 - 1) * human * 0.25))) : v);
       if (track.type === 'drum') {
         const v = track.steps[step];
-        if (v > 0) playDrum(track, time + jt(), jv(v));
+        if (v > 0) {
+          const tt = time + jt();
+          playDrum(track, tt, jv(v));
+          duckFrom(project, track, tt);
+        }
         return;
       }
       (track.events || []).forEach((ev) => {
@@ -720,6 +759,7 @@ SS.audio = (() => {
                 : seqNotes[idx % seqNotes.length];
             const t = time + (idx - (step - ev.step) * rate) * sub;
             playNote(track, n, t + jt(), sub * 0.9, jv(ev.vel));
+            if (idx === 0) duckFrom(project, track, t); // un arpège déclenche le sidechain au début de chaque accord
           }
         } else if (ev.step === step) {
           // une note ne dépasse pas la fin de la boucle de sa piste
@@ -727,6 +767,7 @@ SS.audio = (() => {
           const tt = time + jt();
           const vv = jv(ev.vel);
           ev.notes.forEach((n) => playNote(track, n, tt, dur, vv * (ev.notes.length > 1 ? 0.8 : 1)));
+          duckFrom(project, track, tt);
         }
       });
     });
@@ -897,6 +938,7 @@ SS.audio = (() => {
     applyAllFx,
     _bus: bus, // accès internes pour les tests
     _master: () => master,
+    _duckValue: (id) => (buses.get(id) ? buses.get(id).duck.gain.value : null),
     start,
     stop,
     isPlaying: () => seq.playing,

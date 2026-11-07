@@ -760,3 +760,8 @@ body:not(.song-mode) .song-blocks { opacity: .75; }
 /* ---------- Suivre la lecture ---------- */
 .follow-toggle { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; white-space: nowrap; cursor: pointer; }
 .follow-toggle input { accent-color: var(--accent-2); }
+
+/* ---------- Sidechain ---------- */
+.sc-curve { height: 60px; }
+.sc-curve .line { stroke: #3fcf3f; }
+.sc-curve .fill-area { fill: #3fcf3f; }

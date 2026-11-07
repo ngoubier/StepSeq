@@ -405,6 +405,22 @@
           <div class="gv-presets" data-presets="room"></div>
           <div class="sd-sliders" id="fxRoomSliders"></div>
         </section>
+        <section class="sd-panel" aria-labelledby="fxScTitle">
+          <div class="sd-panel-head">
+            <h3 id="fxScTitle">Sidechain <small>ducking</small></h3>
+            <span class="fx-state" id="fxScState"></span>
+          </div>
+          <div class="sd-row">
+            <label for="fxScSource">Déclenché par la piste</label>
+            <output></output>
+            <select id="fxScSource"></select>
+          </div>
+          <div class="gv-presets" data-presets="sc"></div>
+          <svg id="fxScCurve" class="sd-adsr sc-curve" viewBox="0 0 300 60" preserveAspectRatio="none" aria-hidden="true">
+            <path class="fill-area"/><path class="line"/>
+          </svg>
+          <div class="sd-sliders" id="fxScSliders"></div>
+        </section>
       </div>
 
       <div class="dlg-footer">

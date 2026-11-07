@@ -124,7 +124,8 @@ SS.normalizeProject = (data) => {
       for (const [k, def] of Object.entries(SS.FX_DEFAULTS)) {
         const v = t.fx[k];
         if (typeof def === 'number' && typeof v === 'number' && Number.isFinite(v)) track.fx[k] = v;
-        if (typeof def === 'string' && SS.DELAY_TIMES.some((d) => d.id === v)) track.fx[k] = v;
+        if (k === 'delayTime' && SS.DELAY_TIMES.some((d) => d.id === v)) track.fx[k] = v;
+        if (k === 'scSource' && typeof v === 'string' && v.length < 40) track.fx[k] = v;
       }
     } else delete track.fx;
     track.volume = typeof t.volume === 'number' ? t.volume : 0.8;

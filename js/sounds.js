@@ -291,11 +291,12 @@ SS.FX_DEFAULTS = {
   chorus: 0, chorusRate: 0.8, chorusDepth: 0.5, // mix 0..1, vitesse Hz, profondeur 0..1
   delay: 0, delayTime: '3/16', delayFeedback: 0.4, // strudel : delay, delaytime, delayfeedback
   room: 0, roomSize: 2.5, roomLp: 8000, // strudel : room, roomsize (s), roomlp (Hz)
+  scSource: '', scDepth: 0.6, scRelease: 0.22, // sidechain : piste qui déclenche, profondeur 0..1, relâchement (s)
 };
 SS.fxParams = (track) => ({ ...SS.FX_DEFAULTS, ...(track.fx || {}) });
 SS.fxActive = (track) => {
   const f = SS.fxParams(track);
-  return f.chorus > 0 || f.delay > 0 || f.room > 0;
+  return f.chorus > 0 || f.delay > 0 || f.room > 0 || (!!f.scSource && f.scDepth > 0);
 };
 SS.delaySeconds = (fx, tempo) => {
   const d = SS.DELAY_TIMES.find((x) => x.id === fx.delayTime) || SS.DELAY_TIMES[3];
