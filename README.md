@@ -49,8 +49,8 @@ Le bouton à curseurs de l'en-tête ouvre la fenêtre de **sound design** (oscil
 
 Sur une piste **Synthé**, ce bouton ouvre la façade du synthé : pour le Juno-106, les sections LFO, DCO
 (16'/8'/4', impulsion + PWM, dent de scie, sous-oscillateur, bruit), HPF, VCF 24 dB/oct, VCA, ENV, chorus I / II,
-et la sélection des 128 patches d'usine (groupe, banque, numéro) avec l'afficheur vert. Le son et le look de la
-façade reprennent l'[Ultramaster KR-106](https://github.com/kayrockscreenprinting/ultramaster_kr106).
+et la sélection des 128 patches d'usine (groupe, banque, numéro) avec l'afficheur à LED, sur une copie de la
+façade d'origine. Le son est un portage du moteur de l'[Ultramaster KR-106](https://github.com/kayrockscreenprinting/ultramaster_kr106).
 
 Le chevron **›** dans l'en-tête d'une piste instrument affiche son piano roll :
 
@@ -116,5 +116,5 @@ Les sons proviennent des bibliothèques utilisées par [strudel.cc](https://stru
   (Karl LaRocca, David Mansfield et contributeurs), sous licence **GNU GPL v3**
   (texte : [`licenses/GPL-3.0.txt`](licenses/GPL-3.0.txt)). Distribuer StepSeq avec ces fichiers
   implique de le distribuer sous GPL v3.
-- La police de l'afficheur, `fonts/Segment14.otf` (Paul Flo Williams), est sous licence SIL OFL 1.1
+- La police de l'afficheur à LED, `fonts/Segment14.otf` (Paul Flo Williams), est sous licence SIL OFL 1.1
   ([`licenses/OFL-Segment14.txt`](licenses/OFL-Segment14.txt)).

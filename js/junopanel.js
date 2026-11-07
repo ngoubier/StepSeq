@@ -169,13 +169,14 @@ SS.junoPanel = (() => {
    */
   function button(label, isOn, onPress, opts = {}) {
     const aria = opts.aria || (typeof label === 'string' ? label : '');
-    const led = el('span', opts.led === false ? 'jb-led none' : 'jb-led', { 'aria-hidden': 'true' });
-    const b = el('button', `jbtn ${opts.color || 'yellow'} ${opts.cls || ''}`, { type: 'button', 'aria-label': aria, title: aria, onclick: onPress });
-    const wrap = el('div', 'jb-wrap', {}, el('span', 'jb-label', { 'aria-hidden': 'true' }, label), led, b);
+    // opts.led : true (LED rouge), false (simple trait sérigraphié), 'none' (rien : touches de patch)
+    const led = opts.led === 'none' ? null : el('span', opts.led === false ? 'jb-line' : 'jb-led', { 'aria-hidden': 'true' });
+    const b = el('button', `jbtn ${opts.color || 'white'} ${opts.cls || ''}`, { type: 'button', 'aria-label': aria, title: aria, onclick: onPress });
+    const wrap = el('div', 'jb-wrap', {}, label === '' ? null : el('span', 'jb-label', { 'aria-hidden': 'true' }, label), led, b);
     controls.push({
       sync() {
         const on = isOn();
-        led.classList.toggle('on', on);
+        if (led) led.classList.toggle('on', on);
         b.classList.toggle('pressed', on);
         b.setAttribute('aria-pressed', String(on));
       },
@@ -278,6 +279,14 @@ SS.junoPanel = (() => {
   const group = (cls, ...kids) => el('div', 'jgroup ' + (cls || ''), {}, ...kids);
   /** Groupe de commandes encadré par les filets blancs du panneau. */
   const cg = (...kids) => el('div', 'jcg', {}, ...kids);
+  /** Graduation chiffrée sérigraphiée à gauche / droite d'un groupe de curseurs (10-5-0, 3-2-1-0, +5-0-−5). */
+  const nums = (marks, side) =>
+    el('div', 'jnum ' + side, { 'aria-hidden': 'true' },
+      el('div', 'jnum-pad'),
+      el('div', 'jnum-box', {}, ...marks.map((m, i) => el('span', '', { text: m, style: `bottom:${((1 - i / (marks.length - 1)) * 100).toFixed(2)}%` }))));
+  /** Groupe de curseurs encadré par sa graduation chiffrée. */
+  const scaled = (marks, ...kids) => cg(nums(marks, 'l'), ...kids, nums(marks, 'r'));
+  const TEN = ['10', '5', '0'];
   /** Petits symboles d'enveloppe sérigraphiés (polarité du VCF). */
   const envIcon = (inv) => {
     const sp = document.createElement('span');
@@ -300,21 +309,25 @@ SS.junoPanel = (() => {
           syncAll();
         }, () => 0.8)
       ),
-      section('LFO', 'jsec-lfo', cg(slider('lfoRate', 'RATE'), slider('lfoDelay', 'DELAY TIME'))),
+      section('LFO', 'jsec-lfo', scaled(TEN, slider('lfoRate', 'RATE'), slider('lfoDelay', 'DELAY TIME'))),
       section('DCO', 'jsec-dco',
-        cg(group('jrange', el('div', 'jgroup-title', { text: 'RANGE' }), toggle3('range', [4, 8, 16], ["4'", "8'", "16'"], 'Pied du DCO'))),
-        cg(
+        cg(group('jrange', el('div', 'jgroup-title', { text: 'RANGE' }),
+          el('div', 'jrow', {},
+            button("16'", () => pv().range === 16, () => set('range', 16), { aria: "16'" }),
+            button("8'", () => pv().range === 8, () => set('range', 8), { aria: "8'" }),
+            button("4'", () => pv().range === 4, () => set('range', 4), { aria: "4'" })
+          ))),
+        scaled(TEN,
           slider('dcoLfo', 'LFO'),
-          slider('pwm', 'PWM'),
-          toggle('pwmMode', 'lfo', 'LFO', 'man', 'MAN', 'Source du PWM'),
+          slider('pwm', 'PWM')),
+        cg(toggle('pwmMode', 'lfo', 'LFO', 'man', 'MAN', 'Source du PWM'),
           button(waveIcon('pulse'), () => pv().pulse, () => set('pulse', !pv().pulse), { aria: 'Impulsion', cls: 'wave' }),
-          button(waveIcon('saw'), () => pv().saw, () => set('saw', !pv().saw), { aria: 'Dent de scie', cls: 'wave' })
-        ),
-        cg(slider('sub', 'SUB OSC'), slider('noise', 'NOISE'))
+          button(waveIcon('saw'), () => pv().saw, () => set('saw', !pv().saw), { aria: 'Dent de scie', cls: 'wave' })),
+        scaled(TEN, slider('sub', 'SUB'), slider('noise', 'NOISE'))
       ),
-      section('HPF', 'jsec-hpf', cg(slider('hpf', 'FREQ', { steps: 4 }))),
+      section('HPF', 'jsec-hpf', scaled(['3', '2', '1', '0'], slider('hpf', 'FREQ', { steps: 4 }))),
       section('VCF', 'jsec-vcf',
-        cg(
+        scaled(TEN,
           slider('vcfFreq', 'FREQ'),
           slider('vcfRes', 'RES'),
           toggle('envPol', 1, envIcon(false), -1, envIcon(true), "Polarité de l'enveloppe du filtre"),
@@ -323,41 +336,43 @@ SS.junoPanel = (() => {
           slider('kybd', 'KYBD')
         )
       ),
-      section('VCA', 'jsec-vca', cg(toggle('vcaMode', 'env', 'ENV', 'gate', 'GATE', 'Mode du VCA'), slider('vcaLevel', 'LEVEL'))),
-      section('ENV', 'jsec-env', cg(slider('attack', 'A'), slider('decay', 'D'), slider('sustain', 'S'), slider('release', 'R'))),
-      section('CHORUS', 'jsec-chorus blue',
+      section('VCA', 'jsec-vca', cg(toggle('vcaMode', 'env', 'ENV', 'gate', 'GATE', 'Mode du VCA'), slider('vcaLevel', 'LEVEL'), nums(['+5', '0', '−5'], 'r'))),
+      section('ENV', 'jsec-env', scaled(TEN, slider('attack', 'A'), slider('decay', 'D'), slider('sustain', 'S'), slider('release', 'R'))),
+      section('CHORUS', 'jsec-chorus',
         cg(
           el('div', 'jrow jchorus', {},
-            button('OFF', () => !pv().chorus, () => set('chorus', 0), { led: false, color: 'cream', aria: 'Chorus off' }),
-            button('I', () => pv().chorus === 1, () => set('chorus', 1), { aria: 'Chorus I' }),
-            button('II', () => pv().chorus === 2, () => set('chorus', 2), { color: 'orange', aria: 'Chorus II' })
+            button('OFF', () => !pv().chorus, () => set('chorus', 0), { led: false, aria: 'Chorus off' }),
+            button('I', () => pv().chorus === 1, () => set('chorus', 1), { color: 'yellow', cls: 'serif', aria: 'Chorus I' }),
+            button('II', () => pv().chorus === 2, () => set('chorus', 2), { color: 'yellow', cls: 'serif', aria: 'Chorus II' })
           )
         )
-      ),
-      // afficheur vert à segments (patch courant)
-      el('div', 'jdisplay', {},
-        el('div', 'jdisp-main', {}, el('span', 'jdisp-id', { id: 'junoDisplay', 'aria-live': 'polite' }), el('span', 'jdisp-name', { id: 'junoPatchName' })),
-        el('div', 'jdisp-sub', { text: 'JUNO-106' })
       )
     );
 
-    // Section des patches
+    // Bas de façade : sélection du groupe, banques, afficheur à LED, numéros de patch
     const bottom = $('#junoBottom');
-    const groupBtns = el('div', 'jrow', {},
-      button('A', () => groupOf() === 'A', () => pickPatch('A', bankOf() || 1, numOf() || 1), { color: 'cream', aria: 'Groupe A' }),
-      button('B', () => groupOf() === 'B', () => pickPatch('B', bankOf() || 1, numOf() || 1), { color: 'cream', aria: 'Groupe B' })
-    );
+    const ledA = el('span', 'jb-led');
+    const ledB = el('span', 'jb-led green');
+    controls.push({ sync: () => { ledA.classList.toggle('on', groupOf() !== 'B' && track.junoPatch !== 'MAN'); ledB.classList.toggle('on', groupOf() === 'B'); } });
     const banks = el('div', 'jrow', {});
-    const nums = el('div', 'jrow', {});
+    const numsRow = el('div', 'jrow', {});
     for (let i = 1; i <= 8; i++) {
-      banks.append(button(String(i), () => bankOf() === i, () => pickPatch(groupOf() || 'A', i, numOf() || 1), { cls: 'pbtn', aria: `Banque ${i}` }));
-      nums.append(button(String(i), () => numOf() === i, () => pickPatch(groupOf() || 'A', bankOf() || 1, i), { color: 'orange', cls: 'pbtn', aria: `Numéro ${i}` }));
+      banks.append(button(String(i), () => bankOf() === i, () => pickPatch(groupOf() || 'A', i, numOf() || 1), { color: 'blue', led: 'none', cls: 'pbtn', aria: `Banque ${i}` }));
+      numsRow.append(button(String(i), () => numOf() === i, () => pickPatch(groupOf() || 'A', bankOf() || 1, i), { color: 'blue', led: 'none', cls: 'pbtn', aria: `Patch ${i}` }));
     }
     bottom.append(
-      el('div', 'jpatch-sec', {}, el('div', 'jgroup-title', { text: 'PATCH' }), el('div', 'jrow', {}, button('MANUAL', () => track.junoPatch === 'MAN', () => pickManual(), { color: 'cream', aria: 'Manual' }))),
-      el('div', 'jpatch-sec', {}, el('div', 'jgroup-title', { text: 'BANK GROUP' }), groupBtns),
-      el('div', 'jpatch-sec banks', {}, el('div', 'jgroup-title', { text: 'BANK' }), banks),
-      el('div', 'jpatch-sec nums', {}, el('div', 'jgroup-title', { text: 'NUMBER' }), nums)
+      el('div', 'jpatch-sec jselect', {},
+        el('div', 'jsel-leds', {},
+          el('div', 'jsel-row', {}, el('span', 'jsel-l', { text: 'GROUP A' }), ledA),
+          el('div', 'jsel-row', {}, el('span', 'jsel-l', { text: 'GROUP B' }), ledB)),
+        button('SELECT', () => false, () => pickPatch(groupOf() === 'B' ? 'A' : 'B', bankOf() || 1, numOf() || 1), { led: 'none', aria: 'Groupe A / B' })),
+      el('div', 'jpatch-sec banks', {}, el('div', 'jbar', { text: 'BANK' }), banks),
+      el('div', 'jpatch-sec jdisp', {},
+        el('div', 'jdisp-labels', { 'aria-hidden': 'true' }, el('span', '', { text: 'BANK' }), el('span', '', { text: 'PATCH NUMBER' })),
+        el('div', 'jled', { id: 'junoDisplay', 'aria-live': 'polite' }),
+        el('div', 'jdisp-name', { id: 'junoPatchName' })),
+      el('div', 'jpatch-sec nums', {}, el('div', 'jbar', { text: 'PATCH NUMBER' }), numsRow),
+      el('div', 'jpatch-sec', {}, button('MANUAL', () => track.junoPatch === 'MAN', () => pickManual(), { led: false, aria: 'Manual' }))
     );
 
     const dlg = $('#junoDialog');
@@ -414,8 +429,8 @@ SS.junoPanel = (() => {
     if (!patch) {
       // mémoire vide : l'afficheur clignote, rien n'est chargé
       const d = $('#junoDisplay');
-      d.textContent = id;
-      $('#junoPatchName').textContent = 'EMPTY';
+      showLed(b, n);
+      $('#junoPatchName').textContent = '';
       d.classList.remove('blink');
       void d.offsetWidth;
       d.classList.add('blink');
@@ -441,14 +456,27 @@ SS.junoPanel = (() => {
     syncAll();
   }
 
+  /** Afficheur à LED : « banque.numéro. » avec les points décimaux (« -- » en manuel). */
+  function showLed(bank, num) {
+    const d = $('#junoDisplay');
+    if (bank == null) {
+      d.replaceChildren(el('span', '', { text: '--' }));
+      d.setAttribute('aria-label', 'Manual');
+      return;
+    }
+    d.replaceChildren(el('span', '', { text: String(bank) }), el('i', 'dp'), el('span', '', { text: String(num) }), el('i', 'dp'));
+    d.setAttribute('aria-label', `Banque ${bank}, patch ${num}`);
+  }
+
   function syncAll() {
     if (!track) return;
     controls.forEach((c) => c.sync());
     const patch = SS.findJunoPatch(track.junoPatch);
     const edited = track.juno && Object.keys(track.juno).length;
-    $('#junoDisplay').textContent = track.junoPatch === 'MAN' ? 'MAN' : track.junoPatch;
+    // afficheur : « banque.numéro. » comme sur le Juno-106 (« -- » en manuel)
+    showLed(track.junoPatch === 'MAN' ? null : bankOf(), numOf());
     $('#junoDisplay').classList.toggle('edited', !!edited);
-    $('#junoPatchName').textContent = patch ? patch.name.toUpperCase() : '';
+    $('#junoPatchName').textContent = (patch ? patch.name : '') + (edited ? ' *' : '');
   }
 
   /* ---------- Écoute ---------- */
