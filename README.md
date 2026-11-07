@@ -87,3 +87,4 @@ Les sons proviennent des bibliothèques utilisées par [strudel.cc](https://stru
 | `js/audio.js`    | Moteur audio : chargement des échantillons, voix, séquenceur |
 | `js/ui.js`       | Rendu des pistes, grille, piano roll, dialogue |
 | `js/main.js`     | Démarrage, barre d'outils, raccourcis |
+| `guide.html`     | Guide d'utilisation (bouton « Aide » de l'app) |

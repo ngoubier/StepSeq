@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Guide StepSeq</title>
+  <style>
+    :root {
+      --bg: #161618;
+      --panel: #232326;
+      --panel-2: #2c2c30;
+      --line: #3e3e44;
+      --text: #ececf1;
+      --muted: #a2a2ab;
+      --accent: #2b8cff;
+      --key: #e3179c;
+      color-scheme: dark;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-size: 16px; line-height: 1.6; }
+    header {
+      position: sticky; top: 0; z-index: 2;
+      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+      padding: 12px max(16px, env(safe-area-inset-right, 0px)) 12px max(16px, env(safe-area-inset-left, 0px));
+      background: var(--panel-2); border-bottom: 1px solid #000;
+    }
+    header b { font-size: 18px; }
+    header nav { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+    .btn {
+      display: inline-flex; align-items: center; height: 34px; padding: 0 14px;
+      border-radius: 8px; background: #0a64b4; color: #fff; text-decoration: none; font-size: 14px;
+    }
+    .layout {
+      display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 40px;
+      max-width: 1100px; margin: 0 auto;
+      padding: 32px max(16px, env(safe-area-inset-right, 0px)) 80px max(16px, env(safe-area-inset-left, 0px));
+    }
+    aside { position: sticky; top: 90px; align-self: start; font-size: 14px; }
+    aside p { margin: 0 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; font-size: 12px; }
+    aside a { display: block; padding: 5px 10px; border-left: 2px solid var(--line); color: var(--muted); text-decoration: none; }
+    aside a:hover { color: var(--text); border-left-color: var(--accent); }
+    main { max-width: 760px; }
+    h1 { font-size: 34px; line-height: 1.2; margin: 0 0 12px; text-wrap: balance; }
+    h2 { font-size: 23px; margin: 48px 0 12px; padding-top: 8px; scroll-margin-top: 80px; text-wrap: balance; }
+    h2 small { color: var(--key); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; display: block; }
+    p, li { max-width: 68ch; }
+    a { color: var(--accent); }
+    code { background: var(--panel-2); padding: 1px 6px; border-radius: 4px; font-size: .9em; }
+    kbd {
+      display: inline-block; padding: 1px 7px; border: 1px solid var(--line); border-bottom-width: 2px;
+      border-radius: 5px; background: var(--panel); font: 600 13px/1.5 ui-monospace, Menlo, monospace;
+    }
+    .lead { color: var(--muted); font-size: 18px; }
+    .table-wrap { overflow-x: auto; margin: 16px 0; border: 1px solid var(--line); border-radius: 10px; }
+    table { border-collapse: collapse; width: 100%; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+    th { background: var(--panel-2); font-weight: 600; white-space: nowrap; }
+    tr:last-child td { border-bottom: 0; }
+    td:first-child { font-weight: 600; white-space: nowrap; }
+    .note {
+      margin: 16px 0; padding: 12px 16px; border-radius: 10px;
+      background: var(--panel); border: 1px solid var(--line);
+    }
+    .note.warn { border-color: #8a6a12; background: #2a2414; }
+    @media (max-width: 800px) {
+      .layout { grid-template-columns: minmax(0, 1fr); gap: 0; }
+      aside { display: none; }
+      h1 { font-size: 28px; }
+      td:first-child { white-space: normal; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <b>Guide StepSeq</b>
+    <nav>
+      <a class="btn" href="./">Ouvrir StepSeq</a>
+    </nav>
+  </header>
+
+  <div class="layout">
+    <aside>
+      <p>Sommaire</p>
+      <a href="#prise-en-main">Prise en main</a>
+      <a href="#ajouter">Ajouter une piste</a>
+      <a href="#drum">Pistes Drum</a>
+      <a href="#notes">Changer une note ou un accord</a>
+      <a href="#avance">Réglages avancés</a>
+      <a href="#fichiers">Enregistrer et ouvrir</a>
+      <a href="#raccourcis">Raccourcis et astuces</a>
+    </aside>
+
+    <main>
+      <h1>Guide StepSeq</h1>
+      <p class="lead">Comment créer des pistes, changer les notes et les accords, et utiliser les réglages avancés du séquenceur.</p>
+
+      <h2 id="prise-en-main">Prise en main</h2>
+      <p>Ouvre <a href="./">StepSeq</a> dans Chrome, Edge ou Firefox, puis clique sur ▶ : le projet démo se lance. Le navigateur n'autorise le son qu'après un premier clic, et la première boucle peut sauter quelques notes le temps que les sons se chargent.</p>
+      <div class="table-wrap"><table>
+        <tr><th>Élément de la barre du haut</th><th>Ce qu'il fait</th></tr>
+        <tr><td>Titre</td><td>Nom du projet, utilisé aussi comme nom de fichier</td></tr>
+        <tr><td>Tempo (BPM)</td><td>Vitesse en noires par minute, de 20 à 300</td></tr>
+        <tr><td>Mesure</td><td>Chiffrage : 4/4 par défaut, de 1 à 12 temps, en /4 ou /8</td></tr>
+        <tr><td>Mesures</td><td>Longueur de la boucle : 1, 2, 3, 4 ou 8 mesures</td></tr>
+        <tr><td>+</td><td>Ouvre la fenêtre d'ajout de piste</td></tr>
+        <tr><td>▶ / ■</td><td>Lance ou arrête la lecture en boucle</td></tr>
+        <tr><td>Afficheur</td><td>Position en cours : mesure . temps . double-croche</td></tr>
+        <tr><td>Nouveau / Ouvrir / Enregistrer</td><td>Gestion des fichiers de projet</td></tr>
+        <tr><td>Aide</td><td>Ouvre ce guide</td></tr>
+      </table></div>
+      <p>Une case de la grille vaut toujours une double-croche. Une mesure en 4/4 fait donc 16 cases, et une mesure en 6/8 en fait 12.</p>
+
+      <h2 id="ajouter">Ajouter une piste</h2>
+      <p>Le bouton <b>+</b> ouvre une fenêtre. Choisis d'abord <b>Drum</b> ou <b>Instrument</b>, puis remplis les champs, écoute avec <b>Écouter</b> et clique sur <b>Valider</b>.</p>
+      <div class="table-wrap"><table>
+        <tr><th>Champ</th><th>Piste Drum</th><th>Piste Instrument</th></tr>
+        <tr><td>Nom</td><td>Rempli automatiquement (« Kick 1 »), modifiable</td><td>Nom de l'instrument, modifiable</td></tr>
+        <tr><td>Couleur</td><td>10 couleurs ou une couleur libre</td><td>Idem</td></tr>
+        <tr><td>Son</td><td>Type de drum : Kick, Snare, Clap, Rimshot, Hi-Hat fermé / ouvert, Toms, Crash, Ride, Cowbell, Shaker, Tambourin, Percussion, Divers, FX</td><td>Catégorie : Mono, Arpège ou Accord</td></tr>
+        <tr><td>Source</td><td>Boîte à rythmes (TR-808 par défaut, TR-909, LinnDrum…)</td><td>Famille : Bass, Synth Lead, Pads, Keys, Mallets, Strings, Brass &amp; Winds, Guitar</td></tr>
+        <tr><td>Détail</td><td>Variation : un des échantillons de cette machine</td><td>Instrument dans la famille</td></tr>
+      </table></div>
+      <p>Pour une piste Drum, le son est joué à chaque changement de type, de machine ou de variation. Les instruments marqués « (synthé) » sont des synthés intégrés : ils se chargent instantanément. Les autres sont des échantillons téléchargés au premier usage.</p>
+
+      <h2 id="drum">Pistes Drum</h2>
+      <p>En mode <b>On/Off</b> (en bas à droite), un clic sur une case l'allume ou l'éteint.</p>
+      <ul>
+        <li><b>Peindre</b> : clique sur une case et glisse le long de la ligne. Toutes les cases survolées prennent le même état que la première.</li>
+        <li><b>Accent</b> : passe en mode <b>Vélocité</b>, clique sur une case et glisse vers le haut (plus fort) ou vers le bas (plus doux). Une case éteinte s'allume à la valeur moyenne.</li>
+        <li><b>Lire la vélocité</b> : en mode Vélocité, la hauteur du remplissage montre la force du coup. En mode On/Off, un coup doux apparaît plus pâle. Survoler une case affiche sa valeur sur 127.</li>
+      </ul>
+
+      <h2 id="notes"><small>Le plus demandé</small>Changer une note ou un accord</h2>
+      <p>On change une note ou un accord dans le <b>piano roll</b>, en cliquant sur une autre ligne à la même position. Pour l'ouvrir, clique sur le chevron <b>›</b> dans l'en-tête d'une piste instrument. Les lignes sont les notes (2 octaves), les colonnes sont les pas. Le clavier à gauche joue la note ou l'accord quand on clique dessus.</p>
+      <div class="table-wrap"><table>
+        <tr><th>Je veux…</th><th>Piste Mono</th><th>Piste Accord ou Arpège</th></tr>
+        <tr><td>Poser</td><td>Clic sur une case vide : la note de cette ligne</td><td>Clic sur une case vide : un accord dont cette ligne est la fondamentale, du type choisi dans « Accord »</td></tr>
+        <tr><td>Allonger</td><td>Clique et, sans relâcher, glisse vers la droite</td><td>Idem</td></tr>
+        <tr><td>Changer la hauteur</td><td>Clic sur une autre ligne, dans la colonne de début de la note</td><td>Clic sur une autre ligne qui n'est pas une note de l'accord, dans la colonne de début</td></tr>
+        <tr><td>Changer le type (m7, Maj7…)</td><td>—</td><td>Clique sur l'accord pour le supprimer, choisis le type dans « Accord », puis reclique sur la fondamentale</td></tr>
+        <tr><td>Supprimer</td><td>Clic sur la note</td><td>Clic sur n'importe quelle note de l'accord</td></tr>
+      </table></div>
+      <p>Quand tu remplaces une note ou un accord, le nouveau repart avec une longueur d'un pas et une vélocité moyenne : réallonge-le en glissant. Un accord ne peut pas en chevaucher un autre : l'allongement s'arrête juste avant l'accord suivant.</p>
+      <p><b>Sur la ligne compacte</b> (la ligne de la piste, piano roll fermé), un clic sur une case vide pose la dernière note ou le dernier accord utilisé, et un clic sur une note existante la supprime. Chaque début de note affiche son nom : A1 pour une note, Am7 ou Fmaj7 pour un accord.</p>
+      <p>Une note hors des 2 octaves affichées est toujours jouée. Utilise <b>Octave − / +</b> pour la voir.</p>
+
+      <h2 id="avance">Réglages avancés</h2>
+      <p>Les réglages d'accord et d'arpège sont dans la barre en haut du piano roll. Les autres sont dans l'en-tête de la piste ou dans la barre du haut.</p>
+      <div class="table-wrap"><table>
+        <tr><th>Réglage</th><th>Où</th><th>Effet</th></tr>
+        <tr><td>Accord</td><td>Piano roll (pistes Accord et Arpège)</td><td>Type des prochains accords posés : Majeur, Mineur, 7, Maj7, m7, Sus2, Sus4, Dim, Aug, Add9, m9, Power (5). Les accords déjà posés ne changent pas.</td></tr>
+        <tr><td>Mode</td><td>Piano roll (Arpège)</td><td>Ordre des notes : Montant, Descendant, Montant / Descendant, Aléatoire</td></tr>
+        <tr><td>Vitesse</td><td>Piano roll (Arpège)</td><td>Durée de chaque note : 1/8, 1/16, 1/32 (par défaut) ou 1/16 triolet</td></tr>
+        <tr><td>Octaves</td><td>Piano roll (Arpège)</td><td>L'arpège monte sur 1, 2 ou 3 octaves</td></tr>
+        <tr><td>Octave − / +</td><td>Piano roll</td><td>Change les 2 octaves affichées, sans modifier les notes</td></tr>
+        <tr><td>Effacer</td><td>Piano roll</td><td>Supprime toutes les notes de la piste, après confirmation</td></tr>
+        <tr><td>Vélocité</td><td>Barre du bas</td><td>Glisse verticalement sur une note : toute la note ou tout l'accord devient plus fort ou plus doux</td></tr>
+        <tr><td>M / S</td><td>En-tête de piste</td><td>Mute coupe la piste. Solo ne fait entendre que les pistes en solo.</td></tr>
+        <tr><td>Volume</td><td>Curseur de l'en-tête</td><td>Volume de la piste, effet immédiat</td></tr>
+        <tr><td>⚙</td><td>En-tête de piste</td><td>Rouvre la fenêtre de la piste : nom, couleur, son, machine, variation, ou catégorie, famille et instrument. Les notes sont gardées.</td></tr>
+        <tr><td>Nom</td><td>Double-clic sur le nom</td><td>Renomme la piste. Entrée valide, Échap annule.</td></tr>
+        <tr><td>Mesure, Mesures</td><td>Barre du haut</td><td>Change la longueur de la boucle</td></tr>
+      </table></div>
+      <p>Les réglages d'arpège s'appliquent tout de suite à tous les arpèges de la piste. La longueur d'un accord d'arpège fixe la durée pendant laquelle l'arpège tourne.</p>
+      <p>Passer une piste Mono en Accord par ⚙ garde les notes simples déjà posées. Les nouveaux clics poseront des accords.</p>
+      <p>On ne peut pas changer une piste Drum en piste Instrument : crée une nouvelle piste.</p>
+      <div class="note warn"><b>Attention</b> : réduire le nombre de mesures ou de temps supprime définitivement les notes qui dépassent la nouvelle fin. Enregistre avant si tu veux pouvoir revenir en arrière.</div>
+
+      <h2 id="fichiers">Enregistrer et ouvrir</h2>
+      <p>Un projet s'enregistre dans un fichier <code>.stepseq.json</code>, qu'on rouvre avec <b>Ouvrir</b>.</p>
+      <ul>
+        <li><b>Chrome et Edge</b> : le premier <b>Enregistrer</b> demande où placer le fichier. Les suivants réécrivent le même fichier. <kbd>Ctrl</kbd>+<kbd>Maj</kbd>+<kbd>S</kbd> enregistre sous un autre nom.</li>
+        <li><b>Firefox et Safari</b> : chaque <b>Enregistrer</b> télécharge une nouvelle copie dans tes Téléchargements.</li>
+        <li><b>Sauvegarde automatique</b> : le travail en cours est aussi gardé dans le navigateur et revient à la prochaine visite. Il reste sur cet appareil et ce navigateur uniquement. Pour changer d'appareil, passe par le fichier.</li>
+        <li><b>Nouveau</b> vide le projet après confirmation. Enregistre d'abord ce que tu veux garder.</li>
+      </ul>
+
+      <h2 id="raccourcis">Raccourcis et astuces</h2>
+      <div class="table-wrap"><table>
+        <tr><th>Raccourci</th><th>Action</th></tr>
+        <tr><td><kbd>Espace</kbd></td><td>Lecture / stop</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd> (<kbd>Cmd</kbd>+<kbd>S</kbd> sur Mac)</td><td>Enregistrer</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Maj</kbd>+<kbd>S</kbd></td><td>Enregistrer sous</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>O</kbd></td><td>Ouvrir un projet</td></tr>
+        <tr><td>Double-clic sur un nom de piste</td><td>Renommer</td></tr>
+      </table></div>
+      <ul>
+        <li>Le bouton ▶ à gauche d'une piste joue son son, sans lancer la lecture.</li>
+        <li>On peut modifier les pas pendant la lecture : le changement s'entend au tour suivant.</li>
+        <li>Pour une ligne de basse, commence en Mono, famille Bass, octave 1 ou 2.</li>
+        <li>Pour des nappes, prends une piste Accord, famille Pads, et allonge chaque accord sur 8 ou 16 pas.</li>
+        <li>Il faut une connexion internet : les sons sont chargés depuis les bibliothèques de <a href="https://strudel.cc">strudel.cc</a>.</li>
+      </ul>
+    </main>
+  </div>
+</body>
+</html>

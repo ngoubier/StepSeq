@@ -53,6 +53,7 @@ svg .fill { fill: currentColor; stroke: none; }
   white-space: nowrap;
 }
 .btn:hover { background: #46464c; }
+a.btn { text-decoration: none; }
 .btn:focus-visible, .segmented button:focus-visible, .chip:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
 .btn-accent { background: var(--accent); }
 .btn-accent:hover { background: #0d74d0; }
