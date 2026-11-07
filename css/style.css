@@ -1341,3 +1341,72 @@ dialog.juno-dialog { width: min(1320px, calc(100vw - 16px)); max-width: none; pa
 @keyframes jblink { 50% { opacity: .15; } }
 .jdisp-name { font-size: 10px; font-weight: 600; min-height: 12px; color: #d8d8d4; text-transform: uppercase; white-space: nowrap; }
 .juno-help { margin: 8px 2px 0; font-size: 12px; color: var(--muted); }
+
+/* ---------- Sélection de notes : rectangle, mesures, copier / couper / coller ---------- */
+.bottombar { flex-wrap: wrap; row-gap: 8px; }
+.sel-tools { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
+.sel-tools .btn:disabled { opacity: .4; cursor: default; background: var(--panel-3); }
+.sel-tools .sel-mode svg { width: 15px; height: 15px; }
+.sel-tools .sel-mode.active { background: var(--accent); color: #fff; }
+.sel-tools .btn-icon-small { width: 28px; padding: 0; justify-content: center; }
+.sel-info {
+  width: 240px;
+  max-width: 60vw;
+  padding: 0 6px;
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sel-info.on { color: var(--text); }
+
+/* contour des pas de batterie sélectionnés, plage de temps choisie (liseré sous les cases) */
+.cell.rng::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: rgba(255, 255, 255, .6);
+  pointer-events: none;
+}
+.roll-row .rcell.sel-hold { box-shadow: inset 0 2px 0 #fff, inset 0 -2px 0 #fff; opacity: 1; }
+.th-icon { border: 0; background: transparent; padding: 0; border-radius: 5px; cursor: pointer; }
+.th-icon:hover { background: var(--panel-3); }
+.th-icon:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 1px; }
+.track.selected .th-icon { box-shadow: inset 0 0 0 1.5px var(--c); }
+
+/* rectangle de sélection */
+.marquee {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  border: 1px solid #fff;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, .12);
+}
+body.marquee-on, body.marquee-on * { cursor: crosshair !important; }
+body.select-mode .track-grid .cell, body.select-mode .rcell { cursor: crosshair; }
+
+/* bande des mesures du piano roll */
+.roll-row.roll-bars { height: 20px; background: #232327; border-bottom: 1px solid #000; }
+.roll-bars .roll-key small { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.roll-bars .grid { height: 100%; }
+.bcell {
+  height: 100%;
+  padding: 3px 3px 0;
+  font-size: 10px;
+  color: var(--muted);
+  border-left: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.bcell.bar { border-left-color: #55555c; color: var(--text); }
+.bcell.hover { background: rgba(255, 255, 255, .07); }
+.bcell.rng { background: color-mix(in srgb, var(--c) 45%, transparent); color: #fff; }
+.bcell:first-child { color: var(--text); }

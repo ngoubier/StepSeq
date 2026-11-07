@@ -223,7 +223,14 @@ SS.ui = (() => {
           app.changed();
         },
       }, 'S'),
-      h('span', { class: 'th-icon', html: trackIcon(track) }),
+      h('button', {
+        type: 'button',
+        class: 'th-icon',
+        title: 'Sélectionner toutes les notes de la piste (Ctrl+A)',
+        'aria-label': `Sélectionner toutes les notes de la piste ${track.name}`,
+        html: trackIcon(track),
+        onclick: () => selectAll(track),
+      }),
       h(
         'div',
         { class: 'th-name', title: 'Double-clic pour renommer', ondblclick: (e) => rename(track, e.currentTarget) },
@@ -292,10 +299,13 @@ SS.ui = (() => {
       e.preventDefault();
       const s = +cell.dataset.step;
       if (s >= SS.trackLen(app.project(), track)) return; // au-delà de la boucle de la piste
+      cursor = { trackId: track.id, step: s };
+      if (e.shiftKey || e.ctrlKey || e.metaKey) return marquee(track, 'line', cell, e);
       const edge = noteEdgeAt(track, cell, e.clientX);
       if (edge) return resizeNote(track, edge, e);
       const top = velEdgeAt(track, cell, e.clientY);
       if (top) return dragVelocity(track, cell, top, e);
+      if (selectMode) return marquee(track, 'line', cell, e);
       if (track.type === 'drum') return drumGesture(track, s, e);
       noteGesture(track, s, null, e);
     });
@@ -306,7 +316,8 @@ SS.ui = (() => {
       if (cell) chordMenuFromEvent(track, +cell.dataset.step, e);
     });
 
-    const el = h('div', { class: 'track', style: `--c:${track.color}`, 'data-id': track.id }, h('div', { class: 'track-row' }, head, grid));
+    const selected = sel && sel.track === track;
+    const el = h('div', { class: 'track' + (selected ? ' selected' : ''), style: `--c:${track.color}`, 'data-id': track.id }, h('div', { class: 'track-row' }, head, grid));
     if (track.type === 'instrument' && isOpen) el.append(buildRoll(track, ref));
     ref.el = el;
     SS.audio.setTrackGain(track, track.volume);
@@ -395,8 +406,8 @@ SS.ui = (() => {
         'span',
         { style: 'opacity:.8' },
         track.category === 'mono'
-          ? 'Cliquer pour poser une note, glisser vers la droite pour l’allonger.'
-          : 'Cliquer sur la fondamentale pour poser un accord, glisser pour l’allonger. Clic droit (ou appui long) sur un accord : changer son type.'
+          ? 'Cliquer pour poser une note, glisser vers la droite pour l’allonger. Maj+glisser : sélectionner.'
+          : 'Cliquer sur la fondamentale pour poser un accord, glisser pour l’allonger. Clic droit (ou appui long) sur un accord : changer son type. Maj+glisser : sélectionner.'
       ),
       h(
         'button',
@@ -450,7 +461,39 @@ SS.ui = (() => {
       h('div', { class: 'roll-side' }, bar),
       inner
     );
-    const roll = h('div', { class: 'roll' }, tools, view);
+    // bande des mesures : clic = sélectionner la mesure, glisser = plusieurs mesures
+    const spb = SS.stepsPerBar(p);
+    const barGrid = h('div', { class: 'grid' });
+    ref.bars = [];
+    for (let s = 0; s < n; s++) {
+      const c = h('div', { class: cellClass(p, s, 'bcell'), 'data-step': s }, s % spb === 0 ? String(s / spb + 1) : '');
+      ref.bars.push(c);
+      barGrid.append(c);
+    }
+    let hoverBar = -1;
+    const markBar = (b) => {
+      if (b === hoverBar) return;
+      hoverBar = b;
+      ref.bars.forEach((c, s) => c.classList.toggle('hover', Math.floor(s / spb) === b));
+    };
+    barGrid.addEventListener('pointermove', (e) => {
+      const c = e.target.closest('.bcell');
+      markBar(c ? Math.floor(+c.dataset.step / spb) : -1);
+    });
+    barGrid.addEventListener('pointerleave', () => markBar(-1));
+    barGrid.addEventListener('pointerdown', (e) => {
+      const c = e.target.closest('.bcell');
+      if (!c || e.button !== 0) return;
+      e.preventDefault();
+      barGesture(track, c, e);
+    });
+    const barRow = h(
+      'div',
+      { class: 'roll-row roll-bars', title: 'Cliquer : sélectionner la mesure · glisser : plusieurs mesures · Maj+clic : jusqu’à cette mesure · Ctrl+clic : ajouter' },
+      h('div', { class: 'roll-key' }, h('small', {}, 'Mesures')),
+      barGrid
+    );
+    const roll = h('div', { class: 'roll' }, tools, barRow, view);
     const scroller = makeRollScroller(track, view, inner, bar, thumb, rangeLabel);
     for (let midi = high; midi >= low; midi--) {
       const black = SS.isBlackKey(midi);
@@ -472,10 +515,13 @@ SS.ui = (() => {
         if (!cell || e.button !== 0) return;
         e.preventDefault();
         if (+cell.dataset.step >= SS.trackLen(app.project(), track)) return;
+        cursor = { trackId: track.id, step: +cell.dataset.step };
+        if (e.shiftKey || e.ctrlKey || e.metaKey) return marquee(track, 'roll', cell, e);
         const edge = noteEdgeAt(track, cell, e.clientX);
         if (edge) return resizeNote(track, edge, e);
         const top = velEdgeAt(track, cell, e.clientY);
         if (top) return dragVelocity(track, cell, top, e);
+        if (selectMode) return marquee(track, 'roll', cell, e);
         noteGesture(track, +cell.dataset.step, +cell.dataset.midi, e);
       });
       hoverResize(track, grid, '.rcell');
@@ -759,6 +805,7 @@ SS.ui = (() => {
         c.style.setProperty('--v', v);
         c.title = v > 0 ? `Vélocité ${Math.round(v * 127)}` : '';
       });
+      paintSelection(track, ref);
       return;
     }
     ref.cells.forEach((c) => {
@@ -766,7 +813,7 @@ SS.ui = (() => {
       c.querySelector('.lbl')?.remove();
       c.title = '';
     });
-    ref.roll.forEach((cells) => cells.forEach((c) => c.classList.remove('on', 'start', 'root', 'sel')));
+    ref.roll.forEach((cells) => cells.forEach((c) => c.classList.remove('on', 'start', 'root', 'sel', 'sel-hold')));
 
     track.events.forEach((ev) => {
       const label = eventLabel(track, ev);
@@ -796,39 +843,438 @@ SS.ui = (() => {
       }
     });
 
-    // note / accord sélectionné
-    if (sel && sel.track === track && track.events.includes(sel.ev)) {
-      const ev = sel.ev;
-      for (let s = ev.step; s < ev.step + ev.len && s < ref.cells.length; s++) {
-        ref.cells[s].classList.add(s === ev.step ? 'sel' : 'sel-hold');
-      }
-      ev.notes.forEach((m) => {
-        const rc = ref.roll.get(m);
-        if (rc && rc[ev.step]) rc[ev.step].classList.add('sel');
-      });
+    paintSelection(track, ref);
+  }
+
+  /** Notes sélectionnées (contour blanc) et plage de temps choisie (liseré sous les cases, bande des mesures). */
+  function paintSelection(track, ref) {
+    ref.cells.forEach((c) => c.classList.remove('sel', 'sel-hold', 'rng'));
+    if (ref.bars) ref.bars.forEach((c) => c.classList.remove('rng'));
+    const s = sel && sel.track === track ? sel : null;
+    if (!s) return;
+    for (const it of [...s.items]) if (!itemValid(track, it)) s.items.delete(it);
+    if (!s.items.size && !s.range) {
+      sel = null;
+      updateSelBar();
+      return;
     }
+    if (s.range) {
+      for (let i = s.range[0]; i < s.range[1]; i++) {
+        if (ref.cells[i]) ref.cells[i].classList.add('rng');
+        if (ref.bars && ref.bars[i]) ref.bars[i].classList.add('rng');
+      }
+    }
+    s.items.forEach((it) => {
+      if (isDrum(track)) return ref.cells[it] && ref.cells[it].classList.add('sel');
+      for (let st = it.step; st < it.step + it.len && st < ref.cells.length; st++) {
+        const k = st === it.step ? 'sel' : 'sel-hold';
+        ref.cells[st].classList.add(k);
+        it.notes.forEach((m) => {
+          const rc = ref.roll.get(m);
+          if (rc && rc[st]) rc[st].classList.add(k);
+        });
+      }
+    });
   }
 
   /* ------------------------------------------------------------------ */
   /* Sélection : la note / l'accord en cours                             */
   /* ------------------------------------------------------------------ */
 
-  let sel = null; // { track, ev }
+  /*
+   * La sélection appartient à une seule piste :
+   *  - items : les pas allumés (n° de pas, piste Drum) ou les événements note / accord (piste instrument) ;
+   *  - range : la plage de temps choisie [début, fin[ (rectangle, mesures, toute la piste), ou null.
+   *    Une plage sans note est permise : elle désigne l'endroit où coller.
+   */
+  let sel = null; // { track, items: Set, range: [from, to] | null }
+  let clip = null; // presse-papiers : { kind: 'drum' | 'notes', span, items, trackId, from }
+  let cursor = null; // { trackId, step } : dernier endroit cliqué (pour coller sans survol)
+  let selectMode = false; // outil « Sélection » : glisser = rectangle, sans poser de note
+  const pointer = { x: -1, y: -1 };
+
+  const isDrum = (track) => track.type === 'drum';
+  const trackById = (id) => app.project().tracks.find((t) => t.id === id);
+  const itemValid = (track, it) => (isDrum(track) ? track.steps[it] > 0 : track.events.includes(it));
+  const itemSpan = (track, it) => (isDrum(track) ? [it, it + 1] : [it.step, it.step + it.len]);
+  const isSelected = (track, it) => !!sel && sel.track === track && sel.items.has(it);
 
   function validSelection() {
-    if (sel && (!app.project().tracks.includes(sel.track) || !sel.track.events || !sel.track.events.includes(sel.ev))) sel = null;
+    if (!sel) return null;
+    if (!app.project().tracks.includes(sel.track)) sel = null;
+    else for (const it of [...sel.items]) if (!itemValid(sel.track, it)) sel.items.delete(it);
+    if (sel && !sel.items.size && !sel.range) sel = null;
     return sel;
   }
 
-  function select(track, ev) {
+  /** Remplace la sélection (track = null : tout désélectionner). */
+  function setSelection(track, items = [], range = null) {
     const prev = sel && sel.track;
-    sel = track && ev ? { track, ev } : null;
-    if (prev && prev !== track) paint(prev);
+    const set = new Set(items);
+    sel = track && (set.size || range) ? { track, items: set, range } : null;
+    if (prev && prev !== track && app.project().tracks.includes(prev)) paint(prev);
     if (track) paint(track);
+    updateSelBar();
+  }
+
+  function select(track, ev) {
+    setSelection(track, ev ? [ev] : []);
+  }
+
+  function toggleItem(track, it) {
+    const items = new Set(sel && sel.track === track ? sel.items : []);
+    if (items.has(it)) items.delete(it);
+    else items.add(it);
+    setSelection(track, items);
   }
 
   function unselectIfRemoved(track) {
-    if (sel && sel.track === track && !track.events.includes(sel.ev)) select(null, null);
+    if (sel && sel.track === track) {
+      validSelection();
+      updateSelBar();
+    }
+  }
+
+  /** Début et fin (exclue) de la sélection : la plage choisie, élargie aux notes qui en sortent par la gauche. */
+  function selBounds() {
+    const spans = [...sel.items].map((it) => itemSpan(sel.track, it));
+    if (!sel.range) return [Math.min(...spans.map((s) => s[0])), Math.max(...spans.map((s) => s[1]))];
+    return [Math.min(sel.range[0], ...spans.map((s) => s[0])), Math.max(sel.range[1], ...spans.map((s) => s[0] + 1))];
+  }
+
+  /**
+   * Notes / pas d'une piste dans les pas [a, b] (inclus).
+   * lo / hi : tessiture (piano roll) ; startOnly : seulement les notes qui commencent dans la plage (mesures).
+   */
+  function itemsInRange(track, a, b, { lo = null, hi = null, startOnly = false } = {}) {
+    const n = SS.trackLen(app.project(), track);
+    b = Math.min(b, n - 1);
+    if (isDrum(track)) {
+      const out = [];
+      for (let s = Math.max(0, a); s <= b; s++) if (track.steps[s] > 0) out.push(s);
+      return out;
+    }
+    return track.events.filter((ev) => {
+      const inTime = startOnly ? ev.step >= a && ev.step <= b : ev.step <= b && ev.step + ev.len - 1 >= a;
+      return inTime && (lo == null || ev.notes.some((m) => m >= lo && m <= hi));
+    });
+  }
+
+  /** La note (ou le pas) sous une case, sinon null. */
+  function itemAtCell(track, cell) {
+    const s = +cell.dataset.step;
+    if (isDrum(track)) return track.steps[s] > 0 ? s : null;
+    const ev = findEventAt(track, s);
+    if (!ev) return null;
+    if (cell.dataset.midi && !ev.notes.includes(+cell.dataset.midi)) return null;
+    return ev;
+  }
+
+  function selectAll(track) {
+    if (!track) return toast('Cliquez d’abord dans une piste.');
+    const n = SS.trackLen(app.project(), track);
+    setSelection(track, itemsInRange(track, 0, n - 1), [0, n]);
+    if (!sel.items.size) toast(`La piste « ${track.name} » est vide.`, 1600);
+  }
+
+  /** La case de piste sous le pointeur de la souris (pour coller à cet endroit), sinon null. */
+  function hovered() {
+    const el = pointer.x >= 0 && document.elementFromPoint(pointer.x, pointer.y);
+    const c = el && el.closest('#tracks .cell, #tracks .rcell, #tracks .bcell');
+    const t = c && trackById(c.closest('.track').dataset.id);
+    return t ? { track: t, step: +c.dataset.step } : null;
+  }
+
+  /** La piste « active » : celle de la sélection, sinon celle sous la souris, sinon la dernière cliquée. */
+  function activeTrack() {
+    if (validSelection()) return sel.track;
+    const hv = hovered();
+    if (hv) return hv.track;
+    return cursor ? trackById(cursor.trackId) : null;
+  }
+
+  const unitLabel = (track, k) =>
+    isDrum(track) ? `${k} pas` : track.category === 'mono' ? `${k} note${k > 1 ? 's' : ''}` : `${k} accord${k > 1 ? 's' : ''}`;
+
+  function rangeLabel(range) {
+    const spb = SS.stepsPerBar(app.project());
+    if (range[0] % spb || range[1] % spb) return '';
+    const a = range[0] / spb + 1;
+    const b = range[1] / spb;
+    return a === b ? `mesure ${a}` : `mesures ${a}–${b}`;
+  }
+
+  /** Barre du bas : nombre d'éléments sélectionnés et boutons Copier / Couper / Coller… */
+  function updateSelBar() {
+    const s = sel;
+    const has = !!(s && s.items.size);
+    ['#selCopy', '#selCut', '#selDup', '#selDel'].forEach((id) => $(id) && ($(id).disabled = !has));
+    if ($('#selPaste')) $('#selPaste').disabled = !clip;
+    if ($('#selClear')) $('#selClear').disabled = !s;
+    const info = $('#selInfo');
+    if (info) {
+      if (!s) info.textContent = clip ? `Presse-papiers : ${clip.items.length} élément${clip.items.length > 1 ? 's' : ''}` : 'Aucune sélection';
+      else {
+        const r = s.range ? rangeLabel(s.range) : '';
+        info.textContent = `${s.track.name} · ${has ? unitLabel(s.track, s.items.size) : 'zone vide'}${r ? ' · ' + r : ''}`;
+      }
+      info.classList.toggle('on', !!s);
+    }
+    document.querySelectorAll('#tracks .track').forEach((el) => el.classList.toggle('selected', !!s && el.dataset.id === s.track.id));
+  }
+
+  /* ---------- Copier / Couper / Coller ---------- */
+
+  function copySelection({ cut = false, quiet = false } = {}) {
+    if (!validSelection() || !sel.items.size) {
+      if (!quiet) toast('Rien à copier : sélectionnez d’abord des notes.');
+      return false;
+    }
+    const t = sel.track;
+    const [from, to] = selBounds();
+    const items = [...sel.items].sort((a, b) => itemSpan(t, a)[0] - itemSpan(t, b)[0]);
+    clip = isDrum(t)
+      ? { kind: 'drum', items: items.map((s) => ({ off: s - from, vel: t.steps[s] })) }
+      : {
+          kind: 'notes',
+          items: items.map((ev) => ({ off: ev.step - from, len: ev.len, notes: [...ev.notes], vel: ev.vel, chord: ev.chord })),
+        };
+    Object.assign(clip, { span: to - from, trackId: t.id, from });
+    const what = unitLabel(t, items.length);
+    if (cut) {
+      if (isDrum(t)) items.forEach((s) => (t.steps[s] = 0));
+      else t.events = t.events.filter((ev) => !sel.items.has(ev));
+      cursor = { trackId: t.id, step: from };
+      setSelection(t, [], [from, to]); // la zone vidée reste choisie : Ctrl+V y remet les notes
+      app.changed();
+      if (!quiet) toast(`Coupé : ${what}`, 1600);
+    } else {
+      updateSelBar();
+      if (!quiet) toast(`Copié : ${what}`, 1600);
+    }
+    return true;
+  }
+
+  /**
+   * Colle le presse-papiers. Destination, dans l'ordre :
+   *  la case sous la souris → une zone vide choisie (son début) → juste après la sélection →
+   *  le dernier endroit cliqué → l'endroit d'origine.
+   * Les notes collées remplacent celles qu'elles chevauchent, puis deviennent la sélection
+   * (Ctrl+V à nouveau colle donc à la suite).
+   */
+  function paste({ after = false } = {}) {
+    if (!clip) return toast('Le presse-papiers est vide : copiez d’abord des notes (Ctrl+C).');
+    const p = app.project();
+    let track = null;
+    let pos = null;
+    const hv = !after && hovered();
+    if (hv) ({ track, step: pos } = hv);
+    else if (validSelection()) {
+      track = sel.track;
+      pos = sel.items.size ? selBounds()[1] : sel.range[0];
+    } else if (cursor && trackById(cursor.trackId)) {
+      track = trackById(cursor.trackId);
+      pos = cursor.step;
+    } else {
+      track = trackById(clip.trackId);
+      pos = clip.from;
+    }
+    if (!track) return toast('Choisissez une piste où coller (survolez-la ou cliquez dedans).');
+    if ((clip.kind === 'drum') !== isDrum(track)) {
+      return toast(clip.kind === 'drum' ? 'Des pas de batterie ne se collent que dans une piste Drum.' : 'Des notes ne se collent que dans une piste instrument ou synthé.');
+    }
+    const n = SS.trackLen(p, track);
+    const pasted = [];
+    let dropped = 0;
+    clip.items.forEach((it) => {
+      const s = pos + it.off;
+      if (s < 0 || s >= n) return dropped++;
+      if (isDrum(track)) {
+        track.steps[s] = it.vel;
+        return pasted.push(s);
+      }
+      const len = Math.min(it.len, n - s);
+      track.events = track.events.filter((e) => !(e.step >= s && e.step < s + len));
+      track.events.forEach((e) => {
+        if (e.step < s && e.step + e.len > s) e.len = s - e.step;
+      });
+      const ev = { step: s, len, notes: track.category === 'mono' ? [it.notes[0]] : [...it.notes], vel: it.vel };
+      if (track.category !== 'mono' && it.chord) ev.chord = it.chord;
+      track.events.push(ev);
+      pasted.push(ev);
+    });
+    if (!isDrum(track)) track.events.sort((a, b) => a.step - b.step);
+    const end = Math.min(n, pos + clip.span);
+    cursor = { trackId: track.id, step: end };
+    setSelection(track, pasted, pasted.length ? [pos, Math.max(end, pos + 1)] : null);
+    app.changed();
+    const spb = SS.stepsPerBar(p);
+    const where = `mesure ${Math.floor(pos / spb) + 1}${pos % spb ? `, pas ${(pos % spb) + 1}` : ''}`;
+    if (!pasted.length) toast('Rien n’a été collé : la destination est au-delà de la boucle de la piste.');
+    else toast(`Collé dans « ${track.name} », ${where}${dropped ? ` · ${dropped} hors de la boucle, ignoré${dropped > 1 ? 's' : ''}` : ''}`, 2000);
+  }
+
+  function deleteSelection() {
+    if (!validSelection() || !sel.items.size) return;
+    const t = sel.track;
+    if (isDrum(t)) sel.items.forEach((s) => (t.steps[s] = 0));
+    else t.events = t.events.filter((ev) => !sel.items.has(ev));
+    const range = sel.range;
+    setSelection(t, [], range);
+    app.changed();
+  }
+
+  /** Dupliquer : copie puis colle juste après la sélection. */
+  function duplicateSelection() {
+    const keep = clip;
+    if (!copySelection({ quiet: true })) return toast('Rien à dupliquer : sélectionnez d’abord des notes.');
+    paste({ after: true });
+    clip = keep || clip; // dupliquer ne remplace pas le presse-papiers
+    updateSelBar();
+  }
+
+  function setSelectMode(on) {
+    selectMode = on;
+    document.body.classList.toggle('select-mode', on);
+    const b = $('#selMode');
+    if (b) {
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', String(on));
+    }
+  }
+
+  /** Raccourcis de la sélection ; renvoie true si la touche a été prise en charge. */
+  function handleKey(e) {
+    const tag = e.target.tagName;
+    const textField = (tag === 'INPUT' && !['range', 'checkbox', 'radio', 'button'].includes(e.target.type)) || tag === 'TEXTAREA' || tag === 'SELECT';
+    if (textField || document.querySelector('dialog[open]') || document.body.classList.contains('mixer-open') || menuEl) return false;
+    const mod = (e.ctrlKey || e.metaKey) && !e.altKey;
+    const key = e.key.toLowerCase();
+    const run = (fn) => {
+      e.preventDefault();
+      fn();
+      return true;
+    };
+    if (mod && key === 'c') return run(() => copySelection());
+    if (mod && key === 'x') return run(() => copySelection({ cut: true }));
+    if (mod && key === 'v') return run(() => paste());
+    if (mod && key === 'd') return run(duplicateSelection);
+    if (mod && key === 'a') return run(() => selectAll(activeTrack()));
+    if (!mod && (e.key === 'Delete' || e.key === 'Backspace') && validSelection()) return run(deleteSelection);
+    if (!mod && e.key === 'Escape' && (sel || selectMode)) return run(() => (sel ? setSelection(null) : setSelectMode(false)));
+    return false;
+  }
+
+  /* ---------- Sélection à la souris ---------- */
+
+  /** Le geste du pointeur doit-il sélectionner (plutôt que poser / effacer des notes) ? */
+  const wantsSelect = (e) => selectMode || e.shiftKey || e.ctrlKey || e.metaKey;
+
+  /**
+   * Sélection rectangle sur la ligne compacte (kind = 'line', seulement le temps)
+   * ou dans le piano roll (kind = 'roll', temps × hauteur).
+   *  - glisser : remplace la sélection (Ctrl / Cmd : l'agrandit) ;
+   *  - simple clic sur une note : Maj / Ctrl l'ajoute ou la retire, en mode Sélection elle devient la sélection ;
+   *  - simple clic sur une case vide en mode Sélection : tout désélectionner.
+   */
+  function marquee(track, kind, startCell, e) {
+    const ref = refs.get(track.id);
+    const add = e.ctrlKey || e.metaKey;
+    const modifier = add || e.shiftKey;
+    const base = add && sel && sel.track === track ? [...sel.items] : [];
+    const s0 = +startCell.dataset.step;
+    const m0 = kind === 'roll' ? +startCell.dataset.midi : null;
+    const r0 = startCell.getBoundingClientRect();
+    const lineY = r0.top + r0.height / 2;
+    const x0 = e.clientX;
+    const y0 = e.clientY;
+    let cur = startCell;
+    let moved = false;
+    let box = null;
+
+    const update = () => {
+      const s1 = +cur.dataset.step;
+      const a = Math.min(s0, s1);
+      const b = Math.max(s0, s1);
+      let lo = null;
+      let hi = null;
+      if (kind === 'roll') {
+        lo = Math.min(m0, +cur.dataset.midi);
+        hi = Math.max(m0, +cur.dataset.midi);
+      }
+      const r1 = cur.getBoundingClientRect();
+      const top = kind === 'roll' ? Math.min(r0.top, r1.top) : r0.top;
+      const bottom = kind === 'roll' ? Math.max(r0.bottom, r1.bottom) : r0.bottom;
+      Object.assign(box.style, {
+        left: Math.min(r0.left, r1.left) + 'px',
+        top: top + 'px',
+        width: Math.max(r0.right, r1.right) - Math.min(r0.left, r1.left) + 'px',
+        height: bottom - top + 'px',
+      });
+      const found = itemsInRange(track, a, b, { lo, hi });
+      setSelection(track, base.concat(found), add ? null : [a, b + 1]);
+    };
+
+    gesture(
+      (pe) => {
+        if (!moved && Math.hypot(pe.clientX - x0, pe.clientY - y0) < 4) return;
+        if (!moved) {
+          moved = true;
+          box = h('div', { class: 'marquee' });
+          document.body.append(box);
+          document.body.classList.add('marquee-on');
+        }
+        const el = document.elementFromPoint(pe.clientX, kind === 'line' ? lineY : pe.clientY);
+        const c = el && el.closest(kind === 'line' ? '.cell' : '.rcell');
+        if (c && ref.el.contains(c)) cur = c;
+        update();
+      },
+      () => {
+        if (box) box.remove();
+        document.body.classList.remove('marquee-on');
+        if (moved) return;
+        const it = itemAtCell(track, startCell);
+        if (it == null) {
+          if (!modifier) setSelection(null);
+          return;
+        }
+        if (modifier) toggleItem(track, it);
+        else setSelection(track, [it]);
+        if (!SS.audio.isPlaying() && isSelected(track, it)) {
+          SS.audio.preview(track, isDrum(track) ? undefined : it.notes.length === 1 ? it.notes[0] : it.notes);
+        }
+      }
+    );
+  }
+
+  /** Bande des mesures du piano roll : clic = la mesure, glisser = plusieurs, Maj+clic = jusqu'à, Ctrl+clic = ajouter. */
+  let barAnchor = null; // { trackId, bar }
+  function barGesture(track, cell, e) {
+    const strip = cell.parentElement;
+    const p = app.project();
+    const spb = SS.stepsPerBar(p);
+    const n = SS.trackLen(p, track);
+    const add = e.ctrlKey || e.metaKey;
+    const base = add && sel && sel.track === track ? [...sel.items] : [];
+    const b0 = Math.floor(+cell.dataset.step / spb);
+    const anchor = e.shiftKey && barAnchor && barAnchor.trackId === track.id ? barAnchor.bar : b0;
+    if (!e.shiftKey) barAnchor = { trackId: track.id, bar: b0 };
+    let last = -1;
+    const apply = (b1) => {
+      if (b1 === last) return;
+      last = b1;
+      const from = Math.min(anchor, b1) * spb;
+      const to = Math.min(n, (Math.max(anchor, b1) + 1) * spb);
+      if (from >= n) return;
+      setSelection(track, base.concat(itemsInRange(track, from, to - 1, { startOnly: true })), add ? null : [from, to]);
+    };
+    apply(b0);
+    cursor = { trackId: track.id, step: b0 * spb };
+    gesture((pe) => {
+      const el = document.elementFromPoint(pe.clientX, pe.clientY);
+      const c = el && el.closest('.bcell');
+      if (c && c.parentElement === strip) apply(Math.floor(+c.dataset.step / spb));
+    });
   }
 
   /* ------------------------------------------------------------------ */
@@ -841,14 +1287,19 @@ SS.ui = (() => {
     return c ? +c.dataset.step : null;
   }
 
+  /** Suit un glisser jusqu'au relâchement ; track_gesture signale en plus une modification du projet. */
   function track_gesture(onMove, onEnd) {
+    gesture(onMove, onEnd, true);
+  }
+
+  function gesture(onMove, onEnd, changes = false) {
     const move = (e) => onMove(e);
     const up = (e) => {
       document.removeEventListener('pointermove', move);
       document.removeEventListener('pointerup', up);
       document.removeEventListener('pointercancel', up);
       onEnd && onEnd(e);
-      app.changed();
+      if (changes) app.changed();
     };
     document.addEventListener('pointermove', move);
     document.addEventListener('pointerup', up);
@@ -919,7 +1370,7 @@ SS.ui = (() => {
   function velTarget(track, s) {
     if (track.type === 'drum') {
       if (!(track.steps[s] > 0)) return null;
-      return { get: () => track.steps[s], set: (v) => (track.steps[s] = v) };
+      return { step: s, get: () => track.steps[s], set: (v) => (track.steps[s] = v) };
     }
     const ev = findEventAt(track, s);
     if (!ev) return null;
@@ -948,7 +1399,13 @@ SS.ui = (() => {
   /** Glisser le haut : la hauteur suit le pointeur, la valeur (0-127) s'affiche près de la note. */
   function dragVelocity(track, cell, target, e) {
     e.preventDefault();
-    if (target.ev) select(track, target.ev);
+    // sur une note d'une sélection multiple : toutes les notes sélectionnées suivent (même écart)
+    const key = target.ev || target.step;
+    const others = isSelected(track, key) && sel.items.size > 1 ? [...sel.items].filter((it) => it !== key) : [];
+    const getVel = (it) => (isDrum(track) ? track.steps[it] : it.vel);
+    const setVel = (it, v) => (isDrum(track) ? (track.steps[it] = v) : (it.vel = v));
+    const starts = others.map(getVel);
+    if (target.ev && !others.length) select(track, target.ev);
     const r = cell.getBoundingClientRect();
     // piano roll : case trop fine pour y lire une hauteur → glissé relatif (vers le haut = plus fort)
     const relative = cell.classList.contains('rcell');
@@ -959,7 +1416,7 @@ SS.ui = (() => {
     document.body.classList.add('dragging-vel');
     const show = () => {
       const v = target.get();
-      badge.textContent = `Vélocité ${Math.round(v * 127)}`;
+      badge.textContent = `Vélocité ${Math.round(v * 127)}${others.length ? ` · ${others.length + 1} notes` : ''}`;
       const top = relative ? r.top : r.bottom - v * r.height;
       badge.style.left = r.left + r.width / 2 + 'px';
       badge.style.top = Math.max(4, top - 30) + 'px';
@@ -969,6 +1426,7 @@ SS.ui = (() => {
       (pe) => {
         const v = relative ? clamp(startV + (startY - pe.clientY) / 150, 0.05, 1) : clamp((r.bottom - pe.clientY) / r.height, 0.05, 1);
         target.set(Math.round(v * 127) / 127);
+        others.forEach((it, i) => setVel(it, Math.round(clamp(starts[i] + v - startV, 0.05, 1) * 127) / 127));
         paint(track);
         show();
       },
@@ -982,10 +1440,16 @@ SS.ui = (() => {
   /** Glisser le bord droit : la case sous le pointeur devient la dernière de la note. */
   function resizeNote(track, ev, e) {
     e.preventDefault();
-    select(track, ev);
     const n = SS.trackLen(app.project(), track);
-    const next = track.events.find((x) => x !== ev && x.step > ev.step);
-    const maxLen = (next ? next.step : n) - ev.step;
+    // sur une note d'une sélection multiple : toutes s'allongent / se raccourcissent d'autant
+    const group = isSelected(track, ev) && sel.items.size > 1 ? [...sel.items] : [ev];
+    if (group.length === 1) select(track, ev);
+    const limits = group.map((x) => {
+      const next = track.events.find((y) => y !== x && y.step > x.step);
+      return { x, len0: x.len, max: (next ? next.step : n) - x.step };
+    });
+    const maxLen = limits.find((l) => l.x === ev).max;
+    const len0 = ev.len;
     document.body.classList.add('resizing-note');
     track_gesture(
       (pe) => {
@@ -993,7 +1457,7 @@ SS.ui = (() => {
         if (s2 == null) return;
         const len = clamp(s2 - ev.step + 1, 1, maxLen);
         if (len !== ev.len) {
-          ev.len = len;
+          limits.forEach((l) => (l.x.len = clamp(l.len0 + len - len0, 1, l.max)));
           paint(track);
         }
       },
@@ -2036,7 +2500,45 @@ SS.ui = (() => {
       fp.addEventListener('change', (e) => setFollow(e.target.checked));
     }
     initDialog();
+    initSelection();
   }
 
-  return { init, renderAll, renderTrack, paint, setPlayhead, toast, openTrackDialog, trackSubtitle, clearSelection: () => select(null, null) };
+  function initSelection() {
+    document.addEventListener(
+      'pointermove',
+      (e) => {
+        pointer.x = e.clientX;
+        pointer.y = e.clientY;
+      },
+      { passive: true }
+    );
+    // clic dans le vide (fond, en-têtes, règle) : tout désélectionner
+    $('#workspace').addEventListener('pointerdown', (e) => {
+      if (e.button !== 0 || !sel) return;
+      if (e.target.closest('button, input, select, label, a, .grid, .roll, .th-name, .th-grip, .len-handle')) return;
+      setSelection(null);
+    });
+    const on = (id, fn) => $(id) && $(id).addEventListener('click', fn);
+    on('#selMode', () => setSelectMode(!selectMode));
+    on('#selCopy', () => copySelection());
+    on('#selCut', () => copySelection({ cut: true }));
+    on('#selPaste', () => paste());
+    on('#selDup', duplicateSelection);
+    on('#selDel', deleteSelection);
+    on('#selClear', () => setSelection(null));
+    updateSelBar();
+  }
+
+  return {
+    init,
+    renderAll,
+    renderTrack,
+    paint,
+    setPlayhead,
+    toast,
+    openTrackDialog,
+    trackSubtitle,
+    handleKey,
+    clearSelection: () => setSelection(null),
+  };
 })();
