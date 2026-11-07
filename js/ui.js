@@ -1016,66 +1016,150 @@ SS.ui = (() => {
     openChordMenu(track, ev, e.clientX, e.clientY);
   }
 
+  // ordre des notes dans le menu (de La à Sol#, comme demandé)
+  const MENU_NOTES = [9, 10, 11, 0, 1, 2, 3, 4, 5, 6, 7, 8];
+
+  /**
+   * Menu du clic droit / appui long sur une note ou un accord.
+   *  - piste Mono : une colonne de notes (A, A#, B…) + octave
+   *  - piste Accord / Arpège : deux colonnes, la fondamentale à gauche et le type d'accord à droite
+   * Chaque choix s'applique et s'entend tout de suite ; le menu reste ouvert pour enchaîner
+   * (note puis type), et se ferme avec Échap, un clic ailleurs ou « Fermer ».
+   */
   function openChordMenu(track, ev, x, y) {
     closeChordMenu();
     select(track, ev);
     const mono = track.category === 'mono';
-    const root = ev.notes[0];
-    const current = ev.chord || '';
-    const rootName = SS.NOTE_NAMES[root % 12];
-    const apply = (id) => {
-      ev.notes = SS.chordNotes(root, id);
-      ev.chord = id;
+
+    const commit = () => {
       paint(track);
       updateNoteButton();
       app.changed();
-      if (!SS.audio.isPlaying()) SS.audio.preview(track, ev.notes);
-      closeChordMenu();
+      if (!SS.audio.isPlaying()) SS.audio.preview(track, ev.notes.length === 1 ? ev.notes[0] : ev.notes);
+      render();
     };
-    menuEl = h(
-      'div',
-      { class: 'ctx-menu', role: 'menu', 'aria-label': mono ? 'Note' : 'Type d’accord' },
-      h('div', { class: 'ctx-title' }, mono ? `Note ${SS.noteName(root)}` : `Accord sur ${rootName}`),
-      h(
-        'button',
-        {
-          type: 'button',
-          role: 'menuitem',
-          onclick: () => {
-            closeChordMenu();
-            openNoteDialog(track, ev);
-          },
-        },
-        h('span', { class: 'ctx-name' }, mono ? 'Modifier la note…' : 'Modifier l’accord…'),
-        h('span', { class: 'ctx-desc' }, 'hauteur, longueur')
-      ),
-      mono ? null : h('hr'),
-      (mono ? [] : SS.CHORDS).map((c) =>
-        h(
-          'button',
-          { type: 'button', role: 'menuitemradio', 'aria-checked': String(c.id === current), class: c.id === current ? 'current' : null, onclick: () => apply(c.id) },
-          h('span', { class: 'ctx-name' }, rootName + (CHORD_SUFFIX[c.id] ?? '')),
-          h('span', { class: 'ctx-desc' }, c.label)
+    // nouvelle fondamentale : même classe de note, au plus près de l'ancienne (±6 demi-tons)
+    const setRoot = (pc) => {
+      const old = ev.notes[0];
+      let root = old - (((old % 12) + 12) % 12) + pc;
+      if (root - old > 6) root -= 12;
+      if (old - root > 6) root += 12;
+      root = Math.max(12, Math.min(119, root));
+      ev.notes = mono ? [root] : SS.chordNotes(root, ev.chord || track.chord);
+      if (!mono && !ev.chord) ev.chord = track.chord;
+      track.lastRoot = root;
+      commit();
+    };
+    const setType = (id) => {
+      ev.chord = id;
+      ev.notes = SS.chordNotes(ev.notes[0], id);
+      commit();
+    };
+    const shiftOct = (d) => {
+      const root = Math.max(12, Math.min(119, ev.notes[0] + 12 * d));
+      ev.notes = mono ? [root] : SS.chordNotes(root, ev.chord || track.chord);
+      track.lastRoot = root;
+      commit();
+    };
+
+    menuEl = h('div', {
+      class: 'ctx-menu ctx-picker' + (mono ? ' mono' : ''),
+      role: 'dialog',
+      'aria-label': mono ? 'Changer la note' : 'Changer l’accord',
+    });
+
+    function render() {
+      const root = ev.notes[0];
+      const pc = ((root % 12) + 12) % 12;
+      const label = mono ? SS.noteName(root) : SS.NOTE_NAMES[pc] + (CHORD_SUFFIX[ev.chord] ?? '');
+      const noteCol = h(
+        'div',
+        { class: 'ctx-col', role: 'radiogroup', 'aria-label': mono ? 'Note' : 'Fondamentale' },
+        h('div', { class: 'ctx-col-title' }, mono ? 'Note' : 'Note'),
+        MENU_NOTES.map((n) =>
+          h(
+            'button',
+            {
+              type: 'button',
+              role: 'radio',
+              'aria-checked': String(n === pc),
+              class: (n === pc ? 'current' : '') + (SS.isBlackKey(n) ? ' sharp' : ''),
+              onclick: () => setRoot(n),
+            },
+            SS.NOTE_NAMES[n]
+          )
         )
-      ),
-      h('hr'),
-      h(
-        'button',
-        {
-          type: 'button',
-          role: 'menuitem',
-          class: 'danger',
-          onclick: () => {
-            track.events = track.events.filter((x) => x !== ev);
-            unselectIfRemoved(track);
-            paint(track);
-            app.changed();
-            closeChordMenu();
-          },
-        },
-        mono ? 'Supprimer la note' : 'Supprimer l’accord'
-      )
-    );
+      );
+      const typeCol = mono
+        ? null
+        : h(
+            'div',
+            { class: 'ctx-col', role: 'radiogroup', 'aria-label': 'Type d’accord' },
+            h('div', { class: 'ctx-col-title' }, 'Accord'),
+            SS.CHORDS.map((c) =>
+              h(
+                'button',
+                {
+                  type: 'button',
+                  role: 'radio',
+                  'aria-checked': String(c.id === ev.chord),
+                  class: c.id === ev.chord ? 'current' : null,
+                  onclick: () => setType(c.id),
+                },
+                h('span', { class: 'ctx-name' }, c.label),
+                h('span', { class: 'ctx-desc' }, SS.NOTE_NAMES[pc] + (CHORD_SUFFIX[c.id] ?? ''))
+              )
+            )
+          );
+      menuEl.replaceChildren(
+        h(
+          'div',
+          { class: 'ctx-head' },
+          h('b', { class: 'ctx-current' }, label),
+          h('span', { class: 'ctx-desc' }, mono ? '' : ev.notes.map(SS.noteName).join(' · ')),
+          h(
+            'span',
+            { class: 'ctx-oct' },
+            h('button', { type: 'button', title: 'Une octave plus bas', onclick: () => shiftOct(-1) }, '−8ve'),
+            h('button', { type: 'button', title: 'Une octave plus haut', onclick: () => shiftOct(1) }, '+8ve')
+          )
+        ),
+        h('div', { class: 'ctx-cols' }, noteCol, typeCol),
+        h(
+          'div',
+          { class: 'ctx-foot' },
+          h(
+            'button',
+            {
+              type: 'button',
+              onclick: () => {
+                closeChordMenu();
+                openNoteDialog(track, ev);
+              },
+            },
+            'Longueur, vélocité…'
+          ),
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'danger',
+              onclick: () => {
+                track.events = track.events.filter((o) => o !== ev);
+                unselectIfRemoved(track);
+                paint(track);
+                app.changed();
+                closeChordMenu();
+              },
+            },
+            'Supprimer'
+          ),
+          h('button', { type: 'button', class: 'ctx-close', onclick: () => closeChordMenu() }, 'Fermer')
+        )
+      );
+    }
+    render();
+
     document.body.append(menuEl);
     // garde le menu dans la fenêtre
     const r = menuEl.getBoundingClientRect();
@@ -1083,7 +1167,7 @@ SS.ui = (() => {
     const vh = Math.min(window.innerHeight, window.visualViewport ? window.visualViewport.height : Infinity);
     menuEl.style.left = Math.max(8, Math.min(x, vw - r.width - 8)) + 'px';
     menuEl.style.top = Math.max(8, Math.min(y, vh - r.height - 8)) + 'px';
-    (menuEl.querySelector('.current') || menuEl.querySelector('button')).focus();
+    (menuEl.querySelector('.ctx-cols .current') || menuEl.querySelector('button')).focus();
     document.addEventListener('pointerdown', onOutside, true);
     document.addEventListener('keydown', onMenuKey, true);
     window.addEventListener('resize', closeChordMenu);
