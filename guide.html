@@ -89,6 +89,7 @@
       <a href="#notes">Changer une note ou un accord</a>
       <a href="#avance">Réglages avancés</a>
       <a href="#sound-design">Sound design</a>
+      <a href="#groove">Groove</a>
       <a href="#fichiers">Enregistrer et ouvrir</a>
       <a href="#raccourcis">Raccourcis et astuces</a>
     </aside>
@@ -207,6 +208,18 @@
         <li>Pour un instrument échantillonné (piano, cordes, soundfonts…), il n'y a pas de VCO : le filtre, l'enveloppe et la sortie s'appliquent à l'échantillon.</li>
         <li>Changer d'instrument avec ⚙ remet les réglages du preset du nouvel instrument.</li>
       </ul>
+
+      <h2 id="groove">Groove</h2>
+      <p>Le bouton <b>Groove</b> de la barre du haut règle le swing et l'humanisation de tout le morceau. Les changements s'entendent pendant la lecture et sont enregistrés dans le projet.</p>
+      <div class="table-wrap"><table>
+        <tr><th>Réglage</th><th>Effet</th></tr>
+        <tr><td>Swing : Droit</td><td>Aucun décalage, toutes les doubles-croches sont régulières</td></tr>
+        <tr><td>Swing : Doubles-croches (1/16)</td><td>Retarde la 2e double-croche de chaque paire : le son typique du hip-hop et de la house</td></tr>
+        <tr><td>Swing : Croches (1/8)</td><td>Retarde la 2e croche de chaque temps : le son du jazz, du blues, du shuffle</td></tr>
+        <tr><td>Intensité</td><td>50 % = droit, 67 % = ternaire (shuffle), 75 % = maximum. Préréglages : Léger 54 %, MPC 58 %, Medium 62 %, Shuffle 67 %, Fort 71 %.</td></tr>
+        <tr><td>Humanisation</td><td>Variations aléatoires de placement (jusqu'à ±15 ms) et de vélocité (jusqu'à ±25 %) sur chaque note</td></tr>
+      </table></div>
+      <p>Le schéma de la fenêtre montre 8 doubles-croches : les cercles pointillés sont la position droite, les points bleus la position jouée. Les notes posées sur les temps ne bougent jamais. Annuler revient aux réglages d'avant l'ouverture.</p>
 
       <h2 id="fichiers">Enregistrer et ouvrir</h2>
       <p>Un projet s'enregistre dans un fichier <code>.stepseq.json</code>, qu'on rouvre avec <b>Ouvrir</b>.</p>

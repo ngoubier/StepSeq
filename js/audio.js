@@ -484,9 +484,13 @@ SS.audio = (() => {
   function scheduleStep(project, step, time) {
     const sd = stepDur(project);
     audibleTracks(project).forEach((track) => {
+      // humanisation : petites variations aléatoires de placement (±15 ms) et de vélocité (±25 %)
+      const human = (project.groove && project.groove.human) || 0;
+      const jt = () => (human ? (Math.random() * 2 - 1) * human * 0.015 : 0);
+      const jv = (v) => (human ? Math.max(0.05, Math.min(1, v * (1 + (Math.random() * 2 - 1) * human * 0.25))) : v);
       if (track.type === 'drum') {
         const v = track.steps[step];
-        if (v > 0) playDrum(track, time, v);
+        if (v > 0) playDrum(track, time + jt(), jv(v));
         return;
       }
       (track.events || []).forEach((ev) => {
@@ -505,11 +509,13 @@ SS.audio = (() => {
                 ? seqNotes[Math.floor(Math.random() * seqNotes.length)]
                 : seqNotes[idx % seqNotes.length];
             const t = time + (idx - (step - ev.step) * rate) * sub;
-            playNote(track, n, t, sub * 0.9, ev.vel);
+            playNote(track, n, t + jt(), sub * 0.9, jv(ev.vel));
           }
         } else if (ev.step === step) {
           const dur = ev.len * sd * 0.98;
-          ev.notes.forEach((n) => playNote(track, n, time, dur, ev.vel * (ev.notes.length > 1 ? 0.8 : 1)));
+          const tt = time + jt();
+          const vv = jv(ev.vel);
+          ev.notes.forEach((n) => playNote(track, n, tt, dur, vv * (ev.notes.length > 1 ? 0.8 : 1)));
         }
       });
     });
@@ -520,8 +526,9 @@ SS.audio = (() => {
     const total = SS.totalSteps(project);
     while (seq.nextTime < ctx.currentTime + 0.12) {
       if (seq.step >= total) seq.step = 0;
-      scheduleStep(project, seq.step, seq.nextTime);
-      seq.queue.push({ step: seq.step, time: seq.nextTime });
+      const t = seq.nextTime + SS.grooveOffset(project, seq.step, stepDur(project));
+      scheduleStep(project, seq.step, t);
+      seq.queue.push({ step: seq.step, time: t });
       seq.nextTime += stepDur(project);
       seq.step++;
     }

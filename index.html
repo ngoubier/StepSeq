@@ -36,6 +36,10 @@
           <option>1</option><option>2</option><option>3</option><option>4</option><option>8</option>
         </select>
       </label>
+      <button id="grooveBtn" class="btn groove-btn" type="button" title="Swing et humanisation">
+        <svg viewBox="0 0 24 24"><path d="M3 17c3 0 3-10 6-10s3 10 6 10 3-10 6-10"/></svg>
+        <span id="grooveLabel">Groove : droit</span>
+      </button>
     </div>
 
     <div class="topbar-group transport">
@@ -266,12 +270,56 @@
     </form>
   </dialog>
 
+  <!-- Dialogue Groove -->
+  <dialog id="grooveDialog">
+    <form method="dialog" id="grooveForm">
+      <h2>Groove</h2>
+      <p class="dlg-sub">Le swing retarde une note sur deux pour donner du balancement. Les changements s'entendent pendant la lecture.</p>
+
+      <div class="dlg-row">
+        <span class="dlg-label">Swing</span>
+        <div class="segmented" id="gvRes" role="radiogroup" aria-label="Résolution du swing">
+          <button type="button" data-v="0">Droit</button>
+          <button type="button" data-v="16">Doubles-croches (1/16)</button>
+          <button type="button" data-v="8">Croches (1/8)</button>
+        </div>
+      </div>
+
+      <div class="dlg-row" id="gvAmountRow">
+        <label class="dlg-label" for="gvSwing">Intensité <output id="gvSwingOut"></output></label>
+        <input id="gvSwing" type="range" min="50" max="75" step="1">
+        <div class="gv-presets" id="gvPresets">
+          <button type="button" class="chip" data-s="54">Léger 54 %</button>
+          <button type="button" class="chip" data-s="58">MPC 58 %</button>
+          <button type="button" class="chip" data-s="62">Medium 62 %</button>
+          <button type="button" class="chip" data-s="67">Shuffle 67 %</button>
+          <button type="button" class="chip" data-s="71">Fort 71 %</button>
+        </div>
+      </div>
+
+      <svg id="gvPreview" class="gv-preview" viewBox="0 0 320 44" aria-hidden="true"></svg>
+
+      <div class="dlg-row">
+        <label class="dlg-label" for="gvHuman">Humanisation <output id="gvHumanOut"></output></label>
+        <input id="gvHuman" type="range" min="0" max="100" step="1">
+        <small class="gv-help">Petites variations aléatoires de placement (jusqu'à ±15 ms) et de vélocité (jusqu'à ±25 %), comme un musicien.</small>
+      </div>
+
+      <div class="dlg-footer">
+        <span class="spacer"></span>
+        <button type="button" id="gvCancel" class="btn">Annuler</button>
+        <button type="submit" class="btn btn-accent">OK</button>
+      </div>
+    </form>
+  </dialog>
+
   <div id="toast" role="status"></div>
 
   <script src="js/sounds.js"></script>
   <script src="js/project.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/sounddesign.js"></script>
+  <script src="js/groove.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/main.js"></script>
 </body>

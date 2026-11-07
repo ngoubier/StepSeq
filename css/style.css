@@ -563,3 +563,16 @@ dialog.sd-dialog { width: min(820px, calc(100vw - 32px)); }
 .sd-adsr.filt .line { stroke: #f5a524; }
 .sd-adsr.filt .fill-area { fill: #f5a524; }
 .sd-adsr.dim { opacity: .4; }
+
+/* ---------- Groove ---------- */
+.groove-btn { height: 32px; padding: 0 12px; font-size: 13px; }
+.groove-btn.on { box-shadow: inset 0 0 0 1px var(--accent-2); color: #cfe4ff; }
+#gvRes { flex-wrap: wrap; align-self: flex-start; }
+#gvRes button { padding: 6px 12px; }
+#gvSwing, #gvHuman { width: 100%; accent-color: var(--accent-2); }
+.gv-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.gv-preview { width: 100%; height: auto; max-height: 80px; background: var(--panel-2); border-radius: 8px; }
+.gv-preview .grid-line { stroke: var(--line); stroke-width: 1; }
+.gv-preview .straight { fill: none; stroke: var(--muted); stroke-dasharray: 2 2; }
+.gv-preview .hit { fill: var(--accent-2); }
+.gv-help { color: var(--muted); font-size: 12px; }

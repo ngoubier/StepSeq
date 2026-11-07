@@ -19,7 +19,7 @@ puis ouvrir <http://localhost:8000>.
 ## Interface
 
 - **En-tête** : titre du projet, tempo (BPM), chiffrage de mesure (4/4 par défaut, x/4 ou x/8),
-  nombre de mesures, puis les boutons **+** (ajouter une piste), **Lecture** et **Stop**.
+  nombre de mesures, le groove (swing, humanisation), puis les boutons **+** (ajouter une piste), **Lecture** et **Stop**.
   À droite : **Nouveau**, **Ouvrir** et **Enregistrer**.
 - **Partie centrale** : les pistes, les unes sous les autres. Chaque piste a un en-tête
   (écoute, Mute, Solo, nom, volume, réglages, suppression) et sa grille de pas
@@ -88,6 +88,7 @@ Les sons proviennent des bibliothèques utilisées par [strudel.cc](https://stru
 | `js/project.js`  | Modèle de projet, enregistrement / ouverture de fichiers |
 | `js/audio.js`    | Moteur audio : chargement des échantillons, voix, séquenceur |
 | `js/sounddesign.js` | Fenêtre de sound design (VCO, filtre, ADSR, sortie) |
+| `js/groove.js`   | Fenêtre Groove (swing, humanisation) |
 | `js/ui.js`       | Rendu des pistes, grille, piano roll, dialogue |
 | `js/main.js`     | Démarrage, barre d'outils, raccourcis |
 | `guide.html`     | Guide d'utilisation (bouton « Aide » de l'app) |

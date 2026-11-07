@@ -77,6 +77,7 @@
     $('#sigNum').value = project.timeSig[0];
     $('#sigDen').value = project.timeSig[1];
     $('#bars').value = project.bars;
+    SS.groove.updateButton();
     document.title = project.title + ' — StepSeq';
   }
 
@@ -256,6 +257,7 @@
   /* ---------- Démarrage ---------- */
   SS.audio.setErrorHandler((msg) => SS.ui.toast(msg));
   SS.soundDesign.init({ changed, renderTrack: (t) => SS.ui.renderTrack(t) });
+  SS.groove.init({ project: () => project, changed });
   SS.ui.init({
     project: () => project,
     changed,

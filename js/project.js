@@ -5,6 +5,7 @@
  * {
  *   format: "stepseq", version: 1,
  *   title, tempo, timeSig: [num, den], bars,
+ *   groove: { res: 0|16|8, swing: 0.5..0.75, human: 0..1 },
  *   tracks: [
  *     { id, type: "drum", name, color, volume, mute, solo,
  *       sound: "bd", machine: "RolandTR808", variant: 0,
@@ -35,6 +36,7 @@ SS.newProject = () => ({
   tempo: 120,
   timeSig: [4, 4],
   bars: 1,
+  groove: { res: 0, swing: 0.5, human: 0 }, // res : 0 = droit, 16 = swing des doubles-croches, 8 = des croches
   tracks: [],
 });
 
@@ -87,6 +89,14 @@ SS.normalizeProject = (data) => {
   p.tempo = Math.min(300, Math.max(20, Number(data.tempo) || 120));
   if (Array.isArray(data.timeSig) && data.timeSig.length === 2) p.timeSig = data.timeSig.map(Number);
   p.bars = Math.min(8, Math.max(1, Number(data.bars) || 1));
+  if (data.groove && typeof data.groove === 'object') {
+    const g = data.groove;
+    p.groove = {
+      res: [0, 8, 16].includes(Number(g.res)) ? Number(g.res) : 0,
+      swing: Math.min(0.75, Math.max(0.5, Number(g.swing) || 0.5)),
+      human: Math.min(1, Math.max(0, Number(g.human) || 0)),
+    };
+  }
   p.tracks = data.tracks.map((t) => {
     const track = { ...t, id: t.id || SS.uid() };
     track.volume = typeof t.volume === 'number' ? t.volume : 0.8;
@@ -180,3 +190,18 @@ SS.files = (() => {
 
   return { save, open, reset: () => (handle = null) };
 })();
+
+/**
+ * Groove : décalage (en secondes) d'un pas.
+ * Le swing retarde la 2e double-croche (res 16) ou la 2e croche (res 8) de chaque paire.
+ * swing = 0.5 : droit ; 0.667 : ternaire (shuffle) ; 0.75 : maximum.
+ */
+SS.grooveOffset = (p, step, stepDur) => {
+  const g = p.groove;
+  if (!g || !g.res || g.swing <= 0.5) return 0;
+  const group = g.res === 8 ? 4 : 2; // pas par paire swinguée
+  const pos = step % group;
+  const u = pos / group;
+  const swung = u < 0.5 ? u * 2 * g.swing : g.swing + (u - 0.5) * 2 * (1 - g.swing);
+  return (swung - u) * group * stepDur;
+};
