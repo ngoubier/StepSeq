@@ -89,15 +89,13 @@ SS.mixer = (() => {
   function eqResponse(eq, freqs) {
     if (!oc) {
       oc = new OfflineAudioContext(1, 128, 44100);
-      ocFilters = ['highpass', 'lowshelf', 'peaking', 'peaking', 'highshelf', 'lowpass'].map((type) => {
+      ocFilters = ['highpass', 'lowshelf', 'peaking', 'peaking', 'highshelf'].map((type) => {
         const f = oc.createBiquadFilter();
         f.type = type;
         return f;
       });
     }
-    const [hp, lo, lm, hm, hi, lp] = ocFilters;
-    lp.frequency.value = eq.lp && eq.lp.on ? eq.lp.f : 22000;
-    lp.Q.value = 0.707;
+    const [hp, lo, lm, hm, hi] = ocFilters;
     hp.frequency.value = eq.hp.on ? eq.hp.f : 10;
     hp.Q.value = 0.707;
     lo.frequency.value = eq.low.f;
@@ -114,6 +112,35 @@ SS.mixer = (() => {
     const mag = new Float32Array(freqs.length);
     const ph = new Float32Array(freqs.length);
     ocFilters.forEach((f) => {
+      f.getFrequencyResponse(freqs, mag, ph);
+      for (let i = 0; i < mag.length; i++) total[i] *= mag[i];
+    });
+    return total;
+  }
+
+  /** Réponse du filtre VCF (mêmes étages que le moteur audio). */
+  let vcfFilters = null;
+  function vcfResponse(v, freqs) {
+    if (!oc) eqResponse(SS.MIX_DEFAULTS.eq, new Float32Array([1000]));
+    if (!vcfFilters) vcfFilters = ['highpass', 'highpass', 'lowpass', 'lowpass'].map((type) => {
+      const f = oc.createBiquadFilter();
+      f.type = type;
+      return f;
+    });
+    const two = v.on && v.slope === 24;
+    const [h1, h2, l1, l2] = vcfFilters;
+    h1.frequency.value = two ? v.hp.f : 10;
+    h1.Q.value = -5.35;
+    h2.frequency.value = v.on ? v.hp.f : 10;
+    h2.Q.value = v.on ? v.hp.res : 0;
+    l1.frequency.value = two ? v.lp.f : 22000;
+    l1.Q.value = -5.35;
+    l2.frequency.value = v.on ? v.lp.f : 22000;
+    l2.Q.value = v.on ? v.lp.res : 0;
+    const total = new Float32Array(freqs.length).fill(1);
+    const mag = new Float32Array(freqs.length);
+    const ph = new Float32Array(freqs.length);
+    vcfFilters.forEach((f) => {
       f.getFrequencyResponse(freqs, mag, ph);
       for (let i = 0; i < mag.length; i++) total[i] *= mag[i];
     });
@@ -147,10 +174,6 @@ SS.mixer = (() => {
     { key: 'hm', label: 'Haut-méd.', color: '#3fcf3f' },
     { key: 'high', label: 'Aigu', color: '#2b8cff' },
   ];
-  // filtres de coupure (sans gain) : passe-haut partout, passe-bas sur le Master
-  const LP_BAND = { key: 'lp', label: 'LP', color: '#c07bff' };
-  const isCut = (k) => k === 'hp' || k === 'lp';
-  const CUT = { hp: { min: 20, max: 2000, name: ' Passe-haut' }, lp: { min: 1000, max: 20000, name: ' Passe-bas' } };
 
   function drawEq(canvas, eq, W, H, opts = {}) {
     const g = setupCanvas(canvas, W, H);
@@ -206,11 +229,11 @@ SS.mixer = (() => {
     g.fillStyle = eq.on ? 'rgba(43, 140, 255, .15)' : 'rgba(120, 120, 130, .08)';
     g.fill();
     if (opts.handles) {
-      (opts.bands || BANDS).forEach((b) => {
+      BANDS.forEach((b) => {
         const band = eq[b.key];
         const x = fToX(band.f, W);
-        const y = isCut(b.key) ? H / 2 : gToY(band.g, H);
-        const active = isCut(b.key) ? band.on : true;
+        const y = b.key === 'hp' ? H / 2 : gToY(band.g, H);
+        const active = b.key === 'hp' ? eq.hp.on : true;
         g.beginPath();
         g.arc(x, y, opts.hot === b.key ? 8 : 6, 0, Math.PI * 2);
         g.fillStyle = active ? b.color : '#3a3a42';
@@ -221,14 +244,14 @@ SS.mixer = (() => {
         g.fillStyle = '#000';
         g.font = 'bold 9px system-ui, sans-serif';
         g.textAlign = 'center';
-        g.fillText({ hp: 'P', low: '1', lm: '2', hm: '3', high: '4', lp: 'B' }[b.key], x, y + 3);
+        g.fillText({ hp: 'P', low: '1', lm: '2', hm: '3', high: '4' }[b.key], x, y + 3);
         g.textAlign = 'left';
       });
       if (opts.hot) {
         const b = eq[opts.hot];
-        const band = [...BANDS, LP_BAND].find((x) => x.key === opts.hot);
+        const band = BANDS.find((x) => x.key === opts.hot);
         let txt = `${band.label}  ${fmtF(b.f)}`;
-        if (!isCut(opts.hot)) txt += `  ${b.g > 0 ? '+' : ''}${b.g.toFixed(1)} dB`;
+        if (opts.hot !== 'hp') txt += `  ${b.g > 0 ? '+' : ''}${b.g.toFixed(1)} dB`;
         if ('q' in b) txt += `  Q ${b.q.toFixed(2)}`;
         g.font = '12px system-ui, sans-serif';
         const w = g.measureText(txt).width + 12;
@@ -546,12 +569,10 @@ SS.mixer = (() => {
     /* --- EQ --- */
     const eqCanvas = h('canvas', { class: 'eq-graph' });
     const eqTable = h('div', { class: 'eq-bands' });
-    // le Master propose aussi un passe-bas (affiché aussi sur une piste où il serait déjà actif)
-    const bands = ch.master || ch.getMix().eq.lp.on ? [...BANDS, LP_BAND] : BANDS;
     function fillBands() {
       const e = ch.getMix().eq;
       eqTable.replaceChildren(
-        ...bands.map((b) => {
+        ...BANDS.map((b) => {
           const band = e[b.key];
           const num = (field, min, max, step, fmt) =>
             h('input', {
@@ -567,7 +588,7 @@ SS.mixer = (() => {
                 update((mm) => {
                   mm.eq[b.key][field] = v;
                   mm.eq.on = true;
-                  if (isCut(b.key)) mm.eq[b.key].on = true;
+                  if (b.key === 'hp') mm.eq.hp.on = true;
                 });
                 app.changed();
               },
@@ -575,21 +596,21 @@ SS.mixer = (() => {
           return h(
             'div',
             { class: 'eq-band', style: `--b:${b.color}` },
-            h('span', { class: 'eq-band-name' }, isCut(b.key)
+            h('span', { class: 'eq-band-name' }, b.key === 'hp'
               ? h('label', {}, h('input', {
                   type: 'checkbox',
-                  checked: band.on,
+                  checked: e.hp.on,
                   onchange: (ev) => {
                     update((mm) => {
-                      mm.eq[b.key].on = ev.target.checked;
+                      mm.eq.hp.on = ev.target.checked;
                       if (ev.target.checked) mm.eq.on = true;
                     });
                     app.changed();
                   },
-                }), CUT[b.key].name)
+                }), ' Passe-haut')
               : b.label),
-            h('span', {}, num('f', isCut(b.key) ? CUT[b.key].min : 20, isCut(b.key) ? CUT[b.key].max : 20000, 1, (v) => Math.round(v)), ' Hz'),
-            isCut(b.key) ? h('span') : h('span', {}, num('g', -18, 18, 0.5, (v) => v.toFixed(1)), ' dB'),
+            h('span', {}, num('f', 20, 20000, 1, (v) => Math.round(v)), ' Hz'),
+            b.key === 'hp' ? h('span') : h('span', {}, num('g', -18, 18, 0.5, (v) => v.toFixed(1)), ' dB'),
             'q' in band ? h('span', {}, 'Q ', num('q', 0.2, 12, 0.1, (v) => v.toFixed(2))) : h('span')
           );
         })
@@ -602,18 +623,18 @@ SS.mixer = (() => {
       const box = detailRefs && detailRefs.eqBox;
       if (!box) return 480;
       const full = box.clientWidth - 26;
-      return Math.round(full > 720 ? Math.min(620, full - 300) : Math.max(280, full));
+      return Math.round(full > 620 ? Math.min(620, full - 300) : Math.max(280, full));
     };
     const EQH = 170;
     let hot = null;
-    const drawBig = () => drawEq(eqCanvas, ch.getMix().eq, EQW(), EQH, { grid: true, handles: true, hot, bands });
+    const drawBig = () => drawEq(eqCanvas, ch.getMix().eq, EQW(), EQH, { grid: true, handles: true, hot });
     const hit = (x, y) => {
       const e = ch.getMix().eq;
       const W = EQW();
       let best = null;
-      bands.forEach((b) => {
+      BANDS.forEach((b) => {
         const bx = fToX(e[b.key].f, W);
-        const by = isCut(b.key) ? EQH / 2 : gToY(e[b.key].g, EQH);
+        const by = b.key === 'hp' ? EQH / 2 : gToY(e[b.key].g, EQH);
         const d = Math.hypot(bx - x, by - y);
         if (d < 14 && (!best || d < best.d)) best = { key: b.key, d };
       });
@@ -647,8 +668,8 @@ SS.mixer = (() => {
         update((mm) => {
           mm.eq.on = true;
           const b = mm.eq[k];
-          b.f = Math.round(clamp(xToF(x, EQW()), isCut(k) ? CUT[k].min : 20, isCut(k) ? CUT[k].max : 20000));
-          if (isCut(k)) b.on = true;
+          b.f = Math.round(clamp(xToF(x, EQW()), k === 'hp' ? 20 : 20, k === 'hp' ? 2000 : 20000));
+          if (k === 'hp') mm.eq.hp.on = true;
           else b.g = Math.round(yToG(y, EQH) * 2) / 2;
         }, { redraw: false });
         drawBig();
@@ -687,7 +708,7 @@ SS.mixer = (() => {
       const k = hit(e.clientX - r.left, e.clientY - r.top);
       if (!k) return;
       update((mm) => {
-        if (isCut(k)) mm.eq[k].on = false;
+        if (k === 'hp') mm.eq.hp.on = false;
         else mm.eq[k].g = 0;
       }, { redraw: false });
       drawBig();
@@ -699,7 +720,7 @@ SS.mixer = (() => {
     const eqBox = h(
       'section',
       { class: 'mod mod-eq' + (detailFocus === 'eq' ? ' focus' : ''), 'data-mod': 'eq' },
-      h('div', { class: 'mod-head' }, h('h3', {}, 'Égaliseur ', h('small', {}, ch.master ? '5 bandes + passe-haut / passe-bas' : '5 bandes')), powerBtn(ch, 'eq', 'l’égaliseur')),
+      h('div', { class: 'mod-head' }, h('h3', {}, 'Égaliseur ', h('small', {}, '5 bandes')), powerBtn(ch, 'eq', 'l’égaliseur')),
       h('div', { class: 'eq-layout' }, eqCanvas, eqTable),
       h('p', { class: 'mod-help' }, 'Glisse les points (fréquence ↔, gain ↕) · molette sur 2 ou 3 : largeur (Q) · double-clic : remise à zéro.')
     );
@@ -795,6 +816,95 @@ SS.mixer = (() => {
         : 'Le limiteur empêche la piste de dépasser le plafond, même sur les coups les plus forts.')
     );
 
+    /* --- Filtre VCF (Master) --- */
+    let vcfBox = null;
+    let drawVcf = () => {};
+    if (ch.master) {
+      const v = m.vcf;
+      const vcfCanvas = h('canvas', { class: 'vcf-graph' });
+      drawVcf = () => {
+        const vv = ch.getMix().vcf;
+        const W = Math.max(200, (vcfBox && vcfBox.clientWidth - 26) || 300);
+        const H = 74;
+        const g = setupCanvas(vcfCanvas, W, H);
+        g.fillStyle = '#121216';
+        g.fillRect(0, 0, W, H);
+        g.strokeStyle = '#26262c';
+        g.fillStyle = '#6a6a74';
+        g.font = '10px system-ui, sans-serif';
+        [100, 1000, 10000].forEach((f) => {
+          const x = Math.round(fToX(f, W)) + 0.5;
+          g.beginPath();
+          g.moveTo(x, 0);
+          g.lineTo(x, H);
+          g.stroke();
+          g.fillText(f >= 1000 ? f / 1000 + 'k' : String(f), x + 3, H - 4);
+        });
+        const top = 20; // dB affichés au-dessus de 0
+        const y0 = (H - 6) * (top / 50) + 3; // échelle +20 … −30 dB
+        const toY = (db) => y0 - (db / 50) * (H - 6);
+        g.strokeStyle = '#3a3a42';
+        g.beginPath();
+        g.moveTo(0, y0 + 0.5);
+        g.lineTo(W, y0 + 0.5);
+        g.stroke();
+        const n = Math.floor(W);
+        const freqs = new Float32Array(n);
+        for (let i = 0; i < n; i++) freqs[i] = xToF((i / (n - 1)) * W, W);
+        const resp = vcfResponse(vv, freqs);
+        g.beginPath();
+        for (let i = 0; i < n; i++) {
+          const db = clamp(20 * Math.log10(resp[i] || 1e-6), -30, top);
+          const x = (i / (n - 1)) * W;
+          i ? g.lineTo(x, toY(db)) : g.moveTo(x, toY(db));
+        }
+        g.strokeStyle = vv.on ? '#d38bff' : '#5a5a66';
+        g.lineWidth = 2;
+        g.stroke();
+        g.lineTo(W, H);
+        g.lineTo(0, H);
+        g.closePath();
+        g.fillStyle = vv.on ? 'rgba(192, 123, 255, .15)' : 'rgba(120, 120, 130, .08)';
+        g.fill();
+      };
+      const upd = (fn) => {
+        update((mm) => {
+          fn(mm.vcf);
+          mm.vcf.on = true;
+        }, { redraw: false });
+        drawVcf();
+      };
+      const slopeBtn = (n) => h('button', {
+        type: 'button',
+        class: 'seg-btn' + (v.slope === n ? ' on' : ''),
+        'aria-pressed': String(v.slope === n),
+        title: n === 12 ? 'Pente douce (12 dB/oct), résonance marquée' : 'Pente raide (24 dB/oct), façon filtre de synthé « ladder »',
+        onclick: () => {
+          upd((vv) => (vv.slope = n));
+          app.changed();
+          render();
+        },
+      }, `${n} dB/oct`);
+      const fmtHz = (x) => (x >= 1000 ? (x / 1000).toFixed(x >= 10000 ? 1 : 2) + ' kHz' : Math.round(x) + ' Hz');
+      const fmtRes = (x) => x.toFixed(1) + ' dB';
+      vcfBox = h(
+        'section',
+        { class: 'mod mod-vcf' + (detailFocus === 'vcf' ? ' focus' : ''), 'data-mod': 'vcf' },
+        h('div', { class: 'mod-head' }, h('h3', {}, 'Filtre VCF ', h('small', {}, 'passe-haut + passe-bas')), powerBtn(ch, 'vcf', 'le filtre')),
+        vcfCanvas,
+        h('div', { class: 'seg vcf-slope' }, slopeBtn(12), slopeBtn(24)),
+        h(
+          'div',
+          { class: 'sd-sliders vcf-sliders' },
+          slider('Passe-haut', v.hp.f, 20, 20000, { log: true, fmt: fmtHz, def: 20 }, (x) => upd((vv) => (vv.hp.f = Math.round(x)))),
+          slider('Résonance', v.hp.res, 0, 18, { fmt: fmtRes, step: 0.5, def: 0 }, (x) => upd((vv) => (vv.hp.res = Math.round(x * 2) / 2))),
+          slider('Passe-bas', v.lp.f, 20, 20000, { log: true, fmt: fmtHz, def: 20000 }, (x) => upd((vv) => (vv.lp.f = Math.round(x)))),
+          slider('Résonance', v.lp.res, 0, 18, { fmt: fmtRes, step: 0.5, def: 0 }, (x) => upd((vv) => (vv.lp.res = Math.round(x * 2) / 2)))
+        ),
+        h('p', { class: 'mod-help' }, 'Monte le passe-haut ou descends le passe-bas pour filtrer tout le morceau (montées, breaks). Double-clic : filtre ouvert.')
+      );
+    }
+
     const head = h(
       'div',
       { class: 'detail-head', style: `--c:${ch.color}` },
@@ -817,11 +927,12 @@ SS.mixer = (() => {
       }, 'Réinitialiser')
     );
     $('#mixerDetail').style.setProperty('--c', ch.color);
-    $('#mixerDetail').replaceChildren(head, h('div', { class: 'detail-mods' }, eqBox, compBox, limBox));
+    $('#mixerDetail').replaceChildren(head, h('div', { class: 'detail-mods' + (vcfBox ? ' with-vcf' : '') }, eqBox, compBox, limBox, vcfBox));
     detailRefs = { eqBox, drawBig, drawTransfer, grBig, grLim, ch };
     requestAnimationFrame(() => {
       drawBig();
       drawTransfer();
+      drawVcf();
     });
   }
 

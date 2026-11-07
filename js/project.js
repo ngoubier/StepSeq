@@ -438,7 +438,6 @@ SS.MIX_DEFAULTS = {
     lm: { f: 400, g: 0, q: 1 }, // cloche bas-médium
     hm: { f: 2500, g: 0, q: 1 }, // cloche haut-médium
     high: { f: 8000, g: 0 }, // shelf aigu
-    lp: { on: false, f: 16000 }, // passe-bas 12 dB/oct (proposé sur le Master)
   },
   comp: { on: false, th: -18, ratio: 3, att: 0.01, rel: 0.15, knee: 6, makeup: 0 },
   lim: { on: false, ceil: -1, rel: 0.1 },
@@ -450,6 +449,8 @@ SS.MASTER_DEFAULTS = {
     ...SS.MIX_DEFAULTS,
     comp: { on: true, th: -10, ratio: 4, att: 0.003, rel: 0.25, knee: 30, makeup: 0 },
     lim: { on: true, ceil: -0.3, rel: 0.08 },
+    // filtre VCF du Master (entre l'EQ et le compresseur) : passe-haut + passe-bas résonants, ouverts par défaut
+    vcf: { on: false, slope: 12, hp: { f: 20, res: 0 }, lp: { f: 20000, res: 0 } }, // res : pic de résonance en dB,
   },
 };
 
@@ -478,12 +479,19 @@ SS.cleanMix = (mix, defaults = SS.MIX_DEFAULTS) => {
   e.on = !!e.on;
   e.hp.on = !!e.hp.on;
   e.hp.f = num(e.hp.f, 20, 2000, 40);
-  e.lp.on = !!e.lp.on;
-  e.lp.f = num(e.lp.f, 1000, 20000, 16000);
   for (const b of ['low', 'lm', 'hm', 'high']) {
     e[b].f = num(e[b].f, 20, 20000, defaults.eq[b].f);
     e[b].g = num(e[b].g, -18, 18, 0);
     if ('q' in e[b]) e[b].q = num(e[b].q, 0.2, 12, 1);
+  }
+  if (m.vcf) {
+    const v = m.vcf;
+    v.on = !!v.on;
+    v.slope = v.slope === 24 ? 24 : 12;
+    v.hp.f = num(v.hp.f, 20, 20000, 20);
+    v.lp.f = num(v.lp.f, 20, 20000, 20000);
+    v.hp.res = num(v.hp.res, 0, 18, 0);
+    v.lp.res = num(v.lp.res, 0, 18, 0);
   }
   const c = m.comp;
   c.on = !!c.on;

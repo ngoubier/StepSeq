@@ -288,7 +288,8 @@ SS.audio = (() => {
     st.lm = bq('peaking');
     st.hm = bq('peaking');
     st.high = bq('highshelf');
-    st.lp = bq('lowpass');
+    // filtre VCF (utilisé par le Master) : 2 étages par filtre pour la pente 24 dB/oct
+    st.vcf = [bq('highpass'), bq('highpass'), bq('lowpass'), bq('lowpass')];
     st.comp = ctx.createDynamicsCompressor();
     st.makeup = ctx.createGain();
     st.lim = ctx.createDynamicsCompressor();
@@ -297,8 +298,9 @@ SS.audio = (() => {
     st.clip.oversample = '4x';
     st.limOut = ctx.createGain();
     st.out = ctx.createGain();
-    st.entry.connect(st.hp).connect(st.low).connect(st.lm).connect(st.hm).connect(st.high).connect(st.lp);
-    st.lp.connect(st.comp).connect(st.makeup).connect(st.lim).connect(st.clip).connect(st.limOut).connect(st.out);
+    st.entry.connect(st.hp).connect(st.low).connect(st.lm).connect(st.hm).connect(st.high);
+    st.high.connect(st.vcf[0]).connect(st.vcf[1]).connect(st.vcf[2]).connect(st.vcf[3]);
+    st.vcf[3].connect(st.comp).connect(st.makeup).connect(st.lim).connect(st.clip).connect(st.limOut).connect(st.out);
     applyStrip(st, SS.MIX_DEFAULTS);
     return st;
   }
@@ -310,8 +312,6 @@ SS.audio = (() => {
     const e = m.eq;
     set(st.hp.frequency, e.on && e.hp.on ? e.hp.f : 10);
     st.hp.Q.value = 0.707;
-    set(st.lp.frequency, e.on && e.lp.on ? e.lp.f : Math.min(22000, ctx.sampleRate / 2));
-    st.lp.Q.value = 0.707;
     set(st.low.frequency, e.low.f);
     set(st.low.gain, e.on ? e.low.g : 0);
     set(st.lm.frequency, e.lm.f);
@@ -322,6 +322,20 @@ SS.audio = (() => {
     set(st.hm.Q, e.hm.q);
     set(st.high.frequency, e.high.f);
     set(st.high.gain, e.on ? e.high.g : 0);
+    // VCF : coupé = filtres grands ouverts ; en 12 dB/oct le 1er étage de chaque filtre reste ouvert.
+    // Pour les passe-haut / passe-bas, Web Audio lit Q en dB : c'est directement le pic de résonance.
+    const v = m.vcf;
+    const nyq = Math.min(22000, ctx.sampleRate / 2);
+    const vOn = !!(v && v.on);
+    const two = vOn && v.slope === 24;
+    set(st.vcf[0].frequency, two ? v.hp.f : 10);
+    st.vcf[0].Q.value = -5.35; // 1er étage Butterworth 4e ordre (Q 0,54)
+    set(st.vcf[1].frequency, vOn ? v.hp.f : 10);
+    set(st.vcf[1].Q, vOn ? v.hp.res : 0);
+    set(st.vcf[2].frequency, two ? v.lp.f : nyq);
+    st.vcf[2].Q.value = -5.35;
+    set(st.vcf[3].frequency, vOn ? v.lp.f : nyq);
+    set(st.vcf[3].Q, vOn ? v.lp.res : 0);
     const c = m.comp;
     set(st.comp.threshold, c.on ? c.th : 0);
     set(st.comp.ratio, c.on ? c.ratio : 1);

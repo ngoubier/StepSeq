@@ -1125,3 +1125,13 @@ body.mixer-open .songbar { display: none; }
 /* Les trois modules (EQ, compresseur, limiteur) ont la même hauteur ; l'aide reste en bas */
 .detail-mods { align-items: stretch; }
 .mod > .mod-help { margin-top: auto; }
+/* Filtre VCF du Master : 4e module */
+.detail-mods.with-vcf { grid-template-columns: minmax(300px, 1.5fr) minmax(240px, .95fr) minmax(200px, .6fr) minmax(240px, .9fr); }
+@media (max-width: 1100px) { .detail-mods.with-vcf { grid-template-columns: 1fr 1fr; } }
+.vcf-graph { display: block; border-radius: 6px; max-width: 100%; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; align-self: flex-start; }
+.seg-btn { border: 0; background: #1a1a1e; color: var(--muted); font: 600 11px/22px inherit; padding: 0 10px; cursor: pointer; }
+.seg-btn + .seg-btn { border-left: 1px solid var(--line); }
+.seg-btn.on { background: #4a2f7a; color: #f0e2ff; }
+.mod-vcf .sd-sliders { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; }
+.mod-lim .gr-wrap .gr-val { white-space: nowrap; }
