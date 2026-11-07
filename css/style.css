@@ -278,9 +278,18 @@ a.btn { text-decoration: none; }
   background: var(--c);
   border-radius: 3px;
 }
-.cell.on .fill { height: calc(var(--v) * 100%); min-height: 25%; }
-.mode-toggle .cell.on .fill { height: 100%; opacity: calc(.45 + var(--v) * .55); }
-.cell.hold { width: auto; justify-self: stretch; background: color-mix(in srgb, var(--c) 55%, #18181a); border-radius: 0; margin-left: 0; margin-right: 0; }
+.cell.on .fill { height: calc(var(--v) * 100%); min-height: 12%; } /* la hauteur = la vélocité */
+.cell.hold {
+  width: auto;
+  justify-self: stretch;
+  /* la tenue d'une note garde la hauteur de sa vélocité */
+  background:
+    linear-gradient(to top, color-mix(in srgb, var(--c) 60%, #18181a) calc(var(--v) * 100%), transparent calc(var(--v) * 100%)),
+    color-mix(in srgb, var(--c) 18%, #18181a);
+  border-radius: 0;
+  margin-left: 0;
+  margin-right: 0;
+}
 .cell.hold.end { border-radius: 0 4px 4px 0; margin-right: 2px; }
 .cell.start.held { width: auto; justify-self: stretch; border-radius: 4px 0 0 4px; margin-right: 0; overflow: visible; }
 .cell .lbl {
@@ -290,10 +299,10 @@ a.btn { text-decoration: none; }
   z-index: 1;
   font-size: 10px;
   font-weight: 600;
-  color: #000;
+  color: #fff;
+  text-shadow: 0 0 2px #000, 0 0 1px #000;
   white-space: nowrap;
   pointer-events: none;
-  mix-blend-mode: luminosity;
 }
 .cell.now { outline: 2px solid rgba(255, 255, 255, .85); outline-offset: -2px; }
 .cell.on.now { filter: brightness(1.35); }
