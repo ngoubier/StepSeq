@@ -460,6 +460,7 @@ SS.audio = (() => {
       if (b.reverb) b.reverb.out.disconnect();
     }
     buses.delete(id);
+    if (SS.juno) SS.juno.remove(id);
   }
 
   /* ---- Chorus : deux lignes à retard modulées en opposition (gauche / droite) ---- */
@@ -783,6 +784,10 @@ SS.audio = (() => {
     ensureCtx();
     const out = dest || bus(track);
     const inst = instOf(track);
+    if (inst.kind === 'analog') {
+      SS.juno.play({ ctx, noise: noiseBuffer, register }, track, midi, Math.max(time, ctx.currentTime), dur, vel, out);
+      return;
+    }
     const p = SS.soundParams(track);
     if (inst.kind === 'synth') {
       synthVoice(p, midi, time, dur, vel, out);
@@ -1109,6 +1114,7 @@ SS.audio = (() => {
     applyMaster,
     levels,
     ensureBus: (t) => bus(t),
+    applySynth: (t) => SS.juno && SS.juno.applyChorus(ctx, t),
     _bus: bus, // accès internes pour les tests
     _master: () => master,
     _out: () => masterFader, // sortie finale (après la tranche Master), pour enregistrer

@@ -120,7 +120,7 @@
       <p>Une case de la grille vaut toujours une double-croche. Une mesure en 4/4 fait donc 16 cases, et une mesure en 6/8 en fait 12.</p>
 
       <h2 id="ajouter">Ajouter une piste</h2>
-      <p>Le bouton <b>+</b> ouvre une fenêtre. Choisis d'abord <b>Drum</b> ou <b>Instrument</b>, puis choisis le son avec les pastilles et les listes, écoute avec <b>Écouter</b> et clique sur <b>Valider</b>.</p>
+      <p>Le bouton <b>+</b> ouvre une fenêtre. Choisis d'abord <b>Drum</b>, <b>Instrument</b> ou <b>Synthé</b>, puis choisis le son avec les pastilles et les listes, écoute avec <b>Écouter</b> et clique sur <b>Valider</b>.</p>
       <p>La navigation est la même pour les drums et les instruments : des <b>pastilles</b> en haut (bibliothèque et type de drum, ou catégorie et famille), un <b>champ de recherche</b> au-dessus du type de drum ou des familles, puis <b>deux colonnes</b> alignées : à gauche la boîte à rythmes, la banque ou l'instrument, à droite la variation ou la variante de soundfont. Chaque clic dans une liste fait entendre le son ; un double-clic valide.</p>
       <div class="table-wrap"><table>
         <tr><th>Touche</th><th>Effet dans la fenêtre</th></tr>
@@ -150,6 +150,9 @@
         <tr><td>VCSL et piano de strudel</td><td>Instruments acoustiques échantillonnés, marqués « (VCSL) » : vibraphone, marimba, harpe, flûtes à bec, saxophones, orgues…</td></tr>
       </table></div>
       <p>Le son est joué à chaque changement de choix. Les synthés se chargent instantanément ; les autres sons sont téléchargés au premier usage. Les anciens projets s'ouvrent avec exactement le même son qu'avant.</p>
+
+      <h3>Pistes Synthé : synthés analogiques</h3>
+      <p>Le type <b>Synthé</b> propose des émulations de synthés analogiques existants. La colonne de gauche liste les synthés (pour l'instant le <b>Roland Juno-106</b>, 1984), celle de droite ses patches, et une fiche résume sa configuration : polyphonie, oscillateur, filtres, modulation, enveloppe, effet, mémoires. Une piste Synthé se joue comme une piste instrument (Mono, Arpège ou Accord, piano roll).</p>
 
       <h3>Longueur propre à chaque piste</h3>
       <p>Chaque piste peut avoir sa propre longueur de boucle, plus courte que le projet. Deux façons de la régler :</p>
@@ -257,6 +260,26 @@
         <li><b>Annuler</b> ou Échap revient aux réglages d'avant l'ouverture. <b>OK</b> les garde. Ils sont enregistrés dans le fichier du projet.</li>
         <li>Pour un instrument échantillonné (piano, cordes, soundfonts…), il n'y a pas de VCO : le filtre, l'enveloppe et la sortie s'appliquent à l'échantillon.</li>
         <li>Changer d'instrument avec ⚙ remet les réglages du preset du nouvel instrument.</li>
+      </ul>
+
+      <h3 id="juno">Sound design d'une piste Synthé : la façade du Juno-106</h3>
+      <p>Sur une piste Synthé, le bouton à curseurs ouvre une copie de la façade du Juno-106 : mêmes sections, mêmes curseurs gradués de 0 à 10, mêmes boutons à LED et interrupteurs.</p>
+      <div class="table-wrap"><table>
+        <tr><th>Section</th><th>Commandes</th></tr>
+        <tr><td>TUNE / VOLUME</td><td>Accord fin (±50 cents) et volume de la piste</td></tr>
+        <tr><td>LFO</td><td>RATE (0,1 à 30 Hz), DELAY TIME (le LFO entre progressivement après chaque note)</td></tr>
+        <tr><td>DCO</td><td>RANGE 16' / 8' / 4', LFO (vibrato), PWM et son interrupteur LFO / MAN, boutons impulsion et dent de scie, SUB OSC (carré une octave plus bas), NOISE</td></tr>
+        <tr><td>HPF</td><td>FREQ à 4 crans : 0 = renfort de graves, 1 = neutre, 2 et 3 = coupe-bas</td></tr>
+        <tr><td>VCF</td><td>Passe-bas résonant 24 dB/oct : FREQ, RES, polarité de l'enveloppe (+ / −), ENV, LFO, KYBD (suivi de clavier)</td></tr>
+        <tr><td>VCA</td><td>ENV / GATE (enveloppe ou simple porte), LEVEL</td></tr>
+        <tr><td>ENV</td><td>A, D, S, R : une seule enveloppe pour le filtre et le volume</td></tr>
+        <tr><td>CHORUS</td><td>OFF, I (lent), II (plus rapide) : le chorus stéréo caractéristique du Juno</td></tr>
+        <tr><td>Patches</td><td>MANUAL, GROUP A/B, BANK 1–8, NUMBER 1–8, avec l'afficheur à LED. Les patches A11 à A28 sont fournis ; une mémoire vide fait clignoter l'afficheur.</td></tr>
+      </table></div>
+      <ul>
+        <li>Glisser un curseur, la molette ou les flèches du clavier (Maj : pas plus grand) ; la bulle donne la valeur réelle (Hz, ms, octaves…). Un double-clic remet la valeur du patch.</li>
+        <li>Un point rouge marque un curseur modifié ; l'afficheur prend un point (« A14. ») quand le patch est modifié. <b>Recharger le patch</b> annule les modifications.</li>
+        <li>Comme sur l'original, 6 notes au plus sonnent en même temps : la plus ancienne est coupée. Contrairement à l'original, la vélocité des notes est prise en compte.</li>
       </ul>
 
       <h2 id="effets">Effets : chorus, delay, reverb, sidechain</h2>

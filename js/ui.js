@@ -22,6 +22,7 @@ SS.ui = (() => {
   const ICONS = {
     play: '<svg viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z" class="fill"/></svg>',
     gear: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
+    synth: '<svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 8v5M10 8v5M14 8v5M18 8v5"/><path d="M5 11h2M9 9h2M13 12h2M17 10h2" class="fill"/></svg>',
     sliders: '<svg viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>',
     grip: '<svg viewBox="0 0 10 20"><circle cx="3" cy="5" r="1.4" class="fill"/><circle cx="7" cy="5" r="1.4" class="fill"/><circle cx="3" cy="10" r="1.4" class="fill"/><circle cx="7" cy="10" r="1.4" class="fill"/><circle cx="3" cy="15" r="1.4" class="fill"/><circle cx="7" cy="15" r="1.4" class="fill"/></svg>',
     close: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
@@ -82,6 +83,11 @@ SS.ui = (() => {
       return `${track.machine} · ${t ? t.label : track.sound} ${(track.variant || 0) + 1}`;
     }
     const cat = SS.CATEGORIES.find((c) => c.id === track.category);
+    if (SS.isAnalog(track)) {
+      const patch = SS.findJunoPatch(track.junoPatch);
+      const edited = track.juno && Object.keys(track.juno).length ? '*' : '';
+      return `${cat ? cat.label : ''} · ${SS.findAnalog(track.instrument).label.replace(/^Roland /, '')} · ${patch ? patch.id + ' ' + patch.name : ''}${edited}`;
+    }
     const inst = SS.findInstrument(track.family, track.instrument);
     const variant = inst.files && inst.files.length > 1 ? ` (${SS.sfVariantLabel(SS.sfFile(inst, track))})` : '';
     return `${cat ? cat.label : ''} · ${inst.label}${variant}`;
@@ -89,6 +95,7 @@ SS.ui = (() => {
 
   function trackIcon(track) {
     if (track.type === 'drum') return ICONS.drum;
+    if (SS.isAnalog(track)) return ICONS.synth;
     if (track.category === 'arp') return ICONS.arp;
     if (track.category === 'chord') return ICONS.chord;
     return ICONS.keys;
@@ -251,7 +258,12 @@ SS.ui = (() => {
           })
         : null,
       track.type === 'instrument'
-        ? h('button', { class: 'th-btn', title: 'Sound design', html: ICONS.sliders, onclick: () => SS.soundDesign.open(track) })
+        ? h('button', {
+            class: 'th-btn',
+            title: SS.isAnalog(track) ? `Sound design : façade du ${SS.findAnalog(track.instrument).label}` : 'Sound design',
+            html: ICONS.sliders,
+            onclick: () => (SS.isAnalog(track) ? SS.junoPanel.open(track) : SS.soundDesign.open(track)),
+          })
         : null,
       h('button', {
         class: 'th-btn fx-btn' + (SS.fxActive(track) ? ' on' : ''),
@@ -405,7 +417,12 @@ SS.ui = (() => {
       ),
       h(
         'button',
-        { type: 'button', class: 'roll-sd', title: 'Sound design : oscillateur, filtre, enveloppe', onclick: () => SS.soundDesign.open(track) },
+        {
+          type: 'button',
+          class: 'roll-sd',
+          title: SS.isAnalog(track) ? `Sound design : façade du ${SS.findAnalog(track.instrument).label}` : 'Sound design : oscillateur, filtre, enveloppe',
+          onclick: () => (SS.isAnalog(track) ? SS.junoPanel.open(track) : SS.soundDesign.open(track)),
+        },
         h('span', { html: ICONS.sliders }),
         'Sound design'
       ),
@@ -1818,6 +1835,16 @@ SS.ui = (() => {
       dlg.s.sfv = +v;
       previewSoon();
     });
+    setupList($('#dlgSynthList'), (v) => {
+      dlg.s.analog = v;
+      autoName();
+      fillSynth();
+      previewSoon();
+    });
+    setupList($('#dlgPatchList'), (v) => {
+      dlg.s.patch = v;
+      previewSoon();
+    });
     // champs de recherche : ↓ ou Entrée descend dans la liste
     [['#dlgDrumFilter', '#dlgDrumList', fillDrumList], ['#dlgInstFilter', '#dlgInstList', fillInstruments]].forEach(([inp, list, fill]) => {
       $(inp).addEventListener('input', () => {
@@ -1888,6 +1915,7 @@ SS.ui = (() => {
       autoName();
       syncDialog();
       if (dlg.s.type === 'drum') refreshDrum();
+      if (dlg.s.type === 'synth') fillSynth();
     });
     dlg.form.querySelectorAll('.pills-nav').forEach(setupPills);
     $('#dlgName').addEventListener('input', (e) => {
@@ -1929,7 +1957,22 @@ SS.ui = (() => {
       const count = others.filter((x) => (x.source || 'tdm') === 'tdm' && x.sound === s.sound).length;
       return `${t ? t.label : 'Drum'} ${count + 1}`;
     }
+    if (s.type === 'synth') return SS.findAnalog(s.analog).label.replace(/^Roland /, '');
     return SS.findInstrument(s.family, s.instrument).label.replace(/\s*\(.*\)$/, '');
+  }
+
+  /** Piste Synthé : liste des synthés analogiques, patches du synthé choisi et fiche de configuration. */
+  function fillSynth() {
+    const s = dlg.s;
+    fillList($('#dlgSynthList'), SS.ANALOG_SYNTHS.map((x) => ({ v: x.id, label: x.label, meta: String(x.year) })), s.analog);
+    $('#dlgSynthCount').textContent = String(SS.ANALOG_SYNTHS.length);
+    fillList($('#dlgPatchList'), SS.JUNO_PATCHES.map((p) => ({ v: p.id, label: `${p.id} — ${p.name}` })), s.patch);
+    $('#dlgPatchCount').textContent = String(SS.JUNO_PATCHES.length);
+    const syn = SS.findAnalog(s.analog);
+    $('#dlgSynthCard').replaceChildren(
+      h('div', { class: 'synth-card-head' }, h('b', {}, syn.label), h('small', {}, `${syn.maker} · ${syn.year}`)),
+      h('dl', {}, ...syn.specs.flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, v)]))
+    );
   }
 
   function autoName() {
@@ -2095,7 +2138,9 @@ SS.ui = (() => {
       b.disabled = !!s.editingId && b.dataset.v !== s.type;
     });
     $('#dlgDrum').hidden = !isDrum;
-    $('#dlgInst').hidden = isDrum;
+    $('#dlgInst').hidden = s.type !== 'instrument';
+    $('#dlgSynth').hidden = s.type !== 'synth';
+    $('#dlgCatRow').hidden = isDrum;
     const src = s.source || 'tdm';
     $('#dlgDrumLib').querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.v === src));
     $('#dlgDrumLibHint').textContent = (SS.DRUM_LIBS.find((l) => l.id === src) || {}).hint || '';
@@ -2110,10 +2155,14 @@ SS.ui = (() => {
 
   function previewDialog() {
     const s = dlg.s;
-    const fake = { ...s, id: null, octave: SS.findFamily(s.family).octave, chord: 'min' };
+    const synth = s.type === 'synth';
+    const family = synth ? 'analog' : s.family;
+    const fake = synth
+      ? { ...s, type: 'instrument', id: null, family, instrument: s.analog, junoPatch: s.patch, octave: SS.findFamily(family).octave, chord: 'min' }
+      : { ...s, id: null, octave: SS.findFamily(s.family).octave, chord: 'min' };
     if (s.type === 'drum') SS.audio.preview(fake);
     else {
-      const root = (SS.findFamily(s.family).octave + 1) * 12;
+      const root = (SS.findFamily(family).octave + 1) * 12;
       SS.audio.preview(fake, s.category === 'mono' ? root : SS.chordNotes(root, 'min'));
     }
   }
@@ -2127,7 +2176,7 @@ SS.ui = (() => {
     dlg.s = track
       ? {
           editingId: track.id,
-          type: track.type,
+          type: SS.isAnalog(track) ? 'synth' : track.type,
           name: track.name,
           nameEdited: true,
           color: track.color,
@@ -2137,8 +2186,10 @@ SS.ui = (() => {
           bank: track.bank,
           variant: track.variant || 0,
           category: track.category || 'mono',
-          family: track.family || 'bass',
-          instrument: track.instrument || SS.findFamily('bass').instruments[0].id,
+          family: SS.isAnalog(track) ? 'bass' : track.family || 'bass',
+          instrument: SS.isAnalog(track) ? SS.findFamily('bass').instruments[0].id : track.instrument || SS.findFamily('bass').instruments[0].id,
+          analog: SS.isAnalog(track) ? track.instrument : SS.ANALOG_SYNTHS[0].id,
+          patch: track.junoPatch || SS.JUNO_PATCHES[0].id,
           sfv: track.sfv || 0,
           length: track.length && track.length < SS.totalSteps(p) ? track.length : 0,
         }
@@ -2156,6 +2207,8 @@ SS.ui = (() => {
           category: 'mono',
           family: 'bass',
           instrument: SS.findFamily('bass').instruments[0].id,
+          analog: SS.ANALOG_SYNTHS[0].id,
+          patch: SS.JUNO_PATCHES[0].id,
           sfv: 0,
           length: 0,
         };
@@ -2167,13 +2220,14 @@ SS.ui = (() => {
     autoName();
     fillInstruments();
     fillSfv();
+    fillSynth();
     fillLen();
     syncDialog();
     refreshDrum(false);
     dlg.el.returnValue = '';
     dlg.el.showModal();
     // le clavier part de la liste principale (le nom reste à un Maj+Tab)
-    requestAnimationFrame(() => (dlg.s.type === 'drum' ? $('#dlgDrumList') : $('#dlgInstList')).focus());
+    requestAnimationFrame(() => $({ drum: '#dlgDrumList', instrument: '#dlgInstList', synth: '#dlgPatchList' }[dlg.s.type]).focus());
     return new Promise((resolve) => (dlg.resolve = resolve));
   }
 

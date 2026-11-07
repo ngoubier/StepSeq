@@ -31,18 +31,25 @@ puis ouvrir <http://localhost:8000>.
 
 Le bouton **+** ouvre une fenêtre qui demande :
 
-1. le type de piste : **Drum** ou **Instrument** ;
+1. le type de piste : **Drum**, **Instrument** ou **Synthé** ;
 2. un nom et une couleur ;
 3. pour une piste **Drum** : le type de son (Kick, Snare, Clap, Hi-Hat, Toms, Crash, Ride…),
    la boîte à rythmes (TR-808, TR-909, LinnDrum, …) et la variation ;
 4. pour une piste **Instrument** : la catégorie (**Mono**, **Arpège**, **Accord**), la famille
    (Bass, Synth Lead, Pads, Keys, Mallets, Strings, Brass & Winds, Guitar) puis l'instrument.
 
+5. pour une piste **Synthé** : la catégorie, le synthé analogique (pour l'instant le **Roland Juno-106**)
+   et son patch ; une fiche affiche la configuration du synthé.
+
 Le bouton **Écouter** permet d'entendre le son avant de valider.
 
 ### Pistes instrument
 
 Le bouton à curseurs de l'en-tête ouvre la fenêtre de **sound design** (oscillateur, filtre cutoff / résonance / enveloppe, ADSR, niveau, panoramique, saturation), inspirée des paramètres de strudel.cc.
+
+Sur une piste **Synthé**, ce bouton ouvre la façade du synthé : pour le Juno-106, les sections LFO, DCO
+(16'/8'/4', impulsion + PWM, dent de scie, sous-oscillateur, bruit), HPF, VCF 24 dB/oct, VCA, ENV, chorus I / II,
+et la sélection des patches (groupe, banque, numéro) avec l'afficheur à LED.
 
 Le chevron **›** dans l'en-tête d'une piste instrument affiche son piano roll :
 
@@ -89,6 +96,8 @@ Les sons proviennent des bibliothèques utilisées par [strudel.cc](https://stru
 | `js/project.js`  | Modèle de projet, enregistrement / ouverture de fichiers |
 | `js/audio.js`    | Moteur audio : chargement des échantillons, voix, séquenceur |
 | `js/sounddesign.js` | Fenêtre de sound design (VCO, filtre, ADSR, sortie) |
+| `js/juno.js`     | Synthés analogiques : catalogue, patches et moteur du Juno-106 (voix, chorus) |
+| `js/junopanel.js` | Façade du Juno-106 (sound design des pistes Synthé) |
 | `js/groove.js`   | Fenêtre Groove (swing, humanisation) |
 | `js/fx.js`       | Fenêtre Effets par piste (chorus, delay, reverb) |
 | `js/profiles.js`, `js/profiles-factory.js` | Profils de console (usine + personnels) |

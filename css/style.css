@@ -1187,3 +1187,135 @@ body.drawing-vel, body.drawing-vel * { cursor: crosshair !important; user-select
 /* Poignée de vélocité dans le piano roll : liseré blanc en haut de la note survolée */
 .vel-hover .rcell { cursor: ns-resize; }
 .roll-row .rcell.vel-target.on { box-shadow: inset 0 3px 0 rgba(255, 255, 255, .9); opacity: 1; }
+
+/* ---------- Dialogue Nouvelle piste : synthés analogiques ---------- */
+.synth-card { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); }
+.synth-card-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+.synth-card-head small { color: var(--muted); }
+.synth-card dl { display: grid; grid-template-columns: max-content 1fr; gap: 3px 12px; margin: 0; font-size: 12.5px; }
+.synth-card dt { color: var(--muted); }
+.synth-card dd { margin: 0; }
+
+/* ---------- Façade du Roland Juno-106 ---------- */
+dialog.juno-dialog { width: min(1320px, calc(100vw - 16px)); max-width: none; padding: 12px; }
+.juno-scroll { overflow-x: auto; padding-bottom: 6px; }
+.juno {
+  --j-panel: #2b2b2b;
+  --j-panel-2: #1e1e1e;
+  --j-print: #f2f2ee;
+  --j-print-dim: #b9b9b2;
+  --j-slot: #0b0b0b;
+  --j-btn: #d9d6cc;
+  --j-led: #ff2a1a;
+  --j-stripe: #c8102e;
+  width: max-content;
+  min-width: 100%;
+  background: linear-gradient(#333 0, var(--j-panel) 6px, var(--j-panel) calc(100% - 6px), #202020 100%);
+  border-left: 18px solid #161616;
+  border-right: 18px solid #161616;
+  border-radius: 6px;
+  color: var(--j-print);
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  user-select: none;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 6px 18px rgba(0,0,0,.5);
+}
+.juno-top { display: flex; align-items: center; gap: 24px; padding: 10px 18px 8px; border-bottom: 2px solid var(--j-stripe); }
+.juno-roland { font-weight: 700; font-size: 20px; letter-spacing: .02em; font-style: italic; }
+.juno-name h2 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: .08em; line-height: 1; }
+.juno-name h2 span { letter-spacing: .14em; }
+.juno-sub { display: block; font-size: 9px; letter-spacing: .32em; color: var(--j-print-dim); margin-top: 3px; }
+.juno-patch { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.juno-led-display {
+  min-width: 74px; padding: 3px 8px; text-align: center;
+  font: 700 24px/1 "DSEG7 Classic", "Courier New", monospace; letter-spacing: .12em;
+  color: var(--j-led); background: #160404; border: 2px solid #000; border-radius: 3px;
+  text-shadow: 0 0 6px rgba(255, 42, 26, .7);
+}
+.juno-led-display.edited::after { content: "."; }
+.juno-led-display.blink { animation: jblink .3s steps(2) 3; }
+@keyframes jblink { 50% { opacity: .15; } }
+.juno-patch-name { font-size: 12px; color: var(--j-print-dim); min-width: 150px; }
+
+.juno-body { display: flex; align-items: stretch; gap: 0; padding: 0 4px; }
+.juno-body .jsec { flex: 1 1 auto; }
+.juno-body .jsec-body { justify-content: center; }
+.jsec { display: flex; flex-direction: column; border-right: 1px solid #111; box-shadow: 1px 0 0 #3a3a3a; padding: 0 6px 10px; }
+.jsec:last-child { border-right: 0; box-shadow: none; }
+.jsec-title {
+  margin: 0 -6px 8px; padding: 4px 6px; font-size: 11px; font-weight: 700; letter-spacing: .25em;
+  text-align: center; color: var(--j-print); background: var(--j-panel-2); border-bottom: 1px solid #000; min-height: 22px;
+}
+.jsec-body { display: flex; align-items: flex-end; gap: 3px; flex: 1; }
+.jgroup { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px; align-self: stretch; }
+.jgroup-title { font-size: 9px; letter-spacing: .18em; color: var(--j-print-dim); text-align: center; }
+.jrow { display: flex; gap: 6px; align-items: flex-end; }
+
+/* curseurs */
+.jslider { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 35px; }
+.js-box { position: relative; display: flex; gap: 3px; height: 158px; padding: 0 2px; cursor: ns-resize; outline: none; border-radius: 3px; }
+.js-box:focus-visible { box-shadow: 0 0 0 2px var(--accent-2); }
+.js-scale { display: flex; flex-direction: column; justify-content: space-between; padding: 3px 0; font-size: 7.5px; color: var(--j-print-dim); text-align: right; width: 11px; }
+.js-scale span { line-height: 1; position: relative; }
+.js-scale span::after { content: ""; position: absolute; left: 12px; top: 50%; width: 4px; border-top: 1px solid var(--j-print-dim); }
+.js-slot { position: relative; width: 18px; margin-left: 4px; }
+.js-slot::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 4px; transform: translateX(-50%); background: var(--j-slot); border-radius: 2px; box-shadow: inset 0 1px 2px #000, 0 1px 0 #444; }
+.js-cap {
+  position: absolute; left: -2px; width: 22px; height: 12px; border-radius: 2px;
+  background: linear-gradient(#3c3c3c, #111 45%, #1c1c1c);
+  box-shadow: 0 2px 3px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.15);
+  cursor: grab;
+}
+.js-cap::after { content: ""; position: absolute; left: 2px; right: 2px; top: 50%; border-top: 2px solid #fff; transform: translateY(-50%); }
+.jslider.drag .js-cap { cursor: grabbing; }
+.js-label { font-size: 9px; font-weight: 700; letter-spacing: .04em; text-align: center; line-height: 1.15; min-height: 21px; display: flex; align-items: flex-start; justify-content: center; color: var(--j-print); }
+.jslider.edited .js-label::after { content: " •"; color: var(--j-led); }
+.js-tip {
+  position: absolute; left: 50%; top: -22px; transform: translateX(-50%); z-index: 2; pointer-events: none;
+  padding: 2px 6px; border-radius: 4px; font-size: 10.5px; white-space: nowrap;
+  background: #000; color: #fff; border: 1px solid #555; opacity: 0; transition: opacity .12s;
+}
+.js-box:hover .js-tip, .js-box:focus-visible .js-tip, .drag .js-tip, .jk-box:hover .js-tip, .jknob:focus-visible + .js-tip { opacity: 1; }
+
+/* boutons à LED */
+.jb-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.jb-led { width: 7px; height: 7px; border-radius: 50%; background: #3a0a06; box-shadow: inset 0 1px 1px #000; }
+.jb-led.on { background: var(--j-led); box-shadow: 0 0 6px var(--j-led), 0 0 2px #fff inset; }
+.jbtn {
+  min-width: 30px; height: 24px; padding: 0 6px; border: 0; border-radius: 2px; cursor: pointer;
+  background: linear-gradient(#ecebe4, var(--j-btn)); color: #111; font: 700 11px/1 Arial, sans-serif;
+  box-shadow: 0 2px 0 #77746a, 0 3px 4px rgba(0,0,0,.6);
+}
+.jbtn:active { transform: translateY(1px); box-shadow: 0 1px 0 #77746a, 0 1px 2px rgba(0,0,0,.6); }
+.jbtn:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.jbtn.wave { min-width: 38px; }
+.jwave svg { width: 24px; height: 13px; fill: none; stroke: #111; stroke-width: 1.8; display: block; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.jchorus { align-self: center; margin-bottom: 70px; }
+
+/* interrupteurs */
+.jt-wrap { display: flex; flex-direction: column; align-items: center; gap: 3px; align-self: center; margin-bottom: 30px; }
+.jt-l { font-size: 9px; font-weight: 700; color: var(--j-print); }
+.jtoggle { position: relative; width: 16px; height: 34px; padding: 0; border: 1px solid #000; border-radius: 3px; background: #0e0e0e; cursor: pointer; }
+.jtoggle:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.jt-lever { position: absolute; left: 2px; right: 2px; height: 14px; bottom: 2px; border-radius: 2px; background: linear-gradient(#e8e8e8, #9a9a9a); transition: bottom .08s; }
+.jtoggle.up .jt-lever { bottom: 16px; }
+
+/* boutons rotatifs */
+.jk-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 50px; margin-bottom: 18px; }
+.jk-box { position: relative; }
+.jknob {
+  --a: 0deg; width: 36px; height: 36px; border-radius: 50%; cursor: ns-resize; outline: none;
+  background: radial-gradient(circle at 40% 35%, #555, #151515 70%); border: 2px solid #000;
+  box-shadow: 0 3px 5px rgba(0,0,0,.7); transform: rotate(var(--a)); position: relative;
+}
+.jknob:focus-visible { box-shadow: 0 0 0 2px var(--accent-2); }
+.jk-dot { position: absolute; left: 50%; top: 3px; width: 2px; height: 10px; margin-left: -1px; background: #fff; border-radius: 1px; }
+.jsec-knobs .jsec-body { flex-direction: column; justify-content: flex-end; align-items: center; }
+
+/* section des patches */
+.juno-bottom { display: flex; align-items: flex-end; gap: 22px; padding: 10px 18px 12px; border-top: 1px solid #111; box-shadow: inset 0 1px 0 #3a3a3a; background: var(--j-panel-2); }
+.jpatch-sec { display: flex; flex-direction: column; gap: 6px; }
+.jbtn.pbtn { min-width: 30px; }
+.jbtn.grp { background: linear-gradient(#5a5a5a, #3a3a3a); color: #fff; box-shadow: 0 2px 0 #111, 0 3px 4px rgba(0,0,0,.6); }
+.jbtn.man { background: linear-gradient(#5a5a5a, #3a3a3a); color: #fff; box-shadow: 0 2px 0 #111, 0 3px 4px rgba(0,0,0,.6); }
+.juno-help { margin: 8px 2px 0; font-size: 12px; color: var(--muted); }

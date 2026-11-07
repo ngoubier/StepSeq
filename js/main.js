@@ -361,6 +361,10 @@
     else delete track.length;
     if (track.type === 'drum') {
       Object.assign(track, { source: opts.source, sound: opts.sound, machine: opts.machine, bank: opts.bank, variant: opts.variant });
+    } else if (opts.type === 'synth') {
+      // un autre patch remplace les réglages du panneau
+      if (opts.patch !== track.junoPatch || opts.analog !== track.instrument) delete track.juno;
+      Object.assign(track, { category: opts.category, instrument: opts.analog, junoPatch: opts.patch });
     } else {
       // un autre instrument repart de son propre preset de sound design
       if (opts.family !== track.family || opts.instrument !== track.instrument) delete track.sd;
@@ -451,6 +455,7 @@
   /* ---------- Démarrage ---------- */
   SS.audio.setErrorHandler((msg) => SS.ui.toast(msg));
   SS.soundDesign.init({ changed, renderTrack: (t) => SS.ui.renderTrack(t) });
+  SS.junoPanel.init({ changed, renderTrack: (t) => SS.ui.renderTrack(t) });
   SS.groove.init({ project: () => project, changed });
   SS.mixer.init({ project: () => project, changed, renderAll: () => SS.ui.renderAll() });
   SS.song.init({ project: () => project, changed, state, switchScene, afterSceneChange, play, stop });
