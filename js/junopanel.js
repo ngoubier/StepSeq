@@ -321,8 +321,11 @@ SS.junoPanel = (() => {
           slider('dcoLfo', 'LFO'),
           slider('pwm', 'PWM')),
         cg(toggle('pwmMode', 'lfo', 'LFO', 'man', 'MAN', 'Source du PWM'),
-          button(waveIcon('pulse'), () => pv().pulse, () => set('pulse', !pv().pulse), { aria: 'Impulsion', cls: 'wave' }),
-          button(waveIcon('saw'), () => pv().saw, () => set('saw', !pv().saw), { aria: 'Dent de scie', cls: 'wave' })),
+          // touches de forme d'onde : même hauteur que celles du RANGE
+          group('jwaves', el('div', 'jgroup-title', { text: '\u00a0' }),
+            el('div', 'jrow', {},
+              button(waveIcon('pulse'), () => pv().pulse, () => set('pulse', !pv().pulse), { aria: 'Impulsion', cls: 'wave' }),
+              button(waveIcon('saw'), () => pv().saw, () => set('saw', !pv().saw), { aria: 'Dent de scie', cls: 'wave' })))),
         scaled(TEN, slider('sub', 'SUB'), slider('noise', 'NOISE'))
       ),
       section('HPF', 'jsec-hpf', scaled(['3', '2', '1', '0'], slider('hpf', 'FREQ', { steps: 4 }))),
