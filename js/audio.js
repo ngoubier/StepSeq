@@ -1117,6 +1117,12 @@ SS.audio = (() => {
     applyMaster,
     levels,
     ensureBus: (t) => bus(t),
+    /** Clavier de la façade du Juno : note tenue (renvoie un identifiant, ou null si le module se charge). */
+    liveNoteOn: (track, midi, vel) => {
+      ensureCtx();
+      return SS.juno.noteOn(ctx, track, midi, vel, bus(track));
+    },
+    liveNoteOff: (track, id) => ctx && SS.juno.noteOff(ctx, track, id),
     applySynth: (t) => SS.juno && SS.juno.applyChorus(ctx, t),
     _bus: bus, // accès internes pour les tests
     _master: () => master,

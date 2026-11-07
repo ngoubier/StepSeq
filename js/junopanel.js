@@ -28,6 +28,7 @@ SS.junoPanel = (() => {
   };
 
   /* ---------- Lecture / écriture des réglages ---------- */
+  const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
   const params = () => SS.junoParams(track);
   const patchParams = () => (SS.findJunoPatch(track.junoPatch) || SS.JUNO_PATCHES[0]).params;
 
@@ -378,6 +379,8 @@ SS.junoPanel = (() => {
       el('div', 'jpatch-sec', {}, button('MANUAL', () => track.junoPatch === 'MAN', () => pickManual(), { led: false, aria: 'Manual' }))
     );
 
+    buildKeyboard();
+
     const dlg = $('#junoDialog');
     $('#junoPreview').addEventListener('click', () => preview());
     $('#junoReset').addEventListener('click', () => {
@@ -404,10 +407,151 @@ SS.junoPanel = (() => {
         SS.audio.applySynth(track);
         app.changed();
       }
+      releaseAll();
       app.renderTrack(track);
       track = null;
     });
-    dlg.addEventListener('keydown', (e) => e.stopPropagation());
+    dlg.addEventListener('keydown', (e) => {
+      onKey(e, true);
+      e.stopPropagation();
+    });
+    dlg.addEventListener('keyup', (e) => {
+      onKey(e, false);
+      e.stopPropagation();
+    });
+    window.addEventListener('blur', releaseAll);
+  }
+
+  /* ---------- Clavier (2 octaves, 6 voix) ---------- */
+  // touches physiques (event.code) : valables en AZERTY comme en QWERTY ; décalage en demi-tons
+  const KEYMAP = [
+    ['KeyZ', 0], ['KeyS', 1], ['KeyX', 2], ['KeyD', 3], ['KeyC', 4], ['KeyV', 5], ['KeyG', 6], ['KeyB', 7], ['KeyH', 8], ['KeyN', 9], ['KeyJ', 10], ['KeyM', 11],
+    ['KeyQ', 12], ['Digit2', 13], ['KeyW', 14], ['Digit3', 15], ['KeyE', 16], ['KeyR', 17], ['Digit5', 18], ['KeyT', 19], ['Digit6', 20], ['KeyY', 21], ['Digit7', 22], ['KeyU', 23],
+    ['KeyI', 24],
+  ];
+  const CODE_OF = new Map(KEYMAP.map(([c, n]) => [n, c]));
+  const NOTE_OF = new Map(KEYMAP);
+  // lettres affichées par défaut (AZERTY) ; remplacées par la disposition réelle quand le navigateur la donne
+  const AZERTY = {
+    KeyZ: 'W', KeyS: 'S', KeyX: 'X', KeyD: 'D', KeyC: 'C', KeyV: 'V', KeyG: 'G', KeyB: 'B', KeyH: 'H', KeyN: 'N', KeyJ: 'J', KeyM: ',',
+    KeyQ: 'A', Digit2: 'É', KeyW: 'Z', Digit3: '"', KeyE: 'E', KeyR: 'R', Digit5: '(', KeyT: 'T', Digit6: '-', KeyY: 'Y', Digit7: 'È', KeyU: 'U', KeyI: 'I',
+  };
+  const POLY = 6;
+  const KB_VEL = 0.85;
+  let kbOct = 3; // do le plus grave = C3
+  const keyEls = new Map(); // demi-ton -> élément
+  const held = []; // notes tenues, de la plus ancienne à la plus récente : { src, n, midi, id }
+  const labels = new Map(); // code -> élément de lettre
+
+  function buildKeyboard() {
+    const box = $('#junoKeys');
+    const keys = el('div', 'jkeys', { role: 'group', 'aria-label': 'Clavier (2 octaves)' });
+    const WHITE = [0, 2, 4, 5, 7, 9, 11];
+    let w = 0;
+    for (let n = 0; n <= 24; n++) {
+      const black = !WHITE.includes(n % 12);
+      const code = CODE_OF.get(n);
+      const lab = el('span', 'jk-letter', { text: AZERTY[code] || '' });
+      labels.set(code, lab);
+      const k = el('div', 'jkey ' + (black ? 'black' : 'white'), { 'data-n': n }, lab);
+      if (black) k.style.left = `calc(${w} * var(--kw) - var(--bw) / 2)`;
+      else w++;
+      keyEls.set(n, k);
+      keys.append(k);
+    }
+    keys.style.setProperty('--nw', w);
+    const octOut = el('output', 'jkb-oct');
+    const octBtn = (d, label, aria) =>
+      el('button', 'jbtn white jkb-obtn', { type: 'button', 'aria-label': aria, title: aria, onclick: () => setOct(kbOct + d) }, label);
+    const setOct = (o) => {
+      releaseAll();
+      kbOct = clamp(o, 0, 6);
+      octOut.textContent = `C${kbOct}`;
+    };
+    setOct(kbOct);
+    box.append(
+      el('div', 'jkb-side', {},
+        el('div', 'jgroup-title', { text: 'OCTAVE' }),
+        el('div', 'jrow', {}, octBtn(-1, '−', 'Octave plus grave'), octBtn(1, '+', 'Octave plus aiguë')),
+        octOut,
+        el('div', 'jkb-hint', { text: 'Clavier de l’ordinateur · 6 voix' })),
+      keys
+    );
+
+    // souris / tactile : appui, glissé d'une touche à l'autre, relâchement
+    let ptrNote = null;
+    const keyAt = (e) => {
+      const t = document.elementFromPoint(e.clientX, e.clientY);
+      const k = t && t.closest && t.closest('.jkey');
+      return k && keys.contains(k) ? +k.dataset.n : null;
+    };
+    keys.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      keys.setPointerCapture(e.pointerId);
+      ptrNote = keyAt(e);
+      if (ptrNote != null) press('ptr', ptrNote);
+    });
+    keys.addEventListener('pointermove', (e) => {
+      if (ptrNote == null && !e.buttons) return;
+      if (!e.buttons) return;
+      const n = keyAt(e);
+      if (n === ptrNote) return;
+      release('ptr');
+      ptrNote = n;
+      if (n != null) press('ptr', n);
+    });
+    const up = () => {
+      release('ptr');
+      ptrNote = null;
+    };
+    keys.addEventListener('pointerup', up);
+    keys.addEventListener('pointercancel', up);
+
+    // lettres de la disposition réelle du clavier (Chrome / Edge)
+    if (navigator.keyboard && navigator.keyboard.getLayoutMap) {
+      navigator.keyboard.getLayoutMap().then((map) => {
+        labels.forEach((lab, code) => {
+          const ch = map.get(code);
+          if (ch) lab.textContent = ch.toUpperCase();
+        });
+      }).catch(() => {});
+    }
+  }
+
+  function press(src, n) {
+    if (!track) return;
+    // polyphonie de 6 : la note la plus ancienne est relâchée
+    while (held.length >= POLY) stop(held.shift());
+    const midi = (kbOct + 1) * 12 + n;
+    const id = SS.audio.liveNoteOn(track, midi, KB_VEL);
+    held.push({ src, n, midi, id });
+    keyEls.get(n).classList.add('down');
+  }
+  function stop(h) {
+    if (track) SS.audio.liveNoteOff(track, h.id);
+    if (!held.some((x) => x !== h && x.n === h.n)) keyEls.get(h.n).classList.remove('down');
+  }
+  function release(src) {
+    const i = held.findIndex((h) => h.src === src);
+    if (i < 0) return;
+    stop(held.splice(i, 1)[0]);
+  }
+  function releaseAll() {
+    while (held.length) stop(held.shift());
+  }
+
+  /** Clavier de l'ordinateur : une touche = une note ; la répétition automatique est ignorée. */
+  function onKey(e, down) {
+    if (!track || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+    const n = NOTE_OF.get(e.code);
+    if (n == null) return;
+    e.preventDefault();
+    const src = 'key:' + e.code;
+    if (!down) return release(src);
+    if (e.repeat || held.some((h) => h.src === src)) return;
+    press(src, n);
   }
 
   function waveIcon(kind) {
