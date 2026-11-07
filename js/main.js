@@ -9,10 +9,92 @@
   let dirty = false;
   const state = { editMode: 'toggle', openRolls: new Set(), songStart: 0 };
 
+  /* ---------- Annuler / Rétablir ----------
+   * On garde des instantanés du projet (JSON). Chaque modification enregistre l'état précédent ;
+   * les modifications rapprochées (glisser un curseur, taper un titre) sont regroupées en une seule
+   * étape grâce à un court délai.
+   */
+  const MAX_HISTORY = 100;
+  const history = { past: [], future: [], present: null, timer: null };
+
+  function snapshot() {
+    return SS.serialize(project);
+  }
+  function resetHistory() {
+    history.past = [];
+    history.future = [];
+    clearTimeout(history.timer);
+    history.timer = null;
+    history.present = snapshot();
+    updateUndoButtons();
+  }
+  /** Enregistre l'état actuel comme nouvelle étape (s'il a changé). */
+  function recordHistory() {
+    clearTimeout(history.timer);
+    history.timer = null;
+    const now = snapshot();
+    if (now === history.present) return;
+    history.past.push(history.present);
+    if (history.past.length > MAX_HISTORY) history.past.shift();
+    history.present = now;
+    history.future = [];
+    updateUndoButtons();
+  }
+  function scheduleHistory() {
+    clearTimeout(history.timer);
+    history.timer = setTimeout(recordHistory, 350);
+  }
+  function restoreSnapshot(json) {
+    const p = SS.normalizeProject(JSON.parse(json));
+    project = p;
+    SS.ui.clearSelection();
+    syncHeader();
+    SS.ui.renderAll();
+    SS.song.render();
+    SS.audio.applyAllFx(p);
+    p.tracks.forEach((t) => SS.audio.prepareTrack(t));
+    dirty = true;
+    saveLocal();
+  }
+  function undo() {
+    if (history.timer) recordHistory(); // une modification encore en attente compte comme une étape
+    if (!history.past.length) return;
+    history.future.push(history.present);
+    history.present = history.past.pop();
+    restoreSnapshot(history.present);
+    updateUndoButtons();
+    SS.ui.toast('Action annulée', 1200);
+  }
+  function redo() {
+    if (history.timer) recordHistory();
+    if (!history.future.length) return;
+    history.past.push(history.present);
+    history.present = history.future.pop();
+    restoreSnapshot(history.present);
+    updateUndoButtons();
+    SS.ui.toast('Action rétablie', 1200);
+  }
+  function updateUndoButtons() {
+    const u = $('#undoBtn');
+    const r = $('#redoBtn');
+    if (!u || !r) return;
+    u.disabled = !history.past.length && !history.timer;
+    r.disabled = !history.future.length;
+  }
+
   /* ---------- Sauvegarde automatique (confort, dans le navigateur) ---------- */
   let autosaveTimer;
+  function saveLocal() {
+    try {
+      localStorage.setItem(AUTOSAVE_KEY, SS.serialize(project));
+    } catch (e) {
+      /* stockage indisponible : on ignore */
+    }
+  }
   function changed() {
     dirty = true;
+    scheduleHistory();
+    updateUndoButtons();
     // la durée de la chanson dépend des mesures / du tempo : on rafraîchit le panneau (sauf pendant un renommage)
     if (SS.song && !document.querySelector('.scene-rename')) SS.song.render();
     clearTimeout(autosaveTimer);
@@ -96,9 +178,12 @@
     SS.song.render();
     SS.audio.applyAllFx(p);
     p.tracks.forEach((t) => SS.audio.prepareTrack(t));
+    resetHistory(); // ouvrir ou créer un projet repart d'un historique vide
   }
 
   function initHeader() {
+    $('#undoBtn').addEventListener('click', undo);
+    $('#redoBtn').addEventListener('click', redo);
     const num = $('#sigNum');
     for (let i = 1; i <= 12; i++) num.append(new Option(String(i), String(i)));
 
@@ -323,6 +408,16 @@
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
         saveProject(e.shiftKey);
+        return;
+      }
+      // Annuler / Rétablir : Ctrl+Z, Ctrl+Y ou Ctrl+Maj+Z (dans un champ texte, on laisse l'annulation du navigateur)
+      const mod = e.ctrlKey || e.metaKey;
+      const key = e.key.toLowerCase();
+      const textField = (tag === 'INPUT' && ['text', 'number', 'search'].includes(e.target.type)) || tag === 'TEXTAREA';
+      if (mod && !textField && (key === 'z' || key === 'y')) {
+        e.preventDefault();
+        if (key === 'y' || e.shiftKey) redo();
+        else undo();
         return;
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {

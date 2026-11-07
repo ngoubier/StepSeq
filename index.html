@@ -60,6 +60,12 @@
     </div>
 
     <div class="topbar-group files">
+      <button id="undoBtn" class="btn btn-icon btn-history" title="Annuler la dernière action (Ctrl+Z)" aria-label="Annuler" disabled>
+        <svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+      </button>
+      <button id="redoBtn" class="btn btn-icon btn-history" title="Rétablir l'action annulée (Ctrl+Y)" aria-label="Rétablir" disabled>
+        <svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg>
+      </button>
       <button id="newProject" class="btn" title="Nouveau projet">Nouveau</button>
       <button id="openProject" class="btn" title="Ouvrir un fichier projet">Ouvrir</button>
       <button id="saveProject" class="btn btn-accent" title="Enregistrer (Ctrl+S)">Enregistrer</button>

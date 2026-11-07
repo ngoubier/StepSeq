@@ -798,3 +798,7 @@ body:not(.song-mode) .song-blocks { opacity: .75; }
 /* ---------- Poignée de longueur des notes ---------- */
 .grid.edge-hover, .grid.edge-hover .cell, .grid.edge-hover .rcell { cursor: ew-resize; }
 body.resizing-note, body.resizing-note * { cursor: ew-resize !important; }
+
+/* ---------- Annuler / Rétablir ---------- */
+.btn-history:disabled { opacity: .35; cursor: default; }
+.btn-history:disabled:hover { background: var(--panel-3); }
