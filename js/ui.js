@@ -212,6 +212,11 @@ SS.ui = (() => {
       track.type === 'instrument'
         ? h('button', { class: 'th-btn', title: 'Sound design', html: ICONS.sliders, onclick: () => SS.soundDesign.open(track) })
         : null,
+      h('button', {
+        class: 'th-btn fx-btn' + (SS.fxActive(track) ? ' on' : ''),
+        title: 'Effets : chorus, delay, reverb',
+        onclick: () => SS.fx.open(track),
+      }, 'FX'),
       h('button', { class: 'th-btn', title: 'Modifier la piste', html: ICONS.gear, onclick: () => app.editTrack(track) }),
       h('button', { class: 'th-btn', title: 'Supprimer la piste', html: ICONS.close, onclick: () => app.deleteTrack(track) })
     );

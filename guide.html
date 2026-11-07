@@ -89,6 +89,7 @@
       <a href="#notes">Changer une note ou un accord</a>
       <a href="#avance">Réglages avancés</a>
       <a href="#sound-design">Sound design</a>
+      <a href="#effets">Effets</a>
       <a href="#groove">Groove</a>
       <a href="#fichiers">Enregistrer et ouvrir</a>
       <a href="#raccourcis">Raccourcis et astuces</a>
@@ -207,6 +208,21 @@
         <li><b>Annuler</b> ou Échap revient aux réglages d'avant l'ouverture. <b>OK</b> les garde. Ils sont enregistrés dans le fichier du projet.</li>
         <li>Pour un instrument échantillonné (piano, cordes, soundfonts…), il n'y a pas de VCO : le filtre, l'enveloppe et la sortie s'appliquent à l'échantillon.</li>
         <li>Changer d'instrument avec ⚙ remet les réglages du preset du nouvel instrument.</li>
+      </ul>
+
+      <h2 id="effets">Effets : chorus, delay, reverb</h2>
+      <p>Chaque piste, Drum ou Instrument, a ses effets. Ouvre-les avec le bouton <b>FX</b> de l'en-tête de piste ; il devient violet quand un effet est actif. Les réglages s'entendent pendant la lecture et sont enregistrés dans le projet. Delay et reverb reprennent les paramètres de <a href="https://strudel.cc">strudel.cc</a>, dont l'équivalent s'affiche en haut de la fenêtre.</p>
+      <div class="table-wrap"><table>
+        <tr><th>Effet</th><th>Réglages</th><th>Préréglages</th><th>Strudel</th></tr>
+        <tr><td>Chorus</td><td>Mix, Vitesse (0,1 à 6 Hz), Profondeur. Double le son avec une copie légèrement désaccordée qui ondule, élargie en stéréo.</td><td>Léger, Large, Profond</td><td>effet propre à StepSeq</td></tr>
+        <tr><td>Delay</td><td>Mix, Feedback (nombre de répétitions), Temps synchronisé au tempo : 1/16, 1/8 triolet, 1/8, 1/8 pointée, 1/4, 1/4 pointée, 1/2</td><td>Slapback, Écho 1/8, Dub 1/8 pointée, 1/4</td><td><code>delay</code>, <code>delaytime</code>, <code>delayfeedback</code></td></tr>
+        <tr><td>Reverb</td><td>Mix, Taille (durée de la queue, 0,2 à 10 s), Brillance (coupe les aigus de la queue)</td><td>Pièce, Hall, Cathédrale, Plate</td><td><code>room</code>, <code>roomsize</code>, <code>roomlp</code></td></tr>
+      </table></div>
+      <ul>
+        <li>Un effet est coupé quand son Mix est à 0 (préréglage « Off »). <b>Tout couper</b> remet la piste sans effet.</li>
+        <li>Le temps du delay suit le tempo : à 112 BPM, une 1/8 pointée vaut 402 ms.</li>
+        <li><b>Annuler</b> ou Échap revient aux effets d'avant l'ouverture.</li>
+        <li>La queue de reverb et les échos continuent un instant après Stop, comme sur un vrai appareil.</li>
       </ul>
 
       <h2 id="groove">Groove</h2>

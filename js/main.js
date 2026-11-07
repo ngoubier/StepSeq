@@ -88,6 +88,7 @@
     state.openRolls = new Set();
     syncHeader();
     SS.ui.renderAll();
+    SS.audio.applyAllFx(p);
     p.tracks.forEach((t) => SS.audio.prepareTrack(t));
   }
 
@@ -104,6 +105,7 @@
     $('#tempo').addEventListener('change', (e) => {
       project.tempo = Math.max(20, Math.min(300, Math.round(+e.target.value || 120)));
       e.target.value = project.tempo;
+      SS.audio.applyAllFx(project); // le delay suit le tempo
       changed();
     });
     const onSig = () => {
@@ -278,6 +280,7 @@
   SS.audio.setErrorHandler((msg) => SS.ui.toast(msg));
   SS.soundDesign.init({ changed, renderTrack: (t) => SS.ui.renderTrack(t) });
   SS.groove.init({ project: () => project, changed });
+  SS.fx.init({ project: () => project, changed, renderTrack: (t) => SS.ui.renderTrack(t) });
   SS.ui.init({
     project: () => project,
     changed,

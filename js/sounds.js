@@ -277,3 +277,28 @@ SS.soundParams = (track) => {
   if (d.wave === null) p.wave = null; // un échantillon n'a pas de VCO
   return p;
 };
+
+/* ---------- Effets par piste (inspirés de strudel.cc : room, delay ; + chorus) ---------- */
+SS.DELAY_TIMES = [
+  { id: '1/16', label: '1/16', beats: 0.25 },
+  { id: '1/8T', label: '1/8 triolet', beats: 1 / 3 },
+  { id: '1/8', label: '1/8', beats: 0.5 },
+  { id: '3/16', label: '1/8 pointée', beats: 0.75 },
+  { id: '1/4', label: '1/4', beats: 1 },
+  { id: '3/8', label: '1/4 pointée', beats: 1.5 },
+  { id: '1/2', label: '1/2', beats: 2 },
+];
+SS.FX_DEFAULTS = {
+  chorus: 0, chorusRate: 0.8, chorusDepth: 0.5, // mix 0..1, vitesse Hz, profondeur 0..1
+  delay: 0, delayTime: '3/16', delayFeedback: 0.4, // strudel : delay, delaytime, delayfeedback
+  room: 0, roomSize: 2.5, roomLp: 8000, // strudel : room, roomsize (s), roomlp (Hz)
+};
+SS.fxParams = (track) => ({ ...SS.FX_DEFAULTS, ...(track.fx || {}) });
+SS.fxActive = (track) => {
+  const f = SS.fxParams(track);
+  return f.chorus > 0 || f.delay > 0 || f.room > 0;
+};
+SS.delaySeconds = (fx, tempo) => {
+  const d = SS.DELAY_TIMES.find((x) => x.id === fx.delayTime) || SS.DELAY_TIMES[3];
+  return Math.min(2.9, (60 / tempo) * d.beats);
+};

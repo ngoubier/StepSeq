@@ -6,7 +6,8 @@
  *   format: "stepseq", version: 1,
  *   title, tempo, timeSig: [num, den], bars,
  *   groove: { res: 0|16|8, swing: 0.5..0.75, human: 0..1 },
- *   tracks: [
+ *   tracks: [   // chaque piste peut avoir fx: { chorus, chorusRate, chorusDepth, delay, delayTime,
+ *               //   delayFeedback, room, roomSize, roomLp } (effets, voir SS.FX_DEFAULTS)
  *     { id, type: "drum", name, color, volume, mute, solo,
  *       sound: "bd", machine: "RolandTR808", variant: 0,
  *       steps: [0..1, ...] }                         // vélocité, 0 = éteint
@@ -99,6 +100,15 @@ SS.normalizeProject = (data) => {
   }
   p.tracks = data.tracks.map((t) => {
     const track = { ...t, id: t.id || SS.uid() };
+    // effets : on ne garde que les clés connues, de type attendu
+    if (t.fx && typeof t.fx === 'object') {
+      track.fx = {};
+      for (const [k, def] of Object.entries(SS.FX_DEFAULTS)) {
+        const v = t.fx[k];
+        if (typeof def === 'number' && typeof v === 'number' && Number.isFinite(v)) track.fx[k] = v;
+        if (typeof def === 'string' && SS.DELAY_TIMES.some((d) => d.id === v)) track.fx[k] = v;
+      }
+    } else delete track.fx;
     track.volume = typeof t.volume === 'number' ? t.volume : 0.8;
     track.mute = !!t.mute;
     track.solo = !!t.solo;

@@ -9,7 +9,7 @@
   --accent: #0a64b4;
   --accent-2: #2b8cff;
   --gold: #c9a227;
-  --head: 380px;
+  --head: 400px;
   --sq: 26px;          /* taille d'une case (carré fixe) */
   --col: 30px;         /* case + 2 px de marge de chaque côté */
   --row-h: 36px;
@@ -580,3 +580,12 @@ dialog.sd-dialog { width: min(820px, calc(100vw - 32px)); }
 .gv-preview .straight { fill: none; stroke: var(--muted); stroke-dasharray: 2 2; }
 .gv-preview .hit { fill: var(--accent-2); }
 .gv-help { color: var(--muted); font-size: 12px; }
+
+/* ---------- Effets ---------- */
+.th-btn.fx-btn { width: auto; padding: 0 5px; font-size: 10px; letter-spacing: .03em; }
+.th-btn.fx-btn.on { background: #6a4bd8; color: #fff; }
+.fx-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+.fx-state { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.fx-state.on { color: #b9a6ff; }
+.sd-row select { grid-column: 1 / -1; background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 5px 8px; font: inherit; }
+.gv-presets .chip { font-size: 12px; padding: 3px 10px; }

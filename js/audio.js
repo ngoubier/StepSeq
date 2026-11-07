@@ -230,27 +230,161 @@ SS.audio = (() => {
 
   /* ---------------- Bus par piste ---------------- */
 
+  /*
+   * Chaque piste a sa chaîne :
+   *   entrée (volume) -> chorus (dry/wet) -> pre ─┬─> master (son direct)
+   *                                              ├─> envoi delay  -> delay ⟲ feedback (filtré) -> master
+   *                                              └─> envoi reverb -> convolution (IR générée)   -> master
+   * Les étages sont créés à la première utilisation d'un effet.
+   */
+  let currentTempo = 120;
+
   function bus(track) {
     ensureCtx();
     if (!track || !track.id) return master;
-    let g = buses.get(track.id);
-    if (!g) {
-      g = ctx.createGain();
-      g.gain.value = typeof track.volume === 'number' ? track.volume : 0.8;
-      g.connect(master);
-      buses.set(track.id, g);
+    let b = buses.get(track.id);
+    if (!b) {
+      b = { input: ctx.createGain(), pre: ctx.createGain(), chorus: null, delay: null, reverb: null };
+      b.input.gain.value = typeof track.volume === 'number' ? track.volume : 0.8;
+      b.input.connect(b.pre);
+      b.pre.connect(master);
+      buses.set(track.id, b);
+      applyFx(track);
     }
-    return g;
+    return b.input;
   }
   function setTrackGain(track, value) {
     if (!ctx) return;
-    const g = bus(track);
-    g.gain.setTargetAtTime(value, ctx.currentTime, 0.01);
+    bus(track);
+    buses.get(track.id).input.gain.setTargetAtTime(value, ctx.currentTime, 0.01);
   }
   function removeTrack(id) {
-    const g = buses.get(id);
-    if (g) g.disconnect();
+    const b = buses.get(id);
+    if (b) {
+      b.input.disconnect();
+      b.pre.disconnect();
+      if (b.chorus) b.chorus.lfo.stop();
+      if (b.delay) b.delay.tone.disconnect(); // coupe la boucle de feedback
+      if (b.reverb) b.reverb.out.disconnect();
+    }
     buses.delete(id);
+  }
+
+  /* ---- Chorus : deux lignes à retard modulées en opposition (gauche / droite) ---- */
+  function buildChorus(b) {
+    const c = {};
+    c.dry = ctx.createGain();
+    c.wet = ctx.createGain();
+    c.dL = ctx.createDelay(0.05);
+    c.dR = ctx.createDelay(0.05);
+    c.dL.delayTime.value = c.dR.delayTime.value = 0.02;
+    c.merge = ctx.createChannelMerger(2);
+    c.lfo = ctx.createOscillator();
+    c.lfo.type = 'sine';
+    c.modL = ctx.createGain();
+    c.modR = ctx.createGain();
+    c.lfo.connect(c.modL).connect(c.dL.delayTime);
+    c.lfo.connect(c.modR).connect(c.dR.delayTime);
+    c.lfo.start();
+    b.input.disconnect();
+    b.input.connect(c.dry).connect(b.pre);
+    b.input.connect(c.dL).connect(c.merge, 0, 0);
+    b.input.connect(c.dR).connect(c.merge, 0, 1);
+    c.merge.connect(c.wet).connect(b.pre);
+    b.chorus = c;
+  }
+
+  /* ---- Delay : écho synchronisé au tempo, feedback adouci par un filtre ---- */
+  function buildDelay(b) {
+    const d = {};
+    d.send = ctx.createGain();
+    d.node = ctx.createDelay(3);
+    d.fb = ctx.createGain();
+    d.tone = ctx.createBiquadFilter();
+    d.tone.type = 'lowpass';
+    d.tone.frequency.value = 5000;
+    b.pre.connect(d.send).connect(d.node);
+    d.node.connect(d.tone).connect(d.fb).connect(d.node);
+    d.tone.connect(master);
+    b.delay = d;
+  }
+
+  /* ---- Reverb : réponse impulsionnelle générée (bruit à décroissance exponentielle, filtré) ---- */
+  const irCache = new Map();
+  function impulse(size, lp) {
+    const key = size.toFixed(2) + ':' + Math.round(lp);
+    if (irCache.has(key)) return irCache.get(key);
+    const rate = ctx.sampleRate;
+    const len = Math.max(1, Math.floor(rate * size));
+    const buf = ctx.createBuffer(2, len, rate);
+    const a = Math.exp((-2 * Math.PI * lp) / rate); // filtre passe-bas à un pôle (amortissement)
+    for (let ch = 0; ch < 2; ch++) {
+      const data = buf.getChannelData(ch);
+      let y = 0;
+      for (let i = 0; i < len; i++) {
+        const env = Math.pow(1 - i / len, 2.2) * Math.exp((-3 * i) / len);
+        y = (1 - a) * (Math.random() * 2 - 1) + a * y;
+        data[i] = y * env;
+      }
+    }
+    if (irCache.size > 24) irCache.clear();
+    irCache.set(key, buf);
+    return buf;
+  }
+  function buildReverb(b) {
+    const r = {};
+    r.send = ctx.createGain();
+    r.conv = ctx.createConvolver();
+    r.out = ctx.createGain();
+    r.out.gain.value = 2.2; // compense le niveau de l'IR filtrée
+    b.pre.connect(r.send).connect(r.conv).connect(r.out).connect(master);
+    b.reverb = r;
+  }
+
+  /** Applique (en douceur) les réglages d'effets d'une piste. */
+  function applyFx(track) {
+    if (!ctx || !track || !track.id) return;
+    const b = buses.get(track.id);
+    if (!b) return;
+    const f = SS.fxParams(track);
+    const now = ctx.currentTime;
+    const ramp = (param, v) => param.setTargetAtTime(v, now, 0.03);
+
+    if (f.chorus > 0 || b.chorus) {
+      if (!b.chorus) buildChorus(b);
+      const c = b.chorus;
+      ramp(c.wet.gain, f.chorus);
+      ramp(c.dry.gain, 1 - f.chorus * 0.45);
+      ramp(c.lfo.frequency, f.chorusRate);
+      const depth = 0.0005 + f.chorusDepth * 0.0075; // jusqu'à ±8 ms
+      ramp(c.modL.gain, depth);
+      ramp(c.modR.gain, -depth);
+    }
+    if (f.delay > 0 || b.delay) {
+      if (!b.delay) buildDelay(b);
+      ramp(b.delay.send.gain, f.delay);
+      ramp(b.delay.fb.gain, Math.min(0.92, f.delayFeedback));
+      ramp(b.delay.node.delayTime, SS.delaySeconds(f, currentTempo));
+    }
+    if (f.room > 0 || b.reverb) {
+      if (!b.reverb) buildReverb(b);
+      const r = b.reverb;
+      ramp(r.send.gain, f.room);
+      const key = f.roomSize.toFixed(2) + ':' + Math.round(f.roomLp);
+      if (f.room > 0 && r.key !== key) {
+        r.conv.buffer = impulse(f.roomSize, f.roomLp);
+        r.key = key;
+      }
+    }
+  }
+
+  /** Recalcule les effets de toutes les pistes (ex. temps du delay après un changement de tempo). */
+  function applyAllFx(project) {
+    currentTempo = project.tempo;
+    if (!ctx) return;
+    project.tracks.forEach((t) => {
+      if (buses.has(t.id)) applyFx(t);
+    });
   }
 
   /* ---------------- Voix ---------------- */
@@ -443,10 +577,11 @@ SS.audio = (() => {
       if (list.length) await Promise.all(wanted.map((n) => loadBuffer(nearest(list, n).url).promise));
     }
     const t = ctx.currentTime + 0.02;
-    if (track.type === 'drum') playDrum(track, t, 0.9, master);
+    const out = track.id ? bus(track) : master; // le bus de la piste fait entendre ses effets
+    if (track.type === 'drum') playDrum(track, t, 0.9, out);
     else {
       const notes = Array.isArray(midi) ? midi : [midi];
-      notes.forEach((n) => playNote(track, n, t, dur, notes.length > 1 ? 0.65 : 0.8, master));
+      notes.forEach((n) => playNote(track, n, t, dur, notes.length > 1 ? 0.65 : 0.8, out));
     }
   }
 
@@ -548,6 +683,7 @@ SS.audio = (() => {
     if (seq.playing) return;
     seq.getProject = getProject;
     seq.onStep = onStep;
+    applyAllFx(getProject());
     seq.playing = true;
     seq.step = 0;
     seq.queue = [];
@@ -577,6 +713,10 @@ SS.audio = (() => {
     playNote,
     setTrackGain,
     removeTrack,
+    applyFx,
+    applyAllFx,
+    _bus: bus, // accès internes pour les tests
+    _master: () => master,
     start,
     stop,
     isPlaying: () => seq.playing,

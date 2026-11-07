@@ -313,6 +313,62 @@
     </form>
   </dialog>
 
+  <!-- Dialogue des effets d'une piste -->
+  <dialog id="fxDialog" class="sd-dialog">
+    <form method="dialog" id="fxForm">
+      <div class="sd-head">
+        <div>
+          <h2>Effets</h2>
+          <p id="fxTrack" class="dlg-sub"></p>
+        </div>
+        <code id="fxCode" class="sd-code" title="Équivalent strudel.cc"></code>
+      </div>
+
+      <div class="fx-grid">
+        <section class="sd-panel" aria-labelledby="fxChorusTitle">
+          <div class="sd-panel-head">
+            <h3 id="fxChorusTitle">Chorus</h3>
+            <span class="fx-state" id="fxChorusState"></span>
+          </div>
+          <div class="gv-presets" data-presets="chorus"></div>
+          <div class="sd-sliders" id="fxChorusSliders"></div>
+        </section>
+        <section class="sd-panel" aria-labelledby="fxDelayTitle">
+          <div class="sd-panel-head">
+            <h3 id="fxDelayTitle">Delay <small>delay</small></h3>
+            <span class="fx-state" id="fxDelayState"></span>
+          </div>
+          <div class="gv-presets" data-presets="delay"></div>
+          <div class="sd-sliders" id="fxDelaySliders"></div>
+          <div class="sd-row">
+            <label for="fxDelayTime">Temps (synchronisé au tempo)</label>
+            <output id="fxDelayMs"></output>
+            <select id="fxDelayTime"></select>
+          </div>
+        </section>
+        <section class="sd-panel" aria-labelledby="fxRoomTitle">
+          <div class="sd-panel-head">
+            <h3 id="fxRoomTitle">Reverb <small>room</small></h3>
+            <span class="fx-state" id="fxRoomState"></span>
+          </div>
+          <div class="gv-presets" data-presets="room"></div>
+          <div class="sd-sliders" id="fxRoomSliders"></div>
+        </section>
+      </div>
+
+      <div class="dlg-footer">
+        <button type="button" id="fxPreview" class="btn">
+          <svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z" class="fill"/><path d="M16 8.5a5 5 0 0 1 0 7"/></svg>
+          Écouter
+        </button>
+        <button type="button" id="fxReset" class="btn" title="Couper tous les effets de la piste">Tout couper</button>
+        <span class="spacer"></span>
+        <button type="button" id="fxCancel" class="btn">Annuler</button>
+        <button type="submit" class="btn btn-accent">OK</button>
+      </div>
+    </form>
+  </dialog>
+
   <div id="toast" role="status"></div>
 
   <script src="js/sounds.js"></script>
@@ -320,6 +376,7 @@
   <script src="js/audio.js"></script>
   <script src="js/sounddesign.js"></script>
   <script src="js/groove.js"></script>
+  <script src="js/fx.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/main.js"></script>
 </body>
