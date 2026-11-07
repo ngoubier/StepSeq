@@ -57,6 +57,7 @@ Mesures faites sur une capture PCM directe de la sortie de StepSeq (EBU R128 ave
 
 - **Le thème** : un riff de piano en rythme 3-3-2 (doubles-croches), sur Sol m – Mib – Sib – Fa (i – VI – III – VII), doublé par un lead supersaw dans les drops.
 - **Sidechain** : la basse roulante (trois doubles-croches par temps) est pompée par le kick à 75 % (relâchement 170 ms) ; la nappe (55 %), le chœur (40 %), le lead (35 %) et l'arpège (30 %) aussi. La piste Kick pilote le sidechain même en sourdine (Mute).
-- **Montées** (8 mesures) : roulement de caisse claire qui accélère (noires → croches → doubles-croches) avec crescendo, hi-hats qui montent, riser de bruit blanc dont le filtre s'ouvre sur 13,5 s, kick coupé sur les deux dernières mesures, basse en doubles-croches, puis **un temps de silence** juste avant le drop.
+- **Montées** (8 mesures) : roulement de caisse claire qui accélère (noires → croches → doubles-croches) avec crescendo, hi-hats qui montent, basse réduite à une impulsion par demi-mesure, riser de bruit blanc dont le filtre s'ouvre sur 13,5 s, kick coupé à mi-montée, basse en doubles-croches, puis **un temps de silence** juste avant le drop.
 - **Montée finale** : passe par Do m – Mib – Fa – **Ré** (la dominante), avec le thème qui grimpe vers Fa#, pour retomber sur Sol mineur.
+- **Avant le premier drop**, la basse ne joue que les contretemps ; la basse roulante est réservée aux drops.
 - **Drops** : crash + impact sub saturé (Sol grave) sur le premier temps, kick 909 plein, clap, hi-hats en doubles-croches et open hat à contretemps ; le drop final ajoute la ride, l'arpège pluck, le chœur et le piano doublé à l'octave.

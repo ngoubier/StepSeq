@@ -136,16 +136,27 @@ def chords(d, track, progression, bars_each=2, vel=0.55, up=0, kind=None):
         s += bars_each * BAR
 
 
-def rolling_bass(d, progression, bars_each=2, start_bar=0, end_bar=None, vel=0.85):
-    """Basse roulante : trois doubles-croches par temps, le kick (et le sidechain) occupe la première."""
+def rolling_bass(d, progression, bars_each=2, start_bar=0, end_bar=None, vel=0.85, offbeat_only=False):
+    """Basse roulante : trois doubles-croches par temps, le kick (et le sidechain) occupe la première.
+    offbeat_only : seulement la contretemps (croche « et »), plus léger — gardé pour avant le premier drop."""
     s0 = 0
     end = (end_bar if end_bar is not None else len(progression) * bars_each) * BAR
     for _, _, root in progression:
         for s in range(s0, s0 + bars_each * BAR):
-            if s < start_bar * BAR or s >= end or s % 4 == 0:
+            if s < start_bar * BAR or s >= end or s % 4 == 0 or (offbeat_only and s % 4 != 2):
                 continue
             up = s % 4 == 2
             note(d, 'bass', s, 1, [root + 12 if up and s % 8 == 6 else root], vel if up else vel - 0.12)
+        s0 += bars_each * BAR
+
+
+def bass_pulses(d, progression, bars_each=2, end_bar=None, vel=0.55):
+    """Montée : la basse roulante laisse place à une impulsion par demi-mesure, plus sobre (le drop n'en ressort que mieux)."""
+    s0 = 0
+    end = (end_bar if end_bar is not None else len(progression) * bars_each) * BAR
+    for _, _, root in progression:
+        for s in range(s0, min(end, s0 + bars_each * BAR), 8):
+            note(d, 'bass', s, 4, [root], vel)
         s0 += bars_each * BAR
 
 
@@ -183,7 +194,7 @@ def snare_build(d, bars, gap=4):
         else:
             on = True
         if on:
-            hit(d, 'snare', s, 0.3 + 0.65 * frac)
+            hit(d, 'snare', s, 0.25 + 0.6 * frac)
 
 
 def drop_impact(d):
@@ -215,10 +226,10 @@ def groove():
     four_floor(d, 0, 8)
     claps(d, 4, 8, vel=0.75)
     hats(d, 0, 8, sixteenths=False, offbeat_open=True, vel=0.55)
-    hats(d, 4, 8, sixteenths=True, offbeat_open=True, vel=0.55)
+    hats(d, 4, 8, sixteenths=True, offbeat_open=True, vel=0.45)
     hit(d, 'crash', 0, 0.7)
-    rolling_bass(d, PROG)
-    chords(d, 'pad', PROG, vel=0.5)
+    rolling_bass(d, PROG, vel=0.8, offbeat_only=True)
+    chords(d, 'pad', PROG, vel=0.42)
     # le piano se devine sur la seconde moitié : la première note de chaque mesure
     for b in range(4, 8):
         n = THEME[b][0]
@@ -229,16 +240,15 @@ def groove():
 
 def montee():
     d = empty(8)
-    four_floor(d, 0, 6)                      # le kick s'arrête deux mesures avant le drop : tension
-    claps(d, 0, 4, vel=0.7)
+    four_floor(d, 0, 4, vel=0.8)             # le kick s'arrête à mi-montée : tension
     for s in range(0, 6 * BAR):              # hi-hats en doubles-croches qui montent
         if s % 4:
             hit(d, 'hat', s, 0.3 + 0.4 * s / (6 * BAR))
-    rolling_bass(d, PROG, end_bar=6)
+    bass_pulses(d, PROG, end_bar=6)
     for s in range(6 * BAR, 8 * BAR - 4):    # basse en doubles-croches sur Fa, crescendo
         note(d, 'bass', s, 1, [41], 0.5 + 0.45 * (s - 6 * BAR) / (2 * BAR))
-    chords(d, 'pad', PROG, vel=0.5)
-    theme(d, 'piano', vel=0.5, ramp=0.35)
+    chords(d, 'pad', PROG, vel=0.4)
+    theme(d, 'piano', vel=0.45, ramp=0.4)
     snare_build(d, 8)
     note(d, 'riser', 0, 8 * BAR - 4, [60], 1.0)
     # coupure : le dernier temps est vide (sauf la queue des effets), le drop n'en frappe que plus fort
@@ -253,11 +263,11 @@ def drop(final=False):
     drop_impact(d)
     four_floor(d, 0, 8, vel=1.0)
     claps(d, 0, 8, vel=0.85)
-    hats(d, 0, 8, sixteenths=True, offbeat_open=True, vel=0.62)
-    rolling_bass(d, PROG, vel=0.9)
+    hats(d, 0, 8, sixteenths=True, offbeat_open=True, vel=0.75)
+    rolling_bass(d, PROG, vel=1.0)
     chords(d, 'pad', PROG, vel=0.6)
     theme(d, 'piano', vel=0.75, octave_down=final)
-    theme(d, 'lead', vel=0.72)
+    theme(d, 'lead', vel=0.85)
     hit(d, 'crash', 4 * BAR, 0.6)
     if final:
         for s in range(0, 8 * BAR, 4):
@@ -283,16 +293,16 @@ def breakdown():
 
 def montee_finale():
     d = empty(8)
-    four_floor(d, 0, 4)
+    four_floor(d, 0, 4, vel=0.8)
     for s in range(0, 8 * BAR - 4):
         if s % 2 == 0 and s % 4:
             hit(d, 'ohat', s, 0.25 + 0.45 * s / (8 * BAR))
         elif s % 4 and s >= 2 * BAR:
             hit(d, 'hat', s, 0.25 + 0.4 * s / (8 * BAR))
-    rolling_bass(d, PROG_TENSION, end_bar=6)
+    bass_pulses(d, PROG_TENSION, end_bar=6)
     for s in range(6 * BAR, 8 * BAR - 4):    # basse en doubles-croches sur Ré, la dominante
         note(d, 'bass', s, 1, [38 if s % 2 == 0 else 50], 0.5 + 0.45 * (s - 6 * BAR) / (2 * BAR))
-    chords(d, 'pad', PROG_TENSION, vel=0.55)
+    chords(d, 'pad', PROG_TENSION, vel=0.45)
     chords(d, 'choir', PROG_TENSION, vel=0.4, up=12)
     theme(d, 'piano', THEME_TENSION, vel=0.55, ramp=0.4)
     theme(d, 'lead', THEME_TENSION, vel=0.35, ramp=0.5, start_bar=4)
@@ -356,7 +366,7 @@ MIX = {
     'lead': dict(eq=eq(hp=180, lm=(700, -2, 1), hm=(3500, 1, 1), high=(10000, 1)), comp=comp(-18, 2.5, 0.01, 0.15, 6, 1), pan=0.08, volume=0.3),
     'arp': dict(eq=eq(hp=300, lm=(900, -2, 1), high=(9000, 1.5)), pan=0.4, volume=0.2),
     'choir': dict(eq=eq(hp=250, lm=(800, -2, 1), high=(8000, 1)), pan=-0.3, volume=0.28),
-    'riser': dict(eq=eq(hp=300, high=(10000, 1)), pan=0, volume=0.28),
+    'riser': dict(eq=eq(hp=300, high=(10000, 1)), pan=0, volume=0.2),
 }
 
 MASTER = {
