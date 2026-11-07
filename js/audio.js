@@ -1,0 +1,1124 @@
+/*
+ * Moteur audio : chargement des échantillons, voix (samples, soundfonts, synthés)
+ * et séquenceur à anticipation (lookahead scheduler).
+ */
+window.SS = window.SS || {};
+
+SS.audio = (() => {
+  let ctx = null;
+  let master = null;
+  let masterStrip = null;
+  let masterFader = null;
+  let masterMeter = null;
+  let pendingMaster = null;
+  const buses = new Map(); // trackId -> GainNode
+  const jsonCache = new Map();
+  const bufferCache = new Map();
+  const sfCache = new Map();
+  let onError = (msg) => console.error(msg);
+
+  function ensureCtx() {
+    if (!ctx) {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      // Master : somme -> tranche de console (EQ, comp, limiteur) -> fader -> vumètre -> sortie
+      master = ctx.createGain();
+      masterStrip = makeStrip();
+      masterFader = ctx.createGain();
+      masterFader.gain.value = 0.8;
+      masterMeter = makeMeter();
+      master.connect(masterStrip.entry);
+      masterStrip.out.connect(masterFader);
+      masterFader.connect(ctx.destination);
+      masterFader.connect(masterMeter.node);
+      if (pendingMaster) applyMaster(pendingMaster);
+    }
+    if (ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  }
+
+  /* ---------------- Chargement ---------------- */
+
+  function loadJSON(url) {
+    if (!jsonCache.has(url)) {
+      const p = fetch(url)
+        .then((r) => {
+          if (!r.ok) throw new Error(r.status + ' ' + url);
+          return r.json();
+        })
+        .catch((e) => {
+          jsonCache.delete(url);
+          throw e;
+        });
+      jsonCache.set(url, p);
+    }
+    return jsonCache.get(url);
+  }
+
+  const encodePath = (p) => (p.includes('%') ? p : encodeURI(p));
+
+  function loadBuffer(url) {
+    ensureCtx();
+    if (!bufferCache.has(url)) {
+      const entry = { buffer: null, promise: null };
+      entry.promise = fetch(url)
+        .then((r) => {
+          if (!r.ok) throw new Error(r.status + ' ' + url);
+          return r.arrayBuffer();
+        })
+        .then((ab) => decode(ab))
+        .then((buf) => (entry.buffer = buf))
+        .catch((e) => {
+          console.warn(e);
+          onError('Impossible de charger le son : ' + decodeURIComponent(url.split('/').pop()));
+          // on garde l'échec en cache un moment pour ne pas réessayer à chaque pas
+          setTimeout(() => bufferCache.delete(url), 30000);
+          return null;
+        });
+      bufferCache.set(url, entry);
+    }
+    return bufferCache.get(url);
+  }
+
+  function decode(arrayBuffer) {
+    return new Promise((res, rej) => ctx.decodeAudioData(arrayBuffer, res, rej));
+  }
+
+  function base64ToArrayBuffer(b64) {
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes.buffer;
+  }
+
+  /** Les fichiers webaudiofont sont du JS : on extrait les zones par regex (pas d'eval). */
+  function parseSoundfontJs(text) {
+    const start = text.indexOf('zones');
+    const body = start >= 0 ? text.slice(start) : text;
+    const zones = [];
+    const zoneRe = /\{([^{}]*)\}/g;
+    let m;
+    while ((m = zoneRe.exec(body))) {
+      const z = {};
+      const kvRe = /(\w+)\s*:\s*(?:'([^']*)'|"([^"]*)"|(-?[\d.]+)|(true|false))/g;
+      let kv;
+      while ((kv = kvRe.exec(m[1]))) {
+        const key = kv[1];
+        if (kv[2] !== undefined) z[key] = kv[2];
+        else if (kv[3] !== undefined) z[key] = kv[3];
+        else if (kv[4] !== undefined) z[key] = parseFloat(kv[4]);
+        else z[key] = kv[5] === 'true';
+      }
+      if (z.file || z.sample) zones.push(z);
+    }
+    return zones;
+  }
+
+  function loadSoundfont(file) {
+    ensureCtx();
+    if (!sfCache.has(file)) {
+      const entry = { zones: null, promise: null };
+      entry.promise = fetch(SS.SOURCES.soundfont + file + '.js')
+        .then((r) => {
+          if (!r.ok) throw new Error(r.status + ' ' + file);
+          return r.text();
+        })
+        .then(async (text) => {
+          const raw = parseSoundfontJs(text);
+          const zones = await Promise.all(
+            raw.map(async (z) => {
+              let buffer;
+              if (z.file) {
+                buffer = await decode(base64ToArrayBuffer(z.file));
+              } else {
+                const bin = atob(z.sample);
+                const n = bin.length / 2;
+                buffer = ctx.createBuffer(1, n, z.sampleRate || 44100);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < n; i++) {
+                  let v = bin.charCodeAt(i * 2) + bin.charCodeAt(i * 2 + 1) * 256;
+                  if (v >= 32768) v -= 65536;
+                  data[i] = v / 32768;
+                }
+              }
+              const loop = z.loopStart >= 1 && z.loopStart < z.loopEnd;
+              return {
+                low: z.keyRangeLow ?? 0,
+                high: z.keyRangeHigh ?? 127,
+                baseDetune: (z.originalPitch ?? 6000) - 100 * (z.coarseTune || 0) - (z.fineTune || 0),
+                loop,
+                loopStart: loop ? z.loopStart / (z.sampleRate || 44100) : 0,
+                loopEnd: loop ? z.loopEnd / (z.sampleRate || 44100) : 0,
+                buffer,
+              };
+            })
+          );
+          entry.zones = zones;
+          return zones;
+        })
+        .catch((e) => {
+          console.warn(e);
+          onError('Impossible de charger le soundfont : ' + file);
+          setTimeout(() => sfCache.delete(file), 30000);
+          return null;
+        });
+      sfCache.set(file, entry);
+    }
+    return sfCache.get(file);
+  }
+
+  /* ---------------- Résolution des sons ---------------- */
+
+  async function drumVariants(machine, sound) {
+    const json = await loadJSON(SS.SOURCES.tdm);
+    const list = json[machine + '_' + sound];
+    return Array.isArray(list) ? list.map((p) => json._base + encodePath(p)) : [];
+  }
+
+  async function drumMachines(sound) {
+    const json = await loadJSON(SS.SOURCES.tdm);
+    return Object.keys(json)
+      .filter((k) => k.endsWith('_' + sound) && Array.isArray(json[k]))
+      .map((k) => k.slice(0, -(sound.length + 1)))
+      .sort((a, b) => a.localeCompare(b));
+  }
+
+  /* Autres bibliothèques de batterie : Dirt-Samples, percussions VCSL, Mridangam */
+  const LIB_SOURCE = { dirt: () => SS.SOURCES.dirt, vcsl: () => SS.SOURCES.vcsl, mrid: () => SS.SOURCES.mrid };
+  const noComma = (p) => !p.includes(',') && !p.includes('%2C'); // Chrome refuse ces fichiers (en-tête invalide)
+
+  /** Banques disponibles d'une bibliothèque : [{ id, count }] */
+  async function drumBanks(lib) {
+    const json = await loadJSON(LIB_SOURCE[lib]());
+    const keys = lib === 'vcsl' ? (SS.LIB && SS.LIB.vcslPerc) || [] : Object.keys(json).filter((k) => k !== '_base');
+    return keys
+      .filter((k) => Array.isArray(json[k]) && json[k].some(noComma))
+      .map((k) => ({ id: k, count: json[k].filter(noComma).length }));
+  }
+
+  async function bankVariants(lib, bank) {
+    const json = await loadJSON(LIB_SOURCE[lib]());
+    const list = Array.isArray(json[bank]) ? json[bank].filter(noComma) : [];
+    return list.map((p) => json._base + encodePath(p));
+  }
+
+  /** Liste des échantillons possibles d'une piste Drum, selon sa bibliothèque. */
+  async function trackDrumVariants(track) {
+    if (track.source && track.source !== 'tdm') return bankVariants(track.source, track.bank);
+    return drumVariants(track.machine, track.sound);
+  }
+
+  async function drumUrl(track) {
+    const list = await trackDrumVariants(track);
+    if (!list.length) return null;
+    return list[Math.min(track.variant || 0, list.length - 1)];
+  }
+
+  /** Liste triée [{midi, url}] d'un instrument multi-échantillonné. */
+  const multiMaps = new Map();
+  async function multiMap(inst) {
+    const k = inst.bank + ':' + inst.key;
+    if (!multiMaps.has(k)) {
+      const p = loadJSON(SS.SOURCES[inst.bank]).then((json) => {
+        const map = json[inst.key] || {};
+        return Object.entries(map)
+          .map(([note, path]) => ({
+            midi: SS.parseNote(note),
+            url: json._base + encodePath(Array.isArray(path) ? path[0] : path),
+          }))
+          .filter((e) => e.midi !== null)
+          .sort((a, b) => a.midi - b.midi);
+      });
+      multiMaps.set(k, p);
+    }
+    return multiMaps.get(k);
+  }
+  const nearest = (list, midi) =>
+    list.reduce((best, e) => (Math.abs(e.midi - midi) < Math.abs(best.midi - midi) ? e : best), list[0]);
+
+  /* ---------------- Préchargement ---------------- */
+
+  const instOf = (track) => SS.findInstrument(track.family, track.instrument);
+
+  async function prepareTrack(track) {
+    if (!ctx) return; // sera fait au premier geste de l'utilisateur (politique autoplay)
+    try {
+      if (track.type === 'drum') {
+        const url = await drumUrl(track);
+        if (url) await loadBuffer(url).promise;
+        return;
+      }
+      const inst = instOf(track);
+      if (inst.kind === 'sf') await loadSoundfont(SS.sfFile(inst, track)).promise;
+      else if (inst.kind === 'multi') {
+        const list = await multiMap(inst);
+        const midis = new Set();
+        (track.events || []).forEach((ev) => ev.notes.forEach((n) => midis.add(n)));
+        if (!midis.size) midis.add(60);
+        await Promise.all([...midis].map((n) => list.length && loadBuffer(nearest(list, n).url).promise));
+      }
+    } catch (e) {
+      console.warn(e);
+    }
+  }
+
+  /* ---------------- Bus par piste ---------------- */
+
+  /*
+   * Chaque piste a sa chaîne :
+   *   entrée (volume) -> chorus (dry/wet) -> pre ─┬─> master (son direct)
+   *                                              ├─> envoi delay  -> delay ⟲ feedback (filtré) -> master
+   *                                              └─> envoi reverb -> convolution (IR générée)   -> master
+   * Les étages sont créés à la première utilisation d'un effet.
+   */
+  let currentTempo = 120;
+
+  /* ---------------- Console : tranche (EQ 5 bandes, compresseur, limiteur) ---------------- */
+
+  /** entry -> passe-haut -> shelf grave -> cloche -> cloche -> shelf aigu -> compresseur -> gain de compensation -> limiteur -> out */
+  function makeStrip() {
+    const st = {};
+    st.entry = ctx.createGain();
+    const bq = (type) => {
+      const f = ctx.createBiquadFilter();
+      f.type = type;
+      return f;
+    };
+    st.hp = bq('highpass');
+    st.low = bq('lowshelf');
+    st.lm = bq('peaking');
+    st.hm = bq('peaking');
+    st.high = bq('highshelf');
+    // filtre VCF (utilisé par le Master) : 2 étages par filtre pour la pente 24 dB/oct
+    st.vcf = [bq('highpass'), bq('highpass'), bq('lowpass'), bq('lowpass')];
+    st.comp = ctx.createDynamicsCompressor();
+    st.makeup = ctx.createGain();
+    st.lim = ctx.createDynamicsCompressor();
+    // écrêteur doux après le limiteur : garantit le plafond (le compresseur Web Audio n'est pas un vrai « brickwall »)
+    st.clip = ctx.createWaveShaper();
+    st.clip.oversample = '4x';
+    st.limOut = ctx.createGain();
+    st.out = ctx.createGain();
+    st.entry.connect(st.hp).connect(st.low).connect(st.lm).connect(st.hm).connect(st.high);
+    st.high.connect(st.vcf[0]).connect(st.vcf[1]).connect(st.vcf[2]).connect(st.vcf[3]);
+    st.vcf[3].connect(st.comp).connect(st.makeup).connect(st.lim).connect(st.clip).connect(st.limOut).connect(st.out);
+    applyStrip(st, SS.MIX_DEFAULTS);
+    return st;
+  }
+
+  /** Règle une tranche ; un module coupé devient transparent (gain 0 dB, ratio 1:1). */
+  function applyStrip(st, m) {
+    const now = ctx.currentTime;
+    const set = (param, v) => param.setTargetAtTime(v, now, 0.015);
+    const e = m.eq;
+    set(st.hp.frequency, e.on && e.hp.on ? e.hp.f : 10);
+    st.hp.Q.value = 0.707;
+    set(st.low.frequency, e.low.f);
+    set(st.low.gain, e.on ? e.low.g : 0);
+    set(st.lm.frequency, e.lm.f);
+    set(st.lm.gain, e.on ? e.lm.g : 0);
+    set(st.lm.Q, e.lm.q);
+    set(st.hm.frequency, e.hm.f);
+    set(st.hm.gain, e.on ? e.hm.g : 0);
+    set(st.hm.Q, e.hm.q);
+    set(st.high.frequency, e.high.f);
+    set(st.high.gain, e.on ? e.high.g : 0);
+    // VCF : coupé = filtres grands ouverts ; en 12 dB/oct le 1er étage de chaque filtre reste ouvert.
+    // Pour les passe-haut / passe-bas, Web Audio lit Q en dB : c'est directement le pic de résonance.
+    const v = m.vcf;
+    const nyq = Math.min(22000, ctx.sampleRate / 2);
+    const vOn = !!(v && v.on);
+    const two = vOn && v.slope === 24;
+    set(st.vcf[0].frequency, two ? v.hp.f : 10);
+    st.vcf[0].Q.value = -5.35; // 1er étage Butterworth 4e ordre (Q 0,54)
+    set(st.vcf[1].frequency, vOn ? v.hp.f : 10);
+    set(st.vcf[1].Q, vOn ? v.hp.res : 0);
+    set(st.vcf[2].frequency, two ? v.lp.f : nyq);
+    st.vcf[2].Q.value = -5.35;
+    set(st.vcf[3].frequency, vOn ? v.lp.f : nyq);
+    set(st.vcf[3].Q, vOn ? v.lp.res : 0);
+    const c = m.comp;
+    set(st.comp.threshold, c.on ? c.th : 0);
+    set(st.comp.ratio, c.on ? c.ratio : 1);
+    set(st.comp.knee, c.knee);
+    st.comp.attack.value = c.att;
+    st.comp.release.value = c.rel;
+    set(st.makeup.gain, c.on ? SS.dbToGain(c.makeup) : 1);
+    // limiteur : compresseur à genou dur, ratio 20:1, attaque très courte, seuil = plafond
+    const l = m.lim;
+    set(st.lim.threshold, l.on ? l.ceil : 0);
+    set(st.lim.ratio, l.on ? 20 : 1);
+    st.lim.knee.value = 0;
+    st.lim.attack.value = 0.001;
+    st.lim.release.value = l.rel;
+    st.clip.curve = l.on ? clipCurve(l.ceil) : null; // sans courbe, le WaveShaper laisse passer le signal
+  }
+
+  /** Courbe d'écrêtage doux : linéaire jusqu'à 85 % du plafond, puis arrondie jusqu'au plafond exact. */
+  const clipCurves = new Map();
+  function clipCurve(ceilDb) {
+    const key = ceilDb.toFixed(2);
+    if (clipCurves.has(key)) return clipCurves.get(key);
+    const c = SS.dbToGain(ceilDb);
+    const knee = 0.85 * c;
+    const n = 4096;
+    const curve = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const x = (i / (n - 1)) * 2 - 1; // le WaveShaper lit la courbe pour une entrée de -1 à +1 (au-delà : valeur extrême)
+      const a = Math.abs(x);
+      const y = a <= knee ? a : knee + (c - knee) * Math.tanh((a - knee) / (c - knee));
+      curve[i] = Math.sign(x) * y;
+    }
+    clipCurves.set(key, curve);
+    return curve;
+  }
+
+  /** Vumètre : un analyseur lu par la console (crête + RMS). */
+  function makeMeter() {
+    const a = ctx.createAnalyser();
+    a.fftSize = 1024;
+    return { node: a, buf: new Float32Array(a.fftSize) };
+  }
+  function readMeter(m) {
+    if (!m) return { peak: 0, rms: 0 };
+    m.node.getFloatTimeDomainData(m.buf);
+    let peak = 0;
+    let sum = 0;
+    for (let i = 0; i < m.buf.length; i++) {
+      const v = Math.abs(m.buf[i]);
+      if (v > peak) peak = v;
+      sum += v * v;
+    }
+    return { peak, rms: Math.sqrt(sum / m.buf.length) };
+  }
+
+  function bus(track) {
+    ensureCtx();
+    if (!track || !track.id) return master;
+    let b = buses.get(track.id);
+    if (!b) {
+      // tranche de console -> panoramique -> fader (volume) -> chorus -> pre -> duck (sidechain) -> master + envois
+      b = { strip: makeStrip(), pan: ctx.createStereoPanner(), input: ctx.createGain(), pre: ctx.createGain(), duck: ctx.createGain(), meter: makeMeter(), chorus: null, delay: null, reverb: null };
+      b.input.gain.value = typeof track.volume === 'number' ? track.volume : 0.8;
+      b.strip.out.connect(b.pan).connect(b.input);
+      b.input.connect(b.pre);
+      b.pre.connect(b.duck);
+      b.duck.connect(master);
+      b.duck.connect(b.meter.node);
+      buses.set(track.id, b);
+      applyFx(track);
+      applyMix(track);
+    }
+    return b.strip.entry;
+  }
+
+  /** Applique les réglages de console d'une piste (EQ, comp, limiteur, panoramique). */
+  function applyMix(track) {
+    if (!ctx || !track || !track.id) return;
+    const b = buses.get(track.id);
+    if (!b) return;
+    const m = SS.mixParams(track);
+    applyStrip(b.strip, m);
+    b.pan.pan.setTargetAtTime(m.pan, ctx.currentTime, 0.015);
+  }
+
+  /** Tranche Master : fader + EQ / comp / limiteur. */
+  function applyMaster(project) {
+    if (!ctx) {
+      pendingMaster = project;
+      return;
+    }
+    const mp = SS.masterParams(project);
+    applyStrip(masterStrip, mp.mix);
+    masterFader.gain.setTargetAtTime(mp.volume, ctx.currentTime, 0.015);
+  }
+
+  /** Niveaux pour la console : { peak, rms, gr: {comp, lim} } en linéaire / dB. */
+  function levels(id) {
+    if (!ctx) return null;
+    if (id === '__master') {
+      const l = readMeter(masterMeter);
+      return { ...l, gr: { comp: masterStrip.comp.reduction, lim: masterStrip.lim.reduction } };
+    }
+    const b = buses.get(id);
+    if (!b) return null;
+    const l = readMeter(b.meter);
+    return { ...l, gr: { comp: b.strip.comp.reduction, lim: b.strip.lim.reduction } };
+  }
+  function setTrackGain(track, value) {
+    if (!ctx) return;
+    bus(track);
+    buses.get(track.id).input.gain.setTargetAtTime(value, ctx.currentTime, 0.01);
+  }
+  function removeTrack(id) {
+    const b = buses.get(id);
+    if (b) {
+      b.strip.out.disconnect();
+      b.input.disconnect();
+      b.pre.disconnect();
+      if (b.chorus) b.chorus.lfo.stop();
+      if (b.delay) b.delay.tone.disconnect(); // coupe la boucle de feedback
+      if (b.reverb) b.reverb.out.disconnect();
+    }
+    buses.delete(id);
+  }
+
+  /* ---- Chorus : deux lignes à retard modulées en opposition (gauche / droite) ---- */
+  function buildChorus(b) {
+    const c = {};
+    c.dry = ctx.createGain();
+    c.wet = ctx.createGain();
+    c.dL = ctx.createDelay(0.05);
+    c.dR = ctx.createDelay(0.05);
+    c.dL.delayTime.value = c.dR.delayTime.value = 0.02;
+    c.merge = ctx.createChannelMerger(2);
+    c.lfo = ctx.createOscillator();
+    c.lfo.type = 'sine';
+    c.modL = ctx.createGain();
+    c.modR = ctx.createGain();
+    c.lfo.connect(c.modL).connect(c.dL.delayTime);
+    c.lfo.connect(c.modR).connect(c.dR.delayTime);
+    c.lfo.start();
+    b.input.disconnect();
+    b.input.connect(c.dry).connect(b.pre);
+    b.input.connect(c.dL).connect(c.merge, 0, 0);
+    b.input.connect(c.dR).connect(c.merge, 0, 1);
+    c.merge.connect(c.wet).connect(b.pre);
+    b.chorus = c;
+  }
+
+  /* ---- Delay : écho synchronisé au tempo, feedback adouci par un filtre ---- */
+  function buildDelay(b) {
+    const d = {};
+    d.send = ctx.createGain();
+    d.node = ctx.createDelay(3);
+    d.fb = ctx.createGain();
+    d.tone = ctx.createBiquadFilter();
+    d.tone.type = 'lowpass';
+    d.tone.frequency.value = 5000;
+    b.duck.connect(d.send).connect(d.node);
+    d.node.connect(d.tone).connect(d.fb).connect(d.node);
+    d.tone.connect(master);
+    b.delay = d;
+  }
+
+  /* ---- Reverb : réponse impulsionnelle générée (bruit à décroissance exponentielle, filtré) ---- */
+  const irCache = new Map();
+  function impulse(size, lp) {
+    const key = size.toFixed(2) + ':' + Math.round(lp);
+    if (irCache.has(key)) return irCache.get(key);
+    const rate = ctx.sampleRate;
+    const len = Math.max(1, Math.floor(rate * size));
+    const buf = ctx.createBuffer(2, len, rate);
+    const a = Math.exp((-2 * Math.PI * lp) / rate); // filtre passe-bas à un pôle (amortissement)
+    for (let ch = 0; ch < 2; ch++) {
+      const data = buf.getChannelData(ch);
+      let y = 0;
+      for (let i = 0; i < len; i++) {
+        const env = Math.pow(1 - i / len, 2.2) * Math.exp((-3 * i) / len);
+        y = (1 - a) * (Math.random() * 2 - 1) + a * y;
+        data[i] = y * env;
+      }
+    }
+    if (irCache.size > 24) irCache.clear();
+    irCache.set(key, buf);
+    return buf;
+  }
+  function buildReverb(b) {
+    const r = {};
+    r.send = ctx.createGain();
+    r.conv = ctx.createConvolver();
+    r.out = ctx.createGain();
+    r.out.gain.value = 2.2; // compense le niveau de l'IR filtrée
+    b.duck.connect(r.send).connect(r.conv).connect(r.out).connect(master);
+    b.reverb = r;
+  }
+
+  /** Applique (en douceur) les réglages d'effets d'une piste. */
+  function applyFx(track) {
+    if (!ctx || !track || !track.id) return;
+    const b = buses.get(track.id);
+    if (!b) return;
+    const f = SS.fxParams(track);
+    const now = ctx.currentTime;
+    const ramp = (param, v) => param.setTargetAtTime(v, now, 0.03);
+
+    if (f.chorus > 0 || b.chorus) {
+      if (!b.chorus) buildChorus(b);
+      const c = b.chorus;
+      ramp(c.wet.gain, f.chorus);
+      ramp(c.dry.gain, 1 - f.chorus * 0.45);
+      ramp(c.lfo.frequency, f.chorusRate);
+      const depth = 0.0005 + f.chorusDepth * 0.0075; // jusqu'à ±8 ms
+      ramp(c.modL.gain, depth);
+      ramp(c.modR.gain, -depth);
+    }
+    if (f.delay > 0 || b.delay) {
+      if (!b.delay) buildDelay(b);
+      ramp(b.delay.send.gain, f.delay);
+      ramp(b.delay.fb.gain, Math.min(0.92, f.delayFeedback));
+      ramp(b.delay.node.delayTime, SS.delaySeconds(f, currentTempo));
+    }
+    if (f.room > 0 || b.reverb) {
+      if (!b.reverb) buildReverb(b);
+      const r = b.reverb;
+      ramp(r.send.gain, f.room);
+      const key = f.roomSize.toFixed(2) + ':' + Math.round(f.roomLp);
+      if (f.room > 0 && r.key !== key) {
+        r.conv.buffer = impulse(f.roomSize, f.roomLp);
+        r.key = key;
+      }
+    }
+  }
+
+  /** Recalcule les effets de toutes les pistes (ex. temps du delay après un changement de tempo). */
+  function applyAllFx(project) {
+    currentTempo = project.tempo;
+    applyMaster(project);
+    if (!ctx) return;
+    project.tracks.forEach((t) => {
+      if (buses.has(t.id)) {
+        applyFx(t);
+        applyMix(t);
+      }
+    });
+  }
+
+  /* ---------------- Voix ---------------- */
+
+  const voices = new Set();
+  function register(sources, gain) {
+    const v = { sources, gain };
+    voices.add(v);
+    sources[0].onended = () => voices.delete(v);
+  }
+  function silenceAll() {
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    // les pistes « sidechainées » reviennent à plein volume
+    buses.forEach((b) => {
+      b.duck.gain.cancelScheduledValues(now);
+      b.duck.gain.setValueAtTime(1, now);
+    });
+    voices.forEach((v) => {
+      try {
+        v.gain.gain.cancelScheduledValues(now);
+        v.gain.gain.setTargetAtTime(0, now, 0.01);
+        v.sources.forEach((s) => s.stop(now + 0.06));
+      } catch (e) {
+        /* déjà arrêtée */
+      }
+    });
+    voices.clear();
+  }
+
+  const velGain = (v) => Math.pow(Math.max(0, Math.min(1, v)), 1.4);
+
+  async function playDrum(track, time, vel, dest) {
+    const url = await drumUrl(track);
+    if (!url) return;
+    const entry = loadBuffer(url);
+    if (!entry.buffer) return; // pas encore chargé : on saute ce coup
+    const src = ctx.createBufferSource();
+    src.buffer = entry.buffer;
+    const g = ctx.createGain();
+    g.gain.value = velGain(vel);
+    src.connect(g).connect(dest || bus(track));
+    src.start(Math.max(time, ctx.currentTime));
+    register([src], g);
+  }
+
+  /* Chaîne commune : sources -> filtre (VCF) -> saturation -> ampli (VCA, ADSR) -> panoramique -> sortie */
+  const driveCurves = new Map();
+  function driveCurve(amount) {
+    const k = Math.round(amount * 100);
+    if (!driveCurves.has(k)) {
+      const n = 1024;
+      const c = new Float32Array(n);
+      const kk = k * 0.6;
+      for (let i = 0; i < n; i++) {
+        const x = (i / (n - 1)) * 2 - 1;
+        c[i] = ((1 + kk) * x) / (1 + kk * Math.abs(x));
+      }
+      driveCurves.set(k, c);
+    }
+    return driveCurves.get(k);
+  }
+
+  function voiceChain(p, t, dur, vel, dest, level) {
+    const attack = Math.max(0.003, p.attack);
+    const decay = Math.max(0.005, p.decay);
+    const sustain = Math.max(0, Math.min(1, p.sustain));
+    const release = Math.max(0.01, p.release);
+    const tOff = t + Math.max(dur, attack);
+    const end = tOff + release * 1.5 + 0.05;
+
+    // VCF
+    const filter = ctx.createBiquadFilter();
+    filter.type = p.filter || 'lowpass';
+    filter.Q.value = Math.max(0.0001, p.q);
+    const base = Math.max(20, Math.min(20000, p.cutoff));
+    if (p.env > 0) {
+      // enveloppe propre au filtre (lpattack / lpdecay / lpsustain / lprelease)
+      const fa = Math.max(0.003, p.fattack ?? p.attack);
+      const fd = Math.max(0.005, p.fdecay ?? p.decay);
+      const fs = Math.max(0, Math.min(1, p.fsustain ?? p.sustain));
+      const fr = Math.max(0.01, p.frelease ?? p.release);
+      const fOff = Math.max(tOff, t + fa);
+      const top = Math.min(20000, base * Math.pow(2, p.env * (0.4 + 0.6 * vel)));
+      filter.frequency.setValueAtTime(base, t);
+      filter.frequency.exponentialRampToValueAtTime(top, t + fa);
+      filter.frequency.setTargetAtTime(base * Math.pow(top / base, fs), t + fa, fd / 3);
+      filter.frequency.setTargetAtTime(base, fOff, fr / 4);
+    } else {
+      filter.frequency.setValueAtTime(base, t);
+    }
+
+    // saturation
+    let last = filter;
+    if (p.drive > 0) {
+      const ws = ctx.createWaveShaper();
+      ws.curve = driveCurve(p.drive);
+      ws.oversample = '2x';
+      last.connect(ws);
+      last = ws;
+    }
+
+    // VCA (ADSR)
+    const amp = ctx.createGain();
+    const peak = velGain(vel) * level * (p.gain ?? 1) * (p.drive > 0 ? 1 - p.drive * 0.4 : 1);
+    amp.gain.setValueAtTime(0, t);
+    amp.gain.linearRampToValueAtTime(peak, t + attack);
+    amp.gain.setTargetAtTime(peak * sustain, t + attack, decay / 3);
+    amp.gain.setTargetAtTime(0, tOff, release / 4);
+    last.connect(amp);
+
+    // panoramique
+    if (p.pan && ctx.createStereoPanner) {
+      const pan = ctx.createStereoPanner();
+      pan.pan.value = Math.max(-1, Math.min(1, p.pan));
+      amp.connect(pan).connect(dest);
+    } else amp.connect(dest);
+
+    return { input: filter, amp, end };
+  }
+
+  function sampleVoice(p, buffer, rate, time, dur, vel, dest, loop) {
+    const t = Math.max(time, ctx.currentTime);
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    src.playbackRate.value = rate;
+    if (loop) {
+      src.loop = true;
+      src.loopStart = loop.start;
+      src.loopEnd = loop.end;
+    }
+    const chain = voiceChain(p, t, dur, vel, dest, 1);
+    src.connect(chain.input);
+    src.start(t);
+    src.stop(chain.end);
+    register([src], chain.amp);
+  }
+
+  const noiseBuffers = {};
+  function noiseBuffer(kind) {
+    if (noiseBuffers[kind]) return noiseBuffers[kind];
+    const len = ctx.sampleRate * 2;
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    let b0 = 0, b1 = 0, b2 = 0, last = 0;
+    for (let i = 0; i < len; i++) {
+      const w = Math.random() * 2 - 1;
+      if (kind === 'pink') {
+        // filtre de Paul Kellet (approximation économique)
+        b0 = 0.99765 * b0 + w * 0.099046;
+        b1 = 0.963 * b1 + w * 0.2965164;
+        b2 = 0.57 * b2 + w * 1.0526913;
+        d[i] = (b0 + b1 + b2 + w * 0.1848) * 0.11;
+      } else if (kind === 'brown') {
+        last = (last + 0.02 * w) / 1.02;
+        d[i] = last * 3.5;
+      } else d[i] = w * 0.5;
+    }
+    noiseBuffers[kind] = buf;
+    return buf;
+  }
+
+  function synthVoice(p, midi, time, dur, vel, dest) {
+    const t = Math.max(time, ctx.currentTime);
+    const freq = 440 * Math.pow(2, (midi - 69) / 12);
+    const chain = voiceChain(p, t, dur, vel, dest, 0.35);
+    if (SS.NOISES.includes(p.wave)) {
+      // bruit (comme les sons white / pink / brown de strudel) : la hauteur de note n'a pas d'effet
+      const src = ctx.createBufferSource();
+      src.buffer = noiseBuffer(p.wave);
+      src.loop = true;
+      const g = ctx.createGain();
+      g.gain.value = 1.4;
+      src.connect(g).connect(chain.input);
+      src.start(t, Math.random() * 1.5);
+      src.stop(chain.end);
+      register([src], chain.amp);
+      return;
+    }
+    const type = p.wave === 'supersaw' ? 'sawtooth' : p.wave || 'sawtooth';
+    const n = Math.max(1, Math.round(p.wave === 'supersaw' ? Math.max(3, p.voices || 5) : p.voices || 1));
+    const detune = p.wave === 'supersaw' ? Math.max(8, p.detune || 0) : p.detune || 0;
+    const oscs = [];
+    for (let i = 0; i < n; i++) {
+      const o = ctx.createOscillator();
+      o.type = type;
+      o.frequency.value = freq;
+      if (n > 1) o.detune.value = ((i / (n - 1)) * 2 - 1) * detune;
+      const og = ctx.createGain();
+      og.gain.value = 1 / Math.sqrt(n);
+      o.connect(og).connect(chain.input);
+      o.start(t);
+      o.stop(chain.end);
+      oscs.push(o);
+    }
+    register(oscs, chain.amp);
+  }
+
+  async function playNote(track, midi, time, dur, vel, dest) {
+    ensureCtx();
+    const out = dest || bus(track);
+    const inst = instOf(track);
+    const p = SS.soundParams(track);
+    if (inst.kind === 'synth') {
+      synthVoice(p, midi, time, dur, vel, out);
+    } else if (inst.kind === 'sf') {
+      const entry = loadSoundfont(SS.sfFile(inst, track));
+      if (!entry.zones || !entry.zones.length) return;
+      const zone =
+        entry.zones.find((z) => midi >= z.low && midi <= z.high) ||
+        entry.zones.reduce((b, z) => (Math.abs((z.low + z.high) / 2 - midi) < Math.abs((b.low + b.high) / 2 - midi) ? z : b));
+      const rate = Math.pow(2, (100 * midi - zone.baseDetune) / 1200);
+      sampleVoice(p, zone.buffer, rate, time, dur, vel, out, zone.loop ? { start: zone.loopStart, end: zone.loopEnd } : null);
+    } else if (inst.kind === 'multi') {
+      const list = await multiMap(inst);
+      if (!list.length) return;
+      const e = nearest(list, midi);
+      const entry = loadBuffer(e.url);
+      if (!entry.buffer) return;
+      sampleVoice(p, entry.buffer, Math.pow(2, (midi - e.midi) / 12), time, dur, vel, out, null);
+    }
+  }
+
+  /** Aperçu d'un son (dialogue, clic sur une note...). */
+  async function preview(track, midi, dur = 0.45) {
+    ensureCtx();
+    await prepareTrack(track);
+    if (midi == null && track.type !== 'drum') midi = (SS.findFamily(track.family).octave + 1) * 12;
+    if (track.type !== 'drum' && instOf(track).kind === 'multi') {
+      const list = await multiMap(instOf(track)).catch(() => []);
+      const wanted = Array.isArray(midi) ? midi : [midi];
+      if (list.length) await Promise.all(wanted.map((n) => loadBuffer(nearest(list, n).url).promise));
+    }
+    const t = ctx.currentTime + 0.02;
+    const out = track.id ? bus(track) : master; // le bus de la piste fait entendre ses effets
+    if (track.type === 'drum') playDrum(track, t, 0.9, out);
+    else {
+      const notes = Array.isArray(midi) ? midi : [midi];
+      notes.forEach((n) => playNote(track, n, t, dur, notes.length > 1 ? 0.65 : 0.8, out));
+    }
+  }
+
+  /* ---------------- Séquenceur ---------------- */
+
+  const seq = {
+    playing: false,
+    timer: null,
+    step: 0,
+    nextTime: 0,
+    queue: [],
+    raf: null,
+    getProject: null,
+    onStep: null,
+    // plus petit multiple commun des longueurs de piste (limité) : période après laquelle tout se réaligne
+    cycle(project, total) {
+      const gcd = (a, b) => (b ? gcd(b, a % b) : a);
+      let l = total;
+      for (const t of project.tracks) {
+        const n = SS.trackLen(project, t);
+        l = (l * n) / gcd(l, n);
+        if (l > 1e6) return 1e6;
+      }
+      return l;
+    },
+  };
+
+  const stepDur = (project) => 60 / project.tempo / 4; // une case = une double-croche
+
+  function audibleTracks(project) {
+    const soloed = project.tracks.some((t) => t.solo);
+    return project.tracks.filter((t) => !t.mute && (!soloed || t.solo));
+  }
+
+  function arpSequence(ev, track) {
+    const arp = track.arp || {};
+    let notes = [...ev.notes].sort((a, b) => a - b);
+    const oct = arp.octaves || 1;
+    let all = [];
+    for (let o = 0; o < oct; o++) all = all.concat(notes.map((n) => n + 12 * o));
+    if (arp.mode === 'down') all.reverse();
+    else if (arp.mode === 'updown' && all.length > 2) all = all.concat(all.slice(1, -1).reverse());
+    return all;
+  }
+
+  /*
+   * Sidechain : quand une piste « source » joue, les pistes qui l'écoutent baissent de volume
+   * (attaque ~5 ms) puis remontent selon leur relâchement. Le déclenchement vient des notes programmées,
+   * pas d'une analyse du son : c'est précis, même si la source est muette (« ghost kick »).
+   */
+  function duckFrom(project, source, time) {
+    project.tracks.forEach((t) => {
+      if (t === source || !t.fx || t.fx.scSource !== source.id) return;
+      const f = SS.fxParams(t);
+      if (!(f.scDepth > 0)) return;
+      bus(t);
+      const g = buses.get(t.id).duck.gain;
+      const at = Math.max(time, ctx.currentTime);
+      g.setTargetAtTime(Math.max(0.0001, 1 - f.scDepth), at, 0.005);
+      g.setTargetAtTime(1, at + 0.03, Math.max(0.01, f.scRelease) / 3);
+    });
+  }
+
+  /** `tick` = compteur global de pas depuis Lecture ; chaque piste boucle sur sa propre longueur. */
+  function scheduleStep(project, tick, time) {
+    const sd = stepDur(project);
+    // une piste muette peut quand même déclencher un sidechain
+    const audible = new Set(audibleTracks(project));
+    project.tracks.forEach((track) => {
+      if (!audible.has(track)) {
+        const isSource = project.tracks.some((t) => t.fx && t.fx.scSource === track.id);
+        if (!isSource) return;
+        const st = tick % SS.trackLen(project, track);
+        const fires = track.type === 'drum' ? track.steps[st] > 0 : (track.events || []).some((ev) => ev.step === st);
+        if (fires) duckFrom(project, track, time);
+        return;
+      }
+      const step = tick % SS.trackLen(project, track);
+      // humanisation : petites variations aléatoires de placement (±15 ms) et de vélocité (±25 %)
+      const human = (project.groove && project.groove.human) || 0;
+      const jt = () => (human ? (Math.random() * 2 - 1) * human * 0.015 : 0);
+      const jv = (v) => (human ? Math.max(0.05, Math.min(1, v * (1 + (Math.random() * 2 - 1) * human * 0.25))) : v);
+      if (track.type === 'drum') {
+        const v = track.steps[step];
+        if (v > 0) {
+          const tt = time + jt();
+          playDrum(track, tt, jv(v));
+          duckFrom(project, track, tt);
+        }
+        return;
+      }
+      (track.events || []).forEach((ev) => {
+        if (track.category === 'arp') {
+          // l'arpège joue tant que l'événement couvre ce pas
+          if (step < ev.step || step >= ev.step + ev.len) return;
+          const rate = (track.arp && track.arp.rate) || 1;
+          const seqNotes = arpSequence(ev, track);
+          const sub = sd / rate;
+          const startIdx = Math.round((step - ev.step) * rate);
+          const count = Math.round(rate * (step + 1 - ev.step)) - startIdx;
+          for (let i = 0; i < count; i++) {
+            const idx = startIdx + i;
+            const n =
+              track.arp && track.arp.mode === 'random'
+                ? seqNotes[Math.floor(Math.random() * seqNotes.length)]
+                : seqNotes[idx % seqNotes.length];
+            const t = time + (idx - (step - ev.step) * rate) * sub;
+            playNote(track, n, t + jt(), sub * 0.9, jv(ev.vel));
+            if (idx === 0) duckFrom(project, track, t); // un arpège déclenche le sidechain au début de chaque accord
+          }
+        } else if (ev.step === step) {
+          // une note ne dépasse pas la fin de la boucle de sa piste
+          const dur = Math.min(ev.len, SS.trackLen(project, track) - ev.step) * sd * 0.98;
+          const tt = time + jt();
+          const vv = jv(ev.vel);
+          ev.notes.forEach((n) => playNote(track, n, tt, dur, vv * (ev.notes.length > 1 ? 0.8 : 1)));
+          duckFrom(project, track, tt);
+        }
+      });
+    });
+  }
+
+  function tick() {
+    const project = seq.getProject();
+    if (seq.song) return tickSong(project);
+    const total = SS.totalSteps(project);
+    while (seq.nextTime < ctx.currentTime + 0.12) {
+      // le compteur ne revient pas à 0 : des pistes de longueurs différentes restent décalées (polymétrie).
+      // Il repart à 0 quand toutes les boucles se retrouvent alignées.
+      if (seq.step >= seq.cycle(project, total)) seq.step = 0;
+      const t = seq.nextTime + SS.grooveOffset(project, seq.step, stepDur(project));
+      scheduleStep(project, seq.step, t);
+      seq.queue.push({ step: seq.step, time: t, song: seq.song ? { index: seq.song.index, rep: seq.song.rep } : null });
+      seq.nextTime += stepDur(project);
+      seq.step++;
+    }
+  }
+
+  /*
+   * Mode chanson : on joue les blocs de l'arrangement l'un après l'autre.
+   * Au passage d'un bloc à l'autre, seq.song.onBlock(index) charge la scène suivante
+   * dans les pistes (avant de programmer son premier pas) ; l'affichage la suit.
+   */
+  function tickSong(project) {
+    const sg = seq.song;
+    while (seq.nextTime < ctx.currentTime + 0.12 && !sg.ended) {
+      const total = SS.totalSteps(project);
+      if (seq.step >= total) {
+        seq.step = 0;
+        sg.rep++;
+        const block = project.song[sg.index];
+        if (!block || sg.rep >= block.repeat) {
+          sg.rep = 0;
+          sg.index++;
+          if (sg.index >= project.song.length) {
+            if (!project.songLoop) {
+              sg.ended = true; // fin de la chanson : on laisse finir les dernières notes
+              seq.queue.push({ step: -1, time: seq.nextTime, end: true });
+              break;
+            }
+            sg.index = 0;
+          }
+          sg.onBlock(sg.index);
+        }
+        seq.queue.push({ step: -1, time: seq.nextTime, block: sg.index, rep: sg.rep });
+      }
+      const t = seq.nextTime + SS.grooveOffset(project, seq.step, stepDur(project));
+      scheduleStep(project, seq.step, t);
+      seq.queue.push({ step: seq.step, time: t, song: seq.song ? { index: seq.song.index, rep: seq.song.rep } : null });
+      seq.nextTime += stepDur(project);
+      seq.step++;
+    }
+  }
+
+  function draw() {
+    if (!seq.playing) return;
+    while (seq.queue.length && seq.queue[0].time <= ctx.currentTime) {
+      const e = seq.queue.shift();
+      if (e.end) {
+        seq.song.onEnd && seq.song.onEnd();
+        return;
+      }
+      if (e.block !== undefined) seq.song.onBlockVisible && seq.song.onBlockVisible(e.block, e.rep);
+      else {
+        seq.shown = { step: e.step, song: e.song }; // dernière position entendue (pour la pause)
+        seq.onStep && seq.onStep(e.step);
+      }
+    }
+    seq.raf = requestAnimationFrame(draw);
+  }
+
+  /**
+   * opts.song (facultatif) : { index, onBlock(i), onBlockVisible(i, rep), onEnd() } pour jouer l'arrangement
+   * à partir du bloc `index` ; sans lui, la scène en cours boucle.
+   */
+  function start(getProject, onStep, opts = {}) {
+    ensureCtx();
+    if (seq.playing) return;
+    seq.getProject = getProject;
+    seq.onStep = onStep;
+    seq.song = opts.song ? { ...opts.song, rep: 0, ended: false } : null;
+    if (seq.song) seq.song.onBlock(seq.song.index);
+    applyAllFx(getProject());
+    seq.playing = true;
+    seq.step = 0;
+    seq.queue = [];
+    seq.nextTime = ctx.currentTime + 0.08;
+    if (seq.song) seq.queue.push({ step: -1, time: seq.nextTime, block: seq.song.index, rep: 0 });
+    getProject().tracks.forEach(prepareTrack);
+    if (seq.song) preloadSong(getProject());
+    tick();
+    seq.timer = setInterval(tick, 25);
+    draw();
+  }
+
+  /** Précharge les échantillons de toutes les scènes (les notes d'un VCSL dépendent de la scène). */
+  function preloadSong(project) {
+    project.scenes.forEach((sc) => {
+      project.tracks.forEach((t) => {
+        const d = sc.data && sc.data[t.id];
+        if (t.type === 'instrument' && d && d.events) prepareTrack({ ...t, events: d.events });
+      });
+    });
+  }
+
+  function halt() {
+    seq.playing = false;
+    clearInterval(seq.timer);
+    cancelAnimationFrame(seq.raf);
+    seq.queue = [];
+    silenceAll(); // coupe les voix en cours et celles déjà programmées
+  }
+
+  function stop() {
+    halt();
+    seq.paused = null;
+    seq.shown = null;
+    seq.onStep && seq.onStep(-1);
+  }
+
+  /** Pause : on coupe le son mais on garde la position (pas, bloc et répétition de la chanson). */
+  function pause() {
+    if (!seq.playing) return;
+    halt();
+    const shown = seq.shown || { step: -1, song: seq.song ? { index: seq.song.index, rep: 0 } : null };
+    seq.paused = { step: shown.step + 1, song: shown.song };
+  }
+
+  /** Reprend après une pause, au pas suivant le dernier entendu. */
+  function resume() {
+    if (!seq.paused || seq.playing) return;
+    ensureCtx();
+    const at = seq.paused;
+    seq.paused = null;
+    seq.playing = true;
+    seq.queue = [];
+    seq.step = Math.max(0, at.step);
+    seq.nextTime = ctx.currentTime + 0.06;
+    if (seq.song && at.song) {
+      seq.song.index = at.song.index;
+      seq.song.rep = at.song.rep;
+      seq.song.ended = false;
+      seq.song.onBlock(seq.song.index); // recharge la scène du bloc si on en avait changé entre-temps
+      seq.queue.push({ step: -1, time: seq.nextTime, block: seq.song.index, rep: seq.song.rep });
+    }
+    applyAllFx(seq.getProject());
+    tick();
+    seq.timer = setInterval(tick, 25);
+    draw();
+  }
+
+  return {
+    ensureCtx,
+    loadJSON,
+    drumMachines,
+    drumVariants,
+    drumBanks,
+    bankVariants,
+    prepareTrack,
+    preview,
+    playNote,
+    setTrackGain,
+    removeTrack,
+    applyFx,
+    applyAllFx,
+    applyMix,
+    applyMaster,
+    levels,
+    ensureBus: (t) => bus(t),
+    _bus: bus, // accès internes pour les tests
+    _master: () => master,
+    _out: () => masterFader, // sortie finale (après la tranche Master), pour enregistrer
+    _duckValue: (id) => (buses.get(id) ? buses.get(id).duck.gain.value : null),
+    start,
+    stop,
+    isPlaying: () => seq.playing,
+    isPaused: () => !!seq.paused,
+    pause,
+    resume,
+    setErrorHandler: (fn) => (onError = fn),
+  };
+})();

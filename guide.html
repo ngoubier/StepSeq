@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Guide StepSeq</title>
+  <style>
+    :root {
+      --bg: #161618;
+      --panel: #232326;
+      --panel-2: #2c2c30;
+      --line: #3e3e44;
+      --text: #ececf1;
+      --muted: #a2a2ab;
+      --accent: #2b8cff;
+      --key: #e3179c;
+      color-scheme: dark;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-size: 16px; line-height: 1.6; }
+    header {
+      position: sticky; top: 0; z-index: 2;
+      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+      padding: 12px max(16px, env(safe-area-inset-right, 0px)) 12px max(16px, env(safe-area-inset-left, 0px));
+      background: var(--panel-2); border-bottom: 1px solid #000;
+    }
+    header b { font-size: 18px; }
+    header nav { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+    .btn {
+      display: inline-flex; align-items: center; height: 34px; padding: 0 14px;
+      border-radius: 8px; background: #0a64b4; color: #fff; text-decoration: none; font-size: 14px;
+    }
+    .layout {
+      display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 40px;
+      max-width: 1100px; margin: 0 auto;
+      padding: 32px max(16px, env(safe-area-inset-right, 0px)) 80px max(16px, env(safe-area-inset-left, 0px));
+    }
+    aside { position: sticky; top: 90px; align-self: start; font-size: 14px; }
+    aside p { margin: 0 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; font-size: 12px; }
+    aside a { display: block; padding: 5px 10px; border-left: 2px solid var(--line); color: var(--muted); text-decoration: none; }
+    aside a:hover { color: var(--text); border-left-color: var(--accent); }
+    main { max-width: 760px; }
+    h1 { font-size: 34px; line-height: 1.2; margin: 0 0 12px; text-wrap: balance; }
+    h2 { font-size: 23px; margin: 48px 0 12px; padding-top: 8px; scroll-margin-top: 80px; text-wrap: balance; }
+    h3 { font-size: 17px; margin: 28px 0 8px; }
+    h2 small { color: var(--key); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; display: block; }
+    p, li { max-width: 68ch; }
+    a { color: var(--accent); }
+    code { background: var(--panel-2); padding: 1px 6px; border-radius: 4px; font-size: .9em; }
+    kbd {
+      display: inline-block; padding: 1px 7px; border: 1px solid var(--line); border-bottom-width: 2px;
+      border-radius: 5px; background: var(--panel); font: 600 13px/1.5 ui-monospace, Menlo, monospace;
+    }
+    .lead { color: var(--muted); font-size: 18px; }
+    .table-wrap { overflow-x: auto; margin: 16px 0; border: 1px solid var(--line); border-radius: 10px; }
+    table { border-collapse: collapse; width: 100%; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+    th { background: var(--panel-2); font-weight: 600; white-space: nowrap; }
+    tr:last-child td { border-bottom: 0; }
+    td:first-child { font-weight: 600; white-space: nowrap; }
+    .note {
+      margin: 16px 0; padding: 12px 16px; border-radius: 10px;
+      background: var(--panel); border: 1px solid var(--line);
+    }
+    .note.warn { border-color: #8a6a12; background: #2a2414; }
+    @media (max-width: 800px) {
+      .layout { grid-template-columns: minmax(0, 1fr); gap: 0; }
+      aside { display: none; }
+      h1 { font-size: 28px; }
+      td:first-child { white-space: normal; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <b>Guide StepSeq</b>
+    <nav>
+      <a class="btn" href="./">Ouvrir StepSeq</a>
+    </nav>
+  </header>
+
+  <div class="layout">
+    <aside>
+      <p>Sommaire</p>
+      <a href="#prise-en-main">Prise en main</a>
+      <a href="#ajouter">Ajouter une piste</a>
+      <a href="#drum">Pistes Drum</a>
+      <a href="#notes">Changer une note ou un accord</a>
+      <a href="#avance">Réglages avancés</a>
+      <a href="#sound-design">Sound design</a>
+      <a href="#effets">Effets</a>
+      <a href="#groove">Groove</a>
+      <a href="#chanson">Mode chanson</a>
+      <a href="#console">Console de mixage</a>
+      <a href="#fichiers">Enregistrer et ouvrir</a>
+      <a href="#raccourcis">Raccourcis et astuces</a>
+    </aside>
+
+    <main>
+      <h1>Guide StepSeq</h1>
+      <p class="lead">Comment créer des pistes, changer les notes et les accords, et utiliser les réglages avancés du séquenceur.</p>
+
+      <h2 id="prise-en-main">Prise en main</h2>
+      <p>Ouvre <a href="./">StepSeq</a> dans Chrome, Edge ou Firefox, puis clique sur ▶ : le projet démo se lance. Le navigateur n'autorise le son qu'après un premier clic, et la première boucle peut sauter quelques notes le temps que les sons se chargent.</p>
+      <div class="table-wrap"><table>
+        <tr><th>Élément de la barre du haut</th><th>Ce qu'il fait</th></tr>
+        <tr><td>Titre</td><td>Nom du projet, utilisé aussi comme nom de fichier</td></tr>
+        <tr><td>Tempo (BPM)</td><td>Vitesse en noires par minute, de 20 à 300</td></tr>
+        <tr><td>Mesure</td><td>Chiffrage : 4/4 par défaut, de 1 à 12 temps, en /4 ou /8</td></tr>
+        <tr><td>Mesures</td><td>Longueur de la boucle : 1, 2, 4, 8, 16, 32 ou 64 mesures. En ajoutant des mesures, le motif existant est recopié dans les nouvelles ; le bouton « Laisser vides » du message qui s'affiche les vide.</td></tr>
+        <tr><td>+</td><td>Ouvre la fenêtre d'ajout de piste</td></tr>
+        <tr><td>▶ / ❚❚ (bouton vert)</td><td>Lance la lecture ; pendant la lecture il devient Pause. En pause, il clignote et reprend exactement là où le morceau s'était arrêté.</td></tr>
+        <tr><td>■</td><td>Arrête la lecture et revient au début</td></tr>
+        <tr><td>Afficheur</td><td>Position en cours : mesure . temps . double-croche</td></tr>
+        <tr><td>↶ / ↷</td><td>Annuler / rétablir les dernières actions (jusqu'à 100) : notes, pas, pistes, sons, effets, scènes, tempo… Un glisser (volume, curseur, longueur) compte pour une seule action.</td></tr>
+        <tr><td>Nouveau / Ouvrir / Enregistrer</td><td>Gestion des fichiers de projet</td></tr>
+        <tr><td>Aide</td><td>Ouvre ce guide</td></tr>
+      </table></div>
+      <p>Une case de la grille vaut toujours une double-croche. Une mesure en 4/4 fait donc 16 cases, et une mesure en 6/8 en fait 12.</p>
+
+      <h2 id="ajouter">Ajouter une piste</h2>
+      <p>Le bouton <b>+</b> ouvre une fenêtre. Choisis d'abord <b>Drum</b> ou <b>Instrument</b>, puis choisis le son avec les pastilles et les listes, écoute avec <b>Écouter</b> et clique sur <b>Valider</b>.</p>
+      <p>La navigation est la même pour les drums et les instruments : des <b>pastilles</b> en haut (bibliothèque et type de drum, ou catégorie et famille), un <b>champ de recherche</b> au-dessus du type de drum ou des familles, puis <b>deux colonnes</b> alignées : à gauche la boîte à rythmes, la banque ou l'instrument, à droite la variation ou la variante de soundfont. Chaque clic dans une liste fait entendre le son ; un double-clic valide.</p>
+      <div class="table-wrap"><table>
+        <tr><th>Touche</th><th>Effet dans la fenêtre</th></tr>
+        <tr><td>↑ ↓ (dans une liste)</td><td>Son précédent / suivant, joué aussitôt. Début, Fin, Pg↑, Pg↓ pour aller plus vite. ↑ en haut de la liste remonte aux pastilles.</td></tr>
+        <tr><td>← → (dans une liste)</td><td>Passe d'une colonne à l'autre.</td></tr>
+        <tr><td>← → (sur des pastilles)</td><td>Pastille précédente / suivante ; ↓ descend au groupe suivant puis à la liste, ↑ remonte au champ de recherche (placé au-dessus des pastilles de type de drum ou de famille).</td></tr>
+        <tr><td>Lettres</td><td>Dans une liste : va au premier nom qui commence par ces lettres (« ro » → Roland…). Dans le filtre : filtre la liste ; ↓ ou Entrée descend dans les résultats.</td></tr>
+        <tr><td>Espace</td><td>Réécouter le son choisi.</td></tr>
+        <tr><td>Entrée / Échap</td><td>Valider / Annuler.</td></tr>
+      </table></div>
+      <p>À l'ouverture, le clavier est déjà dans la liste principale : il suffit de descendre avec ↓ pour parcourir les sons.</p>
+      <h3>Pistes Drum : 4 bibliothèques de strudel.cc</h3>
+      <div class="table-wrap"><table>
+        <tr><th>Bibliothèque</th><th>Contenu</th><th>Choix</th></tr>
+        <tr><td>Boîtes à rythmes</td><td>tidal-drum-machines : 70 machines (TR-808, TR-909, LinnDrum, Emu SP-12…)</td><td>Type de drum (Kick, Snare, Clap, Hi-Hat, Toms, Crash…), puis machine et variation</td></tr>
+        <tr><td>Dirt-Samples</td><td>218 banques de TidalCycles : kits (808, 909, jazz…), breaks, voix, bruitages</td><td>Banque (avec un champ de recherche), puis variation</td></tr>
+        <tr><td>Percussions acoustiques</td><td>VCSL : congas, bongos, cajón, darbuka, timbales, gongs, cymbales, triangles…</td><td>Banque, puis variation</td></tr>
+        <tr><td>Mridangam</td><td>Percussion d'Inde du Sud, rangée par syllabes (ta, ki, dhin, thom…)</td><td>Syllabe, puis variation</td></tr>
+      </table></div>
+
+      <h3>Pistes Instrument : 14 familles</h3>
+      <p>Choisis la catégorie (Mono, Arpège ou Accord), puis la famille et l'instrument. Le champ de recherche trouve un instrument dans toutes les familles (« sitar », « sax », « organ »…).</p>
+      <div class="table-wrap"><table>
+        <tr><th>Source</th><th>Contenu</th></tr>
+        <tr><td>Synthés intégrés « (synthé) »</td><td>Saw, Acid, Sub, Reese, Supersaw, Pluck, Chiptune, Pads, et des sons de bruit (Noise Riser, Wind, Rumble). Seuls ceux-ci ont un VCO réglable dans le sound design.</td></tr>
+        <tr><td>Soundfonts General MIDI</td><td>Les 125 instruments <code>gm_*</code> de strudel : pianos, orgues, guitares, cordes, cuivres, bois, chœurs, sitar, koto, steel drums, effets sonores… Chacun existe en plusieurs <b>variantes</b> (banques JCLive, FluidR3, Aspirin…) : la colonne « Variante » les propose, la première est celle de strudel par défaut.</td></tr>
+        <tr><td>VCSL et piano de strudel</td><td>Instruments acoustiques échantillonnés, marqués « (VCSL) » : vibraphone, marimba, harpe, flûtes à bec, saxophones, orgues…</td></tr>
+      </table></div>
+      <p>Le son est joué à chaque changement de choix. Les synthés se chargent instantanément ; les autres sons sont téléchargés au premier usage. Les anciens projets s'ouvrent avec exactement le même son qu'avant.</p>
+
+      <h3>Longueur propre à chaque piste</h3>
+      <p>Chaque piste peut avoir sa propre longueur de boucle, plus courte que le projet. Deux façons de la régler :</p>
+      <ul>
+        <li><b>Glisser la barre de fin de boucle</b> : la petite barre verticale juste après la dernière case de la piste. Elle prend la couleur de la piste quand la longueur est personnalisée.</li>
+        <li><b>⚙ de la piste</b>, pastilles « Longueur de la piste » : Comme le projet, ½ mesure, 1, 2, 4, 8, 16 ou 32 mesures (toujours moins que le projet), ou un nombre de pas libre.</li>
+      </ul>
+      <p>Une piste plus courte tourne en boucle sur elle-même pendant que les autres continuent : par exemple un hi-hat de 12 pas contre un kick de 16 donne une polymétrie 3 contre 4. Les cases au-delà de la boucle sont hachurées et ne jouent pas. Le sous-titre de la piste affiche sa longueur (⟲ 2 mes., ⟲ 12 pas…), et la tête de lecture montre la position de chaque piste dans sa propre boucle.</p>
+
+      <h3>Réorganiser les pistes</h3>
+      <p>Attrape la petite poignée <b>⋮⋮</b> tout à gauche d'une piste et glisse-la vers le haut ou le bas : un trait bleu montre où elle sera déposée, et la page défile toute seule près des bords. Au clavier, clique sur la poignée puis utilise les flèches haut / bas. L'ordre est enregistré dans le projet.</p>
+
+      <h2 id="drum">Pistes Drum</h2>
+      <p>Un clic sur une case l'allume ou l'éteint.</p>
+      <ul>
+        <li><b>Peindre</b> : clique sur une case et glisse le long de la ligne. Toutes les cases survolées prennent le même état que la première.</li>
+        <li><b>Accent</b> : survole le <b>haut du carré coloré</b> d'un pas ou d'une note : le curseur devient ↕. Glisse vers le haut (plus fort) ou vers le bas (plus doux) ; la valeur (0 à 127) s'affiche au-dessus pendant le réglage. Dans le <b>piano roll</b>, la même poignée est sur le <b>bord haut d'une note</b> (liseré blanc au survol) : glisse vers le haut pour plus fort, vers le bas pour plus doux.</li>
+        <li><b>Clic droit sur une note</b> (ligne compacte ou piano roll) : la fenêtre de choix de note ou d'accord contient aussi la <b>Longueur</b> (en pas, jusqu'à la note suivante) et la <b>Vélocité</b> (1 à 127), avec un curseur et des boutons − / + ; la grille suit en direct.</li>
+        <li><b>Lire la vélocité</b> : la hauteur du carré coloré montre la force du coup (plein = vélocité maximale) ; dans le piano roll, c'est l'opacité de la note. Pour une note d'instrument, la partie tenue garde la même hauteur. Survoler une case affiche sa valeur sur 127.</li>
+      </ul>
+
+      <h2 id="notes"><small>Le plus demandé</small>Changer une note ou un accord</h2>
+      <p>On change une note ou un accord avec un <b>clic droit</b> dessus (ou un appui long au doigt), ou directement dans le <b>piano roll</b>, en cliquant sur une autre ligne à la même position. Pour l'ouvrir, clique sur le chevron <b>›</b> dans l'en-tête d'une piste instrument. Les lignes sont les notes (2 octaves), les colonnes sont les pas. Le clavier à gauche joue la note ou l'accord quand on clique dessus.</p>
+      <h3>Directement dans la grille</h3>
+      <div class="table-wrap"><table>
+        <tr><th>Je veux…</th><th>Piste Mono</th><th>Piste Accord ou Arpège</th></tr>
+        <tr><td>Poser</td><td>Clic sur une case vide : la note de cette ligne</td><td>Clic sur une case vide : un accord dont cette ligne est la fondamentale, du type choisi dans « Accord »</td></tr>
+        <tr><td>Allonger / raccourcir</td><td>En posant la note, glisse vers la droite. Pour une note déjà posée : survole son <b>bord droit</b> (le curseur devient ↔) et glisse à gauche ou à droite.</td><td>Idem</td></tr>
+        <tr><td>Changer la hauteur</td><td>Clic sur une autre ligne, dans la colonne de début de la note</td><td>Clic sur une autre ligne qui n'est pas une note de l'accord, dans la colonne de début</td></tr>
+        <tr><td>Changer le type (m7, Maj7…)</td><td>—</td><td><b>Clic droit</b> sur l'accord (ou <b>appui long</b> au doigt) : choisis la note à gauche et le type à droite. La longueur et la vélocité sont gardées.</td></tr>
+        <tr><td>Supprimer</td><td>Clic sur la note</td><td>Clic sur n'importe quelle note de l'accord, ou clic droit / appui long puis « Supprimer l'accord »</td></tr>
+      </table></div>
+      <p>Quand tu remplaces une note ou un accord, le nouveau repart avec une longueur d'un pas et une vélocité moyenne : réallonge-le en glissant. Un accord ne peut pas en chevaucher un autre : l'allongement s'arrête juste avant l'accord suivant.</p>
+      <div class="note"><b>Clic droit (ou appui long au doigt) sur une note ou un accord</b>, dans la ligne compacte ou le piano roll, ouvre un menu de choix :
+        <ul>
+          <li><b>Piste Mono</b> : la grille des notes A, A#, B, C… G#. La nouvelle note reste dans la même zone (au plus près de l'ancienne) ; −8ve / +8ve changent d'octave.</li>
+          <li><b>Piste Accord ou Arpège</b> : deux colonnes, la <b>note</b> fondamentale à gauche (A … G#) et le <b>type d'accord</b> à droite (Majeur, Mineur, 7, Maj7, m7, Sus2, Sus4, Dim, Aug, Add9, m9, Power). Le nom et les notes de l'accord s'affichent en haut.</li>
+        </ul>
+        Chaque choix s'applique et s'entend tout de suite, et le menu reste ouvert pour enchaîner note puis type. Dessous : la <b>Longueur</b> (de 1 pas jusqu'à la note suivante) et la <b>Vélocité</b> (1 à 127), avec un curseur et des boutons − / + ; la grille suit en direct. En bas : Supprimer, Fermer (ou Échap, ou un clic ailleurs).</div>
+      <p><b>Sur la ligne compacte</b> (la ligne de la piste, piano roll fermé), un clic sur une case vide pose la dernière note ou le dernier accord utilisé, et un clic sur une note existante la supprime. Chaque début de note affiche son nom : A1 pour une note, Am7 ou Fmaj7 pour un accord.</p>
+      <p><b>Faire défiler les notes</b> : le piano roll couvre C1 à C8 et en affiche 2 octaves à la fois. Pour monter ou descendre :</p>
+      <ul>
+        <li>la <b>molette</b> de la souris (ou deux doigts sur le pavé tactile) au-dessus du piano roll ;</li>
+        <li><b>glisser le clavier</b> de gauche vers le haut ou le bas (un simple clic sur une touche la fait toujours entendre) ;</li>
+        <li>la <b>barre de défilement</b> entre le clavier et la grille : glisse-la, ou clique au-dessus / en dessous pour sauter d'une page ;</li>
+        <li>le <b>bouton du milieu</b> de la souris : maintiens-le et glisse n'importe où dans le piano roll ;</li>
+        <li><b>Octave − / +</b> pour sauter d'une octave. La plage visible s'affiche entre les deux boutons.</li>
+      </ul>
+
+      <h2 id="avance">Réglages avancés</h2>
+      <p>Les réglages d'accord et d'arpège sont dans la barre en haut du piano roll. Les autres sont dans l'en-tête de la piste ou dans la barre du haut.</p>
+      <div class="table-wrap"><table>
+        <tr><th>Réglage</th><th>Où</th><th>Effet</th></tr>
+        <tr><td>Accord</td><td>Piano roll (pistes Accord et Arpège)</td><td>Type des prochains accords posés : Majeur, Mineur, 7, Maj7, m7, Sus2, Sus4, Dim, Aug, Add9, m9, Power (5). Pour un accord déjà posé, fais un clic droit ou un appui long dessus.</td></tr>
+        <tr><td>Mode</td><td>Piano roll (Arpège)</td><td>Ordre des notes : Montant, Descendant, Montant / Descendant, Aléatoire</td></tr>
+        <tr><td>Vitesse</td><td>Piano roll (Arpège)</td><td>Durée de chaque note : 1/8, 1/16, 1/32 (par défaut) ou 1/16 triolet</td></tr>
+        <tr><td>Octaves</td><td>Piano roll (Arpège)</td><td>L'arpège monte sur 1, 2 ou 3 octaves</td></tr>
+        <tr><td>Octave − / +</td><td>Piano roll</td><td>Change les 2 octaves affichées, sans modifier les notes</td></tr>
+        <tr><td>Effacer</td><td>Piano roll</td><td>Supprime toutes les notes de la piste, après confirmation</td></tr>
+        <tr><td>✕ Fermer</td><td>Piano roll, à droite de la barre d'outils</td><td>Ferme le piano roll. Le chevron ⌄ de l'en-tête de piste le ferme aussi.</td></tr>
+        <tr><td>M / S</td><td>En-tête de piste</td><td>Mute coupe la piste. Solo ne fait entendre que les pistes en solo.</td></tr>
+        <tr><td>Volume</td><td>Curseur de l'en-tête</td><td>Volume de la piste, effet immédiat</td></tr>
+        <tr><td>⚙</td><td>En-tête de piste</td><td>Rouvre la fenêtre de la piste : nom, couleur, son, machine, variation, ou catégorie, famille et instrument. Les notes sont gardées.</td></tr>
+        <tr><td>Nom</td><td>Double-clic sur le nom</td><td>Renomme la piste. Entrée valide, Échap annule.</td></tr>
+        <tr><td>Mesure, Mesures</td><td>Barre du haut</td><td>Change la longueur de la boucle</td></tr>
+      </table></div>
+      <p>Les réglages d'arpège s'appliquent tout de suite à tous les arpèges de la piste. La longueur d'un accord d'arpège fixe la durée pendant laquelle l'arpège tourne.</p>
+      <p>Passer une piste Mono en Accord par ⚙ garde les notes simples déjà posées. Les nouveaux clics poseront des accords.</p>
+      <p>On ne peut pas changer une piste Drum en piste Instrument : crée une nouvelle piste.</p>
+      <div class="note warn"><b>Attention</b> : réduire le nombre de mesures ou de temps supprime définitivement les notes qui dépassent la nouvelle fin. Enregistre avant si tu veux pouvoir revenir en arrière.</div>
+
+      <h2 id="sound-design">Sound design</h2>
+      <p>Chaque piste instrument a sa fenêtre de sound design, inspirée des paramètres de <a href="https://strudel.cc">strudel.cc</a>. Ouvre-la avec le bouton à curseurs de l'en-tête de piste, ou avec <b>Sound design</b> dans la barre d'outils du piano roll. Les changements s'entendent tout de suite, même pendant la lecture.</p>
+      <div class="table-wrap"><table>
+        <tr><th>Bloc</th><th>Réglage</th><th>Effet</th><th>Strudel</th></tr>
+        <tr><td>Oscillateur (VCO)</td><td>Forme d'onde</td><td>Saw, Square, Triangle, Sine ou Supersaw. Seulement pour les instruments « (synthé) ».</td><td><code>s("sawtooth")</code></td></tr>
+        <tr><td></td><td>Voix, Désaccord</td><td>Plusieurs oscillateurs légèrement désaccordés, pour un son plus large</td><td><code>unison</code>, <code>detune</code></td></tr>
+        <tr><td>Filtre (VCF)</td><td>Type</td><td>Passe-bas, passe-haut ou passe-bande</td><td><code>lpf</code>, <code>hpf</code>, <code>bpf</code></td></tr>
+        <tr><td></td><td>Cutoff</td><td>Fréquence de coupure, de 20 Hz à 20 kHz</td><td><code>lpf(800)</code></td></tr>
+        <tr><td></td><td>Résonance</td><td>Accentue les fréquences autour du cutoff, de 0 à 30</td><td><code>lpq</code></td></tr>
+        <tr><td>Enveloppe du filtre</td><td>Quantité</td><td>De combien le filtre s'ouvre au-dessus du cutoff à chaque note, jusqu'à +6 octaves. À « off », le cutoff reste fixe.</td><td><code>lpenv</code></td></tr>
+        <tr><td></td><td>Attack, Decay, Sustain, Release</td><td>Enveloppe propre au filtre, indépendante de celle du volume : vitesse d'ouverture, retombée, niveau tenu et refermeture. Son schéma est en orange.</td><td><code>lpattack</code>, <code>lpdecay</code>, <code>lpsustain</code>, <code>lprelease</code></td></tr>
+        <tr><td>Enveloppe d'amplitude (ADSR)</td><td>Attack, Decay, Sustain, Release</td><td>Montée, descente, niveau tenu et extinction du volume de chaque note. Le schéma se met à jour en direct.</td><td><code>adsr("a:d:s:r")</code></td></tr>
+        <tr><td>Sortie</td><td>Niveau, Panoramique, Saturation</td><td>Volume du son, position gauche / droite, distorsion douce</td><td><code>gain</code>, <code>pan</code>, <code>distort</code></td></tr>
+      </table></div>
+      <ul>
+        <li>En haut de la fenêtre, le code affiché est l'équivalent strudel.cc des réglages.</li>
+        <li>« Copier l'ADSR d'amplitude » recopie les quatre valeurs de l'enveloppe du volume dans celle du filtre. Par défaut, l'enveloppe du filtre reprend celle du preset.</li>
+        <li>Un point bleu marque les réglages modifiés par rapport au preset. Un double-clic sur un curseur remet sa valeur du preset, et <b>Réinitialiser</b> remet tout.</li>
+        <li><b>Annuler</b> ou Échap revient aux réglages d'avant l'ouverture. <b>OK</b> les garde. Ils sont enregistrés dans le fichier du projet.</li>
+        <li>Pour un instrument échantillonné (piano, cordes, soundfonts…), il n'y a pas de VCO : le filtre, l'enveloppe et la sortie s'appliquent à l'échantillon.</li>
+        <li>Changer d'instrument avec ⚙ remet les réglages du preset du nouvel instrument.</li>
+      </ul>
+
+      <h2 id="effets">Effets : chorus, delay, reverb, sidechain</h2>
+      <p>Chaque piste, Drum ou Instrument, a ses effets. Ouvre-les avec le bouton <b>FX</b> de l'en-tête de piste ; il devient violet quand un effet est actif. Les réglages s'entendent pendant la lecture et sont enregistrés dans le projet. Delay et reverb reprennent les paramètres de <a href="https://strudel.cc">strudel.cc</a>, dont l'équivalent s'affiche en haut de la fenêtre.</p>
+      <div class="table-wrap"><table>
+        <tr><th>Effet</th><th>Réglages</th><th>Préréglages</th><th>Strudel</th></tr>
+        <tr><td>Chorus</td><td>Mix, Vitesse (0,1 à 6 Hz), Profondeur. Double le son avec une copie légèrement désaccordée qui ondule, élargie en stéréo.</td><td>Léger, Large, Profond</td><td>effet propre à StepSeq</td></tr>
+        <tr><td>Delay</td><td>Mix, Feedback (nombre de répétitions), Temps synchronisé au tempo : 1/16, 1/8 triolet, 1/8, 1/8 pointée, 1/4, 1/4 pointée, 1/2</td><td>Slapback, Écho 1/8, Dub 1/8 pointée, 1/4</td><td><code>delay</code>, <code>delaytime</code>, <code>delayfeedback</code></td></tr>
+        <tr><td>Reverb</td><td>Mix, Taille (durée de la queue, 0,2 à 10 s), Brillance (coupe les aigus de la queue)</td><td>Pièce, Hall, Cathédrale, Plate</td><td><code>room</code>, <code>roomsize</code>, <code>roomlp</code></td></tr>
+        <tr><td>Sidechain</td><td>Choisis la piste qui déclenche (souvent le kick) : à chaque coup, cette piste-ci baisse de volume puis remonte. Profondeur (de combien elle baisse), Relâchement (vitesse de remontée). Le schéma vert montre l'effet sur une mesure. Fonctionne aussi si la piste source est muette (« ghost kick »).</td><td>Léger, Pompe house, Extrême</td><td>effet propre à StepSeq</td></tr>
+      </table></div>
+      <ul>
+        <li>Un effet est coupé quand son Mix est à 0 (préréglage « Off »). <b>Tout couper</b> remet la piste sans effet.</li>
+        <li>Le temps du delay suit le tempo : à 112 BPM, une 1/8 pointée vaut 402 ms.</li>
+        <li><b>Annuler</b> ou Échap revient aux effets d'avant l'ouverture.</li>
+        <li>La queue de reverb et les échos continuent un instant après Stop, comme sur un vrai appareil.</li>
+      </ul>
+
+      <h2 id="groove">Groove</h2>
+      <p>Le bouton <b>Groove</b> de la barre du haut règle le swing et l'humanisation de tout le morceau. Les changements s'entendent pendant la lecture et sont enregistrés dans le projet.</p>
+      <div class="table-wrap"><table>
+        <tr><th>Réglage</th><th>Effet</th></tr>
+        <tr><td>Swing : Droit</td><td>Aucun décalage, toutes les doubles-croches sont régulières</td></tr>
+        <tr><td>Swing : Doubles-croches (1/16)</td><td>Retarde la 2e double-croche de chaque paire : le son typique du hip-hop et de la house</td></tr>
+        <tr><td>Swing : Croches (1/8)</td><td>Retarde la 2e croche de chaque temps : le son du jazz, du blues, du shuffle</td></tr>
+        <tr><td>Intensité</td><td>50 % = droit, 67 % = ternaire (shuffle), 75 % = maximum. Préréglages : Léger 54 %, MPC 58 %, Medium 62 %, Shuffle 67 %, Fort 71 %.</td></tr>
+        <tr><td>Humanisation</td><td>Variations aléatoires de placement (jusqu'à ±15 ms) et de vélocité (jusqu'à ±25 %) sur chaque note</td></tr>
+      </table></div>
+      <p>Le schéma de la fenêtre montre 8 doubles-croches : les cercles pointillés sont la position droite, les points bleus la position jouée. Les notes posées sur les temps ne bougent jamais. Annuler revient aux réglages d'avant l'ouverture.</p>
+
+      <h2 id="chanson">Mode chanson</h2>
+      <p>Le panneau sous la barre du haut transforme une boucle en morceau complet. Il a deux étages : les <b>scènes</b> et l'<b>arrangement</b>.</p>
+      <div class="table-wrap"><table>
+        <tr><th>Élément</th><th>Ce que c'est</th><th>Comment l'utiliser</th></tr>
+        <tr><td>Scène</td><td>Une partie du morceau (Couplet, Refrain, Intro, Pont…) : les pas et les notes de toutes les pistes, avec son propre nombre de mesures</td><td>Clic sur une scène pour l'éditer dans la grille. <b>+ Copie</b> crée une scène qui reprend la scène en cours, <b>+ Vide</b> une scène sans notes. Double-clic pour renommer, × pour supprimer.</td></tr>
+        <tr><td>Arrangement</td><td>L'ordre des scènes dans la chanson, chacune répétée un certain nombre de fois</td><td>« + Ajouter… » ajoute un bloc. − / + règlent les répétitions, ‹ / › déplacent le bloc, × le retire. La durée totale s'affiche à droite.</td></tr>
+        <tr><td>Boucle / Chanson</td><td>Le mode de lecture</td><td><b>Boucle</b> : la scène en cours tourne en boucle (pratique pour composer). <b>Chanson</b> : la lecture enchaîne les blocs, et la grille affiche la scène jouée.</td></tr>
+        <tr><td>Point de départ</td><td>Le bloc par lequel la lecture commence</td><td>Clic sur un bloc : il est marqué d'un trait vert, et sa scène s'ouvre. Le bloc joué est en vert, avec sa répétition en cours (2/4).</td></tr>
+        <tr><td>Boucler</td><td>Que faire à la fin de la chanson</td><td>Coché : la chanson recommence. Sinon, la lecture s'arrête.</td></tr>
+      </table></div>
+      <p>Les sons, volumes, effets, sound design et longueurs de piste sont communs à toutes les scènes ; seules les notes et le nombre de mesures changent d'une scène à l'autre. Une piste ajoutée est vide dans les autres scènes. On peut changer de scène pendant la lecture en mode Boucle, pour improviser l'enchaînement en direct.</p>
+
+      <h2 id="console">Console de mixage</h2>
+      <p>Le bouton <b>Console</b> de la barre du haut ouvre la table de mixage dans une fenêtre : une tranche par piste, plus le <b>Master</b> (sortie générale). Sa barre de titre rappelle le projet ; le bouton <b>Fermer</b> (ou la touche Échap, ou un nouveau clic sur Console) ramène au séquenceur. Pendant que la console est ouverte, la barre du mode chanson est masquée pour laisser toute la hauteur aux tranches : l'ensemble tient sur un écran 1920 × 1200. Le son passe dans chaque tranche dans cet ordre : égaliseur → compresseur → limiteur → panoramique → fader, puis les effets (chorus, delay, reverb, sidechain).</p>
+      <div class="table-wrap"><table>
+        <tr><th>Élément de la tranche</th><th>Utilisation</th></tr>
+        <tr><td>EQ / COMP / LIM</td><td>Les trois inserts. Le témoin vert à gauche les active ou les coupe ; un clic sur le nom ouvre leur réglage dans le panneau du bas.</td></tr>
+        <tr><td>Courbe miniature</td><td>La réponse de l'égaliseur de la piste ; clic pour la régler.</td></tr>
+        <tr><td>C / L</td><td>Réduction de gain en direct du compresseur (C) et du limiteur (L), en orange.</td></tr>
+        <tr><td>Panoramique</td><td>Gauche / droite (L50, C, R30…). Double-clic : centre.</td></tr>
+        <tr><td>M / S</td><td>Muet et Solo, les mêmes que dans l'en-tête de piste.</td></tr>
+        <tr><td>Fader</td><td>Volume en dB, de −∞ à +6 dB. Glisse le bouton (Maj : réglage fin), clique sur le rail pour sauter, molette ou flèches : ±0,5 dB, double-clic : 0 dB.</td></tr>
+        <tr><td>Vumètre</td><td>Niveau RMS (plein) et crête (plus clair), avec maintien de crête. Sous le fader : niveau du fader et crête maximale (en rouge si elle a dépassé 0 dB ; clic pour la remettre à zéro).</td></tr>
+      </table></div>
+      <div class="table-wrap"><table>
+        <tr><th>Module (panneau du bas)</th><th>Réglages</th></tr>
+        <tr><td>Égaliseur 5 bandes</td><td>Passe-haut (P), shelf grave (1), deux cloches bas-médium (2) et haut-médium (3), shelf aigu (4). Glisse les points sur la courbe (fréquence ↔, gain ↕ jusqu'à ±18 dB), molette sur 2 ou 3 pour la largeur (Q), double-clic pour remettre à plat. Les valeurs exactes se tapent aussi dans le tableau sous la courbe.</td></tr>
+        <tr><td>Compresseur</td><td>Seuil, Ratio (1:1 à 20:1), Attaque, Relâchement, Genou, Gain de compensation. La courbe de transfert montre l'effet ; la jauge orange, la réduction de gain en direct.</td></tr>
+        <tr><td>Filtre VCF (Master)</td><td>Filtre façon synthé sur tout le morceau, placé entre l'égaliseur et le compresseur : <b>Passe-haut</b> et <b>Passe-bas</b> (20 Hz à 20 kHz), chacun avec sa <b>Résonance</b> (0 à 18 dB), et une pente de 12 ou 24 dB/oct. Monte le passe-haut ou descends le passe-bas pour une montée ou un break filtré ; la courbe violette montre le résultat. Double-clic sur un curseur : filtre ouvert. Le compresseur et le limiteur qui suivent tiennent les pics de résonance.</td></tr>
+        <tr><td>Limiteur</td><td>Plafond et Relâchement : le signal ne dépasse jamais le plafond. Sur le Master, il est actif par défaut à −0,3 dB, avec le compresseur « glue » que l'application utilisait déjà.</td></tr>
+      </table></div>
+      <p>Toucher un réglage active le module. Double-clic sur un curseur : valeur par défaut. <b>Réinitialiser</b> remet la tranche à plat. Tout est enregistré dans le projet et s'annule avec Ctrl+Z.</p>
+      <h3>Profils</h3>
+      <p>Chaque tranche affiche sous son nom son <b>rôle</b> (Kick, Basse, Nappe… ou Sortie pour le Master) et un badge violet <b>◆</b> avec le profil appliqué ; un <b>*</b> signale que la tranche a été retouchée depuis. Un clic sur le badge ouvre le profil de la tranche. La tranche sélectionnée est reliée par une flèche au panneau du bas, qui reprend sa couleur, son nom et son badge « Profil de la tranche ».</p>
+      <p>Dans ce panneau, la liste <b>Profil de la tranche</b> applique d'un coup un réglage complet à la tranche choisie (EQ, compresseur, limiteur ; plus le sidechain sur le kick si le profil en a un, ou le niveau pour le Master). Le panoramique et le volume de la piste ne changent pas. Ctrl+Z annule.</p>
+      <div class="table-wrap"><table>
+        <tr><th>Profils d'usine</th><th>Contenu</th></tr>
+        <tr><td>Tranches</td><td>Tranche à plat, Kick punchy (synthpop), Caisse claire présente, Clap aéré, Hi-hat brillant, Open hat, Toms (nettoyage), Cymbale / crash, Basse synth + pompe, Nappe large + pompe, Arpège discret + pompe, Lead synth en avant — les réglages du mixage de « Train de nuit ».</td></tr>
+        <tr><td>Master</td><td>Master synthpop / dance (≈ −11 LUFS), Master streaming (≈ −14 LUFS, 3 dB plus doux pour Spotify / YouTube), Master d'origine (sécurité).</td></tr>
+      </table></div>
+      <ul>
+        <li><b>Enregistrer comme profil…</b> mémorise les réglages actuels de la tranche sous le nom de ton choix (un nom existant est remplacé). Tes profils apparaissent sous « Mes profils », pour toutes les pistes et tous les projets.</li>
+        <li><b>Supprimer</b> efface le profil personnel choisi.</li>
+        <li>Tes profils sont gardés dans ce navigateur : <b>Exporter</b> les télécharge dans un fichier, <b>Importer</b> les recharge (sur un autre ordinateur, ou après avoir vidé le navigateur).</li>
+      </ul>
+      <h3>Profils de mixage complets (multi-tranches)</h3>
+      <p>En haut de la console, la barre d'actions <b>Profil de mixage — toutes les tranches ↓</b> encadre les tranches qu'elle pilote : elle règle toutes les pistes et le Master d'un coup. Chaque piste reçoit le réglage de son <b>rôle</b>, affiché juste en dessous (Kick 1 → Kick, Saw Bass → Basse…) :</p>
+      <div class="table-wrap"><table>
+        <tr><th>Rôle</th><th>Pistes concernées</th></tr>
+        <tr><td>Kick, Caisse claire, Clap, Hi-hat, Open hat, Toms, Cymbales, Percussions</td><td>Pistes Drum, selon leur type de son (ou le nom de leur banque pour Dirt-Samples, VCSL, Mridangam)</td></tr>
+        <tr><td>Basse</td><td>Instruments de la famille Bass</td></tr>
+        <tr><td>Arpège</td><td>Pistes de catégorie Arpège</td></tr>
+        <tr><td>Nappe</td><td>Pads, cordes, chœurs, et les pistes Accord</td></tr>
+        <tr><td>Lead</td><td>Synth Lead, cuivres, bois et vents</td></tr>
+        <tr><td>Claviers</td><td>Pianos, orgues, mallets, guitares et le reste</td></tr>
+      </table></div>
+      <ul>
+        <li>Profils d'usine : <b>Synthpop / dance — mix « Train de nuit »</b> (≈ −11 LUFS) et sa <b>version streaming</b> (≈ −14 LUFS).</li>
+        <li><b>Appliquer aux N tranches</b> règle EQ, compresseur, limiteur et sidechain (sur le premier kick) de chaque piste, puis le Master. Coche <b>Volumes et panoramiques</b> pour reprendre aussi la balance du profil. Ctrl+Z annule le tout en une fois.</li>
+        <li><b>Enregistrer ce mixage…</b> mémorise le mixage actuel du projet (un réglage par rôle, celui de la première piste de ce rôle, plus le Master) pour le réutiliser sur d'autres morceaux. Ces profils s'exportent et s'importent avec les autres.</li>
+        <li>Le dernier choix de la liste, <b>↺ Réinitialiser (toutes les tranches à plat)</b>, devient <b>Réinitialiser les N tranches</b> : EQ, compresseur, limiteur et panoramique de toutes les pistes et du Master reviennent aux réglages par défaut, et les badges de profil disparaissent. Les volumes (faders) et le sidechain sont conservés. Ctrl+Z annule.</li>
+        <li>Après application, chaque tranche porte le badge ◆ du profil multi-tranches, avec son rôle (« Train de nuit — Basse »…).</li>
+      </ul>
+
+      <h2 id="fichiers">Enregistrer et ouvrir</h2>
+      <p>Un projet s'enregistre dans un fichier <code>.stepseq.json</code>, qu'on rouvre avec <b>Ouvrir</b>.</p>
+      <ul>
+        <li><b>Chrome et Edge</b> : le premier <b>Enregistrer</b> demande où placer le fichier. Les suivants réécrivent le même fichier. <kbd>Ctrl</kbd>+<kbd>Maj</kbd>+<kbd>S</kbd> enregistre sous un autre nom.</li>
+        <li><b>Firefox et Safari</b> : chaque <b>Enregistrer</b> télécharge une nouvelle copie dans tes Téléchargements.</li>
+        <li><b>Sauvegarde automatique</b> : le travail en cours est aussi gardé dans le navigateur et revient à la prochaine visite. Il reste sur cet appareil et ce navigateur uniquement. Pour changer d'appareil, passe par le fichier.</li>
+        <li><b>Nouveau</b> vide le projet après confirmation. Enregistre d'abord ce que tu veux garder.</li>
+      </ul>
+
+      <h2 id="raccourcis">Raccourcis et astuces</h2>
+      <div class="table-wrap"><table>
+        <tr><th>Raccourci</th><th>Action</th></tr>
+        <tr><td><kbd>Espace</kbd></td><td>Lecture / pause</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd> (<kbd>Cmd</kbd>+<kbd>S</kbd> sur Mac)</td><td>Enregistrer</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Maj</kbd>+<kbd>S</kbd></td><td>Enregistrer sous</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>O</kbd></td><td>Ouvrir un projet</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td><td>Annuler la dernière action (bouton ↶ en haut)</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>Y</kbd> ou <kbd>Ctrl</kbd>+<kbd>Maj</kbd>+<kbd>Z</kbd></td><td>Rétablir l'action annulée (bouton ↷)</td></tr>
+        <tr><td>Double-clic sur un nom de piste</td><td>Renommer</td></tr>
+      </table></div>
+      <ul>
+        <li>Le bouton ▶ à gauche d'une piste joue son son, sans lancer la lecture.</li>
+        <li>On peut modifier les pas pendant la lecture : le changement s'entend au tour suivant.</li>
+        <li>Pendant la lecture, la grille défile toute seule pour garder visible la mesure jouée, et revient au début quand la boucle repart. Décoche <b>Suivre la lecture</b> (en bas de l'écran) pour faire défiler à la main.</li>
+        <li>Pour une ligne de basse, commence en Mono, famille Bass, octave 1 ou 2.</li>
+        <li>Pour des nappes, prends une piste Accord, famille Pads, et allonge chaque accord sur 8 ou 16 pas.</li>
+        <li>Il faut une connexion internet : les sons sont chargés depuis les bibliothèques de <a href="https://strudel.cc">strudel.cc</a>.</li>
+      </ul>
+    </main>
+  </div>
+</body>
+</html>

@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StepSeq</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-group">
+      <span class="brand" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><rect x="2" y="4" width="5" height="5" rx="1"/><rect x="9.5" y="4" width="5" height="5" rx="1" opacity=".35"/><rect x="17" y="4" width="5" height="5" rx="1"/><rect x="2" y="15" width="5" height="5" rx="1" opacity=".35"/><rect x="9.5" y="15" width="5" height="5" rx="1"/><rect x="17" y="15" width="5" height="5" rx="1" opacity=".35"/></svg>
+      </span>
+      <input id="title" class="title-input" type="text" spellcheck="false" aria-label="Titre du projet">
+    </div>
+
+    <div class="topbar-group">
+      <label class="field">
+        <span>Tempo</span>
+        <input id="tempo" type="number" min="20" max="300" step="1">
+        <small>BPM</small>
+      </label>
+      <label class="field">
+        <span>Mesure</span>
+        <select id="sigNum" aria-label="Temps par mesure"></select>
+        <b>/</b>
+        <select id="sigDen" aria-label="Unité de temps">
+          <option value="4">4</option>
+          <option value="8">8</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Mesures</span>
+        <select id="bars">
+          <option>1</option><option>2</option><option>4</option><option>8</option><option>16</option><option>32</option><option>64</option>
+        </select>
+      </label>
+      <button id="grooveBtn" class="btn groove-btn" type="button" title="Swing et humanisation">
+        <svg viewBox="0 0 24 24"><path d="M3 17c3 0 3-10 6-10s3 10 6 10 3-10 6-10"/></svg>
+        <span id="grooveLabel">Groove : droit</span>
+      </button>
+    </div>
+
+    <div class="topbar-group transport">
+      <button id="addTrack" class="btn btn-icon" title="Ajouter une piste">
+        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+      <button id="play" class="btn btn-play" title="Lecture (Espace)" aria-label="Lecture">
+        <svg class="ico-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z" class="fill"/></svg>
+        <svg class="ico-pause" viewBox="0 0 24 24"><rect x="6" y="4.5" width="4.2" height="15" rx="1" class="fill"/><rect x="13.8" y="4.5" width="4.2" height="15" rx="1" class="fill"/></svg>
+      </button>
+      <button id="stop" class="btn btn-icon" title="Stop : arrête et revient au début">
+        <svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5" class="fill"/></svg>
+      </button>
+      <div class="lcd" aria-live="off">
+        <div id="position">1 . 1 . 1</div>
+        <div id="lcdTitle" class="lcd-sub"></div>
+      </div>
+      <button id="mixerBtn" class="btn mixer-btn" type="button" aria-pressed="false" title="Console de mixage : EQ, compresseur, limiteur, faders">
+        <svg viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>
+        <span>Console</span>
+      </button>
+    </div>
+
+    <div class="topbar-group files">
+      <button id="undoBtn" class="btn btn-icon btn-history" title="Annuler la dernière action (Ctrl+Z)" aria-label="Annuler" disabled>
+        <svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+      </button>
+      <button id="redoBtn" class="btn btn-icon btn-history" title="Rétablir l'action annulée (Ctrl+Y)" aria-label="Rétablir" disabled>
+        <svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg>
+      </button>
+      <button id="newProject" class="btn" title="Nouveau projet">Nouveau</button>
+      <button id="openProject" class="btn" title="Ouvrir un fichier projet">Ouvrir</button>
+      <button id="saveProject" class="btn btn-accent" title="Enregistrer (Ctrl+S)">Enregistrer</button>
+      <a href="guide.html" target="_blank" rel="noopener" class="btn" title="Guide d'utilisation (nouvel onglet)">Aide</a>
+    </div>
+  </header>
+
+  <section id="songBar" class="songbar" aria-label="Chanson">
+    <div class="songbar-row">
+      <div class="segmented" id="songMode" role="radiogroup" aria-label="Mode de lecture">
+        <button type="button" data-mode="loop" title="La lecture boucle la scène en cours">Boucle</button>
+        <button type="button" data-mode="song" title="La lecture joue l'arrangement, du bloc choisi jusqu'à la fin">Chanson</button>
+      </div>
+      <span class="songbar-label">Scènes</span>
+      <div id="sceneList" class="scene-list"></div>
+      <button type="button" id="sceneCopy" class="btn btn-small" title="Nouvelle scène qui reprend le contenu de la scène en cours">+ Copie</button>
+      <button type="button" id="sceneEmpty" class="btn btn-small" title="Nouvelle scène vide (mêmes pistes, sans notes)">+ Vide</button>
+    </div>
+    <div class="songbar-row">
+      <span class="songbar-label">Arrangement</span>
+      <div id="songBlocks" class="song-blocks"></div>
+      <span class="spacer"></span>
+      <label class="song-loop"><input type="checkbox" id="songLoop"> Boucler</label>
+      <span id="songTotal" class="song-total"></span>
+    </div>
+  </section>
+
+  <main id="workspace">
+    <div id="ruler" class="ruler"></div>
+    <div id="tracks"></div>
+    <div id="empty" class="empty">
+      <p>Aucune piste pour l'instant.</p>
+      <button id="emptyAdd" class="btn btn-accent">+ Ajouter une piste</button>
+    </div>
+  </main>
+
+  <section id="mixer" class="mixer" hidden>
+    <div class="mx-window" role="region" aria-labelledby="mxTitle">
+      <div class="mx-titlebar">
+        <svg class="mx-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>
+        <h2 id="mxTitle">Console de mixage</h2>
+        <span id="mxProject" class="mx-sub"></span>
+        <span class="spacer"></span>
+        <button type="button" id="mxClose" class="mx-close" title="Fermer la console et revenir au séquenceur (Échap)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg> Fermer
+        </button>
+      </div>
+      <div class="mx-body">
+        <section class="mx-group" aria-label="Tranches de la console">
+          <div id="mixerTop" class="mx-actionbar"></div>
+          <div id="mixerStrips" class="mixer-strips"></div>
+        </section>
+        <section id="mixerDetail" class="mixer-detail" aria-label="Réglages de la tranche sélectionnée"></section>
+      </div>
+    </div>
+  </section>
+
+  <footer class="bottombar">
+    <div class="hint">Espace : lecture / pause · Ctrl+S : enregistrer · Glisser pour peindre des pas</div>
+    <label class="follow-toggle" title="Pendant la lecture, la grille défile pour garder la mesure jouée visible">
+      <input type="checkbox" id="followPlay" checked> Suivre la lecture
+    </label>
+  </footer>
+
+  <!-- Dialogue d'ajout / modification de piste -->
+  <dialog id="trackDialog">
+    <form method="dialog" id="trackForm">
+      <h2 id="dlgTitle">Nouvelle piste</h2>
+
+      <div class="dlg-row">
+        <span class="dlg-label">Type de piste</span>
+        <div class="segmented pills-nav" id="dlgType" role="radiogroup" aria-label="Type de piste">
+          <button type="button" data-v="drum" class="active">Drum</button>
+          <button type="button" data-v="instrument">Instrument</button>
+        </div>
+      </div>
+
+      <div class="dlg-two">
+        <div class="dlg-row">
+          <label class="dlg-label" for="dlgName">Nom</label>
+          <input id="dlgName" type="text" autocomplete="off">
+        </div>
+        <div class="dlg-row">
+          <span class="dlg-label">Couleur</span>
+          <div id="dlgColors" class="swatches"></div>
+        </div>
+      </div>
+
+      <section id="dlgDrum">
+        <div class="dlg-row">
+          <span class="dlg-label">Bibliothèque</span>
+          <div class="segmented dlg-libs pills-nav" id="dlgDrumLib" role="radiogroup" aria-label="Bibliothèque de batterie"></div>
+          <small id="dlgDrumLibHint" class="dlg-hint"></small>
+        </div>
+        <div class="dlg-row">
+          <input id="dlgDrumFilter" class="br-search" type="search" placeholder="🔍 Filtrer…" autocomplete="off" aria-label="Filtrer la liste">
+        </div>
+        <div class="dlg-row" id="dlgTdm">
+          <span class="dlg-label">Type de drum</span>
+          <div id="dlgDrumTypes" class="chips pills-nav" role="radiogroup" aria-label="Type de drum"></div>
+        </div>
+        <div class="browser">
+          <div class="br-col">
+            <div class="br-head"><span class="dlg-label" id="dlgDrumListLabel">Boîte à rythmes</span><small id="dlgDrumCount" class="dlg-hint"></small></div>
+            <div id="dlgDrumList" class="pick-list" aria-labelledby="dlgDrumListLabel"></div>
+          </div>
+          <div class="br-col">
+            <div class="br-head"><span class="dlg-label" id="dlgVariantLabel">Variation</span><small id="dlgVariantCount" class="dlg-hint"></small></div>
+            <div id="dlgVariantList" class="pick-list" aria-labelledby="dlgVariantLabel"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="dlgInst" hidden>
+        <div class="dlg-row">
+          <span class="dlg-label">Catégorie</span>
+          <div class="segmented pills-nav" id="dlgCategory" role="radiogroup" aria-label="Catégorie"></div>
+        </div>
+        <div class="dlg-row">
+          <input id="dlgInstFilter" class="br-search" type="search" placeholder="🔍 Rechercher un instrument dans toutes les familles (sitar, sax, organ…)" autocomplete="off" aria-label="Rechercher un instrument">
+        </div>
+        <div class="dlg-row">
+          <span class="dlg-label">Famille</span>
+          <div id="dlgFamilies" class="chips pills-nav" role="radiogroup" aria-label="Famille"></div>
+        </div>
+        <div class="browser">
+          <div class="br-col">
+            <div class="br-head"><span class="dlg-label" id="dlgInstLabel">Instrument</span><small id="dlgInstCount" class="dlg-hint"></small></div>
+            <div id="dlgInstList" class="pick-list" aria-labelledby="dlgInstLabel"></div>
+          </div>
+          <div class="br-col">
+            <div class="br-head"><span class="dlg-label" id="dlgSfvLabel">Variante (soundfont)</span></div>
+            <div id="dlgSfvList" class="pick-list" aria-labelledby="dlgSfvLabel"></div>
+          </div>
+        </div>
+      </section>
+
+      <div class="dlg-row">
+        <span class="dlg-label">Longueur de la piste</span>
+        <div class="len-row">
+          <div id="dlgLen" class="chips pills-nav" role="radiogroup" aria-label="Longueur de la piste"></div>
+          <label class="len-custom">ou <input id="dlgLenSteps" type="number" min="1" step="1" aria-label="Longueur en pas"> pas</label>
+        </div>
+        <small class="dlg-hint">Une piste plus courte que le projet tourne en boucle sur sa propre longueur (polymétrie : par ex. 3 temps contre 4). Tu peux aussi glisser la barre de fin de boucle dans la grille.</small>
+      </div>
+
+      <p class="dlg-keys" aria-hidden="true"><kbd>←</kbd><kbd>→</kbd> pastilles et colonnes · <kbd>↑</kbd><kbd>↓</kbd> liste (écoute) · lettres : aller à · <kbd>Espace</kbd> écouter · <kbd>Entrée</kbd> valider · <kbd>Échap</kbd> annuler</p>
+
+      <div class="dlg-footer">
+        <button type="button" id="dlgPreview" class="btn">
+          <svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z" class="fill"/><path d="M16 8.5a5 5 0 0 1 0 7"/></svg>
+          Écouter
+        </button>
+        <span class="spacer"></span>
+        <button type="button" id="dlgCancel" class="btn">Annuler</button>
+        <button type="submit" id="dlgOk" class="btn btn-accent">Valider</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Dialogue de sound design (pistes instrument) -->
+  <dialog id="soundDialog" class="sd-dialog">
+    <form method="dialog" id="sdForm">
+      <div class="sd-head">
+        <div>
+          <h2>Sound design</h2>
+          <p id="sdTrack" class="dlg-sub"></p>
+        </div>
+        <code id="sdCode" class="sd-code" title="Équivalent strudel.cc"></code>
+      </div>
+
+      <div class="sd-grid">
+        <section class="sd-panel" aria-labelledby="sdVcoTitle">
+          <h3 id="sdVcoTitle">Oscillateur <small>VCO</small></h3>
+          <div id="sdVco">
+            <div class="sd-waves" id="sdWaves" role="radiogroup" aria-label="Forme d'onde"></div>
+            <div class="sd-sliders" id="sdVcoSliders"></div>
+          </div>
+          <p id="sdNoVco" class="sd-note" hidden></p>
+        </section>
+
+        <section class="sd-panel" aria-labelledby="sdVcfTitle">
+          <h3 id="sdVcfTitle">Filtre <small>VCF</small></h3>
+          <div class="segmented sd-ftype" id="sdFilterType" role="radiogroup" aria-label="Type de filtre"></div>
+          <div class="sd-sliders" id="sdVcfSliders"></div>
+        </section>
+
+        <section class="sd-panel" aria-labelledby="sdFenvTitle">
+          <div class="sd-panel-head">
+            <h3 id="sdFenvTitle">Enveloppe du filtre <small>lpenv</small></h3>
+            <button type="button" id="sdCopyAdsr" class="sd-mini" title="Reprendre les valeurs de l'enveloppe d'amplitude">Copier l'ADSR d'amplitude</button>
+          </div>
+          <svg id="sdFenv" class="sd-adsr filt" viewBox="0 0 300 90" preserveAspectRatio="none" aria-hidden="true">
+            <path id="sdFenvFill" class="fill-area"/>
+            <path id="sdFenvLine" class="line"/>
+          </svg>
+          <div class="sd-sliders" id="sdFenvSliders"></div>
+        </section>
+
+        <section class="sd-panel" aria-labelledby="sdVcaTitle">
+          <h3 id="sdVcaTitle">Enveloppe d'amplitude <small>ADSR</small></h3>
+          <svg id="sdAdsr" class="sd-adsr" viewBox="0 0 300 90" preserveAspectRatio="none" aria-hidden="true">
+            <path id="sdAdsrFill" class="fill-area"/>
+            <path id="sdAdsrLine" class="line"/>
+          </svg>
+          <div class="sd-sliders" id="sdVcaSliders"></div>
+        </section>
+
+        <section class="sd-panel wide" aria-labelledby="sdOutTitle">
+          <h3 id="sdOutTitle">Sortie</h3>
+          <div class="sd-sliders" id="sdOutSliders"></div>
+        </section>
+      </div>
+
+      <div class="dlg-footer">
+        <button type="button" id="sdPreview" class="btn">
+          <svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z" class="fill"/><path d="M16 8.5a5 5 0 0 1 0 7"/></svg>
+          Écouter
+        </button>
+        <button type="button" id="sdReset" class="btn" title="Revenir aux réglages du preset de l'instrument">Réinitialiser</button>
+        <span class="spacer"></span>
+        <button type="button" id="sdCancel" class="btn">Annuler</button>
+        <button type="submit" class="btn btn-accent">OK</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Dialogue Groove -->
+  <dialog id="grooveDialog">
+    <form method="dialog" id="grooveForm">
+      <h2>Groove</h2>
+      <p class="dlg-sub">Le swing retarde une note sur deux pour donner du balancement. Les changements s'entendent pendant la lecture.</p>
+
+      <div class="dlg-row">
+        <span class="dlg-label">Swing</span>
+        <div class="segmented" id="gvRes" role="radiogroup" aria-label="Résolution du swing">
+          <button type="button" data-v="0">Droit</button>
+          <button type="button" data-v="16">Doubles-croches (1/16)</button>
+          <button type="button" data-v="8">Croches (1/8)</button>
+        </div>
+      </div>
+
+      <div class="dlg-row" id="gvAmountRow">
+        <label class="dlg-label" for="gvSwing">Intensité <output id="gvSwingOut"></output></label>
+        <input id="gvSwing" type="range" min="50" max="75" step="1">
+        <div class="gv-presets" id="gvPresets">
+          <button type="button" class="chip" data-s="54">Léger 54 %</button>
+          <button type="button" class="chip" data-s="58">MPC 58 %</button>
+          <button type="button" class="chip" data-s="62">Medium 62 %</button>
+          <button type="button" class="chip" data-s="67">Shuffle 67 %</button>
+          <button type="button" class="chip" data-s="71">Fort 71 %</button>
+        </div>
+      </div>
+
+      <svg id="gvPreview" class="gv-preview" viewBox="0 0 320 44" aria-hidden="true"></svg>
+
+      <div class="dlg-row">
+        <label class="dlg-label" for="gvHuman">Humanisation <output id="gvHumanOut"></output></label>
+        <input id="gvHuman" type="range" min="0" max="100" step="1">
+        <small class="gv-help">Petites variations aléatoires de placement (jusqu'à ±15 ms) et de vélocité (jusqu'à ±25 %), comme un musicien.</small>
+      </div>
+
+      <div class="dlg-footer">
+        <span class="spacer"></span>
+        <button type="button" id="gvCancel" class="btn">Annuler</button>
+        <button type="submit" class="btn btn-accent">OK</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Dialogue des effets d'une piste -->
+  <dialog id="fxDialog" class="sd-dialog">
+    <form method="dialog" id="fxForm">
+      <div class="sd-head">
+        <div>
+          <h2>Effets</h2>
+          <p id="fxTrack" class="dlg-sub"></p>
+        </div>
+        <code id="fxCode" class="sd-code" title="Équivalent strudel.cc"></code>
+      </div>
+
+      <div class="fx-grid">
+        <section class="sd-panel" aria-labelledby="fxChorusTitle">
+          <div class="sd-panel-head">
+            <h3 id="fxChorusTitle">Chorus</h3>
+            <span class="fx-state" id="fxChorusState"></span>
+          </div>
+          <div class="gv-presets" data-presets="chorus"></div>
+          <div class="sd-sliders" id="fxChorusSliders"></div>
+        </section>
+        <section class="sd-panel" aria-labelledby="fxDelayTitle">
+          <div class="sd-panel-head">
+            <h3 id="fxDelayTitle">Delay <small>delay</small></h3>
+            <span class="fx-state" id="fxDelayState"></span>
+          </div>
+          <div class="gv-presets" data-presets="delay"></div>
+          <div class="sd-sliders" id="fxDelaySliders"></div>
+          <div class="sd-row">
+            <label for="fxDelayTime">Temps (synchronisé au tempo)</label>
+            <output id="fxDelayMs"></output>
+            <select id="fxDelayTime"></select>
+          </div>
+        </section>
+        <section class="sd-panel" aria-labelledby="fxRoomTitle">
+          <div class="sd-panel-head">
+            <h3 id="fxRoomTitle">Reverb <small>room</small></h3>
+            <span class="fx-state" id="fxRoomState"></span>
+          </div>
+          <div class="gv-presets" data-presets="room"></div>
+          <div class="sd-sliders" id="fxRoomSliders"></div>
+        </section>
+        <section class="sd-panel" aria-labelledby="fxScTitle">
+          <div class="sd-panel-head">
+            <h3 id="fxScTitle">Sidechain <small>ducking</small></h3>
+            <span class="fx-state" id="fxScState"></span>
+          </div>
+          <div class="sd-row">
+            <label for="fxScSource">Déclenché par la piste</label>
+            <output></output>
+            <select id="fxScSource"></select>
+          </div>
+          <div class="gv-presets" data-presets="sc"></div>
+          <svg id="fxScCurve" class="sd-adsr sc-curve" viewBox="0 0 300 60" preserveAspectRatio="none" aria-hidden="true">
+            <path class="fill-area"/><path class="line"/>
+          </svg>
+          <div class="sd-sliders" id="fxScSliders"></div>
+        </section>
+      </div>
+
+      <div class="dlg-footer">
+        <button type="button" id="fxPreview" class="btn">
+          <svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z" class="fill"/><path d="M16 8.5a5 5 0 0 1 0 7"/></svg>
+          Écouter
+        </button>
+        <button type="button" id="fxReset" class="btn" title="Couper tous les effets de la piste">Tout couper</button>
+        <span class="spacer"></span>
+        <button type="button" id="fxCancel" class="btn">Annuler</button>
+        <button type="submit" class="btn btn-accent">OK</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" role="status"></div>
+
+  <script src="js/library.js"></script>
+  <script src="js/sounds.js"></script>
+  <script src="js/project.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/sounddesign.js"></script>
+  <script src="js/groove.js"></script>
+  <script src="js/fx.js"></script>
+  <script src="js/song.js"></script>
+  <script src="js/profiles-factory.js"></script>
+  <script src="js/profiles.js"></script>
+  <script src="js/mixer.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
