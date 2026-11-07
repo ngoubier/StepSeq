@@ -315,6 +315,19 @@ SS.juno = (() => {
     e.node.port.postMessage({ type: 'off', id, time: t + Math.max(0.005, dur) });
   }
 
+  /** Jeu en direct (clavier de la façade) : la note tient jusqu'à noteOff. Renvoie son identifiant. */
+  function noteOn(ctx, track, midi, vel, dest) {
+    const e = nodeFor(ctx, track, dest);
+    if (!e) return null;
+    const id = nextId++;
+    e.node.port.postMessage({ type: 'on', id, midi, vel, time: ctx.currentTime });
+    return id;
+  }
+  function noteOff(ctx, track, id) {
+    const e = nodes.get(track.id || '__preview');
+    if (e && id != null) e.node.port.postMessage({ type: 'off', id, time: ctx.currentTime });
+  }
+
   /** Les réglages du panneau s'entendent tout de suite, même sur les notes tenues. */
   function applyParams(ctx, track) {
     if (!ctx || !track) return;
@@ -336,5 +349,5 @@ SS.juno = (() => {
     nodes.delete(key);
   }
 
-  return { load, play, applyParams, applyChorus: applyParams, allOff, remove, POLY: 6 };
+  return { load, play, noteOn, noteOff, applyParams, applyChorus: applyParams, allOff, remove, POLY: 6 };
 })();
