@@ -1247,10 +1247,11 @@ dialog.juno-dialog { width: min(1320px, calc(100vw - 16px)); max-width: none; pa
 .js-slot { position: absolute; left: 50%; top: -5px; bottom: -5px; width: 8px; transform: translateX(-50%); background: #0c0c0c; border-radius: 2px; box-shadow: inset 0 1px 2px #000; }
 .js-cap {
   position: absolute; left: 50%; z-index: 1; width: 26px; height: 12px; margin: 0 0 -6px -13px; border-radius: 2px;
-  background: linear-gradient(180deg, #fafafa, #d8d8d6 55%, #bdbdbb); box-shadow: 0 2px 2px rgba(0,0,0,.6); cursor: grab;
+  background: linear-gradient(180deg, #3a3a3a, #121212 45%, #050505); box-shadow: 0 2px 2px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.12); cursor: grab;
   display: flex; align-items: center;
 }
-.js-cap-line { display: block; width: 100%; height: 2px; margin: 0 3px; background: #2a2a2a; }
+/* capuchon noir à deux encoches blanches (une de chaque côté) */
+.js-cap-line { display: block; width: 100%; height: 2px; margin: 0 2px; background: linear-gradient(90deg, #fff 0 28%, transparent 28% 72%, #fff 72% 100%); }
 .js-box:hover .js-cap { box-shadow: 0 2px 2px rgba(0,0,0,.6), 0 0 6px rgba(255,255,255,.7); }
 .jslider.drag .js-cap { cursor: grabbing; }
 .js-tip {
