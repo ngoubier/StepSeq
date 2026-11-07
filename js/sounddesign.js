@@ -52,6 +52,9 @@ SS.soundDesign = (() => {
     triangle: 'M2 14 L7 5 L12 14 L17 5 L22 14',
     sine: 'M2 10 C5 1 8 1 10 10 S15 19 18 10 S21 4 22 7',
     supersaw: 'M2 16 L10 4 L10 16 L18 4 L18 16 M2 13 L9 3 L9 13 L17 3 L17 13',
+    white: 'M2 10 L3 4 L4 15 L5 7 L6 13 L7 3 L8 16 L9 8 L10 12 L11 5 L12 14 L13 6 L14 15 L15 9 L16 4 L17 13 L18 7 L19 16 L20 9 L21 5 L22 11',
+    pink: 'M2 10 L4 6 L6 13 L8 8 L10 14 L12 7 L14 12 L16 6 L18 13 L20 9 L22 11',
+    brown: 'M2 12 C5 6 7 15 10 10 S15 5 17 11 S20 14 22 9',
   };
 
   /* ---------- Construction de la fenêtre ---------- */

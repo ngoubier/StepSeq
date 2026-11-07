@@ -84,6 +84,7 @@ Les sons proviennent des bibliothèques utilisées par [strudel.cc](https://stru
 |------------------|------|
 | `index.html`     | Structure de la page et dialogue d'ajout de piste |
 | `css/style.css`  | Thème et mise en page |
+| `js/library.js`  | Catalogue généré depuis strudel.cc (125 soundfonts gm_*, VCSL) |
 | `js/sounds.js`   | Catalogue des sons (batterie, familles d'instruments, accords) |
 | `js/project.js`  | Modèle de projet, enregistrement / ouverture de fichiers |
 | `js/audio.js`    | Moteur audio : chargement des échantillons, voix, séquenceur |

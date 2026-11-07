@@ -545,7 +545,7 @@ dialog.sd-dialog { width: min(820px, calc(100vw - 32px)); }
 .sd-row.changed label { color: var(--text); }
 .sd-row.changed label::after { content: " •"; color: var(--accent-2); }
 .sd-row.dim { opacity: .45; }
-.sd-waves { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-bottom: 10px; }
+.sd-waves { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-bottom: 10px; }
 .sd-waves button {
   display: flex; flex-direction: column; align-items: center; gap: 2px;
   padding: 6px 2px; border: 1px solid var(--line); border-radius: 8px;
@@ -589,3 +589,11 @@ dialog.sd-dialog { width: min(820px, calc(100vw - 32px)); }
 .fx-state.on { color: #b9a6ff; }
 .sd-row select { grid-column: 1 / -1; background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 5px 8px; font: inherit; }
 .gv-presets .chip { font-size: 12px; padding: 3px 10px; }
+
+/* ---------- Bibliothèques (dialogue d'ajout de piste) ---------- */
+.dlg-libs { flex-wrap: wrap; align-self: flex-start; }
+.dlg-libs button { padding: 6px 12px; font-size: 13px; }
+.dlg-hint { color: var(--muted); font-size: 12px; }
+.dlg-row input[type=search] { background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 6px 8px; font: inherit; }
+.dlg-label small { text-transform: none; letter-spacing: 0; }
+#dlgInstrument optgroup { color: var(--muted); font-style: normal; }

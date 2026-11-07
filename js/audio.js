@@ -174,8 +174,33 @@ SS.audio = (() => {
       .sort((a, b) => a.localeCompare(b));
   }
 
+  /* Autres bibliothèques de batterie : Dirt-Samples, percussions VCSL, Mridangam */
+  const LIB_SOURCE = { dirt: () => SS.SOURCES.dirt, vcsl: () => SS.SOURCES.vcsl, mrid: () => SS.SOURCES.mrid };
+  const noComma = (p) => !p.includes(',') && !p.includes('%2C'); // Chrome refuse ces fichiers (en-tête invalide)
+
+  /** Banques disponibles d'une bibliothèque : [{ id, count }] */
+  async function drumBanks(lib) {
+    const json = await loadJSON(LIB_SOURCE[lib]());
+    const keys = lib === 'vcsl' ? (SS.LIB && SS.LIB.vcslPerc) || [] : Object.keys(json).filter((k) => k !== '_base');
+    return keys
+      .filter((k) => Array.isArray(json[k]) && json[k].some(noComma))
+      .map((k) => ({ id: k, count: json[k].filter(noComma).length }));
+  }
+
+  async function bankVariants(lib, bank) {
+    const json = await loadJSON(LIB_SOURCE[lib]());
+    const list = Array.isArray(json[bank]) ? json[bank].filter(noComma) : [];
+    return list.map((p) => json._base + encodePath(p));
+  }
+
+  /** Liste des échantillons possibles d'une piste Drum, selon sa bibliothèque. */
+  async function trackDrumVariants(track) {
+    if (track.source && track.source !== 'tdm') return bankVariants(track.source, track.bank);
+    return drumVariants(track.machine, track.sound);
+  }
+
   async function drumUrl(track) {
-    const list = await drumVariants(track.machine, track.sound);
+    const list = await trackDrumVariants(track);
     if (!list.length) return null;
     return list[Math.min(track.variant || 0, list.length - 1)];
   }
@@ -215,7 +240,7 @@ SS.audio = (() => {
         return;
       }
       const inst = instOf(track);
-      if (inst.kind === 'sf') await loadSoundfont(inst.file).promise;
+      if (inst.kind === 'sf') await loadSoundfont(SS.sfFile(inst, track)).promise;
       else if (inst.kind === 'multi') {
         const list = await multiMap(inst);
         const midis = new Set();
@@ -518,10 +543,47 @@ SS.audio = (() => {
     register([src], chain.amp);
   }
 
+  const noiseBuffers = {};
+  function noiseBuffer(kind) {
+    if (noiseBuffers[kind]) return noiseBuffers[kind];
+    const len = ctx.sampleRate * 2;
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    let b0 = 0, b1 = 0, b2 = 0, last = 0;
+    for (let i = 0; i < len; i++) {
+      const w = Math.random() * 2 - 1;
+      if (kind === 'pink') {
+        // filtre de Paul Kellet (approximation économique)
+        b0 = 0.99765 * b0 + w * 0.099046;
+        b1 = 0.963 * b1 + w * 0.2965164;
+        b2 = 0.57 * b2 + w * 1.0526913;
+        d[i] = (b0 + b1 + b2 + w * 0.1848) * 0.11;
+      } else if (kind === 'brown') {
+        last = (last + 0.02 * w) / 1.02;
+        d[i] = last * 3.5;
+      } else d[i] = w * 0.5;
+    }
+    noiseBuffers[kind] = buf;
+    return buf;
+  }
+
   function synthVoice(p, midi, time, dur, vel, dest) {
     const t = Math.max(time, ctx.currentTime);
     const freq = 440 * Math.pow(2, (midi - 69) / 12);
     const chain = voiceChain(p, t, dur, vel, dest, 0.35);
+    if (SS.NOISES.includes(p.wave)) {
+      // bruit (comme les sons white / pink / brown de strudel) : la hauteur de note n'a pas d'effet
+      const src = ctx.createBufferSource();
+      src.buffer = noiseBuffer(p.wave);
+      src.loop = true;
+      const g = ctx.createGain();
+      g.gain.value = 1.4;
+      src.connect(g).connect(chain.input);
+      src.start(t, Math.random() * 1.5);
+      src.stop(chain.end);
+      register([src], chain.amp);
+      return;
+    }
     const type = p.wave === 'supersaw' ? 'sawtooth' : p.wave || 'sawtooth';
     const n = Math.max(1, Math.round(p.wave === 'supersaw' ? Math.max(3, p.voices || 5) : p.voices || 1));
     const detune = p.wave === 'supersaw' ? Math.max(8, p.detune || 0) : p.detune || 0;
@@ -549,7 +611,7 @@ SS.audio = (() => {
     if (inst.kind === 'synth') {
       synthVoice(p, midi, time, dur, vel, out);
     } else if (inst.kind === 'sf') {
-      const entry = loadSoundfont(inst.file);
+      const entry = loadSoundfont(SS.sfFile(inst, track));
       if (!entry.zones || !entry.zones.length) return;
       const zone =
         entry.zones.find((z) => midi >= z.low && midi <= z.high) ||
@@ -708,6 +770,8 @@ SS.audio = (() => {
     loadJSON,
     drumMachines,
     drumVariants,
+    drumBanks,
+    bankVariants,
     prepareTrack,
     preview,
     playNote,

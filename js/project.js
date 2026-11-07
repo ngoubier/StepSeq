@@ -9,10 +9,13 @@
  *   tracks: [   // chaque piste peut avoir fx: { chorus, chorusRate, chorusDepth, delay, delayTime,
  *               //   delayFeedback, room, roomSize, roomLp } (effets, voir SS.FX_DEFAULTS)
  *     { id, type: "drum", name, color, volume, mute, solo,
- *       sound: "bd", machine: "RolandTR808", variant: 0,
+ *       source: "tdm"|"dirt"|"vcsl"|"mrid",                // bibliothèque
+ *       sound: "bd", machine: "RolandTR808",              // si source = tdm
+ *       bank: "jazz",                                     // sinon : banque de la bibliothèque
+ *       variant: 0,
  *       steps: [0..1, ...] }                         // vélocité, 0 = éteint
  *     { id, type: "instrument", name, color, volume, mute, solo,
- *       category: "mono"|"arp"|"chord", family, instrument,
+ *       category: "mono"|"arp"|"chord", family, instrument, sfv (variante soundfont),
  *       chord: "min", arp: { mode, rate, octaves }, octave,
  *       sd: { wave, voices, detune, filter, cutoff, q, env,      // sound design (optionnel,
  *             attack, decay, sustain, release, pan, drive, gain } // sinon preset de l'instrument)
@@ -53,7 +56,15 @@ SS.newTrack = (opts, project) => {
     type: opts.type,
   };
   if (opts.type === 'drum') {
-    return { ...base, sound: opts.sound, machine: opts.machine, variant: opts.variant || 0, steps: new Array(n).fill(0) };
+    return {
+      ...base,
+      source: opts.source || 'tdm',
+      sound: opts.sound,
+      machine: opts.machine,
+      bank: opts.bank,
+      variant: opts.variant || 0,
+      steps: new Array(n).fill(0),
+    };
   }
   const fam = SS.findFamily(opts.family);
   return {
@@ -61,6 +72,7 @@ SS.newTrack = (opts, project) => {
     category: opts.category,
     family: opts.family,
     instrument: opts.instrument,
+    sfv: opts.sfv || 0, // variante de soundfont (gm_*)
     chord: 'min',
     arp: { mode: 'up', rate: 2, octaves: 1 },
     octave: opts.category === 'mono' ? fam.octave : Math.max(3, fam.octave),
@@ -112,8 +124,13 @@ SS.normalizeProject = (data) => {
     track.volume = typeof t.volume === 'number' ? t.volume : 0.8;
     track.mute = !!t.mute;
     track.solo = !!t.solo;
-    if (t.type === 'drum') track.steps = Array.isArray(t.steps) ? t.steps.map(Number) : [];
-    else {
+    if (t.type === 'drum') {
+      track.steps = Array.isArray(t.steps) ? t.steps.map(Number) : [];
+      if (!SS.DRUM_LIBS.some((l) => l.id === t.source)) track.source = 'tdm';
+    } else {
+      SS.migrateInstrument(track);
+      track.family = SS.locateInstrument(track.family, track.instrument).family.id;
+      track.sfv = Number.isInteger(t.sfv) && t.sfv >= 0 ? t.sfv : track.sfv || 0;
       track.type = 'instrument';
       track.events = Array.isArray(t.events) ? t.events : [];
       track.arp = { mode: 'up', rate: 2, octaves: 1, ...(t.arp || {}) };

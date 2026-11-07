@@ -112,12 +112,24 @@
 
       <section id="dlgDrum">
         <div class="dlg-row">
-          <span class="dlg-label">Type de drum</span>
-          <div id="dlgDrumTypes" class="chips"></div>
+          <span class="dlg-label">Bibliothèque</span>
+          <div class="segmented dlg-libs" id="dlgDrumLib" role="radiogroup" aria-label="Bibliothèque de batterie"></div>
+          <small id="dlgDrumLibHint" class="dlg-hint"></small>
         </div>
-        <div class="dlg-row">
-          <label class="dlg-label" for="dlgMachine">Boîte à rythmes</label>
-          <select id="dlgMachine"></select>
+        <div id="dlgTdm">
+          <div class="dlg-row">
+            <span class="dlg-label">Type de drum</span>
+            <div id="dlgDrumTypes" class="chips"></div>
+          </div>
+          <div class="dlg-row">
+            <label class="dlg-label" for="dlgMachine">Boîte à rythmes</label>
+            <select id="dlgMachine"></select>
+          </div>
+        </div>
+        <div id="dlgBankRow" class="dlg-row" hidden>
+          <label class="dlg-label" for="dlgBank">Banque <small id="dlgBankCount"></small></label>
+          <input id="dlgBankFilter" type="search" placeholder="Filtrer les banques (ex. 808, jazz, conga…)" autocomplete="off">
+          <select id="dlgBank" size="6"></select>
         </div>
         <div class="dlg-row">
           <label class="dlg-label" for="dlgVariant">Variation</label>
@@ -136,7 +148,12 @@
         </div>
         <div class="dlg-row">
           <label class="dlg-label" for="dlgInstrument">Instrument</label>
-          <select id="dlgInstrument" size="7"></select>
+          <input id="dlgInstFilter" type="search" placeholder="Rechercher un instrument dans toutes les familles…" autocomplete="off">
+          <select id="dlgInstrument" size="8"></select>
+        </div>
+        <div class="dlg-row" id="dlgSfvRow" hidden>
+          <label class="dlg-label" for="dlgSfv">Variante (soundfont)</label>
+          <select id="dlgSfv"></select>
         </div>
       </section>
 
@@ -371,6 +388,7 @@
 
   <div id="toast" role="status"></div>
 
+  <script src="js/library.js"></script>
   <script src="js/sounds.js"></script>
   <script src="js/project.js"></script>
   <script src="js/audio.js"></script>

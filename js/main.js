@@ -59,13 +59,14 @@
       { step: 10, len: 1, notes: [31], vel: 0.8 },
       { step: 12, len: 3, notes: [33], vel: 0.9 },
     ];
-    const pad = add({ type: 'instrument', name: 'Pad 2', color: '#1ea7ff', category: 'chord', family: 'pads', instrument: 'gm89' });
+    const pad = add({ type: 'instrument', name: 'Pad 2', color: '#1ea7ff', category: 'chord', family: 'pads', instrument: 'gm_pad_warm' });
     pad.volume = 0.55;
     pad.events = [
       { step: 0, len: 8, notes: SS.chordNotes(57, 'm7'), vel: 0.6, chord: 'm7' },
       { step: 8, len: 8, notes: SS.chordNotes(53, 'maj7'), vel: 0.6, chord: 'maj7' },
     ];
     pad.chord = 'm7';
+    pad.sfv = Math.max(0, SS.findInstrument('pads', 'gm_pad_warm').files.indexOf('0890_FluidR3_GM_sf2_file'));
     return p;
   }
 
@@ -199,11 +200,11 @@
     track.name = opts.name;
     track.color = opts.color;
     if (track.type === 'drum') {
-      Object.assign(track, { sound: opts.sound, machine: opts.machine, variant: opts.variant });
+      Object.assign(track, { source: opts.source, sound: opts.sound, machine: opts.machine, bank: opts.bank, variant: opts.variant });
     } else {
       // un autre instrument repart de son propre preset de sound design
       if (opts.family !== track.family || opts.instrument !== track.instrument) delete track.sd;
-      Object.assign(track, { category: opts.category, family: opts.family, instrument: opts.instrument });
+      Object.assign(track, { category: opts.category, family: opts.family, instrument: opts.instrument, sfv: opts.sfv || 0 });
     }
     SS.ui.renderTrack(track);
     SS.audio.prepareTrack(track);
