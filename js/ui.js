@@ -1767,7 +1767,7 @@ SS.ui = (() => {
     const opts = [h('option', { value: 0 }, `Comme le projet (${p.bars} mes. · ${total} pas)`)];
     const half = spb / 2;
     if (Number.isInteger(half)) opts.push(h('option', { value: half }, '½ mesure'));
-    [1, 2, 3, 4, 8].filter((b) => b * spb < total).forEach((b) => opts.push(h('option', { value: b * spb }, `${b} mesure${b > 1 ? 's' : ''}`)));
+    [1, 2, 4, 8, 16, 32].filter((b) => b * spb < total).forEach((b) => opts.push(h('option', { value: b * spb }, `${b} mesure${b > 1 ? 's' : ''}`)));
     opts.push(h('option', { value: 'custom' }, 'Autre (en pas)…'));
     $('#dlgLen').replaceChildren(...opts);
     $('#dlgLenSteps').max = total;

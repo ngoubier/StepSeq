@@ -108,7 +108,7 @@ SS.normalizeProject = (data) => {
   p.title = String(data.title || p.title);
   p.tempo = Math.min(300, Math.max(20, Number(data.tempo) || 120));
   if (Array.isArray(data.timeSig) && data.timeSig.length === 2) p.timeSig = data.timeSig.map(Number);
-  p.bars = Math.min(8, Math.max(1, Number(data.bars) || 1));
+  p.bars = Math.min(64, Math.max(1, Math.round(Number(data.bars)) || 1));
   if (data.groove && typeof data.groove === 'object') {
     const g = data.groove;
     p.groove = {
@@ -130,7 +130,7 @@ SS.normalizeProject = (data) => {
       }
     } else delete track.fx;
     track.volume = typeof t.volume === 'number' ? t.volume : 0.8;
-    if (Number.isInteger(t.length) && t.length > 0) track.length = Math.min(t.length, 128);
+    if (Number.isInteger(t.length) && t.length > 0) track.length = Math.min(t.length, 64 * 32);
     else delete track.length;
     if (t.mix && typeof t.mix === 'object') track.mix = SS.cleanMix(t.mix);
     else delete track.mix;
@@ -400,7 +400,7 @@ SS.normalizeScenes = (p, data = {}) => {
       .map((sc) => ({
         id: String(sc.id || SS.uid()),
         name: String(sc.name || 'Scène').slice(0, 40),
-        bars: Math.min(8, Math.max(1, Number(sc.bars) || p.bars)),
+        bars: Math.min(64, Math.max(1, Math.round(Number(sc.bars)) || p.bars)),
         data: sc.data && typeof sc.data === 'object' ? sc.data : {},
       }));
   }

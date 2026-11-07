@@ -161,7 +161,16 @@
     $('#tempo').value = project.tempo;
     $('#sigNum').value = project.timeSig[0];
     $('#sigDen').value = project.timeSig[1];
-    $('#bars').value = project.bars;
+    const barsSel = $('#bars');
+    // Ancien projet avec un nombre de mesures hors liste (ex. 3) : on l'ajoute pour l'afficher
+    [...barsSel.querySelectorAll('option[data-extra]')].forEach((o) => o.remove());
+    if (![...barsSel.options].some((o) => +o.value === project.bars)) {
+      const o = document.createElement('option');
+      o.textContent = project.bars; o.dataset.extra = '1';
+      const next = [...barsSel.options].find((x) => +x.value > project.bars);
+      barsSel.insertBefore(o, next || null);
+    }
+    barsSel.value = project.bars;
     SS.groove.updateButton();
     document.title = project.title + ' — StepSeq';
   }
