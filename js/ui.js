@@ -286,8 +286,10 @@ SS.ui = (() => {
   function buildRoll(track, ref) {
     const p = app.project();
     const n = SS.totalSteps(p);
-    const low = (track.octave + 1) * 12;
-    const high = low + 24;
+    // toute la tessiture est construite ; on en voit ROLL_VIEW lignes, avec défilement vertical
+    const low = ROLL_LOW;
+    const high = ROLL_HIGH;
+    const rangeLabel = h('b', { class: 'roll-range' });
 
     const sel = (options, value, onchange) =>
       h(
@@ -303,9 +305,9 @@ SS.ui = (() => {
         'label',
         {},
         'Octave',
-        h('button', { type: 'button', onclick: () => shiftOctave(track, -1), title: 'Octave inférieure' }, '−'),
-        h('b', {}, `C${track.octave} – C${track.octave + 2}`),
-        h('button', { type: 'button', onclick: () => shiftOctave(track, 1), title: 'Octave supérieure' }, '+')
+        h('button', { type: 'button', onclick: () => scroller.by(12 * ROLL_ROW_H), title: 'Une octave plus bas' }, '−'),
+        rangeLabel,
+        h('button', { type: 'button', onclick: () => scroller.by(-12 * ROLL_ROW_H), title: 'Une octave plus haut' }, '+')
       ),
       track.category !== 'mono'
         ? h(
@@ -375,7 +377,17 @@ SS.ui = (() => {
       )
     );
 
-    const roll = h('div', { class: 'roll' }, tools);
+    const inner = h('div', { class: 'roll-inner' });
+    const thumb = h('div', { class: 'roll-vthumb', title: 'Glisser pour faire défiler les notes' });
+    const bar = h('div', { class: 'roll-vbar', style: `height:${ROLL_VIEW * ROLL_ROW_H}px` }, thumb);
+    const view = h(
+      'div',
+      { class: 'roll-view', style: `height:${ROLL_VIEW * ROLL_ROW_H}px` },
+      h('div', { class: 'roll-side' }, bar),
+      inner
+    );
+    const roll = h('div', { class: 'roll' }, tools, view);
+    const scroller = makeRollScroller(track, view, inner, bar, thumb, rangeLabel);
     for (let midi = high; midi >= low; midi--) {
       const black = SS.isBlackKey(midi);
       const isC = midi % 12 === 0;
@@ -397,7 +409,7 @@ SS.ui = (() => {
         e.preventDefault();
         noteGesture(track, +cell.dataset.step, +cell.dataset.midi, e);
       });
-      roll.append(
+      inner.append(
         h(
           'div',
           { class: 'roll-row' + (black ? ' black' : '') + (isC ? ' c' : '') },
@@ -408,7 +420,9 @@ SS.ui = (() => {
               'span',
               {
                 class: (black ? 'black' : '') + (isC ? ' c' : ''),
-                onpointerdown: () => SS.audio.preview(track, track.category === 'mono' ? midi : SS.chordNotes(midi, track.chord)),
+                // clic : écouter la note ; glisser : faire défiler le piano roll
+                onpointerdown: (e) =>
+                  scroller.dragFrom(e, () => SS.audio.preview(track, track.category === 'mono' ? midi : SS.chordNotes(midi, track.chord))),
               },
               isC || !black ? SS.noteName(midi) : ''
             )
@@ -417,13 +431,117 @@ SS.ui = (() => {
         )
       );
     }
+    scroller.init();
     return roll;
   }
 
-  function shiftOctave(track, d) {
-    track.octave = Math.max(0, Math.min(7, track.octave + d));
-    app.changed();
-    renderTrack(track);
+  /* ---------- Défilement vertical du piano roll ---------- */
+  const ROLL_LOW = 24; // C1
+  const ROLL_HIGH = 108; // C8
+  const ROLL_ROW_H = 16; // = --roll-h
+  const ROLL_VIEW = 25; // lignes visibles (2 octaves)
+
+  /**
+   * Le piano roll ne peut pas être un conteneur défilant natif : il casserait l'alignement
+   * horizontal (en-têtes collants) avec le reste des pistes. On décale donc son contenu
+   * (translateY) et on dessine notre propre barre de défilement, pilotée par la molette,
+   * par le glisser du clavier, le bouton du milieu ou la barre elle-même.
+   */
+  function makeRollScroller(track, view, inner, bar, thumb, rangeLabel) {
+    const total = (ROLL_HIGH - ROLL_LOW + 1) * ROLL_ROW_H;
+    const viewH = ROLL_VIEW * ROLL_ROW_H;
+    const maxOff = total - viewH;
+    const thumbH = Math.max(28, Math.round((viewH / total) * viewH));
+    thumb.style.height = thumbH + 'px';
+    let off = 0;
+
+    function set(v) {
+      off = Math.max(0, Math.min(maxOff, v));
+      inner.style.transform = `translateY(${-off}px)`;
+      thumb.style.top = Math.round((off / maxOff) * (viewH - thumbH)) + 'px';
+      const top = ROLL_HIGH - Math.round(off / ROLL_ROW_H);
+      const bottom = top - ROLL_VIEW + 1;
+      rangeLabel.textContent = `${SS.noteName(bottom)} – ${SS.noteName(top)}`;
+      track.rollTop = top;
+      // l'octave « de travail » (note posée par défaut sur la ligne compacte) suit la vue
+      track.octave = Math.max(0, Math.min(7, Math.ceil(bottom / 12) - 1));
+    }
+
+    function init() {
+      const top = track.rollTop ?? (track.octave + 1) * 12 + 24;
+      set((ROLL_HIGH - top) * ROLL_ROW_H);
+    }
+
+    // molette (ou pavé tactile) : défile les notes ; aux butées, on laisse défiler la page
+    view.addEventListener(
+      'wheel',
+      (e) => {
+        if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; // défilement horizontal : la page
+        const d = e.deltaY * (e.deltaMode === 1 ? ROLL_ROW_H : e.deltaMode === 2 ? viewH : 1);
+        if ((off <= 0 && d < 0) || (off >= maxOff && d > 0)) return;
+        e.preventDefault();
+        set(off + d);
+      },
+      { passive: false }
+    );
+
+    // glisser le pouce de la barre
+    thumb.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      thumb.setPointerCapture(e.pointerId);
+      thumb.classList.add('drag');
+      const y0 = e.clientY;
+      const o0 = off;
+      const ratio = maxOff / (viewH - thumbH);
+      const move = (ev) => set(o0 + (ev.clientY - y0) * ratio);
+      const up = () => {
+        thumb.classList.remove('drag');
+        thumb.removeEventListener('pointermove', move);
+        thumb.removeEventListener('pointerup', up);
+        thumb.removeEventListener('pointercancel', up);
+      };
+      thumb.addEventListener('pointermove', move);
+      thumb.addEventListener('pointerup', up);
+      thumb.addEventListener('pointercancel', up);
+    });
+    // clic dans la barre : saute d'une page
+    bar.addEventListener('pointerdown', (e) => {
+      if (e.target !== bar) return;
+      const thumbTop = thumb.getBoundingClientRect().top;
+      set(off + (e.clientY < thumbTop ? -1 : 1) * (viewH - 2 * ROLL_ROW_H));
+    });
+
+    /** Glisser pour faire défiler (clavier, ou bouton du milieu partout). Un simple clic appelle onClick. */
+    function dragFrom(e, onClick) {
+      e.preventDefault();
+      const y0 = e.clientY;
+      const o0 = off;
+      let dragging = false;
+      const move = (ev) => {
+        if (!dragging && Math.abs(ev.clientY - y0) > 4) {
+          dragging = true;
+          view.classList.add('grabbing');
+        }
+        if (dragging) set(o0 - (ev.clientY - y0)); // le contenu suit la main
+      };
+      const up = () => {
+        document.removeEventListener('pointermove', move);
+        document.removeEventListener('pointerup', up);
+        document.removeEventListener('pointercancel', up);
+        view.classList.remove('grabbing');
+        if (!dragging && onClick) onClick();
+      };
+      document.addEventListener('pointermove', move);
+      document.addEventListener('pointerup', up);
+      document.addEventListener('pointercancel', up);
+    }
+    // bouton du milieu : saisir le fond n'importe où
+    view.addEventListener('pointerdown', (e) => {
+      if (e.button === 1) dragFrom(e, null);
+    });
+
+    return { init, by: (d) => set(off + d), dragFrom };
   }
 
   /* ---------- Peinture des cases ---------- */

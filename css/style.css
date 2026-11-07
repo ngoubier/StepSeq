@@ -280,7 +280,7 @@ a.btn { text-decoration: none; }
 .cell.on.now { filter: brightness(1.35); }
 
 /* Piano roll */
-.roll { background: #1b1b1e; border-top: 1px solid #000; }
+.roll { background: #1b1b1e; border-top: 1px solid #000; width: max-content; min-width: 100%; }
 .roll-tools {
   position: sticky;
   left: 0;
@@ -597,3 +597,33 @@ dialog.sd-dialog { width: min(820px, calc(100vw - 32px)); }
 .dlg-row input[type=search] { background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 6px 8px; font: inherit; }
 .dlg-label small { text-transform: none; letter-spacing: 0; }
 #dlgInstrument optgroup { color: var(--muted); font-style: normal; }
+
+/* ---------- Défilement vertical du piano roll ---------- */
+.roll-view { position: relative; overflow-y: clip; overflow-x: visible; }
+.roll-inner { will-change: transform; }
+.roll-side { position: sticky; left: 0; height: 0; width: 0; z-index: 5; }
+.roll-vbar {
+  position: absolute;
+  top: 0;
+  left: calc(var(--head) - 14px);
+  width: 10px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, .06);
+  cursor: pointer;
+  touch-action: none;
+}
+.roll-vthumb {
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  border-radius: 4px;
+  background: #6b6b75;
+  cursor: grab;
+  touch-action: none;
+}
+.roll-vthumb:hover, .roll-vthumb.drag { background: #9a9aa6; }
+.roll-vthumb.drag { cursor: grabbing; }
+.roll-key span { cursor: ns-resize; touch-action: none; }
+.roll-key { padding-right: 16px; }
+.roll-view.grabbing, .roll-view.grabbing * { cursor: grabbing !important; }
+.roll-range { font-variant-numeric: tabular-nums; min-width: 72px; display: inline-block; text-align: center; }
