@@ -459,7 +459,7 @@ SS.junoPanel = (() => {
     syncAll();
   }
 
-  /** Afficheur à LED : « banquenuméro. » (ex. « 11. »), « -- » en manuel. */
+  /** Afficheur à LED : banque puis numéro (ex. « 11 »), « -- » en manuel. */
   function showLed(bank, num) {
     const d = $('#junoDisplay');
     if (bank == null) {
@@ -467,7 +467,7 @@ SS.junoPanel = (() => {
       d.setAttribute('aria-label', 'Manual');
       return;
     }
-    d.replaceChildren(el('span', '', { text: String(bank) }), el('span', '', { text: String(num) }), el('i', 'dp'));
+    d.replaceChildren(el('span', '', { text: `${bank}${num}` }));
     d.setAttribute('aria-label', `Banque ${bank}, patch ${num}`);
   }
 
