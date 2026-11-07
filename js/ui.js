@@ -150,12 +150,7 @@ SS.ui = (() => {
   function renderAll() {
     const p = app.project();
     document.documentElement.style.setProperty('--steps', SS.totalSteps(p));
-    // colonnes fixes : chaque pas est un petit carré, avec un écart en début de temps et de mesure
-    const beat = SS.stepsPerBeat(p);
-    const bar = SS.stepsPerBar(p);
-    const cols = [];
-    for (let i = 0; i < SS.totalSteps(p); i++) cols.push(i > 0 && i % bar === 0 ? '40px' : i > 0 && i % beat === 0 ? '34px' : '30px');
-    document.documentElement.style.setProperty('--grid-cols', cols.join(' '));
+    applyZoomVars();
     renderRuler();
     const container = $('#tracks');
     container.replaceChildren();
@@ -727,6 +722,7 @@ SS.ui = (() => {
       'wheel',
       (e) => {
         if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; // défilement horizontal : la page
+        if (e.ctrlKey || e.metaKey) return; // Ctrl+molette : zoom horizontal (espace de travail)
         const d = e.deltaY * (e.deltaMode === 1 ? ROLL_ROW_H : e.deltaMode === 2 ? viewH : 1);
         if ((off <= 0 && d < 0) || (off >= maxOff && d > 0)) return;
         e.preventDefault();
@@ -1169,6 +1165,12 @@ SS.ui = (() => {
       const sign = e.key === 'ArrowRight' || e.key === 'ArrowUp' ? 1 : -1;
       return run(() => nudge(horiz ? sign * (e.shiftKey ? SS.stepsPerBar(app.project()) : 1) : 0, horiz ? 0 : sign * (e.shiftKey ? 12 : 1)));
     }
+    // zoom horizontal : - et + (= sur clavier français sans Maj), 0 : tout voir
+    if (!mod && !e.altKey && e.target.type !== 'range') {
+      if (e.key === '-') return run(() => setZoom(zoom / ZOOM_STEP));
+      if (e.key === '+' || e.key === '=') return run(() => setZoom(zoom * ZOOM_STEP));
+      if (e.key === '0') return run(fitZoom);
+    }
     if (!mod && e.key === 'Escape' && (sel || selectMode)) return run(() => (sel ? setSelection(null) : setSelectMode(false)));
     return false;
   }
@@ -1499,7 +1501,8 @@ SS.ui = (() => {
     if (!ev || s !== ev.step + ev.len - 1) return null;
     if (cell.dataset.midi && !ev.notes.includes(+cell.dataset.midi)) return null; // piano roll : sur une ligne de la note
     const r = cell.getBoundingClientRect();
-    return clientX >= r.right - EDGE_PX && clientX <= r.right + 3 ? ev : null;
+    // case étroite (zoom arrière) : la poignée ne doit pas couvrir toute la note
+    return clientX >= r.right - Math.min(EDGE_PX, r.width * 0.35) && clientX <= r.right + 3 ? ev : null;
   }
 
   /** Curseur « poignée » au survol du bord droit d'une note. */
@@ -1983,6 +1986,109 @@ SS.ui = (() => {
     const beat = SS.stepsPerBeat(p);
     $('#position').textContent = `${Math.floor(g / spb) + 1} . ${Math.floor((g % spb) / beat) + 1} . ${(g % beat) + 1}`;
     if (follow.on && SS.audio.isPlaying()) followPlayhead(g, spb);
+  }
+
+  /* ---------- Zoom horizontal : voir plus (ou moins) de mesures ---------- */
+  // Le zoom ne change que la largeur des colonnes (variables CSS) : rien n'est reconstruit.
+  const ZOOM_MIN = 0.1;
+  const ZOOM_MAX = 2;
+  const ZOOM_STEP = 1.25;
+  const BASE_COL = { step: 30, beat: 34, bar: 40 }; // largeur d'une colonne à 100 % (case + marges)
+  let zoom = 1;
+  try {
+    zoom = clamp(parseFloat(localStorage.getItem('stepseq.zoom')) || 1, ZOOM_MIN, ZOOM_MAX);
+  } catch (e) {
+    /* stockage indisponible : 100 % */
+  }
+
+  function baseCols() {
+    const p = app.project();
+    const beat = SS.stepsPerBeat(p);
+    const bar = SS.stepsPerBar(p);
+    const cols = [];
+    for (let i = 0; i < SS.totalSteps(p); i++) cols.push(i > 0 && i % bar === 0 ? BASE_COL.bar : i > 0 && i % beat === 0 ? BASE_COL.beat : BASE_COL.step);
+    return cols;
+  }
+
+  const headWidth = () => ($('#ruler .head-spacer') || { offsetWidth: 0 }).offsetWidth;
+
+  /** Largeur des colonnes selon le zoom, styles compacts, état des commandes. */
+  function applyZoomVars() {
+    const root = document.documentElement.style;
+    root.setProperty('--grid-cols', baseCols().map((w) => +(w * zoom).toFixed(2) + 'px').join(' '));
+    root.setProperty('--zx', zoom);
+    document.body.classList.toggle('zoom-compact', zoom < 0.65);
+    document.body.classList.toggle('zoom-tiny', zoom < 0.4);
+    const range = $('#zoomRange');
+    if (range) range.value = Math.round((Math.log(zoom / ZOOM_MIN) / Math.log(ZOOM_MAX / ZOOM_MIN)) * 1000);
+    const label = $('#zoomLabel');
+    if (label) {
+      label.textContent = `${Math.round(zoom * 100)} %`;
+      const ws = $('#workspace');
+      const p = app.project();
+      const barW = (BASE_COL.step * (SS.stepsPerBar(p) - 1) + BASE_COL.bar) * zoom;
+      const visible = Math.max(0, (ws.clientWidth - headWidth() - 20) / barW);
+      label.title = `Environ ${visible < 10 ? visible.toFixed(1).replace('.', ',') : Math.floor(visible)} mesure(s) visible(s)`;
+    }
+    if ($('#zoomOut')) $('#zoomOut').disabled = zoom <= ZOOM_MIN + 1e-6;
+    if ($('#zoomIn')) $('#zoomIn').disabled = zoom >= ZOOM_MAX - 1e-6;
+  }
+
+  /**
+   * Change le zoom en gardant immobile le pas sous anchorX (pointeur pour Ctrl+molette ;
+   * par défaut, le milieu de la zone visible).
+   */
+  function setZoom(z, anchorX = null) {
+    z = clamp(z, ZOOM_MIN, ZOOM_MAX);
+    if (Math.abs(z - zoom) < 1e-4) return;
+    const ws = $('#workspace');
+    const r = ws.getBoundingClientRect();
+    const head = headWidth();
+    const ax = (anchorX ?? r.left + head + (ws.clientWidth - head) / 2) - r.left;
+    const origin = head + 8; // début de la grille (après l'en-tête et la marge gauche)
+    const gridX = Math.max(0, ws.scrollLeft + ax - origin);
+    const ratio = z / zoom;
+    zoom = z;
+    applyZoomVars();
+    ws.scrollLeft = Math.max(0, origin + gridX * ratio - ax);
+    app.project().tracks.forEach((t) => refs.has(t.id) && applyLen(t, refs.get(t.id))); // poignées de fin de boucle
+    try {
+      localStorage.setItem('stepseq.zoom', String(zoom));
+    } catch (e) {
+      /* ignore */
+    }
+  }
+
+  /** « Tout voir » : toutes les mesures du projet dans la largeur de l'écran. */
+  function fitZoom() {
+    const ws = $('#workspace');
+    const total = baseCols().reduce((a, b) => a + b, 0);
+    const avail = ws.clientWidth - headWidth() - 8 - 12 - 6;
+    setZoom(avail / total);
+    ws.scrollLeft = 0;
+  }
+
+  function initZoom() {
+    const ws = $('#workspace');
+    // Ctrl / Cmd + molette (ou pincement sur un pavé tactile) : zoom autour du pointeur
+    ws.addEventListener(
+      'wheel',
+      (e) => {
+        if (!(e.ctrlKey || e.metaKey)) return;
+        e.preventDefault();
+        const d = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1);
+        setZoom(zoom * Math.exp(-d * 0.0025), e.clientX);
+      },
+      { passive: false }
+    );
+    const on = (id, ev, fn) => $(id) && $(id).addEventListener(ev, fn);
+    on('#zoomOut', 'click', () => setZoom(zoom / ZOOM_STEP));
+    on('#zoomIn', 'click', () => setZoom(zoom * ZOOM_STEP));
+    on('#zoomFit', 'click', fitZoom);
+    on('#zoomRange', 'input', (e) => setZoom(ZOOM_MIN * Math.pow(ZOOM_MAX / ZOOM_MIN, e.target.value / 1000)));
+    on('#zoomRange', 'dblclick', () => setZoom(1));
+    on('#zoomLabel', 'click', () => setZoom(1));
+    window.addEventListener('resize', () => applyZoomVars());
   }
 
   /* ---------- Suivre la lecture : défilement horizontal automatique ---------- */
@@ -2662,6 +2768,7 @@ SS.ui = (() => {
     }
     initDialog();
     initSelection();
+    initZoom();
   }
 
   function initSelection() {

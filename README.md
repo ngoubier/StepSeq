@@ -76,6 +76,12 @@ dernière note (ou le dernier accord) utilisée.
   **Alt+glisser** en déplace une copie. Flèches `←` `→` : un pas (Maj : une mesure),
   `↑` `↓` : un demi-ton (Maj : une octave).
 
+### Zoom horizontal
+
+En bas à droite : **−** / **+**, le curseur, ou `Ctrl`+molette (pincement sur un pavé tactile), de 10 % à 200 %,
+pour voir plus de mesures à la fois. **Tout voir** (touche `0`) fait tenir toutes les mesures à l'écran ;
+un clic sur le pourcentage revient à 100 %. Touches `−` et `+` (ou `=`).
+
 ### Raccourcis
 
 - `Espace` : lecture / stop
