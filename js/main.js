@@ -7,7 +7,7 @@
 
   let project;
   let dirty = false;
-  const state = { editMode: 'toggle', openRolls: new Set(), songStart: 0 };
+  const state = { openRolls: new Set(), songStart: 0 };
 
   /* ---------- Annuler / Rétablir ----------
    * On garde des instantanés du projet (JSON). Chaque modification enregistre l'état précédent ;
@@ -253,16 +253,6 @@
     });
     $('#openProject').addEventListener('click', openProject);
     $('#saveProject').addEventListener('click', (e) => saveProject(e.shiftKey));
-
-    $('#editMode').addEventListener('click', (e) => {
-      const b = e.target.closest('button');
-      if (!b) return;
-      state.editMode = b.dataset.mode;
-      document.querySelectorAll('#editMode button').forEach((x) => x.classList.toggle('active', x === b));
-      document.body.classList.toggle('mode-toggle', state.editMode === 'toggle');
-      document.body.classList.toggle('mode-velocity', state.editMode === 'velocity');
-    });
-    document.body.classList.add('mode-toggle');
   }
 
   /* ---------- Transport ---------- */

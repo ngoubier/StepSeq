@@ -164,7 +164,6 @@ SS.ui = (() => {
     $('#empty').classList.toggle('show', p.tracks.length === 0);
     $('#ruler').style.display = p.tracks.length ? '' : 'none';
     setPlayhead(nowStep);
-    updateNoteButton();
     if (SS.mixer && SS.mixer.isOpen()) SS.mixer.render();
   }
 
@@ -293,7 +292,6 @@ SS.ui = (() => {
       e.preventDefault();
       const s = +cell.dataset.step;
       if (s >= SS.trackLen(app.project(), track)) return; // au-delà de la boucle de la piste
-      if (app.state.editMode === 'velocity') return drawVelocity(track, grid, cell, e);
       const edge = noteEdgeAt(track, cell, e.clientX);
       if (edge) return resizeNote(track, edge, e);
       const top = velEdgeAt(track, cell, e.clientY);
@@ -474,7 +472,6 @@ SS.ui = (() => {
         if (!cell || e.button !== 0) return;
         e.preventDefault();
         if (+cell.dataset.step >= SS.trackLen(app.project(), track)) return;
-        if (app.state.editMode === 'velocity') return drawVelocity(track, grid, cell, e);
         const edge = noteEdgeAt(track, cell, e.clientX);
         if (edge) return resizeNote(track, edge, e);
         const top = velEdgeAt(track, cell, e.clientY);
@@ -828,21 +825,10 @@ SS.ui = (() => {
     sel = track && ev ? { track, ev } : null;
     if (prev && prev !== track) paint(prev);
     if (track) paint(track);
-    updateNoteButton();
   }
 
   function unselectIfRemoved(track) {
     if (sel && sel.track === track && !track.events.includes(sel.ev)) select(null, null);
-  }
-
-  function updateNoteButton() {
-    const btn = $('#noteBtn');
-    if (!btn) return;
-    const cur = validSelection();
-    btn.disabled = !cur;
-    $('#noteBtnLabel').textContent = cur
-      ? `${cur.track.category === 'mono' ? 'Note' : 'Accord'} ${eventLabel(cur.track, cur.ev)} · ${cur.track.name}`
-      : 'Aucune note sélectionnée';
   }
 
   /* ------------------------------------------------------------------ */
@@ -895,7 +881,7 @@ SS.ui = (() => {
 
   /** La note dont le bord droit est sous le pointeur (mode On/Off seulement), sinon null. */
   function noteEdgeAt(track, cell, clientX) {
-    if (track.type !== 'instrument' || app.state.editMode !== 'toggle' || !cell) return null;
+    if (track.type !== 'instrument' || !cell) return null;
     const s = +cell.dataset.step;
     const ev = findEventAt(track, s);
     if (!ev || s !== ev.step + ev.len - 1) return null;
@@ -942,7 +928,7 @@ SS.ui = (() => {
 
   /** Le pointeur est-il sur le haut du remplissage (mode On/Off) ? */
   function velEdgeAt(track, cell, clientY) {
-    if (app.state.editMode !== 'toggle' || !cell) return null;
+    if (!cell) return null;
     if (cell.classList.contains('rcell')) {
       // piano roll : bande du haut d'une case de note (la vélocité y est montrée par l'opacité)
       if (!cell.classList.contains('on')) return null;
@@ -989,72 +975,8 @@ SS.ui = (() => {
       () => {
         badge.remove();
         document.body.classList.remove('dragging-vel');
-        updateNoteButton();
       }
     );
-  }
-
-  /**
-   * Mode Vélocité = dessin : on glisse sur les pas et chaque note traversée prend la vélocité
-   * de la hauteur du pointeur (ligne compacte : hauteur dans la case ; piano roll : glissé vertical
-   * depuis la vélocité de la première note). Les pas sautés par un geste rapide sont interpolés,
-   * ce qui permet de tracer des rampes (crescendo) d'un seul geste. Les pas vides ne sont pas créés.
-   */
-  function drawVelocity(track, grid, cell0, e) {
-    e.preventDefault();
-    const roll = cell0.classList.contains('rcell');
-    const n = SS.trackLen(app.project(), track);
-    // cases d'une même rangée, repérées par leur position horizontale (le pointeur peut sortir de la rangée)
-    const row = roll ? [...grid.querySelectorAll(`.rcell[data-midi="${cell0.dataset.midi}"]`)] : refs.get(track.id).cells;
-    const rects = row.map((c) => c.getBoundingClientRect());
-    const cellAtX = (x) => {
-      let best = 0;
-      for (let i = 0; i < rects.length; i++) {
-        if (x >= rects[i].left && x <= rects[i].right) return i;
-        if (Math.abs(x - (rects[i].left + rects[i].right) / 2) < Math.abs(x - (rects[best].left + rects[best].right) / 2)) best = i;
-      }
-      return best;
-    };
-    const first = velTarget(track, +cell0.dataset.step);
-    const rollStart = first ? first.get() : 0.8;
-    const startY = e.clientY;
-    const valueAt = (pe, i) => {
-      if (!roll) return clamp((rects[i].bottom - pe.clientY) / rects[i].height, 0.05, 1);
-      return clamp(rollStart + (startY - pe.clientY) / 150, 0.05, 1);
-    };
-    const setStep = (s, v) => {
-      if (s < 0 || s >= n) return;
-      const t = velTarget(track, s);
-      if (t) t.set(Math.round(v * 127) / 127);
-    };
-    const badge = h('div', { class: 'vel-badge', role: 'status' });
-    document.body.append(badge);
-    document.body.classList.add('drawing-vel');
-    let last = null;
-    const at = (pe) => {
-      const i = cellAtX(pe.clientX);
-      const s = +row[i].dataset.step;
-      const v = valueAt(pe, i);
-      if (last && last.s !== s) {
-        const d = s - last.s;
-        const dir = Math.sign(d);
-        for (let k = last.s + dir; k !== s; k += dir) setStep(k, last.v + ((v - last.v) * (k - last.s)) / d);
-      }
-      setStep(s, v);
-      last = { s, v };
-      paint(track);
-      const has = !!velTarget(track, s);
-      badge.textContent = has ? `Vélocité ${Math.round(v * 127)}` : `${Math.round(v * 127)} · pas vide`;
-      badge.classList.toggle('muted', !has);
-      badge.style.left = pe.clientX + 'px';
-      badge.style.top = Math.max(4, pe.clientY - 38) + 'px';
-    };
-    at(e);
-    track_gesture(at, () => {
-      badge.remove();
-      document.body.classList.remove('drawing-vel');
-      updateNoteButton();
-    });
   }
 
   /** Glisser le bord droit : la case sous le pointeur devient la dernière de la note. */
@@ -1077,7 +999,6 @@ SS.ui = (() => {
       },
       () => {
         document.body.classList.remove('resizing-note');
-        updateNoteButton();
       }
     );
   }
@@ -1233,7 +1154,6 @@ SS.ui = (() => {
 
     const commit = () => {
       paint(track);
-      updateNoteButton();
       app.changed();
       if (!SS.audio.isPlaying()) SS.audio.preview(track, ev.notes.length === 1 ? ev.notes[0] : ev.notes);
       render();
@@ -1277,7 +1197,6 @@ SS.ui = (() => {
       clearTimeout(saveT);
       saveT = setTimeout(() => {
         app.changed();
-        updateNoteButton();
       }, 250);
     };
     function paramRow(label, get, set, min, max, fmt, title) {
@@ -1410,130 +1329,6 @@ SS.ui = (() => {
     document.addEventListener('keydown', onMenuKey, true);
     window.addEventListener('resize', closeChordMenu);
     document.getElementById('workspace').addEventListener('scroll', closeChordMenu);
-  }
-
-  /* ------------------------------------------------------------------ */
-  /* Dialogue « Modifier la note / l'accord »                            */
-  /* ------------------------------------------------------------------ */
-
-  const nd = { track: null, ev: null, root: 60, chord: 'maj', len: 1, vel: 0.8 };
-
-  function initNoteDialog() {
-    nd.el = $('#noteDialog');
-    SS.NOTE_NAMES.forEach((n, i) => $('#ndNote').append(h('option', { value: i }, n)));
-    for (let o = 0; o <= 8; o++) $('#ndOct').append(h('option', { value: o }, String(o)));
-    SS.CHORDS.forEach((c) => $('#ndChord').append(h('option', { value: c.id }, c.label)));
-
-    const pitchChanged = () => {
-      nd.root = clamp(+$('#ndNote').value + (+$('#ndOct').value + 1) * 12, 0, 127);
-      syncNoteDialog();
-      previewNote();
-    };
-    $('#ndNote').addEventListener('change', pitchChanged);
-    $('#ndOct').addEventListener('change', pitchChanged);
-    nd.el.querySelectorAll('[data-shift]').forEach((b) =>
-      b.addEventListener('click', () => {
-        nd.root = clamp(nd.root + +b.dataset.shift, 12, 119);
-        syncNoteDialog();
-        previewNote();
-      })
-    );
-    $('#ndChord').addEventListener('change', (e) => {
-      nd.chord = e.target.value;
-      syncNoteDialog();
-      previewNote();
-    });
-    $('#ndLen').addEventListener('input', (e) => {
-      const v = parseInt(e.target.value, 10);
-      if (Number.isFinite(v)) nd.len = clamp(v, 1, nd.maxLen);
-      syncNoteDialog(true);
-    });
-    $('#ndVel').addEventListener('input', (e) => {
-      nd.vel = +e.target.value / 127;
-      syncNoteDialog(true);
-    });
-    $('#ndPreview').addEventListener('click', previewNote);
-    $('#ndCancel').addEventListener('click', () => nd.el.close('cancel'));
-    $('#ndDelete').addEventListener('click', () => nd.el.close('delete'));
-    $('#noteForm').addEventListener('submit', (e) => {
-      e.preventDefault();
-      nd.el.close('ok');
-    });
-    nd.el.addEventListener('close', () => {
-      const { track, ev } = nd;
-      const action = nd.el.returnValue;
-      if (!track || !ev || !track.events.includes(ev)) return;
-      if (action === 'ok') {
-        ev.notes = ndNotes();
-        if (track.category !== 'mono') ev.chord = nd.chord;
-        ev.len = clamp(nd.len, 1, nd.maxLen);
-        ev.vel = clamp(nd.vel, 0.05, 1);
-        track.lastRoot = nd.root;
-        select(track, ev);
-        app.changed();
-      } else if (action === 'delete') {
-        track.events = track.events.filter((x) => x !== ev);
-        unselectIfRemoved(track);
-        paint(track);
-        app.changed();
-      }
-    });
-    nd.el.addEventListener('keydown', (e) => e.stopPropagation());
-    $('#noteBtn').addEventListener('click', () => {
-      const cur = validSelection();
-      if (cur) openNoteDialog(cur.track, cur.ev);
-    });
-  }
-
-  const ndNotes = () => (nd.track.category === 'mono' ? [nd.root] : SS.chordNotes(nd.root, nd.chord));
-
-  function previewNote() {
-    if (!nd.track) return;
-    const notes = ndNotes();
-    SS.audio.preview(nd.track, notes.length === 1 ? notes[0] : notes);
-  }
-
-  function syncNoteDialog(keepInputs) {
-    const mono = nd.track.category === 'mono';
-    if (!keepInputs) {
-      $('#ndNote').value = String(nd.root % 12);
-      $('#ndOct').value = String(Math.floor(nd.root / 12) - 1);
-      $('#ndChord').value = nd.chord;
-      $('#ndLen').value = nd.len;
-      $('#ndVel').value = Math.round(nd.vel * 127);
-    }
-    $('#ndVelOut').textContent = Math.round(nd.vel * 127);
-    const notes = ndNotes();
-    const label = mono ? SS.noteName(nd.root) : SS.NOTE_NAMES[nd.root % 12] + (CHORD_SUFFIX[nd.chord] ?? '');
-    $('#ndSummary').replaceChildren(
-      h('b', {}, label),
-      mono ? '' : notes.map(SS.noteName).join(' · '),
-      h('span', { style: 'color:var(--muted)' }, `  —  ${nd.len} pas, vélocité ${Math.round(nd.vel * 127)}`)
-    );
-  }
-
-  function openNoteDialog(track, ev) {
-    if (!track || !ev || !track.events.includes(ev)) return;
-    closeChordMenu();
-    select(track, ev);
-    const mono = track.category === 'mono';
-    const n = SS.trackLen(app.project(), track);
-    const next = track.events.find((x) => x !== ev && x.step > ev.step);
-    nd.track = track;
-    nd.ev = ev;
-    nd.root = ev.notes[0];
-    nd.chord = ev.chord || track.chord || 'maj';
-    nd.len = ev.len;
-    nd.vel = ev.vel;
-    nd.maxLen = (next ? next.step : n) - ev.step;
-    $('#ndTitle').textContent = mono ? 'Modifier la note' : 'Modifier l’accord';
-    $('#ndPitchLabel').textContent = mono ? 'Hauteur' : 'Fondamentale';
-    $('#ndTrack').textContent = `${track.name} · pas ${ev.step + 1}`;
-    $('#ndChordRow').hidden = mono;
-    $('#ndLen').max = nd.maxLen;
-    syncNoteDialog();
-    nd.el.returnValue = '';
-    nd.el.showModal();
   }
 
   /* ------------------------------------------------------------------ */
@@ -2241,7 +2036,6 @@ SS.ui = (() => {
       fp.addEventListener('change', (e) => setFollow(e.target.checked));
     }
     initDialog();
-    initNoteDialog();
   }
 
   return { init, renderAll, renderTrack, paint, setPlayhead, toast, openTrackDialog, trackSubtitle, clearSelection: () => select(null, null) };

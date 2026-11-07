@@ -132,14 +132,6 @@
     <label class="follow-toggle" title="Pendant la lecture, la grille défile pour garder la mesure jouée visible">
       <input type="checkbox" id="followPlay" checked> Suivre la lecture
     </label>
-    <button id="noteBtn" class="btn note-btn" type="button" disabled title="Modifier la note ou l'accord sélectionné">
-      <svg viewBox="0 0 24 24"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3" class="fill"/><circle cx="17" cy="16" r="3" class="fill"/></svg>
-      <span id="noteBtnLabel">Aucune note sélectionnée</span>
-    </button>
-    <div class="segmented" id="editMode" role="radiogroup" aria-label="Mode d'édition">
-      <button data-mode="toggle" class="active" title="Clic : poser / effacer des notes · glisser : peindre des pas">On/Off</button>
-      <button data-mode="velocity" title="Dessiner la vélocité : glisser sur les notes, la hauteur du pointeur donne la force (rampes et accents d'un seul geste)">✎ Vélocité</button>
-    </div>
   </footer>
 
   <!-- Dialogue d'ajout / modification de piste -->
@@ -251,57 +243,6 @@
         <span class="spacer"></span>
         <button type="button" id="dlgCancel" class="btn">Annuler</button>
         <button type="submit" id="dlgOk" class="btn btn-accent">Valider</button>
-      </div>
-    </form>
-  </dialog>
-
-  <!-- Dialogue de paramétrage de la note / de l'accord sélectionné -->
-  <dialog id="noteDialog">
-    <form method="dialog" id="noteForm">
-      <h2 id="ndTitle">Modifier la note</h2>
-      <p id="ndTrack" class="dlg-sub"></p>
-
-      <div class="dlg-row">
-        <span class="dlg-label" id="ndPitchLabel">Hauteur</span>
-        <div class="pitch-row">
-          <select id="ndNote" aria-label="Note"></select>
-          <select id="ndOct" aria-label="Octave"></select>
-          <div class="pitch-steps">
-            <button type="button" class="btn" data-shift="-12" title="Une octave plus bas">−8ve</button>
-            <button type="button" class="btn" data-shift="-1" title="Un demi-ton plus bas">−½</button>
-            <button type="button" class="btn" data-shift="1" title="Un demi-ton plus haut">+½</button>
-            <button type="button" class="btn" data-shift="12" title="Une octave plus haut">+8ve</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="dlg-row" id="ndChordRow">
-        <label class="dlg-label" for="ndChord">Type d'accord</label>
-        <select id="ndChord"></select>
-      </div>
-
-      <div class="dlg-grid">
-        <div class="dlg-row">
-          <label class="dlg-label" for="ndLen">Longueur (pas)</label>
-          <input id="ndLen" type="number" min="1" step="1">
-        </div>
-        <div class="dlg-row">
-          <label class="dlg-label" for="ndVel">Vélocité <output id="ndVelOut"></output></label>
-          <input id="ndVel" type="range" min="1" max="127" step="1">
-        </div>
-      </div>
-
-      <p id="ndSummary" class="nd-summary"></p>
-
-      <div class="dlg-footer">
-        <button type="button" id="ndPreview" class="btn">
-          <svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z" class="fill"/><path d="M16 8.5a5 5 0 0 1 0 7"/></svg>
-          Écouter
-        </button>
-        <button type="button" id="ndDelete" class="btn btn-danger">Supprimer</button>
-        <span class="spacer"></span>
-        <button type="button" id="ndCancel" class="btn">Annuler</button>
-        <button type="submit" id="ndOk" class="btn btn-accent">Appliquer</button>
       </div>
     </form>
   </dialog>
