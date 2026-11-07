@@ -87,6 +87,7 @@
       <a href="#ajouter">Ajouter une piste</a>
       <a href="#drum">Pistes Drum</a>
       <a href="#notes">Changer une note ou un accord</a>
+      <a href="#selection">Sélection, copier, coller</a>
       <a href="#avance">Réglages avancés</a>
       <a href="#sound-design">Sound design</a>
       <a href="#effets">Effets</a>
@@ -201,6 +202,35 @@
         <li>le <b>bouton du milieu</b> de la souris : maintiens-le et glisse n'importe où dans le piano roll ;</li>
         <li><b>Octave − / +</b> pour sauter d'une octave. La plage visible s'affiche entre les deux boutons.</li>
       </ul>
+
+      <h2 id="selection">Sélectionner, copier, couper, coller</h2>
+      <p>Une sélection regroupe des notes (ou des pas de batterie) d'<b>une seule piste</b>. Les notes choisies ont un contour blanc ; la plage de temps choisie est soulignée sous les cases. La barre du bas indique ce qui est sélectionné et propose <b>Copier</b>, <b>Couper</b>, <b>Coller</b>, <b>Dupliquer</b> et <b>Supprimer</b>.</p>
+      <h3>À la souris</h3>
+      <ul>
+        <li><b>Maj + glisser</b> sur la ligne d'une piste (Drum ou instrument) : sélectionne les notes de la plage de pas parcourue.</li>
+        <li><b>Maj + glisser</b> dans le piano roll : rectangle de sélection, en temps et en hauteur.</li>
+        <li><b>Maj + clic</b> ou <b>Ctrl + clic</b> sur une note : l'ajoute à la sélection, ou l'en retire.</li>
+        <li><b>Ctrl + glisser</b> : le rectangle s'ajoute à la sélection en cours au lieu de la remplacer.</li>
+        <li>L'<b>icône de la piste</b> (à gauche du nom) sélectionne toute la piste.</li>
+        <li>Dans le piano roll, la bande <b>Mesures</b> sous la barre d'outils : clic = toute la mesure, glisser = plusieurs mesures, Maj + clic = jusqu'à cette mesure, Ctrl + clic = ajouter.</li>
+        <li>L'outil <b>Sélection</b> (en bas à gauche) : tant qu'il est actif, glisser trace un rectangle sans Maj, un clic sur une note la sélectionne sans l'effacer, un clic dans le vide désélectionne. Pratique sur tablette.</li>
+        <li>Glisser le bord droit ou le haut (vélocité) d'une note sélectionnée modifie <b>toutes</b> les notes sélectionnées d'autant.</li>
+      </ul>
+      <h3>Déplacer la sélection</h3>
+      <ul>
+        <li><b>Glisser une note sélectionnée</b> déplace toute la sélection : dans le temps sur la ligne de la piste, dans le temps et en hauteur dans le piano roll. Une bulle indique l'écart (pas, demi-tons). En mode Sélection, on peut saisir n'importe quelle note.</li>
+        <li><b>Alt + glisser</b> : déplace une <b>copie</b>, les originaux restent en place.</li>
+        <li><kbd>←</kbd> <kbd>→</kbd> : d'un pas (<kbd>Maj</kbd> : d'une mesure). <kbd>↑</kbd> <kbd>↓</kbd> : d'un demi-ton (<kbd>Maj</kbd> : d'une octave), pour les pistes instrument et synthé.</li>
+        <li>Les notes déplacées remplacent celles qu'elles chevauchent ; la sélection s'arrête au bord de la boucle de la piste. Un simple clic, sans glisser, sur une note sélectionnée garde son effet habituel (l'effacer).</li>
+        <li>Un clic dans le vide (fond, en-tête) ou <kbd>Échap</kbd> : tout désélectionner.</li>
+      </ul>
+      <h3>Où sont collées les notes ?</h3>
+      <ol>
+        <li>Sur la case (de n'importe quelle piste compatible) <b>survolée par la souris</b> au moment du <kbd>Ctrl</kbd>+<kbd>V</kbd> ;</li>
+        <li>sinon, au début d'une <b>zone vide</b> choisie (par exemple une mesure vide sélectionnée dans la bande Mesures) ;</li>
+        <li>sinon, <b>juste après la sélection</b> : <kbd>Ctrl</kbd>+<kbd>V</kbd> plusieurs fois de suite répète le motif.</li>
+      </ol>
+      <p>Les notes collées remplacent celles qu'elles chevauchent et deviennent la sélection. Les pas de batterie ne se collent que dans une piste Drum, les notes que dans une piste instrument ou synthé (sur une piste Mono, un accord collé garde sa fondamentale). Après <b>Couper</b>, la zone vidée reste choisie. Le presse-papiers est conservé d'une scène à l'autre : on peut copier une mesure du couplet et la coller dans le refrain. Tout s'annule avec <kbd>Ctrl</kbd>+<kbd>Z</kbd>.</p>
 
       <h2 id="avance">Réglages avancés</h2>
       <p>Les réglages d'accord et d'arpège sont dans la barre en haut du piano roll. Les autres sont dans l'en-tête de la piste ou dans la barre du haut.</p>
@@ -378,6 +408,15 @@
         <tr><td><kbd>Ctrl</kbd>+<kbd>O</kbd></td><td>Ouvrir un projet</td></tr>
         <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td><td>Annuler la dernière action (bouton ↶ en haut)</td></tr>
         <tr><td><kbd>Ctrl</kbd>+<kbd>Y</kbd> ou <kbd>Ctrl</kbd>+<kbd>Maj</kbd>+<kbd>Z</kbd></td><td>Rétablir l'action annulée (bouton ↷)</td></tr>
+        <tr><td><kbd>Maj</kbd> + glisser</td><td>Sélectionner des notes (rectangle)</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>A</kbd></td><td>Sélectionner toute la piste (celle de la sélection, ou celle survolée)</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd> / <kbd>Ctrl</kbd>+<kbd>X</kbd> / <kbd>Ctrl</kbd>+<kbd>V</kbd></td><td>Copier / couper / coller la sélection</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>D</kbd></td><td>Dupliquer la sélection juste après elle</td></tr>
+        <tr><td><kbd>Suppr</kbd></td><td>Supprimer les notes sélectionnées</td></tr>
+        <tr><td><kbd>←</kbd> <kbd>→</kbd> (<kbd>Maj</kbd> : une mesure)</td><td>Déplacer la sélection d'un pas</td></tr>
+        <tr><td><kbd>↑</kbd> <kbd>↓</kbd> (<kbd>Maj</kbd> : une octave)</td><td>Transposer la sélection d'un demi-ton</td></tr>
+        <tr><td><kbd>Alt</kbd> + glisser une note sélectionnée</td><td>Copier la sélection à un autre endroit</td></tr>
+        <tr><td><kbd>Échap</kbd></td><td>Tout désélectionner</td></tr>
         <tr><td>Double-clic sur un nom de piste</td><td>Renommer</td></tr>
       </table></div>
       <ul>

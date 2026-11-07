@@ -128,7 +128,20 @@
   </section>
 
   <footer class="bottombar">
-    <div class="hint">Espace : lecture / pause · Ctrl+S : enregistrer · Glisser pour peindre des pas</div>
+    <div class="sel-tools" role="toolbar" aria-label="Sélection">
+      <button type="button" id="selMode" class="btn btn-small sel-mode" aria-pressed="false" title="Outil Sélection : glisser trace un rectangle de sélection au lieu de poser des notes (sans l'outil : Maj+glisser)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h4M12 4h3M19 4v4M19 12v3M4 8v3M4 15v5h5M13 20h2" /><path d="M13 13l7 3-3 1-1 3z" class="fill"/></svg>
+        Sélection
+      </button>
+      <span id="selInfo" class="sel-info" aria-live="polite">Aucune sélection</span>
+      <button type="button" id="selCopy" class="btn btn-small" title="Copier la sélection (Ctrl+C)" disabled>Copier</button>
+      <button type="button" id="selCut" class="btn btn-small" title="Couper la sélection (Ctrl+X)" disabled>Couper</button>
+      <button type="button" id="selPaste" class="btn btn-small" title="Coller (Ctrl+V) : à la case survolée par la souris, sinon juste après la sélection" disabled>Coller</button>
+      <button type="button" id="selDup" class="btn btn-small" title="Dupliquer la sélection juste après elle (Ctrl+D)" disabled>Dupliquer</button>
+      <button type="button" id="selDel" class="btn btn-small btn-danger" title="Supprimer les notes sélectionnées (Suppr)" disabled>Supprimer</button>
+      <button type="button" id="selClear" class="btn btn-small btn-icon-small" title="Tout désélectionner (Échap)" aria-label="Tout désélectionner" disabled>✕</button>
+    </div>
+    <div class="hint">Espace : lecture · Maj+glisser : sélectionner · Ctrl+C / X / V : copier, couper, coller</div>
     <label class="follow-toggle" title="Pendant la lecture, la grille défile pour garder la mesure jouée visible">
       <input type="checkbox" id="followPlay" checked> Suivre la lecture
     </label>

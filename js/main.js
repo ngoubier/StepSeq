@@ -428,6 +428,8 @@
         openProject();
         return;
       }
+      // sélection : Ctrl+C / X / V / D / A, Suppr, Échap
+      if (SS.ui.handleKey(e)) return;
       if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
       if (e.code === 'Space') {
         e.preventDefault();

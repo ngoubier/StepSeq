@@ -62,6 +62,20 @@ Le chevron **›** dans l'en-tête d'une piste instrument affiche son piano roll
 Cliquer sur une note / un accord existant le supprime. Sur la ligne compacte, un clic pose la
 dernière note (ou le dernier accord) utilisée.
 
+### Sélection, copier, couper, coller
+
+- **Maj+glisser** sur la ligne d'une piste ou dans le piano roll : sélection rectangle (Ctrl+glisser : ajouter).
+- **Maj+clic** / **Ctrl+clic** sur une note : l'ajouter ou la retirer de la sélection.
+- **Icône de la piste** (ou `Ctrl+A`) : sélectionner toute la piste.
+- Piano roll, bande **Mesures** : clic = une mesure, glisser = plusieurs, Maj+clic = jusqu'à.
+- Outil **Sélection** (barre du bas) : glisser sélectionne sans Maj (utile au tactile).
+- `Ctrl+C` / `Ctrl+X` / `Ctrl+V` / `Ctrl+D` (dupliquer), `Suppr`, `Échap`. Le collage se fait à la case
+  survolée par la souris, sinon au début d'une zone vide sélectionnée, sinon juste après la sélection.
+  Glisser la vélocité ou la longueur d'une note sélectionnée modifie toutes les notes sélectionnées.
+- **Glisser une note sélectionnée** déplace la sélection (en hauteur aussi dans le piano roll) ;
+  **Alt+glisser** en déplace une copie. Flèches `←` `→` : un pas (Maj : une mesure),
+  `↑` `↓` : un demi-ton (Maj : une octave).
+
 ### Raccourcis
 
 - `Espace` : lecture / stop
