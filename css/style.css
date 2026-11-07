@@ -1416,3 +1416,32 @@ body.moving-notes, body.moving-notes * { cursor: grabbing !important; }
 body.copying-notes, body.copying-notes * { cursor: copy !important; }
 .grid:not(.edge-hover):not(.vel-hover) .cell.sel, .grid:not(.edge-hover):not(.vel-hover) .cell.sel-hold,
 .grid:not(.edge-hover):not(.vel-hover) .rcell.sel, .grid:not(.edge-hover):not(.vel-hover) .rcell.sel-hold { cursor: grab; }
+
+/* clavier de la façade : 2 octaves (25 touches), lettre du clavier d'ordinateur sur chaque touche */
+.juno-kb { display: flex; align-items: stretch; gap: 16px; padding: 12px 18px 16px; border-top: 3px solid #2b2b2e; background: #2f2f33; border-radius: 0 0 4px 4px; }
+.jkb-side { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-width: 96px; }
+.jkb-obtn { width: 30px; height: 24px; font: 700 15px/1 "Helvetica Neue", Arial, sans-serif; color: #222; }
+.jkb-oct { font: 18px/1 Segment14, "Courier New", monospace; color: var(--j-led); background: #1a0404; border: 2px solid #0a0a0a; padding: 4px 8px; border-radius: 2px; text-shadow: 0 0 5px rgba(255,42,26,.8); }
+.jkb-hint { font-size: 9px; font-weight: 600; color: #bdbdb8; text-align: center; max-width: 96px; line-height: 1.25; }
+.jkeys {
+  --kw: 44px; --bw: 27px;
+  position: relative; display: flex; width: calc(var(--nw) * var(--kw)); height: 150px; margin: 0 auto;
+  background: #111; padding-top: 6px; border-top: 6px solid #6b1d17; box-shadow: inset 0 6px 6px rgba(0,0,0,.5); touch-action: none; cursor: pointer;
+}
+.jkey { position: relative; display: flex; align-items: flex-end; justify-content: center; box-sizing: border-box; user-select: none; }
+.jkey.white {
+  flex: 0 0 var(--kw); height: 100%; border: 1px solid #222; border-top: 0; border-radius: 0 0 5px 5px;
+  background: linear-gradient(180deg, #e9e7e0, #fbfaf6 12%, #f4f2ec 85%, #dcd9d1);
+  box-shadow: inset 0 -5px 0 #cfccc3;
+}
+.jkey.black {
+  position: absolute; top: 6px; z-index: 2; width: var(--bw); height: 62%; border-radius: 0 0 4px 4px;
+  background: linear-gradient(180deg, #000, #1d1d1f 75%, #343437); border: 1px solid #000; border-top: 0;
+  box-shadow: inset 0 -6px 0 #0b0b0c, 0 3px 4px rgba(0,0,0,.6);
+}
+.jkey.white.down { background: linear-gradient(180deg, #d9d6cd, #e8e5dd 80%, #d0cdc4); box-shadow: inset 0 -2px 0 #c0bdb4, inset 0 3px 6px rgba(0,0,0,.25); }
+.jkey.black.down { background: linear-gradient(180deg, #000, #2a2a2d); box-shadow: inset 0 -2px 0 #0b0b0c, 0 1px 2px rgba(0,0,0,.6); }
+.jk-letter { margin-bottom: 9px; font: 700 13px/1 "Helvetica Neue", Arial, sans-serif; color: #2b2b2e; pointer-events: none; }
+.jkey.black .jk-letter { margin-bottom: 9px; font-size: 11px; color: #e9e7e0; }
+.jkey.down .jk-letter { color: var(--j-red); }
+.jkey.black.down .jk-letter { color: #ff7a6e; }
