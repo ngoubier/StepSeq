@@ -115,7 +115,27 @@
     };
     num.addEventListener('change', onSig);
     $('#sigDen').addEventListener('change', onSig);
-    $('#bars').addEventListener('change', onSig);
+    // Plus de mesures : les nouvelles reprennent le motif existant (avec possibilité de les vider)
+    $('#bars').addEventListener('change', () => {
+      const oldBars = project.bars;
+      const newBars = +$('#bars').value;
+      project.bars = newBars;
+      SS.resizeProject(project);
+      if (newBars > oldBars && project.tracks.length) {
+        SS.repeatBars(project, oldBars);
+        const what = oldBars === 1 ? 'La mesure 1 est recopiée' : `Les mesures 1 à ${oldBars} sont recopiées`;
+        SS.ui.toast(`${what} jusqu'à la mesure ${newBars}.`, 6000, {
+          label: 'Laisser vides',
+          run: () => {
+            SS.clearAfterBars(project, oldBars);
+            SS.ui.renderAll();
+            changed();
+          },
+        });
+      }
+      SS.ui.renderAll();
+      changed();
+    });
 
     $('#addTrack').addEventListener('click', addTrack);
     $('#emptyAdd').addEventListener('click', addTrack);

@@ -505,6 +505,10 @@ dialog section { display: flex; flex-direction: column; gap: 14px; }
   max-width: calc(100vw - 32px);
 }
 #toast.show { opacity: 1; transform: translateX(-50%); }
+#toast.show.has-action { pointer-events: auto; }
+#toast { display: flex; align-items: center; gap: 14px; }
+.toast-action { border: 0; background: transparent; color: #8fc3ff; font: inherit; font-weight: 600; cursor: pointer; padding: 2px 4px; white-space: nowrap; }
+.toast-action:hover { text-decoration: underline; }
 
 @media (max-width: 760px) {
   :root { --head: 210px; }

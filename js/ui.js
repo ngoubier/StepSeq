@@ -75,9 +75,23 @@ SS.ui = (() => {
 
   const findEventAt = (track, s) => track.events.find((e) => s >= e.step && s < e.step + e.len);
 
-  function toast(msg, ms = 2600) {
+  /** Message temporaire, avec un bouton d'action optionnel { label, run }. */
+  function toast(msg, ms = 2600, action) {
     const t = $('#toast');
-    t.textContent = msg;
+    t.replaceChildren(h('span', {}, msg));
+    if (action) {
+      t.append(
+        h('button', {
+          type: 'button',
+          class: 'toast-action',
+          onclick: () => {
+            t.classList.remove('show');
+            action.run();
+          },
+        }, action.label)
+      );
+    }
+    t.classList.toggle('has-action', !!action);
     t.classList.add('show');
     clearTimeout(toast._t);
     toast._t = setTimeout(() => t.classList.remove('show'), ms);

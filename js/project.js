@@ -205,3 +205,38 @@ SS.grooveOffset = (p, step, stepDur) => {
   const swung = u < 0.5 ? u * 2 * g.swing : g.swing + (u - 0.5) * 2 * (1 - g.swing);
   return (swung - u) * group * stepDur;
 };
+
+/**
+ * Après une augmentation du nombre de mesures : recopie le motif existant
+ * (les `oldBars` premières mesures) en boucle dans les nouvelles mesures.
+ */
+SS.repeatBars = (p, oldBars) => {
+  const spb = SS.stepsPerBar(p);
+  const oldLen = spb * oldBars;
+  const total = SS.totalSteps(p);
+  if (oldLen <= 0 || total <= oldLen) return;
+  p.tracks.forEach((t) => {
+    if (t.type === 'drum') {
+      for (let s = oldLen; s < total; s++) t.steps[s] = t.steps[s % oldLen] || 0;
+    } else {
+      const src = t.events.filter((e) => e.step < oldLen);
+      const copies = [];
+      for (let off = oldLen; off < total; off += oldLen) {
+        src.forEach((e) => {
+          if (e.step + off >= total) return;
+          copies.push({ ...e, notes: [...e.notes], step: e.step + off, len: Math.min(e.len, total - (e.step + off)) });
+        });
+      }
+      t.events = src.concat(copies).sort((a, b) => a.step - b.step);
+    }
+  });
+};
+
+/** Vide tout ce qui se trouve après les `keepBars` premières mesures. */
+SS.clearAfterBars = (p, keepBars) => {
+  const from = SS.stepsPerBar(p) * keepBars;
+  p.tracks.forEach((t) => {
+    if (t.type === 'drum') for (let s = from; s < t.steps.length; s++) t.steps[s] = 0;
+    else t.events = t.events.filter((e) => e.step < from);
+  });
+};
