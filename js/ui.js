@@ -305,6 +305,7 @@ SS.ui = (() => {
       if (edge) return resizeNote(track, edge, e);
       const top = velEdgeAt(track, cell, e.clientY);
       if (top) return dragVelocity(track, cell, top, e);
+      if (grabSelected(track, cell, e)) return;
       if (selectMode) return marquee(track, 'line', cell, e);
       if (track.type === 'drum') return drumGesture(track, s, e);
       noteGesture(track, s, null, e);
@@ -521,6 +522,7 @@ SS.ui = (() => {
         if (edge) return resizeNote(track, edge, e);
         const top = velEdgeAt(track, cell, e.clientY);
         if (top) return dragVelocity(track, cell, top, e);
+        if (grabSelected(track, cell, e)) return;
         if (selectMode) return marquee(track, 'roll', cell, e);
         noteGesture(track, +cell.dataset.step, +cell.dataset.midi, e);
       });
@@ -1161,6 +1163,12 @@ SS.ui = (() => {
     if (mod && key === 'd') return run(duplicateSelection);
     if (mod && key === 'a') return run(() => selectAll(activeTrack()));
     if (!mod && (e.key === 'Delete' || e.key === 'Backspace') && validSelection()) return run(deleteSelection);
+    if (!mod && e.key.startsWith('Arrow') && e.target.type !== 'range' && validSelection() && sel.items.size) {
+      const horiz = e.key === 'ArrowLeft' || e.key === 'ArrowRight';
+      if (!horiz && isDrum(sel.track)) return false; // une batterie n'a pas de hauteur
+      const sign = e.key === 'ArrowRight' || e.key === 'ArrowUp' ? 1 : -1;
+      return run(() => nudge(horiz ? sign * (e.shiftKey ? SS.stepsPerBar(app.project()) : 1) : 0, horiz ? 0 : sign * (e.shiftKey ? 12 : 1)));
+    }
     if (!mod && e.key === 'Escape' && (sel || selectMode)) return run(() => (sel ? setSelection(null) : setSelectMode(false)));
     return false;
   }
@@ -1245,6 +1253,159 @@ SS.ui = (() => {
         }
       }
     );
+  }
+
+  /* ---------- Déplacer la sélection ---------- */
+
+  /**
+   * Prépare le déplacement des éléments sélectionnés (copy : on déplace une copie, les originaux restent).
+   * apply(dt, dp) les place à dt pas / dp demi-tons de leur position de départ (écarts bornés pour rester
+   * dans la boucle et la tessiture) ; ils remplacent ce qu'ils chevauchent, sans rien détruire tant que
+   * le geste n'est pas fini : chaque appel repart de l'état initial. commit() valide.
+   */
+  function beginMove(track, { copy = false } = {}) {
+    const n = SS.trackLen(app.project(), track);
+    const items = [...sel.items];
+    const range0 = sel.range;
+    let last = { dt: 0, dp: 0 };
+    const setSel = (list, dt) => {
+      const range = range0 && [clamp(range0[0] + dt, 0, n), clamp(range0[1] + dt, 0, n)];
+      sel = { track, items: new Set(list), range: range && range[1] > range[0] ? range : null };
+    };
+    let place;
+    if (isDrum(track)) {
+      const moved = items.map((st) => ({ st, vel: track.steps[st] }));
+      const base = track.steps.slice();
+      if (!copy) items.forEach((st) => (base[st] = 0));
+      const minS = Math.min(...items);
+      const maxS = Math.max(...items);
+      place = (dt) => {
+        dt = clamp(dt, -minS, n - 1 - maxS);
+        base.forEach((v, i) => (track.steps[i] = v));
+        moved.forEach((m) => (track.steps[m.st + dt] = m.vel));
+        setSel(moved.map((m) => m.st + dt), dt);
+        return { dt, dp: 0 };
+      };
+    } else {
+      const moving = copy ? items.map((ev) => ({ ...ev, notes: [...ev.notes] })) : items;
+      const orig = moving.map((ev) => ({ ev, step: ev.step, len: ev.len, notes: [...ev.notes] }));
+      const base = track.events.filter((ev) => copy || !sel.items.has(ev)).map((ev) => ({ ev, len: ev.len }));
+      const minS = Math.min(...orig.map((o) => o.step));
+      const maxS = Math.max(...orig.map((o) => o.step));
+      const lo = Math.min(...orig.flatMap((o) => o.notes));
+      const hi = Math.max(...orig.flatMap((o) => o.notes));
+      place = (dt, dp) => {
+        dt = clamp(dt, -minS, n - 1 - maxS);
+        dp = clamp(dp, ROLL_LOW - lo, ROLL_HIGH - hi);
+        base.forEach((b) => (b.ev.len = b.len));
+        let evs = base.map((b) => b.ev);
+        orig.forEach((o) => {
+          o.ev.step = o.step + dt;
+          o.ev.len = Math.min(o.len, n - o.ev.step);
+          o.ev.notes = o.notes.map((m) => m + dp);
+          const a = o.ev.step;
+          const b = a + o.ev.len;
+          evs = evs.filter((x) => !(x.step >= a && x.step < b));
+          evs.forEach((x) => {
+            if (x.step < a && x.step + x.len > a) x.len = a - x.step;
+          });
+        });
+        track.events = evs.concat(moving).sort((x, y) => x.step - y.step);
+        setSel(moving, dt);
+        return { dt, dp };
+      };
+    }
+    return {
+      apply(dt, dp = 0) {
+        last = place(dt, dp);
+        paint(track);
+        return last;
+      },
+      commit() {
+        updateSelBar();
+        if (last.dt || last.dp || copy) app.changed();
+        return last;
+      },
+    };
+  }
+
+  const fmtMove = ({ dt, dp }) =>
+    [dt ? `${dt > 0 ? '+' : ''}${dt} pas` : '', dp ? `${dp > 0 ? '+' : ''}${dp} demi-ton${Math.abs(dp) > 1 ? 's' : ''}` : ''].filter(Boolean).join(' · ') || 'Sans déplacement';
+
+  function previewMoved(track) {
+    if (SS.audio.isPlaying() || isDrum(track) || !sel) return;
+    const ev = [...sel.items].sort((a, b) => a.step - b.step)[0];
+    if (ev) SS.audio.preview(track, ev.notes.length === 1 ? ev.notes[0] : ev.notes);
+  }
+
+  /** Flèches : ← → d'un pas (Maj : d'une mesure), ↑ ↓ d'un demi-ton (Maj : d'une octave). */
+  function nudge(dt, dp) {
+    const t = sel.track;
+    const mv = beginMove(t);
+    const r = mv.apply(dt, dp);
+    mv.commit();
+    if (!r.dt && !r.dp) toast(dp ? 'Impossible de transposer plus loin.' : 'Impossible d’aller plus loin : bord de la boucle.', 1400);
+    else if (r.dp) previewMoved(t);
+  }
+
+  /**
+   * Appui sur une note déjà sélectionnée (ou sur n'importe quelle note en mode Sélection) : glisser déplace
+   * toute la sélection (Alt : une copie). Sans mouvement, le clic garde son effet habituel.
+   * Renvoie true si le geste est pris en charge.
+   */
+  function grabSelected(track, cell, e) {
+    const it = itemAtCell(track, cell);
+    if (it == null || (!isSelected(track, it) && !selectMode)) return false;
+    const wasSelected = isSelected(track, it);
+    if (!wasSelected) setSelection(track, [it]);
+    const s0 = +cell.dataset.step;
+    const m0 = cell.dataset.midi ? +cell.dataset.midi : null;
+    const roll = cell.closest('.roll');
+    const x0 = e.clientX;
+    const y0 = e.clientY;
+    const copy = e.altKey;
+    let mv = null;
+    let last = { dt: 0, dp: 0 };
+    let badge = null;
+    gesture(
+      (pe) => {
+        if (!mv) {
+          if (Math.hypot(pe.clientX - x0, pe.clientY - y0) < 4) return;
+          mv = beginMove(track, { copy });
+          badge = h('div', { class: 'vel-badge', role: 'status' });
+          document.body.append(badge);
+          document.body.classList.add(copy ? 'copying-notes' : 'moving-notes');
+        }
+        const s1 = stepFromPoint(pe.clientX, pe.clientY);
+        let dp = last.dp;
+        if (m0 != null) {
+          const el = document.elementFromPoint(pe.clientX, pe.clientY);
+          const c = el && el.closest('[data-midi]');
+          if (c && roll.contains(c)) dp = +c.dataset.midi - m0;
+        }
+        const r = mv.apply(s1 == null ? last.dt : s1 - s0, dp);
+        if (r.dp !== last.dp) previewMoved(track);
+        last = r;
+        badge.textContent = (copy ? 'Copie · ' : '') + fmtMove(r);
+        badge.style.left = pe.clientX + 'px';
+        badge.style.top = Math.max(4, pe.clientY - 36) + 'px';
+      },
+      () => {
+        if (badge) badge.remove();
+        document.body.classList.remove('moving-notes', 'copying-notes');
+        if (mv) return mv.commit();
+        // simple clic : en mode Sélection, la note devient la seule sélectionnée ; sinon effet habituel (effacer)
+        if (selectMode) {
+          setSelection(track, [it]);
+          if (!wasSelected && !SS.audio.isPlaying()) SS.audio.preview(track, isDrum(track) ? undefined : it.notes.length === 1 ? it.notes[0] : it.notes);
+        } else if (isDrum(track)) {
+          track.steps[s0] = 0;
+          paint(track);
+          app.changed();
+        } else noteGesture(track, s0, m0, { clientX: x0, clientY: y0, deferred: true });
+      }
+    );
+    return true;
   }
 
   /** Bande des mesures du piano roll : clic = la mesure, glisser = plusieurs, Maj+clic = jusqu'à, Ctrl+clic = ajouter. */

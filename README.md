@@ -71,6 +71,9 @@ dernière note (ou le dernier accord) utilisée.
 - `Ctrl+C` / `Ctrl+X` / `Ctrl+V` / `Ctrl+D` (dupliquer), `Suppr`, `Échap`. Le collage se fait à la case
   survolée par la souris, sinon au début d'une zone vide sélectionnée, sinon juste après la sélection.
   Glisser la vélocité ou la longueur d'une note sélectionnée modifie toutes les notes sélectionnées.
+- **Glisser une note sélectionnée** déplace la sélection (en hauteur aussi dans le piano roll) ;
+  **Alt+glisser** en déplace une copie. Flèches `←` `→` : un pas (Maj : une mesure),
+  `↑` `↓` : un demi-ton (Maj : une octave).
 
 ### Raccourcis
 

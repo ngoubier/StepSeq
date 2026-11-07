@@ -215,6 +215,13 @@
         <li>Dans le piano roll, la bande <b>Mesures</b> sous la barre d'outils : clic = toute la mesure, glisser = plusieurs mesures, Maj + clic = jusqu'à cette mesure, Ctrl + clic = ajouter.</li>
         <li>L'outil <b>Sélection</b> (en bas à gauche) : tant qu'il est actif, glisser trace un rectangle sans Maj, un clic sur une note la sélectionne sans l'effacer, un clic dans le vide désélectionne. Pratique sur tablette.</li>
         <li>Glisser le bord droit ou le haut (vélocité) d'une note sélectionnée modifie <b>toutes</b> les notes sélectionnées d'autant.</li>
+      </ul>
+      <h3>Déplacer la sélection</h3>
+      <ul>
+        <li><b>Glisser une note sélectionnée</b> déplace toute la sélection : dans le temps sur la ligne de la piste, dans le temps et en hauteur dans le piano roll. Une bulle indique l'écart (pas, demi-tons). En mode Sélection, on peut saisir n'importe quelle note.</li>
+        <li><b>Alt + glisser</b> : déplace une <b>copie</b>, les originaux restent en place.</li>
+        <li><kbd>←</kbd> <kbd>→</kbd> : d'un pas (<kbd>Maj</kbd> : d'une mesure). <kbd>↑</kbd> <kbd>↓</kbd> : d'un demi-ton (<kbd>Maj</kbd> : d'une octave), pour les pistes instrument et synthé.</li>
+        <li>Les notes déplacées remplacent celles qu'elles chevauchent ; la sélection s'arrête au bord de la boucle de la piste. Un simple clic, sans glisser, sur une note sélectionnée garde son effet habituel (l'effacer).</li>
         <li>Un clic dans le vide (fond, en-tête) ou <kbd>Échap</kbd> : tout désélectionner.</li>
       </ul>
       <h3>Où sont collées les notes ?</h3>
@@ -405,6 +412,9 @@
         <tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd> / <kbd>Ctrl</kbd>+<kbd>X</kbd> / <kbd>Ctrl</kbd>+<kbd>V</kbd></td><td>Copier / couper / coller la sélection</td></tr>
         <tr><td><kbd>Ctrl</kbd>+<kbd>D</kbd></td><td>Dupliquer la sélection juste après elle</td></tr>
         <tr><td><kbd>Suppr</kbd></td><td>Supprimer les notes sélectionnées</td></tr>
+        <tr><td><kbd>←</kbd> <kbd>→</kbd> (<kbd>Maj</kbd> : une mesure)</td><td>Déplacer la sélection d'un pas</td></tr>
+        <tr><td><kbd>↑</kbd> <kbd>↓</kbd> (<kbd>Maj</kbd> : une octave)</td><td>Transposer la sélection d'un demi-ton</td></tr>
+        <tr><td><kbd>Alt</kbd> + glisser une note sélectionnée</td><td>Copier la sélection à un autre endroit</td></tr>
         <tr><td><kbd>Échap</kbd></td><td>Tout désélectionner</td></tr>
         <tr><td>Double-clic sur un nom de piste</td><td>Renommer</td></tr>
       </table></div>

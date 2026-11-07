@@ -1410,3 +1410,9 @@ body.select-mode .track-grid .cell, body.select-mode .rcell { cursor: crosshair;
 .bcell.hover { background: rgba(255, 255, 255, .07); }
 .bcell.rng { background: color-mix(in srgb, var(--c) 45%, transparent); color: #fff; }
 .bcell:first-child { color: var(--text); }
+
+/* déplacer / copier la sélection */
+body.moving-notes, body.moving-notes * { cursor: grabbing !important; }
+body.copying-notes, body.copying-notes * { cursor: copy !important; }
+.grid:not(.edge-hover):not(.vel-hover) .cell.sel, .grid:not(.edge-hover):not(.vel-hover) .cell.sel-hold,
+.grid:not(.edge-hover):not(.vel-hover) .rcell.sel, .grid:not(.edge-hover):not(.vel-hover) .rcell.sel-hold { cursor: grab; }
