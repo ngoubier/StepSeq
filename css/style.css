@@ -1121,3 +1121,7 @@ body.mixer-open .songbar { display: none; }
 .eq-layout .eq-bands { flex: 1; min-width: 270px; }
 .eq-band { grid-template-columns: 92px 1fr 1fr 1fr; gap: 4px; }
 .eq-band input[type=number] { width: 58px; }
+.profile-check.disabled { opacity: .45; }
+/* Les trois modules (EQ, compresseur, limiteur) ont la même hauteur ; l'aide reste en bas */
+.detail-mods { align-items: stretch; }
+.mod > .mod-help { margin-top: auto; }

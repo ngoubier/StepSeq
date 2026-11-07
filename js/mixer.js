@@ -849,6 +849,24 @@ SS.mixer = (() => {
     );
   }
 
+  const RESET_ID = '__reset';
+
+  /** Remet toutes les tranches (pistes et Master) à plat : EQ, compresseur, limiteur, panoramique. */
+  function resetAll() {
+    const p = app.project();
+    p.tracks.forEach((t) => {
+      delete t.mix;
+      delete t.mixProfile;
+      SS.audio.applyMix(t);
+    });
+    p.master = { volume: p.master ? p.master.volume : SS.MASTER_DEFAULTS.volume, mix: JSON.parse(JSON.stringify(SS.MASTER_DEFAULTS.mix)) };
+    delete p.masterProfile;
+    SS.audio.applyMaster(p);
+    app.changed();
+    render();
+    SS.ui.toast(`${p.tracks.length + 1} tranches remises à plat (volumes conservés) — Ctrl+Z pour annuler`, 4000);
+  }
+
   /** Barre d'action de la console : profil de mixage complet, appliqué à toutes les tranches en dessous. */
   function mixsetBar(nStrips) {
     const { factory, user } = SS.profiles.list('mixset');
@@ -859,17 +877,20 @@ SS.mixer = (() => {
       { class: 'profile-select', 'aria-label': 'Profil de mixage complet' },
       h('option', { value: '' }, '— Choisir un profil de mixage —'),
       h('optgroup', { label: 'Profils d’usine' }, factory.map(opt)),
-      user.length ? h('optgroup', { label: 'Mes profils' }, user.map(opt)) : null
+      user.length ? h('optgroup', { label: 'Mes profils' }, user.map(opt)) : null,
+      h('optgroup', { label: 'Par défaut' },
+        h('option', { value: RESET_ID, selected: lastMixset === RESET_ID, title: 'EQ, compresseur, limiteur et panoramique à plat sur toutes les tranches ; volumes conservés' }, '↺ Réinitialiser (toutes les tranches à plat)'))
     );
     const applyBtn = h('button', {
       type: 'button',
       class: 'btn btn-small btn-accent mx-apply',
       title: 'Régler toutes les tranches ci-dessous (pistes et Master) avec ce profil',
       onclick: () => {
+        if (sel.value === RESET_ID) return resetAll();
         const prof = sel.value && SS.profiles.find(sel.value);
         if (prof) applyMixset(prof);
       },
-    }, h('span', { 'aria-hidden': 'true' }, '⤓'), ` Appliquer aux ${nStrips} tranches`);
+    });
     const delBtn = h('button', {
       type: 'button',
       class: 'btn btn-small',
@@ -883,9 +904,15 @@ SS.mixer = (() => {
       },
     }, 'Supprimer');
     const sync = () => {
-      const prof = sel.value && SS.profiles.find(sel.value);
-      applyBtn.disabled = !prof;
+      const reset = sel.value === RESET_ID;
+      const prof = !reset && sel.value && SS.profiles.find(sel.value);
+      applyBtn.disabled = !prof && !reset;
+      applyBtn.replaceChildren(h('span', { 'aria-hidden': 'true' }, reset ? '↺' : '⤓'), reset ? ` Réinitialiser les ${nStrips} tranches` : ` Appliquer aux ${nStrips} tranches`);
+      applyBtn.title = reset ? 'Remettre toutes les tranches ci-dessous à plat (volumes conservés)' : 'Régler toutes les tranches ci-dessous (pistes et Master) avec ce profil';
       delBtn.disabled = !prof || prof.factory;
+      const lv = levels.querySelector('input');
+      lv.disabled = reset;
+      levels.classList.toggle('disabled', reset);
     };
     sel.addEventListener('change', () => {
       lastMixset = sel.value;
