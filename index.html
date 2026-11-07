@@ -226,8 +226,20 @@
           <div class="sd-sliders" id="sdVcfSliders"></div>
         </section>
 
+        <section class="sd-panel" aria-labelledby="sdFenvTitle">
+          <div class="sd-panel-head">
+            <h3 id="sdFenvTitle">Enveloppe du filtre <small>lpenv</small></h3>
+            <button type="button" id="sdCopyAdsr" class="sd-mini" title="Reprendre les valeurs de l'enveloppe d'amplitude">Copier l'ADSR d'amplitude</button>
+          </div>
+          <svg id="sdFenv" class="sd-adsr filt" viewBox="0 0 300 90" preserveAspectRatio="none" aria-hidden="true">
+            <path id="sdFenvFill" class="fill-area"/>
+            <path id="sdFenvLine" class="line"/>
+          </svg>
+          <div class="sd-sliders" id="sdFenvSliders"></div>
+        </section>
+
         <section class="sd-panel" aria-labelledby="sdVcaTitle">
-          <h3 id="sdVcaTitle">Enveloppe <small>ADSR</small></h3>
+          <h3 id="sdVcaTitle">Enveloppe d'amplitude <small>ADSR</small></h3>
           <svg id="sdAdsr" class="sd-adsr" viewBox="0 0 300 90" preserveAspectRatio="none" aria-hidden="true">
             <path id="sdAdsrFill" class="fill-area"/>
             <path id="sdAdsrLine" class="line"/>
@@ -235,7 +247,7 @@
           <div class="sd-sliders" id="sdVcaSliders"></div>
         </section>
 
-        <section class="sd-panel" aria-labelledby="sdOutTitle">
+        <section class="sd-panel wide" aria-labelledby="sdOutTitle">
           <h3 id="sdOutTitle">Sortie</h3>
           <div class="sd-sliders" id="sdOutSliders"></div>
         </section>

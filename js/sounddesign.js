@@ -1,7 +1,8 @@
 /*
  * Fenêtre de sound design des pistes instrument.
  * Paramètres inspirés de strudel.cc : s (forme d'onde), unison / detune,
- * lpf / hpf / bpf (cutoff), lpq (résonance), lpenv, attack / decay / sustain / release,
+ * lpf / hpf / bpf (cutoff), lpq (résonance), lpenv + lpattack / lpdecay / lpsustain / lprelease,
+ * attack / decay / sustain / release,
  * gain, pan, distort.
  *
  * Les réglages sont enregistrés dans track.sd (seulement s'ils diffèrent du preset)
@@ -30,7 +31,11 @@ SS.soundDesign = (() => {
     detune: { label: 'Désaccord', scale: lin(0, 50), fmt: (v) => `${Math.round(v)} cents`, group: 'vco' },
     cutoff: { label: 'Cutoff', scale: logf(20, 20000), fmt: fmtHz, group: 'vcf' },
     q: { label: 'Résonance', scale: lin(0, 30), fmt: (v) => v.toFixed(1), group: 'vcf' },
-    env: { label: 'Enveloppe du filtre', scale: lin(0, 6), fmt: (v) => (v ? `+${v.toFixed(1)} oct` : 'off'), group: 'vcf' },
+    env: { label: 'Quantité', scale: lin(0, 6), fmt: (v) => (v ? `+${v.toFixed(1)} oct` : 'off'), group: 'fenv' },
+    fattack: { label: 'Attack', scale: sq(2), fmt: fmtTime, group: 'fenv' },
+    fdecay: { label: 'Decay', scale: sq(2), fmt: fmtTime, group: 'fenv' },
+    fsustain: { label: 'Sustain', scale: lin(0, 1), fmt: fmtPct, group: 'fenv' },
+    frelease: { label: 'Release', scale: sq(4), fmt: fmtTime, group: 'fenv' },
     attack: { label: 'Attack', scale: sq(2), fmt: fmtTime, group: 'vca' },
     decay: { label: 'Decay', scale: sq(2), fmt: fmtTime, group: 'vca' },
     sustain: { label: 'Sustain', scale: lin(0, 1), fmt: fmtPct, group: 'vca' },
@@ -39,7 +44,7 @@ SS.soundDesign = (() => {
     pan: { label: 'Panoramique', scale: lin(-1, 1), fmt: (v) => (Math.abs(v) < 0.02 ? 'centre' : v < 0 ? `G ${Math.round(-v * 100)}` : `D ${Math.round(v * 100)}`), group: 'out' },
     drive: { label: 'Saturation', scale: lin(0, 1), fmt: (v) => (v ? fmtPct(v) : 'off'), group: 'out' },
   };
-  const GROUP_EL = { vco: '#sdVcoSliders', vcf: '#sdVcfSliders', vca: '#sdVcaSliders', out: '#sdOutSliders' };
+  const GROUP_EL = { vco: '#sdVcoSliders', vcf: '#sdVcfSliders', fenv: '#sdFenvSliders', vca: '#sdVcaSliders', out: '#sdOutSliders' };
 
   const WAVE_ICONS = {
     sawtooth: 'M2 16 L10 4 L10 16 L18 4 L18 16 L22 10',
@@ -120,6 +125,17 @@ SS.soundDesign = (() => {
       $('#sdFilterType').append(b);
     });
 
+    $('#sdCopyAdsr').addEventListener('click', () => {
+      const p = params();
+      set('fattack', p.attack);
+      set('fdecay', p.decay);
+      set('fsustain', p.sustain);
+      set('frelease', p.release);
+      if (!params().env) set('env', 2);
+      refresh();
+      preview();
+    });
+
     const dlg = $('#soundDialog');
     $('#sdPreview').addEventListener('click', () => preview());
     $('#sdReset').addEventListener('click', () => {
@@ -192,11 +208,14 @@ SS.soundDesign = (() => {
     }
     const detuneRow = inputs.get('detune').row;
     detuneRow.classList.toggle('dim', p.voices < 2 && p.wave !== 'supersaw');
-    drawAdsr(p);
+    ['fattack', 'fdecay', 'fsustain', 'frelease'].forEach((k) => inputs.get(k).row.classList.toggle('dim', !p.env));
+    $('#sdFenv').classList.toggle('dim', !p.env);
+    drawAdsr(p, '#sdAdsr');
+    drawAdsr({ attack: p.fattack, decay: p.fdecay, sustain: p.fsustain, release: p.frelease }, '#sdFenv');
     $('#sdCode').textContent = strudelCode(p);
   }
 
-  function drawAdsr(p) {
+  function drawAdsr(p, svgSel) {
     const W = 300;
     const H = 90;
     const top = 8;
@@ -213,8 +232,9 @@ SS.soundDesign = (() => {
       [x(p.attack + p.decay + hold + p.release), bottom],
     ];
     const d = pts.map((q, i) => (i ? 'L' : 'M') + q[0].toFixed(1) + ' ' + q[1].toFixed(1)).join(' ');
-    $('#sdAdsrLine').setAttribute('d', d);
-    $('#sdAdsrFill').setAttribute('d', d + ' Z');
+    const svg = $(svgSel);
+    svg.querySelector('.line').setAttribute('d', d);
+    svg.querySelector('.fill-area').setAttribute('d', d + ' Z');
   }
 
   const r = (v, n = 3) => +v.toFixed(n);
@@ -227,7 +247,16 @@ SS.soundDesign = (() => {
     const f = SS.FILTER_TYPES.find((x) => x.id === p.filter) || SS.FILTER_TYPES[0];
     if (!(p.filter === 'lowpass' && p.cutoff >= 19999)) parts.push(`${f.strudel}(${Math.round(p.cutoff)})`);
     if (p.q > 0) parts.push(`${f.strudel === 'lpf' ? 'lpq' : f.strudel === 'hpf' ? 'hpq' : 'bpq'}(${r(p.q, 1)})`);
-    if (p.env > 0) parts.push(`${f.strudel === 'lpf' ? 'lpenv' : f.strudel === 'hpf' ? 'hpenv' : 'bpenv'}(${r(p.env, 1)})`);
+    if (p.env > 0) {
+      const pre = f.strudel === 'lpf' ? 'lp' : f.strudel === 'hpf' ? 'hp' : 'bp';
+      parts.push(
+        `${pre}env(${r(p.env, 1)})`,
+        `${pre}attack(${r(p.fattack)})`,
+        `${pre}decay(${r(p.fdecay)})`,
+        `${pre}sustain(${r(p.fsustain, 2)})`,
+        `${pre}release(${r(p.frelease)})`
+      );
+    }
     parts.push(`adsr("${r(p.attack)}:${r(p.decay)}:${r(p.sustain, 2)}:${r(p.release)}")`);
     if (p.gain !== 1) parts.push(`gain(${r(p.gain, 2)})`);
     if (p.pan) parts.push(`pan(${r((p.pan + 1) / 2, 2)})`);

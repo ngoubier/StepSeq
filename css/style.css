@@ -10,8 +10,9 @@
   --accent-2: #2b8cff;
   --gold: #c9a227;
   --head: 380px;
-  --cell: minmax(24px, 1fr);
-  --row-h: 40px;
+  --sq: 26px;          /* taille d'une case (carré fixe) */
+  --col: 30px;         /* case + 2 px de marge de chaque côté */
+  --row-h: 36px;
   --roll-h: 16px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
   color-scheme: dark;
@@ -157,8 +158,9 @@ a.btn { text-decoration: none; }
 .grid {
   flex: 1;
   display: grid;
-  grid-template-columns: repeat(var(--steps), var(--cell));
-  min-width: calc(var(--steps) * 26px);
+  /* colonnes de largeur fixe (calculées en JS : un peu plus larges en début de temps / de mesure) */
+  grid-template-columns: var(--grid-cols, repeat(var(--steps), var(--col)));
+  justify-content: start;
   padding: 0 12px 0 8px;
 }
 .ruler .grid div {
@@ -234,7 +236,9 @@ a.btn { text-decoration: none; }
 .track-row .grid { align-items: center; gap: 0; }
 .cell {
   position: relative;
-  height: calc(var(--row-h) - 8px);
+  width: var(--sq);
+  height: var(--sq);
+  justify-self: start;
   margin: 0 2px;
   border-radius: 4px;
   background: color-mix(in srgb, var(--c) 18%, #18181a);
@@ -246,8 +250,8 @@ a.btn { text-decoration: none; }
   user-select: none;
 }
 .cell.alt { background: color-mix(in srgb, var(--c) 9%, #18181a); }
-.cell.beat { margin-left: 4px; }
-.cell.bar { margin-left: 10px; }
+.cell.beat { margin-left: 6px; }
+.cell.bar { margin-left: 12px; }
 .cell .fill {
   position: absolute;
   inset: auto 0 0 0;
@@ -257,9 +261,9 @@ a.btn { text-decoration: none; }
 }
 .cell.on .fill { height: calc(var(--v) * 100%); min-height: 25%; }
 .mode-toggle .cell.on .fill { height: 100%; opacity: calc(.45 + var(--v) * .55); }
-.cell.hold { background: color-mix(in srgb, var(--c) 55%, #18181a); border-radius: 0; margin-left: 0; margin-right: 0; }
+.cell.hold { width: auto; justify-self: stretch; background: color-mix(in srgb, var(--c) 55%, #18181a); border-radius: 0; margin-left: 0; margin-right: 0; }
 .cell.hold.end { border-radius: 0 4px 4px 0; margin-right: 2px; }
-.cell.start.held { border-radius: 4px 0 0 4px; margin-right: 0; }
+.cell.start.held { width: auto; justify-self: stretch; border-radius: 4px 0 0 4px; margin-right: 0; overflow: visible; }
 .cell .lbl {
   position: absolute;
   left: 3px;
@@ -551,3 +555,11 @@ dialog.sd-dialog { width: min(820px, calc(100vw - 32px)); }
 .sd-adsr { width: 100%; height: 90px; display: block; background: var(--panel); border-radius: 6px; }
 .sd-adsr .line { fill: none; stroke: var(--accent-2); stroke-width: 2; vector-effect: non-scaling-stroke; }
 .sd-adsr .fill-area { fill: var(--accent-2); opacity: .18; stroke: none; }
+.sd-panel.wide { grid-column: 1 / -1; }
+.sd-panel.wide .sd-sliders { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px 20px; }
+.sd-panel-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; }
+.sd-mini { border: 1px solid var(--line); background: var(--panel); color: var(--muted); border-radius: 6px; padding: 3px 8px; font: inherit; font-size: 11px; cursor: pointer; }
+.sd-mini:hover { color: var(--text); border-color: var(--accent-2); }
+.sd-adsr.filt .line { stroke: #f5a524; }
+.sd-adsr.filt .fill-area { fill: #f5a524; }
+.sd-adsr.dim { opacity: .4; }

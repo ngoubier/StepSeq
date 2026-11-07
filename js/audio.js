@@ -323,11 +323,17 @@ SS.audio = (() => {
     filter.Q.value = Math.max(0.0001, p.q);
     const base = Math.max(20, Math.min(20000, p.cutoff));
     if (p.env > 0) {
+      // enveloppe propre au filtre (lpattack / lpdecay / lpsustain / lprelease)
+      const fa = Math.max(0.003, p.fattack ?? p.attack);
+      const fd = Math.max(0.005, p.fdecay ?? p.decay);
+      const fs = Math.max(0, Math.min(1, p.fsustain ?? p.sustain));
+      const fr = Math.max(0.01, p.frelease ?? p.release);
+      const fOff = Math.max(tOff, t + fa);
       const top = Math.min(20000, base * Math.pow(2, p.env * (0.4 + 0.6 * vel)));
       filter.frequency.setValueAtTime(base, t);
-      filter.frequency.linearRampToValueAtTime(top, t + attack);
-      filter.frequency.setTargetAtTime(base + (top - base) * sustain, t + attack, decay / 3);
-      filter.frequency.setTargetAtTime(base, tOff, release / 4);
+      filter.frequency.exponentialRampToValueAtTime(top, t + fa);
+      filter.frequency.setTargetAtTime(base * Math.pow(top / base, fs), t + fa, fd / 3);
+      filter.frequency.setTargetAtTime(base, fOff, fr / 4);
     } else {
       filter.frequency.setValueAtTime(base, t);
     }

@@ -194,12 +194,14 @@
         <tr><td>Filtre (VCF)</td><td>Type</td><td>Passe-bas, passe-haut ou passe-bande</td><td><code>lpf</code>, <code>hpf</code>, <code>bpf</code></td></tr>
         <tr><td></td><td>Cutoff</td><td>Fréquence de coupure, de 20 Hz à 20 kHz</td><td><code>lpf(800)</code></td></tr>
         <tr><td></td><td>Résonance</td><td>Accentue les fréquences autour du cutoff, de 0 à 30</td><td><code>lpq</code></td></tr>
-        <tr><td></td><td>Enveloppe du filtre</td><td>Ouvre le filtre au début de chaque note, jusqu'à +6 octaves, puis le referme selon l'ADSR</td><td><code>lpenv</code></td></tr>
-        <tr><td>Enveloppe (ADSR)</td><td>Attack, Decay, Sustain, Release</td><td>Montée, descente, niveau tenu et extinction de chaque note. Le schéma se met à jour en direct.</td><td><code>adsr("a:d:s:r")</code></td></tr>
+        <tr><td>Enveloppe du filtre</td><td>Quantité</td><td>De combien le filtre s'ouvre au-dessus du cutoff à chaque note, jusqu'à +6 octaves. À « off », le cutoff reste fixe.</td><td><code>lpenv</code></td></tr>
+        <tr><td></td><td>Attack, Decay, Sustain, Release</td><td>Enveloppe propre au filtre, indépendante de celle du volume : vitesse d'ouverture, retombée, niveau tenu et refermeture. Son schéma est en orange.</td><td><code>lpattack</code>, <code>lpdecay</code>, <code>lpsustain</code>, <code>lprelease</code></td></tr>
+        <tr><td>Enveloppe d'amplitude (ADSR)</td><td>Attack, Decay, Sustain, Release</td><td>Montée, descente, niveau tenu et extinction du volume de chaque note. Le schéma se met à jour en direct.</td><td><code>adsr("a:d:s:r")</code></td></tr>
         <tr><td>Sortie</td><td>Niveau, Panoramique, Saturation</td><td>Volume du son, position gauche / droite, distorsion douce</td><td><code>gain</code>, <code>pan</code>, <code>distort</code></td></tr>
       </table></div>
       <ul>
         <li>En haut de la fenêtre, le code affiché est l'équivalent strudel.cc des réglages.</li>
+        <li>« Copier l'ADSR d'amplitude » recopie les quatre valeurs de l'enveloppe du volume dans celle du filtre. Par défaut, l'enveloppe du filtre reprend celle du preset.</li>
         <li>Un point bleu marque les réglages modifiés par rapport au preset. Un double-clic sur un curseur remet sa valeur du preset, et <b>Réinitialiser</b> remet tout.</li>
         <li><b>Annuler</b> ou Échap revient aux réglages d'avant l'ouverture. <b>OK</b> les garde. Ils sont enregistrés dans le fichier du projet.</li>
         <li>Pour un instrument échantillonné (piano, cordes, soundfonts…), il n'y a pas de VCO : le filtre, l'enveloppe et la sortie s'appliquent à l'échantillon.</li>

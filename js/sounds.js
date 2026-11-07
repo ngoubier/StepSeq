@@ -256,9 +256,18 @@ SS.soundDefaults = (track) => {
       decay: p.decay ?? 0.2,
       sustain: p.sustain ?? 0.7,
       release: p.release ?? 0.1,
+      // par défaut, l'enveloppe du filtre reprend l'ADSR du preset
+      fattack: p.fattack ?? p.attack ?? 0.005,
+      fdecay: p.fdecay ?? p.decay ?? 0.2,
+      fsustain: p.fsustain ?? p.sustain ?? 0.7,
+      frelease: p.frelease ?? p.release ?? 0.1,
     };
   }
-  return { ...base, wave: null, cutoff: 20000, q: 0, env: 0, attack: 0.005, decay: 0.3, sustain: 1, release: inst.release ?? 0.15 };
+  const rel = inst.release ?? 0.15;
+  return {
+    ...base, wave: null, cutoff: 20000, q: 0, env: 0, attack: 0.005, decay: 0.3, sustain: 1, release: rel,
+    fattack: 0.005, fdecay: 0.3, fsustain: 0.3, frelease: rel,
+  };
 };
 
 /** Réglages effectifs : preset + modifications de l'utilisateur (track.sd). */

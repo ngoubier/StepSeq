@@ -108,6 +108,12 @@ SS.ui = (() => {
   function renderAll() {
     const p = app.project();
     document.documentElement.style.setProperty('--steps', SS.totalSteps(p));
+    // colonnes fixes : chaque pas est un petit carré, avec un écart en début de temps et de mesure
+    const beat = SS.stepsPerBeat(p);
+    const bar = SS.stepsPerBar(p);
+    const cols = [];
+    for (let i = 0; i < SS.totalSteps(p); i++) cols.push(i > 0 && i % bar === 0 ? '40px' : i > 0 && i % beat === 0 ? '34px' : '30px');
+    document.documentElement.style.setProperty('--grid-cols', cols.join(' '));
     renderRuler();
     const container = $('#tracks');
     container.replaceChildren();
