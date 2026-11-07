@@ -66,6 +66,26 @@
     </div>
   </header>
 
+  <section id="songBar" class="songbar" aria-label="Chanson">
+    <div class="songbar-row">
+      <div class="segmented" id="songMode" role="radiogroup" aria-label="Mode de lecture">
+        <button type="button" data-mode="loop" title="La lecture boucle la scène en cours">Boucle</button>
+        <button type="button" data-mode="song" title="La lecture joue l'arrangement, du bloc choisi jusqu'à la fin">Chanson</button>
+      </div>
+      <span class="songbar-label">Scènes</span>
+      <div id="sceneList" class="scene-list"></div>
+      <button type="button" id="sceneCopy" class="btn btn-small" title="Nouvelle scène qui reprend le contenu de la scène en cours">+ Copie</button>
+      <button type="button" id="sceneEmpty" class="btn btn-small" title="Nouvelle scène vide (mêmes pistes, sans notes)">+ Vide</button>
+    </div>
+    <div class="songbar-row">
+      <span class="songbar-label">Arrangement</span>
+      <div id="songBlocks" class="song-blocks"></div>
+      <span class="spacer"></span>
+      <label class="song-loop"><input type="checkbox" id="songLoop"> Boucler</label>
+      <span id="songTotal" class="song-total"></span>
+    </div>
+  </section>
+
   <main id="workspace">
     <div id="ruler" class="ruler"></div>
     <div id="tracks"></div>
@@ -405,6 +425,7 @@
   <script src="js/sounddesign.js"></script>
   <script src="js/groove.js"></script>
   <script src="js/fx.js"></script>
+  <script src="js/song.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/main.js"></script>
 </body>

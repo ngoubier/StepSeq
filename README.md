@@ -91,6 +91,7 @@ Les sons proviennent des bibliothèques utilisées par [strudel.cc](https://stru
 | `js/sounddesign.js` | Fenêtre de sound design (VCO, filtre, ADSR, sortie) |
 | `js/groove.js`   | Fenêtre Groove (swing, humanisation) |
 | `js/fx.js`       | Fenêtre Effets par piste (chorus, delay, reverb) |
+| `js/song.js`     | Mode chanson : scènes et arrangement |
 | `js/ui.js`       | Rendu des pistes, grille, piano roll, dialogue |
 | `js/main.js`     | Démarrage, barre d'outils, raccourcis |
 | `guide.html`     | Guide d'utilisation (bouton « Aide » de l'app) |

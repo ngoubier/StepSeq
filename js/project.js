@@ -34,7 +34,7 @@ SS.totalSteps = (p) => SS.stepsPerBar(p) * p.bars;
 
 SS.uid = () => Math.random().toString(36).slice(2, 10);
 
-SS.newProject = () => ({
+SS.newProject = () => SS.withScenes({
   format: 'stepseq',
   version: 1,
   title: 'Nouveau projet',
@@ -44,6 +44,10 @@ SS.newProject = () => ({
   groove: { res: 0, swing: 0.5, human: 0 }, // res : 0 = droit, 16 = swing des doubles-croches, 8 = des croches
   tracks: [],
 });
+SS.withScenes = (p) => {
+  SS.normalizeScenes(p);
+  return p;
+};
 
 SS.newTrack = (opts, project) => {
   const n = SS.totalSteps(project);
@@ -151,10 +155,14 @@ SS.normalizeProject = (data) => {
     return track;
   });
   SS.resizeProject(p);
+  SS.normalizeScenes(p, data);
   return p;
 };
 
-SS.serialize = (p) => JSON.stringify(p, null, 1);
+SS.serialize = (p) => {
+  SS.commitScene(p); // les notes en cours d'édition sont rangées dans leur scène avant l'enregistrement
+  return JSON.stringify(p, null, 1);
+};
 
 SS.fileName = (p) => (p.title || 'projet').replace(/[\\/:*?"<>|]+/g, '_').trim() + SS.FILE_EXT;
 
@@ -276,4 +284,130 @@ SS.clearAfterBars = (p, keepBars) => {
 SS.trackLen = (p, t) => {
   const total = SS.totalSteps(p);
   return t && t.length > 0 ? Math.min(t.length, total) : total;
+};
+
+/* ================================================================== */
+/* Mode chanson : scènes + arrangement                                 */
+/* ================================================================== *
+ *
+ * project.scenes  : [{ id, name, bars, data: { trackId: { steps } | { events } } }]
+ * project.current : id de la scène en cours d'édition (son contenu vit dans les pistes)
+ * project.song    : [{ scene: id, repeat: n }]  -- l'arrangement, joué dans l'ordre
+ * project.playMode: 'loop' (boucle la scène en cours) | 'song' (joue l'arrangement)
+ * project.songLoop: true pour reboucler la chanson à la fin
+ *
+ * Les réglages des pistes (son, volume, effets, sound design, longueur) sont communs
+ * à toutes les scènes ; seules les notes / pas et le nombre de mesures changent.
+ */
+
+const SCENE_NAMES = ['Couplet', 'Refrain', 'Intro', 'Pont', 'Outro'];
+
+/** Copie profonde du contenu musical des pistes (pas + notes). */
+SS.snapshotTracks = (p) => {
+  const data = {};
+  p.tracks.forEach((t) => {
+    data[t.id] = t.type === 'drum' ? { steps: [...t.steps] } : { events: t.events.map((e) => ({ ...e, notes: [...e.notes] })) };
+  });
+  return data;
+};
+
+SS.currentScene = (p) => p.scenes.find((sc) => sc.id === p.current) || p.scenes[0];
+
+/** Range le contenu actuel des pistes dans la scène en cours. */
+SS.commitScene = (p) => {
+  if (!p.scenes || !p.scenes.length) return;
+  const sc = SS.currentScene(p);
+  sc.bars = p.bars;
+  sc.data = SS.snapshotTracks(p);
+};
+
+/** Passe à une autre scène : son contenu remplace celui des pistes. */
+SS.loadScene = (p, id, { commit = true } = {}) => {
+  const target = p.scenes.find((sc) => sc.id === id);
+  if (!target) return;
+  if (commit) SS.commitScene(p);
+  p.current = target.id;
+  p.bars = target.bars || p.bars;
+  const n = SS.stepsPerBar(p) * p.bars;
+  p.tracks.forEach((t) => {
+    const d = (target.data || {})[t.id];
+    if (t.type === 'drum') t.steps = d && d.steps ? [...d.steps] : new Array(n).fill(0);
+    else t.events = d && d.events ? d.events.map((e) => ({ ...e, notes: [...e.notes] })) : [];
+  });
+  SS.resizeProject(p);
+};
+
+/** Nouvelle scène, vide ou copie de la scène en cours ; retourne son id. */
+SS.addScene = (p, { copy = true } = {}) => {
+  SS.commitScene(p);
+  const used = new Set(p.scenes.map((sc) => sc.name));
+  let name = SCENE_NAMES.find((n) => !used.has(n));
+  for (let i = p.scenes.length + 1; !name; i++) if (!used.has('Scène ' + i)) name = 'Scène ' + i;
+  const sc = {
+    id: SS.uid(),
+    name,
+    bars: p.bars,
+    data: copy ? SS.snapshotTracks(p) : {},
+  };
+  const idx = p.scenes.findIndex((x) => x.id === p.current);
+  p.scenes.splice(idx + 1, 0, sc);
+  return sc.id;
+};
+
+SS.deleteScene = (p, id) => {
+  if (p.scenes.length < 2) return false;
+  const idx = p.scenes.findIndex((sc) => sc.id === id);
+  if (idx < 0) return false;
+  const wasCurrent = p.current === id;
+  if (!wasCurrent) SS.commitScene(p);
+  p.scenes.splice(idx, 1);
+  p.song = p.song.filter((b) => b.scene !== id);
+  if (!p.song.length) p.song = [{ scene: p.scenes[0].id, repeat: 1 }];
+  if (wasCurrent) SS.loadScene(p, p.scenes[Math.max(0, idx - 1)].id, { commit: false });
+  return true;
+};
+
+/** Durée de l'arrangement : { bars, seconds } */
+SS.songLength = (p) => {
+  const spb = SS.stepsPerBar(p);
+  let bars = 0;
+  p.song.forEach((b) => {
+    const sc = p.scenes.find((x) => x.id === b.scene);
+    if (sc) bars += (sc.id === p.current ? p.bars : sc.bars) * b.repeat;
+  });
+  return { bars, seconds: (bars * spb * 60) / p.tempo / 4 };
+};
+
+/** Crée / valide scènes et arrangement (projets anciens : une seule scène « A »). */
+SS.normalizeScenes = (p, data = {}) => {
+  const valid = Array.isArray(data.scenes) && data.scenes.length;
+  if (valid) {
+    p.scenes = data.scenes
+      .filter((sc) => sc && typeof sc === 'object')
+      .map((sc) => ({
+        id: String(sc.id || SS.uid()),
+        name: String(sc.name || 'Scène').slice(0, 40),
+        bars: Math.min(8, Math.max(1, Number(sc.bars) || p.bars)),
+        data: sc.data && typeof sc.data === 'object' ? sc.data : {},
+      }));
+  }
+  if (!valid) {
+    p.scenes = [{ id: SS.uid(), name: 'Couplet', bars: p.bars, data: SS.snapshotTracks(p) }];
+    p.current = p.scenes[0].id;
+  } else {
+    p.current = p.scenes.some((sc) => sc.id === data.current) ? data.current : p.scenes[0].id;
+    // les pistes contiennent déjà la scène en cours (enregistrée telle quelle)
+    const cur = SS.currentScene(p);
+    cur.bars = p.bars;
+    cur.data = SS.snapshotTracks(p);
+  }
+  const ids = new Set(p.scenes.map((sc) => sc.id));
+  p.song = Array.isArray(data.song)
+    ? data.song
+        .filter((b) => b && ids.has(b.scene))
+        .map((b) => ({ scene: b.scene, repeat: Math.min(64, Math.max(1, Math.round(Number(b.repeat) || 1))) }))
+    : [];
+  if (!p.song.length) p.song = [{ scene: p.current, repeat: 1 }];
+  p.playMode = data.playMode === 'song' ? 'song' : 'loop';
+  p.songLoop = !!data.songLoop;
 };

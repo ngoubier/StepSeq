@@ -685,3 +685,55 @@ dialog.sd-dialog { width: min(820px, calc(100vw - 32px)); }
 .len-row select { flex: 1 1 200px; }
 .len-row input { width: 80px; background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 6px 8px; font: inherit; }
 .len-row small { color: var(--muted); }
+
+/* ---------- Mode chanson ---------- */
+.songbar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #1e1e22;
+  border-bottom: 1px solid #000;
+}
+.songbar-row { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
+.songbar-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+#songMode button { padding: 5px 12px; font-size: 13px; }
+.btn-small { height: 28px; padding: 0 10px; font-size: 12px; }
+.scene-list { display: flex; gap: 6px; flex-wrap: wrap; }
+.scene-chip { display: flex; align-items: stretch; border-radius: 7px; background: var(--panel-3); overflow: hidden; }
+.scene-chip.active { background: var(--accent); }
+.scene-name { border: 0; background: transparent; color: var(--text); font: inherit; font-size: 13px; padding: 4px 10px; cursor: pointer; white-space: nowrap; }
+.scene-name b { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 4px; background: rgba(0,0,0,.3); font-size: 11px; }
+.scene-name small { color: rgba(255,255,255,.6); }
+.scene-del { border: 0; background: transparent; color: rgba(255,255,255,.55); padding: 0 8px; cursor: pointer; font-size: 15px; }
+.scene-del:hover { color: #fff; background: rgba(0,0,0,.25); }
+.scene-rename { width: 140px; background: var(--panel); color: var(--text); border: 1px solid var(--accent-2); border-radius: 6px; padding: 4px 6px; font: inherit; }
+.song-blocks { display: flex; gap: 4px; align-items: stretch; overflow-x: auto; max-width: 100%; padding-bottom: 2px; }
+.song-block {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 2px;
+  min-height: 46px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: #2c3342;
+  border: 1px solid #3c465c;
+  cursor: pointer;
+  font-size: 12px;
+}
+.song-block.editing { background: #23415f; border-color: var(--accent-2); }
+.song-block.start { box-shadow: inset 3px 0 0 #3fcf3f; }
+.song-block.playing { background: #2f7d32; border-color: #5bd45f; }
+.sb-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sb-name b { opacity: .6; margin-right: 2px; }
+.sb-tools { display: flex; align-items: center; gap: 3px; }
+.sb-tools button:nth-of-type(3) { margin-left: auto; }
+.sb-tools button { border: 0; background: rgba(0,0,0,.25); color: var(--text); border-radius: 4px; width: 18px; height: 18px; padding: 0; font-size: 12px; line-height: 1; cursor: pointer; }
+.sb-tools button:disabled { opacity: .3; cursor: default; }
+.sb-rep { min-width: 26px; text-align: center; font-variant-numeric: tabular-nums; }
+.song-add { background: var(--panel-3); color: var(--text); border: 1px dashed #555; border-radius: 6px; padding: 4px 6px; font: inherit; font-size: 12px; align-self: center; }
+.song-loop { color: var(--muted); font-size: 12px; display: flex; align-items: center; gap: 4px; }
+.song-total { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+body:not(.song-mode) .song-blocks { opacity: .75; }

@@ -91,6 +91,7 @@
       <a href="#sound-design">Sound design</a>
       <a href="#effets">Effets</a>
       <a href="#groove">Groove</a>
+      <a href="#chanson">Mode chanson</a>
       <a href="#fichiers">Enregistrer et ouvrir</a>
       <a href="#raccourcis">Raccourcis et astuces</a>
     </aside>
@@ -263,6 +264,18 @@
         <tr><td>Humanisation</td><td>Variations aléatoires de placement (jusqu'à ±15 ms) et de vélocité (jusqu'à ±25 %) sur chaque note</td></tr>
       </table></div>
       <p>Le schéma de la fenêtre montre 8 doubles-croches : les cercles pointillés sont la position droite, les points bleus la position jouée. Les notes posées sur les temps ne bougent jamais. Annuler revient aux réglages d'avant l'ouverture.</p>
+
+      <h2 id="chanson">Mode chanson</h2>
+      <p>Le panneau sous la barre du haut transforme une boucle en morceau complet. Il a deux étages : les <b>scènes</b> et l'<b>arrangement</b>.</p>
+      <div class="table-wrap"><table>
+        <tr><th>Élément</th><th>Ce que c'est</th><th>Comment l'utiliser</th></tr>
+        <tr><td>Scène</td><td>Une partie du morceau (Couplet, Refrain, Intro, Pont…) : les pas et les notes de toutes les pistes, avec son propre nombre de mesures</td><td>Clic sur une scène pour l'éditer dans la grille. <b>+ Copie</b> crée une scène qui reprend la scène en cours, <b>+ Vide</b> une scène sans notes. Double-clic pour renommer, × pour supprimer.</td></tr>
+        <tr><td>Arrangement</td><td>L'ordre des scènes dans la chanson, chacune répétée un certain nombre de fois</td><td>« + Ajouter… » ajoute un bloc. − / + règlent les répétitions, ‹ / › déplacent le bloc, × le retire. La durée totale s'affiche à droite.</td></tr>
+        <tr><td>Boucle / Chanson</td><td>Le mode de lecture</td><td><b>Boucle</b> : la scène en cours tourne en boucle (pratique pour composer). <b>Chanson</b> : la lecture enchaîne les blocs, et la grille affiche la scène jouée.</td></tr>
+        <tr><td>Point de départ</td><td>Le bloc par lequel la lecture commence</td><td>Clic sur un bloc : il est marqué d'un trait vert, et sa scène s'ouvre. Le bloc joué est en vert, avec sa répétition en cours (2/4).</td></tr>
+        <tr><td>Boucler</td><td>Que faire à la fin de la chanson</td><td>Coché : la chanson recommence. Sinon, la lecture s'arrête.</td></tr>
+      </table></div>
+      <p>Les sons, volumes, effets, sound design et longueurs de piste sont communs à toutes les scènes ; seules les notes et le nombre de mesures changent d'une scène à l'autre. Une piste ajoutée est vide dans les autres scènes. On peut changer de scène pendant la lecture en mode Boucle, pour improviser l'enchaînement en direct.</p>
 
       <h2 id="fichiers">Enregistrer et ouvrir</h2>
       <p>Un projet s'enregistre dans un fichier <code>.stepseq.json</code>, qu'on rouvre avec <b>Ouvrir</b>.</p>

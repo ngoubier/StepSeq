@@ -7,12 +7,14 @@
 
   let project;
   let dirty = false;
-  const state = { editMode: 'toggle', openRolls: new Set() };
+  const state = { editMode: 'toggle', openRolls: new Set(), songStart: 0 };
 
   /* ---------- Sauvegarde automatique (confort, dans le navigateur) ---------- */
   let autosaveTimer;
   function changed() {
     dirty = true;
+    // la durée de la chanson dépend des mesures / du tempo : on rafraîchit le panneau (sauf pendant un renommage)
+    if (SS.song && !document.querySelector('.scene-rename')) SS.song.render();
     clearTimeout(autosaveTimer);
     autosaveTimer = setTimeout(() => {
       try {
@@ -85,10 +87,13 @@
   function setProject(p) {
     stop();
     project = p;
+    SS.commitScene(p);
     SS.ui.clearSelection();
     state.openRolls = new Set();
+    state.songStart = 0;
     syncHeader();
     SS.ui.renderAll();
+    SS.song.render();
     SS.audio.applyAllFx(p);
     p.tracks.forEach((t) => SS.audio.prepareTrack(t));
   }
@@ -169,13 +174,49 @@
   /* ---------- Transport ---------- */
   function play() {
     if (SS.audio.isPlaying()) return;
-    SS.audio.start(() => project, (step) => SS.ui.setPlayhead(step));
+    const opts = {};
+    if (project.playMode === 'song' && project.song.length) {
+      opts.song = {
+        index: Math.min(state.songStart, project.song.length - 1),
+        // charge la scène du bloc juste avant de programmer son premier pas
+        onBlock: (i) => {
+          const b = project.song[i];
+          if (b && b.scene !== project.current) switchScene(b.scene, { keepStart: true });
+        },
+        onBlockVisible: (i, rep) => SS.song.setPlaying(i, rep),
+        onEnd: () => stop(),
+      };
+    }
+    SS.audio.start(() => project, (step) => SS.ui.setPlayhead(step), opts);
     $('#play').classList.add('playing');
   }
   function stop() {
     if (SS.audio.isPlaying()) SS.audio.stop();
     SS.ui.setPlayhead(-1);
+    SS.song.setPlaying(-1);
     $('#play').classList.remove('playing');
+  }
+
+  /* ---------- Scènes ---------- */
+  function afterSceneChange() {
+    SS.ui.clearSelection();
+    syncHeader();
+    SS.ui.renderAll();
+    SS.song.render();
+  }
+  function switchScene(id) {
+    if (id === project.current) return SS.song.render();
+    SS.loadScene(project, id);
+    afterSceneChange();
+    persist();
+  }
+  /** Sauvegarde automatique sans marquer le projet comme modifié (changer de scène n'est pas une modification). */
+  function persist() {
+    try {
+      localStorage.setItem(AUTOSAVE_KEY, SS.serialize(project));
+    } catch (e) {
+      /* ignore */
+    }
   }
 
   /* ---------- Pistes ---------- */
@@ -216,6 +257,7 @@
   function deleteTrack(track) {
     if (!confirm(`Supprimer la piste « ${track.name} » ?`)) return;
     project.tracks = project.tracks.filter((t) => t !== track);
+    project.scenes.forEach((sc) => sc.data && delete sc.data[track.id]);
     state.openRolls.delete(track.id);
     SS.audio.removeTrack(track.id);
     SS.ui.renderAll();
@@ -283,6 +325,7 @@
   SS.audio.setErrorHandler((msg) => SS.ui.toast(msg));
   SS.soundDesign.init({ changed, renderTrack: (t) => SS.ui.renderTrack(t) });
   SS.groove.init({ project: () => project, changed });
+  SS.song.init({ project: () => project, changed, state, switchScene, afterSceneChange, play, stop });
   SS.fx.init({ project: () => project, changed, renderTrack: (t) => SS.ui.renderTrack(t) });
   SS.ui.init({
     project: () => project,

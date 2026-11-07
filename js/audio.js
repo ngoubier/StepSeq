@@ -734,6 +734,7 @@ SS.audio = (() => {
 
   function tick() {
     const project = seq.getProject();
+    if (seq.song) return tickSong(project);
     const total = SS.totalSteps(project);
     while (seq.nextTime < ctx.currentTime + 0.12) {
       // le compteur ne revient pas à 0 : des pistes de longueurs différentes restent décalées (polymétrie).
@@ -747,29 +748,88 @@ SS.audio = (() => {
     }
   }
 
+  /*
+   * Mode chanson : on joue les blocs de l'arrangement l'un après l'autre.
+   * Au passage d'un bloc à l'autre, seq.song.onBlock(index) charge la scène suivante
+   * dans les pistes (avant de programmer son premier pas) ; l'affichage la suit.
+   */
+  function tickSong(project) {
+    const sg = seq.song;
+    while (seq.nextTime < ctx.currentTime + 0.12 && !sg.ended) {
+      const total = SS.totalSteps(project);
+      if (seq.step >= total) {
+        seq.step = 0;
+        sg.rep++;
+        const block = project.song[sg.index];
+        if (!block || sg.rep >= block.repeat) {
+          sg.rep = 0;
+          sg.index++;
+          if (sg.index >= project.song.length) {
+            if (!project.songLoop) {
+              sg.ended = true; // fin de la chanson : on laisse finir les dernières notes
+              seq.queue.push({ step: -1, time: seq.nextTime, end: true });
+              break;
+            }
+            sg.index = 0;
+          }
+          sg.onBlock(sg.index);
+        }
+        seq.queue.push({ step: -1, time: seq.nextTime, block: sg.index, rep: sg.rep });
+      }
+      const t = seq.nextTime + SS.grooveOffset(project, seq.step, stepDur(project));
+      scheduleStep(project, seq.step, t);
+      seq.queue.push({ step: seq.step, time: t });
+      seq.nextTime += stepDur(project);
+      seq.step++;
+    }
+  }
+
   function draw() {
     if (!seq.playing) return;
     while (seq.queue.length && seq.queue[0].time <= ctx.currentTime) {
       const e = seq.queue.shift();
-      seq.onStep && seq.onStep(e.step);
+      if (e.end) {
+        seq.song.onEnd && seq.song.onEnd();
+        return;
+      }
+      if (e.block !== undefined) seq.song.onBlockVisible && seq.song.onBlockVisible(e.block, e.rep);
+      else seq.onStep && seq.onStep(e.step);
     }
     seq.raf = requestAnimationFrame(draw);
   }
 
-  function start(getProject, onStep) {
+  /**
+   * opts.song (facultatif) : { index, onBlock(i), onBlockVisible(i, rep), onEnd() } pour jouer l'arrangement
+   * à partir du bloc `index` ; sans lui, la scène en cours boucle.
+   */
+  function start(getProject, onStep, opts = {}) {
     ensureCtx();
     if (seq.playing) return;
     seq.getProject = getProject;
     seq.onStep = onStep;
+    seq.song = opts.song ? { ...opts.song, rep: 0, ended: false } : null;
+    if (seq.song) seq.song.onBlock(seq.song.index);
     applyAllFx(getProject());
     seq.playing = true;
     seq.step = 0;
     seq.queue = [];
     seq.nextTime = ctx.currentTime + 0.08;
+    if (seq.song) seq.queue.push({ step: -1, time: seq.nextTime, block: seq.song.index, rep: 0 });
     getProject().tracks.forEach(prepareTrack);
+    if (seq.song) preloadSong(getProject());
     tick();
     seq.timer = setInterval(tick, 25);
     draw();
+  }
+
+  /** Précharge les échantillons de toutes les scènes (les notes d'un VCSL dépendent de la scène). */
+  function preloadSong(project) {
+    project.scenes.forEach((sc) => {
+      project.tracks.forEach((t) => {
+        const d = sc.data && sc.data[t.id];
+        if (t.type === 'instrument' && d && d.events) prepareTrack({ ...t, events: d.events });
+      });
+    });
   }
 
   function stop() {
