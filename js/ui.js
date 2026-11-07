@@ -1235,6 +1235,54 @@ SS.ui = (() => {
       'aria-label': mono ? 'Changer la note' : 'Changer l’accord',
     });
 
+    /* Longueur et vélocité dans la même fenêtre : curseurs + boutons −/+ ; la grille suit en direct. */
+    const n = SS.trackLen(app.project(), track);
+    const next = track.events.find((o) => o !== ev && o.step > ev.step);
+    const maxLen = Math.max(1, (next ? next.step : n) - ev.step);
+    let saveT = null;
+    const saveSoon = () => {
+      clearTimeout(saveT);
+      saveT = setTimeout(() => {
+        app.changed();
+        updateNoteButton();
+      }, 250);
+    };
+    function paramRow(label, get, set, min, max, fmt, title) {
+      const out = h('output', {}, fmt(get()));
+      const range = h('input', { type: 'range', min, max, step: 1, value: get(), 'aria-label': label, title });
+      const apply = (v) => {
+        v = clamp(Math.round(v), min, max);
+        set(v);
+        range.value = v;
+        out.textContent = fmt(v);
+        paint(track);
+        saveSoon();
+      };
+      range.addEventListener('input', () => apply(+range.value));
+      range.addEventListener('change', () => {
+        if (!SS.audio.isPlaying()) SS.audio.preview(track, ev.notes.length === 1 ? ev.notes[0] : ev.notes);
+      });
+      range.addEventListener('dblclick', () => apply(label === 'Vélocité' ? 102 : 1));
+      return h(
+        'div',
+        { class: 'ctx-param' },
+        h('span', { class: 'ctx-param-label' }, label),
+        h('button', { type: 'button', title: label + ' −', 'aria-label': label + ' moins', onclick: () => apply(get() - 1) }, '−'),
+        range,
+        h('button', { type: 'button', title: label + ' +', 'aria-label': label + ' plus', onclick: () => apply(get() + 1) }, '+'),
+        out
+      );
+    }
+    const spb = SS.stepsPerBar(app.project());
+    const fmtLen = (v) => `${v} pas` + (v % spb === 0 ? ` · ${v / spb} mes.` : v % 4 === 0 ? ` · ${v / 4} t.` : '');
+    const paramsBox = () =>
+      h(
+        'div',
+        { class: 'ctx-params' },
+        paramRow('Longueur', () => ev.len, (v) => (ev.len = v), 1, maxLen, fmtLen, `De 1 à ${maxLen} pas (jusqu'à la note suivante)`),
+        paramRow('Vélocité', () => Math.round(ev.vel * 127), (v) => (ev.vel = v / 127), 1, 127, (v) => String(v), 'Force de la note, de 1 à 127')
+      );
+
     function render() {
       const root = ev.notes[0];
       const pc = ((root % 12) + 12) % 12;
@@ -1292,20 +1340,10 @@ SS.ui = (() => {
           )
         ),
         h('div', { class: 'ctx-cols' }, noteCol, typeCol),
+        paramsBox(),
         h(
           'div',
           { class: 'ctx-foot' },
-          h(
-            'button',
-            {
-              type: 'button',
-              onclick: () => {
-                closeChordMenu();
-                openNoteDialog(track, ev);
-              },
-            },
-            'Longueur, vélocité…'
-          ),
           h(
             'button',
             {

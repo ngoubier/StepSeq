@@ -1176,3 +1176,11 @@ body.mixer-open .songbar { display: none; }
 body.mode-velocity .grid .cell, body.mode-velocity .rcell { cursor: crosshair; }
 body.drawing-vel, body.drawing-vel * { cursor: crosshair !important; user-select: none; }
 .vel-badge.muted { background: #333; color: #aaa; }
+/* Menu de note : longueur et vélocité */
+.ctx-params { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; padding: 8px 4px 0; border-top: 1px solid var(--line); }
+.ctx-param { display: grid; grid-template-columns: 64px 24px 1fr 24px 88px; align-items: center; gap: 6px; }
+.ctx-param-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.ctx-picker .ctx-param button { width: 24px; height: 24px; padding: 0; background: var(--panel-3); font-weight: 700; text-align: center; border-radius: 6px; }
+.ctx-param input[type=range] { width: 100%; min-width: 90px; accent-color: var(--accent-2); }
+.ctx-param output { font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ctx-picker .ctx-param button { display: inline-flex; align-items: center; justify-content: center; line-height: 1; font-size: 14px; }
