@@ -158,6 +158,7 @@ SS.ui = (() => {
     $('#ruler').style.display = p.tracks.length ? '' : 'none';
     setPlayhead(nowStep);
     updateNoteButton();
+    if (SS.mixer && SS.mixer.isOpen()) SS.mixer.render();
   }
 
   function renderTrack(track) {

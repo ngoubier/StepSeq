@@ -6,7 +6,8 @@
  *   format: "stepseq", version: 1,
  *   title, tempo, timeSig: [num, den], bars,
  *   groove: { res: 0|16|8, swing: 0.5..0.75, human: 0..1 },
- *   tracks: [   // chaque piste peut avoir length (longueur de sa boucle, en pas ; absente = celle du projet)
+ *   master: { volume, mix },   // console : tranche Master (voir SS.MASTER_DEFAULTS)
+ *   tracks: [   // chaque piste peut avoir mix: { pan, eq, comp, lim } (console de mixage), length (longueur de sa boucle, en pas ; absente = celle du projet)
  *               // et fx: { chorus, chorusRate, chorusDepth, delay, delayTime,
  *               //   delayFeedback, room, roomSize, roomLp } (effets, voir SS.FX_DEFAULTS)
  *     { id, type: "drum", name, color, volume, mute, solo,
@@ -131,6 +132,8 @@ SS.normalizeProject = (data) => {
     track.volume = typeof t.volume === 'number' ? t.volume : 0.8;
     if (Number.isInteger(t.length) && t.length > 0) track.length = Math.min(t.length, 128);
     else delete track.length;
+    if (t.mix && typeof t.mix === 'object') track.mix = SS.cleanMix(t.mix);
+    else delete track.mix;
     track.mute = !!t.mute;
     track.solo = !!t.solo;
     if (t.type === 'drum') {
@@ -157,6 +160,12 @@ SS.normalizeProject = (data) => {
   });
   SS.resizeProject(p);
   SS.normalizeScenes(p, data);
+  if (data.master && typeof data.master === 'object') {
+    p.master = {
+      volume: Number.isFinite(data.master.volume) ? Math.min(2, Math.max(0, data.master.volume)) : SS.MASTER_DEFAULTS.volume,
+      mix: SS.cleanMix(data.master.mix, SS.MASTER_DEFAULTS.mix),
+    };
+  }
   return p;
 };
 
@@ -412,3 +421,78 @@ SS.normalizeScenes = (p, data = {}) => {
   p.playMode = data.playMode === 'song' ? 'song' : 'loop';
   p.songLoop = !!data.songLoop;
 };
+
+/* ================================================================== */
+/* Console de mixage : EQ, compresseur, limiteur, panoramique          */
+/* ================================================================== */
+
+SS.MIX_DEFAULTS = {
+  pan: 0,
+  eq: {
+    on: false,
+    hp: { on: false, f: 40 }, // passe-haut 12 dB/oct
+    low: { f: 100, g: 0 }, // shelf grave
+    lm: { f: 400, g: 0, q: 1 }, // cloche bas-médium
+    hm: { f: 2500, g: 0, q: 1 }, // cloche haut-médium
+    high: { f: 8000, g: 0 }, // shelf aigu
+  },
+  comp: { on: false, th: -18, ratio: 3, att: 0.01, rel: 0.15, knee: 6, makeup: 0 },
+  lim: { on: false, ceil: -1, rel: 0.1 },
+};
+// le Master démarre avec le compresseur « glue » qu'utilisait déjà l'application, plus un limiteur de sécurité
+SS.MASTER_DEFAULTS = {
+  volume: 0.8,
+  mix: {
+    ...SS.MIX_DEFAULTS,
+    comp: { on: true, th: -10, ratio: 4, att: 0.003, rel: 0.25, knee: 30, makeup: 0 },
+    lim: { on: true, ceil: -0.3, rel: 0.08 },
+  },
+};
+
+const deepMerge = (base, over) => {
+  if (!over || typeof over !== 'object') return JSON.parse(JSON.stringify(base));
+  const out = Array.isArray(base) ? [] : {};
+  for (const k of Object.keys(base)) {
+    const b = base[k];
+    const o = over[k];
+    if (b && typeof b === 'object') out[k] = deepMerge(b, o);
+    else out[k] = typeof o === typeof b ? o : b;
+  }
+  return out;
+};
+
+/** Réglages de mixage effectifs d'une piste (valeurs par défaut + ce qui a été changé). */
+SS.mixParams = (track) => deepMerge(SS.MIX_DEFAULTS, track && track.mix);
+SS.masterParams = (p) => deepMerge(SS.MASTER_DEFAULTS, p && p.master);
+
+/** Nettoie un bloc de mixage lu dans un fichier (nombres finis, bornes raisonnables). */
+SS.cleanMix = (mix, defaults = SS.MIX_DEFAULTS) => {
+  const m = deepMerge(defaults, mix);
+  const num = (v, lo, hi, d) => (Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d);
+  m.pan = num(m.pan, -1, 1, 0);
+  const e = m.eq;
+  e.on = !!e.on;
+  e.hp.on = !!e.hp.on;
+  e.hp.f = num(e.hp.f, 20, 2000, 40);
+  for (const b of ['low', 'lm', 'hm', 'high']) {
+    e[b].f = num(e[b].f, 20, 20000, defaults.eq[b].f);
+    e[b].g = num(e[b].g, -18, 18, 0);
+    if ('q' in e[b]) e[b].q = num(e[b].q, 0.2, 12, 1);
+  }
+  const c = m.comp;
+  c.on = !!c.on;
+  c.th = num(c.th, -60, 0, -18);
+  c.ratio = num(c.ratio, 1, 20, 3);
+  c.att = num(c.att, 0.0005, 1, 0.01);
+  c.rel = num(c.rel, 0.01, 1, 0.15);
+  c.knee = num(c.knee, 0, 40, 6);
+  c.makeup = num(c.makeup, -12, 24, 0);
+  const l = m.lim;
+  l.on = !!l.on;
+  l.ceil = num(l.ceil, -24, 0, -1);
+  l.rel = num(l.rel, 0.01, 1, 0.1);
+  return m;
+};
+
+SS.dbToGain = (db) => Math.pow(10, db / 20);
+SS.gainToDb = (g) => (g <= 0.00001 ? -Infinity : 20 * Math.log10(g));

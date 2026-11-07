@@ -92,6 +92,7 @@
       <a href="#effets">Effets</a>
       <a href="#groove">Groove</a>
       <a href="#chanson">Mode chanson</a>
+      <a href="#console">Console de mixage</a>
       <a href="#fichiers">Enregistrer et ouvrir</a>
       <a href="#raccourcis">Raccourcis et astuces</a>
     </aside>
@@ -284,6 +285,26 @@
         <tr><td>Boucler</td><td>Que faire à la fin de la chanson</td><td>Coché : la chanson recommence. Sinon, la lecture s'arrête.</td></tr>
       </table></div>
       <p>Les sons, volumes, effets, sound design et longueurs de piste sont communs à toutes les scènes ; seules les notes et le nombre de mesures changent d'une scène à l'autre. Une piste ajoutée est vide dans les autres scènes. On peut changer de scène pendant la lecture en mode Boucle, pour improviser l'enchaînement en direct.</p>
+
+      <h2 id="console">Console de mixage</h2>
+      <p>Le bouton <b>Console</b> de la barre du haut remplace la grille par une table de mixage : une tranche par piste, plus le <b>Master</b> (sortie générale). Re-clique sur Console pour revenir au séquenceur. Le son passe dans chaque tranche dans cet ordre : égaliseur → compresseur → limiteur → panoramique → fader, puis les effets (chorus, delay, reverb, sidechain).</p>
+      <div class="table-wrap"><table>
+        <tr><th>Élément de la tranche</th><th>Utilisation</th></tr>
+        <tr><td>EQ / COMP / LIM</td><td>Les trois inserts. Le témoin vert à gauche les active ou les coupe ; un clic sur le nom ouvre leur réglage dans le panneau du bas.</td></tr>
+        <tr><td>Courbe miniature</td><td>La réponse de l'égaliseur de la piste ; clic pour la régler.</td></tr>
+        <tr><td>C / L</td><td>Réduction de gain en direct du compresseur (C) et du limiteur (L), en orange.</td></tr>
+        <tr><td>Panoramique</td><td>Gauche / droite (L50, C, R30…). Double-clic : centre.</td></tr>
+        <tr><td>M / S</td><td>Muet et Solo, les mêmes que dans l'en-tête de piste.</td></tr>
+        <tr><td>Fader</td><td>Volume en dB, de −∞ à +6 dB. Glisse le bouton (Maj : réglage fin), clique sur le rail pour sauter, molette ou flèches : ±0,5 dB, double-clic : 0 dB.</td></tr>
+        <tr><td>Vumètre</td><td>Niveau RMS (plein) et crête (plus clair), avec maintien de crête. Sous le fader : niveau du fader et crête maximale (en rouge si elle a dépassé 0 dB ; clic pour la remettre à zéro).</td></tr>
+      </table></div>
+      <div class="table-wrap"><table>
+        <tr><th>Module (panneau du bas)</th><th>Réglages</th></tr>
+        <tr><td>Égaliseur 5 bandes</td><td>Passe-haut (P), shelf grave (1), deux cloches bas-médium (2) et haut-médium (3), shelf aigu (4). Glisse les points sur la courbe (fréquence ↔, gain ↕ jusqu'à ±18 dB), molette sur 2 ou 3 pour la largeur (Q), double-clic pour remettre à plat. Les valeurs exactes se tapent aussi dans le tableau sous la courbe.</td></tr>
+        <tr><td>Compresseur</td><td>Seuil, Ratio (1:1 à 20:1), Attaque, Relâchement, Genou, Gain de compensation. La courbe de transfert montre l'effet ; la jauge orange, la réduction de gain en direct.</td></tr>
+        <tr><td>Limiteur</td><td>Plafond et Relâchement : le signal ne dépasse jamais le plafond. Sur le Master, il est actif par défaut à −0,3 dB, avec le compresseur « glue » que l'application utilisait déjà.</td></tr>
+      </table></div>
+      <p>Toucher un réglage active le module. Double-clic sur un curseur : valeur par défaut. <b>Réinitialiser</b> remet la tranche à plat. Tout est enregistré dans le projet et s'annule avec Ctrl+Z.</p>
 
       <h2 id="fichiers">Enregistrer et ouvrir</h2>
       <p>Un projet s'enregistre dans un fichier <code>.stepseq.json</code>, qu'on rouvre avec <b>Ouvrir</b>.</p>

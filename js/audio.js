@@ -7,6 +7,10 @@ window.SS = window.SS || {};
 SS.audio = (() => {
   let ctx = null;
   let master = null;
+  let masterStrip = null;
+  let masterFader = null;
+  let masterMeter = null;
+  let pendingMaster = null;
   const buses = new Map(); // trackId -> GainNode
   const jsonCache = new Map();
   const bufferCache = new Map();
@@ -16,13 +20,17 @@ SS.audio = (() => {
   function ensureCtx() {
     if (!ctx) {
       ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const comp = ctx.createDynamicsCompressor();
-      comp.threshold.value = -10;
-      comp.ratio.value = 4;
+      // Master : somme -> tranche de console (EQ, comp, limiteur) -> fader -> vumètre -> sortie
       master = ctx.createGain();
-      master.gain.value = 0.8;
-      master.connect(comp);
-      comp.connect(ctx.destination);
+      masterStrip = makeStrip();
+      masterFader = ctx.createGain();
+      masterFader.gain.value = 0.8;
+      masterMeter = makeMeter();
+      master.connect(masterStrip.entry);
+      masterStrip.out.connect(masterFader);
+      masterFader.connect(ctx.destination);
+      masterFader.connect(masterMeter.node);
+      if (pendingMaster) applyMaster(pendingMaster);
     }
     if (ctx.state === 'suspended') ctx.resume();
     return ctx;
@@ -264,21 +272,137 @@ SS.audio = (() => {
    */
   let currentTempo = 120;
 
+  /* ---------------- Console : tranche (EQ 5 bandes, compresseur, limiteur) ---------------- */
+
+  /** entry -> passe-haut -> shelf grave -> cloche -> cloche -> shelf aigu -> compresseur -> gain de compensation -> limiteur -> out */
+  function makeStrip() {
+    const st = {};
+    st.entry = ctx.createGain();
+    const bq = (type) => {
+      const f = ctx.createBiquadFilter();
+      f.type = type;
+      return f;
+    };
+    st.hp = bq('highpass');
+    st.low = bq('lowshelf');
+    st.lm = bq('peaking');
+    st.hm = bq('peaking');
+    st.high = bq('highshelf');
+    st.comp = ctx.createDynamicsCompressor();
+    st.makeup = ctx.createGain();
+    st.lim = ctx.createDynamicsCompressor();
+    st.limOut = ctx.createGain();
+    st.out = ctx.createGain();
+    st.entry.connect(st.hp).connect(st.low).connect(st.lm).connect(st.hm).connect(st.high);
+    st.high.connect(st.comp).connect(st.makeup).connect(st.lim).connect(st.limOut).connect(st.out);
+    applyStrip(st, SS.MIX_DEFAULTS);
+    return st;
+  }
+
+  /** Règle une tranche ; un module coupé devient transparent (gain 0 dB, ratio 1:1). */
+  function applyStrip(st, m) {
+    const now = ctx.currentTime;
+    const set = (param, v) => param.setTargetAtTime(v, now, 0.015);
+    const e = m.eq;
+    set(st.hp.frequency, e.on && e.hp.on ? e.hp.f : 10);
+    st.hp.Q.value = 0.707;
+    set(st.low.frequency, e.low.f);
+    set(st.low.gain, e.on ? e.low.g : 0);
+    set(st.lm.frequency, e.lm.f);
+    set(st.lm.gain, e.on ? e.lm.g : 0);
+    set(st.lm.Q, e.lm.q);
+    set(st.hm.frequency, e.hm.f);
+    set(st.hm.gain, e.on ? e.hm.g : 0);
+    set(st.hm.Q, e.hm.q);
+    set(st.high.frequency, e.high.f);
+    set(st.high.gain, e.on ? e.high.g : 0);
+    const c = m.comp;
+    set(st.comp.threshold, c.on ? c.th : 0);
+    set(st.comp.ratio, c.on ? c.ratio : 1);
+    set(st.comp.knee, c.knee);
+    st.comp.attack.value = c.att;
+    st.comp.release.value = c.rel;
+    set(st.makeup.gain, c.on ? SS.dbToGain(c.makeup) : 1);
+    // limiteur : compresseur à genou dur, ratio 20:1, attaque très courte, seuil = plafond
+    const l = m.lim;
+    set(st.lim.threshold, l.on ? l.ceil : 0);
+    set(st.lim.ratio, l.on ? 20 : 1);
+    st.lim.knee.value = 0;
+    st.lim.attack.value = 0.001;
+    st.lim.release.value = l.rel;
+  }
+
+  /** Vumètre : un analyseur lu par la console (crête + RMS). */
+  function makeMeter() {
+    const a = ctx.createAnalyser();
+    a.fftSize = 1024;
+    return { node: a, buf: new Float32Array(a.fftSize) };
+  }
+  function readMeter(m) {
+    if (!m) return { peak: 0, rms: 0 };
+    m.node.getFloatTimeDomainData(m.buf);
+    let peak = 0;
+    let sum = 0;
+    for (let i = 0; i < m.buf.length; i++) {
+      const v = Math.abs(m.buf[i]);
+      if (v > peak) peak = v;
+      sum += v * v;
+    }
+    return { peak, rms: Math.sqrt(sum / m.buf.length) };
+  }
+
   function bus(track) {
     ensureCtx();
     if (!track || !track.id) return master;
     let b = buses.get(track.id);
     if (!b) {
-      // duck : gain piloté par le sidechain (1 = pas d'atténuation), placé avant le son direct et les envois
-      b = { input: ctx.createGain(), pre: ctx.createGain(), duck: ctx.createGain(), chorus: null, delay: null, reverb: null };
+      // tranche de console -> panoramique -> fader (volume) -> chorus -> pre -> duck (sidechain) -> master + envois
+      b = { strip: makeStrip(), pan: ctx.createStereoPanner(), input: ctx.createGain(), pre: ctx.createGain(), duck: ctx.createGain(), meter: makeMeter(), chorus: null, delay: null, reverb: null };
       b.input.gain.value = typeof track.volume === 'number' ? track.volume : 0.8;
+      b.strip.out.connect(b.pan).connect(b.input);
       b.input.connect(b.pre);
       b.pre.connect(b.duck);
       b.duck.connect(master);
+      b.duck.connect(b.meter.node);
       buses.set(track.id, b);
       applyFx(track);
+      applyMix(track);
     }
-    return b.input;
+    return b.strip.entry;
+  }
+
+  /** Applique les réglages de console d'une piste (EQ, comp, limiteur, panoramique). */
+  function applyMix(track) {
+    if (!ctx || !track || !track.id) return;
+    const b = buses.get(track.id);
+    if (!b) return;
+    const m = SS.mixParams(track);
+    applyStrip(b.strip, m);
+    b.pan.pan.setTargetAtTime(m.pan, ctx.currentTime, 0.015);
+  }
+
+  /** Tranche Master : fader + EQ / comp / limiteur. */
+  function applyMaster(project) {
+    if (!ctx) {
+      pendingMaster = project;
+      return;
+    }
+    const mp = SS.masterParams(project);
+    applyStrip(masterStrip, mp.mix);
+    masterFader.gain.setTargetAtTime(mp.volume, ctx.currentTime, 0.015);
+  }
+
+  /** Niveaux pour la console : { peak, rms, gr: {comp, lim} } en linéaire / dB. */
+  function levels(id) {
+    if (!ctx) return null;
+    if (id === '__master') {
+      const l = readMeter(masterMeter);
+      return { ...l, gr: { comp: masterStrip.comp.reduction, lim: masterStrip.lim.reduction } };
+    }
+    const b = buses.get(id);
+    if (!b) return null;
+    const l = readMeter(b.meter);
+    return { ...l, gr: { comp: b.strip.comp.reduction, lim: b.strip.lim.reduction } };
   }
   function setTrackGain(track, value) {
     if (!ctx) return;
@@ -288,6 +412,7 @@ SS.audio = (() => {
   function removeTrack(id) {
     const b = buses.get(id);
     if (b) {
+      b.strip.out.disconnect();
       b.input.disconnect();
       b.pre.disconnect();
       if (b.chorus) b.chorus.lfo.stop();
@@ -408,9 +533,13 @@ SS.audio = (() => {
   /** Recalcule les effets de toutes les pistes (ex. temps du delay après un changement de tempo). */
   function applyAllFx(project) {
     currentTempo = project.tempo;
+    applyMaster(project);
     if (!ctx) return;
     project.tracks.forEach((t) => {
-      if (buses.has(t.id)) applyFx(t);
+      if (buses.has(t.id)) {
+        applyFx(t);
+        applyMix(t);
+      }
     });
   }
 
@@ -936,6 +1065,10 @@ SS.audio = (() => {
     removeTrack,
     applyFx,
     applyAllFx,
+    applyMix,
+    applyMaster,
+    levels,
+    ensureBus: (t) => bus(t),
     _bus: bus, // accès internes pour les tests
     _master: () => master,
     _duckValue: (id) => (buses.get(id) ? buses.get(id).duck.gain.value : null),
