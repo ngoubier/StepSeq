@@ -291,10 +291,13 @@ SS.audio = (() => {
     st.comp = ctx.createDynamicsCompressor();
     st.makeup = ctx.createGain();
     st.lim = ctx.createDynamicsCompressor();
+    // écrêteur doux après le limiteur : garantit le plafond (le compresseur Web Audio n'est pas un vrai « brickwall »)
+    st.clip = ctx.createWaveShaper();
+    st.clip.oversample = '4x';
     st.limOut = ctx.createGain();
     st.out = ctx.createGain();
     st.entry.connect(st.hp).connect(st.low).connect(st.lm).connect(st.hm).connect(st.high);
-    st.high.connect(st.comp).connect(st.makeup).connect(st.lim).connect(st.limOut).connect(st.out);
+    st.high.connect(st.comp).connect(st.makeup).connect(st.lim).connect(st.clip).connect(st.limOut).connect(st.out);
     applyStrip(st, SS.MIX_DEFAULTS);
     return st;
   }
@@ -330,6 +333,26 @@ SS.audio = (() => {
     st.lim.knee.value = 0;
     st.lim.attack.value = 0.001;
     st.lim.release.value = l.rel;
+    st.clip.curve = l.on ? clipCurve(l.ceil) : null; // sans courbe, le WaveShaper laisse passer le signal
+  }
+
+  /** Courbe d'écrêtage doux : linéaire jusqu'à 85 % du plafond, puis arrondie jusqu'au plafond exact. */
+  const clipCurves = new Map();
+  function clipCurve(ceilDb) {
+    const key = ceilDb.toFixed(2);
+    if (clipCurves.has(key)) return clipCurves.get(key);
+    const c = SS.dbToGain(ceilDb);
+    const knee = 0.85 * c;
+    const n = 4096;
+    const curve = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const x = (i / (n - 1)) * 2 - 1; // le WaveShaper lit la courbe pour une entrée de -1 à +1 (au-delà : valeur extrême)
+      const a = Math.abs(x);
+      const y = a <= knee ? a : knee + (c - knee) * Math.tanh((a - knee) / (c - knee));
+      curve[i] = Math.sign(x) * y;
+    }
+    clipCurves.set(key, curve);
+    return curve;
   }
 
   /** Vumètre : un analyseur lu par la console (crête + RMS). */
@@ -1071,6 +1094,7 @@ SS.audio = (() => {
     ensureBus: (t) => bus(t),
     _bus: bus, // accès internes pour les tests
     _master: () => master,
+    _out: () => masterFader, // sortie finale (après la tranche Master), pour enregistrer
     _duckValue: (id) => (buses.get(id) ? buses.get(id).duck.gain.value : null),
     start,
     stop,

@@ -3,7 +3,9 @@
 Génère un projet StepSeq complet en mode chanson :
   Intro (4) · Couplet (8) · Refrain (8) · Couplet · Refrain · Pont (4) · Refrain ×2 · Outro (4)
 
-Usage : python3 train-de-nuit.compose.py [fichier de sortie]
+Inclut le mixage (EQ, compresseurs, panoramiques, sidechain) et le mastering (tranche Master).
+
+Usage : python3 train-de-nuit.compose.py [fichier de sortie] [--brut]   (--brut : sans mixage ni mastering)
 """
 import json
 import os
@@ -211,6 +213,71 @@ def outro():
     return 'Outro', 4, d
 
 
+# ------------------------------------------------------------------ mixage (console)
+def eq(hp=None, low=None, lm=None, hm=None, high=None):
+    """EQ : hp = fréquence du passe-haut ; low/high = (f, gain) ; lm/hm = (f, gain, Q)."""
+    e = {'on': True, 'hp': {'on': hp is not None, 'f': hp or 40},
+         'low': {'f': 100, 'g': 0}, 'lm': {'f': 400, 'g': 0, 'q': 1}, 'hm': {'f': 2500, 'g': 0, 'q': 1}, 'high': {'f': 8000, 'g': 0}}
+    if low: e['low'] = {'f': low[0], 'g': low[1]}
+    if lm: e['lm'] = {'f': lm[0], 'g': lm[1], 'q': lm[2]}
+    if hm: e['hm'] = {'f': hm[0], 'g': hm[1], 'q': hm[2]}
+    if high: e['high'] = {'f': high[0], 'g': high[1]}
+    return e
+
+
+def comp(th, ratio, att, rel, knee=6, makeup=0):
+    return {'on': True, 'th': th, 'ratio': ratio, 'att': att, 'rel': rel, 'knee': knee, 'makeup': makeup}
+
+
+OFF_COMP = {'on': False, 'th': -18, 'ratio': 3, 'att': 0.01, 'rel': 0.15, 'knee': 6, 'makeup': 0}
+OFF_LIM = {'on': False, 'ceil': -1, 'rel': 0.1}
+
+# Réglages de mixage par piste : EQ, compresseur, panoramique, volume, sidechain (pompe sur le kick)
+MIX = {
+    # kick : sub propre, carton (350 Hz) retiré, attaque du batteur (3,5 kHz) mise en avant
+    'kick': dict(eq=eq(hp=30, low=(60, 1), lm=(350, -3.5, 1.2), hm=(3500, 2.5, 1)), comp=comp(-14, 3, 0.012, 0.08, 3, 1.5), pan=0, volume=0.78),
+    'snare': dict(eq=eq(hp=120, lm=(450, -2.5, 1), hm=(5000, 3, 0.8), high=(10000, 1.5)), comp=comp(-16, 3, 0.005, 0.12, 4, 1.5), pan=0, volume=0.6),
+    'clap': dict(eq=eq(hp=220, high=(9000, 2)), pan=0.08, volume=0.42),
+    'hat': dict(eq=eq(hp=400, high=(10000, 2.5)), pan=0.3, volume=0.38),
+    'ohat': dict(eq=eq(hp=350, high=(11000, 1.5)), pan=-0.3, volume=0.3),
+    'tomhi': dict(eq=eq(hp=90, lm=(500, -2, 1)), pan=-0.35, volume=0.48),
+    'tomlo': dict(eq=eq(hp=60, lm=(400, -2, 1)), pan=0.3, volume=0.52),
+    'crash': dict(eq=eq(hp=350, high=(12000, 1)), pan=-0.12, volume=0.32),
+    # basse : grave tenu, boue (250 Hz) retirée, définition à 1,2 kHz, compression régulière + sidechain
+    'bass': dict(eq=eq(hp=32, low=(80, -0.5), lm=(250, -3, 1), hm=(1200, 2, 1)), comp=comp(-20, 4, 0.004, 0.1, 6, 2), pan=0, volume=0.55,
+                 sc=dict(depth=0.45, release=0.14)),
+    # nappe : pas de grave (laisse la place à la basse), un peu d'air ; large et pompée
+    'pad': dict(eq=eq(hp=190, lm=(700, -2.5, 0.8), high=(9000, 2)), pan=0, volume=0.34, sc=dict(depth=0.55, release=0.26)),
+    'arp': dict(eq=eq(hp=260, lm=(800, -2, 1), hm=(3200, -1.5, 1.2), high=(9000, 1.5)), pan=0.38, volume=0.26, sc=dict(depth=0.3, release=0.15)),
+    # lead : devant, présence à 3 kHz, compression pour une voix synthé stable
+    'lead': dict(eq=eq(hp=160, lm=(800, -2, 1), hm=(3000, 1.5, 0.9), high=(10000, 1)), comp=comp(-18, 2.5, 0.01, 0.15, 6, 1.5), pan=-0.05, volume=0.42),
+}
+
+# Mastering (tranche Master) : nettoyage du sub, un peu moins de bas-médium, air,
+# compression « glue » douce (2:1, attaque lente pour garder les transitoires), limiteur à -1 dB.
+MASTER = {
+    'volume': 1.0,
+    'mix': {
+        'pan': 0,
+        'eq': eq(hp=25, low=(70, -2.5), lm=(700, -1.5, 0.7), hm=(1800, 1, 0.7), high=(11000, 2.5)),
+        'comp': comp(-16, 2, 0.03, 0.2, 6, 2),
+        # plafond -2 dB : la marge absorbe le suréchantillonnage de l'écrêteur et l'encodage MP3 (true peak ≤ -1 dBTP)
+        'lim': {'on': True, 'ceil': -2.0, 'rel': 0.06},
+    },
+}
+
+
+def apply_mix(tracks, tid):
+    for key, m in MIX.items():
+        t = next(x for x in tracks if x['id'] == tid[key])
+        t['volume'] = m['volume']
+        t['mix'] = {'pan': m.get('pan', 0), 'eq': m['eq'], 'comp': m.get('comp', OFF_COMP), 'lim': m.get('lim', OFF_LIM)}
+        if 'sc' in m:
+            fx = dict(t.get('fx') or {})
+            fx.update({'scSource': tid['kick'], 'scDepth': m['sc']['depth'], 'scRelease': m['sc']['release']})
+            t['fx'] = fx
+
+
 # ------------------------------------------------------------------ projet
 def build():
     tid = {}
@@ -232,6 +299,9 @@ def build():
             if k in o:
                 t[k] = o[k]
         tracks.append(t)
+
+    if MIXED:
+        apply_mix(tracks, tid)
 
     scenes = []
     for fn in (intro, couplet, refrain, pont, outro):
@@ -257,11 +327,17 @@ def build():
         'song': [{'scene': by[n]['id'], 'repeat': r} for n, r in song],
         'playMode': 'song',
         'songLoop': False,
+        **({'master': MASTER} if MIXED else {}),
     }
 
 
+MIXED = True  # False : la version brute, sans mixage ni mastering (option --brut)
+
 if __name__ == '__main__':
-    out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(os.path.abspath(__file__)), 'train-de-nuit.stepseq.json')
+    args = [a for a in sys.argv[1:] if not a.startswith('--')]
+    if '--brut' in sys.argv:
+        MIXED = False
+    out = args[0] if args else os.path.join(os.path.dirname(os.path.abspath(__file__)), 'train-de-nuit.stepseq.json')
     project = build()
     with open(out, 'w') as f:
         json.dump(project, f, ensure_ascii=False, indent=1)
