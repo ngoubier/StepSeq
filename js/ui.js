@@ -280,9 +280,12 @@ SS.ui = (() => {
       e.preventDefault();
       const s = +cell.dataset.step;
       if (s >= SS.trackLen(app.project(), track)) return; // au-delà de la boucle de la piste
-      if (track.type === 'drum') drumGesture(track, s, e);
-      else noteGesture(track, s, null, e);
+      if (track.type === 'drum') return drumGesture(track, s, e);
+      const edge = noteEdgeAt(track, cell, e.clientX);
+      if (edge) return resizeNote(track, edge, e);
+      noteGesture(track, s, null, e);
     });
+    if (track.type === 'instrument') hoverResize(track, grid, '.cell');
 
     grid.addEventListener('contextmenu', (e) => {
       const cell = e.target.closest('.cell');
@@ -450,8 +453,11 @@ SS.ui = (() => {
         if (!cell || e.button !== 0) return;
         e.preventDefault();
         if (+cell.dataset.step >= SS.trackLen(app.project(), track)) return;
+        const edge = noteEdgeAt(track, cell, e.clientX);
+        if (edge) return resizeNote(track, edge, e);
         noteGesture(track, +cell.dataset.step, +cell.dataset.midi, e);
       });
+      hoverResize(track, grid, '.rcell');
       inner.append(
         h(
           'div',
@@ -869,6 +875,55 @@ SS.ui = (() => {
         paint(track);
       }
     });
+  }
+
+  /* ---------- Allonger / raccourcir une note par son bord droit ---------- */
+  const EDGE_PX = 7; // largeur de la zone de saisie sur le bord droit d'une note
+
+  /** La note dont le bord droit est sous le pointeur (mode On/Off seulement), sinon null. */
+  function noteEdgeAt(track, cell, clientX) {
+    if (track.type !== 'instrument' || app.state.editMode !== 'toggle' || !cell) return null;
+    const s = +cell.dataset.step;
+    const ev = findEventAt(track, s);
+    if (!ev || s !== ev.step + ev.len - 1) return null;
+    if (cell.dataset.midi && !ev.notes.includes(+cell.dataset.midi)) return null; // piano roll : sur une ligne de la note
+    const r = cell.getBoundingClientRect();
+    return clientX >= r.right - EDGE_PX && clientX <= r.right + 3 ? ev : null;
+  }
+
+  /** Curseur « poignée » au survol du bord droit d'une note. */
+  function hoverResize(track, grid, sel) {
+    grid.addEventListener('pointermove', (e) => {
+      if (e.buttons) return;
+      const cell = e.target.closest(sel);
+      grid.classList.toggle('edge-hover', !!noteEdgeAt(track, cell, e.clientX));
+    });
+    grid.addEventListener('pointerleave', () => grid.classList.remove('edge-hover'));
+  }
+
+  /** Glisser le bord droit : la case sous le pointeur devient la dernière de la note. */
+  function resizeNote(track, ev, e) {
+    e.preventDefault();
+    select(track, ev);
+    const n = SS.trackLen(app.project(), track);
+    const next = track.events.find((x) => x !== ev && x.step > ev.step);
+    const maxLen = (next ? next.step : n) - ev.step;
+    document.body.classList.add('resizing-note');
+    track_gesture(
+      (pe) => {
+        const s2 = stepFromPoint(pe.clientX, pe.clientY);
+        if (s2 == null) return;
+        const len = clamp(s2 - ev.step + 1, 1, maxLen);
+        if (len !== ev.len) {
+          ev.len = len;
+          paint(track);
+        }
+      },
+      () => {
+        document.body.classList.remove('resizing-note');
+        updateNoteButton();
+      }
+    );
   }
 
   /** Geste sur une piste instrument : ligne compacte (midi = null) ou piano roll. */

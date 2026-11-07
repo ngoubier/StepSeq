@@ -794,3 +794,7 @@ body:not(.song-mode) .song-blocks { opacity: .75; }
 .ctx-picker .ctx-col button .ctx-name { font-weight: 500; }
 .ctx-foot { display: flex; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
 .ctx-picker .ctx-foot .ctx-close { margin-left: auto; }
+
+/* ---------- Poignée de longueur des notes ---------- */
+.grid.edge-hover, .grid.edge-hover .cell, .grid.edge-hover .rcell { cursor: ew-resize; }
+body.resizing-note, body.resizing-note * { cursor: ew-resize !important; }
