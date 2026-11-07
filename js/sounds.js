@@ -72,6 +72,8 @@ const SYNTHS = {
     synth('acid', 'Acid Bass (synthé)', { wave: 'sawtooth', cutoff: 300, env: 3.8, q: 16, decay: 0.18, sustain: 0.5, release: 0.05 }),
     synth('sub', 'Sub Bass (synthé)', { wave: 'sine', cutoff: 2000, env: 0, q: 0, decay: 0.3, sustain: 0.9, release: 0.08 }),
     synth('sqbass', 'Square Bass (synthé)', { wave: 'square', cutoff: 700, env: 1.8, q: 3, decay: 0.2, sustain: 0.5, release: 0.06 }),
+    synth('moogbass', 'Moog Bass (synthé, ladder + glide)', { wave: 'sawtooth', voices: 2, detune: 7, ftype: 'ladder', fdrive: 0.6, cutoff: 160, q: 12, env: 4, fattack: 0.003, fdecay: 0.28, fsustain: 0.15, frelease: 0.12, decay: 0.3, sustain: 0.8, release: 0.06, glide: 0.07, glideMode: 'legato' }),
+    synth('acidladder', 'Acid Ladder (synthé)', { wave: 'sawtooth', ftype: 'ladder', fdrive: 0.8, cutoff: 260, q: 22, env: 3.6, decay: 0.18, sustain: 0.5, release: 0.05, glide: 0.05, glideMode: 'legato' }),
     synth('reese', 'Reese Bass (synthé)', { wave: 'sawtooth', voices: 2, detune: 22, cutoff: 600, env: 1.2, q: 2, decay: 0.4, sustain: 0.8, release: 0.12 }),
   ],
   synth: [
@@ -114,6 +116,20 @@ const FAMILY_DEFS = [
 ];
 
 const LIB = SS.LIB || { gm: [], vcsl: [] };
+
+/*
+ * Banques mélodiques de Dirt-Samples (js/dirt.js) :
+ *  - multi-échantillonnées (la note est dans le nom du fichier, ex. « Mighty Moog C2 ») -> kind 'multi' ;
+ *  - les autres : un échantillon par variante, joué à la hauteur voulue en supposant,
+ *    comme strudel.cc, qu'il sonne à midi 36 (ex. note("c1 g1").s("jvbass")).
+ */
+SS.DIRT_ROOT = 36;
+const dirtInst = (d) =>
+  d.multi
+    ? { id: 'dirt_' + d.bank, label: d.label + ' (Dirt-Samples)', kind: 'multi', bank: 'dirt', key: d.bank, strudel: d.bank }
+    : { id: 'dirt_' + d.bank, label: d.label + ' (Dirt-Samples)', kind: 'dirt', files: d.files, strudel: d.bank };
+const DIRT = SS.DIRT_INSTRUMENTS || [];
+
 SS.FAMILIES = FAMILY_DEFS.map((f) => ({
   id: f.id,
   label: f.label,
@@ -121,6 +137,7 @@ SS.FAMILIES = FAMILY_DEFS.map((f) => ({
   instruments: [
     ...(SYNTHS[f.id] || []),
     ...(f.extra || []),
+    ...DIRT.filter((d) => d.family === f.id).map(dirtInst),
     ...LIB.vcsl.filter((v) => v.family === f.id).map((v) => vcsl(v.key, v.label + ' (VCSL)', { release: v.release })),
     ...LIB.gm
       .filter((g) => g.family === f.id)
@@ -130,6 +147,11 @@ SS.FAMILIES = FAMILY_DEFS.map((f) => ({
 
 /** Nom lisible d'une variante de soundfont : « 0000_JCLive_sf2_file » -> « JCLive ». */
 SS.sfVariantLabel = (file) => file.replace(/^\d+_/, '').replace(/_sf2_file$/, '').replace(/_/g, ' ');
+/** Nom lisible d'une variante, soundfont ou échantillon Dirt (« jvbass/003_04.wav » -> « 04 »). */
+SS.variantLabel = (inst, file) =>
+  inst.kind === 'dirt'
+    ? file.replace(/^.*\//, '').replace(/\.[a-z0-9]+$/i, '').replace(/^\d+_/, '').replace(/_/g, ' ')
+    : SS.sfVariantLabel(file);
 
 SS.findFamily = (id) => (id === 'analog' && SS.ANALOG_FAMILY) || SS.FAMILIES.find((f) => f.id === id) || SS.FAMILIES[0];
 /** Cherche un instrument par son id, d'abord dans sa famille puis partout (projets anciens). */
@@ -240,16 +262,33 @@ SS.FILTER_TYPES = [
   { id: 'lowpass', label: 'Passe-bas', strudel: 'lpf' },
   { id: 'highpass', label: 'Passe-haut', strudel: 'hpf' },
   { id: 'bandpass', label: 'Passe-bande', strudel: 'bpf' },
+  { id: 'notch', label: 'Coupe-bande', strudel: null },
+];
+/* Modèles de filtre, comme ftype() de strudel.cc (superdough : '12db', 'ladder', '24db') */
+SS.FILTER_MODELS = [
+  { id: '12db', label: '12 dB', hint: 'Biquad 2 pôles : doux, le filtre par défaut de strudel' },
+  { id: '24db', label: '24 dB', hint: 'Deux biquads en série : pente raide, plus « synthé »' },
+  { id: 'ladder', label: 'Ladder', hint: 'Échelle à transistors 4 pôles façon Moog : saturée, résonance chaude, drive' },
+  { id: 'sem', label: 'SEM', hint: 'Variable d’état 2 pôles façon Oberheim SEM : résonance douce et ronde' },
+];
+/* Glide : pas d'équivalent dans strudel (portamento y est encore en commentaire) */
+SS.GLIDE_MODES = [
+  { id: 'always', label: 'Portamento', hint: 'Chaque note glisse depuis la précédente' },
+  { id: 'legato', label: 'Glide legato', hint: 'Façon Moog : glisse seulement entre notes liées, sans redéclencher les enveloppes' },
 ];
 
 /** Réglages par défaut du son d'une piste instrument (ceux du preset choisi). */
 SS.soundDefaults = (track) => {
   const inst = SS.findInstrument(track.family, track.instrument);
-  const base = { filter: 'lowpass', pan: 0, drive: 0, gain: 1, voices: 1, detune: 0 };
+  const base = { filter: 'lowpass', ftype: '12db', fdrive: 0.5, glide: 0, glideMode: 'always', pan: 0, drive: 0, gain: 1, voices: 1, detune: 0 };
   if (inst.kind === 'synth') {
     const p = inst.params;
     return {
       ...base,
+      ftype: p.ftype || base.ftype,
+      fdrive: p.fdrive ?? base.fdrive,
+      glide: p.glide ?? 0,
+      glideMode: p.glideMode || base.glideMode,
       wave: p.wave || 'sawtooth',
       voices: p.voices || (p.wave === 'supersaw' ? 5 : 1),
       detune: p.detune || 0,

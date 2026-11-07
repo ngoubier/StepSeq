@@ -45,7 +45,12 @@ Le bouton **Écouter** permet d'entendre le son avant de valider.
 
 ### Pistes instrument
 
-Le bouton à curseurs de l'en-tête ouvre la fenêtre de **sound design** (oscillateur, filtre cutoff / résonance / enveloppe, ADSR, niveau, panoramique, saturation), inspirée des paramètres de strudel.cc.
+Le bouton à curseurs de l'en-tête ouvre la fenêtre de **sound design** (oscillateur, filtre cutoff / résonance / enveloppe, ADSR, glide, niveau, panoramique, saturation), inspirée des paramètres de strudel.cc :
+
+- filtre passe-bas, passe-haut, passe-bande ou coupe-bande, avec 4 modèles (comme `ftype()` de strudel) :
+  **12 dB**, **24 dB**, **Ladder** (4 pôles façon Moog, avec drive) et **SEM** (variable d'état façon Oberheim) ;
+- **glide** : *Portamento* (chaque note glisse depuis la précédente) ou *Glide legato* (façon Moog : seulement
+  entre notes liées, sans redéclencher les enveloppes).
 
 Sur une piste **Synthé**, ce bouton ouvre la façade du synthé : pour le Juno-106, les sections LFO, DCO
 (16'/8'/4', impulsion + PWM, dent de scie, sous-oscillateur, bruit), HPF, VCF 24 dB/oct, VCA, ENV, chorus I / II,
@@ -98,6 +103,8 @@ Les sons proviennent des bibliothèques utilisées par [strudel.cc](https://stru
   via [dough-samples](https://github.com/felixroos/dough-samples) ;
 - [VCSL](https://github.com/sgossner/VCSL) (Versilian Community Sample Library) ;
 - le piano de dough-samples ;
+- [Dirt-Samples](https://github.com/tidalcycles/Dirt-Samples) : banques de batterie, et banques mélodiques jouées
+  comme instruments (Mighty Moog, Pluck Bass, JV Bass, Jungle Bass, Juno, SID, Hoover, pads…) ;
 - les soundfonts General MIDI FluidR3 de [webaudiofontdata](https://github.com/felixroos/webaudiofontdata) ;
 - plus quelques synthés Web Audio intégrés (saw, square, acid, supersaw, pads…).
 
@@ -108,10 +115,12 @@ Les sons proviennent des bibliothèques utilisées par [strudel.cc](https://stru
 | `index.html`     | Structure de la page et dialogue d'ajout de piste |
 | `css/style.css`  | Thème et mise en page |
 | `js/library.js`  | Catalogue généré depuis strudel.cc (125 soundfonts gm_*, VCSL) |
+| `js/dirt.js`     | Catalogue généré des banques mélodiques de Dirt-Samples |
 | `js/sounds.js`   | Catalogue des sons (batterie, familles d'instruments, accords) |
+| `js/filters.js`  | Filtres Ladder et SEM (AudioWorklet) du sound design |
 | `js/project.js`  | Modèle de projet, enregistrement / ouverture de fichiers |
 | `js/audio.js`    | Moteur audio : chargement des échantillons, voix, séquenceur |
-| `js/sounddesign.js` | Fenêtre de sound design (VCO, filtre, ADSR, sortie) |
+| `js/sounddesign.js` | Fenêtre de sound design (VCO, filtre, ADSR, glide, sortie) |
 | `js/juno.js`     | Synthés analogiques : catalogue, 128 patches d'usine du Juno-106, un AudioWorklet par piste |
 | `js/juno-dsp.js` | Moteur du Juno-106 (AudioWorklet), porté de l'Ultramaster KR-106 — GPL v3 |
 | `js/junopanel.js` | Façade du Juno-106 (sound design des pistes Synthé) |

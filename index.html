@@ -216,7 +216,7 @@
             <div id="dlgInstList" class="pick-list" aria-labelledby="dlgInstLabel"></div>
           </div>
           <div class="br-col">
-            <div class="br-head"><span class="dlg-label" id="dlgSfvLabel">Variante (soundfont)</span></div>
+            <div class="br-head"><span class="dlg-label" id="dlgSfvLabel">Variante</span></div>
             <div id="dlgSfvList" class="pick-list" aria-labelledby="dlgSfvLabel"></div>
           </div>
         </div>
@@ -284,6 +284,8 @@
         <section class="sd-panel" aria-labelledby="sdVcfTitle">
           <h3 id="sdVcfTitle">Filtre <small>VCF</small></h3>
           <div class="segmented sd-ftype" id="sdFilterType" role="radiogroup" aria-label="Type de filtre"></div>
+          <div class="segmented sd-ftype" id="sdFilterModel" role="radiogroup" aria-label="Modèle de filtre (ftype)"></div>
+          <p id="sdFilterHint" class="sd-hint"></p>
           <div class="sd-sliders" id="sdVcfSliders"></div>
         </section>
 
@@ -308,7 +310,14 @@
           <div class="sd-sliders" id="sdVcaSliders"></div>
         </section>
 
-        <section class="sd-panel wide" aria-labelledby="sdOutTitle">
+        <section class="sd-panel" aria-labelledby="sdGlideTitle">
+          <h3 id="sdGlideTitle">Glide <small>portamento</small></h3>
+          <div class="segmented sd-ftype" id="sdGlideMode" role="radiogroup" aria-label="Mode de glide"></div>
+          <p id="sdGlideHint" class="sd-hint"></p>
+          <div class="sd-sliders" id="sdGlideSliders"></div>
+        </section>
+
+        <section class="sd-panel" aria-labelledby="sdOutTitle">
           <h3 id="sdOutTitle">Sortie</h3>
           <div class="sd-sliders" id="sdOutSliders"></div>
         </section>
@@ -470,7 +479,9 @@
   <div id="toast" role="status"></div>
 
   <script src="js/library.js"></script>
+  <script src="js/dirt.js"></script>
   <script src="js/sounds.js"></script>
+  <script src="js/filters.js"></script>
   <script src="js/juno-dsp.js"></script>
   <script src="js/juno.js"></script>
   <script src="js/project.js"></script>

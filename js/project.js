@@ -17,10 +17,11 @@
  *       variant: 0,
  *       steps: [0..1, ...] }                         // vélocité, 0 = éteint
  *     { id, type: "instrument", name, color, volume, mute, solo,
- *       category: "mono"|"arp"|"chord", family, instrument, sfv (variante soundfont),
+ *       category: "mono"|"arp"|"chord", family, instrument, sfv (variante soundfont ou échantillon Dirt-Samples),
  *       chord: "min", arp: { mode, rate, octaves }, octave,
- *       sd: { wave, voices, detune, filter, cutoff, q, env,      // sound design (optionnel,
- *             attack, decay, sustain, release, pan, drive, gain } // sinon preset de l'instrument)
+ *       sd: { wave, voices, detune, filter, ftype, fdrive, cutoff, q, env,  // sound design (optionnel,
+ *             attack, decay, sustain, release, glide, glideMode,       //  sinon preset de l'instrument)
+ *             pan, drive, gain }
  *       events: [{ step, len, notes: [midi...], vel }] }
  *     piste « Synthé » : comme une piste instrument, avec family: "analog", instrument: "juno106",
  *       junoPatch: "A11" (patch chargé), juno: { lfoRate, dcoLfo, pwm, …, chorus } (réglages du panneau)
@@ -161,7 +162,7 @@ SS.normalizeProject = (data) => {
         track.sd = {};
         for (const [k, v] of Object.entries(t.sd)) {
           if (typeof v === 'number' && Number.isFinite(v)) track.sd[k] = v;
-          else if (typeof v === 'string' && /^[a-z]{1,16}$/.test(v)) track.sd[k] = v;
+          else if (typeof v === 'string' && /^[a-z0-9]{1,16}$/.test(v)) track.sd[k] = v;
         }
       } else delete track.sd;
       track.octave = Number.isFinite(t.octave) ? t.octave : 4;

@@ -89,7 +89,7 @@ SS.ui = (() => {
       return `${cat ? cat.label : ''} · ${SS.findAnalog(track.instrument).label.replace(/^Roland /, '')} · ${patch ? patch.id + ' ' + patch.name : ''}${edited}`;
     }
     const inst = SS.findInstrument(track.family, track.instrument);
-    const variant = inst.files && inst.files.length > 1 ? ` (${SS.sfVariantLabel(SS.sfFile(inst, track))})` : '';
+    const variant = inst.files && inst.files.length > 1 ? ` (${SS.variantLabel(inst, SS.sfFile(inst, track))})` : '';
     return `${cat ? cat.label : ''} · ${inst.label}${variant}`;
   }
 
@@ -2537,14 +2537,14 @@ SS.ui = (() => {
     if (!fromInput) $('#dlgLenSteps').value = len || total;
   }
 
-  /** Variantes de soundfont (les gm_* de strudel existent en plusieurs banques). */
+  /** Variantes : soundfont (les gm_* de strudel existent en plusieurs banques) ou échantillon Dirt-Samples. */
   function fillSfv() {
     const inst = SS.findInstrument(dlg.s.family, dlg.s.instrument);
     const files = inst.files || [];
     if (dlg.s.sfv >= files.length) dlg.s.sfv = 0;
     fillList(
       $('#dlgSfvList'),
-      files.map((f, i) => ({ v: i, label: `${i + 1} — ${SS.sfVariantLabel(f)}`, meta: i === 0 ? 'par défaut' : '' })),
+      files.map((f, i) => ({ v: i, label: `${i + 1} — ${SS.variantLabel(inst, f)}`, meta: i === 0 ? 'par défaut' : '' })),
       dlg.s.sfv,
       'Une seule variante'
     );
