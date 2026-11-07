@@ -1494,6 +1494,172 @@ SS.ui = (() => {
 
   const dlg = {};
 
+  /* --- Listes de choix (remplacent les listes déroulantes) ------------- */
+  // Une liste = div.pick-list[role=listbox] ; ↑ ↓ Début Fin Pg↑ Pg↓ : choisir (et écouter),
+  // ← → : colonne voisine, lettres : aller au premier nom qui commence par…, Espace : écouter, Entrée : valider.
+  let listUid = 0;
+  function setupList(el, onPick) {
+    el.setAttribute('role', 'listbox');
+    el.tabIndex = 0;
+    el._onPick = onPick;
+    let buf = '';
+    let bufT = null;
+    el.addEventListener('click', (e) => {
+      const it = e.target.closest('.pl-item');
+      if (!it) return;
+      el.focus({ preventScroll: true });
+      chooseItem(el, it, true);
+    });
+    el.addEventListener('dblclick', (e) => {
+      if (e.target.closest('.pl-item')) dlg.form.requestSubmit();
+    });
+    el.addEventListener('keydown', (e) => {
+      const items = [...el.querySelectorAll('.pl-item')];
+      const i = items.findIndex((x) => x.classList.contains('sel'));
+      const go = (j) => {
+        e.preventDefault();
+        if (items.length) chooseItem(el, items[clamp(j, 0, items.length - 1)], true);
+      };
+      switch (e.key) {
+        case 'ArrowDown': return go(i + 1);
+        case 'ArrowUp':
+          if (i <= 0) {
+            e.preventDefault();
+            const search = el.parentElement.querySelector('.br-search');
+            if (search) search.focus();
+            else focusPills(el, -1, true);
+            return;
+          }
+          return go(i - 1);
+        case 'Home': return go(0);
+        case 'End': return go(items.length - 1);
+        case 'PageDown': return go(i + 8);
+        case 'PageUp': return go(i - 8);
+        case 'ArrowRight':
+        case 'ArrowLeft': {
+          e.preventDefault();
+          const cols = [...el.closest('.browser').querySelectorAll('.pick-list')].filter((x) => x.offsetParent);
+          const next = cols[cols.indexOf(el) + (e.key === 'ArrowRight' ? 1 : -1)];
+          if (next) next.focus();
+          return;
+        }
+        case 'Enter':
+          e.preventDefault();
+          dlg.form.requestSubmit();
+          return;
+        case ' ':
+          e.preventDefault();
+          previewDialog();
+          return;
+      }
+      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey && items.length) {
+        clearTimeout(bufT);
+        buf += e.key.toLowerCase();
+        bufT = setTimeout(() => (buf = ''), 800);
+        const from = buf.length === 1 ? i + 1 : Math.max(0, i);
+        for (let k = 0; k < items.length; k++) {
+          const it = items[(from + k) % items.length];
+          if (it.dataset.key.startsWith(buf)) {
+            e.preventDefault();
+            chooseItem(el, it, true);
+            break;
+          }
+        }
+      }
+    });
+  }
+
+  function chooseItem(el, it, user) {
+    el.querySelectorAll('.pl-item.sel').forEach((x) => {
+      x.classList.remove('sel');
+      x.setAttribute('aria-selected', 'false');
+    });
+    it.classList.add('sel');
+    it.setAttribute('aria-selected', 'true');
+    el.setAttribute('aria-activedescendant', it.id);
+    it.scrollIntoView({ block: 'nearest' });
+    if (user) el._onPick(it.dataset.v);
+  }
+
+  /** Remplit une liste. entries : { v, label, meta?, title? } ou { group: 'Titre' } ; empty : texte si vide. */
+  function fillList(el, entries, selected, empty = 'Aucun résultat') {
+    const nodes = entries.map((en) => {
+      if (en.group) return h('div', { class: 'pl-group', role: 'presentation' }, en.group);
+      return h('div', {
+        class: 'pl-item' + (String(en.v) === String(selected) ? ' sel' : ''),
+        role: 'option',
+        id: 'pl' + ++listUid,
+        'data-v': en.v,
+        'data-key': en.label.toLowerCase(),
+        'aria-selected': String(String(en.v) === String(selected)),
+        title: en.title || null,
+      }, h('span', { class: 'pl-label' }, en.label), en.meta ? h('small', { class: 'pl-meta' }, en.meta) : null);
+    });
+    el.replaceChildren(...(nodes.length ? nodes : [h('div', { class: 'pl-empty' }, empty)]));
+    const sel = el.querySelector('.pl-item.sel');
+    if (sel) {
+      el.setAttribute('aria-activedescendant', sel.id);
+      requestAnimationFrame(() => sel.scrollIntoView({ block: 'nearest' }));
+    } else el.removeAttribute('aria-activedescendant');
+  }
+
+  /* --- Pastilles : une seule pastille dans l'ordre de tabulation, ← → pour changer, ↓ vers la liste */
+  function setupPills(group) {
+    group.addEventListener('keydown', (e) => {
+      const btns = [...group.querySelectorAll('button')].filter((b) => !b.disabled);
+      const i = btns.indexOf(document.activeElement);
+      if (i < 0) return;
+      const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
+      if (step) {
+        e.preventDefault();
+        const b = btns[(i + step + btns.length) % btns.length];
+        b.focus();
+        b.click();
+        return;
+      }
+      if (e.key === 'Home' || e.key === 'End') {
+        e.preventDefault();
+        const b = btns[e.key === 'Home' ? 0 : btns.length - 1];
+        b.focus();
+        b.click();
+        return;
+      }
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        focusPills(group, e.key === 'ArrowDown' ? 1 : -1);
+      }
+    });
+  }
+
+  /** Va à l'arrêt clavier suivant / précédent visible (pastilles, recherche, liste) ; onlyPills : saute aux pastilles. */
+  function focusPills(from, dir, onlyPills) {
+    const stops = [...dlg.form.querySelectorAll('.pills-nav, .br-search, .pick-list')].filter((x) => x.offsetParent);
+    let j = stops.indexOf(from) + dir;
+    while (stops[j] && onlyPills && !stops[j].classList.contains('pills-nav')) j += dir;
+    const target = stops[j];
+    if (!target) return;
+    if (target.classList.contains('pills-nav')) {
+      const b = target.querySelector('button.active:not(:disabled)') || target.querySelector('button:not(:disabled)');
+      if (b) b.focus();
+    } else target.focus();
+  }
+
+  function rovePills(group) {
+    const btns = [...group.querySelectorAll('button')];
+    const act = btns.find((b) => b.classList.contains('active') && !b.disabled) || btns.find((b) => !b.disabled);
+    btns.forEach((b) => {
+      b.tabIndex = b === act ? 0 : -1;
+      b.setAttribute('role', 'radio');
+      b.setAttribute('aria-checked', String(b.classList.contains('active')));
+    });
+  }
+
+  let previewT = null;
+  function previewSoon() {
+    clearTimeout(previewT);
+    previewT = setTimeout(previewDialog, 120);
+  }
+
   function initDialog() {
     dlg.el = $('#trackDialog');
     dlg.form = $('#trackForm');
@@ -1501,7 +1667,7 @@ SS.ui = (() => {
     // Couleurs
     const colors = $('#dlgColors');
     SS.COLORS.forEach((c) =>
-      colors.append(h('button', { type: 'button', class: 'swatch', style: `background:${c}`, 'data-c': c, title: c, onclick: () => setColor(c) }))
+      colors.append(h('button', { type: 'button', class: 'swatch', style: `background:${c}`, 'data-c': c, title: c, 'aria-label': 'Couleur ' + c, onclick: () => setColor(c) }))
     );
     dlg.colorInput = h('input', { type: 'color', title: 'Couleur personnalisée', oninput: (e) => setColor(e.target.value) });
     colors.append(dlg.colorInput);
@@ -1509,7 +1675,7 @@ SS.ui = (() => {
     // Types de drum
     SS.DRUM_TYPES.forEach((t) =>
       $('#dlgDrumTypes').append(
-        h('button', { type: 'button', class: 'chip', 'data-v': t.id, onclick: () => setDrumSound(t.id, true) }, t.label)
+        h('button', { type: 'button', class: 'chip', 'data-v': t.id, onclick: () => dlg.s.sound !== t.id && setDrumSound(t.id, true) }, t.label)
       )
     );
     // Bibliothèques de batterie
@@ -1523,29 +1689,58 @@ SS.ui = (() => {
             if (dlg.s.source === l.id) return;
             dlg.s.source = l.id;
             dlg.s.variant = 0;
-            $('#dlgBankFilter').value = '';
+            $('#dlgDrumFilter').value = '';
             syncDialog();
             refreshDrum(true);
           },
         }, l.label)
       )
     );
-    $('#dlgBankFilter').addEventListener('input', fillBanks);
-    $('#dlgBank').addEventListener('change', (e) => {
-      dlg.s.bank = e.target.value;
+    setupList($('#dlgDrumList'), (v) => {
+      if ((dlg.s.source || 'tdm') === 'tdm') dlg.s.machine = v;
+      else dlg.s.bank = v;
       dlg.s.variant = 0;
       autoName();
       refreshVariants(true);
     });
-    $('#dlgInstFilter').addEventListener('input', fillInstruments);
-    $('#dlgLen').addEventListener('change', (e) => {
-      const v = e.target.value;
-      if (v === 'custom') {
-        $('#dlgLenSteps').focus();
-        return;
-      }
-      dlg.s.length = +v;
-      syncLen();
+    setupList($('#dlgVariantList'), (v) => {
+      dlg.s.variant = +v;
+      previewSoon();
+    });
+    setupList($('#dlgInstList'), (v) => {
+      const loc = SS.locateInstrument(dlg.s.family, v);
+      dlg.s.instrument = loc.inst.id;
+      dlg.s.family = loc.family.id; // un résultat de recherche peut venir d'une autre famille
+      dlg.s.sfv = 0;
+      fillSfv();
+      autoName();
+      syncDialog();
+      previewSoon();
+    });
+    setupList($('#dlgSfvList'), (v) => {
+      dlg.s.sfv = +v;
+      previewSoon();
+    });
+    // champs de recherche : ↓ ou Entrée descend dans la liste
+    [['#dlgDrumFilter', '#dlgDrumList', fillDrumList], ['#dlgInstFilter', '#dlgInstList', fillInstruments]].forEach(([inp, list, fill]) => {
+      $(inp).addEventListener('input', () => {
+        fill();
+        syncDialog(); // en recherche, aucune famille n'est en surbrillance
+      });
+      $(inp).addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowDown' || e.key === 'Enter') {
+          e.preventDefault();
+          const l = $(list);
+          l.focus();
+          if (!l.querySelector('.pl-item.sel')) {
+            const first = l.querySelector('.pl-item');
+            if (first) chooseItem(l, first, true);
+          }
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          focusPills(e.target, -1);
+        }
+      });
     });
     $('#dlgLenSteps').addEventListener('input', (e) => {
       const total = SS.totalSteps(app.project());
@@ -1553,10 +1748,6 @@ SS.ui = (() => {
       if (!Number.isFinite(v)) return;
       dlg.s.length = v >= total ? 0 : Math.max(1, v);
       syncLen(true);
-    });
-    $('#dlgSfv').addEventListener('change', (e) => {
-      dlg.s.sfv = +e.target.value;
-      previewDialog();
     });
     // Catégories
     SS.CATEGORIES.forEach((c) =>
@@ -1579,6 +1770,7 @@ SS.ui = (() => {
           class: 'chip',
           'data-v': f.id,
           onclick: () => {
+            if (dlg.s.family === f.id && !$('#dlgInstFilter').value) return;
             dlg.s.family = f.id;
             dlg.s.instrument = f.instruments[0].id;
             dlg.s.sfv = 0;
@@ -1594,34 +1786,16 @@ SS.ui = (() => {
 
     $('#dlgType').addEventListener('click', (e) => {
       const b = e.target.closest('button');
-      if (!b || b.disabled) return;
+      if (!b || b.disabled || dlg.s.type === b.dataset.v) return;
       dlg.s.type = b.dataset.v;
       autoName();
       syncDialog();
       if (dlg.s.type === 'drum') refreshDrum();
     });
+    dlg.form.querySelectorAll('.pills-nav').forEach(setupPills);
     $('#dlgName').addEventListener('input', (e) => {
       dlg.s.name = e.target.value;
       dlg.s.nameEdited = true;
-    });
-    $('#dlgMachine').addEventListener('change', (e) => {
-      dlg.s.machine = e.target.value;
-      dlg.s.variant = 0;
-      refreshVariants(true);
-    });
-    $('#dlgVariant').addEventListener('change', (e) => {
-      dlg.s.variant = +e.target.value;
-      previewDialog();
-    });
-    $('#dlgInstrument').addEventListener('change', (e) => {
-      const loc = SS.locateInstrument(dlg.s.family, e.target.value);
-      dlg.s.instrument = loc.inst.id;
-      dlg.s.family = loc.family.id; // un résultat de recherche peut venir d'une autre famille
-      dlg.s.sfv = 0;
-      fillSfv();
-      autoName();
-      syncDialog();
-      previewDialog();
     });
     $('#dlgPreview').addEventListener('click', previewDialog);
     $('#dlgCancel').addEventListener('click', () => dlg.el.close('cancel'));
@@ -1675,18 +1849,20 @@ SS.ui = (() => {
   }
 
   async function refreshMachines(preview) {
-    const sel = $('#dlgMachine');
     let machines = [];
+    fillList($('#dlgDrumList'), [], null, 'Chargement…');
     try {
       machines = await SS.audio.drumMachines(dlg.s.sound);
     } catch (e) {
       toast('Impossible de charger la bibliothèque tidal-drum-machines (connexion internet requise).');
     }
+    if ((dlg.s.source || 'tdm') !== 'tdm') return;
     if (!machines.includes(dlg.s.machine)) {
       dlg.s.machine = machines.includes(SS.DEFAULT_MACHINE) ? SS.DEFAULT_MACHINE : machines[0];
       dlg.s.variant = 0;
     }
-    sel.replaceChildren(...machines.map((m) => h('option', { value: m, selected: m === dlg.s.machine }, m)));
+    dlg.machines = machines;
+    fillDrumList();
     await refreshVariants(preview);
   }
 
@@ -1700,6 +1876,7 @@ SS.ui = (() => {
   async function refreshBanks(preview) {
     const source = dlg.s.source;
     let banks = [];
+    fillList($('#dlgDrumList'), [], null, 'Chargement…');
     try {
       banks = await SS.audio.drumBanks(source);
     } catch (e) {
@@ -1712,19 +1889,21 @@ SS.ui = (() => {
       dlg.s.variant = 0;
     }
     autoName();
-    fillBanks();
+    fillDrumList();
     await refreshVariants(preview);
   }
 
-  function fillBanks() {
-    const q = $('#dlgBankFilter').value.trim().toLowerCase();
-    const banks = (dlg.banks || []).filter((b) => !q || b.id.toLowerCase().includes(q) || b.id === dlg.s.bank);
-    $('#dlgBank').replaceChildren(
-      ...banks.map((b) => h('option', { value: b.id, selected: b.id === dlg.s.bank }, `${b.id.replace(/_/g, ' ')}  (${b.count})`))
-    );
-    $('#dlgBankCount').textContent = `· ${(dlg.banks || []).length} banques`;
-    const sel = $('#dlgBank').selectedOptions[0];
-    if (sel) sel.scrollIntoView({ block: 'nearest' });
+  /** Colonne de gauche des drums : boîtes à rythmes (tidal-drum-machines) ou banques (autres bibliothèques). */
+  function fillDrumList() {
+    const q = $('#dlgDrumFilter').value.trim().toLowerCase();
+    const tdm = (dlg.s.source || 'tdm') === 'tdm';
+    const all = tdm ? (dlg.machines || []).map((m) => ({ v: m, label: m })) : (dlg.banks || []).map((b) => ({ v: b.id, label: b.id.replace(/_/g, ' '), meta: String(b.count) }));
+    const cur = tdm ? dlg.s.machine : dlg.s.bank;
+    const list = all.filter((x) => !q || x.label.toLowerCase().includes(q) || String(x.v).toLowerCase().includes(q));
+    $('#dlgDrumListLabel').textContent = tdm ? 'Boîte à rythmes' : 'Banque';
+    $('#dlgDrumFilter').placeholder = tdm ? 'Filtrer (ex. 808, linn, dmx…)' : 'Filtrer (ex. 808, jazz, conga…)';
+    $('#dlgDrumCount').textContent = all.length ? (q ? `${list.length} / ${all.length}` : String(all.length)) : '';
+    fillList($('#dlgDrumList'), list, cur);
   }
 
   async function refreshVariants(preview) {
@@ -1733,43 +1912,59 @@ SS.ui = (() => {
     if ((s.source || 'tdm') === 'tdm') list = s.machine ? await SS.audio.drumVariants(s.machine, s.sound).catch(() => []) : [];
     else list = s.bank ? await SS.audio.bankVariants(s.source, s.bank).catch(() => []) : [];
     if (dlg.s.variant >= list.length) dlg.s.variant = 0;
-    $('#dlgVariant').replaceChildren(
-      ...list.map((url, i) =>
-        h('option', { value: i, selected: i === dlg.s.variant }, `${i + 1} — ${decodeURIComponent(url.split('/').pop())}`)
-      )
+    fillList(
+      $('#dlgVariantList'),
+      list.map((url, i) => ({ v: i, label: String(i + 1), meta: decodeURIComponent(url.split('/').pop()).replace(/\.(wav|mp3|ogg|flac|aiff?)$/i, '') })),
+      dlg.s.variant,
+      'Aucun son'
     );
-    if (preview) previewDialog();
+    $('#dlgVariantCount').textContent = list.length ? String(list.length) : '';
+    if (preview) previewSoon();
   }
 
   function fillInstruments() {
     const q = $('#dlgInstFilter').value.trim().toLowerCase();
-    const opt = (i) => h('option', { value: i.id, selected: i.id === dlg.s.instrument, title: i.strudel ? `strudel : s("${i.strudel}")` : null }, i.label);
+    const ent = (i) => ({ v: i.id, label: i.label, title: i.strudel ? `strudel : s("${i.strudel}")` : null });
+    let entries;
     if (!q) {
-      const fam = SS.findFamily(dlg.s.family);
-      $('#dlgInstrument').replaceChildren(...fam.instruments.map(opt));
+      entries = SS.findFamily(dlg.s.family).instruments.map(ent);
+      $('#dlgInstCount').textContent = String(entries.length);
     } else {
       // recherche dans toutes les familles, résultats groupés par famille
-      const groups = SS.FAMILIES.map((f) => {
+      entries = [];
+      let n = 0;
+      SS.FAMILIES.forEach((f) => {
         const hits = f.instruments.filter((i) => i.label.toLowerCase().includes(q) || i.id.toLowerCase().includes(q));
-        return hits.length ? h('optgroup', { label: f.label }, hits.map(opt)) : null;
-      }).filter(Boolean);
-      $('#dlgInstrument').replaceChildren(...(groups.length ? groups : [h('option', { disabled: true }, 'Aucun instrument trouvé')]));
+        if (hits.length) entries.push({ group: f.label }, ...hits.map(ent));
+        n += hits.length;
+      });
+      $('#dlgInstCount').textContent = `${n} trouvé${n > 1 ? 's' : ''}`;
     }
-    const sel = $('#dlgInstrument').selectedOptions[0];
-    if (sel) sel.scrollIntoView({ block: 'nearest' });
+    fillList($('#dlgInstList'), entries, dlg.s.instrument, 'Aucun instrument trouvé');
   }
 
-  /** Liste des longueurs proposées (en mesures, selon le projet) + saisie libre en pas. */
+  /** Longueurs proposées (en mesures, selon le projet) en pastilles + saisie libre en pas. */
   function fillLen() {
     const p = app.project();
     const spb = SS.stepsPerBar(p);
     const total = SS.totalSteps(p);
-    const opts = [h('option', { value: 0 }, `Comme le projet (${p.bars} mes. · ${total} pas)`)];
+    const opts = [{ v: 0, label: `Comme le projet (${p.bars} mes.)` }];
     const half = spb / 2;
-    if (Number.isInteger(half)) opts.push(h('option', { value: half }, '½ mesure'));
-    [1, 2, 4, 8, 16, 32].filter((b) => b * spb < total).forEach((b) => opts.push(h('option', { value: b * spb }, `${b} mesure${b > 1 ? 's' : ''}`)));
-    opts.push(h('option', { value: 'custom' }, 'Autre (en pas)…'));
-    $('#dlgLen').replaceChildren(...opts);
+    if (Number.isInteger(half)) opts.push({ v: half, label: '½ mesure' });
+    [1, 2, 4, 8, 16, 32].filter((b) => b * spb < total).forEach((b) => opts.push({ v: b * spb, label: `${b} mes.` }));
+    $('#dlgLen').replaceChildren(
+      ...opts.map((o) =>
+        h('button', {
+          type: 'button',
+          class: 'chip',
+          'data-v': o.v,
+          onclick: () => {
+            dlg.s.length = o.v;
+            syncLen();
+          },
+        }, o.label)
+      )
+    );
     $('#dlgLenSteps').max = total;
     syncLen();
   }
@@ -1777,8 +1972,8 @@ SS.ui = (() => {
   function syncLen(fromInput) {
     const total = SS.totalSteps(app.project());
     const len = dlg.s.length || 0;
-    const sel = $('#dlgLen');
-    sel.value = [...sel.options].some((o) => o.value === String(len)) ? String(len) : 'custom';
+    $('#dlgLen').querySelectorAll('.chip').forEach((b) => b.classList.toggle('active', +b.dataset.v === len));
+    rovePills($('#dlgLen'));
     if (!fromInput) $('#dlgLenSteps').value = len || total;
   }
 
@@ -1786,10 +1981,12 @@ SS.ui = (() => {
   function fillSfv() {
     const inst = SS.findInstrument(dlg.s.family, dlg.s.instrument);
     const files = inst.files || [];
-    $('#dlgSfvRow').hidden = files.length < 2;
     if (dlg.s.sfv >= files.length) dlg.s.sfv = 0;
-    $('#dlgSfv').replaceChildren(
-      ...files.map((f, i) => h('option', { value: i, selected: i === dlg.s.sfv }, `${i + 1} — ${SS.sfVariantLabel(f)}${i === 0 ? ' (par défaut sur strudel)' : ''}`))
+    fillList(
+      $('#dlgSfvList'),
+      files.map((f, i) => ({ v: i, label: `${i + 1} — ${SS.sfVariantLabel(f)}`, meta: i === 0 ? 'par défaut' : '' })),
+      dlg.s.sfv,
+      'Une seule variante'
     );
   }
 
@@ -1806,12 +2003,12 @@ SS.ui = (() => {
     $('#dlgDrumLib').querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.v === src));
     $('#dlgDrumLibHint').textContent = (SS.DRUM_LIBS.find((l) => l.id === src) || {}).hint || '';
     $('#dlgTdm').hidden = src !== 'tdm';
-    $('#dlgBankRow').hidden = src === 'tdm';
     $('#dlgColors').querySelectorAll('.swatch').forEach((b) => b.classList.toggle('active', b.dataset.c === s.color));
     dlg.colorInput.value = s.color;
     $('#dlgDrumTypes').querySelectorAll('.chip').forEach((b) => b.classList.toggle('active', b.dataset.v === s.sound));
     $('#dlgCategory').querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.v === s.category));
-    $('#dlgFamilies').querySelectorAll('.chip').forEach((b) => b.classList.toggle('active', b.dataset.v === s.family));
+    $('#dlgFamilies').querySelectorAll('.chip').forEach((b) => b.classList.toggle('active', b.dataset.v === s.family && !$('#dlgInstFilter').value.trim()));
+    dlg.form.querySelectorAll('.pills-nav').forEach(rovePills);
   }
 
   function previewDialog() {
@@ -1869,7 +2066,7 @@ SS.ui = (() => {
     $('#dlgOk').textContent = track ? 'Appliquer' : 'Valider';
     $('#dlgName').value = dlg.s.name;
     $('#dlgInstFilter').value = '';
-    $('#dlgBankFilter').value = '';
+    $('#dlgDrumFilter').value = '';
     autoName();
     fillInstruments();
     fillSfv();
@@ -1878,6 +2075,8 @@ SS.ui = (() => {
     refreshDrum(false);
     dlg.el.returnValue = '';
     dlg.el.showModal();
+    // le clavier part de la liste principale (le nom reste à un Maj+Tab)
+    requestAnimationFrame(() => (dlg.s.type === 'drum' ? $('#dlgDrumList') : $('#dlgInstList')).focus());
     return new Promise((resolve) => (dlg.resolve = resolve));
   }
 

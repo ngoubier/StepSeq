@@ -120,7 +120,18 @@
       <p>Une case de la grille vaut toujours une double-croche. Une mesure en 4/4 fait donc 16 cases, et une mesure en 6/8 en fait 12.</p>
 
       <h2 id="ajouter">Ajouter une piste</h2>
-      <p>Le bouton <b>+</b> ouvre une fenêtre. Choisis d'abord <b>Drum</b> ou <b>Instrument</b>, puis remplis les champs, écoute avec <b>Écouter</b> et clique sur <b>Valider</b>.</p>
+      <p>Le bouton <b>+</b> ouvre une fenêtre. Choisis d'abord <b>Drum</b> ou <b>Instrument</b>, puis choisis le son avec les pastilles et les listes, écoute avec <b>Écouter</b> et clique sur <b>Valider</b>.</p>
+      <p>La navigation est la même pour les drums et les instruments : des <b>pastilles</b> en haut (bibliothèque et type de drum, ou catégorie et famille), puis <b>deux colonnes</b> : à gauche la boîte à rythmes, la banque ou l'instrument (avec un champ de filtre), à droite la variation ou la variante de soundfont. Chaque clic dans une liste fait entendre le son ; un double-clic valide.</p>
+      <div class="table-wrap"><table>
+        <tr><th>Touche</th><th>Effet dans la fenêtre</th></tr>
+        <tr><td>↑ ↓ (dans une liste)</td><td>Son précédent / suivant, joué aussitôt. Début, Fin, Pg↑, Pg↓ pour aller plus vite. ↑ en haut de la liste remonte au filtre ou aux pastilles.</td></tr>
+        <tr><td>← → (dans une liste)</td><td>Passe d'une colonne à l'autre.</td></tr>
+        <tr><td>← → (sur des pastilles)</td><td>Pastille précédente / suivante ; ↓ descend au groupe suivant, puis au filtre et à la liste.</td></tr>
+        <tr><td>Lettres</td><td>Dans une liste : va au premier nom qui commence par ces lettres (« ro » → Roland…). Dans le filtre : filtre la liste ; ↓ ou Entrée descend dans les résultats.</td></tr>
+        <tr><td>Espace</td><td>Réécouter le son choisi.</td></tr>
+        <tr><td>Entrée / Échap</td><td>Valider / Annuler.</td></tr>
+      </table></div>
+      <p>À l'ouverture, le clavier est déjà dans la liste principale : il suffit de descendre avec ↓ pour parcourir les sons.</p>
       <h3>Pistes Drum : 4 bibliothèques de strudel.cc</h3>
       <div class="table-wrap"><table>
         <tr><th>Bibliothèque</th><th>Contenu</th><th>Choix</th></tr>
@@ -135,7 +146,7 @@
       <div class="table-wrap"><table>
         <tr><th>Source</th><th>Contenu</th></tr>
         <tr><td>Synthés intégrés « (synthé) »</td><td>Saw, Acid, Sub, Reese, Supersaw, Pluck, Chiptune, Pads, et des sons de bruit (Noise Riser, Wind, Rumble). Seuls ceux-ci ont un VCO réglable dans le sound design.</td></tr>
-        <tr><td>Soundfonts General MIDI</td><td>Les 125 instruments <code>gm_*</code> de strudel : pianos, orgues, guitares, cordes, cuivres, bois, chœurs, sitar, koto, steel drums, effets sonores… Chacun existe en plusieurs <b>variantes</b> (banques JCLive, FluidR3, Aspirin…) : le menu « Variante » les propose, la première est celle de strudel par défaut.</td></tr>
+        <tr><td>Soundfonts General MIDI</td><td>Les 125 instruments <code>gm_*</code> de strudel : pianos, orgues, guitares, cordes, cuivres, bois, chœurs, sitar, koto, steel drums, effets sonores… Chacun existe en plusieurs <b>variantes</b> (banques JCLive, FluidR3, Aspirin…) : la colonne « Variante » les propose, la première est celle de strudel par défaut.</td></tr>
         <tr><td>VCSL et piano de strudel</td><td>Instruments acoustiques échantillonnés, marqués « (VCSL) » : vibraphone, marimba, harpe, flûtes à bec, saxophones, orgues…</td></tr>
       </table></div>
       <p>Le son est joué à chaque changement de choix. Les synthés se chargent instantanément ; les autres sons sont téléchargés au premier usage. Les anciens projets s'ouvrent avec exactement le même son qu'avant.</p>
@@ -144,7 +155,7 @@
       <p>Chaque piste peut avoir sa propre longueur de boucle, plus courte que le projet. Deux façons de la régler :</p>
       <ul>
         <li><b>Glisser la barre de fin de boucle</b> : la petite barre verticale juste après la dernière case de la piste. Elle prend la couleur de la piste quand la longueur est personnalisée.</li>
-        <li><b>⚙ de la piste</b>, champ « Longueur de la piste » : Comme le projet, ½ mesure, 1, 2, 4, 8, 16 ou 32 mesures (toujours moins que le projet), ou un nombre de pas libre.</li>
+        <li><b>⚙ de la piste</b>, pastilles « Longueur de la piste » : Comme le projet, ½ mesure, 1, 2, 4, 8, 16 ou 32 mesures (toujours moins que le projet), ou un nombre de pas libre.</li>
       </ul>
       <p>Une piste plus courte tourne en boucle sur elle-même pendant que les autres continuent : par exemple un hi-hat de 12 pas contre un kick de 16 donne une polymétrie 3 contre 4. Les cases au-delà de la boucle sont hachurées et ne jouent pas. Le sous-titre de la piste affiche sa longueur (⟲ 2 mes., ⟲ 12 pas…), et la tête de lecture montre la position de chaque piste dans sa propre boucle.</p>
 

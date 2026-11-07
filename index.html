@@ -149,78 +149,78 @@
 
       <div class="dlg-row">
         <span class="dlg-label">Type de piste</span>
-        <div class="segmented" id="dlgType">
+        <div class="segmented pills-nav" id="dlgType" role="radiogroup" aria-label="Type de piste">
           <button type="button" data-v="drum" class="active">Drum</button>
           <button type="button" data-v="instrument">Instrument</button>
         </div>
       </div>
 
-      <div class="dlg-row">
-        <label class="dlg-label" for="dlgName">Nom</label>
-        <input id="dlgName" type="text" autocomplete="off">
-      </div>
-
-      <div class="dlg-row">
-        <span class="dlg-label">Couleur</span>
-        <div id="dlgColors" class="swatches"></div>
-      </div>
-
-      <div class="dlg-row">
-        <label class="dlg-label" for="dlgLen">Longueur de la piste</label>
-        <div class="len-row">
-          <select id="dlgLen"></select>
-          <input id="dlgLenSteps" type="number" min="1" step="1" aria-label="Longueur en pas">
-          <small>pas</small>
+      <div class="dlg-two">
+        <div class="dlg-row">
+          <label class="dlg-label" for="dlgName">Nom</label>
+          <input id="dlgName" type="text" autocomplete="off">
         </div>
-        <small class="dlg-hint">Une piste plus courte que le projet tourne en boucle sur sa propre longueur (polymétrie : par ex. 3 temps contre 4). Tu peux aussi glisser la barre de fin de boucle dans la grille.</small>
+        <div class="dlg-row">
+          <span class="dlg-label">Couleur</span>
+          <div id="dlgColors" class="swatches"></div>
+        </div>
       </div>
 
       <section id="dlgDrum">
         <div class="dlg-row">
           <span class="dlg-label">Bibliothèque</span>
-          <div class="segmented dlg-libs" id="dlgDrumLib" role="radiogroup" aria-label="Bibliothèque de batterie"></div>
+          <div class="segmented dlg-libs pills-nav" id="dlgDrumLib" role="radiogroup" aria-label="Bibliothèque de batterie"></div>
           <small id="dlgDrumLibHint" class="dlg-hint"></small>
         </div>
-        <div id="dlgTdm">
-          <div class="dlg-row">
-            <span class="dlg-label">Type de drum</span>
-            <div id="dlgDrumTypes" class="chips"></div>
-          </div>
-          <div class="dlg-row">
-            <label class="dlg-label" for="dlgMachine">Boîte à rythmes</label>
-            <select id="dlgMachine"></select>
-          </div>
+        <div class="dlg-row" id="dlgTdm">
+          <span class="dlg-label">Type de drum</span>
+          <div id="dlgDrumTypes" class="chips pills-nav" role="radiogroup" aria-label="Type de drum"></div>
         </div>
-        <div id="dlgBankRow" class="dlg-row" hidden>
-          <label class="dlg-label" for="dlgBank">Banque <small id="dlgBankCount"></small></label>
-          <input id="dlgBankFilter" type="search" placeholder="Filtrer les banques (ex. 808, jazz, conga…)" autocomplete="off">
-          <select id="dlgBank" size="6"></select>
-        </div>
-        <div class="dlg-row">
-          <label class="dlg-label" for="dlgVariant">Variation</label>
-          <select id="dlgVariant"></select>
+        <div class="browser">
+          <div class="br-col">
+            <div class="br-head"><span class="dlg-label" id="dlgDrumListLabel">Boîte à rythmes</span><small id="dlgDrumCount" class="dlg-hint"></small></div>
+            <input id="dlgDrumFilter" class="br-search" type="search" placeholder="Filtrer…" autocomplete="off" aria-label="Filtrer la liste">
+            <div id="dlgDrumList" class="pick-list" aria-labelledby="dlgDrumListLabel"></div>
+          </div>
+          <div class="br-col">
+            <div class="br-head"><span class="dlg-label" id="dlgVariantLabel">Variation</span><small id="dlgVariantCount" class="dlg-hint"></small></div>
+            <div id="dlgVariantList" class="pick-list" aria-labelledby="dlgVariantLabel"></div>
+          </div>
         </div>
       </section>
 
       <section id="dlgInst" hidden>
         <div class="dlg-row">
           <span class="dlg-label">Catégorie</span>
-          <div class="segmented" id="dlgCategory"></div>
+          <div class="segmented pills-nav" id="dlgCategory" role="radiogroup" aria-label="Catégorie"></div>
         </div>
         <div class="dlg-row">
           <span class="dlg-label">Famille</span>
-          <div id="dlgFamilies" class="chips"></div>
+          <div id="dlgFamilies" class="chips pills-nav" role="radiogroup" aria-label="Famille"></div>
         </div>
-        <div class="dlg-row">
-          <label class="dlg-label" for="dlgInstrument">Instrument</label>
-          <input id="dlgInstFilter" type="search" placeholder="Rechercher un instrument dans toutes les familles…" autocomplete="off">
-          <select id="dlgInstrument" size="8"></select>
-        </div>
-        <div class="dlg-row" id="dlgSfvRow" hidden>
-          <label class="dlg-label" for="dlgSfv">Variante (soundfont)</label>
-          <select id="dlgSfv"></select>
+        <div class="browser">
+          <div class="br-col">
+            <div class="br-head"><span class="dlg-label" id="dlgInstLabel">Instrument</span><small id="dlgInstCount" class="dlg-hint"></small></div>
+            <input id="dlgInstFilter" class="br-search" type="search" placeholder="Rechercher dans toutes les familles…" autocomplete="off" aria-label="Rechercher un instrument">
+            <div id="dlgInstList" class="pick-list" aria-labelledby="dlgInstLabel"></div>
+          </div>
+          <div class="br-col">
+            <div class="br-head"><span class="dlg-label" id="dlgSfvLabel">Variante (soundfont)</span></div>
+            <div id="dlgSfvList" class="pick-list" aria-labelledby="dlgSfvLabel"></div>
+          </div>
         </div>
       </section>
+
+      <div class="dlg-row">
+        <span class="dlg-label">Longueur de la piste</span>
+        <div class="len-row">
+          <div id="dlgLen" class="chips pills-nav" role="radiogroup" aria-label="Longueur de la piste"></div>
+          <label class="len-custom">ou <input id="dlgLenSteps" type="number" min="1" step="1" aria-label="Longueur en pas"> pas</label>
+        </div>
+        <small class="dlg-hint">Une piste plus courte que le projet tourne en boucle sur sa propre longueur (polymétrie : par ex. 3 temps contre 4). Tu peux aussi glisser la barre de fin de boucle dans la grille.</small>
+      </div>
+
+      <p class="dlg-keys" aria-hidden="true"><kbd>←</kbd><kbd>→</kbd> pastilles et colonnes · <kbd>↑</kbd><kbd>↓</kbd> liste (écoute) · lettres : aller à · <kbd>Espace</kbd> écouter · <kbd>Entrée</kbd> valider · <kbd>Échap</kbd> annuler</p>
 
       <div class="dlg-footer">
         <button type="button" id="dlgPreview" class="btn">
