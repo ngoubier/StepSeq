@@ -299,7 +299,7 @@ SS.ui = (() => {
         { style: 'opacity:.8' },
         track.category === 'mono'
           ? 'Cliquer pour poser une note, glisser vers la droite pour l’allonger.'
-          : 'Cliquer sur la fondamentale pour poser un accord, glisser pour l’allonger. Clic droit sur un accord : changer son type.'
+          : 'Cliquer sur la fondamentale pour poser un accord, glisser pour l’allonger. Clic droit (ou appui long) sur un accord : changer son type.'
       ),
       h(
         'button',
@@ -475,6 +475,48 @@ SS.ui = (() => {
   }
 
   /** Geste sur une piste instrument : ligne compacte (midi = null) ou piano roll. */
+  const LONG_PRESS_MS = 500;
+
+  /** Appui long (tactile / stylet) : onHold après 500 ms immobile, onTap si relâché avant. */
+  function longPress(e, onHold, onTap) {
+    const x0 = e.clientX;
+    const y0 = e.clientY;
+    const cleanup = () => {
+      clearTimeout(timer);
+      document.removeEventListener('pointermove', move, true);
+      document.removeEventListener('pointerup', up, true);
+      document.removeEventListener('pointercancel', cancel, true);
+      document.removeEventListener('contextmenu', ctx, true);
+    };
+    const hold = () => {
+      cleanup();
+      if (navigator.vibrate) navigator.vibrate(12);
+      onHold();
+    };
+    const timer = setTimeout(hold, LONG_PRESS_MS);
+    const move = (ev) => {
+      if (Math.hypot(ev.clientX - x0, ev.clientY - y0) > 10) cleanup(); // le doigt a bougé : on annule
+    };
+    const up = () => {
+      cleanup();
+      onTap();
+    };
+    // Le système peut annuler le pointeur pendant un appui long : le minuteur continue et ouvre le menu.
+    const cancel = () => {
+      document.removeEventListener('pointerup', up, true);
+    };
+    // Android déclenche son propre « contextmenu » sur un appui long : on ouvre notre menu à la place.
+    const ctx = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      hold();
+    };
+    document.addEventListener('pointermove', move, true);
+    document.addEventListener('pointerup', up, true);
+    document.addEventListener('pointercancel', cancel, true);
+    document.addEventListener('contextmenu', ctx, true);
+  }
+
   function noteGesture(track, s, midi, e) {
     const n = SS.totalSteps(app.project());
     const existing = findEventAt(track, s);
@@ -487,6 +529,19 @@ SS.ui = (() => {
         existing.vel = clamp(startV + (startY - ev.clientY) / 120, 0.05, 1);
         paint(track);
       });
+      return;
+    }
+
+    // Tactile : un appui long sur un accord ouvre le menu de type d'accord ;
+    // un appui court garde le comportement normal (supprimer / remplacer), exécuté au relâchement.
+    if (existing && track.category !== 'mono' && e.pointerType && e.pointerType !== 'mouse' && !e.deferred) {
+      const x = e.clientX;
+      const y = e.clientY;
+      longPress(
+        e,
+        () => openChordMenu(track, existing, x, y),
+        () => noteGesture(track, s, midi, { clientX: x, clientY: y, pointerType: e.pointerType, deferred: true })
+      );
       return;
     }
 
@@ -511,6 +566,10 @@ SS.ui = (() => {
     track.events.sort((a, b) => a.step - b.step);
     if (!SS.audio.isPlaying()) SS.audio.preview(track, ev.notes.length === 1 ? ev.notes[0] : ev.notes);
     paint(track);
+    if (e.deferred) {
+      app.changed(); // appui court déjà relâché : pas d'allongement
+      return;
+    }
 
     track_gesture((pe) => {
       const s2 = stepFromPoint(pe.clientX, pe.clientY);
@@ -603,8 +662,10 @@ SS.ui = (() => {
     document.body.append(menuEl);
     // garde le menu dans la fenêtre
     const r = menuEl.getBoundingClientRect();
-    menuEl.style.left = Math.max(8, Math.min(x, window.innerWidth - r.width - 8)) + 'px';
-    menuEl.style.top = Math.max(8, Math.min(y, window.innerHeight - r.height - 8)) + 'px';
+    const vw = Math.min(window.innerWidth, document.documentElement.clientWidth, window.visualViewport ? window.visualViewport.width : Infinity);
+    const vh = Math.min(window.innerHeight, window.visualViewport ? window.visualViewport.height : Infinity);
+    menuEl.style.left = Math.max(8, Math.min(x, vw - r.width - 8)) + 'px';
+    menuEl.style.top = Math.max(8, Math.min(y, vh - r.height - 8)) + 'px';
     (menuEl.querySelector('.current') || menuEl.querySelector('button')).focus();
     document.addEventListener('pointerdown', onOutside, true);
     document.addEventListener('keydown', onMenuKey, true);
