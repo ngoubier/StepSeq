@@ -144,6 +144,7 @@
         <div class="segmented pills-nav" id="dlgType" role="radiogroup" aria-label="Type de piste">
           <button type="button" data-v="drum" class="active">Drum</button>
           <button type="button" data-v="instrument">Instrument</button>
+          <button type="button" data-v="synth">Synthé</button>
         </div>
       </div>
 
@@ -183,11 +184,12 @@
         </div>
       </section>
 
+      <div class="dlg-row" id="dlgCatRow" hidden>
+        <span class="dlg-label">Catégorie</span>
+        <div class="segmented pills-nav" id="dlgCategory" role="radiogroup" aria-label="Catégorie"></div>
+      </div>
+
       <section id="dlgInst" hidden>
-        <div class="dlg-row">
-          <span class="dlg-label">Catégorie</span>
-          <div class="segmented pills-nav" id="dlgCategory" role="radiogroup" aria-label="Catégorie"></div>
-        </div>
         <div class="dlg-row">
           <input id="dlgInstFilter" class="br-search" type="search" placeholder="🔍 Rechercher un instrument dans toutes les familles (sitar, sax, organ…)" autocomplete="off" aria-label="Rechercher un instrument">
         </div>
@@ -205,6 +207,21 @@
             <div id="dlgSfvList" class="pick-list" aria-labelledby="dlgSfvLabel"></div>
           </div>
         </div>
+      </section>
+
+      <section id="dlgSynth" hidden>
+        <div class="browser">
+          <div class="br-col">
+            <div class="br-head"><span class="dlg-label" id="dlgSynthLabel">Synthé analogique</span><small id="dlgSynthCount" class="dlg-hint"></small></div>
+            <div id="dlgSynthList" class="pick-list" aria-labelledby="dlgSynthLabel"></div>
+          </div>
+          <div class="br-col">
+            <div class="br-head"><span class="dlg-label" id="dlgPatchLabel">Patch</span><small id="dlgPatchCount" class="dlg-hint"></small></div>
+            <div id="dlgPatchList" class="pick-list" aria-labelledby="dlgPatchLabel"></div>
+          </div>
+        </div>
+        <div class="synth-card" id="dlgSynthCard" aria-live="polite"></div>
+        <small class="dlg-hint">Après validation, le bouton <b>Sound design</b> de la piste ouvre la façade du synthé : tous ses curseurs et boutons sont réglables.</small>
       </section>
 
       <div class="dlg-row">
@@ -292,6 +309,40 @@
         <button type="button" id="sdReset" class="btn" title="Revenir aux réglages du preset de l'instrument">Réinitialiser</button>
         <span class="spacer"></span>
         <button type="button" id="sdCancel" class="btn">Annuler</button>
+        <button type="submit" class="btn btn-accent">OK</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Façade du Roland Juno-106 (sound design des pistes Synthé) -->
+  <dialog id="junoDialog" class="juno-dialog" aria-labelledby="junoTitle">
+    <form method="dialog" id="junoForm">
+      <div class="juno-scroll">
+        <div class="juno" id="junoPanel">
+          <div class="juno-top">
+            <div class="juno-brand"><span class="juno-roland">Roland</span></div>
+            <div class="juno-name">
+              <h2 id="junoTitle"><span>JUNO</span>-106</h2>
+              <span class="juno-sub">PROGRAMMABLE POLYPHONIC SYNTHESIZER</span>
+            </div>
+            <div class="juno-patch">
+              <div class="juno-led-display" id="junoDisplay" aria-live="polite">A11</div>
+              <div class="juno-patch-name" id="junoPatchName"></div>
+            </div>
+          </div>
+          <div class="juno-body" id="junoBody"></div>
+          <div class="juno-bottom" id="junoBottom"></div>
+        </div>
+      </div>
+      <p class="juno-help">Glisser un curseur (ou molette, flèches du clavier) · double-clic : valeur du patch · <span id="junoTrack"></span></p>
+      <div class="dlg-footer">
+        <button type="button" id="junoPreview" class="btn">
+          <svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z" class="fill"/><path d="M16 8.5a5 5 0 0 1 0 7"/></svg>
+          Écouter
+        </button>
+        <button type="button" id="junoReset" class="btn" title="Recharger le patch (annule les modifications des curseurs)">Recharger le patch</button>
+        <span class="spacer"></span>
+        <button type="button" id="junoCancel" class="btn">Annuler</button>
         <button type="submit" class="btn btn-accent">OK</button>
       </div>
     </form>
@@ -416,9 +467,11 @@
 
   <script src="js/library.js"></script>
   <script src="js/sounds.js"></script>
+  <script src="js/juno.js"></script>
   <script src="js/project.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/sounddesign.js"></script>
+  <script src="js/junopanel.js"></script>
   <script src="js/groove.js"></script>
   <script src="js/fx.js"></script>
   <script src="js/song.js"></script>

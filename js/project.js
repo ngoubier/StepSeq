@@ -22,6 +22,8 @@
  *       sd: { wave, voices, detune, filter, cutoff, q, env,      // sound design (optionnel,
  *             attack, decay, sustain, release, pan, drive, gain } // sinon preset de l'instrument)
  *       events: [{ step, len, notes: [midi...], vel }] }
+ *     piste « Synthé » : comme une piste instrument, avec family: "analog", instrument: "juno106",
+ *       junoPatch: "A11" (patch chargé), juno: { lfoRate, dcoLfo, pwm, …, chorus } (réglages du panneau)
  *   ]
  * }
  */
@@ -73,9 +75,16 @@ SS.newTrack = (opts, project) => {
       steps: new Array(n).fill(0),
     };
   }
+  if (opts.type === 'synth') {
+    // piste Synthé : une piste instrument jouée par un synthé analogique émulé (js/juno.js)
+    base.type = 'instrument';
+    opts = { ...opts, family: 'analog', instrument: opts.analog || 'juno106' };
+  }
   const fam = SS.findFamily(opts.family);
+  const extra = opts.family === 'analog' ? { junoPatch: opts.patch || SS.JUNO_PATCHES[0].id } : {};
   return {
     ...base,
+    ...extra,
     category: opts.category,
     family: opts.family,
     instrument: opts.instrument,
@@ -156,6 +165,15 @@ SS.normalizeProject = (data) => {
         }
       } else delete track.sd;
       track.octave = Number.isFinite(t.octave) ? t.octave : 4;
+      if (track.family === 'analog') {
+        if (!SS.findJunoPatch(t.junoPatch)) track.junoPatch = SS.JUNO_PATCHES[0].id;
+        const j = SS.cleanJuno(t.juno);
+        if (Object.keys(j).length) track.juno = j;
+        else delete track.juno;
+      } else {
+        delete track.juno;
+        delete track.junoPatch;
+      }
     }
     return track;
   });

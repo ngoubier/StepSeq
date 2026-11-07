@@ -131,9 +131,14 @@ SS.FAMILIES = FAMILY_DEFS.map((f) => ({
 /** Nom lisible d'une variante de soundfont : « 0000_JCLive_sf2_file » -> « JCLive ». */
 SS.sfVariantLabel = (file) => file.replace(/^\d+_/, '').replace(/_sf2_file$/, '').replace(/_/g, ' ');
 
-SS.findFamily = (id) => SS.FAMILIES.find((f) => f.id === id) || SS.FAMILIES[0];
+SS.findFamily = (id) => (id === 'analog' && SS.ANALOG_FAMILY) || SS.FAMILIES.find((f) => f.id === id) || SS.FAMILIES[0];
 /** Cherche un instrument par son id, d'abord dans sa famille puis partout (projets anciens). */
 SS.locateInstrument = (familyId, instId) => {
+  if (familyId === 'analog' && SS.ANALOG_FAMILY) {
+    // piste Synthé (js/juno.js) : synthés analogiques émulés
+    const af = SS.ANALOG_FAMILY;
+    return { family: af, inst: af.instruments.find((i) => i.id === instId) || af.instruments[0] };
+  }
   const fam = SS.FAMILIES.find((f) => f.id === familyId);
   const inFam = fam && fam.instruments.find((i) => i.id === instId);
   if (inFam) return { family: fam, inst: inFam };

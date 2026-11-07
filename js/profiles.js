@@ -125,6 +125,7 @@ SS.profiles = (() => {
       return 'perc';
     }
     if (t.family === 'bass') return 'bass';
+    if (t.family === 'analog' && /bass/i.test((SS.findJunoPatch(t.junoPatch) || {}).name || '')) return 'bass';
     if (t.category === 'arp') return 'arp';
     if (['pads', 'strings', 'voices'].includes(t.family) || t.category === 'chord') return 'pad';
     if (['synth', 'brass', 'winds'].includes(t.family)) return 'lead';
