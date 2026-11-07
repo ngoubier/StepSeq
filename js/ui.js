@@ -1240,6 +1240,44 @@ SS.ui = (() => {
     const spb = SS.stepsPerBar(p);
     const beat = SS.stepsPerBeat(p);
     $('#position').textContent = `${Math.floor(g / spb) + 1} . ${Math.floor((g % spb) / beat) + 1} . ${(g % beat) + 1}`;
+    if (follow.on && SS.audio.isPlaying()) followPlayhead(g, spb);
+  }
+
+  /* ---------- Suivre la lecture : défilement horizontal automatique ---------- */
+  const follow = { on: true };
+  try {
+    follow.on = localStorage.getItem('stepseq.follow') !== '0';
+  } catch (e) {
+    /* stockage indisponible : on garde la valeur par défaut */
+  }
+
+  /**
+   * Si la case jouée sort de la zone visible (à droite, ou à gauche quand la boucle repart au début),
+   * on fait défiler pour que sa mesure commence juste après les en-têtes de piste.
+   */
+  function followPlayhead(g, spb) {
+    const ws = $('#workspace');
+    const cell = $('#ruler').querySelector(`[data-step="${g}"]`);
+    if (!cell) return;
+    const head = $('#ruler .head-spacer').offsetWidth;
+    const left = ws.scrollLeft + head;
+    const right = ws.scrollLeft + ws.clientWidth;
+    const x = cell.offsetLeft;
+    if (x >= left && x + cell.offsetWidth <= right - 16) return; // déjà visible
+    const barStart = $('#ruler').querySelector(`[data-step="${g - (g % spb)}"]`) || cell;
+    const target = Math.max(0, barStart.offsetLeft - head - 8);
+    if (Math.abs(target - ws.scrollLeft) < 2) return;
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    ws.scrollTo({ left: target, behavior: reduce ? 'auto' : 'smooth' });
+  }
+
+  function setFollow(on) {
+    follow.on = on;
+    try {
+      localStorage.setItem('stepseq.follow', on ? '1' : '0');
+    } catch (e) {
+      /* ignore */
+    }
   }
 
   /* ------------------------------------------------------------------ */
@@ -1639,6 +1677,11 @@ SS.ui = (() => {
 
   function init(appApi) {
     app = appApi;
+    const fp = $('#followPlay');
+    if (fp) {
+      fp.checked = follow.on;
+      fp.addEventListener('change', (e) => setFollow(e.target.checked));
+    }
     initDialog();
     initNoteDialog();
   }

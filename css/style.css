@@ -737,3 +737,7 @@ dialog.sd-dialog { width: min(820px, calc(100vw - 32px)); }
 .song-loop { color: var(--muted); font-size: 12px; display: flex; align-items: center; gap: 4px; }
 .song-total { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 body:not(.song-mode) .song-blocks { opacity: .75; }
+
+/* ---------- Suivre la lecture ---------- */
+.follow-toggle { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; white-space: nowrap; cursor: pointer; }
+.follow-toggle input { accent-color: var(--accent-2); }
