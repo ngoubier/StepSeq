@@ -9,7 +9,7 @@
   --accent: #0a64b4;
   --accent-2: #2b8cff;
   --gold: #c9a227;
-  --head: 400px;
+  --head: 414px;
   --sq: 26px;          /* taille d'une case (carré fixe) */
   --col: 30px;         /* case + 2 px de marge de chaque côté */
   --row-h: 36px;
@@ -627,3 +627,24 @@ dialog.sd-dialog { width: min(820px, calc(100vw - 32px)); }
 .roll-key { padding-right: 16px; }
 .roll-view.grabbing, .roll-view.grabbing * { cursor: grabbing !important; }
 .roll-range { font-variant-numeric: tabular-nums; min-width: 72px; display: inline-block; text-align: center; }
+
+/* ---------- Poignée de réorganisation des pistes ---------- */
+#tracks { position: relative; }
+.th-grip {
+  flex: none;
+  width: 12px;
+  height: 26px;
+  margin-left: -2px;
+  display: grid;
+  place-items: center;
+  color: #6c6c75;
+  cursor: grab;
+  border-radius: 4px;
+  touch-action: none;
+}
+.th-grip svg { width: 10px; height: 20px; }
+.th-grip:hover, .th-grip:focus-visible { color: var(--text); background: var(--panel-3); outline: none; }
+.track.dragging { position: relative; z-index: 20; background: #202024; outline: 1px solid var(--accent-2); box-shadow: 0 10px 28px rgba(0, 0, 0, .65); cursor: grabbing; }
+.track.dragging .th-grip { cursor: grabbing; color: var(--text); }
+.track-drop { position: absolute; left: 0; right: 0; height: 4px; border-radius: 2px; background: var(--accent-2); z-index: 25; pointer-events: none; }
+.track-drop.same { opacity: 0; }

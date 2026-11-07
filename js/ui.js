@@ -23,6 +23,7 @@ SS.ui = (() => {
     play: '<svg viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z" class="fill"/></svg>',
     gear: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
     sliders: '<svg viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>',
+    grip: '<svg viewBox="0 0 10 20"><circle cx="3" cy="5" r="1.4" class="fill"/><circle cx="7" cy="5" r="1.4" class="fill"/><circle cx="3" cy="10" r="1.4" class="fill"/><circle cx="7" cy="10" r="1.4" class="fill"/><circle cx="3" cy="15" r="1.4" class="fill"/><circle cx="7" cy="15" r="1.4" class="fill"/></svg>',
     close: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
     chevron: '<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>',
     drum: '<svg viewBox="0 0 24 24"><ellipse cx="12" cy="8" rx="8" ry="3"/><path d="M4 8v8c0 1.7 3.6 3 8 3s8-1.3 8-3V8"/><path d="M4 12l4 5M20 12l-4 5M12 11v8"/></svg>',
@@ -163,6 +164,25 @@ SS.ui = (() => {
     const head = h(
       'div',
       { class: 'track-head' },
+      h('span', {
+        class: 'th-grip',
+        role: 'button',
+        tabindex: 0,
+        title: 'Glisser pour déplacer la piste (ou flèches haut / bas)',
+        'aria-label': `Déplacer la piste ${track.name}`,
+        html: ICONS.grip,
+        onpointerdown: (e) => dragTrack(track, e),
+        onkeydown: (e) => {
+          if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+          e.preventDefault();
+          e.stopPropagation();
+          const tracks = app.project().tracks;
+          const from = tracks.indexOf(track);
+          moveTrack(from, from + (e.key === 'ArrowUp' ? -1 : 1));
+          const grip = document.querySelector(`.track[data-id="${track.id}"] .th-grip`);
+          if (grip) grip.focus();
+        },
+      }),
       h('button', { class: 'th-btn', title: 'Écouter', html: ICONS.play, onclick: () => SS.audio.preview(track, previewNotes(track)) }),
       h('button', {
         class: 'th-btn box mute' + (track.mute ? ' on' : ''),
@@ -433,6 +453,81 @@ SS.ui = (() => {
     }
     scroller.init();
     return roll;
+  }
+
+  /* ---------- Réorganiser les pistes (poignée à gauche) ---------- */
+
+  function moveTrack(from, to) {
+    const tracks = app.project().tracks;
+    if (to < 0 || to >= tracks.length || to === from) return;
+    const [t] = tracks.splice(from, 1);
+    tracks.splice(to, 0, t);
+    renderAll();
+    app.changed();
+  }
+
+  /** Glisser une piste par sa poignée : la piste suit la souris, un trait indique où elle sera déposée. */
+  function dragTrack(track, e) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const container = $('#tracks');
+    const workspace = $('#workspace');
+    const els = [...container.querySelectorAll(':scope > .track')];
+    const el = els.find((x) => x.dataset.id === track.id);
+    const from = els.indexOf(el);
+    if (!el || els.length < 2) return;
+    const others = els.filter((x) => x !== el);
+    const marker = h('div', { class: 'track-drop' });
+    container.append(marker);
+    el.classList.add('dragging');
+    const y0 = e.clientY;
+    const scroll0 = workspace.scrollTop;
+    let to = from;
+    let lastY = e.clientY;
+    let autoScroll = 0;
+
+    const update = () => {
+      const dy = lastY - y0 + (workspace.scrollTop - scroll0);
+      el.style.transform = `translateY(${dy}px)`;
+      // position d'insertion : nombre d'autres pistes dont le milieu est au-dessus du pointeur
+      to = others.filter((o) => {
+        const r = o.getBoundingClientRect();
+        return r.top + r.height / 2 < lastY;
+      }).length;
+      const cRect = container.getBoundingClientRect();
+      const y = to < others.length ? others[to].getBoundingClientRect().top : others[others.length - 1].getBoundingClientRect().bottom;
+      marker.style.top = y - cRect.top - 2 + 'px';
+      marker.classList.toggle('same', to === from);
+    };
+    // défilement automatique près des bords
+    const tick = () => {
+      if (!autoScroll) return;
+      workspace.scrollTop += autoScroll;
+      update();
+      requestAnimationFrame(tick);
+    };
+    const move = (ev) => {
+      lastY = ev.clientY;
+      const r = workspace.getBoundingClientRect();
+      const was = autoScroll;
+      autoScroll = ev.clientY < r.top + 40 ? -8 : ev.clientY > r.bottom - 40 ? 8 : 0;
+      if (autoScroll && !was) requestAnimationFrame(tick);
+      update();
+    };
+    const up = () => {
+      autoScroll = 0;
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', up);
+      document.removeEventListener('pointercancel', up);
+      marker.remove();
+      el.classList.remove('dragging');
+      el.style.transform = '';
+      if (to !== from) moveTrack(from, to);
+    };
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up);
+    document.addEventListener('pointercancel', up);
+    update();
   }
 
   /* ---------- Défilement vertical du piano roll ---------- */
