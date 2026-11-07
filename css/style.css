@@ -464,10 +464,6 @@ dialog section { display: flex; flex-direction: column; gap: 14px; }
 .cell.sel-hold { box-shadow: inset 0 2px 0 #fff, inset 0 -2px 0 #fff; }
 .cell.sel-hold.end { box-shadow: inset 0 2px 0 #fff, inset 0 -2px 0 #fff, inset -2px 0 0 #fff; }
 .roll-row .rcell.sel { box-shadow: inset 0 0 0 2px #fff; opacity: 1; }
-.note-btn { margin-left: auto; min-width: 0; }
-.note-btn span { overflow: hidden; text-overflow: ellipsis; }
-.note-btn:disabled { opacity: .45; cursor: default; }
-.note-btn:not(:disabled) { background: #3b3b42; box-shadow: inset 0 0 0 1px var(--accent-2); }
 .btn-danger { color: #ff8a8a; }
 .dlg-sub { margin: -10px 0 0; color: var(--muted); font-size: 13px; }
 .pitch-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -1172,10 +1168,6 @@ body.mixer-open .songbar { display: none; }
 @media (hover: none) { .dlg-keys { display: none; } }
 .chip:focus-visible, .segmented button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
 #trackDialog .dlg-row > .segmented { align-self: flex-start; }
-/* Mode dessin de vélocité */
-body.mode-velocity .grid .cell, body.mode-velocity .rcell { cursor: crosshair; }
-body.drawing-vel, body.drawing-vel * { cursor: crosshair !important; user-select: none; }
-.vel-badge.muted { background: #333; color: #aaa; }
 /* Menu de note : longueur et vélocité */
 .ctx-params { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; padding: 8px 4px 0; border-top: 1px solid var(--line); }
 .ctx-param { display: grid; grid-template-columns: 64px 24px 1fr 24px 88px; align-items: center; gap: 6px; }
