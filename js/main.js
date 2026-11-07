@@ -147,7 +147,7 @@
 
     $('#addTrack').addEventListener('click', addTrack);
     $('#emptyAdd').addEventListener('click', addTrack);
-    $('#play').addEventListener('click', play);
+    $('#play').addEventListener('click', togglePlay);
     $('#stop').addEventListener('click', stop);
 
     $('#newProject').addEventListener('click', () => {
@@ -172,8 +172,31 @@
   }
 
   /* ---------- Transport ---------- */
+  /** Bouton Lecture / Pause (et barre d'espace) */
+  function togglePlay() {
+    if (SS.audio.isPlaying()) pause();
+    else if (SS.audio.isPaused()) resume();
+    else play();
+  }
+  function pause() {
+    SS.audio.pause();
+    setPlayButton('paused');
+  }
+  function resume() {
+    SS.audio.resume();
+    setPlayButton('playing');
+  }
+  function setPlayButton(state) {
+    const b = $('#play');
+    b.classList.toggle('playing', state === 'playing');
+    b.classList.toggle('paused', state === 'paused');
+    b.title = state === 'playing' ? 'Pause (Espace)' : state === 'paused' ? 'Reprendre la lecture (Espace)' : 'Lecture (Espace)';
+    b.setAttribute('aria-label', state === 'playing' ? 'Pause' : 'Lecture');
+  }
+
   function play() {
     if (SS.audio.isPlaying()) return;
+    if (SS.audio.isPaused()) SS.audio.stop(); // repartir du début
     const opts = {};
     if (project.playMode === 'song' && project.song.length) {
       opts.song = {
@@ -188,13 +211,13 @@
       };
     }
     SS.audio.start(() => project, (step) => SS.ui.setPlayhead(step), opts);
-    $('#play').classList.add('playing');
+    setPlayButton('playing');
   }
   function stop() {
-    if (SS.audio.isPlaying()) SS.audio.stop();
+    if (SS.audio.isPlaying() || SS.audio.isPaused()) SS.audio.stop();
     SS.ui.setPlayhead(-1);
     SS.song.setPlaying(-1);
-    $('#play').classList.remove('playing');
+    setPlayButton('stopped');
   }
 
   /* ---------- Scènes ---------- */
@@ -310,7 +333,7 @@
       if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
       if (e.code === 'Space') {
         e.preventDefault();
-        SS.audio.isPlaying() ? stop() : play();
+        togglePlay();
       }
     });
     window.addEventListener('beforeunload', (e) => {

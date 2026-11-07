@@ -189,7 +189,7 @@ SS.song = (() => {
       const b = e.target.closest('button');
       if (!b) return;
       const wasPlaying = SS.audio.isPlaying();
-      if (wasPlaying) app.stop();
+      if (wasPlaying || SS.audio.isPaused()) app.stop();
       p().playMode = b.dataset.mode;
       changedSong();
       if (wasPlaying) app.play();

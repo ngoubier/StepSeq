@@ -46,10 +46,11 @@
       <button id="addTrack" class="btn btn-icon" title="Ajouter une piste">
         <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
       </button>
-      <button id="play" class="btn btn-icon btn-play" title="Lecture (Espace)">
-        <svg viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z" class="fill"/></svg>
+      <button id="play" class="btn btn-play" title="Lecture (Espace)" aria-label="Lecture">
+        <svg class="ico-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z" class="fill"/></svg>
+        <svg class="ico-pause" viewBox="0 0 24 24"><rect x="6" y="4.5" width="4.2" height="15" rx="1" class="fill"/><rect x="13.8" y="4.5" width="4.2" height="15" rx="1" class="fill"/></svg>
       </button>
-      <button id="stop" class="btn btn-icon" title="Stop (Espace)">
+      <button id="stop" class="btn btn-icon" title="Stop : arrête et revient au début">
         <svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5" class="fill"/></svg>
       </button>
       <div class="lcd" aria-live="off">
@@ -96,7 +97,7 @@
   </main>
 
   <footer class="bottombar">
-    <div class="hint">Espace : lecture / stop · Ctrl+S : enregistrer · Glisser pour peindre des pas</div>
+    <div class="hint">Espace : lecture / pause · Ctrl+S : enregistrer · Glisser pour peindre des pas</div>
     <label class="follow-toggle" title="Pendant la lecture, la grille défile pour garder la mesure jouée visible">
       <input type="checkbox" id="followPlay" checked> Suivre la lecture
     </label>

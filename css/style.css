@@ -60,7 +60,26 @@ a.btn { text-decoration: none; }
 .btn-accent { background: var(--accent); }
 .btn-accent:hover { background: #0d74d0; }
 .btn-icon { width: 40px; padding: 0; justify-content: center; }
-.btn-play.playing { background: #2f7d32; color: #fff; }
+/* Lecture / Pause : gros bouton vert */
+.btn-play {
+  width: 64px;
+  height: 44px;
+  padding: 0;
+  justify-content: center;
+  border-radius: 10px;
+  background: #2e9e44;
+  color: #fff;
+  box-shadow: 0 2px 0 #1d6b2d, 0 0 0 1px rgba(255, 255, 255, .06) inset;
+}
+.btn-play:hover { background: #35b34e; }
+.btn-play:active { transform: translateY(1px); box-shadow: 0 1px 0 #1d6b2d; }
+.btn-play svg { width: 26px; height: 26px; }
+.btn-play .ico-pause { display: none; }
+.btn-play.playing .ico-play { display: none; }
+.btn-play.playing .ico-pause { display: block; }
+.btn-play.paused { animation: play-blink 1.2s ease-in-out infinite; }
+@keyframes play-blink { 50% { background: #23793a; } }
+@media (prefers-reduced-motion: reduce) { .btn-play.paused { animation: none; } }
 
 .segmented {
   display: inline-flex;

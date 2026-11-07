@@ -742,7 +742,7 @@ SS.audio = (() => {
       if (seq.step >= seq.cycle(project, total)) seq.step = 0;
       const t = seq.nextTime + SS.grooveOffset(project, seq.step, stepDur(project));
       scheduleStep(project, seq.step, t);
-      seq.queue.push({ step: seq.step, time: t });
+      seq.queue.push({ step: seq.step, time: t, song: seq.song ? { index: seq.song.index, rep: seq.song.rep } : null });
       seq.nextTime += stepDur(project);
       seq.step++;
     }
@@ -778,7 +778,7 @@ SS.audio = (() => {
       }
       const t = seq.nextTime + SS.grooveOffset(project, seq.step, stepDur(project));
       scheduleStep(project, seq.step, t);
-      seq.queue.push({ step: seq.step, time: t });
+      seq.queue.push({ step: seq.step, time: t, song: seq.song ? { index: seq.song.index, rep: seq.song.rep } : null });
       seq.nextTime += stepDur(project);
       seq.step++;
     }
@@ -793,7 +793,10 @@ SS.audio = (() => {
         return;
       }
       if (e.block !== undefined) seq.song.onBlockVisible && seq.song.onBlockVisible(e.block, e.rep);
-      else seq.onStep && seq.onStep(e.step);
+      else {
+        seq.shown = { step: e.step, song: e.song }; // dernière position entendue (pour la pause)
+        seq.onStep && seq.onStep(e.step);
+      }
     }
     seq.raf = requestAnimationFrame(draw);
   }
@@ -832,13 +835,50 @@ SS.audio = (() => {
     });
   }
 
-  function stop() {
+  function halt() {
     seq.playing = false;
     clearInterval(seq.timer);
     cancelAnimationFrame(seq.raf);
     seq.queue = [];
     silenceAll(); // coupe les voix en cours et celles déjà programmées
+  }
+
+  function stop() {
+    halt();
+    seq.paused = null;
+    seq.shown = null;
     seq.onStep && seq.onStep(-1);
+  }
+
+  /** Pause : on coupe le son mais on garde la position (pas, bloc et répétition de la chanson). */
+  function pause() {
+    if (!seq.playing) return;
+    halt();
+    const shown = seq.shown || { step: -1, song: seq.song ? { index: seq.song.index, rep: 0 } : null };
+    seq.paused = { step: shown.step + 1, song: shown.song };
+  }
+
+  /** Reprend après une pause, au pas suivant le dernier entendu. */
+  function resume() {
+    if (!seq.paused || seq.playing) return;
+    ensureCtx();
+    const at = seq.paused;
+    seq.paused = null;
+    seq.playing = true;
+    seq.queue = [];
+    seq.step = Math.max(0, at.step);
+    seq.nextTime = ctx.currentTime + 0.06;
+    if (seq.song && at.song) {
+      seq.song.index = at.song.index;
+      seq.song.rep = at.song.rep;
+      seq.song.ended = false;
+      seq.song.onBlock(seq.song.index); // recharge la scène du bloc si on en avait changé entre-temps
+      seq.queue.push({ step: -1, time: seq.nextTime, block: seq.song.index, rep: seq.song.rep });
+    }
+    applyAllFx(seq.getProject());
+    tick();
+    seq.timer = setInterval(tick, 25);
+    draw();
   }
 
   return {
@@ -860,6 +900,9 @@ SS.audio = (() => {
     start,
     stop,
     isPlaying: () => seq.playing,
+    isPaused: () => !!seq.paused,
+    pause,
+    resume,
     setErrorHandler: (fn) => (onError = fn),
   };
 })();
