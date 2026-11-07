@@ -1184,3 +1184,6 @@ body.drawing-vel, body.drawing-vel * { cursor: crosshair !important; user-select
 .ctx-param input[type=range] { width: 100%; min-width: 90px; accent-color: var(--accent-2); }
 .ctx-param output { font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ctx-picker .ctx-param button { display: inline-flex; align-items: center; justify-content: center; line-height: 1; font-size: 14px; }
+/* Poignée de vélocité dans le piano roll : liseré blanc en haut de la note survolée */
+.vel-hover .rcell { cursor: ns-resize; }
+.roll-row .rcell.vel-target.on { box-shadow: inset 0 3px 0 rgba(255, 255, 255, .9); opacity: 1; }

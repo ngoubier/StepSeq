@@ -460,6 +460,8 @@ SS.ui = (() => {
         if (app.state.editMode === 'velocity') return drawVelocity(track, grid, cell, e);
         const edge = noteEdgeAt(track, cell, e.clientX);
         if (edge) return resizeNote(track, edge, e);
+        const top = velEdgeAt(track, cell, e.clientY);
+        if (top) return dragVelocity(track, cell, top, e);
         noteGesture(track, +cell.dataset.step, +cell.dataset.midi, e);
       });
       hoverResize(track, grid, '.rcell');
@@ -892,8 +894,8 @@ SS.ui = (() => {
       const cell = e.target.closest(sel);
       const right = !!noteEdgeAt(track, cell, e.clientX);
       grid.classList.toggle('edge-hover', right);
-      // poignée de vélocité : seulement sur la ligne compacte (le piano roll est trop serré)
-      const vel = !right && sel === '.cell' && !!velEdgeAt(track, cell, e.clientY);
+      // poignée de vélocité : haut du remplissage (ligne compacte) ou haut de la note (piano roll)
+      const vel = !right && !!velEdgeAt(track, cell, e.clientY);
       grid.classList.toggle('vel-hover', vel);
       const prev = grid.querySelector('.vel-target');
       if (prev && (prev !== cell || !vel)) prev.classList.remove('vel-target');
@@ -908,6 +910,7 @@ SS.ui = (() => {
 
   /* ---------- Poignée de vélocité : le haut d'un pas ou d'une note ---------- */
   const VEL_EDGE_PX = 5;
+  const ROLL_VEL_PX = 4; // bande de prise en haut d'une note du piano roll
 
   /** Vélocité d'une case de la ligne compacte : { get, set, label } ou null si la case est vide. */
   function velTarget(track, s) {
@@ -922,7 +925,16 @@ SS.ui = (() => {
 
   /** Le pointeur est-il sur le haut du remplissage (mode On/Off) ? */
   function velEdgeAt(track, cell, clientY) {
-    if (app.state.editMode !== 'toggle' || !cell || !cell.classList.contains('cell')) return null;
+    if (app.state.editMode !== 'toggle' || !cell) return null;
+    if (cell.classList.contains('rcell')) {
+      // piano roll : bande du haut d'une case de note (la vélocité y est montrée par l'opacité)
+      if (!cell.classList.contains('on')) return null;
+      const t = velTarget(track, +cell.dataset.step);
+      if (!t || !t.ev.notes.includes(+cell.dataset.midi)) return null;
+      const r = cell.getBoundingClientRect();
+      return clientY >= r.top - 1 && clientY <= r.top + ROLL_VEL_PX ? t : null;
+    }
+    if (!cell.classList.contains('cell')) return null;
     const t = velTarget(track, +cell.dataset.step);
     if (!t) return null;
     const r = cell.getBoundingClientRect();
@@ -935,20 +947,24 @@ SS.ui = (() => {
     e.preventDefault();
     if (target.ev) select(track, target.ev);
     const r = cell.getBoundingClientRect();
+    // piano roll : case trop fine pour y lire une hauteur → glissé relatif (vers le haut = plus fort)
+    const relative = cell.classList.contains('rcell');
+    const startV = target.get();
+    const startY = e.clientY;
     const badge = h('div', { class: 'vel-badge', role: 'status' });
     document.body.append(badge);
     document.body.classList.add('dragging-vel');
     const show = () => {
       const v = target.get();
       badge.textContent = `Vélocité ${Math.round(v * 127)}`;
-      const top = r.bottom - v * r.height;
+      const top = relative ? r.top : r.bottom - v * r.height;
       badge.style.left = r.left + r.width / 2 + 'px';
       badge.style.top = Math.max(4, top - 30) + 'px';
     };
     show();
     track_gesture(
       (pe) => {
-        const v = clamp((r.bottom - pe.clientY) / r.height, 0.05, 1);
+        const v = relative ? clamp(startV + (startY - pe.clientY) / 150, 0.05, 1) : clamp((r.bottom - pe.clientY) / r.height, 0.05, 1);
         target.set(Math.round(v * 127) / 127);
         paint(track);
         show();
