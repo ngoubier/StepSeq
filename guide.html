@@ -166,7 +166,8 @@
       <p>En mode <b>On/Off</b> (en bas à droite), un clic sur une case l'allume ou l'éteint.</p>
       <ul>
         <li><b>Peindre</b> : clique sur une case et glisse le long de la ligne. Toutes les cases survolées prennent le même état que la première.</li>
-        <li><b>Accent</b> : en mode On/Off, survole le <b>haut du carré coloré</b> d'un pas ou d'une note : le curseur devient ↕. Glisse vers le haut (plus fort) ou vers le bas (plus doux) ; la valeur (0 à 127) s'affiche au-dessus pendant le réglage. On peut aussi passer en mode <b>Vélocité</b>, cliquer n'importe où sur une case et glisser ; une case éteinte s'allume alors à la valeur moyenne.</li>
+        <li><b>Accent</b> : en mode On/Off, survole le <b>haut du carré coloré</b> d'un pas ou d'une note : le curseur devient ↕. Glisse vers le haut (plus fort) ou vers le bas (plus doux) ; la valeur (0 à 127) s'affiche au-dessus pendant le réglage. Pour régler plusieurs notes d'un coup, utilise le mode <b>✎ Vélocité</b> (voir ci-dessous).</li>
+        <li><b>Dessiner les vélocités</b> : dans la barre du bas, passe en mode <b>✎ Vélocité</b>, puis glisse sur la piste. Chaque note traversée prend la force donnée par la hauteur du pointeur dans la case (en bas : doux, en haut : fort). Un geste en diagonale trace une <b>rampe</b> (crescendo de hi-hats, montée de basse) ; les pas sautés par un geste rapide sont calculés entre les deux. Les pas vides ne sont pas créés (la bulle affiche « pas vide »). Dans le piano roll, pars d'une note et glisse vers le haut ou le bas en avançant. Ctrl+Z annule tout le geste. Repasse en <b>On/Off</b> pour poser des notes.</li>
         <li><b>Lire la vélocité</b> : la hauteur du carré coloré montre la force du coup (plein = vélocité maximale), dans les deux modes. Pour une note d'instrument, la partie tenue garde la même hauteur. Survoler une case affiche sa valeur sur 127.</li>
       </ul>
 
@@ -174,7 +175,7 @@
       <p>On change une note ou un accord avec le bouton <b>♫</b> de la barre du bas, ou directement dans le <b>piano roll</b>, en cliquant sur une autre ligne à la même position. Pour l'ouvrir, clique sur le chevron <b>›</b> dans l'en-tête d'une piste instrument. Les lignes sont les notes (2 octaves), les colonnes sont les pas. Le clavier à gauche joue la note ou l'accord quand on clique dessus.</p>
       <h3>Le bouton « Note » de la barre du bas</h3>
       <p>La façon la plus simple de changer une note ou un accord est le bouton <b>♫</b> en bas de l'écran. Il affiche la <b>note en cours</b>, par exemple « Accord Am7 · Pad 2 », et ouvre sa fenêtre de réglage.</p>
-      <p>Une note devient la note en cours quand tu la poses, quand tu fais un clic droit ou un appui long dessus, ou quand tu la touches en mode Vélocité. Elle est entourée de blanc dans la grille.</p>
+      <p>Une note devient la note en cours quand tu la poses, quand tu fais un clic droit ou un appui long dessus, ou quand tu règles sa vélocité avec la poignée du haut. Elle est entourée de blanc dans la grille.</p>
       <div class="table-wrap"><table>
         <tr><th>Réglage de la fenêtre</th><th>Effet</th></tr>
         <tr><td>Hauteur / Fondamentale</td><td>Choisis la note (C à B) et l'octave, ou décale avec −8ve, −½, +½, +8ve. Chaque changement fait entendre le résultat.</td></tr>
@@ -222,7 +223,7 @@
         <tr><td>Octave − / +</td><td>Piano roll</td><td>Change les 2 octaves affichées, sans modifier les notes</td></tr>
         <tr><td>Effacer</td><td>Piano roll</td><td>Supprime toutes les notes de la piste, après confirmation</td></tr>
         <tr><td>✕ Fermer</td><td>Piano roll, à droite de la barre d'outils</td><td>Ferme le piano roll. Le chevron ⌄ de l'en-tête de piste le ferme aussi.</td></tr>
-        <tr><td>Vélocité</td><td>Barre du bas</td><td>Glisse verticalement sur une note : toute la note ou tout l'accord devient plus fort ou plus doux</td></tr>
+        <tr><td>Vélocité</td><td>Barre du bas</td><td>Mode dessin : glisse sur les notes, la hauteur du pointeur donne leur force ; un geste en diagonale trace une rampe</td></tr>
         <tr><td>M / S</td><td>En-tête de piste</td><td>Mute coupe la piste. Solo ne fait entendre que les pistes en solo.</td></tr>
         <tr><td>Volume</td><td>Curseur de l'en-tête</td><td>Volume de la piste, effet immédiat</td></tr>
         <tr><td>⚙</td><td>En-tête de piste</td><td>Rouvre la fenêtre de la piste : nom, couleur, son, machine, variation, ou catégorie, famille et instrument. Les notes sont gardées.</td></tr>

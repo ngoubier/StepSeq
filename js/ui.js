@@ -281,6 +281,7 @@ SS.ui = (() => {
       e.preventDefault();
       const s = +cell.dataset.step;
       if (s >= SS.trackLen(app.project(), track)) return; // au-delà de la boucle de la piste
+      if (app.state.editMode === 'velocity') return drawVelocity(track, grid, cell, e);
       const edge = noteEdgeAt(track, cell, e.clientX);
       if (edge) return resizeNote(track, edge, e);
       const top = velEdgeAt(track, cell, e.clientY);
@@ -456,6 +457,7 @@ SS.ui = (() => {
         if (!cell || e.button !== 0) return;
         e.preventDefault();
         if (+cell.dataset.step >= SS.trackLen(app.project(), track)) return;
+        if (app.state.editMode === 'velocity') return drawVelocity(track, grid, cell, e);
         const edge = noteEdgeAt(track, cell, e.clientX);
         if (edge) return resizeNote(track, edge, e);
         noteGesture(track, +cell.dataset.step, +cell.dataset.midi, e);
@@ -851,17 +853,6 @@ SS.ui = (() => {
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
   function drumGesture(track, s, e) {
-    if (app.state.editMode === 'velocity') {
-      if (!track.steps[s]) track.steps[s] = 0.8;
-      const startV = track.steps[s];
-      const startY = e.clientY;
-      paint(track);
-      track_gesture((ev) => {
-        track.steps[s] = clamp(startV + (startY - ev.clientY) / 120, 0.05, 1);
-        paint(track);
-      });
-      return;
-    }
     const value = track.steps[s] > 0 ? 0 : 0.8;
     track.steps[s] = value;
     if (value && !SS.audio.isPlaying()) SS.audio.preview(track);
@@ -970,6 +961,69 @@ SS.ui = (() => {
     );
   }
 
+  /**
+   * Mode Vélocité = dessin : on glisse sur les pas et chaque note traversée prend la vélocité
+   * de la hauteur du pointeur (ligne compacte : hauteur dans la case ; piano roll : glissé vertical
+   * depuis la vélocité de la première note). Les pas sautés par un geste rapide sont interpolés,
+   * ce qui permet de tracer des rampes (crescendo) d'un seul geste. Les pas vides ne sont pas créés.
+   */
+  function drawVelocity(track, grid, cell0, e) {
+    e.preventDefault();
+    const roll = cell0.classList.contains('rcell');
+    const n = SS.trackLen(app.project(), track);
+    // cases d'une même rangée, repérées par leur position horizontale (le pointeur peut sortir de la rangée)
+    const row = roll ? [...grid.querySelectorAll(`.rcell[data-midi="${cell0.dataset.midi}"]`)] : refs.get(track.id).cells;
+    const rects = row.map((c) => c.getBoundingClientRect());
+    const cellAtX = (x) => {
+      let best = 0;
+      for (let i = 0; i < rects.length; i++) {
+        if (x >= rects[i].left && x <= rects[i].right) return i;
+        if (Math.abs(x - (rects[i].left + rects[i].right) / 2) < Math.abs(x - (rects[best].left + rects[best].right) / 2)) best = i;
+      }
+      return best;
+    };
+    const first = velTarget(track, +cell0.dataset.step);
+    const rollStart = first ? first.get() : 0.8;
+    const startY = e.clientY;
+    const valueAt = (pe, i) => {
+      if (!roll) return clamp((rects[i].bottom - pe.clientY) / rects[i].height, 0.05, 1);
+      return clamp(rollStart + (startY - pe.clientY) / 150, 0.05, 1);
+    };
+    const setStep = (s, v) => {
+      if (s < 0 || s >= n) return;
+      const t = velTarget(track, s);
+      if (t) t.set(Math.round(v * 127) / 127);
+    };
+    const badge = h('div', { class: 'vel-badge', role: 'status' });
+    document.body.append(badge);
+    document.body.classList.add('drawing-vel');
+    let last = null;
+    const at = (pe) => {
+      const i = cellAtX(pe.clientX);
+      const s = +row[i].dataset.step;
+      const v = valueAt(pe, i);
+      if (last && last.s !== s) {
+        const d = s - last.s;
+        const dir = Math.sign(d);
+        for (let k = last.s + dir; k !== s; k += dir) setStep(k, last.v + ((v - last.v) * (k - last.s)) / d);
+      }
+      setStep(s, v);
+      last = { s, v };
+      paint(track);
+      const has = !!velTarget(track, s);
+      badge.textContent = has ? `Vélocité ${Math.round(v * 127)}` : `${Math.round(v * 127)} · pas vide`;
+      badge.classList.toggle('muted', !has);
+      badge.style.left = pe.clientX + 'px';
+      badge.style.top = Math.max(4, pe.clientY - 38) + 'px';
+    };
+    at(e);
+    track_gesture(at, () => {
+      badge.remove();
+      document.body.classList.remove('drawing-vel');
+      updateNoteButton();
+    });
+  }
+
   /** Glisser le bord droit : la case sous le pointeur devient la dernière de la note. */
   function resizeNote(track, ev, e) {
     e.preventDefault();
@@ -1042,17 +1096,6 @@ SS.ui = (() => {
     const n = SS.trackLen(app.project(), track);
     const existing = findEventAt(track, s);
 
-    if (app.state.editMode === 'velocity') {
-      if (!existing) return;
-      select(track, existing);
-      const startV = existing.vel;
-      const startY = e.clientY;
-      track_gesture((ev) => {
-        existing.vel = clamp(startV + (startY - ev.clientY) / 120, 0.05, 1);
-        paint(track);
-      });
-      return;
-    }
 
     // Tactile : un appui long sur un accord ouvre le menu de type d'accord ;
     // un appui court garde le comportement normal (supprimer / remplacer), exécuté au relâchement.

@@ -1172,3 +1172,7 @@ body.mixer-open .songbar { display: none; }
 @media (hover: none) { .dlg-keys { display: none; } }
 .chip:focus-visible, .segmented button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
 #trackDialog .dlg-row > .segmented { align-self: flex-start; }
+/* Mode dessin de vélocité */
+body.mode-velocity .grid .cell, body.mode-velocity .rcell { cursor: crosshair; }
+body.drawing-vel, body.drawing-vel * { cursor: crosshair !important; user-select: none; }
+.vel-badge.muted { background: #333; color: #aaa; }
