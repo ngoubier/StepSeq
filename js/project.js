@@ -20,7 +20,7 @@
  *       steps: [0..1, ...] }                         // vélocité, 0 = éteint
  *     { id, type: "instrument", name, color, volume, mute, solo,
  *       category: "mono"|"arp"|"chord", family, instrument, sfv (variante soundfont ou échantillon Dirt-Samples),
- *       chord: "min", arp: { mode, rate, octaves }, octave,
+ *       chord: "min", arp: { mode, rate, octaves, gate, motion, evolve, seed, rhythm, lanes, … } (ARP ONE, voir js/arp.js), octave,
  *       sd: { wave, voices, detune, filter, ftype, fdrive, cutoff, q, env,  // sound design (optionnel,
  *             attack, decay, sustain, release, glide, glideMode,       //  sinon preset de l'instrument)
  *             pan, drive, gain }
@@ -93,7 +93,7 @@ SS.newTrack = (opts, project) => {
     instrument: opts.instrument,
     sfv: opts.sfv || 0, // variante de soundfont (gm_*)
     chord: 'min',
-    arp: { mode: 'up', rate: 2, octaves: 1 },
+    arp: SS.Arp.normalize({ mode: 'up', rate: 2, octaves: 1 }),
     octave: opts.category === 'mono' ? fam.octave : Math.max(3, fam.octave),
     events: [],
   };
@@ -160,7 +160,7 @@ SS.normalizeProject = (data) => {
       track.sfv = Number.isInteger(t.sfv) && t.sfv >= 0 ? t.sfv : track.sfv || 0;
       track.type = 'instrument';
       track.events = Array.isArray(t.events) ? t.events : [];
-      track.arp = { mode: 'up', rate: 2, octaves: 1, ...(t.arp || {}) };
+      track.arp = SS.Arp.normalize(t.arp); // ARP ONE (js/arp.js) : réglages bornés, anciens projets compris
       track.chord = t.chord || 'min';
       if (t.sd && typeof t.sd === 'object') {
         track.sd = {};

@@ -455,13 +455,24 @@ SS.ui = (() => {
         : null,
       track.category === 'arp'
         ? [
-            h('label', {}, 'Mode', sel(SS.ARP_MODES, track.arp.mode, (v) => ((track.arp.mode = v), app.changed()))),
-            h('label', {}, 'Vitesse', sel(SS.ARP_RATES, track.arp.rate, (v) => ((track.arp.rate = parseFloat(v)), app.changed()))),
+            h('label', {}, 'Arpège', sel(SS.Arp.MODES, track.arp.mode, (v) => ((track.arp = SS.Arp.normalize({ ...track.arp, mode: v, preset: '' })), app.changed()))),
+            h('label', {}, 'Vitesse', sel(SS.Arp.RATES, SS.Arp.RATES.find((r) => Math.abs(r.id - track.arp.rate) < 1e-6)?.id ?? track.arp.rate, (v) => ((track.arp = SS.Arp.normalize({ ...track.arp, rate: parseFloat(v), preset: '' })), app.changed()))),
             h(
               'label',
               {},
               'Octaves',
-              sel([1, 2, 3].map((o) => ({ id: o, label: String(o) })), track.arp.octaves, (v) => ((track.arp.octaves = +v), app.changed()))
+              sel([1, 2, 3, 4].map((o) => ({ id: o, label: String(o) })), track.arp.octaves, (v) => ((track.arp = SS.Arp.normalize({ ...track.arp, octaves: +v, preset: '' })), app.changed()))
+            ),
+            h(
+              'button',
+              {
+                type: 'button',
+                class: 'roll-arp',
+                title: 'ARP ONE : presets, macros RATE / GATE / MOTION / EVOLVE, rythme, lignes par pas',
+                onclick: () => SS.arpPanel.open(track),
+              },
+              h('span', { html: ICONS.arp }),
+              'ARP ONE'
             ),
           ]
         : null,

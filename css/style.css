@@ -1447,6 +1447,75 @@ body.copying-notes, body.copying-notes * { cursor: copy !important; }
 .jkey.down .jk-letter { color: var(--j-red); }
 .jkey.black.down .jk-letter { color: #ff7a6e; }
 
+/* ---------- ARP ONE (arpégiateur) ---------- */
+.roll-tools .roll-arp { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px 4px 7px; background: #3b2d4d; font-weight: 600; letter-spacing: .03em; }
+.roll-tools .roll-arp span { display: inline-flex; }
+.roll-tools .roll-arp svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; }
+.roll-tools .roll-arp:hover { background: #503b6d; }
+dialog.arp-dialog { width: min(860px, calc(100vw - 32px)); }
+.arp-dialog form { max-height: calc(100vh - 40px); }
+.arp-tag { font-size: 12px; font-weight: 500; color: var(--muted); letter-spacing: .05em; }
+.arp-tabs button { padding: 6px 16px; font-weight: 600; letter-spacing: .06em; }
+.arp-body { overflow-y: auto; min-height: 0; flex: 1 1 auto; }
+.arp-body section { display: flex; flex-direction: column; gap: 14px; }
+.arp-presets { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 6px 12px; }
+.arp-presets select { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 7px 8px; font: inherit; font-size: 15px; font-weight: 600; }
+.arp-desc { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+.arp-macros { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.arp-macro { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); min-width: 0; }
+.arp-macro label { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.arp-macro label b { font-size: 13px; letter-spacing: .08em; }
+.arp-macro output { font-size: 13px; font-variant-numeric: tabular-nums; color: #cfe4ff; }
+.arp-macro input { width: 100%; accent-color: var(--accent-2); margin: 0; }
+.arp-macro small { color: var(--muted); font-size: 11px; line-height: 1.3; min-height: 2.6em; }
+.arp-view { display: flex; flex-direction: column; gap: 6px; }
+.arp-view-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 12px; font-size: 13px; }
+.arp-chord b { font-size: 15px; color: #e6d6ff; }
+.arp-chord small { color: var(--muted); }
+.arp-phrases { display: inline-flex; gap: 4px; }
+.arp-phrases .chip { padding: 2px 10px; }
+.arp-grid { width: 100%; height: auto; display: block; background: #121216; border-radius: 8px; }
+.arp-grid rect { stroke: none; }
+.arp-grid .ag-col { fill: #1c1c22; }
+.arp-grid .ag-beat { fill: #24242c; }
+.arp-grid .note { fill: #a479ff; }
+.arp-grid .note.anchor { fill: #c9a6ff; stroke: #fff; stroke-width: .8; }
+.arp-grid .ratchet { stroke: #121216; stroke-width: 1.5; }
+.arp-grid text { fill: var(--muted); stroke: none; font-size: 9px; font-weight: 400; text-anchor: middle; }
+.arp-legend, .arp-help { color: var(--muted); font-size: 11px; line-height: 1.4; }
+.arp-bad { color: #ff9b7a; font-weight: 600; }
+.arp-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.arp-actions .btn.on { box-shadow: inset 0 0 0 2px #a479ff; color: #e6d6ff; }
+.arp-row2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; align-items: start; }
+.arp-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.arp-field select, .arp-pattern, .arp-num input { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font: inherit; min-width: 0; }
+.arp-pattern { font-family: ui-monospace, Menlo, Consolas, monospace; }
+.arp-seg { flex-wrap: wrap; align-self: flex-start; }
+.arp-seg button { padding: 5px 10px; font-size: 12px; }
+.arp-rhythm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.arp-num { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.arp-num input { width: 76px; }
+.arp-euclid { font-size: 13px; letter-spacing: 1px; color: #c9a6ff; word-break: break-all; }
+.arp-range { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.arp-range .arp-num input { width: 64px; }
+.arp-lanes { display: flex; flex-direction: column; gap: 10px; }
+.arp-lane { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 8px; align-items: center; }
+.arp-lane-head { display: flex; align-items: center; gap: 4px; font-size: 12px; }
+.arp-lane-head b { flex: 1; }
+.arp-len { min-width: 44px; text-align: center; color: var(--muted); font-variant-numeric: tabular-nums; }
+.arp-off { color: var(--muted); font-size: 11px; }
+.arp-cells { display: flex; gap: 2px; height: 46px; touch-action: none; cursor: ns-resize; user-select: none; }
+.arp-cell { position: relative; flex: 1 1 0; min-width: 0; background: #1c1c22; border-radius: 3px; overflow: hidden; }
+.arp-cell.beat { background: #25252e; }
+.arp-cell i { position: absolute; left: 0; right: 0; bottom: 0; background: #7d55d6; }
+.arp-cells.bipolar .arp-cell::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid #44444f; }
+.arp-cells.bipolar .arp-cell i { bottom: auto; }
+.arp-cell em { position: absolute; left: 0; right: 0; bottom: 1px; text-align: center; font-style: normal; font-size: 9px; color: #ddd; pointer-events: none; text-shadow: 0 0 3px #000; }
+@media (max-width: 700px) {
+  .arp-macros { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .arp-lane { grid-template-columns: 1fr; }
+  .arp-cell em { display: none; }
+
 /* ---------- Harmonie : tonalité, palette d'accords, analyse ---------- */
 .roll-row.in-key .rcell { background: #222229; }
 .roll-row.in-key.black .rcell { background: #1d1d24; }

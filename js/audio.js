@@ -909,7 +909,8 @@ SS.audio = (() => {
    * Joue une note. `idx` / `count` : rang de la note dans son événement et nombre de notes
    * (accords) — sert au glide, qui relie chaque note d'un accord à celle de même rang.
    */
-  async function playNote(track, midi, time, dur, vel, dest, idx = 0, count = 1) {
+  /** mod (facultatif) : { cutoff } — multiplicateur de la fréquence de coupure (MOTION de l'arpégiateur). */
+  async function playNote(track, midi, time, dur, vel, dest, idx = 0, count = 1, mod = null) {
     ensureCtx();
     const out = dest || bus(track);
     const inst = instOf(track);
@@ -917,7 +918,8 @@ SS.audio = (() => {
       SS.juno.play({ ctx, noise: noiseBuffer, register }, track, midi, Math.max(time, ctx.currentTime), dur, vel, out);
       return;
     }
-    const p = SS.soundParams(track);
+    let p = SS.soundParams(track);
+    if (mod && mod.cutoff && mod.cutoff !== 1) p = { ...p, cutoff: Math.max(30, Math.min(20000, p.cutoff * mod.cutoff)) };
     // ce qui suit doit rester synchrone jusqu'au glide (ordre des notes) : on résout d'abord la source
     let src = null; // { buffer, rate, loop }
     if (inst.kind === 'sf') {
@@ -953,7 +955,7 @@ SS.audio = (() => {
     glideStart(plan, p, voice, idx, midi, t);
   }
 
-  /** Courte phrase de notes (démo du glide dans le sound design) : [{ midi, at (s), dur (s) }]. */
+  /** Courte phrase de notes (démo du glide, écoute de l'arpégiateur) : [{ midi, at (s), dur (s), vel?, cutoff? }]. */
   async function playPhrase(track, notes) {
     ensureCtx();
     await prepareTrack(track);
@@ -963,7 +965,7 @@ SS.audio = (() => {
     }
     const t0 = ctx.currentTime + 0.05;
     const out = track.id ? bus(track) : master;
-    notes.forEach((n) => playNote(track, n.midi, t0 + n.at, n.dur, 0.8, out));
+    notes.forEach((n) => playNote(track, n.midi, t0 + n.at, n.dur, n.vel ?? 0.8, out, 0, 1, n.cutoff ? { cutoff: n.cutoff } : null));
   }
 
   /** Aperçu d'un son (dialogue, clic sur une note...). */
@@ -1016,17 +1018,6 @@ SS.audio = (() => {
     return project.tracks.filter((t) => !t.mute && (!soloed || t.solo));
   }
 
-  function arpSequence(ev, track) {
-    const arp = track.arp || {};
-    let notes = [...ev.notes].sort((a, b) => a - b);
-    const oct = arp.octaves || 1;
-    let all = [];
-    for (let o = 0; o < oct; o++) all = all.concat(notes.map((n) => n + 12 * o));
-    if (arp.mode === 'down') all.reverse();
-    else if (arp.mode === 'updown' && all.length > 2) all = all.concat(all.slice(1, -1).reverse());
-    return all;
-  }
-
   /*
    * Sidechain : quand une piste « source » joue, les pistes qui l'écoutent baissent de volume
    * (attaque ~5 ms) puis remontent selon leur relâchement. Le déclenchement vient des notes programmées,
@@ -1075,23 +1066,22 @@ SS.audio = (() => {
       }
       (track.events || []).forEach((ev) => {
         if (track.category === 'arp') {
-          // l'arpège joue tant que l'événement couvre ce pas
-          if (step < ev.step || step >= ev.step + ev.len) return;
-          const rate = (track.arp && track.arp.rate) || 1;
-          const seqNotes = arpSequence(ev, track);
-          const sub = sd / rate;
-          const startIdx = Math.round((step - ev.step) * rate);
-          const count = Math.round(rate * (step + 1 - ev.step)) - startIdx;
-          for (let i = 0; i < count; i++) {
-            const idx = startIdx + i;
-            const n =
-              track.arp && track.arp.mode === 'random'
-                ? seqNotes[Math.floor(Math.random() * seqNotes.length)]
-                : seqNotes[idx % seqNotes.length];
-            const t = time + (idx - (step - ev.step) * rate) * sub;
-            playNote(track, n, t + jt(), sub * 0.9, jv(ev.vel));
-            if (idx === 0) duckFrom(project, track, t); // un arpège déclenche le sidechain au début de chaque accord
-          }
+          // ARP ONE (js/arp.js) : l'arpège joue tant que l'événement couvre ce pas
+          const len = SS.trackLen(project, track);
+          const notes = SS.Arp.renderStep(track.arp, ev, step, {
+            loop: Math.floor(tick / len), // passage de la boucle : sert à EVOLVE (variations A / A' / B / A'')
+            trackLen: len,
+            stepSec: sd,
+            stepsPerBeat: SS.stepsPerBeat(project),
+          });
+          notes.forEach((n) => {
+            const t = time + n.at;
+            // notes simultanées (mode Accord rythmique) : jouées comme un accord (glide, niveau)
+            const group = notes.filter((x) => x.at === n.at);
+            const gi = group.indexOf(n);
+            playNote(track, n.midi, t + jt(), n.dur, jv(n.vel * (group.length > 1 ? 0.8 : 1)), undefined, gi, group.length, { cutoff: n.cutoff });
+            if (n.first) duckFrom(project, track, t); // un arpège déclenche le sidechain au début de chaque accord
+          });
         } else if (ev.step === step) {
           // une note ne dépasse pas la fin de la boucle de sa piste
           const dur = Math.min(ev.len, SS.trackLen(project, track) - ev.step) * sd * 0.98;
