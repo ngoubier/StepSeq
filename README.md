@@ -5,7 +5,9 @@ boîtes à rythmes et des instruments, et enregistrer ses projets dans des fichi
 
 ## Lancer l'application
 
-Aucune installation ni compilation : ouvrez `index.html` dans un navigateur récent
+**En ligne : <https://ngoubier.github.io/StepSeq/>** (GitHub Pages)
+
+Ou en local : aucune installation ni compilation : ouvrez `index.html` dans un navigateur récent
 (Chrome, Edge, Firefox, Safari). Une connexion internet est nécessaire pour charger les sons.
 
 Vous pouvez aussi la servir localement :
