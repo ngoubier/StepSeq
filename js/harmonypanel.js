@@ -159,7 +159,9 @@ SS.harmonyPanel = (() => {
     const tonic = anchorTonic();
     return emo.proposals.map((pr) => {
       const k = { tonic: tonic || pr.tonic, mode: pr.mode };
-      return { ...pr, key: k, chords: pr.seq.map(([d, t, a]) => H().makeChord(k, d, t, a || 0)) };
+      const chords = pr.seq.map(([d, t, a]) => H().makeChord(k, d, t, a || 0));
+      const fill = (txt) => SS.fillEmotionText(txt, chords, k.tonic, H().french);
+      return { ...pr, key: k, chords, why: fill(pr.why), caveat: fill(pr.caveat) };
     });
   }
 
