@@ -6,8 +6,8 @@
  *   format: "stepseq", version: 1,
  *   title, tempo, timeSig: [num, den], bars,
  *   groove: { res: 0|16|8, swing: 0.5..0.75, human: 0..1 },
- *   key: { tonic: "D", mode: "major"|"minor"|"harmonic"|"dorian"|"phrygian"|"lydian"|"mixolydian" },   // tonalité ou mode (facultatif, js/harmony.js)
- *   emotion: "nostalgie",   // intention émotionnelle choisie dans la fenêtre Harmonie (facultatif, js/emotions.js)
+ *   (tonalité et émotion : propres à chaque scène, voir project.scenes plus bas ; les anciens fichiers
+ *    avec key / emotion au niveau du projet sont convertis à l'ouverture)
  *   master: { volume, mix },   // console : tranche Master (voir SS.MASTER_DEFAULTS)
  *   tracks: [   // chaque piste peut avoir mix: { pan, eq, comp, lim } (console de mixage), length (longueur de sa boucle, en pas ; absente = celle du projet)
  *               // et fx: { chorus, chorusRate, chorusDepth, delay, delayTime,
@@ -129,8 +129,6 @@ SS.normalizeProject = (data) => {
       human: Math.min(1, Math.max(0, Number(g.human) || 0)),
     };
   }
-  if (data.key && SS.harmony && SS.harmony.valid(data.key)) p.key = { tonic: data.key.tonic, mode: data.key.mode };
-  if (typeof data.emotion === 'string' && SS.findEmotion && SS.findEmotion(data.emotion)) p.emotion = data.emotion;
   p.tracks = data.tracks.map((t) => {
     const track = { ...t, id: t.id || SS.uid() };
     // effets : on ne garde que les clés connues, de type attendu
@@ -326,7 +324,10 @@ SS.trackLen = (p, t) => {
 /* Mode chanson : scènes + arrangement                                 */
 /* ================================================================== *
  *
- * project.scenes  : [{ id, name, bars, data: { trackId: { steps } | { events } } }]
+ * project.scenes  : [{ id, name, bars, data: { trackId: { steps } | { events } }, key?, emotion? }]
+ *                   key     : { tonic: "D", mode: "major"|"minor"|"harmonic"|"dorian"|"phrygian"|"lydian"|"mixolydian" }
+ *                             tonalité ou mode de la scène (facultatif, js/harmony.js)
+ *                   emotion : "nostalgie", intention choisie dans la fenêtre Harmonie (facultatif, js/emotions.js)
  * project.current : id de la scène en cours d'édition (son contenu vit dans les pistes)
  * project.song    : [{ scene: id, repeat: n }]  -- l'arrangement, joué dans l'ordre
  * project.playMode: 'loop' (boucle la scène en cours) | 'song' (joue l'arrangement)
@@ -348,6 +349,15 @@ SS.snapshotTracks = (p) => {
 };
 
 SS.currentScene = (p) => p.scenes.find((sc) => sc.id === p.current) || p.scenes[0];
+
+const validKey = (k) => !!(k && SS.harmony && SS.harmony.valid(k));
+const validEmotion = (e) => typeof e === 'string' && !!(SS.findEmotion && SS.findEmotion(e));
+
+/** Tonalité de la scène en cours (ou de la scène `sc`), ou null. */
+SS.sceneKey = (p, sc) => {
+  sc = sc || (p.scenes && p.scenes.length ? SS.currentScene(p) : null);
+  return sc && validKey(sc.key) ? sc.key : null;
+};
 
 /** Range le contenu actuel des pistes dans la scène en cours. */
 SS.commitScene = (p) => {
@@ -385,6 +395,10 @@ SS.addScene = (p, { copy = true } = {}) => {
     bars: p.bars,
     data: copy ? SS.snapshotTracks(p) : {},
   };
+  // une copie garde l'harmonie de la scène d'origine ; une scène vide démarre sans (assistant de la fenêtre Harmonie)
+  const cur = SS.currentScene(p);
+  if (copy && validKey(cur.key)) sc.key = { ...cur.key };
+  if (copy && validEmotion(cur.emotion)) sc.emotion = cur.emotion;
   const idx = p.scenes.findIndex((x) => x.id === p.current);
   p.scenes.splice(idx + 1, 0, sc);
   return sc.id;
@@ -425,6 +439,8 @@ SS.normalizeScenes = (p, data = {}) => {
         name: String(sc.name || 'Scène').slice(0, 40),
         bars: Math.min(64, Math.max(1, Math.round(Number(sc.bars)) || p.bars)),
         data: sc.data && typeof sc.data === 'object' ? sc.data : {},
+        ...(validKey(sc.key) ? { key: { tonic: sc.key.tonic, mode: sc.key.mode } } : {}),
+        ...(validEmotion(sc.emotion) ? { emotion: sc.emotion } : {}),
       }));
   }
   if (!valid) {
@@ -444,6 +460,13 @@ SS.normalizeScenes = (p, data = {}) => {
         .map((b) => ({ scene: b.scene, repeat: Math.min(64, Math.max(1, Math.round(Number(b.repeat) || 1))) }))
     : [];
   if (!p.song.length) p.song = [{ scene: p.current, repeat: 1 }];
+  // anciens fichiers : tonalité et émotion du projet entier → chaque scène qui n'a pas les siennes
+  for (const sc of p.scenes) {
+    if (!sc.key && validKey(data.key)) sc.key = { tonic: data.key.tonic, mode: data.key.mode };
+    if (!sc.emotion && validEmotion(data.emotion)) sc.emotion = data.emotion;
+  }
+  delete p.key;
+  delete p.emotion;
   p.playMode = data.playMode === 'song' ? 'song' : 'loop';
   p.songLoop = !!data.songLoop;
 };

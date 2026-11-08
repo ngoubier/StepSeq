@@ -21,9 +21,9 @@ puis ouvrir <http://localhost:8000>.
 ## Interface
 
 - **En-tête** : titre du projet, tempo (BPM), chiffrage de mesure (4/4 par défaut, x/4 ou x/8),
-  nombre de mesures, le groove (swing, humanisation), la **tonalité** (fenêtre Harmonie : intention émotionnelle et essais A/B, gamme, accords
-  de la tonalité, palette d'accords dans le piano roll, progressions transposées, génération de basse / arpège / mélodie,
-  analyse harmonique des scènes), puis les boutons **+** (ajouter une piste), **Lecture** et **Stop**.
+  nombre de mesures, le groove (swing, humanisation), la **tonalité** (fenêtre Harmonie, propre à chaque scène : assistant
+  émotion → grille d'accords → couches pour démarrer, puis onglets Ambiance (émotions rangées par mode), Accords, Couches
+  et Vérifier ; palette d'accords dans le piano roll, essais A/B), puis les boutons **+** (ajouter une piste), **Lecture** et **Stop**.
   À droite : **Nouveau**, **Ouvrir** et **Enregistrer**.
 - **Partie centrale** : les pistes, les unes sous les autres. Chaque piste a un en-tête
   (écoute, Mute, Solo, nom, volume, réglages, suppression) et sa grille de pas
@@ -98,10 +98,11 @@ node --test
 
 (Node 18 ou plus récent ; les tests du moteur d'arpège n'ont besoin ni de navigateur ni de carte son.)
 
-Test de bout en bout de la fenêtre de l'arpégiateur dans Chromium (nécessite le paquet `playwright`) :
+Tests de bout en bout des fenêtres de l'arpégiateur et Harmonie dans Chromium (nécessite le paquet `playwright`) :
 
 ```bash
 node tests/e2e/arp-ui.js
+node tests/e2e/harmony-ui.js
 ```
 
 Cliquer sur une note / un accord existant le supprime. Sur la ligne compacte, un clic pose la
@@ -178,7 +179,7 @@ par la fenêtre **Harmonie** :
 | `js/groove.js`   | Fenêtre Groove (swing, humanisation) |
 | `js/harmony.js`  | Aide à la composition : gammes, accords diatoniques, identification des accords, estimation de la tonalité, vérificateur d'harmonie |
 | `js/emotions.js` | Intentions émotionnelles (skill MusicEmotion) : matrice et trois propositions par intention |
-| `js/harmonypanel.js` | Fenêtre Harmonie (émotion, tonalité, palette d'accords, progressions, génération, analyse des scènes) |
+| `js/harmonypanel.js` | Fenêtre Harmonie de la scène en cours : assistant en 3 étapes, onglets Ambiance, Accords, Couches, Vérifier |
 | `js/fx.js`       | Fenêtre Effets par piste (chorus, delay, reverb) |
 | `js/profiles.js`, `js/profiles-factory.js` | Profils de console (usine + personnels) |
 | `js/mixer.js`    | Console de mixage : tranches, EQ, compresseur, limiteur, vumètres |

@@ -3,8 +3,8 @@
  * et vérificateur d'harmonie. Reprend les règles du skill « composition-harmonie-synthetiseur »
  * (.claude/skills/composition-harmonie-synthetiseur).
  *
- * project.key = { tonic: "D", mode: "minor" }   (absent = pas de tonalité choisie)
- *   tonic : nom de note anglais avec altération (C, C♯, D♭, …) ; mode : major | minor | harmonic.
+ * scene.key = { tonic: "D", mode: "minor" }   (chaque scène a sa tonalité ; absente = pas de tonalité choisie)
+ *   tonic : nom de note anglais avec altération (C, C♯, D♭, …) ; mode : voir MODES.
  *
  * Tout est calculé ici, sans réseau ni IA : le résultat est déterministe et vérifiable.
  */
@@ -250,28 +250,29 @@ SS.harmony = (() => {
   /** Toutes les scènes (ou les pistes si le projet n'a pas de scènes) : [{ name, bars, tracks: [{ track, events }] }]. */
   function sections(p) {
     const inst = p.tracks.filter((t) => t.type === 'instrument');
-    if (!p.scenes || !p.scenes.length) return [{ name: '', bars: p.bars, tracks: inst.map((t) => ({ track: t, events: t.events || [] })) }];
+    if (!p.scenes || !p.scenes.length) return [{ name: '', bars: p.bars, key: p.key, tracks: inst.map((t) => ({ track: t, events: t.events || [] })) }];
     SS.commitScene(p);
     return p.scenes.map((sc) => ({
       id: sc.id,
       name: sc.name,
       bars: sc.bars,
+      key: sc.key,
       tracks: inst.map((t) => ({ track: t, events: (sc.data[t.id] && sc.data[t.id].events) || [] })),
     }));
   }
 
   /** Histogramme des classes de notes, pondéré par la durée ; les basses comptent double. */
-  function histogram(p) {
+  function histogram(p, sceneId) {
     const h = new Array(12).fill(0);
-    for (const sec of sections(p))
+    for (const sec of sections(p).filter((s) => !sceneId || s.id === sceneId))
       for (const { events } of sec.tracks)
         for (const ev of events) for (const n of ev.notes) h[pcOf(n)] += ev.len * (n < 48 ? 2 : 1);
     return h;
   }
 
-  /** → { key, score, second } ou null si le projet n'a pas de notes. */
-  function detect(p) {
-    const h = histogram(p);
+  /** → { key, score, second } ou null s'il n'y a pas de notes (dans la scène `sceneId`, ou dans tout le projet). */
+  function detect(p, sceneId) {
+    const h = histogram(p, sceneId);
     if (!h.some((x) => x > 0)) return null;
     const cands = [];
     for (let t = 0; t < 12; t++)
@@ -309,12 +310,17 @@ SS.harmony = (() => {
    * Chaque remarque est une piste de réflexion, pas une erreur : « tension voulue ? ».
    */
   function analyze(p) {
-    const key = p.key;
-    const scaleSet = new Set(scale(key).map((d) => d.pc));
-    const leading = pcOf(scale(key)[0].pc + 11);
     const out = [];
     for (const sec of sections(p)) {
-      const res = { name: sec.name, progressions: [], remarks: [] };
+      // chaque scène est analysée dans sa propre tonalité
+      const key = sec.key;
+      const res = { id: sec.id, name: sec.name, key: valid(key) ? key : null, progressions: [], remarks: [] };
+      if (!valid(key)) {
+        out.push(res);
+        continue;
+      }
+      const scaleSet = new Set(scale(key).map((d) => d.pc));
+      const leading = pcOf(scale(key)[0].pc + 11);
       const chordTracks = sec.tracks.filter(({ track }) => track.category !== 'mono');
       const borrowed = new Map(); // nom d'accord -> { numeral, status, why, tracks, steps } (une remarque par accord)
       // accords qui sonnent à un pas donné (toutes pistes Accord / Arpège confondues)

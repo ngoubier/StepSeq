@@ -451,7 +451,7 @@
   SS.junoPanel.init({ changed, renderTrack: (t) => SS.ui.renderTrack(t) });
   SS.arpPanel.init({ project: () => project, changed, renderTrack: (t) => SS.ui.renderTrack(t) });
   SS.groove.init({ project: () => project, changed });
-  SS.harmonyPanel.init({ project: () => project, changed, renderAll: () => SS.ui.renderAll(), activeTrack: () => SS.ui.activeTrack() });
+  SS.harmonyPanel.init({ project: () => project, changed, renderAll: () => SS.ui.renderAll(), activeTrack: () => SS.ui.activeTrack(), switchScene });
   SS.mixer.init({ project: () => project, changed, renderAll: () => SS.ui.renderAll() });
   SS.song.init({ project: () => project, changed, state, switchScene, afterSceneChange, play, stop });
   SS.fx.init({ project: () => project, changed, renderTrack: (t) => SS.ui.renderTrack(t) });

@@ -344,7 +344,25 @@
       <p>Le schéma de la fenêtre montre 8 doubles-croches : les cercles pointillés sont la position droite, les points bleus la position jouée. Les notes posées sur les temps ne bougent jamais. Annuler revient aux réglages d'avant l'ouverture.</p>
 
       <h2 id="harmonie"><small>Aide à la composition</small>Harmonie et tonalité</h2>
-      <p>Le bouton <b>Tonalité</b> de la barre du haut ouvre la fenêtre <b>Harmonie</b>. Choisissez la tonique et le mode (majeur, mineur naturel, mineur harmonique) du morceau, ou cliquez sur <b>Détecter</b> : StepSeq estime la tonalité d'après les notes du projet. C'est une estimation : Ré mineur et Fa majeur, par exemple, ont les mêmes notes, et c'est la mélodie, la basse et les cadences qui font entendre l'une ou l'autre.</p>
+      <p>Le bouton <b>Tonalité</b> de la barre du haut ouvre la fenêtre <b>Harmonie</b>. Elle s'applique à la <b>scène en cours</b> (intro, couplet, refrain…) : chaque scène a sa tonalité et son émotion, ce qui permet un couplet en mineur et un refrain en majeur, ou une trajectoire solitude → espoir. La liste <b>Scène</b>, en haut de la fenêtre, passe d'une scène à l'autre. Une scène copiée garde l'harmonie de l'originale ; une scène vide démarre sans.</p>
+      <h3>L'assistant, pour démarrer une scène</h3>
+      <p>Si la scène n'a pas encore de tonalité, la fenêtre s'ouvre sur un assistant en trois étapes (le bouton <b>Assistant</b> le relance à tout moment) :</p>
+      <div class="table-wrap"><table>
+        <tr><th>Étape</th><th>Ce qu'on choisit</th></tr>
+        <tr><td>1 · Ambiance</td><td>Une émotion parmi 13. Elles sont rangées du plus lumineux au plus sombre, avec le mode qui leur donne leur couleur.</td></tr>
+        <tr><td>2 · Grille d'accords</td><td>Une grille parmi trois (Évidence, Nuance, Surprise), à écouter avant de choisir. Une case règle aussi le tempo conseillé (il vaut pour tout le morceau).</td></tr>
+        <tr><td>3 · Couches</td><td>La piste des accords, puis les couches à écrire autour : basse, arpège, esquisse de mélodie, chacune avec son style et sa piste.</td></tr>
+      </table></div>
+      <p><b>Créer</b> donne la tonalité et l'émotion à la scène, pose les accords (un par mesure) et écrit les couches cochées. Ctrl+Z annule. <b>Choisir la tonalité moi-même</b> passe directement aux onglets.</p>
+      <h3>Les onglets, pour modifier et vérifier</h3>
+      <p>En haut : la tonique, le mode et <b>Détecter</b>, qui estime la tonalité d'après les notes de la scène. C'est une estimation : Ré mineur et Fa majeur ont les mêmes notes, et c'est la mélodie, la basse et les cadences qui font entendre l'une ou l'autre. En bas : la piste qui reçoit les accords.</p>
+      <div class="table-wrap"><table>
+        <tr><th>Onglet</th><th>Contenu</th></tr>
+        <tr><td>1 · Ambiance</td><td>Les modes du plus lumineux au plus sombre, avec leurs émotions : Lydien (sérénité), Majeur ionien (joie, tendresse, espoir, triomphe), Mixolydien (euphorie), Dorien (mélancolie lumineuse, ambivalence), Mineur naturel éolien (tristesse, nostalgie), Mineur harmonique (suspense), Phrygien (angoisse, mystère). Cliquez une émotion pour voir ses trois grilles ; « En savoir plus » donne les repères, les réserves, la mélodie conseillée et les essais A/B.</td></tr>
+        <tr><td>2 · Accords</td><td>Gamme, accords de la tonalité, grilles connues.</td></tr>
+        <tr><td>3 · Couches</td><td>Trois cartes, Basse, Arpège et Mélodie : un style, une piste, <b>Générer</b>.</td></tr>
+        <tr><td>4 · Vérifier</td><td>L'analyse de toutes les scènes, chacune dans sa tonalité, la scène en cours en premier. Le chiffre sur l'onglet compte les points à vérifier dans la scène en cours.</td></tr>
+      </table></div>
       <div class="table-wrap"><table>
         <tr><th>Élément</th><th>Ce qu'il fait</th></tr>
         <tr><td>Gamme</td><td>Les 7 notes de la tonalité, orthographiées correctement (Si♭ en Ré mineur, pas La♯), avec les écarts en demi-tons. La tonique est encadrée.</td></tr>
@@ -355,14 +373,14 @@
         <tr><td>Analyse des scènes</td><td>Pour chaque scène : la progression de chaque piste Accord / Arpège avec ses degrés (un renversement s'écrit avec la basse après la barre : C/G), puis des remarques.</td></tr>
       </table></div>
       <h3>Composer à partir d'une émotion</h3>
-      <p>La section <b>Émotion</b>, en tête de la fenêtre Harmonie, reprend la méthode du skill <i>MusicEmotion</i>. Choisissez une intention parmi 13 (joie, euphorie, tristesse, nostalgie, mélancolie lumineuse, espoir, suspense, angoisse, mystère, sérénité, tendresse, triomphe, ambivalence) : StepSeq affiche des repères (valence, activation, tension, sur 0–100, subjectifs), les procédés possibles (harmonie, mélodie, rythme et texture) et le risque à éviter, puis <b>trois pistes contrastées</b>.</p>
+      <p>L'onglet <b>Ambiance</b> (et l'assistant) reprend la méthode du skill <i>MusicEmotion</i>. Choisissez une intention parmi 13 (joie, euphorie, tristesse, nostalgie, mélancolie lumineuse, espoir, suspense, angoisse, mystère, sérénité, tendresse, triomphe, ambivalence) : StepSeq affiche des repères (valence, activation, tension, sur 0–100, subjectifs), les procédés possibles (harmonie, mélodie, rythme et texture) et le risque à éviter, puis <b>trois pistes contrastées</b>.</p>
       <div class="table-wrap"><table>
         <tr><th>Piste</th><th>Principe</th></tr>
         <tr><td>Évidence</td><td>Harmonie simple, intention lisible tout de suite (ex. i–VI–III–VII pour la tristesse).</td></tr>
         <tr><td>Nuance</td><td>Extensions (maj7, m7, add9), mode (dorien, lydien, mixolydien) ou emprunt.</td></tr>
         <tr><td>Surprise</td><td>Cadence évitée, tierce picarde, ♭VI–♭VII–I, ♭II napolitain…</td></tr>
       </table></div>
-      <p>Chaque piste donne la tonalité ou le mode, le tempo, les accords avec leurs degrés, la raison du choix et sa réserve. <b>Écouter</b> joue les accords ; <b>Appliquer</b> les pose dans la piste d'accords choisie et, si la case est cochée, change la tonalité et le tempo du projet. Si le projet a déjà une tonalité, les propositions sont transposées sur sa tonique. <b>Préparer la mélodie</b> choisit l'esquisse conseillée (montante, descendante ou en vagues) dans « Générer une couche ».</p>
+      <p>Chaque piste donne la tonalité ou le mode, le tempo, les accords avec leurs degrés, la raison du choix et sa réserve. <b>Écouter</b> joue les accords ; <b>Appliquer</b> les pose dans la piste d'accords choisie et donne la tonalité et l'émotion à la scène en cours ; si la case est cochée, le tempo du morceau change aussi. Les propositions sont transposées sur la tonique de la scène (ou, à défaut, d'une autre scène) : le morceau garde son centre. <b>Préparer la mélodie</b> choisit l'esquisse conseillée (montante, descendante ou en vagues) dans l'onglet Couches.</p>
       <p><b>Essai A/B</b> : un bouton copie la scène en cours (scène « … B ») et y change un seul paramètre — tierce → neuvième, triades → septièmes, tonique majeur ↔ mineur, cadence évitée, voicing ouvert, basse en pédale. Passez d'une scène à l'autre pendant la lecture (mode Boucle) et gardez celle qui communique le mieux l'intention : c'est votre écoute qui décide, pas l'étiquette. Les essais conseillés pour l'intention sont entourés en violet.</p>
       <p>Les modes (dorien, phrygien, lydien, mixolydien) sont aussi proposés dans la liste <b>Mode</b> : la fenêtre signale alors la note caractéristique du mode et les accords qui la contiennent (« couleur du mode »).</p>
       <p class="note">Aucune suite d'accords n'encode une émotion de façon universelle : ce sont des hypothèses de style, à juger avec la mélodie, le tempo, le timbre et le contexte.</p>
@@ -370,8 +388,8 @@
       <h3>Progressions et génération de couches</h3>
       <div class="table-wrap"><table>
         <tr><th>Section</th><th>Ce qu'elle fait</th></tr>
-        <tr><td>Progressions</td><td>Huit progressions courantes (I–V–vi–IV, i–VI–III–VII, i–iv–V7–i…), transposées dans la tonalité : celles du mode choisi (majeur ou mineur). <b>Écouter</b> joue les quatre accords ; <b>Poser</b> les écrit dans la piste d'accords choisie, un accord par mesure, répétés jusqu'à la fin de la scène (les accords de la scène sont remplacés).</td></tr>
-        <tr><td>Générer une couche</td><td>À partir des accords d'une piste Accord ou Arpège, écrit dans une autre piste : une <b>basse</b> (fondamentales tenues, croches, octaves, galop, contretemps), un <b>arpège</b> (1–3–5–3 en croches, 1–3–5–8 en doubles-croches) ou une <b>esquisse de mélodie</b> (une note de l'accord sur chaque temps fort, une note de passage juste avant la suivante). L'octave est celle de la piste cible ; la piste proposée par défaut dépend de la couche (Basse, Arpège, Lead…).</td></tr>
+        <tr><td>Grilles connues (onglet Accords)</td><td>Huit progressions courantes (I–V–vi–IV, i–VI–III–VII, i–iv–V7–i…), transposées dans la tonalité : celles du mode choisi (majeur ou mineur). <b>Écouter</b> joue les quatre accords ; <b>Poser</b> les écrit dans la piste d'accords choisie, un accord par mesure, répétés jusqu'à la fin de la scène (les accords de la scène sont remplacés).</td></tr>
+        <tr><td>Onglet Couches</td><td>À partir des accords d'une piste Accord ou Arpège, écrit dans une autre piste : une <b>basse</b> (fondamentales tenues, croches, octaves, galop, contretemps), un <b>arpège</b> (1–3–5–3 en croches, 1–3–5–8 en doubles-croches) ou une <b>esquisse de mélodie</b> (une note de l'accord sur chaque temps fort, une note de passage juste avant la suivante). L'octave est celle de la piste cible ; la piste proposée par défaut dépend de la couche (Basse, Arpège, Lead…).</td></tr>
       </table></div>
       <p>Méthode conseillée : posez une progression, générez la basse, écoutez, puis l'arpège, puis la mélodie — une couche à la fois. Le résultat est un point de départ : changez ensuite une note de passage, une durée ou l'octave pour en faire votre morceau. Ctrl+Z annule chaque étape.</p>
       <p>Les remarques sont des pistes de réflexion, pas des erreurs : une note étrangère peut être voulue.</p>

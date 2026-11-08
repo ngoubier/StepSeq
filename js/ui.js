@@ -56,7 +56,7 @@ SS.ui = (() => {
   function eventLabel(track, ev) {
     if (track.category === 'mono' || ev.notes.length === 1) return SS.noteName(ev.notes[0]);
     // accord renversé (la basse n'est pas la fondamentale) ou tonalité choisie : nom calculé d'après les notes
-    const key = app.project().key;
+    const key = SS.sceneKey(app.project());
     const plain = ev.chord && SS.chordNotes(ev.notes[0], ev.chord).join() === ev.notes.join();
     if (SS.harmony && (!plain || SS.harmony.valid(key))) {
       const id = SS.harmony.identify(ev.notes);
@@ -96,7 +96,7 @@ SS.ui = (() => {
   }
 
   function buildPalette(track) {
-    const key = app.project().key;
+    const key = SS.sceneKey(app.project());
     if (track.category === 'mono' || !SS.harmony || !SS.harmony.valid(key)) return null;
     const { diatonic, extra } = SS.harmony.chords(key);
     const chip = (c) =>
@@ -569,7 +569,7 @@ SS.ui = (() => {
     );
     const roll = h('div', { class: 'roll' }, tools, buildPalette(track), barRow, view);
     // tonalité : notes de la gamme mises en évidence, tonique marquée
-    const key = p.key && SS.harmony && SS.harmony.valid(p.key) ? p.key : null;
+    const key = SS.sceneKey(p);
     const scalePcs = key ? SS.harmony.scale(key).map((d) => d.pc) : null;
     const scroller = makeRollScroller(track, view, inner, bar, thumb, rangeLabel);
     for (let midi = high; midi >= low; midi--) {

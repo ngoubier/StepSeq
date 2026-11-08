@@ -408,28 +408,33 @@
     </form>
   </dialog>
 
-  <!-- Dialogue des effets d'une piste -->
-  <dialog id="harmonyDialog" class="sd-dialog hm-dialog" aria-labelledby="hmTitle">
+  <!-- Fenêtre Harmonie : assistant (scène sans tonalité) ou onglets (modifier, vérifier) ; s'applique à la scène en cours -->
+  <dialog id="harmonyDialog" class="hm-dialog" aria-labelledby="hmTitle">
     <form method="dialog" id="harmonyForm">
-      <h2 id="hmTitle">Harmonie</h2>
-      <p class="dlg-sub">Choisissez la tonalité du morceau : le piano roll met en évidence ses notes, une palette pose ses accords, et l'analyse vérifie la cohérence des scènes.</p>
-
-      <div class="hm-key">
-        <label class="field"><span>Tonique</span><select id="hmTonic"></select></label>
-        <label class="field"><span>Mode</span><select id="hmMode"></select></label>
-        <button type="button" id="hmDetect" class="btn" title="Estimer la tonalité d'après les notes du projet">Détecter</button>
-        <span id="hmDetectOut" class="hm-muted"></span>
+      <div class="hm-top">
+        <h2 id="hmTitle">Harmonie</h2>
+        <label class="field hm-scenepick" title="L'harmonie est propre à chaque scène (intro, couplet, refrain…)"><span>Scène</span><select id="hmScene"></select></label>
+        <div class="hm-key" id="hmKeyBar">
+          <select id="hmTonic" aria-label="Tonique"></select>
+          <select id="hmMode" aria-label="Mode"></select>
+          <button type="button" id="hmDetect" class="btn btn-small" title="Estimer la tonalité d'après les notes de cette scène">Détecter</button>
+          <button type="button" id="hmWizBtn" class="btn btn-small" title="Repartir d'une émotion, étape par étape">Assistant</button>
+        </div>
+        <button type="submit" class="hm-x" aria-label="Fermer">×</button>
       </div>
-
-      <div id="hmBody"></div>
-
-      <div class="dlg-footer">
-        <span class="spacer"></span>
-        <button type="submit" class="btn btn-accent">Fermer</button>
+      <div class="hm-tabs" id="hmTabs" role="tablist">
+        <button type="button" role="tab" data-tab="amb">1 · Ambiance</button>
+        <button type="button" role="tab" data-tab="acc">2 · Accords</button>
+        <button type="button" role="tab" data-tab="cou">3 · Couches</button>
+        <button type="button" role="tab" data-tab="ver">4 · Vérifier<small id="hmBadge"></small></button>
       </div>
+      <div class="hm-steps" id="hmSteps" hidden></div>
+      <div id="hmBody" class="hm-body"></div>
+      <div class="hm-foot" id="hmFoot"></div>
     </form>
   </dialog>
 
+  <!-- Dialogue des effets d'une piste -->
   <dialog id="fxDialog" class="sd-dialog">
     <form method="dialog" id="fxForm">
       <div class="sd-head">

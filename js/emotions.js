@@ -8,6 +8,9 @@
  * dims : valence, activation, tension (0–100), repères subjectifs de conception.
  * seq  : [degré 0–6, type d'accord, altération de la fondamentale (−1 = ♭)] ; degrés comptés dans la gamme
  *        majeure ou mineure naturelle (tonalités) ou dans le mode lui-même (dorien, phrygien…).
+ * why / caveat : textes ; les noms de notes y sont des repères remplacés d'après les accords transposés
+ *        (SS.fillEmotionText) : {cI} nom de l'accord n° I de seq, {nI} ses notes, {cI.J} sa note n° J
+ *        (0 fondamentale, 1 tierce…), {t} tonique ; préfixe F = nom français ({Fc1.1} → « Si »).
  * melody : couche « Mélodie » conseillée (js/harmony.js, GENERATORS) ; ab : essais A/B conseillés (TRANSFORMS).
  */
 window.SS = window.SS || {};
@@ -52,7 +55,7 @@ SS.EMOTIONS = [
     risk: 'Les extensions ne suffisent pas seules : la répétition variée du motif fait beaucoup.',
     melodyGen: 'mel-sketch', ab: ['seventh', 'pedal'],
     proposals: [
-      { kind: 'evidence', mode: 'minor', tonic: 'A', tempo: 96, seq: [[0, 'min'], [5, 'maj7'], [2, 'maj'], [6, 'maj']], why: 'La grille synthwave de l’exemple du skill : Fmaj7 garde A–C–E de l’accord précédent, comme un souvenir qui persiste.', caveat: 'Nostalgie « années 80 » : un codage de genre, pas une émotion universelle.' },
+      { kind: 'evidence', mode: 'minor', tonic: 'A', tempo: 96, seq: [[0, 'min'], [5, 'maj7'], [2, 'maj'], [6, 'maj']], why: 'La grille synthwave de l’exemple du skill : {c1} garde {n0} de l’accord précédent, comme un souvenir qui persiste.', caveat: 'Nostalgie « années 80 » : un codage de genre, pas une émotion universelle.' },
       { kind: 'nuance', mode: 'major', tonic: 'C', tempo: 98, seq: [[0, 'maj7'], [5, 'm7'], [1, 'm7'], [3, 'maj7']], why: 'Tout en septièmes, en majeur : douceur un peu voilée, sans tension forte.', caveat: 'Peut paraître trop « confortable » : varier la mélodie.' },
       { kind: 'surprise', mode: 'major', tonic: 'C', tempo: 96, seq: [[0, 'maj'], [2, 'min'], [3, 'maj'], [3, 'min']], why: 'IV → iv : la tierce de l’accord de sous-dominante descend d’un demi-ton, comme un souvenir qui se voile.', caveat: 'L’emprunt doit rester bref pour garder la lumière du majeur.' },
     ],
@@ -63,8 +66,8 @@ SS.EMOTIONS = [
     risk: 'Le dorien n’implique aucune émotion fixe : c’est une couleur à faire entendre.',
     melodyGen: 'mel-sketch', ab: ['seventh', 'open'],
     proposals: [
-      { kind: 'evidence', mode: 'dorian', tonic: 'D', tempo: 90, seq: [[0, 'm7'], [3, 'maj'], [0, 'm7'], [3, 'maj']], why: 'Dm7 → G : le Si naturel de G est la sixte majeure du dorien, la touche de lumière dans le mineur (exemple 3 du skill).', caveat: 'Deux accords seulement : la mélodie et le groove portent la variété.' },
-      { kind: 'nuance', mode: 'dorian', tonic: 'D', tempo: 92, seq: [[0, 'm7'], [3, 'maj'], [6, 'maj'], [0, 'm7']], why: 'VII majeur (C) avant le retour : mouvement plus large, la couleur modale reste présente par le IV.', caveat: 'Le VII peut faire entendre Do majeur si la basse insiste dessus.' },
+      { kind: 'evidence', mode: 'dorian', tonic: 'D', tempo: 90, seq: [[0, 'm7'], [3, 'maj'], [0, 'm7'], [3, 'maj']], why: '{c0} → {c1} : le {Fc1.1} de {c1} est la sixte majeure du dorien, la touche de lumière dans le mineur (exemple 3 du skill).', caveat: 'Deux accords seulement : la mélodie et le groove portent la variété.' },
+      { kind: 'nuance', mode: 'dorian', tonic: 'D', tempo: 92, seq: [[0, 'm7'], [3, 'maj'], [6, 'maj'], [0, 'm7']], why: 'VII majeur ({c2}) avant le retour : mouvement plus large, la couleur modale reste présente par le IV.', caveat: 'Le VII peut faire entendre {Fc2.0} majeur si la basse insiste dessus.' },
       { kind: 'surprise', mode: 'dorian', tonic: 'D', tempo: 88, seq: [[0, 'm9'], [3, 'maj'], [6, 'maj'], [3, 'sus4']], why: 'i m9 ouvre le son ; le IV sus4 final retarde la tierce et laisse la phrase en suspens.', caveat: 'Le m9 est dense : l’aérer (voix du milieu plus haut).' },
     ],
   },
@@ -74,9 +77,9 @@ SS.EMOTIONS = [
     risk: 'La seule montée ne suffit pas : préparer un point de départ plus sombre ou plus calme.',
     melodyGen: 'mel-up', ab: ['avoid', 'open'],
     proposals: [
-      { kind: 'evidence', mode: 'major', tonic: 'C', tempo: 100, seq: [[5, 'min'], [3, 'maj'], [0, 'maj'], [4, 'maj']], why: 'vi – IV – I – V : la boucle part du relatif mineur et s’élève vers le majeur, centre volontairement ambigu.', caveat: 'Le centre perçu dépend de la mélodie : terminer les phrases sur Do pour la lumière.' },
+      { kind: 'evidence', mode: 'major', tonic: 'C', tempo: 100, seq: [[5, 'min'], [3, 'maj'], [0, 'maj'], [4, 'maj']], why: 'vi – IV – I – V : la boucle part du relatif mineur et s’élève vers le majeur, centre volontairement ambigu.', caveat: 'Le centre perçu dépend de la mélodie : terminer les phrases sur {Ft} pour la lumière.' },
       { kind: 'nuance', mode: 'major', tonic: 'C', tempo: 104, seq: [[3, 'maj'], [4, 'maj'], [5, 'min'], [0, 'add9']], why: 'IV – V – vi : la cadence est d’abord évitée (vi), puis la tonique arrive, ouverte par la neuvième.', caveat: 'L’effet dépend du placement : la tonique doit tomber sur un temps fort de la phrase.' },
-      { kind: 'surprise', mode: 'minor', tonic: 'A', tempo: 100, seq: [[0, 'min'], [5, 'maj'], [6, 'maj'], [0, 'maj']], why: 'Tierce picarde : la boucle mineure se termine sur un La MAJEUR (Do♯), une éclaircie à la dernière mesure.', caveat: 'Le retour au mineur en début de boucle peut annuler l’effet : l’utiliser en fin de section.' },
+      { kind: 'surprise', mode: 'minor', tonic: 'A', tempo: 100, seq: [[0, 'min'], [5, 'maj'], [6, 'maj'], [0, 'maj']], why: 'Tierce picarde : la boucle mineure se termine sur un {Fc3.0} MAJEUR ({Fc3.1}), une éclaircie à la dernière mesure.', caveat: 'Le retour au mineur en début de boucle peut annuler l’effet : l’utiliser en fin de section.' },
     ],
   },
   {
@@ -85,7 +88,7 @@ SS.EMOTIONS = [
     risk: 'Épuiser la tension trop tôt : garder une réserve pour la montée.',
     melodyGen: 'mel-sketch', ab: ['pedal', 'avoid'],
     proposals: [
-      { kind: 'evidence', mode: 'minor', tonic: 'A', tempo: 90, seq: [[0, 'min'], [0, 'min'], [4, 'sus4'], [4, '7']], why: 'Deux mesures de tonique, puis la dominante prolongée (sus4 puis E7) : l’attente de la résolution s’installe.', caveat: 'Si la boucle repart sur i, la tension se résout à chaque tour : prolonger E7 dans la section suivante.' },
+      { kind: 'evidence', mode: 'minor', tonic: 'A', tempo: 90, seq: [[0, 'min'], [0, 'min'], [4, 'sus4'], [4, '7']], why: 'Deux mesures de tonique, puis la dominante prolongée (sus4 puis {c3}) : l’attente de la résolution s’installe.', caveat: 'Si la boucle repart sur i, la tension se résout à chaque tour : prolonger {c3} dans la section suivante.' },
       { kind: 'nuance', mode: 'minor', tonic: 'A', tempo: 88, seq: [[0, 'sus2'], [5, 'maj'], [3, 'min'], [4, 'sus4']], why: 'La tierce absente du premier accord laisse la couleur indécise ; la fin sus4 ne résout pas.', caveat: 'Avec une basse en pédale (essai A/B), la tension monte encore.' },
       { kind: 'surprise', mode: 'minor', tonic: 'A', tempo: 92, seq: [[0, 'min'], [5, 'maj'], [4, 'sus4'], [5, 'maj']], why: 'La dominante sus4 ne mène pas à i mais revient à VI : l’attente est déplacée, pas satisfaite.', caveat: 'Ambigu sans indice rythmique de fin de phrase.' },
     ],
@@ -96,8 +99,8 @@ SS.EMOTIONS = [
     risk: 'Une dissonance excessive et uniforme lasse : doser et faire respirer.',
     melodyGen: 'mel-down', ab: ['pedal', 'open'],
     proposals: [
-      { kind: 'evidence', mode: 'phrygian', tonic: 'E', tempo: 110, seq: [[0, 'min'], [1, 'maj'], [0, 'min'], [1, 'maj']], why: 'Phrygien : Mi → Fa, un demi-ton au-dessus de la tonique, oppressant et obstiné.', caveat: 'Très typé (metal, thriller) : jouer sur le timbre pour éviter le cliché.' },
-      { kind: 'nuance', mode: 'minor', tonic: 'A', tempo: 100, seq: [[0, 'min'], [6, 'dim', 1], [0, 'min'], [1, 'maj', -1]], why: 'G♯° (sensible, mineur harmonique) et B♭ (♭II napolitain) encerclent La par demi-tons.', caveat: 'Deux chromatismes rapprochés : vérifier que la basse reste lisible.' },
+      { kind: 'evidence', mode: 'phrygian', tonic: 'E', tempo: 110, seq: [[0, 'min'], [1, 'maj'], [0, 'min'], [1, 'maj']], why: 'Phrygien : {Fc0.0} → {Fc1.0}, un demi-ton au-dessus de la tonique, oppressant et obstiné.', caveat: 'Très typé (metal, thriller) : jouer sur le timbre pour éviter le cliché.' },
+      { kind: 'nuance', mode: 'minor', tonic: 'A', tempo: 100, seq: [[0, 'min'], [6, 'dim', 1], [0, 'min'], [1, 'maj', -1]], why: '{c1} (sensible, mineur harmonique) et {c3} (♭II napolitain) encerclent {Ft} par demi-tons.', caveat: 'Deux chromatismes rapprochés : vérifier que la basse reste lisible.' },
       { kind: 'surprise', mode: 'minor', tonic: 'A', tempo: 104, seq: [[0, 'min'], [3, 'min'], [1, 'maj', -1], [4, '7']], why: 'iv → ♭II → V7 : une préparation qui se dérobe (♭II) avant une dominante tendue, sans retour à la tonique.', caveat: 'Placer la résolution (ou son absence) au début de la section suivante.' },
     ],
   },
@@ -108,8 +111,8 @@ SS.EMOTIONS = [
     melodyGen: 'mel-sketch', ab: ['open', 'sus2'],
     proposals: [
       { kind: 'evidence', mode: 'minor', tonic: 'A', tempo: 80, seq: [[0, 'sus2'], [6, 'sus4'], [5, 'sus2'], [0, 'sus2']], why: 'Sans tierces, ni majeur ni mineur : la couleur reste indécise, la phrase ne se « ferme » pas.', caveat: 'Le centre tonal peut devenir flou : laisser la basse sur les fondamentales.' },
-      { kind: 'nuance', mode: 'lydian', tonic: 'F', tempo: 84, seq: [[0, 'maj'], [1, 'maj'], [0, 'maj'], [1, 'maj']], why: 'Lydien : F → G, le Si naturel (quarte augmentée) donne une lumière étrange, en apesanteur.', caveat: 'Effet « merveilleux » ou « irréel » selon le timbre.' },
-      { kind: 'surprise', mode: 'phrygian', tonic: 'E', tempo: 76, seq: [[0, 'sus4'], [1, 'maj7'], [6, 'min'], [0, 'sus4']], why: 'Esus4 → Fmaj7 : la seconde mineure du phrygien (Mi → Fa) et la septième majeure de Fmaj7 dans le même mouvement, sombre et brillant à la fois.', caveat: 'Dense : voicings ouverts et attaques lentes.' },
+      { kind: 'nuance', mode: 'lydian', tonic: 'F', tempo: 84, seq: [[0, 'maj'], [1, 'maj'], [0, 'maj'], [1, 'maj']], why: 'Lydien : {c0} → {c1}, le {Fc1.1} (quarte augmentée) donne une lumière étrange, en apesanteur.', caveat: 'Effet « merveilleux » ou « irréel » selon le timbre.' },
+      { kind: 'surprise', mode: 'phrygian', tonic: 'E', tempo: 76, seq: [[0, 'sus4'], [1, 'maj7'], [6, 'min'], [0, 'sus4']], why: '{c0} → {c1} : la seconde mineure du phrygien ({Fc0.0} → {Fc1.0}) et la septième majeure de {c1} dans le même mouvement, sombre et brillant à la fois.', caveat: 'Dense : voicings ouverts et attaques lentes.' },
     ],
   },
   {
@@ -152,7 +155,7 @@ SS.EMOTIONS = [
     melodyGen: 'mel-sketch', ab: ['mode', 'sus2'],
     proposals: [
       { kind: 'evidence', mode: 'major', tonic: 'C', tempo: 92, seq: [[0, 'maj'], [3, 'min'], [0, 'maj'], [3, 'min']], why: 'I ↔ iv : le majeur et l’ombre du mineur alternent, sans trancher.', caveat: 'Peut sembler indécis plutôt qu’ambivalent : soigner la mélodie.' },
-      { kind: 'nuance', mode: 'minor', tonic: 'A', tempo: 94, seq: [[0, 'min'], [2, 'maj'], [3, 'maj'], [0, 'min']], why: 'IV majeur en mineur (couleur dorienne) : un éclat de lumière entouré de mineur.', caveat: 'Le Fa♯ du IV majeur contredit la gamme : l’assumer dans la mélodie.' },
+      { kind: 'nuance', mode: 'minor', tonic: 'A', tempo: 94, seq: [[0, 'min'], [2, 'maj'], [3, 'maj'], [0, 'min']], why: 'IV majeur en mineur (couleur dorienne) : un éclat de lumière entouré de mineur.', caveat: 'Le {Fc2.1} du IV majeur contredit la gamme : l’assumer dans la mélodie.' },
       { kind: 'surprise', mode: 'major', tonic: 'C', tempo: 90, seq: [[0, 'maj'], [5, 'min'], [0, 'min'], [3, 'maj']], why: 'La tonique elle-même change de couleur (I → i) : le centre reste, l’humeur bascule.', caveat: 'Effet fort : à placer à un moment clé.' },
     ],
   },
@@ -160,3 +163,34 @@ SS.EMOTIONS = [
 
 SS.EMOTION_KINDS = { evidence: 'Évidence', nuance: 'Nuance', surprise: 'Surprise' };
 SS.findEmotion = (id) => SS.EMOTIONS.find((e) => e.id === id) || null;
+
+/**
+ * Les modes rangés du plus lumineux au plus sombre, avec les intentions qui leur correspondent le mieux
+ * (fenêtre Harmonie, onglet Ambiance et assistant). Chaque intention apparaît une fois, sous la couleur
+ * dominante de ses propositions ; ses trois propositions peuvent quand même utiliser d'autres modes.
+ */
+SS.MODE_MOODS = [
+  { mode: 'lydian', name: 'Lydien', mood: 'rêveur, en apesanteur', lum: '#f2d27a', emotions: ['serenite'] },
+  { mode: 'major', name: 'Majeur (ionien)', mood: 'lumineux, stable', lum: '#e9c46a', emotions: ['joie', 'tendresse', 'espoir', 'triomphe'] },
+  { mode: 'mixolydian', name: 'Mixolydien', mood: 'festif, décontracté', lum: '#d7a95a', emotions: ['euphorie'] },
+  { mode: 'dorian', name: 'Dorien', mood: 'mélancolie avec une lueur', lum: '#8fa6c9', emotions: ['melancolie', 'ambivalence'] },
+  { mode: 'minor', name: 'Mineur naturel (éolien)', mood: 'triste, nostalgique', lum: '#7a86b8', emotions: ['tristesse', 'nostalgie'] },
+  { mode: 'harmonic', name: 'Mineur harmonique', mood: 'dramatique, tendu', lum: '#6b6aa6', emotions: ['suspense'] },
+  { mode: 'phrygian', name: 'Phrygien', mood: 'sombre, oppressant', lum: '#5a4a8a', emotions: ['angoisse', 'mystere'] },
+];
+SS.emotionMode = (id) => SS.MODE_MOODS.find((m) => m.emotions.includes(id)) || null;
+
+/**
+ * Remplit les repères d'un texte de proposition (voir l'en-tête) d'après les accords transposés
+ * (format SS.harmony.makeChord : { name, notes }) et la tonique ; `fr` traduit un nom de note (C♯ → Do♯).
+ */
+SS.fillEmotionText = (text, chords, tonic, fr) =>
+  text.replace(/\{(F?)(?:(t)|c(\d)(?:\.(\d))?|n(\d))\}/g, (all, f, t, ci, ni, nn) => {
+    const tr = (x) => (f && fr ? fr(x) : x);
+    if (t) return tr(tonic);
+    if (nn != null) return chords[+nn] ? chords[+nn].notes.map(tr).join('–') : all;
+    const c = chords[+ci];
+    if (!c) return all;
+    if (ni == null) return f ? tr(c.name) : c.name;
+    return c.notes[+ni] != null ? tr(c.notes[+ni]) : all;
+  });
