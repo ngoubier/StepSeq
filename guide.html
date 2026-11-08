@@ -242,7 +242,7 @@
         <tr><td>Arpège</td><td>Piano roll (Arpège)</td><td>Motif de l'arpège (Montant, Double montée, Alberti, Basse pivot…)</td></tr>
         <tr><td>Vitesse</td><td>Piano roll (Arpège)</td><td>Durée de chaque pas : de 1/4 à 1/64, valeurs pointées et triolets</td></tr>
         <tr><td>Octaves</td><td>Piano roll (Arpège)</td><td>L'arpège monte sur 1 à 4 octaves</td></tr>
-        <tr><td>Arpégiateur</td><td>Piano roll (Arpège)</td><td>Ouvre l'arpégiateur : lecture en boucle, choix du motif, réglage pas à pas, longueur des notes, jeu humain. Voir ci-dessous.</td></tr>
+        <tr><td>Arpégiateur</td><td>Piano roll (Arpège)</td><td>Ouvre l'arpégiateur : lecture en boucle, réglage pas à pas, onglets Arpège (motif, vitesse, geste…) et Geste. Voir ci-dessous.</td></tr>
         <tr><td>Octave − / +</td><td>Piano roll</td><td>Change les 2 octaves affichées, sans modifier les notes</td></tr>
         <tr><td>Effacer</td><td>Piano roll</td><td>Supprime toutes les notes de la piste, après confirmation</td></tr>
         <tr><td>✕ Fermer</td><td>Piano roll, à droite de la barre d'outils</td><td>Ferme le piano roll. Le chevron ⌄ de l'en-tête de piste le ferme aussi.</td></tr>
@@ -254,14 +254,27 @@
       </table></div>
       <p>Les réglages d'arpège s'appliquent tout de suite à tous les arpèges de la piste. La longueur d'un accord d'arpège fixe la durée pendant laquelle l'arpège tourne.</p>
       <h3>L'arpégiateur</h3>
-      <p>Le bouton <b>Arpégiateur</b> du piano roll ouvre un seul écran.</p>
+      <p>Le bouton <b>Arpégiateur</b> du piano roll ouvre la fenêtre de l'arpégiateur. En haut, toujours visible :</p>
       <ul>
-        <li><b>▶ Lire en boucle</b> fait tourner l'arpège sur l'accord de la piste, ou sur un accord d'essai choisi en deux menus (note, type). Tout réglage s'entend tout de suite et un curseur avance sur la grille. Sur une piste vide, <b>Poser sur la piste</b> place l'accord sur toute la boucle.</li>
-        <li><b>Motif</b> : la carte montre le motif en cours et un exemple sur La mineur (′ = une octave plus haut, ↓ = plus bas). <b>‹ ›</b> passe au motif voisin. <b>Changer de motif…</b> ouvre la liste : 51 motifs classés par catégorie (Montées et descentes, Groupes qui grimpent, Sauts et intervalles, Basse et pédale, Octaves et répétitions, Synthwave et années 80, Accords et rythmes, Hasard), une recherche (« octave », « basse »…) et les <b>Récents</b>. Un clic sur un motif l'essaie, <b>Choisir</b> le garde, <b>Annuler</b> revient au précédent. Par exemple, la <b>Double montée</b> joue des montées de 4 notes qui grimpent : A C E A′ · C E A′ C′ · E A′ C′ E′. Les motifs suivent l'accord joué.</li>
-        <li><b>Réglage pas à pas</b> : clique un pas de la grille pour régler sa <b>vélocité</b>, sa <b>longueur</b> (¼ temps, ½ temps, 1 temps, 2 temps, 4 temps), jouer <b>2 ou 3 notes à la fois</b> (la note et les notes de l'accord juste au-dessus) ou en faire un <b>silence</b>. Un silence ne fait pas sauter de note. La rangée <b>Vélocité</b> sous la grille se règle aussi en glissant. <b>Appliquer à tous les pas</b> recopie les réglages du pas. Le motif fait 4, 8 ou 16 pas.</li>
-        <li><b>Longueur des notes</b> : piquée et normale suivent la vitesse ; ¼ temps … 4 temps sont des durées fixes (1 temps = une noire), les notes peuvent alors se chevaucher.</li>
-        <li><b>Jeu humain</b> : de « machine » à « très libre », de petits décalages (jusqu'à ±12 ms), des temps forts accentués, des vélocités et des longueurs légèrement variées. Les notes ne changent jamais, et la même boucle sonne pareil à chaque lecture.</li>
+        <li><b>▶ Lire en boucle</b> fait tourner l'arpège sur l'accord de la piste, ou sur un accord d'essai choisi en deux menus (note, type). Tout réglage s'entend tout de suite et un curseur avance sur la grille, colonne par colonne. La boucle dure assez longtemps pour montrer au moins 16 pas et tout le motif ; au-delà de 16 pas, la grille passe en pages (« Page 1 / 2 ») qui suivent la lecture. Sur une piste vide, <b>Poser sur la piste</b> place l'accord sur toute la boucle.</li>
+        <li><b>Réglage d'un pas</b> : clique un pas de la grille pour régler sa <b>vélocité</b>, sa <b>longueur</b> (¼ temps, ½ temps, 1 temps, 2 temps, 4 temps), jouer <b>2 ou 3 notes à la fois</b> (la note et les notes de l'accord juste au-dessus) ou en faire un <b>silence</b>. Un silence ne fait pas sauter de note. La rangée <b>Vélocité</b> se règle aussi en glissant. <b>Appliquer à tous les pas</b> recopie les réglages du pas.</li>
       </ul>
+      <p>Dessous, deux onglets.</p>
+      <p><b>Onglet Arpège</b>, une ligne par réglage :</p>
+      <ul>
+        <li><b>Motif</b> : clique la tuile pour ouvrir la liste : 51 motifs classés par catégorie (Montées et descentes, Groupes qui grimpent, Sauts et intervalles, Basse et pédale, Octaves et répétitions, Synthwave et années 80, Accords et rythmes, Hasard), une recherche (« octave », « basse »…) et les <b>Récents</b>. Un clic sur un motif l'essaie, <b>Choisir</b> le garde, <b>Annuler</b> revient au précédent. La <b>Double montée</b>, par exemple, joue des montées de 4 notes qui grimpent : A C E A′ · C E A′ C′ · E A′ C′ E′ (′ = une octave plus haut). Les motifs suivent l'accord joué.</li>
+        <li><b>Vitesse</b>, <b>Octaves</b>, <b>Pas</b> (4, 8 ou 16 : la longueur de la grille réglable pas à pas).</li>
+        <li><b>Geste</b> : six gestes tout prêts (Mécanique, Balayage, Roulé, Boiteux, Détendu, Harpe), et <b>Ajuster ›</b> pour l'onglet Geste.</li>
+        <li><b>Durée des notes</b> : « Selon le geste » (la durée suit l'articulation du geste) ou une durée fixe, de ¼ temps à 4 temps (1 temps = une noire).</li>
+      </ul>
+      <p><b>Onglet Geste</b> : un arpège est une suite de groupes de notes ; chaque groupe forme un geste. Les notes, leur ordre et le début de chaque groupe ne changent pas : seuls le placement des attaques dans le groupe, leur force et leur durée changent.</p>
+      <ul>
+        <li>Le <b>pavé</b> : à l'horizontale l'<b>étalement</b> (serré = un balayage rapide puis une respiration jusqu'au groupe suivant), à la verticale l'<b>alternance</b> (les notes paires du groupe en avance ou en retard ; ce n'est pas un swing).</li>
+        <li>Le <b>zoom</b> montre un groupe en millisecondes au tempo du projet : la grille en pointillés, les attaques, les durées et la respiration en jaune. La taille des groupes suit le motif (4 pour la Double montée, 3 pour la Montée par 3…) ou se choisit.</li>
+        <li>Les <b>5 curseurs</b>, dans l'ordre où ils s'appliquent : <b>étalement</b>, <b>alternance</b>, <b>microvariation</b> (petits décalages de ± 0 à 20 ms ; la note 1 reste sur la pulsation, et les décalages restent les mêmes tant que tu ne demandes pas une <b>nouvelle prise</b>), <b>accent</b> (la première note plus forte, les autres plus douces) et <b>articulation</b> (la durée de chaque note dans l'espace avant la suivante ; « Harpe » fait volontairement chevaucher les notes).</li>
+        <li><b>Écouter : Régulier / Geste</b> compare, pendant la lecture en boucle, le même arpège sans et avec geste.</li>
+      </ul>
+      <p>Un arpège parfaitement régulier peut très bien convenir : le geste « Mécanique » joue la grille telle quelle.</p>
       <p><b>Défaire</b> annule le dernier réglage, <b>Réinitialiser</b> revient à un arpège montant simple, <b>Annuler</b> ferme en revenant aux réglages d'ouverture.</p>
       <p>Passer une piste Mono en Accord par ⚙ garde les notes simples déjà posées. Les nouveaux clics poseront des accords.</p>
       <p>On ne peut pas changer une piste Drum en piste Instrument : crée une nouvelle piste.</p>
