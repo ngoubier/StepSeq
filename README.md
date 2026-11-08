@@ -78,7 +78,8 @@ le moteur, `js/arppanel.js` pour la fenêtre, `js/motifs.js` pour le catalogue d
 - **Lecture en boucle** de l'arpège sur l'accord de la piste ou un accord d'essai (choisi en deux menus) ;
   chaque réglage s'entend tout de suite. Sur une piste vide, **Poser sur la piste** place l'accord sur la boucle.
   La boucle dure le plus petit nombre de mesures entières qui contient au moins 16 pas et un cycle complet du
-  motif ; la grille montre exactement ce qui est joué et, au-delà de 16 pas, passe en pages qui suivent le curseur.
+  motif ; la grille montre toute la boucle (repères de temps et de mesures) : les colonnes s'affinent quand la
+  boucle s'allonge, sans descendre sous 18 px — au-delà, la grille défile pour suivre le curseur.
 - **Réglage pas à pas** : cliquer un pas de la grille règle sa **vélocité**, sa **longueur** (¼ temps à
   4 temps), le nombre de **notes à la fois** (1 à 3 : la note + les notes de l'accord juste au-dessus) ou en fait
   un **silence** ; la rangée de vélocités se règle aussi en glissant.

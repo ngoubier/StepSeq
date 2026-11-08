@@ -1945,3 +1945,15 @@ svg.g-big { width: 100%; height: auto; background: #1d1d22; border-radius: 8px; 
 .arp-grid .ag-num { fill: #55555f; font-size: 7px; text-anchor: middle; }
 .arp-vel.end { background: transparent; border: 1px dashed #2a2a30; }
 .arp-grid .arp-head { fill: #fff; opacity: .16; }
+
+/* Arpégiateur : grille de toute la boucle (colonnes d'au moins 18 px, sinon défilement qui suit le curseur) */
+.arp-grid .ag-bar { stroke: #8a8a96; stroke-width: 1.2; }
+.arp-grid .ag-bartxt { fill: #8a8a96; font-size: 8px; }
+.arp-vels.dense { gap: 0; }
+.arp-vels.dense .arp-vel { margin: 0 1px; border-radius: 2px; }
+.arp-scroll { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.arp-scroll.on { overflow-x: auto; overscroll-behavior-x: contain; padding-bottom: 4px; scrollbar-width: thin; }
+.arp-scroll.on .arp-grid, .arp-scroll.on .arp-vels { flex: none; }
+.arp-pager small { color: var(--muted); }
+.arp-scroll.on .arp-vel-wrap > .dlg-label { position: sticky; left: 0; align-self: flex-start; }
+.arp-scroll.on .arp-vel-wrap { width: max-content; }

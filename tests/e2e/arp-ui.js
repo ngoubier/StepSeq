@@ -78,7 +78,7 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FAIL ') + m); if (!c) process
   await page.locator('.motif-list .arp-style', { hasText: 'Double montée' }).click();
   await page.locator('#motifDialog button', { hasText: 'Choisir' }).click();
   ok((await page.locator('.arp-motif-text b').textContent()) === 'Double montée', 'motif choisi : Double montée');
-  const grid = await page.locator('.arp-grid text:not(.ag-num)').allTextContents();
+  const grid = await page.locator('.arp-grid text:not(.ag-num):not(.ag-bartxt)').allTextContents();
   ok(grid.slice(0, 8).join(' ') === 'A C E A C E A C' || grid.length >= 8, `grille : ${grid.slice(0, 8).join(' ')}`);
   // récents
   await page.click('.arp-motif-tile');
@@ -92,23 +92,34 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FAIL ') + m); if (!c) process
 
   // réglage d'un pas : clic sur la grille, 2 notes, 1 temps, vélocité, silence
   const g = await page.locator('.arp-grid').boundingBox();
-  await page.mouse.click(g.x + (g.width / 16) * 2.5, g.y + g.height / 2);
+  const cols = await page.evaluate(() => SS.arpPanel._info().ticks); // la grille montre toute la boucle
+  await page.mouse.click(g.x + (g.width / cols) * 2.5, g.y + g.height / 2);
   ok((await page.locator('.arp-step-head b').textContent()) === 'Pas 3', 'clic sur la grille : réglages du pas 3');
   await page.locator('.arp-step .arp-seg button', { hasText: /^2$/ }).click();
   await page.locator('.arp-step .arp-seg button', { hasText: '1 temps' }).click();
   let a = JSON.parse(await arpNow());
   ok(a.lanes.poly[2] === 2 && a.lanes.len[2] === 4, 'pas 3 : 2 notes à la fois, longueur 1 temps');
-  ok((await page.locator('.arp-grid text:not(.ag-num)').nth(2).textContent()).includes('+'), 'la grille montre les 2 notes du pas 3');
+  ok((await page.locator('.arp-grid text:not(.ag-num):not(.ag-bartxt)').nth(2).textContent()).includes('+'), 'la grille montre les 2 notes du pas 3');
   await page.locator('.arp-step .arp-seg button', { hasText: 'Silence' }).click();
   a = JSON.parse(await arpNow());
   ok(a.lanes.rhythm[2] === 0, 'pas 3 en silence');
   await page.click('#arpDialog .arp-undo');
   a = JSON.parse(await arpNow());
   ok(a.lanes.rhythm[2] === 1, 'Défaire : le pas 3 rejoue');
+  // la grille défile pendant la lecture : on l'arrête le temps de viser une colonne visible
+  const wasOn = await page.evaluate(() => SS.arpPanel._loop.on);
+  if (wasOn) await page.click('#arpDialog .arp-player .arp-loop');
+  await page.waitForTimeout(200);
   const v = await page.locator('.arp-vels').boundingBox();
-  await page.mouse.click(v.x + (v.width / 16) * 0.5, v.y + v.height * 0.5);
+  const sc = await page.locator('.arp-scroll').boundingBox();
+  const cx = sc.x + sc.width / 2;
+  const colsNow = await page.evaluate(() => SS.arpPanel._info().ticks); // régler un pas peut changer la longueur de la boucle
+  const col = Math.floor(((cx - v.x) / v.width) * colsNow);
+  const stepIdx = col % JSON.parse(await arpNow()).steps;
+  await page.mouse.click(cx, v.y + v.height * 0.5);
   a = JSON.parse(await arpNow());
-  ok(Math.abs(a.lanes.vel[0] - 0.5) < 0.06, `vélocité du pas 1 réglée en cliquant : ${a.lanes.vel[0]}`);
+  ok(Math.abs(a.lanes.vel[stepIdx] - 0.5) < 0.06, `vélocité du pas ${stepIdx + 1} réglée en cliquant (colonne ${col + 1}) : ${a.lanes.vel[stepIdx]}`);
+  if (wasOn) await page.click('#arpDialog .arp-player .arp-loop');
   // réglages généraux
   await page.locator('.arp-frow', { hasText: 'Pas' }).locator('.arp-seg button', { hasText: /^8$/ }).click();
   await page.locator('.arp-frow', { hasText: 'Durée des notes' }).locator('.arp-seg button', { hasText: '½ temps' }).click();
