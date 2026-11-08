@@ -6,6 +6,29 @@
 | `train-de-nuit.mp3` | Le morceau masterisé, joué par StepSeq (MP3 256 kbit/s). |
 | `train-de-nuit-avant-mastering.mp3` | La même chanson avant mixage et mastering, pour comparer. |
 | `train-de-nuit.compose.py` | Script qui génère le projet : notes, scènes, arrangement, mixage (`MIX`) et mastering (`MASTER`). `--brut` produit la version sans mixage. |
+| `reve-eveille.stepseq.json` | « Rêve éveillé » : morceau original, techno mélodique / dream trance, Mi mineur, 136 BPM, 14 pistes (kit TR-909, basse, nappe supersaw, piano, arpège, cordes, lead, montée de bruit), mode chanson (Intro · Montée · Thème ×2 · Break · Envol ×2 · Outro, 64 mesures, 1:53). Mixé et masterisé. |
+| `reve-eveille.mp3` | Le morceau joué par StepSeq (capture de la sortie audio, MP3 256 kbit/s). |
+| `reve-eveille.compose.py` | Script qui génère « Rêve éveillé » ; harmonie et voicings commentés. `--brut` : sans mixage. |
+
+## Fiche de composition — « Rêve éveillé »
+
+Ambiance inspirée de la dream trance du milieu des années 1990 (riff de piano répétitif, nappes larges, kick
+en noires, basse sur les contretemps) ; riff, mélodies et progression sont originaux.
+
+- **Tonalité** : Mi mineur naturel (E F♯ G A B C D) ; **tempo** 136 BPM ; 4/4.
+- **Thème / Envol** : Em | G | D | C, degrés **i – III – VII – VI**, deux mesures par accord.
+  Em = E–G–B, G = G–B–D, D = D–F♯–A, C = C–E–G.
+- **Break** : Em | C | Am | B7, degrés **i – VI – iv – V7**. B7 = B–D♯–F♯–A : le D♯ (sensible) vient du
+  mineur harmonique et rend le retour sur Mi mineur plus attendu.
+- **Voicings de la nappe** (voice leading, notes communes) : E3–G3–B3 → D3–G3–B3 → D3–F♯3–A3 → C3–E3–G3 ;
+  au break, E3–G3–B3 → E3–G3–C4 → E3–A3–C4 → D♯3–F♯3–A3–B3.
+- **Riff de piano** : 7 attaques par mesure (cases 0, 3, 6, 8, 10, 12, 14), notes de l'accord sur les temps forts,
+  notes de passage en fin de deuxième mesure pour mener à l'accord suivant.
+- **Basse** : contretemps de croche dans le Thème, basse « roulante » (3 doubles-croches après chaque kick) dans l'Envol.
+- **Arrangement en couches** : une couche ajoutée à la fois (piano + nappe → kick → basse et open hat → clap →
+  charleston → arpège, ride et lead à l'Envol).
+
+Mesures de la capture (EBU R128, ffmpeg) : −11,1 LUFS intégrés, true peak −1,7 dBTP, LRA 7,3 LU.
 
 ## Fiche de mastering — « Train de nuit »
 
