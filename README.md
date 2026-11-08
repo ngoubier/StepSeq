@@ -22,7 +22,8 @@ puis ouvrir <http://localhost:8000>.
 
 - **En-tête** : titre du projet, tempo (BPM), chiffrage de mesure (4/4 par défaut, x/4 ou x/8),
   nombre de mesures, le groove (swing, humanisation), la **tonalité** (fenêtre Harmonie : gamme, accords
-  de la tonalité, palette d'accords dans le piano roll, analyse harmonique des scènes), puis les boutons **+** (ajouter une piste), **Lecture** et **Stop**.
+  de la tonalité, palette d'accords dans le piano roll, progressions transposées, génération de basse / arpège / mélodie,
+  analyse harmonique des scènes), puis les boutons **+** (ajouter une piste), **Lecture** et **Stop**.
   À droite : **Nouveau**, **Ouvrir** et **Enregistrer**.
 - **Partie centrale** : les pistes, les unes sous les autres. Chaque piste a un en-tête
   (écoute, Mute, Solo, nom, volume, réglages, suppression) et sa grille de pas

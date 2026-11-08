@@ -411,13 +411,183 @@ SS.harmony = (() => {
     return `${french(key.tonic)} ${m}`;
   }
 
-  /** Notes MIDI d'un accord de la palette, fondamentale au plus près de `near` (MIDI). */
-  function voice(chord, near) {
-    let root = near - pcOf(near) + chord.rootPc;
-    if (root - near > 6) root -= 12;
-    if (near - root > 6) root += 12;
+  /* ---------------- Bibliothèque de progressions ---------------- */
+  // Reprise du tableau « progressions-et-composition » du skill. Degrés 0–6 dans la gamme majeure (major)
+  // ou mineure naturelle (minor) ; le type d'accord est explicite (V7 en mineur = emprunt).
+  const PROGRESSIONS = [
+    { id: 'pop1', mode: 'major', label: 'I – V – vi – IV', style: 'Pop, synthwave', seq: [[0, 'maj'], [4, 'maj'], [5, 'min'], [3, 'maj']] },
+    { id: 'pop2', mode: 'major', label: 'I – vi – IV – V', style: 'Pop lumineuse', seq: [[0, 'maj'], [5, 'min'], [3, 'maj'], [4, 'maj']] },
+    { id: 'pop3', mode: 'major', label: 'vi – IV – I – V', style: 'Pop, cinématique (centre ambigu)', seq: [[5, 'min'], [3, 'maj'], [0, 'maj'], [4, 'maj']] },
+    { id: 'cad', mode: 'major', label: 'ii – V7 – I – I', style: 'Cadence majeure', seq: [[1, 'min'], [4, '7'], [0, 'maj'], [0, 'maj']] },
+    { id: 'min1', mode: 'minor', label: 'i – VI – III – VII', style: 'Mineur, synthwave', seq: [[0, 'min'], [5, 'maj'], [2, 'maj'], [6, 'maj']] },
+    { id: 'min2', mode: 'minor', label: 'i – III – VII – VI', style: 'Mineur, montée dramatique', seq: [[0, 'min'], [2, 'maj'], [6, 'maj'], [5, 'maj']] },
+    { id: 'min3', mode: 'minor', label: 'i – iv – V7 – i', style: 'Résolution tonale forte (V7 emprunté)', seq: [[0, 'min'], [3, 'min'], [4, '7'], [0, 'min']] },
+    { id: 'min4', mode: 'minor', label: 'i – VII – VI – V', style: 'Mouvement descendant (V emprunté)', seq: [[0, 'min'], [6, 'maj'], [5, 'maj'], [4, 'maj']] },
+  ];
+
+  /** Un accord de la tonalité, au même format que la palette (voir chords). */
+  function makeChord(key, degree, type) {
+    const base = { ...key, mode: key.mode === 'major' ? 'major' : 'minor' };
+    const sc = scale(base);
+    const rootPc = sc[degree].pc;
+    const pcs = TYPE_IV(type).map((i) => pcOf(rootPc + i));
+    const id = { rootPc, type, bassPc: rootPc };
+    const a = analyzeChord(base, id);
+    return {
+      degree,
+      rootPc,
+      type,
+      name: spell(base, rootPc) + (SUFFIX[type] ?? ''),
+      numeral: numeral(degree, type),
+      notes: pcs.map((pc) => spell(key.mode === 'major' ? key : { ...key, mode: 'harmonic' }, pc)),
+      quality: QUALITY[type] || type,
+      role: role(key, degree, type),
+      borrowed: a.status === 'emprunt',
+    };
+  }
+
+  /** Progressions adaptées au mode de la tonalité, transposées. */
+  function progressions(key) {
+    const minor = key.mode !== 'major';
+    return PROGRESSIONS.filter((pr) => (pr.mode === 'minor') === minor).map((pr) => ({
+      ...pr,
+      chords: pr.seq.map(([d, t]) => makeChord(key, d, t)),
+    }));
+  }
+
+  /* ---------------- Générateur de couches ---------------- */
+  // À partir des accords d'une piste Accord / Arpège, écrit une basse, un arpège ou une esquisse de mélodie
+  // dans une autre piste (méthode du skill : basse sur les fondamentales, arpège 1–3–5–3,
+  // mélodie avec notes de l'accord sur les temps forts et notes de passage entre eux).
+  const GENERATORS = [
+    { id: 'bass-whole', group: 'Basse', label: 'Fondamentales tenues', text: 'une note par accord : l’assise harmonique' },
+    { id: 'bass-8', group: 'Basse', label: 'Croches sur la fondamentale', text: 'pulsation régulière, accent sur les temps' },
+    { id: 'bass-oct', group: 'Basse', label: 'Octaves en croches', text: 'fondamentale / octave en alternance (disco, synthpop)' },
+    { id: 'bass-gallop', group: 'Basse', label: 'Galop (1 – et – a)', text: 'basse « roulante » de la synthwave' },
+    { id: 'bass-off', group: 'Basse', label: 'Contretemps', text: 'entre les coups de grosse caisse (trance, techno)' },
+    { id: 'arp-1353', group: 'Arpège', label: '1 – 3 – 5 – 3 en croches', text: 'le motif de départ du skill' },
+    { id: 'arp-up16', group: 'Arpège', label: '1 – 3 – 5 – 8 en doubles-croches', text: 'montant, plus dense' },
+    { id: 'mel-sketch', group: 'Mélodie', label: 'Esquisse de mélodie', text: 'notes de l’accord sur les temps forts, notes de passage entre elles' },
+  ];
+
+  /** Accords d'une liste d'événements : [{ step, len, rootPc, tones: [pc fondamentale, tierce, quinte, (7e)] }]. */
+  function chordSpans(events) {
+    return [...events]
+      .sort((a, b) => a.step - b.step)
+      .map((ev) => {
+        const id = identify(ev.notes) || { rootPc: pcOf(ev.notes[0]), type: ev.chord || 'maj' };
+        const tones = TYPE_IV(id.type).map((i) => pcOf(id.rootPc + i));
+        return { step: ev.step, len: ev.len, rootPc: id.rootPc, tones };
+      });
+  }
+
+  /** Note MIDI de classe `pc` au plus près de `near`. */
+  const nearest = (pc, near) => {
+    let m = near - pcOf(near) + pc;
+    if (m - near > 6) m -= 12;
+    if (near - m > 6) m += 12;
+    return m;
+  };
+
+  /**
+   * Génère les événements d'une couche. `opt` : { kind, octave (de la piste cible), spb, beat, key, length }.
+   * Les notes restent dans les accords source et dans la longueur de la piste.
+   */
+  function generate(sourceEvents, opt) {
+    const spans = chordSpans(sourceEvents);
+    const out = [];
+    const { kind, spb, beat } = opt;
+    const add = (step, len, midi, vel) => {
+      if (step >= opt.length || len < 1) return;
+      out.push({ step, len: Math.min(len, opt.length - step), notes: [midi], vel: Math.round(vel * 100) / 100 });
+    };
+    const base = (opt.octave + 1) * 12; // Do de l'octave de la piste
+    const rootMidi = (pc) => base + pcOf(pc);
+    const half = beat / 2 >= 1 ? beat / 2 : 1; // croche (en pas)
+    if (kind.startsWith('bass')) {
+      for (const sp of spans) {
+        const r = rootMidi(sp.rootPc);
+        const end = sp.step + sp.len;
+        if (kind === 'bass-whole') add(sp.step, sp.len, r, 0.85);
+        for (let s = sp.step; s < end && kind !== 'bass-whole'; s += kind === 'bass-gallop' || kind === 'bass-off' ? beat : half) {
+          const onBeat = (s - sp.step) % beat === 0;
+          if (kind === 'bass-8') add(s, Math.min(half, end - s), r, onBeat ? 0.9 : 0.72);
+          if (kind === 'bass-oct') add(s, Math.min(half, end - s), ((s - sp.step) / half) % 2 ? r + 12 : r, ((s - sp.step) / half) % 2 ? 0.72 : 0.9);
+          if (kind === 'bass-gallop') {
+            add(s, Math.min(beat / 2, end - s), r, 0.92);
+            if (beat >= 4 && s + 2 < end) add(s + 2, 1, r, 0.7);
+            if (beat >= 4 && s + 3 < end) add(s + 3, 1, r, 0.78);
+          }
+          if (kind === 'bass-off' && s + half < end) add(s + half, half, r, 0.88);
+        }
+      }
+    } else if (kind.startsWith('arp')) {
+      for (const sp of spans) {
+        const root = rootMidi(sp.rootPc);
+        const t3 = nearest(sp.tones[1], root + 4);
+        const t5 = nearest(sp.tones[2], root + 7);
+        const pattern = kind === 'arp-1353' ? [root, t3, t5, t3] : [root, t3, t5, root + 12];
+        const dt = kind === 'arp-1353' ? half : Math.max(1, beat / 4);
+        let i = 0;
+        for (let s = sp.step; s < sp.step + sp.len; s += dt, i++) add(s, dt, pattern[i % 4], i % 4 === 0 ? 0.85 : 0.68);
+      }
+    } else if (kind === 'mel-sketch') {
+      // une note de l'accord par demi-mesure (temps forts), au plus près de la précédente ;
+      // la note de passage (degré de la gamme voisin de la note suivante) prépare chaque arrivée.
+      const sc = opt.key ? scale(opt.key).map((d) => d.pc) : null;
+      const unit = spb % 2 === 0 ? spb / 2 : spb;
+      const targets = [];
+      let prev = base + (spans[0] ? pcOf(spans[0].tones[1]) : 4); // départ sur la tierce de l'accord, dans l'octave de la piste
+      if (prev < base + 4) prev += 12;
+      spans.forEach((sp, ci) => {
+        for (let s = sp.step; s < sp.step + sp.len; s += unit) {
+          const k = targets.length;
+          // alternance de contours : on vise tour à tour la note de l'accord la plus proche au-dessus, puis au-dessous
+          const cands = sp.tones.map((pc) => nearest(pc, prev)).filter((m) => m !== prev || sp.tones.length === 1);
+          const up = cands.filter((m) => m >= prev).sort((a, b) => a - b)[0];
+          const down = cands.filter((m) => m <= prev).sort((a, b) => b - a)[0];
+          let m = (Math.floor(k / 2) + ci) % 2 === 0 ? up ?? down : down ?? up;
+          if (m > base + 19) m = down ?? m - 12; // tessiture : environ une octave et demie au-dessus du Do de la piste
+          if (m < base + 2) m = up ?? m + 12;
+          targets.push({ step: s, len: Math.min(unit, sp.step + sp.len - s), midi: m });
+          prev = m;
+        }
+      });
+      targets.forEach((t, i) => {
+        const next = targets[i + 1];
+        const pass = next && sc && t.len >= 4 ? passing(sc, t.midi, next.midi) : null;
+        if (pass != null) {
+          add(t.step, t.len - Math.max(1, Math.round(t.len / 4)), t.midi, t.step % spb === 0 ? 0.85 : 0.78);
+          const pl = Math.max(1, Math.round(t.len / 4));
+          add(t.step + t.len - pl, pl, pass, 0.66);
+        } else add(t.step, t.len, t.midi, t.step % spb === 0 ? 0.85 : 0.78);
+      });
+    }
+    return out;
+  }
+
+  /** Note de la gamme juste avant `to` en venant de `from` (note de passage), ou null si les deux sont égales. */
+  function passing(scalePcs, from, to) {
+    if (from === to) return null;
+    const dir = to > from ? -1 : 1; // on approche la cible par le degré voisin, du côté d'où l'on vient
+    for (let d = 1; d <= 2; d++) {
+      const m = to + dir * d;
+      if (scalePcs.includes(pcOf(m)) && m !== from) return m;
+    }
+    return null;
+  }
+
+  /**
+   * Notes MIDI d'un accord de la palette (position fondamentale) : fondamentale au plus près de `near`
+   * (l'accord précédent), sans s'éloigner de plus d'une quinte du centre `center` de la piste — sinon les
+   * enchaînements dériveraient vers le grave ou l'aigu.
+   */
+  function voice(chord, near, center = near) {
+    let root = nearest(chord.rootPc, near);
+    if (root - center > 7) root -= 12;
+    if (center - root > 7) root += 12;
     return SS.chordNotes(root, chord.type);
   }
 
-  return { MODES, TONICS, valid, scale, spell, french, chords, identify, chordName, analyzeChord, detect, analyze, label, voice, pcOf };
+  return { MODES, TONICS, GENERATORS, valid, scale, spell, french, chords, progressions, identify, chordName, analyzeChord, detect, analyze, generate, label, voice, pcOf };
 })();

@@ -77,8 +77,9 @@ SS.ui = (() => {
     if (pos >= n) pos = 0;
     const len = Math.min(spb - (pos % spb), n - pos);
     const prev = [...track.events].filter((e) => e.step < pos).sort((a, b) => b.step - a.step)[0];
-    const near = prev ? prev.notes[0] : track.lastRoot ?? (track.octave + 1) * 12;
-    const notes = SS.harmony.voice(c, near);
+    const center = (track.octave + 1) * 12 + 6;
+    const near = prev ? prev.notes[0] : track.lastRoot ?? center;
+    const notes = SS.harmony.voice(c, near, center);
     track.events = track.events.filter((e) => e.step < pos || e.step >= pos + len);
     track.events.forEach((e) => {
       if (e.step < pos && e.step + e.len > pos) e.len = pos - e.step;
