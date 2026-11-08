@@ -4,7 +4,8 @@
  *   En-tête (toujours visible) : ▶ lecture en boucle sur un accord d'essai, grille des pas avec curseur,
  *     vélocités ; un clic sur un pas règle sa vélocité, sa longueur, ses notes à la fois ou en fait un silence.
  *     La boucle dure le plus petit nombre de mesures entières qui contient au moins 16 pas et un cycle complet
- *     du motif ; au-delà de 16 pas, la grille passe en pages qui suivent le curseur.
+ *     du motif ; la grille la montre en entier (colonnes plus étroites, mais jamais moins de MIN_COL_PX pixels :
+ *     au-delà, elle défile pour suivre le curseur).
  *   Onglet Arpège : motif (tuile → fenêtre de choix, js/motifs.js), vitesse, octaves, pas, geste, durée des notes.
  *   Onglet Geste : gestes tout prêts, pavé (étalement × alternance), zoom sur un groupe, 5 curseurs dans l'ordre
  *     d'application (étalement, alternance, microvariation, accent, articulation), écoute Régulier / Geste.
@@ -23,7 +24,6 @@ SS.arpPanel = (() => {
   let sliding = false;
   let test = null;
   let sel = null;
-  const N = 16;
 
   const h = (tag, attrs = {}, ...children) => {
     const el = document.createElement(tag);
@@ -118,7 +118,6 @@ SS.arpPanel = (() => {
    * 16 pas d'arpège ET un cycle complet du motif. La grille montre exactement ce qui est joué,
    * par pages de 16 pas qui suivent le curseur.
    */
-  const view = { page: 0 };
   function motifPeriod(notes) {
     const a = { ...track.arp, evolve: 0, human: 0, motion: 0 };
     const seq = A().preview(a, notes, 192).map((t) => (t ? t.notes.join('+') + '/' + t.vel.toFixed(2) : '.'));
@@ -138,7 +137,7 @@ SS.arpPanel = (() => {
     while (bars < 16 && Math.ceil(bars * spb * rate - 1e-9) < Math.max(16, period)) bars++;
     const steps = bars * spb;
     const ticks = Math.ceil(steps * rate - 1e-9);
-    return { bars, steps, ticks, period, pages: Math.ceil(ticks / N) };
+    return { bars, steps, ticks, period };
   }
   const LOOP_STEPS = () => loopInfo().steps;
 
@@ -193,19 +192,22 @@ SS.arpPanel = (() => {
     }
   }
 
-  /** Curseur de lecture sur la grille (les 16 premiers pas d'arpège de chaque accord). */
+  /** Curseur de lecture sur la grille (toute la boucle). */
   function drawHead() {
     if (!loop.on) return;
     const now = SS.audio.ensureCtx().currentTime;
     while (loop.queue.length && loop.queue[0].time <= now) loop.tick = loop.queue.shift().tick;
-    if (loop.tick >= 0 && Math.floor(loop.tick / N) !== view.page) {
-      view.page = Math.floor(loop.tick / N); // la page suit le curseur
-      render();
-    }
     const head = dlg && dlg.querySelector('.arp-head');
     if (head) {
       const cw = +head.getAttribute('width');
-      head.setAttribute('x', loop.tick >= 0 ? (loop.tick % N) * cw : -100);
+      head.setAttribute('x', loop.tick >= 0 ? loop.tick * cw : -100); // pas de page : toute la boucle est dans la grille
+      // grille plus large que la fenêtre : elle défile pour garder le curseur au premier tiers
+      const sc = dlg.querySelector('.arp-scroll.on');
+      if (sc && loop.tick >= 0) {
+        const L = gridLayout();
+        const target = Math.max(0, Math.min(sc.scrollWidth - sc.clientWidth, loop.tick * L.cw * L.scale - sc.clientWidth / 3));
+        sc.scrollLeft += (target - sc.scrollLeft) * 0.25; // en douceur
+      }
     }
     loop.raf = requestAnimationFrame(drawHead);
   }
@@ -243,73 +245,81 @@ SS.arpPanel = (() => {
     );
   }
 
+  /**
+   * Grille de toute la boucle : une colonne par pas d'arpège ; plus la boucle a de pas, plus les colonnes sont
+   * étroites (pas de pages). Repères : temps (fond plus clair), mesures (trait + « mes. 2 »).
+   */
+  /*
+   * Largeur des colonnes : toute la boucle tient dans la fenêtre tant qu'une colonne garde au moins MIN_COL_PX
+   * pixels ; en dessous, les colonnes gardent cette largeur et la grille défile pour suivre le curseur.
+   */
+  const MIN_COL_PX = 18;
+  function gridLayout() {
+    const C = loopInfo().ticks;
+    const box = dlg && dlg.querySelector('.arp-player');
+    const avail = Math.max(240, (box && box.clientWidth ? box.clientWidth - 26 : 760)); // largeur visible (px)
+    const scale = avail / 640; // pixels par unité de dessin
+    const cw = Math.max(640 / C, MIN_COL_PX / scale); // largeur d'une colonne (unités)
+    const W = cw * C;
+    return { C, cw, W, scale, scroll: W > 640 + 1e-6, px: W * scale };
+  }
+
   function gridSvg(arp, notes) {
     const info = loopInfo();
-    if (view.page >= info.pages) view.page = 0;
-    const off = view.page * N;
-    const cols = Math.min(N, info.ticks - off);
-    const ticks = A().preview(arp, notes, info.ticks, { loop: 0, stepsPerBeat: 4 }).slice(off, off + cols);
+    const L = gridLayout();
+    const C = L.C;
+    const ticks = A().preview(arp, notes, C, { loop: 0, stepsPerBeat: 4 });
     const all = ticks.flatMap((t) => (t ? t.notes : []));
-    const W = 640;
+    const W = L.W;
     const H = 120;
-    const cw = W / N;
+    const cw = L.cw;
+    const colPx = cw * L.scale; // largeur réelle d'une colonne, en pixels (au moins MIN_COL_PX)
+    const gap = colPx > 24 ? 2 : 1;
+    const rate = track.arp.rate;
+    const spb = SS.stepsPerBar(app.project());
+    const at16 = (k) => k / rate; // position du pas en doubles-croches
+    const isBeat = (k) => Math.abs(at16(k) / 4 - Math.round(at16(k) / 4)) < 1e-6;
+    const isBar = (k) => Math.abs(at16(k) / spb - Math.round(at16(k) / spb)) < 1e-6;
     const p = P();
     let svg = '';
-    for (let i = 0; i < N; i++) {
-      if (i >= cols) {
-        svg += `<rect class="ag-end" x="${i * cw + 1}" y="1" width="${cw - 2}" height="${H - 2}" rx="3"/>`;
-        continue;
-      }
-      const cls = (i % 4 === 0 ? 'ag-beat' : 'ag-col') + ((off + i) % p !== off + i ? ' ag-rep' : '');
-      svg += `<rect class="${cls}" x="${i * cw + 1}" y="1" width="${cw - 2}" height="${H - 2}" rx="3"/>`;
-      svg += `<text class="ag-num" x="${(i * cw + cw / 2).toFixed(1)}" y="${H - 3}">${off + i + 1}</text>`;
-      if (sel != null && (off + i) % p === sel) svg += `<rect class="arp-sel" x="${i * cw + 1.5}" y="1.5" width="${cw - 3}" height="${H - 3}" rx="3"/>`;
+    for (let i = 0; i < C; i++) {
+      const cls = (isBeat(i) ? 'ag-beat' : 'ag-col') + (i % p !== i ? ' ag-rep' : '');
+      svg += `<rect class="${cls}" x="${(i * cw + gap / 2).toFixed(2)}" y="1" width="${(cw - gap).toFixed(2)}" height="${H - 2}" rx="${cw > 14 ? 3 : 1.5}"/>`;
+      if (colPx >= 30 || isBeat(i)) svg += `<text class="ag-num" x="${(i * cw + cw / 2).toFixed(1)}" y="${H - 3}">${i + 1}</text>`;
+      if (sel != null && i % p === sel) svg += `<rect class="arp-sel" x="${(i * cw + gap / 2).toFixed(2)}" y="1.5" width="${(cw - gap).toFixed(2)}" height="${H - 3}" rx="2"/>`;
     }
-    if (cols < N) svg += `<text class="ag-endtxt" x="${(cols * cw + (N * cw)) / 2}" y="${H / 2}">fin de la boucle</text>`;
-    svg += `<rect class="arp-head" x="${loop.on && loop.tick >= 0 && Math.floor(loop.tick / N) === view.page ? (loop.tick % N) * cw : -100}" y="0" width="${cw}" height="${H}" rx="3"/>`;
+    for (let i = 1; i < C; i++) if (isBar(i)) svg += `<line class="ag-bar" x1="${(i * cw).toFixed(2)}" x2="${(i * cw).toFixed(2)}" y1="0" y2="${H}"/><text class="ag-bartxt" x="${(i * cw + 3).toFixed(1)}" y="${H - 12}">mes. ${Math.round(at16(i) / spb) + 1}</text>`;
+    svg += `<rect class="arp-head" x="${loop.on && loop.tick >= 0 ? loop.tick * cw : -100}" y="0" width="${cw}" height="${H}" rx="2"/>`;
     if (all.length) {
       const lo = Math.min(...all) - 1;
       const hi = Math.max(...all) + 1;
-      const y = (n) => H - 8 - ((n - lo) / Math.max(1, hi - lo)) * (H - 22);
+      const y = (n) => H - 10 - ((n - lo) / Math.max(1, hi - lo)) * (H - 26);
+      const nh = colPx >= 24 ? 8 : 6;
+      // noms des notes : 12 px, puis 10 px quand la colonne s'affine (jamais masqués : la colonne garde 18 px)
+      const fs = (colPx >= 30 ? 12 : 10) / L.scale;
       ticks.forEach((t, i) => {
         if (!t) {
-          svg += `<text class="rest" x="${(i * cw + cw / 2).toFixed(1)}" y="${H / 2 + 4}">silence</text>`;
+          if (colPx >= 30) svg += `<text class="rest" x="${(i * cw + cw / 2).toFixed(1)}" y="${H / 2 + 4}">silence</text>`;
           return;
         }
         t.notes.forEach((n) => {
-          const sx = (i + (t.shift || 0)) * cw; // attaque déplacée par le geste
-          const w = Math.min(cw * t.gate, W - sx) - 3;
+          const sx = (i + (t.shift || 0)) * cw;
+          const w = Math.min(cw * t.gate, W - sx) - gap;
           const op = (0.3 + 0.7 * t.vel).toFixed(2);
-          svg += `<rect class="note" x="${sx + 2}" y="${(y(n) - 4).toFixed(1)}" width="${Math.max(4, w).toFixed(1)}" height="8" rx="2" style="opacity:${op}"/>`;
+          svg += `<rect class="note" x="${(sx + gap / 2).toFixed(2)}" y="${(y(n) - nh / 2).toFixed(1)}" width="${Math.max(2.5, w).toFixed(2)}" height="${nh}" rx="${nh / 4}" style="opacity:${op}"/>`;
         });
-        const label = t.notes.map((n) => A().noteName(n).replace(/-?\d+$/, '')).join('+');
-        svg += `<text x="${(i * cw + cw / 2).toFixed(1)}" y="12">${label}</text>`;
+        svg += `<text style="font-size:${fs.toFixed(2)}px" x="${(i * cw + cw / 2).toFixed(1)}" y="12">${t.notes.map((n) => A().noteName(n).replace(/-?\d+$/, '')).join('+')}</text>`;
       });
     }
-    const wrap = h('div', { class: 'arp-grid-wrap', html: `<svg class="arp-grid" viewBox="0 0 ${W} ${H}" role="img">${svg}</svg>` });
+    const wrap = h('div', { class: 'arp-grid-wrap', html: `<svg class="arp-grid" viewBox="0 0 ${W.toFixed(2)} ${H}" role="img" aria-label="Toute la boucle de l’arpège, ${C} pas"${L.scroll ? ` style="width:${L.px.toFixed(0)}px"` : ''}>${svg}</svg>` });
     wrap.firstChild.addEventListener('click', (e) => {
       const r = e.currentTarget.getBoundingClientRect();
-      const i = Math.max(0, Math.min(N - 1, Math.floor(((e.clientX - r.left) / r.width) * N)));
-      if (i >= cols) return;
-      const k = (off + i) % P();
+      const i = Math.max(0, Math.min(C - 1, Math.floor(((e.clientX - r.left) / r.width) * C)));
+      const k = i % P();
       sel = sel === k ? null : k;
       render();
     });
-    const pager = h(
-      'div',
-      { class: 'arp-pager' },
-      h('span', {}, `Boucle : ${info.bars} mesure${info.bars > 1 ? 's' : ''} · ${info.ticks} pas`),
-      h('span', { class: 'spacer' }),
-      info.pages > 1
-        ? [
-            h('button', { type: 'button', class: 'sd-mini', disabled: view.page === 0, onclick: () => ((view.page = Math.max(0, view.page - 1)), render()) }, '‹'),
-            h('b', {}, `Page ${view.page + 1} / ${info.pages}`),
-            h('button', { type: 'button', class: 'sd-mini', disabled: view.page >= info.pages - 1, onclick: () => ((view.page = Math.min(info.pages - 1, view.page + 1)), render()) }, '›'),
-            loop.on ? h('small', {}, 'suit la lecture') : null,
-          ]
-        : null
-    );
-    return h('div', {}, pager, wrap);
+    return wrap;
   }
 
   /** Rangée de vélocités sous la grille : cliquer / glisser verticalement pour régler chaque pas. */
@@ -317,12 +327,12 @@ SS.arpPanel = (() => {
     const p = P();
     const row = h('div', { class: 'arp-vels', title: 'Vélocité de chaque pas : cliquer / glisser verticalement' });
     const info = loopInfo();
-    const off = view.page * N;
-    for (let i = 0; i < N; i++) {
-      if (off + i >= info.ticks) {
-        row.append(h('span', { class: 'arp-vel end' }));
-        continue;
-      }
+    const off = 0;
+    const C = info.ticks;
+    if (C > 20) row.classList.add('dense');
+    const L = gridLayout();
+    if (L.scroll) row.style.width = `${L.px.toFixed(0)}px`;
+    for (let i = 0; i < C; i++) {
       const k = (off + i) % p;
       const v = stepValues(k).vel;
       row.append(h('span', { class: 'arp-vel' + (k !== off + i ? ' rep' : '') + (sel != null && k === sel ? ' sel' : '') }, h('i', { style: `height:${Math.round(v * 100)}%` })));
@@ -330,7 +340,7 @@ SS.arpPanel = (() => {
     let drag = false;
     const apply = (e, push) => {
       const r = row.getBoundingClientRect();
-      const i = Math.max(0, Math.min(N - 1, Math.floor(((e.clientX - r.left) / r.width) * N)));
+      const i = Math.max(0, Math.min(C - 1, Math.floor(((e.clientX - r.left) / r.width) * C)));
       const v = Math.max(0.05, Math.min(1, Math.round((1 - (e.clientY - r.top) / r.height) * 20) / 20));
       if (off + i >= info.ticks) return;
       const j = (off + i) % p;
@@ -468,8 +478,15 @@ SS.arpPanel = (() => {
           src.from === 'essai' ? h('button', { type: 'button', class: 'btn arp-fill', title: 'Pose cet accord sur toute la boucle de la piste', onclick: fillTrack }, 'Poser sur la piste') : null
         )
       ),
-      gridSvg(track.arp, src.notes),
-      velRow(),
+      (() => {
+        const info = loopInfo();
+        const L = gridLayout();
+        return [
+          h('div', { class: 'arp-pager' }, h('span', {}, `Boucle : ${info.bars} mesure${info.bars > 1 ? 's' : ''} · ${info.ticks} pas`), L.scroll ? h('small', {}, '↔ la grille défile avec la lecture') : null),
+          // grille et vélocités défilent ensemble quand les colonnes ne tiennent pas dans la fenêtre
+          h('div', { class: 'arp-scroll' + (L.scroll ? ' on' : '') }, gridSvg(track.arp, src.notes), velRow()),
+        ];
+      })(),
       stepPanel(),
       !has ? h('small', { class: 'arp-legend' }, 'La piste est vide : choisis un accord, écoute, puis « Poser sur la piste ».') : null
     );
@@ -835,6 +852,8 @@ SS.arpPanel = (() => {
     if (sel != null && sel >= P()) sel = null;
     const body = dlg.querySelector('.arp-body');
     const scroll = body.scrollTop;
+    const old = body.querySelector('.arp-scroll');
+    const gridScroll = old ? old.scrollLeft : 0;
     const tabs = h(
       'div',
       { class: 'arp-tabs2', role: 'tablist' },
@@ -843,6 +862,8 @@ SS.arpPanel = (() => {
     );
     body.replaceChildren(playerView(), h('div', { class: 'arp-tabbox' }, tabs, h('div', { class: 'arp-tabpanel', role: 'tabpanel' }, tab === 'arp' ? settingsView() : gesteTab())));
     body.scrollTop = scroll;
+    const sc = body.querySelector('.arp-scroll');
+    if (sc) sc.scrollLeft = gridScroll;
     dlg.querySelector('.arp-undo').disabled = !undo.length;
   }
 
@@ -902,6 +923,12 @@ SS.arpPanel = (() => {
         )
       )
     );
+    // la largeur des colonnes suit la taille de la fenêtre
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => dlg.open && render(), 120);
+    });
     dlg.addEventListener('cancel', (e) => {
       e.preventDefault();
       close();
@@ -928,11 +955,11 @@ SS.arpPanel = (() => {
     sel = null;
     tab = 'arp';
     gesteCompare = 'geste';
-    view.page = 0;
     render();
     dlg.showModal();
+    render(); // la largeur de la grille dépend de la fenêtre affichée
   }
 
-  // _loop / _info / _view : accès pour les tests de bout en bout
-  return { init: (a) => (app = a), open, _loop: loop, _info: () => loopInfo(), _view: view };
+  // _loop / _info : accès pour les tests de bout en bout
+  return { init: (a) => (app = a), open, _loop: loop, _info: () => loopInfo() };
 })();
