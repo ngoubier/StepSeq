@@ -33,7 +33,7 @@
 | Cuivres Juno | A11 Brass | pied 8', chorus II | coups syncopés au refrain, accords tenus au pont |
 | Lead Juno | A53 Lead III | chorus I, vibrato retardé (LFO delay), écho 3/16 | mélodies du couplet et du refrain |
 
-Le MP3 est produit par un rendu hors temps réel de StepSeq (les cinq Juno-106 émulés sont trop lourds pour une capture en temps réel dans un conteneur).
+Le MP3 est produit par un rendu hors temps réel de StepSeq (les cinq Juno-106 émulés sont trop lourds pour une capture en temps réel dans un conteneur). Mesures (EBU R128, ffmpeg) : −10,9 LUFS intégrés, true peak −1,2 dBTP, LRA 6,9 LU.
 
 ## Fiche de composition — « Rêve éveillé »
 
