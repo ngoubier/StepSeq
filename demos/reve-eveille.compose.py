@@ -403,6 +403,7 @@ def build():
     return {
         'format': 'stepseq', 'version': 1,
         'title': 'Rêve éveillé',
+        'key': {'tonic': 'E', 'mode': 'minor'},  # tonalité (fenêtre Harmonie)
         'tempo': 136, 'timeSig': [4, 4], 'bars': current['bars'],
         'groove': {'res': 16, 'swing': 0.5, 'human': 0.04},
         'tracks': tracks,

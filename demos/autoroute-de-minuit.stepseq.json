@@ -2,6 +2,10 @@
  "format": "stepseq",
  "version": 1,
  "title": "Autoroute de minuit",
+ "key": {
+  "tonic": "D",
+  "mode": "minor"
+ },
  "tempo": 104,
  "timeSig": [
   4,

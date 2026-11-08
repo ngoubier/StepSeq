@@ -21,7 +21,8 @@ puis ouvrir <http://localhost:8000>.
 ## Interface
 
 - **En-tête** : titre du projet, tempo (BPM), chiffrage de mesure (4/4 par défaut, x/4 ou x/8),
-  nombre de mesures, le groove (swing, humanisation), puis les boutons **+** (ajouter une piste), **Lecture** et **Stop**.
+  nombre de mesures, le groove (swing, humanisation), la **tonalité** (fenêtre Harmonie : gamme, accords
+  de la tonalité, palette d'accords dans le piano roll, analyse harmonique des scènes), puis les boutons **+** (ajouter une piste), **Lecture** et **Stop**.
   À droite : **Nouveau**, **Ouvrir** et **Enregistrer**.
 - **Partie centrale** : les pistes, les unes sous les autres. Chaque piste a un en-tête
   (écoute, Mute, Solo, nom, volume, réglages, suppression) et sa grille de pas
@@ -127,6 +128,8 @@ Les sons proviennent des bibliothèques utilisées par [strudel.cc](https://stru
 | `js/juno-dsp.js` | Moteur du Juno-106 (AudioWorklet), porté de l'Ultramaster KR-106 — GPL v3 |
 | `js/junopanel.js` | Façade du Juno-106 (sound design des pistes Synthé) |
 | `js/groove.js`   | Fenêtre Groove (swing, humanisation) |
+| `js/harmony.js`  | Aide à la composition : gammes, accords diatoniques, identification des accords, estimation de la tonalité, vérificateur d'harmonie |
+| `js/harmonypanel.js` | Fenêtre Harmonie (tonalité, palette d'accords, analyse des scènes) |
 | `js/fx.js`       | Fenêtre Effets par piste (chorus, delay, reverb) |
 | `js/profiles.js`, `js/profiles-factory.js` | Profils de console (usine + personnels) |
 | `js/mixer.js`    | Console de mixage : tranches, EQ, compresseur, limiteur, vumètres |

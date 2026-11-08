@@ -6,6 +6,7 @@
  *   format: "stepseq", version: 1,
  *   title, tempo, timeSig: [num, den], bars,
  *   groove: { res: 0|16|8, swing: 0.5..0.75, human: 0..1 },
+ *   key: { tonic: "D", mode: "major"|"minor"|"harmonic" },   // tonalité (facultative, voir js/harmony.js)
  *   master: { volume, mix },   // console : tranche Master (voir SS.MASTER_DEFAULTS)
  *   tracks: [   // chaque piste peut avoir mix: { pan, eq, comp, lim } (console de mixage), length (longueur de sa boucle, en pas ; absente = celle du projet)
  *               // et fx: { chorus, chorusRate, chorusDepth, delay, delayTime,
@@ -127,6 +128,7 @@ SS.normalizeProject = (data) => {
       human: Math.min(1, Math.max(0, Number(g.human) || 0)),
     };
   }
+  if (data.key && SS.harmony && SS.harmony.valid(data.key)) p.key = { tonic: data.key.tonic, mode: data.key.mode };
   p.tracks = data.tracks.map((t) => {
     const track = { ...t, id: t.id || SS.uid() };
     // effets : on ne garde que les clés connues, de type attendu

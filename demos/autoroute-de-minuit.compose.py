@@ -389,6 +389,7 @@ def build():
     return {
         'format': 'stepseq', 'version': 1,
         'title': 'Autoroute de minuit',
+        'key': {'tonic': 'D', 'mode': 'minor'},  # tonalité (fenêtre Harmonie)
         'tempo': 104, 'timeSig': [4, 4], 'bars': current['bars'],
         'groove': {'res': 16, 'swing': 0.5, 'human': 0.06},
         'tracks': tracks,

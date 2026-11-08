@@ -2,6 +2,10 @@
  "format": "stepseq",
  "version": 1,
  "title": "Rêve éveillé",
+ "key": {
+  "tonic": "E",
+  "mode": "minor"
+ },
  "tempo": 136,
  "timeSig": [
   4,
