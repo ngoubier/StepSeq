@@ -92,6 +92,7 @@
       <a href="#sound-design">Sound design</a>
       <a href="#effets">Effets</a>
       <a href="#groove">Groove</a>
+      <a href="#harmonie">Harmonie et tonalité</a>
       <a href="#chanson">Mode chanson</a>
       <a href="#console">Console de mixage</a>
       <a href="#fichiers">Enregistrer et ouvrir</a>
@@ -330,6 +331,46 @@
         <tr><td>Humanisation</td><td>Variations aléatoires de placement (jusqu'à ±15 ms) et de vélocité (jusqu'à ±25 %) sur chaque note</td></tr>
       </table></div>
       <p>Le schéma de la fenêtre montre 8 doubles-croches : les cercles pointillés sont la position droite, les points bleus la position jouée. Les notes posées sur les temps ne bougent jamais. Annuler revient aux réglages d'avant l'ouverture.</p>
+
+      <h2 id="harmonie"><small>Aide à la composition</small>Harmonie et tonalité</h2>
+      <p>Le bouton <b>Tonalité</b> de la barre du haut ouvre la fenêtre <b>Harmonie</b>. Choisissez la tonique et le mode (majeur, mineur naturel, mineur harmonique) du morceau, ou cliquez sur <b>Détecter</b> : StepSeq estime la tonalité d'après les notes du projet. C'est une estimation : Ré mineur et Fa majeur, par exemple, ont les mêmes notes, et c'est la mélodie, la basse et les cadences qui font entendre l'une ou l'autre.</p>
+      <div class="table-wrap"><table>
+        <tr><th>Élément</th><th>Ce qu'il fait</th></tr>
+        <tr><td>Gamme</td><td>Les 7 notes de la tonalité, orthographiées correctement (Si♭ en Ré mineur, pas La♯), avec les écarts en demi-tons. La tonique est encadrée.</td></tr>
+        <tr><td>Accords de la tonalité</td><td>Les 7 triades diatoniques avec leur degré en chiffres romains (majuscule = majeur, minuscule = mineur, ° = diminué), leurs notes et leur rôle : <span style="color:#3fcf8e">repos</span>, <span style="color:#f5c400">préparation</span>, <span style="color:#ff6b6b">tension</span>. Clic sur une carte : l'accord est joué par la piste en cours.</td></tr>
+        <tr><td>Emprunts utiles</td><td>En mineur naturel : la dominante majeure (V) et V7, empruntées au mineur harmonique. Leur tierce est la sensible, à un demi-ton de la tonique, qui renforce la résolution (A7 → Dm en Ré mineur). En majeur : V7.</td></tr>
+        <tr><td>Piano roll</td><td>Les lignes des notes de la gamme sont plus claires, les autres assombries ; la tonique est marquée d'un trait bleu.</td></tr>
+        <tr><td>Palette d'accords</td><td>Dans le piano roll d'une piste <b>Accord</b> ou <b>Arpège</b>, une rangée de boutons pose l'accord choisi à l'endroit cliqué en dernier, jusqu'à la fin de la mesure, puis avance d'une mesure : cliquez i, VI, III, VII pour écrire une progression de 4 mesures. La fondamentale est placée au plus près de l'accord précédent.</td></tr>
+        <tr><td>Analyse des scènes</td><td>Pour chaque scène : la progression de chaque piste Accord / Arpège avec ses degrés (un renversement s'écrit avec la basse après la barre : C/G), puis des remarques.</td></tr>
+      </table></div>
+      <h3>Composer à partir d'une émotion</h3>
+      <p>La section <b>Émotion</b>, en tête de la fenêtre Harmonie, reprend la méthode du skill <i>MusicEmotion</i>. Choisissez une intention parmi 13 (joie, euphorie, tristesse, nostalgie, mélancolie lumineuse, espoir, suspense, angoisse, mystère, sérénité, tendresse, triomphe, ambivalence) : StepSeq affiche des repères (valence, activation, tension, sur 0–100, subjectifs), les procédés possibles (harmonie, mélodie, rythme et texture) et le risque à éviter, puis <b>trois pistes contrastées</b>.</p>
+      <div class="table-wrap"><table>
+        <tr><th>Piste</th><th>Principe</th></tr>
+        <tr><td>Évidence</td><td>Harmonie simple, intention lisible tout de suite (ex. i–VI–III–VII pour la tristesse).</td></tr>
+        <tr><td>Nuance</td><td>Extensions (maj7, m7, add9), mode (dorien, lydien, mixolydien) ou emprunt.</td></tr>
+        <tr><td>Surprise</td><td>Cadence évitée, tierce picarde, ♭VI–♭VII–I, ♭II napolitain…</td></tr>
+      </table></div>
+      <p>Chaque piste donne la tonalité ou le mode, le tempo, les accords avec leurs degrés, la raison du choix et sa réserve. <b>Écouter</b> joue les accords ; <b>Appliquer</b> les pose dans la piste d'accords choisie et, si la case est cochée, change la tonalité et le tempo du projet. Si le projet a déjà une tonalité, les propositions sont transposées sur sa tonique. <b>Préparer la mélodie</b> choisit l'esquisse conseillée (montante, descendante ou en vagues) dans « Générer une couche ».</p>
+      <p><b>Essai A/B</b> : un bouton copie la scène en cours (scène « … B ») et y change un seul paramètre — tierce → neuvième, triades → septièmes, tonique majeur ↔ mineur, cadence évitée, voicing ouvert, basse en pédale. Passez d'une scène à l'autre pendant la lecture (mode Boucle) et gardez celle qui communique le mieux l'intention : c'est votre écoute qui décide, pas l'étiquette. Les essais conseillés pour l'intention sont entourés en violet.</p>
+      <p>Les modes (dorien, phrygien, lydien, mixolydien) sont aussi proposés dans la liste <b>Mode</b> : la fenêtre signale alors la note caractéristique du mode et les accords qui la contiennent (« couleur du mode »).</p>
+      <p class="note">Aucune suite d'accords n'encode une émotion de façon universelle : ce sont des hypothèses de style, à juger avec la mélodie, le tempo, le timbre et le contexte.</p>
+
+      <h3>Progressions et génération de couches</h3>
+      <div class="table-wrap"><table>
+        <tr><th>Section</th><th>Ce qu'elle fait</th></tr>
+        <tr><td>Progressions</td><td>Huit progressions courantes (I–V–vi–IV, i–VI–III–VII, i–iv–V7–i…), transposées dans la tonalité : celles du mode choisi (majeur ou mineur). <b>Écouter</b> joue les quatre accords ; <b>Poser</b> les écrit dans la piste d'accords choisie, un accord par mesure, répétés jusqu'à la fin de la scène (les accords de la scène sont remplacés).</td></tr>
+        <tr><td>Générer une couche</td><td>À partir des accords d'une piste Accord ou Arpège, écrit dans une autre piste : une <b>basse</b> (fondamentales tenues, croches, octaves, galop, contretemps), un <b>arpège</b> (1–3–5–3 en croches, 1–3–5–8 en doubles-croches) ou une <b>esquisse de mélodie</b> (une note de l'accord sur chaque temps fort, une note de passage juste avant la suivante). L'octave est celle de la piste cible ; la piste proposée par défaut dépend de la couche (Basse, Arpège, Lead…).</td></tr>
+      </table></div>
+      <p>Méthode conseillée : posez une progression, générez la basse, écoutez, puis l'arpège, puis la mélodie — une couche à la fois. Le résultat est un point de départ : changez ensuite une note de passage, une durée ou l'octave pour en faire votre morceau. Ctrl+Z annule chaque étape.</p>
+      <p>Les remarques sont des pistes de réflexion, pas des erreurs : une note étrangère peut être voulue.</p>
+      <div class="table-wrap"><table>
+        <tr><th>Remarque</th><th>Signification</th></tr>
+        <tr><td>À vérifier</td><td>Une note ou un accord hors de la tonalité : note chromatique, emprunt, couleur voulue… ou fausse note.</td></tr>
+        <tr><td>Emprunt</td><td>Une altération courante et expliquée, par exemple la sensible du mineur harmonique sur la dominante.</td></tr>
+        <tr><td>Conseil</td><td>Une mélodie (piste Mono) sur un temps fort hors de l'accord (retard ou tension voulue ?), ou une voix d'accord qui saute d'une quinte ou plus (essayer un renversement pour garder les notes communes).</td></tr>
+      </table></div>
+      <p><b>Exercice (10 minutes)</b> : en La mineur, posez Am | Dm | Em | Am avec la palette, écoutez, puis remplacez Em par E7 (Emprunts utiles). Identifiez le Sol♯ de E7 et écoutez son attraction vers La. L'analyse signale E7 comme emprunt au mineur harmonique.</p>
 
       <h2 id="chanson">Mode chanson</h2>
       <p>Le panneau sous la barre du haut transforme une boucle en morceau complet. Il a deux étages : les <b>scènes</b> et l'<b>arrangement</b>.</p>

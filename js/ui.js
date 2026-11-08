@@ -55,8 +55,70 @@ SS.ui = (() => {
 
   function eventLabel(track, ev) {
     if (track.category === 'mono' || ev.notes.length === 1) return SS.noteName(ev.notes[0]);
+    // accord renversé (la basse n'est pas la fondamentale) ou tonalité choisie : nom calculé d'après les notes
+    const key = app.project().key;
+    const plain = ev.chord && SS.chordNotes(ev.notes[0], ev.chord).join() === ev.notes.join();
+    if (SS.harmony && (!plain || SS.harmony.valid(key))) {
+      const id = SS.harmony.identify(ev.notes);
+      if (id) return SS.harmony.chordName(key, id);
+    }
     const root = SS.NOTE_NAMES[ev.notes[0] % 12];
     return root + (CHORD_SUFFIX[ev.chord] ?? '');
+  }
+
+  /* ---------- Palette d'accords de la tonalité (piano roll des pistes Accord / Arpège) ---------- */
+
+  /** Pose l'accord `c` (voir SS.harmony.chords) au dernier endroit cliqué, jusqu'à la fin de la mesure. */
+  function placeChord(track, c) {
+    const p = app.project();
+    const n = SS.trackLen(p, track);
+    const spb = SS.stepsPerBar(p);
+    let pos = cursor && cursor.trackId === track.id ? cursor.step : 0;
+    if (pos >= n) pos = 0;
+    const len = Math.min(spb - (pos % spb), n - pos);
+    const prev = [...track.events].filter((e) => e.step < pos).sort((a, b) => b.step - a.step)[0];
+    const center = (track.octave + 1) * 12 + 6;
+    const near = prev ? prev.notes[0] : track.lastRoot ?? center;
+    const notes = SS.harmony.voice(c, near, center);
+    track.events = track.events.filter((e) => e.step < pos || e.step >= pos + len);
+    track.events.forEach((e) => {
+      if (e.step < pos && e.step + e.len > pos) e.len = pos - e.step;
+    });
+    const ev = { step: pos, len, notes, vel: 0.8, chord: c.type };
+    track.events.push(ev);
+    track.events.sort((a, b) => a.step - b.step);
+    track.lastRoot = notes[0];
+    cursor = { trackId: track.id, step: pos + len >= n ? 0 : pos + len };
+    paint(track);
+    select(track, ev);
+    if (!SS.audio.isPlaying()) SS.audio.preview(track, notes);
+    app.changed();
+  }
+
+  function buildPalette(track) {
+    const key = app.project().key;
+    if (track.category === 'mono' || !SS.harmony || !SS.harmony.valid(key)) return null;
+    const { diatonic, extra } = SS.harmony.chords(key);
+    const chip = (c) =>
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'chip pal-chip role-' + c.role.id + (c.borrowed ? ' borrowed' : ''),
+          title: `${c.name} = ${c.notes.join('–')} (${c.quality}) · ${c.role.text} — pose l'accord au dernier endroit cliqué, jusqu'à la fin de la mesure`,
+          onclick: () => placeChord(track, c),
+        },
+        h('b', {}, c.numeral),
+        ' ' + c.name
+      );
+    return h(
+      'div',
+      { class: 'roll-palette' },
+      h('span', { class: 'pal-label', title: 'Changer la tonalité : bouton « Tonalité » en haut' }, SS.harmony.label(key)),
+      diatonic.map(chip),
+      h('span', { class: 'pal-sep' }),
+      extra.map(chip)
+    );
   }
 
   /** « 2 mes. », « 12 pas »… ou '' si la piste suit la longueur du projet. */
@@ -494,7 +556,10 @@ SS.ui = (() => {
       h('div', { class: 'roll-key' }, h('small', {}, 'Mesures')),
       barGrid
     );
-    const roll = h('div', { class: 'roll' }, tools, barRow, view);
+    const roll = h('div', { class: 'roll' }, tools, buildPalette(track), barRow, view);
+    // tonalité : notes de la gamme mises en évidence, tonique marquée
+    const key = p.key && SS.harmony && SS.harmony.valid(p.key) ? p.key : null;
+    const scalePcs = key ? SS.harmony.scale(key).map((d) => d.pc) : null;
     const scroller = makeRollScroller(track, view, inner, bar, thumb, rangeLabel);
     for (let midi = high; midi >= low; midi--) {
       const black = SS.isBlackKey(midi);
@@ -530,7 +595,12 @@ SS.ui = (() => {
       inner.append(
         h(
           'div',
-          { class: 'roll-row' + (black ? ' black' : '') + (isC ? ' c' : '') },
+          {
+            class:
+              'roll-row' + (black ? ' black' : '') + (isC ? ' c' : '') +
+              (scalePcs ? (scalePcs.includes(midi % 12) ? ' in-key' : ' out-key') + (midi % 12 === scalePcs[0] ? ' tonic' : '') : ''),
+            title: scalePcs && scalePcs.includes(midi % 12) ? `${SS.harmony.spell(key, midi)} : degré ${scalePcs.indexOf(midi % 12) + 1} de ${SS.harmony.label(key)}` : undefined,
+          },
           h(
             'div',
             { class: 'roll-key' },
@@ -2701,5 +2771,6 @@ SS.ui = (() => {
     trackSubtitle,
     handleKey,
     clearSelection: () => setSelection(null),
+    activeTrack,
   };
 })();
