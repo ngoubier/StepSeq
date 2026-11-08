@@ -51,12 +51,15 @@
   ];
 
   const RATES = [
+    { id: 1 / 6, label: '1/4 pointée' },
     { id: 0.25, label: '1/4' },
     { id: 1 / 3, label: '1/8 pointée' },
+    { id: 0.375, label: '1/4 triolet' },
     { id: 0.5, label: '1/8' },
-    { id: 0.75, label: '1/8 triolet' },
     { id: 2 / 3, label: '1/16 pointée' },
+    { id: 0.75, label: '1/8 triolet' },
     { id: 1, label: '1/16' },
+    { id: 4 / 3, label: '1/32 pointée' },
     { id: 1.5, label: '1/16 triolet' },
     { id: 2, label: '1/32' },
     { id: 3, label: '1/32 triolet' },

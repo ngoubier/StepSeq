@@ -468,11 +468,11 @@ SS.ui = (() => {
               {
                 type: 'button',
                 class: 'roll-arp',
-                title: 'ARP ONE : presets, macros RATE / GATE / MOTION / EVOLVE, rythme, lignes par pas',
+                title: 'Arpégiateur : style, vitesse, octaves, lecture en boucle (et réglages avancés)',
                 onclick: () => SS.arpPanel.open(track),
               },
               h('span', { html: ICONS.arp }),
-              'ARP ONE'
+              'Arpégiateur'
             ),
           ]
         : null,

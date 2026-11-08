@@ -1515,6 +1515,7 @@ dialog.arp-dialog { width: min(860px, calc(100vw - 32px)); }
   .arp-macros { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .arp-lane { grid-template-columns: 1fr; }
   .arp-cell em { display: none; }
+}
 
 /* ---------- Harmonie : tonalité, palette d'accords, analyse ---------- */
 .roll-row.in-key .rcell { background: #222229; }
@@ -1618,4 +1619,49 @@ dialog.hm-dialog { width: min(900px, calc(100vw - 32px)); }
   .emo-prop .hm-progchords, .hm-progrow .hm-progchords { grid-column: 1; grid-row: 2; }
   .emo-matrix { grid-template-columns: 1fr; }
   .emo-matrix dd { margin-bottom: 4px; }
+}
+
+/* Arpégiateur : lecteur + écran Simple (inspiré de l'Arpeggiator d'Ableton) */
+.arp-body > * + * { margin-top: 14px; }
+.arp-player { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); }
+.arp-player-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.arp-loop { min-width: 150px; font-weight: 600; background: #2c6e3f; }
+.arp-loop:hover { background: #358a4d; }
+.arp-loop.on { background: #8a2f2f; }
+.arp-chordpick { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; flex: 1; min-width: 0; }
+.arp-chordpick select { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 5px 6px; font: inherit; }
+.arp-chordpick select.active { border-color: var(--accent-2); }
+.arp-chordname { font-size: 16px; color: #e6d6ff; min-width: 3em; }
+.arp-fill { margin-left: auto; }
+.arp-grid .arp-head { fill: #fff; opacity: .12; stroke: none; }
+.arp-styles { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
+.arp-style { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px 7px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--text); font: inherit; font-size: 12px; cursor: pointer; text-align: center; position: relative; }
+.arp-style:hover { border-color: var(--accent-2); }
+.arp-style.active { background: var(--accent); border-color: var(--accent-2); }
+.arp-style svg { width: 64px; height: 30px; stroke: #c9a6ff; stroke-width: 2; fill: none; }
+.arp-style svg circle, .arp-style svg rect { fill: #c9a6ff; stroke: none; }
+.arp-style.active svg { stroke: #fff; }
+.arp-style.active svg circle, .arp-style.active svg rect { fill: #fff; }
+.arp-style.more { justify-content: center; }
+.arp-style.more select { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.arp-more-title { padding: 10px 2px; font-size: 12px; }
+.arp-simple { display: flex; flex-direction: column; gap: 16px; }
+.arp-simple-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.arp-simple .arp-seg button { padding: 7px 14px; font-size: 13px; }
+.arp-macro.wide small { min-height: 0; }
+.arp-scale { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+.arp-advanced { display: flex; flex-direction: column; gap: 14px; }
+.arp-macros.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.arp-evolve-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.arp-evolve-bar .btn.on { box-shadow: inset 0 0 0 2px #a479ff; color: #e6d6ff; }
+.arp-create { display: flex; flex-direction: column; gap: 14px; }
+@media (max-width: 700px) {
+  .arp-styles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .arp-macros.two { grid-template-columns: 1fr; }
+  .arp-fill { margin-left: 0; }
+  .arp-player-bar { flex-direction: column; align-items: stretch; }
+  .arp-loop { width: 100%; }
+  .arp-chordpick select { flex: 1 1 40%; }
+  .arp-dialog .dlg-footer { flex-wrap: wrap; }
+  .arp-dialog .dlg-footer .spacer { flex-basis: 100%; height: 0; }
 }
