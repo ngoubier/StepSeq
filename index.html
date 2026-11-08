@@ -40,6 +40,10 @@
         <svg viewBox="0 0 24 24"><path d="M3 17c3 0 3-10 6-10s3 10 6 10 3-10 6-10"/></svg>
         <span id="grooveLabel">Groove : droit</span>
       </button>
+      <button id="keyBtn" class="btn groove-btn" type="button" title="Tonalité, gamme, accords et vérificateur d'harmonie">
+        <svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        <span id="keyLabel">Tonalité : —</span>
+      </button>
     </div>
 
     <div class="topbar-group transport">
@@ -405,6 +409,27 @@
   </dialog>
 
   <!-- Dialogue des effets d'une piste -->
+  <dialog id="harmonyDialog" class="sd-dialog hm-dialog" aria-labelledby="hmTitle">
+    <form method="dialog" id="harmonyForm">
+      <h2 id="hmTitle">Harmonie</h2>
+      <p class="dlg-sub">Choisissez la tonalité du morceau : le piano roll met en évidence ses notes, une palette pose ses accords, et l'analyse vérifie la cohérence des scènes.</p>
+
+      <div class="hm-key">
+        <label class="field"><span>Tonique</span><select id="hmTonic"></select></label>
+        <label class="field"><span>Mode</span><select id="hmMode"></select></label>
+        <button type="button" id="hmDetect" class="btn" title="Estimer la tonalité d'après les notes du projet">Détecter</button>
+        <span id="hmDetectOut" class="hm-muted"></span>
+      </div>
+
+      <div id="hmBody"></div>
+
+      <div class="dlg-footer">
+        <span class="spacer"></span>
+        <button type="submit" class="btn btn-accent">Fermer</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="fxDialog" class="sd-dialog">
     <form method="dialog" id="fxForm">
       <div class="sd-head">
@@ -486,11 +511,14 @@
   <script src="js/juno.js"></script>
   <script src="js/arp.js"></script>
   <script src="js/project.js"></script>
+  <script src="js/harmony.js"></script>
+  <script src="js/emotions.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/sounddesign.js"></script>
   <script src="js/junopanel.js"></script>
   <script src="js/arppanel.js"></script>
   <script src="js/groove.js"></script>
+  <script src="js/harmonypanel.js"></script>
   <script src="js/fx.js"></script>
   <script src="js/song.js"></script>
   <script src="js/profiles-factory.js"></script>

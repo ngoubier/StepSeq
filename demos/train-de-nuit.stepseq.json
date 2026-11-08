@@ -2,6 +2,10 @@
  "format": "stepseq",
  "version": 1,
  "title": "Train de nuit",
+ "key": {
+  "tonic": "F",
+  "mode": "minor"
+ },
  "tempo": 132,
  "timeSig": [
   4,

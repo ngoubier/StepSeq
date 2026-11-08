@@ -319,6 +319,7 @@ def build():
     return {
         'format': 'stepseq', 'version': 1,
         'title': 'Train de nuit',
+        'key': {'tonic': 'F', 'mode': 'minor'},  # tonalité (fenêtre Harmonie)
         'tempo': 132, 'timeSig': [4, 4], 'bars': current['bars'],
         'groove': {'res': 16, 'swing': 0.52, 'human': 0.08},
         'tracks': tracks,
