@@ -70,25 +70,44 @@ Le chevron **›** dans l'en-tête d'une piste instrument affiche son piano roll
 
 ### L'arpégiateur
 
-Le bouton **Arpégiateur** du piano roll d'une piste Arpège ouvre un seul écran (`js/arp.js` pour le moteur,
-`js/arppanel.js` pour la fenêtre, `js/motifs.js` pour le catalogue de motifs) :
+Le bouton **Arpégiateur** du piano roll d'une piste Arpège ouvre la fenêtre de l'arpégiateur (`js/arp.js` pour
+le moteur, `js/arppanel.js` pour la fenêtre, `js/motifs.js` pour le catalogue de motifs).
+
+**En-tête, toujours visible**
 
 - **Lecture en boucle** de l'arpège sur l'accord de la piste ou un accord d'essai (choisi en deux menus) ;
   chaque réglage s'entend tout de suite. Sur une piste vide, **Poser sur la piste** place l'accord sur la boucle.
-- **Motif** : le motif en cours (dessin + exemple sur La mineur), **‹ ›** pour passer au voisin, et
-  **Changer de motif…** : 51 motifs prédéfinis classés en 8 catégories (Montées et descentes, Groupes qui
-  grimpent — dont la **Double montée** A C E A′ · C E A′ C′ —, Sauts et intervalles, Basse et pédale, Octaves
-  et répétitions, Synthwave et années 80, Accords et rythmes, Hasard), avec recherche et **Récents**. Chaque
-  motif s'essaie en un clic, en boucle ; les motifs suivent l'accord joué.
+  La boucle dure le plus petit nombre de mesures entières qui contient au moins 16 pas et un cycle complet du
+  motif ; la grille montre exactement ce qui est joué et, au-delà de 16 pas, passe en pages qui suivent le curseur.
 - **Réglage pas à pas** : cliquer un pas de la grille règle sa **vélocité**, sa **longueur** (¼ temps à
   4 temps), le nombre de **notes à la fois** (1 à 3 : la note + les notes de l'accord juste au-dessus) ou en fait
-  un **silence** ; la rangée de vélocités se règle aussi en glissant. Motif de 4, 8 ou 16 pas.
-- **Vitesse** (1/4 à 1/32, normale / triolet / pointée), **octaves** (1 à 4), **longueur des notes**
-  (piquée, normale, ¼ temps … 4 temps) et **jeu humain** : petits décalages (jusqu'à ±12 ms), temps forts
-  accentués, vélocités et longueurs légèrement variées.
+  un **silence** ; la rangée de vélocités se règle aussi en glissant.
 
-Le moteur est déterministe : même accord, mêmes réglages, même graine et même position → mêmes notes
-(le jeu humain aussi). Les anciens projets se rechargent à l'identique.
+**Onglet Arpège** — une ligne par réglage :
+
+- **Motif** : la tuile du motif en cours ouvre la fenêtre de choix : 51 motifs classés en 8 catégories
+  (Montées et descentes, Groupes qui grimpent — dont la **Double montée** A C E A′ · C E A′ C′ —, Sauts et
+  intervalles, Basse et pédale, Octaves et répétitions, Synthwave et années 80, Accords et rythmes, Hasard),
+  avec recherche et **Récents** ; chaque motif s'essaie en un clic et suit l'accord joué.
+- **Vitesse** (1/4 à 1/32, normale / triolet / pointée), **octaves** (1 à 4), **pas** (4, 8 ou 16 : la
+  longueur de la grille réglable pas à pas), **geste** (6 gestes tout prêts + **Ajuster ›**) et **durée des
+  notes** (selon le geste, ou fixe : ¼ temps … 4 temps).
+
+**Onglet Geste** — rendre un arpège moins mécanique, groupe de notes par groupe de notes :
+
+- 6 **gestes tout prêts** : Mécanique, Balayage, Roulé, Boiteux, Détendu, Harpe ;
+- un **pavé** : horizontal = **étalement** (resserrer le groupe, puis respirer avant le suivant), vertical =
+  **alternance** (avancer ou retarder les notes paires du groupe) ;
+- un **zoom sur un groupe** en millisecondes (grille en pointillés, respiration) et la taille des groupes
+  (d'après le motif, ou 2, 3, 4, 6, 8) ;
+- 5 curseurs dans l'ordre d'application : étalement, alternance, **microvariation** (± 0 à 20 ms, la note 1
+  reste sur la pulsation, **Nouvelle prise** pour d'autres décalages), **accent** de la première note,
+  **articulation** (durée dans l'espace avant l'attaque suivante) ;
+- **Écouter : Régulier / Geste** pour comparer.
+
+Le début de chaque groupe ne bouge jamais et chaque attaque est calculée depuis sa position prévue : aucune
+dérive. Le moteur est déterministe : même accord, mêmes réglages, même prise et même position → mêmes notes.
+Les anciens projets se rechargent à l'identique ; l'ancien « jeu humain » est converti en geste.
 
 ### Tests
 
@@ -102,6 +121,7 @@ Tests de bout en bout des fenêtres de l'arpégiateur et Harmonie dans Chromium 
 
 ```bash
 node tests/e2e/arp-ui.js
+node tests/e2e/arp-cursor.js
 node tests/e2e/harmony-ui.js
 ```
 

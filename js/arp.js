@@ -232,6 +232,15 @@
     o.human = clamp(num(+o.human, 0), 0, 1);
     o.noteLen = clamp(num(+o.noteLen, 0), 0, 64);
     o.steps = clamp(Math.round(num(+o.steps, 16)), 1, 64);
+    if (a.geste && typeof a.geste === 'object') o.geste = normGeste(a.geste);
+    else {
+      delete o.geste;
+      // ancien curseur « jeu humain » : converti en geste (décalages bornés, accent de départ)
+      if (o.human > 0) {
+        o.geste = normGeste({ id: '', spread: 1, alt: 0, micro: Math.round(12 * o.human), accent: Math.round(o.human * 50) / 100, art: Math.min(1, o.gate), legato: o.gate > 1 });
+        o.human = 0;
+      }
+    }
     const rh = { ...DEFAULTS.rhythm, ...(a.rhythm && typeof a.rhythm === 'object' ? a.rhythm : {}) };
     rh.type = ['all', 'euclid', 'lane'].includes(rh.type) ? rh.type : 'all';
     rh.steps = clamp(Math.round(num(+rh.steps, 16)), 1, 64);
@@ -736,6 +745,7 @@
       notes: [...new Set(out)],
       vel: clamp(vel, 0.03, 1),
       gate: clamp(gate, 0.02, 64),
+      fixed: stepLen > 0 || o.noteLen > 0 || !!base.tie, // la durée ne vient pas de l'articulation du geste
       jitter,
       ratchet: clamp(Math.round(ratchet), 1, 4),
       swing,
@@ -744,6 +754,87 @@
       phrase: e > 0 ? phrase : 'A',
       j,
     };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Geste : étalement, alternance, microvariation, accent, articulation  */
+  /* ------------------------------------------------------------------ */
+
+  /*
+   * Un arpège est une suite de groupes de notes ; chaque groupe forme un geste. Les hauteurs, leur ordre et
+   * le début de chaque groupe ne bougent pas : seuls le placement des attaques DANS le groupe, leur force
+   * et leur durée changent. Ordre d'application : étalement → alternance → microvariation → corrections
+   * (ordre des notes, frontières du groupe) → accents → articulation. Chaque attaque est calculée depuis sa
+   * position prévue : aucune erreur ne s'accumule d'un groupe à l'autre.
+   *
+   * Unités (relatives au tempo, sauf la microvariation) :
+   *   spread  part de l'étendue du groupe sur la grille (1 = grille, 0.6 = 60 %)
+   *   alt     décalage des notes paires du groupe (2, 4…) en part d'un pas d'arpège (+ = en retard)
+   *   micro   décalages bornés en millisecondes (± micro), la note 1 reste sur la pulsation
+   *   take    « prise » : graine des décalages ; un réglage modifié ne relance pas le tirage
+   *   accent  0..1 : la note 1 est renforcée (+25 % au maximum), les autres atténuées (−22 %)
+   *   art     part de l'espace avant l'attaque suivante ; legato = chevauchement voulu
+   */
+  const GESTES = [
+    { id: 'mecanique', label: 'Mécanique', desc: 'grille régulière', g: { spread: 1, alt: 0, micro: 0, accent: 0, art: 0.9, legato: false } },
+    { id: 'balayage', label: 'Balayage', desc: 'serré puis respiration', g: { spread: 0.27, alt: 0, micro: 0, accent: 0.5, art: 0.6, legato: false } },
+    { id: 'roule', label: 'Roulé', desc: 'serré, notes paires en avance', g: { spread: 0.4, alt: -0.05, micro: 6, accent: 0.6, art: 0.6, legato: false } },
+    { id: 'boiteux', label: 'Boiteux', desc: 'notes paires en retard', g: { spread: 0.8, alt: 0.14, micro: 0, accent: 0.4, art: 0.7, legato: false } },
+    { id: 'detendu', label: 'Détendu', desc: 'étalé, petites variations', g: { spread: 0.93, alt: 0.04, micro: 8, accent: 0.3, art: 0.85, legato: false } },
+    { id: 'harpe', label: 'Harpe', desc: 'très serré, lié', g: { spread: 0.16, alt: 0, micro: 3, accent: 0.4, art: 1, legato: true } },
+  ];
+  // taille des groupes d'après le motif (sinon 4)
+  const GROUP_OF = { up2: 4, down2: 4, up3: 3, down3: 3, climb2: 2, fall2: 2, alberti: 4, octaves: 2, repeat: 2 };
+  const GROUP_SIZES = [2, 3, 4, 6, 8];
+
+  function normGeste(g) {
+    g = g && typeof g === 'object' ? g : {};
+    const base = GESTES[0].g;
+    return {
+      id: typeof g.id === 'string' && GESTES.some((x) => x.id === g.id) ? g.id : '',
+      group: GROUP_SIZES.includes(+g.group) ? +g.group : 0, // 0 = d'après le motif
+      spread: clamp(num(+g.spread, base.spread), 0.1, 1),
+      alt: clamp(num(+g.alt, base.alt), -0.25, 0.25),
+      micro: clamp(Math.round(num(+g.micro, base.micro)), 0, 20),
+      take: Math.max(1, Math.round(num(+g.take, 1))),
+      accent: clamp(num(+g.accent, base.accent), 0, 1),
+      art: clamp(num(+g.art, base.art), 0.2, 1),
+      legato: !!g.legato,
+    };
+  }
+  const gesteGroup = (o) => (o.geste && o.geste.group) || GROUP_OF[o.mode] || 4;
+
+  const gesteCache = new Map();
+  /**
+   * Attaques, durées et forces relatives d'un groupe de n notes, en millisecondes depuis le début du groupe.
+   * subMs = durée d'un pas d'arpège ; gi = index du groupe (pour la microvariation).
+   */
+  function gesteTimes(geste, n, subMs, gi = 0) {
+    const g = normGeste(geste);
+    const key = [g.spread, g.alt, g.micro, g.take, g.accent, g.art, g.legato ? 1 : 0, n, subMs.toFixed(4), g.micro ? gi : 0].join('|');
+    const hit = gesteCache.get(key);
+    if (hit) return hit;
+    const groupMs = n * subMs;
+    const gap = Math.min(6, subMs * 0.08); // écart minimal entre deux attaques
+    let p = [];
+    for (let i = 0; i < n; i++) {
+      let x = i * g.spread * subMs; // étalement
+      if (i % 2 === 1) x += g.alt * subMs; // alternance : notes 2, 4…
+      if (i > 0 && g.micro) x += (rnd(g.take, gi, i, 31) * 2 - 1) * g.micro; // microvariation (note 1 fixe)
+      p.push(x);
+    }
+    // corrections : ordre conservé, aucune attaque avant la note 1 ni au-delà du groupe
+    p[0] = 0;
+    for (let i = 1; i < n; i++) p[i] = Math.max(p[i], p[i - 1] + gap);
+    for (let i = n - 1; i >= 1; i--) p[i] = Math.min(p[i], i === n - 1 ? groupMs - gap : p[i + 1] - gap);
+    if (p.some((x, i) => i > 0 && x < p[i - 1] + gap * 0.5)) p = p.map((_, i) => i * subMs); // groupe trop court : la grille
+    const vel = p.map((_, i) => (i === 0 ? 1 + 0.25 * g.accent : 1 - 0.22 * g.accent)); // accents
+    const space = p.map((x, i) => (i < n - 1 ? p[i + 1] : groupMs) - x);
+    const dur = space.map((sp) => (g.legato ? sp * 1.15 : Math.max(Math.min(sp - gap / 2, sp * g.art), Math.min(8, sp * 0.5)))); // articulation
+    const out = { at: p, dur, vel, space, groupMs };
+    if (gesteCache.size > 800) gesteCache.clear();
+    gesteCache.set(key, out);
+    return out;
   }
 
   /**
@@ -761,9 +852,36 @@
     const k0 = Math.ceil((step - ev.step) * rate - eps);
     const k1 = Math.ceil((step + 1 - ev.step) * rate - eps);
     const out = [];
+    const tinfo = (k) => ({ loop: info.loop, stepsPerBeat: info.stepsPerBeat, absStep: (info.loop | 0) * (info.trackLen || 0) + ev.step });
+    if (o.geste) {
+      // avec un geste, tout le groupe est programmé dès son premier pas : resserrer un groupe avance
+      // certaines attaques, qui ne doivent pas arriver après leur heure
+      const n = gesteGroup(o);
+      for (let k = k0; k < k1; k++) {
+        if (k % n !== 0) continue;
+        const gt = gesteTimes(o.geste, n, sub * 1000, k / n);
+        const start = (k / rate - (step - ev.step)) * sd;
+        for (let i = 0; i < n; i++) {
+          const kk = k + i;
+          if (kk / rate >= ev.len - eps) break;
+          const tk = tick(o, ev, kk, tinfo(kk));
+          if (!tk) continue;
+          const at = start + gt.at[i] / 1000;
+          const total = tk.fixed ? sub * tk.gate : gt.dur[i] / 1000;
+          const r = tk.ratchet;
+          for (let j = 0; j < r; j++) {
+            const dur = r > 1 ? Math.min(total, gt.space[i] / 1000) / r * 0.9 : total;
+            tk.notes.forEach((nn) =>
+              out.push({ midi: nn, at: at + (j * gt.space[i]) / 1000 / r, dur: Math.max(0.01, dur), vel: clamp(tk.vel * gt.vel[i] * (j ? 0.85 : 1), 0.03, 1), cutoff: tk.cutoff, first: kk === 0 && j === 0 })
+            );
+          }
+        }
+      }
+      return out;
+    }
     for (let k = k0; k < k1; k++) {
       if (k / rate >= ev.len - eps) break;
-      const tk = tick(o, ev, k, { loop: info.loop, stepsPerBeat: info.stepsPerBeat, absStep: (info.loop | 0) * (info.trackLen || 0) + ev.step });
+      const tk = tick(o, ev, k, tinfo(k));
       if (!tk) continue;
       const at = (k / rate - (step - ev.step)) * sd + tk.swing * sub + (tk.jitter || 0);
       const r = tk.ratchet;
@@ -783,6 +901,19 @@
     const ev = { step: 0, len: Math.ceil(count / o.rate) + 1, notes, vel: 0.8 };
     const out = [];
     for (let k = 0; k < count; k++) out.push(tick(o, ev, k, { loop: info.loop | 0, stepsPerBeat: info.stepsPerBeat || 4 }));
+    if (o.geste) {
+      // durées et forces du geste, sur une grille de référence (le décalage des attaques est dans « shift », en pas)
+      const n = gesteGroup(o);
+      const ref = 125;
+      out.forEach((t, k) => {
+        if (!t) return;
+        const gt = gesteTimes(o.geste, n, ref, Math.floor(k / n));
+        const i = k % n;
+        if (!t.fixed) t.gate = gt.dur[i] / ref;
+        t.vel = clamp(t.vel * gt.vel[i], 0.03, 1);
+        t.shift = gt.at[i] / ref - i;
+      });
+    }
     return out;
   }
 
@@ -801,6 +932,7 @@
   SS.Arp = {
     MODES, RATES, HARMONY, RETRIG, LANES, DEFAULTS, PRESETS, CHORD_TYPES,
     normalize, fromPreset, analyzeChord, parsePattern, euclid, tick, renderStep, preview, parseChordSymbol,
+    GESTES, GROUP_OF, GROUP_SIZES, normGeste, gesteTimes, gesteGroup: (arp) => gesteGroup(normalize(arp)),
     degreeNote: (notes, d) => degreeNote(chordOf(notes), d),
     rateLabel: (r) => {
       const x = RATES.find((y) => Math.abs(y.id - r) < 1e-6);

@@ -1,14 +1,13 @@
 /*
- * Fenêtre de l'arpégiateur (moteur : js/arp.js) d'une piste Arpège — un seul écran.
+ * Fenêtre de l'arpégiateur (moteur : js/arp.js) d'une piste Arpège.
  *
- *   Lecteur  : ▶ lecture en boucle sur un accord d'essai (curseur sur la grille) ; l'accord se choisit
- *              en deux menus et peut remplir la piste d'un clic.
- *   Les pas  : cliquer un pas de la grille règle sa vélocité, sa longueur (¼ temps … 4 temps),
- *              le nombre de notes jouées ensemble (1 à 3), ou en fait un silence ; la rangée de vélocités
- *              se règle aussi en glissant.
- *   Motif    : le motif en cours, ‹ › pour passer au voisin, et une fenêtre de sélection (js/motifs.js :
- *              catégories, recherche, récents) qui fait entendre chaque motif tout de suite.
- *   Réglages : vitesse, octaves, longueur du motif (4 / 8 / 16 pas), longueur des notes, jeu humain.
+ *   En-tête (toujours visible) : ▶ lecture en boucle sur un accord d'essai, grille des pas avec curseur,
+ *     vélocités ; un clic sur un pas règle sa vélocité, sa longueur, ses notes à la fois ou en fait un silence.
+ *     La boucle dure le plus petit nombre de mesures entières qui contient au moins 16 pas et un cycle complet
+ *     du motif ; au-delà de 16 pas, la grille passe en pages qui suivent le curseur.
+ *   Onglet Arpège : motif (tuile → fenêtre de choix, js/motifs.js), vitesse, octaves, pas, geste, durée des notes.
+ *   Onglet Geste : gestes tout prêts, pavé (étalement × alternance), zoom sur un groupe, 5 curseurs dans l'ordre
+ *     d'application (étalement, alternance, microvariation, accent, articulation), écoute Régulier / Geste.
  *
  * Tout réglage est écrit dans track.arp (normalisé par SS.Arp.normalize) et s'entend tout de suite.
  */
@@ -114,7 +113,34 @@ SS.arpPanel = (() => {
   }
 
   const loop = { on: false, timer: null, raf: null, next: 0, step: 0, queue: [], tick: -1 };
-  const LOOP_STEPS = () => SS.stepsPerBar(app.project()) * 2; // la boucle d'écoute dure 2 mesures
+  /*
+   * Longueur de la boucle d'écoute : le plus petit nombre de mesures entières qui contient au moins
+   * 16 pas d'arpège ET un cycle complet du motif. La grille montre exactement ce qui est joué,
+   * par pages de 16 pas qui suivent le curseur.
+   */
+  const view = { page: 0 };
+  function motifPeriod(notes) {
+    const a = { ...track.arp, evolve: 0, human: 0, motion: 0 };
+    const seq = A().preview(a, notes, 192).map((t) => (t ? t.notes.join('+') + '/' + t.vel.toFixed(2) : '.'));
+    for (let p = 1; p <= 96; p++) {
+      let ok = true;
+      for (let i = 0; i + p < seq.length; i++) if (seq[i] !== seq[i + p]) { ok = false; break; }
+      if (ok) return p;
+    }
+    return 96;
+  }
+  function loopInfo() {
+    const notes = sourceChord().notes;
+    const spb = SS.stepsPerBar(app.project());
+    const rate = track.arp.rate;
+    const period = motifPeriod(notes);
+    let bars = 1;
+    while (bars < 16 && Math.ceil(bars * spb * rate - 1e-9) < Math.max(16, period)) bars++;
+    const steps = bars * spb;
+    const ticks = Math.ceil(steps * rate - 1e-9);
+    return { bars, steps, ticks, period, pages: Math.ceil(ticks / N) };
+  }
+  const LOOP_STEPS = () => loopInfo().steps;
 
   async function startLoop() {
     const ctx = SS.audio.ensureCtx();
@@ -153,12 +179,15 @@ SS.arpPanel = (() => {
       const s = loop.step % total;
       const lp = Math.floor(loop.step / total); // passage de boucle : EVOLVE varie d'un passage à l'autre
       const ev = { step: 0, len: total, notes, vel: 0.85 };
-      const out = A().renderStep(track.arp, ev, s, { loop: lp, stepSec, stepsPerBeat: SS.stepsPerBeat(project), trackLen: total });
+      const arp = gesteCompare === 'regulier' ? { ...track.arp, geste: undefined } : track.arp; // « Écouter : Régulier »
+      const out = A().renderStep(arp, ev, s, { loop: lp, stepSec, stepsPerBeat: SS.stepsPerBeat(project), trackLen: total });
       out.forEach((n) => {
         const group = out.filter((x) => x.at === n.at);
         SS.audio.playNote(track, n.midi, loop.next + n.at, n.dur, n.vel * (group.length > 1 ? 0.8 : 1), undefined, group.indexOf(n), group.length, { cutoff: n.cutoff });
       });
-      loop.queue.push({ time: loop.next, tick: Math.floor(s * track.arp.rate + 1e-9) });
+      // une entrée par pas d'arpège (et non par double-croche) : le curseur passe par chaque colonne
+      const rate = track.arp.rate;
+      for (let k = Math.ceil(s * rate - 1e-9); k < Math.ceil((s + 1) * rate - 1e-9); k++) loop.queue.push({ time: loop.next + (k / rate - s) * stepSec, tick: k });
       loop.next += stepSec;
       loop.step++;
     }
@@ -169,14 +198,17 @@ SS.arpPanel = (() => {
     if (!loop.on) return;
     const now = SS.audio.ensureCtx().currentTime;
     while (loop.queue.length && loop.queue[0].time <= now) loop.tick = loop.queue.shift().tick;
+    if (loop.tick >= 0 && Math.floor(loop.tick / N) !== view.page) {
+      view.page = Math.floor(loop.tick / N); // la page suit le curseur
+      render();
+    }
     const head = dlg && dlg.querySelector('.arp-head');
     if (head) {
       const cw = +head.getAttribute('width');
-      head.setAttribute('x', loop.tick >= 0 && loop.tick < 16 ? loop.tick * cw : -100);
+      head.setAttribute('x', loop.tick >= 0 ? (loop.tick % N) * cw : -100);
     }
     loop.raf = requestAnimationFrame(drawHead);
   }
-
 
   function slider(label, value, min, max, step, fmt, oninput, opts = {}) {
     const out = h('output', {}, fmt(value));
@@ -212,7 +244,11 @@ SS.arpPanel = (() => {
   }
 
   function gridSvg(arp, notes) {
-    const ticks = A().preview(arp, notes, N, { loop: 0, stepsPerBeat: 4 });
+    const info = loopInfo();
+    if (view.page >= info.pages) view.page = 0;
+    const off = view.page * N;
+    const cols = Math.min(N, info.ticks - off);
+    const ticks = A().preview(arp, notes, info.ticks, { loop: 0, stepsPerBeat: 4 }).slice(off, off + cols);
     const all = ticks.flatMap((t) => (t ? t.notes : []));
     const W = 640;
     const H = 120;
@@ -220,11 +256,17 @@ SS.arpPanel = (() => {
     const p = P();
     let svg = '';
     for (let i = 0; i < N; i++) {
-      const cls = (i % 4 === 0 ? 'ag-beat' : 'ag-col') + (i >= p ? ' ag-rep' : '');
+      if (i >= cols) {
+        svg += `<rect class="ag-end" x="${i * cw + 1}" y="1" width="${cw - 2}" height="${H - 2}" rx="3"/>`;
+        continue;
+      }
+      const cls = (i % 4 === 0 ? 'ag-beat' : 'ag-col') + ((off + i) % p !== off + i ? ' ag-rep' : '');
       svg += `<rect class="${cls}" x="${i * cw + 1}" y="1" width="${cw - 2}" height="${H - 2}" rx="3"/>`;
-      if (sel != null && i % p === sel) svg += `<rect class="arp-sel" x="${i * cw + 1.5}" y="1.5" width="${cw - 3}" height="${H - 3}" rx="3"/>`;
+      svg += `<text class="ag-num" x="${(i * cw + cw / 2).toFixed(1)}" y="${H - 3}">${off + i + 1}</text>`;
+      if (sel != null && (off + i) % p === sel) svg += `<rect class="arp-sel" x="${i * cw + 1.5}" y="1.5" width="${cw - 3}" height="${H - 3}" rx="3"/>`;
     }
-    svg += `<rect class="arp-head" x="${loop.on && loop.tick >= 0 ? (loop.tick % N) * cw : -100}" y="0" width="${cw}" height="${H}" rx="3"/>`;
+    if (cols < N) svg += `<text class="ag-endtxt" x="${(cols * cw + (N * cw)) / 2}" y="${H / 2}">fin de la boucle</text>`;
+    svg += `<rect class="arp-head" x="${loop.on && loop.tick >= 0 && Math.floor(loop.tick / N) === view.page ? (loop.tick % N) * cw : -100}" y="0" width="${cw}" height="${H}" rx="3"/>`;
     if (all.length) {
       const lo = Math.min(...all) - 1;
       const hi = Math.max(...all) + 1;
@@ -235,9 +277,10 @@ SS.arpPanel = (() => {
           return;
         }
         t.notes.forEach((n) => {
-          const w = Math.min(cw * t.gate, W - i * cw) - 3;
+          const sx = (i + (t.shift || 0)) * cw; // attaque déplacée par le geste
+          const w = Math.min(cw * t.gate, W - sx) - 3;
           const op = (0.3 + 0.7 * t.vel).toFixed(2);
-          svg += `<rect class="note" x="${i * cw + 2}" y="${(y(n) - 4).toFixed(1)}" width="${Math.max(4, w).toFixed(1)}" height="8" rx="2" style="opacity:${op}"/>`;
+          svg += `<rect class="note" x="${sx + 2}" y="${(y(n) - 4).toFixed(1)}" width="${Math.max(4, w).toFixed(1)}" height="8" rx="2" style="opacity:${op}"/>`;
         });
         const label = t.notes.map((n) => A().noteName(n).replace(/-?\d+$/, '')).join('+');
         svg += `<text x="${(i * cw + cw / 2).toFixed(1)}" y="12">${label}</text>`;
@@ -247,26 +290,50 @@ SS.arpPanel = (() => {
     wrap.firstChild.addEventListener('click', (e) => {
       const r = e.currentTarget.getBoundingClientRect();
       const i = Math.max(0, Math.min(N - 1, Math.floor(((e.clientX - r.left) / r.width) * N)));
-      sel = sel === i % P() ? null : i % P();
+      if (i >= cols) return;
+      const k = (off + i) % P();
+      sel = sel === k ? null : k;
       render();
     });
-    return wrap;
+    const pager = h(
+      'div',
+      { class: 'arp-pager' },
+      h('span', {}, `Boucle : ${info.bars} mesure${info.bars > 1 ? 's' : ''} · ${info.ticks} pas`),
+      h('span', { class: 'spacer' }),
+      info.pages > 1
+        ? [
+            h('button', { type: 'button', class: 'sd-mini', disabled: view.page === 0, onclick: () => ((view.page = Math.max(0, view.page - 1)), render()) }, '‹'),
+            h('b', {}, `Page ${view.page + 1} / ${info.pages}`),
+            h('button', { type: 'button', class: 'sd-mini', disabled: view.page >= info.pages - 1, onclick: () => ((view.page = Math.min(info.pages - 1, view.page + 1)), render()) }, '›'),
+            loop.on ? h('small', {}, 'suit la lecture') : null,
+          ]
+        : null
+    );
+    return h('div', {}, pager, wrap);
   }
 
   /** Rangée de vélocités sous la grille : cliquer / glisser verticalement pour régler chaque pas. */
   function velRow() {
     const p = P();
     const row = h('div', { class: 'arp-vels', title: 'Vélocité de chaque pas : cliquer / glisser verticalement' });
+    const info = loopInfo();
+    const off = view.page * N;
     for (let i = 0; i < N; i++) {
-      const v = stepValues(i % p).vel;
-      row.append(h('span', { class: 'arp-vel' + (i >= p ? ' rep' : '') + (sel != null && i % p === sel ? ' sel' : '') }, h('i', { style: `height:${Math.round(v * 100)}%` })));
+      if (off + i >= info.ticks) {
+        row.append(h('span', { class: 'arp-vel end' }));
+        continue;
+      }
+      const k = (off + i) % p;
+      const v = stepValues(k).vel;
+      row.append(h('span', { class: 'arp-vel' + (k !== off + i ? ' rep' : '') + (sel != null && k === sel ? ' sel' : '') }, h('i', { style: `height:${Math.round(v * 100)}%` })));
     }
     let drag = false;
     const apply = (e, push) => {
       const r = row.getBoundingClientRect();
       const i = Math.max(0, Math.min(N - 1, Math.floor(((e.clientX - r.left) / r.width) * N)));
       const v = Math.max(0.05, Math.min(1, Math.round((1 - (e.clientY - r.top) / r.height) * 20) / 20));
-      const j = i % p;
+      if (off + i >= info.ticks) return;
+      const j = (off + i) % p;
       if (!push && stepValues(j).vel === v) return;
       if (push) undo.push(clone(track.arp));
       const lanes = sizedLanes(track.arp, p);
@@ -274,7 +341,7 @@ SS.arpPanel = (() => {
       // la vélocité seule ne doit pas activer la ligne de rythme si elle n'existe pas encore
       if (!track.arp.lanes.rhythm.length && track.arp.rhythm.type !== 'lane') lanes.rhythm = [];
       track.arp = A().normalize({ ...track.arp, lanes, preset: '' });
-      row.querySelectorAll('.arp-vel').forEach((c, k) => k % p === j && (c.firstChild.style.height = `${Math.round(v * 100)}%`));
+      row.querySelectorAll('.arp-vel').forEach((c, k) => off + k < info.ticks && (off + k) % p === j && (c.firstChild.style.height = `${Math.round(v * 100)}%`));
       app.changed();
     };
     row.addEventListener('pointerdown', (e) => {
@@ -304,7 +371,7 @@ SS.arpPanel = (() => {
   ];
 
   function stepPanel() {
-    if (sel == null) return h('div', { class: 'arp-step empty' }, '👆 Clique un pas de la grille pour régler sa vélocité, sa longueur, jouer 2 ou 3 notes à la fois, ou en faire un silence.');
+    if (sel == null) return null;
     const v = stepValues(sel);
     return h(
       'div',
@@ -437,9 +504,6 @@ SS.arpPanel = (() => {
     for (const f of FEEL) for (const b of BASE_RATES) if (Math.abs(b.id * f.id - r) < 1e-6) return { base: b.id, feel: f.id };
     return null;
   }
-  const NOTE_LENGTHS = [{ id: 'short', label: 'Piquée' }, { id: 'normal', label: 'Normale' }, ...LENGTHS];
-  const noteLenId = (a) => (a.noteLen > 0 ? a.noteLen : a.gate < 0.7 ? 'short' : 'normal');
-  const noteLenPatch = (id) => (id === 'short' ? { noteLen: 0, gate: 0.45 } : id === 'normal' ? { noteLen: 0, gate: 0.9 } : { noteLen: +id });
 
   // derniers motifs choisis, gardés dans ce navigateur (confort personnel, sans importance si perdu)
   const RECENT_KEY = 'stepseq.arp.recentMotifs';
@@ -479,30 +543,15 @@ SS.arpPanel = (() => {
   }
 
   /** Carte du motif en cours (écran principal). */
-  function motifCard() {
+  /** Tuile du motif en cours : un clic ouvre la fenêtre de choix des motifs. */
+  function motifTile() {
     const cur = currentMotif();
-    const i = SS.MOTIFS.indexOf(cur);
-    const cat = SS.MOTIF_CATS.find((c) => c.id === cur.cat);
-    const step = (d) => {
-      const m = SS.MOTIFS[(i + d + SS.MOTIFS.length) % SS.MOTIFS.length];
-      remember(m.id);
-      applyMotif(m);
-    };
     return h(
-      'div',
-      { class: 'arp-field' },
-      h('span', { class: 'dlg-label' }, 'Motif'),
-      h(
-        'div',
-        { class: 'arp-motif-card' },
-        h('button', { type: 'button', class: 'arp-motif-main', title: 'Choisir un autre motif', onclick: openPicker },
-          h('span', { class: 'arp-motif-icon', html: styleIcon(cur) }),
-          h('span', { class: 'arp-motif-text' }, h('b', {}, cur.name), h('small', {}, (cat ? cat.label + ' · ' : '') + example(cur)))
-        ),
-        h('button', { type: 'button', class: 'btn arp-motif-nav', title: 'Motif précédent', onclick: () => step(-1) }, '‹'),
-        h('button', { type: 'button', class: 'btn arp-motif-nav', title: 'Motif suivant', onclick: () => step(1) }, '›'),
-        h('button', { type: 'button', class: 'btn btn-accent arp-motif-change', onclick: openPicker }, `Changer de motif…`)
-      )
+      'button',
+      { type: 'button', class: 'arp-motif-tile', title: 'Choisir un autre motif', onclick: openPicker },
+      h('span', { class: 'arp-motif-icon', html: styleIcon(cur) }),
+      h('span', { class: 'arp-motif-text' }, h('b', {}, cur.name), h('small', {}, example(cur))),
+      h('span', { class: 'arp-motif-chev', 'aria-hidden': 'true' }, '›')
     );
   }
 
@@ -562,38 +611,222 @@ SS.arpPanel = (() => {
     );
   }
 
+  /* ---------- Geste : étalement, alternance, microvariation, accent, articulation (moteur : SS.Arp.gesteTimes) ---------- */
+  let tab = 'arp'; // onglet sous l'en-tête : 'arp' (réglages) ou 'geste' (ajuster le geste)
+  let gesteCompare = 'geste'; // écoute : 'geste' ou 'regulier' (le même arpège, sans geste)
+  const MECA = () => A().GESTES[0];
+  const gesteOf = () => track.arp.geste || A().normGeste({ id: MECA().id, ...MECA().g });
+  const groupAuto = () => A().gesteGroup({ ...track.arp, geste: { ...gesteOf(), group: 0 } });
+  const groupSize = () => gesteOf().group || groupAuto();
+  function setGeste(patch, opts) {
+    set({ geste: { ...gesteOf(), ...patch } }, opts);
+  }
+  /** Change le geste sans reconstruire la fenêtre (pendant un glissé) ; on rafraîchit le zoom seulement. */
+  function setGesteLive(patch) {
+    track.arp = A().normalize({ ...track.arp, geste: { ...gesteOf(), ...patch }, preset: '' });
+    app.changed();
+    const z = dlg.querySelector('.geste-zoom-svg');
+    if (z) z.innerHTML = gesteSvg(gesteOf(), groupSize(), stepMs(), true);
+  }
+  const stepMs = () => 60000 / app.project().tempo / 4 / track.arp.rate; // durée d'un pas d'arpège
+  const oddNotes = (n) => (n === 2 ? 'la note 2' : n === 3 ? 'la note 2' : 'les notes 2, 4' + (n > 4 ? '…' : ''));
+
+  /** Dessin d'un groupe : grille en pointillés, attaques, durées, force (opacité), respiration en jaune. */
+  function gesteSvg(g, n, sub, big) {
+    const r = A().gesteTimes(g, n, sub, 0);
+    const W = big ? 560 : 120, H = big ? 150 : 22, L = big ? 10 : 2, R = big ? 10 : 2;
+    const x = (ms) => L + (ms / (r.groupMs * 1.05)) * (W - L - R);
+    const y = (k) => (big ? 20 : 3) + (1 - k / Math.max(1, n - 1)) * (H - (big ? 48 : 8));
+    let s = '';
+    if (big) {
+      for (let i = 0; i <= n; i++) s += `<line class="${i === n ? 'g-next' : 'g-grid'}" x1="${x(i * sub)}" x2="${x(i * sub)}" y1="10" y2="${H - 24}"/>`;
+      s += `<rect class="g-breath" x="${x(r.at[n - 1])}" y="10" width="${x(r.groupMs) - x(r.at[n - 1])}" height="${H - 34}"/>`;
+      s += `<text class="g-breath-t" x="${(x(r.at[n - 1]) + x(r.groupMs)) / 2}" y="${H - 10}">respiration ${Math.round(r.groupMs - r.at[n - 1])} ms</text>`;
+      s += `<text class="g-t" x="${x(0)}" y="${H - 10}">0</text><text class="g-t" x="${x(r.groupMs)}" y="${H - 10}" text-anchor="end">groupe suivant</text>`;
+    } else s += `<line class="g-next" x1="${x(r.groupMs)}" x2="${x(r.groupMs)}" y1="0" y2="${H}"/>`;
+    r.at.forEach((ms, k) => {
+      if (big) s += `<rect class="g-ghost" x="${x(k * sub)}" y="${y(k) - 4}" width="${x(sub * 0.9) - x(0)}" height="8" rx="2"/>`;
+      s += `<rect class="g-note${k === 0 ? ' first' : ''}" x="${x(ms)}" y="${y(k) - (big ? 5 : 1.5)}" width="${Math.max(2, x(ms + r.dur[k]) - x(ms))}" height="${big ? 10 : 3}" rx="${big ? 3 : 1}" style="opacity:${Math.min(1, 0.35 + 0.5 * r.vel[k]).toFixed(2)}"/>`;
+      if (big) s += `<text class="g-n" x="${x(ms) + 2}" y="${y(k) - 8}">${k + 1}</text>`;
+    });
+    return `<svg class="${big ? 'g-big' : 'g-mini'}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Geste d’un groupe de ${n} notes">${s}</svg>`;
+  }
+
+  function gesteChips(small) {
+    const g = gesteOf();
+    return h(
+      'div',
+      { class: 'geste-chips' + (small ? ' small' : ''), role: 'radiogroup', 'aria-label': 'Geste' },
+      A().GESTES.map((x) =>
+        h(
+          'button',
+          { type: 'button', role: 'radio', 'aria-checked': String(g.id === x.id), class: 'geste-chip' + (g.id === x.id ? ' on' : ''), title: x.desc, onclick: () => setGeste({ id: x.id, ...x.g }) },
+          h('span', { html: gesteSvg(x.g, 4, 125, false) }),
+          h('b', {}, x.label)
+        )
+      )
+    );
+  }
+
+  /** Pavé tactile : horizontal = étalement (serré → grille), vertical = alternance (en avance ↑, en retard ↓). */
+  function gestePad() {
+    const g = gesteOf();
+    const dot = h('span', { class: 'dot', style: `left:${((g.spread - 0.1) / 0.9) * 100}%;top:${50 + (g.alt / 0.25) * 50}%` });
+    const pad = h(
+      'div',
+      { class: 'geste-pad', role: 'slider', 'aria-label': 'Étalement et alternance', tabindex: '0' },
+      h('span', { class: 'cross', style: 'left:0;right:0;top:50%;height:1px' }),
+      dot,
+      h('span', { class: 'ax', style: 'left:8px;top:6px' }, '↑ ' + oddNotes(groupSize()) + ' en avance'),
+      h('span', { class: 'ax', style: 'left:8px;top:calc(50% + 4px)' }, 'régulier'),
+      h('span', { class: 'ax', style: 'left:8px;bottom:6px' }, 'serré'),
+      h('span', { class: 'ax', style: 'right:8px;bottom:6px' }, 'grille'),
+      h('span', { class: 'ax', style: 'right:8px;bottom:22px;text-align:right' }, 'en retard ↓')
+    );
+    let drag = false;
+    const apply = (e) => {
+      const r = pad.getBoundingClientRect();
+      const fx = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+      const fy = Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
+      const spread = Math.round((0.1 + 0.9 * fx) * 100) / 100;
+      let alt = Math.round((fy - 0.5) * 2 * 0.25 * 100) / 100;
+      if (Math.abs(alt) < 0.015) alt = 0; // aimant sur « régulier »
+      dot.style.left = `${((spread - 0.1) / 0.9) * 100}%`;
+      dot.style.top = `${50 + (alt / 0.25) * 50}%`;
+      setGesteLive({ id: '', spread, alt });
+    };
+    pad.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      pad.setPointerCapture(e.pointerId);
+      undo.push(clone(track.arp));
+      drag = true;
+      sliding = true;
+      apply(e);
+    });
+    pad.addEventListener('pointermove', (e) => drag && apply(e));
+    const end = () => {
+      if (!drag) return;
+      drag = false;
+      sliding = false;
+      render();
+    };
+    pad.addEventListener('pointerup', end);
+    pad.addEventListener('pointercancel', end);
+    pad.addEventListener('keydown', (e) => {
+      const d = { ArrowLeft: [-0.05, 0], ArrowRight: [0.05, 0], ArrowUp: [0, -0.01], ArrowDown: [0, 0.01] }[e.key];
+      if (!d) return;
+      e.preventDefault();
+      setGeste({ id: '', spread: g.spread + d[0], alt: Math.round((g.alt + d[1]) * 100) / 100 });
+      dlg.querySelector('.geste-pad').focus();
+    });
+    return pad;
+  }
+
+  /** Un des 5 curseurs numérotés (dans l'ordre d'application). */
+  function gesteSlider(i, name, fmt, lo, hi, v, help, scale, toPatch) {
+    const out = h('output', {}, fmt(v));
+    const input = h('input', { type: 'range', min: lo, max: hi, value: v, 'aria-label': name });
+    let pushed = false;
+    input.addEventListener('input', () => {
+      sliding = true;
+      if (!pushed) undo.push(clone(track.arp));
+      pushed = true;
+      out.textContent = fmt(+input.value);
+      setGesteLive({ id: '', ...toPatch(+input.value) });
+    });
+    input.addEventListener('change', () => {
+      pushed = false;
+      sliding = false;
+      render();
+    });
+    return h('div', { class: 'geste-row', title: help }, h('span', { class: 'geste-num' }, String(i)), h('b', {}, name), out, input, h('div', { class: 'arp-scale' }, scale.map((t) => h('span', {}, t))));
+  }
+
+  /** Onglet Geste. */
+  function gesteTab() {
+    const g = gesteOf();
+    const n = groupSize();
+    const sub = stepMs();
+    const preset = A().GESTES.find((x) => x.id === g.id);
+    return h(
+      'div',
+      { class: 'geste-tab' },
+      h(
+        'div',
+        { class: 'geste-tab-head' },
+        h('small', { class: 'arp-help' }, (preset ? `${preset.label} — ${preset.desc}` : 'Personnalisé') + ` · groupes de ${n} notes`),
+        h('span', { class: 'spacer' }),
+        h('span', { class: 'dlg-label' }, 'Écouter'),
+        segmented(
+          [
+            { id: 'regulier', label: 'Régulier', hint: 'le même arpège, sans geste' },
+            { id: 'geste', label: 'Geste' },
+          ],
+          gesteCompare,
+          (v) => ((gesteCompare = v), render()),
+          'Comparer'
+        )
+      ),
+      gesteChips(true),
+      h(
+        'div',
+        { class: 'geste-detail' },
+        h('div', { class: 'geste-pad-col' }, gestePad(), h('small', { class: 'arp-help' }, 'Glisser : horizontal = étalement, vertical = alternance.')),
+        h(
+          'div',
+          { class: 'geste-zoom' },
+          h(
+            'div',
+            { class: 'geste-zoom-head' },
+            h('span', { class: 'dlg-label' }, `Zoom sur un groupe · ${app.project().tempo} BPM`),
+            h('span', { class: 'spacer' }),
+            h('span', { class: 'dlg-label' }, 'Groupes de'),
+            segmented([{ id: 0, label: `Auto (${groupAuto()})` }, ...A().GROUP_SIZES.map((k) => ({ id: k, label: String(k) }))], g.group || 0, (v) => setGeste({ group: +v }), 'Taille des groupes')
+          ),
+          h('div', { class: 'geste-zoom-svg', html: gesteSvg(g, n, sub, true) }),
+          h(
+            'div',
+            { class: 'ab' },
+            h('small', { class: 'arp-help' }, 'Pointillés : la grille · jaune : respiration avant le groupe suivant.'),
+            h('span', { class: 'spacer' }),
+            h('button', { type: 'button', class: 'btn small', title: 'Tirer d’autres petits décalages', onclick: () => setGeste({ take: g.take + 1 }) }, `Nouvelle prise ↻ (prise ${g.take})`)
+          )
+        )
+      ),
+      h(
+        'div',
+        { class: 'geste-rows five' },
+        gesteSlider(1, 'Étalement', (v) => `${Math.round((v / 100) * sub * (n - 1))} ms`, 10, 100, Math.round(g.spread * 100), 'De la 1re à la dernière attaque du groupe. Le groupe suivant ne bouge pas.', ['serré', 'grille'], (v) => ({ spread: v / 100 })),
+        gesteSlider(2, 'Alternance', (v) => `${v >= 0 ? '+' : ''}${Math.round((v / 100) * sub)} ms`, -25, 25, Math.round(g.alt * 100), `Avance (−) ou retarde (+) ${oddNotes(n)}. Ce n’est pas un swing.`, ['en avance', 'en retard'], (v) => ({ alt: v / 100 })),
+        gesteSlider(3, 'Microvariation', (v) => (v ? `± ${v} ms` : 'aucune'), 0, 20, g.micro, 'Petits décalages ; la note 1 reste sur la pulsation. Toujours les mêmes pour une prise.', ['aucune', '± 20 ms'], (v) => ({ micro: v })),
+        gesteSlider(4, 'Accent', (v) => (v ? `1re note +${Math.round(v * 0.25)} %` : 'égal'), 0, 100, Math.round(g.accent * 100), 'Renforce la 1re note du geste, atténue les autres (vélocité : l’effet dépend du son).', ['égal', 'marqué'], (v) => ({ accent: v / 100 })),
+        gesteSlider(5, 'Articulation', (v) => (g.legato ? 'lié' : `${v} % de l’espace`), 20, 100, Math.round(g.art * 100), 'Durée de chaque note dans l’espace avant l’attaque suivante.', ['piqué', 'lié'], (v) => ({ art: v / 100, legato: false }))
+      )
+    );
+  }
+
+  /** Une ligne du formulaire : nom à gauche, réglage à droite. */
+  const formRow = (label, ...ctrl) => h('div', { class: 'arp-frow' }, h('span', { class: 'arp-flabel' }, label), h('div', { class: 'arp-fctrl' }, ...ctrl));
+
   function settingsView() {
     const arp = track.arp;
     const rs = splitRate(arp.rate);
     return h(
       'section',
-      { class: 'arp-simple' },
-      motifCard(),
-      h(
-        'div',
-        { class: 'arp-simple-row' },
-        h('div', { class: 'arp-field' }, h('span', { class: 'dlg-label' }, 'Vitesse'), segmented(BASE_RATES, rs ? rs.base : '', (v) => set({ rate: +v * (rs ? rs.feel : 1) })), segmented(FEEL, rs ? rs.feel : '', (v) => set({ rate: (rs ? rs.base : 1) * +v }))),
-        h(
-          'div',
-          { class: 'arp-field' },
-          h('span', { class: 'dlg-label' }, 'Octaves'),
-          segmented([1, 2, 3, 4].map((o) => ({ id: o, label: String(o) })), arp.octaves, (v) => set({ octaves: +v })),
-          h('span', { class: 'dlg-label' }, 'Motif'),
-          segmented([4, 8, 16].map((n) => ({ id: n, label: `${n} pas` })), arp.steps, (v) => set({ steps: +v, lanes: sizedLanes(arp, +v) }))
-        )
+      { class: 'arp-form' },
+      formRow('Motif', motifTile()),
+      formRow(
+        'Vitesse',
+        segmented(BASE_RATES, rs ? rs.base : '', (v) => set({ rate: +v * (rs ? rs.feel : 1) }), 'Vitesse'),
+        segmented(FEEL, rs ? rs.feel : '', (v) => set({ rate: (rs ? rs.base : 1) * +v }), 'Triolet ou pointée')
       ),
-      h(
-        'div',
-        { class: 'arp-field' },
-        h('span', { class: 'dlg-label' }, 'Longueur des notes'),
-        segmented(NOTE_LENGTHS, noteLenId(arp), (v) => set(noteLenPatch(v))),
-        h('small', { class: 'arp-help' }, 'Piquée / Normale suivent la vitesse ; 1 temps = une noire. Un pas peut avoir sa propre longueur.')
-      ),
-      slider('Jeu humain', Math.round(arp.human * 100), 0, 100, 5, (v) => (v ? `${v} %` : 'machine'), (v, push) => set({ human: v / 100 }, { push }), {
-        cls: 'wide',
-        scale: ['machine', 'naturel', 'très libre'],
-        help: 'Petits décalages (jusqu’à ±12 ms), temps forts accentués, vélocités et longueurs légèrement variées — toujours les mêmes à la même graine.',
-      })
+      formRow('Octaves', segmented([1, 2, 3, 4].map((o) => ({ id: o, label: String(o) })), arp.octaves, (v) => set({ octaves: +v }), 'Octaves')),
+      formRow('Pas', segmented([4, 8, 16].map((n) => ({ id: n, label: String(n) })), arp.steps, (v) => set({ steps: +v, lanes: sizedLanes(arp, +v) }), 'Nombre de pas du motif'), h('small', { class: 'arp-fhelp' }, 'longueur de la grille réglable pas à pas')),
+      formRow('Geste', h('div', { class: 'geste-line' }, gesteChips(false), h('button', { type: 'button', class: 'btn geste-adjust', title: 'Régler finement le geste', onclick: () => ((tab = 'geste'), render()) }, 'Ajuster ›'))),
+      formRow(
+        'Durée des notes',
+        segmented([{ id: 'geste', label: 'Selon le geste' }, ...LENGTHS], arp.noteLen > 0 ? arp.noteLen : 'geste', (v) => set(v === 'geste' ? { noteLen: 0 } : { noteLen: +v }), 'Durée des notes')
+      )
     );
   }
 
@@ -602,11 +835,15 @@ SS.arpPanel = (() => {
     if (sel != null && sel >= P()) sel = null;
     const body = dlg.querySelector('.arp-body');
     const scroll = body.scrollTop;
-    body.replaceChildren(playerView(), settingsView());
+    const tabs = h(
+      'div',
+      { class: 'arp-tabs2', role: 'tablist' },
+      h('button', { type: 'button', role: 'tab', 'aria-selected': String(tab === 'arp'), class: tab === 'arp' ? 'on' : '', onclick: () => ((tab = 'arp'), render()) }, 'Arpège'),
+      h('button', { type: 'button', role: 'tab', 'aria-selected': String(tab === 'geste'), class: tab === 'geste' ? 'on' : '', onclick: () => ((tab = 'geste'), render()) }, 'Geste')
+    );
+    body.replaceChildren(playerView(), h('div', { class: 'arp-tabbox' }, tabs, h('div', { class: 'arp-tabpanel', role: 'tabpanel' }, tab === 'arp' ? settingsView() : gesteTab())));
     body.scrollTop = scroll;
     dlg.querySelector('.arp-undo').disabled = !undo.length;
-    const mode = A().MODES.find((m) => m.id === track.arp.mode);
-    dlg.querySelector('.arp-sub').textContent = `${track.name} · ${mode.label} · ${A().rateLabel(track.arp.rate)} · ${track.arp.octaves} oct.`;
   }
 
   function build() {
@@ -616,7 +853,7 @@ SS.arpPanel = (() => {
       h(
         'form',
         { method: 'dialog' },
-        h('div', { class: 'sd-head' }, h('div', {}, h('h2', {}, 'Arpégiateur'), h('p', { class: 'dlg-sub arp-sub' }))),
+        h('div', { class: 'sd-head' }, h('h2', {}, 'Arpégiateur')),
         h('div', { class: 'arp-body' }),
         h(
           'div',
@@ -689,9 +926,13 @@ SS.arpPanel = (() => {
     undo = [];
     test = null;
     sel = null;
+    tab = 'arp';
+    gesteCompare = 'geste';
+    view.page = 0;
     render();
     dlg.showModal();
   }
 
-  return { init: (a) => (app = a), open, _loop: loop };
+  // _loop / _info / _view : accès pour les tests de bout en bout
+  return { init: (a) => (app = a), open, _loop: loop, _info: () => loopInfo(), _view: view };
 })();

@@ -244,22 +244,13 @@ test('Silence et vélocité par pas', () => {
   assert.ok(Math.abs(p[2].vel - 0.4) < 1e-9);
 });
 
-test('Jeu humain : reproductible, borné, accents sur les temps, jamais sur les hauteurs', () => {
-  const arp = { mode: 'updown', rate: 1, octaves: 2, human: 1, seed: 8 };
-  const run = () => JSON.stringify(A.preview(arp, [57, 60, 64], 64, { loop: 3 }));
-  assert.equal(run(), run());
-  const hum = A.preview(arp, [57, 60, 64], 64);
-  const dry = A.preview({ ...arp, human: 0 }, [57, 60, 64], 64);
-  hum.forEach((t, i) => {
-    assert.deepEqual(t.notes, dry[i].notes);
-    assert.ok(Math.abs(t.jitter) <= 0.0161, `décalage ${t.jitter}`);
-  });
-  assert.ok(hum.some((t) => t.jitter !== 0) && hum.some((t, i) => t.vel !== dry[i].vel));
-  // en moyenne, les temps sont plus forts que les doubles-croches hors croche
-  const avg = (f) => { const v = hum.filter((t, i) => f(i)).map((t) => t.vel); return v.reduce((a, b) => a + b) / v.length; };
-  assert.ok(avg((i) => i % 4 === 0) > avg((i) => i % 2 === 1));
-  // humain à 0 : aucun décalage
-  assert.ok(dry.every((t) => t.jitter === 0));
+test('Ancien « jeu humain » : converti en geste (même hauteurs, note 1 sur la pulsation)', () => {
+  const o = A.normalize({ mode: 'updown', rate: 1, human: 0.5 });
+  assert.equal(o.human, 0);
+  assert.ok(o.geste && o.geste.micro === 6 && o.geste.spread === 1);
+  const hum = A.preview({ mode: 'updown', rate: 1, octaves: 2, human: 1 }, [57, 60, 64], 32);
+  const dry = A.preview({ mode: 'updown', rate: 1, octaves: 2 }, [57, 60, 64], 32);
+  hum.forEach((t, i) => assert.deepEqual(t.notes, dry[i].notes));
 });
 
 test('Double montée : A C E A′ · C E A′ C′ · E A′ C′ E′ (groupes de 4 qui grimpent)', () => {
@@ -295,5 +286,104 @@ test('Catalogue de motifs : valides, uniquement des notes de l’accord, sur des
       assert.ok(out.length > 0, `${m.id} sur ${sym} : muet`);
       out.forEach((t) => t.notes.forEach((n) => assert.ok(pcs.has(n % 12), `${m.id} sur ${sym} : ${A.noteName(n)} hors accord`)));
     }
+  }
+});
+
+/* ---------------- Geste ---------------- */
+const GT = (g, n = 4, subMs = 250, gi = 0) => A.gesteTimes(g, n, subMs, gi);
+const round = (a) => a.map((x) => Math.round(x));
+
+test('Geste : exemple du document — 120 BPM, groupe de 4, étalement 450 ms, alternance +22 ms', () => {
+  // grille 0, 250, 500, 750 ; étalement sur 450 ms → 0, 150, 300, 450 ; alternance +22 ms → 0, 172, 300, 472
+  assert.deepEqual(round(GT({ spread: 1 }).at), [0, 250, 500, 750]);
+  assert.deepEqual(round(GT({ spread: 0.6 }).at), [0, 150, 300, 450]);
+  const g = GT({ spread: 0.6, alt: 0.088 });
+  assert.deepEqual(round(g.at), [0, 172, 300, 472]);
+  assert.equal(Math.round(g.groupMs - g.at[3]), 528); // respiration avant le groupe suivant
+});
+
+test('Geste : le groupe suivant ne bouge pas, pas de dérive sur 64 groupes', () => {
+  const arp = { mode: 'up', rate: 1, geste: { spread: 0.3, alt: -0.1, micro: 10, accent: 0.5, art: 0.6 } };
+  const ev = { step: 0, len: 256, notes: [57, 60, 64, 67], vel: 0.8 };
+  for (let s = 0; s < 256; s += 4) {
+    const out = A.renderStep(arp, ev, s, { stepSec: 0.125 });
+    assert.ok(out.length >= 1);
+    assert.ok(Math.abs(out[0].at) < 1e-9, `groupe au pas ${s} : début décalé de ${out[0].at}`); // note 1 sur la pulsation
+    for (let i = 1; i < out.length; i++) assert.ok(out[i].at > out[i - 1].at && out[i].at < 0.5, 'ordre et frontière du groupe');
+  }
+});
+
+test('Geste : tout le groupe est programmé à son premier pas, rien aux pas suivants', () => {
+  const arp = { mode: 'up', rate: 1, geste: { spread: 0.4 } };
+  const ev = { step: 0, len: 16, notes: [57, 60, 64], vel: 0.8 };
+  assert.equal(A.renderStep(arp, ev, 0, { stepSec: 0.125 }).length, 4);
+  for (const s of [1, 2, 3]) assert.equal(A.renderStep(arp, ev, s, { stepSec: 0.125 }).length, 0);
+  // groupe coupé par la fin de l'accord : seules les notes dans l'accord
+  assert.equal(A.renderStep(arp, { ...ev, len: 2 }, 0, { stepSec: 0.125 }).length, 2);
+});
+
+test('Geste : microvariation bornée, reproductible ; changer un autre réglage ne relance pas le tirage', () => {
+  const g = { spread: 1, micro: 10, take: 3 };
+  const a = GT(g, 4, 250, 7).at;
+  assert.deepEqual(GT(g, 4, 250, 7).at, a);
+  assert.equal(a[0], 0); // note 1 sur la pulsation
+  a.forEach((x, i) => assert.ok(Math.abs(x - i * 250) <= 10 + 1e-9));
+  // l'accent ou l'articulation ne changent pas les décalages ; une nouvelle prise, si
+  assert.deepEqual(GT({ ...g, accent: 0.9, art: 0.3 }, 4, 250, 7).at, a);
+  assert.notDeepEqual(GT({ ...g, take: 4 }, 4, 250, 7).at, a);
+  // chaque groupe a ses propres petits écarts
+  assert.notDeepEqual(GT(g, 4, 250, 8).at, a);
+});
+
+test('Geste : accent sur la 1re note, articulation sans chevauchement sauf legato voulu', () => {
+  const g = GT({ spread: 0.5, accent: 1, art: 0.8 });
+  assert.ok(g.vel[0] > 1 && g.vel.slice(1).every((v) => v < 1));
+  g.dur.forEach((d, i) => assert.ok(d > 0 && g.at[i] + d < (i < 3 ? g.at[i + 1] : g.groupMs), `note ${i + 1} déborde`));
+  const leg = GT({ spread: 0.5, legato: true });
+  assert.ok(leg.at[0] + leg.dur[0] > leg.at[1], 'legato : chevauchement voulu');
+});
+
+test('Geste : alternance et étalement extrêmes, petits groupes — ordre toujours conservé', () => {
+  for (const n of [2, 3, 4, 6, 8])
+    for (const spread of [0.1, 0.5, 1])
+      for (const alt of [-0.25, 0, 0.25])
+        for (const sub of [20, 62.5, 250]) {
+          const g = GT({ spread, alt, micro: 20, take: 2 }, n, sub, 1);
+          for (let i = 1; i < n; i++) assert.ok(g.at[i] > g.at[i - 1], `n=${n} spread=${spread} alt=${alt} sub=${sub}`);
+          assert.equal(g.at[0], 0);
+          assert.ok(g.at[n - 1] < g.groupMs);
+        }
+});
+
+test('Geste « Mécanique » : mêmes attaques que sans geste ; taille des groupes d’après le motif', () => {
+  const ev = { step: 0, len: 32, notes: [57, 60, 64], vel: 0.8 };
+  const times = (arp) => {
+    const t = [];
+    for (let s = 0; s < 32; s++) A.renderStep(arp, ev, s, { stepSec: 0.125 }).forEach((n) => t.push([n.midi, +(s * 0.125 + n.at).toFixed(6), +n.dur.toFixed(4)]));
+    return t;
+  };
+  const meca = A.GESTES.find((x) => x.id === 'mecanique').g;
+  assert.deepEqual(times({ mode: 'up2', rate: 1, geste: { ...meca } }), times({ mode: 'up2', rate: 1 }));
+  assert.equal(A.gesteGroup({ mode: 'up2' }), 4);
+  assert.equal(A.gesteGroup({ mode: 'up3' }), 3);
+  assert.equal(A.gesteGroup({ mode: 'octaves' }), 2);
+  assert.equal(A.gesteGroup({ mode: 'up', geste: { group: 6 } }), 6);
+});
+
+test('Geste : longueur fixée (générale ou du pas) prioritaire sur l’articulation ; vélocité du pas conservée', () => {
+  const ev = { step: 0, len: 16, notes: [57, 60, 64], vel: 1 };
+  const out = A.renderStep({ mode: 'up', rate: 1, noteLen: 4, geste: { spread: 0.5, art: 0.3 } }, ev, 0, { stepSec: 0.125 });
+  out.forEach((n) => assert.ok(Math.abs(n.dur - 0.5) < 1e-9));
+  const v = A.renderStep({ mode: 'up', rate: 1, lanes: { vel: [1, 0.5, 1, 1] }, geste: { accent: 0 } }, ev, 0, { stepSec: 0.125 });
+  assert.ok(Math.abs(v[1].vel - 0.5) < 1e-9);
+});
+
+test('Les 6 gestes tout prêts sont valides et gardent les hauteurs', () => {
+  assert.equal(A.GESTES.length, 6);
+  const notes = A.parseChordSymbol('Am7', 3);
+  const dry = A.preview({ mode: 'up2', rate: 0.5 }, notes, 16).map((t) => t.notes);
+  for (const p of A.GESTES) {
+    assert.deepEqual(A.normGeste(p.g).spread, p.g.spread);
+    assert.deepEqual(A.preview({ mode: 'up2', rate: 0.5, geste: { id: p.id, ...p.g } }, notes, 16).map((t) => t.notes), dry, p.id);
   }
 });
