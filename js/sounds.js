@@ -217,18 +217,7 @@ SS.chordNotes = (root, chordId) => {
   return c.iv.map((i) => root + i);
 };
 
-SS.ARP_MODES = [
-  { id: 'up', label: 'Montant' },
-  { id: 'down', label: 'Descendant' },
-  { id: 'updown', label: 'Montant / Descendant' },
-  { id: 'random', label: 'Aléatoire' },
-];
-SS.ARP_RATES = [
-  { id: 0.5, label: '1/8' },
-  { id: 1, label: '1/16' },
-  { id: 2, label: '1/32' },
-  { id: 1.5, label: '1/16 triolet' },
-];
+// modes et vitesses de l'arpégiateur : voir js/arp.js (SS.Arp.MODES, SS.Arp.RATES)
 
 /* ---------- Notes ---------- */
 SS.NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];

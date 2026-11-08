@@ -238,9 +238,10 @@
       <div class="table-wrap"><table>
         <tr><th>Réglage</th><th>Où</th><th>Effet</th></tr>
         <tr><td>Accord</td><td>Piano roll (pistes Accord et Arpège)</td><td>Type des prochains accords posés : Majeur, Mineur, 7, Maj7, m7, Sus2, Sus4, Dim, Aug, Add9, m9, Power (5). Pour un accord déjà posé, fais un clic droit ou un appui long dessus.</td></tr>
-        <tr><td>Mode</td><td>Piano roll (Arpège)</td><td>Ordre des notes : Montant, Descendant, Montant / Descendant, Aléatoire</td></tr>
-        <tr><td>Vitesse</td><td>Piano roll (Arpège)</td><td>Durée de chaque note : 1/8, 1/16, 1/32 (par défaut) ou 1/16 triolet</td></tr>
-        <tr><td>Octaves</td><td>Piano roll (Arpège)</td><td>L'arpège monte sur 1, 2 ou 3 octaves</td></tr>
+        <tr><td>Arpège</td><td>Piano roll (Arpège)</td><td>Ordre des notes : 19 modes (Montant, Descendant, Montant / Descendant avec ou sans doublons, ordre joué, converge, basse pivot, aléatoire sans répétition, marche aléatoire, accord rythmique, motif relatif…)</td></tr>
+        <tr><td>Vitesse</td><td>Piano roll (Arpège)</td><td>Durée de chaque note : de 1/4 à 1/64, valeurs pointées et triolets</td></tr>
+        <tr><td>Octaves</td><td>Piano roll (Arpège)</td><td>L'arpège monte sur 1 à 4 octaves</td></tr>
+        <tr><td>ARP ONE</td><td>Piano roll (Arpège)</td><td>L'arpégiateur complet : presets, macros RATE / GATE / MOTION / EVOLVE (onglet PLAY), rythme euclidien, harmonie, lignes par pas (onglet CREATE). Voir ci-dessous.</td></tr>
         <tr><td>Octave − / +</td><td>Piano roll</td><td>Change les 2 octaves affichées, sans modifier les notes</td></tr>
         <tr><td>Effacer</td><td>Piano roll</td><td>Supprime toutes les notes de la piste, après confirmation</td></tr>
         <tr><td>✕ Fermer</td><td>Piano roll, à droite de la barre d'outils</td><td>Ferme le piano roll. Le chevron ⌄ de l'en-tête de piste le ferme aussi.</td></tr>
@@ -251,6 +252,16 @@
         <tr><td>Mesure, Mesures</td><td>Barre du haut</td><td>Change la longueur de la boucle</td></tr>
       </table></div>
       <p>Les réglages d'arpège s'appliquent tout de suite à tous les arpèges de la piste. La longueur d'un accord d'arpège fixe la durée pendant laquelle l'arpège tourne.</p>
+      <h3>ARP ONE, l'arpégiateur</h3>
+      <p>Le bouton <b>ARP ONE</b> du piano roll ouvre l'arpégiateur. Onglet <b>PLAY</b> : choisis un des 10 presets (Classic Synth Up, 1984 Pulse, Berlin Endless, Midnight Drive, Melodic Techno Rise, Cinematic Ostinato, Ambient Bloom, Chord Rhythm, Progression Follower, Poly Orbit) puis règle quatre macros :</p>
+      <ul>
+        <li><b>RATE</b> : vitesse de la grille (1/4 à 1/64, pointées, triolets) ;</li>
+        <li><b>GATE</b> : durée des notes (au-delà de 100 %, elles se chevauchent) ;</li>
+        <li><b>MOTION</b> : un LFO fait bouger le filtre, la dynamique et l'articulation — jamais les notes ;</li>
+        <li><b>EVOLVE</b> : variations à chaque passage de la boucle, en phrases A / A′ / B / A″ : nuances, puis petites permutations et octaves, puis respirations et ratchets, puis une phrase B au contour différent. Les notes sur les temps forts ne bougent jamais. 0 = boucle identique.</li>
+      </ul>
+      <p>La grille montre les 16 prochains pas sur le premier accord de la piste, et l'accord reconnu avec son degré de confiance. <b>FREEZE</b> fige la variation affichée, <b>Graine</b> tire d'autres choix aléatoires (toujours reproductibles : même graine = même musique), <b>RESET</b> revient au preset exact, <b>Annuler</b> défait le dernier réglage.</p>
+      <p>Onglet <b>CREATE</b> : ordre des notes, octaves, <b>harmonie</b> (notes de l'accord par défaut ; notes de passage ou approche chromatique sur les pas faibles si tu le demandes), rythme (tous les pas, <b>euclidien</b> coups / pas / rotation, ou ligne de pas), swing, tessiture, et des <b>lignes par pas</b> (vélocité, gate, octave, ratchet, probabilité) qui ont chacune leur longueur : une ligne de 15 pas contre une de 16 donne une boucle qui se décale. Le mode <b>Motif relatif</b> se tape en degrés : <code>d1 d5 d1+ d5 d3+ d5 . _</code> (d1 fondamentale, d3 tierce, d5 quinte, d7 septième, d9 neuvième, + / − octave, . silence, _ liaison) : le motif garde son rythme et son contour quand l'accord change.</p>
       <p>Passer une piste Mono en Accord par ⚙ garde les notes simples déjà posées. Les nouveaux clics poseront des accords.</p>
       <p>On ne peut pas changer une piste Drum en piste Instrument : crée une nouvelle piste.</p>
       <div class="note warn"><b>Attention</b> : réduire le nombre de mesures ou de temps supprime définitivement les notes qui dépassent la nouvelle fin. Enregistre avant si tu veux pouvoir revenir en arrière.</div>

@@ -64,7 +64,34 @@ Le chevron **›** dans l'en-tête d'une piste instrument affiche son piano roll
 
 - **Mono** : une note par position ; cliquer pour poser, glisser vers la droite pour allonger.
 - **Accord** : cliquer sur la fondamentale pose un accord du type choisi (Majeur, Mineur, 7, Maj7…).
-- **Arpège** : comme Accord, mais les notes sont jouées en arpège (mode, vitesse, octaves réglables).
+- **Arpège** : comme Accord, mais les notes sont jouées en arpège par **ARP ONE** (voir ci-dessous).
+
+### ARP ONE, l'arpégiateur
+
+Le bouton **ARP ONE** du piano roll d'une piste Arpège ouvre l'arpégiateur (`js/arp.js` pour le moteur,
+`js/arppanel.js` pour la fenêtre) :
+
+- **PLAY** : 10 presets (Classic Synth Up, 1984 Pulse, Berlin Endless, Midnight Drive, Melodic Techno Rise,
+  Cinematic Ostinato, Ambient Bloom, Chord Rhythm, Progression Follower, Poly Orbit) et quatre macros —
+  **RATE** (1/4 à 1/64, pointées, triolets), **GATE**, **MOTION** (LFO sur le filtre, la vélocité et le gate, jamais
+  sur les hauteurs), **EVOLVE** (variations par passage de boucle en phrases A / A′ / B / A″, notes d'ancrage
+  préservées). Accord reconnu avec confiance, grille des 16 prochains pas, FREEZE, graine, RESET, annuler.
+- **CREATE** : 19 ordres de notes (dont up/down avec ou sans doublons, ordre joué, converge / diverge, basse
+  pivot, aléatoire sans répétition par cycle, marche aléatoire, accord rythmique, motif relatif en degrés
+  `d1 d3 d5 d7 d9`), 1 à 4 octaves, politique harmonique (notes de l'accord par défaut, notes de passage,
+  approche chromatique), rythme euclidien, swing, tessiture et lignes par pas (vélocité, gate, octave, ratchet,
+  probabilité) de longueurs indépendantes.
+
+Le moteur est déterministe : même accord, mêmes réglages, même graine et même position → mêmes notes.
+Les anciens projets (`arp: { mode, rate, octaves }`) se rechargent à l'identique.
+
+### Tests
+
+```bash
+node --test
+```
+
+(Node 18 ou plus récent ; les tests du moteur d'arpège n'ont besoin ni de navigateur ni de carte son.)
 
 Cliquer sur une note / un accord existant le supprime. Sur la ligne compacte, un clic pose la
 dernière note (ou le dernier accord) utilisée.
