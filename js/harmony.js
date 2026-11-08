@@ -15,16 +15,24 @@ SS.harmony = (() => {
   const NATURAL = [0, 2, 4, 5, 7, 9, 11];
   const FR = { C: 'Do', D: 'Ré', E: 'Mi', F: 'Fa', G: 'Sol', A: 'La', B: 'Si' };
 
+  // fam : couleur générale (tierce majeure ou mineure) ; tonal : tonalité classique (sinon mode) ;
+  // color : degré caractéristique du mode (la note qui le distingue du majeur ou du mineur naturel)
   const MODES = [
-    { id: 'major', label: 'Majeur', iv: [0, 2, 4, 5, 7, 9, 11] },
-    { id: 'minor', label: 'Mineur naturel', iv: [0, 2, 3, 5, 7, 8, 10] },
-    { id: 'harmonic', label: 'Mineur harmonique', iv: [0, 2, 3, 5, 7, 8, 11] },
+    { id: 'major', label: 'Majeur', iv: [0, 2, 4, 5, 7, 9, 11], fam: 'major', tonal: true },
+    { id: 'minor', label: 'Mineur naturel', iv: [0, 2, 3, 5, 7, 8, 10], fam: 'minor', tonal: true },
+    { id: 'harmonic', label: 'Mineur harmonique', iv: [0, 2, 3, 5, 7, 8, 11], fam: 'minor', tonal: true },
+    { id: 'dorian', label: 'Dorien (mode)', iv: [0, 2, 3, 5, 7, 9, 10], fam: 'minor', color: 5, colorText: 'sixte majeure' },
+    { id: 'phrygian', label: 'Phrygien (mode)', iv: [0, 1, 3, 5, 7, 8, 10], fam: 'minor', color: 1, colorText: 'seconde mineure' },
+    { id: 'lydian', label: 'Lydien (mode)', iv: [0, 2, 4, 6, 7, 9, 11], fam: 'major', color: 3, colorText: 'quarte augmentée' },
+    { id: 'mixolydian', label: 'Mixolydien (mode)', iv: [0, 2, 4, 5, 7, 9, 10], fam: 'major', color: 6, colorText: 'septième mineure' },
   ];
   const TONICS = ['C', 'C♯', 'D♭', 'D', 'E♭', 'E', 'F', 'F♯', 'G♭', 'G', 'A♭', 'A', 'B♭', 'B'];
   const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
 
   const pcOf = (m) => ((m % 12) + 12) % 12;
   const findMode = (id) => MODES.find((m) => m.id === id);
+  const fam = (key) => findMode(key.mode).fam;
+  const isTonal = (key) => !!findMode(key.mode).tonal;
 
   function parseName(name) {
     const letter = name[0];
@@ -65,7 +73,7 @@ SS.harmony = (() => {
     const flats = sc.some((d) => d.name.includes('♭')) || (key.tonic.includes('♭') && !key.tonic.includes('♯'));
     const below = sc.find((d) => d.pc === pcOf(pc - 1));
     const above = sc.find((d) => d.pc === pcOf(pc + 1));
-    if (key.mode !== 'major') {
+    if (key.mode === 'minor' || key.mode === 'harmonic') {
       // en mineur, les degrés VI et VII haussés (mineur mélodique / harmonique) s'écrivent avec un dièse ou un bécarre
       if (pc === pcOf(sc[0].pc + 11)) return spellLetter(sc[6].name[0], pc);
       if (pc === pcOf(sc[0].pc + 9)) return spellLetter(sc[5].name[0], pc);
@@ -86,20 +94,32 @@ SS.harmony = (() => {
     return null;
   }
 
-  function numeral(degree, type) {
-    const lower = ['min', 'dim', 'm7', 'm9'].includes(type);
+  /**
+   * Chiffrage romain. Majuscule = accord majeur, minuscule = mineur ; pour un accord sans tierce (sus2, sus4, 5),
+   * la casse suit la triade du degré dans la gamme (`baseType`).
+   */
+  function numeral(degree, type, baseType) {
+    const noThird = ['sus2', 'sus4', '5'].includes(type);
+    const lower = noThird ? ['min', 'dim'].includes(baseType) : ['min', 'dim', 'm7', 'm9'].includes(type);
     let r = lower ? ROMAN[degree].toLowerCase() : ROMAN[degree];
-    if (type === 'dim') r += '°';
-    if (type === 'aug') r += '+';
-    if (type === '7') r += '7';
-    if (type === 'maj7') r += 'maj7';
-    if (type === 'm7') r += '7';
+    r += { dim: '°', aug: '+', 7: '7', maj7: 'maj7', m7: '7', m9: '9', add9: 'add9', sus2: 'sus2', sus4: 'sus4', 5: '5' }[type] || '';
     return r;
   }
+  /** Type de la triade construite sur le degré `d` d'une gamme (liste de { pc }). */
+  const degTriad = (sc, d) => triadType(pcOf(sc[(d + 2) % 7].pc - sc[d].pc), pcOf(sc[(d + 4) % 7].pc - sc[d].pc));
 
   /** Rôle d'un accord selon son degré (repos / préparation / tension), d'après la pratique tonale. */
   function role(key, degree, type) {
-    const major = key.mode === 'major';
+    const m = findMode(key.mode);
+    if (!m.tonal) {
+      // mode : pas de dominante au sens tonal ; on repère les accords qui contiennent la note caractéristique
+      if (degree === 0) return { id: 'repos', label: 'centre', text: 'centre du mode : point de repos' };
+      const sc = scale(key);
+      const tones = [0, 2, 4].map((k) => sc[(degree + k) % 7].pc);
+      if (tones.includes(sc[m.color].pc)) return { id: 'color', label: 'couleur du mode', text: `contient la ${m.colorText} (${sc[m.color].name}) qui caractérise le mode` };
+      return { id: 'prep', label: 'mouvement', text: 'accord de passage autour du centre' };
+    }
+    const major = m.fam === 'major';
     if (degree === 0) return { id: 'repos', label: 'repos', text: 'tonique : sensation d’arrivée' };
     if (degree === 4) {
       if (type === 'maj' || type === '7') return { id: 'tension', label: 'tension', text: 'dominante : sa tierce est la sensible, elle appelle la tonique' };
@@ -133,6 +153,7 @@ SS.harmony = (() => {
         borrowed: false,
       };
     });
+    if (!isTonal(key)) return { diatonic: list, extra: [] };
     // dominante avec septième, et en mineur naturel la dominante majeure empruntée au mineur harmonique
     const d5 = sc[4];
     const lead = spell({ ...key, mode: key.mode === 'major' ? 'major' : 'harmonic' }, d5.pc + 4);
@@ -188,11 +209,11 @@ SS.harmony = (() => {
     const pcs = TYPE_IV(id.type).map((i) => pcOf(id.rootPc + i));
     const deg = sc.findIndex((d) => d.pc === id.rootPc);
     let num;
-    if (deg >= 0) num = numeral(deg, id.type);
+    if (deg >= 0) num = numeral(deg, id.type, degTriad(sc, deg));
     else {
       const up = sc.findIndex((d) => d.pc === pcOf(id.rootPc + 1));
       const down = sc.findIndex((d) => d.pc === pcOf(id.rootPc - 1));
-      num = up >= 0 ? '♭' + numeral(up, id.type) : down >= 0 ? '♯' + numeral(down, id.type) : '?';
+      num = up >= 0 ? '♭' + numeral(up, id.type, 'maj') : down >= 0 ? '♯' + numeral(down, id.type, 'maj') : '?';
     }
     if (pcs.every((p) => inScale.has(p))) return { numeral: num, status: 'diatonique' };
     if (key.mode === 'minor') {
@@ -407,7 +428,7 @@ SS.harmony = (() => {
 
   function label(key) {
     if (!valid(key)) return 'aucune tonalité';
-    const m = { major: 'majeur', minor: 'mineur', harmonic: 'mineur harmonique' }[key.mode];
+    const m = { major: 'majeur', minor: 'mineur', harmonic: 'mineur harmonique', dorian: 'dorien', phrygian: 'phrygien', lydian: 'lydien', mixolydian: 'mixolydien' }[key.mode];
     return `${french(key.tonic)} ${m}`;
   }
 
@@ -425,30 +446,44 @@ SS.harmony = (() => {
     { id: 'min4', mode: 'minor', label: 'i – VII – VI – V', style: 'Mouvement descendant (V emprunté)', seq: [[0, 'min'], [6, 'maj'], [5, 'maj'], [4, 'maj']] },
   ];
 
-  /** Un accord de la tonalité, au même format que la palette (voir chords). */
-  function makeChord(key, degree, type) {
-    const base = { ...key, mode: key.mode === 'major' ? 'major' : 'minor' };
+  // lettre de chaque intervalle d'accord (tierce = 2 lettres plus loin…) : Cdim = C E♭ G♭, Fm = F A♭ C
+  const LETTER_OFF = { 0: 0, 1: 1, 2: 1, 3: 2, 4: 2, 5: 3, 6: 4, 7: 4, 8: 4, 9: 5, 10: 6, 11: 6, 14: 1 };
+  function chordNoteNames(rootName, type) {
+    const r = parseName(rootName);
+    const li = LETTERS.indexOf(r.letter);
+    return TYPE_IV(type).map((iv) => spellLetter(LETTERS[(li + LETTER_OFF[iv]) % 7], pcOf(r.pc + iv)));
+  }
+
+  /**
+   * Un accord défini par son degré dans la tonalité, au format de la palette. `acc` altère la fondamentale
+   * (−1 : ♭VI, ♭II… emprunts) ; le type est libre (V7 en mineur, i majeur = tierce picarde…).
+   * Pour une tonalité classique, les degrés sont comptés dans la gamme majeure ou mineure naturelle.
+   */
+  function makeChord(key, degree, type, acc = 0) {
+    const base = isTonal(key) ? { ...key, mode: fam(key) === 'major' ? 'major' : 'minor' } : key;
     const sc = scale(base);
-    const rootPc = sc[degree].pc;
+    const rootPc = pcOf(sc[degree].pc + acc);
+    const rootName = spellLetter(sc[degree].name[0], rootPc);
     const pcs = TYPE_IV(type).map((i) => pcOf(rootPc + i));
-    const id = { rootPc, type, bassPc: rootPc };
-    const a = analyzeChord(base, id);
+    const inKey = new Set(scale(key).map((d) => d.pc));
+    const a = analyzeChord(base, { rootPc, type, bassPc: rootPc });
     return {
       degree,
       rootPc,
       type,
-      name: spell(base, rootPc) + (SUFFIX[type] ?? ''),
-      numeral: numeral(degree, type),
-      notes: pcs.map((pc) => spell(key.mode === 'major' ? key : { ...key, mode: 'harmonic' }, pc)),
+      name: rootName + (SUFFIX[type] ?? ''),
+      numeral: (acc < 0 ? '♭' : acc > 0 ? '♯' : '') + numeral(degree, type, acc ? 'maj' : degTriad(sc, degree)),
+      notes: chordNoteNames(rootName, type),
       quality: QUALITY[type] || type,
       role: role(key, degree, type),
-      borrowed: a.status === 'emprunt',
+      borrowed: !pcs.every((pc) => inKey.has(pc)) || a.status !== 'diatonique',
     };
   }
 
   /** Progressions adaptées au mode de la tonalité, transposées. */
   function progressions(key) {
-    const minor = key.mode !== 'major';
+    if (!isTonal(key)) return [];
+    const minor = fam(key) === 'minor';
     return PROGRESSIONS.filter((pr) => (pr.mode === 'minor') === minor).map((pr) => ({
       ...pr,
       chords: pr.seq.map(([d, t]) => makeChord(key, d, t)),
@@ -467,7 +502,9 @@ SS.harmony = (() => {
     { id: 'bass-off', group: 'Basse', label: 'Contretemps', text: 'entre les coups de grosse caisse (trance, techno)' },
     { id: 'arp-1353', group: 'Arpège', label: '1 – 3 – 5 – 3 en croches', text: 'le motif de départ du skill' },
     { id: 'arp-up16', group: 'Arpège', label: '1 – 3 – 5 – 8 en doubles-croches', text: 'montant, plus dense' },
-    { id: 'mel-sketch', group: 'Mélodie', label: 'Esquisse de mélodie', text: 'notes de l’accord sur les temps forts, notes de passage entre elles' },
+    { id: 'mel-sketch', group: 'Mélodie', label: 'Esquisse de mélodie', text: 'notes de l’accord sur les temps forts, notes de passage entre elles ; contour en vagues' },
+    { id: 'mel-up', group: 'Mélodie', label: 'Esquisse montante', text: 'même principe, le contour monte (intensifier, ouvrir : espoir, élan…)' },
+    { id: 'mel-down', group: 'Mélodie', label: 'Esquisse descendante', text: 'même principe, le contour descend (relâcher : tristesse, apaisement…)' },
   ];
 
   /** Accords d'une liste d'événements : [{ step, len, rootPc, tones: [pc fondamentale, tierce, quinte, (7e)] }]. */
@@ -531,14 +568,16 @@ SS.harmony = (() => {
         let i = 0;
         for (let s = sp.step; s < sp.step + sp.len; s += dt, i++) add(s, dt, pattern[i % 4], i % 4 === 0 ? 0.85 : 0.68);
       }
-    } else if (kind === 'mel-sketch') {
+    } else if (kind.startsWith('mel')) {
+      const contour = kind === 'mel-up' ? 'up' : kind === 'mel-down' ? 'down' : 'wave';
       // une note de l'accord par demi-mesure (temps forts), au plus près de la précédente ;
       // la note de passage (degré de la gamme voisin de la note suivante) prépare chaque arrivée.
       const sc = opt.key ? scale(opt.key).map((d) => d.pc) : null;
       const unit = spb % 2 === 0 ? spb / 2 : spb;
       const targets = [];
       let prev = base + (spans[0] ? pcOf(spans[0].tones[1]) : 4); // départ sur la tierce de l'accord, dans l'octave de la piste
-      if (prev < base + 4) prev += 12;
+      if (prev < base + 4 && contour !== 'up') prev += 12; // une montée part du bas de la tessiture
+      if (contour === 'down') prev += 7; // une descente part du haut
       spans.forEach((sp, ci) => {
         for (let s = sp.step; s < sp.step + sp.len; s += unit) {
           const k = targets.length;
@@ -546,9 +585,11 @@ SS.harmony = (() => {
           const cands = sp.tones.map((pc) => nearest(pc, prev)).filter((m) => m !== prev || sp.tones.length === 1);
           const up = cands.filter((m) => m >= prev).sort((a, b) => a - b)[0];
           const down = cands.filter((m) => m <= prev).sort((a, b) => b - a)[0];
-          let m = (Math.floor(k / 2) + ci) % 2 === 0 ? up ?? down : down ?? up;
-          if (m > base + 19) m = down ?? m - 12; // tessiture : environ une octave et demie au-dessus du Do de la piste
-          if (m < base + 2) m = up ?? m + 12;
+          const goUp = contour === 'up' || (contour === 'wave' && (Math.floor(k / 2) + ci) % 2 === 0);
+          let m = goUp ? up ?? down : down ?? up;
+          // tessiture : environ une octave et demie au-dessus du Do de la piste ; un contour qui sort repart d'une octave
+          if (m > base + 19) m = contour === 'up' ? m - 12 : down ?? m - 12;
+          if (m < base + 2) m = contour === 'down' ? m + 12 : up ?? m + 12;
           targets.push({ step: s, len: Math.min(unit, sp.step + sp.len - s), midi: m });
           prev = m;
         }
@@ -564,6 +605,76 @@ SS.harmony = (() => {
       });
     }
     return out;
+  }
+
+  /* ---------------- Essais A/B : un seul paramètre change ---------------- */
+  const TRANSFORMS = [
+    { id: 'sus2', label: 'Tierce → neuvième (sus2)', text: 'la tierce de chaque accord devient la seconde/neuvième : moins de majeur/mineur, plus d’ouverture' },
+    { id: 'seventh', label: 'Triades → septièmes', text: 'maj → maj7, m → m7, V → V7 : couleur plus douce ou plus jazz' },
+    { id: 'mode', label: 'Accord de tonique majeur ↔ mineur', text: 'seule la tierce de l’accord de tonique change' },
+    { id: 'avoid', label: 'Dernier accord → VI (cadence évitée)', text: 'la résolution attendue est différée' },
+    { id: 'open', label: 'Voicing serré → ouvert', text: 'la voix du milieu monte d’une octave : plus d’espace' },
+    { id: 'pedal', label: 'Basse en pédale de tonique', text: 'la basse garde son rythme mais reste sur la tonique : suspension, tension' },
+  ];
+
+  /**
+   * Applique une transformation à des événements (copie modifiée). `role` : 'chords' (piste d'accords) ou 'bass'.
+   * Retourne { events, changed } ; les autres paramètres (rythme, durées, vélocités) restent identiques.
+   */
+  function transform(id, events, key) {
+    const sc = scale(key);
+    const tonic = sc[0].pc;
+    let changed = 0;
+    const evs = events.map((e) => ({ ...e, notes: [...e.notes] }));
+    const sorted = [...evs].sort((a, b) => a.step - b.step);
+    for (const ev of sorted) {
+      const idd = identify(ev.notes);
+      if (id === 'pedal') {
+        ev.notes = ev.notes.map((n) => nearest(tonic, n));
+        changed++;
+        continue;
+      }
+      if (!idd) continue;
+      const third = ev.notes.find((n) => [3, 4].includes(pcOf(n - idd.rootPc)));
+      if (id === 'sus2' && (idd.type === 'maj' || idd.type === 'min') && third != null) {
+        ev.notes = ev.notes.map((n) => (n === third ? n - (pcOf(n - idd.rootPc) - 2) : n)).sort((a, b) => a - b);
+        ev.chord = 'sus2';
+        changed++;
+      }
+      if (id === 'seventh' && (idd.type === 'maj' || idd.type === 'min')) {
+        // la septième est prise dans la gamme : G → G7 en La mineur (F), G → Gmaj7 en Sol majeur (F♯)
+        const inScale = new Set(sc.map((d) => d.pc));
+        const seven = inScale.has(pcOf(idd.rootPc + 10)) ? 10 : inScale.has(pcOf(idd.rootPc + 11)) ? 11 : idd.type === 'min' ? 10 : 11;
+        const t = idd.type === 'min' ? 'm7' : seven === 10 ? '7' : 'maj7';
+        const pc = pcOf(idd.rootPc + (t === 'maj7' ? 11 : 10));
+        ev.notes = [...ev.notes, nearest(pc, Math.max(...ev.notes) + 2)].sort((a, b) => a - b);
+        ev.chord = t;
+        changed++;
+      }
+      if (id === 'mode' && idd.rootPc === tonic && third != null) {
+        const minor = pcOf(third - idd.rootPc) === 3;
+        ev.notes = ev.notes.map((n) => (n === third ? n + (minor ? 1 : -1) : n));
+        if (ev.chord === 'maj' || ev.chord === 'min') ev.chord = minor ? 'maj' : 'min';
+        changed++;
+      }
+      if (id === 'open' && ev.notes.length >= 3) {
+        const s2 = [...ev.notes].sort((a, b) => a - b);
+        s2[1] += 12;
+        ev.notes = s2.sort((a, b) => a - b);
+        changed++;
+      }
+    }
+    if (id === 'avoid' && sorted.length) {
+      const last = sorted[sorted.length - 1];
+      const deg = 5;
+      const c = makeChord(key, deg, isTonal(key) ? (fam(key) === 'major' ? 'min' : 'maj') : 'maj');
+      const triad = chords(key).diatonic[deg];
+      const cc = triad ? { ...c, type: triad.type } : c;
+      last.notes = voice(cc, last.notes[0], last.notes[0]);
+      last.chord = cc.type;
+      changed = 1;
+    }
+    return { events: evs, changed };
   }
 
   /** Note de la gamme juste avant `to` en venant de `from` (note de passage), ou null si les deux sont égales. */
@@ -589,5 +700,5 @@ SS.harmony = (() => {
     return SS.chordNotes(root, chord.type);
   }
 
-  return { MODES, TONICS, GENERATORS, valid, scale, spell, french, chords, progressions, identify, chordName, analyzeChord, detect, analyze, generate, label, voice, pcOf };
+  return { MODES, TONICS, GENERATORS, TRANSFORMS, valid, isTonal, scale, spell, french, chords, makeChord, progressions, identify, chordName, analyzeChord, detect, analyze, generate, transform, label, voice, pcOf };
 })();

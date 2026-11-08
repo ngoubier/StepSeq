@@ -6,7 +6,8 @@
  *   format: "stepseq", version: 1,
  *   title, tempo, timeSig: [num, den], bars,
  *   groove: { res: 0|16|8, swing: 0.5..0.75, human: 0..1 },
- *   key: { tonic: "D", mode: "major"|"minor"|"harmonic" },   // tonalité (facultative, voir js/harmony.js)
+ *   key: { tonic: "D", mode: "major"|"minor"|"harmonic"|"dorian"|"phrygian"|"lydian"|"mixolydian" },   // tonalité ou mode (facultatif, js/harmony.js)
+ *   emotion: "nostalgie",   // intention émotionnelle choisie dans la fenêtre Harmonie (facultatif, js/emotions.js)
  *   master: { volume, mix },   // console : tranche Master (voir SS.MASTER_DEFAULTS)
  *   tracks: [   // chaque piste peut avoir mix: { pan, eq, comp, lim } (console de mixage), length (longueur de sa boucle, en pas ; absente = celle du projet)
  *               // et fx: { chorus, chorusRate, chorusDepth, delay, delayTime,
@@ -129,6 +130,7 @@ SS.normalizeProject = (data) => {
     };
   }
   if (data.key && SS.harmony && SS.harmony.valid(data.key)) p.key = { tonic: data.key.tonic, mode: data.key.mode };
+  if (typeof data.emotion === 'string' && SS.findEmotion && SS.findEmotion(data.emotion)) p.emotion = data.emotion;
   p.tracks = data.tracks.map((t) => {
     const track = { ...t, id: t.id || SS.uid() };
     // effets : on ne garde que les clés connues, de type attendu

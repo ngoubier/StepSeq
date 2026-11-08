@@ -21,7 +21,7 @@ puis ouvrir <http://localhost:8000>.
 ## Interface
 
 - **En-tête** : titre du projet, tempo (BPM), chiffrage de mesure (4/4 par défaut, x/4 ou x/8),
-  nombre de mesures, le groove (swing, humanisation), la **tonalité** (fenêtre Harmonie : gamme, accords
+  nombre de mesures, le groove (swing, humanisation), la **tonalité** (fenêtre Harmonie : intention émotionnelle et essais A/B, gamme, accords
   de la tonalité, palette d'accords dans le piano roll, progressions transposées, génération de basse / arpège / mélodie,
   analyse harmonique des scènes), puis les boutons **+** (ajouter une piste), **Lecture** et **Stop**.
   À droite : **Nouveau**, **Ouvrir** et **Enregistrer**.
@@ -112,6 +112,17 @@ Les sons proviennent des bibliothèques utilisées par [strudel.cc](https://stru
 - les soundfonts General MIDI FluidR3 de [webaudiofontdata](https://github.com/felixroos/webaudiofontdata) ;
 - plus quelques synthés Web Audio intégrés (saw, square, acid, supersaw, pads…).
 
+## Skills de composition (Claude Code)
+
+Le dossier `.claude/skills/` contient les skills qui guident la composition, et dont les règles sont reprises
+par la fenêtre **Harmonie** :
+
+| Skill | Contenu | Dans StepSeq |
+|-------|---------|--------------|
+| `composition-harmonie-synthetiseur` | Gammes, accords, degrés, progressions, voicings, basse / arpège / mélodie, parcours en 8 modules | Tonalité, palette d'accords, progressions, génération de couches, vérificateur |
+| `arranger-orchestrer-finaliser` | Arrangement, orchestration, mixage, mastering | Méthode « une couche à la fois », démos mixées et masterisées |
+| `musicemotion` | Composer à partir d'une émotion : matrice émotion → procédés, trois pistes contrastées, essais A/B | Section Émotion : 13 intentions, propositions, essais A/B, modes |
+
 ## Structure du code
 
 | Fichier          | Rôle |
@@ -130,7 +141,8 @@ Les sons proviennent des bibliothèques utilisées par [strudel.cc](https://stru
 | `js/junopanel.js` | Façade du Juno-106 (sound design des pistes Synthé) |
 | `js/groove.js`   | Fenêtre Groove (swing, humanisation) |
 | `js/harmony.js`  | Aide à la composition : gammes, accords diatoniques, identification des accords, estimation de la tonalité, vérificateur d'harmonie |
-| `js/harmonypanel.js` | Fenêtre Harmonie (tonalité, palette d'accords, analyse des scènes) |
+| `js/emotions.js` | Intentions émotionnelles (skill MusicEmotion) : matrice et trois propositions par intention |
+| `js/harmonypanel.js` | Fenêtre Harmonie (émotion, tonalité, palette d'accords, progressions, génération, analyse des scènes) |
 | `js/fx.js`       | Fenêtre Effets par piste (chorus, delay, reverb) |
 | `js/profiles.js`, `js/profiles-factory.js` | Profils de console (usine + personnels) |
 | `js/mixer.js`    | Console de mixage : tranches, EQ, compresseur, limiteur, vumètres |
