@@ -468,7 +468,7 @@ SS.ui = (() => {
               {
                 type: 'button',
                 class: 'roll-arp',
-                title: 'Arpégiateur : style, vitesse, octaves, lecture en boucle (et réglages avancés)',
+                title: 'Arpégiateur : motif, vitesse, octaves, réglage pas à pas, lecture en boucle',
                 onclick: () => SS.arpPanel.open(track),
               },
               h('span', { html: ICONS.arp }),
