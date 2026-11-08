@@ -10,6 +10,31 @@
 | `reve-eveille.mp3` | Le morceau joué par StepSeq (capture de la sortie audio, MP3 256 kbit/s). |
 | `reve-eveille.compose.py` | Script qui génère « Rêve éveillé » ; harmonie et voicings commentés. `--brut` : sans mixage. |
 
+| `autoroute-de-minuit.stepseq.json` | « Autoroute de minuit » : morceau original, synthwave, Ré mineur, 104 BPM, 13 pistes dont **5 Juno-106** (basse, nappe, arpège, cuivres, lead) ; batterie Oberheim DMX et toms Simmons. Mode chanson (Intro · Couplet · Refrain · Couplet 2 · Refrain · Pont · Refrain ×2 · Outro, 72 mesures, 2:46). Mixé et masterisé. |
+| `autoroute-de-minuit.mp3` | Le morceau rendu par StepSeq (rendu hors temps réel, MP3 256 kbit/s). |
+| `autoroute-de-minuit.compose.py` | Script qui génère « Autoroute de minuit » : harmonie, patches et réglages Juno commentés. `--brut` : sans mixage. |
+
+## Fiche de composition — « Autoroute de minuit »
+
+- **Tonalité** : Ré mineur naturel (D E F G A B♭ C) ; **tempo** 104 BPM ; 4/4.
+- **Couplet** : Dm | B♭ | F | C, degrés **i – VI – III – VII** (une mesure par accord).
+  Dm = D–F–A, B♭ = B♭–D–F, F = F–A–C, C = C–E–G.
+- **Refrain** : B♭ | C | F | Dm | B♭ | C | A7 | Dm, degrés **VI – VII – III – i – VI – VII – V7 – i**.
+  A7 = A–C♯–E–G : le C♯ (sensible, mineur harmonique) se résout sur D ; le lead joue C♯5 → D5.
+- **Pont** : Gm | B♭ | Gm | A (deux mesures chacun), **iv – VI – iv – V** : la tension finit sur A (C♯) avant le refrain.
+- **Voicings de la nappe** : A3–D4–F4 → B♭3–D4–F4 → A3–C4–F4 → G3–C4–E4 (notes communes D/F, puis A, puis C).
+- **Juno-106** (patch d'usine + réglages de façade) :
+
+| Piste | Patch | Réglages modifiés | Rôle |
+|-------|-------|-------------------|------|
+| Basse Juno | A48 Synth Bass I | pied 8', SUB 0,85, chorus coupé | croches au couplet, « galop » (1 – et – a) au refrain |
+| Nappe Juno | A15 Moving Strings | attaque et relâchement plus longs, chorus II | une triade par mesure |
+| Arpège Juno | B24 Bright Pluck | chorus I, écho 3/16 | arpège montant en doubles-croches sur 2 octaves |
+| Cuivres Juno | A11 Brass | pied 8', chorus II | coups syncopés au refrain, accords tenus au pont |
+| Lead Juno | A53 Lead III | chorus I, vibrato retardé (LFO delay), écho 3/16 | mélodies du couplet et du refrain |
+
+Le MP3 est produit par un rendu hors temps réel de StepSeq (les cinq Juno-106 émulés sont trop lourds pour une capture en temps réel dans un conteneur).
+
 ## Fiche de composition — « Rêve éveillé »
 
 Ambiance inspirée de la dream trance du milieu des années 1990 (riff de piano répétitif, nappes larges, kick
