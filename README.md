@@ -93,6 +93,12 @@ node --test
 
 (Node 18 ou plus récent ; les tests du moteur d'arpège n'ont besoin ni de navigateur ni de carte son.)
 
+Test de bout en bout de la fenêtre ARP ONE dans Chromium (nécessite le paquet `playwright`) :
+
+```bash
+node tests/e2e/arp-ui.js
+```
+
 Cliquer sur une note / un accord existant le supprime. Sur la ligne compacte, un clic pose la
 dernière note (ou le dernier accord) utilisée.
 
