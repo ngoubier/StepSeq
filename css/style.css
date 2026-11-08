@@ -1515,6 +1515,7 @@ dialog.arp-dialog { width: min(860px, calc(100vw - 32px)); }
   .arp-macros { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .arp-lane { grid-template-columns: 1fr; }
   .arp-cell em { display: none; }
+}
 
 /* ---------- Harmonie : tonalité, palette d'accords, analyse ---------- */
 .roll-row.in-key .rcell { background: #222229; }
@@ -1618,4 +1619,120 @@ dialog.hm-dialog { width: min(900px, calc(100vw - 32px)); }
   .emo-prop .hm-progchords, .hm-progrow .hm-progchords { grid-column: 1; grid-row: 2; }
   .emo-matrix { grid-template-columns: 1fr; }
   .emo-matrix dd { margin-bottom: 4px; }
+}
+
+/* Arpégiateur : lecteur + écran Simple (inspiré de l'Arpeggiator d'Ableton) */
+.arp-body > * + * { margin-top: 14px; }
+.arp-player { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); }
+.arp-player-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.arp-loop { min-width: 150px; font-weight: 600; background: #2c6e3f; }
+.arp-loop:hover { background: #358a4d; }
+.arp-loop.on { background: #8a2f2f; }
+.arp-chordpick { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; flex: 1; min-width: 0; }
+.arp-chordpick select { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 5px 6px; font: inherit; }
+.arp-chordpick select.active { border-color: var(--accent-2); }
+.arp-chordname { font-size: 16px; color: #e6d6ff; min-width: 3em; }
+.arp-fill { margin-left: auto; }
+.arp-grid .arp-head { fill: #fff; opacity: .12; stroke: none; }
+.arp-styles { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
+.arp-style { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px 7px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--text); font: inherit; font-size: 12px; cursor: pointer; text-align: center; position: relative; }
+.arp-style:hover { border-color: var(--accent-2); }
+.arp-style.active { background: var(--accent); border-color: var(--accent-2); }
+.arp-style svg { width: 64px; height: 30px; stroke: #c9a6ff; stroke-width: 2; fill: none; }
+.arp-style svg circle, .arp-style svg rect { fill: #c9a6ff; stroke: none; }
+.arp-style.active svg { stroke: #fff; }
+.arp-style.active svg circle, .arp-style.active svg rect { fill: #fff; }
+.arp-style.more { justify-content: center; }
+.arp-style.more select { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.arp-more-title { padding: 10px 2px; font-size: 12px; }
+.arp-simple { display: flex; flex-direction: column; gap: 16px; }
+.arp-simple-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.arp-simple .arp-seg button { padding: 7px 14px; font-size: 13px; }
+.arp-macro.wide small { min-height: 0; }
+.arp-scale { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+.arp-advanced { display: flex; flex-direction: column; gap: 14px; }
+.arp-macros.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.arp-evolve-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.arp-evolve-bar .btn.on { box-shadow: inset 0 0 0 2px #a479ff; color: #e6d6ff; }
+.arp-create { display: flex; flex-direction: column; gap: 14px; }
+@media (max-width: 700px) {
+  .arp-styles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .arp-macros.two { grid-template-columns: 1fr; }
+  .arp-fill { margin-left: 0; }
+  .arp-player-bar { flex-direction: column; align-items: stretch; }
+  .arp-loop { width: 100%; }
+  .arp-chordpick select { flex: 1 1 40%; }
+  .arp-dialog .dlg-footer { flex-wrap: wrap; }
+  .arp-dialog .dlg-footer .spacer { flex-basis: 100%; height: 0; }
+}
+
+
+/* Arpégiateur : réglage pas à pas */
+.arp-grid { cursor: pointer; }
+.arp-grid .ag-rep { opacity: .55; }
+.arp-grid .arp-sel { fill: none; stroke: #f5c542; stroke-width: 2; }
+.arp-grid text.rest { fill: #6b6b75; font-size: 8px; }
+.arp-vel-wrap { grid-template-columns: 1fr; gap: 4px; }
+.arp-vels { display: flex; gap: 0; height: 40px; touch-action: none; cursor: ns-resize; }
+.arp-vel { position: relative; flex: 1 1 0; margin: 0 2px; background: #1c1c22; border-radius: 3px; overflow: hidden; }
+.arp-vel.rep { opacity: .55; }
+.arp-vel.sel { outline: 2px solid #f5c542; }
+.arp-vel i { position: absolute; left: 0; right: 0; bottom: 0; background: #7d55d6; }
+.arp-step { border: 1px solid #f5c542; border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 10px; background: #2a2720; }
+.arp-step.empty { border-style: dashed; border-color: var(--line); background: transparent; color: var(--muted); font-size: 13px; }
+.arp-step-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.arp-step-head .spacer { flex: 1; }
+.arp-step-grid { display: grid; grid-template-columns: minmax(160px, 1fr) 2fr; gap: 10px 16px; align-items: start; }
+.arp-step-grid > .arp-field:last-child { grid-column: 2; }
+.arp-step-grid .arp-macro { grid-row: span 2; }
+.arp-step-grid.dim { opacity: .45; }
+.arp-help { display: block; }
+@media (max-width: 700px) { .arp-step-grid { grid-template-columns: 1fr; } .arp-step-grid > .arp-field:last-child { grid-column: auto; } }
+.arp-family { display: grid; grid-template-columns: 130px 1fr; gap: 10px; align-items: start; }
+.arp-family + .arp-family { margin-top: 8px; }
+.arp-family-title { font-size: 12px; color: var(--muted); padding-top: 10px; }
+.arp-family .arp-styles { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.arp-style-name { font-weight: 600; }
+.arp-style-ex { font-size: 11px; letter-spacing: 0; color: var(--muted); letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.arp-style.active .arp-style-ex { color: #dce8ff; }
+@media (max-width: 700px) { .arp-family { grid-template-columns: 1fr; gap: 4px; } .arp-family-title { padding-top: 0; } }
+/* Arpégiateur : carte du motif et fenêtre de sélection des motifs */
+.arp-motif-card { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; }
+.arp-motif-main { flex: 1 1 280px; display: flex; align-items: center; gap: 12px; padding: 8px 14px; border: 1px solid var(--accent-2); border-radius: 10px; background: var(--panel); color: var(--text); font: inherit; cursor: pointer; text-align: left; min-width: 0; }
+.arp-motif-main:hover { background: #2a3140; }
+.arp-motif-icon svg { width: 80px; height: 36px; stroke: #c9a6ff; stroke-width: 2; fill: none; }
+.arp-motif-icon svg circle, .arp-motif-icon svg rect { fill: #c9a6ff; stroke: none; }
+.arp-motif-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.arp-motif-text b { font-size: 16px; }
+.arp-motif-text small { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.arp-motif-nav { width: 40px; font-size: 20px; padding: 0; }
+.arp-motif-change { padding: 0 16px; }
+dialog.motif-dialog { width: min(980px, calc(100vw - 32px)); height: min(760px, calc(100vh - 40px)); }
+.motif-dialog form { height: 100%; box-sizing: border-box; }
+.motif-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.motif-head h2 { margin: 0; }
+.motif-search { flex: 1 1 260px; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; font: inherit; }
+.motif-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 210px 1fr; gap: 14px; }
+.motif-cats { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+.motif-cat { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 7px 10px; border: 0; border-radius: 8px; background: transparent; color: var(--text); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.motif-cat small { color: var(--muted); font-size: 11px; }
+.motif-cat:hover { background: var(--panel-2); }
+.motif-cat.active { background: var(--accent); }
+.motif-cat.active small { color: #dce8ff; }
+.motif-list { overflow-y: auto; padding-right: 4px; }
+.motif-group + .motif-group { margin-top: 14px; }
+.motif-group h3 { margin: 0 0 8px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
+.motif-group .arp-styles { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.motif-foot { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 0; flex-wrap: wrap; }
+.motif-now { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.motif-now svg { width: 56px; height: 26px; stroke: #c9a6ff; stroke-width: 2; fill: none; }
+.motif-now svg circle, .motif-now svg rect { fill: #c9a6ff; stroke: none; }
+.motif-now span:last-child { display: flex; flex-direction: column; }
+.motif-now small { color: var(--muted); font-size: 12px; }
+@media (max-width: 700px) {
+  .motif-body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .motif-cats { flex-direction: row; overflow-x: auto; padding-bottom: 4px; }
+  .motif-cat { flex: 0 0 auto; white-space: nowrap; background: var(--panel-2); }
+  .motif-group .arp-styles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .arp-motif-change { flex: 1 1 100%; height: 38px; }
 }

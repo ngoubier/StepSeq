@@ -41,6 +41,15 @@
     { id: 'pedal', label: 'Basse pivot (pédale)', group: 'Formes' },
     { id: 'pedal_top', label: 'Note haute pivot', group: 'Formes' },
     { id: 'thirds', label: 'Par sauts (1-3-2-4…)', group: 'Formes' },
+    { id: 'up2', label: 'Double montée (montées de 4 qui grimpent)', group: 'Formes' },
+    { id: 'down2', label: 'Double descente (descentes de 4 qui descendent)', group: 'Formes' },
+    { id: 'up3', label: 'Montée par 3 (montées de 3 qui grimpent)', group: 'Formes' },
+    { id: 'down3', label: 'Descente par 3', group: 'Formes' },
+    { id: 'climb2', label: 'Montée par 2 (paires qui grimpent)', group: 'Formes' },
+    { id: 'fall2', label: 'Descente par 2', group: 'Formes' },
+    { id: 'alberti', label: 'Alberti (grave, aigu, milieu, aigu)', group: 'Formes' },
+    { id: 'octaves', label: 'Octaves (chaque note puis son octave)', group: 'Formes' },
+    { id: 'repeat', label: 'Notes doublées', group: 'Formes' },
     { id: 'rotate', label: 'Rotation (chaque cycle décale)', group: 'Formes' },
     { id: 'random', label: 'Aléatoire (avec répétitions)', group: 'Aléatoires (graine)' },
     { id: 'shuffle', label: 'Aléatoire sans répétition par cycle', group: 'Aléatoires (graine)' },
@@ -51,12 +60,15 @@
   ];
 
   const RATES = [
+    { id: 1 / 6, label: '1/4 pointée' },
     { id: 0.25, label: '1/4' },
     { id: 1 / 3, label: '1/8 pointée' },
+    { id: 0.375, label: '1/4 triolet' },
     { id: 0.5, label: '1/8' },
-    { id: 0.75, label: '1/8 triolet' },
     { id: 2 / 3, label: '1/16 pointée' },
+    { id: 0.75, label: '1/8 triolet' },
     { id: 1, label: '1/16' },
+    { id: 4 / 3, label: '1/32 pointée' },
     { id: 1.5, label: '1/16 triolet' },
     { id: 2, label: '1/32' },
     { id: 3, label: '1/32 triolet' },
@@ -80,6 +92,8 @@
     gate: { label: 'Gate', min: 0.1, max: 2, def: 1 },
     oct: { label: 'Octave', min: -2, max: 2, def: 0, int: true },
     ratchet: { label: 'Ratchet', min: 1, max: 4, def: 1, int: true },
+    len: { label: 'Longueur', min: 0, max: 64, def: 0 }, // en doubles-croches ; 0 = longueur générale
+    poly: { label: 'Notes à la fois', min: 1, max: 3, def: 1, int: true },
     prob: { label: 'Probabilité', min: 0, max: 1, def: 1 },
   };
 
@@ -99,8 +113,11 @@
     freeze: false,
     freezeLoop: 0,
     preset: '',
+    human: 0, // 0..1 : jeu humain (placement, vélocité, accents, longueurs)
+    noteLen: 0, // longueur des notes en doubles-croches (4 = 1 temps) ; 0 = d'après GATE
+    steps: 16, // longueur du motif édité pas à pas (interface)
     rhythm: { type: 'all', hits: 5, steps: 16, rot: 0 },
-    lanes: { rhythm: [], vel: [], gate: [], oct: [], ratchet: [], prob: [] },
+    lanes: { rhythm: [], vel: [], gate: [], oct: [], ratchet: [], prob: [], len: [], poly: [] },
   };
 
   /* ------------------------------------------------------------------ */
@@ -212,6 +229,9 @@
     o.freeze = !!o.freeze;
     o.freezeLoop = Math.max(0, Math.round(num(+o.freezeLoop, 0)));
     o.preset = typeof o.preset === 'string' ? o.preset.slice(0, 40) : '';
+    o.human = clamp(num(+o.human, 0), 0, 1);
+    o.noteLen = clamp(num(+o.noteLen, 0), 0, 64);
+    o.steps = clamp(Math.round(num(+o.steps, 16)), 1, 64);
     const rh = { ...DEFAULTS.rhythm, ...(a.rhythm && typeof a.rhythm === 'object' ? a.rhythm : {}) };
     rh.type = ['all', 'euclid', 'lane'].includes(rh.type) ? rh.type : 'all';
     rh.steps = clamp(Math.round(num(+rh.steps, 16)), 1, 64);
@@ -488,6 +508,25 @@
       }
       case 'thirds':
         return mod(Math.floor(j / 2) + (j % 2) * 2, n);
+      // index hors de la réserve : la note est prise une ou plusieurs octaves plus haut / plus bas (voir baseNotes)
+      case 'up2':
+        return mod(Math.floor(j / 4), n) + mod(j, 4);
+      case 'down2':
+        return n - 1 - (mod(Math.floor(j / 4), n) + mod(j, 4));
+      case 'up3':
+        return mod(Math.floor(j / 3), n) + mod(j, 3);
+      case 'down3':
+        return n - 1 - (mod(Math.floor(j / 3), n) + mod(j, 3));
+      case 'climb2':
+        return mod(Math.floor(j / 2), n) + mod(j, 2);
+      case 'fall2':
+        return n - 1 - (mod(Math.floor(j / 2), n) + mod(j, 2));
+      case 'alberti':
+        return [0, Math.min(2, n - 1), Math.min(1, n - 1), Math.min(2, n - 1)][mod(j, 4)];
+      case 'repeat':
+        return mod(Math.floor(j / 2), n);
+      case 'octaves':
+        return mod(Math.floor(j / 2), n) + (j % 2 ? n : 0);
       case 'rotate':
         return mod(p + Math.floor(j / n), n);
       case 'random':
@@ -534,7 +573,7 @@
     up: ['updown', 'converge', 'thirds'], down: ['downup', 'diverge', 'thirds'], updown: ['up', 'converge', 'pedal'],
     updown_rep: ['up', 'converge'], downup: ['down', 'diverge'], played: ['updown', 'converge'], played_rev: ['downup', 'diverge'],
     converge: ['diverge', 'updown'], diverge: ['converge', 'downup'], pedal: ['updown', 'pedal_top'], pedal_top: ['pedal', 'downup'],
-    thirds: ['up', 'updown'], rotate: ['up', 'thirds'], random: ['shuffle'], shuffle: ['walk'], walk: ['drunk'], drunk: ['walk'],
+    thirds: ['up', 'updown'], up2: ['up3', 'up'], down2: ['down', 'up2'], up3: ['up2', 'up'], alberti: ['pedal', 'updown'], octaves: ['up', 'repeat'], repeat: ['up', 'octaves'], rotate: ['up', 'thirds'], random: ['shuffle'], shuffle: ['walk'], walk: ['drunk'], drunk: ['walk'],
   };
   const PHRASE = ['A', "A'", 'B', "A''"];
 
@@ -560,7 +599,10 @@
       else n = pool[mod(t.index, pool.length)] + 12 * Math.floor(t.index / pool.length);
       return { notes: [n + t.shift], tie: ties };
     }
-    return { notes: [pool[orderIndex(mode, pool.length, j, o.seed, evKey)]] };
+    const i = orderIndex(mode, pool.length, j, o.seed, evKey);
+    // la réserve couvre o.octaves octaves : un index au-delà repart une « réserve » plus haut (ou plus bas)
+    const span = mode === 'octaves' ? 12 : 12 * o.octaves;
+    return { notes: [pool[mod(i, pool.length)] + span * Math.floor(i / pool.length)] };
   }
 
   /** Note de passage entre deux notes de l'accord, prise dans la gamme déduite de l'accord. */
@@ -638,7 +680,10 @@
 
     let prob = lane('prob');
     let vel = (ev.vel == null ? 0.8 : ev.vel) * lane('vel');
-    let gate = o.gate * lane('gate');
+    // longueur : celle du pas si elle est fixée, sinon la longueur générale (en doubles-croches), sinon GATE
+    const stepLen = lane('len');
+    let gate = stepLen > 0 ? stepLen * o.rate : o.noteLen > 0 ? o.noteLen * o.rate : o.gate * lane('gate');
+    const poly = lane('poly');
     let ratchet = lane('ratchet');
     let octShift = lane('oct');
 
@@ -666,13 +711,32 @@
       gate *= 1 + tri(abs / 48) * m * 0.3; // 3 mesures
     }
 
+    // jeu humain : nuances, accents sur les temps, petits décalages — reproductibles (graine + passage)
+    let jitter = 0;
+    const hu = o.human;
+    if (hu > 0) {
+      const hr = (salt) => rnd(o.seed, evKey, L, k, salt);
+      const weak = Math.abs(posSteps / 2 - Math.round(posSteps / 2)) > 1e-6; // hors croche
+      vel *= (onBeat ? 1 + 0.12 * hu : weak ? 1 - 0.1 * hu : 1) * (1 + (hr(21) * 2 - 1) * 0.16 * hu);
+      gate *= 1 + (hr(22) * 2 - 1) * 0.15 * hu;
+      jitter = (hr(20) * 2 - 1) * 0.012 * hu + (weak ? 0.004 * hu : 0); // secondes (±12 ms, un peu en arrière hors temps)
+      if (onBeat) jitter = Math.max(-0.003, jitter * 0.4); // les temps restent posés
+    }
+
+    // plusieurs notes à la fois : la note du pas + les notes de l'accord juste au-dessus
+    if (poly > 1 && mode !== 'chord' && out.length === 1) {
+      const pcs = new Set(c.sorted.map((n) => mod(n, 12)));
+      for (let m = out[0] + 1; m <= out[0] + 24 && out.length < poly; m++) if (pcs.has(mod(m, 12))) out.push(m);
+    }
+
     out = out.map((n) => fold(n + 12 * octShift, o.range));
     const swing = mod(t, 2) === 1 ? (o.swing - 0.5) * 2 : 0;
     if (base.tie) gate = base.tie + Math.max(gate, 1);
     return {
       notes: [...new Set(out)],
       vel: clamp(vel, 0.03, 1),
-      gate: clamp(gate, 0.02, 8),
+      gate: clamp(gate, 0.02, 64),
+      jitter,
       ratchet: clamp(Math.round(ratchet), 1, 4),
       swing,
       cutoff,
@@ -701,7 +765,7 @@
       if (k / rate >= ev.len - eps) break;
       const tk = tick(o, ev, k, { loop: info.loop, stepsPerBeat: info.stepsPerBeat, absStep: (info.loop | 0) * (info.trackLen || 0) + ev.step });
       if (!tk) continue;
-      const at = (k / rate - (step - ev.step)) * sd + tk.swing * sub;
+      const at = (k / rate - (step - ev.step)) * sd + tk.swing * sub + (tk.jitter || 0);
       const r = tk.ratchet;
       for (let i = 0; i < r; i++) {
         const dur = r > 1 ? (sub / r) * Math.min(tk.gate, 0.9) : sub * tk.gate;

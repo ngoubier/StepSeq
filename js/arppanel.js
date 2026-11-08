@@ -1,13 +1,16 @@
 /*
- * Fenêtre ARP ONE d'une piste Arpège.
+ * Fenêtre de l'arpégiateur (moteur : js/arp.js) d'une piste Arpège — un seul écran.
  *
- *   PLAY   : un preset musical + quatre macros (RATE, GATE, MOTION, EVOLVE), l'accord reconnu,
- *            les 16 prochains pas, et FREEZE / NOUVELLE GRAINE / RESET / ANNULER.
- *   CREATE : ordre des notes, octaves, harmonie, rythme (euclidien ou ligne), motif relatif,
- *            lignes par pas (vélocité, gate, octave, ratchet, probabilité) de longueurs indépendantes.
+ *   Lecteur  : ▶ lecture en boucle sur un accord d'essai (curseur sur la grille) ; l'accord se choisit
+ *              en deux menus et peut remplir la piste d'un clic.
+ *   Les pas  : cliquer un pas de la grille règle sa vélocité, sa longueur (¼ temps … 4 temps),
+ *              le nombre de notes jouées ensemble (1 à 3), ou en fait un silence ; la rangée de vélocités
+ *              se règle aussi en glissant.
+ *   Motif    : le motif en cours, ‹ › pour passer au voisin, et une fenêtre de sélection (js/motifs.js :
+ *              catégories, recherche, récents) qui fait entendre chaque motif tout de suite.
+ *   Réglages : vitesse, octaves, longueur du motif (4 / 8 / 16 pas), longueur des notes, jeu humain.
  *
- * Tout réglage est écrit dans track.arp (normalisé par SS.Arp.normalize) et s'entend pendant la lecture.
- * Annuler restaure les réglages d'ouverture ; RESET revient aux valeurs exactes du preset.
+ * Tout réglage est écrit dans track.arp (normalisé par SS.Arp.normalize) et s'entend tout de suite.
  */
 window.SS = window.SS || {};
 
@@ -17,10 +20,11 @@ SS.arpPanel = (() => {
   let track = null;
   let snapshot = null;
   let undo = [];
-  let tab = 'play';
-  let previewPhrase = 0; // passage de boucle affiché (0 = A, 1 = A', 2 = B, 3 = A'')
   let dlg;
-  let sliding = false; // pendant le glissé d'un curseur, on ne reconstruit pas la fenêtre
+  let sliding = false;
+  let test = null;
+  let sel = null;
+  const N = 16;
 
   const h = (tag, attrs = {}, ...children) => {
     const el = document.createElement(tag);
@@ -36,42 +40,152 @@ SS.arpPanel = (() => {
     return el;
   };
   const clone = (o) => JSON.parse(JSON.stringify(o));
-  const pct = (v) => `${Math.round(v * 100)} %`;
+  const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  const NOTES_FR = ['Do', 'Do#', 'Ré', 'Ré#', 'Mi', 'Fa', 'Fa#', 'Sol', 'Sol#', 'La', 'La#', 'Si'];
 
-  /* ---------- Modification des réglages ---------- */
-
-  /** patch : objet partiel ; push = enregistre l'état précédent pour ANNULER (pas pendant un glissé). */
-  function set(patch, { push = true, keepPreset = false } = {}) {
+  function set(patch, { push = true } = {}) {
     if (push) {
       undo.push(clone(track.arp));
       if (undo.length > 60) undo.shift();
     }
-    const next = { ...track.arp, ...patch };
-    if (!keepPreset && !('preset' in patch)) next.preset = '';
-    track.arp = A().normalize(next);
+    track.arp = A().normalize({ ...track.arp, ...patch, preset: '' });
     app.changed();
     render();
   }
 
-  function sourceChord() {
-    // l'accord de l'aperçu : celui du premier accord posé sur la piste, sinon l'accord d'essai du preset
-    const ev = (track.events || []).find((e) => e.notes && e.notes.length);
-    if (ev) return { notes: ev.notes.slice(), from: 'piste' };
-    const p = A().PRESETS.find((x) => x.id === track.arp.preset);
-    return { notes: A().parseChordSymbol(p ? p.chord : 'Am', 3), from: 'essai' };
+  const P = () => track.arp.steps;
+  const STEP_LANES = ['rhythm', 'vel', 'len', 'poly'];
+
+  function sizedLanes(arp, n) {
+    const lanes = clone(arp.lanes);
+    for (const name of STEP_LANES) {
+      let src = lanes[name];
+      if (!src.length) {
+        if (name === 'rhythm' && arp.rhythm.type === 'euclid') src = A().euclid(arp.rhythm.hits, arp.rhythm.steps, arp.rhythm.rot);
+        else src = [A().LANES[name].def];
+      }
+      lanes[name] = Array.from({ length: n }, (_, i) => src[i % src.length]);
+    }
+    return lanes;
   }
 
-  /* ---------- Rendu ---------- */
+  function stepValues(i) {
+    const l = track.arp.lanes;
+    const at = (name) => (l[name].length ? l[name][i % l[name].length] : A().LANES[name].def);
+    const r = track.arp.rhythm;
+    const rh = r.type === 'lane' && l.rhythm.length ? at('rhythm') : r.type === 'euclid' ? A().euclid(r.hits, r.steps, r.rot)[i % r.steps] : 1;
+    return { play: !!rh, vel: at('vel'), len: at('len'), poly: at('poly') };
+  }
+
+  function setStep(i, patch, opts) {
+    const lanes = sizedLanes(track.arp, P());
+    const idx = i == null ? [...Array(P()).keys()] : [i];
+    idx.forEach((j) => {
+      if ('play' in patch) lanes.rhythm[j] = patch.play ? 1 : 0;
+      if ('vel' in patch) lanes.vel[j] = patch.vel;
+      if ('len' in patch) lanes.len[j] = patch.len;
+      if ('poly' in patch) lanes.poly[j] = patch.poly;
+    });
+    set({ lanes, rhythm: { ...track.arp.rhythm, type: 'lane' } }, opts);
+  }
+
+  const trackChord = () => {
+    const ev = (track.events || []).find((e) => e.notes && e.notes.length);
+    return ev ? ev.notes.slice() : null;
+  };
+  const rootMidi = (pc) => 12 * ((Number.isFinite(track.octave) ? track.octave : 3) + 1) + pc;
+  function sourceChord() {
+    if (test) return { notes: SS.chordNotes(rootMidi(test.root), test.type), from: 'essai' };
+    const notes = trackChord();
+    if (notes) return { notes, from: 'piste' };
+    return { notes: SS.chordNotes(rootMidi(9), 'min'), from: 'essai' };
+  }
+
+  /** Pose l'accord d'essai sur toute la boucle de la piste (accord à arpéger). */
+  function fillTrack() {
+    const notes = sourceChord().notes;
+    const len = SS.trackLen(app.project(), track);
+    if (track.events.length && !confirm('Remplacer les accords de la piste par cet accord sur toute la boucle ?')) return;
+    track.events = [{ step: 0, len, notes, vel: 0.8 }];
+    test = null;
+    app.changed();
+    app.renderTrack && app.renderTrack(track);
+    render();
+  }
+
+  const loop = { on: false, timer: null, raf: null, next: 0, step: 0, queue: [], tick: -1 };
+  const LOOP_STEPS = () => SS.stepsPerBar(app.project()) * 2; // la boucle d'écoute dure 2 mesures
+
+  async function startLoop() {
+    const ctx = SS.audio.ensureCtx();
+    if (ctx.state === 'suspended') await ctx.resume();
+    loop.on = true;
+    render();
+    if (picker && picker.open) renderPicker();
+    await SS.audio.prepareTrack(track);
+    if (!loop.on) return;
+    loop.next = ctx.currentTime + 0.08;
+    loop.step = 0;
+    loop.queue = [];
+    loopTick();
+    loop.timer = setInterval(loopTick, 25);
+    loop.raf = requestAnimationFrame(drawHead);
+  }
+
+  function stopLoop() {
+    loop.on = false;
+    clearInterval(loop.timer);
+    cancelAnimationFrame(loop.raf);
+    loop.queue = [];
+    loop.tick = -1;
+    if (dlg) dlg.querySelectorAll('.arp-head').forEach((el) => el.setAttribute('x', -100));
+  }
+
+  /** Programme les notes un peu en avance (comme le séquenceur), avec les réglages du moment. */
+  function loopTick() {
+    if (!loop.on || !track) return stopLoop();
+    const ctx = SS.audio.ensureCtx();
+    const project = app.project();
+    const stepSec = 60 / project.tempo / 4;
+    const total = LOOP_STEPS();
+    const notes = sourceChord().notes;
+    while (loop.next < ctx.currentTime + 0.12) {
+      const s = loop.step % total;
+      const lp = Math.floor(loop.step / total); // passage de boucle : EVOLVE varie d'un passage à l'autre
+      const ev = { step: 0, len: total, notes, vel: 0.85 };
+      const out = A().renderStep(track.arp, ev, s, { loop: lp, stepSec, stepsPerBeat: SS.stepsPerBeat(project), trackLen: total });
+      out.forEach((n) => {
+        const group = out.filter((x) => x.at === n.at);
+        SS.audio.playNote(track, n.midi, loop.next + n.at, n.dur, n.vel * (group.length > 1 ? 0.8 : 1), undefined, group.indexOf(n), group.length, { cutoff: n.cutoff });
+      });
+      loop.queue.push({ time: loop.next, tick: Math.floor(s * track.arp.rate + 1e-9) });
+      loop.next += stepSec;
+      loop.step++;
+    }
+  }
+
+  /** Curseur de lecture sur la grille (les 16 premiers pas d'arpège de chaque accord). */
+  function drawHead() {
+    if (!loop.on) return;
+    const now = SS.audio.ensureCtx().currentTime;
+    while (loop.queue.length && loop.queue[0].time <= now) loop.tick = loop.queue.shift().tick;
+    const head = dlg && dlg.querySelector('.arp-head');
+    if (head) {
+      const cw = +head.getAttribute('width');
+      head.setAttribute('x', loop.tick >= 0 && loop.tick < 16 ? loop.tick * cw : -100);
+    }
+    loop.raf = requestAnimationFrame(drawHead);
+  }
+
 
   function slider(label, value, min, max, step, fmt, oninput, opts = {}) {
     const out = h('output', {}, fmt(value));
     const input = h('input', { type: 'range', min, max, step, value, 'aria-label': label });
-    let pushed = false;
+    let pushed = false; // un seul « Défaire » par geste
     input.addEventListener('input', () => {
       sliding = true;
-      const v = +input.value;
-      out.textContent = fmt(v);
-      oninput(v, !pushed);
+      out.textContent = fmt(+input.value);
+      oninput(+input.value, !pushed);
       pushed = true;
     });
     input.addEventListener('change', () => {
@@ -79,404 +193,420 @@ SS.arpPanel = (() => {
       sliding = false;
       render();
     });
-    if (opts.reset != null) input.addEventListener('dblclick', () => oninput(opts.reset, true));
-    return h('div', { class: 'arp-macro' + (opts.cls ? ' ' + opts.cls : '') }, h('label', {}, h('b', {}, label), out), input, opts.help ? h('small', {}, opts.help) : null);
+    return h(
+      'div',
+      { class: 'arp-macro' + (opts.cls ? ' ' + opts.cls : '') },
+      h('label', {}, h('b', {}, label), out),
+      input,
+      opts.scale ? h('div', { class: 'arp-scale' }, opts.scale.map((t) => h('span', {}, t))) : null,
+      opts.help ? h('small', {}, opts.help) : null
+    );
   }
 
   function segmented(options, value, onpick, aria) {
     return h(
       'div',
       { class: 'segmented arp-seg', role: 'radiogroup', 'aria-label': aria },
-      options.map((o) =>
-        h('button', { type: 'button', class: String(o.id) === String(value) ? 'active' : '', title: o.hint || null, onclick: () => onpick(o.id) }, o.label)
-      )
+      options.map((o) => h('button', { type: 'button', class: String(o.id) === String(value) ? 'active' : '', title: o.hint || null, onclick: () => onpick(o.id) }, o.label))
     );
   }
 
-  function plainSelect(options, value, onchange) {
-    return h('select', { onchange: (e) => onchange(e.target.value) }, options.map((o) => h('option', { value: o.id, selected: o.id === value, title: o.hint || null }, o.label)));
-  }
-
-  function modeSelect(value, onchange) {
-    const groups = {};
-    A().MODES.forEach((m) => (groups[m.group] = groups[m.group] || []).push(m));
-    return h(
-      'select',
-      { onchange: (e) => onchange(e.target.value) },
-      Object.entries(groups).map(([g, ms]) => h('optgroup', { label: g }, ms.map((m) => h('option', { value: m.id, selected: m.id === value }, m.label))))
-    );
-  }
-
-  const evolveStage = (e) =>
-    e === 0 ? 'boucle identique' : e <= 0.25 ? 'nuances (vélocité, gate)' : e <= 0.5 ? '+ petites permutations, octaves' : e <= 0.75 ? '+ respirations, ratchets' : '+ phrase B au contour différent';
-
-  /** Grille des prochains pas : une colonne par pas d'arpège, hauteur = note. */
   function gridSvg(arp, notes) {
-    const N = 16;
-    const ticks = A().preview(arp, notes, N, { loop: previewPhrase, stepsPerBeat: 4 });
+    const ticks = A().preview(arp, notes, N, { loop: 0, stepsPerBeat: 4 });
     const all = ticks.flatMap((t) => (t ? t.notes : []));
     const W = 640;
     const H = 120;
     const cw = W / N;
+    const p = P();
     let svg = '';
-    for (let i = 0; i < N; i++) svg += `<rect class="${i % 4 === 0 ? 'ag-beat' : 'ag-col'}" x="${i * cw + 1}" y="1" width="${cw - 2}" height="${H - 2}" rx="3"/>`;
+    for (let i = 0; i < N; i++) {
+      const cls = (i % 4 === 0 ? 'ag-beat' : 'ag-col') + (i >= p ? ' ag-rep' : '');
+      svg += `<rect class="${cls}" x="${i * cw + 1}" y="1" width="${cw - 2}" height="${H - 2}" rx="3"/>`;
+      if (sel != null && i % p === sel) svg += `<rect class="arp-sel" x="${i * cw + 1.5}" y="1.5" width="${cw - 3}" height="${H - 3}" rx="3"/>`;
+    }
+    svg += `<rect class="arp-head" x="${loop.on && loop.tick >= 0 ? (loop.tick % N) * cw : -100}" y="0" width="${cw}" height="${H}" rx="3"/>`;
     if (all.length) {
       const lo = Math.min(...all) - 1;
       const hi = Math.max(...all) + 1;
       const y = (n) => H - 8 - ((n - lo) / Math.max(1, hi - lo)) * (H - 22);
       ticks.forEach((t, i) => {
-        if (!t) return;
+        if (!t) {
+          svg += `<text class="rest" x="${(i * cw + cw / 2).toFixed(1)}" y="${H / 2 + 4}">silence</text>`;
+          return;
+        }
         t.notes.forEach((n) => {
-          const w = Math.min(cw * Math.min(t.gate, 4), W - i * cw) - 3;
-          const op = (0.35 + 0.65 * t.vel).toFixed(2);
-          svg += `<rect class="note${t.anchor ? ' anchor' : ''}" x="${i * cw + 2}" y="${(y(n) - 4).toFixed(1)}" width="${Math.max(4, w).toFixed(1)}" height="8" rx="2" style="opacity:${op}"/>`;
-          if (t.ratchet > 1) for (let r = 1; r < t.ratchet; r++) svg += `<line class="ratchet" x1="${(i * cw + 2 + (r * cw) / t.ratchet).toFixed(1)}" x2="${(i * cw + 2 + (r * cw) / t.ratchet).toFixed(1)}" y1="${(y(n) - 6).toFixed(1)}" y2="${(y(n) + 6).toFixed(1)}"/>`;
+          const w = Math.min(cw * t.gate, W - i * cw) - 3;
+          const op = (0.3 + 0.7 * t.vel).toFixed(2);
+          svg += `<rect class="note" x="${i * cw + 2}" y="${(y(n) - 4).toFixed(1)}" width="${Math.max(4, w).toFixed(1)}" height="8" rx="2" style="opacity:${op}"/>`;
         });
-        if (t.notes.length === 1) svg += `<text x="${(i * cw + cw / 2).toFixed(1)}" y="12">${A().noteName(t.notes[0]).replace(/-?\d+$/, '')}</text>`;
+        const label = t.notes.map((n) => A().noteName(n).replace(/-?\d+$/, '')).join('+');
+        svg += `<text x="${(i * cw + cw / 2).toFixed(1)}" y="12">${label}</text>`;
       });
     }
-    // innerHTML : l'élément <svg> doit être créé dans l'espace de noms SVG
-    return h('div', { html: `<svg class="arp-grid" viewBox="0 0 ${W} ${H}" role="img" aria-label="Les 16 prochains pas de l’arpège">${svg}</svg>` }).firstChild;
+    const wrap = h('div', { class: 'arp-grid-wrap', html: `<svg class="arp-grid" viewBox="0 0 ${W} ${H}" role="img">${svg}</svg>` });
+    wrap.firstChild.addEventListener('click', (e) => {
+      const r = e.currentTarget.getBoundingClientRect();
+      const i = Math.max(0, Math.min(N - 1, Math.floor(((e.clientX - r.left) / r.width) * N)));
+      sel = sel === i % P() ? null : i % P();
+      render();
+    });
+    return wrap;
   }
 
-  function chordInfo(notes) {
-    const hyp = A().analyzeChord(notes);
-    if (!hyp.length) return h('span', {}, '—');
-    const [b, ...rest] = hyp;
-    return h(
-      'span',
-      { class: 'arp-chord' },
-      h('b', {}, b.name),
-      ` confiance ${Math.round(b.confidence * 100)} %`,
-      rest.length && b.confidence < 0.8 ? h('small', {}, ' · ou ' + rest.slice(0, 2).map((x) => x.name).join(', ')) : null
-    );
+  /** Rangée de vélocités sous la grille : cliquer / glisser verticalement pour régler chaque pas. */
+  function velRow() {
+    const p = P();
+    const row = h('div', { class: 'arp-vels', title: 'Vélocité de chaque pas : cliquer / glisser verticalement' });
+    for (let i = 0; i < N; i++) {
+      const v = stepValues(i % p).vel;
+      row.append(h('span', { class: 'arp-vel' + (i >= p ? ' rep' : '') + (sel != null && i % p === sel ? ' sel' : '') }, h('i', { style: `height:${Math.round(v * 100)}%` })));
+    }
+    let drag = false;
+    const apply = (e, push) => {
+      const r = row.getBoundingClientRect();
+      const i = Math.max(0, Math.min(N - 1, Math.floor(((e.clientX - r.left) / r.width) * N)));
+      const v = Math.max(0.05, Math.min(1, Math.round((1 - (e.clientY - r.top) / r.height) * 20) / 20));
+      const j = i % p;
+      if (!push && stepValues(j).vel === v) return;
+      if (push) undo.push(clone(track.arp));
+      const lanes = sizedLanes(track.arp, p);
+      lanes.vel[j] = v;
+      // la vélocité seule ne doit pas activer la ligne de rythme si elle n'existe pas encore
+      if (!track.arp.lanes.rhythm.length && track.arp.rhythm.type !== 'lane') lanes.rhythm = [];
+      track.arp = A().normalize({ ...track.arp, lanes, preset: '' });
+      row.querySelectorAll('.arp-vel').forEach((c, k) => k % p === j && (c.firstChild.style.height = `${Math.round(v * 100)}%`));
+      app.changed();
+    };
+    row.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      row.setPointerCapture(e.pointerId);
+      drag = true;
+      apply(e, true);
+    });
+    row.addEventListener('pointermove', (e) => drag && apply(e, false));
+    const end = () => {
+      if (drag) {
+        drag = false;
+        render();
+      }
+    };
+    row.addEventListener('pointerup', end);
+    row.addEventListener('pointercancel', end);
+    return h('div', { class: 'arp-vel-wrap' }, h('span', { class: 'dlg-label' }, 'Vélocité'), row);
   }
 
-  function playView() {
-    const arp = track.arp;
-    const src = sourceChord();
-    const preset = A().PRESETS.find((p) => p.id === arp.preset);
-    const rateIdx = Math.max(0, A().RATES.findIndex((r) => Math.abs(r.id - arp.rate) < 1e-6));
+  const LENGTHS = [
+    { id: 1, label: '¼ temps' },
+    { id: 2, label: '½ temps' },
+    { id: 4, label: '1 temps' },
+    { id: 8, label: '2 temps' },
+    { id: 16, label: '4 temps' },
+  ];
+
+  function stepPanel() {
+    if (sel == null) return h('div', { class: 'arp-step empty' }, '👆 Clique un pas de la grille pour régler sa vélocité, sa longueur, jouer 2 ou 3 notes à la fois, ou en faire un silence.');
+    const v = stepValues(sel);
     return h(
-      'section',
-      { class: 'arp-play' },
+      'div',
+      { class: 'arp-step' },
       h(
         'div',
-        { class: 'arp-presets' },
-        h('label', { class: 'dlg-label', for: 'arpPreset' }, 'Preset'),
-        h(
-          'select',
-          {
-            id: 'arpPreset',
-            onchange: (e) => {
-              const next = A().fromPreset(e.target.value, { seed: arp.seed });
-              if (next) {
-                undo.push(clone(track.arp));
-                track.arp = next;
-                app.changed();
-                render();
-                listen();
-              }
-            },
-          },
-          h('option', { value: '', selected: !preset, disabled: true }, preset ? '—' : 'Personnalisé'),
-          A().PRESETS.map((p) => h('option', { value: p.id, selected: p.id === arp.preset }, p.label))
-        ),
-        h('p', { class: 'arp-desc' }, preset ? `${preset.desc} Accord d’essai : ${preset.chord}, ${preset.bpm} BPM conseillés.` : 'Réglages personnalisés. Choisir un preset repart de ses valeurs exactes.')
+        { class: 'arp-step-head' },
+        h('b', {}, `Pas ${sel + 1}`),
+        segmented([{ id: 1, label: 'Joue' }, { id: 0, label: 'Silence' }], v.play ? 1 : 0, (x) => setStep(sel, { play: !!+x }), 'Joue ou silence'),
+        h('span', { class: 'spacer' }),
+        h('button', { type: 'button', class: 'sd-mini', onclick: () => setStep(null, v) }, 'Appliquer à tous les pas'),
+        h('button', { type: 'button', class: 'sd-mini', onclick: () => ((sel = null), render()) }, '×')
       ),
       h(
         'div',
-        { class: 'arp-macros' },
-        slider('RATE', rateIdx, 0, A().RATES.length - 1, 1, (i) => A().RATES[i].label, (i, push) => set({ rate: A().RATES[i].id }, { push, keepPreset: false }), { help: 'vitesse de la grille' }),
-        slider('GATE', Math.round(arp.gate * 100), 5, 200, 1, (v) => `${v} %`, (v, push) => set({ gate: v / 100 }, { push }), { help: 'articulation ; > 100 % : notes liées' }),
-        slider('MOTION', Math.round(arp.motion * 100), 0, 100, 1, (v) => (v ? `${v} %` : 'off'), (v, push) => set({ motion: v / 100 }, { push }), { help: 'LFO sur le timbre et la dynamique, jamais sur les notes' }),
-        slider('EVOLVE', Math.round(arp.evolve * 100), 0, 100, 1, (v) => (v ? `${v} %` : 'off'), (v, push) => set({ evolve: v / 100 }, { push }), { help: evolveStage(arp.evolve) })
-      ),
-      h(
-        'div',
-        { class: 'arp-view' },
+        { class: 'arp-step-grid' + (v.play ? '' : ' dim') },
+        slider('Vélocité', Math.round(v.vel * 100), 5, 100, 5, (x) => `${x} %`, (x, push) => setStep(sel, { vel: x / 100 }, { push })),
+        h('div', { class: 'arp-field' }, h('span', { class: 'dlg-label' }, 'Longueur'), segmented([{ id: 0, label: 'Comme les autres' }, ...LENGTHS], v.len, (x) => setStep(sel, { len: +x }), 'Longueur')),
         h(
           'div',
-          { class: 'arp-view-head' },
-          h('span', {}, h('span', { class: 'dlg-label' }, src.from === 'piste' ? 'Accord de la piste ' : 'Accord d’essai '), chordInfo(src.notes)),
-          arp.evolve > 0
-            ? h(
-                'span',
-                { class: 'arp-phrases', title: 'Passage de la boucle : EVOLVE varie selon la structure A / A′ / B / A″' },
-                ['A', 'A′', 'B', 'A″'].map((l, i) =>
-                  h('button', { type: 'button', class: 'chip' + (i === previewPhrase ? ' active' : ''), onclick: () => ((previewPhrase = i), render()) }, l)
-                )
-              )
-            : null
-        ),
-        gridSvg(arp, src.notes),
-        h('small', { class: 'arp-legend' }, 'Les 16 prochains pas. Contour plein : note d’ancrage (premier pas, temps forts), jamais déplacée par EVOLVE.')
-      ),
-      h(
-        'div',
-        { class: 'arp-actions' },
-        h('button', { type: 'button', class: 'btn btn-accent', onclick: listen }, '▶ Écouter'),
-        h(
-          'button',
-          {
-            type: 'button',
-            class: 'btn' + (arp.freeze ? ' on' : ''),
-            title: 'Fige la variation affichée (le timbre continue de bouger)',
-            onclick: () => set({ freeze: !arp.freeze, freezeLoop: previewPhrase }, { keepPreset: true }),
-          },
-          arp.freeze ? 'FREEZE ✓' : 'FREEZE'
-        ),
-        h('button', { type: 'button', class: 'btn', title: 'Nouvelle graine pour les choix aléatoires', onclick: () => set({ seed: Math.floor(Math.random() * 999999) + 1 }, { keepPreset: true }) }, `Graine ${arp.seed} ↻`),
-        h(
-          'button',
-          {
-            type: 'button',
-            class: 'btn',
-            disabled: !arp.preset && !snapshot.preset,
-            title: 'Revenir aux valeurs exactes du preset',
-            onclick: () => {
-              const id = arp.preset || snapshot.preset;
-              const next = A().fromPreset(id, { seed: arp.seed });
-              if (next) {
-                undo.push(clone(track.arp));
-                track.arp = next;
-                app.changed();
-                render();
-              }
-            },
-          },
-          'RESET'
-        ),
-        h(
-          'button',
-          {
-            type: 'button',
-            class: 'btn',
-            disabled: !undo.length,
-            onclick: () => {
-              track.arp = A().normalize(undo.pop());
-              app.changed();
-              render();
-            },
-          },
-          'Annuler'
+          { class: 'arp-field' },
+          h('span', { class: 'dlg-label' }, 'Notes à la fois'),
+          segmented([{ id: 1, label: '1' }, { id: 2, label: '2' }, { id: 3, label: '3' }], v.poly, (x) => setStep(sel, { poly: +x }), 'Notes à la fois'),
+          h('small', { class: 'arp-help' }, '2 = la note + la note de l’accord juste au-dessus.')
         )
       )
     );
   }
 
-  /** Éditeur d'une ligne de pas : barres cliquables / glissables, longueur propre. */
-  function laneEditor(name) {
-    const spec = A().LANES[name];
-    const arr = track.arp.lanes[name];
-    const len = arr.length;
-    const norm = (v) => (v - spec.min) / (spec.max - spec.min);
-    const fmt = (v) => (name === 'oct' ? (v > 0 ? `+${v}` : String(v)) : name === 'ratchet' ? `×${v}` : name === 'rhythm' ? (v ? '●' : '·') : pct(v));
-    const resize = (n) => {
-      n = Math.max(0, Math.min(64, n));
-      const next = arr.slice(0, n);
-      while (next.length < n) next.push(len ? arr[next.length % len] : spec.def);
-      const patch = { lanes: { ...track.arp.lanes, [name]: next } };
-      if (name === 'rhythm') patch.rhythm = { ...track.arp.rhythm, type: n ? 'lane' : 'all' };
-      set(patch);
-    };
-    const cells = h('div', { class: 'arp-cells' + (name === 'oct' ? ' bipolar' : '') });
-    arr.forEach((v, i) => {
-      const bar = h('i', { style: `height:${(name === 'oct' ? Math.abs(v) / 2 / 2 : norm(v)) * 100}%;${name === 'oct' && v < 0 ? 'top:50%' : name === 'oct' ? 'bottom:50%' : ''}` });
-      cells.append(h('span', { class: 'arp-cell' + (i % 4 === 0 ? ' beat' : ''), 'data-i': i, title: `Pas ${i + 1} : ${fmt(v)}` }, bar, h('em', {}, fmt(v))));
+  function styleIcon(motif) {
+    const ticks = A().preview({ rate: 1, octaves: 1, seed: 3, ...motif.arp }, [57, 60, 64], 12);
+    const ns = ticks.flatMap((t) => (t ? t.notes : []));
+    if (!ns.length) return '<svg viewBox="0 0 64 30"></svg>';
+    const lo = Math.min(...ns);
+    const hi = Math.max(...ns);
+    const y = (n) => (26 - ((n - lo) / Math.max(1, hi - lo)) * 22).toFixed(1);
+    const pts = [];
+    let bars = '';
+    ticks.forEach((t, i) => {
+      if (!t) return;
+      const x = 4 + i * 5.1;
+      if (t.notes.length > 1) t.notes.forEach((n) => (bars += `<rect x="${x - 2}" y="${y(n) - 1.3}" width="5" height="2.6" rx="1"/>`));
+      else pts.push(`${x},${y(t.notes[0])}`);
     });
-    let drag = null;
-    const valueAt = (e) => {
-      const r = cells.getBoundingClientRect();
-      const i = Math.floor(((e.clientX - r.left) / r.width) * len);
-      let x = 1 - (e.clientY - r.top) / r.height;
-      x = Math.max(0, Math.min(1, x));
-      let v = spec.min + x * (spec.max - spec.min);
-      if (spec.int) v = Math.round(v);
-      else v = Math.round(v * 20) / 20;
-      return { i: Math.max(0, Math.min(len - 1, i)), v };
-    };
-    cells.addEventListener('pointerdown', (e) => {
-      if (!len) return;
-      e.preventDefault();
-      cells.setPointerCapture(e.pointerId);
-      const { i, v } = valueAt(e);
-      const lanes = clone(track.arp.lanes);
-      if (name === 'rhythm') lanes.rhythm[i] = lanes.rhythm[i] ? 0 : 1; // clic = bascule
-      else lanes[name][i] = v;
-      drag = { push: true, rhythmValue: lanes.rhythm[i] };
-      set({ lanes }, { push: true });
-    });
-    cells.addEventListener('pointermove', (e) => {
-      if (!drag) return;
-      const { i, v } = valueAt(e);
-      const lanes = clone(track.arp.lanes);
-      const nv = name === 'rhythm' ? drag.rhythmValue : v;
-      if (lanes[name][i] === nv) return;
-      lanes[name][i] = nv;
-      // on modifie sans rendre toute la fenêtre pendant le glissé
-      track.arp = A().normalize({ ...track.arp, lanes, preset: '' });
-      const cell = cells.children[i];
-      const val = track.arp.lanes[name][i];
-      cell.querySelector('i').style.height = `${(name === 'oct' ? Math.abs(val) / 4 : norm(val)) * 100}%`;
-      if (name === 'oct') {
-        cell.querySelector('i').style.top = val < 0 ? '50%' : '';
-        cell.querySelector('i').style.bottom = val >= 0 ? '50%' : '';
-      }
-      cell.querySelector('em').textContent = fmt(val);
-      app.changed();
-    });
-    const end = () => {
-      if (drag) {
-        drag = null;
-        render();
-      }
-    };
-    cells.addEventListener('pointerup', end);
-    cells.addEventListener('pointercancel', end);
+    const line = pts.length ? `<polyline points="${pts.join(' ')}"/>` + pts.map((p) => `<circle cx="${p.split(',')[0]}" cy="${p.split(',')[1]}" r="1.8"/>`).join('') : '';
+    return `<svg viewBox="0 0 64 30" aria-hidden="true">${line}${bars}</svg>`;
+  }
+
+  /** Bouton lecture / stop de la boucle (fenêtre principale et sélecteur de motifs). */
+  function loopButton(label) {
+    return h(
+      'button',
+      {
+        type: 'button',
+        class: 'btn arp-loop' + (loop.on ? ' on' : ''),
+        title: loop.on ? 'Arrêter la lecture en boucle' : 'Écouter l’arpège en boucle (les réglages s’entendent tout de suite)',
+        onclick: () => (loop.on ? (stopLoop(), render(), picker && picker.open && renderPicker()) : startLoop()),
+      },
+      loop.on ? '■ Stop' : label
+    );
+  }
+
+  function playerView() {
+    const src = sourceChord();
+    const hyp = A().analyzeChord(src.notes)[0];
+    const has = !!trackChord();
+    const pickShown = test || !has;
+    const cur = test || { root: 9, type: 'min' };
     return h(
       'div',
-      { class: 'arp-lane' + (len ? '' : ' off') },
+      { class: 'arp-player' },
       h(
         'div',
-        { class: 'arp-lane-head' },
-        h('b', {}, spec.label),
-        h('button', { type: 'button', class: 'sd-mini', title: 'Un pas de moins', onclick: () => resize(len - 1) }, '−'),
-        h('span', { class: 'arp-len' }, len ? `${len} pas` : 'off'),
-        h('button', { type: 'button', class: 'sd-mini', title: 'Un pas de plus', onclick: () => resize(len ? len + 1 : 16) }, '+'),
-        len ? h('button', { type: 'button', class: 'sd-mini', title: 'Désactiver la ligne', onclick: () => resize(0) }, '×') : null
-      ),
-      len ? cells : h('small', { class: 'arp-off' }, name === 'rhythm' ? 'Rythme : voir ci-dessus. « + » crée une ligne de 16 pas.' : `Valeur neutre (${fmt(spec.def)}). « + » crée une ligne de 16 pas.`)
-    );
-  }
-
-  function numInput(label, value, min, max, onchange) {
-    return h(
-      'label',
-      { class: 'arp-num' },
-      label,
-      h('input', { type: 'number', min, max, value, onchange: (e) => onchange(Math.max(min, Math.min(max, Math.round(+e.target.value || 0)))) })
-    );
-  }
-
-  function createView() {
-    const arp = track.arp;
-    const rh = arp.rhythm;
-    const bad = arp.mode === 'pattern' ? A().parsePattern(arp.pattern).filter((t) => t.bad).map((t) => t.bad) : [];
-    return h(
-      'section',
-      { class: 'arp-create' },
-      h(
-        'div',
-        { class: 'arp-row2' },
-        h('label', { class: 'arp-field' }, h('span', { class: 'dlg-label' }, 'Ordre des notes'), modeSelect(arp.mode, (v) => set({ mode: v }))),
-        h('div', { class: 'arp-field' }, h('span', { class: 'dlg-label' }, 'Octaves'), segmented([1, 2, 3, 4].map((o) => ({ id: o, label: String(o) })), arp.octaves, (v) => set({ octaves: +v }), 'Octaves')),
-        h('label', { class: 'arp-field' }, h('span', { class: 'dlg-label' }, 'Harmonie'), plainSelect(A().HARMONY, arp.harmony, (v) => set({ harmony: v }))),
-        h('label', { class: 'arp-field' }, h('span', { class: 'dlg-label' }, 'Lignes et rythme'), plainSelect(A().RETRIG, arp.retrig, (v) => set({ retrig: v })))
-      ),
-      arp.mode === 'pattern'
-        ? h(
-            'div',
-            { class: 'arp-field' },
-            h('span', { class: 'dlg-label' }, 'Motif relatif'),
-            h('input', {
-              type: 'text',
-              class: 'arp-pattern',
-              value: arp.pattern,
-              placeholder: 'd1 d5 d1+ d5 d3+ d5 . _',
-              spellcheck: 'false',
-              onchange: (e) => set({ pattern: e.target.value }),
-            }),
-            h(
-              'small',
-              { class: 'arp-help' },
-              'd1 d3 d5 d7 d9 : degrés de l’accord (repli défini si absent) · 0 1 2… : index des notes, du grave à l’aigu · + / − : octave · . silence · _ liaison. ',
-              bad.length ? h('b', { class: 'arp-bad' }, `Ignoré : ${bad.join(' ')}`) : null
-            )
-          )
-        : null,
-      h(
-        'div',
-        { class: 'arp-field' },
-        h('span', { class: 'dlg-label' }, 'Rythme'),
+        { class: 'arp-player-bar' },
+        loopButton('▶ Lire en boucle'),
         h(
           'div',
-          { class: 'arp-rhythm' },
-          segmented(
-            [
-              { id: 'all', label: 'Tous les pas' },
-              { id: 'euclid', label: 'Euclidien' },
-              { id: 'lane', label: 'Ligne de pas' },
-            ],
-            rh.type,
-            (v) => {
-              const patch = { rhythm: { ...rh, type: v } };
-              if (v === 'lane' && !arp.lanes.rhythm.length) patch.lanes = { ...arp.lanes, rhythm: A().euclid(rh.hits, rh.steps, rh.rot) };
-              set(patch);
-            },
-            'Rythme'
+          { class: 'arp-chordpick' },
+          h('span', { class: 'dlg-label' }, 'Accord'),
+          has ? h('button', { type: 'button', class: 'chip' + (!test ? ' active' : ''), title: 'Le premier accord posé sur la piste', onclick: () => ((test = null), render()) }, 'De la piste') : null,
+          h(
+            'select',
+            { 'aria-label': 'Note fondamentale', class: pickShown ? 'active' : '', onchange: (e) => ((test = { root: +e.target.value, type: cur.type }), render()) },
+            !pickShown ? h('option', { value: '', selected: true, disabled: true }, 'Autre…') : null,
+            NOTES_FR.map((n, i) => h('option', { value: i, selected: pickShown && cur.root === i }, `${n} (${NOTES[i]})`))
           ),
-          rh.type === 'euclid'
-            ? [
-                numInput('Coups', rh.hits, 0, rh.steps, (v) => set({ rhythm: { ...rh, hits: v } })),
-                numInput('Pas', rh.steps, 1, 64, (v) => set({ rhythm: { ...rh, steps: v, hits: Math.min(rh.hits, v) } })),
-                numInput('Rotation', rh.rot, 0, 63, (v) => set({ rhythm: { ...rh, rot: v } })),
-                h('code', { class: 'arp-euclid' }, A().euclid(rh.hits, rh.steps, rh.rot).map((x) => (x ? '●' : '·')).join('')),
-              ]
-            : null
-        ),
-        h('small', { class: 'arp-help' }, 'Le rythme ne fait pas sauter de note : l’ordre n’avance que sur les pas joués.')
+          h(
+            'select',
+            { 'aria-label': 'Type d’accord', onchange: (e) => ((test = { root: cur.root, type: e.target.value }), render()) },
+            !pickShown ? h('option', { value: '', selected: true, disabled: true }, '—') : null,
+            SS.CHORDS.map((c) => h('option', { value: c.id, selected: pickShown && cur.type === c.id }, c.label))
+          ),
+          h('b', { class: 'arp-chordname' }, hyp ? hyp.name : ''),
+          src.from === 'essai' ? h('button', { type: 'button', class: 'btn arp-fill', title: 'Pose cet accord sur toute la boucle de la piste', onclick: fillTrack }, 'Poser sur la piste') : null
+        )
       ),
+      gridSvg(track.arp, src.notes),
+      velRow(),
+      stepPanel(),
+      !has ? h('small', { class: 'arp-legend' }, 'La piste est vide : choisis un accord, écoute, puis « Poser sur la piste ».') : null
+    );
+  }
+
+  // exemple écrit sur La mineur : ′ = une octave plus haut, groupes séparés par « · »
+  const GROUP = { down3: 3, climb2: 2, fall2: 2, up2: 4, down2: 4, up3: 3, alberti: 4, octaves: 2, repeat: 2, up: 3, down: 3, updown: 4, downup: 4, pedal: 2, pedal_top: 2 };
+  function example(motif) {
+    const mode = motif.arp.mode;
+    const ticks = A().preview({ rate: 1, octaves: 1, seed: 3, ...motif.arp }, [57, 60, 64], 8);
+    const base = 57;
+    const name = (n) => {
+      const o = Math.floor((n - base) / 12);
+      return A().noteName(n).replace(/-?\d+$/, '') + (o > 0 ? '′'.repeat(o) : o < 0 ? '↓'.repeat(-o) : '');
+    };
+    const g = GROUP[mode];
+    return ticks.map((t, i) => (g && i && i % g === 0 ? '· ' : '') + (t ? t.notes.map(name).join('+') : '–')).join(' ');
+  }
+
+  const BASE_RATES = [
+    { id: 0.25, label: '1/4' },
+    { id: 0.5, label: '1/8' },
+    { id: 1, label: '1/16' },
+    { id: 2, label: '1/32' },
+  ];
+  const FEEL = [
+    { id: 1, label: 'Normale' },
+    { id: 1.5, label: 'Triolet' },
+    { id: 2 / 3, label: 'Pointée' },
+  ];
+  function splitRate(r) {
+    for (const f of FEEL) for (const b of BASE_RATES) if (Math.abs(b.id * f.id - r) < 1e-6) return { base: b.id, feel: f.id };
+    return null;
+  }
+  const NOTE_LENGTHS = [{ id: 'short', label: 'Piquée' }, { id: 'normal', label: 'Normale' }, ...LENGTHS];
+  const noteLenId = (a) => (a.noteLen > 0 ? a.noteLen : a.gate < 0.7 ? 'short' : 'normal');
+  const noteLenPatch = (id) => (id === 'short' ? { noteLen: 0, gate: 0.45 } : id === 'normal' ? { noteLen: 0, gate: 0.9 } : { noteLen: +id });
+
+  // derniers motifs choisis, gardés dans ce navigateur (confort personnel, sans importance si perdu)
+  const RECENT_KEY = 'stepseq.arp.recentMotifs';
+  let RECENTS = [];
+  try {
+    const r = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
+    if (Array.isArray(r)) RECENTS = r.filter((id) => typeof id === 'string').slice(0, 8);
+  } catch (e) {
+    /* stockage indisponible */
+  }
+  function remember(id) {
+    if (!id) return;
+    RECENTS = [id, ...RECENTS.filter((x) => x !== id)].slice(0, 8);
+    try {
+      localStorage.setItem(RECENT_KEY, JSON.stringify(RECENTS));
+    } catch (e) {
+      /* stockage indisponible */
+    }
+  }
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  function currentMotif() {
+    const a = track.arp;
+    return (
+      SS.MOTIFS.find((m) => {
+        const x = A().normalize({ ...m.arp });
+        return x.mode === a.mode && (a.mode !== 'pattern' || x.pattern === a.pattern) && x.rhythm.type === a.rhythm.type &&
+          (x.rhythm.type !== 'lane' || same(x.lanes.rhythm, a.lanes.rhythm)) && (!m.arp.octaves || m.arp.octaves === a.octaves);
+      }) || { id: '', name: 'Motif personnalisé', cat: '', arp: { mode: a.mode, pattern: a.pattern, rhythm: a.rhythm, lanes: { rhythm: a.lanes.rhythm } } }
+    );
+  }
+  function applyMotif(m, opts) {
+    const patch = { mode: m.arp.mode, pattern: m.arp.pattern || '' };
+    if (m.arp.octaves) patch.octaves = m.arp.octaves;
+    patch.rhythm = m.arp.rhythm || { ...track.arp.rhythm, type: 'all' };
+    patch.lanes = { ...track.arp.lanes, rhythm: (m.arp.lanes && m.arp.lanes.rhythm) || [] };
+    set(patch, opts);
+  }
+
+  /** Carte du motif en cours (écran principal). */
+  function motifCard() {
+    const cur = currentMotif();
+    const i = SS.MOTIFS.indexOf(cur);
+    const cat = SS.MOTIF_CATS.find((c) => c.id === cur.cat);
+    const step = (d) => {
+      const m = SS.MOTIFS[(i + d + SS.MOTIFS.length) % SS.MOTIFS.length];
+      remember(m.id);
+      applyMotif(m);
+    };
+    return h(
+      'div',
+      { class: 'arp-field' },
+      h('span', { class: 'dlg-label' }, 'Motif'),
       h(
         'div',
-        { class: 'arp-row2' },
-        slider('Swing', Math.round(arp.swing * 100), 50, 75, 1, (v) => (v <= 50 ? 'droit' : `${v} %`), (v, push) => set({ swing: v / 100 }, { push }), { reset: 50 }),
+        { class: 'arp-motif-card' },
+        h('button', { type: 'button', class: 'arp-motif-main', title: 'Choisir un autre motif', onclick: openPicker },
+          h('span', { class: 'arp-motif-icon', html: styleIcon(cur) }),
+          h('span', { class: 'arp-motif-text' }, h('b', {}, cur.name), h('small', {}, (cat ? cat.label + ' · ' : '') + example(cur)))
+        ),
+        h('button', { type: 'button', class: 'btn arp-motif-nav', title: 'Motif précédent', onclick: () => step(-1) }, '‹'),
+        h('button', { type: 'button', class: 'btn arp-motif-nav', title: 'Motif suivant', onclick: () => step(1) }, '›'),
+        h('button', { type: 'button', class: 'btn btn-accent arp-motif-change', onclick: openPicker }, `Changer de motif…`)
+      )
+    );
+  }
+
+  /* ---------- Fenêtre de sélection des motifs ---------- */
+  let picker = null;
+  const pick = { cat: 'all', q: '', before: null };
+  function openPicker() {
+    pick.before = clone(track.arp);
+    undo.push(clone(track.arp)); // un seul « Défaire » pour tout le passage dans le sélecteur
+    pick.q = '';
+    pick.cat = currentMotif().cat || 'all';
+    if (!picker) {
+      picker = h('dialog', { id: 'motifDialog', class: 'sd-dialog motif-dialog' }, h('form', { method: 'dialog' }));
+      picker.addEventListener('cancel', (e) => { e.preventDefault(); cancelPicker(); });
+      document.body.append(picker);
+    }
+    renderPicker();
+    picker.showModal();
+  }
+  function cancelPicker() {
+    undo.pop();
+    track.arp = A().normalize(pick.before);
+    app.changed();
+    picker.close();
+    render();
+  }
+  function renderPicker() {
+    const cur = currentMotif();
+    const q = pick.q.trim().toLowerCase();
+    const match = (m) => !q || (m.name + ' ' + m.tags + ' ' + example(m)).toLowerCase().includes(q);
+    const inCat = (m, c) => c === 'all' || (c === 'recent' ? RECENTS.includes(m.id) : m.cat === c);
+    const cats = [{ id: 'recent', label: '★ Récents' }, { id: 'all', label: 'Tous les motifs' }, ...SS.MOTIF_CATS];
+    const list = SS.MOTIFS.filter((m) => match(m) && inCat(m, q ? 'all' : pick.cat));
+    const groups = (q || pick.cat === 'all') ? SS.MOTIF_CATS.map((c) => ({ c, items: list.filter((m) => m.cat === c.id) })).filter((g) => g.items.length) : [{ c: null, items: pick.cat === 'recent' ? RECENTS.map((id) => list.find((m) => m.id === id)).filter(Boolean) : list }];
+    const tile = (m) => h('button', { type: 'button', class: 'arp-style' + (m.id === cur.id ? ' active' : ''), onclick: () => { applyMotif(m, { push: false }); renderPicker(); } },
+      h('span', { html: styleIcon(m) }), h('span', { class: 'arp-style-name' }, m.name), h('small', { class: 'arp-style-ex' }, example(m)));
+    const form = picker.querySelector('form');
+    const search = h('input', { type: 'search', class: 'motif-search', placeholder: 'Rechercher : octave, basse, montée, synthwave…', value: pick.q });
+    search.addEventListener('input', () => { pick.q = search.value; renderPicker(); const s2 = picker.querySelector('.motif-search'); s2.focus(); s2.setSelectionRange(s2.value.length, s2.value.length); });
+    form.replaceChildren(
+      h('div', { class: 'motif-head' }, h('h2', {}, 'Choisir un motif'), search),
+      h('div', { class: 'motif-body' },
+        h('nav', { class: 'motif-cats' }, cats.map((c) => {
+          const n = c.id === 'recent' ? RECENTS.length : SS.MOTIFS.filter((m) => inCat(m, c.id)).length;
+          return h('button', { type: 'button', class: 'motif-cat' + (!q && pick.cat === c.id ? ' active' : ''), onclick: () => { pick.cat = c.id; pick.q = ''; renderPicker(); } }, h('span', {}, c.label), h('small', {}, String(n)));
+        })),
+        h('div', { class: 'motif-list' },
+          groups.length ? groups.map((g) => h('section', { class: 'motif-group' }, g.c ? h('h3', {}, g.c.label) : null, h('div', { class: 'arp-styles' }, g.items.map(tile))))
+            : h('p', { class: 'arp-help' }, 'Aucun motif ne correspond.'))
+      ),
+      h('div', { class: 'dlg-footer motif-foot' },
+        h('span', { class: 'motif-now' }, h('span', { html: styleIcon(cur) }), h('span', {}, h('b', {}, cur.name), h('small', {}, example(cur)))),
+        h('span', { class: 'spacer' }),
+        loopButton('▶ Écouter'),
+        h('button', { type: 'button', class: 'btn', onclick: cancelPicker }, 'Annuler'),
+        h('button', { type: 'button', class: 'btn btn-accent', onclick: () => { remember(currentMotif().id); picker.close(); render(); } }, 'Choisir'))
+    );
+  }
+
+  function settingsView() {
+    const arp = track.arp;
+    const rs = splitRate(arp.rate);
+    return h(
+      'section',
+      { class: 'arp-simple' },
+      motifCard(),
+      h(
+        'div',
+        { class: 'arp-simple-row' },
+        h('div', { class: 'arp-field' }, h('span', { class: 'dlg-label' }, 'Vitesse'), segmented(BASE_RATES, rs ? rs.base : '', (v) => set({ rate: +v * (rs ? rs.feel : 1) })), segmented(FEEL, rs ? rs.feel : '', (v) => set({ rate: (rs ? rs.base : 1) * +v }))),
         h(
           'div',
           { class: 'arp-field' },
-          h('span', { class: 'dlg-label' }, 'Tessiture'),
-          h(
-            'div',
-            { class: 'arp-range' },
-            numInput('de', arp.range[0], 0, 115, (v) => set({ range: [v, Math.max(v + 12, arp.range[1])] })),
-            h('span', {}, A().noteName(arp.range[0])),
-            numInput('à', arp.range[1], 12, 127, (v) => set({ range: [Math.min(arp.range[0], v - 12), v] })),
-            h('span', {}, A().noteName(arp.range[1]))
-          )
-        ),
-        h('div', { class: 'arp-field' }, h('span', { class: 'dlg-label' }, 'Graine'), numInput('', arp.seed, 0, 2147483647, (v) => set({ seed: v }, { keepPreset: true })))
+          h('span', { class: 'dlg-label' }, 'Octaves'),
+          segmented([1, 2, 3, 4].map((o) => ({ id: o, label: String(o) })), arp.octaves, (v) => set({ octaves: +v })),
+          h('span', { class: 'dlg-label' }, 'Motif'),
+          segmented([4, 8, 16].map((n) => ({ id: n, label: `${n} pas` })), arp.steps, (v) => set({ steps: +v, lanes: sizedLanes(arp, +v) }))
+        )
       ),
       h(
         'div',
-        { class: 'arp-lanes' },
-        h('span', { class: 'dlg-label' }, 'Lignes par pas — chaque ligne a sa propre longueur (polymétrie). Cliquer / glisser verticalement pour régler.'),
-        ['rhythm', 'vel', 'gate', 'oct', 'ratchet', 'prob'].filter((n) => n !== 'rhythm' || rh.type === 'lane').map(laneEditor)
-      )
+        { class: 'arp-field' },
+        h('span', { class: 'dlg-label' }, 'Longueur des notes'),
+        segmented(NOTE_LENGTHS, noteLenId(arp), (v) => set(noteLenPatch(v))),
+        h('small', { class: 'arp-help' }, 'Piquée / Normale suivent la vitesse ; 1 temps = une noire. Un pas peut avoir sa propre longueur.')
+      ),
+      slider('Jeu humain', Math.round(arp.human * 100), 0, 100, 5, (v) => (v ? `${v} %` : 'machine'), (v, push) => set({ human: v / 100 }, { push }), {
+        cls: 'wide',
+        scale: ['machine', 'naturel', 'très libre'],
+        help: 'Petits décalages (jusqu’à ±12 ms), temps forts accentués, vélocités et longueurs légèrement variées — toujours les mêmes à la même graine.',
+      })
     );
   }
 
   function render() {
     if (!track || sliding) return;
+    if (sel != null && sel >= P()) sel = null;
     const body = dlg.querySelector('.arp-body');
     const scroll = body.scrollTop;
-    body.replaceChildren(tab === 'play' ? playView() : createView());
+    body.replaceChildren(playerView(), settingsView());
     body.scrollTop = scroll;
-    dlg.querySelectorAll('.arp-tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
-    dlg.querySelector('.arp-sub').textContent = `${track.name} · ${A().MODES.find((m) => m.id === track.arp.mode).label} · ${A().rateLabel(track.arp.rate)} · ${track.arp.octaves} oct.`;
-  }
-
-  /** Écoute : deux mesures de l'arpège sur l'accord affiché, au tempo du projet. */
-  function listen() {
-    const project = app.project();
-    const notes = sourceChord().notes;
-    const stepSec = 60 / project.tempo / 4;
-    const ev = { step: 0, len: 32, notes, vel: 0.85 };
-    const phrase = [];
-    for (let s = 0; s < 32; s++)
-      SS.Arp.renderStep(track.arp, ev, s, { loop: previewPhrase, stepSec, stepsPerBeat: SS.stepsPerBeat(project), trackLen: 32 }).forEach((n) =>
-        phrase.push({ midi: n.midi, at: s * stepSec + n.at, dur: n.dur, vel: n.vel, cutoff: n.cutoff })
-      );
-    SS.audio.playPhrase(track, phrase);
+    dlg.querySelector('.arp-undo').disabled = !undo.length;
+    const mode = A().MODES.find((m) => m.id === track.arp.mode);
+    dlg.querySelector('.arp-sub').textContent = `${track.name} · ${mode.label} · ${A().rateLabel(track.arp.rate)} · ${track.arp.octaves} oct.`;
   }
 
   function build() {
@@ -486,27 +616,43 @@ SS.arpPanel = (() => {
       h(
         'form',
         { method: 'dialog' },
-        h(
-          'div',
-          { class: 'sd-head' },
-          h('div', {}, h('h2', {}, 'ARP ONE ', h('small', { class: 'arp-tag' }, 'arpégiateur')), h('p', { class: 'dlg-sub arp-sub' })),
-          h(
-            'div',
-            { class: 'segmented arp-tabs', role: 'tablist' },
-            h('button', { type: 'button', 'data-tab': 'play', onclick: () => ((tab = 'play'), render()) }, 'PLAY'),
-            h('button', { type: 'button', 'data-tab': 'create', onclick: () => ((tab = 'create'), render()) }, 'CREATE')
-          )
-        ),
+        h('div', { class: 'sd-head' }, h('div', {}, h('h2', {}, 'Arpégiateur'), h('p', { class: 'dlg-sub arp-sub' }))),
         h('div', { class: 'arp-body' }),
         h(
           'div',
           { class: 'dlg-footer' },
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'btn arp-undo',
+              title: 'Défaire le dernier réglage',
+              onclick: () => {
+                if (!undo.length) return;
+                track.arp = A().normalize(undo.pop());
+                app.changed();
+                render();
+              },
+            },
+            '↶ Défaire'
+          ),
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'btn',
+              title: 'Revenir à un arpège montant simple (1/16, 1 octave, pas neutres)',
+              onclick: () => ((sel = null), set({ ...clone(A().DEFAULTS), rate: 1, seed: track.arp.seed })),
+            },
+            'Réinitialiser'
+          ),
           h('span', { class: 'spacer' }),
           h(
             'button',
             {
               type: 'button',
               class: 'btn',
+              title: 'Fermer en revenant aux réglages d’ouverture',
               onclick: () => {
                 track.arp = A().normalize(snapshot);
                 app.changed();
@@ -527,6 +673,8 @@ SS.arpPanel = (() => {
   }
 
   function close() {
+    stopLoop();
+    if (picker && picker.open) picker.close();
     dlg.close();
     const t = track;
     track = null;
@@ -539,14 +687,11 @@ SS.arpPanel = (() => {
     track.arp = A().normalize(track.arp);
     snapshot = clone(track.arp);
     undo = [];
-    previewPhrase = track.arp.freeze ? track.arp.freezeLoop % 4 : 0;
+    test = null;
+    sel = null;
     render();
     dlg.showModal();
   }
 
-  function init(appApi) {
-    app = appApi;
-  }
-
-  return { init, open };
+  return { init: (a) => (app = a), open, _loop: loop };
 })();
