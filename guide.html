@@ -146,8 +146,9 @@
       <p>Choisis la catégorie (Mono, Arpège ou Accord), puis la famille et l'instrument. Le champ de recherche trouve un instrument dans toutes les familles (« sitar », « sax », « organ »…).</p>
       <div class="table-wrap"><table>
         <tr><th>Source</th><th>Contenu</th></tr>
-        <tr><td>Synthés intégrés « (synthé) »</td><td>Saw, Acid, Sub, Reese, Supersaw, Pluck, Chiptune, Pads, et des sons de bruit (Noise Riser, Wind, Rumble). Seuls ceux-ci ont un VCO réglable dans le sound design.</td></tr>
+        <tr><td>Synthés intégrés « (synthé) »</td><td>Saw, Acid, Moog Bass, Acid Ladder, Sub, Reese, Supersaw, Pluck, Chiptune, Pads, et des sons de bruit (Noise Riser, Wind, Rumble). Seuls ceux-ci ont un VCO réglable dans le sound design.</td></tr>
         <tr><td>Soundfonts General MIDI</td><td>Les 125 instruments <code>gm_*</code> de strudel : pianos, orgues, guitares, cordes, cuivres, bois, chœurs, sitar, koto, steel drums, effets sonores… Chacun existe en plusieurs <b>variantes</b> (banques JCLive, FluidR3, Aspirin…) : la colonne « Variante » les propose, la première est celle de strudel par défaut.</td></tr>
+        <tr><td>Dirt-Samples « (Dirt-Samples) »</td><td>Les banques mélodiques de TidalCycles : <b>Mighty Moog</b> et <b>Pluck Bass</b> (multi-échantillonnées : l'échantillon le plus proche de la note est choisi), JV Bass, Bass Hits, Jungle Bass, Hardcore Bass… dans Bass ; Juno, SID, Arpy, Stabs, Hoover dans Synth Lead ; Pads, Guitare, Sax. Pour les autres banques, chaque échantillon est une <b>variante</b> et sonne en C2 (midi 36), comme <code>note("c2").s("jvbass")</code> sur strudel.cc.</td></tr>
         <tr><td>VCSL et piano de strudel</td><td>Instruments acoustiques échantillonnés, marqués « (VCSL) » : vibraphone, marimba, harpe, flûtes à bec, saxophones, orgues…</td></tr>
       </table></div>
       <p>Le son est joué à chaque changement de choix. Les synthés se chargent instantanément ; les autres sons sont téléchargés au premier usage. Les anciens projets s'ouvrent avec exactement le même son qu'avant.</p>
@@ -260,16 +261,20 @@
         <tr><th>Bloc</th><th>Réglage</th><th>Effet</th><th>Strudel</th></tr>
         <tr><td>Oscillateur (VCO)</td><td>Forme d'onde</td><td>Saw, Square, Triangle, Sine ou Supersaw. Seulement pour les instruments « (synthé) ».</td><td><code>s("sawtooth")</code></td></tr>
         <tr><td></td><td>Voix, Désaccord</td><td>Plusieurs oscillateurs légèrement désaccordés, pour un son plus large</td><td><code>unison</code>, <code>detune</code></td></tr>
-        <tr><td>Filtre (VCF)</td><td>Type</td><td>Passe-bas, passe-haut ou passe-bande</td><td><code>lpf</code>, <code>hpf</code>, <code>bpf</code></td></tr>
+        <tr><td>Filtre (VCF)</td><td>Type</td><td>Passe-bas, passe-haut, passe-bande ou coupe-bande</td><td><code>lpf</code>, <code>hpf</code>, <code>bpf</code></td></tr>
+        <tr><td></td><td>Modèle</td><td><b>12 dB</b> : biquad doux, le filtre par défaut de strudel. <b>24 dB</b> : deux étages, pente raide. <b>Ladder</b> : échelle à transistors 4 pôles façon Moog, saturée, résonance jusqu'à l'auto-oscillation. <b>SEM</b> : variable d'état 2 pôles façon Oberheim, résonance ronde.</td><td><code>ftype("12db" | "24db" | "ladder")</code></td></tr>
+        <tr><td></td><td>Drive (filtre)</td><td>Saturation à l'entrée du filtre Ladder ou SEM : plus de grain et de « gras ». Sans effet sur 12 dB et 24 dB.</td><td><code>drive</code></td></tr>
         <tr><td></td><td>Cutoff</td><td>Fréquence de coupure, de 20 Hz à 20 kHz</td><td><code>lpf(800)</code></td></tr>
         <tr><td></td><td>Résonance</td><td>Accentue les fréquences autour du cutoff, de 0 à 30</td><td><code>lpq</code></td></tr>
         <tr><td>Enveloppe du filtre</td><td>Quantité</td><td>De combien le filtre s'ouvre au-dessus du cutoff à chaque note, jusqu'à +6 octaves. À « off », le cutoff reste fixe.</td><td><code>lpenv</code></td></tr>
         <tr><td></td><td>Attack, Decay, Sustain, Release</td><td>Enveloppe propre au filtre, indépendante de celle du volume : vitesse d'ouverture, retombée, niveau tenu et refermeture. Son schéma est en orange.</td><td><code>lpattack</code>, <code>lpdecay</code>, <code>lpsustain</code>, <code>lprelease</code></td></tr>
         <tr><td>Enveloppe d'amplitude (ADSR)</td><td>Attack, Decay, Sustain, Release</td><td>Montée, descente, niveau tenu et extinction du volume de chaque note. Le schéma se met à jour en direct.</td><td><code>adsr("a:d:s:r")</code></td></tr>
+        <tr><td>Glide</td><td>Mode, Temps</td><td>La hauteur glisse d'une note à la suivante, en suivant une courbe exponentielle comme le glide d'un Moog. <b>Portamento</b> : chaque note part de la précédente. <b>Glide legato</b> : seulement entre deux notes liées (la seconde commence quand la première finit) ; la note continue sans nouvelle attaque des enveloppes, comme sur un Minimoog. Sur un accord, chaque note glisse vers celle de même rang. Temps à « off » : pas de glide.</td><td>(pas d'équivalent)</td></tr>
         <tr><td>Sortie</td><td>Niveau, Panoramique, Saturation</td><td>Volume du son, position gauche / droite, distorsion douce</td><td><code>gain</code>, <code>pan</code>, <code>distort</code></td></tr>
       </table></div>
       <ul>
-        <li>En haut de la fenêtre, le code affiché est l'équivalent strudel.cc des réglages.</li>
+        <li>En haut de la fenêtre, le code affiché est l'équivalent strudel.cc des réglages. Ce que strudel ne sait pas faire (glide, filtre SEM, coupe-bande) est indiqué en commentaire.</li>
+        <li>Changer le mode ou le temps de glide fait entendre une courte phrase liée (do, do aigu, sol, do) pour entendre le glissement.</li>
         <li>« Copier l'ADSR d'amplitude » recopie les quatre valeurs de l'enveloppe du volume dans celle du filtre. Par défaut, l'enveloppe du filtre reprend celle du preset.</li>
         <li>Un point bleu marque les réglages modifiés par rapport au preset. Un double-clic sur un curseur remet sa valeur du preset, et <b>Réinitialiser</b> remet tout.</li>
         <li><b>Annuler</b> ou Échap revient aux réglages d'avant l'ouverture. <b>OK</b> les garde. Ils sont enregistrés dans le fichier du projet.</li>

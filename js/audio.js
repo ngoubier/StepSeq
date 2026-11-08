@@ -32,6 +32,7 @@ SS.audio = (() => {
       masterFader.connect(masterMeter.node);
       if (pendingMaster) applyMaster(pendingMaster);
       if (SS.juno) SS.juno.load(ctx); // module audio du Juno-106 (pistes Synthé)
+      if (SS.filters) SS.filters.load(ctx); // filtres ladder / SEM (sound design)
     }
     if (ctx.state === 'suspended') ctx.resume();
     return ctx;
@@ -220,7 +221,16 @@ SS.audio = (() => {
     const k = inst.bank + ':' + inst.key;
     if (!multiMaps.has(k)) {
       const p = loadJSON(SS.SOURCES[inst.bank]).then((json) => {
-        const map = json[inst.key] || {};
+        let map = json[inst.key] || {};
+        if (Array.isArray(map)) {
+          // banque Dirt-Samples : la note est dans le nom du fichier (« Mighty Moog C2.wav », « BS A#2 PI.wav »)
+          const named = {};
+          map.forEach((f) => {
+            const m = /(?:^|[^A-Za-z])([A-G][#sb]?-?\d)(?=[^0-9]|$)/.exec(f.replace(/^.*\//, '').replace(/\.[a-z0-9]+$/i, ''));
+            if (m && !(m[1] in named)) named[m[1]] = f;
+          });
+          map = named;
+        }
         return Object.entries(map)
           .map(([note, path]) => ({
             midi: SS.parseNote(note),
@@ -251,6 +261,7 @@ SS.audio = (() => {
       const inst = instOf(track);
       if (inst.kind === 'analog') await SS.juno.load(ctx);
       else if (inst.kind === 'sf') await loadSoundfont(SS.sfFile(inst, track)).promise;
+      else if (inst.kind === 'dirt') await loadBuffer(await dirtUrl(SS.sfFile(inst, track))).promise;
       else if (inst.kind === 'multi') {
         const list = await multiMap(inst);
         const midis = new Set();
@@ -613,6 +624,7 @@ SS.audio = (() => {
       }
     });
     voices.clear();
+    glides.clear();
   }
 
   const velGain = (v) => Math.pow(Math.max(0, Math.min(1, v)), 1.4);
@@ -654,31 +666,30 @@ SS.audio = (() => {
     const sustain = Math.max(0, Math.min(1, p.sustain));
     const release = Math.max(0.01, p.release);
     const tOff = t + Math.max(dur, attack);
-    const end = tOff + release * 1.5 + 0.05;
 
-    // VCF
-    const filter = ctx.createBiquadFilter();
-    filter.type = p.filter || 'lowpass';
-    filter.Q.value = Math.max(0.0001, p.q);
+    // VCF : biquad 12 dB, 24 dB, ladder ou SEM (js/filters.js)
+    const flt = SS.filters.create(ctx, p);
     const base = Math.max(20, Math.min(20000, p.cutoff));
-    if (p.env > 0) {
-      // enveloppe propre au filtre (lpattack / lpdecay / lpsustain / lprelease)
-      const fa = Math.max(0.003, p.fattack ?? p.attack);
-      const fd = Math.max(0.005, p.fdecay ?? p.decay);
-      const fs = Math.max(0, Math.min(1, p.fsustain ?? p.sustain));
-      const fr = Math.max(0.01, p.frelease ?? p.release);
-      const fOff = Math.max(tOff, t + fa);
-      const top = Math.min(20000, base * Math.pow(2, p.env * (0.4 + 0.6 * vel)));
-      filter.frequency.setValueAtTime(base, t);
-      filter.frequency.exponentialRampToValueAtTime(top, t + fa);
-      filter.frequency.setTargetAtTime(base * Math.pow(top / base, fs), t + fa, fd / 3);
-      filter.frequency.setTargetAtTime(base, fOff, fr / 4);
-    } else {
-      filter.frequency.setValueAtTime(base, t);
-    }
+    const fr = Math.max(0.01, p.frelease ?? p.release);
+    const fa = Math.max(0.003, p.fattack ?? p.attack);
+    const fRelease = (param, at) => param.setTargetAtTime(base, at, fr / 4);
+    flt.freqs.forEach((param) => {
+      if (p.env > 0) {
+        // enveloppe propre au filtre (lpattack / lpdecay / lpsustain / lprelease)
+        const fd = Math.max(0.005, p.fdecay ?? p.decay);
+        const fs = Math.max(0, Math.min(1, p.fsustain ?? p.sustain));
+        const top = Math.min(20000, base * Math.pow(2, p.env * (0.4 + 0.6 * vel)));
+        param.setValueAtTime(base, t);
+        param.exponentialRampToValueAtTime(top, t + fa);
+        param.setTargetAtTime(base * Math.pow(top / base, fs), t + fa, fd / 3);
+        fRelease(param, Math.max(tOff, t + fa));
+      } else {
+        param.setValueAtTime(base, t);
+      }
+    });
 
     // saturation
-    let last = filter;
+    let last = flt.output;
     if (p.drive > 0) {
       const ws = ctx.createWaveShaper();
       ws.curve = driveCurve(p.drive);
@@ -703,10 +714,110 @@ SS.audio = (() => {
       amp.connect(pan).connect(dest);
     } else amp.connect(dest);
 
-    return { input: filter, amp, end };
+    const chain = {
+      input: flt.input,
+      amp,
+      tOff,
+      end: tOff + release * 1.5 + 0.05,
+      /**
+       * Legato : la note continue jusqu'à `newOff` sans redéclencher les enveloppes.
+       * On retire le relâchement prévu (amplitude et filtre) et on le reprogramme plus loin.
+       */
+      extend(newOff) {
+        const oldOff = chain.tOff;
+        const oldFOff = Math.max(oldOff, t + fa);
+        amp.gain.cancelScheduledValues(oldOff);
+        amp.gain.setTargetAtTime(0, newOff, release / 4);
+        if (p.env > 0)
+          flt.freqs.forEach((param) => {
+            param.cancelScheduledValues(oldFOff);
+            fRelease(param, Math.max(newOff, t + fa));
+          });
+        chain.tOff = newOff;
+        chain.end = newOff + release * 1.5 + 0.05;
+        return chain.end;
+      },
+    };
+    return chain;
   }
 
-  function sampleVoice(p, buffer, rate, time, dur, vel, dest, loop) {
+  /*
+   * Glide / portamento. Le glissement passe par le paramètre `detune` (en cents) des oscillateurs
+   * et des lecteurs d'échantillons : la courbe est exponentielle en hauteur, comme le circuit RC
+   * du glide d'un Moog (≈ 98 % du chemin parcouru au bout du temps réglé).
+   *  - Portamento : chaque nouvelle note part de la hauteur de la précédente.
+   *  - Glide legato : seulement si la note précédente est encore tenue (notes liées) ; la voix
+   *    existante change de hauteur, sans nouvelle attaque.
+   * Mémoire par piste : notes et voix du dernier événement (une par note d'accord).
+   */
+  const glides = new Map();
+  const LEGATO_GAP = 0.035; // écart toléré entre deux notes « liées » (s)
+
+  /** Fait glisser la voix vers `midi` à partir de `t` ; `from` : hauteur de départ d'une nouvelle voix. */
+  function glideTo(voice, midi, t, time, from = null) {
+    const tc = Math.max(0.001, time / 4);
+    voice.detunes.forEach(({ param, offset }) => {
+      param.cancelScheduledValues(t);
+      if (from != null) param.setValueAtTime(offset + (from - voice.baseMidi) * 100, t);
+      param.setTargetAtTime(offset + (midi - voice.baseMidi) * 100, t, tc);
+    });
+  }
+
+  /** Prépare une note : renvoie { from } (hauteur de départ) ou { legato: voix } si la voix précédente continue. */
+  function glidePlan(track, p, midi, t, idx, count) {
+    if (!(p.glide > 0)) return null;
+    const key = track.id || '__preview';
+    let g = glides.get(key);
+    if (!g) glides.set(key, (g = { prev: { notes: [], voices: [] }, cur: { notes: [], voices: [] } }));
+    if (idx === 0) {
+      g.prev = g.cur;
+      g.cur = { notes: [], voices: [] };
+    }
+    const prev = g.prev;
+    const j = Math.min(idx, prev.notes.length - 1);
+    if (j < 0) return { g, from: null };
+    const pv = prev.voices[j];
+    const held = pv && pv.chain.tOff >= t - LEGATO_GAP && pv.chain.tOff > ctx.currentTime + 0.005 && pv.alive;
+    if (p.glideMode === 'legato') {
+      // un seul glissement par voix tenue ; une note isolée repart sans glide
+      if (held && count === 1) return { g, legato: pv };
+      return { g, from: held ? prev.notes[j] : null };
+    }
+    return { g, from: prev.notes[j] };
+  }
+
+  function glideRemember(plan, idx, midi, voice) {
+    if (!plan) return;
+    plan.g.cur.notes[idx] = midi;
+    plan.g.cur.voices[idx] = voice;
+  }
+
+  /** Applique le plan : true si la note a été jouée en legato par la voix précédente. */
+  function glideLegato(plan, p, idx, midi, t, dur) {
+    if (!plan || !plan.legato) return false;
+    const v = plan.legato;
+    glideTo(v, midi, t, p.glide);
+    const end = v.chain.extend(t + dur);
+    v.sources.forEach((src) => src.stop(end));
+    glideRemember(plan, idx, midi, v);
+    return true;
+  }
+
+  /** Démarre le glissement d'une nouvelle voix depuis plan.from. */
+  function glideStart(plan, p, voice, idx, midi, t) {
+    if (!plan) return;
+    if (plan.from != null && plan.from !== midi) glideTo(voice, midi, t, p.glide, plan.from);
+    glideRemember(plan, idx, midi, voice);
+  }
+
+  function trackVoice(sources, chain, baseMidi, detunes) {
+    const v = { sources, chain, baseMidi, detunes, alive: true };
+    sources[0].addEventListener('ended', () => (v.alive = false));
+    return v;
+  }
+
+  /** Voix échantillonnée ; `baseMidi` = note jouée (référence du glide). */
+  function sampleVoice(p, buffer, rate, time, dur, vel, dest, loop, baseMidi) {
     const t = Math.max(time, ctx.currentTime);
     const src = ctx.createBufferSource();
     src.buffer = buffer;
@@ -721,6 +832,7 @@ SS.audio = (() => {
     src.start(t);
     src.stop(chain.end);
     register([src], chain.amp);
+    return trackVoice([src], chain, baseMidi, src.detune ? [{ param: src.detune, offset: 0 }] : []);
   }
 
   const noiseBuffers = {};
@@ -762,17 +874,20 @@ SS.audio = (() => {
       src.start(t, Math.random() * 1.5);
       src.stop(chain.end);
       register([src], chain.amp);
-      return;
+      return trackVoice([src], chain, midi, []); // le bruit n'a pas de hauteur
     }
     const type = p.wave === 'supersaw' ? 'sawtooth' : p.wave || 'sawtooth';
     const n = Math.max(1, Math.round(p.wave === 'supersaw' ? Math.max(3, p.voices || 5) : p.voices || 1));
     const detune = p.wave === 'supersaw' ? Math.max(8, p.detune || 0) : p.detune || 0;
     const oscs = [];
+    const detunes = [];
     for (let i = 0; i < n; i++) {
       const o = ctx.createOscillator();
       o.type = type;
       o.frequency.value = freq;
-      if (n > 1) o.detune.value = ((i / (n - 1)) * 2 - 1) * detune;
+      const offset = n > 1 ? ((i / (n - 1)) * 2 - 1) * detune : 0;
+      o.detune.value = offset;
+      detunes.push({ param: o.detune, offset });
       const og = ctx.createGain();
       og.gain.value = 1 / Math.sqrt(n);
       o.connect(og).connect(chain.input);
@@ -781,9 +896,20 @@ SS.audio = (() => {
       oscs.push(o);
     }
     register(oscs, chain.amp);
+    return trackVoice(oscs, chain, midi, detunes);
   }
 
-  async function playNote(track, midi, time, dur, vel, dest) {
+  /** Base d'URL de Dirt-Samples (lue dans strudel.json). */
+  async function dirtUrl(file) {
+    const json = await loadJSON(SS.SOURCES.dirt);
+    return json._base + encodePath(file);
+  }
+
+  /**
+   * Joue une note. `idx` / `count` : rang de la note dans son événement et nombre de notes
+   * (accords) — sert au glide, qui relie chaque note d'un accord à celle de même rang.
+   */
+  async function playNote(track, midi, time, dur, vel, dest, idx = 0, count = 1) {
     ensureCtx();
     const out = dest || bus(track);
     const inst = instOf(track);
@@ -792,24 +918,52 @@ SS.audio = (() => {
       return;
     }
     const p = SS.soundParams(track);
-    if (inst.kind === 'synth') {
-      synthVoice(p, midi, time, dur, vel, out);
-    } else if (inst.kind === 'sf') {
+    // ce qui suit doit rester synchrone jusqu'au glide (ordre des notes) : on résout d'abord la source
+    let src = null; // { buffer, rate, loop }
+    if (inst.kind === 'sf') {
       const entry = loadSoundfont(SS.sfFile(inst, track));
       if (!entry.zones || !entry.zones.length) return;
       const zone =
         entry.zones.find((z) => midi >= z.low && midi <= z.high) ||
         entry.zones.reduce((b, z) => (Math.abs((z.low + z.high) / 2 - midi) < Math.abs((b.low + b.high) / 2 - midi) ? z : b));
-      const rate = Math.pow(2, (100 * midi - zone.baseDetune) / 1200);
-      sampleVoice(p, zone.buffer, rate, time, dur, vel, out, zone.loop ? { start: zone.loopStart, end: zone.loopEnd } : null);
+      src = {
+        buffer: zone.buffer,
+        rate: Math.pow(2, (100 * midi - zone.baseDetune) / 1200),
+        loop: zone.loop ? { start: zone.loopStart, end: zone.loopEnd } : null,
+      };
     } else if (inst.kind === 'multi') {
       const list = await multiMap(inst);
       if (!list.length) return;
       const e = nearest(list, midi);
       const entry = loadBuffer(e.url);
       if (!entry.buffer) return;
-      sampleVoice(p, entry.buffer, Math.pow(2, (midi - e.midi) / 12), time, dur, vel, out, null);
+      src = { buffer: entry.buffer, rate: Math.pow(2, (midi - e.midi) / 12), loop: null };
+    } else if (inst.kind === 'dirt') {
+      const entry = loadBuffer(await dirtUrl(SS.sfFile(inst, track)));
+      if (!entry.buffer) return;
+      src = { buffer: entry.buffer, rate: Math.pow(2, (midi - SS.DIRT_ROOT) / 12), loop: null };
+    } else if (inst.kind !== 'synth') return;
+
+    const t = Math.max(time, ctx.currentTime);
+    const plan = glidePlan(track, p, midi, t, idx, count);
+    if (glideLegato(plan, p, idx, midi, t, Math.max(dur, 0.01))) return;
+    const voice = src
+      ? sampleVoice(p, src.buffer, src.rate, time, dur, vel, out, src.loop, midi)
+      : synthVoice(p, midi, time, dur, vel, out);
+    glideStart(plan, p, voice, idx, midi, t);
+  }
+
+  /** Courte phrase de notes (démo du glide dans le sound design) : [{ midi, at (s), dur (s) }]. */
+  async function playPhrase(track, notes) {
+    ensureCtx();
+    await prepareTrack(track);
+    if (instOf(track).kind === 'multi') {
+      const list = await multiMap(instOf(track)).catch(() => []);
+      if (list.length) await Promise.all(notes.map((n) => loadBuffer(nearest(list, n.midi).url).promise));
     }
+    const t0 = ctx.currentTime + 0.05;
+    const out = track.id ? bus(track) : master;
+    notes.forEach((n) => playNote(track, n.midi, t0 + n.at, n.dur, 0.8, out));
   }
 
   /** Aperçu d'un son (dialogue, clic sur une note...). */
@@ -827,7 +981,7 @@ SS.audio = (() => {
     if (track.type === 'drum') playDrum(track, t, 0.9, out);
     else {
       const notes = Array.isArray(midi) ? midi : [midi];
-      notes.forEach((n) => playNote(track, n, t, dur, notes.length > 1 ? 0.65 : 0.8, out));
+      notes.forEach((n, i) => playNote(track, n, t, dur, notes.length > 1 ? 0.65 : 0.8, out, i, notes.length));
     }
   }
 
@@ -943,7 +1097,7 @@ SS.audio = (() => {
           const dur = Math.min(ev.len, SS.trackLen(project, track) - ev.step) * sd * 0.98;
           const tt = time + jt();
           const vv = jv(ev.vel);
-          ev.notes.forEach((n) => playNote(track, n, tt, dur, vv * (ev.notes.length > 1 ? 0.8 : 1)));
+          ev.notes.forEach((n, i) => playNote(track, n, tt, dur, vv * (ev.notes.length > 1 ? 0.8 : 1), undefined, i, ev.notes.length));
           duckFrom(project, track, tt);
         }
       });
@@ -1108,6 +1262,7 @@ SS.audio = (() => {
     bankVariants,
     prepareTrack,
     preview,
+    playPhrase,
     playNote,
     setTrackGain,
     removeTrack,

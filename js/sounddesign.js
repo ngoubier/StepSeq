@@ -1,7 +1,8 @@
 /*
  * Fenêtre de sound design des pistes instrument.
  * Paramètres inspirés de strudel.cc : s (forme d'onde), unison / detune,
- * lpf / hpf / bpf (cutoff), lpq (résonance), lpenv + lpattack / lpdecay / lpsustain / lprelease,
+ * lpf / hpf / bpf (cutoff), lpq (résonance), ftype (12db / 24db / ladder, + SEM) et drive,
+ * lpenv + lpattack / lpdecay / lpsustain / lprelease, glide / portamento (pas d'équivalent strudel),
  * attack / decay / sustain / release,
  * gain, pan, distort.
  *
@@ -31,6 +32,7 @@ SS.soundDesign = (() => {
     detune: { label: 'Désaccord', scale: lin(0, 50), fmt: (v) => `${Math.round(v)} cents`, group: 'vco' },
     cutoff: { label: 'Cutoff', scale: logf(20, 20000), fmt: fmtHz, group: 'vcf' },
     q: { label: 'Résonance', scale: lin(0, 30), fmt: (v) => v.toFixed(1), group: 'vcf' },
+    fdrive: { label: 'Drive (filtre)', scale: lin(0, 1), fmt: fmtPct, group: 'vcf' },
     env: { label: 'Quantité', scale: lin(0, 6), fmt: (v) => (v ? `+${v.toFixed(1)} oct` : 'off'), group: 'fenv' },
     fattack: { label: 'Attack', scale: sq(2), fmt: fmtTime, group: 'fenv' },
     fdecay: { label: 'Decay', scale: sq(2), fmt: fmtTime, group: 'fenv' },
@@ -40,11 +42,12 @@ SS.soundDesign = (() => {
     decay: { label: 'Decay', scale: sq(2), fmt: fmtTime, group: 'vca' },
     sustain: { label: 'Sustain', scale: lin(0, 1), fmt: fmtPct, group: 'vca' },
     release: { label: 'Release', scale: sq(4), fmt: fmtTime, group: 'vca' },
+    glide: { label: 'Temps', scale: sq(1.5), fmt: (v) => (v ? fmtTime(v) : 'off'), group: 'glide' },
     gain: { label: 'Niveau', scale: lin(0, 1.5), fmt: fmtPct, group: 'out' },
     pan: { label: 'Panoramique', scale: lin(-1, 1), fmt: (v) => (Math.abs(v) < 0.02 ? 'centre' : v < 0 ? `G ${Math.round(-v * 100)}` : `D ${Math.round(v * 100)}`), group: 'out' },
     drive: { label: 'Saturation', scale: lin(0, 1), fmt: (v) => (v ? fmtPct(v) : 'off'), group: 'out' },
   };
-  const GROUP_EL = { vco: '#sdVcoSliders', vcf: '#sdVcfSliders', fenv: '#sdFenvSliders', vca: '#sdVcaSliders', out: '#sdOutSliders' };
+  const GROUP_EL = { vco: '#sdVcoSliders', vcf: '#sdVcfSliders', glide: '#sdGlideSliders', fenv: '#sdFenvSliders', vca: '#sdVcaSliders', out: '#sdOutSliders' };
 
   const WAVE_ICONS = {
     sawtooth: 'M2 16 L10 4 L10 16 L18 4 L18 16 L22 10',
@@ -75,7 +78,7 @@ SS.soundDesign = (() => {
         if (key === 'pan' && Math.abs(v) < 0.03) v = 0;
         set(key, v);
       });
-      input.addEventListener('change', () => preview());
+      input.addEventListener('change', () => (spec.group === 'glide' ? previewGlide() : preview()));
       input.addEventListener('dblclick', () => {
         // double-clic : valeur du preset
         const d = SS.soundDefaults(track);
@@ -126,6 +129,38 @@ SS.soundDesign = (() => {
         preview();
       });
       $('#sdFilterType').append(b);
+    });
+
+    SS.FILTER_MODELS.forEach((m) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.v = m.id;
+      b.textContent = m.label;
+      b.title = m.id === 'sem' ? m.hint : `ftype("${m.id}") — ${m.hint}`;
+      b.setAttribute('role', 'radio');
+      b.addEventListener('click', () => {
+        set('ftype', m.id);
+        refresh();
+        preview();
+      });
+      $('#sdFilterModel').append(b);
+    });
+
+    SS.GLIDE_MODES.forEach((m) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.v = m.id;
+      b.textContent = m.label;
+      b.title = m.hint;
+      b.setAttribute('role', 'radio');
+      b.addEventListener('click', () => {
+        set('glideMode', m.id);
+        // choisir un mode de glide sans temps ne ferait rien : on donne une valeur de départ
+        if (!params().glide) set('glide', 0.08);
+        refresh();
+        previewGlide();
+      });
+      $('#sdGlideMode').append(b);
     });
 
     $('#sdCopyAdsr').addEventListener('click', () => {
@@ -197,6 +232,17 @@ SS.soundDesign = (() => {
       b.setAttribute('aria-checked', String(on));
     });
     $('#sdFilterType').querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.v === p.filter));
+    const radio = (sel, v) =>
+      $(sel).querySelectorAll('button').forEach((b) => {
+        b.classList.toggle('active', b.dataset.v === v);
+        b.setAttribute('aria-checked', String(b.dataset.v === v));
+      });
+    radio('#sdFilterModel', p.ftype);
+    radio('#sdGlideMode', p.glideMode);
+    const model = SS.FILTER_MODELS.find((m) => m.id === p.ftype) || SS.FILTER_MODELS[0];
+    $('#sdFilterHint').textContent = model.hint + '.';
+    const gm = SS.GLIDE_MODES.find((m) => m.id === p.glideMode) || SS.GLIDE_MODES[0];
+    $('#sdGlideHint').textContent = p.glide ? gm.hint + '.' : 'Réglez un temps pour faire glisser la hauteur d’une note à la suivante.';
     updateValues(true);
   }
 
@@ -212,6 +258,8 @@ SS.soundDesign = (() => {
     const detuneRow = inputs.get('detune').row;
     detuneRow.classList.toggle('dim', p.voices < 2 && p.wave !== 'supersaw');
     ['fattack', 'fdecay', 'fsustain', 'frelease'].forEach((k) => inputs.get(k).row.classList.toggle('dim', !p.env));
+    inputs.get('fdrive').row.classList.toggle('dim', p.ftype !== 'ladder' && p.ftype !== 'sem');
+    $('#sdGlideMode').classList.toggle('dim', !p.glide);
     $('#sdFenv').classList.toggle('dim', !p.env);
     drawAdsr(p, '#sdAdsr');
     drawAdsr({ attack: p.fattack, decay: p.fdecay, sustain: p.fsustain, release: p.frelease }, '#sdFenv');
@@ -248,10 +296,14 @@ SS.soundDesign = (() => {
       if (p.voices > 1) parts.push(`unison(${p.voices})`, `detune(${r(p.detune / 100, 2)})`);
     } else parts.push(`s("${SS.findInstrument(track.family, track.instrument).label}")`);
     const f = SS.FILTER_TYPES.find((x) => x.id === p.filter) || SS.FILTER_TYPES[0];
-    if (!(p.filter === 'lowpass' && p.cutoff >= 19999)) parts.push(`${f.strudel}(${Math.round(p.cutoff)})`);
-    if (p.q > 0) parts.push(`${f.strudel === 'lpf' ? 'lpq' : f.strudel === 'hpf' ? 'hpq' : 'bpq'}(${r(p.q, 1)})`);
-    if (p.env > 0) {
-      const pre = f.strudel === 'lpf' ? 'lp' : f.strudel === 'hpf' ? 'hp' : 'bp';
+    if (f.strudel && !(p.filter === 'lowpass' && p.cutoff >= 19999)) parts.push(`${f.strudel}(${Math.round(p.cutoff)})`);
+    const pre = f.strudel === 'lpf' ? 'lp' : f.strudel === 'hpf' ? 'hp' : 'bp';
+    if (f.strudel && p.q > 0) parts.push(`${pre}q(${r(p.q, 1)})`);
+    if (f.strudel && p.ftype !== '12db' && p.ftype !== 'sem') {
+      parts.push(`ftype("${p.ftype}")`);
+      if (p.ftype === 'ladder') parts.push(`drive(${r(p.fdrive * 4, 2)})`);
+    }
+    if (f.strudel && p.env > 0) {
       parts.push(
         `${pre}env(${r(p.env, 1)})`,
         `${pre}attack(${r(p.fattack)})`,
@@ -264,7 +316,12 @@ SS.soundDesign = (() => {
     if (p.gain !== 1) parts.push(`gain(${r(p.gain, 2)})`);
     if (p.pan) parts.push(`pan(${r((p.pan + 1) / 2, 2)})`);
     if (p.drive) parts.push(`distort(${r(p.drive * 3, 2)})`);
-    return parts.join('.');
+    // ce que strudel ne sait pas (encore) faire : en commentaire
+    const extra = [];
+    if (!f.strudel) extra.push(`filtre ${f.label.toLowerCase()} ${Math.round(p.cutoff)} Hz`);
+    if (p.ftype === 'sem') extra.push('filtre SEM');
+    if (p.glide) extra.push(`${p.glideMode === 'legato' ? 'glide legato' : 'portamento'} ${fmtTime(p.glide)}`);
+    return parts.join('.') + (extra.length ? ` // ${extra.join(', ')}` : '');
   }
 
   /* ---------- Écoute ---------- */
@@ -274,6 +331,14 @@ SS.soundDesign = (() => {
     const notes = track.category === 'mono' ? root : SS.chordNotes(root, track.chord);
     const p = params();
     SS.audio.preview(track, notes, Math.min(1.6, Math.max(0.6, p.attack + p.decay + 0.3)));
+  }
+
+  /** Démo du glide : quelques notes liées (une octave, une quinte) pour l'entendre glisser. */
+  function previewGlide() {
+    if (!track || SS.audio.isPlaying() || track.category !== 'mono') return preview();
+    const root = track.lastRoot ?? (track.octave + 1) * 12;
+    const step = 0.22;
+    SS.audio.playPhrase(track, [0, 12, 7, 0].map((iv, i) => ({ midi: root + iv, at: i * step, dur: step * (i === 3 ? 2 : 1.02) })));
   }
 
   /* ---------- API ---------- */
