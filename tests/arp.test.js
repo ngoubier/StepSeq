@@ -216,3 +216,84 @@ test('Bornes extrêmes : notes 0 et 127, valeurs invalides, accord vide', () => 
   for (const notes of [[0], [127], [0, 127]])
     A.preview({ mode: 'up', octaves: 4, lanes: { oct: [2, -2] } }, notes, 16).forEach((t) => t.notes.forEach((x) => assert.ok(x >= 0 && x <= 127)));
 });
+
+test('Longueur des notes en valeurs musicales : 1 temps = 4 doubles-croches, quel que soit RATE', () => {
+  for (const rate of [0.5, 1, 2]) {
+    const ev = { step: 0, len: 16, notes: [C, E, G], vel: 0.8 };
+    const out = A.renderStep({ mode: 'up', rate, noteLen: 4 }, ev, 0, { stepSec: 0.125 });
+    assert.ok(Math.abs(out[0].dur - 0.5) < 1e-9, `rate ${rate}`); // 1 temps à 120 BPM = 0,5 s
+  }
+  // longueur d'un pas : prioritaire sur la longueur générale ; 0 = longueur générale
+  const p = A.preview({ mode: 'up', rate: 1, noteLen: 1, lanes: { len: [0, 8] } }, [C, E, G], 4);
+  assert.deepEqual(p.map((t) => t.gate), [1, 8, 1, 8]);
+});
+
+test('Plusieurs notes à la fois : la note du pas + les notes de l’accord juste au-dessus', () => {
+  const p = A.preview({ mode: 'up', rate: 1, lanes: { poly: [1, 2, 3, 1] } }, [C, E, G], 4);
+  assert.deepEqual(p.map((t) => t.notes), [[60], [64, 67], [67, 72, 76], [60]]);
+  const ev = { step: 0, len: 4, notes: [C, E, G], vel: 0.8 };
+  const out = A.renderStep({ mode: 'up', rate: 1, lanes: { poly: [2] } }, ev, 0, { stepSec: 0.125 });
+  assert.equal(out.length, 2);
+  assert.equal(out[0].at, out[1].at);
+});
+
+test('Silence et vélocité par pas', () => {
+  const p = A.preview({ mode: 'up', rate: 1, rhythm: { type: 'lane' }, lanes: { rhythm: [1, 0, 1, 1], vel: [1, 1, 0.5, 1] } }, [C, E, G], 4);
+  assert.equal(p[1], null);
+  assert.deepEqual(p.map((t) => (t ? t.notes[0] : null)), [60, null, 64, 67]); // le silence ne fait pas sauter de note
+  assert.ok(Math.abs(p[2].vel - 0.4) < 1e-9);
+});
+
+test('Jeu humain : reproductible, borné, accents sur les temps, jamais sur les hauteurs', () => {
+  const arp = { mode: 'updown', rate: 1, octaves: 2, human: 1, seed: 8 };
+  const run = () => JSON.stringify(A.preview(arp, [57, 60, 64], 64, { loop: 3 }));
+  assert.equal(run(), run());
+  const hum = A.preview(arp, [57, 60, 64], 64);
+  const dry = A.preview({ ...arp, human: 0 }, [57, 60, 64], 64);
+  hum.forEach((t, i) => {
+    assert.deepEqual(t.notes, dry[i].notes);
+    assert.ok(Math.abs(t.jitter) <= 0.0161, `décalage ${t.jitter}`);
+  });
+  assert.ok(hum.some((t) => t.jitter !== 0) && hum.some((t, i) => t.vel !== dry[i].vel));
+  // en moyenne, les temps sont plus forts que les doubles-croches hors croche
+  const avg = (f) => { const v = hum.filter((t, i) => f(i)).map((t) => t.vel); return v.reduce((a, b) => a + b) / v.length; };
+  assert.ok(avg((i) => i % 4 === 0) > avg((i) => i % 2 === 1));
+  // humain à 0 : aucun décalage
+  assert.ok(dry.every((t) => t.jitter === 0));
+});
+
+test('Double montée : A C E A′ · C E A′ C′ · E A′ C′ E′ (groupes de 4 qui grimpent)', () => {
+  const am = [57, 60, 64];
+  const names12 = (mode) => A.preview({ mode, rate: 1 }, am, 12).map((t) => A.noteName(t.notes[0]));
+  assert.deepEqual(names12('up2'), ['A3', 'C4', 'E4', 'A4', 'C4', 'E4', 'A4', 'C5', 'E4', 'A4', 'C5', 'E5']);
+  assert.deepEqual(names12('down2').slice(0, 8), ['E4', 'C4', 'A3', 'E3', 'C4', 'A3', 'E3', 'C3']);
+  assert.deepEqual(names12('up3').slice(0, 9), ['A3', 'C4', 'E4', 'C4', 'E4', 'A4', 'E4', 'A4', 'C5']);
+  assert.deepEqual(names12('climb2').slice(0, 6), ['A3', 'C4', 'C4', 'E4', 'E4', 'A4']);
+  assert.deepEqual(names12('alberti').slice(0, 4), ['A3', 'E4', 'C4', 'E4']);
+  assert.deepEqual(names12('octaves').slice(0, 6), ['A3', 'A4', 'C4', 'C5', 'E4', 'E5']);
+  assert.deepEqual(names12('repeat').slice(0, 6), ['A3', 'A3', 'C4', 'C4', 'E4', 'E4']);
+  // le cycle revient au départ : la double montée ne grimpe pas sans fin
+  assert.deepEqual(A.preview({ mode: 'up2', rate: 1 }, am, 16).slice(12).map((t) => t.notes[0]), [57, 60, 64, 69]);
+});
+
+test('Catalogue de motifs : valides, uniquement des notes de l’accord, sur des accords variés', () => {
+  require('../js/motifs.js');
+  const SS = globalThis.SS;
+  assert.ok(SS.MOTIFS.length >= 50);
+  const ids = new Set();
+  for (const m of SS.MOTIFS) {
+    assert.ok(!ids.has(m.id), `doublon ${m.id}`);
+    ids.add(m.id);
+    assert.ok(SS.MOTIF_CATS.some((c) => c.id === m.cat), `${m.id} : catégorie`);
+    const norm = A.normalize(m.arp);
+    assert.equal(norm.mode, m.arp.mode, `${m.id} : mode inconnu du moteur`);
+    if (m.arp.pattern) assert.ok(A.parsePattern(m.arp.pattern).every((t) => !t.bad), `${m.id} : motif illisible`);
+    for (const sym of ['Am', 'F', 'Cmaj7', 'G7', 'Dsus4']) {
+      const notes = A.parseChordSymbol(sym, 3);
+      const pcs = new Set(notes.map((n) => n % 12));
+      const out = A.preview(norm, notes, 32).filter(Boolean);
+      assert.ok(out.length > 0, `${m.id} sur ${sym} : muet`);
+      out.forEach((t) => t.notes.forEach((n) => assert.ok(pcs.has(n % 12), `${m.id} sur ${sym} : ${A.noteName(n)} hors accord`)));
+    }
+  }
+});
