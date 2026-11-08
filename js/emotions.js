@@ -160,3 +160,19 @@ SS.EMOTIONS = [
 
 SS.EMOTION_KINDS = { evidence: 'Évidence', nuance: 'Nuance', surprise: 'Surprise' };
 SS.findEmotion = (id) => SS.EMOTIONS.find((e) => e.id === id) || null;
+
+/**
+ * Les modes rangés du plus lumineux au plus sombre, avec les intentions qui leur correspondent le mieux
+ * (fenêtre Harmonie, onglet Ambiance et assistant). Chaque intention apparaît une fois, sous la couleur
+ * dominante de ses propositions ; ses trois propositions peuvent quand même utiliser d'autres modes.
+ */
+SS.MODE_MOODS = [
+  { mode: 'lydian', name: 'Lydien', mood: 'rêveur, en apesanteur', lum: '#f2d27a', emotions: ['serenite'] },
+  { mode: 'major', name: 'Majeur (ionien)', mood: 'lumineux, stable', lum: '#e9c46a', emotions: ['joie', 'tendresse', 'espoir', 'triomphe'] },
+  { mode: 'mixolydian', name: 'Mixolydien', mood: 'festif, décontracté', lum: '#d7a95a', emotions: ['euphorie'] },
+  { mode: 'dorian', name: 'Dorien', mood: 'mélancolie avec une lueur', lum: '#8fa6c9', emotions: ['melancolie', 'ambivalence'] },
+  { mode: 'minor', name: 'Mineur naturel (éolien)', mood: 'triste, nostalgique', lum: '#7a86b8', emotions: ['tristesse', 'nostalgie'] },
+  { mode: 'harmonic', name: 'Mineur harmonique', mood: 'dramatique, tendu', lum: '#6b6aa6', emotions: ['suspense'] },
+  { mode: 'phrygian', name: 'Phrygien', mood: 'sombre, oppressant', lum: '#5a4a8a', emotions: ['angoisse', 'mystere'] },
+];
+SS.emotionMode = (id) => SS.MODE_MOODS.find((m) => m.emotions.includes(id)) || null;
