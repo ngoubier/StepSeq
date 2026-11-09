@@ -147,7 +147,7 @@ a.btn { text-decoration: none; }
 .app-menu button:hover, .app-menu button:focus-visible { background: var(--accent); outline: none; }
 .app-menu kbd { font: inherit; font-size: 11px; color: var(--muted); }
 .app-menu button:hover kbd, .app-menu button:focus-visible kbd { color: rgba(255, 255, 255, .75); }
-/* Band, Key One, Song One, Mix : regroupés */
+/* Band, Key, Song, Mix : regroupés */
 .topbar-group.studio { gap: 4px; padding: 3px; border-radius: 10px; background: var(--panel); }
 .song-btn { height: 32px; padding: 0 12px; font-size: 13px; }
 .song-btn.active { background: var(--accent); }
@@ -2279,7 +2279,7 @@ dialog.songs-dialog { width: min(760px, calc(100vw - 32px)); height: min(640px, 
 .gr kbd { display: inline-block; padding: 0 4px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; background: var(--panel-2); font: 600 10px/16px ui-monospace, monospace; color: var(--text); }
 #grFrom { max-width: 190px; }
 
-/* ---------- Fenêtre Song One ---------- */
+/* ---------- Fenêtre Song ---------- */
 dialog.song-dialog { width: min(1200px, calc(100vw - 32px)); }
 .song-shell { display: flex; flex-direction: column; }
 .song-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); }

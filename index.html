@@ -69,13 +69,13 @@
         <svg viewBox="0 0 24 24"><circle cx="8" cy="7" r="3"/><circle cx="16.5" cy="8" r="2.5"/><path d="M2.5 20c0-3.3 2.5-6 5.5-6s5.5 2.7 5.5 6M13.5 15.2c.9-.8 1.9-1.2 3-1.2 2.5 0 4.5 2.2 4.5 5"/></svg>
         <span>Band</span>
       </button>
-      <button id="keyBtn" class="btn groove-btn" type="button" title="Key One : tonalité, gamme, accords et vérificateur d'harmonie">
+      <button id="keyBtn" class="btn groove-btn" type="button" title="Key : tonalité, gamme, accords et vérificateur d'harmonie">
         <svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-        <span id="keyLabel">Key One : —</span>
+        <span id="keyLabel">Key : —</span>
       </button>
-      <button id="songBtn" class="btn song-btn" type="button" aria-pressed="false" title="Song One : scènes et arrangement de la chanson">
+      <button id="songBtn" class="btn song-btn" type="button" aria-pressed="false" title="Song : scènes et arrangement de la chanson">
         <svg viewBox="0 0 24 24"><rect x="2" y="7" width="6" height="10" rx="1.5"/><rect x="9" y="7" width="6" height="10" rx="1.5"/><rect x="16" y="7" width="6" height="10" rx="1.5"/></svg>
-        <span>Song One</span>
+        <span>Song</span>
       </button>
       <button id="mixerBtn" class="btn mixer-btn" type="button" aria-pressed="false" title="Mix : console de mixage (EQ, compresseur, limiteur, faders)">
         <svg viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>
@@ -98,7 +98,7 @@
   </header>
 
   <!-- Panneau d'arrangement : affiché sous la barre du haut si la case « Garder le panneau affiché » est cochée ;
-       pendant que la fenêtre Song One est ouverte, il est déplacé dans cette fenêtre (js/song.js). -->
+       pendant que la fenêtre Song est ouverte, il est déplacé dans cette fenêtre (js/song.js). -->
   <div id="songDock" class="song-dock">
   <section id="songBar" class="songbar" aria-label="Arrangement">
     <div class="songbar-row">
@@ -207,7 +207,7 @@
     </div>
   </dialog>
 
-  <!-- Fenêtre Song One : scènes et arrangement (js/song.js) -->
+  <!-- Fenêtre Song : scènes et arrangement (js/song.js) -->
   <dialog id="songDialog" class="song-dialog" aria-labelledby="songDlgTitle">
     <div class="song-shell">
       <header class="song-head">
@@ -499,11 +499,11 @@
     </form>
   </dialog>
 
-  <!-- Fenêtre Key One : assistant (scène sans tonalité) ou onglets (modifier, vérifier) ; s'applique à la scène en cours -->
+  <!-- Fenêtre Key : assistant (scène sans tonalité) ou onglets (modifier, vérifier) ; s'applique à la scène en cours -->
   <dialog id="harmonyDialog" class="hm-dialog" aria-labelledby="hmTitle">
     <form method="dialog" id="harmonyForm">
       <div class="hm-top">
-        <h2 id="hmTitle">Key One</h2>
+        <h2 id="hmTitle">Key</h2>
         <label class="field hm-scenepick" title="L'harmonie est propre à chaque scène (intro, couplet, refrain…)"><span>Scène</span><select id="hmScene"></select></label>
         <div class="hm-key" id="hmKeyBar">
           <select id="hmTonic" aria-label="Tonique"></select>

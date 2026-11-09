@@ -22,9 +22,9 @@ puis ouvrir <http://localhost:8000>.
 
 - **En-tête** : icône de l'application (menu **Chansons**, **Nouveau**, **Ouvrir**, **Enregistrer**), titre du projet, tempo (BPM), chiffrage de mesure (4/4 par défaut, x/4 ou x/8),
   nombre de mesures, le groove (swing, humanisation), **Lecture** et **Stop**, puis les fenêtres regroupées
-  **Band**, **Key One : tonalité** (fenêtre Key One, propre à chaque scène : assistant
+  **Band**, **Key : tonalité** (fenêtre Key, propre à chaque scène : assistant
   émotion → grille d'accords → couches pour démarrer, puis onglets Ambiance (émotions rangées par mode), Accords, Grille (accords glissés sur une ligne de mesures → basse, accords et arpège générés), Couches
-  et Vérifier ; palette d'accords dans le piano roll, essais A/B), **Song One** (fenêtre Song : scènes et arrangement, avec une case pour garder le panneau
+  et Vérifier ; palette d'accords dans le piano roll, essais A/B), **Song** (fenêtre Song : scènes et arrangement, avec une case pour garder le panneau
   d'arrangement affiché sous l'en-tête) et **Mix** (console de mixage).
   À droite : annuler / rétablir, l'indicateur d'enregistrement automatique et **Aide**.
   Le bouton **+ Ajouter une piste** se trouve sous les pistes.
@@ -140,7 +140,7 @@ node --test
 
 (Node 18 ou plus récent ; les tests du moteur d'arpège n'ont besoin ni de navigateur ni de carte son.)
 
-Tests de bout en bout des fenêtres de l'arpégiateur et Key One dans Chromium (nécessite le paquet `playwright`) :
+Tests de bout en bout des fenêtres de l'arpégiateur et Key dans Chromium (nécessite le paquet `playwright`) :
 
 ```bash
 node tests/e2e/arp-ui.js
@@ -209,7 +209,7 @@ Les sons proviennent des bibliothèques utilisées par [strudel.cc](https://stru
 ## Skills de composition (Claude Code)
 
 Le dossier `.claude/skills/` contient les skills qui guident la composition, et dont les règles sont reprises
-par la fenêtre **Key One** :
+par la fenêtre **Key** :
 
 | Skill | Contenu | Dans StepSeq |
 |-------|---------|--------------|
@@ -236,11 +236,11 @@ par la fenêtre **Key One** :
 | `js/groove.js`   | Fenêtre Groove (swing, humanisation) |
 | `js/harmony.js`  | Aide à la composition : gammes, accords diatoniques, identification des accords, estimation de la tonalité, vérificateur d'harmonie |
 | `js/emotions.js` | Intentions émotionnelles (skill MusicEmotion) : matrice et trois propositions par intention |
-| `js/harmonypanel.js` | Fenêtre Key One de la scène en cours : assistant en 3 étapes, onglets Ambiance, Accords, Grille, Couches, Vérifier |
+| `js/harmonypanel.js` | Fenêtre Key de la scène en cours : assistant en 3 étapes, onglets Ambiance, Accords, Grille, Couches, Vérifier |
 | `js/fx.js`       | Fenêtre Effets par piste (chorus, delay, reverb) |
 | `js/profiles.js`, `js/profiles-factory.js` | Profils de console (usine + personnels) |
 | `js/mixer.js`    | Console de mixage : tranches, EQ, compresseur, limiteur, vumètres |
-| `js/song.js`     | Mode chanson : scènes et arrangement, fenêtre Song One |
+| `js/song.js`     | Mode chanson : scènes et arrangement, fenêtre Song |
 | `js/ui.js`       | Rendu des pistes, grille, piano roll, dialogue |
 | `js/main.js`     | Démarrage, barre d'outils, raccourcis |
 | `guide.html`     | Guide d'utilisation (bouton « Aide » de l'app) |

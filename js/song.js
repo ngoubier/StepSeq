@@ -1,6 +1,6 @@
 /*
  * Panneau « Chanson » : scènes (Intro, Couplet, Refrain…) et arrangement.
- * La fenêtre Song One (bouton de la barre du haut) affiche ce panneau ; une case permet de le garder
+ * La fenêtre Song (bouton de la barre du haut) affiche ce panneau ; une case permet de le garder
  * aussi affiché sous la barre du haut (#songDock) ou de le masquer quand la fenêtre est fermée.
  * Une scène = le contenu de toutes les pistes (pas / notes) + son nombre de mesures.
  * L'arrangement enchaîne des blocs « scène × répétitions ».
@@ -185,7 +185,7 @@ SS.song = (() => {
     }
   }
 
-  /* ---------- Fenêtre Song One ---------- */
+  /* ---------- Fenêtre Song ---------- */
   const PIN_KEY = 'stepseq.songPanel';
   function pinned() {
     try {
