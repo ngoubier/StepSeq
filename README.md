@@ -154,6 +154,7 @@ node tests/e2e/grid-ui.js
 node tests/e2e/playhead-ui.js
 node tests/e2e/song-ui.js
 node tests/e2e/band-song-ui.js
+node tests/e2e/mobile-ui.js
 ```
 
 Cliquer sur une note / un accord existant le supprime. Sur la ligne compacte, un clic pose la
