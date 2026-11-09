@@ -381,6 +381,7 @@ SS.band = (() => {
     const n = plannedTracks().length;
     $('#bandCount').textContent = n ? `${n} piste${n > 1 ? 's' : ''} vierge${n > 1 ? 's' : ''} à créer` : 'Aucune piste';
     $('#bandCreate').disabled = !n;
+    $('#bandSong').disabled = !n || !(SS.BandSongs && preset() && SS.BandSongs[preset().id]);
   }
 
   function refresh() {
@@ -477,6 +478,50 @@ SS.band = (() => {
     });
   }
 
+  /* ---------- Créer toute la chanson ---------- */
+  function finishSong() {
+    const tracks = plannedTracks();
+    if (!tracks.length || !preset()) return;
+    const pr = app.project();
+    const withNotes = pr.tracks.filter((t) => app.hasNotes(t));
+    if (pr.tracks.length) return showSongConfirm(tracks, withNotes.length);
+    closeSong(tracks);
+  }
+  function closeSong(tracks) {
+    const p = preset();
+    hideConfirm();
+    el.close('ok');
+    app.applySong(tracks, p, $('#bandTempo').checked ? p.tempo : null);
+  }
+  function showSongConfirm(tracks, notes) {
+    const pr = app.project();
+    const p = preset();
+    const box = $('#bandConfirm');
+    box.replaceChildren(
+      h(
+        'div',
+        { class: 'bcf-card', role: 'alertdialog', 'aria-modal': 'true', 'aria-labelledby': 'bcfTitle', 'aria-describedby': 'bcfText' },
+        h('h3', { id: 'bcfTitle' }, 'Remplacer le projet par une chanson complète ?'),
+        h(
+          'p',
+          { id: 'bcfText' },
+          `« Créer toute la chanson » écrit une chanson dans l'esprit de « ${p.song} » : ${tracks.length} pistes, les scènes et l'arrangement. `,
+          `Elle remplace ${pr.tracks.length > 1 ? `les ${pr.tracks.length} pistes` : 'la piste'}, ${pr.scenes.length > 1 ? `les ${pr.scenes.length} scènes` : 'la scène'} et l'arrangement actuels.`
+        ),
+        notes ? h('p', { class: 'bcf-warn' }, `⚠ ${notes} piste${notes > 1 ? 's' : ''} contien${notes > 1 ? 'nent' : 't'} des notes : Ctrl+Z pour revenir en arrière, et la chanson actuelle reste dans « Mes chansons » (ses versions).`) : null,
+        h(
+          'div',
+          { class: 'bcf-actions' },
+          h('button', { type: 'button', class: 'btn', id: 'bcfBack', onclick: hideConfirm }, 'Retour'),
+          h('span', { class: 'spacer' }),
+          h('button', { type: 'button', class: 'btn btn-accent', id: 'bcfSong', onclick: () => closeSong(tracks) }, 'Remplacer par la chanson')
+        )
+      )
+    );
+    box.hidden = false;
+    requestAnimationFrame(() => $('#bcfSong').focus());
+  }
+
   function finish(create) {
     const tracks = create ? plannedTracks() : [];
     if (create && tracks.length && app.bandTracks().length) return showConfirm(tracks);
@@ -556,6 +601,7 @@ SS.band = (() => {
     if (!el) return;
     $('#bandClose').addEventListener('click', () => finish(true));
     $('#bandCreate').addEventListener('click', () => finish(true));
+    $('#bandSong').addEventListener('click', finishSong);
     $('#bandCancel').addEventListener('click', () => finish(false));
     // Échap = annuler (rien n'est créé)
     el.addEventListener('cancel', (e) => {
