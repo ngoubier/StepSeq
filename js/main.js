@@ -7,7 +7,7 @@
 
   let project;
   let dirty = false;
-  const state = { openRolls: new Set(), songStart: 0 };
+  const state = { openRolls: new Set(), songStart: 0, cue: 0 }; // cue : pas où démarre la lecture (clic sur la règle)
 
   /* ---------- Annuler / Rétablir ----------
    * On garde des instantanés du projet (JSON). Chaque modification enregistre l'état précédent ;
@@ -244,6 +244,10 @@
     $('#bandBtn').addEventListener('click', () => SS.band.open());
     $('#emptyAdd').addEventListener('click', addTrack);
     $('#play').addEventListener('click', togglePlay);
+    $('#ruler').addEventListener('click', (e) => {
+      const cell = e.target.closest('.grid [data-step]');
+      if (cell) setCue(+cell.dataset.step);
+    });
     $('#stop').addEventListener('click', stop);
 
     $('#newProject').addEventListener('click', async () => {
@@ -320,10 +324,22 @@
     b.setAttribute('aria-label', state === 'playing' ? 'Pause' : 'Lecture');
   }
 
+  /**
+   * Clic sur la règle des mesures : place le curseur de lecture sur ce pas.
+   * Arrêté : la prochaine lecture partira de là. En pause : la reprise partira de là. En lecture : saut immédiat.
+   */
+  function setCue(step) {
+    const total = SS.totalSteps(project);
+    step = Math.max(0, Math.min(total - 1, step));
+    state.cue = step;
+    if (SS.audio.isPlaying() || SS.audio.isPaused()) SS.audio.seek(step);
+    SS.ui.setPlayhead(step);
+  }
+
   function play() {
     if (SS.audio.isPlaying()) return;
-    if (SS.audio.isPaused()) SS.audio.stop(); // repartir du début
-    const opts = {};
+    if (SS.audio.isPaused()) SS.audio.stop(); // repartir du curseur
+    const opts = { from: Math.min(state.cue, SS.totalSteps(project) - 1) };
     if (project.playMode === 'song' && project.song.length) {
       opts.song = {
         index: Math.min(state.songStart, project.song.length - 1),
@@ -341,6 +357,7 @@
   }
   function stop() {
     if (SS.audio.isPlaying() || SS.audio.isPaused()) SS.audio.stop();
+    state.cue = 0; // Stop ramène le curseur au début
     SS.ui.setPlayhead(-1);
     SS.song.setPlaying(-1);
     setPlayButton('stopped');

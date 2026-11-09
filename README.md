@@ -147,6 +147,7 @@ node tests/e2e/arp-ui.js
 node tests/e2e/arp-cursor.js
 node tests/e2e/harmony-ui.js
 node tests/e2e/grid-ui.js
+node tests/e2e/playhead-ui.js
 ```
 
 Cliquer sur une note / un accord existant le supprime. Sur la ligne compacte, un clic pose la

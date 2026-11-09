@@ -239,6 +239,11 @@ a.btn { text-decoration: none; }
 }
 .ruler .grid div.bar { color: var(--text); border-left-color: var(--line); }
 .ruler .grid div.now { color: #fff; background: rgba(43, 140, 255, .35); }
+/* clic sur la règle : place le curseur de lecture ; repère vert sous la case du curseur */
+.ruler .grid { cursor: pointer; }
+.ruler .grid div { position: relative; }
+.ruler .grid div:hover { background: rgba(255, 255, 255, .06); }
+.ruler .grid div.now::after { content: ""; position: absolute; left: 50%; bottom: -1px; transform: translateX(-50%); border: 5px solid transparent; border-bottom-color: #3fcf5a; }
 
 .track { border-bottom: 1px solid #000; }
 .track-row { height: var(--row-h); }

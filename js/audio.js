@@ -1166,6 +1166,7 @@ SS.audio = (() => {
   /**
    * opts.song (facultatif) : { index, onBlock(i), onBlockVisible(i, rep), onEnd() } pour jouer l'arrangement
    * à partir du bloc `index` ; sans lui, la scène en cours boucle.
+   * opts.from (facultatif) : pas de départ dans la scène (curseur de lecture placé sur la règle).
    */
   function start(getProject, onStep, opts = {}) {
     ensureCtx();
@@ -1176,7 +1177,7 @@ SS.audio = (() => {
     if (seq.song) seq.song.onBlock(seq.song.index);
     applyAllFx(getProject());
     seq.playing = true;
-    seq.step = 0;
+    seq.step = Math.max(0, Math.floor(opts.from || 0));
     seq.queue = [];
     seq.nextTime = ctx.currentTime + 0.08;
     if (seq.song) seq.queue.push({ step: -1, time: seq.nextTime, block: seq.song.index, rep: 0 });
@@ -1243,6 +1244,35 @@ SS.audio = (() => {
     draw();
   }
 
+  /**
+   * Déplace le curseur de lecture au pas `step` de la scène affichée.
+   * En pause : la reprise partira de là. En lecture : la lecture saute immédiatement à ce pas
+   * (en mode chanson, on reste dans le bloc et la répétition qu'on entend).
+   */
+  function seek(step) {
+    step = Math.max(0, Math.floor(step));
+    if (seq.paused) {
+      seq.paused.step = step;
+      seq.shown = { step, song: seq.paused.song };
+      return;
+    }
+    if (!seq.playing) return;
+    silenceAll(); // coupe les notes déjà programmées après la position actuelle
+    seq.queue = [];
+    if (seq.song && seq.shown && seq.shown.song) {
+      // l'anticipation a pu déjà passer au bloc suivant : on revient au bloc entendu
+      const heard = seq.shown.song;
+      const changedBlock = heard.index !== seq.song.index;
+      seq.song.index = heard.index;
+      seq.song.rep = heard.rep;
+      seq.song.ended = false;
+      if (changedBlock) seq.song.onBlock(seq.song.index);
+    }
+    seq.step = step;
+    seq.nextTime = ctx.currentTime + 0.04;
+    tick();
+  }
+
   return {
     ensureCtx,
     loadJSON,
@@ -1279,6 +1309,7 @@ SS.audio = (() => {
     isPaused: () => !!seq.paused,
     pause,
     resume,
+    seek,
     setErrorHandler: (fn) => (onError = fn),
   };
 })();
