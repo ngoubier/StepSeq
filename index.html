@@ -3,15 +3,26 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <title>StepSeq</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <header class="topbar">
     <div class="topbar-group">
-      <span class="brand" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><rect x="2" y="4" width="5" height="5" rx="1"/><rect x="9.5" y="4" width="5" height="5" rx="1" opacity=".35"/><rect x="17" y="4" width="5" height="5" rx="1"/><rect x="2" y="15" width="5" height="5" rx="1" opacity=".35"/><rect x="9.5" y="15" width="5" height="5" rx="1"/><rect x="17" y="15" width="5" height="5" rx="1" opacity=".35"/></svg>
-      </span>
+      <div class="app-menu-wrap">
+        <button id="appMenuBtn" class="brand" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="appMenu" title="Menu : chansons, nouveau, ouvrir, enregistrer">
+          <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#1c1c20"/><rect x="10.0" y="10.0" width="9" height="9" rx="2.2" fill="#2b8cff"/><rect x="21.5" y="10.0" width="9" height="9" rx="2.2" fill="#3a3a42"/><rect x="33.0" y="10.0" width="9" height="9" rx="2.2" fill="#2b8cff"/><rect x="44.5" y="10.0" width="9" height="9" rx="2.2" fill="#3a3a42"/><rect x="10.0" y="21.5" width="9" height="9" rx="2.2" fill="#3a3a42"/><rect x="21.5" y="21.5" width="9" height="9" rx="2.2" fill="#2b8cff"/><rect x="33.0" y="21.5" width="9" height="9" rx="2.2" fill="#3a3a42"/><rect x="44.5" y="21.5" width="9" height="9" rx="2.2" fill="#3a3a42"/><rect x="10.0" y="33.0" width="9" height="9" rx="2.2" fill="#2b8cff"/><rect x="21.5" y="33.0" width="9" height="9" rx="2.2" fill="#3a3a42"/><rect x="33.0" y="33.0" width="9" height="9" rx="2.2" fill="#3a3a42"/><rect x="44.5" y="33.0" width="9" height="9" rx="2.2" fill="#3a3a42"/><rect x="10.0" y="44.5" width="9" height="9" rx="2.2" fill="#3a3a42"/><rect x="21.5" y="44.5" width="9" height="9" rx="2.2" fill="#2b8cff"/><rect x="33.0" y="44.5" width="9" height="9" rx="2.2" fill="#3a3a42"/><rect x="44.5" y="44.5" width="9" height="9" rx="2.2" fill="#3a3a42"/><ellipse cx="44" cy="47" rx="6.2" ry="4.8" transform="rotate(-20 44 47)" fill="#1c1c20" stroke="#1c1c20" stroke-width="5"/><path d="M49.2 46.0V27.0c1.5 4.0 8.0 5.0 7.0 12.0" fill="none" stroke="#1c1c20" stroke-width="7.6" stroke-linecap="round" stroke-linejoin="round"/><ellipse cx="44" cy="47" rx="6.2" ry="4.8" transform="rotate(-20 44 47)" fill="#3fcf5a"/><path d="M49.2 46.0V27.0c1.5 4.0 8.0 5.0 7.0 12.0" fill="none" stroke="#3fcf5a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div id="appMenu" class="app-menu" role="menu" aria-label="Fichier" hidden>
+          <button id="songsBtn" type="button" role="menuitem" title="Mes chansons : toutes les chansons enregistrées automatiquement, et leurs versions">Chansons</button>
+          <button id="newProject" type="button" role="menuitem" title="Nouveau projet">Nouveau</button>
+          <button id="openProject" type="button" role="menuitem" title="Ouvrir un fichier projet">Ouvrir…<kbd>Ctrl+O</kbd></button>
+          <button id="saveProject" type="button" role="menuitem" title="Enregistrer (Ctrl+S ; Maj+clic : enregistrer sous)">Enregistrer<kbd>Ctrl+S</kbd></button>
+        </div>
+      </div>
       <input id="title" class="title-input" type="text" spellcheck="false" aria-label="Titre du projet">
     </div>
 
@@ -36,20 +47,13 @@
           <option>1</option><option>2</option><option>4</option><option>8</option><option>16</option><option>32</option><option>64</option>
         </select>
       </label>
-      <button id="grooveBtn" class="btn groove-btn" type="button" title="Swing et humanisation">
-        <svg viewBox="0 0 24 24"><path d="M3 17c3 0 3-10 6-10s3 10 6 10 3-10 6-10"/></svg>
-        <span id="grooveLabel">Groove : droit</span>
-      </button>
-      <button id="keyBtn" class="btn groove-btn" type="button" title="Tonalité, gamme, accords et vérificateur d'harmonie">
-        <svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-        <span id="keyLabel">Tonalité : —</span>
+      <button id="grooveBtn" class="btn btn-icon groove-icon" type="button" title="Groove : droit (swing et humanisation)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17c3 0 3-10 6-10s3 10 6 10 3-10 6-10"/></svg>
+        <span id="grooveLabel" class="sr">Groove : droit</span>
       </button>
     </div>
 
     <div class="topbar-group transport">
-      <button id="addTrack" class="btn btn-icon" title="Ajouter une piste">
-        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-      </button>
       <button id="play" class="btn btn-play" title="Lecture (Espace)" aria-label="Lecture">
         <svg class="ico-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z" class="fill"/></svg>
         <svg class="ico-pause" viewBox="0 0 24 24"><rect x="6" y="4.5" width="4.2" height="15" rx="1" class="fill"/><rect x="13.8" y="4.5" width="4.2" height="15" rx="1" class="fill"/></svg>
@@ -61,13 +65,24 @@
         <div id="position">1 . 1 . 1</div>
         <div id="lcdTitle" class="lcd-sub"></div>
       </div>
+    </div>
+
+    <div class="topbar-group studio" role="group" aria-label="Fenêtres">
       <button id="bandBtn" class="btn band-btn" type="button" title="Band : monter un groupe de musiciens virtuels et créer leurs pistes">
         <svg viewBox="0 0 24 24"><circle cx="8" cy="7" r="3"/><circle cx="16.5" cy="8" r="2.5"/><path d="M2.5 20c0-3.3 2.5-6 5.5-6s5.5 2.7 5.5 6M13.5 15.2c.9-.8 1.9-1.2 3-1.2 2.5 0 4.5 2.2 4.5 5"/></svg>
         <span>Band</span>
       </button>
-      <button id="mixerBtn" class="btn mixer-btn" type="button" aria-pressed="false" title="Console de mixage : EQ, compresseur, limiteur, faders">
+      <button id="keyBtn" class="btn groove-btn" type="button" title="Key : tonalité, gamme, accords et vérificateur d'harmonie">
+        <svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        <span id="keyLabel">Key : —</span>
+      </button>
+      <button id="songBtn" class="btn song-btn" type="button" aria-pressed="false" title="Song : scènes et arrangement de la chanson">
+        <svg viewBox="0 0 24 24"><rect x="2" y="7" width="6" height="10" rx="1.5"/><rect x="9" y="7" width="6" height="10" rx="1.5"/><rect x="16" y="7" width="6" height="10" rx="1.5"/></svg>
+        <span>Song</span>
+      </button>
+      <button id="mixerBtn" class="btn mixer-btn" type="button" aria-pressed="false" title="Mix : console de mixage (EQ, compresseur, limiteur, faders)">
         <svg viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>
-        <span>Console</span>
+        <span>Mix</span>
       </button>
     </div>
 
@@ -81,15 +96,14 @@
       <button id="saveStatus" class="save-status" type="button" title="Enregistrement automatique">
         <svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg><span class="ss-text">Enregistré</span>
       </button>
-      <button id="songsBtn" class="btn" title="Mes chansons : toutes les chansons enregistrées automatiquement, et leurs versions">Chansons</button>
-      <button id="newProject" class="btn" title="Nouveau projet">Nouveau</button>
-      <button id="openProject" class="btn" title="Ouvrir un fichier projet">Ouvrir</button>
-      <button id="saveProject" class="btn btn-accent" title="Enregistrer (Ctrl+S)">Enregistrer</button>
       <a href="guide.html" target="_blank" rel="noopener" class="btn" title="Guide d'utilisation (nouvel onglet)">Aide</a>
     </div>
   </header>
 
-  <section id="songBar" class="songbar" aria-label="Chanson">
+  <!-- Panneau d'arrangement : affiché sous la barre du haut si la case « Garder le panneau affiché » est cochée ;
+       pendant que la fenêtre Song est ouverte, il est déplacé dans cette fenêtre (js/song.js). -->
+  <div id="songDock" class="song-dock">
+  <section id="songBar" class="songbar" aria-label="Arrangement">
     <div class="songbar-row">
       <div class="segmented" id="songMode" role="radiogroup" aria-label="Mode de lecture">
         <button type="button" data-mode="loop" title="La lecture boucle la scène en cours">Boucle</button>
@@ -108,13 +122,14 @@
       <span id="songTotal" class="song-total"></span>
     </div>
   </section>
+  </div>
 
   <main id="workspace">
     <div id="ruler" class="ruler"></div>
     <div id="tracks"></div>
-    <div id="empty" class="empty">
-      <p>Aucune piste pour l'instant.</p>
-      <button id="emptyAdd" class="btn btn-accent">+ Ajouter une piste</button>
+    <div id="empty" class="add-track-row">
+      <p class="empty-msg">Aucune piste pour l'instant.</p>
+      <button id="emptyAdd" class="btn btn-accent" title="Ajouter une piste">+ Ajouter une piste</button>
     </div>
   </main>
 
@@ -122,10 +137,10 @@
     <div class="mx-window" role="region" aria-labelledby="mxTitle">
       <div class="mx-titlebar">
         <svg class="mx-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>
-        <h2 id="mxTitle">Console de mixage</h2>
+        <h2 id="mxTitle">Mix</h2>
         <span id="mxProject" class="mx-sub"></span>
         <span class="spacer"></span>
-        <button type="button" id="mxClose" class="mx-close" title="Fermer la console et revenir au séquenceur (Échap)">
+        <button type="button" id="mxClose" class="mx-close" title="Fermer Mix et revenir au séquenceur (Échap)">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg> Fermer
         </button>
       </div>
@@ -191,6 +206,25 @@
         <span class="band-count" id="bandCount"></span>
         <button type="button" class="btn" id="bandCancel">Annuler</button>
         <button type="button" class="btn btn-accent" id="bandCreate">Fermer et créer les pistes</button>
+      </footer>
+    </div>
+  </dialog>
+
+  <!-- Fenêtre Song : scènes et arrangement (js/song.js) -->
+  <dialog id="songDialog" class="song-dialog" aria-labelledby="songDlgTitle">
+    <div class="song-shell">
+      <header class="song-head">
+        <h2 id="songDlgTitle">Song <small>scènes et arrangement de la chanson</small></h2>
+        <span class="spacer"></span>
+        <button type="button" class="btn btn-icon" id="songClose" title="Fermer (Échap)" aria-label="Fermer">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </header>
+      <div id="songSlot" class="song-slot"></div>
+      <footer class="song-foot">
+        <label class="song-pin"><input type="checkbox" id="songPin"> Garder le panneau d'arrangement affiché sous la barre du haut</label>
+        <span class="spacer"></span>
+        <button type="button" class="btn btn-accent" id="songOk">Fermer</button>
       </footer>
     </div>
   </dialog>
@@ -468,11 +502,11 @@
     </form>
   </dialog>
 
-  <!-- Fenêtre Harmo One : assistant (scène sans tonalité) ou onglets (modifier, vérifier) ; s'applique à la scène en cours -->
+  <!-- Fenêtre Key : assistant (scène sans tonalité) ou onglets (modifier, vérifier) ; s'applique à la scène en cours -->
   <dialog id="harmonyDialog" class="hm-dialog" aria-labelledby="hmTitle">
     <form method="dialog" id="harmonyForm">
       <div class="hm-top">
-        <h2 id="hmTitle">Harmo One</h2>
+        <h2 id="hmTitle">Key</h2>
         <label class="field hm-scenepick" title="L'harmonie est propre à chaque scène (intro, couplet, refrain…)"><span>Scène</span><select id="hmScene"></select></label>
         <div class="hm-key" id="hmKeyBar">
           <select id="hmTonic" aria-label="Tonique"></select>

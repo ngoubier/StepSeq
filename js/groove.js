@@ -21,7 +21,9 @@ SS.groove = (() => {
 
   function updateButton() {
     const on = label() !== 'droit';
+    // bouton à icône seule : l'état s'affiche dans l'infobulle (et reste lu par les lecteurs d'écran)
     $('#grooveLabel').textContent = 'Groove : ' + label();
+    $('#grooveBtn').title = `Groove : ${label()} (swing et humanisation)`;
     $('#grooveBtn').classList.toggle('on', on);
   }
 

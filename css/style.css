@@ -110,7 +110,56 @@ a.btn { text-decoration: none; }
   border-bottom: 1px solid #000;
 }
 .topbar-group { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; min-width: 0; }
-.brand svg { width: 26px; height: 26px; fill: var(--accent-2); stroke: none; }
+.brand { display: inline-grid; place-items: center; width: 38px; height: 38px; padding: 0; border: 0; border-radius: 8px; background: transparent; cursor: pointer; }
+.brand:hover, .brand[aria-expanded="true"] { background: var(--panel-3); }
+.brand:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.brand svg { display: block; width: 30px; height: 30px; stroke: none; } /* logo : icons/stepseq.svg */
+/* Menu de l'icône de l'application */
+.app-menu-wrap { position: relative; }
+.app-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  padding: 6px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, .55);
+}
+.app-menu button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.app-menu button:hover, .app-menu button:focus-visible { background: var(--accent); outline: none; }
+.app-menu kbd { font: inherit; font-size: 11px; color: var(--muted); }
+.app-menu button:hover kbd, .app-menu button:focus-visible kbd { color: rgba(255, 255, 255, .75); }
+/* Band, Key, Song, Mix : regroupés */
+.topbar-group.studio {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr; /* quatre colonnes égales : chaque bouton prend la largeur du plus large */
+  gap: 4px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--panel);
+}
+.topbar-group.studio .btn { justify-content: center; min-width: 120px; }
+.song-btn { height: 32px; padding: 0 12px; font-size: 13px; }
+.song-btn.active { background: var(--accent); }
 .title-input {
   width: 190px;
   font-size: 18px;
@@ -392,15 +441,21 @@ a.btn { text-decoration: none; }
 .rcell.now { box-shadow: inset 0 0 0 999px rgba(255, 255, 255, .06); }
 
 /* Vide */
-.empty {
-  display: none;
+/* Bouton « Ajouter une piste », toujours sous les pistes (message en plus quand il n'y en a aucune) */
+.add-track-row {
+  position: sticky;
+  left: 0;
+  display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
-  padding: 60px 16px;
+  width: max-content;
+  padding: 12px 16px 24px;
   color: var(--muted);
 }
-.empty.show { display: flex; }
+.add-track-row .empty-msg { display: none; margin: 0; }
+.add-track-row.none { width: auto; align-items: center; padding: 60px 16px; }
+.add-track-row.none .empty-msg { display: block; }
 
 /* ---------- Barre du bas ---------- */
 .bottombar {
@@ -596,6 +651,8 @@ dialog.sd-dialog { width: min(820px, calc(100vw - 32px)); }
 /* ---------- Groove ---------- */
 .groove-btn { height: 32px; padding: 0 12px; font-size: 13px; }
 .groove-btn.on { box-shadow: inset 0 0 0 1px var(--accent-2); color: #cfe4ff; }
+.groove-icon { height: 32px; width: 36px; }
+.groove-icon.on { box-shadow: inset 0 0 0 1px var(--accent-2); color: #cfe4ff; }
 #gvRes { flex-wrap: wrap; align-self: flex-start; }
 #gvRes button { padding: 6px 12px; }
 #gvSwing, #gvHuman { width: 100%; accent-color: var(--accent-2); }
@@ -965,7 +1022,7 @@ body.mixer-open #workspace { display: none; }
 /* ================================================================== */
 /* Console : fenêtre, barre d'action, tranches compactes (1920 × 1200)  */
 /* ================================================================== */
-body.mixer-open .songbar { display: none; }
+body.mixer-open .song-dock { display: none; }
 .mixer { padding: 10px 12px; background: #101013; overflow: hidden; }
 .mx-window {
   height: 100%;
@@ -2232,3 +2289,14 @@ dialog.songs-dialog { width: min(760px, calc(100vw - 32px)); height: min(640px, 
 }
 .gr kbd { display: inline-block; padding: 0 4px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; background: var(--panel-2); font: 600 10px/16px ui-monospace, monospace; color: var(--text); }
 #grFrom { max-width: 190px; }
+
+/* ---------- Fenêtre Song ---------- */
+dialog.song-dialog { width: min(1200px, calc(100vw - 32px)); }
+.song-shell { display: flex; flex-direction: column; }
+.song-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.song-head h2 { margin: 0; font-size: 20px; letter-spacing: .02em; }
+.song-head h2 small { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 8px; }
+.song-slot .songbar { gap: 12px; padding: 16px; background: transparent; border-bottom: 0; }
+.song-foot { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-top: 1px solid var(--line); }
+.song-pin { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; cursor: pointer; }
+.song-pin input { accent-color: var(--accent-2); }

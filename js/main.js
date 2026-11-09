@@ -241,7 +241,6 @@
       changed();
     });
 
-    $('#addTrack').addEventListener('click', addTrack);
     $('#bandBtn').addEventListener('click', () => SS.band.open());
     $('#emptyAdd').addEventListener('click', addTrack);
     $('#play').addEventListener('click', togglePlay);
@@ -255,8 +254,47 @@
       await loadSong(SS.newProject(), { changed: true });
     });
     $('#songsBtn').addEventListener('click', () => SS.mySongs.open());
+    initAppMenu();
     $('#openProject').addEventListener('click', openProject);
     $('#saveProject').addEventListener('click', (e) => saveProject(e.shiftKey));
+  }
+
+  /* ---------- Menu de l'icône de l'application (Chansons, Nouveau, Ouvrir, Enregistrer) ---------- */
+  function initAppMenu() {
+    const btn = $('#appMenuBtn');
+    const menu = $('#appMenu');
+    const items = () => [...menu.querySelectorAll('[role=menuitem]')];
+    const setOpen = (open, focusFirst) => {
+      menu.hidden = !open;
+      btn.setAttribute('aria-expanded', String(open));
+      if (open && focusFirst) items()[0].focus();
+    };
+    btn.addEventListener('click', () => setOpen(menu.hidden, false));
+    btn.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setOpen(true, true);
+      }
+    });
+    // un choix ferme le menu (l'action de l'élément s'exécute ensuite par son propre écouteur)
+    menu.addEventListener('click', (e) => {
+      if (e.target.closest('[role=menuitem]')) setOpen(false);
+    });
+    menu.addEventListener('keydown', (e) => {
+      const list = items();
+      const i = list.indexOf(document.activeElement);
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        list[(i + (e.key === 'ArrowDown' ? 1 : list.length - 1)) % list.length].focus();
+      } else if (e.key === 'Escape') {
+        e.stopPropagation();
+        setOpen(false);
+        btn.focus();
+      } else if (e.key === 'Tab') setOpen(false);
+    });
+    document.addEventListener('pointerdown', (e) => {
+      if (!menu.hidden && !e.target.closest('.app-menu-wrap')) setOpen(false);
+    });
   }
 
   /* ---------- Transport ---------- */

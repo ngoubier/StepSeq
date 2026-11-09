@@ -20,11 +20,14 @@ puis ouvrir <http://localhost:8000>.
 
 ## Interface
 
-- **En-tête** : titre du projet, tempo (BPM), chiffrage de mesure (4/4 par défaut, x/4 ou x/8),
-  nombre de mesures, le groove (swing, humanisation), la **tonalité** (fenêtre Harmo One, propre à chaque scène : assistant
+- **En-tête** : icône de l'application (menu **Chansons**, **Nouveau**, **Ouvrir**, **Enregistrer**), titre du projet, tempo (BPM), chiffrage de mesure (4/4 par défaut, x/4 ou x/8),
+  nombre de mesures, le groove (swing, humanisation), **Lecture** et **Stop**, puis les fenêtres regroupées
+  **Band**, **Key : tonalité** (fenêtre Key, propre à chaque scène : assistant
   émotion → grille d'accords → couches pour démarrer, puis onglets Ambiance (émotions rangées par mode), Accords, Grille (accords glissés sur une ligne de mesures → basse, accords et arpège générés), Couches
-  et Vérifier ; palette d'accords dans le piano roll, essais A/B), puis les boutons **+** (ajouter une piste), **Lecture** et **Stop**.
-  À droite : l'indicateur d'enregistrement automatique, **Chansons**, **Nouveau**, **Ouvrir** et **Enregistrer**.
+  et Vérifier ; palette d'accords dans le piano roll, essais A/B), **Song** (fenêtre Song : scènes et arrangement, avec une case pour garder le panneau
+  d'arrangement affiché sous l'en-tête) et **Mix** (console de mixage).
+  À droite : annuler / rétablir, l'indicateur d'enregistrement automatique et **Aide**.
+  Le bouton **+ Ajouter une piste** se trouve sous les pistes.
 - **Partie centrale** : les pistes, les unes sous les autres. Chaque piste a un en-tête
   (écoute, Mute, Solo, nom, volume, réglages, suppression) et sa grille de pas
   (une case = une double-croche).
@@ -137,7 +140,7 @@ node --test
 
 (Node 18 ou plus récent ; les tests du moteur d'arpège n'ont besoin ni de navigateur ni de carte son.)
 
-Tests de bout en bout des fenêtres de l'arpégiateur et Harmo One dans Chromium (nécessite le paquet `playwright`) :
+Tests de bout en bout des fenêtres de l'arpégiateur et Key dans Chromium (nécessite le paquet `playwright`) :
 
 ```bash
 node tests/e2e/arp-ui.js
@@ -178,7 +181,7 @@ premier enregistrement ; les autres navigateurs téléchargent le fichier.
 
 ### Enregistrement automatique, sans message (`js/store.js`, `js/mysongs.js`)
 
-- **Mes chansons** (bouton **Chansons**) : chaque chanson est enregistrée automatiquement dans le navigateur
+- **Mes chansons** (**Chansons**, dans le menu de l'icône de l'application) : chaque chanson est enregistrée automatiquement dans le navigateur
   (IndexedDB), environ une seconde après chaque modification, sous son identifiant. **Nouveau** et **Ouvrir**
   n'écrasent plus rien, et il n'y a plus d'avertissement en quittant la page. La fenêtre liste les chansons
   (ouvrir, dupliquer, supprimer) et leurs **versions** : un instantané au plus toutes les 10 minutes de travail,
@@ -187,7 +190,7 @@ premier enregistrement ; les autres navigateurs téléchargent le fichier.
   réécrit ce fichier. Le lien est gardé d'une session à l'autre ; après un redémarrage du navigateur,
   l'indicateur affiche « Reprendre *fichier* » : un clic redonne l'autorisation d'écrire. Placé dans un dossier
   Dropbox / OneDrive / Google Drive, le fichier est aussi sauvegardé sur le web.
-- L'indicateur à côté de **Chansons** montre l'état (« Enregistré · chanson.stepseq.json ») ; un clic ouvre
+- L'indicateur d'enregistrement (barre du haut) montre l'état (« Enregistré · chanson.stepseq.json ») ; un clic ouvre
   « Mes chansons ». Les données restent dans ce navigateur : pour changer d'appareil, passe par le fichier.
 
 ## Sons
@@ -206,7 +209,7 @@ Les sons proviennent des bibliothèques utilisées par [strudel.cc](https://stru
 ## Skills de composition (Claude Code)
 
 Le dossier `.claude/skills/` contient les skills qui guident la composition, et dont les règles sont reprises
-par la fenêtre **Harmo One** :
+par la fenêtre **Key** :
 
 | Skill | Contenu | Dans StepSeq |
 |-------|---------|--------------|
@@ -220,6 +223,7 @@ par la fenêtre **Harmo One** :
 |------------------|------|
 | `index.html`     | Structure de la page et dialogue d'ajout de piste |
 | `css/style.css`  | Thème et mise en page |
+| `icons/`        | Icône du projet : `stepseq.svg` (grille de pas + note, aussi logo de la barre du haut), `note-16.svg` (note seule pour le 16 px), PNG favicon 16 / 32 et icône d'écran d'accueil 180 |
 | `js/library.js`  | Catalogue généré depuis strudel.cc (125 soundfonts gm_*, VCSL) |
 | `js/dirt.js`     | Catalogue généré des banques mélodiques de Dirt-Samples |
 | `js/sounds.js`   | Catalogue des sons (batterie, familles d'instruments, accords) |
@@ -233,11 +237,11 @@ par la fenêtre **Harmo One** :
 | `js/groove.js`   | Fenêtre Groove (swing, humanisation) |
 | `js/harmony.js`  | Aide à la composition : gammes, accords diatoniques, identification des accords, estimation de la tonalité, vérificateur d'harmonie |
 | `js/emotions.js` | Intentions émotionnelles (skill MusicEmotion) : matrice et trois propositions par intention |
-| `js/harmonypanel.js` | Fenêtre Harmo One de la scène en cours : assistant en 3 étapes, onglets Ambiance, Accords, Grille, Couches, Vérifier |
+| `js/harmonypanel.js` | Fenêtre Key de la scène en cours : assistant en 3 étapes, onglets Ambiance, Accords, Grille, Couches, Vérifier |
 | `js/fx.js`       | Fenêtre Effets par piste (chorus, delay, reverb) |
 | `js/profiles.js`, `js/profiles-factory.js` | Profils de console (usine + personnels) |
 | `js/mixer.js`    | Console de mixage : tranches, EQ, compresseur, limiteur, vumètres |
-| `js/song.js`     | Mode chanson : scènes et arrangement |
+| `js/song.js`     | Mode chanson : scènes et arrangement, fenêtre Song |
 | `js/ui.js`       | Rendu des pistes, grille, piano roll, dialogue |
 | `js/main.js`     | Démarrage, barre d'outils, raccourcis |
 | `guide.html`     | Guide d'utilisation (bouton « Aide » de l'app) |

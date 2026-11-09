@@ -1,5 +1,5 @@
 /*
- * Fenêtre « Harmo One », propre à la scène en cours (intro, couplet, refrain…) :
+ * Fenêtre « Key », propre à la scène en cours (intro, couplet, refrain…) :
  *  - un ASSISTANT en 3 étapes (ambiance → grille d'accords → couches) pour démarrer une scène
  *    qui n'a pas encore de tonalité ;
  *  - des ONGLETS pour modifier ou vérifier ensuite : Ambiance, Accords, Grille, Couches, Vérifier.
@@ -48,9 +48,9 @@ SS.harmonyPanel = (() => {
 
   function updateButton() {
     const k = key();
-    $('#keyLabel').textContent = 'Tonalité : ' + (k ? H().label(k) : '—');
+    $('#keyLabel').textContent = 'Key : ' + (k ? H().label(k) : '—');
     $('#keyBtn').classList.toggle('on', !!k);
-    $('#keyBtn').title = `Harmo One, harmonie de la scène « ${scene().name} » : émotion, tonalité, accords, couches, vérification`;
+    $('#keyBtn').title = `Key, harmonie de la scène « ${scene().name} » : émotion, tonalité, accords, couches, vérification`;
   }
 
   /* ---------- Pistes ---------- */
@@ -1057,7 +1057,7 @@ SS.harmonyPanel = (() => {
     $('#hmTabs').hidden = wizOn;
     $('#hmSteps').hidden = !wizOn;
     $('#hmKeyBar').hidden = wizOn;
-    $('#hmTitle').textContent = wizOn ? 'Harmo One · nouvelle harmonie' : 'Harmo One';
+    $('#hmTitle').textContent = wizOn ? 'Key · nouvelle harmonie' : 'Key';
     if (wizOn) renderWizard();
     else renderTabs();
     $('#hmBody').scrollTop = 0;
