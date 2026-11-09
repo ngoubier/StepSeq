@@ -21,7 +21,7 @@ puis ouvrir <http://localhost:8000>.
 ## Interface
 
 - **En-tête** : titre du projet, tempo (BPM), chiffrage de mesure (4/4 par défaut, x/4 ou x/8),
-  nombre de mesures, le groove (swing, humanisation), la **tonalité** (fenêtre Harmonie, propre à chaque scène : assistant
+  nombre de mesures, le groove (swing, humanisation), la **tonalité** (fenêtre Harmo One, propre à chaque scène : assistant
   émotion → grille d'accords → couches pour démarrer, puis onglets Ambiance (émotions rangées par mode), Accords, Couches
   et Vérifier ; palette d'accords dans le piano roll, essais A/B), puis les boutons **+** (ajouter une piste), **Lecture** et **Stop**.
   À droite : l'indicateur d'enregistrement automatique, **Chansons**, **Nouveau**, **Ouvrir** et **Enregistrer**.
@@ -137,7 +137,7 @@ node --test
 
 (Node 18 ou plus récent ; les tests du moteur d'arpège n'ont besoin ni de navigateur ni de carte son.)
 
-Tests de bout en bout des fenêtres de l'arpégiateur et Harmonie dans Chromium (nécessite le paquet `playwright`) :
+Tests de bout en bout des fenêtres de l'arpégiateur et Harmo One dans Chromium (nécessite le paquet `playwright`) :
 
 ```bash
 node tests/e2e/arp-ui.js
@@ -205,7 +205,7 @@ Les sons proviennent des bibliothèques utilisées par [strudel.cc](https://stru
 ## Skills de composition (Claude Code)
 
 Le dossier `.claude/skills/` contient les skills qui guident la composition, et dont les règles sont reprises
-par la fenêtre **Harmonie** :
+par la fenêtre **Harmo One** :
 
 | Skill | Contenu | Dans StepSeq |
 |-------|---------|--------------|
@@ -232,7 +232,7 @@ par la fenêtre **Harmonie** :
 | `js/groove.js`   | Fenêtre Groove (swing, humanisation) |
 | `js/harmony.js`  | Aide à la composition : gammes, accords diatoniques, identification des accords, estimation de la tonalité, vérificateur d'harmonie |
 | `js/emotions.js` | Intentions émotionnelles (skill MusicEmotion) : matrice et trois propositions par intention |
-| `js/harmonypanel.js` | Fenêtre Harmonie de la scène en cours : assistant en 3 étapes, onglets Ambiance, Accords, Couches, Vérifier |
+| `js/harmonypanel.js` | Fenêtre Harmo One de la scène en cours : assistant en 3 étapes, onglets Ambiance, Accords, Couches, Vérifier |
 | `js/fx.js`       | Fenêtre Effets par piste (chorus, delay, reverb) |
 | `js/profiles.js`, `js/profiles-factory.js` | Profils de console (usine + personnels) |
 | `js/mixer.js`    | Console de mixage : tranches, EQ, compresseur, limiteur, vumètres |

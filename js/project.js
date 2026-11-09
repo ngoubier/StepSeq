@@ -335,7 +335,7 @@ SS.trackLen = (p, t) => {
  * project.scenes  : [{ id, name, bars, data: { trackId: { steps } | { events } }, key?, emotion? }]
  *                   key     : { tonic: "D", mode: "major"|"minor"|"harmonic"|"dorian"|"phrygian"|"lydian"|"mixolydian" }
  *                             tonalité ou mode de la scène (facultatif, js/harmony.js)
- *                   emotion : "nostalgie", intention choisie dans la fenêtre Harmonie (facultatif, js/emotions.js)
+ *                   emotion : "nostalgie", intention choisie dans la fenêtre Harmo One (facultatif, js/emotions.js)
  * project.current : id de la scène en cours d'édition (son contenu vit dans les pistes)
  * project.song    : [{ scene: id, repeat: n }]  -- l'arrangement, joué dans l'ordre
  * project.playMode: 'loop' (boucle la scène en cours) | 'song' (joue l'arrangement)
@@ -403,7 +403,7 @@ SS.addScene = (p, { copy = true } = {}) => {
     bars: p.bars,
     data: copy ? SS.snapshotTracks(p) : {},
   };
-  // une copie garde l'harmonie de la scène d'origine ; une scène vide démarre sans (assistant de la fenêtre Harmonie)
+  // une copie garde l'harmonie de la scène d'origine ; une scène vide démarre sans (assistant de la fenêtre Harmo One)
   const cur = SS.currentScene(p);
   if (copy && validKey(cur.key)) sc.key = { ...cur.key };
   if (copy && validEmotion(cur.emotion)) sc.emotion = cur.emotion;
