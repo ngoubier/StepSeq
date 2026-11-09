@@ -386,8 +386,9 @@
         <tr><th>Onglet</th><th>Contenu</th></tr>
         <tr><td>1 · Ambiance</td><td>Les modes du plus lumineux au plus sombre, avec leurs émotions : Lydien (sérénité), Majeur ionien (joie, tendresse, espoir, triomphe), Mixolydien (euphorie), Dorien (mélancolie lumineuse, ambivalence), Mineur naturel éolien (tristesse, nostalgie), Mineur harmonique (suspense), Phrygien (angoisse, mystère). Cliquez une émotion pour voir ses trois grilles ; « En savoir plus » donne les repères, les réserves, la mélodie conseillée et les essais A/B.</td></tr>
         <tr><td>2 · Accords</td><td>Gamme, accords de la tonalité, grilles connues.</td></tr>
-        <tr><td>3 · Couches</td><td>Trois cartes, Basse, Arpège et Mélodie : un style, une piste, <b>Générer</b>.</td></tr>
-        <tr><td>4 · Vérifier</td><td>L'analyse de toutes les scènes, chacune dans sa tonalité, la scène en cours en premier. Le chiffre sur l'onglet compte les points à vérifier dans la scène en cours.</td></tr>
+        <tr><td>3 · Grille</td><td>Vos propres accords, glissés sur une ligne de mesures, puis basse, accords et arpège générés d'un coup. Voir ci-dessous.</td></tr>
+        <tr><td>4 · Couches</td><td>Trois cartes, Basse, Arpège et Mélodie : un style, une piste, <b>Générer</b>.</td></tr>
+        <tr><td>5 · Vérifier</td><td>L'analyse de toutes les scènes, chacune dans sa tonalité, la scène en cours en premier. Le chiffre sur l'onglet compte les points à vérifier dans la scène en cours.</td></tr>
       </table></div>
       <div class="table-wrap"><table>
         <tr><th>Élément</th><th>Ce qu'il fait</th></tr>
@@ -398,6 +399,20 @@
         <tr><td>Palette d'accords</td><td>Dans le piano roll d'une piste <b>Accord</b> ou <b>Arpège</b>, une rangée de boutons pose l'accord choisi à l'endroit cliqué en dernier, jusqu'à la fin de la mesure, puis avance d'une mesure : cliquez i, VI, III, VII pour écrire une progression de 4 mesures. La fondamentale est placée au plus près de l'accord précédent.</td></tr>
         <tr><td>Analyse des scènes</td><td>Pour chaque scène : la progression de chaque piste Accord / Arpège avec ses degrés (un renversement s'écrit avec la basse après la barre : C/G), puis des remarques.</td></tr>
       </table></div>
+      <h3 id="grille">L'onglet Grille : poser ses accords, tout le reste suit</h3>
+      <p>Plus rapide que le séquenceur pour écrire une suite d'accords : on pose les accords de la tonalité où l'on veut, et StepSeq écrit la basse, les accords et l'arpège.</p>
+      <div class="table-wrap"><table>
+        <tr><th>Élément</th><th>Ce qu'il fait</th></tr>
+        <tr><td>La grille</td><td>Une ligne avec les mesures de la scène, numérotées, et leurs temps. Chaque accord posé est un bloc coloré selon son rôle (repos, préparation, tension). <b>Aimanter</b> : les accords se posent à la mesure, à la demi-mesure ou au temps, et un accord déposé dure une unité.</td></tr>
+        <tr><td>Gestes</td><td><b>Glisser</b> un accord de la palette sur la grille le pose (il remplace ce qu'il recouvre). Glisser un bloc le déplace ; tirer son bord droit l'allonge ; le sortir de la grille, ou <kbd>Suppr</kbd>, l'enlève. <b>Cliquer</b> un accord (palette ou grille) le fait entendre, sans rien poser.</td></tr>
+        <tr><td>Palette Simple</td><td>Les accords de la tonalité en jetons ronds, rangés par famille : Repos, Préparation, Tension (pour un mode : Couleur du mode). En mineur naturel s'ajoutent, en pointillé, V et vii° empruntés au mineur harmonique (A et C♯° en Ré mineur).</td></tr>
+        <tr><td>Palette Avancé</td><td>Un tableau degré × couleur d'accord : 7, 7 de dominante, 9, add9, sus2, sus4, 7sus4, 6. Seuls les accords dont toutes les notes sont dans la tonalité sont proposés (Dm6 n'apparaît pas en Ré mineur : son Si est bécarre). En mineur, une ligne d'emprunts : A7, A7♭9, C♯°7.</td></tr>
+        <tr><td>Partir de…</td><td>Remplit la grille avec une grille connue (un accord par mesure, répétée) ou reprend les accords d'une piste existante.</td></tr>
+        <tr><td>▶ Écouter</td><td>Joue la grille au tempo de la chanson, avec une tête de lecture.</td></tr>
+        <tr><td>Basse · Accords · Arpège</td><td>Trois cartes à cocher : le style de basse, le rythme des accords (tenus, stabs sur les temps, pompe en croches, charleston) et la piste de chacune. La piste Arpège reçoit les accords tenus et <b>Arp One</b> les arpège selon ses réglages (bouton <b>Réglages Arp One</b>). Une piste manquante est créée (« + Nouvelle piste »). Sous la grille, un aperçu montre les notes de ces trois pistes.</td></tr>
+        <tr><td>Générer · Auto</td><td><b>Générer</b> écrit les couches cochées dans la scène en cours. Une piste retouchée à la main n'est remplacée qu'après confirmation. Avec <b>Auto</b>, chaque changement de la grille réécrit les couches aussitôt (sauf une piste retouchée). Ctrl+Z annule.</td></tr>
+      </table></div>
+      <p>La grille est enregistrée avec la scène, par degrés : si vous changez la tonalité, elle suit (i – VI – III – VII reste i – VI – III – VII).</p>
       <h3>Composer à partir d'une émotion</h3>
       <p>L'onglet <b>Ambiance</b> (et l'assistant) reprend la méthode du skill <i>MusicEmotion</i>. Choisissez une intention parmi 13 (joie, euphorie, tristesse, nostalgie, mélancolie lumineuse, espoir, suspense, angoisse, mystère, sérénité, tendresse, triomphe, ambivalence) : StepSeq affiche des repères (valence, activation, tension, sur 0–100, subjectifs), les procédés possibles (harmonie, mélodie, rythme et texture) et le risque à éviter, puis <b>trois pistes contrastées</b>.</p>
       <div class="table-wrap"><table>

@@ -33,7 +33,10 @@ SS.ui = (() => {
     chord: '<svg viewBox="0 0 24 24"><circle cx="8" cy="17" r="2.5" class="fill"/><circle cx="8" cy="11" r="2.5" class="fill"/><circle cx="8" cy="5" r="2.5" class="fill"/><path d="M10.5 17V3"/></svg>',
   };
 
-  const CHORD_SUFFIX = { maj: '', min: 'm', 7: '7', maj7: 'maj7', m7: 'm7', sus2: 'sus2', sus4: 'sus4', dim: '°', aug: '+', add9: 'add9', m9: 'm9', 5: '5' };
+  const CHORD_SUFFIX = {
+    maj: '', min: 'm', 7: '7', maj7: 'maj7', m7: 'm7', sus2: 'sus2', sus4: 'sus4', dim: '°', aug: '+', add9: 'add9', m9: 'm9', 5: '5',
+    m7b5: 'm7♭5', dim7: '°7', maj9: 'maj9', 9: '9', '7b9': '7♭9', madd9: 'm(add9)', 6: '6', m6: 'm6', '7sus4': '7sus4',
+  };
 
   let app; // { project(), changed(), state }
   const refs = new Map(); // trackId -> { el, cells: [], roll: Map<midi, cells[]> }
@@ -59,7 +62,8 @@ SS.ui = (() => {
     const key = SS.sceneKey(app.project());
     const plain = ev.chord && SS.chordNotes(ev.notes[0], ev.chord).join() === ev.notes.join();
     if (SS.harmony && (!plain || SS.harmony.valid(key))) {
-      const id = SS.harmony.identify(ev.notes);
+      // accord posé tel quel : son type fait foi (C6 et pas Am7/C)
+      const id = plain ? { rootPc: ev.notes[0] % 12, type: ev.chord, bassPc: ev.notes[0] % 12 } : SS.harmony.identify(ev.notes);
       if (id) return SS.harmony.chordName(key, id);
     }
     const root = SS.NOTE_NAMES[ev.notes[0] % 12];

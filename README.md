@@ -22,7 +22,7 @@ puis ouvrir <http://localhost:8000>.
 
 - **En-tête** : titre du projet, tempo (BPM), chiffrage de mesure (4/4 par défaut, x/4 ou x/8),
   nombre de mesures, le groove (swing, humanisation), la **tonalité** (fenêtre Harmo One, propre à chaque scène : assistant
-  émotion → grille d'accords → couches pour démarrer, puis onglets Ambiance (émotions rangées par mode), Accords, Couches
+  émotion → grille d'accords → couches pour démarrer, puis onglets Ambiance (émotions rangées par mode), Accords, Grille (accords glissés sur une ligne de mesures → basse, accords et arpège générés), Couches
   et Vérifier ; palette d'accords dans le piano roll, essais A/B), puis les boutons **+** (ajouter une piste), **Lecture** et **Stop**.
   À droite : l'indicateur d'enregistrement automatique, **Chansons**, **Nouveau**, **Ouvrir** et **Enregistrer**.
 - **Partie centrale** : les pistes, les unes sous les autres. Chaque piste a un en-tête
@@ -143,6 +143,7 @@ Tests de bout en bout des fenêtres de l'arpégiateur et Harmo One dans Chromium
 node tests/e2e/arp-ui.js
 node tests/e2e/arp-cursor.js
 node tests/e2e/harmony-ui.js
+node tests/e2e/grid-ui.js
 ```
 
 Cliquer sur une note / un accord existant le supprime. Sur la ligne compacte, un clic pose la
@@ -232,7 +233,7 @@ par la fenêtre **Harmo One** :
 | `js/groove.js`   | Fenêtre Groove (swing, humanisation) |
 | `js/harmony.js`  | Aide à la composition : gammes, accords diatoniques, identification des accords, estimation de la tonalité, vérificateur d'harmonie |
 | `js/emotions.js` | Intentions émotionnelles (skill MusicEmotion) : matrice et trois propositions par intention |
-| `js/harmonypanel.js` | Fenêtre Harmo One de la scène en cours : assistant en 3 étapes, onglets Ambiance, Accords, Couches, Vérifier |
+| `js/harmonypanel.js` | Fenêtre Harmo One de la scène en cours : assistant en 3 étapes, onglets Ambiance, Accords, Grille, Couches, Vérifier |
 | `js/fx.js`       | Fenêtre Effets par piste (chorus, delay, reverb) |
 | `js/profiles.js`, `js/profiles-factory.js` | Profils de console (usine + personnels) |
 | `js/mixer.js`    | Console de mixage : tranches, EQ, compresseur, limiteur, vumètres |

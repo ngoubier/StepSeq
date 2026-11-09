@@ -211,6 +211,17 @@ SS.CHORDS = [
   { id: 'add9', label: 'Add9', iv: [0, 4, 7, 14] },
   { id: 'm9', label: 'm9', iv: [0, 3, 7, 10, 14] },
   { id: '5', label: 'Power (5)', iv: [0, 7, 12] },
+  // couleurs d'accord du mode avancé de la grille (Harmo One) ; `ext` : ignorées en premier par
+  // SS.harmony.identify, pour qu'un accord déjà posé garde le nom qu'il avait (Am7/C plutôt que C6)
+  { id: 'm7b5', label: 'm7♭5', iv: [0, 3, 6, 10], ext: true },
+  { id: 'dim7', label: 'Dim7', iv: [0, 3, 6, 9], ext: true },
+  { id: 'maj9', label: 'Maj9', iv: [0, 4, 7, 11, 14], ext: true },
+  { id: '9', label: '9', iv: [0, 4, 7, 10, 14], ext: true },
+  { id: '7b9', label: '7♭9', iv: [0, 4, 7, 10, 13], ext: true },
+  { id: 'madd9', label: 'm(add9)', iv: [0, 3, 7, 14], ext: true },
+  { id: '6', label: '6', iv: [0, 4, 7, 9], ext: true },
+  { id: 'm6', label: 'm6', iv: [0, 3, 7, 9], ext: true },
+  { id: '7sus4', label: '7sus4', iv: [0, 5, 7, 10], ext: true },
 ];
 SS.chordNotes = (root, chordId) => {
   const c = SS.CHORDS.find((x) => x.id === chordId) || SS.CHORDS[0];

@@ -2,7 +2,9 @@
  * Fenêtre « Harmo One », propre à la scène en cours (intro, couplet, refrain…) :
  *  - un ASSISTANT en 3 étapes (ambiance → grille d'accords → couches) pour démarrer une scène
  *    qui n'a pas encore de tonalité ;
- *  - des ONGLETS pour modifier ou vérifier ensuite : Ambiance, Accords, Couches, Vérifier.
+ *  - des ONGLETS pour modifier ou vérifier ensuite : Ambiance, Accords, Grille, Couches, Vérifier.
+ *    L'onglet Grille pose les accords à la main sur une ligne (glisser-déposer) et génère d'un coup
+ *    la basse, les accords et l'arpège (joué par Arp One).
  * La tonalité et l'émotion sont rangées dans la scène (scene.key, scene.emotion). Le calcul est dans
  * js/harmony.js, les intentions et leur rangement par mode dans js/emotions.js.
  */
@@ -525,6 +527,511 @@ SS.harmonyPanel = (() => {
         .join('')}</div>`;
   }
 
+  /* ================================================================ */
+  /* Onglet Grille : poser ses accords sur une ligne, générer basse,   */
+  /* accords et arpège d'un coup                                       */
+  /* ================================================================ */
+  // La grille est rangée dans la scène (scene.grid, voir SS.normalizeGrid) : accords par degré, réglages
+  // des trois couches, et l'empreinte des notes écrites par la grille dans chaque piste (une piste
+  // retouchée à la main n'est pas écrasée sans le demander).
+
+  const RHYTHMS = [
+    { id: 'hold', label: 'Tenus (toute la durée)' },
+    { id: 'beats', label: 'Stabs sur les temps' },
+    { id: 'pump', label: 'Pompe en croches' },
+    { id: 'charleston', label: 'Charleston (1 et 2&)' },
+  ];
+  const GLAYERS = [
+    { id: 'bass', title: 'Basse', cat: 'mono', make: { name: 'Basse', color: '#3fcf3f', category: 'mono', family: 'bass', instrument: 'syn_sawbass' } },
+    { id: 'comp', title: 'Accords', cat: 'chord', make: { name: 'Accords', color: '#1ea7ff', category: 'chord', family: 'pads', instrument: 'syn_softpad' } },
+    { id: 'arp', title: 'Arpège', cat: 'arp', make: { name: 'Arpège', color: '#13c2a3', category: 'arp', family: 'synth', instrument: 'syn_pluck' } },
+  ];
+  const FAMS = [
+    { id: 'repos', title: 'Repos', sub: 'on s’y pose' },
+    { id: 'prep', title: 'Préparation', sub: 'on s’éloigne' },
+    { id: 'color', title: 'Couleur du mode', sub: 'sa note caractéristique' },
+    { id: 'tension', title: 'Tension', sub: 'appelle le retour' },
+  ];
+  const NEW = '__new';
+  let gridAdv = (() => {
+    try {
+      return localStorage.getItem('stepseq.gridAdv') === '1';
+    } catch (e) {
+      return false;
+    }
+  })();
+  let gridPlay = null; // { timers, raf } pendant « Écouter »
+  let gridWarned = ''; // dernier avertissement « piste retouchée » (pour ne pas le répéter à chaque geste)
+
+  function grid() {
+    const sc = scene();
+    if (!sc.grid) sc.grid = SS.normalizeGrid({ chords: [] });
+    const g = sc.grid;
+    for (const L of GLAYERS) {
+      const l = g.layers[L.id];
+      const list = gridTracks(L);
+      if (l.dst !== NEW && !list.some((t) => t.id === l.dst)) {
+        const def = L.id === 'bass' ? defaultDst('Basse') : list[0];
+        l.dst = def && list.includes(def) ? def.id : list[0] ? list[0].id : NEW;
+      }
+      if (L.id === 'bass' && !genById(l.gen)) l.gen = 'bass-8';
+      if (L.id === 'comp' && !RHYTHMS.some((r) => r.id === l.rhythm)) l.rhythm = 'hold';
+    }
+    return g;
+  }
+  const gridTracks = (L) => instTracks().filter((t) => t.category === L.cat);
+  const gStep = () => {
+    const p = proj();
+    return { spb: SS.stepsPerBar(p), beat: SS.stepsPerBeat(p), total: SS.totalSteps(p) };
+  };
+  function gUnit(g) {
+    const { spb, beat } = gStep();
+    if (g.snap === 'beat') return beat;
+    if (g.snap === 'half') return spb % 2 === 0 ? spb / 2 : beat;
+    return spb;
+  }
+  const gChord = (c) => H().gridChord(key(), c.degree, c.type, c.acc);
+  const sigOf = (events) => {
+    const s = events.map((e) => `${e.step}:${e.len}:${e.notes.join('.')}`).join('|');
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+    return events.length + '.' + (h >>> 0).toString(36);
+  };
+
+  /** Événements d'accords de la grille, voix enchaînées autour de `center`, au rythme `rhythm`. */
+  function gridEvents(g, center, rhythm, length) {
+    const { spb, beat } = gStep();
+    const half = Math.max(1, Math.round(beat / 2));
+    const out = [];
+    let near = center;
+    for (const gc of [...g.chords].sort((a, b) => a.step - b.step)) {
+      if (gc.step >= length) continue;
+      const end = Math.min(gc.step + gc.len, length);
+      const c = gChord(gc);
+      const notes = H().voice(c, near, center);
+      near = notes[0];
+      const add = (s, l, vel) => s < end && l > 0 && out.push({ step: s, len: Math.min(l, end - s), notes: [...notes], vel, chord: c.type });
+      if (rhythm === 'beats') for (let s = gc.step; s < end; s += beat) add(s, half, s % spb === 0 ? 0.8 : 0.68);
+      else if (rhythm === 'pump') for (let s = gc.step, i = 0; s < end; s += half, i++) add(s, Math.max(1, Math.round(half * 0.75)), i % 2 ? 0.55 : 0.75);
+      else if (rhythm === 'charleston') {
+        const off = Math.round(beat * 1.5);
+        for (let s = gc.step; s < end; s++) {
+          const pos = s % spb;
+          if (s === gc.step || pos === 0) add(s, beat, 0.8);
+          else if (pos === off) add(s, half, 0.7);
+        }
+      } else add(gc.step, end - gc.step, 0.7);
+    }
+    return out;
+  }
+
+  /** Écrit la basse, les accords et l'arpège d'après la grille. `auto` : après un geste sur la grille, sans question. */
+  function generateGrid({ auto = false } = {}) {
+    const k = key();
+    if (!k) return;
+    const p = proj();
+    const g = grid();
+    if (!g.chords.length && !auto) return toast('Glissez d’abord des accords sur la grille.');
+    const plan = GLAYERS.filter((L) => g.layers[L.id].on).map((L) => ({ L, l: g.layers[L.id], t: byId(g.layers[L.id].dst) }));
+    if (!plan.length) return auto || toast('Cochez au moins une couche à générer.');
+    const ids = plan.filter((x) => x.t).map((x) => x.t.id);
+    if (new Set(ids).size !== ids.length) return toast('Choisissez une piste différente pour chaque couche.');
+    const edited = plan.filter((x) => x.t && x.t.events.length && g.sig[x.t.id] !== sigOf(x.t.events));
+    let todo = plan;
+    if (auto) {
+      todo = plan.filter((x) => x.t && !edited.includes(x));
+      const names = edited.map((x) => x.t.name).join(', ');
+      if (edited.length && gridWarned !== names) {
+        gridWarned = names;
+        toast(`« ${names} » a des notes qui ne viennent pas de la grille : cliquez sur Générer pour les remplacer.`, 5000);
+      }
+    } else if (edited.length && !confirm(`Remplacer les notes de ${edited.map((x) => `« ${x.t.name} »`).join(', ')} dans la scène « ${scene().name} » ?`)) return;
+    if (!todo.length) return;
+    const created = [];
+    for (const x of todo) {
+      if (x.t) continue;
+      x.t = SS.newTrack({ type: 'instrument', ...x.L.make }, p);
+      p.tracks.push(x.t);
+      SS.audio.prepareTrack(x.t);
+      x.l.dst = x.t.id;
+      created.push(x.t.name);
+    }
+    const { spb, beat } = gStep();
+    for (const { L, l, t } of todo) {
+      const len = SS.trackLen(p, t);
+      const center = (t.octave + 1) * 12 + 6;
+      if (L.id === 'bass') t.events = H().generate(gridEvents(g, 60, 'hold', len), { kind: l.gen, octave: t.octave, spb, beat, key: k, length: len });
+      else t.events = gridEvents(g, center, L.id === 'comp' ? l.rhythm : 'hold', len);
+      g.sig[t.id] = sigOf(t.events);
+    }
+    gridWarned = '';
+    app.changed();
+    app.renderAll();
+    if (tab === 'gri' && view === 'tabs') renderGri();
+    if (!auto)
+      toast(
+        `${todo.map((x) => x.L.title).join(', ')} écrit${todo.length > 1 ? 's' : ''} dans la scène « ${scene().name} »` +
+          (created.length ? ` (piste${created.length > 1 ? 's' : ''} créée${created.length > 1 ? 's' : ''} : ${created.join(', ')})` : '') +
+          '. Ctrl+Z annule.',
+        4000
+      );
+  }
+
+  /** Après chaque geste sur la grille : on la redessine, et on régénère si « Auto » est coché. */
+  function gridChanged() {
+    const g = grid();
+    if (g.auto && g.chords.length) generateGrid({ auto: true });
+    else app.changed();
+    renderGri();
+  }
+
+  /** Place un accord : il remplace ce qu'il recouvre (un accord coupé en deux garde ses deux bouts). */
+  function gridPut(g, chord) {
+    const end = chord.step + chord.len;
+    g.chords = g.chords.flatMap((c) => {
+      const ce = c.step + c.len;
+      if (ce <= chord.step || c.step >= end) return [c];
+      const out = [];
+      if (c.step < chord.step) out.push({ ...c, len: chord.step - c.step });
+      if (ce > end) out.push({ ...c, step: end, len: ce - end });
+      return out;
+    });
+    g.chords.push(chord);
+    g.chords.sort((a, b) => a.step - b.step);
+  }
+
+  function gridListen(c, el) {
+    const t = byId(grid().layers.comp.dst) || previewTrack();
+    if (!t) return toast('Ajoutez une piste Instrument ou Synthé pour écouter les accords.');
+    SS.audio.preview(t, H().voice(c, 60), 0.9);
+    if (el) {
+      el.classList.add('sounding');
+      setTimeout(() => el.classList.remove('sounding'), 450);
+    }
+  }
+
+  function stopGridPlay() {
+    if (!gridPlay) return;
+    gridPlay.timers.forEach(clearTimeout);
+    cancelAnimationFrame(gridPlay.raf);
+    gridPlay = null;
+    const b = $('#grPlay');
+    if (b) b.textContent = '▶ Écouter';
+    const ph = $('#grPh');
+    if (ph) ph.hidden = true;
+  }
+
+  /** Joue la grille (accords seuls, au tempo de la chanson), avec une tête de lecture. */
+  function playGrid() {
+    if (gridPlay) return stopGridPlay();
+    const g = grid();
+    if (!g.chords.length) return toast('La grille est vide.');
+    const t = byId(g.layers.comp.dst) || previewTrack();
+    if (!t) return toast('Ajoutez une piste Instrument ou Synthé pour écouter.');
+    const { total } = gStep();
+    const stepSec = 60 / proj().tempo / 4;
+    const evs = gridEvents(g, 60, 'hold', total);
+    const t0 = performance.now();
+    gridPlay = { timers: evs.map((ev) => setTimeout(() => SS.audio.preview(t, ev.notes, ev.len * stepSec * 0.95), ev.step * stepSec * 1000)), raf: 0 };
+    gridPlay.timers.push(setTimeout(stopGridPlay, total * stepSec * 1000 + 150));
+    $('#grPlay').textContent = '■ Stop';
+    const tick = () => {
+      const ph = $('#grPh');
+      if (!gridPlay || !ph) return;
+      ph.hidden = false;
+      ph.style.left = Math.min(100, ((performance.now() - t0) / 1000 / stepSec / total) * 100) + '%';
+      gridPlay.raf = requestAnimationFrame(tick);
+    };
+    tick();
+  }
+
+  /* ---------- Rendu ---------- */
+
+  const gData = (c) => `data-gd="${c.degree}" data-gt="${esc(c.type)}" data-ga="${c.acc || 0}"`;
+  const gTitle = (c) => `${c.name} · ${c.numeral} · ${c.notes.join(' ')}${c.borrowed ? ' · emprunt' : ''} — clic : écouter, glisser : poser`;
+  const token = (c, small) =>
+    `<span class="gr-tok role-${c.role.id}${c.borrowed ? ' borrowed' : ''}${small ? ' small' : ''}" ${gData(c)} title="${esc(gTitle(c))}"><b>${esc(c.numeral)}</b>${small ? '' : `<span>${esc(c.name)}</span>`}</span>`;
+
+  function gridPaletteHtml() {
+    const P = H().gridPalette(key());
+    if (!gridAdv) {
+      const fams = FAMS.map((f) => ({ ...f, list: P.simple.filter((c) => c.role.id === f.id) })).filter((f) => f.list.length);
+      return `<div class="gr-fams">${fams
+        .map((f) => `<div class="gr-fam role-${f.id}" style="flex:${Math.max(2, f.list.length)}"><h5>${f.title}<small>${f.sub}</small></h5><div class="gr-toks">${f.list.map((c) => token(c)).join('')}</div></div>`)
+        .join('')}</div>`;
+    }
+    const head = `<div class="gr-adv-h">Degré</div>${P.cols.map((c) => `<div class="gr-adv-h">${esc(c.label)}</div>`).join('')}`;
+    let sep = false;
+    const rows = P.rows
+      .map((r) => {
+        const s = r.borrowed && !sep ? ((sep = true), '<div class="gr-adv-sep">Emprunts au mineur harmonique (sensible) : la vraie dominante, qui appelle la tonique</div>') : '';
+        return (
+          s +
+          `<div class="gr-adv-deg">${token(r.chord, true)}<strong>${esc(r.chord.name)}</strong>${r.borrowed ? '<em>emprunt</em>' : ''}</div>` +
+          r.cells
+            .map((c) => (c ? `<span class="gr-chip role-${c.role.id}${c.borrowed ? ' borrowed' : ''}" ${gData(c)} title="${esc(gTitle(c))}">${esc(c.name)}</span>` : '<span class="gr-no">·</span>'))
+            .join('')
+        );
+      })
+      .join('');
+    return `<div class="gr-adv" style="grid-template-columns:minmax(120px,1.3fr) repeat(${P.cols.length},1fr)">${head}${rows}</div>
+      <p class="hm-muted">Seuls les accords dont toutes les notes sont dans ${esc(H().label(key()))} sont proposés (« · » : une note sort de la tonalité).</p>`;
+  }
+
+  /** Aperçu des pistes des trois couches, aligné sur la grille. */
+  function gridPreviewHtml(g, total) {
+    return GLAYERS.map((L) => {
+      const t = byId(g.layers[L.id].dst);
+      if (!g.layers[L.id].on) return '';
+      const evs = t ? t.events.filter((e) => e.step < total) : [];
+      const all = evs.flatMap((e) => e.notes);
+      const lo = Math.min(...all, 127);
+      const hi = Math.max(...all, 0);
+      const span = Math.max(12, hi - lo);
+      const bars = evs
+        .flatMap((e) => e.notes.map((n) => `<i style="left:${(e.step / total) * 100}%;width:calc(${(Math.min(e.len, total - e.step) / total) * 100}% - 1px);bottom:${2 + ((n - lo) / span) * 14}px"></i>`))
+        .join('');
+      return `<div class="gr-pv gr-pv-${L.id}"><label>${L.title}${t ? '' : ' · piste à créer'}</label>${bars}</div>`;
+    }).join('');
+  }
+
+  function renderGri() {
+    const k = key();
+    if (!k) {
+      $('#hmFoot').innerHTML = '<span class="hm-foot-info"></span><button type="submit" class="btn btn-accent">Fermer</button>';
+      return ($('#hmBody').innerHTML = noKeyMsg());
+    }
+    const body = $('#hmBody');
+    const keep = body.scrollTop;
+    const p = proj();
+    const g = grid();
+    const { spb, beat, total } = gStep();
+    const pct = (s) => (s / total) * 100 + '%';
+    let ruler = '';
+    let lines = '';
+    for (let b = 0; b < p.bars; b++) {
+      ruler += `<span class="gr-bar" style="left:${pct(b * spb)};width:${pct(spb)}">${b + 1}</span>`;
+      for (let s = beat; s < spb; s += beat) ruler += `<i style="left:${pct(b * spb + s)}"></i>`;
+      if (b) lines += `<div class="gr-bl" style="left:${pct(b * spb)}"></div>`;
+      for (let s = beat; s < spb; s += beat) lines += `<div class="gr-bt" style="left:${pct(b * spb + s)}"></div>`;
+    }
+    const blocks = g.chords
+      .map((gc, i) => {
+        if (gc.step >= total) return '';
+        const c = gChord(gc);
+        const len = Math.min(gc.len, total - gc.step);
+        return `<div class="gr-blk role-${c.role.id}${c.borrowed ? ' borrowed' : ''}${len / total < 0.07 ? ' narrow' : ''}" data-gi="${i}" tabindex="0" style="left:calc(${pct(gc.step)} + 2px);width:calc(${pct(len)} - 4px)" title="${esc(c.name + ' · ' + c.numeral + ' — clic : écouter · glisser : déplacer · hors de la grille ou Suppr : enlever')}"><b>${esc(c.name)}</b><small>${esc(c.numeral)}</small><span class="gr-rz" title="Allonger ou raccourcir"></span></div>`;
+      })
+      .join('');
+    const progOpts = H()
+      .progressions(k)
+      .map((pr, i) => `<option value="p:${i}">Grille ${esc(pr.label)} · ${esc(pr.style)}</option>`)
+      .join('');
+    const trackOpts = instTracks()
+      .filter((t) => t.category !== 'mono' && t.events.length)
+      .map((t) => `<option value="t:${esc(t.id)}">Reprendre les accords de « ${esc(t.name)} »</option>`)
+      .join('');
+    const layerCard = (L) => {
+      const l = g.layers[L.id];
+      const list = gridTracks(L);
+      const opts = list.map((t) => `<option value="${esc(t.id)}"${t.id === l.dst ? ' selected' : ''}>${esc(t.name)}</option>`).join('') + `<option value="${NEW}"${l.dst === NEW ? ' selected' : ''}>+ Nouvelle piste « ${L.make.name} »</option>`;
+      const style =
+        L.id === 'bass'
+          ? `<select data-gl="bass" data-gf="gen" aria-label="Style de basse">${gensOf('Basse').map((x) => `<option value="${x.id}"${x.id === l.gen ? ' selected' : ''}>${esc(x.label)}</option>`).join('')}</select>`
+          : L.id === 'comp'
+          ? `<select data-gl="comp" data-gf="rhythm" aria-label="Rythme des accords">${RHYTHMS.map((x) => `<option value="${x.id}"${x.id === l.rhythm ? ' selected' : ''}>${esc(x.label)}</option>`).join('')}</select>`
+          : `<p class="hm-muted gr-arpinfo">La piste reçoit les accords tenus ; <b>Arp One</b> les arpège selon ses réglages.</p>`;
+      const arpBtn = L.id === 'arp' ? `<button type="button" class="btn btn-small" id="grArpOne"${byId(l.dst) ? '' : ' disabled'}>Réglages Arp One ↗</button>` : '';
+      return `<div class="hm-layer gr-layer${l.on ? '' : ' off'}">
+        <h4><label><input type="checkbox" data-gl="${L.id}" data-gf="on"${l.on ? ' checked' : ''}> ${L.title}</label><small>${L.id === 'bass' ? gensOf('Basse').length + ' styles' : L.id === 'comp' ? RHYTHMS.length + ' rythmes' : 'via Arp One'}</small></h4>
+        ${style}
+        <label class="field"><span>Piste</span><select data-gl="${L.id}" data-gf="dst">${opts}</select></label>
+        ${arpBtn}
+      </div>`;
+    };
+    body.innerHTML = `<div class="hm-stack gr">
+      <section>
+        <div class="gr-head">
+          <div class="hm-lbl">Grille de la scène · ${p.bars} mesure${p.bars > 1 ? 's' : ''} en ${p.timeSig[0]}/${p.timeSig[1]}</div>
+          <label class="field"><span>Aimanter</span><select id="grSnap">${[['bar', 'à la mesure'], ['half', 'à la demi-mesure'], ['beat', 'au temps']].map(([v, l]) => `<option value="${v}"${g.snap === v ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
+          <select id="grFrom" aria-label="Partir d'une grille"><option value="">Partir de…</option>${progOpts}${trackOpts}</select>
+          <button type="button" class="btn btn-small" id="grClear"${g.chords.length ? '' : ' disabled'}>Effacer</button>
+          <button type="button" class="btn btn-small" id="grPlay">${gridPlay ? '■ Stop' : '▶ Écouter'}</button>
+        </div>
+        <div class="gr-scroll"><div class="gr-tl" style="min-width:${Math.max(0, p.bars * 64)}px">
+          <div class="gr-ruler">${ruler}</div>
+          <div class="gr-lane" id="grLane">${lines}${blocks}${g.chords.length ? '' : '<div class="gr-empty">Glissez des accords ici</div>'}</div>
+          ${gridPreviewHtml(g, total)}
+          <div class="gr-ph" id="grPh" hidden></div>
+        </div></div>
+        <p class="hm-muted">Cliquez un accord pour l'écouter, glissez-le pour le poser · déplacez un accord en le glissant · tirez son bord droit pour l'allonger · sortez-le de la grille (ou <kbd>Suppr</kbd>) pour l'enlever.</p>
+      </section>
+      <section>
+        <div class="gr-head"><div class="hm-lbl">Accords de ${esc(H().label(k))} <span class="gr-hint">clic : écouter · glisser : poser sur la grille</span></div>
+          <span class="segmented gr-mode" role="radiogroup" aria-label="Palette"><button type="button" data-grmode="simple" class="${gridAdv ? '' : 'active'}" aria-pressed="${!gridAdv}">Simple</button><button type="button" data-grmode="adv" class="${gridAdv ? 'active' : ''}" aria-pressed="${gridAdv}">Avancé · 7, 9, sus…</button></span></div>
+        ${gridPaletteHtml()}
+      </section>
+      <section>
+        <div class="hm-lbl">Ce que « Générer » écrit dans la scène</div>
+        <div class="hm-layers gr-layers">${GLAYERS.map(layerCard).join('')}</div>
+      </section>
+    </div>`;
+    body.scrollTop = keep;
+    renderGriFoot();
+  }
+
+  function gridSummary(g) {
+    const names = [];
+    let last = null;
+    for (const gc of g.chords) {
+      const n = gChord(gc).name;
+      if (n !== last) names.push(n);
+      last = n;
+    }
+    return names.length ? names.slice(0, 12).join(' – ') + (names.length > 12 ? ' …' : '') : 'Grille vide';
+  }
+
+  function renderGriFoot() {
+    const g = grid();
+    $('#hmFoot').innerHTML = `
+      <span class="hm-foot-info gr-sum">${esc(gridSummary(g))}</span>
+      <label class="gr-auto" title="Réécrit les couches à chaque changement de la grille (sauf une piste retouchée à la main)"><input type="checkbox" id="grAuto"${g.auto ? ' checked' : ''}> Auto : régénérer à chaque changement</label>
+      <button type="button" class="btn btn-accent" id="grGen"${g.chords.length ? '' : ' disabled'}>Générer</button>
+      <button type="submit" class="btn">Fermer</button>`;
+  }
+
+  /* ---------- Gestes : glisser-déposer, allonger, écouter ---------- */
+
+  function gridPointerDown(e) {
+    if (e.button !== 0 || tab !== 'gri' || view !== 'tabs') return;
+    const rz = e.target.closest('.gr-rz');
+    const blk = e.target.closest('.gr-blk');
+    const src = e.target.closest('[data-gd]');
+    if (!rz && !blk && !src) return;
+    e.preventDefault();
+    const g = grid();
+    const lane = $('#grLane');
+    const { total } = gStep();
+    const unit = gUnit(g);
+    const stepAt = (x) => {
+      const r = lane.getBoundingClientRect();
+      return Math.max(0, Math.min(total - 1, Math.floor(((x - r.left) / r.width) * total)));
+    };
+    if (rz) {
+      const gc = g.chords[+blk.dataset.gi];
+      const move = (ev) => {
+        const end = Math.min(total, Math.max(gc.step + unit, Math.round((stepAt(ev.clientX) + 1) / unit) * unit));
+        gc.len = end - gc.step;
+        const next = g.chords.find((c) => c !== gc && c.step > gc.step);
+        if (next && end > next.step) {
+          const ne = next.step + next.len;
+          next.step = end;
+          next.len = ne - end;
+          if (next.len <= 0) g.chords.splice(g.chords.indexOf(next), 1);
+        }
+        blk.style.width = `calc(${(gc.len / total) * 100}% - 4px)`;
+      };
+      const up = () => {
+        removeEventListener('pointermove', move);
+        removeEventListener('pointerup', up);
+        gridChanged();
+      };
+      addEventListener('pointermove', move);
+      addEventListener('pointerup', up);
+      return;
+    }
+    const moving = blk ? g.chords[+blk.dataset.gi] : null;
+    const chord = moving ? { degree: moving.degree, type: moving.type, acc: moving.acc } : { degree: +src.dataset.gd, type: src.dataset.gt, acc: +src.dataset.ga };
+    const len = moving ? moving.len : unit;
+    const x0 = e.clientX;
+    const y0 = e.clientY;
+    const el = blk || src;
+    let started = false;
+    let target = null;
+    const fly = document.createElement('div');
+    fly.className = 'gr-fly';
+    fly.textContent = gChord(chord).name;
+    const ghost = document.createElement('div');
+    ghost.className = 'gr-ghost';
+    const dlg = $('#harmonyDialog');
+    const inside = (x, y) => {
+      const r = $('.gr-tl').getBoundingClientRect();
+      return x >= r.left && x <= r.right && y >= r.top - 24 && y <= r.bottom + 24;
+    };
+    const move = (ev) => {
+      if (!started) {
+        if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < 5) return;
+        started = true;
+        dlg.append(fly);
+        el.classList.add('dragging');
+      }
+      fly.style.left = ev.clientX + 'px';
+      fly.style.top = ev.clientY + 'px';
+      if (inside(ev.clientX, ev.clientY)) {
+        target = Math.floor(stepAt(ev.clientX) / unit) * unit;
+        ghost.style.left = `calc(${(target / total) * 100}% + 2px)`;
+        ghost.style.width = `calc(${(Math.min(len, total - target) / total) * 100}% - 4px)`;
+        if (!ghost.parentNode) lane.append(ghost);
+        fly.classList.remove('out');
+      } else {
+        target = null;
+        ghost.remove();
+        fly.classList.toggle('out', !!moving);
+      }
+    };
+    const up = () => {
+      removeEventListener('pointermove', move);
+      removeEventListener('pointerup', up);
+      fly.remove();
+      ghost.remove();
+      el.classList.remove('dragging');
+      if (!started) {
+        if (blk) blk.focus(); // Suppr enlève l'accord
+        return gridListen(gChord(chord), el);
+      }
+      if (moving) g.chords.splice(g.chords.indexOf(moving), 1);
+      if (target !== null) gridPut(g, { step: target, len: Math.min(len, total - target), ...chord });
+      if (moving || target !== null) gridChanged();
+    };
+    addEventListener('pointermove', move);
+    addEventListener('pointerup', up);
+  }
+
+  function gridKeyDown(e) {
+    const blk = e.target.closest && e.target.closest('.gr-blk');
+    if (!blk || !['Delete', 'Backspace'].includes(e.key)) return;
+    e.preventDefault();
+    grid().chords.splice(+blk.dataset.gi, 1);
+    gridChanged();
+  }
+
+  /** Remplit la grille : une grille connue (un accord par mesure, répétée) ou les accords d'une piste. */
+  function gridFrom(v) {
+    const g = grid();
+    const k = key();
+    const { spb, total } = gStep();
+    let chords;
+    let msg;
+    if (v.startsWith('p:')) {
+      const pr = H().progressions(k)[+v.slice(2)];
+      chords = [];
+      for (let s = 0, i = 0; s < total; s += spb, i++) {
+        const c = pr.chords[i % pr.chords.length];
+        chords.push({ step: s, len: Math.min(spb, total - s), degree: c.degree, type: c.type, acc: 0 });
+      }
+      msg = `Grille ${pr.label} posée.`;
+    } else {
+      const t = byId(v.slice(2));
+      const r = H().gridFromEvents(k, t.events);
+      chords = r.chords;
+      msg = `${chords.length} accord${chords.length > 1 ? 's' : ''} repris de « ${t.name} »` + (r.skipped ? ` (${r.skipped} hors de la tonalité, laissé${r.skipped > 1 ? 's' : ''} de côté).` : '.');
+    }
+    if (g.chords.length && !confirm(`Remplacer la grille de la scène « ${scene().name} » ?`)) return renderGri();
+    g.chords = chords;
+    gridChanged();
+    toast(msg);
+  }
+
   function renderTabs() {
     const res = H().analyze(proj());
     const cur = res.find((r) => r.id === scene().id);
@@ -534,6 +1041,7 @@ SS.harmonyPanel = (() => {
     if (tab === 'amb') renderAmb();
     else if (tab === 'acc') renderAcc();
     else if (tab === 'cou') renderCou();
+    else if (tab === 'gri') return renderGri();
     else renderVer(res);
     const t = chordTrack();
     $('#hmFoot').innerHTML = `
@@ -543,6 +1051,7 @@ SS.harmonyPanel = (() => {
   }
 
   function render() {
+    if (tab !== 'gri' || view !== 'tabs') stopGridPlay();
     const wizOn = view === 'wiz';
     $('#hmTabs').hidden = wizOn;
     $('#hmSteps').hidden = !wizOn;
@@ -633,6 +1142,28 @@ SS.harmonyPanel = (() => {
     }
     // onglet Couches
     if ((b = el('[data-cgo]'))) return generate(b.dataset.cgo);
+    // onglet Grille
+    if ((b = el('[data-grmode]'))) {
+      gridAdv = b.dataset.grmode === 'adv';
+      try {
+        localStorage.setItem('stepseq.gridAdv', gridAdv ? '1' : '0');
+      } catch (err) {
+        /* stockage indisponible */
+      }
+      return renderGri();
+    }
+    if (el('#grPlay')) return playGrid();
+    if (el('#grGen')) return generateGrid();
+    if (el('#grClear')) {
+      if (!confirm(`Effacer la grille de la scène « ${scene().name} » ?`)) return;
+      grid().chords = [];
+      stopGridPlay();
+      return gridChanged();
+    }
+    if (el('#grArpOne')) {
+      const t = byId(grid().layers.arp.dst);
+      return t && SS.arpPanel.open(t);
+    }
   }
 
   function onChange(e) {
@@ -657,6 +1188,22 @@ SS.harmonyPanel = (() => {
     else if (t.id === 'hmChordTrack') {
       chordTrackId = t.value;
       render();
+    } else if (t.id === 'grSnap') {
+      grid().snap = t.value;
+      app.changed();
+    } else if (t.id === 'grFrom') {
+      if (t.value) gridFrom(t.value);
+    } else if (t.id === 'grAuto') {
+      const g = grid();
+      g.auto = t.checked;
+      if (g.auto && g.chords.length) generateGrid({ auto: true });
+      else app.changed();
+    } else if (t.dataset.gl) {
+      const l = grid().layers[t.dataset.gl];
+      l[t.dataset.gf] = t.type === 'checkbox' ? t.checked : t.value;
+      if (grid().auto && grid().chords.length && t.dataset.gf !== 'dst') generateGrid({ auto: true });
+      else app.changed();
+      renderGri();
     }
   }
 
@@ -704,6 +1251,8 @@ SS.harmonyPanel = (() => {
     $('#hmBody').addEventListener('click', onClick);
     $('#hmFoot').addEventListener('click', onClick);
     $('#hmBody').addEventListener('change', onChange);
+    $('#hmBody').addEventListener('pointerdown', gridPointerDown);
+    $('#hmBody').addEventListener('keydown', gridKeyDown);
     $('#hmFoot').addEventListener('change', onChange);
     $('#hmBody').addEventListener('keydown', (e) => {
       const card = e.target.closest('[data-wpick]');
@@ -717,6 +1266,7 @@ SS.harmonyPanel = (() => {
       e.preventDefault();
       dlg.close();
     });
+    dlg.addEventListener('close', stopGridPlay);
     dlg.addEventListener('keydown', (e) => {
       if (e.code === 'Space' && !['BUTTON', 'SELECT', 'INPUT'].includes(e.target.tagName) && !e.target.closest('[data-wpick]')) return;
       e.stopPropagation();

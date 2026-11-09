@@ -407,6 +407,7 @@ SS.addScene = (p, { copy = true } = {}) => {
   const cur = SS.currentScene(p);
   if (copy && validKey(cur.key)) sc.key = { ...cur.key };
   if (copy && validEmotion(cur.emotion)) sc.emotion = cur.emotion;
+  if (copy && cur.grid) sc.grid = JSON.parse(JSON.stringify(cur.grid));
   const idx = p.scenes.findIndex((x) => x.id === p.current);
   p.scenes.splice(idx + 1, 0, sc);
   return sc.id;
@@ -436,6 +437,38 @@ SS.songLength = (p) => {
   return { bars, seconds: (bars * spb * 60) / p.tempo / 4 };
 };
 
+/**
+ * Grille d'accords d'une scène (onglet Grille de Harmo One), ou null :
+ *   { chords: [{ step, len, degree (0–6), type (SS.CHORDS), acc (0 | 1) }],
+ *     snap: 'bar'|'half'|'beat', auto: bool,
+ *     layers: { bass: { on, gen, dst }, comp: { on, rhythm, dst }, arp: { on, dst } },
+ *     sig: { trackId: empreinte des notes écrites par la grille } }  -- piste retouchée à la main → on demande avant d'écraser
+ */
+SS.normalizeGrid = (g) => {
+  if (!g || typeof g !== 'object' || !Array.isArray(g.chords)) return null;
+  const types = new Set(SS.CHORDS.map((c) => c.id));
+  const int = (v, lo, hi) => Math.min(hi, Math.max(lo, Math.round(Number(v)) || 0));
+  const chords = g.chords
+    .filter((c) => c && types.has(c.type))
+    .map((c) => ({ step: int(c.step, 0, 4096), len: int(c.len, 1, 4096), degree: int(c.degree, 0, 6), type: c.type, acc: c.acc === 1 ? 1 : 0 }));
+  const lay = g.layers && typeof g.layers === 'object' ? g.layers : {};
+  const layer = (l, extra) => {
+    l = l && typeof l === 'object' ? l : {};
+    const out = { on: l.on !== false, dst: typeof l.dst === 'string' ? l.dst : '' };
+    for (const k of extra) if (typeof l[k] === 'string') out[k] = l[k];
+    return out;
+  };
+  const sig = {};
+  if (g.sig && typeof g.sig === 'object') for (const [k, v] of Object.entries(g.sig)) if (typeof v === 'string') sig[k] = v;
+  return {
+    chords,
+    snap: ['bar', 'half', 'beat'].includes(g.snap) ? g.snap : 'bar',
+    auto: !!g.auto,
+    layers: { bass: layer(lay.bass, ['gen']), comp: layer(lay.comp, ['rhythm']), arp: layer(lay.arp, []) },
+    sig,
+  };
+};
+
 /** Crée / valide scènes et arrangement (projets anciens : une seule scène « A »). */
 SS.normalizeScenes = (p, data = {}) => {
   const valid = Array.isArray(data.scenes) && data.scenes.length;
@@ -449,6 +482,7 @@ SS.normalizeScenes = (p, data = {}) => {
         data: sc.data && typeof sc.data === 'object' ? sc.data : {},
         ...(validKey(sc.key) ? { key: { tonic: sc.key.tonic, mode: sc.key.mode } } : {}),
         ...(validEmotion(sc.emotion) ? { emotion: sc.emotion } : {}),
+        ...(SS.normalizeGrid(sc.grid) ? { grid: SS.normalizeGrid(sc.grid) } : {}),
       }));
   }
   if (!valid) {
