@@ -93,6 +93,7 @@
   }
   function changed() {
     dirty = true;
+    syncStudio();
     scheduleHistory();
     updateUndoButtons();
     // la durée de la chanson dépend des mesures / du tempo : on rafraîchit le panneau (sauf pendant un renommage)
@@ -174,7 +175,33 @@
     barsSel.value = project.bars;
     SS.groove.updateButton();
     SS.harmonyPanel.updateButton();
+    syncStudio();
     document.title = project.title + ' — StepSeq';
+  }
+
+  /**
+   * Sous-titres des boutons Band, Song et Mix (celui de Key vient de js/harmonypanel.js) :
+   * le groupe qui a inspiré les pistes Band, la scène en cours, le profil de mixage appliqué.
+   */
+  function syncStudio() {
+    // Band : l'artiste de l'inspiration la plus utilisée par les pistes créées dans Band
+    const count = new Map();
+    project.tracks.forEach((t) => {
+      if (!t.band) return;
+      const st = SS.Band && SS.Band.STYLES.find((x) => x.id === t.band.style);
+      const pr = st && st.presets.find((x) => x.id === t.band.preset);
+      if (pr && pr.artist) count.set(pr, (count.get(pr) || 0) + 1);
+    });
+    const best = [...count].sort((a, b) => b[1] - a[1])[0];
+    const band = best ? best[0].artist : 'Aucun groupe';
+    $('#bandSub').textContent = band;
+    $('#bandBtn').title = best ? `Band : groupe inspiré de ${best[0].artist} (« ${best[0].song} »)` : 'Band : monter un groupe de musiciens virtuels et créer leurs pistes';
+    // Song : la scène en cours
+    const sc = SS.currentScene(project);
+    $('#songSub').textContent = sc ? sc.name : '—';
+    // Mix : le dernier profil de mixage appliqué à toutes les tranches
+    const mp = project.masterProfile;
+    $('#mixSub').textContent = mp ? (mp.short || mp.name) + (mp.modified ? ' · modifié' : '') : 'Aucun profil';
   }
 
   function setProject(p) {
