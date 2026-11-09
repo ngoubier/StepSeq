@@ -220,26 +220,7 @@
     num.addEventListener('change', onSig);
     $('#sigDen').addEventListener('change', onSig);
     // Plus de mesures : les nouvelles reprennent le motif existant (avec possibilité de les vider)
-    $('#bars').addEventListener('change', () => {
-      const oldBars = project.bars;
-      const newBars = +$('#bars').value;
-      project.bars = newBars;
-      SS.resizeProject(project);
-      if (newBars > oldBars && project.tracks.length) {
-        SS.repeatBars(project, oldBars);
-        const what = oldBars === 1 ? 'La mesure 1 est recopiée' : `Les mesures 1 à ${oldBars} sont recopiées`;
-        SS.ui.toast(`${what} jusqu'à la mesure ${newBars}.`, 6000, {
-          label: 'Laisser vides',
-          run: () => {
-            SS.clearAfterBars(project, oldBars);
-            SS.ui.renderAll();
-            changed();
-          },
-        });
-      }
-      SS.ui.renderAll();
-      changed();
-    });
+    $('#bars').addEventListener('change', () => setBars(+$('#bars').value));
 
     $('#bandBtn').addEventListener('click', () => SS.band.open());
     $('#emptyAdd').addEventListener('click', addTrack);
@@ -261,6 +242,29 @@
     initAppMenu();
     $('#openProject').addEventListener('click', openProject);
     $('#saveProject').addEventListener('click', (e) => saveProject(e.shiftKey));
+  }
+
+  /** Nombre de mesures de la scène en cours (sélecteur Mesures, ou tuile de la fenêtre Song). */
+  function setBars(newBars) {
+    const oldBars = project.bars;
+    if (newBars === oldBars) return;
+    project.bars = newBars;
+    $('#bars').value = String(newBars);
+    SS.resizeProject(project);
+    if (newBars > oldBars && project.tracks.length) {
+      SS.repeatBars(project, oldBars);
+      const what = oldBars === 1 ? 'La mesure 1 est recopiée' : `Les mesures 1 à ${oldBars} sont recopiées`;
+      SS.ui.toast(`${what} jusqu'à la mesure ${newBars}.`, 6000, {
+        label: 'Laisser vides',
+        run: () => {
+          SS.clearAfterBars(project, oldBars);
+          SS.ui.renderAll();
+          changed();
+        },
+      });
+    }
+    SS.ui.renderAll();
+    changed();
   }
 
   /* ---------- Menu de l'icône de l'application (Chansons, Nouveau, Ouvrir, Enregistrer) ---------- */
@@ -592,7 +596,7 @@
   SS.groove.init({ project: () => project, changed });
   SS.harmonyPanel.init({ project: () => project, changed, renderAll: () => SS.ui.renderAll(), activeTrack: () => SS.ui.activeTrack(), switchScene });
   SS.mixer.init({ project: () => project, changed, renderAll: () => SS.ui.renderAll() });
-  SS.song.init({ project: () => project, changed, state, switchScene, afterSceneChange, play, stop });
+  SS.song.init({ project: () => project, changed, state, switchScene, afterSceneChange, play, stop, setBars });
   SS.fx.init({ project: () => project, changed, renderTrack: (t) => SS.ui.renderTrack(t) });
   SS.ui.init({
     project: () => project,
