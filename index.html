@@ -78,6 +78,10 @@
       <button id="redoBtn" class="btn btn-icon btn-history" title="Rétablir l'action annulée (Ctrl+Y)" aria-label="Rétablir" disabled>
         <svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg>
       </button>
+      <button id="saveStatus" class="save-status" type="button" title="Enregistrement automatique">
+        <svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg><span class="ss-text">Enregistré</span>
+      </button>
+      <button id="songsBtn" class="btn" title="Mes chansons : toutes les chansons enregistrées automatiquement, et leurs versions">Chansons</button>
       <button id="newProject" class="btn" title="Nouveau projet">Nouveau</button>
       <button id="openProject" class="btn" title="Ouvrir un fichier projet">Ouvrir</button>
       <button id="saveProject" class="btn btn-accent" title="Enregistrer (Ctrl+S)">Enregistrer</button>
@@ -180,6 +184,7 @@
         </main>
         <aside class="band-panel" id="bandPanel" hidden aria-live="polite"></aside>
       </div>
+      <div class="band-confirm" id="bandConfirm" hidden></div>
       <footer class="band-foot">
         <label class="band-tempo"><input type="checkbox" id="bandTempo" checked> <span id="bandTempoLabel">Appliquer le tempo</span></label>
         <span class="spacer"></span>
@@ -187,6 +192,22 @@
         <button type="button" class="btn" id="bandCancel">Annuler</button>
         <button type="button" class="btn btn-accent" id="bandCreate">Fermer et créer les pistes</button>
       </footer>
+    </div>
+  </dialog>
+
+  <!-- Mes chansons : bibliothèque enregistrée automatiquement dans le navigateur (js/mysongs.js, js/store.js) -->
+  <dialog id="songsDialog" class="songs-dialog" aria-labelledby="songsTitle">
+    <div class="songs-shell">
+      <header class="songs-head">
+        <h2 id="songsTitle">Mes chansons <small id="songsCount"></small></h2>
+        <span class="spacer"></span>
+        <button type="button" class="btn btn-icon" id="songsClose" title="Fermer" aria-label="Fermer">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </header>
+      <p class="dlg-hint songs-intro">Chaque chanson est enregistrée automatiquement dans ce navigateur, sans rien demander. Un instantané est gardé au plus toutes les 10 minutes de travail (bouton <b>Versions</b>). Sur Chrome et Edge, après un premier <b>Enregistrer</b>, le fichier choisi est aussi mis à jour à chaque modification (📄).</p>
+      <input id="songsFilter" class="br-search" type="search" placeholder="🔍 Chercher une chanson…" autocomplete="off" aria-label="Chercher une chanson">
+      <div class="songs-list" id="songsList"></div>
     </div>
   </dialog>
 
@@ -555,6 +576,8 @@
   <script src="js/juno.js"></script>
   <script src="js/arp.js"></script>
   <script src="js/project.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/mysongs.js"></script>
   <script src="js/harmony.js"></script>
   <script src="js/emotions.js"></script>
   <script src="js/audio.js"></script>

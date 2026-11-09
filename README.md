@@ -24,7 +24,7 @@ puis ouvrir <http://localhost:8000>.
   nombre de mesures, le groove (swing, humanisation), la **tonalité** (fenêtre Harmonie, propre à chaque scène : assistant
   émotion → grille d'accords → couches pour démarrer, puis onglets Ambiance (émotions rangées par mode), Accords, Couches
   et Vérifier ; palette d'accords dans le piano roll, essais A/B), puis les boutons **+** (ajouter une piste), **Lecture** et **Stop**.
-  À droite : **Nouveau**, **Ouvrir** et **Enregistrer**.
+  À droite : l'indicateur d'enregistrement automatique, **Chansons**, **Nouveau**, **Ouvrir** et **Enregistrer**.
 - **Partie centrale** : les pistes, les unes sous les autres. Chaque piste a un en-tête
   (écoute, Mute, Solo, nom, volume, réglages, suppression) et sa grille de pas
   (une case = une double-croche).
@@ -61,6 +61,10 @@ Le bouton **Band** de l'en-tête ouvre une grande fenêtre (`js/band.js`, catalo
 
 **Fermer et créer les pistes** crée les pistes, vierges de notes (et applique le tempo si la case est cochée) ;
 **Annuler** / Échap ferme sans rien créer.
+
+Les pistes créées par Band sont marquées dans le projet. Si le projet en contient déjà, une confirmation propose
+de **remplacer** ces pistes Band par le nouveau groupe (en signalant celles qui contiennent des notes ; Ctrl+Z pour
+revenir en arrière) ou de **garder et ajouter**. Les pistes créées sans Band ne sont jamais supprimées.
 
 ### Pistes instrument
 
@@ -169,8 +173,21 @@ dernière note (ou le dernier accord) utilisée.
 
 Les projets sont enregistrés au format JSON (extension `.stepseq.json`) : tempo, mesure, pistes,
 sons choisis, pas et notes. Sous Chrome / Edge, **Enregistrer** réécrit le même fichier après le
-premier enregistrement ; les autres navigateurs téléchargent le fichier. Le travail en cours est
-aussi sauvegardé automatiquement dans le navigateur.
+premier enregistrement ; les autres navigateurs téléchargent le fichier.
+
+### Enregistrement automatique, sans message (`js/store.js`, `js/mysongs.js`)
+
+- **Mes chansons** (bouton **Chansons**) : chaque chanson est enregistrée automatiquement dans le navigateur
+  (IndexedDB), environ une seconde après chaque modification, sous son identifiant. **Nouveau** et **Ouvrir**
+  n'écrasent plus rien, et il n'y a plus d'avertissement en quittant la page. La fenêtre liste les chansons
+  (ouvrir, dupliquer, supprimer) et leurs **versions** : un instantané au plus toutes les 10 minutes de travail,
+  40 par chanson ; **Restaurer** garde l'état actuel dans les versions.
+- **Fichier lié** (Chrome / Edge) : après un premier **Enregistrer** (ou un **Ouvrir**), chaque modification
+  réécrit ce fichier. Le lien est gardé d'une session à l'autre ; après un redémarrage du navigateur,
+  l'indicateur affiche « Reprendre *fichier* » : un clic redonne l'autorisation d'écrire. Placé dans un dossier
+  Dropbox / OneDrive / Google Drive, le fichier est aussi sauvegardé sur le web.
+- L'indicateur à côté de **Chansons** montre l'état (« Enregistré · chanson.stepseq.json ») ; un clic ouvre
+  « Mes chansons ». Les données restent dans ce navigateur : pour changer d'appareil, passe par le fichier.
 
 ## Sons
 

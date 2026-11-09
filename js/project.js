@@ -41,6 +41,7 @@ SS.totalSteps = (p) => SS.stepsPerBar(p) * p.bars;
 SS.uid = () => Math.random().toString(36).slice(2, 10);
 
 SS.newProject = () => SS.withScenes({
+  id: SS.uid(), // identifiant de la chanson (bibliothèque « Mes chansons », js/store.js)
   format: 'stepseq',
   version: 1,
   title: 'Nouveau projet',
@@ -117,6 +118,7 @@ SS.resizeProject = (p) => {
 SS.normalizeProject = (data) => {
   if (!data || typeof data !== 'object' || !Array.isArray(data.tracks)) throw new Error('Fichier de projet invalide');
   const p = SS.newProject();
+  if (typeof data.id === 'string' && /^[a-z0-9]{4,24}$/i.test(data.id)) p.id = data.id;
   p.title = String(data.title || p.title);
   p.tempo = Math.min(300, Math.max(20, Number(data.tempo) || 120));
   if (Array.isArray(data.timeSig) && data.timeSig.length === 2) p.timeSig = data.timeSig.map(Number);
@@ -147,6 +149,11 @@ SS.normalizeProject = (data) => {
     if (t.mix && typeof t.mix === 'object') track.mix = SS.cleanMix(t.mix);
     else delete track.mix;
     if (!(t.mixProfile && typeof t.mixProfile === 'object' && typeof t.mixProfile.name === 'string')) delete track.mixProfile;
+    // piste créée par la fenêtre Band (js/band.js) : on garde seulement la marque attendue
+    if (t.band && typeof t.band === 'object' && typeof t.band.key === 'string') {
+      track.band = {};
+      ['style', 'preset', 'musician', 'key'].forEach((k) => typeof t.band[k] === 'string' && t.band[k].length < 40 && (track.band[k] = t.band[k]));
+    } else delete track.band;
     track.mute = !!t.mute;
     track.solo = !!t.solo;
     if (t.type === 'drum') {
@@ -261,7 +268,8 @@ SS.files = (() => {
     });
   }
 
-  return { save, open, reset: () => (handle = null) };
+  // le fichier lié à la chanson en cours (js/store.js le retrouve d'une session à l'autre)
+  return { save, open, reset: () => (handle = null), current: () => handle, setHandle: (h) => (handle = h) };
 })();
 
 /**
