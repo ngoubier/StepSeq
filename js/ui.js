@@ -227,7 +227,7 @@ SS.ui = (() => {
     container.replaceChildren();
     refs.clear();
     p.tracks.forEach((t) => container.append(buildTrack(t)));
-    $('#empty').classList.toggle('show', p.tracks.length === 0);
+    $('#empty').classList.toggle('none', p.tracks.length === 0);
     $('#ruler').style.display = p.tracks.length ? '' : 'none';
     setPlayhead(nowStep);
     if (SS.mixer && SS.mixer.isOpen()) SS.mixer.render();

@@ -70,11 +70,13 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await setTitle('Chanson A');
   await setTempo(101);
   await wait(1500);
+  await page.click('#appMenuBtn');
   await page.click('#newProject');
   await wait(600);
   await setTitle('Chanson B');
   await wait(1500);
   ok(dialogs.length === 0, '« Nouveau » sans message de confirmation');
+  await page.click('#appMenuBtn');
   await page.click('#songsBtn');
   await wait(300);
   const titles = await songTitles();
@@ -91,6 +93,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.reload();
   await wait(1500);
   ok((await page.inputValue('#title')) === 'Chanson A', 'rechargement : Chanson A en cours');
+  await page.click('#appMenuBtn');
   await page.click('#songsBtn');
   await wait(300);
   ok((await songTitles()).length === 2, 'rechargement : 2 chansons dans la bibliothèque');
@@ -99,6 +102,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.click('#songsClose');
   await setTempo(140);
   await wait(1500);
+  await page.click('#appMenuBtn');
   await page.click('#songsBtn');
   await wait(300);
   await page.locator('.song-row', { hasText: 'Chanson A' }).getByRole('button', { name: 'Versions' }).click();
@@ -110,6 +114,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await wait(600);
   const restored = await page.inputValue('#tempo');
   ok(restored !== '140', `version restaurée (tempo ${restored})`);
+  await page.click('#appMenuBtn');
   await page.click('#songsBtn');
   await wait(300);
   // la première version est l'état d'origine (« Démo ») : on suit la chanson en cours
@@ -119,6 +124,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.click('#songsClose');
 
   // 5. fichier lié : après « Enregistrer », chaque modification réécrit le fichier
+  await page.click('#appMenuBtn');
   await page.click('#saveProject');
   await wait(400);
   ok((await page.textContent('#saveStatus')).includes('.stepseq.json'), `indicateur avec le fichier : « ${(await page.textContent('#saveStatus')).trim()} »`);
@@ -131,6 +137,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'topbar.png'), clip: { x: 0, y: 0, width: 1440, height: 110 } });
 
   // 6. dupliquer puis supprimer la copie
+  await page.click('#appMenuBtn');
   await page.click('#songsBtn');
   await wait(300);
   await page.locator('.song-row', { hasText: 'Chanson B' }).getByRole('button', { name: 'Dupliquer' }).click();

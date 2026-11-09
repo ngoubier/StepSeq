@@ -93,9 +93,9 @@
       <a href="#sound-design">Sound design</a>
       <a href="#effets">Effets</a>
       <a href="#groove">Groove</a>
-      <a href="#harmonie">Harmo One (harmonie)</a>
+      <a href="#harmonie">Key One (harmonie)</a>
       <a href="#chanson">Mode chanson</a>
-      <a href="#console">Console de mixage</a>
+      <a href="#console">Mix (console de mixage)</a>
       <a href="#fichiers">Enregistrer et ouvrir</a>
       <a href="#raccourcis">Raccourcis et astuces</a>
     </aside>
@@ -108,22 +108,22 @@
       <p>Ouvre <a href="./">StepSeq</a> dans Chrome, Edge ou Firefox, puis clique sur ▶ : le projet démo se lance. Le navigateur n'autorise le son qu'après un premier clic, et la première boucle peut sauter quelques notes le temps que les sons se chargent.</p>
       <div class="table-wrap"><table>
         <tr><th>Élément de la barre du haut</th><th>Ce qu'il fait</th></tr>
+        <tr><td>Icône de l'application</td><td>Ouvre le menu : <b>Chansons</b>, <b>Nouveau</b>, <b>Ouvrir</b>, <b>Enregistrer</b></td></tr>
         <tr><td>Titre</td><td>Nom du projet, utilisé aussi comme nom de fichier</td></tr>
         <tr><td>Tempo (BPM)</td><td>Vitesse en noires par minute, de 20 à 300</td></tr>
         <tr><td>Mesure</td><td>Chiffrage : 4/4 par défaut, de 1 à 12 temps, en /4 ou /8</td></tr>
         <tr><td>Mesures</td><td>Longueur de la boucle : 1, 2, 4, 8, 16, 32 ou 64 mesures. En ajoutant des mesures, le motif existant est recopié dans les nouvelles ; le bouton « Laisser vides » du message qui s'affiche les vide.</td></tr>
-        <tr><td>+</td><td>Ouvre la fenêtre d'ajout de piste</td></tr>
         <tr><td>▶ / ❚❚ (bouton vert)</td><td>Lance la lecture ; pendant la lecture il devient Pause. En pause, il clignote et reprend exactement là où le morceau s'était arrêté.</td></tr>
         <tr><td>■</td><td>Arrête la lecture et revient au début</td></tr>
         <tr><td>Afficheur</td><td>Position en cours : mesure . temps . double-croche</td></tr>
         <tr><td>↶ / ↷</td><td>Annuler / rétablir les dernières actions (jusqu'à 100) : notes, pas, pistes, sons, effets, scènes, tempo… Un glisser (volume, curseur, longueur) compte pour une seule action.</td></tr>
-        <tr><td>Nouveau / Ouvrir / Enregistrer</td><td>Gestion des fichiers de projet</td></tr>
+        <tr><td>Band · Key One · Song One · Mix</td><td>Les fenêtres de travail, regroupées : le groupe de musiciens virtuels, l'harmonie de la scène (tonalité affichée sur le bouton), les scènes et l'arrangement, la console de mixage</td></tr>
         <tr><td>Aide</td><td>Ouvre ce guide</td></tr>
       </table></div>
       <p>Une case de la grille vaut toujours une double-croche. Une mesure en 4/4 fait donc 16 cases, et une mesure en 6/8 en fait 12.</p>
 
       <h2 id="ajouter">Ajouter une piste</h2>
-      <p>Le bouton <b>+</b> ouvre une fenêtre. Choisis d'abord <b>Drum</b>, <b>Instrument</b> ou <b>Synthé</b>, puis choisis le son avec les pastilles et les listes, écoute avec <b>Écouter</b> et clique sur <b>Valider</b>.</p>
+      <p>Le bouton <b>+ Ajouter une piste</b>, sous les pistes, ouvre une fenêtre. Choisis d'abord <b>Drum</b>, <b>Instrument</b> ou <b>Synthé</b>, puis choisis le son avec les pastilles et les listes, écoute avec <b>Écouter</b> et clique sur <b>Valider</b>.</p>
       <p>La navigation est la même pour les drums et les instruments : des <b>pastilles</b> en haut (bibliothèque et type de drum, ou catégorie et famille), un <b>champ de recherche</b> au-dessus du type de drum ou des familles, puis <b>deux colonnes</b> alignées : à gauche la boîte à rythmes, la banque ou l'instrument, à droite la variation ou la variante de soundfont. Chaque clic dans une liste fait entendre le son ; un double-clic valide.</p>
       <div class="table-wrap"><table>
         <tr><th>Touche</th><th>Effet dans la fenêtre</th></tr>
@@ -369,8 +369,8 @@
       </table></div>
       <p>Le schéma de la fenêtre montre 8 doubles-croches : les cercles pointillés sont la position droite, les points bleus la position jouée. Les notes posées sur les temps ne bougent jamais. Annuler revient aux réglages d'avant l'ouverture.</p>
 
-      <h2 id="harmonie"><small>Aide à la composition</small>Harmo One : harmonie et tonalité</h2>
-      <p>Le bouton <b>Tonalité</b> de la barre du haut ouvre la fenêtre <b>Harmo One</b>. Elle s'applique à la <b>scène en cours</b> (intro, couplet, refrain…) : chaque scène a sa tonalité et son émotion, ce qui permet un couplet en mineur et un refrain en majeur, ou une trajectoire solitude → espoir. La liste <b>Scène</b>, en haut de la fenêtre, passe d'une scène à l'autre. Une scène copiée garde l'harmonie de l'originale ; une scène vide démarre sans.</p>
+      <h2 id="harmonie"><small>Aide à la composition</small>Key One : harmonie et tonalité</h2>
+      <p>Le bouton <b>Key One</b> de la barre du haut (suivi de la tonalité, par ex. « Key One : Ré majeur ») ouvre la fenêtre <b>Key One</b>. Elle s'applique à la <b>scène en cours</b> (intro, couplet, refrain…) : chaque scène a sa tonalité et son émotion, ce qui permet un couplet en mineur et un refrain en majeur, ou une trajectoire solitude → espoir. La liste <b>Scène</b>, en haut de la fenêtre, passe d'une scène à l'autre. Une scène copiée garde l'harmonie de l'originale ; une scène vide démarre sans.</p>
       <h3>L'assistant, pour démarrer une scène</h3>
       <p>Si la scène n'a pas encore de tonalité, la fenêtre s'ouvre sur un assistant en trois étapes (le bouton <b>Assistant</b> le relance à tout moment) :</p>
       <div class="table-wrap"><table>
@@ -443,7 +443,7 @@
       <p><b>Exercice (10 minutes)</b> : en La mineur, posez Am | Dm | Em | Am avec la palette, écoutez, puis remplacez Em par E7 (Emprunts utiles). Identifiez le Sol♯ de E7 et écoutez son attraction vers La. L'analyse signale E7 comme emprunt au mineur harmonique.</p>
 
       <h2 id="chanson">Mode chanson</h2>
-      <p>Le panneau sous la barre du haut transforme une boucle en morceau complet. Il a deux étages : les <b>scènes</b> et l'<b>arrangement</b>.</p>
+      <p>Le bouton <b>Song One</b> de la barre du haut ouvre la fenêtre <b>Song</b>, qui transforme une boucle en morceau complet. Elle a deux étages : les <b>scènes</b> et l'<b>arrangement</b>. Sa case <b>Garder le panneau d'arrangement affiché</b> laisse ce même panneau visible sous la barre du haut quand la fenêtre est fermée ; décochée, il est masqué et on passe par Song One.</p>
       <div class="table-wrap"><table>
         <tr><th>Élément</th><th>Ce que c'est</th><th>Comment l'utiliser</th></tr>
         <tr><td>Scène</td><td>Une partie du morceau (Couplet, Refrain, Intro, Pont…) : les pas et les notes de toutes les pistes, avec son propre nombre de mesures</td><td>Clic sur une scène pour l'éditer dans la grille. <b>+ Copie</b> crée une scène qui reprend la scène en cours, <b>+ Vide</b> une scène sans notes. Double-clic pour renommer, × pour supprimer.</td></tr>
@@ -454,8 +454,8 @@
       </table></div>
       <p>Les sons, volumes, effets, sound design et longueurs de piste sont communs à toutes les scènes ; seules les notes et le nombre de mesures changent d'une scène à l'autre. Une piste ajoutée est vide dans les autres scènes. On peut changer de scène pendant la lecture en mode Boucle, pour improviser l'enchaînement en direct.</p>
 
-      <h2 id="console">Console de mixage</h2>
-      <p>Le bouton <b>Console</b> de la barre du haut ouvre la table de mixage dans une fenêtre : une tranche par piste, plus le <b>Master</b> (sortie générale). Sa barre de titre rappelle le projet ; le bouton <b>Fermer</b> (ou la touche Échap, ou un nouveau clic sur Console) ramène au séquenceur. Pendant que la console est ouverte, la barre du mode chanson est masquée pour laisser toute la hauteur aux tranches : l'ensemble tient sur un écran 1920 × 1200. Le son passe dans chaque tranche dans cet ordre : égaliseur → compresseur → limiteur → panoramique → fader, puis les effets (chorus, delay, reverb, sidechain).</p>
+      <h2 id="console">Mix : console de mixage</h2>
+      <p>Le bouton <b>Mix</b> de la barre du haut ouvre la table de mixage dans une fenêtre : une tranche par piste, plus le <b>Master</b> (sortie générale). Sa barre de titre rappelle le projet ; le bouton <b>Fermer</b> (ou la touche Échap, ou un nouveau clic sur Mix) ramène au séquenceur. Pendant que la console est ouverte, la barre du mode chanson est masquée pour laisser toute la hauteur aux tranches : l'ensemble tient sur un écran 1920 × 1200. Le son passe dans chaque tranche dans cet ordre : égaliseur → compresseur → limiteur → panoramique → fader, puis les effets (chorus, delay, reverb, sidechain).</p>
       <div class="table-wrap"><table>
         <tr><th>Élément de la tranche</th><th>Utilisation</th></tr>
         <tr><td>EQ / COMP / LIM</td><td>Les trois inserts. Le témoin vert à gauche les active ou les coupe ; un clic sur le nom ouvre leur réglage dans le panneau du bas.</td></tr>
@@ -514,8 +514,8 @@
       </ul>
       <h3 id="mes-chansons">Enregistrement automatique et « Mes chansons »</h3>
       <ul>
-        <li><b>Rien à faire</b> : chaque chanson est enregistrée automatiquement dans le navigateur, une seconde environ après chaque modification, sans aucun message. L'indicateur à côté de <b>Chansons</b> affiche « ✓ Enregistré ».</li>
-        <li><b>Chansons</b> ouvre la liste de toutes tes chansons : <b>Ouvrir</b>, <b>Dupliquer</b>, <b>Supprimer</b>. <b>Nouveau</b> et <b>Ouvrir</b> n'écrasent plus la chanson en cours : elle reste dans la liste.</li>
+        <li><b>Rien à faire</b> : chaque chanson est enregistrée automatiquement dans le navigateur, une seconde environ après chaque modification, sans aucun message. L'indicateur à côté du bouton <b>Aide</b> affiche « ✓ Enregistré ».</li>
+        <li><b>Chansons</b> (menu de l'icône de l'application) ouvre la liste de toutes tes chansons : <b>Ouvrir</b>, <b>Dupliquer</b>, <b>Supprimer</b>. <b>Nouveau</b> et <b>Ouvrir</b> n'écrasent plus la chanson en cours : elle reste dans la liste.</li>
         <li><b>Versions</b> : un instantané de chaque chanson est gardé au plus toutes les 10 minutes de travail (40 au maximum). <b>Restaurer</b> revient à l'un d'eux ; l'état actuel est d'abord rangé dans les versions.</li>
         <li><b>Fichier mis à jour tout seul (Chrome et Edge)</b> : après un premier <b>Enregistrer</b> ou un <b>Ouvrir</b>, chaque modification réécrit aussi ce fichier (l'indicateur affiche son nom). Après un redémarrage du navigateur, l'indicateur affiche « Reprendre <i>fichier</i> » : un clic redonne l'autorisation d'écrire. Astuce : enregistre le fichier dans un dossier Dropbox, OneDrive ou Google Drive pour avoir aussi une sauvegarde sur le web.</li>
         <li>La bibliothèque reste dans ce navigateur, sur cet appareil. Pour changer d'appareil, passe par le fichier.</li>

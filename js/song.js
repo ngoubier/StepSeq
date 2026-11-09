@@ -1,5 +1,7 @@
 /*
  * Panneau « Chanson » : scènes (Intro, Couplet, Refrain…) et arrangement.
+ * La fenêtre Song One (bouton de la barre du haut) affiche ce panneau ; une case permet de le garder
+ * aussi affiché sous la barre du haut (#songDock) ou de le masquer quand la fenêtre est fermée.
  * Une scène = le contenu de toutes les pistes (pas / notes) + son nombre de mesures.
  * L'arrangement enchaîne des blocs « scène × répétitions ».
  */
@@ -183,8 +185,60 @@ SS.song = (() => {
     }
   }
 
+  /* ---------- Fenêtre Song One ---------- */
+  const PIN_KEY = 'stepseq.songPanel';
+  function pinned() {
+    try {
+      return localStorage.getItem(PIN_KEY) !== 'hidden';
+    } catch (e) {
+      return true;
+    }
+  }
+  function setPinned(on) {
+    try {
+      localStorage.setItem(PIN_KEY, on ? 'shown' : 'hidden');
+    } catch (e) {
+      /* ignore */
+    }
+    applyPin();
+  }
+  function applyPin() {
+    $('#songDock').hidden = !pinned();
+    $('#songPin').checked = pinned();
+  }
+  function openWindow() {
+    const dlg = $('#songDialog');
+    if (dlg.open) return;
+    // le panneau est déplacé dans la fenêtre (mêmes éléments, mêmes écouteurs), puis rendu à sa place à la fermeture
+    $('#songSlot').append($('#songBar'));
+    applyPin();
+    render();
+    dlg.showModal();
+    $('#songBtn').classList.add('active');
+    $('#songBtn').setAttribute('aria-pressed', 'true');
+  }
+  function initWindow() {
+    const dlg = $('#songDialog');
+    $('#songBtn').addEventListener('click', openWindow);
+    $('#songClose').addEventListener('click', () => dlg.close());
+    $('#songOk').addEventListener('click', () => dlg.close());
+    $('#songPin').addEventListener('change', (e) => setPinned(e.target.checked));
+    // clic sur le fond (hors de la fenêtre) : fermer
+    dlg.addEventListener('click', (e) => {
+      if (e.target === dlg) dlg.close();
+    });
+    dlg.addEventListener('close', () => {
+      $('#songDock').append($('#songBar'));
+      applyPin();
+      $('#songBtn').classList.remove('active');
+      $('#songBtn').setAttribute('aria-pressed', 'false');
+    });
+    applyPin();
+  }
+
   function init(appApi) {
     app = appApi;
+    initWindow();
     $('#songMode').addEventListener('click', (e) => {
       const b = e.target.closest('button');
       if (!b) return;
@@ -210,5 +264,5 @@ SS.song = (() => {
     });
   }
 
-  return { init, render, setPlaying };
+  return { init, render, setPlaying, open: openWindow };
 })();
