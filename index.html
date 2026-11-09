@@ -620,6 +620,24 @@
           </svg>
           <div class="sd-sliders" id="fxScSliders"></div>
         </section>
+        <section class="sd-panel fx-sends" aria-labelledby="fxSendTitle">
+          <div class="sd-panel-head">
+            <h3 id="fxSendTitle">Bus partagés <small>envois</small></h3>
+            <span class="fx-state" id="fxSendState"></span>
+          </div>
+          <p class="fx-help">Une seule reverb « plate » (batterie), une reverb « hall » (instruments) et un écho pour tout le morceau : chaque piste y envoie plus ou moins de son. Tout le groupe joue ainsi dans le même espace.</p>
+          <div class="gv-presets" data-presets="send"></div>
+          <div class="sd-sliders" id="fxSendSliders"></div>
+          <details class="fx-returns">
+            <summary>Réglages des bus (communs à toutes les pistes)</summary>
+            <div class="sd-sliders" id="fxReturnSliders"></div>
+            <div class="sd-row">
+              <label for="fxEchoTime">Temps de l'écho</label>
+              <output id="fxEchoMs"></output>
+              <select id="fxEchoTime"></select>
+            </div>
+          </details>
+        </section>
       </div>
 
       <div class="dlg-footer">
@@ -642,6 +660,7 @@
   <script src="js/dirt-tuning.js"></script>
   <script src="js/sounds.js"></script>
   <script src="js/filters.js"></script>
+  <script src="js/master-dsp.js"></script>
   <script src="js/juno-dsp.js"></script>
   <script src="js/juno.js"></script>
   <script src="js/arp.js"></script>
@@ -664,6 +683,8 @@
   <script src="js/mixer.js"></script>
   <script src="js/band-presets.js"></script>
   <script src="js/band-songs.js"></script>
+  <script src="js/band-levels.js"></script>
+  <script src="js/bandmix.js"></script>
   <script src="js/bandsong.js"></script>
   <script src="js/band.js"></script>
   <script src="js/ui.js"></script>

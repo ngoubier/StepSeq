@@ -463,9 +463,11 @@
     removeTracks(project.tracks.slice());
     if (tempo) project.tempo = tempo;
     project.timeSig = [4, 4];
+    const levelKeys = new Map();
     const created = list.map((opts) => {
       const t = SS.newTrack(opts, project);
       if (opts.band) t.band = { ...opts.band };
+      levelKeys.set(t.id, opts.levelKey);
       return t;
     });
     project.tracks = created;
@@ -476,20 +478,12 @@
     project.songLoop = false;
     state.songStart = 0;
     state.cue = 0;
-    // jeu humain : caisse claire et clap légèrement en retard (« posés »), petite humanisation de tout le groupe
-    created.forEach((t) => {
-      const key = t.band ? t.band.key : '';
-      if (key === 'drums:sd') t.nudge = 7;
-      if (key === 'drums:cp') t.nudge = 4;
-    });
+    // mixage et mastering automatiques (js/bandmix.js) : niveaux calibrés, EQ, compression, panoramique,
+    // bus d'effets partagés, sidechain, caisse claire « posée » ; puis petite humanisation de tout le groupe
+    const style = (created.find((t) => t.band) || { band: {} }).band.style || 'synthwave';
+    SS.bandMix.mixTracks(created, levelKeys, style);
+    SS.bandMix.mixMaster(project, style, SS.bandMix.driveFor(preset.id, style));
     project.groove = { ...(project.groove || { res: 0, swing: 0.5 }), human: 0.15 };
-    // EDM : la basse et les nappes « pompent » sur le kick (sidechain)
-    const kick = created.find((t) => t.band && t.band.key === 'drums:bd');
-    if (spec.sc && kick)
-      created.forEach((t) => {
-        const role = t.band ? t.band.key.split(':')[0] : '';
-        if (['bass', 'pad', 'keys', 'strings'].includes(role)) t.fx = { ...(t.fx || {}), scSource: kick.id, scDepth: role === 'bass' ? 0.7 : 0.5, scRelease: 0.2 };
-      });
     if (!project.title || project.title === 'Nouveau projet') project.title = `Dans l'esprit de ${preset.song}`;
     SS.loadScene(project, project.scenes[0].id, { commit: false });
     state.openRolls.clear();
@@ -516,12 +510,16 @@
       $('#tempo').value = tempo;
       SS.audio.applyAllFx(project);
     }
+    const levelKeys = new Map();
     const created = list.map((opts) => {
       const t = SS.newTrack(opts, project);
       if (opts.band) t.band = { ...opts.band };
+      levelKeys.set(t.id, opts.levelKey);
       project.tracks.push(t);
       return t;
     });
+    // niveaux calibrés, EQ, compression, panoramique et envois d'effets selon le rôle de chaque musicien
+    SS.bandMix.mixTracks(created, levelKeys, (created.find((t) => t.band) || { band: {} }).band.style || 'synthwave');
     // un sidechain qui écoutait une piste remplacée suit la nouvelle piste du même rôle (le kick…), sinon il est coupé
     if (removed.length) {
       const byKey = new Map(created.map((t) => [t.band && t.band.key, t.id]));

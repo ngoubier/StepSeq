@@ -916,6 +916,79 @@ SS.mixer = (() => {
       );
     }
 
+    /* --- Mastering (Master) : js/master-dsp.js --- */
+    let mastBox = null;
+    let mastRefs = null;
+    if (ch.master) {
+      const p = app.project();
+      const ms = SS.masterParams(p).mastering;
+      const setM = (patch, redraw = false) => {
+        const cur = SS.masterParams(p);
+        p.master = { ...cur, mastering: SS.cleanMastering({ ...cur.mastering, ...patch }) };
+        if (p.masterProfile) p.masterProfile.modified = true;
+        SS.audio.applyMaster(p);
+        if (redraw) {
+          app.changed();
+          render();
+        }
+      };
+      const tile = (label) => {
+        const v = h('b', {}, '—');
+        return { el: h('div', { class: 'mast-tile' }, h('small', {}, label), v), v };
+      };
+      const tM = tile('Momentané');
+      const tS = tile('Court terme');
+      const tI = tile('Intégré');
+      const tTP = tile('True peak');
+      const tGR = tile('Limiteur');
+      const hint = h('p', { class: 'mod-help mast-hint' });
+      const aim = (target) => {
+        const lv = SS.audio.levels('__master');
+        const L = lv && lv.loudness;
+        if (!L || !Number.isFinite(L.i) || L.secs < 10) {
+          hint.textContent = 'Joue d\'abord au moins 10 secondes (idéalement tout le morceau) : le volume intégré se mesure pendant la lecture.';
+          return;
+        }
+        const drive = Math.round((SS.masterParams(p).mastering.drive + target - L.i) * 10) / 10;
+        setM({ on: true, drive }, true);
+        SS.ui && SS.ui.toast && SS.ui.toast(`Mastering : gain d'entrée ${drive > 0 ? '+' : ''}${drive} dB pour viser ${target} LUFS. Rejoue le morceau pour vérifier.`, 5000);
+      };
+      const on = ms.on;
+      mastBox = h(
+        'section',
+        { class: 'mod mod-mast', 'data-mod': 'mast' },
+        h('div', { class: 'mod-head' }, h('h3', {}, 'Mastering'), h('button', {
+          type: 'button',
+          class: 'mod-power' + (on ? ' on' : ''),
+          'aria-pressed': String(on),
+          title: on ? 'Désactiver le mastering' : 'Activer le mastering',
+          onclick: () => setM({ on: !on }, true),
+        }, on ? 'ON' : 'OFF')),
+        h('div', { class: 'mast-tiles' }, tM.el, tS.el, tI.el, tTP.el, tGR.el),
+        h(
+          'div',
+          { class: 'sd-sliders' },
+          slider('Gain d\'entrée', ms.drive, -12, 18, { fmt: (v) => (v > 0 ? '+' : '') + v.toFixed(1) + ' dB', step: 0.1, def: 0 }, (v) => setM({ drive: v, on: true })),
+          slider('Plafond', ms.ceiling, -6, 0, { fmt: (v) => v.toFixed(1) + ' dBTP', step: 0.1, def: -1 }, (v) => setM({ ceiling: v })),
+          slider('Écrêtage doux', ms.clip, 0, 1, { fmt: (v) => (v ? Math.round(v * 100) + ' %' : 'off'), step: 0.01, def: 0 }, (v) => setM({ clip: v })),
+          slider('Relâchement', ms.release, 0.02, 0.8, { log: true, fmt: (v) => Math.round(v * 1000) + ' ms', def: 0.12 }, (v) => setM({ release: v })),
+          slider('Largeur stéréo', ms.width, 0, 2, { fmt: (v) => Math.round(v * 100) + ' %', step: 0.01, def: 1 }, (v) => setM({ width: v })),
+          slider('Graves en mono', ms.mono, 0, 250, { fmt: (v) => (v ? `sous ${Math.round(v)} Hz` : 'off'), step: 5, def: 100 }, (v) => setM({ mono: v }))
+        ),
+        h(
+          'div',
+          { class: 'mast-aim' },
+          h('small', {}, 'Viser :'),
+          ...[[-14, 'streaming'], [-11, 'synthwave'], [-9, 'club']].map(([t, n]) =>
+            h('button', { type: 'button', class: 'chip', title: `Règle le gain d'entrée d'après le volume intégré mesuré`, onclick: () => aim(t) }, `${t} LUFS · ${n}`)
+          )
+        ),
+        hint,
+        h('p', { class: 'mod-help' }, 'Dernier maillon avant la sortie : graves en mono, largeur des aigus, écrêtage doux des transitoires puis limiteur à anticipation qui ne dépasse jamais le plafond (true peak). Le volume perçu se lit en LUFS (norme EBU R128) : −14 pour le streaming, −11 à −9 pour la musique électronique.')
+      );
+      mastRefs = { tM: tM.v, tS: tS.v, tI: tI.v, tTP: tTP.v, tGR: tGR.v };
+    }
+
     const head = h(
       'div',
       { class: 'detail-head', style: `--c:${ch.color}` },
@@ -938,8 +1011,8 @@ SS.mixer = (() => {
       }, 'Réinitialiser')
     );
     $('#mixerDetail').style.setProperty('--c', ch.color);
-    $('#mixerDetail').replaceChildren(head, h('div', { class: 'detail-mods' + (vcfBox ? ' with-vcf' : '') }, eqBox, compBox, limBox, vcfBox));
-    detailRefs = { eqBox, drawBig, drawTransfer, grBig, grLim, ch };
+    $('#mixerDetail').replaceChildren(head, h('div', { class: 'detail-mods' + (vcfBox ? ' with-vcf' : '') }, eqBox, compBox, limBox, vcfBox, mastBox));
+    detailRefs = { eqBox, drawBig, drawTransfer, grBig, grLim, ch, mast: mastRefs };
     requestAnimationFrame(() => {
       drawBig();
       drawTransfer();
@@ -1373,6 +1446,17 @@ SS.mixer = (() => {
       if (lv) {
         set(detailRefs.grBig, lv.gr.comp);
         set(detailRefs.grLim, lv.gr.lim);
+      }
+      const L = lv && lv.loudness;
+      const M = detailRefs.mast;
+      if (M) {
+        const f = (v) => (Number.isFinite(v) ? v.toFixed(1) : '—');
+        M.tM.textContent = L ? f(L.m) + ' LUFS' : '—';
+        M.tS.textContent = L ? f(L.s) + ' LUFS' : '—';
+        M.tI.textContent = L ? f(L.i) + ' LUFS' : '—';
+        M.tTP.textContent = L ? f(L.tp) + ' dBTP' : '—';
+        M.tGR.textContent = L ? '−' + (L.gr || 0).toFixed(1) + ' dB' : '—';
+        M.tTP.classList.toggle('over', !!L && L.tp > -0.95);
       }
     }
     raf = requestAnimationFrame(loop);

@@ -10,6 +10,10 @@ SS.audio = (() => {
   let masterStrip = null;
   let masterFader = null;
   let masterMeter = null;
+  let masterProc = null; // nœud de mastering (AudioWorklet)
+  let loudness = null; // dernières mesures du mastering : { m, s, i, tp, gr, secs }
+  let lastMasterProject = null;
+  let returns = null; // bus d'effets partagés : { plate, hall, echo }
   let pendingMaster = null;
   const buses = new Map(); // trackId -> GainNode
   const jsonCache = new Map();
@@ -30,6 +34,17 @@ SS.audio = (() => {
       masterStrip.out.connect(masterFader);
       masterFader.connect(ctx.destination);
       masterFader.connect(masterMeter.node);
+      // mastering (js/master-dsp.js) : inséré après le fader dès que le module audio est chargé
+      if (SS.mastering)
+        SS.mastering.load(ctx).then(() => {
+          masterProc = SS.mastering.create(ctx);
+          masterProc.port.onmessage = (e) => (loudness = e.data);
+          masterFader.disconnect();
+          masterFader.connect(masterProc);
+          masterProc.connect(ctx.destination);
+          masterProc.connect(masterMeter.node);
+          if (lastMasterProject) applyMastering(lastMasterProject);
+        }).catch(() => {});
       if (pendingMaster) applyMaster(pendingMaster);
       if (SS.juno) SS.juno.load(ctx); // module audio du Juno-106 (pistes Synthé)
       if (SS.filters) SS.filters.load(ctx); // filtres ladder / SEM (sound design)
@@ -424,6 +439,64 @@ SS.audio = (() => {
     return b.strip.entry;
   }
 
+  /* ---------------- Bus d'effets partagés (retours) ---------------- */
+
+  /** Une reverb partagée : envoi -> pré-délai -> passe-haut -> convolution -> passe-bas -> retour -> master. */
+  function buildReturnReverb() {
+    const r = { in: ctx.createGain(), pre: ctx.createDelay(0.25), hp: ctx.createBiquadFilter(), conv: ctx.createConvolver(), lp: ctx.createBiquadFilter(), out: ctx.createGain(), key: '' };
+    r.hp.type = 'highpass';
+    r.lp.type = 'lowpass';
+    r.in.connect(r.pre).connect(r.hp).connect(r.conv).connect(r.lp).connect(r.out).connect(master);
+    return r;
+  }
+  /** L'écho partagé : ping-pong stéréo (gauche puis droite), répétitions de plus en plus sombres. */
+  function buildReturnEcho() {
+    const e = { in: ctx.createGain(), hp: ctx.createBiquadFilter(), dL: ctx.createDelay(3), dR: ctx.createDelay(3), fb: ctx.createGain(), tone: ctx.createBiquadFilter(), merge: ctx.createChannelMerger(2), out: ctx.createGain() };
+    e.hp.type = 'highpass';
+    e.tone.type = 'lowpass';
+    // entrée (mono) -> gauche -> droite -> filtre -> feedback -> gauche…
+    e.in.connect(e.hp).connect(e.dL);
+    e.dL.connect(e.dR);
+    e.dR.connect(e.tone).connect(e.fb).connect(e.dL);
+    e.dL.connect(e.merge, 0, 0);
+    e.dR.connect(e.merge, 0, 1);
+    e.merge.connect(e.out).connect(master);
+    return e;
+  }
+  function ensureReturns() {
+    if (!returns) returns = { plate: buildReturnReverb(), hall: buildReturnReverb(), echo: buildReturnEcho() };
+    return returns;
+  }
+  /** Règle les bus partagés du projet (durées, filtres, temps de l'écho selon le tempo). */
+  function applyReturns(project) {
+    if (!ctx || !returns) return;
+    const rp = SS.returnParams(project);
+    const now = ctx.currentTime;
+    const ramp = (param, v) => param.setTargetAtTime(v, now, 0.03);
+    for (const k of ['plate', 'hall']) {
+      const r = returns[k];
+      const p = rp[k];
+      ramp(r.pre.delayTime, p.predelay);
+      ramp(r.hp.frequency, p.hp);
+      ramp(r.lp.frequency, p.lp);
+      ramp(r.out.gain, 2.2 * p.level); // compense le niveau de l'IR filtrée
+      const key = p.size.toFixed(2);
+      if (r.key !== key) {
+        r.conv.buffer = impulse(p.size, 20000);
+        r.key = key;
+      }
+    }
+    const e = returns.echo;
+    const p = rp.echo;
+    const t = SS.delaySeconds({ delayTime: p.time }, project.tempo);
+    ramp(e.dL.delayTime, t);
+    ramp(e.dR.delayTime, t);
+    ramp(e.fb.gain, Math.min(0.9, p.feedback));
+    ramp(e.hp.frequency, p.hp);
+    ramp(e.tone.frequency, p.lp);
+    ramp(e.out.gain, p.level);
+  }
+
   /** Applique les réglages de console d'une piste (EQ, comp, limiteur, panoramique). */
   function applyMix(track) {
     if (!ctx || !track || !track.id) return;
@@ -434,7 +507,7 @@ SS.audio = (() => {
     b.pan.pan.setTargetAtTime(m.pan, ctx.currentTime, 0.015);
   }
 
-  /** Tranche Master : fader + EQ / comp / limiteur. */
+  /** Tranche Master : fader + EQ / comp / limiteur, puis mastering. */
   function applyMaster(project) {
     if (!ctx) {
       pendingMaster = project;
@@ -443,6 +516,27 @@ SS.audio = (() => {
     const mp = SS.masterParams(project);
     applyStrip(masterStrip, mp.mix);
     masterFader.gain.setTargetAtTime(mp.volume, ctx.currentTime, 0.015);
+    applyMastering(project);
+    applyReturns(project);
+  }
+  function applyMastering(project) {
+    lastMasterProject = project;
+    if (!masterProc) return;
+    const m = SS.masterParams(project).mastering;
+    const P = (n) => masterProc.parameters.get(n);
+    const now = ctx.currentTime;
+    P('active').setValueAtTime(m.on ? 1 : 0, now);
+    P('drive').setTargetAtTime(m.drive, now, 0.02);
+    P('ceiling').setValueAtTime(m.ceiling, now);
+    P('width').setTargetAtTime(m.width, now, 0.02);
+    P('mono').setValueAtTime(m.mono, now);
+    P('release').setValueAtTime(m.release, now);
+    P('clip').setValueAtTime(m.clip, now);
+  }
+  /** Remet à zéro la mesure du volume intégré (au lancement de la lecture). */
+  function resetLoudness() {
+    if (masterProc) masterProc.port.postMessage('reset');
+    loudness = null;
   }
 
   /** Niveaux pour la console : { peak, rms, gr: {comp, lim} } en linéaire / dB. */
@@ -450,7 +544,7 @@ SS.audio = (() => {
     if (!ctx) return null;
     if (id === '__master') {
       const l = readMeter(masterMeter);
-      return { ...l, gr: { comp: masterStrip.comp.reduction, lim: masterStrip.lim.reduction } };
+      return { ...l, gr: { comp: masterStrip.comp.reduction, lim: masterStrip.lim.reduction }, loudness };
     }
     const b = buses.get(id);
     if (!b) return null;
@@ -471,6 +565,7 @@ SS.audio = (() => {
       if (b.chorus) b.chorus.lfo.stop();
       if (b.delay) b.delay.tone.disconnect(); // coupe la boucle de feedback
       if (b.reverb) b.reverb.out.disconnect();
+      if (b.sends) Object.values(b.sends).forEach((g) => g.disconnect());
     }
     buses.delete(id);
     if (SS.juno) SS.juno.remove(id);
@@ -571,6 +666,18 @@ SS.audio = (() => {
       ramp(b.delay.send.gain, f.delay);
       ramp(b.delay.fb.gain, Math.min(0.92, f.delayFeedback));
       ramp(b.delay.node.delayTime, SS.delaySeconds(f, currentTempo));
+    }
+    // envois vers les bus partagés (post-fader, après le sidechain)
+    for (const [key, name] of [['sendPlate', 'plate'], ['sendHall', 'hall'], ['sendEcho', 'echo']]) {
+      if (!(f[key] > 0) && !(b.sends && b.sends[name])) continue;
+      const rs = ensureReturns();
+      if (!b.sends) b.sends = {};
+      if (!b.sends[name]) {
+        b.sends[name] = ctx.createGain();
+        b.duck.connect(b.sends[name]).connect(rs[name].in);
+        if (lastMasterProject) applyReturns(lastMasterProject);
+      }
+      ramp(b.sends[name].gain, f[key] || 0);
     }
     if (f.room > 0 || b.reverb) {
       if (!b.reverb) buildReverb(b);
@@ -1179,6 +1286,7 @@ SS.audio = (() => {
     seq.song = opts.song ? { ...opts.song, rep: 0, ended: false } : null;
     if (seq.song) seq.song.onBlock(seq.song.index);
     applyAllFx(getProject());
+    resetLoudness();
     seq.playing = true;
     seq.step = Math.max(0, Math.floor(opts.from || 0));
     seq.queue = [];
@@ -1287,10 +1395,12 @@ SS.audio = (() => {
     preview,
     playPhrase,
     playNote,
+    playDrum,
     setTrackGain,
     removeTrack,
     applyFx,
     applyAllFx,
+    resetLoudness,
     applyMix,
     applyMaster,
     levels,

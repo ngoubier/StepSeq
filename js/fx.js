@@ -1,5 +1,6 @@
 /*
- * Fenêtre « Effets » d'une piste : chorus, delay, reverb.
+ * Fenêtre « Effets » d'une piste : chorus, delay, reverb, sidechain et envois vers les bus partagés
+ * (reverbs plate / hall et écho communs à tout le morceau, réglés dans project.returns).
  * Delay et reverb reprennent les paramètres de strudel.cc
  * (delay / delaytime / delayfeedback, room / roomsize / roomlp).
  * Les réglages sont dans track.fx et s'entendent immédiatement, y compris pendant la lecture.
@@ -27,6 +28,9 @@ SS.fx = (() => {
     roomSize: { label: 'Taille (durée)', scale: logf(0.2, 10), fmt: (v) => `${v.toFixed(1)} s`, box: '#fxRoomSliders' },
     scDepth: { label: 'Profondeur (baisse du volume)', scale: lin(0, 1), fmt: (v) => `${Math.round(v * 100)} %`, box: '#fxScSliders' },
     scRelease: { label: 'Relâchement (remontée)', scale: logf(0.03, 1), fmt: (v) => `${Math.round(v * 1000)} ms`, box: '#fxScSliders' },
+    sendPlate: { label: 'Plate (batterie)', scale: lin(0, 1), fmt: pct, box: '#fxSendSliders' },
+    sendHall: { label: 'Hall (instruments)', scale: lin(0, 1), fmt: pct, box: '#fxSendSliders' },
+    sendEcho: { label: 'Écho', scale: lin(0, 1), fmt: pct, box: '#fxSendSliders' },
     roomLp: { label: 'Brillance', scale: logf(500, 20000), fmt: (v) => (v < 1000 ? `${Math.round(v)} Hz` : `${(v / 1000).toFixed(1)} kHz`), box: '#fxRoomSliders' },
   };
 
@@ -48,6 +52,13 @@ SS.fx = (() => {
       { label: 'Léger', v: { scDepth: 0.35, scRelease: 0.15 } },
       { label: 'Pompe house', v: { scDepth: 0.7, scRelease: 0.22 } },
       { label: 'Extrême', v: { scDepth: 0.95, scRelease: 0.4 } },
+    ],
+    send: [
+      { label: 'Sec', v: { sendPlate: 0, sendHall: 0, sendEcho: 0 } },
+      { label: 'Batterie', v: { sendPlate: 0.3, sendHall: 0, sendEcho: 0 } },
+      { label: 'Nappe', v: { sendPlate: 0, sendHall: 0.4, sendEcho: 0 } },
+      { label: 'Lead', v: { sendPlate: 0, sendHall: 0.25, sendEcho: 0.18 } },
+      { label: 'Arpège', v: { sendPlate: 0, sendHall: 0.2, sendEcho: 0.25 } },
     ],
     room: [
       { label: 'Pièce', v: { room: 0.2, roomSize: 0.8, roomLp: 9000 } },
@@ -112,6 +123,8 @@ SS.fx = (() => {
       });
     });
 
+    buildReturns();
+
     const dlg = $('#fxDialog');
     $('#fxPreview').addEventListener('click', () => preview());
     $('#fxReset').addEventListener('click', () => {
@@ -137,6 +150,62 @@ SS.fx = (() => {
       track = null;
     });
     dlg.addEventListener('keydown', (e) => e.stopPropagation());
+  }
+
+  /* Réglages communs des bus partagés (project.returns) */
+  const RETURN_SPECS = [
+    { bus: 'plate', key: 'size', label: 'Plate : durée', scale: logf(0.3, 4), fmt: (v) => `${v.toFixed(1)} s` },
+    { bus: 'hall', key: 'size', label: 'Hall : durée', scale: logf(0.5, 8), fmt: (v) => `${v.toFixed(1)} s` },
+    { bus: 'hall', key: 'predelay', label: 'Hall : pré-délai', scale: lin(0, 0.12), fmt: (v) => `${Math.round(v * 1000)} ms` },
+    { bus: 'echo', key: 'feedback', label: 'Écho : répétitions', scale: lin(0, 0.85), fmt: (v) => `${Math.round(v * 100)} %` },
+  ];
+  const returnInputs = [];
+  function setReturn(bus, patch) {
+    const p = app.project();
+    const r = SS.returnParams(p);
+    r[bus] = { ...r[bus], ...patch };
+    p.returns = SS.cleanReturns(r);
+    SS.audio.applyMaster(p);
+    updateReturns();
+    app.changed();
+  }
+  function buildReturns() {
+    RETURN_SPECS.forEach((spec) => {
+      const id = `fxRet_${spec.bus}_${spec.key}`;
+      const row = document.createElement('div');
+      row.className = 'sd-row';
+      const label = document.createElement('label');
+      label.htmlFor = id;
+      label.textContent = spec.label;
+      const out = document.createElement('output');
+      const input = document.createElement('input');
+      input.type = 'range';
+      input.id = id;
+      input.min = 0;
+      input.max = 1000;
+      input.addEventListener('input', () => setReturn(spec.bus, { [spec.key]: +spec.scale.to(+input.value / 1000).toPrecision(3) }));
+      row.append(label, out, input);
+      $('#fxReturnSliders').append(row);
+      returnInputs.push({ spec, input, out });
+    });
+    SS.DELAY_TIMES.forEach((d) => {
+      const o = document.createElement('option');
+      o.value = d.id;
+      o.textContent = d.label;
+      $('#fxEchoTime').append(o);
+    });
+    $('#fxEchoTime').addEventListener('change', (e) => setReturn('echo', { time: e.target.value }));
+  }
+  function updateReturns() {
+    const p = app.project();
+    const r = SS.returnParams(p);
+    returnInputs.forEach(({ spec, input, out }) => {
+      const v = r[spec.bus][spec.key];
+      if (document.activeElement !== input) input.value = Math.round(Math.max(0, Math.min(1, spec.scale.from(v))) * 1000);
+      out.textContent = spec.fmt(v);
+    });
+    $('#fxEchoTime').value = r.echo.time;
+    $('#fxEchoMs').textContent = `${Math.round(SS.delaySeconds({ delayTime: r.echo.time }, p.tempo) * 1000)} ms`;
   }
 
   function set(patch) {
@@ -169,6 +238,8 @@ SS.fx = (() => {
     state('#fxChorusState', f.chorus > 0);
     state('#fxDelayState', f.delay > 0);
     state('#fxRoomState', f.room > 0);
+    state('#fxSendState', f.sendPlate > 0 || f.sendHall > 0 || f.sendEcho > 0);
+    updateReturns();
     const sc = !!f.scSource && f.scDepth > 0;
     state('#fxScState', sc);
     $('#fxScSource').value = f.scSource;
@@ -212,6 +283,8 @@ SS.fx = (() => {
       parts.push(`delay(${r(f.delay)})`, `delaytime(${r(SS.delaySeconds(f, app.project().tempo), 3)})`, `delayfeedback(${r(f.delayFeedback)})`);
     let code = parts.length ? '.' + parts.join('.') : '';
     if (f.chorus > 0) code += `  // + chorus ${Math.round(f.chorus * 100)} % (effet StepSeq)`;
+    const sends = [['sendPlate', 'plate'], ['sendHall', 'hall'], ['sendEcho', 'écho']].filter(([k]) => f[k] > 0);
+    if (sends.length) code += `  // + bus ${sends.map(([k, n]) => `${n} ${Math.round(f[k] * 100)} %`).join(', ')}`;
     if (f.scSource && f.scDepth > 0) {
       const src = app.project().tracks.find((t) => t.id === f.scSource);
       code += `  // + sidechain sur « ${src ? src.name : '?'} » ${Math.round(f.scDepth * 100)} %`;
