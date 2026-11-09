@@ -455,7 +455,30 @@ SS.ui = (() => {
         : null,
       track.category === 'arp'
         ? [
-            h('label', {}, 'Arpège', sel(SS.Arp.MODES, track.arp.mode, (v) => ((track.arp = SS.Arp.normalize({ ...track.arp, mode: v, preset: '' })), app.changed()))),
+            // même catalogue de motifs que la fenêtre de l'arpégiateur (mêmes noms, mêmes catégories)
+            (() => {
+              const cur = SS.motifOf(track.arp);
+              return h(
+                'label',
+                {},
+                'Motif',
+                h(
+                  'select',
+                  {
+                    onchange: (e) => {
+                      const m = SS.MOTIFS.find((x) => x.id === e.target.value);
+                      if (!m) return;
+                      track.arp = SS.Arp.normalize({ ...track.arp, ...SS.motifPatch(track.arp, m) });
+                      app.changed();
+                    },
+                  },
+                  cur ? null : h('option', { value: '', selected: true, disabled: true }, 'Motif personnalisé'),
+                  SS.MOTIF_CATS.map((c) =>
+                    h('optgroup', { label: c.label }, SS.MOTIFS.filter((m) => m.cat === c.id).map((m) => h('option', { value: m.id, selected: !!cur && cur.id === m.id }, m.name)))
+                  )
+                )
+              );
+            })(),
             h('label', {}, 'Vitesse', sel(SS.Arp.RATES, SS.Arp.RATES.find((r) => Math.abs(r.id - track.arp.rate) < 1e-6)?.id ?? track.arp.rate, (v) => ((track.arp = SS.Arp.normalize({ ...track.arp, rate: parseFloat(v), preset: '' })), app.changed()))),
             h(
               'label',
@@ -468,11 +491,11 @@ SS.ui = (() => {
               {
                 type: 'button',
                 class: 'roll-arp',
-                title: 'Arpégiateur : motif, vitesse, octaves, réglage pas à pas, lecture en boucle',
+                title: 'Arp One, l’arpégiateur : motif, vitesse, octaves, geste, réglage pas à pas, lecture en boucle',
                 onclick: () => SS.arpPanel.open(track),
               },
               h('span', { html: ICONS.arp }),
-              'Arpégiateur'
+              'Arp One'
             ),
           ]
         : null,

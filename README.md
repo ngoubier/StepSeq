@@ -68,9 +68,9 @@ Le chevron **›** dans l'en-tête d'une piste instrument affiche son piano roll
 - **Accord** : cliquer sur la fondamentale pose un accord du type choisi (Majeur, Mineur, 7, Maj7…).
 - **Arpège** : comme Accord, mais les notes sont jouées par l'**arpégiateur** (voir ci-dessous).
 
-### L'arpégiateur
+### Arp One, l'arpégiateur
 
-Le bouton **Arpégiateur** du piano roll d'une piste Arpège ouvre la fenêtre de l'arpégiateur (`js/arp.js` pour
+Le bouton **Arp One** du piano roll d'une piste Arpège ouvre l'arpégiateur, titré avec le nom de la piste et la partie en cours (« Arp One · Juno-106 — Couplet ») (`js/arp.js` pour
 le moteur, `js/arppanel.js` pour la fenêtre, `js/motifs.js` pour le catalogue de motifs).
 
 **En-tête, toujours visible**

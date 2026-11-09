@@ -387,3 +387,36 @@ test('Les 6 gestes tout prêts sont valides et gardent les hauteurs', () => {
     assert.deepEqual(A.preview({ mode: 'up2', rate: 0.5, geste: { id: p.id, ...p.g } }, notes, 16).map((t) => t.notes), dry, p.id);
   }
 });
+
+test('Motif reconnu malgré des silences réglés pas à pas ; motifs à rythme propre distingués', () => {
+  require('../js/motifs.js');
+  const SS = globalThis.SS;
+  const up = { mode: 'up', rate: 1 };
+  assert.equal(SS.motifOf(up).id, 'up');
+  // un pas mis en silence dans la fenêtre : toujours « Montant »
+  assert.equal(SS.motifOf({ ...up, rhythm: { type: 'lane' }, lanes: { rhythm: [1, 1, 0, 1] } }).id, 'up');
+  // « Accord en croches » (rythme propre) n'est pas pris pour « Accord à chaque pas »
+  assert.equal(SS.motifOf({ mode: 'chord', rhythm: { type: 'lane' }, lanes: { rhythm: [1, 0] } }).id, 'croches');
+  assert.equal(SS.motifOf({ mode: 'chord' }).id, 'chord');
+  // les anciens réglages ARP ONE (rythme euclidien) : motif « Techno euclidienne », ou aucun
+  assert.equal(SS.motifOf(A.fromPreset('techno')).id, 'techno');
+  // motif relatif reconnu par son texte
+  assert.equal(SS.motifOf({ mode: 'pattern', pattern: 'd1 d5 d1+ d5 d3+ d5 d1+ d5' }).id, 'midnight');
+  assert.equal(SS.motifOf({ mode: 'pattern', pattern: 'd1 d1 d1' }), null);
+});
+
+test('Changer de motif garde les silences réglés pas à pas (sauf motif à rythme propre)', () => {
+  const SS = globalThis.SS;
+  const m = (id) => SS.MOTIFS.find((x) => x.id === id);
+  const steps = { mode: 'up', rhythm: { type: 'lane' }, lanes: { rhythm: [1, 0, 1, 1] } };
+  const toDown = A.normalize({ ...steps, ...SS.motifPatch(steps, m('down')) });
+  assert.equal(toDown.mode, 'down');
+  assert.deepEqual(toDown.lanes.rhythm, [1, 0, 1, 1]);
+  // vers un motif qui a son rythme : on prend le sien
+  const toStabs = A.normalize({ ...steps, ...SS.motifPatch(steps, m('stabs')) });
+  assert.deepEqual(toStabs.lanes.rhythm, [1, 0, 0, 1, 0, 0, 1, 0]);
+  // et en le quittant, son rythme ne reste pas
+  const back = A.normalize({ ...toStabs, ...SS.motifPatch(toStabs, m('up')) });
+  assert.equal(back.rhythm.type, 'all');
+  assert.deepEqual(back.lanes.rhythm, []);
+});
