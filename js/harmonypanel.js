@@ -1056,7 +1056,8 @@ SS.harmonyPanel = (() => {
     const wizOn = view === 'wiz';
     $('#hmTabs').hidden = wizOn;
     $('#hmSteps').hidden = !wizOn;
-    $('#hmKeyBar').hidden = wizOn;
+    // dans l'assistant, seul « Détecter » reste utile (trouver la tonalité d'accords déjà posés)
+    ['#hmTonic', '#hmMode', '#hmWizBtn', '.hm-key-label'].forEach((q) => ($(q).hidden = wizOn));
     $('#hmTitle').textContent = wizOn ? 'Key · nouvelle harmonie' : 'Key';
     if (wizOn) renderWizard();
     else renderTabs();
@@ -1229,15 +1230,20 @@ SS.harmonyPanel = (() => {
     };
     tonic.addEventListener('change', onPick);
     mode.addEventListener('change', onPick);
-    $('#hmDetect').addEventListener('click', () => {
-      const d = H().detect(proj(), scene().id);
-      if (!d) return toast(`Aucune note dans la scène « ${scene().name} ».`);
-      setKey(d.key);
-      toast(`Estimation : ${H().label(d.key)} (sinon ${H().label(d.second.key)}). La mélodie et les cadences font entendre l'une ou l'autre : écoutez !`, 6000);
+    $('#hmDetect').addEventListener('click', runDetect);
+    $('#hmDetectOut').addEventListener('click', (e) => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      if (b.dataset.alt) {
+        const [tonic, mode] = b.dataset.alt.split('|');
+        setKey({ tonic, mode });
+        showDetect(lastDetect, { tonic, mode });
+      } else $('#hmDetectOut').hidden = true;
     });
     $('#hmWizBtn').addEventListener('click', startWizard);
     $('#hmScene').addEventListener('change', (e) => {
       app.switchScene(e.target.value);
+      $('#hmDetectOut').hidden = true;
       viewEmo = null;
       view = key() ? 'tabs' : 'wiz';
       wiz = newWiz();
@@ -1275,12 +1281,48 @@ SS.harmonyPanel = (() => {
     $('#keyBtn').addEventListener('click', open);
   }
 
+  /* ---------- Détecter : tonalité estimée et accords reconnus, affichés dans la fenêtre ---------- */
+  let lastDetect = null;
+  function runDetect() {
+    const d = H().detect(proj(), scene().id);
+    lastDetect = d;
+    if (!d) {
+      const out = $('#hmDetectOut');
+      out.innerHTML = `<span>Aucune note dans la scène « ${esc(scene().name)} ». <b>Détecter</b> lit les notes des pistes Instrument et Synthé de la scène affichée (pas la batterie).</span><span class="spacer"></span><button type="button" class="hm-detect-x" aria-label="Masquer">×</button>`;
+      out.hidden = false;
+      return;
+    }
+    if (view === 'wiz') view = 'tabs'; // une tonalité est trouvée : on quitte l'assistant
+    setKey(d.key);
+    showDetect(d, d.key);
+  }
+  function showDetect(d, k) {
+    const out = $('#hmDetectOut');
+    const same = (a, b) => a.tonic === b.tonic && a.mode === b.mode;
+    const alt = same(k, d.key) ? d.second.key : d.key;
+    const chips = d.chords
+      .map((c) => {
+        if (!c.id) return `<span class="hm-dchord off" title="Accord non reconnu">${esc(c.notes.map((n) => H().spell(k, n)).join('·'))}<small>?</small></span>`;
+        const a = H().analyzeChord(k, c.id);
+        return `<span class="hm-dchord${a.status === 'diatonique' ? '' : ' off'}" title="${esc(a.why || 'dans la tonalité')}">${esc(H().chordName(k, c.id))}<small>${esc(a.numeral)}</small></span>`;
+      })
+      .join('');
+    out.innerHTML = `
+      <span>Tonalité estimée : <b>${esc(H().label(k))}</b></span>
+      ${d.chords.length ? `<span>· Accords reconnus :</span><span class="hm-dchords">${chips}</span>` : '<span>· aucun accord (notes seules)</span>'}
+      <span class="spacer"></span>
+      <button type="button" class="btn btn-small" data-alt="${esc(alt.tonic)}|${esc(alt.mode)}" title="La tonalité relative partage les mêmes notes : la mélodie et les cadences font entendre l'une ou l'autre">Plutôt ${esc(H().label(alt))} ?</button>
+      <button type="button" class="hm-detect-x" aria-label="Masquer le résultat">×</button>`;
+    out.hidden = false;
+  }
+
   /** Ouvre la fenêtre : l'assistant si la scène n'a pas encore de tonalité, sinon les onglets. */
   function open() {
     viewEmo = null;
     cou = null;
     view = key() ? 'tabs' : 'wiz';
     wiz = newWiz();
+    $('#hmDetectOut').hidden = true;
     sync();
     $('#harmonyDialog').showModal();
   }

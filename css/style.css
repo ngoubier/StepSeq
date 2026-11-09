@@ -448,18 +448,19 @@ a.btn { text-decoration: none; }
 /* Vide */
 /* Bouton « Ajouter une piste », toujours sous les pistes (message en plus quand il n'y en a aucune) */
 .add-track-row {
+  /* largeur de la zone visible (un bloc ne s'élargit pas avec la grille qui déborde), collée à gauche :
+     le bouton reste centré à l'écran même quand la grille défile horizontalement */
   position: sticky;
   left: 0;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
-  width: max-content;
-  padding: 12px 16px 24px;
+  padding: 14px 16px 24px;
   color: var(--muted);
 }
 .add-track-row .empty-msg { display: none; margin: 0; }
-.add-track-row.none { width: auto; align-items: center; padding: 60px 16px; }
+.add-track-row.none { padding: 60px 16px; }
 .add-track-row.none .empty-msg { display: block; }
 
 /* ---------- Barre du bas ---------- */
@@ -591,6 +592,8 @@ dialog section { display: flex; flex-direction: column; gap: 14px; }
 #toast.show { opacity: 1; transform: translateX(-50%); }
 #toast.show.has-action { pointer-events: auto; }
 #toast { display: flex; align-items: center; gap: 14px; }
+#toast[popover] { inset: auto auto 70px 50%; margin: 0; border: 0; overflow: visible; }
+#toast[popover]:not(:popover-open) { display: none; }
 .toast-action { border: 0; background: transparent; color: #8fc3ff; font: inherit; font-weight: 600; cursor: pointer; padding: 2px 4px; white-space: nowrap; }
 .toast-action:hover { text-decoration: underline; }
 
@@ -1599,15 +1602,25 @@ dialog.arp-dialog { width: min(860px, calc(100vw - 32px)); }
 .pal-chip.borrowed, .hm-chord.borrowed { border-style: dashed; }
 
 /* Fenêtre Harmonie : hauteur fixe, seul le contenu de l'onglet (ou de l'étape) défile */
-dialog.hm-dialog { width: min(920px, calc(100vw - 32px)); height: min(640px, calc(100vh - 32px)); }
+dialog.hm-dialog { width: min(1240px, calc(100vw - 32px)); height: min(960px, calc(100vh - 32px)); max-width: none; max-height: none; }
 .hm-dialog form { padding: 0; gap: 0; height: 100%; }
-.hm-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 12px 16px 10px; border-bottom: 1px solid var(--line); }
+.hm-top { display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 16px; border-bottom: 1px solid var(--line); flex: none; }
+.hm-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding: 8px 16px; background: var(--panel-2); border-bottom: 1px solid var(--line); flex: none; }
+.hm-key-label { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-right: 2px; }
+/* résultat de « Détecter » : tonalité estimée et accords reconnus */
+.hm-detect { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 16px; background: #1d2a3a; border-bottom: 1px solid #2f4b6e; font-size: 13px; flex: none; }
+.hm-detect b { color: #cfe4ff; }
+.hm-detect .hm-dchords { display: flex; flex-wrap: wrap; gap: 4px; }
+.hm-detect .hm-dchord { display: inline-flex; flex-direction: column; align-items: center; padding: 2px 8px; border-radius: 6px; background: rgba(0, 0, 0, .25); line-height: 1.2; }
+.hm-detect .hm-dchord small { font-size: 10px; color: var(--muted); }
+.hm-detect .hm-dchord.off { box-shadow: inset 0 0 0 1px #ffb36b; }
+.hm-detect .spacer { flex: 1; }
+.hm-detect-x { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 16px; padding: 0 4px; }
 .hm-top h2 { margin: 0; font-size: 17px; }
 .hm-scenepick select { max-width: 160px; }
-.hm-key { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-left: auto; }
+.hm-key { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .hm-key select, .hm-dialog select { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; height: 28px; padding: 0 6px; font: inherit; font-size: 13px; }
-.hm-x { background: none; border: 0; color: var(--muted); font-size: 22px; line-height: 1; cursor: pointer; padding: 0 4px; }
-.hm-x:hover { color: var(--text); }
+.hm-x { width: 34px; height: 34px; }
 .hm-tabs { display: flex; gap: 2px; padding: 0 12px; border-bottom: 1px solid var(--line); overflow-x: auto; flex: none; }
 .hm-tabs button { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--muted); padding: 9px 12px 8px; font: inherit; cursor: pointer; white-space: nowrap; }
 .hm-tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent-2); }
@@ -1697,7 +1710,6 @@ dialog.hm-dialog { width: min(920px, calc(100vw - 32px)); height: min(640px, cal
 .hm-pill.none { background: var(--panel-3); color: var(--muted); }
 @media (max-width: 760px) {
   .hm-amb { grid-template-columns: 1fr; }
-  .hm-key { margin-left: 0; }
 }
 .hm-muted { color: var(--muted); font-size: 13px; margin: 0; }
 .hm-empty { color: var(--muted); margin: 0; }

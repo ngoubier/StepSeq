@@ -281,19 +281,56 @@ SS.harmony = (() => {
     return h;
   }
 
-  /** → { key, score, second } ou null s'il n'y a pas de notes (dans la scène `sceneId`, ou dans tout le projet). */
+  /**
+   * Accords joués dans la scène `sceneId` (toutes pistes Instrument / Synthé) : un accord = un événement
+   * d'au moins 3 notes différentes. Triés dans l'ordre de la scène, sans répéter le même accord d'affilée.
+   * → [{ step, id: { rootPc, type, bassPc } | null, notes }]
+   */
+  function sceneChords(p, sceneId) {
+    const out = [];
+    for (const sec of sections(p).filter((s) => !sceneId || s.id === sceneId))
+      for (const { events } of sec.tracks)
+        for (const ev of events) if (new Set(ev.notes.map(pcOf)).size >= 3) out.push({ step: ev.step, id: identify(ev.notes), notes: ev.notes });
+    out.sort((a, b) => a.step - b.step);
+    const same = (a, b) => a.id && b.id && a.id.rootPc === b.id.rootPc && a.id.type === b.id.type && a.id.bassPc === b.id.bassPc;
+    return out.filter((c, i) => {
+      if (i === 0) return true;
+      const prev = out[i - 1];
+      return !(same(c, prev) || (c.step === prev.step && !c.id && !prev.id));
+    });
+  }
+
+  /**
+   * → { key, score, second, chords } ou null s'il n'y a pas de notes (dans la scène `sceneId`, ou dans tout le projet).
+   * Profil des notes (Krumhansl-Kessler), affiné par les accords reconnus : une tonalité gagne des points
+   * quand ses accords sont diatoniques et quand la grille commence ou finit sur sa tonique.
+   */
   function detect(p, sceneId) {
     const h = histogram(p, sceneId);
     if (!h.some((x) => x > 0)) return null;
+    const chordsIn = sceneChords(p, sceneId);
+    const known = chordsIn.filter((c) => c.id);
     const cands = [];
     for (let t = 0; t < 12; t++)
       for (const mode of ['major', 'minor']) {
         const prof = PROFILE[mode].map((_, i) => PROFILE[mode][pcOf(i - t)]);
-        cands.push({ key: { tonic: (mode === 'major' ? MAJOR_TONICS : MINOR_TONICS)[t], mode }, score: corr(h, prof) });
+        const key = { tonic: (mode === 'major' ? MAJOR_TONICS : MINOR_TONICS)[t], mode };
+        let score = corr(h, prof);
+        if (known.length) {
+          const inKey = new Set(scale(key).map((d) => d.pc));
+          const diat = known.filter((c) => TYPE_IV(c.id.type).every((i) => inKey.has(pcOf(c.id.rootPc + i)))).length / known.length;
+          score += 0.35 * diat;
+          if (known[0].id.rootPc === t) score += 0.12;
+          if (known[known.length - 1].id.rootPc === t) score += 0.08;
+          // accord de tonique de la bonne couleur (majeur / mineur)
+          const tonicChord = known.some((c) => c.id.rootPc === t && (mode === 'minor' ? /^m(?!aj)/.test(c.id.type) : !/^m(?!aj)|dim/.test(c.id.type)));
+          if (tonicChord) score += 0.05;
+        }
+        cands.push({ key, score });
       }
     cands.sort((a, b) => b.score - a.score);
     // la tonalité relative partage les mêmes notes : on la signale comme alternative
-    return { ...cands[0], second: cands[1] };
+    return { ...cands[0], second: cands[1], chords: chordsIn };
   }
 
   /* ---------------- Vérificateur d'harmonie ---------------- */
@@ -820,5 +857,5 @@ SS.harmony = (() => {
     return SS.chordNotes(root, chord.type);
   }
 
-  return { MODES, TONICS, GENERATORS, TRANSFORMS, valid, isTonal, scale, spell, french, chords, makeChord, progressions, gridChord, gridPalette, gridFromEvents, identify, chordName, analyzeChord, detect, analyze, generate, transform, label, voice, pcOf };
+  return { MODES, TONICS, GENERATORS, TRANSFORMS, valid, isTonal, scale, spell, french, chords, makeChord, progressions, gridChord, gridPalette, gridFromEvents, identify, chordName, analyzeChord, detect, sceneChords, analyze, generate, transform, label, voice, pcOf };
 })();

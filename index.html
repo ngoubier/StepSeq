@@ -507,15 +507,22 @@
     <form method="dialog" id="harmonyForm">
       <div class="hm-top">
         <h2 id="hmTitle">Key</h2>
+        <span class="spacer"></span>
+        <button type="submit" class="btn btn-icon hm-x" title="Fermer (Échap)" aria-label="Fermer">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div class="hm-toolbar">
         <label class="field hm-scenepick" title="L'harmonie est propre à chaque scène (intro, couplet, refrain…)"><span>Scène</span><select id="hmScene"></select></label>
         <div class="hm-key" id="hmKeyBar">
+          <span class="hm-key-label">Tonalité</span>
           <select id="hmTonic" aria-label="Tonique"></select>
           <select id="hmMode" aria-label="Mode"></select>
-          <button type="button" id="hmDetect" class="btn btn-small" title="Estimer la tonalité d'après les notes de cette scène">Détecter</button>
+          <button type="button" id="hmDetect" class="btn btn-small" title="Estimer la tonalité et reconnaître les accords d'après les notes de cette scène">Détecter</button>
           <button type="button" id="hmWizBtn" class="btn btn-small" title="Repartir d'une émotion, étape par étape">Assistant</button>
         </div>
-        <button type="submit" class="hm-x" aria-label="Fermer">×</button>
       </div>
+      <div class="hm-detect" id="hmDetectOut" role="status" hidden></div>
       <div class="hm-tabs" id="hmTabs" role="tablist">
         <button type="button" role="tab" data-tab="amb">1 · Ambiance</button>
         <button type="button" role="tab" data-tab="acc">2 · Accords</button>
@@ -601,7 +608,7 @@
     </form>
   </dialog>
 
-  <div id="toast" role="status"></div>
+  <div id="toast" role="status" popover="manual"></div>
 
   <script src="js/library.js"></script>
   <script src="js/dirt.js"></script>
