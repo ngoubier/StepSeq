@@ -1957,3 +1957,6 @@ svg.g-big { width: 100%; height: auto; background: #1d1d22; border-radius: 8px; 
 .arp-pager small { color: var(--muted); }
 .arp-scroll.on .arp-vel-wrap > .dlg-label { position: sticky; left: 0; align-self: flex-start; }
 .arp-scroll.on .arp-vel-wrap { width: max-content; }
+/* Arp One : nom de l'arpégiateur devant le titre « piste — partie » */
+.arp-dialog .sd-head h2 { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
+.arp-brand { font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #c9a6ff; padding: 3px 8px; border: 1px solid #5b4a80; border-radius: 6px; align-self: center; }

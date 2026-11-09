@@ -42,7 +42,7 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FAIL ') + m); if (!c) process
   const idx = await page.evaluate(() => [...document.querySelectorAll('.th-btn[title="Afficher / masquer le piano roll"]')].length);
   const btns = page.locator('.th-btn[title="Afficher / masquer le piano roll"]');
   for (let i = 0; i < idx; i++) { await btns.nth(i).click(); if (await page.locator('.roll-arp').count()) break; await btns.nth(i).click(); }
-  ok(await page.locator('.roll-arp').count() > 0, 'bouton Arpégiateur présent dans le piano roll');
+  ok(await page.locator('.roll-arp').count() > 0 && (await page.locator('.roll-arp').first().textContent()).trim() === 'Arp One', 'bouton « Arp One » présent dans le piano roll');
   await page.locator('.roll-arp').first().click();
   ok(await page.locator('#arpDialog[open]').count() === 1, 'fenêtre de l’arpégiateur ouverte');
   // la sauvegarde automatique a lieu 400 ms après chaque changement
@@ -229,6 +229,7 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FAIL ') + m); if (!c) process
     return sc ? `${t.name} — ${sc.name}` : t.name;
   });
   ok(title === expect, `titre de la fenêtre : « ${title} »`);
+  ok((await page.locator('#arpDialog .arp-brand').textContent()) === 'Arp One', 'nom « Arp One » devant le titre');
   await page.locator('#arpDialog .dlg-footer button', { hasText: 'OK' }).click();
   const rollMotif = page.locator('.roll-tools label', { hasText: 'Motif' }).locator('select');
   await rollMotif.selectOption('down2');

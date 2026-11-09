@@ -1,5 +1,5 @@
 /*
- * Fenêtre de l'arpégiateur (moteur : js/arp.js) d'une piste Arpège.
+ * Arp One, la fenêtre de l'arpégiateur (moteur : js/arp.js) d'une piste Arpège ; titre : « Arp One · piste — partie ».
  *
  *   En-tête (toujours visible) : ▶ lecture en boucle sur un accord d'essai, grille des pas avec curseur,
  *     vélocités ; un clic sur un pas règle sa vélocité, sa longueur, ses notes à la fois ou en fait un silence.
@@ -870,7 +870,7 @@ SS.arpPanel = (() => {
       h(
         'form',
         { method: 'dialog' },
-        h('div', { class: 'sd-head' }, h('h2', { class: 'arp-title' }, 'Arpégiateur')),
+        h('div', { class: 'sd-head' }, h('h2', {}, h('span', { class: 'arp-brand' }, 'Arp One'), h('span', { class: 'arp-title' }, ''))),
         h('div', { class: 'arp-body' }),
         h(
           'div',

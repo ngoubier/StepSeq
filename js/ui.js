@@ -491,11 +491,11 @@ SS.ui = (() => {
               {
                 type: 'button',
                 class: 'roll-arp',
-                title: 'Arpégiateur : motif, vitesse, octaves, réglage pas à pas, lecture en boucle',
+                title: 'Arp One, l’arpégiateur : motif, vitesse, octaves, geste, réglage pas à pas, lecture en boucle',
                 onclick: () => SS.arpPanel.open(track),
               },
               h('span', { html: ICONS.arp }),
-              'Arpégiateur'
+              'Arp One'
             ),
           ]
         : null,
