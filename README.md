@@ -47,6 +47,21 @@ Le bouton **+** ouvre une fenêtre qui demande :
 
 Le bouton **Écouter** permet d'entendre le son avant de valider.
 
+### Band : monter un groupe virtuel
+
+Le bouton **Band** de l'en-tête ouvre une grande fenêtre (`js/band.js`, catalogue `js/band-presets.js`) :
+
+1. le **style musical** : **Synthwave** ou **EDM mélodique** ;
+2. le **type de chanson** : 10 inspirations par style (Smalltown Boy, Nightcall, Blinding Lights, Sweet Dreams…,
+   Levels, Strobe, Opus, Faded…), avec un tempo suggéré ;
+3. les **musiciens**, sur une scène. Un clic ouvre le panneau du musicien : son rôle, son instrument phare ★,
+   5 instruments conseillés (▶ pour écouter) et l'accès à toute la bibliothèque via la fenêtre « Nouvelle piste ».
+   Le **batteur** (et le percussionniste, optionnel) choisit un kit (★ + 5 conseillés) et coche ses éléments
+   (kick, snare, hi-hats…) : une piste par élément, chaque élément pouvant venir d'une autre machine.
+
+**Fermer et créer les pistes** crée les pistes, vierges de notes (et applique le tempo si la case est cochée) ;
+**Annuler** / Échap ferme sans rien créer.
+
 ### Pistes instrument
 
 Le bouton à curseurs de l'en-tête ouvre la fenêtre de **sound design** (oscillateur, filtre cutoff / résonance / enveloppe, ADSR, glide, niveau, panoramique, saturation), inspirée des paramètres de strudel.cc :

@@ -2659,7 +2659,7 @@ SS.ui = (() => {
     const isDrum = s.type === 'drum';
     $('#dlgType').querySelectorAll('button').forEach((b) => {
       b.classList.toggle('active', b.dataset.v === s.type);
-      b.disabled = !!s.editingId && b.dataset.v !== s.type;
+      b.disabled = (!!s.editingId && b.dataset.v !== s.type) || (!!dlg.types && !dlg.types.includes(b.dataset.v));
     });
     $('#dlgDrum').hidden = !isDrum;
     $('#dlgInst').hidden = s.type !== 'instrument';
@@ -2691,8 +2691,12 @@ SS.ui = (() => {
     }
   }
 
-  /** Ouvre le dialogue. `track` = piste existante à modifier (ou undefined). Résout avec les options ou null. */
-  function openTrackDialog(track) {
+  /**
+   * Ouvre le dialogue. `track` = piste existante à modifier (ou undefined). Résout avec les options ou null.
+   * `init` (sélecteur, utilisé par la fenêtre Band) : { state: réglages de départ, types: types permis,
+   * title, okLabel }. Le dialogue sert alors à choisir un son sans créer de piste.
+   */
+  function openTrackDialog(track, init) {
     SS.audio.ensureCtx();
     const p = app.project();
     const usedColors = p.tracks.map((t) => t.color);
@@ -2736,8 +2740,18 @@ SS.ui = (() => {
           sfv: 0,
           length: 0,
         };
-    $('#dlgTitle').textContent = track ? 'Modifier la piste' : 'Nouvelle piste';
-    $('#dlgOk').textContent = track ? 'Appliquer' : 'Valider';
+    dlg.types = (init && init.types) || null;
+    dlg.form.classList.toggle('dlg-picker', !!init);
+    if (init && init.state) {
+      const st = { ...init.state };
+      Object.keys(st).forEach((k) => st[k] == null && delete st[k]);
+      Object.assign(dlg.s, st);
+      if (st.instrument && !st.family) dlg.s.family = SS.locateInstrument(null, st.instrument).family.id;
+      if (dlg.s.type === 'synth' && !st.instrument) dlg.s.instrument = SS.findFamily(dlg.s.family).instruments[0].id;
+      if (st.name) dlg.s.nameEdited = true;
+    }
+    $('#dlgTitle').textContent = (init && init.title) || (track ? 'Modifier la piste' : 'Nouvelle piste');
+    $('#dlgOk').textContent = (init && init.okLabel) || (track ? 'Appliquer' : 'Valider');
     $('#dlgName').value = dlg.s.name;
     $('#dlgInstFilter').value = '';
     $('#dlgDrumFilter').value = '';
