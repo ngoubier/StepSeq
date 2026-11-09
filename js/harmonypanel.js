@@ -636,7 +636,8 @@ SS.harmonyPanel = (() => {
     if (!plan.length) return auto || toast('Cochez au moins une couche à générer.');
     const ids = plan.filter((x) => x.t).map((x) => x.t.id);
     if (new Set(ids).size !== ids.length) return toast('Choisissez une piste différente pour chaque couche.');
-    const edited = plan.filter((x) => x.t && x.t.events.length && g.sig[x.t.id] !== sigOf(x.t.events));
+    // retouchée à la main : notes différentes de celles que la grille y a écrites (une piste vidée compte aussi)
+    const edited = plan.filter((x) => x.t && (x.t.events.length || g.sig[x.t.id]) && g.sig[x.t.id] !== sigOf(x.t.events));
     let todo = plan;
     if (auto) {
       todo = plan.filter((x) => x.t && !edited.includes(x));

@@ -2145,7 +2145,9 @@ dialog.songs-dialog { width: min(760px, calc(100vw - 32px)); height: min(640px, 
 .gr-head .field { gap: 6px; font-size: 13px; }
 .gr-mode button { padding: 4px 10px; font-size: 12px; }
 .gr-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
-.gr-tl { position: relative; background: var(--panel-2); user-select: none; touch-action: none; }
+.gr-tl { position: relative; background: var(--panel-2); user-select: none; }
+/* seuls les blocs se glissent au doigt : la ligne elle-même défile horizontalement */
+.gr-blk, .gr-rz { touch-action: none; }
 .gr-ruler { position: relative; height: 22px; border-bottom: 1px solid var(--line); background: #26262a; }
 .gr-ruler .gr-bar { position: absolute; top: 0; bottom: 0; border-left: 1px solid #55555c; padding: 3px 0 0 6px; font-size: 12px; font-weight: 600; }
 .gr-ruler .gr-bar:first-child { border-left: 0; }
