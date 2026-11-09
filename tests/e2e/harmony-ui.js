@@ -1,5 +1,5 @@
 /*
- * Test de bout en bout de la fenêtre Harmonie (assistant + onglets), dans un vrai navigateur.
+ * Test de bout en bout de la fenêtre Harmo One (assistant + onglets), dans un vrai navigateur.
  *   node tests/e2e/harmony-ui.js [dossier-captures]
  * Lance son propre petit serveur web sur le dossier du projet. Nécessite le paquet « playwright ».
  */

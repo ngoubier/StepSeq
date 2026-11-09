@@ -166,7 +166,7 @@ SS.findEmotion = (id) => SS.EMOTIONS.find((e) => e.id === id) || null;
 
 /**
  * Les modes rangés du plus lumineux au plus sombre, avec les intentions qui leur correspondent le mieux
- * (fenêtre Harmonie, onglet Ambiance et assistant). Chaque intention apparaît une fois, sous la couleur
+ * (fenêtre Harmo One, onglet Ambiance et assistant). Chaque intention apparaît une fois, sous la couleur
  * dominante de ses propositions ; ses trois propositions peuvent quand même utiliser d'autres modes.
  */
 SS.MODE_MOODS = [
