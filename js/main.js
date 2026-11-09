@@ -452,6 +452,52 @@
     return ids;
   }
 
+  /**
+   * Band : « Créer toute la chanson ». Remplace les pistes, les scènes et l'arrangement du projet par la chanson
+   * écrite d'après le plan de l'inspiration (js/band-songs.js, js/bandsong.js). Ctrl+Z revient en arrière.
+   */
+  function addBandSong(list, preset, tempo) {
+    const spec = SS.BandSongs && SS.BandSongs[preset.id];
+    if (!spec) return addBandTracks(list, tempo, { replace: true });
+    stop();
+    removeTracks(project.tracks.slice());
+    if (tempo) project.tempo = tempo;
+    project.timeSig = [4, 4];
+    const created = list.map((opts) => {
+      const t = SS.newTrack(opts, project);
+      if (opts.band) t.band = { ...opts.band };
+      return t;
+    });
+    project.tracks = created;
+    const res = SS.bandSong.build(spec, preset.id, created);
+    project.scenes = res.scenes.map(({ sec, ...sc }) => sc); // eslint-disable-line no-unused-vars
+    project.song = res.song;
+    project.playMode = 'song';
+    project.songLoop = false;
+    state.songStart = 0;
+    state.cue = 0;
+    // EDM : la basse et les nappes « pompent » sur le kick (sidechain)
+    const kick = created.find((t) => t.band && t.band.key === 'drums:bd');
+    if (spec.sc && kick)
+      created.forEach((t) => {
+        const role = t.band ? t.band.key.split(':')[0] : '';
+        if (['bass', 'pad', 'keys', 'strings'].includes(role)) t.fx = { ...(t.fx || {}), scSource: kick.id, scDepth: role === 'bass' ? 0.7 : 0.5, scRelease: 0.2 };
+      });
+    if (!project.title || project.title === 'Nouveau projet') project.title = `Dans l'esprit de ${preset.song}`;
+    SS.loadScene(project, project.scenes[0].id, { commit: false });
+    state.openRolls.clear();
+    SS.audio.applyAllFx(project);
+    syncHeader();
+    SS.ui.clearSelection();
+    SS.ui.renderAll();
+    SS.song.render();
+    created.forEach((t) => SS.audio.prepareTrack(t));
+    changed();
+    const len = SS.songLength(project);
+    const time = `${Math.floor(len.seconds / 60)}:${String(Math.round(len.seconds % 60)).padStart(2, '0')}`;
+    SS.ui.toast(`Band : chanson créée dans l'esprit de « ${preset.song} » (${preset.artist}) · ${project.scenes.length} scènes, ${len.bars} mesures, ${time} · ${created.length} pistes. Mode Chanson : appuie sur ▶.`, 7000);
+  }
+
   function addBandTracks(list, tempo, { replace = false } = {}) {
     let removed = [];
     if (replace) {
@@ -632,7 +678,7 @@
     editTrack,
     deleteTrack,
   });
-  SS.band.init({ project: () => project, openTrackDialog: (t, init) => SS.ui.openTrackDialog(t, init), apply: addBandTracks, bandTracks, hasNotes });
+  SS.band.init({ project: () => project, openTrackDialog: (t, init) => SS.ui.openTrackDialog(t, init), apply: addBandTracks, applySong: addBandSong, bandTracks, hasNotes });
   SS.mySongs.init({ project: () => project, loadSong, flush: () => SS.autosave.saveNow() });
   initHeader();
   initKeys();

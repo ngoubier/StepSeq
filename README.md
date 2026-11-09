@@ -62,8 +62,12 @@ Le bouton **Band** de l'en-tête ouvre une grande fenêtre (`js/band.js`, catalo
    Le **batteur** (et le percussionniste, optionnel) choisit un kit (★ + 5 conseillés) et coche ses éléments
    (kick, snare, hi-hats…) : une piste par élément, chaque élément pouvant venir d'une autre machine.
 
-**Fermer et créer les pistes** crée les pistes, vierges de notes (et applique le tempo si la case est cochée) ;
-**Annuler** / Échap ferme sans rien créer.
+**Créer les pistes** crée les pistes, vierges de notes (et applique le tempo si la case est cochée) ;
+**Créer toute la chanson** écrit en plus une chanson complète dans l'esprit de l'inspiration : scènes (intro,
+couplet, refrain… ou break, montée et drop en EDM), parties de chaque musicien et arrangement, en mode Chanson.
+Les plans des 20 chansons sont dans `js/band-songs.js` (tonalité, forme, grilles originales, ce que joue chaque
+musicien par section) et les notes sont écrites par `js/bandsong.js` (déterministe). **Annuler** / Échap ferme
+sans rien créer.
 
 Les pistes créées par Band sont marquées dans le projet. Si le projet en contient déjà, une confirmation propose
 de **remplacer** ces pistes Band par le nouveau groupe (en signalant celles qui contiennent des notes ; Ctrl+Z pour
@@ -149,6 +153,7 @@ node tests/e2e/harmony-ui.js
 node tests/e2e/grid-ui.js
 node tests/e2e/playhead-ui.js
 node tests/e2e/song-ui.js
+node tests/e2e/band-song-ui.js
 ```
 
 Cliquer sur une note / un accord existant le supprime. Sur la ligne compacte, un clic pose la
@@ -249,6 +254,8 @@ par la fenêtre **Key** :
 | `js/fx.js`       | Fenêtre Effets par piste (chorus, delay, reverb) |
 | `js/profiles.js`, `js/profiles-factory.js` | Profils de console (usine + personnels) |
 | `js/mixer.js`    | Console de mixage : tranches, EQ, compresseur, limiteur, vumètres |
+| `js/band-songs.js` | Band : plans des 20 chansons complètes (tonalité, sections, grilles, parties) |
+| `js/bandsong.js` | Band : écrit les scènes, les notes de chaque musicien et l'arrangement d'après un plan |
 | `js/song.js`     | Mode chanson : scènes et arrangement, fenêtre Song |
 | `js/ui.js`       | Rendu des pistes, grille, piano roll, dialogue |
 | `js/main.js`     | Démarrage, barre d'outils, raccourcis |
