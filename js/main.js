@@ -97,6 +97,7 @@
     updateUndoButtons();
     // la durée de la chanson dépend des mesures / du tempo : on rafraîchit le panneau (sauf pendant un renommage)
     if (SS.song && !document.querySelector('.scene-rename')) SS.song.render();
+    SS.autosave.schedule(); // bibliothèque « Mes chansons » et fichier lié, sans message (js/store.js)
     clearTimeout(autosaveTimer);
     autosaveTimer = setTimeout(() => {
       try {
@@ -246,13 +247,14 @@
     $('#play').addEventListener('click', togglePlay);
     $('#stop').addEventListener('click', stop);
 
-    $('#newProject').addEventListener('click', () => {
-      if (project.tracks.length && !confirm('Créer un nouveau projet ? Les modifications non enregistrées seront perdues.')) return;
+    $('#newProject').addEventListener('click', async () => {
+      // la chanson en cours est déjà dans « Mes chansons » : pas besoin de confirmation
+      if (!SS.autosave.libraryAvailable() && project.tracks.length && !confirm('Créer un nouveau projet ? Les modifications non enregistrées seront perdues.')) return;
+      await SS.autosave.saveNow();
       SS.files.reset();
-      setProject(SS.newProject());
-      changed();
-      dirty = false;
+      await loadSong(SS.newProject(), { changed: true });
     });
+    $('#songsBtn').addEventListener('click', () => SS.mySongs.open());
     $('#openProject').addEventListener('click', openProject);
     $('#saveProject').addEventListener('click', (e) => saveProject(e.shiftKey));
   }
@@ -448,7 +450,10 @@
       const name = await SS.files.save(project, saveAs);
       if (name) {
         dirty = false;
-        SS.ui.toast(`Projet enregistré : ${name}`);
+        // Chrome / Edge : ce fichier sera ensuite mis à jour automatiquement à chaque modification
+        const handle = SS.files.current();
+        if (handle) await SS.autosave.linkFile(handle);
+        SS.ui.toast(handle ? `Projet enregistré : ${name} — mis à jour automatiquement ensuite.` : `Projet enregistré : ${name}`);
       }
     } catch (e) {
       console.error(e);
@@ -457,18 +462,30 @@
   }
 
   async function openProject() {
-    if (dirty && project.tracks.length && !confirm('Ouvrir un autre projet ? Les modifications non enregistrées seront perdues.')) return;
+    if (!SS.autosave.libraryAvailable() && dirty && project.tracks.length && !confirm('Ouvrir un autre projet ? Les modifications non enregistrées seront perdues.')) return;
     try {
+      await SS.autosave.saveNow();
       const p = await SS.files.open();
       if (!p) return;
-      setProject(p);
-      changed();
-      dirty = false;
+      const handle = SS.files.current();
+      // la même chanson déjà dans la bibliothèque : son état actuel reste dans ses versions
+      if (SS.autosave.libraryAvailable()) await SS.store.keepVersion(p.id).catch(() => {});
+      await loadSong(p, { changed: true, handle });
       SS.ui.toast(`Projet « ${p.title} » ouvert.`);
     } catch (e) {
       console.error(e);
       SS.ui.toast("Ce fichier n'est pas un projet StepSeq valide.");
     }
+  }
+
+  /** Charge une chanson (Nouveau, Ouvrir, Mes chansons) et la range tout de suite dans la bibliothèque. */
+  async function loadSong(p, { changed: mark = false, handle = null } = {}) {
+    setProject(p);
+    if (mark) changed();
+    else persist(); // c'est la chanson qu'on retrouvera au prochain démarrage
+    dirty = false;
+    if (handle) await SS.autosave.linkFile(handle);
+    await SS.autosave.songChanged();
   }
 
   /* ---------- Raccourcis clavier ---------- */
@@ -504,7 +521,8 @@
       }
     });
     window.addEventListener('beforeunload', (e) => {
-      if (dirty && project.tracks.length) {
+      // avec la bibliothèque, rien ne se perd : pas d'avertissement en quittant
+      if (!SS.autosave.libraryAvailable() && dirty && project.tracks.length) {
         e.preventDefault();
         e.returnValue = '';
       }
@@ -529,9 +547,11 @@
     deleteTrack,
   });
   SS.band.init({ project: () => project, openTrackDialog: (t, init) => SS.ui.openTrackDialog(t, init), apply: addBandTracks, bandTracks, hasNotes });
+  SS.mySongs.init({ project: () => project, loadSong, flush: () => SS.autosave.saveNow() });
   initHeader();
   initKeys();
   setProject(loadAutosave() || demoProject());
+  SS.autosave.init({ project: () => project, openLibrary: () => SS.mySongs.open() }).then(() => SS.autosave.songChanged());
   // L'audio ne peut démarrer qu'après un geste de l'utilisateur : on précharge les sons à ce moment-là.
   const unlock = () => {
     SS.audio.ensureCtx();

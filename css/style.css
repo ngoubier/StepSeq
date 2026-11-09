@@ -2092,3 +2092,47 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
 .bcf-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; }
 .bcf-actions .btn-danger { background: #a3262e; color: #fff; }
 .bcf-actions .btn-danger:hover { background: #bd2f38; }
+
+/* ---------- Enregistrement automatique (js/store.js) et « Mes chansons » (js/mysongs.js) ---------- */
+.save-status {
+  display: inline-flex; align-items: center; gap: 5px; max-width: 220px; height: 30px; padding: 0 8px;
+  border: 0; border-radius: 8px; background: none; color: var(--muted); font: inherit; font-size: 12px; cursor: pointer;
+}
+.save-status:hover { background: var(--panel-3); color: var(--text); }
+.save-status:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.save-status svg { width: 14px; height: 14px; flex: none; color: #5ec46a; }
+.save-status .ss-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.save-status.saving svg { color: var(--muted); }
+.save-status.paused { color: #f0c860; background: rgba(224, 180, 76, .12); }
+.save-status.paused svg, .save-status.error svg { color: currentColor; }
+.save-status.error { color: #ff8a8a; background: rgba(255, 80, 80, .1); }
+
+dialog.songs-dialog { width: min(760px, calc(100vw - 32px)); height: min(640px, calc(100vh - 32px)); }
+.songs-shell { display: flex; flex-direction: column; gap: 10px; height: 100%; padding: 16px 18px; }
+.songs-head { display: flex; align-items: center; gap: 10px; }
+.songs-head h2 { margin: 0; font-size: 18px; }
+.songs-head h2 small { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 6px; }
+.songs-intro { margin: 0; line-height: 1.45; }
+.songs-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; }
+.songs-empty { text-align: center; margin-top: 40px; }
+.song-group { display: flex; flex-direction: column; border: 1px solid var(--accent-2); border-radius: 10px; overflow: hidden; }
+.song-group .song-row { border: 0; border-radius: 0; }
+.song-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); }
+.song-row.current { border-color: color-mix(in srgb, var(--accent-2) 60%, var(--line)); }
+.song-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.song-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.song-badge { margin-left: 8px; padding: 1px 7px; border-radius: 8px; background: var(--accent); color: #fff; font-size: 10px; font-weight: 600; vertical-align: 1px; }
+.song-meta { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.song-file { color: #8fc7ff; }
+.song-actions { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+.song-actions .btn.active { background: var(--accent); }
+.song-actions .btn-danger:disabled { opacity: .35; }
+.song-versions { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px 10px 22px; background: var(--panel); border-top: 1px solid var(--line); }
+.song-versions .dlg-hint { margin: 2px 0 0; }
+.song-version { display: grid; grid-template-columns: 170px 1fr auto; align-items: center; gap: 8px; font-size: 13px; }
+.song-version em { color: var(--muted); font-style: normal; font-size: 11px; }
+@media (max-width: 640px) {
+  .song-row { flex-direction: column; align-items: stretch; }
+  .song-version { grid-template-columns: 1fr auto; }
+  .song-version .song-meta { grid-column: 1; }
+}
