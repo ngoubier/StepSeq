@@ -105,16 +105,16 @@ a.btn { text-decoration: none; }
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px 16px;
-  padding: 10px 16px;
+  gap: 12px 18px;
+  padding: 14px 18px;
   background: var(--panel-2);
   border-bottom: 1px solid #000;
 }
 .topbar-group { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; min-width: 0; }
-.brand { display: inline-grid; place-items: center; width: 38px; height: 38px; padding: 0; border: 0; border-radius: 8px; background: transparent; cursor: pointer; }
+.brand { display: inline-grid; place-items: center; width: 52px; height: 52px; padding: 0; border: 0; border-radius: 12px; background: transparent; cursor: pointer; }
 .brand:hover, .brand[aria-expanded="true"] { background: var(--panel-3); }
 .brand:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
-.brand svg { display: block; width: 30px; height: 30px; stroke: none; } /* logo : icons/stepseq.svg */
+.brand svg { display: block; width: 44px; height: 44px; stroke: none; } /* logo : icons/stepseq.svg */
 /* Menu de l'icône de l'application */
 .app-menu-wrap { position: relative; }
 .app-menu {
@@ -158,12 +158,20 @@ a.btn { text-decoration: none; }
   border-radius: 10px;
   background: var(--panel);
 }
-.topbar-group.studio .btn { justify-content: center; min-width: 120px; }
-.song-btn { height: 32px; padding: 0 12px; font-size: 13px; }
+.topbar-group.studio { padding: 4px; border-radius: 12px; }
+/* Band, Key, Song, Mix : titre en gras et sous-titre (groupe, tonalité, scène, profil de mixage) */
+.studio-btn { height: 54px; padding: 0 14px 0 12px; justify-content: flex-start; gap: 10px; min-width: 150px; border-radius: 9px; }
+.studio-btn .sb-ico svg { width: 22px; height: 22px; display: block; }
+.sb-txt { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; min-width: 0; }
+.sb-txt b { font-size: 15px; font-weight: 700; }
+.sb-txt small { font-size: 12px; color: var(--muted); max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.studio-btn.on { box-shadow: inset 0 0 0 1px var(--accent-2); }
+.studio-btn.on small { color: #cfe4ff; }
+.studio-btn.active small { color: rgba(255, 255, 255, .8); }
 .song-btn.active { background: var(--accent); }
 .title-input {
-  width: 190px;
-  font-size: 18px;
+  width: 260px;
+  font-size: 20px;
   font-weight: 600;
   background: transparent;
   border: 1px solid transparent;
@@ -890,7 +898,6 @@ body.dragging-vel, body.dragging-vel * { cursor: ns-resize !important; }
 /* ================================================================== */
 /* Console de mixage                                                    */
 /* ================================================================== */
-.mixer-btn { height: 32px; padding: 0 12px; font-size: 13px; }
 .mixer-btn.active { background: var(--accent); }
 body.mixer-open #workspace { display: none; }
 .mixer {
@@ -2037,7 +2044,6 @@ svg.g-big { width: 100%; height: auto; background: #1d1d22; border-radius: 8px; 
 .arp-brand { font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #c9a6ff; padding: 3px 8px; border: 1px solid #5b4a80; border-radius: 6px; align-self: center; }
 
 /* ---------- Band : groupe de musiciens virtuels (js/band.js) ---------- */
-.band-btn { height: 32px; padding: 0 12px; font-size: 13px; }
 .dlg-picker .dlg-two, .dlg-picker #dlgLenRow { display: none; }
 
 dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, calc(100vh - 16px)); max-width: none; max-height: none; }

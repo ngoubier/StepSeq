@@ -48,7 +48,7 @@ SS.harmonyPanel = (() => {
 
   function updateButton() {
     const k = key();
-    $('#keyLabel').textContent = 'Key : ' + (k ? H().label(k) : '—');
+    $('#keyLabel').textContent = k ? H().label(k) : 'Pas de tonalité';
     $('#keyBtn').classList.toggle('on', !!k);
     $('#keyBtn').title = `Key, harmonie de la scène « ${scene().name} » : émotion, tonalité, accords, couches, vérification`;
   }
