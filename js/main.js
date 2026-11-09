@@ -345,7 +345,31 @@
   }
 
   /** Fenêtre Band : crée d'un coup les pistes du groupe (vierges de notes). */
-  function addBandTracks(list, tempo) {
+  /** Pistes créées par la fenêtre Band (marquées track.band). */
+  const bandTracks = () => project.tracks.filter((t) => t.band);
+  /** Une piste a-t-elle des notes, dans la scène en cours ou une autre ? */
+  function hasNotes(t) {
+    const filled = (d) => !!d && ((Array.isArray(d.steps) && d.steps.some((v) => v > 0)) || (Array.isArray(d.events) && d.events.length > 0));
+    return filled(t) || project.scenes.some((sc) => sc.data && filled(sc.data[t.id]));
+  }
+  /** Retire des pistes (et leurs notes dans toutes les scènes). Renvoie les ids retirés. */
+  function removeTracks(list) {
+    const ids = new Set(list.map((t) => t.id));
+    project.tracks = project.tracks.filter((t) => !ids.has(t.id));
+    project.scenes.forEach((sc) => sc.data && ids.forEach((id) => delete sc.data[id]));
+    ids.forEach((id) => {
+      state.openRolls.delete(id);
+      SS.audio.removeTrack(id);
+    });
+    return ids;
+  }
+
+  function addBandTracks(list, tempo, { replace = false } = {}) {
+    let removed = [];
+    if (replace) {
+      removed = bandTracks();
+      removeTracks(removed);
+    }
     if (tempo) {
       project.tempo = tempo;
       $('#tempo').value = tempo;
@@ -353,13 +377,32 @@
     }
     const created = list.map((opts) => {
       const t = SS.newTrack(opts, project);
+      if (opts.band) t.band = { ...opts.band };
       project.tracks.push(t);
       return t;
     });
+    // un sidechain qui écoutait une piste remplacée suit la nouvelle piste du même rôle (le kick…), sinon il est coupé
+    if (removed.length) {
+      const byKey = new Map(created.map((t) => [t.band && t.band.key, t.id]));
+      const oldKey = new Map(removed.map((t) => [t.id, t.band.key]));
+      project.tracks.forEach((t) => {
+        if (!t.fx || !oldKey.has(t.fx.scSource)) return;
+        const to = byKey.get(oldKey.get(t.fx.scSource));
+        if (to) t.fx.scSource = to;
+        else delete t.fx.scSource;
+      });
+      SS.audio.applyAllFx(project);
+    }
     SS.ui.renderAll();
     created.forEach((t) => SS.audio.prepareTrack(t));
     changed();
-    SS.ui.toast(`Band : ${created.length} piste${created.length > 1 ? 's' : ''} créée${created.length > 1 ? 's' : ''}${tempo ? ` · tempo ${tempo} BPM` : ''}.`);
+    const pl = (n, w) => `${n} ${w}${n > 1 ? 's' : ''}`;
+    SS.ui.toast(
+      `Band : ${pl(created.length, 'piste')} ${created.length > 1 ? 'créées' : 'créée'}` +
+        (removed.length ? `, ${pl(removed.length, 'ancienne piste')} Band ${removed.length > 1 ? 'remplacées' : 'remplacée'}` : '') +
+        (tempo ? ` · tempo ${tempo} BPM` : '') +
+        '.'
+    );
     requestAnimationFrame(() => {
       const el = created[0] && document.querySelector(`.track[data-id="${created[0].id}"]`);
       el && el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -485,7 +528,7 @@
     editTrack,
     deleteTrack,
   });
-  SS.band.init({ project: () => project, openTrackDialog: (t, init) => SS.ui.openTrackDialog(t, init), apply: addBandTracks });
+  SS.band.init({ project: () => project, openTrackDialog: (t, init) => SS.ui.openTrackDialog(t, init), apply: addBandTracks, bandTracks, hasNotes });
   initHeader();
   initKeys();
   setProject(loadAutosave() || demoProject());

@@ -62,6 +62,10 @@ Le bouton **Band** de l'en-tête ouvre une grande fenêtre (`js/band.js`, catalo
 **Fermer et créer les pistes** crée les pistes, vierges de notes (et applique le tempo si la case est cochée) ;
 **Annuler** / Échap ferme sans rien créer.
 
+Les pistes créées par Band sont marquées dans le projet. Si le projet en contient déjà, une confirmation propose
+de **remplacer** ces pistes Band par le nouveau groupe (en signalant celles qui contiennent des notes ; Ctrl+Z pour
+revenir en arrière) ou de **garder et ajouter**. Les pistes créées sans Band ne sont jamais supprimées.
+
 ### Pistes instrument
 
 Le bouton à curseurs de l'en-tête ouvre la fenêtre de **sound design** (oscillateur, filtre cutoff / résonance / enveloppe, ADSR, glide, niveau, panoramique, saturation), inspirée des paramètres de strudel.cc :

@@ -80,3 +80,17 @@ test('choix → options de piste compatibles avec SS.newTrack', () => {
   const i = B.choiceOpts('dirt_moog', 'mono');
   assert.deepEqual([i.type, i.family, i.instrument], ['instrument', 'bass', 'dirt_moog']);
 });
+
+test('la marque Band d’une piste est gardée à l’enregistrement / l’ouverture, et nettoyée', () => {
+  require('../js/arp.js');
+  require('../js/project.js');
+  const p = SS.newProject();
+  const opts = { ...B.choiceOpts('syn_moogbass', 'mono'), name: 'Basse', color: '#3fcf3f' };
+  const band = SS.newTrack(opts, p);
+  band.band = { style: 'synthwave', preset: 'nightcall', musician: 'bass', key: 'bass', extra: 'x'.repeat(10) };
+  const user = SS.newTrack(opts, p);
+  p.tracks.push(band, user);
+  const back = SS.normalizeProject(JSON.parse(SS.serialize(p)));
+  assert.deepEqual(back.tracks[0].band, { style: 'synthwave', preset: 'nightcall', musician: 'bass', key: 'bass' });
+  assert.equal(back.tracks[1].band, undefined);
+});

@@ -147,6 +147,11 @@ SS.normalizeProject = (data) => {
     if (t.mix && typeof t.mix === 'object') track.mix = SS.cleanMix(t.mix);
     else delete track.mix;
     if (!(t.mixProfile && typeof t.mixProfile === 'object' && typeof t.mixProfile.name === 'string')) delete track.mixProfile;
+    // piste créée par la fenêtre Band (js/band.js) : on garde seulement la marque attendue
+    if (t.band && typeof t.band === 'object' && typeof t.band.key === 'string') {
+      track.band = {};
+      ['style', 'preset', 'musician', 'key'].forEach((k) => typeof t.band[k] === 'string' && t.band[k].length < 40 && (track.band[k] = t.band[k]));
+    } else delete track.band;
     track.mute = !!t.mute;
     track.solo = !!t.solo;
     if (t.type === 'drum') {

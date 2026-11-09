@@ -89,7 +89,10 @@ SS.band = (() => {
     return B().pieceOpts(st.kit, pc.piece);
   }
 
-  /** Pistes à créer : [{ opts, name, color }] */
+  /** Marque d'une piste créée par Band (gardée dans le projet) : sert à la retrouver pour la remplacer. */
+  const tag = (p, mu, sound) => ({ style: S.styleId, preset: p.id, musician: mu.id, key: mu.role + (sound ? ':' + sound : '') });
+
+  /** Pistes à créer : [{ opts, name, color, band }] */
   function plannedTracks() {
     const p = preset();
     if (!p) return [];
@@ -103,11 +106,11 @@ SS.band = (() => {
         ms.pieces.filter((pc) => pc.on).forEach((pc) => {
           const info = pieceInfo(mu, pc);
           const name = mu.role === 'perc' ? `Percu · ${info.label}` : info.label;
-          out.push({ ...info.opts, name, color });
+          out.push({ ...info.opts, name, color, band: tag(p, mu, info.opts.sound) });
         });
       } else {
         const o = instOpts(mu);
-        out.push({ ...o, category: o.category || catOf(mu), name: roleOf(mu).short, color });
+        out.push({ ...o, category: o.category || catOf(mu), name: roleOf(mu).short, color, band: tag(p, mu) });
       }
     });
     return out;
@@ -476,9 +479,75 @@ SS.band = (() => {
 
   function finish(create) {
     const tracks = create ? plannedTracks() : [];
+    if (create && tracks.length && app.bandTracks().length) return showConfirm(tracks);
+    close(tracks, false);
+  }
+  function close(tracks, replace) {
     const p = preset();
-    el.close(create ? 'ok' : 'cancel');
-    if (create && tracks.length) app.apply(tracks, $('#bandTempo').checked && p ? p.tempo : null);
+    hideConfirm();
+    el.close(tracks.length ? 'ok' : 'cancel');
+    if (tracks.length) app.apply(tracks, $('#bandTempo').checked && p ? p.tempo : null, { replace });
+  }
+
+  /* ---------- Confirmation : le projet a déjà des pistes Band ---------- */
+  function presetTitle(t) {
+    const st = B().STYLES.find((x) => x.id === t.band.style);
+    const p = st && st.presets.find((x) => x.id === t.band.preset);
+    return p ? `« ${p.song} »` : null;
+  }
+  function showConfirm(tracks) {
+    const old = app.bandTracks();
+    const userCount = app.project().tracks.length - old.length;
+    const withNotes = old.filter((t) => app.hasNotes(t));
+    const songs = [...new Set(old.map(presetTitle).filter(Boolean))];
+    const n = old.length;
+    const pl = (k, one, many) => (k > 1 ? many : one);
+    const box = $('#bandConfirm');
+    box.replaceChildren(
+      h(
+        'div',
+        { class: 'bcf-card', role: 'alertdialog', 'aria-modal': 'true', 'aria-labelledby': 'bcfTitle', 'aria-describedby': 'bcfText' },
+        h('h3', { id: 'bcfTitle' }, 'Des pistes Band existent déjà'),
+        h(
+          'p',
+          { id: 'bcfText' },
+          `Le projet contient ${n} ${pl(n, 'piste créée', 'pistes créées')} par Band`,
+          songs.length ? ` (inspiration ${songs.join(', ')})` : '',
+          '. Veux-tu les remplacer par le nouveau groupe ?'
+        ),
+        h(
+          'div',
+          { class: 'bcf-list' },
+          ...old.map((t) =>
+            h('span', { class: 'bcf-track' + (app.hasNotes(t) ? ' notes' : ''), style: `--c:${t.color}`, title: app.hasNotes(t) ? 'Contient des notes' : 'Vide' }, t.name, app.hasNotes(t) ? h('b', {}, '♪') : null)
+          )
+        ),
+        withNotes.length
+          ? h('p', { class: 'bcf-warn' }, `⚠ ${withNotes.length} ${pl(withNotes.length, 'de ces pistes contient', 'de ces pistes contiennent')} des notes : elles seront perdues (Ctrl+Z pour revenir en arrière).`)
+          : null,
+        h(
+          'p',
+          { class: 'bcf-keep' },
+          userCount > 0
+            ? `✓ Tes ${userCount} ${pl(userCount, 'piste créée', 'pistes créées')} sans Band ${pl(userCount, 'est conservée', 'sont conservées')}.`
+            : 'Aucune autre piste dans le projet.'
+        ),
+        h(
+          'div',
+          { class: 'bcf-actions' },
+          h('button', { type: 'button', class: 'btn', id: 'bcfBack', onclick: hideConfirm }, 'Retour'),
+          h('span', { class: 'spacer' }),
+          h('button', { type: 'button', class: 'btn', id: 'bcfAdd', onclick: () => close(tracks, false) }, 'Garder et ajouter'),
+          h('button', { type: 'button', class: 'btn btn-danger', id: 'bcfReplace', onclick: () => close(tracks, true) }, `Remplacer les ${n} ${pl(n, 'piste', 'pistes')} Band`)
+        )
+      )
+    );
+    box.hidden = false;
+    requestAnimationFrame(() => $('#bcfReplace').focus());
+  }
+  function hideConfirm() {
+    const box = $('#bandConfirm');
+    if (box) box.hidden = true;
   }
 
   function init(appApi) {
@@ -491,7 +560,9 @@ SS.band = (() => {
     // Échap = annuler (rien n'est créé)
     el.addEventListener('cancel', (e) => {
       e.preventDefault();
-      finish(false);
+      // Échap ferme d'abord la confirmation, puis la fenêtre
+      if (!$('#bandConfirm').hidden) hideConfirm();
+      else finish(false);
     });
     // la barre d'espace ne lance pas la lecture quand la fenêtre est ouverte
     el.addEventListener('keydown', (e) => e.stopPropagation());

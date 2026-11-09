@@ -2077,3 +2077,18 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
   .band-panel { border-left: 0; border-top: 1px solid var(--line); }
   .band-mus { width: 112px; }
 }
+
+/* Band : confirmation quand le projet a déjà des pistes Band */
+.band-shell { position: relative; }
+.band-confirm { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; padding: 16px; background: rgba(8, 8, 12, .62); border-radius: 14px; }
+.bcf-card { width: min(560px, 100%); max-height: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 20px 22px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); box-shadow: 0 20px 60px rgba(0, 0, 0, .6); }
+.bcf-card h3 { margin: 0; font-size: 18px; }
+.bcf-card p { margin: 0; line-height: 1.45; }
+.bcf-list { display: flex; flex-wrap: wrap; gap: 6px; max-height: 150px; overflow-y: auto; padding: 2px; }
+.bcf-track { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px 3px 8px; border-radius: 12px; border: 1px solid var(--line); border-left: 4px solid var(--c); background: var(--panel-2); font-size: 12px; }
+.bcf-track b { color: #e0b44c; font-weight: 700; }
+.bcf-warn { padding: 8px 10px; border-radius: 8px; background: rgba(224, 180, 76, .12); color: #f0c860; font-size: 13px; }
+.bcf-keep { color: #7fd88a; font-size: 13px; }
+.bcf-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; }
+.bcf-actions .btn-danger { background: #a3262e; color: #fff; }
+.bcf-actions .btn-danger:hover { background: #bd2f38; }
