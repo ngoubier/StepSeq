@@ -116,8 +116,9 @@
         <tr><td>Tempo (BPM)</td><td>Vitesse en noires par minute, de 20 à 300</td></tr>
         <tr><td>Mesure</td><td>Chiffrage : 4/4 par défaut, de 1 à 12 temps, en /4 ou /8</td></tr>
         <tr><td>Mesures</td><td>Longueur de la boucle : 1, 2, 4, 8, 16, 32 ou 64 mesures. En ajoutant des mesures, le motif existant est recopié dans les nouvelles ; le bouton « Laisser vides » du message qui s'affiche les vide.</td></tr>
-        <tr><td>▶ / ❚❚ (bouton vert)</td><td>Lance la lecture ; pendant la lecture il devient Pause. En pause, il clignote et reprend exactement là où le morceau s'était arrêté.</td></tr>
-        <tr><td>■</td><td>Arrête la lecture et revient au début</td></tr>
+        <tr><td>▶ / ❚❚ (bouton vert)</td><td>Lance la lecture à partir du curseur (le début, sauf si tu as cliqué sur la règle des mesures) ; pendant la lecture il devient Pause. En pause, il clignote et reprend exactement là où le morceau s'était arrêté, ou là où tu as placé le curseur.</td></tr>
+        <tr><td>■</td><td>Arrête la lecture et ramène le curseur au début</td></tr>
+        <tr><td>Règle des mesures</td><td>La ligne des numéros au-dessus des pistes (1, .2, .3…). Un clic sur une case place le curseur de lecture sur ce pas (repère vert) : la lecture partira de là. Pendant la lecture, elle y saute aussitôt.</td></tr>
         <tr><td>Afficheur</td><td>Position en cours : mesure . temps . double-croche</td></tr>
         <tr><td>↶ / ↷</td><td>Annuler / rétablir les dernières actions (jusqu'à 100) : notes, pas, pistes, sons, effets, scènes, tempo… Un glisser (volume, curseur, longueur) compte pour une seule action.</td></tr>
         <tr><td>Band · Key · Song · Mix</td><td>Les fenêtres de travail, regroupées : le groupe de musiciens virtuels, l'harmonie de la scène (tonalité affichée sur le bouton), les scènes et l'arrangement, la console de mixage</td></tr>
@@ -384,7 +385,7 @@
       </table></div>
       <p><b>Créer</b> donne la tonalité et l'émotion à la scène, pose les accords (un par mesure) et écrit les couches cochées. Ctrl+Z annule. <b>Choisir la tonalité moi-même</b> passe directement aux onglets.</p>
       <h3>Les onglets, pour modifier et vérifier</h3>
-      <p>En haut : la tonique, le mode et <b>Détecter</b>, qui estime la tonalité d'après les notes de la scène. C'est une estimation : Ré mineur et Fa majeur ont les mêmes notes, et c'est la mélodie, la basse et les cadences qui font entendre l'une ou l'autre. En bas : la piste qui reçoit les accords.</p>
+      <p>La barre de titre ne contient que le nom de la fenêtre et la croix de fermeture. Juste dessous, une barre d'outils : la scène, la tonique, le mode, <b>Détecter</b> et <b>Assistant</b>. <b>Détecter</b> lit les notes des pistes Instrument et Synthé de la scène (pas la batterie), reconnaît les accords posés et estime la tonalité ; le résultat s'affiche dans un bandeau sous la barre d'outils : la tonalité choisie, puis chaque accord avec son degré (entouré d'orange s'il sort de la tonalité). Il marche aussi depuis l'assistant, pour une scène qui a déjà des accords mais pas encore de tonalité. C'est une estimation : La mineur et Do majeur ont les mêmes notes, et c'est la mélodie, la basse et les cadences qui font entendre l'une ou l'autre ; le bouton <b>Plutôt … ?</b> du bandeau bascule sur l'autre. En bas : la piste qui reçoit les accords.</p>
       <div class="table-wrap"><table>
         <tr><th>Onglet</th><th>Contenu</th></tr>
         <tr><td>1 · Ambiance</td><td>Les modes du plus lumineux au plus sombre, avec leurs émotions : Lydien (sérénité), Majeur ionien (joie, tendresse, espoir, triomphe), Mixolydien (euphorie), Dorien (mélancolie lumineuse, ambivalence), Mineur naturel éolien (tristesse, nostalgie), Mineur harmonique (suspense), Phrygien (angoisse, mystère). Cliquez une émotion pour voir ses trois grilles ; « En savoir plus » donne les repères, les réserves, la mélodie conseillée et les essais A/B.</td></tr>
@@ -446,10 +447,18 @@
       <p><b>Exercice (10 minutes)</b> : en La mineur, posez Am | Dm | Em | Am avec la palette, écoutez, puis remplacez Em par E7 (Emprunts utiles). Identifiez le Sol♯ de E7 et écoutez son attraction vers La. L'analyse signale E7 comme emprunt au mineur harmonique.</p>
 
       <h2 id="chanson">Mode chanson</h2>
-      <p>Le bouton <b>Song</b> de la barre du haut ouvre la fenêtre <b>Song</b>, qui transforme une boucle en morceau complet. Elle a deux étages : les <b>scènes</b> et l'<b>arrangement</b>. Sa case <b>Garder le panneau d'arrangement affiché</b> laisse ce même panneau visible sous la barre du haut quand la fenêtre est fermée ; décochée, il est masqué et on passe par Song.</p>
+      <p>Le bouton <b>Song</b> de la barre du haut ouvre la fenêtre <b>Song</b>, qui transforme une boucle en morceau complet. À gauche, les <b>scènes</b> en tuiles ; à droite, l'<b>arrangement</b>.</p>
+      <ul>
+        <li><b>Tuile de scène</b> : un clic la sélectionne (elle s'ouvre dans la grille). ✎ (ou double-clic sur le nom) la renomme, ⧉ la duplique juste en dessous, → l'ajoute à la fin de l'arrangement, × la supprime. Le menu de longueur change son nombre de mesures. La tuile résume la scène : tonalité, accords reconnus (une grille répétée s'affiche une fois, avec son nombre de tours), pistes qui jouent (un carré de couleur par piste) et nombre de notes.</li>
+        <li><b>Ranger les scènes</b> : glisser une tuile vers le haut ou le bas de la colonne (ou Alt+↑ / Alt+↓ sur la tuile sélectionnée au clavier). Les lettres A, B, C… suivent l'ordre.</li>
+        <li><b>Arranger</b> : glisser une tuile dans la zone Arrangement ; un trait bleu montre où le bloc sera inséré. Un bloc se déplace aussi en le glissant. − / + règlent ses répétitions, × le retire, un clic le choisit comme point de départ de la lecture.</li>
+        <li><b>+ Nouvelle scène</b> crée une scène vide (mêmes pistes, sans notes).</li>
+        <li>La case <b>Garder le panneau d'arrangement affiché</b> laisse un panneau compact sous la barre du haut quand la fenêtre est fermée ; c'est là que se choisit le mode de lecture <b>Boucle / Chanson</b>.</li>
+      </ul>
+      <p>Le glisser-déposer marche à la souris comme au doigt.</p>
       <div class="table-wrap"><table>
         <tr><th>Élément</th><th>Ce que c'est</th><th>Comment l'utiliser</th></tr>
-        <tr><td>Scène</td><td>Une partie du morceau (Couplet, Refrain, Intro, Pont…) : les pas et les notes de toutes les pistes, avec son propre nombre de mesures</td><td>Clic sur une scène pour l'éditer dans la grille. <b>+ Copie</b> crée une scène qui reprend la scène en cours, <b>+ Vide</b> une scène sans notes. Double-clic pour renommer, × pour supprimer.</td></tr>
+        <tr><td>Scène</td><td>Une partie du morceau (Couplet, Refrain, Intro, Pont…) : les pas et les notes de toutes les pistes, avec son propre nombre de mesures</td><td>Clic sur une scène pour l'éditer dans la grille. <b>+ Copie</b> crée une scène qui reprend la scène en cours, <b>+ Nouvelle scène</b> une scène sans notes. Double-clic pour renommer, × pour supprimer.</td></tr>
         <tr><td>Arrangement</td><td>L'ordre des scènes dans la chanson, chacune répétée un certain nombre de fois</td><td>« + Ajouter… » ajoute un bloc. − / + règlent les répétitions, ‹ / › déplacent le bloc, × le retire. La durée totale s'affiche à droite.</td></tr>
         <tr><td>Boucle / Chanson</td><td>Le mode de lecture</td><td><b>Boucle</b> : la scène en cours tourne en boucle (pratique pour composer). <b>Chanson</b> : la lecture enchaîne les blocs, et la grille affiche la scène jouée.</td></tr>
         <tr><td>Point de départ</td><td>Le bloc par lequel la lecture commence</td><td>Clic sur un bloc : il est marqué d'un trait vert, et sa scène s'ouvre. Le bloc joué est en vert, avec sa répétition en cours (2/4).</td></tr>

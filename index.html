@@ -100,8 +100,8 @@
     </div>
   </header>
 
-  <!-- Panneau d'arrangement : affiché sous la barre du haut si la case « Garder le panneau affiché » est cochée ;
-       pendant que la fenêtre Song est ouverte, il est déplacé dans cette fenêtre (js/song.js). -->
+  <!-- Panneau d'arrangement compact : affiché sous la barre du haut si la case « Garder le panneau affiché »
+       de la fenêtre Song est cochée (js/song.js). -->
   <div id="songDock" class="song-dock">
   <section id="songBar" class="songbar" aria-label="Arrangement">
     <div class="songbar-row">
@@ -112,7 +112,7 @@
       <span class="songbar-label">Scènes</span>
       <div id="sceneList" class="scene-list"></div>
       <button type="button" id="sceneCopy" class="btn btn-small" title="Nouvelle scène qui reprend le contenu de la scène en cours">+ Copie</button>
-      <button type="button" id="sceneEmpty" class="btn btn-small" title="Nouvelle scène vide (mêmes pistes, sans notes)">+ Vide</button>
+      <button type="button" id="sceneEmpty" class="btn btn-small" title="Nouvelle scène vide (mêmes pistes, sans notes)">+ Nouvelle scène</button>
     </div>
     <div class="songbar-row">
       <span class="songbar-label">Arrangement</span>
@@ -210,7 +210,7 @@
     </div>
   </dialog>
 
-  <!-- Fenêtre Song : scènes et arrangement (js/song.js) -->
+  <!-- Fenêtre Song : scènes (panneau vertical) et arrangement, glisser-déposer (js/song.js) -->
   <dialog id="songDialog" class="song-dialog" aria-labelledby="songDlgTitle">
     <div class="song-shell">
       <header class="song-head">
@@ -220,7 +220,26 @@
           <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </header>
-      <div id="songSlot" class="song-slot"></div>
+      <div class="sg-body">
+        <aside class="sg-scenes" aria-labelledby="sgScenesTitle">
+          <div class="sg-col-head">
+            <h3 id="sgScenesTitle">Scènes</h3>
+            <small class="dlg-hint">glisser ⠿ pour ranger · vers la droite pour arranger</small>
+          </div>
+          <div id="sgSceneList" class="sg-scene-list" role="list"></div>
+          <button type="button" id="sgNewScene" class="btn sg-new" title="Nouvelle scène vide (mêmes pistes, sans notes)">+ Nouvelle scène</button>
+        </aside>
+        <section class="sg-arr" aria-labelledby="sgArrTitle">
+          <div class="sg-col-head">
+            <h3 id="sgArrTitle">Arrangement</h3>
+            <small class="dlg-hint">la chanson joue les blocs dans l'ordre · clic : partir de ce bloc · glisser pour déplacer</small>
+            <span class="spacer"></span>
+            <label class="song-loop"><input type="checkbox" id="sgLoop"> Boucler</label>
+            <span id="sgTotal" class="song-total"></span>
+          </div>
+          <div id="sgBlocks" class="sg-blocks" role="list" aria-label="Blocs de l'arrangement"></div>
+        </section>
+      </div>
       <footer class="song-foot">
         <label class="song-pin"><input type="checkbox" id="songPin"> Garder le panneau d'arrangement affiché sous la barre du haut</label>
         <span class="spacer"></span>
@@ -507,15 +526,22 @@
     <form method="dialog" id="harmonyForm">
       <div class="hm-top">
         <h2 id="hmTitle">Key</h2>
+        <span class="spacer"></span>
+        <button type="submit" class="btn btn-icon hm-x" title="Fermer (Échap)" aria-label="Fermer">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div class="hm-toolbar">
         <label class="field hm-scenepick" title="L'harmonie est propre à chaque scène (intro, couplet, refrain…)"><span>Scène</span><select id="hmScene"></select></label>
         <div class="hm-key" id="hmKeyBar">
+          <span class="hm-key-label">Tonalité</span>
           <select id="hmTonic" aria-label="Tonique"></select>
           <select id="hmMode" aria-label="Mode"></select>
-          <button type="button" id="hmDetect" class="btn btn-small" title="Estimer la tonalité d'après les notes de cette scène">Détecter</button>
+          <button type="button" id="hmDetect" class="btn btn-small" title="Estimer la tonalité et reconnaître les accords d'après les notes de cette scène">Détecter</button>
           <button type="button" id="hmWizBtn" class="btn btn-small" title="Repartir d'une émotion, étape par étape">Assistant</button>
         </div>
-        <button type="submit" class="hm-x" aria-label="Fermer">×</button>
       </div>
+      <div class="hm-detect" id="hmDetectOut" role="status" hidden></div>
       <div class="hm-tabs" id="hmTabs" role="tablist">
         <button type="button" role="tab" data-tab="amb">1 · Ambiance</button>
         <button type="button" role="tab" data-tab="acc">2 · Accords</button>
@@ -601,7 +627,7 @@
     </form>
   </dialog>
 
-  <div id="toast" role="status"></div>
+  <div id="toast" role="status" popover="manual"></div>
 
   <script src="js/library.js"></script>
   <script src="js/dirt.js"></script>

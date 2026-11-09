@@ -186,6 +186,15 @@ SS.ui = (() => {
       );
     }
     t.classList.toggle('has-action', !!action);
+    // couche supérieure (popover) : le message passe au-dessus d'une fenêtre ouverte (Key, Band…)
+    if (t.showPopover) {
+      try {
+        if (t.matches(':popover-open')) t.hidePopover();
+        t.showPopover();
+      } catch (e) {
+        /* navigateur sans popover : le message reste sous les fenêtres */
+      }
+    }
     t.classList.add('show');
     clearTimeout(toast._t);
     toast._t = setTimeout(() => t.classList.remove('show'), ms);
