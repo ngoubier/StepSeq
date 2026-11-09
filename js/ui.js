@@ -274,7 +274,7 @@ SS.ui = (() => {
           if (grip) grip.focus();
         },
       }),
-      h('button', { class: 'th-btn', title: 'Écouter', html: ICONS.play, onclick: () => SS.audio.preview(track, previewNotes(track)) }),
+      h('button', { class: 'th-btn th-play', title: 'Écouter', html: ICONS.play, onclick: () => SS.audio.preview(track, previewNotes(track)) }),
       h('button', {
         class: 'th-btn box mute' + (track.mute ? ' on' : ''),
         title: 'Muet',
@@ -323,7 +323,7 @@ SS.ui = (() => {
       }),
       track.type === 'instrument'
         ? h('button', {
-            class: 'th-btn' + (isOpen ? ' open' : ''),
+            class: 'th-btn th-roll' + (isOpen ? ' open' : ''),
             title: 'Afficher / masquer le piano roll',
             html: ICONS.chevron,
             onclick: () => {
@@ -335,7 +335,7 @@ SS.ui = (() => {
         : null,
       track.type === 'instrument'
         ? h('button', {
-            class: 'th-btn',
+            class: 'th-btn th-sd',
             title: SS.isAnalog(track) ? `Sound design : façade du ${SS.findAnalog(track.instrument).label}` : 'Sound design',
             html: ICONS.sliders,
             onclick: () => (SS.isAnalog(track) ? SS.junoPanel.open(track) : SS.soundDesign.open(track)),
@@ -346,8 +346,8 @@ SS.ui = (() => {
         title: 'Effets : chorus, delay, reverb',
         onclick: () => SS.fx.open(track),
       }, 'FX'),
-      h('button', { class: 'th-btn', title: 'Modifier la piste', html: ICONS.gear, onclick: () => app.editTrack(track) }),
-      h('button', { class: 'th-btn', title: 'Supprimer la piste', html: ICONS.close, onclick: () => app.deleteTrack(track) })
+      h('button', { class: 'th-btn th-edit', title: 'Modifier la piste', html: ICONS.gear, onclick: () => app.editTrack(track) }),
+      h('button', { class: 'th-btn th-del', title: 'Supprimer la piste', html: ICONS.close, onclick: () => app.deleteTrack(track) })
     );
 
     const grid = h('div', { class: 'grid track-grid' });
