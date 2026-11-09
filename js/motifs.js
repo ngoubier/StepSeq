@@ -85,3 +85,38 @@ SS.MOTIF_CATS = [
     m('drunk', 'random', 'Marche ivre', { mode: 'drunk' }, 'marche hasard'),
   ];
 })();
+
+/*
+ * Motif reconnu dans des réglages d'arpège (fenêtre de l'arpégiateur et menu du piano roll),
+ * et réglages à appliquer pour un motif. Les silences réglés pas à pas ne changent pas le motif reconnu,
+ * sauf pour les motifs qui ont leur propre rythme (cherchés en premier).
+ */
+SS.motifOf = (arp) => {
+  const A = SS.Arp;
+  const a = A.normalize(arp);
+  const same = (x, y) => JSON.stringify(x) === JSON.stringify(y);
+  const cands = SS.MOTIFS.filter((m) => {
+    const x = A.normalize({ ...m.arp });
+    if (x.mode !== a.mode || (a.mode === 'pattern' && x.pattern !== a.pattern)) return false;
+    return !m.arp.octaves || m.arp.octaves === a.octaves;
+  });
+  const withRhythm = cands.find((m) => {
+    if (!m.arp.rhythm) return false;
+    const x = A.normalize({ ...m.arp });
+    return x.rhythm.type === a.rhythm.type && (x.rhythm.type !== 'lane' || same(x.lanes.rhythm, a.lanes.rhythm.slice(0, x.lanes.rhythm.length)));
+  });
+  return withRhythm || cands.find((m) => !m.arp.rhythm && a.rhythm.type !== 'euclid') || null;
+};
+
+/** Réglages qui appliquent le motif m ; les silences réglés pas à pas sont gardés si l'ancien motif n'imposait pas de rythme. */
+SS.motifPatch = (arp, m) => {
+  const a = SS.Arp.normalize(arp);
+  const prev = SS.motifOf(a);
+  const keepSteps = !m.arp.rhythm && (!prev || !prev.arp.rhythm) && a.rhythm.type === 'lane';
+  const patch = { mode: m.arp.mode, pattern: m.arp.pattern || '', preset: '' };
+  if (m.arp.octaves) patch.octaves = m.arp.octaves;
+  if (keepSteps) return patch;
+  patch.rhythm = m.arp.rhythm || { ...a.rhythm, type: 'all' };
+  patch.lanes = { ...a.lanes, rhythm: (m.arp.lanes && m.arp.lanes.rhythm) || [] };
+  return patch;
+};

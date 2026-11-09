@@ -540,26 +540,14 @@ SS.arpPanel = (() => {
       /* stockage indisponible */
     }
   }
-  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   function currentMotif() {
     const a = track.arp;
-    return (
-      SS.MOTIFS.find((m) => {
-        const x = A().normalize({ ...m.arp });
-        return x.mode === a.mode && (a.mode !== 'pattern' || x.pattern === a.pattern) && x.rhythm.type === a.rhythm.type &&
-          (x.rhythm.type !== 'lane' || same(x.lanes.rhythm, a.lanes.rhythm)) && (!m.arp.octaves || m.arp.octaves === a.octaves);
-      }) || { id: '', name: 'Motif personnalisé', cat: '', arp: { mode: a.mode, pattern: a.pattern, rhythm: a.rhythm, lanes: { rhythm: a.lanes.rhythm } } }
-    );
+    return SS.motifOf(a) || { id: '', name: 'Motif personnalisé', cat: '', arp: { mode: a.mode, pattern: a.pattern, rhythm: a.rhythm, lanes: { rhythm: a.lanes.rhythm } } };
   }
   function applyMotif(m, opts) {
-    const patch = { mode: m.arp.mode, pattern: m.arp.pattern || '' };
-    if (m.arp.octaves) patch.octaves = m.arp.octaves;
-    patch.rhythm = m.arp.rhythm || { ...track.arp.rhythm, type: 'all' };
-    patch.lanes = { ...track.arp.lanes, rhythm: (m.arp.lanes && m.arp.lanes.rhythm) || [] };
-    set(patch, opts);
+    set(SS.motifPatch(track.arp, m), opts);
   }
 
-  /** Carte du motif en cours (écran principal). */
   /** Tuile du motif en cours : un clic ouvre la fenêtre de choix des motifs. */
   function motifTile() {
     const cur = currentMotif();
@@ -847,6 +835,13 @@ SS.arpPanel = (() => {
     );
   }
 
+  /** Titre de la fenêtre : « Nom de la piste — Partie » (la partie = la scène en cours, s'il y en a plusieurs ou une nommée). */
+  function panelTitle() {
+    const p = app.project();
+    const sc = p.scenes && p.scenes.length ? SS.currentScene(p) : null;
+    return sc && sc.name ? `${track.name} — ${sc.name}` : track.name;
+  }
+
   function render() {
     if (!track || sliding) return;
     if (sel != null && sel >= P()) sel = null;
@@ -865,6 +860,7 @@ SS.arpPanel = (() => {
     const sc = body.querySelector('.arp-scroll');
     if (sc) sc.scrollLeft = gridScroll;
     dlg.querySelector('.arp-undo').disabled = !undo.length;
+    dlg.querySelector('.arp-title').textContent = panelTitle();
   }
 
   function build() {
@@ -874,7 +870,7 @@ SS.arpPanel = (() => {
       h(
         'form',
         { method: 'dialog' },
-        h('div', { class: 'sd-head' }, h('h2', {}, 'Arpégiateur')),
+        h('div', { class: 'sd-head' }, h('h2', { class: 'arp-title' }, 'Arpégiateur')),
         h('div', { class: 'arp-body' }),
         h(
           'div',

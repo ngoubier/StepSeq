@@ -220,6 +220,34 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FAIL ') + m); if (!c) process
   await page.waitForTimeout(500);
   const ev = await page.evaluate(() => JSON.parse(localStorage.getItem('stepseq.autosave')).tracks.find((t) => t.category === 'arp').events);
   ok(ev.length === 1 && ev[0].notes.length === 4 && ev[0].step === 0, 'Poser sur la piste : l’accord remplit la boucle');
+  // 5. titre « piste — partie », et piano roll ⇄ fenêtre (même motif, même avec un pas en silence)
+  const title = await page.locator('#arpDialog .arp-title').textContent();
+  const expect = await page.evaluate(() => {
+    const p = JSON.parse(localStorage.getItem('stepseq.autosave'));
+    const t = p.tracks.find((x) => x.category === 'arp');
+    const sc = (p.scenes || []).find((x) => x.id === p.current) || (p.scenes || [])[0];
+    return sc ? `${t.name} — ${sc.name}` : t.name;
+  });
+  ok(title === expect, `titre de la fenêtre : « ${title} »`);
+  await page.locator('#arpDialog .dlg-footer button', { hasText: 'OK' }).click();
+  const rollMotif = page.locator('.roll-tools label', { hasText: 'Motif' }).locator('select');
+  await rollMotif.selectOption('down2');
+  await page.locator('.roll-arp').first().click();
+  ok((await page.locator('.arp-motif-text b').textContent()) === 'Double descente', 'motif choisi dans le piano roll → repris dans la fenêtre');
+  const g2 = await page.locator('.arp-grid').boundingBox();
+  const c2 = await page.evaluate(() => SS.arpPanel._info().ticks);
+  await page.mouse.click(g2.x + (g2.width / c2) * 1.5, g2.y + g2.height / 2);
+  await page.locator('.arp-step .arp-seg button', { hasText: 'Silence' }).click();
+  ok((await page.locator('.arp-motif-text b').textContent()) === 'Double descente', 'un pas en silence ne change pas le motif affiché');
+  await page.locator('#arpDialog .dlg-footer button', { hasText: 'OK' }).click();
+  await page.waitForTimeout(200);
+  ok((await rollMotif.evaluate((x) => x.options[x.selectedIndex].text)) === 'Double descente', 'retour au piano roll : même motif');
+  await rollMotif.selectOption('alberti');
+  await page.locator('.roll-arp').first().click();
+  const a5 = JSON.parse(await arpNow());
+  ok((await page.locator('.arp-motif-text b').textContent()) === 'Alberti' && a5.lanes.rhythm[1] === 0, 'changer de motif dans le piano roll garde le silence du pas 2');
+  await page.locator('#arpDialog .dlg-footer button', { hasText: 'OK' }).click();
+
   ok(errs.length === 0, 'aucune erreur JavaScript' + (errs.length ? ' : ' + errs.join(' | ') : ''));
   await b.close();
   server.close();
