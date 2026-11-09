@@ -277,21 +277,24 @@ SS.band = (() => {
     };
     const cards = mu.pick.map((tok, i) => choiceCard(B().choiceOpts(tok, cat), { active: !ms.custom && ms.pick === i, star: i === 0, onPick: () => pick(i) }));
     const catLabel = (SS.CATEGORIES.find((c) => c.id === cat) || {}).label;
+    // replaceChildren écrirait « null » en texte : on retire les absents
     panel.replaceChildren(
-      panelHead(mu, ms),
-      h('div', { class: 'bpn-sec' }, 'Instrument phare'),
-      cards[0],
-      h('div', { class: 'bpn-sec' }, 'Conseillés'),
-      ...cards.slice(1),
-      ms.custom ? h('div', { class: 'bpn-sec' }, 'Ton choix') : null,
-      ms.custom ? choiceCard(ms.custom, { active: true, onPick: () => {}, extraClass: ' custom' }) : null,
-      h(
-        'button',
-        { type: 'button', class: 'btn bpn-browse', onclick: () => browseInstrument(mu, ms) },
-        h('span', { html: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>' }),
-        'Tous les instruments…'
-      ),
-      h('p', { class: 'dlg-hint' }, `Jeu : ${catLabel}. La fenêtre « Nouvelle piste » donne accès à toute la bibliothèque (instruments et synthés).`)
+      ...[
+        panelHead(mu, ms),
+        h('div', { class: 'bpn-sec' }, 'Instrument phare'),
+        cards[0],
+        h('div', { class: 'bpn-sec' }, 'Conseillés'),
+        ...cards.slice(1),
+        ms.custom ? h('div', { class: 'bpn-sec' }, 'Ton choix') : null,
+        ms.custom ? choiceCard(ms.custom, { active: true, onPick: () => {}, extraClass: ' custom' }) : null,
+        h(
+          'button',
+          { type: 'button', class: 'btn bpn-browse', onclick: () => browseInstrument(mu, ms) },
+          h('span', { html: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>' }),
+          'Tous les instruments…'
+        ),
+        h('p', { class: 'dlg-hint' }, `Jeu : ${catLabel}. La fenêtre « Nouvelle piste » donne accès à toute la bibliothèque (instruments et synthés).`)
+      ].filter(Boolean)
     );
   }
 
@@ -381,7 +384,7 @@ SS.band = (() => {
     const n = plannedTracks().length;
     $('#bandCount').textContent = n ? `${n} piste${n > 1 ? 's' : ''} vierge${n > 1 ? 's' : ''} à créer` : 'Aucune piste';
     $('#bandCreate').disabled = !n;
-    $('#bandSong').disabled = !n || !(SS.BandSongs && preset() && SS.BandSongs[preset().id]);
+    $('#bandSongBtn').disabled = !n || !(SS.BandSongs && preset() && SS.BandSongs[preset().id]);
   }
 
   function refresh() {
@@ -601,7 +604,7 @@ SS.band = (() => {
     if (!el) return;
     $('#bandClose').addEventListener('click', () => finish(true));
     $('#bandCreate').addEventListener('click', () => finish(true));
-    $('#bandSong').addEventListener('click', finishSong);
+    $('#bandSongBtn').addEventListener('click', finishSong);
     $('#bandCancel').addEventListener('click', () => finish(false));
     // Échap = annuler (rien n'est créé)
     el.addEventListener('cancel', (e) => {
