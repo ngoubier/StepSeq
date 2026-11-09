@@ -223,6 +223,7 @@ par la fenêtre **Key** :
 |------------------|------|
 | `index.html`     | Structure de la page et dialogue d'ajout de piste |
 | `css/style.css`  | Thème et mise en page |
+| `icons/`        | Icône du projet : `stepseq.svg` (grille de pas + note, aussi logo de la barre du haut), `note-16.svg` (note seule pour le 16 px), PNG favicon 16 / 32 et icône d'écran d'accueil 180 |
 | `js/library.js`  | Catalogue généré depuis strudel.cc (125 soundfonts gm_*, VCSL) |
 | `js/dirt.js`     | Catalogue généré des banques mélodiques de Dirt-Samples |
 | `js/sounds.js`   | Catalogue des sons (batterie, familles d'instruments, accords) |
