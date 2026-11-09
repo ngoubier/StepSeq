@@ -241,6 +241,7 @@
     });
 
     $('#addTrack').addEventListener('click', addTrack);
+    $('#bandBtn').addEventListener('click', () => SS.band.open());
     $('#emptyAdd').addEventListener('click', addTrack);
     $('#play').addEventListener('click', togglePlay);
     $('#stop').addEventListener('click', stop);
@@ -339,6 +340,28 @@
     changed();
     requestAnimationFrame(() => {
       const el = document.querySelector(`.track[data-id="${track.id}"]`);
+      el && el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+  }
+
+  /** Fenêtre Band : crée d'un coup les pistes du groupe (vierges de notes). */
+  function addBandTracks(list, tempo) {
+    if (tempo) {
+      project.tempo = tempo;
+      $('#tempo').value = tempo;
+      SS.audio.applyAllFx(project);
+    }
+    const created = list.map((opts) => {
+      const t = SS.newTrack(opts, project);
+      project.tracks.push(t);
+      return t;
+    });
+    SS.ui.renderAll();
+    created.forEach((t) => SS.audio.prepareTrack(t));
+    changed();
+    SS.ui.toast(`Band : ${created.length} piste${created.length > 1 ? 's' : ''} créée${created.length > 1 ? 's' : ''}${tempo ? ` · tempo ${tempo} BPM` : ''}.`);
+    requestAnimationFrame(() => {
+      const el = created[0] && document.querySelector(`.track[data-id="${created[0].id}"]`);
       el && el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     });
   }
@@ -462,6 +485,7 @@
     editTrack,
     deleteTrack,
   });
+  SS.band.init({ project: () => project, openTrackDialog: (t, init) => SS.ui.openTrackDialog(t, init), apply: addBandTracks });
   initHeader();
   initKeys();
   setProject(loadAutosave() || demoProject());

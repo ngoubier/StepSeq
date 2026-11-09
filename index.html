@@ -61,6 +61,10 @@
         <div id="position">1 . 1 . 1</div>
         <div id="lcdTitle" class="lcd-sub"></div>
       </div>
+      <button id="bandBtn" class="btn band-btn" type="button" title="Band : monter un groupe de musiciens virtuels et créer leurs pistes">
+        <svg viewBox="0 0 24 24"><circle cx="8" cy="7" r="3"/><circle cx="16.5" cy="8" r="2.5"/><path d="M2.5 20c0-3.3 2.5-6 5.5-6s5.5 2.7 5.5 6M13.5 15.2c.9-.8 1.9-1.2 3-1.2 2.5 0 4.5 2.2 4.5 5"/></svg>
+        <span>Band</span>
+      </button>
       <button id="mixerBtn" class="btn mixer-btn" type="button" aria-pressed="false" title="Console de mixage : EQ, compresseur, limiteur, faders">
         <svg viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>
         <span>Console</span>
@@ -150,6 +154,41 @@
       <input type="checkbox" id="followPlay" checked> Suivre la lecture
     </label>
   </footer>
+
+  <!-- Band : monter un groupe de musiciens virtuels (js/band.js, catalogue js/band-presets.js) -->
+  <dialog id="bandDialog" class="band-dialog" aria-labelledby="bandTitle">
+    <div class="band-shell">
+      <header class="band-head">
+        <h2 id="bandTitle">Band <small>monter un groupe pour jouer la chanson</small></h2>
+        <span class="spacer"></span>
+        <button type="button" class="btn btn-icon" id="bandClose" title="Fermer et créer les pistes" aria-label="Fermer et créer les pistes">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </header>
+      <div class="band-body">
+        <aside class="band-side">
+          <div class="band-step"><b>1</b> Style musical</div>
+          <div class="segmented pills-nav band-styles" id="bandStyles" role="radiogroup" aria-label="Style musical"></div>
+          <p class="band-style-desc" id="bandStyleDesc"></p>
+          <div class="band-step"><b>2</b> Type de chanson</div>
+          <div class="band-presets" id="bandPresets" role="radiogroup" aria-label="Type de chanson"></div>
+        </aside>
+        <main class="band-main">
+          <div class="band-step"><b>3</b> Le groupe <small class="dlg-hint">clique sur un musicien pour choisir son instrument</small></div>
+          <div class="band-song" id="bandSong"></div>
+          <div class="band-stage" id="bandStage"></div>
+        </main>
+        <aside class="band-panel" id="bandPanel" hidden aria-live="polite"></aside>
+      </div>
+      <footer class="band-foot">
+        <label class="band-tempo"><input type="checkbox" id="bandTempo" checked> <span id="bandTempoLabel">Appliquer le tempo</span></label>
+        <span class="spacer"></span>
+        <span class="band-count" id="bandCount"></span>
+        <button type="button" class="btn" id="bandCancel">Annuler</button>
+        <button type="button" class="btn btn-accent" id="bandCreate">Fermer et créer les pistes</button>
+      </footer>
+    </div>
+  </dialog>
 
   <!-- Dialogue d'ajout / modification de piste -->
   <dialog id="trackDialog">
@@ -241,7 +280,7 @@
         <small class="dlg-hint">Après validation, le bouton <b>Sound design</b> de la piste ouvre la façade du synthé : tous ses curseurs et boutons sont réglables.</small>
       </section>
 
-      <div class="dlg-row">
+      <div class="dlg-row" id="dlgLenRow">
         <span class="dlg-label">Longueur de la piste</span>
         <div class="len-row">
           <div id="dlgLen" class="chips pills-nav" role="radiogroup" aria-label="Longueur de la piste"></div>
@@ -530,6 +569,8 @@
   <script src="js/profiles-factory.js"></script>
   <script src="js/profiles.js"></script>
   <script src="js/mixer.js"></script>
+  <script src="js/band-presets.js"></script>
+  <script src="js/band.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/main.js"></script>
 </body>
