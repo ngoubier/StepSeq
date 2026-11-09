@@ -148,7 +148,16 @@ a.btn { text-decoration: none; }
 .app-menu kbd { font: inherit; font-size: 11px; color: var(--muted); }
 .app-menu button:hover kbd, .app-menu button:focus-visible kbd { color: rgba(255, 255, 255, .75); }
 /* Band, Key, Song, Mix : regroupés */
-.topbar-group.studio { gap: 4px; padding: 3px; border-radius: 10px; background: var(--panel); }
+.topbar-group.studio {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr; /* quatre colonnes égales : chaque bouton prend la largeur du plus large */
+  gap: 4px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--panel);
+}
+.topbar-group.studio .btn { justify-content: center; min-width: 120px; }
 .song-btn { height: 32px; padding: 0 12px; font-size: 13px; }
 .song-btn.active { background: var(--accent); }
 .title-input {
