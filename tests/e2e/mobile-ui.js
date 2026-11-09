@@ -54,6 +54,25 @@ const SHOTS = process.argv[2];
     await page.click('#songBtn');
     ok(await page.locator('#songDialog[open]').count() === 1, `${name} : la fenêtre Song s’ouvre`);
     await page.click('#songClose');
+    // fenêtre Band : tout tient à l'écran, les trois boutons du pied sont visibles, le panneau du musicien aussi
+    await page.click('#bandBtn');
+    await page.waitForTimeout(400);
+    const band = await page.evaluate(() => {
+      const d = document.querySelector('#bandDialog');
+      const inView = (q) => { const r = document.querySelector(q).getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth + 0.5 && r.bottom <= innerHeight + 0.5 && r.width > 0; };
+      return { fits: d.scrollWidth <= d.clientWidth + 1 && d.getBoundingClientRect().right <= innerWidth + 0.5, buttons: ['#bandCancel', '#bandCreate', '#bandSongBtn'].every(inView) };
+    });
+    ok(band.fits && band.buttons, `${name} : fenêtre Band à l’écran, Annuler / Créer les pistes / Créer toute la chanson visibles`);
+    await page.click('#bandStage .band-mus >> nth=2');
+    await page.waitForTimeout(300);
+    const pan = await page.evaluate(() => {
+      const p = document.querySelector('#bandPanel');
+      const r = p.getBoundingClientRect();
+      const names = [...p.querySelectorAll('.bc-name')].map((n) => n.getBoundingClientRect().height);
+      return { visible: !p.hidden && r.top < innerHeight && r.bottom <= innerHeight + 1, names: names.length > 0 && names.every((h) => h > 8), nul: /null/.test(p.textContent) };
+    });
+    ok(pan.visible && pan.names && !pan.nul, `${name} : panneau du musicien lisible (noms d’instrument visibles, pas de « null »)`);
+    await page.click('#bandCancel');
     SHOTS && (await page.screenshot({ path: path.join(SHOTS, `mobile-${name.replace(/\W+/g, '-')}.png`) }));
     ok(!errs.length, `${name} : aucune erreur JavaScript` + (errs.length ? ' : ' + errs.join(' | ') : ''));
     await ctx.close();

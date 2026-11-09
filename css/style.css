@@ -2492,3 +2492,66 @@ body.sg-drag-on, body.sg-drag-on * { cursor: grabbing !important; }
   .sb-txt small { display: none; }
   #songDock { display: none !important; }
 }
+
+/* ================================================================== */
+/* Fenêtre Band sur téléphone (≤ 760 px) : plein écran, inspirations en */
+/* bandeau horizontal, musiciens plus petits, panneau du musicien en    */
+/* feuille qui monte du bas, pied avec les trois boutons visibles.      */
+/* ================================================================== */
+@media (max-width: 760px) {
+  dialog.band-dialog { width: 100vw; height: 100dvh; max-width: 100vw; max-height: 100dvh; margin: 0; border-radius: 0; border: 0; }
+  .band-confirm { border-radius: 0; }
+  .band-head { padding: 8px 10px 8px 14px; }
+  .band-head h2 { font-size: 18px; }
+  .band-head h2 small { display: none; }
+  .band-body, .band-dialog.with-panel .band-body { display: flex; flex-direction: column; overflow-y: auto; }
+  .band-side { gap: 8px; padding: 10px 12px; flex: none; }
+  .band-style-desc { font-size: 11.5px; }
+  /* inspirations : bandeau horizontal qui défile au doigt */
+  .band-presets { flex-direction: row; max-height: none; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x proximity; padding: 2px 2px 6px; margin: 0 -12px; padding-left: 12px; padding-right: 12px; }
+  .band-preset { flex: 0 0 auto; width: 172px; grid-template-columns: 1fr; padding: 7px 10px; scroll-snap-align: start; }
+  .band-preset .bp-song { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .band-preset .bp-artist, .band-preset .bp-meta { grid-column: 1; grid-row: auto; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .band-main { gap: 8px; padding: 10px 12px; flex: none; }
+  .band-step { flex-wrap: wrap; }
+  .band-step small { flex: 1 1 100%; margin: 0 0 0 28px; }
+  .bs-title { font-size: 14px; }
+  .bs-desc { font-size: 12px; }
+  /* scène : musiciens en grille serrée */
+  .band-stage { min-height: 0; flex: none; overflow: visible; padding: 14px 8px; gap: 8px; }
+  .stage-back { display: none; }
+  .stage-row { gap: 8px; }
+  .stage-row-0 .band-mus { transform: none; }
+  .band-mus { width: calc((100% - 16px) / 3); min-width: 96px; padding: 8px 4px 6px; }
+  .bm-avatar { width: 44px; height: 44px; }
+  .bm-avatar svg { width: 24px; height: 24px; }
+  .bm-role { font-size: 12px; }
+  .bm-badge { top: 4px; right: 10px; }
+  /* panneau du musicien : feuille en bas de l'écran, par-dessus la scène, au-dessus du pied */
+  .band-panel {
+    /* collé en bas de la zone qui défile : il reste juste au-dessus du pied (les trois boutons restent accessibles) */
+    position: sticky; bottom: 0; z-index: 4; flex: none; max-height: 72%;
+    border-left: 0; border-top: 1px solid var(--line); border-radius: 16px 16px 0 0;
+    box-shadow: 0 -12px 40px rgba(0, 0, 0, .6); padding: 12px 14px calc(14px + env(safe-area-inset-bottom));
+  }
+  .band-panel > * { flex-shrink: 0; }
+  /* pied : réglage du tempo et nombre de pistes, puis les boutons */
+  .band-foot { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 8px 12px calc(8px + env(safe-area-inset-bottom)); }
+  .band-foot .spacer { display: none; }
+  .band-tempo { grid-column: 1 / -1; font-size: 12px; }
+  .band-count { grid-column: 1 / -1; font-size: 12px; margin-top: -4px; }
+  .band-foot .btn { justify-content: center; white-space: normal; text-align: center; height: auto; min-height: 40px; padding: 6px 10px; }
+  #bandSongBtn { grid-column: 1 / -1; min-height: 44px; font-weight: 600; }
+}
+/* Band sur téléphone à l'horizontale : pied sur une ligne, panneau plus haut */
+@media (max-height: 500px) and (max-width: 1000px) {
+  dialog.band-dialog { width: 100vw; height: 100dvh; max-width: 100vw; max-height: 100dvh; margin: 0; border-radius: 0; border: 0; }
+  .band-head { padding: 6px 10px 6px 14px; }
+  .band-head h2 small { display: none; }
+  .band-foot { display: flex; flex-wrap: nowrap; gap: 8px; padding: 6px 12px; }
+  .band-foot .spacer { display: block; }
+  .band-count { display: none; }
+  .band-tempo { font-size: 12px; margin: 0; grid-column: auto; }
+  .band-foot .btn { height: 34px; min-height: 0; white-space: nowrap; }
+  .band-panel { max-height: 88%; }
+}
