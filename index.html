@@ -169,6 +169,13 @@
       <button type="button" id="selClear" class="btn btn-small btn-icon-small" title="Tout désélectionner (Échap)" aria-label="Tout désélectionner" disabled>✕</button>
     </div>
     <div class="hint">Espace : lecture · Maj+glisser : sélectionner · Ctrl+C / X / V : copier, couper, coller</div>
+    <div class="zoom-ctl" role="group" aria-label="Zoom horizontal">
+      <button type="button" id="zoomOut" class="btn btn-small btn-icon-small" title="Dézoomer : voir plus de mesures (touche −, ou Ctrl+molette)" aria-label="Dézoomer">−</button>
+      <input type="range" id="zoomRange" min="0" max="1000" step="1" title="Zoom horizontal (double-clic : 100 %)" aria-label="Zoom horizontal">
+      <button type="button" id="zoomIn" class="btn btn-small btn-icon-small" title="Zoomer : voir les pas en plus grand (touche +, ou Ctrl+molette)" aria-label="Zoomer">+</button>
+      <span id="zoomLabel" class="zoom-label" title="Cliquer : revenir à 100 %">100 %</span>
+      <button type="button" id="zoomFit" class="btn btn-small" title="Afficher toutes les mesures dans la largeur de l'écran (touche 0)">Tout voir</button>
+    </div>
     <label class="follow-toggle" title="Pendant la lecture, la grille défile pour garder la mesure jouée visible">
       <input type="checkbox" id="followPlay" checked> Suivre la lecture
     </label>

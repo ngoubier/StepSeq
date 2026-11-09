@@ -2,10 +2,13 @@
 
 | Fichier | Description |
 |---------|-------------|
-| `train-de-nuit.stepseq.json` | « Train de nuit » : morceau original, synthpop / hi-NRG années 80, Fa mineur, 132 BPM, 12 pistes, mode chanson (Intro · Couplet · Refrain · Couplet · Refrain · Pont · Refrain ×2 · Outro, 60 mesures, 1:49). **Mixé et masterisé** : ouvre-le avec **Ouvrir**, puis ▶ ; les réglages sont visibles dans la **Console**. |
+| `train-de-nuit.stepseq.json` | « Train de nuit » : morceau original, synthpop / hi-NRG années 80, Fa mineur, 132 BPM, 12 pistes, mode chanson (Intro · Couplet · Refrain · Couplet · Refrain · Pont · Refrain ×2 · Outro, 60 mesures, 1:49). **Mixé et masterisé** : ouvre-le avec **Ouvrir**, puis ▶ ; les réglages sont visibles dans **Mix**. |
 | `train-de-nuit.mp3` | Le morceau masterisé, joué par StepSeq (MP3 256 kbit/s). |
 | `train-de-nuit-avant-mastering.mp3` | La même chanson avant mixage et mastering, pour comparer. |
 | `train-de-nuit.compose.py` | Script qui génère le projet : notes, scènes, arrangement, mixage (`MIX`) et mastering (`MASTER`). `--brut` produit la version sans mixage. |
+| `envol.stepseq.json` | « Envol » : morceau original, techno mélodique / dream house années 90, Sol mineur, 138 BPM, 15 pistes (TR-909, piano, supersaw, nappes, chœur, riser), mode chanson (Intro · Groove · Montée · Drop ×2 · Break · Montée finale · Drop final ×2 · Outro, 80 mesures, 2:19). Basse roulante **sidechainée sur le kick** (75 %). |
+| `envol.mp3` | « Envol » joué par StepSeq (MP3 256 kbit/s). |
+| `envol.compose.py` | Script qui génère « Envol » (notes, scènes, arrangement, mixage, mastering ; `--brut` sans mixage). |
 | `reve-eveille.stepseq.json` | « Rêve éveillé » : morceau original, techno mélodique / dream trance, Mi mineur, 136 BPM, 14 pistes (kit TR-909, basse, nappe supersaw, piano, arpège, cordes, lead, montée de bruit), mode chanson (Intro · Montée · Thème ×2 · Break · Envol ×2 · Outro, 64 mesures, 1:53). Mixé et masterisé. |
 | `reve-eveille.mp3` | Le morceau joué par StepSeq (capture de la sortie audio, MP3 256 kbit/s). |
 | `reve-eveille.compose.py` | Script qui génère « Rêve éveillé » ; harmonie et voicings commentés. `--brut` : sans mixage. |
@@ -97,3 +100,12 @@ Mesures faites sur une capture PCM directe de la sortie de StepSeq (EBU R128 ave
 2. **Compresseur « glue »** : seuil −16 dB, 2:1, attaque 30 ms (transitoires préservés), relâchement 200 ms, +2 dB de compensation — environ 3 dB de réduction en moyenne.
 3. **Limiteur** : plafond −2 dB, relâchement 60 ms, suivi de l'écrêteur doux suréchantillonné de StepSeq — environ 3 dB de réduction en moyenne.
 4. **Version MP3** : −0,5 dB avant encodage, pour que l'encodage ne fasse pas remonter les crêtes au-dessus de −1 dBTP.
+
+## « Envol » — montées et drops
+
+- **Le thème** : un riff de piano en rythme 3-3-2 (doubles-croches), sur Sol m – Mib – Sib – Fa (i – VI – III – VII), doublé par un lead supersaw dans les drops.
+- **Sidechain** : la basse roulante (trois doubles-croches par temps) est pompée par le kick à 75 % (relâchement 170 ms) ; la nappe (55 %), le chœur (40 %), le lead (35 %) et l'arpège (30 %) aussi. La piste Kick pilote le sidechain même en sourdine (Mute).
+- **Montées** (8 mesures) : roulement de caisse claire qui accélère (noires → croches → doubles-croches) avec crescendo, hi-hats qui montent, basse réduite à une impulsion par demi-mesure, riser de bruit blanc dont le filtre s'ouvre sur 13,5 s, kick coupé à mi-montée, basse en doubles-croches, puis **un temps de silence** juste avant le drop.
+- **Montée finale** : passe par Do m – Mib – Fa – **Ré** (la dominante), avec le thème qui grimpe vers Fa#, pour retomber sur Sol mineur.
+- **Avant le premier drop**, la basse ne joue que les contretemps ; la basse roulante est réservée aux drops.
+- **Drops** : crash + impact sub saturé (Sol grave) sur le premier temps, kick 909 plein, clap, hi-hats en doubles-croches et open hat à contretemps ; le drop final ajoute la ride, l'arpège pluck, le chœur et le piano doublé à l'octave.
