@@ -476,6 +476,13 @@
     project.songLoop = false;
     state.songStart = 0;
     state.cue = 0;
+    // jeu humain : caisse claire et clap légèrement en retard (« posés »), petite humanisation de tout le groupe
+    created.forEach((t) => {
+      const key = t.band ? t.band.key : '';
+      if (key === 'drums:sd') t.nudge = 7;
+      if (key === 'drums:cp') t.nudge = 4;
+    });
+    project.groove = { ...(project.groove || { res: 0, swing: 0.5 }), human: 0.15 };
     // EDM : la basse et les nappes « pompent » sur le kick (sidechain)
     const kick = created.find((t) => t.band && t.band.key === 'drums:bd');
     if (spec.sc && kick)

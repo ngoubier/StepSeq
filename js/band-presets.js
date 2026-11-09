@@ -356,7 +356,7 @@ window.SS = window.SS || {};
           musicians: [
             kit('drums', 'bd cp hh oh cr', KEDM),
             kit('perc', 'sh tb', KPERC, opt),
-            m('lead', 'syn_pluck syn_supersaw j:B24 gm_lead_2_sawtooth dirt_stab j:A52', { label: 'Clavier lead (riff)' }),
+            m('lead', 'syn_pluck syn_supersaw j:B24 gm_lead_2_sawtooth j:A53 j:A52', { label: 'Clavier lead (riff)' }),
             m('guitar', 'gm_electric_guitar_muted gm_electric_guitar_clean dirt_gtr gm_electric_guitar_jazz j:A44 gm_acoustic_guitar_steel', { cat: 'mono', note: 'Petites notes étouffées funky' }),
             m('bass', 'syn_moogbass syn_sub gm_synth_bass_2 syn_sawbass gm_electric_bass_pick j:A48'),
             m('pad', 'syn_superpad gm_pad_warm j:A15 syn_softpad gm_synth_strings_1 j:B47'),

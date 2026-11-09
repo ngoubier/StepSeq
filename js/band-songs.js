@@ -8,7 +8,9 @@
  * Format :
  *   key : « C minor » ; groove : batterie (js/bandsong.js, G) ; emotion : js/emotions.js ; sc : sidechain basse/nappe sur le kick
  *   sections : { id: { bars, chords, drums, perc?, bass?, pad?, strings?, keys?, guitar?, arp?, lead?, vox?, sax?, gap?, groove?, name? } }
- *     chords : degrés, une mesure par accord (« i/VII » = deux accords dans la mesure), répétés jusqu'à la fin de la section
+ *     chords : degrés, une mesure par accord (« i/VII » = deux accords dans la mesure), répétés jusqu'à la fin de la section ;
+ *       chiffres romains lus sur le majeur ou le mineur naturel de la tonique (« VI » en mineur = 6e degré abaissé),
+ *       altérations explicites pour les emprunts (« bVII » en majeur)
  *     drums : off | hats | light | main | full | drop | break | build ; gap : silence au dernier temps (avant un drop)
  *     bass : whole | 8 | pulse8 | oct | gallop | offbeat | roll | sync | walk
  *     pad, strings, keys, guitar : sustain | swell | pulse8 | block4 | stabs | house | strum | chop | ballad | pluck (ou un arpège)
@@ -61,9 +63,9 @@ SS.BandSongs = {
     form: 'intro verse pre chorus instr verse pre chorus*2 outro',
   },
 
-  // Froid et hypnotique : riff de basse syncopé, couleur dorienne, pont sur deux accords
+  // Froid et hypnotique : riff de basse syncopé, IV majeur emprunté au dorien, pont sur deux accords
   sweetdreams: {
-    key: 'C dorian', groove: 'synthpop', emotion: 'ambivalence',
+    key: 'C minor', groove: 'synthpop', emotion: 'ambivalence',
     sections: {
       intro: { bars: 8, chords: 'i | VII/VI | i | VII/VI', drums: 'main', bass: 'sync' },
       verse: { bars: 16, chords: 'i | VII/VI | i | v/VI', drums: 'main', bass: 'sync', pad: 'stabs', lead: 'verse' },

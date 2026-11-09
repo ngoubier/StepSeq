@@ -121,9 +121,11 @@ const LIB = SS.LIB || { gm: [], vcsl: [] };
  * Banques mélodiques de Dirt-Samples (js/dirt.js) :
  *  - multi-échantillonnées (la note est dans le nom du fichier, ex. « Mighty Moog C2 ») -> kind 'multi' ;
  *  - les autres : un échantillon par variante, joué à la hauteur voulue en supposant,
- *    comme strudel.cc, qu'il sonne à midi 36 (ex. note("c1 g1").s("jvbass")).
+ *    à partir de sa hauteur réelle mesurée (js/dirt-tuning.js) ; à défaut, comme strudel.cc, on suppose qu'il sonne à midi 36.
  */
 SS.DIRT_ROOT = 36;
+/** Hauteur réelle (midi) d'un fichier Dirt-Samples : table js/dirt-tuning.js, sinon l'hypothèse de strudel. */
+SS.dirtRoot = (file) => (SS.DIRT_TUNING && SS.DIRT_TUNING[file]) ?? SS.DIRT_ROOT;
 const dirtInst = (d) =>
   d.multi
     ? { id: 'dirt_' + d.bank, label: d.label + ' (Dirt-Samples)', kind: 'multi', bank: 'dirt', key: d.bank, strudel: d.bank }

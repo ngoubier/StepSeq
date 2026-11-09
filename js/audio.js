@@ -941,9 +941,10 @@ SS.audio = (() => {
       if (!entry.buffer) return;
       src = { buffer: entry.buffer, rate: Math.pow(2, (midi - e.midi) / 12), loop: null };
     } else if (inst.kind === 'dirt') {
-      const entry = loadBuffer(await dirtUrl(SS.sfFile(inst, track)));
+      const file = SS.sfFile(inst, track);
+      const entry = loadBuffer(await dirtUrl(file));
       if (!entry.buffer) return;
-      src = { buffer: entry.buffer, rate: Math.pow(2, (midi - SS.DIRT_ROOT) / 12), loop: null };
+      src = { buffer: entry.buffer, rate: Math.pow(2, (midi - SS.dirtRoot(file)) / 12), loop: null };
     } else if (inst.kind !== 'synth') return;
 
     const t = Math.max(time, ctx.currentTime);
@@ -1053,7 +1054,9 @@ SS.audio = (() => {
       const step = tick % SS.trackLen(project, track);
       // humanisation : petites variations aléatoires de placement (±15 ms) et de vélocité (±25 %)
       const human = (project.groove && project.groove.human) || 0;
-      const jt = () => (human ? (Math.random() * 2 - 1) * human * 0.015 : 0);
+      // placement de la piste (track.nudge, en ms : positif = en retard, pour une caisse claire « posée »)
+      const nudge = (track.nudge || 0) / 1000;
+      const jt = () => nudge + (human ? (Math.random() * 2 - 1) * human * 0.015 : 0);
       const jv = (v) => (human ? Math.max(0.05, Math.min(1, v * (1 + (Math.random() * 2 - 1) * human * 0.25))) : v);
       if (track.type === 'drum') {
         const v = track.steps[step];

@@ -20,6 +20,55 @@ SS.bandSong = (() => {
     instr: 'Instrumental', solo: 'Solo', outro: 'Outro', groove: 'Groove', peak: 'Sommet', theme: 'Thème', riff: 'Riff',
   };
 
+  /* ---------- nuances (vélocité) ----------
+   * Toutes les parties passent par trois règles, comme un musicien :
+   *  1. la nuance de la section (ENERGY) : intro et pont retenus, refrain et drop à pleine force ;
+   *  2. l'accent métrique (ACCENT) : temps 1 > temps 3 > temps 2 et 4 > contretemps > doubles-croches,
+   *     plus ou moins marqué selon le rôle (DEPTH) ;
+   *  3. le phrasé : respiration sur 4 mesures, notes aiguës de la mélodie plus fortes, fins de phrase adoucies.
+   * La batterie a en plus des ghost notes de caisse claire, un charleston accentué et des roulements en crescendo.
+   */
+  const ENERGY = {
+    intro: 0.8, verse: 0.86, verse2: 0.88, pre: 0.9, chorus: 1, chorus2: 1, post: 0.92, bridge: 0.8, break: 0.78, break2: 0.78,
+    build: 0.9, build2: 0.9, drop: 1, drop2: 1, instr: 0.95, solo: 0.97, outro: 0.8, groove: 0.9, peak: 1, theme: 0.88, riff: 0.95,
+  };
+  const ACCENT = (s) => {
+    const p = s % SPB;
+    return p === 0 ? 1 : p === 8 ? 0.96 : p % 4 === 0 ? 0.92 : p % 2 === 0 ? 0.86 : 0.8;
+  };
+  const DEPTH = { bass: 0.6, arp: 1, lead: 0.5, vox: 0.5, sax: 0.5, pad: 0.3, strings: 0.4, keys: 0.7, guitar: 0.8 };
+  const clampV = (v) => Math.round(Math.max(0.12, Math.min(1, v)) * 100) / 100;
+
+  /** Applique nuance, accents et phrasé aux notes d'une partie (vélocités déjà tirées autour de leur valeur de base). */
+  function shapeVel(events, role, { energy, bars, build }) {
+    const n = bars * SPB;
+    const melodic = ['lead', 'vox', 'sax'].includes(role);
+    // hauteur moyenne de chaque phrase de 2 mesures (les notes plus aiguës que la moyenne sont chantées plus fort)
+    const mean = new Map();
+    if (melodic)
+      events.forEach((e) => {
+        const ph = Math.floor(e.step / (2 * SPB));
+        const m = mean.get(ph) || { s: 0, c: 0 };
+        m.s += e.notes[0];
+        m.c++;
+        mean.set(ph, m);
+      });
+    events.forEach((e, i) => {
+      let v = e.vel * (1 - (DEPTH[role] ?? 0.5) * (1 - ACCENT(e.step)));
+      v *= build ? 0.76 + 0.3 * (e.step / n) : energy;
+      v *= 0.96 + 0.06 * Math.sin((Math.PI * (e.step % (4 * SPB))) / (4 * SPB)); // respiration sur 4 mesures
+      if (role === 'arp') v *= 0.92 + 0.1 * Math.sin((Math.PI * (e.step % (2 * SPB))) / (2 * SPB)); // vague sur 2 mesures
+      if (melodic) {
+        const m = mean.get(Math.floor(e.step / (2 * SPB)));
+        v *= Math.max(0.9, Math.min(1.1, 1 + 0.015 * (e.notes[0] - m.s / m.c)));
+        const next = events[i + 1];
+        if (!next || next.step >= e.step + e.len + 4) v *= 0.92; // fin de phrase (suivie d'un silence)
+      }
+      e.vel = clampV(v);
+    });
+    return events;
+  }
+
   /* ---------- hasard reproductible ---------- */
   function rng(seed) {
     let h = 2166136261;
@@ -39,7 +88,7 @@ SS.bandSong = (() => {
     for (const [k, w] of Object.entries(table)) if ((x -= w) <= 0) return k;
     return Object.keys(table)[0];
   }
-  const vel = (r, v, spread = 0.06) => Math.round(Math.max(0.2, Math.min(1, v + (r() - 0.5) * spread)) * 100) / 100;
+  const vel = (r, v, spread = 0.08) => Math.round(Math.max(0.2, Math.min(1, v + (r() - 0.5) * spread)) * 100) / 100;
 
   /* ---------- tonalité et accords ---------- */
   function parseKey(s) {
@@ -47,6 +96,15 @@ SS.bandSong = (() => {
     return { tonic, mode: mode || 'major' };
   }
   const NUM = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii'];
+  /**
+   * Gamme de référence des chiffres romains : le majeur ou le mineur naturel de même tonique (comme en analyse
+   * harmonique). En Do dorien, « VI » est donc La♭ (et non La, 6e degré du mode, qui sonnerait faux sous le
+   * Do mineur) ; la couleur du mode s'écrit dans les accords (« IV » = Fa majeur, avec son La naturel).
+   */
+  function refScale(key) {
+    const m = H().MODES.find((x) => x.id === key.mode);
+    return H().scale({ tonic: key.tonic, mode: m && m.fam === 'major' ? 'major' : 'minor' });
+  }
   /**
    * « vi », « IV », « bVII », « V7 », « iim7 »… → { rootPc, type }.
    * Majuscule : accord majeur ; minuscule : mineur. Suffixes : 7 (7 de dominante ou m7), maj7, 9, add9, sus2, sus4,
@@ -58,7 +116,7 @@ SS.bandSong = (() => {
     const deg = NUM.indexOf(m[2].toLowerCase());
     const minor = m[2] === m[2].toLowerCase();
     const acc = m[1] === 'b' || m[1] === '♭' ? -1 : m[1] ? 1 : 0;
-    const rootPc = pcOf(H().scale(key)[deg].pc + acc);
+    const rootPc = pcOf(refScale(key)[deg].pc + acc);
     const s = m[3];
     const T = {
       '': minor ? 'min' : 'maj', 7: minor ? 'm7' : '7', maj7: 'maj7', m7: 'm7', 9: minor ? 'm9' : '9', add9: minor ? 'madd9' : 'add9',
@@ -79,6 +137,16 @@ SS.bandSong = (() => {
     return out;
   }
   const tones = (c) => SS.chordNotes(60 + c.rootPc, c.type).map(pcOf);
+  const semi = (a, b) => pcOf(a - b) === 1 || pcOf(b - a) === 1;
+  /**
+   * Gamme du moment, pour les notes de passage : les notes de l'accord, plus les notes de la tonalité qui ne sont
+   * pas à un demi-ton d'une note de l'accord (pas de frottement). Un accord emprunté (iii en mineur, bVII en
+   * majeur) ou une dominante majeure (V en mineur) changent donc la gamme le temps de leur mesure.
+   */
+  function chordScale(c, keyPcs) {
+    const ct = tones(c);
+    return [...new Set([...ct, ...keyPcs.filter((pc) => !ct.includes(pc) && !ct.some((t) => semi(pc, t)))])];
+  }
   const nearest = (pc, near) => {
     let m = near - pcOf(near) + pc;
     if (m - near > 6) m -= 12;
@@ -139,13 +207,17 @@ SS.bandSong = (() => {
   };
 
   /** Pas d'une pièce de batterie pour une section : mode off | hats | light | main | full | drop | break | build. */
-  function drumSteps(sound, mode, grooveId, bars, r, { perc = false, last = false } = {}) {
+  function drumSteps(sound, mode, grooveId, bars, r, { perc = false, last = false, energy = 1 } = {}) {
     const n = bars * SPB;
     const out = new Array(n).fill(0);
     if (!mode || mode === 'off') return out;
     const g = G[grooveId] || G.synthpop;
     const k = kind(sound);
-    const put = (s, v) => s >= 0 && s < n && (out[s] = vel(r, v));
+    // la grosse caisse reste régulière ; charleston et percussions varient davantage
+    const spread = k === 'bd' ? 0.05 : k === 'bk' ? 0.08 : 0.14;
+    // charleston, shaker : temps > croches > doubles-croches
+    const hatAcc = (i) => (['hh', 'sh'].includes(k) ? [1, 0.74, 0.88, 0.74][i % 4] : 1);
+    const put = (s, v) => s >= 0 && s < n && (out[s] = vel(r, v * hatAcc(s % SPB), spread));
     const bar = (b, pat, scale = 1) => {
       if (!pat) return;
       for (let i = 0; i < SPB; i++) if (LEVEL[pat[i]]) put(b * SPB + i, LEVEL[pat[i]] * scale);
@@ -163,7 +235,7 @@ SS.bandSong = (() => {
           if (k === 'sh' && s % 2 === 0) put(b * SPB + s, v * 0.6);
         }
       }
-      return out;
+      return out; // la montée a déjà son crescendo
     }
     if (!(playing[mode] || []).includes(k)) return out;
     if (perc && mode === 'hats' && k !== 'sh') return out;
@@ -185,16 +257,30 @@ SS.bandSong = (() => {
       // dernière mesure d'une section pleine : roulement (caisse claire ou toms) sur le dernier temps
       const fill = last && b === bars - 1 && ['main', 'full', 'drop'].includes(mode);
       let pat = k === 'bd' ? g.bd : k === 'bk' ? g.bk : k === 'hh' ? (mode === 'drop' ? '.o.o.o.o.o.o.o.o' : g.hh) : k === 'oh' ? g.oh : k === 'rim' ? g.rim : k === 'sh' ? g.sh : k === 'tb' ? g.tb : k === 'tom' ? (fill ? g.tom : null) : null;
-      if (fill && k === 'bk') pat = pat.slice(0, 12) + 'oxox';
+      if (fill && k === 'bk') pat = pat.slice(0, 12) + '----';
       if (fill && k === 'hh') pat = pat.slice(0, 12) + '----';
       bar(b, pat, mode === 'light' ? 0.8 : 1);
+      const groove = ['main', 'full', 'drop'].includes(mode);
+      // roulement de fin de section en crescendo
+      if (fill && k === 'bk') [0.5, 0.64, 0.8, 0.98].forEach((v, i) => put(b * SPB + 12 + i, v));
+      // ghost notes de caisse claire (pas sur le clap) : une ou deux par mesure, très douces
+      if (groove && sound === 'sd' && !fill)
+        [7, 10, 15].forEach((o) => !out[b * SPB + o] && r() < 0.3 && (out[b * SPB + o] = clampV(0.24 + r() * 0.08)));
+      // fin de phrase de 8 mesures : grosse caisse d'appel et charleston ouvert
+      if (groove && b % 8 === 7 && !fill) {
+        if (k === 'bd' && !out[b * SPB + 14]) put(b * SPB + 14, 0.62);
+        if (k === 'oh') put(b * SPB + 14, 0.8);
+      }
     }
+    // nuance de la section (atténuée sur la grosse caisse et la caisse claire, qui tiennent le tempo)
+    const e = ['bd', 'bk'].includes(k) ? Math.sqrt(energy) : energy;
+    for (let s = 0; s < n; s++) if (out[s] > 0.34) out[s] = clampV(out[s] * e); // les ghost notes restent telles quelles
     return out;
   }
 
   /* ---------- basse ---------- */
   const bassMidi = (pc) => 33 + pcOf(pc - 9); // de La1 à Sol♯2
-  function bassEvents(spans, mode, r) {
+  function bassEvents(spans, mode, r, keyPcs) {
     const ev = [];
     const add = (s, len, n, v) => len > 0 && ev.push({ step: s, len, notes: [n], vel: vel(r, v) });
     spans.forEach((sp, i) => {
@@ -245,8 +331,12 @@ SS.bandSong = (() => {
       }
       // note d'approche vers l'accord suivant (sur les basses régulières, une fois sur deux)
       if (next && ['8', 'oct', 'pulse8'].includes(mode) && next.chord.rootPc !== sp.chord.rootPc && r() < 0.5) {
+        // note d'approche diatonique (voisine de la cible dans la tonalité) ; si elle frotte avec l'accord en cours : la quinte
         const target = bassMidi(next.chord.rootPc);
-        const appr = target + (target > root ? -1 : 2);
+        const dir = target > root ? -1 : 1;
+        let appr = target + dir;
+        while (!keyPcs.includes(pcOf(appr))) appr += dir;
+        if (!chordScale(sp.chord, keyPcs).includes(pcOf(appr))) appr = fifth;
         const at = end - 2;
         const i0 = ev.findIndex((e) => e.step === at);
         if (i0 >= 0) ev[i0].notes = [appr];
@@ -361,22 +451,28 @@ SS.bandSong = (() => {
   function melodyEvents(spans, mode, r, key, bars) {
     const ev = [];
     if (mode === 'rise') {
-      // montée : la tonique répétée, en croches puis en doubles-croches, une octave plus haut à mi-chemin
+      // montée : une note répétée (la tonique, ou la note de l'accord la plus proche quand la tonique frotte),
+      // en croches puis en doubles-croches, une octave plus haut à mi-chemin
       const t = 60 + pcOf(H().scale(key)[0].pc);
       for (let s = 0; s < bars * SPB; s += s >= (bars - 2) * SPB ? 1 : 2) {
         const up = s >= (bars * SPB) / 2 ? 12 : 0;
-        if (s < bars * SPB - 4) ev.push({ step: s, len: 1, notes: [t + up], vel: vel(r, 0.5 + (0.4 * s) / (bars * SPB)) });
+        const sp = spans.find((x) => s >= x.step && s < x.step + x.len) || spans[spans.length - 1];
+        const ct = tones(sp.chord);
+        const n = ct.includes(pcOf(t)) ? t : ct.map((pc) => nearest(pc, t)).sort((a, b) => Math.abs(a - t) - Math.abs(b - t))[0];
+        if (s < bars * SPB - 4) ev.push({ step: s, len: 1, notes: [n + up], vel: vel(r, 0.5 + (0.4 * s) / (bars * SPB)) });
       }
       return ev;
     }
-    const scalePcs = H().scale(key).map((d) => d.pc);
+    const keyPcs = H().scale(key).map((d) => d.pc);
     const center = CENTER[mode] || 67;
     const lo = center - 8;
     const hi = center + 9;
-    const chordAt = (s) => (spans.find((sp) => s >= sp.step && s < sp.step + sp.len) || spans[spans.length - 1]).chord;
-    const stepScale = (n, dir) => {
+    const spanAt = (s) => spans.find((sp) => s >= sp.step && s < sp.step + sp.len) || spans[spans.length - 1];
+    const chordAt = (s) => spanAt(s).chord;
+    // note de passage : un pas dans la gamme du moment (jamais à un demi-ton d'une note de l'accord)
+    const stepScale = (n, dir, pcs) => {
       let m = n + dir;
-      while (!scalePcs.includes(pcOf(m))) m += dir;
+      while (!pcs.includes(pcOf(m))) m += dir;
       return m;
     };
     // motifs : A (2 mesures), B (2 mesures, fin longue), contours
@@ -401,13 +497,21 @@ SS.bandSong = (() => {
           // temps fort ou note longue : une note de l'accord, dans la direction du contour
           const cands = ct.map((pc) => nearest(pc, prev + dir * 2)).sort((a, b) => Math.abs(a - (prev + dir * 2)) - Math.abs(b - (prev + dir * 2)));
           n = cands[0];
-        } else n = dir === 0 ? prev : stepScale(prev, dir > 0 ? 1 : -1);
+        } else {
+          const pcs = chordScale(c, keyPcs);
+          n = dir === 0 && pcs.includes(pcOf(prev)) ? prev : stepScale(prev, dir >= 0 ? 1 : -1, pcs);
+        }
         if (n > hi) n -= 12;
         if (n < lo) n += 12;
         // fin de phrase B : on se pose sur la fondamentale ou la tierce (résolution)
         if (isB && i === mot.length - 1) n = nearest(pick(r, [ct[0], ct[1] ?? ct[0]]), prev);
+        // une note tenue au-delà d'un changement d'accord s'arrête avec l'accord si elle frotte avec le suivant
+        let l = Math.min(len, bars * SPB - s);
+        const sp = spanAt(s);
+        const next = spans[spans.indexOf(sp) + 1];
+        if (next && s + l > next.step && !chordScale(next.chord, keyPcs).includes(pcOf(n))) l = next.step - s;
         const strong = o % 8 === 0;
-        ev.push({ step: s, len: Math.min(len, bars * SPB - s), notes: [n], vel: vel(r, len >= 8 ? 0.74 : strong ? 0.86 : 0.7) });
+        ev.push({ step: s, len: l, notes: [n], vel: vel(r, l >= 8 ? 0.74 : strong ? 0.86 : 0.7) });
         prev = n;
       });
     }
@@ -446,19 +550,20 @@ SS.bandSong = (() => {
       const bars = sec.bars;
       const k = sec.key ? parseKey(sec.key) : key;
       const spans = spansOf(sec, k, bars);
+      const energy = sec.energy ?? ENERGY[id] ?? 0.9;
       const data = {};
       tracks.forEach((t) => {
         const [role, sound] = (t.band && t.band.key ? t.band.key : '').split(':');
         const r = rng(`${presetId}/${id}/${t.band ? t.band.key : t.id}`);
         if (t.type === 'drum') {
           const mode = role === 'perc' ? sec.perc ?? sec.drums : sec.drums;
-          data[t.id] = { steps: drumSteps(sound || t.sound, mode, sec.groove || spec.groove, bars, r, { perc: role === 'perc', last: sec.fill !== false }) };
+          data[t.id] = { steps: drumSteps(sound || t.sound, mode, sec.groove || spec.groove, bars, r, { perc: role === 'perc', last: sec.fill !== false, energy }) };
           return;
         }
         const mode = sec[role];
         let events = [];
         if (mode) {
-          if (role === 'bass') events = bassEvents(spans, mode, r);
+          if (role === 'bass') events = bassEvents(spans, mode, r, H().scale(k).map((d) => d.pc));
           else if (role === 'arp') events = arpEvents(spans, mode, r);
           else if (['lead', 'vox', 'sax'].includes(role)) events = melodyEvents(spans, mode, r, k, bars);
           else if (role === 'arpchord') events = arpEvents(spans, mode, r);
@@ -468,7 +573,7 @@ SS.bandSong = (() => {
             events = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16'].includes(mode) ? arpEvents(spans, mode, r) : chordEvents(spans, mode, r, range);
           }
         }
-        data[t.id] = { events };
+        data[t.id] = { events: shapeVel(events, role, { energy, bars, build: sec.drums === 'build' }) };
       });
       if (sec.gap) gapEnd(data, bars);
       const sc = { id: SS.uid(), sec: id, name: sec.name || NAMES[id] || id, bars, key: k, data };

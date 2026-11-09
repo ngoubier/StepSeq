@@ -813,7 +813,18 @@ SS.mixer = (() => {
       ),
       h('p', { class: 'mod-help' }, ch.master
         ? 'Sur le Master, le limiteur évite la saturation de la sortie. Un plafond de −0,3 à −1 dB est courant.'
-        : 'Le limiteur empêche la piste de dépasser le plafond, même sur les coups les plus forts.')
+        : 'Le limiteur empêche la piste de dépasser le plafond, même sur les coups les plus forts.'),
+      ch.master
+        ? null
+        : h(
+            'div',
+            { class: 'sd-sliders mod-nudge' },
+            slider('Placement', ch.track.nudge || 0, -30, 30, { fmt: (v) => (v > 0 ? '+' : '') + v + ' ms' + (v > 0 ? ' (en retard)' : v < 0 ? ' (en avance)' : ''), step: 1, def: 0 }, (v) => {
+              if (v) ch.track.nudge = v;
+              else delete ch.track.nudge;
+            }),
+            h('p', { class: 'mod-help' }, 'Décale la piste dans le temps : une caisse claire jouée quelques millisecondes en retard sonne plus détendue, plus humaine.')
+          )
     );
 
     /* --- Filtre VCF (Master) --- */

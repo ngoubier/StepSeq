@@ -69,6 +69,20 @@ Les plans des 20 chansons sont dans `js/band-songs.js` (tonalité, forme, grille
 musicien par section) et les notes sont écrites par `js/bandsong.js` (déterministe). **Annuler** / Échap ferme
 sans rien créer.
 
+Règles d'écriture vérifiées par les tests (`tests/bandsong.test.js`) :
+
+- **tonalité** : chiffres romains lus sur le majeur ou le mineur naturel de la tonique (« VI » en Do mineur ou
+  dorien = La♭) ; chaque note est dans la tonalité ou dans l'accord du moment ; les notes de passage des mélodies
+  suivent la « gamme du moment » (aucune note à un demi-ton d'une note de l'accord) ; notes d'approche de la basse
+  diatoniques ;
+- **nuances** : vélocité selon la section (intro et pont retenus, refrain et drop à pleine force), accents
+  métriques, phrasé (notes aiguës plus fortes, fins de phrase adoucies), ghost notes de caisse claire, charleston
+  accentué, roulements en crescendo ; caisse claire et clap légèrement en retard (réglage **Placement** de la
+  console) et petite humanisation.
+
+Les échantillons Dirt-Samples sont joués à leur hauteur réelle, mesurée par `tools/dirt-pitch.py`
+(`js/dirt-tuning.js`).
+
 Les pistes créées par Band sont marquées dans le projet. Si le projet en contient déjà, une confirmation propose
 de **remplacer** ces pistes Band par le nouveau groupe (en signalant celles qui contiennent des notes ; Ctrl+Z pour
 revenir en arrière) ou de **garder et ajouter**. Les pistes créées sans Band ne sont jamais supprimées.

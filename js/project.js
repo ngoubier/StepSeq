@@ -146,6 +146,9 @@ SS.normalizeProject = (data) => {
     track.volume = typeof t.volume === 'number' ? t.volume : 0.8;
     if (Number.isInteger(t.length) && t.length > 0) track.length = Math.min(t.length, 64 * 32);
     else delete track.length;
+    // placement (ms) : décalage de la piste dans le temps
+    if (Number.isFinite(t.nudge) && t.nudge) track.nudge = Math.max(-30, Math.min(30, Math.round(t.nudge)));
+    else delete track.nudge;
     if (t.mix && typeof t.mix === 'object') track.mix = SS.cleanMix(t.mix);
     else delete track.mix;
     if (!(t.mixProfile && typeof t.mixProfile === 'object' && typeof t.mixProfile.name === 'string')) delete track.mixProfile;
