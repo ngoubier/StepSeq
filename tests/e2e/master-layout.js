@@ -58,6 +58,18 @@ const ok = (c, m) => {
       return {bad, overflow:el.scrollWidth-el.clientWidth, width:outer.width};
     });
     ok(!geometry.bad.length && geometry.overflow<=2,`${c.label} : aucun débordement (${JSON.stringify(geometry)})`);
+    if (c.label === 'large') {
+      const rows = await page.locator('.master-mods').evaluate((el) => {
+        const box = (s) => el.querySelector(s).getBoundingClientRect();
+        const eq=box('.mod-eq'), vcf=box('.mod-vcf'), comp=box('.mod-comp'), lim=box('.mod-lim'), fx=box('.mod-master-effects'), mast=box('.mod-mast');
+        return { top: Math.abs(eq.top-vcf.top)<2 && eq.right<vcf.left,
+          middle: Math.abs(comp.top-lim.top)<2 && Math.abs(comp.top-fx.top)<2 && comp.right<lim.left && lim.right<fx.left,
+          bottom: mast.top>=comp.bottom };
+      });
+      ok(rows.top, 'égaliseur et VCF côte à côte sur la première ligne');
+      ok(rows.middle, 'compresseur, limiteur et effets sur la même ligne');
+      ok(rows.bottom, 'Mastering sur la ligne suivante');
+    }
     await page.screenshot({path:`/tmp/stepseq-master-${c.label.replaceAll(' ','-')}.png`});
   }
   await page.setViewportSize({width:1600,height:1100});
