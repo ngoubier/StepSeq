@@ -283,8 +283,7 @@ SS.automixPanel = (() => {
   }
   /** Conseils affichés : ceux du diagnostic + ceux décidés (avec leurs valeurs d'alors). */
   function shown() {
-    if (!diag) return [];
-    const list = diag.suggestions.map((s) => (decisions.has(s.id) ? decisions.get(s.id).s : s));
+    const list = (diag ? diag.suggestions : []).map((s) => (decisions.has(s.id) ? decisions.get(s.id).s : s));
     for (const [id, d] of decisions) if (!list.some((s) => s.id === id)) list.push(d.s);
     return list;
   }
@@ -541,7 +540,7 @@ SS.automixPanel = (() => {
     const items = list.filter((s) => s.tab === tab);
     const out = [tabs];
     if (!diag || !diag.ready) out.push(h('p', { class: 'am-hint' }, 'Les conseils arrivent dès le premier diagnostic.'));
-    else {
+    if ((diag && diag.ready) || items.length) {
       if (tab === 'master' && list.some((s) => s.tab === 'mix' && s.sev !== 'info' && !decisions.has(s.id)))
         out.push(h('p', { class: 'am-hint' }, 'Règle d\'abord le mixage : le mastering se juge sur un mix équilibré. Réécoute ensuite pour recalculer ces conseils.'));
       if (!items.length) out.push(h('p', { class: 'am-empty' }, tab === 'mix' ? '✓ Rien à signaler sur le mixage pour cet objectif.' : '✓ Rien à signaler sur le mastering pour cet objectif.'));
@@ -551,7 +550,7 @@ SS.automixPanel = (() => {
       if (chains.length) out.push(group(tab === 'mix' ? 'Chaînes de départ' : 'Chaîne de mastering', tab === 'mix' ? 'pistes à plat' : 'Master à plat'), ...chains.map(card));
       if (chains.length && fixes.length) out.push(group('Corrections', 'd\'après les mesures'));
       out.push(...fixes.map(card));
-      if (diag.hidden) out.push(h('p', { class: 'am-hint' }, `${diag.hidden} conseil${diag.hidden > 1 ? 's' : ''} masqué${diag.hidden > 1 ? 's' : ''} par tes préférences.`));
+      if (diag && diag.hidden) out.push(h('p', { class: 'am-hint' }, `${diag.hidden} conseil${diag.hidden > 1 ? 's' : ''} masqué${diag.hidden > 1 ? 's' : ''} par tes préférences.`));
       if (frozen) out.push(h('p', { class: 'am-hint' }, 'Liste figée pendant tes décisions. « Réécouter » mesure l\'effet de tes changements et recalcule les conseils.'));
     }
     box.replaceChildren(...out);
@@ -730,6 +729,16 @@ SS.automixPanel = (() => {
     clearInterval(timer);
     timer = null;
     L().stop();
+    L().reset();
+    SS.audio.resetLoudness();
+    app.stop();
+    syncDecisions();
+    for (const [id, d] of decisions) if (d.st !== 'accepted') decisions.delete(id);
+    adjusting.clear();
+    picks.clear();
+    diag = null;
+    frozen = false;
+    lastDiagAt = 0;
     $('#automix').hidden = true;
     document.body.classList.remove('automix-open');
     $('#amBtn').classList.remove('active');

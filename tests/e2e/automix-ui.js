@@ -125,9 +125,29 @@ const ok = (c, m) => {
   s = await S();
   ok(!s.ready && s.decided.includes('loud'), 'réécouter : nouvelle écoute, les refus sont gardés');
 
-  // fermeture
+  // fermeture : garder les réglages appliqués, repartir sans diagnostic ni écoute
+  await page.waitForTimeout(11000);
+  await page.click('#amCards .am-card[data-id="loud"] button >> text=Annuler');
+  await page.click('#amCards .am-card[data-id="loud"] .am-accept');
+  await page.waitForTimeout(1200);
+  const keptDrive = (await P()).master.mastering.drive;
+  await page.click('#amFoot .am-ab button >> nth=0');
   await page.click('#amClose');
   ok(!(await page.isVisible('#automix')), 'fermeture du panneau');
+  const closed = await page.evaluate(() => ({
+    secs: SS.automixListen.secs(), listening: SS.automixListen.listening(),
+    playing: SS.audio.isPlaying(), paused: SS.audio.isPaused(), diag: SS.automixPanel._state().diag,
+  }));
+  ok(closed.secs === 0 && !closed.listening && !closed.playing && !closed.paused && closed.diag === null,
+    'fermer efface les mesures et le diagnostic et remet la lecture à zéro');
+  ok((await S()).decided.length === 1 && (await S()).decided[0] === 'loud' && (await S()).ab === 'B',
+    'seule la proposition appliquée est conservée, écoute B restaurée');
+  await page.click('#amBtn');
+  ok(await page.locator('#amCards .am-card').count() === 1 && /Appliqué/.test(await page.textContent('#amCards .am-card[data-id="loud"]')),
+    'réouverture : proposition appliquée visible, aucune proposition en attente');
+  ok((await P()).master.mastering.drive === keptDrive && /Lance la lecture/.test(await page.textContent('#amStatus')),
+    'réglage appliqué conservé, nouvelle écoute à lancer');
+  await page.click('#amClose');
   await page.click('#play');
   ok(!errs.length, 'aucune erreur JavaScript' + (errs.length ? ' : ' + errs.join(' | ') : ''));
   await b.close();
