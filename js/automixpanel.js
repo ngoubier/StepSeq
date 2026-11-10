@@ -26,6 +26,8 @@ SS.automixPanel = (() => {
   let baseline = null; // réglages d'origine, pour l'écoute A
   const decisions = new Map(); // id -> { st: 'accepted' | 'refused', k, s (conseil), applied: [{ tid, path, value, before }] }
   const adjusting = new Map(); // id -> intensité en cours de réglage (avant d'accepter)
+  const picks = new Map(); // chaînes : id -> modules cochés [bool…]
+  let trying = null; // chaîne en cours d'essai : { id, k } (le son change, le projet non)
   let timer = null;
   let lastDiagAt = 0;
 
@@ -160,6 +162,7 @@ SS.automixPanel = (() => {
     SS.audio.applyMaster(p);
   }
   function setAB(v) {
+    endTry();
     if (v === ab) return;
     ab = v;
     if (ab === 'A') hearA();
@@ -167,12 +170,57 @@ SS.automixPanel = (() => {
     renderFoot();
   }
 
+  /* ------------------------------------------------------------------ chaînes : modules cochés, essai */
+  const picked = (s) => picks.get(s.id) || s.modules.map((m) => m.on);
+  /** Le conseil réduit aux modules cochés (chaîne) ; un conseil simple est rendu tel quel. */
+  const effective = (s) => (s.kind === 'chain' ? { ...s, changes: s.modules.filter((m, i) => picked(s)[i]).flatMap((m) => m.changes) } : s);
+
+  /** Essayer : fait entendre la chaîne (modules cochés, intensité k) sans rien enregistrer. */
+  function startTry(s, k) {
+    if (ab === 'A') setAB('B');
+    hearB();
+    const p = project();
+    const clones = new Map();
+    for (const c of effective(s).changes) {
+      const tid = c.track || s.track;
+      if (!clones.has(tid)) {
+        if (tid === '__master') clones.set(tid, JSON.parse(JSON.stringify(SS.masterParams(p))));
+        else {
+          const t = trackOf(tid);
+          if (!t) continue;
+          clones.set(tid, { ...t, mix: JSON.parse(JSON.stringify(SS.mixParams(t))), fx: { ...SS.fxParams(t) } });
+        }
+      }
+      const o = clones.get(tid);
+      const v = A().valueAt(c, k);
+      if (tid === '__master') {
+        if (c.path === 'volumeDb') o.volume = clamp(SS.dbToGain(v), 0, 2);
+        else setPath(o, c.path, v);
+      } else if (c.path === 'volumeDb') SS.audio.setTrackGain(o, clamp(SS.dbToGain(v), 0, 2));
+      else setPath(o, c.path, v);
+    }
+    clones.forEach((o, tid) => {
+      if (tid === '__master') SS.audio.applyMaster({ ...p, master: o });
+      else {
+        SS.audio.applyMix(o);
+        SS.audio.applyFx(o);
+      }
+    });
+    trying = { id: s.id, k };
+  }
+  function endTry() {
+    if (!trying) return;
+    trying = null;
+    hearB();
+  }
+
   /* ------------------------------------------------------------------ décisions */
   function accept(s, k) {
+    endTry();
     if (ab === 'A') setAB('B');
     captureBaseline();
     const prev = decisions.get(s.id);
-    const applied = s.changes.map((c) => {
+    const applied = effective(s).changes.map((c) => {
       const tid = c.track || s.track;
       const before = prev && prev.applied ? (prev.applied.find((a) => a.tid === tid && a.path === c.path) || {}).before : getValue(tid, c.path);
       const value = A().valueAt(c, k);
@@ -186,6 +234,7 @@ SS.automixPanel = (() => {
     SS.mixer.render();
   }
   function undoDecision(id) {
+    endTry();
     const d = decisions.get(id);
     if (d && d.st === 'accepted') {
       [...d.applied].reverse().forEach((a) => a.before !== undefined && setValue(a.tid, a.path, a.before));
@@ -210,6 +259,7 @@ SS.automixPanel = (() => {
       tracks: p.tracks.map((t) => ({
         id: t.id,
         name: t.name,
+        band: t.band,
         role: SS.automix.roleOf(t),
         mix: SS.mixParams(t),
         fx: SS.fxParams(t),
@@ -277,7 +327,7 @@ SS.automixPanel = (() => {
     const showAdj = adjusting.has(s.id);
     // les interrupteurs « on » implicites ne sont montrés que s'ils sont seuls
     const visible = s.changes.filter((c) => !(c.fixed && typeof c.to === 'boolean') || s.changes.length === 1);
-    const lines = h('ul', { class: 'am-changes' }, visible.map((c) => {
+    let lines = s.kind === 'chain' ? chainModules(s, st, k) : h('ul', { class: 'am-changes' }, visible.map((c) => {
       const v = A().valueAt(c, k);
       return h('li', {}, h('span', {}, pathLabel(c, s)), same(c.from, v) ? null : h('s', {}, fmt(c, c.from)), h('span', { class: 'am-arrow' }, '→'), h('b', {}, fmt(c, v)));
     }));
@@ -299,8 +349,10 @@ SS.automixPanel = (() => {
         if (d && d.st === 'accepted') accept(s, nk);
         else adjusting.set(s.id, nk);
         frozen = true;
+        if (trying && trying.id === s.id) startTry(s, nk);
         // mise à jour des valeurs affichées sans reconstruire le curseur
-        lines.querySelectorAll('li').forEach((li, i) => (li.querySelector('b').textContent = fmt(visible[i], A().valueAt(visible[i], nk))));
+        if (s.kind === 'chain') lines.replaceWith((lines = chainModules(s, st, nk)));
+        else lines.querySelectorAll('li').forEach((li, i) => (li.querySelector('b').textContent = fmt(visible[i], A().valueAt(visible[i], nk))));
         const lab = el.querySelector('.am-state');
         if (lab) lab.textContent = `✓ Appliqué à ${Math.round(nk * 100)} %`;
       });
@@ -319,9 +371,23 @@ SS.automixPanel = (() => {
         { class: 'am-actions' },
         st === 'open'
           ? [
-              btn('Accepter', 'am-accept', () => (accept(s, k), renderAll()), 'Appliquer ce réglage dans la console (Ctrl+Z pour annuler)'),
+              btn(acceptLabel(s), 'am-accept', () => (accept(s, k), renderAll()), 'Appliquer dans la console (Ctrl+Z pour annuler)'),
+              s.kind === 'chain'
+                ? h('button', {
+                    type: 'button',
+                    class: 'btn btn-small am-try' + (trying && trying.id === s.id ? ' on' : ''),
+                    'aria-pressed': String(!!(trying && trying.id === s.id)),
+                    title: 'Faire entendre la chaîne sans rien enregistrer',
+                    onclick: () => {
+                      frozen = true;
+                      if (trying && trying.id === s.id) endTry();
+                      else startTry(s, k);
+                      renderCards();
+                    },
+                  }, trying && trying.id === s.id ? '◼ J\'écoute' : '▶ Essayer')
+                : null,
               btn(showAdj ? 'Masquer' : 'Ajuster', '', toggleAdj, 'Doser l\'intensité du conseil'),
-              btn('Refuser', 'am-ghost', () => (decisions.set(s.id, { st: 'refused', s }), (frozen = true), renderAll()), 'Écarter ce conseil'),
+              btn('Refuser', 'am-ghost', () => (endTry(), decisions.set(s.id, { st: 'refused', s }), (frozen = true), renderAll()), 'Écarter ce conseil'),
             ]
           : [
               h('span', { class: 'am-state' }, st === 'accepted' ? `✓ Appliqué à ${Math.round(k * 100)} %` : 'Écarté'),
@@ -332,6 +398,63 @@ SS.automixPanel = (() => {
       )
     );
     return el;
+  }
+
+  const acceptLabel = (s) => {
+    if (s.kind !== 'chain') return 'Accepter';
+    const n = picked(s).filter(Boolean).length;
+    return `Accepter ${n} module${n > 1 ? 's' : ''}`;
+  };
+  const MOD_NAME = { EQ: 'Égaliseur', COMP: 'Compresseur', LIM: 'Limiteur', MAST: 'Mastering' };
+  const svg = (inner) => `<svg viewBox="0 0 64 34" aria-hidden="true">${inner}</svg>`;
+  /** Miniature d'un module : courbe d'égaliseur (celle de la console), transfert du compresseur, plafond du limiteur. */
+  function moduleArt(s, m, k) {
+    const box = h('span', { class: 'am-art' });
+    const v = (path) => {
+      const c = m.changes.find((x) => x.path === path);
+      return c ? A().valueAt(c, k) : undefined;
+    };
+    if (m.k === 'EQ' && SS.mixer.drawEq) {
+      const base = JSON.parse(JSON.stringify(s.track === '__master' ? SS.masterParams(project()).mix.eq : SS.mixParams(trackOf(s.track) || {}).eq));
+      m.changes.forEach((c) => setPath(base, c.path.replace(/^mix\.eq\./, ''), A().valueAt(c, k)));
+      base.on = true;
+      const cv = h('canvas');
+      box.append(cv);
+      requestAnimationFrame(() => SS.mixer.drawEq(cv, base, 64, 34));
+    } else if (m.k === 'COMP') {
+      const th = v('mix.comp.th');
+      const r = v('mix.comp.ratio') || 1;
+      const x = 34 * (1 + th / 40); // seuil sur une échelle de −40 à 0 dB
+      const y = 34 - x;
+      box.innerHTML = svg(`<path d="M0,34 L64,0" stroke="#2c2c33"/><path d="M0,34 L${x.toFixed(1)},${y.toFixed(1)} L64,${(y - (64 - x) / r).toFixed(1)}" fill="none" stroke="var(--am-warn)" stroke-width="1.6"/>`);
+    } else if (m.k === 'LIM') {
+      box.innerHTML = svg('<path d="M0,34 L64,0" stroke="#2c2c33"/><path d="M0,34 L44,10 L64,10" fill="none" stroke="#ef7a50" stroke-width="1.6"/>');
+    } else {
+      const bars = Array.from({ length: 16 }, (_, i) => {
+        const hgt = 34 * Math.min(0.78, 0.35 + 0.5 * Math.abs(Math.sin(i * 1.7)));
+        return `<rect x="${i * 4 + 0.5}" y="${(34 - hgt).toFixed(1)}" width="3" height="${hgt.toFixed(1)}" fill="var(--am-ok)" opacity=".8"/>`;
+      }).join('');
+      box.innerHTML = svg(bars + '<line x1="0" x2="64" y1="7.5" y2="7.5" stroke="#ef7a50" stroke-dasharray="3 2"/>');
+    }
+    return box;
+  }
+  /** Texte d'un module : les valeurs réglées (entre ⟨ ⟩ dans js/automix.js) en doré. */
+  const descNodes = (txt) => txt.split(/[⟨⟩]/).map((part, i) => (i % 2 ? h('em', {}, part) : part));
+  function chainModules(s, st, k) {
+    const sel = picked(s);
+    return h('div', { class: 'am-mods' }, s.modules.map((m, i) => {
+      const cb = h('input', { type: 'checkbox', id: `amm_${s.id}_${i}`, checked: sel[i], disabled: st !== 'open', 'aria-label': MOD_NAME[m.k] });
+      cb.addEventListener('change', () => {
+        const next = [...picked(s)];
+        next[i] = cb.checked;
+        picks.set(s.id, next);
+        frozen = true;
+        if (trying && trying.id === s.id) startTry(s, k);
+        renderCards();
+      });
+      return h('label', { class: 'am-mod' + (sel[i] ? '' : ' off'), for: `amm_${s.id}_${i}` }, cb, moduleArt(s, m, k),
+        h('span', { class: 'am-mod-txt' }, h('b', {}, MOD_NAME[m.k]), h('span', {}, descNodes(A().moduleDesc(m, k)))));
+    }));
   }
 
   function scoreColor(x) {
@@ -422,7 +545,12 @@ SS.automixPanel = (() => {
       if (tab === 'master' && list.some((s) => s.tab === 'mix' && s.sev !== 'info' && !decisions.has(s.id)))
         out.push(h('p', { class: 'am-hint' }, 'Règle d\'abord le mixage : le mastering se juge sur un mix équilibré. Réécoute ensuite pour recalculer ces conseils.'));
       if (!items.length) out.push(h('p', { class: 'am-empty' }, tab === 'mix' ? '✓ Rien à signaler sur le mixage pour cet objectif.' : '✓ Rien à signaler sur le mastering pour cet objectif.'));
-      out.push(...items.map(card));
+      const chains = items.filter((s) => s.kind === 'chain');
+      const fixes = items.filter((s) => s.kind !== 'chain');
+      const group = (title, sub) => h('div', { class: 'am-group' }, h('span', {}, title), h('small', {}, sub));
+      if (chains.length) out.push(group(tab === 'mix' ? 'Chaînes de départ' : 'Chaîne de mastering', tab === 'mix' ? 'pistes à plat' : 'Master à plat'), ...chains.map(card));
+      if (chains.length && fixes.length) out.push(group('Corrections', 'd\'après les mesures'));
+      out.push(...fixes.map(card));
       if (diag.hidden) out.push(h('p', { class: 'am-hint' }, `${diag.hidden} conseil${diag.hidden > 1 ? 's' : ''} masqué${diag.hidden > 1 ? 's' : ''} par tes préférences.`));
       if (frozen) out.push(h('p', { class: 'am-hint' }, 'Liste figée pendant tes décisions. « Réécouter » mesure l\'effet de tes changements et recalcule les conseils.'));
     }
@@ -491,6 +619,7 @@ SS.automixPanel = (() => {
 
   /* ------------------------------------------------------------------ actions */
   function relisten() {
+    endTry();
     if (ab === 'A') setAB('B');
     L().reset();
     SS.audio.resetLoudness();
@@ -595,6 +724,7 @@ SS.automixPanel = (() => {
   }
   function close() {
     if (!isOpen) return;
+    endTry();
     if (ab === 'A') setAB('B');
     isOpen = false;
     clearInterval(timer);
@@ -613,6 +743,8 @@ SS.automixPanel = (() => {
     L().reset();
     decisions.clear();
     adjusting.clear();
+    picks.clear();
+    trying = null;
     baseline = null;
     diag = null;
     frozen = false;

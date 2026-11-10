@@ -108,14 +108,14 @@ async function measure(browser, { style, preset }) {
     const sum = SS.automixListen.summary();
     const live = JSON.parse(localStorage.getItem('stepseq.autosave'));
     const mp = SS.masterParams(live);
-    const tracks = live.tracks.map((t) => ({ id: t.id, name: t.name, role: SS.automix.roleOf(t), mix: SS.mixParams(t), fx: SS.fxParams(t), volumeDb: SS.gainToDb(t.volume ?? 0.8) }));
+    const tracks = live.tracks.map((t) => ({ id: t.id, name: t.name, band: t.band, role: SS.automix.roleOf(t), mix: SS.mixParams(t), fx: SS.fxParams(t), volumeDb: SS.gainToDb(t.volume ?? 0.8) }));
     const d = SS.automix.diagnose(sum, { tracks, master: { ...mp, volumeDb: SS.gainToDb(mp.volume) }, target, prefs: {} });
     const top = Math.max(...sum.mix.bands);
     const kick = tracks.find((t) => t.role === 'kick');
     const bass = tracks.find((t) => t.role === 'bass');
     const kb = kick && bass ? sum.overlap.find((o) => o.band === 1 && [o.a, o.b].includes(kick.id) && [o.a, o.b].includes(bass.id)) : null;
     return {
-      roles: tracks.filter((t) => sum.tracks[t.id] && sum.tracks[t.id].active > 0.05).map((t) => ({ role: t.role, name: t.name, rel: +sum.tracks[t.id].rel.toFixed(1), active: +sum.tracks[t.id].active.toFixed(2) })),
+      roles: tracks.filter((t) => sum.tracks[t.id] && sum.tracks[t.id].active > 0.05).map((t) => ({ role: t.role, name: t.name, rel: +sum.tracks[t.id].rel.toFixed(1), limGr: +(sum.tracks[t.id].limGr || 0).toFixed(1), grMean: +(sum.tracks[t.id].grMean || 0).toFixed(1), crest: sum.tracks[t.id].crest == null ? null : +sum.tracks[t.id].crest.toFixed(1), active: +sum.tracks[t.id].active.toFixed(2) })),
       curve: sum.mix.bands.map((v) => +(v - top).toFixed(1)),
       master: Object.fromEntries(Object.entries(sum.master).map(([k, v]) => [k, v == null ? v : +v.toFixed(2)])),
       prePeak: +sum.mix.prePeak.toFixed(1),

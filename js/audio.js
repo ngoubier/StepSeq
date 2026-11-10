@@ -560,8 +560,12 @@ SS.audio = (() => {
   function taps() {
     if (!ctx) return null;
     const tracks = new Map();
-    buses.forEach((b, id) => tracks.set(id, b.duck));
-    return { ctx, tracks, pre: masterFader, post: masterProc || masterFader };
+    const inputs = new Map(); // entrée de la tranche (avant égaliseur, compresseur et fader) : crête et dynamique du son
+    buses.forEach((b, id) => {
+      tracks.set(id, b.duck);
+      inputs.set(id, b.strip.entry);
+    });
+    return { ctx, tracks, inputs, pre: masterFader, post: masterProc || masterFader };
   }
   function setTrackGain(track, value) {
     if (!ctx) return;

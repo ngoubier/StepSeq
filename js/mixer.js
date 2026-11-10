@@ -1500,5 +1500,5 @@ SS.mixer = (() => {
     window.addEventListener('resize', () => isOpen && detailRefs && detailRefs.drawBig());
   }
 
-  return { init, open, close, render, isOpen: () => isOpen };
+  return { init, open, close, render, isOpen: () => isOpen, drawEq }; // drawEq : miniatures des chaînes Auto Mix
 })();
