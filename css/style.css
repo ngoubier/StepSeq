@@ -2739,3 +2739,6 @@ dialog.am-prefs { width: min(620px, calc(100vw - 32px)); }
 .pilot-control { outline: 2px solid var(--gold); outline-offset: 3px; border-radius: 5px; box-shadow: 0 0 16px #e5b95c55; }
 .fader.pilot-control .fader-thumb { background: var(--gold); box-shadow: 0 0 12px #e5b95c99; }
 @media (max-width: 1000px) { .am-resize { display: none; } }
+.am-pilot-scopes { display: flex; flex-direction: column; gap: 8px; font-size: 13px; line-height: 1.4; }
+.am-pilot-scopes label { display: flex; gap: 8px; align-items: center; }
+.am-pilot-scopes input { accent-color: var(--accent-2); }

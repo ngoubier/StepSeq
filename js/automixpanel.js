@@ -33,6 +33,8 @@ SS.automixPanel = (() => {
   let trying = null; // chaîne en cours d'essai : { id, k } (le son change, le projet non)
   let timer = null;
   let lastDiagAt = 0;
+  let pilotFaders = true;
+  let pilotMaster = true;
   let pilot = null; // pilote auto en marche : { tk, unsub, timer, ramp, lastMove, log, locked, moved, expect, status }
   const PL = () => SS.automixPilot;
 
@@ -627,6 +629,10 @@ SS.automixPanel = (() => {
 
   /* ------------------------------------------------------------------ pilote auto des faders */
   const fmtDb = (v) => (v > 0 ? '+' : '') + fr(v) + ' dB';
+  const masterSnapshot = (module) => {
+    const m = SS.masterParams(project());
+    return JSON.stringify(module === 'lim' ? [m.mix.lim, m.mastering] : m.mix[module]);
+  };
   function pilotLog(txt) {
     if (!pilot) return;
     pilot.log.unshift({ txt, at: Date.now() });
@@ -649,6 +655,51 @@ SS.automixPanel = (() => {
   }
   function pilotStepRamp() {
     const r = pilot.ramp;
+    if (r.master) {
+      if (pilot.masterSnapshots[r.master.module] !== masterSnapshot(r.master.module)) {
+        pilot.masterLocked.add(r.master.module);
+        pilotLog('Master : module repris à la main');
+        pilot.ramp = null;
+        SS.mixer.showPilotAction();
+        pilot.masterAcc = A().newAccumulator();
+        app.changed();
+        renderPilot();
+        return;
+      }
+      const x = PL().ease((performance.now() - r.t0) / 1500);
+      for (const c of r.master.changes) {
+        const now = getValue('__master', c.path);
+        const expected = pilot.masterExpect.get(c.path);
+        if (expected !== undefined && !same(now, expected)) {
+          pilot.masterLocked.add(r.master.module);
+          pilotLog('Master : réglé à la main, module repris par l’utilisateur');
+          pilot.ramp = null;
+          SS.mixer.showPilotAction();
+          pilot.masterAcc = A().newAccumulator();
+          app.changed();
+          renderPilot();
+          return;
+        }
+        const value = typeof c.to === 'boolean' ? c.to : c.from + (c.to - c.from) * x;
+        setValue('__master', c.path, value);
+        pilot.masterExpect.set(c.path, getValue('__master', c.path));
+      }
+      pilot.masterSnapshots[r.master.module] = masterSnapshot(r.master.module);
+      if (!r.drawAt || performance.now() - r.drawAt > 150 || x === 1) {
+        SS.mixer.refreshMasterAction(r.master);
+        r.drawAt = performance.now();
+      }
+      if (x < 1) return;
+      pilot.masterSpent[r.master.module] = (pilot.masterSpent[r.master.module] || 0) + 1;
+      pilot.ramp = null;
+      pilot.masterAcc = A().newAccumulator();
+      pilot.lastMove = pilot.tk.t;
+      SS.mixer.showPilotAction();
+      app.changed();
+      setPilotStatus('Master réglé · nouvelle écoute…');
+      renderPilot();
+      return;
+    }
     const x = PL().ease((performance.now() - r.t0) / (r.secs * 1000));
     for (const m of r.moves) {
       const v = m.from + (m.to - m.from) * x;
@@ -660,9 +711,11 @@ SS.automixPanel = (() => {
       const value = Math.round((r.drive.from + (r.drive.to - r.drive.from) * x) * 10) / 10;
       setValue('__master', 'mastering.drive', value);
       SS.mixer.refreshPilotDrive(value);
+      pilot.masterSnapshots.lim = masterSnapshot('lim');
     }
     if (x < 1) return;
     pilot.ramp = null;
+    pilot.masterAcc = A().newAccumulator();
     SS.mixer.showPilotAction();
     pilot.lastMove = pilot.tk.t;
     for (const m of r.moves) pilot.moved.set(m.id, (pilot.moved.get(m.id) || 0) + Math.abs(m.to - m.from));
@@ -693,7 +746,13 @@ SS.automixPanel = (() => {
     else if (ab === 'A' || trying) status = 'En pause pendant l\'écoute comparée';
     if (status) return setPilotStatus(status);
     if (pilot.tk.t - pilot.lastMove < PL().P.settle) return setPilotStatus('Écoute…');
-    const d = PL().plan(pilot.tk, pilotTracks());
+    for (const module of ['eq', 'comp', 'lim']) {
+      if (pilot.masterSnapshots[module] !== masterSnapshot(module)) {
+        if (!pilot.masterLocked.has(module)) pilotLog('Master : module repris à la main, je n’y touche plus');
+        pilot.masterLocked.add(module);
+      }
+    }
+    const d = pilotFaders ? PL().plan(pilot.tk, pilotTracks()) : { state: { balanced: true, waiting: [] } };
     if (d.kind === 'fader') {
       pilotLog(`${d.name} ${fmtDb(d.to - d.from)} → ${fmtDb(d.to)} (${d.dev > 0 ? 'trop en avant' : 'en retrait'} de ${fr(Math.abs(d.dev))} dB)`);
       setPilotStatus(`Je règle ${d.name}…`);
@@ -711,10 +770,25 @@ SS.automixPanel = (() => {
       renderPilot();
       return;
     }
+    if (pilotMaster) {
+      const master = { ...SS.masterParams(p), volumeDb: SS.gainToDb(SS.masterParams(p).volume) };
+      const sum = A().summarize(pilot.masterAcc);
+      sum.master.limGr = (pilot.masterAcc.pilotLimSum || 0) / (pilot.masterAcc.pilotLimN || 1);
+      const action = PL().planMaster(sum, master, targetId(), pilot.masterLocked, prefs.scopes, pilot.masterSpent);
+      if (action) {
+        pilotLog(action.title);
+        setPilotStatus(action.title + '…');
+        action.changes.forEach((c) => pilot.masterExpect.set(c.path, getValue('__master', c.path)));
+        pilot.ramp = { moves: [], master: action, t0: performance.now() };
+        SS.mixer.refreshMasterAction(action);
+        renderPilot();
+        return;
+      }
+    }
     const st = d.state;
     setPilotStatus(
       st.balanced
-        ? `Équilibre atteint · je continue d'écouter${st.waiting.length ? ` (j'attends ${st.waiting.join(', ')})` : ''}`
+        ? `Équilibre atteint · ${pilotMaster ? 'écoute du Master en cours' : 'je continue d’écouter'}${st.waiting.length ? ` (j'attends ${st.waiting.join(', ')})` : ''}`
         : st.waiting.length
           ? `J'écoute ${st.waiting.join(', ')}…`
           : 'Écoute…'
@@ -727,14 +801,27 @@ SS.automixPanel = (() => {
     if (el) el.textContent = txt;
   }
   function pilotStart() {
-    if (pilot) return;
+    if (pilot || (!pilotFaders && !pilotMaster)) return;
     endTry();
     if (ab === 'A') setAB('B');
     captureBaseline();
     pilot = { tk: PL().newTracker(), timer: null, ramp: null, lastMove: -Infinity, log: [], locked: new Set(), moved: new Map(), expect: new Map(), status: '' };
-    pilot.unsub = L().subscribe((f) => pilot && PL().feed(pilot.tk, f, pilot.ramp ? new Set(pilot.ramp.moves.map((m) => m.id)) : null));
+    pilot.masterAcc = A().newAccumulator();
+    pilot.masterExpect = new Map();
+    pilot.masterLocked = new Set();
+    pilot.masterSpent = {};
+    pilot.masterSnapshots = Object.fromEntries(['eq', 'comp', 'lim'].map((m) => [m, masterSnapshot(m)]));
+    pilot.unsub = L().subscribe((f) => {
+      if (!pilot) return;
+      PL().feed(pilot.tk, f, pilot.ramp ? new Set(pilot.ramp.moves.map((m) => m.id)) : null);
+      if (!pilot.ramp) {
+        A().accumulate(pilot.masterAcc, f);
+        pilot.masterAcc.pilotLimSum = (pilot.masterAcc.pilotLimSum || 0) + Math.abs(f.masterLimGr || 0);
+        pilot.masterAcc.pilotLimN = (pilot.masterAcc.pilotLimN || 0) + 1;
+      }
+    });
     pilot.timer = setInterval(pilotTick, 40);
-    pilotLog('Pilote auto en marche : je règle les faders à l\'oreille, un petit geste à la fois');
+    pilotLog('Pilote auto en marche : ' + [pilotFaders ? 'faders des pistes' : '', pilotMaster ? 'Master (EQ, compression, limiteur)' : ''].filter(Boolean).join(' + '));
     if (!SS.audio.isPlaying() || SS.audio.isPaused()) app.play();
     renderAll();
   }
@@ -767,18 +854,23 @@ SS.automixPanel = (() => {
     box.classList.toggle('running', on);
     const ramp = pilot && pilot.ramp;
     box.replaceChildren(
-      h('h4', { class: 'am-pilot-title' }, on ? 'Pilote auto · en cours' : 'Pilote auto des faders'),
+      h('h4', { class: 'am-pilot-title' }, on ? 'Pilote auto · en cours' : 'Pilote auto · mix et mastering'),
+      h('div', { class: 'am-pilot-scopes' },
+        ...[['Faders des pistes', pilotFaders, (v) => { pilotFaders = v; }], ['Master : EQ, compresseur et limiteur', pilotMaster, (v) => { pilotMaster = v; }]].map(([label, checked, set], i) =>
+          h('label', {}, h('input', { type: 'checkbox', id: i ? 'amPilotMaster' : 'amPilotFaders', checked, disabled: on, onchange: (e) => { set(e.target.checked); renderPilot(); } }), label))),
       h('div', { class: 'am-pilot-row' },
         h('button', {
           type: 'button',
           id: 'amPilotBtn',
+          disabled: !on && !pilotFaders && !pilotMaster,
           class: 'btn btn-small am-pilot-btn' + (on ? ' on' : ''),
           'aria-pressed': String(on),
           title: on ? 'Arrêter le pilote auto' : 'L\'assistant règle lui-même les faders pendant la lecture, doucement, en réécoutant entre chaque geste',
           onclick: () => (on ? pilotStop() : pilotStart()),
-        }, on ? '◼ Arrêter le pilote' : '✈ Pilote auto des faders'),
+        }, on ? '◼ Arrêter le pilote' : '✈ Démarrer le pilote auto'),
         h('span', { id: 'amPilotStatus', class: 'am-pilot-status', role: 'status' }, on ? pilot.status || 'Écoute…' : '')),
-      ramp ? h('div', { class: 'am-pilot-task' },
+      ramp && ramp.master ? h('div', { class: 'am-pilot-task' }, h('b', {}, ramp.master.title),
+        ...ramp.master.changes.map((c) => h('div', {}, h('span', {}, pathLabel(c, { changes: ramp.master.changes, track: '__master' })), h('strong', {}, `${A().formatValue(c.path, c.from)} → ${A().formatValue(c.path, c.to)}`)))) : ramp ? h('div', { class: 'am-pilot-task' },
         h('b', {}, ramp.moves.length > 1 ? 'Niveau d’ensemble' : nameOf(ramp.moves[0].id)),
         h('span', {}, 'Réglage des faders'),
         ...ramp.moves.map((m) => h('div', {}, h('span', {}, nameOf(m.id)), h('strong', {}, `${fmtDb(m.from)} → ${fmtDb(m.to)}`))),
@@ -788,7 +880,7 @@ SS.automixPanel = (() => {
         ? h('section', { class: 'am-pilot-history' }, h('h4', {}, 'Dernières actions'),
           h('ol', { class: 'am-pilot-log', 'aria-live': 'polite' }, pilot.log.map((x) => h('li', {},
             h('time', { datetime: new Date(x.at).toISOString() }, new Date(x.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })), h('span', {}, x.txt)))))
-        : h('p', { class: 'am-hint' }, 'Règle l\'équilibre des pistes à ta place : un petit geste de fader à la fois, puis il réécoute. Touche un fader pour le reprendre en main.')
+        : h('p', { class: 'am-hint' }, 'Choisis les faders, le Master ou les deux. Un petit réglage à la fois, puis une nouvelle écoute de 10 s pour le Master. Touche un module pour le reprendre en main ; Ctrl+Z annule chaque geste.')
     );
   }
 
@@ -809,6 +901,11 @@ SS.automixPanel = (() => {
       pilot.ramp = null;
       SS.mixer.showPilotAction();
       pilot.tk = PL().newTracker();
+      pilot.masterAcc = A().newAccumulator();
+      pilot.masterExpect.clear();
+      pilot.masterLocked.clear();
+      pilot.masterSpent = {};
+      pilot.masterSnapshots = Object.fromEntries(['eq', 'comp', 'lim'].map((m) => [m, masterSnapshot(m)]));
       pilot.locked.clear();
       pilot.moved.clear();
       pilot.expect.clear();
@@ -828,7 +925,7 @@ SS.automixPanel = (() => {
     adjusting.clear();
     frozen = false;
     diag = null;
-    if (pilot) pilot.tk = PL().newTracker();
+    if (pilot) { pilot.tk = PL().newTracker(); pilot.masterAcc = A().newAccumulator(); }
     app.stop();
     app.play();
     renderAll();

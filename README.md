@@ -157,6 +157,15 @@ testées) que l'on **accepte**, **ajuste** (25 à 150 %) ou **refuse** (`js/auto
   automatique en solo et pendant l'écoute A.
 - **Largeur d'Auto Mix** : glisser le bord gauche du panneau (ou utiliser les flèches une fois la poignée
   sélectionnée au clavier). La largeur est mémorisée ; sur petit écran, le panneau reste empilé sous la console.
+- **Pilote du Master** : avant de démarrer, cocher **Master : EQ, compresseur et limiteur** ; décocher
+  **Faders des pistes** pour ne travailler que le mastering. Avec les deux cochés, l'équilibre des pistes passe
+  d'abord. Après 10 secondes d'écoute fraîche, le pilote agit sur un module à la fois : graves et aigus par pas
+  de 0,5 dB (±4 dB maximum), compression légère à 1,5:1 quand le compresseur est coupé, puis adaptation du seuil
+  selon la réduction mesurée. Le limiteur true peak du mastering actif garde un plafond d'au plus −1 dBTP et
+  son gain avance par pas de 0,5 dB vers l'objectif ; si ce module est coupé, le limiteur de la tranche Master
+  protège les crêtes à −1 dBFS. Le gain n'est pas augmenté lorsque les attaques sont déjà trop écrasées.
+  Chaque geste est visible dans la console et annulable par Ctrl+Z. Retoucher un module le retire du pilotage
+  pour la séance. Les autorisations des préférences et un budget de gestes par module limitent les corrections.
 
 Outils de mesure (Playwright + Chromium, rendu hors temps réel de StepSeq) :
 

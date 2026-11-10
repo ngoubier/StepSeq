@@ -200,5 +200,71 @@ SS.automixPilot = (() => {
   /** Courbe douce du geste (0 → 1). */
   const ease = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
 
-  return { P, newTracker, feed, forget, relOf, plan, rampSecs, ease };
+  /** Un seul module Master par geste, avec des mesures fraîches et des corrections bornées. */
+  function planMaster(sum, master, target = 'streaming', locked = new Set(), scopes = {}, spent = {}) {
+    if (!sum || sum.secs < 10 || !sum.mix.n || !Number.isFinite(sum.mix.k) || sum.mix.k < -90) return null;
+    const mix = master.mix;
+    let changes = [];
+    let limiterAction = null;
+    const add = (path, from, to) => { if (from !== to) changes.push({ path, from, to }); };
+    const action = (module, title) => changes.length ? { kind: 'master', module, title, changes } : null;
+    const T = A().TARGETS[target] || A().TARGETS.streaming;
+    // Sécuriser d'abord la sortie : le module de mastering contient un limiteur true peak.
+    const final = master.mastering.on;
+    if (!locked.has('lim') && scopes.mastering !== false && (spent.lim || 0) < 12) {
+      if (final) {
+        add('mastering.ceiling', master.mastering.ceiling, Math.min(master.mastering.ceiling, T.tp));
+        const loud = sum.master;
+        if (Number.isFinite(loud.i) && Number.isFinite(loud.tp)) {
+          let delta = loud.tp > T.tp + 0.3 ? -0.5 : clamp(T.lufs - loud.i, -0.5, 0.5);
+          if (Number.isFinite(loud.plr) && loud.plr < T.plr[0]) delta = Math.min(delta, 0); // garder les attaques
+          if (Math.abs(T.lufs - loud.i) > 1 || loud.tp > T.tp + 0.3)
+            add('mastering.drive', master.mastering.drive, round(clamp(master.mastering.drive + delta, -12, A().DRIVE_MAX), 0.1));
+        }
+      } else {
+        add('mix.lim.on', mix.lim.on, true);
+        add('mix.lim.ceil', mix.lim.ceil, mix.lim.on && sum.master.limGr > 3 ? Math.min(-1, mix.lim.ceil + 1) : Math.min(mix.lim.ceil, -1));
+        add('mix.lim.rel', mix.lim.rel, 0.1);
+      }
+      if (changes.length) {
+        limiterAction = action('lim', final ? 'Limiteur true peak · niveau de sortie' : 'Limiteur · protection des crêtes');
+        if (changes.some((c) => c.path !== 'mastering.drive')) return limiterAction;
+        changes = [];
+      }
+    }
+    if (!locked.has('comp') && scopes.comp !== false && (spent.comp || 0) < 8) {
+      const c = mix.comp;
+      const gr = sum.master.grMaster;
+      if (!c.on && Number.isFinite(sum.mix.prePeak)) {
+        add('mix.comp.th', c.th, round(clamp(sum.mix.prePeak - (master.volumeDb || 0) - 3, -30, -3), 0.5));
+        add('mix.comp.ratio', c.ratio, 1.5);
+        add('mix.comp.att', c.att, 0.03);
+        add('mix.comp.rel', c.rel, 0.2);
+        add('mix.comp.makeup', c.makeup, 0);
+        add('mix.comp.on', false, true);
+      } else if (gr > 3) add('mix.comp.th', c.th, Math.min(-3, c.th + 1));
+      else if (gr < 0.5 && Number.isFinite(sum.master.plr) && sum.master.plr > T.plr[1])
+        add('mix.comp.th', c.th, Math.max(-30, c.th - 0.5));
+      if (changes.length) return action('comp', 'Compresseur · compression légère');
+    }
+    if (!locked.has('eq') && scopes.mastereq !== false && (spent.eq || 0) < 8) {
+      const dev = A().toneDeviation(sum.mix.bands, A().CURVES[target] || A().CURVES.streaming);
+      const zones = [{ key: 'low', bands: [1, 2], f: 100 }, { key: 'high', bands: [8, 9], f: 10000 }]
+        .map((z) => ({ ...z, dev: z.bands.reduce((v, b) => v + dev[b], 0) / z.bands.length }))
+        .sort((a, b) => Math.abs(b.dev) - Math.abs(a.dev));
+      for (const z of zones) {
+        if (Math.abs(z.dev) < 3.5) continue;
+        const band = mix.eq[z.key];
+        const to = round(clamp(band.g - Math.sign(z.dev) * 0.5, -4, 4), 0.5);
+        if (to === band.g) continue;
+        add('mix.eq.' + z.key + '.f', band.f, z.f);
+        add('mix.eq.' + z.key + '.g', band.g, to);
+        add('mix.eq.on', mix.eq.on, true);
+        return action('eq', 'Égaliseur · ' + (z.key === 'low' ? 'équilibre des graves' : 'équilibre des aigus'));
+      }
+    }
+    return limiterAction;
+  }
+
+  return { P, newTracker, feed, forget, relOf, plan, planMaster, rampSecs, ease };
 })();

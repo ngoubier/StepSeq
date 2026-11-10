@@ -18,6 +18,7 @@ SS.mixer = (() => {
 
   /** Suit le geste du pilote sans reconstruire les faders en mouvement. */
   function showPilotAction(moves = [], drive = null) {
+    document.querySelectorAll('#mixerDetail .mod.pilot-control').forEach((el) => el.classList.remove('pilot-control'));
     pilotAction = moves.length || drive ? { moves, drive } : null;
     const id = drive ? '__master' : moves[0] && moves[0].id;
     if (id && selected !== id) {
@@ -40,6 +41,16 @@ SS.mixer = (() => {
     if (!row) return;
     row.querySelector('output').textContent = (value > 0 ? '+' : '') + value.toFixed(1) + ' dB';
     row.querySelector('input').value = Math.round((value + 12) / 30 * 1000);
+  }
+
+  function refreshMasterAction(action) {
+    selected = '__master';
+    renderDetail();
+    showPilotAction([], { from: 0, to: 0 });
+    document.querySelectorAll('#mixerDetail .pilot-control').forEach((el) => el.classList.remove('pilot-control'));
+    const module = action.changes.some((c) => c.path.startsWith('mastering.')) ? 'mast' : action.module;
+    const box = document.querySelector(`#mixerDetail [data-mod="${module}"]`);
+    if (box) box.classList.add('pilot-control');
   }
 
   const h = (tag, attrs = {}, ...children) => {
@@ -1579,5 +1590,5 @@ SS.mixer = (() => {
     window.addEventListener('resize', () => isOpen && detailRefs && detailRefs.drawBig());
   }
 
-  return { init, open, close, render, refreshFader, showPilotAction, refreshPilotDrive, isOpen: () => isOpen, drawEq }; // drawEq : miniatures des chaînes Auto Mix
+  return { init, open, close, render, refreshFader, showPilotAction, refreshPilotDrive, refreshMasterAction, isOpen: () => isOpen, drawEq }; // drawEq : miniatures des chaînes Auto Mix
 })();
