@@ -20,6 +20,7 @@ SS.automixListen = (() => {
   let lastLoud = null;
   let project = () => null;
   let onFrame = null;
+  const listeners = new Set(); // reçoivent chaque relevé brut (pilote auto : js/automix-pilot.js)
 
   function analyser(ctx, size = FFT) {
     const an = ctx.createAnalyser();
@@ -147,16 +148,21 @@ SS.automixListen = (() => {
     const L = ml && ml.loudness;
     const loud = L ? { m: L.m, s: L.s, tp: L.tp, fresh: L !== lastLoud } : null;
     lastLoud = L;
-    A().accumulate(acc, {
+    const mp = p ? SS.masterParams(p) : null;
+    const frame = {
       dt,
       scene: p ? p.current : null,
       tracks,
       pre: { bands: bandsOf(n.pre), peak: peakOf(n.pre.buf) },
+      preGain: mp ? mp.volume : 1, // fader du Master (l'écoute du mix se fait après lui)
       masterGr: ml ? ml.gr.comp : 0,
+      masterLimGr: ml ? ml.gr.lim : 0,
       stereo: stereo(n.L, n.R),
       stereoLow: stereo(n.Ll, n.Rl),
       loud,
-    });
+    };
+    A().accumulate(acc, frame);
+    listeners.forEach((fn) => fn(frame));
     if (onFrame) onFrame(acc);
   }
 
@@ -203,5 +209,7 @@ SS.automixListen = (() => {
     secs: () => (acc ? acc.secs : 0),
     scenes: () => (acc ? acc.scenes.size : 0),
     listening: () => !!timer,
+    /** Abonnement aux relevés bruts ; rend la fonction de désabonnement. */
+    subscribe: (fn) => (listeners.add(fn), () => listeners.delete(fn)),
   };
 })();

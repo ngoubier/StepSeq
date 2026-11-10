@@ -543,7 +543,7 @@
         <tr><td>Volume perçu</td><td>LUFS intégré et true peak à la sortie (norme EBU R128)</td><td>Selon l'objectif ; plafond −1 dBTP</td></tr>
         <tr><td>Dynamique</td><td>PLR (écart entre la crête et le volume moyen) ; compresseurs qui retirent plus de 6 dB en continu</td><td>PLR 8 à 13 dB en synthwave</td></tr>
         <tr><td>Balance tonale</td><td>Énergie du mix dans 10 bandes d'octave (31 Hz à 16 kHz), comparée à la courbe du style relevée sur les chansons du Band</td><td>±2,5 dB en moyenne par bande</td></tr>
-        <tr><td>Équilibre des pistes</td><td>Niveau de chaque piste par rapport au mix aux mêmes instants, selon son rôle : kick et basse devant, caisse claire et lead présents, nappes et arpège derrière, cymbales en fond</td><td>±3,5 dB autour du niveau du rôle</td></tr>
+        <tr><td>Équilibre des pistes</td><td>Écart de niveau entre les pistes qui jouent en même temps, selon leur rôle : kick et basse devant, caisse claire et lead présents, nappes et arpège derrière, cymbales en fond. Une intro à deux pistes ne fausse pas la mesure, et une piste qui joue rarement (un clap toutes les 16 mesures) est jugée elle aussi</td><td>±3,5 dB autour de la place du rôle</td></tr>
         <tr><td>Graves</td><td>Kick et basse forts en même temps vers 63 Hz ; grave inutile sur les autres pistes ; graves en mono</td><td>Recouvrement &lt; 40 %, corrélation &gt; 0,85</td></tr>
         <tr><td>Stéréo</td><td>Corrélation gauche / droite, équilibre, largeur</td><td>Corrélation &gt; 0,2, G/D ±1 dB</td></tr>
         <tr><td>Marge avant mastering</td><td>Crêtes du Master avant le module de mastering</td><td>−6 à −1 dBFS</td></tr>
@@ -574,6 +574,16 @@
         <li><b>Ajuster</b> dose les gains d'égaliseur, le seuil et le ratio du compresseur ; les miniatures suivent.</li>
       </ul>
       <p>Les pistes déjà traitées reçoivent des <b>corrections</b> : compresseur trop appuyé ou qui ne travaille pas (seuil au-dessus des crêtes), attaque trop rapide sur une frappe, limiteur qui travaille en permanence.</p>
+      <h3>Pilote auto des faders</h3>
+      <p>Le bouton <b>✈ Pilote auto des faders</b> confie l'équilibre des pistes à l'assistant, pendant la lecture, comme un ingénieur du son qui règle à l'oreille : il choisit la piste la plus éloignée de sa place, fait <b>glisser son fader doucement</b> d'un petit pas (2 dB au plus), puis <b>réécoute</b> cette piste avant d'y retoucher. Quand une piste repart dans l'autre sens, ses pas deviennent plus fins.</p>
+      <ul>
+        <li>L'équilibre se règle à <b>volume global constant</b> : ce qui manque monte autant que ce qui dépasse descend.</li>
+        <li>Si le mix <b>sature</b> en arrivant au Master, toutes les pistes descendent ensemble et le gain d'entrée du mastering compense : même volume final, sans écrasement.</li>
+        <li>Un journal liste chaque geste. Chaque geste s'annule avec <b>Ctrl+Z</b>. Touche un fader à la main : le pilote n'y touche plus.</li>
+        <li>Le pilote attend pendant un <b>solo</b> et pendant l'écoute <b>A</b>. Pendant qu'il tourne, les conseils de fader sont masqués ; à l'arrêt, l'écoute repart de zéro pour juger le nouveau mix.</li>
+      </ul>
+      <h3>Remettre le mix à zéro</h3>
+      <p>Dans la barre de titre de la console : <b>Faders par défaut</b> remet les pistes à −6 dB et le Master à −1,9 dB (à 0 dB, plusieurs pistes ensemble saturent) ; <b>↺ Tout réinitialiser</b> remet en plus toutes les tranches à plat (égaliseur plat, compresseur et limiteur coupés, panoramique au centre), le Master à ses réglages d'origine et coupe le mastering. Les effets de son des pistes (reverb, écho, chorus, sidechain) sont gardés. Ctrl+Z annule d'un coup.</p>
       <h3>Préférences</h3>
       <p>La roue dentée du panneau ouvre les <b>préférences</b>, gardées dans ce navigateur : ce que l'assistant a le droit de modifier (volumes, égaliseur des pistes, compresseurs et limiteurs, panoramique, sidechain, envois de reverb et d'écho, égaliseur du Master, mastering), l'objectif par défaut (automatique ou fixe), le niveau de détail (tous les conseils ou seulement l'essentiel) et la durée d'écoute avant le premier diagnostic. Un conseil qui toucherait un réglage interdit n'est pas proposé, ou remplacé par un autre moyen (sans sidechain, le kick et la basse sont séparés à l'égaliseur).</p>
       <p class="note">L'assistant applique des règles de mixage mesurables : c'est une base solide, pas une oreille. Écoute toujours le résultat (A/B) et garde le dernier mot.</p>

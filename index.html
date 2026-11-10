@@ -140,7 +140,8 @@
         <h2 id="mxTitle">Mix</h2>
         <span id="mxProject" class="mx-sub"></span>
         <span class="spacer"></span>
-        <button type="button" id="mxResetFaders" class="btn btn-small" title="Remettre les volumes des pistes et du Master à 0 dB · Ctrl+Z pour annuler">Faders à 0 dB</button>
+        <button type="button" id="mxResetFaders" class="btn btn-small" title="Pistes à −6 dB, Master à −1,9 dB (marge avant le mastering) · traitements conservés · Ctrl+Z pour annuler">Faders par défaut</button>
+        <button type="button" id="mxResetAll" class="btn btn-small" title="Tout remettre à zéro : faders par défaut, égaliseurs à plat, compresseurs et limiteurs coupés, panoramiques au centre, Master d'origine, mastering coupé · Ctrl+Z pour annuler">↺ Tout réinitialiser</button>
         <button type="button" id="amBtn" class="am-btn" aria-pressed="false" aria-controls="automix" title="Auto Mix : écoute le morceau pendant la lecture et propose des réglages de mixage et de mastering">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg> Auto Mix
         </button>
@@ -171,6 +172,7 @@
             <div id="amStatus" class="am-status"></div>
             <div id="amTargets" class="am-targets"></div>
             <div id="amScore" class="am-score"></div>
+            <div id="amPilot" class="am-pilot"></div>
             <div id="amCards" class="am-cards"></div>
           </div>
           <div id="amFoot" class="am-foot"></div>
@@ -708,6 +710,7 @@
   <script src="js/mixer.js"></script>
   <script src="js/automix.js"></script>
   <script src="js/automix-listen.js"></script>
+  <script src="js/automix-pilot.js"></script>
   <script src="js/automixpanel.js"></script>
   <script src="js/band-presets.js"></script>
   <script src="js/band-songs.js"></script>

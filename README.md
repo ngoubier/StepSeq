@@ -103,9 +103,15 @@ Les échantillons Dirt-Samples sont joués à leur hauteur réelle, mesurée par
 
 ### Auto Mix : l'assistant de mixage et de mastering
 
-Dans la console **Mix**, **Faders à 0 dB** réinitialise les volumes de toutes les pistes et du Master
-sans modifier les traitements ni les effets. Utile si les faders ont été baissés avant une écoute Auto Mix ;
-**Ctrl+Z** restaure tous les niveaux précédents en une fois.
+Dans la console **Mix** :
+
+- **Faders par défaut** remet les pistes à −6 dB et le Master à −1,9 dB, sans toucher aux traitements ni aux
+  effets (0 dB sur toutes les pistes saturait dès que plusieurs jouent ensemble).
+- **↺ Tout réinitialiser** remet tout le mix à zéro : faders par défaut, égaliseurs à plat, compresseurs et
+  limiteurs coupés, panoramiques au centre, Master d'origine (glue et limiteur de sécurité), mastering coupé. Les
+  effets de son des pistes (chorus, écho, reverb, sidechain) et les retours partagés sont conservés.
+
+**Ctrl+Z** annule chacun de ces boutons en une fois.
 
 Dans la console **Mix**, le bouton **✦ Auto Mix** ouvre un panneau à droite des tranches. Pendant la lecture, il
 écoute le morceau (`js/automix-listen.js` : analyseurs FFT sur chaque piste, sur le Master avant mastering et sur
@@ -117,7 +123,7 @@ testées) que l'on **accepte**, **ajuste** (25 à 150 %) ou **refuse** (`js/auto
 | Volume perçu | LUFS intégré, true peak (EBU R128) | Streaming −14, Synthwave −12, EDM mélodique −11, Club −8 LUFS ; ≤ −1 dBTP |
 | Dynamique | PLR (crête − LUFS), réduction de gain des compresseurs | PLR 8–13 dB (synthwave) ; ≤ 6 dB par piste |
 | Balance tonale | Énergie par bande d'octave comparée à la courbe du style | ±2,5 dB en moyenne par bande |
-| Équilibre des pistes | Niveau de chaque rôle par rapport au mix aux mêmes instants | ±3,5 dB autour du niveau du rôle |
+| Équilibre des pistes | Écart de niveau entre les pistes qui jouent ensemble, comparé aux écarts entre rôles | ±3,5 dB autour de la place du rôle |
 | Graves | Recouvrement kick ↔ basse vers 63 Hz, grave inutile ailleurs, graves en mono | < 40 %, corrélation > 0,85 |
 | Stéréo | Corrélation, équilibre G/D, largeur | corrélation > 0,2 |
 | Marge avant mastering | Crêtes du Master avant le mastering | −6 à −1 dBFS |
@@ -135,6 +141,18 @@ testées) que l'on **accepte**, **ajuste** (25 à 150 %) ou **refuse** (`js/auto
   sidechain, envois, EQ du Master, mastering), l'objectif par défaut, le niveau de détail, la durée d'écoute.
 - Les courbes de référence et les niveaux par rôle sont relevés sur les 20 chansons du Band
   (`tools/automix-calibrate.js`).
+- **Garde-fous** : l'équilibre des pistes se mesure entre pistes qui jouent ensemble (une intro à deux pistes ne
+  fausse plus rien) et se règle à volume global constant ; le fader du Master est retiré des mesures (le baisser
+  ne fait plus paraître toutes les pistes trop fortes). Ainsi, les passes successives ne baissent plus tous les
+  volumes. Une piste rare (un clap toutes les 16 mesures) est jugée dès deux relevés. Les creux d'égaliseur posés
+  par l'assistant s'arrêtent à −6 dB, les shelfs du Master à ±4 dB, le gain d'entrée du mastering avance de 5 dB au
+  plus par conseil et plafonne à +15 dB.
+- **✈ Pilote auto des faders** (`js/automix-pilot.js`) : l'assistant règle lui-même l'équilibre pendant la lecture,
+  comme à l'oreille. Il choisit la piste la plus éloignée de sa place, fait glisser son fader d'un petit pas
+  (2 dB au plus, 1,5 dB/s), puis la réécoute avant d'y retoucher ; après un aller-retour, ses pas s'affinent. Si le
+  mix sature au Master, toutes les pistes descendent ensemble et le gain d'entrée du mastering compense. Un journal
+  liste chaque geste ; chaque geste est une étape Ctrl+Z ; un fader touché à la main n'est plus piloté. Pause
+  automatique en solo et pendant l'écoute A.
 
 Outils de mesure (Playwright + Chromium, rendu hors temps réel de StepSeq) :
 
@@ -242,6 +260,7 @@ node tests/e2e/band-song-ui.js
 node tests/e2e/mix-master-ui.js
 node tests/e2e/automix-ui.js
 node tests/e2e/automix-chains.js
+node tests/e2e/automix-pilot.js
 node tests/e2e/mobile-ui.js
 ```
 
@@ -346,7 +365,8 @@ par la fenêtre **Key** :
 | `js/mixer.js`    | Console de mixage : tranches, EQ, compresseur, limiteur, vumètres |
 | `js/automix.js`  | Auto Mix : mesures (bandes d'octave, LUFS, LRA, corrélation), critères, cibles et conseils (fonctions pures) |
 | `js/automix-listen.js` | Auto Mix : écoute pendant la lecture (analyseurs sur les pistes et le Master) |
-| `js/automixpanel.js` | Auto Mix : panneau de la console, A/B, préférences |
+| `js/automix-pilot.js` | Auto Mix : pilote auto des faders (mesure entre pistes, petits gestes, gain staging) |
+| `js/automixpanel.js` | Auto Mix : panneau de la console, A/B, préférences, pilote auto |
 | `js/band-songs.js` | Band : plans des 20 chansons complètes (tonalité, sections, grilles, parties) |
 | `js/bandsong.js` | Band : écrit les scènes, les notes de chaque musicien et l'arrangement d'après un plan |
 | `js/bandmix.js`, `js/band-levels.js`, `js/band-drive.js` | Band : règles de mixage et de mastering, niveaux mesurés, gain de mastering par chanson |

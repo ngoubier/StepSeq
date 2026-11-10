@@ -60,8 +60,9 @@ const ok = (c, m) => {
   await page.click('#mxResetFaders');
   await page.waitForTimeout(1200);
   const flat = await P();
-  ok(flat.tracks.every((t) => t.volume === 1) && flat.master.volume === 1, 'bouton : tous les faders reviennent à 0 dB');
-  ok(await page.locator('#mixerStrips .fader[aria-valuetext="0.0 dB"]').count() === flat.tracks.length + 1,
+  ok(flat.tracks.every((t) => Math.abs(t.volume - 0.501) < 0.002) && flat.master.volume === 0.8,
+    'bouton : pistes à −6 dB, Master à son niveau par défaut (−1,9 dB)');
+  ok(await page.locator('#mixerStrips .fader[aria-valuetext="-6.0 dB"]').count() === flat.tracks.length,
     'les faders affichent leur nouveau niveau');
   const withoutVolumes = (p) => JSON.stringify({
     tracks: p.tracks.map(({ volume, ...t }) => t),
@@ -110,6 +111,26 @@ const ok = (c, m) => {
   });
   await page.waitForTimeout(1200);
   ok((await P()).returns.hall.size !== before, 'réglage commun du hall modifié');
+
+  // « Tout réinitialiser » : faders par défaut, tranches à plat, Master d'origine, mastering coupé ; effets gardés
+  await page.keyboard.press('Escape');
+  await page.click('#mixerBtn');
+  await page.waitForTimeout(300);
+  const mixed = await P();
+  await page.click('#mxResetAll');
+  await page.waitForTimeout(1200);
+  const zero = await P();
+  ok(zero.tracks.every((t) => Math.abs(t.volume - 0.501) < 0.002 && !t.mix) && zero.master.volume === 0.8,
+    'tout réinitialiser : faders par défaut, égaliseurs, compresseurs, limiteurs et panoramiques à plat');
+  ok(!zero.master.mastering.on && zero.master.mix.comp.th === -10 && zero.master.mix.lim.on && !zero.master.mix.eq.on,
+    'tout réinitialiser : Master d\'origine (glue et limiteur de sécurité), mastering coupé');
+  ok(JSON.stringify(zero.tracks.map((t) => t.fx)) === JSON.stringify(mixed.tracks.map((t) => t.fx)),
+    'les effets des pistes (reverb, écho, sidechain) sont conservés');
+  await page.keyboard.press('Control+z');
+  await page.waitForTimeout(1200);
+  const back = await P();
+  ok(back.master.mastering.on && back.tracks.every((t, i) => t.volume === mixed.tracks[i].volume),
+    'Ctrl+Z rend tout le mix d\'avant en une fois');
   ok(!errs.length, "pas d'erreur JS " + errs.join(' | '));
   await b.close();
   server.close();
