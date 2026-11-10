@@ -44,7 +44,6 @@ const ok = (c, m) => {
 
   await page.click('#mixerBtn');
   await page.waitForTimeout(400);
-  await page.click('#amBtn');
   await page.waitForTimeout(300);
   ok(await page.isVisible('#amPilotBtn'), 'bouton du pilote auto dans le panneau');
   const hasNullText = () => page.locator('#amPilot').evaluate((el) => [...el.childNodes].some((n) => n.nodeType === Node.TEXT_NODE && n.textContent.trim() === 'null'));
@@ -73,7 +72,7 @@ const ok = (c, m) => {
   await page.click('#amPilotBtn');
   await page.waitForTimeout(500);
   ok(await page.evaluate(() => SS.audio.isPlaying()), 'le pilote lance la lecture');
-  ok(/Arrêter/.test(await page.textContent('#amPilotBtn')), 'bouton : arrêter le pilote');
+  ok(/Arrêter/.test(await page.textContent('#amPilotStop')), 'bouton : arrêter le pilote');
   ok(!(await hasNullText()), 'pilote en écoute : aucun texte « null » sans action en cours');
   ok(!(await page.isVisible('#amCards')) && !(await page.isVisible('#amFoot')) && !(await page.isVisible('#amScore')),
     'pilote actif : conseils et commandes manuelles masqués');
@@ -122,13 +121,13 @@ const ok = (c, m) => {
   ok(await page.locator('#mixerStrips .fader.pilot-control').count() > 1, 'gain d’ensemble : tous les faders concernés illuminés');
   await page.screenshot({ path: '/tmp/stepseq-pilot-ui.png' });
 
-  await page.click('#amPilotBtn');
+  await page.click('#amPilotStop');
   await page.waitForTimeout(300);
   ok(!(await page.evaluate(() => SS.automixPanel._state().pilot)), 'pilote arrêté');
   ok(!(await hasNullText()), 'pilote arrêté : aucun texte « null » résiduel');
-  ok(await page.isVisible('#amCards') && await page.isVisible('#amFoot'), 'arrêt du pilote : conseils manuels réaffichés');
+  ok(!(await page.isVisible('#amCards')) && !(await page.isVisible('#amFoot')), 'arrêt du pilote : mode conservé jusqu’au choix Assistant');
   ok(await page.locator('.pilot-working, .pilot-control').count() === 0, 'arrêt : aucun réglage ne reste illuminé');
-  ok(/Démarrer le pilote auto/.test(await page.textContent('#amPilotBtn')), 'bouton revenu à « Pilote auto »');
+  ok(/Pilote Auto/.test(await page.textContent('#amPilotBtn')), 'bouton revenu à « Pilote auto »');
   await page.click('#amClose');
   await page.click('#amBtn');
   ok(await page.locator('#automix').evaluate((el) => el.getBoundingClientRect().width) === 340, 'largeur conservée à la réouverture');

@@ -41,7 +41,6 @@ const ok = (c, m) => {
   const initial = await P();
   const [first, second] = initial.tracks.map((t) => t.id);
   await page.click('#mixerBtn');
-  await page.click('#amBtn');
   // Contrôle du signal « équilibre atteint » : les mesures audio et traitements restent réels.
   await page.evaluate(() => {
     const plan = SS.automixPilot.plan;
@@ -83,7 +82,7 @@ const ok = (c, m) => {
   await page.waitForTimeout(1000);
   ok(await page.evaluate((id) => SS.automixPanel._state().pilot.trackLocked.get(id)?.has('comp'), first), 'compresseur de piste retouché : module rendu à l’utilisateur');
   await page.screenshot({ path: '/tmp/stepseq-track-pilot.png' });
-  await page.click('#amPilotBtn');
+  await page.click('#amPilotStop');
   ok(await page.locator('.pilot-control, .pilot-working').count() === 0, 'arrêt : tous les témoins de traitement sont retirés');
   ok(!errs.length, 'aucune erreur JavaScript : ' + errs.join(' | '));
   await b.close();

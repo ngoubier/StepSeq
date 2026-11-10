@@ -46,12 +46,11 @@ const ok = (c, m) => {
   await page.click('#mixerBtn');
   await page.waitForTimeout(400);
   ok(await page.isVisible('#amBtn'), 'console : bouton Auto Mix');
-  await page.click('#amBtn');
   await page.waitForTimeout(300);
   ok(await page.isVisible('#automix'), 'le panneau s\'ouvre à droite');
   ok(/Lance la lecture/.test(await page.textContent('#amStatus')), 'arrêté : invite à lancer la lecture');
   ok((await S()).target === 'synthwave', 'objectif proposé d\'après le style du Band : synthwave');
-  ok((await page.textContent('#amTargets .am-chip.sel')).includes('✦'), 'l\'objectif proposé est marqué ✦ et sélectionné');
+  ok(!(await page.isVisible('#amTargets')) && !(await page.locator('.am-play').count()), 'objectif et bouton Lecture masqués');
 
   // préférences
   await page.click('#amPrefsBtn');
@@ -65,7 +64,7 @@ const ok = (c, m) => {
   await page.click('#automixPrefs .mx-close');
 
   // écoute
-  await page.click('#amStatus .am-play');
+  await page.click('#amAssistantBtn');
   await page.waitForTimeout(14000);
   let s = await S();
   ok(s.ready, 'diagnostic prêt après 10 s d\'écoute');
@@ -74,7 +73,9 @@ const ok = (c, m) => {
   ok(!s.ids.some((id) => /^(dry|wet):/.test(id)), 'les envois de reverb interdits ne sont pas proposés');
 
   // objectif Club (−8 LUFS) : la chanson Band (≈ −13 LUFS) est trop faible → gain d'entrée du mastering
-  await page.click('#amTargets .am-chip >> text=Club');
+  await page.click('#amPrefsBtn');
+  await page.check('#am_amTarget_club');
+  await page.click('#automixPrefs .mx-close');
   await page.waitForTimeout(300);
   s = await S();
   ok(s.target === 'club' && s.ids.includes('loud'), 'objectif changé : conseil de volume pour le club');
@@ -143,10 +144,11 @@ const ok = (c, m) => {
   ok((await S()).decided.length === 1 && (await S()).decided[0] === 'loud' && (await S()).ab === 'B',
     'seule la proposition appliquée est conservée, écoute B restaurée');
   await page.click('#amBtn');
+  await page.click('#amAssistantBtn');
   ok(await page.locator('#amCards .am-card').count() === 1 && /Appliqué/.test(await page.textContent('#amCards .am-card[data-id="loud"]')),
     'réouverture : proposition appliquée visible, aucune proposition en attente');
-  ok((await P()).master.mastering.drive === keptDrive && /Lance la lecture/.test(await page.textContent('#amStatus')),
-    'réglage appliqué conservé, nouvelle écoute à lancer');
+  ok((await P()).master.mastering.drive === keptDrive && await page.evaluate(() => SS.audio.isPlaying()),
+    'réglage appliqué conservé, nouvelle écoute lancée par Assistant');
   await page.click('#amClose');
   await page.click('#play');
   ok(!errs.length, 'aucune erreur JavaScript' + (errs.length ? ' : ' + errs.join(' | ') : ''));

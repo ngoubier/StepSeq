@@ -160,7 +160,7 @@
         <aside id="automix" class="am-panel" hidden aria-labelledby="amTitle">
           <div id="amResize" class="am-resize" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Largeur d’Auto Mix" aria-valuemin="320" aria-valuemax="720" aria-valuenow="400" title="Glisser pour redimensionner · flèches gauche / droite"></div>
           <div class="am-head">
-            <h3 id="amTitle">Auto Mix <small>mixage + mastering</small></h3>
+            <h3 id="amTitle">Auto Mix</h3>
             <span class="spacer"></span>
             <button type="button" id="amPrefsBtn" class="am-icon" title="Préférences Auto Mix : ce que l'assistant peut modifier, objectif par défaut" aria-label="Préférences Auto Mix">
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
@@ -168,6 +168,10 @@
             <button type="button" id="amClose" class="am-icon" title="Fermer Auto Mix" aria-label="Fermer Auto Mix">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
             </button>
+          </div>
+          <div class="am-modes" role="group" aria-label="Mode Auto Mix">
+            <button type="button" id="amPilotBtn" class="am-mode" aria-pressed="false">Pilote Auto</button>
+            <button type="button" id="amAssistantBtn" class="am-mode" aria-pressed="false">Assistant</button>
           </div>
           <div class="am-body">
             <div id="amStatus" class="am-status"></div>

@@ -46,7 +46,6 @@ const ok = (c, m) => {
   await page.waitForTimeout(1200);
   const before = await P();
   ok(!before.master.mix.comp.on && !before.master.mastering.on, 'Master initial : compresseur et mastering désactivés');
-  await page.click('#amBtn');
   await page.click('#amPilotBtn');
   // Ce scénario isole le Master après la phase de pistes ; le cycle complet a son propre test.
   await page.evaluate(() => {
@@ -90,7 +89,7 @@ const ok = (c, m) => {
   await page.locator('.mod-comp input[type=range]').nth(1).fill('300');
   await page.waitForTimeout(500);
   ok(await page.evaluate(() => SS.automixPanel._state().pilot.masterLocked.has('comp')), 'ratio retouché : compresseur repris à la main');
-  await page.click('#amPilotBtn');
+  await page.click('#amPilotStop');
   ok(await page.locator('.pilot-control').count() === 0, 'arrêt : mise en évidence effacée');
   ok(!errs.length, 'aucune erreur JavaScript : ' + errs.join(' | '));
   await b.close();

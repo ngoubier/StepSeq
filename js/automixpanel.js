@@ -20,6 +20,7 @@ SS.automixPanel = (() => {
   const L = () => SS.automixListen;
   let app;
   let isOpen = false;
+  let mode = null;
   let prefs = null;
   let targetPick = null; // objectif choisi dans le panneau (sinon : préférence ou proposition)
   let diag = null;
@@ -484,36 +485,11 @@ SS.automixPanel = (() => {
     else if (secs < need) msg = `${playing ? 'Écoute en cours' : 'Écoute en pause'} · encore ${Math.ceil(need - secs)} s avant le premier diagnostic`;
     else msg = `${playing ? 'Écoute en cours' : 'Écoute en pause'} · ${mm(secs)} entendues${scenesTotal > 1 ? ` · ${heard} scène${heard > 1 ? 's' : ''} sur ${scenesTotal}` : ''}`;
     box.replaceChildren(
-      h('div', { class: 'am-status-row' }, h('span', { class: 'am-dot' + (playing ? ' on' : '') }), h('span', {}, msg),
-        playing ? null : h('button', { type: 'button', class: 'btn btn-small am-play', onclick: () => app.play() }, '▶ Lecture')),
+      h('div', { class: 'am-status-row' }, h('span', { class: 'am-dot' + (playing ? ' on' : '') }), h('span', {}, msg)),
       h('div', { class: 'am-bar' }, h('i', { style: `width:${clamp((secs / Math.max(need * 3, 1)) * 100, 0, 100)}%` }))
     );
     if (p.playMode !== 'song' && p.song && p.song.length > 1 && !secs)
       box.append(h('p', { class: 'am-hint' }, 'Astuce : passe en mode Song (fenêtre Song) pour que j\'écoute toute la chanson, pas seulement la scène en cours.'));
-  }
-
-  function renderTargets() {
-    const box = $('#amTargets');
-    if (!box) return;
-    const cur = targetId();
-    const prop = proposed();
-    box.replaceChildren(
-      h('span', { class: 'am-label' }, 'Objectif'),
-      h('div', { class: 'am-chips' }, Object.entries(A().TARGETS).map(([id, T]) =>
-        h('button', {
-          type: 'button',
-          class: 'am-chip' + (id === cur ? ' sel' : ''),
-          'aria-pressed': String(id === cur),
-          title: T.desc + (id === prop ? ' · proposé d\'après le style du morceau' : ''),
-          onclick: () => {
-            targetPick = id;
-            rediagnose();
-            renderAll();
-          },
-        }, T.name, h('small', {}, ' ' + fr(T.lufs, 0)), id === prop ? h('em', {}, ' ✦') : null)
-      )),
-      h('p', { class: 'am-hint' }, prefs.target === 'auto' && !targetPick ? `Proposé d'après le style du morceau (✦). Clique un autre objectif pour le changer.` : `✦ : proposé d'après le style du morceau.`)
-    );
   }
 
   function renderScore() {
@@ -587,7 +563,6 @@ SS.automixPanel = (() => {
   function renderAll() {
     if (!isOpen) return;
     renderStatus();
-    renderTargets();
     renderScore();
     renderPilot();
     renderCards();
@@ -598,7 +573,7 @@ SS.automixPanel = (() => {
   /** Pastilles sur les tranches de la console : conseils en attente (orange) ou appliqués (doré). */
   function decorate() {
     document.querySelectorAll('#mixerStrips .am-badge').forEach((b) => b.remove());
-    if (!isOpen || pilot || !diag || !diag.ready) return;
+    if (!isOpen || mode !== 'assistant' || !diag || !diag.ready) return;
     const list = shown();
     document.querySelectorAll('#mixerStrips .strip[data-id]').forEach((el) => {
       const id = el.dataset.id;
@@ -894,6 +869,24 @@ SS.automixPanel = (() => {
           : 'Écoute…'
     );
   }
+  function assistantStart() {
+    mode = 'assistant';
+    pilotStop();
+    endTry();
+    if (ab === 'A') setAB('B');
+    L().reset();
+    L().start(project, null);
+    SS.audio.resetLoudness();
+    diag = null;
+    frozen = false;
+    lastDiagAt = 0;
+    adjusting.clear();
+    picks.clear();
+    for (const [id, d] of decisions) if (d.st !== 'accepted') decisions.delete(id);
+    app.stop();
+    app.play();
+    renderAll();
+  }
   function setPilotStatus(txt) {
     if (!pilot || pilot.status === txt) return;
     pilot.status = txt;
@@ -902,6 +895,14 @@ SS.automixPanel = (() => {
   }
   function pilotStart() {
     if (pilot) return;
+    mode = 'pilot';
+    L().reset();
+    L().start(project, null);
+    SS.audio.resetLoudness();
+    diag = null;
+    frozen = false;
+    lastDiagAt = 0;
+    app.stop();
     endTry();
     if (ab === 'A') setAB('B');
     captureBaseline();
@@ -951,24 +952,30 @@ SS.automixPanel = (() => {
     const box = $('#amPilot');
     if (!box) return;
     const on = !!pilot;
-    ['amCards', 'amFoot', 'amScore', 'amTargets'].forEach((id) => { $('#' + id).hidden = on; });
+    $('#amPilotBtn').setAttribute('aria-pressed', String(mode === 'pilot'));
+    $('#amAssistantBtn').setAttribute('aria-pressed', String(mode === 'assistant'));
+    $('#amPilot').hidden = mode !== 'pilot';
+    $('#amCards').hidden = mode !== 'assistant';
+    $('#amFoot').hidden = mode !== 'assistant';
+    $('#amScore').hidden = mode !== 'assistant' || !diag || !diag.ready;
+    $('#amTargets').hidden = true;
+    $('#amStatus').hidden = mode === null;
     box.classList.toggle('running', on);
     const ramp = pilot && pilot.ramp;
     box.replaceChildren(...[
-      h('h4', { class: 'am-pilot-title' }, on ? 'Pilote auto · en cours' : 'Pilote auto · mix et mastering'),
       on ? h('p', { class: 'am-pilot-progress' },
         `${project().tracks.filter((t) => !t.mute && pilot.trackDone.has(t.id)).length}/${project().tracks.filter((t) => !t.mute).length} pistes vérifiées · ` +
         ({ balance: 'Équilibrage du mix', track: 'Traitement de ' + nameOf(pilot.currentTrack), relisten: 'Réécoute du mix', master: project().tracks.some((t) => !t.mute && !pilot.trackDone.has(t.id)) ? 'Master global · pistes non entendues en attente' : 'Master global' })[pilot.phase]) : null,
-      h('div', { class: 'am-pilot-row' },
+      on ? h('div', { class: 'am-pilot-row' },
         h('button', {
           type: 'button',
-          id: 'amPilotBtn',
+          id: 'amPilotStop',
           class: 'btn btn-small am-pilot-btn' + (on ? ' on' : ''),
           'aria-pressed': String(on),
           title: on ? 'Arrêter le pilote auto' : 'Équilibrer les faders, traiter les pistes une par une et régler le Master',
           onclick: () => (on ? pilotStop() : pilotStart()),
         }, on ? '◼ Arrêter le pilote' : '✈ Démarrer le pilote auto'),
-        h('span', { id: 'amPilotStatus', class: 'am-pilot-status', role: 'status' }, on ? pilot.status || 'Écoute…' : '')),
+        h('span', { id: 'amPilotStatus', class: 'am-pilot-status', role: 'status' }, pilot.status || 'Écoute…')) : null,
       ramp && ramp.master ? h('div', { class: 'am-pilot-task' }, h('b', {}, ramp.master.title),
         ...ramp.master.changes.map((c) => h('div', {}, h('span', {}, pathLabel(c, { changes: ramp.master.changes, track: ramp.master.track || '__master' })), h('strong', {}, `${A().formatValue(c.path, c.from)} → ${A().formatValue(c.path, c.to)}`)))) : ramp ? h('div', { class: 'am-pilot-task' },
         h('b', {}, ramp.moves.length > 1 ? 'Niveau d’ensemble' : nameOf(ramp.moves[0].id)),
@@ -1040,6 +1047,7 @@ SS.automixPanel = (() => {
       if (ol && ol.childElementCount !== pilot.log.length) renderPilot();
       return; // le pilote et les conseils sont deux modes exclusifs
     }
+    if (mode !== 'assistant') return;
     // un Ctrl+Z (ou une retouche à la main) a défait un conseil appliqué : les cartes se remettent à jour
     const n = decisions.size;
     syncDecisions();
@@ -1049,6 +1057,7 @@ SS.automixPanel = (() => {
       const had = diag && diag.ready;
       rediagnose();
       if (diag) {
+        $('#amScore').hidden = !diag.ready;
         renderScore();
         renderCards();
         renderFoot();
@@ -1113,13 +1122,13 @@ SS.automixPanel = (() => {
 
   /* ------------------------------------------------------------------ ouverture / fermeture */
   function open() {
-    if (!SS.mixer.isOpen()) SS.mixer.open();
+    if (isOpen) return;
+    if (!SS.mixer.isOpen()) { SS.mixer.open(); return; }
     isOpen = true;
     $('#automix').hidden = false;
     document.body.classList.add('automix-open');
     $('#amBtn').classList.add('active');
     $('#amBtn').setAttribute('aria-pressed', 'true');
-    L().start(project, null);
     clearInterval(timer);
     timer = setInterval(poll, 500);
     if (L().summary() && L().secs() >= prefs.minSecs) rediagnose();
@@ -1129,6 +1138,7 @@ SS.automixPanel = (() => {
   }
   function close() {
     if (!isOpen) return;
+    mode = null;
     pilotStop();
     endTry();
     if (ab === 'A') setAB('B');
@@ -1155,9 +1165,11 @@ SS.automixPanel = (() => {
 
   /** Un autre morceau est chargé : on repart de zéro. */
   function songChanged() {
+    mode = null;
     pilotStop();
     if (ab === 'A') setAB('B');
     L().reset();
+    L().stop();
     decisions.clear();
     adjusting.clear();
     picks.clear();
@@ -1175,6 +1187,8 @@ SS.automixPanel = (() => {
     $('#amBtn').addEventListener('click', () => (isOpen ? close() : open()));
     $('#amClose').addEventListener('click', close);
     $('#amPrefsBtn').addEventListener('click', openPrefs);
+    $('#amPilotBtn').addEventListener('click', pilotStart);
+    $('#amAssistantBtn').addEventListener('click', assistantStart);
     const handle = $('#amResize');
     const panel = $('#automix');
     const resize = (width) => {
@@ -1207,6 +1221,6 @@ SS.automixPanel = (() => {
   return {
     init, open, close, decorate, songChanged, mixReset, pilotStart, pilotStop,
     isOpen: () => isOpen,
-    _state: () => ({ diag, decisions, baseline, prefs, ab, targetId: targetId(), pilot }),
+    _state: () => ({ mode, diag, decisions, baseline, prefs, ab, targetId: targetId(), pilot }),
   };
 })();

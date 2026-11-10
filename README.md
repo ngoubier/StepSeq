@@ -113,7 +113,12 @@ Dans la console **Mix** :
 
 **Ctrl+Z** annule chacun de ces boutons en une fois.
 
-Dans la console **Mix**, le bouton **✦ Auto Mix** ouvre un panneau à droite des tranches. Pendant la lecture, il
+Le panneau **Auto Mix** s'ouvre automatiquement à droite des tranches avec la console **Mix**. Deux grands
+boutons lancent les traitements : **Pilote Auto** démarre le cycle automatique et masque les conseils manuels ;
+**Assistant** arrête le pilote, affiche les onglets **Mixage** et **Mastering** et lance la lecture pour analyser
+le morceau. Les commandes **A/B**, **Réécouter** et **Tout accepter** restent disponibles dans ce mode.
+L'objectif et les textes d'aide sont masqués dans le panneau ; l'objectif reste réglable dans les préférences.
+Pendant la lecture, l'assistant
 écoute le morceau (`js/automix-listen.js` : analyseurs FFT sur chaque piste, sur le Master avant mastering et sur
 la sortie stéréo), note sept critères de 0 à 100 et propose des conseils chiffrés (`js/automix.js`, fonctions pures
 testées) que l'on **accepte**, **ajuste** (25 à 150 %) ou **refuse** (`js/automixpanel.js`) :
@@ -128,7 +133,7 @@ testées) que l'on **accepte**, **ajuste** (25 à 150 %) ou **refuse** (`js/auto
 | Stéréo | Corrélation, équilibre G/D, largeur | corrélation > 0,2 |
 | Marge avant mastering | Crêtes du Master avant le mastering | −6 à −1 dBFS |
 
-- L'**objectif** est proposé d'après le style des pistes du Band (✦) et se change d'un clic.
+- L'**objectif** est proposé d'après le style des pistes du Band et se change dans les préférences.
 - Les conseils suivent l'ordre d'un ingénieur du son : mixage (niveaux, graves, égalisation, dynamique, stéréo,
   espace) puis mastering. Chaque conseil accepté passe par les réglages de la console (Ctrl+Z l'annule).
 - **A/B** compare le mix d'origine et le mix actuel à volume égal ; **Réécouter** mesure l'effet des changements.
@@ -300,6 +305,7 @@ node tests/e2e/song-ui.js
 node tests/e2e/band-song-ui.js
 node tests/e2e/mix-master-ui.js
 node tests/e2e/automix-ui.js
+node tests/e2e/automix-modes.js
 node tests/e2e/automix-chains.js
 node tests/e2e/automix-pilot.js
 node tests/e2e/automix-track-pilot.js

@@ -41,8 +41,7 @@ const ok = (c, m) => {
 
   await page.click('#mixerBtn');
   await page.waitForTimeout(300);
-  await page.click('#amBtn');
-  await page.click('#amStatus .am-play');
+  await page.click('#amAssistantBtn');
   await page.waitForTimeout(14000);
   const kickId = await page.evaluate(() => document.querySelector('#mixerStrips .strip[data-id]').dataset.id);
   const card = `#amCards .am-card[data-id="chain:${kickId}"]`;

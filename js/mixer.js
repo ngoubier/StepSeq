@@ -1614,6 +1614,7 @@ SS.mixer = (() => {
 
   /* ------------------------------------------------------------------ ouverture / fermeture */
   function open() {
+    if (isOpen) return;
     SS.audio.ensureCtx();
     app.project().tracks.forEach((t) => SS.audio.ensureBus(t));
     SS.audio.applyMaster(app.project());
@@ -1625,6 +1626,7 @@ SS.mixer = (() => {
     render();
     lastT = 0;
     raf = requestAnimationFrame(loop);
+    if (SS.automixPanel) SS.automixPanel.open();
   }
   function close() {
     if (SS.automixPanel) SS.automixPanel.close();
