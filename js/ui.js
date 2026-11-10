@@ -281,6 +281,7 @@ SS.ui = (() => {
         onclick: (e) => {
           track.mute = !track.mute;
           e.currentTarget.classList.toggle('on', track.mute);
+          SS.audio.applyMutes(app.project());
           app.changed();
         },
       }, 'M'),
@@ -290,6 +291,7 @@ SS.ui = (() => {
         onclick: (e) => {
           track.solo = !track.solo;
           e.currentTarget.classList.toggle('on', track.solo);
+          SS.audio.applyMutes(app.project());
           app.changed();
         },
       }, 'S'),

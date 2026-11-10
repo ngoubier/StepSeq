@@ -1138,6 +1138,24 @@ SS.audio = (() => {
     return project.tracks.filter((t) => !t.mute && (!soloed || t.solo));
   }
 
+  /**
+   * Muet / Solo coupent aussi le son déjà en cours (notes tenues, nappes, synthés) : la sortie de la tranche
+   * (son direct et envois d'effets) passe à zéro en 10 ms, comme le bouton Mute d'une vraie console.
+   * Les reverbs et échos déjà partis s'éteignent naturellement. À l'arrêt, tout est rouvert (le bouton Écouter
+   * d'une piste muette reste audible).
+   */
+  function applyMutes(project, audible = new Set(audibleTracks(project))) {
+    if (!ctx || !project) return;
+    project.tracks.forEach((t) => {
+      const b = buses.get(t.id);
+      if (!b) return;
+      const off = seq.playing && !audible.has(t);
+      if (b.muted === off) return;
+      b.muted = off;
+      b.pre.gain.setTargetAtTime(off ? 0 : 1, ctx.currentTime, 0.01);
+    });
+  }
+
   /*
    * Sidechain : quand une piste « source » joue, les pistes qui l'écoutent baissent de volume
    * (attaque ~5 ms) puis remontent selon leur relâchement. Le déclenchement vient des notes programmées,
@@ -1161,6 +1179,7 @@ SS.audio = (() => {
     const sd = stepDur(project);
     // une piste muette peut quand même déclencher un sidechain
     const audible = new Set(audibleTracks(project));
+    applyMutes(project, audible);
     project.tracks.forEach((track) => {
       if (!audible.has(track)) {
         const isSource = project.tracks.some((t) => t.fx && t.fx.scSource === track.id);
@@ -1327,6 +1346,7 @@ SS.audio = (() => {
     cancelAnimationFrame(seq.raf);
     seq.queue = [];
     silenceAll(); // coupe les voix en cours et celles déjà programmées
+    if (seq.getProject) applyMutes(seq.getProject()); // à l'arrêt, les tranches muettes se rouvrent
   }
 
   function stop() {
@@ -1417,6 +1437,7 @@ SS.audio = (() => {
     applyMaster,
     levels,
     taps,
+    applyMutes,
     ensureBus: (t) => bus(t),
     /** Clavier de la façade du Juno : note tenue (renvoie un identifiant, ou null si le module se charge). */
     liveNoteOn: (track, midi, vel) => {
