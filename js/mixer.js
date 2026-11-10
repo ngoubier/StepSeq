@@ -75,6 +75,7 @@ SS.mixer = (() => {
     return list;
   }
   const chan = (id) => channels().find((c) => c.id === id);
+  const faderViews = new Map(); // id de tranche -> affichage de son fader
 
   /* ------------------------------------------------------------------ échelle des faders / vumètres */
   // position 0..1 <-> dB : le bas de la course est comprimé (-60 à -20 dB sur le premier quart)
@@ -265,9 +266,16 @@ SS.mixer = (() => {
   }
 
   /* ------------------------------------------------------------------ tranches */
+  /** Redessine le fader d'une tranche sans reconstruire la console (pilote auto de l'Auto Mix). */
+  function refreshFader(id) {
+    const show = faderViews.get(id);
+    if (show) show();
+  }
+
   function render() {
     if (!isOpen) return;
     const list = channels();
+    faderViews.clear();
     if (!selected || !list.some((c) => c.id === selected)) selected = list[0].id;
     meters.clear();
     $('#mxProject').textContent = app.project().title;
@@ -443,6 +451,7 @@ SS.mixer = (() => {
       readout.textContent = fmtDb(db) + ' dB';
       el.setAttribute('aria-valuetext', fmtDb(db) + ' dB');
     };
+    faderViews.set(ch.id, show);
     const setDb = (db) => {
       const v = db === -Infinity ? 0 : clamp(SS.dbToGain(db), 0, SS.dbToGain(6));
       ch.setVol(v);
@@ -1075,13 +1084,45 @@ SS.mixer = (() => {
   }
 
   const RESET_ID = '__reset';
+  /*
+   * Niveaux de départ des faders : 0 dB partout sature dès que quelques pistes jouent ensemble (leurs crêtes
+   * s'additionnent au Master). −6 dB par piste et le Master à son niveau par défaut (−1,9 dB) laissent de la marge
+   * avant le mastering ; le gain d'entrée du mastering rend ensuite le volume final.
+   */
+  const FADER_TRACK_DB = -6;
+  const faderTrackGain = () => SS.dbToGain(FADER_TRACK_DB);
 
-  /** Remet uniquement les faders des pistes et du Master au gain unitaire. */
+  /** Remet uniquement les faders : pistes à −6 dB, Master à son niveau par défaut. */
   function resetFaders() {
-    channels().forEach((ch) => ch.setVol(1));
+    channels().forEach((ch) => ch.setVol(ch.master ? SS.MASTER_DEFAULTS.volume : faderTrackGain()));
     app.changed();
     render();
-    SS.ui.toast('Faders des pistes et du Master à 0 dB — Ctrl+Z pour annuler', 4000);
+    if (SS.automixPanel) SS.automixPanel.mixReset();
+    SS.ui.toast('Faders des pistes à −6 dB, Master à −1,9 dB — Ctrl+Z pour annuler', 4000);
+  }
+
+  /**
+   * Remet tout le mix à zéro : faders (comme ci-dessus), tranches à plat (égaliseur plat, compresseur et limiteur
+   * coupés, panoramique au centre), Master à ses réglages d'origine (glue et limiteur de sécurité) et mastering
+   * coupé. Les effets de son des pistes (chorus, écho, reverb, sidechain) et les retours partagés sont conservés.
+   */
+  function resetEverything() {
+    const p = app.project();
+    p.tracks.forEach((t) => {
+      delete t.mix;
+      delete t.mixProfile;
+      t.volume = faderTrackGain();
+      SS.audio.applyMix(t);
+      SS.audio.setTrackGain(t, t.volume);
+    });
+    p.master = JSON.parse(JSON.stringify(SS.MASTER_DEFAULTS));
+    delete p.masterProfile;
+    SS.audio.applyMaster(p);
+    lastMixset = '';
+    app.changed();
+    render();
+    if (SS.automixPanel) SS.automixPanel.mixReset();
+    SS.ui.toast('Mix réinitialisé : faders, égaliseurs, compresseurs, limiteurs, panoramiques et mastering — Ctrl+Z pour annuler', 5000);
   }
 
   /** Remet toutes les tranches (pistes et Master) à plat : EQ, compresseur, limiteur, panoramique. */
@@ -1503,11 +1544,12 @@ SS.mixer = (() => {
     $('#mixerBtn').addEventListener('click', () => (isOpen ? close() : open()));
     $('#mxClose').addEventListener('click', close);
     $('#mxResetFaders').addEventListener('click', resetFaders);
+    $('#mxResetAll').addEventListener('click', resetEverything);
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && isOpen && !document.querySelector('dialog[open]') && !document.querySelector('.ctx-menu')) close();
     });
     window.addEventListener('resize', () => isOpen && detailRefs && detailRefs.drawBig());
   }
 
-  return { init, open, close, render, isOpen: () => isOpen, drawEq }; // drawEq : miniatures des chaînes Auto Mix
+  return { init, open, close, render, refreshFader, isOpen: () => isOpen, drawEq }; // drawEq : miniatures des chaînes Auto Mix
 })();

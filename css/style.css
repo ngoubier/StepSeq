@@ -2625,6 +2625,13 @@ body.sg-drag-on, body.sg-drag-on * { cursor: grabbing !important; }
 .am-crit > span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .am-crit em { font-style: normal; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
 
+.am-pilot { display: flex; flex-direction: column; gap: 6px; padding: 9px 10px; border-radius: 7px; background: #23232a; border: 1px solid #34343c; }
+.am-pilot-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.btn.am-pilot-btn { font-weight: 600; }
+.btn.am-pilot-btn.on { background: var(--accent-2); color: #fff; }
+.am-pilot-status { flex: 1; min-width: 0; font-size: 11.5px; color: var(--muted); }
+.am-pilot-log { margin: 0; padding: 6px 9px 6px 24px; border-radius: 5px; background: #18181c; font-size: 11px; line-height: 1.5; color: var(--muted); font-variant-numeric: tabular-nums; max-height: 132px; overflow-y: auto; }
+.am-pilot-log li:first-child { color: var(--text); }
 .am-cards { display: flex; flex-direction: column; gap: 8px; }
 .am-tabs { display: flex; gap: 4px; border-bottom: 1px solid #34343c; }
 .am-tab { border: 0; background: none; color: var(--muted); font: inherit; font-size: 12.5px; font-weight: 600; padding: 8px 10px; cursor: pointer; border-bottom: 2px solid transparent; }

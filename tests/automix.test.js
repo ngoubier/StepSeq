@@ -109,7 +109,7 @@ test('diagnostic : volume trop faible → gain d\'entrée du mastering, plafond 
   assert.ok(loud, 'conseil de volume');
   assert.equal(loud.sev, 'crit');
   const drive = loud.changes.find((c) => c.path === 'mastering.drive');
-  assert.ok(Math.abs(drive.to - 6) < 0.15, `+6 dB pour passer de −18 à −12 LUFS (${drive.to})`);
+  assert.ok(Math.abs(drive.to - 5) < 0.15, `+5 dB au plus d'un coup pour aller de −18 vers −12 LUFS (${drive.to})`);
   assert.ok(d.scores.loud < 50);
   assert.ok(d.total >= 0 && d.total <= 100);
 });
@@ -244,4 +244,180 @@ test('corrections : compresseur qui ne travaille pas, limiteur permanent', () =>
   assert.ok(idle && idle.changes[0].to === -6 - SS.bandMix.INST.bass.below);
   const lim = d.suggestions.find((x) => x.id === 'lim:bass');
   assert.ok(lim && lim.changes[0].to === -8);
+});
+
+test('pistes rares : un clap qui ne joue qu\'une fois est jugé et réglé', () => {
+  // 640 relevés (32 s), le clap ne frappe que 3 relevés, à la fin
+  const s = play({
+    kick: (i) => (i % 8 < 2 ? spectrum({ 1: -6, 2: -10 }) : null),
+    bass: () => spectrum({ 1: -9, 2: -10 }),
+    lead: () => spectrum({ 4: -16, 5: -15, 6: -18 }),
+    clap: (i) => (i >= 630 && i < 633 ? spectrum({ 5: -40, 6: -42 }) : null),
+  }, { n: 640 });
+  assert.ok(s.tracks.clap.active < 0.01 && s.tracks.clap.n === 3);
+  const d = A.diagnose(s, ctxOf([['kick', 'kick'], ['bass', 'bass'], ['lead', 'lead'], ['clap', 'clap']]));
+  const bal = d.suggestions.find((x) => x.id === 'bal:clap');
+  assert.ok(bal, 'le clap trop faible est signalé malgré sa rareté');
+  assert.ok(bal.changes[0].to > bal.changes[0].from, 'son fader monte');
+  assert.ok(/joue rarement/.test(bal.why));
+});
+
+test('équilibre : baisser le fader du Master ne fait pas paraître toutes les pistes trop fortes', () => {
+  const tracks = {
+    kick: (i) => (i % 8 < 2 ? spectrum({ 1: -6, 2: -10 }) : null),
+    bass: () => spectrum({ 1: -9, 2: -10 }),
+    lead: () => spectrum({ 4: -16, 5: -15, 6: -18 }),
+  };
+  // même morceau, Master à 0 dB puis à −10 dB : les énergies du mix sont écoutées après le fader
+  const run = (g) => {
+    const acc = A.newAccumulator();
+    for (let i = 0; i < 400; i++) {
+      const tr = {};
+      const live = [];
+      for (const [id, f] of Object.entries(tracks)) {
+        const b = f(i) || new Float64Array(A.BANDS.length);
+        tr[id] = { bands: b, peak: 0.3 };
+        live.push(b);
+      }
+      const pre = sumBands(live).map((v) => v * g * g);
+      A.accumulate(acc, { dt: 0.05, tracks: tr, pre: { bands: pre, peak: 0.5 * g }, preGain: g });
+    }
+    return A.summarize(acc);
+  };
+  const a = run(1);
+  const b = run(Math.pow(10, -10 / 20));
+  for (const id of Object.keys(tracks)) assert.ok(Math.abs(a.tracks[id].rel - b.tracks[id].rel) < 0.01, id);
+});
+
+test('équilibre : l\'écart commun est retiré — pas de baisse générale des volumes', () => {
+  // toutes les pistes 6 dB « trop fortes » par rapport au mix (impossible en vrai : c'est l'effet d'un repère faussé)
+  const sum = { tracks: {} };
+  const rows = [['kick', 'kick'], ['bass', 'bass'], ['lead', 'lead'], ['pad', 'pad']];
+  for (const [id, role] of rows) sum.tracks[id] = { n: 100, active: 0.5, rel: A.ROLE_LEVEL[role] + 6, energy: 1 };
+  sum.tracks.pad.rel = A.ROLE_LEVEL.pad - 2; // seule la nappe est en retrait par rapport aux autres
+  const plan = A.balancePlan(sum, rows.map(([id, role]) => ({ id, role })));
+  for (const r of plan.filter((x) => x.t.id !== 'pad')) assert.ok(Math.abs(r.dev) < 2.5, r.t.id);
+  const pad = plan.find((x) => x.t.id === 'pad');
+  assert.ok(pad.dev < -5, 'la nappe reste à remonter');
+});
+
+test('garde-fous : les creux d\'EQ et le gain du mastering ne se cumulent pas sans fin', () => {
+  const s = play({
+    pad: () => spectrum({ 1: -24, 3: -8, 4: -9, 5: -20, 6: -30, 7: -34, 8: -40, 9: -50 }),
+    lead: () => spectrum({ 4: -20, 5: -16, 6: -20 }),
+  }, { lufs: -30, tp: -12 });
+  const deep = treated();
+  deep.eq.lm = { f: 300, g: -6, q: 1.2 };
+  const d = A.diagnose(s, ctxOf([['pad', 'pad', deep], ['lead', 'lead']]));
+  assert.ok(!d.suggestions.some((x) => x.id === 'lowmid'), 'creux déjà à −6 dB : pas de nouveau creux');
+  const mp = masterOn();
+  mp.mastering.drive = 13;
+  const d2 = A.diagnose(s, ctxOf([['lead', 'lead']], { master: { ...mp, volumeDb: -2 } }));
+  const drive = d2.suggestions.find((x) => x.id === 'loud').changes.find((c) => c.path === 'mastering.drive');
+  assert.ok(drive.to <= A.DRIVE_MAX, `gain d'entrée plafonné (${drive.to})`);
+});
+
+/* ------------------------------------------------------------------ pilote auto */
+require('../js/automix-pilot.js');
+const PL = SS.automixPilot;
+
+/** Simule le pilote : les faders (dB) changent le niveau réel des pistes ; rend les faders finaux. */
+function pilotSim({ tracks, faders, secs = 120, locked = [] }) {
+  const tk = PL.newTracker();
+  const vol = { ...faders };
+  let lastMove = -Infinity;
+  let moves = 0;
+  for (let i = 0; i < secs * 20; i++) {
+    const tr = {};
+    const live = [];
+    for (const [id, f] of Object.entries(tracks)) {
+      const base = f(i);
+      const b = base ? base.map((v) => v * Math.pow(10, vol[id] / 10)) : new Float64Array(A.BANDS.length);
+      tr[id] = { bands: b };
+      live.push(b);
+    }
+    PL.feed(tk, { dt: 0.05, tracks: tr, pre: { bands: sumBands(live), peak: 0.3 }, preGain: 1 });
+    if (tk.t - lastMove < PL.P.settle) continue;
+    const ctx = Object.keys(tracks).map((id) => ({ id, name: id, role: id, volumeDb: vol[id], locked: locked.includes(id) }));
+    const d = PL.plan(tk, ctx);
+    if (d.kind === 'fader') {
+      assert.ok(Math.abs(d.to - d.from) <= PL.P.stepMax + 1e-9, 'petits gestes');
+      PL.forget(tk, [d.id], [d.to - vol[d.id]]);
+      vol[d.id] = d.to;
+      lastMove = tk.t;
+      moves++;
+    } else if (d.kind === 'stage') {
+      d.moves.forEach((m) => (vol[m.id] = m.to));
+      PL.forget(tk, d.room ? [d.room] : []);
+      lastMove = tk.t;
+    }
+  }
+  return { vol, moves, tk };
+}
+
+test('pilote auto : remonte pas à pas une nappe trop basse, laisse les pistes en place', () => {
+  const tracks = {
+    kick: (i) => (i % 8 < 2 ? spectrum({ 1: -6, 2: -10 }) : null),
+    bass: () => spectrum({ 1: -9, 2: -10 }),
+    lead: () => spectrum({ 4: -16, 5: -15, 6: -18 }),
+    pad: () => spectrum({ 3: -30, 4: -30, 5: -32 }),
+  };
+  const { vol, moves, tk } = pilotSim({ tracks, faders: { kick: 0, bass: 0, lead: 0, pad: 0 } });
+  assert.ok(vol.pad >= 4, `nappe remontée (${vol.pad} dB)`);
+  const end = PL.plan(tk, Object.keys(tracks).map((id) => ({ id, name: id, role: id, volumeDb: vol[id] })));
+  assert.ok(end.state.balanced, 'à la fin, toutes les pistes sont à leur place');
+  assert.ok(moves >= 3, 'plusieurs petits gestes plutôt qu\'un grand saut');
+  assert.ok(Math.abs(vol.kick - vol.lead) < 3 && Math.abs(vol.bass - vol.lead) < 3, 'kick, basse et lead gardent leur équilibre entre eux');
+});
+
+test('pilote auto : une piste rare est réglée à chaque frappe ; une piste reprise en main n\'est pas touchée', () => {
+  const tracks = {
+    kick: (i) => (i % 8 < 2 ? spectrum({ 1: -6, 2: -10 }) : null),
+    bass: () => spectrum({ 1: -9, 2: -10 }),
+    lead: () => spectrum({ 4: -16, 5: -15, 6: -18 }),
+    clap: (i) => (i % 320 >= 310 && i % 320 < 313 ? spectrum({ 5: -12, 6: -14 }) : null), // une frappe toutes les 16 s
+  };
+  const r = pilotSim({ tracks, faders: { kick: 0, bass: 0, lead: 0, clap: -20 }, secs: 200 });
+  assert.ok(r.vol.clap > -14, `clap remonté (${r.vol.clap} dB)`);
+  const l = pilotSim({ tracks, faders: { kick: 0, bass: 0, lead: 0, clap: -20 }, secs: 60, locked: ['clap'] });
+  assert.equal(l.vol.clap, -20);
+});
+
+test('pilote auto : gain staging quand le limiteur du Master travaille trop', () => {
+  const tk = PL.newTracker();
+  for (let i = 0; i < 80; i++)
+    PL.feed(tk, { dt: 0.05, tracks: { lead: { bands: spectrum({ 5: -10 }) } }, pre: { bands: spectrum({ 5: -10 }), peak: 0.9 }, preGain: 1, masterLimGr: -5 });
+  const d = PL.plan(tk, [{ id: 'lead', name: 'lead', role: 'lead', volumeDb: 0 }]);
+  assert.equal(d.kind, 'stage');
+  assert.ok(d.delta < 0 && d.moves[0].to < 0);
+});
+
+test('équilibre : une intro à deux pistes ne fait pas croire que la basse est trop forte', () => {
+  // niveaux exactement à leur place les uns par rapport aux autres (écarts = ceux de ROLE_LEVEL)
+  const lv = (role) => A.ROLE_LEVEL[role] - 10;
+  const intro = (i) => i < 300;
+  const s = play({
+    kick: (i) => (!intro(i) && i % 8 < 2 ? spectrum({ 1: lv('kick') }) : null),
+    bass: () => spectrum({ 2: lv('bass') }),
+    pad: () => spectrum({ 4: lv('pad') }),
+    lead: (i) => (intro(i) ? null : spectrum({ 5: lv('lead') })),
+  }, { n: 600 });
+  assert.ok(s.tracks.bass.rel > A.ROLE_LEVEL.bass + 3.5, 'par rapport au mix, la basse paraît trop forte (intro)');
+  const d = A.diagnose(s, ctxOf([['kick', 'kick'], ['bass', 'bass'], ['pad', 'pad'], ['lead', 'lead']]));
+  assert.ok(!d.suggestions.some((x) => x.id.startsWith('bal:')), 'aucun conseil de fader : l\'équilibre entre pistes est juste');
+  assert.ok(d.scores.bal >= 95);
+});
+
+test('pilote auto : pas d\'aller-retour quand l\'arrangement change', () => {
+  const lv = (role) => A.ROLE_LEVEL[role] - 10;
+  const full = (i) => Math.floor(i / 400) % 2 === 1; // 20 s à deux pistes, 20 s à quatre…
+  const tracks = {
+    kick: (i) => (full(i) && i % 8 < 2 ? spectrum({ 1: lv('kick') }) : null),
+    bass: () => spectrum({ 2: lv('bass') - 6 }), // seule erreur : basse 6 dB trop basse
+    pad: () => spectrum({ 4: lv('pad') }),
+    lead: (i) => (full(i) ? spectrum({ 5: lv('lead') }) : null),
+  };
+  const r = pilotSim({ tracks, faders: { kick: 0, bass: 0, lead: 0, pad: 0 }, secs: 120 });
+  assert.ok(r.vol.bass - r.vol.pad >= 3.5, `basse remontée par rapport à la nappe (${r.vol.bass} / ${r.vol.pad})`);
+  assert.ok(r.tk.tracks.bass.flips <= 1, `pas d'aller-retour (${r.tk.tracks.bass.flips})`);
 });

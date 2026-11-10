@@ -7,6 +7,9 @@
  * A/B : compare le mix d'origine (avant le premier conseil accepté) et le mix actuel, à volume égal.
  * Préférences (enregistrées dans le navigateur) : ce que l'assistant a le droit de modifier, l'objectif par défaut,
  * le niveau de détail et la durée d'écoute avant le diagnostic.
+ * Pilote auto (js/automix-pilot.js) : l'assistant règle lui-même les faders pendant la lecture, un petit geste à la
+ * fois, en réécoutant entre deux gestes. Chaque geste est une étape d'annulation (Ctrl+Z) ; toucher un fader à la
+ * main pendant le pilote le lui reprend.
  */
 window.SS = window.SS || {};
 
@@ -30,6 +33,8 @@ SS.automixPanel = (() => {
   let trying = null; // chaîne en cours d'essai : { id, k } (le son change, le projet non)
   let timer = null;
   let lastDiagAt = 0;
+  let pilot = null; // pilote auto en marche : { tk, unsub, timer, ramp, lastMove, log, locked, moved, expect, status }
+  const PL = () => SS.automixPilot;
 
   const h = (tag, attrs = {}, ...children) => {
     const el = document.createElement(tag);
@@ -283,7 +288,9 @@ SS.automixPanel = (() => {
   }
   /** Conseils affichés : ceux du diagnostic + ceux décidés (avec leurs valeurs d'alors). */
   function shown() {
-    const list = (diag ? diag.suggestions : []).map((s) => (decisions.has(s.id) ? decisions.get(s.id).s : s));
+    const list = (diag ? diag.suggestions : [])
+      .filter((s) => !(pilot && s.scope === 'fader' && s.track !== '__master')) // le pilote règle lui-même les faders
+      .map((s) => (decisions.has(s.id) ? decisions.get(s.id).s : s));
     for (const [id, d] of decisions) if (!list.some((s) => s.id === id)) list.push(d.s);
     return list;
   }
@@ -580,6 +587,7 @@ SS.automixPanel = (() => {
     renderStatus();
     renderTargets();
     renderScore();
+    renderPilot();
     renderCards();
     renderFoot();
     decorate();
@@ -616,6 +624,177 @@ SS.automixPanel = (() => {
     });
   }
 
+  /* ------------------------------------------------------------------ pilote auto des faders */
+  const fmtDb = (v) => (v > 0 ? '+' : '') + fr(v) + ' dB';
+  function pilotLog(txt) {
+    if (!pilot) return;
+    pilot.log.unshift({ txt, at: Date.now() });
+    pilot.log.length = Math.min(pilot.log.length, 8);
+  }
+  function pilotTracks() {
+    return project().tracks.map((t) => ({
+      id: t.id,
+      name: t.name,
+      role: A().roleOf(t),
+      volumeDb: getValue(t.id, 'volumeDb'),
+      locked: pilot.locked.has(t.id) || t.mute,
+      moved: pilot.moved.get(t.id) || 0,
+    }));
+  }
+  /** Fait glisser un ou plusieurs faders (et le gain d'entrée du mastering) jusqu'à leur nouvelle valeur. */
+  function pilotRamp(moves, drive, done) {
+    pilot.ramp = { moves, drive, t0: performance.now(), secs: PL().rampSecs(Math.max(...moves.map((m) => Math.abs(m.to - m.from)))), done };
+  }
+  function pilotStepRamp() {
+    const r = pilot.ramp;
+    const x = PL().ease((performance.now() - r.t0) / (r.secs * 1000));
+    for (const m of r.moves) {
+      const v = m.from + (m.to - m.from) * x;
+      setValue(m.id, 'volumeDb', v);
+      pilot.expect.set(m.id, v);
+      SS.mixer.refreshFader(m.id);
+    }
+    if (r.drive) setValue('__master', 'mastering.drive', Math.round((r.drive.from + (r.drive.to - r.drive.from) * x) * 10) / 10);
+    if (x < 1) return;
+    pilot.ramp = null;
+    pilot.lastMove = pilot.tk.t;
+    for (const m of r.moves) pilot.moved.set(m.id, (pilot.moved.get(m.id) || 0) + Math.abs(m.to - m.from));
+    app.changed(); // une étape d'annulation par geste
+    r.done();
+  }
+  function pilotTick() {
+    if (!pilot) return;
+    if (pilot.ramp) return pilotStepRamp();
+    const p = project();
+    // un fader touché à la main (ou une annulation) : le pilote n'y touche plus
+    for (const [id, v] of pilot.expect) {
+      const now = getValue(id, 'volumeDb');
+      if (now === undefined) pilot.expect.delete(id);
+      else if (Math.abs(now - v) > 0.3) {
+        pilot.expect.delete(id);
+        pilot.locked.add(id);
+        pilotLog(`${nameOf(id)} : réglé à la main, je n'y touche plus`);
+        renderPilot();
+      }
+    }
+    const playing = SS.audio.isPlaying() && !SS.audio.isPaused();
+    let status;
+    if (!playing) status = 'En attente de la lecture';
+    else if (p.tracks.some((t) => t.solo)) status = 'En pause : une piste est en solo (l\'équilibre se juge sur tout le mix)';
+    else if (ab === 'A' || trying) status = 'En pause pendant l\'écoute comparée';
+    if (status) return setPilotStatus(status);
+    if (pilot.tk.t - pilot.lastMove < PL().P.settle) return setPilotStatus('Écoute…');
+    const d = PL().plan(pilot.tk, pilotTracks());
+    if (d.kind === 'fader') {
+      pilotLog(`${d.name} ${fmtDb(d.to - d.from)} → ${fmtDb(d.to)} (${d.dev > 0 ? 'trop en avant' : 'en retrait'} de ${fr(Math.abs(d.dev))} dB)`);
+      setPilotStatus(`Je règle ${d.name}…`);
+      pilotRamp([{ id: d.id, from: d.from, to: d.to }], null, () => PL().forget(pilot.tk, [d.id], [d.to - d.from]));
+      renderPilot();
+      return;
+    }
+    if (d.kind === 'stage') {
+      // toutes les pistes ensemble ; le gain d'entrée du mastering compense pour garder le même volume final
+      const ms = SS.masterParams(p).mastering;
+      const drive = ms.on ? { from: ms.drive, to: clamp(ms.drive - d.delta, -12, A().DRIVE_MAX) } : null;
+      pilotLog(`Toutes les pistes ${fmtDb(d.delta)} : ${d.why}${drive ? ` · mastering ${fmtDb(drive.to)}` : ''}`);
+      setPilotStatus('Je règle le niveau d\'ensemble…');
+      pilotRamp(d.moves, drive, () => PL().forget(pilot.tk, d.room ? [d.room] : []));
+      renderPilot();
+      return;
+    }
+    const st = d.state;
+    setPilotStatus(
+      st.balanced
+        ? `Équilibre atteint · je continue d'écouter${st.waiting.length ? ` (j'attends ${st.waiting.join(', ')})` : ''}`
+        : st.waiting.length
+          ? `J'écoute ${st.waiting.join(', ')}…`
+          : 'Écoute…'
+    );
+  }
+  function setPilotStatus(txt) {
+    if (!pilot || pilot.status === txt) return;
+    pilot.status = txt;
+    const el = $('#amPilotStatus');
+    if (el) el.textContent = txt;
+  }
+  function pilotStart() {
+    if (pilot) return;
+    endTry();
+    if (ab === 'A') setAB('B');
+    captureBaseline();
+    pilot = { tk: PL().newTracker(), timer: null, ramp: null, lastMove: -Infinity, log: [], locked: new Set(), moved: new Map(), expect: new Map(), status: '' };
+    pilot.unsub = L().subscribe((f) => pilot && PL().feed(pilot.tk, f, pilot.ramp ? new Set(pilot.ramp.moves.map((m) => m.id)) : null));
+    pilot.timer = setInterval(pilotTick, 40);
+    pilotLog('Pilote auto en marche : je règle les faders à l\'oreille, un petit geste à la fois');
+    if (!SS.audio.isPlaying() || SS.audio.isPaused()) app.play();
+    renderAll();
+  }
+  function pilotStop() {
+    if (!pilot) return;
+    if (pilot.ramp) {
+      // le geste en cours s'arrête là où il est
+      pilot.ramp = null;
+      app.changed();
+    }
+    clearInterval(pilot.timer);
+    pilot.unsub();
+    const n = [...pilot.moved.values()].filter((v) => v > 0).length;
+    pilot = null;
+    // les mesures d'avant ne valent plus pour les nouveaux faders : le diagnostic repart de zéro
+    L().reset();
+    diag = null;
+    frozen = false;
+    lastDiagAt = 0;
+    if (n) SS.ui.toast(`Pilote auto arrêté : ${n} fader${n > 1 ? 's' : ''} réglé${n > 1 ? 's' : ''} — Ctrl+Z pour revenir en arrière`, 3500);
+    SS.mixer.render();
+    renderAll();
+  }
+  function renderPilot() {
+    const box = $('#amPilot');
+    if (!box) return;
+    const on = !!pilot;
+    box.replaceChildren(
+      h('div', { class: 'am-pilot-row' },
+        h('button', {
+          type: 'button',
+          id: 'amPilotBtn',
+          class: 'btn btn-small am-pilot-btn' + (on ? ' on' : ''),
+          'aria-pressed': String(on),
+          title: on ? 'Arrêter le pilote auto' : 'L\'assistant règle lui-même les faders pendant la lecture, doucement, en réécoutant entre chaque geste',
+          onclick: () => (on ? pilotStop() : pilotStart()),
+        }, on ? '◼ Arrêter le pilote' : '✈ Pilote auto des faders'),
+        h('span', { id: 'amPilotStatus', class: 'am-pilot-status' }, on ? pilot.status || 'Écoute…' : '')),
+      on
+        ? h('ol', { class: 'am-pilot-log', 'aria-live': 'polite' }, pilot.log.map((x) => h('li', {}, x.txt)))
+        : h('p', { class: 'am-hint' }, 'Règle l\'équilibre des pistes à ta place : un petit geste de fader à la fois, puis il réécoute. Touche un fader pour le reprendre en main.')
+    );
+  }
+
+  /** Le mix vient d'être remis à zéro depuis la console : mesures, conseils et pilote repartent de zéro. */
+  function mixReset() {
+    endTry();
+    if (ab === 'A') setAB('B');
+    baseline = null;
+    decisions.clear();
+    adjusting.clear();
+    picks.clear();
+    L().reset();
+    SS.audio.resetLoudness();
+    diag = null;
+    frozen = false;
+    lastDiagAt = 0;
+    if (pilot) {
+      pilot.ramp = null;
+      pilot.tk = PL().newTracker();
+      pilot.locked.clear();
+      pilot.moved.clear();
+      pilot.expect.clear();
+      pilot.lastMove = -Infinity;
+      pilotLog('Mix réinitialisé : je réécoute tout');
+    }
+    renderAll();
+  }
+
   /* ------------------------------------------------------------------ actions */
   function relisten() {
     endTry();
@@ -626,6 +805,7 @@ SS.automixPanel = (() => {
     adjusting.clear();
     frozen = false;
     diag = null;
+    if (pilot) pilot.tk = PL().newTracker();
     app.stop();
     app.play();
     renderAll();
@@ -634,6 +814,10 @@ SS.automixPanel = (() => {
   function poll() {
     if (!isOpen) return;
     renderStatus();
+    if (pilot) {
+      const ol = document.querySelector('#amPilot .am-pilot-log');
+      if (ol && ol.childElementCount !== pilot.log.length) renderPilot();
+    }
     // un Ctrl+Z (ou une retouche à la main) a défait un conseil appliqué : les cartes se remettent à jour
     const n = decisions.size;
     syncDecisions();
@@ -723,6 +907,7 @@ SS.automixPanel = (() => {
   }
   function close() {
     if (!isOpen) return;
+    pilotStop();
     endTry();
     if (ab === 'A') setAB('B');
     isOpen = false;
@@ -748,6 +933,7 @@ SS.automixPanel = (() => {
 
   /** Un autre morceau est chargé : on repart de zéro. */
   function songChanged() {
+    pilotStop();
     if (ab === 'A') setAB('B');
     L().reset();
     decisions.clear();
@@ -769,5 +955,9 @@ SS.automixPanel = (() => {
     $('#amPrefsBtn').addEventListener('click', openPrefs);
   }
 
-  return { init, open, close, decorate, songChanged, isOpen: () => isOpen, _state: () => ({ diag, decisions, baseline, prefs, ab, targetId: targetId() }) };
+  return {
+    init, open, close, decorate, songChanged, mixReset, pilotStart, pilotStop,
+    isOpen: () => isOpen,
+    _state: () => ({ diag, decisions, baseline, prefs, ab, targetId: targetId(), pilot }),
+  };
 })();

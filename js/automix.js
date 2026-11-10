@@ -95,7 +95,7 @@ SS.automix = (() => {
 
   /* ------------------------------------------------------------------ cumul des relevés */
   function newAccumulator() {
-    return { frames: 0, secs: 0, tracks: {}, mix: { bands: new Float64Array(NB), k: 0, n: 0, peaks: [] }, pairs: {}, st: { lr: 0, ll: 0, rr: 0 }, stLow: { lr: 0, ll: 0, rr: 0 }, ms: [], ss: [], tp: -Infinity, scenes: new Set(), grM: 0, grMn: 0 };
+    return { frames: 0, secs: 0, tracks: {}, co: {}, mix: { bands: new Float64Array(NB), k: 0, n: 0, peaks: [] }, pairs: {}, st: { lr: 0, ll: 0, rr: 0 }, stLow: { lr: 0, ll: 0, rr: 0 }, ms: [], ss: [], tp: -Infinity, scenes: new Set(), grM: 0, grMn: 0 };
   }
 
   /**
@@ -108,11 +108,15 @@ SS.automix = (() => {
     acc.secs += frame.dt || 0.05;
     if (frame.scene != null) acc.scenes.add(frame.scene);
     const pre = frame.pre;
-    const mixK = pre ? kPower(pre.bands) : 0;
+    // le Master est écouté après son fader : ses énergies sont ramenées au fader à 0 dB (calibrage du Band), sinon
+    // baisser le Master ferait paraître toutes les pistes « trop en avant » et l'assistant les baisserait toutes
+    const g = Number.isFinite(frame.preGain) ? Math.max(frame.preGain, 1e-3) : 1;
+    const norm = 1 / (g * g);
+    const mixK = pre ? kPower(pre.bands) * norm : 0;
     const mixOn = mixK > 1e-9;
     if (pre && mixOn) {
       const m = acc.mix;
-      for (let b = 0; b < NB; b++) m.bands[b] += pre.bands[b];
+      for (let b = 0; b < NB; b++) m.bands[b] += pre.bands[b] * norm;
       m.k += mixK;
       m.n++;
       m.peaks.push(pre.peak);
@@ -121,6 +125,7 @@ SS.automix = (() => {
         acc.grMn++;
       }
     }
+    const on = []; // pistes qui jouent à cet instant (pour les écarts entre pistes jouant ensemble)
     const strong = []; // pour chaque bande : pistes qui pèsent au moins un quart (−6 dB) du mix dans cette bande
     for (let b = 0; b < NB; b++) strong.push([]);
     for (const [id, t] of Object.entries(frame.tracks || {})) {
@@ -133,6 +138,7 @@ SS.automix = (() => {
       a.k += k;
       a.mk += mixK; // le mix aux mêmes instants : niveau relatif « pendant que la piste joue »
       a.n++;
+      on.push([id, k]);
       if (t.peak > a.peak) a.peak = t.peak;
       const gr = Math.abs(t.gr || 0);
       a.gr += gr;
@@ -144,8 +150,9 @@ SS.automix = (() => {
         a.inMs += t.inMs || 0;
         a.inN++;
       }
-      for (let b = 0; b < NB; b++) if (pre.bands[b] > 1e-10 && t.bands[b] > pre.bands[b] * 0.25) strong[b].push(id);
+      for (let b = 0; b < NB; b++) if (pre.bands[b] * norm > 1e-10 && t.bands[b] > pre.bands[b] * norm * 0.25) strong[b].push(id);
     }
+    coPlay(acc.co, on);
     // recouvrements : deux pistes fortes dans la même bande au même moment (« either » = au moins l'une forte)
     for (let b = 1; b < 8; b++) {
       const s = strong[b];
@@ -172,6 +179,61 @@ SS.automix = (() => {
     return acc;
   }
 
+  /** Cumule l'énergie de chaque paire de pistes qui jouent au même instant (on : [[id, énergie]…]). */
+  function coPlay(co, on, w = 1) {
+    for (let i = 0; i < on.length; i++)
+      for (let j = i + 1; j < on.length; j++) {
+        const [x, y] = on[i][0] < on[j][0] ? [on[i], on[j]] : [on[j], on[i]];
+        const key = x[0] + '|' + y[0];
+        const p = co[key] || (co[key] = { a: x[0], b: y[0], ka: 0, kb: 0, n: 0 });
+        p.ka += x[1] * w;
+        p.kb += y[1] * w;
+        p.n += w;
+      }
+  }
+
+  /**
+   * Erreur de niveau de chaque piste (dB, + = trop forte), d'après les écarts mesurés entre pistes qui jouent
+   * ENSEMBLE, comparés aux écarts visés (niveaux de rôle). Un fader règle exactement ces écarts, qui ne dépendent
+   * pas de l'arrangement : dans une intro à deux pistes, chacune pèse beaucoup dans le mix, mais l'écart entre
+   * elles est le même que dans le refrain. Moindres carrés sur les paires (Gauss-Seidel), puis recentrage sur la
+   * moyenne pondérée par l'énergie : l'équilibre se règle à volume global constant.
+   *   pairs : [{ a, b, ka, kb, n }] ; rows : [{ id, target, w }] ; rend Map id -> erreur (pistes sans paire absentes)
+   */
+  function solvePairs(pairs, rows) {
+    const T = new Map(rows.map((r) => [r.id, r.target]));
+    const links = new Map(rows.map((r) => [r.id, []]));
+    for (const p of pairs) {
+      if (!T.has(p.a) || !T.has(p.b) || p.n < 0.5 || p.ka <= 0 || p.kb <= 0) continue;
+      const r = dB(p.ka / p.kb) - (T.get(p.a) - T.get(p.b)); // de combien a est trop forte par rapport à b
+      const w = Math.min(p.n, 40);
+      links.get(p.a).push({ o: p.b, r, w });
+      links.get(p.b).push({ o: p.a, r: -r, w });
+    }
+    const e = new Map();
+    for (const [id, l] of links) if (l.length) e.set(id, 0);
+    for (let it = 0; it < 60; it++)
+      for (const id of e.keys()) {
+        let s = 0;
+        let W = 0;
+        for (const { o, r, w } of links.get(id)) {
+          s += w * (e.get(o) + r);
+          W += w;
+        }
+        e.set(id, s / W);
+      }
+    const wOf = new Map(rows.map((r) => [r.id, r.w || 0]));
+    let W = 0;
+    let m = 0;
+    for (const [id, v] of e) {
+      W += wOf.get(id);
+      m += v * wOf.get(id);
+    }
+    const c = W > 0 ? m / W : 0;
+    for (const [id, v] of e) e.set(id, v - c);
+    return e;
+  }
+
   /** Résumé en dB : niveau de chaque piste par rapport au mix, spectre du mix, recouvrements, mesures du Master. */
   function summarize(acc) {
     const m = acc.mix;
@@ -189,6 +251,8 @@ SS.automix = (() => {
       const share = Array.from(a.bands, (p, b) => (m.bands[b] > 0 ? p / m.bands[b] : 0));
       tracks[id] = {
         active: a.n / Math.max(1, m.n),
+        n: a.n, // relevés où la piste joue (une piste rare — un clap toutes les 16 mesures — n'en a que quelques-uns)
+        energy: a.k, // énergie totale apportée au mix (poids de la piste dans l'équilibre)
         k,
         rel: dB(a.k / a.mk),
         bands,
@@ -225,6 +289,7 @@ SS.automix = (() => {
       mix: { bands: mixBands, k: mixK, prePeak: m.peaks.length ? 20 * Math.log10(Math.max(1e-10, percentile(m.peaks, 0.995))) : null, n: m.n },
       tracks,
       overlap,
+      co: Object.values(acc.co || {}),
       master: {
         i,
         tp: acc.tp,
@@ -394,6 +459,44 @@ SS.automix = (() => {
     return step ? Math.round(v / step) * step : v;
   }
 
+  /* ------------------------------------------------------------------ garde-fous */
+  const DRIVE_MAX = 15; // gain d'entrée du mastering : au-delà, le limiteur écrase et déforme le morceau
+  const BELL_MIN = -6; // creux d'égaliseur posés par l'assistant, cumulés d'une écoute à l'autre
+  const SHELF_MAX = 4; // shelfs du Master, cumulés
+  const MIN_FRAMES = 2; // relevés (50 ms) où la piste joue pour qu'elle soit jugée : une seule frappe suffit
+
+  /** La piste a-t-elle été assez entendue pour être jugée ? */
+  const heard = (m) => !!m && (m.n != null ? m.n >= MIN_FRAMES : m.active > 0.05);
+
+  /** Niveau visé d'une piste par rapport au mix (dB) ; plusieurs pistes du même rôle se partagent la place. */
+  function roleTarget(role, sameRole = 1) {
+    const goal = ROLE_LEVEL[role];
+    return goal == null ? null : goal - 5 * Math.log10(Math.max(1, sameRole));
+  }
+
+  /**
+   * Équilibre des pistes : erreur de niveau de chaque piste (dev, dB), mesurée sur les pistes qui jouent ensemble
+   * (solvePairs). Faute de comparaison possible (une piste toujours seule), son niveau par rapport au mix, moins
+   * l'écart commun (moyenne pondérée par l'énergie).
+   * Les deux mesures se règlent à volume global constant : avant, chaque passe baissait la piste trop forte, puis
+   * les autres (qui paraissaient alors trop fortes à leur tour), et le volume descendait d'écoute en écoute. Les
+   * pistes rares (peu d'énergie) ne déplacent pas la référence mais sont jugées comme les autres.
+   *   tracks : [{ id, role }] ; rend [{ t, m, target, rel, dev }]
+   */
+  function balancePlan(sum, tracks) {
+    const roleCount = {};
+    const list = tracks.filter((t) => heard(sum.tracks[t.id]) && ROLE_LEVEL[t.role] != null && Number.isFinite(sum.tracks[t.id].rel));
+    list.forEach((t) => (roleCount[t.role] = (roleCount[t.role] || 0) + 1));
+    const rows = list.map((t) => {
+      const m = sum.tracks[t.id];
+      return { t, id: t.id, m, target: roleTarget(t.role, roleCount[t.role]), rel: m.rel, raw: m.rel - roleTarget(t.role, roleCount[t.role]), w: Math.max(0, m.energy || 0) };
+    });
+    const err = rows.length >= 2 && sum.co ? solvePairs(sum.co, rows) : new Map();
+    const W = rows.reduce((a, r) => a + r.w, 0);
+    const common = rows.length >= 3 && W > 0 ? rows.reduce((a, r) => a + r.raw * r.w, 0) / W : 0;
+    return rows.map((r) => ({ t: r.t, m: r.m, target: r.target, rel: r.rel, dev: err.has(r.id) ? err.get(r.id) : r.raw - common, paired: err.has(r.id) }));
+  }
+
   /* ------------------------------------------------------------------ diagnostic et conseils */
   /**
    * ctx = {
@@ -409,7 +512,8 @@ SS.automix = (() => {
     const M = sum.master;
     const all = [];
     const S = (o) => all.push(o);
-    const tr = ctx.tracks.filter((t) => sum.tracks[t.id] && sum.tracks[t.id].active > 0.05);
+    // une piste compte dès qu'elle a été entendue quelques relevés, même si elle ne joue qu'une note par chanson
+    const tr = ctx.tracks.filter((t) => heard(sum.tracks[t.id]));
     const byRole = (r) => tr.filter((t) => t.role === r);
     const meas = (t) => sum.tracks[t.id];
     const ms = ctx.master.mastering;
@@ -424,7 +528,9 @@ SS.automix = (() => {
     if (Number.isFinite(M.i) && (Math.abs(devL) > 1.5 || M.tp > T.tp + 0.2)) {
       const changes = [];
       if (!ms.on) changes.push({ path: 'mastering.on', from: false, to: true, fixed: true });
-      if (Math.abs(devL) > 1.5) changes.push({ path: 'mastering.drive', from: ms.drive, to: round(clamp(ms.drive - devL, -12, 18), 0.1), min: -12, max: 18 });
+      // pas plus de 5 dB d'un coup, et jamais plus de +15 dB dans le limiteur : au-delà, il déforme le morceau
+      const driveTo = round(clamp(ms.drive + clamp(-devL, -5, 5), -12, DRIVE_MAX), 0.1);
+      if (Math.abs(devL) > 1.5 && Math.abs(driveTo - ms.drive) >= 0.1) changes.push({ path: 'mastering.drive', from: ms.drive, to: driveTo, min: -12, max: DRIVE_MAX });
       if (ms.ceiling > T.tp) changes.push({ path: 'mastering.ceiling', from: ms.ceiling, to: T.tp, fixed: true });
       S({
         id: 'loud', tab: 'master', scope: 'mastering', crit: 'loud', track: '__master', sev: sev(devL, 3, 1.5),
@@ -483,23 +589,21 @@ SS.automix = (() => {
 
     /* --- équilibre des pistes --- */
     const balGrades = [];
-    const roleCount = {};
-    tr.forEach((t) => (roleCount[t.role] = (roleCount[t.role] || 0) + 1));
-    for (const t of tr) {
-      const goal = ROLE_LEVEL[t.role];
-      if (goal == null) continue;
-      // plusieurs pistes du même rôle se partagent la place
-      const target = goal - 5 * Math.log10(roleCount[t.role]);
-      const dev = meas(t).rel - target;
+    for (const b of balancePlan(sum, tr)) {
+      const t = b.t;
+      const dev = b.dev;
       balGrades.push(grade(dev, ROLE_TOL, 12));
       if (Math.abs(dev) <= ROLE_TOL) continue;
-      const delta = round(clamp(-dev, -9, 9), 0.5);
+      const delta = round(clamp(-dev, -6, 6), 0.5);
+      const to = round(clamp(t.volumeDb + delta, -40, 6), 0.5);
+      if (Math.abs(to - t.volumeDb) < 0.5) continue; // fader déjà en butée
+      const rare = b.m.active < 0.05;
       S({
         id: 'bal:' + t.id, tab: 'mix', scope: 'fader', crit: 'bal', track: t.id, sev: sev(dev, 8, 5.5),
         title: dev < 0 ? `${t.name} est trop en retrait` : `${t.name} est trop en avant`,
-        why: `Dans les mixages de référence, ${ROLE_ART[t.role] || 'cette piste'} se place vers ${fr(target)} dB sous le mix pendant que la piste joue ; ici : ${fr(meas(t).rel)} dB.`,
-        meas: [['Niveau / mix', fr(meas(t).rel) + ' dB'], ['Cible', fr(target) + ' ±3,5 dB']],
-        changes: [{ path: 'volumeDb', from: round(t.volumeDb, 0.1), to: round(clamp(t.volumeDb + delta, -40, 6), 0.5), max: 6 }],
+        why: `Comparé aux pistes qui jouent en même temps, ${ROLE_ART[t.role] || 'cette piste'} est ${fr(Math.abs(dev))} dB ${dev < 0 ? 'sous' : 'au-dessus de'} sa place dans les mixages de référence${rare ? ` (mesuré sur ses ${fr(b.m.n * 0.05)} s de jeu : elle joue rarement)` : ''}.`,
+        meas: [['Écart à sa place', (dev > 0 ? '+' : '') + fr(dev) + ' dB'], ['Niveau / mix', fr(b.rel) + ' dB'], ['Tolérance', '±3,5 dB']],
+        changes: [{ path: 'volumeDb', from: round(t.volumeDb, 0.1), to, max: 6 }],
       });
     }
     scores.bal = balGrades.length ? Math.round(mean(balGrades)) : 80;
@@ -526,7 +630,7 @@ SS.automix = (() => {
           changes.length = 0;
           eqBell(changes, bass.mix, 60, -2.5, 1.4);
         }
-        S({
+        if (changes.length) S({
           id: 'kickbass', tab: 'mix', scope, crit: 'low', track: bass.id, sev: kb.ratio > 0.7 ? 'crit' : 'warn',
           title: 'Le kick et la basse se masquent',
           why: `Vers 63 Hz, la basse couvre le kick ${Math.round(kb.ratio * 100)} % du temps : le grave est flou et le kick perd son impact.`,
@@ -582,8 +686,7 @@ SS.automix = (() => {
       if (top && top.s > 0.15) {
         const f = dev[3] > dev[4] ? 300 : 450;
         const changes = [];
-        eqBell(changes, top.t.mix, f, -round(Math.min(4.5, lm), 0.5), 1.2);
-        S({
+        if (eqBell(changes, top.t.mix, f, -round(Math.min(4.5, lm), 0.5), 1.2)) S({
           id: 'lowmid', tab: 'mix', scope: 'eq', crit: 'tone', track: top.t.id, sev: lm > 4.5 ? 'warn' : 'info',
           title: `${top.t.name} rend le mix boueux`,
           why: `Le mix a ${fr(lm)} dB de trop dans les bas-médiums (250–500 Hz) par rapport à la courbe ${T.name}, et ${top.t.name} en apporte ${Math.round(top.s * 100)} %.`,
@@ -597,8 +700,7 @@ SS.automix = (() => {
       const top = topIn([6, 7]);
       if (top && top.s > 0.15) {
         const changes = [];
-        eqBell(changes, top.t.mix, 3000, -round(Math.min(4, hm), 0.5), 1.2);
-        S({
+        if (eqBell(changes, top.t.mix, 3000, -round(Math.min(4, hm), 0.5), 1.2)) S({
           id: 'himid', tab: 'mix', scope: 'eq', crit: 'tone', track: top.t.id, sev: hm > 4.5 ? 'warn' : 'info',
           title: `${top.t.name} est agressif`,
           why: `Les hauts-médiums (2–6 kHz) dépassent la courbe de ${fr(hm)} dB : fatigue d'écoute, surtout au casque. ${top.t.name} en apporte ${Math.round(top.s * 100)} %.`,
@@ -608,8 +710,8 @@ SS.automix = (() => {
       }
     }
     const air = zoneDev('air');
-    if (air < -3.5 || air > 3.5) {
-      const g = round(clamp(-air * 0.6, -3, 2.5), 0.5);
+    const airTo = round(clamp(mmix.eq.high.g + clamp(-air * 0.6, -3, 2.5), -SHELF_MAX, SHELF_MAX), 0.5);
+    if ((air < -3.5 || air > 3.5) && Math.abs(airTo - mmix.eq.high.g) >= 0.5) {
       S({
         id: 'air', tab: 'master', scope: 'mastereq', crit: 'tone', track: '__master', sev: Math.abs(air) > 5 ? 'warn' : 'info',
         title: air < 0 ? 'Il manque de l\'air' : 'Les aigus sont trop brillants',
@@ -618,13 +720,13 @@ SS.automix = (() => {
         changes: [
           ...(!mmix.eq.on ? [{ path: 'mix.eq.on', from: false, to: true, fixed: true }] : []),
           { path: 'mix.eq.high.f', from: mmix.eq.high.f, to: 10000, fixed: true },
-          { path: 'mix.eq.high.g', from: mmix.eq.high.g, to: round(mmix.eq.high.g + g, 0.5) },
+          { path: 'mix.eq.high.g', from: mmix.eq.high.g, to: airTo, min: -SHELF_MAX, max: SHELF_MAX },
         ],
       });
     }
     const low = zoneDev('low');
-    if (Math.abs(low) > 4) {
-      const g = round(clamp(-low * 0.5, -3, 2.5), 0.5);
+    const lowTo = round(clamp(mmix.eq.low.g + clamp(-low * 0.5, -3, 2.5), -SHELF_MAX, SHELF_MAX), 0.5);
+    if (Math.abs(low) > 4 && Math.abs(lowTo - mmix.eq.low.g) >= 0.5) {
       S({
         id: 'lowtone', tab: 'master', scope: 'mastereq', crit: 'tone', track: '__master', sev: Math.abs(low) > 6 ? 'warn' : 'info',
         title: low < 0 ? 'Le grave manque de poids' : 'Le grave déborde',
@@ -633,7 +735,7 @@ SS.automix = (() => {
         changes: [
           ...(!mmix.eq.on ? [{ path: 'mix.eq.on', from: false, to: true, fixed: true }] : []),
           { path: 'mix.eq.low.f', from: mmix.eq.low.f, to: 100, fixed: true },
-          { path: 'mix.eq.low.g', from: mmix.eq.low.g, to: round(mmix.eq.low.g + g, 0.5) },
+          { path: 'mix.eq.low.g', from: mmix.eq.low.g, to: lowTo, min: -SHELF_MAX, max: SHELF_MAX },
         ],
       });
     }
@@ -648,8 +750,7 @@ SS.automix = (() => {
       if (rivals.length) {
         const { o, t } = rivals[0];
         const changes = [];
-        eqBell(changes, t.mix, BANDS[o.band] * 1.25, -2.5, 1.2);
-        S({
+        if (eqBell(changes, t.mix, BANDS[o.band] * 1.25, -2.5, 1.2)) S({
           id: 'mask:' + t.id, tab: 'mix', scope: 'eq', crit: 'bal', track: t.id, sev: o.ratio > 0.75 ? 'warn' : 'info',
           title: `${lead.name} est masqué par ${t.name}`,
           why: `Autour de ${BAND_LABEL[o.band]}, ${t.name} est aussi fort que le lead ${Math.round(o.ratio * 100)} % du temps. Un creux sur ${t.name} libère la place de la mélodie.`,
@@ -702,7 +803,7 @@ SS.automix = (() => {
     if (pk != null && (pk > -1 || pk < -20)) {
       const d = round(pk > -1 ? -(pk + 5) : -(pk + 10), 0.5);
       const changes = [{ path: 'volumeDb', from: round(ctx.master.volumeDb, 0.1), to: round(ctx.master.volumeDb + d, 0.5), max: 6 }];
-      if (ms.on) changes.push({ path: 'mastering.drive', from: ms.drive, to: round(clamp(ms.drive - d, -12, 18), 0.1), fixed: true });
+      if (ms.on) changes.push({ path: 'mastering.drive', from: ms.drive, to: round(clamp(ms.drive - d, -12, DRIVE_MAX), 0.1), fixed: true });
       S({
         id: 'head', tab: 'master', scope: 'fader', crit: 'head', track: '__master', sev: pk > 0 ? 'warn' : 'info',
         title: pk > -1 ? 'Le Master sature avant le mastering' : 'Le mix arrive trop faible au Master',
@@ -889,7 +990,7 @@ SS.automix = (() => {
           ],
         });
       }
-      const drive = Number.isFinite(M.i) ? round(clamp(-devL, -6, 14), 0.1) : 0;
+      const drive = Number.isFinite(M.i) ? round(clamp(-devL, -6, DRIVE_MAX), 0.1) : 0;
       masterChain.push({
         k: 'MAST', scope: 'mastering', on: true,
         changes: [
@@ -1005,23 +1106,28 @@ SS.automix = (() => {
    */
   function eqBell(changes, mix, f, g, q) {
     const e = mix.eq;
-    if (!e.on) changes.push({ path: 'mix.eq.on', from: false, to: true, fixed: true });
     const near = ['lm', 'hm'].find((k) => e[k].g !== 0 && Math.abs(Math.log2(e[k].f / f)) < 0.5);
+    // les creux ne se creusent pas sans fin d'une écoute à l'autre : au-delà de −6 dB, le timbre de la piste change
+    if (near && e[near].g + g < BELL_MIN) g = BELL_MIN - e[near].g;
+    if (near && g > -0.5) return false;
+    if (!e.on) changes.push({ path: 'mix.eq.on', from: false, to: true, fixed: true });
     if (near) {
-      changes.push({ path: `mix.eq.${near}.g`, from: e[near].g, to: round(clamp(e[near].g + g, -12, 12), 0.5) });
-      return;
+      changes.push({ path: `mix.eq.${near}.g`, from: e[near].g, to: round(e[near].g + g, 0.5), min: BELL_MIN });
+      return true;
     }
     const pref = f < 1000 ? ['lm', 'hm'] : ['hm', 'lm'];
     const k = pref.find((x) => e[x].g === 0) || pref[0];
     changes.push({ path: `mix.eq.${k}.f`, from: e[k].f, to: Math.round(f), fixed: true });
     changes.push({ path: `mix.eq.${k}.q`, from: e[k].q, to: q, fixed: true });
     changes.push({ path: `mix.eq.${k}.g`, from: e[k].g, to: g });
+    return true;
   }
 
   return {
     BANDS, BAND_LABEL, ZONES, TARGETS, CURVES, ROLE_LEVEL, ROLE_HP, CRITERIA, SCOPES, DEFAULT_PREFS,
     bandPowers, kPower, stereoSums, correlation, integrated, loudnessRange,
     newAccumulator, accumulate, summarize, diagnose, toneDeviation, proposeTarget, cleanPrefs, roleOf,
-    unitOf, formatValue, valueAt, grade, moduleDesc, ruleFor,
+    unitOf, formatValue, valueAt, grade, moduleDesc, ruleFor, balancePlan, roleTarget, heard, coPlay, solvePairs,
+    ROLE_TOL, DRIVE_MAX, BELL_MIN, SHELF_MAX,
   };
 })();
