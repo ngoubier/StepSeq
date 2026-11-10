@@ -122,6 +122,11 @@ testées) que l'on **accepte**, **ajuste** (25 à 150 %) ou **refuse** (`js/auto
 - Les conseils suivent l'ordre d'un ingénieur du son : mixage (niveaux, graves, égalisation, dynamique, stéréo,
   espace) puis mastering. Chaque conseil accepté passe par les réglages de la console (Ctrl+Z l'annule).
 - **A/B** compare le mix d'origine et le mix actuel à volume égal ; **Réécouter** mesure l'effet des changements.
+- **Chaînes de traitement** : une piste à plat reçoit une chaîne de départ (égaliseur, compresseur, limiteur) tirée
+  des règles par rôle du Band, avec le seuil du compresseur calé sur la crête mesurée à l'entrée de la tranche ;
+  un Master à plat reçoit une chaîne de mastering (égaliseur, glue 2:1, graves en mono, largeur, écrêtage doux,
+  limiteur −1 dBTP, gain d'entrée réglé sur l'objectif). Modules à cocher un par un, **Essayer** sans enregistrer.
+- Corrections des pistes traitées : compresseur trop appuyé ou inactif, attaque trop rapide, limiteur permanent.
 - **Préférences** (roue dentée) : ce que l'assistant peut modifier (volumes, EQ, compresseurs, panoramique,
   sidechain, envois, EQ du Master, mastering), l'objectif par défaut, le niveau de détail, la durée d'écoute.
 - Les courbes de référence et les niveaux par rôle sont relevés sur les 20 chansons du Band
@@ -232,6 +237,7 @@ node tests/e2e/song-ui.js
 node tests/e2e/band-song-ui.js
 node tests/e2e/mix-master-ui.js
 node tests/e2e/automix-ui.js
+node tests/e2e/automix-chains.js
 node tests/e2e/mobile-ui.js
 ```
 

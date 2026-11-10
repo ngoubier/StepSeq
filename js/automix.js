@@ -125,7 +125,7 @@ SS.automix = (() => {
     for (let b = 0; b < NB; b++) strong.push([]);
     for (const [id, t] of Object.entries(frame.tracks || {})) {
       let a = acc.tracks[id];
-      if (!a) a = acc.tracks[id] = { bands: new Float64Array(NB), k: 0, mk: 0, n: 0, peak: 0, gr: 0, grMax: 0, total: 0 };
+      if (!a) a = acc.tracks[id] = { bands: new Float64Array(NB), k: 0, mk: 0, n: 0, peak: 0, gr: 0, grMax: 0, lim: 0, total: 0, inPeaks: [], inMs: 0, inN: 0 };
       a.total++;
       const k = kPower(t.bands);
       if (!mixOn || k < 1e-9 || k < mixK * 1e-4) continue;
@@ -137,6 +137,13 @@ SS.automix = (() => {
       const gr = Math.abs(t.gr || 0);
       a.gr += gr;
       if (gr > a.grMax) a.grMax = gr;
+      a.lim += Math.abs(t.limGr || 0);
+      // entrée de la tranche (avant égaliseur et compresseur) : crêtes et niveau moyen du son brut
+      if (t.inPeak > 1e-5) {
+        a.inPeaks.push(20 * Math.log10(t.inPeak));
+        a.inMs += t.inMs || 0;
+        a.inN++;
+      }
       for (let b = 0; b < NB; b++) if (pre.bands[b] > 1e-10 && t.bands[b] > pre.bands[b] * 0.25) strong[b].push(id);
     }
     // recouvrements : deux pistes fortes dans la même bande au même moment (« either » = au moins l'une forte)
@@ -189,6 +196,12 @@ SS.automix = (() => {
         peak: a.peak > 0 ? 20 * Math.log10(a.peak) : -200,
         grMean: a.gr / a.n,
         grMax: a.grMax,
+        limGr: a.lim / a.n,
+        // son à l'entrée de la tranche : crête maximale, crête habituelle (90e centile), niveau moyen, dynamique
+        inPeak: a.inN ? Math.max(...a.inPeaks) : null,
+        inP90: a.inN ? percentile(a.inPeaks, 0.9) : null,
+        inRms: a.inN ? dB(a.inMs / a.inN) : null,
+        crest: a.inN ? Math.max(...a.inPeaks) - dB(a.inMs / a.inN) : null,
       };
     }
     const overlap = [];
@@ -320,7 +333,7 @@ SS.automix = (() => {
   const SCOPES = [
     { id: 'fader', name: 'Volumes des pistes (faders)', desc: 'Équilibre entre les pistes' },
     { id: 'eq', name: 'Égaliseur des pistes', desc: 'Passe-haut, creux et bosses' },
-    { id: 'comp', name: 'Compresseurs', desc: 'Pistes et Master' },
+    { id: 'comp', name: 'Compresseurs et limiteurs', desc: 'Pistes et Master' },
     { id: 'pan', name: 'Panoramique', desc: 'Placement gauche / droite' },
     { id: 'sidechain', name: 'Sidechain', desc: 'La basse s\'efface sous le kick' },
     { id: 'sends', name: 'Envois de reverb et d\'écho', desc: 'Profondeur, espace' },
@@ -729,15 +742,251 @@ SS.automix = (() => {
       }
     }
 
+    /* --- chaînes de départ : pistes à plat (égaliseur, compresseur et limiteur coupés) --- */
+    const chainTracks = new Set();
+    for (const t of tr) {
+      const mx = t.mix;
+      if (mx.eq.on || mx.comp.on || mx.lim.on) continue;
+      const rule = ruleFor(t);
+      if (!rule) continue;
+      const m = meas(t);
+      const mods = [];
+      // égaliseur : la règle du rôle (passe-haut, creux de boue, présence, air)
+      if (rule.eq) {
+        const e = rule.eq;
+        const ch = [{ path: 'mix.eq.on', from: false, to: true, fixed: true }];
+        if (e.hp.on) ch.push({ path: 'mix.eq.hp.on', from: false, to: true, fixed: true }, { path: 'mix.eq.hp.f', from: mx.eq.hp.f, to: e.hp.f, fixed: true });
+        for (const b of ['low', 'lm', 'hm', 'high']) {
+          if (!e[b].g) continue;
+          ch.push({ path: `mix.eq.${b}.f`, from: mx.eq[b].f, to: e[b].f, fixed: true });
+          if ('q' in e[b]) ch.push({ path: `mix.eq.${b}.q`, from: mx.eq[b].q, to: e[b].q, fixed: true });
+          ch.push({ path: `mix.eq.${b}.g`, from: 0, to: e[b].g });
+        }
+        mods.push({ k: 'EQ', scope: 'eq', on: true, changes: ch });
+      }
+      // compresseur : seuil sous la crête mesurée à l'entrée de la tranche, ratio selon la dynamique du son
+      if (rule.comp) {
+        const c = rule.comp;
+        let th = c.th;
+        if (m.inPeak != null && rule.below) th = round(clamp(m.inPeak - rule.below, -50, -1), 0.5);
+        let ratio = c.ratio;
+        if (m.crest != null && m.crest > 18) ratio = Math.min(6, ratio + 1);
+        if (m.crest != null && m.crest < 8) ratio = Math.max(1.5, ratio - 0.5);
+        mods.push({
+          k: 'COMP', scope: 'comp', on: true, below: m.inPeak != null && rule.below ? rule.below : null,
+          changes: [
+            { path: 'mix.comp.on', from: false, to: true, fixed: true },
+            { path: 'mix.comp.th', from: 0, to: th },
+            { path: 'mix.comp.ratio', from: 1, to: ratio, min: 1 },
+            { path: 'mix.comp.att', from: mx.comp.att, to: c.att, fixed: true },
+            { path: 'mix.comp.rel', from: mx.comp.rel, to: c.rel, fixed: true },
+            { path: 'mix.comp.knee', from: mx.comp.knee, to: c.knee, fixed: true },
+            { path: 'mix.comp.makeup', from: 0, to: c.makeup || 0 },
+          ],
+        });
+      }
+      // limiteur : sur les frappes de batterie, et sur toute piste aux crêtes brutales (6 dB au-dessus des crêtes habituelles)
+      const spikes = m.inPeak != null && m.inP90 != null ? m.inPeak - m.inP90 : 0;
+      const hit = ['kick', 'snare', 'clap', 'tom'].includes(t.role);
+      if (m.inPeak != null && (hit || spikes > 6)) {
+        mods.push({
+          k: 'LIM', scope: 'comp', on: spikes > (hit ? 4 : 6), spikes,
+          changes: [
+            { path: 'mix.lim.on', from: false, to: true, fixed: true },
+            { path: 'mix.lim.ceil', from: mx.lim.ceil, to: round(clamp(m.inPeak - 3, -40, -0.5), 0.5), fixed: true },
+            { path: 'mix.lim.rel', from: mx.lim.rel, to: 0.05, fixed: true },
+          ],
+        });
+      }
+      if (!mods.length) continue;
+      chainTracks.add(t.id);
+      const dyn = rule.comp ? 'warn' : 'info';
+      S({
+        id: 'chain:' + t.id, kind: 'chain', tab: 'mix', scope: 'eq', crit: 'dyn', track: t.id, sev: dyn,
+        title: `${t.name} : chaîne de départ`,
+        why: `Tranche à plat. Point de départ des mixages de référence pour ${ROLE_ART[t.role] || 'cette piste'}, calé sur ta piste${rule.comp ? ' : le seuil du compresseur suit sa crête mesurée' : ''}.`,
+        meas: [
+          ...(m.inPeak != null ? [['Crête', fr(m.inPeak) + ' dBFS']] : []),
+          ...(m.crest != null ? [['Dynamique', fr(m.crest, 0) + ' dB']] : []),
+          ...(spikes > 6 ? [['Crêtes brutales', '+' + fr(spikes, 0) + ' dB']] : []),
+        ],
+        modules: mods,
+        changes: mods.flatMap((x) => x.changes),
+      });
+    }
+
+    /* --- corrections des pistes déjà traitées : compresseur inactif, attaque trop rapide, limiteur qui travaille sans arrêt --- */
+    for (const t of tr) {
+      if (chainTracks.has(t.id)) continue;
+      const m = meas(t);
+      const c = t.mix.comp;
+      const rule = ruleFor(t);
+      if (c.on && m.grMax < 1 && m.inPeak != null && rule && rule.comp && rule.below) {
+        const th = round(clamp(m.inPeak - rule.below, -50, -1), 0.5);
+        if (th < c.th - 2)
+          S({
+            id: 'compidle:' + t.id, tab: 'mix', scope: 'comp', crit: 'dyn', track: t.id, sev: 'info',
+            title: `${t.name} : le compresseur ne travaille pas`,
+            why: `Son seuil (${fr(c.th)} dB) est au-dessus des crêtes de la piste (${fr(m.inPeak)} dBFS) : il ne retire rien. Placé ${rule.below} dB sous la crête, il tient les notes fortes.`,
+            meas: [['Réduction', fr(m.grMax) + ' dB au plus'], ['Habituel', '3–6 dB']],
+            changes: [{ path: 'mix.comp.th', from: c.th, to: th }],
+          });
+      }
+      if (c.on && ['kick', 'snare', 'clap', 'tom'].includes(t.role) && c.att < 0.003 && m.grMean > 2)
+        S({
+          id: 'att:' + t.id, tab: 'mix', scope: 'comp', crit: 'dyn', track: t.id, sev: 'info',
+          title: `${t.name} : attaque du compresseur trop rapide`,
+          why: `Une attaque de ${Math.round(c.att * 1000)} ms écrase le claquement de la frappe. Vers 10 ms, le compresseur laisse passer l'attaque et tient la suite.`,
+          meas: [['Attaque', Math.round(c.att * 1000) + ' ms'], ['Habituel', '5–15 ms']],
+          changes: [{ path: 'mix.comp.att', from: c.att, to: 0.01, fixed: true }],
+        });
+      const l = t.mix.lim;
+      // sur une frappe de batterie, le limiteur rabote volontairement l'attaque (2 à 6 dB mesurés sur les chansons du Band)
+      const limMax = ['kick', 'snare', 'clap', 'tom'].includes(t.role) ? 7 : 3;
+      if (l.on && m.limGr > limMax)
+        S({
+          id: 'lim:' + t.id, tab: 'mix', scope: 'comp', crit: 'dyn', track: t.id, sev: m.limGr > limMax + 3 ? 'warn' : 'info',
+          title: `${t.name} : le limiteur travaille sans arrêt`,
+          why: `Il retire en moyenne ${fr(m.limGr)} dB : il écrase la piste au lieu de ne rattraper que les crêtes.`,
+          meas: [['Réduction moyenne', fr(m.limGr) + ' dB'], ['Habituel', limMax > 3 ? '2–6 dB sur une frappe' : '0–2 dB']],
+          changes: [{ path: 'mix.lim.ceil', from: l.ceil, to: round(Math.min(0, l.ceil + m.limGr - 1), 0.5), max: 0 }],
+        });
+    }
+
+    /* --- chaîne de mastering : Master à plat (module de mastering coupé) --- */
+    const masterChain = [];
+    if (!ms.on) {
+      const gLow = round(clamp(-zoneDev('low') * 0.5, -2, 2), 0.5);
+      const gHigh = round(clamp(-zoneDev('air') * 0.6, -2.5, 2.5), 0.5);
+      if (!mmix.eq.on)
+        masterChain.push({
+          k: 'EQ', scope: 'mastereq', on: true,
+          changes: [
+            { path: 'mix.eq.on', from: false, to: true, fixed: true },
+            { path: 'mix.eq.hp.on', from: false, to: true, fixed: true },
+            { path: 'mix.eq.hp.f', from: mmix.eq.hp.f, to: 25, fixed: true },
+            { path: 'mix.eq.low.f', from: mmix.eq.low.f, to: 100, fixed: true },
+            { path: 'mix.eq.low.g', from: 0, to: gLow },
+            { path: 'mix.eq.high.f', from: mmix.eq.high.f, to: 10000, fixed: true },
+            { path: 'mix.eq.high.g', from: 0, to: gHigh },
+          ],
+        });
+      const D = SS.MASTER_DEFAULTS.mix.comp;
+      const defaultGlue = !mmix.comp.on || (mmix.comp.th === D.th && mmix.comp.ratio === D.ratio);
+      if (defaultGlue) {
+        // « glue » : 2:1 lent, seuil quelques dB sous les crêtes du mix → 1 à 2 dB de réduction sur les passages forts
+        const pk = sum.mix.prePeak != null ? sum.mix.prePeak - ctx.master.volumeDb : -6;
+        masterChain.push({
+          k: 'COMP', scope: 'comp', on: true, glue: true,
+          changes: [
+            { path: 'mix.comp.on', from: false, to: true, fixed: true },
+            { path: 'mix.comp.th', from: 0, to: round(clamp(pk - 5, -30, -3), 0.5) },
+            { path: 'mix.comp.ratio', from: 1, to: 2, min: 1 },
+            { path: 'mix.comp.att', from: mmix.comp.att, to: 0.03, fixed: true },
+            { path: 'mix.comp.rel', from: mmix.comp.rel, to: 0.2, fixed: true },
+            { path: 'mix.comp.knee', from: mmix.comp.knee, to: 8, fixed: true },
+            { path: 'mix.comp.makeup', from: mmix.comp.makeup, to: 0, fixed: true },
+          ],
+        });
+      }
+      const drive = Number.isFinite(M.i) ? round(clamp(-devL, -6, 14), 0.1) : 0;
+      masterChain.push({
+        k: 'MAST', scope: 'mastering', on: true,
+        changes: [
+          { path: 'mastering.on', from: false, to: true, fixed: true },
+          { path: 'mastering.mono', from: ms.mono, to: ctx.target === 'edm' || ctx.target === 'club' ? 120 : 100, fixed: true },
+          // aigus un peu élargis, sauf si le mix est déjà trop large (corrélation faible)
+          { path: 'mastering.width', from: 1, to: M.corr != null && M.corr < 0.2 ? 0.85 : 1.1 },
+          { path: 'mastering.clip', from: 0, to: 0.3 },
+          { path: 'mastering.ceiling', from: ms.ceiling, to: T.tp, fixed: true },
+          { path: 'mastering.release', from: ms.release, to: 0.15, fixed: true },
+          { path: 'mastering.drive', from: 0, to: drive },
+        ],
+      });
+      S({
+        id: 'mchain', kind: 'chain', tab: 'master', scope: 'mastering', crit: 'loud', track: '__master', sev: 'warn',
+        title: 'Master : chaîne de mastering',
+        why: `Le mastering est coupé : sans limiteur, les crêtes passent et le grave n'est pas tenu en mono. Chaîne des mixages de référence, réglée pour l'objectif ${T.name} (${fr(T.lufs, 0)} LUFS).`,
+        meas: [
+          ...(Number.isFinite(M.i) ? [['Intégré', fr(M.i) + ' LUFS']] : []),
+          ...(Number.isFinite(M.tp) ? [['True peak', fr(M.tp) + ' dBTP']] : []),
+          ['Objectif', fr(T.lufs, 0) + ' LUFS'],
+        ],
+        modules: masterChain,
+        changes: masterChain.flatMap((x) => x.changes),
+      });
+    }
+
     /* --- note globale et filtrage selon les préférences --- */
     const W = CRITERIA.reduce((a, c) => a + c.w, 0);
     const total = Math.round(CRITERIA.reduce((a, c) => a + (scores[c.id] ?? 0) * c.w, 0) / W);
     const RANK = { crit: 0, warn: 1, info: 2 };
     const ORDER = ['head', 'bal', 'low', 'tone', 'dyn', 'stereo', 'loud'];
+    // une chaîne ne garde que les modules autorisés ; elle remplace les corrections qui touchent les mêmes réglages
+    const kept = [];
+    for (const s of all) {
+      if (s.kind !== 'chain') continue;
+      s.modules = s.modules.filter((x) => prefs.scopes[x.scope] !== false);
+      s.changes = s.modules.flatMap((x) => x.changes);
+      s.scope = s.modules.length ? s.modules[0].scope : s.scope;
+      if (s.modules.length) kept.push(s);
+    }
+    const covered = (s) =>
+      s.id !== 'kickbass' && // le masquage kick / basse reste un conseil à part
+      kept.some((c) => c.track === s.track && c.modules.some((x) => x.scope === s.scope || (s.track === '__master' && x.k === 'MAST' && s.scope === 'mastering')));
     const visible = all
+      .filter((s) => (s.kind === 'chain' ? kept.includes(s) : !covered(s)))
       .filter((s) => s.changes.length && prefs.scopes[s.scope] !== false && (prefs.detail === 'all' || s.sev !== 'info'))
-      .sort((a, b) => (a.tab !== b.tab ? (a.tab === 'mix' ? -1 : 1) : RANK[a.sev] - RANK[b.sev] || ORDER.indexOf(a.crit) - ORDER.indexOf(b.crit)));
+      .sort((a, b) =>
+        a.tab !== b.tab ? (a.tab === 'mix' ? -1 : 1)
+        : (a.kind === 'chain') !== (b.kind === 'chain') ? (a.kind === 'chain' ? -1 : 1)
+        : RANK[a.sev] - RANK[b.sev] || ORDER.indexOf(a.crit) - ORDER.indexOf(b.crit));
     return { ready: sum.secs >= prefs.minSecs, final: sum.secs >= prefs.minSecs * 3, scores, total, suggestions: visible, hidden: all.length - visible.length, deviation: dev };
+  }
+
+  /** Règle de traitement du rôle (js/bandmix.js : égaliseur, compresseur, seuil sous la crête). */
+  const ROLE_RULE = {
+    kick: ['DRUM', 'bd'], snare: ['DRUM', 'sd'], clap: ['DRUM', 'cp'], hat: ['DRUM', 'hh'], ohat: ['DRUM', 'oh'], cymbal: ['DRUM', 'cr'],
+    tom: ['DRUM', 'mt'], perc: ['DRUM', 'perc'], bass: ['INST', 'bass'], pad: ['INST', 'pad'], arp: ['INST', 'arp'], lead: ['INST', 'lead'], keys: ['INST', 'keys'],
+  };
+  function ruleFor(t) {
+    const B = SS.bandMix;
+    if (!B) return null;
+    const own = t.band && t.band.key ? B.ruleOf(t) : null;
+    if (own) return own;
+    const r = ROLE_RULE[t.role];
+    return r ? B[r[0]][r[1]] : null;
+  }
+
+  /** Description d'un module de chaîne pour l'intensité k (texte, parties dorées entre ⟨ ⟩). */
+  function moduleDesc(mod, k = 1) {
+    const v = (path) => {
+      const c = mod.changes.find((x) => x.path === path);
+      return c ? valueAt(c, k) : undefined;
+    };
+    const f = (x) => formatValue('x.f', x);
+    const g = (x) => (x > 0 ? '+' : '') + (Math.round(x * 10) / 10).toString().replace('.', ',').replace('-', '−');
+    const out = [];
+    if (mod.k === 'EQ') {
+      if (v('mix.eq.hp.on')) out.push(`Passe-haut ⟨${f(v('mix.eq.hp.f'))}⟩`);
+      if (v('mix.eq.low.g')) out.push(`shelf grave ${f(v('mix.eq.low.f'))} ⟨${g(v('mix.eq.low.g'))}⟩`);
+      for (const b of ['lm', 'hm']) if (v(`mix.eq.${b}.g`)) out.push(`${f(v(`mix.eq.${b}.f`))} ⟨${g(v(`mix.eq.${b}.g`))}⟩`);
+      if (v('mix.eq.high.g')) out.push(`shelf aigu ${f(v('mix.eq.high.f'))} ⟨${g(v('mix.eq.high.g'))} dB⟩`);
+      else if (out.length > 1) out[out.length - 1] += ' dB';
+    } else if (mod.k === 'COMP') {
+      out.push(`${mod.glue ? 'Glue · s' : 'S'}euil ⟨${g(v('mix.comp.th'))} dB⟩${mod.below && k === 1 ? ` (${mod.below} dB sous la crête)` : ''}`);
+      out.push(`⟨${formatValue('ratio', v('mix.comp.ratio'))}⟩`);
+      out.push(`attaque ${Math.round(v('mix.comp.att') * 1000)} ms`, `relâchement ${Math.round(v('mix.comp.rel') * 1000)} ms`);
+      if (v('mix.comp.makeup')) out.push(`${g(v('mix.comp.makeup'))} dB`);
+    } else if (mod.k === 'LIM') {
+      out.push(`Plafond ⟨${g(v('mix.lim.ceil'))} dBFS⟩ (3 dB sous les plus fortes crêtes)`, 'relâchement 50 ms');
+      if (!mod.on) out.push(mod.spikes != null ? 'facultatif : crêtes régulières' : 'facultatif');
+    } else if (mod.k === 'MAST') {
+      out.push(`graves en mono sous ⟨${f(v('mastering.mono'))}⟩`, `largeur ⟨${Math.round(v('mastering.width') * 100)} %⟩`, `écrêtage doux ⟨${Math.round(v('mastering.clip') * 100)} %⟩`);
+      out.push(`limiteur ⟨${g(v('mastering.ceiling'))} dBTP⟩`, `gain d'entrée ⟨${g(v('mastering.drive'))} dB⟩`);
+    }
+    const txt = out.join(' · ');
+    return txt.charAt(0).toUpperCase() + txt.slice(1);
   }
 
   // le rôle avec son article, pour les phrases (« la basse », « l'arpège »)
@@ -773,6 +1022,6 @@ SS.automix = (() => {
     BANDS, BAND_LABEL, ZONES, TARGETS, CURVES, ROLE_LEVEL, ROLE_HP, CRITERIA, SCOPES, DEFAULT_PREFS,
     bandPowers, kPower, stereoSums, correlation, integrated, loudnessRange,
     newAccumulator, accumulate, summarize, diagnose, toneDeviation, proposeTarget, cleanPrefs, roleOf,
-    unitOf, formatValue, valueAt, grade,
+    unitOf, formatValue, valueAt, grade, moduleDesc, ruleFor,
   };
 })();

@@ -75,6 +75,16 @@ SS.automixListen = (() => {
       node.connect(a.an);
       n.tracks.set(id, a);
     });
+    if (!n.inputs) n.inputs = new Map();
+    (t.inputs || new Map()).forEach((node, id) => {
+      const cur = n.inputs.get(id);
+      if (cur && cur.src === node) return;
+      if (cur) cur.src.disconnect(cur.an);
+      const a = analyser(n.ctx, 2048);
+      a.src = node;
+      node.connect(a.an);
+      n.inputs.set(id, a);
+    });
     return true;
   }
   function disconnect() {
@@ -89,6 +99,7 @@ SS.automixListen = (() => {
     off(n.preSrc, n.pre.an);
     if (n.postSrc) off(n.postSrc, n.split);
     n.tracks.forEach((a) => off(a.src, a.an));
+    if (n.inputs) n.inputs.forEach((a) => off(a.src, a.an));
     n = null;
   }
 
@@ -120,7 +131,16 @@ SS.automixListen = (() => {
       if (!live.has(id)) return;
       a.an.getFloatTimeDomainData(a.buf);
       const lv = SS.audio.levels(id);
-      tracks[id] = { bands: bandsOf(a), peak: peakOf(a.buf), gr: lv ? lv.gr.comp : 0 };
+      const fr = { bands: bandsOf(a), peak: peakOf(a.buf), gr: lv ? lv.gr.comp : 0, limGr: lv ? lv.gr.lim : 0 };
+      const inp = n.inputs && n.inputs.get(id);
+      if (inp) {
+        inp.an.getFloatTimeDomainData(inp.buf);
+        fr.inPeak = peakOf(inp.buf);
+        let s = 0;
+        for (let i = 0; i < inp.buf.length; i++) s += inp.buf[i] * inp.buf[i];
+        fr.inMs = s / inp.buf.length;
+      }
+      tracks[id] = fr;
     });
     n.pre.an.getFloatTimeDomainData(n.pre.buf);
     const ml = SS.audio.levels('__master');
