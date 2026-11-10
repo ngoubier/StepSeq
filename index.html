@@ -140,16 +140,40 @@
         <h2 id="mxTitle">Mix</h2>
         <span id="mxProject" class="mx-sub"></span>
         <span class="spacer"></span>
+        <button type="button" id="amBtn" class="am-btn" aria-pressed="false" aria-controls="automix" title="Auto Mix : écoute le morceau pendant la lecture et propose des réglages de mixage et de mastering">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg> Auto Mix
+        </button>
         <button type="button" id="mxClose" class="mx-close" title="Fermer Mix et revenir au séquenceur (Échap)">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg> Fermer
         </button>
       </div>
-      <div class="mx-body">
-        <section class="mx-group" aria-label="Tranches de la console">
-          <div id="mixerTop" class="mx-actionbar"></div>
-          <div id="mixerStrips" class="mixer-strips"></div>
-        </section>
-        <section id="mixerDetail" class="mixer-detail" aria-label="Réglages de la tranche sélectionnée"></section>
+      <div class="mx-main">
+        <div class="mx-body">
+          <section class="mx-group" aria-label="Tranches de la console">
+            <div id="mixerTop" class="mx-actionbar"></div>
+            <div id="mixerStrips" class="mixer-strips"></div>
+          </section>
+          <section id="mixerDetail" class="mixer-detail" aria-label="Réglages de la tranche sélectionnée"></section>
+        </div>
+        <aside id="automix" class="am-panel" hidden aria-labelledby="amTitle">
+          <div class="am-head">
+            <h3 id="amTitle">Auto Mix <small>mixage + mastering</small></h3>
+            <span class="spacer"></span>
+            <button type="button" id="amPrefsBtn" class="am-icon" title="Préférences Auto Mix : ce que l'assistant peut modifier, objectif par défaut" aria-label="Préférences Auto Mix">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+            </button>
+            <button type="button" id="amClose" class="am-icon" title="Fermer Auto Mix" aria-label="Fermer Auto Mix">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+          </div>
+          <div class="am-body">
+            <div id="amStatus" class="am-status"></div>
+            <div id="amTargets" class="am-targets"></div>
+            <div id="amScore" class="am-score"></div>
+            <div id="amCards" class="am-cards"></div>
+          </div>
+          <div id="amFoot" class="am-foot"></div>
+        </aside>
       </div>
     </div>
   </section>
@@ -681,6 +705,9 @@
   <script src="js/profiles-factory.js"></script>
   <script src="js/profiles.js"></script>
   <script src="js/mixer.js"></script>
+  <script src="js/automix.js"></script>
+  <script src="js/automix-listen.js"></script>
+  <script src="js/automixpanel.js"></script>
   <script src="js/band-presets.js"></script>
   <script src="js/band-songs.js"></script>
   <script src="js/band-levels.js"></script>

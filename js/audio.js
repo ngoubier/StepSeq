@@ -39,7 +39,9 @@ SS.audio = (() => {
         SS.mastering.load(ctx).then(() => {
           masterProc = SS.mastering.create(ctx);
           masterProc.port.onmessage = (e) => (loudness = e.data);
-          masterFader.disconnect();
+          // seules la sortie et le vumètre passent après le mastering (les points d'écoute de l'Auto Mix restent branchés)
+          masterFader.disconnect(ctx.destination);
+          masterFader.disconnect(masterMeter.node);
           masterFader.connect(masterProc);
           masterProc.connect(ctx.destination);
           masterProc.connect(masterMeter.node);
@@ -550,6 +552,16 @@ SS.audio = (() => {
     if (!b) return null;
     const l = readMeter(b.meter);
     return { ...l, gr: { comp: b.strip.comp.reduction, lim: b.strip.lim.reduction } };
+  }
+  /**
+   * Points d'écoute de l'Auto Mix (js/automix-listen.js) : la sortie de chaque piste (après le sidechain, avant
+   * les envois), le Master avant le mastering (après la tranche et le fader) et la sortie finale.
+   */
+  function taps() {
+    if (!ctx) return null;
+    const tracks = new Map();
+    buses.forEach((b, id) => tracks.set(id, b.duck));
+    return { ctx, tracks, pre: masterFader, post: masterProc || masterFader };
   }
   function setTrackGain(track, value) {
     if (!ctx) return;
@@ -1404,6 +1416,7 @@ SS.audio = (() => {
     applyMix,
     applyMaster,
     levels,
+    taps,
     ensureBus: (t) => bus(t),
     /** Clavier de la façade du Juno : note tenue (renvoie un identifiant, ou null si le module se charge). */
     liveNoteOn: (track, midi, vel) => {

@@ -217,6 +217,7 @@
     SS.audio.applyAllFx(p);
     p.tracks.forEach((t) => SS.audio.prepareTrack(t));
     resetHistory(); // ouvrir ou créer un projet repart d'un historique vide
+    if (SS.automixPanel) SS.automixPanel.songChanged();
   }
 
   function initHeader() {
@@ -674,6 +675,7 @@
   SS.groove.init({ project: () => project, changed });
   SS.harmonyPanel.init({ project: () => project, changed, renderAll: () => SS.ui.renderAll(), activeTrack: () => SS.ui.activeTrack(), switchScene });
   SS.mixer.init({ project: () => project, changed, renderAll: () => SS.ui.renderAll() });
+  SS.automixPanel.init({ project: () => project, changed, play, stop });
   SS.song.init({ project: () => project, changed, state, switchScene, afterSceneChange, play, stop, setBars });
   SS.fx.init({ project: () => project, changed, renderTrack: (t) => SS.ui.renderTrack(t) });
   SS.ui.init({
