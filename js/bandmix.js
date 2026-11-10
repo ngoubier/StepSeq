@@ -144,6 +144,10 @@ SS.bandMix = (() => {
         const pk = measured(levelKeys.get(t.id), t.type === 'drum', 1);
         if (pk != null && r.below) t.mix.comp.th = round(clamp(pk - r.below, -50, -1), 1);
       }
+      // batterie : limiteur-écrêteur 3 dB sous la crête du son ; arrondit l'attaque (la partie la plus pointue du
+      // mix) pour que le mastering n'ait pas à écraser tout le morceau à cause d'elle
+      const pkD = t.type === 'drum' ? measured(levelKeys.get(t.id), true, 1) : null;
+      if (pkD != null && ['bd', 'sd', 'cp', 'lt', 'mt', 'ht'].includes(t.band.key.split(':')[1])) t.mix.lim = { on: true, ceil: round(clamp(pkD - 3, -40, -0.5), 1), rel: 0.05 };
       const fx = { ...(t.fx || {}) };
       delete fx.room;
       delete fx.delay;
@@ -173,7 +177,7 @@ SS.bandMix = (() => {
     master.mix.eq = eq({ hp: 25, lm: [300, -1, 0.7], high: [11000, 1.5] });
     master.mix.comp = comp(-10, 2, 0.03, 0.2, 0, 8); // « glue » : 1 à 2 dB de réduction sur les passages forts
     master.mix.lim = { ...master.mix.lim, on: false }; // le limiteur du mastering prend le relais
-    master.mastering = { on: true, drive, ceiling: -1, width: 1.12, mono: style === 'edm' ? 120 : 100, release: style === 'edm' ? 0.12 : 0.18, clip: 0.3 };
+    master.mastering = { on: true, drive, ceiling: -1, width: 1.12, mono: style === 'edm' ? 120 : 100, release: style === 'edm' ? 0.12 : 0.18, clip: 0.5 };
     project.master = master;
     delete project.masterProfile;
   }

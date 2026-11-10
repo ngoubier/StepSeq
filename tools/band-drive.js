@@ -42,7 +42,12 @@ async function measure(p, drive) {
 async function one(p) {
   const loud = SS.bandMix.STYLE[p.style].loud;
   const a = await measure(p, 0);
-  const drive = +(loud - a.loud).toFixed(1);
+  let drive = +(loud - a.loud).toFixed(1);
+  // seconde passe : le limiteur retire une partie du gain ; on corrige (au plus +2 dB, pour ne pas sur-limiter)
+  if (!process.env.ONEPASS) {
+    const b = await measure(p, drive);
+    drive = +(drive + Math.min(2, Math.max(-2, loud - b.loud))).toFixed(1);
+  }
   table[p.id] = drive;
   let msg = `${p.id.padEnd(13)} sans gain : intégré ${a.I} LUFS, partie forte ${a.loud} LUFS → drive ${drive} dB`;
   if (process.env.VERIFY) {
