@@ -25,7 +25,7 @@ puis ouvrir <http://localhost:8000>.
   **Band**, **Key : tonalité** (fenêtre Key, propre à chaque scène : assistant
   émotion → grille d'accords → couches pour démarrer, puis onglets Ambiance (émotions rangées par mode), Accords, Grille (accords glissés sur une ligne de mesures → basse, accords et arpège générés), Couches
   et Vérifier ; palette d'accords dans le piano roll, essais A/B), **Song** (fenêtre Song : scènes et arrangement, avec une case pour garder le panneau
-  d'arrangement affiché sous l'en-tête) et **Mix** (console de mixage).
+  d'arrangement affiché sous l'en-tête) et **Mix** (console de mixage, avec l'assistant **Auto Mix**).
   À droite : annuler / rétablir, l'indicateur d'enregistrement automatique et **Aide**.
   Le bouton **+ Ajouter une piste** se trouve sous les pistes.
 - **Partie centrale** : les pistes, les unes sous les autres. Chaque piste a un en-tête
@@ -101,6 +101,32 @@ Les échantillons Dirt-Samples sont joués à leur hauteur réelle, mesurée par
   environ −12 à −13 LUFS intégrés, la dynamique des breaks est gardée. Les attaques de la batterie passent par
   un limiteur-écrêteur léger pour que le mastering n'écrase pas tout le morceau à cause d'elles.
 
+### Auto Mix : l'assistant de mixage et de mastering
+
+Dans la console **Mix**, le bouton **✦ Auto Mix** ouvre un panneau à droite des tranches. Pendant la lecture, il
+écoute le morceau (`js/automix-listen.js` : analyseurs FFT sur chaque piste, sur le Master avant mastering et sur
+la sortie stéréo), note sept critères de 0 à 100 et propose des conseils chiffrés (`js/automix.js`, fonctions pures
+testées) que l'on **accepte**, **ajuste** (25 à 150 %) ou **refuse** (`js/automixpanel.js`) :
+
+| Critère | Mesure | Cible |
+|---|---|---|
+| Volume perçu | LUFS intégré, true peak (EBU R128) | Streaming −14, Synthwave −12, EDM mélodique −11, Club −8 LUFS ; ≤ −1 dBTP |
+| Dynamique | PLR (crête − LUFS), réduction de gain des compresseurs | PLR 8–13 dB (synthwave) ; ≤ 6 dB par piste |
+| Balance tonale | Énergie par bande d'octave comparée à la courbe du style | ±2,5 dB en moyenne par bande |
+| Équilibre des pistes | Niveau de chaque rôle par rapport au mix aux mêmes instants | ±3,5 dB autour du niveau du rôle |
+| Graves | Recouvrement kick ↔ basse vers 63 Hz, grave inutile ailleurs, graves en mono | < 40 %, corrélation > 0,85 |
+| Stéréo | Corrélation, équilibre G/D, largeur | corrélation > 0,2 |
+| Marge avant mastering | Crêtes du Master avant le mastering | −6 à −1 dBFS |
+
+- L'**objectif** est proposé d'après le style des pistes du Band (✦) et se change d'un clic.
+- Les conseils suivent l'ordre d'un ingénieur du son : mixage (niveaux, graves, égalisation, dynamique, stéréo,
+  espace) puis mastering. Chaque conseil accepté passe par les réglages de la console (Ctrl+Z l'annule).
+- **A/B** compare le mix d'origine et le mix actuel à volume égal ; **Réécouter** mesure l'effet des changements.
+- **Préférences** (roue dentée) : ce que l'assistant peut modifier (volumes, EQ, compresseurs, panoramique,
+  sidechain, envois, EQ du Master, mastering), l'objectif par défaut, le niveau de détail, la durée d'écoute.
+- Les courbes de référence et les niveaux par rôle sont relevés sur les 20 chansons du Band
+  (`tools/automix-calibrate.js`).
+
 Outils de mesure (Playwright + Chromium, rendu hors temps réel de StepSeq) :
 
 ```bash
@@ -113,6 +139,10 @@ node tools/measure-levels.js
 
 ```bash
 node tools/band-drive.js
+```
+
+```bash
+node tools/automix-calibrate.js all > automix-mesures.json
 ```
 
 Les pistes créées par Band sont marquées dans le projet. Si le projet en contient déjà, une confirmation propose
@@ -201,6 +231,7 @@ node tests/e2e/playhead-ui.js
 node tests/e2e/song-ui.js
 node tests/e2e/band-song-ui.js
 node tests/e2e/mix-master-ui.js
+node tests/e2e/automix-ui.js
 node tests/e2e/mobile-ui.js
 ```
 
@@ -303,11 +334,14 @@ par la fenêtre **Key** :
 | `js/master-dsp.js` | Mastering du Master (AudioWorklet) : graves en mono, largeur, écrêtage doux, limiteur à anticipation, mesure LUFS / true peak |
 | `js/profiles.js`, `js/profiles-factory.js` | Profils de console (usine + personnels) |
 | `js/mixer.js`    | Console de mixage : tranches, EQ, compresseur, limiteur, vumètres |
+| `js/automix.js`  | Auto Mix : mesures (bandes d'octave, LUFS, LRA, corrélation), critères, cibles et conseils (fonctions pures) |
+| `js/automix-listen.js` | Auto Mix : écoute pendant la lecture (analyseurs sur les pistes et le Master) |
+| `js/automixpanel.js` | Auto Mix : panneau de la console, A/B, préférences |
 | `js/band-songs.js` | Band : plans des 20 chansons complètes (tonalité, sections, grilles, parties) |
 | `js/bandsong.js` | Band : écrit les scènes, les notes de chaque musicien et l'arrangement d'après un plan |
 | `js/bandmix.js`, `js/band-levels.js`, `js/band-drive.js` | Band : règles de mixage et de mastering, niveaux mesurés, gain de mastering par chanson |
 | `js/dirt-tuning.js` | Hauteur mesurée des échantillons Dirt-Samples |
-| `tools/`         | Outils de mesure : hauteur des échantillons, niveaux des instruments, rendu et mastering des chansons Band |
+| `tools/`         | Outils de mesure : hauteur des échantillons, niveaux des instruments, rendu et mastering des chansons Band, calibrage de l'Auto Mix |
 | `js/song.js`     | Mode chanson : scènes et arrangement, fenêtre Song |
 | `js/ui.js`       | Rendu des pistes, grille, piano roll, dialogue |
 | `js/main.js`     | Démarrage, barre d'outils, raccourcis |

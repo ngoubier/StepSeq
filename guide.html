@@ -99,6 +99,7 @@
       <a href="#harmonie">Key (harmonie)</a>
       <a href="#chanson">Mode chanson</a>
       <a href="#console">Mix (console de mixage)</a>
+      <a href="#automix">Auto Mix (assistant)</a>
       <a href="#fichiers">Enregistrer et ouvrir</a>
       <a href="#raccourcis">Raccourcis et astuces</a>
     </aside>
@@ -533,6 +534,35 @@
         <li>Le dernier choix de la liste, <b>↺ Réinitialiser (toutes les tranches à plat)</b>, devient <b>Réinitialiser les N tranches</b> : EQ, compresseur, limiteur et panoramique de toutes les pistes et du Master reviennent aux réglages par défaut, et les badges de profil disparaissent. Les volumes (faders) et le sidechain sont conservés. Ctrl+Z annule.</li>
         <li>Après application, chaque tranche porte le badge ◆ du profil multi-tranches, avec son rôle (« Train de nuit — Basse »…).</li>
       </ul>
+
+      <h2 id="automix"><small>Assistant</small>Auto Mix : mixage et mastering guidés</h2>
+      <p>Le bouton <b>✦ Auto Mix</b> de la barre de titre de la console ouvre un panneau à droite des tranches. Lance la lecture : l'assistant <b>écoute</b> le morceau, mesure chaque piste et le Master, puis donne un <b>score pro</b> et des <b>conseils chiffrés</b>. Rien ne change sans ton accord. Pour un diagnostic complet, passe en mode chanson (fenêtre Song) et écoute tout le morceau : le panneau indique les secondes et les scènes déjà entendues. Le premier diagnostic, provisoire, arrive après 20 secondes.</p>
+      <h3>Ce qui rend un morceau « pro » : les critères mesurés</h3>
+      <div class="table-wrap"><table>
+        <tr><th>Critère</th><th>Ce qui est mesuré</th><th>Cible</th></tr>
+        <tr><td>Volume perçu</td><td>LUFS intégré et true peak à la sortie (norme EBU R128)</td><td>Selon l'objectif ; plafond −1 dBTP</td></tr>
+        <tr><td>Dynamique</td><td>PLR (écart entre la crête et le volume moyen) ; compresseurs qui retirent plus de 6 dB en continu</td><td>PLR 8 à 13 dB en synthwave</td></tr>
+        <tr><td>Balance tonale</td><td>Énergie du mix dans 10 bandes d'octave (31 Hz à 16 kHz), comparée à la courbe du style relevée sur les chansons du Band</td><td>±2,5 dB en moyenne par bande</td></tr>
+        <tr><td>Équilibre des pistes</td><td>Niveau de chaque piste par rapport au mix aux mêmes instants, selon son rôle : kick et basse devant, caisse claire et lead présents, nappes et arpège derrière, cymbales en fond</td><td>±3,5 dB autour du niveau du rôle</td></tr>
+        <tr><td>Graves</td><td>Kick et basse forts en même temps vers 63 Hz ; grave inutile sur les autres pistes ; graves en mono</td><td>Recouvrement &lt; 40 %, corrélation &gt; 0,85</td></tr>
+        <tr><td>Stéréo</td><td>Corrélation gauche / droite, équilibre, largeur</td><td>Corrélation &gt; 0,2, G/D ±1 dB</td></tr>
+        <tr><td>Marge avant mastering</td><td>Crêtes du Master avant le module de mastering</td><td>−6 à −1 dBFS</td></tr>
+      </table></div>
+      <h3>Objectif</h3>
+      <p>Le panneau <b>propose</b> un objectif d'après le style du morceau (marqué ✦ : synthwave ou EDM pour une chanson du Band, streaming sinon). Clique un autre objectif pour le changer : <b>Streaming</b> (−14 LUFS), <b>Synthwave</b> (−12), <b>EDM mélodique</b> (−11), <b>Club</b> (−8). Le score et les conseils sont recalculés aussitôt.</p>
+      <h3>Les conseils</h3>
+      <p>Les conseils sont rangés en deux onglets, <b>Mixage</b> puis <b>Mastering</b> (on règle le mix avant de le masteriser), du plus important au plus fin : <b>Prioritaire</b>, <b>Conseillé</b>, <b>Finition</b>. Chaque carte dit ce qui ne va pas, la mesure et la cible, puis les réglages proposés (« Basse · EQ cloche 60 Hz : 0 → −2,5 dB »).</p>
+      <ul>
+        <li><b>Accepter</b> applique les réglages dans la console. La tranche concernée porte une pastille dorée ✦ ; une pastille orange compte les conseils en attente (clic : la carte s'affiche).</li>
+        <li><b>Ajuster</b> dose le conseil de 25 à 150 % ; sur un conseil appliqué, le son suit le curseur en direct.</li>
+        <li><b>Refuser</b> écarte le conseil ; <b>Annuler</b> remet les réglages d'avant. Ctrl+Z annule aussi un conseil comme toute retouche.</li>
+        <li><b>Tout accepter</b> applique les conseils restants de l'onglet.</li>
+        <li><b>A · avant / B · après</b> compare le mix d'origine et le mix actuel. L'écoute A règle le gain d'entrée du limiteur pour que les deux aient le même volume : tu juges l'équilibre, pas le plus fort.</li>
+        <li>Dès ta première décision, la liste se fige. <b>Réécouter</b> repart du début, mesure l'effet de tes changements et recalcule le score et les conseils (les conseils refusés ne reviennent pas).</li>
+      </ul>
+      <h3>Préférences</h3>
+      <p>La roue dentée du panneau ouvre les <b>préférences</b>, gardées dans ce navigateur : ce que l'assistant a le droit de modifier (volumes, égaliseur des pistes, compresseurs, panoramique, sidechain, envois de reverb et d'écho, égaliseur du Master, mastering), l'objectif par défaut (automatique ou fixe), le niveau de détail (tous les conseils ou seulement l'essentiel) et la durée d'écoute avant le premier diagnostic. Un conseil qui toucherait un réglage interdit n'est pas proposé, ou remplacé par un autre moyen (sans sidechain, le kick et la basse sont séparés à l'égaliseur).</p>
+      <p class="note">L'assistant applique des règles de mixage mesurables : c'est une base solide, pas une oreille. Écoute toujours le résultat (A/B) et garde le dernier mot.</p>
 
       <h2 id="fichiers">Enregistrer et ouvrir</h2>
       <p>Un projet s'enregistre dans un fichier <code>.stepseq.json</code>, qu'on rouvre avec <b>Ouvrir</b>.</p>

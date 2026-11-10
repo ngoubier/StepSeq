@@ -274,6 +274,7 @@ SS.mixer = (() => {
     $('#mixerTop').replaceChildren(mixsetBar(list.length));
     $('#mixerStrips').replaceChildren(...list.map(stripEl));
     renderDetail();
+    if (SS.automixPanel) SS.automixPanel.decorate(); // pastilles des conseils Auto Mix
   }
 
   /** Insert de tranche (EQ / COMP / LIM) : un clic l'active ou le coupe ; ses réglages sont dans le panneau du bas. */
@@ -1477,6 +1478,7 @@ SS.mixer = (() => {
     raf = requestAnimationFrame(loop);
   }
   function close() {
+    if (SS.automixPanel) SS.automixPanel.close();
     isOpen = false;
     cancelAnimationFrame(raf);
     document.body.classList.remove('mixer-open');
