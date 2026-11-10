@@ -46,25 +46,25 @@ const ok = (c, m) => {
   ok(new Set(p.tracks.map((t) => t.volume)).size > p.tracks.length / 2, 'volumes calibrés (différents d\'une piste à l\'autre)');
 
   // console : module Mastering
-  await page.click('#mixBtn');
+  await page.click('#mixerBtn');
   await page.waitForTimeout(500);
-  await page.click('#mixerStrips .strip[data-id="__master"]');
+  await page.click('#mixerStrips .strip[data-id="__master"] .strip-name');
   await page.waitForTimeout(300);
   ok(await page.isVisible('.mod-mast'), 'console : module Mastering sur le Master');
   ok((await page.locator('.mod-mast .mast-tile').count()) === 5, 'mesures LUFS, true peak et réduction affichées');
   await page.click('.mod-mast .mod-power');
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(1200);
   ok((await P()).master.mastering.on === false, 'le bouton coupe le mastering');
   await page.click('.mod-mast .mod-power');
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(1200);
   ok((await P()).master.mastering.on === true, 'et le rallume');
   // lecture : les mesures LUFS arrivent
   await page.keyboard.press('Escape');
   await page.click('#play');
   await page.waitForTimeout(2500);
-  await page.click('#mixBtn');
+  await page.click('#mixerBtn');
   await page.waitForTimeout(300);
-  await page.click('#mixerStrips .strip[data-id="__master"]');
+  await page.click('#mixerStrips .strip[data-id="__master"] .strip-name');
   await page.waitForTimeout(1500);
   const txt = await page.textContent('.mod-mast .mast-tiles');
   ok(/LUFS/.test(txt) && /dBTP/.test(txt), 'mesures en direct pendant la lecture : ' + txt.replace(/\s+/g, ' '));

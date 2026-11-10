@@ -72,6 +72,7 @@ SS.BAND_LEVELS = {
     "keys|syn_square|chord": [-15.4, -5.3],
     "keys|vcsl_fmpiano|chord": [-30.1, -15.3],
     "keys|vcsl_piano1|chord": [-28, -14.8],
+    "lead|gm_celesta|mono": [-8.9, -1.9],
     "lead|gm_flute|mono": [-10.5, -3.1],
     "lead|gm_glockenspiel|mono": [-21.9, -8.2],
     "lead|gm_kalimba|mono": [-19.8, -3.3],
