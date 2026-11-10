@@ -131,12 +131,13 @@ function ssMasterModule(scope) {
       const active = params.active[0] > 0.5;
       const drive = dbToLin(params.drive[0]);
       const ceil = dbToLin(params.ceiling[0]);
-      const ceilIn = ceil * 0.95;
-      // écrêteur doux : linéaire jusqu'au genou, puis courbe tanh qui plafonne à `top` (au-dessus du plafond du
-      // limiteur : l'écrêteur rabote les pointes, le limiteur finit le travail)
+      const ceilIn = ceil * 0.9;
+      // écrêteur doux : linéaire jusqu'au genou, puis courbe tanh qui plafonne à `top`
       const clipAmt = params.clip[0];
-      const top = ceil * Math.pow(10, (3 - 2 * clipAmt) / 20);
-      const knee = top * (0.9 - 0.35 * clipAmt);
+      // le genou est au-dessus du plafond (de +3 dB à +1 dB selon la quantité) : seules les pointes sont arrondies,
+      // jamais le corps du son ; la courbe plafonne 2 dB plus haut, le limiteur finit le travail
+      const knee = ceil * Math.pow(10, (3 - 2 * clipAmt) / 20);
+      const top = knee * Math.pow(10, 2 / 20);
       const soft = (x) => {
         const a = x < 0 ? -x : x;
         if (a <= knee) return x;
@@ -188,7 +189,7 @@ function ssMasterModule(scope) {
           hr[0] = hr[1]; hr[1] = hr[2]; hr[2] = hr[3]; hr[3] = r;
           let pk = Math.max(Math.abs(l), Math.abs(r));
           for (let q = 1; q < 4; q++) pk = Math.max(pk, Math.abs(cubic(hl[0], hl[1], hl[2], hl[3], q / 4)), Math.abs(cubic(hr[0], hr[1], hr[2], hr[3], q / 4)));
-          // seuil interne 0,45 dB sous le plafond : marge pour les crêtes entre échantillons
+          // seuil interne 0,9 dB sous le plafond : marge pour les crêtes entre échantillons
           const need = pk > ceilIn ? ceilIn / pk : 1;
           // gain requis le plus faible de la fenêtre à venir, lissé sur la même durée : le gain atteint sa valeur
           // pile quand la crête sort de la ligne à retard

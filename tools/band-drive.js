@@ -1,8 +1,10 @@
 /*
- * Mastering des chansons Band : calcule pour chaque inspiration le gain d'entrée du limiteur (« drive ») qui amène
- * la chanson complète au volume visé par son style (js/bandmix.js : −11 LUFS synthwave, −10 LUFS EDM), et écrit
- * js/band-drive.js. Deux passes de rendu complet (tools/render-band-song.js) : la première mesure le volume sans
- * gain, la seconde corrige ce que le limiteur retire. Mesures EBU R128 par ffmpeg.
+ * Mastering des chansons Band : calcule pour chaque inspiration le gain d'entrée du limiteur (« drive ») et écrit
+ * js/band-drive.js. Comme un ingénieur de mastering, on règle le volume sur la partie la plus forte du morceau :
+ * le volume court terme (fenêtres de 3 s, EBU R128) de la section la plus forte est amené à la valeur visée par le
+ * style (js/bandmix.js, STYLE.loud : −9,5 LUFS synthwave, −8,5 LUFS EDM). Le volume intégré suit alors la dynamique
+ * du morceau (un long break calme le fait baisser) au lieu d'écraser les refrains pour compenser.
+ * Rendu complet sans gain (tools/render-band-song.js), mesures par ffmpeg ; VERIFY=1 refait un rendu avec le gain.
  *
  *   node tools/band-drive.js [inspiration…]      (sans argument : les 20 ; nécessite ffmpeg)
  */
@@ -25,7 +27,10 @@ const run = (cmd, args, env = {}) =>
 async function loudness(wav) {
   const out = await run('ffmpeg', ['-hide_banner', '-nostats', '-i', wav, '-af', 'ebur128=peak=true', '-f', 'null', '-']);
   const sum = out.slice(out.lastIndexOf('Summary'));
-  return { I: +sum.match(/I:\s+(-?[\d.]+)/)[1], LRA: +sum.match(/LRA:\s+(-?[\d.]+)/)[1], TP: +sum.match(/Peak:\s+(-?[\d.]+|-inf)/)[1] };
+  // volume court terme de chaque fenêtre : on retient le 98e centile (la partie la plus forte, sans un éclat isolé)
+  const S = [...out.matchAll(/ S:\s*(-?[\d.]+)/g)].map((m) => +m[1]).filter((v) => v > -70).sort((a, b) => a - b);
+  const loud = S.length ? S[Math.floor(S.length * 0.98)] : -70;
+  return { I: +sum.match(/I:\s+(-?[\d.]+)/)[1], LRA: +sum.match(/LRA:\s+(-?[\d.]+)/)[1], TP: +sum.match(/Peak:\s+(-?[\d.]+|-inf)/)[1], loud };
 }
 async function measure(p, drive) {
   const wav = path.join(tmp, `${p.id}.wav`);
@@ -35,13 +40,16 @@ async function measure(p, drive) {
   return m;
 }
 async function one(p) {
-  const target = SS.bandMix.STYLE[p.style].target;
+  const loud = SS.bandMix.STYLE[p.style].loud;
   const a = await measure(p, 0);
-  let drive = +(target - a.I).toFixed(1);
-  const b = await measure(p, drive);
-  drive = +(drive + (target - b.I)).toFixed(1);
+  const drive = +(loud - a.loud).toFixed(1);
   table[p.id] = drive;
-  console.log(`${p.id.padEnd(13)} sans gain ${a.I} LUFS → drive ${drive} dB (passe 2 : ${b.I} LUFS, LRA ${b.LRA}, crête ${b.TP} dBTP)`);
+  let msg = `${p.id.padEnd(13)} sans gain : intégré ${a.I} LUFS, partie forte ${a.loud} LUFS → drive ${drive} dB`;
+  if (process.env.VERIFY) {
+    const b = await measure(p, drive);
+    msg += ` (vérification : intégré ${b.I} LUFS, partie forte ${b.loud}, LRA ${b.LRA}, crête ${b.TP} dBTP)`;
+  }
+  console.log(msg);
 }
 (async () => {
   const queue = [...list];

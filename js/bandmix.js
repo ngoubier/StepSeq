@@ -16,8 +16,9 @@
  *     batterie, « hall » pour les instruments, écho ping-pong synchronisé au tempo. Kick et basse restent secs.
  *     Chorus sur les nappes, la guitare et la voix.
  *  5. Master : légère inclinaison d'EQ, compresseur « glue » 2:1 lent, puis mastering (js/master-dsp.js) : graves
- *     en mono, aigus un peu élargis, écrêtage doux des transitoires, limiteur à anticipation à −1 dBTP, gain
- *     d'entrée réglé pour viser −11 LUFS (synthwave) ou −10 LUFS (EDM) sur tout le morceau (js/band-drive.js).
+ *     en mono, aigus un peu élargis, écrêtage doux des pointes, limiteur à anticipation à −1 dBTP ; gain d'entrée
+ *     réglé sur la partie la plus forte du morceau (court terme −9,5 LUFS en synthwave, −8,5 en EDM, js/band-drive.js) :
+ *     environ −11 à −10 LUFS intégrés pour un morceau dense, moins pour un morceau à longs breaks.
  */
 window.SS = window.SS || {};
 
@@ -76,7 +77,7 @@ SS.bandMix = (() => {
       plate: 1.25, // grosse caisse claire « années 80 »
       hall: 1.1,
       sc: { bass: 0, pad: 0.25, strings: 0.2, keys: 0 },
-      target: -11,
+      loud: -9.5, // volume court terme visé pour la partie la plus forte (LUFS)
       drive: 7,
     },
     edm: {
@@ -85,7 +86,7 @@ SS.bandMix = (() => {
       hall: 1,
       sc: { bass: 0.7, pad: 0.5, strings: 0.45, keys: 0.35 },
       lu: { bass: 2.5 }, // la basse sidechainée sur les contretemps paraît plus discrète
-      target: -10,
+      loud: -8.5,
       drive: 8,
     },
   };
@@ -165,7 +166,7 @@ SS.bandMix = (() => {
     master.mix.eq = eq({ hp: 25, lm: [300, -1, 0.7], high: [11000, 1.5] });
     master.mix.comp = comp(-20, 2, 0.03, 0.2, 1, 8); // « glue » : 1 à 2 dB de réduction
     master.mix.lim = { ...master.mix.lim, on: false }; // le limiteur du mastering prend le relais
-    master.mastering = { on: true, drive, ceiling: -1, width: 1.12, mono: style === 'edm' ? 120 : 100, release: style === 'edm' ? 0.12 : 0.18, clip: 0.6 };
+    master.mastering = { on: true, drive, ceiling: -1, width: 1.12, mono: style === 'edm' ? 120 : 100, release: style === 'edm' ? 0.12 : 0.18, clip: 0.3 };
     project.master = master;
     delete project.masterProfile;
   }

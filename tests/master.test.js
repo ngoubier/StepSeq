@@ -49,6 +49,9 @@ test('limiteur : aucune crête au-dessus du plafond, gain réduit seulement quan
   const { L, msgs } = run(s, s, { drive: 9, ceiling: -1, mono: 0 });
   assert.ok(peak(L) <= Math.pow(10, -1 / 20) + 1e-6, `crête ${peak(L)}`);
   assert.ok(msgs.some((m) => m.gr > 6), 'réduction de gain affichée');
+  // avec l'écrêteur doux et beaucoup de gain : toujours sous le plafond
+  const c = run(s, s, { drive: 14, ceiling: -1, mono: 0, clip: 1 });
+  assert.ok(peak(c.L) <= Math.pow(10, -1 / 20) + 1e-6, `crête avec écrêteur ${peak(c.L)}`);
   const quiet = sine(220, -30, 1);
   const q = run(quiet, quiet, { ceiling: -1, mono: 0 });
   assert.ok(Math.abs(rms(q.L, 4800) - rms(quiet, 4800)) < 1e-3, 'signal faible : transparent');
