@@ -2742,3 +2742,4 @@ dialog.am-prefs { width: min(620px, calc(100vw - 32px)); }
 .am-pilot-scopes { display: flex; flex-direction: column; gap: 8px; font-size: 13px; line-height: 1.4; }
 .am-pilot-scopes label { display: flex; gap: 8px; align-items: center; }
 .am-pilot-scopes input { accent-color: var(--accent-2); }
+.am-pilot-progress { margin: 0; padding: 8px 10px; border-radius: 6px; background: #132e44; font-size: 13px; line-height: 1.5; color: var(--text); }

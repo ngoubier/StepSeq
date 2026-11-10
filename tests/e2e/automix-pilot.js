@@ -47,6 +47,9 @@ const ok = (c, m) => {
   await page.click('#amBtn');
   await page.waitForTimeout(300);
   ok(await page.isVisible('#amPilotBtn'), 'bouton du pilote auto dans le panneau');
+  await page.uncheck('#amPilotProcessing'); // ce scénario isole le pilotage des faders
+  const hasNullText = () => page.locator('#amPilot').evaluate((el) => [...el.childNodes].some((n) => n.nodeType === Node.TEXT_NODE && n.textContent.trim() === 'null'));
+  ok(!(await hasNullText()), 'pilote au repos : aucun texte « null » à la place de l’action');
   const width = await page.locator('#automix').evaluate((el) => el.getBoundingClientRect().width);
   const grip = await page.locator('#amResize').boundingBox();
   await page.mouse.move(grip.x + grip.width / 2, grip.y + 80);
@@ -72,6 +75,7 @@ const ok = (c, m) => {
   await page.waitForTimeout(500);
   ok(await page.evaluate(() => SS.audio.isPlaying()), 'le pilote lance la lecture');
   ok(/Arrêter/.test(await page.textContent('#amPilotBtn')), 'bouton : arrêter le pilote');
+  ok(!(await hasNullText()), 'pilote en écoute : aucun texte « null » sans action en cours');
   ok(!(await page.isVisible('#amCards')) && !(await page.isVisible('#amFoot')) && !(await page.isVisible('#amScore')),
     'pilote actif : conseils et commandes manuelles masqués');
   // pendant un geste, le fader glisse (plusieurs valeurs intermédiaires)
@@ -122,6 +126,7 @@ const ok = (c, m) => {
   await page.click('#amPilotBtn');
   await page.waitForTimeout(300);
   ok(!(await page.evaluate(() => SS.automixPanel._state().pilot)), 'pilote arrêté');
+  ok(!(await hasNullText()), 'pilote arrêté : aucun texte « null » résiduel');
   ok(await page.isVisible('#amCards') && await page.isVisible('#amFoot'), 'arrêt du pilote : conseils manuels réaffichés');
   ok(await page.locator('.pilot-working, .pilot-control').count() === 0, 'arrêt : aucun réglage ne reste illuminé');
   ok(/Démarrer le pilote auto/.test(await page.textContent('#amPilotBtn')), 'bouton revenu à « Pilote auto »');

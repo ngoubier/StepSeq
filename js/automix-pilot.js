@@ -266,5 +266,56 @@ SS.automixPilot = (() => {
     return limiterAction;
   }
 
-  return { P, newTracker, feed, forget, relOf, plan, planMaster, rampSecs, ease };
+  /** Examine les trois modules d'une piste entendue, sans toucher à son fader. */
+  function planTrack(sum, track, scopes = {}, locked = new Set(), suggestions = []) {
+    const m = sum && sum.tracks[track.id];
+    if (!sum || sum.secs < 10 || !A().heard(m) || track.mute) return null;
+    const mix = track.mix;
+    const rule = A().ruleFor(track);
+    const actions = [];
+    for (const module of ['eq', 'comp', 'lim']) {
+      if (locked.has(module) || scopes[module === 'eq' ? 'eq' : 'comp'] === false) continue;
+      const changes = new Map();
+      const add = (path, to) => {
+        const from = path.split('.').slice(1).reduce((o, k) => o[k], mix);
+        if (from !== to && (typeof to === 'boolean' || Number.isFinite(to))) changes.set(path, { path, from, to });
+      };
+      if (module === 'eq' && !mix.eq.on && rule && rule.eq) {
+        const e = rule.eq;
+        add('mix.eq.on', true);
+        if (e.hp.on) { add('mix.eq.hp.on', true); add('mix.eq.hp.f', e.hp.f); }
+        for (const b of ['low', 'lm', 'hm', 'high']) if (e[b].g) {
+          add(`mix.eq.${b}.f`, e[b].f);
+          if (e[b].q != null) add(`mix.eq.${b}.q`, e[b].q);
+          add(`mix.eq.${b}.g`, clamp(e[b].g, -6, 4));
+        }
+      }
+      if (module === 'comp' && !mix.comp.on && rule && rule.comp && Number.isFinite(m.inPeak)) {
+        const c = rule.comp;
+        const values = { on: true, th: round(clamp(m.inPeak - (rule.below || 4), -50, -1), 0.5),
+          ratio: clamp(c.ratio, 1.5, 6), att: c.att, rel: c.rel, knee: c.knee, makeup: c.makeup || 0 };
+        Object.entries(values).forEach(([k, v]) => add('mix.comp.' + k, v));
+      }
+      if (module === 'lim' && !mix.lim.on && Number.isFinite(m.inPeak) && Number.isFinite(m.inP90) && m.inPeak - m.inP90 > 6) {
+        add('mix.lim.ceil', round(clamp(m.inPeak - 3, -24, -0.5), 0.5));
+        add('mix.lim.rel', 0.05);
+        add('mix.lim.on', true);
+      }
+      // Réutiliser les corrections mesurées du diagnostic, y compris sur une tranche déjà traitée.
+      for (const s of suggestions) {
+        if (s.track !== track.id || s.kind === 'chain') continue;
+        for (const c of s.changes) if ((!c.track || c.track === track.id) && c.path.startsWith(`mix.${module}.`)) {
+          let to = c.to;
+          if (c.path.endsWith('.g')) to = clamp(to, -6, 4);
+          add(c.path, to);
+        }
+      }
+      if (changes.size) actions.push({ kind: 'track', track: track.id, module,
+        title: track.name + ' · ' + ({ eq: 'Égaliseur', comp: 'Compresseur', lim: 'Limiteur' })[module],
+        changes: [...changes.values()] });
+    }
+    return actions;
+  }
+
+  return { P, newTracker, feed, forget, relOf, plan, planMaster, planTrack, rampSecs, ease };
 })();

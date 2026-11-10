@@ -48,6 +48,7 @@ const ok = (c, m) => {
   ok(!before.master.mix.comp.on && !before.master.mastering.on, 'Master initial : compresseur et mastering désactivés');
   await page.click('#amBtn');
   await page.uncheck('#amPilotFaders');
+  await page.uncheck('#amPilotProcessing');
   await page.click('#amPilotBtn');
   await page.waitForFunction(() => SS.automixPanel._state().pilot.masterSpent.lim >= 1, { }, { timeout: 25000 });
   await page.waitForTimeout(1000);

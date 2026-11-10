@@ -44,9 +44,11 @@ SS.mixer = (() => {
   }
 
   function refreshMasterAction(action) {
-    selected = '__master';
+    const tid = action.track || '__master';
+    selected = tid;
     renderDetail();
-    showPilotAction([], { from: 0, to: 0 });
+    showPilotAction([], tid === '__master' ? { from: 0, to: 0 } : null);
+    document.querySelector(`#mixerStrips .strip[data-id="${CSS.escape(tid)}"]`)?.classList.add('pilot-working');
     document.querySelectorAll('#mixerDetail .pilot-control').forEach((el) => el.classList.remove('pilot-control'));
     const module = action.changes.some((c) => c.path.startsWith('mastering.')) ? 'mast' : action.module;
     const box = document.querySelector(`#mixerDetail [data-mod="${module}"]`);
