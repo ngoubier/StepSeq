@@ -35,12 +35,13 @@ SS.bandMix = (() => {
 
   /*
    * Règles par rôle (« rôle » ou « rôle:élément » pour la batterie).
-   *   lu : niveau visé (unités de js/band-levels.js) ; pan ; eq ; comp ; plate / hall / echo : envois ;
+   *   lu : niveau visé (unités de js/band-levels.js) ; pan ; eq ; comp (below : seuil en dB sous la crête mesurée
+   *   du son) ; plate / hall / echo : envois ;
    *   chorus : [mix, vitesse, profondeur].
    */
   const DRUM = {
-    bd: { lu: -15, eq: eq({ hp: 30, low: [60, 1.5], lm: [350, -3.5, 1.2], hm: [3500, 2, 1] }), comp: comp(-14, 3, 0.012, 0.08, 1.5) },
-    sd: { lu: -16.5, eq: eq({ hp: 120, lm: [450, -2.5, 1], hm: [5000, 3, 0.8], high: [10000, 1.5] }), comp: comp(-16, 3, 0.005, 0.12, 1.5), plate: 0.3 },
+    bd: { lu: -15, below: 6, eq: eq({ hp: 30, low: [60, 1.5], lm: [350, -3.5, 1.2], hm: [3500, 2, 1] }), comp: comp(-14, 3, 0.012, 0.08, 1.5) },
+    sd: { lu: -16.5, below: 6, eq: eq({ hp: 120, lm: [450, -2.5, 1], hm: [5000, 3, 0.8], high: [10000, 1.5] }), comp: comp(-16, 3, 0.005, 0.12, 1.5), plate: 0.3 },
     cp: { lu: -16.5, eq: eq({ hp: 220, high: [9000, 2] }), pan: 0.06, plate: 0.28 },
     rim: { lu: -24, eq: eq({ hp: 300 }), pan: -0.2, plate: 0.15 },
     hh: { lu: -25, eq: eq({ hp: 400, high: [10000, 2] }), pan: 0.25 },
@@ -57,15 +58,15 @@ SS.bandMix = (() => {
     misc: { lu: -27, eq: eq({ hp: 150 }), pan: 0.4, plate: 0.12 },
   };
   const INST = {
-    bass: { lu: -22, eq: eq({ hp: 32, lm: [250, -2.5, 1], hm: [1200, 1.5, 1] }), comp: comp(-20, 4, 0.004, 0.1, 2) },
+    bass: { lu: -22, below: 9, eq: eq({ hp: 32, lm: [250, -2.5, 1], hm: [1200, 1.5, 1] }), comp: comp(-20, 4, 0.004, 0.1, 2) },
     pad: { lu: -20.5, eq: eq({ hp: 180, lm: [500, -2.5, 0.8], high: [9000, 1.5] }), hall: 0.4, chorus: [0.35, 0.5, 0.45] },
     strings: { lu: -21, eq: eq({ hp: 150, lm: [400, -2, 0.9], high: [10000, 1] }), hall: 0.35, pan: -0.15 },
-    keys: { lu: -25, eq: eq({ hp: 90, lm: [300, -2, 1], hm: [3000, 1, 1] }), comp: comp(-18, 2.5, 0.01, 0.15, 1), hall: 0.22, pan: 0.2 },
+    keys: { lu: -25, below: 8, eq: eq({ hp: 90, lm: [300, -2, 1], hm: [3000, 1, 1] }), comp: comp(-18, 2.5, 0.01, 0.15, 1), hall: 0.22, pan: 0.2 },
     guitar: { lu: -22, eq: eq({ hp: 110, lm: [350, -2.5, 1], hm: [3000, 1.5, 1] }), hall: 0.15, echo: 0.12, pan: -0.25, chorus: [0.22, 0.7, 0.35] },
     arp: { lu: -24, eq: eq({ hp: 250, lm: [600, -2, 1], hm: [3000, -1, 1.2], high: [9000, 1.5] }), hall: 0.2, echo: 0.25, pan: 0.3 },
-    lead: { lu: -21, eq: eq({ hp: 160, lm: [600, -2, 1], hm: [3000, 1.5, 0.9], high: [10000, 1] }), comp: comp(-18, 2.5, 0.01, 0.15, 1.5), hall: 0.25, echo: 0.18 },
-    vox: { lu: -22, eq: eq({ hp: 150, lm: [400, -2, 1], hm: [2500, 2, 1] }), comp: comp(-20, 3, 0.008, 0.15, 1.5), hall: 0.3, echo: 0.12, chorus: [0.2, 0.6, 0.3] },
-    sax: { lu: -21, eq: eq({ hp: 140, lm: [500, -1.5, 1], hm: [2500, 1.5, 1] }), comp: comp(-18, 2.5, 0.01, 0.15, 1), hall: 0.3, pan: 0.08 },
+    lead: { lu: -21, below: 7, eq: eq({ hp: 160, lm: [600, -2, 1], hm: [3000, 1.5, 0.9], high: [10000, 1] }), comp: comp(-18, 2.5, 0.01, 0.15, 1.5), hall: 0.25, echo: 0.18 },
+    vox: { lu: -22, below: 8, eq: eq({ hp: 150, lm: [400, -2, 1], hm: [2500, 2, 1] }), comp: comp(-20, 3, 0.008, 0.15, 1.5), hall: 0.3, echo: 0.12, chorus: [0.2, 0.6, 0.3] },
+    sax: { lu: -21, below: 7, eq: eq({ hp: 140, lm: [500, -1.5, 1], hm: [2500, 1.5, 1] }), comp: comp(-18, 2.5, 0.01, 0.15, 1), hall: 0.3, pan: 0.08 },
   };
   // percussionniste : un peu plus loin et plus écarté que le batteur
   const PERC_SHIFT = { lu: -2, pan: 1.3 };
@@ -110,11 +111,11 @@ SS.bandMix = (() => {
   }
 
   /** Niveau mesuré du son de la piste (js/band-levels.js), ou null si inconnu (instrument choisi hors catalogue). */
-  function measured(levelKey, isDrum) {
+  function measured(levelKey, isDrum, field = 0) {
     const L = SS.BAND_LEVELS;
     if (!L || !levelKey) return null;
     const v = (isDrum ? L.drum : L.inst)[levelKey];
-    return v ? v[0] : null;
+    return v ? v[field] : null;
   }
 
   /**
@@ -136,7 +137,13 @@ SS.bandMix = (() => {
       if (role === 'keys' && !roles.has('guitar')) pan = 0.12;
       if (role === 'arp' && roles.has('keys') && !roles.has('guitar')) pan = -0.3;
       t.mix = { ...JSON.parse(JSON.stringify(SS.MIX_DEFAULTS)), pan, eq: JSON.parse(JSON.stringify(r.eq || SS.MIX_DEFAULTS.eq)) };
-      if (r.comp) t.mix.comp = { ...r.comp };
+      if (r.comp) {
+        t.mix.comp = { ...r.comp };
+        // seuil calé sous la crête mesurée du son (le compresseur est avant le fader) : 3 à 6 dB de réduction sur
+        // les coups forts, quel que soit le niveau d'origine de l'instrument
+        const pk = measured(levelKeys.get(t.id), t.type === 'drum', 1);
+        if (pk != null && r.below) t.mix.comp.th = round(clamp(pk - r.below, -50, -1), 1);
+      }
       const fx = { ...(t.fx || {}) };
       delete fx.room;
       delete fx.delay;
@@ -164,7 +171,7 @@ SS.bandMix = (() => {
     const master = JSON.parse(JSON.stringify(SS.MASTER_DEFAULTS));
     master.volume = 1;
     master.mix.eq = eq({ hp: 25, lm: [300, -1, 0.7], high: [11000, 1.5] });
-    master.mix.comp = comp(-20, 2, 0.03, 0.2, 1, 8); // « glue » : 1 à 2 dB de réduction
+    master.mix.comp = comp(-10, 2, 0.03, 0.2, 0, 8); // « glue » : 1 à 2 dB de réduction sur les passages forts
     master.mix.lim = { ...master.mix.lim, on: false }; // le limiteur du mastering prend le relais
     master.mastering = { on: true, drive, ceiling: -1, width: 1.12, mono: style === 'edm' ? 120 : 100, release: style === 'edm' ? 0.12 : 0.18, clip: 0.3 };
     project.master = master;
