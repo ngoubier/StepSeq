@@ -421,3 +421,74 @@ test('pilote auto : pas d\'aller-retour quand l\'arrangement change', () => {
   assert.ok(r.vol.bass - r.vol.pad >= 3.5, `basse remontée par rapport à la nappe (${r.vol.bass} / ${r.vol.pad})`);
   assert.ok(r.tk.tracks.bass.flips <= 1, `pas d'aller-retour (${r.tk.tracks.bass.flips})`);
 });
+
+test('équilibre : une basse dominante ne devient pas la référence, quelle que soit son énergie', () => {
+  const roles=['kick','bass','lead','pad'];
+  const rows=roles.map((id)=>({id,target:A.ROLE_LEVEL[id],w:id==='bass'?1e12:1}));
+  const pairs=[];
+  for(let i=0;i<roles.length;i++)for(let j=i+1;j<roles.length;j++){
+    const a=roles[i],b=roles[j];
+    pairs.push({a,b,ka:P(A.ROLE_LEVEL[a]+(a==='bass'?12:0)),kb:P(A.ROLE_LEVEL[b]+(b==='bass'?12:0)),n:100});
+  }
+  const err=A.solvePairs(pairs,rows);
+  assert.ok(Math.abs(err.get('bass')-12)<0.01);
+  for(const id of roles.filter((id)=>id!=='bass'))assert.ok(Math.abs(err.get(id))<0.01,id);
+});
+
+test('pilote : basse montée de 12 dB après mixage, baisse la basse sans monter les autres', () => {
+  const roles=['kick','bass','lead','pad'];
+  const tracks=Object.fromEntries(roles.map((role)=>[role,()=>spectrum({5:A.ROLE_LEVEL[role]-10})]));
+  const initial={kick:-12,bass:0,lead:-12,pad:-12};
+  const r=pilotSim({tracks,faders:initial,secs:60});
+  assert.ok(r.vol.bass<=-9, `basse baissée : ${r.vol.bass}`);
+  for(const id of roles.filter((id)=>id!=='bass'))assert.ok(Math.abs(r.vol[id]-initial[id])<0.1,`${id} conservé : ${r.vol[id]}`);
+  const again=pilotSim({tracks,faders:r.vol,secs:60});
+  assert.equal(again.moves,0,'pas de nouvelle escalade à la relance');
+  assert.deepEqual(again.vol,r.vol);
+});
+
+test('pilote : priorité à la piste trop forte même si une autre est en retrait ou le Master limite', () => {
+  const tk=PL.newTracker();
+  for(let i=0;i<100;i++){
+    const tracks={};const bands=[];
+    for(const id of ['kick','bass','lead','pad']){
+      const b=spectrum({5:A.ROLE_LEVEL[id]-10+(id==='bass'?12:id==='pad'?-8:0)});
+      tracks[id]={bands:b};bands.push(b);
+    }
+    PL.feed(tk,{dt:0.05,tracks,pre:{bands:sumBands(bands),peak:1.1},masterLimGr:-5});
+  }
+  const tracks=['kick','bass','lead','pad'].map((id)=>({id,name:id,role:id,volumeDb:-12}));
+  const d=PL.plan(tk,tracks);
+  assert.equal(d.kind,'fader');assert.equal(d.id,'bass');assert.ok(d.to<d.from);
+  const locked=PL.plan(tk,tracks.map((t)=>({...t,locked:t.id==='bass'})));
+  assert.ok(!locked.kind,'une basse reprise à la main ne fait pas remonter les autres');
+});
+
+test('équilibre : deux pistes privilégient une coupe, les groupes disjoints restent indépendants', () => {
+  const rows=['a','b','c','d'].map((id)=>({id,target:0,w:1}));
+  const err=A.solvePairs([{a:'a',b:'b',ka:P(12),kb:1,n:20},{a:'c',b:'d',ka:1,kb:1,n:20}],rows);
+  assert.ok(Math.abs(err.get('a')-12)<0.01);
+  for(const id of ['b','c','d'])assert.ok(Math.abs(err.get(id))<0.01,id);
+});
+test('pilote : une seule piste ne se compare pas à elle-même et peut passer aux traitements', () => {
+  const tk=PL.newTracker();
+  for(let i=0;i<100;i++)PL.feed(tk,{dt:0.05,tracks:{bass:{bands:spectrum({1:-8})}},pre:{bands:spectrum({1:-8}),peak:0.2}});
+  const d=PL.plan(tk,[{id:'bass',name:'Basse',role:'bass',volumeDb:-12}]);
+  assert.equal(d.kind,undefined);
+  assert.equal(d.state.balanced,true);
+});
+test('pilote : attend une troisième piste avant de juger une intro incomplète', () => {
+  const tk=PL.newTracker();
+  const frame=(lead=false)=>{
+    const tracks={bass:{bands:spectrum({5:A.ROLE_LEVEL.bass+2})},pad:{bands:spectrum({5:A.ROLE_LEVEL.pad-10})}};
+    if(lead)tracks.lead={bands:spectrum({5:A.ROLE_LEVEL.lead-10})};
+    PL.feed(tk,{dt:0.05,tracks,pre:{bands:sumBands(Object.values(tracks).map((t)=>t.bands)),peak:0.3}});
+  };
+  const tracks=['bass','pad','lead'].map((id)=>({id,name:id,role:id,volumeDb:-12}));
+  for(let i=0;i<100;i++)frame();
+  assert.equal(PL.plan(tk,tracks).kind,undefined);
+  assert.ok(PL.plan(tk,tracks).state.waiting.includes('lead'));
+  for(let i=0;i<100;i++)frame(true);
+  assert.equal(PL.plan(tk,tracks).id,'bass');
+  assert.equal(PL.plan(tk,tracks.map((t)=>({...t,mute:t.id==='lead'}))).id,'bass');
+});

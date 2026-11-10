@@ -645,6 +645,7 @@ SS.automixPanel = (() => {
       name: t.name,
       role: A().roleOf(t),
       volumeDb: getValue(t.id, 'volumeDb'),
+      mute: !!t.mute,
       locked: pilot.locked.has(t.id) || t.mute,
       moved: pilot.moved.get(t.id) || 0,
     }));
@@ -720,6 +721,23 @@ SS.automixPanel = (() => {
       } else setPilotStatus('Master réglé · nouvelle écoute…');
       renderPilot();
       return;
+    }
+    for (const m of r.moves) {
+      const expected = pilot.expect.has(m.id) ? pilot.expect.get(m.id) : m.from;
+      const now = getValue(m.id, 'volumeDb');
+      if (now !== undefined && Math.abs(now - expected) > 0.3) {
+        pilot.expect.delete(m.id);
+        pilot.locked.add(m.id);
+        pilotLog(`${nameOf(m.id)} : réglé à la main, je n'y touche plus`);
+        pilot.ramp = null;
+        pilot.lastMove = pilot.tk.t;
+        pilot.masterAcc = A().newAccumulator();
+        PL().forget(pilot.tk, r.moves.map((move) => move.id));
+        SS.mixer.showPilotAction();
+        app.changed();
+        renderPilot();
+        return;
+      }
     }
     const x = PL().ease((performance.now() - r.t0) / (r.secs * 1000));
     for (const m of r.moves) {
@@ -824,7 +842,9 @@ SS.automixPanel = (() => {
       renderPilot();
       return;
     }
-    if (!d.state.balanced) return setPilotStatus('Équilibrage des faders avant les traitements des pistes…');
+    if (!d.state.balanced) return setPilotStatus(d.state.waiting.length
+      ? 'Écoute du mix · en attente de ' + d.state.waiting.join(', ')
+      : 'Équilibrage des faders avant les traitements des pistes…');
     if (pilot.masterAcc.secs < 10) return setPilotStatus(`Équilibre atteint · réécoute du mix (${Math.ceil(10 - pilot.masterAcc.secs)} s restantes)`);
     const sum = A().summarize(pilot.masterAcc);
     const next = p.tracks.find((t) => !t.mute && !pilot.trackDone.has(t.id) && A().heard(sum.tracks[t.id]));

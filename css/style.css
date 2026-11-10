@@ -2738,30 +2738,18 @@ input.pilot-value { accent-color: var(--gold); }
 .master-mods .mast-aim { gap: 6px; }
 .master-mods .mast-aim .chip { flex: 1 1 120px; text-align: center; }
 @container master-detail (min-width: 560px) {
-  .master-mods > .mod-eq, .master-mods > .mod-vcf, .master-mods > .mod-lim, .master-mods > .mod-master-effects { grid-column: span 6; }
-  .master-mods .mod-comp { display: grid; grid-template-columns: 180px minmax(0, 1fr); align-content: start; }
-  .master-mods .mod-comp > .mod-head { grid-column: 1 / -1; }
-  .master-mods .comp-top { grid-column: 1; align-items: center; gap: 8px; }
+  .master-mods > .mod { grid-column: span 6; }
+  .master-mods .comp-top { justify-content: center; align-items: center; gap: 8px; }
   .master-mods .comp-graph { width: 120px; height: 120px; }
-  .master-mods .mod-comp > .sd-sliders { grid-column: 2; align-self: center; }
   .master-mods .mod-master-effects { grid-template-columns: minmax(0, 1fr); }
 }
-@container master-detail (min-width: 800px) {
-  .master-mods > .mod-comp { grid-column: span 5; grid-template-columns: minmax(0, 1fr); }
-  .master-mods .mod-comp > .comp-top, .master-mods .mod-comp > .sd-sliders { grid-column: 1; }
-  .master-mods .comp-top { justify-content: center; }
-  .master-mods > .mod-lim { grid-column: span 3; }
-  .master-mods .mod-lim .sd-sliders { grid-template-columns: minmax(0, 1fr); }
-  .master-mods > .mod-master-effects { grid-column: span 4; }
-}
 @container master-detail (min-width: 1000px) {
-  .master-mods > .mod-eq { grid-column: span 8; }
-  .master-mods > .mod-vcf { grid-column: span 4; }
-}
-@container master-detail (min-width: 1100px) {
-  .master-mods > .mod-comp { grid-template-columns: 180px minmax(0, 1fr); }
-  .master-mods .comp-top { justify-content: flex-start; }
-  .master-mods .mod-comp > .sd-sliders { grid-column: 2; }
+  .master-mods > .mod-eq { grid-column: span 5; }
+  .master-mods > .mod-comp { grid-column: span 4; }
+  .master-mods > .mod-lim { grid-column: span 3; }
+  .master-mods > .mod-vcf { grid-column: span 3; }
+  .master-mods > .mod-master-effects { grid-column: span 3; }
+  .master-mods > .mod-mast { grid-column: span 6; }
 }
 @container master-detail (max-width: 559px) {
   .master-detail .detail-head { flex-wrap: wrap; }

@@ -80,7 +80,7 @@ const ok = (c, m) => {
   const seen = new Set();
   let highlighted = false;
   let taskShown = false;
-  for (let i = 0; i < 300; i++) {
+  for (let i = 0; i < 450; i++) {
     seen.add(await fader.getAttribute('aria-valuetext'));
     highlighted ||= await page.locator('#mixerStrips .strip.selected.pilot-working .fader.pilot-control').count() > 0;
     taskShown ||= await page.locator('#amPilot .am-pilot-task').count() > 0;

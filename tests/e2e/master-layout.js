@@ -62,13 +62,13 @@ const ok = (c, m) => {
       const rows = await page.locator('.master-mods').evaluate((el) => {
         const box = (s) => el.querySelector(s).getBoundingClientRect();
         const eq=box('.mod-eq'), vcf=box('.mod-vcf'), comp=box('.mod-comp'), lim=box('.mod-lim'), fx=box('.mod-master-effects'), mast=box('.mod-mast');
-        return { top: Math.abs(eq.top-vcf.top)<2 && eq.right<vcf.left,
-          middle: Math.abs(comp.top-lim.top)<2 && Math.abs(comp.top-fx.top)<2 && comp.right<lim.left && lim.right<fx.left,
-          bottom: mast.top>=comp.bottom };
+        return { top: Math.abs(eq.top-comp.top)<2 && Math.abs(eq.top-lim.top)<2 && eq.right<comp.left && comp.right<lim.left,
+          middle: Math.abs(vcf.top-fx.top)<2 && Math.abs(vcf.top-mast.top)<2 && vcf.right<fx.left && fx.right<mast.left,
+          bottom: vcf.top>=eq.bottom };
       });
-      ok(rows.top, 'égaliseur et VCF côte à côte sur la première ligne');
-      ok(rows.middle, 'compresseur, limiteur et effets sur la même ligne');
-      ok(rows.bottom, 'Mastering sur la ligne suivante');
+      ok(rows.top, 'égaliseur, compresseur et limiteur sur la première ligne');
+      ok(rows.middle, 'VCF, effets Master et Mastering sur la deuxième ligne');
+      ok(rows.bottom, 'les deux rangées ne se chevauchent pas');
     }
     await page.screenshot({path:`/tmp/stepseq-master-${c.label.replaceAll(' ','-')}.png`});
   }

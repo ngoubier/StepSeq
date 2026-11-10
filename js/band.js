@@ -5,7 +5,7 @@
  *  sur la scène : un clic ouvre son panneau (rôle, instrument phare, 5 conseillés, accès à toute la
  *  bibliothèque via la fenêtre « Nouvelle piste »). Le batteur choisit un kit et ses éléments :
  *  une piste par élément (kick, snare…).
- *  En fermant la fenêtre, les pistes sont créées, vierges de notes.
+ *  Seuls les boutons de création modifient le projet ; fermer ou annuler ne crée aucune piste.
  *
  * Catalogue : js/band-presets.js (SS.Band).
  */
@@ -604,7 +604,7 @@ SS.band = (() => {
     app = appApi;
     el = $('#bandDialog');
     if (!el) return;
-    $('#bandClose').addEventListener('click', () => finish(true));
+    $('#bandClose').addEventListener('click', () => finish(false));
     $('#bandCreate').addEventListener('click', () => finish(true));
     $('#bandSongBtn').addEventListener('click', finishSong);
     $('#bandCancel').addEventListener('click', () => finish(false));

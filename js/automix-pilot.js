@@ -11,8 +11,8 @@
  * deux pistes et un refrain à dix donnent le même écart basse / nappe, alors que le niveau « par rapport au
  * mix » de la basse change de 10 dB d'une section à l'autre (et ferait osciller le fader). Les niveaux visés
  * par rôle (ROLE_LEVEL de js/automix.js) donnent les écarts visés ; une résolution par moindres carrés en tire
- * l'erreur de chaque fader, à une constante près, fixée par la moyenne pondérée par l'énergie des pistes : le
- * pilote règle l'équilibre à volume global constant, il ne baisse pas tout.
+ * l'erreur de chaque fader, à une constante près, fixée par la médiane des pistes comparées :
+ * une piste trop forte est baissée en priorité, sans faire monter le reste du mix.
  *
  * Mémoire : constante de temps TAU ; après un geste sur une piste, ses comparaisons sont oubliées et elle se
  * réécoute. Les sommes d'énergie s'effacent ensemble, leur rapport reste : une piste rare (un clap toutes les
@@ -125,36 +125,17 @@ SS.automixPilot = (() => {
   function plan(tk, tracks) {
     const state = { balanced: false, waiting: [], rows: [] };
     const free = tracks.filter((t) => !t.locked);
-    // gain staging d'abord : un mix qui sature au Master fausse toutes les autres mesures
-    const span = tk.recent.length ? tk.recent[tk.recent.length - 1].t - tk.recent[0].t : 0;
-    if (span >= P.window * 0.8 && free.length) {
-      const lim = tk.recent.reduce((a, r) => a + r.lim, 0) / tk.recent.length;
-      const peak = 20 * Math.log10(Math.max(1e-9, tk.recent.reduce((a, r) => Math.max(a, r.peak), 0)));
-      let delta = 0;
-      if (lim > P.limHot || peak > 0) delta = -P.stageStep;
-      else if (peak < P.coldPeak) delta = P.stageStep;
-      if (delta) {
-        const moves = free.map((t) => ({ id: t.id, from: t.volumeDb, to: clamp(round(t.volumeDb + delta, 0.1), P.min, P.max) })).filter((m) => Math.abs(m.to - m.from) >= 0.1);
-        if (moves.length)
-          return {
-            kind: 'stage', delta, moves, state,
-            why: delta < 0
-              ? lim > P.limHot ? `le limiteur du Master retire ${lim.toFixed(1).replace('.', ',')} dB : le mix arrive trop chaud` : 'le mix sature en arrivant au Master'
-              : `le mix arrive trop faible au Master (crêtes à ${Math.round(peak)} dBFS)`,
-          };
-      }
-    }
     // équilibre : erreur de chaque fader, mesurée sur les pistes qui jouent ensemble
     const roleCount = {};
-    const known = tracks.filter((t) => A().ROLE_LEVEL[t.role] != null && tk.tracks[t.id] && tk.tracks[t.id].ever >= 1);
+    const known = tracks.filter((t) => !t.mute && A().ROLE_LEVEL[t.role] != null && tk.tracks[t.id] && tk.tracks[t.id].ever >= 1);
+    const expected = tracks.filter((t) => !t.mute && A().ROLE_LEVEL[t.role] != null);
+    if (known.length < Math.min(3, expected.length)) {
+      state.waiting = expected.filter((t) => !known.some((k) => k.id === t.id)).map((t) => t.name);
+      return { state }; // une intro à deux pistes ne suffit pas à identifier l'intrus d'un groupe plus grand
+    }
     known.forEach((t) => (roleCount[t.role] = (roleCount[t.role] || 0) + 1));
     const rows = known.map((t) => ({ t, id: t.id, s: tk.tracks[t.id], target: A().roleTarget(t.role, roleCount[t.role]), w: tk.tracks[t.id].w }));
-    let err = A().solvePairs(Object.values(tk.pairs), rows);
-    if (!err.size && rows.length === 1) {
-      // une seule piste entendue : faute de comparaison, son niveau par rapport au mix
-      const rel = relOf(rows[0].s);
-      if (rel != null) err = new Map([[rows[0].id, rel - rows[0].target]]);
-    }
+    const err = A().solvePairs(Object.values(tk.pairs), rows);
     for (const r of rows) {
       if (err.has(r.id)) r.dev = err.get(r.id);
       else state.waiting.push(r.t.name);
@@ -167,8 +148,9 @@ SS.automixPilot = (() => {
       const d = clamp(-r.dev * P.gain, -max, max);
       return Math.sign(d) * Math.max(0.5, round(Math.abs(d), 0.5));
     };
+    const excess = judged.some((r) => r.dev > P.start);
     const cands = judged
-      .filter((r) => Math.abs(r.dev) > P.start && ready(r))
+      .filter((r) => Math.abs(r.dev) > P.start && ready(r) && (!excess || r.dev > P.start))
       .map((r) => {
         let delta = stepOf(r);
         const left = P.budget - (r.t.moved || 0);
@@ -177,10 +159,31 @@ SS.automixPilot = (() => {
       })
       .filter((c) => Math.abs(c.to - c.r.t.volumeDb) >= 0.25)
       .sort((a, b) => Math.abs(b.r.dev) - Math.abs(a.r.dev));
-    state.balanced = judged.length > 0 && judged.every((r) => Math.abs(r.dev) <= P.start || r.t.locked);
+    state.balanced = judged.length > 0
+      ? judged.every((r) => Math.abs(r.dev) <= P.start || r.t.locked)
+      : rows.length === 1 && tracks.filter((t) => !t.mute).length === 1;
     if (cands.length) {
       const { r, to } = cands[0];
       return { kind: 'fader', id: r.id, name: r.t.name, from: r.t.volumeDb, to, dev: r.dev, state };
+    }
+    // Une correction générale ne doit pas remplacer la baisse d’une piste en excès.
+    const span = tk.recent.length ? tk.recent[tk.recent.length - 1].t - tk.recent[0].t : 0;
+    if (!excess && span >= P.window * 0.8 && free.length) {
+      const lim = tk.recent.reduce((a, r) => a + r.lim, 0) / tk.recent.length;
+      const peak = 20 * Math.log10(Math.max(1e-9, tk.recent.reduce((a, r) => Math.max(a, r.peak), 0)));
+      let delta = 0;
+      if (lim > P.limHot || peak > 0) delta = -P.stageStep;
+      else if (state.balanced && judged.length && peak < P.coldPeak) delta = P.stageStep;
+      if (delta) {
+        const moves = free.map((t) => ({ id: t.id, from: t.volumeDb, to: clamp(round(t.volumeDb + delta, 0.1), P.min, P.max) })).filter((m) => Math.abs(m.to - m.from) >= 0.1);
+        if (moves.length)
+          return {
+            kind: 'stage', delta, moves, state,
+            why: delta < 0
+              ? lim > P.limHot ? `le limiteur du Master retire ${lim.toFixed(1).replace('.', ',')} dB : le mix arrive trop chaud` : 'le mix sature en arrivant au Master'
+              : `le mix arrive trop faible au Master (crêtes à ${Math.round(peak)} dBFS)`,
+          };
+      }
     }
     // une piste à remonter dont le fader est déjà en butée haute : les autres lui font de la place
     const stuck = judged.filter((r) => r.dev < -P.start && ready(r) && r.t.volumeDb >= P.max - 0.25).sort((a, b) => a.dev - b.dev)[0];

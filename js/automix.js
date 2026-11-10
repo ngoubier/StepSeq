@@ -197,8 +197,8 @@ SS.automix = (() => {
    * ENSEMBLE, comparés aux écarts visés (niveaux de rôle). Un fader règle exactement ces écarts, qui ne dépendent
    * pas de l'arrangement : dans une intro à deux pistes, chacune pèse beaucoup dans le mix, mais l'écart entre
    * elles est le même que dans le refrain. Moindres carrés sur les paires (Gauss-Seidel), puis recentrage sur la
-   * moyenne pondérée par l'énergie : l'équilibre se règle à volume global constant.
-   *   pairs : [{ a, b, ka, kb, n }] ; rows : [{ id, target, w }] ; rend Map id -> erreur (pistes sans paire absentes)
+   * médiane de chaque groupe comparé : une piste trop forte est baissée sans entraîner les autres.
+   *   pairs : [{ a, b, ka, kb, n }] ; rows : [{ id, target }] ; rend Map id -> erreur (pistes sans paire absentes)
    */
   function solvePairs(pairs, rows) {
     const T = new Map(rows.map((r) => [r.id, r.target]));
@@ -222,15 +222,23 @@ SS.automix = (() => {
         }
         e.set(id, s / W);
       }
-    const wOf = new Map(rows.map((r) => [r.id, r.w || 0]));
-    let W = 0;
-    let m = 0;
-    for (const [id, v] of e) {
-      W += wOf.get(id);
-      m += v * wOf.get(id);
+    // La piste la plus énergique ne doit pas devenir le niveau de référence du mix.
+    // Recentrer chaque groupe comparé sur sa médiane ; à deux pistes, préférer une coupe.
+    const seen = new Set();
+    for (const id of e.keys()) {
+      if (seen.has(id)) continue;
+      const group = [], todo = [id];
+      while (todo.length) {
+        const next = todo.pop();
+        if (seen.has(next)) continue;
+        seen.add(next);
+        group.push(next);
+        links.get(next).forEach((link) => { if (!seen.has(link.o)) todo.push(link.o); });
+      }
+      const values = group.map((key) => e.get(key)).sort((a, b) => a - b);
+      const center = values[Math.floor((values.length - 1) / 2)];
+      group.forEach((key) => e.set(key, e.get(key) - center));
     }
-    const c = W > 0 ? m / W : 0;
-    for (const [id, v] of e) e.set(id, v - c);
     return e;
   }
 
@@ -505,9 +513,9 @@ SS.automix = (() => {
    * Équilibre des pistes : erreur de niveau de chaque piste (dev, dB), mesurée sur les pistes qui jouent ensemble
    * (solvePairs). Faute de comparaison possible (une piste toujours seule), son niveau par rapport au mix, moins
    * l'écart commun (moyenne pondérée par l'énergie).
-   * Les deux mesures se règlent à volume global constant : avant, chaque passe baissait la piste trop forte, puis
-   * les autres (qui paraissaient alors trop fortes à leur tour), et le volume descendait d'écoute en écoute. Les
-   * pistes rares (peu d'énergie) ne déplacent pas la référence mais sont jugées comme les autres.
+   * La médiane des pistes comparées évite qu'une seule piste dominante tire la référence vers le haut.
+   * Sans paire exploitable, l'assistant conserve son estimation relative au mix ; le pilote attend
+   * une comparaison avant d'équilibrer les faders.
    *   tracks : [{ id, role }] ; rend [{ t, m, target, rel, dev }]
    */
   function balancePlan(sum, tracks) {

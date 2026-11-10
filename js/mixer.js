@@ -1098,7 +1098,7 @@ SS.mixer = (() => {
     );
     $('#mixerDetail').classList.toggle('master-detail', !!ch.master);
     $('#mixerDetail').style.setProperty('--c', ch.color);
-    $('#mixerDetail').replaceChildren(head, h('div', { class: 'detail-mods' + (ch.master ? ' master-mods' : '') + (vcfBox ? ' with-vcf' : '') }, ...(ch.master ? [eqBox, vcfBox, compBox, limBox, effectsBox, mastBox] : [eqBox, compBox, limBox])));
+    $('#mixerDetail').replaceChildren(head, h('div', { class: 'detail-mods' + (ch.master ? ' master-mods' : '') + (vcfBox ? ' with-vcf' : '') }, ...(ch.master ? [eqBox, compBox, limBox, vcfBox, effectsBox, mastBox] : [eqBox, compBox, limBox])));
     detailRefs = { eqBox, drawBig, drawTransfer, drawVcf, grBig, grLim, ch, mast: mastRefs };
     requestAnimationFrame(() => {
       drawBig();

@@ -66,8 +66,7 @@ Le bouton **Band** de l'en-tête ouvre une grande fenêtre (`js/band.js`, catalo
 **Créer toute la chanson** écrit en plus une chanson complète dans l'esprit de l'inspiration : scènes (intro,
 couplet, refrain… ou break, montée et drop en EDM), parties de chaque musicien et arrangement, en mode Chanson.
 Les plans des 20 chansons sont dans `js/band-songs.js` (tonalité, forme, grilles originales, ce que joue chaque
-musicien par section) et les notes sont écrites par `js/bandsong.js` (déterministe). **Annuler** / Échap ferme
-sans rien créer.
+musicien par section) et les notes sont écrites par `js/bandsong.js` (déterministe). La croix de fermeture, **Annuler** et **Échap** ferment sans rien créer.
 
 Règles d'écriture vérifiées par les tests (`tests/bandsong.test.js`) :
 
@@ -145,9 +144,9 @@ testées) que l'on **accepte**, **ajuste** (25 à 150 %) ou **refuse** (`js/auto
 - Les courbes de référence et les niveaux par rôle sont relevés sur les 20 chansons du Band
   (`tools/automix-calibrate.js`).
 - **Garde-fous** : l'équilibre des pistes se mesure entre pistes qui jouent ensemble (une intro à deux pistes ne
-  fausse plus rien) et se règle à volume global constant ; le fader du Master est retiré des mesures (le baisser
-  ne fait plus paraître toutes les pistes trop fortes). Ainsi, les passes successives ne baissent plus tous les
-  volumes. Une piste rare (un clap toutes les 16 mesures) est jugée dès deux relevés. Les creux d'égaliseur posés
+  fausse plus rien). La référence est la médiane des pistes comparées : une basse trop forte ne devient pas
+  le modèle des autres. Le pilote baisse d'abord les pistes en excès et ne remonte pas les autres tant que cet
+  excès demeure. Les corrections globales de niveau passent ensuite ; le fader du Master est retiré des mesures. Une piste rare (un clap toutes les 16 mesures) est jugée dès deux relevés. Les creux d'égaliseur posés
   par l'assistant s'arrêtent à −6 dB, les shelfs du Master à ±4 dB, le gain d'entrée du mastering avance de 5 dB au
   plus par conseil et plafonne à +15 dB.
 - **✈ Pilote auto des faders** (`js/automix-pilot.js`) : l'assistant règle lui-même l'équilibre pendant la lecture,
@@ -306,6 +305,8 @@ node tests/e2e/automix-ui.js
 node tests/e2e/automix-modes.js
 node tests/e2e/automix-chains.js
 node tests/e2e/automix-pilot.js
+node tests/e2e/automix-loud-bass.js
+node tests/e2e/band-close.js
 node tests/e2e/automix-track-pilot.js
 node tests/e2e/automix-master-pilot.js
 node tests/e2e/master-effects.js
