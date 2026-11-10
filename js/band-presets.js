@@ -324,7 +324,7 @@ window.SS = window.SS || {};
           musicians: [
             kit('drums', 'bd cp hh oh', 'RolandTR808 dirt808 RolandTR909 AkaiMPC60 LinnDrum KorgM1'),
             kit('perc', 'sh tb perc', KPERC, opt),
-            m('lead', 'gm_pan_flute gm_marimba gm_vibraphone gm_steel_drums gm_kalimba syn_pluck', { label: 'Clavier lead (flûte / marimba)' }),
+            m('lead', 'gm_pan_flute gm_marimba gm_celesta gm_steel_drums gm_kalimba syn_pluck', { label: 'Clavier lead (flûte / marimba)' }),
             m('keys', 'piano gm_epiano1 vcsl_piano1 gm_piano j:A27 gm_epiano2'),
             m('bass', 'syn_sub gm_synth_bass_1 syn_moogbass gm_fretless_bass syn_sawbass j:A55'),
             m('pad', 'syn_softpad gm_pad_warm gm_pad_new_age syn_glasspad j:B56 gm_voice_oohs'),
