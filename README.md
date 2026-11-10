@@ -94,10 +94,12 @@ Les échantillons Dirt-Samples sont joués à leur hauteur réelle, mesurée par
   sidechain sur le kick (fort en EDM, léger sur les nappes en synthwave) ;
 - **espace** : panoramique par rôle ; envois vers trois **bus d'effets partagés** (reverb plate pour la batterie,
   hall pour les instruments, écho ping-pong au tempo), chorus sur nappes, guitare et voix ; kick et basse secs ;
-- **mastering** : EQ et compresseur « glue » 2:1 sur le Master, puis module de mastering (`js/master-dsp.js`) :
-  graves en mono, aigus élargis, écrêtage doux des transitoires, limiteur à anticipation à −1 dBTP ; le gain
-  d'entrée de chaque chanson (`js/band-drive.js`, calculé par `tools/band-drive.js` sur un rendu complet) vise
-  −11 LUFS en synthwave et −10 LUFS en EDM.
+- **mastering** : EQ et compresseur « glue » léger sur le Master, puis module de mastering (`js/master-dsp.js`) :
+  graves en mono, aigus élargis, écrêtage doux des pointes, limiteur à anticipation à −1 dBTP. Le gain d'entrée
+  de chaque chanson (`js/band-drive.js`, calculé par `tools/band-drive.js` sur deux rendus complets) est réglé
+  sur la partie la plus forte du morceau, comme en studio : refrains et drops vers −10 à −11,5 LUFS (court terme),
+  environ −12 à −13 LUFS intégrés, la dynamique des breaks est gardée. Les attaques de la batterie passent par
+  un limiteur-écrêteur léger pour que le mastering n'écrase pas tout le morceau à cause d'elles.
 
 Outils de mesure (Playwright + Chromium, rendu hors temps réel de StepSeq) :
 

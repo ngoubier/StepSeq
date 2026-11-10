@@ -17,8 +17,8 @@
  *     Chorus sur les nappes, la guitare et la voix.
  *  5. Master : légère inclinaison d'EQ, compresseur « glue » 2:1 lent, puis mastering (js/master-dsp.js) : graves
  *     en mono, aigus un peu élargis, écrêtage doux des pointes, limiteur à anticipation à −1 dBTP ; gain d'entrée
- *     réglé sur la partie la plus forte du morceau (court terme −9,5 LUFS en synthwave, −8,5 en EDM, js/band-drive.js) :
- *     environ −11 à −10 LUFS intégrés pour un morceau dense, moins pour un morceau à longs breaks.
+ *     réglé sur la partie la plus forte du morceau (visée court terme −9,5 LUFS en synthwave, −8,5 en EDM,
+ *     js/band-drive.js) ; mesuré après limiteur : refrains et drops vers −10 à −11,5 LUFS, −12 à −13 LUFS intégrés.
  */
 window.SS = window.SS || {};
 
