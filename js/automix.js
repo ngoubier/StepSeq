@@ -229,12 +229,13 @@ SS.automix = (() => {
   /* ------------------------------------------------------------------ cibles */
   /*
    * Objectifs de volume par style (LUFS intégrés, plafond true peak, PLR = crête − LUFS, LRA).
-   * Les chansons du Band, mixées par js/bandmix.js, mesurent −12 à −13 LUFS intégrés en synthwave.
+   * Les chansons du Band, mixées par js/bandmix.js, mesurent −11,5 à −13 LUFS intégrés en synthwave (médiane −12,4),
+   * −11,5 à −14,8 en EDM (médiane −13,1), PLR 9,6 à 12,9 dB (tools/automix-calibrate.js).
    */
   const TARGETS = {
     streaming: { name: 'Streaming', lufs: -14, tp: -1, plr: [9, 15], lra: [4, 10], desc: 'Spotify, Apple Music, YouTube : −14 LUFS, plafond −1 dBTP' },
     synthwave: { name: 'Synthwave', lufs: -12, tp: -1, plr: [8, 13], lra: [3, 9], desc: 'dense mais dynamique : −12 LUFS, plafond −1 dBTP' },
-    edm: { name: 'EDM mélodique', lufs: -10, tp: -1, plr: [7, 11], lra: [3, 8], desc: 'fort et serré : −10 LUFS, plafond −1 dBTP' },
+    edm: { name: 'EDM mélodique', lufs: -11, tp: -1, plr: [7, 12], lra: [3, 9], desc: 'fort et serré : −11 LUFS, plafond −1 dBTP' },
     club: { name: 'Club', lufs: -8, tp: -1, plr: [6, 9], lra: [2, 7], desc: 'pour les sonos de club : −8 LUFS, plafond −1 dBTP' },
   };
   /** Objectif proposé d'après le style des pistes du Band (sinon le streaming, valable partout). */
@@ -249,26 +250,29 @@ SS.automix = (() => {
    * Niveau visé de chaque rôle par rapport au mix aux mêmes instants (dB, mesure pondérée K, pendant que la piste
    * joue : un kick se compare au mix pendant ses frappes).
    * Le kick et la basse portent le morceau, la caisse claire et le lead sont devant, les nappes et l'arpège
-   * derrière, les cymbales en fond. Tolérance : ±3 dB.
+   * derrière, les cymbales en fond. Tolérance : ±3,5 dB.
    */
+  // médianes mesurées sur les 20 chansons du Band (le tom, sans mesure, est estimé)
   const ROLE_LEVEL = {
-    kick: -5, snare: -7, clap: -8, hat: -16, ohat: -17, tom: -10, cymbal: -18, perc: -17,
-    bass: -6, pad: -10, arp: -12, lead: -7, keys: -11,
+    kick: -4.5, snare: -6, clap: -8.5, hat: -18, ohat: -19, tom: -10, cymbal: -17.5, perc: -16.5,
+    bass: -8, pad: -16, arp: -15, lead: -9.5, keys: -9.5,
   };
-  const ROLE_TOL = 3;
+  const ROLE_TOL = 3.5;
   /** Passe-haut conseillé par rôle (Hz) : seuls le kick, la basse et les toms descendent sous 100 Hz. */
   const ROLE_HP = { snare: 120, clap: 200, hat: 400, ohat: 350, cymbal: 350, perc: 150, pad: 150, arp: 200, lead: 160, keys: 100 };
   const LOW_ROLES = new Set(['kick', 'bass', 'tom']);
 
   /*
-   * Courbes de référence (dB par bande d'octave, 0 = la bande la plus forte), relevées sur les chansons du Band.
-   * La comparaison se fait après alignement (moyenne des écarts de 63 Hz à 8 kHz retirée).
+   * Courbes de référence (dB par bande d'octave, 0 = la bande la plus forte) : moyenne des chansons du Band de
+   * chaque style (10 en synthwave, 10 en EDM ; écart type 2 à 3 dB par bande). Streaming : entre les deux ;
+   * club : EDM avec plus d'infra-graves. La comparaison se fait après alignement (moyenne des écarts de 63 Hz à
+   * 8 kHz retirée).
    */
   const CURVES = {
-    streaming: [-9, -1, 0, -4, -7, -9.5, -11.5, -14, -17.5, -25],
-    synthwave: [-10, -1.5, 0, -4, -7, -9.5, -11.5, -14, -17, -24],
-    edm: [-6, 0, -1, -5, -8, -10, -12, -14.5, -17.5, -24],
-    club: [-5, 0, -1.5, -5.5, -8.5, -10.5, -12.5, -15, -18, -24.5],
+    streaming: [-11.5, 0, -2.5, -6, -5.5, -6.5, -10, -13, -14.5, -21],
+    synthwave: [-10, 0, -4, -8.5, -5.5, -7, -12, -14.5, -16.5, -22.5],
+    edm: [-13, 0, -1.5, -3.5, -5, -5.5, -8, -11, -12.5, -19.5],
+    club: [-9, 0, -1.5, -4, -5.5, -6, -8.5, -11.5, -13, -20],
   };
 
   /** Écart du spectre du mix à la courbe du style, par bande (dB, après alignement). */
@@ -403,15 +407,15 @@ SS.automix = (() => {
 
     /* --- volume perçu et crêtes --- */
     const devL = Number.isFinite(M.i) ? M.i - T.lufs : -20;
-    scores.loud = Math.max(0, grade(devL, 1, 8) - (M.tp > T.tp + 0.2 ? Math.min(40, (M.tp - T.tp) * 20) : 0));
-    if (Number.isFinite(M.i) && (Math.abs(devL) > 1 || M.tp > T.tp + 0.2)) {
+    scores.loud = Math.max(0, grade(devL, 1.5, 8) - (M.tp > T.tp + 0.2 ? Math.min(40, (M.tp - T.tp) * 20) : 0));
+    if (Number.isFinite(M.i) && (Math.abs(devL) > 1.5 || M.tp > T.tp + 0.2)) {
       const changes = [];
       if (!ms.on) changes.push({ path: 'mastering.on', from: false, to: true, fixed: true });
-      if (Math.abs(devL) > 1) changes.push({ path: 'mastering.drive', from: ms.drive, to: round(clamp(ms.drive - devL, -12, 18), 0.1), min: -12, max: 18 });
+      if (Math.abs(devL) > 1.5) changes.push({ path: 'mastering.drive', from: ms.drive, to: round(clamp(ms.drive - devL, -12, 18), 0.1), min: -12, max: 18 });
       if (ms.ceiling > T.tp) changes.push({ path: 'mastering.ceiling', from: ms.ceiling, to: T.tp, fixed: true });
       S({
         id: 'loud', tab: 'master', scope: 'mastering', crit: 'loud', track: '__master', sev: sev(devL, 3, 1.5),
-        title: devL < -1 ? 'Le morceau est trop faible' : devL > 1 ? 'Le morceau est trop fort' : 'Les crêtes dépassent le plafond',
+        title: devL < -1.5 ? 'Le morceau est trop faible' : devL > 1.5 ? 'Le morceau est trop fort' : 'Les crêtes dépassent le plafond',
         why: `Volume intégré ${fr(M.i)} LUFS pour une cible ${T.name} de ${fr(T.lufs, 0)} LUFS. Le limiteur du mastering garde les crêtes sous ${fr(T.tp)} dBTP.`,
         meas: [['Intégré', fr(M.i) + ' LUFS'], ['True peak', fr(M.tp) + ' dBTP'], ['Cible', fr(T.lufs, 0) + ' LUFS']],
         changes,
@@ -478,10 +482,10 @@ SS.automix = (() => {
       if (Math.abs(dev) <= ROLE_TOL) continue;
       const delta = round(clamp(-dev, -9, 9), 0.5);
       S({
-        id: 'bal:' + t.id, tab: 'mix', scope: 'fader', crit: 'bal', track: t.id, sev: sev(dev, 7, 4.5),
+        id: 'bal:' + t.id, tab: 'mix', scope: 'fader', crit: 'bal', track: t.id, sev: sev(dev, 8, 5.5),
         title: dev < 0 ? `${t.name} est trop en retrait` : `${t.name} est trop en avant`,
-        why: `Un ${ROLE_NAME[t.role] || t.role} se place d'habitude vers ${fr(target, 0)} dB sous le mix ; celui-ci est à ${fr(meas(t).rel)} dB.`,
-        meas: [['Niveau / mix', fr(meas(t).rel) + ' dB'], ['Cible', fr(target, 0) + ' ±3 dB']],
+        why: `Dans les mixages de référence, ${ROLE_ART[t.role] || 'cette piste'} se place vers ${fr(target)} dB sous le mix pendant que la piste joue ; ici : ${fr(meas(t).rel)} dB.`,
+        meas: [['Niveau / mix', fr(meas(t).rel) + ' dB'], ['Cible', fr(target) + ' ±3,5 dB']],
         changes: [{ path: 'volumeDb', from: round(t.volumeDb, 0.1), to: round(clamp(t.volumeDb + delta, -40, 6), 0.5), max: 6 }],
       });
     }
@@ -555,12 +559,12 @@ SS.automix = (() => {
 
     /* --- balance tonale --- */
     const dev = toneDeviation(sum.mix.bands, curve);
-    scores.tone = grade(mean(dev.slice(1, 10).map(Math.abs)), 1.5, 7);
+    scores.tone = grade(mean(dev.slice(1, 10).map(Math.abs)), 2.5, 8);
     const zoneDev = (z) => mean(ZONES[z].bands.map((b) => dev[b]));
     const topIn = (bands, exclude = []) =>
       tr.filter((t) => !exclude.includes(t.role)).map((t) => ({ t, s: mean(bands.map((b) => meas(t).share[b])) })).sort((a, b) => b.s - a.s)[0];
     const lm = zoneDev('lowmid');
-    if (lm > 2.5) {
+    if (lm > 3.5) {
       const top = topIn([3, 4], ['kick']);
       if (top && top.s > 0.15) {
         const f = dev[3] > dev[4] ? 300 : 450;
@@ -570,13 +574,13 @@ SS.automix = (() => {
           id: 'lowmid', tab: 'mix', scope: 'eq', crit: 'tone', track: top.t.id, sev: lm > 4.5 ? 'warn' : 'info',
           title: `${top.t.name} rend le mix boueux`,
           why: `Le mix a ${fr(lm)} dB de trop dans les bas-médiums (250–500 Hz) par rapport à la courbe ${T.name}, et ${top.t.name} en apporte ${Math.round(top.s * 100)} %.`,
-          meas: [['250–500 Hz', '+' + fr(lm) + ' dB'], ['Cible', '±2 dB']],
+          meas: [['250–500 Hz', '+' + fr(lm) + ' dB'], ['Cible', '±3,5 dB']],
           changes,
         });
       }
     }
     const hm = zoneDev('himid');
-    if (hm > 2.5) {
+    if (hm > 3.5) {
       const top = topIn([6, 7]);
       if (top && top.s > 0.15) {
         const changes = [];
@@ -585,19 +589,19 @@ SS.automix = (() => {
           id: 'himid', tab: 'mix', scope: 'eq', crit: 'tone', track: top.t.id, sev: hm > 4.5 ? 'warn' : 'info',
           title: `${top.t.name} est agressif`,
           why: `Les hauts-médiums (2–6 kHz) dépassent la courbe de ${fr(hm)} dB : fatigue d'écoute, surtout au casque. ${top.t.name} en apporte ${Math.round(top.s * 100)} %.`,
-          meas: [['2–6 kHz', '+' + fr(hm) + ' dB'], ['Cible', '±2 dB']],
+          meas: [['2–6 kHz', '+' + fr(hm) + ' dB'], ['Cible', '±3,5 dB']],
           changes,
         });
       }
     }
     const air = zoneDev('air');
-    if (air < -2.5 || air > 3) {
+    if (air < -3.5 || air > 3.5) {
       const g = round(clamp(-air * 0.6, -3, 2.5), 0.5);
       S({
         id: 'air', tab: 'master', scope: 'mastereq', crit: 'tone', track: '__master', sev: Math.abs(air) > 5 ? 'warn' : 'info',
         title: air < 0 ? 'Il manque de l\'air' : 'Les aigus sont trop brillants',
         why: `Au-dessus de 6 kHz, le mix est ${fr(Math.abs(air))} dB ${air < 0 ? 'sous' : 'au-dessus de'} la courbe ${T.name}.`,
-        meas: [['6–20 kHz', (air > 0 ? '+' : '') + fr(air) + ' dB'], ['Cible', '±2 dB']],
+        meas: [['6–20 kHz', (air > 0 ? '+' : '') + fr(air) + ' dB'], ['Cible', '±3,5 dB']],
         changes: [
           ...(!mmix.eq.on ? [{ path: 'mix.eq.on', from: false, to: true, fixed: true }] : []),
           { path: 'mix.eq.high.f', from: mmix.eq.high.f, to: 10000, fixed: true },
@@ -606,7 +610,7 @@ SS.automix = (() => {
       });
     }
     const low = zoneDev('low');
-    if (Math.abs(low) > 3.5) {
+    if (Math.abs(low) > 4) {
       const g = round(clamp(-low * 0.5, -3, 2.5), 0.5);
       S({
         id: 'lowtone', tab: 'master', scope: 'mastereq', crit: 'tone', track: '__master', sev: Math.abs(low) > 6 ? 'warn' : 'info',
@@ -661,7 +665,7 @@ SS.automix = (() => {
     const PAN_SPREAD = { hat: 0.25, ohat: -0.25, cymbal: -0.3, perc: -0.3, arp: 0.3, keys: -0.2, tom: 0.25 };
     const centered = tr.filter((t) => PAN_SPREAD[t.role] != null && Math.abs(t.mix.pan) < 0.08);
     const spread = tr.filter((t) => Math.abs(t.mix.pan) >= 0.15).length;
-    if (centered.length >= 1 && spread < 2 && M.width < 0.12) {
+    if (centered.length >= 1 && spread < 2 && M.width < 0.03) {
       stScore -= 20;
       let side = 1;
       const changes = centered.slice(0, 3).map((t) => {
@@ -673,7 +677,7 @@ SS.automix = (() => {
         id: 'pan', tab: 'mix', scope: 'pan', crit: 'stereo', track: centered[0].id, sev: 'info',
         title: 'Tout est au centre',
         why: `L'image stéréo est étroite (côtés ${Math.round(M.width * 100)} % du centre). Écarter l'accompagnement libère le centre pour le kick, la basse, la caisse claire et le lead.`,
-        meas: [['Largeur', Math.round(M.width * 100) + ' %'], ['Cible', '12–40 %']],
+        meas: [['Largeur', Math.round(M.width * 100) + ' %'], ['Cible', '3–25 %']],
         changes,
       });
     }
@@ -736,6 +740,11 @@ SS.automix = (() => {
     return { ready: sum.secs >= prefs.minSecs, final: sum.secs >= prefs.minSecs * 3, scores, total, suggestions: visible, hidden: all.length - visible.length, deviation: dev };
   }
 
+  // le rôle avec son article, pour les phrases (« la basse », « l'arpège »)
+  const ROLE_ART = {
+    kick: 'le kick', snare: 'la caisse claire', clap: 'le clap', hat: 'la charleston', ohat: 'la charleston ouverte', tom: 'le tom',
+    cymbal: 'la cymbale', perc: 'la percussion', bass: 'la basse', pad: 'la nappe', arp: 'l\'arpège', lead: 'le lead', keys: 'le clavier',
+  };
   const ROLE_NAME = {
     kick: 'kick', snare: 'caisse claire', clap: 'clap', hat: 'charleston', ohat: 'charleston ouvert', tom: 'tom', cymbal: 'cymbale',
     perc: 'percussion', bass: 'basse', pad: 'nappe', arp: 'arpège', lead: 'lead', keys: 'clavier',

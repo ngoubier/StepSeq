@@ -110,10 +110,10 @@ testées) que l'on **accepte**, **ajuste** (25 à 150 %) ou **refuse** (`js/auto
 
 | Critère | Mesure | Cible |
 |---|---|---|
-| Volume perçu | LUFS intégré, true peak (EBU R128) | Streaming −14, Synthwave −12, EDM mélodique −10, Club −8 LUFS ; ≤ −1 dBTP |
+| Volume perçu | LUFS intégré, true peak (EBU R128) | Streaming −14, Synthwave −12, EDM mélodique −11, Club −8 LUFS ; ≤ −1 dBTP |
 | Dynamique | PLR (crête − LUFS), réduction de gain des compresseurs | PLR 8–13 dB (synthwave) ; ≤ 6 dB par piste |
-| Balance tonale | Énergie par bande d'octave comparée à la courbe du style | ±1,5 dB par bande |
-| Équilibre des pistes | Niveau de chaque rôle par rapport au mix aux mêmes instants | ±3 dB autour du niveau du rôle |
+| Balance tonale | Énergie par bande d'octave comparée à la courbe du style | ±2,5 dB en moyenne par bande |
+| Équilibre des pistes | Niveau de chaque rôle par rapport au mix aux mêmes instants | ±3,5 dB autour du niveau du rôle |
 | Graves | Recouvrement kick ↔ basse vers 63 Hz, grave inutile ailleurs, graves en mono | < 40 %, corrélation > 0,85 |
 | Stéréo | Corrélation, équilibre G/D, largeur | corrélation > 0,2 |
 | Marge avant mastering | Crêtes du Master avant le mastering | −6 à −1 dBFS |
