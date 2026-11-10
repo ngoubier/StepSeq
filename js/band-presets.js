@@ -163,7 +163,7 @@ window.SS = window.SS || {};
             kit('drums', 'bd sd hh oh cr', 'OberheimDMX LinnDrum LinnLM1 RolandTR808 EmuDrumulator RolandTR707'),
             m('bass', 'syn_moogbass dirt_moog j:A55 syn_sawbass j:B68 gm_synth_bass_1', { label: 'Bassiste (riff séquencé)' }),
             m('pad', 'gm_synth_strings_1 j:A36 j:A15 gm_string_ensemble_2 syn_softpad j:B11'),
-            m('lead', 'j:A14 gm_flute gm_pan_flute j:B65 gm_recorder syn_triangle', { note: 'La petite ligne de flûte' }),
+            m('lead', 'j:A14 gm_flute gm_pan_flute gm_ocarina gm_recorder syn_triangle', { note: 'La petite ligne de flûte' }),
             m('strings', 'gm_cello j:B83 gm_viola gm_string_ensemble_1 gm_tremolo_strings j:B12', { cat: 'mono', label: 'Cordes (contre-chant)', optional: true }),
           ],
         },
@@ -324,7 +324,7 @@ window.SS = window.SS || {};
           musicians: [
             kit('drums', 'bd cp hh oh', 'RolandTR808 dirt808 RolandTR909 AkaiMPC60 LinnDrum KorgM1'),
             kit('perc', 'sh tb perc', KPERC, opt),
-            m('lead', 'gm_pan_flute gm_marimba vcsl_marimba gm_steel_drums gm_kalimba syn_pluck', { label: 'Clavier lead (flûte / marimba)' }),
+            m('lead', 'gm_pan_flute gm_marimba gm_celesta gm_steel_drums gm_kalimba syn_pluck', { label: 'Clavier lead (flûte / marimba)' }),
             m('keys', 'piano gm_epiano1 vcsl_piano1 gm_piano j:A27 gm_epiano2'),
             m('bass', 'syn_sub gm_synth_bass_1 syn_moogbass gm_fretless_bass syn_sawbass j:A55'),
             m('pad', 'syn_softpad gm_pad_warm gm_pad_new_age syn_glasspad j:B56 gm_voice_oohs'),
@@ -356,7 +356,7 @@ window.SS = window.SS || {};
           musicians: [
             kit('drums', 'bd cp hh oh cr', KEDM),
             kit('perc', 'sh tb', KPERC, opt),
-            m('lead', 'syn_pluck syn_supersaw j:B24 gm_lead_2_sawtooth dirt_stab j:A52', { label: 'Clavier lead (riff)' }),
+            m('lead', 'syn_pluck syn_supersaw j:B24 gm_lead_2_sawtooth j:A53 j:A52', { label: 'Clavier lead (riff)' }),
             m('guitar', 'gm_electric_guitar_muted gm_electric_guitar_clean dirt_gtr gm_electric_guitar_jazz j:A44 gm_acoustic_guitar_steel', { cat: 'mono', note: 'Petites notes étouffées funky' }),
             m('bass', 'syn_moogbass syn_sub gm_synth_bass_2 syn_sawbass gm_electric_bass_pick j:A48'),
             m('pad', 'syn_superpad gm_pad_warm j:A15 syn_softpad gm_synth_strings_1 j:B47'),

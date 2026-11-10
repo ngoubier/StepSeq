@@ -69,6 +69,52 @@ Les plans des 20 chansons sont dans `js/band-songs.js` (tonalité, forme, grille
 musicien par section) et les notes sont écrites par `js/bandsong.js` (déterministe). **Annuler** / Échap ferme
 sans rien créer.
 
+Règles d'écriture vérifiées par les tests (`tests/bandsong.test.js`) :
+
+- **tonalité** : chiffres romains lus sur le majeur ou le mineur naturel de la tonique (« VI » en Do mineur ou
+  dorien = La♭) ; chaque note est dans la tonalité ou dans l'accord du moment ; les notes de passage des mélodies
+  suivent la « gamme du moment » (aucune note à un demi-ton d'une note de l'accord) ; notes d'approche de la basse
+  diatoniques ;
+- **nuances** : vélocité selon la section (intro et pont retenus, refrain et drop à pleine force), accents
+  métriques, phrasé (notes aiguës plus fortes, fins de phrase adoucies), ghost notes de caisse claire, charleston
+  accentué, roulements en crescendo ; caisse claire et clap légèrement en retard (réglage **Placement** de la
+  console) et petite humanisation.
+
+Les échantillons Dirt-Samples sont joués à leur hauteur réelle, mesurée par `tools/dirt-pitch.py`
+(`js/dirt-tuning.js`).
+
+**Mixage et mastering automatiques** (`js/bandmix.js`), appliqués aux pistes créées par Band :
+
+- **niveaux calibrés** : le volume perçu (LUFS) de chaque instrument et de chaque élément de batterie proposés a été
+  mesuré (`tools/measure-levels.js` → `js/band-levels.js`) ; chaque piste part du même niveau puis est placée selon
+  son rôle (kick et basse devant, caisse claire et lead présents, nappes et arpège derrière, percussions en fond),
+  avec une marge d'environ 18 LU avant le master ;
+- **égalisation et dynamique** par rôle : passe-haut sur tout sauf kick et basse, creux du bas-médium des nappes et
+  claviers, présence de la caisse claire et du lead ; compresseur sur kick, caisse claire, basse, piano et voix ;
+  sidechain sur le kick (fort en EDM, léger sur les nappes en synthwave) ;
+- **espace** : panoramique par rôle ; envois vers trois **bus d'effets partagés** (reverb plate pour la batterie,
+  hall pour les instruments, écho ping-pong au tempo), chorus sur nappes, guitare et voix ; kick et basse secs ;
+- **mastering** : EQ et compresseur « glue » léger sur le Master, puis module de mastering (`js/master-dsp.js`) :
+  graves en mono, aigus élargis, écrêtage doux des pointes, limiteur à anticipation à −1 dBTP. Le gain d'entrée
+  de chaque chanson (`js/band-drive.js`, calculé par `tools/band-drive.js` sur deux rendus complets) est réglé
+  sur la partie la plus forte du morceau, comme en studio : refrains et drops vers −10 à −11,5 LUFS (court terme),
+  environ −12 à −13 LUFS intégrés, la dynamique des breaks est gardée. Les attaques de la batterie passent par
+  un limiteur-écrêteur léger pour que le mastering n'écrase pas tout le morceau à cause d'elles.
+
+Outils de mesure (Playwright + Chromium, rendu hors temps réel de StepSeq) :
+
+```bash
+node tools/render-band-song.js levels auto levels.wav
+```
+
+```bash
+node tools/measure-levels.js
+```
+
+```bash
+node tools/band-drive.js
+```
+
 Les pistes créées par Band sont marquées dans le projet. Si le projet en contient déjà, une confirmation propose
 de **remplacer** ces pistes Band par le nouveau groupe (en signalant celles qui contiennent des notes ; Ctrl+Z pour
 revenir en arrière) ou de **garder et ajouter**. Les pistes créées sans Band ne sont jamais supprimées.
@@ -154,6 +200,7 @@ node tests/e2e/grid-ui.js
 node tests/e2e/playhead-ui.js
 node tests/e2e/song-ui.js
 node tests/e2e/band-song-ui.js
+node tests/e2e/mix-master-ui.js
 node tests/e2e/mobile-ui.js
 ```
 
@@ -252,11 +299,15 @@ par la fenêtre **Key** :
 | `js/harmony.js`  | Aide à la composition : gammes, accords diatoniques, identification des accords, estimation de la tonalité, vérificateur d'harmonie |
 | `js/emotions.js` | Intentions émotionnelles (skill MusicEmotion) : matrice et trois propositions par intention |
 | `js/harmonypanel.js` | Fenêtre Key de la scène en cours : assistant en 3 étapes, onglets Ambiance, Accords, Grille, Couches, Vérifier |
-| `js/fx.js`       | Fenêtre Effets par piste (chorus, delay, reverb) |
+| `js/fx.js`       | Fenêtre Effets par piste (chorus, delay, reverb, sidechain, envois vers les bus partagés) |
+| `js/master-dsp.js` | Mastering du Master (AudioWorklet) : graves en mono, largeur, écrêtage doux, limiteur à anticipation, mesure LUFS / true peak |
 | `js/profiles.js`, `js/profiles-factory.js` | Profils de console (usine + personnels) |
 | `js/mixer.js`    | Console de mixage : tranches, EQ, compresseur, limiteur, vumètres |
 | `js/band-songs.js` | Band : plans des 20 chansons complètes (tonalité, sections, grilles, parties) |
 | `js/bandsong.js` | Band : écrit les scènes, les notes de chaque musicien et l'arrangement d'après un plan |
+| `js/bandmix.js`, `js/band-levels.js`, `js/band-drive.js` | Band : règles de mixage et de mastering, niveaux mesurés, gain de mastering par chanson |
+| `js/dirt-tuning.js` | Hauteur mesurée des échantillons Dirt-Samples |
+| `tools/`         | Outils de mesure : hauteur des échantillons, niveaux des instruments, rendu et mastering des chansons Band |
 | `js/song.js`     | Mode chanson : scènes et arrangement, fenêtre Song |
 | `js/ui.js`       | Rendu des pistes, grille, piano roll, dialogue |
 | `js/main.js`     | Démarrage, barre d'outils, raccourcis |

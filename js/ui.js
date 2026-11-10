@@ -343,7 +343,7 @@ SS.ui = (() => {
         : null,
       h('button', {
         class: 'th-btn fx-btn' + (SS.fxActive(track) ? ' on' : ''),
-        title: 'Effets : chorus, delay, reverb',
+        title: 'Effets : chorus, delay, reverb, sidechain, bus partagés',
         onclick: () => SS.fx.open(track),
       }, 'FX'),
       h('button', { class: 'th-btn th-edit', title: 'Modifier la piste', html: ICONS.gear, onclick: () => app.editTrack(track) }),

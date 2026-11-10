@@ -106,11 +106,13 @@ SS.band = (() => {
         ms.pieces.filter((pc) => pc.on).forEach((pc) => {
           const info = pieceInfo(mu, pc);
           const name = mu.role === 'perc' ? `Percu · ${info.label}` : info.label;
-          out.push({ ...info.opts, name, color, band: tag(p, mu, info.opts.sound) });
+          // levelKey : clé de la mesure de niveau (js/band-levels.js) qui sert au mixage automatique (js/bandmix.js)
+          out.push({ ...info.opts, name, color, band: tag(p, mu, info.opts.sound), levelKey: pc.custom ? null : `${ms.kit}|${pc.piece}` });
         });
       } else {
         const o = instOpts(mu);
-        out.push({ ...o, category: o.category || catOf(mu), name: roleOf(mu).short, color, band: tag(p, mu) });
+        const levelKey = ms.custom ? null : `${mu.role}|${mu.pick[ms.pick]}|${catOf(mu)}`;
+        out.push({ ...o, category: o.category || catOf(mu), name: roleOf(mu).short, color, band: tag(p, mu), levelKey });
       }
     });
     return out;

@@ -688,6 +688,10 @@ dialog.sd-dialog { width: min(820px, calc(100vw - 32px)); }
 .fx-state.on { color: #b9a6ff; }
 .sd-row select { grid-column: 1 / -1; background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 5px 8px; font: inherit; }
 .gv-presets .chip { font-size: 12px; padding: 3px 10px; }
+.fx-sends { grid-column: 1 / -1; }
+.fx-help { margin: 0 0 8px; font-size: 12px; color: var(--muted); }
+.fx-returns { margin-top: 8px; }
+.fx-returns summary { cursor: pointer; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
 
 /* ---------- Bibliothèques (dialogue d'ajout de piste) ---------- */
 .dlg-libs { flex-wrap: wrap; align-self: flex-start; }
@@ -2555,3 +2559,15 @@ body.sg-drag-on, body.sg-drag-on * { cursor: grabbing !important; }
   .band-foot .btn { height: 34px; min-height: 0; white-space: nowrap; }
   .band-panel { max-height: 88%; }
 }
+
+/* ---------- Console : module Mastering (Master) ---------- */
+.mod-mast { grid-column: 1 / -1; }
+.mod-mast .sd-sliders { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 6px 14px; }
+.mast-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+.mast-tile { display: flex; flex-direction: column; gap: 2px; padding: 6px 10px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); }
+.mast-tile small { font-size: 11px; color: var(--muted); }
+.mast-tile b { font-variant-numeric: tabular-nums; font-size: 15px; }
+.mast-tile b.over { color: #ff6b6b; }
+.mast-aim { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.mast-aim small { color: var(--muted); }
+.mast-hint:empty { display: none; }

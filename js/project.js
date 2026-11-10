@@ -146,6 +146,9 @@ SS.normalizeProject = (data) => {
     track.volume = typeof t.volume === 'number' ? t.volume : 0.8;
     if (Number.isInteger(t.length) && t.length > 0) track.length = Math.min(t.length, 64 * 32);
     else delete track.length;
+    // placement (ms) : décalage de la piste dans le temps
+    if (Number.isFinite(t.nudge) && t.nudge) track.nudge = Math.max(-30, Math.min(30, Math.round(t.nudge)));
+    else delete track.nudge;
     if (t.mix && typeof t.mix === 'object') track.mix = SS.cleanMix(t.mix);
     else delete track.mix;
     if (!(t.mixProfile && typeof t.mixProfile === 'object' && typeof t.mixProfile.name === 'string')) delete track.mixProfile;
@@ -196,7 +199,9 @@ SS.normalizeProject = (data) => {
       volume: Number.isFinite(data.master.volume) ? Math.min(2, Math.max(0, data.master.volume)) : SS.MASTER_DEFAULTS.volume,
       mix: SS.cleanMix(data.master.mix, SS.MASTER_DEFAULTS.mix),
     };
+    if (data.master.mastering && typeof data.master.mastering === 'object') p.master.mastering = SS.cleanMastering(data.master.mastering);
   }
+  if (data.returns && typeof data.returns === 'object') p.returns = SS.cleanReturns(data.returns);
   return p;
 };
 
@@ -540,6 +545,21 @@ SS.MASTER_DEFAULTS = {
     // filtre VCF du Master (entre l'EQ et le compresseur) : passe-haut + passe-bas résonants, ouverts par défaut
     vcf: { on: false, slope: 12, hp: { f: 20, res: 0 }, lp: { f: 20000, res: 0 } }, // res : pic de résonance en dB,
   },
+  // mastering (js/master-dsp.js), après le fader : graves en mono sous `mono` Hz, largeur stéréo des aigus,
+  // gain d'entrée `drive` (dB) dans un limiteur à anticipation plafonné à `ceiling` dBTP, relâchement `release` (s)
+  mastering: { on: false, drive: 0, ceiling: -1, width: 1, mono: 100, release: 0.12, clip: 0 },
+};
+
+/*
+ * Bus d'effets partagés (retours) : chaque piste y envoie une part de son son (track.fx.sendPlate / sendHall /
+ * sendEcho). Une seule reverb « plate » (batterie), une « hall » (instruments) et un écho synchronisé au tempo
+ * pour tout le morceau : plus cohérent (même espace pour tous) et plus léger qu'une reverb par piste.
+ *   size : durée (s) ; predelay : pré-délai (s) ; hp / lp : filtres du retour (Hz) ; level : niveau du retour.
+ */
+SS.RETURN_DEFAULTS = {
+  plate: { size: 1.4, predelay: 0.012, hp: 250, lp: 9000, level: 1 },
+  hall: { size: 2.8, predelay: 0.03, hp: 300, lp: 6500, level: 1 },
+  echo: { time: '3/16', feedback: 0.32, hp: 250, lp: 4500, level: 1 },
 };
 
 const deepMerge = (base, over) => {
@@ -557,6 +577,35 @@ const deepMerge = (base, over) => {
 /** Réglages de mixage effectifs d'une piste (valeurs par défaut + ce qui a été changé). */
 SS.mixParams = (track) => deepMerge(SS.MIX_DEFAULTS, track && track.mix);
 SS.masterParams = (p) => deepMerge(SS.MASTER_DEFAULTS, p && p.master);
+SS.returnParams = (p) => deepMerge(SS.RETURN_DEFAULTS, p && p.returns);
+const numIn = (v, lo, hi, d) => (Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d);
+SS.cleanMastering = (m) => {
+  const d = SS.MASTER_DEFAULTS.mastering;
+  const o = deepMerge(d, m);
+  return {
+    on: !!o.on,
+    drive: numIn(o.drive, -24, 24, d.drive),
+    ceiling: numIn(o.ceiling, -12, 0, d.ceiling),
+    width: numIn(o.width, 0, 2, d.width),
+    mono: numIn(o.mono, 0, 300, d.mono),
+    release: numIn(o.release, 0.01, 1, d.release),
+    clip: numIn(o.clip, 0, 1, d.clip),
+  };
+};
+SS.cleanReturns = (r) => {
+  const o = deepMerge(SS.RETURN_DEFAULTS, r);
+  for (const [k, d] of Object.entries(SS.RETURN_DEFAULTS)) {
+    const x = o[k];
+    if ('size' in d) x.size = numIn(x.size, 0.2, 10, d.size);
+    if ('predelay' in d) x.predelay = numIn(x.predelay, 0, 0.2, d.predelay);
+    if ('feedback' in d) x.feedback = numIn(x.feedback, 0, 0.9, d.feedback);
+    if ('time' in d && !SS.DELAY_TIMES.some((t) => t.id === x.time)) x.time = d.time;
+    x.hp = numIn(x.hp, 20, 2000, d.hp);
+    x.lp = numIn(x.lp, 500, 20000, d.lp);
+    x.level = numIn(x.level, 0, 2, d.level);
+  }
+  return o;
+};
 
 /** Nettoie un bloc de mixage lu dans un fichier (nombres finis, bornes raisonnables). */
 SS.cleanMix = (mix, defaults = SS.MIX_DEFAULTS) => {
