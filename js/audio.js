@@ -339,7 +339,12 @@ SS.audio = (() => {
   /** Règle une tranche ; un module coupé devient transparent (gain 0 dB, ratio 1:1). */
   function applyStrip(st, m) {
     const now = ctx.currentTime;
-    const set = (param, v) => param.setTargetAtTime(v, now, 0.015);
+    if (!st.targets) st.targets = new WeakMap();
+    const set = (param, v) => {
+      if (st.targets.get(param) === v) return;
+      st.targets.set(param, v);
+      param.setTargetAtTime(v, now, 0.015);
+    };
     const e = m.eq;
     set(st.hp.frequency, e.on && e.hp.on ? e.hp.f : 10);
     st.hp.Q.value = 0.707;
@@ -381,7 +386,11 @@ SS.audio = (() => {
     st.lim.knee.value = 0;
     st.lim.attack.value = 0.001;
     st.lim.release.value = l.rel;
-    st.clip.curve = l.on ? clipCurve(l.ceil) : null; // sans courbe, le WaveShaper laisse passer le signal
+    const clipKey = l.on ? l.ceil.toFixed(2) : null;
+    if (st.clipKey !== clipKey) {
+      st.clip.curve = l.on ? clipCurve(l.ceil) : null;
+      st.clipKey = clipKey;
+    }
   }
 
   /** Courbe d'écrêtage doux : linéaire jusqu'à 85 % du plafond, puis arrondie jusqu'au plafond exact. */
@@ -399,6 +408,7 @@ SS.audio = (() => {
       const y = a <= knee ? a : knee + (c - knee) * Math.tanh((a - knee) / (c - knee));
       curve[i] = Math.sign(x) * y;
     }
+    if (clipCurves.size >= 32) clipCurves.delete(clipCurves.keys().next().value);
     clipCurves.set(key, curve);
     return curve;
   }

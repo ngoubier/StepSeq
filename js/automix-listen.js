@@ -4,7 +4,7 @@
  * Des analyseurs (AnalyserNode, FFT 4096 points ≈ 85 ms, résolution ≈ 11 Hz) se branchent sur les points
  * d'écoute de js/audio.js (SS.audio.taps) : la sortie de chaque piste et le Master avant mastering. La sortie
  * finale passe par un séparateur gauche / droite (et un passe-bas 120 Hz pour la corrélation des graves).
- * Toutes les 50 ms de lecture, un relevé est ajouté à l'accumulateur de js/automix.js.
+ * Toutes les 50 ms de lecture (100 ms sur mobile), un relevé est ajouté à l'accumulateur de js/automix.js.
  * sample() peut aussi être appelé à la main (rendu hors temps réel : tools/automix-calibrate.js).
  */
 window.SS = window.SS || {};
@@ -18,6 +18,7 @@ SS.automixListen = (() => {
   let timer = null;
   let lastT = null;
   let lastLoud = null;
+  let stepMs = STEP_MS;
   let project = () => null;
   let onFrame = null;
   const listeners = new Set(); // reçoivent chaque relevé brut (pilote auto : js/automix-pilot.js)
@@ -67,6 +68,15 @@ SS.automixListen = (() => {
       t.pre.connect(n.pre.an);
       n.preSrc = t.pre;
     }
+    // Libérer aussi les anciennes entrées : les pistes supprimées ne doivent pas rester analysées.
+    for (const map of [n.tracks, n.inputs]) if (map) {
+      const live = map === n.tracks ? t.tracks : t.inputs;
+      for (const [id, a] of map) if (!live?.has(id)) {
+        a.src.disconnect(a.an);
+        a.an.disconnect();
+        map.delete(id);
+      }
+    }
     t.tracks.forEach((node, id) => {
       const cur = n.tracks.get(id);
       if (cur && cur.src === node) return;
@@ -101,6 +111,9 @@ SS.automixListen = (() => {
     if (n.postSrc) off(n.postSrc, n.split);
     n.tracks.forEach((a) => off(a.src, a.an));
     if (n.inputs) n.inputs.forEach((a) => off(a.src, a.an));
+    n.split.disconnect();
+    n.lpL.disconnect();
+    n.lpR.disconnect();
     n = null;
   }
 
@@ -172,7 +185,7 @@ SS.automixListen = (() => {
       return;
     }
     const now = n ? n.ctx.currentTime : null;
-    const dt = lastT != null && now != null ? Math.min(0.2, Math.max(0, now - lastT)) : STEP_MS / 1000;
+    const dt = lastT != null && now != null ? Math.min(0.2, Math.max(0, now - lastT)) : stepMs / 1000;
     lastT = now;
     sample(dt);
   }
@@ -184,7 +197,8 @@ SS.automixListen = (() => {
     if (!acc) acc = A().newAccumulator();
     SS.audio.ensureCtx();
     connect();
-    if (!timer && !manual) timer = setInterval(tick, STEP_MS); // manual : relevés appelés à la main (rendu hors temps réel)
+    stepMs = window.matchMedia?.('(pointer: coarse), (max-width: 700px)').matches ? 100 : STEP_MS;
+    if (!timer && !manual) timer = setInterval(tick, stepMs); // manual : relevés appelés à la main (rendu hors temps réel)
   }
   /** Arrête l'écoute et débranche les analyseurs (les mesures sont gardées). */
   function stop() {

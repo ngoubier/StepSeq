@@ -69,8 +69,44 @@ SS.automix = (() => {
   }
   const correlation = (s) => (s.ll > 0 && s.rr > 0 ? s.lr / Math.sqrt(s.ll * s.rr) : 1);
 
+  // Histogrammes bornés à 0,1 dB : mémoire constante, quelle que soit la durée d'écoute.
+  const HIST_MIN = -100, HIST_STEP = 0.1, HIST_BINS = 1601;
+  function histogram() {
+    return { counts: new Uint32Array(HIST_BINS), sums: new Float64Array(HIST_BINS), powers: new Float64Array(HIST_BINS), count: 0, max: -Infinity };
+  }
+  function record(h, value) {
+    if (!Number.isFinite(value)) return;
+    const i = Math.max(0, Math.min(HIST_BINS - 1, Math.floor((value - HIST_MIN) / HIST_STEP)));
+    h.counts[i]++; h.sums[i] += value; h.powers[i] += Math.pow(10, (value + 0.691) / 10);
+    h.count++; h.max = Math.max(h.max, value);
+  }
+  function above(h, gate) {
+    let n = 0, power = 0;
+    for (let i = 0; i < HIST_BINS; i++) if (h.counts[i] && h.sums[i] / h.counts[i] > gate) {
+      n += h.counts[i]; power += h.powers[i];
+    }
+    return { n, power };
+  }
+  function quantile(h, p, gate = -Infinity) {
+    const total = above(h, gate).n;
+    if (!total) return -Infinity;
+    const rank = Math.round(p * (total - 1));
+    let seen = 0;
+    for (let i = 0; i < HIST_BINS; i++) if (h.counts[i] && h.sums[i] / h.counts[i] > gate) {
+      seen += h.counts[i];
+      if (seen > rank) return h.sums[i] / h.counts[i];
+    }
+    return h.max;
+  }
+
   /** Volume intégré (portes −70 LUFS et −10 LU) à partir des valeurs momentanées (blocs de 400 ms, 10 par seconde). */
   function integrated(ms) {
+    if (ms.counts) {
+      const first = above(ms, -70);
+      if (!first.n) return -Infinity;
+      const kept = above(ms, -0.691 + 10 * Math.log10(first.power / first.n) - 10);
+      return kept.n ? -0.691 + 10 * Math.log10(kept.power / kept.n) : -Infinity;
+    }
     const pw = ms.filter((m) => m > -70).map((m) => Math.pow(10, (m + 0.691) / 10));
     if (!pw.length) return -Infinity;
     const rel = mean(pw) / 10;
@@ -79,6 +115,13 @@ SS.automix = (() => {
   }
   /** Amplitude de volume (LRA, EBU Tech 3342) : écart entre les centiles 10 et 95 des valeurs court terme. */
   function loudnessRange(st) {
+    if (st.counts) {
+      const first = above(st, -70);
+      if (first.n < 10) return null;
+      const gate = Math.max(-70, -0.691 + 10 * Math.log10(first.power / first.n) - 20);
+      if (above(st, gate).n < 10) return null;
+      return quantile(st, 0.95, gate) - quantile(st, 0.1, gate);
+    }
     const a = st.filter((s) => s > -70);
     if (a.length < 10) return null;
     const rel = 10 * Math.log10(mean(a.map((s) => Math.pow(10, s / 10)))) - 20;
@@ -88,6 +131,7 @@ SS.automix = (() => {
     return q(0.95) - q(0.1);
   }
   const percentile = (arr, p) => {
+    if (arr.counts) return quantile(arr, p);
     if (!arr.length) return -Infinity;
     const s = [...arr].sort((x, y) => x - y);
     return s[Math.min(s.length - 1, Math.round(p * (s.length - 1)))];
@@ -95,7 +139,7 @@ SS.automix = (() => {
 
   /* ------------------------------------------------------------------ cumul des relevés */
   function newAccumulator() {
-    return { frames: 0, secs: 0, tracks: {}, co: {}, mix: { bands: new Float64Array(NB), k: 0, n: 0, peaks: [] }, pairs: {}, st: { lr: 0, ll: 0, rr: 0 }, stLow: { lr: 0, ll: 0, rr: 0 }, ms: [], ss: [], tp: -Infinity, scenes: new Set(), grM: 0, grMn: 0 };
+    return { frames: 0, secs: 0, tracks: {}, co: {}, mix: { bands: new Float64Array(NB), k: 0, n: 0, peaks: histogram() }, pairs: {}, st: { lr: 0, ll: 0, rr: 0 }, stLow: { lr: 0, ll: 0, rr: 0 }, ms: histogram(), ss: histogram(), tp: -Infinity, scenes: new Set(), grM: 0, grMn: 0 };
   }
 
   /**
@@ -119,7 +163,7 @@ SS.automix = (() => {
       for (let b = 0; b < NB; b++) m.bands[b] += pre.bands[b] * norm;
       m.k += mixK;
       m.n++;
-      m.peaks.push(pre.peak);
+      record(m.peaks, 20 * Math.log10(Math.max(1e-10, pre.peak)));
       if (Number.isFinite(frame.masterGr)) {
         acc.grM += Math.abs(frame.masterGr);
         acc.grMn++;
@@ -130,7 +174,7 @@ SS.automix = (() => {
     for (let b = 0; b < NB; b++) strong.push([]);
     for (const [id, t] of Object.entries(frame.tracks || {})) {
       let a = acc.tracks[id];
-      if (!a) a = acc.tracks[id] = { bands: new Float64Array(NB), k: 0, mk: 0, n: 0, peak: 0, gr: 0, grMax: 0, lim: 0, total: 0, inPeaks: [], inMs: 0, inN: 0 };
+      if (!a) a = acc.tracks[id] = { bands: new Float64Array(NB), k: 0, mk: 0, n: 0, peak: 0, gr: 0, grMax: 0, lim: 0, total: 0, inPeaks: histogram(), inMs: 0, inN: 0 };
       a.total++;
       const k = kPower(t.bands);
       if (!mixOn || k < 1e-9 || k < mixK * 1e-4) continue;
@@ -146,7 +190,7 @@ SS.automix = (() => {
       a.lim += Math.abs(t.limGr || 0);
       // entrée de la tranche (avant égaliseur et compresseur) : crêtes et niveau moyen du son brut
       if (t.inPeak > 1e-5) {
-        a.inPeaks.push(20 * Math.log10(t.inPeak));
+        record(a.inPeaks, 20 * Math.log10(t.inPeak));
         a.inMs += t.inMs || 0;
         a.inN++;
       }
@@ -172,8 +216,8 @@ SS.automix = (() => {
     add(acc.stLow, frame.stereoLow);
     const L = frame.loud;
     if (L) {
-      if (Number.isFinite(L.m) && L.fresh) acc.ms.push(L.m);
-      if (Number.isFinite(L.s) && L.fresh) acc.ss.push(L.s);
+      if (Number.isFinite(L.m) && L.fresh) record(acc.ms, L.m);
+      if (Number.isFinite(L.s) && L.fresh) record(acc.ss, L.s);
       if (Number.isFinite(L.tp)) acc.tp = Math.max(acc.tp, L.tp);
     }
     return acc;
@@ -270,10 +314,10 @@ SS.automix = (() => {
         grMax: a.grMax,
         limGr: a.lim / a.n,
         // son à l'entrée de la tranche : crête maximale, crête habituelle (90e centile), niveau moyen, dynamique
-        inPeak: a.inN ? Math.max(...a.inPeaks) : null,
+        inPeak: a.inN ? a.inPeaks.max : null,
         inP90: a.inN ? percentile(a.inPeaks, 0.9) : null,
         inRms: a.inN ? dB(a.inMs / a.inN) : null,
-        crest: a.inN ? Math.max(...a.inPeaks) - dB(a.inMs / a.inN) : null,
+        crest: a.inN ? a.inPeaks.max - dB(a.inMs / a.inN) : null,
       };
     }
     const overlap = [];
@@ -294,7 +338,7 @@ SS.automix = (() => {
       secs: acc.secs,
       frames: acc.frames,
       scenes: acc.scenes.size,
-      mix: { bands: mixBands, k: mixK, prePeak: m.peaks.length ? 20 * Math.log10(Math.max(1e-10, percentile(m.peaks, 0.995))) : null, n: m.n },
+      mix: { bands: mixBands, k: mixK, prePeak: m.peaks.count ? percentile(m.peaks, 0.995) : null, n: m.n },
       tracks,
       overlap,
       co: Object.values(acc.co || {}),

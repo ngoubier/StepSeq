@@ -99,7 +99,7 @@ SS.automixPanel = (() => {
     return undefined;
   }
   /** Change un réglage et l'applique au son. */
-  function setValue(tid, path, v) {
+  function setValue(tid, path, v, deferAudio = false) {
     const p = project();
     if (tid === '__master') {
       const mp = SS.masterParams(p);
@@ -110,7 +110,7 @@ SS.automixPanel = (() => {
         setPath(m, path.slice(4), v);
         p.master = { ...mp, mix: SS.cleanMix(m, SS.MASTER_DEFAULTS.mix) };
       }
-      SS.audio.applyMaster(p);
+      if (!deferAudio) SS.audio.applyMaster(p);
       return;
     }
     const t = trackOf(tid);
@@ -122,7 +122,7 @@ SS.automixPanel = (() => {
       const m = SS.mixParams(t);
       setPath(m, path.slice(4), v);
       t.mix = SS.cleanMix(m);
-      SS.audio.applyMix(t);
+      if (!deferAudio) SS.audio.applyMix(t);
     } else if (path.startsWith('fx.')) {
       t.fx = { ...(t.fx || {}), [path.slice(3)]: v };
       SS.audio.applyFx(t);
@@ -699,10 +699,13 @@ SS.automixPanel = (() => {
           return;
         }
         const value = typeof c.to === 'boolean' ? c.to : c.from + (c.to - c.from) * x;
-        setValue(tid, c.path, value);
+        setValue(tid, c.path, value, true);
         if (now !== getValue(tid, c.path)) r.changedAt.set(c.path, performance.now());
         if (!isTrack) pilot.masterExpect.set(c.path, getValue(tid, c.path));
       }
+      // Un seul envoi au graphe audio par geste, même si plusieurs paramètres évoluent.
+      if (isTrack) SS.audio.applyMix(trackOf(tid));
+      else SS.audio.applyMaster(project());
       snapshots[r.master.module] = snapshot();
       if (!r.drawAt || performance.now() - r.drawAt > 150 || x === 1) {
         SS.mixer.refreshMasterAction({ ...r.master, activePaths: [...r.changedAt].filter(([, at]) => performance.now() - at < 250).map(([path]) => path) });
@@ -776,6 +779,10 @@ SS.automixPanel = (() => {
       }
       return pilotStepRamp();
     }
+    // Les gestes restent fluides à 25 Hz ; une nouvelle décision suffit à 2 Hz.
+    const decisionAt = performance.now();
+    if (pilot.decisionAt && decisionAt - pilot.decisionAt < 500) return;
+    pilot.decisionAt = decisionAt;
     const p = project();
     // un fader touché à la main (ou une annulation) : le pilote n'y touche plus
     for (const [id, v] of pilot.expect) {

@@ -53,8 +53,28 @@ SS.mixer = (() => {
     const previous = pilotTreatment;
     const tid = action.track || '__master';
     const reveal = !previous || previous.track !== action.track || previous.module !== action.module;
+    const rebuild = selected !== tid || !detailRefs;
     selected = tid;
-    renderDetail();
+    if (rebuild) renderDetail();
+    // Actualise les contrôles existants : conserver les canvas et les gestes tactiles.
+    const ch = chan(tid);
+    const values = { mix: ch.getMix(), mastering: tid === '__master' ? SS.masterParams(app.project()).mastering : null };
+    for (const { path } of action.changes) {
+      const value = path.split('.').reduce((v, k) => v?.[k], values);
+      const el = document.querySelector(`#mixerDetail [data-control="${CSS.escape(path)}"]`);
+      if (!el || value === undefined) continue;
+      if (el.setControlValue) el.setControlValue(value);
+      else if (el.matches('input[type="checkbox"]')) el.checked = value;
+      else if (el.matches('input')) el.value = Number(value.toFixed(2));
+      else if (el.matches('button')) {
+        el.classList.toggle('on', !!value);
+        el.setAttribute('aria-pressed', String(!!value));
+        el.textContent = value ? 'ON' : 'OFF';
+      }
+    }
+    syncPower(ch, values.mix);
+    if (detailRefs && action.module === 'eq') detailRefs.drawBig();
+    if (detailRefs && action.module === 'comp') detailRefs.drawTransfer();
     showPilotAction();
     pilotTreatment = action;
     const strip = document.querySelector(`#mixerStrips .strip[data-id="${CSS.escape(tid)}"]`);
@@ -576,7 +596,12 @@ SS.mixer = (() => {
         app.changed();
       });
     }
-    return h('div', { class: 'sd-row', 'data-control': opts.control }, h('label', {}, label), out, input);
+    const row = h('div', { class: 'sd-row', 'data-control': opts.control }, h('label', {}, label), out, input);
+    row.setControlValue = (v) => {
+      input.value = Math.round(clamp(scale.from(v), 0, 1) * 1000);
+      out.textContent = opts.fmt(v);
+    };
+    return row;
   }
 
   function powerBtn(ch, key, label) {
@@ -1025,7 +1050,7 @@ SS.mixer = (() => {
           'aria-pressed': String(on),
           'data-control': 'mastering.on',
           title: on ? 'Désactiver le mastering' : 'Activer le mastering',
-          onclick: () => setM({ on: !on }, true),
+          onclick: () => setM({ on: !SS.masterParams(p).mastering.on }, true),
         }, on ? 'ON' : 'OFF')),
         h('div', { class: 'mast-tiles' }, tM.el, tS.el, tI.el, tTP.el, tGR.el),
         h(
@@ -1182,9 +1207,14 @@ SS.mixer = (() => {
   }
 
   let lastT = 0;
+  const compactMeters = window.matchMedia('(pointer: coarse), (max-width: 700px)');
   function loop(t) {
     if (!isOpen) return;
-    const dt = lastT ? Math.min(0.1, (t - lastT) / 1000) : 0.016;
+    if (lastT && t - lastT < (compactMeters.matches ? 1000 / 15 : 1000 / 30)) {
+      raf = requestAnimationFrame(loop);
+      return;
+    }
+    const dt = lastT ? Math.min(0.2, (t - lastT) / 1000) : 0.016;
     lastT = t;
     meters.forEach((mm, id) => drawMeter(mm, SS.audio.levels(id), dt));
     if (detailRefs) {
