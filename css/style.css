@@ -159,7 +159,7 @@ a.btn { text-decoration: none; }
   background: var(--panel);
 }
 .topbar-group.studio { padding: 4px; border-radius: 12px; }
-/* Band, Key, Song, Mix : titre en gras et sous-titre (groupe, tonalité, scène, profil de mixage) */
+/* Band, Key, Song, Mix : titre en gras et sous-titre (groupe, tonalité, scène, console) */
 .studio-btn { height: 54px; padding: 0 14px 0 12px; justify-content: flex-start; gap: 10px; min-width: 150px; border-radius: 9px; }
 .studio-btn .sb-ico svg { width: 22px; height: 22px; display: block; }
 .sb-txt { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; min-width: 0; }
@@ -1022,22 +1022,8 @@ body.mixer-open #workspace { display: none; }
 .gr-wrap.wide .gr-meter i { height: 100%; width: 0; }
 .gr-val { font-variant-numeric: tabular-nums; color: var(--text); }
 
-/* ---------- Profils de console ---------- */
-.profile-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; background: #1d1d22; border: 1px solid var(--line); }
-.profile-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
-.profile-select { min-width: 260px; max-width: 100%; background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 5px 8px; font: inherit; }
-.profile-desc { flex: 1 1 100%; font-size: 12px; color: var(--muted); }
-.profile-form { display: inline-flex; gap: 6px; align-items: center; }
-.profile-name { width: 180px; background: var(--panel); border: 1px solid var(--accent-2); color: var(--text); border-radius: 6px; padding: 5px 8px; font: inherit; }
 .btn-small:disabled { opacity: .4; cursor: default; }
 
-/* ---------- Profils multi-tranches ---------- */
-.mixer-top { padding: 10px 12px 0; }
-.mixset-bar { display: flex; flex-direction: column; gap: 6px; }
-.profile-check { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
-.role-map { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
-.role-chip { display: inline-flex; gap: 6px; align-items: center; padding: 2px 8px; border-radius: 10px; background: #1d1d22; border-left: 3px solid var(--c); font-size: 11px; color: var(--muted); }
-.role-chip b { color: var(--text); font-weight: 600; }
 
 /* ================================================================== */
 /* Console : fenêtre, barre d'action, tranches compactes (1920 × 1200)  */
@@ -1088,41 +1074,14 @@ body.mixer-open .song-dock { display: none; }
 
 /* Le groupe « barre d'action + tranches » : la barre gère les tranches qu'elle encadre */
 .mx-group { flex: none; border: 1px solid #34343c; border-radius: 10px; background: #1b1b20; overflow: hidden; }
-.mx-actionbar { padding: 0; border-bottom: 1px dashed #3a3a44; background: #202026; }
-.mx-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; }
-.mx-actions-label { display: flex; flex-direction: column; line-height: 1.1; margin-right: 4px; }
-.mx-actions-label b { font-size: 12px; }
-.mx-actions-label small { font-size: 11px; color: var(--accent-2); }
-.mx-actions .profile-select { min-width: 330px; }
 .mx-apply span { font-size: 15px; line-height: 1; }
-.mx-sep { width: 1px; height: 22px; background: var(--line); margin: 0 2px; }
 .mixer-strips { padding: 10px 12px 12px; background: transparent; border-bottom: 0; gap: 6px; }
 
 /* Tranches compactes */
 .strip { position: relative; gap: 5px; padding: 0 6px 7px; }
 .strip-name { padding: 5px 0 0; }
 .strip-role { margin-top: -4px; font-size: 9px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); text-align: center; }
-.strip-prof {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-  padding: 3px 5px;
-  border: 1px dashed #44444d;
-  border-radius: 5px;
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  font-size: 10px;
-  cursor: pointer;
-  text-align: left;
-}
-.strip-prof .prof-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.strip-prof .prof-ico { color: #55555f; }
-.strip-prof.on { border-style: solid; border-color: #6a4bd8; background: #2a2340; color: #e4dcff; }
-.strip-prof.on .prof-ico, .strip-prof.modified .prof-ico { color: #a48bff; }
-.strip-prof.modified { border-style: solid; border-color: #5a4f80; color: #c8c0e8; }
-.strip-prof i { font-style: normal; color: #f5a524; font-weight: 700; }
+
 .strip-ins { flex-direction: row; gap: 3px; }
 .ins {
   flex: 1;
@@ -1173,12 +1132,6 @@ body.mixer-open .song-dock { display: none; }
   border-left: 4px solid var(--c);
   font-size: 14px;
 }
-.detail-head .profile-bar { flex: 1; min-width: 0; padding: 4px 8px; background: transparent; border: 0; flex-wrap: nowrap; }
-.detail-head .profile-select { min-width: 250px; }
-.profile-current { padding: 3px 8px; border-radius: 5px; font-size: 12px; color: var(--muted); border: 1px dashed #44444d; white-space: nowrap; max-width: 300px; overflow: hidden; text-overflow: ellipsis; }
-.profile-current.on { border: 1px solid #6a4bd8; background: #2a2340; color: #e4dcff; }
-.profile-current.modified { border: 1px solid #5a4f80; color: #c8c0e8; }
-.detail-head .profile-desc { display: none; }
 .detail-mods { gap: 10px; }
 .mod { padding: 10px 12px; gap: 8px; }
 .mod-help { font-size: 11px; }
@@ -1189,13 +1142,10 @@ body.mixer-open .song-dock { display: none; }
 .comp-top { gap: 10px; }
 .gr-meter { height: 110px; }
 
-.detail-head .profile-bar span { flex: none; }
-.detail-head .profile-bar { justify-content: flex-start; gap: 8px; }
 .eq-layout { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
 .eq-layout .eq-bands { flex: 1; min-width: 270px; }
 .eq-band { grid-template-columns: 92px 1fr 1fr 1fr; gap: 4px; }
 .eq-band input[type=number] { width: 58px; }
-.profile-check.disabled { opacity: .45; }
 /* Les trois modules (EQ, compresseur, limiteur) ont la même hauteur ; l'aide reste en bas */
 .detail-mods { align-items: stretch; }
 .mod > .mod-help { margin-top: auto; }
@@ -2755,3 +2705,67 @@ input.pilot-value { accent-color: var(--gold); }
 #amAssistantBtn[aria-pressed=true] { background: var(--accent-2); border-color: var(--accent-2); color: white; }
 .am-mode:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 3px; }
 #automix .am-hint { display: none; }
+/* Master : la grille suit la place laissée par Auto Mix, pas la largeur de la fenêtre. */
+.master-detail { container: master-detail / inline-size; min-width: 0; }
+.detail-mods.master-mods { grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 12px; }
+.master-mods > .mod { grid-column: span 12; min-width: 0; }
+.master-mods .mod-head { gap: 10px; }
+.master-mods .mod-head h3 { min-width: 0; }
+.master-mods .mod-power { flex: none; }
+.master-mods .sd-row { min-width: 0; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; }
+.master-mods .sd-row label { min-width: 0; line-height: 1.35; }
+.master-mods .sd-row output { white-space: nowrap; }
+.master-mods .sd-row input { min-width: 0; }
+.master-mods .eq-layout .eq-bands { min-width: 0; flex-basis: 270px; }
+.master-mods .eq-band { grid-template-columns: 84px repeat(3, minmax(0, 1fr)); }
+.master-mods .eq-band > span:not(.eq-band-name) { display: flex; align-items: center; gap: 3px; min-width: 0; white-space: nowrap; font-size: 11px; }
+.master-mods .eq-band input[type=number] { min-width: 0; width: 100%; max-width: 64px; font-size: 11px; }
+.master-mods .gr-wrap.wide { flex-wrap: wrap; justify-content: space-between; gap: 6px; }
+.master-mods .gr-wrap.wide .gr-meter { flex: 1 1 70px; max-width: 160px; }
+.master-mods .mod-help { line-height: 1.5; }
+.master-mods .mod-master-effects { display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; }
+.master-mods .mod-master-effects > .mod-head, .master-mods .mod-master-effects > .mod-help { grid-column: 1 / -1; }
+.master-mods .master-effect { min-width: 0; padding: 10px 0; }
+.master-mods .mod-mast { container: master-stage / inline-size; }
+.master-mods .mast-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.master-mods .mast-tile { min-width: 0; padding: 8px; }
+.master-mods .mast-tile b { font-size: 14px; white-space: nowrap; }
+.master-mods .mast-tile:nth-child(3) { grid-column: 1 / -1; background: #333026; border-color: #6b5b33; }
+.mast-groups { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.mast-group { min-width: 0; margin: 0; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: #202025; }
+.mast-group legend { padding: 0 5px; font-size: 12px; font-weight: 600; color: var(--text); }
+.master-mods .mast-group .sd-sliders { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.master-mods .mast-aim { gap: 6px; }
+.master-mods .mast-aim .chip { flex: 1 1 120px; text-align: center; }
+@container master-detail (min-width: 560px) {
+  .master-mods > .mod-lim, .master-mods > .mod-vcf { grid-column: span 6; }
+  .master-mods .mod-comp { display: grid; grid-template-columns: 180px minmax(0, 1fr); align-content: start; }
+  .master-mods .mod-comp > .mod-head { grid-column: 1 / -1; }
+  .master-mods .comp-top { grid-column: 1; align-items: center; gap: 8px; }
+  .master-mods .comp-graph { width: 120px; height: 120px; }
+  .master-mods .mod-comp > .sd-sliders { grid-column: 2; align-self: center; }
+  .master-mods .mod-master-effects { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 18px; }
+}
+@container master-detail (min-width: 1000px) {
+  .master-mods > .mod-comp { grid-column: span 5; }
+  .master-mods > .mod-lim { grid-column: span 3; }
+  .master-mods > .mod-vcf { grid-column: span 4; }
+  .master-mods > .mod-master-effects { grid-column: span 4; grid-template-columns: minmax(0, 1fr); }
+  .master-mods > .mod-mast { grid-column: span 8; }
+}
+@container master-detail (max-width: 559px) {
+  .master-detail .detail-head { flex-wrap: wrap; }
+  .master-mods .mod-vcf .sd-sliders, .master-mods .mod-comp .sd-sliders, .master-mods .mod-lim .sd-sliders { grid-template-columns: minmax(0, 1fr); }
+}
+@container master-stage (min-width: 480px) {
+  .master-mods .mast-tiles { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .master-mods .mast-tile:nth-child(3) { grid-column: auto; }
+  .mast-groups { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.master-detail .detail-head { flex-wrap: wrap; }
+.master-mods .master-effect { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 8px; padding: 8px 0; align-content: start; }
+.master-mods .master-effect > label { grid-column: 1; grid-row: 1; margin: 0; }
+.master-mods .master-effect > .sd-row { display: contents; }
+.master-mods .master-effect > .sd-row label { display: none; }
+.master-mods .master-effect > .sd-row output { grid-column: 2; grid-row: 1; align-self: center; }
+.master-mods .master-effect > .sd-row input { grid-column: 1 / -1; grid-row: 2; width: 100%; }

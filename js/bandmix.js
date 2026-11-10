@@ -179,7 +179,6 @@ SS.bandMix = (() => {
     master.mix.lim = { ...master.mix.lim, on: false }; // le limiteur du mastering prend le relais
     master.mastering = { on: true, drive, ceiling: -1, width: 1.12, mono: style === 'edm' ? 120 : 100, release: style === 'edm' ? 0.12 : 0.18, clip: 0.5 };
     project.master = master;
-    delete project.masterProfile;
   }
 
   /** Gain d'entrée du mastering : mesuré pour chaque chanson (js/band-drive.js), sinon la valeur du style. */

@@ -105,13 +105,11 @@ Les échantillons Dirt-Samples sont joués à leur hauteur réelle, mesurée par
 
 Dans la console **Mix** :
 
-- **Faders par défaut** remet les pistes à −6 dB et le Master à −1,9 dB, sans toucher aux traitements ni aux
-  effets (0 dB sur toutes les pistes saturait dès que plusieurs jouent ensemble).
 - **↺ Tout réinitialiser** remet tout le mix à zéro : faders par défaut, égaliseurs à plat, compresseurs et
   limiteurs coupés, panoramiques au centre, Master d'origine (glue et limiteur de sécurité), mastering coupé. Les
   effets de son des pistes (chorus, écho, reverb, sidechain) et les retours partagés sont conservés.
 
-**Ctrl+Z** annule chacun de ces boutons en une fois.
+**Ctrl+Z** annule cette réinitialisation en une fois.
 
 Le panneau **Auto Mix** s'ouvre automatiquement à droite des tranches avec la console **Mix**. Deux grands
 boutons lancent les traitements : **Pilote Auto** démarre le cycle automatique et masque les conseils manuels ;
@@ -411,7 +409,6 @@ par la fenêtre **Key** :
 | `js/harmonypanel.js` | Fenêtre Key de la scène en cours : assistant en 3 étapes, onglets Ambiance, Accords, Grille, Couches, Vérifier |
 | `js/fx.js`       | Fenêtre Effets par piste (chorus, delay, reverb, sidechain, envois vers les bus partagés) |
 | `js/master-dsp.js` | Mastering du Master (AudioWorklet) : graves en mono, largeur, écrêtage doux, limiteur à anticipation, mesure LUFS / true peak |
-| `js/profiles.js`, `js/profiles-factory.js` | Profils de console (usine + personnels) |
 | `js/mixer.js`    | Console de mixage : tranches, EQ, compresseur, limiteur, vumètres |
 | `js/automix.js`  | Auto Mix : mesures (bandes d'octave, LUFS, LRA, corrélation), critères, cibles et conseils (fonctions pures) |
 | `js/automix-listen.js` | Auto Mix : écoute pendant la lecture (analyseurs sur les pistes et le Master) |

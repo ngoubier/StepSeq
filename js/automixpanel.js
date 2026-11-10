@@ -109,7 +109,6 @@ SS.automixPanel = (() => {
         const m = mp.mix;
         setPath(m, path.slice(4), v);
         p.master = { ...mp, mix: SS.cleanMix(m, SS.MASTER_DEFAULTS.mix) };
-        if (p.masterProfile) p.masterProfile.modified = true;
       }
       SS.audio.applyMaster(p);
       return;
@@ -123,7 +122,6 @@ SS.automixPanel = (() => {
       const m = SS.mixParams(t);
       setPath(m, path.slice(4), v);
       t.mix = SS.cleanMix(m);
-      if (t.mixProfile) t.mixProfile.modified = true;
       SS.audio.applyMix(t);
     } else if (path.startsWith('fx.')) {
       t.fx = { ...(t.fx || {}), [path.slice(3)]: v };

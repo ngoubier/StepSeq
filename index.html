@@ -82,7 +82,7 @@
       </button>
       <button id="mixerBtn" class="btn studio-btn mixer-btn" type="button" aria-pressed="false" title="Mix : console de mixage (EQ, compresseur, limiteur, faders)">
         <span class="sb-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg></span>
-        <span class="sb-txt"><b>Mix</b><small id="mixSub">Aucun profil</small></span>
+        <span class="sb-txt"><b>Mix</b><small>Console</small></span>
       </button>
     </div>
 
@@ -140,7 +140,6 @@
         <h2 id="mxTitle">Mix</h2>
         <span id="mxProject" class="mx-sub"></span>
         <span class="spacer"></span>
-        <button type="button" id="mxResetFaders" class="btn btn-small" title="Pistes à −6 dB, Master à −1,9 dB (marge avant le mastering) · traitements conservés · Ctrl+Z pour annuler">Faders par défaut</button>
         <button type="button" id="mxResetAll" class="btn btn-small" title="Tout remettre à zéro : faders par défaut, égaliseurs à plat, compresseurs et limiteurs coupés, panoramiques au centre, Master d'origine, mastering coupé · Ctrl+Z pour annuler">↺ Tout réinitialiser</button>
         <button type="button" id="amBtn" class="am-btn" aria-pressed="false" aria-controls="automix" title="Auto Mix : écoute le morceau pendant la lecture et propose des réglages de mixage et de mastering">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg> Auto Mix
@@ -152,7 +151,6 @@
       <div class="mx-main">
         <div class="mx-body">
           <section class="mx-group" aria-label="Tranches de la console">
-            <div id="mixerTop" class="mx-actionbar"></div>
             <div id="mixerStrips" class="mixer-strips"></div>
           </section>
           <section id="mixerDetail" class="mixer-detail" aria-label="Réglages de la tranche sélectionnée"></section>
@@ -710,8 +708,6 @@
   <script src="js/harmonypanel.js"></script>
   <script src="js/fx.js"></script>
   <script src="js/song.js"></script>
-  <script src="js/profiles-factory.js"></script>
-  <script src="js/profiles.js"></script>
   <script src="js/mixer.js"></script>
   <script src="js/automix.js"></script>
   <script src="js/automix-listen.js"></script>

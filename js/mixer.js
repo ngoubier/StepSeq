@@ -107,14 +107,10 @@ SS.mixer = (() => {
       color: t.color,
       track: t,
       getMix: () => SS.mixParams(t),
-      // toute retouche manuelle marque le profil appliqué comme « modifié »
-      setMix: (m, opts = {}) => {
+      setMix: (m) => {
         t.mix = m;
-        if (!opts.fromProfile && t.mixProfile) t.mixProfile.modified = true;
         SS.audio.applyMix(t);
       },
-      getProfile: () => t.mixProfile || null,
-      setProfile: (pr) => (pr ? (t.mixProfile = pr) : delete t.mixProfile),
       getVol: () => (typeof t.volume === 'number' ? t.volume : 0.8),
       setVol: (v) => {
         t.volume = v;
@@ -127,13 +123,10 @@ SS.mixer = (() => {
       color: '#e8e8ee',
       master: true,
       getMix: () => SS.masterParams(p).mix,
-      setMix: (m, opts = {}) => {
+      setMix: (m) => {
         p.master = { ...SS.masterParams(p), mix: m };
-        if (!opts.fromProfile && p.masterProfile) p.masterProfile.modified = true;
         SS.audio.applyMaster(p);
       },
-      getProfile: () => p.masterProfile || null,
-      setProfile: (pr) => (pr ? (p.masterProfile = pr) : delete p.masterProfile),
       getVol: () => SS.masterParams(p).volume,
       setVol: (v) => {
         p.master = { ...SS.masterParams(p), volume: v };
@@ -347,7 +340,6 @@ SS.mixer = (() => {
     if (!selected || !list.some((c) => c.id === selected)) selected = list[0].id;
     meters.clear();
     $('#mxProject').textContent = app.project().title;
-    $('#mixerTop').replaceChildren(mixsetBar(list.length));
     $('#mixerStrips').replaceChildren(...list.map(stripEl));
     renderDetail();
     if (pilotTreatment) refreshMasterAction(pilotTreatment);
@@ -376,21 +368,6 @@ SS.mixer = (() => {
     }, label);
   }
 
-  /** Badge du profil appliqué à la tranche (ou « sans profil »), cliquable pour en choisir un. */
-  function profileBadge(ch) {
-    const pr = ch.getProfile();
-    return h('button', {
-      type: 'button',
-      class: 'strip-prof' + (pr ? (pr.modified ? ' modified' : ' on') : ''),
-      title: pr ? `Profil : ${pr.name}${pr.modified ? ' (retouché depuis)' : ''} — cliquer pour changer` : 'Aucun profil — cliquer pour en choisir un',
-      onclick: () => {
-        selected = ch.id;
-        render();
-        const sel = $('#mixerDetail .profile-select');
-        if (sel) sel.focus();
-      },
-    }, h('span', { class: 'prof-ico', 'aria-hidden': 'true' }, '◆'), h('span', { class: 'prof-name' }, pr ? pr.short || pr.name : 'Sans profil'), pr && pr.modified ? h('i', {}, '*') : null);
-  }
   let detailFocus = 'eq';
 
   function stripEl(ch) {
@@ -459,8 +436,7 @@ SS.mixer = (() => {
         },
         ch.name
       ),
-      h('div', { class: 'strip-role' }, ch.master ? 'Sortie' : SS.profiles.ROLES[SS.profiles.roleOf(t)]),
-      profileBadge(ch),
+      h('div', { class: 'strip-role' }, ch.master ? 'Sortie' : SS.automix.ROLE_LABELS[SS.automix.roleOf(t)]),
       h('div', { class: 'strip-ins' }, insertBtn(ch, 'eq', 'EQ', 'Égaliseur'), insertBtn(ch, 'comp', 'CMP', 'Compresseur'), insertBtn(ch, 'lim', 'LIM', 'Limiteur')),
       eqCanvas,
       h('div', { class: 'strip-gr', title: 'Réduction de gain : compresseur (C) et limiteur (L)' }, h('span', {}, 'C', h('b', {}, grC)), h('span', {}, 'L', h('b', {}, grL))),
@@ -584,7 +560,7 @@ SS.mixer = (() => {
       ? { to: (x) => min * Math.pow(max / min, x), from: (v) => Math.log(v / min) / Math.log(max / min) }
       : { to: (x) => min + (max - min) * x, from: (v) => (v - min) / (max - min) };
     const out = h('output', {}, opts.fmt(value));
-    const input = h('input', { type: 'range', min: 0, max: 1000, step: 1, value: Math.round(clamp(scale.from(value), 0, 1) * 1000) });
+    const input = h('input', { type: 'range', 'aria-label': opts.ariaLabel || label, min: 0, max: 1000, step: 1, value: Math.round(clamp(scale.from(value), 0, 1) * 1000) });
     input.addEventListener('input', () => {
       let v = scale.to(+input.value / 1000);
       v = opts.step ? Math.round(v / opts.step) * opts.step : +v.toPrecision(3);
@@ -710,7 +686,7 @@ SS.mixer = (() => {
       const box = detailRefs && detailRefs.eqBox;
       if (!box) return 480;
       const full = box.clientWidth - 26;
-      return Math.round(full > 620 ? Math.min(620, full - 300) : Math.max(280, full));
+      return Math.round(ch.master ? Math.max(150, full >= 680 ? full * 0.54 : full) : full > 620 ? Math.min(620, full - 300) : Math.max(280, full));
     };
     const EQH = 170;
     let hot = null;
@@ -818,8 +794,8 @@ SS.mixer = (() => {
     const grBig = h('div', { class: 'gr-meter' }, h('i'));
     function drawTransfer() {
       const cc = ch.getMix().comp;
-      const W = 150;
-      const H = 150;
+      const W = ch.master ? 120 : 150;
+      const H = W;
       const g = setupCanvas(transfer, W, H);
       g.fillStyle = '#121216';
       g.fillRect(0, 0, W, H);
@@ -1012,7 +988,6 @@ SS.mixer = (() => {
       const setM = (patch, redraw = false) => {
         const cur = SS.masterParams(p);
         p.master = { ...cur, mastering: SS.cleanMastering({ ...cur.mastering, ...patch }) };
-        if (p.masterProfile) p.masterProfile.modified = true;
         SS.audio.applyMaster(p);
         if (redraw) {
           app.changed();
@@ -1055,13 +1030,16 @@ SS.mixer = (() => {
         h('div', { class: 'mast-tiles' }, tM.el, tS.el, tI.el, tTP.el, tGR.el),
         h(
           'div',
-          { class: 'sd-sliders' },
+          { class: 'mast-groups' },
+          h('fieldset', { class: 'mast-group' }, h('legend', {}, 'Niveau et crêtes'), h('div', { class: 'sd-sliders' },
           slider('Gain d\'entrée', ms.drive, -12, 18, { control: 'mastering.drive', fmt: (v) => (v > 0 ? '+' : '') + v.toFixed(1) + ' dB', step: 0.1, def: 0 }, (v) => setM({ drive: v, on: true })),
-          slider('Plafond', ms.ceiling, -6, 0, { control: 'mastering.ceiling', fmt: (v) => v.toFixed(1) + ' dBTP', step: 0.1, def: -1 }, (v) => setM({ ceiling: v })),
+          slider('Plafond', ms.ceiling, -6, 0, { control: 'mastering.ceiling', fmt: (v) => v.toFixed(1) + ' dBTP', step: 0.1, def: -1 }, (v) => setM({ ceiling: v })))),
+          h('fieldset', { class: 'mast-group' }, h('legend', {}, 'Dynamique'), h('div', { class: 'sd-sliders' },
           slider('Écrêtage doux', ms.clip, 0, 1, { control: 'mastering.clip', fmt: (v) => (v ? Math.round(v * 100) + ' %' : 'off'), step: 0.01, def: 0 }, (v) => setM({ clip: v })),
-          slider('Relâchement', ms.release, 0.02, 0.8, { control: 'mastering.release', log: true, fmt: (v) => Math.round(v * 1000) + ' ms', def: 0.12 }, (v) => setM({ release: v })),
+          slider('Relâchement', ms.release, 0.02, 0.8, { control: 'mastering.release', log: true, fmt: (v) => Math.round(v * 1000) + ' ms', def: 0.12 }, (v) => setM({ release: v })))),
+          h('fieldset', { class: 'mast-group' }, h('legend', {}, 'Espace stéréo'), h('div', { class: 'sd-sliders' },
           slider('Largeur stéréo', ms.width, 0, 2, { control: 'mastering.width', fmt: (v) => Math.round(v * 100) + ' %', step: 0.01, def: 1 }, (v) => setM({ width: v })),
-          slider('Graves en mono', ms.mono, 0, 250, { control: 'mastering.mono', fmt: (v) => (v ? `sous ${Math.round(v)} Hz` : 'off'), step: 5, def: 100 }, (v) => setM({ mono: v }))
+          slider('Graves en mono', ms.mono, 0, 250, { control: 'mastering.mono', fmt: (v) => (v ? `sous ${Math.round(v)} Hz` : 'off'), step: 5, def: 100 }, (v) => setM({ mono: v }))))
         ),
         h(
           'div',
@@ -1072,7 +1050,7 @@ SS.mixer = (() => {
           )
         ),
         hint,
-        h('p', { class: 'mod-help' }, 'Dernier maillon avant la sortie : graves en mono, largeur des aigus, écrêtage doux des transitoires puis limiteur à anticipation qui ne dépasse jamais le plafond (true peak). Le volume perçu se lit en LUFS (norme EBU R128) : −14 pour le streaming, −11 à −9 pour la musique électronique.')
+        h('p', { class: 'mod-help' }, 'Contrôle stéréo et protection true peak. Le niveau intégré se mesure pendant la lecture.')
       );
       mastRefs = { tM: tM.v, tS: tS.v, tI: tI.v, tTP: tTP.v, tGR: tGR.v };
     }
@@ -1094,35 +1072,34 @@ SS.mixer = (() => {
           h('div', { class: 'master-effect', 'data-effect': key },
             h('label', {}, h('input', { type: 'checkbox', checked: e[key].on, onchange: (ev) => setEffect((v) => ({ ...v, [key]: { ...v[key], on: ev.target.checked } }), true) }), label),
             slider(key === 'saturation' ? 'Quantité' : 'Dosage', e[key][amount], 0, max,
-              { fmt: (v) => Math.round(v * 100) + ' %', step: 0.01, def: SS.MASTER_DEFAULTS.effects[key][amount] },
+              { ariaLabel: label, fmt: (v) => Math.round(v * 100) + ' %', step: 0.01, def: SS.MASTER_DEFAULTS.effects[key][amount] },
               (v) => setEffect((fx) => ({ ...fx, [key]: { ...fx[key], [amount]: v } }))))),
-        h('p', { class: 'mod-help' }, 'Saturation douce, chorus lent et ambiance courte (0,7 s), avant l’égaliseur, la compression et les limiteurs. Bypass général sans perdre tes dosages.'));
+        h('p', { class: 'mod-help' }, 'Effets avant l’EQ et la dynamique du Master. Le bypass conserve les dosages.'));
     }
 
     const head = h(
       'div',
       { class: 'detail-head', style: `--c:${ch.color}` },
       h('b', { class: 'detail-name', title: ch.master ? 'Sortie générale' : 'Chaîne : égaliseur → compresseur → limiteur → panoramique → fader' }, ch.master ? 'Master' : ch.name),
-      profileBar(ch),
       h('button', {
         type: 'button',
         class: 'btn btn-small',
         title: 'Remettre cette tranche à plat (EQ, compresseur, limiteur, panoramique)',
         onclick: () => {
-          if (ch.master) ch.setMix(JSON.parse(JSON.stringify(SS.MASTER_DEFAULTS.mix)), { fromProfile: true });
+          if (ch.master) ch.setMix(JSON.parse(JSON.stringify(SS.MASTER_DEFAULTS.mix)));
           else {
             delete ch.track.mix;
             SS.audio.applyMix(ch.track);
           }
-          ch.setProfile(null);
           app.changed();
           render();
         },
       }, 'Réinitialiser')
     );
+    $('#mixerDetail').classList.toggle('master-detail', !!ch.master);
     $('#mixerDetail').style.setProperty('--c', ch.color);
-    $('#mixerDetail').replaceChildren(head, h('div', { class: 'detail-mods' + (vcfBox ? ' with-vcf' : '') }, eqBox, compBox, limBox, vcfBox, effectsBox, mastBox));
-    detailRefs = { eqBox, drawBig, drawTransfer, grBig, grLim, ch, mast: mastRefs };
+    $('#mixerDetail').replaceChildren(head, h('div', { class: 'detail-mods' + (ch.master ? ' master-mods' : '') + (vcfBox ? ' with-vcf' : '') }, eqBox, compBox, limBox, vcfBox, effectsBox, mastBox));
+    detailRefs = { eqBox, drawBig, drawTransfer, drawVcf, grBig, grLim, ch, mast: mastRefs };
     requestAnimationFrame(() => {
       drawBig();
       drawTransfer();
@@ -1130,398 +1107,21 @@ SS.mixer = (() => {
     });
   }
 
-  /* ------------------------------------------------------------------ profils multi-tranches */
-  let withLevels = false;
-  let lastMixset = '';
-
-  function applyMixset(prof) {
-    const p = app.project();
-    const clone = (o) => JSON.parse(JSON.stringify(o));
-    const roleOf = SS.profiles.roleOf;
-    const kick = p.tracks.find((t) => roleOf(t) === 'kick');
-    let done = 0;
-    const missing = [];
-    p.tracks.forEach((t) => {
-      const e = prof.roles[roleOf(t)];
-      if (!e) {
-        missing.push(t.name);
-        return;
-      }
-      const m = SS.mixParams(t);
-      m.eq = clone(e.mix.eq);
-      m.comp = clone(e.mix.comp);
-      m.lim = clone(e.mix.lim);
-      if (withLevels && Number.isFinite(e.pan)) m.pan = e.pan;
-      t.mix = SS.cleanMix(m);
-      const roleName = SS.profiles.ROLES[SS.profiles.roleOf(t)];
-      t.mixProfile = { id: prof.id, name: `${prof.name} — ${roleName}`, short: prof.short || prof.name, modified: false };
-      if (withLevels && Number.isFinite(e.volume)) {
-        t.volume = e.volume;
-        SS.audio.setTrackGain(t, t.volume);
-      }
-      if (e.sc && kick && kick !== t) {
-        t.fx = { ...(t.fx || {}), scSource: kick.id, scDepth: e.sc.depth, scRelease: e.sc.release };
-        SS.audio.applyFx(t);
-      }
-      SS.audio.applyMix(t);
-      done++;
-    });
-    if (prof.master) {
-      p.master = { volume: prof.master.volume, mix: SS.cleanMix({ ...clone(prof.master.mix), pan: 0 }, SS.MASTER_DEFAULTS.mix) };
-      p.masterProfile = { id: prof.id, name: `${prof.name} — Master`, short: prof.short || prof.name, modified: false };
-      SS.audio.applyMaster(p);
-    }
-    lastMixset = prof.id;
-    app.changed();
-    render();
-    SS.ui.toast(
-      `« ${prof.name} » appliqué à ${done} piste${done > 1 ? 's' : ''}${prof.master ? ' + Master' : ''}` +
-        (missing.length ? ` · sans réglage : ${missing.join(', ')}` : '') + ' — Ctrl+Z pour annuler',
-      4500
-    );
-  }
-
-  const RESET_ID = '__reset';
-  /*
-   * Niveaux de départ des faders : 0 dB partout sature dès que quelques pistes jouent ensemble (leurs crêtes
-   * s'additionnent au Master). −6 dB par piste et le Master à son niveau par défaut (−1,9 dB) laissent de la marge
-   * avant le mastering ; le gain d'entrée du mastering rend ensuite le volume final.
-   */
-  const FADER_TRACK_DB = -6;
-  const faderTrackGain = () => SS.dbToGain(FADER_TRACK_DB);
-
-  /** Remet uniquement les faders : pistes à −6 dB, Master à son niveau par défaut. */
-  function resetFaders() {
-    channels().forEach((ch) => ch.setVol(ch.master ? SS.MASTER_DEFAULTS.volume : faderTrackGain()));
-    app.changed();
-    render();
-    if (SS.automixPanel) SS.automixPanel.mixReset();
-    SS.ui.toast('Faders des pistes à −6 dB, Master à −1,9 dB — Ctrl+Z pour annuler', 4000);
-  }
-
-  /**
-   * Remet tout le mix à zéro : faders (comme ci-dessus), tranches à plat (égaliseur plat, compresseur et limiteur
-   * coupés, panoramique au centre), Master à ses réglages d'origine (glue et limiteur de sécurité) et mastering
-   * coupé. Les effets de son des pistes (chorus, écho, reverb, sidechain) et les retours partagés sont conservés.
-   */
+  /** Réinitialise le mix complet, en gardant les effets des pistes et les retours. */
   function resetEverything() {
     const p = app.project();
     p.tracks.forEach((t) => {
       delete t.mix;
-      delete t.mixProfile;
-      t.volume = faderTrackGain();
+      t.volume = SS.dbToGain(-6);
       SS.audio.applyMix(t);
       SS.audio.setTrackGain(t, t.volume);
     });
     p.master = JSON.parse(JSON.stringify(SS.MASTER_DEFAULTS));
-    delete p.masterProfile;
     SS.audio.applyMaster(p);
-    lastMixset = '';
     app.changed();
     render();
     if (SS.automixPanel) SS.automixPanel.mixReset();
     SS.ui.toast('Mix réinitialisé : faders, égaliseurs, compresseurs, limiteurs, panoramiques et mastering — Ctrl+Z pour annuler', 5000);
-  }
-
-  /** Remet toutes les tranches (pistes et Master) à plat : EQ, compresseur, limiteur, panoramique. */
-  function resetAll() {
-    const p = app.project();
-    p.tracks.forEach((t) => {
-      delete t.mix;
-      delete t.mixProfile;
-      SS.audio.applyMix(t);
-    });
-    p.master = { volume: p.master ? p.master.volume : SS.MASTER_DEFAULTS.volume, mix: JSON.parse(JSON.stringify(SS.MASTER_DEFAULTS.mix)) };
-    delete p.masterProfile;
-    SS.audio.applyMaster(p);
-    app.changed();
-    render();
-    SS.ui.toast(`${p.tracks.length + 1} tranches remises à plat (volumes conservés) — Ctrl+Z pour annuler`, 4000);
-  }
-
-  /** Barre d'action de la console : profil de mixage complet, appliqué à toutes les tranches en dessous. */
-  function mixsetBar(nStrips) {
-    const { factory, user } = SS.profiles.list('mixset');
-    const p = app.project();
-    const opt = (x) => h('option', { value: x.id, selected: lastMixset === x.id, title: x.desc || '' }, x.name);
-    const sel = h(
-      'select',
-      { class: 'profile-select', 'aria-label': 'Profil de mixage complet' },
-      h('option', { value: '' }, '— Choisir un profil de mixage —'),
-      h('optgroup', { label: 'Profils d’usine' }, factory.map(opt)),
-      user.length ? h('optgroup', { label: 'Mes profils' }, user.map(opt)) : null,
-      h('optgroup', { label: 'Par défaut' },
-        h('option', { value: RESET_ID, selected: lastMixset === RESET_ID, title: 'EQ, compresseur, limiteur et panoramique à plat sur toutes les tranches ; volumes conservés' }, '↺ Réinitialiser (toutes les tranches à plat)'))
-    );
-    const applyBtn = h('button', {
-      type: 'button',
-      class: 'btn btn-small btn-accent mx-apply',
-      title: 'Régler toutes les tranches ci-dessous (pistes et Master) avec ce profil',
-      onclick: () => {
-        if (sel.value === RESET_ID) return resetAll();
-        const prof = sel.value && SS.profiles.find(sel.value);
-        if (prof) applyMixset(prof);
-      },
-    });
-    const delBtn = h('button', {
-      type: 'button',
-      class: 'btn btn-small',
-      title: 'Supprimer le profil de mixage personnel choisi',
-      onclick: () => {
-        const prof = SS.profiles.find(sel.value);
-        if (!prof || prof.factory || !confirm(`Supprimer le profil « ${prof.name} » ?`)) return;
-        SS.profiles.remove(prof.id);
-        lastMixset = '';
-        render();
-      },
-    }, 'Supprimer');
-    const sync = () => {
-      const reset = sel.value === RESET_ID;
-      const prof = !reset && sel.value && SS.profiles.find(sel.value);
-      applyBtn.disabled = !prof && !reset;
-      applyBtn.replaceChildren(h('span', { 'aria-hidden': 'true' }, reset ? '↺' : '⤓'), reset ? ` Réinitialiser les ${nStrips} tranches` : ` Appliquer aux ${nStrips} tranches`);
-      applyBtn.title = reset ? 'Remettre toutes les tranches ci-dessous à plat (volumes conservés)' : 'Régler toutes les tranches ci-dessous (pistes et Master) avec ce profil';
-      delBtn.disabled = !prof || prof.factory;
-      const lv = levels.querySelector('input');
-      lv.disabled = reset;
-      levels.classList.toggle('disabled', reset);
-    };
-    sel.addEventListener('change', () => {
-      lastMixset = sel.value;
-      sync();
-    });
-    const levels = h('label', { class: 'profile-check', title: 'Appliquer aussi les volumes et panoramiques du profil (sinon : EQ, compresseur, limiteur et sidechain seulement)' },
-      h('input', { type: 'checkbox', checked: withLevels, onchange: (e) => (withLevels = e.target.checked) }), ' Volumes et panoramiques');
-    const saveBtn = h('button', {
-      type: 'button',
-      class: 'btn btn-small',
-      title: 'Mémoriser le réglage de toutes les tranches comme profil de mixage',
-      onclick: () => {
-        const input = h('input', { type: 'text', class: 'profile-name', placeholder: 'Nom du profil', maxlength: 60, value: `Mixage ${p.title}` });
-        const done = (ok) => {
-          const name = input.value.trim();
-          if (ok && name) {
-            const prof = SS.profiles.saveMixset(name, p);
-            if (prof) {
-              lastMixset = prof.id;
-              SS.ui.toast(`Profil de mixage « ${name} » enregistré (${Object.keys(prof.roles).length} rôles + Master)`, 2500);
-            } else SS.ui.toast('Impossible d’enregistrer le profil dans ce navigateur.', 3000);
-          }
-          render();
-        };
-        input.addEventListener('keydown', (e) => {
-          e.stopPropagation();
-          if (e.key === 'Enter') done(true);
-          if (e.key === 'Escape') done(false);
-        });
-        saveBtn.replaceWith(h('span', { class: 'profile-form' }, input,
-          h('button', { type: 'button', class: 'btn btn-small btn-accent', onclick: () => done(true) }, 'OK'),
-          h('button', { type: 'button', class: 'btn btn-small', onclick: () => done(false) }, 'Annuler')));
-        input.focus();
-        input.select();
-      },
-    }, 'Enregistrer ce mixage…');
-    const exportBtn = h('button', {
-      type: 'button',
-      class: 'btn btn-small',
-      title: 'Télécharger tous mes profils (tranches, Master, mixages) dans un fichier',
-      onclick: () => {
-        const blob = new Blob([SS.profiles.exportJson()], { type: 'application/json' });
-        const a = h('a', { href: URL.createObjectURL(blob), download: 'stepseq-profils.json' });
-        document.body.append(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-      },
-    }, 'Exporter');
-    const importBtn = h('button', {
-      type: 'button',
-      class: 'btn btn-small',
-      title: 'Ajouter les profils d’un fichier exporté',
-      onclick: () => {
-        const input = h('input', { type: 'file', accept: '.json,application/json' });
-        input.addEventListener('change', async () => {
-          const f = input.files[0];
-          if (!f) return;
-          try {
-            const n = SS.profiles.importJson(await f.text());
-            SS.ui.toast(`${n} profil(s) importé(s)`, 2500);
-            render();
-          } catch (e) {
-            SS.ui.toast('Ce fichier ne contient pas de profils StepSeq.', 3000);
-          }
-        });
-        input.click();
-      },
-    }, 'Importer');
-    sync();
-    return h(
-      'div',
-      { class: 'mx-actions' },
-      h('span', { class: 'mx-actions-label' }, h('b', {}, 'Profil de mixage'), h('small', {}, 'toutes les tranches ↓')),
-      sel,
-      applyBtn,
-      levels,
-      h('span', { class: 'mx-sep', 'aria-hidden': 'true' }),
-      saveBtn,
-      delBtn,
-      h('span', { class: 'mx-sep', 'aria-hidden': 'true' }),
-      exportBtn,
-      importBtn
-    );
-  }
-
-  /* ------------------------------------------------------------------ profils */
-  let lastProfile = {}; // id du dernier profil appliqué, par tranche (pour l'afficher dans la liste)
-
-  /** Piste qui sert de source au sidechain d'un profil : le premier kick (autre que la piste elle-même). */
-  const kickOf = (track) => app.project().tracks.find((t) => t !== track && t.type === 'drum' && t.sound === 'bd');
-
-  function applyProfile(ch, prof) {
-    const clone = (o) => JSON.parse(JSON.stringify(o));
-    const m = ch.getMix();
-    m.eq = clone(prof.mix.eq);
-    m.comp = clone(prof.mix.comp);
-    m.lim = clone(prof.mix.lim);
-    ch.setMix(ch.master ? m : SS.cleanMix(m), { fromProfile: true });
-    ch.setProfile({ id: prof.id, name: prof.name, short: prof.short || prof.name, modified: false });
-    let note = '';
-    if (ch.master && Number.isFinite(prof.volume)) ch.setVol(prof.volume);
-    if (!ch.master && prof.sc) {
-      const kick = kickOf(ch.track);
-      if (kick) {
-        ch.track.fx = { ...(ch.track.fx || {}), scSource: kick.id, scDepth: prof.sc.depth, scRelease: prof.sc.release };
-        SS.audio.applyFx(ch.track);
-        note = ` · sidechain sur « ${kick.name} »`;
-      } else note = ' · pas de kick pour le sidechain';
-    }
-    lastProfile[ch.id] = prof.id;
-    app.changed();
-    render();
-    SS.ui.toast(`Profil « ${prof.name} » appliqué${note} — Ctrl+Z pour annuler`, 3500);
-  }
-
-  function currentProfileData(ch) {
-    const m = ch.getMix();
-    const data = { mix: { eq: m.eq, comp: m.comp, lim: m.lim } };
-    if (ch.master) data.volume = ch.getVol();
-    else {
-      const f = SS.fxParams(ch.track);
-      if (f.scSource && f.scDepth > 0) data.sc = { depth: f.scDepth, release: f.scRelease };
-    }
-    return data;
-  }
-
-  function profileBar(ch) {
-    const kind = ch.master ? 'master' : 'channel';
-    const { factory, user } = SS.profiles.list(kind);
-    const desc = h('span', { class: 'profile-desc' });
-    const opt = (p) => h('option', { value: p.id, selected: lastProfile[ch.id] === p.id }, p.name);
-    const sel = h(
-      'select',
-      { class: 'profile-select', 'aria-label': 'Profil de console' },
-      h('option', { value: '' }, ch.master ? '— Choisir un profil de mastering —' : '— Choisir un profil de tranche —'),
-      h('optgroup', { label: 'Profils d’usine' }, factory.map(opt)),
-      user.length ? h('optgroup', { label: 'Mes profils' }, user.map(opt)) : null
-    );
-    const showDesc = () => {
-      const p = sel.value && SS.profiles.find(sel.value);
-      desc.textContent = p ? p.desc || (p.factory ? '' : 'Profil personnel') : 'Applique d’un coup EQ, compresseur et limiteur' + (ch.master ? ' (et le niveau du Master).' : ' (et le sidechain si le profil en a un).');
-      delBtn.disabled = !p || p.factory;
-    };
-    sel.addEventListener('change', () => {
-      const p = sel.value && SS.profiles.find(sel.value);
-      if (p) applyProfile(ch, p);
-    });
-    const delBtn = h('button', {
-      type: 'button',
-      class: 'btn btn-small',
-      title: 'Supprimer le profil personnel choisi',
-      onclick: () => {
-        const p = SS.profiles.find(sel.value);
-        if (!p || p.factory || !confirm(`Supprimer le profil « ${p.name} » ?`)) return;
-        SS.profiles.remove(p.id);
-        delete lastProfile[ch.id];
-        render();
-      },
-    }, 'Supprimer');
-    const saveBtn = h('button', {
-      type: 'button',
-      class: 'btn btn-small btn-accent',
-      title: 'Mémoriser les réglages actuels de cette tranche comme profil',
-      onclick: () => {
-        const input = h('input', { type: 'text', class: 'profile-name', placeholder: 'Nom du profil', maxlength: 60, value: ch.master ? 'Mon master' : ch.name });
-        const done = (ok) => {
-          const name = input.value.trim();
-          if (ok && name) {
-            const p = SS.profiles.save(kind, name, currentProfileData(ch));
-            if (p) {
-              lastProfile[ch.id] = p.id;
-              SS.ui.toast(`Profil « ${name} » enregistré`, 2000);
-            } else SS.ui.toast('Impossible d’enregistrer le profil dans ce navigateur.', 3000);
-          }
-          render();
-        };
-        input.addEventListener('keydown', (e) => {
-          e.stopPropagation();
-          if (e.key === 'Enter') done(true);
-          if (e.key === 'Escape') done(false);
-        });
-        const form = h('span', { class: 'profile-form' }, input,
-          h('button', { type: 'button', class: 'btn btn-small btn-accent', onclick: () => done(true) }, 'OK'),
-          h('button', { type: 'button', class: 'btn btn-small', onclick: () => done(false) }, 'Annuler'));
-        saveBtn.replaceWith(form);
-        input.focus();
-        input.select();
-      },
-    }, 'Enregistrer comme profil…');
-    const exportBtn = h('button', {
-      type: 'button',
-      class: 'btn btn-small',
-      title: 'Télécharger mes profils dans un fichier (pour les sauvegarder ou les partager)',
-      onclick: () => {
-        const blob = new Blob([SS.profiles.exportJson()], { type: 'application/json' });
-        const a = h('a', { href: URL.createObjectURL(blob), download: 'stepseq-profils.json' });
-        document.body.append(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-      },
-    }, 'Exporter');
-    const importBtn = h('button', {
-      type: 'button',
-      class: 'btn btn-small',
-      title: 'Ajouter les profils d’un fichier exporté',
-      onclick: () => {
-        const input = h('input', { type: 'file', accept: '.json,application/json' });
-        input.addEventListener('change', async () => {
-          const f = input.files[0];
-          if (!f) return;
-          try {
-            const n = SS.profiles.importJson(await f.text());
-            SS.ui.toast(`${n} profil(s) importé(s)`, 2500);
-            render();
-          } catch (e) {
-            SS.ui.toast('Ce fichier ne contient pas de profils StepSeq.', 3000);
-          }
-        });
-        input.click();
-      },
-    }, 'Importer');
-    showDesc();
-    sel.addEventListener('change', showDesc);
-    const cur = ch.getProfile();
-    return h(
-      'div',
-      { class: 'profile-bar' },
-      h('span', { class: 'profile-label' }, 'Profil de la tranche'),
-      h('span', { class: 'profile-current' + (cur ? (cur.modified ? ' modified' : ' on') : '') },
-        h('span', { 'aria-hidden': 'true' }, '◆ '), cur ? cur.name + (cur.modified ? ' (retouché)' : '') : 'aucun'),
-      sel,
-      saveBtn,
-      delBtn,
-      desc
-    );
   }
 
   /** Redessine les courbes d'EQ (miniature de la tranche + grande courbe). */
@@ -1643,12 +1243,18 @@ SS.mixer = (() => {
     app = appApi;
     $('#mixerBtn').addEventListener('click', () => (isOpen ? close() : open()));
     $('#mxClose').addEventListener('click', close);
-    $('#mxResetFaders').addEventListener('click', resetFaders);
     $('#mxResetAll').addEventListener('click', resetEverything);
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && isOpen && !document.querySelector('dialog[open]') && !document.querySelector('.ctx-menu')) close();
     });
     window.addEventListener('resize', () => isOpen && detailRefs && detailRefs.drawBig());
+    let detailWidth = 0;
+    new ResizeObserver(([entry]) => {
+      if (!isOpen || !detailRefs || Math.abs(entry.contentRect.width - detailWidth) < 1) return;
+      detailWidth = entry.contentRect.width;
+      detailRefs.drawBig();
+      detailRefs.drawVcf();
+    }).observe($('#mixerDetail'));
   }
 
   return { init, open, close, render, refreshFader, showPilotAction, refreshPilotDrive, refreshMasterAction, isOpen: () => isOpen, drawEq }; // drawEq : miniatures des chaînes Auto Mix

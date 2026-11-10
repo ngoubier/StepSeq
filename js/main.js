@@ -180,8 +180,8 @@
   }
 
   /**
-   * Sous-titres des boutons Band, Song et Mix (celui de Key vient de js/harmonypanel.js) :
-   * le groupe qui a inspiré les pistes Band, la scène en cours, le profil de mixage appliqué.
+   * Sous-titres des boutons Band et Song (celui de Key vient de js/harmonypanel.js) :
+   * le groupe qui a inspiré les pistes Band et la scène en cours.
    */
   function syncStudio() {
     // Band : l'artiste de l'inspiration la plus utilisée par les pistes créées dans Band
@@ -199,9 +199,6 @@
     // Song : la scène en cours
     const sc = SS.currentScene(project);
     $('#songSub').textContent = sc ? sc.name : '—';
-    // Mix : le dernier profil de mixage appliqué à toutes les tranches
-    const mp = project.masterProfile;
-    $('#mixSub').textContent = mp ? (mp.short || mp.name) + (mp.modified ? ' · modifié' : '') : 'Aucun profil';
   }
 
   function setProject(p) {

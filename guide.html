@@ -122,7 +122,7 @@
         <tr><td>Règle des mesures</td><td>La ligne des numéros au-dessus des pistes (1, .2, .3…). Un clic sur une case place le curseur de lecture sur ce pas (repère vert) : la lecture partira de là. Pendant la lecture, elle y saute aussitôt.</td></tr>
         <tr><td>Afficheur</td><td>Position en cours : mesure . temps . double-croche</td></tr>
         <tr><td>↶ / ↷</td><td>Annuler / rétablir les dernières actions (jusqu'à 100) : notes, pas, pistes, sons, effets, scènes, tempo… Un glisser (volume, curseur, longueur) compte pour une seule action.</td></tr>
-        <tr><td>Band · Key · Song · Mix</td><td>Les fenêtres de travail, regroupées. Sous chaque nom, un sous-titre résume l'état : <b>Band</b> le groupe qui a inspiré les pistes créées dans Band (par ex. Bronski Beat), <b>Key</b> la tonalité de la scène en cours, <b>Song</b> la scène en cours, <b>Mix</b> le profil de mixage appliqué (« · modifié » si le Master a été retouché depuis).</td></tr>
+        <tr><td>Band · Key · Song · Mix</td><td>Les fenêtres de travail, regroupées. Sous chaque nom, un sous-titre résume l'état : <b>Band</b> le groupe qui a inspiré les pistes créées dans Band (par ex. Bronski Beat), <b>Key</b> la tonalité de la scène en cours, <b>Song</b> la scène en cours, <b>Mix</b> l’accès à la console.</td></tr>
         <tr><td>Aide</td><td>Ouvre ce guide</td></tr>
       </table></div>
       <p><b>Sur téléphone</b>, l'écran se réorganise : en haut le titre, annuler / rétablir et l'aide, puis la lecture, puis le tempo, la mesure, le nombre de mesures et le groove (sans leurs étiquettes), puis Band, Key, Song et Mix en quatre colonnes. Le panneau des scènes tient sur une ligne qui défile (l'arrangement complet est dans la fenêtre <b>Song</b>), tout comme la barre du bas. Les en-têtes de piste ne gardent que Muet, Solo, le nom, le piano roll et les réglages. À l'horizontale, la barre du haut passe sur deux lignes et le panneau des scènes se masque pour laisser la hauteur à la grille.</p>
@@ -503,40 +503,12 @@
         <tr><td>Placement</td><td>Sous le limiteur d'une piste : décale la piste de −30 à +30 ms. Une caisse claire jouée quelques millisecondes en retard sonne plus détendue ; en avance, plus nerveuse. Double-clic : 0.</td></tr>
       </table></div>
       <p>Toucher un réglage active le module. Double-clic sur un curseur : valeur par défaut. <b>Réinitialiser</b> remet la tranche à plat. Tout est enregistré dans le projet et s'annule avec Ctrl+Z.</p>
-      <h3>Profils</h3>
-      <p>Chaque tranche affiche sous son nom son <b>rôle</b> (Kick, Basse, Nappe… ou Sortie pour le Master) et un badge violet <b>◆</b> avec le profil appliqué ; un <b>*</b> signale que la tranche a été retouchée depuis. Un clic sur le badge ouvre le profil de la tranche. La tranche sélectionnée est reliée par une flèche au panneau du bas, qui reprend sa couleur, son nom et son badge « Profil de la tranche ».</p>
-      <p>Dans ce panneau, la liste <b>Profil de la tranche</b> applique d'un coup un réglage complet à la tranche choisie (EQ, compresseur, limiteur ; plus le sidechain sur le kick si le profil en a un, ou le niveau pour le Master). Le panoramique et le volume de la piste ne changent pas. Ctrl+Z annule.</p>
-      <div class="table-wrap"><table>
-        <tr><th>Profils d'usine</th><th>Contenu</th></tr>
-        <tr><td>Tranches</td><td>Tranche à plat, Kick punchy (synthpop), Caisse claire présente, Clap aéré, Hi-hat brillant, Open hat, Toms (nettoyage), Cymbale / crash, Basse synth + pompe, Nappe large + pompe, Arpège discret + pompe, Lead synth en avant — les réglages du mixage de « Train de nuit ».</td></tr>
-        <tr><td>Master</td><td>Master synthpop / dance (≈ −11 LUFS), Master streaming (≈ −14 LUFS, 3 dB plus doux pour Spotify / YouTube), Master d'origine (sécurité).</td></tr>
-      </table></div>
-      <ul>
-        <li><b>Enregistrer comme profil…</b> mémorise les réglages actuels de la tranche sous le nom de ton choix (un nom existant est remplacé). Tes profils apparaissent sous « Mes profils », pour toutes les pistes et tous les projets.</li>
-        <li><b>Supprimer</b> efface le profil personnel choisi.</li>
-        <li>Tes profils sont gardés dans ce navigateur : <b>Exporter</b> les télécharge dans un fichier, <b>Importer</b> les recharge (sur un autre ordinateur, ou après avoir vidé le navigateur).</li>
-      </ul>
-      <h3>Profils de mixage complets (multi-tranches)</h3>
-      <p>En haut de la console, la barre d'actions <b>Profil de mixage — toutes les tranches ↓</b> encadre les tranches qu'elle pilote : elle règle toutes les pistes et le Master d'un coup. Chaque piste reçoit le réglage de son <b>rôle</b>, affiché juste en dessous (Kick 1 → Kick, Saw Bass → Basse…) :</p>
-      <div class="table-wrap"><table>
-        <tr><th>Rôle</th><th>Pistes concernées</th></tr>
-        <tr><td>Kick, Caisse claire, Clap, Hi-hat, Open hat, Toms, Cymbales, Percussions</td><td>Pistes Drum, selon leur type de son (ou le nom de leur banque pour Dirt-Samples, VCSL, Mridangam)</td></tr>
-        <tr><td>Basse</td><td>Instruments de la famille Bass</td></tr>
-        <tr><td>Arpège</td><td>Pistes de catégorie Arpège</td></tr>
-        <tr><td>Nappe</td><td>Pads, cordes, chœurs, et les pistes Accord</td></tr>
-        <tr><td>Lead</td><td>Synth Lead, cuivres, bois et vents</td></tr>
-        <tr><td>Claviers</td><td>Pianos, orgues, mallets, guitares et le reste</td></tr>
-      </table></div>
-      <ul>
-        <li>Profils d'usine : <b>Synthpop / dance — mix « Train de nuit »</b> (≈ −11 LUFS) et sa <b>version streaming</b> (≈ −14 LUFS).</li>
-        <li><b>Appliquer aux N tranches</b> règle EQ, compresseur, limiteur et sidechain (sur le premier kick) de chaque piste, puis le Master. Coche <b>Volumes et panoramiques</b> pour reprendre aussi la balance du profil. Ctrl+Z annule le tout en une fois.</li>
-        <li><b>Enregistrer ce mixage…</b> mémorise le mixage actuel du projet (un réglage par rôle, celui de la première piste de ce rôle, plus le Master) pour le réutiliser sur d'autres morceaux. Ces profils s'exportent et s'importent avec les autres.</li>
-        <li>Le dernier choix de la liste, <b>↺ Réinitialiser (toutes les tranches à plat)</b>, devient <b>Réinitialiser les N tranches</b> : EQ, compresseur, limiteur et panoramique de toutes les pistes et du Master reviennent aux réglages par défaut, et les badges de profil disparaissent. Les volumes (faders) et le sidechain sont conservés. Ctrl+Z annule.</li>
-        <li>Après application, chaque tranche porte le badge ◆ du profil multi-tranches, avec son rôle (« Train de nuit — Basse »…).</li>
-      </ul>
+      <h3>Tranches et réinitialisation</h3>
+      <p>Chaque tranche affiche son <b>rôle</b> (Kick, Basse, Nappe… ou Sortie pour le Master). La tranche sélectionnée est reliée par une flèche au panneau du bas, qui reprend sa couleur et son nom. Les modules se règlent directement dans ce panneau ou avec Auto Mix.</p>
+      <p><b>Tout réinitialiser</b> remet les pistes à −6 dB, les égaliseurs à plat, les compresseurs et limiteurs des pistes à l'arrêt et les panoramiques au centre. Le Master retrouve ses réglages de sécurité et son mastering est coupé. Les effets des pistes et les retours partagés sont conservés. <b>Ctrl+Z</b> annule cette remise à zéro.</p>
 
       <h2 id="automix"><small>Assistant</small>Auto Mix : mixage et mastering guidés</h2>
-      <p>Le bouton <b>✦ Auto Mix</b> de la barre de titre de la console ouvre un panneau à droite des tranches. Lance la lecture : l'assistant <b>écoute</b> le morceau, mesure chaque piste et le Master, puis donne un <b>score pro</b> et des <b>conseils chiffrés</b>. Rien ne change sans ton accord. Pour un diagnostic complet, passe en mode chanson (fenêtre Song) et écoute tout le morceau : le panneau indique les secondes et les scènes déjà entendues. Le premier diagnostic, provisoire, arrive après 20 secondes.</p>
+      <p>Auto Mix s’ouvre avec la console. <b>Pilote Auto</b> lance l’équilibrage des faders, le panoramique, les traitements piste par piste et le Master global. <b>Assistant</b> arrête le pilote, affiche les onglets <b>Mixage</b> et <b>Mastering</b> et lance la lecture pour proposer des conseils à accepter, ajuster ou refuser. Les réglages déjà appliqués sont conservés. Le premier diagnostic arrive après la durée d’écoute choisie dans les préférences (20 secondes par défaut).</p>
       <h3>Ce qui rend un morceau « pro » : les critères mesurés</h3>
       <div class="table-wrap"><table>
         <tr><th>Critère</th><th>Ce qui est mesuré</th><th>Cible</th></tr>

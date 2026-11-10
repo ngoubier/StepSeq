@@ -48,34 +48,8 @@ const ok = (c, m) => {
   // console : module Mastering
   await page.click('#mixerBtn');
   await page.waitForTimeout(500);
-  // Tous les faders baissés : remise à 0 dB sans toucher aux traitements, annulable en une fois.
-  await page.locator('#mixerStrips .fader').evaluateAll((els) => {
-    els.forEach((el) => {
-      for (let i = 0; i < 200; i++) el.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
-    });
-  });
-  await page.waitForTimeout(1200);
-  const lowered = await P();
-  ok(lowered.tracks.every((t) => t.volume < 0.01) && lowered.master.volume < 0.01, 'tous les faders sont baissés, Master compris');
-  await page.click('#mxResetFaders');
-  await page.waitForTimeout(1200);
-  const flat = await P();
-  ok(flat.tracks.every((t) => Math.abs(t.volume - 0.501) < 0.002) && flat.master.volume === 0.8,
-    'bouton : pistes à −6 dB, Master à son niveau par défaut (−1,9 dB)');
-  ok(await page.locator('#mixerStrips .fader[aria-valuetext="-6.0 dB"]').count() === flat.tracks.length,
-    'les faders affichent leur nouveau niveau');
-  const withoutVolumes = (p) => JSON.stringify({
-    tracks: p.tracks.map(({ volume, ...t }) => t),
-    master: { ...p.master, volume: null }, returns: p.returns,
-  });
-  ok(withoutVolumes(flat) === withoutVolumes(lowered), 'EQ, dynamique, panoramique, effets et mastering conservés');
-  await page.keyboard.press('Control+z');
-  await page.waitForTimeout(1200);
-  const undone = await P();
-  ok(undone.tracks.every((t, i) => t.volume === lowered.tracks[i].volume) && undone.master.volume === lowered.master.volume,
-    'Ctrl+Z restaure tous les niveaux précédents en une fois');
-  await page.click('#mxResetFaders');
-  await page.waitForTimeout(1200);
+  ok(await page.locator('#mxResetFaders, .profile-bar, .profile-select, .strip-prof, #mixerTop').count() === 0, 'profils et bouton Faders par défaut retirés');
+  ok(await page.locator('.strip-role').first().textContent() === 'Kick', 'rôle de la piste conservé sans les profils');
   await page.click('#mixerStrips .strip[data-id="__master"] .strip-name');
   await page.waitForTimeout(300);
   ok(await page.isVisible('.mod-mast'), 'console : module Mastering sur le Master');

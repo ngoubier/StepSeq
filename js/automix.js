@@ -362,7 +362,34 @@ SS.automix = (() => {
     return diff.map((d) => d - off);
   }
 
-  /** Rôle d'une piste : celui que le Band lui a donné, sinon celui que devine la console (js/profiles.js). */
+  /** Rôle d'une piste : celui que le Band lui a donné, sinon déduit du son et de la famille de l’instrument. */
+  const ROLE_LABELS = {
+    kick: 'Kick', snare: 'Caisse claire', clap: 'Clap', hat: 'Hi-hat', ohat: 'Open hat', tom: 'Toms', cymbal: 'Cymbales',
+    perc: 'Percussions', bass: 'Basse', pad: 'Nappe', arp: 'Arpège', lead: 'Lead', keys: 'Claviers',
+  };
+  const DRUM_ROLE = { bd: 'kick', sd: 'snare', cp: 'clap', hh: 'hat', oh: 'ohat', lt: 'tom', mt: 'tom', ht: 'tom', cr: 'cymbal', rd: 'cymbal' };
+  function inferRole(t) {
+    if (!t) return 'keys';
+    if (t.type === 'drum') {
+      if (!t.source || t.source === 'tdm') return DRUM_ROLE[t.sound] || 'perc';
+      const b = String(t.bank || '').toLowerCase();
+      if (/(^|[^a-z])(bd|kick|bassdrum)|bd$|kick/.test(b)) return 'kick';
+      if (/sn|sd|snare/.test(b)) return 'snare';
+      if (/cp|clap/.test(b)) return 'clap';
+      if (/oh|open/.test(b)) return 'ohat';
+      if (/hh|hat/.test(b)) return 'hat';
+      if (/tom|lt|mt|ht/.test(b)) return 'tom';
+      if (/cr|cy|ride|cymbal|clash|gong/.test(b)) return 'cymbal';
+      return 'perc';
+    }
+    if (t.family === 'bass') return 'bass';
+    if (t.family === 'analog' && /bass/i.test((SS.findJunoPatch?.(t.junoPatch) || {}).name || '')) return 'bass';
+    if (t.category === 'arp') return 'arp';
+    if (['pads', 'strings', 'voices'].includes(t.family) || t.category === 'chord') return 'pad';
+    if (['synth', 'brass', 'winds'].includes(t.family)) return 'lead';
+    return 'keys';
+  }
+
   const BAND_ROLE = { bass: 'bass', pad: 'pad', strings: 'pad', keys: 'keys', guitar: 'keys', arp: 'arp', lead: 'lead', vox: 'lead', sax: 'lead' };
   const BAND_DRUM = { bd: 'kick', sd: 'snare', cp: 'clap', rim: 'perc', hh: 'hat', oh: 'ohat', rd: 'cymbal', cr: 'cymbal', lt: 'tom', mt: 'tom', ht: 'tom' };
   function roleOf(t) {
@@ -373,7 +400,7 @@ SS.automix = (() => {
       if (r === 'perc') return 'perc';
       if (BAND_ROLE[r]) return BAND_ROLE[r];
     }
-    return SS.profiles ? SS.profiles.roleOf(t) : 'keys';
+    return inferRole(t);
   }
 
   /** Note de 0 à 100 : pleine dans la tolérance, nulle à `zero` d'écart. */
@@ -1124,7 +1151,7 @@ SS.automix = (() => {
   }
 
   return {
-    BANDS, BAND_LABEL, ZONES, TARGETS, CURVES, ROLE_LEVEL, ROLE_HP, CRITERIA, SCOPES, DEFAULT_PREFS,
+    ROLE_LABELS, BANDS, BAND_LABEL, ZONES, TARGETS, CURVES, ROLE_LEVEL, ROLE_HP, CRITERIA, SCOPES, DEFAULT_PREFS,
     bandPowers, kPower, stereoSums, correlation, integrated, loudnessRange,
     newAccumulator, accumulate, summarize, diagnose, toneDeviation, proposeTarget, cleanPrefs, roleOf,
     unitOf, formatValue, valueAt, grade, moduleDesc, ruleFor, balancePlan, roleTarget, heard, coPlay, solvePairs,
