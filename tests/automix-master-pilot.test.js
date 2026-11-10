@@ -77,3 +77,13 @@ test('Master : desserre un limiteur trop sollicité sans dépasser −1 dB', () 
   assert.equal(d.module, 'lim');
   assert.equal(d.changes.find((c) => c.path === 'mix.lim.ceil').to, -11);
 });
+test('Effets Master : anciens projets transparents, dosages bornés et sauvegarde complète', () => {
+  assert.equal(SS.masterParams({}).effects.on, false);
+  const effects = SS.cleanMasterEffects({ on: true, saturation: { amount: 4 }, chorus: { mix: 9 }, reverb: { mix: -1 } });
+  assert.equal(effects.saturation.amount, 1);
+  assert.equal(effects.chorus.mix, 0.5);
+  assert.equal(effects.reverb.mix, 0);
+  const project = SS.newProject(); project.master = { ...SS.masterParams(project), effects };
+  const loaded = SS.normalizeProject(JSON.parse(SS.serialize(project)));
+  assert.deepEqual(loaded.master.effects, effects);
+});

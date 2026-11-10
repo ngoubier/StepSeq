@@ -30,7 +30,7 @@ const ok = (c, m) => {
   demo.tracks = demo.tracks.slice(0, 2);
   demo.tracks.forEach((t) => {
     t.volume = 0.25;
-    t.mix = { eq: { on: false }, comp: { on: false }, lim: { on: false } };
+    t.mix = { pan: 0.2, eq: { on: false }, comp: { on: false }, lim: { on: false } };
   });
   demo.tracks.push({ ...structuredClone(demo.tracks[1]), id: 'silent-track', name: 'Piste silencieuse', steps: demo.tracks[1].steps.map(() => 0) });
   demo.master = { volume: 0.8, mix: { eq: { on: false }, comp: { on: false }, lim: { on: false } }, mastering: { on: false } };
@@ -47,15 +47,18 @@ const ok = (c, m) => {
     const plan = SS.automixPilot.plan;
     SS.automixPilot.plan = (...args) => window.__balanced ? plan(...args) : ({ state: { balanced: false, waiting: [] } });
   });
+  ok(await page.locator('#amPilot input[type=checkbox]').count() === 0, 'aucune case de sélection : cycle complet par défaut');
   await page.click('#amPilotBtn');
   await page.waitForTimeout(11000);
   ok((await P()).tracks.every((t) => !t.mix.eq.on && !t.mix.comp.on), 'aucun traitement de piste avant l’équilibre du mix');
   await page.evaluate(() => { window.__balanced = true; });
   await page.waitForFunction(() => !!SS.automixPanel._state().pilot.ramp?.master?.track, {}, { timeout: 60000 });
   ok(await page.locator(`.strip[data-id="${first}"].selected.pilot-working`).count() === 1, 'première piste sélectionnée pendant son traitement');
+  ok(await page.locator(`.strip[data-id="${first}"] .strip-pan.pilot-value`).count() === 1, 'panoramique : commande précise illuminée pendant le recentrage');
   await page.waitForFunction((id) => SS.automixPanel._state().pilot.trackDone.has(id), first, { timeout: 30000 });
   await page.waitForTimeout(700);
   const one = await P();
+  ok(one.tracks[0].mix.pan === 0, 'kick recentré automatiquement');
   ok(one.tracks[0].mix.eq.on && one.tracks[0].mix.comp.on, 'première piste : EQ et compression activées à partir de l’écoute réelle');
   ok(!one.tracks[1].mix.eq.on && !one.tracks[1].mix.comp.on, 'deuxième piste encore intacte');
   ok(/Réécoute du mix/.test(await page.textContent('#amPilotStatus')), 'phase de réécoute clairement indiquée');

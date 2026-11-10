@@ -56,3 +56,14 @@ test('Pistes déjà traitées : correction mesurée, gains bornés et aucune aut
   assert.equal(actions[0].changes[0].to, -6);
   assert.equal(actions[1].changes[0].to, -12);
 });
+test('Panoramique : fondations centrées, placements modérés et paires opposées', () => {
+  const tracks = ['kick','bass','snare','clap','lead','hat','ohat','arp','arp','keys','pad','perc'].map((role,i) => ({ id: String(i), role, mix: { pan: 0.8 } }));
+  const pans = P.panTargets(tracks);
+  for (let i = 0; i < 5; i++) assert.equal(pans.get(String(i)), 0);
+  assert.equal(pans.get('5'), 0.2);
+  assert.equal(pans.get('6'), -0.2);
+  assert.equal(pans.get('7'), -pans.get('8'));
+  assert.ok([...pans.values()].every((p) => Math.abs(p) <= 0.35));
+  assert.deepEqual(P.panTargets(tracks), pans);
+  assert.equal(P.panTargets([{ ...tracks[5], mute: true }]).size, 0);
+});

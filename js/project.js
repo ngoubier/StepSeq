@@ -200,6 +200,7 @@ SS.normalizeProject = (data) => {
       mix: SS.cleanMix(data.master.mix, SS.MASTER_DEFAULTS.mix),
     };
     if (data.master.mastering && typeof data.master.mastering === 'object') p.master.mastering = SS.cleanMastering(data.master.mastering);
+    if (data.master.effects && typeof data.master.effects === 'object') p.master.effects = SS.cleanMasterEffects(data.master.effects);
   }
   if (data.returns && typeof data.returns === 'object') p.returns = SS.cleanReturns(data.returns);
   return p;
@@ -548,6 +549,7 @@ SS.MASTER_DEFAULTS = {
   // mastering (js/master-dsp.js), après le fader : graves en mono sous `mono` Hz, largeur stéréo des aigus,
   // gain d'entrée `drive` (dB) dans un limiteur à anticipation plafonné à `ceiling` dBTP, relâchement `release` (s)
   mastering: { on: false, drive: 0, ceiling: -1, width: 1, mono: 100, release: 0.12, clip: 0 },
+  effects: { on: false, saturation: { on: true, amount: 0.15 }, chorus: { on: true, mix: 0.08 }, reverb: { on: true, mix: 0.05 } },
 };
 
 /*
@@ -579,6 +581,14 @@ SS.mixParams = (track) => deepMerge(SS.MIX_DEFAULTS, track && track.mix);
 SS.masterParams = (p) => deepMerge(SS.MASTER_DEFAULTS, p && p.master);
 SS.returnParams = (p) => deepMerge(SS.RETURN_DEFAULTS, p && p.returns);
 const numIn = (v, lo, hi, d) => (Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d);
+SS.cleanMasterEffects = (value) => {
+  const d = SS.MASTER_DEFAULTS.effects;
+  const e = deepMerge(d, value);
+  return { on: !!e.on,
+    saturation: { on: !!e.saturation.on, amount: numIn(e.saturation.amount, 0, 1, d.saturation.amount) },
+    chorus: { on: !!e.chorus.on, mix: numIn(e.chorus.mix, 0, 0.5, d.chorus.mix) },
+    reverb: { on: !!e.reverb.on, mix: numIn(e.reverb.mix, 0, 0.3, d.reverb.mix) } };
+};
 SS.cleanMastering = (m) => {
   const d = SS.MASTER_DEFAULTS.mastering;
   const o = deepMerge(d, m);

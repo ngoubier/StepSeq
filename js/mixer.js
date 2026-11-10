@@ -15,10 +15,12 @@ SS.mixer = (() => {
   const meters = new Map(); // id -> { canvas, peakHold, holdTime, grC, grL, readout }
   let detailRefs = null;
   let pilotAction = null;
+  let pilotTreatment = null;
 
   /** Suit le geste du pilote sans reconstruire les faders en mouvement. */
   function showPilotAction(moves = [], drive = null) {
-    document.querySelectorAll('#mixerDetail .mod.pilot-control').forEach((el) => el.classList.remove('pilot-control'));
+    pilotTreatment = null;
+    document.querySelectorAll('#mixerDetail .pilot-control, #mixerDetail .pilot-value, #mixerStrips .pilot-value').forEach((el) => el.classList.remove('pilot-control', 'pilot-value'));
     pilotAction = moves.length || drive ? { moves, drive } : null;
     const id = drive ? '__master' : moves[0] && moves[0].id;
     if (id && selected !== id) {
@@ -30,9 +32,13 @@ SS.mixer = (() => {
       el.classList.toggle('selected', el.dataset.id === selected);
       el.classList.toggle('pilot-working', active || !!drive && el.dataset.id === '__master');
       el.querySelector('.fader').classList.toggle('pilot-control', active);
+      el.querySelector('.strip-db').classList.toggle('pilot-value', active);
     });
     const gain = document.querySelector('#mixerDetail [data-control="mastering.drive"]');
-    if (gain) gain.classList.toggle('pilot-control', !!drive);
+    if (gain) {
+      gain.classList.toggle('pilot-control', !!drive && drive.to !== drive.from);
+      gain.querySelectorAll('input, output').forEach((el) => el.classList.toggle('pilot-value', !!drive && drive.to !== drive.from));
+    }
     if (id) document.querySelector(`#mixerStrips .strip[data-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }
 
@@ -44,15 +50,37 @@ SS.mixer = (() => {
   }
 
   function refreshMasterAction(action) {
+    const previous = pilotTreatment;
     const tid = action.track || '__master';
+    const reveal = !previous || previous.track !== action.track || previous.module !== action.module;
     selected = tid;
     renderDetail();
-    showPilotAction([], tid === '__master' ? { from: 0, to: 0 } : null);
-    document.querySelector(`#mixerStrips .strip[data-id="${CSS.escape(tid)}"]`)?.classList.add('pilot-working');
-    document.querySelectorAll('#mixerDetail .pilot-control').forEach((el) => el.classList.remove('pilot-control'));
+    showPilotAction();
+    pilotTreatment = action;
+    const strip = document.querySelector(`#mixerStrips .strip[data-id="${CSS.escape(tid)}"]`);
+    if (!strip) return;
+    strip.classList.add('pilot-working');
     const module = action.changes.some((c) => c.path.startsWith('mastering.')) ? 'mast' : action.module;
     const box = document.querySelector(`#mixerDetail [data-mod="${module}"]`);
     if (box) box.classList.add('pilot-control');
+    const active = action.activePaths || action.changes.map((c) => c.path);
+    for (const path of active) {
+      const el = (path === 'mix.pan' ? strip : document.querySelector('#mixerDetail'))?.querySelector(`[data-control="${CSS.escape(path)}"]`);
+      if (!el) continue;
+      el.classList.add('pilot-value');
+      el.querySelectorAll('input, output').forEach((v) => v.classList.add('pilot-value'));
+    }
+    if (action.module === 'pan') {
+      const pan = SS.mixParams(chan(tid).track).pan;
+      strip.querySelector('.strip-pan').value = Math.round(pan * 100);
+      const label = strip.querySelector('.strip-pan-lbl');
+      label.textContent = panText(pan);
+      label.classList.toggle('pilot-value', active.includes('mix.pan'));
+    }
+    if (reveal) {
+      strip.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      (box?.querySelector('.pilot-value') || box)?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
   }
 
   const h = (tag, attrs = {}, ...children) => {
@@ -322,7 +350,8 @@ SS.mixer = (() => {
     $('#mixerTop').replaceChildren(mixsetBar(list.length));
     $('#mixerStrips').replaceChildren(...list.map(stripEl));
     renderDetail();
-    if (pilotAction) showPilotAction(pilotAction.moves, pilotAction.drive);
+    if (pilotTreatment) refreshMasterAction(pilotTreatment);
+    else if (pilotAction) showPilotAction(pilotAction.moves, pilotAction.drive);
     if (SS.automixPanel) SS.automixPanel.decorate(); // pastilles des conseils Auto Mix
   }
 
@@ -333,6 +362,7 @@ SS.mixer = (() => {
       type: 'button',
       class: 'ins' + (on ? ' on' : ''),
       'data-key': key,
+      'data-control': `mix.${key}.on`,
       title: `${full} : ${on ? 'actif — cliquer pour le couper' : 'coupé — cliquer pour l’activer'}`,
       'aria-pressed': String(on),
       onclick: () => {
@@ -392,6 +422,7 @@ SS.mixer = (() => {
       step: 1,
       value: Math.round(m.pan * 100),
       class: 'strip-pan',
+      'data-control': 'mix.pan',
       title: 'Panoramique (double-clic : centre)',
       'aria-label': `Panoramique ${ch.name}`,
     });
@@ -578,6 +609,7 @@ SS.mixer = (() => {
       type: 'button',
       class: 'mod-power' + (on ? ' on' : ''),
       'data-key': key,
+      'data-control': `mix.${key}.on`,
       'aria-pressed': String(on),
       title: on ? `Désactiver ${label}` : `Activer ${label}`,
       onclick: () => {
@@ -635,6 +667,7 @@ SS.mixer = (() => {
               step,
               value: fmt(band[field]),
               'aria-label': `${b.label} ${field}`,
+              'data-control': `mix.eq.${b.key}.${field}`,
               onchange: (ev) => {
                 const v = clamp(parseFloat(ev.target.value), min, max);
                 if (!Number.isFinite(v)) return;
@@ -653,6 +686,7 @@ SS.mixer = (() => {
               ? h('label', {}, h('input', {
                   type: 'checkbox',
                   checked: e.hp.on,
+                  'data-control': 'mix.eq.hp.on',
                   onchange: (ev) => {
                     update((mm) => {
                       mm.eq.hp.on = ev.target.checked;
@@ -841,12 +875,12 @@ SS.mixer = (() => {
       h(
         'div',
         { class: 'sd-sliders' },
-        slider('Seuil', c.th, -60, 0, { fmt: (v) => v.toFixed(1) + ' dB', step: 0.5, def: -18 }, (v) => update((mm) => { mm.comp.th = v; mm.comp.on = true; })),
-        slider('Ratio', c.ratio, 1, 20, { log: true, fmt: (v) => v.toFixed(1) + ':1', step: 0.1, def: 3 }, (v) => update((mm) => { mm.comp.ratio = v; mm.comp.on = true; })),
-        slider('Attaque', c.att, 0.0005, 0.3, { log: true, fmt: (v) => (v * 1000).toFixed(v < 0.01 ? 1 : 0) + ' ms', def: 0.01 }, (v) => update((mm) => { mm.comp.att = v; })),
-        slider('Relâchement', c.rel, 0.01, 1, { log: true, fmt: (v) => Math.round(v * 1000) + ' ms', def: 0.15 }, (v) => update((mm) => { mm.comp.rel = v; })),
-        slider('Genou (knee)', c.knee, 0, 40, { fmt: (v) => v.toFixed(0) + ' dB', step: 1, def: 6 }, (v) => update((mm) => { mm.comp.knee = v; })),
-        slider('Gain de compensation', c.makeup, -12, 24, { fmt: (v) => (v > 0 ? '+' : '') + v.toFixed(1) + ' dB', step: 0.5, def: 0 }, (v) => update((mm) => { mm.comp.makeup = v; }))
+        slider('Seuil', c.th, -60, 0, { control: 'mix.comp.th', fmt: (v) => v.toFixed(1) + ' dB', step: 0.5, def: -18 }, (v) => update((mm) => { mm.comp.th = v; mm.comp.on = true; })),
+        slider('Ratio', c.ratio, 1, 20, { control: 'mix.comp.ratio', log: true, fmt: (v) => v.toFixed(1) + ':1', step: 0.1, def: 3 }, (v) => update((mm) => { mm.comp.ratio = v; mm.comp.on = true; })),
+        slider('Attaque', c.att, 0.0005, 0.3, { control: 'mix.comp.att', log: true, fmt: (v) => (v * 1000).toFixed(v < 0.01 ? 1 : 0) + ' ms', def: 0.01 }, (v) => update((mm) => { mm.comp.att = v; })),
+        slider('Relâchement', c.rel, 0.01, 1, { control: 'mix.comp.rel', log: true, fmt: (v) => Math.round(v * 1000) + ' ms', def: 0.15 }, (v) => update((mm) => { mm.comp.rel = v; })),
+        slider('Genou (knee)', c.knee, 0, 40, { control: 'mix.comp.knee', fmt: (v) => v.toFixed(0) + ' dB', step: 1, def: 6 }, (v) => update((mm) => { mm.comp.knee = v; })),
+        slider('Gain de compensation', c.makeup, -12, 24, { control: 'mix.comp.makeup', fmt: (v) => (v > 0 ? '+' : '') + v.toFixed(1) + ' dB', step: 0.5, def: 0 }, (v) => update((mm) => { mm.comp.makeup = v; }))
       )
     );
 
@@ -861,8 +895,8 @@ SS.mixer = (() => {
       h(
         'div',
         { class: 'sd-sliders' },
-        slider('Plafond', l.ceil, -24, 0, { fmt: (v) => v.toFixed(1) + ' dB', step: 0.1, def: -1 }, (v) => update((mm) => { mm.lim.ceil = v; mm.lim.on = true; })),
-        slider('Relâchement', l.rel, 0.01, 1, { log: true, fmt: (v) => Math.round(v * 1000) + ' ms', def: 0.1 }, (v) => update((mm) => { mm.lim.rel = v; }))
+        slider('Plafond', l.ceil, -24, 0, { control: 'mix.lim.ceil', fmt: (v) => v.toFixed(1) + ' dB', step: 0.1, def: -1 }, (v) => update((mm) => { mm.lim.ceil = v; mm.lim.on = true; })),
+        slider('Relâchement', l.rel, 0.01, 1, { control: 'mix.lim.rel', log: true, fmt: (v) => Math.round(v * 1000) + ' ms', def: 0.1 }, (v) => update((mm) => { mm.lim.rel = v; }))
       ),
       h('p', { class: 'mod-help' }, ch.master
         ? 'Sur le Master, le limiteur évite la saturation de la sortie. Un plafond de −0,3 à −1 dB est courant.'
@@ -1014,6 +1048,7 @@ SS.mixer = (() => {
           type: 'button',
           class: 'mod-power' + (on ? ' on' : ''),
           'aria-pressed': String(on),
+          'data-control': 'mastering.on',
           title: on ? 'Désactiver le mastering' : 'Activer le mastering',
           onclick: () => setM({ on: !on }, true),
         }, on ? 'ON' : 'OFF')),
@@ -1022,11 +1057,11 @@ SS.mixer = (() => {
           'div',
           { class: 'sd-sliders' },
           slider('Gain d\'entrée', ms.drive, -12, 18, { control: 'mastering.drive', fmt: (v) => (v > 0 ? '+' : '') + v.toFixed(1) + ' dB', step: 0.1, def: 0 }, (v) => setM({ drive: v, on: true })),
-          slider('Plafond', ms.ceiling, -6, 0, { fmt: (v) => v.toFixed(1) + ' dBTP', step: 0.1, def: -1 }, (v) => setM({ ceiling: v })),
-          slider('Écrêtage doux', ms.clip, 0, 1, { fmt: (v) => (v ? Math.round(v * 100) + ' %' : 'off'), step: 0.01, def: 0 }, (v) => setM({ clip: v })),
-          slider('Relâchement', ms.release, 0.02, 0.8, { log: true, fmt: (v) => Math.round(v * 1000) + ' ms', def: 0.12 }, (v) => setM({ release: v })),
-          slider('Largeur stéréo', ms.width, 0, 2, { fmt: (v) => Math.round(v * 100) + ' %', step: 0.01, def: 1 }, (v) => setM({ width: v })),
-          slider('Graves en mono', ms.mono, 0, 250, { fmt: (v) => (v ? `sous ${Math.round(v)} Hz` : 'off'), step: 5, def: 100 }, (v) => setM({ mono: v }))
+          slider('Plafond', ms.ceiling, -6, 0, { control: 'mastering.ceiling', fmt: (v) => v.toFixed(1) + ' dBTP', step: 0.1, def: -1 }, (v) => setM({ ceiling: v })),
+          slider('Écrêtage doux', ms.clip, 0, 1, { control: 'mastering.clip', fmt: (v) => (v ? Math.round(v * 100) + ' %' : 'off'), step: 0.01, def: 0 }, (v) => setM({ clip: v })),
+          slider('Relâchement', ms.release, 0.02, 0.8, { control: 'mastering.release', log: true, fmt: (v) => Math.round(v * 1000) + ' ms', def: 0.12 }, (v) => setM({ release: v })),
+          slider('Largeur stéréo', ms.width, 0, 2, { control: 'mastering.width', fmt: (v) => Math.round(v * 100) + ' %', step: 0.01, def: 1 }, (v) => setM({ width: v })),
+          slider('Graves en mono', ms.mono, 0, 250, { control: 'mastering.mono', fmt: (v) => (v ? `sous ${Math.round(v)} Hz` : 'off'), step: 5, def: 100 }, (v) => setM({ mono: v }))
         ),
         h(
           'div',
@@ -1040,6 +1075,28 @@ SS.mixer = (() => {
         h('p', { class: 'mod-help' }, 'Dernier maillon avant la sortie : graves en mono, largeur des aigus, écrêtage doux des transitoires puis limiteur à anticipation qui ne dépasse jamais le plafond (true peak). Le volume perçu se lit en LUFS (norme EBU R128) : −14 pour le streaming, −11 à −9 pour la musique électronique.')
       );
       mastRefs = { tM: tM.v, tS: tS.v, tI: tI.v, tTP: tTP.v, tGR: tGR.v };
+    }
+
+    let effectsBox = null;
+    if (ch.master) {
+      const e = SS.cleanMasterEffects(SS.masterParams(app.project()).effects);
+      const setEffect = (update, redraw = false) => {
+        const p = app.project();
+        p.master = { ...SS.masterParams(p), effects: SS.cleanMasterEffects(update(SS.cleanMasterEffects(SS.masterParams(p).effects))) };
+        SS.audio.applyMaster(p);
+        if (redraw) { app.changed(); renderDetail(); }
+      };
+      effectsBox = h('section', { class: 'mod mod-master-effects', 'data-mod': 'effects' },
+        h('div', { class: 'mod-head' }, h('h3', {}, 'Effets du Master'),
+          h('button', { type: 'button', class: 'mod-power' + (e.on ? ' on' : ''), 'aria-pressed': String(e.on),
+            title: 'Bypass général des effets du Master', onclick: () => setEffect((v) => ({ ...v, on: !v.on }), true) }, e.on ? 'ACTIF' : 'BYPASS')),
+        ...[['saturation', 'Saturation douce', 'amount', 1], ['chorus', 'Chorus stéréo', 'mix', 0.5], ['reverb', 'Réverbération courte', 'mix', 0.3]].map(([key, label, amount, max]) =>
+          h('div', { class: 'master-effect', 'data-effect': key },
+            h('label', {}, h('input', { type: 'checkbox', checked: e[key].on, onchange: (ev) => setEffect((v) => ({ ...v, [key]: { ...v[key], on: ev.target.checked } }), true) }), label),
+            slider(key === 'saturation' ? 'Quantité' : 'Dosage', e[key][amount], 0, max,
+              { fmt: (v) => Math.round(v * 100) + ' %', step: 0.01, def: SS.MASTER_DEFAULTS.effects[key][amount] },
+              (v) => setEffect((fx) => ({ ...fx, [key]: { ...fx[key], [amount]: v } }))))),
+        h('p', { class: 'mod-help' }, 'Saturation douce, chorus lent et ambiance courte (0,7 s), avant l’égaliseur, la compression et les limiteurs. Bypass général sans perdre tes dosages.'));
     }
 
     const head = h(
@@ -1064,7 +1121,7 @@ SS.mixer = (() => {
       }, 'Réinitialiser')
     );
     $('#mixerDetail').style.setProperty('--c', ch.color);
-    $('#mixerDetail').replaceChildren(head, h('div', { class: 'detail-mods' + (vcfBox ? ' with-vcf' : '') }, eqBox, compBox, limBox, vcfBox, mastBox));
+    $('#mixerDetail').replaceChildren(head, h('div', { class: 'detail-mods' + (vcfBox ? ' with-vcf' : '') }, eqBox, compBox, limBox, vcfBox, effectsBox, mastBox));
     detailRefs = { eqBox, drawBig, drawTransfer, grBig, grLim, ch, mast: mastRefs };
     requestAnimationFrame(() => {
       drawBig();

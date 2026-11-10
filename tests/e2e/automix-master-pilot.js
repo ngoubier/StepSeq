@@ -47,9 +47,12 @@ const ok = (c, m) => {
   const before = await P();
   ok(!before.master.mix.comp.on && !before.master.mastering.on, 'Master initial : compresseur et mastering désactivés');
   await page.click('#amBtn');
-  await page.uncheck('#amPilotFaders');
-  await page.uncheck('#amPilotProcessing');
   await page.click('#amPilotBtn');
+  // Ce scénario isole le Master après la phase de pistes ; le cycle complet a son propre test.
+  await page.evaluate(() => {
+    SS.automixPilot.plan = () => ({ state: { balanced: true, waiting: [] } });
+    SS.automixPanel._state().pilot.trackDone = new Set(JSON.parse(localStorage.getItem('stepseq.autosave')).tracks.map((t) => t.id));
+  });
   await page.waitForFunction(() => SS.automixPanel._state().pilot.masterSpent.lim >= 1, { }, { timeout: 25000 });
   await page.waitForTimeout(1000);
   ok((await P()).master.mix.lim.on && (await P()).master.mix.lim.ceil <= -1, 'écoute réelle : limiteur Master activé, plafond protégé');
@@ -57,7 +60,7 @@ const ok = (c, m) => {
   await page.waitForTimeout(1000);
   let p = await P();
   ok(p.master.mix.comp.on && p.master.mix.comp.ratio === 1.5, 'écoute réelle : compression légère appliquée');
-  ok(p.tracks.every((t, i) => t.volume === before.tracks[i].volume), 'mode Master seul : aucun fader de piste modifié');
+  ok(p.tracks.every((t, i) => t.volume === before.tracks[i].volume), 'phase Master : aucun fader de piste modifié');
 
   // Un diagnostic tonal contrôlé exerce la rampe et le retour visuel de l’EQ.
   await page.evaluate(() => {
@@ -74,6 +77,7 @@ const ok = (c, m) => {
     };
   });
   await page.waitForSelector('.mod-eq.pilot-control');
+  ok(await page.locator('[data-control="mix.eq.high.g"].pilot-value').count() === 1, 'EQ Master : valeur exacte du shelf illuminée');
   ok(await page.locator('.strip.master.selected.pilot-working').count() === 1, 'EQ en cours : Master sélectionné et module illuminé');
   ok(/Égaliseur/.test(await page.textContent('.am-pilot-task')), 'action Master décrite dans le panneau');
   await page.waitForFunction(() => !SS.automixPanel._state().pilot.ramp);

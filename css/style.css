@@ -2739,7 +2739,12 @@ dialog.am-prefs { width: min(620px, calc(100vw - 32px)); }
 .pilot-control { outline: 2px solid var(--gold); outline-offset: 3px; border-radius: 5px; box-shadow: 0 0 16px #e5b95c55; }
 .fader.pilot-control .fader-thumb { background: var(--gold); box-shadow: 0 0 12px #e5b95c99; }
 @media (max-width: 1000px) { .am-resize { display: none; } }
-.am-pilot-scopes { display: flex; flex-direction: column; gap: 8px; font-size: 13px; line-height: 1.4; }
-.am-pilot-scopes label { display: flex; gap: 8px; align-items: center; }
-.am-pilot-scopes input { accent-color: var(--accent-2); }
 .am-pilot-progress { margin: 0; padding: 8px 10px; border-radius: 6px; background: #132e44; font-size: 13px; line-height: 1.5; color: var(--text); }
+
+.pilot-value { background-color: #624b15 !important; color: #fff0b5 !important; box-shadow: 0 0 10px #e5b95c88; outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 4px; }
+input.pilot-value { accent-color: var(--gold); }
+.mod-master-effects { grid-column: span 2; }
+.master-effect { padding: 8px 0; border-top: 1px solid var(--line); }
+.master-effect > label { display: flex; gap: 8px; align-items: center; font-size: 13px; margin-bottom: 6px; }
+.master-effect input[type=checkbox] { accent-color: var(--accent-2); }
+@media (max-width: 700px) { .mod-master-effects { grid-column: auto; } }

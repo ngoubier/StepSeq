@@ -47,7 +47,6 @@ const ok = (c, m) => {
   await page.click('#amBtn');
   await page.waitForTimeout(300);
   ok(await page.isVisible('#amPilotBtn'), 'bouton du pilote auto dans le panneau');
-  await page.uncheck('#amPilotProcessing'); // ce scénario isole le pilotage des faders
   const hasNullText = () => page.locator('#amPilot').evaluate((el) => [...el.childNodes].some((n) => n.nodeType === Node.TEXT_NODE && n.textContent.trim() === 'null'));
   ok(!(await hasNullText()), 'pilote au repos : aucun texte « null » à la place de l’action');
   const width = await page.locator('#automix').evaluate((el) => el.getBoundingClientRect().width);

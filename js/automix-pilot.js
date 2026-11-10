@@ -266,7 +266,22 @@ SS.automixPilot = (() => {
     return limiterAction;
   }
 
-  /** Examine les trois modules d'une piste entendue, sans toucher à son fader. */
+  /** Positions modérées : centre pour les fondations, paires alternées pour les accompagnements. */
+  function panTargets(tracks) {
+    const centers = new Set(['kick', 'bass', 'snare', 'clap', 'lead']);
+    const starts = { hat: 0.2, ohat: -0.2, cymbal: -0.3, tom: -0.25, perc: 0.35, keys: -0.2, arp: 0.3, pad: -0.15 };
+    const count = {};
+    return new Map(tracks.filter((t) => !t.mute).map((t) => {
+      if (centers.has(t.role)) return [t.id, 0];
+      const base = starts[t.role];
+      if (base == null) return [t.id, t.mix.pan];
+      const i = count[t.role] || 0;
+      count[t.role] = i + 1;
+      return [t.id, base * (i % 2 ? -1 : 1)];
+    }));
+  }
+
+  /** Examine les modules d'une piste entendue, sans toucher à son fader. */
   function planTrack(sum, track, scopes = {}, locked = new Set(), suggestions = []) {
     const m = sum && sum.tracks[track.id];
     if (!sum || sum.secs < 10 || !A().heard(m) || track.mute) return null;
@@ -317,5 +332,5 @@ SS.automixPilot = (() => {
     return actions;
   }
 
-  return { P, newTracker, feed, forget, relOf, plan, planMaster, planTrack, rampSecs, ease };
+  return { P, newTracker, feed, forget, relOf, plan, planMaster, planTrack, panTargets, rampSecs, ease };
 })();

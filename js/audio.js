@@ -11,6 +11,7 @@ SS.audio = (() => {
   let masterFader = null;
   let masterMeter = null;
   let masterProc = null; // nœud de mastering (AudioWorklet)
+  let masterEffects = null;
   let loudness = null; // dernières mesures du mastering : { m, s, i, tp, gr, secs }
   let lastMasterProject = null;
   let returns = null; // bus d'effets partagés : { plate, hall, echo }
@@ -516,6 +517,7 @@ SS.audio = (() => {
       return;
     }
     const mp = SS.masterParams(project);
+    applyMasterEffects(mp.effects);
     applyStrip(masterStrip, mp.mix);
     masterFader.gain.setTargetAtTime(mp.volume, ctx.currentTime, 0.015);
     applyMastering(project);
@@ -534,6 +536,48 @@ SS.audio = (() => {
     P('mono').setValueAtTime(m.mono, now);
     P('release').setValueAtTime(m.release, now);
     P('clip').setValueAtTime(m.clip, now);
+  }
+
+  /** Effets créatifs avant l'EQ, la compression et les limiteurs du Master. */
+  function applyMasterEffects(value) {
+    const e = SS.cleanMasterEffects(value);
+    if (!masterEffects && !e.on) return; // anciens projets : trajet audio inchangé
+    if (!masterEffects) {
+      const stage = (input, effect) => {
+        const dry = ctx.createGain(), wet = ctx.createGain(), out = ctx.createGain();
+        dry.gain.value = 1; wet.gain.value = 0;
+        input.connect(dry).connect(out);
+        input.connect(effect.input || effect);
+        (effect.output || effect).connect(wet).connect(out);
+        return { dry, wet, out };
+      };
+      const sat = ctx.createWaveShaper();
+      sat.oversample = '4x';
+      const curve = new Float32Array(8193);
+      for (let i = 0; i < curve.length; i++) { const x = i / (curve.length - 1) * 2 - 1; curve[i] = Math.tanh(2 * x) / 2; }
+      sat.curve = curve;
+      const saturation = stage(master, sat);
+      const chorusBus = { input: ctx.createGain(), pre: ctx.createGain() };
+      buildChorus(chorusBus);
+      chorusBus.chorus.dry.gain.value = 0;
+      chorusBus.chorus.wet.gain.value = 1;
+      chorusBus.chorus.lfo.frequency.value = 0.35;
+      chorusBus.chorus.modL.gain.value = 0.0015;
+      chorusBus.chorus.modR.gain.value = -0.0015;
+      const chorus = stage(saturation.out, { input: chorusBus.input, output: chorusBus.pre });
+      const highpass = ctx.createBiquadFilter(); highpass.type = 'highpass'; highpass.frequency.value = 180;
+      const conv = ctx.createConvolver(); conv.buffer = impulse(0.7, 5500);
+      highpass.connect(conv);
+      const reverb = stage(chorus.out, { input: highpass, output: conv });
+      master.disconnect(masterStrip.entry);
+      reverb.out.connect(masterStrip.entry);
+      masterEffects = { saturation, chorus, reverb };
+    }
+    for (const [name, stage] of Object.entries(masterEffects)) {
+      const amount = e.on && e[name].on ? (name === 'saturation' ? e[name].amount : e[name].mix) : 0;
+      stage.wet.gain.setTargetAtTime(amount, ctx.currentTime, 0.02);
+      stage.dry.gain.setTargetAtTime(1 - amount, ctx.currentTime, 0.02);
+    }
   }
   /** Remet à zéro la mesure du volume intégré (au lancement de la lecture). */
   function resetLoudness() {

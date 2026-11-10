@@ -157,8 +157,7 @@ testées) que l'on **accepte**, **ajuste** (25 à 150 %) ou **refuse** (`js/auto
   automatique en solo et pendant l'écoute A.
 - **Largeur d'Auto Mix** : glisser le bord gauche du panneau (ou utiliser les flèches une fois la poignée
   sélectionnée au clavier). La largeur est mémorisée ; sur petit écran, le panneau reste empilé sous la console.
-- **Pilote du Master** : avant de démarrer, cocher **Master : EQ, compresseur et limiteur** ; décocher
-  **Faders des pistes** et **Chaque piste : EQ, compresseur et limiteur** pour ne travailler que le mastering global. L'équilibre des pistes passe
+- **Pilote du Master** : le traitement global fait partie du cycle automatique complet. L'équilibre des pistes passe
   d'abord. Après 10 secondes d'écoute fraîche, le pilote agit sur un module à la fois : graves et aigus par pas
   de 0,5 dB (±4 dB maximum), compression légère à 1,5:1 quand le compresseur est coupé, puis adaptation du seuil
   selon la réduction mesurée. Le limiteur true peak du mastering actif garde un plafond d'au plus −1 dBTP et
@@ -166,7 +165,7 @@ testées) que l'on **accepte**, **ajuste** (25 à 150 %) ou **refuse** (`js/auto
   protège les crêtes à −1 dBFS. Le gain n'est pas augmenté lorsque les attaques sont déjà trop écrasées.
   Chaque geste est visible dans la console et annulable par Ctrl+Z. Retoucher un module le retire du pilotage
   pour la séance. Les autorisations des préférences et un budget de gestes par module limitent les corrections.
-- **Traitements piste par piste** : **Chaque piste : EQ, compresseur et limiteur** est coché par défaut.
+- **Traitements piste par piste** : le cycle complet est toujours actif, sans cases de sélection.
   Après l'équilibre des faders, le pilote examine les pistes entendues une à une : EQ selon leur rôle,
   compression calée sur la crête d'entrée mesurée, limiteur si les crêtes le nécessitent. Les tranches déjà
   traitées sont également vérifiées et corrigées d'après le diagnostic. Les modules inutiles restent coupés.
@@ -175,6 +174,26 @@ testées) que l'on **accepte**, **ajuste** (25 à 150 %) ou **refuse** (`js/auto
   sans bloquer les autres. Le panneau indique la phase et le nombre de pistes vérifiées ; la tranche et son
   module en cours de réglage sont mis en évidence. Chaque geste s'annule avec Ctrl+Z et un module retouché
   à la main est laissé à l'utilisateur pour le reste de la séance.
+
+**Panoramique automatique** : intégré aux traitements de chaque piste. Les positions suivantes sont des
+valeurs de départ modérées, pas des normes universelles ; inverser les côtés reste un choix artistique.
+Le pilote respecte l'autorisation Panoramique des préférences et laisse une commande retouchée à la main.
+
+| Rôle | Position proposée |
+|---|---|
+| Kick, basse, caisse claire, clap, lead / voix principale | Centre |
+| Charleston fermé / ouvert | Droite 20 % / gauche 20 % |
+| Cymbales, toms, percussions | Alternance gauche / droite à 25–35 % |
+| Arpèges | Alternance droite / gauche à 30 % |
+| Claviers / guitares d'accompagnement | Alternance gauche / droite à 20 % |
+| Nappes | Alternance gauche / droite à 15 % |
+
+Ces proportions sont des choix conservateurs du projet.
+
+**Effets du Master** : module séparé avec saturation douce, chorus stéréo lent et réverbération courte
+(0,7 s, graves filtrés à 180 Hz). Chaque effet dispose de son activation et de son dosage ; le bypass général
+conserve les réglages. Le module démarre en bypass et reste transparent dans les anciens projets.
+Les effets précèdent l'EQ, la compression et les limiteurs ; l'autopilote ne change pas ces effets créatifs.
 
 Outils de mesure (Playwright + Chromium, rendu hors temps réel de StepSeq) :
 
@@ -285,6 +304,7 @@ node tests/e2e/automix-chains.js
 node tests/e2e/automix-pilot.js
 node tests/e2e/automix-track-pilot.js
 node tests/e2e/automix-master-pilot.js
+node tests/e2e/master-effects.js
 node tests/e2e/mobile-ui.js
 ```
 
