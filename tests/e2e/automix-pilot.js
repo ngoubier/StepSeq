@@ -47,6 +47,17 @@ const ok = (c, m) => {
   await page.click('#amBtn');
   await page.waitForTimeout(300);
   ok(await page.isVisible('#amPilotBtn'), 'bouton du pilote auto dans le panneau');
+  const width = await page.locator('#automix').evaluate((el) => el.getBoundingClientRect().width);
+  const grip = await page.locator('#amResize').boundingBox();
+  await page.mouse.move(grip.x + grip.width / 2, grip.y + 80);
+  await page.mouse.down();
+  await page.mouse.move(grip.x - 120, grip.y + 80, { steps: 8 });
+  await page.mouse.up();
+  ok(await page.locator('#automix').evaluate((el) => el.getBoundingClientRect().width) > width + 100, 'bord gauche : panneau élargi');
+  await page.locator('#amResize').focus();
+  await page.keyboard.press('Home');
+  ok(await page.locator('#automix').evaluate((el) => el.getBoundingClientRect().width) === 320, 'largeur réglable au clavier');
+  await page.keyboard.press('ArrowLeft');
 
   // la basse perd 12 dB (fader à la main)
   const leadId = await page.evaluate(() => window.__p().tracks.find((t) => t.band && t.band.key === 'bass').id);
@@ -61,15 +72,24 @@ const ok = (c, m) => {
   await page.waitForTimeout(500);
   ok(await page.evaluate(() => SS.audio.isPlaying()), 'le pilote lance la lecture');
   ok(/Arrêter/.test(await page.textContent('#amPilotBtn')), 'bouton : arrêter le pilote');
+  ok(!(await page.isVisible('#amCards')) && !(await page.isVisible('#amFoot')) && !(await page.isVisible('#amScore')),
+    'pilote actif : conseils et commandes manuelles masqués');
   // pendant un geste, le fader glisse (plusieurs valeurs intermédiaires)
   const seen = new Set();
+  let highlighted = false;
+  let taskShown = false;
   for (let i = 0; i < 300; i++) {
     seen.add(await fader.getAttribute('aria-valuetext'));
+    highlighted ||= await page.locator('#mixerStrips .strip.selected.pilot-working .fader.pilot-control').count() > 0;
+    taskShown ||= await page.locator('#amPilot .am-pilot-task').count() > 0;
     await page.waitForTimeout(100);
   }
   const v1 = await vols();
   ok(v1.bass > v0.bass + 4, `basse remontée par le pilote : ${v0.bass.toFixed(1)} → ${v1.bass.toFixed(1)} dB`);
   ok(seen.size >= 4, `le fader glisse par petits pas (${seen.size} positions vues)`);
+  ok(highlighted, 'pendant le geste : tranche sélectionnée et fader illuminé');
+  ok(taskShown, 'action en cours : piste et niveaux de départ et d’arrivée affichés');
+  ok(await page.locator('#amPilot .am-pilot-log time').count() > 0, 'journal des actions horodaté');
   const others = Object.keys(v0).filter((k) => k !== 'bass');
   const drift = Math.max(...others.map((k) => Math.abs(v1[k] - v0[k] - (v1[others[0]] - v0[others[0]]))));
   ok(drift < 6, `les autres pistes gardent leur équilibre entre elles (écart ${drift.toFixed(1)} dB)`);
@@ -83,10 +103,34 @@ const ok = (c, m) => {
   ok(locked, 'fader touché à la main : repris par l\'utilisateur');
   ok(/à la main/.test(await page.textContent('#amPilot .am-pilot-log')), 'le journal le signale');
 
+  // Déclencher un geste de niveau d'ensemble pour vérifier le repérage du gain Master.
+  await page.evaluate(() => {
+    const plan = SS.automixPilot.plan;
+    const p = window.__p();
+    const state = SS.automixPanel._state().pilot;
+    state.lastMove = -Infinity;
+    SS.automixPilot.plan = () => {
+      SS.automixPilot.plan = plan;
+      return { kind: 'stage', delta: -1.5, why: 'marge du mix', moves: p.tracks.map((t) => ({ id: t.id, from: 20 * Math.log10(t.volume), to: 20 * Math.log10(t.volume) - 1.5 })) };
+    };
+  });
+  await page.waitForSelector('#mixerDetail [data-control="mastering.drive"].pilot-control');
+  ok(await page.locator('#mixerStrips .strip.master.selected.pilot-working').count() === 1, 'gain d’ensemble : Master sélectionné');
+  ok(await page.locator('#mixerStrips .fader.pilot-control').count() > 1, 'gain d’ensemble : tous les faders concernés illuminés');
+  await page.screenshot({ path: '/tmp/stepseq-pilot-ui.png' });
+
   await page.click('#amPilotBtn');
   await page.waitForTimeout(300);
   ok(!(await page.evaluate(() => SS.automixPanel._state().pilot)), 'pilote arrêté');
+  ok(await page.isVisible('#amCards') && await page.isVisible('#amFoot'), 'arrêt du pilote : conseils manuels réaffichés');
+  ok(await page.locator('.pilot-working, .pilot-control').count() === 0, 'arrêt : aucun réglage ne reste illuminé');
   ok(/Pilote auto des faders/.test(await page.textContent('#amPilotBtn')), 'bouton revenu à « Pilote auto »');
+  await page.click('#amClose');
+  await page.click('#amBtn');
+  ok(await page.locator('#automix').evaluate((el) => el.getBoundingClientRect().width) === 340, 'largeur conservée à la réouverture');
+  await page.setViewportSize({ width: 800, height: 900 });
+  ok(!(await page.isVisible('#amResize')), 'petit écran : panneau empilé sans poignée latérale');
+  ok(await page.locator('#automix').evaluate((el) => el.getBoundingClientRect().right <= window.innerWidth), 'petit écran : largeur contenue dans la fenêtre');
   await page.click('#amClose');
   ok(!errs.length, 'aucune erreur JavaScript' + (errs.length ? ' : ' + errs.join(' | ') : ''));
   await b.close();

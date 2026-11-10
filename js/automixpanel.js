@@ -478,7 +478,8 @@ SS.automixPanel = (() => {
     const scenesTotal = p.playMode === 'song' ? new Set(p.song.map((b) => b.scene)).size : 1;
     const heard = Math.min(L().scenes(), scenesTotal);
     let msg;
-    if (!playing && !secs) msg = 'Lance la lecture : j\'écoute le morceau pour le diagnostiquer.';
+    if (pilot) msg = playing ? 'Pilote auto : écoute et réglages en direct dans la console.' : 'Pilote auto : en attente de la lecture.';
+    else if (!playing && !secs) msg = 'Lance la lecture : j\'écoute le morceau pour le diagnostiquer.';
     else if (secs < need) msg = `${playing ? 'Écoute en cours' : 'Écoute en pause'} · encore ${Math.ceil(need - secs)} s avant le premier diagnostic`;
     else msg = `${playing ? 'Écoute en cours' : 'Écoute en pause'} · ${mm(secs)} entendues${scenesTotal > 1 ? ` · ${heard} scène${heard > 1 ? 's' : ''} sur ${scenesTotal}` : ''}`;
     box.replaceChildren(
@@ -596,7 +597,7 @@ SS.automixPanel = (() => {
   /** Pastilles sur les tranches de la console : conseils en attente (orange) ou appliqués (doré). */
   function decorate() {
     document.querySelectorAll('#mixerStrips .am-badge').forEach((b) => b.remove());
-    if (!isOpen || !diag || !diag.ready) return;
+    if (!isOpen || pilot || !diag || !diag.ready) return;
     const list = shown();
     document.querySelectorAll('#mixerStrips .strip[data-id]').forEach((el) => {
       const id = el.dataset.id;
@@ -644,6 +645,7 @@ SS.automixPanel = (() => {
   /** Fait glisser un ou plusieurs faders (et le gain d'entrée du mastering) jusqu'à leur nouvelle valeur. */
   function pilotRamp(moves, drive, done) {
     pilot.ramp = { moves, drive, t0: performance.now(), secs: PL().rampSecs(Math.max(...moves.map((m) => Math.abs(m.to - m.from)))), done };
+    SS.mixer.showPilotAction(moves, drive);
   }
   function pilotStepRamp() {
     const r = pilot.ramp;
@@ -654,13 +656,20 @@ SS.automixPanel = (() => {
       pilot.expect.set(m.id, v);
       SS.mixer.refreshFader(m.id);
     }
-    if (r.drive) setValue('__master', 'mastering.drive', Math.round((r.drive.from + (r.drive.to - r.drive.from) * x) * 10) / 10);
+    if (r.drive) {
+      const value = Math.round((r.drive.from + (r.drive.to - r.drive.from) * x) * 10) / 10;
+      setValue('__master', 'mastering.drive', value);
+      SS.mixer.refreshPilotDrive(value);
+    }
     if (x < 1) return;
     pilot.ramp = null;
+    SS.mixer.showPilotAction();
     pilot.lastMove = pilot.tk.t;
     for (const m of r.moves) pilot.moved.set(m.id, (pilot.moved.get(m.id) || 0) + Math.abs(m.to - m.from));
     app.changed(); // une étape d'annulation par geste
     r.done();
+    setPilotStatus('Écoute après réglage…');
+    renderPilot();
   }
   function pilotTick() {
     if (!pilot) return;
@@ -740,6 +749,7 @@ SS.automixPanel = (() => {
     pilot.unsub();
     const n = [...pilot.moved.values()].filter((v) => v > 0).length;
     pilot = null;
+    SS.mixer.showPilotAction();
     // les mesures d'avant ne valent plus pour les nouveaux faders : le diagnostic repart de zéro
     L().reset();
     diag = null;
@@ -753,7 +763,11 @@ SS.automixPanel = (() => {
     const box = $('#amPilot');
     if (!box) return;
     const on = !!pilot;
+    ['amCards', 'amFoot', 'amScore', 'amTargets'].forEach((id) => { $('#' + id).hidden = on; });
+    box.classList.toggle('running', on);
+    const ramp = pilot && pilot.ramp;
     box.replaceChildren(
+      h('h4', { class: 'am-pilot-title' }, on ? 'Pilote auto · en cours' : 'Pilote auto des faders'),
       h('div', { class: 'am-pilot-row' },
         h('button', {
           type: 'button',
@@ -763,9 +777,17 @@ SS.automixPanel = (() => {
           title: on ? 'Arrêter le pilote auto' : 'L\'assistant règle lui-même les faders pendant la lecture, doucement, en réécoutant entre chaque geste',
           onclick: () => (on ? pilotStop() : pilotStart()),
         }, on ? '◼ Arrêter le pilote' : '✈ Pilote auto des faders'),
-        h('span', { id: 'amPilotStatus', class: 'am-pilot-status' }, on ? pilot.status || 'Écoute…' : '')),
+        h('span', { id: 'amPilotStatus', class: 'am-pilot-status', role: 'status' }, on ? pilot.status || 'Écoute…' : '')),
+      ramp ? h('div', { class: 'am-pilot-task' },
+        h('b', {}, ramp.moves.length > 1 ? 'Niveau d’ensemble' : nameOf(ramp.moves[0].id)),
+        h('span', {}, 'Réglage des faders'),
+        ...ramp.moves.map((m) => h('div', {}, h('span', {}, nameOf(m.id)), h('strong', {}, `${fmtDb(m.from)} → ${fmtDb(m.to)}`))),
+        ramp.drive ? h('div', {}, h('span', {}, 'Master · gain d’entrée'), h('strong', {}, `${fmtDb(ramp.drive.from)} → ${fmtDb(ramp.drive.to)}`)) : null
+      ) : null,
       on
-        ? h('ol', { class: 'am-pilot-log', 'aria-live': 'polite' }, pilot.log.map((x) => h('li', {}, x.txt)))
+        ? h('section', { class: 'am-pilot-history' }, h('h4', {}, 'Dernières actions'),
+          h('ol', { class: 'am-pilot-log', 'aria-live': 'polite' }, pilot.log.map((x) => h('li', {},
+            h('time', { datetime: new Date(x.at).toISOString() }, new Date(x.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })), h('span', {}, x.txt)))))
         : h('p', { class: 'am-hint' }, 'Règle l\'équilibre des pistes à ta place : un petit geste de fader à la fois, puis il réécoute. Touche un fader pour le reprendre en main.')
     );
   }
@@ -785,6 +807,7 @@ SS.automixPanel = (() => {
     lastDiagAt = 0;
     if (pilot) {
       pilot.ramp = null;
+      SS.mixer.showPilotAction();
       pilot.tk = PL().newTracker();
       pilot.locked.clear();
       pilot.moved.clear();
@@ -817,6 +840,7 @@ SS.automixPanel = (() => {
     if (pilot) {
       const ol = document.querySelector('#amPilot .am-pilot-log');
       if (ol && ol.childElementCount !== pilot.log.length) renderPilot();
+      return; // le pilote et les conseils sont deux modes exclusifs
     }
     // un Ctrl+Z (ou une retouche à la main) a défait un conseil appliqué : les cartes se remettent à jour
     const n = decisions.size;
@@ -953,6 +977,33 @@ SS.automixPanel = (() => {
     $('#amBtn').addEventListener('click', () => (isOpen ? close() : open()));
     $('#amClose').addEventListener('click', close);
     $('#amPrefsBtn').addEventListener('click', openPrefs);
+    const handle = $('#amResize');
+    const panel = $('#automix');
+    const resize = (width) => {
+      const max = Math.min(720, Math.max(320, window.innerWidth - 360));
+      const value = Math.round(clamp(width, 320, max));
+      panel.style.setProperty('--am-width', value + 'px');
+      handle.setAttribute('aria-valuenow', value);
+      handle.setAttribute('aria-valuemax', max);
+      try { localStorage.setItem('stepseq.automix.width', value); } catch (e) { /* stockage indisponible */ }
+    };
+    try { const saved = Number(localStorage.getItem('stepseq.automix.width')); if (saved) resize(saved); } catch (e) { /* stockage indisponible */ }
+    let drag = null;
+    handle.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      drag = { x: e.clientX, width: panel.getBoundingClientRect().width };
+      handle.setPointerCapture(e.pointerId);
+    });
+    handle.addEventListener('pointermove', (e) => { if (drag) resize(drag.width + drag.x - e.clientX); });
+    handle.addEventListener('lostpointercapture', () => { drag = null; });
+    handle.addEventListener('pointerup', (e) => { drag = null; handle.releasePointerCapture(e.pointerId); });
+    handle.addEventListener('keydown', (e) => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+      e.preventDefault();
+      resize(e.key === 'Home' ? 320 : e.key === 'End' ? 720 : panel.getBoundingClientRect().width + (e.key === 'ArrowLeft' ? 20 : -20));
+    });
+    window.addEventListener('resize', () => { if (window.innerWidth > 1000) resize(Number(handle.getAttribute('aria-valuenow'))); });
   }
 
   return {

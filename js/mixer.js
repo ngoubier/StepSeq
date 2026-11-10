@@ -14,6 +14,33 @@ SS.mixer = (() => {
   let raf = null;
   const meters = new Map(); // id -> { canvas, peakHold, holdTime, grC, grL, readout }
   let detailRefs = null;
+  let pilotAction = null;
+
+  /** Suit le geste du pilote sans reconstruire les faders en mouvement. */
+  function showPilotAction(moves = [], drive = null) {
+    pilotAction = moves.length || drive ? { moves, drive } : null;
+    const id = drive ? '__master' : moves[0] && moves[0].id;
+    if (id && selected !== id) {
+      selected = id;
+      renderDetail();
+    }
+    document.querySelectorAll('#mixerStrips .strip').forEach((el) => {
+      const active = moves.some((m) => m.id === el.dataset.id);
+      el.classList.toggle('selected', el.dataset.id === selected);
+      el.classList.toggle('pilot-working', active || !!drive && el.dataset.id === '__master');
+      el.querySelector('.fader').classList.toggle('pilot-control', active);
+    });
+    const gain = document.querySelector('#mixerDetail [data-control="mastering.drive"]');
+    if (gain) gain.classList.toggle('pilot-control', !!drive);
+    if (id) document.querySelector(`#mixerStrips .strip[data-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }
+
+  function refreshPilotDrive(value) {
+    const row = document.querySelector('#mixerDetail [data-control="mastering.drive"]');
+    if (!row) return;
+    row.querySelector('output').textContent = (value > 0 ? '+' : '') + value.toFixed(1) + ' dB';
+    row.querySelector('input').value = Math.round((value + 12) / 30 * 1000);
+  }
 
   const h = (tag, attrs = {}, ...children) => {
     const el = document.createElement(tag);
@@ -282,6 +309,7 @@ SS.mixer = (() => {
     $('#mixerTop').replaceChildren(mixsetBar(list.length));
     $('#mixerStrips').replaceChildren(...list.map(stripEl));
     renderDetail();
+    if (pilotAction) showPilotAction(pilotAction.moves, pilotAction.drive);
     if (SS.automixPanel) SS.automixPanel.decorate(); // pastilles des conseils Auto Mix
   }
 
@@ -528,7 +556,7 @@ SS.mixer = (() => {
         app.changed();
       });
     }
-    return h('div', { class: 'sd-row' }, h('label', {}, label), out, input);
+    return h('div', { class: 'sd-row', 'data-control': opts.control }, h('label', {}, label), out, input);
   }
 
   function powerBtn(ch, key, label) {
@@ -980,7 +1008,7 @@ SS.mixer = (() => {
         h(
           'div',
           { class: 'sd-sliders' },
-          slider('Gain d\'entrée', ms.drive, -12, 18, { fmt: (v) => (v > 0 ? '+' : '') + v.toFixed(1) + ' dB', step: 0.1, def: 0 }, (v) => setM({ drive: v, on: true })),
+          slider('Gain d\'entrée', ms.drive, -12, 18, { control: 'mastering.drive', fmt: (v) => (v > 0 ? '+' : '') + v.toFixed(1) + ' dB', step: 0.1, def: 0 }, (v) => setM({ drive: v, on: true })),
           slider('Plafond', ms.ceiling, -6, 0, { fmt: (v) => v.toFixed(1) + ' dBTP', step: 0.1, def: -1 }, (v) => setM({ ceiling: v })),
           slider('Écrêtage doux', ms.clip, 0, 1, { fmt: (v) => (v ? Math.round(v * 100) + ' %' : 'off'), step: 0.01, def: 0 }, (v) => setM({ clip: v })),
           slider('Relâchement', ms.release, 0.02, 0.8, { log: true, fmt: (v) => Math.round(v * 1000) + ' ms', def: 0.12 }, (v) => setM({ release: v })),
@@ -1551,5 +1579,5 @@ SS.mixer = (() => {
     window.addEventListener('resize', () => isOpen && detailRefs && detailRefs.drawBig());
   }
 
-  return { init, open, close, render, refreshFader, isOpen: () => isOpen, drawEq }; // drawEq : miniatures des chaînes Auto Mix
+  return { init, open, close, render, refreshFader, showPilotAction, refreshPilotDrive, isOpen: () => isOpen, drawEq }; // drawEq : miniatures des chaînes Auto Mix
 })();

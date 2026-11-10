@@ -151,8 +151,12 @@ testées) que l'on **accepte**, **ajuste** (25 à 150 %) ou **refuse** (`js/auto
   comme à l'oreille. Il choisit la piste la plus éloignée de sa place, fait glisser son fader d'un petit pas
   (2 dB au plus, 1,5 dB/s), puis la réécoute avant d'y retoucher ; après un aller-retour, ses pas s'affinent. Si le
   mix sature au Master, toutes les pistes descendent ensemble et le gain d'entrée du mastering compense. Un journal
-  liste chaque geste ; chaque geste est une étape Ctrl+Z ; un fader touché à la main n'est plus piloté. Pause
+  horodaté liste chaque geste, avec une fiche pour l'action en cours ; la tranche est sélectionnée et le fader
+  ou le gain Master en mouvement est illuminé. Les conseils manuels de mixage et mastering sont masqués tant
+  que le pilote est actif. Chaque geste est une étape Ctrl+Z ; un fader touché à la main n'est plus piloté. Pause
   automatique en solo et pendant l'écoute A.
+- **Largeur d'Auto Mix** : glisser le bord gauche du panneau (ou utiliser les flèches une fois la poignée
+  sélectionnée au clavier). La largeur est mémorisée ; sur petit écran, le panneau reste empilé sous la console.
 
 Outils de mesure (Playwright + Chromium, rendu hors temps réel de StepSeq) :
 
