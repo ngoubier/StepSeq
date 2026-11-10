@@ -349,5 +349,5 @@ SS.juno = (() => {
     nodes.delete(key);
   }
 
-  return { load, play, noteOn, noteOff, applyParams, applyChorus: applyParams, allOff, remove, POLY: 6 };
+  return { engineCount: () => nodes.size, load, play, noteOn, noteOff, applyParams, applyChorus: applyParams, allOff, remove, POLY: 6 };
 })();

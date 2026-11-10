@@ -678,6 +678,7 @@
   } catch (e) {
     console.warn('Auto Mix indisponible :', e);
   }
+  SS.systemPanel.init({ project: () => project });
   SS.song.init({ project: () => project, changed, state, switchScene, afterSceneChange, play, stop, setBars });
   SS.fx.init({ project: () => project, changed, renderTrack: (t) => SS.ui.renderTrack(t) });
   SS.ui.init({

@@ -79,7 +79,7 @@ SS.audio = (() => {
   function loadBuffer(url) {
     ensureCtx();
     if (!bufferCache.has(url)) {
-      const entry = { buffer: null, promise: null };
+      const entry = { buffer: null, promise: null, failed: false };
       entry.promise = fetch(url)
         .then((r) => {
           if (!r.ok) throw new Error(r.status + ' ' + url);
@@ -88,6 +88,7 @@ SS.audio = (() => {
         .then((ab) => decode(ab))
         .then((buf) => (entry.buffer = buf))
         .catch((e) => {
+          entry.failed = true;
           console.warn(e);
           onError('Impossible de charger le son : ' + decodeURIComponent(url.split('/').pop()));
           // on garde l'échec en cache un moment pour ne pas réessayer à chaque pas
@@ -136,7 +137,7 @@ SS.audio = (() => {
   function loadSoundfont(file) {
     ensureCtx();
     if (!sfCache.has(file)) {
-      const entry = { zones: null, promise: null };
+      const entry = { zones: null, promise: null, failed: false };
       entry.promise = fetch(SS.SOURCES.soundfont + file + '.js')
         .then((r) => {
           if (!r.ok) throw new Error(r.status + ' ' + file);
@@ -176,6 +177,7 @@ SS.audio = (() => {
           return zones;
         })
         .catch((e) => {
+          entry.failed = true;
           console.warn(e);
           onError('Impossible de charger le soundfont : ' + file);
           setTimeout(() => sfCache.delete(file), 30000);
@@ -579,6 +581,7 @@ SS.audio = (() => {
       const conv = ctx.createConvolver(); conv.buffer = impulse(0.7, 5500);
       highpass.connect(conv);
       const reverb = stage(chorus.out, { input: highpass, output: conv });
+      reverb.impulse = conv;
       master.disconnect(masterStrip.entry);
       reverb.out.connect(masterStrip.entry);
       masterEffects = { saturation, chorus, reverb };
@@ -1233,7 +1236,15 @@ SS.audio = (() => {
   }
 
   /** `tick` = compteur global de pas depuis Lecture ; chaque piste boucle sur sa propre longueur. */
+  const scheduling = { ticks: 0, lateSteps: 0, maxLateMs: 0, lastLateAt: null, maxTickMs: 0 };
+
   function scheduleStep(project, tick, time) {
+    const lateMs = (ctx.currentTime - time) * 1000;
+    if (lateMs > 1) {
+      scheduling.lateSteps++;
+      scheduling.maxLateMs = Math.max(scheduling.maxLateMs, lateMs);
+      scheduling.lastLateAt = performance.now();
+    }
     const sd = stepDur(project);
     // une piste muette peut quand même déclencher un sidechain
     const audible = new Set(audibleTracks(project));
@@ -1294,6 +1305,14 @@ SS.audio = (() => {
   }
 
   function tick() {
+    const began = performance.now();
+    try { tickSequence(); } finally {
+      scheduling.ticks++;
+      scheduling.maxTickMs = Math.max(scheduling.maxTickMs, performance.now() - began);
+    }
+  }
+
+  function tickSequence() {
     const project = seq.getProject();
     if (seq.song) return tickSong(project);
     const total = SS.totalSteps(project);
@@ -1370,6 +1389,7 @@ SS.audio = (() => {
   function start(getProject, onStep, opts = {}) {
     ensureCtx();
     if (seq.playing) return;
+    Object.assign(scheduling, { ticks: 0, lateSteps: 0, maxLateMs: 0, lastLateAt: null, maxTickMs: 0 });
     seq.getProject = getProject;
     seq.onStep = onStep;
     seq.song = opts.song ? { ...opts.song, rep: 0, ended: false } : null;
@@ -1474,7 +1494,52 @@ SS.audio = (() => {
     tick();
   }
 
+  /** Lecture seule : aucune création de contexte ni copie des données PCM. */
+  function diagnostics() {
+    const seen = new Set();
+    let bufferBytes = 0;
+    const assets = [];
+    const add = (buffer) => {
+      if (!buffer || seen.has(buffer)) return 0;
+      seen.add(buffer);
+      const bytes = buffer.length * buffer.numberOfChannels * 4;
+      bufferBytes += bytes;
+      return bytes;
+    };
+    let loading = 0, failedAssets = 0;
+    bufferCache.forEach((e, url) => {
+      if (e.failed) failedAssets++;
+      else if (!e.buffer) loading++;
+      const bytes = add(e.buffer);
+      if (bytes) assets.push({ name: decodeURIComponent(url.split('/').pop()), bytes });
+    });
+    sfCache.forEach((e, name) => {
+      if (e.failed) failedAssets++;
+      else if (!e.zones) loading++;
+      const bytes = (e.zones || []).reduce((n, z) => n + add(z.buffer), 0);
+      if (bytes) assets.push({ name: name.replace(/_/g, ' '), bytes });
+    });
+    Object.values(noiseBuffers).forEach(add);
+    irCache.forEach(add);
+    voices.forEach(v => v.sources.forEach(src => add(src.buffer)));
+    add(masterEffects?.reverb.impulse?.buffer);
+    // Impulsions des réverbérations déjà instanciées, y compris celles des pistes.
+    if (returns) for (const k of ['plate', 'hall']) add(returns[k].conv.buffer);
+    buses.forEach(b => { if (b.reverb) add(b.reverb.conv.buffer); });
+    assets.sort((a, b) => b.bytes - a.bytes);
+    return {
+      context: ctx ? { state: ctx.state, sampleRate: ctx.sampleRate, baseLatency: ctx.baseLatency, outputLatency: ctx.outputLatency } : null,
+      bufferBytes, buffers: seen.size, loadingAssets: loading, failedAssets, largestAssets: assets.slice(0, 5),
+      // Ces voix Web Audio peuvent être en cours ou anticipées ; les voix DSP Juno sont internes au worklet.
+      scheduledVoices: voices.size, junoEngines: SS.juno?.engineCount?.() || 0, buses: buses.size, masteringReady: !!masterProc,
+      scheduling: { ...scheduling },
+      output: ctx ? levels('__master') : null,
+      playing: seq.playing, paused: !!seq.paused,
+    };
+  }
+
   return {
+    diagnostics,
     ensureCtx,
     loadJSON,
     drumMachines,
