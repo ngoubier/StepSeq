@@ -48,6 +48,33 @@ const ok = (c, m) => {
   // console : module Mastering
   await page.click('#mixerBtn');
   await page.waitForTimeout(500);
+  // Tous les faders baissés : remise à 0 dB sans toucher aux traitements, annulable en une fois.
+  await page.locator('#mixerStrips .fader').evaluateAll((els) => {
+    els.forEach((el) => {
+      for (let i = 0; i < 200; i++) el.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    });
+  });
+  await page.waitForTimeout(1200);
+  const lowered = await P();
+  ok(lowered.tracks.every((t) => t.volume < 0.01) && lowered.master.volume < 0.01, 'tous les faders sont baissés, Master compris');
+  await page.click('#mxResetFaders');
+  await page.waitForTimeout(1200);
+  const flat = await P();
+  ok(flat.tracks.every((t) => t.volume === 1) && flat.master.volume === 1, 'bouton : tous les faders reviennent à 0 dB');
+  ok(await page.locator('#mixerStrips .fader[aria-valuetext="0.0 dB"]').count() === flat.tracks.length + 1,
+    'les faders affichent leur nouveau niveau');
+  const withoutVolumes = (p) => JSON.stringify({
+    tracks: p.tracks.map(({ volume, ...t }) => t),
+    master: { ...p.master, volume: null }, returns: p.returns,
+  });
+  ok(withoutVolumes(flat) === withoutVolumes(lowered), 'EQ, dynamique, panoramique, effets et mastering conservés');
+  await page.keyboard.press('Control+z');
+  await page.waitForTimeout(1200);
+  const undone = await P();
+  ok(undone.tracks.every((t, i) => t.volume === lowered.tracks[i].volume) && undone.master.volume === lowered.master.volume,
+    'Ctrl+Z restaure tous les niveaux précédents en une fois');
+  await page.click('#mxResetFaders');
+  await page.waitForTimeout(1200);
   await page.click('#mixerStrips .strip[data-id="__master"] .strip-name');
   await page.waitForTimeout(300);
   ok(await page.isVisible('.mod-mast'), 'console : module Mastering sur le Master');

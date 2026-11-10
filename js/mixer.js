@@ -1076,6 +1076,14 @@ SS.mixer = (() => {
 
   const RESET_ID = '__reset';
 
+  /** Remet uniquement les faders des pistes et du Master au gain unitaire. */
+  function resetFaders() {
+    channels().forEach((ch) => ch.setVol(1));
+    app.changed();
+    render();
+    SS.ui.toast('Faders des pistes et du Master à 0 dB — Ctrl+Z pour annuler', 4000);
+  }
+
   /** Remet toutes les tranches (pistes et Master) à plat : EQ, compresseur, limiteur, panoramique. */
   function resetAll() {
     const p = app.project();
@@ -1494,6 +1502,7 @@ SS.mixer = (() => {
     app = appApi;
     $('#mixerBtn').addEventListener('click', () => (isOpen ? close() : open()));
     $('#mxClose').addEventListener('click', close);
+    $('#mxResetFaders').addEventListener('click', resetFaders);
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && isOpen && !document.querySelector('dialog[open]') && !document.querySelector('.ctx-menu')) close();
     });

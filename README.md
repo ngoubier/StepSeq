@@ -103,6 +103,10 @@ Les échantillons Dirt-Samples sont joués à leur hauteur réelle, mesurée par
 
 ### Auto Mix : l'assistant de mixage et de mastering
 
+Dans la console **Mix**, **Faders à 0 dB** réinitialise les volumes de toutes les pistes et du Master
+sans modifier les traitements ni les effets. Utile si les faders ont été baissés avant une écoute Auto Mix ;
+**Ctrl+Z** restaure tous les niveaux précédents en une fois.
+
 Dans la console **Mix**, le bouton **✦ Auto Mix** ouvre un panneau à droite des tranches. Pendant la lecture, il
 écoute le morceau (`js/automix-listen.js` : analyseurs FFT sur chaque piste, sur le Master avant mastering et sur
 la sortie stéréo), note sept critères de 0 à 100 et propose des conseils chiffrés (`js/automix.js`, fonctions pures
