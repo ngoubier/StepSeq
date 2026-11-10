@@ -675,7 +675,12 @@
   SS.groove.init({ project: () => project, changed });
   SS.harmonyPanel.init({ project: () => project, changed, renderAll: () => SS.ui.renderAll(), activeTrack: () => SS.ui.activeTrack(), switchScene });
   SS.mixer.init({ project: () => project, changed, renderAll: () => SS.ui.renderAll() });
-  SS.automixPanel.init({ project: () => project, changed, play, stop });
+  // un module optionnel qui ne démarre pas (page en cache d'une version précédente…) ne doit pas bloquer l'application
+  try {
+    SS.automixPanel.init({ project: () => project, changed, play, stop });
+  } catch (e) {
+    console.warn('Auto Mix indisponible :', e);
+  }
   SS.song.init({ project: () => project, changed, state, switchScene, afterSceneChange, play, stop, setBars });
   SS.fx.init({ project: () => project, changed, renderTrack: (t) => SS.ui.renderTrack(t) });
   SS.ui.init({

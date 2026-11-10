@@ -397,6 +397,7 @@ SS.mixer = (() => {
               onclick: (e) => {
                 t.mute = !t.mute;
                 e.currentTarget.classList.toggle('on', t.mute);
+                SS.audio.applyMutes(app.project());
                 app.changed();
               },
             }, 'M'),
@@ -407,6 +408,7 @@ SS.mixer = (() => {
               onclick: (e) => {
                 t.solo = !t.solo;
                 e.currentTarget.classList.toggle('on', t.solo);
+                SS.audio.applyMutes(app.project());
                 app.changed();
               },
             }, 'S')
