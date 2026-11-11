@@ -78,7 +78,7 @@ SS.melodyPanel = (() => {
       spans = sc.grid.chords.map((c) => ({
         step: c.step,
         len: c.len,
-        name: H().gridChord(key, c.degree, c.type, c.acc || 0).name,
+        name: H().gridChord(key, c.degree, c.type, c.acc || 0, c.bass || 0).name,
       }));
     if (!spans.length) {
       const evs = [];

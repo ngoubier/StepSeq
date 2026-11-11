@@ -454,7 +454,7 @@ SS.normalizeGrid = (g) => {
   const int = (v, lo, hi) => Math.min(hi, Math.max(lo, Math.round(Number(v)) || 0));
   const chords = g.chords
     .filter((c) => c && types.has(c.type))
-    .map((c) => ({ step: int(c.step, 0, 4096), len: int(c.len, 1, 4096), degree: int(c.degree, 0, 6), type: c.type, acc: c.acc === 1 || c.acc === -1 ? c.acc : 0 }));
+    .map((c) => ({ step: int(c.step, 0, 4096), len: int(c.len, 1, 4096), degree: int(c.degree, 0, 6), type: c.type, acc: c.acc === 1 || c.acc === -1 ? c.acc : 0, ...(c.bass >= 1 && c.bass <= 11 ? { bass: int(c.bass, 1, 11) } : {}) }));
   const lay = g.layers && typeof g.layers === 'object' ? g.layers : {};
   const layer = (l, extra) => {
     l = l && typeof l === 'object' ? l : {};

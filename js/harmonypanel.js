@@ -93,13 +93,21 @@ SS.harmonyPanel = (() => {
     $('#tempo').value = bpm;
   }
 
-  /** Pose des accords (propositions, makeChord) sur la grille de la scène : un par mesure, répétés jusqu'à la fin. */
-  function putOnGrid(chords, k) {
+  /**
+   * Pose une proposition sur la grille de la scène, répétée jusqu'à la fin : `pr.grid` (grilles de référence :
+   * accords de grille avec leur durée en mesures) ou un accord par mesure d'après `pr.chords` (makeChord).
+   */
+  function putOnGrid(pr) {
     const g = grid();
     const { spb, total } = gStep();
-    const list = chords.map((c) => H().toGridChord(k, c, c.degree)).filter(Boolean);
+    const list = pr.grid || pr.chords.map((c) => H().toGridChord(pr.key, c, c.degree)).filter(Boolean);
     g.chords = [];
-    for (let s = 0, i = 0; s < total && list.length; s += spb, i++) g.chords.push({ step: s, len: Math.min(spb, total - s), ...list[i % list.length] });
+    for (let s = 0, i = 0; s < total && list.length; i++) {
+      const { bars = 1, ...c } = list[i % list.length];
+      const len = Math.max(1, Math.round(bars * spb));
+      g.chords.push({ step: s, len: Math.min(len, total - s), ...c });
+      s += len;
+    }
   }
 
   function listenChords(chords) {
@@ -109,7 +117,7 @@ SS.harmonyPanel = (() => {
     chords.forEach((c, i) =>
       setTimeout(() => {
         const notes = H().voice(c, near, 54);
-        near = notes[0];
+        near = notes[c.bassPc != null ? 1 : 0]; // la fondamentale (pas la basse imposée)
         SS.audio.preview(t, notes, 0.75);
       }, i * 800)
     );
@@ -135,17 +143,45 @@ SS.harmonyPanel = (() => {
     });
   }
 
+  /** Grille de référence (SS.EMOTION_LIBRARY) → proposition jouable, transposée sur la tonique de la scène. */
+  function libOption(e) {
+    const k = { tonic: anchorTonic() || e.tonic, mode: e.mode };
+    const shift = H().scale(k)[0].pc - H().scale({ tonic: e.tonic, mode: e.mode })[0].pc;
+    const bars = SS.libraryBars(e);
+    const gridList = e.chords
+      .trim()
+      .split(/\s+/)
+      .map((sym, i) => {
+        const c = SS.parseLibraryChord(sym);
+        const g = c && H().toGridChord(k, { rootPc: (c.rootPc + shift + 12) % 12, type: c.type });
+        return g && { ...g, ...(c.bass ? { bass: c.bass } : {}), bars: bars[i] };
+      })
+      .filter(Boolean);
+    const chords = gridList.map((g) => H().gridChord(k, g.degree, g.type, g.acc, g.bass || 0));
+    return { kind: 'ref', ref: e, key: k, grid: gridList, chords, tempo: null, label: e.label, src: SS.EMOTION_SOURCES[e.src] };
+  }
+
+  /** Les trois pistes d'une émotion, puis ses grilles de référence. */
+  const optionsOf = (emo) => [...proposalsOf(emo), ...SS.libraryFor(emo.id).map(libOption)];
+
+  const modeName = (id) => (SS.MODE_MOODS.find((m) => m.mode === id) || {}).name || (H().MODES.find((m) => m.id === id) || {}).label || id;
+
   const stepChips = (chords) =>
     chords.map((c) => `<span class="hm-step role-${c.role.id}${c.borrowed ? ' borrowed' : ''}" title="${esc(c.notes.join('–'))}"><b>${esc(c.numeral)}</b>${esc(c.name)}</span>`).join('');
 
-  function propCard(pr, i, { pick = false, on = false } = {}) {
+  function propCard(pr, i, { pick = false, on = false, tags = false } = {}) {
     const btns = pick
       ? `<button type="button" class="btn btn-small" data-wlisten="${i}">▶ Écouter</button>`
       : `<button type="button" class="btn btn-small" data-emo-listen="${i}">▶ Écouter</button><button type="button" class="btn btn-small btn-accent" data-emo-apply="${i}" title="Pose ces accords sur la grille de la scène (onglet 2)">Poser sur la grille</button>`;
-    return `<div class="hm-ex${pick ? ' pick' : ''}${on ? ' on' : ''}"${pick ? ` data-wpick="${i}" tabindex="0" role="radio" aria-checked="${on}"` : ''}>
-      <div class="hm-ex-top"><span class="emo-kind k-${pr.kind}">${SS.EMOTION_KINDS[pr.kind]}</span><span class="hm-ex-meta">${esc(H().label(pr.key))} · ${pr.tempo} BPM</span><span class="hm-ex-btns">${btns}</span></div>
+    const ref = pr.kind === 'ref';
+    const kind = ref ? `<span class="emo-kind k-ref">Référence</span><b class="hm-ref-l">${esc(pr.label)}</b>` : `<span class="emo-kind k-${pr.kind}">${SS.EMOTION_KINDS[pr.kind]}</span>`;
+    const src = ref && pr.src ? (pr.src.url ? `<a href="${esc(pr.src.url)}" target="_blank" rel="noopener">${esc(pr.src.name)} ↗</a>` : esc(pr.src.name)) + (pr.src.note ? ` <span class="hm-muted">(${esc(pr.src.note)})</span>` : '') : '';
+    // les autres émotions que la grille illustre (cliquables) ; `tags` = l'émotion affichée, qu'on ne répète pas
+    const emoTags = ref && tags ? pr.ref.emos.filter((id) => id !== tags).map((id) => `<button type="button" class="chip emo-tag" data-emo="${id}">${esc(SS.findEmotion(id).label)}</button>`).join('') : '';
+    return `<div class="hm-ex${ref ? ' ref' : ''}${pick ? ' pick' : ''}${on ? ' on' : ''}"${pick ? ` data-wpick="${i}" tabindex="0" role="radio" aria-checked="${on}"` : ''}>
+      <div class="hm-ex-top">${kind}<span class="hm-ex-meta">${esc(H().label(pr.key))}${pr.tempo ? ` · ${pr.tempo} BPM` : ''}</span><span class="hm-ex-btns">${btns}</span></div>
       <div class="hm-progchords">${stepChips(pr.chords)}</div>
-      <p class="hm-why">${esc(pr.why)}</p>
+      ${ref ? `<p class="hm-why hm-src">${emoTags}<span>Source : ${src}</span></p>` : `<p class="hm-why">${esc(pr.why)}</p>`}
     </div>`;
   }
 
@@ -162,9 +198,11 @@ SS.harmonyPanel = (() => {
     const sc = scene();
     if (grid().chords.length && !confirm(`Remplacer la grille de la scène « ${sc.name} » ?`)) return;
     sc.key = { ...pr.key };
+    emo = emo || SS.findEmotion(pr.ref.emos[0]);
     sc.emotion = emo.id;
+    withTempo = withTempo && !!pr.tempo;
     if (withTempo) setTempo(pr.tempo);
-    putOnGrid(pr.chords, pr.key);
+    putOnGrid(pr);
     if (grid().auto) generateGrid({ auto: true });
     else app.changed();
     app.renderAll();
@@ -218,7 +256,7 @@ SS.harmonyPanel = (() => {
     const body = $('#hmBody');
     const emo = SS.findEmotion(wiz.emo);
     const sc = scene();
-    if (emo) emoProps = proposalsOf(emo);
+    if (emo) emoProps = optionsOf(emo);
     if (wiz.step === 0) {
       body.innerHTML = `<p class="hm-q">Quelle ambiance pour « ${esc(sc.name)} » ?</p>
         <p class="hm-muted">Du plus lumineux au plus sombre. Sous chaque émotion, le mode qui lui donne sa couleur.</p>
@@ -231,13 +269,13 @@ SS.harmonyPanel = (() => {
     } else {
       const pr = emoProps[wiz.pick];
       body.innerHTML = `<p class="hm-q">Choisissez une grille pour « ${esc(emo.label)} »</p>
-        <p class="hm-muted">Écoutez les trois, puis cliquez sur celle qui vous parle le plus. « Créer » la pose sur la grille (un accord par mesure, répétée jusqu'à la fin de la scène) et écrit la basse et les accords.</p>
+        <p class="hm-muted">Trois pistes (évidence, nuance, surprise), puis des grilles de référence. Écoutez, puis cliquez sur celle qui vous parle le plus. « Créer » la pose sur la grille (répétée jusqu'à la fin de la scène) et écrit la basse et les accords.</p>
         <div class="hm-exs" role="radiogroup">${emoProps.map((x, i) => propCard(x, i, { pick: true, on: i === wiz.pick })).join('')}</div>
-        <label class="emo-opt"><input type="checkbox" id="hmWizTempo"${wiz.tempo ? ' checked' : ''}> régler aussi le tempo sur ${pr.tempo} BPM (tout le morceau${proj().scenes.length > 1 ? ', toutes les scènes' : ''})</label>`;
+        ${pr.tempo ? `<label class="emo-opt"><input type="checkbox" id="hmWizTempo"${wiz.tempo ? ' checked' : ''}> régler aussi le tempo sur ${pr.tempo} BPM (tout le morceau${proj().scenes.length > 1 ? ', toutes les scènes' : ''})</label>` : ''}`;
     }
     const pr = wiz.step > 0 && emoProps[wiz.pick];
     $('#hmFoot').innerHTML = `
-      <span class="hm-foot-info">${wiz.step === 0 ? `Scène « ${esc(sc.name)} »${emo ? ' · ' + esc(emo.label) : ''}` : `${esc(emo.label)} · ${esc(H().label(pr.key))} · ${pr.tempo} BPM`}</span>
+      <span class="hm-foot-info">${wiz.step === 0 ? `Scène « ${esc(sc.name)} »${emo ? ' · ' + esc(emo.label) : ''}` : `${esc(emo.label)} · ${esc(H().label(pr.key))}${pr.tempo ? ` · ${pr.tempo} BPM` : ''}`}</span>
       ${wiz.step === 0 ? '<button type="button" class="btn" id="hmWizSkip">Choisir la tonalité moi-même</button>' : '<button type="button" class="btn" id="hmWizBack">Retour</button>'}
       <button type="button" class="btn btn-accent" id="hmWizNext"${wiz.step === 0 && !emo ? ' disabled' : ''}>${wiz.step === 1 ? 'Créer' : 'Suivant'}</button>`;
   }
@@ -249,8 +287,8 @@ SS.harmonyPanel = (() => {
     const sc = scene();
     sc.key = { ...pr.key };
     sc.emotion = emo.id;
-    if (wiz.tempo) setTempo(pr.tempo);
-    putOnGrid(pr.chords, pr.key);
+    if (wiz.tempo && pr.tempo) setTempo(pr.tempo);
+    putOnGrid(pr);
     view = 'tabs';
     tab = 'gri';
     viewEmo = emo.id;
@@ -263,36 +301,64 @@ SS.harmonyPanel = (() => {
   /* Onglets                                                           */
   /* ================================================================ */
 
+  const ALL = '__all'; // onglet Ambiance : toute la bibliothèque
+
   function renderAmb() {
     const sc = scene();
     const emoId = viewEmo || sc.emotion;
-    const emo = SS.findEmotion(emoId);
+    const all = emoId === ALL;
+    const emo = all ? null : SS.findEmotion(emoId);
+    if (emo) emoProps = optionsOf(emo);
+    else if (all) emoProps = SS.EMOTION_LIBRARY.map(libOption);
+    const used = new Set(emo || all ? emoProps.map((x) => x.key.mode) : []);
+    const count = (id) => SS.libraryFor(id).length;
     const list = SS.MODE_MOODS.map(
-      (m) => `<div class="hm-mode${emo && m.emotions.includes(emo.id) ? ' on' : ''}">
+      (m) => `<div class="hm-mode${emo && m.emotions.includes(emo.id) ? ' on' : ''}${!all && emo && used.has(m.mode) && !m.emotions.includes(emo.id) ? ' used' : ''}">
         <div class="hm-mode-h"><b>${esc(m.name)}</b><span>${esc(m.mood)}</span></div>
         <div class="chips">${m.emotions
-          .map((id) => `<button type="button" class="chip emo-chip${id === emoId ? ' active' : ''}${id === sc.emotion ? ' current' : ''}" data-emo="${id}"${id === sc.emotion ? ' title="Émotion de cette scène"' : ''}>${esc(SS.findEmotion(id).label)}</button>`)
+          .map((id) => `<button type="button" class="chip emo-chip${id === emoId ? ' active' : ''}${id === sc.emotion ? ' current' : ''}" data-emo="${id}" title="${id === sc.emotion ? 'Émotion de cette scène · ' : ''}3 pistes + ${count(id)} grille${count(id) > 1 ? 's' : ''} de référence">${esc(SS.findEmotion(id).label)}<small>${count(id)}</small></button>`)
           .join('')}</div></div>`
     ).join('');
-    let right = `<p class="hm-q">Quelle ambiance pour « ${esc(sc.name)} » ?</p><p class="hm-muted">Choisissez une émotion à gauche : trois grilles d'accords sont proposées. Écoutez-les, puis « Poser sur la grille » : vous ajustez ensuite les accords et les couches dans l'onglet Grille.</p>`;
-    if (emo) {
+    const lexicon = `<details class="hm-more hm-lex"><summary>Lexique des accords</summary><dl class="emo-matrix">${SS.CHORD_LEXICON.map(([n, t, ex]) => `<dt>${esc(n)}</dt><dd>${esc(t)} · <span class="hm-muted">${esc(ex)}</span></dd>`).join('')}</dl>
+      <p class="hm-muted">Les couleurs des accords : <span class="hm-legend role-repos">repos</span> <span class="hm-legend role-prep">préparation</span> <span class="hm-legend role-tension">tension</span> <span class="hm-legend role-color">couleur du mode</span> ; en pointillé, un emprunt hors de la gamme.</p></details>`;
+    let right = `<p class="hm-q">Quelle ambiance pour « ${esc(sc.name)} » ?</p><p class="hm-muted">Choisissez une émotion à gauche : trois pistes (évidence, nuance, surprise) et des grilles de référence relevées dans des guides de composition. Écoutez-les, puis « Poser sur la grille » : vous ajustez ensuite les accords et les couches dans l'onglet Grille.</p>${lexicon}`;
+    if (all) {
+      const groups = [...SS.MODE_MOODS.map((m) => m.mode)]
+        .map((mode) => ({ mode, items: emoProps.map((x, i) => [x, i]).filter(([x]) => x.key.mode === mode) }))
+        .filter((g) => g.items.length);
+      right = `<div class="hm-ex-head"><h3>Bibliothèque</h3><span>${emoProps.length} grilles de référence, du plus lumineux au plus sombre</span></div>
+        <p class="hm-muted">Chaque grille est jouée dans le mode où elle s'entend et transposée sur la tonique de la scène${anchorTonic() ? ` (${esc(anchorTonic())})` : ''}. Les émotions sont des couleurs possibles : le tempo, la mélodie et le jeu comptent autant.</p>
+        ${groups.map((g) => `<div class="hm-lib-g"><div class="hm-lbl">${esc(modeName(g.mode))} · ${g.items.length}</div><div class="hm-exs">${g.items.map(([x, i]) => propCard(x, i, { tags: true })).join('')}</div></div>`).join('')}
+        ${lexicon}`;
+    } else if (emo) {
       const m = SS.emotionMode(emo.id);
-      emoProps = proposalsOf(emo);
       const tempoOn = ambTempo ?? proj().scenes.length === 1;
       const gen = genById(emo.melodyGen);
       const abs = [...emo.ab, ...H().TRANSFORMS.map((t) => t.id).filter((id) => !emo.ab.includes(id))];
       const dim = (name, v) => `<span class="emo-dim"><small>${name}</small><i style="--v:${v}%"></i><b>${v}</b></span>`;
+      const props = emoProps.filter((x) => x.kind !== 'ref');
+      const refs = emoProps.map((x, i) => [x, i]).filter(([x]) => x.kind === 'ref');
+      // modes de toutes les grilles de l'émotion : la couleur dominante et les autres possibles
+      const modes = {};
+      emoProps.forEach((x) => (modes[x.key.mode] = (modes[x.key.mode] || 0) + 1));
+      const modeLine = Object.entries(modes)
+        .sort((a, b) => b[1] - a[1])
+        .map(([id, n]) => `<span class="hm-mchip${id === m.mode ? ' main' : ''}">${esc(modeName(id))} <b>${n}</b></span>`)
+        .join('');
       right = `
         <div class="hm-ex-head"><h3>${esc(emo.label)}</h3><span>→ ${esc(m.name)} · ${esc(m.mood)}</span>${sc.emotion === emo.id ? '<em class="hm-cur">émotion de cette scène</em>' : ''}</div>
         <p class="hm-color">${colorLine(m.mode)}</p>
-        <div class="hm-exs">${emoProps.map((pr, i) => propCard(pr, i)).join('')}</div>
+        <p class="hm-modes-line"><span class="hm-muted">Modes de ses ${emoProps.length} grilles :</span>${modeLine}</p>
+        <div class="hm-lbl">Trois pistes</div>
+        <div class="hm-exs">${props.map((pr, i) => propCard(pr, i)).join('')}</div>
         <label class="emo-opt"><input type="checkbox" id="hmEmoTempo"${tempoOn ? ' checked' : ''}> « Poser sur la grille » règle aussi le tempo conseillé (tout le morceau)</label>
+        ${refs.length ? `<div class="hm-lbl">Grilles de référence · ${refs.length}</div><div class="hm-exs">${refs.map(([x, i]) => propCard(x, i, { tags: emo.id })).join('')}</div>` : ''}
         <details class="hm-more"><summary>En savoir plus : repères, réserves, mélodie, essais A/B</summary>
           <div class="emo-dims">${dim('Valence', emo.dims[0])}${dim('Activation', emo.dims[1])}${dim('Tension', emo.dims[2])}<span class="hm-muted">repères subjectifs</span></div>
           <dl class="emo-matrix">
             <dt>Harmonie</dt><dd>${esc(emo.harmony)}</dd><dt>Mélodie</dt><dd>${esc(emo.melody)}</dd>
             <dt>Rythme, texture</dt><dd>${esc(emo.texture)}</dd><dt>Risque</dt><dd>${esc(emo.risk)}</dd>
-            ${emoProps.map((pr) => `<dt>Réserve ${SS.EMOTION_KINDS[pr.kind].toLowerCase()}</dt><dd>${esc(pr.caveat)}</dd>`).join('')}
+            ${props.map((pr) => `<dt>Réserve ${SS.EMOTION_KINDS[pr.kind].toLowerCase()}</dt><dd>${esc(pr.caveat)}</dd>`).join('')}
           </dl>
           <p class="hm-muted"><b>Mélodie conseillée</b> : « ${esc(gen ? gen.label : '')} » (${esc(gen ? gen.text : '')}).
             <button type="button" class="btn btn-small" id="hmEmoMel">Composer la mélodie ↗</button></p>
@@ -306,9 +372,10 @@ SS.harmonyPanel = (() => {
               .join('')}</div>
           </div>
           <p class="hm-muted">Aucune suite d'accords n'encode une émotion à coup sûr : la mélodie, le tempo, le timbre et le contexte comptent autant. Pour une trajectoire (solitude → espoir…), donnez une émotion à chaque scène.</p>
-        </details>`;
+        </details>
+        ${lexicon}`;
     }
-    $('#hmBody').innerHTML = `<div class="hm-amb"><div class="hm-amb-l"><div class="hm-lbl">Du plus lumineux au plus sombre</div><div class="hm-modes">${list}</div></div><div class="hm-amb-r">${right}</div></div>`;
+    $('#hmBody').innerHTML = `<div class="hm-amb"><div class="hm-amb-l"><button type="button" class="chip hm-all${all ? ' active' : ''}" data-emo="${ALL}">Toutes les grilles · ${SS.EMOTION_LIBRARY.length}</button><div class="hm-lbl">Du plus lumineux au plus sombre</div><div class="hm-modes">${list}</div></div><div class="hm-amb-r">${right}</div></div>`;
   }
 
   const noKeyMsg = () =>
@@ -326,7 +393,7 @@ SS.harmonyPanel = (() => {
     const k = sec.key;
     if (!sc || !k) return { grid: [], melodies: [] };
     const evsOf = (t) => (sc.data[t.id] && sc.data[t.id].events) || [];
-    const gch = sc.grid && sc.grid.chords.length ? [...sc.grid.chords].sort((a, b) => a.step - b.step).map((c) => ({ step: c.step, len: c.len, c: H().gridChord(k, c.degree, c.type, c.acc) })) : [];
+    const gch = sc.grid && sc.grid.chords.length ? [...sc.grid.chords].sort((a, b) => a.step - b.step).map((c) => ({ step: c.step, len: c.len, c: H().gridChord(k, c.degree, c.type, c.acc, c.bass) })) : [];
     const chordEvs = instTracks().filter((t) => t.category !== 'mono').flatMap(evsOf);
     // la grille n'est la référence que si elle a été générée dans les pistes (sinon : les accords joués)
     const comp = sc.grid && sc.grid.layers.comp;
@@ -469,7 +536,7 @@ SS.harmonyPanel = (() => {
     if (g.snap === 'half') return spb % 2 === 0 ? spb / 2 : beat;
     return spb;
   }
-  const gChord = (c) => H().gridChord(key(), c.degree, c.type, c.acc);
+  const gChord = (c) => H().gridChord(key(), c.degree, c.type, c.acc, c.bass);
   const sigOf = (events) => {
     const s = events.map((e) => `${e.step}:${e.len}:${e.notes.join('.')}`).join('|');
     let h = 5381;
@@ -488,7 +555,7 @@ SS.harmonyPanel = (() => {
       const end = Math.min(gc.step + gc.len, length);
       const c = gChord(gc);
       const notes = H().voice(c, near, center);
-      near = notes[0];
+      near = notes[c.bassPc != null ? 1 : 0]; // la fondamentale (pas la basse imposée)
       const add = (s, l, vel) => s < end && l > 0 && out.push({ step: s, len: Math.min(l, end - s), notes: [...notes], vel, chord: c.type });
       if (rhythm === 'beats') for (let s = gc.step; s < end; s += beat) add(s, half, s % spb === 0 ? 0.8 : 0.68);
       else if (rhythm === 'pump') for (let s = gc.step, i = 0; s < end; s += half, i++) add(s, Math.max(1, Math.round(half * 0.75)), i % 2 ? 0.55 : 0.75);
@@ -821,7 +888,7 @@ SS.harmonyPanel = (() => {
       return;
     }
     const moving = blk ? g.chords[+blk.dataset.gi] : null;
-    const chord = moving ? { degree: moving.degree, type: moving.type, acc: moving.acc } : { degree: +src.dataset.gd, type: src.dataset.gt, acc: +src.dataset.ga };
+    const chord = moving ? { degree: moving.degree, type: moving.type, acc: moving.acc, ...(moving.bass ? { bass: moving.bass } : {}) } : { degree: +src.dataset.gd, type: src.dataset.gt, acc: +src.dataset.ga };
     const len = moving ? moving.len : unit;
     const x0 = e.clientX;
     const y0 = e.clientY;
@@ -1033,7 +1100,11 @@ SS.harmonyPanel = (() => {
       return render();
     }
     if ((b = el('[data-emo-listen]'))) return listenChords(emoProps[+b.dataset.emoListen].chords);
-    if ((b = el('[data-emo-apply]'))) return applyProposal(emoProps[+b.dataset.emoApply], SS.findEmotion(viewEmo || scene().emotion), $('#hmEmoTempo').checked);
+    if ((b = el('[data-emo-apply]'))) {
+      const pr = emoProps[+b.dataset.emoApply];
+      const emo = viewEmo === ALL ? null : SS.findEmotion(viewEmo || scene().emotion);
+      return applyProposal(pr, emo, !!$('#hmEmoTempo') && $('#hmEmoTempo').checked);
+    }
     if ((b = el('[data-ab]'))) return abTest(b.dataset.ab);
     if (el('#hmEmoMel')) {
       tab = 'mel';

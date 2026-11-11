@@ -23,7 +23,7 @@ puis ouvrir <http://localhost:8000>.
 - **En-tête** : icône de l'application (menu **Chansons**, **Nouveau**, **Ouvrir**, **Enregistrer**), titre du projet, tempo (BPM), chiffrage de mesure (4/4 par défaut, x/4 ou x/8),
   nombre de mesures, le groove (swing, humanisation), **Lecture** et **Stop**, puis les fenêtres regroupées
   **Band**, **Key : tonalité** (fenêtre Key, propre à chaque scène : assistant
-  émotion → grille d'accords pour démarrer, puis onglets Ambiance (émotions rangées par mode, grille posée sur l'onglet suivant), Grille (accords glissés sur une ligne de mesures → basse, accords et arpège générés),
+  émotion → grille d'accords pour démarrer, puis onglets Ambiance (émotions rangées par mode, trois pistes et 39 grilles de référence sourcées, grille posée sur l'onglet suivant), Grille (accords glissés sur une ligne de mesures → basse, accords et arpège générés),
   Mélodie (une mélodie sur la grille, à écouter avec la nappe) et Vérifier (accords et mélodie) ; palette d'accords dans le piano roll, essais A/B), **Song** (fenêtre Song : scènes et arrangement, avec une case pour garder le panneau
   d'arrangement affiché sous l'en-tête) et **Mix** (console de mixage, avec l'assistant **Auto Mix**).
   À droite : annuler / rétablir, l'indicateur d'enregistrement automatique et **Aide**.
@@ -427,7 +427,7 @@ par la fenêtre **Key** :
 | `js/junopanel.js` | Façade du Juno-106 (sound design des pistes Synthé) |
 | `js/groove.js`   | Fenêtre Groove (swing, humanisation) |
 | `js/harmony.js`  | Aide à la composition : gammes, accords diatoniques, identification des accords, estimation de la tonalité, vérificateur d'harmonie |
-| `js/emotions.js` | Intentions émotionnelles (skill MusicEmotion) : matrice et trois propositions par intention |
+| `js/emotions.js` | Intentions émotionnelles (skill MusicEmotion) : matrice et trois propositions par intention, modes de l'onglet Ambiance, bibliothèque de 39 grilles de référence (accords, mode, émotions, source) |
 | `js/harmonypanel.js` | Fenêtre Key de la scène en cours : assistant en 2 étapes, onglets Ambiance, Grille (avec les couches), Mélodie (panneau de `js/melodypanel.js`), Vérifier (accords et mélodie) |
 | `js/fx.js`       | Fenêtre Effets par piste (chorus, delay, reverb, sidechain, envois vers les bus partagés) |
 | `js/master-dsp.js` | Mastering du Master (AudioWorklet) : graves en mono, largeur, écrêtage doux, limiteur à anticipation, mesure LUFS / true peak |
