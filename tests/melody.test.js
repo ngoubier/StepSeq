@@ -194,3 +194,13 @@ test('fitGrid : la mélodie dure la grille (4 accords → 4 mesures), structure 
   // une mesure très dense reste possible (7 notes dans la dernière mesure)
   assert.ok(M.compose({ grid: 'C | G', source: 'meter', meter: '5+7', fitGrid: true, seed: 1 }).ok);
 });
+
+test('aperçu : fonction des accords (repos, préparation, tension, emprunt) et type des notes', () => {
+  const r = M.compose({ grid: 'Am | Dm | E7 | Am Bb', source: 'meter', meter: '', fitGrid: true, seed: 1 });
+  const fn = Object.fromEntries(r.spans.map((sp) => [sp.chord.sym, sp.chord.fn.id]));
+  assert.deepEqual(fn, { Am: 'repos', Dm: 'prep', E7: 'tension', Bb: 'emprunt' });
+  assert.ok(r.notes.every((x) => ['chord', 'color', 'passing', 'appog', 'scale', 'tension'].includes(x.kind)));
+  assert.equal(M.noteKind("note de l'accord (tierce)"), 'chord');
+  assert.equal(M.noteKind('couleur (neuvième)'), 'color');
+  assert.equal(M.noteKind('broderie'), 'passing');
+});

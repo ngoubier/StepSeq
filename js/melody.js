@@ -864,6 +864,33 @@ SS.melody = (() => {
     return FR_NOTES[pcOf(midi)] + oct;
   }
 
+  /**
+   * Fonction d'un accord dans la tonalité (fenêtre Key : repos, préparation, tension, couleur du mode),
+   * ou « emprunt » quand sa fondamentale est hors de la gamme. → { id, label, text, borrowed }
+   */
+  function chordFunction(chord, key) {
+    const sc = H().scale(key);
+    const deg = sc.findIndex((d) => d.pc === chord.rootPc);
+    if (deg < 0) return { id: 'emprunt', label: 'emprunt', text: 'fondamentale hors de la tonalité (accord emprunté ou chromatique)', borrowed: true };
+    const set = [...new Set(chord.ivs.map(pcOf))].sort((a, b) => a - b).join();
+    let type = (SS.CHORDS.find((c) => [...new Set(c.iv.map(pcOf))].sort((a, b) => a - b).join() === set) || {}).id;
+    if (!type) {
+      const has = (i) => chord.ivs.some((x) => pcOf(x) === i);
+      type = has(3) ? (has(6) && !has(7) ? 'dim' : 'min') : has(4) ? (has(8) && !has(7) ? 'aug' : 'maj') : has(5) ? 'sus4' : has(2) ? 'sus2' : '5';
+    }
+    const g = H().gridChord(key, deg, type, 0);
+    return { ...g.role, borrowed: g.borrowed, numeral: g.numeral };
+  }
+  /** Type d'une note (couleur de l'aperçu), d'après son rôle. */
+  function noteKind(role) {
+    if (/^note de l'accord/.test(role)) return 'chord';
+    if (/^couleur/.test(role)) return 'color';
+    if (/passage|broderie/.test(role)) return 'passing';
+    if (/appoggiature|anticipation/.test(role)) return 'appog';
+    if (/gamme/.test(role)) return 'scale';
+    return 'tension';
+  }
+
   /* ================================================================== */
   /* Composition complète                                                */
   /* ================================================================== */
@@ -1042,7 +1069,12 @@ SS.melody = (() => {
     });
 
     // --- rôles ---
-    notes.forEach((x, i) => (x.role = noteRole(notes, i, spans, keyPcs)));
+    notes.forEach((x, i) => {
+      x.role = noteRole(notes, i, spans, keyPcs);
+      x.kind = noteKind(x.role);
+    });
+    // fonction de chaque accord (repos, préparation, tension…) pour l'aperçu
+    grid.spans.forEach((sp) => (sp.chord.fn = chordFunction(sp.chord, key)));
 
     // --- tableau : notes et silences, mesure par mesure ---
     const rows = [];
@@ -1201,5 +1233,5 @@ SS.melody = (() => {
     return res.notes.map((x) => ({ step: x.step, len: x.len, notes: [x.midi], vel: Math.round((x.vel / 127) * 100) / 100, lyric: x.syl.text }));
   }
 
-  return { compose, parseGrid, parseChordSymbol, scanLine, scanLyrics, scanMeter, guessKeys, toMidi, toEvents, RANGES, metricWeight, valueName, quarters, posLabel, noteLabel, _rng: rng };
+  return { compose, chordFunction, noteKind, parseGrid, parseChordSymbol, scanLine, scanLyrics, scanMeter, guessKeys, toMidi, toEvents, RANGES, metricWeight, valueName, quarters, posLabel, noteLabel, _rng: rng };
 })();

@@ -2860,11 +2860,22 @@ dialog.system-dialog { width: min(920px, calc(100vw - 24px)); max-height: calc(1
 .ml-syl .a1 { text-decoration: underline; text-underline-offset: 3px; }
 .ml-syl .cad { color: var(--muted); }
 .ml-count { flex: none; color: var(--muted); font-size: 12px; }
-.mel-roll { width: 100%; height: auto; max-height: 150px; background: var(--panel-2); border-radius: 8px; border: 1px solid var(--line); }
-.mel-roll .mr-bar { stroke: var(--line); stroke-width: 1; }
-.mel-roll .mr-chord { fill: var(--muted); font-size: 9px; }
-.mel-roll .mr-note { fill: var(--accent-2); }
-.mel-roll .mr-note.acc { fill: #9b5cff; }
+.mel-roll-wrap { overflow-x: auto; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 6px; }
+.mel-roll { display: block; height: auto; stroke: none; stroke-width: 1; fill: none; } /* pas le style des icônes */
+.mel-roll .mr-bar { stroke: #5a5a62; stroke-width: 1; }
+.mel-roll .mr-beat { stroke: var(--line); stroke-width: 1; stroke-dasharray: 2 3; }
+.mel-roll .mr-num { fill: var(--muted); font-size: 9px; }
+.mel-roll .mr-chord { fill: var(--text); font-size: 15px; font-weight: 700; }
+.mel-roll .mr-fn { font-size: 11px; font-weight: 600; }
+.mel-roll .mr-note.acc { stroke: #fff; stroke-width: 1.5; }
+.mel-roll .mr-name { fill: #0d0d10; font-size: 10.5px; font-weight: 700; pointer-events: none; }
+.mel-roll .mr-name.out { fill: var(--text); font-weight: 600; }
+.mel-legend { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.mel-legend > div { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.mel-legend b { width: 62px; color: var(--muted); font-weight: 600; }
+.mel-key { display: inline-flex; align-items: center; gap: 5px; }
+.mel-key::before { content: ''; width: 14px; height: 10px; border-radius: 3px; background: var(--c); }
+.mel-key.fn::before { background: color-mix(in srgb, var(--c) 25%, transparent); border: 1.5px solid var(--c); }
 .mel-table-wrap { overflow-x: auto; }
 .mel-table { border-collapse: collapse; width: 100%; font-size: 12px; }
 .mel-table th { text-align: left; font-weight: 600; color: var(--muted); padding: 4px 6px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); white-space: nowrap; }
