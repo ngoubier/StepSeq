@@ -100,31 +100,24 @@ Les échantillons Dirt-Samples sont joués à leur hauteur réelle, mesurée par
   environ −12 à −13 LUFS intégrés, la dynamique des breaks est gardée. Les attaques de la batterie passent par
   un limiteur-écrêteur léger pour que le mastering n'écrase pas tout le morceau à cause d'elles.
 
-### Band → Mélodie : une mélodie sur une grille d'accords et un texte
+### Band → Mélodie : une mélodie sur une grille d'accords
 
 L'onglet **Mélodie** de la fenêtre Band (`js/melodypanel.js`, moteur `js/melody.js`) propose une mélodie sur une
-piste à partir d'une **grille d'accords** et de **paroles** ou d'une **structure métrique**. Il reprend la méthode du
-skill `composer-melodies-accords-texte`, calculée dans le navigateur (sans réseau ni IA, déterministe) :
+piste à partir d'une **grille d'accords** et d'une **structure**, avec la méthode du skill
+`composer-melodies-accords-texte` (calculée dans le navigateur, sans réseau ni IA). La vue est simple :
 
-1. **grille** : `Am | F G | C . . G | %` (« | » sépare les mesures, plusieurs accords partagent la mesure, « . »
-   prolonge, « % » répète), symboles usuels (m7, maj7, 7sus4, m7♭5, 6/9, add9, 9, 11, 13, renversements C/E,
-   noms français Do, Ré…) ou chiffres romains avec une tonalité ; **Reprendre les accords de la scène** lit la
-   grille Harmo One ou les pistes d'accords. Sans tonalité choisie, elle est estimée et annoncée comme hypothèse ;
-2. **paroles** (un vers par ligne) : découpage en syllabes chantées (e caducs, élisions, liaisons de -es / -ent,
-   synérèse et diérèse signalées), en scansion **classique** ou **chanson** ; « / » force une coupure, des
-   parenthèses rendent des lettres muettes, « [3+5] » impose les syllabes par mesure. Ou une **structure** :
-   « 8 8 8 8 », « 3+5 3+5 », « 12x2 » (syllabes abstraites V1-S1…) ;
-3. **rythme d'abord** : accents de groupe sur les temps forts et plus longs, e caducs légers, respiration en fin
-   de vers, motif rythmique repris et varié (A A' B A'') ; **puis les hauteurs** : notes de l'accord sur les appuis,
-   notes de passage dans la gamme du moment, contour en arche avec un sommet sur une syllabe importante, fin
-   fermée (tonique) ou ouverte ; vélocité selon l'accent et la phrase ;
-4. **proposition** : hypothèses, scansion, aperçu, tableau complet (mesure, position en noires, accords, syllabe,
-   note, MIDI, durée, valeur, vélocité, rôle), **contrôles** (temps exact, une attaque par syllabe, tessiture,
-   sauts, notes exposées, fin) ; **Autre proposition**, **Exporter MIDI** (mélodie, tempo, mesure, paroles).
+1. **Grille** : `Am | F | C | G` (« | » sépare les mesures, `Am F` partage une mesure, « . » prolonge, « % » répète),
+   ou **Reprendre les accords de la scène**. **La mélodie dure exactement la grille** : 4 accords → 4 mesures ;
+2. **Structure** : notes par phrase, les phrases se partagent la grille (`8 8` = deux phrases de 8 notes sur
+   2 mesures chacune ; `3+5 3+5` = notes par mesure). Vide : automatique (une phrase de 7 notes pour 2 mesures) ;
+3. **Piste** : une piste Mono, ou une nouvelle piste « Mélodie » (instrument lead du groupe).
 
-**Écrire sur la piste** remplace les notes d'une piste Mono de la scène en cours (ou crée une piste « Mélodie »
-avec l'instrument lead du groupe), allonge la scène si besoin et garde la syllabe de chaque note
-(affichée dans le piano roll). Ctrl+Z revient en arrière. Le séquenceur avance par doubles-croches : pas de triolets.
+**Proposer** montre le nombre de notes, la tonalité déduite des accords, un aperçu et le sommet ; **Autre
+proposition** en tire une autre ; **Écrire sur la piste** remplace ses notes dans la scène en cours (Ctrl+Z).
+Repliés : **Options** (tonalité, tessiture, rythme, fin, et des **paroles** facultatives, découpées en syllabes
+françaises, qui remplacent la structure) et **Détails** (hypothèses, contrôles, tableau des notes, export MIDI).
+Mélodie : notes de l'accord sur les appuis, notes de passage entre elles, motif repris et varié, respirations en
+fin de phrase. Le séquenceur avance par doubles-croches : pas de triolets.
 
 ### Auto Mix : l'assistant de mixage et de mastering
 

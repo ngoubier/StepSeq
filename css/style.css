@@ -2891,3 +2891,10 @@ dialog.system-dialog { width: min(920px, calc(100vw - 24px)); max-height: calc(1
   .mel-body { grid-auto-rows: max-content; }
   .mel-form, .mel-out { min-height: auto; }
 }
+/* Mélodie : vue simple (options et détails repliés) */
+@media (min-width: 901px) { .band-dialog.mode-melody .mel-body { grid-template-columns: minmax(300px, 380px) 1fr; } }
+.mel-scene { align-self: flex-start; }
+.mel-more, .mel-details { border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+.mel-more > summary, .mel-details > summary { cursor: pointer; font-size: 13px; color: var(--muted); padding: 2px 0; }
+.mel-more[open], .mel-details[open] { display: flex; flex-direction: column; gap: 10px; padding-bottom: 10px; }
+.mel-lead { font-size: 14px !important; }

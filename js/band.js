@@ -477,7 +477,7 @@ SS.band = (() => {
     $('#bandMelody').hidden = !mel;
     el.querySelectorAll('.band-only').forEach((x) => (x.hidden = mel));
     el.querySelectorAll('.mel-only').forEach((x) => (x.hidden = !mel));
-    $('#bandDlgSub').textContent = mel ? 'une mélodie sur une piste, d’après une grille d’accords et un texte' : 'monter un groupe pour jouer la chanson';
+    $('#bandDlgSub').textContent = mel ? 'une mélodie sur une piste, d’après une grille d’accords' : 'monter un groupe pour jouer la chanson';
     if (mel) SS.melodyPanel.show();
   }
 

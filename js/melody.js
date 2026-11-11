@@ -553,7 +553,7 @@ SS.melody = (() => {
         out.push({ on: pos, dur: room - b });
         return out;
       }
-      const hi = W - pos - breathMin - rest * minDur - minDur; // garde la place pour la dernière note
+      const hi = W - pos - breathMin - rest * minDur; // garde la place des notes suivantes (dont la dernière)
       const lo = W - pos - breathMax - rest * maxD - 16;
       let cands = durs.filter(([d]) => d <= hi && d >= Math.min(lo, hi));
       if (!cands.length) cands = [[minDur, 1]];
@@ -886,7 +886,7 @@ SS.melody = (() => {
   function compose(opts) {
     const timeSig = opts.timeSig || [4, 4];
     const spb = Math.round(timeSig[0] * (16 / timeSig[1]));
-    const barsPerLine = Math.max(1, Math.min(8, opts.barsPerLine || 2));
+    let barsPerLine = Math.max(1, Math.min(8, opts.barsPerLine || 2));
     const style = opts.style || 'simple';
     const seed = opts.seed || 1;
     const r = rng(`melodie/${seed}`);
@@ -894,28 +894,53 @@ SS.melody = (() => {
     const errors = [];
     const fail = (list) => ({ ok: false, errors: list, hypotheses });
 
-    // --- textes ---
-    let lines;
-    if (opts.source === 'meter') {
-      const res = scanMeter(opts.meter, barsPerLine);
-      if (res.errors.length) return fail(res.errors);
-      lines = res.lines;
-      if (!lines.length) return fail(['Indique une structure métrique : par exemple « 8 8 8 8 » ou « 3+5 3+5 ».']);
-      hypotheses.push('Sans paroles : syllabes abstraites (V1-S1…) et accents proposés en fin de groupe ; ils ne remplacent pas ceux de vraies paroles.');
-    } else {
-      lines = scanLyrics(opts.text, { eMode: opts.eMode, sungFinalE: opts.sungFinalE });
-      if (!lines.length) return fail(['Écris les paroles, un vers par ligne (ou choisis « Structure métrique »).']);
-    }
-    lines.forEach((l) => l.count === 0 && errors.push(`vers « ${l.text} » : aucune syllabe reconnue`));
-    if (errors.length) return fail(errors);
-
     // --- grille ---
-    const totalBars = lines.length * barsPerLine;
-    const total = totalBars * spb;
     let key = opts.key && H().valid(opts.key) ? opts.key : null;
     const grid = parseGrid(opts.grid, { spb, key });
     if (grid.errors.length) return fail(grid.errors);
     if (!grid.spans.length) return fail(['Écris une grille d’accords : par exemple « Am | F | C | G ».']);
+
+    // --- textes ou structure ---
+    // fitGrid : la mélodie dure exactement la grille (4 accords → 4 mesures), les phrases se la partagent
+    const plural = (n, w) => `${n} ${w}${n > 1 ? 's' : ''}`;
+    let meter = opts.meter;
+    if (opts.fitGrid && opts.source === 'meter' && !String(meter || '').trim()) {
+      const phrases = grid.bars % 2 === 0 ? grid.bars / 2 : 1;
+      const bpl = grid.bars / phrases;
+      meter = Array.from({ length: phrases }, () => String(bpl * 4 - 1)).join(' ');
+      hypotheses.push(`Structure automatique : ${plural(phrases, 'phrase')} de ${bpl * 4 - 1} notes (« ${meter} »).`);
+    }
+    const fit = (count) => {
+      if (!opts.fitGrid) return null;
+      if (grid.bars % count) {
+        const ok = [];
+        for (let d = 1; d <= grid.bars; d++) if (grid.bars % d === 0) ok.push(d);
+        return `La grille a ${plural(grid.bars, 'mesure')} : ${plural(count, 'phrase')} ne la partagent pas en parts égales. Essaie ${ok.join(', ')} phrase${ok.length > 1 || ok[0] > 1 ? 's' : ''}.`;
+      }
+      barsPerLine = grid.bars / count;
+      return null;
+    };
+    let lines;
+    if (opts.source === 'meter') {
+      let res = scanMeter(meter, barsPerLine);
+      if (res.errors.length) return fail(res.errors);
+      if (!res.lines.length) return fail(['Indique une structure : par exemple « 8 8 » (notes par phrase) ou « 3+5 3+5 ».']);
+      const e = fit(res.lines.length);
+      if (e) return fail([e]);
+      res = scanMeter(meter, barsPerLine);
+      lines = res.lines;
+      hypotheses.push('Sans paroles : notes abstraites (V1-S1…) et appuis proposés en fin de groupe.');
+    } else {
+      lines = scanLyrics(opts.text, { eMode: opts.eMode, sungFinalE: opts.sungFinalE });
+      if (!lines.length) return fail(['Écris les paroles, un vers par ligne (ou choisis « Structure métrique »).']);
+      const e = fit(lines.length);
+      if (e) return fail([e]);
+    }
+    lines.forEach((l) => l.count === 0 && errors.push(`vers « ${l.text} » : aucune syllabe reconnue`));
+    if (errors.length) return fail(errors);
+
+    const totalBars = lines.length * barsPerLine;
+    const total = totalBars * spb;
     const keyAuto = !key;
     let keyAlternatives = [];
     if (!key) {
@@ -1114,7 +1139,9 @@ SS.melody = (() => {
     const motifCells = r0.slice(0, 4).map((x) => valueName(x.dur).replace(' (liées)', '')).join(', ');
     const summary = {
       motif: `Motif : le premier vers ouvre sur ${motifCells}${r0.length > 4 ? '…' : ''} ; ${lines.length > 1 ? 'les vers suivants le reprennent et le varient (' + plans.map((p) => p.role).join(' ') + ')' : 'un seul vers'}.`,
-      peak: `Sommet : ${noteLabel(peakNote.midi, key)} sur « ${peakNote.syl.text} » (vers ${peakNote.line + 1}, mesure ${Math.floor(peakNote.step / spb) + 1}).`,
+      peak: lines[0].abstract
+        ? `Sommet : ${noteLabel(peakNote.midi, key)} (phrase ${peakNote.line + 1}, mesure ${Math.floor(peakNote.step / spb) + 1}).`
+        : `Sommet : ${noteLabel(peakNote.midi, key)} sur « ${peakNote.syl.text} » (vers ${peakNote.line + 1}, mesure ${Math.floor(peakNote.step / spb) + 1}).`,
       ending: `Fin : ${finKind}.`,
     };
 

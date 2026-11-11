@@ -175,3 +175,22 @@ test('export MIDI : en-tête, tempo, paroles, une note par syllabe', () => {
   assert.equal(ev.length, r.notes.length);
   assert.ok(ev.every((e) => e.notes.length === 1 && e.vel > 0 && e.vel <= 1 && e.lyric));
 });
+
+test('fitGrid : la mélodie dure la grille (4 accords → 4 mesures), structure automatique ou partagée', () => {
+  const g = 'Am | F | C | G';
+  const a = M.compose({ grid: g, source: 'meter', meter: '', fitGrid: true, seed: 1 });
+  assert.ok(a.ok && a.bars === 4 && a.lines.length === 2);
+  for (const [m, bars, lines] of [['8', 4, 1], ['8 8', 4, 2], ['4 4 4 4', 4, 4], ['3+5 3+5', 4, 2]]) {
+    const r = M.compose({ grid: g, source: 'meter', meter: m, fitGrid: true, seed: 2 });
+    assert.ok(r.ok, m + ' ' + (r.errors || []).join());
+    assert.equal(r.bars, bars);
+    assert.equal(r.lines.length, lines);
+    assert.ok(r.notes.every((x) => x.step + x.len <= bars * 16));
+  }
+  const bad = M.compose({ grid: g, source: 'meter', meter: '8 8 8', fitGrid: true });
+  assert.ok(!bad.ok && /parts égales/.test(bad.errors[0]));
+  const six = M.compose({ grid: 'C | G | Am | F | C | G', source: 'meter', meter: '', fitGrid: true, seed: 1 });
+  assert.equal(six.bars, 6);
+  // une mesure très dense reste possible (7 notes dans la dernière mesure)
+  assert.ok(M.compose({ grid: 'C | G', source: 'meter', meter: '5+7', fitGrid: true, seed: 1 }).ok);
+});

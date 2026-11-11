@@ -45,37 +45,41 @@ const SHOTS = process.env.SHOTS;
   ok(!(await page.isVisible('#bandSongBtn')) && (await page.isVisible('#melGo')), 'boutons de la mélodie à la place de ceux du groupe');
   ok(!/mélodie/i.test(await page.textContent('#bandSub')), 'le sous-titre du bouton Band de l’en-tête n’est pas modifié');
 
+  ok(!(await page.isVisible('#melText')) && !(await page.isVisible('#melKey')), 'vue simple : options et paroles repliées');
   await page.fill('#melGrid', 'Am | F | C | G');
   ok((await page.locator('#melGridChips .mel-chip').count()) === 4, 'grille lue : 4 accords');
-  await page.fill('#melText', "Je pense à toi quand vient la nuit\nLes rues s'allument une à une\nEt dans le vent de la lune\nJe reviens chanter près de toi");
-  await page.selectOption('#melKey', 'auto');
+  ok(/mélodie sur 4 mesures/.test(await page.textContent('#melGridChips')), 'longueur annoncée : 4 mesures');
+  await page.fill('#melMeter', '');
   await page.selectOption('#melTrack', 'new');
   await page.click('#melGo');
   await page.waitForTimeout(200);
-  const rows = await page.locator('.mel-table tbody tr').count();
-  ok(rows > 30, `tableau des notes (${rows} lignes)`);
-  ok((await page.locator('.mel-line').count()) === 4, 'scansion : 4 vers');
-  ok((await page.locator('.mel-checks li.bad').count()) === 0, 'aucun contrôle en échec');
+  ok(/sur 4 mesures/.test(await page.textContent('.mel-lead')), '4 accords → mélodie sur 4 mesures');
+  ok(!(await page.isVisible('.mel-table')), 'tableau des notes replié dans « Détails »');
   ok(!(await page.isDisabled('#melWrite')), 'écriture possible');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'melodie-proposition.png') });
-  const first = await page.locator('.mel-table tbody').innerText();
+  const first = await page.locator('.mel-roll').innerHTML();
   await page.click('#melAgain');
   await page.waitForTimeout(200);
-  ok((await page.locator('.mel-table tbody').innerText()) !== first, 'autre proposition : une mélodie différente');
+  ok((await page.locator('.mel-roll').innerHTML()) !== first, 'autre proposition : une mélodie différente');
   ok(JSON.stringify(await P()) === JSON.stringify(before), 'rien n’est écrit avant « Écrire sur la piste »');
 
-  // structure métrique avec répartition imposée
-  await page.click('.mel-form .segmented [data-v="meter"]');
+  await page.fill('#melMeter', '8 8 8');
+  await page.click('#melGo');
+  await page.waitForTimeout(200);
+  ok(/parts égales/.test(await page.textContent('#melOut')), '3 phrases sur 4 mesures : explication');
   await page.fill('#melMeter', '3+5 3+5');
   await page.click('#melGo');
   await page.waitForTimeout(200);
+  await page.click('.mel-details summary');
   const att = await page.locator('.mel-checks li').allInnerTexts();
   ok(att.some((t) => /Vers 1 : 8 syllabes, 8 attaques \(3\+5/.test(t)), 'répartition 3+5 respectée');
-  await page.click('.mel-form .segmented [data-v="text"]');
-  ok((await page.inputValue('#melText')).startsWith('Je pense'), 'le texte est conservé en changeant de source');
+
+  // paroles dans les options
+  await page.click('#melMore summary');
+  await page.fill('#melText', "Je pense à toi quand vient la nuit\nLes rues s'allument une à une");
   await page.click('#melGo');
   await page.waitForTimeout(200);
-
+  ok((await page.locator('.mel-line').count()) === 2, 'paroles : 2 vers sur la grille de 4 mesures');
   await page.click('#melWrite');
   await page.waitForTimeout(800);
   ok(!(await page.isVisible('#bandDialog')), 'la fenêtre se ferme après écriture');
@@ -83,8 +87,7 @@ const SHOTS = process.env.SHOTS;
   const mel = after.tracks.find((t) => t.melody);
   ok(!!mel && mel.category === 'mono', 'nouvelle piste « Mélodie » (Mono)');
   const evs = mel ? (after.scenes.find((s) => s.id === after.current) || {}).data?.[mel.id]?.events || mel.events || [] : [];
-  ok(evs.length >= 30 && evs.every((e) => e.notes.length === 1 && e.lyric), `notes écrites avec leurs syllabes (${evs.length})`);
-  ok(after.bars >= 8, `scène allongée à ${after.bars} mesures`);
+  ok(evs.length >= 14 && evs.every((e) => e.notes.length === 1 && e.lyric) && evs.every((e) => e.step < 4 * 16), `notes écrites avec leurs syllabes, dans les 4 mesures (${evs.length})`);
   ok(!after.tracks.find((t) => t.melody).band, 'la piste Mélodie n’est pas marquée Band');
   if (SHOTS) {
     await page.waitForTimeout(400);
