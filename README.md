@@ -100,6 +100,32 @@ Les échantillons Dirt-Samples sont joués à leur hauteur réelle, mesurée par
   environ −12 à −13 LUFS intégrés, la dynamique des breaks est gardée. Les attaques de la batterie passent par
   un limiteur-écrêteur léger pour que le mastering n'écrase pas tout le morceau à cause d'elles.
 
+### Band → Mélodie : une mélodie sur une grille d'accords et un texte
+
+L'onglet **Mélodie** de la fenêtre Band (`js/melodypanel.js`, moteur `js/melody.js`) propose une mélodie sur une
+piste à partir d'une **grille d'accords** et de **paroles** ou d'une **structure métrique**. Il reprend la méthode du
+skill `composer-melodies-accords-texte`, calculée dans le navigateur (sans réseau ni IA, déterministe) :
+
+1. **grille** : `Am | F G | C . . G | %` (« | » sépare les mesures, plusieurs accords partagent la mesure, « . »
+   prolonge, « % » répète), symboles usuels (m7, maj7, 7sus4, m7♭5, 6/9, add9, 9, 11, 13, renversements C/E,
+   noms français Do, Ré…) ou chiffres romains avec une tonalité ; **Reprendre les accords de la scène** lit la
+   grille Harmo One ou les pistes d'accords. Sans tonalité choisie, elle est estimée et annoncée comme hypothèse ;
+2. **paroles** (un vers par ligne) : découpage en syllabes chantées (e caducs, élisions, liaisons de -es / -ent,
+   synérèse et diérèse signalées), en scansion **classique** ou **chanson** ; « / » force une coupure, des
+   parenthèses rendent des lettres muettes, « [3+5] » impose les syllabes par mesure. Ou une **structure** :
+   « 8 8 8 8 », « 3+5 3+5 », « 12x2 » (syllabes abstraites V1-S1…) ;
+3. **rythme d'abord** : accents de groupe sur les temps forts et plus longs, e caducs légers, respiration en fin
+   de vers, motif rythmique repris et varié (A A' B A'') ; **puis les hauteurs** : notes de l'accord sur les appuis,
+   notes de passage dans la gamme du moment, contour en arche avec un sommet sur une syllabe importante, fin
+   fermée (tonique) ou ouverte ; vélocité selon l'accent et la phrase ;
+4. **proposition** : hypothèses, scansion, aperçu, tableau complet (mesure, position en noires, accords, syllabe,
+   note, MIDI, durée, valeur, vélocité, rôle), **contrôles** (temps exact, une attaque par syllabe, tessiture,
+   sauts, notes exposées, fin) ; **Autre proposition**, **Exporter MIDI** (mélodie, tempo, mesure, paroles).
+
+**Écrire sur la piste** remplace les notes d'une piste Mono de la scène en cours (ou crée une piste « Mélodie »
+avec l'instrument lead du groupe), allonge la scène si besoin et garde la syllabe de chaque note
+(affichée dans le piano roll). Ctrl+Z revient en arrière. Le séquenceur avance par doubles-croches : pas de triolets.
+
 ### Auto Mix : l'assistant de mixage et de mastering
 
 Dans la console **Mix** :
@@ -299,6 +325,7 @@ node tests/e2e/harmony-ui.js
 node tests/e2e/grid-ui.js
 node tests/e2e/playhead-ui.js
 node tests/e2e/song-ui.js
+node tests/e2e/melody-ui.js
 node tests/e2e/band-song-ui.js
 node tests/e2e/mix-master-ui.js
 node tests/e2e/automix-ui.js
@@ -386,6 +413,7 @@ par la fenêtre **Key** :
 | `composition-harmonie-synthetiseur` | Gammes, accords, degrés, progressions, voicings, basse / arpège / mélodie, parcours en 8 modules | Tonalité, palette d'accords, progressions, génération de couches, vérificateur |
 | `arranger-orchestrer-finaliser` | Arrangement, orchestration, mixage, mastering | Méthode « une couche à la fois », démos mixées et masterisées |
 | `musicemotion` | Composer à partir d'une émotion : matrice émotion → procédés, trois pistes contrastées, essais A/B | Section Émotion : 13 intentions, propositions, essais A/B, modes |
+| `composer-melodies-accords-texte` | Mélodie sur une grille d'accords et des paroles ou une métrique : prosodie, rythme, notes cibles, contrôles, export MIDI | Band → Mélodie : scansion, proposition, tableau des notes, contrôles, écriture sur une piste |
 
 ## Structure du code
 
@@ -417,6 +445,8 @@ par la fenêtre **Key** :
 | `js/automixpanel.js` | Auto Mix : panneau de la console, A/B, préférences, pilote auto |
 | `js/band-songs.js` | Band : plans des 20 chansons complètes (tonalité, sections, grilles, parties) |
 | `js/bandsong.js` | Band : écrit les scènes, les notes de chaque musicien et l'arrangement d'après un plan |
+| `js/melody.js` | Band → Mélodie : grille d'accords, syllabes du français, rythme, hauteurs, contrôles, export MIDI (fonctions pures) |
+| `js/melodypanel.js` | Band → Mélodie : formulaire, proposition (scansion, tableau, contrôles), écriture sur la piste |
 | `js/bandmix.js`, `js/band-levels.js`, `js/band-drive.js` | Band : règles de mixage et de mastering, niveaux mesurés, gain de mastering par chanson |
 | `js/dirt-tuning.js` | Hauteur mesurée des échantillons Dirt-Samples |
 | `tools/`         | Outils de mesure : hauteur des échantillons, niveaux des instruments, rendu et mastering des chansons Band, calibrage de l'Auto Mix |

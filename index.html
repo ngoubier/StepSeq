@@ -218,7 +218,11 @@
   <dialog id="bandDialog" class="band-dialog" aria-labelledby="bandTitle">
     <div class="band-shell">
       <header class="band-head">
-        <h2 id="bandTitle">Band <small>monter un groupe pour jouer la chanson</small></h2>
+        <h2 id="bandTitle">Band <small id="bandDlgSub">monter un groupe pour jouer la chanson</small></h2>
+        <div class="segmented band-modes" id="bandModes" role="tablist" aria-label="Mode de la fenêtre Band">
+          <button type="button" role="tab" data-mode="band" class="active" aria-selected="true">Groupe</button>
+          <button type="button" role="tab" data-mode="melody" aria-selected="false" title="Composer une mélodie sur une piste à partir d'une grille d'accords et de paroles (ou d'une structure métrique)">Mélodie</button>
+        </div>
         <span class="spacer"></span>
         <button type="button" class="btn btn-icon" id="bandClose" title="Fermer sans créer de pistes" aria-label="Fermer Band sans créer de pistes">
           <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
@@ -239,14 +243,20 @@
         </main>
         <aside class="band-panel" id="bandPanel" hidden aria-live="polite"></aside>
       </div>
+      <!-- Onglet Mélodie : grille d'accords + paroles ou métrique → mélodie sur une piste (js/melody.js, js/melodypanel.js) -->
+      <div class="band-melody" id="bandMelody" hidden></div>
       <div class="band-confirm" id="bandConfirm" hidden></div>
       <footer class="band-foot">
-        <label class="band-tempo"><input type="checkbox" id="bandTempo" checked> <span id="bandTempoLabel">Appliquer le tempo</span></label>
+        <label class="band-tempo band-only"><input type="checkbox" id="bandTempo" checked> <span id="bandTempoLabel">Appliquer le tempo</span></label>
         <span class="spacer"></span>
-        <span class="band-count" id="bandCount"></span>
+        <span class="band-count band-only" id="bandCount"></span>
         <button type="button" class="btn" id="bandCancel">Annuler</button>
-        <button type="button" class="btn" id="bandCreate" title="Créer seulement les pistes des musiciens (vides), dans le projet actuel">Créer les pistes</button>
-        <button type="button" class="btn btn-accent" id="bandSongBtn" title="Écrire toute la chanson : pistes, scènes (intro, couplet, refrain, drop…), ce que joue chaque musicien et l'arrangement">Créer toute la chanson</button>
+        <button type="button" class="btn band-only" id="bandCreate" title="Créer seulement les pistes des musiciens (vides), dans le projet actuel">Créer les pistes</button>
+        <button type="button" class="btn btn-accent band-only" id="bandSongBtn" title="Écrire toute la chanson : pistes, scènes (intro, couplet, refrain, drop…), ce que joue chaque musicien et l'arrangement">Créer toute la chanson</button>
+        <button type="button" class="btn mel-only" id="melMidi" hidden disabled title="Télécharger la proposition en fichier MIDI (mélodie, tempo, mesure, paroles)">Exporter MIDI</button>
+        <button type="button" class="btn mel-only" id="melAgain" hidden disabled title="Une autre proposition avec les mêmes réglages">Autre proposition</button>
+        <button type="button" class="btn mel-only" id="melGo" hidden>Proposer</button>
+        <button type="button" class="btn btn-accent mel-only" id="melWrite" hidden disabled title="Écrire la mélodie sur la piste choisie, dans la scène en cours (Ctrl+Z pour revenir)">Écrire sur la piste</button>
       </footer>
     </div>
   </dialog>
@@ -737,6 +747,8 @@
   <script src="js/band-drive.js"></script>
   <script src="js/bandmix.js"></script>
   <script src="js/bandsong.js"></script>
+  <script src="js/melody.js"></script>
+  <script src="js/melodypanel.js"></script>
   <script src="js/band.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/systempanel.js?v=system-2"></script>

@@ -546,6 +546,50 @@
     });
   }
 
+  /**
+   * Band → Mélodie : écrit une mélodie (js/melody.js) sur une piste Mono de la scène en cours, ou sur une nouvelle
+   * piste « Mélodie ». La scène est allongée si la mélodie est plus longue (les autres pistes sont recopiées en boucle).
+   */
+  function writeMelody({ trackId, newTrack, events, bars, melodyBars, label }) {
+    let t = trackId && project.tracks.find((x) => x.id === trackId);
+    let created = false;
+    if (!t) {
+      if (!newTrack) return;
+      const { levelKey, style, role, ...opts } = newTrack; // eslint-disable-line no-unused-vars
+      t = SS.newTrack(opts, project);
+      t.melody = true;
+      project.tracks.push(t);
+      created = true;
+      // mixage du rôle « lead » (ou « vox ») de Band : niveau calibré, EQ, envois ; la piste n'est pas marquée Band
+      // (« Remplacer les pistes Band » ne la supprime donc pas)
+      t.band = { key: newTrack.role || 'lead' };
+      SS.bandMix.mixTracks([t], new Map([[t.id, levelKey]]), style || 'synthwave');
+      delete t.band;
+    }
+    const oldBars = project.bars;
+    if (bars > oldBars) {
+      project.bars = bars;
+      $('#bars').value = String(bars);
+      SS.resizeProject(project);
+      SS.repeatBars(project, oldBars);
+    }
+    const total = SS.totalSteps(project);
+    t.events = events.filter((e) => e.step < total).map((e) => ({ ...e, notes: [...e.notes], len: Math.min(e.len, total - e.step) }));
+    // la mélodie n'est pas recopiée au-delà de sa longueur
+    state.openRolls.add(t.id);
+    SS.ui.renderAll();
+    if (created) SS.audio.prepareTrack(t);
+    changed();
+    SS.ui.toast(
+      `Mélodie écrite sur « ${t.name} » (${label}, ${melodyBars} mesure${melodyBars > 1 ? 's' : ''})` + (bars > oldBars ? ` · scène allongée à ${bars} mesures` : '') + '. Ctrl+Z pour revenir.',
+      6000
+    );
+    requestAnimationFrame(() => {
+      const el = document.querySelector(`.track[data-id="${t.id}"]`);
+      el && el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+  }
+
   async function editTrack(track) {
     const opts = await SS.ui.openTrackDialog(track);
     if (!opts) return;
@@ -688,7 +732,7 @@
     editTrack,
     deleteTrack,
   });
-  SS.band.init({ project: () => project, openTrackDialog: (t, init) => SS.ui.openTrackDialog(t, init), apply: addBandTracks, applySong: addBandSong, bandTracks, hasNotes });
+  SS.band.init({ project: () => project, openTrackDialog: (t, init) => SS.ui.openTrackDialog(t, init), apply: addBandTracks, applySong: addBandSong, bandTracks, hasNotes, writeMelody });
   SS.mySongs.init({ project: () => project, loadSong, flush: () => SS.autosave.saveNow() });
   initHeader();
   initKeys();
