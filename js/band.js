@@ -14,7 +14,7 @@ SS.band = (() => {
   const B = () => SS.Band;
   let app = null;
   let el = null;
-  const S = { styleId: null, presetId: null, sel: null, cache: {} };
+  const S = { styleId: null, presetId: null, sel: null, cache: {}, mode: 'band' };
 
   /* ---------- Petits outils DOM ---------- */
   const $ = (q, root = document) => root.querySelector(q);
@@ -463,6 +463,39 @@ SS.band = (() => {
     return o;
   }
 
+  /* ---------- Onglets : Groupe / Mélodie ---------- */
+  function setMode(mode) {
+    S.mode = mode;
+    const mel = mode === 'melody';
+    el.classList.toggle('mode-melody', mel);
+    el.querySelectorAll('#bandModes button').forEach((b) => {
+      const on = b.dataset.mode === mode;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    el.querySelector('.band-body').hidden = mel;
+    $('#bandMelody').hidden = !mel;
+    el.querySelectorAll('.band-only').forEach((x) => (x.hidden = mel));
+    el.querySelectorAll('.mel-only').forEach((x) => (x.hidden = !mel));
+    $('#bandDlgSub').textContent = mel ? 'une mélodie sur une piste, d’après une grille d’accords' : 'monter un groupe pour jouer la chanson';
+    if (mel) SS.melodyPanel.show();
+  }
+
+  /** Instrument d'une nouvelle piste « Mélodie » : la voix ou le lead du groupe choisi (ou le premier lead du catalogue). */
+  function melodyTrackOpts() {
+    const find = (p) => p && p.musicians.find((m) => m.role === 'vox') || (p && p.musicians.find((m) => m.role === 'lead'));
+    let p = preset();
+    let mu = find(p);
+    if (!mu) {
+      p = B().STYLES.flatMap((st) => st.presets).find((x) => find(x));
+      mu = find(p);
+    }
+    const ms = S.cache[p.id] && S.cache[p.id][mu.id];
+    const opts = ms && ms.custom ? ms.custom : B().choiceOpts(mu.pick[ms ? ms.pick : 0], catOf(mu));
+    const levelKey = ms && ms.custom ? null : `${mu.role}|${mu.pick[ms ? ms.pick : 0]}|${catOf(mu)}`;
+    return { ...opts, category: 'mono', name: 'Mélodie', color: colorOf(mu), levelKey, role: mu.role, style: S.styleId || 'synthwave' };
+  }
+
   /* ---------- Ouverture / fermeture ---------- */
   function open() {
     SS.audio.ensureCtx();
@@ -475,6 +508,7 @@ SS.band = (() => {
     renderPresets();
     renderSong();
     refresh();
+    setMode(S.mode);
     el.returnValue = '';
     el.showModal();
     requestAnimationFrame(() => {
@@ -608,6 +642,8 @@ SS.band = (() => {
     $('#bandCreate').addEventListener('click', () => finish(true));
     $('#bandSongBtn').addEventListener('click', finishSong);
     $('#bandCancel').addEventListener('click', () => finish(false));
+    el.querySelectorAll('#bandModes button').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
+    SS.melodyPanel.init(app, { leadOpts: melodyTrackOpts, close: () => el.close('ok') });
     // Échap = annuler (rien n'est créé)
     el.addEventListener('cancel', (e) => {
       e.preventDefault();
@@ -619,5 +655,11 @@ SS.band = (() => {
     el.addEventListener('keydown', (e) => e.stopPropagation());
   }
 
-  return { init, open, plannedTracks, _state: S };
+  /** Ouvre directement l'onglet Mélodie. */
+  function openMelody() {
+    S.mode = 'melody';
+    open();
+  }
+
+  return { init, open, openMelody, plannedTracks, melodyTrackOpts, _state: S };
 })();
