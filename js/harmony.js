@@ -549,8 +549,11 @@ SS.harmony = (() => {
   // Un accord de la grille est rangé par degré (0–6 dans la gamme de la scène), type et altération :
   // il suit la tonalité si on la change. `acc` = +1 : septième degré haussé du mineur (sensible, vii° emprunté).
 
-  /** Accord de la grille → format de la palette (nom, chiffrage, rôle, notes, emprunt). */
-  function gridChord(key, degree, type, acc = 0) {
+  /**
+   * Accord de la grille → format de la palette (nom, chiffrage, rôle, notes, emprunt). `bass` (1–11) : note
+   * imposée à la basse, en demi-tons au-dessus de la fondamentale (C/E : 4) ; 0 = position fondamentale.
+   */
+  function gridChord(key, degree, type, acc = 0, bass = 0) {
     const sc = scale(key);
     // +1 : sensible du mineur harmonique (seulement en mineur naturel) ; −1 : emprunt (♭VI, ♭VII, ♭II…)
     acc = acc === -1 || (acc === 1 && key.mode === 'minor') ? acc : 0;
@@ -558,12 +561,14 @@ SS.harmony = (() => {
     const rootName = acc ? spellLetter(sc[degree].name[0], rootPc) : sc[degree].name;
     const pcs = TYPE_IV(type).map((i) => pcOf(rootPc + i));
     const inKey = new Set(sc.map((d) => d.pc));
+    const bassPc = bass ? pcOf(rootPc + bass) : null;
     return {
       degree,
       acc,
       rootPc,
       type,
-      name: rootName + (SUFFIX[type] ?? ''),
+      ...(bass ? { bass, bassPc } : {}),
+      name: rootName + (SUFFIX[type] ?? '') + (bass ? '/' + spell(key, bassPc) : ''),
       numeral: (acc < 0 ? '♭' : acc > 0 && !(key.mode === 'minor' && degree === 6) ? '♯' : '') + numeral(degree, type, acc ? (type === 'dim' || type === 'dim7' ? 'dim' : 'maj') : degTriad(sc, degree)),
       notes: chordNoteNames(rootName, type),
       quality: QUALITY[type] || (SS.CHORDS.find((c) => c.id === type) || {}).label || type,
@@ -680,7 +685,7 @@ SS.harmony = (() => {
         const plain = ev.chord && SS.chordNotes(ev.notes[0], ev.chord).join() === ev.notes.join();
         const id = (plain && { rootPc: pcOf(ev.notes[0]), type: ev.chord }) || identify(ev.notes) || { rootPc: pcOf(ev.notes[0]), type: ev.chord || 'maj' };
         const tones = TYPE_IV(id.type).map((i) => pcOf(id.rootPc + i));
-        return { step: ev.step, len: ev.len, rootPc: id.rootPc, tones };
+        return { step: ev.step, len: ev.len, rootPc: id.rootPc, bassPc: id.bassPc ?? id.rootPc, tones };
       });
   }
 
@@ -709,7 +714,7 @@ SS.harmony = (() => {
     const half = beat / 2 >= 1 ? beat / 2 : 1; // croche (en pas)
     if (kind.startsWith('bass')) {
       for (const sp of spans) {
-        const r = rootMidi(sp.rootPc);
+        const r = rootMidi(sp.bassPc ?? sp.rootPc); // C/E : la basse joue Mi
         const end = sp.step + sp.len;
         if (kind === 'bass-whole') add(sp.step, sp.len, r, 0.85);
         for (let s = sp.step; s < end && kind !== 'bass-whole'; s += kind === 'bass-gallop' || kind === 'bass-off' ? beat : half) {
@@ -863,7 +868,10 @@ SS.harmony = (() => {
     let root = nearest(chord.rootPc, near);
     if (root - center > 7) root -= 12;
     if (center - root > 7) root += 12;
-    return SS.chordNotes(root, chord.type);
+    const notes = SS.chordNotes(root, chord.type);
+    // accord sur une basse imposée (C/E) : la basse sous l'accord
+    if (chord.bassPc != null && chord.bassPc !== chord.rootPc) notes.unshift(notes[0] - (pcOf(notes[0] - chord.bassPc) || 12));
+    return notes;
   }
 
   return { MODES, TONICS, GENERATORS, TRANSFORMS, valid, isTonal, scale, spell, french, chords, makeChord, progressions, gridChord, toGridChord, gridPalette, gridFromEvents, identify, chordName, analyzeChord, detect, sceneChords, analyze, generate, transform, label, voice, pcOf };

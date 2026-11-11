@@ -166,15 +166,19 @@ SS.findEmotion = (id) => SS.EMOTIONS.find((e) => e.id === id) || null;
 
 /**
  * Les modes rangés du plus lumineux au plus sombre, avec les intentions qui leur correspondent le mieux
- * (fenêtre Harmo One, onglet Ambiance et assistant). Chaque intention apparaît une fois, sous la couleur
- * dominante de ses propositions ; ses trois propositions peuvent quand même utiliser d'autres modes.
+ * (fenêtre Key, onglet Ambiance et assistant). Chaque intention apparaît une fois, sous le mode le plus
+ * fréquent de ses grilles (ses trois pistes et ses grilles de référence) ; les modes caractéristiques
+ * (lydien, mixolydien, mineur harmonique, phrygien) gardent l'intention qu'ils colorent le mieux.
+ * Réévalué avec la bibliothèque : la nostalgie s'entend surtout en majeur (6 grilles sur 10, avec les
+ * septièmes et l'emprunt iv), l'espoir en dorien (Am–Em–D, Am–D), le triomphe dans le mineur « épique »
+ * (i–VI–VII) et l'ambivalence en mineur naturel.
  */
 SS.MODE_MOODS = [
   { mode: 'lydian', name: 'Lydien', mood: 'rêveur, en apesanteur', lum: '#f2d27a', emotions: ['serenite'] },
-  { mode: 'major', name: 'Majeur (ionien)', mood: 'lumineux, stable', lum: '#e9c46a', emotions: ['joie', 'tendresse', 'espoir', 'triomphe'] },
+  { mode: 'major', name: 'Majeur (ionien)', mood: 'lumineux, tendre', lum: '#e9c46a', emotions: ['joie', 'tendresse', 'nostalgie'] },
   { mode: 'mixolydian', name: 'Mixolydien', mood: 'festif, décontracté', lum: '#d7a95a', emotions: ['euphorie'] },
-  { mode: 'dorian', name: 'Dorien', mood: 'mélancolie avec une lueur', lum: '#8fa6c9', emotions: ['melancolie', 'ambivalence'] },
-  { mode: 'minor', name: 'Mineur naturel (éolien)', mood: 'triste, nostalgique', lum: '#7a86b8', emotions: ['tristesse', 'nostalgie'] },
+  { mode: 'dorian', name: 'Dorien', mood: 'mélancolie avec une lueur', lum: '#8fa6c9', emotions: ['espoir', 'melancolie'] },
+  { mode: 'minor', name: 'Mineur naturel (éolien)', mood: 'triste, doux-amer, épique', lum: '#7a86b8', emotions: ['triomphe', 'ambivalence', 'tristesse'] },
   { mode: 'harmonic', name: 'Mineur harmonique', mood: 'dramatique, tendu', lum: '#6b6aa6', emotions: ['suspense'] },
   { mode: 'phrygian', name: 'Phrygien', mood: 'sombre, oppressant', lum: '#5a4a8a', emotions: ['angoisse', 'mystere'] },
 ];
@@ -194,3 +198,101 @@ SS.fillEmotionText = (text, chords, tonic, fr) =>
     if (ni == null) return f ? tr(c.name) : c.name;
     return c.notes[+ni] != null ? tr(c.notes[+ni]) : all;
   });
+
+/**
+ * Bibliothèque de grilles de référence : les 39 progressions de la compilation « Émotions et schémas
+ * harmoniques » (11 novembre 2026), avec leur source. Chaque grille garde ses accords d'origine (en Do ou
+ * en La), la tonalité ou le mode dans lequel elle s'entend, et les intentions de SS.EMOTIONS qu'elle
+ * illustre (une grille peut en servir plusieurs). Elle est transposée sur la tonique de la scène.
+ *   chords : symboles séparés par des espaces (Am, Cmaj7, Gsus4, Am6, C/E…) ; bars : mesures par accord
+ *   (par défaut 1 ; une grille de 3 accords fait une phrase de 4 mesures, le dernier tenu 2 mesures).
+ * Confiance : élevée sur les accords, moyenne sur les émotions associées ; leur perception dépend aussi du
+ * tempo, de la mélodie et de l'interprétation.
+ */
+SS.EMOTION_SOURCES = {
+  pianodiary: { name: 'PianoDiary', note: 'relevé personnel, non vérifié dans la vidéo' },
+  'mk-emo': { name: 'Motifkit — émotionnel', url: 'https://motifkit.com/emotional-piano-chord-progressions/' },
+  'mk-dorian': { name: 'Motifkit — dorien', url: 'https://motifkit.com/dorian-mode-chord-progressions/' },
+  'mk-romantic': { name: 'Motifkit — romantique', url: 'https://motifkit.com/romantic-chord-progressions/' },
+  'mk-cinema': { name: 'Motifkit — cinéma', url: 'https://motifkit.com/cinematic-film-chord-progressions/' },
+  'mk-epic': { name: 'Motifkit — épique', url: 'https://motifkit.com/epic-chord-progressions/' },
+  'gw-beauty': { name: 'Goldwire — beauté', url: 'https://goldwireaudio.com/beautiful-chord-progressions' },
+  'gw-sad': { name: 'Goldwire — tristesse', url: 'https://goldwireaudio.com/sad-chord-progressions' },
+  'gw-dark': { name: 'Goldwire — sombre', url: 'https://goldwireaudio.com/dark-chord-progressions' },
+  ni: { name: 'Native Instruments', url: 'https://www.native-instruments.com/blogs/blog/emotional-chord-progressions' },
+};
+
+// prettier-ignore
+SS.EMOTION_LIBRARY = [
+  { id: 'hopeful', label: 'Espoir (Hopeful)', chords: 'Am Em D', tonic: 'A', mode: 'dorian', emos: ['espoir'], src: 'pianodiary' },
+  { id: 'beautiful', label: 'Beauté (Beautiful)', chords: 'E Am E Am E Am E Am6', tonic: 'A', mode: 'harmonic', emos: ['tendresse', 'melancolie'], src: 'pianodiary' },
+  { id: 'hope-sad', label: 'Espoir mêlé de tristesse', chords: 'Am F C G', tonic: 'A', mode: 'minor', emos: ['espoir', 'ambivalence'], src: 'mk-emo' },
+  { id: 'hope-grow', label: 'Espoir qui grandit', chords: 'Cmaj7 Dm7 Em7 Fmaj7', tonic: 'C', mode: 'major', emos: ['espoir'], src: 'gw-beauty' },
+  { id: 'hope-melan', label: 'Espoir mélancolique', chords: 'Am D', tonic: 'A', mode: 'dorian', emos: ['espoir', 'melancolie'], src: 'mk-dorian' },
+  { id: 'joy-drive', label: 'Joie, élan', chords: 'C G Am F', tonic: 'C', mode: 'major', emos: ['joie', 'euphorie'], src: 'ni' },
+  { id: 'nost-tender', label: 'Nostalgie tendre', chords: 'C C/B Am Am/G F', bars: [0.5, 0.5, 0.5, 0.5, 2], tonic: 'C', mode: 'major', emos: ['nostalgie', 'tendresse'], src: 'mk-emo' },
+  { id: 'nost-sent', label: 'Nostalgie sentimentale', chords: 'C F Dm G', tonic: 'C', mode: 'major', emos: ['nostalgie'], src: 'ni' },
+  { id: 'nost-soft', label: 'Nostalgie douce', chords: 'Cmaj7 Em7 Am7 Fmaj7', tonic: 'C', mode: 'major', emos: ['nostalgie'], src: 'gw-beauty' },
+  { id: 'nost-cine', label: 'Nostalgie cinématique', chords: 'F G Em Am', tonic: 'A', mode: 'minor', emos: ['nostalgie'], src: 'mk-romantic' },
+  { id: 'memory', label: 'Souvenir chaleureux', chords: 'Am Em F C', tonic: 'A', mode: 'minor', emos: ['nostalgie', 'tendresse'], src: 'mk-emo' },
+  { id: 'tender-bitter', label: 'Tendresse douce-amère', chords: 'C F Fm', tonic: 'C', mode: 'major', emos: ['tendresse', 'ambivalence'], src: 'mk-romantic' },
+  { id: 'bittersweet', label: 'Doux-amer, lumineux', chords: 'Fmaj7 G7 Em7 Am7', tonic: 'A', mode: 'minor', emos: ['ambivalence', 'melancolie'], src: 'gw-beauty' },
+  { id: 'retro', label: 'Romantisme rétro', chords: 'Cmaj7 A7 Dm7 G7', tonic: 'C', mode: 'major', emos: ['tendresse', 'nostalgie'], src: 'mk-romantic' },
+  { id: 'jazzy', label: 'Intimité, fraîcheur jazzy', chords: 'Am7 Am6', tonic: 'A', mode: 'dorian', emos: ['melancolie', 'serenite'], src: 'mk-dorian' },
+  { id: 'reverie', label: 'Rêverie, flottement', chords: 'Cmaj7 Fmaj7', tonic: 'C', mode: 'major', emos: ['serenite'], src: 'mk-romantic' },
+  { id: 'light-susp', label: 'Lumière suspendue', chords: 'Am D/A Am', tonic: 'A', mode: 'dorian', emos: ['melancolie', 'espoir'], src: 'mk-dorian' },
+  { id: 'wonder', label: 'Émerveillement, espace', chords: 'Cadd9 Fadd9 Gadd9', tonic: 'C', mode: 'major', emos: ['serenite', 'joie'], src: 'mk-cinema' },
+  { id: 'calm-desc', label: 'Apaisement, descente douce', chords: 'Fmaj7 Em7 Dm7 Cmaj7', tonic: 'C', mode: 'major', emos: ['serenite'], src: 'gw-beauty' },
+  { id: 'relax', label: 'Détente, douceur', chords: 'Am G Em F', tonic: 'A', mode: 'minor', emos: ['serenite', 'tendresse'], src: 'ni' },
+  { id: 'longing', label: 'Désir, attente sans résolution', chords: 'F G Am', tonic: 'A', mode: 'minor', emos: ['ambivalence'], src: 'mk-emo' },
+  { id: 'missing', label: 'Manque, désir de retrouvailles', chords: 'Am C G Dm', tonic: 'A', mode: 'minor', emos: ['nostalgie', 'tristesse'], src: 'ni' },
+  { id: 'farewell', label: 'Adieu doux-amer', chords: 'C/E F Gsus4 Am', tonic: 'A', mode: 'minor', emos: ['ambivalence', 'tristesse'], src: 'mk-emo' },
+  { id: 'heartbreak', label: 'Chagrin, cœur brisé', chords: 'F Fm C', tonic: 'C', mode: 'major', emos: ['tristesse'], src: 'gw-sad' },
+  { id: 'numb', label: 'Tristesse suspendue, engourdissement', chords: 'Am F Dm Em', tonic: 'A', mode: 'minor', emos: ['tristesse'], src: 'gw-sad' },
+  { id: 'lament', label: 'Lamentation, tension dramatique', chords: 'Am G F E', tonic: 'A', mode: 'minor', emos: ['tristesse', 'suspense'], src: 'gw-sad' },
+  { id: 'introspect', label: 'Sombre, introspectif', chords: 'Am F', tonic: 'A', mode: 'minor', emos: ['tristesse', 'mystere'], src: 'ni' },
+  { id: 'worry', label: 'Inquiétude croissante', chords: 'Am Em F E', tonic: 'A', mode: 'minor', emos: ['suspense', 'angoisse'], src: 'mk-cinema' },
+  { id: 'still', label: 'Suspense immobile', chords: 'Am F/A G/A', tonic: 'A', mode: 'minor', emos: ['suspense', 'mystere'], src: 'mk-cinema' },
+  { id: 'unstable', label: 'Suspense, instabilité', chords: 'Am Bdim E Am', tonic: 'A', mode: 'minor', emos: ['suspense'], src: 'gw-dark' },
+  { id: 'threat', label: 'Menace, étrangeté', chords: 'Am B♭', tonic: 'A', mode: 'phrygian', emos: ['angoisse', 'mystere'], src: 'gw-dark' },
+  { id: 'dread', label: 'Angoisse, tension sombre', chords: 'Am B♭ F E', tonic: 'A', mode: 'phrygian', emos: ['angoisse'], src: 'gw-dark' },
+  { id: 'drama', label: 'Drame, attente de résolution', chords: 'Am F Dm E', tonic: 'A', mode: 'minor', emos: ['suspense', 'tristesse'], src: 'gw-dark' },
+  { id: 'hero', label: 'Héroïsme, envolée', chords: 'Am F G', tonic: 'A', mode: 'minor', emos: ['triomphe'], src: 'mk-epic' },
+  { id: 'fight', label: 'Détermination, combat', chords: 'Am G F G', tonic: 'A', mode: 'minor', emos: ['triomphe'], src: 'mk-epic' },
+  { id: 'grand', label: 'Grandeur dramatique', chords: 'Am C G F', tonic: 'A', mode: 'minor', emos: ['triomphe'], src: 'mk-epic' },
+  { id: 'open', label: 'Grandeur, paysage ouvert', chords: 'B♭ F C', tonic: 'C', mode: 'mixolydian', emos: ['triomphe', 'euphorie'], src: 'mk-cinema' },
+  { id: 'modal-drive', label: 'Élan ample, couleur modale', chords: 'Am D C G', tonic: 'A', mode: 'dorian', emos: ['euphorie', 'espoir'], src: 'mk-dorian' },
+  { id: 'victory', label: 'Victoire, arrivée lumineuse', chords: 'F G A', tonic: 'A', mode: 'minor', emos: ['triomphe'], src: 'mk-epic' },
+];
+
+/** Lexique des symboles d'accords de la bibliothèque (texte de l'onglet Ambiance). */
+SS.CHORD_LEXICON = [
+  ['m', 'mineur', 'Am = La–Do–Mi'],
+  ['maj7', 'majeur avec septième majeure', 'Cmaj7 = Do–Mi–Sol–Si'],
+  ['7', 'septième de dominante', 'G7 = Sol–Si–Ré–Fa'],
+  ['m7', 'mineur avec septième mineure', 'Am7 = La–Do–Mi–Sol'],
+  ['m6', 'mineur avec sixte majeure', 'Am6 = La–Do–Mi–Fa♯'],
+  ['add9', 'neuvième ajoutée', 'Cadd9 = Do–Mi–Sol–Ré'],
+  ['sus4', 'quarte à la place de la tierce', 'Gsus4 = Sol–Do–Ré'],
+  ['dim', 'diminué', 'Bdim = Si–Ré–Fa'],
+  ['/', 'note imposée à la basse', 'C/E = Do majeur sur basse Mi'],
+];
+
+const EMO_SUFFIX = { '': 'maj', m: 'min', maj7: 'maj7', 7: '7', m7: 'm7', m6: 'm6', add9: 'add9', sus4: 'sus4', dim: 'dim' };
+const EMO_LETTER = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+const emoPc = (s) => (EMO_LETTER[s[0]] + (s[1] === '♯' || s[1] === '#' ? 1 : s[1] === '♭' || s[1] === 'b' ? -1 : 0) + 12) % 12;
+
+/** « Am/G » → { rootPc: 9, type: 'min', bass: 10 } (bass : demi-tons au-dessus de la fondamentale, 0 sinon). */
+SS.parseLibraryChord = (sym) => {
+  const m = /^([A-G][♯#♭b]?)([^/]*)(?:\/([A-G][♯#♭b]?))?$/.exec(sym.trim());
+  if (!m || !(m[2] in EMO_SUFFIX)) return null;
+  const rootPc = emoPc(m[1]);
+  return { rootPc, type: EMO_SUFFIX[m[2]], bass: m[3] ? (emoPc(m[3]) - rootPc + 12) % 12 : 0 };
+};
+
+/** Mesures de chaque accord d'une grille de la bibliothèque (3 accords → 1, 1, 2 : une phrase de 4 mesures). */
+SS.libraryBars = (entry) => {
+  const n = entry.chords.trim().split(/\s+/).length;
+  return entry.bars || (n === 3 ? [1, 1, 2] : new Array(n).fill(1));
+};
+SS.libraryFor = (emoId) => SS.EMOTION_LIBRARY.filter((x) => x.emos.includes(emoId));

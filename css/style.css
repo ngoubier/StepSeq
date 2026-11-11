@@ -2930,3 +2930,23 @@ dialog.system-dialog { width: min(920px, calc(100vw - 24px)); max-height: calc(1
 .hm-checks2 .k-warn .ck { background: #b07b19; }
 .hm-checks2 .k-tip .ck { background: #4a6fa5; }
 .hm-checks2 .k-info .ck { background: #6b6b75; }
+
+/* ---------- Key → Ambiance : grilles de référence (SS.EMOTION_LIBRARY) ---------- */
+.emo-kind.k-ref { background: #1f4a3c; color: #c8f2df; }
+.hm-ref-l { font-size: 13px; }
+.hm-ex.ref { padding-top: 8px; padding-bottom: 8px; }
+.hm-why.hm-src { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: 12px; }
+.hm-why.hm-src a { color: var(--accent-2, #6cb6ff); }
+.emo-tag { font-size: 11px; padding: 1px 8px; }
+.emo-chip small { margin-left: 5px; font-size: 10px; opacity: .65; }
+.hm-mode.used { border-color: var(--line); border-style: dashed; }
+.hm-all { align-self: flex-start; margin-bottom: 8px; font-size: 12px; }
+.hm-amb-l { display: flex; flex-direction: column; }
+.hm-modes-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 0; font-size: 12px; }
+.hm-mchip { padding: 1px 8px; border-radius: 10px; background: var(--panel-3); }
+.hm-mchip.main { outline: 1px solid var(--line); }
+.hm-mchip b { opacity: .7; margin-left: 2px; }
+.hm-lib-g { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.hm-legend { padding: 0 6px; border-radius: 6px; border: 1px solid var(--role); color: var(--role); }
+.hm-lex { margin-top: 10px; }
+.hm-ex.ref .hm-why { margin: 2px 0 0; }

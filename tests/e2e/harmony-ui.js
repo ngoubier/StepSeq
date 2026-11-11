@@ -41,9 +41,25 @@ const shot = async (page, name) => SHOTS && page.locator('#harmonyDialog').scree
   ok((await page.locator('#hmKeyBar select#hmTonic').inputValue()) === 'D', 'tonalité Ré mineur reprise de l’ancien fichier');
   const box = await page.locator('#harmonyDialog').boundingBox();
   ok(box.height <= 760 - 30, `la fenêtre tient dans l'écran (${Math.round(box.height)} px)`);
-  await page.locator('[data-emo="nostalgie"]').click();
-  ok((await page.locator('.hm-ex').count()) === 3, 'Ambiance : 3 propositions pour Nostalgie');
-  ok((await page.locator('.hm-mode.on .hm-mode-h b').textContent()).includes('Mineur naturel'), 'Nostalgie rangée sous Mineur naturel');
+  await page.locator('.emo-chip[data-emo="nostalgie"]').click();
+  ok((await page.locator('.hm-ex:not(.ref)').count()) === 3, 'Ambiance : 3 pistes pour Nostalgie');
+  const nRef = await page.locator('.hm-ex.ref').count();
+  ok(nRef === 7, `Ambiance : grilles de référence de Nostalgie (${nRef})`);
+  ok((await page.locator('.hm-ex.ref a[href^="https://"]').count()) >= 5, 'chaque grille de référence cite sa source');
+  ok(/Mineur naturel/.test(await page.locator('.hm-modes-line').textContent()), 'les modes des grilles de l’émotion');
+  // toute la bibliothèque, rangée par mode
+  await page.click('.hm-all');
+  ok((await page.locator('.hm-ex.ref').count()) === 39, 'Toutes les grilles : 39 grilles de référence');
+  ok((await page.locator('.hm-lib-g').count()) >= 5, 'rangées par mode');
+  const tender = page.locator('.hm-ex.ref', { hasText: 'Nostalgie tendre' });
+  ok(/C\/B/.test(await tender.locator('.hm-progchords').textContent()) || /\//.test(await tender.locator('.hm-progchords').textContent()), 'accords sur basse imposée affichés (C/B…)');
+  await tender.locator('[data-emo-apply]').click();
+  await page.waitForTimeout(200);
+  const slash = await page.locator('.gr-blk b').allTextContents();
+  ok(slash.some((x) => x.includes('/')), `grille de référence posée avec ses basses (${slash.slice(0, 5).join(' ')})`);
+  await page.click('[data-tab="amb"]');
+  await page.locator('.emo-chip[data-emo="nostalgie"]').click();
+  ok((await page.locator('.hm-mode.on .hm-mode-h b').textContent()).includes('Majeur'), 'Nostalgie rangée sous Majeur (6 grilles sur 10)');
   await shot(page, '1-ambiance');
   ok((await page.locator('#hmTabs [role=tab]').count()) === 4, '4 onglets : Ambiance, Grille, Mélodie, Vérifier');
   ok(!(await page.locator('[data-tab="acc"], [data-tab="cou"]').count()), 'plus d’onglets Accords ni Couches');
@@ -101,7 +117,7 @@ const shot = async (page, name) => SHOTS && page.locator('#harmonyDialog').scree
   await shot(page, '5-assistant-1');
   await page.click('[data-wemo="melancolie"]');
   await page.click('#hmWizNext');
-  ok((await page.locator('.hm-ex.pick').count()) === 3, 'étape 2 : trois grilles');
+  ok((await page.locator('.hm-ex.pick:not(.ref)').count()) === 3 && (await page.locator('.hm-ex.pick.ref').count()) >= 1, 'étape 2 : trois pistes et les grilles de référence');
   await page.click('.hm-ex.pick >> nth=1');
   await shot(page, '6-assistant-2');
   ok((await page.locator('#hmWizNext').textContent()) === 'Créer', 'deux étapes : Créer à l’étape 2');
