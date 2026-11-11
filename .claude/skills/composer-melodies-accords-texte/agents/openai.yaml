@@ -1,0 +1,14 @@
+interface:
+  display_name: Mélodies — accords et texte
+  short_description: Composer une mélodie sur des accords et des vers
+  default_prompt: Utilise $composer-melodies-accords-texte pour composer une mélodie
+    sur ma grille et mon texte, avec les notes détaillées et un MIDI si demandé.
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true
