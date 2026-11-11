@@ -644,6 +644,7 @@ SS.band = (() => {
     $('#bandCancel').addEventListener('click', () => finish(false));
     el.querySelectorAll('#bandModes button').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
     SS.melodyPanel.init(app, { leadOpts: melodyTrackOpts, close: () => el.close('ok') });
+    el.addEventListener('close', () => SS.melodyPanel.stop());
     // Échap = annuler (rien n'est créé)
     el.addEventListener('cancel', (e) => {
       e.preventDefault();

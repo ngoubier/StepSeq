@@ -45,14 +45,44 @@ const shot = async (page, name) => SHOTS && page.locator('#harmonyDialog').scree
   ok((await page.locator('.hm-ex').count()) === 3, 'Ambiance : 3 propositions pour Nostalgie');
   ok((await page.locator('.hm-mode.on .hm-mode-h b').textContent()).includes('Mineur naturel'), 'Nostalgie rangée sous Mineur naturel');
   await shot(page, '1-ambiance');
-  await page.click('[data-tab="acc"]');
-  ok((await page.locator('.hm-chord').count()) >= 7, 'Accords : palette affichée');
-  await shot(page, '2-accords');
-  await page.click('[data-tab="cou"]');
-  ok((await page.locator('.hm-layer').count()) === 3, 'Couches : 3 cartes');
-  await shot(page, '3-couches');
+  ok((await page.locator('#hmTabs [role=tab]').count()) === 4, '4 onglets : Ambiance, Grille, Mélodie, Vérifier');
+  ok(!(await page.locator('[data-tab="acc"], [data-tab="cou"]').count()), 'plus d’onglets Accords ni Couches');
+  // « Poser sur la grille » : la proposition arrive sur la grille (onglet 2), un accord par mesure
+  await page.click('[data-emo-apply="0"]');
+  await page.waitForTimeout(200);
+  ok((await page.locator('#hmTabs [aria-selected=true]').getAttribute('data-tab')) === 'gri', 'Poser sur la grille → onglet Grille');
+  const gr = await page.evaluate(() => {
+    const p = JSON.parse(localStorage.getItem('stepseq.autosave') || '{}');
+    return document.querySelectorAll('.gr-blk').length;
+  });
+  ok(gr >= 4, `accords posés sur la grille (${gr} blocs)`);
+  ok((await page.locator('.gr-layer').count()) === 3, 'Grille : les couches en bas (basse, accords, arpège)');
+  await shot(page, '2-grille');
+  // Mélodie : le panneau de Band, sur la grille de la scène
+  await page.click('[data-tab="mel"]');
+  await page.waitForTimeout(150);
+  const g = await page.locator('#melGrid').inputValue();
+  ok(g.split('|').length >= 4, `Mélodie : grille reprise de l’onglet Grille (« ${g.slice(0, 40)}… »)`);
+  ok(/scène/.test(await page.locator('#melKey option[value=auto]').textContent()), 'tonalité : celle de la scène');
+  await page.fill('#melGrid', 'Dm | B♭ | F | C');
+  await page.click('#hmMelGo');
+  await page.waitForTimeout(150);
+  ok((await page.locator('#hmMel .mel-roll .mr-chord').count()) === 4, 'proposition : 4 accords');
+  ok(!(await page.locator('#hmMelWrite').isDisabled()), 'Écrire sur la piste actif');
+  await page.click('#melListen');
+  await page.waitForTimeout(400);
+  ok((await page.locator('#melListen').textContent()).includes('Stop') && (await page.locator('.mel-ph').count()) === 1, 'Écouter avec la nappe : lecture et tête de lecture');
+  await shot(page, '3-melodie');
+  await page.click('#melListen');
+  ok((await page.locator('.mel-ph').count()) === 0, 'Stop');
+  await page.click('#hmMelWrite');
+  await page.waitForTimeout(200);
+  const mel = await page.evaluate(() => SS && document.querySelectorAll('.track').length);
+  ok(mel > 0, 'mélodie écrite');
   await page.click('[data-tab="ver"]');
   ok((await page.locator('.hm-scene').count()) === 6, 'Vérifier : une ligne par scène');
+  ok(/Mélodie · Mélodie/.test(await page.locator('.hm-scene.current').textContent()), 'Vérifier : la mélodie écrite est contrôlée');
+  ok((await page.locator('.hm-scene.current .hm-checks2 li').count()) >= 4, 'Vérifier : contrôles de la grille et de la mélodie');
   await shot(page, '4-verifier');
   await page.click('.hm-foot button[type=submit]');
 
@@ -74,22 +104,23 @@ const shot = async (page, name) => SHOTS && page.locator('#harmonyDialog').scree
   ok((await page.locator('.hm-ex.pick').count()) === 3, 'étape 2 : trois grilles');
   await page.click('.hm-ex.pick >> nth=1');
   await shot(page, '6-assistant-2');
-  await page.click('#hmWizNext');
-  await shot(page, '7-assistant-3');
+  ok((await page.locator('#hmWizNext').textContent()) === 'Créer', 'deux étapes : Créer à l’étape 2');
   await page.click('#hmWizNext'); // Créer
   await page.waitForTimeout(300);
   ok(await page.locator('#hmTabs').isVisible(), 'après « Créer » : retour aux onglets');
+  ok((await page.locator('#hmTabs [aria-selected=true]').getAttribute('data-tab')) === 'gri', 'après « Créer » : onglet Grille');
   await page.click('.hm-foot button[type=submit]');
   await page.waitForTimeout(600); // sauvegarde automatique (après 400 ms)
   const res = await page.evaluate(() => {
     const p = JSON.parse(localStorage.getItem('stepseq.autosave'));
     const sc = p.scenes.find((s) => s.id === p.current);
-    const nappe = p.tracks.find((t) => t.name === 'Nappe Juno');
-    const lead = p.tracks.find((t) => t.name === 'Lead Juno');
+    const grid = sc.grid;
+    const ev = (id) => (sc.data[id] ? sc.data[id].events.length : 0);
     return {
       hasProjectKey: 'key' in p || 'emotion' in p,
       key: sc.key, emotion: sc.emotion,
-      chords: nappe.events.length, lead: lead.events.length,
+      grid: grid ? grid.chords.length : 0,
+      chords: grid ? ev(grid.layers.comp.dst) : 0, bass: grid ? ev(grid.layers.bass.dst) : 0,
       others: p.scenes.filter((s) => s.id !== p.current).map((s) => JSON.stringify(s.data)),
       otherKeys: p.scenes.filter((s) => s.id !== p.current).every((s) => s.key && s.key.tonic === 'D' && s.key.mode === 'minor'),
     };
@@ -97,7 +128,7 @@ const shot = async (page, name) => SHOTS && page.locator('#harmonyDialog').scree
   ok(!res.hasProjectKey, 'plus de tonalité au niveau du projet');
   ok(res.key && res.key.tonic === 'D' && res.key.mode === 'dorian', `la scène reçoit Ré dorien (${JSON.stringify(res.key)})`);
   ok(res.emotion === 'melancolie', 'et l’émotion Mélancolie lumineuse');
-  ok(res.chords > 0 && res.lead > 0, `accords et mélodie écrits (${res.chords} accords, ${res.lead} notes)`);
+  ok(res.grid > 0 && res.chords > 0 && res.bass > 0, `grille posée, accords et basse écrits (${res.grid} accords, ${res.chords} événements, ${res.bass} notes de basse)`);
   ok(JSON.stringify(res.others) === JSON.stringify(before), 'les notes des autres scènes ne changent pas');
   ok(res.otherKeys, 'les autres scènes gardent Ré mineur');
   const label = await page.locator('#keyLabel').textContent();

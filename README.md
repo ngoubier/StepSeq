@@ -23,8 +23,8 @@ puis ouvrir <http://localhost:8000>.
 - **En-tête** : icône de l'application (menu **Chansons**, **Nouveau**, **Ouvrir**, **Enregistrer**), titre du projet, tempo (BPM), chiffrage de mesure (4/4 par défaut, x/4 ou x/8),
   nombre de mesures, le groove (swing, humanisation), **Lecture** et **Stop**, puis les fenêtres regroupées
   **Band**, **Key : tonalité** (fenêtre Key, propre à chaque scène : assistant
-  émotion → grille d'accords → couches pour démarrer, puis onglets Ambiance (émotions rangées par mode), Accords, Grille (accords glissés sur une ligne de mesures → basse, accords et arpège générés), Couches
-  et Vérifier ; palette d'accords dans le piano roll, essais A/B), **Song** (fenêtre Song : scènes et arrangement, avec une case pour garder le panneau
+  émotion → grille d'accords pour démarrer, puis onglets Ambiance (émotions rangées par mode, grille posée sur l'onglet suivant), Grille (accords glissés sur une ligne de mesures → basse, accords et arpège générés),
+  Mélodie (une mélodie sur la grille, à écouter avec la nappe) et Vérifier (accords et mélodie) ; palette d'accords dans le piano roll, essais A/B), **Song** (fenêtre Song : scènes et arrangement, avec une case pour garder le panneau
   d'arrangement affiché sous l'en-tête) et **Mix** (console de mixage, avec l'assistant **Auto Mix**).
   À droite : annuler / rétablir, l'indicateur d'enregistrement automatique et **Aide**.
   Le bouton **+ Ajouter une piste** se trouve sous les pistes.
@@ -428,7 +428,7 @@ par la fenêtre **Key** :
 | `js/groove.js`   | Fenêtre Groove (swing, humanisation) |
 | `js/harmony.js`  | Aide à la composition : gammes, accords diatoniques, identification des accords, estimation de la tonalité, vérificateur d'harmonie |
 | `js/emotions.js` | Intentions émotionnelles (skill MusicEmotion) : matrice et trois propositions par intention |
-| `js/harmonypanel.js` | Fenêtre Key de la scène en cours : assistant en 3 étapes, onglets Ambiance, Accords, Grille, Couches, Vérifier |
+| `js/harmonypanel.js` | Fenêtre Key de la scène en cours : assistant en 2 étapes, onglets Ambiance, Grille (avec les couches), Mélodie (panneau de `js/melodypanel.js`), Vérifier (accords et mélodie) |
 | `js/fx.js`       | Fenêtre Effets par piste (chorus, delay, reverb, sidechain, envois vers les bus partagés) |
 | `js/master-dsp.js` | Mastering du Master (AudioWorklet) : graves en mono, largeur, écrêtage doux, limiteur à anticipation, mesure LUFS / true peak |
 | `js/mixer.js`    | Console de mixage : tranches, EQ, compresseur, limiteur, vumètres |
@@ -438,8 +438,8 @@ par la fenêtre **Key** :
 | `js/automixpanel.js` | Auto Mix : panneau de la console, A/B, préférences, pilote auto |
 | `js/band-songs.js` | Band : plans des 20 chansons complètes (tonalité, sections, grilles, parties) |
 | `js/bandsong.js` | Band : écrit les scènes, les notes de chaque musicien et l'arrangement d'après un plan |
-| `js/melody.js` | Band → Mélodie : grille d'accords, syllabes du français, rythme, hauteurs, contrôles, export MIDI (fonctions pures) |
-| `js/melodypanel.js` | Band → Mélodie : formulaire, proposition (scansion, tableau, contrôles), écriture sur la piste |
+| `js/melody.js` | Band → Mélodie et Key → Mélodie : grille d'accords, syllabes du français, rythme, hauteurs, contrôles, export MIDI ; vérification d'une mélodie écrite (`checkMelody`) — fonctions pures |
+| `js/melodypanel.js` | Panneau Mélodie, affiché dans Band et dans Key : formulaire, proposition (grille, écoute avec la nappe, contrôles), écriture sur la piste |
 | `js/bandmix.js`, `js/band-levels.js`, `js/band-drive.js` | Band : règles de mixage et de mastering, niveaux mesurés, gain de mastering par chanson |
 | `js/dirt-tuning.js` | Hauteur mesurée des échantillons Dirt-Samples |
 | `tools/`         | Outils de mesure : hauteur des échantillons, niveaux des instruments, rendu et mastering des chansons Band, calibrage de l'Auto Mix |

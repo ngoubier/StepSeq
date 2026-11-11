@@ -12,8 +12,12 @@ SS.melodyPanel = (() => {
   const M = () => SS.melody;
   const H = () => SS.harmony;
   let app = null;
-  let ctx = null; // { leadOpts(): { opts, levelKey, style } , close() }
+  // hôte : Band (#bandMelody) ou l'onglet Mélodie de Key. { box, leadOpts(), close(), buttons: { again, write },
+  // preferSceneKey (la tonalité de la scène plutôt que celle déduite des accords), padTrack() (piste de la nappe) }
+  let ctx = null;
+  let bandCtx = null;
   let box = null;
+  let play = null; // { timers, raf } pendant l'écoute
   const S = {
     grid: '',
     source: 'meter', // 'text' quand des paroles sont écrites dans les options
@@ -26,11 +30,12 @@ SS.melodyPanel = (() => {
     eMode: 'classique',
     sungFinalE: false,
     track: '',
+    gridEdited: false, // grille retouchée à la main : on ne la remplace plus par celle de la scène
     seed: 1,
     res: null,
   };
 
-  const $ = (q, root = document) => root.querySelector(q);
+  const $ = (q, root = box || document) => root.querySelector(q);
   function h(tag, attrs = {}, ...kids) {
     const e = document.createElement(tag);
     for (const [k, v] of Object.entries(attrs)) {
@@ -49,7 +54,7 @@ SS.melodyPanel = (() => {
   const project = () => app.project();
   const sceneKey = () => SS.sceneKey(project());
   function keyChoice() {
-    if (S.key === 'auto') return null;
+    if (S.key === 'auto') return ctx && ctx.preferSceneKey ? sceneKey() : null;
     if (S.key === 'scene') return sceneKey();
     const [tonic, mode] = S.key.split('|');
     return { tonic, mode };
@@ -116,8 +121,9 @@ SS.melodyPanel = (() => {
   /* ---------- Formulaire ---------- */
   function keyOptions() {
     const sk = sceneKey();
-    const list = [opt('auto', 'Automatique (d’après les accords)', S.key === 'auto')];
-    if (sk) list.push(opt('scene', `Tonalité de la scène : ${H().label(sk)}`, S.key === 'scene'));
+    const sceneFirst = ctx && ctx.preferSceneKey && sk;
+    const list = [opt('auto', sceneFirst ? `Tonalité de la scène : ${H().label(sk)}` : 'Automatique (d’après les accords)', S.key === 'auto')];
+    if (sk && !sceneFirst) list.push(opt('scene', `Tonalité de la scène : ${H().label(sk)}`, S.key === 'scene'));
     const modes = ['major', 'minor', 'dorian', 'mixolydian', 'phrygian', 'lydian', 'harmonic'];
     modes.forEach((mode) =>
       list.push(h('optgroup', { label: (H().MODES.find((m) => m.id === mode) || {}).label }, ...H().TONICS.map((t) => opt(`${t}|${mode}`, H().label({ tonic: t, mode }), S.key === `${t}|${mode}`)))),
@@ -144,6 +150,7 @@ SS.melodyPanel = (() => {
       placeholder: 'Am | F | C | G',
       oninput: (e) => {
         S.grid = e.target.value;
+        S.gridEdited = true;
         renderGridChips();
       },
     });
@@ -285,6 +292,7 @@ SS.melodyPanel = (() => {
       return;
     }
     S.grid = g;
+    S.gridEdited = false;
     const ta = $('#melGrid');
     if (ta) ta.value = g;
     renderGridChips();
@@ -292,6 +300,7 @@ SS.melodyPanel = (() => {
 
   /* ---------- Proposition ---------- */
   function compose(newSeed) {
+    stopListen();
     if (newSeed) S.seed += 1;
     const p = project();
     S.source = S.text.trim() ? 'text' : 'meter';
@@ -504,8 +513,14 @@ SS.melodyPanel = (() => {
             { class: 'mel-lead' },
             `${res.notes.length} notes sur ${res.bars} mesure${res.bars > 1 ? 's' : ''} (${res.lines.length > 1 ? `${res.lines.length} phrases : ${notesLine}` : '1 phrase'}), en ${M().keyLabel(res.key)}${res.keyAuto ? ' (déduite des accords)' : ''}.`,
           ),
+          h(
+            'div',
+            { class: 'mel-play' },
+            h('button', { type: 'button', class: 'btn', id: 'melListen', onclick: listen, title: 'La mélodie avec les accords tenus (nappe), au tempo du morceau' }, play ? '■ Stop' : '▶ Écouter avec la nappe'),
+            h('small', { class: 'dlg-hint' }, `${project().tempo} BPM`),
+          ),
           roll(res),
-        legend(res),
+          legend(res),
           h('p', {}, res.summary.peak),
           h('p', {}, res.summary.ending),
           ...bad.map((c) => h('p', { class: 'bcf-warn' }, '⚠ ' + c.text)),
@@ -542,10 +557,63 @@ SS.melodyPanel = (() => {
 
   function updateButtons() {
     const ok = !!(S.res && S.res.ok);
-    ['#melAgain', '#melWrite'].forEach((q) => {
-      const b = $(q);
-      if (b) b.disabled = !ok;
-    });
+    const b = (ctx && ctx.buttons) || {};
+    [b.again, b.write].forEach((x) => x && (x.disabled = !ok));
+  }
+
+  /* ---------- Écouter : la mélodie et la nappe (accords tenus) ---------- */
+  /** Piste jouable hors du projet (pas d'id : le son passe directement par la sortie). */
+  function tempTrack(opts) {
+    const { levelKey, style, role, ...o } = opts; // eslint-disable-line no-unused-vars
+    const t = SS.newTrack({ type: 'instrument', ...o }, project());
+    delete t.id;
+    return t;
+  }
+  const PAD = { name: 'Nappe', color: '#1ea7ff', category: 'chord', family: 'pads', instrument: 'syn_softpad' };
+  function padVoicing(chord) {
+    const root = 48 + chord.rootPc;
+    return [...new Set([root, ...chord.tones.map((pc) => root + ((pc - chord.rootPc + 12) % 12) + 12)])].sort((a, b) => a - b);
+  }
+
+  function stopListen() {
+    if (!play) return;
+    play.timers.forEach(clearTimeout);
+    cancelAnimationFrame(play.raf);
+    play = null;
+    const b = $('#melListen');
+    if (b) b.textContent = '▶ Écouter avec la nappe';
+    const ph = $('.mel-ph');
+    if (ph) ph.remove();
+  }
+
+  function listen() {
+    if (play) return stopListen();
+    const res = S.res;
+    if (!res || !res.ok) return;
+    SS.audio.ensureCtx();
+    const p = project();
+    const target = S.track !== 'new' && p.tracks.find((t) => t.id === S.track);
+    const lead = target || tempTrack(ctx.leadOpts());
+    const pad = (ctx.padTrack && ctx.padTrack()) || p.tracks.find((t) => t.type === 'instrument' && t.category === 'chord') || tempTrack(PAD);
+    const stepSec = 60 / p.tempo / 4;
+    const timers = [];
+    res.spans.forEach((sp) => timers.push(setTimeout(() => SS.audio.preview(pad, padVoicing(sp.chord), sp.len * stepSec * 0.98), sp.step * stepSec * 1000)));
+    res.notes.forEach((n) => timers.push(setTimeout(() => SS.audio.preview(lead, n.midi, n.len * stepSec * 0.92), n.step * stepSec * 1000)));
+    timers.push(setTimeout(stopListen, res.total * stepSec * 1000 + 200));
+    play = { timers, raf: 0 };
+    $('#melListen').textContent = '■ Stop';
+    const wrap = $('.mel-roll-wrap');
+    const svg = wrap && wrap.querySelector('svg');
+    const ph = h('div', { class: 'mel-ph' });
+    if (wrap) wrap.append(ph);
+    const t0 = performance.now();
+    const tick = () => {
+      if (!play) return;
+      const f = Math.min(1, (performance.now() - t0) / 1000 / stepSec / res.total);
+      if (svg) ph.style.left = svg.offsetLeft + f * svg.getBoundingClientRect().width + 'px';
+      play.raf = requestAnimationFrame(tick);
+    };
+    tick();
   }
 
   /* ---------- Actions ---------- */
@@ -571,8 +639,9 @@ SS.melodyPanel = (() => {
       SS.ui.toast('La mélodie dépasse 64 mesures : réduis le nombre de vers ou de mesures par vers.', 4500);
       return;
     }
+    stopListen();
     const lead = S.track === 'new' ? ctx.leadOpts() : null;
-    ctx.close();
+    if (ctx.close) ctx.close();
     app.writeMelody({
       trackId: S.track === 'new' ? null : S.track,
       newTrack: lead,
@@ -587,26 +656,35 @@ SS.melodyPanel = (() => {
   /* ---------- Rendu ---------- */
   function render() {
     if (!box) return;
+    stopListen();
     box.replaceChildren(h('div', { class: 'mel-body' }, renderForm(), h('section', { class: 'mel-out', id: 'melOut', 'aria-live': 'polite' })));
     renderGridChips();
     renderOut();
     updateButtons();
   }
 
-  function show() {
-    // première ouverture : accords de la scène si elle en a
-    if (!S.grid) S.grid = gridFromScene() || '';
+  /** Affiche le panneau dans l'hôte `context` (Band par défaut). Les accords de la scène sont repris tant que la grille n'a pas été retouchée. */
+  function show(context) {
+    const next = context || bandCtx;
+    if (ctx && ctx.box !== next.box) {
+      stopListen();
+      ctx.box.replaceChildren(); // un seul exemplaire du formulaire (ids uniques)
+    }
+    ctx = next;
+    box = ctx.box;
+    if (!S.gridEdited || !S.grid) S.grid = gridFromScene() || S.grid;
     render();
   }
 
+  /** Band : les boutons du pied de la fenêtre. */
   function init(appApi, context) {
     app = appApi;
-    ctx = context;
-    box = $('#bandMelody');
-    $('#melGo').addEventListener('click', () => compose(false));
-    $('#melAgain').addEventListener('click', () => compose(true));
-    $('#melWrite').addEventListener('click', write);
+    const b = { go: document.querySelector('#melGo'), again: document.querySelector('#melAgain'), write: document.querySelector('#melWrite') };
+    bandCtx = { ...context, box: document.querySelector('#bandMelody'), buttons: b };
+    b.go.addEventListener('click', () => compose(false));
+    b.again.addEventListener('click', () => compose(true));
+    b.write.addEventListener('click', write);
   }
 
-  return { init, show, render, gridFromScene, _state: S };
+  return { init, show, render, compose, write, stop: stopListen, gridFromScene, _state: S };
 })();

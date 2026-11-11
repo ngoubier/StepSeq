@@ -78,3 +78,15 @@ test('générateur : une basse sur une grille de C6 joue Do (le type posé fait 
   const bass = H.generate(evs, { kind: 'bass-whole', octave: 2, spb: 16, beat: 4, key: C, length: 16 });
   assert.equal(bass[0].notes[0] % 12, 0);
 });
+
+test('propositions d’émotion → grille : emprunts ♭VI, ♭VII, sensible', () => {
+  const C = { tonic: 'C', mode: 'major' };
+  const Am = { tonic: 'A', mode: 'minor' };
+  const g = H.toGridChord(C, H.makeChord(C, 5, 'maj', -1), 5);
+  assert.deepEqual(g, { degree: 5, type: 'maj', acc: -1 });
+  assert.equal(H.gridChord(C, g.degree, g.type, g.acc).name, 'A♭');
+  assert.equal(H.gridChord(C, g.degree, g.type, g.acc).numeral, '♭VI');
+  assert.deepEqual(H.toGridChord(Am, H.makeChord(Am, 6, 'dim', 1), 6), { degree: 6, type: 'dim', acc: 1 });
+  assert.equal(H.gridChord(Am, 1, 'maj', -1).name, 'B♭'); // ♭II napolitain
+  assert.equal(H.gridChord(C, 6, 'dim', 1).name, 'B°'); // +1 seulement en mineur
+});

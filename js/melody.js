@@ -895,6 +895,102 @@ SS.melody = (() => {
   }
 
   /* ================================================================== */
+  /* Vérification d'une mélodie déjà écrite (onglet Vérifier de Key)     */
+  /* ================================================================== */
+  /**
+   * Contrôles d'une ligne mélodique posée sur des accords.
+   *   events : [{ step, len, notes }] (la note la plus haute de chaque événement est la mélodie)
+   *   chordAt(step) → { pcs: Set|Array, name } | null ; key : { tonic, mode } | null ; spb, beat : pas par mesure / par temps
+   * → { stats: { lo, hi, span, conj, strong, notes }, items: [{ kind: 'ok'|'warn'|'tip', text, hint?, where? }] }
+   */
+  function checkMelody({ events, chordAt = () => null, key = null, spb = 16, beat = 4 }) {
+    const evs = [...events].filter((e) => e.notes && e.notes.length).sort((a, b) => a.step - b.step);
+    const ns = evs.map((e) => ({ step: e.step, len: e.len, midi: Math.max(...e.notes) }));
+    const items = [];
+    if (ns.length < 2) return { stats: null, items };
+    const where = (st) => `mes. ${Math.floor(st / spb) + 1}, temps ${Math.floor((st % spb) / beat) + 1}`;
+    const list = (a) => a.slice(0, 3).join(' · ') + (a.length > 3 ? ` (+${a.length - 3})` : '');
+    const name = (m) => noteLabel(m, key);
+    const hasKey = key && H().valid(key);
+    const scalePcs = hasKey ? new Set(H().scale(key).map((d) => d.pc)) : null;
+    const tonicPc = hasKey ? H().scale(key)[0].pc : null;
+    const pcsAt = (st) => {
+      const c = chordAt(st);
+      return c ? new Set([...c.pcs].map(pcOf)) : null;
+    };
+    // tessiture
+    const lo = Math.min(...ns.map((x) => x.midi));
+    const hi = Math.max(...ns.map((x) => x.midi));
+    const span = hi - lo;
+    if (span > 19) items.push({ kind: 'warn', text: `Tessiture large : ${name(lo)}–${name(hi)} (${span} demi-tons).`, hint: 'Au-delà d’une douzième, la mélodie devient difficile à chanter : transposer un passage à l’octave.' });
+    else if (span < 5) items.push({ kind: 'tip', text: `Tessiture très étroite : ${name(lo)}–${name(hi)} (${span} demi-tons).`, hint: 'Un sommet plus haut dans la phrase donnerait une direction.' });
+    else items.push({ kind: 'ok', text: `Tessiture ${name(lo)}–${name(hi)} (${span} demi-tons).` });
+    // mouvement : conjoint, sauts, compensation, notes répétées
+    const iv = ns.slice(1).map((x, i) => x.midi - ns[i].midi);
+    const conj = iv.filter((d) => Math.abs(d) <= 2).length / iv.length;
+    const big = [];
+    const open = [];
+    iv.forEach((d, i) => {
+      if (Math.abs(d) > 12) big.push(`${where(ns[i + 1].step)} (${Math.abs(d)} demi-tons)`);
+      else if (Math.abs(d) >= 8 && i + 1 < iv.length && !(Math.sign(iv[i + 1]) === -Math.sign(d) && Math.abs(iv[i + 1]) <= 4)) open.push(where(ns[i + 1].step));
+    });
+    if (conj < 0.4) items.push({ kind: 'tip', text: `Peu de mouvement conjoint (${Math.round(conj * 100)} % de secondes).`, hint: 'Une mélodie chantable avance surtout par degrés voisins ; garder les sauts pour les mots ou temps importants.' });
+    else items.push({ kind: 'ok', text: `${Math.round(conj * 100)} % de mouvement conjoint.` });
+    if (big.length) items.push({ kind: 'warn', text: `Saut de plus d’une octave : ${list(big)}.`, hint: 'Rarement chantable : rapprocher la note de l’octave voisine.' });
+    if (open.length) items.push({ kind: 'tip', text: `Grand saut non compensé : ${list(open)}.`, hint: 'Après une sixte ou plus, repartir par petit pas dans l’autre sens.' });
+    let run = 1;
+    let maxRun = 1;
+    let runAt = 0;
+    iv.forEach((d, i) => {
+      run = d === 0 ? run + 1 : 1;
+      if (run > maxRun) [maxRun, runAt] = [run, ns[i + 1 - run + 1].step];
+    });
+    if (maxRun >= 5) items.push({ kind: 'tip', text: `${maxRun} fois la même note d’affilée (${where(runAt)}).`, hint: 'Varier d’un degré, ou laisser le rythme porter ce passage récité.' });
+    // point culminant
+    const tops = ns.filter((x) => x.midi === hi);
+    if (tops.length > 3) items.push({ kind: 'tip', text: `Le sommet ${name(hi)} revient ${tops.length} fois.`, hint: 'Un seul point culminant, vers les deux tiers de la phrase, porte mieux la mélodie.' });
+    else items.push({ kind: 'ok', text: `Point culminant ${name(hi)} (${where(tops[0].step)}).` });
+    // accords : temps forts, frottements, notes hors tonalité
+    const half = spb % 2 === 0 && (spb / beat) % 2 === 0 ? spb / 2 : spb;
+    const strongNs = ns.filter((x) => x.step % half === 0 && pcsAt(x.step));
+    const strongIn = strongNs.filter((x) => pcsAt(x.step).has(pcOf(x.midi)));
+    const strong = strongNs.length ? strongIn.length / strongNs.length : null;
+    if (strong != null) {
+      if (strong < 0.6) items.push({ kind: 'warn', text: `Temps forts : ${strongIn.length}/${strongNs.length} sur une note de l’accord.`, hint: 'Les temps forts sur les notes de l’accord ancrent la mélodie ; les notes étrangères se placent juste après (passage, broderie).' });
+      else items.push({ kind: 'ok', text: `Temps forts : ${strongIn.length}/${strongNs.length} sur une note de l’accord.` });
+    }
+    const clash = [];
+    const outside = [];
+    ns.forEach((x) => {
+      const pcs = pcsAt(x.step);
+      const pc = pcOf(x.midi);
+      // demi-ton au-dessus d'une note de l'accord (F sur C majeur, B♭ sur A…) : la note « à éviter » ; la 9e reste une couleur
+      if (pcs && !pcs.has(pc) && x.len >= beat && [...pcs].some((c) => pcOf(pc - c) === 1)) clash.push(`${where(x.step)} : ${name(x.midi)}${chordAt(x.step).name ? ' sur ' + chordAt(x.step).name : ''}`);
+      if (scalePcs && !scalePcs.has(pc) && !(pcs && pcs.has(pc))) outside.push(`${where(x.step)} : ${name(x.midi)}`);
+    });
+    if (clash.length) items.push({ kind: 'warn', text: `Frottement d’un demi-ton avec l’accord, sur une note tenue : ${list(clash)}.`, hint: 'Voulu (appoggiature) ? Sinon, résoudre vers la note de l’accord voisine ou raccourcir la note.' });
+    if (outside.length) items.push({ kind: 'warn', text: `Hors de la tonalité et de l’accord : ${list(outside)}.`, hint: 'Chromatisme de passage ? Il se résout par demi-ton sur une note de l’accord.' });
+    // respirations : un silence d'au moins un demi-temps sépare les phrases
+    let start = ns[0].step;
+    let longest = 0;
+    ns.forEach((x, i) => {
+      const next = ns[i + 1];
+      if (!next || next.step - (x.step + x.len) >= beat / 2) {
+        longest = Math.max(longest, x.step + x.len - start);
+        if (next) start = next.step;
+      }
+    });
+    if (longest > 4 * spb) items.push({ kind: 'tip', text: `Une phrase dure ${Math.round(longest / spb)} mesures sans respiration.`, hint: 'Laisser un silence toutes les 2 à 4 mesures : on respire, et la phrase suivante s’entend comme une réponse.' });
+    // fin
+    const last = ns[ns.length - 1];
+    const lpcs = pcsAt(last.step);
+    if (tonicPc != null && pcOf(last.midi) === tonicPc) items.push({ kind: 'ok', text: `Fin sur la tonique (${name(last.midi)}) : conclusion fermée.` });
+    else if (lpcs && lpcs.has(pcOf(last.midi))) items.push({ kind: 'ok', text: `Fin ouverte sur ${name(last.midi)}, note de l’accord : appelle la suite.` });
+    else items.push({ kind: 'warn', text: `Fin sur ${name(last.midi)}, hors de l’accord.`, hint: 'Terminer sur une note de l’accord (la tonique pour conclure).' });
+    return { stats: { lo, hi, span, conj, strong, notes: ns.length }, items };
+  }
+
+  /* ================================================================== */
   /* Composition complète                                                */
   /* ================================================================== */
   const RANGES = {
@@ -1236,5 +1332,5 @@ SS.melody = (() => {
     return res.notes.map((x) => ({ step: x.step, len: x.len, notes: [x.midi], vel: Math.round((x.vel / 127) * 100) / 100, lyric: x.syl.text }));
   }
 
-  return { compose, keyLabel, chordFunction, noteKind, parseGrid, parseChordSymbol, scanLine, scanLyrics, scanMeter, guessKeys, toMidi, toEvents, RANGES, metricWeight, valueName, quarters, posLabel, noteLabel, _rng: rng };
+  return { compose, checkMelody, keyLabel, chordFunction, noteKind, parseGrid, parseChordSymbol, scanLine, scanLyrics, scanMeter, guessKeys, toMidi, toEvents, RANGES, metricWeight, valueName, quarters, posLabel, noteLabel, _rng: rng };
 })();
