@@ -236,3 +236,33 @@ test('checkMelody : tessiture, sauts, temps forts, frottements, fin', () => {
   const ninth = [{ step: 0, len: 8, notes: [71] }, { step: 8, len: 8, notes: [69] }];
   assert.ok(!M.checkMelody({ events: ninth, chordAt, key: Am, spb: 16, beat: 4 }).items.some((i) => /Frottement/.test(i.text)));
 });
+
+
+test('complexité : couleurs, appuis hors fondamentale, tessiture et nuances reproductibles', () => {
+  const options = { grid: 'Am7 | Fmaj7 | Cmaj7 | G7', source: 'meter', meter: '8 8', fitGrid: true, range: 'voix' };
+  const totals = {};
+  for (const complexity of ['simple', 'balanced', 'adventurous']) {
+    let roots = 0, colors = 0;
+    for (let seed = 1; seed <= 20; seed++) {
+      const r = M.compose({ ...options, seed, complexity });
+      assert.ok(r.ok);
+      assert.equal(r.total, 64);
+      assert.equal(r.notes.length, 16);
+      assert.deepEqual(r.notes, M.compose({ ...options, seed, complexity }).notes);
+      assert.ok(new Set(r.notes.map((n) => n.vel)).size > 3);
+      for (const n of r.notes) {
+        const chord = r.spans.find((s) => n.step >= s.step && n.step < s.step + s.len).chord;
+        roots += pc(n.midi) === chord.rootPc ? 1 : 0;
+        colors += !chord.tones.includes(pc(n.midi)) ? 1 : 0;
+        assert.ok(n.midi >= 60 && n.midi <= 72 && n.vel >= 1 && n.vel <= 127);
+      }
+      assert.deepEqual(M.toEvents(r).map((e) => e.vel), r.notes.map((n) => Math.round(n.vel / 127 * 100) / 100));
+    }
+    totals[complexity] = { roots, colors };
+  }
+  assert.equal(totals.simple.colors, 0);
+  for (const level of ['balanced', 'adventurous']) {
+    assert.ok(totals[level].roots < totals.simple.roots);
+    assert.ok(totals[level].colors > totals.simple.colors);
+  }
+});

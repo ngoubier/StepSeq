@@ -997,8 +997,7 @@ SS.harmonyPanel = (() => {
     const sum = g && g.chords.length && key() ? 'Grille : ' + gridSummary(g) : '';
     $('#hmFoot').innerHTML = `
       <span class="hm-foot-info hm-muted">${esc(sum)}</span>
-      <button type="button" class="btn" id="hmMelAgain" disabled title="Une autre proposition avec les mêmes réglages">Autre proposition</button>
-      <button type="button" class="btn" id="hmMelGo">Proposer</button>
+      <button type="button" class="btn" id="hmMelGo">Générer une mélodie</button>
       <button type="button" class="btn btn-accent" id="hmMelWrite" disabled title="Écrire la mélodie sur la piste choisie, dans la scène en cours (Ctrl+Z pour revenir)">Écrire sur la piste</button>
       <button type="submit" class="btn">Fermer</button>`;
     $('#hmBody').innerHTML = '<div class="hm-mel" id="hmMel"></div>';
@@ -1006,7 +1005,7 @@ SS.harmonyPanel = (() => {
       box: $('#hmMel'),
       leadOpts,
       preferSceneKey: true,
-      buttons: { again: $('#hmMelAgain'), write: $('#hmMelWrite') },
+      buttons: { write: $('#hmMelWrite') },
       padTrack: () => {
         const l = g && g.layers.comp;
         const t = l && l.on && byId(l.dst);
@@ -1111,8 +1110,7 @@ SS.harmonyPanel = (() => {
       return render();
     }
     // onglet Mélodie
-    if (el('#hmMelGo')) return SS.melodyPanel.compose(false);
-    if (el('#hmMelAgain')) return SS.melodyPanel.compose(true);
+    if (el('#hmMelGo')) return SS.melodyPanel.compose(true);
     if (el('#hmMelWrite')) {
       SS.melodyPanel.write();
       return render();

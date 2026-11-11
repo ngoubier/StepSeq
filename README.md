@@ -112,8 +112,7 @@ piste à partir d'une **grille d'accords** et d'une **structure**, avec la méth
    2 mesures chacune ; `3+5 3+5` = notes par mesure). Vide : automatique (une phrase de 7 notes pour 2 mesures) ;
 3. **Piste** : une piste Mono, ou une nouvelle piste « Mélodie » (instrument lead du groupe).
 
-**Proposer** montre le nombre de notes, la tonalité déduite des accords et la grille de la mélodie : les accords en haut, colorés selon leur fonction (repos, préparation, tension, couleur du mode, emprunt — comme dans la fenêtre Key), et les notes en dessous, chacune avec son nom et une couleur selon son type (note de l'accord, couleur, passage / broderie, appoggiature, note de la gamme, tension) ; **Autre
-proposition** en tire une autre ; **Écrire sur la piste** remplace ses notes dans la scène en cours (Ctrl+Z).
+**Générer une mélodie** montre le nombre de notes, la tonalité déduite des accords et la grille de la mélodie : les accords en haut, colorés selon leur fonction (repos, préparation, tension, couleur du mode, emprunt — comme dans la fenêtre Key), et les notes en dessous, chacune avec son nom et une couleur selon son type (note de l'accord, couleur, passage / broderie, appoggiature, note de la gamme, tension) ; un nouveau clic en tire une autre ; **Écrire sur la piste** remplace ses notes dans la scène en cours (Ctrl+Z).
 Repliés : **Options** (tonalité, tessiture, rythme, fin, et des **paroles** facultatives, découpées en syllabes
 françaises, qui remplacent la structure) et **Détails** (hypothèses, contrôles, tableau des notes, export MIDI).
 Mélodie : notes de l'accord sur les appuis, notes de passage entre elles, motif repris et varié, respirations en

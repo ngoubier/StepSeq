@@ -641,6 +641,7 @@ SS.audio = (() => {
       if (b.sends) Object.values(b.sends).forEach((g) => g.disconnect());
     }
     buses.delete(id);
+    glides.delete(id);
     if (SS.juno) SS.juno.remove(id);
   }
 
@@ -1127,6 +1128,7 @@ SS.audio = (() => {
       src = { buffer: entry.buffer, rate: Math.pow(2, (midi - SS.dirtRoot(file)) / 12), loop: null };
     } else if (inst.kind !== 'synth') return;
 
+    if (mod?.signal?.aborted) return;
     const t = Math.max(time, ctx.currentTime);
     const plan = glidePlan(track, p, midi, t, idx, count);
     if (glideLegato(plan, p, idx, midi, t, Math.max(dur, 0.01))) return;
@@ -1149,8 +1151,8 @@ SS.audio = (() => {
     notes.forEach((n) => playNote(track, n.midi, t0 + n.at, n.dur, n.vel ?? 0.8, out, 0, 1, n.cutoff ? { cutoff: n.cutoff } : null));
   }
 
-  /** Aperçu d'un son (dialogue, clic sur une note...). */
-  async function preview(track, midi, dur = 0.45) {
+  /** Précharge les hauteurs utiles avant un aperçu synchronisé. */
+  async function preparePreview(track, midi) {
     ensureCtx();
     await prepareTrack(track);
     if (midi == null && track.type !== 'drum') midi = (SS.findFamily(track.family).octave + 1) * 12;
@@ -1159,12 +1161,20 @@ SS.audio = (() => {
       const wanted = Array.isArray(midi) ? midi : [midi];
       if (list.length) await Promise.all(wanted.map((n) => loadBuffer(nearest(list, n).url).promise));
     }
+    return midi;
+  }
+
+  /** Aperçu d'un son (dialogue, clic sur une note...). */
+  async function preview(track, midi, dur = 0.45, options = {}) {
+    if (options.signal?.aborted) return;
+    midi = await preparePreview(track, midi);
+    if (options.signal?.aborted) return;
     const t = ctx.currentTime + 0.02;
     const out = track.id ? bus(track) : master; // le bus de la piste fait entendre ses effets
     if (track.type === 'drum') playDrum(track, t, 0.9, out);
     else {
       const notes = Array.isArray(midi) ? midi : [midi];
-      notes.forEach((n, i) => playNote(track, n, t, dur, notes.length > 1 ? 0.65 : 0.8, out, i, notes.length));
+      await Promise.all(notes.map((n, i) => playNote(track, n, t, dur, options.velocity ?? (notes.length > 1 ? 0.65 : 0.8), out, i, notes.length, { signal: options.signal })));
     }
   }
 
@@ -1547,6 +1557,7 @@ SS.audio = (() => {
     drumBanks,
     bankVariants,
     prepareTrack,
+    preparePreview,
     preview,
     playPhrase,
     playNote,

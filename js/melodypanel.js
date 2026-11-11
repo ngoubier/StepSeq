@@ -26,6 +26,7 @@ SS.melodyPanel = (() => {
     key: 'auto', // d'après les accords écrits ; la tonalité de la scène reste au choix dans les options
     range: 'voix',
     style: 'simple',
+    complexity: 'balanced',
     ending: 'closed',
     eMode: 'classique',
     sungFinalE: false,
@@ -196,9 +197,12 @@ SS.melodyPanel = (() => {
       h('small', { class: 'dlg-hint' }, 'Notes par phrase : « 8 8 » = deux phrases de 8 notes, qui se partagent la grille. « 3+5 » = notes par mesure. Vide : automatique.'),
       h('div', { class: 'band-step' }, h('b', {}, '3'), 'Piste'),
       sel('melTrack', S.track, [...monoTracks().map((t) => opt(t.id, `${t.name}${t.melody ? ' (mélodie)' : ''}`)), opt('new', '+ Nouvelle piste « Mélodie »')], (v) => {
+        stopListen();
         S.track = v;
         renderOut();
       }),
+      field('Complexité mélodique', sel('melComplexity', S.complexity, [opt('simple', 'Simple'), opt('balanced', 'Équilibrée'), opt('adventurous', 'Audacieuse')], (v) => (S.complexity = v)),
+        'Simple : notes d’accord. Équilibrée : tierces, septièmes et passages. Audacieuse : couleurs, contours et sauts plus variés. Les nuances suivent la phrase.'),
       h(
         'details',
         { class: 'mel-more', id: 'melMore' },
@@ -313,6 +317,7 @@ SS.melodyPanel = (() => {
       key: keyChoice(),
       range: S.range,
       style: S.style,
+      complexity: S.complexity,
       ending: S.ending,
       eMode: S.eMode,
       sungFinalE: S.sungFinalE,
@@ -405,6 +410,7 @@ SS.melodyPanel = (() => {
       const fits = w >= name.length * 5.8 + 2;
       add('text', { x: x.step * px + 1 + (fits ? w / 2 : 0), y: fits ? y + 14 : y - 4, class: fits ? 'mr-name' : 'mr-name out', 'text-anchor': fits ? 'middle' : 'start' }, name);
     });
+    add('line', { x1: 0, x2: 0, y1: 0, y2: H2, class: 'mel-ph', visibility: 'hidden' });
     return h('div', { class: 'mel-roll-wrap' }, svg);
   }
 
@@ -431,7 +437,7 @@ SS.melodyPanel = (() => {
           'div',
           { class: 'mel-empty' },
           h('b', {}, 'Une mélodie sur ta grille'),
-          h('p', {}, 'Écris les accords (ou reprends ceux de la scène), puis « Proposer ». La mélodie dure autant que la grille : 4 accords, 4 mesures.'),
+          h('p', {}, 'Écris les accords (ou reprends ceux de la scène), puis « Générer une mélodie ». La mélodie dure autant que la grille : 4 accords, 4 mesures.'),
         ),
       );
       return;
@@ -516,8 +522,10 @@ SS.melodyPanel = (() => {
           h(
             'div',
             { class: 'mel-play' },
-            h('button', { type: 'button', class: 'btn', id: 'melListen', onclick: listen, title: 'La mélodie avec les accords tenus (nappe), au tempo du morceau' }, play ? '■ Stop' : '▶ Écouter avec la nappe'),
-            h('small', { class: 'dlg-hint' }, `${project().tempo} BPM`),
+            h('button', { type: 'button', class: 'btn', id: 'melListen', onclick: listen, title: 'La mélodie avec les accords tenus (nappe), au tempo du morceau' }, '▶ Lecture'),
+            h('button', { type: 'button', class: 'btn', id: 'melPause', onclick: pauseListen, disabled: true }, 'Ⅱ Pause'),
+            h('button', { type: 'button', class: 'btn', id: 'melStop', onclick: stopListen, disabled: true }, '■ Stop'),
+            h('small', { class: 'dlg-hint', id: 'melPosition' }, `${project().tempo} BPM · mélodie et nappe`),
           ),
           roll(res),
           legend(res),
@@ -558,7 +566,7 @@ SS.melodyPanel = (() => {
   function updateButtons() {
     const ok = !!(S.res && S.res.ok);
     const b = (ctx && ctx.buttons) || {};
-    [b.again, b.write].forEach((x) => x && (x.disabled = !ok));
+    [b.write].forEach((x) => x && (x.disabled = !ok));
   }
 
   /* ---------- Écouter : la mélodie et la nappe (accords tenus) ---------- */
@@ -575,43 +583,101 @@ SS.melodyPanel = (() => {
     return [...new Set([root, ...chord.tones.map((pc) => root + ((pc - chord.rootPc + 12) % 12) + 12)])].sort((a, b) => a - b);
   }
 
-  function stopListen() {
+  function position() {
+    return play ? Math.min(S.res.total, play.offset + (play.paused ? 0 : (performance.now() - play.started) / 1000 / play.stepSec)) : 0;
+  }
+
+  function transport() {
+    const active = !!play;
+    const paused = active && play.paused;
+    const go = $('#melListen'), pause = $('#melPause'), stop = $('#melStop');
+    if (go) { go.disabled = active && !paused; go.textContent = play?.loading ? 'Chargement…' : paused ? '▶ Reprendre' : '▶ Lecture'; }
+    if (pause) pause.disabled = !active || paused || play.loading;
+    if (stop) stop.disabled = !active;
+  }
+
+  function clearPlayback() {
     if (!play) return;
     play.timers.forEach(clearTimeout);
     cancelAnimationFrame(play.raf);
-    play = null;
-    const b = $('#melListen');
-    if (b) b.textContent = '▶ Écouter avec la nappe';
-    const ph = $('.mel-ph');
-    if (ph) ph.remove();
+    play.controller.abort(); // annule aussi les sons encore en chargement
+    play.tracks.forEach((t) => SS.audio.removeTrack(t.id));
   }
 
-  function listen() {
-    if (play) return stopListen();
+  function stopListen() {
+    clearPlayback();
+    play = null;
+    const ph = $('.mel-ph');
+    if (ph) { ph.setAttribute('visibility', 'hidden'); ph.setAttribute('x1', 0); ph.setAttribute('x2', 0); }
+    transport();
+  }
+
+  function pauseListen() {
+    if (!play || play.paused || play.loading) return;
+    const offset = position();
+    clearPlayback();
+    play.offset = offset;
+    play.paused = true;
+    transport();
+  }
+
+  async function listen() {
+    if (play && !play.paused) return;
     const res = S.res;
     if (!res || !res.ok) return;
     SS.audio.ensureCtx();
     const p = project();
+    const offset = play ? play.offset : 0;
     const target = S.track !== 'new' && p.tracks.find((t) => t.id === S.track);
-    const lead = target || tempTrack(ctx.leadOpts());
-    const pad = (ctx.padTrack && ctx.padTrack()) || p.tracks.find((t) => t.type === 'instrument' && t.category === 'chord') || tempTrack(PAD);
+    // Des bus distincts permettent d'arrêter l'aperçu sans couper les pistes du projet.
+    const token = SS.uid();
+    const lead = { ...(target || tempTrack(ctx.leadOpts())), events: [], id: 'mel-lead-' + token };
+    const pad = { ...((ctx.padTrack && ctx.padTrack()) || p.tracks.find((t) => t.type === 'instrument' && t.category === 'chord') || tempTrack(PAD)), events: [], id: 'mel-pad-' + token };
     const stepSec = 60 / p.tempo / 4;
-    const timers = [];
-    res.spans.forEach((sp) => timers.push(setTimeout(() => SS.audio.preview(pad, padVoicing(sp.chord), sp.len * stepSec * 0.98), sp.step * stepSec * 1000)));
-    res.notes.forEach((n) => timers.push(setTimeout(() => SS.audio.preview(lead, n.midi, n.len * stepSec * 0.92), n.step * stepSec * 1000)));
-    timers.push(setTimeout(stopListen, res.total * stepSec * 1000 + 200));
-    play = { timers, raf: 0 };
-    $('#melListen').textContent = '■ Stop';
+    const state = { timers: [], raf: 0, offset, started: performance.now(), stepSec, paused: false, loading: true, controller: new AbortController(), tracks: [lead, pad] };
+    play = state;
+    transport();
+    try {
+      await Promise.all([
+        SS.audio.preparePreview(lead, [...new Set(res.notes.map((n) => n.midi))]),
+        SS.audio.preparePreview(pad, [...new Set(res.spans.flatMap((sp) => padVoicing(sp.chord)))]),
+      ]);
+    } catch (e) {
+      if (play === state) { stopListen(); SS.ui.toast('Impossible de charger le son de l’aperçu.'); }
+      return;
+    }
+    if (play !== state || state.controller.signal.aborted) return;
+    state.loading = false;
+    state.started = performance.now();
+    const schedule = (track, midi, step, len, velocity) => {
+      const start = Math.max(step, offset);
+      const end = step + len;
+      if (end <= offset) return;
+      state.timers.push(setTimeout(() => {
+        if (play !== state || state.controller.signal.aborted) return;
+        SS.audio.preview(track, midi, (end - start) * stepSec * 0.98, { velocity, signal: state.controller.signal }).catch(() => {
+          if (play === state && !state.controller.signal.aborted) { stopListen(); SS.ui.toast('Impossible de charger le son de l’aperçu.'); }
+        });
+      }, (start - offset) * stepSec * 1000));
+    };
+    res.spans.forEach((sp) => schedule(pad, padVoicing(sp.chord), sp.step, sp.len, 0.55));
+    res.notes.forEach((n) => schedule(lead, n.midi, n.step, n.len, n.vel / 127));
+    state.timers.push(setTimeout(stopListen, (res.total - offset) * stepSec * 1000 + 50));
+    transport();
+    const svg = $('.mel-roll');
+    const ph = $('.mel-ph');
     const wrap = $('.mel-roll-wrap');
-    const svg = wrap && wrap.querySelector('svg');
-    const ph = h('div', { class: 'mel-ph' });
-    if (wrap) wrap.append(ph);
-    const t0 = performance.now();
     const tick = () => {
-      if (!play) return;
-      const f = Math.min(1, (performance.now() - t0) / 1000 / stepSec / res.total);
-      if (svg) ph.style.left = svg.offsetLeft + f * svg.getBoundingClientRect().width + 'px';
-      play.raf = requestAnimationFrame(tick);
+      if (play !== state || state.paused) return;
+      const f = position() / res.total;
+      if (svg && ph) {
+        const x = f * svg.viewBox.baseVal.width;
+        ph.setAttribute('visibility', 'visible');
+        ph.setAttribute('x1', x); ph.setAttribute('x2', x);
+        const screenX = f * svg.getBoundingClientRect().width;
+        if (screenX > wrap.scrollLeft + wrap.clientWidth - 30 || screenX < wrap.scrollLeft) wrap.scrollLeft = Math.max(0, screenX - wrap.clientWidth / 3);
+      }
+      state.raf = requestAnimationFrame(tick);
     };
     tick();
   }
@@ -679,10 +745,9 @@ SS.melodyPanel = (() => {
   /** Band : les boutons du pied de la fenêtre. */
   function init(appApi, context) {
     app = appApi;
-    const b = { go: document.querySelector('#melGo'), again: document.querySelector('#melAgain'), write: document.querySelector('#melWrite') };
+    const b = { go: document.querySelector('#melGo'), write: document.querySelector('#melWrite') };
     bandCtx = { ...context, box: document.querySelector('#bandMelody'), buttons: b };
-    b.go.addEventListener('click', () => compose(false));
-    b.again.addEventListener('click', () => compose(true));
+    b.go.addEventListener('click', () => compose(true));
     b.write.addEventListener('click', write);
   }
 

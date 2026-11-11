@@ -2818,7 +2818,7 @@ dialog.system-dialog { width: min(920px, calc(100vw - 24px)); max-height: calc(1
 .band-modes button { padding: 5px 14px; }
 .band-melody { flex: 1; min-height: 0; display: flex; }
 .mel-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(320px, 420px) 1fr; }
-.mel-form { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-right: 1px solid var(--line); overflow-y: auto; min-height: 0; }
+.mel-form { min-width: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; border-right: 1px solid var(--line); overflow-y: auto; min-height: 0; }
 .mel-form textarea, .mel-form input[type=text], .mel-form select {
   width: 100%; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px;
   font: inherit; font-size: 13px; padding: 6px 8px;
@@ -2828,7 +2828,7 @@ dialog.system-dialog { width: min(920px, calc(100vw - 24px)); max-height: calc(1
 .mel-form textarea:focus, .mel-form input:focus, .mel-form select:focus { outline: none; border-color: var(--accent-2); }
 .mel-row { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
 .mel-src { display: flex; flex-direction: column; gap: 6px; }
-.mel-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; align-items: end; }
+.mel-grid2 { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px 10px; align-items: end; }
 .mel-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .mel-field .dlg-label { font-size: 11px; }
 .mel-check { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; padding-bottom: 6px; }
@@ -2917,7 +2917,7 @@ dialog.system-dialog { width: min(920px, calc(100vw - 24px)); max-height: calc(1
 @media (max-width: 900px) { .hm-body:has(> .hm-mel) { overflow-y: auto; } }
 .mel-play { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
 .mel-roll-wrap { position: relative; }
-.mel-ph { position: absolute; top: 6px; bottom: 6px; width: 2px; background: var(--accent, #ff8c1a); pointer-events: none; box-shadow: 0 0 6px var(--accent, #ff8c1a); }
+.mel-roll .mel-ph { stroke: #ffb347; stroke-width: 3; vector-effect: non-scaling-stroke; pointer-events: none; }
 .hm-vsec { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 .hm-vsec h5 { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
 .hm-vsec h5 small { text-transform: none; letter-spacing: 0; font-weight: 400; margin-left: 8px; }
@@ -2950,3 +2950,13 @@ dialog.system-dialog { width: min(920px, calc(100vw - 24px)); max-height: calc(1
 .hm-legend { padding: 0 6px; border-radius: 6px; border: 1px solid var(--role); color: var(--role); }
 .hm-lex { margin-top: 10px; }
 .hm-ex.ref .hm-why { margin: 2px 0 0; }
+
+/* Les contrôles de Key ne doivent pas hériter de sa hauteur compacte de 28 px. */
+.hm-dialog .mel-form select, .mel-form select {
+  height: auto; min-height: 36px; line-height: 1.4; padding: 7px 8px;
+  min-width: 0; max-width: 100%; flex-shrink: 0;
+}
+.mel-form select { text-overflow: ellipsis; }
+.mel-more > * { flex-shrink: 0; }
+.mel-play { flex-wrap: wrap; }
+.hm-mel, .mel-body { min-width: 0; }

@@ -702,6 +702,7 @@ SS.melody = (() => {
    */
   function linePitches(notes, spans, keyPcs, tonicPc, plan, prevNote, r) {
     const { lo, hi } = plan;
+    const complexity = plan.complexity || 0;
     const span = hi - lo;
     const n = notes.length;
     // contour en arche : départ, sommet sur l'accent principal (hors dernière syllabe), arrivée
@@ -727,11 +728,15 @@ SS.melody = (() => {
       const over = spansOver(spans, x.step, x.len);
       const changeAt = sp.step === x.step;
       const structural = x.syl.accent >= 1 || x.len >= 4 || changeAt || i === 0 || i === n - 1;
-      let pool = structural ? chord.tones : chordScale(chord, keyPcs);
+      const scale = chordScale(chord, keyPcs);
+      // Les appuis restent harmoniques ; les couleurs sûres peuvent durer dans le mode audacieux.
+      let pool = complexity === 0 && plan.explicitSimple ? chord.tones : structural ? chord.tones : scale;
+      if (complexity === 2 && i > 0 && i < n - 1 && !changeAt && x.syl.accent < 2) pool = scale;
       // fin fermée : la tonique, si l'accord final la contient (ou si la note tenue arrive sur un accord qui la contient)
       if (i === n - 1 && plan.endKind === 'closed' && (chord.tones.includes(tonicPc) || (over.some((o) => o.chord.tones.includes(tonicPc)) && chordScale(chord, keyPcs).includes(tonicPc))))
         pool = [tonicPc];
-      const t = target(i);
+      const gesture = plan.gesture || [0];
+      const t = target(i) + complexity * gesture[i % gesture.length] * 0.8;
       const desired = plan.motif && plan.motif[i] != null && i > 0 ? prev + plan.motif[i] : null;
       let best = null;
       let bestSc = -Infinity;
@@ -753,6 +758,15 @@ SS.melody = (() => {
           if (leap === 6) sc -= 2; // triton mélodique
         }
         if (structural) sc += toneWeight(chord, pc) * 1.6;
+        if (complexity) {
+          const interval = pcOf(pc - chord.rootPc);
+          if (interval === 0 && i !== n - 1) sc -= complexity * 1.8;
+          if (leap === 0 && i > 0) sc -= complexity * 1.4;
+          if ([3, 4, 10, 11].includes(interval)) sc += complexity * 0.85;
+          if (!chord.tones.includes(pc)) sc += complexity * 0.65;
+          // Un saut expressif sur le sommet, puis retour conjoint selon les règles ci-dessus.
+          if (complexity === 2 && i === peakIdx && leap >= 3 && leap <= 7) sc += 2;
+        }
         // le sommet revient à une syllabe importante : une syllabe faible ne monte pas au-dessus de la ligne
         if (x.syl.accent === 0 && m > Math.max(prev, t) + 1) sc -= 1.5 + (m - Math.max(prev, t)) * 0.4;
         // note tenue sur plusieurs accords : réévaluée sur chacun
@@ -767,7 +781,7 @@ SS.melody = (() => {
           else if (plan.endKind === 'open') sc += pc !== tonicPc && [3, 4, 7].includes(pcOf(pc - chord.rootPc)) ? 2.5 : 0;
           else sc += pc === tonicPc ? 1 : 0.5;
         }
-        sc += r() * 0.35;
+        sc += r() * (0.35 + complexity * 0.65);
         if (sc > bestSc) {
           bestSc = sc;
           best = m;
@@ -1014,6 +1028,7 @@ SS.melody = (() => {
     const spb = Math.round(timeSig[0] * (16 / timeSig[1]));
     let barsPerLine = Math.max(1, Math.min(8, opts.barsPerLine || 2));
     const style = opts.style || 'simple';
+    const complexity = ({ simple: 0, balanced: 1, adventurous: 2 })[opts.complexity] || 0;
     const seed = opts.seed || 1;
     const r = rng(`melodie/${seed}`);
     const hypotheses = [];
@@ -1092,6 +1107,9 @@ SS.melody = (() => {
     const lo = rg.lo;
     const hi = rg.hi;
 
+    // Une cellule de contour réutilisée donne une identité aux variantes complexes.
+    const gestures = [[0, 2, -1, 3, 1, -2, 0, -1], [0, -2, 1, 0, 3, 1, -1, 0], [1, 0, 3, -1, 2, 0, -2, 1]];
+    const gesture = gestures[Math.abs(Math.trunc(Number(seed) || 1)) % gestures.length];
     // --- plan des vers : A A' B A'' par strophes de 4 ---
     const roleOf = (i) => {
       const L = lines.length;
@@ -1138,7 +1156,7 @@ SS.melody = (() => {
         // motif mélodique : un vers A' / A'' reprend les intervalles du vers A s'il a le même nombre de syllabes
         const src = first != null ? first : plan.role !== 'A' && plan.role !== 'B' ? aIdx : null;
         const motif = src != null && motifs[src] && motifs[src].length === ln.length ? motifs[src] : null;
-        const midis = linePitches(ln, spans, keyPcs, tonicPc, { lo, hi, peak: plan.peak, endKind: plan.endKind, motif }, prevNote, r);
+        const midis = linePitches(ln, spans, keyPcs, tonicPc, { lo, hi, peak: plan.peak, endKind: plan.endKind, motif, complexity, gesture: plan.role === "B" ? gesture.map((v) => -v) : gesture, explicitSimple: opts.complexity === "simple" }, prevNote, r);
         motifs.push(midis.map((m, i) => (i ? m - midis[i - 1] : null)));
         ln.forEach((x, i) => (x.midi = midis[i]));
         prevNote = midis[midis.length - 1];
@@ -1164,6 +1182,10 @@ SS.melody = (() => {
       const next = notes[i + 1];
       if ((!next || next.line !== x.line) && x.line !== climaxLine) v -= 6;
       v += Math.round((metricWeight(x.step, spb, timeSig) - 1) * 1.5);
+      // Arche de phrase et petites différences reproductibles, conservées dans l'aperçu et le MIDI.
+      const phrase = lines[x.line];
+      v += Math.sin(Math.PI * x.idx / Math.max(1, phrase.count - 1)) * 5;
+      v += (r() - 0.5) * 6;
       x.vel = Math.max(30, Math.min(120, Math.round(v)));
     });
 

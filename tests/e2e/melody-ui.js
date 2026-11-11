@@ -71,7 +71,7 @@ const SHOTS = process.env.SHOTS;
   ok(!(await page.isDisabled('#melWrite')), 'écriture possible');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'melodie-proposition.png') });
   const first = await page.locator('.mel-roll').innerHTML();
-  await page.click('#melAgain');
+  await page.click('#melGo');
   await page.waitForTimeout(200);
   ok((await page.locator('.mel-roll').innerHTML()) !== first, 'autre proposition : une mélodie différente');
   ok(JSON.stringify(await P()) === JSON.stringify(before), 'rien n’est écrit avant « Écrire sur la piste »');
