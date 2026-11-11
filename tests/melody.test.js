@@ -214,3 +214,25 @@ test('notes en notation anglo-saxonne, orthographiées selon la tonalité', () =
   assert.ok(r.rows.filter((x) => x.midi != null).every((x) => /^[A-G][♯♭]?\d$/.test(x.note)));
   assert.ok(r.hypotheses.some((h) => h.includes('A mineur')));
 });
+
+test('checkMelody : tessiture, sauts, temps forts, frottements, fin', () => {
+  const chordAt = (st) => (st < 16 ? { pcs: [9, 0, 4], name: 'Am' } : { pcs: [5, 9, 0], name: 'F' });
+  const Am = { tonic: 'A', mode: 'minor' };
+  // mélodie sage : conjointe, temps forts sur l'accord, fin sur la tonique
+  const good = [69, 71, 72, 71, 72, 74, 72, 69].map((m, i) => ({ step: i * 4, len: 4, notes: [m] }));
+  const r = M.checkMelody({ events: good, chordAt, key: Am, spb: 16, beat: 4 });
+  assert.ok(r.items.every((i) => i.kind !== 'warn'), r.items.map((i) => i.text).join(' / '));
+  assert.ok(r.items.some((i) => /tonique/.test(i.text)));
+  assert.equal(r.stats.span, 5);
+  // sauts > octave, frottement (A♯ tenu sur Am), note hors tonalité, fin hors accord
+  const bad = [{ step: 0, len: 8, notes: [57] }, { step: 8, len: 8, notes: [82] }, { step: 16, len: 8, notes: [66] }, { step: 24, len: 8, notes: [71] }];
+  const t = M.checkMelody({ events: bad, chordAt, key: Am, spb: 16, beat: 4 }).items.filter((i) => i.kind === 'warn').map((i) => i.text).join(' / ');
+  assert.match(t, /Tessiture large/);
+  assert.match(t, /plus d’une octave/);
+  assert.match(t, /Frottement.*(A♯5|B♭5) sur Am/);
+  assert.match(t, /Hors de la tonalité.*F♯4/);
+  assert.match(t, /Fin sur B4, hors de l’accord/);
+  // la 9e (B sur Am) n'est pas un frottement
+  const ninth = [{ step: 0, len: 8, notes: [71] }, { step: 8, len: 8, notes: [69] }];
+  assert.ok(!M.checkMelody({ events: ninth, chordAt, key: Am, spb: 16, beat: 4 }).items.some((i) => /Frottement/.test(i.text)));
+});

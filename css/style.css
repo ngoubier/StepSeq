@@ -2909,3 +2909,24 @@ dialog.system-dialog { width: min(920px, calc(100vw - 24px)); max-height: calc(1
 .mel-more > summary, .mel-details > summary { cursor: pointer; font-size: 13px; color: var(--muted); padding: 2px 0; }
 .mel-more[open], .mel-details[open] { display: flex; flex-direction: column; gap: 10px; padding-bottom: 10px; }
 .mel-lead { font-size: 14px !important; }
+
+/* ---------- Key → onglet Mélodie (le panneau de Band) et Vérifier ---------- */
+.hm-body:has(> .hm-mel) { padding: 0; overflow: hidden; display: flex; }
+.hm-mel { flex: 1; min-height: 0; display: flex; }
+@media (min-width: 901px) { .hm-mel .mel-body { grid-template-columns: minmax(300px, 360px) 1fr; } }
+@media (max-width: 900px) { .hm-body:has(> .hm-mel) { overflow-y: auto; } }
+.mel-play { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+.mel-roll-wrap { position: relative; }
+.mel-ph { position: absolute; top: 6px; bottom: 6px; width: 2px; background: var(--accent, #ff8c1a); pointer-events: none; box-shadow: 0 0 6px var(--accent, #ff8c1a); }
+.hm-vsec { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.hm-vsec h5 { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.hm-vsec h5 small { text-transform: none; letter-spacing: 0; font-weight: 400; margin-left: 8px; }
+.hm-checks2 { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.hm-checks2 li { display: flex; gap: 8px; align-items: flex-start; }
+.hm-checks2 li > div { display: flex; flex-direction: column; }
+.hm-checks2 small { color: var(--muted); }
+.hm-checks2 .ck { flex: none; width: 16px; height: 16px; margin-top: 1px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 10px; font-weight: 700; color: #fff; }
+.hm-checks2 .k-ok .ck { background: #2f8f5b; }
+.hm-checks2 .k-warn .ck { background: #b07b19; }
+.hm-checks2 .k-tip .ck { background: #4a6fa5; }
+.hm-checks2 .k-info .ck { background: #6b6b75; }

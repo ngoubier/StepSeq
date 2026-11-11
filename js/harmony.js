@@ -552,7 +552,8 @@ SS.harmony = (() => {
   /** Accord de la grille → format de la palette (nom, chiffrage, rôle, notes, emprunt). */
   function gridChord(key, degree, type, acc = 0) {
     const sc = scale(key);
-    if (key.mode !== 'minor') acc = 0; // l'emprunt au mineur harmonique n'a de sens qu'en mineur naturel
+    // +1 : sensible du mineur harmonique (seulement en mineur naturel) ; −1 : emprunt (♭VI, ♭VII, ♭II…)
+    acc = acc === -1 || (acc === 1 && key.mode === 'minor') ? acc : 0;
     const rootPc = pcOf(sc[degree].pc + acc);
     const rootName = acc ? spellLetter(sc[degree].name[0], rootPc) : sc[degree].name;
     const pcs = TYPE_IV(type).map((i) => pcOf(rootPc + i));
@@ -563,12 +564,20 @@ SS.harmony = (() => {
       rootPc,
       type,
       name: rootName + (SUFFIX[type] ?? ''),
-      numeral: numeral(degree, type, acc ? (type === 'dim' || type === 'dim7' ? 'dim' : 'maj') : degTriad(sc, degree)),
+      numeral: (acc < 0 ? '♭' : acc > 0 && !(key.mode === 'minor' && degree === 6) ? '♯' : '') + numeral(degree, type, acc ? (type === 'dim' || type === 'dim7' ? 'dim' : 'maj') : degTriad(sc, degree)),
       notes: chordNoteNames(rootName, type),
       quality: QUALITY[type] || (SS.CHORDS.find((c) => c.id === type) || {}).label || type,
       role: role(key, degree, type),
       borrowed: !pcs.every((pc) => inKey.has(pc)),
     };
+  }
+
+  /** Accord d'une proposition (makeChord) → accord de grille { degree, type, acc } dans la tonalité `key`. */
+  function toGridChord(key, c, prefDegree = 0) {
+    const sc = scale(key);
+    const tries = [prefDegree, ...sc.map((_, i) => i).filter((i) => i !== prefDegree)];
+    for (const d of tries) for (const acc of d === 6 && key.mode === 'minor' ? [0, 1, -1] : [0, -1]) if (pcOf(sc[d].pc + acc) === c.rootPc) return { degree: d, type: c.type, acc };
+    return null;
   }
 
   // colonnes du mode avancé : pour chaque triade de base, les types essayés dans l'ordre
@@ -857,5 +866,5 @@ SS.harmony = (() => {
     return SS.chordNotes(root, chord.type);
   }
 
-  return { MODES, TONICS, GENERATORS, TRANSFORMS, valid, isTonal, scale, spell, french, chords, makeChord, progressions, gridChord, gridPalette, gridFromEvents, identify, chordName, analyzeChord, detect, sceneChords, analyze, generate, transform, label, voice, pcOf };
+  return { MODES, TONICS, GENERATORS, TRANSFORMS, valid, isTonal, scale, spell, french, chords, makeChord, progressions, gridChord, toGridChord, gridPalette, gridFromEvents, identify, chordName, analyzeChord, detect, sceneChords, analyze, generate, transform, label, voice, pcOf };
 })();
