@@ -502,7 +502,7 @@ SS.melodyPanel = (() => {
           h(
             'p',
             { class: 'mel-lead' },
-            `${res.notes.length} notes sur ${res.bars} mesure${res.bars > 1 ? 's' : ''} (${res.lines.length > 1 ? `${res.lines.length} phrases : ${notesLine}` : '1 phrase'}), en ${H().label(res.key)}${res.keyAuto ? ' (déduite des accords)' : ''}.`,
+            `${res.notes.length} notes sur ${res.bars} mesure${res.bars > 1 ? 's' : ''} (${res.lines.length > 1 ? `${res.lines.length} phrases : ${notesLine}` : '1 phrase'}), en ${M().keyLabel(res.key)}${res.keyAuto ? ' (déduite des accords)' : ''}.`,
           ),
           roll(res),
         legend(res),

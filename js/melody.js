@@ -857,12 +857,15 @@ SS.melody = (() => {
     const frac = stepInBar % 4;
     return frac ? `${whole + 1} ${quarters(frac)}` : String(whole + 1);
   }
-  const FR_NOTES = ['Do', 'Do♯', 'Ré', 'Mi♭', 'Mi', 'Fa', 'Fa♯', 'Sol', 'La♭', 'La', 'Si♭', 'Si'];
+  const EN_NOTES = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
+  /** Nom anglo-saxon d'une note (A, B♭, F♯…), orthographié selon la tonalité, avec l'octave (C4 = do central, MIDI 60). */
   function noteLabel(midi, key) {
     const oct = Math.floor(midi / 12) - 1;
-    if (key && H().valid(key)) return H().french(H().spell(key, pcOf(midi))) + oct;
-    return FR_NOTES[pcOf(midi)] + oct;
+    if (key && H().valid(key)) return H().spell(key, pcOf(midi)) + oct;
+    return EN_NOTES[pcOf(midi)] + oct;
   }
+  /** Tonalité avec la tonique en notation anglo-saxonne : « A mineur », « B♭ majeur ». */
+  const keyLabel = (key) => H().label(key).replace(/^\S+/, key.tonic);
 
   /**
    * Fonction d'un accord dans la tonalité (fenêtre Key : repos, préparation, tension, couleur du mode),
@@ -895,12 +898,12 @@ SS.melody = (() => {
   /* Composition complète                                                */
   /* ================================================================== */
   const RANGES = {
-    voix: { lo: 60, hi: 72, label: 'Voix moyenne (Do4–Do5)' },
-    soprano: { lo: 60, hi: 79, label: 'Soprano (Do4–Sol5)' },
-    alto: { lo: 55, hi: 74, label: 'Alto (Sol3–Ré5)' },
-    tenor: { lo: 48, hi: 67, label: 'Ténor (Do3–Sol4)' },
-    baryton: { lo: 45, hi: 64, label: 'Baryton (La2–Mi4)' },
-    instrument: { lo: 60, hi: 84, label: 'Instrument lead (Do4–Do6)' },
+    voix: { lo: 60, hi: 72, label: 'Voix moyenne (C4–C5)' },
+    soprano: { lo: 60, hi: 79, label: 'Soprano (C4–G5)' },
+    alto: { lo: 55, hi: 74, label: 'Alto (G3–D5)' },
+    tenor: { lo: 48, hi: 67, label: 'Ténor (C3–G4)' },
+    baryton: { lo: 45, hi: 64, label: 'Baryton (A2–E4)' },
+    instrument: { lo: 60, hi: 84, label: 'Instrument lead (C4–C6)' },
   };
 
   /**
@@ -975,7 +978,7 @@ SS.melody = (() => {
       key = g[0].key;
       keyAlternatives = g.slice(1, 3).filter((x) => x.score > g[0].score - 0.2).map((x) => x.key);
       hypotheses.push(
-        `Tonalité supposée d’après les accords : ${H().label(key)}` + (keyAlternatives.length ? ` (autre lecture possible : ${keyAlternatives.map((k) => H().label(k)).join(', ')})` : '') + '.'
+        `Tonalité supposée d’après les accords : ${keyLabel(key)}` + (keyAlternatives.length ? ` (autre lecture possible : ${keyAlternatives.map((k) => keyLabel(k)).join(', ')})` : '') + '.'
       );
     }
     const spans = loopSpans(grid.spans, grid.bars * spb, total);
@@ -1233,5 +1236,5 @@ SS.melody = (() => {
     return res.notes.map((x) => ({ step: x.step, len: x.len, notes: [x.midi], vel: Math.round((x.vel / 127) * 100) / 100, lyric: x.syl.text }));
   }
 
-  return { compose, chordFunction, noteKind, parseGrid, parseChordSymbol, scanLine, scanLyrics, scanMeter, guessKeys, toMidi, toEvents, RANGES, metricWeight, valueName, quarters, posLabel, noteLabel, _rng: rng };
+  return { compose, keyLabel, chordFunction, noteKind, parseGrid, parseChordSymbol, scanLine, scanLyrics, scanMeter, guessKeys, toMidi, toEvents, RANGES, metricWeight, valueName, quarters, posLabel, noteLabel, _rng: rng };
 })();

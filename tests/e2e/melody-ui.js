@@ -65,7 +65,7 @@ const SHOTS = process.env.SHOTS;
     return { chords, names, nNotes: notes.length, top, fills: fills.size, legend: document.querySelector('.mel-legend').innerText };
   });
   ok(grid.chords.map((c) => c.text).join() === 'Am,F,C,G' && grid.chords.every((c) => c.y < grid.top), 'grille : les 4 accords en haut, au-dessus des notes');
-  ok(grid.names.length === grid.nNotes && grid.names.every((n) => /^(Do|Ré|Mi|Fa|Sol|La|Si)[♯♭]?\d$/.test(n)), `chaque note porte son nom (${grid.names.slice(0, 4).join(', ')}…)`);
+  ok(grid.names.length === grid.nNotes && grid.names.every((n) => /^[A-G][♯♭]?\d$/.test(n)), `chaque note porte son nom (${grid.names.slice(0, 4).join(', ')}…)`);
   ok(/Repos/.test(grid.legend) && /Préparation/.test(grid.legend) && /Note de l’accord/.test(grid.legend), 'légende : fonction des accords et type des notes');
   ok(grid.fills >= 2, 'les notes sont colorées selon leur type');
   ok(!(await page.isDisabled('#melWrite')), 'écriture possible');

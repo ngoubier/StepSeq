@@ -204,3 +204,13 @@ test('aperçu : fonction des accords (repos, préparation, tension, emprunt) et 
   assert.equal(M.noteKind('couleur (neuvième)'), 'color');
   assert.equal(M.noteKind('broderie'), 'passing');
 });
+
+test('notes en notation anglo-saxonne, orthographiées selon la tonalité', () => {
+  assert.equal(M.noteLabel(60), 'C4');
+  assert.equal(M.noteLabel(70, { tonic: 'F', mode: 'major' }), 'B♭4');
+  assert.equal(M.noteLabel(66, { tonic: 'D', mode: 'major' }), 'F♯4');
+  assert.equal(M.keyLabel({ tonic: 'A', mode: 'minor' }), 'A mineur');
+  const r = M.compose({ grid: 'Am | F | C | G', source: 'meter', meter: '', fitGrid: true, seed: 1 });
+  assert.ok(r.rows.filter((x) => x.midi != null).every((x) => /^[A-G][♯♭]?\d$/.test(x.note)));
+  assert.ok(r.hypotheses.some((h) => h.includes('A mineur')));
+});
