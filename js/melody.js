@@ -163,6 +163,29 @@ SS.melody = (() => {
     return { spans, bars: bars.length, errors };
   }
 
+  /** Grille de scène : préserve positions, durées et renversements exacts. */
+  function parseTimeline(data, { spb, key }) {
+    const spans = [], errors = [];
+    for (const x of data.spans || []) {
+      if (!Number.isInteger(x.step) || x.step < 0 || !Number.isInteger(x.len) || x.len <= 0) {
+        errors.push('Une durée ou une position de la grille est invalide.');
+        continue;
+      }
+      try { spans.push({ step: x.step, len: x.len, chord: parseChordSymbol(x.symbol, key), bar: Math.floor(x.step / spb) }); }
+      catch (e) { errors.push(e.message); }
+    }
+    spans.sort((a, b) => a.step - b.step);
+    const bars = data.bars;
+    if (!Number.isInteger(bars) || bars < 1 || bars > 64) errors.push('La grille doit durer de 1 à 64 mesures.');
+    let end = 0;
+    for (const x of spans) {
+      if (x.step !== end) errors.push('Complétez la grille commune sans trous ni superpositions avant de générer une mélodie.');
+      end = x.step + x.len;
+    }
+    if (spans.length && end !== bars * spb) errors.push('Complétez la dernière mesure de la grille avant de générer une mélodie.');
+    return { spans, bars, errors: [...new Set(errors)] };
+  }
+
   /** Répète la grille pour couvrir `total` pas (une grille plus courte que la mélodie tourne en boucle). */
   function loopSpans(spans, gridSteps, total) {
     if (!spans.length) return [];
@@ -1037,7 +1060,7 @@ SS.melody = (() => {
 
     // --- grille ---
     let key = opts.key && H().valid(opts.key) ? opts.key : null;
-    const grid = parseGrid(opts.grid, { spb, key });
+    const grid = opts.timeline ? parseTimeline(opts.timeline, { spb, key }) : parseGrid(opts.grid, { spb, key });
     if (grid.errors.length) return fail(grid.errors);
     if (!grid.spans.length) return fail(['Écris une grille d’accords : par exemple « Am | F | C | G ».']);
 

@@ -3,11 +3,11 @@
  *  - un ASSISTANT en 2 étapes (ambiance → grille d'accords) pour démarrer une scène qui n'a pas
  *    encore de tonalité : la grille choisie est posée sur la grille et les couches sont générées ;
  *  - des ONGLETS pour modifier ou vérifier ensuite :
- *    1 Ambiance : une émotion → trois grilles d'accords ; « Poser sur la grille » les met dans l'onglet 2.
- *    2 Grille : les accords sur une ligne (glisser-déposer), et en bas les couches que « Générer » écrit
- *      (basse, accords, arpège joué par Arp One).
- *    3 Mélodie : une mélodie sur la grille (js/melodypanel.js, comme dans Band), à écouter avec la nappe.
- *    4 Vérifier : les accords et la mélodie de chaque scène.
+ *    1 Ambiance : émotion, propositions et grilles de référence.
+ *    2 Chanson : grille commune pleine largeur, reprise des accords existants,
+ *      sous-onglets Chords (palette et couches) et Mélodie (réglages horizontaux).
+ *      L'écoute choisit nappe, basse, arpège et mélodie sans écrire dans les pistes.
+ *    3 Vérifier : la même grille et les mélodies de chaque scène.
  * La tonalité et l'émotion sont rangées dans la scène (scene.key, scene.emotion). Le calcul est dans
  * js/harmony.js, les intentions et leur rangement par mode dans js/emotions.js.
  */
@@ -33,6 +33,7 @@ SS.harmonyPanel = (() => {
 
   let view = 'tabs'; // 'tabs' | 'wiz'
   let tab = 'amb';
+  let songTab = 'chords';
   let viewEmo = null; // émotion affichée dans l'onglet Ambiance (sinon celle de la scène)
   let ambTempo = null; // case « régler aussi le tempo » (null = valeur par défaut)
   let wiz = null;
@@ -207,6 +208,7 @@ SS.harmonyPanel = (() => {
     else app.changed();
     app.renderAll();
     tab = 'gri';
+    songTab = 'chords';
     sync();
     toast(`« ${sc.name} » : ${emo.label}, ${pr.chords.map((c) => c.name).join(' – ')} en ${H().label(pr.key)}${withTempo ? `, ${pr.tempo} BPM` : ''}. Choisissez les couches en bas, puis Générer.`, 5000);
   }
@@ -291,10 +293,11 @@ SS.harmonyPanel = (() => {
     putOnGrid(pr);
     view = 'tabs';
     tab = 'gri';
+    songTab = 'chords';
     viewEmo = emo.id;
     generateGrid({ quiet: true });
     sync();
-    toast(`« ${sc.name} » : ${emo.label} en ${H().label(pr.key)}, ${pr.chords.map((c) => c.name).join(' – ')}. Retouchez la grille et les couches, puis l'onglet Mélodie. Ctrl+Z annule.`, 6000);
+    toast(`« ${sc.name} » : ${emo.label} en ${H().label(pr.key)}, ${pr.chords.map((c) => c.name).join(' – ')}. Retouchez la grille et les couches, puis Chanson → Mélodie. Ctrl+Z annule.`, 6000);
   }
 
   /* ================================================================ */
@@ -398,10 +401,10 @@ SS.harmonyPanel = (() => {
     // la grille n'est la référence que si elle a été générée dans les pistes (sinon : les accords joués)
     const comp = sc.grid && sc.grid.layers.comp;
     const live = gch.length && comp && comp.on && sc.data[comp.dst] && sc.grid.sig[comp.dst] === sigOf(sc.data[comp.dst].events);
-    const useGrid = gch.length && (live || !chordEvs.length);
+    const useGrid = gch.length > 0 || !!sc.grid?.initialized;
     const chordAt = (st) => {
       const g = useGrid && gch.find((x) => st >= x.step && st < x.step + x.len);
-      if (g) return { pcs: H().voice(g.c, 60).map(H().pcOf), name: g.c.name };
+      if (useGrid) return g ? { pcs: H().voice(g.c, 60).map(H().pcOf), name: g.c.name } : null;
       const on = chordEvs.filter((e) => st >= e.step && st < e.step + e.len);
       if (!on.length) return null;
       const id = on.map((e) => H().identify(e.notes)).find(Boolean);
@@ -410,7 +413,7 @@ SS.harmonyPanel = (() => {
     // grille : centre, tensions résolues, fin
     const grid = [];
     if (gch.length && !live && chordEvs.length)
-      grid.push({ kind: 'warn', text: 'La grille (onglet 2) diffère des accords joués par les pistes.', hint: 'Cliquez sur « Générer » dans l’onglet Grille pour écrire la grille dans les pistes ; la mélodie est vérifiée sur les accords joués.' });
+      grid.push({ kind: 'warn', text: 'La grille commune diffère des accords joués par les pistes.', hint: 'Cliquez sur « Générer » dans Chanson → Chords pour écrire la grille dans les pistes ; la mélodie est vérifiée sur la grille commune.' });
     if (gch.length) {
       const roles = gch.map((x) => x.c.role.id);
       const first = gch[0].c;
@@ -430,7 +433,7 @@ SS.harmonyPanel = (() => {
     const melodies = instTracks()
       .filter((t) => isMelody(t, evsOf(t)))
       .map((t) => ({ track: t, ...SS.melody.checkMelody({ events: evsOf(t), chordAt, key: k, spb: SS.stepsPerBar(p), beat: SS.stepsPerBeat(p) }) }));
-    return { grid, melodies };
+    return { grid, melodies, chords: useGrid ? gch : null };
   }
 
   const ICON = { ok: '✓', warn: '!', tip: '•', info: 'i' };
@@ -452,7 +455,8 @@ SS.harmonyPanel = (() => {
             : warns
             ? `<span class="hm-pill warn">${warns} à vérifier</span>`
             : '<span class="hm-pill ok">rien à signaler</span>';
-          const prog = sec.progressions
+          const common = x.chords && x.chords.length ? `<div class="hm-prog hm-common-grid"><span class="hm-track">Grille commune</span>${x.chords.map(({ c }) => `<span class="hm-step"><b>${esc(c.numeral)}</b>${esc(c.name)}</span>`).join('')}</div>` : '';
+          const prog = common || (x.chords ? '<p class="hm-muted">Grille commune vide.</p>' : '') || sec.progressions
             .map((pr) => `<div class="hm-prog"><span class="hm-track">${esc(pr.track)}</span>${pr.items.map((it) => `<span class="hm-step st-${it.status}" title="${esc(it.status)}${it.why ? ' : ' + esc(it.why) : ''}"><b>${esc(it.numeral)}</b>${esc(it.name)}</span>`).join('')}</div>`)
             .join('');
           const rem = remarks.length
@@ -462,7 +466,7 @@ SS.harmonyPanel = (() => {
             : '';
           const mel = x.melodies.length
             ? x.melodies.map((m) => `<div class="hm-vsec"><h5>Mélodie · ${esc(m.track.name)}<small>${m.stats ? m.stats.notes + ' notes' : ''}</small></h5>${m.items.length ? checkList(m.items) : '<p class="hm-muted">Trop peu de notes pour juger.</p>'}</div>`).join('')
-            : '<div class="hm-vsec"><h5>Mélodie</h5><p class="hm-muted">Pas de mélodie dans cette scène (onglet 3).</p></div>';
+            : '<div class="hm-vsec"><h5>Mélodie</h5><p class="hm-muted">Pas de mélodie dans cette scène (Chanson → Mélodie).</p></div>';
           const body = sec.key
             ? `<div class="hm-vsec"><h5>Accords</h5>${x.grid.length ? checkList(x.grid) : ''}${prog || '<p class="hm-muted">Pas d’accords dans cette scène.</p>'}${rem}</div>${mel}`
             : '<p class="hm-muted">Choisissez sa tonalité pour l’analyser.</p>';
@@ -474,7 +478,7 @@ SS.harmonyPanel = (() => {
   }
 
   /* ================================================================ */
-  /* Onglet Grille : poser ses accords sur une ligne, générer basse,   */
+  /* Chanson : poser ses accords sur une ligne, générer basse,   */
   /* accords et arpège d'un coup                                       */
   /* ================================================================ */
   // La grille est rangée dans la scène (scene.grid, voir SS.normalizeGrid) : accords par degré, réglages
@@ -506,13 +510,24 @@ SS.harmonyPanel = (() => {
       return false;
     }
   })();
-  let gridPlay = null; // { timers, raf } pendant « Écouter »
   let gridWarned = ''; // dernier avertissement « piste retouchée » (pour ne pas le répéter à chaque geste)
 
   function grid() {
     const sc = scene();
-    if (!sc.grid) sc.grid = SS.normalizeGrid({ chords: [] });
+    if (!sc.grid || (!sc.grid.initialized && !sc.grid.chords.length)) {
+      const chosen = chordTrack();
+      const hasChords = (t) => t && t.events.some((e) => new Set(e.notes.map(H().pcOf)).size >= 3);
+      const source = hasChords(chosen) ? chosen : instTracks().find(hasChords);
+      const imported = key() && source ? H().gridFromEvents(key(), source.events, { chromatic: true }) : { chords: [] };
+      sc.grid = SS.normalizeGrid({ ...sc.grid, chords: imported.chords, initialized: true });
+      if (source && imported.chords.length) {
+        sc.grid.layers.comp.dst = source.id;
+        sc.grid.sig[source.id] = sigOf(source.events);
+      }
+      app.changed();
+    }
     const g = sc.grid;
+    if (!g.initialized) { g.initialized = true; app.changed(); }
     for (const L of GLAYERS) {
       const l = g.layers[L.id];
       const list = gridTracks(L);
@@ -629,6 +644,7 @@ SS.harmonyPanel = (() => {
     const g = grid();
     if (g.auto && g.chords.length) generateGrid({ auto: true });
     else app.changed();
+    SS.melodyPanel.stop();
     renderGri();
   }
 
@@ -655,41 +671,6 @@ SS.harmonyPanel = (() => {
       el.classList.add('sounding');
       setTimeout(() => el.classList.remove('sounding'), 450);
     }
-  }
-
-  function stopGridPlay() {
-    if (!gridPlay) return;
-    gridPlay.timers.forEach(clearTimeout);
-    cancelAnimationFrame(gridPlay.raf);
-    gridPlay = null;
-    const b = $('#grPlay');
-    if (b) b.textContent = '▶ Écouter';
-    const ph = $('#grPh');
-    if (ph) ph.hidden = true;
-  }
-
-  /** Joue la grille (accords seuls, au tempo de la chanson), avec une tête de lecture. */
-  function playGrid() {
-    if (gridPlay) return stopGridPlay();
-    const g = grid();
-    if (!g.chords.length) return toast('La grille est vide.');
-    const t = byId(g.layers.comp.dst) || previewTrack();
-    if (!t) return toast('Ajoutez une piste Instrument ou Synthé pour écouter.');
-    const { total } = gStep();
-    const stepSec = 60 / proj().tempo / 4;
-    const evs = gridEvents(g, 60, 'hold', total);
-    const t0 = performance.now();
-    gridPlay = { timers: evs.map((ev) => setTimeout(() => SS.audio.preview(t, ev.notes, ev.len * stepSec * 0.95), ev.step * stepSec * 1000)), raf: 0 };
-    gridPlay.timers.push(setTimeout(stopGridPlay, total * stepSec * 1000 + 150));
-    $('#grPlay').textContent = '■ Stop';
-    const tick = () => {
-      const ph = $('#grPh');
-      if (!gridPlay || !ph) return;
-      ph.hidden = false;
-      ph.style.left = Math.min(100, ((performance.now() - t0) / 1000 / stepSec / total) * 100) + '%';
-      gridPlay.raf = requestAnimationFrame(tick);
-    };
-    tick();
   }
 
   /* ---------- Rendu ---------- */
@@ -796,14 +777,14 @@ SS.harmonyPanel = (() => {
         ${arpBtn}
       </div>`;
     };
-    body.innerHTML = `<div class="hm-stack gr">
+    body.innerHTML = `<div class="hm-stack gr hm-song">
       <section>
         <div class="gr-head">
           <div class="hm-lbl">Grille de la scène · ${p.bars} mesure${p.bars > 1 ? 's' : ''} en ${p.timeSig[0]}/${p.timeSig[1]}</div>
           <label class="field"><span>Aimanter</span><select id="grSnap">${[['bar', 'à la mesure'], ['half', 'à la demi-mesure'], ['beat', 'au temps']].map(([v, l]) => `<option value="${v}"${g.snap === v ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
           <select id="grFrom" aria-label="Partir d'une grille"><option value="">Partir de…</option>${progOpts}${trackOpts}</select>
           <button type="button" class="btn btn-small" id="grClear"${g.chords.length ? '' : ' disabled'}>Effacer</button>
-          <button type="button" class="btn btn-small" id="grPlay">${gridPlay ? '■ Stop' : '▶ Écouter'}</button>
+
         </div>
         <div class="gr-scroll"><div class="gr-tl" style="min-width:${Math.max(0, p.bars * 64)}px">
           <div class="gr-ruler">${ruler}</div>
@@ -813,6 +794,12 @@ SS.harmonyPanel = (() => {
         </div></div>
         <p class="hm-muted">Cliquez un accord pour l'écouter, glissez-le pour le poser · déplacez un accord en le glissant · tirez son bord droit pour l'allonger · sortez-le de la grille (ou <kbd>Suppr</kbd>) pour l'enlever.</p>
       </section>
+      <div class="song-listen" id="hmSongListen"></div>
+      <div class="hm-tabs song-tabs" role="tablist" aria-label="Écriture de la chanson">
+        <button type="button" role="tab" data-song-tab="chords" aria-selected="${songTab === 'chords'}">Chords</button>
+        <button type="button" role="tab" data-song-tab="melody" aria-selected="${songTab === 'melody'}">Mélodie</button>
+      </div>
+      <div class="song-chords"${songTab === 'chords' ? '' : ' hidden'}>
       <section>
         <div class="gr-head"><div class="hm-lbl">Accords de ${esc(H().label(k))} <span class="gr-hint">clic : écouter · glisser : poser sur la grille</span></div>
           <span class="segmented gr-mode" role="radiogroup" aria-label="Palette"><button type="button" data-grmode="simple" class="${gridAdv ? '' : 'active'}" aria-pressed="${!gridAdv}">Simple</button><button type="button" data-grmode="adv" class="${gridAdv ? 'active' : ''}" aria-pressed="${gridAdv}">Avancé · 7, 9, sus…</button></span></div>
@@ -822,9 +809,13 @@ SS.harmonyPanel = (() => {
         <div class="hm-lbl">Ce que « Générer » écrit dans la scène</div>
         <div class="hm-layers gr-layers">${GLAYERS.map(layerCard).join('')}</div>
       </section>
+      </div>
+      <div class="hm-mel song-melody" id="hmMel"${songTab === 'melody' ? '' : ' hidden'}></div>
     </div>`;
     body.scrollTop = keep;
-    renderGriFoot();
+    if (songTab === 'chords') renderGriFoot();
+    else renderMelFoot();
+    mountMelody();
   }
 
   function gridSummary(g) {
@@ -969,9 +960,9 @@ SS.harmonyPanel = (() => {
       msg = `Grille ${pr.label} posée.`;
     } else {
       const t = byId(v.slice(2));
-      const r = H().gridFromEvents(k, t.events);
+      const r = H().gridFromEvents(k, t.events, { chromatic: true });
       chords = r.chords;
-      msg = `${chords.length} accord${chords.length > 1 ? 's' : ''} repris de « ${t.name} »` + (r.skipped ? ` (${r.skipped} hors de la tonalité, laissé${r.skipped > 1 ? 's' : ''} de côté).` : '.');
+      msg = `${chords.length} accord${chords.length > 1 ? 's' : ''} repris de « ${t.name} »` + (r.skipped ? ` (${r.skipped} événement${r.skipped > 1 ? 's' : ''} non reconnu${r.skipped > 1 ? 's' : ''}).` : '.');
     }
     if (g.chords.length && !confirm(`Remplacer la grille de la scène « ${scene().name} » ?`)) return renderGri();
     g.chords = chords;
@@ -992,30 +983,69 @@ SS.harmonyPanel = (() => {
     }
   }
 
-  function renderMel() {
-    const g = scene().grid;
-    const sum = g && g.chords.length && key() ? 'Grille : ' + gridSummary(g) : '';
+  /** Calendrier exact de la grille commune (pas de conversion en texte arrondie aux temps). */
+  function songGrid() {
+    const { spb, total } = gStep();
+    const spans = grid().chords.filter((c) => c.step < total).map((c) => ({
+      step: c.step, len: Math.min(c.len, total - c.step),
+      symbol: gChord(c).name,
+    })).sort((a, b) => a.step - b.step);
+    return { spans, bars: spans.length ? Math.ceil(Math.max(...spans.map((c) => c.step + c.len)) / spb) : proj().bars };
+  }
+
+  function songPreview() {
+    const p = proj(), g = grid();
+    const { spb, beat, total } = gStep();
+    const layers = {};
+    for (const L of GLAYERS) {
+      const l = g.layers[L.id];
+      const track = byId(l.dst) || SS.newTrack({ type: 'instrument', ...L.make }, p);
+      const center = (track.octave + 1) * 12 + 6;
+      const chords = gridEvents(g, L.id === 'bass' ? 60 : center, L.id === 'comp' ? l.rhythm : 'hold', total);
+      let events = L.id === 'bass' ? H().generate(chords, { kind: l.gen, octave: track.octave, spb, beat, key: key(), length: total }) : chords;
+      if (L.id === 'arp') {
+        events = chords.flatMap((ev) => {
+          const out = [];
+          for (let step = ev.step; step < ev.step + ev.len; step++) {
+            SS.Arp.renderStep(track.arp, ev, step, { loop: 0, trackLen: total, stepSec: 60 / p.tempo / 4, stepsPerBeat: beat }).forEach((n) => {
+              const sd = 60 / p.tempo / 4;
+              out.push({ step: step + n.at / sd, len: n.dur / sd, notes: [n.midi], vel: n.vel });
+            });
+          }
+          return out;
+        });
+      }
+      layers[L.id] = { track, events };
+    }
+    const melody = defaultDst('Mélodie');
+    if (melody) layers.melody = { track: melody, events: melody.events };
+    return layers;
+  }
+
+  function renderMelFoot() {
     $('#hmFoot').innerHTML = `
-      <span class="hm-foot-info hm-muted">${esc(sum)}</span>
+      <span class="hm-foot-info hm-muted">${esc(gridSummary(grid()))}</span>
       <button type="button" class="btn" id="hmMelGo">Générer une mélodie</button>
-      <button type="button" class="btn btn-accent" id="hmMelWrite" disabled title="Écrire la mélodie sur la piste choisie, dans la scène en cours (Ctrl+Z pour revenir)">Écrire sur la piste</button>
+      <button type="button" class="btn btn-accent" id="hmMelWrite" disabled title="Écrire la mélodie sur la piste choisie (Ctrl+Z pour revenir)">Écrire sur la piste</button>
       <button type="submit" class="btn">Fermer</button>`;
-    $('#hmBody').innerHTML = '<div class="hm-mel" id="hmMel"></div>';
+  }
+
+  function mountMelody() {
     SS.melodyPanel.show({
-      box: $('#hmMel'),
-      leadOpts,
-      preferSceneKey: true,
+      box: $('#hmMel'), leadOpts, preferSceneKey: true, sharedGrid: true,
+      gridData: songGrid, previewLayers: songPreview, transportBox: $('#hmSongListen'),
       buttons: { write: $('#hmMelWrite') },
-      padTrack: () => {
-        const l = g && g.layers.comp;
-        const t = l && l.on && byId(l.dst);
-        return t && t.category !== 'mono' ? t : chordTrack();
+      onPosition: (step) => {
+        const ph = $('#grPh');
+        if (!ph) return;
+        ph.hidden = step == null;
+        if (step != null) ph.style.left = (step / gStep().total) * 100 + '%';
       },
     });
-    if (!sum) $('#hmFoot .hm-foot-info').textContent = SS.melodyPanel._state.grid ? 'Accords repris des pistes de la scène' : 'Pas d’accords : écrivez-les, ou posez-les dans l’onglet Grille';
   }
 
   function renderTabs() {
+    if (key()) grid();
     const res = H().analyze(proj());
     const extra = new Map(res.map((r) => [r.id, sceneChecks(r)]));
     const cur = res.find((r) => r.id === scene().id);
@@ -1028,7 +1058,6 @@ SS.harmonyPanel = (() => {
     $('#hmBadge').textContent = warns ? warns : '';
     document.querySelectorAll('#hmTabs [role=tab]').forEach((b) => b.setAttribute('aria-selected', b.dataset.tab === tab));
     if (tab === 'gri') return renderGri();
-    if (tab === 'mel') return renderMel();
     if (tab === 'amb') renderAmb();
     else renderVer(res, extra);
     $('#hmFoot').innerHTML = `
@@ -1037,8 +1066,7 @@ SS.harmonyPanel = (() => {
   }
 
   function render() {
-    if (tab !== 'gri' || view !== 'tabs') stopGridPlay();
-    if (tab !== 'mel' || view !== 'tabs') SS.melodyPanel.stop();
+    SS.melodyPanel.stop();
     const wizOn = view === 'wiz';
     $('#hmTabs').hidden = wizOn;
     $('#hmSteps').hidden = !wizOn;
@@ -1106,8 +1134,14 @@ SS.harmonyPanel = (() => {
     }
     if ((b = el('[data-ab]'))) return abTest(b.dataset.ab);
     if (el('#hmEmoMel')) {
-      tab = 'mel';
+      tab = 'gri';
+      songTab = 'melody';
       return render();
+    }
+    if ((b = el('[data-song-tab]'))) {
+      songTab = b.dataset.songTab;
+      SS.melodyPanel.stop();
+      return renderGri();
     }
     // onglet Mélodie
     if (el('#hmMelGo')) return SS.melodyPanel.compose(true);
@@ -1125,12 +1159,11 @@ SS.harmonyPanel = (() => {
       }
       return renderGri();
     }
-    if (el('#grPlay')) return playGrid();
     if (el('#grGen')) return generateGrid();
     if (el('#grClear')) {
       if (!confirm(`Effacer la grille de la scène « ${scene().name} » ?`)) return;
       grid().chords = [];
-      stopGridPlay();
+      SS.melodyPanel.stop();
       return gridChanged();
     }
     if (el('#grArpOne')) {
@@ -1226,7 +1259,7 @@ SS.harmonyPanel = (() => {
       e.preventDefault();
       dlg.close();
     });
-    dlg.addEventListener('close', stopGridPlay);
+    dlg.addEventListener('close', () => SS.melodyPanel.stop());
     dlg.addEventListener('keydown', (e) => {
       if (e.code === 'Space' && !['BUTTON', 'SELECT', 'INPUT'].includes(e.target.tagName) && !e.target.closest('[data-wpick]')) return;
       e.stopPropagation();

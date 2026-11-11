@@ -38,6 +38,14 @@ const shot = async (page, name) => SHOTS && page.locator('#harmonyDialog').scree
   await page.click('[data-tab="gri"]');
   await page.waitForTimeout(150);
 
+  ok((await page.locator('.gr-blk').count()) > 0, 'accords existants repris à l’ouverture');
+  await page.click('#grClear');
+  await page.waitForTimeout(600);
+  await page.reload();
+  await page.click('#keyBtn');
+  await page.click('[data-tab="gri"]');
+  ok((await page.locator('.gr-blk').count()) === 0, 'une grille effacée reste vide après rechargement');
+
   const lane = async () => page.locator('#grLane').boundingBox();
   const bars = await page.evaluate(() => JSON.parse(localStorage.getItem('stepseq.autosave')).bars);
   /** Glisse `loc` jusqu'à la mesure `bar` (1 = première), au premier quart de la mesure. */

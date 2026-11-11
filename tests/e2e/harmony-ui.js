@@ -41,6 +41,13 @@ const shot = async (page, name) => SHOTS && page.locator('#harmonyDialog').scree
   ok((await page.locator('#hmKeyBar select#hmTonic').inputValue()) === 'D', 'tonalité Ré mineur reprise de l’ancien fichier');
   const box = await page.locator('#harmonyDialog').boundingBox();
   ok(box.height <= 760 - 30, `la fenêtre tient dans l'écran (${Math.round(box.height)} px)`);
+  await page.click('[data-tab="gri"]');
+  const imported = await page.locator('#grLane .gr-blk b').allTextContents();
+  ok(imported.length > 0, 'les accords existants de la scène sont repris automatiquement');
+  await page.click('[data-tab="ver"]');
+  const verified = await page.locator('.hm-scene.current .hm-common-grid .hm-step').evaluateAll((els) => els.map((e) => e.childNodes[e.childNodes.length - 1].textContent));
+  ok(JSON.stringify(verified) === JSON.stringify(imported), 'les accords importés sont les mêmes dans Chanson et Vérifier');
+  await page.click('[data-tab="amb"]');
   await page.locator('.emo-chip[data-emo="nostalgie"]').click();
   ok((await page.locator('.hm-ex:not(.ref)').count()) === 3, 'Ambiance : 3 pistes pour Nostalgie');
   const nRef = await page.locator('.hm-ex.ref').count();
@@ -61,7 +68,7 @@ const shot = async (page, name) => SHOTS && page.locator('#harmonyDialog').scree
   await page.locator('.emo-chip[data-emo="nostalgie"]').click();
   ok((await page.locator('.hm-mode.on .hm-mode-h b').textContent()).includes('Majeur'), 'Nostalgie rangée sous Majeur (6 grilles sur 10)');
   await shot(page, '1-ambiance');
-  ok((await page.locator('#hmTabs [role=tab]').count()) === 4, '4 onglets : Ambiance, Grille, Mélodie, Vérifier');
+  ok((await page.locator('#hmTabs [role=tab]').count()) === 3, '3 onglets : Ambiance, Chanson, Vérifier');
   ok(!(await page.locator('[data-tab="acc"], [data-tab="cou"]').count()), 'plus d’onglets Accords ni Couches');
   // « Poser sur la grille » : la proposition arrive sur la grille (onglet 2), un accord par mesure
   await page.click('[data-emo-apply="0"]');
@@ -74,16 +81,17 @@ const shot = async (page, name) => SHOTS && page.locator('#harmonyDialog').scree
   ok(gr >= 4, `accords posés sur la grille (${gr} blocs)`);
   ok((await page.locator('.gr-layer').count()) === 3, 'Grille : les couches en bas (basse, accords, arpège)');
   await shot(page, '2-grille');
-  // Mélodie : le panneau de Band, sur la grille de la scène
-  await page.click('[data-tab="mel"]');
-  await page.waitForTimeout(150);
-  const g = await page.locator('#melGrid').inputValue();
-  ok(g.split('|').length >= 4, `Mélodie : grille reprise de l’onglet Grille (« ${g.slice(0, 40)}… »)`);
-  ok(/scène/.test(await page.locator('#melKey option[value=auto]').textContent()), 'tonalité : celle de la scène');
-  await page.fill('#melGrid', 'Dm | B♭ | F | C');
+  // La mélodie suit le calendrier commun, même si Band avait conservé un texte différent.
+  let common = await page.locator('#grLane .gr-blk b').allTextContents();
+  await page.evaluate(() => { SS.melodyPanel._state.grid = 'C | C'; SS.melodyPanel._state.gridEdited = true; });
+  await page.click('[data-song-tab="melody"]');
+  ok(await page.locator('#grLane').isVisible(), 'la grille commune reste au-dessus de Mélodie');
+  ok(await page.locator('#melGrid').count() === 0, 'aucune seconde grille de texte dans Mélodie');
+  const layout = await page.locator('#hmMel .mel-form > .mel-field').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().top));
+  ok(layout.length === 3 && Math.max(...layout) - Math.min(...layout) <= 1, 'réglages de la mélodie disposés horizontalement');
   await page.click('#hmMelGo');
   await page.waitForTimeout(150);
-  ok((await page.locator('#hmMel .mel-roll .mr-chord').count()) === 4, 'proposition : 4 accords');
+  ok(JSON.stringify(await page.locator('#hmMel .mel-roll .mr-chord').allTextContents()) === JSON.stringify(common), 'la proposition reprend exactement les accords communs');
   ok(!(await page.locator('#hmMelWrite').isDisabled()), 'Écrire sur la piste actif');
   await page.click('#melMore summary');
   const controls = await page.locator('#hmMel select').evaluateAll((els) => els.map((e) => ({ height: e.getBoundingClientRect().height, line: parseFloat(getComputedStyle(e).fontSize), width: e.getBoundingClientRect().width, parent: e.parentElement.getBoundingClientRect().width })));
@@ -127,11 +135,31 @@ const shot = async (page, name) => SHOTS && page.locator('#harmonyDialog').scree
   const stopped = await page.evaluate(() => window.melPreview.length);
   await page.waitForTimeout(400);
   ok(await page.evaluate(() => window.melPreview.length) === stopped, 'aucune nouvelle note après Stop');
+  for (const role of ['comp', 'bass', 'arp', 'melody']) {
+    for (const other of ['comp', 'bass', 'arp', 'melody']) await page.locator('[data-preview-role="' + other + '"]').setChecked(other === role);
+    await page.evaluate(() => { window.melPreview = []; });
+    await page.click('#melListen');
+    await page.waitForFunction(() => !document.querySelector('#melPause').disabled);
+    await page.waitForTimeout(700);
+    const expected = role === 'melody' ? 'lead' : role;
+    ok(await page.evaluate((id) => window.melPreview.length > 0 && window.melPreview.every((n) => n.id.startsWith('mel-' + id + '-')), expected), 'écoute seule : ' + role);
+    await page.click('#melStop');
+  }
+  await page.click('[data-song-tab="chords"]');
+  ok(JSON.stringify(await page.locator('#grLane .gr-blk b').allTextContents()) === JSON.stringify(common), 'Chords et Mélodie partagent la même grille');
+  await page.click('[data-song-tab="melody"]');
+  ok(await page.locator('.mel-roll').count() === 1, 'la proposition est conservée en changeant de sous-onglet');
+  await page.selectOption('#grFrom', { index: 1 });
+  common = await page.locator('#grLane .gr-blk b').allTextContents();
+  ok(await page.locator('#hmMelWrite').isDisabled() && await page.locator('.mel-roll').count() === 0, 'modifier la grille invalide la proposition précédente');
+  await page.click('#hmMelGo');
+  ok(JSON.stringify(await page.locator('.mel-roll .mr-chord').allTextContents()) === JSON.stringify(common), 'nouvelle mélodie sur la grille modifiée');
   await page.click('#hmMelWrite');
   await page.waitForTimeout(200);
   const mel = await page.evaluate(() => SS && document.querySelectorAll('.track').length);
   ok(mel > 0, 'mélodie écrite');
   await page.click('[data-tab="ver"]');
+  ok(JSON.stringify(await page.locator('.hm-scene.current .hm-common-grid .hm-step').evaluateAll((els) => els.map((e) => e.childNodes[e.childNodes.length - 1].textContent))) === JSON.stringify(common), 'Vérifier utilise aussi la grille commune');
   ok((await page.locator('.hm-scene').count()) === 6, 'Vérifier : une ligne par scène');
   ok(/Mélodie · Mélodie/.test(await page.locator('.hm-scene.current').textContent()), 'Vérifier : la mélodie écrite est contrôlée');
   ok((await page.locator('.hm-scene.current .hm-checks2 li').count()) >= 4, 'Vérifier : contrôles de la grille et de la mélodie');
@@ -186,6 +214,16 @@ const shot = async (page, name) => SHOTS && page.locator('#harmonyDialog').scree
   const label = await page.locator('#keyLabel').textContent();
   ok(/dorien/.test(label), `bouton de la barre : « ${label} »`);
 
+  await page.click('#keyBtn');
+  await page.click('[data-song-tab="melody"]');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.click('#hmMelGo');
+  const mobile = await page.evaluate(() => {
+    const form = document.querySelector('#hmMel .mel-form').getBoundingClientRect();
+    const out = document.querySelector('#melOut').getBoundingClientRect();
+    return out.top >= form.bottom - 1 && document.querySelector('#harmonyDialog').scrollWidth <= document.querySelector('#harmonyDialog').clientWidth + 1;
+  });
+  ok(mobile, 'Key sur mobile : réglages empilés, sans chevauchement ni débordement');
   ok(!errs.length, 'aucune erreur JavaScript' + (errs.length ? ' : ' + errs.join(' | ') : ''));
   await b.close();
   server.close();

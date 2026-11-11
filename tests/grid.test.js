@@ -90,3 +90,13 @@ test('propositions d’émotion → grille : emprunts ♭VI, ♭VII, sensible', 
   assert.equal(H.gridChord(Am, 1, 'maj', -1).name, 'B♭'); // ♭II napolitain
   assert.equal(H.gridChord(C, 6, 'dim', 1).name, 'B°'); // +1 seulement en mineur
 });
+
+test('reprise commune : renversements et accords chromatiques conservés', () => {
+  const r = H.gridFromEvents(Dm, [
+    { step: 0, len: 8, notes: [48, 53, 57] }, // F/C
+    { step: 8, len: 8, notes: [53, 57, 60] }, // F : autre basse, ne pas fusionner
+    { step: 16, len: 16, notes: SS.chordNotes(51, 'maj'), chord: 'maj' },
+  ], { chromatic: true });
+  assert.equal(r.skipped, 0);
+  assert.deepEqual(r.chords.map((c) => [c.step, c.len, H.gridChord(Dm, c.degree, c.type, c.acc, c.bass).name]), [[0, 8, 'F/C'], [8, 8, 'F'], [16, 16, 'E♭']]);
+});

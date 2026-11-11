@@ -466,6 +466,7 @@ SS.normalizeGrid = (g) => {
   if (g.sig && typeof g.sig === 'object') for (const [k, v] of Object.entries(g.sig)) if (typeof v === 'string') sig[k] = v;
   return {
     chords,
+    initialized: g.initialized === true,
     snap: ['bar', 'half', 'beat'].includes(g.snap) ? g.snap : 'bar',
     auto: !!g.auto,
     layers: { bass: layer(lay.bass, ['gen']), comp: layer(lay.comp, ['rhythm']), arp: layer(lay.arp, []) },

@@ -636,7 +636,7 @@ SS.harmony = (() => {
   }
 
   /** Accords d'une piste → accords de grille { step, len, degree, type, acc } (ceux hors tonalité sont comptés dans `skipped`). */
-  function gridFromEvents(key, events) {
+  function gridFromEvents(key, events, options = {}) {
     const sc = scale(key);
     const out = [];
     let skipped = 0;
@@ -647,14 +647,19 @@ SS.harmony = (() => {
       let degree = sc.findIndex((d) => d.pc === id.rootPc);
       let acc = 0;
       if (degree < 0 && key.mode === 'minor' && id.rootPc === pcOf(sc[6].pc + 1)) [degree, acc] = [6, 1];
+      if (degree < 0 && options.chromatic) {
+        const converted = toGridChord(key, id);
+        if (converted) ({ degree, acc } = converted);
+      }
       if (degree < 0) { skipped++; continue; }
+      const bass = pcOf((id.bassPc ?? pcOf(Math.min(...ev.notes))) - id.rootPc);
       const prev = out[out.length - 1];
-      if (prev && prev.degree === degree && prev.type === id.type && prev.acc === acc && prev.step + prev.len >= ev.step) {
+      if (prev && prev.degree === degree && prev.type === id.type && prev.acc === acc && (prev.bass || 0) === bass && prev.step + prev.len >= ev.step) {
         prev.len = Math.max(prev.len, ev.step + ev.len - prev.step);
         continue;
       }
       if (prev && prev.step + prev.len > ev.step) prev.len = ev.step - prev.step;
-      out.push({ step: ev.step, len: ev.len, degree, type: id.type, acc });
+      out.push({ step: ev.step, len: ev.len, degree, type: id.type, acc, ...(bass ? { bass } : {}) });
     }
     return { chords: out.filter((c) => c.len > 0), skipped };
   }

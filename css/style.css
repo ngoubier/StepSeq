@@ -2960,3 +2960,24 @@ dialog.system-dialog { width: min(920px, calc(100vw - 24px)); max-height: calc(1
 .mel-more > * { flex-shrink: 0; }
 .mel-play { flex-wrap: wrap; }
 .hm-mel, .mel-body { min-width: 0; }
+
+/* Key : une grille commune au-dessus des deux ateliers de la chanson. */
+.hm-song > section { min-width: 0; }
+.song-tabs { padding: 0; flex: none; }
+.song-chords { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.song-melody { display: block; min-width: 0; }
+.hm-song .mel-body { display: flex; flex-direction: column; min-height: auto; }
+.hm-song .mel-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 18px; padding: 0 0 14px; border-right: 0; border-bottom: 1px solid var(--line); overflow: visible; }
+.hm-song .mel-more { grid-column: 1 / -1; }
+.hm-song .mel-more .mel-grid2 { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
+.hm-song .mel-out { padding: 14px 0 0; overflow: visible; }
+.hm-song .mel-empty { margin: 18px auto; }
+.mel-grid-source { display: flex; flex-direction: column; gap: 10px; }
+.mel-preview-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px; }
+.mel-audition { display: flex; flex-wrap: wrap; gap: 12px; border: 0; padding: 0; margin: 0; min-width: 0; }
+.mel-audition legend { font-size: 11px; color: var(--muted); padding: 0 0 5px; }
+.mel-audition label { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer; }
+@media (max-width: 760px) {
+  .hm-song .mel-form, .hm-song .mel-more .mel-grid2 { grid-template-columns: 1fr; }
+  .mel-preview-controls { align-items: flex-start; flex-direction: column; gap: 6px; }
+}

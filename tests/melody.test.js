@@ -266,3 +266,24 @@ test('complexité : couleurs, appuis hors fondamentale, tessiture et nuances rep
     assert.ok(totals[level].colors > totals.simple.colors);
   }
 });
+
+test('grille commune : calendrier exact, renversements et priorité sur le texte conservé', () => {
+  const timeline = { bars: 4, spans: [
+    { step: 0, len: 3, symbol: 'C/E' },
+    { step: 3, len: 13, symbol: 'Fmaj7' },
+    { step: 16, len: 32, symbol: 'G7' },
+    { step: 48, len: 16, symbol: 'C' },
+  ] };
+  const options = { grid: 'Am | Am', timeline, source: 'meter', fitGrid: true, key: { tonic: 'C', mode: 'major' }, seed: 2 };
+  const r = M.compose(options);
+  assert.ok(r.ok, r.errors?.join());
+  assert.equal(r.total, 64);
+  assert.deepEqual(r.spans.map((s) => [s.step, s.len, s.chord.sym]), timeline.spans.map((s) => [s.step, s.len, s.symbol]));
+  assert.equal(r.spans[0].chord.bassPc, 4);
+  assert.deepEqual(M.compose(options).notes, r.notes);
+  for (const spans of [[], [{ step: 4, len: 12, symbol: 'C' }], [{ step: 0, len: 12, symbol: 'C' }]]) {
+    const bad = M.compose({ ...options, timeline: { bars: 1, spans } });
+    assert.equal(bad.ok, false);
+    assert.ok(bad.errors.length > 0);
+  }
+});
