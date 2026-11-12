@@ -33,6 +33,9 @@ puis ouvrir <http://localhost:8000>.
 - **Barre du bas** : mode d'édition **On/Off** (cliquer / glisser pour activer des pas) ou
   **Vélocité** (cliquer-glisser verticalement sur un pas pour régler sa force).
 
+En mode **Mono**, le piano roll permet de superposer plusieurs notes de hauteurs différentes au même instant.
+Chaque note garde sa propre durée et sa vélocité ; cliquer à nouveau sur une note la supprime seule.
+
 ### Ajouter une piste
 
 Le bouton **+** ouvre une fenêtre qui demande :

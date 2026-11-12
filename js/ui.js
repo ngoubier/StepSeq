@@ -168,7 +168,8 @@ SS.ui = (() => {
     return ICONS.keys;
   }
 
-  const findEventAt = (track, s) => track.events.find((e) => s >= e.step && s < e.step + e.len);
+  const findEventAt = (track, s, midi = null) => track.events.find((e) => s >= e.step && s < e.step + e.len && (midi == null || e.notes.includes(midi)));
+  const sharesVoice = (track, a, b) => track.category !== 'mono' || a.notes.some((m) => b.notes.includes(m));
 
   /** Message temporaire, avec un bouton d'action optionnel { label, run }. */
   function toast(msg, ms = 2600, action) {
@@ -1082,7 +1083,7 @@ SS.ui = (() => {
   function itemAtCell(track, cell) {
     const s = +cell.dataset.step;
     if (isDrum(track)) return track.steps[s] > 0 ? s : null;
-    const ev = findEventAt(track, s);
+    const ev = findEventAt(track, s, cell.dataset.midi ? +cell.dataset.midi : null);
     if (!ev) return null;
     if (cell.dataset.midi && !ev.notes.includes(+cell.dataset.midi)) return null;
     return ev;
@@ -1212,11 +1213,11 @@ SS.ui = (() => {
         return pasted.push(s);
       }
       const len = Math.min(it.len, n - s);
-      track.events = track.events.filter((e) => !(e.step >= s && e.step < s + len));
-      track.events.forEach((e) => {
-        if (e.step < s && e.step + e.len > s) e.len = s - e.step;
-      });
       const ev = { step: s, len, notes: track.category === 'mono' ? [it.notes[0]] : [...it.notes], vel: it.vel };
+      track.events = track.events.filter((e) => !(sharesVoice(track, ev, e) && e.step >= s && e.step < s + len));
+      track.events.forEach((e) => {
+        if (sharesVoice(track, ev, e) && e.step < s && e.step + e.len > s) e.len = s - e.step;
+      });
       if (track.category !== 'mono' && it.chord) ev.chord = it.chord;
       track.events.push(ev);
       pasted.push(ev);
@@ -1427,9 +1428,9 @@ SS.ui = (() => {
           o.ev.notes = o.notes.map((m) => m + dp);
           const a = o.ev.step;
           const b = a + o.ev.len;
-          evs = evs.filter((x) => !(x.step >= a && x.step < b));
+          evs = evs.filter((x) => !(sharesVoice(track, o.ev, x) && x.step >= a && x.step < b));
           evs.forEach((x) => {
-            if (x.step < a && x.step + x.len > a) x.len = a - x.step;
+            if (sharesVoice(track, o.ev, x) && x.step < a && x.step + x.len > a) x.len = a - x.step;
           });
         });
         track.events = evs.concat(moving).sort((x, y) => x.step - y.step);
@@ -1617,7 +1618,7 @@ SS.ui = (() => {
   function noteEdgeAt(track, cell, clientX) {
     if (track.type !== 'instrument' || !cell) return null;
     const s = +cell.dataset.step;
-    const ev = findEventAt(track, s);
+    const ev = findEventAt(track, s, cell.dataset.midi ? +cell.dataset.midi : null);
     if (!ev || s !== ev.step + ev.len - 1) return null;
     if (cell.dataset.midi && !ev.notes.includes(+cell.dataset.midi)) return null; // piano roll : sur une ligne de la note
     const r = cell.getBoundingClientRect();
@@ -1651,12 +1652,12 @@ SS.ui = (() => {
   const ROLL_VEL_PX = 4; // bande de prise en haut d'une note du piano roll
 
   /** Vélocité d'une case de la ligne compacte : { get, set, label } ou null si la case est vide. */
-  function velTarget(track, s) {
+  function velTarget(track, s, midi = null) {
     if (track.type === 'drum') {
       if (!(track.steps[s] > 0)) return null;
       return { step: s, get: () => track.steps[s], set: (v) => (track.steps[s] = v) };
     }
-    const ev = findEventAt(track, s);
+    const ev = findEventAt(track, s, midi);
     if (!ev) return null;
     return { ev, get: () => ev.vel, set: (v) => (ev.vel = v) };
   }
@@ -1667,7 +1668,7 @@ SS.ui = (() => {
     if (cell.classList.contains('rcell')) {
       // piano roll : bande du haut d'une case de note (la vélocité y est montrée par l'opacité)
       if (!cell.classList.contains('on')) return null;
-      const t = velTarget(track, +cell.dataset.step);
+      const t = velTarget(track, +cell.dataset.step, +cell.dataset.midi);
       if (!t || !t.ev.notes.includes(+cell.dataset.midi)) return null;
       const r = cell.getBoundingClientRect();
       return clientY >= r.top - 1 && clientY <= r.top + ROLL_VEL_PX ? t : null;
@@ -1729,7 +1730,7 @@ SS.ui = (() => {
     const group = isSelected(track, ev) && sel.items.size > 1 ? [...sel.items] : [ev];
     if (group.length === 1) select(track, ev);
     const limits = group.map((x) => {
-      const next = track.events.find((y) => y !== x && y.step > x.step);
+      const next = track.events.find((y) => y !== x && y.step > x.step && sharesVoice(track, x, y));
       return { x, len0: x.len, max: (next ? next.step : n) - x.step };
     });
     const maxLen = limits.find((l) => l.x === ev).max;
@@ -1796,7 +1797,7 @@ SS.ui = (() => {
 
   function noteGesture(track, s, midi, e) {
     const n = SS.trackLen(app.project(), track);
-    const existing = findEventAt(track, s);
+    const existing = findEventAt(track, s, track.category === 'mono' ? midi : null);
 
 
     // Tactile : un appui long sur un accord ouvre le menu de type d'accord ;
@@ -1842,7 +1843,7 @@ SS.ui = (() => {
     track_gesture((pe) => {
       const s2 = stepFromPoint(pe.clientX, pe.clientY);
       if (s2 == null) return;
-      const next = track.events.find((x) => x !== ev && x.step > ev.step);
+      const next = track.events.find((x) => x !== ev && x.step > ev.step && sharesVoice(track, ev, x));
       const maxLen = (next ? next.step : n) - ev.step;
       const len = clamp(s2 - ev.step + 1, 1, maxLen);
       if (len !== ev.len) {
@@ -1880,7 +1881,8 @@ SS.ui = (() => {
   function chordMenuFromEvent(track, s, e) {
     if (track.type !== 'instrument') return; // menu normal du navigateur
     e.preventDefault();
-    const ev = findEventAt(track, s);
+    const cell = e.target.closest('.rcell');
+    const ev = findEventAt(track, s, cell ? +cell.dataset.midi : null);
     if (!ev) return;
     openChordMenu(track, ev, e.clientX, e.clientY);
   }
@@ -1938,7 +1940,7 @@ SS.ui = (() => {
 
     /* Longueur et vélocité dans la même fenêtre : curseurs + boutons −/+ ; la grille suit en direct. */
     const n = SS.trackLen(app.project(), track);
-    const next = track.events.find((o) => o !== ev && o.step > ev.step);
+    const next = track.events.find((o) => o !== ev && o.step > ev.step && sharesVoice(track, ev, o));
     const maxLen = Math.max(1, (next ? next.step : n) - ev.step);
     let saveT = null;
     const saveSoon = () => {
