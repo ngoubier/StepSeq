@@ -499,6 +499,7 @@ SS.ui = (() => {
     const low = ROLL_LOW;
     const high = ROLL_HIGH;
     const rangeLabel = h('b', { class: 'roll-range' });
+    const zoomLabel = h('b', { class: 'roll-vzoom-l' });
 
     const sel = (options, value, onchange) =>
       h(
@@ -514,9 +515,17 @@ SS.ui = (() => {
         'label',
         {},
         'Octave',
-        h('button', { type: 'button', onclick: () => scroller.by(12 * ROLL_ROW_H), title: 'Une octave plus bas' }, '−'),
+        h('button', { type: 'button', onclick: () => scroller.octave(-1), title: 'Une octave plus bas' }, '−'),
         rangeLabel,
-        h('button', { type: 'button', onclick: () => scroller.by(-12 * ROLL_ROW_H), title: 'Une octave plus haut' }, '+')
+        h('button', { type: 'button', onclick: () => scroller.octave(1), title: 'Une octave plus haut' }, '+')
+      ),
+      h(
+        'label',
+        { class: 'roll-vzoom', title: 'Hauteur des notes · Alt+molette sur le piano roll' },
+        'Hauteur',
+        h('button', { type: 'button', class: 'roll-vzoom-out', onclick: () => scroller.zoom(-1), title: 'Notes moins hautes (plus de notes visibles)' }, '−'),
+        zoomLabel,
+        h('button', { type: 'button', class: 'roll-vzoom-in', onclick: () => scroller.zoom(1), title: 'Notes plus hautes' }, '+')
       ),
       track.category !== 'mono'
         ? h(
@@ -627,10 +636,10 @@ SS.ui = (() => {
 
     const inner = h('div', { class: 'roll-inner' });
     const thumb = h('div', { class: 'roll-vthumb', title: 'Glisser pour faire défiler les notes' });
-    const bar = h('div', { class: 'roll-vbar', style: `height:${ROLL_VIEW * ROLL_ROW_H}px` }, thumb);
+    const bar = h('div', { class: 'roll-vbar', style: `height:${ROLL_VIEW_PX}px` }, thumb);
     const view = h(
       'div',
-      { class: 'roll-view', style: `height:${ROLL_VIEW * ROLL_ROW_H}px` },
+      { class: 'roll-view', style: `height:${ROLL_VIEW_PX}px` },
       h('div', { class: 'roll-side' }, bar),
       inner
     );
@@ -670,7 +679,7 @@ SS.ui = (() => {
     // tonalité : notes de la gamme mises en évidence, tonique marquée
     const key = SS.sceneKey(p);
     const scalePcs = key ? SS.harmony.scale(key).map((d) => d.pc) : null;
-    const scroller = makeRollScroller(track, view, inner, bar, thumb, rangeLabel);
+    const scroller = makeRollScroller(track, view, inner, bar, thumb, rangeLabel, zoomLabel);
     for (let midi = high; midi >= low; midi--) {
       const black = SS.isBlackKey(midi);
       const isC = midi % 12 === 0;
@@ -717,7 +726,8 @@ SS.ui = (() => {
             h(
               'span',
               {
-                class: (black ? 'black' : '') + (isC ? ' c' : ''),
+                // .edge : touche blanche dont la voisine du dessous est blanche aussi (si/do, mi/fa)
+                class: (black ? 'black' : '') + (isC ? ' c' : '') + (midi % 12 === 0 || midi % 12 === 5 ? ' edge' : ''),
                 // clic : écouter la note ; glisser : faire défiler le piano roll
                 onpointerdown: (e) =>
                   scroller.dragFrom(e, () => SS.audio.preview(track, track.category === 'mono' ? midi : SS.chordNotes(midi, track.chord))),
@@ -868,8 +878,19 @@ SS.ui = (() => {
   /* ---------- Défilement vertical du piano roll ---------- */
   const ROLL_LOW = 24; // C1
   const ROLL_HIGH = 108; // C8
-  const ROLL_ROW_H = 16; // = --roll-h
-  const ROLL_VIEW = 25; // lignes visibles (2 octaves)
+  const ROLL_VIEW = 25; // lignes visibles à la hauteur par défaut (2 octaves)
+  const ROLL_ROW_DEF = 16; // = --roll-h par défaut
+  const ROLL_VIEW_PX = ROLL_VIEW * ROLL_ROW_DEF; // hauteur fixe de la zone de notes
+  // zoom vertical : hauteur d'une ligne de note, bornée (en dessous de 8 px, on ne vise plus)
+  const ROLL_ROW_STEPS = [8, 10, 12, 14, 16, 20, 24, 28, 32];
+  let rollRowH = ROLL_ROW_DEF;
+  try {
+    const v = parseInt(localStorage.getItem('stepseq.rollRowH'), 10);
+    if (ROLL_ROW_STEPS.includes(v)) rollRowH = v;
+  } catch {
+    /* stockage indisponible : hauteur par défaut */
+  }
+  const rollRows = () => Math.floor(ROLL_VIEW_PX / rollRowH); // lignes entièrement visibles
 
   /**
    * Le piano roll ne peut pas être un conteneur défilant natif : il casserait l'alignement
@@ -877,37 +898,67 @@ SS.ui = (() => {
    * (translateY) et on dessine notre propre barre de défilement, pilotée par la molette,
    * par le glisser du clavier, le bouton du milieu ou la barre elle-même.
    */
-  function makeRollScroller(track, view, inner, bar, thumb, rangeLabel) {
-    const total = (ROLL_HIGH - ROLL_LOW + 1) * ROLL_ROW_H;
-    const viewH = ROLL_VIEW * ROLL_ROW_H;
-    const maxOff = total - viewH;
-    const thumbH = Math.max(28, Math.round((viewH / total) * viewH));
-    thumb.style.height = thumbH + 'px';
+  function makeRollScroller(track, view, inner, bar, thumb, rangeLabel, zoomLabel) {
+    const viewH = ROLL_VIEW_PX;
+    let rowH, total, maxOff, thumbH;
     let off = 0;
+
+    function metrics() {
+      rowH = rollRowH;
+      total = (ROLL_HIGH - ROLL_LOW + 1) * rowH;
+      maxOff = Math.max(0, total - viewH);
+      thumbH = Math.max(28, Math.round((viewH / total) * viewH));
+      thumb.style.height = thumbH + 'px';
+      view.style.setProperty('--roll-h', rowH + 'px');
+      // lignes serrées : seuls les do gardent leur nom
+      view.classList.toggle('tight', rowH < 12);
+      if (zoomLabel) zoomLabel.textContent = Math.round((rowH / ROLL_ROW_DEF) * 100) + ' %';
+    }
+    metrics();
 
     function set(v) {
       off = Math.max(0, Math.min(maxOff, v));
       inner.style.transform = `translateY(${-off}px)`;
-      thumb.style.top = Math.round((off / maxOff) * (viewH - thumbH)) + 'px';
-      const top = ROLL_HIGH - Math.round(off / ROLL_ROW_H);
-      const bottom = top - ROLL_VIEW + 1;
+      thumb.style.top = (maxOff ? Math.round((off / maxOff) * (viewH - thumbH)) : 0) + 'px';
+      const top = ROLL_HIGH - Math.round(off / rowH);
+      const bottom = Math.max(ROLL_LOW, top - rollRows() + 1);
       rangeLabel.textContent = `${SS.noteName(bottom)} – ${SS.noteName(top)}`;
       track.rollTop = top;
       // l'octave « de travail » (note posée par défaut sur la ligne compacte) suit la vue
       track.octave = Math.max(0, Math.min(7, Math.ceil(bottom / 12) - 1));
     }
 
+    /** Place la note `top` en haut de la vue. */
+    const setTop = (top) => set((ROLL_HIGH - Math.min(ROLL_HIGH, top)) * rowH);
+
     function init() {
+      const rows = rollRows();
       let top = track.rollTop ?? (track.octave + 1) * 12 + 24;
       // première ouverture, ou aucune note dans la vue (octave de la piste loin de ses notes) : on centre la vue sur les notes
       const notes = track.events.flatMap((ev) => ev.notes);
-      const inView = (m) => m <= top && m > top - ROLL_VIEW;
+      const inView = (m) => m <= top && m > top - rows;
       if (notes.length && (track.rollTop == null ? !notes.every(inView) : !notes.some(inView))) {
         const lo = Math.min(...notes);
         const hi = Math.max(...notes);
-        top = hi - lo < ROLL_VIEW - 2 ? Math.round((lo + hi) / 2) + (ROLL_VIEW >> 1) : hi + 1;
+        top = hi - lo < rows - 2 ? Math.round((lo + hi) / 2) + (rows >> 1) : hi + 1;
       }
-      set((ROLL_HIGH - Math.max(ROLL_LOW + ROLL_VIEW - 1, Math.min(ROLL_HIGH, top))) * ROLL_ROW_H);
+      setTop(top);
+    }
+
+    /** Zoom vertical : change la hauteur des lignes en gardant la note du milieu de la vue au milieu. */
+    function zoom(dir) {
+      const i = ROLL_ROW_STEPS.indexOf(rollRowH);
+      const next = ROLL_ROW_STEPS[Math.max(0, Math.min(ROLL_ROW_STEPS.length - 1, (i < 0 ? 4 : i) + dir))];
+      if (next === rollRowH) return;
+      const mid = (off + viewH / 2) / rowH; // ligne (fractionnaire) au milieu de la vue
+      rollRowH = next;
+      try {
+        localStorage.setItem('stepseq.rollRowH', String(next));
+      } catch {
+        /* stockage indisponible */
+      }
+      metrics();
+      set(mid * rowH - viewH / 2);
     }
 
     // molette (ou pavé tactile) : défile les notes ; aux butées, on laisse défiler la page
@@ -916,7 +967,13 @@ SS.ui = (() => {
       (e) => {
         if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; // défilement horizontal : la page
         if (e.ctrlKey || e.metaKey) return; // Ctrl+molette : zoom horizontal (espace de travail)
-        const d = e.deltaY * (e.deltaMode === 1 ? ROLL_ROW_H : e.deltaMode === 2 ? viewH : 1);
+        if (e.altKey) {
+          // Alt+molette : zoom vertical (hauteur des notes)
+          e.preventDefault();
+          if (e.deltaY) zoom(e.deltaY < 0 ? 1 : -1);
+          return;
+        }
+        const d = e.deltaY * (e.deltaMode === 1 ? rowH : e.deltaMode === 2 ? viewH : 1);
         if ((off <= 0 && d < 0) || (off >= maxOff && d > 0)) return;
         e.preventDefault();
         set(off + d);
@@ -948,7 +1005,7 @@ SS.ui = (() => {
     bar.addEventListener('pointerdown', (e) => {
       if (e.target !== bar) return;
       const thumbTop = thumb.getBoundingClientRect().top;
-      set(off + (e.clientY < thumbTop ? -1 : 1) * (viewH - 2 * ROLL_ROW_H));
+      set(off + (e.clientY < thumbTop ? -1 : 1) * (viewH - 2 * rowH));
     });
 
     /** Glisser pour faire défiler (clavier, ou bouton du milieu partout). Un simple clic appelle onClick. */
@@ -980,7 +1037,7 @@ SS.ui = (() => {
       if (e.button === 1) dragFrom(e, null);
     });
 
-    return { init, by: (d) => set(off + d), dragFrom };
+    return { init, by: (d) => set(off + d), octave: (n) => set(off - n * 12 * rowH), zoom, dragFrom };
   }
 
   /* ---------- Peinture des cases ---------- */
@@ -1743,7 +1800,8 @@ SS.ui = (() => {
       const t = velTarget(track, +cell.dataset.step, +cell.dataset.midi);
       if (!t || !t.ev.notes.includes(+cell.dataset.midi)) return null;
       const r = cell.getBoundingClientRect();
-      return clientY >= r.top - 1 && clientY <= r.top + ROLL_VEL_PX ? t : null;
+      // bande réduite quand les lignes sont basses, pour qu'on puisse encore saisir la note
+      return clientY >= r.top - 1 && clientY <= r.top + Math.min(ROLL_VEL_PX, Math.round(r.height / 4)) ? t : null;
     }
     if (!cell.classList.contains('cell')) return null;
     const t = velTarget(track, +cell.dataset.step);

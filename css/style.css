@@ -418,20 +418,46 @@ a.btn { text-decoration: none; }
   background: var(--panel-2);
 }
 .roll-key span {
+  position: relative;
+  box-sizing: border-box;
   width: 64px;
   height: 100%;
   padding-right: 6px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  background: #e8e8ea;
+  background: #ececef;
   color: #333;
   font-size: 10px;
-  border-bottom: 1px solid #999;
+  line-height: 1;
   cursor: pointer;
+  border-right: 1px solid #b4b4ba;
 }
-.roll-key span.black { background: #222; color: #aaa; border-bottom-color: #000; width: 46px; }
+/* séparation entre deux touches blanches voisines (si/do, mi/fa) */
+.roll-key span.edge { border-bottom: 1px solid #a2a2a8; }
+/* touche noire : courte, posée sur les blanches ; la séparation des blanches passe derrière, à mi-hauteur */
+.roll-key span.black {
+  background:
+    linear-gradient(to bottom, transparent calc(50% - .5px), #a2a2a8 calc(50% - .5px), #a2a2a8 calc(50% + .5px), transparent calc(50% + .5px)),
+    #ececef;
+}
+.roll-key span.black::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 60%;
+  background: linear-gradient(to right, #0b0b0d, #26262b 80%, #3c3c43);
+  border-radius: 0 3px 3px 0;
+  box-shadow: 1px 1px 2px rgba(0, 0, 0, .55);
+}
 .roll-key span.c { font-weight: 700; }
+.roll-key span:hover { background-color: #fff; }
+.roll-key span.black:hover::before { background: linear-gradient(to right, #1a1a1e, #34343a 80%, #4a4a52); }
+/* lignes serrées (zoom vertical bas) : seuls les do gardent leur nom */
+.roll-view.tight .roll-key span:not(.c) { color: transparent; }
+.roll-view.tight .roll-key span { font-size: 8px; }
 .roll-row .grid { height: 100%; }
 .rcell {
   height: 100%;
@@ -728,6 +754,7 @@ dialog.sd-dialog { width: min(820px, calc(100vw - 32px)); }
 .roll-key { padding-right: 16px; }
 .roll-view.grabbing, .roll-view.grabbing * { cursor: grabbing !important; }
 .roll-range { font-variant-numeric: tabular-nums; min-width: 72px; display: inline-block; text-align: center; }
+.roll-vzoom-l { font-variant-numeric: tabular-nums; min-width: 44px; display: inline-block; text-align: center; }
 
 /* ---------- Poignée de réorganisation des pistes ---------- */
 #tracks { position: relative; }
@@ -1625,7 +1652,7 @@ dialog.arp-dialog { width: min(860px, calc(100vw - 32px)); }
 .roll-row.out-key.black .rcell:not(.on) { background: #151517; }
 .roll-row.tonic .rcell:not(.on) { background: #1e2533; }
 .roll-row.out-key .roll-key span { opacity: .55; }
-.roll-row.tonic .roll-key span { box-shadow: inset 3px 0 0 var(--accent-2); font-weight: 700; }
+.roll-row.tonic .roll-key span { box-shadow: inset -3px 0 0 var(--accent-2); font-weight: 700; }
 .roll-palette { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 4px 10px 8px; background: var(--panel); }
 .pal-label { color: var(--muted); font-size: 12px; margin-right: 4px; }
 .pal-sep { width: 1px; height: 20px; background: var(--line); margin: 0 4px; }
