@@ -1066,6 +1066,13 @@ SS.ui = (() => {
 
   /* ---------- Peinture des cases ---------- */
 
+  /** Note décalée hors de la grille : petit trait à l'endroit où elle part vraiment (en avance : à gauche du pas). */
+  function markShift(cell, ev) {
+    if (!ev.shift) return;
+    cell.append(h('span', { class: 'shift-mark' + (ev.shift < 0 ? ' early' : ''), style: `--shift:${ev.shift}`, 'aria-hidden': 'true' }));
+  }
+  const shiftTitle = (ev) => (ev.shift ? ` · ${ev.shift > 0 ? 'en retard' : 'en avance'} de ${Math.round(Math.abs(ev.shift) * 100)} % de pas` : '');
+
   function paint(track) {
     const ref = refs.get(track.id);
     if (!ref) return;
@@ -1086,6 +1093,7 @@ SS.ui = (() => {
       c.title = '';
     });
     ref.roll.forEach((cells) => cells.forEach((c) => c.classList.remove('on', 'start', 'root', 'sel', 'sel-hold')));
+    ref.el?.querySelectorAll('.shift-mark').forEach((m) => m.remove());
 
     track.events.forEach((ev) => {
       const label = eventLabel(track, ev);
@@ -1096,7 +1104,8 @@ SS.ui = (() => {
           c.classList.add('on', 'start');
           if (ev.len > 1) c.classList.add('held');
           c.append(h('span', { class: 'lbl' }, label));
-          c.title = `${label} · vélocité ${Math.round(ev.vel * 127)}`;
+          c.title = `${label} · vélocité ${Math.round(ev.vel * 127)}` + shiftTitle(ev);
+          markShift(c, ev);
         } else {
           c.classList.add('hold');
           if (s === ev.step + ev.len - 1) c.classList.add('end');
@@ -1110,6 +1119,7 @@ SS.ui = (() => {
           if (s === ev.step) {
             cell.classList.add('start');
             if (i === 0) cell.classList.add('root');
+            markShift(cell, ev);
           }
         });
       }
@@ -1309,7 +1319,7 @@ SS.ui = (() => {
       ? { kind: 'drum', items: items.map((s) => ({ off: s - from, vel: t.steps[s] })) }
       : {
           kind: 'notes',
-          items: items.map((ev) => ({ off: ev.step - from, len: ev.len, notes: [...ev.notes], vel: ev.vel, chord: ev.chord })),
+          items: items.map((ev) => ({ off: ev.step - from, len: ev.len, notes: [...ev.notes], vel: ev.vel, chord: ev.chord, shift: ev.shift })),
         };
     Object.assign(clip, { span: to - from, trackId: t.id, from });
     const what = unitLabel(t, items.length);
@@ -1372,6 +1382,7 @@ SS.ui = (() => {
         if (sharesVoice(track, ev, e) && e.step < s && e.step + e.len > s) e.len = s - e.step;
       });
       if (track.category !== 'mono' && it.chord) ev.chord = it.chord;
+      if (it.shift) ev.shift = it.shift;
       track.events.push(ev);
       pasted.push(ev);
     });
@@ -2132,7 +2143,7 @@ SS.ui = (() => {
         app.changed();
       }, 250);
     };
-    function paramRow(label, get, set, min, max, fmt, title) {
+    function paramRow(label, get, set, min, max, fmt, title, def = 1) {
       const out = h('output', {}, fmt(get()));
       const range = h('input', { type: 'range', min, max, step: 1, value: get(), 'aria-label': label, title });
       const apply = (v) => {
@@ -2147,7 +2158,7 @@ SS.ui = (() => {
       range.addEventListener('change', () => {
         if (!SS.audio.isPlaying()) SS.audio.preview(track, ev.notes.length === 1 ? ev.notes[0] : ev.notes);
       });
-      range.addEventListener('dblclick', () => apply(label === 'Vélocité' ? 102 : 1));
+      range.addEventListener('dblclick', () => apply(def));
       return h(
         'div',
         { class: 'ctx-param' },
@@ -2159,13 +2170,27 @@ SS.ui = (() => {
       );
     }
     const spb = SS.stepsPerBar(app.project());
+    const fmtShift = (v) => (v ? `${v > 0 ? 'retard' : 'avance'} ${Math.abs(v)} %` : '0 %');
     const fmtLen = (v) => `${v} pas` + (v % spb === 0 ? ` · ${v / spb} mes.` : v % 4 === 0 ? ` · ${v / 4} t.` : '');
     const paramsBox = () =>
       h(
         'div',
         { class: 'ctx-params' },
         paramRow('Longueur', () => ev.len, (v) => (ev.len = v), 1, maxLen, fmtLen, `De 1 à ${maxLen} pas (jusqu'à la note suivante)`),
-        paramRow('Vélocité', () => Math.round(ev.vel * 127), (v) => (ev.vel = v / 127), 1, 127, (v) => String(v), 'Force de la note, de 1 à 127')
+        paramRow('Vélocité', () => Math.round(ev.vel * 127), (v) => (ev.vel = v / 127), 1, 127, (v) => String(v), 'Force de la note, de 1 à 127', 102),
+        // micro-décalage : pas pour l'arpégiateur, qui a sa propre grille rythmique
+        track.category === 'arp'
+          ? null
+          : paramRow(
+              'Décalage',
+              () => Math.round((ev.shift || 0) * 100),
+              (v) => SS.cleanShift(Object.assign(ev, { shift: v / 100 })),
+              -SS.SHIFT_MAX * 100,
+              SS.SHIFT_MAX * 100,
+              fmtShift,
+              'Micro-décalage : jouer la note un peu avant (−) ou après (+) le temps, en % d’un pas. Double-clic : sur le temps',
+              0
+            )
       );
 
     function render() {

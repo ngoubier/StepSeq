@@ -24,7 +24,7 @@
  *       sd: { wave, voices, detune, filter, ftype, fdrive, cutoff, q, env,  // sound design (optionnel,
  *             attack, decay, sustain, release, glide, glideMode,       //  sinon preset de l'instrument)
  *             pan, drive, gain }
- *       events: [{ step, len, notes: [midi...], vel }] }
+ *       events: [{ step, len, notes: [midi...], vel, shift? }] }   // shift : micro-décalage, en fraction de pas (−0,5..0,5)
  *     piste « Synthé » : comme une piste instrument, avec family: "analog", instrument: "juno106",
  *       junoPatch: "A11" (patch chargé), juno: { lfoRate, dcoLfo, pwm, …, chorus } (réglages du panneau)
  *   ]
@@ -37,6 +37,15 @@ SS.FILE_EXT = '.stepseq.json';
 SS.stepsPerBar = (p) => Math.round(p.timeSig[0] * (16 / p.timeSig[1]));
 SS.stepsPerBeat = (p) => Math.max(1, Math.round(16 / p.timeSig[1]));
 SS.totalSteps = (p) => SS.stepsPerBar(p) * p.bars;
+
+/** Micro-décalage d'une note (ev.shift, fraction de pas, −0,5 = en avance d'un demi-pas) : borné, absent si nul. */
+SS.SHIFT_MAX = 0.5;
+SS.cleanShift = (ev) => {
+  const v = Math.round(Math.max(-SS.SHIFT_MAX, Math.min(SS.SHIFT_MAX, Number(ev.shift) || 0)) * 100) / 100;
+  if (v) ev.shift = v;
+  else delete ev.shift;
+  return ev;
+};
 
 SS.uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -168,6 +177,7 @@ SS.normalizeProject = (data) => {
       track.sfv = Number.isInteger(t.sfv) && t.sfv >= 0 ? t.sfv : track.sfv || 0;
       track.type = 'instrument';
       track.events = Array.isArray(t.events) ? t.events : [];
+      track.events.forEach(SS.cleanShift);
       track.arp = SS.Arp.normalize(t.arp); // ARP ONE (js/arp.js) : réglages bornés, anciens projets compris
       track.chord = t.chord || 'min';
       if (t.sd && typeof t.sd === 'object') {
