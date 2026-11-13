@@ -142,6 +142,10 @@ SS.ui = (() => {
 
   function trackSubtitleBase(track) {
     if (track.type === 'drum') {
+      if (track.source === 'gm') {
+        const d = SS.findGmDrum(track.bank);
+        return `General MIDI · ${d ? d.label : track.bank} (${track.bank}) ${(track.variant || 0) + 1}`;
+      }
       if (track.source && track.source !== 'tdm') {
         const lib = SS.DRUM_LIBS.find((l) => l.id === track.source);
         return `${lib ? lib.label : track.source} · ${track.bank} ${(track.variant || 0) + 1}`;
@@ -2597,7 +2601,8 @@ SS.ui = (() => {
     if (s.type === 'drum') {
       const others = app.project().tracks.filter((x) => x.type === 'drum' && x.id !== s.editingId);
       if (s.source && s.source !== 'tdm') {
-        const name = String(s.bank || 'Drum').replace(/_/g, ' ');
+        const gm = s.source === 'gm' && SS.findGmDrum(s.bank);
+        const name = gm ? gm.label : String(s.bank || 'Drum').replace(/_/g, ' ');
         const count = others.filter((x) => x.source === s.source && x.bank === s.bank).length;
         return `${name.charAt(0).toUpperCase() + name.slice(1)} ${count + 1}`;
       }
@@ -2660,7 +2665,7 @@ SS.ui = (() => {
     return refreshBanks(preview);
   }
 
-  const DEFAULT_BANK = { dirt: 'jazz', vcsl: 'conga', mrid: 'ta' };
+  const DEFAULT_BANK = { dirt: 'jazz', vcsl: 'conga', mrid: 'ta', gm: '36' };
   async function refreshBanks(preview) {
     const source = dlg.s.source;
     let banks = [];
@@ -2685,7 +2690,7 @@ SS.ui = (() => {
   function fillDrumList() {
     const q = $('#dlgDrumFilter').value.trim().toLowerCase();
     const tdm = (dlg.s.source || 'tdm') === 'tdm';
-    const all = tdm ? (dlg.machines || []).map((m) => ({ v: m, label: m })) : (dlg.banks || []).map((b) => ({ v: b.id, label: b.id.replace(/_/g, ' '), meta: String(b.count) }));
+    const all = tdm ? (dlg.machines || []).map((m) => ({ v: m, label: m })) : (dlg.banks || []).map((b) => ({ v: b.id, label: b.label || b.id.replace(/_/g, ' '), meta: String(b.count) }));
     const cur = tdm ? dlg.s.machine : dlg.s.bank;
     const list = all.filter((x) => !q || x.label.toLowerCase().includes(q) || String(x.v).toLowerCase().includes(q));
     $('#dlgDrumListLabel').textContent = tdm ? 'Boîte à rythmes' : 'Banque';
@@ -2702,7 +2707,7 @@ SS.ui = (() => {
     if (dlg.s.variant >= list.length) dlg.s.variant = 0;
     fillList(
       $('#dlgVariantList'),
-      list.map((url, i) => ({ v: i, label: String(i + 1), meta: decodeURIComponent(url.split('/').pop()).replace(/\.(wav|mp3|ogg|flac|aiff?)$/i, '') })),
+      list.map((url, i) => ({ v: i, label: String(i + 1), meta: s.source === 'gm' ? SS.gmDrumKitLabel(url.split('/').pop()) : decodeURIComponent(url.split('/').pop()).replace(/\.(wav|mp3|ogg|flac|aiff?)$/i, '') })),
       dlg.s.variant,
       'Aucun son'
     );
@@ -2712,7 +2717,7 @@ SS.ui = (() => {
 
   function fillInstruments() {
     const q = $('#dlgInstFilter').value.trim().toLowerCase();
-    const ent = (i) => ({ v: i.id, label: i.label, title: i.strudel ? `strudel : s("${i.strudel}")` : null });
+    const ent = (i) => ({ v: i.id, label: i.label, meta: i.midi != null ? `GM ${i.midi + 1}` : null, title: i.strudel ? `strudel : s("${i.strudel}")` + (i.midi != null ? ` · General MIDI programme ${i.midi + 1}` : '') : null });
     let entries;
     if (!q) {
       entries = SS.findFamily(dlg.s.family).instruments.map(ent);
@@ -2772,7 +2777,12 @@ SS.ui = (() => {
     if (dlg.s.sfv >= files.length) dlg.s.sfv = 0;
     fillList(
       $('#dlgSfvList'),
-      files.map((f, i) => ({ v: i, label: `${i + 1} — ${SS.variantLabel(inst, f)}`, meta: i === 0 ? 'par défaut' : '' })),
+      files.map((f, i) => {
+        // gm_piano regroupe les programmes GM 1 à 4 : on indique celui de chaque variante
+        const prog = inst.midi != null ? SS.gmProgramOfFile(f) : null;
+        const gm = prog != null && prog !== inst.midi ? `GM ${prog + 1}` : '';
+        return { v: i, label: `${i + 1} — ${SS.variantLabel(inst, f)}`, meta: [i === 0 ? 'par défaut' : '', gm].filter(Boolean).join(' · ') };
+      }),
       dlg.s.sfv,
       'Une seule variante'
     );

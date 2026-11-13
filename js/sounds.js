@@ -25,29 +25,90 @@ SS.DRUM_LIBS = [
   { id: 'dirt', label: 'Dirt-Samples', hint: '218 banques de TidalCycles : kits, breaks, voix, bruitages…' },
   { id: 'vcsl', label: 'Percussions acoustiques', hint: 'VCSL : congas, bongos, cajón, gongs, cymbales…' },
   { id: 'mrid', label: 'Mridangam', hint: 'percussion d’Inde du Sud (syllabes ta, ki, dhin, thom…)' },
+  { id: 'gm', label: 'General MIDI', hint: 'les 47 sons de la batterie General MIDI (notes 35 à 81), kits FluidR3, JCLive, Chaos et SBLive' },
 ];
 
 /* ---------- Batterie ---------- */
+/* `midi` : note de la batterie General MIDI (canal 10) qui correspond à ce type de son. */
 SS.DRUM_TYPES = [
-  { id: 'bd', label: 'Kick' },
-  { id: 'sd', label: 'Snare' },
-  { id: 'cp', label: 'Clap' },
-  { id: 'rim', label: 'Rimshot' },
-  { id: 'hh', label: 'Hi-Hat fermé' },
-  { id: 'oh', label: 'Hi-Hat ouvert' },
-  { id: 'lt', label: 'Tom grave' },
-  { id: 'mt', label: 'Tom médium' },
-  { id: 'ht', label: 'Tom aigu' },
-  { id: 'cr', label: 'Crash' },
-  { id: 'rd', label: 'Ride' },
-  { id: 'cb', label: 'Cowbell' },
-  { id: 'sh', label: 'Shaker' },
-  { id: 'tb', label: 'Tambourin' },
-  { id: 'perc', label: 'Percussion' },
-  { id: 'misc', label: 'Divers' },
-  { id: 'fx', label: 'FX' },
+  { id: 'bd', label: 'Kick', midi: 36 },
+  { id: 'sd', label: 'Snare', midi: 38 },
+  { id: 'cp', label: 'Clap', midi: 39 },
+  { id: 'rim', label: 'Rimshot', midi: 37 },
+  { id: 'hh', label: 'Hi-Hat fermé', midi: 42 },
+  { id: 'oh', label: 'Hi-Hat ouvert', midi: 46 },
+  { id: 'lt', label: 'Tom grave', midi: 41 },
+  { id: 'mt', label: 'Tom médium', midi: 45 },
+  { id: 'ht', label: 'Tom aigu', midi: 48 },
+  { id: 'cr', label: 'Crash', midi: 49 },
+  { id: 'rd', label: 'Ride', midi: 51 },
+  { id: 'cb', label: 'Cowbell', midi: 56 },
+  { id: 'sh', label: 'Shaker', midi: 70 },
+  { id: 'tb', label: 'Tambourin', midi: 54 },
+  { id: 'perc', label: 'Percussion', midi: 63 },
+  { id: 'misc', label: 'Divers', midi: 76 },
+  { id: 'fx', label: 'FX', midi: 52 },
 ];
 SS.DEFAULT_MACHINE = 'RolandTR808';
+
+/*
+ * Batterie General MIDI : les 47 sons standard (notes 35 à 81 du canal 10).
+ * `midi` : la note GM ; `type` : le type de son StepSeq le plus proche (SS.DRUM_TYPES).
+ * Les échantillons viennent des soundfonts de webaudiofontdata, la bibliothèque que strudel.cc utilise
+ * pour ses instruments gm_* : fichiers « 128<note>_<kit>_<soundfont>_sf2_file.js ».
+ */
+SS.GM_DRUMS = [
+  [35, 'Kick acoustique', 'bd'], [36, 'Kick', 'bd'], [37, 'Side stick', 'rim'], [38, 'Snare', 'sd'], [39, 'Clap', 'cp'],
+  [40, 'Snare électrique', 'sd'], [41, 'Tom basse grave', 'lt'], [42, 'Hi-Hat fermé', 'hh'], [43, 'Tom basse aigu', 'lt'],
+  [44, 'Hi-Hat pédale', 'hh'], [45, 'Tom grave', 'mt'], [46, 'Hi-Hat ouvert', 'oh'], [47, 'Tom médium grave', 'mt'],
+  [48, 'Tom médium aigu', 'ht'], [49, 'Crash 1', 'cr'], [50, 'Tom aigu', 'ht'], [51, 'Ride 1', 'rd'], [52, 'Cymbale chinoise', 'cr'],
+  [53, 'Cloche de ride', 'rd'], [54, 'Tambourin', 'tb'], [55, 'Splash', 'cr'], [56, 'Cowbell', 'cb'], [57, 'Crash 2', 'cr'],
+  [58, 'Vibraslap', 'perc'], [59, 'Ride 2', 'rd'], [60, 'Bongo aigu', 'perc'], [61, 'Bongo grave', 'perc'],
+  [62, 'Conga aiguë étouffée', 'perc'], [63, 'Conga aiguë ouverte', 'perc'], [64, 'Conga grave', 'perc'],
+  [65, 'Timbale aiguë', 'perc'], [66, 'Timbale grave', 'perc'], [67, 'Agogo aigu', 'perc'], [68, 'Agogo grave', 'perc'],
+  [69, 'Cabasa', 'sh'], [70, 'Maracas', 'sh'], [71, 'Sifflet court', 'fx'], [72, 'Sifflet long', 'fx'], [73, 'Guiro court', 'perc'],
+  [74, 'Guiro long', 'perc'], [75, 'Claves', 'perc'], [76, 'Wood-block aigu', 'perc'], [77, 'Wood-block grave', 'perc'],
+  [78, 'Cuica étouffée', 'perc'], [79, 'Cuica ouverte', 'perc'], [80, 'Triangle étouffé', 'perc'], [81, 'Triangle ouvert', 'perc'],
+].map(([midi, label, type]) => ({ midi, label, type }));
+SS.findGmDrum = (note) => SS.GM_DRUMS.find((d) => d.midi === +note) || null;
+
+/* Kits disponibles pour chaque note (inventaire du dépôt webaudiofontdata) : soundfont -> numéros de kit. */
+const GM_KIT_SF = [
+  { id: 'F', name: 'FluidR3_GM', label: 'FluidR3', suffix: '_sf2_file' },
+  { id: 'J', name: 'JCLive', label: 'JCLive', suffix: '_sf2_file' },
+  { id: 'C', name: 'Chaos', label: 'Chaos', suffix: '_sf2_file' },
+  { id: 'S', name: 'SBLive', label: 'SBLive', suffix: '_sf2' },
+];
+const GM_KITS_DEFAULT = 'F0-30 J0-29 C0-11 S0-8';
+const GM_KITS_EXCEPT = {
+  35: 'F0-30 J0-8,10-18,20-28 C0-9,11 S0-7', 36: 'F0-30 J0-8,10-18,20-28 C0-9,11 S0-7',
+  37: 'F0-30 J0-8,10-18,20-28 C0-9,11 S0-7', 38: 'F0-30 J0-8,10-18,20-28 C0-9,11 S0-7',
+  58: 'F0-20,22-30 J0-29 C0-11 S0-8', 65: 'F0-20,22-30 J0-29 C0-11 S0-8', 66: 'F0-20,22-30 J0-29 C0-11 S0-8',
+};
+const gmDrumFilesCache = new Map();
+/** Fichiers soundfont d'un son de batterie GM, kit standard FluidR3 en premier. */
+SS.gmDrumFiles = (note) => {
+  note = +note;
+  if (!SS.findGmDrum(note)) return [];
+  if (!gmDrumFilesCache.has(note)) {
+    const files = [];
+    for (const part of (GM_KITS_EXCEPT[note] || GM_KITS_DEFAULT).split(' ')) {
+      const sf = GM_KIT_SF.find((k) => k.id === part[0]);
+      for (const r of part.slice(1).split(',')) {
+        const [a, b = a] = r.split('-').map(Number);
+        for (let k = a; k <= b; k++) files.push(`128${note}_${k}_${sf.name}${sf.suffix}`);
+      }
+    }
+    gmDrumFilesCache.set(note, files);
+  }
+  return gmDrumFilesCache.get(note);
+};
+/** « 12836_4_FluidR3_GM_sf2_file » -> « FluidR3 · kit 5 » */
+SS.gmDrumKitLabel = (file) => {
+  const m = /^128\d\d_(\d+)_(.*?)_sf2/.exec(file);
+  const sf = m && GM_KIT_SF.find((k) => k.name === m[2]);
+  return m ? `${sf ? sf.label : m[2]} · kit ${+m[1] + 1}` : file;
+};
 
 /* ---------- Instruments ---------- */
 SS.CATEGORIES = [
@@ -118,6 +179,17 @@ const FAMILY_DEFS = [
 const LIB = SS.LIB || { gm: [], vcsl: [] };
 
 /*
+ * Programme General MIDI (0–127) d'un fichier soundfont gm_* : le nom commence par programme × 10 + variante
+ * (« 0390_FluidR3_GM_sf2_file » -> 39). Les instruments gm_* ont une propriété `midi` = ce programme ;
+ * les autres sons (synthés intégrés, VCSL, Dirt-Samples, Juno) n'en ont pas.
+ */
+const gmProgramOfFile = (file) => {
+  const prog = parseInt(String(file || '').slice(0, 3), 10);
+  return Number.isFinite(prog) && prog >= 0 && prog < 128 ? prog : null;
+};
+SS.gmProgramOfFile = gmProgramOfFile;
+
+/*
  * Banques mélodiques de Dirt-Samples (js/dirt.js) :
  *  - multi-échantillonnées (la note est dans le nom du fichier, ex. « Mighty Moog C2 ») -> kind 'multi' ;
  *  - les autres : un échantillon par variante, joué à la hauteur voulue en supposant,
@@ -143,7 +215,7 @@ SS.FAMILIES = FAMILY_DEFS.map((f) => ({
     ...LIB.vcsl.filter((v) => v.family === f.id).map((v) => vcsl(v.key, v.label + ' (VCSL)', { release: v.release })),
     ...LIB.gm
       .filter((g) => g.family === f.id)
-      .map((g) => ({ id: g.id, label: g.label, kind: 'sf', files: g.files, release: g.release, strudel: g.id })),
+      .map((g) => ({ id: g.id, label: g.label, kind: 'sf', files: g.files, release: g.release, strudel: g.id, midi: gmProgramOfFile(g.files[0]) })),
   ],
 }));
 
@@ -198,6 +270,21 @@ SS.migrateInstrument = (track) => {
 
 /** Fichier soundfont joué par une piste (variante choisie). */
 SS.sfFile = (inst, track) => (inst.files ? inst.files[Math.min(track.sfv || 0, inst.files.length - 1)] : inst.file);
+
+/**
+ * Identité General MIDI d'une piste, ou null si son son n'est pas General MIDI :
+ *  - Instrument gm_* : { program } (0–127), d'après la variante jouée (gm_piano regroupe les programmes 0 à 3) ;
+ *  - Drum de la bibliothèque General MIDI : { note } (35–81).
+ */
+SS.trackMidi = (track) => {
+  if (!track) return null;
+  if (track.type === 'drum') return track.source === 'gm' && SS.findGmDrum(track.bank) ? { note: +track.bank } : null;
+  if (track.family === 'analog') return null;
+  const inst = SS.findInstrument(track.family, track.instrument);
+  if (!inst || inst.midi == null) return null;
+  const prog = gmProgramOfFile(SS.sfFile(inst, track));
+  return { program: prog ?? inst.midi };
+};
 
 /* ---------- Accords / arpèges ---------- */
 SS.CHORDS = [

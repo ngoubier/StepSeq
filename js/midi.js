@@ -3,13 +3,14 @@
  *
  *   SS.midi.exportProject(project, { range: 'song'|'scene', loops, audibleOnly, swing })
  *       -> { bytes: Uint8Array, report: { tracks, notes, seconds, approx: [texte], ignored: [texte] } }
- *   SS.midi.importFile(ArrayBuffer | Uint8Array, { title, machine, merge })
+ *   SS.midi.importFile(ArrayBuffer | Uint8Array, { title, machine: 'gm' | boîte à rythmes, similar })
  *       -> { project, report: { ... } }   (nouveau projet StepSeq, scènes et arrangement compris)
  *
  * Export : une piste MIDI par piste StepSeq (canal 10 pour la batterie), les arpèges sont rendus en notes
  *   (ARP ONE est déterministe : on obtient exactement ce qu'on entend), l'arrangement est déplié, chaque bloc
  *   est marqué par le nom de sa scène, la tonalité des scènes devient une armure.
- * Import : notes quantifiées à la double-croche ; la batterie (canal 10) donne une piste Drum par élément ;
+ * Import : notes quantifiées à la double-croche ; la batterie (canal 10) donne une piste Drum par son
+ *   (bibliothèque General MIDI : chaque note GM garde son son d'origine ; ou par élément sur une boîte à rythmes) ;
  *   le morceau est analysé pour retrouver ses parties (scènes) et l'arrangement qui les enchaîne (analyze()).
  */
 (function (root) {
@@ -22,20 +23,16 @@
   /* Correspondances General MIDI                                        */
   /* ================================================================== */
 
-  /** Batterie : type de son StepSeq -> note GM (export). */
-  const DRUM_TO_GM = { bd: 36, sd: 38, cp: 39, rim: 37, hh: 42, oh: 46, lt: 41, mt: 45, ht: 48, cr: 49, rd: 51, cb: 56, sh: 70, tb: 54, perc: 63, misc: 76, fx: 52 };
+  /** Batterie : type de son StepSeq -> note GM (export), d'après la propriété `midi` de SS.DRUM_TYPES. */
+  const DRUM_TO_GM = Object.fromEntries((SS.DRUM_TYPES || []).map((d) => [d.id, d.midi]));
 
-  /** Note GM -> type de son StepSeq (import). Les notes absentes deviennent « perc ». */
-  const GM_TO_DRUM = {
-    35: 'bd', 36: 'bd', 37: 'rim', 38: 'sd', 40: 'sd', 39: 'cp', 42: 'hh', 44: 'hh', 46: 'oh',
-    41: 'lt', 43: 'lt', 45: 'mt', 47: 'mt', 48: 'ht', 50: 'ht', 49: 'cr', 52: 'cr', 55: 'cr', 57: 'cr',
-    51: 'rd', 53: 'rd', 59: 'rd', 54: 'tb', 56: 'cb', 69: 'sh', 70: 'sh', 82: 'sh',
-  };
-  const GM_DRUM_NAMES = {
-    60: 'Bongo aigu', 61: 'Bongo grave', 62: 'Conga étouffée', 63: 'Conga ouverte', 64: 'Conga grave', 65: 'Timbale aiguë', 66: 'Timbale grave',
-    67: 'Agogo aigu', 68: 'Agogo grave', 71: 'Sifflet court', 72: 'Sifflet long', 73: 'Guiro court', 74: 'Guiro long', 75: 'Claves',
-    76: 'Wood-block aigu', 77: 'Wood-block grave', 78: 'Cuica', 79: 'Cuica ouverte', 80: 'Triangle', 81: 'Triangle ouvert', 58: 'Vibraslap',
-  };
+  /**
+   * Note GM -> type de son StepSeq (import sur une boîte à rythmes), d'après SS.GM_DRUMS.
+   * Les percussions latines, sifflets, etc. et les notes hors norme deviennent « perc ».
+   */
+  const GM_TO_DRUM = { 82: 'sh' };
+  (SS.GM_DRUMS || []).forEach((d) => d.type !== 'perc' && d.type !== 'fx' && (GM_TO_DRUM[d.midi] = d.type));
+  const gmDrumName = (note) => (SS.findGmDrum && SS.findGmDrum(note) ? SS.findGmDrum(note).label : null);
 
   /** Sons disponibles sur les boîtes à rythmes proposées à l'import (tidal-drum-machines). */
   const MACHINES = {
@@ -44,6 +41,8 @@
     LinnDrum: { label: 'LinnDrum', sounds: ['bd', 'cb', 'cp', 'cr', 'hh', 'ht', 'lt', 'mt', 'oh', 'perc', 'rd', 'rim', 'sd', 'sh', 'tb'] },
     RolandTR707: { label: 'Roland TR-707', sounds: ['bd', 'cb', 'cp', 'cr', 'hh', 'ht', 'lt', 'mt', 'oh', 'rim', 'sd', 'tb'] },
   };
+  /** Choix « batterie General MIDI » à l'import : chaque note GM garde son propre son (bibliothèque « gm »). */
+  const GM_KIT = 'gm';
   /** Machine qui a ce son : celle choisie, sinon la LinnDrum (la plus complète), sinon la TR-808. */
   const machineFor = (machine, sound) =>
     [machine, 'LinnDrum', 'RolandTR808'].find((m) => MACHINES[m] && MACHINES[m].sounds.includes(sound)) || 'LinnDrum';
@@ -61,6 +60,13 @@
       if (!byProgram.has(prog)) byProgram.set(prog, g);
     }
     return (gmCache = { byId, byProgram });
+  }
+  /** Variante d'un soundfont gm_* qui joue exactement ce programme (gm_piano regroupe les programmes 0 à 3), FluidR3 de préférence. */
+  function gmVariantFor(gm, prog) {
+    if (!gm || !gm.files) return 0;
+    const ok = gm.files.map((f, i) => ({ f, i })).filter((x) => SS.gmProgramOfFile(x.f) === prog);
+    if (!ok.length) return 0;
+    return (ok.find((x) => /FluidR3/.test(x.f)) || ok[0]).i;
   }
   /** Soundfont gm_* le plus proche d'un programme GM (même groupe de 8 de préférence). */
   function gmForProgram(prog) {
@@ -86,6 +92,8 @@
 
   /** → { program, exact } pour une piste Instrument / Synthé. */
   function programOf(track) {
+    const gm = SS.trackMidi ? SS.trackMidi(track) : null;
+    if (gm && gm.program != null) return { program: gm.program, exact: true };
     const { byId } = gmTables();
     if (byId.has(track.instrument)) return { program: byId.get(track.instrument), exact: true };
     if (track.family === 'analog') {
@@ -97,9 +105,16 @@
     return { program: FAMILY_PROGRAM[track.family] ?? 0, exact: false };
   }
 
+  /** Note GM d'une piste Drum : exacte pour la bibliothèque General MIDI, sinon celle de son type de son. */
+  function drumNoteOf(track) {
+    const gm = SS.trackMidi ? SS.trackMidi(track) : null;
+    return gm && gm.note != null ? gm.note : DRUM_TO_GM[drumTypeOf(track)];
+  }
+
   /** Type de son d'une piste Drum, aussi pour les banques Dirt-Samples / VCSL / Mridangam (d'après le nom). */
   function drumTypeOf(track) {
     if ((!track.source || track.source === 'tdm') && track.sound in DRUM_TO_GM) return track.sound;
+    if (track.source === 'gm' && SS.findGmDrum(track.bank)) return SS.findGmDrum(track.bank).type;
     const name = String(track.sound || track.bank || '').toLowerCase();
     const rules = [
       [/^(bd|kick)|kick|bass ?drum/, 'bd'], [/^(sd|sn)|snare/, 'sd'], [/clap|^cp/, 'cp'], [/rim/, 'rim'],
@@ -189,9 +204,10 @@
           const base = pos + r * total;
           if (out.drum) {
             const steps = d.steps || [];
+            const drumNote = drumNoteOf(t);
             for (let tick = 0; tick < ticksTotal; tick++) {
               const v = steps[tick % len] || 0;
-              if (v > 0) out.notes.push({ at: (base + tick + swingAt(tick)) * TPS + nudge, dur: TPS / 2, note: DRUM_TO_GM[drumTypeOf(t)], vel: v });
+              if (v > 0) out.notes.push({ at: (base + tick + swingAt(tick)) * TPS + nudge, dur: TPS / 2, note: drumNote, vel: v });
             }
             continue;
           }
@@ -251,7 +267,7 @@
         const gm = gmForProgram(out.prog.program);
         approx.push(`« ${t.name} » (${inst ? inst.label : t.instrument}) → programme GM ${out.prog.program + 1} ${gm ? gm.label : ''}`.trim());
       }
-      if (out.drum && t.source && t.source !== 'tdm') approx.push(`« ${t.name} » (banque ${t.bank}) → note GM ${DRUM_TO_GM[drumTypeOf(t)]}`);
+      if (out.drum && t.source && t.source !== 'tdm' && t.source !== 'gm') approx.push(`« ${t.name} » (banque ${t.bank}) → note GM ${drumNoteOf(t)}`);
     }
     if (o.audibleOnly && tracks.length < p.tracks.length) ignored.push(`${p.tracks.length - tracks.length} piste(s) muette(s) non exportée(s).`);
     if (p.groove && p.groove.human) ignored.push("L'humanisation (aléatoire) n'est pas appliquée.");
@@ -572,7 +588,8 @@
   }
 
   function importFile(buf, opts = {}) {
-    const o = { machine: 'RolandTR808', similar: 0.85, ...opts };
+    const o = { machine: GM_KIT, similar: 0.85, ...opts };
+    const gmKit = o.machine === GM_KIT;
     const midi = SS.midiFile.parse(buf);
     const { notes, info, metas, pitchBends, otherCC, programChanges } = collectNotes(midi);
     if (!notes.length) throw new Error('Ce fichier MIDI ne contient aucune note.');
@@ -616,14 +633,16 @@
       let key;
       if (n.ch === 9) {
         const type = GM_TO_DRUM[n.note] || 'perc';
-        key = type === 'perc' ? 'drum:perc:' + n.note : 'drum:' + type;
+        // batterie General MIDI : une piste par note GM (son d'origine) ; boîte à rythmes : une piste par type de son
+        if (gmKit && SS.findGmDrum(n.note)) key = 'drum:gm:' + n.note;
+        else key = type === 'perc' ? 'drum:perc:' + n.note : 'drum:' + type;
         n.type = type;
       } else key = `inst:${n.src}:${n.ch}`;
       if (!groups.has(key)) groups.set(key, { key, notes: [], drum: n.ch === 9, src: n.src, ch: n.ch, type: n.type, note: n.note });
       groups.get(key).notes.push(n);
     }
     // trop de percussions différentes : les moins utilisées vont dans une piste « Percussions »
-    const percs = [...groups.values()].filter((g) => g.drum && g.type === 'perc').sort((a, b) => b.notes.length - a.notes.length);
+    const percs = [...groups.values()].filter((g) => g.drum && g.type === 'perc' && !g.key.startsWith('drum:gm:')).sort((a, b) => b.notes.length - a.notes.length);
     if (percs.length > 4) {
       const merged = { key: 'drum:perc:*', notes: [], drum: true, type: 'perc', note: null };
       percs.slice(3).forEach((g) => {
@@ -644,9 +663,14 @@
     const drumLabel = (type) => (SS.DRUM_TYPES.find((d) => d.id === type) || { label: type }).label;
     const percVariant = new Map();
     const tracks = list.map((g, i) => {
+      if (g.drum && g.key.startsWith('drum:gm:')) {
+        const t = SS.newTrack({ type: 'drum', name: gmDrumName(g.note), color: color(i), source: 'gm', bank: String(g.note), machine: SS.DEFAULT_MACHINE, variant: 0 }, p);
+        g.track = t;
+        return t;
+      }
       if (g.drum) {
-        const machine = machineFor(o.machine, g.type);
-        let name = g.type === 'perc' ? (g.note == null ? 'Percussions' : GM_DRUM_NAMES[g.note] || `Percussion ${g.note}`) : drumLabel(g.type);
+        const machine = machineFor(gmKit ? 'LinnDrum' : o.machine, g.type);
+        let name = g.type === 'perc' ? (g.note == null ? 'Percussions' : gmDrumName(g.note) || `Percussion ${g.note}`) : drumLabel(g.type);
         const variant = g.type === 'perc' ? percVariant.size : 0;
         if (g.type === 'perc') percVariant.set(g.key, variant);
         const t = SS.newTrack({ type: 'drum', name, color: color(i), source: 'tdm', sound: g.type, machine, variant }, p);
@@ -663,6 +687,7 @@
       if (used.has(name)) name += ` (${g.ch + 1})`;
       used.add(name);
       const t = SS.newTrack({ type: 'instrument', category: 'mono', family: fam, instrument: gm ? gm.id : undefined, name: name.slice(0, 40), color: color(i) }, p);
+      t.sfv = gmVariantFor(gm, prog);
       t.octave = clamp(Math.floor(median / 12) - 1, 0, 8);
       if (ci.volume != null) t.volume = Math.round(clamp(ci.volume / 127, 0.05, 1) * 100) / 100;
       if (ci.pan != null && ci.pan !== 64) t.mix = { pan: Math.round(clamp((ci.pan - 64) / 63, -1, 1) * 100) / 100 };
@@ -772,7 +797,11 @@
       tracks: list.map((g) => ({
         name: g.track.name,
         kind: g.drum ? 'drum' : 'instrument',
-        sound: g.drum ? `${drumLabel(g.type)} · ${MACHINES[g.track.machine] ? MACHINES[g.track.machine].label : g.track.machine}` : `${(gmForProgram(g.program) || {}).label || ''} (GM ${g.program + 1})`,
+        sound: g.drum
+          ? g.track.source === 'gm'
+            ? `General MIDI · note ${g.note}`
+            : `${drumLabel(g.type)} · ${MACHINES[g.track.machine] ? MACHINES[g.track.machine].label : g.track.machine}${g.note != null && !(g.note in GM_TO_DRUM) && !SS.findGmDrum(g.note) ? ` (note ${g.note} hors norme GM)` : ''}`
+          : `${(gmForProgram(g.program) || {}).label || ''} (GM ${g.program + 1})`,
         notes: g.notes.length,
       })),
       scenes: project.scenes.map((s) => ({ name: s.name, bars: s.bars, times: song.filter((b) => b.scene === s.id).reduce((a, b) => a + b.repeat, 0) })),
@@ -783,5 +812,5 @@
     return { project, report };
   }
 
-  SS.midi = { exportProject, importFile, analyze, programOf, drumTypeOf, keySignature, gmForProgram, MACHINES, DRUM_TO_GM, GM_TO_DRUM, PPQ };
+  SS.midi = { exportProject, importFile, analyze, programOf, drumTypeOf, drumNoteOf, keySignature, gmForProgram, gmVariantFor, MACHINES, GM_KIT, DRUM_TO_GM, GM_TO_DRUM, PPQ };
 })(typeof window !== 'undefined' ? window : globalThis);

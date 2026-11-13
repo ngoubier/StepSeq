@@ -82,6 +82,28 @@ function fixture() {
     ok(proj.scenes.length === 2 && proj.song.length === 3, `forme A A B A retrouvée : ${proj.song.map((x) => x.join('×')).join(' → ')}`);
   }
 
+  // ---- batterie General MIDI : les sons importés se chargent et se jouent (kits FluidR3, JCLive, Chaos, SBLive) ----
+  const gmDrums = await page.evaluate(async () => {
+    const p = JSON.parse(localStorage.getItem('stepseq.autosave'));
+    const drums = p.tracks.filter((t) => t.type === 'drum');
+    SS.audio.ensureCtx();
+    const banks = await SS.audio.drumBanks('gm');
+    const tries = [['36', 0], ['63', 0], ['81', 0], ['38', 40], ['75', 70], ['42', 80]];
+    const loaded = [];
+    for (const [bank, variant] of tries) {
+      const t = { id: 'gmtest' + bank, type: 'drum', source: 'gm', bank, variant };
+      const urls = await SS.audio.bankVariants('gm', bank);
+      await SS.audio.prepareTrack(t);
+      await SS.audio.playDrum(t, 0, 0.8);
+      loaded.push(urls[Math.min(variant, urls.length - 1)].split('/').pop());
+    }
+    const d = SS.audio.diagnostics();
+    return { gm: drums.filter((t) => t.source === 'gm').map((t) => t.bank), banks: banks.length, loaded, failed: d.failedAssets, buffers: d.buffers };
+  });
+  console.log(JSON.stringify(gmDrums));
+  if (!INPUT) ok(gmDrums.gm.join() === '36,38,42', 'batterie importée sur les sons General MIDI (36, 38, 42)');
+  ok(gmDrums.banks === 47 && gmDrums.failed === 0 && gmDrums.buffers >= 6, `47 sons GM, ${gmDrums.loaded.length} kits chargés sans erreur`);
+
   // ---- export ----
   await page.click('#appMenuBtn');
   await page.click('#exportMidi');

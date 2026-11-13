@@ -93,7 +93,9 @@ test('import : pistes, tempo, batterie séparée par élément, forme A A B A en
   assert.equal(bass.instrument, 'gm_synth_bass_1'); // programme 38
   assert.equal(bass.volume, 0.79); // CC7 = 100
   assert.equal(p.tracks.find((t) => t.name === 'Accords').instrument, 'gm_epiano1');
-  assert.ok(p.tracks.filter((t) => t.type === 'drum').every((t) => t.source === 'tdm' && t.machine === 'RolandTR808'));
+  // par défaut : batterie General MIDI, une piste par note avec son son d'origine
+  assert.deepEqual(p.tracks.filter((t) => t.type === 'drum').map((t) => [t.source, t.bank]), [['gm', '36'], ['gm', '38'], ['gm', '42']]);
+  assert.deepEqual(p.tracks.filter((t) => t.type === 'drum').map((t) => SS.trackMidi(t)), [{ note: 36 }, { note: 38 }, { note: 42 }]);
   // A ×2 → B → A : 2 scènes de 4 mesures
   assert.deepEqual(p.scenes.map((s) => s.bars), [4, 4]);
   const name = (id) => p.scenes.find((s) => s.id === id).name;
@@ -229,4 +231,56 @@ test('aller-retour : export puis import redonne les mêmes notes', () => {
   assert.deepEqual(flat(back), flat(src));
   // les marqueurs exportés redonnent les noms des scènes
   assert.deepEqual(back.scenes.map((s) => s.name).sort(), src.scenes.map((s) => s.name).sort());
+});
+
+test('propriété midi : instruments General MIDI, types de drums, batterie GM complète', () => {
+  const all = SS.FAMILIES.flatMap((f) => f.instruments);
+  // tous les soundfonts gm_* ont leur programme, les autres sons n'en ont pas
+  assert.ok(all.filter((i) => i.kind === 'sf').every((i) => Number.isInteger(i.midi)));
+  assert.ok(all.filter((i) => i.kind !== 'sf').every((i) => i.midi === undefined));
+  assert.equal(all.find((i) => i.id === 'gm_synth_bass_1').midi, 38);
+  // les 128 programmes GM sont couverts (1 à 3 par les variantes de gm_piano)
+  const progs = new Set(all.filter((i) => i.files).flatMap((i) => i.files.map(SS.gmProgramOfFile)));
+  for (let k = 0; k < 128; k++) assert.ok(progs.has(k), 'programme ' + k);
+  const piano = all.find((i) => i.id === 'gm_piano');
+  const bright = SS.midi.gmVariantFor(piano, 1);
+  assert.equal(SS.gmProgramOfFile(piano.files[bright]), 1);
+  assert.deepEqual(SS.trackMidi({ type: 'instrument', family: 'keys', instrument: 'gm_piano', sfv: bright }), { program: 1 });
+  assert.equal(SS.trackMidi({ type: 'instrument', family: 'synth', instrument: 'syn_saw' }), null);
+  // drums : chaque type a sa note GM ; la batterie GM a ses 47 sons, chacun avec plusieurs kits
+  assert.ok(SS.DRUM_TYPES.every((d) => d.midi >= 35 && d.midi <= 81));
+  assert.deepEqual(SS.GM_DRUMS.map((d) => d.midi), Array.from({ length: 47 }, (_, k) => 35 + k));
+  assert.ok(SS.GM_DRUMS.every((d) => SS.gmDrumFiles(d.midi).length >= 70 && SS.gmDrumFiles(d.midi)[0] === `128${d.midi}_0_FluidR3_GM_sf2_file`));
+  assert.equal(SS.gmDrumKitLabel('12836_4_FluidR3_GM_sf2_file'), 'FluidR3 · kit 5');
+  assert.ok(SS.DRUM_LIBS.some((l) => l.id === 'gm'));
+  assert.deepEqual(SS.trackMidi({ type: 'drum', source: 'tdm', sound: 'bd' }), null);
+});
+
+test('import sur une boîte à rythmes ; export exact des sons General MIDI', () => {
+  // percussions latines : batterie GM -> une piste par son ; boîte à rythmes -> « perc »
+  const trk = [];
+  note(trk, 9, 0, T, 36);
+  note(trk, 9, 4 * T, T, 63);
+  note(trk, 9, 8 * T, T, 75);
+  note(trk, 9, 12 * T, T, 25); // note hors norme GM
+  note(trk, 1, 0, 4 * T, 60);
+  trk.push({ tick: 0, bytes: [0xc1, 2] }); // programme 3 : Electric Grand -> gm_piano, variante 0020
+  const file = M.write({ ppq: 480, tracks: [trk] });
+  const gm = SS.midi.importFile(file).project;
+  assert.deepEqual(gm.tracks.filter((t) => t.type === 'drum').map((t) => [t.name, t.source, t.bank || t.sound]), [
+    ['Kick', 'gm', '36'], ['Percussion 25', 'tdm', 'perc'], ['Conga aiguë ouverte', 'gm', '63'], ['Claves', 'gm', '75'],
+  ]);
+  const piano = gm.tracks.find((t) => t.type === 'instrument');
+  assert.equal(piano.instrument, 'gm_piano');
+  assert.deepEqual(SS.trackMidi(piano), { program: 2 });
+  const tdm = SS.midi.importFile(file, { machine: 'RolandTR808' }).project;
+  assert.ok(tdm.tracks.filter((t) => t.type === 'drum').every((t) => t.source === 'tdm' && t.machine === 'RolandTR808'));
+  // export : les notes et programmes GM ressortent à l'identique, sans approximation
+  const res = SS.midi.exportProject(gm, { range: 'scene', loops: 1 });
+  const back = M.parse(res.bytes);
+  const drumNotes = back.tracks.flatMap(notesOf).filter((e) => e.ch === 9).map((e) => e.note);
+  // la note hors norme 25, jouée par une percussion de boîte à rythmes, ressort en note 63 (son « perc »)
+  assert.deepEqual([...new Set(drumNotes)].sort((a, b) => a - b), [36, 63, 75]);
+  assert.ok(back.tracks.flat().some((e) => e.type === 'program' && e.program === 2));
+  assert.ok(!res.report.approx.some((w) => /Kick|Conga|Claves|piano/i.test(w)), res.report.approx.join('\n'));
 });
