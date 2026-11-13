@@ -380,9 +380,13 @@
       opts.song = {
         index: Math.min(state.songStart, project.song.length - 1),
         // charge la scène du bloc juste avant de programmer son premier pas
+        // le son a besoin des notes de la scène tout de suite ; l'affichage suit juste après (voir sceneUiSoon)
         onBlock: (i) => {
           const b = project.song[i];
-          if (b && b.scene !== project.current) switchScene(b.scene, { keepStart: true });
+          if (b && b.scene !== project.current) {
+            SS.loadScene(project, b.scene);
+            sceneUiSoon();
+          }
         },
         onBlockVisible: (i, rep) => SS.song.setPlaying(i, rep),
         onEnd: () => stop(),
@@ -405,6 +409,23 @@
     syncHeader();
     SS.ui.renderAll();
     SS.song.render();
+  }
+  /*
+   * Changement de scène pendant la lecture (mode chanson) : l'affichage est mis à jour hors de la programmation
+   * des notes, juste après elle. Reconstruire la page peut prendre du temps (piano roll ouvert) : fait pendant
+   * la programmation, cela retardait les premières notes du bloc (le kick du premier temps « sautait »).
+   */
+  let sceneUiTimer = null;
+  function sceneUiSoon() {
+    if (sceneUiTimer) return;
+    sceneUiTimer = setTimeout(() => {
+      sceneUiTimer = null;
+      SS.ui.clearSelection();
+      syncHeader();
+      SS.ui.refreshScene();
+      SS.song.render();
+      persist();
+    }, 0);
   }
   function switchScene(id) {
     if (id === project.current) return SS.song.render();
