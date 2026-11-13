@@ -898,8 +898,16 @@ SS.ui = (() => {
     }
 
     function init() {
-      const top = track.rollTop ?? (track.octave + 1) * 12 + 24;
-      set((ROLL_HIGH - top) * ROLL_ROW_H);
+      let top = track.rollTop ?? (track.octave + 1) * 12 + 24;
+      // première ouverture, ou aucune note dans la vue (octave de la piste loin de ses notes) : on centre la vue sur les notes
+      const notes = track.events.flatMap((ev) => ev.notes);
+      const inView = (m) => m <= top && m > top - ROLL_VIEW;
+      if (notes.length && (track.rollTop == null ? !notes.every(inView) : !notes.some(inView))) {
+        const lo = Math.min(...notes);
+        const hi = Math.max(...notes);
+        top = hi - lo < ROLL_VIEW - 2 ? Math.round((lo + hi) / 2) + (ROLL_VIEW >> 1) : hi + 1;
+      }
+      set((ROLL_HIGH - Math.max(ROLL_LOW + ROLL_VIEW - 1, Math.min(ROLL_HIGH, top))) * ROLL_ROW_H);
     }
 
     // molette (ou pavé tactile) : défile les notes ; aux butées, on laisse défiler la page
