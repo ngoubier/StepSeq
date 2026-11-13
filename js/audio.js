@@ -489,6 +489,98 @@ SS.audio = (() => {
     return b.strip.entry;
   }
 
+  /* ---------------- Automation (track.auto, js/project.js) ---------------- */
+
+  /*
+   * Nœuds de l'automation, créés la première fois qu'une piste en a besoin : après le fader et le Mute,
+   * pre -> passe-bas -> passe-haut -> gain (volume) -> duck ; envois supplémentaires (reverb « hall », écho) pris après
+   * le sidechain, comme les envois de la fenêtre Effets. Au neutre, tout est transparent.
+   */
+  function autoNodes(b) {
+    if (b.auto) return b.auto;
+    const rs = ensureReturns();
+    const a = { lp: ctx.createBiquadFilter(), hp: ctx.createBiquadFilter(), vol: ctx.createGain(), reverb: ctx.createGain(), echo: ctx.createGain(), active: false };
+    a.lp.type = 'lowpass';
+    a.hp.type = 'highpass';
+    a.reverb.gain.value = 0;
+    a.echo.gain.value = 0;
+    b.pre.disconnect(b.duck);
+    b.pre.connect(a.lp).connect(a.hp).connect(a.vol).connect(b.duck);
+    b.duck.connect(a.reverb).connect(rs.hall.in);
+    b.duck.connect(a.echo).connect(rs.echo.in);
+    if (lastMasterProject) applyReturns(lastMasterProject);
+    b.auto = a;
+    autoNeutral(a, ctx.currentTime);
+    return a;
+  }
+  const AUTO_Q = (res) => 0.7 + res * 11;
+  /** Valeurs des nœuds pour un jeu de valeurs d'automation. */
+  function autoTargets(v) {
+    const f = SS.autoFilterHz(v.filter);
+    const nyq = ctx.sampleRate / 2 - 100;
+    return { lp: Math.min(nyq, f.lp), hp: f.hp, q: AUTO_Q(v.res), vol: v.volume, reverb: v.reverb, echo: v.echo };
+  }
+  function autoNeutral(a, at) {
+    const d = Object.fromEntries(SS.AUTO_PARAMS.map((P) => [P.id, P.def]));
+    const x = autoTargets(d);
+    for (const [node, val] of [[a.lp.frequency, x.lp], [a.hp.frequency, x.hp], [a.lp.Q, x.q], [a.hp.Q, x.q], [a.vol.gain, x.vol], [a.reverb.gain, x.reverb], [a.echo.gain, x.echo]]) {
+      node.cancelScheduledValues(at);
+      node.setValueAtTime(val, at);
+    }
+    a.active = false;
+  }
+  /**
+   * Programme l'automation d'une piste pour un pas : valeur au début du pas, puis rampe jusqu'à la valeur
+   * du pas suivant (fréquences : rampe exponentielle, à l'oreille). `time` = instant nominal du pas (sans swing).
+   */
+  function scheduleAuto(project, track, tick, time, sd) {
+    const lanes = track.auto;
+    let b = buses.get(track.id);
+    if (!lanes) {
+      if (b && b.auto && b.auto.active) autoNeutral(b.auto, time);
+      return;
+    }
+    if (!b) {
+      bus(track);
+      b = buses.get(track.id);
+    }
+    const a = autoNodes(b);
+    const len = SS.trackLen(project, track);
+    const step = tick % len;
+    const at = (s) => Object.fromEntries(SS.AUTO_PARAMS.map((P) => [P.id, SS.autoValue(lanes[P.id], s, len) ?? P.def]));
+    const x0 = autoTargets(at(step));
+    const x1 = step + 1 < len ? autoTargets(at(step + 1)) : x0; // fin de boucle : la valeur repart du début au tour suivant
+    const t1 = time + sd;
+    const lin = (param, v0, v1) => {
+      param.setValueAtTime(v0, time);
+      if (v1 !== v0) param.linearRampToValueAtTime(v1, t1);
+    };
+    const exp = (param, v0, v1) => {
+      param.setValueAtTime(v0, time);
+      if (v1 !== v0) param.exponentialRampToValueAtTime(v1, t1);
+    };
+    exp(a.lp.frequency, x0.lp, x1.lp);
+    exp(a.hp.frequency, x0.hp, x1.hp);
+    lin(a.lp.Q, x0.q, x1.q);
+    lin(a.hp.Q, x0.q, x1.q);
+    lin(a.vol.gain, x0.vol, x1.vol);
+    lin(a.reverb.gain, x0.reverb, x1.reverb);
+    lin(a.echo.gain, x0.echo, x1.echo);
+    a.active = true;
+  }
+  /** Arrêt : toutes les automations reviennent au neutre (écoute d'une piste, essais de son). */
+  function resetAutos() {
+    if (!ctx) return;
+    for (const b of buses.values()) if (b.auto) autoNeutral(b.auto, ctx.currentTime);
+  }
+  /** Lecture seule, pour les tests : valeurs actuelles des nœuds d'automation d'une piste. */
+  function autoState(track) {
+    const b = buses.get(track.id);
+    if (!b || !b.auto) return null;
+    const a = b.auto;
+    return { lp: a.lp.frequency.value, hp: a.hp.frequency.value, q: a.lp.Q.value, vol: a.vol.gain.value, reverb: a.reverb.gain.value, echo: a.echo.gain.value };
+  }
+
   /* ---------------- Bus d'effets partagés (retours) ---------------- */
 
   /** Une reverb partagée : envoi -> pré-délai -> passe-haut -> convolution -> passe-bas -> retour -> master. */
@@ -674,6 +766,7 @@ SS.audio = (() => {
       if (b.delay) b.delay.tone.disconnect(); // coupe la boucle de feedback
       if (b.reverb) b.reverb.out.disconnect();
       if (b.sends) Object.values(b.sends).forEach((g) => g.disconnect());
+      if (b.auto) [b.auto.vol, b.auto.reverb, b.auto.echo].forEach((g) => g.disconnect());
     }
     buses.delete(id);
     glides.delete(id);
@@ -1284,6 +1377,16 @@ SS.audio = (() => {
   /** `tick` = compteur global de pas depuis Lecture ; chaque piste boucle sur sa propre longueur. */
   const scheduling = { ticks: 0, lateSteps: 0, maxLateMs: 0, lastLateAt: null, maxTickMs: 0 };
 
+  /**
+   * Passage de la boucle d'une piste, pour les conditions de déclenchement (SS.trigOk).
+   * Boucle : seq.loops compte les cycles complets depuis Lecture ; chanson : répétition du bloc en cours.
+   */
+  function trigAt(project, track, tick) {
+    const len = SS.trackLen(project, track);
+    if (seq.song) return { id: track.id, block: seq.song.index, pass: SS.trigPass(tick, len, seq.song.rep, SS.totalSteps(project)) };
+    return { id: track.id, block: 0, pass: Math.floor(((seq.loops || 0) * seq.cycle(project, SS.totalSteps(project)) + tick) / len) };
+  }
+
   function scheduleStep(project, tick, time) {
     const lateMs = (ctx.currentTime - time) * 1000;
     if (lateMs > 1) {
@@ -1300,7 +1403,11 @@ SS.audio = (() => {
         const isSource = project.tracks.some((t) => t.fx && t.fx.scSource === track.id);
         if (!isSource) return;
         const st = tick % SS.trackLen(project, track);
-        const fires = track.type === 'drum' ? track.steps[st] > 0 : (track.events || []).some((ev) => ev.step === st);
+        const at = trigAt(project, track, tick);
+        const fires =
+          track.type === 'drum'
+            ? track.steps[st] > 0 && SS.trigOk(SS.drumCond(track, st), { ...at, step: st })
+            : (track.events || []).some((ev) => ev.step === st && SS.trigOk(ev.cond, { ...at, step: ev.step }));
         if (fires) duckFrom(project, track, time);
         return;
       }
@@ -1311,9 +1418,10 @@ SS.audio = (() => {
       const nudge = (track.nudge || 0) / 1000;
       const jt = () => nudge + (human ? (Math.random() * 2 - 1) * human * 0.015 : 0);
       const jv = (v) => (human ? Math.max(0.05, Math.min(1, v * (1 + (Math.random() * 2 - 1) * human * 0.25))) : v);
+      const at = trigAt(project, track, tick);
       if (track.type === 'drum') {
         const v = track.steps[step];
-        if (v > 0) {
+        if (v > 0 && SS.trigOk(SS.drumCond(track, step), { ...at, step })) {
           const tt = time + jt();
           // ratchet : le coup est rejoué à intervalles égaux dans la durée du pas, un peu moins fort
           const r = SS.drumRatchet(track, step);
@@ -1323,6 +1431,8 @@ SS.audio = (() => {
         return;
       }
       (track.events || []).forEach((ev) => {
+        // condition de déclenchement : jugée sur le passage en cours, pour toute la durée de la note ou de l'accord
+        if (ev.cond && !SS.trigOk(ev.cond, { ...at, step: ev.step })) return;
         if (track.category === 'arp') {
           // ARP ONE (js/arp.js) : l'arpège joue tant que l'événement couvre ce pas
           const len = SS.trackLen(project, track);
@@ -1388,8 +1498,12 @@ SS.audio = (() => {
     while (seq.nextTime < ctx.currentTime + lookahead(project)) {
       // le compteur ne revient pas à 0 : des pistes de longueurs différentes restent décalées (polymétrie).
       // Il repart à 0 quand toutes les boucles se retrouvent alignées.
-      if (seq.step >= seq.cycle(project, total)) seq.step = 0;
+      if (seq.step >= seq.cycle(project, total)) {
+        seq.step = 0;
+        seq.loops = (seq.loops || 0) + 1; // cycles complets : sert au passage des conditions de déclenchement
+      }
       const t = seq.nextTime + SS.grooveOffset(project, seq.step, stepDur(project));
+      project.tracks.forEach((tr) => scheduleAuto(project, tr, seq.step, seq.nextTime, stepDur(project)));
       scheduleStep(project, seq.step, t);
       seq.queue.push({ step: seq.step, time: t, song: seq.song ? { index: seq.song.index, rep: seq.song.rep } : null });
       seq.nextTime += stepDur(project);
@@ -1426,6 +1540,7 @@ SS.audio = (() => {
         seq.queue.push({ step: -1, time: seq.nextTime, block: sg.index, rep: sg.rep });
       }
       const t = seq.nextTime + SS.grooveOffset(project, seq.step, stepDur(project));
+      project.tracks.forEach((tr) => scheduleAuto(project, tr, seq.step, seq.nextTime, stepDur(project)));
       scheduleStep(project, seq.step, t);
       seq.queue.push({ step: seq.step, time: t, song: seq.song ? { index: seq.song.index, rep: seq.song.rep } : null });
       seq.nextTime += stepDur(project);
@@ -1513,6 +1628,7 @@ SS.audio = (() => {
     resetLoudness();
     seq.playing = true;
     seq.step = Math.max(0, Math.floor(opts.from || 0));
+    seq.loops = 0;
     seq.queue = [];
     seq.nextTime = ctx.currentTime + 0.08;
     if (seq.song) seq.queue.push({ step: -1, time: seq.nextTime, block: seq.song.index, rep: 0 });
@@ -1540,6 +1656,7 @@ SS.audio = (() => {
     cancelAnimationFrame(seq.raf);
     seq.queue = [];
     silenceAll(); // coupe les voix en cours et celles déjà programmées
+    resetAutos();
     if (seq.getProject) applyMutes(seq.getProject()); // à l'arrêt, les tranches muettes se rouvrent
   }
 
@@ -1704,6 +1821,7 @@ SS.audio = (() => {
     _master: () => master,
     _out: () => masterFader, // sortie finale (après la tranche Master), pour enregistrer
     _duckValue: (id) => (buses.get(id) ? buses.get(id).duck.gain.value : null),
+    _autoState: autoState,
     start,
     stop,
     isPlaying: () => seq.playing || !!seq.pending, // en attente des sons : compte comme en lecture

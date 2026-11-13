@@ -27,6 +27,7 @@ SS.ui = (() => {
     grip: '<svg viewBox="0 0 10 20"><circle cx="3" cy="5" r="1.4" class="fill"/><circle cx="7" cy="5" r="1.4" class="fill"/><circle cx="3" cy="10" r="1.4" class="fill"/><circle cx="7" cy="10" r="1.4" class="fill"/><circle cx="3" cy="15" r="1.4" class="fill"/><circle cx="7" cy="15" r="1.4" class="fill"/></svg>',
     close: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
     chevron: '<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>',
+    auto: '<svg viewBox="0 0 24 24"><path d="M3 18c4 0 5-12 9-12s4 8 9 8"/><circle cx="3" cy="18" r="1.6" class="fill"/><circle cx="12" cy="6" r="1.6" class="fill"/><circle cx="21" cy="14" r="1.6" class="fill"/></svg>',
     drum: '<svg viewBox="0 0 24 24"><ellipse cx="12" cy="8" rx="8" ry="3"/><path d="M4 8v8c0 1.7 3.6 3 8 3s8-1.3 8-3V8"/><path d="M4 12l4 5M20 12l-4 5M12 11v8"/></svg>',
     keys: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M8 5v14M12 5v14M16 5v14"/><path d="M6.5 5h3v8h-3zM14.5 5h3v8h-3z" class="fill"/></svg>',
     arp: '<svg viewBox="0 0 24 24"><path d="M4 19h4v-4h4v-4h4V7h4"/></svg>',
@@ -320,6 +321,7 @@ SS.ui = (() => {
     refs.set(track.id, ref);
 
     const isOpen = app.state.openRolls.has(track.id);
+    const autoOpen = openAutos().has(track.id);
     const head = h(
       'div',
       { class: 'track-head' },
@@ -412,6 +414,19 @@ SS.ui = (() => {
           })
         : null,
       h('button', {
+        type: 'button',
+        class: 'th-btn th-auto' + (autoOpen ? ' open' : '') + (track.auto ? ' on' : ''),
+        title: 'Automation : filtre, résonance, volume, reverb, écho, pas à pas (propre à la scène)',
+        'aria-label': `Automation de la piste ${track.name}`,
+        'aria-expanded': String(autoOpen),
+        html: ICONS.auto,
+        onclick: () => {
+          if (autoOpen) openAutos().delete(track.id);
+          else openAutos().add(track.id);
+          renderTrack(track);
+        },
+      }),
+      h('button', {
         class: 'th-btn fx-btn' + (SS.fxActive(track) ? ' on' : ''),
         title: 'Effets : chorus, delay, reverb, sidechain, bus partagés',
         onclick: () => SS.fx.open(track),
@@ -459,11 +474,165 @@ SS.ui = (() => {
 
     const selected = sel && sel.track === track;
     const el = h('div', { class: 'track' + (selected ? ' selected' : ''), style: `--c:${track.color}`, 'data-id': track.id }, h('div', { class: 'track-row' }, head, grid));
+    if (autoOpen) el.append(buildAutoLane(track, ref));
     if (track.type === 'instrument' && isOpen) el.append(buildRoll(track, ref));
     ref.el = el;
     SS.audio.setTrackGain(track, track.volume);
     paint(track);
     return el;
+  }
+
+  /* ---------- Automation (track.auto) : une ligne sous la piste ---------- */
+
+  const openAutos = () => (app.state.openAutos = app.state.openAutos || new Set());
+  const autoParams = new Map(); // piste -> réglage affiché dans sa ligne d'automation
+  const AUTO_LANE_H = 72;
+
+  function buildAutoLane(track, ref) {
+    const p = app.project();
+    const n = SS.totalSteps(p);
+    // réglage affiché : le dernier choisi, sinon le premier qui a une courbe, sinon le filtre
+    if (!autoParams.has(track.id)) autoParams.set(track.id, (SS.AUTO_PARAMS.find((x) => track.auto && track.auto[x.id]) || SS.AUTO_PARAMS[0]).id);
+    const P = () => SS.autoParam(autoParams.get(track.id));
+    const lane = () => track.auto && track.auto[P().id];
+
+    const param = h('select', { class: 'auto-param', 'aria-label': 'Réglage automatisé' });
+    const fillParams = () =>
+      param.replaceChildren(...SS.AUTO_PARAMS.map((x) => h('option', { value: x.id }, x.label + (track.auto && track.auto[x.id] ? ' ●' : ''))));
+    const shapes = h('select', { class: 'auto-shape', 'aria-label': 'Forme toute prête', title: 'Remplace la courbe par une forme sur toute la boucle de la piste' });
+    const fillShapes = () =>
+      shapes.replaceChildren(h('option', { value: '' }, 'Forme…'), ...(SS.AUTO_SHAPES[P().id] || []).map((x) => h('option', { value: x.id }, x.label)));
+    const readout = h('output', { class: 'auto-val' });
+    const clear = h('button', { type: 'button', class: 'auto-clear', title: 'Effacer la courbe de ce réglage dans la scène' }, 'Effacer');
+    const head = h(
+      'div',
+      { class: 'auto-head' },
+      h('div', { class: 'auto-line' }, h('span', { class: 'auto-title', html: ICONS.auto }), param, shapes),
+      h('div', { class: 'auto-line' }, readout, clear)
+    );
+    const grid = h('div', { class: 'grid auto-grid', title: 'Glisser pour dessiner la courbe · clic droit (ou Alt) : effacer des points' });
+    ref.autoCells = [];
+    for (let s = 0; s < n; s++) {
+      const c = h('div', { class: cellClass(p, s, 'acell'), 'data-step': s }, h('div', { class: 'abar' }));
+      ref.autoCells.push(c);
+      grid.append(c);
+    }
+
+    const show = (v) => (readout.textContent = v === null ? `${P().label} : ${SS.autoFormat(P().id, P().def)} (sans courbe)` : `${P().label} : ${SS.autoFormat(P().id, v)}`);
+    function paintAuto() {
+      const x = P();
+      const l = lane();
+      const len = SS.trackLen(app.project(), track);
+      const span = x.max - x.min;
+      const zero = (0 - x.min) / span; // ligne de base (0 en bas, ou au milieu pour le filtre)
+      ref.autoCells.forEach((c, s) => {
+        const v = s < len ? SS.autoValue(l, s, len) : null;
+        const bar = c.firstChild;
+        c.classList.toggle('beyond', s >= len);
+        c.classList.toggle('pt', !!(l && l[s] !== undefined && s < len));
+        c.classList.toggle('empty', v === null);
+        const u = ((v ?? x.def) - x.min) / span;
+        const lo = Math.min(u, zero), hi = Math.max(u, zero);
+        bar.style.bottom = lo * 100 + '%';
+        bar.style.height = Math.max(hi - lo, 0.02) * 100 + '%';
+        bar.classList.toggle('neg', (v ?? x.def) < 0);
+        c.title = s < len ? `Pas ${s + 1} · ${SS.autoFormat(x.id, v ?? x.def)}` + (v === null ? ' (sans courbe)' : '') : '';
+      });
+      grid.style.setProperty('--zero', zero * 100 + '%');
+      grid.classList.toggle('bipolar', x.min < 0);
+      clear.disabled = !l;
+      show(SS.autoValue(l, 0, len));
+    }
+    const changedAuto = () => {
+      fillParams();
+      param.value = P().id;
+      ref.el.querySelector('.th-auto')?.classList.toggle('on', !!track.auto);
+      paintAuto();
+    };
+
+    param.addEventListener('change', () => {
+      autoParams.set(track.id, param.value);
+      fillShapes();
+      paintAuto();
+    });
+    shapes.addEventListener('change', () => {
+      if (!shapes.value) return;
+      SS.applyAutoShape(track, P().id, shapes.value, SS.trackLen(app.project(), track), SS.stepsPerBeat(app.project()));
+      shapes.value = '';
+      changedAuto();
+      app.changed();
+    });
+    clear.addEventListener('click', () => {
+      if (track.auto) delete track.auto[P().id];
+      SS.cleanAuto(track);
+      changedAuto();
+      app.changed();
+    });
+
+    // dessin : la hauteur dans la case donne la valeur ; un geste rapide remplit les pas sautés
+    const valueAt = (cell, y) => {
+      const r = cell.getBoundingClientRect();
+      const u = Math.max(0, Math.min(1, 1 - (y - r.top) / r.height));
+      const x = P();
+      let v = x.min + u * (x.max - x.min);
+      if (x.min < 0 && Math.abs(v) < 0.04) v = 0; // le filtre s'accroche sur « ouvert »
+      return v;
+    };
+    const cellAt = (cx) => {
+      const gr = grid.getBoundingClientRect();
+      const el = document.elementFromPoint(cx, gr.top + gr.height / 2);
+      return el && el.closest('.acell');
+    };
+    grid.addEventListener('contextmenu', (e) => e.preventDefault());
+    grid.addEventListener('pointerdown', (e) => {
+      const cell = e.target.closest('.acell');
+      if (!cell) return;
+      e.preventDefault();
+      const erase = e.button === 2 || e.altKey;
+      if (e.button !== 0 && !erase) return;
+      const len = SS.trackLen(app.project(), track);
+      let last = null;
+      const apply = (c, y) => {
+        if (!c) return;
+        const s = +c.dataset.step;
+        if (s >= len) return;
+        const v = erase ? null : valueAt(c, y);
+        if (last === null || last.s === s) SS.setAutoPoint(track, P().id, s, v);
+        else {
+          // pas sautés entre le point précédent et celui-ci : droite entre les deux
+          const dir = Math.sign(s - last.s);
+          for (let k = last.s + dir; k !== s + dir; k += dir)
+            SS.setAutoPoint(track, P().id, k, erase ? null : last.v + ((v - last.v) * (k - last.s)) / (s - last.s));
+        }
+        last = { s, v };
+        paintAuto();
+        if (v !== null) show(v);
+      };
+      apply(cell, e.clientY);
+      grid.setPointerCapture(e.pointerId);
+      const move = (ev) => apply(cellAt(ev.clientX), ev.clientY);
+      const up = () => {
+        grid.removeEventListener('pointermove', move);
+        grid.removeEventListener('pointerup', up);
+        grid.removeEventListener('pointercancel', up);
+        changedAuto();
+        app.changed();
+      };
+      grid.addEventListener('pointermove', move);
+      grid.addEventListener('pointerup', up);
+      grid.addEventListener('pointercancel', up);
+    });
+    grid.addEventListener('pointermove', (e) => {
+      if (e.buttons) return;
+      const c = e.target.closest('.acell');
+      if (c && !c.classList.contains('beyond')) show(SS.autoValue(lane(), +c.dataset.step, SS.trackLen(app.project(), track)));
+    });
+
+    fillParams();
+    param.value = P().id;
+    fillShapes();
+    paintAuto();
+    return h('div', { class: 'auto-lane', style: `--auto-h:${AUTO_LANE_H}px` }, head, grid);
   }
 
   function previewNotes(track) {
@@ -1076,6 +1245,15 @@ SS.ui = (() => {
     if (!(r > 1)) return;
     cell.append(h('span', { class: 'rat-mark', style: `--r:${r}`, 'aria-hidden': 'true' }));
   }
+  /**
+   * Condition de déclenchement : étiquette courte en haut à droite d'un pas de batterie (« 50% », « 1:4 »),
+   * coin coloré sur une note (son nom occupe déjà la case) ; le détail est dans l'infobulle.
+   */
+  function markCond(cell, c, corner = false) {
+    if (!c) return;
+    cell.append(h('span', { class: 'cond-mark' + (corner ? ' corner' : ''), 'aria-hidden': 'true' }, corner ? '' : SS.condMark(c)));
+  }
+  const condTitle = (c) => (c ? ` · condition ${SS.condLabel(c)} (${SS.condTitle(c).toLowerCase()})` : '');
   const shiftTitle = (ev) => (ev.shift ? ` · ${ev.shift > 0 ? 'en retard' : 'en avance'} de ${Math.round(Math.abs(ev.shift) * 100)} % de pas` : '');
 
   function paint(track) {
@@ -1088,9 +1266,11 @@ SS.ui = (() => {
         c.classList.toggle('on', v > 0);
         c.style.setProperty('--v', v);
         const r = SS.drumRatchet(track, s);
-        c.title = v > 0 ? `Vélocité ${Math.round(v * 127)}` + (r > 1 ? ` · ratchet ×${r}` : '') : '';
-        c.querySelector('.rat-mark')?.remove();
+        const cond = SS.drumCond(track, s);
+        c.title = v > 0 ? `Vélocité ${Math.round(v * 127)}` + (r > 1 ? ` · ratchet ×${r}` : '') + condTitle(cond) : '';
+        c.querySelectorAll('.rat-mark, .cond-mark').forEach((m) => m.remove());
         markRatchet(c, r);
+        markCond(c, cond);
       });
       paintSelection(track, ref);
       return;
@@ -1101,7 +1281,7 @@ SS.ui = (() => {
       c.title = '';
     });
     ref.roll.forEach((cells) => cells.forEach((c) => c.classList.remove('on', 'start', 'root', 'sel', 'sel-hold')));
-    ref.el?.querySelectorAll('.shift-mark, .rat-mark').forEach((m) => m.remove());
+    ref.el?.querySelectorAll('.shift-mark, .rat-mark, .cond-mark').forEach((m) => m.remove());
 
     track.events.forEach((ev) => {
       const label = eventLabel(track, ev);
@@ -1112,9 +1292,10 @@ SS.ui = (() => {
           c.classList.add('on', 'start');
           if (ev.len > 1) c.classList.add('held');
           c.append(h('span', { class: 'lbl' }, label));
-          c.title = `${label} · vélocité ${Math.round(ev.vel * 127)}` + shiftTitle(ev) + (ev.rat ? ` · ratchet ×${ev.rat}` : '');
+          c.title = `${label} · vélocité ${Math.round(ev.vel * 127)}` + shiftTitle(ev) + (ev.rat ? ` · ratchet ×${ev.rat}` : '') + condTitle(ev.cond);
           markShift(c, ev);
           markRatchet(c, ev.rat);
+          markCond(c, ev.cond, true);
         } else {
           c.classList.add('hold');
           if (s === ev.step + ev.len - 1) c.classList.add('end');
@@ -1130,6 +1311,7 @@ SS.ui = (() => {
             if (i === 0) cell.classList.add('root');
             markShift(cell, ev);
             markRatchet(cell, ev.rat);
+            if (i === 0) markCond(cell, ev.cond, true);
           }
         });
       }
@@ -1326,10 +1508,10 @@ SS.ui = (() => {
     const [from, to] = selBounds();
     const items = [...sel.items].sort((a, b) => itemSpan(t, a)[0] - itemSpan(t, b)[0]);
     clip = isDrum(t)
-      ? { kind: 'drum', items: items.map((s) => ({ off: s - from, vel: t.steps[s], rat: SS.drumRatchet(t, s) })) }
+      ? { kind: 'drum', items: items.map((s) => ({ off: s - from, vel: t.steps[s], rat: SS.drumRatchet(t, s), cond: SS.drumCond(t, s) })) }
       : {
           kind: 'notes',
-          items: items.map((ev) => ({ off: ev.step - from, len: ev.len, notes: [...ev.notes], vel: ev.vel, chord: ev.chord, shift: ev.shift, rat: ev.rat })),
+          items: items.map((ev) => ({ off: ev.step - from, len: ev.len, notes: [...ev.notes], vel: ev.vel, chord: ev.chord, shift: ev.shift, rat: ev.rat, cond: ev.cond })),
         };
     Object.assign(clip, { span: to - from, trackId: t.id, from });
     const what = unitLabel(t, items.length);
@@ -1384,6 +1566,7 @@ SS.ui = (() => {
       if (isDrum(track)) {
         track.steps[s] = it.vel;
         SS.setDrumRatchet(track, s, it.rat || 1);
+        SS.setDrumCond(track, s, it.cond);
         return pasted.push(s);
       }
       const len = Math.min(it.len, n - s);
@@ -1395,6 +1578,7 @@ SS.ui = (() => {
       if (track.category !== 'mono' && it.chord) ev.chord = it.chord;
       if (it.shift) ev.shift = it.shift;
       if (it.rat) ev.rat = it.rat;
+      if (it.cond) ev.cond = it.cond;
       track.events.push(ev);
       pasted.push(ev);
     });
@@ -1573,19 +1757,22 @@ SS.ui = (() => {
     };
     let place;
     if (isDrum(track)) {
-      const moved = items.map((st) => ({ st, vel: track.steps[st], rat: SS.drumRatchet(track, st) }));
+      const moved = items.map((st) => ({ st, vel: track.steps[st], rat: SS.drumRatchet(track, st), cond: SS.drumCond(track, st) }));
       const base = track.steps.slice();
       const baseRat = { ...(track.rat || {}) };
-      if (!copy) items.forEach((st) => ((base[st] = 0), delete baseRat[st]));
+      const baseCond = { ...(track.cond || {}) };
+      if (!copy) items.forEach((st) => ((base[st] = 0), delete baseRat[st], delete baseCond[st]));
       const minS = Math.min(...items);
       const maxS = Math.max(...items);
       place = (dt) => {
         dt = clamp(dt, -minS, n - 1 - maxS);
         base.forEach((v, i) => (track.steps[i] = v));
         track.rat = { ...baseRat };
+        track.cond = { ...baseCond };
         moved.forEach((m) => {
           track.steps[m.st + dt] = m.vel;
           SS.setDrumRatchet(track, m.st + dt, m.rat);
+          SS.setDrumCond(track, m.st + dt, m.cond);
         });
         setSel(moved.map((m) => m.st + dt), dt);
         return { dt, dp: 0 };
@@ -1777,6 +1964,7 @@ SS.ui = (() => {
     const value = track.steps[s] > 0 ? 0 : 0.8;
     track.steps[s] = value;
     SS.setDrumRatchet(track, s, 1);
+    SS.setDrumCond(track, s, null);
     if (value && !SS.audio.isPlaying()) SS.audio.preview(track);
     paint(track);
     const ref = refs.get(track.id);
@@ -1789,6 +1977,7 @@ SS.ui = (() => {
       if ((track.steps[s2] > 0) !== (value > 0)) {
         track.steps[s2] = value;
         SS.setDrumRatchet(track, s2, 1);
+        SS.setDrumCond(track, s2, null);
         paint(track);
       }
     });
@@ -2230,7 +2419,20 @@ SS.ui = (() => {
                   if (!SS.audio.isPlaying()) SS.audio.preview(track, ev.notes.length === 1 ? ev.notes[0] : ev.notes);
                 }
               )
-            )
+            ),
+        h(
+          'div',
+          { class: 'ctx-param' },
+          h('span', { class: 'ctx-param-label' }, 'Condition'),
+          condSelect(
+            () => ev.cond,
+            (c) => {
+              SS.cleanCond(Object.assign(ev, { cond: c }));
+              paint(track);
+              saveSoon();
+            }
+          )
+        )
       );
 
     function render() {
@@ -2360,7 +2562,21 @@ SS.ui = (() => {
     return row;
   }
 
-  /** Clic droit sur un pas de batterie allumé : ratchet, vélocité, effacer. */
+  /** Menu des conditions de déclenchement (SS.TRIG_CONDS), « Toujours » en tête. */
+  function condSelect(get, set) {
+    const sel = h('select', { class: 'ctx-cond', 'aria-label': 'Condition de déclenchement', title: 'Quand jouer : à chaque passage, au hasard, ou seulement à certains passages de la boucle' });
+    sel.append(h('option', { value: '' }, 'Toujours'));
+    const groups = new Map();
+    SS.TRIG_CONDS.forEach((c) => {
+      if (!groups.has(c.group)) sel.append(groups.set(c.group, h('optgroup', { label: c.group })).get(c.group));
+      groups.get(c.group).append(h('option', { value: c.id, title: c.title }, c.label + (c.group === 'Passages' && c.id.includes(':') ? ` — ${c.title.replace('Joué ', '')}` : '')));
+    });
+    sel.value = get() || '';
+    sel.addEventListener('change', () => set(sel.value || null));
+    return sel;
+  }
+
+  /** Clic droit sur un pas de batterie allumé : ratchet, condition, vélocité, effacer. */
   function openDrumMenu(track, s, x, y) {
     closeChordMenu();
     setSelection(track, [s]);
@@ -2385,6 +2601,8 @@ SS.ui = (() => {
         { class: 'ctx-params' },
         h('div', { class: 'ctx-param' }, h('span', { class: 'ctx-param-label' }, 'Ratchet'),
           ratchetButtons(() => SS.drumRatchet(track, s), (r) => (SS.setDrumRatchet(track, s, r), changed(), listen()))),
+        h('div', { class: 'ctx-param' }, h('span', { class: 'ctx-param-label' }, 'Condition'),
+          condSelect(() => SS.drumCond(track, s), (c) => (SS.setDrumCond(track, s, c), changed()))),
         h('div', { class: 'ctx-param wide' }, h('span', { class: 'ctx-param-label' }, 'Vélocité'), range, vel)
       ),
       h(
@@ -2393,6 +2611,7 @@ SS.ui = (() => {
         h('button', { type: 'button', class: 'danger', onclick: () => {
           track.steps[s] = 0;
           SS.setDrumRatchet(track, s, 1);
+          SS.setDrumCond(track, s, null);
           unselectIfRemoved(track);
           changed();
           closeChordMenu();
@@ -2424,6 +2643,7 @@ SS.ui = (() => {
       if (!ref) return;
       const s = step % SS.trackLen(p, t);
       if (ref.cells[s]) ref.cells[s].classList.add('now');
+      if (ref.autoCells && ref.autoCells[s]) ref.autoCells[s].classList.add('now');
       ref.roll.forEach((cells) => cells[s] && cells[s].classList.add('now'));
     });
     const spb = SS.stepsPerBar(p);

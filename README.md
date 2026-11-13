@@ -335,10 +335,62 @@ node tests/e2e/master-effects.js
 node tests/e2e/mobile-ui.js
 node tests/e2e/gm-mode-ui.js         # mode General MIDI (fenêtre de piste et Band)
 node tests/e2e/midi-ui.js            # import / export MIDI (fichier de test fabriqué, ou : node tests/e2e/midi-ui.js morceau.mid)
+node tests/e2e/trigcond.js           # conditions de déclenchement (menus, repères, notes jouées passage par passage)
+node tests/e2e/automation.js         # automation (ligne sous la piste, dessin, formes, son qui suit la courbe)
 ```
 
 Cliquer sur une note / un accord existant le supprime. Sur la ligne compacte, un clic pose la
 dernière note (ou le dernier accord) utilisée.
+
+### Automation : faire évoluer le son au fil de la scène
+
+Inspirée des courbes d'automation d'Ableton Live / Bitwig et des réglages par pas des machines Elektron. Le bouton
+**∿** de l'en-tête d'une piste ouvre sa ligne d'automation, sous la piste et alignée sur ses pas
+(`buildAutoLane` dans `js/ui.js`, modèle `SS.AUTO_PARAMS` / `SS.autoValue` dans `js/project.js`) :
+
+| Réglage | Effet (sur la tranche de la piste, quel que soit l'instrument) | Export MIDI |
+|---|---|---|
+| Filtre | filtre DJ : −1 passe-bas fermé … 0 ouvert … +1 passe-haut fermé | CC 74 |
+| Résonance | Q du filtre (0,7 à 11,7) | CC 71 |
+| Volume | multiplie le volume de la piste | CC 11 |
+| Reverb | envoi supplémentaire vers la reverb « hall » partagée | CC 91 |
+| Écho | envoi supplémentaire vers l'écho partagé | — |
+
+- **Points sur les pas** (`track.auto = { filter: { pas: valeur } }`), propres à chaque **scène** (rangés avec les
+  notes). Entre deux points : une droite ; avant le premier et après le dernier : la valeur du point. Une scène sans
+  courbe remet le réglage au neutre.
+- **Dessin** à la souris (les pas sautés par un geste rapide sont remplis en ligne droite), clic droit ou Alt pour
+  effacer, **Effacer** pour toute la courbe, **Forme…** pour une courbe toute prête (`SS.AUTO_SHAPES` : ouvrir le
+  passe-bas, monter le passe-haut avant le drop, fondu, pompe à chaque temps, lâcher de reverb / d'écho…).
+- **Moteur** (`scheduleAuto` dans `js/audio.js`) : les nœuds (passe-bas, passe-haut, gain, deux envois) ne sont
+  créés que pour une piste qui a une courbe, entre le Mute et le sidechain. À chaque pas, la valeur est posée au
+  début du pas puis suit une rampe jusqu'à celle du pas suivant (exponentielle pour les fréquences), sur la grille
+  sans swing. Elle évolue donc pendant une note tenue. À l'arrêt, tout revient au neutre.
+- Export MIDI : une valeur par pas quand elle change, pistes instrument seulement (le canal 10 est partagé par toute
+  la batterie).
+- Sur téléphone, le bouton ∿ est masqué ; les courbes posées restent jouées.
+
+### Conditions de déclenchement
+
+Inspirées des « trig conditions » des machines Elektron (et de la probabilité des notes d'Ableton Live) : une note
+(menu du clic droit, ligne **Condition**) ou un pas de batterie (clic droit sur un pas allumé) ne joue que si sa
+condition est remplie à ce passage de la boucle (`SS.TRIG_CONDS`, `SS.trigOk` dans `js/project.js`) :
+
+| Condition | Joue… |
+|---|---|
+| 75 %, 50 %, 25 %, 10 % | avec cette probabilité, tirée à chaque passage |
+| 1:2, 2:2, 1:4, 2:4, 3:4, 4:4, 1:8, 8:8 | au passage A de chaque groupe de B (1:4 = premier sur quatre) |
+| 1er / Pas 1er | seulement au premier passage / à tous sauf le premier |
+
+- **Passage** : un tour de la boucle de la piste depuis Lecture ; en mode Chanson, depuis le début du bloc
+  (répétitions du bloc comprises). Une piste plus courte que la scène compte ses propres tours.
+- **Tirage reproductible** : la probabilité dépend de la piste, du pas, du bloc et du passage (hachage FNV-1a) :
+  deux lectures donnent les mêmes coups, et l'export MIDI (`js/midi.js`) écrit exactement ce qu'on entend.
+- Une condition porte sur toute la note (ou tout l'accord d'une piste Arpège). Elle s'applique aussi au
+  déclenchement du sidechain. Gardée dans les scènes, la recopie de mesures, le copier / coller et le
+  déplacement ; un pas rallumé repart sans condition.
+- Repères : étiquette courte en haut à droite d'un pas de batterie (« 50% », « 1:4 », « ≠1 »), coin blanc sur une
+  note ; le détail est dans l'infobulle.
 
 ### Sélection, copier, couper, coller
 
