@@ -250,7 +250,8 @@
               if (ev.step >= len || start + ev.step >= ticksTotal) continue;
               const tick = start + ev.step;
               const dur = Math.min(ev.len, len - ev.step) * TPS;
-              for (const n of ev.notes) out.notes.push({ at: (base + tick + swingAt(tick)) * TPS + nudge, dur, note: n, vel: ev.vel });
+              const shift = (ev.shift || 0) * TPS; // micro-décalage de la note (fraction de pas)
+              for (const n of ev.notes) out.notes.push({ at: (base + tick + swingAt(tick)) * TPS + nudge + shift, dur, note: n, vel: ev.vel });
             }
           }
         }

@@ -216,6 +216,22 @@ test('export : scène en boucle, pistes muettes, swing', () => {
   assert.equal(arp[2], 2 * T);
 });
 
+test('export : ratchets de l\'arpégiateur rendus en notes répétées, micro-décalage des notes', () => {
+  const p = project();
+  const [, pad, arp] = p.tracks;
+  arp.arp = SS.Arp.normalize({ mode: 'up', rate: 1, octaves: 1, lanes: { ratchet: [1, 3] } });
+  arp.events = [{ step: 0, len: 4, notes: [60, 64, 67], vel: 0.8 }];
+  pad.events = [{ step: 0, len: 4, notes: [57], vel: 0.8, shift: -0.25 }, { step: 8, len: 4, notes: [60], vel: 0.8, shift: 0.5 }];
+  SS.commitScene(p);
+  const m = M.parse(SS.midi.exportProject(p, { range: 'scene', loops: 1, swing: false }).bytes);
+  // pas 1 en ratchet ×3 : trois mi à un tiers de pas d'écart, le 2e et le 3e un peu moins forts
+  const a = notesOf(m.tracks[3]);
+  assert.deepEqual(a.slice(0, 5).map((e) => [e.tick, e.note]), [[0, 60], [T, 64], [T + T / 3, 64], [T + (2 * T) / 3, 64], [2 * T, 67]]);
+  assert.ok(a[2].vel < a[1].vel);
+  // micro-décalage : la 1re note un quart de pas en avance (bornée à 0), la 2e un demi-pas en retard
+  assert.deepEqual(notesOf(m.tracks[2]).map((e) => e.tick), [0, 8 * T + T / 2]);
+});
+
 test('aller-retour : export puis import redonne les mêmes notes', () => {
   const src = SS.midi.importFile(song('AABA')).project;
   const { bytes } = SS.midi.exportProject(src, { swing: false });
