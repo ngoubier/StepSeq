@@ -3,7 +3,7 @@
  *
  * Format de fichier (.stepseq.json) :
  * {
- *   format: "stepseq", version: 1,
+ *   format: "stepseq", version: 2,   // 2 : octave des instruments VCSL corrigée (SS.migrateOctaves)
  *   title, tempo, timeSig: [num, den], bars,
  *   groove: { res: 0|16|8, swing: 0.5..0.75, human: 0..1 },
  *   (tonalité et émotion : propres à chaque scène, voir project.scenes plus bas ; les anciens fichiers
@@ -313,7 +313,7 @@ SS.uid = () => Math.random().toString(36).slice(2, 10);
 SS.newProject = () => SS.withScenes({
   id: SS.uid(), // identifiant de la chanson (bibliothèque « Mes chansons », js/store.js)
   format: 'stepseq',
-  version: 1,
+  version: 2,
   title: 'Nouveau projet',
   tempo: 120,
   timeSig: [4, 4],
@@ -389,6 +389,7 @@ SS.resizeProject = (p) => {
 /** Valide / normalise un projet chargé depuis un fichier. */
 SS.normalizeProject = (data) => {
   if (!data || typeof data !== 'object' || !Array.isArray(data.tracks)) throw new Error('Fichier de projet invalide');
+  SS.migrateOctaves(data);
   const p = SS.newProject();
   if (typeof data.id === 'string' && /^[a-z0-9]{4,24}$/i.test(data.id)) p.id = data.id;
   p.title = String(data.title || p.title);

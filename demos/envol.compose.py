@@ -428,7 +428,7 @@ def build():
     song = [('Intro', 1), ('Groove', 1), ('Montée', 1), ('Drop', 2), ('Break', 1),
             ('Montée finale', 1), ('Drop final', 2), ('Outro', 1)]
     return {
-        'format': 'stepseq', 'version': 1,
+        'format': 'stepseq', 'version': 2,
         'title': 'Envol',
         'tempo': 138, 'timeSig': [4, 4], 'bars': current['bars'],
         'groove': {'res': 16, 'swing': 0.5, 'human': 0.05},

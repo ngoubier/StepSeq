@@ -9,7 +9,9 @@ Couvre :
    à la note de son nom.
 Les banques Dirt-Samples à un seul échantillon ont leur propre outil (tools/dirt-pitch.py).
 
-Seul l'écart fin est corrigé (ramené à moins d'une demi-octave) : l'octave annoncée par les fichiers est gardée.
+Pour les soundfonts, seul l'écart fin est corrigé (ramené à moins d'une demi-octave). Les banques multi reçoivent en
+plus un décalage d'octave par instrument (SS.MULTI_OCTAVE) : la plupart des fichiers VCSL suivent la convention
+Do3 = midi 60 et sonnaient une octave plus haut que la note jouée.
 Une mesure n'est retenue que si la hauteur est stable (écart médian <= 0,2 demi-ton) et nette (clarté YIN >= 0,85).
 
 Usage : python3 tools/sample-pitch.py [dossier de téléchargement]
@@ -26,6 +28,14 @@ MULTI_SOURCES = {
     'piano': 'https://raw.githubusercontent.com/felixroos/dough-samples/main/piano.json',
     'vcsl': 'https://raw.githubusercontent.com/felixroos/dough-samples/main/vcsl.json',
     'dirt': 'https://raw.githubusercontent.com/tidalcycles/dirt-samples/main/strudel.json',
+}
+# Instruments dont la mesure d'octave est ambiguë (sons riches en harmoniques, trop peu d'échantillons nets) : même
+# convention de nommage que l'instrument indiqué, enregistré dans les mêmes conditions.
+OCTAVE_LIKE = {
+    'vcsl:pipeorgan_loud': 'vcsl:pipeorgan_quiet',
+    'vcsl:pipeorgan_loud_pedal': 'vcsl:pipeorgan_quiet_pedal',
+    'vcsl:vibraphone_bowed': 'vcsl:vibraphone',
+    'vcsl:balafon_hard': 'vcsl:balafon',
 }
 MAX_CENTS = 150  # au-delà, une correction n'est appliquée que si toute la banque la confirme
 
@@ -89,6 +99,16 @@ def measure(x):
 def fine(cents):
     """Écart ramené à moins d'une demi-octave (l'octave des fichiers est conservée)."""
     return cents - 1200 * round(cents / 1200)
+
+
+def octave(raws):
+    """Décalage d'octave (en demi-tons, positif = sonne trop haut) d'une banque à partir des écarts bruts mesurés
+    (en centièmes), ou None si les mesures ne s'accordent pas : au moins 3 mesures, dont 60 % dans la même octave."""
+    octs = [round(r / 1200) for r in raws if r is not None]
+    if len(octs) < 3:
+        return None
+    best = max(set(octs), key=octs.count)
+    return 12 * best if octs.count(best) >= 0.6 * len(octs) else None
 
 
 def get(url, cache):
@@ -184,7 +204,7 @@ def multi_sample(job, cache):
     bank, base, n, path = job
     url = base + (path if '%' in path else urllib.parse.quote(path))
     m = measure(pcm(get(url, cache)))
-    return None if m is None else fine((m - n) * 100)
+    return None if m is None else (m - n) * 100  # écart brut, octave comprise
 
 
 def node(expr):
@@ -200,7 +220,7 @@ def main():
         'vcsl': node('console.log(JSON.stringify(SS.LIB.vcsl.map(v=>v.key)))'),
         'dirt': node('console.log(JSON.stringify(SS.DIRT_INSTRUMENTS.filter(d=>d.multi).map(d=>d.bank)))'),
     }
-    sf, multi = {}, {}
+    sf, multi, octs = {}, {}, {}
     with ThreadPoolExecutor(10) as ex:
         for name, devs in ex.map(lambda f: sf_file(f, cache), sf_names):
             cents = [round(c) for c in settle(devs)]
@@ -211,15 +231,21 @@ def main():
             j = json.loads(get(MULTI_SOURCES[bank], cache))
             for key in keys:
                 entries = multi_entries(j.get(key, {}))
-                devs = list(ex.map(lambda e: multi_sample((bank, j['_base'], e[0], e[1]), cache), entries))
-                cents = [round(c) for c in settle(devs)]
-                print(bank, key, cents, flush=True)
+                raws = list(ex.map(lambda e: multi_sample((bank, j['_base'], e[0], e[1]), cache), entries))
+                octs[bank + ':' + key] = octave(raws)
+                cents = [round(c) for c in settle([None if r is None else fine(r) for r in raws])]
+                print(bank, key, octs[bank + ':' + key], cents, flush=True)
                 for (n, path), c in zip(entries, cents):
                     if abs(c) >= 3:
                         multi[bank + ':' + path] = c
+    for k, like in OCTAVE_LIKE.items():
+        if k in octs:
+            octs[k] = octs.get(like)
+    octs = {k: v for k, v in octs.items() if v}
     with open(os.path.join(ROOT, 'js', 'sample-tuning.js'), 'w') as out:
         out.write(HEADER)
         out.write('SS.SF_TUNING = {\n' + ''.join(f'  {json.dumps(k)}: {json.dumps(v)},\n' for k, v in sorted(sf.items())) + '};\n')
+        out.write('SS.MULTI_OCTAVE = {\n' + ''.join(f'  {json.dumps(k)}: {v},\n' for k, v in sorted(octs.items())) + '};\n')
         out.write('SS.MULTI_TUNING = {\n' + ''.join(f'  {json.dumps(k)}: {v},\n' for k, v in sorted(multi.items())) + '};\n')
 
 
@@ -229,11 +255,11 @@ HEADER = '''/*
  * acoustique, 10 à 25 centièmes pour de nombreux pianos, xylophones ou basses) : deux instruments jouant la même
  * note sonnaient faux ensemble. Valeurs en centièmes de demi-ton (positif = l'échantillon sonne trop haut).
  *  - SS.SF_TUNING : soundfont -> correction de chaque zone, dans l'ordre du fichier ;
- *  - SS.MULTI_TUNING : « banque:chemin » d'un échantillon multi (piano, VCSL, Dirt-Samples) -> correction.
- * Seul l'écart fin est corrigé : l'octave annoncée par les fichiers est conservée.
- * À FAIRE (décision en attente) : la plupart des instruments VCSL (piano1, orgues, sax, flûtes à bec, harmonicas,
- * xylophones…) sonnent une octave plus haut que la note demandée : leurs fichiers suivent la convention Do3 = midi 60.
- * Non corrigé pour ne pas déplacer d'une octave les projets existants ; à reprendre si on le demande.
+ *  - SS.MULTI_OCTAVE : « banque:instrument » multi -> décalage d'octave, en demi-tons (positif = sonne trop haut).
+ *    La plupart des instruments VCSL (piano1, orgues, sax, flûtes à bec, harmonicas, xylophones…) suivent la
+ *    convention Do3 = midi 60 et sonnaient une octave plus haut que la note jouée ; les projets enregistrés avant
+ *    la correction (version 1) sont transposés à l'ouverture pour sonner comme avant (SS.migrateOctaves) ;
+ *  - SS.MULTI_TUNING : « banque:chemin » d'un échantillon multi (piano, VCSL, Dirt-Samples) -> écart fin.
  */
 window.SS = window.SS || {};
 '''

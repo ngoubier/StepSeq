@@ -275,6 +275,7 @@ SS.audio = (() => {
     if (!multiMaps.has(k)) {
       const p = loadJSON(SS.SOURCES[inst.bank]).then((json) => {
         let map = json[inst.key] || {};
+        const oct = SS.multiOctave(inst);
         if (Array.isArray(map)) {
           // banque Dirt-Samples : la note est dans le nom du fichier (« Mighty Moog C2.wav », « BS A#2 PI.wav »)
           const named = {};
@@ -287,9 +288,11 @@ SS.audio = (() => {
         return Object.entries(map)
           .map(([note, path]) => {
             const file = Array.isArray(path) ? path[0] : path;
-            // hauteur réelle = note du nom + écart mesuré (js/sample-tuning.js), en demi-tons
+            // hauteur réelle = note du nom + octave de la banque + écart fin mesuré (js/sample-tuning.js) ;
+            // midi est la hauteur réelle à l'octave près : l'échantillon choisi est le plus proche de la note jouée
             const cents = (SS.MULTI_TUNING && SS.MULTI_TUNING[inst.bank + ':' + file]) || 0;
-            return { midi: SS.parseNote(note), tune: cents / 100, url: json._base + encodePath(file) };
+            const n = SS.parseNote(note);
+            return { midi: n === null ? null : n + oct, tune: cents / 100, url: json._base + encodePath(file) };
           })
           .filter((e) => e.midi !== null)
           .sort((a, b) => a.midi - b.midi);
