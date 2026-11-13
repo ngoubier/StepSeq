@@ -344,6 +344,7 @@ SS.ui = (() => {
 
     const isOpen = app.state.openRolls.has(track.id);
     const autoOpen = openAutos().has(track.id);
+    const instr = track.type === 'instrument';
     const head = h(
       'div',
       { class: 'track-head' },
@@ -366,27 +367,6 @@ SS.ui = (() => {
           if (grip) grip.focus();
         },
       }),
-      h('button', { class: 'th-btn th-play', title: 'Écouter', html: ICONS.play, onclick: () => SS.audio.preview(track, previewNotes(track)) }),
-      h('button', {
-        class: 'th-btn box mute' + (track.mute ? ' on' : ''),
-        title: 'Muet',
-        onclick: (e) => {
-          track.mute = !track.mute;
-          e.currentTarget.classList.toggle('on', track.mute);
-          SS.audio.applyMutes(app.project());
-          app.changed();
-        },
-      }, 'M'),
-      h('button', {
-        class: 'th-btn box solo' + (track.solo ? ' on' : ''),
-        title: 'Solo',
-        onclick: (e) => {
-          track.solo = !track.solo;
-          e.currentTarget.classList.toggle('on', track.solo);
-          SS.audio.applyMutes(app.project());
-          app.changed();
-        },
-      }, 'S'),
       h('button', {
         type: 'button',
         class: 'th-icon',
@@ -401,60 +381,85 @@ SS.ui = (() => {
         h('b', {}, track.name),
         h('small', {}, gmBadge(track), trackSubtitle(track))
       ),
-      h('input', {
-        class: 'th-vol',
-        type: 'range',
-        min: 0,
-        max: 1,
-        step: 0.01,
-        value: track.volume,
-        title: 'Volume',
-        oninput: (e) => {
-          track.volume = parseFloat(e.target.value);
-          SS.audio.setTrackGain(track, track.volume);
-          app.changed();
-        },
-      }),
-      track.type === 'instrument'
-        ? h('button', {
-            class: 'th-btn th-roll' + (isOpen ? ' open' : ''),
-            title: 'Afficher / masquer le piano roll',
-            html: ICONS.chevron,
-            onclick: () => {
-              if (isOpen) app.state.openRolls.delete(track.id);
-              else app.state.openRolls.add(track.id);
-              renderTrack(track);
-            },
-          })
-        : null,
-      track.type === 'instrument'
-        ? h('button', {
-            class: 'th-btn th-sd',
-            title: SS.isAnalog(track) ? `Sound design : façade du ${SS.findAnalog(track.instrument).label}` : 'Sound design',
-            html: ICONS.sliders,
-            onclick: () => (SS.isAnalog(track) ? SS.junoPanel.open(track) : SS.soundDesign.open(track)),
-          })
-        : null,
-      h('button', {
-        type: 'button',
-        class: 'th-btn th-auto' + (autoOpen ? ' open' : '') + (track.auto ? ' on' : ''),
-        title: 'Automation : filtre, résonance, volume, reverb, écho, pas à pas (propre à la scène)',
-        'aria-label': `Automation de la piste ${track.name}`,
-        'aria-expanded': String(autoOpen),
-        html: ICONS.auto,
-        onclick: () => {
-          if (autoOpen) openAutos().delete(track.id);
-          else openAutos().add(track.id);
-          renderTrack(track);
-        },
-      }),
-      h('button', {
-        class: 'th-btn fx-btn' + (SS.fxActive(track) ? ' on' : ''),
-        title: 'Effets : chorus, delay, reverb, sidechain, bus partagés',
-        onclick: () => SS.fx.open(track),
-      }, 'FX'),
-      h('button', { class: 'th-btn th-edit', title: 'Modifier la piste', html: ICONS.gear, onclick: () => app.editTrack(track) }),
-      h('button', { class: 'th-btn th-del', title: 'Supprimer la piste', html: ICONS.close, onclick: () => app.deleteTrack(track) })
+      h(
+        'div',
+        { class: 'th-ctrls' },
+        h('button', { class: 'th-btn th-play', title: 'Écouter', html: ICONS.play, onclick: () => SS.audio.preview(track, previewNotes(track)) }),
+        h('button', {
+          class: 'th-btn box mute' + (track.mute ? ' on' : ''),
+          title: 'Muet',
+          onclick: (e) => {
+            track.mute = !track.mute;
+            e.currentTarget.classList.toggle('on', track.mute);
+            SS.audio.applyMutes(app.project());
+            app.changed();
+          },
+        }, 'M'),
+        h('button', {
+          class: 'th-btn box solo' + (track.solo ? ' on' : ''),
+          title: 'Solo',
+          onclick: (e) => {
+            track.solo = !track.solo;
+            e.currentTarget.classList.toggle('on', track.solo);
+            SS.audio.applyMutes(app.project());
+            app.changed();
+          },
+        }, 'S'),
+        h('input', {
+          class: 'th-vol',
+          type: 'range',
+          min: 0,
+          max: 1,
+          step: 0.01,
+          value: track.volume,
+          title: 'Volume',
+          oninput: (e) => {
+            track.volume = parseFloat(e.target.value);
+            SS.audio.setTrackGain(track, track.volume);
+            app.changed();
+          },
+        }),
+        instr
+          ? h('button', {
+              class: 'th-btn th-roll' + (isOpen ? ' open' : ''),
+              title: 'Afficher / masquer le piano roll',
+              html: ICONS.chevron,
+              onclick: () => {
+                if (isOpen) app.state.openRolls.delete(track.id);
+                else app.state.openRolls.add(track.id);
+                renderTrack(track);
+              },
+            })
+          : h('button', { class: 'th-btn th-roll', disabled: true, title: 'Piano roll : pas sur une piste de batterie (les pas se règlent dans la grille)', html: ICONS.chevron }),
+        instr
+          ? h('button', {
+              class: 'th-btn th-sd',
+              title: SS.isAnalog(track) ? `Sound design : façade du ${SS.findAnalog(track.instrument).label}` : 'Sound design',
+              html: ICONS.sliders,
+              onclick: () => (SS.isAnalog(track) ? SS.junoPanel.open(track) : SS.soundDesign.open(track)),
+            })
+          : h('button', { class: 'th-btn th-sd', disabled: true, title: 'Sound design : pas sur une piste de batterie (le son se choisit avec ⚙)', html: ICONS.sliders }),
+        h('button', {
+          type: 'button',
+          class: 'th-btn th-auto' + (autoOpen ? ' open' : '') + (track.auto ? ' on' : ''),
+          title: 'Automation : filtre, résonance, volume, reverb, écho, pas à pas (propre à la scène)',
+          'aria-label': `Automation de la piste ${track.name}`,
+          'aria-expanded': String(autoOpen),
+          html: ICONS.auto,
+          onclick: () => {
+            if (autoOpen) openAutos().delete(track.id);
+            else openAutos().add(track.id);
+            renderTrack(track);
+          },
+        }),
+        h('button', {
+          class: 'th-btn fx-btn' + (SS.fxActive(track) ? ' on' : ''),
+          title: 'Effets : chorus, delay, reverb, sidechain, bus partagés',
+          onclick: () => SS.fx.open(track),
+        }, 'FX'),
+        h('button', { class: 'th-btn th-edit', title: 'Modifier la piste', html: ICONS.gear, onclick: () => app.editTrack(track) }),
+        h('button', { class: 'th-btn th-del', title: 'Supprimer la piste', html: ICONS.close, onclick: () => app.deleteTrack(track) })
+      )
     );
 
     const grid = h('div', { class: 'grid track-grid' });
