@@ -3005,3 +3005,31 @@ dialog.midi-dialog { width: min(720px, calc(100vw - 32px)); }
 .midi-check input[type=number] { width: 60px; background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 4px 6px; font: inherit; }
 .midi-check[hidden] { display: none; }
 @media (max-width: 560px) { .midi-options { grid-template-columns: 1fr; } }
+
+/* ---------- Mode General MIDI (fenêtre de piste, Band) ---------- */
+#dlgGmGroups .chip small { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+#dlgGmGroups .chip.active small { color: inherit; opacity: .8; }
+.band-gm { display: inline-flex; align-items: center; gap: 7px; padding: 5px 12px; font-size: 13px; }
+.band-gm-box { width: 14px; height: 14px; border-radius: 4px; border: 2px solid var(--muted); display: inline-block; }
+.band-gm.active { background: var(--accent); color: #fff; }
+.band-gm.active .band-gm-box { border-color: #fff; background: #fff; box-shadow: inset 0 0 0 2px var(--accent); }
+.band-gm-short { display: none; }
+@media (max-width: 560px) {
+  .band-gm { padding: 5px 8px; gap: 5px; flex: none; }
+  .band-gm-long { display: none; }
+  .band-gm-short { display: inline; }
+}
+@media (max-width: 400px) {
+  .band-gm-box { display: none; }
+  .band-head .band-modes { margin-left: 4px; }
+}
+
+/* Badge General MIDI dans la liste des pistes (js/ui.js gmBadge) */
+.th-gm {
+  display: inline-block; margin-right: 5px; padding: 0 4px; border: 0; border-radius: 3px;
+  font: 600 10px/14px ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; vertical-align: 1px;
+  background: color-mix(in srgb, var(--accent-2) 22%, transparent); color: #7db8ff;
+}
+.th-gm.drum { background: color-mix(in srgb, #e3179c 24%, transparent); color: #ff7cc8; }
+button.th-gm.no { background: color-mix(in srgb, #f08a00 22%, transparent); color: #ffab3d; cursor: pointer; }
+button.th-gm.no:hover, button.th-gm.no:focus-visible { background: #f08a00; color: #1a1000; outline: none; }

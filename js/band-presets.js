@@ -77,6 +77,12 @@ window.SS = window.SS || {};
         cb: 'cowbell', perc: 'conga', misc: 'bongo', lt: 'tom_mallet', mt: 'tom2_mallet', ht: 'tom_stick', rim: 'clave',
       },
     },
+    // batterie General MIDI (bibliothèque « gm ») : seul kit proposé en mode General MIDI
+    gm: {
+      label: 'Batterie General MIDI',
+      source: 'gm',
+      map: { bd: '36', sd: '38', cp: '39', rim: '37', hh: '42', oh: '46', lt: '41', mt: '45', ht: '48', cr: '49', rd: '51', cb: '56', sh: '70', tb: '54', perc: '63', misc: '60', fx: '71' },
+    },
   };
   // un élément absent d'un kit est emprunté au premier de ces kits qui l'a
   const FALLBACK_KITS = ['RolandTR808', 'LinnDrum', 'RolandMC303'];
@@ -480,6 +486,10 @@ window.SS = window.SS || {};
   function describe(opts) {
     const cat = (SS.CATEGORIES.find((c) => c.id === opts.category) || { label: '' }).label;
     if (opts.type === 'drum') {
+      if (opts.source === 'gm') {
+        const d = SS.findGmDrum(opts.bank);
+        return { name: d ? d.label : drumLabel(opts.sound), kind: 'Drum', detail: `General MIDI · note ${opts.bank}` };
+      }
       const src = opts.source && opts.source !== 'tdm' ? opts.bank : (KITS[opts.machine] || { label: opts.machine }).label;
       return { name: drumLabel(opts.sound), kind: 'Drum', detail: src };
     }
@@ -489,6 +499,8 @@ window.SS = window.SS || {};
       return { name: p ? `${p.id} – ${p.name}` : opts.patch, kind: 'Synthé', detail: `${cat} · ${synth.label}` };
     }
     const { family, inst } = SS.locateInstrument(opts.family, opts.instrument);
+    const gm = SS.trackMidi({ type: 'instrument', family: opts.family, instrument: opts.instrument, sfv: opts.sfv });
+    if (gm) return { name: SS.GM_PROGRAMS[gm.program], kind: `GM ${gm.program + 1}`, detail: `${cat} · ${inst.label}` };
     return { name: inst.label, kind: 'Instrument', detail: `${cat} · ${family.label}` };
   }
 

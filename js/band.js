@@ -77,16 +77,43 @@ SS.band = (() => {
     return S.cache[p.id];
   }
 
+  /* Mode General MIDI du projet (project.gm, même réglage que la fenêtre de piste) :
+     chaque choix est remplacé par son équivalent GM, le batteur joue la batterie General MIDI. */
+  const gm = () => !!(app && app.project().gm);
+  const toGm = (opts) => (gm() ? SS.midi.gmEquivalent(opts) : opts);
+  const kitOf = (ms) => (gm() ? 'gm' : ms.kit);
+  /** Choix n° i d'un musicien (avant le choix libre). */
+  const choiceAt = (mu, i) => toGm(B().choiceOpts(mu.pick[i], catOf(mu)));
+  /** Ordre des conseillés : en mode GM, les sons déjà General MIDI (gm_*) d'abord, ils sont plus fidèles qu'une conversion. */
+  const pickOrder = (mu) => {
+    const idx = mu.pick.map((_, i) => i);
+    return gm() ? [...idx.filter((i) => mu.pick[i].startsWith('gm_')), ...idx.filter((i) => !mu.pick[i].startsWith('gm_'))] : idx;
+  };
+  /** Choix retenu : celui de l'utilisateur, sinon le premier de la liste (en mode GM, le premier son GM). */
+  const effPick = (mu, ms) => (ms.picked || !gm() ? ms.pick : pickOrder(mu)[0]);
+
   /** Options de piste de l'instrument retenu pour un musicien (hors batterie). */
   function instOpts(mu) {
     const st = musState()[mu.id];
-    return st.custom || B().choiceOpts(mu.pick[st.pick], catOf(mu));
+    return st.custom ? toGm(st.custom) : choiceAt(mu, effPick(mu, st));
+  }
+  /** Clé de niveau (js/band-levels.js) d'un instrument : celle du son réellement joué en mode GM. */
+  function instLevelKey(mu, ms) {
+    if (ms.custom) return null;
+    const tok = gm() ? instOpts(mu).instrument : mu.pick[effPick(mu, ms)];
+    return `${mu.role}|${tok}|${catOf(mu)}`;
   }
   /** Élément de batterie résolu : { opts, label, borrowed, custom } */
   function pieceInfo(mu, pc) {
     const st = musState()[mu.id];
-    if (pc.custom) return { opts: pc.custom, label: B().drumLabel(pc.custom.sound), borrowed: false, custom: true };
-    return B().pieceOpts(st.kit, pc.piece);
+    if (pc.custom) {
+      const o = toGm(pc.custom);
+      const d = o.source === 'gm' && SS.findGmDrum(o.bank);
+      return { opts: o, label: d ? d.label : B().drumLabel(o.sound), borrowed: false, custom: true };
+    }
+    const info = B().pieceOpts(kitOf(st), gm() ? pc.piece.split('@')[0] : pc.piece); // « cp@RolandTR909 » : en GM, le son GM du type
+    if (info.opts.source === 'gm') info.label = (SS.findGmDrum(info.opts.bank) || {}).label || info.label;
+    return info;
   }
 
   /** Marque d'une piste créée par Band (gardée dans le projet) : sert à la retrouver pour la remplacer. */
@@ -107,12 +134,11 @@ SS.band = (() => {
           const info = pieceInfo(mu, pc);
           const name = mu.role === 'perc' ? `Percu · ${info.label}` : info.label;
           // levelKey : clé de la mesure de niveau (js/band-levels.js) qui sert au mixage automatique (js/bandmix.js)
-          out.push({ ...info.opts, name, color, band: tag(p, mu, info.opts.sound), levelKey: pc.custom ? null : `${ms.kit}|${pc.piece}` });
+          out.push({ ...info.opts, name, color, band: tag(p, mu, info.opts.sound), levelKey: pc.custom ? null : `${kitOf(ms)}|${pc.piece}` });
         });
       } else {
         const o = instOpts(mu);
-        const levelKey = ms.custom ? null : `${mu.role}|${mu.pick[ms.pick]}|${catOf(mu)}`;
-        out.push({ ...o, category: o.category || catOf(mu), name: roleOf(mu).short, color, band: tag(p, mu), levelKey });
+        out.push({ ...o, category: o.category || catOf(mu), name: roleOf(mu).short, color, band: tag(p, mu), levelKey: instLevelKey(mu, ms) });
       }
     });
     return out;
@@ -182,7 +208,7 @@ SS.band = (() => {
     const ms = musState()[mu.id];
     if (mu.kits) {
       const n = ms.pieces.filter((pc) => pc.on).length;
-      return `${(B().KITS[ms.kit] || {}).label} · ${n} piste${n > 1 ? 's' : ''}`;
+      return `${(B().KITS[kitOf(ms)] || {}).label} · ${n} piste${n > 1 ? 's' : ''}`;
     }
     return B().describe(instOpts(mu)).name;
   }
@@ -273,11 +299,23 @@ SS.band = (() => {
     const cat = catOf(mu);
     const pick = (i) => {
       ms.pick = i;
+      ms.picked = true;
       ms.custom = null;
       refresh();
       preview(instOpts(mu));
     };
-    const cards = mu.pick.map((tok, i) => choiceCard(B().choiceOpts(tok, cat), { active: !ms.custom && ms.pick === i, star: i === 0, onPick: () => pick(i) }));
+    // en mode GM, deux choix peuvent donner le même son : on ne garde que le premier
+    const same = (a, b) => a.type === b.type && a.instrument === b.instrument && (a.sfv || 0) === (b.sfv || 0) && a.analog === b.analog && a.patch === b.patch;
+    const cur = instOpts(mu);
+    const seen = [];
+    const cards = pickOrder(mu)
+      .map((i, k) => {
+        const o = choiceAt(mu, i);
+        if (seen.some((x) => same(x, o))) return null;
+        seen.push(o);
+        return choiceCard(o, { active: !ms.custom && same(o, cur), star: k === 0, onPick: () => pick(i) });
+      })
+      .filter(Boolean);
     const catLabel = (SS.CATEGORIES.find((c) => c.id === cat) || {}).label;
     // replaceChildren écrirait « null » en texte : on retire les absents
     panel.replaceChildren(
@@ -288,36 +326,38 @@ SS.band = (() => {
         h('div', { class: 'bpn-sec' }, 'Conseillés'),
         ...cards.slice(1),
         ms.custom ? h('div', { class: 'bpn-sec' }, 'Ton choix') : null,
-        ms.custom ? choiceCard(ms.custom, { active: true, onPick: () => {}, extraClass: ' custom' }) : null,
+        ms.custom ? choiceCard(instOpts(mu), { active: true, onPick: () => {}, extraClass: ' custom' }) : null,
         h(
           'button',
           { type: 'button', class: 'btn bpn-browse', onclick: () => browseInstrument(mu, ms) },
           h('span', { html: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>' }),
           'Tous les instruments…'
         ),
-        h('p', { class: 'dlg-hint' }, `Jeu : ${catLabel}. La fenêtre « Nouvelle piste » donne accès à toute la bibliothèque (instruments et synthés).`)
+        h('p', { class: 'dlg-hint' }, gm()
+          ? `Jeu : ${catLabel}. Mode General MIDI : les sons conseillés sont remplacés par le programme GM le plus proche ; « Tous les instruments… » propose les 128 programmes.`
+          : `Jeu : ${catLabel}. La fenêtre « Nouvelle piste » donne accès à toute la bibliothèque (instruments et synthés).`)
       ].filter(Boolean)
     );
   }
 
   function renderKitPanel(mu, ms) {
     const panel = $('#bandPanel');
-    const kitCards = mu.kits.map((k, i) => {
+    const kitCards = (gm() ? ['gm'] : mu.kits).map((k, i) => {
       const def = B().KITS[k];
       return h(
         'button',
         {
           type: 'button',
-          class: 'band-kit' + (ms.kit === k ? ' active' : ''),
+          class: 'band-kit' + (kitOf(ms) === k ? ' active' : ''),
           role: 'radio',
-          'aria-checked': ms.kit === k ? 'true' : 'false',
+          'aria-checked': kitOf(ms) === k ? 'true' : 'false',
           onclick: () => {
             ms.kit = k;
             refresh();
           },
         },
         h('span', { class: 'bk-name' }, (i === 0 ? '★ ' : '') + def.label),
-        h('span', { class: 'bk-detail' }, def.source ? (def.source === 'vcsl' ? 'Échantillons acoustiques' : 'Dirt-Samples') : `Boîte à rythmes · ${def.year}`)
+        h('span', { class: 'bk-detail' }, def.source ? ({ vcsl: 'Échantillons acoustiques', gm: 'Les 47 sons de la norme, canal 10' }[def.source] || 'Dirt-Samples') : `Boîte à rythmes · ${def.year}`)
       );
     });
     const rows = ms.pieces.map((pc) => {
@@ -356,7 +396,7 @@ SS.band = (() => {
     const n = ms.pieces.filter((pc) => pc.on).length;
     panel.replaceChildren(
       panelHead(mu, ms),
-      h('div', { class: 'bpn-sec' }, 'Kit (★ phare + 5 conseillés)'),
+      h('div', { class: 'bpn-sec' }, gm() ? 'Kit (mode General MIDI)' : 'Kit (★ phare + 5 conseillés)'),
       h('div', { class: 'band-kits', role: 'radiogroup', 'aria-label': 'Kit' }, ...kitCards),
       h('div', { class: 'bpn-sec' }, `Éléments — une piste par élément coché (${n})`),
       h('div', { class: 'band-pieces' }, ...rows),
@@ -366,7 +406,9 @@ SS.band = (() => {
         h('span', { html: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>' }),
         'Ajouter un élément…'
       ),
-      h('p', { class: 'dlg-hint' }, `${mu.role === 'perc' ? 'Le percussionniste' : 'Le batteur'} n’a accès qu’aux drums et échantillons : boîtes à rythmes, Dirt-Samples, percussions acoustiques. Les éléments peuvent venir de kits différents.`)
+      h('p', { class: 'dlg-hint' }, gm()
+        ? `Mode General MIDI : chaque élément est un son de la batterie General MIDI. « Ajouter un élément… » propose les 47 sons (bongos, congas, claves, triangles…).`
+        : `${mu.role === 'perc' ? 'Le percussionniste' : 'Le batteur'} n’a accès qu’aux drums et échantillons : boîtes à rythmes, Dirt-Samples, percussions acoustiques. Les éléments peuvent venir de kits différents.`)
     );
   }
 
@@ -389,7 +431,24 @@ SS.band = (() => {
     $('#bandSongBtn').disabled = !n || !(SS.BandSongs && preset() && SS.BandSongs[preset().id]);
   }
 
+  function syncGm() {
+    const b = $('#bandGm');
+    if (!b) return;
+    b.classList.toggle('active', gm());
+    b.setAttribute('aria-pressed', gm() ? 'true' : 'false');
+  }
+  function setGm(on) {
+    const p = app.project();
+    if (!!p.gm === on) return;
+    if (on) p.gm = true;
+    else delete p.gm;
+    app.changed && app.changed();
+    SS.ui.renderAll(); // badges GM de la liste des pistes
+    refresh();
+  }
+
   function refresh() {
+    syncGm();
     renderStage();
     renderPanel();
     renderCount();
@@ -446,13 +505,15 @@ SS.band = (() => {
   }
   async function addPiece(mu, ms) {
     const res = await app.openTrackDialog(null, {
-      state: { type: 'drum', sound: 'perc', source: 'tdm', machine: B().KITS[ms.kit].source ? SS.DEFAULT_MACHINE : ms.kit, name: 'Élément' },
+      state: gm()
+        ? { type: 'drum', sound: 'perc', source: 'gm', bank: '63', machine: SS.DEFAULT_MACHINE, name: 'Élément' }
+        : { type: 'drum', sound: 'perc', source: 'tdm', machine: B().KITS[ms.kit].source ? SS.DEFAULT_MACHINE : ms.kit, name: 'Élément' },
       types: ['drum'],
       title: `Ajouter un élément — ${labelOf(mu)}`,
       okLabel: 'Ajouter',
     });
     if (!res) return;
-    ms.pieces.push({ piece: res.sound, on: true, custom: pickOpts(res) });
+    ms.pieces.push({ piece: res.sound || 'perc', on: true, custom: pickOpts(res) });
     refresh();
   }
   /** Garde seulement ce qui décrit le son (pas le nom, la couleur ni la longueur du dialogue). */
@@ -491,8 +552,9 @@ SS.band = (() => {
       mu = find(p);
     }
     const ms = S.cache[p.id] && S.cache[p.id][mu.id];
-    const opts = ms && ms.custom ? ms.custom : B().choiceOpts(mu.pick[ms ? ms.pick : 0], catOf(mu));
-    const levelKey = ms && ms.custom ? null : `${mu.role}|${mu.pick[ms ? ms.pick : 0]}|${catOf(mu)}`;
+    const pi = ms ? effPick(mu, ms) : gm() ? pickOrder(mu)[0] : 0;
+    const opts = ms && ms.custom ? toGm(ms.custom) : choiceAt(mu, pi);
+    const levelKey = ms && ms.custom ? null : `${mu.role}|${gm() ? opts.instrument : mu.pick[pi]}|${catOf(mu)}`;
     return { ...opts, category: 'mono', name: 'Mélodie', color: colorOf(mu), levelKey, role: mu.role, style: S.styleId || 'synthwave' };
   }
 
@@ -643,6 +705,7 @@ SS.band = (() => {
     $('#bandSongBtn').addEventListener('click', finishSong);
     $('#bandCancel').addEventListener('click', () => finish(false));
     el.querySelectorAll('#bandModes button').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
+    $('#bandGm').addEventListener('click', () => setGm(!gm()));
     SS.melodyPanel.init(app, { leadOpts: melodyTrackOpts, close: () => el.close('ok') });
     el.addEventListener('close', () => SS.melodyPanel.stop());
     // Échap = annuler (rien n'est créé)

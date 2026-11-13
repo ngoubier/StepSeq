@@ -424,6 +424,7 @@ SS.automix = (() => {
     if (!t) return 'keys';
     if (t.type === 'drum') {
       if (!t.source || t.source === 'tdm') return DRUM_ROLE[t.sound] || 'perc';
+      if (t.source === 'gm') return DRUM_ROLE[(SS.findGmDrum(t.bank) || {}).type] || 'perc';
       const b = String(t.bank || '').toLowerCase();
       if (/(^|[^a-z])(bd|kick|bassdrum)|bd$|kick/.test(b)) return 'kick';
       if (/sn|sd|snare/.test(b)) return 'snare';

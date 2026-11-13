@@ -169,7 +169,9 @@ SS.midiPanel = (() => {
   function init(api) {
     app = api;
     const sel = $('#miMachine');
+    sel.append(h('option', { value: SS.midi.GM_KIT }, 'General MIDI (sons d’origine, une piste par son)'));
     Object.entries(SS.midi.MACHINES).forEach(([id, m]) => sel.append(h('option', { value: id }, m.label)));
+    sel.value = SS.midi.GM_KIT;
     $('#importMidi').addEventListener('click', pickFile);
     $('#exportMidi').addEventListener('click', openExport);
     $('#miSplit').addEventListener('click', (e) => {

@@ -141,13 +141,14 @@
         <tr><td>Entrée / Échap</td><td>Valider / Annuler.</td></tr>
       </table></div>
       <p>À l'ouverture, le clavier est déjà dans la liste principale : il suffit de descendre avec ↓ pour parcourir les sons.</p>
-      <h3>Pistes Drum : 4 bibliothèques de strudel.cc</h3>
+      <h3>Pistes Drum : 5 bibliothèques</h3>
       <div class="table-wrap"><table>
         <tr><th>Bibliothèque</th><th>Contenu</th><th>Choix</th></tr>
         <tr><td>Boîtes à rythmes</td><td>tidal-drum-machines : 70 machines (TR-808, TR-909, LinnDrum, Emu SP-12…)</td><td>Type de drum (Kick, Snare, Clap, Hi-Hat, Toms, Crash…), puis machine et variation</td></tr>
         <tr><td>Dirt-Samples</td><td>218 banques de TidalCycles : kits (808, 909, jazz…), breaks, voix, bruitages</td><td>Banque (avec un champ de recherche), puis variation</td></tr>
         <tr><td>Percussions acoustiques</td><td>VCSL : congas, bongos, cajón, darbuka, timbales, gongs, cymbales, triangles…</td><td>Banque, puis variation</td></tr>
         <tr><td>Mridangam</td><td>Percussion d'Inde du Sud, rangée par syllabes (ta, ki, dhin, thom…)</td><td>Syllabe, puis variation</td></tr>
+        <tr><td>General MIDI</td><td>Les 47 sons de la batterie General MIDI (notes 35 à 81) : kicks, caisses claires, toms, cymbales, et aussi bongos, congas, timbales, agogos, cabasa, maracas, sifflets, guiros, claves, wood-blocks, cuicas, triangles. Ils viennent des soundfonts que strudel.cc utilise pour ses instruments <code>gm_*</code>.</td><td>Son (avec sa note GM), puis kit (FluidR3, JCLive, Chaos, SBLive)</td></tr>
       </table></div>
 
       <h3>Pistes Instrument : 14 familles</h3>
@@ -155,7 +156,7 @@
       <div class="table-wrap"><table>
         <tr><th>Source</th><th>Contenu</th></tr>
         <tr><td>Synthés intégrés « (synthé) »</td><td>Saw, Acid, Moog Bass, Acid Ladder, Sub, Reese, Supersaw, Pluck, Chiptune, Pads, et des sons de bruit (Noise Riser, Wind, Rumble). Seuls ceux-ci ont un VCO réglable dans le sound design.</td></tr>
-        <tr><td>Soundfonts General MIDI</td><td>Les 125 instruments <code>gm_*</code> de strudel : pianos, orgues, guitares, cordes, cuivres, bois, chœurs, sitar, koto, steel drums, effets sonores… Chacun existe en plusieurs <b>variantes</b> (banques JCLive, FluidR3, Aspirin…) : la colonne « Variante » les propose, la première est celle de strudel par défaut.</td></tr>
+        <tr><td>Soundfonts General MIDI</td><td>Les 125 instruments <code>gm_*</code> de strudel : pianos, orgues, guitares, cordes, cuivres, bois, chœurs, sitar, koto, steel drums, effets sonores… Chacun existe en plusieurs <b>variantes</b> (banques JCLive, FluidR3, Aspirin…) : la colonne « Variante » les propose, la première est celle de strudel par défaut. Leur numéro de programme General MIDI est affiché à droite (« GM 39 ») ; les variantes du piano couvrent aussi les programmes 2 à 4 (Bright, Electric Grand, Honky-tonk).</td></tr>
         <tr><td>Dirt-Samples « (Dirt-Samples) »</td><td>Les banques mélodiques de TidalCycles : <b>Mighty Moog</b> et <b>Pluck Bass</b> (multi-échantillonnées : l'échantillon le plus proche de la note est choisi), JV Bass, Bass Hits, Jungle Bass, Hardcore Bass… dans Bass ; Juno, SID, Arpy, Stabs, Hoover dans Synth Lead ; Pads, Guitare, Sax. Pour les autres banques, chaque échantillon est une <b>variante</b> et sonne en C2 (midi 36), comme <code>note("c2").s("jvbass")</code> sur strudel.cc.</td></tr>
         <tr><td>VCSL et piano de strudel</td><td>Instruments acoustiques échantillonnés, marqués « (VCSL) » : vibraphone, marimba, harpe, flûtes à bec, saxophones, orgues…</td></tr>
       </table></div>
@@ -597,13 +598,22 @@
         <li><b>Fichier mis à jour tout seul (Chrome et Edge)</b> : après un premier <b>Enregistrer</b> ou un <b>Ouvrir</b>, chaque modification réécrit aussi ce fichier (l'indicateur affiche son nom). Après un redémarrage du navigateur, l'indicateur affiche « Reprendre <i>fichier</i> » : un clic redonne l'autorisation d'écrire. Astuce : enregistre le fichier dans un dossier Dropbox, OneDrive ou Google Drive pour avoir aussi une sauvegarde sur le web.</li>
         <li>La bibliothèque reste dans ce navigateur, sur cet appareil. Pour changer d'appareil, passe par le fichier.</li>
       </ul>
+      <h3 id="general-midi">Mode General MIDI</h3>
+      <p>Pour monter un ensemble de pistes en General MIDI (par exemple pour l'exporter vers un logiciel de musique), active <b>General MIDI</b> : dans la fenêtre <b>Nouvelle piste</b> (ligne <b>Sons : Tous / General MIDI</b>) ou dans <b>Band</b> (bouton en haut). C'est le même réglage, enregistré dans le projet ; un fichier MIDI importé l'active.</p>
+      <ul>
+        <li><b>Nouvelle piste</b> : les instruments sont rangés dans les 16 familles de la norme (Pianos 1–8, Basses 33–40, Synth Lead 81–88…) avec leur numéro de programme ; la recherche accepte un nom ou un numéro. Les drums ne proposent que la batterie General MIDI (47 sons). Le type Synthé est désactivé.</li>
+        <li><b>Band</b> : chaque musicien joue un son General MIDI : les sons GM conseillés passent en premier, les autres sont remplacés par le programme le plus proche. Le batteur et le percussionniste jouent la batterie General MIDI.</li>
+        <li><b>Badges dans la liste des pistes</b> : sous le nom de chaque piste, <b>GM 39</b> (bleu) indique un instrument General MIDI, <b>GM 36</b> (rose) un son de la batterie General MIDI ; ils sortent tels quels à l'export MIDI. En mode General MIDI, <b>≈ GM 39</b> (orange) signale un son qui serait remplacé à l'export par ce programme : un clic convertit la piste (notes et volume gardés, <kbd>Ctrl</kbd>+<kbd>Z</kbd> pour annuler).</li>
+        <li>Les pistes déjà créées ne changent pas. Coupe le réglage pour retrouver tous les sons.</li>
+      </ul>
+
       <h3 id="midi">Importer et exporter des fichiers MIDI</h3>
       <p><b>Importer MIDI…</b> et <b>Exporter MIDI…</b> sont dans le menu de l'icône de l'application.</p>
       <ul>
-        <li><b>Importer</b> crée un nouveau projet à partir d'un fichier <code>.mid</code> (la chanson en cours reste dans <b>Chansons</b>). Chaque instrument devient une piste avec le son General MIDI du fichier ; la batterie (canal 10) donne une piste Drum par élément (kick, caisse claire, charleston…) sur la boîte à rythmes choisie.</li>
+        <li><b>Importer</b> crée un nouveau projet à partir d'un fichier <code>.mid</code> (la chanson en cours reste dans <b>Chansons</b>). Chaque instrument devient une piste avec le son General MIDI du fichier. La batterie (canal 10) donne une piste Drum par son : avec <b>Batterie : General MIDI</b> (par défaut), chaque note garde son son d'origine (bibliothèque General MIDI) ; avec une boîte à rythmes, une piste par élément (kick, caisse claire, charleston…).</li>
         <li>Le morceau est <b>analysé pour retrouver ses parties</b> : phrases de 4 mesures, changements d'orchestration, boucles qui se répètent. Chaque partie devient une scène, l'arrangement les enchaîne, et la lecture passe en mode Chanson. <b>Fidèle</b> garde toutes les variations (scènes plus longues), <b>Compact</b> confond les boucles qui se ressemblent (arrangement plus court). La fenêtre indique la part des notes du fichier rejouées à leur place. Les noms (Intro, Couplet, Refrain…) sont une estimation : renomme les scènes dans la fenêtre Song.</li>
         <li>Ce qui se perd à l'import : tout est placé sur la grille des doubles-croches (triolets et jeu non quantifié recalés), les roulements plus rapides sont fusionnés, le tempo et la mesure restent ceux du début, le pitch bend, la modulation et les autres contrôleurs sont ignorés. La fenêtre fait la liste de ce qui a été arrondi ou ignoré avant de créer le projet.</li>
-        <li><b>Exporter</b> écrit la chanson (l'arrangement déplié, avec le nom des scènes en marqueurs) ou la scène en cours répétée, pour un logiciel de musique. Les arpèges sont exportés note par note, exactement comme on les entend ; le swing et le placement des pistes peuvent être appliqués. Les sons qui ne sont pas General MIDI (synthés intégrés, Juno-106, échantillons) sont remplacés par le programme GM le plus proche ; le sound design, les effets et le mixage restent dans StepSeq.</li>
+        <li><b>Exporter</b> écrit la chanson (l'arrangement déplié, avec le nom des scènes en marqueurs) ou la scène en cours répétée, pour un logiciel de musique. Les arpèges sont exportés note par note, exactement comme on les entend ; le swing et le placement des pistes peuvent être appliqués. Les instruments <code>gm_*</code> et la batterie General MIDI sont exportés tels quels ; les autres sons (synthés intégrés, Juno-106, échantillons) sont remplacés par le programme ou la note GM le plus proche ; le sound design, les effets et le mixage restent dans StepSeq.</li>
       </ul>
 
       <h2 id="raccourcis">Raccourcis et astuces</h2>

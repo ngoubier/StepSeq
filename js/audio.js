@@ -79,7 +79,23 @@ SS.audio = (() => {
   function loadBuffer(url) {
     ensureCtx();
     if (!bufferCache.has(url)) {
-      const entry = { buffer: null, promise: null, failed: false };
+      const entry = { buffer: null, promise: null, failed: false, detune: 0 };
+      const gmDrum = gmDrumFileOf(url);
+      if (gmDrum) {
+        // son de batterie General MIDI : un soundfont d'une seule zone, joué à la hauteur de sa note
+        entry.promise = loadSoundfont(gmDrum.file).promise.then((zones) => {
+          const z = zones && (zones.find((x) => x.low <= gmDrum.note && gmDrum.note <= x.high) || zones[0]);
+          if (!z) {
+            entry.failed = true;
+            setTimeout(() => bufferCache.delete(url), 30000);
+            return null;
+          }
+          entry.detune = gmDrum.note * 100 - z.baseDetune;
+          return (entry.buffer = z.buffer);
+        });
+        bufferCache.set(url, entry);
+        return entry;
+      }
       entry.promise = fetch(url)
         .then((r) => {
           if (!r.ok) throw new Error(r.status + ' ' + url);
@@ -98,6 +114,16 @@ SS.audio = (() => {
       bufferCache.set(url, entry);
     }
     return bufferCache.get(url);
+  }
+
+  /** URL d'un son de batterie General MIDI (bibliothèque « gm ») -> nom du fichier soundfont, avec sa note. */
+  function gmDrumFileOf(url) {
+    const base = SS.SOURCES.soundfont;
+    if (!url.startsWith(base) || !url.endsWith('.js')) return null;
+    const file = url.slice(base.length, -3);
+    const m = /^128(\d\d)_/.exec(file);
+    if (!m) return null;
+    return { file, note: +m[1] };
   }
 
   function decode(arrayBuffer) {
@@ -210,6 +236,7 @@ SS.audio = (() => {
 
   /** Banques disponibles d'une bibliothèque : [{ id, count }] */
   async function drumBanks(lib) {
+    if (lib === 'gm') return SS.GM_DRUMS.map((d) => ({ id: String(d.midi), label: `${d.midi} · ${d.label}`, count: SS.gmDrumFiles(d.midi).length }));
     const json = await loadJSON(LIB_SOURCE[lib]());
     const keys = lib === 'vcsl' ? (SS.LIB && SS.LIB.vcslPerc) || [] : Object.keys(json).filter((k) => k !== '_base');
     return keys
@@ -218,6 +245,7 @@ SS.audio = (() => {
   }
 
   async function bankVariants(lib, bank) {
+    if (lib === 'gm') return SS.gmDrumFiles(bank).map((f) => SS.SOURCES.soundfont + f + '.js');
     const json = await loadJSON(LIB_SOURCE[lib]());
     const list = Array.isArray(json[bank]) ? json[bank].filter(noComma) : [];
     return list.map((p) => json._base + encodePath(p));
@@ -817,6 +845,7 @@ SS.audio = (() => {
     if (!entry.buffer) return; // pas encore chargé : on saute ce coup
     const src = ctx.createBufferSource();
     src.buffer = entry.buffer;
+    if (entry.detune) src.detune.value = entry.detune;
     const g = ctx.createGain();
     g.gain.value = velGain(vel);
     src.connect(g).connect(dest || bus(track));
