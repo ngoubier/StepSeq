@@ -303,6 +303,7 @@ SS.ui = (() => {
     $('#ruler').style.display = p.tracks.length ? '' : 'none';
     setPlayhead(nowStep);
     if (SS.mixer && SS.mixer.isOpen()) SS.mixer.render();
+    renderedShape = shape();
   }
 
   function renderTrack(track) {
@@ -311,6 +312,27 @@ SS.ui = (() => {
     if (old) old.el.replaceWith(el);
     else $('#tracks').append(el);
     setPlayhead(nowStep);
+    renderedShape = shape();
+  }
+
+  /*
+   * Ce qui fixe la construction de la page : nombre de pas, pistes, piano rolls ouverts. Deux scènes de même
+   * forme ne diffèrent que par leurs notes et leur tonalité : on repeint les cases et la gamme du piano roll.
+   */
+  let renderedShape = '';
+  function shape() {
+    const p = app.project();
+    return JSON.stringify([SS.totalSteps(p), p.tracks.map((t) => t.id), [...app.state.openRolls].sort()]);
+  }
+  /** Après un changement de scène : repeint les notes si la page a la même forme, sinon la reconstruit. */
+  function refreshScene() {
+    if (shape() !== renderedShape) return renderAll();
+    app.project().tracks.forEach((t) => {
+      paint(t);
+      applyRollKey(t, refs.get(t.id) || {});
+    });
+    setPlayhead(nowStep);
+    if (SS.mixer && SS.mixer.isOpen()) SS.mixer.render();
   }
 
   function buildTrack(track) {
@@ -650,7 +672,8 @@ SS.ui = (() => {
       'div',
       { class: 'roll-view', style: `height:${ROLL_VIEW_PX}px` },
       h('div', { class: 'roll-side' }, bar),
-      inner
+      inner,
+      (ref.rollHead = h('div', { class: 'roll-playhead', style: 'display:none', 'aria-hidden': 'true' }))
     );
     // bande des mesures : clic = sélectionner la mesure, glisser = plusieurs mesures
     const spb = SS.stepsPerBar(p);
@@ -684,10 +707,10 @@ SS.ui = (() => {
       h('div', { class: 'roll-key' }, h('small', {}, 'Mesures')),
       barGrid
     );
-    const roll = h('div', { class: 'roll' }, tools, buildPalette(track), barRow, view);
-    // tonalité : notes de la gamme mises en évidence, tonique marquée
-    const key = SS.sceneKey(p);
-    const scalePcs = key ? SS.harmony.scale(key).map((d) => d.pc) : null;
+    // palette d'accords et gamme : elles suivent la tonalité de la scène (applyRollKey, sans reconstruire)
+    ref.paletteBox = h('div', { class: 'roll-palette-box' });
+    ref.rollRows = new Map();
+    const roll = h('div', { class: 'roll' }, tools, ref.paletteBox, barRow, view);
     const scroller = makeRollScroller(track, view, inner, bar, thumb, rangeLabel, zoomLabel);
     // touche du clavier en face du pointeur : elle s'allume pour repérer la note survolée
     const keySpans = {};
@@ -734,37 +757,51 @@ SS.ui = (() => {
         noteGesture(track, +cell.dataset.step, +cell.dataset.midi, e);
       });
       hoverResize(track, grid, '.rcell');
-      inner.append(
+      const row = h(
+        'div',
+        { class: 'roll-row' + (black ? ' black' : '') + (isC ? ' c' : '') },
         h(
           'div',
-          {
-            class:
-              'roll-row' + (black ? ' black' : '') + (isC ? ' c' : '') +
-              (scalePcs ? (scalePcs.includes(midi % 12) ? ' in-key' : ' out-key') + (midi % 12 === scalePcs[0] ? ' tonic' : '') : ''),
-            title: scalePcs && scalePcs.includes(midi % 12) ? `${SS.harmony.spell(key, midi)} : degré ${scalePcs.indexOf(midi % 12) + 1} de ${SS.harmony.label(key)}` : undefined,
-          },
-          h(
-            'div',
-            { class: 'roll-key' },
-            (keySpans[midi] = h(
-              'span',
-              {
-                'data-key': midi,
-                // .edge : touche blanche dont la voisine du dessous est blanche aussi (si/do, mi/fa)
-                class: (black ? 'black' : '') + (isC ? ' c' : '') + (midi % 12 === 0 || midi % 12 === 5 ? ' edge' : ''),
-                // clic : écouter la note ; glisser : faire défiler le piano roll
-                onpointerdown: (e) =>
-                  scroller.dragFrom(e, () => SS.audio.preview(track, track.category === 'mono' ? midi : SS.chordNotes(midi, track.chord))),
-              },
-              isC || !black ? SS.noteName(midi) : ''
-            ))
-          ),
-          grid
-        )
+          { class: 'roll-key' },
+          (keySpans[midi] = h(
+            'span',
+            {
+              'data-key': midi,
+              // .edge : touche blanche dont la voisine du dessous est blanche aussi (si/do, mi/fa)
+              class: (black ? 'black' : '') + (isC ? ' c' : '') + (midi % 12 === 0 || midi % 12 === 5 ? ' edge' : ''),
+              // clic : écouter la note ; glisser : faire défiler le piano roll
+              onpointerdown: (e) =>
+                scroller.dragFrom(e, () => SS.audio.preview(track, track.category === 'mono' ? midi : SS.chordNotes(midi, track.chord))),
+            },
+            isC || !black ? SS.noteName(midi) : ''
+          ))
+        ),
+        grid
       );
+      ref.rollRows.set(midi, row);
+      inner.append(row);
     }
+    applyRollKey(track, ref);
     scroller.init();
     return roll;
+  }
+
+  /** Tonalité de la scène dans le piano roll : notes de la gamme mises en évidence, tonique marquée, palette d'accords. */
+  function applyRollKey(track, ref) {
+    if (!ref.rollRows) return;
+    const key = SS.sceneKey(app.project());
+    const scalePcs = key ? SS.harmony.scale(key).map((d) => d.pc) : null;
+    ref.rollRows.forEach((row, midi) => {
+      const pc = midi % 12;
+      const inKey = !!scalePcs && scalePcs.includes(pc);
+      row.classList.toggle('in-key', inKey);
+      row.classList.toggle('out-key', !!scalePcs && !inKey);
+      row.classList.toggle('tonic', !!scalePcs && pc === scalePcs[0]);
+      if (inKey) row.title = `${SS.harmony.spell(key, midi)} : degré ${scalePcs.indexOf(pc) + 1} de ${SS.harmony.label(key)}`;
+      else row.removeAttribute('title');
+    });
+    const pal = buildPalette(track);
+    ref.paletteBox.replaceChildren(...(pal ? [pal] : []));
   }
 
   /* ---------- Longueur de boucle propre à chaque piste ---------- */
@@ -1069,6 +1106,7 @@ SS.ui = (() => {
   /** Note décalée hors de la grille : petit trait à l'endroit où elle part vraiment (en avance : à gauche du pas). */
   function markShift(cell, ev) {
     if (!ev.shift) return;
+    cell.classList.add('shifted');
     cell.append(h('span', { class: 'shift-mark' + (ev.shift < 0 ? ' early' : ''), style: `--shift:${ev.shift}`, 'aria-hidden': 'true' }));
   }
   /** Ratchet : r petits traits en bas de la case (un par coup). */
@@ -1096,11 +1134,11 @@ SS.ui = (() => {
       return;
     }
     ref.cells.forEach((c) => {
-      c.classList.remove('on', 'start', 'hold', 'end', 'held', 'sel', 'sel-hold');
+      c.classList.remove('on', 'start', 'hold', 'end', 'held', 'sel', 'sel-hold', 'shifted');
       c.querySelector('.lbl')?.remove();
       c.title = '';
     });
-    ref.roll.forEach((cells) => cells.forEach((c) => c.classList.remove('on', 'start', 'root', 'sel', 'sel-hold')));
+    ref.roll.forEach((cells) => cells.forEach((c) => c.classList.remove('on', 'start', 'root', 'sel', 'sel-hold', 'shifted')));
     ref.el?.querySelectorAll('.shift-mark, .rat-mark').forEach((m) => m.remove());
 
     track.events.forEach((ev) => {
@@ -2407,29 +2445,65 @@ SS.ui = (() => {
   /* Tête de lecture                                                     */
   /* ------------------------------------------------------------------ */
 
+  /*
+   * Tête de lecture. Elle avance à chaque pas pendant la lecture : elle doit rester très légère, car le même
+   * fil d'exécution programme les notes. On ne touche donc qu'aux quelques cases allumées au pas précédent
+   * (pas de recherche dans toute la page), et dans le piano roll une seule barre se déplace au lieu d'allumer
+   * une colonne entière de cases (des milliers de cases à recalculer à chaque pas).
+   */
+  let litCells = [];
   function setPlayhead(step) {
-    document.querySelectorAll('#workspace .now').forEach((el) => el.classList.remove('now'));
     nowStep = step;
     const p = app.project();
     if (step < 0) {
+      litCells.forEach((el) => el.classList.remove('now'));
+      litCells = [];
+      refs.forEach((ref) => ref.rollHead && (ref.rollHead.style.display = 'none'));
       $('#position').textContent = '1 . 1 . 1';
       return;
     }
     // chaque piste a sa propre position dans sa boucle
     const total = SS.totalSteps(p);
     const g = step % total;
-    $('#ruler').querySelectorAll(`[data-step="${g}"]`).forEach((el) => el.classList.add('now'));
+    const spb = SS.stepsPerBar(p);
+    // d'abord les lectures de mise en page (défilement, position des barres du piano roll), puis les
+    // modifications : les mélanger forcerait le navigateur à recalculer la page plusieurs fois par pas
+    if (follow.on && SS.audio.isPlaying()) followPlayhead(g, spb);
+    const heads = [];
     p.tracks.forEach((t) => {
       const ref = refs.get(t.id);
-      if (!ref) return;
-      const s = step % SS.trackLen(p, t);
-      if (ref.cells[s]) ref.cells[s].classList.add('now');
-      ref.roll.forEach((cells) => cells[s] && cells[s].classList.add('now'));
+      if (ref && ref.rollHead) heads.push([ref.rollHead, rollHeadAt(ref, step % SS.trackLen(p, t))]);
     });
-    const spb = SS.stepsPerBar(p);
+    litCells.forEach((el) => el.classList.remove('now'));
+    litCells = [];
+    const light = (el) => el && (el.classList.add('now'), litCells.push(el));
+    $('#ruler').querySelectorAll(`[data-step="${g}"]`).forEach(light);
+    p.tracks.forEach((t) => {
+      const ref = refs.get(t.id);
+      if (ref) light(ref.cells[step % SS.trackLen(p, t)]);
+    });
+    heads.forEach(([head, at]) => {
+      head.style.display = at ? '' : 'none';
+      if (!at) return;
+      head.style.width = at.w + 'px';
+      head.style.transform = `translateX(${at.x}px)`;
+    });
     const beat = SS.stepsPerBeat(p);
     $('#position').textContent = `${Math.floor(g / spb) + 1} . ${Math.floor((g % spb) / beat) + 1} . ${(g % beat) + 1}`;
-    if (follow.on && SS.audio.isPlaying()) followPlayhead(g, spb);
+  }
+
+  /** Barre de lecture du piano roll : position { x, w } de la colonne du pas `s`, ou null (absente ou sous le clavier). */
+  function rollHeadAt(ref, s) {
+    const head = ref.rollHead;
+    const first = ref.roll.values().next().value;
+    const cell = first && first[s];
+    if (!cell || !head.parentElement) return null;
+    const view = head.parentElement.getBoundingClientRect();
+    const r = cell.getBoundingClientRect();
+    const key = head.parentElement.querySelector('.roll-key'); // clavier collé à gauche : la barre ne passe pas dessous
+    const keys = key ? key.getBoundingClientRect().right - view.left : 0;
+    const x = r.left - view.left;
+    return x + r.width <= keys ? null : { x, w: r.width };
   }
 
   /* ---------- Zoom horizontal : voir plus (ou moins) de mesures ---------- */
@@ -3458,6 +3532,7 @@ SS.ui = (() => {
     init,
     renderAll,
     renderTrack,
+    refreshScene,
     paint,
     setPlayhead,
     toast,

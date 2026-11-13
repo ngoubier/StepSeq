@@ -1385,7 +1385,8 @@ SS.audio = (() => {
     const project = seq.getProject();
     if (seq.song) return tickSong(project);
     const total = SS.totalSteps(project);
-    while (seq.nextTime < ctx.currentTime + lookahead(project)) {
+    const ahead = lookahead(project);
+    while (seq.nextTime < ctx.currentTime + ahead) {
       // le compteur ne revient pas à 0 : des pistes de longueurs différentes restent décalées (polymétrie).
       // Il repart à 0 quand toutes les boucles se retrouvent alignées.
       if (seq.step >= seq.cycle(project, total)) seq.step = 0;
@@ -1402,9 +1403,16 @@ SS.audio = (() => {
    * Au passage d'un bloc à l'autre, seq.song.onBlock(index) charge la scène suivante
    * dans les pistes (avant de programmer son premier pas) ; l'affichage la suit.
    */
+  /*
+   * Au changement de bloc, l'affichage de la nouvelle scène est mis à jour juste après ce passage (main.js) ;
+   * il peut occuper le navigateur un moment (piano roll ouvert, machine lente). On programme donc d'avance
+   * BLOCK_AHEAD secondes de plus à ce moment-là : les notes du début du bloc sont déjà programmées et partent à l'heure.
+   */
+  const BLOCK_AHEAD = 1;
   function tickSong(project) {
     const sg = seq.song;
-    while (seq.nextTime < ctx.currentTime + lookahead(project) && !sg.ended) {
+    const ahead = lookahead(project);
+    while (seq.nextTime < ctx.currentTime + ahead + seq.ahead && !sg.ended) {
       const total = SS.totalSteps(project);
       if (seq.step >= total) {
         seq.step = 0;
@@ -1422,6 +1430,7 @@ SS.audio = (() => {
             sg.index = 0;
           }
           sg.onBlock(sg.index);
+          seq.ahead = BLOCK_AHEAD;
         }
         seq.queue.push({ step: -1, time: seq.nextTime, block: sg.index, rep: sg.rep });
       }
@@ -1431,6 +1440,7 @@ SS.audio = (() => {
       seq.nextTime += stepDur(project);
       seq.step++;
     }
+    seq.ahead = 0; // avance supplémentaire : une seule fois, au passage du bloc
   }
 
   function draw() {
@@ -1509,6 +1519,10 @@ SS.audio = (() => {
     seq.onStep = onStep;
     seq.song = opts.song ? { ...opts.song, rep: 0, ended: false } : null;
     if (seq.song) seq.song.onBlock(seq.song.index);
+    seq.ahead = seq.song ? BLOCK_AHEAD : 0; // l'affichage du premier bloc se met à jour juste après
+    // tranche de chaque piste (effets, réverbération) construite dès maintenant : sinon elle l'était à la
+    // première note de la piste, pendant la programmation, et retardait les notes (entrée d'un instrument au drop)
+    getProject().tracks.forEach((t) => bus(t));
     applyAllFx(getProject());
     resetLoudness();
     seq.playing = true;
