@@ -13,7 +13,7 @@
   <header class="topbar">
     <div class="topbar-group">
       <div class="app-menu-wrap">
-        <button id="appMenuBtn" class="brand" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="appMenu" title="Menu : chansons, nouveau, ouvrir, enregistrer">
+        <button id="appMenuBtn" class="brand" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="appMenu" title="Menu : chansons, nouveau, ouvrir, enregistrer, MIDI">
           <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#1c1c20"/><rect x="10.0" y="10.0" width="9" height="9" rx="2.2" fill="#2b8cff"/><rect x="21.5" y="10.0" width="9" height="9" rx="2.2" fill="#3a3a42"/><rect x="33.0" y="10.0" width="9" height="9" rx="2.2" fill="#2b8cff"/><rect x="44.5" y="10.0" width="9" height="9" rx="2.2" fill="#3a3a42"/><rect x="10.0" y="21.5" width="9" height="9" rx="2.2" fill="#3a3a42"/><rect x="21.5" y="21.5" width="9" height="9" rx="2.2" fill="#2b8cff"/><rect x="33.0" y="21.5" width="9" height="9" rx="2.2" fill="#3a3a42"/><rect x="44.5" y="21.5" width="9" height="9" rx="2.2" fill="#3a3a42"/><rect x="10.0" y="33.0" width="9" height="9" rx="2.2" fill="#2b8cff"/><rect x="21.5" y="33.0" width="9" height="9" rx="2.2" fill="#3a3a42"/><rect x="33.0" y="33.0" width="9" height="9" rx="2.2" fill="#3a3a42"/><rect x="44.5" y="33.0" width="9" height="9" rx="2.2" fill="#3a3a42"/><rect x="10.0" y="44.5" width="9" height="9" rx="2.2" fill="#3a3a42"/><rect x="21.5" y="44.5" width="9" height="9" rx="2.2" fill="#2b8cff"/><rect x="33.0" y="44.5" width="9" height="9" rx="2.2" fill="#3a3a42"/><rect x="44.5" y="44.5" width="9" height="9" rx="2.2" fill="#3a3a42"/><ellipse cx="44" cy="47" rx="6.2" ry="4.8" transform="rotate(-20 44 47)" fill="#1c1c20" stroke="#1c1c20" stroke-width="5"/><path d="M49.2 46.0V27.0c1.5 4.0 8.0 5.0 7.0 12.0" fill="none" stroke="#1c1c20" stroke-width="7.6" stroke-linecap="round" stroke-linejoin="round"/><ellipse cx="44" cy="47" rx="6.2" ry="4.8" transform="rotate(-20 44 47)" fill="#3fcf5a"/><path d="M49.2 46.0V27.0c1.5 4.0 8.0 5.0 7.0 12.0" fill="none" stroke="#3fcf5a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
         <div id="appMenu" class="app-menu" role="menu" aria-label="Fichier" hidden>
@@ -21,6 +21,8 @@
           <button id="newProject" type="button" role="menuitem" title="Nouveau projet">Nouveau</button>
           <button id="openProject" type="button" role="menuitem" title="Ouvrir un fichier projet">Ouvrir…<kbd>Ctrl+O</kbd></button>
           <button id="saveProject" type="button" role="menuitem" title="Enregistrer (Ctrl+S ; Maj+clic : enregistrer sous)">Enregistrer<kbd>Ctrl+S</kbd></button>
+          <button id="importMidi" type="button" role="menuitem" title="Créer un projet à partir d'un fichier MIDI (.mid) : pistes, scènes et arrangement">Importer MIDI…</button>
+          <button id="exportMidi" type="button" role="menuitem" title="Exporter la chanson ou la scène en fichier MIDI (.mid) pour un logiciel de musique">Exporter MIDI…</button>
         </div>
       </div>
       <input id="title" class="title-input" type="text" spellcheck="false" aria-label="Titre du projet">
@@ -570,6 +572,61 @@
     </form>
   </dialog>
 
+  <!-- Import MIDI (js/midipanel.js) : analyse du fichier, aperçu des pistes et des scènes, puis nouveau projet -->
+  <dialog id="midiImportDialog" class="midi-dialog" aria-labelledby="miTitle">
+    <form method="dialog" id="miForm">
+      <h2 id="miTitle">Importer un fichier MIDI</h2>
+      <p class="dlg-sub" id="miFile"></p>
+      <div class="midi-options">
+        <div class="dlg-row">
+          <span class="dlg-label">Découpage en scènes</span>
+          <div class="segmented" id="miSplit" role="radiogroup" aria-label="Découpage en scènes">
+            <button type="button" data-v="0.95" title="Une scène ne se répète que si elle est presque identique : toutes les variations sont gardées, mais les scènes sont plus longues et plus nombreuses.">Fidèle</button>
+            <button type="button" data-v="0.85" title="Les petites différences (jeu humain, une note de plus) sont confondues : bon compromis.">Équilibré</button>
+            <button type="button" data-v="0.7" title="Des boucles qui se ressemblent deviennent la même scène : arrangement plus court, quelques variations perdues.">Compact</button>
+          </div>
+        </div>
+        <div class="dlg-row">
+          <label class="dlg-label" for="miMachine">Boîte à rythmes</label>
+          <select id="miMachine"></select>
+        </div>
+      </div>
+      <div id="miReport" class="midi-report" aria-live="polite"></div>
+      <p class="dlg-hint">Un nouveau projet est créé ; la chanson en cours reste dans <b>Chansons</b>.</p>
+      <div class="dlg-footer">
+        <span class="spacer"></span>
+        <button type="button" id="miCancel" class="btn">Annuler</button>
+        <button type="submit" id="miOk" class="btn btn-accent">Importer</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Export MIDI (js/midipanel.js) -->
+  <dialog id="midiExportDialog" class="midi-dialog" aria-labelledby="meTitle">
+    <form method="dialog" id="meForm">
+      <h2 id="meTitle">Exporter en MIDI</h2>
+      <p class="dlg-sub">Un fichier .mid (type 1) à ouvrir dans un logiciel de musique : une piste par piste, la batterie sur le canal 10.</p>
+      <div class="dlg-row">
+        <span class="dlg-label">Contenu</span>
+        <div class="segmented" id="meRange" role="radiogroup" aria-label="Contenu exporté">
+          <button type="button" data-v="song">Chanson (arrangement)</button>
+          <button type="button" data-v="scene">Scène en cours</button>
+        </div>
+        <label class="midi-check" id="meLoopsRow">Répéter la scène <input id="meLoops" type="number" min="1" max="64" value="4"> fois</label>
+      </div>
+      <div class="dlg-row">
+        <label class="midi-check"><input id="meAudible" type="checkbox" checked> Seulement les pistes qu'on entend (Mute / Solo)</label>
+        <label class="midi-check"><input id="meSwing" type="checkbox" checked> Appliquer le swing et le placement des pistes</label>
+      </div>
+      <div id="meReport" class="midi-report" aria-live="polite"></div>
+      <div class="dlg-footer">
+        <span class="spacer"></span>
+        <button type="button" id="meCancel" class="btn">Annuler</button>
+        <button type="submit" class="btn btn-accent">Exporter</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- Fenêtre Key : assistant (scène sans tonalité) ou onglets (modifier, vérifier) ; s'applique à la scène en cours -->
   <dialog id="harmonyDialog" class="hm-dialog" aria-labelledby="hmTitle">
     <form method="dialog" id="harmonyForm">
@@ -722,6 +779,8 @@
   <script src="js/store.js"></script>
   <script src="js/mysongs.js"></script>
   <script src="js/harmony.js"></script>
+  <script src="js/midi-file.js"></script>
+  <script src="js/midi.js"></script>
   <script src="js/emotions.js"></script>
   <script src="js/audio.js?v=system-2"></script>
   <script src="js/sounddesign.js"></script>
@@ -746,6 +805,7 @@
   <script src="js/melody.js"></script>
   <script src="js/melodypanel.js"></script>
   <script src="js/band.js"></script>
+  <script src="js/midipanel.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/systempanel.js?v=system-2"></script>
   <script src="js/main.js?v=system-2"></script>
