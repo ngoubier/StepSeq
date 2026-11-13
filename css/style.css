@@ -455,6 +455,11 @@ a.btn { text-decoration: none; }
 }
 .roll-key span.c { font-weight: 700; }
 .roll-key span:hover { background-color: #fff; }
+/* touche en face du pointeur dans le piano roll */
+.roll-key span.lit { background-color: #8fc2ff; color: #06244a; font-weight: 700; }
+.roll-key span.black.lit { background-color: #ececef; }
+.roll-key span.black.lit::before { background: linear-gradient(to right, #0a4f94, #2b8cff 85%, #5aa6ff); }
+.roll-view.tight .roll-key span.lit { color: #06244a; }
 .roll-key span.black:hover::before { background: linear-gradient(to right, #1a1a1e, #34343a 80%, #4a4a52); }
 /* lignes serrées (zoom vertical bas) : seuls les do gardent leur nom */
 .roll-view.tight .roll-key span:not(.c) { color: transparent; }
@@ -900,6 +905,9 @@ body:not(.song-mode) .song-blocks { opacity: .75; }
 
 /* ---------- Poignée de longueur des notes ---------- */
 .grid.edge-hover, .grid.edge-hover .cell, .grid.edge-hover .rcell { cursor: ew-resize; }
+/* poignée d'allongement visible au survol du bord droit d'une note */
+.grid.edge-hover .rcell.on.edge-target { box-shadow: inset -3px 0 0 rgba(255, 255, 255, .9); opacity: 1; }
+.grid.edge-hover .cell.edge-target .fill { box-shadow: inset -3px 0 0 rgba(255, 255, 255, .9); }
 body.resizing-note, body.resizing-note * { cursor: ew-resize !important; }
 
 /* ---------- Annuler / Rétablir ---------- */
