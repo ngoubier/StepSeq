@@ -231,6 +231,9 @@ HEADER = '''/*
  *  - SS.SF_TUNING : soundfont -> correction de chaque zone, dans l'ordre du fichier ;
  *  - SS.MULTI_TUNING : « banque:chemin » d'un échantillon multi (piano, VCSL, Dirt-Samples) -> correction.
  * Seul l'écart fin est corrigé : l'octave annoncée par les fichiers est conservée.
+ * À FAIRE (décision en attente) : la plupart des instruments VCSL (piano1, orgues, sax, flûtes à bec, harmonicas,
+ * xylophones…) sonnent une octave plus haut que la note demandée : leurs fichiers suivent la convention Do3 = midi 60.
+ * Non corrigé pour ne pas déplacer d'une octave les projets existants ; à reprendre si on le demande.
  */
 window.SS = window.SS || {};
 '''
