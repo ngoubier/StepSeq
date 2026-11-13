@@ -689,6 +689,20 @@ SS.ui = (() => {
     const key = SS.sceneKey(p);
     const scalePcs = key ? SS.harmony.scale(key).map((d) => d.pc) : null;
     const scroller = makeRollScroller(track, view, inner, bar, thumb, rangeLabel, zoomLabel);
+    // touche du clavier en face du pointeur : elle s'allume pour repérer la note survolée
+    const keySpans = {};
+    let litKey = null;
+    const lightKey = (span) => {
+      if (span === litKey) return;
+      if (litKey) litKey.classList.remove('lit');
+      litKey = span;
+      if (span) span.classList.add('lit');
+    };
+    view.addEventListener('pointermove', (e) => {
+      const c = e.target.closest('[data-midi]');
+      lightKey(c ? keySpans[+c.dataset.midi] : null);
+    });
+    view.addEventListener('pointerleave', () => lightKey(null));
     for (let midi = high; midi >= low; midi--) {
       const black = SS.isBlackKey(midi);
       const isC = midi % 12 === 0;
@@ -732,9 +746,10 @@ SS.ui = (() => {
           h(
             'div',
             { class: 'roll-key' },
-            h(
+            (keySpans[midi] = h(
               'span',
               {
+                'data-key': midi,
                 // .edge : touche blanche dont la voisine du dessous est blanche aussi (si/do, mi/fa)
                 class: (black ? 'black' : '') + (isC ? ' c' : '') + (midi % 12 === 0 || midi % 12 === 5 ? ' edge' : ''),
                 // clic : écouter la note ; glisser : faire défiler le piano roll
@@ -742,7 +757,7 @@ SS.ui = (() => {
                   scroller.dragFrom(e, () => SS.audio.preview(track, track.category === 'mono' ? midi : SS.chordNotes(midi, track.chord))),
               },
               isC || !black ? SS.noteName(midi) : ''
-            )
+            ))
           ),
           grid
         )
@@ -1757,20 +1772,36 @@ SS.ui = (() => {
     if (track.type !== 'instrument' || !cell) return null;
     const s = +cell.dataset.step;
     const ev = findEventAt(track, s, cell.dataset.midi ? +cell.dataset.midi : null);
-    if (!ev || s !== ev.step + ev.len - 1) return null;
+    if (!ev) return null;
     if (cell.dataset.midi && !ev.notes.includes(+cell.dataset.midi)) return null; // piano roll : sur une ligne de la note
-    const r = cell.getBoundingClientRect();
-    // case étroite (zoom arrière) : la poignée ne doit pas couvrir toute la note
-    return clientX >= r.right - Math.min(EDGE_PX, r.width * 0.35) && clientX <= r.right + 3 ? ev : null;
+    // la zone se mesure sur la note entière, pas sur sa dernière case (étroite en zoom arrière)
+    const cells = cell.parentElement.children;
+    const endCell = cells[ev.step + ev.len - 1];
+    const startCell = cells[ev.step];
+    if (!endCell || !startCell) return null;
+    const r = endCell.getBoundingClientRect();
+    const w = r.right - startCell.getBoundingClientRect().left;
+    // au moins 5 px, sans couvrir plus du tiers d'une note courte
+    const band = Math.max(Math.min(5, w * 0.5), Math.min(EDGE_PX, w * 0.35));
+    return clientX >= r.right - band && clientX <= r.right + 3 ? ev : null;
   }
+
+  /** Dernière case d'une note dans une grille (pour dessiner la poignée). */
+  const endCellOf = (grid, ev) => grid.children[ev.step + ev.len - 1] || null;
 
   /** Curseur « poignée » au survol du bord droit d'une note. */
   function hoverResize(track, grid, sel) {
     grid.addEventListener('pointermove', (e) => {
       if (e.buttons) return;
       const cell = e.target.closest(sel);
-      const right = !!noteEdgeAt(track, cell, e.clientX);
+      const edgeEv = noteEdgeAt(track, cell, e.clientX);
+      const right = !!edgeEv;
       grid.classList.toggle('edge-hover', right);
+      // poignée visible : trait clair sur le bord droit de la note
+      const endCell = right ? endCellOf(grid, edgeEv) : null;
+      const prevEdge = grid.querySelector('.edge-target');
+      if (prevEdge && prevEdge !== endCell) prevEdge.classList.remove('edge-target');
+      if (endCell) endCell.classList.add('edge-target');
       // poignée de vélocité : haut du remplissage (ligne compacte) ou haut de la note (piano roll)
       const vel = !right && !!velEdgeAt(track, cell, e.clientY);
       grid.classList.toggle('vel-hover', vel);
@@ -1780,6 +1811,8 @@ SS.ui = (() => {
     });
     grid.addEventListener('pointerleave', () => {
       grid.classList.remove('edge-hover', 'vel-hover');
+      const prevEdge = grid.querySelector('.edge-target');
+      if (prevEdge) prevEdge.classList.remove('edge-target');
       const prev = grid.querySelector('.vel-target');
       if (prev) prev.classList.remove('vel-target');
     });
