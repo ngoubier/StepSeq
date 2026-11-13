@@ -1315,7 +1315,9 @@ SS.audio = (() => {
         const v = track.steps[step];
         if (v > 0) {
           const tt = time + jt();
-          playDrum(track, tt, jv(v));
+          // ratchet : le coup est rejoué à intervalles égaux dans la durée du pas, un peu moins fort
+          const r = SS.drumRatchet(track, step);
+          for (let j = 0; j < r; j++) playDrum(track, tt + (j * sd) / r, jv(v) * (j ? 0.85 : 1));
           duckFrom(project, track, tt);
         }
         return;
@@ -1344,7 +1346,14 @@ SS.audio = (() => {
           // micro-décalage de la note (ev.shift, fraction de pas) : en avance ou en retard sur la grille
           const tt = time + jt() + (ev.shift || 0) * sd;
           const vv = jv(ev.vel);
-          ev.notes.forEach((n, i) => playNote(track, n, tt, dur, vv * (ev.notes.length > 1 ? 0.8 : 1), undefined, i, ev.notes.length));
+          // ratchet : la note est rejouée dans son premier pas ; la dernière répétition tient le reste de la note
+          const r = ev.rat || 1;
+          const sub = sd / r;
+          for (let j = 0; j < r; j++) {
+            const d = j < r - 1 ? sub * 0.9 : Math.max(sub * 0.9, dur - j * sub);
+            const v = vv * (ev.notes.length > 1 ? 0.8 : 1) * (j ? 0.85 : 1);
+            ev.notes.forEach((n, i) => playNote(track, n, tt + j * sub, d, v, undefined, i, ev.notes.length));
+          }
           duckFrom(project, track, tt);
         }
       });

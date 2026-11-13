@@ -1071,6 +1071,11 @@ SS.ui = (() => {
     if (!ev.shift) return;
     cell.append(h('span', { class: 'shift-mark' + (ev.shift < 0 ? ' early' : ''), style: `--shift:${ev.shift}`, 'aria-hidden': 'true' }));
   }
+  /** Ratchet : r petits traits en bas de la case (un par coup). */
+  function markRatchet(cell, r) {
+    if (!(r > 1)) return;
+    cell.append(h('span', { class: 'rat-mark', style: `--r:${r}`, 'aria-hidden': 'true' }));
+  }
   const shiftTitle = (ev) => (ev.shift ? ` · ${ev.shift > 0 ? 'en retard' : 'en avance'} de ${Math.round(Math.abs(ev.shift) * 100)} % de pas` : '');
 
   function paint(track) {
@@ -1082,7 +1087,10 @@ SS.ui = (() => {
         const v = track.steps[s] || 0;
         c.classList.toggle('on', v > 0);
         c.style.setProperty('--v', v);
-        c.title = v > 0 ? `Vélocité ${Math.round(v * 127)}` : '';
+        const r = SS.drumRatchet(track, s);
+        c.title = v > 0 ? `Vélocité ${Math.round(v * 127)}` + (r > 1 ? ` · ratchet ×${r}` : '') : '';
+        c.querySelector('.rat-mark')?.remove();
+        markRatchet(c, r);
       });
       paintSelection(track, ref);
       return;
@@ -1093,7 +1101,7 @@ SS.ui = (() => {
       c.title = '';
     });
     ref.roll.forEach((cells) => cells.forEach((c) => c.classList.remove('on', 'start', 'root', 'sel', 'sel-hold')));
-    ref.el?.querySelectorAll('.shift-mark').forEach((m) => m.remove());
+    ref.el?.querySelectorAll('.shift-mark, .rat-mark').forEach((m) => m.remove());
 
     track.events.forEach((ev) => {
       const label = eventLabel(track, ev);
@@ -1104,8 +1112,9 @@ SS.ui = (() => {
           c.classList.add('on', 'start');
           if (ev.len > 1) c.classList.add('held');
           c.append(h('span', { class: 'lbl' }, label));
-          c.title = `${label} · vélocité ${Math.round(ev.vel * 127)}` + shiftTitle(ev);
+          c.title = `${label} · vélocité ${Math.round(ev.vel * 127)}` + shiftTitle(ev) + (ev.rat ? ` · ratchet ×${ev.rat}` : '');
           markShift(c, ev);
+          markRatchet(c, ev.rat);
         } else {
           c.classList.add('hold');
           if (s === ev.step + ev.len - 1) c.classList.add('end');
@@ -1120,6 +1129,7 @@ SS.ui = (() => {
             cell.classList.add('start');
             if (i === 0) cell.classList.add('root');
             markShift(cell, ev);
+            markRatchet(cell, ev.rat);
           }
         });
       }
@@ -1316,10 +1326,10 @@ SS.ui = (() => {
     const [from, to] = selBounds();
     const items = [...sel.items].sort((a, b) => itemSpan(t, a)[0] - itemSpan(t, b)[0]);
     clip = isDrum(t)
-      ? { kind: 'drum', items: items.map((s) => ({ off: s - from, vel: t.steps[s] })) }
+      ? { kind: 'drum', items: items.map((s) => ({ off: s - from, vel: t.steps[s], rat: SS.drumRatchet(t, s) })) }
       : {
           kind: 'notes',
-          items: items.map((ev) => ({ off: ev.step - from, len: ev.len, notes: [...ev.notes], vel: ev.vel, chord: ev.chord, shift: ev.shift })),
+          items: items.map((ev) => ({ off: ev.step - from, len: ev.len, notes: [...ev.notes], vel: ev.vel, chord: ev.chord, shift: ev.shift, rat: ev.rat })),
         };
     Object.assign(clip, { span: to - from, trackId: t.id, from });
     const what = unitLabel(t, items.length);
@@ -1373,6 +1383,7 @@ SS.ui = (() => {
       if (s < 0 || s >= n) return dropped++;
       if (isDrum(track)) {
         track.steps[s] = it.vel;
+        SS.setDrumRatchet(track, s, it.rat || 1);
         return pasted.push(s);
       }
       const len = Math.min(it.len, n - s);
@@ -1383,6 +1394,7 @@ SS.ui = (() => {
       });
       if (track.category !== 'mono' && it.chord) ev.chord = it.chord;
       if (it.shift) ev.shift = it.shift;
+      if (it.rat) ev.rat = it.rat;
       track.events.push(ev);
       pasted.push(ev);
     });
@@ -1561,15 +1573,20 @@ SS.ui = (() => {
     };
     let place;
     if (isDrum(track)) {
-      const moved = items.map((st) => ({ st, vel: track.steps[st] }));
+      const moved = items.map((st) => ({ st, vel: track.steps[st], rat: SS.drumRatchet(track, st) }));
       const base = track.steps.slice();
-      if (!copy) items.forEach((st) => (base[st] = 0));
+      const baseRat = { ...(track.rat || {}) };
+      if (!copy) items.forEach((st) => ((base[st] = 0), delete baseRat[st]));
       const minS = Math.min(...items);
       const maxS = Math.max(...items);
       place = (dt) => {
         dt = clamp(dt, -minS, n - 1 - maxS);
         base.forEach((v, i) => (track.steps[i] = v));
-        moved.forEach((m) => (track.steps[m.st + dt] = m.vel));
+        track.rat = { ...baseRat };
+        moved.forEach((m) => {
+          track.steps[m.st + dt] = m.vel;
+          SS.setDrumRatchet(track, m.st + dt, m.rat);
+        });
         setSel(moved.map((m) => m.st + dt), dt);
         return { dt, dp: 0 };
       };
@@ -1759,6 +1776,7 @@ SS.ui = (() => {
   function drumGesture(track, s, e) {
     const value = track.steps[s] > 0 ? 0 : 0.8;
     track.steps[s] = value;
+    SS.setDrumRatchet(track, s, 1);
     if (value && !SS.audio.isPlaying()) SS.audio.preview(track);
     paint(track);
     const ref = refs.get(track.id);
@@ -1770,6 +1788,7 @@ SS.ui = (() => {
       if (s2 >= SS.trackLen(app.project(), track)) return;
       if ((track.steps[s2] > 0) !== (value > 0)) {
         track.steps[s2] = value;
+        SS.setDrumRatchet(track, s2, 1);
         paint(track);
       }
     });
@@ -2073,6 +2092,11 @@ SS.ui = (() => {
   }
 
   function chordMenuFromEvent(track, s, e) {
+    if (track.type === 'drum') {
+      if (!(track.steps[s] > 0)) return; // pas éteint : menu normal du navigateur
+      e.preventDefault();
+      return openDrumMenu(track, s, e.clientX, e.clientY);
+    }
     if (track.type !== 'instrument') return; // menu normal du navigateur
     e.preventDefault();
     const cell = e.target.closest('.rcell');
@@ -2190,6 +2214,22 @@ SS.ui = (() => {
               fmtShift,
               'Micro-décalage : jouer la note un peu avant (−) ou après (+) le temps, en % d’un pas. Double-clic : sur le temps',
               0
+            ),
+        track.category === 'arp'
+          ? null
+          : h(
+              'div',
+              { class: 'ctx-param' },
+              h('span', { class: 'ctx-param-label' }, 'Ratchet'),
+              ratchetButtons(
+                () => ev.rat || 1,
+                (r) => {
+                  SS.cleanRatchet(Object.assign(ev, { rat: r }));
+                  paint(track);
+                  saveSoon();
+                  if (!SS.audio.isPlaying()) SS.audio.preview(track, ev.notes.length === 1 ? ev.notes[0] : ev.notes);
+                }
+              )
             )
       );
 
@@ -2274,19 +2314,93 @@ SS.ui = (() => {
       );
     }
     render();
+    placeMenu(x, y);
+  }
 
+  /** Affiche menuEl près du pointeur, sans dépasser de la fenêtre ; Échap, un clic ailleurs ou un défilement le ferment. */
+  function placeMenu(x, y) {
     document.body.append(menuEl);
-    // garde le menu dans la fenêtre
     const r = menuEl.getBoundingClientRect();
     const vw = Math.min(window.innerWidth, document.documentElement.clientWidth, window.visualViewport ? window.visualViewport.width : Infinity);
     const vh = Math.min(window.innerHeight, window.visualViewport ? window.visualViewport.height : Infinity);
     menuEl.style.left = Math.max(8, Math.min(x, vw - r.width - 8)) + 'px';
     menuEl.style.top = Math.max(8, Math.min(y, vh - r.height - 8)) + 'px';
-    (menuEl.querySelector('.ctx-cols .current') || menuEl.querySelector('button')).focus();
+    (menuEl.querySelector('.ctx-cols .current, .ctx-rat .current') || menuEl.querySelector('button')).focus();
     document.addEventListener('pointerdown', onOutside, true);
     document.addEventListener('keydown', onMenuKey, true);
     window.addEventListener('resize', closeChordMenu);
     document.getElementById('workspace').addEventListener('scroll', closeChordMenu);
+  }
+
+  /** Boutons ×1 … ×4 du ratchet (note ou pas de batterie). */
+  function ratchetButtons(get, set) {
+    const row = h('div', { class: 'ctx-rat', role: 'radiogroup', 'aria-label': 'Ratchet' });
+    const draw = () =>
+      row.replaceChildren(
+        ...Array.from({ length: SS.RATCHET_MAX }, (_, i) => i + 1).map((r) =>
+          h(
+            'button',
+            {
+              type: 'button',
+              role: 'radio',
+              'aria-checked': String(r === get()),
+              class: r === get() ? 'current' : null,
+              title: r === 1 ? 'Joué une fois' : `Rejoué ${r} fois dans la durée d’un pas`,
+              onclick: () => {
+                set(r);
+                draw();
+                row.querySelector('.current')?.focus();
+              },
+            },
+            '×' + r
+          )
+        )
+      );
+    draw();
+    return row;
+  }
+
+  /** Clic droit sur un pas de batterie allumé : ratchet, vélocité, effacer. */
+  function openDrumMenu(track, s, x, y) {
+    closeChordMenu();
+    setSelection(track, [s]);
+    const changed = () => {
+      paint(track);
+      app.changed();
+    };
+    const listen = () => !SS.audio.isPlaying() && SS.audio.preview(track);
+    const vel = h('output', {}, String(Math.round(track.steps[s] * 127)));
+    const range = h('input', { type: 'range', min: 1, max: 127, step: 1, value: Math.round(track.steps[s] * 127), 'aria-label': 'Vélocité' });
+    range.addEventListener('input', () => {
+      track.steps[s] = +range.value / 127;
+      vel.textContent = range.value;
+      changed();
+    });
+    menuEl = h(
+      'div',
+      { class: 'ctx-menu ctx-picker ctx-drum', role: 'dialog', 'aria-label': 'Réglages du pas' },
+      h('div', { class: 'ctx-head' }, h('b', { class: 'ctx-current' }, `Pas ${s + 1}`), h('span', { class: 'ctx-desc' }, track.name || '')),
+      h(
+        'div',
+        { class: 'ctx-params' },
+        h('div', { class: 'ctx-param' }, h('span', { class: 'ctx-param-label' }, 'Ratchet'),
+          ratchetButtons(() => SS.drumRatchet(track, s), (r) => (SS.setDrumRatchet(track, s, r), changed(), listen()))),
+        h('div', { class: 'ctx-param wide' }, h('span', { class: 'ctx-param-label' }, 'Vélocité'), range, vel)
+      ),
+      h(
+        'div',
+        { class: 'ctx-foot' },
+        h('button', { type: 'button', class: 'danger', onclick: () => {
+          track.steps[s] = 0;
+          SS.setDrumRatchet(track, s, 1);
+          unselectIfRemoved(track);
+          changed();
+          closeChordMenu();
+        } }, 'Effacer'),
+        h('button', { type: 'button', class: 'ctx-close', onclick: () => closeChordMenu() }, 'Fermer')
+      )
+    );
+    placeMenu(x, y);
   }
 
   /* ------------------------------------------------------------------ */

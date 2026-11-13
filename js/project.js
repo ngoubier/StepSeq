@@ -17,14 +17,16 @@
  *       sound: "bd", machine: "RolandTR808",              // si source = tdm
  *       bank: "jazz",                                     // sinon : banque de la bibliothèque
  *       variant: 0,
- *       steps: [0..1, ...] }                         // vélocité, 0 = éteint
+ *       steps: [0..1, ...],                          // vélocité, 0 = éteint
+ *       rat?: { pas: 2..4 } }                         // ratchet : le pas est rejoué 2 à 4 fois dans sa durée
  *     { id, type: "instrument", name, color, volume, mute, solo,
  *       category: "mono"|"arp"|"chord", family, instrument, sfv (variante soundfont ou échantillon Dirt-Samples),
  *       chord: "min", arp: { mode, rate, octaves, gate, motion, evolve, seed, rhythm, lanes, … } (ARP ONE, voir js/arp.js), octave,
  *       sd: { wave, voices, detune, filter, ftype, fdrive, cutoff, q, env,  // sound design (optionnel,
  *             attack, decay, sustain, release, glide, glideMode,       //  sinon preset de l'instrument)
  *             pan, drive, gain }
- *       events: [{ step, len, notes: [midi...], vel, shift? }] }   // shift : micro-décalage, en fraction de pas (−0,5..0,5)
+ *       events: [{ step, len, notes: [midi...], vel, shift?, rat? }] }   // shift : micro-décalage, en fraction de pas (−0,5..0,5)
+ *                                                    // rat : ratchet, la note est rejouée 2 à 4 fois dans son premier pas
  *     piste « Synthé » : comme une piste instrument, avec family: "analog", instrument: "juno106",
  *       junoPatch: "A11" (patch chargé), juno: { lfoRate, dcoLfo, pwm, …, chorus } (réglages du panneau)
  *   ]
@@ -45,6 +47,41 @@ SS.cleanShift = (ev) => {
   if (v) ev.shift = v;
   else delete ev.shift;
   return ev;
+};
+
+/*
+ * Ratchet : la note (ev.rat) ou le pas de batterie (track.rat[pas]) est rejoué 2 à 4 fois, à intervalles égaux,
+ * dans la durée d'un pas ; les répétitions sont un peu moins fortes. Absent = joué une fois.
+ */
+SS.RATCHET_MAX = 4;
+const ratchetOf = (v) => Math.min(SS.RATCHET_MAX, Math.round(Number(v) || 1));
+SS.cleanRatchet = (ev) => {
+  const r = ratchetOf(ev.rat);
+  if (r >= 2) ev.rat = r;
+  else delete ev.rat;
+  return ev;
+};
+/** Ratchets d'une piste de batterie : seulement sur des pas allumés de la piste ; `rat` absent s'il n'y en a aucun. */
+SS.cleanDrumRatchets = (t) => {
+  const out = {};
+  if (t.rat && typeof t.rat === 'object') {
+    for (const [k, v] of Object.entries(t.rat)) {
+      const s = +k, r = ratchetOf(v);
+      if (Number.isInteger(s) && s >= 0 && t.steps[s] > 0 && r >= 2) out[s] = r;
+    }
+  }
+  if (Object.keys(out).length) t.rat = out;
+  else delete t.rat;
+  return t;
+};
+/** Nombre de coups d'un pas de batterie (1 sans ratchet). */
+SS.drumRatchet = (t, s) => (t.steps[s] > 0 && t.rat && t.rat[s]) || 1;
+/** Pose (ou enlève, r = 1) le ratchet d'un pas de batterie. */
+SS.setDrumRatchet = (t, s, r) => {
+  r = ratchetOf(r);
+  if (r >= 2) (t.rat = t.rat || {})[s] = r;
+  else if (t.rat) delete t.rat[s];
+  if (t.rat && !Object.keys(t.rat).length) delete t.rat;
 };
 
 SS.uid = () => Math.random().toString(36).slice(2, 10);
@@ -116,6 +153,7 @@ SS.resizeProject = (p) => {
     if (t.type === 'drum') {
       if (t.steps.length < n) t.steps = t.steps.concat(new Array(n - t.steps.length).fill(0));
       else t.steps.length = n;
+      SS.cleanDrumRatchets(t);
     } else {
       t.events = t.events.filter((e) => e.step < n);
       t.events.forEach((e) => (e.len = Math.min(e.len, n - e.step)));
@@ -170,6 +208,8 @@ SS.normalizeProject = (data) => {
     track.solo = !!t.solo;
     if (t.type === 'drum') {
       track.steps = Array.isArray(t.steps) ? t.steps.map(Number) : [];
+      track.rat = t.rat;
+      SS.cleanDrumRatchets(track);
       if (!SS.DRUM_LIBS.some((l) => l.id === t.source)) track.source = 'tdm';
     } else {
       SS.migrateInstrument(track);
@@ -177,7 +217,7 @@ SS.normalizeProject = (data) => {
       track.sfv = Number.isInteger(t.sfv) && t.sfv >= 0 ? t.sfv : track.sfv || 0;
       track.type = 'instrument';
       track.events = Array.isArray(t.events) ? t.events : [];
-      track.events.forEach(SS.cleanShift);
+      track.events.forEach((e) => SS.cleanRatchet(SS.cleanShift(e)));
       track.arp = SS.Arp.normalize(t.arp); // ARP ONE (js/arp.js) : réglages bornés, anciens projets compris
       track.chord = t.chord || 'min';
       if (t.sd && typeof t.sd === 'object') {
@@ -312,7 +352,10 @@ SS.repeatBars = (p, oldBars) => {
   if (oldLen <= 0 || total <= oldLen) return;
   p.tracks.forEach((t) => {
     if (t.type === 'drum') {
-      for (let s = oldLen; s < total; s++) t.steps[s] = t.steps[s % oldLen] || 0;
+      for (let s = oldLen; s < total; s++) {
+        t.steps[s] = t.steps[s % oldLen] || 0;
+        SS.setDrumRatchet(t, s, SS.drumRatchet(t, s % oldLen));
+      }
     } else {
       const src = t.events.filter((e) => e.step < oldLen);
       const copies = [];
@@ -331,7 +374,10 @@ SS.repeatBars = (p, oldBars) => {
 SS.clearAfterBars = (p, keepBars) => {
   const from = SS.stepsPerBar(p) * keepBars;
   p.tracks.forEach((t) => {
-    if (t.type === 'drum') for (let s = from; s < t.steps.length; s++) t.steps[s] = 0;
+    if (t.type === 'drum') {
+      for (let s = from; s < t.steps.length; s++) t.steps[s] = 0;
+      SS.cleanDrumRatchets(t);
+    }
     else t.events = t.events.filter((e) => e.step < from);
   });
 };
@@ -366,7 +412,10 @@ const SCENE_NAMES = ['Couplet', 'Refrain', 'Intro', 'Pont', 'Outro'];
 SS.snapshotTracks = (p) => {
   const data = {};
   p.tracks.forEach((t) => {
-    data[t.id] = t.type === 'drum' ? { steps: [...t.steps] } : { events: t.events.map((e) => ({ ...e, notes: [...e.notes] })) };
+    if (t.type === 'drum') {
+      SS.cleanDrumRatchets(t);
+      data[t.id] = t.rat ? { steps: [...t.steps], rat: { ...t.rat } } : { steps: [...t.steps] };
+    } else data[t.id] = { events: t.events.map((e) => ({ ...e, notes: [...e.notes] })) };
   });
   return data;
 };
@@ -400,7 +449,11 @@ SS.loadScene = (p, id, { commit = true } = {}) => {
   const n = SS.stepsPerBar(p) * p.bars;
   p.tracks.forEach((t) => {
     const d = (target.data || {})[t.id];
-    if (t.type === 'drum') t.steps = d && d.steps ? [...d.steps] : new Array(n).fill(0);
+    if (t.type === 'drum') {
+      t.steps = d && d.steps ? [...d.steps] : new Array(n).fill(0);
+      t.rat = d && d.rat ? { ...d.rat } : undefined;
+      SS.cleanDrumRatchets(t);
+    }
     else t.events = d && d.events ? d.events.map((e) => ({ ...e, notes: [...e.notes] })) : [];
   });
   SS.resizeProject(p);

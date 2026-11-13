@@ -230,7 +230,9 @@
             const drumNote = drumNoteOf(t);
             for (let tick = 0; tick < ticksTotal; tick++) {
               const v = steps[tick % len] || 0;
-              if (v > 0) out.notes.push({ at: (base + tick + swingAt(tick)) * TPS + nudge, dur: TPS / 2, note: drumNote, vel: v });
+              if (!(v > 0)) continue;
+              const r = SS.drumRatchet({ steps, rat: d.rat }, tick % len); // ratchet : coups répétés dans le pas
+              for (let j = 0; j < r; j++) out.notes.push({ at: (base + tick + swingAt(tick) + j / r) * TPS + nudge, dur: TPS / 2 / r, note: drumNote, vel: v * (j ? 0.85 : 1) });
             }
             continue;
           }
@@ -250,7 +252,14 @@
               if (ev.step >= len || start + ev.step >= ticksTotal) continue;
               const tick = start + ev.step;
               const dur = Math.min(ev.len, len - ev.step) * TPS;
-              for (const n of ev.notes) out.notes.push({ at: (base + tick + swingAt(tick)) * TPS + nudge, dur, note: n, vel: ev.vel });
+              const shift = (ev.shift || 0) * TPS; // micro-décalage de la note (fraction de pas)
+              const at = (base + tick + swingAt(tick)) * TPS + nudge + shift;
+              // ratchet : répétitions dans le premier pas, la dernière tient le reste de la note
+              const r = ev.rat || 1;
+              for (let j = 0; j < r; j++) {
+                const d = j < r - 1 ? (TPS / r) * 0.9 : Math.max((TPS / r) * 0.9, dur - (j * TPS) / r);
+                for (const n of ev.notes) out.notes.push({ at: at + (j * TPS) / r, dur: d, note: n, vel: ev.vel * (j ? 0.85 : 1) });
+              }
             }
           }
         }

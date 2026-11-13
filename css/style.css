@@ -400,6 +400,23 @@ a.btn { text-decoration: none; }
   pointer-events: none;
 }
 .cell.on.now { filter: brightness(1.35); }
+/* ratchet (pas de batterie ou note rejoués 2 à 4 fois) : un petit trait par coup, en bas du pas */
+.rat-mark {
+  position: absolute;
+  left: 2px;
+  bottom: 2px;
+  width: calc(min(100%, 30px) - 4px);
+  max-width: calc(100% - 4px);
+  height: 3px;
+  z-index: 2;
+  pointer-events: none;
+  background: repeating-linear-gradient(to right, #fff 0 calc(100% / var(--r) - 2px), transparent calc(100% / var(--r) - 2px) calc(100% / var(--r)));
+  filter: drop-shadow(0 0 1px #000);
+}
+.ctx-param .ctx-rat { grid-column: 2 / -1; display: flex; gap: 4px; }
+.ctx-picker .ctx-param .ctx-rat button { flex: 1; width: auto; font-size: 12px; }
+.ctx-picker .ctx-param .ctx-rat button.current { background: var(--accent); color: #fff; }
+.ctx-param.wide input[type=range] { grid-column: 2 / 5; }
 
 /* Piano roll */
 .roll { background: #1b1b1e; border-top: 1px solid #000; width: max-content; min-width: 100%; }
