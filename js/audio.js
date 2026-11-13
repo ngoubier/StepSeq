@@ -148,13 +148,14 @@ SS.audio = (() => {
     let m;
     while ((m = zoneRe.exec(body))) {
       const z = {};
-      const kvRe = /(\w+)\s*:\s*(?:'([^']*)'|"([^"]*)"|(-?[\d.]+)|(true|false))/g;
+      // certains fichiers écrivent une somme (« originalPitch:4200-140 ») : on l'évalue, sinon la note est fausse
+      const kvRe = /(\w+)\s*:\s*(?:'([^']*)'|"([^"]*)"|(-?[\d.]+(?:\s*[-+]\s*[\d.]+)*)|(true|false))/g;
       let kv;
       while ((kv = kvRe.exec(m[1]))) {
         const key = kv[1];
         if (kv[2] !== undefined) z[key] = kv[2];
         else if (kv[3] !== undefined) z[key] = kv[3];
-        else if (kv[4] !== undefined) z[key] = parseFloat(kv[4]);
+        else if (kv[4] !== undefined) z[key] = kv[4].replace(/\s/g, '').match(/[-+]?[\d.]+/g).reduce((a, t) => a + parseFloat(t), 0);
         else z[key] = kv[5] === 'true';
       }
       if (z.file || z.sample) zones.push(z);
@@ -173,8 +174,9 @@ SS.audio = (() => {
         })
         .then(async (text) => {
           const raw = parseSoundfontJs(text);
+          const tuning = (SS.SF_TUNING && SS.SF_TUNING[file]) || [];
           const zones = await Promise.all(
-            raw.map(async (z) => {
+            raw.map(async (z, zi) => {
               let buffer;
               if (z.file) {
                 buffer = await decode(base64ToArrayBuffer(z.file));
@@ -193,7 +195,8 @@ SS.audio = (() => {
               return {
                 low: z.keyRangeLow ?? 0,
                 high: z.keyRangeHigh ?? 127,
-                baseDetune: (z.originalPitch ?? 6000) - 100 * (z.coarseTune || 0) - (z.fineTune || 0),
+                // + écart mesuré de l'échantillon (js/sample-tuning.js) : toutes les zones sonnent juste
+                baseDetune: (z.originalPitch ?? 6000) - 100 * (z.coarseTune || 0) - (z.fineTune || 0) + (tuning[zi] || 0),
                 loop,
                 loopStart: loop ? z.loopStart / (z.sampleRate || 44100) : 0,
                 loopEnd: loop ? z.loopEnd / (z.sampleRate || 44100) : 0,
@@ -282,10 +285,12 @@ SS.audio = (() => {
           map = named;
         }
         return Object.entries(map)
-          .map(([note, path]) => ({
-            midi: SS.parseNote(note),
-            url: json._base + encodePath(Array.isArray(path) ? path[0] : path),
-          }))
+          .map(([note, path]) => {
+            const file = Array.isArray(path) ? path[0] : path;
+            // hauteur réelle = note du nom + écart mesuré (js/sample-tuning.js), en demi-tons
+            const cents = (SS.MULTI_TUNING && SS.MULTI_TUNING[inst.bank + ':' + file]) || 0;
+            return { midi: SS.parseNote(note), tune: cents / 100, url: json._base + encodePath(file) };
+          })
           .filter((e) => e.midi !== null)
           .sort((a, b) => a.midi - b.midi);
       });
@@ -1151,7 +1156,7 @@ SS.audio = (() => {
       const e = nearest(list, midi);
       const entry = loadBuffer(e.url);
       if (!entry.buffer) return;
-      src = { buffer: entry.buffer, rate: Math.pow(2, (midi - e.midi) / 12), loop: null };
+      src = { buffer: entry.buffer, rate: Math.pow(2, (midi - e.midi - (e.tune || 0)) / 12), loop: null };
     } else if (inst.kind === 'dirt') {
       const file = SS.sfFile(inst, track);
       const entry = loadBuffer(await dirtUrl(file));
