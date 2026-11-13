@@ -388,6 +388,7 @@ a.btn { text-decoration: none; }
   font-size: 12px;
 }
 .roll-tools label { display: flex; align-items: center; gap: 6px; }
+.roll-tools .roll-hint { flex: 1 1 0; min-width: 0; opacity: .8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .roll-tools .roll-close { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px 4px 6px; }
 .roll-tools .roll-close span, .roll-tools .roll-sd span { display: inline-flex; }
 .roll-tools .roll-sd { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px 4px 7px; background: #2d3b4d; }
@@ -754,6 +755,8 @@ dialog.sd-dialog { width: min(820px, calc(100vw - 32px)); }
 .roll-key { padding-right: 16px; }
 .roll-view.grabbing, .roll-view.grabbing * { cursor: grabbing !important; }
 .roll-range { font-variant-numeric: tabular-nums; min-width: 72px; display: inline-block; text-align: center; }
+.roll-grid { color: var(--muted); white-space: nowrap; }
+.roll-grid b { color: var(--text); font-weight: 600; }
 .roll-vzoom-l { font-variant-numeric: tabular-nums; min-width: 44px; display: inline-block; text-align: center; }
 
 /* ---------- Poignée de réorganisation des pistes ---------- */
@@ -2457,8 +2460,15 @@ body.sg-drag-on, body.sg-drag-on * { cursor: grabbing !important; }
 .zoom-compact .bcell { padding-left: 2px; padding-right: 0; }
 .zoom-tiny .cell { border-radius: 1px; }
 .zoom-tiny .cell .lbl { display: none; }
-.zoom-tiny .rcell { border-left-color: transparent; }
-.zoom-tiny .rcell.bar { border-left-color: #55555c; }
+/* grille adaptative du piano roll (voir gridUnit) : seules les lignes de la grille courante restent */
+body[data-grid="2"] .rcell:not(.even):not(.on),
+body[data-grid="beat"] .rcell:not(.beat):not(.bar):not(.on),
+body[data-grid="half"] .rcell:not(.half):not(.bar):not(.on),
+body[data-grid="bar"] .rcell:not(.bar):not(.on) { border-left-color: transparent; }
+body[data-grid="half"] .rcell.half:not(.on) { border-left-color: #333338; }
+/* notes étroites : repère de début plus fin, sans le trait de fondamentale */
+.zoom-compact .rcell.on.start { border-left-width: 1px; }
+.zoom-compact .rcell.on.root::after { display: none; }
 /* l'aide cède sa place aux commandes quand la barre du bas manque de largeur */
 .bottombar .hint { flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }
 

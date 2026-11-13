@@ -53,6 +53,8 @@ SS.ui = (() => {
     if (s > 0 && s % bar === 0) c += ' bar';
     else if (s > 0 && s % beat === 0) c += ' beat';
     if (Math.floor((s % bar) / beat) % 2 === 1) c += ' alt';
+    if (s % 2 === 0) c += ' even';
+    if (bar % 2 === 0 && s % (bar / 2) === 0) c += ' half';
     return c;
   }
 
@@ -520,6 +522,12 @@ SS.ui = (() => {
         h('button', { type: 'button', onclick: () => scroller.octave(1), title: 'Une octave plus haut' }, '+')
       ),
       h(
+        'span',
+        { class: 'roll-grid', title: 'Grille : longueur d’une note posée et calage, selon le zoom horizontal. Zoome pour une grille plus fine.' },
+        'Grille ',
+        h('b', { class: 'roll-grid-l' }, gridLabel(gridUnit()))
+      ),
+      h(
         'label',
         { class: 'roll-vzoom', title: 'Hauteur des notes · Alt+molette sur le piano roll' },
         'Hauteur',
@@ -584,13 +592,14 @@ SS.ui = (() => {
             ),
           ]
         : null,
-      h(
-        'span',
-        { style: 'opacity:.8' },
-        track.category === 'mono'
-          ? 'Cliquer pour poser une note, glisser vers la droite pour l’allonger. Maj+glisser : sélectionner.'
-          : 'Cliquer sur la fondamentale pour poser un accord, glisser pour l’allonger. Clic droit (ou appui long) sur un accord : changer son type. Maj+glisser : sélectionner.'
-      ),
+      (() => {
+        const hint =
+          track.category === 'mono'
+            ? 'Cliquer pour poser une note, glisser vers la droite pour l’allonger. Maj+glisser : sélectionner.'
+            : 'Cliquer sur la fondamentale pour poser un accord, glisser pour l’allonger. Clic droit (ou appui long) sur un accord : changer son type. Maj+glisser : sélectionner.';
+        // l'aide se raccourcit (…) plutôt que de faire passer la barre sur deux lignes
+        return h('span', { class: 'roll-hint', title: hint }, hint);
+      })(),
       h(
         'button',
         {
@@ -1870,7 +1879,7 @@ SS.ui = (() => {
       (pe) => {
         const s2 = stepFromPoint(pe.clientX, pe.clientY);
         if (s2 == null) return;
-        const len = clamp(s2 - ev.step + 1, 1, maxLen);
+        const len = clamp(snapEnd(s2) - ev.step, 1, maxLen);
         if (len !== ev.len) {
           limits.forEach((l) => (l.x.len = clamp(l.len0 + len - len0, 1, l.max)));
           paint(track);
@@ -1954,6 +1963,13 @@ SS.ui = (() => {
     if (existing) track.events = track.events.filter((x) => x !== existing); // remplace l'accord/note à cet endroit
     const root = midi ?? track.lastRoot ?? (track.octave + 1) * 12;
     track.lastRoot = root;
+    // grille adaptée au zoom : début calé sur la case de grille, longueur d'une case
+    const u = gridUnit();
+    const voice = track.category === 'mono' ? midi : null;
+    let s0 = s - (s % u);
+    if (s0 !== s && findEventAt(track, s0, voice)) s0 = s; // ne pas empiéter sur la note précédente
+    const nextOf = (e0) => track.events.find((x) => x !== e0 && x.step > s0 && sharesVoice(track, e0, x));
+    s = s0;
     const ev = {
       step: s,
       len: 1,
@@ -1961,6 +1977,10 @@ SS.ui = (() => {
       vel: 0.8,
     };
     if (track.category !== 'mono') ev.chord = track.chord;
+    {
+      const next = nextOf(ev);
+      ev.len = clamp(u, 1, (next ? next.step : n) - s);
+    }
     track.events.push(ev);
     track.events.sort((a, b) => a.step - b.step);
     if (!SS.audio.isPlaying()) SS.audio.preview(track, ev.notes.length === 1 ? ev.notes[0] : ev.notes);
@@ -1975,7 +1995,7 @@ SS.ui = (() => {
       if (s2 == null) return;
       const next = track.events.find((x) => x !== ev && x.step > ev.step && sharesVoice(track, ev, x));
       const maxLen = (next ? next.step : n) - ev.step;
-      const len = clamp(s2 - ev.step + 1, 1, maxLen);
+      const len = clamp(snapEnd(s2) - ev.step, 1, maxLen);
       if (len !== ev.len) {
         ev.len = len;
         paint(track);
@@ -2253,6 +2273,42 @@ SS.ui = (() => {
     /* stockage indisponible : 100 % */
   }
 
+  /**
+   * Grille adaptée au zoom : plus on dézoome, plus la case de grille est grande (1 pas, 2 pas,
+   * 1 temps, 1/2 mesure, 1 mesure), pour qu'elle garde au moins GRID_MIN_PX à l'écran.
+   * Elle règle la longueur d'une note posée, le calage de son début et de sa fin, et les lignes affichées.
+   */
+  const GRID_MIN_PX = 12;
+  function gridUnits() {
+    const p = app.project();
+    const beat = SS.stepsPerBeat(p);
+    const bar = SS.stepsPerBar(p);
+    // 1 pas, 2 pas (si le temps est pair), 1 temps, 1/2 mesure (si elle tombe sur un temps), 1 mesure
+    const out = [1];
+    if (beat % 2 === 0 && beat > 2) out.push(2);
+    out.push(beat);
+    if (bar % 2 === 0 && (bar / 2) % beat === 0 && bar / 2 > beat) out.push(bar / 2);
+    out.push(bar);
+    return [...new Set(out)].sort((x, y) => x - y);
+  }
+  function gridUnit() {
+    const units = gridUnits();
+    return units.find((u) => u * BASE_COL.step * zoom >= GRID_MIN_PX) ?? units[units.length - 1];
+  }
+  /** Fin de note (exclue) quand le pointeur est sur le pas s : fin de la case de grille. */
+  function snapEnd(s) {
+    const u = gridUnit();
+    return s - (s % u) + u;
+  }
+  function gridLabel(u) {
+    const p = app.project();
+    const bar = SS.stepsPerBar(p);
+    if (u === bar) return '1 mesure';
+    if (u * 2 === bar) return '1/2 mesure';
+    if (u === SS.stepsPerBeat(p)) return '1 temps';
+    return u === 1 ? '1 pas' : `${u} pas`;
+  }
+
   function baseCols() {
     const p = app.project();
     const beat = SS.stepsPerBeat(p);
@@ -2271,6 +2327,11 @@ SS.ui = (() => {
     root.setProperty('--zx', zoom);
     document.body.classList.toggle('zoom-compact', zoom < 0.65);
     document.body.classList.toggle('zoom-tiny', zoom < 0.4);
+    // grille adaptative : lignes du piano roll et longueur des notes posées
+    const u = gridUnit();
+    const p0 = app.project();
+    document.body.dataset.grid = u === 1 ? '1' : u === SS.stepsPerBar(p0) ? 'bar' : u * 2 === SS.stepsPerBar(p0) ? 'half' : u === SS.stepsPerBeat(p0) ? 'beat' : '2';
+    document.querySelectorAll('.roll-grid-l').forEach((el) => (el.textContent = gridLabel(u)));
     const range = $('#zoomRange');
     if (range) range.value = Math.round((Math.log(zoom / ZOOM_MIN) / Math.log(ZOOM_MAX / ZOOM_MIN)) * 1000);
     const label = $('#zoomLabel');
