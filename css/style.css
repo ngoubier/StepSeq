@@ -80,7 +80,23 @@ a.btn { text-decoration: none; }
 .btn-play.playing .ico-pause { display: block; }
 .btn-play.paused { animation: play-blink 1.2s ease-in-out infinite; }
 @keyframes play-blink { 50% { background: #23793a; } }
-@media (prefers-reduced-motion: reduce) { .btn-play.paused { animation: none; } }
+.btn-play.loading { position: relative; }
+/* petit indicateur de chargement en haut à droite du bouton */
+.btn-play.loading::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, .35);
+  border-top-color: #fff;
+  animation: play-load .7s linear infinite;
+  pointer-events: none;
+}
+@keyframes play-load { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .btn-play.paused { animation: none; } .btn-play.loading::after { animation-duration: 3s; } }
 
 .segmented {
   display: inline-flex;

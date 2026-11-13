@@ -21,6 +21,8 @@ SS.audio = (() => {
   const bufferCache = new Map();
   const sfCache = new Map();
   let onError = (msg) => console.error(msg);
+  let masterReady = null; // chargement du module de mastering (attendu avant la première lecture)
+  let onLoading = () => {}; // signale l'attente des sons avant la lecture (bouton Lecture)
 
   function ensureCtx() {
     if (!ctx) {
@@ -37,7 +39,7 @@ SS.audio = (() => {
       masterFader.connect(masterMeter.node);
       // mastering (js/master-dsp.js) : inséré après le fader dès que le module audio est chargé
       if (SS.mastering)
-        SS.mastering.load(ctx).then(() => {
+        masterReady = SS.mastering.load(ctx).then(() => {
           masterProc = SS.mastering.create(ctx);
           masterProc.port.onmessage = (e) => (loudness = e.data);
           // seules la sortie et le vumètre passent après le mastering (les points d'écoute de l'Auto Mix restent branchés)
@@ -1425,8 +1427,54 @@ SS.audio = (() => {
    * à partir du bloc `index` ; sans lui, la scène en cours boucle.
    * opts.from (facultatif) : pas de départ dans la scène (curseur de lecture placé sur la règle).
    */
+  /**
+   * Lecture : on attend d'abord que les sons de la scène (échantillons, soundfonts, modules audio)
+   * soient chargés et que le contexte audio tourne. Sinon les premières notes partent dans le vide
+   * pendant que le curseur avance. Sons déjà en cache : la lecture démarre aussitôt.
+   * Au-delà de READY_TIMEOUT_MS, on démarre quand même (réseau lent) ; ce qui manque arrivera en route.
+   */
+  const READY_TIMEOUT_MS = 6000;
+  const LOADING_SHOW_MS = 150; // en dessous, pas d'indicateur (évite un clignotement)
+
+  function whenReady(project, song) {
+    const jobs = project.tracks.map(prepareTrack);
+    // en mode chanson, les scènes suivantes peuvent utiliser d'autres notes (VCSL)
+    if (song) jobs.push(preloadSong(project));
+    if (ctx.state !== 'running') jobs.push(ctx.resume().catch(() => {}));
+    if (masterReady) jobs.push(masterReady);
+    if (SS.filters) jobs.push(Promise.resolve(SS.filters.load(ctx)).catch(() => {}));
+    return Promise.race([Promise.all(jobs), new Promise((r) => setTimeout(r, READY_TIMEOUT_MS))]);
+  }
+
   function start(getProject, onStep, opts = {}) {
-    ensureCtx();
+    ensureCtx(); // dans le geste de l'utilisateur (politique autoplay)
+    if (seq.playing || seq.pending) return;
+    const pending = { getProject, onStep, opts };
+    seq.pending = pending;
+    const slow = setTimeout(() => {
+      if (seq.pending !== pending) return;
+      pending.shown = true;
+      onLoading(true);
+    }, LOADING_SHOW_MS);
+    whenReady(getProject(), !!opts.song).then(() => {
+      clearTimeout(slow);
+      if (seq.pending !== pending) return; // arrêté ou mis en pause pendant le chargement
+      seq.pending = null;
+      begin(pending.getProject, pending.onStep, pending.opts);
+      if (pending.shown) onLoading(false);
+    });
+  }
+
+  /** Annule une lecture qui attendait ses sons. */
+  function cancelPending() {
+    if (!seq.pending) return null;
+    const p = seq.pending;
+    seq.pending = null;
+    if (p.shown) onLoading(false);
+    return p;
+  }
+
+  function begin(getProject, onStep, opts) {
     if (seq.playing) return;
     Object.assign(scheduling, { ticks: 0, lateSteps: 0, maxLateMs: 0, lastLateAt: null, maxTickMs: 0 });
     seq.getProject = getProject;
@@ -1440,8 +1488,7 @@ SS.audio = (() => {
     seq.queue = [];
     seq.nextTime = ctx.currentTime + 0.08;
     if (seq.song) seq.queue.push({ step: -1, time: seq.nextTime, block: seq.song.index, rep: 0 });
-    getProject().tracks.forEach(prepareTrack);
-    if (seq.song) preloadSong(getProject());
+    getProject().tracks.forEach(prepareTrack); // scène du premier bloc (mode chanson) : déjà en cache le plus souvent
     tick();
     seq.timer = setInterval(tick, 25);
     draw();
@@ -1449,12 +1496,14 @@ SS.audio = (() => {
 
   /** Précharge les échantillons de toutes les scènes (les notes d'un VCSL dépendent de la scène). */
   function preloadSong(project) {
+    const jobs = [];
     project.scenes.forEach((sc) => {
       project.tracks.forEach((t) => {
         const d = sc.data && sc.data[t.id];
-        if (t.type === 'instrument' && d && d.events) prepareTrack({ ...t, events: d.events });
+        if (t.type === 'instrument' && d && d.events) jobs.push(prepareTrack({ ...t, events: d.events }));
       });
     });
+    return Promise.all(jobs);
   }
 
   function halt() {
@@ -1467,6 +1516,7 @@ SS.audio = (() => {
   }
 
   function stop() {
+    cancelPending();
     halt();
     seq.paused = null;
     seq.shown = null;
@@ -1475,6 +1525,15 @@ SS.audio = (() => {
 
   /** Pause : on coupe le son mais on garde la position (pas, bloc et répétition de la chanson). */
   function pause() {
+    const p = cancelPending();
+    if (p) {
+      // pause pendant le chargement : la reprise partira du point de départ prévu
+      seq.getProject = p.getProject;
+      seq.onStep = p.onStep;
+      seq.song = p.opts.song ? { ...p.opts.song, rep: 0, ended: false } : null;
+      seq.paused = { step: Math.max(0, Math.floor(p.opts.from || 0)), song: seq.song ? { index: seq.song.index, rep: 0 } : null };
+      return;
+    }
     if (!seq.playing) return;
     halt();
     const shown = seq.shown || { step: -1, song: seq.song ? { index: seq.song.index, rep: 0 } : null };
@@ -1511,6 +1570,10 @@ SS.audio = (() => {
    */
   function seek(step) {
     step = Math.max(0, Math.floor(step));
+    if (seq.pending) {
+      seq.pending.opts = { ...seq.pending.opts, from: step };
+      return;
+    }
     if (seq.paused) {
       seq.paused.step = step;
       seq.shown = { step, song: seq.paused.song };
@@ -1615,7 +1678,9 @@ SS.audio = (() => {
     _duckValue: (id) => (buses.get(id) ? buses.get(id).duck.gain.value : null),
     start,
     stop,
-    isPlaying: () => seq.playing,
+    isPlaying: () => seq.playing || !!seq.pending, // en attente des sons : compte comme en lecture
+    isLoading: () => !!seq.pending,
+    setOnLoading: (fn) => (onLoading = fn || (() => {})),
     isPaused: () => !!seq.paused,
     pause,
     resume,

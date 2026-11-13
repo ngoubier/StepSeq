@@ -345,6 +345,13 @@
     SS.audio.resume();
     setPlayButton('playing');
   }
+  // lecture en attente des sons : le bouton le montre (et Espace / clic annule comme une pause)
+  SS.audio.setOnLoading((on) => {
+    const b = $('#play');
+    b.classList.toggle('loading', on);
+    if (on) b.title = 'Chargement des sons… la lecture démarre dès qu’ils sont prêts';
+    else setPlayButton(SS.audio.isPlaying() ? 'playing' : SS.audio.isPaused() ? 'paused' : 'stopped');
+  });
   function setPlayButton(state) {
     const b = $('#play');
     b.classList.toggle('playing', state === 'playing');
