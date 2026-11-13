@@ -732,7 +732,7 @@
     editTrack,
     deleteTrack,
   });
-  SS.band.init({ project: () => project, openTrackDialog: (t, init) => SS.ui.openTrackDialog(t, init), apply: addBandTracks, applySong: addBandSong, bandTracks, hasNotes, writeMelody });
+  SS.band.init({ project: () => project, changed, openTrackDialog: (t, init) => SS.ui.openTrackDialog(t, init), apply: addBandTracks, applySong: addBandSong, bandTracks, hasNotes, writeMelody });
   SS.mySongs.init({ project: () => project, loadSong, flush: () => SS.autosave.saveNow() });
   SS.midiPanel.init({ project: () => project, loadSong: (p) => loadSong(p, { changed: true }), flush: () => SS.autosave.saveNow() });
   initHeader();

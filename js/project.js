@@ -344,6 +344,7 @@ SS.trackLen = (p, t) => {
  * project.song    : [{ scene: id, repeat: n }]  -- l'arrangement, joué dans l'ordre
  * project.playMode: 'loop' (boucle la scène en cours) | 'song' (joue l'arrangement)
  * project.songLoop: true pour reboucler la chanson à la fin
+ * project.gm      : true en mode General MIDI (seuls les sons GM sont proposés : fenêtre de piste, Band)
  *
  * Les réglages des pistes (son, volume, effets, sound design, longueur) sont communs
  * à toutes les scènes ; seules les notes / pas et le nombre de mesures changent.
@@ -515,6 +516,7 @@ SS.normalizeScenes = (p, data = {}) => {
   delete p.key;
   delete p.emotion;
   p.playMode = data.playMode === 'song' ? 'song' : 'loop';
+  if (data.gm) p.gm = true; // mode General MIDI : seuls les sons GM sont proposés (fenêtre de piste, Band)
   p.songLoop = !!data.songLoop;
 };
 

@@ -332,6 +332,7 @@ node tests/e2e/automix-track-pilot.js
 node tests/e2e/automix-master-pilot.js
 node tests/e2e/master-effects.js
 node tests/e2e/mobile-ui.js
+node tests/e2e/gm-mode-ui.js         # mode General MIDI (fenêtre de piste et Band)
 node tests/e2e/midi-ui.js            # import / export MIDI (fichier de test fabriqué, ou : node tests/e2e/midi-ui.js morceau.mid)
 ```
 
@@ -408,6 +409,13 @@ premier enregistrement ; les autres navigateurs téléchargent le fichier.
   notes rejouées à leur place ;
 - perdu : résolution plus fine que la double-croche, changements de tempo / mesure en cours de morceau, pitch
   bend, autres contrôleurs, changements de programme en cours de morceau, SysEx. Tout est listé dans la fenêtre.
+
+**Mode General MIDI** (`project.gm`) : réglage du projet partagé par la fenêtre « Nouvelle piste » (ligne
+« Sons : Tous / General MIDI ») et Band (bouton « General MIDI »), activé par l'import MIDI. La fenêtre de piste
+range alors les 128 programmes dans les 16 familles de la norme (`SS.GM_PROGRAMS`, `SS.GM_GROUPS`,
+`SS.gmInstrumentFor`), ne propose que la batterie General MIDI et désactive le type Synthé. Band remplace chaque
+choix par son équivalent GM (`SS.midi.gmEquivalent` ; les sons `gm_*` conseillés passent en premier) et joue la
+batterie avec le kit `gm` (`SS.Band.KITS.gm`).
 
 **Propriété `midi`** : les instruments `gm_*` du catalogue ont `midi` = leur programme GM (0–127), les types de
 drums (`SS.DRUM_TYPES`) et les sons de `SS.GM_DRUMS` ont `midi` = leur note GM. Les autres sons n'en ont pas.

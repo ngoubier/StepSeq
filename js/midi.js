@@ -105,6 +105,29 @@
     return { program: FAMILY_PROGRAM[track.family] ?? 0, exact: false };
   }
 
+  /**
+   * Équivalent General MIDI d'un choix de son (options de piste, comme dans Band ou la fenêtre de piste) :
+   * un instrument gm_* reste tel quel ; un synthé intégré, un Juno, un son VCSL / Dirt-Samples prend le programme
+   * GM le plus proche ; un drum prend le son de la batterie General MIDI de sa note.
+   */
+  function gmEquivalent(opts) {
+    if (!opts) return opts;
+    if (opts.type === 'drum') {
+      if (opts.source === 'gm') return opts;
+      const note = drumNoteOf(opts);
+      const n = SS.findGmDrum(note) ? note : DRUM_TO_GM[drumTypeOf(opts)] || 63;
+      return { type: 'drum', source: 'gm', bank: String(n), sound: opts.sound, machine: opts.machine || SS.DEFAULT_MACHINE, variant: 0 };
+    }
+    const asTrack =
+      opts.type === 'synth'
+        ? { type: 'instrument', family: 'analog', instrument: opts.analog, junoPatch: opts.patch }
+        : { type: 'instrument', family: opts.family, instrument: opts.instrument, sfv: opts.sfv };
+    const cur = SS.trackMidi(asTrack);
+    if (cur && opts.type !== 'synth') return opts;
+    const g = SS.gmInstrumentFor(programOf(asTrack).program);
+    return g ? { type: 'instrument', category: opts.category, ...g } : opts;
+  }
+
   /** Note GM d'une piste Drum : exacte pour la bibliothèque General MIDI, sinon celle de son type de son. */
   function drumNoteOf(track) {
     const gm = SS.trackMidi ? SS.trackMidi(track) : null;
@@ -657,6 +680,7 @@
     );
     const p = SS.newProject();
     p.title = String(o.title || 'Import MIDI').slice(0, 80);
+    p.gm = true; // projet General MIDI : la fenêtre de piste et Band proposent les sons GM
     p.tempo = tempo;
     p.timeSig = timeSig;
     p.bars = 1;
@@ -812,5 +836,5 @@
     return { project, report };
   }
 
-  SS.midi = { exportProject, importFile, analyze, programOf, drumTypeOf, drumNoteOf, keySignature, gmForProgram, gmVariantFor, MACHINES, GM_KIT, DRUM_TO_GM, GM_TO_DRUM, PPQ };
+  SS.midi = { exportProject, importFile, analyze, programOf, gmEquivalent, drumTypeOf, drumNoteOf, keySignature, gmForProgram, gmVariantFor, MACHINES, GM_KIT, DRUM_TO_GM, GM_TO_DRUM, PPQ };
 })(typeof window !== 'undefined' ? window : globalThis);

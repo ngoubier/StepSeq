@@ -284,3 +284,38 @@ test('import sur une boîte à rythmes ; export exact des sons General MIDI', ()
   assert.ok(back.tracks.flat().some((e) => e.type === 'program' && e.program === 2));
   assert.ok(!res.report.approx.some((w) => /Kick|Conga|Claves|piano/i.test(w)), res.report.approx.join('\n'));
 });
+
+test('mode General MIDI : chaque choix de Band et chaque élément de batterie a un équivalent GM', () => {
+  require('../js/band-presets.js');
+  const B = SS.Band;
+  // le kit General MIDI couvre tous les éléments proposés aux batteurs et percussionnistes
+  const pieces = new Set([...B.EXTRA_PIECES.drums, ...B.EXTRA_PIECES.perc]);
+  B.STYLES.forEach((st) => st.presets.forEach((p) => p.musicians.filter((m) => m.kits).forEach((m) => m.pieces.forEach((pc) => pieces.add(pc.split('@')[0])))));
+  pieces.forEach((pc) => {
+    assert.ok(B.kitHas('gm', pc), 'élément ' + pc);
+    const o = B.pieceOpts('gm', pc).opts;
+    assert.equal(o.source, 'gm');
+    assert.ok(SS.findGmDrum(o.bank), pc + ' -> ' + o.bank);
+  });
+  // tous les instruments conseillés (Juno, synthés, VCSL, Dirt…) se convertissent en programme GM
+  B.STYLES.forEach((st) =>
+    st.presets.forEach((p) =>
+      p.musicians.filter((m) => !m.kits).forEach((m) =>
+        m.pick.forEach((tok) => {
+          const o = SS.midi.gmEquivalent(B.choiceOpts(tok, 'mono'));
+          assert.equal(o.type, 'instrument', tok);
+          assert.ok(SS.trackMidi(o), `${p.id}/${m.id} ${tok} -> ${o.instrument}`);
+          if (tok.startsWith('gm_')) assert.equal(o.instrument, tok); // un son GM reste le même
+        })
+      )
+    )
+  );
+  // description d'un son GM : nom de la norme et numéro de programme
+  const d = B.describe({ type: 'instrument', category: 'mono', family: 'bass', instrument: 'gm_synth_bass_1', sfv: 0 });
+  assert.deepEqual([d.name, d.kind], ['Synth Bass 1', 'GM 39']);
+  // un projet importé est en mode General MIDI, le réglage survit à l'enregistrement
+  const imp = SS.midi.importFile(song('A')).project;
+  assert.equal(imp.gm, true);
+  assert.equal(SS.normalizeProject(JSON.parse(SS.serialize(imp))).gm, true);
+  assert.equal(SS.normalizeProject(JSON.parse(SS.serialize(SS.newProject()))).gm, undefined);
+});

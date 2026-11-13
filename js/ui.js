@@ -2474,6 +2474,16 @@ SS.ui = (() => {
       previewSoon();
     });
     setupList($('#dlgInstList'), (v) => {
+      if (String(v).startsWith('p')) {
+        // mode General MIDI : un numéro de programme
+        Object.assign(dlg.s, SS.gmInstrumentFor(+String(v).slice(1)));
+        dlg.gmGroup = +String(v).slice(1) >> 3;
+        fillSfv();
+        autoName();
+        syncDialog();
+        previewSoon();
+        return;
+      }
       const loc = SS.locateInstrument(dlg.s.family, v);
       dlg.s.instrument = loc.inst.id;
       dlg.s.family = loc.family.id; // un résultat de recherche peut venir d'une autre famille
@@ -2560,10 +2570,38 @@ SS.ui = (() => {
       )
     );
 
+    // Familles General MIDI (16 groupes de 8 programmes)
+    SS.GM_GROUPS.forEach((g) =>
+      $('#dlgGmGroups').append(
+        h('button', {
+          type: 'button',
+          class: 'chip',
+          'data-v': g.id,
+          title: `Programmes ${g.from + 1} à ${g.from + 8}`,
+          onclick: () => {
+            if (dlg.gmGroup === g.id && !$('#dlgInstFilter').value) return;
+            dlg.gmGroup = g.id;
+            Object.assign(dlg.s, SS.gmInstrumentFor(g.from));
+            $('#dlgInstFilter').value = '';
+            fillInstruments();
+            fillSfv();
+            autoName();
+            syncDialog();
+          },
+        }, g.label, h('small', {}, ` ${g.from + 1}–${g.from + 8}`))
+      )
+    );
+    $('#dlgGm').addEventListener('click', (e) => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      setGmMode(b.dataset.v === 'gm');
+    });
+
     $('#dlgType').addEventListener('click', (e) => {
       const b = e.target.closest('button');
       if (!b || b.disabled || dlg.s.type === b.dataset.v) return;
       dlg.s.type = b.dataset.v;
+      if (gmOn()) toGmState();
       autoName();
       syncDialog();
       if (dlg.s.type === 'drum') refreshDrum();
@@ -2611,6 +2649,8 @@ SS.ui = (() => {
       return `${t ? t.label : 'Drum'} ${count + 1}`;
     }
     if (s.type === 'synth') return SS.findAnalog(s.analog).label.replace(/^Roland /, '');
+    const gm = gmOn() && SS.trackMidi({ type: 'instrument', family: s.family, instrument: s.instrument, sfv: s.sfv });
+    if (gm) return SS.GM_PROGRAMS[gm.program];
     return SS.findInstrument(s.family, s.instrument).label.replace(/\s*\(.*\)$/, '');
   }
 
@@ -2717,6 +2757,7 @@ SS.ui = (() => {
 
   function fillInstruments() {
     const q = $('#dlgInstFilter').value.trim().toLowerCase();
+    if (gmOn()) return fillGmPrograms(q);
     const ent = (i) => ({ v: i.id, label: i.label, meta: i.midi != null ? `GM ${i.midi + 1}` : null, title: i.strudel ? `strudel : s("${i.strudel}")` + (i.midi != null ? ` · General MIDI programme ${i.midi + 1}` : '') : null });
     let entries;
     if (!q) {
@@ -2775,9 +2816,11 @@ SS.ui = (() => {
     const inst = SS.findInstrument(dlg.s.family, dlg.s.instrument);
     const files = inst.files || [];
     if (dlg.s.sfv >= files.length) dlg.s.sfv = 0;
+    // mode General MIDI : seulement les variantes qui jouent le programme choisi (gm_piano en regroupe quatre)
+    const prog = gmOn() && inst.midi != null ? SS.gmProgramOfFile(files[dlg.s.sfv]) : null;
     fillList(
       $('#dlgSfvList'),
-      files.map((f, i) => {
+      files.map((f, i) => ({ f, i })).filter((x) => prog == null || SS.gmProgramOfFile(x.f) === prog).map(({ f, i }) => {
         // gm_piano regroupe les programmes GM 1 à 4 : on indique celui de chaque variante
         const prog = inst.midi != null ? SS.gmProgramOfFile(f) : null;
         const gm = prog != null && prog !== inst.midi ? `GM ${prog + 1}` : '';
@@ -2795,6 +2838,21 @@ SS.ui = (() => {
       b.classList.toggle('active', b.dataset.v === s.type);
       b.disabled = (!!s.editingId && b.dataset.v !== s.type) || (!!dlg.types && !dlg.types.includes(b.dataset.v));
     });
+    const gm = gmOn();
+    $('#dlgGm').querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.v === (gm ? 'gm' : 'all')));
+    $('#dlgGmHint').textContent = gm
+      ? 'Mode General MIDI du projet : seuls les sons General MIDI sont proposés (ici et dans Band). Ils sortent tels quels à l’export MIDI.'
+      : '';
+    if (gm) {
+      const synthBtn = $('#dlgType button[data-v="synth"]');
+      if (s.type !== 'synth') synthBtn.disabled = true;
+      synthBtn.title = 'Les synthés analogiques ne sont pas General MIDI';
+    } else $('#dlgType button[data-v="synth"]').title = '';
+    $('#dlgDrumLib').querySelectorAll('button').forEach((b) => (b.hidden = gm && b.dataset.v !== 'gm' && b.dataset.v !== (s.source || 'tdm')));
+    $('#dlgFamilies').hidden = gm;
+    $('#dlgInstFilter').placeholder = gm ? '🔍 Rechercher un programme General MIDI (nom ou numéro : piano, 81…)' : '🔍 Rechercher un instrument dans toutes les familles (sitar, sax, organ…)';
+    $('#dlgGmGroups').hidden = !gm;
+    $('#dlgGmGroups').querySelectorAll('.chip').forEach((b) => b.classList.toggle('active', +b.dataset.v === dlg.gmGroup && !$('#dlgInstFilter').value.trim()));
     $('#dlgDrum').hidden = !isDrum;
     $('#dlgInst').hidden = s.type !== 'instrument';
     $('#dlgSynth').hidden = s.type !== 'synth';
@@ -2823,6 +2881,77 @@ SS.ui = (() => {
       const root = (SS.findFamily(family).octave + 1) * 12;
       SS.audio.preview(fake, s.category === 'mono' ? root : SS.chordNotes(root, 'min'));
     }
+  }
+
+  /* ---------- Mode General MIDI (project.gm) ---------- */
+  const gmOn = () => !!(app && app.project().gm);
+
+  /** Programme GM du son choisi dans le dialogue (instrument), ou null. */
+  function currentGmProgram() {
+    const s = dlg.s;
+    const m = SS.trackMidi({ type: 'instrument', family: s.family, instrument: s.instrument, sfv: s.sfv });
+    return m ? m.program : null;
+  }
+  const currentGmGroup = () => (currentGmProgram() ?? 0) >> 3;
+
+  /** Remplace le son choisi par son équivalent General MIDI (instrument, synthé ou drum). */
+  function toGmState() {
+    const s = dlg.s;
+    if (s.type === 'synth') {
+      Object.assign(s, SS.midi.gmEquivalent({ type: 'synth', analog: s.analog, patch: s.patch, category: s.category }), { type: 'instrument' });
+    } else if (s.type === 'instrument') {
+      Object.assign(s, SS.midi.gmEquivalent({ type: 'instrument', family: s.family, instrument: s.instrument, sfv: s.sfv, category: s.category }));
+    } else if (s.source !== 'gm') {
+      const g = SS.midi.gmEquivalent({ type: 'drum', source: s.source || 'tdm', sound: s.sound, bank: s.bank, machine: s.machine });
+      Object.assign(s, { source: 'gm', bank: g.bank, variant: 0 });
+    }
+  }
+
+  /** Active ou coupe le mode General MIDI du projet (réglage partagé avec Band). */
+  function setGmMode(on) {
+    if (gmOn() === on) return;
+    const p = app.project();
+    if (on) p.gm = true;
+    else delete p.gm;
+    app.changed();
+    if (on) toGmState();
+    dlg.gmGroup = currentGmGroup();
+    $('#dlgInstFilter').value = '';
+    $('#dlgDrumFilter').value = '';
+    autoName();
+    fillInstruments();
+    fillSfv();
+    syncDialog();
+    if (dlg.s.type === 'drum') refreshDrum(false);
+  }
+
+  /** Liste des programmes General MIDI : ceux du groupe choisi, ou la recherche (nom ou numéro). */
+  function fillGmPrograms(q) {
+    const prog = currentGmProgram();
+    const ent = (k) => {
+      const g = SS.gmInstrumentFor(k);
+      const inst = g && SS.findInstrument(g.family, g.instrument);
+      return { v: 'p' + k, label: `${k + 1} · ${SS.GM_PROGRAMS[k]}`, meta: inst ? inst.label : null, title: g ? `strudel : s("${g.instrument}")` : null };
+    };
+    let entries;
+    if (!q) {
+      const from = (dlg.gmGroup || 0) * 8;
+      entries = Array.from({ length: 8 }, (_, i) => ent(from + i));
+      $('#dlgInstCount').textContent = '8';
+    } else {
+      entries = [];
+      let n = 0;
+      SS.GM_GROUPS.forEach((g) => {
+        const hits = [];
+        for (let k = g.from; k < g.from + 8; k++) {
+          if (SS.GM_PROGRAMS[k].toLowerCase().includes(q) || String(k + 1) === q) hits.push(ent(k));
+        }
+        if (hits.length) entries.push({ group: g.label }, ...hits);
+        n += hits.length;
+      });
+      $('#dlgInstCount').textContent = `${n} trouvé${n > 1 ? 's' : ''}`;
+    }
+    fillList($('#dlgInstList'), entries, prog == null ? null : 'p' + prog, 'Aucun programme trouvé');
   }
 
   /**
@@ -2884,6 +3013,8 @@ SS.ui = (() => {
       if (dlg.s.type === 'synth' && !st.instrument) dlg.s.instrument = SS.findFamily(dlg.s.family).instruments[0].id;
       if (st.name) dlg.s.nameEdited = true;
     }
+    if (gmOn() && !track) toGmState();
+    dlg.gmGroup = currentGmGroup();
     $('#dlgTitle').textContent = (init && init.title) || (track ? 'Modifier la piste' : 'Nouvelle piste');
     $('#dlgOk').textContent = (init && init.okLabel) || (track ? 'Appliquer' : 'Valider');
     $('#dlgName').value = dlg.s.name;
