@@ -3023,3 +3023,13 @@ dialog.midi-dialog { width: min(720px, calc(100vw - 32px)); }
   .band-gm-box { display: none; }
   .band-head .band-modes { margin-left: 4px; }
 }
+
+/* Badge General MIDI dans la liste des pistes (js/ui.js gmBadge) */
+.th-gm {
+  display: inline-block; margin-right: 5px; padding: 0 4px; border: 0; border-radius: 3px;
+  font: 600 10px/14px ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; vertical-align: 1px;
+  background: color-mix(in srgb, var(--accent-2) 22%, transparent); color: #7db8ff;
+}
+.th-gm.drum { background: color-mix(in srgb, #e3179c 24%, transparent); color: #ff7cc8; }
+button.th-gm.no { background: color-mix(in srgb, #f08a00 22%, transparent); color: #ffab3d; cursor: pointer; }
+button.th-gm.no:hover, button.th-gm.no:focus-visible { background: #f08a00; color: #1a1000; outline: none; }

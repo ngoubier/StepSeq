@@ -415,7 +415,9 @@ premier enregistrement ; les autres navigateurs téléchargent le fichier.
 range alors les 128 programmes dans les 16 familles de la norme (`SS.GM_PROGRAMS`, `SS.GM_GROUPS`,
 `SS.gmInstrumentFor`), ne propose que la batterie General MIDI et désactive le type Synthé. Band remplace chaque
 choix par son équivalent GM (`SS.midi.gmEquivalent` ; les sons `gm_*` conseillés passent en premier) et joue la
-batterie avec le kit `gm` (`SS.Band.KITS.gm`).
+batterie avec le kit `gm` (`SS.Band.KITS.gm`). Liste des pistes : badge « GM n » (bleu : programme, rose : note de
+batterie) sur chaque piste General MIDI ; en mode GM, badge orange « ≈ GM n » sur les autres, qui convertit la piste
+au clic (`gmBadge`, `convertToGm` dans `js/ui.js`).
 
 **Propriété `midi`** : les instruments `gm_*` du catalogue ont `midi` = leur programme GM (0–127), les types de
 drums (`SS.DRUM_TYPES`) et les sons de `SS.GM_DRUMS` ont `midi` = leur note GM. Les autres sons n'en ont pas.

@@ -60,6 +60,24 @@ const saved = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('ste
   ok(p.gm === true, 'le mode General MIDI est enregistré dans le projet');
   ok(last.instrument === 'gm_synth_bass_1' && last.name === 'Synth Bass 1', `piste créée : ${last.name} (${last.instrument})`);
 
+  // ---- badges GM dans la liste des pistes ----
+  const badges = () => page.$$eval('.track', (ts) => ts.map((t) => [t.querySelector('.th-name b').textContent, (t.querySelector('.th-gm') || {}).textContent || '', !!t.querySelector('button.th-gm.no')]));
+  let bs = await badges();
+  console.log(JSON.stringify(bs));
+  ok(bs.some(([n, g]) => n === 'Synth Bass 1' && g === 'GM 39'), 'badge « GM 39 » sur la basse GM');
+  const other = bs.findIndex(([, , no]) => no);
+  ok(other >= 0, `badge orange « ≈ GM » sur une piste non GM (${other >= 0 ? bs[other][0] + ' : ' + bs[other][1] : 'aucune'})`);
+  if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'gm-badges.png'), clip: { x: 0, y: 270, width: 700, height: 260 } });
+  if (other >= 0) {
+    const els = await page.$$('.track');
+    await (await els[other].$('button.th-gm.no')).click();
+    await page.waitForTimeout(500);
+    const after = (await badges())[other];
+    ok(!after[2] && /^GM [0-9]+$/.test(after[1]), `clic : « ${after[0]} » converti en General MIDI (${after[1]})`);
+    p = await saved(page);
+    ok(await page.evaluate((t) => !!SS.trackMidi(t), p.tracks[other]), 'la piste convertie est General MIDI dans le projet');
+  }
+
   // ---- Band suit le même réglage ----
   await page.click('#bandBtn');
   await page.waitForSelector('#bandDialog[open]');
@@ -93,6 +111,8 @@ const saved = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('ste
   ok(await page.$eval('#dlgGm button[data-v="all"]', (e) => e.classList.contains('active')), 'fenêtre de piste : retour à « Tous »');
   await page.click('#dlgCancel');
   ok(!(await saved(page)).gm, 'réglage retiré du projet');
+  bs = await badges();
+  ok(!bs.some(([, , no]) => no) && bs.some(([, g]) => /^GM/.test(g)), 'mode coupé : plus de badge orange, les badges GM restent');
   ok(errs.length === 0, 'aucune erreur JavaScript' + (errs.length ? ' : ' + errs.join(' | ') : ''));
   void before;
   await b.close();

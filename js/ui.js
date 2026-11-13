@@ -135,6 +135,66 @@ SS.ui = (() => {
     return len % spb === 0 ? `${len / spb} mes.` : `${len} pas`;
   }
 
+  /**
+   * Badge General MIDI d'une piste (liste des pistes) :
+   *  - bleu « GM 39 » : instrument General MIDI, rose « GM 36 » : son de la batterie General MIDI, exportés tels quels ;
+   *  - en mode General MIDI du projet, orange « ≈ GM 39 » pour un autre son : remplacé à l'export par ce programme ;
+   *    un clic convertit la piste.
+   */
+  function gmBadge(track) {
+    const m = SS.trackMidi(track);
+    if (m) {
+      const drum = m.note != null;
+      const n = drum ? m.note : m.program + 1;
+      const what = drum ? `${(SS.findGmDrum(m.note) || {}).label || 'Batterie'} (note ${m.note})` : `programme ${n} · ${SS.GM_PROGRAMS[m.program]}`;
+      return h('span', { class: 'th-gm' + (drum ? ' drum' : ''), title: `General MIDI : ${what}. Exporté tel quel en MIDI.` }, `GM ${n}`);
+    }
+    if (!app.project().gm || !SS.midi) return null;
+    const eq = gmEquivalentOf(track);
+    const em = eq && SS.trackMidi({ ...eq, type: eq.type });
+    if (!em) return null;
+    const n = em.note != null ? em.note : em.program + 1;
+    const what = em.note != null ? `${(SS.findGmDrum(em.note) || {}).label} (note ${em.note})` : `${SS.GM_PROGRAMS[em.program]} (programme ${n})`;
+    return h(
+      'button',
+      {
+        type: 'button',
+        class: 'th-gm no',
+        title: `Ce son n'est pas General MIDI : à l'export MIDI, il sera remplacé par ${what}. Clic : convertir la piste en ce son.`,
+        onclick: (e) => {
+          e.stopPropagation();
+          convertToGm(track);
+        },
+      },
+      `≈ GM ${n}`
+    );
+  }
+
+  /** Équivalent General MIDI du son d'une piste (options de piste). */
+  function gmEquivalentOf(track) {
+    if (track.type === 'drum') return SS.midi.gmEquivalent({ type: 'drum', source: track.source, sound: track.sound, bank: track.bank, machine: track.machine });
+    if (SS.isAnalog(track)) return SS.midi.gmEquivalent({ type: 'synth', analog: track.instrument, patch: track.junoPatch, category: track.category });
+    return SS.midi.gmEquivalent({ type: 'instrument', family: track.family, instrument: track.instrument, sfv: track.sfv, category: track.category });
+  }
+
+  /** Remplace le son d'une piste par son équivalent General MIDI (notes, volume, effets gardés ; annulable). */
+  function convertToGm(track) {
+    const eq = gmEquivalentOf(track);
+    if (!eq) return;
+    const before = trackSubtitleBase(track);
+    if (track.type === 'drum') Object.assign(track, { source: 'gm', bank: eq.bank, variant: 0 });
+    else {
+      delete track.juno;
+      delete track.junoPatch;
+      delete track.sd; // le sound design était réglé pour l'ancien son
+      Object.assign(track, { family: eq.family, instrument: eq.instrument, sfv: eq.sfv || 0 });
+    }
+    renderTrack(track);
+    SS.audio.prepareTrack(track);
+    app.changed();
+    toast(`« ${track.name} » : ${before} → ${trackSubtitleBase(track)}. Ctrl+Z pour annuler.`, 5000);
+  }
+
   function trackSubtitle(track) {
     const l = app && lenLabel(track);
     return (l ? `⟲ ${l} · ` : '') + trackSubtitleBase(track);
@@ -313,7 +373,7 @@ SS.ui = (() => {
         'div',
         { class: 'th-name', title: 'Double-clic pour renommer', ondblclick: (e) => rename(track, e.currentTarget) },
         h('b', {}, track.name),
-        h('small', {}, trackSubtitle(track))
+        h('small', {}, gmBadge(track), trackSubtitle(track))
       ),
       h('input', {
         class: 'th-vol',
@@ -2914,6 +2974,7 @@ SS.ui = (() => {
     if (on) p.gm = true;
     else delete p.gm;
     app.changed();
+    renderAll(); // badges GM de la liste des pistes
     if (on) toGmState();
     dlg.gmGroup = currentGmGroup();
     $('#dlgInstFilter').value = '';

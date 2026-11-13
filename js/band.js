@@ -443,6 +443,7 @@ SS.band = (() => {
     if (on) p.gm = true;
     else delete p.gm;
     app.changed && app.changed();
+    SS.ui.renderAll(); // badges GM de la liste des pistes
     refresh();
   }
 
