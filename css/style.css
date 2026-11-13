@@ -384,6 +384,21 @@ a.btn { text-decoration: none; }
   pointer-events: none;
 }
 .cell.now { outline: 2px solid rgba(255, 255, 255, .85); outline-offset: -2px; }
+/* micro-décalage d'une note (ev.shift) : trait au départ réel de la note (en avance : avant le pas) */
+.cell:has(.shift-mark), .rcell:has(.shift-mark) { overflow: visible; }
+.shift-mark {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  left: calc(var(--shift) * 100%);
+  width: 2px;
+  margin-left: -1px;
+  z-index: 2;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .6);
+  border-radius: 1px;
+  pointer-events: none;
+}
 .cell.on.now { filter: brightness(1.35); }
 
 /* Piano roll */

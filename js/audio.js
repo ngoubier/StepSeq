@@ -1341,13 +1341,27 @@ SS.audio = (() => {
         } else if (ev.step === step) {
           // une note ne dépasse pas la fin de la boucle de sa piste
           const dur = Math.min(ev.len, SS.trackLen(project, track) - ev.step) * sd * 0.98;
-          const tt = time + jt();
+          // micro-décalage de la note (ev.shift, fraction de pas) : en avance ou en retard sur la grille
+          const tt = time + jt() + (ev.shift || 0) * sd;
           const vv = jv(ev.vel);
           ev.notes.forEach((n, i) => playNote(track, n, tt, dur, vv * (ev.notes.length > 1 ? 0.8 : 1), undefined, i, ev.notes.length));
           duckFrom(project, track, tt);
         }
       });
     });
+  }
+
+  /**
+   * Avance de programmation (s). Une note décalée en avance (ev.shift < 0) est programmée avec son pas,
+   * avant l'heure du pas : on programme donc plus tôt, d'autant que la note la plus en avance.
+   */
+  function lookahead(project) {
+    let early = 0;
+    project.tracks.forEach((t) => {
+      if (t.type === 'instrument' && t.category !== 'arp')
+        (t.events || []).forEach((ev) => ev.shift < early && (early = ev.shift));
+    });
+    return 0.12 - early * stepDur(project);
   }
 
   function tick() {
@@ -1362,7 +1376,7 @@ SS.audio = (() => {
     const project = seq.getProject();
     if (seq.song) return tickSong(project);
     const total = SS.totalSteps(project);
-    while (seq.nextTime < ctx.currentTime + 0.12) {
+    while (seq.nextTime < ctx.currentTime + lookahead(project)) {
       // le compteur ne revient pas à 0 : des pistes de longueurs différentes restent décalées (polymétrie).
       // Il repart à 0 quand toutes les boucles se retrouvent alignées.
       if (seq.step >= seq.cycle(project, total)) seq.step = 0;
@@ -1381,7 +1395,7 @@ SS.audio = (() => {
    */
   function tickSong(project) {
     const sg = seq.song;
-    while (seq.nextTime < ctx.currentTime + 0.12 && !sg.ended) {
+    while (seq.nextTime < ctx.currentTime + lookahead(project) && !sg.ended) {
       const total = SS.totalSteps(project);
       if (seq.step >= total) {
         seq.step = 0;
