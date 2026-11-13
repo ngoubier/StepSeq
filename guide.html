@@ -95,6 +95,7 @@
       <a href="#avance">Réglages avancés</a>
       <a href="#sound-design">Sound design</a>
       <a href="#effets">Effets</a>
+      <a href="#automation">Automation</a>
       <a href="#groove">Groove</a>
       <a href="#harmonie">Key (harmonie)</a>
       <a href="#chanson">Mode chanson</a>
@@ -399,6 +400,22 @@
         <li>Le temps du delay suit le tempo : à 112 BPM, une 1/8 pointée vaut 402 ms.</li>
         <li><b>Annuler</b> ou Échap revient aux effets d'avant l'ouverture.</li>
         <li>La queue de reverb et les échos continuent un instant après Stop, comme sur un vrai appareil.</li>
+      </ul>
+
+      <h2 id="automation"><small>Montées et transitions</small>Automation : faire évoluer le son au fil de la scène</h2>
+      <p>Le bouton <b>∿</b> de l'en-tête d'une piste ouvre sa <b>ligne d'automation</b>, juste sous la piste et alignée sur ses pas (comme les courbes d'automation d'Ableton Live ou de Bitwig). Elle fait évoluer un réglage de la piste pas après pas, même pendant une note tenue : c'est la montée de filtre de la techno mélodique, le lead qui « s'ouvre » au refrain en synthwave, la reverb qu'on lâche avant un drop.</p>
+      <ul>
+        <li><b>Réglages</b> (menu de gauche ; ● = déjà une courbe) :
+          <b>Filtre</b> — un filtre de DJ : en dessous de la ligne pointillée, un passe-bas qui assombrit le son ; au-dessus, un passe-haut qui retire les graves ; sur la ligne, le son est intact.
+          <b>Résonance</b> — accentue la fréquence du filtre (le « miaulement » d'une montée).
+          <b>Volume</b> — en plus du fader de la piste.
+          <b>Reverb</b> et <b>Écho</b> — envoi supplémentaire vers la reverb « hall » et l'écho partagés (fenêtre Effets).</li>
+        <li><b>Dessiner</b> : clique et glisse dans les cases ; la hauteur donne la valeur, affichée à gauche. Entre deux points, la valeur suit une droite ; avant le premier et après le dernier, elle reste celle du point. <b>Clic droit</b> (ou Alt + clic) efface des points, <b>Effacer</b> retire toute la courbe du réglage.</li>
+        <li><b>Forme…</b> pose une courbe toute prête sur toute la boucle de la piste : ouvrir ou fermer le passe-bas, monter le passe-haut avant le drop (ou seulement sur la 2e moitié), monter la résonance, fondu entrant ou sortant, <b>pompe à chaque temps</b> (l'effet « sidechain » sans piste source), lâcher la reverb ou l'écho sur la dernière mesure.</li>
+        <li>La courbe appartient à la <b>scène</b> : une scène « Montée » peut ouvrir le filtre que le « Drop » laisse ouvert. Une scène sans courbe remet le réglage au neutre. Elle se recopie avec les mesures, comme les notes ; Ctrl+Z annule chaque geste.</li>
+        <li>À l'arrêt, tout revient au neutre (le bouton ▶ d'une piste fait entendre son son d'origine).</li>
+        <li><b>Export MIDI</b> : pour les pistes instrument, Filtre → CC 74, Résonance → CC 71, Volume → CC 11, Reverb → CC 91 (une valeur par pas). L'écho et les pistes de batterie ne sont pas exportés.</li>
+        <li>Sur téléphone, le bouton ∿ est masqué (place trop réduite) : les courbes déjà posées sont jouées normalement.</li>
       </ul>
 
       <h2 id="groove">Groove</h2>

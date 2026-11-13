@@ -189,7 +189,7 @@
     const outs = tracks.map((t) => {
       const drum = t.type === 'drum';
       const ch = drum ? 9 : melodicCh[nextCh++ % melodicCh.length];
-      return { t, ch, drum, notes: [], prog: drum ? null : programOf(t) };
+      return { t, ch, drum, notes: [], cc: [], ccLast: {}, prog: drum ? null : programOf(t) };
     });
     if (nextCh > melodicCh.length) approx.push(`${nextCh} pistes Instrument pour 15 canaux MIDI : certaines partagent un canal (elles restent sur des pistes séparées).`);
 
@@ -238,6 +238,22 @@
               for (let j = 0; j < r; j++) out.notes.push({ at: (base + tick + swingAt(tick) + j / r) * TPS + nudge, dur: TPS / 2 / r, note: drumNote, vel: v * (j ? 0.85 : 1) });
             }
             continue;
+          }
+          // automation (track.auto) -> contrôleurs MIDI, une valeur par pas quand elle change ; une courbe absente de
+          // la scène revient à la valeur neutre. Batterie : non (canal 10 partagé par toutes les pistes de batterie).
+          for (let tick = 0; tick < ticksTotal; tick++) {
+            for (const P of SS.AUTO_PARAMS) {
+              if (!P.cc) continue;
+              let v = SS.autoValue(d.auto && d.auto[P.id], tick % len, len);
+              if (v === null) {
+                if (out.ccLast[P.cc] === undefined) continue;
+                v = P.def;
+              }
+              const val = clamp(Math.round(P.min < 0 ? 64 + v * 63 : v * 127), 0, 127);
+              if (out.ccLast[P.cc] === val) continue;
+              out.ccLast[P.cc] = val;
+              out.cc.push({ at: (base + tick) * TPS, cc: P.cc, val });
+            }
           }
           const events = d.events || [];
           if (t.category === 'arp') {
@@ -292,6 +308,7 @@
         if (prev && prev.end > n.at) prev.end = Math.max(prev.at + 1, n.at);
         lastOf.set(n.note, n);
       }
+      for (const c of out.cc) evs.push({ tick: Math.round(c.at), bytes: [0xb0 | ch, c.cc, c.val] });
       for (const n of notes) {
         const vel = clamp(Math.round(n.vel * 127), 1, 127);
         evs.push({ tick: n.at, bytes: [0x90 | ch, n.note, vel] });
@@ -307,6 +324,13 @@
       if (out.drum && t.source && t.source !== 'tdm' && t.source !== 'gm') approx.push(`« ${t.name} » (banque ${t.bank}) → note GM ${drumNoteOf(t)}`);
     }
     if (o.audibleOnly && tracks.length < p.tracks.length) ignored.push(`${p.tracks.length - tracks.length} piste(s) muette(s) non exportée(s).`);
+    const autos = SS.AUTO_PARAMS.filter((P) => P.cc).map((P) => `${P.label} → CC ${P.cc}`).join(', ');
+    const scenesData = p.scenes.flatMap((sc) => Object.entries(sc.data || {}));
+    if (scenesData.some(([, d]) => d.auto)) {
+      approx.push(`Automation des pistes instrument en contrôleurs MIDI : ${autos} (une valeur par pas).`);
+      if (scenesData.some(([, d]) => d.auto && d.auto.echo) || scenesData.some(([id, d]) => d.auto && p.tracks.some((t) => t.id === id && t.type === 'drum')))
+        ignored.push("L'automation de l'écho et celle des pistes de batterie ne sont pas exportées.");
+    }
     if (p.groove && p.groove.human) ignored.push("L'humanisation (aléatoire) n'est pas appliquée.");
     if (p.tracks.some((t) => t.sd || t.fx || t.mix || t.juno)) ignored.push('Le sound design, les effets, le mixage et les réglages du Juno restent dans StepSeq (ce ne sont pas des données MIDI).');
 

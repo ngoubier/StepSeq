@@ -27,6 +27,7 @@ SS.ui = (() => {
     grip: '<svg viewBox="0 0 10 20"><circle cx="3" cy="5" r="1.4" class="fill"/><circle cx="7" cy="5" r="1.4" class="fill"/><circle cx="3" cy="10" r="1.4" class="fill"/><circle cx="7" cy="10" r="1.4" class="fill"/><circle cx="3" cy="15" r="1.4" class="fill"/><circle cx="7" cy="15" r="1.4" class="fill"/></svg>',
     close: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
     chevron: '<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>',
+    auto: '<svg viewBox="0 0 24 24"><path d="M3 18c4 0 5-12 9-12s4 8 9 8"/><circle cx="3" cy="18" r="1.6" class="fill"/><circle cx="12" cy="6" r="1.6" class="fill"/><circle cx="21" cy="14" r="1.6" class="fill"/></svg>',
     drum: '<svg viewBox="0 0 24 24"><ellipse cx="12" cy="8" rx="8" ry="3"/><path d="M4 8v8c0 1.7 3.6 3 8 3s8-1.3 8-3V8"/><path d="M4 12l4 5M20 12l-4 5M12 11v8"/></svg>',
     keys: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M8 5v14M12 5v14M16 5v14"/><path d="M6.5 5h3v8h-3zM14.5 5h3v8h-3z" class="fill"/></svg>',
     arp: '<svg viewBox="0 0 24 24"><path d="M4 19h4v-4h4v-4h4V7h4"/></svg>',
@@ -320,6 +321,7 @@ SS.ui = (() => {
     refs.set(track.id, ref);
 
     const isOpen = app.state.openRolls.has(track.id);
+    const autoOpen = openAutos().has(track.id);
     const head = h(
       'div',
       { class: 'track-head' },
@@ -412,6 +414,19 @@ SS.ui = (() => {
           })
         : null,
       h('button', {
+        type: 'button',
+        class: 'th-btn th-auto' + (autoOpen ? ' open' : '') + (track.auto ? ' on' : ''),
+        title: 'Automation : filtre, résonance, volume, reverb, écho, pas à pas (propre à la scène)',
+        'aria-label': `Automation de la piste ${track.name}`,
+        'aria-expanded': String(autoOpen),
+        html: ICONS.auto,
+        onclick: () => {
+          if (autoOpen) openAutos().delete(track.id);
+          else openAutos().add(track.id);
+          renderTrack(track);
+        },
+      }),
+      h('button', {
         class: 'th-btn fx-btn' + (SS.fxActive(track) ? ' on' : ''),
         title: 'Effets : chorus, delay, reverb, sidechain, bus partagés',
         onclick: () => SS.fx.open(track),
@@ -459,11 +474,165 @@ SS.ui = (() => {
 
     const selected = sel && sel.track === track;
     const el = h('div', { class: 'track' + (selected ? ' selected' : ''), style: `--c:${track.color}`, 'data-id': track.id }, h('div', { class: 'track-row' }, head, grid));
+    if (autoOpen) el.append(buildAutoLane(track, ref));
     if (track.type === 'instrument' && isOpen) el.append(buildRoll(track, ref));
     ref.el = el;
     SS.audio.setTrackGain(track, track.volume);
     paint(track);
     return el;
+  }
+
+  /* ---------- Automation (track.auto) : une ligne sous la piste ---------- */
+
+  const openAutos = () => (app.state.openAutos = app.state.openAutos || new Set());
+  const autoParams = new Map(); // piste -> réglage affiché dans sa ligne d'automation
+  const AUTO_LANE_H = 72;
+
+  function buildAutoLane(track, ref) {
+    const p = app.project();
+    const n = SS.totalSteps(p);
+    // réglage affiché : le dernier choisi, sinon le premier qui a une courbe, sinon le filtre
+    if (!autoParams.has(track.id)) autoParams.set(track.id, (SS.AUTO_PARAMS.find((x) => track.auto && track.auto[x.id]) || SS.AUTO_PARAMS[0]).id);
+    const P = () => SS.autoParam(autoParams.get(track.id));
+    const lane = () => track.auto && track.auto[P().id];
+
+    const param = h('select', { class: 'auto-param', 'aria-label': 'Réglage automatisé' });
+    const fillParams = () =>
+      param.replaceChildren(...SS.AUTO_PARAMS.map((x) => h('option', { value: x.id }, x.label + (track.auto && track.auto[x.id] ? ' ●' : ''))));
+    const shapes = h('select', { class: 'auto-shape', 'aria-label': 'Forme toute prête', title: 'Remplace la courbe par une forme sur toute la boucle de la piste' });
+    const fillShapes = () =>
+      shapes.replaceChildren(h('option', { value: '' }, 'Forme…'), ...(SS.AUTO_SHAPES[P().id] || []).map((x) => h('option', { value: x.id }, x.label)));
+    const readout = h('output', { class: 'auto-val' });
+    const clear = h('button', { type: 'button', class: 'auto-clear', title: 'Effacer la courbe de ce réglage dans la scène' }, 'Effacer');
+    const head = h(
+      'div',
+      { class: 'auto-head' },
+      h('div', { class: 'auto-line' }, h('span', { class: 'auto-title', html: ICONS.auto }), param, shapes),
+      h('div', { class: 'auto-line' }, readout, clear)
+    );
+    const grid = h('div', { class: 'grid auto-grid', title: 'Glisser pour dessiner la courbe · clic droit (ou Alt) : effacer des points' });
+    ref.autoCells = [];
+    for (let s = 0; s < n; s++) {
+      const c = h('div', { class: cellClass(p, s, 'acell'), 'data-step': s }, h('div', { class: 'abar' }));
+      ref.autoCells.push(c);
+      grid.append(c);
+    }
+
+    const show = (v) => (readout.textContent = v === null ? `${P().label} : ${SS.autoFormat(P().id, P().def)} (sans courbe)` : `${P().label} : ${SS.autoFormat(P().id, v)}`);
+    function paintAuto() {
+      const x = P();
+      const l = lane();
+      const len = SS.trackLen(app.project(), track);
+      const span = x.max - x.min;
+      const zero = (0 - x.min) / span; // ligne de base (0 en bas, ou au milieu pour le filtre)
+      ref.autoCells.forEach((c, s) => {
+        const v = s < len ? SS.autoValue(l, s, len) : null;
+        const bar = c.firstChild;
+        c.classList.toggle('beyond', s >= len);
+        c.classList.toggle('pt', !!(l && l[s] !== undefined && s < len));
+        c.classList.toggle('empty', v === null);
+        const u = ((v ?? x.def) - x.min) / span;
+        const lo = Math.min(u, zero), hi = Math.max(u, zero);
+        bar.style.bottom = lo * 100 + '%';
+        bar.style.height = Math.max(hi - lo, 0.02) * 100 + '%';
+        bar.classList.toggle('neg', (v ?? x.def) < 0);
+        c.title = s < len ? `Pas ${s + 1} · ${SS.autoFormat(x.id, v ?? x.def)}` + (v === null ? ' (sans courbe)' : '') : '';
+      });
+      grid.style.setProperty('--zero', zero * 100 + '%');
+      grid.classList.toggle('bipolar', x.min < 0);
+      clear.disabled = !l;
+      show(SS.autoValue(l, 0, len));
+    }
+    const changedAuto = () => {
+      fillParams();
+      param.value = P().id;
+      ref.el.querySelector('.th-auto')?.classList.toggle('on', !!track.auto);
+      paintAuto();
+    };
+
+    param.addEventListener('change', () => {
+      autoParams.set(track.id, param.value);
+      fillShapes();
+      paintAuto();
+    });
+    shapes.addEventListener('change', () => {
+      if (!shapes.value) return;
+      SS.applyAutoShape(track, P().id, shapes.value, SS.trackLen(app.project(), track), SS.stepsPerBeat(app.project()));
+      shapes.value = '';
+      changedAuto();
+      app.changed();
+    });
+    clear.addEventListener('click', () => {
+      if (track.auto) delete track.auto[P().id];
+      SS.cleanAuto(track);
+      changedAuto();
+      app.changed();
+    });
+
+    // dessin : la hauteur dans la case donne la valeur ; un geste rapide remplit les pas sautés
+    const valueAt = (cell, y) => {
+      const r = cell.getBoundingClientRect();
+      const u = Math.max(0, Math.min(1, 1 - (y - r.top) / r.height));
+      const x = P();
+      let v = x.min + u * (x.max - x.min);
+      if (x.min < 0 && Math.abs(v) < 0.04) v = 0; // le filtre s'accroche sur « ouvert »
+      return v;
+    };
+    const cellAt = (cx) => {
+      const gr = grid.getBoundingClientRect();
+      const el = document.elementFromPoint(cx, gr.top + gr.height / 2);
+      return el && el.closest('.acell');
+    };
+    grid.addEventListener('contextmenu', (e) => e.preventDefault());
+    grid.addEventListener('pointerdown', (e) => {
+      const cell = e.target.closest('.acell');
+      if (!cell) return;
+      e.preventDefault();
+      const erase = e.button === 2 || e.altKey;
+      if (e.button !== 0 && !erase) return;
+      const len = SS.trackLen(app.project(), track);
+      let last = null;
+      const apply = (c, y) => {
+        if (!c) return;
+        const s = +c.dataset.step;
+        if (s >= len) return;
+        const v = erase ? null : valueAt(c, y);
+        if (last === null || last.s === s) SS.setAutoPoint(track, P().id, s, v);
+        else {
+          // pas sautés entre le point précédent et celui-ci : droite entre les deux
+          const dir = Math.sign(s - last.s);
+          for (let k = last.s + dir; k !== s + dir; k += dir)
+            SS.setAutoPoint(track, P().id, k, erase ? null : last.v + ((v - last.v) * (k - last.s)) / (s - last.s));
+        }
+        last = { s, v };
+        paintAuto();
+        if (v !== null) show(v);
+      };
+      apply(cell, e.clientY);
+      grid.setPointerCapture(e.pointerId);
+      const move = (ev) => apply(cellAt(ev.clientX), ev.clientY);
+      const up = () => {
+        grid.removeEventListener('pointermove', move);
+        grid.removeEventListener('pointerup', up);
+        grid.removeEventListener('pointercancel', up);
+        changedAuto();
+        app.changed();
+      };
+      grid.addEventListener('pointermove', move);
+      grid.addEventListener('pointerup', up);
+      grid.addEventListener('pointercancel', up);
+    });
+    grid.addEventListener('pointermove', (e) => {
+      if (e.buttons) return;
+      const c = e.target.closest('.acell');
+      if (c && !c.classList.contains('beyond')) show(SS.autoValue(lane(), +c.dataset.step, SS.trackLen(app.project(), track)));
+    });
+
+    fillParams();
+    param.value = P().id;
+    fillShapes();
+    paintAuto();
+    return h('div', { class: 'auto-lane', style: `--auto-h:${AUTO_LANE_H}px` }, head, grid);
   }
 
   function previewNotes(track) {
@@ -2474,6 +2643,7 @@ SS.ui = (() => {
       if (!ref) return;
       const s = step % SS.trackLen(p, t);
       if (ref.cells[s]) ref.cells[s].classList.add('now');
+      if (ref.autoCells && ref.autoCells[s]) ref.autoCells[s].classList.add('now');
       ref.roll.forEach((cells) => cells[s] && cells[s].classList.add('now'));
     });
     const spb = SS.stepsPerBar(p);
