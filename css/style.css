@@ -1619,11 +1619,11 @@ dialog.arp-dialog { width: min(860px, calc(100vw - 32px)); }
 }
 
 /* ---------- Harmonie : tonalité, palette d'accords, analyse ---------- */
-.roll-row.in-key .rcell { background: #222229; }
-.roll-row.in-key.black .rcell { background: #1d1d24; }
-.roll-row.out-key .rcell { background: #18181b; }
-.roll-row.out-key.black .rcell { background: #151517; }
-.roll-row.tonic .rcell { background: #1e2533; }
+.roll-row.in-key .rcell:not(.on) { background: #222229; }
+.roll-row.in-key.black .rcell:not(.on) { background: #1d1d24; }
+.roll-row.out-key .rcell:not(.on) { background: #18181b; }
+.roll-row.out-key.black .rcell:not(.on) { background: #151517; }
+.roll-row.tonic .rcell:not(.on) { background: #1e2533; }
 .roll-row.out-key .roll-key span { opacity: .55; }
 .roll-row.tonic .roll-key span { box-shadow: inset 3px 0 0 var(--accent-2); font-weight: 700; }
 .roll-palette { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 4px 10px 8px; background: var(--panel); }
