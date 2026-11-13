@@ -23,6 +23,15 @@ SS.automixListen = (() => {
   let onFrame = null;
   const listeners = new Set(); // reçoivent chaque relevé brut (pilote auto : js/automix-pilot.js)
 
+  /** Débranche sans erreur si la connexion n'existe plus (nœud déjà débranché par js/audio.js). */
+  function off(src, dst) {
+    try {
+      src.disconnect(dst);
+    } catch (e) {
+      /* déjà débranché */
+    }
+  }
+
   function analyser(ctx, size = FFT) {
     const an = ctx.createAnalyser();
     an.fftSize = size;
@@ -59,12 +68,12 @@ SS.automixListen = (() => {
     }
     // la sortie change quand le module de mastering finit de charger
     if (n.postSrc !== t.post) {
-      if (n.postSrc) n.postSrc.disconnect(n.split);
+      if (n.postSrc) off(n.postSrc, n.split);
       t.post.connect(n.split);
       n.postSrc = t.post;
     }
     if (n.preSrc !== t.pre) {
-      n.preSrc.disconnect(n.pre.an);
+      off(n.preSrc, n.pre.an);
       t.pre.connect(n.pre.an);
       n.preSrc = t.pre;
     }
@@ -72,7 +81,7 @@ SS.automixListen = (() => {
     for (const map of [n.tracks, n.inputs]) if (map) {
       const live = map === n.tracks ? t.tracks : t.inputs;
       for (const [id, a] of map) if (!live?.has(id)) {
-        a.src.disconnect(a.an);
+        off(a.src, a.an);
         a.an.disconnect();
         map.delete(id);
       }
@@ -80,7 +89,7 @@ SS.automixListen = (() => {
     t.tracks.forEach((node, id) => {
       const cur = n.tracks.get(id);
       if (cur && cur.src === node) return;
-      if (cur) cur.src.disconnect(cur.an);
+      if (cur) off(cur.src, cur.an);
       const a = analyser(n.ctx);
       a.src = node;
       node.connect(a.an);
@@ -90,7 +99,7 @@ SS.automixListen = (() => {
     (t.inputs || new Map()).forEach((node, id) => {
       const cur = n.inputs.get(id);
       if (cur && cur.src === node) return;
-      if (cur) cur.src.disconnect(cur.an);
+      if (cur) off(cur.src, cur.an);
       const a = analyser(n.ctx, 2048);
       a.src = node;
       node.connect(a.an);
@@ -100,13 +109,6 @@ SS.automixListen = (() => {
   }
   function disconnect() {
     if (!n) return;
-    const off = (src, dst) => {
-      try {
-        src.disconnect(dst);
-      } catch (e) {
-        /* déjà débranché */
-      }
-    };
     off(n.preSrc, n.pre.an);
     if (n.postSrc) off(n.postSrc, n.split);
     n.tracks.forEach((a) => off(a.src, a.an));

@@ -45,6 +45,7 @@ SS.automixPilot = (() => {
     coldPeak: -24, // crête du mix (ramenée au fader Master à 0 dB) en dessous de laquelle il arrive trop faible
     stageStep: 1.5, // dB par geste de gain staging
     window: 3, // s d'écoute pour le gain staging
+    waitMax: 12, // s d'écoute au-delà desquelles une piste jamais entendue (vide, silencieuse) n'est plus attendue
   };
 
   function newTracker() {
@@ -129,7 +130,10 @@ SS.automixPilot = (() => {
     const roleCount = {};
     const known = tracks.filter((t) => !t.mute && A().ROLE_LEVEL[t.role] != null && tk.tracks[t.id] && tk.tracks[t.id].ever >= 1);
     const expected = tracks.filter((t) => !t.mute && A().ROLE_LEVEL[t.role] != null);
-    if (known.length < Math.min(3, expected.length)) {
+    // au-delà de waitMax, on juge avec les pistes entendues : une piste vide ne bloque pas tout le pilote
+    const late = tk.t >= P.waitMax;
+    const need = late ? Math.min(1, expected.length) : Math.min(3, expected.length);
+    if (known.length < need) {
       state.waiting = expected.filter((t) => !known.some((k) => k.id === t.id)).map((t) => t.name);
       return { state }; // une intro à deux pistes ne suffit pas à identifier l'intrus d'un groupe plus grand
     }
@@ -161,7 +165,7 @@ SS.automixPilot = (() => {
       .sort((a, b) => Math.abs(b.r.dev) - Math.abs(a.r.dev));
     state.balanced = judged.length > 0
       ? judged.every((r) => Math.abs(r.dev) <= P.start || r.t.locked)
-      : rows.length === 1 && tracks.filter((t) => !t.mute).length === 1;
+      : (rows.length === 1 && tracks.filter((t) => !t.mute).length === 1) || (late && rows.length > 0); // rien à comparer (pistes jamais ensemble) : pas de fader à régler
     if (cands.length) {
       const { r, to } = cands[0];
       return { kind: 'fader', id: r.id, name: r.t.name, from: r.t.volumeDb, to, dev: r.dev, state };

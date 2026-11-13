@@ -392,6 +392,36 @@ test('pilote auto : gain staging quand le limiteur du Master travaille trop', ()
   assert.ok(d.delta < 0 && d.moves[0].to < 0);
 });
 
+test('pilote auto : une piste qui ne joue jamais ne bloque pas l’équilibre', () => {
+  const tk = PL.newTracker();
+  const lv = (role) => A.ROLE_LEVEL[role] - 10;
+  const tracks = [
+    { id: 'kick', name: 'kick', role: 'kick', volumeDb: 0 },
+    { id: 'bass', name: 'bass', role: 'bass', volumeDb: 0 },
+    { id: 'vide', name: 'Piste vide', role: 'lead', volumeDb: 0 },
+  ];
+  const frame = () => {
+    const tr = { kick: { bands: spectrum({ 1: lv('kick') }) }, bass: { bands: spectrum({ 2: lv('bass') }) }, vide: { bands: new Float64Array(A.BANDS.length) } };
+    return { dt: 0.05, tracks: tr, pre: { bands: sumBands([tr.kick.bands, tr.bass.bands]), peak: 0.3 }, preGain: 1 };
+  };
+  for (let i = 0; i < 100; i++) PL.feed(tk, frame()); // 5 s : on attend encore la troisième piste
+  assert.deepEqual(PL.plan(tk, tracks).state.waiting, ['Piste vide']);
+  for (let i = 0; i < 200; i++) PL.feed(tk, frame()); // 15 s : la piste vide n'est plus attendue
+  const st = PL.plan(tk, tracks).state;
+  assert.ok(st.balanced, 'équilibre jugé sur les deux pistes entendues');
+  assert.equal(st.rows.length, 2);
+});
+
+test('pilote auto : une seule piste entendue (intro) ne bloque pas non plus', () => {
+  const tk = PL.newTracker();
+  const tracks = ['kick', 'bass', 'lead'].map((id) => ({ id, name: id, role: id, volumeDb: 0 }));
+  const kick = spectrum({ 1: -20 });
+  for (let i = 0; i < 300; i++) PL.feed(tk, { dt: 0.05, tracks: { kick: { bands: kick } }, pre: { bands: kick, peak: 0.3 }, preGain: 1 });
+  const d = PL.plan(tk, tracks);
+  assert.ok(d.state.balanced, 'aucun fader à comparer : le pilote passe aux traitements');
+  assert.notEqual(d.kind, 'fader');
+});
+
 test('équilibre : une intro à deux pistes ne fait pas croire que la basse est trop forte', () => {
   // niveaux exactement à leur place les uns par rapport aux autres (écarts = ceux de ROLE_LEVEL)
   const lv = (role) => A.ROLE_LEVEL[role] - 10;
