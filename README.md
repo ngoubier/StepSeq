@@ -20,7 +20,7 @@ puis ouvrir <http://localhost:8000>.
 
 ## Interface
 
-- **En-tête** : icône de l'application (menu **Chansons**, **Nouveau**, **Ouvrir**, **Enregistrer**), titre du projet, tempo (BPM), chiffrage de mesure (4/4 par défaut, x/4 ou x/8),
+- **En-tête** : icône de l'application (menu **Chansons**, **Nouveau**, **Ouvrir**, **Enregistrer**, **Importer MIDI**, **Exporter MIDI**), titre du projet, tempo (BPM), chiffrage de mesure (4/4 par défaut, x/4 ou x/8),
   nombre de mesures, le groove (swing, humanisation), **Lecture** et **Stop**, puis les fenêtres regroupées
   **Band**, **Key : tonalité** (fenêtre Key, propre à chaque scène : assistant
   émotion → grille d'accords pour démarrer, puis onglets Ambiance (émotions rangées par mode, trois pistes et 39 grilles de référence sourcées, grille posée sur l'onglet suivant), Chanson (grille commune sur toute la largeur, reprise des accords existants ; sous-onglets Chords pour les couches et Mélodie pour les réglages horizontaux) et Vérifier (la même grille et les mélodies) ; palette d'accords dans le piano roll, essais A/B), **Song** (fenêtre Song : scènes et arrangement, avec une case pour garder le panneau
@@ -332,6 +332,7 @@ node tests/e2e/automix-track-pilot.js
 node tests/e2e/automix-master-pilot.js
 node tests/e2e/master-effects.js
 node tests/e2e/mobile-ui.js
+node tests/e2e/midi-ui.js            # import / export MIDI (fichier de test fabriqué, ou : node tests/e2e/midi-ui.js morceau.mid)
 ```
 
 Cliquer sur une note / un accord existant le supprime. Sur la ligne compacte, un clic pose la
@@ -383,6 +384,35 @@ premier enregistrement ; les autres navigateurs téléchargent le fichier.
   Dropbox / OneDrive / Google Drive, le fichier est aussi sauvegardé sur le web.
 - L'indicateur d'enregistrement (barre du haut) montre l'état (« Enregistré · chanson.stepseq.json ») ; un clic ouvre
   « Mes chansons ». Les données restent dans ce navigateur : pour changer d'appareil, passe par le fichier.
+
+### Import / export MIDI (`js/midi-file.js`, `js/midi.js`, `js/midipanel.js`)
+
+**Importer MIDI…** et **Exporter MIDI…** sont dans le menu de l'icône de l'application.
+
+**Import** (nouveau projet) :
+
+- notes quantifiées à la double-croche, vélocité, durée (pédale de sustain appliquée) ; une piste par
+  instrument (piste MIDI × canal), avec le soundfont `gm_*` du programme GM, le nom de piste, le volume (CC 7)
+  et le panoramique (CC 10) de départ ;
+- batterie (canal 10) : une piste Drum par élément (table GM → kick, caisse claire, charleston, toms…), sur la
+  boîte à rythmes choisie (repli sur la LinnDrum ou la TR-808 pour un son absent) ; jusqu'à 4 percussions
+  latines séparées, les autres regroupées ;
+- tempo le plus long du fichier, mesure de départ, tonalité estimée (`SS.harmony.detect`), mesures vides du début
+  supprimées ;
+- **analyse de la structure** (`SS.midi.analyze`) : phrases de 4 mesures, sections là où l'orchestration change
+  (ou aux marqueurs du fichier), boucles de 1, 2 ou 4 phrases qui se répètent (ressemblance piste par piste,
+  tolérance d'un pas pour le jeu humain), réutilisation des boucles déjà vues, noms estimés (Intro, Couplet,
+  Refrain, Pont…). Trois réglages : Fidèle (0,95), Équilibré (0,85), Compact (0,7). Le bilan donne la part des
+  notes rejouées à leur place ;
+- perdu : résolution plus fine que la double-croche, changements de tempo / mesure en cours de morceau, pitch
+  bend, autres contrôleurs, changements de programme en cours de morceau, SysEx. Tout est listé dans la fenêtre.
+
+**Export** (fichier type 1, 480 PPQ) : chanson (arrangement déplié, marqueurs de scènes, armure par scène) ou
+scène en cours répétée ; une piste MIDI par piste, batterie sur le canal 10 ; arpèges rendus note par note
+(ARP ONE est déterministe), swing et placement des pistes en option, pistes muettes exclues en option ; volume
+(CC 7) et panoramique (CC 10). Sons non GM → programme GM le plus proche (synthés intégrés, VCSL, Juno-106 selon
+le nom du patch) ; batteries Dirt-Samples / VCSL → note GM devinée d'après le nom de la banque. Non exporté :
+sound design, effets, mixage, mastering, humanisation.
 
 ## Sons
 
@@ -445,6 +475,9 @@ par la fenêtre **Key** :
 | `js/dirt-tuning.js` | Hauteur mesurée des échantillons Dirt-Samples |
 | `tools/`         | Outils de mesure : hauteur des échantillons, niveaux des instruments, rendu et mastering des chansons Band, calibrage de l'Auto Mix |
 | `js/song.js`     | Mode chanson : scènes et arrangement, fenêtre Song |
+| `js/midi-file.js` | Lecture / écriture de fichiers MIDI standard (type 0 et 1), sans dépendance |
+| `js/midi.js`     | Import MIDI (quantification, pistes, analyse de la structure en scènes) et export MIDI (arrangement, arpèges rendus, correspondances General MIDI) |
+| `js/midipanel.js` | Fenêtres Importer MIDI / Exporter MIDI (options, bilan, téléchargement) |
 | `js/ui.js`       | Rendu des pistes, grille, piano roll, dialogue |
 | `js/main.js`     | Démarrage, barre d'outils, raccourcis |
 | `guide.html`     | Guide d'utilisation (bouton « Aide » de l'app) |

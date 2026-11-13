@@ -100,7 +100,7 @@
       <a href="#chanson">Mode chanson</a>
       <a href="#console">Mix (console de mixage)</a>
       <a href="#automix">Auto Mix (assistant)</a>
-      <a href="#fichiers">Enregistrer et ouvrir</a>
+      <a href="#fichiers">Enregistrer, ouvrir, MIDI</a>
       <a href="#raccourcis">Raccourcis et astuces</a>
     </aside>
 
@@ -596,6 +596,14 @@
         <li><b>Versions</b> : un instantané de chaque chanson est gardé au plus toutes les 10 minutes de travail (40 au maximum). <b>Restaurer</b> revient à l'un d'eux ; l'état actuel est d'abord rangé dans les versions.</li>
         <li><b>Fichier mis à jour tout seul (Chrome et Edge)</b> : après un premier <b>Enregistrer</b> ou un <b>Ouvrir</b>, chaque modification réécrit aussi ce fichier (l'indicateur affiche son nom). Après un redémarrage du navigateur, l'indicateur affiche « Reprendre <i>fichier</i> » : un clic redonne l'autorisation d'écrire. Astuce : enregistre le fichier dans un dossier Dropbox, OneDrive ou Google Drive pour avoir aussi une sauvegarde sur le web.</li>
         <li>La bibliothèque reste dans ce navigateur, sur cet appareil. Pour changer d'appareil, passe par le fichier.</li>
+      </ul>
+      <h3 id="midi">Importer et exporter des fichiers MIDI</h3>
+      <p><b>Importer MIDI…</b> et <b>Exporter MIDI…</b> sont dans le menu de l'icône de l'application.</p>
+      <ul>
+        <li><b>Importer</b> crée un nouveau projet à partir d'un fichier <code>.mid</code> (la chanson en cours reste dans <b>Chansons</b>). Chaque instrument devient une piste avec le son General MIDI du fichier ; la batterie (canal 10) donne une piste Drum par élément (kick, caisse claire, charleston…) sur la boîte à rythmes choisie.</li>
+        <li>Le morceau est <b>analysé pour retrouver ses parties</b> : phrases de 4 mesures, changements d'orchestration, boucles qui se répètent. Chaque partie devient une scène, l'arrangement les enchaîne, et la lecture passe en mode Chanson. <b>Fidèle</b> garde toutes les variations (scènes plus longues), <b>Compact</b> confond les boucles qui se ressemblent (arrangement plus court). La fenêtre indique la part des notes du fichier rejouées à leur place. Les noms (Intro, Couplet, Refrain…) sont une estimation : renomme les scènes dans la fenêtre Song.</li>
+        <li>Ce qui se perd à l'import : tout est placé sur la grille des doubles-croches (triolets et jeu non quantifié recalés), les roulements plus rapides sont fusionnés, le tempo et la mesure restent ceux du début, le pitch bend, la modulation et les autres contrôleurs sont ignorés. La fenêtre fait la liste de ce qui a été arrondi ou ignoré avant de créer le projet.</li>
+        <li><b>Exporter</b> écrit la chanson (l'arrangement déplié, avec le nom des scènes en marqueurs) ou la scène en cours répétée, pour un logiciel de musique. Les arpèges sont exportés note par note, exactement comme on les entend ; le swing et le placement des pistes peuvent être appliqués. Les sons qui ne sont pas General MIDI (synthés intégrés, Juno-106, échantillons) sont remplacés par le programme GM le plus proche ; le sound design, les effets et le mixage restent dans StepSeq.</li>
       </ul>
 
       <h2 id="raccourcis">Raccourcis et astuces</h2>
