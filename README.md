@@ -335,10 +335,33 @@ node tests/e2e/master-effects.js
 node tests/e2e/mobile-ui.js
 node tests/e2e/gm-mode-ui.js         # mode General MIDI (fenêtre de piste et Band)
 node tests/e2e/midi-ui.js            # import / export MIDI (fichier de test fabriqué, ou : node tests/e2e/midi-ui.js morceau.mid)
+node tests/e2e/trigcond.js           # conditions de déclenchement (menus, repères, notes jouées passage par passage)
 ```
 
 Cliquer sur une note / un accord existant le supprime. Sur la ligne compacte, un clic pose la
 dernière note (ou le dernier accord) utilisée.
+
+### Conditions de déclenchement
+
+Inspirées des « trig conditions » des machines Elektron (et de la probabilité des notes d'Ableton Live) : une note
+(menu du clic droit, ligne **Condition**) ou un pas de batterie (clic droit sur un pas allumé) ne joue que si sa
+condition est remplie à ce passage de la boucle (`SS.TRIG_CONDS`, `SS.trigOk` dans `js/project.js`) :
+
+| Condition | Joue… |
+|---|---|
+| 75 %, 50 %, 25 %, 10 % | avec cette probabilité, tirée à chaque passage |
+| 1:2, 2:2, 1:4, 2:4, 3:4, 4:4, 1:8, 8:8 | au passage A de chaque groupe de B (1:4 = premier sur quatre) |
+| 1er / Pas 1er | seulement au premier passage / à tous sauf le premier |
+
+- **Passage** : un tour de la boucle de la piste depuis Lecture ; en mode Chanson, depuis le début du bloc
+  (répétitions du bloc comprises). Une piste plus courte que la scène compte ses propres tours.
+- **Tirage reproductible** : la probabilité dépend de la piste, du pas, du bloc et du passage (hachage FNV-1a) :
+  deux lectures donnent les mêmes coups, et l'export MIDI (`js/midi.js`) écrit exactement ce qu'on entend.
+- Une condition porte sur toute la note (ou tout l'accord d'une piste Arpège). Elle s'applique aussi au
+  déclenchement du sidechain. Gardée dans les scènes, la recopie de mesures, le copier / coller et le
+  déplacement ; un pas rallumé repart sans condition.
+- Repères : étiquette courte en haut à droite d'un pas de batterie (« 50% », « 1:4 », « ≠1 »), coin blanc sur une
+  note ; le détail est dans l'infobulle.
 
 ### Sélection, copier, couper, coller
 

@@ -198,7 +198,7 @@
     let pos = 0; // en pas, depuis le début
     const swingAt = (tick) => (o.swing ? SS.grooveOffset(p, tick, stepSec) / stepSec : 0);
 
-    for (const b of blocks) {
+    for (const [bi, b] of blocks.entries()) {
       const sc = sceneOf(b.scene);
       if (!sc) continue;
       const total = spb * sc.bars;
@@ -225,12 +225,15 @@
         const passes = b.continuous ? 1 : reps;
         for (let r = 0; r < passes; r++) {
           const base = pos + r * total;
+          // conditions de déclenchement : même passage et même tirage qu'à la lecture (js/audio.js, trigAt)
+          const ok = (cond, step, tick) =>
+            SS.trigOk(cond, { id: t.id, step, block: b.continuous ? 0 : bi, pass: b.continuous ? Math.floor(tick / len) : SS.trigPass(tick, len, r, total) });
           if (out.drum) {
             const steps = d.steps || [];
             const drumNote = drumNoteOf(t);
             for (let tick = 0; tick < ticksTotal; tick++) {
               const v = steps[tick % len] || 0;
-              if (!(v > 0)) continue;
+              if (!(v > 0) || !ok(d.cond && d.cond[tick % len], tick % len, tick)) continue;
               const r = SS.drumRatchet({ steps, rat: d.rat }, tick % len); // ratchet : coups répétés dans le pas
               for (let j = 0; j < r; j++) out.notes.push({ at: (base + tick + swingAt(tick) + j / r) * TPS + nudge, dur: TPS / 2 / r, note: drumNote, vel: v * (j ? 0.85 : 1) });
             }
@@ -241,6 +244,7 @@
             for (let tick = 0; tick < ticksTotal; tick++) {
               const step = tick % len;
               for (const ev of events) {
+                if (ev.cond && !ok(ev.cond, ev.step, tick)) continue;
                 const notes = SS.Arp.renderStep(t.arp, ev, step, { loop: Math.floor(tick / len), trackLen: len, stepSec, stepsPerBeat: SS.stepsPerBeat(p) });
                 for (const n of notes) out.notes.push({ at: (base + tick + swingAt(tick) + n.at / stepSec) * TPS + nudge, dur: (n.dur / stepSec) * TPS, note: n.midi, vel: n.vel });
               }
@@ -251,6 +255,7 @@
             for (const ev of events) {
               if (ev.step >= len || start + ev.step >= ticksTotal) continue;
               const tick = start + ev.step;
+              if (ev.cond && !ok(ev.cond, ev.step, tick)) continue;
               const dur = Math.min(ev.len, len - ev.step) * TPS;
               const shift = (ev.shift || 0) * TPS; // micro-décalage de la note (fraction de pas)
               const at = (base + tick + swingAt(tick)) * TPS + nudge + shift;

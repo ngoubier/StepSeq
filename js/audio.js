@@ -1284,6 +1284,16 @@ SS.audio = (() => {
   /** `tick` = compteur global de pas depuis Lecture ; chaque piste boucle sur sa propre longueur. */
   const scheduling = { ticks: 0, lateSteps: 0, maxLateMs: 0, lastLateAt: null, maxTickMs: 0 };
 
+  /**
+   * Passage de la boucle d'une piste, pour les conditions de déclenchement (SS.trigOk).
+   * Boucle : seq.loops compte les cycles complets depuis Lecture ; chanson : répétition du bloc en cours.
+   */
+  function trigAt(project, track, tick) {
+    const len = SS.trackLen(project, track);
+    if (seq.song) return { id: track.id, block: seq.song.index, pass: SS.trigPass(tick, len, seq.song.rep, SS.totalSteps(project)) };
+    return { id: track.id, block: 0, pass: Math.floor(((seq.loops || 0) * seq.cycle(project, SS.totalSteps(project)) + tick) / len) };
+  }
+
   function scheduleStep(project, tick, time) {
     const lateMs = (ctx.currentTime - time) * 1000;
     if (lateMs > 1) {
@@ -1300,7 +1310,11 @@ SS.audio = (() => {
         const isSource = project.tracks.some((t) => t.fx && t.fx.scSource === track.id);
         if (!isSource) return;
         const st = tick % SS.trackLen(project, track);
-        const fires = track.type === 'drum' ? track.steps[st] > 0 : (track.events || []).some((ev) => ev.step === st);
+        const at = trigAt(project, track, tick);
+        const fires =
+          track.type === 'drum'
+            ? track.steps[st] > 0 && SS.trigOk(SS.drumCond(track, st), { ...at, step: st })
+            : (track.events || []).some((ev) => ev.step === st && SS.trigOk(ev.cond, { ...at, step: ev.step }));
         if (fires) duckFrom(project, track, time);
         return;
       }
@@ -1311,9 +1325,10 @@ SS.audio = (() => {
       const nudge = (track.nudge || 0) / 1000;
       const jt = () => nudge + (human ? (Math.random() * 2 - 1) * human * 0.015 : 0);
       const jv = (v) => (human ? Math.max(0.05, Math.min(1, v * (1 + (Math.random() * 2 - 1) * human * 0.25))) : v);
+      const at = trigAt(project, track, tick);
       if (track.type === 'drum') {
         const v = track.steps[step];
-        if (v > 0) {
+        if (v > 0 && SS.trigOk(SS.drumCond(track, step), { ...at, step })) {
           const tt = time + jt();
           // ratchet : le coup est rejoué à intervalles égaux dans la durée du pas, un peu moins fort
           const r = SS.drumRatchet(track, step);
@@ -1323,6 +1338,8 @@ SS.audio = (() => {
         return;
       }
       (track.events || []).forEach((ev) => {
+        // condition de déclenchement : jugée sur le passage en cours, pour toute la durée de la note ou de l'accord
+        if (ev.cond && !SS.trigOk(ev.cond, { ...at, step: ev.step })) return;
         if (track.category === 'arp') {
           // ARP ONE (js/arp.js) : l'arpège joue tant que l'événement couvre ce pas
           const len = SS.trackLen(project, track);
@@ -1388,7 +1405,10 @@ SS.audio = (() => {
     while (seq.nextTime < ctx.currentTime + lookahead(project)) {
       // le compteur ne revient pas à 0 : des pistes de longueurs différentes restent décalées (polymétrie).
       // Il repart à 0 quand toutes les boucles se retrouvent alignées.
-      if (seq.step >= seq.cycle(project, total)) seq.step = 0;
+      if (seq.step >= seq.cycle(project, total)) {
+        seq.step = 0;
+        seq.loops = (seq.loops || 0) + 1; // cycles complets : sert au passage des conditions de déclenchement
+      }
       const t = seq.nextTime + SS.grooveOffset(project, seq.step, stepDur(project));
       scheduleStep(project, seq.step, t);
       seq.queue.push({ step: seq.step, time: t, song: seq.song ? { index: seq.song.index, rep: seq.song.rep } : null });
@@ -1513,6 +1533,7 @@ SS.audio = (() => {
     resetLoudness();
     seq.playing = true;
     seq.step = Math.max(0, Math.floor(opts.from || 0));
+    seq.loops = 0;
     seq.queue = [];
     seq.nextTime = ctx.currentTime + 0.08;
     if (seq.song) seq.queue.push({ step: -1, time: seq.nextTime, block: seq.song.index, rep: 0 });

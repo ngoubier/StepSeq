@@ -18,15 +18,17 @@
  *       bank: "jazz",                                     // sinon : banque de la bibliothèque
  *       variant: 0,
  *       steps: [0..1, ...],                          // vélocité, 0 = éteint
- *       rat?: { pas: 2..4 } }                         // ratchet : le pas est rejoué 2 à 4 fois dans sa durée
+ *       rat?: { pas: 2..4 },                          // ratchet : le pas est rejoué 2 à 4 fois dans sa durée
+ *       cond?: { pas: "p50"|"1:4"|"first"|… } }       // condition de déclenchement (SS.TRIG_CONDS)
  *     { id, type: "instrument", name, color, volume, mute, solo,
  *       category: "mono"|"arp"|"chord", family, instrument, sfv (variante soundfont ou échantillon Dirt-Samples),
  *       chord: "min", arp: { mode, rate, octaves, gate, motion, evolve, seed, rhythm, lanes, … } (ARP ONE, voir js/arp.js), octave,
  *       sd: { wave, voices, detune, filter, ftype, fdrive, cutoff, q, env,  // sound design (optionnel,
  *             attack, decay, sustain, release, glide, glideMode,       //  sinon preset de l'instrument)
  *             pan, drive, gain }
- *       events: [{ step, len, notes: [midi...], vel, shift?, rat? }] }   // shift : micro-décalage, en fraction de pas (−0,5..0,5)
+ *       events: [{ step, len, notes: [midi...], vel, shift?, rat?, cond? }] }   // shift : micro-décalage, en fraction de pas (−0,5..0,5)
  *                                                    // rat : ratchet, la note est rejouée 2 à 4 fois dans son premier pas
+ *                                                    // cond : condition de déclenchement (SS.TRIG_CONDS)
  *     piste « Synthé » : comme une piste instrument, avec family: "analog", instrument: "juno106",
  *       junoPatch: "A11" (patch chargé), juno: { lfoRate, dcoLfo, pwm, …, chorus } (réglages du panneau)
  *   ]
@@ -83,6 +85,92 @@ SS.setDrumRatchet = (t, s, r) => {
   else if (t.rat) delete t.rat[s];
   if (t.rat && !Object.keys(t.rat).length) delete t.rat;
 };
+
+/*
+ * Conditions de déclenchement (inspirées des « trig conditions » des machines Elektron) : la note (ev.cond)
+ * ou le pas de batterie (track.cond[pas]) ne joue que si sa condition est remplie à ce passage de la boucle.
+ *   « 50 % »  : probabilité. Le tirage est déterministe (piste, pas, bloc, passage) : la même lecture rejoue les
+ *               mêmes coups et l'export MIDI les reproduit ; d'un passage à l'autre, le résultat change.
+ *   « 1:4 »   : joué au 1er passage sur 4 (A:B = au passage A de chaque groupe de B passages).
+ *   « 1er »   : seulement au premier passage ; « Pas 1er » : à tous les passages sauf le premier.
+ * Un passage = un tour de la boucle de la piste depuis le début de la lecture (ou du bloc, en mode chanson).
+ * Absent = joué à chaque passage.
+ */
+SS.TRIG_CONDS = [
+  ...[75, 50, 25, 10].map((n) => ({ id: 'p' + n, label: n + ' %', mark: n + '%', group: 'Probabilité', title: `Joué ${n} % du temps (tirage différent à chaque passage)` })),
+  ...[[1, 2], [2, 2], [1, 4], [2, 4], [3, 4], [4, 4], [1, 8], [8, 8]].map(([a, b]) => ({
+    id: `${a}:${b}`,
+    label: `${a}:${b}`,
+    group: 'Passages',
+    title: `Joué au ${a === 1 ? '1er' : a + 'e'} passage de chaque groupe de ${b}`,
+  })),
+  { id: 'first', label: '1er', group: 'Passages', title: 'Seulement au premier passage' },
+  { id: '!first', label: 'Pas 1er', mark: '≠1', group: 'Passages', title: 'À chaque passage sauf le premier' },
+];
+const condOf = (c) => (typeof c === 'string' && SS.TRIG_CONDS.some((x) => x.id === c) ? c : null);
+SS.condLabel = (c) => (SS.TRIG_CONDS.find((x) => x.id === c) || {}).label || '';
+/** Étiquette courte, pour une case de la grille. */
+SS.condMark = (c) => {
+  const x = SS.TRIG_CONDS.find((y) => y.id === c) || {};
+  return x.mark || x.label || '';
+};
+SS.condTitle = (c) => (SS.TRIG_CONDS.find((x) => x.id === c) || {}).title || '';
+SS.cleanCond = (ev) => {
+  const c = condOf(ev.cond);
+  if (c) ev.cond = c;
+  else delete ev.cond;
+  return ev;
+};
+/** Conditions d'une piste de batterie : seulement sur des pas allumés ; `cond` absent s'il n'y en a aucune. */
+SS.cleanDrumConds = (t) => {
+  const out = {};
+  if (t.cond && typeof t.cond === 'object') {
+    for (const [k, v] of Object.entries(t.cond)) {
+      const s = +k, c = condOf(v);
+      if (Number.isInteger(s) && s >= 0 && t.steps[s] > 0 && c) out[s] = c;
+    }
+  }
+  if (Object.keys(out).length) t.cond = out;
+  else delete t.cond;
+  return t;
+};
+/** Condition d'un pas de batterie (null = toujours). */
+SS.drumCond = (t, s) => (t.steps[s] > 0 && t.cond && t.cond[s]) || null;
+/** Pose (ou enlève, c = null) la condition d'un pas de batterie. */
+SS.setDrumCond = (t, s, c) => {
+  c = condOf(c);
+  if (c) (t.cond = t.cond || {})[s] = c;
+  else if (t.cond) delete t.cond[s];
+  if (t.cond && !Object.keys(t.cond).length) delete t.cond;
+};
+/** Nombre pseudo-aléatoire reproductible dans [0, 1) (FNV-1a + mélange). */
+const hash01 = (key) => {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < key.length; i++) h = Math.imul(h ^ key.charCodeAt(i), 0x01000193);
+  h ^= h >>> 15;
+  h = Math.imul(h, 0x2c1b3c6d);
+  h ^= h >>> 12;
+  return (h >>> 0) / 4294967296;
+};
+/**
+ * La condition `c` est-elle remplie ? at = { id (piste), step (pas de départ), pass (passage, 0 = premier),
+ * block (index du bloc de l'arrangement, 0 en boucle) }.
+ */
+SS.trigOk = (c, at) => {
+  if (!c) return true;
+  const pass = at.pass || 0;
+  if (c === 'first') return pass === 0;
+  if (c === '!first') return pass > 0;
+  if (c[0] === 'p') return hash01(`${at.id}|${at.step}|${at.block || 0}|${pass}`) < +c.slice(1) / 100;
+  const m = /^(\d+):(\d+)$/.exec(c);
+  return m ? pass % +m[2] === +m[1] - 1 : true;
+};
+/**
+ * Passage de la boucle d'une piste de longueur `len`. Lecture en boucle : `tick` compte les pas depuis Lecture.
+ * Mode chanson : `rep` = répétition du bloc (le compteur de pas repart à 0 à chaque répétition), `total` = pas
+ * de la scène.
+ */
+SS.trigPass = (tick, len, rep = 0, total = 0) => (rep ? rep * Math.ceil(total / len) : 0) + Math.floor(tick / len);
 
 SS.uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -153,7 +241,7 @@ SS.resizeProject = (p) => {
     if (t.type === 'drum') {
       if (t.steps.length < n) t.steps = t.steps.concat(new Array(n - t.steps.length).fill(0));
       else t.steps.length = n;
-      SS.cleanDrumRatchets(t);
+      SS.cleanDrumConds(SS.cleanDrumRatchets(t));
     } else {
       t.events = t.events.filter((e) => e.step < n);
       t.events.forEach((e) => (e.len = Math.min(e.len, n - e.step)));
@@ -209,7 +297,8 @@ SS.normalizeProject = (data) => {
     if (t.type === 'drum') {
       track.steps = Array.isArray(t.steps) ? t.steps.map(Number) : [];
       track.rat = t.rat;
-      SS.cleanDrumRatchets(track);
+      track.cond = t.cond;
+      SS.cleanDrumConds(SS.cleanDrumRatchets(track));
       if (!SS.DRUM_LIBS.some((l) => l.id === t.source)) track.source = 'tdm';
     } else {
       SS.migrateInstrument(track);
@@ -217,7 +306,7 @@ SS.normalizeProject = (data) => {
       track.sfv = Number.isInteger(t.sfv) && t.sfv >= 0 ? t.sfv : track.sfv || 0;
       track.type = 'instrument';
       track.events = Array.isArray(t.events) ? t.events : [];
-      track.events.forEach((e) => SS.cleanRatchet(SS.cleanShift(e)));
+      track.events.forEach((e) => SS.cleanCond(SS.cleanRatchet(SS.cleanShift(e))));
       track.arp = SS.Arp.normalize(t.arp); // ARP ONE (js/arp.js) : réglages bornés, anciens projets compris
       track.chord = t.chord || 'min';
       if (t.sd && typeof t.sd === 'object') {
@@ -355,6 +444,7 @@ SS.repeatBars = (p, oldBars) => {
       for (let s = oldLen; s < total; s++) {
         t.steps[s] = t.steps[s % oldLen] || 0;
         SS.setDrumRatchet(t, s, SS.drumRatchet(t, s % oldLen));
+        SS.setDrumCond(t, s, SS.drumCond(t, s % oldLen));
       }
     } else {
       const src = t.events.filter((e) => e.step < oldLen);
@@ -376,7 +466,7 @@ SS.clearAfterBars = (p, keepBars) => {
   p.tracks.forEach((t) => {
     if (t.type === 'drum') {
       for (let s = from; s < t.steps.length; s++) t.steps[s] = 0;
-      SS.cleanDrumRatchets(t);
+      SS.cleanDrumConds(SS.cleanDrumRatchets(t));
     }
     else t.events = t.events.filter((e) => e.step < from);
   });
@@ -413,8 +503,10 @@ SS.snapshotTracks = (p) => {
   const data = {};
   p.tracks.forEach((t) => {
     if (t.type === 'drum') {
-      SS.cleanDrumRatchets(t);
-      data[t.id] = t.rat ? { steps: [...t.steps], rat: { ...t.rat } } : { steps: [...t.steps] };
+      SS.cleanDrumConds(SS.cleanDrumRatchets(t));
+      data[t.id] = { steps: [...t.steps] };
+      if (t.rat) data[t.id].rat = { ...t.rat };
+      if (t.cond) data[t.id].cond = { ...t.cond };
     } else data[t.id] = { events: t.events.map((e) => ({ ...e, notes: [...e.notes] })) };
   });
   return data;
@@ -452,7 +544,8 @@ SS.loadScene = (p, id, { commit = true } = {}) => {
     if (t.type === 'drum') {
       t.steps = d && d.steps ? [...d.steps] : new Array(n).fill(0);
       t.rat = d && d.rat ? { ...d.rat } : undefined;
-      SS.cleanDrumRatchets(t);
+      t.cond = d && d.cond ? { ...d.cond } : undefined;
+      SS.cleanDrumConds(SS.cleanDrumRatchets(t));
     }
     else t.events = d && d.events ? d.events.map((e) => ({ ...e, notes: [...e.notes] })) : [];
   });

@@ -414,6 +414,31 @@ a.btn { text-decoration: none; }
   filter: drop-shadow(0 0 1px #000);
 }
 .ctx-param .ctx-rat { grid-column: 2 / -1; display: flex; gap: 4px; }
+.ctx-param .ctx-cond { grid-column: 2 / -1; min-width: 0; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; height: 28px; padding: 0 6px; font: inherit; font-size: 13px; }
+/* condition de déclenchement : étiquette en haut à droite de la case */
+.cond-mark {
+  position: absolute;
+  top: 1px;
+  right: 2px;
+  z-index: 2;
+  pointer-events: none;
+  font-size: 8px;
+  line-height: 1;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  text-shadow: 0 0 2px #000, 0 0 1px #000;
+}
+.cond-mark.corner {
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 8px 8px 0;
+  border-color: transparent #fff transparent transparent;
+  filter: drop-shadow(0 0 1px #000);
+}
 .ctx-picker .ctx-param .ctx-rat button { flex: 1; width: auto; font-size: 12px; }
 .ctx-picker .ctx-param .ctx-rat button.current { background: var(--accent); color: #fff; }
 .ctx-param.wide input[type=range] { grid-column: 2 / 5; }

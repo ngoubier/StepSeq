@@ -1076,6 +1076,15 @@ SS.ui = (() => {
     if (!(r > 1)) return;
     cell.append(h('span', { class: 'rat-mark', style: `--r:${r}`, 'aria-hidden': 'true' }));
   }
+  /**
+   * Condition de déclenchement : étiquette courte en haut à droite d'un pas de batterie (« 50% », « 1:4 »),
+   * coin coloré sur une note (son nom occupe déjà la case) ; le détail est dans l'infobulle.
+   */
+  function markCond(cell, c, corner = false) {
+    if (!c) return;
+    cell.append(h('span', { class: 'cond-mark' + (corner ? ' corner' : ''), 'aria-hidden': 'true' }, corner ? '' : SS.condMark(c)));
+  }
+  const condTitle = (c) => (c ? ` · condition ${SS.condLabel(c)} (${SS.condTitle(c).toLowerCase()})` : '');
   const shiftTitle = (ev) => (ev.shift ? ` · ${ev.shift > 0 ? 'en retard' : 'en avance'} de ${Math.round(Math.abs(ev.shift) * 100)} % de pas` : '');
 
   function paint(track) {
@@ -1088,9 +1097,11 @@ SS.ui = (() => {
         c.classList.toggle('on', v > 0);
         c.style.setProperty('--v', v);
         const r = SS.drumRatchet(track, s);
-        c.title = v > 0 ? `Vélocité ${Math.round(v * 127)}` + (r > 1 ? ` · ratchet ×${r}` : '') : '';
-        c.querySelector('.rat-mark')?.remove();
+        const cond = SS.drumCond(track, s);
+        c.title = v > 0 ? `Vélocité ${Math.round(v * 127)}` + (r > 1 ? ` · ratchet ×${r}` : '') + condTitle(cond) : '';
+        c.querySelectorAll('.rat-mark, .cond-mark').forEach((m) => m.remove());
         markRatchet(c, r);
+        markCond(c, cond);
       });
       paintSelection(track, ref);
       return;
@@ -1101,7 +1112,7 @@ SS.ui = (() => {
       c.title = '';
     });
     ref.roll.forEach((cells) => cells.forEach((c) => c.classList.remove('on', 'start', 'root', 'sel', 'sel-hold')));
-    ref.el?.querySelectorAll('.shift-mark, .rat-mark').forEach((m) => m.remove());
+    ref.el?.querySelectorAll('.shift-mark, .rat-mark, .cond-mark').forEach((m) => m.remove());
 
     track.events.forEach((ev) => {
       const label = eventLabel(track, ev);
@@ -1112,9 +1123,10 @@ SS.ui = (() => {
           c.classList.add('on', 'start');
           if (ev.len > 1) c.classList.add('held');
           c.append(h('span', { class: 'lbl' }, label));
-          c.title = `${label} · vélocité ${Math.round(ev.vel * 127)}` + shiftTitle(ev) + (ev.rat ? ` · ratchet ×${ev.rat}` : '');
+          c.title = `${label} · vélocité ${Math.round(ev.vel * 127)}` + shiftTitle(ev) + (ev.rat ? ` · ratchet ×${ev.rat}` : '') + condTitle(ev.cond);
           markShift(c, ev);
           markRatchet(c, ev.rat);
+          markCond(c, ev.cond, true);
         } else {
           c.classList.add('hold');
           if (s === ev.step + ev.len - 1) c.classList.add('end');
@@ -1130,6 +1142,7 @@ SS.ui = (() => {
             if (i === 0) cell.classList.add('root');
             markShift(cell, ev);
             markRatchet(cell, ev.rat);
+            if (i === 0) markCond(cell, ev.cond, true);
           }
         });
       }
@@ -1326,10 +1339,10 @@ SS.ui = (() => {
     const [from, to] = selBounds();
     const items = [...sel.items].sort((a, b) => itemSpan(t, a)[0] - itemSpan(t, b)[0]);
     clip = isDrum(t)
-      ? { kind: 'drum', items: items.map((s) => ({ off: s - from, vel: t.steps[s], rat: SS.drumRatchet(t, s) })) }
+      ? { kind: 'drum', items: items.map((s) => ({ off: s - from, vel: t.steps[s], rat: SS.drumRatchet(t, s), cond: SS.drumCond(t, s) })) }
       : {
           kind: 'notes',
-          items: items.map((ev) => ({ off: ev.step - from, len: ev.len, notes: [...ev.notes], vel: ev.vel, chord: ev.chord, shift: ev.shift, rat: ev.rat })),
+          items: items.map((ev) => ({ off: ev.step - from, len: ev.len, notes: [...ev.notes], vel: ev.vel, chord: ev.chord, shift: ev.shift, rat: ev.rat, cond: ev.cond })),
         };
     Object.assign(clip, { span: to - from, trackId: t.id, from });
     const what = unitLabel(t, items.length);
@@ -1384,6 +1397,7 @@ SS.ui = (() => {
       if (isDrum(track)) {
         track.steps[s] = it.vel;
         SS.setDrumRatchet(track, s, it.rat || 1);
+        SS.setDrumCond(track, s, it.cond);
         return pasted.push(s);
       }
       const len = Math.min(it.len, n - s);
@@ -1395,6 +1409,7 @@ SS.ui = (() => {
       if (track.category !== 'mono' && it.chord) ev.chord = it.chord;
       if (it.shift) ev.shift = it.shift;
       if (it.rat) ev.rat = it.rat;
+      if (it.cond) ev.cond = it.cond;
       track.events.push(ev);
       pasted.push(ev);
     });
@@ -1573,19 +1588,22 @@ SS.ui = (() => {
     };
     let place;
     if (isDrum(track)) {
-      const moved = items.map((st) => ({ st, vel: track.steps[st], rat: SS.drumRatchet(track, st) }));
+      const moved = items.map((st) => ({ st, vel: track.steps[st], rat: SS.drumRatchet(track, st), cond: SS.drumCond(track, st) }));
       const base = track.steps.slice();
       const baseRat = { ...(track.rat || {}) };
-      if (!copy) items.forEach((st) => ((base[st] = 0), delete baseRat[st]));
+      const baseCond = { ...(track.cond || {}) };
+      if (!copy) items.forEach((st) => ((base[st] = 0), delete baseRat[st], delete baseCond[st]));
       const minS = Math.min(...items);
       const maxS = Math.max(...items);
       place = (dt) => {
         dt = clamp(dt, -minS, n - 1 - maxS);
         base.forEach((v, i) => (track.steps[i] = v));
         track.rat = { ...baseRat };
+        track.cond = { ...baseCond };
         moved.forEach((m) => {
           track.steps[m.st + dt] = m.vel;
           SS.setDrumRatchet(track, m.st + dt, m.rat);
+          SS.setDrumCond(track, m.st + dt, m.cond);
         });
         setSel(moved.map((m) => m.st + dt), dt);
         return { dt, dp: 0 };
@@ -1777,6 +1795,7 @@ SS.ui = (() => {
     const value = track.steps[s] > 0 ? 0 : 0.8;
     track.steps[s] = value;
     SS.setDrumRatchet(track, s, 1);
+    SS.setDrumCond(track, s, null);
     if (value && !SS.audio.isPlaying()) SS.audio.preview(track);
     paint(track);
     const ref = refs.get(track.id);
@@ -1789,6 +1808,7 @@ SS.ui = (() => {
       if ((track.steps[s2] > 0) !== (value > 0)) {
         track.steps[s2] = value;
         SS.setDrumRatchet(track, s2, 1);
+        SS.setDrumCond(track, s2, null);
         paint(track);
       }
     });
@@ -2230,7 +2250,20 @@ SS.ui = (() => {
                   if (!SS.audio.isPlaying()) SS.audio.preview(track, ev.notes.length === 1 ? ev.notes[0] : ev.notes);
                 }
               )
-            )
+            ),
+        h(
+          'div',
+          { class: 'ctx-param' },
+          h('span', { class: 'ctx-param-label' }, 'Condition'),
+          condSelect(
+            () => ev.cond,
+            (c) => {
+              SS.cleanCond(Object.assign(ev, { cond: c }));
+              paint(track);
+              saveSoon();
+            }
+          )
+        )
       );
 
     function render() {
@@ -2360,7 +2393,21 @@ SS.ui = (() => {
     return row;
   }
 
-  /** Clic droit sur un pas de batterie allumé : ratchet, vélocité, effacer. */
+  /** Menu des conditions de déclenchement (SS.TRIG_CONDS), « Toujours » en tête. */
+  function condSelect(get, set) {
+    const sel = h('select', { class: 'ctx-cond', 'aria-label': 'Condition de déclenchement', title: 'Quand jouer : à chaque passage, au hasard, ou seulement à certains passages de la boucle' });
+    sel.append(h('option', { value: '' }, 'Toujours'));
+    const groups = new Map();
+    SS.TRIG_CONDS.forEach((c) => {
+      if (!groups.has(c.group)) sel.append(groups.set(c.group, h('optgroup', { label: c.group })).get(c.group));
+      groups.get(c.group).append(h('option', { value: c.id, title: c.title }, c.label + (c.group === 'Passages' && c.id.includes(':') ? ` — ${c.title.replace('Joué ', '')}` : '')));
+    });
+    sel.value = get() || '';
+    sel.addEventListener('change', () => set(sel.value || null));
+    return sel;
+  }
+
+  /** Clic droit sur un pas de batterie allumé : ratchet, condition, vélocité, effacer. */
   function openDrumMenu(track, s, x, y) {
     closeChordMenu();
     setSelection(track, [s]);
@@ -2385,6 +2432,8 @@ SS.ui = (() => {
         { class: 'ctx-params' },
         h('div', { class: 'ctx-param' }, h('span', { class: 'ctx-param-label' }, 'Ratchet'),
           ratchetButtons(() => SS.drumRatchet(track, s), (r) => (SS.setDrumRatchet(track, s, r), changed(), listen()))),
+        h('div', { class: 'ctx-param' }, h('span', { class: 'ctx-param-label' }, 'Condition'),
+          condSelect(() => SS.drumCond(track, s), (c) => (SS.setDrumCond(track, s, c), changed()))),
         h('div', { class: 'ctx-param wide' }, h('span', { class: 'ctx-param-label' }, 'Vélocité'), range, vel)
       ),
       h(
@@ -2393,6 +2442,7 @@ SS.ui = (() => {
         h('button', { type: 'button', class: 'danger', onclick: () => {
           track.steps[s] = 0;
           SS.setDrumRatchet(track, s, 1);
+          SS.setDrumCond(track, s, null);
           unselectIfRemoved(track);
           changed();
           closeChordMenu();
