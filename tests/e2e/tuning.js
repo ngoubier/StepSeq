@@ -1,5 +1,5 @@
 /*
- * Accordage : chaque instrument échantillonné doit jouer la note demandée (à quelques centièmes près),
+ * Accordage : chaque instrument échantillonné doit jouer la note demandée, à la bonne octave (à quelques centièmes près),
  * comme le synthé intégré. Rendu hors temps réel puis mesure de la fréquence fondamentale (YIN).
  *   node tests/e2e/tuning.js   (sons téléchargés depuis GitHub : réseau nécessaire)
  */
@@ -28,6 +28,11 @@ const CASES = [
   ['guitar', 'gm_acoustic_guitar_steel', 0, 50, 8], // 0253 (variante par défaut) : originalPitch écrit « 4200-140 »
   ['mallets', 'vcsl_xylophone_soft_ff', 0, 72, 8],
   ['bass', 'dirt_pluck', 0, 40, 10],
+  // octave : fichiers VCSL nommés selon Do3 = midi 60 (une octave trop haut), Dirt « moog » une octave trop bas
+  ['keys', 'vcsl_piano1', 0, 60, 10],
+  ['sax', 'vcsl_sax', 0, 62, 10],
+  ['flute', 'vcsl_recorder_alto_sus', 0, 72, 10],
+  ['bass', 'dirt_moog', 0, 48, 10],
 ];
 
 (async () => {
@@ -79,7 +84,7 @@ const CASES = [
           const f = yin(Math.round(s0));
           if (!f) continue;
           const c = 1200 * Math.log2(f / (440 * Math.pow(2, (midi - 69) / 12)));
-          cs.push(c - 1200 * Math.round(c / 1200)); // l'octave des échantillons n'est pas en cause ici
+          cs.push(c); // octave comprise : la note doit sonner à sa hauteur (js/sample-tuning.js, SS.MULTI_OCTAVE)
         }
         if (!cs.length) return null;
         cs.sort((a, b) => a - b);

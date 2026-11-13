@@ -401,7 +401,7 @@ def build():
 
     song = [('Intro', 1), ('Montée', 1), ('Thème', 2), ('Break', 1), ('Envol', 2), ('Outro', 1)]
     return {
-        'format': 'stepseq', 'version': 1,
+        'format': 'stepseq', 'version': 2,
         'title': 'Rêve éveillé',
         'key': {'tonic': 'E', 'mode': 'minor'},  # tonalité (fenêtre Harmonie)
         'tempo': 136, 'timeSig': [4, 4], 'bars': current['bars'],

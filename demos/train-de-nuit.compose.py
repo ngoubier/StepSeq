@@ -317,7 +317,7 @@ def build():
 
     song = [('Intro', 1), ('Couplet', 1), ('Refrain', 1), ('Couplet', 1), ('Refrain', 1), ('Pont', 1), ('Refrain', 2), ('Outro', 1)]
     return {
-        'format': 'stepseq', 'version': 1,
+        'format': 'stepseq', 'version': 2,
         'title': 'Train de nuit',
         'key': {'tonic': 'F', 'mode': 'minor'},  # tonalité (fenêtre Harmonie)
         'tempo': 132, 'timeSig': [4, 4], 'bars': current['bars'],

@@ -268,6 +268,37 @@ SS.migrateInstrument = (track) => {
   }
 };
 
+/**
+ * Décalage d'octave d'un instrument multi-échantillonné (js/sample-tuning.js), en demi-tons : positif = ses
+ * fichiers sonnent plus haut que la note de leur nom (convention Do3 = midi 60 de la plupart des VCSL). Corrigé à la
+ * lecture (js/audio.js) : une note jouée sonne à sa hauteur, comme avec les soundfonts et les synthés.
+ */
+SS.multiOctave = (inst) => (inst && inst.kind === 'multi' && SS.MULTI_OCTAVE && SS.MULTI_OCTAVE[inst.bank + ':' + inst.key]) || 0;
+
+/**
+ * Projets enregistrés avant cette correction (version < 2) : les notes des pistes concernées sont transposées
+ * du même décalage, dans toutes les scènes, pour que le morceau sonne exactement comme avant.
+ * `data` est le projet brut lu dans le fichier (modifié sur place).
+ */
+SS.migrateOctaves = (data) => {
+  if (!data || !Array.isArray(data.tracks) || Number(data.version) >= 2) return;
+  const shift = (events, d) =>
+    Array.isArray(events) &&
+    events.forEach((e) => e && Array.isArray(e.notes) && (e.notes = e.notes.map((n) => Math.max(0, Math.min(127, n + d)))));
+  data.tracks.forEach((t) => {
+    if (!t || t.type === 'drum') return;
+    const copy = { ...t };
+    SS.migrateInstrument(copy);
+    const d = SS.multiOctave(SS.findInstrument(copy.family, copy.instrument));
+    if (!d) return;
+    shift(t.events, d);
+    (Array.isArray(data.scenes) ? data.scenes : []).forEach((sc) => sc && sc.data && sc.data[t.id] && shift(sc.data[t.id].events, d));
+    if (Number.isFinite(t.octave)) t.octave = Math.max(0, Math.min(7, t.octave + d / 12));
+    if (Number.isFinite(t.rollTop)) t.rollTop += d;
+    if (Number.isFinite(t.lastRoot)) t.lastRoot += d;
+  });
+};
+
 /** Fichier soundfont joué par une piste (variante choisie). */
 SS.sfFile = (inst, track) => (inst.files ? inst.files[Math.min(track.sfv || 0, inst.files.length - 1)] : inst.file);
 

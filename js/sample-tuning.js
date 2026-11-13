@@ -4,11 +4,11 @@
  * acoustique, 10 à 25 centièmes pour de nombreux pianos, xylophones ou basses) : deux instruments jouant la même
  * note sonnaient faux ensemble. Valeurs en centièmes de demi-ton (positif = l'échantillon sonne trop haut).
  *  - SS.SF_TUNING : soundfont -> correction de chaque zone, dans l'ordre du fichier ;
- *  - SS.MULTI_TUNING : « banque:chemin » d'un échantillon multi (piano, VCSL, Dirt-Samples) -> correction.
- * Seul l'écart fin est corrigé : l'octave annoncée par les fichiers est conservée.
- * À FAIRE (décision en attente) : la plupart des instruments VCSL (piano1, orgues, sax, flûtes à bec, harmonicas,
- * xylophones…) sonnent une octave plus haut que la note demandée : leurs fichiers suivent la convention Do3 = midi 60.
- * Non corrigé pour ne pas déplacer d'une octave les projets existants ; à reprendre si on le demande.
+ *  - SS.MULTI_OCTAVE : « banque:instrument » multi -> décalage d'octave, en demi-tons (positif = sonne trop haut).
+ *    La plupart des instruments VCSL (piano1, orgues, sax, flûtes à bec, harmonicas, xylophones…) suivent la
+ *    convention Do3 = midi 60 et sonnaient une octave plus haut que la note jouée ; les projets enregistrés avant
+ *    la correction (version 1) sont transposés à l'ouverture pour sonner comme avant (SS.migrateOctaves) ;
+ *  - SS.MULTI_TUNING : « banque:chemin » d'un échantillon multi (piano, VCSL, Dirt-Samples) -> écart fin.
  */
 window.SS = window.SS || {};
 SS.SF_TUNING = {
@@ -598,6 +598,65 @@ SS.SF_TUNING = {
   "1210_JCLive_sf2_file": [5, -6, 5, -6, 5, -6, 5, 5],
   "1211_Aspirin_sf2_file": [6],
   "1251_FluidR3_GM_sf2_file": [0, 4, 0, 8, 4, 5, 5, 0, 5, 6, 5],
+};
+SS.MULTI_OCTAVE = {
+  "dirt:moog": -12,
+  "vcsl:balafon": 12,
+  "vcsl:balafon_hard": 12,
+  "vcsl:balafon_soft": 12,
+  "vcsl:belltree": 12,
+  "vcsl:clavisynth": 24,
+  "vcsl:dantranh": 12,
+  "vcsl:dantranh_tremolo": 12,
+  "vcsl:dantranh_vibrato": 12,
+  "vcsl:folkharp": 12,
+  "vcsl:glockenspiel": 12,
+  "vcsl:handchimes": 12,
+  "vcsl:harmonica": 12,
+  "vcsl:harmonica_soft": 12,
+  "vcsl:harmonica_vib": 12,
+  "vcsl:marimba": 12,
+  "vcsl:organ_4inch": 24,
+  "vcsl:organ_8inch": 12,
+  "vcsl:organ_full": 12,
+  "vcsl:piano1": 12,
+  "vcsl:pipeorgan_loud": 12,
+  "vcsl:pipeorgan_loud_pedal": 12,
+  "vcsl:pipeorgan_quiet": 12,
+  "vcsl:pipeorgan_quiet_pedal": 12,
+  "vcsl:recorder_alto_stacc": 12,
+  "vcsl:recorder_alto_sus": 12,
+  "vcsl:recorder_alto_vib": 12,
+  "vcsl:recorder_bass_stacc": 12,
+  "vcsl:recorder_bass_sus": 12,
+  "vcsl:recorder_bass_vib": 12,
+  "vcsl:recorder_soprano_stacc": 12,
+  "vcsl:recorder_soprano_sus": 12,
+  "vcsl:recorder_tenor_stacc": 12,
+  "vcsl:recorder_tenor_sus": 12,
+  "vcsl:recorder_tenor_vib": 12,
+  "vcsl:sax": 12,
+  "vcsl:sax_stacc": 12,
+  "vcsl:sax_vib": 12,
+  "vcsl:saxello": 12,
+  "vcsl:saxello_stacc": 12,
+  "vcsl:saxello_vib": 12,
+  "vcsl:strumstick": 12,
+  "vcsl:super64": 12,
+  "vcsl:super64_acc": 12,
+  "vcsl:super64_vib": 12,
+  "vcsl:tubularbells": 12,
+  "vcsl:vibraphone": 12,
+  "vcsl:vibraphone_bowed": 12,
+  "vcsl:vibraphone_soft": 12,
+  "vcsl:wineglass": 12,
+  "vcsl:wineglass_slow": 12,
+  "vcsl:xylophone_hard_ff": 12,
+  "vcsl:xylophone_hard_pp": 12,
+  "vcsl:xylophone_medium_ff": 12,
+  "vcsl:xylophone_medium_pp": 12,
+  "vcsl:xylophone_soft_ff": 12,
+  "vcsl:xylophone_soft_pp": 12,
 };
 SS.MULTI_TUNING = {
   "dirt:moog/000_Mighty Moog C2.wav": 7,

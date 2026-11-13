@@ -83,7 +83,10 @@ Règles d'écriture vérifiées par les tests (`tests/bandsong.test.js`) :
   console) et petite humanisation.
 
 Les échantillons Dirt-Samples sont joués à leur hauteur réelle, mesurée par `tools/dirt-pitch.py`
-(`js/dirt-tuning.js`).
+(`js/dirt-tuning.js`). Les soundfonts et les instruments multi-échantillonnés (piano, VCSL) le sont aussi, mesurés
+par `tools/sample-pitch.py` (`js/sample-tuning.js`) : écart fin de chaque échantillon et octave de chaque instrument
+(la plupart des fichiers VCSL suivent la convention Do3 = midi 60 et sonnaient une octave trop haut). Les projets
+enregistrés avant cette correction sont transposés à l'ouverture pour sonner comme avant.
 
 **Mixage et mastering automatiques** (`js/bandmix.js`), appliqués aux pistes créées par Band :
 
