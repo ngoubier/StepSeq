@@ -129,13 +129,21 @@
       <p>Une case de la grille vaut toujours une double-croche. Une mesure en 4/4 fait donc 16 cases, et une mesure en 6/8 en fait 12.</p>
 
       <h2 id="ajouter">Ajouter une piste</h2>
-      <p>Le bouton <b>+ Ajouter une piste</b>, sous les pistes, ouvre une fenêtre. Choisis d'abord <b>Drum</b>, <b>Instrument</b> ou <b>Synthé</b>, puis choisis le son avec les pastilles et les listes, écoute avec <b>Écouter</b> et clique sur <b>Valider</b>.</p>
-      <p>La navigation est la même pour les drums et les instruments : des <b>pastilles</b> en haut (bibliothèque et type de drum, ou catégorie et famille), un <b>champ de recherche</b> au-dessus du type de drum ou des familles, puis <b>deux colonnes</b> alignées : à gauche la boîte à rythmes, la banque ou l'instrument, à droite la variation ou la variante de soundfont. Chaque clic dans une liste fait entendre le son ; un double-clic valide.</p>
+      <p>Le bouton <b>+ Ajouter une piste</b>, sous les pistes, ouvre une fenêtre. Choisis d'abord <b>Drum</b>, <b>Instrument</b> ou <b>Synthé</b>, puis choisis le son dans les listes, écoute avec <b>Écouter</b> et clique sur <b>Valider</b>.</p>
+      <p>La fenêtre garde toujours la même taille, quel que soit le type. Elle se lit de gauche à droite :</p>
+      <ul>
+        <li><b>À gauche</b> : le type (Drum, Instrument, Synthé), puis la bibliothèque de batterie, la famille d'instruments ou le synthé.</li>
+        <li><b>Au centre</b> : la boîte à rythmes, la banque, l'instrument ou le patch (pour les boîtes à rythmes, les pastilles Kick, Snare… au-dessus de la liste). Le <b>champ de recherche</b>, en haut de la fenêtre, filtre cette liste ; pour un instrument il cherche dans toutes les familles.</li>
+        <li><b>À droite</b> : la variation ou la variante de soundfont (pour un synthé, sa fiche).</li>
+        <li><b>En bas</b> : les réglages de la piste (nom, couleur, catégorie Mono / Arpège / Accord, longueur) et les boutons. La catégorie est grisée pour un drum.</li>
+      </ul>
+      <p>Chaque clic dans une liste fait entendre le son ; un double-clic valide. Sur téléphone, les colonnes s'empilent et le type et la source deviennent des rangées qui défilent.</p>
       <div class="table-wrap"><table>
         <tr><th>Touche</th><th>Effet dans la fenêtre</th></tr>
         <tr><td>↑ ↓ (dans une liste)</td><td>Son précédent / suivant, joué aussitôt. Début, Fin, Pg↑, Pg↓ pour aller plus vite. ↑ en haut de la liste remonte aux pastilles.</td></tr>
         <tr><td>← → (dans une liste)</td><td>Passe d'une colonne à l'autre.</td></tr>
-        <tr><td>← → (sur des pastilles)</td><td>Pastille précédente / suivante ; ↓ descend au groupe suivant puis à la liste, ↑ remonte au champ de recherche (placé au-dessus des pastilles de type de drum ou de famille).</td></tr>
+        <tr><td>↑ ↓ (colonne de gauche)</td><td>Type, bibliothèque ou famille précédente / suivante ; → passe à la colonne suivante.</td></tr>
+        <tr><td>← → (sur des pastilles)</td><td>Pastille précédente / suivante ; ↓ descend à la liste.</td></tr>
         <tr><td>Lettres</td><td>Dans une liste : va au premier nom qui commence par ces lettres (« ro » → Roland…). Dans le filtre : filtre la liste ; ↓ ou Entrée descend dans les résultats.</td></tr>
         <tr><td>Espace</td><td>Réécouter le son choisi.</td></tr>
         <tr><td>Entrée / Échap</td><td>Valider / Annuler.</td></tr>
@@ -169,7 +177,7 @@
       <p>Chaque piste peut avoir sa propre longueur de boucle, plus courte que le projet. Deux façons de la régler :</p>
       <ul>
         <li><b>Glisser la barre de fin de boucle</b> : la petite barre verticale juste après la dernière case de la piste. Elle prend la couleur de la piste quand la longueur est personnalisée.</li>
-        <li><b>⚙ de la piste</b>, pastilles « Longueur de la piste » : Comme le projet, ½ mesure, 1, 2, 4, 8, 16 ou 32 mesures (toujours moins que le projet), ou un nombre de pas libre.</li>
+        <li><b>⚙ de la piste</b>, liste « Longueur » : Comme le projet, ½ mesure, 1, 2, 4, 8, 16 ou 32 mesures (toujours moins que le projet), ou un nombre de pas libre.</li>
       </ul>
       <p>Une piste plus courte tourne en boucle sur elle-même pendant que les autres continuent : par exemple un hi-hat de 12 pas contre un kick de 16 donne une polymétrie 3 contre 4. Les cases au-delà de la boucle sont hachurées et ne jouent pas. Le sous-titre de la piste affiche sa longueur (⟲ 2 mes., ⟲ 12 pas…), et la tête de lecture montre la position de chaque piste dans sa propre boucle.</p>
 
@@ -599,7 +607,7 @@
         <li>La bibliothèque reste dans ce navigateur, sur cet appareil. Pour changer d'appareil, passe par le fichier.</li>
       </ul>
       <h3 id="general-midi">Mode General MIDI</h3>
-      <p>Pour monter un ensemble de pistes en General MIDI (par exemple pour l'exporter vers un logiciel de musique), active <b>General MIDI</b> : dans la fenêtre <b>Nouvelle piste</b> (ligne <b>Sons : Tous / General MIDI</b>) ou dans <b>Band</b> (bouton en haut). C'est le même réglage, enregistré dans le projet ; un fichier MIDI importé l'active.</p>
+      <p>Pour monter un ensemble de pistes en General MIDI (par exemple pour l'exporter vers un logiciel de musique), active <b>General MIDI</b> : dans la fenêtre <b>Nouvelle piste</b> (bouton <b>Tous / General MIDI</b> en haut à droite) ou dans <b>Band</b> (bouton en haut). C'est le même réglage, enregistré dans le projet ; un fichier MIDI importé l'active.</p>
       <ul>
         <li><b>Nouvelle piste</b> : les instruments sont rangés dans les 16 familles de la norme (Pianos 1–8, Basses 33–40, Synth Lead 81–88…) avec leur numéro de programme ; la recherche accepte un nom ou un numéro. Les drums ne proposent que la batterie General MIDI (47 sons). Le type Synthé est désactivé.</li>
         <li><b>Band</b> : chaque musicien joue un son General MIDI : les sons GM conseillés passent en premier, les autres sont remplacés par le programme le plus proche. Le batteur et le percussionniste jouent la batterie General MIDI.</li>

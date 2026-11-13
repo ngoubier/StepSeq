@@ -318,126 +318,107 @@
     </div>
   </dialog>
 
-  <!-- Dialogue d'ajout / modification de piste -->
+  <!-- Dialogue d'ajout / modification de piste : taille fixe, type et source à gauche, sons au centre, variantes à droite -->
   <dialog id="trackDialog">
-    <form method="dialog" id="trackForm">
-      <h2 id="dlgTitle">Nouvelle piste</h2>
+    <form method="dialog" id="trackForm" class="nt">
+      <header class="nt-top">
+        <h2 id="dlgTitle">Nouvelle piste</h2>
+        <input id="dlgDrumFilter" class="br-search nt-search" type="search" placeholder="🔍 Filtrer…" autocomplete="off" aria-label="Filtrer la liste">
+        <input id="dlgInstFilter" class="br-search nt-search" type="search" placeholder="🔍 Rechercher un instrument dans toutes les familles (sitar, sax, organ…)" autocomplete="off" aria-label="Rechercher un instrument">
+        <div class="nt-gm" id="dlgGmRow">
+          <div class="segmented pills-nav" id="dlgGm" role="radiogroup" aria-label="Sons proposés">
+            <button type="button" data-v="all">Tous</button>
+            <button type="button" data-v="gm" title="Mode General MIDI du projet : seuls les sons General MIDI sont proposés, ici et dans Band">General MIDI</button>
+          </div>
+        </div>
+        <span class="nt-keys" tabindex="0" role="note" aria-label="Raccourcis clavier" title="← → : colonnes et pastilles · ↑ ↓ : liste (écoute) · lettres : aller à · Espace : écouter · Entrée : valider · Échap : annuler">⌨</span>
+      </header>
 
-      <div class="dlg-row">
-        <span class="dlg-label">Type de piste</span>
-        <div class="segmented pills-nav" id="dlgType" role="radiogroup" aria-label="Type de piste">
-          <button type="button" data-v="drum" class="active">Drum</button>
-          <button type="button" data-v="instrument">Instrument</button>
-          <button type="button" data-v="synth">Synthé</button>
+      <div class="nt-body browser">
+        <div class="nt-types segmented pills-nav pills-vert" id="dlgType" role="radiogroup" aria-label="Type de piste">
+          <button type="button" data-v="drum" class="active"><i aria-hidden="true">◉</i>Drum</button>
+          <button type="button" data-v="instrument"><i aria-hidden="true">♪</i>Instrument</button>
+          <button type="button" data-v="synth"><i aria-hidden="true">≋</i>Synthé</button>
         </div>
-      </div>
 
-      <div class="dlg-row" id="dlgGmRow">
-        <span class="dlg-label">Sons</span>
-        <div class="segmented pills-nav" id="dlgGm" role="radiogroup" aria-label="Sons proposés">
-          <button type="button" data-v="all">Tous</button>
-          <button type="button" data-v="gm" title="Mode General MIDI du projet : seuls les sons General MIDI sont proposés, ici et dans Band">General MIDI</button>
-        </div>
-        <small id="dlgGmHint" class="dlg-hint"></small>
-      </div>
-
-      <div class="dlg-two">
-        <div class="dlg-row">
-          <label class="dlg-label" for="dlgName">Nom</label>
-          <input id="dlgName" type="text" autocomplete="off">
-        </div>
-        <div class="dlg-row">
-          <span class="dlg-label">Couleur</span>
-          <div id="dlgColors" class="swatches"></div>
-        </div>
-      </div>
-
-      <section id="dlgDrum">
-        <div class="dlg-row">
-          <span class="dlg-label">Bibliothèque</span>
-          <div class="segmented dlg-libs pills-nav" id="dlgDrumLib" role="radiogroup" aria-label="Bibliothèque de batterie"></div>
-          <small id="dlgDrumLibHint" class="dlg-hint"></small>
-        </div>
-        <div class="dlg-row">
-          <input id="dlgDrumFilter" class="br-search" type="search" placeholder="🔍 Filtrer…" autocomplete="off" aria-label="Filtrer la liste">
-        </div>
-        <div class="dlg-row" id="dlgTdm">
-          <span class="dlg-label">Type de drum</span>
-          <div id="dlgDrumTypes" class="chips pills-nav" role="radiogroup" aria-label="Type de drum"></div>
-        </div>
-        <div class="browser">
-          <div class="br-col">
+        <section id="dlgDrum" class="nt-part">
+          <div class="nt-side">
+            <span class="dlg-label">Bibliothèque</span>
+            <div class="nt-src pills-nav pills-vert" id="dlgDrumLib" role="radiogroup" aria-label="Bibliothèque de batterie"></div>
+            <small id="dlgDrumLibHint" class="dlg-hint nt-side-hint"></small>
+          </div>
+          <div class="nt-center br-col">
             <div class="br-head"><span class="dlg-label" id="dlgDrumListLabel">Boîte à rythmes</span><small id="dlgDrumCount" class="dlg-hint"></small></div>
+            <div id="dlgTdm" class="nt-chips-row">
+              <div id="dlgDrumTypes" class="chips nt-chips pills-nav" role="radiogroup" aria-label="Type de drum"></div>
+            </div>
             <div id="dlgDrumList" class="pick-list" aria-labelledby="dlgDrumListLabel"></div>
           </div>
-          <div class="br-col">
+          <div class="nt-right br-col">
             <div class="br-head"><span class="dlg-label" id="dlgVariantLabel">Variation</span><small id="dlgVariantCount" class="dlg-hint"></small></div>
             <div id="dlgVariantList" class="pick-list" aria-labelledby="dlgVariantLabel"></div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <div class="dlg-row" id="dlgCatRow" hidden>
-        <span class="dlg-label">Catégorie</span>
-        <div class="segmented pills-nav" id="dlgCategory" role="radiogroup" aria-label="Catégorie"></div>
-      </div>
-
-      <section id="dlgInst" hidden>
-        <div class="dlg-row">
-          <input id="dlgInstFilter" class="br-search" type="search" placeholder="🔍 Rechercher un instrument dans toutes les familles (sitar, sax, organ…)" autocomplete="off" aria-label="Rechercher un instrument">
-        </div>
-        <div class="dlg-row">
-          <span class="dlg-label">Famille</span>
-          <div id="dlgFamilies" class="chips pills-nav" role="radiogroup" aria-label="Famille"></div>
-          <div id="dlgGmGroups" class="chips pills-nav" role="radiogroup" aria-label="Famille General MIDI" hidden></div>
-        </div>
-        <div class="browser">
-          <div class="br-col">
+        <section id="dlgInst" class="nt-part" hidden>
+          <div class="nt-side">
+            <span class="dlg-label">Famille</span>
+            <div id="dlgFamilies" class="nt-src pills-nav pills-vert" role="radiogroup" aria-label="Famille"></div>
+            <div id="dlgGmGroups" class="nt-src pills-nav pills-vert" role="radiogroup" aria-label="Famille General MIDI" hidden></div>
+          </div>
+          <div class="nt-center br-col">
             <div class="br-head"><span class="dlg-label" id="dlgInstLabel">Instrument</span><small id="dlgInstCount" class="dlg-hint"></small></div>
             <div id="dlgInstList" class="pick-list" aria-labelledby="dlgInstLabel"></div>
           </div>
-          <div class="br-col">
+          <div class="nt-right br-col">
             <div class="br-head"><span class="dlg-label" id="dlgSfvLabel">Variante</span></div>
             <div id="dlgSfvList" class="pick-list" aria-labelledby="dlgSfvLabel"></div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section id="dlgSynth" hidden>
-        <div class="browser">
-          <div class="br-col">
-            <div class="br-head"><span class="dlg-label" id="dlgSynthLabel">Synthé analogique</span><small id="dlgSynthCount" class="dlg-hint"></small></div>
-            <div id="dlgSynthList" class="pick-list" aria-labelledby="dlgSynthLabel"></div>
+        <section id="dlgSynth" class="nt-part" hidden>
+          <div class="nt-side">
+            <span class="dlg-label" id="dlgSynthLabel">Synthé <small id="dlgSynthCount" class="dlg-hint"></small></span>
+            <div id="dlgSynthList" class="pick-list nt-src-list" aria-labelledby="dlgSynthLabel"></div>
           </div>
-          <div class="br-col">
+          <div class="nt-center br-col">
             <div class="br-head"><span class="dlg-label" id="dlgPatchLabel">Patch</span><small id="dlgPatchCount" class="dlg-hint"></small></div>
             <div id="dlgPatchList" class="pick-list" aria-labelledby="dlgPatchLabel"></div>
           </div>
-        </div>
-        <div class="synth-card" id="dlgSynthCard" aria-live="polite"></div>
-        <small class="dlg-hint">Après validation, le bouton <b>Sound design</b> de la piste ouvre la façade du synthé : tous ses curseurs et boutons sont réglables.</small>
-      </section>
+          <div class="nt-right br-col">
+            <span class="dlg-label">Le synthé</span>
+            <div class="synth-card" id="dlgSynthCard" aria-live="polite"></div>
+            <small class="dlg-hint">Après validation, le bouton <b>Sound design</b> de la piste ouvre la façade du synthé : tous ses réglages sont modifiables.</small>
+          </div>
+        </section>
 
-      <div class="dlg-row" id="dlgLenRow">
-        <span class="dlg-label">Longueur de la piste</span>
-        <div class="len-row">
-          <div id="dlgLen" class="chips pills-nav" role="radiogroup" aria-label="Longueur de la piste"></div>
-          <label class="len-custom">ou <input id="dlgLenSteps" type="number" min="1" step="1" aria-label="Longueur en pas"> pas</label>
-        </div>
-        <small class="dlg-hint">Une piste plus courte que le projet tourne en boucle sur sa propre longueur (polymétrie : par ex. 3 temps contre 4). Tu peux aussi glisser la barre de fin de boucle dans la grille.</small>
+        <small id="dlgGmHint" class="dlg-hint nt-gm-hint"></small>
       </div>
 
-      <p class="dlg-keys" aria-hidden="true"><kbd>←</kbd><kbd>→</kbd> pastilles et colonnes · <kbd>↑</kbd><kbd>↓</kbd> liste (écoute) · lettres : aller à · <kbd>Espace</kbd> écouter · <kbd>Entrée</kbd> valider · <kbd>Échap</kbd> annuler</p>
-
-      <div class="dlg-footer">
-        <button type="button" id="dlgPreview" class="btn">
-          <svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z" class="fill"/><path d="M16 8.5a5 5 0 0 1 0 7"/></svg>
-          Écouter
-        </button>
-        <span class="spacer"></span>
-        <button type="button" id="dlgCancel" class="btn">Annuler</button>
-        <button type="submit" id="dlgOk" class="btn btn-accent">Valider</button>
-      </div>
+      <footer class="nt-foot">
+        <div class="nt-settings">
+          <label class="nt-field nt-name"><span class="dlg-label">Nom</span><input id="dlgName" type="text" autocomplete="off"></label>
+          <div class="nt-field nt-color"><span class="dlg-label">Couleur</span><div id="dlgColors" class="swatches"></div></div>
+          <div class="nt-field" id="dlgCatRow">
+            <span class="dlg-label">Catégorie</span>
+            <div class="segmented pills-nav" id="dlgCategory" role="radiogroup" aria-label="Catégorie"></div>
+          </div>
+        </div>
+        <div class="nt-actions">
+          <div class="nt-field nt-len" id="dlgLenRow" title="Une piste plus courte que le projet tourne en boucle sur sa propre longueur (polymétrie : par ex. 3 temps contre 4). Tu peux aussi glisser la barre de fin de boucle dans la grille.">
+            <label class="dlg-label" for="dlgLen">Longueur</label>
+            <select id="dlgLen" aria-label="Longueur de la piste"></select>
+            <label class="len-custom"><input id="dlgLenSteps" type="number" min="1" step="1" aria-label="Longueur en pas"> pas</label>
+          </div>
+          <span class="spacer"></span>
+          <button type="button" id="dlgPreview" class="btn">
+            <svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z" class="fill"/><path d="M16 8.5a5 5 0 0 1 0 7"/></svg>
+            Écouter
+          </button>
+          <button type="button" id="dlgCancel" class="btn">Annuler</button>
+          <button type="submit" id="dlgOk" class="btn btn-accent">Valider</button>
+        </div>
+      </footer>
     </form>
   </dialog>
 

@@ -2367,6 +2367,11 @@ SS.ui = (() => {
           const cols = [...el.closest('.browser').querySelectorAll('.pick-list')].filter((x) => x.offsetParent);
           const next = cols[cols.indexOf(el) + (e.key === 'ArrowRight' ? 1 : -1)];
           if (next) next.focus();
+          else if (e.key === 'ArrowLeft') {
+            // première liste → la source de la colonne de gauche (bibliothèque, famille)
+            const side = el.closest('.nt-part') && [...el.closest('.nt-part').querySelectorAll('.nt-side .pills-nav')].find((x) => x.offsetParent);
+            if (side) focusPills(side, 0);
+          }
           return;
         }
         case 'Enter':
@@ -2429,13 +2434,15 @@ SS.ui = (() => {
     } else el.removeAttribute('aria-activedescendant');
   }
 
-  /* --- Pastilles : une seule pastille dans l'ordre de tabulation, ← → pour changer, ↓ vers la liste */
+  /* --- Pastilles : une seule pastille dans l'ordre de tabulation, ← → pour changer, ↓ vers la liste.
+     Groupes verticaux (.pills-vert, colonne de gauche) : ↑ ↓ pour changer, ← → vers l'arrêt voisin. */
   function setupPills(group) {
+    const vert = group.classList.contains('pills-vert');
     group.addEventListener('keydown', (e) => {
-      const btns = [...group.querySelectorAll('button')].filter((b) => !b.disabled);
+      const btns = [...group.querySelectorAll('button')].filter((b) => !b.disabled && !b.hidden);
       const i = btns.indexOf(document.activeElement);
       if (i < 0) return;
-      const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
+      const step = (vert ? { ArrowDown: 1, ArrowUp: -1 } : { ArrowRight: 1, ArrowLeft: -1 })[e.key];
       if (step) {
         e.preventDefault();
         const b = btns[(i + step + btns.length) % btns.length];
@@ -2450,9 +2457,14 @@ SS.ui = (() => {
         b.click();
         return;
       }
-      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      const out = vert ? { ArrowRight: 1, ArrowLeft: -1 }[e.key] : { ArrowDown: 1, ArrowUp: -1 }[e.key];
+      if (out) {
         e.preventDefault();
-        focusPills(group, e.key === 'ArrowDown' ? 1 : -1);
+        // source (colonne de gauche) → droit vers la liste des sons
+        const part = vert && out > 0 && group.closest('.nt-part');
+        const list = part && part.querySelector('.nt-center .pick-list');
+        if (list) list.focus();
+        else focusPills(group, out);
       }
     });
   }
@@ -2465,14 +2477,14 @@ SS.ui = (() => {
     const target = stops[j];
     if (!target) return;
     if (target.classList.contains('pills-nav')) {
-      const b = target.querySelector('button.active:not(:disabled)') || target.querySelector('button:not(:disabled)');
+      const b = target.querySelector('button.active:not(:disabled):not([hidden])') || target.querySelector('button:not(:disabled):not([hidden])');
       if (b) b.focus();
     } else target.focus();
   }
 
   function rovePills(group) {
     const btns = [...group.querySelectorAll('button')];
-    const act = btns.find((b) => b.classList.contains('active') && !b.disabled) || btns.find((b) => !b.disabled);
+    const act = btns.find((b) => b.classList.contains('active') && !b.disabled && !b.hidden) || btns.find((b) => !b.disabled && !b.hidden);
     btns.forEach((b) => {
       b.tabIndex = b === act ? 0 : -1;
       b.setAttribute('role', 'radio');
@@ -2588,6 +2600,11 @@ SS.ui = (() => {
         }
       });
     });
+    $('#dlgLen').addEventListener('change', (e) => {
+      if (e.target.value === '') return;
+      dlg.s.length = +e.target.value;
+      syncLen();
+    });
     $('#dlgLenSteps').addEventListener('input', (e) => {
       const total = SS.totalSteps(app.project());
       const v = parseInt(e.target.value, 10);
@@ -2637,7 +2654,7 @@ SS.ui = (() => {
           type: 'button',
           class: 'chip',
           'data-v': g.id,
-          title: `Programmes ${g.from + 1} à ${g.from + 8}`,
+          title: `${g.label} : programmes ${g.from + 1} à ${g.from + 8}`,
           onclick: () => {
             if (dlg.gmGroup === g.id && !$('#dlgInstFilter').value) return;
             dlg.gmGroup = g.id;
@@ -2648,7 +2665,7 @@ SS.ui = (() => {
             autoName();
             syncDialog();
           },
-        }, g.label, h('small', {}, ` ${g.from + 1}–${g.from + 8}`))
+        }, h('span', { class: 'nt-src-l' }, g.label), h('small', {}, `${g.from + 1}–${g.from + 8}`))
       )
     );
     $('#dlgGm').addEventListener('click', (e) => {
@@ -2837,7 +2854,7 @@ SS.ui = (() => {
     fillList($('#dlgInstList'), entries, dlg.s.instrument, 'Aucun instrument trouvé');
   }
 
-  /** Longueurs proposées (en mesures, selon le projet) en pastilles + saisie libre en pas. */
+  /** Longueurs proposées (en mesures, selon le projet) en liste déroulante + saisie libre en pas. */
   function fillLen() {
     const p = app.project();
     const spb = SS.stepsPerBar(p);
@@ -2847,17 +2864,8 @@ SS.ui = (() => {
     if (Number.isInteger(half)) opts.push({ v: half, label: '½ mesure' });
     [1, 2, 4, 8, 16, 32].filter((b) => b * spb < total).forEach((b) => opts.push({ v: b * spb, label: `${b} mes.` }));
     $('#dlgLen').replaceChildren(
-      ...opts.map((o) =>
-        h('button', {
-          type: 'button',
-          class: 'chip',
-          'data-v': o.v,
-          onclick: () => {
-            dlg.s.length = o.v;
-            syncLen();
-          },
-        }, o.label)
-      )
+      ...opts.map((o) => h('option', { value: String(o.v) }, o.label)),
+      h('option', { value: '', disabled: true }, 'Autre (en pas)')
     );
     $('#dlgLenSteps').max = total;
     syncLen();
@@ -2866,8 +2874,8 @@ SS.ui = (() => {
   function syncLen(fromInput) {
     const total = SS.totalSteps(app.project());
     const len = dlg.s.length || 0;
-    $('#dlgLen').querySelectorAll('.chip').forEach((b) => b.classList.toggle('active', +b.dataset.v === len));
-    rovePills($('#dlgLen'));
+    const sel = $('#dlgLen');
+    sel.value = [...sel.options].some((o) => o.value === String(len)) ? String(len) : '';
     if (!fromInput) $('#dlgLenSteps').value = len || total;
   }
 
@@ -2900,9 +2908,7 @@ SS.ui = (() => {
     });
     const gm = gmOn();
     $('#dlgGm').querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.v === (gm ? 'gm' : 'all')));
-    $('#dlgGmHint').textContent = gm
-      ? 'Mode General MIDI du projet : seuls les sons General MIDI sont proposés (ici et dans Band). Ils sortent tels quels à l’export MIDI.'
-      : '';
+    $('#dlgGmHint').textContent = gm ? 'Mode General MIDI du projet : seuls les sons General MIDI sont proposés, ici et dans Band.' : '';
     if (gm) {
       const synthBtn = $('#dlgType button[data-v="synth"]');
       if (s.type !== 'synth') synthBtn.disabled = true;
@@ -2916,7 +2922,11 @@ SS.ui = (() => {
     $('#dlgDrum').hidden = !isDrum;
     $('#dlgInst').hidden = s.type !== 'instrument';
     $('#dlgSynth').hidden = s.type !== 'synth';
-    $('#dlgCatRow').hidden = isDrum;
+    $('#dlgDrumFilter').hidden = !isDrum;
+    $('#dlgInstFilter').hidden = s.type !== 'instrument';
+    $('#dlgCatRow').classList.toggle('off', isDrum);
+    $('#dlgCatRow').title = isDrum ? 'Une piste de batterie joue des coups, sans catégorie' : '';
+    $('#dlgCategory').querySelectorAll('button').forEach((b) => (b.disabled = isDrum));
     const src = s.source || 'tdm';
     $('#dlgDrumLib').querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.v === src));
     $('#dlgDrumLibHint').textContent = (SS.DRUM_LIBS.find((l) => l.id === src) || {}).hint || '';

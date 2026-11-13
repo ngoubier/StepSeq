@@ -38,7 +38,8 @@ Chaque note garde sa propre durée et sa vélocité ; cliquer à nouveau sur une
 
 ### Ajouter une piste
 
-Le bouton **+** ouvre une fenêtre qui demande :
+Le bouton **+** ouvre une fenêtre de taille fixe (900 × 600 au plus) : le type et la source à gauche, les sons au
+centre, les variantes à droite, les réglages de la piste en bas. Elle demande :
 
 1. le type de piste : **Drum**, **Instrument** ou **Synthé** ;
 2. un nom et une couleur ;
@@ -410,8 +411,8 @@ premier enregistrement ; les autres navigateurs téléchargent le fichier.
 - perdu : résolution plus fine que la double-croche, changements de tempo / mesure en cours de morceau, pitch
   bend, autres contrôleurs, changements de programme en cours de morceau, SysEx. Tout est listé dans la fenêtre.
 
-**Mode General MIDI** (`project.gm`) : réglage du projet partagé par la fenêtre « Nouvelle piste » (ligne
-« Sons : Tous / General MIDI ») et Band (bouton « General MIDI »), activé par l'import MIDI. La fenêtre de piste
+**Mode General MIDI** (`project.gm`) : réglage du projet partagé par la fenêtre « Nouvelle piste » (bouton
+« Tous / General MIDI » en haut) et Band (bouton « General MIDI »), activé par l'import MIDI. La fenêtre de piste
 range alors les 128 programmes dans les 16 familles de la norme (`SS.GM_PROGRAMS`, `SS.GM_GROUPS`,
 `SS.gmInstrumentFor`), ne propose que la batterie General MIDI et désactive le type Synthé. Band remplace chaque
 choix par son équivalent GM (`SS.midi.gmEquivalent` ; les sons `gm_*` conseillés passent en premier) et joue la
