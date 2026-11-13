@@ -9,11 +9,11 @@
   --accent: #0a64b4;
   --accent-2: #2b8cff;
   --gold: #c9a227;
-  --head: 448px;
+  --head: 372px;
   --sq: 26px;          /* taille d'une case (carré fixe) */
   --col: 30px;         /* case + 2 px de marge de chaque côté */
   --zx: 1;             /* zoom horizontal (colonnes calculées en JS) */
-  --row-h: 36px;
+  --row-h: 68px;       /* en-tête de piste sur deux lignes de boutons */
   --roll-h: 16px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
   color-scheme: dark;
@@ -282,7 +282,7 @@ a.btn { text-decoration: none; }
   flex: none;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   padding: 0 6px;
   background: var(--panel-2);
   border-right: 1px solid #000;
@@ -319,16 +319,33 @@ a.btn { text-decoration: none; }
 .th-name {
   flex: 1;
   min-width: 0;
+  align-self: stretch;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 3px;
   line-height: 1.15;
+  text-align: left;
   cursor: default;
 }
-.th-name b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.th-name b { font-weight: 600; font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .th-name small { color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
-.th-name input { width: 100%; background: var(--panel); color: var(--text); border: 1px solid var(--accent-2); border-radius: 4px; font: inherit; padding: 2px 4px; text-align: right; }
+.th-name input { width: 100%; background: var(--panel); color: var(--text); border: 1px solid var(--accent-2); border-radius: 4px; font: inherit; padding: 2px 4px; text-align: left; }
 .th-vol { flex: none; width: 50px; accent-color: var(--c); }
+/* boutons de la piste : deux lignes identiques pour toutes les pistes (batterie comprise) */
+.th-ctrls {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(6, 26px);
+  grid-auto-rows: 26px;
+  gap: 4px;
+  align-items: center;
+}
+.th-ctrls .th-vol { grid-column: span 3; width: 100%; margin: 0; }
+.th-ctrls .th-btn.fx-btn { width: 26px; padding: 0; }
+.th-btn:disabled { opacity: .3; cursor: default; background: transparent; color: var(--muted); }
+.track-row .cell { height: calc(var(--row-h) - 14px); }
 
 /* Cases */
 .track-row .grid { align-items: center; gap: 0; }
@@ -2600,8 +2617,10 @@ body[data-grid="half"] .rcell.half:not(.on) { border-left-color: #333338; }
   #songMode button { padding: 4px 10px; }
   /* en-têtes de piste : muet, solo, nom, piano roll, réglages */
   .th-grip, .th-play, .th-icon, .th-vol, .th-sd, .th-del, .th-btn.fx-btn, .th-auto, .th-name small { display: none; }
-  .track-head { gap: 2px; padding: 0 3px; }
-  .track-head .th-btn { width: 24px; }
+  :root { --row-h: 56px; }
+  .track-head { gap: 4px; padding: 0 4px; }
+  .track-head .th-btn { width: 24px; height: 24px; }
+  .th-ctrls { grid-template-columns: repeat(2, 24px); grid-auto-rows: 24px; }
   .th-name { flex: 1 1 auto; min-width: 0; }
   .th-name b { font-size: 13px; }
   /* barre du bas : une ligne qui défile */
