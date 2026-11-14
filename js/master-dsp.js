@@ -104,6 +104,8 @@ function ssMasterModule(scope) {
       this.tp = 0;
       this.tpOut = [new Float32Array(4), new Float32Array(4)];
       this.grMax = 0;
+      this.bad = 0; // échantillons invalides neutralisés depuis le dernier relevé
+      this.over = 0; // échantillons de sortie à 0 dBFS ou au-delà depuis le dernier relevé
       this.port.onmessage = (e) => {
         if (e.data === 'reset') {
           this.gated = [];
@@ -154,6 +156,9 @@ function ssMasterModule(scope) {
       for (let i = 0; i < N; i++) {
         let l = inL[i];
         let r = inR[i];
+        // sécurité : un NaN ou un infini venu des pistes bloquerait les filtres et le limiteur pour toujours
+        if (!(l > -1e4 && l < 1e4)) { l = 0; this.bad++; }
+        if (!(r > -1e4 && r < 1e4)) { r = 0; this.bad++; }
         if (active) {
           // graves en mono, largeur des aigus
           if (this.xo) {
@@ -221,6 +226,8 @@ function ssMasterModule(scope) {
         }
         outL[i] = l;
         if (outR !== outL) outR[i] = r;
+        // écrêtage en sortie (mastering coupé) : chaque échantillon est compté, rien n'échappe à la mesure
+        if (!active && (l >= 1 || l <= -1 || r >= 1 || r <= -1)) this.over++;
         // mesure (après le limiteur) : pondération K, énergie, true peak x4
         const kl = this.kw[0][1].run(this.kw[0][0].run(l));
         const kr = this.kw[1][1].run(this.kw[1][0].run(r));
@@ -257,8 +264,10 @@ function ssMasterModule(scope) {
         const kept = this.gated.filter((e) => e > rel);
         if (kept.length) I = LUFS(kept.reduce((x, y) => x + y, 0) / kept.length);
       }
-      this.port.postMessage({ m: LUFS(m), s: LUFS(mean(30)), i: I, tp: linToDb(this.tp), gr: this.grMax, secs: this.gated.length / 10 });
+      this.port.postMessage({ m: LUFS(m), s: LUFS(mean(30)), i: I, tp: linToDb(this.tp), gr: this.grMax, secs: this.gated.length / 10, bad: this.bad, over: this.over });
       this.grMax = 0;
+      this.bad = 0;
+      this.over = 0;
     }
   }
   scope.registerProcessor('ss-master', Master);

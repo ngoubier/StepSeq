@@ -796,17 +796,33 @@
 
   <dialog id="systemDialog" class="system-dialog" aria-labelledby="systemTitle">
     <div class="system-head">
-      <div><h2 id="systemTitle">Système</h2><p>Le périphérique et la chanson, en temps réel</p></div>
+      <div><h2 id="systemTitle">Système</h2><p>Santé du son, surveillée automatiquement pendant la lecture</p></div>
       <button id="systemClose" type="button" class="btn btn-icon" aria-label="Fermer Système">✕</button>
     </div>
     <div class="system-body">
-      <div id="systemStatus" class="system-status" role="status"></div>
+      <section id="systemVerdict" class="sys-verdict" data-level="idle" aria-labelledby="systemVerdictTitle">
+        <span class="sys-dot" aria-hidden="true"></span>
+        <div class="sys-verdict-text"><h3 id="systemVerdictTitle">—</h3><p id="systemVerdictText" role="status" aria-live="polite"></p></div>
+        <button id="systemRepair" type="button" class="btn" title="Remet à zéro les filtres, les boucles de delay et les modules audio bloqués">Réparer le son</button>
+      </section>
+      <div id="systemStatus" class="system-status"></div>
       <div id="systemMetrics" class="system-metrics"></div>
-      <section class="system-diagnosis" aria-labelledby="systemDiagnosisTitle"><h3 id="systemDiagnosisTitle">Ce qui peut perturber l’écoute</h3><ul id="systemDiagnosis"></ul></section>
-      <div id="systemSections" class="system-sections"></div>
-      <p class="system-note">La mémoire audio inclut les sons conservés en cache des morceaux précédents. Le tas JavaScript exclut notamment les sons décompressés et le moteur audio. Les mesures du navigateur ne couvrent pas toute la mémoire ni tout le CPU du périphérique. Les retards sont des indices : ils ne détectent pas tous les grésillements, notamment ceux d’une liaison Bluetooth ou de la sortie audio.</p>
+      <section class="sys-incidents" aria-labelledby="systemIncidentsTitle">
+        <div class="sys-sec-head"><h3 id="systemIncidentsTitle">Incidents détectés</h3><button id="systemClearIncidents" type="button" class="btn btn-small">Effacer</button></div>
+        <ol id="systemIncidents"></ol>
+      </section>
+      <section class="sys-load" aria-labelledby="systemLoadTitle">
+        <div class="sys-sec-head"><h3 id="systemLoadTitle">Ce qui pèse sur le moteur audio</h3><small>estimation d’après la chanson</small></div>
+        <ol id="systemLoad"></ol>
+      </section>
+      <section class="system-diagnosis" aria-labelledby="systemDiagnosisTitle"><h3 id="systemDiagnosisTitle">Points à vérifier maintenant</h3><ul id="systemDiagnosis"></ul></section>
+      <details class="sys-details">
+        <summary>Détails techniques</summary>
+        <div id="systemSections" class="system-sections"></div>
+        <p class="system-note">La surveillance relève 4 fois par seconde le niveau de chaque piste, de ses effets, des bus partagés, de la somme du Master et de la sortie : elle repère les signaux invalides, les emballements, l’écrêtage, les décrochages du moteur audio et les coupures, et nomme l’étage d’origine. La charge par piste est une estimation : le navigateur ne mesure pas le CPU piste par piste. La mémoire audio inclut les sons conservés en cache des morceaux précédents. Les grésillements d’une liaison Bluetooth ou de la carte son ne sont pas toujours visibles depuis la page.</p>
+      </details>
     </div>
-    <div class="system-footer"><span>Actualisation chaque seconde · aucune donnée envoyée</span><button id="systemCopy" type="button" class="btn">Copier le diagnostic</button></div>
+    <div class="system-footer"><span>Surveillance automatique · aucune donnée envoyée</span><button id="systemCopy" type="button" class="btn">Copier le diagnostic</button></div>
   </dialog>
 
   <div id="toast" role="status" popover="manual"></div>
@@ -817,11 +833,11 @@
   <script src="js/sample-tuning.js?v=octave-1"></script>
   <script src="js/modulation.js"></script>
   <script src="js/sounds.js?v=acc-1"></script>
-  <script src="js/filters.js?v=lfo-1"></script>
-  <script src="js/space-dsp.js"></script>
-  <script src="js/master-dsp.js"></script>
-  <script src="js/juno-dsp.js"></script>
-  <script src="js/juno.js?v=system-2"></script>
+  <script src="js/filters.js?v=watch-1"></script>
+  <script src="js/space-dsp.js?v=watch-1"></script>
+  <script src="js/master-dsp.js?v=watch-1"></script>
+  <script src="js/juno-dsp.js?v=watch-1"></script>
+  <script src="js/juno.js?v=watch-1"></script>
   <script src="js/arp.js"></script>
   <script src="js/project.js?v=acc-1"></script>
   <script src="js/store.js"></script>
@@ -830,7 +846,7 @@
   <script src="js/midi-file.js"></script>
   <script src="js/midi.js?v=acc-1"></script>
   <script src="js/emotions.js"></script>
-  <script src="js/audio.js?v=acc-1"></script>
+  <script src="js/audio.js?v=watch-1"></script>
   <script src="js/sounddesign.js?v=acc-1"></script>
   <script src="js/junopanel.js"></script>
   <script src="js/motifs.js"></script>
@@ -855,7 +871,8 @@
   <script src="js/band.js"></script>
   <script src="js/midipanel.js"></script>
   <script src="js/ui.js?v=acc-1"></script>
-  <script src="js/systempanel.js?v=system-2"></script>
-  <script src="js/main.js?v=system-2"></script>
+  <script src="js/audiowatch.js?v=watch-1"></script>
+  <script src="js/systempanel.js?v=watch-1"></script>
+  <script src="js/main.js?v=watch-1"></script>
 </body>
 </html>

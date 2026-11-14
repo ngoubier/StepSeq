@@ -757,6 +757,7 @@
     console.warn('Auto Mix indisponible :', e);
   }
   SS.systemPanel.init({ project: () => project });
+  SS.audioWatch.start({ project: () => project }); // surveillance audio automatique (grésillements, coupures)
   SS.song.init({ project: () => project, changed, state, switchScene, afterSceneChange, play, stop, setBars });
   SS.fx.init({ project: () => project, changed, renderTrack: (t) => SS.ui.renderTrack(t) });
   SS.ui.init({

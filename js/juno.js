@@ -285,6 +285,8 @@ SS.juno = (() => {
     let e = nodes.get(key);
     if (!e || e.ctx !== ctx) {
       const node = new AudioWorkletNode(ctx, 'juno106', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2] });
+      // fenêtre Système : plantage ou signal invalide de ce synthé
+      if (SS.audio && SS.audio.watchNode) SS.audio.watchNode(node, { label: 'Synthé Juno', area: 'track', trackId: key, engine: 'juno' });
       e = { ctx, node, dest: null, sent: '' };
       nodes.set(key, e);
     }
