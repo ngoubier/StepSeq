@@ -478,6 +478,8 @@ SS.bandSong = (() => {
     if (!out.length) out.push([0, 8]);
     return out;
   }
+  /** Rôles qui chantent la mélodie de la chanson. */
+  const SINGERS = ['lead', 'vox', 'sax'];
   const CENTER = { verse: 64, hook: 70, long: 69, solo: 69, drop: 72, riff: 71, answer: 70, rise: 67 };
 
   function melodyEvents(spans, mode, r, key, bars) {
@@ -676,9 +678,11 @@ SS.bandSong = (() => {
   /**
    * Construit la chanson.
    *   spec : plan (js/band-songs.js) ; tracks : pistes du projet créées par Band (avec t.band.key « rôle » ou « rôle:son »)
+   *   melodySeed : 0 = la mélodie d'origine de l'inspiration ; un autre nombre tire une autre mélodie (lead, voix,
+   *   sax) sans rien changer aux autres musiciens (assistant « Nouvelle chanson »)
    * → { key, scenes: [{ id, name, bars, key, emotion, data }], song: [{ scene, repeat }] }
    */
-  function build(spec, presetId, tracks) {
+  function build(spec, presetId, tracks, { melodySeed = 0 } = {}) {
     const key = parseKey(spec.key);
     const order = [];
     const form = spec.form.split(/\s+/).filter(Boolean).map((t) => {
@@ -696,7 +700,8 @@ SS.bandSong = (() => {
       const data = {};
       tracks.forEach((t) => {
         const [role, sound] = (t.band && t.band.key ? t.band.key : '').split(':');
-        const r = rng(`${presetId}/${id}/${t.band ? t.band.key : t.id}`);
+        const singer = SINGERS.includes(role);
+        const r = rng(`${presetId}/${id}/${t.band ? t.band.key : t.id}` + (singer && melodySeed ? `#${melodySeed}` : ''));
         if (t.type === 'drum') {
           const mode = role === 'perc' ? sec.perc ?? sec.drums : sec.drums;
           data[t.id] = { steps: drumSteps(sound || t.sound, mode, sec.groove || spec.groove, bars, r, { perc: role === 'perc', last: sec.fill !== false, energy }) };
@@ -709,7 +714,7 @@ SS.bandSong = (() => {
           if (role === 'bass') events = bassEvents(spans, mode, r, H().scale(k).map((d) => d.pc));
           else if (role === 'fx') events = fxEvents(spans, mode, k, bars);
           else if (role === 'arp') events = arpEvents(spans, mode, r);
-          else if (['lead', 'vox', 'sax'].includes(role)) events = melodyEvents(spans, mode, r, k, bars);
+          else if (singer) events = melodyEvents(spans, mode, r, k, bars);
           else if (role === 'arpchord') events = arpEvents(spans, mode, r);
           else {
             // nappe, cordes, piano, guitare : accords (ou arpège si le mode en est un)
@@ -736,5 +741,5 @@ SS.bandSong = (() => {
     return { key, scenes, song };
   }
 
-  return { build, parseChord, spansOf, _rng: rng };
+  return { build, parseChord, spansOf, SINGERS, NAMES, _rng: rng };
 })();

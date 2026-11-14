@@ -2384,6 +2384,67 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
 .bcf-warn { padding: 8px 10px; border-radius: 8px; background: rgba(224, 180, 76, .12); color: #f0c860; font-size: 13px; }
 .bcf-keep { color: #7fd88a; font-size: 13px; }
 .bcf-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; }
+
+/* ---------- Assistant « Nouvelle chanson » (js/band.js) ----------
+   Étapes dans l'en-tête ; étapes 2 à 4 : la chanson en vue « session » (une ligne = une scène, une colonne = une piste). */
+.band-wiz-steps { display: flex; gap: 4px; margin: 0 0 0 8px; padding: 0; list-style: none; min-width: 0; overflow-x: auto; }
+.band-wiz-steps button { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px 5px 6px; border: 1px solid transparent; border-radius: 16px; background: none; color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap; }
+.band-wiz-steps button:disabled { cursor: default; opacity: .55; }
+.band-wiz-steps button:not(:disabled):hover { border-color: var(--line); color: var(--text); }
+.band-wiz-steps b { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--panel-3); color: var(--text); font-size: 11px; }
+.band-wiz-steps li.done b { background: color-mix(in srgb, var(--accent) 55%, var(--panel-3)); }
+.band-wiz-steps li.cur button { border-color: var(--accent-2); color: var(--text); background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.band-wiz-steps li.cur b { background: var(--accent); color: #fff; }
+.band-wiz-steps li + li::before { content: ''; align-self: center; display: inline-block; width: 10px; height: 1px; background: var(--line); margin-right: 4px; vertical-align: middle; }
+.band-wiz-steps li { display: flex; align-items: center; }
+.band-dialog.wizard .band-head h2 small:empty { display: none; }
+.band-dialog.wizard .band-step b { display: none; }
+
+.band-wiz { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px 0; }
+.bw-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; }
+.bw-info { font-size: 14px; }
+.bw-info span { color: var(--muted); }
+.bw-hint { margin: 0; font-size: 13px; color: var(--muted); flex-basis: 100%; }
+.bw-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex-basis: 100%; }
+.bw-seed { font-size: 13px; color: var(--muted); }
+.bw-scroll { flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+.bw-grid { border-collapse: separate; border-spacing: 0; font-size: 12px; min-width: 100%; }
+.bw-grid th, .bw-grid td { padding: 3px; border-bottom: 1px solid #2a2a2f; }
+.bw-grid thead th { position: sticky; z-index: 2; background: var(--panel); font-weight: 600; text-align: left; white-space: nowrap; }
+.bw-groups th { top: 0; height: 30px; }
+.bw-tracks th { top: 30px; }
+.bw-corner { left: 0; z-index: 3 !important; vertical-align: bottom; color: var(--muted); font-weight: 400 !important; text-transform: uppercase; letter-spacing: .05em; font-size: 11px; min-width: 150px; }
+.bw-group { border-left: 2px solid var(--c); padding-left: 6px !important; color: var(--text); }
+.bw-glabel, .bw-track label { display: inline-flex; align-items: center; gap: 5px; cursor: default; }
+.bw-glabel:has(input), .bw-track label:has(input) { cursor: pointer; }
+.bw-ico svg { width: 15px; height: 15px; color: var(--c); }
+.bw-track { min-width: 96px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; color: var(--muted); font-weight: 400 !important; border-top: 3px solid var(--c); }
+.bw-track span { overflow: hidden; text-overflow: ellipsis; }
+.bw-grid input[type=checkbox] { margin: 0; accent-color: var(--accent-2); }
+.bw-scene { position: sticky; left: 0; z-index: 1; background: var(--panel); text-align: left; font-weight: 400; display: table-cell; min-width: 150px; max-width: 220px; padding: 4px 8px !important; }
+.bw-sname { display: block; font-weight: 600; font-size: 13px; }
+.bw-scene small { display: block; color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bw-scene .bw-chords { color: #b8b8c2; }
+.bw-cell { min-width: 96px; height: 46px; }
+.bw-clip { height: 38px; border-radius: 5px; background: color-mix(in srgb, var(--c) 26%, #1b1b20); border: 1px solid color-mix(in srgb, var(--c) 55%, transparent); padding: 3px 2px; }
+.bw-clip-svg { display: block; width: 100%; height: 100%; }
+.bw-clip-svg rect { fill: color-mix(in srgb, var(--c) 70%, #fff); stroke: none; }
+.bw-clip-svg .bw-bar { stroke: rgba(255, 255, 255, .12); stroke-width: .5; vector-effect: non-scaling-stroke; }
+.bw-slot { height: 38px; border-radius: 5px; border: 1px dashed #2e2e34; }
+.bw-cell.mel .bw-clip { box-shadow: 0 0 0 2px var(--gold); }
+.bw-group.mel, .bw-track.mel { color: var(--gold); }
+.bw-cell.off .bw-clip { filter: grayscale(1); opacity: .25; }
+.bw-cell.off .bw-slot { opacity: .4; }
+.bw-track.off, .bw-group.off { opacity: .5; text-decoration: line-through; }
+@media (max-width: 760px) {
+  .band-wiz-steps span { display: none; }
+  .band-wiz-steps li.cur span { display: inline; }
+  .band-wiz { padding: 8px 10px 0; }
+  .bw-corner, .bw-scene { min-width: 104px; }
+  .bw-scene .bw-chords { display: none; }
+  .bw-cell, .bw-track { min-width: 72px; }
+  .band-dialog.wizard .band-foot { flex-wrap: wrap; }
+}
 .bcf-actions .btn-danger { background: #a3262e; color: #fff; }
 .bcf-actions .btn-danger:hover { background: #bd2f38; }
 
@@ -3081,10 +3142,7 @@ dialog.system-dialog { width: min(920px, calc(100vw - 24px)); max-height: calc(1
   .system-footer button { width: 100%; }
 }
 
-/* ---------- Band → onglet Mélodie (js/melodypanel.js) ---------- */
-.band-modes { margin-left: 12px; }
-.band-modes button { padding: 5px 14px; }
-.band-melody { flex: 1; min-height: 0; display: flex; }
+/* ---------- Atelier Mélodie (js/melodypanel.js, dans Key → Chanson) ---------- */
 .mel-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(320px, 420px) 1fr; }
 .mel-form { min-width: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; border-right: 1px solid var(--line); overflow-y: auto; min-height: 0; }
 .mel-form textarea, .mel-form input[type=text], .mel-form select {
@@ -3158,10 +3216,7 @@ dialog.system-dialog { width: min(920px, calc(100vw - 24px)); max-height: calc(1
   .mel-out { overflow: visible; }
 }
 @media (max-width: 760px) {
-  .band-modes { margin-left: 6px; }
-  .band-modes button { padding: 4px 10px; }
   .mel-grid2 { grid-template-columns: 1fr; }
-  .band-dialog.mode-melody .band-foot { flex-wrap: wrap; }
 }
 .mel-form > *, .mel-src > *, .mel-out > * { flex: none; }
 .mel-form textarea#melGrid { min-height: 58px; }
@@ -3171,7 +3226,6 @@ dialog.system-dialog { width: min(920px, calc(100vw - 24px)); max-height: calc(1
   .mel-form, .mel-out { min-height: auto; }
 }
 /* Mélodie : vue simple (options et détails repliés) */
-@media (min-width: 901px) { .band-dialog.mode-melody .mel-body { grid-template-columns: minmax(300px, 380px) 1fr; } }
 .mel-scene { align-self: flex-start; }
 .mel-more, .mel-details { border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
 .mel-more > summary, .mel-details > summary { cursor: pointer; font-size: 13px; color: var(--muted); padding: 2px 0; }
@@ -3289,7 +3343,6 @@ dialog.midi-dialog { width: min(720px, calc(100vw - 32px)); }
 }
 @media (max-width: 400px) {
   .band-gm-box { display: none; }
-  .band-head .band-modes { margin-left: 4px; }
 }
 
 /* Badge General MIDI dans la liste des pistes (js/ui.js gmBadge) */

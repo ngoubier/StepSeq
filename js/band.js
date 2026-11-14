@@ -7,6 +7,9 @@
  *  une piste par élément (kick, snare…).
  *  Seuls les boutons de création modifient le projet ; fermer ou annuler ne crée aucune piste.
  *
+ * La même fenêtre sert d'assistant « Nouvelle chanson » (menu de l'application, openWizard) : modèle
+ * d'instruments → chanson en vue session (scènes × pistes) → mélodie → pistes à importer.
+ *
  * Catalogue : js/band-presets.js (SS.Band).
  */
 window.SS = window.SS || {};
@@ -14,7 +17,7 @@ SS.band = (() => {
   const B = () => SS.Band;
   let app = null;
   let el = null;
-  const S = { styleId: null, presetId: null, sel: null, cache: {}, mode: 'band' };
+  const S = { styleId: null, presetId: null, sel: null, cache: {}, wiz: null };
 
   /* ---------- Petits outils DOM ---------- */
   const $ = (q, root = document) => root.querySelector(q);
@@ -453,6 +456,7 @@ SS.band = (() => {
     renderStage();
     renderPanel();
     renderCount();
+    if (S.wiz) wizFoot();
   }
 
   /* ---------- Actions ---------- */
@@ -525,22 +529,317 @@ SS.band = (() => {
     return o;
   }
 
-  /* ---------- Onglets : Groupe / Mélodie ---------- */
-  function setMode(mode) {
-    S.mode = mode;
-    const mel = mode === 'melody';
-    el.classList.toggle('mode-melody', mel);
-    el.querySelectorAll('#bandModes button').forEach((b) => {
-      const on = b.dataset.mode === mode;
-      b.classList.toggle('active', on);
-      b.setAttribute('aria-selected', on ? 'true' : 'false');
+  /* ---------- Assistant « Nouvelle chanson » ----------
+   * Ouvert par le menu de l'application, sur une chanson vide :
+   *  1. Modèle : le style, l'inspiration et les musiciens (l'écran habituel de Band) ;
+   *  2. Chanson : toute la chanson en vue « session » — une ligne par scène, une colonne par piste ;
+   *  3. Mélodie : « Générer la mélodie » tire une autre mélodie (lead, voix, sax) sur la même grille ;
+   *  4. Pistes : on coche les pistes à importer (batterie, basse, nappes, arpèges, lead…).
+   * Rien n'est écrit dans le projet avant « Créer la chanson » ; fermer laisse la chanson vide.
+   */
+  const STEPS = [
+    { label: 'Modèle', hint: 'Choisis le style, l’inspiration et les musiciens' },
+    { label: 'Chanson', hint: 'Toute la chanson : une ligne par scène, une colonne par piste' },
+    { label: 'Mélodie', hint: 'Génère d’autres mélodies sur la même grille d’accords' },
+    { label: 'Pistes', hint: 'Coche les pistes à importer dans la chanson' },
+  ];
+  const spec = () => preset() && SS.BandSongs && SS.BandSongs[preset().id];
+  const singer = (role) => SS.bandSong.SINGERS.includes(role);
+
+  /** Colonnes de la vue session : une par piste prévue, avec un identifiant stable (musicien + son). */
+  function wizCols() {
+    const seen = new Map();
+    return plannedTracks().map((o) => {
+      const base = `${o.band.musician}:${o.band.key}`;
+      const n = seen.get(base) || 0;
+      seen.set(base, n + 1);
+      return { id: n ? `${base}#${n}` : base, o, role: o.band.key.split(':')[0], musician: o.band.musician };
     });
-    el.querySelector('.band-body').hidden = mel;
-    $('#bandMelody').hidden = !mel;
-    el.querySelectorAll('.band-only').forEach((x) => (x.hidden = mel));
-    el.querySelectorAll('.mel-only').forEach((x) => (x.hidden = !mel));
-    $('#bandDlgSub').textContent = mel ? 'une mélodie sur une piste, d’après une grille d’accords' : 'monter un groupe pour jouer la chanson';
-    if (mel) SS.melodyPanel.show();
+  }
+
+  /** La chanson calculée pour la vue session (même calcul que « Créer la chanson », sur des pistes fictives). */
+  function wizSong() {
+    const p = preset();
+    const cols = wizCols();
+    const sig = JSON.stringify([p.id, S.wiz.seed, cols.map((c) => [c.id, c.o])]);
+    if (S.wiz.sig !== sig) {
+      const sp = spec();
+      const fake = cols.map((c) => ({ id: c.id, type: c.o.type, sound: c.o.sound, band: c.o.band }));
+      S.wiz.res = sp ? SS.bandSong.build(sp, p.id, fake, { melodySeed: S.wiz.seed }) : null;
+      S.wiz.sig = sig;
+    }
+    return { cols, res: S.wiz.res };
+  }
+
+  /** Accords d'une scène, par leur nom (« Cm | B♭ | A♭ | B♭ »). */
+  function sceneChords(sc) {
+    const sec = spec().sections[sc.sec];
+    if (!sec || !sec.chords) return '';
+    return sec.chords
+      .split('|')
+      .map((bar) => bar.trim().split(/\s+/).map((tok) => tok.split('/').map((t) => {
+        try {
+          const c = SS.bandSong.parseChord(t, sc.key);
+          return SS.harmony.chordName(sc.key, { ...c, bassPc: c.rootPc });
+        } catch (e) {
+          return t;
+        }
+      }).join(' ')).join(' '))
+      .join(' | ');
+  }
+
+  /** Petit clip dessiné (comme une case de la vue session d'un DAW) : pas de batterie ou notes. */
+  function clipSvg(d, bars, range) {
+    const W = bars * 16;
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', `0 0 ${W} 20`);
+    svg.setAttribute('preserveAspectRatio', 'none');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.classList.add('bw-clip-svg');
+    const rect = (x, y, w, hh) => {
+      const r = document.createElementNS(NS, 'rect');
+      r.setAttribute('x', x);
+      r.setAttribute('y', y);
+      r.setAttribute('width', w);
+      r.setAttribute('height', hh);
+      svg.append(r);
+    };
+    for (let b = 4; b < bars; b += 4) {
+      const l = document.createElementNS(NS, 'line');
+      l.setAttribute('x1', b * 16);
+      l.setAttribute('x2', b * 16);
+      l.setAttribute('y1', 0);
+      l.setAttribute('y2', 20);
+      l.setAttribute('class', 'bw-bar');
+      svg.append(l);
+    }
+    if (d.steps) d.steps.forEach((v, i) => v > 0 && rect(i + 0.15, 20 - 3 - 15 * v, 0.7, 3 + 15 * v));
+    else {
+      const [lo, hi] = range;
+      const span = Math.max(12, hi - lo);
+      (d.events || []).forEach((e) => e.notes.forEach((n) => rect(e.step, 17 - (15 * (n - lo)) / span - 1.5, Math.max(0.6, e.len - 0.15), 3)));
+    }
+    return svg;
+  }
+  const hasData = (d) => !!d && (d.steps ? d.steps.some((v) => v > 0) : (d.events || []).length > 0);
+
+  function renderWizSteps() {
+    const box = $('#bandWizSteps');
+    box.replaceChildren(
+      ...STEPS.map((st, i) => {
+        const n = i + 1;
+        const cls = n === S.wiz.step ? 'cur' : n < S.wiz.step ? 'done' : '';
+        return h(
+          'li',
+          { class: cls, 'aria-current': n === S.wiz.step ? 'step' : null },
+          h('button', { type: 'button', disabled: n > S.wiz.step && !canGo(n), title: st.hint, onclick: () => goStep(n) }, h('b', {}, String(n)), h('span', {}, st.label))
+        );
+      })
+    );
+  }
+
+  /** On peut aller à l'étape n si la chanson se calcule (inspiration avec un plan, au moins une piste). */
+  function canGo(n) {
+    if (n <= 1) return true;
+    return !!spec() && plannedTracks().length > 0;
+  }
+
+  function goStep(n) {
+    if (n === S.wiz.step || !canGo(n)) return;
+    S.wiz.step = n;
+    S.sel = null;
+    renderWiz();
+  }
+
+  function toggleCols(ids, on) {
+    ids.forEach((id) => (on ? S.wiz.off.delete(id) : S.wiz.off.add(id)));
+    renderWiz();
+  }
+
+  function renderWizGrid() {
+    const p = preset();
+    const { cols, res } = wizSong();
+    const step = S.wiz.step;
+    const box = $('#bandWiz');
+    if (!res) return box.replaceChildren(h('p', { class: 'dlg-hint' }, 'Cette inspiration n’a pas de plan de chanson.'));
+    // scènes : une ligne chacune, dans l'ordre d'arrivée ; combien de fois elle est jouée dans l'arrangement
+    const plays = new Map();
+    res.song.forEach((b) => plays.set(b.scene, (plays.get(b.scene) || 0) + b.repeat));
+    // tessiture de chaque colonne (même échelle dans toutes les scènes)
+    const range = new Map(cols.map((c) => {
+      const ns = res.scenes.flatMap((sc) => ((sc.data[c.id] || {}).events || []).flatMap((e) => e.notes));
+      return [c.id, ns.length ? [Math.min(...ns), Math.max(...ns)] : [48, 72]];
+    }));
+    // groupes de colonnes : un par musicien (la batterie a une colonne par élément)
+    const groups = [];
+    cols.forEach((c) => {
+      const g = groups[groups.length - 1];
+      if (g && g.musician === c.musician) g.cols.push(c);
+      else groups.push({ musician: c.musician, mu: p.musicians.find((m) => m.id === c.musician), cols: [c] });
+    });
+    const pick = step === 4;
+    const isOff = (c) => pick && S.wiz.off.has(c.id);
+    const check = (ids, label) => {
+      const on = ids.filter((id) => !S.wiz.off.has(id)).length;
+      const cb = h('input', { type: 'checkbox', 'aria-label': `Importer ${label}`, onchange: (e) => toggleCols(ids, e.target.checked) });
+      cb.checked = on > 0;
+      cb.indeterminate = on > 0 && on < ids.length;
+      return cb;
+    };
+    const len = res.song.reduce((a, b) => a + res.scenes.find((sc) => sc.id === b.scene).bars * b.repeat, 0);
+    const secs = (len * 4 * 60) / p.tempo;
+    const time = `${Math.floor(secs / 60)}:${String(Math.round(secs % 60)).padStart(2, '0')}`;
+    const melCols = cols.filter((c) => singer(c.role));
+    const kept = cols.filter((c) => !S.wiz.off.has(c.id)).length;
+
+    const top = h(
+      'div',
+      { class: 'bw-top' },
+      h(
+        'div',
+        { class: 'bw-info' },
+        h('b', {}, `« ${p.song} »`),
+        h('span', {}, ` ${p.artist} · ${SS.harmony.label(res.key)} · ${p.tempo} BPM · ${res.scenes.length} scènes · ${len} mesures · ${time}`)
+      ),
+      h('p', { class: 'bw-hint' }, STEPS[step - 1].hint + '.'),
+      step === 3
+        ? h(
+            'div',
+            { class: 'bw-actions' },
+            melCols.length
+              ? [
+                  h('button', { type: 'button', class: 'btn btn-accent', id: 'bwMelody', onclick: () => ((S.wiz.seed += 1), renderWiz()) }, '🎲 Générer la mélodie'),
+                  S.wiz.seed
+                    ? h('button', { type: 'button', class: 'btn', id: 'bwMelodyBack', onclick: () => ((S.wiz.seed = 0), renderWiz()) }, '↺ Mélodie d’origine')
+                    : null,
+                  h('span', { class: 'bw-seed', id: 'bwSeed' }, S.wiz.seed ? `Mélodie n° ${S.wiz.seed + 1}` : 'Mélodie d’origine de l’inspiration'),
+                ]
+              : h('span', { class: 'bw-seed' }, 'Ce groupe n’a ni lead ni voix : pas de mélodie à générer. Ajoute un musicien à l’étape 1.')
+          )
+        : null,
+      step === 4
+        ? h(
+            'div',
+            { class: 'bw-actions' },
+            h('button', { type: 'button', class: 'btn btn-small', onclick: () => toggleCols(cols.map((c) => c.id), true) }, 'Tout'),
+            h('button', { type: 'button', class: 'btn btn-small', onclick: () => toggleCols(cols.map((c) => c.id), false) }, 'Rien'),
+            h('span', { class: 'bw-seed' }, `${kept} piste${kept > 1 ? 's' : ''} sur ${cols.length}`)
+          )
+        : null
+    );
+
+    const head1 = h(
+      'tr',
+      { class: 'bw-groups' },
+      h('th', { class: 'bw-corner', rowspan: 2, scope: 'col' }, 'Scènes'),
+      ...groups.map((g) => {
+        const label = labelOf(g.mu);
+        const ids = g.cols.map((c) => c.id);
+        const off = pick && ids.every((id) => S.wiz.off.has(id));
+        return h(
+          'th',
+          {
+            colspan: g.cols.length,
+            scope: 'colgroup',
+            class: 'bw-group' + (off ? ' off' : '') + (step === 3 && singer(g.mu.role) ? ' mel' : ''),
+            style: `--c:${colorOf(g.mu)}`,
+          },
+          h('label', { class: 'bw-glabel' }, pick ? check(ids, label) : null, h('span', { class: 'bw-ico', html: icon(g.mu.role) }), h('span', {}, label))
+        );
+      })
+    );
+    const head2 = h(
+      'tr',
+      { class: 'bw-tracks' },
+      ...cols.map((c) => {
+        const multi = groups.find((g) => g.musician === c.musician).cols.length > 1;
+        return h(
+          'th',
+          { scope: 'col', class: 'bw-track' + (isOff(c) ? ' off' : '') + (step === 3 && singer(c.role) ? ' mel' : ''), style: `--c:${c.o.color}`, title: B().describe(c.o).name },
+          h('label', {}, pick && multi ? check([c.id], c.o.name) : null, h('span', {}, c.o.name))
+        );
+      })
+    );
+    const body = res.scenes.map((sc) =>
+      h(
+        'tr',
+        {},
+        h(
+          'th',
+          { scope: 'row', class: 'bw-scene', title: sceneChords(sc) },
+          h('span', { class: 'bw-sname' }, sc.name),
+          h('small', {}, `${sc.bars} mes.` + (plays.get(sc.id) > 1 ? ` · ×${plays.get(sc.id)}` : '')),
+          h('small', { class: 'bw-chords' }, sceneChords(sc))
+        ),
+        ...cols.map((c) => {
+          const d = sc.data[c.id];
+          const on = hasData(d);
+          const n = on ? (d.steps ? d.steps.filter((v) => v > 0).length : d.events.length) : 0;
+          return h(
+            'td',
+            { class: 'bw-cell' + (isOff(c) ? ' off' : '') + (step === 3 && singer(c.role) ? ' mel' : '') },
+            on
+              ? h('div', { class: 'bw-clip', style: `--c:${c.o.color}`, title: `${sc.name} · ${c.o.name} : ${n} ${d.steps ? 'coup' : 'note'}${n > 1 ? 's' : ''}` }, clipSvg(d, sc.bars, range.get(c.id)))
+              : h('div', { class: 'bw-slot', title: `${sc.name} · ${c.o.name} : silence` })
+          );
+        })
+      )
+    );
+    box.replaceChildren(top, h('div', { class: 'bw-scroll' }, h('table', { class: 'bw-grid', style: `--cols:${cols.length}` }, h('thead', {}, head1, head2), h('tbody', {}, ...body))));
+  }
+
+  /** Affiche l'étape en cours de l'assistant (ou l'écran Band habituel hors assistant). */
+  function renderWiz() {
+    const wiz = !!S.wiz;
+    el.classList.toggle('wizard', wiz);
+    el.querySelectorAll('.wiz-only').forEach((x) => (x.hidden = !wiz));
+    el.querySelectorAll('.band-only').forEach((x) => (x.hidden = wiz));
+    $('#bandTitle').firstChild.textContent = wiz ? 'Nouvelle chanson ' : 'Band ';
+    if (!wiz) {
+      $('#bandDlgSub').textContent = 'monter un groupe pour jouer la chanson';
+      el.querySelector('.band-body').hidden = false;
+      $('#bandWiz').hidden = true;
+      return;
+    }
+    const step = S.wiz.step;
+    $('#bandDlgSub').textContent = '';
+    renderWizSteps();
+    el.querySelector('.band-body').hidden = step !== 1;
+    $('#bandWiz').hidden = step === 1;
+    $('#bandGm').hidden = step !== 1;
+    if (step === 1) refresh();
+    else {
+      renderWizGrid();
+      wizFoot();
+    }
+  }
+
+  /** Boutons du pied de la fenêtre selon l'étape. */
+  function wizFoot() {
+    const step = S.wiz.step;
+    $('#bwEmpty').hidden = step !== 1;
+    $('#bwBack').hidden = step === 1;
+    $('#bwNext').hidden = step === 4;
+    $('#bwNext').disabled = !canGo(step + 1);
+    $('#bwNext').title = step < 4 ? (canGo(step + 1) ? `${STEPS[step].label} : ${STEPS[step].hint.toLowerCase()}` : 'Choisis au moins un musicien') : '';
+    $('#bwCreate').hidden = step !== 4;
+    const kept = step === 4 ? wizCols().filter((c) => !S.wiz.off.has(c.id)).length : 0;
+    $('#bwCreate').disabled = step === 4 && !kept;
+    $('#bwCount').hidden = step !== 4;
+    $('#bwCount').textContent = kept ? `${kept} piste${kept > 1 ? 's' : ''} à importer` : 'Aucune piste cochée';
+    renderWizSteps();
+  }
+
+  /** Crée la chanson avec les pistes cochées (même calcul que la vue session, même mélodie). */
+  function createWizSong() {
+    const cols = wizCols().filter((c) => !S.wiz.off.has(c.id));
+    if (!cols.length) return;
+    const p = preset();
+    const seed = S.wiz.seed;
+    hideConfirm();
+    el.close('ok');
+    app.applySong(cols.map((c) => c.o), p, p.tempo, { melodySeed: seed });
   }
 
   /** Instrument d'une nouvelle piste « Mélodie » : la voix ou le lead du groupe choisi (ou le premier lead du catalogue). */
@@ -560,7 +859,17 @@ SS.band = (() => {
   }
 
   /* ---------- Ouverture / fermeture ---------- */
+  /** Fenêtre Band (bouton de l'en-tête). */
   function open() {
+    S.wiz = null;
+    show();
+  }
+  /** Assistant « Nouvelle chanson » (menu de l'application), sur une chanson vide. */
+  function openWizard() {
+    S.wiz = { step: 1, seed: 0, off: new Set(), sig: null, res: null };
+    show();
+  }
+  function show() {
     SS.audio.ensureCtx();
     if (!S.styleId) {
       S.styleId = B().STYLES[0].id;
@@ -571,7 +880,7 @@ SS.band = (() => {
     renderPresets();
     renderSong();
     refresh();
-    setMode(S.mode);
+    renderWiz();
     el.returnValue = '';
     el.showModal();
     requestAnimationFrame(() => {
@@ -705,10 +1014,13 @@ SS.band = (() => {
     $('#bandCreate').addEventListener('click', () => finish(true));
     $('#bandSongBtn').addEventListener('click', finishSong);
     $('#bandCancel').addEventListener('click', () => finish(false));
-    el.querySelectorAll('#bandModes button').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
     $('#bandGm').addEventListener('click', () => setGm(!gm()));
-    SS.melodyPanel.init(app, { leadOpts: melodyTrackOpts, close: () => el.close('ok') });
-    el.addEventListener('close', () => SS.melodyPanel.stop());
+    $('#bwEmpty').addEventListener('click', () => finish(false));
+    $('#bwBack').addEventListener('click', () => goStep(S.wiz.step - 1));
+    $('#bwNext').addEventListener('click', () => goStep(S.wiz.step + 1));
+    $('#bwCreate').addEventListener('click', createWizSong);
+    el.addEventListener('close', () => (S.wiz = null));
+    SS.melodyPanel.init(app); // l'atelier Mélodie vit dans Key → Chanson
     // Échap = annuler (rien n'est créé)
     el.addEventListener('cancel', (e) => {
       e.preventDefault();
@@ -720,11 +1032,5 @@ SS.band = (() => {
     el.addEventListener('keydown', (e) => e.stopPropagation());
   }
 
-  /** Ouvre directement l'onglet Mélodie. */
-  function openMelody() {
-    S.mode = 'melody';
-    open();
-  }
-
-  return { init, open, openMelody, plannedTracks, melodyTrackOpts, _state: S };
+  return { init, open, openWizard, plannedTracks, melodyTrackOpts, _state: S };
 })();
