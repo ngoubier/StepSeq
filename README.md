@@ -128,8 +128,10 @@ enregistrés avant cette correction sont transposés à l'ouverture pour sonner 
 
 ### Nouvelle chanson : l'assistant
 
-**Nouvelle chanson…** (menu de l'icône de l'application) part d'une chanson vide et ouvre un assistant en quatre
-étapes, dans la fenêtre Band (`js/band.js`) :
+**Nouvelle chanson…** (menu de l'icône de l'application) part d'une chanson vide et ouvre un assistant en cinq
+étapes, dans la fenêtre Band (`js/band.js`). Des étapes 2 à 5, un bandeau de commande sous le titre (`#bwTransport`) :
+lecture / pause / reprise (`SS.audio.pause` / `resume`), stop, position, **tempo** réglable (40–240 BPM, appliqué à
+l'écoute en cours et à la chanson créée) et **tonalité** (armure, accord de tonique) :
 
 1. **Modèle** : le modèle d'instruments de Band (style, inspiration, musiciens, kit et éléments du batteur) ;
    **Chanson vide** ferme l'assistant ;
@@ -138,11 +140,15 @@ enregistrés avant cette correction sont transposés à l'ouverture pour sonner 
    case dessine ce que joue la piste (coups de batterie ou notes), une case en pointillés est un silence ;
    un bandeau donne l'ordre des scènes ; on écoute la chanson (ou à partir d'un bloc) et chaque scène en boucle,
    sur un projet temporaire (même mixage que la chanson créée) ;
-3. **Mélodie** : **Générer la mélodie** tire une autre mélodie (lead, voix, sax) sur la même grille, sans changer
+3. **Harmonie** : scènes à gauche ; pour la scène choisie, la **piste d'accords** comme dans Key (degré, nom, rôle
+   repos / préparation / tension : `SS.harmony.role`, accords tirés de `SS.bandSong.spansOf`), puis une ligne par
+   instrument où les notes de l'accord sont pleines et les notes de passage en creux (part « dans l'accord » par
+   piste) ; batterie masquée par défaut (interrupteur), écoute de la scène en boucle, la vue suit la lecture ;
+4. **Mélodie** : **Générer la mélodie** tire une autre mélodie (lead, voix, sax) sur la même grille, sans changer
    les autres musiciens (`melodySeed` de `SS.bandSong.build`) ; **Mélodie d'origine** revient à l'inspiration ;
    écoute par scène avec **M**uet / **S**olo sur chaque instrument ;
-4. **Pistes** : cases à cocher par musicien (batterie, basse, nappes, arpèges, lead…) et par élément de batterie ;
-   **Créer la chanson** écrit les pistes cochées, les scènes et l'arrangement (tempo de l'inspiration, mixage
+5. **Pistes** : cases à cocher par musicien (batterie, basse, nappes, arpèges, lead…) et par élément de batterie ;
+   **Créer la chanson** écrit les pistes cochées, les scènes et l'arrangement (tempo du bandeau, mixage
    automatique de Band). Ce qui est créé est exactement l'aperçu ; Ctrl+Z revient à la chanson vide.
 
 Le bouton **Band** ouvre le même assistant sur le projet en cours (l'ancien écran « Créer les pistes / Créer toute la
