@@ -465,6 +465,11 @@ valeur de la courbe sur son pas (comme les verrous de paramètres des Elektron ;
 | Decay du filtre | decay de l'enveloppe du filtre : ÷4 … ×4 | — |
 | Quantité des LFO | multiplie la quantité des LFO 1 et 2 : ×0 … ×2 | — |
 
+**Longueur** de l'automation (menu « Longueur » de la ligne) : par défaut, les courbes bouclent avec la piste ;
+`track.autoLen` (en pas, propre à chaque scène comme les courbes, `SS.autoLen`) les fait boucler sur leur propre
+durée — 1 ou 2 temps, 1, 2, 4… mesures, jusqu'à la scène entière — indépendamment des notes. La lecture
+(`scheduleAuto`, verrous du son) et l'export MIDI lisent la courbe à `pas % longueur`.
+
 Formes toutes prêtes : ouvrir / refermer le son, accents sur chaque temps, balayage de la largeur, notes de plus
 en plus longues ou courtes, faire entrer / calmer les LFO.
 

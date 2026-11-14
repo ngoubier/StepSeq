@@ -550,7 +550,7 @@ SS.audio = (() => {
       b = buses.get(track.id);
     }
     const a = autoNodes(b);
-    const len = SS.trackLen(project, track);
+    const len = SS.autoLen(project, track); // l'automation boucle sur sa propre longueur
     const step = tick % len;
     const at = (s) => Object.fromEntries(SS.AUTO_PARAMS.map((P) => [P.id, SS.autoValue(lanes[P.id], s, len) ?? P.def]));
     const x0 = autoTargets(at(step));
@@ -1694,7 +1694,8 @@ SS.audio = (() => {
           });
           notes.forEach((n) => {
             const t = time + n.at;
-            const locks = SS.voiceLocks(track, step + n.at / sd, len);
+            const alen = SS.autoLen(project, track);
+            const locks = SS.voiceLocks(track, (tick % alen) + n.at / sd, alen);
             // notes simultanées (mode Accord rythmique) : jouées comme un accord (glide, niveau)
             const group = notes.filter((x) => x.at === n.at);
             const gi = group.indexOf(n);
@@ -1711,7 +1712,8 @@ SS.audio = (() => {
           const r = ev.rat || 1;
           const sub = sd / r;
           // automation du son (track.auto, réglages « voice ») : valeur au pas de la note
-          const locks = SS.voiceLocks(track, ev.step, SS.trackLen(project, track));
+          const alen = SS.autoLen(project, track); // l'automation boucle sur sa propre longueur
+          const locks = SS.voiceLocks(track, tick % alen, alen);
           const nmod = locks || ev.acc ? { locks, acc: !!ev.acc } : null;
           for (let j = 0; j < r; j++) {
             const d = j < r - 1 ? sub * 0.9 : Math.max(sub * 0.9, dur - j * sub);

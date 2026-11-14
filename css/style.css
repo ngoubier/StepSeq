@@ -3499,7 +3499,8 @@ button.th-gm.no:hover, button.th-gm.no:focus-visible { background: #f08a00; colo
   cursor: pointer;
   min-width: 0;
 }
-.auto-head .auto-shape { flex: 1 1 auto; }
+.auto-head .auto-shape, .auto-head .auto-len { flex: 1 1 auto; }
+.auto-len-label { flex: none; }
 .auto-head button:disabled { opacity: .4; cursor: default; }
 .auto-head .auto-clear, .auto-head .auto-clear-all { flex: none; white-space: nowrap; }
 .auto-head .auto-clear-all:hover:not(:disabled) { background: #a3262e; color: #fff; }

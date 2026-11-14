@@ -96,6 +96,41 @@ const ok = (c, m) => {
   const st = await page.evaluate((id) => SS.audio._autoState({ id }), id);
   ok(st.lp > 15000 && st.vol === 1, `arrêt : retour au neutre (passe-bas ${Math.round(st.lp)} Hz, volume ${st.vol})`);
 
+  // longueur de l'automation : 2 mesures, notes en boucle d'une mesure, courbe sur 2 mesures
+  await page.evaluate(() => {
+    const p = JSON.parse(localStorage.getItem('stepseq.autosave'));
+    p.bars = 2;
+    p.tracks[0].length = 16;
+    p.scenes = undefined;
+    localStorage.setItem('stepseq.autosave', JSON.stringify(p));
+  });
+  await page.reload();
+  await page.waitForTimeout(500);
+  await page.click('.track .th-auto');
+  await page.waitForTimeout(300);
+  const lenSel = lane.locator('.auto-len');
+  ok((await lenSel.inputValue()) === '', 'longueur par défaut : comme la piste');
+  ok((await lane.locator('.acell.beyond').count()) === 16, 'par défaut : cases au-delà de la boucle de la piste grisées');
+  const opts = await lenSel.locator('option').allTextContents();
+  ok(opts.some((o) => o.includes('2 mesures (32 pas)')) && opts.some((o) => o.includes('1 temps (4 pas)')), `choix proposés : ${opts.join(' / ')}`);
+  await lenSel.selectOption('32');
+  await page.waitForTimeout(600);
+  ok((await lane.locator('.acell.beyond').count()) === 0, '2 mesures : toute la ligne est dessinable');
+  ok(await page.evaluate(() => JSON.parse(localStorage.getItem('stepseq.autosave')).tracks[0].autoLen === 32), 'longueur enregistrée (32 pas)');
+  ok((await page.locator('.track .track-grid .cell.beyond').count()) === 16, 'les notes gardent leur boucle d’une mesure');
+  await lenSel.selectOption('4');
+  await page.waitForTimeout(300);
+  ok((await lane.locator('.acell.beyond').count()) === 28, '1 temps : 4 cases actives');
+  await lane.locator('.auto-param').selectOption('filter');
+  await lane.locator('.auto-shape').selectOption('lp-open');
+  await page.waitForTimeout(300);
+  await page.waitForTimeout(400);
+  const pts = await page.evaluate(() => JSON.parse(localStorage.getItem('stepseq.autosave')).tracks[0].auto[document.querySelector('.auto-param').value]);
+  ok(pts && Math.max(...Object.keys(pts).map(Number)) === 3, `forme posée sur la longueur de l'automation : ${JSON.stringify(pts)}`);
+  await lenSel.selectOption('');
+  await page.waitForTimeout(600);
+  ok(await page.evaluate(() => !('autoLen' in JSON.parse(localStorage.getItem('stepseq.autosave')).tracks[0])), 'retour à « comme la piste »');
+
   ok(!errs.length, 'aucune erreur JS' + (errs.length ? ' : ' + errs.join(' | ') : ''));
   await b.close();
   server.close();

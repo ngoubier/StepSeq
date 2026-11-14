@@ -204,7 +204,8 @@ SS.trigPass = (tick, len, rep = 0, total = 0) => (rep ? rep * Math.ceil(total / 
 
 /*
  * Automation (comme les courbes d'automation d'Ableton Live ou de Bitwig, et les réglages par pas des Elektron) :
- * track.auto = { filtre: { pas: valeur }, … } — des points posés sur les pas, propres à chaque scène. Entre deux
+ * track.auto = { filtre: { pas: valeur }, … } — des points posés sur les pas, propres à chaque scène ; ils bouclent
+ * sur track.autoLen pas (propre à la scène aussi), ou à défaut sur la boucle de la piste (SS.autoLen). Entre deux
  * points, la valeur suit une droite ; avant le premier point et après le dernier, elle reste à celle du point.
  * Les réglages agissent sur la tranche de la piste (js/audio.js), quel que soit l'instrument :
  *   filtre   : filtre DJ, −1 = passe-bas fermé … 0 = ouvert … +1 = passe-haut fermé ;
@@ -303,8 +304,18 @@ SS.cleanAuto = (t, n = Infinity) => {
   }
   if (Object.keys(out).length) t.auto = out;
   else delete t.auto;
+  // longueur de l'automation (en pas) : absente = celle de la boucle de la piste
+  const al = Number(t.autoLen);
+  if (Number.isInteger(al) && al > 0) t.autoLen = Math.min(al, 64 * 32);
+  else delete t.autoLen;
   return t;
 };
+/**
+ * Longueur (en pas) de la boucle de l'automation d'une piste : track.autoLen si elle est choisie (propre à la
+ * scène, bornée par la scène), sinon la boucle de la piste. Les courbes bouclent sur cette longueur,
+ * indépendamment des notes (une montée de filtre sur 4 mesures sous une boucle d'une mesure, par exemple).
+ */
+SS.autoLen = (p, t) => (t && t.autoLen > 0 ? Math.min(t.autoLen, SS.totalSteps(p)) : SS.trackLen(p, t));
 /** Copie profonde des courbes (ou undefined). */
 SS.copyAuto = (a) => (a ? Object.fromEntries(Object.entries(a).map(([k, l]) => [k, { ...l }])) : undefined);
 /**
@@ -543,6 +554,7 @@ SS.normalizeProject = (data) => {
     track.mute = !!t.mute;
     track.solo = !!t.solo;
     track.auto = t.auto;
+    track.autoLen = t.autoLen;
     SS.cleanAuto(track);
     if (t.type === 'drum') {
       track.steps = Array.isArray(t.steps) ? t.steps.map(Number) : [];
@@ -765,6 +777,7 @@ SS.snapshotTracks = (p) => {
     } else data[t.id] = { events: t.events.map((e) => ({ ...e, notes: [...e.notes] })) };
     SS.cleanAuto(t);
     if (t.auto) data[t.id].auto = SS.copyAuto(t.auto);
+    if (t.autoLen) data[t.id].autoLen = t.autoLen;
   });
   return data;
 };
@@ -806,6 +819,7 @@ SS.loadScene = (p, id, { commit = true } = {}) => {
     }
     else t.events = d && d.events ? d.events.map((e) => ({ ...e, notes: [...e.notes] })) : [];
     t.auto = d && d.auto ? SS.copyAuto(d.auto) : undefined;
+    t.autoLen = d && d.autoLen ? d.autoLen : undefined;
     SS.cleanAuto(t);
   });
   SS.resizeProject(p);
