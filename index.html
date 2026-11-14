@@ -655,7 +655,7 @@
   </dialog>
 
   <!-- Dialogue des effets d'une piste -->
-  <dialog id="fxDialog" class="sd-dialog">
+  <dialog id="fxDialog" class="sd-dialog fx-dialog">
     <form method="dialog" id="fxForm">
       <div class="sd-head">
         <div>
@@ -665,70 +665,82 @@
         <code id="fxCode" class="sd-code" title="Équivalent strudel.cc"></code>
       </div>
 
-      <div class="fx-grid">
-        <section class="sd-panel" aria-labelledby="fxChorusTitle">
-          <div class="sd-panel-head">
-            <h3 id="fxChorusTitle">Chorus</h3>
-            <span class="fx-state" id="fxChorusState"></span>
-          </div>
-          <div class="gv-presets" data-presets="chorus"></div>
-          <div class="sd-sliders" id="fxChorusSliders"></div>
-        </section>
-        <section class="sd-panel" aria-labelledby="fxDelayTitle">
-          <div class="sd-panel-head">
-            <h3 id="fxDelayTitle">Delay <small>delay</small></h3>
-            <span class="fx-state" id="fxDelayState"></span>
-          </div>
-          <div class="gv-presets" data-presets="delay"></div>
-          <div class="sd-sliders" id="fxDelaySliders"></div>
-          <div class="sd-row">
-            <label for="fxDelayTime">Temps (synchronisé au tempo)</label>
-            <output id="fxDelayMs"></output>
-            <select id="fxDelayTime"></select>
-          </div>
-        </section>
-        <section class="sd-panel" aria-labelledby="fxRoomTitle">
-          <div class="sd-panel-head">
-            <h3 id="fxRoomTitle">Reverb <small>room</small></h3>
-            <span class="fx-state" id="fxRoomState"></span>
-          </div>
-          <div class="gv-presets" data-presets="room"></div>
-          <div class="sd-sliders" id="fxRoomSliders"></div>
-        </section>
-        <section class="sd-panel" aria-labelledby="fxScTitle">
-          <div class="sd-panel-head">
-            <h3 id="fxScTitle">Sidechain <small>ducking</small></h3>
-            <span class="fx-state" id="fxScState"></span>
-          </div>
-          <div class="sd-row">
-            <label for="fxScSource">Déclenché par la piste</label>
-            <output></output>
-            <select id="fxScSource"></select>
-          </div>
-          <div class="gv-presets" data-presets="sc"></div>
-          <svg id="fxScCurve" class="sd-adsr sc-curve" viewBox="0 0 300 60" preserveAspectRatio="none" aria-hidden="true">
-            <path class="fill-area"/><path class="line"/>
-          </svg>
-          <div class="sd-sliders" id="fxScSliders"></div>
-        </section>
-        <section class="sd-panel fx-sends" aria-labelledby="fxSendTitle">
-          <div class="sd-panel-head">
-            <h3 id="fxSendTitle">Bus partagés <small>envois</small></h3>
-            <span class="fx-state" id="fxSendState"></span>
-          </div>
-          <p class="fx-help">Une reverb « plate » (batterie), une reverb « hall » (instruments), un écho à bande et le « Cosmos » (reverb longue, gel et shimmer) pour tout le morceau : chaque piste y envoie plus ou moins de son. Tout le groupe joue ainsi dans le même espace.</p>
-          <div class="gv-presets" data-presets="send"></div>
-          <div class="sd-sliders" id="fxSendSliders"></div>
-          <details class="fx-returns">
-            <summary>Réglages des bus (communs à toutes les pistes)</summary>
-            <div class="sd-sliders" id="fxReturnSliders"></div>
-            <div class="sd-row">
+      <div class="fx-layout">
+        <nav class="fx-tabs" id="fxTabs" aria-label="Sections des effets">
+          <span class="fx-tabs-group">Cette piste</span>
+          <button type="button" class="fx-tab" data-tab="chorus"><span>Chorus</span><small id="fxChorusState" class="fx-state"></small></button>
+          <button type="button" class="fx-tab" data-tab="delay"><span>Delay</span><small id="fxDelayState" class="fx-state"></small></button>
+          <button type="button" class="fx-tab" data-tab="room"><span>Reverb</span><small id="fxRoomState" class="fx-state"></small></button>
+          <button type="button" class="fx-tab" data-tab="sc"><span>Sidechain</span><small id="fxScState" class="fx-state"></small></button>
+          <button type="button" class="fx-tab" data-tab="sends"><span>Envois</span><small id="fxSendState" class="fx-state"></small></button>
+          <span class="fx-tabs-group bus">Bus du morceau</span>
+          <button type="button" class="fx-tab" data-tab="rev"><span>Plate et hall</span><small class="fx-state"></small></button>
+          <button type="button" class="fx-tab" data-tab="echo"><span>Écho à bande</span><small id="fxEchoState" class="fx-state"></small></button>
+          <button type="button" class="fx-tab" data-tab="space"><span>Cosmos</span><small id="fxSpaceState" class="fx-state"></small></button>
+        </nav>
+
+        <div class="fx-panes">
+          <section class="fx-pane" data-pane="chorus" aria-labelledby="fxChorusTitle">
+            <div class="fx-pane-head"><h3 id="fxChorusTitle">Chorus</h3></div>
+            <p class="fx-help">Élargit et épaissit le son avec deux copies légèrement désaccordées.</p>
+            <div class="gv-presets" data-presets="chorus"></div>
+            <div class="sd-sliders" id="fxChorusSliders"></div>
+          </section>
+          <section class="fx-pane" data-pane="delay" aria-labelledby="fxDelayTitle">
+            <div class="fx-pane-head"><h3 id="fxDelayTitle">Delay <small>delay</small></h3></div>
+            <p class="fx-help">Écho propre à cette piste, synchronisé au tempo.</p>
+            <div class="gv-presets" data-presets="delay"></div>
+            <div class="sd-row fx-wide">
+              <label for="fxDelayTime">Temps (synchronisé au tempo)</label>
+              <output id="fxDelayMs"></output>
+              <select id="fxDelayTime"></select>
+            </div>
+            <div class="sd-sliders" id="fxDelaySliders"></div>
+          </section>
+          <section class="fx-pane" data-pane="room" aria-labelledby="fxRoomTitle">
+            <div class="fx-pane-head"><h3 id="fxRoomTitle">Reverb <small>room</small></h3></div>
+            <p class="fx-help">Reverb propre à cette piste. Pour un espace commun à tout le groupe, préfère les envois vers les bus.</p>
+            <div class="gv-presets" data-presets="room"></div>
+            <div class="sd-sliders" id="fxRoomSliders"></div>
+          </section>
+          <section class="fx-pane" data-pane="sc" aria-labelledby="fxScTitle">
+            <div class="fx-pane-head"><h3 id="fxScTitle">Sidechain <small>ducking</small></h3></div>
+            <p class="fx-help">Le volume baisse quand la piste choisie joue (la « pompe » sur le kick).</p>
+            <div class="sd-row fx-wide">
+              <label for="fxScSource">Déclenché par la piste</label>
+              <output></output>
+              <select id="fxScSource"></select>
+            </div>
+            <div class="gv-presets" data-presets="sc"></div>
+            <svg id="fxScCurve" class="sd-adsr sc-curve" viewBox="0 0 300 60" preserveAspectRatio="none" aria-hidden="true">
+              <path class="fill-area"/><path class="line"/>
+            </svg>
+            <div class="sd-sliders" id="fxScSliders"></div>
+          </section>
+          <section class="fx-pane" data-pane="sends" aria-labelledby="fxSendTitle">
+            <div class="fx-pane-head"><h3 id="fxSendTitle">Envois vers les bus</h3></div>
+            <p class="fx-help">Une reverb « plate » (batterie), une reverb « hall » (instruments), un écho à bande et le « Cosmos » (reverb longue, gel et shimmer) pour tout le morceau : chaque piste y envoie plus ou moins de son. Tout le groupe joue ainsi dans le même espace.</p>
+            <div class="gv-presets" data-presets="send"></div>
+            <div class="sd-sliders" id="fxSendSliders"></div>
+          </section>
+          <section class="fx-pane" data-pane="rev" id="fxPane_rev" aria-labelledby="fxRevTitle">
+            <div class="fx-pane-head"><h3 id="fxRevTitle">Reverbs plate et hall</h3><span class="fx-common">communs à toutes les pistes</span></div>
+            <p class="fx-help">La plate pour la batterie, le hall pour les instruments.</p>
+          </section>
+          <section class="fx-pane" data-pane="echo" id="fxPane_echo" aria-labelledby="fxEchoTitle">
+            <div class="fx-pane-head"><h3 id="fxEchoTitle">Écho · délai à bande</h3><span class="fx-common">communs à toutes les pistes</span></div>
+            <p class="fx-help">Répétitions saturées par la bande : jusqu’à 100 % sans s’emballer. Le wow / flutter fait onduler les répétitions.</p>
+            <div class="sd-row fx-wide">
               <label for="fxEchoTime">Temps de l'écho</label>
               <output id="fxEchoMs"></output>
               <select id="fxEchoTime"></select>
             </div>
-          </details>
-        </section>
+          </section>
+          <section class="fx-pane" data-pane="space" id="fxPane_space" aria-labelledby="fxSpaceTitle">
+            <div class="fx-pane-head"><h3 id="fxSpaceTitle">Cosmos · reverb longue</h3><span class="fx-common">communs à toutes les pistes</span></div>
+            <p class="fx-help">Queue jusqu’à 60 s. <b>Freeze</b> la fait tenir indéfiniment (les nouvelles notes n’y entrent plus) ; <b>Shimmer</b> la fait monter d’une octave.</p>
+          </section>
+        </div>
       </div>
 
       <div class="dlg-footer">
@@ -787,7 +799,7 @@
   <script src="js/arppanel.js"></script>
   <script src="js/groove.js"></script>
   <script src="js/harmonypanel.js"></script>
-  <script src="js/fx.js?v=space-1"></script>
+  <script src="js/fx.js?v=tabs-1"></script>
   <script src="js/song.js"></script>
   <script src="js/mixer.js"></script>
   <script src="js/automix.js"></script>

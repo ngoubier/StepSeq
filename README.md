@@ -300,16 +300,21 @@ Le bouton à curseurs de l'en-tête ouvre la fenêtre de **sound design** (oscil
 
 ### Effets d'espace : Cosmos et écho à bande
 
-La fenêtre **FX** d'une piste règle ses envois vers les **bus partagés** du morceau (plate, hall, écho, Cosmos) ;
-sous « Réglages des bus », trois groupes communs à toutes les pistes :
+La fenêtre **FX** d'une piste a une taille fixe et des **onglets verticaux** (une rangée de pastilles sur
+téléphone), avec l'état de chaque section (off, actif, nombre d'envois, « gelé ») ; elle se rouvre sur le dernier
+onglet utilisé (flèches et Début / Fin pour passer d'un onglet à l'autre) :
 
-- **Écho · délai à bande** : temps calé sur le tempo, répétitions jusqu'à 100 % (la saturation de la bande dans
-  la boucle les garde sous contrôle), couleur (filtre dans la boucle), **saturation**, **wow / flutter** (vitesse
-  de la bande qui fluctue : les répétitions ondulent légèrement).
-- **Cosmos · reverb longue** (`js/space-dsp.js`) : reverb algorithmique (8 lignes à retard bouclées, modulées)
-  pour l'ambient et la dub techno. Durée de la queue jusqu'à 60 s, taille, pré-délai, amortissement des aigus,
-  modulation, **Shimmer** (la queue est réinjectée une octave plus haut et s'élève) et **Freeze** (la queue tient
-  indéfiniment ; les nouvelles notes n'y entrent plus). Préréglages Salle, Cathédrale, Infini, Shimmer.
+- **Cette piste** : Chorus, Delay, Reverb, Sidechain et **Envois** vers les bus partagés du morceau (plate, hall,
+  écho, Cosmos) ;
+- **Bus du morceau**, réglages communs à toutes les pistes :
+  - **Plate et hall** : durées, pré-délai du hall ;
+  - **Écho · délai à bande** : temps calé sur le tempo, répétitions jusqu'à 100 % (la saturation de la bande dans
+    la boucle les garde sous contrôle), couleur (filtre dans la boucle), **saturation**, **wow / flutter** (vitesse
+    de la bande qui fluctue : les répétitions ondulent légèrement).
+  - **Cosmos · reverb longue** (`js/space-dsp.js`) : reverb algorithmique (8 lignes à retard bouclées, modulées)
+    pour l'ambient et la dub techno. Durée de la queue jusqu'à 60 s, taille, pré-délai, amortissement des aigus,
+    modulation, **Shimmer** (la queue est réinjectée une octave plus haut et s'élève) et **Freeze** (la queue tient
+    indéfiniment ; les nouvelles notes n'y entrent plus). Préréglages Salle, Cathédrale, Infini, Shimmer.
 - Préréglages d'envois **Ambient** et **Dub techno** ; l'envoi vers le Cosmos s'automatise aussi par pas.
 
 Presets qui s'en servent : **PWM Bass**, **Evolving Bass**, **Wobble Bass**, **PWM Reese** (Bass), **PWM Strings**,

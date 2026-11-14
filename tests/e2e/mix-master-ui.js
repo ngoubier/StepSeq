@@ -77,9 +77,9 @@ const ok = (c, m) => {
   await page.click(`.track[data-id="${by('lead').id}"] .fx-btn`);
   await page.waitForTimeout(300);
   ok(await page.isVisible('#fxSendSliders input'), 'fenêtre Effets : envois vers les bus partagés');
-  await page.click('.fx-returns summary');
+  await page.click('#fxTabs [data-tab="rev"]');
   const before = (await P()).returns.hall.size;
-  await page.locator('#fxReturnSliders input').nth(1).evaluate((el) => {
+  await page.locator('#fxRet_rev input').nth(1).evaluate((el) => {
     el.value = 900;
     el.dispatchEvent(new Event('input'));
   });

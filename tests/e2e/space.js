@@ -165,14 +165,13 @@ async function render(browser, port, { fx, returns, at = {}, len = 6, sd, midi =
     const q = (s) => document.querySelector(s);
     const presets = [...document.querySelectorAll('#fxDialog [data-presets="send"] button')];
     presets.find((x) => x.textContent === 'Ambient').click();
-    q('#fxDialog details.fx-returns').open = true;
     [...document.querySelectorAll('.fx-space-tools button')].find((x) => x.textContent === 'Shimmer').click();
     q('#fxFreeze').click();
     await new Promise((r) => setTimeout(r, 600));
     const saved = JSON.parse(localStorage.getItem('stepseq.autosave'));
     return {
-      groups: [...document.querySelectorAll('.fx-ret-group h4')].map((h) => h.textContent),
-      echoInGroup: !!q('#fxRet_echo #fxEchoTime'),
+      groups: [...document.querySelectorAll('#fxTabs .fx-tabs-group.bus ~ .fx-tab span')].map((h) => h.textContent),
+      echoInGroup: !!q('#fxPane_echo #fxEchoTime') && !!q('#fxPane_echo #fxRet_echo input'),
       fx: saved.tracks[0].fx,
       space: saved.returns && saved.returns.space,
       freezeLabel: q('#fxFreeze').textContent,
@@ -180,11 +179,46 @@ async function render(browser, port, { fx, returns, at = {}, len = 6, sd, midi =
       code: q('#fxCode').textContent,
     };
   });
-  ok(ui.groups.join(' / ') === 'Reverbs plate et hall / Écho · délai à bande / Cosmos · reverb longue' && ui.echoInGroup, `réglages des bus en 3 groupes : ${ui.groups.join(' / ')}`);
+  ok(ui.groups.join(' / ') === 'Plate et hall / Écho à bande / Cosmos' && ui.echoInGroup, `bus du morceau : 3 onglets (${ui.groups.join(' / ')})`);
   ok(ui.fx && ui.fx.sendSpace === 0.55, `préréglage Ambient : envoi Cosmos ${ui.fx && ui.fx.sendSpace}`);
   ok(ui.space && ui.space.shimmer === 0.55 && ui.space.freeze === true, `Cosmos enregistré : ${JSON.stringify(ui.space)}`);
   ok(ui.pressed === 'true' && /gelé/.test(ui.freezeLabel), `bouton Freeze : ${ui.freezeLabel}`);
   ok(/cosmos 55 %/.test(ui.code), `résumé : ${ui.code}`);
+  ok(/gelé/.test(await p.textContent('#fxSpaceState')), `onglet Cosmos : « ${await p.textContent('#fxSpaceState')} »`);
+
+  // 6. Onglets verticaux : une section visible à la fois, taille fixe, clavier, dernier onglet retenu
+  const visible = () => p.evaluate(() => [...document.querySelectorAll('#fxDialog .fx-pane')].filter((x) => !x.hidden).map((x) => x.dataset.pane));
+  ok((await visible()).join() === 'sends', `ouverture sur « Envois » : ${await visible()}`);
+  await p.click('#fxTabs [data-tab="space"]');
+  ok((await visible()).join() === 'space' && (await p.getAttribute('#fxTabs [data-tab="space"]', 'aria-current')) === 'page', 'clic : onglet Cosmos seul visible');
+  const box = await p.locator('#fxDialog').boundingBox();
+  ok(box.height <= 640 && box.width <= 880, `fenêtre de taille fixe : ${Math.round(box.width)} × ${Math.round(box.height)}`);
+  await p.keyboard.press('ArrowUp');
+  ok((await visible()).join() === 'echo', 'flèche haut : onglet précédent (Écho à bande)');
+  await p.keyboard.press('Home');
+  ok((await visible()).join() === 'chorus', 'Début : premier onglet');
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(200);
+  await p.click('.track .fx-btn');
+  await p.waitForTimeout(200);
+  ok((await visible()).join() === 'chorus', 'réouverture : dernier onglet utilisé');
+  await p.keyboard.press('Escape');
+  // téléphone : onglets en rangée horizontale, une colonne de curseurs
+  await p.setViewportSize({ width: 390, height: 844 });
+  await p.click('.track .fx-btn').catch(() => p.evaluate(() => SS.fx.open && 0));
+  await p.evaluate(() => {
+    if (!document.querySelector('#fxDialog').open) document.querySelector('.track .fx-btn')?.click();
+  });
+  await p.waitForTimeout(200);
+  const phone = await p.evaluate(() => {
+    const d = document.querySelector('#fxDialog');
+    if (!d.open) return null;
+    const nav = getComputedStyle(document.querySelector('#fxTabs'));
+    const r = d.getBoundingClientRect();
+    return { dir: nav.flexDirection, w: r.width, h: r.height, overflow: document.documentElement.scrollWidth > innerWidth };
+  });
+  ok(phone && phone.dir === 'row' && phone.w <= 390 && phone.h <= 844 && !phone.overflow, `téléphone : ${JSON.stringify(phone)}`);
+
   ok(!errs.length, 'aucune erreur de page' + (errs.length ? ' : ' + errs.join(' | ') : ''));
 
   await b.close();
