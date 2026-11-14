@@ -2535,6 +2535,109 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
   .bw-blocks li { min-width: 64px; }
   .band-dialog.wizard .band-foot { flex-wrap: wrap; }
 }
+/* Band : bandeau de commande (étapes 2 à 5) */
+.band-transport { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 8px 16px; background: #1c1c1f; border-bottom: 1px solid var(--line); }
+.band-transport[hidden] { display: none; }
+.bt-btn { width: 40px; height: 34px; padding: 0; display: inline-grid; place-items: center; flex: none; }
+.bt-btn svg { width: 16px; height: 16px; }
+.bt-btn .stop { width: 13px; height: 13px; }
+.bt-play { background: var(--accent); border-color: var(--accent-2); color: #fff; }
+.bt-play:hover { background: #0c74d0; }
+.bt-btn:disabled { opacity: .4; cursor: default; }
+.bt-pos { display: flex; flex-direction: column; min-width: 150px; padding: 4px 12px; border-radius: 8px; background: #111113; line-height: 1.15; }
+.bt-pos b { font: 500 15px/1.15 ui-monospace, "SF Mono", Menlo, Consolas, monospace; color: #8fc3ff; letter-spacing: .04em; }
+.bt-pos small { font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
+.bt-sep { width: 1px; height: 26px; background: var(--line); }
+.bt-field { display: flex; align-items: center; gap: 8px; }
+.bt-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.bt-tempo { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); overflow: hidden; }
+.bt-tempo button { width: 28px; height: 30px; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 16px; cursor: pointer; }
+.bt-tempo button:hover { background: var(--panel-3); }
+.bt-tempo input { width: 48px; height: 30px; border: 0; background: transparent; color: var(--text); font: 600 15px/1 inherit; text-align: center; -moz-appearance: textfield; }
+.bt-tempo input::-webkit-outer-spin-button, .bt-tempo input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.bt-unit { font-size: 12px; color: var(--muted); }
+.bt-orig { border: 0; border-radius: 6px; padding: 3px 7px; background: rgba(245, 196, 0, .12); color: #f0c860; font: inherit; font-size: 11.5px; cursor: pointer; }
+.bt-orig:hover { background: rgba(245, 196, 0, .22); }
+.bt-key { display: inline-flex; align-items: baseline; gap: 8px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); }
+.bt-key b { font-size: 14px; }
+.bt-key small { font-size: 12px; color: var(--muted); }
+
+/* Band, étape Harmonie : scènes à gauche, accords et instruments de la scène choisie à droite */
+.bh-wrap { flex: 1; min-height: 0; display: flex; gap: 14px; }
+.bh-scenes { width: 230px; flex: none; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; padding-bottom: 8px; }
+.bh-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 0 4px 2px; }
+.bh-scene { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.bh-scene:hover { border-color: #55555f; }
+.bh-scene.on { border-color: var(--accent-2); background: color-mix(in srgb, var(--accent) 22%, var(--panel-2)); }
+.bh-scene.playing .bh-sname b { color: var(--accent-2); }
+.bh-scene.on.playing .bh-sname b { color: #fff; }
+.bh-sname { display: flex; align-items: baseline; gap: 8px; }
+.bh-sname b { font-size: 14px; }
+.bh-sname small { font-size: 11px; color: var(--muted); }
+.bh-mini { display: flex; flex-wrap: wrap; gap: 3px; }
+.bh-mchip { font-size: 11px; font-weight: 600; padding: 2px 5px; border-radius: 4px; background: #1d1d20; box-shadow: inset 0 -2px 0 var(--role, var(--muted)); }
+.bh-legend { margin-top: auto; display: flex; flex-direction: column; gap: 6px; padding: 10px 6px 0; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+.bh-legend span { display: flex; align-items: center; gap: 8px; }
+.bh-legend i { width: 18px; height: 7px; border-radius: 2px; box-sizing: border-box; }
+.bh-lg-in { background: var(--accent-2); }
+.bh-lg-out { border: 1.5px solid var(--accent-2); }
+.bh-key-role { font-weight: 600; color: var(--text); box-shadow: inset 0 -2px 0 var(--role); }
+.bh-main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+.bh-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-height: 32px; }
+.bh-top h3 { margin: 0; font-size: 18px; }
+.bh-info { font-size: 13px; color: var(--muted); }
+.bh-loop { display: inline-flex; align-items: center; gap: 6px; }
+.bh-loop.on { background: var(--accent); color: #fff; border-color: var(--accent-2); }
+.bh-switch { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
+.bh-switch:disabled { opacity: .45; cursor: default; }
+.bh-knob { position: relative; width: 30px; height: 17px; border-radius: 9px; background: #4a4a52; flex: none; transition: background .15s; }
+.bh-knob::after { content: ''; position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; border-radius: 50%; background: #fff; transition: left .15s; }
+.bh-switch[aria-checked=true] .bh-knob { background: var(--accent); }
+.bh-switch[aria-checked=true] .bh-knob::after { left: 15px; }
+.bh-scroll { flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+.bh-board { --head: 168px; position: relative; min-width: calc(var(--head) + var(--bars) * 44px); }
+.bh-row { display: flex; border-bottom: 1px solid #000; }
+.bh-head { width: var(--head); flex: none; box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 14px; background: #202024; border-right: 1px solid #000; position: sticky; left: 0; z-index: 2; }
+.bh-track { flex: 1; min-width: 0; position: relative; background-image: repeating-linear-gradient(90deg, #303036 0 1px, transparent 1px calc(100% / var(--bars))); }
+.bh-ruler { height: 22px; border-bottom-color: #2c2c30; }
+.bh-num { position: absolute; top: 4px; margin-left: 6px; font-size: 10.5px; color: var(--muted); }
+.bh-chords { height: 92px; }
+.bh-chords .bh-track { background-color: #222226; }
+.bh-chead { flex-direction: column; align-items: flex-start; justify-content: center; gap: 3px; background: #26262b; }
+.bh-chead b { font-size: 14px; }
+.bh-chead small, .bh-name small { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bh-chord { position: absolute; top: 8px; height: 74px; box-sizing: border-box; margin-left: 3px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border: 1px solid #45454c; border-bottom: 4px solid var(--role, var(--muted)); border-radius: 8px; background: var(--panel-2); overflow: hidden; }
+.bh-chord { width: calc(var(--w) - 6px); }
+.bh-chord small { font-size: 11px; color: #c9c9d1; line-height: 1; }
+.bh-chord b { font-size: 19px; line-height: 1; white-space: nowrap; }
+.bh-chord.narrow b { font-size: 14px; }
+.bh-role { font-size: 10.5px; line-height: 1; color: var(--role); white-space: nowrap; }
+.bh-empty { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--muted); }
+.bh-swatch { width: 8px; height: 40px; border-radius: 3px; background: var(--c); flex: none; }
+.bh-name { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.bh-name b { font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bh-lane { height: 92px; --nh: 6px; }
+.bh-lane.empty .bh-track, .bh-lane.empty .bh-head { opacity: .5; }
+.bh-band { position: absolute; top: 0; bottom: 0; pointer-events: none; }
+.bh-band.alt { background: rgba(255, 255, 255, .022); }
+.bh-note { position: absolute; height: var(--nh); border-radius: 2px; background: var(--c); box-sizing: border-box; }
+.bh-note.out { background: rgba(0, 0, 0, .3); border: 1.5px solid var(--c); }
+.bh-drums { height: calc(var(--rows, 3) * 11px + 16px); min-height: 48px; }
+.bh-hit { position: absolute; width: 3px; height: 9px; margin: -4.5px 0 0 1px; border-radius: 1px; background: var(--c); }
+.bh-ph { display: none; position: absolute; top: 22px; bottom: 0; left: calc(var(--head) + (100% - var(--head)) * var(--ph, 0)); width: 2px; background: var(--accent-2); pointer-events: none; z-index: 1; }
+.bh-board.playing .bh-ph { display: block; }
+@media (max-width: 760px) {
+  .band-transport { padding: 6px 10px; gap: 6px 10px; }
+  .bt-sep { display: none; }
+  .bt-pos { min-width: 110px; }
+  .bh-wrap { flex-direction: column; }
+  .bh-scenes { width: auto; flex-direction: row; overflow-x: auto; overflow-y: hidden; flex: none; padding-bottom: 4px; }
+  .bh-label, .bh-legend { display: none; }
+  .bh-scene { width: auto; min-width: 130px; flex: none; }
+  .bh-board { --head: 110px; }
+  .bh-role { display: none; }
+  .bt-label { display: none; }
+}
 .bcf-actions .btn-danger { background: #a3262e; color: #fff; }
 .bcf-actions .btn-danger:hover { background: #bd2f38; }
 

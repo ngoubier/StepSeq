@@ -43,7 +43,7 @@ const SHOTS = process.env.SHOTS;
   // Band (en-tête) : le même assistant, sur le projet en cours ; l'ancien écran n'existe plus
   await page.click('#bandBtn');
   ok((await page.locator('#bandModes, #bandMelody, #melGo, #bandSongBtn, #bandCreate, #bandTempo').count()) === 0, 'Band : plus d’ancien écran (Créer les pistes, Créer toute la chanson)');
-  ok((await page.isVisible('#bandWizSteps')) && /^Band/.test(await page.textContent('#bandTitle')) && !(await page.isVisible('#bwEmpty')), 'Band : l’assistant en quatre étapes');
+  ok((await page.isVisible('#bandWizSteps')) && /^Band/.test(await page.textContent('#bandTitle')) && !(await page.isVisible('#bwEmpty')), 'Band : l’assistant en cinq étapes');
   await page.keyboard.press('Escape');
 
   // 1. Modèle
@@ -53,7 +53,8 @@ const SHOTS = process.env.SHOTS;
   await page.waitForTimeout(600);
   ok(await page.isVisible('#bandDialog'), 'l’assistant s’ouvre');
   ok(/Nouvelle chanson/.test(await page.textContent('#bandTitle')), 'titre « Nouvelle chanson »');
-  ok((await page.locator('#bandWizSteps li').count()) === 4 && (await page.locator('#bandWizSteps li.cur').textContent()).includes('Modèle'), 'quatre étapes, la première : Modèle');
+  ok((await page.locator('#bandWizSteps li').count()) === 5 && (await page.locator('#bandWizSteps li.cur').textContent()).includes('Modèle'), 'cinq étapes, la première : Modèle');
+  ok(!(await page.isVisible('#bwTransport')), 'étape 1 : pas de bandeau de commande');
   ok((await P()).tracks.length === 0, 'une chanson vide est déjà en place');
   ok((await page.isVisible('#bandStage')) && (await page.isVisible('#bwEmpty')) && (await page.isVisible('#bwNext')), 'étape 1 : l’écran Band avec « Suivant »');
   await page.click('#bandStyles [data-v="synthwave"]');
@@ -73,9 +74,43 @@ const SHOTS = process.env.SHOTS;
   ok(g.cols === g.planned && g.cols >= 8, `une colonne par piste (${g.cols})`);
   ok(g.clips > g.rows * 3, `des clips dans les cases (${g.clips})`);
   ok(/Do mineur/.test(await page.textContent('.bw-info')), 'tonalité, tempo et durée de la chanson');
+  ok(await page.isVisible('#bwTransport'), 'bandeau de commande sous le titre');
+  ok((await page.inputValue('#bwTempo')) === '132' && /Do mineur/.test(await page.textContent('#bwKey')) && /3 ♭ · i = Cm/.test(await page.textContent('#bwKey')), 'bandeau : tempo 132 et tonalité Do mineur (3 ♭)');
+  ok(!(await page.isVisible('#bwTempoBack')), 'tempo d’origine : pas de rappel');
+  await page.click('#bwSlower');
+  await page.fill('#bwTempo', '126');
+  await page.press('#bwTempo', 'Enter');
+  ok((await page.inputValue('#bwTempo')) === '126' && /126 BPM/.test(await page.textContent('.bw-info')), 'tempo réglé à 126 (durée recalculée)');
+  ok((await page.isVisible('#bwTempoBack')) && /origine 132/.test(await page.textContent('#bwTempoBack')), 'rappel du tempo d’origine');
+  await page.fill('#bwTempo', '999');
+  await page.press('#bwTempo', 'Enter');
+  ok((await page.inputValue('#bwTempo')) === '240', 'tempo borné à 240');
+  await page.click('#bwTempoBack');
+  ok((await page.inputValue('#bwTempo')) === '132', '« origine 132 » revient au tempo de l’inspiration');
+  await page.fill('#bwTempo', '128');
+  await page.press('#bwTempo', 'Enter');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'wizard-chanson.png') });
 
-  // 3. Mélodie
+  // 3. Harmonie : la scène choisie, ses accords (comme dans Key) et les instruments dessous
+  await page.click('#bwNext');
+  await page.waitForTimeout(200);
+  ok((await page.locator('#bandWizSteps li.cur').textContent()).includes('Harmonie'), 'étape 3 : Harmonie');
+  ok((await page.locator('.bh-scene').count()) === 5 && (await page.locator('.bh-scene.on .bh-sname b').textContent()) === 'Intro', 'scènes à gauche, la première choisie');
+  const hc = await page.evaluate(() => [...document.querySelectorAll('.bh-chord')].map((c) => [c.querySelector('small').textContent, c.querySelector('b').textContent, c.className]));
+  ok(hc.length === 8 && hc[0][0] === 'i' && hc[0][1] === 'Cm' && /role-repos/.test(hc[0][2]) && hc[1][1] === 'B♭', `piste d’accords : ${hc.map((c) => c[1]).join(' ')}`);
+  ok((await page.locator('.bh-row.bh-drums').count()) === 0 && (await page.getAttribute('#bwHarmDrums', 'aria-checked')) === 'false', 'batterie masquée par défaut');
+  const lanes = await page.$$eval('.bh-lane', (ls) => ls.map((l) => l.querySelector('.bh-name b').textContent));
+  ok(lanes.length >= 4 && !lanes.some((n) => /Kick|Snare|Hi-Hat/.test(n)), `instruments sous les accords (${lanes.join(', ')})`);
+  const pad = page.locator('.bh-lane', { hasText: 'Nappe' }).first();
+  ok((await pad.locator('.bh-note').count()) > 0 && /100 % dans l’accord/.test(await pad.textContent()), 'la nappe : toutes ses notes dans l’accord');
+  await page.click('#bwHarmDrums');
+  ok((await page.locator('.bh-row.bh-drums .bh-hit').count()) > 0, 'Batterie : affichée sur demande');
+  await page.click('.bh-scene >> nth=2');
+  ok((await page.locator('.bh-scene.on .bh-sname b').textContent()) === 'Refrain' && (await page.locator('.bh-top h3').textContent()) === 'Refrain', 'clic sur une scène : ses accords');
+  ok((await page.locator('.bh-lane', { hasText: 'Lead' }).locator('.bh-note.out').count()) > 0, 'notes de passage du lead dessinées en creux');
+  if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'wizard-harmonie.png') });
+
+  // 4. Mélodie
   await page.click('#bwNext');
   const leadSig = () => page.evaluate(() => {
     const w = SS.band._state.wiz;
@@ -120,9 +155,9 @@ const SHOTS = process.env.SHOTS;
     return JSON.stringify(sc.data[id].events.map((e) => [e.step, e.len, e.notes]));
   });
 
-  // 4. Pistes
+  // 5. Pistes
   await page.click('#bwNext');
-  ok((await page.locator('.bw-grid input[type=checkbox]').count()) > 5, 'étape 4 : des cases à cocher par musicien et par élément');
+  ok((await page.locator('.bw-grid input[type=checkbox]').count()) > 5, 'étape 5 : des cases à cocher par musicien et par élément');
   const bassBox = page.locator('.bw-group', { hasText: 'Bassiste' }).locator('input');
   await bassBox.uncheck();
   const hhBox = page.locator('.bw-track', { hasText: 'Hi-Hat ouvert' }).locator('input');
@@ -142,7 +177,7 @@ const SHOTS = process.env.SHOTS;
   const p = await P();
   ok(!p.tracks.some((t) => t.band && t.band.key.startsWith('bass')) && !p.tracks.some((t) => t.name === 'Hi-Hat ouvert'), 'basse et charleston ouvert non importés');
   ok(p.tracks.length === g.cols - 2, `${p.tracks.length} pistes importées`);
-  ok(p.scenes.length === 5 && p.playMode === 'song' && p.tempo === 132, 'scènes, mode Chanson et tempo de l’inspiration');
+  ok(p.scenes.length === 5 && p.playMode === 'song' && p.tempo === 128, `scènes, mode Chanson et tempo choisi dans le bandeau (${p.tempo})`);
   const lead = p.tracks.find((t) => t.band && t.band.key === 'lead');
   const chorus = p.scenes.find((s) => s.name === 'Refrain');
   const got = JSON.stringify(((chorus.data[lead.id] || {}).events || []).map((e) => [e.step, e.len, e.notes]));
