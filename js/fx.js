@@ -74,7 +74,57 @@ SS.fx = (() => {
 
   const params = () => SS.fxParams(track);
 
+  /* ---------- Onglets verticaux : une section à la fois ; on rouvre sur le dernier onglet utilisé ---------- */
+  const TAB_KEY = 'stepseq.fxTab';
+  let tab = 'sends';
+  try {
+    tab = localStorage.getItem(TAB_KEY) || tab;
+  } catch (e) {
+    /* stockage indisponible : onglet par défaut */
+  }
+  function showTab(id, focus = false) {
+    const btns = [...document.querySelectorAll('#fxTabs .fx-tab')];
+    if (!btns.some((b) => b.dataset.tab === id)) id = 'sends';
+    tab = id;
+    btns.forEach((b) => {
+      const on = b.dataset.tab === id;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-current', on ? 'page' : 'false');
+      b.tabIndex = on ? 0 : -1;
+      if (on && focus) b.focus();
+      if (on) b.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    });
+    document.querySelectorAll('#fxDialog .fx-pane').forEach((p) => (p.hidden = p.dataset.pane !== id));
+    const pane = document.querySelector(`#fxDialog .fx-pane[data-pane="${id}"]`);
+    if (pane) pane.scrollTop = 0;
+    try {
+      localStorage.setItem(TAB_KEY, id);
+    } catch (e) {
+      /* rien */
+    }
+  }
+  function buildTabs() {
+    const nav = $('#fxTabs');
+    nav.addEventListener('click', (e) => {
+      const b = e.target.closest('.fx-tab');
+      if (b) showTab(b.dataset.tab);
+    });
+    // flèches : onglet précédent / suivant
+    nav.addEventListener('keydown', (e) => {
+      const keys = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 };
+      if (!(e.key in keys) && e.key !== 'Home' && e.key !== 'End') return;
+      const btns = [...nav.querySelectorAll('.fx-tab')];
+      let i = btns.findIndex((b) => b.dataset.tab === tab);
+      if (e.key === 'Home') i = 0;
+      else if (e.key === 'End') i = btns.length - 1;
+      else i = (i + keys[e.key] + btns.length) % btns.length;
+      e.preventDefault();
+      showTab(btns[i].dataset.tab, true);
+    });
+  }
+
   function build() {
+    buildTabs();
     for (const [key, spec] of Object.entries(SPECS)) {
       const id = 'fx_' + key;
       const row = document.createElement('div');
@@ -192,19 +242,18 @@ SS.fx = (() => {
     r[bus] = { ...r[bus], ...patch };
     p.returns = SS.cleanReturns(r);
     SS.audio.applyMaster(p);
-    updateReturns();
+    if (track) update();
+    else updateReturns();
     app.changed();
   }
   function buildReturns() {
+    // un onglet par groupe (« Bus du morceau ») : les curseurs vont dans son panneau
     const boxes = {};
     RETURN_GROUPS.forEach((g) => {
       const box = document.createElement('div');
-      box.className = 'fx-ret-group';
+      box.className = 'sd-sliders fx-ret-group';
       box.id = `fxRet_${g.id}`;
-      const h = document.createElement('h4');
-      h.textContent = g.label;
-      box.append(h);
-      $('#fxReturnSliders').append(box);
+      $(`#fxPane_${g.id}`).append(box);
       boxes[g.id] = box;
     });
     // Cosmos : préréglages et gel
@@ -226,7 +275,7 @@ SS.fx = (() => {
     freeze.title = 'Gèle la queue du Cosmos : elle tient indéfiniment, les nouvelles notes n’y entrent plus';
     freeze.addEventListener('click', () => setReturn('space', { freeze: !SS.returnParams(app.project()).space.freeze }));
     tools.append(freeze);
-    boxes.space.append(tools);
+    boxes.space.before(tools);
     RETURN_SPECS.forEach((spec) => {
       const id = `fxRet_${spec.bus}_${spec.key}`;
       const row = document.createElement('div');
@@ -245,9 +294,6 @@ SS.fx = (() => {
       boxes[spec.group].append(row);
       returnInputs.push({ spec, input, out });
     });
-    // le temps de l'écho rejoint son groupe
-    const echoRow = $('#fxEchoTime').closest('.sd-row');
-    boxes.echo.insertBefore(echoRow, boxes.echo.children[1]);
     SS.DELAY_TIMES.forEach((d) => {
       const o = document.createElement('option');
       o.value = d.id;
@@ -302,7 +348,18 @@ SS.fx = (() => {
     state('#fxChorusState', f.chorus > 0);
     state('#fxDelayState', f.delay > 0);
     state('#fxRoomState', f.room > 0);
-    state('#fxSendState', f.sendPlate > 0 || f.sendHall > 0 || f.sendEcho > 0 || f.sendSpace > 0);
+    // envois : nombre de bus utilisés
+    const nSends = ['sendPlate', 'sendHall', 'sendEcho', 'sendSpace'].filter((k) => f[k] > 0).length;
+    state('#fxSendState', nSends > 0);
+    if (nSends) $('#fxSendState').textContent = String(nSends);
+    // bus du morceau : ce que cette piste y envoie, et l'état du Cosmos
+    const rp = SS.returnParams(app.project());
+    const echoOn = f.sendEcho > 0;
+    $('#fxEchoState').textContent = echoOn ? `${Math.round(f.sendEcho * 100)} %` : '';
+    $('#fxEchoState').classList.toggle('on', echoOn);
+    $('#fxSpaceState').textContent = rp.space.freeze ? 'gelé' : f.sendSpace > 0 ? `${Math.round(f.sendSpace * 100)} %` : '';
+    $('#fxSpaceState').classList.toggle('on', rp.space.freeze || f.sendSpace > 0);
+    $('#fxSpaceState').classList.toggle('frozen', !!rp.space.freeze);
     updateReturns();
     const sc = !!f.scSource && f.scDepth > 0;
     state('#fxScState', sc);
@@ -383,6 +440,8 @@ SS.fx = (() => {
     refresh();
     $('#fxDialog').returnValue = '';
     $('#fxDialog').showModal();
+    // après l'ouverture : l'onglet actif est visible (rangée défilante sur téléphone) et reçoit le focus
+    showTab(tab, true);
   }
 
   function init(appApi) {

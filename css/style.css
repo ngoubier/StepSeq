@@ -797,9 +797,45 @@ dialog.sd-dialog { width: min(820px, calc(100vw - 32px)); }
 .sd-adsr.filt .line { stroke: #f5a524; }
 .sd-adsr.filt .fill-area { fill: #f5a524; }
 .sd-adsr.dim { opacity: .4; }
-.fx-ret-group { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; }
-.fx-ret-group + .fx-ret-group { border-top: 1px solid var(--line); margin-top: 6px; }
-.fx-ret-group h4 { margin: 0; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+/* Fenêtre Effets : onglets verticaux (une section à la fois), taille fixe */
+dialog.fx-dialog { width: min(880px, calc(100vw - 32px)); height: min(640px, calc(100vh - 32px)); }
+.fx-dialog form { height: 100%; box-sizing: border-box; min-height: 0; }
+.fx-dialog .sd-head { flex-shrink: 0; }
+.fx-layout { display: flex; flex: 1 1 auto; min-height: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--panel-2); }
+.fx-tabs { width: 190px; flex-shrink: 0; display: flex; flex-direction: column; gap: 2px; padding: 8px; background: #1d1d20; border-right: 1px solid var(--line); overflow-y: auto; }
+.fx-tabs-group { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 6px 10px 4px; }
+.fx-tabs-group.bus { padding-top: 14px; }
+.fx-tab { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 40px; padding: 8px 10px; border: 0; border-radius: 8px; background: transparent; color: var(--text); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
+.fx-tab:hover { background: var(--panel-3); }
+.fx-tab:focus-visible { outline: 2px solid var(--accent-2); outline-offset: -2px; }
+.fx-tab.active { background: var(--accent); }
+.fx-tab.active .fx-state, .fx-tab.active .fx-state.on { color: #d6e8ff; }
+.fx-state.frozen, .fx-tab.active .fx-state.frozen { color: var(--gold); }
+.fx-panes { flex: 1 1 auto; min-width: 0; overflow-y: auto; padding: 16px 20px; }
+dialog.fx-dialog .fx-pane { gap: 12px; }
+dialog.fx-dialog .fx-pane[hidden] { display: none; }
+.fx-pane-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; }
+.fx-pane-head h3 { margin: 0; font-size: 16px; }
+.fx-pane-head h3 small { color: var(--muted); font-weight: 500; margin-left: 4px; font-size: 12px; }
+.fx-common { font-size: 12px; color: var(--muted); }
+.fx-pane .sd-sliders { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 24px; }
+.fx-pane .fx-wide { max-width: 360px; }
+@media (max-width: 640px) {
+  dialog.fx-dialog { width: calc(100vw - 16px); height: calc(100vh - 16px); }
+  .fx-dialog form { padding: 14px; }
+  .fx-layout { flex-direction: column; }
+  .fx-tabs { width: auto; flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); gap: 6px; }
+  .fx-tabs-group { display: none; }
+  .fx-tab { flex-shrink: 0; border: 1px solid var(--line); border-radius: 20px; background: var(--panel-2); padding: 6px 14px; }
+  .fx-tabs-group.bus + .fx-tab { margin-left: 10px; }
+  .fx-panes { padding: 14px; }
+  .fx-pane .sd-sliders { grid-template-columns: 1fr; }
+  .fx-pane .fx-wide { max-width: none; }
+  .fx-tab .fx-state:not(.on) { display: none; }
+  .fx-dialog .dlg-footer { flex-wrap: wrap; }
+  .fx-dialog .dlg-footer .spacer { display: none; }
+  .fx-dialog .dlg-footer .btn { flex: 1 1 40%; justify-content: center; }
+}
 .fx-freeze.active { background: var(--gold); border-color: var(--gold); color: #161618; }
 .sd-lfo-body { display: flex; flex-direction: column; gap: 8px; }
 .sd-lfo-body.dim { opacity: .45; }
@@ -828,12 +864,10 @@ dialog.sd-dialog { width: min(820px, calc(100vw - 32px)); }
 /* ---------- Effets ---------- */
 .th-btn.fx-btn { width: auto; padding: 0 5px; font-size: 10px; letter-spacing: .03em; }
 .th-btn.fx-btn.on { background: #6a4bd8; color: #fff; }
-.fx-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
 .fx-state { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
 .fx-state.on { color: #b9a6ff; }
 .sd-row select { grid-column: 1 / -1; background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 5px 8px; font: inherit; }
 .gv-presets .chip { font-size: 12px; padding: 3px 10px; }
-.fx-sends { grid-column: 1 / -1; }
 .fx-help { margin: 0 0 8px; font-size: 12px; color: var(--muted); }
 .fx-returns { margin-top: 8px; }
 .fx-returns summary { cursor: pointer; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
