@@ -331,6 +331,7 @@ Tests de bout en bout des fenêtres de l'arpégiateur et Key dans Chromium (néc
 ```bash
 node tests/e2e/arp-ui.js
 node tests/e2e/lfo.js
+node tests/e2e/voice-auto.js
 node tests/e2e/arp-cursor.js
 node tests/e2e/harmony-ui.js
 node tests/e2e/grid-ui.js
@@ -371,6 +372,21 @@ Inspirée des courbes d'automation d'Ableton Live / Bitwig et des réglages par 
 | Volume | multiplie le volume de la piste | CC 11 |
 | Reverb | envoi supplémentaire vers la reverb « hall » partagée | CC 91 |
 | Écho | envoi supplémentaire vers l'écho partagé | — |
+
+Les pistes instrument (synthés intégrés et instruments échantillonnés, pas le Juno-106) ont en plus un groupe
+**Son, à chaque note** : ces réglages agissent sur le son lui-même et sont lus **au début de chaque note**, à la
+valeur de la courbe sur son pas (comme les verrous de paramètres des Elektron ; `SS.voiceLocks`,
+`SS.applyVoiceLocks`) :
+
+| Réglage | Effet sur la note | Export MIDI |
+|---|---|---|
+| Cutoff du son | cutoff du VCF : −4 … +4 octaves autour du réglage du sound design | — |
+| Largeur (PWM) | largeur d'impulsion de l'onde Pulse (synthés seulement) | — |
+| Decay du filtre | decay de l'enveloppe du filtre : ÷4 … ×4 | — |
+| Quantité des LFO | multiplie la quantité des LFO 1 et 2 : ×0 … ×2 | — |
+
+Formes toutes prêtes : ouvrir / refermer le son, accents sur chaque temps, balayage de la largeur, notes de plus
+en plus longues ou courtes, faire entrer / calmer les LFO.
 
 - **Points sur les pas** (`track.auto = { filter: { pas: valeur } }`), propres à chaque **scène** (rangés avec les
   notes). Entre deux points : une droite ; avant le premier et après le dernier : la valeur du point. Une scène sans

@@ -1361,6 +1361,7 @@ SS.audio = (() => {
     }
     let p = SS.soundParams(track);
     p._track = track.id || 'preview';
+    if (mod && mod.locks) p = SS.applyVoiceLocks(p, mod.locks); // automation du son (verrous par pas)
     if (mod && mod.cutoff && mod.cutoff !== 1) p = { ...p, cutoff: Math.max(30, Math.min(20000, p.cutoff * mod.cutoff)) };
     // ce qui suit doit rester synchrone jusqu'au glide (ordre des notes) : on résout d'abord la source
     let src = null; // { buffer, rate, loop }
@@ -1576,10 +1577,11 @@ SS.audio = (() => {
           });
           notes.forEach((n) => {
             const t = time + n.at;
+            const locks = SS.voiceLocks(track, step + n.at / sd, len);
             // notes simultanées (mode Accord rythmique) : jouées comme un accord (glide, niveau)
             const group = notes.filter((x) => x.at === n.at);
             const gi = group.indexOf(n);
-            playNote(track, n.midi, t + jt(), n.dur, jv(n.vel * (group.length > 1 ? 0.8 : 1)), undefined, gi, group.length, { cutoff: n.cutoff });
+            playNote(track, n.midi, t + jt(), n.dur, jv(n.vel * (group.length > 1 ? 0.8 : 1)), undefined, gi, group.length, { cutoff: n.cutoff, locks });
             if (n.first) duckFrom(project, track, t); // un arpège déclenche le sidechain au début de chaque accord
           });
         } else if (ev.step === step) {
@@ -1591,10 +1593,12 @@ SS.audio = (() => {
           // ratchet : la note est rejouée dans son premier pas ; la dernière répétition tient le reste de la note
           const r = ev.rat || 1;
           const sub = sd / r;
+          // automation du son (track.auto, réglages « voice ») : valeur au pas de la note
+          const locks = SS.voiceLocks(track, ev.step, SS.trackLen(project, track));
           for (let j = 0; j < r; j++) {
             const d = j < r - 1 ? sub * 0.9 : Math.max(sub * 0.9, dur - j * sub);
             const v = vv * (ev.notes.length > 1 ? 0.8 : 1) * (j ? 0.85 : 1);
-            ev.notes.forEach((n, i) => playNote(track, n, tt + j * sub, d, v, undefined, i, ev.notes.length));
+            ev.notes.forEach((n, i) => playNote(track, n, tt + j * sub, d, v, undefined, i, ev.notes.length, locks ? { locks } : null));
           }
           duckFrom(project, track, tt);
         }

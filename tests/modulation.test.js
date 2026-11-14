@@ -107,3 +107,63 @@ test('projet : les réglages LFO et PWM sont enregistrés et relus', () => {
   assert.equal(l[0].mode, 'retrig');
   assert.equal(l[1].rate, 'n8d');
 });
+
+/* ---------- Phase 2 : automation du son (réglages « voice » de track.auto) ---------- */
+
+test('automation du son : réglages proposés selon la piste', () => {
+  const ids = (t) => SS.autoParamsFor(t).map((P) => P.id);
+  assert.deepEqual(ids({ type: 'drum' }), ['filter', 'res', 'volume', 'reverb', 'echo']);
+  assert.deepEqual(ids({ type: 'instrument', family: 'bass', instrument: 'syn_sawbass' }), ['filter', 'res', 'volume', 'reverb', 'echo', 'vcf', 'pw', 'fdecay', 'lfoamt']);
+  // échantillon : pas de PWM ; Juno-106 : son réglé dans sa façade, pas de réglages « voice »
+  assert.ok(!ids({ type: 'instrument', family: 'keys', instrument: 'piano' }).includes('pw'));
+  assert.ok(ids({ type: 'instrument', family: 'keys', instrument: 'piano' }).includes('vcf'));
+  const juno = SS.ANALOG_FAMILY.instruments[0].id;
+  assert.ok(!ids({ type: 'instrument', family: 'analog', instrument: juno }).includes('vcf'));
+});
+
+test('automation du son : verrous lus au pas de la note, interpolés, absents sans courbe', () => {
+  const t = { type: 'instrument' };
+  assert.equal(SS.voiceLocks(t, 3, 16), null);
+  SS.setAutoPoint(t, 'vcf', 0, -0.5);
+  SS.setAutoPoint(t, 'vcf', 8, 0.5);
+  SS.setAutoPoint(t, 'pw', 4, 0.2);
+  SS.setAutoPoint(t, 'filter', 0, -0.3); // réglage de tranche : pas un verrou de note
+  assert.deepEqual(SS.voiceLocks(t, 4, 16), { vcf: 0, pw: 0.2 });
+  assert.deepEqual(SS.voiceLocks(t, 2, 16), { vcf: -0.25, pw: 0.2 });
+  // valeurs bornées et conservées par le nettoyage
+  SS.setAutoPoint(t, 'pw', 5, 3);
+  assert.equal(t.auto.pw[5], 0.95);
+  SS.cleanAuto(t, 16);
+  assert.deepEqual(Object.keys(t.auto).sort(), ['filter', 'pw', 'vcf']);
+});
+
+test('automation du son : application aux réglages (cutoff en octaves, decay, PWM, LFO)', () => {
+  const p = { cutoff: 500, fdecay: 0.2, decay: 0.3, pw: 0.5, lfo1Amt: 0.8, lfo2Amt: -0.4 };
+  const q = SS.applyVoiceLocks(p, { vcf: 0.25, fdecay: 0.5, pw: 0.15, lfoamt: 1.5 });
+  near(q.cutoff, 1000);
+  near(q.fdecay, 0.4);
+  assert.equal(q.pw, 0.15);
+  assert.equal(q.lfo1Amt, 1); // borné à 1
+  near(q.lfo2Amt, -0.6);
+  assert.equal(p.cutoff, 500); // copie : le réglage d'origine ne change pas
+  assert.equal(SS.applyVoiceLocks(p, null), p);
+  assert.equal(SS.applyVoiceLocks({ cutoff: 8000 }, { vcf: 1 }).cutoff, 20000);
+  assert.equal(SS.autoFormat('vcf', 0), 'Réglage du son');
+  assert.equal(SS.autoFormat('vcf', 0.3), '+1,2 oct');
+  assert.equal(SS.autoFormat('vcf', -0.5), '−2,0 oct');
+  assert.equal(SS.autoFormat('fdecay', 0.5), '×2,00');
+  assert.equal(SS.autoFormat('lfoamt', 1.25), '×1,25');
+  assert.equal(SS.autoFormat('pw', 0.35), '35 %');
+});
+
+test('automation du son : formes toutes prêtes', () => {
+  const t = {};
+  SS.applyAutoShape(t, 'vcf', 'acid', 16, 4);
+  assert.equal(t.auto.vcf[0], 0.35);
+  assert.equal(t.auto.vcf[1], -0.25);
+  assert.equal(t.auto.vcf[4], 0.35);
+  SS.applyAutoShape(t, 'pw', 'sweep', 16, 4);
+  assert.equal(t.auto.pw[0], 0.1);
+  assert.equal(t.auto.pw[15], 0.9);
+  for (const id of ['vcf', 'pw', 'fdecay', 'lfoamt']) assert.ok(SS.AUTO_SHAPES[id].length >= 2, id);
+});
