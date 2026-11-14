@@ -78,6 +78,9 @@ const ok = (c, m) => {
   await page.click('.track .th-roll');
   await page.waitForTimeout(300);
   const rc = (m, st) => page.locator(`.rcell[data-midi="${m}"][data-step="${st}"]`);
+  const cur = (el) => el.evaluate((c) => getComputedStyle(c).cursor);
+  ok(/^url\("data:image\/svg\+xml/.test(await cur(rc(50, 6))), 'piano roll : un crayon sur les cases vides');
+  ok((await cur(rc(40, 0))) === 'grab', 'piano roll : une main sur les notes');
   await rc(40, 0).click({ position: { x: 5, y: 6 } });
   await page.waitForTimeout(500);
   ok((await evs()).some((e) => e[0] === 0 && e[2] === 40), 'piano roll : un clic sur une note ne l’efface plus');
