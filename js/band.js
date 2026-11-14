@@ -51,6 +51,7 @@ SS.band = (() => {
   };
   const icon = (role) => `<svg viewBox="0 0 24 24">${ICON[(B().ROLES[role] || {}).icon] || ICON.keys}</svg>`;
   const PLAY = '<svg viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z" class="fill"/></svg>';
+  const STOP = '<svg viewBox="0 0 24 24" class="stop"><rect x="6" y="6" width="12" height="12" rx="1.5" class="fill"/></svg>';
 
   /* ---------- Modèle ---------- */
   const style = () => B().STYLES.find((s) => s.id === S.styleId);
@@ -649,6 +650,7 @@ SS.band = (() => {
     if (n === S.wiz.step || !canGo(n)) return;
     S.wiz.step = n;
     S.sel = null;
+    if (n === 1) dropListen();
     renderWiz();
   }
 
@@ -679,6 +681,18 @@ SS.band = (() => {
       else groups.push({ musician: c.musician, mu: p.musicians.find((m) => m.id === c.musician), cols: [c] });
     });
     const pick = step === 4;
+    const mix = step === 3;
+    const muted = (c) => {
+      const solo = S.wiz.solo.size > 0;
+      return mix && (S.wiz.mute.has(c.id) || (solo && !S.wiz.solo.has(c.id)));
+    };
+    const msBtns = (ids, label) =>
+      h(
+        'span',
+        { class: 'bw-ms' },
+        h('button', { type: 'button', class: 'bw-m' + (ids.every((id) => S.wiz.mute.has(id)) ? ' on' : ''), 'aria-pressed': String(ids.every((id) => S.wiz.mute.has(id))), title: `Muet : couper ${label}`, 'aria-label': `Muet ${label}`, onclick: () => toggleMS(S.wiz.mute, ids) }, 'M'),
+        h('button', { type: 'button', class: 'bw-s' + (ids.every((id) => S.wiz.solo.has(id)) ? ' on' : ''), 'aria-pressed': String(ids.every((id) => S.wiz.solo.has(id))), title: `Solo : écouter ${label} seul`, 'aria-label': `Solo ${label}`, onclick: () => toggleMS(S.wiz.solo, ids) }, 'S')
+      );
     const isOff = (c) => pick && S.wiz.off.has(c.id);
     const check = (ids, label) => {
       const on = ids.filter((id) => !S.wiz.off.has(id)).length;
@@ -693,6 +707,35 @@ SS.band = (() => {
     const melCols = cols.filter((c) => singer(c.role));
     const kept = cols.filter((c) => !S.wiz.off.has(c.id)).length;
 
+    const order = h(
+      'div',
+      { class: 'bw-order', role: 'group', 'aria-label': 'Ordre des scènes dans la chanson' },
+      h(
+        'button',
+        { type: 'button', class: 'btn btn-small bw-playsong', id: 'bwPlaySong', 'aria-pressed': 'false', title: 'Écouter toute la chanson, dans l’ordre des scènes', onclick: () => (L.mode === 'song' ? stopListen() : listenSong(0)) },
+        h('span', { class: 'bw-pico', html: PLAY + STOP }),
+        h('span', {}, 'Écouter la chanson')
+      ),
+      h(
+        'ol',
+        { class: 'bw-blocks' },
+        ...res.song.map((b, i) => {
+          const sc = res.scenes.find((x) => x.id === b.scene);
+          const bars = sc.bars * b.repeat;
+          return h(
+            'li',
+            { style: `flex:${bars} 1 0` },
+            h(
+              'button',
+              { type: 'button', class: 'bw-block', 'data-sec': sc.sec, title: `Écouter à partir de « ${sc.name} » (${bars} mesures)`, onclick: () => listenSong(i) },
+              h('span', {}, sc.name),
+              b.repeat > 1 ? h('small', {}, `×${b.repeat}`) : null
+            )
+          );
+        })
+      ),
+      h('span', { class: 'bw-seed bw-dur' }, time)
+    );
     const top = h(
       'div',
       { class: 'bw-top' },
@@ -702,7 +745,8 @@ SS.band = (() => {
         h('b', {}, `« ${p.song} »`),
         h('span', {}, ` ${p.artist} · ${SS.harmony.label(res.key)} · ${p.tempo} BPM · ${res.scenes.length} scènes · ${len} mesures · ${time}`)
       ),
-      h('p', { class: 'bw-hint' }, STEPS[step - 1].hint + '.'),
+      h('p', { class: 'bw-hint' }, STEPS[step - 1].hint + '.' + (step === 3 ? ' Clique une scène pour l’écouter ; M coupe un instrument, S l’écoute seul.' : ' Clique une scène pour l’écouter en boucle.')),
+      order,
       step === 3
         ? h(
             'div',
@@ -745,7 +789,8 @@ SS.band = (() => {
             class: 'bw-group' + (off ? ' off' : '') + (step === 3 && singer(g.mu.role) ? ' mel' : ''),
             style: `--c:${colorOf(g.mu)}`,
           },
-          h('label', { class: 'bw-glabel' }, pick ? check(ids, label) : null, h('span', { class: 'bw-ico', html: icon(g.mu.role) }), h('span', {}, label))
+          h('label', { class: 'bw-glabel' }, pick ? check(ids, label) : null, h('span', { class: 'bw-ico', html: icon(g.mu.role) }), h('span', {}, label)),
+          mix && ids.length > 1 ? msBtns(ids, label) : null
         );
       })
     );
@@ -756,21 +801,27 @@ SS.band = (() => {
         const multi = groups.find((g) => g.musician === c.musician).cols.length > 1;
         return h(
           'th',
-          { scope: 'col', class: 'bw-track' + (isOff(c) ? ' off' : '') + (step === 3 && singer(c.role) ? ' mel' : ''), style: `--c:${c.o.color}`, title: B().describe(c.o).name },
-          h('label', {}, pick && multi ? check([c.id], c.o.name) : null, h('span', {}, c.o.name))
+          { scope: 'col', class: 'bw-track' + (isOff(c) ? ' off' : '') + (muted(c) ? ' muted' : '') + (step === 3 && singer(c.role) ? ' mel' : ''), style: `--c:${c.o.color}`, title: B().describe(c.o).name },
+          h('label', {}, pick && multi ? check([c.id], c.o.name) : null, h('span', {}, c.o.name)),
+          mix ? msBtns([c.id], c.o.name) : null
         );
       })
     );
     const body = res.scenes.map((sc) =>
       h(
         'tr',
-        {},
+        { 'data-scene': sc.id, 'data-bars': sc.bars },
         h(
           'th',
           { scope: 'row', class: 'bw-scene', title: sceneChords(sc) },
-          h('span', { class: 'bw-sname' }, sc.name),
-          h('small', {}, `${sc.bars} mes.` + (plays.get(sc.id) > 1 ? ` · ×${plays.get(sc.id)}` : '')),
-          h('small', { class: 'bw-chords' }, sceneChords(sc))
+          h(
+            'button',
+            { type: 'button', class: 'bw-splay', 'aria-pressed': 'false', title: `Écouter « ${sc.name} » en boucle (re-clic : arrêt)`, onclick: () => listenScene(sc.id) },
+            h('span', { class: 'bw-pico', html: PLAY + STOP }),
+            h('span', { class: 'bw-sname' }, sc.name),
+            h('small', {}, `${sc.bars} mes.` + (plays.get(sc.id) > 1 ? ` · ×${plays.get(sc.id)}` : '')),
+            h('small', { class: 'bw-chords' }, sceneChords(sc))
+          )
         ),
         ...cols.map((c) => {
           const d = sc.data[c.id];
@@ -778,7 +829,7 @@ SS.band = (() => {
           const n = on ? (d.steps ? d.steps.filter((v) => v > 0).length : d.events.length) : 0;
           return h(
             'td',
-            { class: 'bw-cell' + (isOff(c) ? ' off' : '') + (step === 3 && singer(c.role) ? ' mel' : '') },
+            { class: 'bw-cell' + (isOff(c) ? ' off' : '') + (muted(c) ? ' muted' : '') + (step === 3 && singer(c.role) ? ' mel' : '') },
             on
               ? h('div', { class: 'bw-clip', style: `--c:${c.o.color}`, title: `${sc.name} · ${c.o.name} : ${n} ${d.steps ? 'coup' : 'note'}${n > 1 ? 's' : ''}` }, clipSvg(d, sc.bars, range.get(c.id)))
               : h('div', { class: 'bw-slot', title: `${sc.name} · ${c.o.name} : silence` })
@@ -812,6 +863,8 @@ SS.band = (() => {
     else {
       renderWizGrid();
       wizFoot();
+      relisten();
+      markListen();
     }
   }
 
@@ -842,6 +895,174 @@ SS.band = (() => {
     app.applySong(cols.map((c) => c.o), p, p.tempo, { melodySeed: seed });
   }
 
+  /* ---------- Écoute dans l'assistant ----------
+   * La chanson de la vue session est jouée telle qu'elle sera créée : pistes, scènes, mixage et mastering
+   * automatiques, sur un projet temporaire (rien n'est écrit dans la chanson). Clic sur une scène : elle tourne
+   * en boucle ; « Écouter la chanson » ou un bloc du bandeau : l'arrangement à partir de ce bloc.
+   * Muet / Solo (étape Mélodie) : par colonne, comme sur une console.
+   */
+  const L = { proj: null, sig: null, mode: null, scene: null, block: -1, step: -1 };
+  const LID = (id) => 'bw·' + id; // identifiants des pistes d'écoute : jamais ceux de la chanson
+
+  /** Projet d'écoute : construit comme « Créer la chanson » (main.js, addBandSong), recalculé si la chanson change. */
+  function listenProject() {
+    const { cols, res } = wizSong();
+    if (!res) return null;
+    if (L.proj && L.sig === S.wiz.sig) return L.proj;
+    dropListen();
+    const p = preset();
+    const proj = SS.newProject();
+    proj.tempo = p.tempo;
+    proj.timeSig = [4, 4];
+    const levelKeys = new Map();
+    proj.tracks = cols.map((c) => {
+      const t = SS.newTrack(c.o, proj);
+      t.id = LID(c.id);
+      t.col = c.id;
+      if (c.o.band) t.band = { ...c.o.band };
+      levelKeys.set(t.id, c.o.levelKey);
+      return t;
+    });
+    proj.scenes = res.scenes.map((sc) => ({
+      id: sc.id,
+      name: sc.name,
+      bars: sc.bars,
+      key: sc.key,
+      data: Object.fromEntries(Object.entries(sc.data).map(([id, d]) => [LID(id), d])),
+    }));
+    proj.song = res.song.map((b) => ({ ...b }));
+    proj.playMode = 'song';
+    proj.songLoop = false;
+    const st = (proj.tracks.find((t) => t.band) || { band: {} }).band.style || 'synthwave';
+    SS.bandMix.mixTracks(proj.tracks, levelKeys, st);
+    SS.bandMix.mixMaster(proj, st, SS.bandMix.driveFor(p.id, st));
+    proj.groove = { ...(proj.groove || { res: 0, swing: 0.5 }), human: 0.15 };
+    SS.loadScene(proj, proj.scenes[0].id, { commit: false });
+    L.proj = proj;
+    L.sig = S.wiz.sig;
+    applyListenMutes();
+    return proj;
+  }
+
+  /** Muet / Solo des colonnes sur les pistes d'écoute. */
+  function applyListenMutes() {
+    if (!L.proj) return;
+    L.proj.tracks.forEach((t) => {
+      t.mute = S.wiz.mute.has(t.col);
+      t.solo = S.wiz.solo.has(t.col);
+    });
+    if (L.mode) SS.audio.applyMutes(L.proj);
+  }
+
+  function stopListen() {
+    if (L.mode) SS.audio.stop();
+    L.mode = null;
+    L.scene = null;
+    L.block = -1;
+    L.step = -1;
+    markListen();
+  }
+
+  /** Arrête et libère les tranches audio des pistes d'écoute. */
+  function dropListen() {
+    stopListen();
+    if (L.proj) L.proj.tracks.forEach((t) => SS.audio.removeTrack(t.id));
+    L.proj = null;
+    L.sig = null;
+  }
+
+  function onListenStep(step) {
+    if (step < 0) {
+      // arrêt par le moteur (autre lecture, fin)
+      if (L.mode) {
+        L.mode = null;
+        L.scene = null;
+        L.block = -1;
+      }
+      L.step = -1;
+    } else L.step = step;
+    markListen();
+  }
+
+  /** Une scène en boucle (re-clic : arrêt). */
+  function listenScene(id) {
+    if (L.mode === 'scene' && L.scene === id) return stopListen();
+    const proj = listenProject();
+    if (!proj) return;
+    stopListen();
+    SS.loadScene(proj, id, { commit: false });
+    L.mode = 'scene';
+    L.scene = id;
+    markListen();
+    SS.audio.start(() => proj, onListenStep, {});
+  }
+
+  /** L'arrangement à partir du bloc `index` (re-clic sur « Écouter la chanson » : arrêt). */
+  function listenSong(index = 0) {
+    const proj = listenProject();
+    if (!proj) return;
+    stopListen();
+    L.mode = 'song';
+    L.block = index;
+    L.scene = proj.song[index].scene;
+    markListen();
+    SS.audio.start(() => proj, onListenStep, {
+      song: {
+        index,
+        onBlock: (i) => {
+          const b = proj.song[i];
+          if (b && b.scene !== proj.current) SS.loadScene(proj, b.scene, { commit: false });
+        },
+        onBlockVisible: (i) => {
+          L.block = i;
+          L.scene = proj.song[i].scene;
+          L.step = -1;
+          markListen();
+        },
+        onEnd: stopListen,
+      },
+    });
+  }
+
+  /** La chanson a changé (autre mélodie…) pendant l'écoute : on reprend au même endroit avec les nouvelles notes. */
+  function relisten() {
+    if (!L.mode || L.sig === S.wiz.sig) return;
+    const { mode, scene, block } = L;
+    dropListen();
+    if (mode === 'scene') listenScene(scene);
+    else listenSong(Math.max(0, block));
+  }
+
+  /** Muet / Solo d'une ou plusieurs colonnes (un groupe : toutes ses colonnes). */
+  function toggleMS(set, ids) {
+    const all = ids.every((id) => set.has(id));
+    ids.forEach((id) => (all ? set.delete(id) : set.add(id)));
+    applyListenMutes();
+    renderWiz();
+  }
+
+  /** Ce qui joue : bandeau, ligne de la scène et tête de lecture (sans reconstruire la grille). */
+  function markListen() {
+    const box = $('#bandWiz');
+    if (!box) return;
+    const btn = $('#bwPlaySong', box);
+    if (btn) {
+      const on = L.mode === 'song';
+      btn.classList.toggle('on', on);
+      btn.setAttribute('aria-pressed', on);
+      btn.lastChild.textContent = on ? 'Arrêter' : 'Écouter la chanson';
+    }
+    box.querySelectorAll('.bw-block').forEach((b, i) => b.classList.toggle('playing', L.mode === 'song' && i === L.block));
+    box.querySelectorAll('.bw-grid tbody tr').forEach((tr) => {
+      const on = !!L.mode && tr.dataset.scene === L.scene;
+      tr.classList.toggle('playing', on);
+      const b = $('.bw-splay', tr);
+      if (b) b.setAttribute('aria-pressed', L.mode === 'scene' && on);
+      if (on && L.step >= 0) tr.style.setProperty('--ph', L.step / (Number(tr.dataset.bars) * 16));
+      else tr.style.removeProperty('--ph');
+    });
+  }
+
   /** Instrument d'une nouvelle piste « Mélodie » : la voix ou le lead du groupe choisi (ou le premier lead du catalogue). */
   function melodyTrackOpts() {
     const find = (p) => p && p.musicians.find((m) => m.role === 'vox') || (p && p.musicians.find((m) => m.role === 'lead'));
@@ -866,7 +1087,7 @@ SS.band = (() => {
   }
   /** Assistant « Nouvelle chanson » (menu de l'application), sur une chanson vide. */
   function openWizard() {
-    S.wiz = { step: 1, seed: 0, off: new Set(), sig: null, res: null };
+    S.wiz = { step: 1, seed: 0, off: new Set(), mute: new Set(), solo: new Set(), sig: null, res: null };
     show();
   }
   function show() {
@@ -1019,7 +1240,10 @@ SS.band = (() => {
     $('#bwBack').addEventListener('click', () => goStep(S.wiz.step - 1));
     $('#bwNext').addEventListener('click', () => goStep(S.wiz.step + 1));
     $('#bwCreate').addEventListener('click', createWizSong);
-    el.addEventListener('close', () => (S.wiz = null));
+    el.addEventListener('close', () => {
+      dropListen();
+      S.wiz = null;
+    });
     SS.melodyPanel.init(app); // l'atelier Mélodie vit dans Key → Chanson
     // Échap = annuler (rien n'est créé)
     el.addEventListener('cancel', (e) => {
@@ -1032,5 +1256,5 @@ SS.band = (() => {
     el.addEventListener('keydown', (e) => e.stopPropagation());
   }
 
-  return { init, open, openWizard, plannedTracks, melodyTrackOpts, _state: S };
+  return { init, open, openWizard, plannedTracks, melodyTrackOpts, _state: S, _listen: () => L.proj };
 })();
