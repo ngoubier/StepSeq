@@ -32,6 +32,8 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FAIL ') + m); if (!c) process
     ok((await events()).length === 2, 'deux notes simultanées en mode Mono');
     ok(await cell(60, 0).evaluate(e => e.classList.contains('on')), 'la première note reste affichée');
     await click(64, 0);
+    ok((await events()).length === 2, 'un clic sur une note la sélectionne sans l’effacer');
+    await page.keyboard.press('Delete'); await page.waitForTimeout(500);
     ok((await events()).length === 1 && (await events())[0].notes[0] === 60, 'supprimer la seconde note conserve la première');
     await page.keyboard.press('Control+z'); await page.waitForTimeout(500);
     ok((await events()).length === 2, 'annuler restaure la superposition');

@@ -2009,14 +2009,14 @@ SS.ui = (() => {
   }
 
   /**
-   * Appui sur une note déjà sélectionnée, sur n'importe quelle note en mode Sélection, ou sur une note de la ligne
-   * d'une piste instrument : glisser déplace toute la sélection (Alt : une copie). Sans mouvement, un clic sur la
-   * ligne (ou en mode Sélection) sélectionne la note et affiche ses poignées ; ailleurs il garde son effet habituel.
+   * Appui sur une note d'une piste instrument (ligne ou piano roll), ou sur n'importe quel pas en mode Sélection :
+   * glisser déplace toute la sélection (Alt : une copie). Sans mouvement, le clic sélectionne la note et affiche ses
+   * poignées (Suppr l'efface) ; sur la batterie hors mode Sélection, il garde son effet habituel (éteindre le pas).
    * Renvoie true si le geste est pris en charge.
    */
   function grabSelected(track, cell, e) {
     const it = itemAtCell(track, cell);
-    const line = !isDrum(track) && !cell.dataset.midi; // ligne de la piste (piano roll : data-midi)
+    const line = !isDrum(track); // note d'une piste instrument : ligne ou piano roll
     if (it == null || (!isSelected(track, it) && !selectMode && !line)) return false;
     const wasSelected = isSelected(track, it);
     if (!wasSelected) setSelection(track, [it]);
@@ -2071,8 +2071,8 @@ SS.ui = (() => {
         if (badge) badge.remove();
         document.body.classList.remove('moving-notes', 'copying-notes');
         if (mv) return mv.commit();
-        // simple clic : en mode Sélection ou sur la ligne, la note devient la seule sélectionnée (poignées) ;
-        // sinon effet habituel (effacer). Sur la ligne, Suppr efface la note sélectionnée.
+        // simple clic : en mode Sélection ou sur une note, elle devient la seule sélectionnée (poignées) ;
+        // batterie : effet habituel (éteindre le pas). Suppr efface la sélection.
         if (selectMode || line) {
           setSelection(track, [it]);
           if (!wasSelected && !SS.audio.isPlaying()) SS.audio.preview(track, isDrum(track) ? undefined : it.notes.length === 1 ? it.notes[0] : it.notes);

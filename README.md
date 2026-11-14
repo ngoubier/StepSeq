@@ -440,12 +440,13 @@ node tests/e2e/midi-ui.js            # import / export MIDI (fichier de test fab
 node tests/e2e/trigcond.js           # conditions de déclenchement (menus, repères, notes jouées passage par passage)
 node tests/e2e/automation.js         # automation (ligne sous la piste, dessin, formes, son qui suit la courbe)
 node tests/e2e/compact-menu.js       # hauteur « Compact » : menu ⋯ des commandes de la piste
-node tests/e2e/line-select.js        # ligne de piste : clic = sélection (pas d'effacement), glisser = déplacer
+node tests/e2e/line-select.js        # ligne et piano roll : clic = sélection (pas d'effacement), glisser = déplacer
 ```
 
-Dans le piano roll, cliquer sur une note / un accord existant le supprime. Sur la ligne compacte, un clic sur une case
-vide pose la dernière note (ou le dernier accord) utilisée ; un clic sur une note existante la sélectionne (poignées
-de longueur et de vélocité) et glisser la déplace (`grabSelected` dans `js/ui.js`) ; Suppr l'efface.
+Sur la ligne compacte comme dans le piano roll, un clic sur une note existante la sélectionne (poignées de longueur
+et de vélocité) au lieu de l'effacer, glisser la déplace (en temps, et en hauteur dans le piano roll ;
+`grabSelected` dans `js/ui.js`) et Suppr l'efface. Sur la ligne compacte, un clic sur une case vide pose la dernière
+note (ou le dernier accord) utilisée.
 
 ### Automation : faire évoluer le son au fil de la scène
 

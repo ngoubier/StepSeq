@@ -1,5 +1,5 @@
 /*
- * Ligne d’une piste instrument : un clic sur une note la sélectionne (poignées) au lieu de l’effacer ;
+ * Ligne et piano roll d’une piste instrument : un clic sur une note la sélectionne (poignées) au lieu de l’effacer ;
  * glisser la déplace, Suppr l’efface, un clic sur une case vide pose toujours une note.
  *   node tests/e2e/line-select.js
  */
@@ -74,13 +74,25 @@ const ok = (c, m) => {
   await page.waitForTimeout(500);
   ok((await evs()).some((e) => e[0] === 4 || e[0] === 5), 'clic sur une case vide : une note est posée');
 
-  // piano roll : comportement inchangé (un clic sur une note l'efface)
+  // piano roll : même comportement (sélection, déplacement en temps et en hauteur, Suppr)
   await page.click('.track .th-roll');
   await page.waitForTimeout(300);
-  const rc = page.locator('.rcell[data-midi="40"][data-step="0"]');
-  await rc.click({ position: { x: 5, y: 6 } });
+  const rc = (m, st) => page.locator(`.rcell[data-midi="${m}"][data-step="${st}"]`);
+  await rc(40, 0).click({ position: { x: 5, y: 6 } });
   await page.waitForTimeout(500);
-  ok(!(await evs()).some((e) => e[0] === 0), 'piano roll : un clic sur une note l’efface toujours');
+  ok((await evs()).some((e) => e[0] === 0 && e[2] === 40), 'piano roll : un clic sur une note ne l’efface plus');
+  ok(await rc(40, 0).evaluate((c) => c.classList.contains('sel')), 'piano roll : la note est sélectionnée');
+  const a0 = await rc(40, 0).boundingBox();
+  const a1 = await rc(42, 2).boundingBox();
+  await page.mouse.move(a0.x + 5, a0.y + a0.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(a1.x + 5, a1.y + a1.height / 2, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(500);
+  ok((await evs()).some((e) => e[0] === 2 && e[2] === 42) && !(await evs()).some((e) => e[0] === 0), `piano roll : glisser déplace la note (pas 3, +2 demi-tons) ${JSON.stringify(await evs())}`);
+  await page.keyboard.press('Delete');
+  await page.waitForTimeout(500);
+  ok(!(await evs()).some((e) => e[2] === 42), 'piano roll : Suppr efface la note');
 
   ok(!errs.length, 'aucune erreur JS' + (errs.length ? ' : ' + errs.join(' | ') : ''));
   await b.close();
