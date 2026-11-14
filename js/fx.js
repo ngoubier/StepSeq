@@ -30,7 +30,8 @@ SS.fx = (() => {
     scRelease: { label: 'Relâchement (remontée)', scale: logf(0.03, 1), fmt: (v) => `${Math.round(v * 1000)} ms`, box: '#fxScSliders' },
     sendPlate: { label: 'Plate (batterie)', scale: lin(0, 1), fmt: pct, box: '#fxSendSliders' },
     sendHall: { label: 'Hall (instruments)', scale: lin(0, 1), fmt: pct, box: '#fxSendSliders' },
-    sendEcho: { label: 'Écho', scale: lin(0, 1), fmt: pct, box: '#fxSendSliders' },
+    sendEcho: { label: 'Écho (délai à bande)', scale: lin(0, 1), fmt: pct, box: '#fxSendSliders' },
+    sendSpace: { label: 'Cosmos (reverb longue, ambient)', scale: lin(0, 1), fmt: pct, box: '#fxSendSliders' },
     roomLp: { label: 'Brillance', scale: logf(500, 20000), fmt: (v) => (v < 1000 ? `${Math.round(v)} Hz` : `${(v / 1000).toFixed(1)} kHz`), box: '#fxRoomSliders' },
   };
 
@@ -54,11 +55,13 @@ SS.fx = (() => {
       { label: 'Extrême', v: { scDepth: 0.95, scRelease: 0.4 } },
     ],
     send: [
-      { label: 'Sec', v: { sendPlate: 0, sendHall: 0, sendEcho: 0 } },
+      { label: 'Sec', v: { sendPlate: 0, sendHall: 0, sendEcho: 0, sendSpace: 0 } },
       { label: 'Batterie', v: { sendPlate: 0.3, sendHall: 0, sendEcho: 0 } },
       { label: 'Nappe', v: { sendPlate: 0, sendHall: 0.4, sendEcho: 0 } },
       { label: 'Lead', v: { sendPlate: 0, sendHall: 0.25, sendEcho: 0.18 } },
       { label: 'Arpège', v: { sendPlate: 0, sendHall: 0.2, sendEcho: 0.25 } },
+      { label: 'Ambient', v: { sendPlate: 0, sendHall: 0.1, sendEcho: 0.15, sendSpace: 0.55 } },
+      { label: 'Dub techno', v: { sendPlate: 0, sendHall: 0.1, sendEcho: 0.45, sendSpace: 0.2 } },
     ],
     room: [
       { label: 'Pièce', v: { room: 0.2, roomSize: 0.8, roomLp: 9000 } },
@@ -152,12 +155,35 @@ SS.fx = (() => {
     dlg.addEventListener('keydown', (e) => e.stopPropagation());
   }
 
-  /* Réglages communs des bus partagés (project.returns) */
+  /* Réglages communs des bus partagés (project.returns), par groupe */
+  const ms = (v) => `${Math.round(v * 1000)} ms`;
+  const hz = (v) => (v < 1000 ? `${Math.round(v)} Hz` : `${(v / 1000).toFixed(1).replace('.', ',')} kHz`);
+  const RETURN_GROUPS = [
+    { id: 'rev', label: 'Reverbs plate et hall' },
+    { id: 'echo', label: 'Écho · délai à bande' },
+    { id: 'space', label: 'Cosmos · reverb longue' },
+  ];
   const RETURN_SPECS = [
-    { bus: 'plate', key: 'size', label: 'Plate : durée', scale: logf(0.3, 4), fmt: (v) => `${v.toFixed(1)} s` },
-    { bus: 'hall', key: 'size', label: 'Hall : durée', scale: logf(0.5, 8), fmt: (v) => `${v.toFixed(1)} s` },
-    { bus: 'hall', key: 'predelay', label: 'Hall : pré-délai', scale: lin(0, 0.12), fmt: (v) => `${Math.round(v * 1000)} ms` },
-    { bus: 'echo', key: 'feedback', label: 'Écho : répétitions', scale: lin(0, 0.85), fmt: (v) => `${Math.round(v * 100)} %` },
+    { group: 'rev', bus: 'plate', key: 'size', label: 'Plate : durée', scale: logf(0.3, 4), fmt: (v) => `${v.toFixed(1)} s` },
+    { group: 'rev', bus: 'hall', key: 'size', label: 'Hall : durée', scale: logf(0.5, 8), fmt: (v) => `${v.toFixed(1)} s` },
+    { group: 'rev', bus: 'hall', key: 'predelay', label: 'Hall : pré-délai', scale: lin(0, 0.12), fmt: ms },
+    { group: 'echo', bus: 'echo', key: 'feedback', label: 'Répétitions (réinjection)', scale: lin(0, 1), fmt: (v) => `${Math.round(v * 100)} %${v > 0.9 ? ' · très longues' : ''}` },
+    { group: 'echo', bus: 'echo', key: 'lp', label: 'Couleur (filtre dans la boucle)', scale: logf(800, 12000), fmt: hz },
+    { group: 'echo', bus: 'echo', key: 'drive', label: 'Saturation de la bande', scale: lin(0, 1), fmt: pct },
+    { group: 'echo', bus: 'echo', key: 'wow', label: 'Wow / flutter', scale: lin(0, 1), fmt: pct },
+    { group: 'space', bus: 'space', key: 'decay', label: 'Durée de la queue', scale: logf(0.5, 60), fmt: (v) => `${v < 10 ? v.toFixed(1).replace('.', ',') : Math.round(v)} s` },
+    { group: 'space', bus: 'space', key: 'size', label: 'Taille', scale: lin(0.1, 1), fmt: (v) => `${Math.round(v * 100)} %` },
+    { group: 'space', bus: 'space', key: 'predelay', label: 'Pré-délai', scale: lin(0, 0.4), fmt: ms },
+    { group: 'space', bus: 'space', key: 'damp', label: 'Amortissement des aigus', scale: logf(500, 20000), fmt: hz },
+    { group: 'space', bus: 'space', key: 'mod', label: 'Modulation de la queue', scale: lin(0, 1), fmt: (v) => `${Math.round(v * 100)} %` },
+    { group: 'space', bus: 'space', key: 'shimmer', label: 'Shimmer (octave réinjectée)', scale: lin(0, 1), fmt: pct },
+    { group: 'space', bus: 'space', key: 'level', label: 'Niveau du retour', scale: lin(0, 2), fmt: (v) => `${Math.round(v * 100)} %` },
+  ];
+  const SPACE_PRESETS = [
+    { label: 'Salle', v: { decay: 3.5, size: 0.6, damp: 7000, mod: 0.25, shimmer: 0, predelay: 0.03 } },
+    { label: 'Cathédrale', v: { decay: 12, size: 0.9, damp: 5000, mod: 0.35, shimmer: 0, predelay: 0.06 } },
+    { label: 'Infini', v: { decay: 45, size: 1, damp: 4000, mod: 0.5, shimmer: 0, predelay: 0.08 } },
+    { label: 'Shimmer', v: { decay: 16, size: 0.9, damp: 7000, mod: 0.4, shimmer: 0.55, predelay: 0.05 } },
   ];
   const returnInputs = [];
   function setReturn(bus, patch) {
@@ -170,6 +196,37 @@ SS.fx = (() => {
     app.changed();
   }
   function buildReturns() {
+    const boxes = {};
+    RETURN_GROUPS.forEach((g) => {
+      const box = document.createElement('div');
+      box.className = 'fx-ret-group';
+      box.id = `fxRet_${g.id}`;
+      const h = document.createElement('h4');
+      h.textContent = g.label;
+      box.append(h);
+      $('#fxReturnSliders').append(box);
+      boxes[g.id] = box;
+    });
+    // Cosmos : préréglages et gel
+    const tools = document.createElement('div');
+    tools.className = 'gv-presets fx-space-tools';
+    SPACE_PRESETS.forEach((pr) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip';
+      b.textContent = pr.label;
+      b.addEventListener('click', () => setReturn('space', pr.v));
+      tools.append(b);
+    });
+    const freeze = document.createElement('button');
+    freeze.type = 'button';
+    freeze.id = 'fxFreeze';
+    freeze.className = 'chip fx-freeze';
+    freeze.textContent = 'Freeze';
+    freeze.title = 'Gèle la queue du Cosmos : elle tient indéfiniment, les nouvelles notes n’y entrent plus';
+    freeze.addEventListener('click', () => setReturn('space', { freeze: !SS.returnParams(app.project()).space.freeze }));
+    tools.append(freeze);
+    boxes.space.append(tools);
     RETURN_SPECS.forEach((spec) => {
       const id = `fxRet_${spec.bus}_${spec.key}`;
       const row = document.createElement('div');
@@ -185,9 +242,12 @@ SS.fx = (() => {
       input.max = 1000;
       input.addEventListener('input', () => setReturn(spec.bus, { [spec.key]: +spec.scale.to(+input.value / 1000).toPrecision(3) }));
       row.append(label, out, input);
-      $('#fxReturnSliders').append(row);
+      boxes[spec.group].append(row);
       returnInputs.push({ spec, input, out });
     });
+    // le temps de l'écho rejoint son groupe
+    const echoRow = $('#fxEchoTime').closest('.sd-row');
+    boxes.echo.insertBefore(echoRow, boxes.echo.children[1]);
     SS.DELAY_TIMES.forEach((d) => {
       const o = document.createElement('option');
       o.value = d.id;
@@ -205,6 +265,10 @@ SS.fx = (() => {
       out.textContent = spec.fmt(v);
     });
     $('#fxEchoTime').value = r.echo.time;
+    const fz = $('#fxFreeze');
+    fz.classList.toggle('active', !!r.space.freeze);
+    fz.setAttribute('aria-pressed', String(!!r.space.freeze));
+    fz.textContent = r.space.freeze ? 'Freeze · gelé' : 'Freeze';
     $('#fxEchoMs').textContent = `${Math.round(SS.delaySeconds({ delayTime: r.echo.time }, p.tempo) * 1000)} ms`;
   }
 
@@ -238,7 +302,7 @@ SS.fx = (() => {
     state('#fxChorusState', f.chorus > 0);
     state('#fxDelayState', f.delay > 0);
     state('#fxRoomState', f.room > 0);
-    state('#fxSendState', f.sendPlate > 0 || f.sendHall > 0 || f.sendEcho > 0);
+    state('#fxSendState', f.sendPlate > 0 || f.sendHall > 0 || f.sendEcho > 0 || f.sendSpace > 0);
     updateReturns();
     const sc = !!f.scSource && f.scDepth > 0;
     state('#fxScState', sc);
@@ -283,7 +347,7 @@ SS.fx = (() => {
       parts.push(`delay(${r(f.delay)})`, `delaytime(${r(SS.delaySeconds(f, app.project().tempo), 3)})`, `delayfeedback(${r(f.delayFeedback)})`);
     let code = parts.length ? '.' + parts.join('.') : '';
     if (f.chorus > 0) code += `  // + chorus ${Math.round(f.chorus * 100)} % (effet StepSeq)`;
-    const sends = [['sendPlate', 'plate'], ['sendHall', 'hall'], ['sendEcho', 'écho']].filter(([k]) => f[k] > 0);
+    const sends = [['sendPlate', 'plate'], ['sendHall', 'hall'], ['sendEcho', 'écho'], ['sendSpace', 'cosmos']].filter(([k]) => f[k] > 0);
     if (sends.length) code += `  // + bus ${sends.map(([k, n]) => `${n} ${Math.round(f[k] * 100)} %`).join(', ')}`;
     if (f.scSource && f.scDepth > 0) {
       const src = app.project().tracks.find((t) => t.id === f.scSource);

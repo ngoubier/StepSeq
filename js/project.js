@@ -194,6 +194,7 @@ SS.AUTO_PARAMS = [
   { id: 'volume', label: 'Volume', min: 0, max: 1, def: 1, cc: 11 },
   { id: 'reverb', label: 'Reverb', min: 0, max: 1, def: 0, cc: 91 },
   { id: 'echo', label: 'Écho', min: 0, max: 1, def: 0 },
+  { id: 'space', label: 'Cosmos (reverb longue)', min: 0, max: 1, def: 0 },
   { id: 'vcf', label: 'Cutoff du son', min: -1, max: 1, def: 0, voice: true },
   { id: 'pw', label: 'Largeur (PWM)', min: 0.05, max: 0.95, def: 0.5, voice: true, pulse: true },
   { id: 'fdecay', label: 'Decay du filtre', min: -1, max: 1, def: 0, voice: true },
@@ -369,6 +370,10 @@ SS.AUTO_SHAPES = {
   lfoamt: [
     { id: 'in', label: 'Faire entrer les LFO', points: ramp(0, 1.3) },
     { id: 'out', label: 'Calmer les LFO', points: ramp(1.3, 0) },
+  ],
+  space: [
+    { id: 'up', label: 'Monter le Cosmos', points: ramp(0, 0.8) },
+    { id: 'throw', label: 'Lâcher dans le Cosmos sur la dernière mesure', points: ramp(0, 1, 0.75) },
   ],
   echo: [
     { id: 'up', label: 'Monter l’écho', points: ramp(0, 0.7) },
@@ -938,11 +943,15 @@ SS.MASTER_DEFAULTS = {
  * sendEcho). Une seule reverb « plate » (batterie), une « hall » (instruments) et un écho synchronisé au tempo
  * pour tout le morceau : plus cohérent (même espace pour tous) et plus léger qu'une reverb par piste.
  *   size : durée (s) ; predelay : pré-délai (s) ; hp / lp : filtres du retour (Hz) ; level : niveau du retour.
+ * Écho (délai à bande) : wow (pleurage / scintillement de la bande, 0..1), drive (saturation dans la boucle, 0..1).
+ * « Cosmos » (js/space-dsp.js) : reverb algorithmique longue — decay (s, jusqu'à 60), size (0..1), damp (Hz),
+ *   mod (0..1), shimmer (octave réinjectée, 0..1), freeze (la queue tient indéfiniment).
  */
 SS.RETURN_DEFAULTS = {
   plate: { size: 1.4, predelay: 0.012, hp: 250, lp: 9000, level: 1 },
   hall: { size: 2.8, predelay: 0.03, hp: 300, lp: 6500, level: 1 },
-  echo: { time: '3/16', feedback: 0.32, hp: 250, lp: 4500, level: 1 },
+  echo: { time: '3/16', feedback: 0.32, hp: 250, lp: 4500, level: 1, wow: 0, drive: 0 },
+  space: { decay: 12, size: 0.8, predelay: 0.05, damp: 5000, mod: 0.35, shimmer: 0, freeze: false, hp: 180, lp: 9000, level: 1 },
 };
 
 const deepMerge = (base, over) => {
@@ -987,9 +996,18 @@ SS.cleanReturns = (r) => {
   const o = deepMerge(SS.RETURN_DEFAULTS, r);
   for (const [k, d] of Object.entries(SS.RETURN_DEFAULTS)) {
     const x = o[k];
-    if ('size' in d) x.size = numIn(x.size, 0.2, 10, d.size);
-    if ('predelay' in d) x.predelay = numIn(x.predelay, 0, 0.2, d.predelay);
-    if ('feedback' in d) x.feedback = numIn(x.feedback, 0, 0.9, d.feedback);
+    if (k === 'space') {
+      x.decay = numIn(x.decay, 0.5, 60, d.decay);
+      x.size = numIn(x.size, 0.1, 1, d.size);
+      x.damp = numIn(x.damp, 500, 20000, d.damp);
+      x.mod = numIn(x.mod, 0, 1, d.mod);
+      x.shimmer = numIn(x.shimmer, 0, 1, d.shimmer);
+      x.freeze = !!x.freeze;
+    } else if ('size' in d) x.size = numIn(x.size, 0.2, 10, d.size);
+    if ('predelay' in d) x.predelay = numIn(x.predelay, 0, k === 'space' ? 0.4 : 0.2, d.predelay);
+    if ('feedback' in d) x.feedback = numIn(x.feedback, 0, 1, d.feedback);
+    if ('wow' in d) x.wow = numIn(x.wow, 0, 1, d.wow);
+    if ('drive' in d) x.drive = numIn(x.drive, 0, 1, d.drive);
     if ('time' in d && !SS.DELAY_TIMES.some((t) => t.id === x.time)) x.time = d.time;
     x.hp = numIn(x.hp, 20, 2000, d.hp);
     x.lp = numIn(x.lp, 500, 20000, d.lp);
