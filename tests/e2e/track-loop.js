@@ -1,5 +1,6 @@
 /*
- * Fenêtres Sound design et Effets : bouton « Boucle » (js/trackloop.js) et « Supprimer tous les effets » :
+ * Fenêtres Sound design et Effets : bouton « Boucle » (js/trackloop.js) et « Supprimer tous les effets » ;
+ * ligne d'automation : « Tout effacer » :
  *   node tests/e2e/track-loop.js
  */
 const { chromium } = require('playwright');
@@ -90,6 +91,25 @@ const demo = JSON.parse(fs.readFileSync(path.join(ROOT, 'demos', 'train-de-nuit.
   ok(await page.evaluate(() => SS.trackLoop.mode() === 'note' && window.__n >= 2), 'piste vide : la note d’essai est rejouée en boucle');
   await page.evaluate(() => SS.trackLoop.stop());
   await page.keyboard.press('Escape');
+
+  // ligne d'automation sous la piste : Tout effacer (pas de boucle ici)
+  await page.locator('.th-auto').nth(idx).click();
+  await page.waitForTimeout(300);
+  ok((await page.locator('.auto-lane .auto-loop').count()) === 0 && (await page.locator('.auto-lane .auto-clear-all').count()) === 1, 'automation : bouton Tout effacer, pas de boucle');
+  await page.selectOption('.auto-lane .auto-shape', { index: 1 });
+  await page.waitForTimeout(400);
+  const p2 = await page.locator('.auto-lane .auto-param option').nth(2).getAttribute('value');
+  await page.selectOption('.auto-lane .auto-param', p2);
+  await page.selectOption('.auto-lane .auto-shape', { index: 1 });
+  await page.waitForTimeout(600);
+  const leadAuto = () => page.evaluate(() => JSON.parse(localStorage.getItem('stepseq.autosave')).tracks.find((t) => t.id === 'ti_lead').auto);
+  let auto = await leadAuto();
+  ok(auto && Object.keys(auto).length >= 2, `deux courbes dessinées (${auto ? Object.keys(auto).join(', ') : '—'})`);
+  if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'auto-clear.png') });
+  await page.click('.auto-lane .auto-clear-all');
+  await page.waitForTimeout(600);
+  auto = await leadAuto();
+  ok(!auto && (await page.isDisabled('.auto-lane .auto-clear-all')), 'Tout effacer : plus aucune courbe sur la piste');
 
   ok(!errs.length, 'aucune erreur JavaScript' + (errs.length ? ' : ' + errs.join(' | ') : ''));
   await b.close();

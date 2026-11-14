@@ -339,6 +339,7 @@
   /* ---------- Transport ---------- */
   /** Bouton Lecture / Pause (et barre d'espace) */
   function togglePlay() {
+    if (SS.trackLoop && SS.trackLoop.active()) return play(); // la boucle d'une piste seule laisse la place au morceau
     if (SS.audio.isPlaying()) pause();
     else if (SS.audio.isPaused()) resume();
     else play();
@@ -379,6 +380,7 @@
   }
 
   function play() {
+    if (SS.trackLoop && SS.trackLoop.active()) SS.trackLoop.stop(); // une piste écoutée seule en boucle laisse la place au morceau
     if (SS.audio.isPlaying()) return;
     if (SS.audio.isPaused()) SS.audio.stop(); // repartir du curseur
     const opts = { from: Math.min(state.cue, SS.totalSteps(project) - 1) };

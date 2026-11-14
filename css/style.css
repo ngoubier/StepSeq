@@ -3501,6 +3501,8 @@ button.th-gm.no:hover, button.th-gm.no:focus-visible { background: #f08a00; colo
 }
 .auto-head .auto-shape { flex: 1 1 auto; }
 .auto-head button:disabled { opacity: .4; cursor: default; }
+.auto-head .auto-clear, .auto-head .auto-clear-all { flex: none; white-space: nowrap; }
+.auto-head .auto-clear-all:hover:not(:disabled) { background: #a3262e; color: #fff; }
 .auto-val { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .auto-grid { height: 100%; align-items: stretch; touch-action: none; cursor: crosshair; position: relative; }
 .acell { position: relative; border-left: 1px solid #26262a; }
