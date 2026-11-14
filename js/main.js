@@ -261,7 +261,10 @@
       if (!SS.autosave.libraryAvailable() && project.tracks.length && !confirm('Créer un nouveau projet ? Les modifications non enregistrées seront perdues.')) return;
       await SS.autosave.saveNow();
       SS.files.reset();
-      await loadSong(SS.newProject(), { changed: true });
+      const fresh = SS.newProject();
+      fresh.bars = 4; // nouvelle chanson : 4 mesures par défaut
+      SS.commitScene(fresh);
+      await loadSong(fresh, { changed: true });
       // assistant : modèle d'instruments → la chanson en scènes × pistes → mélodie → pistes à importer
       // (fermer l'assistant laisse la chanson vide)
       SS.band.openWizard();
