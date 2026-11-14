@@ -119,3 +119,42 @@ test('export MIDI : courbe en CC 74 (filtre), une valeur par pas quand elle chan
   assert.ok(r.report.approx.some((x) => /CC 74/.test(x)));
   assert.ok(r.report.ignored.some((x) => /batterie/.test(x)));
 });
+
+test('longueur de l’automation : boucle à part, propre à la scène, gardée dans le fichier et à l’export MIDI', () => {
+  const p = project();
+  const [pad] = p.tracks;
+  p.bars = 2;
+  SS.resizeProject(p);
+  assert.equal(SS.autoLen(p, pad), 32, 'par défaut : la boucle de la piste');
+  pad.length = 16;
+  assert.equal(SS.autoLen(p, pad), 16);
+  pad.autoLen = 32; // montée sur 2 mesures sous une boucle de notes d'une mesure
+  assert.equal(SS.autoLen(p, pad), 32);
+  pad.autoLen = 64;
+  assert.equal(SS.autoLen(p, pad), 32, 'bornée par la scène');
+  pad.autoLen = 4;
+  SS.cleanAuto(pad);
+  assert.equal(pad.autoLen, 4);
+  pad.autoLen = -2;
+  SS.cleanAuto(pad);
+  assert.ok(!('autoLen' in pad), 'valeur invalide retirée');
+  // propre à la scène
+  pad.autoLen = 32;
+  const id = p.current;
+  SS.commitScene(p);
+  assert.equal(p.scenes[0].data[pad.id].autoLen, 32);
+  const other = SS.addScene(p, { copy: false });
+  SS.loadScene(p, other);
+  assert.ok(!('autoLen' in pad), 'scène vide : longueur par défaut');
+  SS.loadScene(p, id);
+  assert.equal(pad.autoLen, 32);
+  const back = SS.normalizeProject(JSON.parse(SS.serialize(p)));
+  assert.equal(back.tracks[0].autoLen, 32);
+  // export : la courbe (posée sur 0..15 puis tenue) boucle sur 32 pas, pas sur les 16 de la piste
+  pad.auto = { filter: { 0: -0.85, 31: 0 } };
+  SS.commitScene(p);
+  const m = SS.midiFile.parse(SS.midi.exportProject(p, { range: 'scene', loops: 1, swing: false }).bytes);
+  const filt = m.tracks[1].filter((e) => e.type === 'cc' && e.cc === 74);
+  assert.equal(filt.find((e) => e.tick === 31 * T).value, 64, 'ouvert au pas 32');
+  assert.ok(!filt.some((e) => e.tick === 16 * T && e.value === filt[0].value), 'ne repart pas au pas 17');
+});

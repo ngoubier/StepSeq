@@ -513,7 +513,7 @@ SS.ui = (() => {
 
   const openAutos = () => (app.state.openAutos = app.state.openAutos || new Set());
   const autoParams = new Map(); // piste -> réglage affiché dans sa ligne d'automation
-  const AUTO_LANE_H = 72;
+  const AUTO_LANE_H = 100;
 
   function buildAutoLane(track, ref) {
     const p = app.project();
@@ -540,16 +540,36 @@ SS.ui = (() => {
       };
       param.replaceChildren(og('Tranche de la piste', list.filter((x) => !x.voice)), og('Son, à chaque note', voice));
     };
-    const shapes = h('select', { class: 'auto-shape', 'aria-label': 'Forme toute prête', title: 'Remplace la courbe par une forme sur toute la boucle de la piste' });
+    const shapes = h('select', { class: 'auto-shape', 'aria-label': 'Forme toute prête', title: 'Remplace la courbe par une forme sur toute la longueur de l\'automation' });
     const fillShapes = () =>
       shapes.replaceChildren(h('option', { value: '' }, 'Forme…'), ...(SS.AUTO_SHAPES[P().id] || []).map((x) => h('option', { value: x.id }, x.label)));
     const readout = h('output', { class: 'auto-val' });
+    // longueur de l'automation : la boucle de la piste, ou une longueur à elle (temps, mesures), propre à la scène
+    const lenSel = h('select', { class: 'auto-len', 'aria-label': 'Longueur de l\'automation', title: 'Longueur de l\'automation : les courbes bouclent sur cette durée, indépendamment des notes (propre à la scène)' });
+    const fillLens = () => {
+      const pp = app.project();
+      const n = SS.totalSteps(pp), bar = SS.stepsPerBar(pp), beat = SS.stepsPerBeat(pp);
+      const choices = [];
+      const add = (v, label) => v >= 1 && v <= n && !choices.some((c) => c[0] === v) && choices.push([v, label]);
+      add(beat, '1 temps');
+      add(beat * 2, '2 temps');
+      for (let b = 1; b * bar <= n; b *= 2) add(b * bar, b === 1 ? '1 mesure' : `${b} mesures`);
+      add(n, `${n / bar} mesures`.replace(/^1 mesures$/, '1 mesure'));
+      if (track.autoLen && !choices.some((c) => c[0] === track.autoLen) && track.autoLen <= n) add(track.autoLen, `${track.autoLen} pas`);
+      choices.sort((a, b) => a[0] - b[0]);
+      lenSel.replaceChildren(
+        h('option', { value: '' }, `Comme la piste (${SS.trackLen(pp, track)} pas)`),
+        ...choices.map(([v, label]) => h('option', { value: String(v) }, `${label} (${v} pas)`))
+      );
+      lenSel.value = track.autoLen ? String(Math.min(track.autoLen, n)) : '';
+    };
     const clear = h('button', { type: 'button', class: 'auto-clear', title: 'Effacer la courbe de ce réglage dans la scène' }, 'Effacer');
     const clearAll = h('button', { type: 'button', class: 'auto-clear-all', title: 'Supprimer toutes les courbes d\'automation de cette piste dans la scène (Ctrl+Z pour revenir)' }, 'Tout effacer');
     const head = h(
       'div',
       { class: 'auto-head' },
       h('div', { class: 'auto-line' }, h('span', { class: 'auto-title', html: ICONS.auto }), param, shapes),
+      h('div', { class: 'auto-line' }, h('span', { class: 'auto-len-label' }, 'Longueur'), lenSel),
       h('div', { class: 'auto-line' }, readout, clear, clearAll)
     );
     const grid = h('div', { class: 'grid auto-grid', title: 'Glisser pour dessiner la courbe · clic droit (ou Alt) : effacer des points' });
@@ -564,7 +584,7 @@ SS.ui = (() => {
     function paintAuto() {
       const x = P();
       const l = lane();
-      const len = SS.trackLen(app.project(), track);
+      const len = SS.autoLen(app.project(), track);
       const span = x.max - x.min;
       const zero = (0 - x.min) / span; // ligne de base (0 en bas, ou au milieu pour le filtre)
       ref.autoCells.forEach((c, s) => {
@@ -600,7 +620,7 @@ SS.ui = (() => {
     });
     shapes.addEventListener('change', () => {
       if (!shapes.value) return;
-      SS.applyAutoShape(track, P().id, shapes.value, SS.trackLen(app.project(), track), SS.stepsPerBeat(app.project()));
+      SS.applyAutoShape(track, P().id, shapes.value, SS.autoLen(app.project(), track), SS.stepsPerBeat(app.project()));
       shapes.value = '';
       changedAuto();
       app.changed();
@@ -609,6 +629,12 @@ SS.ui = (() => {
       if (track.auto) delete track.auto[P().id];
       SS.cleanAuto(track);
       changedAuto();
+      app.changed();
+    });
+    lenSel.addEventListener('change', () => {
+      if (lenSel.value) track.autoLen = +lenSel.value;
+      else delete track.autoLen;
+      paintAuto();
       app.changed();
     });
     clearAll.addEventListener('click', () => {
@@ -638,7 +664,7 @@ SS.ui = (() => {
       e.preventDefault();
       const erase = e.button === 2 || e.altKey;
       if (e.button !== 0 && !erase) return;
-      const len = SS.trackLen(app.project(), track);
+      const len = SS.autoLen(app.project(), track);
       let last = null;
       const apply = (c, y) => {
         if (!c) return;
@@ -673,12 +699,13 @@ SS.ui = (() => {
     grid.addEventListener('pointermove', (e) => {
       if (e.buttons) return;
       const c = e.target.closest('.acell');
-      if (c && !c.classList.contains('beyond')) show(SS.autoValue(lane(), +c.dataset.step, SS.trackLen(app.project(), track)));
+      if (c && !c.classList.contains('beyond')) show(SS.autoValue(lane(), +c.dataset.step, SS.autoLen(app.project(), track)));
     });
 
     fillParams();
     param.value = P().id;
     fillShapes();
+    fillLens();
     paintAuto();
     return h('div', { class: 'auto-lane', style: `--auto-h:${AUTO_LANE_H}px` }, head, grid);
   }
@@ -2768,7 +2795,7 @@ SS.ui = (() => {
       if (!ref) return;
       const s = step % SS.trackLen(p, t);
       light(ref.cells[s]);
-      light(ref.autoCells && ref.autoCells[s]); // ligne d'automation
+      light(ref.autoCells && ref.autoCells[step % SS.autoLen(p, t)]); // ligne d'automation : sa propre boucle
     });
     heads.forEach(([head, at]) => {
       head.style.display = at ? '' : 'none';

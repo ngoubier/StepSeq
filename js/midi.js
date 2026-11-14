@@ -241,10 +241,11 @@
           }
           // automation (track.auto) -> contrôleurs MIDI, une valeur par pas quand elle change ; une courbe absente de
           // la scène revient à la valeur neutre. Batterie : non (canal 10 partagé par toutes les pistes de batterie).
+          const alen = SS.autoLen(view, { ...t, autoLen: d.autoLen }); // l'automation boucle sur sa propre longueur
           for (let tick = 0; tick < ticksTotal; tick++) {
             for (const P of SS.AUTO_PARAMS) {
               if (!P.cc) continue;
-              let v = SS.autoValue(d.auto && d.auto[P.id], tick % len, len);
+              let v = SS.autoValue(d.auto && d.auto[P.id], tick % alen, alen);
               if (v === null) {
                 if (out.ccLast[P.cc] === undefined) continue;
                 v = P.def;
