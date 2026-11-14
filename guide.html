@@ -113,7 +113,7 @@
       <p>Ouvre <a href="./">StepSeq</a> dans Chrome, Edge ou Firefox, puis clique sur ▶ : le projet démo se lance. Le navigateur n'autorise le son qu'après un premier clic, et la première boucle peut sauter quelques notes le temps que les sons se chargent.</p>
       <div class="table-wrap"><table>
         <tr><th>Élément de la barre du haut</th><th>Ce qu'il fait</th></tr>
-        <tr><td>Icône de l'application</td><td>Ouvre le menu : <b>Chansons</b>, <b>Nouveau</b>, <b>Ouvrir</b>, <b>Enregistrer</b></td></tr>
+        <tr><td>Icône de l'application</td><td>Ouvre le menu : <b>Chansons</b>, <b>Nouvelle chanson…</b> (l'<a href="#nouvelle-chanson">assistant</a>), <b>Ouvrir</b>, <b>Enregistrer</b></td></tr>
         <tr><td>Titre</td><td>Nom du projet, utilisé aussi comme nom de fichier</td></tr>
         <tr><td>Tempo (BPM)</td><td>Vitesse en noires par minute, de 20 à 300</td></tr>
         <tr><td>Mesure</td><td>Chiffrage : 4/4 par défaut, de 1 à 12 temps, en /4 ou /8</td></tr>
@@ -210,14 +210,15 @@
         <li>La chanson remplace les pistes, les scènes et l'arrangement du projet (une confirmation le rappelle) ; <kbd>Ctrl</kbd>+<kbd>Z</kbd> revient en arrière. La même inspiration donne toujours la même chanson : c'est une base à modifier, scène par scène.</li>
       </ul>
 
-      <h3>Mélodie : une mélodie sur une grille d'accords</h3>
-      <p>L'onglet <b>Mélodie</b>, en haut de la fenêtre Band, propose une mélodie sur une piste. Trois choses à remplir :</p>
-      <ul>
-        <li><b>Grille d'accords</b> : <code>Am | F | C | G</code> (« | » sépare les mesures), ou <b>Reprendre les accords de la scène</b>. La mélodie dure autant que la grille : 4 accords, 4 mesures.</li>
-        <li><b>Structure</b> : le nombre de notes par phrase, par exemple <code>8 8</code> (deux phrases qui se partagent la grille). Laisse vide pour une structure automatique.</li>
-        <li><b>Piste</b> : une piste Mono, ou une nouvelle piste « Mélodie ».</li>
-      </ul>
-      <p><b>Proposer</b> affiche la grille de la mélodie : les accords en haut, colorés selon leur fonction (repos, préparation, tension…), et les notes en dessous avec leur nom, colorées selon leur type (note de l’accord, passage, tension…) ; <b>Autre proposition</b> en tire une autre ; <b>Écrire sur la piste</b> la pose dans la scène en cours (<kbd>Ctrl</kbd>+<kbd>Z</kbd> pour revenir). <b>Options</b> (tonalité, tessiture, rythme, fin, paroles) et <b>Détails</b> (tableau des notes, contrôles, export MIDI) sont repliés.</p>
+      <h3 id="nouvelle-chanson">Nouvelle chanson : l'assistant</h3>
+      <p><b>Nouvelle chanson…</b>, dans le menu de l'icône de l'application, part d'une chanson vide et ouvre un assistant en quatre étapes (les pastilles du haut permettent de revenir à une étape déjà vue) :</p>
+      <ol>
+        <li><b>Modèle</b> : le modèle d'instruments, comme dans Band — style, inspiration et musiciens (instrument de chacun, kit et éléments du batteur). <b>Chanson vide</b> ferme l'assistant sans rien créer.</li>
+        <li><b>Chanson</b> : toute la chanson en vue « session », comme dans un DAW : <b>une ligne par scène</b> (intro, couplet, refrain… avec sa longueur, le nombre de passages dans l'arrangement et ses accords) et <b>une colonne par piste</b>, regroupées par musicien. Chaque case montre ce que joue la piste dans la scène (coups de batterie ou notes) ; une case en pointillés est un silence.</li>
+        <li><b>Mélodie</b> : la colonne de la mélodie (lead, voix ou sax) est entourée d'or. <b>🎲 Générer la mélodie</b> en tire une autre sur la même grille d'accords, sans toucher aux autres musiciens ; <b>↺ Mélodie d'origine</b> revient à celle de l'inspiration.</li>
+        <li><b>Pistes</b> : coche les pistes à importer — un musicien entier (batterie, basse, nappes, arpèges, lead…) ou, pour la batterie, élément par élément. <b>Tout</b> / <b>Rien</b> pour aller vite. <b>Créer la chanson</b> écrit les pistes cochées, les scènes et l'arrangement, au tempo de l'inspiration, avec le mixage automatique de Band (<kbd>Ctrl</kbd>+<kbd>Z</kbd> revient à la chanson vide).</li>
+      </ol>
+      <p>Ce que montre l'assistant est exactement ce qui est créé. L'atelier <b>Mélodie</b> sur une grille d'accords est dans <a href="#key-melodie">Key → Chanson → Mélodie</a>.</p>
 
       <h2 id="drum">Pistes Drum</h2>
       <p>Un clic sur une case l'allume ou l'éteint.</p>
@@ -448,7 +449,7 @@
         <tr><th>Onglet</th><th>Contenu</th></tr>
         <tr><td>1 · Ambiance</td><td>Les modes du plus lumineux au plus sombre, avec leurs émotions : Lydien (sérénité), Majeur ionien (joie, tendresse, nostalgie), Mixolydien (euphorie), Dorien (espoir, mélancolie lumineuse), Mineur naturel éolien (triomphe, ambivalence, tristesse), Mineur harmonique (suspense), Phrygien (angoisse, mystère). Cliquez une émotion pour voir ses trois pistes et ses grilles de référence ; <b>Toutes les grilles</b> montre la bibliothèque entière. <b>Poser sur la grille</b> met la grille choisie dans l'onglet 2. « En savoir plus » donne les repères, les réserves, la mélodie conseillée et les essais A/B.</td></tr>
         <tr><td>2 · Grille</td><td>Les accords sur une ligne de mesures (posés depuis l'Ambiance, une grille connue, une piste, ou glissés à la main), et en bas les couches que <b>Générer</b> écrit : basse, accords, arpège. Voir ci-dessous.</td></tr>
-        <tr><td>3 · Mélodie</td><td>Une mélodie sur la grille, comme dans Band → Mélodie : accords en haut, notes nommées en dessous. <b>Écouter avec la nappe</b> la joue avec les accords tenus avant de l'écrire. Voir ci-dessous.</td></tr>
+        <tr><td>3 · Mélodie</td><td>Une mélodie sur la grille : accords en haut, notes nommées en dessous. <b>Écouter avec la nappe</b> la joue avec les accords tenus avant de l'écrire. Voir ci-dessous.</td></tr>
         <tr><td>4 · Vérifier</td><td>Les accords et la mélodie de toutes les scènes, chacune dans sa tonalité, la scène en cours en premier. Le chiffre sur l'onglet compte les points à vérifier dans la scène en cours.</td></tr>
       </table></div>
       <div class="table-wrap"><table>
@@ -474,7 +475,7 @@
       </table></div>
       <p>La grille est enregistrée avec la scène, par degrés : si vous changez la tonalité, elle suit (i – VI – III – VII reste i – VI – III – VII).</p>
       <h3 id="key-melodie">L'onglet Mélodie : une mélodie sur la grille</h3>
-      <p>Le même panneau que <b>Band → Mélodie</b> (voir plus bas), sur la grille de la scène : les accords de l'onglet Grille sont repris tant que vous n'avez pas retouché le texte de la grille, et la mélodie est écrite dans la tonalité de la scène (au choix dans « Options »). <b>Proposer</b> montre la grille de la mélodie, <b>Autre proposition</b> en tire une autre, <b>Écrire sur la piste</b> l'écrit dans la scène en cours (Ctrl+Z annule).</p>
+      <p>Une mélodie sur la grille de la scène : la grille commune est reprise, et la mélodie est écrite dans la tonalité de la scène (au choix dans « Options »). <b>Proposer</b> montre la grille de la mélodie, <b>Autre proposition</b> en tire une autre, <b>Écrire sur la piste</b> l'écrit dans la scène en cours (Ctrl+Z annule).</p>
       <p><b>▶ Écouter avec la nappe</b> joue la proposition au tempo du morceau, avec les accords tenus en dessous : sur la piste de la mélodie si elle existe (sinon le son de lead de Band), et la nappe sur la piste de la couche Accords (sinon un pad doux). Une tête de lecture avance sur la grille ; le même bouton arrête.</p>
       <h3 id="key-verifier">L'onglet Vérifier : les accords et la mélodie</h3>
       <div class="table-wrap"><table>

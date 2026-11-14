@@ -279,3 +279,25 @@ test('techno mélodique : automation valide (bornes, pas dans la scène) et abse
     );
   }
 });
+
+test('assistant « Nouvelle chanson » : une autre graine change la mélodie, et seulement la mélodie', () => {
+  const strip = (s) => JSON.stringify(s.scenes.map((sc) => ({ ...sc, id: 0 })).map((sc) => sc.data));
+  for (const p of PRESETS) {
+    const tr = tracksOf(p);
+    const spec = SS.BandSongs[p.id];
+    const a = SS.bandSong.build(spec, p.id, tr);
+    assert.equal(strip(SS.bandSong.build(spec, p.id, tr, { melodySeed: 0 })), strip(a), `${p.id} : graine 0 = chanson d'origine`);
+    const b = SS.bandSong.build(spec, p.id, tr, { melodySeed: 3 });
+    const singers = tr.filter((t) => SS.bandSong.SINGERS.includes(t.band.key));
+    a.scenes.forEach((sc, i) => {
+      for (const t of tr) {
+        const same = JSON.stringify(sc.data[t.id]) === JSON.stringify(b.scenes[i].data[t.id]);
+        if (!singers.includes(t)) assert.ok(same, `${p.id} / ${sc.name} : ${t.id} ne doit pas changer`);
+      }
+    });
+    if (singers.length) {
+      const changed = a.scenes.some((sc, i) => singers.some((t) => JSON.stringify(sc.data[t.id]) !== JSON.stringify(b.scenes[i].data[t.id])));
+      assert.ok(changed, `${p.id} : la mélodie change`);
+    }
+  }
+});

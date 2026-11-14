@@ -1,5 +1,6 @@
 /*
- * Test de bout en bout : Band → onglet Mélodie (js/melodypanel.js, js/melody.js).
+ * Test de bout en bout de l'atelier Mélodie (js/melodypanel.js, js/melody.js), monté dans une fenêtre de test
+ * (il n'est plus dans Band ; Key → Chanson → Mélodie a son propre test, harmony-ui.js).
  *   node tests/e2e/melody-ui.js
  * Grille + paroles → proposition (scansion, tableau, contrôles) → écriture sur une nouvelle piste ; Ctrl+Z.
  */
@@ -36,14 +37,28 @@ const SHOTS = process.env.SHOTS;
   }, demo);
   await page.goto(`http://localhost:${server.address().port}/index.html`);
   await page.waitForTimeout(1200);
+  // monte le panneau dans une fenêtre de test, avec ses boutons « Générer » et « Écrire sur la piste »
+  const mount = () =>
+    page.evaluate(() => {
+      let d = document.querySelector('#melTestDlg');
+      if (!d) {
+        d = document.createElement('dialog');
+        d.id = 'melTestDlg';
+        d.className = 'band-dialog';
+        d.innerHTML = '<div class="band-shell"><div id="melBox" style="flex:1;min-height:0;display:flex"></div><footer class="band-foot"><button type="button" class="btn" id="melGo">Générer une mélodie</button><button type="button" class="btn" id="melWrite" disabled>Écrire sur la piste</button></footer></div>';
+        document.body.append(d);
+        d.querySelector('#melGo').addEventListener('click', () => SS.melodyPanel.compose(true));
+        d.querySelector('#melWrite').addEventListener('click', () => SS.melodyPanel.write());
+        d.addEventListener('close', () => SS.melodyPanel.stop());
+      }
+      d.showModal();
+      SS.melodyPanel.show({ box: d.querySelector('#melBox'), leadOpts: () => SS.band.melodyTrackOpts(), close: () => d.close(), buttons: { write: d.querySelector('#melWrite') } });
+    });
   const P = () => page.evaluate(() => JSON.parse(localStorage.getItem('stepseq.autosave')));
   const before = await P();
 
-  await page.click('#bandBtn');
-  await page.click('#bandModes [data-mode="melody"]');
-  ok(await page.isVisible('#bandMelody'), 'onglet Mélodie affiché');
-  ok(!(await page.isVisible('#bandSongBtn')) && (await page.isVisible('#melGo')), 'boutons de la mélodie à la place de ceux du groupe');
-  ok(!/mélodie/i.test(await page.textContent('#bandSub')), 'le sous-titre du bouton Band de l’en-tête n’est pas modifié');
+  await mount();
+  ok(await page.isVisible('#melBox .mel-form'), 'atelier Mélodie affiché');
 
   ok(!(await page.isVisible('#melText')) && !(await page.isVisible('#melKey')), 'vue simple : options et paroles repliées');
   await page.fill('#melGrid', 'Am | F | C | G');
@@ -95,7 +110,7 @@ const SHOTS = process.env.SHOTS;
   ok((await page.locator('.mel-line').count()) === 2, 'paroles : 2 vers sur la grille de 4 mesures');
   await page.click('#melWrite');
   await page.waitForTimeout(800);
-  ok(!(await page.isVisible('#bandDialog')), 'la fenêtre se ferme après écriture');
+  ok(!(await page.isVisible('#melTestDlg')), 'la fenêtre se ferme après écriture');
   const after = await P();
   const mel = after.tracks.find((t) => t.melody);
   ok(!!mel && mel.category === 'mono', 'nouvelle piste « Mélodie » (Mono)');
@@ -112,8 +127,7 @@ const SHOTS = process.env.SHOTS;
 
   // téléphone
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.click('#bandBtn');
-  await page.click('#bandModes [data-mode="melody"]');
+  await mount();
   await page.click('#melGo');
   await page.waitForTimeout(200);
   const overlap = await page.evaluate(() => {
@@ -123,11 +137,9 @@ const SHOTS = process.env.SHOTS;
     return o.top < f.bottom - 1 || form.scrollHeight > form.clientHeight + 1;
   });
   ok(!overlap, 'téléphone : le résultat vient sous le formulaire, sans chevauchement');
-  const overflow = await page.evaluate(() => document.querySelector('#bandDialog').scrollWidth - document.querySelector('#bandDialog').clientWidth);
+  const overflow = await page.evaluate(() => document.querySelector('#melTestDlg').scrollWidth - document.querySelector('#melTestDlg').clientWidth);
   ok(overflow <= 1, 'téléphone : pas de défilement horizontal de la fenêtre');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'melodie-mobile.png') });
-  await page.click('#bandModes [data-mode="band"]');
-  ok(await page.isVisible('#bandStage'), 'retour à l’onglet Groupe');
 
   ok(!errs.length, 'aucune erreur JavaScript' + (errs.length ? ' : ' + errs.join(' | ') : ''));
   await b.close();

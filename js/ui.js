@@ -60,7 +60,7 @@ SS.ui = (() => {
   }
 
   function eventLabel(track, ev) {
-    // mélodie écrite par Band → Mélodie : la syllabe chantée suit le nom de la note
+    // mélodie écrite par l’atelier Mélodie : la syllabe chantée suit le nom de la note
     if (track.category === 'mono' || ev.notes.length === 1) return SS.noteName(ev.notes[0]) + (ev.lyric ? ' ' + ev.lyric.replace(/\(.*?\)/g, '').replace('‿', '') : '');
     // accord renversé (la basse n'est pas la fondamentale) ou tonalité choisie : nom calculé d'après les notes
     const key = SS.sceneKey(app.project());
