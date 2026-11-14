@@ -424,7 +424,7 @@
   </dialog>
 
   <!-- Dialogue de sound design (pistes instrument) -->
-  <dialog id="soundDialog" class="sd-dialog">
+  <dialog id="soundDialog" class="sd-dialog fx-dialog sd-tabbed">
     <form method="dialog" id="sdForm">
       <div class="sd-head">
         <div>
@@ -434,56 +434,86 @@
         <code id="sdCode" class="sd-code" title="Équivalent strudel.cc"></code>
       </div>
 
-      <div class="sd-grid">
-        <section class="sd-panel" aria-labelledby="sdVcoTitle">
-          <h3 id="sdVcoTitle">Oscillateur <small>VCO</small></h3>
-          <div id="sdVco">
-            <div class="sd-waves" id="sdWaves" role="radiogroup" aria-label="Forme d'onde"></div>
-            <div class="sd-sliders" id="sdVcoSliders"></div>
-          </div>
-          <p id="sdNoVco" class="sd-note" hidden></p>
-        </section>
+      <div class="fx-layout">
+        <nav class="fx-tabs sd-tabs" id="sdTabs" aria-label="Sections du sound design">
+          <button type="button" class="fx-tab sd-tab" data-tab="vco"><svg viewBox="0 0 24 24" class="sd-tab-ic" aria-hidden="true"><path d="M3 17 L11 6 L11 17 L19 6 L19 17"/></svg><span class="sd-tab-txt"><span>VCO</span><small id="sdState_vco" class="fx-state"></small></span></button>
+          <button type="button" class="fx-tab sd-tab" data-tab="vcf"><svg viewBox="0 0 24 24" class="sd-tab-ic" aria-hidden="true"><path d="M3 9 H12 C15 9 15 5 17 12 L21 19"/></svg><span class="sd-tab-txt"><span>Filtre</span><small id="sdState_vcf" class="fx-state"></small></span></button>
+          <button type="button" class="fx-tab sd-tab" data-tab="env"><svg viewBox="0 0 24 24" class="sd-tab-ic" aria-hidden="true"><path d="M3 19 L7 5 L11 11 H16 L21 19"/></svg><span class="sd-tab-txt"><span>Enveloppes</span><small id="sdState_env" class="fx-state"></small></span></button>
+          <button type="button" class="fx-tab sd-tab" data-tab="lfo"><svg viewBox="0 0 24 24" class="sd-tab-ic" aria-hidden="true"><path d="M3 12 C6 3 9 3 12 12 S18 21 21 12"/></svg><span class="sd-tab-txt"><span>LFOs</span><small id="sdState_lfo" class="fx-state"></small></span></button>
+          <button type="button" class="fx-tab sd-tab" data-tab="glide"><svg viewBox="0 0 24 24" class="sd-tab-ic" aria-hidden="true"><path d="M3 18 H8 L16 6 H21"/></svg><span class="sd-tab-txt"><span>Glide</span><small id="sdState_glide" class="fx-state"></small></span></button>
+          <button type="button" class="fx-tab sd-tab" data-tab="out"><svg viewBox="0 0 24 24" class="sd-tab-ic" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z M16 8.5a5 5 0 0 1 0 7"/></svg><span class="sd-tab-txt"><span>Sortie</span><small id="sdState_out" class="fx-state"></small></span></button>
+          <p class="sd-flow" aria-hidden="true">VCO → Filtre → Ampli → Sortie</p>
+        </nav>
 
-        <section class="sd-panel" aria-labelledby="sdVcfTitle">
-          <h3 id="sdVcfTitle">Filtre <small>VCF</small></h3>
-          <div class="segmented sd-ftype" id="sdFilterType" role="radiogroup" aria-label="Type de filtre"></div>
-          <div class="segmented sd-ftype" id="sdFilterModel" role="radiogroup" aria-label="Modèle de filtre (ftype)"></div>
-          <p id="sdFilterHint" class="sd-hint"></p>
-          <div class="sd-sliders" id="sdVcfSliders"></div>
-        </section>
+        <div class="fx-panes">
+          <section class="fx-pane" data-pane="vco" aria-labelledby="sdVcoTitle">
+            <div class="fx-pane-head"><h3 id="sdVcoTitle">Oscillateur <small>VCO</small></h3></div>
+            <p class="fx-help">La matière première du son : forme d’onde, unisson, sous-oscillateur.</p>
+            <div id="sdVco">
+              <div class="sd-waves" id="sdWaves" role="radiogroup" aria-label="Forme d'onde"></div>
+              <div class="sd-sliders" id="sdVcoSliders"></div>
+            </div>
+            <p id="sdNoVco" class="sd-note" hidden></p>
+          </section>
 
-        <section class="sd-panel" aria-labelledby="sdFenvTitle">
-          <div class="sd-panel-head">
-            <h3 id="sdFenvTitle">Enveloppe du filtre <small>lpenv</small></h3>
-            <button type="button" id="sdCopyAdsr" class="sd-mini" title="Reprendre les valeurs de l'enveloppe d'amplitude">Copier l'ADSR d'amplitude</button>
-          </div>
-          <svg id="sdFenv" class="sd-adsr filt" viewBox="0 0 300 90" preserveAspectRatio="none" aria-hidden="true">
-            <path id="sdFenvFill" class="fill-area"/>
-            <path id="sdFenvLine" class="line"/>
-          </svg>
-          <div class="sd-sliders" id="sdFenvSliders"></div>
-        </section>
+          <section class="fx-pane" data-pane="vcf" aria-labelledby="sdVcfTitle">
+            <div class="fx-pane-head"><h3 id="sdVcfTitle">Filtre <small>VCF</small></h3></div>
+            <p class="fx-help">Sculpte le timbre en retirant des fréquences.</p>
+            <div class="segmented sd-ftype" id="sdFilterType" role="radiogroup" aria-label="Type de filtre"></div>
+            <div class="segmented sd-ftype" id="sdFilterModel" role="radiogroup" aria-label="Modèle de filtre (ftype)"></div>
+            <p id="sdFilterHint" class="sd-hint"></p>
+            <div class="sd-sliders" id="sdVcfSliders"></div>
+          </section>
 
-        <section class="sd-panel" aria-labelledby="sdVcaTitle">
-          <h3 id="sdVcaTitle">Enveloppe d'amplitude <small>ADSR</small></h3>
-          <svg id="sdAdsr" class="sd-adsr" viewBox="0 0 300 90" preserveAspectRatio="none" aria-hidden="true">
-            <path id="sdAdsrFill" class="fill-area"/>
-            <path id="sdAdsrLine" class="line"/>
-          </svg>
-          <div class="sd-sliders" id="sdVcaSliders"></div>
-        </section>
+          <section class="fx-pane" data-pane="env" aria-labelledby="sdEnvTitle">
+            <div class="fx-pane-head"><h3 id="sdEnvTitle">Enveloppes <small>amplitude · filtre</small></h3></div>
+            <p class="fx-help">Comment le son évolue dans le temps, du début de la note à après son relâchement.</p>
+            <div class="sd-env2">
+              <div class="sd-sub" aria-labelledby="sdVcaTitle">
+                <div class="sd-panel-head"><h4 id="sdVcaTitle">Amplitude <small>ADSR</small></h4></div>
+                <svg id="sdAdsr" class="sd-adsr" viewBox="0 0 300 90" preserveAspectRatio="none" aria-hidden="true">
+                  <path id="sdAdsrFill" class="fill-area"/>
+                  <path id="sdAdsrLine" class="line"/>
+                </svg>
+                <div class="sd-sliders" id="sdVcaSliders"></div>
+              </div>
+              <div class="sd-sub" aria-labelledby="sdFenvTitle">
+                <div class="sd-panel-head">
+                  <h4 id="sdFenvTitle">Filtre <small>lpenv</small></h4>
+                  <button type="button" id="sdCopyAdsr" class="sd-mini" title="Reprendre les valeurs de l'enveloppe d'amplitude">Copier l'ADSR d'amplitude</button>
+                </div>
+                <svg id="sdFenv" class="sd-adsr filt" viewBox="0 0 300 90" preserveAspectRatio="none" aria-hidden="true">
+                  <path id="sdFenvFill" class="fill-area"/>
+                  <path id="sdFenvLine" class="line"/>
+                </svg>
+                <div class="sd-sliders" id="sdFenvSliders"></div>
+              </div>
+            </div>
+          </section>
 
-        <section class="sd-panel" aria-labelledby="sdGlideTitle">
-          <h3 id="sdGlideTitle">Glide <small>portamento</small></h3>
-          <div class="segmented sd-ftype" id="sdGlideMode" role="radiogroup" aria-label="Mode de glide"></div>
-          <p id="sdGlideHint" class="sd-hint"></p>
-          <div class="sd-sliders" id="sdGlideSliders"></div>
-        </section>
+          <section class="fx-pane" data-pane="lfo" aria-labelledby="sdLfoTitle">
+            <div class="fx-pane-head">
+              <h3 id="sdLfoTitle">LFOs <small>modulation</small></h3>
+              <div class="segmented sd-lfo-tabs" id="sdLfoTabs" role="tablist" aria-label="LFO"></div>
+            </div>
+            <p class="fx-help">Oscillateurs lents qui font bouger un paramètre : vibrato, wah, trémolo, PWM.</p>
+            <div id="sdLfoPanes"></div>
+          </section>
 
-        <section class="sd-panel" aria-labelledby="sdOutTitle">
-          <h3 id="sdOutTitle">Sortie</h3>
-          <div class="sd-sliders" id="sdOutSliders"></div>
-        </section>
+          <section class="fx-pane" data-pane="glide" aria-labelledby="sdGlideTitle">
+            <div class="fx-pane-head"><h3 id="sdGlideTitle">Glide <small>portamento</small></h3></div>
+            <p class="fx-help">Glissement de hauteur d’une note à la suivante.</p>
+            <div class="segmented sd-ftype" id="sdGlideMode" role="radiogroup" aria-label="Mode de glide"></div>
+            <p id="sdGlideHint" class="sd-hint"></p>
+            <div class="sd-sliders" id="sdGlideSliders"></div>
+          </section>
+
+          <section class="fx-pane" data-pane="out" aria-labelledby="sdOutTitle">
+            <div class="fx-pane-head"><h3 id="sdOutTitle">Sortie</h3></div>
+            <p class="fx-help">Niveau, placement stéréo, saturation et force des notes accentuées.</p>
+            <div class="sd-sliders" id="sdOutSliders"></div>
+          </section>
+        </div>
       </div>
 
       <div class="dlg-footer">

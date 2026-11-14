@@ -85,16 +85,26 @@ SS.soundDesign = (() => {
   };
 
   /* ---------- Construction de la fenêtre ---------- */
-  /** Panneaux LFO 1 et 2 (insérés avant le panneau Sortie). */
+  /** Panneaux LFO 1 et 2 dans l'onglet LFOs, un à la fois (sous-onglets « LFO 1 | LFO 2 »). */
   function buildLfoPanels() {
-    const out = $('#sdOutTitle').closest('section');
+    const panes = $('#sdLfoPanes');
+    const tabs = $('#sdLfoTabs');
     for (let i = 1; i <= SS.LFO_COUNT; i++) {
+      const t = document.createElement('button');
+      t.type = 'button';
+      t.id = `sdLfoTab${i}`;
+      t.dataset.lfo = String(i);
+      t.setAttribute('role', 'tab');
+      t.setAttribute('aria-controls', `sdLfo${i}`);
+      t.innerHTML = `<span class="dot" aria-hidden="true"></span>LFO ${i}`;
+      t.addEventListener('click', () => showLfo(i));
+      tabs.append(t);
       const sec = document.createElement('section');
-      sec.className = 'sd-panel sd-lfo';
+      sec.className = 'sd-lfo';
       sec.id = `sdLfo${i}`;
-      sec.setAttribute('aria-labelledby', `sdLfo${i}Title`);
+      sec.setAttribute('role', 'tabpanel');
+      sec.setAttribute('aria-labelledby', `sdLfoTab${i}`);
       sec.innerHTML = `
-        <h3 id="sdLfo${i}Title">LFO ${i} <small>modulation</small></h3>
         <div class="segmented sd-ftype" id="sdLfo${i}Dest" role="radiogroup" aria-label="Destination du LFO ${i}"></div>
         <p class="sd-hint" id="sdLfo${i}Hint"></p>
         <div class="sd-lfo-body" id="sdLfo${i}Body">
@@ -106,7 +116,7 @@ SS.soundDesign = (() => {
           </div>
           <div class="sd-sliders" id="sdLfo${i}Sliders"></div>
         </div>`;
-      out.before(sec);
+      panes.append(sec);
 
       const radioBtn = (box, id, html, title, onClick) => {
         const b = document.createElement('button');
@@ -153,7 +163,105 @@ SS.soundDesign = (() => {
     }
   }
 
+  /* ---------- Onglets verticaux : une section à la fois ; on rouvre sur le dernier onglet utilisé ---------- */
+  const TAB_KEY = 'stepseq.sdTab';
+  const LFO_KEY = 'stepseq.sdLfoTab';
+  const store = {
+    get: (k) => {
+      try {
+        return localStorage.getItem(k);
+      } catch (e) {
+        return null; // stockage indisponible
+      }
+    },
+    set: (k, v) => {
+      try {
+        localStorage.setItem(k, v);
+      } catch (e) {
+        /* rien */
+      }
+    },
+  };
+  let tab = store.get(TAB_KEY) || 'vco';
+  let lfoTab = Math.min(SS.LFO_COUNT, Math.max(1, +store.get(LFO_KEY) || 1));
+
+  function showTab(id, focus = false) {
+    const btns = [...document.querySelectorAll('#sdTabs .fx-tab')];
+    if (!btns.some((b) => b.dataset.tab === id)) id = 'vco';
+    tab = id;
+    btns.forEach((b) => {
+      const on = b.dataset.tab === id;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-current', on ? 'page' : 'false');
+      b.tabIndex = on ? 0 : -1;
+      if (on && focus) b.focus();
+      if (on) b.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    });
+    document.querySelectorAll('#soundDialog .fx-pane').forEach((p) => (p.hidden = p.dataset.pane !== id));
+    const panes = document.querySelector('#soundDialog .fx-panes');
+    if (panes) panes.scrollTop = 0;
+    store.set(TAB_KEY, id);
+  }
+
+  function showLfo(i) {
+    lfoTab = i;
+    for (let k = 1; k <= SS.LFO_COUNT; k++) {
+      const on = k === i;
+      $(`#sdLfoTab${k}`).classList.toggle('active', on);
+      $(`#sdLfoTab${k}`).setAttribute('aria-selected', String(on));
+      $(`#sdLfo${k}`).hidden = !on;
+    }
+    store.set(LFO_KEY, String(i));
+  }
+
+  function buildTabs() {
+    const nav = $('#sdTabs');
+    nav.addEventListener('click', (e) => {
+      const b = e.target.closest('.fx-tab');
+      if (b) showTab(b.dataset.tab);
+    });
+    // flèches : onglet précédent / suivant ; Début / Fin
+    nav.addEventListener('keydown', (e) => {
+      const keys = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 };
+      if (!(e.key in keys) && e.key !== 'Home' && e.key !== 'End') return;
+      const btns = [...nav.querySelectorAll('.fx-tab')];
+      let i = btns.findIndex((b) => b.dataset.tab === tab);
+      if (e.key === 'Home') i = 0;
+      else if (e.key === 'End') i = btns.length - 1;
+      else i = (i + keys[e.key] + btns.length) % btns.length;
+      e.preventDefault();
+      showTab(btns[i].dataset.tab, true);
+    });
+  }
+
+  /** Résumé de chaque section sous le nom de son onglet (et point des sous-onglets LFO). */
+  function updateTabStates(p) {
+    const st = (id, text, on = false) => {
+      const el = $(`#sdState_${id}`);
+      el.textContent = text;
+      el.classList.toggle('on', on);
+    };
+    if (p.wave === null) st('vco', 'échantillon');
+    else {
+      const w = SS.WAVES.find((x) => x.id === p.wave);
+      const noise = SS.NOISES.includes(p.wave);
+      st('vco', [w ? w.label : p.wave, !noise && p.voices > 1 ? `${p.voices} voix` : '', !noise && p.sub > 0 ? 'sub' : ''].filter(Boolean).join(' · '));
+    }
+    const f = SS.FILTER_TYPES.find((x) => x.id === p.filter) || SS.FILTER_TYPES[0];
+    st('vcf', p.filter === 'lowpass' && p.cutoff >= 19999 ? 'ouvert' : `${f.label} · ${fmtHz(p.cutoff)}`);
+    st('env', `A ${fmtTime(p.attack)} · R ${fmtTime(p.release)}`);
+    const active = SS.activeLfos(p).length;
+    st('lfo', active ? `${active} actif${active > 1 ? 's' : ''}` : 'off', active > 0);
+    st('glide', p.glide ? `${p.glideMode === 'legato' ? 'legato' : 'toujours'} · ${fmtTime(p.glide)}` : 'off', p.glide > 0);
+    st('out', `${fmtPct(p.gain)} · ${SPECS.pan.fmt(p.pan)}`);
+    for (let i = 1; i <= SS.LFO_COUNT; i++) {
+      const dest = p[`lfo${i}Dest`];
+      $(`#sdLfoTab${i} .dot`).classList.toggle('on', !!dest && dest !== 'off');
+    }
+  }
+
   function build() {
+    buildTabs();
     buildLfoPanels();
     for (const [key, spec] of Object.entries(SPECS)) {
       const id = 'sd_' + key;
@@ -379,6 +487,7 @@ SS.soundDesign = (() => {
     drawAdsr(p, '#sdAdsr');
     drawAdsr({ attack: p.fattack, decay: p.fdecay, sustain: p.fsustain, release: p.frelease }, '#sdFenv');
     $('#sdCode').textContent = strudelCode(p);
+    updateTabStates(p);
   }
 
   function drawAdsr(p, svgSel) {
@@ -482,8 +591,10 @@ SS.soundDesign = (() => {
     const inst = SS.findInstrument(t.family, t.instrument);
     $('#sdTrack').textContent = `${t.name} · ${inst.label}`;
     refresh();
+    showLfo(lfoTab);
     $('#soundDialog').returnValue = '';
     $('#soundDialog').showModal();
+    showTab(tab, true);
   }
 
   function init(appApi) {

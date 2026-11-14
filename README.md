@@ -282,7 +282,7 @@ revenir en arrière) ou de **garder et ajouter**. Les pistes créées sans Band 
 
 ### Pistes instrument
 
-Le bouton à curseurs de l'en-tête ouvre la fenêtre de **sound design** (oscillateur, filtre cutoff / résonance / enveloppe, ADSR, glide, niveau, panoramique, saturation), inspirée des paramètres de strudel.cc :
+Le bouton à curseurs de l'en-tête ouvre la fenêtre de **sound design** (oscillateur, filtre cutoff / résonance / enveloppe, ADSR, glide, niveau, panoramique, saturation), inspirée des paramètres de strudel.cc. Elle est organisée en onglets verticaux (VCO, Filtre, Enveloppes, LFOs avec sous-onglets LFO 1 | LFO 2, Glide, Sortie), avec un résumé des réglages sous chaque onglet ; taille fixe, dernier onglet retenu :
 
 - filtre passe-bas, passe-haut, passe-bande ou coupe-bande, avec 4 modèles (comme `ftype()` de strudel) :
   **12 dB**, **24 dB**, **Ladder** (4 pôles façon Moog, avec drive) et **SEM** (variable d'état façon Oberheim) ;
