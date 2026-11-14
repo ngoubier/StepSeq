@@ -282,7 +282,7 @@ revenir en arrière) ou de **garder et ajouter**. Les pistes créées sans Band 
 
 ### Pistes instrument
 
-Le bouton à curseurs de l'en-tête ouvre la fenêtre de **sound design** (oscillateur, filtre cutoff / résonance / enveloppe, ADSR, glide, niveau, panoramique, saturation), inspirée des paramètres de strudel.cc :
+Le bouton à curseurs de l'en-tête ouvre la fenêtre de **sound design** (oscillateur, filtre cutoff / résonance / enveloppe, ADSR, glide, niveau, panoramique, saturation), inspirée des paramètres de strudel.cc. Elle est organisée en onglets verticaux (VCO, Filtre, Enveloppes, LFOs avec sous-onglets LFO 1 | LFO 2, Glide, Sortie), avec un résumé des réglages sous chaque onglet ; taille fixe, dernier onglet retenu :
 
 - filtre passe-bas, passe-haut, passe-bande ou coupe-bande, avec 4 modèles (comme `ftype()` de strudel) :
   **12 dB**, **24 dB**, **Ladder** (4 pôles façon Moog, avec drive) et **SEM** (variable d'état façon Oberheim) ;
@@ -298,6 +298,7 @@ Le bouton à curseurs de l'en-tête ouvre la fenêtre de **sound design** (oscil
   (sauf PWM) ;
 - enveloppes longues pour les nappes et drones : attaque et decay jusqu'à 10 s, release jusqu'à 20 s ;
 - **sous-oscillateur** : un carré une ou deux octaves sous la note (niveau et octave), qui suit le glide ;
+- **bruit** (bloc Bruit de l'onglet VCO) : générateur de bruit blanc, rose ou brun mélangé à l'oscillateur, comme le mixeur d'un Minimoog ou d'un Juno ; « Niveau de l'oscillateur » à 0 pour n'entendre que le bruit (presets Noise Riser, Wind, Rumble). Les anciennes chansons avec une onde de bruit sont converties à l'ouverture (version 3 du format) ;
 - **force de l'accent** (section Sortie) : effet des notes accentuées.
 
 ### Accent des notes

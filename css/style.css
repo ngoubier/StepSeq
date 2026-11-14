@@ -850,6 +850,43 @@ dialog.fx-dialog .fx-pane[hidden] { display: none; }
 .sd-lfo-rate select { flex: 1 1 120px; min-width: 0; background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 5px 8px; font: inherit; font-size: 13px; }
 .sd-lfo-rate .sd-ftype { margin-bottom: 0; }
 
+/* Sound design : onglets verticaux (même cadre que la fenêtre Effets) */
+.sd-tabbed .fx-layout { margin: 4px 0; }
+.sd-tab { justify-content: flex-start; gap: 10px; min-height: 48px; }
+.sd-tab-ic { width: 20px; height: 20px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; opacity: .85; }
+.sd-tab-txt { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.sd-tab-txt > span { font-weight: 600; }
+.sd-tab .fx-state { text-transform: none; letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sd-tab .fx-state.on { color: #7fd8a0; }
+.sd-flow { margin: auto 0 0; padding: 10px; border-top: 1px solid var(--line); font-size: 11px; line-height: 1.6; color: var(--muted); }
+.sd-tabbed .fx-pane .sd-waves { margin-bottom: 4px; }
+.sd-env2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.sd-env2 .sd-sub { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.sd-env2 .sd-sub + .sd-sub { border-left: 1px solid var(--line); padding-left: 24px; }
+.sd-noise { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.sd-noise h4, .sd-env2 h4 { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.sd-noise h4 small { margin-left: 4px; font-weight: 500; }
+.sd-noise .sd-ftype { margin-bottom: 0; }
+.sd-noise .sd-hint { margin: 0; }
+.sd-waves.dim { opacity: .45; }
+.sd-env2 h4 { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.sd-env2 h4 small { margin-left: 4px; font-weight: 500; }
+.sd-env2 .sd-panel-head { min-height: 24px; }
+.sd-env2 .sd-adsr { height: 72px; }
+.sd-tabbed .fx-pane .sd-env2 .sd-sliders { display: flex; flex-direction: column; gap: 8px; }
+.sd-lfo-tabs button { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; font-size: 13px; }
+.sd-lfo-tabs .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
+.sd-lfo-tabs .dot.on { background: #7fd8a0; }
+#sdLfoPanes .sd-lfo { gap: 10px; }
+#sdLfoPanes .sd-lfo[hidden] { display: none; }
+@media (max-width: 700px) {
+  .sd-tab { min-height: 36px; }
+  .sd-tab-ic { width: 16px; height: 16px; }
+  .sd-flow { display: none; }
+  .sd-env2 { grid-template-columns: 1fr; gap: 16px; }
+  .sd-env2 .sd-sub + .sd-sub { border-left: 0; padding-left: 0; border-top: 1px solid var(--line); padding-top: 16px; }
+}
+
 /* ---------- Groove ---------- */
 .groove-btn { height: 32px; padding: 0 12px; font-size: 13px; }
 .groove-btn.on { box-shadow: inset 0 0 0 1px var(--accent-2); color: #cfe4ff; }

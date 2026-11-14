@@ -3,7 +3,7 @@
  *
  * Format de fichier (.stepseq.json) :
  * {
- *   format: "stepseq", version: 2,   // 2 : octave des instruments VCSL corrigée (SS.migrateOctaves)
+ *   format: "stepseq", version: 3,   // 2 : octave des instruments VCSL corrigée (SS.migrateOctaves) ; 3 : bruit mélangé au VCO (SS.migrateNoise)
  *   title, tempo, timeSig: [num, den], bars,
  *   groove: { res: 0|16|8, swing: 0.5..0.75, human: 0..1 },
  *   (tonalité et émotion : propres à chaque scène, voir project.scenes plus bas ; les anciens fichiers
@@ -23,7 +23,7 @@
  *     { id, type: "instrument", name, color, volume, mute, solo,
  *       category: "mono"|"arp"|"chord", family, instrument, sfv (variante soundfont ou échantillon Dirt-Samples),
  *       chord: "min", arp: { mode, rate, octaves, gate, motion, evolve, seed, rhythm, lanes, … } (ARP ONE, voir js/arp.js), octave,
- *       sd: { wave, voices, detune, pw, filter, ftype, fdrive, cutoff, q, env,  // sound design (optionnel,
+ *       sd: { wave, voices, detune, pw, sub, subOct, osc, noise, noiseColor, filter, ftype, fdrive, cutoff, q, env,  // sound design (optionnel,
  *             attack, decay, sustain, release, glide, glideMode,       //  sinon preset de l'instrument)
  *             pan, drive, gain, lfo1Dest, lfo1Shape, lfo1Rate, lfo1Hz, lfo1Mode, lfo1Amt, lfo1Fade, lfo2… }
  *       events: [{ step, len, notes: [midi...], vel, shift?, rat?, cond?, acc? }] }  // acc : note accentuée   // shift : micro-décalage, en fraction de pas (−0,5..0,5)
@@ -422,7 +422,7 @@ SS.uid = () => Math.random().toString(36).slice(2, 10);
 SS.newProject = () => SS.withScenes({
   id: SS.uid(), // identifiant de la chanson (bibliothèque « Mes chansons », js/store.js)
   format: 'stepseq',
-  version: 2,
+  version: 3,
   title: 'Nouveau projet',
   tempo: 120,
   timeSig: [4, 4],
@@ -499,6 +499,7 @@ SS.resizeProject = (p) => {
 SS.normalizeProject = (data) => {
   if (!data || typeof data !== 'object' || !Array.isArray(data.tracks)) throw new Error('Fichier de projet invalide');
   SS.migrateOctaves(data);
+  SS.migrateNoise(data);
   const p = SS.newProject();
   if (typeof data.id === 'string' && /^[a-z0-9]{4,24}$/i.test(data.id)) p.id = data.id;
   p.title = String(data.title || p.title);

@@ -33,6 +33,8 @@ SS.soundDesign = (() => {
     pw: { label: 'Largeur d’impulsion (Pulse)', scale: lin(0.05, 0.95), fmt: fmtPct, group: 'vco' },
     sub: { label: 'Sous-oscillateur (carré)', scale: lin(0, 1), fmt: (v) => (v ? fmtPct(v) : 'off'), group: 'vco' },
     subOct: { label: 'Octave du sous-oscillateur', scale: lin(1, 2), int: true, fmt: (v) => (v >= 2 ? '−2 octaves' : '−1 octave'), group: 'vco' },
+    noise: { label: 'Niveau du bruit', scale: sq(1), fmt: (v) => (v ? fmtPct(v) : 'off'), group: 'noise' },
+    osc: { label: 'Niveau de l’oscillateur', scale: lin(0, 1), fmt: (v) => (v ? fmtPct(v) : 'coupé'), group: 'noise' },
     cutoff: { label: 'Cutoff', scale: logf(20, 20000), fmt: fmtHz, group: 'vcf' },
     q: { label: 'Résonance', scale: lin(0, 30), fmt: (v) => v.toFixed(1), group: 'vcf' },
     fdrive: { label: 'Drive (filtre)', scale: lin(0, 1), fmt: fmtPct, group: 'vcf' },
@@ -69,7 +71,7 @@ SS.soundDesign = (() => {
     if (dest === 'amp') return `${Math.round(a * 100)} %${v < 0 ? ' (inversé)' : ''}`;
     return `${v < 0 ? '−' : ''}${Math.round(a * 100)} %`;
   }
-  const GROUP_EL = { vco: '#sdVcoSliders', vcf: '#sdVcfSliders', glide: '#sdGlideSliders', fenv: '#sdFenvSliders', vca: '#sdVcaSliders', out: '#sdOutSliders' };
+  const GROUP_EL = { vco: '#sdVcoSliders', noise: '#sdNoiseSliders', vcf: '#sdVcfSliders', glide: '#sdGlideSliders', fenv: '#sdFenvSliders', vca: '#sdVcaSliders', out: '#sdOutSliders' };
   for (let i = 1; i <= SS.LFO_COUNT; i++) GROUP_EL[`lfo${i}`] = `#sdLfo${i}Sliders`;
 
   const WAVE_ICONS = {
@@ -85,16 +87,26 @@ SS.soundDesign = (() => {
   };
 
   /* ---------- Construction de la fenêtre ---------- */
-  /** Panneaux LFO 1 et 2 (insérés avant le panneau Sortie). */
+  /** Panneaux LFO 1 et 2 dans l'onglet LFOs, un à la fois (sous-onglets « LFO 1 | LFO 2 »). */
   function buildLfoPanels() {
-    const out = $('#sdOutTitle').closest('section');
+    const panes = $('#sdLfoPanes');
+    const tabs = $('#sdLfoTabs');
     for (let i = 1; i <= SS.LFO_COUNT; i++) {
+      const t = document.createElement('button');
+      t.type = 'button';
+      t.id = `sdLfoTab${i}`;
+      t.dataset.lfo = String(i);
+      t.setAttribute('role', 'tab');
+      t.setAttribute('aria-controls', `sdLfo${i}`);
+      t.innerHTML = `<span class="dot" aria-hidden="true"></span>LFO ${i}`;
+      t.addEventListener('click', () => showLfo(i));
+      tabs.append(t);
       const sec = document.createElement('section');
-      sec.className = 'sd-panel sd-lfo';
+      sec.className = 'sd-lfo';
       sec.id = `sdLfo${i}`;
-      sec.setAttribute('aria-labelledby', `sdLfo${i}Title`);
+      sec.setAttribute('role', 'tabpanel');
+      sec.setAttribute('aria-labelledby', `sdLfoTab${i}`);
       sec.innerHTML = `
-        <h3 id="sdLfo${i}Title">LFO ${i} <small>modulation</small></h3>
         <div class="segmented sd-ftype" id="sdLfo${i}Dest" role="radiogroup" aria-label="Destination du LFO ${i}"></div>
         <p class="sd-hint" id="sdLfo${i}Hint"></p>
         <div class="sd-lfo-body" id="sdLfo${i}Body">
@@ -106,7 +118,7 @@ SS.soundDesign = (() => {
           </div>
           <div class="sd-sliders" id="sdLfo${i}Sliders"></div>
         </div>`;
-      out.before(sec);
+      panes.append(sec);
 
       const radioBtn = (box, id, html, title, onClick) => {
         const b = document.createElement('button');
@@ -153,7 +165,110 @@ SS.soundDesign = (() => {
     }
   }
 
+  /* ---------- Onglets verticaux : une section à la fois ; on rouvre sur le dernier onglet utilisé ---------- */
+  const TAB_KEY = 'stepseq.sdTab';
+  const LFO_KEY = 'stepseq.sdLfoTab';
+  const store = {
+    get: (k) => {
+      try {
+        return localStorage.getItem(k);
+      } catch (e) {
+        return null; // stockage indisponible
+      }
+    },
+    set: (k, v) => {
+      try {
+        localStorage.setItem(k, v);
+      } catch (e) {
+        /* rien */
+      }
+    },
+  };
+  let tab = store.get(TAB_KEY) || 'vco';
+  let lfoTab = Math.min(SS.LFO_COUNT, Math.max(1, +store.get(LFO_KEY) || 1));
+
+  function showTab(id, focus = false) {
+    const btns = [...document.querySelectorAll('#sdTabs .fx-tab')];
+    if (!btns.some((b) => b.dataset.tab === id)) id = 'vco';
+    tab = id;
+    btns.forEach((b) => {
+      const on = b.dataset.tab === id;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-current', on ? 'page' : 'false');
+      b.tabIndex = on ? 0 : -1;
+      if (on && focus) b.focus();
+      if (on) b.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    });
+    document.querySelectorAll('#soundDialog .fx-pane').forEach((p) => (p.hidden = p.dataset.pane !== id));
+    const panes = document.querySelector('#soundDialog .fx-panes');
+    if (panes) panes.scrollTop = 0;
+    store.set(TAB_KEY, id);
+  }
+
+  function showLfo(i) {
+    lfoTab = i;
+    for (let k = 1; k <= SS.LFO_COUNT; k++) {
+      const on = k === i;
+      $(`#sdLfoTab${k}`).classList.toggle('active', on);
+      $(`#sdLfoTab${k}`).setAttribute('aria-selected', String(on));
+      $(`#sdLfo${k}`).hidden = !on;
+    }
+    store.set(LFO_KEY, String(i));
+  }
+
+  function buildTabs() {
+    const nav = $('#sdTabs');
+    nav.addEventListener('click', (e) => {
+      const b = e.target.closest('.fx-tab');
+      if (b) showTab(b.dataset.tab);
+    });
+    // flèches : onglet précédent / suivant ; Début / Fin
+    nav.addEventListener('keydown', (e) => {
+      const keys = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 };
+      if (!(e.key in keys) && e.key !== 'Home' && e.key !== 'End') return;
+      const btns = [...nav.querySelectorAll('.fx-tab')];
+      let i = btns.findIndex((b) => b.dataset.tab === tab);
+      if (e.key === 'Home') i = 0;
+      else if (e.key === 'End') i = btns.length - 1;
+      else i = (i + keys[e.key] + btns.length) % btns.length;
+      e.preventDefault();
+      showTab(btns[i].dataset.tab, true);
+    });
+  }
+
+  /** Résumé de chaque section sous le nom de son onglet (et point des sous-onglets LFO). */
+  function updateTabStates(p) {
+    const st = (id, text, on = false) => {
+      const el = $(`#sdState_${id}`);
+      el.textContent = text;
+      el.classList.toggle('on', on);
+    };
+    if (p.wave === null) st('vco', 'échantillon');
+    else {
+      const w = SS.WAVES.find((x) => x.id === p.wave);
+      const color = noiseColor(p).label.toLowerCase();
+      const parts = p.osc > 0 ? [w ? w.label : p.wave, p.voices > 1 ? `${p.voices} voix` : ''] : [];
+      if (p.sub > 0) parts.push('sub');
+      if (p.noise > 0) parts.push(p.osc > 0 ? `bruit ${color} ${fmtPct(p.noise)}` : `Bruit ${color}`);
+      st('vco', parts.filter(Boolean).join(' · ') || 'silence');
+    }
+    const f = SS.FILTER_TYPES.find((x) => x.id === p.filter) || SS.FILTER_TYPES[0];
+    st('vcf', p.filter === 'lowpass' && p.cutoff >= 19999 ? 'ouvert' : `${f.label} · ${fmtHz(p.cutoff)}`);
+    st('env', `A ${fmtTime(p.attack)} · R ${fmtTime(p.release)}`);
+    const active = SS.activeLfos(p).length;
+    st('lfo', active ? `${active} actif${active > 1 ? 's' : ''}` : 'off', active > 0);
+    st('glide', p.glide ? `${p.glideMode === 'legato' ? 'legato' : 'toujours'} · ${fmtTime(p.glide)}` : 'off', p.glide > 0);
+    st('out', `${fmtPct(p.gain)} · ${SPECS.pan.fmt(p.pan)}`);
+    for (let i = 1; i <= SS.LFO_COUNT; i++) {
+      const dest = p[`lfo${i}Dest`];
+      $(`#sdLfoTab${i} .dot`).classList.toggle('on', !!dest && dest !== 'off');
+    }
+  }
+
+  const noiseColor = (p) => SS.NOISE_COLORS.find((c) => c.id === p.noiseColor) || SS.NOISE_COLORS[0];
+
   function build() {
+    buildTabs();
     buildLfoPanels();
     for (const [key, spec] of Object.entries(SPECS)) {
       const id = 'sd_' + key;
@@ -198,6 +313,8 @@ SS.soundDesign = (() => {
       b.addEventListener('click', () => {
         const prevSuper = params().wave === 'supersaw';
         set('wave', w.id);
+        // choisir une onde avec l'oscillateur coupé (Wind, Rumble…) : on le remet pour l'entendre
+        if (!params().osc) set('osc', 1);
         // supersaw sans unison sonne comme une simple dent de scie : on donne des voix par défaut
         if (w.id === 'supersaw' && params().voices < 3) set('voices', 5);
         if (prevSuper && w.id !== 'supersaw' && params().voices >= 5) set('voices', 1);
@@ -205,6 +322,23 @@ SS.soundDesign = (() => {
         preview();
       });
       $('#sdWaves').append(b);
+    });
+
+    SS.NOISE_COLORS.forEach((c) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.v = c.id;
+      b.textContent = c.label;
+      b.title = `${c.hint} — s("${c.id}")`;
+      b.setAttribute('role', 'radio');
+      b.addEventListener('click', () => {
+        set('noiseColor', c.id);
+        // choisir une couleur sans niveau ne ferait rien : on donne une valeur de départ
+        if (!params().noise) set('noise', 0.3);
+        refresh();
+        preview();
+      });
+      $('#sdNoiseColor').append(b);
     });
 
     SS.FILTER_TYPES.forEach((f) => {
@@ -332,6 +466,7 @@ SS.soundDesign = (() => {
       });
     radio('#sdFilterModel', p.ftype);
     radio('#sdGlideMode', p.glideMode);
+    radio('#sdNoiseColor', p.noiseColor);
     for (let i = 1; i <= SS.LFO_COUNT; i++) {
       radio(`#sdLfo${i}Dest`, p[`lfo${i}Dest`]);
       radio(`#sdLfo${i}Shapes`, p[`lfo${i}Shape`]);
@@ -341,6 +476,7 @@ SS.soundDesign = (() => {
     const model = SS.FILTER_MODELS.find((m) => m.id === p.ftype) || SS.FILTER_MODELS[0];
     $('#sdFilterHint').textContent = model.hint + '.';
     const gm = SS.GLIDE_MODES.find((m) => m.id === p.glideMode) || SS.GLIDE_MODES[0];
+    $('#sdNoiseHint').textContent = p.noise > 0 ? noiseColor(p).hint + '.' : 'Ajoute du souffle au son de l’oscillateur ; coupe l’oscillateur pour n’entendre que le bruit.';
     $('#sdGlideHint').textContent = p.glide ? gm.hint + '.' : 'Réglez un temps pour faire glisser la hauteur d’une note à la suivante.';
     updateValues(true);
   }
@@ -360,10 +496,12 @@ SS.soundDesign = (() => {
     inputs.get('fdrive').row.classList.toggle('dim', p.ftype !== 'ladder' && p.ftype !== 'sem');
     $('#sdGlideMode').classList.toggle('dim', !p.glide);
     inputs.get('pw').row.hidden = p.wave !== 'pulse';
-    const noise = SS.NOISES.includes(p.wave);
-    inputs.get('sub').row.hidden = noise;
-    inputs.get('subOct').row.hidden = noise;
     inputs.get('subOct').row.classList.toggle('dim', !p.sub);
+    // oscillateur coupé dans le mixeur : ses réglages n'ont plus d'effet
+    $('#sdWaves').classList.toggle('dim', !p.osc);
+    ['voices', 'pw'].forEach((k) => inputs.get(k).row.classList.toggle('dim', !p.osc));
+    if (!p.osc) detuneRow.classList.add('dim');
+    $('#sdNoiseColor').classList.toggle('dim', !p.noise);
     for (let i = 1; i <= SS.LFO_COUNT; i++) {
       const dest = p[`lfo${i}Dest`];
       const off = !dest || dest === 'off';
@@ -372,13 +510,14 @@ SS.soundDesign = (() => {
       const d = SS.LFO_DESTS.find((x) => x.id === dest) || SS.LFO_DESTS[0];
       let hint = off ? 'Choisis une destination pour animer le son.' : d.hint + '.';
       if (dest === 'pw' && p.wave !== 'pulse') hint = 'Le PWM n’agit que sur l’onde Pulse.';
-      if (dest === 'pitch' && SS.NOISES.includes(p.wave)) hint = 'Le bruit n’a pas de hauteur.';
+      if (dest === 'pitch' && !p.osc && !p.sub) hint = 'Seul le bruit sonne : il n’a pas de hauteur.';
       $(`#sdLfo${i}Hint`).textContent = hint;
     }
     $('#sdFenv').classList.toggle('dim', !p.env);
     drawAdsr(p, '#sdAdsr');
     drawAdsr({ attack: p.fattack, decay: p.fdecay, sustain: p.fsustain, release: p.frelease }, '#sdFenv');
     $('#sdCode').textContent = strudelCode(p);
+    updateTabStates(p);
   }
 
   function drawAdsr(p, svgSel) {
@@ -406,9 +545,11 @@ SS.soundDesign = (() => {
   const r = (v, n = 3) => +v.toFixed(n);
   function strudelCode(p) {
     const parts = [];
-    if (p.wave) {
+    if (p.wave && !p.osc && p.noise > 0) parts.push(`s("${p.noiseColor}")`);
+    else if (p.wave) {
       parts.push(`s("${p.wave}")`);
       if (p.voices > 1) parts.push(`unison(${p.voices})`, `detune(${r(p.detune / 100, 2)})`);
+      if (p.noise > 0 && p.noiseColor === 'white') parts.push(`noise(${r(p.noise, 2)})`);
     } else parts.push(`s("${SS.findInstrument(track.family, track.instrument).label}")`);
     const f = SS.FILTER_TYPES.find((x) => x.id === p.filter) || SS.FILTER_TYPES[0];
     if (f.strudel && !(p.filter === 'lowpass' && p.cutoff >= 19999)) parts.push(`${f.strudel}(${Math.round(p.cutoff)})`);
@@ -437,7 +578,10 @@ SS.soundDesign = (() => {
     if (p.ftype === 'sem') extra.push('filtre SEM');
     if (p.glide) extra.push(`${p.glideMode === 'legato' ? 'glide legato' : 'portamento'} ${fmtTime(p.glide)}`);
     if (p.wave === 'pulse') extra.push(`largeur ${Math.round(p.pw * 100)} %`);
-    if (p.sub > 0 && p.wave && !SS.NOISES.includes(p.wave)) extra.push(`sous-oscillateur ${Math.round(p.sub * 100)} % −${p.subOct >= 2 ? 2 : 1} oct`);
+    if (p.wave && p.osc > 0 && p.osc < 1) extra.push(`oscillateur ${Math.round(p.osc * 100)} %`);
+    if (p.wave && p.osc > 0 && p.noise > 0 && p.noiseColor !== 'white') extra.push(`bruit ${noiseColor(p).label.toLowerCase()} ${Math.round(p.noise * 100)} %`);
+    if (p.wave && !p.osc && p.noise > 0 && p.noise < 1) extra.push(`bruit ${Math.round(p.noise * 100)} %`);
+    if (p.sub > 0 && p.wave) extra.push(`sous-oscillateur ${Math.round(p.sub * 100)} % −${p.subOct >= 2 ? 2 : 1} oct`);
     SS.activeLfos(p).forEach((l) => {
       const d = SS.LFO_DESTS.find((x) => x.id === l.dest);
       const sh = SS.LFO_SHAPES.find((x) => x.id === l.shape);
@@ -482,8 +626,10 @@ SS.soundDesign = (() => {
     const inst = SS.findInstrument(t.family, t.instrument);
     $('#sdTrack').textContent = `${t.name} · ${inst.label}`;
     refresh();
+    showLfo(lfoTab);
     $('#soundDialog').returnValue = '';
     $('#soundDialog').showModal();
+    showTab(tab, true);
   }
 
   function init(appApi) {

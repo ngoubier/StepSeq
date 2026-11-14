@@ -161,9 +161,9 @@ const SYNTHS = {
     synth('superpad', 'Supersaw Pad (synthé)', { wave: 'supersaw', voices: 7, detune: 25, cutoff: 1400, env: 0.8, q: 1, attack: 0.5, decay: 1, sustain: 0.8, release: 1.4, fattack: 1.2, fdecay: 1.5, fsustain: 0.5, frelease: 1.4 }),
   ],
   fx: [
-    synth('noiseriser', 'Noise Riser (synthé, bruit blanc)', { wave: 'white', cutoff: 250, env: 5.5, q: 6, attack: 1.2, decay: 0.3, sustain: 1, release: 0.4, fattack: 2, fdecay: 0.5, fsustain: 1, frelease: 0.4 }),
-    synth('wind', 'Wind (synthé, bruit rose)', { wave: 'pink', cutoff: 700, env: 1.5, q: 8, attack: 0.8, decay: 1, sustain: 0.7, release: 1.2 }),
-    synth('rumble', 'Rumble (synthé, bruit brun)', { wave: 'brown', cutoff: 300, env: 0, q: 2, attack: 0.3, decay: 0.5, sustain: 0.9, release: 0.8 }),
+    synth('noiseriser', 'Noise Riser (synthé, bruit blanc)', { osc: 0, noise: 1, noiseColor: 'white', cutoff: 250, env: 5.5, q: 6, attack: 1.2, decay: 0.3, sustain: 1, release: 0.4, fattack: 2, fdecay: 0.5, fsustain: 1, frelease: 0.4 }),
+    synth('wind', 'Wind (synthé, bruit rose)', { osc: 0, noise: 1, noiseColor: 'pink', cutoff: 700, env: 1.5, q: 8, attack: 0.8, decay: 1, sustain: 0.7, release: 1.2 }),
+    synth('rumble', 'Rumble (synthé, bruit brun)', { osc: 0, noise: 1, noiseColor: 'brown', cutoff: 300, env: 0, q: 2, attack: 0.3, decay: 0.5, sustain: 0.9, release: 0.8 }),
   ],
   keys: [],
 };
@@ -430,11 +430,14 @@ SS.WAVES = [
   { id: 'triangle', label: 'Triangle' },
   { id: 'sine', label: 'Sine' },
   { id: 'supersaw', label: 'Supersaw' },
-  { id: 'white', label: 'Bruit blanc' },
-  { id: 'pink', label: 'Bruit rose' },
-  { id: 'brown', label: 'Bruit brun' },
 ];
-SS.NOISES = ['white', 'pink', 'brown'];
+/* Générateur de bruit : une source à part, mélangée à l'oscillateur (comme le mixeur d'un Minimoog ou d'un Juno) */
+SS.NOISE_COLORS = [
+  { id: 'white', label: 'Blanc', hint: 'Toutes les fréquences à égalité : souffle brillant, charleston, caisse claire' },
+  { id: 'pink', label: 'Rose', hint: 'Moins d’aigus : vent, vagues, souffle doux' },
+  { id: 'brown', label: 'Brun', hint: 'Surtout des graves : grondement, tonnerre' },
+];
+SS.NOISES = SS.NOISE_COLORS.map((c) => c.id);
 SS.FILTER_TYPES = [
   { id: 'lowpass', label: 'Passe-bas', strudel: 'lpf' },
   { id: 'highpass', label: 'Passe-haut', strudel: 'hpf' },
@@ -457,7 +460,7 @@ SS.GLIDE_MODES = [
 /** Réglages par défaut du son d'une piste instrument (ceux du preset choisi). */
 SS.soundDefaults = (track) => {
   const inst = SS.findInstrument(track.family, track.instrument);
-  const base = { filter: 'lowpass', ftype: '12db', fdrive: 0.5, glide: 0, glideMode: 'always', pan: 0, drive: 0, gain: 1, voices: 1, detune: 0, accent: 0.6, sub: 0, subOct: 1 };
+  const base = { filter: 'lowpass', ftype: '12db', fdrive: 0.5, glide: 0, glideMode: 'always', pan: 0, drive: 0, gain: 1, voices: 1, detune: 0, accent: 0.6, sub: 0, subOct: 1, osc: 1, noise: 0, noiseColor: 'white' };
   if (inst.kind === 'synth') {
     const p = inst.params;
     return {
@@ -471,6 +474,9 @@ SS.soundDefaults = (track) => {
       detune: p.detune || 0,
       sub: p.sub ?? 0, // sous-oscillateur : carré une ou deux octaves plus bas
       subOct: p.subOct ?? 1,
+      osc: p.osc ?? 1, // mixeur : niveau de l'oscillateur
+      noise: p.noise ?? 0, // et du générateur de bruit
+      noiseColor: p.noiseColor || 'white',
       accent: p.accent ?? base.accent,
       cutoff: p.cutoff ?? 2000,
       q: p.q ?? 1,
@@ -498,9 +504,37 @@ SS.soundDefaults = (track) => {
 /** Réglages effectifs : preset + modifications de l'utilisateur (track.sd). */
 SS.soundParams = (track) => {
   const d = SS.soundDefaults(track);
-  const p = { ...d, ...(track.sd || {}) };
+  const p = { ...d, ...SS.noiseSd(track.sd) };
   if (d.wave === null) p.wave = null; // un échantillon n'a pas de VCO
   return p;
+};
+
+/** Ancienne onde « bruit » (white / pink / brown) : oscillateur coupé, bruit à fond de cette couleur. */
+SS.noiseSd = (sd) => {
+  if (!sd || !SS.NOISES.includes(sd.wave)) return sd || {};
+  const { wave, ...rest } = sd;
+  return { ...rest, osc: sd.osc ?? 0, noise: sd.noise ?? 1, noiseColor: wave };
+};
+
+/**
+ * Version 3 : le bruit n'est plus une forme d'onde mais une source mélangée à l'oscillateur (bloc Bruit du VCO).
+ * Une onde de bruit choisie devient « oscillateur 0, bruit 100 % » ; une onde normale choisie sur un preset
+ * de bruit (Wind, Rumble, Noise Riser) redevient l'oscillateur seul, comme avant.
+ */
+SS.migrateNoise = (data) => {
+  if (!data || !Array.isArray(data.tracks) || Number(data.version) >= 3) return;
+  data.tracks.forEach((t) => {
+    if (!t || t.type === 'drum' || !t.sd || typeof t.sd !== 'object') return;
+    if (SS.NOISES.includes(t.sd.wave)) {
+      t.sd = SS.noiseSd(t.sd);
+      return;
+    }
+    if (!t.sd.wave) return;
+    const copy = { ...t };
+    if (SS.migrateInstrument) SS.migrateInstrument(copy);
+    const inst = SS.findInstrument(copy.family, copy.instrument);
+    if (inst && inst.kind === 'synth' && inst.params.osc === 0) t.sd = { ...t.sd, osc: 1, noise: 0 };
+  });
 };
 
 /* ---------- Effets par piste (inspirés de strudel.cc : room, delay ; + chorus) ---------- */

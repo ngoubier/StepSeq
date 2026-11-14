@@ -1362,20 +1362,20 @@ SS.audio = (() => {
     const t = Math.max(time, ctx.currentTime);
     const freq = 440 * Math.pow(2, (midi - 69) / 12);
     const chain = voiceChain(p, t, dur, vel, dest, 0.35);
-    if (SS.NOISES.includes(p.wave)) {
-      // bruit (comme les sons white / pink / brown de strudel) : la hauteur de note n'a pas d'effet
+    // mixeur : générateur de bruit (blanc, rose ou brun), ajouté à l'oscillateur ; il n'a pas de hauteur
+    const sources = [];
+    if (p.noise > 0) {
       const src = ctx.createBufferSource();
-      src.buffer = noiseBuffer(p.wave);
+      src.buffer = noiseBuffer(SS.NOISES.includes(p.noiseColor) ? p.noiseColor : 'white');
       src.loop = true;
       const g = ctx.createGain();
-      g.gain.value = 1.4;
+      g.gain.value = Math.min(1, p.noise) * 1.4;
       src.connect(g).connect(chain.input);
       src.start(t, Math.random() * 1.5);
       src.stop(chain.end);
-      const mods = applyLfos(p, chain, { pitch: [], pw: [] });
-      register([src, ...mods], chain.amp);
-      return trackVoice([src], chain, midi, []); // le bruit n'a pas de hauteur
+      sources.push(src);
     }
+    const oscLevel = Math.max(0, Math.min(1, p.osc ?? 1));
     const type = p.wave === 'supersaw' ? 'sawtooth' : p.wave || 'sawtooth';
     const n = Math.max(1, Math.round(p.wave === 'supersaw' ? Math.max(3, p.voices || 5) : p.voices || 1));
     const detune = p.wave === 'supersaw' ? Math.max(8, p.detune || 0) : p.detune || 0;
@@ -1384,7 +1384,9 @@ SS.audio = (() => {
     const pws = []; // retards du PWM : { param, base, period }
     const pulse = p.wave === 'pulse';
     const width = Math.max(0.02, Math.min(0.98, p.pw ?? 0.5));
-    for (let i = 0; i < n; i++) {
+    // oscillateur coupé dans le mixeur : pas d'oscillateurs (sauf s'il ne reste aucune source, pour garder une voix valide)
+    const nOsc = oscLevel > 0 || (!sources.length && !(p.sub > 0)) ? n : 0;
+    for (let i = 0; i < nOsc; i++) {
       const o = ctx.createOscillator();
       o.type = pulse ? 'sawtooth' : type;
       o.frequency.value = freq;
@@ -1392,7 +1394,7 @@ SS.audio = (() => {
       o.detune.value = offset;
       detunes.push({ param: o.detune, offset });
       const og = ctx.createGain();
-      og.gain.value = 1 / Math.sqrt(n);
+      og.gain.value = oscLevel / Math.sqrt(n);
       o.connect(og);
       if (pulse) {
         /*
@@ -1428,8 +1430,8 @@ SS.audio = (() => {
       detunes.push({ param: so.detune, offset: 0 });
     }
     const mods = applyLfos(p, chain, { pitch: oscs.map((o) => o.detune), pw: pws });
-    register([...oscs, ...mods], chain.amp);
-    const v = trackVoice(oscs, chain, midi, detunes);
+    register([...oscs, ...sources, ...mods], chain.amp);
+    const v = trackVoice([...oscs, ...sources], chain, midi, detunes);
     v.follow = pws.map(({ param, base }) => ({ param, base }));
     return v;
   }
