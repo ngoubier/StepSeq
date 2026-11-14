@@ -417,6 +417,10 @@ a.btn { text-decoration: none; }
   pointer-events: none;
 }
 .cell.on.now { filter: brightness(1.35); }
+/* accent : liseré doré en haut de la note */
+.acc-mark { position: absolute; left: 1px; right: 1px; top: 1px; height: 3px; border-radius: 2px; background: var(--gold); z-index: 2; pointer-events: none; }
+.ctx-acc { min-width: 92px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
+.ctx-acc.on { background: var(--gold); border-color: var(--gold); color: #161618; font-weight: 600; }
 /* ratchet (pas de batterie ou note rejoués 2 à 4 fois) : un petit trait par coup, en bas du pas */
 .rat-mark {
   position: absolute;

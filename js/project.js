@@ -26,7 +26,7 @@
  *       sd: { wave, voices, detune, pw, filter, ftype, fdrive, cutoff, q, env,  // sound design (optionnel,
  *             attack, decay, sustain, release, glide, glideMode,       //  sinon preset de l'instrument)
  *             pan, drive, gain, lfo1Dest, lfo1Shape, lfo1Rate, lfo1Hz, lfo1Mode, lfo1Amt, lfo1Fade, lfo2… }
- *       events: [{ step, len, notes: [midi...], vel, shift?, rat?, cond? }] }   // shift : micro-décalage, en fraction de pas (−0,5..0,5)
+ *       events: [{ step, len, notes: [midi...], vel, shift?, rat?, cond?, acc? }] }  // acc : note accentuée   // shift : micro-décalage, en fraction de pas (−0,5..0,5)
  *                                                    // rat : ratchet, la note est rejouée 2 à 4 fois dans son premier pas
  *                                                    // cond : condition de déclenchement (SS.TRIG_CONDS)
  *     toutes les pistes : auto?: { filter|res|volume|reverb|echo: { pas: valeur } }  // automation de la scène (SS.AUTO_PARAMS)
@@ -45,6 +45,35 @@ SS.totalSteps = (p) => SS.stepsPerBar(p) * p.bars;
 
 /** Micro-décalage d'une note (ev.shift, fraction de pas, −0,5 = en avance d'un demi-pas) : borné, absent si nul. */
 SS.SHIFT_MAX = 0.5;
+/*
+ * Accent (ev.acc) : la note est marquée — plus forte, filtre plus ouvert et plus résonant, effet qui s'accumule
+ * sur des accents rapprochés (js/audio.js, SS.accentParams). Absent si la note n'est pas accentuée.
+ */
+SS.cleanAccent = (ev) => {
+  if (ev.acc) ev.acc = true;
+  else delete ev.acc;
+  return ev;
+};
+/** Vélocité exportée (MIDI) d'une note accentuée. */
+SS.accentVel = (vel) => Math.min(1, vel * 1.25 + 0.12);
+/**
+ * Réglages d'une note accentuée. `amount` : force de l'accent (0..1, réglage du sound design) ; `charge` : mémoire
+ * des accents précédents (0..1, monte quand ils se suivent de près). Renvoie { p, vel } (copie).
+ */
+SS.accentParams = (p, vel, amount, charge = 0) => {
+  const A = Math.max(0, Math.min(1, amount));
+  if (!A) return { p, vel };
+  const q = { ...p };
+  const env0 = q.env || 0;
+  q.env = env0 + A * (1.2 + 1.8 * charge); // ouverture du filtre (octaves), plus forte si les accents se suivent
+  q.fattack = Math.min(q.fattack ?? 0.005, 0.004);
+  q.fdecay = Math.min(q.fdecay ?? q.decay ?? 0.2, 0.16 + 0.2 * (1 - A));
+  q.fsustain = env0 > 0 ? Math.min(q.fsustain ?? 0.5, 0.35) : 0; // le filtre retombe après le « coup »
+  q.q = Math.min(30, (q.q || 0) + A * (4 + 6 * charge));
+  q.gain = (q.gain ?? 1) * (1 + 0.35 * A);
+  return { p: q, vel: Math.min(1, vel + 0.25 * A) };
+};
+
 SS.cleanShift = (ev) => {
   const v = Math.round(Math.max(-SS.SHIFT_MAX, Math.min(SS.SHIFT_MAX, Number(ev.shift) || 0)) * 100) / 100;
   if (v) ev.shift = v;
@@ -526,7 +555,7 @@ SS.normalizeProject = (data) => {
       track.sfv = Number.isInteger(t.sfv) && t.sfv >= 0 ? t.sfv : track.sfv || 0;
       track.type = 'instrument';
       track.events = Array.isArray(t.events) ? t.events : [];
-      track.events.forEach((e) => SS.cleanCond(SS.cleanRatchet(SS.cleanShift(e))));
+      track.events.forEach((e) => SS.cleanAccent(SS.cleanCond(SS.cleanRatchet(SS.cleanShift(e)))));
       track.arp = SS.Arp.normalize(t.arp); // ARP ONE (js/arp.js) : réglages bornés, anciens projets compris
       track.chord = t.chord || 'min';
       if (t.sd && typeof t.sd === 'object') {

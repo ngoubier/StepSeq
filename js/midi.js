@@ -82,7 +82,7 @@
   const FAMILY_PROGRAM = { keys: 0, organ: 16, bass: 38, synth: 81, pads: 89, strings: 48, voices: 52, brass: 61, winds: 73, guitar: 25, mallets: 11, world: 104, perc: 114, fx: 99, analog: 81 };
   const SYNTH_PROGRAM = {
     syn_sqbass: 39, syn_moogbass: 39, syn_square: 80, syn_chip: 80, syn_triangle: 80, syn_sine: 80, syn_pluck: 84,
-    syn_supersaw: 81, syn_superpad: 90, syn_glasspad: 92, syn_noiseriser: 122, syn_wind: 122, syn_rumble: 122, syn_pwmbass: 39, syn_pwmpad: 50, syn_breathpad: 89, syn_drone: 95, piano: 0,
+    syn_supersaw: 81, syn_superpad: 90, syn_glasspad: 92, syn_noiseriser: 122, syn_wind: 122, syn_rumble: 122, syn_pwmbass: 39, syn_pwmpad: 50, syn_breathpad: 89, syn_drone: 95, syn_acidsub: 38, syn_techsub: 39, piano: 0,
   };
   const JUNO_WORDS = [
     [/bass/i, 38], [/string|violin|cello|orchest/i, 50], [/organ|owgan/i, 16], [/brass|trumpet|horn/i, 62],
@@ -262,7 +262,7 @@
               for (const ev of events) {
                 if (ev.cond && !ok(ev.cond, ev.step, tick)) continue;
                 const notes = SS.Arp.renderStep(t.arp, ev, step, { loop: Math.floor(tick / len), trackLen: len, stepSec, stepsPerBeat: SS.stepsPerBeat(p) });
-                for (const n of notes) out.notes.push({ at: (base + tick + swingAt(tick) + n.at / stepSec) * TPS + nudge, dur: (n.dur / stepSec) * TPS, note: n.midi, vel: n.vel });
+                for (const n of notes) out.notes.push({ at: (base + tick + swingAt(tick) + n.at / stepSec) * TPS + nudge, dur: (n.dur / stepSec) * TPS, note: n.midi, vel: ev.acc ? SS.accentVel(n.vel) : n.vel });
               }
             }
             continue;
@@ -279,7 +279,8 @@
               const r = ev.rat || 1;
               for (let j = 0; j < r; j++) {
                 const d = j < r - 1 ? (TPS / r) * 0.9 : Math.max((TPS / r) * 0.9, dur - (j * TPS) / r);
-                for (const n of ev.notes) out.notes.push({ at: at + (j * TPS) / r, dur: d, note: n, vel: ev.vel * (j ? 0.85 : 1) });
+                const v0 = ev.acc ? SS.accentVel(ev.vel) : ev.vel; // note accentuée : plus forte
+                for (const n of ev.notes) out.notes.push({ at: at + (j * TPS) / r, dur: d, note: n, vel: v0 * (j ? 0.85 : 1) });
               }
             }
           }

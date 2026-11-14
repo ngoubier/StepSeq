@@ -296,7 +296,19 @@ Le bouton à curseurs de l'en-tête ouvre la fenêtre de **sound design** (oscil
   notes, alignée sur la lecture : un LFO de 4 mesures repart avec la boucle) ou **Retrig** (repart à chaque note),
   quantité (négative = forme inversée) et fondu d'entrée. Les LFO s'appliquent aussi aux instruments échantillonnés
   (sauf PWM) ;
-- enveloppes longues pour les nappes et drones : attaque et decay jusqu'à 10 s, release jusqu'à 20 s.
+- enveloppes longues pour les nappes et drones : attaque et decay jusqu'à 10 s, release jusqu'à 20 s ;
+- **sous-oscillateur** : un carré une ou deux octaves sous la note (niveau et octave), qui suit le glide ;
+- **force de l'accent** (section Sortie) : effet des notes accentuées.
+
+### Accent des notes
+
+Une note **accentuée** (`ev.acc`, liseré doré en haut de la note) est plus forte, son filtre s'ouvre davantage et
+sa résonance claque, puis le filtre retombe : c'est le son « acid ». Comme sur les boîtes à basse des années 80,
+l'effet **s'accumule** sur des accents rapprochés (une mémoire qui se vide en ~0,35 s) : le filtre monte d'accent
+en accent. Pour accentuer : le bouton **Accent** de la fenêtre d'une note (clic droit), ou la touche **A** sur une
+sélection (toutes accentuées, sinon l'accent est retiré). Les arpèges accentuent toutes les notes de l'accord ; le
+Juno-106 reçoit l'accent par la vélocité ; l'export MIDI donne aux notes accentuées une vélocité plus forte.
+Presets : **Acid Sub** et **Techno Sub Bass** (Bass).
 
 ### Effets d'espace : Cosmos et écho à bande
 
@@ -389,6 +401,7 @@ node tests/e2e/arp-ui.js
 node tests/e2e/lfo.js
 node tests/e2e/voice-auto.js
 node tests/e2e/space.js
+node tests/e2e/accent.js
 node tests/e2e/arp-cursor.js
 node tests/e2e/harmony-ui.js
 node tests/e2e/grid-ui.js
@@ -508,6 +521,7 @@ un clic sur le pourcentage revient à 100 %. Touches `−` et `+` (ou `=`).
 - `Espace` : lecture / stop
 - `Ctrl+S` (`Cmd+S`) : enregistrer — `Ctrl+Maj+S` : enregistrer sous
 - `Ctrl+O` : ouvrir
+- `A` : accent sur les notes sélectionnées (ou retiré si elles l'ont toutes)
 - Double-clic sur le nom d'une piste : renommer
 
 ## Fichiers de projet

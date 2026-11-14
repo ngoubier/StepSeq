@@ -136,6 +136,8 @@ const SYNTHS = {
     synth('moogbass', 'Moog Bass (synthé, ladder + glide)', { wave: 'sawtooth', voices: 2, detune: 7, ftype: 'ladder', fdrive: 0.6, cutoff: 160, q: 12, env: 4, fattack: 0.003, fdecay: 0.28, fsustain: 0.15, frelease: 0.12, decay: 0.3, sustain: 0.8, release: 0.06, glide: 0.07, glideMode: 'legato' }),
     synth('acidladder', 'Acid Ladder (synthé)', { wave: 'sawtooth', ftype: 'ladder', fdrive: 0.8, cutoff: 260, q: 22, env: 3.6, decay: 0.18, sustain: 0.5, release: 0.05, glide: 0.05, glideMode: 'legato' }),
     synth('reese', 'Reese Bass (synthé)', { wave: 'sawtooth', voices: 2, detune: 22, cutoff: 600, env: 1.2, q: 2, decay: 0.4, sustain: 0.8, release: 0.12 }),
+    synth('acidsub', 'Acid Sub (synthé, accent + sous-oscillateur)', { wave: 'sawtooth', ftype: 'ladder', fdrive: 0.7, cutoff: 220, q: 14, env: 2.4, fdecay: 0.2, fsustain: 0.2, decay: 0.25, sustain: 0.7, release: 0.05, sub: 0.55, accent: 0.8, glide: 0.06, glideMode: 'legato' }),
+    synth('techsub', 'Techno Sub Bass (synthé, sous-oscillateur −2 oct)', { wave: 'pulse', pw: 0.3, cutoff: 900, env: 1.2, q: 2, decay: 0.2, sustain: 0.8, release: 0.06, sub: 0.7, subOct: 2 }),
     synth('pwmbass', 'PWM Bass (synthé, LFO 1 mesure)', { wave: 'pulse', pw: 0.35, ftype: '24db', cutoff: 650, env: 2.2, q: 3, decay: 0.3, sustain: 0.7, release: 0.08, lfo1Dest: 'pw', lfo1Shape: 'triangle', lfo1Rate: 'b1', lfo1Amt: 0.6 }),
     synth('evolbass', 'Evolving Bass (synthé, cutoff sur 4 mesures)', { wave: 'sawtooth', voices: 2, detune: 9, ftype: 'ladder', fdrive: 0.6, cutoff: 260, q: 10, env: 2, fdecay: 0.3, fsustain: 0.3, decay: 0.4, sustain: 0.8, release: 0.1, lfo1Dest: 'cutoff', lfo1Shape: 'sine', lfo1Rate: 'b4', lfo1Amt: 0.4 }),
     synth('wobble', 'Wobble Bass (synthé, LFO 1/8)', { wave: 'sawtooth', voices: 2, detune: 12, ftype: 'ladder', fdrive: 0.7, cutoff: 300, q: 14, env: 0, decay: 0.3, sustain: 1, release: 0.08, lfo1Dest: 'cutoff', lfo1Shape: 'sine', lfo1Rate: 'n8', lfo1Mode: 'retrig', lfo1Amt: 0.6 }),
@@ -455,7 +457,7 @@ SS.GLIDE_MODES = [
 /** Réglages par défaut du son d'une piste instrument (ceux du preset choisi). */
 SS.soundDefaults = (track) => {
   const inst = SS.findInstrument(track.family, track.instrument);
-  const base = { filter: 'lowpass', ftype: '12db', fdrive: 0.5, glide: 0, glideMode: 'always', pan: 0, drive: 0, gain: 1, voices: 1, detune: 0 };
+  const base = { filter: 'lowpass', ftype: '12db', fdrive: 0.5, glide: 0, glideMode: 'always', pan: 0, drive: 0, gain: 1, voices: 1, detune: 0, accent: 0.6, sub: 0, subOct: 1 };
   if (inst.kind === 'synth') {
     const p = inst.params;
     return {
@@ -467,6 +469,9 @@ SS.soundDefaults = (track) => {
       wave: p.wave || 'sawtooth',
       voices: p.voices || (p.wave === 'supersaw' ? 5 : 1),
       detune: p.detune || 0,
+      sub: p.sub ?? 0, // sous-oscillateur : carré une ou deux octaves plus bas
+      subOct: p.subOct ?? 1,
+      accent: p.accent ?? base.accent,
       cutoff: p.cutoff ?? 2000,
       q: p.q ?? 1,
       env: p.env ?? 0,

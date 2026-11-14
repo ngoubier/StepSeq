@@ -1414,6 +1414,19 @@ SS.audio = (() => {
       o.stop(chain.end);
       oscs.push(o);
     }
+    // sous-oscillateur : carré une ou deux octaves plus bas (suit le glide et le LFO de hauteur)
+    if (p.sub > 0) {
+      const so = ctx.createOscillator();
+      so.type = 'square';
+      so.frequency.value = freq / ((p.subOct || 1) >= 2 ? 4 : 2);
+      const sg = ctx.createGain();
+      sg.gain.value = Math.min(1, p.sub) * 0.75;
+      so.connect(sg).connect(chain.input);
+      so.start(t);
+      so.stop(chain.end);
+      oscs.push(so);
+      detunes.push({ param: so.detune, offset: 0 });
+    }
     const mods = applyLfos(p, chain, { pitch: oscs.map((o) => o.detune), pw: pws });
     register([...oscs, ...mods], chain.amp);
     const v = trackVoice(oscs, chain, midi, detunes);
@@ -1437,11 +1450,19 @@ SS.audio = (() => {
     const out = dest || bus(track);
     const inst = instOf(track);
     if (inst.kind === 'analog') {
+      if (mod && mod.acc) vel = SS.accentVel(vel); // Juno-106 : l'accent passe par la vélocité
       SS.juno.play({ ctx, noise: noiseBuffer, register }, track, midi, Math.max(time, ctx.currentTime), dur, vel, out);
       return;
     }
     let p = SS.soundParams(track);
     p._track = track.id || 'preview';
+    // accent (ev.acc) : réglages de la note poussés ; mémoire des accents rapprochés, par piste
+    if (mod && mod.acc) {
+      const a = accentCharge(track, Math.max(time, ctx.currentTime), idx === 0);
+      const r = SS.accentParams(p, vel, p.accent, a);
+      p = r.p;
+      vel = r.vel;
+    }
     if (mod && mod.locks) p = SS.applyVoiceLocks(p, mod.locks); // automation du son (verrous par pas)
     if (mod && mod.cutoff && mod.cutoff !== 1) p = { ...p, cutoff: Math.max(30, Math.min(20000, p.cutoff * mod.cutoff)) };
     // ce qui suit doit rester synchrone jusqu'au glide (ordre des notes) : on résout d'abord la source
@@ -1481,6 +1502,19 @@ SS.audio = (() => {
     glideStart(plan, p, voice, idx, midi, t);
   }
 
+  /*
+   * Mémoire des accents (comme le condensateur d'une boîte à basse acid) : chaque accent la charge, elle se vide
+   * en ~0,35 s ; plus elle est chargée, plus l'accent suivant ouvre le filtre et fait claquer la résonance.
+   */
+  const accentMem = new Map();
+  function accentCharge(track, t, update) {
+    const key = track.id || '__preview';
+    const m = accentMem.get(key) || { level: 0, t };
+    const level = m.level * Math.exp(-Math.max(0, t - m.t) / 0.35);
+    if (update) accentMem.set(key, { level: level + (1 - level) * 0.6, t });
+    return level;
+  }
+
   /** Courte phrase de notes (démo du glide, écoute de l'arpégiateur) : [{ midi, at (s), dur (s), vel?, cutoff? }]. */
   async function playPhrase(track, notes) {
     ensureCtx();
@@ -1517,7 +1551,7 @@ SS.audio = (() => {
     if (track.type === 'drum') playDrum(track, t, 0.9, out);
     else {
       const notes = Array.isArray(midi) ? midi : [midi];
-      await Promise.all(notes.map((n, i) => playNote(track, n, t, dur, options.velocity ?? (notes.length > 1 ? 0.65 : 0.8), out, i, notes.length, { signal: options.signal })));
+      await Promise.all(notes.map((n, i) => playNote(track, n, t, dur, options.velocity ?? (notes.length > 1 ? 0.65 : 0.8), out, i, notes.length, { signal: options.signal, acc: !!options.acc })));
     }
   }
 
@@ -1662,7 +1696,7 @@ SS.audio = (() => {
             // notes simultanées (mode Accord rythmique) : jouées comme un accord (glide, niveau)
             const group = notes.filter((x) => x.at === n.at);
             const gi = group.indexOf(n);
-            playNote(track, n.midi, t + jt(), n.dur, jv(n.vel * (group.length > 1 ? 0.8 : 1)), undefined, gi, group.length, { cutoff: n.cutoff, locks });
+            playNote(track, n.midi, t + jt(), n.dur, jv(n.vel * (group.length > 1 ? 0.8 : 1)), undefined, gi, group.length, { cutoff: n.cutoff, locks, acc: !!ev.acc });
             if (n.first) duckFrom(project, track, t); // un arpège déclenche le sidechain au début de chaque accord
           });
         } else if (ev.step === step) {
@@ -1676,10 +1710,11 @@ SS.audio = (() => {
           const sub = sd / r;
           // automation du son (track.auto, réglages « voice ») : valeur au pas de la note
           const locks = SS.voiceLocks(track, ev.step, SS.trackLen(project, track));
+          const nmod = locks || ev.acc ? { locks, acc: !!ev.acc } : null;
           for (let j = 0; j < r; j++) {
             const d = j < r - 1 ? sub * 0.9 : Math.max(sub * 0.9, dur - j * sub);
             const v = vv * (ev.notes.length > 1 ? 0.8 : 1) * (j ? 0.85 : 1);
-            ev.notes.forEach((n, i) => playNote(track, n, tt + j * sub, d, v, undefined, i, ev.notes.length, locks ? { locks } : null));
+            ev.notes.forEach((n, i) => playNote(track, n, tt + j * sub, d, v, undefined, i, ev.notes.length, nmod));
           }
           duckFrom(project, track, tt);
         }
