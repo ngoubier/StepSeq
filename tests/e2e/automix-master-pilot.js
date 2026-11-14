@@ -32,7 +32,7 @@ const ok = (c, m) => {
   await page.waitForTimeout(400);
   await page.click('#bandStyles [data-v="synthwave"]');
   await page.click('#bandPresets .band-preset >> nth=1');
-  await page.click('#bandSongBtn');
+  for (let i = 0; i < 3; i++) await page.click('#bwNext'); await page.click('#bwCreate');
   await page.waitForTimeout(200);
   if (await page.isVisible('#bcfSong')) await page.click('#bcfSong');
   await page.waitForTimeout(1500);

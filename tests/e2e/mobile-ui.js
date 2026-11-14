@@ -60,9 +60,9 @@ const SHOTS = process.argv[2];
     const band = await page.evaluate(() => {
       const d = document.querySelector('#bandDialog');
       const inView = (q) => { const r = document.querySelector(q).getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth + 0.5 && r.bottom <= innerHeight + 0.5 && r.width > 0; };
-      return { fits: d.scrollWidth <= d.clientWidth + 1 && d.getBoundingClientRect().right <= innerWidth + 0.5, buttons: ['#bandCancel', '#bandCreate', '#bandSongBtn'].every(inView) };
+      return { fits: d.scrollWidth <= d.clientWidth + 1 && d.getBoundingClientRect().right <= innerWidth + 0.5, buttons: ['#bandCancel', '#bwNext'].every(inView) };
     });
-    ok(band.fits && band.buttons, `${name} : fenêtre Band à l’écran, Annuler / Créer les pistes / Créer toute la chanson visibles`);
+    ok(band.fits && band.buttons, `${name} : fenêtre Band à l’écran, Annuler / Suivant visibles`);
     await page.click('#bandStage .band-mus >> nth=2');
     await page.waitForTimeout(300);
     const pan = await page.evaluate(() => {

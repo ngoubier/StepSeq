@@ -88,13 +88,13 @@ const saved = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('ste
   await page.click('#bandStage .band-mus');
   await page.waitForTimeout(200);
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'gm-band.png') });
-  const n0 = p.tracks.length;
-  await page.click('#bandCreate');
+  await page.click('#bandStage .band-mus');
+  for (let i = 0; i < 3; i++) await page.click('#bwNext'); await page.click('#bwCreate');
   await page.waitForTimeout(400);
-  if (await page.$('#bandConfirm:not([hidden]) #bcfAdd')) await page.click('#bcfAdd');
+  if (await page.isVisible('#bcfSong')) await page.click('#bcfSong');
   await page.waitForTimeout(800);
   p = await saved(page);
-  const created = p.tracks.slice(n0);
+  const created = p.tracks.filter((t) => t.band);
   const gmOk = await page.evaluate((ts) => ts.map((t) => !!SS.trackMidi(t)), created);
   ok(created.length > 3 && gmOk.every(Boolean), `Band : ${created.length} pistes créées, toutes General MIDI (${created.map((t) => t.name).join(', ')})`);
 

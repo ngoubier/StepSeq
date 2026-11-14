@@ -545,11 +545,12 @@ SS.ui = (() => {
       shapes.replaceChildren(h('option', { value: '' }, 'Forme…'), ...(SS.AUTO_SHAPES[P().id] || []).map((x) => h('option', { value: x.id }, x.label)));
     const readout = h('output', { class: 'auto-val' });
     const clear = h('button', { type: 'button', class: 'auto-clear', title: 'Effacer la courbe de ce réglage dans la scène' }, 'Effacer');
+    const clearAll = h('button', { type: 'button', class: 'auto-clear-all', title: 'Supprimer toutes les courbes d\'automation de cette piste dans la scène (Ctrl+Z pour revenir)' }, 'Tout effacer');
     const head = h(
       'div',
       { class: 'auto-head' },
       h('div', { class: 'auto-line' }, h('span', { class: 'auto-title', html: ICONS.auto }), param, shapes),
-      h('div', { class: 'auto-line' }, readout, clear)
+      h('div', { class: 'auto-line' }, readout, clear, clearAll)
     );
     const grid = h('div', { class: 'grid auto-grid', title: 'Glisser pour dessiner la courbe · clic droit (ou Alt) : effacer des points' });
     ref.autoCells = [];
@@ -582,6 +583,7 @@ SS.ui = (() => {
       grid.style.setProperty('--zero', zero * 100 + '%');
       grid.classList.toggle('bipolar', x.min < 0);
       clear.disabled = !l;
+      clearAll.disabled = !track.auto || !Object.keys(track.auto).length;
       show(SS.autoValue(l, 0, len));
     }
     const changedAuto = () => {
@@ -606,6 +608,11 @@ SS.ui = (() => {
     clear.addEventListener('click', () => {
       if (track.auto) delete track.auto[P().id];
       SS.cleanAuto(track);
+      changedAuto();
+      app.changed();
+    });
+    clearAll.addEventListener('click', () => {
+      delete track.auto;
       changedAuto();
       app.changed();
     });

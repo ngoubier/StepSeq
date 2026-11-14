@@ -403,6 +403,18 @@ SS.soundDesign = (() => {
 
     const dlg = $('#soundDialog');
     $('#sdPreview').addEventListener('click', () => preview());
+    // Boucle : la piste tourne en boucle pendant les réglages (js/trackloop.js)
+    const loopBtn = $('#sdLoop');
+    const setLoopBtn = (on) => {
+      loopBtn.classList.toggle('active', on);
+      loopBtn.setAttribute('aria-pressed', String(on));
+      loopBtn.querySelector('span').textContent = on ? 'Arrêter la boucle' : 'Boucle';
+    };
+    loopBtn.addEventListener('click', () => {
+      if (SS.trackLoop.active(track)) return SS.trackLoop.stop();
+      if (SS.audio.isPlaying()) return SS.ui && SS.ui.toast && SS.ui.toast('Lecture en cours : tu entends déjà la piste dans le morceau.', 3000);
+      SS.trackLoop.start(track, app.project(), () => preview(true), setLoopBtn);
+    });
     $('#sdReset').addEventListener('click', () => {
       delete track.sd;
       refresh();
@@ -415,6 +427,7 @@ SS.soundDesign = (() => {
       dlg.close('ok');
     });
     dlg.addEventListener('close', () => {
+      SS.trackLoop.stop();
       if (!track) return;
       if (dlg.returnValue !== 'ok') {
         // Annuler / Échap : on revient aux réglages d'avant l'ouverture
@@ -591,8 +604,9 @@ SS.soundDesign = (() => {
   }
 
   /* ---------- Écoute ---------- */
-  function preview() {
-    if (!track || SS.audio.isPlaying()) return; // en lecture, on entend déjà le résultat dans la boucle
+  function preview(fromLoop) {
+    if (!track || SS.audio.isPlaying()) return 0; // en lecture, on entend déjà le résultat dans la boucle
+    if (!fromLoop && SS.trackLoop.mode() === 'note') return 0; // la boucle rejoue déjà la note d'essai
     const root = track.lastRoot ?? (track.octave + 1) * 12;
     const notes = track.category === 'mono' ? root : SS.chordNotes(root, track.chord);
     const p = params();
@@ -607,10 +621,12 @@ SS.soundDesign = (() => {
     }
     if (p.attack > 1.2) dur = Math.max(dur, Math.min(8, p.attack + 1));
     SS.audio.preview(track, notes, dur);
+    return dur;
   }
 
   /** Démo du glide : quelques notes liées (une octave, une quinte) pour l'entendre glisser. */
   function previewGlide() {
+    if (SS.trackLoop.mode() === 'note') return; // la boucle rejoue déjà la note d'essai
     if (!track || SS.audio.isPlaying() || track.category !== 'mono') return preview();
     const root = track.lastRoot ?? (track.octave + 1) * 12;
     const step = 0.22;
