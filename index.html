@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <title>StepSeq</title>
-  <link rel="stylesheet" href="css/style.css?v=song-a">
+  <link rel="stylesheet" href="css/style.css?v=loop-1">
 </head>
 <body>
   <header class="topbar">
@@ -535,6 +535,10 @@
           <svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z" class="fill"/><path d="M16 8.5a5 5 0 0 1 0 7"/></svg>
           Écouter
         </button>
+        <button type="button" id="sdLoop" class="btn sd-loop" aria-pressed="false" title="Écouter la piste en boucle pendant les réglages : ses notes de la scène (seule), ou la note d'essai si elle est vide">
+          <svg viewBox="0 0 24 24"><path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12"/><path d="M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 0 1-4 4H4"/></svg>
+          <span>Boucle</span>
+        </button>
         <button type="button" id="sdReset" class="btn" title="Revenir aux réglages du preset de l'instrument">Réinitialiser</button>
         <span class="spacer"></span>
         <button type="button" id="sdCancel" class="btn">Annuler</button>
@@ -717,6 +721,10 @@
           <button type="button" class="fx-tab" data-tab="room"><span>Reverb</span><small id="fxRoomState" class="fx-state"></small></button>
           <button type="button" class="fx-tab" data-tab="sc"><span>Sidechain</span><small id="fxScState" class="fx-state"></small></button>
           <button type="button" class="fx-tab" data-tab="sends"><span>Envois</span><small id="fxSendState" class="fx-state"></small></button>
+          <button type="button" id="fxReset" class="btn btn-small fx-clear" title="Supprimer tous les effets de cette piste : chorus, delay, reverb, sidechain et envois (Annuler les rétablit)">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>
+            <span>Supprimer tous les effets</span>
+          </button>
           <span class="fx-tabs-group bus">Bus du morceau</span>
           <button type="button" class="fx-tab" data-tab="rev"><span>Plate et hall</span><small class="fx-state"></small></button>
           <button type="button" class="fx-tab" data-tab="echo"><span>Écho à bande</span><small id="fxEchoState" class="fx-state"></small></button>
@@ -792,7 +800,10 @@
           <svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z" class="fill"/><path d="M16 8.5a5 5 0 0 1 0 7"/></svg>
           Écouter
         </button>
-        <button type="button" id="fxReset" class="btn" title="Couper tous les effets de la piste">Tout couper</button>
+        <button type="button" id="fxLoop" class="btn sd-loop" aria-pressed="false" title="Écouter la piste en boucle pendant les réglages : ses notes de la scène (seule), ou la note d'essai si elle est vide">
+          <svg viewBox="0 0 24 24"><path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12"/><path d="M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 0 1-4 4H4"/></svg>
+          <span>Boucle</span>
+        </button>
         <span class="spacer"></span>
         <button type="button" id="fxCancel" class="btn">Annuler</button>
         <button type="submit" class="btn btn-accent">OK</button>
@@ -837,13 +848,14 @@
   <script src="js/midi.js?v=acc-1"></script>
   <script src="js/emotions.js"></script>
   <script src="js/audio.js?v=acc-1"></script>
-  <script src="js/sounddesign.js?v=acc-1"></script>
+  <script src="js/trackloop.js"></script>
+  <script src="js/sounddesign.js?v=loop-1"></script>
   <script src="js/junopanel.js"></script>
   <script src="js/motifs.js"></script>
   <script src="js/arppanel.js"></script>
   <script src="js/groove.js"></script>
   <script src="js/harmonypanel.js"></script>
-  <script src="js/fx.js?v=tabs-1"></script>
+  <script src="js/fx.js?v=loop-1"></script>
   <script src="js/song.js"></script>
   <script src="js/mixer.js"></script>
   <script src="js/automix.js"></script>

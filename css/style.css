@@ -2571,6 +2571,14 @@ dialog.songs-dialog { width: min(760px, calc(100vw - 32px)); height: min(640px, 
 .song-file { color: #8fc7ff; }
 .song-actions { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
 .song-actions .btn.active { background: var(--accent); }
+.fx-clear { display: flex; align-items: center; gap: 6px; margin: 6px 0 4px; justify-content: flex-start; color: #ffb4b4; border-color: #5a3036; background: #2a1d20; }
+.fx-clear:hover:not(:disabled) { background: #a3262e; border-color: #c33a43; color: #fff; }
+.fx-clear:disabled { opacity: .4; color: var(--muted); background: transparent; border-color: var(--line); cursor: default; }
+.fx-clear svg { width: 15px; height: 15px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.sd-loop.active { background: var(--accent); border-color: var(--accent-2); color: #fff; }
+.sd-loop.active svg { animation: sd-spin 2.4s linear infinite; }
+@keyframes sd-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .sd-loop.active svg { animation: none; } }
 .song-actions .btn-danger:disabled { opacity: .35; }
 .song-versions { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px 10px 22px; background: var(--panel); border-top: 1px solid var(--line); }
 .song-versions .dlg-hint { margin: 2px 0 0; }
