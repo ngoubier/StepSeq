@@ -210,7 +210,7 @@ test('techno mélodique : intro planante (filtre qui s\'ouvre, pas de batterie, 
     const pad = intro.data.pad;
     assert.ok(pad && pad.auto && pad.auto.filter, `${p.id} : la nappe de l'intro n'a pas d'automation de filtre`);
     const pts = Object.entries(pad.auto.filter).sort((a, b) => a[0] - b[0]);
-    assert.ok(pts[0][1] < -0.5 && pts[pts.length - 1][1] === 0, `${p.id} : le filtre de l'intro doit s'ouvrir`);
+    assert.ok(pts[0][1] < -0.5 && pts[pts.length - 1][1] > pts[0][1] + 0.4, `${p.id} : le filtre de l'intro doit s'ouvrir`);
     assert.ok(['lead', 'vox', 'keys', 'guitar'].some((r) => intro.data[r] && intro.data[r].events.length), `${p.id} : intro sans mélodie`);
     // montée : passe-haut qui grimpe sur la nappe, bruit blanc dont le filtre s'ouvre, roulement en ratchets
     for (const b of builds) {

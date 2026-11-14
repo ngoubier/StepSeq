@@ -588,21 +588,23 @@ SS.bandSong = (() => {
   function sectionAuto(id, sec, role, bars, isFx) {
     const n = bars * SPB;
     if (isFx) {
-      if (sec.fx === 'riser') return { filter: ramp(n, -0.9, 0.15), volume: ramp(n, 0.25, 1), reverb: ramp(n, 0.2, 0.9, 0.5) };
+      // la montée de bruit reste sous le drop : volume plafonné, le filtre fait l'essentiel de l'effet
+      if (sec.fx === 'riser') return { filter: ramp(n, -0.9, 0.1), volume: ramp(n, 0.15, 0.5), reverb: ramp(n, 0.2, 0.6, 0.5) };
       if (sec.fx === 'down') return { volume: { 0: 1, [Math.min(n - 1, 2 * SPB - 1)]: 0 }, reverb: { 0: 0.6 } };
-      if (sec.fx === 'swell') return { filter: ramp(n, -0.7, -0.2), reverb: { 0: 0.6 } };
+      if (sec.fx === 'swell') return { filter: ramp(n, -0.75, -0.35), volume: { 0: 0.5 }, reverb: { 0: 0.6 } };
       return null;
     }
     const melodic = MELODIC.includes(role);
     if (sec.float && (melodic || role === 'bass')) {
-      const a = role === 'bass' ? { filter: ramp(n, -0.6, -0.25) } : { filter: ramp(n, role === 'arp' ? -0.75 : -0.85, 0, 0.1) };
+      // le filtre ne s'ouvre qu'à moitié : la suite (groove, drop) doit rester plus brillante que l'intro
+      const a = role === 'bass' ? { filter: ramp(n, -0.55, -0.3) } : { filter: ramp(n, role === 'arp' ? -0.65 : -0.7, -0.15, 0.1) };
       if (['arp', 'lead', 'keys', 'guitar'].includes(role)) a.echo = { 0: 0.35 };
       if (melodic) a.reverb = ramp(n, 0.6, 0.25, 0.6);
       return a;
     }
     if (sec.drums === 'build' && (melodic || role === 'bass')) {
       const a = { filter: ramp(n, 0, role === 'bass' ? 0.75 : 0.55, 0.5) };
-      if (['pad', 'lead', 'arp', 'keys'].includes(role)) a.reverb = ramp(n, 0, 0.9, 0.75);
+      if (['pad', 'lead', 'arp', 'keys'].includes(role)) a.reverb = ramp(n, 0, 0.6, 0.75);
       if (role === 'arp') a.res = ramp(n, 0.1, 0.6, 0.5);
       return a;
     }
@@ -624,7 +626,14 @@ SS.bandSong = (() => {
     const rat = {};
     const cond = {};
     if (mode === 'build' && k === 'bk') {
-      for (let s = Math.max(0, n - 2 * SPB); s < n; s++) if (d.steps[s] > 0) rat[s] = s >= n - SPB + 4 ? 3 : 2;
+      // roulement retenu (le drop doit frapper plus fort que la montée) ; les coups répétés s'additionnent :
+      // chaque coup des ratchets est encore plus doux
+      for (let s = 0; s < n; s++) if (d.steps[s] > 0) d.steps[s] = clampV(d.steps[s] * 0.62);
+      for (let s = Math.max(0, n - 2 * SPB); s < n; s++)
+        if (d.steps[s] > 0) {
+          rat[s] = s >= n - SPB + 4 ? 3 : 2;
+          d.steps[s] = clampV(d.steps[s] * (rat[s] === 3 ? 0.65 : 0.78));
+        }
     }
     if (['main', 'full', 'drop'].includes(mode)) {
       for (let b = 0; b < bars; b++) {
@@ -709,6 +718,8 @@ SS.bandSong = (() => {
           }
         }
         data[t.id] = { events: role === 'fx' ? events : shapeVel(events, role, { energy, bars, build: sec.drums === 'build' }) };
+        // techno : dans la montée, les mélodies restent en retrait pour que le drop frappe plus fort
+        if (spec.tech && sec.drums === 'build' && ['lead', 'vox', 'arp', 'keys'].includes(role)) data[t.id].events.forEach((e) => (e.vel = clampV(e.vel * 0.6)));
         if (spec.tech && (events.length || role !== 'fx')) {
           const auto = sectionAuto(id, sec, role, bars, role === 'fx');
           if (auto && events.length) data[t.id].auto = auto;
