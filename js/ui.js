@@ -1352,7 +1352,10 @@ SS.ui = (() => {
         if (s === ev.step) {
           c.classList.add('on', 'start');
           if (ev.len > 1) c.classList.add('held');
-          c.append(h('span', { class: 'lbl' }, label));
+          // piste mono : pas de nom de note sur la case (il reste dans l'infobulle) ; seule la syllabe chantée
+          // d'une mélodie de l'atelier Mélodie s'affiche
+          const shown = track.category === 'mono' ? (ev.lyric ? ev.lyric.replace(/\(.*?\)/g, '').replace('‿', '') : '') : label;
+          if (shown) c.append(h('span', { class: 'lbl' }, shown));
           c.title = `${label} · vélocité ${Math.round(ev.vel * 127)}` + (ev.acc ? ' · accent' : '') + shiftTitle(ev) + (ev.rat ? ` · ratchet ×${ev.rat}` : '') + condTitle(ev.cond);
           markAccent(c, ev);
           markShift(c, ev);
