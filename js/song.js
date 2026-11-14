@@ -186,13 +186,16 @@ SS.song = (() => {
     if (i >= 0) {
       const el = $('#songBlocks').children[i];
       if (el) el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      const blk = winOpen() && $('#sgBlocks').children[i];
+      if (blk) blk.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     }
   }
 
   /* ---------- Fenêtre Song ---------- */
   /*
-   * À gauche, les scènes en tuiles (sélection, renommage, copie, longueur, résumé) ; à droite l'arrangement.
-   * Glisser (souris ou doigt) : une tuile se range dans la liste des scènes ou se dépose dans l'arrangement ;
+   * En haut, les scènes en cartes sur une ligne (sélection, renommage, copie, longueur, résumé) ; en dessous
+   * l'arrangement en frise horizontale, de gauche à droite, chaque bloc large comme sa durée.
+   * Glisser (souris ou doigt) : une carte se range parmi les scènes ou se dépose sur la frise ;
    * un bloc de l'arrangement se déplace. Le panneau compact sous la barre du haut reste disponible (case en bas).
    */
   const PIN_KEY = 'stepseq.songPanel';
@@ -272,10 +275,10 @@ SS.song = (() => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             app.switchScene(sc.id);
-          } else if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+          } else if (e.altKey && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
             e.preventDefault();
             const i = pr.scenes.indexOf(sc);
-            moveScene(i, i + (e.key === 'ArrowUp' ? -1 : 1));
+            moveScene(i, i + (e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? -1 : 1));
           }
         },
       },
@@ -328,33 +331,83 @@ SS.song = (() => {
         class: 'sg-block' + (i === app.state.songStart ? ' start' : '') + (i === playing ? ' playing' : '') + (sc.id === pr.current ? ' editing' : ''),
         role: 'listitem',
         'data-i': i,
-        style: `--w:${Math.min(340, 150 + bars * 8)}px`,
+        style: `--bars:${bars}`,
         title: `${sc.name} : ${barsOf(sc)} mesure(s) × ${b.repeat}. Clic : partir d'ici et éditer cette scène · glisser : déplacer`,
       },
       h('div', { class: 'sb-name' }, h('b', {}, letterOf(sc)), ' ', sc.name),
+      h('small', { class: 'sg-block-bars' }, `${bars} mes.` + (b.repeat > 1 ? ` · ${barsOf(sc)} × ${b.repeat}` : '')),
       h(
         'div',
         { class: 'sb-tools' },
         h('button', { type: 'button', title: 'Une répétition de moins', onclick: () => setRepeat(i, b.repeat - 1) }, '−'),
         h('span', { class: 'sb-rep' }, i === playing ? `${playingRep + 1}/${b.repeat}` : `×${b.repeat}`),
-        h('button', { type: 'button', title: 'Une répétition de plus', onclick: () => setRepeat(i, b.repeat + 1) }, '+'),
-        h('small', { class: 'sg-block-bars' }, `${bars} mes.`),
-        pr.song.length > 1 ? h('button', { type: 'button', class: 'sg-block-del', title: 'Retirer ce bloc', onclick: () => removeBlock(i) }, '×') : null
-      )
+        h('button', { type: 'button', title: 'Une répétition de plus', onclick: () => setRepeat(i, b.repeat + 1) }, '+')
+      ),
+      pr.song.length > 1 ? h('button', { type: 'button', class: 'sg-block-del', title: 'Retirer ce bloc', 'aria-label': `Retirer le bloc « ${sc.name} »`, onclick: () => removeBlock(i) }, '×') : null
     );
     el.addEventListener('pointerdown', (e) => startDrag(e, { kind: 'block', i, el }));
     return el;
   }
 
+  /*
+   * Frise : chaque bloc est large comme sa durée (--px par mesure, au moins MIN_PX pour rester lisible ;
+   * une chanson longue défile alors horizontalement), la règle compte les mesures, la tête de lecture avance.
+   */
+  const MIN_PX = 20;
+  const HINT_W = 120; // place gardée au bout de la frise pour déposer une scène
+  let px = MIN_PX;
+  function blockStarts() {
+    const out = [];
+    let at = 0;
+    p().song.forEach((b) => {
+      const sc = sceneOf(b.scene);
+      out.push(at);
+      at += sc ? barsOf(sc) * b.repeat : 0;
+    });
+    return { starts: out, total: at };
+  }
+  function layoutTimeline() {
+    const tl = $('#sgTimeline');
+    const { total } = blockStarts();
+    px = Math.max(MIN_PX, (tl.clientWidth - 24 - HINT_W) / Math.max(1, total));
+    tl.style.setProperty('--px', px + 'px');
+    // une graduation au moins tous les 40 px
+    const every = [1, 2, 4, 8, 16, 32].find((n) => n * px >= 40) || 64;
+    const marks = [];
+    for (let m = 0; m <= total; m += every) marks.push(h('span', { style: `left:${m * px}px` }, String(m + 1)));
+    $('#sgRuler').replaceChildren(...marks);
+    $('#sgRuler').style.width = total * px + 'px';
+  }
   function renderWindow() {
     if (!winOpen() || drag) return;
     const pr = p();
     $('#sgSceneList').replaceChildren(...pr.scenes.map(sceneTile));
     const blocks = pr.song.map(blockTile).filter(Boolean);
-    $('#sgBlocks').replaceChildren(...blocks, h('div', { class: 'sg-drop-hint' }, blocks.length ? 'Glisser une scène ici pour l\'ajouter' : 'Glisser une scène ici'));
+    $('#sgBlocks').replaceChildren(...blocks, h('div', { class: 'sg-drop-hint' }, blocks.length ? 'Déposer une scène ici' : 'Glisser une scène ici'));
+    layoutTimeline();
     const len = SS.songLength(pr);
     $('#sgTotal').textContent = `${len.bars} mesures · ${fmtTime(len.seconds)}`;
     $('#sgLoop').checked = !!pr.songLoop;
+    const on = SS.audio.isPlaying() && pr.playMode === 'song';
+    $('#sgPlay').classList.toggle('on', on);
+    $('#sgPlay').querySelector('.sg-play-ic').textContent = on ? '■' : '▶';
+    $('#sgPlay').querySelector('.sg-play-txt').textContent = on ? 'Arrêter' : 'Écouter';
+    if (playing < 0) $('#sgHead').hidden = true;
+  }
+
+  /** Tête de lecture de la frise (appelée à chaque pas pendant la lecture). */
+  function setStep(step) {
+    const head = $('#sgHead');
+    if (!head || !winOpen() || playing < 0 || step < 0) {
+      if (head) head.hidden = true;
+      return;
+    }
+    const b = p().song[playing];
+    const sc = b && sceneOf(b.scene);
+    if (!sc) return;
+    const bar = blockStarts().starts[playing] + playingRep * barsOf(sc) + step / SS.stepsPerBar(p());
+    head.hidden = false;
+    head.style.left = bar * px + 'px';
   }
 
   /* ----- actions ----- */
@@ -484,7 +537,7 @@ SS.song = (() => {
       let index = tiles.length;
       for (let i = 0; i < tiles.length; i++) {
         const r = tiles[i].getBoundingClientRect();
-        if (y < r.top + r.height / 2) {
+        if (x < r.left + r.width / 2) {
           index = i;
           break;
         }
@@ -530,6 +583,7 @@ SS.song = (() => {
     $('#songClose').addEventListener('click', () => dlg.close());
     $('#songOk').addEventListener('click', () => dlg.close());
     $('#songPin').addEventListener('change', (e) => setPinned(e.target.checked));
+    $('#songBarClose').addEventListener('click', () => setPinned(false));
     $('#sgNewScene').addEventListener('click', () => {
       const id = SS.addScene(p(), { copy: false });
       app.switchScene(id);
@@ -539,6 +593,16 @@ SS.song = (() => {
         el && el.scrollIntoView({ block: 'nearest' });
       });
     });
+    $('#sgPlay').addEventListener('click', () => {
+      if (SS.audio.isPlaying() || SS.audio.isPaused()) return app.stop(), renderWindow();
+      if (p().playMode !== 'song') {
+        p().playMode = 'song';
+        changedSong();
+      }
+      app.play();
+      renderWindow();
+    });
+    window.addEventListener('resize', () => winOpen() && layoutTimeline());
     $('#sgLoop').addEventListener('change', (e) => {
       p().songLoop = e.target.checked;
       changedSong();
@@ -583,5 +647,5 @@ SS.song = (() => {
     });
   }
 
-  return { init, render, setPlaying, open: openWindow };
+  return { init, render, setPlaying, setStep, open: openWindow };
 })();

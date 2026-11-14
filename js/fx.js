@@ -180,6 +180,18 @@ SS.fx = (() => {
 
     const dlg = $('#fxDialog');
     $('#fxPreview').addEventListener('click', () => preview());
+    // Boucle : la piste tourne en boucle pendant les réglages (js/trackloop.js)
+    const loopBtn = $('#fxLoop');
+    const setLoopBtn = (on) => {
+      loopBtn.classList.toggle('active', on);
+      loopBtn.setAttribute('aria-pressed', String(on));
+      loopBtn.querySelector('span').textContent = on ? 'Arrêter la boucle' : 'Boucle';
+    };
+    loopBtn.addEventListener('click', () => {
+      if (SS.trackLoop.active(track)) return SS.trackLoop.stop();
+      if (SS.audio.isPlaying()) return SS.ui && SS.ui.toast && SS.ui.toast('Lecture en cours : tu entends déjà la piste dans le morceau.', 3000);
+      SS.trackLoop.start(track, app.project(), () => preview(true), setLoopBtn);
+    });
     $('#fxReset').addEventListener('click', () => {
       delete track.fx;
       SS.audio.applyFx(track);
@@ -192,6 +204,7 @@ SS.fx = (() => {
       dlg.close('ok');
     });
     dlg.addEventListener('close', () => {
+      SS.trackLoop.stop();
       if (!track) return;
       if (dlg.returnValue !== 'ok') {
         if (snapshot) track.fx = snapshot;
@@ -334,6 +347,8 @@ SS.fx = (() => {
 
   function update(moveSliders = false) {
     const f = params();
+    const clear = $('#fxReset');
+    if (clear && track) clear.disabled = !track.fx || !Object.keys(track.fx).length;
     for (const [key, { input, out, spec }] of inputs) {
       if (moveSliders || document.activeElement !== input) input.value = Math.round(Math.max(0, Math.min(1, spec.scale.from(f[key]))) * 1000);
       out.textContent = spec.fmt(f[key]);
@@ -415,11 +430,16 @@ SS.fx = (() => {
     return code;
   }
 
-  function preview() {
-    if (!track || SS.audio.isPlaying()) return; // en lecture, on entend déjà le résultat dans la boucle
-    if (track.type === 'drum') return SS.audio.preview(track);
+  function preview(fromLoop) {
+    if (!track || SS.audio.isPlaying()) return 0; // en lecture, on entend déjà le résultat dans la boucle
+    if (!fromLoop && SS.trackLoop.mode() === 'note') return 0; // la boucle rejoue déjà la note d'essai
+    if (track.type === 'drum') {
+      SS.audio.preview(track);
+      return 0.6;
+    }
     const root = track.lastRoot ?? (track.octave + 1) * 12;
     SS.audio.preview(track, track.category === 'mono' ? root : SS.chordNotes(root, track.chord), 0.35);
+    return 0.8; // un peu plus long : la reverb et l'écho ont le temps de s'entendre
   }
 
   function open(t) {

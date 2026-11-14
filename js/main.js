@@ -195,7 +195,7 @@
     const best = [...count].sort((a, b) => b[1] - a[1])[0];
     const band = best ? best[0].artist : 'Aucun groupe';
     $('#bandSub').textContent = band;
-    $('#bandBtn').title = best ? `Band : groupe inspiré de ${best[0].artist} (« ${best[0].song} »)` : 'Band : monter un groupe de musiciens virtuels et créer leurs pistes';
+    $('#bandBtn').title = best ? `Band : groupe inspiré de ${best[0].artist} (« ${best[0].song} »)` : 'Band : créer une chanson avec un groupe de musiciens virtuels';
     // Song : la scène en cours
     const sc = SS.currentScene(project);
     $('#songSub').textContent = sc ? sc.name : '—';
@@ -339,6 +339,7 @@
   /* ---------- Transport ---------- */
   /** Bouton Lecture / Pause (et barre d'espace) */
   function togglePlay() {
+    if (SS.trackLoop && SS.trackLoop.active()) return play(); // la boucle d'une piste seule laisse la place au morceau
     if (SS.audio.isPlaying()) pause();
     else if (SS.audio.isPaused()) resume();
     else play();
@@ -379,6 +380,7 @@
   }
 
   function play() {
+    if (SS.trackLoop && SS.trackLoop.active()) SS.trackLoop.stop(); // une piste écoutée seule en boucle laisse la place au morceau
     if (SS.audio.isPlaying()) return;
     if (SS.audio.isPaused()) SS.audio.stop(); // repartir du curseur
     const opts = { from: Math.min(state.cue, SS.totalSteps(project) - 1) };
@@ -398,7 +400,10 @@
         onEnd: () => stop(),
       };
     }
-    SS.audio.start(() => project, (step) => SS.ui.setPlayhead(step), opts);
+    SS.audio.start(() => project, (step) => {
+      SS.ui.setPlayhead(step);
+      SS.song.setStep(step);
+    }, opts);
     setPlayButton('playing');
   }
   function stop() {
@@ -488,7 +493,7 @@
    * Band : « Créer toute la chanson ». Remplace les pistes, les scènes et l'arrangement du projet par la chanson
    * écrite d'après le plan de l'inspiration (js/band-songs.js, js/bandsong.js). Ctrl+Z revient en arrière.
    */
-  function addBandSong(list, preset, tempo, { melodySeed = 0 } = {}) {
+  function addBandSong(list, preset, tempo, { melodySeed = 0, melody = null } = {}) {
     const spec = SS.BandSongs && SS.BandSongs[preset.id];
     if (!spec) return addBandTracks(list, tempo, { replace: true });
     stop();
@@ -503,7 +508,7 @@
       return t;
     });
     project.tracks = created;
-    const res = SS.bandSong.build(spec, preset.id, created, { melodySeed });
+    const res = SS.bandSong.build(spec, preset.id, created, { melodySeed, melody });
     project.scenes = res.scenes.map(({ sec, ...sc }) => sc); // eslint-disable-line no-unused-vars
     project.song = res.song;
     project.playMode = 'song';

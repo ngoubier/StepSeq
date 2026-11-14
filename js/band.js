@@ -1,14 +1,14 @@
 /*
- * Band : fenêtre pour monter un groupe de musiciens virtuels (bouton « Band » de l'en-tête).
- *
- *  1. choisir un style musical, 2. une inspiration (type de chanson), 3. régler chaque musicien
- *  sur la scène : un clic ouvre son panneau (rôle, instrument phare, 5 conseillés, accès à toute la
- *  bibliothèque via la fenêtre « Nouvelle piste »). Le batteur choisit un kit et ses éléments :
- *  une piste par élément (kick, snare…).
- *  Seuls les boutons de création modifient le projet ; fermer ou annuler ne crée aucune piste.
- *
- * La même fenêtre sert d'assistant « Nouvelle chanson » (menu de l'application, openWizard) : modèle
- * d'instruments → chanson en vue session (scènes × pistes) → mélodie → pistes à importer.
+ * Band : assistant de création d'une chanson avec un groupe de musiciens virtuels.
+ * Ouvert par le bouton « Band » de l'en-tête (open) ou par « Nouvelle chanson… » du menu (openWizard,
+ * sur une chanson vide). Quatre étapes :
+ *  1. Modèle : style musical, inspiration (type de chanson) et musiciens — un clic sur un musicien ouvre
+ *     son panneau (rôle, instrument phare, 5 conseillés, toute la bibliothèque via « Nouvelle piste ») ;
+ *     le batteur choisit un kit et ses éléments (une piste par élément) ;
+ *  2. Chanson : vue session (scènes × pistes), ordre des scènes, écoute ;
+ *  3. Mélodie : autres mélodies sur la même grille, écoute avec Muet / Solo ;
+ *  4. Pistes : celles à importer.
+ * Seul « Créer la chanson » modifie le projet (après confirmation s'il a déjà des pistes) ; fermer ne change rien.
  *
  * Catalogue : js/band-presets.js (SS.Band).
  */
@@ -17,7 +17,8 @@ SS.band = (() => {
   const B = () => SS.Band;
   let app = null;
   let el = null;
-  const S = { styleId: null, presetId: null, sel: null, cache: {}, wiz: null };
+  // mel : réglages de la mélodie (étape Mélodie), gardés d'une ouverture à l'autre — voir melodyOpts()
+  const S = { styleId: null, presetId: null, sel: null, cache: {}, wiz: null, mel: { method: 'inspiration', feet: 0, barsPerLine: 2, complexity: 'balanced', style: 'simple', range: 'auto', ending: 'closed' } };
 
   /* ---------- Petits outils DOM ---------- */
   const $ = (q, root = document) => root.querySelector(q);
@@ -206,7 +207,6 @@ SS.band = (() => {
       h('div', { class: 'bs-title' }, h('b', {}, `Inspiration « ${p.song} »`), ` — ${p.artist} (${p.year})`),
       h('div', { class: 'bs-desc' }, p.desc)
     );
-    $('#bandTempoLabel').textContent = `Appliquer le tempo de l'inspiration (${p.tempo} BPM)`;
   }
 
   function stageLine(mu) {
@@ -429,13 +429,6 @@ SS.band = (() => {
     else renderInstPanel(mu, ms);
   }
 
-  function renderCount() {
-    const n = plannedTracks().length;
-    $('#bandCount').textContent = n ? `${n} piste${n > 1 ? 's' : ''} vierge${n > 1 ? 's' : ''} à créer` : 'Aucune piste';
-    $('#bandCreate').disabled = !n;
-    $('#bandSongBtn').disabled = !n || !(SS.BandSongs && preset() && SS.BandSongs[preset().id]);
-  }
-
   function syncGm() {
     const b = $('#bandGm');
     if (!b) return;
@@ -456,7 +449,6 @@ SS.band = (() => {
     syncGm();
     renderStage();
     renderPanel();
-    renderCount();
     if (S.wiz) wizFoot();
   }
 
@@ -562,11 +554,11 @@ SS.band = (() => {
   function wizSong() {
     const p = preset();
     const cols = wizCols();
-    const sig = JSON.stringify([p.id, S.wiz.seed, cols.map((c) => [c.id, c.o])]);
+    const sig = JSON.stringify([p.id, S.wiz.seed, melodyOpts(), cols.map((c) => [c.id, c.o])]);
     if (S.wiz.sig !== sig) {
       const sp = spec();
       const fake = cols.map((c) => ({ id: c.id, type: c.o.type, sound: c.o.sound, band: c.o.band }));
-      S.wiz.res = sp ? SS.bandSong.build(sp, p.id, fake, { melodySeed: S.wiz.seed }) : null;
+      S.wiz.res = sp ? SS.bandSong.build(sp, p.id, fake, { melodySeed: S.wiz.seed, melody: melodyOpts() }) : null;
       S.wiz.sig = sig;
     }
     return { cols, res: S.wiz.res };
@@ -624,6 +616,63 @@ SS.band = (() => {
     return svg;
   }
   const hasData = (d) => !!d && (d.steps ? d.steps.some((v) => v > 0) : (d.events || []).length > 0);
+
+  /** Réglages passés à SS.bandSong.build : null = mélodie dans le style de l'inspiration. */
+  function melodyOpts() {
+    const m = S.mel;
+    if (m.method !== 'compose') return null;
+    const { method, ...o } = m; // eslint-disable-line no-unused-vars
+    return o;
+  }
+
+  /**
+   * Réglages de la mélodie (ceux de l'atelier Mélodie) : la mélodie de l'inspiration, ou une mélodie composée
+   * scène par scène — pieds (notes) par vers, mesures par vers, complexité, rythme, tessiture, fin.
+   */
+  function melodyForm() {
+    const m = S.mel;
+    const comp = m.method === 'compose';
+    const set = (k, v) => {
+      m[k] = v;
+      renderWiz();
+    };
+    const sel = (id, label, k, options, hint) =>
+      h(
+        'label',
+        { class: 'bw-field' + (comp ? '' : ' off') },
+        h('span', {}, label),
+        h(
+          'select',
+          { id, disabled: !comp, title: hint || null, onchange: (e) => set(k, typeof m[k] === 'number' ? Number(e.target.value) : e.target.value) },
+          ...options.map(([v, t]) => {
+            const o = h('option', { value: v }, t);
+            o.selected = String(m[k]) === String(v);
+            return o;
+          })
+        )
+      );
+    const R = (SS.melody && SS.melody.RANGES) || {};
+    return h(
+      'div',
+      { class: 'bw-melform', id: 'bwMelForm' },
+      h(
+        'div',
+        { class: 'segmented bw-method', role: 'radiogroup', 'aria-label': 'Mélodie' },
+        ...[
+          ['inspiration', 'Style de l’inspiration', 'Riffs et refrains dans l’esprit du morceau choisi'],
+          ['compose', 'Composée', 'Composée scène par scène comme dans l’atelier Mélodie : pieds par vers, complexité, rythme, tessiture, fin'],
+        ].map(([v, t, tip]) =>
+          h('button', { type: 'button', role: 'radio', 'data-v': v, 'aria-checked': String(m.method === v), class: m.method === v ? 'active' : '', title: tip, onclick: () => set('method', v) }, t)
+        )
+      ),
+      sel('bwFeet', 'Pieds par vers', 'feet', [[0, 'Auto'], ...[4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => [n, `${n} pieds`])], 'Syllabes (notes) par vers : 8 = octosyllabe, 12 = alexandrin. Auto : selon la longueur du vers.'),
+      sel('bwBpl', 'Mesures par vers', 'barsPerLine', [[1, '1 mesure'], [2, '2 mesures'], [4, '4 mesures']]),
+      sel('bwComplexity', 'Complexité', 'complexity', [['simple', 'Simple'], ['balanced', 'Équilibrée'], ['adventurous', 'Audacieuse']], 'Simple : notes d’accord. Équilibrée : tierces, septièmes et passages. Audacieuse : couleurs, contours et sauts plus variés.'),
+      sel('bwRhythm', 'Rythme', 'style', [['simple', 'Simple'], ['varie', 'Varié (pointées, syncopes)'], ['dense', 'Dense (doubles-croches)']]),
+      sel('bwRange', 'Tessiture', 'range', [['auto', 'Auto (voix ou instrument)'], ...Object.entries(R).map(([id, r]) => [id, r.label])]),
+      sel('bwEnding', 'Fin', 'ending', [['closed', 'Fermée (tonique)'], ['open', 'Ouverte']])
+    );
+  }
 
   function renderWizSteps() {
     const box = $('#bandWizSteps');
@@ -757,11 +806,12 @@ SS.band = (() => {
                   S.wiz.seed
                     ? h('button', { type: 'button', class: 'btn', id: 'bwMelodyBack', onclick: () => ((S.wiz.seed = 0), renderWiz()) }, '↺ Mélodie d’origine')
                     : null,
-                  h('span', { class: 'bw-seed', id: 'bwSeed' }, S.wiz.seed ? `Mélodie n° ${S.wiz.seed + 1}` : 'Mélodie d’origine de l’inspiration'),
+                  h('span', { class: 'bw-seed', id: 'bwSeed' }, S.wiz.seed || S.mel.method === 'compose' ? `Mélodie n° ${S.wiz.seed + 1}` : 'Mélodie d’origine de l’inspiration'),
                 ]
               : h('span', { class: 'bw-seed' }, 'Ce groupe n’a ni lead ni voix : pas de mélodie à générer. Ajoute un musicien à l’étape 1.')
           )
         : null,
+      step === 3 && melCols.length ? melodyForm() : null,
       step === 4
         ? h(
             'div',
@@ -840,21 +890,12 @@ SS.band = (() => {
     box.replaceChildren(top, h('div', { class: 'bw-scroll' }, h('table', { class: 'bw-grid', style: `--cols:${cols.length}` }, h('thead', {}, head1, head2), h('tbody', {}, ...body))));
   }
 
-  /** Affiche l'étape en cours de l'assistant (ou l'écran Band habituel hors assistant). */
+  /** Affiche l'étape en cours de l'assistant. */
   function renderWiz() {
-    const wiz = !!S.wiz;
-    el.classList.toggle('wizard', wiz);
-    el.querySelectorAll('.wiz-only').forEach((x) => (x.hidden = !wiz));
-    el.querySelectorAll('.band-only').forEach((x) => (x.hidden = wiz));
-    $('#bandTitle').firstChild.textContent = wiz ? 'Nouvelle chanson ' : 'Band ';
-    if (!wiz) {
-      $('#bandDlgSub').textContent = 'monter un groupe pour jouer la chanson';
-      el.querySelector('.band-body').hidden = false;
-      $('#bandWiz').hidden = true;
-      return;
-    }
     const step = S.wiz.step;
-    $('#bandDlgSub').textContent = '';
+    el.classList.add('wizard');
+    el.querySelectorAll('.wiz-only').forEach((x) => (x.hidden = false));
+    $('#bandTitle').firstChild.textContent = S.wiz.fresh ? 'Nouvelle chanson ' : 'Band ';
     renderWizSteps();
     el.querySelector('.band-body').hidden = step !== 1;
     $('#bandWiz').hidden = step === 1;
@@ -871,7 +912,7 @@ SS.band = (() => {
   /** Boutons du pied de la fenêtre selon l'étape. */
   function wizFoot() {
     const step = S.wiz.step;
-    $('#bwEmpty').hidden = step !== 1;
+    $('#bwEmpty').hidden = step !== 1 || !S.wiz.fresh;
     $('#bwBack').hidden = step === 1;
     $('#bwNext').hidden = step === 4;
     $('#bwNext').disabled = !canGo(step + 1);
@@ -885,14 +926,16 @@ SS.band = (() => {
   }
 
   /** Crée la chanson avec les pistes cochées (même calcul que la vue session, même mélodie). */
-  function createWizSong() {
+  function createWizSong(confirmed) {
     const cols = wizCols().filter((c) => !S.wiz.off.has(c.id));
     if (!cols.length) return;
+    // projet déjà commencé (bouton Band) : la chanson le remplace, on demande d'abord
+    if (confirmed !== true && app.project().tracks.length) return showSongConfirm(cols.length);
     const p = preset();
     const seed = S.wiz.seed;
     hideConfirm();
     el.close('ok');
-    app.applySong(cols.map((c) => c.o), p, p.tempo, { melodySeed: seed });
+    app.applySong(cols.map((c) => c.o), p, p.tempo, { melodySeed: seed, melody: melodyOpts() });
   }
 
   /* ---------- Écoute dans l'assistant ----------
@@ -1080,14 +1123,13 @@ SS.band = (() => {
   }
 
   /* ---------- Ouverture / fermeture ---------- */
-  /** Fenêtre Band (bouton de l'en-tête). */
+  /** Bouton Band de l'en-tête : l'assistant, sur le projet en cours (remplacé à la création, après confirmation). */
   function open() {
-    S.wiz = null;
-    show();
+    openWizard({ fresh: false });
   }
-  /** Assistant « Nouvelle chanson » (menu de l'application), sur une chanson vide. */
-  function openWizard() {
-    S.wiz = { step: 1, seed: 0, off: new Set(), mute: new Set(), solo: new Set(), sig: null, res: null };
+  /** « Nouvelle chanson… » (menu de l'application) : l'assistant sur une chanson vide. */
+  function openWizard({ fresh = true } = {}) {
+    S.wiz = { step: 1, seed: 0, off: new Set(), mute: new Set(), solo: new Set(), sig: null, res: null, fresh, mel: S.mel };
     show();
   }
   function show() {
@@ -1110,34 +1152,21 @@ SS.band = (() => {
     });
   }
 
-  /* ---------- Créer toute la chanson ---------- */
-  function finishSong() {
-    const tracks = plannedTracks();
-    if (!tracks.length || !preset()) return;
-    const pr = app.project();
-    const withNotes = pr.tracks.filter((t) => app.hasNotes(t));
-    if (pr.tracks.length) return showSongConfirm(tracks, withNotes.length);
-    closeSong(tracks);
-  }
-  function closeSong(tracks) {
-    const p = preset();
-    hideConfirm();
-    el.close('ok');
-    app.applySong(tracks, p, $('#bandTempo').checked ? p.tempo : null);
-  }
-  function showSongConfirm(tracks, notes) {
+  /* ---------- Confirmation : la chanson remplace le projet en cours ---------- */
+  function showSongConfirm(n) {
     const pr = app.project();
     const p = preset();
+    const notes = pr.tracks.filter((t) => app.hasNotes(t)).length;
     const box = $('#bandConfirm');
     box.replaceChildren(
       h(
         'div',
         { class: 'bcf-card', role: 'alertdialog', 'aria-modal': 'true', 'aria-labelledby': 'bcfTitle', 'aria-describedby': 'bcfText' },
-        h('h3', { id: 'bcfTitle' }, 'Remplacer le projet par une chanson complète ?'),
+        h('h3', { id: 'bcfTitle' }, 'Remplacer le projet par la chanson ?'),
         h(
           'p',
           { id: 'bcfText' },
-          `« Créer toute la chanson » écrit une chanson dans l'esprit de « ${p.song} » : ${tracks.length} pistes, les scènes et l'arrangement. `,
+          `« Créer la chanson » écrit une chanson dans l'esprit de « ${p.song} » : ${n} piste${n > 1 ? 's' : ''}, les scènes et l'arrangement. `,
           `Elle remplace ${pr.tracks.length > 1 ? `les ${pr.tracks.length} pistes` : 'la piste'}, ${pr.scenes.length > 1 ? `les ${pr.scenes.length} scènes` : 'la scène'} et l'arrangement actuels.`
         ),
         notes ? h('p', { class: 'bcf-warn' }, `⚠ ${notes} piste${notes > 1 ? 's' : ''} contien${notes > 1 ? 'nent' : 't'} des notes : Ctrl+Z pour revenir en arrière, et la chanson actuelle reste dans « Mes chansons » (ses versions).`) : null,
@@ -1146,7 +1175,7 @@ SS.band = (() => {
           { class: 'bcf-actions' },
           h('button', { type: 'button', class: 'btn', id: 'bcfBack', onclick: hideConfirm }, 'Retour'),
           h('span', { class: 'spacer' }),
-          h('button', { type: 'button', class: 'btn btn-accent', id: 'bcfSong', onclick: () => closeSong(tracks) }, 'Remplacer par la chanson')
+          h('button', { type: 'button', class: 'btn btn-accent', id: 'bcfSong', onclick: () => createWizSong(true) }, 'Remplacer par la chanson')
         )
       )
     );
@@ -1154,74 +1183,6 @@ SS.band = (() => {
     requestAnimationFrame(() => $('#bcfSong').focus());
   }
 
-  function finish(create) {
-    const tracks = create ? plannedTracks() : [];
-    if (create && tracks.length && app.bandTracks().length) return showConfirm(tracks);
-    close(tracks, false);
-  }
-  function close(tracks, replace) {
-    const p = preset();
-    hideConfirm();
-    el.close(tracks.length ? 'ok' : 'cancel');
-    if (tracks.length) app.apply(tracks, $('#bandTempo').checked && p ? p.tempo : null, { replace });
-  }
-
-  /* ---------- Confirmation : le projet a déjà des pistes Band ---------- */
-  function presetTitle(t) {
-    const st = B().STYLES.find((x) => x.id === t.band.style);
-    const p = st && st.presets.find((x) => x.id === t.band.preset);
-    return p ? `« ${p.song} »` : null;
-  }
-  function showConfirm(tracks) {
-    const old = app.bandTracks();
-    const userCount = app.project().tracks.length - old.length;
-    const withNotes = old.filter((t) => app.hasNotes(t));
-    const songs = [...new Set(old.map(presetTitle).filter(Boolean))];
-    const n = old.length;
-    const pl = (k, one, many) => (k > 1 ? many : one);
-    const box = $('#bandConfirm');
-    box.replaceChildren(
-      h(
-        'div',
-        { class: 'bcf-card', role: 'alertdialog', 'aria-modal': 'true', 'aria-labelledby': 'bcfTitle', 'aria-describedby': 'bcfText' },
-        h('h3', { id: 'bcfTitle' }, 'Des pistes Band existent déjà'),
-        h(
-          'p',
-          { id: 'bcfText' },
-          `Le projet contient ${n} ${pl(n, 'piste créée', 'pistes créées')} par Band`,
-          songs.length ? ` (inspiration ${songs.join(', ')})` : '',
-          '. Veux-tu les remplacer par le nouveau groupe ?'
-        ),
-        h(
-          'div',
-          { class: 'bcf-list' },
-          ...old.map((t) =>
-            h('span', { class: 'bcf-track' + (app.hasNotes(t) ? ' notes' : ''), style: `--c:${t.color}`, title: app.hasNotes(t) ? 'Contient des notes' : 'Vide' }, t.name, app.hasNotes(t) ? h('b', {}, '♪') : null)
-          )
-        ),
-        withNotes.length
-          ? h('p', { class: 'bcf-warn' }, `⚠ ${withNotes.length} ${pl(withNotes.length, 'de ces pistes contient', 'de ces pistes contiennent')} des notes : elles seront perdues (Ctrl+Z pour revenir en arrière).`)
-          : null,
-        h(
-          'p',
-          { class: 'bcf-keep' },
-          userCount > 0
-            ? `✓ Tes ${userCount} ${pl(userCount, 'piste créée', 'pistes créées')} sans Band ${pl(userCount, 'est conservée', 'sont conservées')}.`
-            : 'Aucune autre piste dans le projet.'
-        ),
-        h(
-          'div',
-          { class: 'bcf-actions' },
-          h('button', { type: 'button', class: 'btn', id: 'bcfBack', onclick: hideConfirm }, 'Retour'),
-          h('span', { class: 'spacer' }),
-          h('button', { type: 'button', class: 'btn', id: 'bcfAdd', onclick: () => close(tracks, false) }, 'Garder et ajouter'),
-          h('button', { type: 'button', class: 'btn btn-danger', id: 'bcfReplace', onclick: () => close(tracks, true) }, `Remplacer les ${n} ${pl(n, 'piste', 'pistes')} Band`)
-        )
-      )
-    );
-    box.hidden = false;
-    requestAnimationFrame(() => $('#bcfReplace').focus());
-  }
   function hideConfirm() {
     const box = $('#bandConfirm');
     if (box) box.hidden = true;
@@ -1231,15 +1192,17 @@ SS.band = (() => {
     app = appApi;
     el = $('#bandDialog');
     if (!el) return;
-    $('#bandClose').addEventListener('click', () => finish(false));
-    $('#bandCreate').addEventListener('click', () => finish(true));
-    $('#bandSongBtn').addEventListener('click', finishSong);
-    $('#bandCancel').addEventListener('click', () => finish(false));
+    const cancel = () => {
+      hideConfirm();
+      el.close('cancel');
+    };
+    $('#bandClose').addEventListener('click', cancel);
+    $('#bandCancel').addEventListener('click', cancel);
     $('#bandGm').addEventListener('click', () => setGm(!gm()));
-    $('#bwEmpty').addEventListener('click', () => finish(false));
+    $('#bwEmpty').addEventListener('click', cancel);
     $('#bwBack').addEventListener('click', () => goStep(S.wiz.step - 1));
     $('#bwNext').addEventListener('click', () => goStep(S.wiz.step + 1));
-    $('#bwCreate').addEventListener('click', createWizSong);
+    $('#bwCreate').addEventListener('click', () => createWizSong());
     el.addEventListener('close', () => {
       dropListen();
       S.wiz = null;
@@ -1250,7 +1213,7 @@ SS.band = (() => {
       e.preventDefault();
       // Échap ferme d'abord la confirmation, puis la fenêtre
       if (!$('#bandConfirm').hidden) hideConfirm();
-      else finish(false);
+      else cancel();
     });
     // la barre d'espace ne lance pas la lecture quand la fenêtre est ouverte
     el.addEventListener('keydown', (e) => e.stopPropagation());

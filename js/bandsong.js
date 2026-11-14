@@ -552,6 +552,38 @@ SS.bandSong = (() => {
     return ev;
   }
 
+  /**
+   * Mélodie composée comme dans l'atelier Mélodie : vers de `feet` syllabes (notes) sur `barsPerLine` mesures,
+   * plan A A' B A'', complexité, rythme, tessiture et fin au choix. null si la composition échoue.
+   */
+  const LETTERS = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+  /** Accord → symbole en lettres lu par js/melody.js (« Bbmaj7 », « F#m »). */
+  const chordSymbol = (c) => LETTERS[c.rootPc] + ({ maj: '', min: 'm' }[c.type] ?? c.type);
+  function composedMelody(spans, key, bars, role, o, seedKey) {
+    if (!SS.melody) return null;
+    const bpl = Math.max(1, Math.min(bars, o.barsPerLine || 2));
+    const phrases = Math.max(1, Math.round(bars / bpl));
+    const feet = Math.max(0, Math.min(16, Math.round(o.feet || 0)));
+    const range = o.range && o.range !== 'auto' ? o.range : role === 'vox' ? 'voix' : 'instrument';
+    let seed = 0;
+    for (const ch of seedKey) seed = (seed * 31 + ch.charCodeAt(0)) % 100003;
+    const res = SS.melody.compose({
+      timeline: { bars, spans: spans.map((sp) => ({ step: sp.step, len: sp.len, symbol: chordSymbol(sp.chord) })) },
+      source: 'meter',
+      meter: feet ? Array.from({ length: phrases }, () => String(feet)).join(' ') : '',
+      fitGrid: true,
+      key,
+      range,
+      style: o.style || 'simple',
+      complexity: o.complexity || 'balanced',
+      ending: o.ending || 'closed',
+      timeSig: [4, 4],
+      seed: seed + 1,
+    });
+    if (!res.ok) return null;
+    return SS.melody.toEvents(res).map(({ lyric, ...e }) => e); // eslint-disable-line no-unused-vars
+  }
+
   /* ---------- effets (montée de bruit, ambiance, impact) ----------
    *   riser : une note de bruit tenue sur toute la section (la courbe d'automation ouvre son filtre) ;
    *   swell : nappe d'ambiance, une note longue toutes les 4 mesures ;
@@ -680,9 +712,12 @@ SS.bandSong = (() => {
    *   spec : plan (js/band-songs.js) ; tracks : pistes du projet créées par Band (avec t.band.key « rôle » ou « rôle:son »)
    *   melodySeed : 0 = la mélodie d'origine de l'inspiration ; un autre nombre tire une autre mélodie (lead, voix,
    *   sax) sans rien changer aux autres musiciens (assistant « Nouvelle chanson »)
+   *   melody : null = mélodie dans le style de l'inspiration ; sinon elle est composée scène par scène par le
+   *   moteur de l'atelier Mélodie (js/melody.js) : { feet (syllabes par vers, 0 = automatique), barsPerLine,
+   *   complexity, style, range ('auto' = selon le rôle), ending }
    * → { key, scenes: [{ id, name, bars, key, emotion, data }], song: [{ scene, repeat }] }
    */
-  function build(spec, presetId, tracks, { melodySeed = 0 } = {}) {
+  function build(spec, presetId, tracks, { melodySeed = 0, melody = null } = {}) {
     const key = parseKey(spec.key);
     const order = [];
     const form = spec.form.split(/\s+/).filter(Boolean).map((t) => {
@@ -714,7 +749,7 @@ SS.bandSong = (() => {
           if (role === 'bass') events = bassEvents(spans, mode, r, H().scale(k).map((d) => d.pc));
           else if (role === 'fx') events = fxEvents(spans, mode, k, bars);
           else if (role === 'arp') events = arpEvents(spans, mode, r);
-          else if (singer) events = melodyEvents(spans, mode, r, k, bars);
+          else if (singer) events = (melody && mode !== 'rise' && composedMelody(spans, k, bars, role, melody, `${presetId}/${id}/${melodySeed}`)) || melodyEvents(spans, mode, r, k, bars);
           else if (role === 'arpchord') events = arpEvents(spans, mode, r);
           else {
             // nappe, cordes, piano, guitare : accords (ou arpège si le mode en est un)
