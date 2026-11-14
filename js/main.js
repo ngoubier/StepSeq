@@ -738,7 +738,7 @@
 
   /* ---------- Démarrage ---------- */
   SS.audio.setErrorHandler((msg) => SS.ui.toast(msg));
-  SS.soundDesign.init({ changed, renderTrack: (t) => SS.ui.renderTrack(t) });
+  SS.soundDesign.init({ project: () => project, changed, renderTrack: (t) => SS.ui.renderTrack(t) });
   SS.junoPanel.init({ changed, renderTrack: (t) => SS.ui.renderTrack(t) });
   SS.arpPanel.init({ project: () => project, changed, renderTrack: (t) => SS.ui.renderTrack(t) });
   SS.groove.init({ project: () => project, changed });

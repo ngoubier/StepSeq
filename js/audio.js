@@ -1020,16 +1020,34 @@ SS.audio = (() => {
     amp.gain.setTargetAtTime(0, tOff, release / 4);
     last.connect(amp);
 
+    // LFO vers le volume (trémolo) : gain après le VCA ; LFO vers le pan : panoramique toujours présent
+    const lfos = SS.activeLfos ? SS.activeLfos(p) : [];
+    let tail = amp;
+    let trem = null;
+    if (lfos.some((l) => l.dest === 'amp')) {
+      trem = ctx.createGain();
+      amp.connect(trem);
+      tail = trem;
+    }
+
     // panoramique
-    if (p.pan && ctx.createStereoPanner) {
+    let panParam = null;
+    if ((p.pan || lfos.some((l) => l.dest === 'pan')) && ctx.createStereoPanner) {
       const pan = ctx.createStereoPanner();
-      pan.pan.value = Math.max(-1, Math.min(1, p.pan));
-      amp.connect(pan).connect(dest);
-    } else amp.connect(dest);
+      pan.pan.value = Math.max(-1, Math.min(1, p.pan || 0));
+      panParam = pan.pan;
+      tail.connect(pan).connect(dest);
+    } else tail.connect(dest);
 
     const chain = {
       input: flt.input,
       amp,
+      flt,
+      trem,
+      panParam,
+      lfos,
+      t,
+      hooks: [], // fonctions (newEnd, oldEnd) appelées quand une note legato prolonge la voix
       tOff,
       end: tOff + release * 1.5 + 0.05,
       /**
@@ -1047,7 +1065,9 @@ SS.audio = (() => {
             fRelease(param, Math.max(newOff, t + fa));
           });
         chain.tOff = newOff;
+        const oldEnd = chain.end;
         chain.end = newOff + release * 1.5 + 0.05;
+        chain.hooks.forEach((h) => h(chain.end, oldEnd));
         return chain.end;
       },
     };
@@ -1073,6 +1093,12 @@ SS.audio = (() => {
       param.cancelScheduledValues(t);
       if (from != null) param.setValueAtTime(offset + (from - voice.baseMidi) * 100, t);
       param.setTargetAtTime(offset + (midi - voice.baseMidi) * 100, t, tc);
+    });
+    // retards du PWM : proportionnels à la période, ils suivent la hauteur
+    (voice.follow || []).forEach(({ param, base }) => {
+      param.cancelScheduledValues(t);
+      if (from != null) param.setValueAtTime(base * Math.pow(2, -(from - voice.baseMidi) / 12), t);
+      param.setTargetAtTime(base * Math.pow(2, -(midi - voice.baseMidi) / 12), t, tc);
     });
   }
 
@@ -1144,7 +1170,8 @@ SS.audio = (() => {
     src.connect(chain.input);
     src.start(t);
     src.stop(chain.end);
-    register([src], chain.amp);
+    const mods = applyLfos(p, chain, { pitch: src.detune ? [src.detune] : [], pw: [] });
+    register([src, ...mods], chain.amp);
     return trackVoice([src], chain, baseMidi, src.detune ? [{ param: src.detune, offset: 0 }] : []);
   }
 
@@ -1172,6 +1199,84 @@ SS.audio = (() => {
     return buf;
   }
 
+  /*
+   * Horloge musicale des LFO calés sur le tempo (js/modulation.js) : nombre de noires écoulées depuis Lecture,
+   * mis à jour à chaque pas programmé (suit les changements de tempo). Hors lecture (écoute d'un son), l'horloge
+   * part de 0 au tempo du projet.
+   */
+  let lfoClock = null;
+  function clockReset(project, time, quarter) {
+    lfoClock = SS.lfoClock ? SS.lfoClock(project.tempo, SS.stepsPerBar(project) / 4, time, quarter) : null;
+  }
+  function clockAdvance(project, time) {
+    if (!lfoClock) return clockReset(project, time, 0);
+    lfoClock.quarter += ((time - lfoClock.time) * lfoClock.tempo) / 60;
+    lfoClock.time = time;
+    lfoClock.tempo = project.tempo;
+    lfoClock.quarterBar = SS.stepsPerBar(project) / 4;
+  }
+  function currentClock() {
+    if (seq.playing && lfoClock) return lfoClock;
+    const project = seq.getProject ? seq.getProject() : null;
+    return SS.lfoClock(project ? project.tempo : 120, project ? SS.stepsPerBar(project) / 4 : 4, 0, 0);
+  }
+
+  /**
+   * Branche les LFO actifs d'une voix (p.lfo1…, p.lfo2…) : une source constante par LFO, dont la valeur suit
+   * une courbe calculée d'avance (phase calée sur la lecture en mode Libre, sur la note en mode Retrig), puis
+   * un gain par destination. `targets` : { pitch: [AudioParam en cents], pw: [{ param, period }] }.
+   * Renvoie les sources créées (à arrêter avec la voix).
+   */
+  function applyLfos(p, chain, targets) {
+    const lfos = chain.lfos || [];
+    if (!lfos.length) return [];
+    const clock = currentClock();
+    const tOn = chain.t;
+    const sources = [];
+    lfos.forEach((lfo) => {
+      const dests = [];
+      const amt = lfo.amt;
+      if (lfo.dest === 'pitch') targets.pitch.forEach((param) => dests.push([param, amt * 1200]));
+      else if (lfo.dest === 'cutoff') (chain.flt.detunes || []).forEach((param) => dests.push([param, amt * 4800]));
+      else if (lfo.dest === 'pw') targets.pw.forEach(({ param, period }) => dests.push([param, amt * 0.45 * period]));
+      else if (lfo.dest === 'amp' && chain.trem) {
+        // trémolo entre 1 − |quantité| et 1
+        chain.trem.gain.value = 1 - Math.abs(amt) / 2;
+        dests.push([chain.trem.gain, amt / 2]);
+      } else if (lfo.dest === 'pan' && chain.panParam) dests.push([chain.panParam, amt]);
+      if (!dests.length) return;
+      const seed = SS.lfoSeed(p._track, lfo.index);
+      const src = ctx.createConstantSource();
+      src.offset.value = 0;
+      const curve = (a, b) => SS.lfoCurve(lfo, a, b, tOn, clock, seed);
+      try {
+        src.offset.setValueCurveAtTime(curve(tOn, chain.end), tOn, chain.end - tOn);
+      } catch (e) {
+        return;
+      }
+      dests.forEach(([param, depth]) => {
+        const g = ctx.createGain();
+        g.gain.value = depth;
+        src.connect(g).connect(param);
+      });
+      src.start(tOn);
+      src.stop(chain.end);
+      // note legato : la voix dure plus longtemps, la courbe continue sans saut (même horloge)
+      chain.hooks.push((end, oldEnd) => {
+        if (end <= oldEnd) return;
+        const from = oldEnd + 0.002;
+        try {
+          src.offset.setValueCurveAtTime(curve(from, end), from, end - from);
+        } catch (e) {
+          /* courbe déjà dépassée : la valeur reste au dernier point */
+        }
+        src.stop(end);
+      });
+      sources.push(src);
+    });
+    return sources;
+  }
+
   function synthVoice(p, midi, time, dur, vel, dest) {
     const t = Math.max(time, ctx.currentTime);
     const freq = 440 * Math.pow(2, (midi - 69) / 12);
@@ -1186,7 +1291,8 @@ SS.audio = (() => {
       src.connect(g).connect(chain.input);
       src.start(t, Math.random() * 1.5);
       src.stop(chain.end);
-      register([src], chain.amp);
+      const mods = applyLfos(p, chain, { pitch: [], pw: [] });
+      register([src, ...mods], chain.amp);
       return trackVoice([src], chain, midi, []); // le bruit n'a pas de hauteur
     }
     const type = p.wave === 'supersaw' ? 'sawtooth' : p.wave || 'sawtooth';
@@ -1194,22 +1300,44 @@ SS.audio = (() => {
     const detune = p.wave === 'supersaw' ? Math.max(8, p.detune || 0) : p.detune || 0;
     const oscs = [];
     const detunes = [];
+    const pws = []; // retards du PWM : { param, base, period }
+    const pulse = p.wave === 'pulse';
+    const width = Math.max(0.02, Math.min(0.98, p.pw ?? 0.5));
     for (let i = 0; i < n; i++) {
       const o = ctx.createOscillator();
-      o.type = type;
+      o.type = pulse ? 'sawtooth' : type;
       o.frequency.value = freq;
       const offset = n > 1 ? ((i / (n - 1)) * 2 - 1) * detune : 0;
       o.detune.value = offset;
       detunes.push({ param: o.detune, offset });
       const og = ctx.createGain();
       og.gain.value = 1 / Math.sqrt(n);
-      o.connect(og).connect(chain.input);
+      o.connect(og);
+      if (pulse) {
+        /*
+         * Onde Pulse : différence de deux dents de scie décalées de `width` période (saw(t) − saw(t − w·T)).
+         * Les dents de scie natives sont à bande limitée : l'impulsion l'est aussi (pas de repliement), sa
+         * moyenne est nulle quelle que soit la largeur, et moduler le retard module la largeur (PWM).
+         */
+        const period = 1 / (freq * Math.pow(2, offset / 1200));
+        const dl = ctx.createDelay(0.25);
+        const base = width * period;
+        dl.delayTime.value = base;
+        const inv = ctx.createGain();
+        inv.gain.value = -1;
+        o.connect(dl).connect(inv).connect(og);
+        pws.push({ param: dl.delayTime, base, period });
+      }
+      og.connect(chain.input);
       o.start(t);
       o.stop(chain.end);
       oscs.push(o);
     }
-    register(oscs, chain.amp);
-    return trackVoice(oscs, chain, midi, detunes);
+    const mods = applyLfos(p, chain, { pitch: oscs.map((o) => o.detune), pw: pws });
+    register([...oscs, ...mods], chain.amp);
+    const v = trackVoice(oscs, chain, midi, detunes);
+    v.follow = pws.map(({ param, base }) => ({ param, base }));
+    return v;
   }
 
   /** Base d'URL de Dirt-Samples (lue dans strudel.json). */
@@ -1232,6 +1360,7 @@ SS.audio = (() => {
       return;
     }
     let p = SS.soundParams(track);
+    p._track = track.id || 'preview';
     if (mod && mod.cutoff && mod.cutoff !== 1) p = { ...p, cutoff: Math.max(30, Math.min(20000, p.cutoff * mod.cutoff)) };
     // ce qui suit doit rester synchrone jusqu'au glide (ordre des notes) : on résout d'abord la source
     let src = null; // { buffer, rate, loop }
@@ -1507,6 +1636,7 @@ SS.audio = (() => {
         seq.loops = (seq.loops || 0) + 1; // cycles complets : sert au passage des conditions de déclenchement
       }
       const t = seq.nextTime + SS.grooveOffset(project, seq.step, stepDur(project));
+      clockAdvance(project, seq.nextTime);
       project.tracks.forEach((tr) => scheduleAuto(project, tr, seq.step, seq.nextTime, stepDur(project)));
       scheduleStep(project, seq.step, t);
       seq.queue.push({ step: seq.step, time: t, song: seq.song ? { index: seq.song.index, rep: seq.song.rep } : null });
@@ -1552,6 +1682,7 @@ SS.audio = (() => {
         seq.queue.push({ step: -1, time: seq.nextTime, block: sg.index, rep: sg.rep });
       }
       const t = seq.nextTime + SS.grooveOffset(project, seq.step, stepDur(project));
+      clockAdvance(project, seq.nextTime);
       project.tracks.forEach((tr) => scheduleAuto(project, tr, seq.step, seq.nextTime, stepDur(project)));
       scheduleStep(project, seq.step, t);
       seq.queue.push({ step: seq.step, time: t, song: seq.song ? { index: seq.song.index, rep: seq.song.rep } : null });
@@ -1648,6 +1779,7 @@ SS.audio = (() => {
     seq.loops = 0;
     seq.queue = [];
     seq.nextTime = ctx.currentTime + 0.08;
+    clockReset(getProject(), seq.nextTime, seq.step / 4); // LFO calés sur le tempo : phase alignée sur la grille
     if (seq.song) seq.queue.push({ step: -1, time: seq.nextTime, block: seq.song.index, rep: 0 });
     getProject().tracks.forEach(prepareTrack); // scène du premier bloc (mode chanson) : déjà en cache le plus souvent
     tick();

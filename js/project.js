@@ -23,9 +23,9 @@
  *     { id, type: "instrument", name, color, volume, mute, solo,
  *       category: "mono"|"arp"|"chord", family, instrument, sfv (variante soundfont ou échantillon Dirt-Samples),
  *       chord: "min", arp: { mode, rate, octaves, gate, motion, evolve, seed, rhythm, lanes, … } (ARP ONE, voir js/arp.js), octave,
- *       sd: { wave, voices, detune, filter, ftype, fdrive, cutoff, q, env,  // sound design (optionnel,
+ *       sd: { wave, voices, detune, pw, filter, ftype, fdrive, cutoff, q, env,  // sound design (optionnel,
  *             attack, decay, sustain, release, glide, glideMode,       //  sinon preset de l'instrument)
- *             pan, drive, gain }
+ *             pan, drive, gain, lfo1Dest, lfo1Shape, lfo1Rate, lfo1Hz, lfo1Mode, lfo1Amt, lfo1Fade, lfo2… }
  *       events: [{ step, len, notes: [midi...], vel, shift?, rat?, cond? }] }   // shift : micro-décalage, en fraction de pas (−0,5..0,5)
  *                                                    // rat : ratchet, la note est rejouée 2 à 4 fois dans son premier pas
  *                                                    // cond : condition de déclenchement (SS.TRIG_CONDS)

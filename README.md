@@ -250,7 +250,19 @@ Le bouton à curseurs de l'en-tête ouvre la fenêtre de **sound design** (oscil
 - filtre passe-bas, passe-haut, passe-bande ou coupe-bande, avec 4 modèles (comme `ftype()` de strudel) :
   **12 dB**, **24 dB**, **Ladder** (4 pôles façon Moog, avec drive) et **SEM** (variable d'état façon Oberheim) ;
 - **glide** : *Portamento* (chaque note glisse depuis la précédente) ou *Glide legato* (façon Moog : seulement
-  entre notes liées, sans redéclencher les enveloppes).
+  entre notes liées, sans redéclencher les enveloppes) ;
+- onde **Pulse** avec sa **largeur d'impulsion** (5 à 95 %) : deux dents de scie décalées, donc sans repliement ;
+  la largeur suit la hauteur pendant un glide ;
+- **LFO 1 et LFO 2** (`js/modulation.js`) : destination (**Hauteur**, **PWM**, **Cutoff**, **Volume**, **Pan**),
+  forme (sinus, triangle, rampes, carré, S&H, aléatoire lissé), vitesse **calée sur le tempo** (de 1/16 à
+  64 mesures, triolets et pointées compris) ou libre en Hz (0,01 à 20 Hz), phase **Libre** (commune à toutes les
+  notes, alignée sur la lecture : un LFO de 4 mesures repart avec la boucle) ou **Retrig** (repart à chaque note),
+  quantité (négative = forme inversée) et fondu d'entrée. Les LFO s'appliquent aussi aux instruments échantillonnés
+  (sauf PWM) ;
+- enveloppes longues pour les nappes et drones : attaque et decay jusqu'à 10 s, release jusqu'à 20 s.
+
+Presets qui s'en servent : **PWM Bass**, **Evolving Bass**, **Wobble Bass**, **PWM Reese** (Bass), **PWM Strings**,
+**Breathing Pad** et **Drone** (Pads).
 
 Sur une piste **Synthé**, ce bouton ouvre la façade du synthé : pour le Juno-106, les sections LFO, DCO
 (16'/8'/4', impulsion + PWM, dent de scie, sous-oscillateur, bruit), HPF, VCF 24 dB/oct, VCA, ENV, chorus I / II,
@@ -318,6 +330,7 @@ Tests de bout en bout des fenêtres de l'arpégiateur et Key dans Chromium (néc
 
 ```bash
 node tests/e2e/arp-ui.js
+node tests/e2e/lfo.js
 node tests/e2e/arp-cursor.js
 node tests/e2e/harmony-ui.js
 node tests/e2e/grid-ui.js
@@ -527,6 +540,7 @@ par la fenêtre **Key** :
 | `js/filters.js`  | Filtres Ladder et SEM (AudioWorklet) du sound design |
 | `js/project.js`  | Modèle de projet, enregistrement / ouverture de fichiers |
 | `js/audio.js`    | Moteur audio : chargement des échantillons, voix, séquenceur |
+| `js/modulation.js` | LFO du synthé intégré (formes, vitesses calées sur le tempo, phase, courbes) et réglages PWM |
 | `js/sounddesign.js` | Fenêtre de sound design (VCO, filtre, ADSR, glide, sortie) |
 | `js/juno.js`     | Synthés analogiques : catalogue, 128 patches d'usine du Juno-106, un AudioWorklet par piste |
 | `js/juno-dsp.js` | Moteur du Juno-106 (AudioWorklet), porté de l'Ultramaster KR-106 — GPL v3 |
