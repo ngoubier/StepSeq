@@ -41,7 +41,7 @@ const oldSong = () => ({
 
 test('ancien projet : les notes des pistes VCSL montent d’une octave dans toutes les scènes (même son qu’avant)', () => {
   const p = SS.normalizeProject(oldSong());
-  assert.equal(p.version, 2);
+  assert.equal(p.version, 3);
   const piano = p.tracks.find((t) => t.id === 'p');
   const gm = p.tracks.find((t) => t.id === 'g');
   assert.deepEqual(piano.events[0].notes, [72, 76]);

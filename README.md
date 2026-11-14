@@ -298,6 +298,7 @@ Le bouton à curseurs de l'en-tête ouvre la fenêtre de **sound design** (oscil
   (sauf PWM) ;
 - enveloppes longues pour les nappes et drones : attaque et decay jusqu'à 10 s, release jusqu'à 20 s ;
 - **sous-oscillateur** : un carré une ou deux octaves sous la note (niveau et octave), qui suit le glide ;
+- **bruit** (bloc Bruit de l'onglet VCO) : générateur de bruit blanc, rose ou brun mélangé à l'oscillateur, comme le mixeur d'un Minimoog ou d'un Juno ; « Niveau de l'oscillateur » à 0 pour n'entendre que le bruit (presets Noise Riser, Wind, Rumble). Les anciennes chansons avec une onde de bruit sont converties à l'ouverture (version 3 du format) ;
 - **force de l'accent** (section Sortie) : effet des notes accentuées.
 
 ### Accent des notes

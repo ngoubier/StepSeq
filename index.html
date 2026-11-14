@@ -448,10 +448,18 @@
         <div class="fx-panes">
           <section class="fx-pane" data-pane="vco" aria-labelledby="sdVcoTitle">
             <div class="fx-pane-head"><h3 id="sdVcoTitle">Oscillateur <small>VCO</small></h3></div>
-            <p class="fx-help">La matière première du son : forme d’onde, unisson, sous-oscillateur.</p>
+            <p class="fx-help">La matière première du son : forme d’onde, unisson, sous-oscillateur, et du bruit à mélanger.</p>
             <div id="sdVco">
               <div class="sd-waves" id="sdWaves" role="radiogroup" aria-label="Forme d'onde"></div>
               <div class="sd-sliders" id="sdVcoSliders"></div>
+              <div class="sd-noise" aria-labelledby="sdNoiseTitle">
+                <div class="sd-panel-head">
+                  <h4 id="sdNoiseTitle">Bruit <small>mixeur</small></h4>
+                  <div class="segmented sd-ftype" id="sdNoiseColor" role="radiogroup" aria-label="Couleur du bruit"></div>
+                </div>
+                <p id="sdNoiseHint" class="sd-hint"></p>
+                <div class="sd-sliders" id="sdNoiseSliders"></div>
+              </div>
             </div>
             <p id="sdNoVco" class="sd-note" hidden></p>
           </section>

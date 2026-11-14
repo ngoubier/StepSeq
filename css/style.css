@@ -863,6 +863,12 @@ dialog.fx-dialog .fx-pane[hidden] { display: none; }
 .sd-env2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
 .sd-env2 .sd-sub { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .sd-env2 .sd-sub + .sd-sub { border-left: 1px solid var(--line); padding-left: 24px; }
+.sd-noise { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.sd-noise h4, .sd-env2 h4 { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.sd-noise h4 small { margin-left: 4px; font-weight: 500; }
+.sd-noise .sd-ftype { margin-bottom: 0; }
+.sd-noise .sd-hint { margin: 0; }
+.sd-waves.dim { opacity: .45; }
 .sd-env2 h4 { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 .sd-env2 h4 small { margin-left: 4px; font-weight: 500; }
 .sd-env2 .sd-panel-head { min-height: 24px; }
