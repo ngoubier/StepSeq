@@ -462,6 +462,24 @@ SS.ui = (() => {
       )
     );
 
+    // Keep the original controls and handlers in a top-layer popover in compact mode.
+    const controls = head.querySelector('.th-ctrls');
+    const options = h('div', { class: 'th-options', popover: 'auto', 'aria-label': `Options de la piste ${track.name}` });
+    for (const control of [...controls.children]) {
+      if (control.matches('.mute, .solo')) continue;
+      if (control.tagName === 'BUTTON') control.append(h('span', { class: 'th-option-label' }, control.title));
+      if (control.matches('input')) {
+        options.append(h('label', { class: 'th-option-volume' }, h('span', { class: 'th-option-label' }, 'Volume'), control));
+      } else options.append(control);
+    }
+    const more = h('button', {
+      type: 'button', class: 'th-btn th-more', title: 'Autres options de la piste',
+      'aria-label': `Autres options de la piste ${track.name}`, 'aria-expanded': 'false',
+    }, '>');
+    more.popoverTargetElement = options;
+    options.addEventListener('toggle', (event) => more.setAttribute('aria-expanded', String(event.newState === 'open')));
+    controls.append(more, options);
+
     const grid = h('div', { class: 'grid track-grid' });
     for (let s = 0; s < n; s++) {
       const c = h('div', { class: cellClass(p, s, 'cell'), 'data-step': s }, h('div', { class: 'fill' }));

@@ -218,6 +218,14 @@
   }
 
   function initHeader() {
+    const trackHeight = $('#trackHeight');
+    try { trackHeight.value = localStorage.getItem('stepseq.trackHeight') === 'compact' ? 'compact' : 'normal'; } catch (_) {}
+    document.documentElement.classList.toggle('compact-tracks', trackHeight.value === 'compact');
+    trackHeight.addEventListener('change', () => {
+      document.querySelectorAll('.th-options:popover-open').forEach((menu) => menu.hidePopover());
+      document.documentElement.classList.toggle('compact-tracks', trackHeight.value === 'compact');
+      try { localStorage.setItem('stepseq.trackHeight', trackHeight.value); } catch (_) {}
+    });
     $('#undoBtn').addEventListener('click', undo);
     $('#redoBtn').addEventListener('click', redo);
     const num = $('#sigNum');

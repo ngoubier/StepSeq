@@ -3567,3 +3567,27 @@ button.th-gm.no:hover, button.th-gm.no:focus-visible { background: #f08a00; colo
 .abar.neg { background: color-mix(in srgb, var(--c) 60%, #4aa3ff); }
 .acell.pt .abar { opacity: .95; }
 .acell.empty .abar { opacity: .12; }
+
+/* Track density is a local display preference, independent of the song. */
+.th-options, .th-option-volume { display: contents; }
+.th-option-label, .th-more { display: none; }
+.th-options { margin: 0; padding: 0; border: 0; color: inherit; background: transparent; }
+.track-height-control { display: flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 12px; }
+.compact-tracks { --row-h: 36px; }
+.compact-tracks .th-ctrls { display: flex; gap: 4px; }
+.compact-tracks .th-more { display: grid; }
+.compact-tracks .th-name small { display: none; }
+.compact-tracks .th-options { display: none; }
+.compact-tracks .th-options:popover-open {
+  display: flex; flex-direction: column; gap: 6px;
+  position: fixed; inset: auto; margin: auto; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: min(340px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow: auto;
+  padding: 12px; border: 1px solid var(--muted); border-radius: 8px;
+  background: var(--panel-2); color: var(--text); box-shadow: 0 8px 30px #0008;
+}
+.compact-tracks .th-options .th-btn {
+  display: flex; width: 100%; height: auto; min-height: 32px; padding: 6px; gap: 10px; text-align: left;
+}
+.compact-tracks .th-option-label { display: inline; font-size: 12px; }
+.compact-tracks .th-option-volume { display: flex; align-items: center; gap: 10px; }
+.compact-tracks .th-options .th-vol { display: block; width: 100%; }
