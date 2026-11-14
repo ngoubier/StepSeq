@@ -6,7 +6,7 @@
  * du morceau (un long break calme le fait baisser) au lieu d'écraser les refrains pour compenser.
  * Rendu complet sans gain (tools/render-band-song.js), mesures par ffmpeg ; VERIFY=1 refait un rendu avec le gain.
  *
- *   node tools/band-drive.js [inspiration…]      (sans argument : les 20 ; nécessite ffmpeg)
+ *   node tools/band-drive.js [inspiration…]      (sans argument : les 30 ; nécessite ffmpeg)
  */
 const { execFile } = require('child_process');
 const fs = require('fs');

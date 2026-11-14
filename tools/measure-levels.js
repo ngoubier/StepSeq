@@ -5,6 +5,7 @@
  * (js/bandmix.js) : chaque instrument part du même niveau, quel que soit le son choisi.
  *
  *   node tools/measure-levels.js          (Playwright + Chromium ; connexion internet pour charger les sons)
+ *   MISSING=1 node tools/measure-levels.js   (seulement les sons pas encore mesurés)
  *
  * Matériau joué (vélocités proches de celles des chansons Band) :
  *   basse : 8 croches (Do2, Sol2…) ; accords : triade Do4–Mi4–Sol4 tenue ; mélodie : 4 noires autour de Sol4 ;
@@ -39,7 +40,10 @@ B.STYLES.forEach((st) =>
     })
   )
 );
-const jobs = [...[...inst.entries()].map(([k, v]) => ({ key: k, ...v, kind: 'inst' })), ...[...drums.entries()].map(([k, v]) => ({ key: k, ...v, kind: 'drum' }))];
+const allJobs = [...[...inst.entries()].map(([k, v]) => ({ key: k, ...v, kind: 'inst' })), ...[...drums.entries()].map(([k, v]) => ({ key: k, ...v, kind: 'drum' }))];
+// MISSING=1 : ne mesure que les sons absents de js/band-levels.js (nouvelles inspirations) et garde les autres mesures
+const OLD = process.env.MISSING ? (require(path.join(ROOT, 'js', 'band-levels.js')), SS.BAND_LEVELS) : null;
+const jobs = OLD ? allJobs.filter((j) => !OLD[j.kind][j.key]) : allJobs;
 
 const server = http.createServer((req, res) => {
   const file = path.join(ROOT, decodeURIComponent(req.url.split('?')[0]).replace(/^\/+/, '') || 'index.html');
@@ -164,7 +168,7 @@ async function measure(browser, port, list) {
 (async () => {
   await new Promise((r) => server.listen(0, r));
   const browser = await chromium.launch();
-  const out = { inst: {}, drum: {} };
+  const out = OLD ? { inst: { ...OLD.inst }, drum: { ...OLD.drum } } : { inst: {}, drum: {} };
   for (let i = 0; i < jobs.length; i += CHUNK) {
     const part = await measure(browser, server.address().port, jobs.slice(i, i + CHUNK));
     part.forEach((r) => {

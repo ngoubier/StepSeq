@@ -1,5 +1,5 @@
 /*
- * Band, « Créer toute la chanson » (js/band-songs.js, js/bandsong.js) : les 20 plans de chanson.
+ * Band, « Créer toute la chanson » (js/band-songs.js, js/bandsong.js) : les 30 plans de chanson.
  *   node --test
  */
 const test = require('node:test');
@@ -20,7 +20,7 @@ const tracksOf = (p) =>
 const plays = (d) => (d.steps ? d.steps.some((v) => v > 0) : d.events.length > 0);
 
 test('chaque inspiration a un plan de chanson, et toutes les chansons se construisent', () => {
-  assert.equal(PRESETS.length, 20);
+  assert.equal(PRESETS.length, 30);
   for (const p of PRESETS) {
     assert.ok(SS.BandSongs[p.id], `plan manquant : ${p.id}`);
     const s = SS.bandSong.build(SS.BandSongs[p.id], p.id, tracksOf(p));
@@ -114,7 +114,7 @@ test('même inspiration, même chanson (déterministe) ; deux chansons différen
   assert.equal(strip(a), strip(b));
   // grilles : pas toutes identiques d'une chanson à l'autre
   const grids = new Set(PRESETS.map((x) => Object.values(SS.BandSongs[x.id].sections).map((sec) => sec.chords).join(';')));
-  assert.equal(grids.size, 20);
+  assert.equal(grids.size, 30);
 });
 
 /* ---------- Tonalité : toutes les pistes instrumentales sont dans la bonne tonalité ---------- */
@@ -189,5 +189,93 @@ test('nuances : refrain / drop plus forts que l\'intro, accents et ghost notes',
     }
     const sd = tr.find((t) => t.sound === 'sd');
     if (sd) assert.ok(s.scenes.some((sc) => sc.data[sd.id].steps.some((v) => v > 0 && v < 0.35)), `${p.id} : pas de ghost note de caisse claire`);
+  }
+});
+
+/* ---------- Techno mélodique : intro planante, montées, drops ---------- */
+test('techno mélodique : intro planante (filtre qui s\'ouvre, pas de batterie, une mélodie), montée au passe-haut et drop puissant', () => {
+  const list = PRESETS.filter((x) => x.style === 'techno');
+  assert.equal(list.length, 10);
+  for (const p of list) {
+    const spec = SS.BandSongs[p.id];
+    assert.ok(spec.tech, `${p.id} : plan techno`);
+    const tr = tracksOf(p);
+    const s = SS.bandSong.build(spec, p.id, tr);
+    const intro = s.scenes.find((sc) => sc.name === 'Intro');
+    const builds = s.scenes.filter((sc) => /Montée/.test(sc.name));
+    const drops = s.scenes.filter((sc) => /Drop/.test(sc.name));
+    assert.ok(builds.length && drops.length, `${p.id} : montée et drop`);
+    // intro : pas de batterie, une nappe dont le passe-bas s'ouvre, au moins une partie mélodique
+    for (const t of tr.filter((x) => x.type === 'drum')) assert.ok(!plays(intro.data[t.id]), `${p.id} : ${t.id} joue dans l'intro`);
+    const pad = intro.data.pad;
+    assert.ok(pad && pad.auto && pad.auto.filter, `${p.id} : la nappe de l'intro n'a pas d'automation de filtre`);
+    const pts = Object.entries(pad.auto.filter).sort((a, b) => a[0] - b[0]);
+    assert.ok(pts[0][1] < -0.5 && pts[pts.length - 1][1] === 0, `${p.id} : le filtre de l'intro doit s'ouvrir`);
+    assert.ok(['lead', 'vox', 'keys', 'guitar'].some((r) => intro.data[r] && intro.data[r].events.length), `${p.id} : intro sans mélodie`);
+    // montée : passe-haut qui grimpe sur la nappe, bruit blanc dont le filtre s'ouvre, roulement en ratchets
+    for (const b of builds) {
+      const hp = ['pad', 'keys', 'strings', 'arp', 'lead'].filter((r) => b.data[r] && b.data[r].events.length && b.data[r].auto && b.data[r].auto.filter);
+      assert.ok(hp.length && hp.every((r) => Math.max(...Object.values(b.data[r].auto.filter)) > 0.4), `${p.id} : pas de passe-haut dans la montée`);
+      assert.ok(b.data.fx.events.length && b.data.fx.auto.filter, `${p.id} : pas de montée de bruit`);
+      const sn = tr.find((t) => t.sound === 'cp' || t.sound === 'sd');
+      assert.ok(b.data[sn.id].rat && Object.values(b.data[sn.id].rat).some((r) => r >= 3), `${p.id} : roulement sans ratchet`);
+    }
+    // drop : impact, cymbale et kick sur le premier temps, basse sidechainée qui joue, filtres rouverts
+    for (const d of drops) {
+      assert.ok(d.data.fx.events.some((e) => e.step === 0), `${p.id} : pas d'impact au début du drop`);
+      const kick = tr.find((t) => t.sound === 'bd');
+      assert.ok(d.data[kick.id].steps[0] > 0.8, `${p.id} : kick faible au début du drop`);
+      const crash = tr.find((t) => t.sound === 'cr');
+      if (crash) assert.ok(d.data[crash.id].steps[0] > 0, `${p.id} : pas de cymbale au drop`);
+      assert.ok(d.data.bass.events.length >= d.bars * 4, `${p.id} : basse trop clairsemée au drop`);
+      if (d.data.pad.auto) assert.ok(!d.data.pad.auto.filter || Math.min(...Object.values(d.data.pad.auto.filter)) >= -0.4, `${p.id} : nappe filtrée au drop`);
+    }
+  }
+});
+
+test('techno mélodique : conditions de déclenchement et trilles sur la batterie, valeurs valides', () => {
+  const ids = new Set(SS.TRIG_CONDS.map((c) => c.id));
+  for (const p of PRESETS.filter((x) => x.style === 'techno')) {
+    const tr = tracksOf(p);
+    const s = SS.bandSong.build(SS.BandSongs[p.id], p.id, tr);
+    let conds = 0;
+    s.scenes.forEach((sc) =>
+      tr.filter((t) => t.type === 'drum').forEach((t) => {
+        const d = sc.data[t.id];
+        for (const [k, c] of Object.entries(d.cond || {})) {
+          conds++;
+          assert.ok(ids.has(c), `${p.id} : condition inconnue ${c}`);
+          assert.ok(d.steps[+k] > 0, `${p.id} : condition sur un pas éteint`);
+        }
+        for (const [k, r] of Object.entries(d.rat || {})) assert.ok(r >= 2 && r <= SS.RATCHET_MAX && d.steps[+k] > 0, `${p.id} : ratchet invalide`);
+      })
+    );
+    assert.ok(conds > 20, `${p.id} : la batterie ne varie pas d'un passage à l'autre`);
+  }
+});
+
+test('techno mélodique : automation valide (bornes, pas dans la scène) et absente des autres styles', () => {
+  for (const p of PRESETS) {
+    const tr = tracksOf(p);
+    const s = SS.bandSong.build(SS.BandSongs[p.id], p.id, tr);
+    s.scenes.forEach((sc) =>
+      tr.forEach((t) => {
+        const a = sc.data[t.id].auto;
+        if (!a) return;
+        assert.equal(p.style, 'techno', `${p.id} : automation hors techno`);
+        for (const [id, lane] of Object.entries(a)) {
+          const P = SS.autoParam(id);
+          assert.ok(P, `${p.id} : réglage inconnu ${id}`);
+          for (const [k, v] of Object.entries(lane)) {
+            assert.ok(+k >= 0 && +k < sc.bars * 16, `${p.id} / ${sc.name} : point hors de la scène`);
+            assert.ok(v >= P.min && v <= P.max, `${p.id} / ${sc.name} : ${id} = ${v}`);
+          }
+        }
+        // copie fidèle par SS.cleanAuto (format du projet)
+        const copy = { auto: JSON.parse(JSON.stringify(a)) };
+        SS.cleanAuto(copy, sc.bars * 16);
+        assert.deepEqual(copy.auto, a, `${p.id} / ${sc.name} / ${t.id} : automation modifiée au nettoyage`);
+      })
+    );
   }
 });
