@@ -467,7 +467,11 @@ SS.ui = (() => {
     const options = h('div', { class: 'th-options', popover: 'auto', 'aria-label': `Options de la piste ${track.name}` });
     for (const control of [...controls.children]) {
       if (control.matches('.mute, .solo')) continue;
-      if (control.tagName === 'BUTTON') control.append(h('span', { class: 'th-option-label' }, control.title));
+      if (control.tagName === 'BUTTON') {
+        const labels = { 'th-play': 'Écouter', 'th-roll': 'Piano roll', 'th-sd': 'Sound design', 'th-auto': 'Automation', 'fx-btn': 'Effets', 'th-edit': 'Modifier la piste', 'th-del': 'Supprimer la piste' };
+        const label = Object.keys(labels).find((name) => control.classList.contains(name));
+        control.append(h('span', { class: 'th-option-label' }, labels[label] || control.title));
+      }
       if (control.matches('input')) {
         options.append(h('label', { class: 'th-option-volume' }, h('span', { class: 'th-option-label' }, 'Volume'), control));
       } else options.append(control);
@@ -476,7 +480,20 @@ SS.ui = (() => {
       type: 'button', class: 'th-btn th-more', title: 'Autres options de la piste',
       'aria-label': `Autres options de la piste ${track.name}`, 'aria-expanded': 'false',
     }, '>');
-    more.popoverTargetElement = options;
+    more.addEventListener('click', () => {
+      if (options.matches(':popover-open')) return options.hidePopover();
+      options.showPopover();
+      const anchor = more.getBoundingClientRect();
+      const menu = options.getBoundingClientRect();
+      const left = Math.max(8, Math.min(anchor.left, window.innerWidth - menu.width - 8));
+      const below = anchor.bottom + 4;
+      const top = below + menu.height <= window.innerHeight - 8 ? below : Math.max(8, anchor.top - menu.height - 4);
+      options.style.left = `${left}px`;
+      options.style.top = `${top}px`;
+    });
+    options.addEventListener('click', (event) => {
+      if (event.target.closest('button:not(:disabled)') && options.matches(':popover-open')) options.hidePopover();
+    });
     options.addEventListener('toggle', (event) => more.setAttribute('aria-expanded', String(event.newState === 'open')));
     controls.append(more, options);
 
