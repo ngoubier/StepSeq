@@ -57,9 +57,10 @@ Le bouton **Écouter** permet d'entendre le son avant de valider.
 
 Le bouton **Band** de l'en-tête ouvre une grande fenêtre (`js/band.js`, catalogue `js/band-presets.js`) :
 
-1. le **style musical** : **Synthwave** ou **EDM mélodique** ;
+1. le **style musical** : **Synthwave**, **EDM mélodique** ou **Techno mélodique** ;
 2. le **type de chanson** : 10 inspirations par style (Smalltown Boy, Nightcall, Blinding Lights, Sweet Dreams…,
-   Levels, Strobe, Opus, Faded…), avec un tempo suggéré ;
+   Levels, Strobe, Opus, Faded…, Powers of Ten, Eternity, Return to Oz, Sky and Sand, Your Mind, Rej…), avec un
+   tempo suggéré ;
 3. les **musiciens**, sur une scène. Un clic ouvre le panneau du musicien : son rôle, son instrument phare ★,
    5 instruments conseillés (▶ pour écouter) et l'accès à toute la bibliothèque via la fenêtre « Nouvelle piste ».
    Le **batteur** (et le percussionniste, optionnel) choisit un kit (★ + 5 conseillés) et coche ses éléments
@@ -68,8 +69,26 @@ Le bouton **Band** de l'en-tête ouvre une grande fenêtre (`js/band.js`, catalo
 **Créer les pistes** crée les pistes, vierges de notes (et applique le tempo si la case est cochée) ;
 **Créer toute la chanson** écrit en plus une chanson complète dans l'esprit de l'inspiration : scènes (intro,
 couplet, refrain… ou break, montée et drop en EDM), parties de chaque musicien et arrangement, en mode Chanson.
-Les plans des 20 chansons sont dans `js/band-songs.js` (tonalité, forme, grilles originales, ce que joue chaque
+Les plans des 30 chansons sont dans `js/band-songs.js` (tonalité, forme, grilles originales, ce que joue chaque
 musicien par section) et les notes sont écrites par `js/bandsong.js` (déterministe). La croix de fermeture, **Annuler** et **Échap** ferment sans rien créer.
+
+**Techno mélodique** (10 inspirations : Stephan Bodzin, Anyma & Chris Avantgarde, ARTBAT, Monolink, Kölsch,
+Boris Brejcha, Paul & Fritz Kalkbrenner, Adam Beyer & Bart Skils, Âme, Kiasmos) : les chansons se servent de tous
+les outils du séquenceur, comme un producteur dans son DAW (`spec.tech` dans `js/band-songs.js`) :
+
+- **intro planante** de 16 mesures sans batterie : nappe ouverte (fondamentale grave + accord + octave), arpège en
+  croches pointées, mélodie lente ; **automation** du passe-bas qui s'ouvre sur toute l'intro, reverb qui se
+  retire, écho sur l'arpège et le lead ; nappe d'ambiance du musicien **Effets** ;
+- **montées** de 8 à 16 mesures : passe-haut automatisé sur la 2e moitié (basse comprise), résonance de l'arpège,
+  reverb lâchée sur la dernière mesure, **montée de bruit blanc** (filtre et volume automatisés), roulement de
+  caisse claire en **ratchets** (2 puis 3 coups par pas), un temps de silence avant le drop ;
+- **drops puissants** : impact (bruit qui s'éteint sur 2 mesures) et cymbale sur le premier temps, kick 909 plein,
+  basse « et-a » (deux doubles-croches après chaque kick) fortement **sidechainée**, nappe en accords piqués, lead
+  et arpège dont le filtre s'ouvre sur la première mesure ; trilles de charleston (ratchets) en fin de phrase ;
+- **conditions de déclenchement** : charleston fantôme à 50 %, percussions, rimshots, open hat et ride à 75 % ou
+  « 1:2 » — la batterie change un peu à chaque passage ;
+- **outro** qui se referme (passe-bas) avec un fondu ; mixage propre au style (grande reverb sombre, écho en croche
+  pointée, image stéréo plus large).
 
 Règles d'écriture vérifiées par les tests (`tests/bandsong.test.js`) :
 
@@ -96,7 +115,7 @@ enregistrés avant cette correction sont transposés à l'ouverture pour sonner 
   avec une marge d'environ 18 LU avant le master ;
 - **égalisation et dynamique** par rôle : passe-haut sur tout sauf kick et basse, creux du bas-médium des nappes et
   claviers, présence de la caisse claire et du lead ; compresseur sur kick, caisse claire, basse, piano et voix ;
-  sidechain sur le kick (fort en EDM, léger sur les nappes en synthwave) ;
+  sidechain sur le kick (fort en EDM et en techno mélodique, léger sur les nappes en synthwave) ;
 - **espace** : panoramique par rôle ; envois vers trois **bus d'effets partagés** (reverb plate pour la batterie,
   hall pour les instruments, écho ping-pong au tempo), chorus sur nappes, guitare et voix ; kick et basse secs ;
 - **mastering** : EQ et compresseur « glue » léger sur le Master, puis module de mastering (`js/master-dsp.js`) :

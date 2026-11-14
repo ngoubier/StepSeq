@@ -371,7 +371,7 @@ SS.automix = (() => {
   /** Objectif proposé d'après le style des pistes du Band (sinon le streaming, valable partout). */
   function proposeTarget(tracks) {
     const styles = (tracks || []).map((t) => t.band && t.band.style).filter(Boolean);
-    if (styles.includes('edm')) return 'edm';
+    if (styles.includes('edm') || styles.includes('techno')) return 'edm';
     if (styles.includes('synthwave')) return 'synthwave';
     return 'streaming';
   }
