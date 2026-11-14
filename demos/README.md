@@ -17,6 +17,36 @@
 | `autoroute-de-minuit.mp3` | Le morceau rendu par StepSeq (rendu hors temps réel, MP3 256 kbit/s). |
 | `autoroute-de-minuit.compose.py` | Script qui génère « Autoroute de minuit » : harmonie, patches et réglages Juno commentés. `--brut` : sans mixage. |
 
+## « Horizon magnétique » — Melodic Techno / EDM
+
+- Projet : [`horizon-magnetique.stepseq.json`](horizon-magnetique.stepseq.json), à charger avec **Ouvrir** dans StepSeq, puis **Lecture** en mode Chanson.
+- Écoute : [`horizon-magnetique.mp3`](horizon-magnetique.mp3).
+- Export MIDI : [`horizon-magnetique.mid`](horizon-magnetique.mid), 15 pistes et 2 846 notes ; les timbres, le mixage et les effets restent dans le projet StepSeq.
+- Générateur : [`horizon-magnetique.compose.py`](horizon-magnetique.compose.py), utilisant les outils de notes, batterie et mixage d'Envol. Depuis la racine : `python3 demos/horizon-magnetique.compose.py`.
+- **Inspiration** : la construction progressive et l'ampleur d'« Opus » d'Eric Prydz ; thème, harmonie et parties composés ici, sans reprise de sa mélodie.
+- **Fa♯ mineur, 124 BPM, 4/4**, 96 mesures (3:06, hors queue de réverbération), 15 pistes, 11 scènes. Convention : Do4 = MIDI 60.
+- **Harmonie** : F♯m – D – A – E (i – VI – III – VII), deux mesures par accord. Dernière montée : Bm – D – E – C♯ ; le Mi♯ de C♯ majeur prépare le retour à Fa♯ mineur.
+
+| Scène | Mesures | Écriture et énergie |
+|---|---:|---|
+| Horizon | 16 | Nappe supersaw et halo aérien, sans batterie ; filtre qui s'ouvre, arpège à partir de la mesure 9. |
+| Pulsation | 8 | Kick 909, charleston, basse à contretemps ; le thème reste réservé. |
+| Gravitation | 8 | Clap, motif pluck entrevu dans la seconde moitié. |
+| Ascension | 8 | Roulement accéléré, riser, filtre et volume en montée ; retrait du kick à mi-section, dernier temps sans nouvelle attaque. |
+| DROP — Orbite | 8 | Kick plein, impact sub, crash, basse roulante, lead et pluck. |
+| DROP — Réponse | 8 | Réponse du lead et arpège ajouté. |
+| En apesanteur | 8 | Batterie et basse retirées ; nappes et thème plus retenu. |
+| Dernière ascension | 8 | Nouvelle progression vers la dominante, crescendo puis coupure. |
+| DROP FINAL — Magnétique | 8 | Retour du grave, thème varié, ride et halo aérien. |
+| DROP FINAL — Pleine lumière | 8 | Arpège remonté à l'octave, crash de relance à mi-section. |
+| Dissipation | 8 | Retrait de la batterie, fermeture du filtre, fondu et accord final de Fa♯ mineur. |
+
+**Pistes préparées** : kick, clap, roulement de snare, hi-hat, open hat, ride, crash (TR-909), basse roulante, impact sub, nappe supersaw, motif pluck, lead supersaw, arpège pluck, halo aérien et riser de bruit blanc. Les instruments mélodiques sont des synthés intégrés ; aucun Juno ni soundfont nécessaire. Les échantillons de batterie nécessitent le réseau.
+
+**Mixage** : EQ par rôle et compression hérités de l'outil Envol, basse sidechainée sur le kick à 75 %, nappe à 55 %, lead à 35 %. Graves centrés sous 110 Hz, largeur modérée, plafond du module de mastering à −1,2 dB. Le dernier temps des montées laisse les queues d'effets se dissiper : ce n'est pas une coupure numérique brutale.
+
+**Contrôles du rendu MP3** (ffmpeg EBU R128) : −12,2 LUFS intégrés, −1,5 dBTP, LRA 16,2 LU. La grande plage reflète le contraste entre intro/break et drops. Signal PCM entièrement fini ; fin de réverbération vers −91 dBFS sur les deux dernières secondes du rendu. Ouverture, arrangement et enregistrement en bibliothèque validés dans un profil navigateur de test.
+
 ## Fiche de composition — « Autoroute de minuit »
 
 - **Tonalité** : Ré mineur naturel (D E F G A B♭ C) ; **tempo** 104 BPM ; 4/4.
