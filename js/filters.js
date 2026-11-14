@@ -80,6 +80,12 @@ function ssFiltersModule(scope) {
           else out = y4;
           y[n] = out * makeup;
         }
+        // état invalide (NaN, infini) : la voix repart de zéro au lieu de rester muette
+        if (!(Math.abs(y4) < 1e6) || !(Math.abs(y1) < 1e6)) {
+          st.fill(0);
+          y.fill(0);
+          continue;
+        }
         // évite les nombres dénormalisés une fois la voix silencieuse
         st[0] = Math.abs(y1) < 1e-15 ? 0 : y1;
         st[1] = Math.abs(y2) < 1e-15 ? 0 : y2;
@@ -133,6 +139,11 @@ function ssFiltersModule(scope) {
           const lp = g * bp + s2;
           s2 = g * bp + lp;
           y[n] = mode === 1 ? hp : mode === 2 ? bp * 2 * R : mode === 3 ? xin - 2 * R * bp : lp;
+        }
+        if (!(Math.abs(s1) < 1e6) || !(Math.abs(s2) < 1e6)) {
+          st[0] = st[1] = 0;
+          y.fill(0);
+          continue;
         }
         st[0] = Math.abs(s1) < 1e-15 ? 0 : s1;
         st[1] = Math.abs(s2) < 1e-15 ? 0 : s2;
