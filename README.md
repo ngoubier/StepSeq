@@ -135,8 +135,11 @@ enregistrés avant cette correction sont transposés à l'ouverture pour sonner 
 2. **Chanson** : la chanson en vue « session », comme dans Ableton Live : **une ligne par scène** (nom, mesures,
    nombre de passages dans l'arrangement, accords) et **une colonne par piste**, regroupées par musicien ; chaque
    case dessine ce que joue la piste (coups de batterie ou notes), une case en pointillés est un silence ;
+   un bandeau donne l'ordre des scènes ; on écoute la chanson (ou à partir d'un bloc) et chaque scène en boucle,
+   sur un projet temporaire (même mixage que la chanson créée) ;
 3. **Mélodie** : **Générer la mélodie** tire une autre mélodie (lead, voix, sax) sur la même grille, sans changer
    les autres musiciens (`melodySeed` de `SS.bandSong.build`) ; **Mélodie d'origine** revient à l'inspiration ;
+   écoute par scène avec **M**uet / **S**olo sur chaque instrument ;
 4. **Pistes** : cases à cocher par musicien (batterie, basse, nappes, arpèges, lead…) et par élément de batterie ;
    **Créer la chanson** écrit les pistes cochées, les scènes et l'arrangement (tempo de l'inspiration, mixage
    automatique de Band). Ce qui est créé est exactement l'aperçu ; Ctrl+Z revient à la chanson vide.
