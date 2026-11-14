@@ -519,7 +519,7 @@ SS.ui = (() => {
     options.addEventListener('toggle', (event) => more.setAttribute('aria-expanded', String(event.newState === 'open')));
     controls.append(more, options);
 
-    const grid = h('div', { class: 'grid track-grid' });
+    const grid = h('div', { class: 'grid track-grid' + (track.type === 'instrument' ? ' inst-grid' : '') });
     for (let s = 0; s < n; s++) {
       const c = h('div', { class: cellClass(p, s, 'cell'), 'data-step': s }, h('div', { class: 'fill' }));
       ref.cells.push(c);
@@ -814,6 +814,21 @@ SS.ui = (() => {
     const tools = h(
       'div',
       { class: 'roll-tools' },
+      // petite croix, à gauche du bandeau : ferme le piano roll
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'roll-close',
+          title: 'Fermer le piano roll (le chevron › de la piste le rouvre)',
+          'aria-label': 'Fermer le piano roll',
+          onclick: () => {
+            app.state.openRolls.delete(track.id);
+            renderTrack(track);
+          },
+        },
+        h('span', { html: ICONS.close })
+      ),
       h(
         'label',
         {},
@@ -926,21 +941,6 @@ SS.ui = (() => {
         },
         h('span', { html: ICONS.sliders }),
         'Sound design'
-      ),
-      h(
-        'button',
-        {
-          type: 'button',
-          class: 'roll-close',
-          title: 'Fermer le piano roll',
-          'aria-label': 'Fermer le piano roll',
-          onclick: () => {
-            app.state.openRolls.delete(track.id);
-            renderTrack(track);
-          },
-        },
-        h('span', { html: ICONS.close }),
-        'Fermer'
       )
     );
 

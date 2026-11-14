@@ -43,6 +43,8 @@ const ok = (c, m) => {
     return [r.x + r.width / 2, r.y + r.height / 2];
   };
 
+  const curOf = (el) => el.evaluate((c) => getComputedStyle(c).cursor);
+  ok(/^url\("data:image\/svg\+xml/.test(await curOf(cell(5))) && (await curOf(cell(0))) === 'grab', 'ligne : crayon sur les cases vides, main sur les notes');
   // simple clic sur une note : sélectionnée, pas effacée
   let [x, y] = await center(0);
   await page.mouse.click(x, y);
@@ -96,6 +98,14 @@ const ok = (c, m) => {
   await page.keyboard.press('Delete');
   await page.waitForTimeout(500);
   ok(!(await evs()).some((e) => e[2] === 42), 'piano roll : Suppr efface la note');
+
+  // petite croix à gauche du bandeau : ferme le piano roll
+  const x0 = await page.locator('.roll-tools .roll-close').boundingBox();
+  const oct = await page.locator('.roll-tools label').first().boundingBox();
+  ok(x0.x < oct.x && x0.width <= 30, 'piano roll : petite croix à gauche du bandeau');
+  await page.click('.roll-tools .roll-close');
+  await page.waitForTimeout(200);
+  ok((await page.locator('.roll').count()) === 0, 'la croix ferme le piano roll');
 
   ok(!errs.length, 'aucune erreur JS' + (errs.length ? ' : ' + errs.join(' | ') : ''));
   await b.close();
