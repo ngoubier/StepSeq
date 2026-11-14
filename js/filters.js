@@ -25,9 +25,13 @@ function ssFiltersModule(scope) {
   };
   const PARAMS = [
     { name: 'frequency', defaultValue: 1000, minValue: 10, maxValue: 22000, automationRate: 'a-rate' },
+    // décalage en cents (LFO -> cutoff), comme BiquadFilterNode.detune
+    { name: 'detune', defaultValue: 0, minValue: -9600, maxValue: 9600, automationRate: 'a-rate' },
     { name: 'q', defaultValue: 1, minValue: 0, maxValue: 40, automationRate: 'k-rate' },
     { name: 'drive', defaultValue: 0.5, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
   ];
+  // facteur de fréquence d'un décalage en cents (constant sur le bloc : calcul unique)
+  const dmul = (dt, n) => (dt.length > 1 ? Math.pow(2, dt[n] / 1200) : dt[0] ? Math.pow(2, dt[0] / 1200) : 1);
   const modeOf = (options) => (options && options.processorOptions && options.processorOptions.mode) || 0;
 
   class Ladder extends scope.AudioWorkletProcessor {
@@ -44,6 +48,7 @@ function ssFiltersModule(scope) {
       const output = outputs[0];
       if (!input || !input.length) return true; // la voix est terminée : le nœud sera ramassé
       const fr = parameters.frequency;
+      const dt = parameters.detune;
       // résonance : 0..30 -> k 0..~3.9 (4 = auto-oscillation)
       const k = 3.95 * (1 - Math.exp(-parameters.q[0] / 8));
       const dr = parameters.drive[0];
@@ -58,7 +63,7 @@ function ssFiltersModule(scope) {
         let [y1, y2, y3, y4] = st;
         let u = 0;
         for (let n = 0; n < y.length; n++) {
-          const f = clamp(fr.length > 1 ? fr[n] : fr[0], 10, 20000);
+          const f = clamp((fr.length > 1 ? fr[n] : fr[0]) * dmul(dt, n), 10, 20000);
           const g = 1 - Math.exp((-2 * PI * f) / os);
           const xin = x[n] * dg;
           for (let o = 0; o < 2; o++) {
@@ -99,6 +104,7 @@ function ssFiltersModule(scope) {
       const output = outputs[0];
       if (!input || !input.length) return true;
       const fr = parameters.frequency;
+      const dt = parameters.detune;
       // amortissement : 0..30 -> R 1..0.02 (Q 0.5..25)
       const R = Math.max(0.02, Math.exp(-parameters.q[0] / 7));
       const dr = parameters.drive[0];
@@ -114,7 +120,7 @@ function ssFiltersModule(scope) {
         let g = 0;
         let h = 0;
         for (let n = 0; n < y.length; n++) {
-          const f = clamp(fr.length > 1 ? fr[n] : fr[0], 10, sampleRate * 0.45);
+          const f = clamp((fr.length > 1 ? fr[n] : fr[0]) * dmul(dt, n), 10, sampleRate * 0.45);
           if (f !== lastF) {
             g = Math.tan((PI * f) / sampleRate);
             h = 1 / (1 + 2 * R * g + g * g);
@@ -167,8 +173,9 @@ SS.filters = (() => {
   const ready = (ctx) => !!(state && state.ctx === ctx && state.ready);
 
   /**
-   * Filtre d'une voix. Renvoie { input, output, freqs } où `freqs` liste les AudioParam de fréquence
-   * à automatiser (l'enveloppe de filtre les pilote tous de la même façon).
+   * Filtre d'une voix. Renvoie { input, output, freqs, detunes } où `freqs` liste les AudioParam de fréquence
+   * à automatiser (l'enveloppe de filtre les pilote tous de la même façon) et `detunes` les décalages en cents
+   * (modulation par LFO).
    * Si le module n'est pas encore prêt, ladder / SEM retombent sur le 24 dB.
    */
   function create(ctx, p) {
@@ -189,7 +196,7 @@ SS.filters = (() => {
       });
       node.parameters.get('q').value = Math.max(0, p.q);
       node.parameters.get('drive').value = Math.max(0, Math.min(1, p.fdrive ?? 0.5));
-      return { input: node, output: node, freqs: [node.parameters.get('frequency')] };
+      return { input: node, output: node, freqs: [node.parameters.get('frequency')], detunes: [node.parameters.get('detune')] };
     }
     const bq = (q) => {
       const f = ctx.createBiquadFilter();
@@ -199,11 +206,11 @@ SS.filters = (() => {
     };
     const q = Math.max(0.0001, p.q);
     const f1 = bq(q);
-    if (model !== '24db') return { input: f1, output: f1, freqs: [f1.frequency] };
+    if (model !== '24db') return { input: f1, output: f1, freqs: [f1.frequency], detunes: [f1.detune] };
     // 24 dB : deuxième étage sans pic (Q en dB pour passe-bas / passe-haut : -3 dB ≈ Butterworth)
     const f2 = bq(type === 'lowpass' || type === 'highpass' ? -3 : q);
     f1.connect(f2);
-    return { input: f1, output: f2, freqs: [f1.frequency, f2.frequency] };
+    return { input: f1, output: f2, freqs: [f1.frequency, f2.frequency], detunes: [f1.detune, f2.detune] };
   }
 
   return { load, ready, create };

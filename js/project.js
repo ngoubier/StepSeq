@@ -23,9 +23,9 @@
  *     { id, type: "instrument", name, color, volume, mute, solo,
  *       category: "mono"|"arp"|"chord", family, instrument, sfv (variante soundfont ou échantillon Dirt-Samples),
  *       chord: "min", arp: { mode, rate, octaves, gate, motion, evolve, seed, rhythm, lanes, … } (ARP ONE, voir js/arp.js), octave,
- *       sd: { wave, voices, detune, filter, ftype, fdrive, cutoff, q, env,  // sound design (optionnel,
+ *       sd: { wave, voices, detune, pw, filter, ftype, fdrive, cutoff, q, env,  // sound design (optionnel,
  *             attack, decay, sustain, release, glide, glideMode,       //  sinon preset de l'instrument)
- *             pan, drive, gain }
+ *             pan, drive, gain, lfo1Dest, lfo1Shape, lfo1Rate, lfo1Hz, lfo1Mode, lfo1Amt, lfo1Fade, lfo2… }
  *       events: [{ step, len, notes: [midi...], vel, shift?, rat?, cond? }] }   // shift : micro-décalage, en fraction de pas (−0,5..0,5)
  *                                                    // rat : ratchet, la note est rejouée 2 à 4 fois dans son premier pas
  *                                                    // cond : condition de déclenchement (SS.TRIG_CONDS)
@@ -181,6 +181,12 @@ SS.trigPass = (tick, len, rep = 0, total = 0) => (rep ? rep * Math.ceil(total / 
  *   filtre   : filtre DJ, −1 = passe-bas fermé … 0 = ouvert … +1 = passe-haut fermé ;
  *   res      : résonance du filtre ; volume : multiplie le volume de la piste ;
  *   reverb / echo : envoi supplémentaire vers la reverb « hall » et l'écho partagés.
+ * Réglages « voice » : ils agissent sur le son lui-même (synthé intégré et instruments échantillonnés), lus au
+ * début de chaque note (comme les verrous de paramètres par pas des Elektron) :
+ *   vcf    : cutoff du VCF, −1 … +1 = −4 … +4 octaves autour du réglage du sound design ;
+ *   pw     : largeur d'impulsion de l'onde Pulse (remplace celle du sound design) ;
+ *   fdecay : decay de l'enveloppe du filtre, −1 … +1 = ÷4 … ×4 ;
+ *   lfoamt : quantité des LFO 1 et 2, ×0 … ×2.
  */
 SS.AUTO_PARAMS = [
   { id: 'filter', label: 'Filtre', min: -1, max: 1, def: 0, cc: 74 },
@@ -188,7 +194,45 @@ SS.AUTO_PARAMS = [
   { id: 'volume', label: 'Volume', min: 0, max: 1, def: 1, cc: 11 },
   { id: 'reverb', label: 'Reverb', min: 0, max: 1, def: 0, cc: 91 },
   { id: 'echo', label: 'Écho', min: 0, max: 1, def: 0 },
+  { id: 'vcf', label: 'Cutoff du son', min: -1, max: 1, def: 0, voice: true },
+  { id: 'pw', label: 'Largeur (PWM)', min: 0.05, max: 0.95, def: 0.5, voice: true, pulse: true },
+  { id: 'fdecay', label: 'Decay du filtre', min: -1, max: 1, def: 0, voice: true },
+  { id: 'lfoamt', label: 'Quantité des LFO', min: 0, max: 2, def: 1, voice: true },
 ];
+/** Réglages d'automation proposés pour une piste (les réglages du son : instruments non analogiques seulement). */
+SS.autoParamsFor = (track) => {
+  if (!track || track.type !== 'instrument') return SS.AUTO_PARAMS.filter((P) => !P.voice);
+  const inst = SS.findInstrument ? SS.findInstrument(track.family, track.instrument) : null;
+  if (inst && inst.kind === 'analog') return SS.AUTO_PARAMS.filter((P) => !P.voice);
+  const sampled = inst && inst.kind !== 'synth';
+  return SS.AUTO_PARAMS.filter((P) => !(P.pulse && sampled));
+};
+/**
+ * Verrous du son au pas `s` (fractionnaire possible) : { vcf, pw, fdecay, lfoamt } pour les courbes présentes,
+ * null si aucune. Lu par js/audio.js au déclenchement de chaque note.
+ */
+SS.voiceLocks = (track, s, len) => {
+  const lanes = track && track.auto;
+  if (!lanes) return null;
+  let out = null;
+  for (const P of SS.AUTO_PARAMS) {
+    if (!P.voice || !lanes[P.id]) continue;
+    const v = SS.autoValue(lanes[P.id], s, len);
+    if (v === null) continue;
+    (out = out || {})[P.id] = v;
+  }
+  return out;
+};
+/** Applique des verrous à des réglages de son (copie modifiée). */
+SS.applyVoiceLocks = (p, locks) => {
+  if (!locks) return p;
+  const q = { ...p };
+  if (locks.vcf) q.cutoff = Math.max(20, Math.min(20000, q.cutoff * Math.pow(2, 4 * locks.vcf)));
+  if (locks.pw != null) q.pw = locks.pw;
+  if (locks.fdecay) q.fdecay = Math.max(0.005, Math.min(20, (q.fdecay ?? q.decay) * Math.pow(4, locks.fdecay)));
+  if (locks.lfoamt != null && SS.LFO_COUNT) for (let i = 1; i <= SS.LFO_COUNT; i++) if (q[`lfo${i}Amt`] != null) q[`lfo${i}Amt`] = Math.max(-1, Math.min(1, q[`lfo${i}Amt`] * locks.lfoamt));
+  return q;
+};
 SS.autoParam = (id) => SS.AUTO_PARAMS.find((x) => x.id === id);
 /** Fréquences du filtre DJ pour une valeur −1 … +1 : { lp, hp } en Hz (20000 / 10 = ouvert). */
 SS.autoFilterHz = (v) => ({
@@ -203,6 +247,12 @@ SS.autoFormat = (id, v) => {
     const f = SS.autoFilterHz(v);
     return v < 0 ? `Passe-bas ${fmtHz(f.lp)}` : `Passe-haut ${fmtHz(f.hp)}`;
   }
+  if (id === 'vcf' || id === 'fdecay') {
+    if (Math.abs(v) < 0.005) return 'Réglage du son';
+    if (id === 'fdecay') return '×' + Math.pow(4, v).toFixed(2).replace('.', ',');
+    return (v > 0 ? '+' : '−') + Math.abs(v * 4).toFixed(1).replace('.', ',') + ' oct';
+  }
+  if (id === 'lfoamt') return '×' + v.toFixed(2).replace('.', ',');
   return Math.round(v * 100) + ' %';
 };
 const autoNum = (P, v) => Math.round(Math.max(P.min, Math.min(P.max, Number(v))) * 100) / 100;
@@ -294,6 +344,31 @@ SS.AUTO_SHAPES = {
   reverb: [
     { id: 'up', label: 'Monter la reverb', points: ramp(0, 0.8) },
     { id: 'throw', label: 'Lâcher la reverb sur la dernière mesure', points: ramp(0, 1, 0.75) },
+  ],
+  vcf: [
+    { id: 'open', label: 'Ouvrir le son (montée)', points: ramp(-0.5, 0.3) },
+    { id: 'close', label: 'Refermer le son', points: ramp(0.3, -0.5) },
+    {
+      id: 'acid',
+      label: 'Accents : ouvert sur chaque temps',
+      points: (n, beat) => {
+        const pts = {};
+        for (let s = 0; s < n; s++) pts[s] = s % beat === 0 ? 0.35 : -0.25;
+        return pts;
+      },
+    },
+  ],
+  pw: [
+    { id: 'sweep', label: 'Balayage étroit → large', points: ramp(0.1, 0.9) },
+    { id: 'thin', label: 'S’amincir sur la boucle', points: ramp(0.5, 0.08) },
+  ],
+  fdecay: [
+    { id: 'longer', label: 'Notes de plus en plus longues', points: ramp(-0.6, 0.6) },
+    { id: 'shorter', label: 'Notes de plus en plus courtes', points: ramp(0.6, -0.6) },
+  ],
+  lfoamt: [
+    { id: 'in', label: 'Faire entrer les LFO', points: ramp(0, 1.3) },
+    { id: 'out', label: 'Calmer les LFO', points: ramp(1.3, 0) },
   ],
   echo: [
     { id: 'up', label: 'Monter l’écho', points: ramp(0, 0.7) },
