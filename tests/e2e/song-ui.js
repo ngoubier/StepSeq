@@ -37,8 +37,9 @@ const SHOTS = process.argv[2];
     await page.mouse.move(a.x + 40, a.y + 12);
     await page.mouse.down();
     await page.mouse.move(a.x + 60, a.y + 30, { steps: 4 });
-    const x = pos === 'before' ? t.x + 8 : pos === 'top' ? t.x + t.width / 2 : t.x + t.width - 8;
-    const y = pos === 'top' ? t.y + 4 : t.y + t.height / 2;
+    // les scènes sont en ligne : « left » = avant la carte (moitié gauche)
+    const x = pos === 'before' || pos === 'left' ? t.x + 8 : t.x + t.width - 8;
+    const y = t.y + t.height / 2;
     await page.mouse.move(x, y, { steps: 8 });
     await page.mouse.up();
     await settle();
@@ -77,7 +78,7 @@ const SHOTS = process.argv[2];
   ok(st.bars[1] === 4 && (await page.inputValue('#bars')) === '4', `longueur de « Pont » : 4 mesures (${st.bars.join(',')})`);
 
   // ranger : la 3ᵉ scène en tête
-  await drag('#sgSceneList .sg-tile:nth-child(3)', '#sgSceneList .sg-tile:nth-child(1)', 'top');
+  await drag('#sgSceneList .sg-tile:nth-child(3)', '#sgSceneList .sg-tile:nth-child(1)', 'left');
   st = await S();
   ok(st.scenes.join() === 'Refrain,Couplet,Pont', `ranger les scènes : ${st.scenes.join(', ')}`);
 
@@ -95,6 +96,33 @@ const SHOTS = process.argv[2];
   st = await S();
   ok(st.song.join() === ['Refrain', 'Pont', ...before].join(), `déplacer un bloc : ${st.song.join(' → ')}`);
   SHOTS && (await page.screenshot({ path: path.join(SHOTS, 'song-window.png') }));
+
+  // frise horizontale : une seule ligne, largeur selon la durée, règle en mesures
+  const fr = await page.evaluate(() => {
+    const p = JSON.parse(localStorage.getItem('stepseq.autosave'));
+    const bars = p.song.map((x) => {
+      const sc = p.scenes.find((s) => s.id === x.scene);
+      return (sc.id === p.current ? p.bars : sc.bars) * x.repeat;
+    });
+    const els = [...document.querySelectorAll('#sgBlocks .sg-block')];
+    const r = els.map((e) => e.getBoundingClientRect());
+    return { bars, w: r.map((x) => x.width), tops: [...new Set(r.map((x) => Math.round(x.top)))], marks: document.querySelectorAll('#sgRuler span').length, dlg: document.querySelector('#songDialog').getBoundingClientRect().height };
+  });
+  ok(fr.tops.length === 1, 'les blocs de l’arrangement sont sur une seule ligne');
+  ok(fr.w.every((w, i) => Math.abs(w / fr.bars[i] - fr.w[0] / fr.bars[0]) < 0.5), `largeur proportionnelle à la durée (${fr.bars.join(', ')} mesures)`);
+  ok(fr.marks >= 2, `règle en mesures (${fr.marks} graduations)`);
+  ok(fr.dlg < 700, `fenêtre compacte (${Math.round(fr.dlg)} px)`);
+  // Écouter : mode Chanson, tête de lecture sur la frise
+  await page.click('#sgPlay');
+  await page.waitForFunction(() => !document.querySelector('#sgHead').hidden, null, { timeout: 8000 }).catch(() => {});
+  ok(!(await page.locator('#sgHead').isHidden()) && /Arrêter/.test(await page.textContent('#sgPlay')), 'Écouter : la chanson joue, tête de lecture visible');
+  const x1 = await page.evaluate(() => parseFloat(document.querySelector('#sgHead').style.left));
+  await page.waitForTimeout(700);
+  const x2 = await page.evaluate(() => parseFloat(document.querySelector('#sgHead').style.left));
+  ok(x2 > x1, `la tête de lecture avance (${Math.round(x1)} → ${Math.round(x2)} px)`);
+  await page.click('#sgPlay');
+  await page.waitForTimeout(200);
+  ok((await page.locator('#sgHead').isHidden()) && /Écouter/.test(await page.textContent('#sgPlay')), 'Arrêter');
 
   ok(!errs.length, 'aucune erreur JavaScript' + (errs.length ? ' : ' + errs.join(' | ') : ''));
   await b.close();

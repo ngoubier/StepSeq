@@ -398,7 +398,10 @@
         onEnd: () => stop(),
       };
     }
-    SS.audio.start(() => project, (step) => SS.ui.setPlayhead(step), opts);
+    SS.audio.start(() => project, (step) => {
+      SS.ui.setPlayhead(step);
+      SS.song.setStep(step);
+    }, opts);
     setPlayButton('playing');
   }
   function stop() {

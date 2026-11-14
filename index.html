@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <title>StepSeq</title>
-  <link rel="stylesheet" href="css/style.css?v=band-3">
+  <link rel="stylesheet" href="css/style.css?v=song-a">
 </head>
 <body>
   <header class="topbar">
@@ -275,23 +275,30 @@
         </button>
       </header>
       <div class="sg-body">
-        <aside class="sg-scenes" aria-labelledby="sgScenesTitle">
+        <section class="sg-scenes" aria-labelledby="sgScenesTitle">
           <div class="sg-col-head">
             <h3 id="sgScenesTitle">Scènes</h3>
-            <small class="dlg-hint">glisser ⠿ pour ranger · vers la droite pour arranger</small>
+            <small class="dlg-hint">clic : éditer · glisser ⠿ pour ranger · sur la frise pour arranger</small>
           </div>
-          <div id="sgSceneList" class="sg-scene-list" role="list"></div>
-          <button type="button" id="sgNewScene" class="btn sg-new" title="Nouvelle scène vide (mêmes pistes, sans notes)">+ Nouvelle scène</button>
-        </aside>
+          <div class="sg-scene-row">
+            <div id="sgSceneList" class="sg-scene-list" role="list"></div>
+            <button type="button" id="sgNewScene" class="btn sg-new" title="Nouvelle scène vide (mêmes pistes, sans notes)">+ Nouvelle scène</button>
+          </div>
+        </section>
         <section class="sg-arr" aria-labelledby="sgArrTitle">
           <div class="sg-col-head">
             <h3 id="sgArrTitle">Arrangement</h3>
-            <small class="dlg-hint">la chanson joue les blocs dans l'ordre · clic : partir de ce bloc · glisser pour déplacer</small>
+            <small class="dlg-hint">la chanson joue les blocs de gauche à droite · clic : partir de ce bloc · glisser pour déplacer</small>
             <span class="spacer"></span>
+            <button type="button" class="btn btn-small sg-play" id="sgPlay" title="Écouter la chanson à partir du bloc choisi (mode Chanson)"><span class="sg-play-ic" aria-hidden="true">▶</span> <span class="sg-play-txt">Écouter</span></button>
             <label class="song-loop"><input type="checkbox" id="sgLoop"> Boucler</label>
             <span id="sgTotal" class="song-total"></span>
           </div>
-          <div id="sgBlocks" class="sg-blocks" role="list" aria-label="Blocs de l'arrangement"></div>
+          <div class="sg-timeline" id="sgTimeline">
+            <div class="sg-ruler" id="sgRuler" aria-hidden="true"></div>
+            <div id="sgBlocks" class="sg-blocks" role="list" aria-label="Blocs de l'arrangement"></div>
+            <div class="sg-head" id="sgHead" hidden aria-hidden="true"></div>
+          </div>
         </section>
       </div>
       <footer class="song-foot">
