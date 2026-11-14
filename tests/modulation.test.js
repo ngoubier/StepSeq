@@ -112,8 +112,8 @@ test('projet : les réglages LFO et PWM sont enregistrés et relus', () => {
 
 test('automation du son : réglages proposés selon la piste', () => {
   const ids = (t) => SS.autoParamsFor(t).map((P) => P.id);
-  assert.deepEqual(ids({ type: 'drum' }), ['filter', 'res', 'volume', 'reverb', 'echo']);
-  assert.deepEqual(ids({ type: 'instrument', family: 'bass', instrument: 'syn_sawbass' }), ['filter', 'res', 'volume', 'reverb', 'echo', 'vcf', 'pw', 'fdecay', 'lfoamt']);
+  assert.deepEqual(ids({ type: 'drum' }), ['filter', 'res', 'volume', 'reverb', 'echo', 'space']);
+  assert.deepEqual(ids({ type: 'instrument', family: 'bass', instrument: 'syn_sawbass' }), ['filter', 'res', 'volume', 'reverb', 'echo', 'space', 'vcf', 'pw', 'fdecay', 'lfoamt']);
   // échantillon : pas de PWM ; Juno-106 : son réglé dans sa façade, pas de réglages « voice »
   assert.ok(!ids({ type: 'instrument', family: 'keys', instrument: 'piano' }).includes('pw'));
   assert.ok(ids({ type: 'instrument', family: 'keys', instrument: 'piano' }).includes('vcf'));

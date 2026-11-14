@@ -114,7 +114,12 @@ test('bus partagés : valeurs bornées à la lecture d\'un fichier', () => {
   assert.equal(r.plate.size, 10);
   assert.equal(r.plate.predelay, 0);
   assert.equal(r.echo.time, SS.RETURN_DEFAULTS.echo.time);
-  assert.equal(r.echo.feedback, 0.9);
+  assert.equal(r.echo.feedback, 1); // saturation de la bande dans la boucle : jusqu'à 100 % sans s'emballer
+  const s = SS.cleanReturns({ echo: { wow: 4, drive: -1 }, space: { decay: 500, size: 0, shimmer: 2, freeze: true, predelay: 3 } });
+  assert.deepEqual([s.echo.wow, s.echo.drive], [1, 0]);
+  assert.deepEqual([s.space.decay, s.space.size, s.space.shimmer, s.space.freeze, s.space.predelay], [60, 0.1, 1, true, 0.4]);
+  assert.equal(SS.cleanReturns({}).space.freeze, false);
+  assert.equal(SS.cleanReturns({ space: { freeze: 'oui' } }).space.freeze, false); // seul un vrai booléen gèle
   const m = SS.cleanMastering({ drive: 50, ceiling: 3, on: true });
   assert.deepEqual([m.drive, m.ceiling, m.on], [24, 0, true]);
 });

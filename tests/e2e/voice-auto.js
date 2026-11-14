@@ -47,9 +47,9 @@ const ok = (c, m) => {
   await page.locator('.track').nth(1).locator('.th-auto').click();
   const lanes = page.locator('.auto-lane');
   const groups = await lanes.nth(0).locator('.auto-param optgroup').evaluateAll((gs) => gs.map((g) => g.label + ':' + [...g.children].map((o) => o.value).join(',')));
-  ok(groups.join(' | ') === 'Tranche de la piste:filter,res,volume,reverb,echo | Son, à chaque note:vcf,pw,fdecay,lfoamt', `basse : ${groups.join(' | ')}`);
+  ok(groups.join(' | ') === 'Tranche de la piste:filter,res,volume,reverb,echo,space | Son, à chaque note:vcf,pw,fdecay,lfoamt', `basse : ${groups.join(' | ')}`);
   const drumOpts = await lanes.nth(1).locator('.auto-param option').evaluateAll((os) => os.map((o) => o.value).join(','));
-  ok(drumOpts === 'filter,res,volume,reverb,echo', `batterie : ${drumOpts}`);
+  ok(drumOpts === 'filter,res,volume,reverb,echo,space', `batterie : ${drumOpts}`);
 
   // forme « accents » sur le cutoff du son, puis PWM dessinée à la souris (bas des cases 9 à 12)
   const lane = lanes.nth(0);

@@ -797,6 +797,10 @@ dialog.sd-dialog { width: min(820px, calc(100vw - 32px)); }
 .sd-adsr.filt .line { stroke: #f5a524; }
 .sd-adsr.filt .fill-area { fill: #f5a524; }
 .sd-adsr.dim { opacity: .4; }
+.fx-ret-group { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; }
+.fx-ret-group + .fx-ret-group { border-top: 1px solid var(--line); margin-top: 6px; }
+.fx-ret-group h4 { margin: 0; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.fx-freeze.active { background: var(--gold); border-color: var(--gold); color: #161618; }
 .sd-lfo-body { display: flex; flex-direction: column; gap: 8px; }
 .sd-lfo-body.dim { opacity: .45; }
 .sd-lfo-shapes { margin-bottom: 0; }

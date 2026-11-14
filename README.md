@@ -280,6 +280,20 @@ Le bouton à curseurs de l'en-tête ouvre la fenêtre de **sound design** (oscil
   (sauf PWM) ;
 - enveloppes longues pour les nappes et drones : attaque et decay jusqu'à 10 s, release jusqu'à 20 s.
 
+### Effets d'espace : Cosmos et écho à bande
+
+La fenêtre **FX** d'une piste règle ses envois vers les **bus partagés** du morceau (plate, hall, écho, Cosmos) ;
+sous « Réglages des bus », trois groupes communs à toutes les pistes :
+
+- **Écho · délai à bande** : temps calé sur le tempo, répétitions jusqu'à 100 % (la saturation de la bande dans
+  la boucle les garde sous contrôle), couleur (filtre dans la boucle), **saturation**, **wow / flutter** (vitesse
+  de la bande qui fluctue : les répétitions ondulent légèrement).
+- **Cosmos · reverb longue** (`js/space-dsp.js`) : reverb algorithmique (8 lignes à retard bouclées, modulées)
+  pour l'ambient et la dub techno. Durée de la queue jusqu'à 60 s, taille, pré-délai, amortissement des aigus,
+  modulation, **Shimmer** (la queue est réinjectée une octave plus haut et s'élève) et **Freeze** (la queue tient
+  indéfiniment ; les nouvelles notes n'y entrent plus). Préréglages Salle, Cathédrale, Infini, Shimmer.
+- Préréglages d'envois **Ambient** et **Dub techno** ; l'envoi vers le Cosmos s'automatise aussi par pas.
+
 Presets qui s'en servent : **PWM Bass**, **Evolving Bass**, **Wobble Bass**, **PWM Reese** (Bass), **PWM Strings**,
 **Breathing Pad** et **Drone** (Pads).
 
@@ -351,6 +365,7 @@ Tests de bout en bout des fenêtres de l'arpégiateur et Key dans Chromium (néc
 node tests/e2e/arp-ui.js
 node tests/e2e/lfo.js
 node tests/e2e/voice-auto.js
+node tests/e2e/space.js
 node tests/e2e/arp-cursor.js
 node tests/e2e/harmony-ui.js
 node tests/e2e/grid-ui.js
@@ -391,6 +406,7 @@ Inspirée des courbes d'automation d'Ableton Live / Bitwig et des réglages par 
 | Volume | multiplie le volume de la piste | CC 11 |
 | Reverb | envoi supplémentaire vers la reverb « hall » partagée | CC 91 |
 | Écho | envoi supplémentaire vers l'écho partagé | — |
+| Cosmos | envoi supplémentaire vers la reverb longue « Cosmos » | — |
 
 Les pistes instrument (synthés intégrés et instruments échantillonnés, pas le Juno-106) ont en plus un groupe
 **Son, à chaque note** : ces réglages agissent sur le son lui-même et sont lus **au début de chaque note**, à la
@@ -572,6 +588,7 @@ par la fenêtre **Key** :
 | `js/library.js`  | Catalogue généré depuis strudel.cc (125 soundfonts gm_*, VCSL) |
 | `js/dirt.js`     | Catalogue généré des banques mélodiques de Dirt-Samples |
 | `js/sounds.js`   | Catalogue des sons (batterie, familles d'instruments, accords) |
+| `js/space-dsp.js` | Reverb longue « Cosmos » (AudioWorklet) : réseau de 8 lignes à retard, Freeze, Shimmer |
 | `js/filters.js`  | Filtres Ladder et SEM (AudioWorklet) du sound design |
 | `js/project.js`  | Modèle de projet, enregistrement / ouverture de fichiers |
 | `js/audio.js`    | Moteur audio : chargement des échantillons, voix, séquenceur |
