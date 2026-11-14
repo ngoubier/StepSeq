@@ -530,6 +530,7 @@ SS.song = (() => {
     $('#songClose').addEventListener('click', () => dlg.close());
     $('#songOk').addEventListener('click', () => dlg.close());
     $('#songPin').addEventListener('change', (e) => setPinned(e.target.checked));
+    $('#songBarClose').addEventListener('click', () => setPinned(false));
     $('#sgNewScene').addEventListener('click', () => {
       const id = SS.addScene(p(), { copy: false });
       app.switchScene(id);

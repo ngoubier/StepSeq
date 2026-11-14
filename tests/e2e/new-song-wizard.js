@@ -40,10 +40,10 @@ const SHOTS = process.env.SHOTS;
   await page.waitForTimeout(1200);
   const P = () => page.evaluate(() => JSON.parse(localStorage.getItem('stepseq.autosave')));
 
-  // Band (en-tête) : plus d'onglet Mélodie, l'écran du groupe est inchangé
+  // Band (en-tête) : le même assistant, sur le projet en cours ; l'ancien écran n'existe plus
   await page.click('#bandBtn');
-  ok((await page.locator('#bandModes, #bandMelody, #melGo').count()) === 0, 'Band : plus d’onglet Mélodie');
-  ok((await page.isVisible('#bandStage')) && (await page.isVisible('#bandSongBtn')) && !(await page.isVisible('#bandWizSteps')), 'Band : l’écran du groupe, sans les étapes de l’assistant');
+  ok((await page.locator('#bandModes, #bandMelody, #melGo, #bandSongBtn, #bandCreate, #bandTempo').count()) === 0, 'Band : plus d’ancien écran (Créer les pistes, Créer toute la chanson)');
+  ok((await page.isVisible('#bandWizSteps')) && /^Band/.test(await page.textContent('#bandTitle')) && !(await page.isVisible('#bwEmpty')), 'Band : l’assistant en quatre étapes');
   await page.keyboard.press('Escape');
 
   // 1. Modèle
@@ -55,7 +55,7 @@ const SHOTS = process.env.SHOTS;
   ok(/Nouvelle chanson/.test(await page.textContent('#bandTitle')), 'titre « Nouvelle chanson »');
   ok((await page.locator('#bandWizSteps li').count()) === 4 && (await page.locator('#bandWizSteps li.cur').textContent()).includes('Modèle'), 'quatre étapes, la première : Modèle');
   ok((await P()).tracks.length === 0, 'une chanson vide est déjà en place');
-  ok((await page.isVisible('#bandStage')) && !(await page.isVisible('#bandSongBtn')) && (await page.isVisible('#bwNext')), 'étape 1 : l’écran Band avec « Suivant »');
+  ok((await page.isVisible('#bandStage')) && (await page.isVisible('#bwEmpty')) && (await page.isVisible('#bwNext')), 'étape 1 : l’écran Band avec « Suivant »');
   await page.click('#bandStyles [data-v="synthwave"]');
   await page.click('#bandPresets .band-preset >> nth=0'); // Smalltown Boy
 
@@ -94,6 +94,24 @@ const SHOTS = process.env.SHOTS;
   ok((await leadSig()) !== lead1, 'encore une autre');
   await page.click('#bwMelodyBack');
   ok((await leadSig()) === lead0, '« Mélodie d’origine » revient à la première');
+  // réglages de l'atelier Mélodie : mélodie composée, 8 pieds par vers, 2 mesures par vers
+  ok((await page.isVisible('#bwMelForm')) && (await page.isDisabled('#bwFeet')), 'réglages de la mélodie : désactivés pour la mélodie de l’inspiration');
+  await page.click('#bwMelForm [data-v="compose"]');
+  ok(!(await page.isDisabled('#bwFeet')), '« Composée » : réglages actifs');
+  await page.selectOption('#bwFeet', '8');
+  await page.selectOption('#bwComplexity', 'simple');
+  await page.selectOption('#bwRange', 'voix');
+  const comp = await page.evaluate(() => {
+    const w = SS.band._state.wiz;
+    return w.res.scenes.map((sc) => {
+      const id = Object.keys(sc.data).find((k) => k.includes(':lead'));
+      const ev = sc.data[id].events;
+      return { bars: sc.bars, n: ev.length, lo: Math.min(...ev.map((e) => e.notes[0])), hi: Math.max(...ev.map((e) => e.notes[0])) };
+    }).filter((x) => x.n);
+  });
+  ok(comp.length && comp.every((x) => x.n === Math.max(1, x.bars / 2) * 8), `8 pieds par vers (${comp.map((x) => x.n).join(', ')} notes)`);
+  ok(comp.every((x) => x.lo >= 60 && x.hi <= 72), 'tessiture voix moyenne');
+  if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'wizard-melodie.png') });
   await page.click('#bwMelody');
   const chosen = await page.evaluate(() => {
     const w = SS.band._state.wiz;

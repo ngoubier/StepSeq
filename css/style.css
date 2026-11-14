@@ -1020,6 +1020,10 @@ dialog.fx-dialog .fx-pane[hidden] { display: none; }
   border-bottom: 1px solid #000;
 }
 .songbar-row { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
+.songbar { position: relative; padding-right: 40px; }
+.songbar-close { position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; display: grid; place-items: center; padding: 0; border: 1px solid transparent; border-radius: 6px; background: none; color: var(--muted); cursor: pointer; }
+.songbar-close:hover { color: var(--text); background: #26262c; border-color: #3a3a42; }
+.songbar-close svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 .songbar-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
 #songMode button { padding: 5px 12px; font-size: 13px; }
 .btn-small { height: 28px; padding: 0 10px; font-size: 12px; }
@@ -2508,6 +2512,11 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
 .bw-clip { position: relative; }
 .bw-grid tr.playing .bw-clip::after { content: ''; position: absolute; top: 0; bottom: 0; left: calc(var(--ph, 0) * 100%); width: 2px; background: #fff; opacity: .85; }
 .bw-grid tr.playing:not([style*="--ph"]) .bw-clip::after { display: none; }
+.bw-melform { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 12px; flex-basis: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: #1a1a1f; }
+.bw-method { align-self: center; }
+.bw-field { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--muted); }
+.bw-field select { min-width: 110px; }
+.bw-field.off { opacity: .45; }
 .bw-ms { display: inline-flex; gap: 2px; margin-left: 6px; vertical-align: middle; }
 .bw-ms button { width: 20px; height: 18px; padding: 0; border-radius: 4px; border: 1px solid #3a3a42; background: #1d1d23; color: var(--muted); font: 600 10px/1 inherit; cursor: pointer; }
 .bw-ms button:hover { color: var(--text); border-color: #55555f; }
@@ -2809,7 +2818,8 @@ body[data-grid="half"] .rcell.half:not(.on) { border-left-color: #333338; }
   .sb-txt small { font-size: 10.5px; max-width: 100%; }
   .sb-txt { flex: 1 1 auto; overflow: hidden; }
   /* panneau d'arrangement compact : une seule ligne qui défile (l'arrangement complet est dans la fenêtre Song) */
-  .songbar { padding: 6px 10px; }
+  .songbar { padding: 6px 38px 6px 10px; }
+  .songbar-close { top: 50%; transform: translateY(-50%); }
   .songbar-row { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
   .songbar-row::-webkit-scrollbar { display: none; }
   .songbar-row + .songbar-row, .songbar-label { display: none; }

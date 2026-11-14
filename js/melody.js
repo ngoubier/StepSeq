@@ -88,7 +88,7 @@ SS.melody = (() => {
     const raw = tok;
     let s = tok.trim().replace(/♭/g, 'b').replace(/♯/g, '#').replace(/[()]/g, '');
     // noms français : Do, Ré, Mi…
-    const fr = /^(do|ré|re|mi|fa|sol|la|si)/i.exec(s);
+    const fr = /^(do|ré|re|mi|fa|sol|la|si)(?!dd)/i.exec(s); // « Fadd9 » reste Fa add9 (pas « Fa » + « dd9 »)
     if (fr) s = FR_LETTER[fr[1].toLowerCase()] + s.slice(fr[1].length);
     // chiffrage romain (avec une tonalité) : délégué à Band (VI, iv, bVII, V7…)
     if (/^[b#]?(VII|VI|IV|V|III|II|I|vii|vi|iv|v|iii|ii|i)(?![a-z])/.test(s) && !/^[A-G]/.test(s)) {

@@ -55,7 +55,8 @@ Le bouton **Écouter** permet d'entendre le son avant de valider.
 
 ### Band : monter un groupe virtuel
 
-Le bouton **Band** de l'en-tête ouvre une grande fenêtre (`js/band.js`, catalogue `js/band-presets.js`) :
+Le bouton **Band** de l'en-tête ouvre l'assistant de création de chanson (`js/band.js`, catalogue `js/band-presets.js`,
+voir « Nouvelle chanson » plus bas), sur le projet en cours. Sa première étape, **Modèle**, monte le groupe :
 
 1. le **style musical** : **Synthwave**, **EDM mélodique** ou **Techno mélodique** ;
 2. le **type de chanson** : 10 inspirations par style (Smalltown Boy, Nightcall, Blinding Lights, Sweet Dreams…,
@@ -66,11 +67,11 @@ Le bouton **Band** de l'en-tête ouvre une grande fenêtre (`js/band.js`, catalo
    Le **batteur** (et le percussionniste, optionnel) choisit un kit (★ + 5 conseillés) et coche ses éléments
    (kick, snare, hi-hats…) : une piste par élément, chaque élément pouvant venir d'une autre machine.
 
-**Créer les pistes** crée les pistes, vierges de notes (et applique le tempo si la case est cochée) ;
-**Créer toute la chanson** écrit en plus une chanson complète dans l'esprit de l'inspiration : scènes (intro,
+**Créer la chanson** (dernière étape de l'assistant) écrit une chanson complète dans l'esprit de l'inspiration : scènes (intro,
 couplet, refrain… ou break, montée et drop en EDM), parties de chaque musicien et arrangement, en mode Chanson.
 Les plans des 30 chansons sont dans `js/band-songs.js` (tonalité, forme, grilles originales, ce que joue chaque
-musicien par section) et les notes sont écrites par `js/bandsong.js` (déterministe). La croix de fermeture, **Annuler** et **Échap** ferment sans rien créer.
+musicien par section) et les notes sont écrites par `js/bandsong.js` (déterministe). La croix de fermeture, **Annuler** et **Échap** ferment sans rien créer ;
+si le projet a déjà des pistes, une confirmation précède le remplacement (Ctrl+Z revient en arrière).
 
 **Techno mélodique** (10 inspirations : Stephan Bodzin, Anyma & Chris Avantgarde, ARTBAT, Monolink, Kölsch,
 Boris Brejcha, Paul & Fritz Kalkbrenner, Adam Beyer & Bart Skils, Âme, Kiasmos) : les chansons se servent de tous
@@ -144,7 +145,10 @@ enregistrés avant cette correction sont transposés à l'ouverture pour sonner 
    **Créer la chanson** écrit les pistes cochées, les scènes et l'arrangement (tempo de l'inspiration, mixage
    automatique de Band). Ce qui est créé est exactement l'aperçu ; Ctrl+Z revient à la chanson vide.
 
-La fenêtre **Band** de l'en-tête n'a plus d'onglet Mélodie ; l'atelier Mélodie reste dans Key → Chanson.
+Le bouton **Band** ouvre le même assistant sur le projet en cours (l'ancien écran « Créer les pistes / Créer toute la
+chanson » n'existe plus) ; l'atelier Mélodie reste dans Key → Chanson. À l'étape Mélodie, les réglages de l'atelier
+(**pieds par vers**, mesures par vers, complexité, rythme, tessiture, fin) composent la mélodie scène par scène
+(`melody` de `SS.bandSong.build`, qui appelle `SS.melody.compose`).
 
 ### Key → Mélodie : une mélodie sur une grille d'accords
 
