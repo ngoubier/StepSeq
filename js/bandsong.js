@@ -6,6 +6,14 @@
  * Tout est déterministe (générateur pseudo-aléatoire initialisé par l'inspiration et la section) :
  * la même inspiration donne toujours la même chanson. Les mélodies sont originales : un motif rythmique
  * et un contour sont tirés pour chaque section, puis répétés et variés (A A' A B) sur les accords.
+ *
+ * Plans « techno mélodique » (spec.tech) : en plus des notes, la chanson se sert des outils du séquenceur,
+ * comme un producteur dans son DAW :
+ *  - automation (track.auto) : intro planante dont le filtre s'ouvre lentement, montée qui fait grimper le
+ *    passe-haut et lâche la reverb, drop qui repart filtre grand ouvert, outro qui se referme ;
+ *  - ratchets (rat) : roulement de caisse claire qui s'emballe à la fin de la montée, petits trilles de charleston ;
+ *  - conditions de déclenchement (cond) : charleston fantôme et percussions qui varient d'un passage à l'autre ;
+ *  - musicien « Effets » : montée de bruit blanc, nappe d'ambiance, impact au début du drop.
  */
 window.SS = window.SS || {};
 
@@ -191,6 +199,12 @@ SS.bandSong = (() => {
     tropical: { bd: 'x---x---x---x---', bk: '----x-------x---', hh: '--o---o---o---o-', oh: '------o-------o-', sh: 'o.o.o.o.o.o.o.o.', tb: '--o--o----o--o--', rim: '---o--o----o--o-', tom: '-------------o-o' },
     half: { bd: 'x-----o---x-----', bk: '--------x-------', hh: 'o-o-o-o-o-o-o-o-', oh: '------------o---', sh: '.o.o.o.o.o.o.o.o', tb: '----o-------o---', rim: '----o-------o---', tom: '-----------o-oo-' },
     deep: { bd: 'x---x---x---x---', bk: '----o-------o---', hh: '--o---o---o---o-', oh: '------o-------o-', sh: '..o...o...o...o.', tb: '--------o-------', rim: '---o--o-----o---', tom: '-------------o--' },
+    // techno mélodique : kick en noires, clap sur 2 et 4, charleston en doubles-croches, open hat à contretemps
+    techno: { bd: 'x---x---x---x---', bk: '----x-------x---', hh: '..o...o...o...o.', oh: '--x---x---x---x-', sh: '.o.o.o.o.o.o.o.o', tb: '----o-------o---', rim: '---o--o----o--o-', tom: '-------------o-o' },
+    // « rolling » (Afterlife, Drumcode) : charleston à contretemps, rimshot syncopé, percussions qui roulent
+    rolling: { bd: 'x---x---x---x---', bk: '----x-------x---', hh: '..o...o...o...o.', oh: '--o-------o-----', sh: '-o-oo-o--o-oo-o-', tb: '------o-------o-', rim: '-o----o--o----o-', tom: '-----------o-o-o' },
+    // minimal / high-tech : kick sec, clap retenu, charleston serré
+    minimal: { bd: 'x---x---x---x---', bk: '----o-------x---', hh: 'o.o.o.o.o.o.o.o.', oh: '------o-------o-', sh: '..o...o...o...o.', tb: '---o-------o----', rim: '--o--o----o--o--', tom: '--------------oo' },
   };
   const LEVEL = { x: 1, o: 0.72, '.': 0.45 };
   const kind = (sound) => {
@@ -317,6 +331,17 @@ SS.bandSong = (() => {
         case 'roll':
           each(4, (s) => [1, 2, 3].forEach((d) => add(s + d, 1, d === 2 ? root + 12 : root, d === 2 ? 0.8 : 0.7)));
           break;
+        case 'off16':
+          // techno mélodique : deux doubles-croches après chaque kick (« et-a »), la seconde plus douce
+          each(4, (s) => {
+            add(s + 2, 1, root, 0.9);
+            add(s + 3, 1, root, 0.7);
+          });
+          break;
+        case 'drone':
+          // intro planante : une note tenue par accord, sans attaque marquée
+          add(sp.step, sp.len, root, 0.6);
+          break;
         case 'sync': {
           // basse synthpop syncopée : 1, 1a, 2&, 3, 3a, 4& avec octave et quinte
           const pat = [[0, 3, root, 0.92], [3, 2, root + 12, 0.7], [6, 2, root, 0.8], [8, 3, fifth, 0.85], [11, 2, root + 12, 0.7], [14, 2, root, 0.78]];
@@ -364,6 +389,11 @@ SS.bandSong = (() => {
       const end = sp.step + sp.len;
       if (mode === 'sustain') add(sp.step, sp.len, notes, 0.62);
       else if (mode === 'swell') add(sp.step, sp.len, notes, 0.45);
+      else if (mode === 'float') {
+        // nappe planante : accord ouvert (fondamentale grave + accord + fondamentale à l'octave), très doux
+        const low = notes[0] - 12 - pcOf(notes[0] - sp.chord.rootPc);
+        add(sp.step, sp.len, [low, ...notes, low + 24].filter((n, i, a) => a.indexOf(n) === i), 0.4);
+      }
       else if (mode === 'ballad') {
         // piano : fondamentale grave tenue + accord, puis accord brisé en croches
         const bass = 48 + pcOf(sp.chord.rootPc);
@@ -403,10 +433,12 @@ SS.bandSong = (() => {
       else if (mode === 'strobe') seq = [up[0], up[1], up[2], up[1], up[3], up[2], up[1], up[2]];
       else if (mode === 'pluck16') seq = [up[2], up[0], up[1], up[3]];
       else if (mode === 'rise') seq = si >= spans.length / 2 ? up.slice(2, 6) : up.slice(0, 4);
+      else if (mode === 'ost16') seq = [up[0], up[3], up[1], up[3], up[2], up[3], up[1], up[4]];
+      else if (mode === 'dotted') (seq = [up[0], up[2], up[1], up[3], up[2], up[4]]), (dt = 3);
       else return;
       for (let s = sp.step, i = 0; s < end; s += dt, i++) {
         if (mode === 'pluck16' && ![0, 3, 6, 8, 11, 14].includes(s % SPB)) continue;
-        add(s, dt === 1 ? 1 : 2, seq[i % seq.length], i % 4 === 0 ? 0.78 : 0.6);
+        add(s, Math.min(dt === 1 ? 1 : dt === 3 ? 3 : 2, end - s), seq[i % seq.length], i % 4 === 0 ? 0.78 : 0.6);
       }
     });
     return ev;
@@ -518,6 +550,116 @@ SS.bandSong = (() => {
     return ev;
   }
 
+  /* ---------- effets (montée de bruit, ambiance, impact) ----------
+   *   riser : une note de bruit tenue sur toute la section (la courbe d'automation ouvre son filtre) ;
+   *   swell : nappe d'ambiance, une note longue toutes les 4 mesures ;
+   *   down  : impact au premier temps (début du drop), qui s'éteint sur 2 mesures.
+   */
+  function fxEvents(spans, mode, key, bars) {
+    const n = bars * SPB;
+    const t = 48 + pcOf(H().scale(key)[0].pc); // tonique grave (les bruits ne sont pas accordés, les échantillons si)
+    if (mode === 'riser') return [{ step: 0, len: n, notes: [t + 12], vel: 0.8 }];
+    if (mode === 'down') return [{ step: 0, len: Math.min(n, 2 * SPB), notes: [t], vel: 0.95 }];
+    if (mode === 'swell') {
+      const ev = [];
+      for (let s = 0; s < n; s += 4 * SPB) ev.push({ step: s, len: Math.min(4 * SPB, n - s), notes: [t + 12], vel: 0.55 });
+      return ev;
+    }
+    return [];
+  }
+
+  /* ---------- techno mélodique : automation, ratchets, conditions ----------
+   * Rampes de valeurs posées sur les pas de la scène (js/project.js, SS.AUTO_PARAMS) :
+   *   filter −1 (passe-bas fermé) … 0 (ouvert) … +1 (passe-haut fermé) ; reverb / echo : envois supplémentaires.
+   */
+  const ramp = (n, a, b, from = 0) => {
+    const s0 = Math.min(n - 1, Math.round(n * from));
+    return s0 > 0 ? { 0: a, [s0]: a, [n - 1]: b } : { 0: a, [n - 1]: b };
+  };
+  const MELODIC = ['pad', 'arp', 'keys', 'strings', 'guitar', 'lead', 'vox', 'sax'];
+  /**
+   * Courbes d'automation d'une piste pour une section (null si rien) :
+   *  - intro planante (sec.float) : le passe-bas des nappes et de l'arpège s'ouvre lentement, la reverb se retire ;
+   *  - montée (drums « build ») : passe-haut qui grimpe sur la 2e moitié (basse comprise), reverb lâchée à la fin ;
+   *  - break : la nappe respire (filtre qui se ferme à mi-chemin puis se rouvre), plus de reverb sur le lead ;
+   *  - drop : le lead et l'arpège partent un peu fermés et s'ouvrent sur la première mesure (attaque du drop) ;
+   *  - outro : tout se referme, fondu des dernières mesures.
+   */
+  function sectionAuto(id, sec, role, bars, isFx) {
+    const n = bars * SPB;
+    if (isFx) {
+      // la montée de bruit reste sous le drop : volume plafonné, le filtre fait l'essentiel de l'effet
+      if (sec.fx === 'riser') return { filter: ramp(n, -0.9, 0.1), volume: ramp(n, 0.15, 0.5), reverb: ramp(n, 0.2, 0.6, 0.5) };
+      if (sec.fx === 'down') return { volume: { 0: 1, [Math.min(n - 1, 2 * SPB - 1)]: 0 }, reverb: { 0: 0.6 } };
+      if (sec.fx === 'swell') return { filter: ramp(n, -0.75, -0.35), volume: { 0: 0.5 }, reverb: { 0: 0.6 } };
+      return null;
+    }
+    const melodic = MELODIC.includes(role);
+    if (sec.float && (melodic || role === 'bass')) {
+      // le filtre ne s'ouvre qu'à moitié : la suite (groove, drop) doit rester plus brillante que l'intro
+      const a = role === 'bass' ? { filter: ramp(n, -0.55, -0.3) } : { filter: ramp(n, role === 'arp' ? -0.65 : -0.7, -0.15, 0.1) };
+      if (['arp', 'lead', 'keys', 'guitar'].includes(role)) a.echo = { 0: 0.35 };
+      if (melodic) a.reverb = ramp(n, 0.6, 0.25, 0.6);
+      return a;
+    }
+    if (sec.drums === 'build' && (melodic || role === 'bass')) {
+      const a = { filter: ramp(n, 0, role === 'bass' ? 0.75 : 0.55, 0.5) };
+      if (['pad', 'lead', 'arp', 'keys'].includes(role)) a.reverb = ramp(n, 0, 0.6, 0.75);
+      if (role === 'arp') a.res = ramp(n, 0.1, 0.6, 0.5);
+      return a;
+    }
+    if (/^break/.test(id) && ['pad', 'strings', 'arp'].includes(role)) return { filter: { 0: 0, [Math.round(n / 2)]: -0.6, [n - 1]: 0 } };
+    if (/^break/.test(id) && ['lead', 'vox'].includes(role)) return { reverb: { 0: 0.4 } };
+    if (/^drop/.test(id) && ['lead', 'arp'].includes(role)) return { filter: { 0: -0.35, [SPB - 1]: 0 } };
+    if (id === 'outro' && (melodic || role === 'bass')) return { filter: ramp(n, 0, -0.8, 0.25), volume: ramp(n, 1, 0, 0.75) };
+    return null;
+  }
+  /**
+   * Ratchets et conditions de la batterie (sections jouées) :
+   *  - montée : la caisse claire / le clap des dernières mesures est rejoué 2 puis 3 fois par pas (roulement) ;
+   *  - groove : petit trille de charleston (3 coups) en fin de phrase de 4 mesures ; charleston fantôme sur les
+   *    doubles-croches libres, joué un passage sur deux (50 %) ; percussions et rimshots « 1:2 » / 75 %.
+   */
+  function drumSpice(d, sound, mode, bars, r) {
+    const k = kind(sound);
+    const n = bars * SPB;
+    const rat = {};
+    const cond = {};
+    if (mode === 'build' && k === 'bk') {
+      // roulement retenu (le drop doit frapper plus fort que la montée) ; les coups répétés s'additionnent :
+      // chaque coup des ratchets est encore plus doux
+      for (let s = 0; s < n; s++) if (d.steps[s] > 0) d.steps[s] = clampV(d.steps[s] * 0.62);
+      for (let s = Math.max(0, n - 2 * SPB); s < n; s++)
+        if (d.steps[s] > 0) {
+          rat[s] = s >= n - SPB + 4 ? 3 : 2;
+          d.steps[s] = clampV(d.steps[s] * (rat[s] === 3 ? 0.65 : 0.78));
+        }
+    }
+    if (['main', 'full', 'drop'].includes(mode)) {
+      for (let b = 0; b < bars; b++) {
+        const o = b * SPB;
+        if (k === 'hh') {
+          if (b % 4 === 3 && d.steps[o + 14] > 0) rat[o + 14] = 3;
+          [3, 7, 11, 15].forEach((x) => {
+            if (!d.steps[o + x] && r() < 0.6) {
+              d.steps[o + x] = clampV(0.3 + r() * 0.1);
+              cond[o + x] = 'p50';
+            }
+          });
+        }
+        // ride et open hat : quelques coups seulement trois passages sur quatre ; charleston du drop : coups faibles à 75 %
+        if (k === 'oh') for (let x = 0; x < SPB; x++) if (d.steps[o + x] > 0 && r() < 0.25) cond[o + x] = 'p75';
+        if (k === 'hh' && mode === 'drop') for (let x = 1; x < SPB; x += 2) if (d.steps[o + x] > 0 && d.steps[o + x] < 0.5 && !cond[o + x] && r() < 0.2) cond[o + x] = 'p75';
+        if (k === 'sh' || k === 'tb')
+          for (let x = 0; x < SPB; x++) if (d.steps[o + x] > 0 && x % 4 !== 0 && r() < 0.25) cond[o + x] = pick(r, ['p75', '1:2', '2:2']);
+        if (k === 'rim') for (let x = 0; x < SPB; x++) if (d.steps[o + x] > 0 && r() < 0.35) cond[o + x] = pick(r, ['p75', '!first']);
+      }
+    }
+    if (Object.keys(rat).length) d.rat = rat;
+    if (Object.keys(cond).length) d.cond = cond;
+    return d;
+  }
+
   /* ---------- section et chanson ---------- */
   /** Coupe ce qui sonne au dernier temps d'une section (silence avant le drop). */
   function gapEnd(data, bars) {
@@ -558,22 +700,32 @@ SS.bandSong = (() => {
         if (t.type === 'drum') {
           const mode = role === 'perc' ? sec.perc ?? sec.drums : sec.drums;
           data[t.id] = { steps: drumSteps(sound || t.sound, mode, sec.groove || spec.groove, bars, r, { perc: role === 'perc', last: sec.fill !== false, energy }) };
+          if (spec.tech) drumSpice(data[t.id], sound || t.sound, mode, bars, r);
           return;
         }
         const mode = sec[role];
         let events = [];
         if (mode) {
           if (role === 'bass') events = bassEvents(spans, mode, r, H().scale(k).map((d) => d.pc));
+          else if (role === 'fx') events = fxEvents(spans, mode, k, bars);
           else if (role === 'arp') events = arpEvents(spans, mode, r);
           else if (['lead', 'vox', 'sax'].includes(role)) events = melodyEvents(spans, mode, r, k, bars);
           else if (role === 'arpchord') events = arpEvents(spans, mode, r);
           else {
             // nappe, cordes, piano, guitare : accords (ou arpège si le mode en est un)
             const range = role === 'keys' ? { lo: 57, hi: 79 } : role === 'guitar' ? { lo: 52, hi: 74 } : role === 'strings' ? { lo: 55, hi: 81 } : { lo: 53, hi: 76 };
-            events = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16'].includes(mode) ? arpEvents(spans, mode, r) : chordEvents(spans, mode, r, range);
+            events = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16', 'ost16', 'dotted'].includes(mode) ? arpEvents(spans, mode, r) : chordEvents(spans, mode, r, range);
           }
         }
-        data[t.id] = { events: shapeVel(events, role, { energy, bars, build: sec.drums === 'build' }) };
+        data[t.id] = { events: role === 'fx' ? events : shapeVel(events, role, { energy, bars, build: sec.drums === 'build' }) };
+        // techno : dans la montée, les mélodies restent en retrait pour que le drop frappe plus fort
+        if (spec.tech && sec.drums === 'build' && ['lead', 'vox', 'arp', 'keys'].includes(role)) data[t.id].events.forEach((e) => (e.vel = clampV(e.vel * 0.6)));
+        // intro et break planants : tout est joué piano (la basse tenue encore plus), le drop garde la pleine force
+        if (spec.tech && sec.float && role !== 'fx') data[t.id].events.forEach((e) => (e.vel = clampV(e.vel * (role === 'bass' ? 0.5 : 0.68))));
+        if (spec.tech && (events.length || role !== 'fx')) {
+          const auto = sectionAuto(id, sec, role, bars, role === 'fx');
+          if (auto && events.length) data[t.id].auto = auto;
+        }
       });
       if (sec.gap) gapEnd(data, bars);
       const sc = { id: SS.uid(), sec: id, name: sec.name || NAMES[id] || id, bars, key: k, data };

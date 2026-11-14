@@ -16,6 +16,11 @@
  *     pad, strings, keys, guitar : sustain | swell | pulse8 | block4 | stabs | house | strum | chop | ballad | pluck (ou un arpège)
  *     arp : up16 | updown16 | up8 | bells | strobe | pluck16 | rise
  *     lead, vox, sax : verse | hook | long | solo | drop | riff | answer | rise
+ *     fx (musicien « Effets ») : riser | swell | down
+ *     bass aussi : off16 (deux doubles-croches après chaque kick) | drone ; arp aussi : ost16 | dotted ; pad aussi : float
+ *     float : intro (ou break) planante — le filtre des nappes s'ouvre lentement (automation)
+ *   tech : techno mélodique — automation des sections (intro planante, montée au passe-haut, drop qui s'ouvre,
+ *     outro qui se referme), ratchets et conditions de déclenchement sur la batterie (js/bandsong.js)
  *   form : ordre des sections, « chorus*2 » = deux fois de suite
  */
 window.SS = window.SS || {};
@@ -297,5 +302,165 @@ SS.BandSongs = {
       outro: { bars: 16, chords: 'vi | IV | I | V', drums: 'light', perc: 'main', pad: 'swell', guitar: 'pluck', fill: false },
     },
     form: 'intro groove theme peak break theme peak outro',
+  },
+
+  /* ================= Techno mélodique =================
+   * Points communs : intro planante sans batterie (nappe ouverte, arpège en croches pointées, filtre qui s'ouvre),
+   * montées de 8 à 16 mesures (passe-haut, bruit blanc, roulement en ratchets, un temps de silence), drops
+   * puissants (impact, cymbale, kick 909 plein, basse « et-a » sidechainée, lead et nappe en accords piqués).
+   */
+
+  // Arpège analogique obsédant (façon Moog), mélancolie cosmique, deux montées
+  powersoften: {
+    key: 'C♯ minor', groove: 'rolling', emotion: 'mystere', sc: true, tech: true,
+    sections: {
+      intro: { bars: 16, chords: 'i | i | VI | VI | III | III | VII | VII', drums: 'off', bass: 'drone', pad: 'float', arp: 'dotted', lead: 'long', fx: 'swell', float: true, fill: false },
+      groove: { bars: 16, chords: 'i | i | VI | VI | iv | iv | VII | VII', drums: 'main', perc: 'main', bass: 'off16', pad: 'sustain', arp: 'ost16' },
+      build: { bars: 8, chords: 'iv | VI | VII | VII', drums: 'build', pad: 'sustain', arp: 'ost16', lead: 'rise', fx: 'riser', gap: true },
+      drop: { bars: 16, chords: 'i | VI | III | VII', drums: 'drop', perc: 'full', bass: 'off16', pad: 'stabs', arp: 'ost16', lead: 'drop', fx: 'down' },
+      break: { bars: 16, chords: 'VI | VII | i | i | VI | VII | III | V', drums: 'off', pad: 'float', arp: 'dotted', lead: 'long', fx: 'swell', float: true, fill: false },
+      drop2: { bars: 16, chords: 'i | VI | III | VII | iv | VI | VII | VII', drums: 'drop', perc: 'full', bass: 'off16', pad: 'stabs', arp: 'ost16', lead: 'drop', fx: 'down' },
+      outro: { bars: 16, chords: 'i | VI | III | VII', drums: 'light', perc: 'main', bass: 'off16', pad: 'swell', arp: 'ost16', fill: false },
+    },
+    form: 'intro groove build drop break build drop2 outro',
+  },
+
+  // Épopée cinématique : chœur, lead supersaw immense, montée sur la dominante majeure
+  eternity: {
+    key: 'C minor', groove: 'rolling', emotion: 'triomphe', sc: true, tech: true,
+    sections: {
+      intro: { bars: 16, chords: 'i | i | VI | VI | III | III | VII | VII', drums: 'off', pad: 'float', vox: 'long', fx: 'swell', float: true, fill: false },
+      theme: { bars: 16, chords: 'i | VI | III | VII', drums: 'hats', bass: 'drone', pad: 'sustain', arp: 'up16', lead: 'long' },
+      build: { bars: 8, chords: 'VI | VII | iv | V', drums: 'build', pad: 'sustain', arp: 'rise', lead: 'rise', fx: 'riser', gap: true },
+      drop: { bars: 16, chords: 'i | VI | III | VII', drums: 'drop', bass: 'roll', pad: 'stabs', arp: 'up16', lead: 'drop', vox: 'long', fx: 'down' },
+      break: { bars: 16, chords: 'VI | III | VII | i | iv | VI | VII | VII', drums: 'off', pad: 'float', vox: 'verse', lead: 'long', fx: 'swell', float: true, fill: false },
+      build2: { bars: 8, chords: 'iv | VI | VII | V', drums: 'build', pad: 'sustain', arp: 'rise', lead: 'rise', vox: 'rise', fx: 'riser', gap: true },
+      drop2: { bars: 16, chords: 'i | VI | III | VII | iv | VI | v | VII', drums: 'drop', bass: 'roll', pad: 'stabs', arp: 'up16', lead: 'drop', vox: 'hook', fx: 'down' },
+      outro: { bars: 8, chords: 'i | VI | III | VII', drums: 'light', bass: 'drone', pad: 'swell', arp: 'up16', fill: false },
+    },
+    form: 'intro theme build drop break build2 drop2 outro',
+  },
+
+  // Riff de lead hypnotique en doubles-croches, techno sombre et ample
+  upperground: {
+    key: 'E minor', groove: 'techno', emotion: 'suspense', sc: true, tech: true,
+    sections: {
+      intro: { bars: 16, chords: 'i | i | VII | VII | VI | VI | VII | VII', drums: 'off', pad: 'float', arp: 'dotted', lead: 'long', fx: 'swell', float: true, fill: false },
+      groove: { bars: 16, chords: 'i | VII | VI | VII', drums: 'main', perc: 'main', bass: 'off16', pad: 'stabs', lead: 'riff' },
+      build: { bars: 8, chords: 'iv | iv | VI | VII', drums: 'build', pad: 'sustain', lead: 'riff', fx: 'riser', gap: true },
+      drop: { bars: 32, chords: 'i | VII | VI | VII', drums: 'drop', perc: 'full', bass: 'off16', pad: 'sustain', arp: 'ost16', lead: 'riff', fx: 'down' },
+      break: { bars: 16, chords: 'VI | VII | i | i', drums: 'off', pad: 'float', lead: 'long', arp: 'dotted', fx: 'swell', float: true, fill: false },
+      drop2: { bars: 16, chords: 'i | VII | VI | VII | iv | VI | VII | V', drums: 'drop', perc: 'full', bass: 'off16', pad: 'stabs', arp: 'ost16', lead: 'drop', fx: 'down' },
+      outro: { bars: 16, chords: 'i | VII | VI | VII', drums: 'light', perc: 'main', bass: 'off16', lead: 'riff', fill: false },
+    },
+    form: 'intro groove build drop break build drop2 outro',
+  },
+
+  // Voix grave et guitare réverbérée, puis drop sombre au lead saturé
+  returntooz: {
+    key: 'D minor', groove: 'rolling', emotion: 'melancolie', sc: true, tech: true,
+    sections: {
+      intro: { bars: 16, chords: 'i | i | VI | VI | III | III | VII | VII', drums: 'off', pad: 'float', guitar: 'pluck', vox: 'long', fx: 'swell', float: true, fill: false },
+      verse: { bars: 16, chords: 'i | VI | III | VII', drums: 'main', perc: 'main', bass: 'off16', pad: 'sustain', guitar: 'pluck', vox: 'verse' },
+      build: { bars: 8, chords: 'VI | VII | i | i', drums: 'build', pad: 'sustain', lead: 'rise', fx: 'riser', gap: true },
+      drop: { bars: 16, chords: 'i | VI | VII | v', drums: 'drop', perc: 'full', bass: 'roll', pad: 'stabs', lead: 'drop', fx: 'down' },
+      break: { bars: 16, chords: 'iv | VI | III | VII', drums: 'off', pad: 'float', guitar: 'pluck', vox: 'long', fx: 'swell', float: true, fill: false },
+      build2: { bars: 8, chords: 'iv | VI | VII | V', drums: 'build', pad: 'sustain', lead: 'rise', vox: 'rise', fx: 'riser', gap: true },
+      drop2: { bars: 16, chords: 'i | VI | VII | v | iv | VI | VII | V', drums: 'drop', perc: 'full', bass: 'roll', pad: 'stabs', guitar: 'pluck', lead: 'drop', fx: 'down' },
+      outro: { bars: 8, chords: 'i | VI | III | VII', drums: 'light', pad: 'swell', guitar: 'pluck', vox: 'long', fill: false },
+    },
+    form: 'intro verse build drop break build2 drop2 outro',
+  },
+
+  // Chanson tendre posée sur la techno : piano, voix, refrain qui s'envole au drop
+  allthatmatters: {
+    key: 'A minor', groove: 'rolling', emotion: 'tendresse', sc: true, tech: true,
+    sections: {
+      intro: { bars: 16, chords: 'i | i | VI | VI | III | III | VII | VII', drums: 'off', pad: 'float', keys: 'ballad', fx: 'swell', float: true, fill: false },
+      verse: { bars: 16, chords: 'i | VI | III | VII | i | VI | iv | v', drums: 'main', bass: 'offbeat', pad: 'sustain', keys: 'block4', vox: 'verse' },
+      build: { bars: 8, chords: 'VI | VII | III | III', drums: 'build', pad: 'sustain', keys: 'block4', vox: 'rise', fx: 'riser', gap: true },
+      drop: { bars: 16, chords: 'VI | III | VII | i', drums: 'drop', bass: 'off16', pad: 'stabs', keys: 'block4', arp: 'up16', vox: 'hook', fx: 'down' },
+      break: { bars: 8, chords: 'iv | i | VI | VII', drums: 'off', pad: 'float', keys: 'ballad', vox: 'long', fx: 'swell', float: true, fill: false },
+      drop2: { bars: 16, chords: 'VI | III | VII | i | iv | VI | VII | VII', drums: 'drop', bass: 'off16', pad: 'stabs', keys: 'block4', arp: 'up16', vox: 'hook', fx: 'down' },
+      outro: { bars: 8, chords: 'i | VI | III | VII', drums: 'light', pad: 'swell', keys: 'ballad', fill: false },
+    },
+    form: 'intro verse build drop break build drop2 outro',
+  },
+
+  // High-tech minimal : lead ludique en doubles-croches, voix douce, groove sec et long
+  gravity: {
+    key: 'E minor', groove: 'minimal', emotion: 'serenite', sc: true, tech: true,
+    sections: {
+      intro: { bars: 16, chords: 'i | i | III | III | VII | VII | VI | VI', drums: 'off', pad: 'float', vox: 'long', fx: 'swell', float: true, fill: false },
+      groove: { bars: 16, chords: 'i | III | VII | VI', drums: 'main', bass: 'off16', pad: 'stabs', lead: 'riff' },
+      build: { bars: 8, chords: 'iv | VI | VII | VII', drums: 'build', pad: 'sustain', lead: 'rise', fx: 'riser', gap: true },
+      drop: { bars: 32, chords: 'i | III | VII | VI | i | III | iv | V', drums: 'drop', bass: 'off16', pad: 'sustain', lead: 'drop', vox: 'long', fx: 'down' },
+      break: { bars: 16, chords: 'VI | VII | III | i', drums: 'off', pad: 'float', vox: 'verse', fx: 'swell', float: true, fill: false },
+      drop2: { bars: 16, chords: 'i | III | VII | VI', drums: 'drop', bass: 'off16', pad: 'stabs', lead: 'riff', vox: 'answer', fx: 'down' },
+      outro: { bars: 16, chords: 'i | III | VII | VI', drums: 'light', bass: 'off16', lead: 'riff', fill: false },
+    },
+    form: 'intro groove build drop break build drop2 outro',
+  },
+
+  // Hymne berlinois : voix chaleureuse, synthé qui monte, nappe lumineuse au majeur relatif
+  skyandsand: {
+    key: 'F minor', groove: 'minimal', emotion: 'nostalgie', sc: true, tech: true,
+    sections: {
+      intro: { bars: 16, chords: 'VI | VI | III | III | VII | VII | i | i', drums: 'off', pad: 'float', arp: 'dotted', lead: 'long', fx: 'swell', float: true, fill: false },
+      verse: { bars: 16, chords: 'VI | III | VII | i', drums: 'main', bass: 'off16', pad: 'sustain', arp: 'up8', vox: 'verse' },
+      build: { bars: 8, chords: 'iv | VI | VII | VII', drums: 'build', pad: 'sustain', arp: 'rise', lead: 'rise', fx: 'riser', gap: true },
+      drop: { bars: 16, chords: 'VI | III | VII | i', drums: 'drop', bass: 'off16', pad: 'stabs', arp: 'up16', lead: 'drop', vox: 'hook', fx: 'down' },
+      break: { bars: 16, chords: 'iv | VI | III | VII', drums: 'off', pad: 'float', arp: 'dotted', vox: 'long', fx: 'swell', float: true, fill: false },
+      drop2: { bars: 16, chords: 'VI | III | VII | i | iv | VI | VII | VII', drums: 'drop', bass: 'off16', pad: 'stabs', arp: 'up16', lead: 'drop', vox: 'hook', fx: 'down' },
+      outro: { bars: 16, chords: 'VI | III | VII | i', drums: 'light', bass: 'off16', pad: 'swell', arp: 'up8', fill: false },
+    },
+    form: 'intro verse build drop break build drop2 outro',
+  },
+
+  // Techno de festival : phrase vocale en écho, longue montée de 16 mesures, drop massif
+  yourmind: {
+    key: 'B minor', groove: 'techno', emotion: 'suspense', sc: true, tech: true,
+    sections: {
+      intro: { bars: 16, chords: 'i | i | VI | VI | VII | VII | i | i', drums: 'off', pad: 'float', vox: 'long', fx: 'swell', float: true, fill: false },
+      groove: { bars: 16, chords: 'i | i | VI | VII', drums: 'full', perc: 'main', bass: 'off16', pad: 'stabs', vox: 'answer' },
+      build: { bars: 16, chords: 'iv | iv | VI | VII', drums: 'build', pad: 'sustain', lead: 'rise', vox: 'answer', fx: 'riser', gap: true },
+      drop: { bars: 32, chords: 'i | VI | VII | i', drums: 'drop', perc: 'full', bass: 'roll', pad: 'stabs', lead: 'drop', vox: 'answer', fx: 'down' },
+      break: { bars: 8, chords: 'VI | VII | i | i', drums: 'off', pad: 'float', lead: 'long', fx: 'swell', float: true, fill: false },
+      build2: { bars: 8, chords: 'iv | VI | VII | V', drums: 'build', pad: 'sustain', lead: 'rise', fx: 'riser', gap: true },
+      drop2: { bars: 16, chords: 'i | VI | VII | i | iv | VI | VII | V', drums: 'drop', perc: 'full', bass: 'roll', pad: 'stabs', lead: 'drop', vox: 'answer', fx: 'down' },
+      outro: { bars: 16, chords: 'i | i | VI | VII', drums: 'light', perc: 'main', bass: 'off16', fill: false },
+    },
+    form: 'intro groove build drop break build2 drop2 outro',
+  },
+
+  // Deep techno des années 2000 : accords mineurs à sept, IV majeur du dorien, riff de basse hypnotique
+  rej: {
+    key: 'C♯ dorian', groove: 'deep', emotion: 'mystere', sc: true, tech: true,
+    sections: {
+      intro: { bars: 16, chords: 'i7 | i7 | IV | IV | i7 | i7 | VII | VII', drums: 'off', pad: 'float', arp: 'dotted', lead: 'long', fx: 'swell', float: true, fill: false },
+      groove: { bars: 16, chords: 'i7 | IV | i7 | IV', drums: 'main', perc: 'main', bass: 'off16', pad: 'stabs' },
+      theme: { bars: 16, chords: 'i7 | IV | VII | i7 | iv | IV | VII | VII', drums: 'full', perc: 'full', bass: 'off16', pad: 'stabs', arp: 'ost16', lead: 'verse' },
+      build: { bars: 8, chords: 'iv | v | VI | VII', drums: 'build', pad: 'sustain', arp: 'ost16', fx: 'riser', gap: true },
+      drop: { bars: 16, chords: 'i7 | IV | i7 | IV', drums: 'drop', perc: 'full', bass: 'off16', pad: 'stabs', arp: 'ost16', lead: 'drop', fx: 'down' },
+      break: { bars: 16, chords: 'VI | VII | i7 | IV', drums: 'off', pad: 'float', arp: 'dotted', lead: 'long', fx: 'swell', float: true, fill: false },
+      outro: { bars: 16, chords: 'i7 | IV | i7 | IV', drums: 'light', perc: 'main', bass: 'off16', pad: 'stabs', fill: false },
+    },
+    form: 'intro groove theme build drop break build drop outro',
+  },
+
+  // Piano néo-classique et cordes sur un beat minimal : lumineux, retenu, puis tout s'ouvre
+  blurred: {
+    key: 'E major', groove: 'minimal', emotion: 'espoir', sc: true, tech: true,
+    sections: {
+      intro: { bars: 16, chords: 'vi | vi | IV | IV | I | I | V | V', drums: 'off', pad: 'float', keys: 'ballad', strings: 'swell', fx: 'swell', float: true, fill: false },
+      theme: { bars: 16, chords: 'vi | IV | I | V', drums: 'hats', bass: 'drone', pad: 'sustain', keys: 'ballad', arp: 'up8' },
+      groove: { bars: 16, chords: 'vi | IV | I | iii', drums: 'main', bass: 'off16', pad: 'sustain', keys: 'pluck', arp: 'up16' },
+      build: { bars: 8, chords: 'IV | V | vi | vi', drums: 'build', keys: 'block4', strings: 'sustain', arp: 'rise', fx: 'riser', gap: true },
+      drop: { bars: 16, chords: 'vi | IV | I | V', drums: 'drop', bass: 'off16', pad: 'stabs', keys: 'pluck', strings: 'sustain', arp: 'up16', fx: 'down' },
+      break: { bars: 16, chords: 'IV | I | V | vi | IV | I | ii | V', drums: 'off', keys: 'ballad', strings: 'swell', pad: 'float', fx: 'swell', float: true, fill: false },
+      drop2: { bars: 16, chords: 'vi | IV | I | V | ii | IV | V | V', drums: 'drop', bass: 'off16', pad: 'stabs', keys: 'pluck', strings: 'sustain', arp: 'up16', fx: 'down' },
+      outro: { bars: 16, chords: 'vi | IV | I | V', drums: 'light', pad: 'swell', keys: 'ballad', strings: 'swell', fill: false },
+    },
+    form: 'intro theme groove build drop break build drop2 outro',
   },
 };

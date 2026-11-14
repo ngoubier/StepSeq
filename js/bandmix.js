@@ -67,6 +67,8 @@ SS.bandMix = (() => {
     lead: { lu: -21, below: 7, eq: eq({ hp: 160, lm: [600, -2, 1], hm: [3000, 1.5, 0.9], high: [10000, 1] }), comp: comp(-18, 2.5, 0.01, 0.15, 1.5), hall: 0.25, echo: 0.18 },
     vox: { lu: -22, below: 8, eq: eq({ hp: 150, lm: [400, -2, 1], hm: [2500, 2, 1] }), comp: comp(-20, 3, 0.008, 0.15, 1.5), hall: 0.3, echo: 0.12, chorus: [0.2, 0.6, 0.3] },
     sax: { lu: -21, below: 7, eq: eq({ hp: 140, lm: [500, -1.5, 1], hm: [2500, 1.5, 1] }), comp: comp(-18, 2.5, 0.01, 0.15, 1), hall: 0.3, pan: 0.08 },
+    // effets (montées de bruit, ambiances, impacts) : en fond, sans graves, très réverbérés
+    fx: { lu: -25, eq: eq({ hp: 220, lm: [500, -2, 0.8], high: [9000, -1.5] }), hall: 0.5, echo: 0.1, pan: 0 },
   };
   // percussionniste : un peu plus loin et plus écarté que le batteur
   const PERC_SHIFT = { lu: -2, pan: 1.3 };
@@ -87,6 +89,16 @@ SS.bandMix = (() => {
       hall: 1,
       sc: { bass: 0.7, pad: 0.5, strings: 0.45, keys: 0.35 },
       lu: { bass: 2.5 }, // la basse sidechainée sur les contretemps paraît plus discrète
+      loud: -8.5,
+      drive: 8,
+    },
+    // techno mélodique : grande reverb sombre, écho en croche pointée, sidechain fort sur la basse « et-a »
+    techno: {
+      returns: { plate: { size: 1.1, predelay: 0.01, hp: 300, lp: 9000 }, hall: { size: 4.2, predelay: 0.03, hp: 300, lp: 5500 }, echo: { time: '3/16', feedback: 0.42, hp: 300, lp: 4500 } },
+      plate: 0.6,
+      hall: 1.15,
+      sc: { bass: 0.75, pad: 0.55, strings: 0.45, keys: 0.3, arp: 0.25, fx: 0.3 },
+      lu: { bass: 2.5 },
       loud: -8.5,
       drive: 8,
     },
@@ -120,7 +132,7 @@ SS.bandMix = (() => {
 
   /**
    * Mixe les pistes créées par Band. `tracks` : pistes du projet (avec t.band) ; `levelKeys` : Map id -> clé de
-   * mesure ; `style` : 'synthwave' | 'edm'. Modifie volume, mix, fx et nudge des pistes.
+   * mesure ; `style` : 'synthwave' | 'edm' | 'techno'. Modifie volume, mix, fx et nudge des pistes.
    */
   function mixTracks(tracks, levelKeys, style) {
     const S = STYLE[style] || STYLE.synthwave;
@@ -177,7 +189,8 @@ SS.bandMix = (() => {
     master.mix.eq = eq({ hp: 25, lm: [300, -1, 0.7], high: [11000, 1.5] });
     master.mix.comp = comp(-10, 2, 0.03, 0.2, 0, 8); // « glue » : 1 à 2 dB de réduction sur les passages forts
     master.mix.lim = { ...master.mix.lim, on: false }; // le limiteur du mastering prend le relais
-    master.mastering = { on: true, drive, ceiling: -1, width: 1.12, mono: style === 'edm' ? 120 : 100, release: style === 'edm' ? 0.12 : 0.18, clip: 0.5 };
+    const club = style === 'edm' || style === 'techno';
+    master.mastering = { on: true, drive, ceiling: -1, width: style === 'techno' ? 1.18 : 1.12, mono: club ? 120 : 100, release: club ? 0.12 : 0.18, clip: 0.5 };
     project.master = master;
   }
 

@@ -13,8 +13,8 @@ require('../js/band-presets.js');
 const B = globalThis.SS.Band;
 const SS = globalThis.SS;
 
-test('2 styles, 10 inspirations chacun, identifiants uniques', () => {
-  assert.deepEqual(B.STYLES.map((s) => s.id), ['synthwave', 'edm']);
+test('3 styles, 10 inspirations chacun, identifiants uniques', () => {
+  assert.deepEqual(B.STYLES.map((s) => s.id), ['synthwave', 'edm', 'techno']);
   B.STYLES.forEach((s) => {
     assert.equal(s.presets.length, 10, s.id);
     assert.equal(new Set(s.presets.map((p) => p.id)).size, 10);
