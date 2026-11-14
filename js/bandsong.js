@@ -720,6 +720,8 @@ SS.bandSong = (() => {
         data[t.id] = { events: role === 'fx' ? events : shapeVel(events, role, { energy, bars, build: sec.drums === 'build' }) };
         // techno : dans la montée, les mélodies restent en retrait pour que le drop frappe plus fort
         if (spec.tech && sec.drums === 'build' && ['lead', 'vox', 'arp', 'keys'].includes(role)) data[t.id].events.forEach((e) => (e.vel = clampV(e.vel * 0.6)));
+        // intro et break planants : tout est joué piano (la basse tenue encore plus), le drop garde la pleine force
+        if (spec.tech && sec.float && role !== 'fx') data[t.id].events.forEach((e) => (e.vel = clampV(e.vel * (role === 'bass' ? 0.5 : 0.68))));
         if (spec.tech && (events.length || role !== 'fx')) {
           const auto = sectionAuto(id, sec, role, bars, role === 'fx');
           if (auto && events.length) data[t.id].auto = auto;
