@@ -2009,13 +2009,15 @@ SS.ui = (() => {
   }
 
   /**
-   * Appui sur une note déjà sélectionnée (ou sur n'importe quelle note en mode Sélection) : glisser déplace
-   * toute la sélection (Alt : une copie). Sans mouvement, le clic garde son effet habituel.
+   * Appui sur une note déjà sélectionnée, sur n'importe quelle note en mode Sélection, ou sur une note de la ligne
+   * d'une piste instrument : glisser déplace toute la sélection (Alt : une copie). Sans mouvement, un clic sur la
+   * ligne (ou en mode Sélection) sélectionne la note et affiche ses poignées ; ailleurs il garde son effet habituel.
    * Renvoie true si le geste est pris en charge.
    */
   function grabSelected(track, cell, e) {
     const it = itemAtCell(track, cell);
-    if (it == null || (!isSelected(track, it) && !selectMode)) return false;
+    const line = !isDrum(track) && !cell.dataset.midi; // ligne de la piste (piano roll : data-midi)
+    if (it == null || (!isSelected(track, it) && !selectMode && !line)) return false;
     const wasSelected = isSelected(track, it);
     if (!wasSelected) setSelection(track, [it]);
     const s0 = +cell.dataset.step;
@@ -2027,10 +2029,23 @@ SS.ui = (() => {
     let mv = null;
     let last = { dt: 0, dp: 0 };
     let badge = null;
+    // tactile, sur la ligne : un appui long ouvre le menu de type d'accord (comme avant)
+    let held = false;
+    const hold =
+      line && e.pointerType && e.pointerType !== 'mouse'
+        ? setTimeout(() => {
+            if (mv) return;
+            held = true;
+            if (navigator.vibrate) navigator.vibrate(12);
+            openChordMenu(track, it, x0, y0);
+          }, LONG_PRESS_MS)
+        : null;
     gesture(
       (pe) => {
+        if (held) return;
         if (!mv) {
           if (Math.hypot(pe.clientX - x0, pe.clientY - y0) < 4) return;
+          clearTimeout(hold);
           mv = beginMove(track, { copy });
           badge = h('div', { class: 'vel-badge', role: 'status' });
           document.body.append(badge);
@@ -2051,11 +2066,14 @@ SS.ui = (() => {
         badge.style.top = Math.max(4, pe.clientY - 36) + 'px';
       },
       () => {
+        clearTimeout(hold);
+        if (held) return;
         if (badge) badge.remove();
         document.body.classList.remove('moving-notes', 'copying-notes');
         if (mv) return mv.commit();
-        // simple clic : en mode Sélection, la note devient la seule sélectionnée ; sinon effet habituel (effacer)
-        if (selectMode) {
+        // simple clic : en mode Sélection ou sur la ligne, la note devient la seule sélectionnée (poignées) ;
+        // sinon effet habituel (effacer). Sur la ligne, Suppr efface la note sélectionnée.
+        if (selectMode || line) {
           setSelection(track, [it]);
           if (!wasSelected && !SS.audio.isPlaying()) SS.audio.preview(track, isDrum(track) ? undefined : it.notes.length === 1 ? it.notes[0] : it.notes);
         } else if (isDrum(track)) {
