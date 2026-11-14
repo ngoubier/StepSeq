@@ -1,5 +1,5 @@
 /*
- * Band → onglet « Mélodie » : proposer une mélodie sur une piste à partir d'une grille d'accords et d'une
+ * Atelier « Mélodie » (Key → Chanson → Mélodie) : proposer une mélodie sur une piste à partir d'une grille d'accords et d'une
  * structure (notes par phrase). La mélodie dure exactement la grille : 4 accords → 4 mesures.
  * Vue simple : grille, structure, piste. Paroles, tonalité, tessiture, rythme et fin sont dans « Options ». Le calcul est dans js/melody.js (méthode du skill
  * « composer-melodies-accords-texte ») ; ce module gère le formulaire, l'affichage de la proposition
@@ -12,10 +12,9 @@ SS.melodyPanel = (() => {
   const M = () => SS.melody;
   const H = () => SS.harmony;
   let app = null;
-  // hôte : Band (#bandMelody) ou l'onglet Mélodie de Key. { box, leadOpts(), close(), buttons: { again, write },
+  // hôte : l'onglet Mélodie de Key (ou tout autre panneau). { box, leadOpts(), close(), buttons: { again, write },
   // preferSceneKey (la tonalité de la scène plutôt que celle déduite des accords), padTrack() (piste de la nappe) }
   let ctx = null;
-  let bandCtx = null;
   let box = null;
   let play = null; // { timers, raf } pendant l'écoute
   const S = {
@@ -751,9 +750,10 @@ SS.melodyPanel = (() => {
     return JSON.stringify([ctx.sharedGrid ? 'key' : 'band', p.id, p.current, p.timeSig, keyChoice(), ctx.gridData ? ctx.gridData() : S.grid]);
   }
 
-  /** Affiche le panneau dans l'hôte `context` (Band par défaut). Les accords de la scène sont repris tant que la grille n'a pas été retouchée. */
+  /** Affiche le panneau dans l'hôte `context`. Les accords de la scène sont repris tant que la grille n'a pas été retouchée. */
   function show(context) {
-    const next = context || bandCtx;
+    const next = context || ctx;
+    if (!next) return;
     if (ctx && ctx.box !== next.box) {
       stopListen();
       ctx.box.replaceChildren(); // un seul exemplaire du formulaire (ids uniques)
@@ -765,13 +765,8 @@ SS.melodyPanel = (() => {
     render();
   }
 
-  /** Band : les boutons du pied de la fenêtre. */
-  function init(appApi, context) {
+  function init(appApi) {
     app = appApi;
-    const b = { go: document.querySelector('#melGo'), write: document.querySelector('#melWrite') };
-    bandCtx = { ...context, box: document.querySelector('#bandMelody'), buttons: b };
-    b.go.addEventListener('click', () => compose(true));
-    b.write.addEventListener('click', write);
   }
 
   return { init, show, render, compose, write, stop: stopListen, gridFromScene, _state: S };

@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <title>StepSeq</title>
-  <link rel="stylesheet" href="css/style.css?v=system-2">
+  <link rel="stylesheet" href="css/style.css?v=wizard-1">
 </head>
 <body>
   <header class="topbar">
@@ -18,7 +18,7 @@
         </button>
         <div id="appMenu" class="app-menu" role="menu" aria-label="Fichier" hidden>
           <button id="songsBtn" type="button" role="menuitem" title="Mes chansons : toutes les chansons enregistrées automatiquement, et leurs versions">Chansons</button>
-          <button id="newProject" type="button" role="menuitem" title="Nouveau projet">Nouveau</button>
+          <button id="newProject" type="button" role="menuitem" title="Nouvelle chanson : un assistant choisit le groupe, montre la chanson scène par scène, génère la mélodie et importe les pistes choisies">Nouvelle chanson…</button>
           <button id="openProject" type="button" role="menuitem" title="Ouvrir un fichier projet">Ouvrir…<kbd>Ctrl+O</kbd></button>
           <button id="saveProject" type="button" role="menuitem" title="Enregistrer (Ctrl+S ; Maj+clic : enregistrer sous)">Enregistrer<kbd>Ctrl+S</kbd></button>
           <button id="importMidi" type="button" role="menuitem" title="Créer un projet à partir d'un fichier MIDI (.mid) : pistes, scènes et arrangement">Importer MIDI…</button>
@@ -221,10 +221,8 @@
     <div class="band-shell">
       <header class="band-head">
         <h2 id="bandTitle">Band <small id="bandDlgSub">monter un groupe pour jouer la chanson</small></h2>
-        <div class="segmented band-modes" id="bandModes" role="tablist" aria-label="Mode de la fenêtre Band">
-          <button type="button" role="tab" data-mode="band" class="active" aria-selected="true">Groupe</button>
-          <button type="button" role="tab" data-mode="melody" aria-selected="false" title="Proposer une mélodie sur une piste à partir d'une grille d'accords et d'une structure">Mélodie</button>
-        </div>
+        <!-- Assistant « Nouvelle chanson » (menu de l'application) : étapes 1 Modèle → 2 Chanson → 3 Mélodie → 4 Pistes -->
+        <ol class="band-wiz-steps wiz-only" id="bandWizSteps" aria-label="Étapes de l'assistant" hidden></ol>
         <button type="button" class="btn band-gm band-only" id="bandGm" aria-pressed="false" aria-label="General MIDI" title="Mode General MIDI du projet : chaque musicien joue un son General MIDI, la batterie prend la batterie General MIDI. Même réglage que dans la fenêtre de piste.">
           <span class="band-gm-box" aria-hidden="true"></span><span class="band-gm-long">General MIDI</span><span class="band-gm-short" aria-hidden="true">GM</span>
         </button>
@@ -248,18 +246,21 @@
         </main>
         <aside class="band-panel" id="bandPanel" hidden aria-live="polite"></aside>
       </div>
-      <!-- Onglet Mélodie : grille d'accords + paroles ou métrique → mélodie sur une piste (js/melody.js, js/melodypanel.js) -->
-      <div class="band-melody" id="bandMelody" hidden></div>
+      <!-- Assistant, étapes 2 à 4 : la chanson en vue « session » (une ligne = une scène, une colonne = une piste) -->
+      <div class="band-wiz" id="bandWiz" hidden></div>
       <div class="band-confirm" id="bandConfirm" hidden></div>
       <footer class="band-foot">
         <label class="band-tempo band-only"><input type="checkbox" id="bandTempo" checked> <span id="bandTempoLabel">Appliquer le tempo</span></label>
         <span class="spacer"></span>
         <span class="band-count band-only" id="bandCount"></span>
+        <span class="band-count wiz-only" id="bwCount" hidden></span>
         <button type="button" class="btn" id="bandCancel">Annuler</button>
         <button type="button" class="btn band-only" id="bandCreate" title="Créer seulement les pistes des musiciens (vides), dans le projet actuel">Créer les pistes</button>
         <button type="button" class="btn btn-accent band-only" id="bandSongBtn" title="Écrire toute la chanson : pistes, scènes (intro, couplet, refrain, drop…), ce que joue chaque musicien et l'arrangement">Créer toute la chanson</button>
-        <button type="button" class="btn mel-only" id="melGo" hidden>Générer une mélodie</button>
-        <button type="button" class="btn btn-accent mel-only" id="melWrite" hidden disabled title="Écrire la mélodie sur la piste choisie, dans la scène en cours (Ctrl+Z pour revenir)">Écrire sur la piste</button>
+        <button type="button" class="btn wiz-only" id="bwEmpty" hidden title="Fermer l'assistant et partir d'une chanson vide">Chanson vide</button>
+        <button type="button" class="btn wiz-only" id="bwBack" hidden>← Retour</button>
+        <button type="button" class="btn btn-accent wiz-only" id="bwNext" hidden>Suivant →</button>
+        <button type="button" class="btn btn-accent wiz-only" id="bwCreate" hidden title="Créer la chanson avec les pistes cochées (Ctrl+Z pour revenir)">Créer la chanson</button>
       </footer>
     </div>
   </dialog>

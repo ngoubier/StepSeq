@@ -73,6 +73,9 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await page.click('#appMenuBtn');
   await page.click('#newProject');
   await wait(600);
+  ok(await page.isVisible('#bandDialog'), '« Nouvelle chanson » ouvre l’assistant');
+  await page.click('#bwEmpty'); // chanson vide
+  await wait(200);
   await setTitle('Chanson B');
   await wait(1500);
   ok(dialogs.length === 0, '« Nouveau » sans message de confirmation');

@@ -20,7 +20,7 @@ puis ouvrir <http://localhost:8000>.
 
 ## Interface
 
-- **En-tête** : icône de l'application (menu **Chansons**, **Nouveau**, **Ouvrir**, **Enregistrer**, **Importer MIDI**, **Exporter MIDI**), titre du projet, tempo (BPM), chiffrage de mesure (4/4 par défaut, x/4 ou x/8),
+- **En-tête** : icône de l'application (menu **Chansons**, **Nouvelle chanson…** (assistant), **Ouvrir**, **Enregistrer**, **Importer MIDI**, **Exporter MIDI**), titre du projet, tempo (BPM), chiffrage de mesure (4/4 par défaut, x/4 ou x/8),
   nombre de mesures, le groove (swing, humanisation), **Lecture** et **Stop**, puis les fenêtres regroupées
   **Band**, **Key : tonalité** (fenêtre Key, propre à chaque scène : assistant
   émotion → grille d'accords pour démarrer, puis onglets Ambiance (émotions rangées par mode, trois pistes et 39 grilles de référence sourcées, grille posée sur l'onglet suivant), Chanson (grille commune sur toute la largeur, reprise des accords existants ; sous-onglets Chords pour les couches et Mélodie pour les réglages horizontaux) et Vérifier (la même grille et les mélodies) ; palette d'accords dans le piano roll, essais A/B), **Song** (fenêtre Song : scènes et arrangement, avec une case pour garder le panneau
@@ -125,9 +125,27 @@ enregistrés avant cette correction sont transposés à l'ouverture pour sonner 
   environ −12 à −13 LUFS intégrés, la dynamique des breaks est gardée. Les attaques de la batterie passent par
   un limiteur-écrêteur léger pour que le mastering n'écrase pas tout le morceau à cause d'elles.
 
-### Band → Mélodie : une mélodie sur une grille d'accords
+### Nouvelle chanson : l'assistant
 
-L'atelier **Mélodie** dans **Key → Chanson**, également disponible dans la fenêtre Band (`js/melodypanel.js`, moteur `js/melody.js`) propose une mélodie sur une
+**Nouvelle chanson…** (menu de l'icône de l'application) part d'une chanson vide et ouvre un assistant en quatre
+étapes, dans la fenêtre Band (`js/band.js`) :
+
+1. **Modèle** : le modèle d'instruments de Band (style, inspiration, musiciens, kit et éléments du batteur) ;
+   **Chanson vide** ferme l'assistant ;
+2. **Chanson** : la chanson en vue « session », comme dans Ableton Live : **une ligne par scène** (nom, mesures,
+   nombre de passages dans l'arrangement, accords) et **une colonne par piste**, regroupées par musicien ; chaque
+   case dessine ce que joue la piste (coups de batterie ou notes), une case en pointillés est un silence ;
+3. **Mélodie** : **Générer la mélodie** tire une autre mélodie (lead, voix, sax) sur la même grille, sans changer
+   les autres musiciens (`melodySeed` de `SS.bandSong.build`) ; **Mélodie d'origine** revient à l'inspiration ;
+4. **Pistes** : cases à cocher par musicien (batterie, basse, nappes, arpèges, lead…) et par élément de batterie ;
+   **Créer la chanson** écrit les pistes cochées, les scènes et l'arrangement (tempo de l'inspiration, mixage
+   automatique de Band). Ce qui est créé est exactement l'aperçu ; Ctrl+Z revient à la chanson vide.
+
+La fenêtre **Band** de l'en-tête n'a plus d'onglet Mélodie ; l'atelier Mélodie reste dans Key → Chanson.
+
+### Key → Mélodie : une mélodie sur une grille d'accords
+
+L'atelier **Mélodie** dans **Key → Chanson** (`js/melodypanel.js`, moteur `js/melody.js` ; il n'est plus dans la fenêtre Band) propose une mélodie sur une
 piste à partir d'une **grille d'accords** et d'une **structure**, avec la méthode du skill
 `composer-melodies-accords-texte` (calculée dans le navigateur, sans réseau ni IA). La vue est simple :
 
@@ -372,6 +390,7 @@ node tests/e2e/grid-ui.js
 node tests/e2e/playhead-ui.js
 node tests/e2e/song-ui.js
 node tests/e2e/melody-ui.js
+node tests/e2e/new-song-wizard.js
 node tests/e2e/band-song-ui.js
 node tests/e2e/mix-master-ui.js
 node tests/e2e/automix-ui.js
@@ -495,7 +514,7 @@ premier enregistrement ; les autres navigateurs téléchargent le fichier.
 ### Enregistrement automatique, sans message (`js/store.js`, `js/mysongs.js`)
 
 - **Mes chansons** (**Chansons**, dans le menu de l'icône de l'application) : chaque chanson est enregistrée automatiquement dans le navigateur
-  (IndexedDB), environ une seconde après chaque modification, sous son identifiant. **Nouveau** et **Ouvrir**
+  (IndexedDB), environ une seconde après chaque modification, sous son identifiant. **Nouvelle chanson** et **Ouvrir**
   n'écrasent plus rien, et il n'y a plus d'avertissement en quittant la page. La fenêtre liste les chansons
   (ouvrir, dupliquer, supprimer) et leurs **versions** : un instantané au plus toutes les 10 minutes de travail,
   40 par chanson ; **Restaurer** garde l'état actuel dans les versions.
@@ -576,7 +595,7 @@ par la fenêtre **Key** :
 | `composition-harmonie-synthetiseur` | Gammes, accords, degrés, progressions, voicings, basse / arpège / mélodie, parcours en 8 modules | Tonalité, palette d'accords, progressions, génération de couches, vérificateur |
 | `arranger-orchestrer-finaliser` | Arrangement, orchestration, mixage, mastering | Méthode « une couche à la fois », démos mixées et masterisées |
 | `musicemotion` | Composer à partir d'une émotion : matrice émotion → procédés, trois pistes contrastées, essais A/B | Section Émotion : 13 intentions, propositions, essais A/B, modes |
-| `composer-melodies-accords-texte` | Mélodie sur une grille d'accords et des paroles ou une métrique : prosodie, rythme, notes cibles, contrôles, export MIDI | Band → Mélodie : scansion, proposition, tableau des notes, contrôles, écriture sur une piste |
+| `composer-melodies-accords-texte` | Mélodie sur une grille d'accords et des paroles ou une métrique : prosodie, rythme, notes cibles, contrôles, export MIDI | Key → Mélodie : scansion, proposition, tableau des notes, contrôles, écriture sur une piste |
 
 ## Structure du code
 
@@ -610,7 +629,7 @@ par la fenêtre **Key** :
 | `js/automixpanel.js` | Auto Mix : panneau de la console, A/B, préférences, pilote auto |
 | `js/band-songs.js` | Band : plans des 20 chansons complètes (tonalité, sections, grilles, parties) |
 | `js/bandsong.js` | Band : écrit les scènes, les notes de chaque musicien et l'arrangement d'après un plan |
-| `js/melody.js` | Band → Mélodie et Key → Mélodie : grille d'accords, syllabes du français, rythme, hauteurs, contrôles, export MIDI ; vérification d'une mélodie écrite (`checkMelody`) — fonctions pures |
+| `js/melody.js` | Key → Mélodie : grille d'accords, syllabes du français, rythme, hauteurs, contrôles, export MIDI ; vérification d'une mélodie écrite (`checkMelody`) — fonctions pures |
 | `js/melodypanel.js` | Panneau Mélodie, affiché dans Band et dans Key : formulaire, proposition (grille, écoute avec la nappe, contrôles), écriture sur la piste |
 | `js/bandmix.js`, `js/band-levels.js`, `js/band-drive.js` | Band : règles de mixage et de mastering, niveaux mesurés, gain de mastering par chanson |
 | `js/dirt-tuning.js` | Hauteur mesurée des échantillons Dirt-Samples |

@@ -262,6 +262,9 @@
       await SS.autosave.saveNow();
       SS.files.reset();
       await loadSong(SS.newProject(), { changed: true });
+      // assistant : modèle d'instruments → la chanson en scènes × pistes → mélodie → pistes à importer
+      // (fermer l'assistant laisse la chanson vide)
+      SS.band.openWizard();
     });
     $('#songsBtn').addEventListener('click', () => SS.mySongs.open());
     initAppMenu();
@@ -482,7 +485,7 @@
    * Band : « Créer toute la chanson ». Remplace les pistes, les scènes et l'arrangement du projet par la chanson
    * écrite d'après le plan de l'inspiration (js/band-songs.js, js/bandsong.js). Ctrl+Z revient en arrière.
    */
-  function addBandSong(list, preset, tempo) {
+  function addBandSong(list, preset, tempo, { melodySeed = 0 } = {}) {
     const spec = SS.BandSongs && SS.BandSongs[preset.id];
     if (!spec) return addBandTracks(list, tempo, { replace: true });
     stop();
@@ -497,7 +500,7 @@
       return t;
     });
     project.tracks = created;
-    const res = SS.bandSong.build(spec, preset.id, created);
+    const res = SS.bandSong.build(spec, preset.id, created, { melodySeed });
     project.scenes = res.scenes.map(({ sec, ...sc }) => sc); // eslint-disable-line no-unused-vars
     project.song = res.song;
     project.playMode = 'song';
@@ -575,7 +578,7 @@
   }
 
   /**
-   * Band → Mélodie : écrit une mélodie (js/melody.js) sur une piste Mono de la scène en cours, ou sur une nouvelle
+   * Atelier Mélodie (Key → Chanson) : écrit une mélodie (js/melody.js) sur une piste Mono de la scène en cours, ou sur une nouvelle
    * piste « Mélodie ». La scène est allongée si la mélodie est plus longue (les autres pistes sont recopiées en boucle).
    */
   function writeMelody({ trackId, newTrack, events, bars, melodyBars, label }) {
