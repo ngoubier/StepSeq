@@ -82,7 +82,7 @@
   const FAMILY_PROGRAM = { keys: 0, organ: 16, bass: 38, synth: 81, pads: 89, strings: 48, voices: 52, brass: 61, winds: 73, guitar: 25, mallets: 11, world: 104, perc: 114, fx: 99, analog: 81 };
   const SYNTH_PROGRAM = {
     syn_sqbass: 39, syn_moogbass: 39, syn_square: 80, syn_chip: 80, syn_triangle: 80, syn_sine: 80, syn_pluck: 84,
-    syn_supersaw: 81, syn_superpad: 90, syn_glasspad: 92, syn_noiseriser: 122, syn_wind: 122, syn_rumble: 122, piano: 0,
+    syn_supersaw: 81, syn_superpad: 90, syn_glasspad: 92, syn_noiseriser: 122, syn_wind: 122, syn_rumble: 122, syn_pwmbass: 39, syn_pwmpad: 50, syn_breathpad: 89, syn_drone: 95, piano: 0,
   };
   const JUNO_WORDS = [
     [/bass/i, 38], [/string|violin|cello|orchest/i, 50], [/organ|owgan/i, 16], [/brass|trumpet|horn/i, 62],

@@ -83,7 +83,7 @@ SS.systemPanel = (() => {
     for (const t of audible) {
       const mix = SS.mixParams(t), fx = SS.fxParams(t);
       modules += ['eq', 'comp', 'lim', 'vcf'].filter(k => mix[k]?.on).length;
-      effects += ['chorus', 'delay', 'room', 'sendPlate', 'sendHall', 'sendEcho'].filter(k => fx[k] > 0).length;
+      effects += ['chorus', 'delay', 'room', 'sendPlate', 'sendHall', 'sendEcho', 'sendSpace'].filter(k => fx[k] > 0).length;
     }
     set('modules', modules + ' inserts actifs sur les pistes audibles');
     set('effects', effects + ' effets / envois actifs sur les pistes audibles');

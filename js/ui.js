@@ -519,13 +519,27 @@ SS.ui = (() => {
     const p = app.project();
     const n = SS.totalSteps(p);
     // réglage affiché : le dernier choisi, sinon le premier qui a une courbe, sinon le filtre
-    if (!autoParams.has(track.id)) autoParams.set(track.id, (SS.AUTO_PARAMS.find((x) => track.auto && track.auto[x.id]) || SS.AUTO_PARAMS[0]).id);
+    const offered = () => SS.autoParamsFor(track);
+    if (!autoParams.has(track.id) || !offered().some((x) => x.id === autoParams.get(track.id)))
+      autoParams.set(track.id, (offered().find((x) => track.auto && track.auto[x.id]) || SS.AUTO_PARAMS[0]).id);
     const P = () => SS.autoParam(autoParams.get(track.id));
     const lane = () => track.auto && track.auto[P().id];
 
     const param = h('select', { class: 'auto-param', 'aria-label': 'Réglage automatisé' });
-    const fillParams = () =>
-      param.replaceChildren(...SS.AUTO_PARAMS.map((x) => h('option', { value: x.id }, x.label + (track.auto && track.auto[x.id] ? ' ●' : ''))));
+    const opt = (x) => h('option', { value: x.id }, x.label + (track.auto && track.auto[x.id] ? ' ●' : ''));
+    // deux groupes : la tranche de la piste (tout instrument) et le son lui-même (lu au début de chaque note)
+    const fillParams = () => {
+      const list = offered();
+      const voice = list.filter((x) => x.voice);
+      if (!voice.length) return param.replaceChildren(...list.map(opt));
+      const og = (label, xs) => {
+        const g = document.createElement('optgroup');
+        g.label = label;
+        g.append(...xs.map(opt));
+        return g;
+      };
+      param.replaceChildren(og('Tranche de la piste', list.filter((x) => !x.voice)), og('Son, à chaque note', voice));
+    };
     const shapes = h('select', { class: 'auto-shape', 'aria-label': 'Forme toute prête', title: 'Remplace la courbe par une forme sur toute la boucle de la piste' });
     const fillShapes = () =>
       shapes.replaceChildren(h('option', { value: '' }, 'Forme…'), ...(SS.AUTO_SHAPES[P().id] || []).map((x) => h('option', { value: x.id }, x.label)));

@@ -287,7 +287,33 @@ Le bouton à curseurs de l'en-tête ouvre la fenêtre de **sound design** (oscil
 - filtre passe-bas, passe-haut, passe-bande ou coupe-bande, avec 4 modèles (comme `ftype()` de strudel) :
   **12 dB**, **24 dB**, **Ladder** (4 pôles façon Moog, avec drive) et **SEM** (variable d'état façon Oberheim) ;
 - **glide** : *Portamento* (chaque note glisse depuis la précédente) ou *Glide legato* (façon Moog : seulement
-  entre notes liées, sans redéclencher les enveloppes).
+  entre notes liées, sans redéclencher les enveloppes) ;
+- onde **Pulse** avec sa **largeur d'impulsion** (5 à 95 %) : deux dents de scie décalées, donc sans repliement ;
+  la largeur suit la hauteur pendant un glide ;
+- **LFO 1 et LFO 2** (`js/modulation.js`) : destination (**Hauteur**, **PWM**, **Cutoff**, **Volume**, **Pan**),
+  forme (sinus, triangle, rampes, carré, S&H, aléatoire lissé), vitesse **calée sur le tempo** (de 1/16 à
+  64 mesures, triolets et pointées compris) ou libre en Hz (0,01 à 20 Hz), phase **Libre** (commune à toutes les
+  notes, alignée sur la lecture : un LFO de 4 mesures repart avec la boucle) ou **Retrig** (repart à chaque note),
+  quantité (négative = forme inversée) et fondu d'entrée. Les LFO s'appliquent aussi aux instruments échantillonnés
+  (sauf PWM) ;
+- enveloppes longues pour les nappes et drones : attaque et decay jusqu'à 10 s, release jusqu'à 20 s.
+
+### Effets d'espace : Cosmos et écho à bande
+
+La fenêtre **FX** d'une piste règle ses envois vers les **bus partagés** du morceau (plate, hall, écho, Cosmos) ;
+sous « Réglages des bus », trois groupes communs à toutes les pistes :
+
+- **Écho · délai à bande** : temps calé sur le tempo, répétitions jusqu'à 100 % (la saturation de la bande dans
+  la boucle les garde sous contrôle), couleur (filtre dans la boucle), **saturation**, **wow / flutter** (vitesse
+  de la bande qui fluctue : les répétitions ondulent légèrement).
+- **Cosmos · reverb longue** (`js/space-dsp.js`) : reverb algorithmique (8 lignes à retard bouclées, modulées)
+  pour l'ambient et la dub techno. Durée de la queue jusqu'à 60 s, taille, pré-délai, amortissement des aigus,
+  modulation, **Shimmer** (la queue est réinjectée une octave plus haut et s'élève) et **Freeze** (la queue tient
+  indéfiniment ; les nouvelles notes n'y entrent plus). Préréglages Salle, Cathédrale, Infini, Shimmer.
+- Préréglages d'envois **Ambient** et **Dub techno** ; l'envoi vers le Cosmos s'automatise aussi par pas.
+
+Presets qui s'en servent : **PWM Bass**, **Evolving Bass**, **Wobble Bass**, **PWM Reese** (Bass), **PWM Strings**,
+**Breathing Pad** et **Drone** (Pads).
 
 Sur une piste **Synthé**, ce bouton ouvre la façade du synthé : pour le Juno-106, les sections LFO, DCO
 (16'/8'/4', impulsion + PWM, dent de scie, sous-oscillateur, bruit), HPF, VCF 24 dB/oct, VCA, ENV, chorus I / II,
@@ -355,6 +381,9 @@ Tests de bout en bout des fenêtres de l'arpégiateur et Key dans Chromium (néc
 
 ```bash
 node tests/e2e/arp-ui.js
+node tests/e2e/lfo.js
+node tests/e2e/voice-auto.js
+node tests/e2e/space.js
 node tests/e2e/arp-cursor.js
 node tests/e2e/harmony-ui.js
 node tests/e2e/grid-ui.js
@@ -396,6 +425,22 @@ Inspirée des courbes d'automation d'Ableton Live / Bitwig et des réglages par 
 | Volume | multiplie le volume de la piste | CC 11 |
 | Reverb | envoi supplémentaire vers la reverb « hall » partagée | CC 91 |
 | Écho | envoi supplémentaire vers l'écho partagé | — |
+| Cosmos | envoi supplémentaire vers la reverb longue « Cosmos » | — |
+
+Les pistes instrument (synthés intégrés et instruments échantillonnés, pas le Juno-106) ont en plus un groupe
+**Son, à chaque note** : ces réglages agissent sur le son lui-même et sont lus **au début de chaque note**, à la
+valeur de la courbe sur son pas (comme les verrous de paramètres des Elektron ; `SS.voiceLocks`,
+`SS.applyVoiceLocks`) :
+
+| Réglage | Effet sur la note | Export MIDI |
+|---|---|---|
+| Cutoff du son | cutoff du VCF : −4 … +4 octaves autour du réglage du sound design | — |
+| Largeur (PWM) | largeur d'impulsion de l'onde Pulse (synthés seulement) | — |
+| Decay du filtre | decay de l'enveloppe du filtre : ÷4 … ×4 | — |
+| Quantité des LFO | multiplie la quantité des LFO 1 et 2 : ×0 … ×2 | — |
+
+Formes toutes prêtes : ouvrir / refermer le son, accents sur chaque temps, balayage de la largeur, notes de plus
+en plus longues ou courtes, faire entrer / calmer les LFO.
 
 - **Points sur les pas** (`track.auto = { filter: { pas: valeur } }`), propres à chaque **scène** (rangés avec les
   notes). Entre deux points : une droite ; avant le premier et après le dernier : la valeur du point. Une scène sans
@@ -562,9 +607,11 @@ par la fenêtre **Key** :
 | `js/library.js`  | Catalogue généré depuis strudel.cc (125 soundfonts gm_*, VCSL) |
 | `js/dirt.js`     | Catalogue généré des banques mélodiques de Dirt-Samples |
 | `js/sounds.js`   | Catalogue des sons (batterie, familles d'instruments, accords) |
+| `js/space-dsp.js` | Reverb longue « Cosmos » (AudioWorklet) : réseau de 8 lignes à retard, Freeze, Shimmer |
 | `js/filters.js`  | Filtres Ladder et SEM (AudioWorklet) du sound design |
 | `js/project.js`  | Modèle de projet, enregistrement / ouverture de fichiers |
 | `js/audio.js`    | Moteur audio : chargement des échantillons, voix, séquenceur |
+| `js/modulation.js` | LFO du synthé intégré (formes, vitesses calées sur le tempo, phase, courbes) et réglages PWM |
 | `js/sounddesign.js` | Fenêtre de sound design (VCO, filtre, ADSR, glide, sortie) |
 | `js/juno.js`     | Synthés analogiques : catalogue, 128 patches d'usine du Juno-106, un AudioWorklet par piste |
 | `js/juno-dsp.js` | Moteur du Juno-106 (AudioWorklet), porté de l'Ultramaster KR-106 — GPL v3 |

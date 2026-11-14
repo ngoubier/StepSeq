@@ -797,6 +797,18 @@ dialog.sd-dialog { width: min(820px, calc(100vw - 32px)); }
 .sd-adsr.filt .line { stroke: #f5a524; }
 .sd-adsr.filt .fill-area { fill: #f5a524; }
 .sd-adsr.dim { opacity: .4; }
+.fx-ret-group { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; }
+.fx-ret-group + .fx-ret-group { border-top: 1px solid var(--line); margin-top: 6px; }
+.fx-ret-group h4 { margin: 0; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.fx-freeze.active { background: var(--gold); border-color: var(--gold); color: #161618; }
+.sd-lfo-body { display: flex; flex-direction: column; gap: 8px; }
+.sd-lfo-body.dim { opacity: .45; }
+.sd-lfo-shapes { margin-bottom: 0; }
+.sd-lfo-shapes button span { font-size: 11px; }
+.sd-lfo-rate { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.sd-lfo-rate label { font-size: 12px; color: var(--muted); }
+.sd-lfo-rate select { flex: 1 1 120px; min-width: 0; background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 5px 8px; font: inherit; font-size: 13px; }
+.sd-lfo-rate .sd-ftype { margin-bottom: 0; }
 
 /* ---------- Groove ---------- */
 .groove-btn { height: 32px; padding: 0 12px; font-size: 13px; }

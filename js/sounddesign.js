@@ -30,24 +30,44 @@ SS.soundDesign = (() => {
   const SPECS = {
     voices: { label: 'Voix (unison)', scale: lin(1, 7), int: true, fmt: (v) => String(v), group: 'vco' },
     detune: { label: 'Désaccord', scale: lin(0, 50), fmt: (v) => `${Math.round(v)} cents`, group: 'vco' },
+    pw: { label: 'Largeur d’impulsion (Pulse)', scale: lin(0.05, 0.95), fmt: fmtPct, group: 'vco' },
     cutoff: { label: 'Cutoff', scale: logf(20, 20000), fmt: fmtHz, group: 'vcf' },
     q: { label: 'Résonance', scale: lin(0, 30), fmt: (v) => v.toFixed(1), group: 'vcf' },
     fdrive: { label: 'Drive (filtre)', scale: lin(0, 1), fmt: fmtPct, group: 'vcf' },
     env: { label: 'Quantité', scale: lin(0, 6), fmt: (v) => (v ? `+${v.toFixed(1)} oct` : 'off'), group: 'fenv' },
-    fattack: { label: 'Attack', scale: sq(2), fmt: fmtTime, group: 'fenv' },
-    fdecay: { label: 'Decay', scale: sq(2), fmt: fmtTime, group: 'fenv' },
+    fattack: { label: 'Attack', scale: sq(10), fmt: fmtTime, group: 'fenv' },
+    fdecay: { label: 'Decay', scale: sq(10), fmt: fmtTime, group: 'fenv' },
     fsustain: { label: 'Sustain', scale: lin(0, 1), fmt: fmtPct, group: 'fenv' },
-    frelease: { label: 'Release', scale: sq(4), fmt: fmtTime, group: 'fenv' },
-    attack: { label: 'Attack', scale: sq(2), fmt: fmtTime, group: 'vca' },
-    decay: { label: 'Decay', scale: sq(2), fmt: fmtTime, group: 'vca' },
+    frelease: { label: 'Release', scale: sq(20), fmt: fmtTime, group: 'fenv' },
+    attack: { label: 'Attack', scale: sq(10), fmt: fmtTime, group: 'vca' },
+    decay: { label: 'Decay', scale: sq(10), fmt: fmtTime, group: 'vca' },
     sustain: { label: 'Sustain', scale: lin(0, 1), fmt: fmtPct, group: 'vca' },
-    release: { label: 'Release', scale: sq(4), fmt: fmtTime, group: 'vca' },
+    release: { label: 'Release', scale: sq(20), fmt: fmtTime, group: 'vca' },
     glide: { label: 'Temps', scale: sq(1.5), fmt: (v) => (v ? fmtTime(v) : 'off'), group: 'glide' },
     gain: { label: 'Niveau', scale: lin(0, 1.5), fmt: fmtPct, group: 'out' },
     pan: { label: 'Panoramique', scale: lin(-1, 1), fmt: (v) => (Math.abs(v) < 0.02 ? 'centre' : v < 0 ? `G ${Math.round(-v * 100)}` : `D ${Math.round(v * 100)}`), group: 'out' },
     drive: { label: 'Saturation', scale: lin(0, 1), fmt: (v) => (v ? fmtPct(v) : 'off'), group: 'out' },
   };
+  // LFO 1 et 2 (js/modulation.js) : vitesse libre, quantité (selon la destination), fondu d'entrée
+  const fmtHz2 = (v) => `${v < 1 ? v.toFixed(2) : v.toFixed(1)} Hz`.replace('.', ',');
+  for (let i = 1; i <= SS.LFO_COUNT; i++) {
+    SPECS[`lfo${i}Hz`] = { label: 'Vitesse libre', scale: logf(0.01, 20), fmt: fmtHz2, group: `lfo${i}` };
+    SPECS[`lfo${i}Amt`] = { label: 'Quantité', scale: lin(-1, 1), fmt: (v) => lfoAmtText(i, v), group: `lfo${i}` };
+    SPECS[`lfo${i}Fade`] = { label: 'Fondu d’entrée', scale: sq(10), fmt: (v) => (v ? fmtTime(v) : 'off'), group: `lfo${i}` };
+  }
+  /** Quantité d'un LFO, dans l'unité de sa destination. */
+  function lfoAmtText(i, v) {
+    const dest = track ? params()[`lfo${i}Dest`] : 'off';
+    const sign = v < 0 ? '−' : '±';
+    const a = Math.abs(v);
+    if (dest === 'pitch') return a * 12 >= 1 ? `${sign}${(a * 12).toFixed(1).replace('.', ',')} demi-tons` : `${sign}${Math.round(a * 1200)} cents`;
+    if (dest === 'cutoff') return `${sign}${(a * 4).toFixed(1).replace('.', ',')} oct`;
+    if (dest === 'pw') return `${sign}${Math.round(a * 45)} %`;
+    if (dest === 'amp') return `${Math.round(a * 100)} %${v < 0 ? ' (inversé)' : ''}`;
+    return `${v < 0 ? '−' : ''}${Math.round(a * 100)} %`;
+  }
   const GROUP_EL = { vco: '#sdVcoSliders', vcf: '#sdVcfSliders', glide: '#sdGlideSliders', fenv: '#sdFenvSliders', vca: '#sdVcaSliders', out: '#sdOutSliders' };
+  for (let i = 1; i <= SS.LFO_COUNT; i++) GROUP_EL[`lfo${i}`] = `#sdLfo${i}Sliders`;
 
   const WAVE_ICONS = {
     sawtooth: 'M2 16 L10 4 L10 16 L18 4 L18 16 L22 10',
@@ -55,13 +75,83 @@ SS.soundDesign = (() => {
     triangle: 'M2 14 L7 5 L12 14 L17 5 L22 14',
     sine: 'M2 10 C5 1 8 1 10 10 S15 19 18 10 S21 4 22 7',
     supersaw: 'M2 16 L10 4 L10 16 L18 4 L18 16 M2 13 L9 3 L9 13 L17 3 L17 13',
+    pulse: 'M2 16 V5 H5 V16 H14 V5 H17 V16 H22',
     white: 'M2 10 L3 4 L4 15 L5 7 L6 13 L7 3 L8 16 L9 8 L10 12 L11 5 L12 14 L13 6 L14 15 L15 9 L16 4 L17 13 L18 7 L19 16 L20 9 L21 5 L22 11',
     pink: 'M2 10 L4 6 L6 13 L8 8 L10 14 L12 7 L14 12 L16 6 L18 13 L20 9 L22 11',
     brown: 'M2 12 C5 6 7 15 10 10 S15 5 17 11 S20 14 22 9',
   };
 
   /* ---------- Construction de la fenêtre ---------- */
+  /** Panneaux LFO 1 et 2 (insérés avant le panneau Sortie). */
+  function buildLfoPanels() {
+    const out = $('#sdOutTitle').closest('section');
+    for (let i = 1; i <= SS.LFO_COUNT; i++) {
+      const sec = document.createElement('section');
+      sec.className = 'sd-panel sd-lfo';
+      sec.id = `sdLfo${i}`;
+      sec.setAttribute('aria-labelledby', `sdLfo${i}Title`);
+      sec.innerHTML = `
+        <h3 id="sdLfo${i}Title">LFO ${i} <small>modulation</small></h3>
+        <div class="segmented sd-ftype" id="sdLfo${i}Dest" role="radiogroup" aria-label="Destination du LFO ${i}"></div>
+        <p class="sd-hint" id="sdLfo${i}Hint"></p>
+        <div class="sd-lfo-body" id="sdLfo${i}Body">
+          <div class="sd-waves sd-lfo-shapes" id="sdLfo${i}Shapes" role="radiogroup" aria-label="Forme du LFO ${i}"></div>
+          <div class="sd-lfo-rate">
+            <label for="sdLfo${i}Rate">Vitesse</label>
+            <select id="sdLfo${i}Rate"></select>
+            <div class="segmented sd-ftype" id="sdLfo${i}Mode" role="radiogroup" aria-label="Phase du LFO ${i}"></div>
+          </div>
+          <div class="sd-sliders" id="sdLfo${i}Sliders"></div>
+        </div>`;
+      out.before(sec);
+
+      const radioBtn = (box, id, html, title, onClick) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.dataset.v = id;
+        b.setAttribute('role', 'radio');
+        b.innerHTML = html;
+        if (title) b.title = title;
+        b.addEventListener('click', onClick);
+        box.append(b);
+      };
+      SS.LFO_DESTS.forEach((d) =>
+        radioBtn(sec.querySelector(`#sdLfo${i}Dest`), d.id, d.label, d.hint, () => {
+          set(`lfo${i}Dest`, d.id);
+          // une destination sans quantité ne ferait rien : on donne une valeur de départ
+          if (d.id !== 'off' && !params()[`lfo${i}Amt`]) set(`lfo${i}Amt`, 0.5);
+          // PWM sans onde Pulse : on passe en Pulse
+          if (d.id === 'pw' && params().wave !== 'pulse' && params().wave !== null && !SS.NOISES.includes(params().wave)) set('wave', 'pulse');
+          refresh();
+          preview();
+        })
+      );
+      SS.LFO_SHAPES.forEach((sh) =>
+        radioBtn(sec.querySelector(`#sdLfo${i}Shapes`), sh.id, `<svg viewBox="0 0 24 20"><path d="${sh.icon}"/></svg><span>${sh.label}</span>`, null, () => {
+          set(`lfo${i}Shape`, sh.id);
+          refresh();
+          preview();
+        })
+      );
+      SS.LFO_MODES.forEach((m) =>
+        radioBtn(sec.querySelector(`#sdLfo${i}Mode`), m.id, m.label, m.hint, () => {
+          set(`lfo${i}Mode`, m.id);
+          refresh();
+          preview();
+        })
+      );
+      const sel = sec.querySelector(`#sdLfo${i}Rate`);
+      SS.LFO_RATES.forEach((r) => sel.add(new Option(r.label, r.id)));
+      sel.addEventListener('change', () => {
+        set(`lfo${i}Rate`, sel.value);
+        refresh();
+        preview();
+      });
+    }
+  }
+
   function build() {
+    buildLfoPanels();
     for (const [key, spec] of Object.entries(SPECS)) {
       const id = 'sd_' + key;
       const out = document.createElement('output');
@@ -239,6 +329,12 @@ SS.soundDesign = (() => {
       });
     radio('#sdFilterModel', p.ftype);
     radio('#sdGlideMode', p.glideMode);
+    for (let i = 1; i <= SS.LFO_COUNT; i++) {
+      radio(`#sdLfo${i}Dest`, p[`lfo${i}Dest`]);
+      radio(`#sdLfo${i}Shapes`, p[`lfo${i}Shape`]);
+      radio(`#sdLfo${i}Mode`, p[`lfo${i}Mode`]);
+      $(`#sdLfo${i}Rate`).value = p[`lfo${i}Rate`];
+    }
     const model = SS.FILTER_MODELS.find((m) => m.id === p.ftype) || SS.FILTER_MODELS[0];
     $('#sdFilterHint').textContent = model.hint + '.';
     const gm = SS.GLIDE_MODES.find((m) => m.id === p.glideMode) || SS.GLIDE_MODES[0];
@@ -260,6 +356,18 @@ SS.soundDesign = (() => {
     ['fattack', 'fdecay', 'fsustain', 'frelease'].forEach((k) => inputs.get(k).row.classList.toggle('dim', !p.env));
     inputs.get('fdrive').row.classList.toggle('dim', p.ftype !== 'ladder' && p.ftype !== 'sem');
     $('#sdGlideMode').classList.toggle('dim', !p.glide);
+    inputs.get('pw').row.hidden = p.wave !== 'pulse';
+    for (let i = 1; i <= SS.LFO_COUNT; i++) {
+      const dest = p[`lfo${i}Dest`];
+      const off = !dest || dest === 'off';
+      $(`#sdLfo${i}Body`).classList.toggle('dim', off);
+      inputs.get(`lfo${i}Hz`).row.hidden = p[`lfo${i}Rate`] !== 'hz';
+      const d = SS.LFO_DESTS.find((x) => x.id === dest) || SS.LFO_DESTS[0];
+      let hint = off ? 'Choisis une destination pour animer le son.' : d.hint + '.';
+      if (dest === 'pw' && p.wave !== 'pulse') hint = 'Le PWM n’agit que sur l’onde Pulse.';
+      if (dest === 'pitch' && SS.NOISES.includes(p.wave)) hint = 'Le bruit n’a pas de hauteur.';
+      $(`#sdLfo${i}Hint`).textContent = hint;
+    }
     $('#sdFenv').classList.toggle('dim', !p.env);
     drawAdsr(p, '#sdAdsr');
     drawAdsr({ attack: p.fattack, decay: p.fdecay, sustain: p.fsustain, release: p.frelease }, '#sdFenv');
@@ -321,6 +429,12 @@ SS.soundDesign = (() => {
     if (!f.strudel) extra.push(`filtre ${f.label.toLowerCase()} ${Math.round(p.cutoff)} Hz`);
     if (p.ftype === 'sem') extra.push('filtre SEM');
     if (p.glide) extra.push(`${p.glideMode === 'legato' ? 'glide legato' : 'portamento'} ${fmtTime(p.glide)}`);
+    if (p.wave === 'pulse') extra.push(`largeur ${Math.round(p.pw * 100)} %`);
+    SS.activeLfos(p).forEach((l) => {
+      const d = SS.LFO_DESTS.find((x) => x.id === l.dest);
+      const sh = SS.LFO_SHAPES.find((x) => x.id === l.shape);
+      extra.push(`LFO ${l.index} ${d.label.toLowerCase()} ${sh.label.toLowerCase()} ${SS.lfoRateLabel(l)} ${lfoAmtText(l.index, l.amt)}`);
+    });
     return parts.join('.') + (extra.length ? ` // ${extra.join(', ')}` : '');
   }
 
@@ -330,7 +444,17 @@ SS.soundDesign = (() => {
     const root = track.lastRoot ?? (track.octave + 1) * 12;
     const notes = track.category === 'mono' ? root : SS.chordNotes(root, track.chord);
     const p = params();
-    SS.audio.preview(track, notes, Math.min(1.6, Math.max(0.6, p.attack + p.decay + 0.3)));
+    let dur = Math.min(1.6, Math.max(0.6, p.attack + p.decay + 0.3));
+    // LFO : on écoute assez longtemps pour l'entendre bouger (un cycle, entre 2 et 6 s)
+    const lfos = SS.activeLfos(p);
+    if (lfos.length) {
+      const pr = app.project && app.project();
+      const clock = SS.lfoClock(pr ? pr.tempo : 120, pr ? SS.stepsPerBar(pr) / 4 : 4);
+      const cycle = Math.max(...lfos.map((l) => 1 / SS.lfoHz(l, clock)));
+      dur = Math.max(dur, Math.min(6, Math.max(2, cycle)));
+    }
+    if (p.attack > 1.2) dur = Math.max(dur, Math.min(8, p.attack + 1));
+    SS.audio.preview(track, notes, dur);
   }
 
   /** Démo du glide : quelques notes liées (une octave, une quinte) pour l'entendre glisser. */

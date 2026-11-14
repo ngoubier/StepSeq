@@ -136,6 +136,10 @@ const SYNTHS = {
     synth('moogbass', 'Moog Bass (synthé, ladder + glide)', { wave: 'sawtooth', voices: 2, detune: 7, ftype: 'ladder', fdrive: 0.6, cutoff: 160, q: 12, env: 4, fattack: 0.003, fdecay: 0.28, fsustain: 0.15, frelease: 0.12, decay: 0.3, sustain: 0.8, release: 0.06, glide: 0.07, glideMode: 'legato' }),
     synth('acidladder', 'Acid Ladder (synthé)', { wave: 'sawtooth', ftype: 'ladder', fdrive: 0.8, cutoff: 260, q: 22, env: 3.6, decay: 0.18, sustain: 0.5, release: 0.05, glide: 0.05, glideMode: 'legato' }),
     synth('reese', 'Reese Bass (synthé)', { wave: 'sawtooth', voices: 2, detune: 22, cutoff: 600, env: 1.2, q: 2, decay: 0.4, sustain: 0.8, release: 0.12 }),
+    synth('pwmbass', 'PWM Bass (synthé, LFO 1 mesure)', { wave: 'pulse', pw: 0.35, ftype: '24db', cutoff: 650, env: 2.2, q: 3, decay: 0.3, sustain: 0.7, release: 0.08, lfo1Dest: 'pw', lfo1Shape: 'triangle', lfo1Rate: 'b1', lfo1Amt: 0.6 }),
+    synth('evolbass', 'Evolving Bass (synthé, cutoff sur 4 mesures)', { wave: 'sawtooth', voices: 2, detune: 9, ftype: 'ladder', fdrive: 0.6, cutoff: 260, q: 10, env: 2, fdecay: 0.3, fsustain: 0.3, decay: 0.4, sustain: 0.8, release: 0.1, lfo1Dest: 'cutoff', lfo1Shape: 'sine', lfo1Rate: 'b4', lfo1Amt: 0.4 }),
+    synth('wobble', 'Wobble Bass (synthé, LFO 1/8)', { wave: 'sawtooth', voices: 2, detune: 12, ftype: 'ladder', fdrive: 0.7, cutoff: 300, q: 14, env: 0, decay: 0.3, sustain: 1, release: 0.08, lfo1Dest: 'cutoff', lfo1Shape: 'sine', lfo1Rate: 'n8', lfo1Mode: 'retrig', lfo1Amt: 0.6 }),
+    synth('pwmreese', 'PWM Reese (synthé, PWM lent)', { wave: 'pulse', voices: 2, detune: 18, pw: 0.5, cutoff: 700, env: 1, q: 2, decay: 0.4, sustain: 0.85, release: 0.15, lfo1Dest: 'pw', lfo1Shape: 'sine', lfo1Rate: 'b2', lfo1Amt: 0.7, lfo2Dest: 'cutoff', lfo2Shape: 'smooth', lfo2Rate: 'b8', lfo2Amt: 0.25 }),
   ],
   synth: [
     synth('saw', 'Sawtooth (synthé)', { wave: 'sawtooth', cutoff: 1800, env: 1.4, q: 2, decay: 0.3, sustain: 0.6, release: 0.12 }),
@@ -149,6 +153,9 @@ const SYNTHS = {
   pads: [
     synth('softpad', 'Soft Pad (synthé)', { wave: 'sawtooth', voices: 2, detune: 10, cutoff: 900, env: 0.5, q: 1, attack: 0.25, decay: 0.6, sustain: 0.8, release: 0.8 }),
     synth('glasspad', 'Glass Pad (synthé)', { wave: 'triangle', voices: 2, detune: 7, cutoff: 4000, env: 0, q: 0, attack: 0.3, decay: 0.5, sustain: 0.9, release: 1.0 }),
+    synth('pwmpad', 'PWM Strings (synthé, PWM lent)', { wave: 'pulse', voices: 3, detune: 9, pw: 0.5, cutoff: 2600, env: 0.4, q: 1, attack: 0.6, decay: 1, sustain: 0.85, release: 1.6, lfo1Dest: 'pw', lfo1Shape: 'triangle', lfo1Rate: 'hz', lfo1Hz: 0.35, lfo1Amt: 0.75 }),
+    synth('breathpad', 'Breathing Pad (synthé, ambient, 8 mesures)', { wave: 'pulse', voices: 2, detune: 6, pw: 0.3, cutoff: 700, env: 0, q: 3, attack: 3, decay: 2, sustain: 0.9, release: 6, lfo1Dest: 'cutoff', lfo1Shape: 'sine', lfo1Rate: 'b8', lfo1Amt: 0.5, lfo2Dest: 'pw', lfo2Shape: 'smooth', lfo2Rate: 'b2', lfo2Amt: 0.6, lfo2Fade: 2 }),
+    synth('drone', 'Drone (synthé, ambient, dérive aléatoire)', { wave: 'sawtooth', voices: 3, detune: 5, ftype: 'sem', cutoff: 500, env: 0, q: 6, attack: 6, decay: 3, sustain: 1, release: 10, lfo1Dest: 'cutoff', lfo1Shape: 'smooth', lfo1Rate: 'b4', lfo1Amt: 0.45, lfo2Dest: 'pan', lfo2Shape: 'sine', lfo2Rate: 'b16', lfo2Amt: 0.5 }),
     synth('superpad', 'Supersaw Pad (synthé)', { wave: 'supersaw', voices: 7, detune: 25, cutoff: 1400, env: 0.8, q: 1, attack: 0.5, decay: 1, sustain: 0.8, release: 1.4, fattack: 1.2, fdecay: 1.5, fsustain: 0.5, frelease: 1.4 }),
   ],
   fx: [
@@ -417,6 +424,7 @@ SS.COLORS = ['#e3179c', '#ff4d6d', '#f08a00', '#f5c400', '#3fcf3f', '#13c2a3', '
 SS.WAVES = [
   { id: 'sawtooth', label: 'Saw' },
   { id: 'square', label: 'Square' },
+  { id: 'pulse', label: 'Pulse' },
   { id: 'triangle', label: 'Triangle' },
   { id: 'sine', label: 'Sine' },
   { id: 'supersaw', label: 'Supersaw' },
@@ -471,12 +479,14 @@ SS.soundDefaults = (track) => {
       fdecay: p.fdecay ?? p.decay ?? 0.2,
       fsustain: p.fsustain ?? p.sustain ?? 0.7,
       frelease: p.frelease ?? p.release ?? 0.1,
+      ...(SS.modDefaults ? SS.modDefaults(p) : {}),
     };
   }
   const rel = inst.release ?? 0.15;
   return {
     ...base, wave: null, cutoff: 20000, q: 0, env: 0, attack: 0.005, decay: 0.3, sustain: 1, release: rel,
     fattack: 0.005, fdecay: 0.3, fsustain: 0.3, frelease: rel,
+    ...(SS.modDefaults ? SS.modDefaults() : {}),
   };
 };
 
@@ -503,12 +513,12 @@ SS.FX_DEFAULTS = {
   delay: 0, delayTime: '3/16', delayFeedback: 0.4, // strudel : delay, delaytime, delayfeedback
   room: 0, roomSize: 2.5, roomLp: 8000, // strudel : room, roomsize (s), roomlp (Hz)
   scSource: '', scDepth: 0.6, scRelease: 0.22, // sidechain : piste qui déclenche, profondeur 0..1, relâchement (s)
-  sendPlate: 0, sendHall: 0, sendEcho: 0, // envois vers les bus partagés (SS.RETURN_DEFAULTS), 0..1
+  sendPlate: 0, sendHall: 0, sendEcho: 0, sendSpace: 0, // envois vers les bus partagés (SS.RETURN_DEFAULTS), 0..1
 };
 SS.fxParams = (track) => ({ ...SS.FX_DEFAULTS, ...(track.fx || {}) });
 SS.fxActive = (track) => {
   const f = SS.fxParams(track);
-  return f.chorus > 0 || f.delay > 0 || f.room > 0 || f.sendPlate > 0 || f.sendHall > 0 || f.sendEcho > 0 || (!!f.scSource && f.scDepth > 0);
+  return f.chorus > 0 || f.delay > 0 || f.room > 0 || f.sendPlate > 0 || f.sendHall > 0 || f.sendEcho > 0 || f.sendSpace > 0 || (!!f.scSource && f.scDepth > 0);
 };
 SS.delaySeconds = (fx, tempo) => {
   const d = SS.DELAY_TIMES.find((x) => x.id === fx.delayTime) || SS.DELAY_TIMES[3];

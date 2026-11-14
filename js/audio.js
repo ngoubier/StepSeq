@@ -502,15 +502,17 @@ SS.audio = (() => {
   function autoNodes(b) {
     if (b.auto) return b.auto;
     const rs = ensureReturns();
-    const a = { lp: ctx.createBiquadFilter(), hp: ctx.createBiquadFilter(), vol: ctx.createGain(), reverb: ctx.createGain(), echo: ctx.createGain(), active: false };
+    const a = { lp: ctx.createBiquadFilter(), hp: ctx.createBiquadFilter(), vol: ctx.createGain(), reverb: ctx.createGain(), echo: ctx.createGain(), space: ctx.createGain(), active: false };
     a.lp.type = 'lowpass';
     a.hp.type = 'highpass';
     a.reverb.gain.value = 0;
     a.echo.gain.value = 0;
+    a.space.gain.value = 0;
     b.pre.disconnect(b.duck);
     b.pre.connect(a.lp).connect(a.hp).connect(a.vol).connect(b.duck);
     b.duck.connect(a.reverb).connect(rs.hall.in);
     b.duck.connect(a.echo).connect(rs.echo.in);
+    b.duck.connect(a.space).connect(rs.space.in);
     if (lastMasterProject) applyReturns(lastMasterProject);
     b.auto = a;
     autoNeutral(a, ctx.currentTime);
@@ -521,12 +523,12 @@ SS.audio = (() => {
   function autoTargets(v) {
     const f = SS.autoFilterHz(v.filter);
     const nyq = ctx.sampleRate / 2 - 100;
-    return { lp: Math.min(nyq, f.lp), hp: f.hp, q: AUTO_Q(v.res), vol: v.volume, reverb: v.reverb, echo: v.echo };
+    return { lp: Math.min(nyq, f.lp), hp: f.hp, q: AUTO_Q(v.res), vol: v.volume, reverb: v.reverb, echo: v.echo, space: v.space };
   }
   function autoNeutral(a, at) {
     const d = Object.fromEntries(SS.AUTO_PARAMS.map((P) => [P.id, P.def]));
     const x = autoTargets(d);
-    for (const [node, val] of [[a.lp.frequency, x.lp], [a.hp.frequency, x.hp], [a.lp.Q, x.q], [a.hp.Q, x.q], [a.vol.gain, x.vol], [a.reverb.gain, x.reverb], [a.echo.gain, x.echo]]) {
+    for (const [node, val] of [[a.lp.frequency, x.lp], [a.hp.frequency, x.hp], [a.lp.Q, x.q], [a.hp.Q, x.q], [a.vol.gain, x.vol], [a.reverb.gain, x.reverb], [a.echo.gain, x.echo], [a.space.gain, x.space]]) {
       node.cancelScheduledValues(at);
       node.setValueAtTime(val, at);
     }
@@ -569,6 +571,7 @@ SS.audio = (() => {
     lin(a.vol.gain, x0.vol, x1.vol);
     lin(a.reverb.gain, x0.reverb, x1.reverb);
     lin(a.echo.gain, x0.echo, x1.echo);
+    lin(a.space.gain, x0.space, x1.space);
     a.active = true;
   }
   /** Arrêt : toutes les automations reviennent au neutre (écoute d'une piste, essais de son). */
@@ -581,7 +584,7 @@ SS.audio = (() => {
     const b = buses.get(track.id);
     if (!b || !b.auto) return null;
     const a = b.auto;
-    return { lp: a.lp.frequency.value, hp: a.hp.frequency.value, q: a.lp.Q.value, vol: a.vol.gain.value, reverb: a.reverb.gain.value, echo: a.echo.gain.value };
+    return { lp: a.lp.frequency.value, hp: a.hp.frequency.value, q: a.lp.Q.value, vol: a.vol.gain.value, reverb: a.reverb.gain.value, echo: a.echo.gain.value, space: a.space.gain.value };
   }
 
   /* ---------------- Bus d'effets partagés (retours) ---------------- */
@@ -594,22 +597,77 @@ SS.audio = (() => {
     r.in.connect(r.pre).connect(r.hp).connect(r.conv).connect(r.lp).connect(r.out).connect(master);
     return r;
   }
-  /** L'écho partagé : ping-pong stéréo (gauche puis droite), répétitions de plus en plus sombres. */
+  /**
+   * L'écho partagé, façon délai à bande : ping-pong stéréo (gauche puis droite), répétitions de plus en plus
+   * sombres, saturées dans la boucle (la réinjection peut aller jusqu'à 100 % sans s'emballer) et vitesse de
+   * la bande qui fluctue (wow lent + flutter rapide, qui module les retards).
+   */
   function buildReturnEcho() {
-    const e = { in: ctx.createGain(), hp: ctx.createBiquadFilter(), dL: ctx.createDelay(3), dR: ctx.createDelay(3), fb: ctx.createGain(), tone: ctx.createBiquadFilter(), merge: ctx.createChannelMerger(2), out: ctx.createGain() };
+    const e = { in: ctx.createGain(), hp: ctx.createBiquadFilter(), dL: ctx.createDelay(3), dR: ctx.createDelay(3), fb: ctx.createGain(), tone: ctx.createBiquadFilter(), sat: ctx.createWaveShaper(), merge: ctx.createChannelMerger(2), out: ctx.createGain(), key: '' };
     e.hp.type = 'highpass';
     e.tone.type = 'lowpass';
-    // entrée (mono) -> gauche -> droite -> filtre -> feedback -> gauche…
+    // entrée (mono) -> gauche -> droite -> filtre -> saturation -> feedback -> gauche…
     e.in.connect(e.hp).connect(e.dL);
     e.dL.connect(e.dR);
-    e.dR.connect(e.tone).connect(e.fb).connect(e.dL);
+    e.dR.connect(e.tone).connect(e.sat).connect(e.fb).connect(e.dL);
+    // wow (0,55 Hz) et flutter (6,3 Hz) : légères variations du retard, donc de la hauteur des répétitions
+    e.wow = ctx.createOscillator();
+    e.flutter = ctx.createOscillator();
+    e.wow.frequency.value = 0.55;
+    e.flutter.frequency.value = 6.3;
+    e.wowGain = ctx.createGain();
+    e.flutterGain = ctx.createGain();
+    e.wowGain.gain.value = 0;
+    e.flutterGain.gain.value = 0;
+    e.wow.connect(e.wowGain);
+    e.flutter.connect(e.flutterGain);
+    [e.wowGain, e.flutterGain].forEach((g) => {
+      g.connect(e.dL.delayTime);
+      g.connect(e.dR.delayTime);
+    });
+    e.wow.start();
+    e.flutter.start();
     e.dL.connect(e.merge, 0, 0);
     e.dR.connect(e.merge, 0, 1);
     e.merge.connect(e.out).connect(master);
     return e;
   }
+  /** Courbe de saturation de la bande : linéaire au centre, plafonnée (gain 1 à bas niveau). */
+  function tapeCurve(drive) {
+    const g = 1 + 5 * drive;
+    const c = new Float32Array(1025);
+    for (let i = 0; i < c.length; i++) {
+      const x = (i / (c.length - 1)) * 2 - 1; // entrée du WaveShaper : −1 … 1
+      c[i] = Math.tanh(g * x) / g;
+    }
+    return c;
+  }
+  /**
+   * « Cosmos » : reverb algorithmique longue (js/space-dsp.js), avec gel et shimmer.
+   * envoi -> pré-délai -> reverb (AudioWorklet, branchée dès que le module est chargé) -> passe-haut -> passe-bas -> retour.
+   */
+  function buildReturnSpace() {
+    const r = { in: ctx.createGain(), pre: ctx.createDelay(0.5), node: null, hp: ctx.createBiquadFilter(), lp: ctx.createBiquadFilter(), out: ctx.createGain() };
+    r.hp.type = 'highpass';
+    r.lp.type = 'lowpass';
+    r.in.connect(r.pre);
+    r.hp.connect(r.lp).connect(r.out).connect(master);
+    if (SS.space) {
+      const own = ctx;
+      SS.space
+        .load(own)
+        .then(() => {
+          if (ctx !== own || r.node) return;
+          r.node = SS.space.create(own);
+          r.pre.connect(r.node).connect(r.hp);
+          if (lastMasterProject) applyReturns(lastMasterProject);
+        })
+        .catch(() => {});
+    }
+    return r;
+  }
   function ensureReturns() {
-    if (!returns) returns = { plate: buildReturnReverb(), hall: buildReturnReverb(), echo: buildReturnEcho() };
+    if (!returns) returns = { plate: buildReturnReverb(), hall: buildReturnReverb(), echo: buildReturnEcho(), space: buildReturnSpace() };
     return returns;
   }
   /** Règle les bus partagés du projet (durées, filtres, temps de l'écho selon le tempo). */
@@ -640,6 +698,29 @@ SS.audio = (() => {
     ramp(e.hp.frequency, p.hp);
     ramp(e.tone.frequency, p.lp);
     ramp(e.out.gain, p.level);
+    ramp(e.wowGain.gain, p.wow * Math.min(0.006, t * 0.02)); // jusqu'à ±6 ms
+    ramp(e.flutterGain.gain, p.wow * 0.0004);
+    const key = p.drive.toFixed(2);
+    if (e.key !== key) {
+      e.sat.curve = tapeCurve(p.drive);
+      e.key = key;
+    }
+    // Cosmos
+    const sp = returns.space;
+    const q = rp.space;
+    ramp(sp.pre.delayTime, q.predelay);
+    ramp(sp.hp.frequency, q.hp);
+    ramp(sp.lp.frequency, q.lp);
+    ramp(sp.out.gain, 1.6 * q.level);
+    if (sp.node) {
+      const P = (n) => sp.node.parameters.get(n);
+      P('decay').setValueAtTime(q.decay, now);
+      P('size').setValueAtTime(q.size, now);
+      P('damp').setValueAtTime(q.damp, now);
+      P('mod').setValueAtTime(q.mod, now);
+      P('shimmer').setValueAtTime(q.shimmer, now);
+      P('freeze').setValueAtTime(q.freeze ? 1 : 0, now);
+    }
   }
 
   /** Applique les réglages de console d'une piste (EQ, comp, limiteur, panoramique). */
@@ -769,7 +850,7 @@ SS.audio = (() => {
       if (b.delay) b.delay.tone.disconnect(); // coupe la boucle de feedback
       if (b.reverb) b.reverb.out.disconnect();
       if (b.sends) Object.values(b.sends).forEach((g) => g.disconnect());
-      if (b.auto) [b.auto.vol, b.auto.reverb, b.auto.echo].forEach((g) => g.disconnect());
+      if (b.auto) [b.auto.vol, b.auto.reverb, b.auto.echo, b.auto.space].forEach((g) => g.disconnect());
     }
     buses.delete(id);
     glides.delete(id);
@@ -873,7 +954,7 @@ SS.audio = (() => {
       ramp(b.delay.node.delayTime, SS.delaySeconds(f, currentTempo));
     }
     // envois vers les bus partagés (post-fader, après le sidechain)
-    for (const [key, name] of [['sendPlate', 'plate'], ['sendHall', 'hall'], ['sendEcho', 'echo']]) {
+    for (const [key, name] of [['sendPlate', 'plate'], ['sendHall', 'hall'], ['sendEcho', 'echo'], ['sendSpace', 'space']]) {
       if (!(f[key] > 0) && !(b.sends && b.sends[name])) continue;
       const rs = ensureReturns();
       if (!b.sends) b.sends = {};
@@ -1020,16 +1101,34 @@ SS.audio = (() => {
     amp.gain.setTargetAtTime(0, tOff, release / 4);
     last.connect(amp);
 
+    // LFO vers le volume (trémolo) : gain après le VCA ; LFO vers le pan : panoramique toujours présent
+    const lfos = SS.activeLfos ? SS.activeLfos(p) : [];
+    let tail = amp;
+    let trem = null;
+    if (lfos.some((l) => l.dest === 'amp')) {
+      trem = ctx.createGain();
+      amp.connect(trem);
+      tail = trem;
+    }
+
     // panoramique
-    if (p.pan && ctx.createStereoPanner) {
+    let panParam = null;
+    if ((p.pan || lfos.some((l) => l.dest === 'pan')) && ctx.createStereoPanner) {
       const pan = ctx.createStereoPanner();
-      pan.pan.value = Math.max(-1, Math.min(1, p.pan));
-      amp.connect(pan).connect(dest);
-    } else amp.connect(dest);
+      pan.pan.value = Math.max(-1, Math.min(1, p.pan || 0));
+      panParam = pan.pan;
+      tail.connect(pan).connect(dest);
+    } else tail.connect(dest);
 
     const chain = {
       input: flt.input,
       amp,
+      flt,
+      trem,
+      panParam,
+      lfos,
+      t,
+      hooks: [], // fonctions (newEnd, oldEnd) appelées quand une note legato prolonge la voix
       tOff,
       end: tOff + release * 1.5 + 0.05,
       /**
@@ -1047,7 +1146,9 @@ SS.audio = (() => {
             fRelease(param, Math.max(newOff, t + fa));
           });
         chain.tOff = newOff;
+        const oldEnd = chain.end;
         chain.end = newOff + release * 1.5 + 0.05;
+        chain.hooks.forEach((h) => h(chain.end, oldEnd));
         return chain.end;
       },
     };
@@ -1073,6 +1174,12 @@ SS.audio = (() => {
       param.cancelScheduledValues(t);
       if (from != null) param.setValueAtTime(offset + (from - voice.baseMidi) * 100, t);
       param.setTargetAtTime(offset + (midi - voice.baseMidi) * 100, t, tc);
+    });
+    // retards du PWM : proportionnels à la période, ils suivent la hauteur
+    (voice.follow || []).forEach(({ param, base }) => {
+      param.cancelScheduledValues(t);
+      if (from != null) param.setValueAtTime(base * Math.pow(2, -(from - voice.baseMidi) / 12), t);
+      param.setTargetAtTime(base * Math.pow(2, -(midi - voice.baseMidi) / 12), t, tc);
     });
   }
 
@@ -1144,7 +1251,8 @@ SS.audio = (() => {
     src.connect(chain.input);
     src.start(t);
     src.stop(chain.end);
-    register([src], chain.amp);
+    const mods = applyLfos(p, chain, { pitch: src.detune ? [src.detune] : [], pw: [] });
+    register([src, ...mods], chain.amp);
     return trackVoice([src], chain, baseMidi, src.detune ? [{ param: src.detune, offset: 0 }] : []);
   }
 
@@ -1172,6 +1280,84 @@ SS.audio = (() => {
     return buf;
   }
 
+  /*
+   * Horloge musicale des LFO calés sur le tempo (js/modulation.js) : nombre de noires écoulées depuis Lecture,
+   * mis à jour à chaque pas programmé (suit les changements de tempo). Hors lecture (écoute d'un son), l'horloge
+   * part de 0 au tempo du projet.
+   */
+  let lfoClock = null;
+  function clockReset(project, time, quarter) {
+    lfoClock = SS.lfoClock ? SS.lfoClock(project.tempo, SS.stepsPerBar(project) / 4, time, quarter) : null;
+  }
+  function clockAdvance(project, time) {
+    if (!lfoClock) return clockReset(project, time, 0);
+    lfoClock.quarter += ((time - lfoClock.time) * lfoClock.tempo) / 60;
+    lfoClock.time = time;
+    lfoClock.tempo = project.tempo;
+    lfoClock.quarterBar = SS.stepsPerBar(project) / 4;
+  }
+  function currentClock() {
+    if (seq.playing && lfoClock) return lfoClock;
+    const project = seq.getProject ? seq.getProject() : null;
+    return SS.lfoClock(project ? project.tempo : 120, project ? SS.stepsPerBar(project) / 4 : 4, 0, 0);
+  }
+
+  /**
+   * Branche les LFO actifs d'une voix (p.lfo1…, p.lfo2…) : une source constante par LFO, dont la valeur suit
+   * une courbe calculée d'avance (phase calée sur la lecture en mode Libre, sur la note en mode Retrig), puis
+   * un gain par destination. `targets` : { pitch: [AudioParam en cents], pw: [{ param, period }] }.
+   * Renvoie les sources créées (à arrêter avec la voix).
+   */
+  function applyLfos(p, chain, targets) {
+    const lfos = chain.lfos || [];
+    if (!lfos.length) return [];
+    const clock = currentClock();
+    const tOn = chain.t;
+    const sources = [];
+    lfos.forEach((lfo) => {
+      const dests = [];
+      const amt = lfo.amt;
+      if (lfo.dest === 'pitch') targets.pitch.forEach((param) => dests.push([param, amt * 1200]));
+      else if (lfo.dest === 'cutoff') (chain.flt.detunes || []).forEach((param) => dests.push([param, amt * 4800]));
+      else if (lfo.dest === 'pw') targets.pw.forEach(({ param, period }) => dests.push([param, amt * 0.45 * period]));
+      else if (lfo.dest === 'amp' && chain.trem) {
+        // trémolo entre 1 − |quantité| et 1
+        chain.trem.gain.value = 1 - Math.abs(amt) / 2;
+        dests.push([chain.trem.gain, amt / 2]);
+      } else if (lfo.dest === 'pan' && chain.panParam) dests.push([chain.panParam, amt]);
+      if (!dests.length) return;
+      const seed = SS.lfoSeed(p._track, lfo.index);
+      const src = ctx.createConstantSource();
+      src.offset.value = 0;
+      const curve = (a, b) => SS.lfoCurve(lfo, a, b, tOn, clock, seed);
+      try {
+        src.offset.setValueCurveAtTime(curve(tOn, chain.end), tOn, chain.end - tOn);
+      } catch (e) {
+        return;
+      }
+      dests.forEach(([param, depth]) => {
+        const g = ctx.createGain();
+        g.gain.value = depth;
+        src.connect(g).connect(param);
+      });
+      src.start(tOn);
+      src.stop(chain.end);
+      // note legato : la voix dure plus longtemps, la courbe continue sans saut (même horloge)
+      chain.hooks.push((end, oldEnd) => {
+        if (end <= oldEnd) return;
+        const from = oldEnd + 0.002;
+        try {
+          src.offset.setValueCurveAtTime(curve(from, end), from, end - from);
+        } catch (e) {
+          /* courbe déjà dépassée : la valeur reste au dernier point */
+        }
+        src.stop(end);
+      });
+      sources.push(src);
+    });
+    return sources;
+  }
+
   function synthVoice(p, midi, time, dur, vel, dest) {
     const t = Math.max(time, ctx.currentTime);
     const freq = 440 * Math.pow(2, (midi - 69) / 12);
@@ -1186,7 +1372,8 @@ SS.audio = (() => {
       src.connect(g).connect(chain.input);
       src.start(t, Math.random() * 1.5);
       src.stop(chain.end);
-      register([src], chain.amp);
+      const mods = applyLfos(p, chain, { pitch: [], pw: [] });
+      register([src, ...mods], chain.amp);
       return trackVoice([src], chain, midi, []); // le bruit n'a pas de hauteur
     }
     const type = p.wave === 'supersaw' ? 'sawtooth' : p.wave || 'sawtooth';
@@ -1194,22 +1381,44 @@ SS.audio = (() => {
     const detune = p.wave === 'supersaw' ? Math.max(8, p.detune || 0) : p.detune || 0;
     const oscs = [];
     const detunes = [];
+    const pws = []; // retards du PWM : { param, base, period }
+    const pulse = p.wave === 'pulse';
+    const width = Math.max(0.02, Math.min(0.98, p.pw ?? 0.5));
     for (let i = 0; i < n; i++) {
       const o = ctx.createOscillator();
-      o.type = type;
+      o.type = pulse ? 'sawtooth' : type;
       o.frequency.value = freq;
       const offset = n > 1 ? ((i / (n - 1)) * 2 - 1) * detune : 0;
       o.detune.value = offset;
       detunes.push({ param: o.detune, offset });
       const og = ctx.createGain();
       og.gain.value = 1 / Math.sqrt(n);
-      o.connect(og).connect(chain.input);
+      o.connect(og);
+      if (pulse) {
+        /*
+         * Onde Pulse : différence de deux dents de scie décalées de `width` période (saw(t) − saw(t − w·T)).
+         * Les dents de scie natives sont à bande limitée : l'impulsion l'est aussi (pas de repliement), sa
+         * moyenne est nulle quelle que soit la largeur, et moduler le retard module la largeur (PWM).
+         */
+        const period = 1 / (freq * Math.pow(2, offset / 1200));
+        const dl = ctx.createDelay(0.25);
+        const base = width * period;
+        dl.delayTime.value = base;
+        const inv = ctx.createGain();
+        inv.gain.value = -1;
+        o.connect(dl).connect(inv).connect(og);
+        pws.push({ param: dl.delayTime, base, period });
+      }
+      og.connect(chain.input);
       o.start(t);
       o.stop(chain.end);
       oscs.push(o);
     }
-    register(oscs, chain.amp);
-    return trackVoice(oscs, chain, midi, detunes);
+    const mods = applyLfos(p, chain, { pitch: oscs.map((o) => o.detune), pw: pws });
+    register([...oscs, ...mods], chain.amp);
+    const v = trackVoice(oscs, chain, midi, detunes);
+    v.follow = pws.map(({ param, base }) => ({ param, base }));
+    return v;
   }
 
   /** Base d'URL de Dirt-Samples (lue dans strudel.json). */
@@ -1232,6 +1441,8 @@ SS.audio = (() => {
       return;
     }
     let p = SS.soundParams(track);
+    p._track = track.id || 'preview';
+    if (mod && mod.locks) p = SS.applyVoiceLocks(p, mod.locks); // automation du son (verrous par pas)
     if (mod && mod.cutoff && mod.cutoff !== 1) p = { ...p, cutoff: Math.max(30, Math.min(20000, p.cutoff * mod.cutoff)) };
     // ce qui suit doit rester synchrone jusqu'au glide (ordre des notes) : on résout d'abord la source
     let src = null; // { buffer, rate, loop }
@@ -1447,10 +1658,11 @@ SS.audio = (() => {
           });
           notes.forEach((n) => {
             const t = time + n.at;
+            const locks = SS.voiceLocks(track, step + n.at / sd, len);
             // notes simultanées (mode Accord rythmique) : jouées comme un accord (glide, niveau)
             const group = notes.filter((x) => x.at === n.at);
             const gi = group.indexOf(n);
-            playNote(track, n.midi, t + jt(), n.dur, jv(n.vel * (group.length > 1 ? 0.8 : 1)), undefined, gi, group.length, { cutoff: n.cutoff });
+            playNote(track, n.midi, t + jt(), n.dur, jv(n.vel * (group.length > 1 ? 0.8 : 1)), undefined, gi, group.length, { cutoff: n.cutoff, locks });
             if (n.first) duckFrom(project, track, t); // un arpège déclenche le sidechain au début de chaque accord
           });
         } else if (ev.step === step) {
@@ -1462,10 +1674,12 @@ SS.audio = (() => {
           // ratchet : la note est rejouée dans son premier pas ; la dernière répétition tient le reste de la note
           const r = ev.rat || 1;
           const sub = sd / r;
+          // automation du son (track.auto, réglages « voice ») : valeur au pas de la note
+          const locks = SS.voiceLocks(track, ev.step, SS.trackLen(project, track));
           for (let j = 0; j < r; j++) {
             const d = j < r - 1 ? sub * 0.9 : Math.max(sub * 0.9, dur - j * sub);
             const v = vv * (ev.notes.length > 1 ? 0.8 : 1) * (j ? 0.85 : 1);
-            ev.notes.forEach((n, i) => playNote(track, n, tt + j * sub, d, v, undefined, i, ev.notes.length));
+            ev.notes.forEach((n, i) => playNote(track, n, tt + j * sub, d, v, undefined, i, ev.notes.length, locks ? { locks } : null));
           }
           duckFrom(project, track, tt);
         }
@@ -1507,6 +1721,7 @@ SS.audio = (() => {
         seq.loops = (seq.loops || 0) + 1; // cycles complets : sert au passage des conditions de déclenchement
       }
       const t = seq.nextTime + SS.grooveOffset(project, seq.step, stepDur(project));
+      clockAdvance(project, seq.nextTime);
       project.tracks.forEach((tr) => scheduleAuto(project, tr, seq.step, seq.nextTime, stepDur(project)));
       scheduleStep(project, seq.step, t);
       seq.queue.push({ step: seq.step, time: t, song: seq.song ? { index: seq.song.index, rep: seq.song.rep } : null });
@@ -1552,6 +1767,7 @@ SS.audio = (() => {
         seq.queue.push({ step: -1, time: seq.nextTime, block: sg.index, rep: sg.rep });
       }
       const t = seq.nextTime + SS.grooveOffset(project, seq.step, stepDur(project));
+      clockAdvance(project, seq.nextTime);
       project.tracks.forEach((tr) => scheduleAuto(project, tr, seq.step, seq.nextTime, stepDur(project)));
       scheduleStep(project, seq.step, t);
       seq.queue.push({ step: seq.step, time: t, song: seq.song ? { index: seq.song.index, rep: seq.song.rep } : null });
@@ -1599,6 +1815,7 @@ SS.audio = (() => {
     if (ctx.state !== 'running') jobs.push(ctx.resume().catch(() => {}));
     if (masterReady) jobs.push(masterReady);
     if (SS.filters) jobs.push(Promise.resolve(SS.filters.load(ctx)).catch(() => {}));
+    if (SS.space) jobs.push(Promise.resolve(SS.space.load(ctx)).catch(() => {}));
     return Promise.race([Promise.all(jobs), new Promise((r) => setTimeout(r, READY_TIMEOUT_MS))]);
   }
 
@@ -1648,6 +1865,7 @@ SS.audio = (() => {
     seq.loops = 0;
     seq.queue = [];
     seq.nextTime = ctx.currentTime + 0.08;
+    clockReset(getProject(), seq.nextTime, seq.step / 4); // LFO calés sur le tempo : phase alignée sur la grille
     if (seq.song) seq.queue.push({ step: -1, time: seq.nextTime, block: seq.song.index, rep: 0 });
     getProject().tracks.forEach(prepareTrack); // scène du premier bloc (mode chanson) : déjà en cache le plus souvent
     tick();
