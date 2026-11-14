@@ -91,6 +91,9 @@ function ssSpaceModule(scope) {
         const keep = 1 - fz;
         let a = inL ? inL[s] : 0;
         let b = inR ? inR[s] : 0;
+        // entrée invalide (NaN, infini) : neutralisée, sinon toutes les lignes resteraient bloquées
+        if (!(a > -1e4 && a < 1e4)) { a = 0; this.bad = true; }
+        if (!(b > -1e4 && b < 1e4)) { b = 0; this.bad = true; }
         for (const ap of this.diff[0]) a = this.allpass(ap, a);
         for (const ap of this.diff[1]) b = this.allpass(ap, b);
         // shimmer : sortie précédente transposée, sans graves, réinjectée
@@ -159,7 +162,24 @@ function ssSpaceModule(scope) {
       }
       // évite les nombres dénormalisés
       for (let i = 0; i < N; i++) if (Math.abs(lp[i]) < 1e-20) lp[i] = 0;
+      if (!(Math.abs(lp[0]) < 1e4) || !(Math.abs(lp[3]) < 1e4)) this.reset();
+      if (this.bad) {
+        this.bad = false;
+        if (currentFrame - (this.badAt ?? -1e9) > sampleRate) this.port.postMessage({ type: 'bad' });
+        this.badAt = currentFrame;
+      }
       return true;
+    }
+    /** Repart d'un état propre (après un signal invalide). */
+    reset() {
+      this.lines.forEach((l) => l.fill(0));
+      this.diff.forEach((c) => c.forEach((ap) => ap.buf.fill(0)));
+      this.lp.fill(0);
+      this.y.fill(0);
+      this.ps.fill(0);
+      this.shHp = 0;
+      this.shOut = 0;
+      this.bad = true;
     }
   }
   scope.registerProcessor('ss-space', Space);

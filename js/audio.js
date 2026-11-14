@@ -33,6 +33,8 @@ SS.audio = (() => {
       masterFader = ctx.createGain();
       masterFader.gain.value = 0.8;
       masterMeter = makeMeter();
+      masterInMeter = makeMeter(); // somme des pistes et retours, avant tout traitement du Master
+      master.connect(masterInMeter.node);
       master.connect(masterStrip.entry);
       masterStrip.out.connect(masterFader);
       masterFader.connect(ctx.destination);
@@ -40,22 +42,78 @@ SS.audio = (() => {
       // mastering (js/master-dsp.js) : inséré après le fader dès que le module audio est chargé
       if (SS.mastering)
         masterReady = SS.mastering.load(ctx).then(() => {
-          masterProc = SS.mastering.create(ctx);
-          masterProc.port.onmessage = (e) => (loudness = e.data);
           // seules la sortie et le vumètre passent après le mastering (les points d'écoute de l'Auto Mix restent branchés)
           masterFader.disconnect(ctx.destination);
           masterFader.disconnect(masterMeter.node);
-          masterFader.connect(masterProc);
-          masterProc.connect(ctx.destination);
-          masterProc.connect(masterMeter.node);
-          if (lastMasterProject) applyMastering(lastMasterProject);
+          insertMastering();
         }).catch(() => {});
       if (pendingMaster) applyMaster(pendingMaster);
+      ctx.onstatechange = () => healthEvent('state', ctx.state);
+      watchRender();
       if (SS.juno) SS.juno.load(ctx); // module audio du Juno-106 (pistes Synthé)
       if (SS.filters) SS.filters.load(ctx); // filtres ladder / SEM (sound design)
     }
     if (ctx.state === 'suspended') ctx.resume();
     return ctx;
+  }
+
+  /** Branche (ou rebranche, après une panne) le processeur de mastering entre le fader et la sortie. */
+  function insertMastering() {
+    if (masterProc) {
+      masterFader.disconnect(masterProc);
+      masterProc.disconnect();
+    }
+    masterProc = SS.mastering.create(ctx);
+    watchNode(masterProc, { label: 'Mastering', area: 'master' }, (d) => {
+      loudness = d;
+      if (d.bad) healthEvent('bad', 'Mastering', { area: 'master', samples: d.bad });
+      if (d.over) clipped += d.over;
+    });
+    masterFader.connect(masterProc);
+    masterProc.connect(ctx.destination);
+    masterProc.connect(masterMeter.node);
+    if (lastMasterProject) applyMastering(lastMasterProject);
+  }
+
+  /* ---------------- Santé du moteur (fenêtre Système, js/audiowatch.js) ---------------- */
+
+  let masterInMeter = null;
+  let clipped = 0; // échantillons écrêtés en sortie (compteur cumulé, mesuré par le mastering)
+  const healthLog = []; // événements signalés par le navigateur ou les modules audio, relevés par la surveillance
+  let render = null; // dernière mesure de charge du navigateur (AudioContext.renderCapacity), si disponible
+  function healthEvent(kind, label, extra) {
+    healthLog.push({ kind, label, at: performance.now(), ...extra });
+    if (healthLog.length > 50) healthLog.shift();
+  }
+  /** Surveille un module AudioWorklet : plantage du processeur, signal invalide neutralisé. */
+  function watchNode(node, info, onData) {
+    node.onprocessorerror = () => {
+      crashed.push(info);
+      healthEvent('crash', info.label, info);
+    };
+    node.port.onmessage = (e) => {
+      if (e.data && e.data.type === 'bad') healthEvent('bad', info.label, info);
+      else if (onData) onData(e.data);
+    };
+    return node;
+  }
+  /** Charge du moteur audio mesurée par le navigateur (Chrome récent) : moyenne, pic et proportion de décrochages. */
+  function watchRender() {
+    const rc = ctx.renderCapacity;
+    if (!rc || typeof rc.start !== 'function') return;
+    try {
+      rc.addEventListener('update', (e) => (render = { average: e.averageLoad, peak: e.peakLoad, underrun: e.underrunRatio, at: performance.now() }));
+      rc.start({ updateInterval: 1 });
+    } catch (e) {
+      render = null;
+    }
+  }
+  /** Statistiques de lecture du navigateur (décrochages de la sortie), si disponibles. */
+  function playbackStats() {
+    const st = ctx && ctx.playbackStats;
+    if (!st) return null;
+    const n = (v) => (Number.isFinite(v) ? v : null);
+    return { underrunEvents: n(st.underrunEvents), underrunDuration: n(st.underrunDuration), totalDuration: n(st.totalDuration) };
   }
 
   /* ---------------- Chargement ---------------- */
@@ -464,12 +522,17 @@ SS.audio = (() => {
     m.node.getFloatTimeDomainData(m.buf);
     let peak = 0;
     let sum = 0;
+    let bad = 0;
     for (let i = 0; i < m.buf.length; i++) {
       const v = Math.abs(m.buf[i]);
+      if (!(v < Infinity)) {
+        bad++; // NaN ou infini : signal invalide
+        continue;
+      }
       if (v > peak) peak = v;
       sum += v * v;
     }
-    return { peak, rms: Math.sqrt(sum / m.buf.length) };
+    return { peak, rms: Math.sqrt(sum / m.buf.length), bad };
   }
 
   function bus(track) {
@@ -595,6 +658,8 @@ SS.audio = (() => {
     r.hp.type = 'highpass';
     r.lp.type = 'lowpass';
     r.in.connect(r.pre).connect(r.hp).connect(r.conv).connect(r.lp).connect(r.out).connect(master);
+    r.meter = makeMeter();
+    r.out.connect(r.meter.node);
     return r;
   }
   /**
@@ -602,10 +667,13 @@ SS.audio = (() => {
    * sombres, saturées dans la boucle (la réinjection peut aller jusqu'à 100 % sans s'emballer) et vitesse de
    * la bande qui fluctue (wow lent + flutter rapide, qui module les retards).
    */
-  function buildReturnEcho() {
-    const e = { in: ctx.createGain(), hp: ctx.createBiquadFilter(), dL: ctx.createDelay(3), dR: ctx.createDelay(3), fb: ctx.createGain(), tone: ctx.createBiquadFilter(), sat: ctx.createWaveShaper(), merge: ctx.createChannelMerger(2), out: ctx.createGain(), key: '' };
+  function buildReturnEcho(input) {
+    const e = { in: input || ctx.createGain(), hp: ctx.createBiquadFilter(), dL: ctx.createDelay(3), dR: ctx.createDelay(3), fb: ctx.createGain(), tone: ctx.createBiquadFilter(), sat: ctx.createWaveShaper(), merge: ctx.createChannelMerger(2), out: ctx.createGain(), key: '' };
     e.hp.type = 'highpass';
     e.tone.type = 'lowpass';
+    e.tone.Q.value = -3.01; // Butterworth, sans pic de résonance : la boucle ne peut pas dépasser sa réinjection
+    e.fb.gain.value = 0; // montée douce jusqu'au réglage (applyReturns)
+    e.meter = makeMeter();
     // entrée (mono) -> gauche -> droite -> filtre -> saturation -> feedback -> gauche…
     e.in.connect(e.hp).connect(e.dL);
     e.dL.connect(e.dR);
@@ -630,6 +698,7 @@ SS.audio = (() => {
     e.dL.connect(e.merge, 0, 0);
     e.dR.connect(e.merge, 0, 1);
     e.merge.connect(e.out).connect(master);
+    e.out.connect(e.meter.node);
     return e;
   }
   /** Courbe de saturation de la bande : linéaire au centre, plafonnée (gain 1 à bas niveau). */
@@ -652,13 +721,15 @@ SS.audio = (() => {
     r.lp.type = 'lowpass';
     r.in.connect(r.pre);
     r.hp.connect(r.lp).connect(r.out).connect(master);
+    r.meter = makeMeter();
+    r.out.connect(r.meter.node);
     if (SS.space) {
       const own = ctx;
       SS.space
         .load(own)
         .then(() => {
           if (ctx !== own || r.node) return;
-          r.node = SS.space.create(own);
+          r.node = watchNode(SS.space.create(own), { label: 'Reverb Cosmos', area: 'returns', ret: 'space' });
           r.pre.connect(r.node).connect(r.hp);
           if (lastMasterProject) applyReturns(lastMasterProject);
         })
@@ -793,6 +864,7 @@ SS.audio = (() => {
       highpass.connect(conv);
       const reverb = stage(chorus.out, { input: highpass, output: conv });
       reverb.impulse = conv;
+      reverb.highpass = highpass;
       master.disconnect(masterStrip.entry);
       reverb.out.connect(masterStrip.entry);
       masterEffects = { saturation, chorus, reverb };
@@ -890,9 +962,17 @@ SS.audio = (() => {
     d.tone = ctx.createBiquadFilter();
     d.tone.type = 'lowpass';
     d.tone.frequency.value = 5000;
+    // Butterworth (Q −3 dB) : sans pic de résonance, le gain de la boucle reste sous la réinjection (< 1).
+    // Avec le Q par défaut (+1 dB), les répétitions s'emballaient dès 80 % de feedback : grésillement,
+    // puis valeurs infinies qui coupaient tout le son.
+    d.tone.Q.value = -3.01;
+    d.meter = makeMeter();
+    d.send.gain.value = 0; // montée douce jusqu'au réglage (applyFx)
+    d.fb.gain.value = 0;
     b.duck.connect(d.send).connect(d.node);
     d.node.connect(d.tone).connect(d.fb).connect(d.node);
     d.tone.connect(master);
+    d.tone.connect(d.meter.node);
     b.delay = d;
   }
 
@@ -924,7 +1004,9 @@ SS.audio = (() => {
     r.conv = ctx.createConvolver();
     r.out = ctx.createGain();
     r.out.gain.value = 2.2; // compense le niveau de l'IR filtrée
+    r.meter = makeMeter();
     b.duck.connect(r.send).connect(r.conv).connect(r.out).connect(master);
+    r.out.connect(r.meter.node);
     b.reverb = r;
   }
 
@@ -2013,6 +2095,105 @@ SS.audio = (() => {
     tick();
   }
 
+  /* ---------------- Surveillance et réparation (js/audiowatch.js) ---------------- */
+
+  const crashed = []; // modules AudioWorklet dont le processeur a planté (à recréer par repair)
+  /**
+   * Relevé pour la surveillance automatique : niveaux et signaux invalides à chaque étage (pistes, delays,
+   * reverbs, retours, somme du Master, sortie), événements des modules audio, horloge de sortie et charge.
+   * Vide le journal des événements : seule la surveillance l'appelle.
+   */
+  function probe() {
+    if (!ctx) return null;
+    const tracks = [];
+    buses.forEach((b, id) =>
+      tracks.push({
+        id,
+        bus: readMeter(b.meter),
+        delay: b.delay ? { ...readMeter(b.delay.meter), feedback: b.delay.fb.gain.value } : null,
+        reverb: b.reverb ? readMeter(b.reverb.meter) : null,
+      })
+    );
+    const ret = returns ? Object.fromEntries(['plate', 'hall', 'echo', 'space'].map((k) => [k, readMeter(returns[k].meter)])) : null;
+    let ts = null;
+    try {
+      const o = ctx.getOutputTimestamp && ctx.getOutputTimestamp();
+      if (o && o.performanceTime > 0) ts = { context: o.contextTime, perf: o.performanceTime };
+    } catch (e) {
+      ts = null;
+    }
+    return {
+      state: ctx.state, time: ctx.currentTime, sampleRate: ctx.sampleRate, baseLatency: ctx.baseLatency, outputLatency: ctx.outputLatency, ts,
+      tracks, returns: ret, masterIn: readMeter(masterInMeter), out: readMeter(masterMeter), clipped,
+      render: render && performance.now() - render.at < 3000 ? { ...render } : null, stats: playbackStats(),
+      events: healthLog.splice(0), voices: voices.size, juno: (SS.juno && SS.juno.engineCount && SS.juno.engineCount()) || 0,
+      playing: seq.playing, paused: !!seq.paused, scheduling: { ...scheduling }, mastering: !!masterProc,
+    };
+  }
+  /** Remet à zéro l'état d'un filtre biquad (changer de type vide sa mémoire, bloquée par un NaN). */
+  function resetBiquad(f) {
+    if (!f) return;
+    const t = f.type;
+    f.type = t === 'allpass' ? 'lowpass' : 'allpass';
+    f.type = t;
+  }
+  const stripFilters = (st) => [st.hp, st.low, st.lm, st.hm, st.high, ...st.vcf];
+  /**
+   * Réparation : un NaN ou un infini reste coincé à jamais dans les filtres et les boucles de delay (le son se
+   * coupe jusqu'au rechargement). Vide les filtres de toutes les tranches et du Master, reconstruit les boucles
+   * de delay et l'écho partagé, recrée les modules audio plantés. Les réglages sont réappliqués ; les nœuds
+   * d'entrée sont conservés (les synthés et voix restent branchés). Renvoie le nombre d'étages traités.
+   */
+  function repair() {
+    if (!ctx) return 0;
+    let n = 0;
+    const project = (seq.getProject && seq.getProject()) || lastMasterProject;
+    buses.forEach((b) => {
+      stripFilters(b.strip).forEach(resetBiquad);
+      if (b.auto) [b.auto.lp, b.auto.hp].forEach(resetBiquad);
+      if (b.delay) {
+        const d = b.delay;
+        b.duck.disconnect(d.send);
+        [d.send, d.node, d.tone, d.fb].forEach((x) => x.disconnect());
+        b.delay = null;
+        buildDelay(b);
+        n++;
+      }
+      n++;
+    });
+    if (returns) {
+      for (const k of ['plate', 'hall', 'space']) [returns[k].hp, returns[k].lp].forEach(resetBiquad);
+      const old = returns.echo;
+      old.in.disconnect();
+      old.out.disconnect();
+      old.wow.stop();
+      old.flutter.stop();
+      returns.echo = buildReturnEcho(old.in);
+      n += 4;
+    }
+    stripFilters(masterStrip).forEach(resetBiquad);
+    if (masterEffects) resetBiquad(masterEffects.reverb.highpass);
+    n++;
+    for (const info of crashed.splice(0)) {
+      if (info.area === 'master' && masterProc) insertMastering();
+      else if (info.engine === 'juno' && SS.juno) SS.juno.remove(info.trackId); // recréé à la note suivante
+      else if (info.ret === 'space' && returns && returns.space.node) {
+        const r = returns.space;
+        r.pre.disconnect();
+        r.node.disconnect();
+        r.node = watchNode(SS.space.create(ctx), { label: 'Reverb Cosmos', area: 'returns', ret: 'space' });
+        r.pre.connect(r.node).connect(r.hp);
+      }
+      n++;
+    }
+    if (ctx.state === 'suspended') ctx.resume();
+    if (project) {
+      if (returns) applyReturns(project);
+      project.tracks.forEach((t) => buses.has(t.id) && applyFx(t));
+    }
+    return n;
+  }
+
   /** Lecture seule : aucune création de contexte ni copie des données PCM. */
   function diagnostics() {
     const seen = new Set();
@@ -2059,6 +2240,9 @@ SS.audio = (() => {
 
   return {
     diagnostics,
+    probe,
+    repair,
+    watchNode: (node, info) => (ctx ? watchNode(node, info) : node),
     ensureCtx,
     loadJSON,
     drumMachines,

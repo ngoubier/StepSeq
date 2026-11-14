@@ -843,9 +843,11 @@ function junoDspModule(scope) {
       this.P = P;
       this.lfo.setRate(g('lfoRate', 0.5));
       this.lfo.setDelay(g('lfoDelay', 0));
-      this.hpf.setMode(clamp(Math.round(g('hpf', 1)), 0, 3));
+      this.hpfMode = clamp(Math.round(g('hpf', 1)), 0, 3);
+      this.hpf.setMode(this.hpfMode);
       this.level = Math.pow(10, vcaLevelDb(g('vcaLevel', 0.5)) / 20);
-      this.chorus.setMode(p.chorus === 1 || p.chorus === 2 ? p.chorus : 0);
+      this.chorusMode = p.chorus === 1 || p.chorus === 2 ? p.chorus : 0;
+      this.chorus.setMode(this.chorusMode);
     }
     onMessage(m) {
       if (m.type === 'params') this.setParams(m.p);
@@ -926,6 +928,27 @@ function junoDspModule(scope) {
         this.levelSmooth += (this.level - this.levelSmooth) * this.levelC;
         x *= this.levelSmooth * OUT_GAIN;
         this.chorus.process(x, out, i);
+      }
+      // sécurité : un état numérique invalide (NaN, infini) rendrait le synthé muet pour toujours et
+      // bloquerait les filtres en aval ; on repart d'un moteur propre et on le signale (fenêtre Système)
+      const o1 = out[1];
+      let bad = false;
+      for (let i = 0; i < n; i++) {
+        const a = o0[i], b = o1[i];
+        if (!(a > -64 && a < 64) || !(b > -64 && b < 64)) { bad = true; break; }
+      }
+      if (bad) {
+        o0.fill(0);
+        o1.fill(0);
+        this.voices = this.voices.map((v, k) => new Voice(k, this.sr));
+        this.hpf = new HPF(this.sr);
+        this.hpf.setMode(this.hpfMode);
+        this.chorus = new Chorus(this.sr);
+        this.chorus.setMode(this.chorusMode);
+        this.down = new Down2();
+        this.busLP = 0;
+        if (currentFrame - (this.badAt ?? -1e9) > this.sr) this.port.postMessage({ type: 'bad' });
+        this.badAt = currentFrame;
       }
       return this.alive;
     }

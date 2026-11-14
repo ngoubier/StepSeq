@@ -126,7 +126,7 @@ test('bus partagés : valeurs bornées à la lecture d\'un fichier', () => {
 
 test('la page charge les niveaux mesurés et les gains de mastering avant les règles de mixage', () => {
   const html = fs.readFileSync(__dirname + '/../index.html', 'utf8');
-  const at = (f) => html.indexOf(`<script src="js/${f}"></script>`);
+  const at = (f) => html.search(new RegExp(`<script src="js/${f.replace('.', '\\.')}(\\?v=[\\w-]+)?"></script>`));
   for (const f of ['band-levels.js', 'band-drive.js', 'master-dsp.js', 'dirt-tuning.js']) assert.ok(at(f) > 0, `${f} non chargé`);
   assert.ok(at('band-levels.js') < at('bandmix.js') && at('band-drive.js') < at('bandmix.js'));
 });
