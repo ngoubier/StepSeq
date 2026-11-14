@@ -31,6 +31,8 @@ SS.soundDesign = (() => {
     voices: { label: 'Voix (unison)', scale: lin(1, 7), int: true, fmt: (v) => String(v), group: 'vco' },
     detune: { label: 'Désaccord', scale: lin(0, 50), fmt: (v) => `${Math.round(v)} cents`, group: 'vco' },
     pw: { label: 'Largeur d’impulsion (Pulse)', scale: lin(0.05, 0.95), fmt: fmtPct, group: 'vco' },
+    sub: { label: 'Sous-oscillateur (carré)', scale: lin(0, 1), fmt: (v) => (v ? fmtPct(v) : 'off'), group: 'vco' },
+    subOct: { label: 'Octave du sous-oscillateur', scale: lin(1, 2), int: true, fmt: (v) => (v >= 2 ? '−2 octaves' : '−1 octave'), group: 'vco' },
     cutoff: { label: 'Cutoff', scale: logf(20, 20000), fmt: fmtHz, group: 'vcf' },
     q: { label: 'Résonance', scale: lin(0, 30), fmt: (v) => v.toFixed(1), group: 'vcf' },
     fdrive: { label: 'Drive (filtre)', scale: lin(0, 1), fmt: fmtPct, group: 'vcf' },
@@ -47,6 +49,7 @@ SS.soundDesign = (() => {
     gain: { label: 'Niveau', scale: lin(0, 1.5), fmt: fmtPct, group: 'out' },
     pan: { label: 'Panoramique', scale: lin(-1, 1), fmt: (v) => (Math.abs(v) < 0.02 ? 'centre' : v < 0 ? `G ${Math.round(-v * 100)}` : `D ${Math.round(v * 100)}`), group: 'out' },
     drive: { label: 'Saturation', scale: lin(0, 1), fmt: (v) => (v ? fmtPct(v) : 'off'), group: 'out' },
+    accent: { label: 'Force de l’accent (notes accentuées)', scale: lin(0, 1), fmt: (v) => (v ? fmtPct(v) : 'off'), group: 'out' },
   };
   // LFO 1 et 2 (js/modulation.js) : vitesse libre, quantité (selon la destination), fondu d'entrée
   const fmtHz2 = (v) => `${v < 1 ? v.toFixed(2) : v.toFixed(1)} Hz`.replace('.', ',');
@@ -357,6 +360,10 @@ SS.soundDesign = (() => {
     inputs.get('fdrive').row.classList.toggle('dim', p.ftype !== 'ladder' && p.ftype !== 'sem');
     $('#sdGlideMode').classList.toggle('dim', !p.glide);
     inputs.get('pw').row.hidden = p.wave !== 'pulse';
+    const noise = SS.NOISES.includes(p.wave);
+    inputs.get('sub').row.hidden = noise;
+    inputs.get('subOct').row.hidden = noise;
+    inputs.get('subOct').row.classList.toggle('dim', !p.sub);
     for (let i = 1; i <= SS.LFO_COUNT; i++) {
       const dest = p[`lfo${i}Dest`];
       const off = !dest || dest === 'off';
@@ -430,6 +437,7 @@ SS.soundDesign = (() => {
     if (p.ftype === 'sem') extra.push('filtre SEM');
     if (p.glide) extra.push(`${p.glideMode === 'legato' ? 'glide legato' : 'portamento'} ${fmtTime(p.glide)}`);
     if (p.wave === 'pulse') extra.push(`largeur ${Math.round(p.pw * 100)} %`);
+    if (p.sub > 0 && p.wave && !SS.NOISES.includes(p.wave)) extra.push(`sous-oscillateur ${Math.round(p.sub * 100)} % −${p.subOct >= 2 ? 2 : 1} oct`);
     SS.activeLfos(p).forEach((l) => {
       const d = SS.LFO_DESTS.find((x) => x.id === l.dest);
       const sh = SS.LFO_SHAPES.find((x) => x.id === l.shape);

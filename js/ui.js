@@ -1298,6 +1298,10 @@ SS.ui = (() => {
     cell.append(h('span', { class: 'shift-mark' + (ev.shift < 0 ? ' early' : ''), style: `--shift:${ev.shift}`, 'aria-hidden': 'true' }));
   }
   /** Ratchet : r petits traits en bas de la case (un par coup). */
+  /** Accent : liseré doré en haut de la note. */
+  function markAccent(cell, ev) {
+    if (ev.acc) cell.append(h('span', { class: 'acc-mark', 'aria-hidden': 'true' }));
+  }
   function markRatchet(cell, r) {
     if (!(r > 1)) return;
     cell.append(h('span', { class: 'rat-mark', style: `--r:${r}`, 'aria-hidden': 'true' }));
@@ -1338,7 +1342,7 @@ SS.ui = (() => {
       c.title = '';
     });
     ref.roll.forEach((cells) => cells.forEach((c) => c.classList.remove('on', 'start', 'root', 'sel', 'sel-hold', 'shifted')));
-    ref.el?.querySelectorAll('.shift-mark, .rat-mark, .cond-mark').forEach((m) => m.remove());
+    ref.el?.querySelectorAll('.shift-mark, .rat-mark, .cond-mark, .acc-mark').forEach((m) => m.remove());
 
     track.events.forEach((ev) => {
       const label = eventLabel(track, ev);
@@ -1349,7 +1353,8 @@ SS.ui = (() => {
           c.classList.add('on', 'start');
           if (ev.len > 1) c.classList.add('held');
           c.append(h('span', { class: 'lbl' }, label));
-          c.title = `${label} · vélocité ${Math.round(ev.vel * 127)}` + shiftTitle(ev) + (ev.rat ? ` · ratchet ×${ev.rat}` : '') + condTitle(ev.cond);
+          c.title = `${label} · vélocité ${Math.round(ev.vel * 127)}` + (ev.acc ? ' · accent' : '') + shiftTitle(ev) + (ev.rat ? ` · ratchet ×${ev.rat}` : '') + condTitle(ev.cond);
+          markAccent(c, ev);
           markShift(c, ev);
           markRatchet(c, ev.rat);
           markCond(c, ev.cond, true);
@@ -1366,6 +1371,7 @@ SS.ui = (() => {
           if (s === ev.step) {
             cell.classList.add('start');
             if (i === 0) cell.classList.add('root');
+            markAccent(cell, ev);
             markShift(cell, ev);
             markRatchet(cell, ev.rat);
             if (i === 0) markCond(cell, ev.cond, true);
@@ -1568,7 +1574,7 @@ SS.ui = (() => {
       ? { kind: 'drum', items: items.map((s) => ({ off: s - from, vel: t.steps[s], rat: SS.drumRatchet(t, s), cond: SS.drumCond(t, s) })) }
       : {
           kind: 'notes',
-          items: items.map((ev) => ({ off: ev.step - from, len: ev.len, notes: [...ev.notes], vel: ev.vel, chord: ev.chord, shift: ev.shift, rat: ev.rat, cond: ev.cond })),
+          items: items.map((ev) => ({ off: ev.step - from, len: ev.len, notes: [...ev.notes], vel: ev.vel, chord: ev.chord, shift: ev.shift, rat: ev.rat, cond: ev.cond, acc: ev.acc })),
         };
     Object.assign(clip, { span: to - from, trackId: t.id, from });
     const what = unitLabel(t, items.length);
@@ -1636,6 +1642,7 @@ SS.ui = (() => {
       if (it.shift) ev.shift = it.shift;
       if (it.rat) ev.rat = it.rat;
       if (it.cond) ev.cond = it.cond;
+      if (it.acc) ev.acc = true;
       track.events.push(ev);
       pasted.push(ev);
     });
@@ -1679,6 +1686,15 @@ SS.ui = (() => {
     }
   }
 
+  /** Met ou enlève l'accent sur des notes (s'il manque à l'une d'elles, toutes le reçoivent). */
+  function toggleAccent(track, evs) {
+    const on = !evs.every((ev) => ev.acc);
+    evs.forEach((ev) => SS.cleanAccent(Object.assign(ev, { acc: on })));
+    paint(track);
+    app.changed();
+    toast(on ? `Accent sur ${unitLabel(track, evs.length)}` : `Accent retiré (${unitLabel(track, evs.length)})`);
+  }
+
   /** Raccourcis de la sélection ; renvoie true si la touche a été prise en charge. */
   function handleKey(e) {
     const tag = e.target.tagName;
@@ -1697,6 +1713,8 @@ SS.ui = (() => {
     if (mod && key === 'd') return run(duplicateSelection);
     if (mod && key === 'a') return run(() => selectAll(activeTrack()));
     if (!mod && (e.key === 'Delete' || e.key === 'Backspace') && validSelection()) return run(deleteSelection);
+    // A : accent sur les notes sélectionnées (toutes accentuées -> on l'enlève)
+    if (!mod && !e.altKey && key === 'a' && validSelection() && sel.items.size && !isDrum(sel.track)) return run(() => toggleAccent(sel.track, [...sel.items]));
     if (!mod && e.key.startsWith('Arrow') && e.target.type !== 'range' && validSelection() && sel.items.size) {
       const horiz = e.key === 'ArrowLeft' || e.key === 'ArrowRight';
       if (!horiz && isDrum(sel.track)) return false; // une batterie n'a pas de hauteur
@@ -2439,6 +2457,24 @@ SS.ui = (() => {
         out
       );
     }
+    // accent : un bouton marche / arrêt (raccourci A sur une sélection)
+    function accentRow() {
+      const b = h('button', { type: 'button', class: 'ctx-acc', title: 'Note accentuée : plus forte, filtre plus ouvert et plus résonant (raccourci A sur une sélection)' });
+      const show = () => {
+        b.textContent = ev.acc ? 'Accentuée' : 'Non';
+        b.classList.toggle('on', !!ev.acc);
+        b.setAttribute('aria-pressed', String(!!ev.acc));
+      };
+      b.addEventListener('click', () => {
+        SS.cleanAccent(Object.assign(ev, { acc: !ev.acc }));
+        show();
+        paint(track);
+        saveSoon();
+        if (!SS.audio.isPlaying()) SS.audio.preview(track, ev.notes.length === 1 ? ev.notes[0] : ev.notes, 0.45, { acc: !!ev.acc });
+      });
+      show();
+      return h('div', { class: 'ctx-param' }, h('span', { class: 'ctx-param-label' }, 'Accent'), b);
+    }
     const spb = SS.stepsPerBar(app.project());
     const fmtShift = (v) => (v ? `${v > 0 ? 'retard' : 'avance'} ${Math.abs(v)} %` : '0 %');
     const fmtLen = (v) => `${v} pas` + (v % spb === 0 ? ` · ${v / spb} mes.` : v % 4 === 0 ? ` · ${v / 4} t.` : '');
@@ -2448,6 +2484,7 @@ SS.ui = (() => {
         { class: 'ctx-params' },
         paramRow('Longueur', () => ev.len, (v) => (ev.len = v), 1, maxLen, fmtLen, `De 1 à ${maxLen} pas (jusqu'à la note suivante)`),
         paramRow('Vélocité', () => Math.round(ev.vel * 127), (v) => (ev.vel = v / 127), 1, 127, (v) => String(v), 'Force de la note, de 1 à 127', 102),
+        accentRow(),
         // micro-décalage : pas pour l'arpégiateur, qui a sa propre grille rythmique
         track.category === 'arp'
           ? null
