@@ -433,6 +433,7 @@ node tests/e2e/gm-mode-ui.js         # mode General MIDI (fenêtre de piste et B
 node tests/e2e/midi-ui.js            # import / export MIDI (fichier de test fabriqué, ou : node tests/e2e/midi-ui.js morceau.mid)
 node tests/e2e/trigcond.js           # conditions de déclenchement (menus, repères, notes jouées passage par passage)
 node tests/e2e/automation.js         # automation (ligne sous la piste, dessin, formes, son qui suit la courbe)
+node tests/e2e/compact-menu.js       # hauteur « Compact » : menu ⋯ des commandes de la piste
 ```
 
 Cliquer sur une note / un accord existant le supprime. Sur la ligne compacte, un clic pose la

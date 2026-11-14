@@ -462,24 +462,46 @@ SS.ui = (() => {
       )
     );
 
-    // Keep the original controls and handlers in a top-layer popover in compact mode.
+    // Mode compact : les commandes de la piste (mêmes éléments, mêmes actions) passent dans un menu déroulant.
     const controls = head.querySelector('.th-ctrls');
-    const options = h('div', { class: 'th-options', popover: 'auto', 'aria-label': `Options de la piste ${track.name}` });
+    const options = h('div', { class: 'th-options', popover: 'auto', role: 'menu', 'aria-label': `Options de la piste ${track.name}` });
+    const labels = { 'th-play': 'Écouter', 'th-roll': 'Piano roll', 'th-sd': 'Sound design', 'th-auto': 'Automation', 'fx-btn': 'Effets', 'th-edit': 'Modifier la piste', 'th-del': 'Supprimer la piste' };
+    const groups = [['th-play'], ['th-roll', 'th-sd', 'th-auto', 'fx-btn'], ['th-edit'], ['th-del']];
+    const byClass = {};
+    let vol = null;
     for (const control of [...controls.children]) {
       if (control.matches('.mute, .solo')) continue;
-      if (control.tagName === 'BUTTON') {
-        const labels = { 'th-play': 'Écouter', 'th-roll': 'Piano roll', 'th-sd': 'Sound design', 'th-auto': 'Automation', 'fx-btn': 'Effets', 'th-edit': 'Modifier la piste', 'th-del': 'Supprimer la piste' };
-        const label = Object.keys(labels).find((name) => control.classList.contains(name));
-        control.append(h('span', { class: 'th-option-label' }, labels[label] || control.title));
-      }
       if (control.matches('input')) {
-        options.append(h('label', { class: 'th-option-volume' }, h('span', { class: 'th-option-label' }, 'Volume'), control));
-      } else options.append(control);
+        vol = control;
+        continue;
+      }
+      const name = Object.keys(labels).find((k) => control.classList.contains(k));
+      if (!name) continue;
+      if (control.classList.contains('fx-btn')) control.replaceChildren(h('span', { class: 'th-option-ico th-option-fx' }, 'FX'));
+      else control.innerHTML = `<span class="th-option-ico">${control.innerHTML}</span>`;
+      control.append(h('span', { class: 'th-option-label' }, labels[name]));
+      control.setAttribute('role', 'menuitem');
+      if (name === 'th-del') control.classList.add('danger');
+      byClass[name] = control;
     }
+    options.append(h('div', { class: 'th-option-title' }, h('span', { class: 'th-option-dot' }), track.name));
+    const volRow = () => {
+      if (!vol) return [];
+      const pct = h('output', { class: 'th-option-pct' }, Math.round(track.volume * 100) + ' %');
+      vol.addEventListener('input', () => (pct.textContent = Math.round(vol.value * 100) + ' %'));
+      return [h('label', { class: 'th-option-volume' }, h('span', { class: 'th-option-label' }, 'Volume'), vol, pct)];
+    };
+    // ordre du DOM = celui de la grille du mode normal (Écouter puis Volume) ; le menu remonte le volume (CSS order)
+    groups.forEach((g, i) => {
+      const items = g.map((k) => byClass[k]).filter(Boolean);
+      if (items.length) options.append(h('hr', { class: 'th-option-sep' }), ...items);
+      if (i === 0) options.append(...volRow());
+    });
     const more = h('button', {
-      type: 'button', class: 'th-btn th-more', title: 'Autres options de la piste',
-      'aria-label': `Autres options de la piste ${track.name}`, 'aria-expanded': 'false',
-    }, '>');
+      type: 'button', class: 'th-btn th-more', title: 'Commandes de la piste',
+      'aria-label': `Commandes de la piste ${track.name}`, 'aria-haspopup': 'menu', 'aria-expanded': 'false',
+      html: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8" class="fill"/><circle cx="12" cy="12" r="1.8" class="fill"/><circle cx="19" cy="12" r="1.8" class="fill"/></svg>',
+    });
     more.addEventListener('click', () => {
       if (options.matches(':popover-open')) return options.hidePopover();
       options.showPopover();
