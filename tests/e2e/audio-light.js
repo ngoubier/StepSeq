@@ -40,7 +40,10 @@ const OUT = process.env.SHOTS || '/tmp';
       ],
       scenes: [], song: [],
     };
-    await page.addInitScript((p) => localStorage.setItem('stepseq.autosave', JSON.stringify(p)), song);
+    await page.addInitScript((p) => {
+      localStorage.setItem('stepseq.autosave', JSON.stringify(p));
+      localStorage.setItem('ss.diagMode', '0'); // ce test vise le mode allégé direct (sans le mode Diagnostic)
+    }, song);
     await page.goto(origin + '/index.html');
     await page.click('#play');
     await page.waitForFunction(() => SS.audio.isPlaying());

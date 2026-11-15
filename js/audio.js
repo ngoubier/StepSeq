@@ -97,7 +97,7 @@ SS.audio = (() => {
     masterProc.connect(ctx.destination);
     masterProc.connect(masterMeter.node);
     if (lastMasterProject) applyMastering(lastMasterProject);
-    if (light) route();
+    if (rerouted()) route();
   }
 
   /* ---------------- Santé du moteur (fenêtre Système, js/audiowatch.js) ---------------- */
@@ -566,7 +566,7 @@ SS.audio = (() => {
     let b = buses.get(track.id);
     if (!b) {
       // tranche de console -> panoramique -> fader (volume) -> chorus -> pre -> duck (sidechain) -> master + envois
-      b = { strip: makeStrip(), pan: ctx.createStereoPanner(), input: ctx.createGain(), pre: ctx.createGain(), duck: ctx.createGain(), meter: makeMeter(), chorus: null, delay: null, reverb: null };
+      b = { id: track.id, strip: makeStrip(), pan: ctx.createStereoPanner(), input: ctx.createGain(), pre: ctx.createGain(), duck: ctx.createGain(), meter: makeMeter(), chorus: null, delay: null, reverb: null };
       b.input.gain.value = typeof track.volume === 'number' ? track.volume : 0.8;
       b.strip.out.connect(b.pan).connect(b.input);
       b.input.connect(b.pre);
@@ -576,7 +576,7 @@ SS.audio = (() => {
       buses.set(track.id, b);
       applyFx(track);
       applyMix(track);
-      if (light) routeBus(b);
+      if (rerouted()) routeBus(b);
     }
     return b.strip.entry;
   }
@@ -605,7 +605,7 @@ SS.audio = (() => {
     if (lastMasterProject) applyReturns(lastMasterProject);
     b.auto = a;
     autoNeutral(a, ctx.currentTime);
-    if (light) routeBus(b);
+    if (rerouted()) routeBus(b);
     return a;
   }
   const AUTO_Q = (res) => 0.7 + res * 11;
@@ -764,7 +764,7 @@ SS.audio = (() => {
           if (ctx !== own || r.node) return;
           r.node = watchNode(SS.space.create(own), { label: 'Reverb Cosmos', area: 'returns', ret: 'space' });
           r.pre.connect(r.node).connect(r.hp);
-          if (light) routeReturns();
+          if (rerouted()) routeReturns();
           if (lastMasterProject) applyReturns(lastMasterProject);
         })
         .catch(() => {});
@@ -774,14 +774,14 @@ SS.audio = (() => {
   function ensureReturns() {
     if (!returns) {
       returns = { plate: buildReturnReverb(), hall: buildReturnReverb(), echo: buildReturnEcho(), space: buildReturnSpace() };
-      if (light) routeReturns();
+      if (rerouted()) routeReturns();
     }
     return returns;
   }
   /** Règle les bus partagés du projet (durées, filtres, temps de l'écho selon le tempo). */
   function applyReturns(project) {
     if (!ctx || !returns) return;
-    const rp = SS.returnParams(project);
+    const rp = relievedReturns(SS.returnParams(project));
     const now = ctx.currentTime;
     const ramp = (param, v) => param.setTargetAtTime(v, now, 0.03);
     for (const k of ['plate', 'hall']) {
@@ -905,7 +905,7 @@ SS.audio = (() => {
       master.disconnect(masterStrip.entry);
       reverb.out.connect(masterStrip.entry);
       masterEffects = { saturation, chorus, reverb };
-      if (light) route();
+      if (rerouted()) route();
     }
     for (const [name, stage] of Object.entries(masterEffects)) {
       const amount = e.on && e[name].on ? (name === 'saturation' ? e[name].amount : e[name].mix) : 0;
@@ -1054,7 +1054,8 @@ SS.audio = (() => {
     const b = buses.get(track.id);
     if (!b) return;
     // mode allégé : effets à zéro (aucun nouvel étage créé), le projet garde ses réglages
-    const f = light ? { ...SS.fxParams(track), ...LIGHT_FX } : SS.fxParams(track);
+    // mode Diagnostic : effets de cette piste raccourcis ou coupés (allègements ciblés, réglages intacts)
+    const f = light ? { ...SS.fxParams(track), ...LIGHT_FX } : relievedFx(track.id, SS.fxParams(track));
     const now = ctx.currentTime;
     const ramp = (param, v) => param.setTargetAtTime(v, now, 0.03);
 
@@ -2255,7 +2256,7 @@ SS.audio = (() => {
       n++;
     }
     if (ctx.state === 'suspended') ctx.resume();
-    if (light) route();
+    if (rerouted()) route();
     if (project) {
       if (returns) applyReturns(project);
       project.tracks.forEach((t) => buses.has(t.id) && applyFx(t));
@@ -2292,39 +2293,45 @@ SS.audio = (() => {
   }
   function routeBus(b) {
     const on = !light;
+    const cut = (reliefTracks.get(b.id) || {}).cut || {};
     routeStrip(b.strip, light);
     if (b.chorus) {
-      link(b.input, b.chorus.dL, on);
-      link(b.input, b.chorus.dR, on);
-      link(b.chorus.wet, b.pre, on);
+      const c = on && !cut.chorus;
+      link(b.input, b.chorus.dL, c);
+      link(b.input, b.chorus.dR, c);
+      link(b.chorus.wet, b.pre, c);
     }
     if (b.delay) {
-      link(b.duck, b.delay.send, on);
-      link(b.delay.tone, master, on);
-      link(b.delay.tone, b.delay.meter.node, on);
+      const d = on && !cut.delay;
+      link(b.duck, b.delay.send, d);
+      link(b.delay.tone, master, d);
+      link(b.delay.tone, b.delay.meter.node, d);
     }
     if (b.reverb) {
-      link(b.duck, b.reverb.send, on);
-      link(b.reverb.out, master, on);
-      link(b.reverb.out, b.reverb.meter.node, on);
+      const r = on && !cut.room;
+      link(b.duck, b.reverb.send, r);
+      link(b.reverb.out, master, r);
+      link(b.reverb.out, b.reverb.meter.node, r);
     }
     if (b.sends) Object.values(b.sends).forEach((g) => link(b.duck, g, on));
     if (b.auto) [b.auto.reverb, b.auto.echo, b.auto.space].forEach((g) => link(b.duck, g, on));
   }
   function routeReturns() {
     if (!returns) return;
-    const on = !light;
+    const live = (k) => !light && !(reliefRet[k] && reliefRet[k].cut);
     for (const k of ['plate', 'hall']) {
       const r = returns[k];
+      const on = live(k);
       link(r.in, r.pre, on);
       link(r.out, master, on);
       link(r.out, r.meter.node, on);
     }
     const e = returns.echo;
-    link(e.in, e.hp, on);
-    link(e.out, master, on);
-    link(e.out, e.meter.node, on);
+    link(e.in, e.hp, live('echo'));
+    link(e.out, master, live('echo'));
+    link(e.out, e.meter.node, live('echo'));
     const sp = returns.space;
+    const on = live('space');
     link(sp.in, sp.pre, on);
     if (sp.node) link(sp.node, sp.hp, on);
     link(sp.out, master, on);
@@ -2361,6 +2368,77 @@ SS.audio = (() => {
     let n = 1 + (masterEffects ? 1 : 0) + (masterProc ? 1 : 0) + (returns ? 4 : 0);
     buses.forEach((b) => (n += 1 + !!b.chorus + !!b.delay + !!b.reverb + (b.sends ? Object.keys(b.sends).length : 0)));
     return n;
+  }
+
+  /* ---------------- Mode Diagnostic : allègements ciblés (js/audiowatch.js) ---------------- */
+
+  /*
+   * Au lieu de tout couper (mode allégé), la surveillance allège pas à pas l'élément qui pèse le plus : reverb
+   * de piste raccourcie puis coupée, shimmer de la Cosmos coupé puis bus coupé, Hall / Plate raccourcies puis
+   * coupées, delay ou chorus coupés. Un élément coupé est réellement débranché (plus aucun calcul). Les réglages
+   * du projet ne changent pas ; tout revient avec clearRelief() (bouton « Rétablir » ou rechargement).
+   *   pistes : trackId -> { roomSize: plafond en s, cut: { room, delay, chorus } }
+   *   retours : 'plate' | 'hall' -> { size: plafond, cut } ; 'space' -> { shimmer: 0, cut } ; 'echo' -> { cut }
+   */
+  const reliefTracks = new Map();
+  const reliefRet = {};
+  const rerouted = () => light || reliefTracks.size > 0 || Object.keys(reliefRet).length > 0;
+  function relievedFx(id, f) {
+    const r = reliefTracks.get(id);
+    if (!r) return f;
+    const out = { ...f };
+    if (r.roomSize != null) out.roomSize = Math.min(out.roomSize, r.roomSize);
+    const cut = r.cut || {};
+    if (cut.room) out.room = 0;
+    if (cut.delay) out.delay = 0;
+    if (cut.chorus) out.chorus = 0;
+    return out;
+  }
+  function relievedReturns(rp) {
+    for (const k of ['plate', 'hall']) if (reliefRet[k] && reliefRet[k].size != null) rp[k].size = Math.min(rp[k].size, reliefRet[k].size);
+    if (reliefRet.space && reliefRet.space.shimmer === 0) rp.space.shimmer = 0;
+    return rp;
+  }
+  /** Applique un allègement : target = { track: id } ou { ret: 'plate' | 'hall' | 'echo' | 'space' }. */
+  function setRelief(target, patch) {
+    if (target.track) {
+      const r = reliefTracks.get(target.track) || { cut: {} };
+      if (patch.roomSize != null) r.roomSize = Math.min(r.roomSize != null ? r.roomSize : Infinity, patch.roomSize);
+      if (patch.cut) r.cut[patch.cut] = true;
+      reliefTracks.set(target.track, r);
+    } else if (target.ret) {
+      const r = reliefRet[target.ret] || {};
+      if (patch.size != null) r.size = Math.min(r.size != null ? r.size : Infinity, patch.size);
+      if (patch.shimmer === 0) r.shimmer = 0;
+      if (patch.cut) r.cut = true;
+      reliefRet[target.ret] = r;
+    }
+    reapplyRelief();
+  }
+  function clearRelief() {
+    const had = reliefTracks.size + Object.keys(reliefRet).length;
+    reliefTracks.clear();
+    for (const k of Object.keys(reliefRet)) delete reliefRet[k];
+    if (had) {
+      route(); // tout rebranché (sauf ce que le mode allégé garde coupé)
+      reapplyRelief();
+    }
+    return had;
+  }
+  function reapplyRelief() {
+    if (!ctx) return;
+    const project = (seq.getProject && seq.getProject()) || lastMasterProject;
+    if (project) {
+      project.tracks.forEach((t) => buses.has(t.id) && applyFx(t));
+      if (returns) applyReturns(lastMasterProject || project);
+    }
+    if (rerouted()) route();
+  }
+  /** Copie des allègements en cours (journal, tests). */
+  function reliefState() {
+    const tracks = {};
+    reliefTracks.forEach((r, id) => (tracks[id] = { roomSize: r.roomSize, cut: { ...r.cut } }));
+    return { tracks, returns: JSON.parse(JSON.stringify(reliefRet)) };
   }
 
   /** Lecture seule : aucune création de contexte ni copie des données PCM. */
@@ -2412,6 +2490,9 @@ SS.audio = (() => {
     probe,
     repair,
     setLight,
+    setRelief,
+    clearRelief,
+    reliefState,
     /** Latence : préférence enregistrée, latence du moteur en cours (null avant la première lecture). */
     latency: () => ({ pref: latencyPref(), active: ctxLatency }),
     setLatency: (v) => {
