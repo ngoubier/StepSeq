@@ -420,3 +420,131 @@ test('Changer de motif garde les silences réglés pas à pas (sauf motif à ryt
   assert.equal(back.rhythm.type, 'all');
   assert.deepEqual(back.lanes.rhythm, []);
 });
+
+test('Renversements : C3 E3 G3 → C (fondamental), C/E (Mi Sol Do), C/G (Sol Do Mi)', () => {
+  const C3 = 48, E3 = 52, G3 = 55;
+  const inv = (notes, i) => A.invertChord(notes, i).map(A.noteName);
+  assert.deepEqual(inv([C3, E3, G3], 0), ['C3', 'E3', 'G3']);
+  assert.deepEqual(inv([C3, E3, G3], 1), ['E3', 'G3', 'C4']);
+  assert.deepEqual(inv([C3, E3, G3], 2), ['G3', 'C4', 'E4']);
+  // depuis un accord déjà renversé, l'état fondamental redescend la fondamentale à la basse
+  assert.deepEqual(inv([E3, G3, 60], 0), ['C3', 'E3', 'G3']);
+  // accord de 4 sons : 3e renversement = septième à la basse ; doublures et tensions conservées
+  assert.deepEqual(inv([C3, E3, G3, 58], 3), ['Bb3', 'C4', 'E4', 'G4']);
+  assert.deepEqual(inv([C3, E3, G3, 60], 1), ['E3', 'G3', 'C4', 'E4']);
+  assert.equal(A.analyzeChord(A.invertChord([C3, E3, G3], 1))[0].name, 'C/E');
+  assert.equal(A.analyzeChord(A.invertChord([C3, E3, G3], 2))[0].name, 'C/G');
+});
+
+test('Renversement dans l’arpège : Montant part de la basse renversée ; « Tel que joué » ne change rien', () => {
+  assert.deepEqual(names(seqOf({ mode: 'up', rate: 1, inversion: 1 }, [C, E, G], 4)), ['E4', 'G4', 'C5', 'E4']);
+  assert.deepEqual(names(seqOf({ mode: 'up', rate: 1, inversion: 2 }, [C, E, G], 3)), ['G4', 'C5', 'E5']);
+  assert.deepEqual(seqOf({ mode: 'up', rate: 1, inversion: 'asis' }, [E, G, 72], 6), seqOf({ mode: 'up', rate: 1 }, [E, G, 72], 6));
+  assert.equal(A.normalize({}).inversion, 'asis');
+  assert.equal(A.normalize({ inversion: '2' }).inversion, 2);
+  assert.equal(A.normalize({ inversion: 'bad' }).inversion, 'asis');
+  // « Tourne à chaque boucle » : fondamental, 1er, 2e renversement, puis on recommence
+  const first = (loop) => A.noteName(A.preview({ mode: 'up', rate: 1, inversion: 'cycle' }, [C, E, G], 1, { loop })[0].notes[0]);
+  assert.deepEqual([0, 1, 2, 3].map(first), ['C4', 'E4', 'G4', 'C4']);
+});
+
+/* ---------- Voicings, enchaînement, écho, ratchet roulé, lignes Degré / Vitesse, sens de lecture, nouveaux motifs ---------- */
+
+test('Voicings : ouvert, drop 2, drop 3, basse grave', () => {
+  const nm = (a) => a.map(A.noteName);
+  assert.deepEqual(nm(A.applyVoicing([48, 52, 55], 'open')), ['C3', 'G3', 'E4']);
+  assert.deepEqual(nm(A.applyVoicing([48, 52, 55, 59], 'drop2')), ['G2', 'C3', 'E3', 'B3']);
+  assert.deepEqual(nm(A.applyVoicing([48, 52, 55, 59], 'drop3')), ['E2', 'C3', 'G3', 'B3']);
+  assert.deepEqual(nm(A.applyVoicing([48, 52, 55], 'bass')), ['C2', 'E3', 'G3']);
+  // voicing + renversement : 1er renversement ouvert = Mi Do Sol′
+  assert.deepEqual(names(seqOf({ mode: 'up', rate: 1, inversion: 1, voicing: 'open' }, [48, 52, 55], 3)), ['E3', 'C4', 'G4']);
+});
+
+test('Renversement « Le plus proche » : C → F → G enchaînés avec notes communes', () => {
+  const events = [
+    { step: 0, len: 16, notes: [60, 64, 67] }, // C4 E4 G4
+    { step: 16, len: 16, notes: [65, 69, 72] }, // F4 A4 C5
+    { step: 32, len: 16, notes: [67, 71, 74] }, // G4 B4 D5
+  ];
+  const v = (i) => A.voiced(events[i].notes, { inversion: 'smooth' }, 0, events, events[i]).map(A.noteName);
+  assert.deepEqual(v(0), ['C4', 'E4', 'G4']); // le premier accord reste tel que joué
+  assert.deepEqual(v(1), ['C4', 'F4', 'A4']); // F/C : Do commun gardé
+  assert.deepEqual(v(2), ['B3', 'D4', 'G4']); // G/B : Sol commun, petits pas
+  // sans la liste des accords (aperçu d'un accord seul) : notes telles que jouées
+  assert.deepEqual(A.voiced([65, 69, 72], { inversion: 'smooth' }).map(A.noteName), ['F4', 'A4', 'C5']);
+  // dans le moteur : l'arpège du 2e accord part de Do
+  const out = A.renderStep({ mode: 'up', rate: 1, inversion: 'smooth' }, events[1], 16, { loop: 0, stepSec: 0.125, events });
+  assert.equal(A.noteName(out[0].midi), 'C4');
+});
+
+test('Écho : répétitions plus faibles, décalées, transposées dans l’accord', () => {
+  const ev = { step: 0, len: 4, notes: [C, E, G], vel: 0.8 };
+  const out = A.renderStep({ mode: 'up', rate: 1, echo: { n: 2, gap: 2, decay: 0.5, shift: 'up1' } }, ev, 0, { loop: 0, stepSec: 0.125 });
+  assert.equal(out.length, 3);
+  assert.deepEqual(out.map((n) => A.noteName(n.midi)), ['C4', 'E4', 'G4']);
+  assert.ok(Math.abs(out[1].at - 0.25) < 1e-9 && Math.abs(out[2].at - 0.5) < 1e-9);
+  assert.ok(Math.abs(out[1].vel - out[0].vel * 0.5) < 1e-9);
+  const oct = A.renderStep({ mode: 'up', rate: 1, echo: { n: 1, shift: 'oct' } }, ev, 0, { loop: 0, stepSec: 0.125 });
+  assert.equal(oct[1].midi, C + 12);
+  assert.equal(A.normalize({}).echo.n, 0);
+});
+
+test('Ratchet roulé : les répétitions parcourent l’accord', () => {
+  const ev = { step: 0, len: 4, notes: [C, E, G], vel: 0.8 };
+  const r = (roll) => A.renderStep({ mode: 'up', rate: 1, roll, lanes: { ratchet: [4] } }, ev, 0, { loop: 0, stepSec: 0.125 }).map((n) => A.noteName(n.midi));
+  assert.deepEqual(r('none'), ['C4', 'C4', 'C4', 'C4']);
+  assert.deepEqual(r('up'), ['C4', 'E4', 'G4', 'C5']);
+  assert.deepEqual(r('down'), ['C4', 'G3', 'E3', 'C3']);
+  assert.deepEqual(r('updown'), ['C4', 'E4', 'G4', 'E4']);
+});
+
+test('Ligne Degré et ligne Vitesse du pas (rafales qui avancent dans l’arpège)', () => {
+  assert.deepEqual(names(seqOf({ mode: 'up', rate: 1, lanes: { deg: [0, 1] } }, [C, E, G], 4)), ['C4', 'G4', 'G4', 'E4']);
+  // ×2 sur le 1er pas : C E dans le pas 1, puis G, puis C …
+  const ev = { step: 0, len: 4, notes: [C, E, G], vel: 0.8 };
+  const info = { loop: 0, stepSec: 0.125 };
+  const arp = { mode: 'up', rate: 1, lanes: { div: [2, 1] } };
+  const seq = [];
+  for (let s = 0; s < 4; s++) A.renderStep(arp, ev, s, info).forEach((n) => seq.push(A.noteName(n.midi) + '@' + (s * 0.125 + n.at).toFixed(4)));
+  assert.deepEqual(seq, ['C4@0.0000', 'E4@0.0625', 'G4@0.1250', 'C4@0.2500', 'E4@0.3125', 'G4@0.3750']);
+});
+
+test('Sens de lecture des lignes : arrière, ping-pong, hasard reproductible', () => {
+  const vel = (dir, n = 6) => A.preview({ mode: 'up', rate: 1, lanes: { vel: [1, 0.5, 0.25] }, laneDir: { vel: dir } }, [C, E, G], n).map((t) => +(t.vel / 0.8).toFixed(2));
+  assert.deepEqual(vel('fwd'), [1, 0.5, 0.25, 1, 0.5, 0.25]);
+  assert.deepEqual(vel('rev'), [0.25, 0.5, 1, 0.25, 0.5, 1]);
+  assert.deepEqual(vel('pingpong', 8), [1, 0.5, 0.25, 0.5, 1, 0.5, 0.25, 0.5]);
+  assert.deepEqual(vel('random', 16), vel('random', 16));
+  assert.deepEqual(A.normalize({ laneDir: { vel: 'fwd', oct: 'bad', rhythm: 'rev' } }).laneDir, { rhythm: 'rev' });
+  // rythme lu à l'envers : 1 0 0 → 0 0 1
+  assert.deepEqual(seqOf({ mode: 'up', rate: 1, lanes: { rhythm: [1, 0, 0] }, laneDir: { rhythm: 'rev' } }, [C, E, G], 6), ['.', '.', '60', '.', '.', '64']);
+});
+
+test('Nouveaux motifs génératifs : cascade, vague, balancier, Fibonacci, Nørgård', () => {
+  assert.deepEqual(names(seqOf({ mode: 'cascade', rate: 1 }, [C, E, G], 6)), ['G4', 'E4', 'C4', 'C5', 'G4', 'E4']);
+  assert.deepEqual(names(seqOf({ mode: 'wave', rate: 1 }, [C, E, G], 8)), ['C4', 'E4', 'G4', 'E4', 'E4', 'G4', 'C5', 'G4']);
+  assert.deepEqual(names(seqOf({ mode: 'balance', rate: 1 }, [C, E, G], 5)), ['E4', 'G4', 'C4', 'C5', 'G3']);
+  assert.deepEqual([...Array(8).keys()].map((j) => A.fibMod(j, 10)), [0, 1, 1, 2, 3, 5, 8, 3]);
+  assert.deepEqual([...Array(8).keys()].map(A.norgard), [0, 1, -1, 2, 1, 0, -2, 3]);
+  for (const m of ['cascade', 'wave', 'balance', 'fibo', 'norgard']) {
+    assert.ok(A.MODES.some((x) => x.id === m));
+    assert.ok(seqOf({ mode: m, rate: 1, octaves: 2 }, [57, 60, 64, 67], 64).every((x) => x !== '.' && +x >= 24 && +x <= 108), m);
+  }
+});
+
+test('Motifs « Rythmes du monde » et accents reconnus et appliqués', () => {
+  require('../js/motifs.js');
+  const M = (id) => SS.MOTIFS.find((x) => x.id === id);
+  for (const id of ['tresillo', 'clave', 'bossa', 'trois4', 'cinq4', 'cascade', 'norgard', 'bassemelodie']) {
+    const m = M(id);
+    assert.ok(m, id);
+    const a = A.normalize({ mode: 'up', ...SS.motifPatch({ mode: 'up' }, m) });
+    assert.equal(SS.motifOf(a).id, id, id);
+  }
+  // quitter un motif d'accents retire le cycle de vélocité
+  const t34 = A.normalize(SS.motifPatch({}, M('trois4')));
+  assert.deepEqual(t34.lanes.vel, [1, 0.5, 0.5]);
+  const back = A.normalize({ ...t34, ...SS.motifPatch(t34, M('up')) });
+  assert.deepEqual(back.lanes.vel, []);
+  assert.equal(SS.motifOf(back).id, 'up');
+});

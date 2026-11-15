@@ -262,7 +262,7 @@
               const step = tick % len;
               for (const ev of events) {
                 if (ev.cond && !ok(ev.cond, ev.step, tick)) continue;
-                const notes = SS.Arp.renderStep(t.arp, ev, step, { loop: Math.floor(tick / len), trackLen: len, stepSec, stepsPerBeat: SS.stepsPerBeat(p) });
+                const notes = SS.Arp.renderStep(t.arp, ev, step, { loop: Math.floor(tick / len), trackLen: len, stepSec, stepsPerBeat: SS.stepsPerBeat(p), events });
                 for (const n of notes) out.notes.push({ at: (base + tick + swingAt(tick) + n.at / stepSec) * TPS + nudge, dur: (n.dur / stepSec) * TPS, note: n.midi, vel: ev.acc ? SS.accentVel(n.vel) : n.vel });
               }
             }

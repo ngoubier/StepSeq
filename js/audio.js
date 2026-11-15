@@ -1826,6 +1826,7 @@ SS.audio = (() => {
             trackLen: len,
             stepSec: sd,
             stepsPerBeat: SS.stepsPerBeat(project),
+            events: track.events, // renversement « Le plus proche » : enchaînement des accords de la piste
           });
           notes.forEach((n) => {
             const t = time + n.at;

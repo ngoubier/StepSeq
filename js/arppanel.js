@@ -53,7 +53,7 @@ SS.arpPanel = (() => {
   }
 
   const P = () => track.arp.steps;
-  const STEP_LANES = ['rhythm', 'vel', 'len', 'poly'];
+  const STEP_LANES = ['rhythm', 'vel', 'len', 'poly', 'ratchet', 'div', 'deg'];
 
   function sizedLanes(arp, n) {
     const lanes = clone(arp.lanes);
@@ -73,7 +73,7 @@ SS.arpPanel = (() => {
     const at = (name) => (l[name].length ? l[name][i % l[name].length] : A().LANES[name].def);
     const r = track.arp.rhythm;
     const rh = r.type === 'lane' && l.rhythm.length ? at('rhythm') : r.type === 'euclid' ? A().euclid(r.hits, r.steps, r.rot)[i % r.steps] : 1;
-    return { play: !!rh, vel: at('vel'), len: at('len'), poly: at('poly') };
+    return { play: !!rh, vel: at('vel'), len: at('len'), poly: at('poly'), ratchet: at('ratchet'), div: at('div'), deg: at('deg') };
   }
 
   function setStep(i, patch, opts) {
@@ -83,7 +83,7 @@ SS.arpPanel = (() => {
       if ('play' in patch) lanes.rhythm[j] = patch.play ? 1 : 0;
       if ('vel' in patch) lanes.vel[j] = patch.vel;
       if ('len' in patch) lanes.len[j] = patch.len;
-      if ('poly' in patch) lanes.poly[j] = patch.poly;
+      for (const k of ['poly', 'ratchet', 'div', 'deg']) if (k in patch) lanes[k][j] = patch[k];
     });
     set({ lanes, rhythm: { ...track.arp.rhythm, type: 'lane' } }, opts);
   }
@@ -406,6 +406,27 @@ SS.arpPanel = (() => {
           h('span', { class: 'dlg-label' }, 'Notes à la fois'),
           segmented([{ id: 1, label: '1' }, { id: 2, label: '2' }, { id: 3, label: '3' }], v.poly, (x) => setStep(sel, { poly: +x }), 'Notes à la fois'),
           h('small', { class: 'arp-help' }, '2 = la note + la note de l’accord juste au-dessus.')
+        ),
+        h(
+          'div',
+          { class: 'arp-field' },
+          h('span', { class: 'dlg-label' }, 'Degré'),
+          segmented([-2, -1, 0, 1, 2].map((d) => ({ id: d, label: d > 0 ? `+${d}` : d < 0 ? `−${-d}` : '0' })), v.deg, (x) => setStep(sel, { deg: +x }), 'Degré'),
+          h('small', { class: 'arp-help' }, 'décale la note de ce pas d’une ou deux notes de l’accord (et non d’une octave).')
+        ),
+        h(
+          'div',
+          { class: 'arp-field' },
+          h('span', { class: 'dlg-label' }, 'Vitesse du pas'),
+          segmented([1, 2, 3, 4].map((d) => ({ id: d, label: `×${d}` })), v.div, (x) => setStep(sel, { div: +x }), 'Vitesse du pas'),
+          h('small', { class: 'arp-help' }, 'rafale : ×2 joue les deux notes suivantes de l’arpège dans ce pas.')
+        ),
+        h(
+          'div',
+          { class: 'arp-field' },
+          h('span', { class: 'dlg-label' }, 'Ratchet'),
+          segmented([1, 2, 3, 4].map((d) => ({ id: d, label: String(d) })), v.ratchet, (x) => setStep(sel, { ratchet: +x }), 'Ratchet'),
+          h('small', { class: 'arp-help' }, 'répète la note dans le pas ; voir « Ratchet roulé » pour qu’elle parcoure l’accord.')
         )
       )
     );
@@ -446,7 +467,7 @@ SS.arpPanel = (() => {
 
   function playerView() {
     const src = sourceChord();
-    const hyp = A().analyzeChord(src.notes)[0];
+    const hyp = A().analyzeChord(A().voiced(src.notes, track.arp))[0]; // nom après renversement : « C/E »
     const has = !!trackChord();
     const pickShown = test || !has;
     const cur = test || { root: 9, type: 'min' };
@@ -493,7 +514,7 @@ SS.arpPanel = (() => {
   }
 
   // exemple écrit sur La mineur : ′ = une octave plus haut, groupes séparés par « · »
-  const GROUP = { down3: 3, climb2: 2, fall2: 2, up2: 4, down2: 4, up3: 3, alberti: 4, octaves: 2, repeat: 2, up: 3, down: 3, updown: 4, downup: 4, pedal: 2, pedal_top: 2 };
+  const GROUP = { cascade: 3, wave: 4, down3: 3, climb2: 2, fall2: 2, up2: 4, down2: 4, up3: 3, alberti: 4, octaves: 2, repeat: 2, up: 3, down: 3, updown: 4, downup: 4, pedal: 2, pedal_top: 2 };
   function example(motif) {
     const mode = motif.arp.mode;
     const ticks = A().preview({ rate: 1, octaves: 1, seed: 3, ...motif.arp }, [57, 60, 64], 8);
@@ -813,6 +834,12 @@ SS.arpPanel = (() => {
   /** Une ligne du formulaire : nom à gauche, réglage à droite. */
   const formRow = (label, ...ctrl) => h('div', { class: 'arp-frow' }, h('span', { class: 'arp-flabel' }, label), h('div', { class: 'arp-fctrl' }, ...ctrl));
 
+  /** Sens de lecture commun à toutes les lignes (« fwd » si aucun, '' si les lignes ont des sens différents). */
+  function laneDirAll(arp) {
+    const vals = ['rhythm', ...Object.keys(A().LANES)].map((k) => arp.laneDir[k] || 'fwd');
+    return vals.every((v) => v === vals[0]) ? vals[0] : '';
+  }
+
   function settingsView() {
     const arp = track.arp;
     const rs = splitRate(arp.rate);
@@ -826,6 +853,29 @@ SS.arpPanel = (() => {
         segmented(FEEL, rs ? rs.feel : '', (v) => set({ rate: (rs ? rs.base : 1) * +v }), 'Triolet ou pointée')
       ),
       formRow('Octaves', segmented([1, 2, 3, 4].map((o) => ({ id: o, label: String(o) })), arp.octaves, (v) => set({ octaves: +v }), 'Octaves')),
+      formRow(
+        'Renversement',
+        segmented(A().INVERSIONS.map((x) => ({ id: x.id, label: x.short, hint: `${x.label} — ${x.hint}` })), arp.inversion, (v) => set({ inversion: v }), 'Renversement de l’accord'),
+        h('small', { class: 'arp-fhelp' }, 'quelle note de l’accord est à la basse (C, C/E, C/G…) ; « Proche » enchaîne les accords de la piste')
+      ),
+      formRow('Voicing', segmented(A().VOICINGS.map((x) => ({ id: x.id, label: x.label, hint: x.hint })), arp.voicing, (v) => set({ voicing: v }), 'Voicing')),
+      formRow(
+        'Lecture des pas',
+        segmented(A().LANE_DIRS, laneDirAll(arp), (v) => set({ laneDir: v === 'fwd' ? {} : Object.fromEntries(['rhythm', ...Object.keys(A().LANES)].map((k) => [k, v])) }), 'Sens de lecture des pas'),
+        h('small', { class: 'arp-fhelp' }, 'sens de lecture des réglages pas à pas (rythme, vélocité, degré…)')
+      ),
+      formRow(
+        'Écho',
+        segmented([0, 1, 2, 3, 4].map((n) => ({ id: n, label: n ? String(n) : 'Non' })), arp.echo.n, (v) => set({ echo: { ...arp.echo, n: +v } }), 'Nombre d’échos'),
+        arp.echo.n
+          ? [
+              segmented(A().ECHO_GAPS.map((g) => ({ id: g, label: g === 0.5 ? '½ pas' : g === 1.5 ? '1½ pas' : `${g} pas` })), arp.echo.gap, (v) => set({ echo: { ...arp.echo, gap: +v } }), 'Écart entre les échos'),
+              segmented(A().ECHO_SHIFTS, arp.echo.shift, (v) => set({ echo: { ...arp.echo, shift: v } }), 'Transposition des échos'),
+              slider('Atténuation', Math.round(arp.echo.decay * 100), 10, 95, 5, (x) => `${x} % à chaque écho`, (x, push) => set({ echo: { ...track.arp.echo, decay: x / 100 } }, { push })),
+            ]
+          : h('small', { class: 'arp-fhelp' }, 'chaque note se répète, plus faible, éventuellement transposée (spirales)')
+      ),
+      formRow('Ratchet roulé', segmented(A().ROLLS, arp.roll, (v) => set({ roll: v }), 'Ratchet roulé'), h('small', { class: 'arp-fhelp' }, 'les répétitions d’un ratchet parcourent l’accord')),
       formRow('Pas', segmented([4, 8, 16].map((n) => ({ id: n, label: String(n) })), arp.steps, (v) => set({ steps: +v, lanes: sizedLanes(arp, +v) }), 'Nombre de pas du motif'), h('small', { class: 'arp-fhelp' }, 'longueur de la grille réglable pas à pas')),
       formRow('Geste', h('div', { class: 'geste-line' }, gesteChips(false), h('button', { type: 'button', class: 'btn geste-adjust', title: 'Régler finement le geste', onclick: () => ((tab = 'geste'), render()) }, 'Ajuster ›'))),
       formRow(
