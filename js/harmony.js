@@ -87,6 +87,7 @@ SS.harmony = (() => {
   const SUFFIX = {
     maj: '', min: 'm', 7: '7', maj7: 'maj7', m7: 'm7', sus2: 'sus2', sus4: 'sus4', dim: '°', aug: '+', add9: 'add9', m9: 'm9', 5: '5',
     m7b5: 'm7♭5', dim7: '°7', maj9: 'maj9', 9: '9', '7b9': '7♭9', madd9: 'm(add9)', 6: '6', m6: 'm6', '7sus4': '7sus4',
+    '7no3': '7(no3)', '5add9': '5(add9)', add4: 'add4', madd4: 'm(add4)',
   };
 
   function triadType(third, fifth) {
@@ -102,13 +103,14 @@ SS.harmony = (() => {
    * la casse suit la triade du degré dans la gamme (`baseType`).
    */
   function numeral(degree, type, baseType) {
-    const noThird = ['sus2', 'sus4', '5', '7sus4'].includes(type);
-    const lower = noThird ? ['min', 'dim'].includes(baseType) : ['min', 'dim', 'm7', 'm9', 'm7b5', 'dim7', 'madd9', 'm6'].includes(type);
+    const noThird = ['sus2', 'sus4', '5', '7sus4', '7no3', '5add9'].includes(type);
+    const lower = noThird ? ['min', 'dim'].includes(baseType) : ['min', 'dim', 'm7', 'm9', 'm7b5', 'dim7', 'madd9', 'm6', 'madd4'].includes(type);
     let r = lower ? ROMAN[degree].toLowerCase() : ROMAN[degree];
     r +=
       {
         dim: '°', aug: '+', 7: '7', maj7: 'maj7', m7: '7', m9: '9', add9: 'add9', sus2: 'sus2', sus4: 'sus4', 5: '5',
         m7b5: 'ø7', dim7: '°7', maj9: 'maj9', 9: '9', '7b9': '7♭9', madd9: 'add9', 6: '6', m6: '6', '7sus4': '7sus4',
+        '7no3': '7(no3)', '5add9': '5(add9)', add4: 'add4', madd4: 'add4',
       }[type] || '';
     return r;
   }
@@ -877,7 +879,11 @@ SS.harmony = (() => {
     if (center - root > 7) root += 12;
     const notes = SS.chordNotes(root, chord.type);
     // accord sur une basse imposée (C/E) : la basse sous l'accord
-    if (chord.bassPc != null && chord.bassPc !== chord.rootPc) notes.unshift(notes[0] - (pcOf(notes[0] - chord.bassPc) || 12));
+    if (chord.bassPc != null && chord.bassPc !== chord.rootPc) {
+      const b = notes[0] - (pcOf(notes[0] - chord.bassPc) || 12);
+      const rest = notes.filter((m) => pcOf(m) !== chord.bassPc);
+      return [b, ...(rest.length >= 2 ? rest : notes)]; // basse déjà dans l'accord : renversement, sans doublure
+    }
     return notes;
   }
 

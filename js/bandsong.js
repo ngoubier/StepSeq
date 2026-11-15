@@ -129,6 +129,7 @@ SS.bandSong = (() => {
     const T = {
       '': minor ? 'min' : 'maj', 7: minor ? 'm7' : '7', maj7: 'maj7', m7: 'm7', 9: minor ? 'm9' : '9', add9: minor ? 'madd9' : 'add9',
       sus2: 'sus2', sus4: 'sus4', '7sus4': '7sus4', 6: minor ? 'm6' : '6', dim: 'dim', '°': 'dim', dim7: 'dim7', m7b5: 'm7b5', ø: 'm7b5', 5: '5', maj9: 'maj9',
+      '7no3': '7no3', '5add9': '5add9', add4: minor ? 'madd4' : 'add4',
     };
     if (!(s in T)) throw new Error('suffixe inconnu : ' + tok);
     return { rootPc, type: T[s], tok };

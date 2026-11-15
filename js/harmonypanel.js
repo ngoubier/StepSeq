@@ -396,7 +396,7 @@ SS.harmonyPanel = (() => {
     const k = sec.key;
     if (!sc || !k) return { grid: [], melodies: [] };
     const evsOf = (t) => (sc.data[t.id] && sc.data[t.id].events) || [];
-    const gch = sc.grid && sc.grid.chords.length ? [...sc.grid.chords].sort((a, b) => a.step - b.step).map((c) => ({ step: c.step, len: c.len, c: H().gridChord(k, c.degree, c.type, c.acc, c.bass) })) : [];
+    const gch = sc.grid && sc.grid.chords.length ? [...sc.grid.chords].sort((a, b) => a.step - b.step).map((c) => ({ step: c.step, len: c.len, c: SS.chordInfoAt(k, sc.grid, c) })) : [];
     const chordEvs = instTracks().filter((t) => SS.chordTrack(t) && !SS.follows(t)).flatMap(evsOf);
     // la grille n'est la référence que si elle a été générée dans les pistes (sinon : les accords joués)
     const comp = sc.grid && sc.grid.layers.comp;
@@ -554,7 +554,7 @@ SS.harmonyPanel = (() => {
     if (g.snap === 'half') return spb % 2 === 0 ? spb / 2 : beat;
     return spb;
   }
-  const gChord = (c) => H().gridChord(key(), c.degree, c.type, c.acc, c.bass);
+  const gChord = (c) => SS.chordInfoAt(key(), scene().grid, c); // sous une pédale : la note de la pédale à la basse
   const sigOf = (events) => {
     const s = events.map((e) => `${e.step}:${e.len}:${e.notes.join('.')}`).join('|');
     let h = 5381;

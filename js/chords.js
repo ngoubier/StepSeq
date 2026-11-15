@@ -40,7 +40,24 @@ window.SS = window.SS || {};
     return [...sc.grid.chords]
       .filter((c) => c.step < total)
       .sort((a, b) => a.step - b.step)
-      .map((c) => ({ ...c, len: Math.max(1, Math.min(c.len, total - c.step)), info: SS.harmony.gridChord(key, c.degree, c.type, c.acc, c.bass || 0) }));
+      .map((c) => ({ ...c, len: Math.max(1, Math.min(c.len, total - c.step)), info: SS.chordInfoAt(key, sc.grid, c) }));
+  };
+
+  /** Pédale de la grille qui couvre le pas `step` (ou null). */
+  SS.pedalAt = (g, step) => ((g && g.pedals) || []).find((x) => step >= x.step && step < x.step + x.len) || null;
+  /** Classe de note d'une pédale dans la tonalité `key`. */
+  SS.pedalPc = (key, ped) => pcOf(SS.harmony.scale(key)[0].pc + ped.semi);
+
+  /**
+   * Accord de grille → informations (nom, notes…) ; sous une pédale, la note de la pédale devient la basse
+   * (Dm sur une pédale de La → Dm/A) et `pedalPc` est renseigné.
+   */
+  SS.chordInfoAt = (key, g, c) => {
+    const ped = SS.pedalAt(g, c.step);
+    if (!ped) return SS.harmony.gridChord(key, c.degree, c.type, c.acc, c.bass || 0);
+    const pc = SS.pedalPc(key, ped);
+    const root = SS.harmony.gridChord(key, c.degree, c.type, c.acc, 0).rootPc;
+    return { ...SS.harmony.gridChord(key, c.degree, c.type, c.acc, pcOf(pc - root)), pedalPc: pc };
   };
 
   /** Notes de l'accord en position fondamentale, la fondamentale à l'octave `oct` (do`oct` = 12·(oct+1)). */
@@ -79,6 +96,17 @@ window.SS = window.SS || {};
     let prev = null;
     return chords.map((c) => {
       const info = c.info;
+      if (info.pedalPc != null) {
+        // pédale : la même note grave sous chaque accord, les autres notes de l'accord dans l'octave au-dessus
+        const P = 12 * (f.oct + 1) + info.pedalPc;
+        const pcs = [...new Set(rootPosition(info, f.oct).map(pcOf))].filter((pc) => pc !== info.pedalPc);
+        let ups = pcs.map((pc) => P + (pcOf(pc - info.pedalPc) || 12)).sort((a, b) => a - b);
+        if (f.notes === 'noroot' && info.rootPc !== info.pedalPc) ups = ups.filter((m) => pcOf(m) !== info.rootPc);
+        let notes = f.notes === 'root' ? [P] : f.notes === 'bass' ? [P - 12, ...ups] : [P, ...ups];
+        notes = notes.map((m) => Math.max(12, Math.min(119, m)));
+        prev = notes;
+        return { step: c.step, len: c.len, notes, name: info.name };
+      }
       const base = rootPosition(info, f.oct);
       let notes = base;
       if (f.near && prev) {
@@ -100,7 +128,11 @@ window.SS = window.SS || {};
         const rest = notes.filter((m) => pcOf(m) !== info.rootPc);
         notes = rest.length ? rest : notes;
       } else if (f.notes === 'bass') notes = [below(bassPc) - 12, ...notes];
-      else if (info.bassPc != null && info.bassPc !== info.rootPc) notes = [below(info.bassPc), ...notes];
+      else if (info.bassPc != null && info.bassPc !== info.rootPc) {
+        // basse imposée : si elle fait déjà partie de l'accord, c'est un renversement (Dm/A = La Ré Fa, sans La doublé)
+        const rest = notes.filter((m) => pcOf(m) !== info.bassPc);
+        notes = [below(info.bassPc), ...(rest.length >= 2 ? rest : notes)];
+      }
       notes = notes.map((m) => Math.max(12, Math.min(119, m)));
       return { step: c.step, len: c.len, notes: [...new Set(notes)].sort((a, b) => a - b), name: info.name };
     });
@@ -195,7 +227,7 @@ window.SS = window.SS || {};
     if (!track.follow) return arp ? SS.heldChords(events) : events;
     const chords = SS.sceneGridChords(p, opts.scene);
     const f = cleanFollow(track.follow);
-    const key = sig([arp, f, chords.map((c) => [c.step, c.len, c.info.name, c.info.rootPc, c.info.type]), f.play === 'steps' && !arp ? events.map((e) => [e.step, e.len, e.vel, e.acc, e.cond, e.rat, e.shift]) : 0]);
+    const key = sig([arp, f, chords.map((c) => [c.step, c.len, c.info.name, c.info.rootPc, c.info.type, c.info.pedalPc]), f.play === 'steps' && !arp ? events.map((e) => [e.step, e.len, e.vel, e.acc, e.cond, e.rat, e.shift]) : 0]);
     const hit = cache.get(track);
     if (hit && hit.key === key) return hit.out;
     let out;

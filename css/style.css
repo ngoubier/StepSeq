@@ -3962,3 +3962,16 @@ dialog.help-dialog::backdrop { background: #0008; }
 .arp-pattern-bad { color: var(--danger, #e5484d); font-weight: 600; }
 .arp-pattern-ex { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 4px; }
 .arp-pattern-ex .btn { font-family: ui-monospace, Menlo, Consolas, monospace; }
+/* pédale de la piste Accords : une bande sous les accords qu'elle couvre */
+.chord-lane .cl-row.has-ped { height: 58px; }
+.cl-row.has-ped .cl-blk { margin-bottom: 15px; }
+.cl-ped {
+  grid-row: 1; align-self: end; z-index: 2; margin: 0 2px 2px; height: 12px; min-width: 0; padding: 0 6px;
+  border: 0; border-radius: 3px; background: rgba(232, 163, 61, .35); color: var(--text);
+  font: 600 9px/12px inherit; text-align: left; white-space: nowrap; overflow: visible; cursor: pointer;
+}
+.cl-ped span { position: sticky; left: calc(var(--head) + 6px); } /* le nom reste visible quand la piste défile */
+.cl-ped:hover, .cl-ped:focus-visible { background: rgba(232, 163, 61, .6); }
+.cl-pedrow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 13px; padding: 0 4px; }
+.ctx-menu .cl-pedrow .chip { width: auto; display: inline-flex; padding: 3px 10px; font-size: 13px; }
+.cl-note { color: var(--muted); font-size: 12px; margin: 0; padding: 0 4px; }

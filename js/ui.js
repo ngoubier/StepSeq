@@ -37,6 +37,7 @@ SS.ui = (() => {
   const CHORD_SUFFIX = {
     maj: '', min: 'm', 7: '7', maj7: 'maj7', m7: 'm7', sus2: 'sus2', sus4: 'sus4', dim: '°', aug: '+', add9: 'add9', m9: 'm9', 5: '5',
     m7b5: 'm7♭5', dim7: '°7', maj9: 'maj9', 9: '9', '7b9': '7♭9', madd9: 'm(add9)', 6: '6', m6: 'm6', '7sus4': '7sus4',
+    '7no3': '7(no3)', '5add9': '5(add9)', add4: 'add4', madd4: 'm(add4)',
   };
 
   let app; // { project(), changed(), state }
@@ -506,7 +507,7 @@ SS.ui = (() => {
   };
 
   /** Accord de grille → informations d'affichage (nom, chiffrage, rôle). */
-  const chordInfo = (key, c) => SS.harmony.gridChord(key, c.degree, c.type, c.acc, c.bass || 0);
+  const chordInfo = (key, c) => SS.chordInfoAt(key, SS.currentScene(app.project()).grid, c); // pédale comprise
 
   function renderChordLane() {
     const box = $('#chordLane');
@@ -568,13 +569,27 @@ SS.ui = (() => {
         });
         grid.append(blk);
       });
+    // pédales : une bande sous les accords qu'elles couvrent
+    const peds = key && g && g.pedals ? g.pedals : [];
+    peds.forEach((ped) => {
+      if (ped.step >= n) return;
+      const nm = SS.harmony.spell(key, SS.pedalPc(key, ped));
+      const band = h(
+        'button',
+        { type: 'button', class: 'cl-ped', style: `grid-column:${ped.step + 1} / span ${Math.min(ped.len, n - ped.step)}`, title: `Pédale de ${nm} · ${durLabel(ped.len)} — clic : régler` },
+        h('span', {}, `Pédale ${nm}`)
+      );
+      band.addEventListener('pointerdown', (e) => e.stopPropagation());
+      band.addEventListener('click', () => openPedalEditor(ped, band));
+      grid.append(band);
+    });
     grid.addEventListener('pointerdown', (e) => {
       const cell = e.target.closest('.clcell');
       if (!cell || e.button !== 0) return;
       e.preventDefault();
       addChordAt(+cell.dataset.step);
     });
-    box.replaceChildren(h('div', { class: 'track-row cl-row' }, head, grid));
+    box.replaceChildren(h('div', { class: 'track-row cl-row' + (peds.length ? ' has-ped' : '') }, head, grid));
     box.querySelectorAll('.clcell.now').forEach((c) => c.classList.remove('now'));
   }
 
@@ -720,6 +735,48 @@ SS.ui = (() => {
       { len: 8 * spb, label: '8 mesures' },
     ].filter((d, i, a) => a.findIndex((x) => x.len === d.len) === i);
     menuEl = h('div', { class: 'ctx-menu cl-menu', role: 'dialog', 'aria-label': 'Régler l’accord' });
+    /** Basse : fondamentale ou n'importe quelle note (C/E, Dm/A, C/B♭…) ; sous une pédale, c'est la pédale. */
+    function bassRow() {
+      const ped = SS.pedalAt(g, c.step);
+      const root = SS.harmony.gridChord(key, c.degree, c.type, c.acc, 0).rootPc;
+      const opts = [{ v: 0, label: 'Fondamentale' }, ...Array.from({ length: 11 }, (_, i) => ({ v: i + 1, label: SS.harmony.spell(key, (root + i + 1) % 12) }))];
+      return h(
+        'label',
+        { class: 'cl-type' },
+        'Basse ',
+        h(
+          'select',
+          { disabled: !!ped, title: ped ? 'Sous une pédale, la basse est la note de la pédale' : 'Note jouée à la basse (accord renversé ou sur une autre basse)', onchange: (e) => set({ bass: +e.target.value || undefined }) },
+          ped ? h('option', {}, SS.harmony.spell(key, SS.pedalPc(key, ped))) : opts.map((o) => h('option', { value: o.v, selected: o.v === (c.bass || 0) }, o.label))
+        ),
+        ped ? h('small', { class: 'cl-note' }, 'imposée par la pédale') : null
+      );
+    }
+    /** Pédale : une note de basse tenue sous plusieurs accords. */
+    function pedalRow() {
+      const ped = SS.pedalAt(g, c.step);
+      if (ped) {
+        const nm = SS.harmony.spell(key, SS.pedalPc(key, ped));
+        const b0 = Math.floor(ped.step / spb) + 1;
+        const b1 = Math.floor((ped.step + ped.len - 1) / spb) + 1;
+        return h('div', { class: 'cl-pedrow' }, h('span', {}, `Pédale de ${nm} · ${b0 === b1 ? 'mesure ' + b0 : `mesures ${b0} à ${b1}`}`), h('button', { type: 'button', class: 'chip', onclick: () => openPedalEditor(ped, blk) }, 'Régler la pédale ›'));
+      }
+      const info = chordInfo(key, c);
+      const pc = info.bassPc != null ? info.bassPc : info.rootPc;
+      const lens = [
+        { len: c.len, label: 'cet accord' },
+        { len: 2 * spb, label: '2 mesures' },
+        { len: 4 * spb, label: '4 mesures' },
+        { len: 8 * spb, label: '8 mesures' },
+        { len: n - c.step, label: 'jusqu’à la fin' },
+      ].filter((d, i, a) => d.len > 0 && c.step + d.len <= n && a.findIndex((x) => x.len === d.len) === i);
+      return h(
+        'div',
+        { class: 'cl-pedrow' },
+        h('span', { title: 'La basse de cet accord reste tenue sous les accords suivants' }, `Pédale de ${SS.harmony.spell(key, pc)} sur`),
+        lens.map((d) => h('button', { type: 'button', class: 'chip', onclick: () => { putPedal(g, { step: c.step, len: d.len, semi: (pc - SS.pedalPc(key, { semi: 0 }) + 12) % 12 }); chordsChanged(); render(); } }, d.label))
+      );
+    }
     function render() {
       const info = chordInfo(key, c);
       const bar = Math.floor(c.step / spb) + 1;
@@ -750,6 +807,8 @@ SS.ui = (() => {
             SS.CHORDS.map((t) => h('option', { value: t.id, selected: t.id === c.type }, t.label))
           )
         ),
+        bassRow(),
+        pedalRow(),
         h('div', { class: 'cl-sec' }, 'Durée'),
         h(
           'div',
@@ -783,6 +842,73 @@ SS.ui = (() => {
     }
     render();
     const r = blk.getBoundingClientRect();
+    placeMenu(r.left, r.bottom + 6);
+  }
+
+  /** Pose une pédale : elle remplace les pédales qu'elle recouvre (une pédale coupée garde ses bouts). */
+  function putPedal(g, ped) {
+    const end = ped.step + ped.len;
+    const rest = (g.pedals || []).flatMap((x) => {
+      if (x === ped) return [];
+      const xe = x.step + x.len;
+      if (xe <= ped.step || x.step >= end) return [x];
+      const out = [];
+      if (x.step < ped.step) out.push({ ...x, len: ped.step - x.step });
+      if (xe > end) out.push({ ...x, step: end, len: xe - end });
+      return out;
+    });
+    g.pedals = [...rest, ped].sort((a, b) => a.step - b.step);
+    return ped;
+  }
+
+  /** Panneau d'une pédale : note, durée, écouter, retirer. */
+  function openPedalEditor(ped, anchor) {
+    const p = app.project();
+    const key = SS.sceneKey(p);
+    const g = SS.currentScene(p).grid;
+    if (!key || !g) return;
+    closeChordMenu();
+    const n = SS.totalSteps(p);
+    const spb = SS.stepsPerBar(p);
+    const tonic = SS.pedalPc(key, { semi: 0 });
+    menuEl = h('div', { class: 'ctx-menu cl-menu', role: 'dialog', 'aria-label': 'Régler la pédale' });
+    const set = (patch) => {
+      Object.assign(ped, patch);
+      if (patch.len != null || patch.step != null) putPedal(g, ped);
+      chordsChanged();
+      render();
+    };
+    function render() {
+      const pc = SS.pedalPc(key, ped);
+      const nm = SS.harmony.spell(key, pc);
+      const covered = g.chords.filter((c) => c.step >= ped.step && c.step < ped.step + ped.len).sort((a, b) => a.step - b.step);
+      const lens = [1, 2, 4, 8].map((k) => ({ len: k * spb, label: `${k} mesure${k > 1 ? 's' : ''}` }));
+      menuEl.replaceChildren(
+        h('div', { class: 'ctx-head' }, h('b', { class: 'ctx-current' }, `Pédale de ${nm}`), h('span', { class: 'ctx-desc' }, `à partir de la mesure ${Math.floor(ped.step / spb) + 1} · ${durLabel(ped.len)}`)),
+        h('p', { class: 'cl-note' }, covered.length ? `Accords : ${covered.map((c) => chordInfo(key, c).name).join(' – ')}` : 'Aucun accord sous la pédale.'),
+        h(
+          'label',
+          { class: 'cl-type' },
+          'Note ',
+          h('select', { onchange: (e) => set({ semi: (+e.target.value - tonic + 12) % 12 }) }, Array.from({ length: 12 }, (_, i) => (tonic + i) % 12).map((x) => h('option', { value: x, selected: x === pc }, SS.harmony.spell(key, x))))
+        ),
+        h('div', { class: 'cl-sec' }, 'Durée'),
+        h(
+          'div',
+          { class: 'cl-durs' },
+          lens.map((d) => h('button', { type: 'button', class: 'chip' + (ped.len === d.len ? ' active' : ''), disabled: ped.step + d.len > n, onclick: () => set({ len: d.len }) }, d.label)),
+          h('button', { type: 'button', class: 'chip' + (ped.step + ped.len === n ? ' active' : ''), onclick: () => set({ len: n - ped.step }) }, 'Jusqu’à la fin')
+        ),
+        h(
+          'div',
+          { class: 'ctx-foot' },
+          h('button', { type: 'button', class: 'danger', onclick: () => { g.pedals = (g.pedals || []).filter((x) => x !== ped); if (!g.pedals.length) delete g.pedals; closeChordMenu(); chordsChanged(); } }, 'Retirer la pédale'),
+          h('button', { type: 'button', class: 'ctx-close', onclick: () => closeChordMenu() }, 'Fermer')
+        )
+      );
+    }
+    render();
+    const r = anchor.getBoundingClientRect();
     placeMenu(r.left, r.bottom + 6);
   }
 
