@@ -1007,7 +1007,7 @@ SS.harmonyPanel = (() => {
         events = chords.flatMap((ev) => {
           const out = [];
           for (let step = ev.step; step < ev.step + ev.len; step++) {
-            SS.Arp.renderStep(track.arp, ev, step, { loop: 0, trackLen: total, stepSec: 60 / p.tempo / 4, stepsPerBeat: beat }).forEach((n) => {
+            SS.Arp.renderStep(track.arp, ev, step, { loop: 0, trackLen: total, stepSec: 60 / p.tempo / 4, stepsPerBeat: beat, events: track.events }).forEach((n) => {
               const sd = 60 / p.tempo / 4;
               out.push({ step: step + n.at / sd, len: n.dur / sd, notes: [n.midi], vel: n.vel });
             });

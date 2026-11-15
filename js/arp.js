@@ -11,7 +11,11 @@
  *   - lignes par pas (lanes)            : vélocité, gate, octave, ratchet, probabilité — chacune sa longueur
  *   - harmonie (harmony)                : notes de l'accord (défaut), notes de passage, approche chromatique
  *   - renversement (inversion)          : tel que joué (défaut), état fondamental, 1er / 2e / 3e renversement,
- *                                         ou renversement qui change à chaque passage de la boucle
+ *                                         renversement qui change à chaque boucle, ou le plus proche de l'accord
+ *                                         précédent (enchaînement : info.events = les accords de la piste)
+ *   - voicing                           : serré, ouvert, drop 2, drop 3, basse grave
+ *   - lecture des lignes (laneDir)      : avant, arrière, ping-pong, hasard (par ligne)
+ *   - écho (echo) et ratchet roulé (roll) : répétitions transposées, ratchets qui parcourent l'accord
  *   - macros PLAY                       : RATE, GATE, MOTION (LFO de timbre / dynamique), EVOLVE (variations)
  *
  * Vocabulaire :
@@ -53,6 +57,11 @@
     { id: 'octaves', label: 'Octaves (chaque note puis son octave)', group: 'Formes' },
     { id: 'repeat', label: 'Notes doublées', group: 'Formes' },
     { id: 'rotate', label: 'Rotation (chaque cycle décale)', group: 'Formes' },
+    { id: 'cascade', label: 'Cascade (petites descentes qui montent)', group: 'Génératifs' },
+    { id: 'wave', label: 'Vague qui monte (arcs de 4 qui grimpent)', group: 'Génératifs' },
+    { id: 'balance', label: 'Balancier qui s’élargit', group: 'Génératifs' },
+    { id: 'fibo', label: 'Fibonacci (1, 1, 2, 3, 5…)', group: 'Génératifs' },
+    { id: 'norgard', label: 'Série infinie (Nørgård)', group: 'Génératifs' },
     { id: 'random', label: 'Aléatoire (avec répétitions)', group: 'Aléatoires (graine)' },
     { id: 'shuffle', label: 'Aléatoire sans répétition par cycle', group: 'Aléatoires (graine)' },
     { id: 'walk', label: 'Marche aléatoire', group: 'Aléatoires (graine)' },
@@ -95,6 +104,39 @@
     { id: 2, label: '2e renversement', short: '2e', hint: 'la quinte à la basse (C/G : Sol Do Mi)' },
     { id: 3, label: '3e renversement', short: '3e', hint: 'la septième à la basse (C7/B♭) ; sur un accord de 3 sons, revient à l’état fondamental' },
     { id: 'cycle', label: 'Tourne à chaque boucle', short: 'Tourne', hint: 'fondamental, puis 1er, puis 2e renversement… à chaque passage de la boucle' },
+    { id: 'smooth', label: 'Le plus proche', short: 'Proche', hint: 'chaque accord prend le renversement qui bouge le moins depuis l’accord précédent (notes communes gardées)' },
+  ];
+
+  const VOICINGS = [
+    { id: 'close', label: 'Serré', hint: 'les notes au plus près les unes des autres' },
+    { id: 'open', label: 'Ouvert', hint: 'une note sur deux montée d’une octave (Do Sol Mi′) : plus large, plus « orchestre »' },
+    { id: 'drop2', label: 'Drop 2', hint: 'la 2e note en partant du haut descend d’une octave (son jazz, Rhodes)' },
+    { id: 'drop3', label: 'Drop 3', hint: 'la 3e note en partant du haut descend d’une octave (accords de 4 sons)' },
+    { id: 'bass', label: 'Basse grave', hint: 'la note de basse descend d’une octave' },
+  ];
+
+  const ECHO_SHIFTS = [
+    { id: 'none', label: 'Même note' },
+    { id: 'up1', label: '+1 degré', hint: 'chaque écho monte d’une note de l’accord' },
+    { id: 'down1', label: '−1 degré', hint: 'chaque écho descend d’une note de l’accord' },
+    { id: 'oct', label: '+octave' },
+    { id: 'octdown', label: '−octave' },
+    { id: 'fifth', label: '+quinte', hint: 'spirale de quintes (sort de l’accord)' },
+  ];
+  const ECHO_GAPS = [0.5, 1, 1.5, 2, 3, 4]; // en pas d'arpège
+
+  const ROLLS = [
+    { id: 'none', label: 'Non', hint: 'les répétitions d’un ratchet rejouent la même note' },
+    { id: 'up', label: 'Monte', hint: 'chaque répétition monte d’une note de l’accord' },
+    { id: 'down', label: 'Descend', hint: 'chaque répétition descend d’une note de l’accord' },
+    { id: 'updown', label: 'Aller-retour', hint: 'monte puis redescend' },
+  ];
+
+  const LANE_DIRS = [
+    { id: 'fwd', label: 'Avant' },
+    { id: 'rev', label: 'Arrière' },
+    { id: 'pingpong', label: 'Ping-pong' },
+    { id: 'random', label: 'Hasard', hint: 'un pas au hasard à chaque fois (même graine, même résultat)' },
   ];
 
   const RETRIG = [
@@ -111,6 +153,8 @@
     len: { label: 'Longueur', min: 0, max: 64, def: 0 }, // en doubles-croches ; 0 = longueur générale
     poly: { label: 'Notes à la fois', min: 1, max: 3, def: 1, int: true },
     prob: { label: 'Probabilité', min: 0, max: 1, def: 1 },
+    deg: { label: 'Degré', min: -3, max: 3, def: 0, int: true }, // décalage en notes de l'accord
+    div: { label: 'Vitesse du pas', min: 1, max: 4, def: 1, int: true }, // 2 = deux notes successives de l'arpège dans le pas
   };
 
   const DEFAULTS = {
@@ -124,6 +168,10 @@
     swing: 0.5, // 0.5 = droit, jusqu'à 0.75
     harmony: 'chord',
     inversion: 'asis',
+    voicing: 'close',
+    echo: { n: 0, gap: 2, decay: 0.6, shift: 'none' },
+    roll: 'none',
+    laneDir: {},
     retrig: 'chord',
     pattern: '',
     range: [24, 108],
@@ -134,7 +182,7 @@
     noteLen: 0, // longueur des notes en doubles-croches (4 = 1 temps) ; 0 = d'après GATE
     steps: 16, // longueur du motif édité pas à pas (interface)
     rhythm: { type: 'all', hits: 5, steps: 16, rot: 0 },
-    lanes: { rhythm: [], vel: [], gate: [], oct: [], ratchet: [], prob: [], len: [], poly: [] },
+    lanes: { rhythm: [], vel: [], gate: [], oct: [], ratchet: [], prob: [], len: [], poly: [], deg: [], div: [] },
   };
 
   /* ------------------------------------------------------------------ */
@@ -240,6 +288,18 @@
     o.harmony = HARMONY.some((x) => x.id === o.harmony) ? o.harmony : 'chord';
     const inv = typeof o.inversion === 'string' && /^\d$/.test(o.inversion) ? +o.inversion : o.inversion;
     o.inversion = INVERSIONS.some((x) => x.id === inv) ? inv : 'asis';
+    o.voicing = VOICINGS.some((x) => x.id === o.voicing) ? o.voicing : 'close';
+    o.roll = ROLLS.some((x) => x.id === o.roll) ? o.roll : 'none';
+    const ec = { ...DEFAULTS.echo, ...(a.echo && typeof a.echo === 'object' ? a.echo : {}) };
+    o.echo = {
+      n: clamp(Math.round(num(+ec.n, 0)), 0, 6),
+      gap: ECHO_GAPS.reduce((b, g) => (Math.abs(g - num(+ec.gap, 2)) < Math.abs(b - num(+ec.gap, 2)) ? g : b), 2),
+      decay: clamp(num(+ec.decay, 0.6), 0.1, 0.95),
+      shift: ECHO_SHIFTS.some((x) => x.id === ec.shift) ? ec.shift : 'none',
+    };
+    const ld = a.laneDir && typeof a.laneDir === 'object' ? a.laneDir : {};
+    o.laneDir = {};
+    for (const k of ['rhythm', ...Object.keys(LANES)]) if (LANE_DIRS.some((x) => x.id === ld[k] && x.id !== 'fwd')) o.laneDir[k] = ld[k];
     o.retrig = RETRIG.some((x) => x.id === o.retrig) ? o.retrig : 'chord';
     o.pattern = typeof o.pattern === 'string' ? o.pattern.slice(0, 400) : '';
     const r = Array.isArray(o.range) ? o.range.map(Number) : DEFAULTS.range;
@@ -425,10 +485,93 @@
     return out;
   }
 
-  /** Notes de l'accord après le renversement demandé (L = passage de la boucle, pour « Tourne à chaque boucle »). */
-  function voiced(notes, o, L) {
-    if (o.inversion === 'asis' || notes.length < 2) return notes;
-    return invertChord(notes, o.inversion === 'cycle' ? L | 0 : o.inversion);
+  /** Voicing appliqué à des notes (triées en sortie). */
+  function applyVoicing(ns, v) {
+    const a = [...ns].sort((x, y) => x - y);
+    const n = a.length;
+    if (v === 'open' && n >= 3) for (let i = 1; i < n; i += 2) a[i] += 12;
+    else if (v === 'drop2' && n >= 3) a[n - 2] -= 12;
+    else if (v === 'drop3' && n >= 4) a[n - 3] -= 12;
+    else if (v === 'bass' && n >= 2) a[0] -= 12;
+    return a.sort((x, y) => x - y);
+  }
+
+  const avg = (a) => a.reduce((s, x) => s + x, 0) / a.length;
+  /** Mouvement des voix entre deux accords : chaque note va vers la note la plus proche de l'autre accord. */
+  function motion(a, b) {
+    const near = (x, arr) => arr.reduce((m, y) => Math.min(m, Math.abs(x - y)), Infinity);
+    return b.reduce((s, x) => s + near(x, a), 0) + a.reduce((s, x) => s + near(x, b), 0);
+  }
+  const evSig = (e) => (e.step | 0) + ':' + e.notes.join(',');
+
+  /**
+   * Enchaînement : les accords de la piste dans l'ordre ; le premier reste tel que joué, chaque suivant prend le
+   * renversement (± une octave) qui bouge le moins depuis le précédent, sans trop s'éloigner du registre joué.
+   */
+  const smoothCache = new Map();
+  function smoothChain(events) {
+    const evs = events.filter((e) => e && Array.isArray(e.notes) && e.notes.some(Number.isFinite)).slice().sort((a, b) => (a.step || 0) - (b.step || 0));
+    const sig = evs.map(evSig).join(';');
+    let m = smoothCache.get(sig);
+    if (m) return m;
+    m = new Map();
+    let prev = null;
+    for (const e of evs) {
+      const ns = e.notes.filter(Number.isFinite).sort((a, b) => a - b);
+      let best = ns;
+      if (prev && ns.length >= 2) {
+        const n = Math.max(1, chordTones(chordOf(ns)).core.length);
+        const mean = avg(ns);
+        let bc = Infinity;
+        for (let i = 0; i < n; i++) {
+          const v = invertChord(ns, i);
+          for (const sh of [-12, 0, 12]) {
+            const cand = v.map((x) => x + sh);
+            const cost = motion(prev, cand) + 0.35 * Math.abs(avg(cand) - mean);
+            if (cost < bc - 1e-9) {
+              bc = cost;
+              best = cand;
+            }
+          }
+        }
+      }
+      m.set(evSig(e), best);
+      prev = best;
+    }
+    if (smoothCache.size > 100) smoothCache.clear();
+    smoothCache.set(sig, m);
+    return m;
+  }
+
+  /**
+   * Notes de l'accord après renversement et voicing (L = passage de la boucle, pour « Tourne à chaque boucle » ;
+   * events / ev : accords de la piste et accord en cours, pour « Le plus proche »).
+   */
+  function voiced(notes, o, L, events, ev) {
+    let ns = notes;
+    if (notes.length >= 2) {
+      if (o.inversion === 'smooth') {
+        const hit = Array.isArray(events) && ev && Array.isArray(ev.notes) ? smoothChain(events).get(evSig(ev)) : null;
+        ns = hit || [...notes].sort((a, b) => a - b);
+      } else if (o.inversion !== 'asis') ns = invertChord(notes, o.inversion === 'cycle' ? L | 0 : o.inversion);
+      if (o.voicing !== 'close') ns = applyVoicing(ns, o.voicing);
+    }
+    return ns;
+  }
+
+  /** Note obtenue en avançant de k notes de l'accord (k < 0 : en descendant) depuis n. */
+  function chordStep(tones, n, k) {
+    if (!k) return n;
+    const pcs = new Set(tones.map((x) => mod(x, 12)));
+    if (!pcs.size) return n;
+    const sg = Math.sign(k);
+    let left = Math.abs(k);
+    let m = n;
+    while (left > 0) {
+      m += sg;
+      if (pcs.has(mod(m, 12))) left--;
+    }
+    return m;
   }
 
   /** Note la plus grave de l'accord dont l'intervalle à la fondamentale est l'un de ceux demandés. */
@@ -519,6 +662,28 @@
     return c;
   }
 
+  /** Index de lecture d'une ligne de longueur L au pas t, selon son sens (avant, arrière, ping-pong, hasard). */
+  function laneIdx(o, name, t, L) {
+    if (L <= 1) return 0;
+    const d = o.laneDir[name];
+    if (d === 'rev') return L - 1 - mod(t, L);
+    if (d === 'pingpong') {
+      const q = mod(t, 2 * L - 2);
+      return q < L ? q : 2 * L - 2 - q;
+    }
+    if (d === 'random') return Math.floor(rnd(o.seed, t, L, 13) * L);
+    return mod(t, L);
+  }
+
+  /** Nombre de notes de l'arpège jouées dans les pas [0, x) : chaque pas joué compte pour sa « vitesse » (1 à 4). */
+  function playedBefore(o, rl, x) {
+    const divs = o.lanes.div;
+    if (!divs.length && !o.laneDir.rhythm) return rl ? hitsBefore(rl, x) : x;
+    let c = 0;
+    for (let i = 0; i < x; i++) if (!rl || rl[laneIdx(o, 'rhythm', i, rl.length)]) c += divs.length ? divs[laneIdx(o, 'div', i, divs.length)] : 1;
+    return c;
+  }
+
   /* ------------------------------------------------------------------ */
   /* Ordre des notes                                                     */
   /* ------------------------------------------------------------------ */
@@ -556,6 +721,26 @@
       [p[i], p[r]] = [p[r], p[i]];
     }
     return p;
+  }
+
+  /** Suite de Fibonacci modulo n (0, 1, 1, 2, 3, 5…), périodique (période de Pisano). */
+  const fibCache = new Map();
+  function fibMod(j, n) {
+    let seq = fibCache.get(n);
+    if (!seq) {
+      seq = [0, 1];
+      while (seq.length < 6 * n + 3 && !(seq.length > 2 && seq[seq.length - 2] === 0 && seq[seq.length - 1] === 1)) seq.push((seq[seq.length - 1] + seq[seq.length - 2]) % n);
+      if (seq.length > 2 && seq[seq.length - 2] === 0 && seq[seq.length - 1] === 1) seq.length -= 2;
+      fibCache.set(n, seq);
+    }
+    return seq[mod(j, seq.length)];
+  }
+
+  /** Série infinie de Per Nørgård : a(0) = 0, a(2k) = −a(k), a(2k+1) = a(k) + 1 (autosimilaire). */
+  function norgard(j) {
+    j = Math.max(0, j | 0);
+    if (j === 0) return 0;
+    return j % 2 ? norgard((j - 1) / 2) + 1 : -norgard(j / 2);
   }
 
   /** Index dans la réserve de notes (pool) pour le j-ième pas joué. */
@@ -614,6 +799,19 @@
         return mod(Math.floor(j / 2), n) + (j % 2 ? n : 0);
       case 'rotate':
         return mod(p + Math.floor(j / n), n);
+      // index hors de la réserve (< 0 ou ≥ n) : la note est prise une octave plus bas / plus haut
+      case 'cascade':
+        return mod(Math.floor(j / 3), n) + 2 - mod(j, 3);
+      case 'wave':
+        return mod(Math.floor(j / 4), n) + [0, 1, 2, 1][mod(j, 4)];
+      case 'balance': {
+        const q = mod(j, 2 * n + 1); // 0, +1, −1, +2, −2… autour du milieu, puis on recommence
+        return Math.floor((n - 1) / 2) + (q === 0 ? 0 : q % 2 ? (q + 1) / 2 : -q / 2);
+      }
+      case 'fibo':
+        return fibMod(j, n);
+      case 'norgard':
+        return norgard(j);
       case 'random':
         return Math.floor(rnd(seed, evKey, j, 3) * n);
       case 'shuffle': {
@@ -658,7 +856,7 @@
     up: ['updown', 'converge', 'thirds'], down: ['downup', 'diverge', 'thirds'], updown: ['up', 'converge', 'pedal'],
     updown_rep: ['up', 'converge'], downup: ['down', 'diverge'], played: ['updown', 'converge'], played_rev: ['downup', 'diverge'],
     converge: ['diverge', 'updown'], diverge: ['converge', 'downup'], pedal: ['updown', 'pedal_top'], pedal_top: ['pedal', 'downup'],
-    thirds: ['up', 'updown'], up2: ['up3', 'up'], down2: ['down', 'up2'], up3: ['up2', 'up'], alberti: ['pedal', 'updown'], octaves: ['up', 'repeat'], repeat: ['up', 'octaves'], rotate: ['up', 'thirds'], random: ['shuffle'], shuffle: ['walk'], walk: ['drunk'], drunk: ['walk'],
+    thirds: ['up', 'updown'], cascade: ['down3', 'up3'], wave: ['up3', 'updown'], balance: ['converge', 'diverge'], fibo: ['shuffle', 'random'], norgard: ['walk', 'drunk'], up2: ['up3', 'up'], down2: ['down', 'up2'], up3: ['up2', 'up'], alberti: ['pedal', 'updown'], octaves: ['up', 'repeat'], repeat: ['up', 'octaves'], rotate: ['up', 'thirds'], random: ['shuffle'], shuffle: ['walk'], walk: ['drunk'], drunk: ['walk'],
   };
   const PHRASE = ['A', "A'", 'B', "A''"];
 
@@ -715,19 +913,19 @@
   function tick(o, ev, k, info = {}) {
     const raw = (ev.notes || []).filter(Number.isFinite);
     if (!raw.length) return null;
-    const notes = voiced(raw, o, o.freeze ? o.freezeLoop : info.loop);
+    const notes = voiced(raw, o, o.freeze ? o.freezeLoop : info.loop, info.events, ev);
     const c = chordOf(notes);
     const pool = buildPool(notes, o);
     const evKey = (ev.step | 0) * 131 + notes.length * 7 + mod(notes[0], 12);
     const t = o.retrig === 'free' ? k + Math.ceil((ev.step || 0) * o.rate - 1e-9) : k; // index des lignes
     const lane = (name) => {
       const a = o.lanes[name];
-      return a && a.length ? a[mod(t, a.length)] : LANES[name].def;
+      return a && a.length ? a[laneIdx(o, name, t, a.length)] : LANES[name].def;
     };
 
     const rl = rhythmLane(o);
-    if (rl && !rl[mod(t, rl.length)]) return null;
-    const j = rl ? hitsBefore(rl, t) - (o.retrig === 'free' ? hitsBefore(rl, t - k) : 0) : k;
+    if (rl && !rl[laneIdx(o, 'rhythm', t, rl.length)]) return null;
+    const j = playedBefore(o, rl, t) - (o.retrig === 'free' ? playedBefore(o, rl, t - k) : 0);
 
     // EVOLVE : variations aux frontières de boucle, structure A / A' / B / A''
     const e = o.evolve;
@@ -809,22 +1007,47 @@
       if (onBeat) jitter = Math.max(-0.003, jitter * 0.4); // les temps restent posés
     }
 
-    // plusieurs notes à la fois : la note du pas + les notes de l'accord juste au-dessus
-    if (poly > 1 && mode !== 'chord' && out.length === 1) {
-      const pcs = new Set(c.sorted.map((n) => mod(n, 12)));
-      for (let m = out[0] + 1; m <= out[0] + 24 && out.length < poly; m++) if (pcs.has(mod(m, 12))) out.push(m);
+    const tones = c.sorted; // notes de l'accord (après renversement et voicing)
+    const deg = lane('deg');
+    const div = mode === 'chord' ? 1 : lane('div');
+    const finish = (arr) => {
+      let a = arr.slice();
+      // plusieurs notes à la fois : la note du pas + les notes de l'accord juste au-dessus
+      if (poly > 1 && mode !== 'chord' && a.length === 1) {
+        const pcs = new Set(tones.map((n) => mod(n, 12)));
+        for (let m = a[0] + 1; m <= a[0] + 24 && a.length < poly; m++) if (pcs.has(mod(m, 12))) a.push(m);
+      }
+      if (deg) a = a.map((n) => chordStep(tones, n, deg)); // ligne Degré : décalage dans l'accord
+      return [...new Set(a.map((n) => fold(n + 12 * octShift, o.range)))];
+    };
+    out = finish(out);
+    // répétitions dans le pas : rafale (notes suivantes de l'arpège) ou ratchet roulé (parcourt l'accord)
+    let reps = null;
+    if (div > 1) {
+      reps = [out];
+      for (let i = 1; i < div; i++) {
+        const b = baseNotes(o, c, pool, jj + i, mode, evKey);
+        reps.push(b ? finish(b.notes) : []);
+      }
+    } else if (ratchet > 1 && o.roll !== 'none') {
+      const R = clamp(Math.round(ratchet), 1, 4);
+      reps = [];
+      for (let i = 0; i < R; i++) {
+        const off = o.roll === 'up' ? i : o.roll === 'down' ? -i : i <= R / 2 ? i : R - i;
+        reps.push([...new Set(out.map((n) => fold(chordStep(tones, n, off), o.range)))]);
+      }
     }
-
-    out = out.map((n) => fold(n + 12 * octShift, o.range));
     const swing = mod(t, 2) === 1 ? (o.swing - 0.5) * 2 : 0;
     if (base.tie) gate = base.tie + Math.max(gate, 1);
     return {
-      notes: [...new Set(out)],
+      notes: out,
+      reps,
+      tones,
       vel: clamp(vel, 0.03, 1),
       gate: clamp(gate, 0.02, 64),
       fixed: stepLen > 0 || o.noteLen > 0 || !!base.tie, // la durée ne vient pas de l'articulation du geste
       jitter,
-      ratchet: clamp(Math.round(ratchet), 1, 4),
+      ratchet: reps ? reps.length : clamp(Math.round(ratchet), 1, 4),
       swing,
       cutoff,
       anchor,
@@ -861,7 +1084,7 @@
     { id: 'harpe', label: 'Harpe', desc: 'très serré, lié', g: { spread: 0.16, alt: 0, micro: 3, accent: 0.4, art: 1, legato: true } },
   ];
   // taille des groupes d'après le motif (sinon 4)
-  const GROUP_OF = { up2: 4, down2: 4, up3: 3, down3: 3, climb2: 2, fall2: 2, alberti: 4, octaves: 2, repeat: 2 };
+  const GROUP_OF = { cascade: 3, wave: 4, up2: 4, down2: 4, up3: 3, down3: 3, climb2: 2, fall2: 2, alberti: 4, octaves: 2, repeat: 2 };
   const GROUP_SIZES = [2, 3, 4, 6, 8];
 
   function normGeste(g) {
@@ -914,6 +1137,13 @@
     return out;
   }
 
+  /** Hauteur du e-ième écho d'une note. */
+  function echoNote(o, tk, n, e) {
+    const s = o.echo.shift;
+    const m = s === 'up1' ? chordStep(tk.tones || [n], n, e) : s === 'down1' ? chordStep(tk.tones || [n], n, -e) : s === 'oct' ? n + 12 * e : s === 'octdown' ? n - 12 * e : s === 'fifth' ? n + 7 * e : n;
+    return fold(m, o.range);
+  }
+
   /**
    * Notes à jouer pendant le pas de séquenceur `step` (double-croche) pour l'événement `ev`.
    * info : { loop, stepSec, stepsPerBeat, trackLen }
@@ -929,7 +1159,14 @@
     const k0 = Math.ceil((step - ev.step) * rate - eps);
     const k1 = Math.ceil((step + 1 - ev.step) * rate - eps);
     const out = [];
-    const tinfo = (k) => ({ loop: info.loop, stepsPerBeat: info.stepsPerBeat, absStep: (info.loop | 0) * (info.trackLen || 0) + ev.step });
+    const tinfo = (k) => ({ loop: info.loop, stepsPerBeat: info.stepsPerBeat, absStep: (info.loop | 0) * (info.trackLen || 0) + ev.step, events: info.events });
+    // une note, suivie de ses échos (plus faibles, éventuellement transposés)
+    const emit = (tk, x) => {
+      out.push(x);
+      for (let e = 1; e <= o.echo.n; e++) {
+        out.push({ ...x, midi: echoNote(o, tk, x.midi, e), at: x.at + e * o.echo.gap * sub, vel: clamp(x.vel * Math.pow(o.echo.decay, e), 0.03, 1), first: false, echo: e });
+      }
+    };
     if (o.geste) {
       // avec un geste, tout le groupe est programmé dès son premier pas : resserrer un groupe avance
       // certaines attaques, qui ne doivent pas arriver après leur heure
@@ -948,8 +1185,8 @@
           const r = tk.ratchet;
           for (let j = 0; j < r; j++) {
             const dur = r > 1 ? Math.min(total, gt.space[i] / 1000) / r * 0.9 : total;
-            tk.notes.forEach((nn) =>
-              out.push({ midi: nn, at: at + (j * gt.space[i]) / 1000 / r, dur: Math.max(0.01, dur), vel: clamp(tk.vel * gt.vel[i] * (j ? 0.85 : 1), 0.03, 1), cutoff: tk.cutoff, first: kk === 0 && j === 0 })
+            (tk.reps ? tk.reps[j] : tk.notes).forEach((nn) =>
+              emit(tk, { midi: nn, at: at + (j * gt.space[i]) / 1000 / r, dur: Math.max(0.01, dur), vel: clamp(tk.vel * gt.vel[i] * (j && !tk.reps ? 0.85 : 1), 0.03, 1), cutoff: tk.cutoff, first: kk === 0 && j === 0 })
             );
           }
         }
@@ -964,8 +1201,8 @@
       const r = tk.ratchet;
       for (let i = 0; i < r; i++) {
         const dur = r > 1 ? (sub / r) * Math.min(tk.gate, 0.9) : sub * tk.gate;
-        tk.notes.forEach((n) =>
-          out.push({ midi: n, at: at + (i * sub) / r, dur: Math.max(0.01, dur), vel: tk.vel * (i ? 0.85 : 1), cutoff: tk.cutoff, first: k === 0 && i === 0 })
+        (tk.reps ? tk.reps[i] : tk.notes).forEach((n) =>
+          emit(tk, { midi: n, at: at + (i * sub) / r, dur: Math.max(0.01, dur), vel: tk.vel * (i && !tk.reps ? 0.85 : 1), cutoff: tk.cutoff, first: k === 0 && i === 0 })
         );
       }
     }
@@ -1007,12 +1244,13 @@
   }
 
   SS.Arp = {
-    MODES, RATES, HARMONY, INVERSIONS, RETRIG, LANES, DEFAULTS, PRESETS, CHORD_TYPES,
+    MODES, RATES, HARMONY, INVERSIONS, VOICINGS, ECHO_SHIFTS, ECHO_GAPS, ROLLS, LANE_DIRS, RETRIG, LANES, DEFAULTS, PRESETS, CHORD_TYPES,
     normalize, fromPreset, analyzeChord, parsePattern, euclid, tick, renderStep, preview, parseChordSymbol,
     GESTES, GROUP_OF, GROUP_SIZES, normGeste, gesteTimes, gesteGroup: (arp) => gesteGroup(normalize(arp)),
     degreeNote: (notes, d) => degreeNote(chordOf(notes), d),
     invertChord,
-    voiced: (notes, arp, loop = 0) => voiced((notes || []).filter(Number.isFinite), normalize(arp), loop),
+    voiced: (notes, arp, loop = 0, events, ev) => voiced((notes || []).filter(Number.isFinite), normalize(arp), loop, events, ev),
+    applyVoicing, chordStep, norgard, fibMod,
     rateLabel: (r) => {
       const x = RATES.find((y) => Math.abs(y.id - r) < 1e-6);
       return x ? x.label : `×${(+r).toFixed(2)}`;

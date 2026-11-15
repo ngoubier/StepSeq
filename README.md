@@ -371,18 +371,29 @@ le moteur, `js/arppanel.js` pour la fenêtre, `js/motifs.js` pour le catalogue d
   motif ; la grille montre toute la boucle (repères de temps et de mesures) : les colonnes s'affinent quand la
   boucle s'allonge, sans descendre sous 18 px — au-delà, la grille défile pour suivre le curseur.
 - **Réglage pas à pas** : cliquer un pas de la grille règle sa **vélocité**, sa **longueur** (¼ temps à
-  4 temps), le nombre de **notes à la fois** (1 à 3 : la note + les notes de l'accord juste au-dessus) ou en fait
-  un **silence** ; la rangée de vélocités se règle aussi en glissant.
+  4 temps), le nombre de **notes à la fois** (1 à 3 : la note + les notes de l'accord juste au-dessus), le
+  **degré** (−2 à +2 : la note décalée d'une ou deux notes de l'accord), la **vitesse du pas** (×1 à ×4 : rafale
+  des notes suivantes de l'arpège dans le pas), le **ratchet** (1 à 4 répétitions) ou en fait un **silence** ; la rangée de vélocités se règle aussi en glissant.
 
 **Onglet Arpège** — une ligne par réglage :
 
-- **Motif** : la tuile du motif en cours ouvre la fenêtre de choix : 51 motifs classés en 8 catégories
+- **Motif** : la tuile du motif en cours ouvre la fenêtre de choix : 67 motifs classés en 10 catégories
   (Montées et descentes, Groupes qui grimpent — dont la **Double montée** A C E A′ · C E A′ C′ —, Sauts et
-  intervalles, Basse et pédale, Octaves et répétitions, Synthwave et années 80, Accords et rythmes, Hasard),
+  intervalles, Basse et pédale — dont **Basse + mélodie** —, Octaves et répétitions, Synthwave et années 80,
+  Accords et rythmes, **Rythmes du monde** — tresillo, clave son et rumba, bossa nova, cinquillo, cloche
+  africaine 12/8, accents 3 contre 4 et 5 contre 4 —, **Formes génératives** — Cascade, Vague qui monte,
+  Balancier qui s'élargit, Fibonacci, Série infinie de Nørgård —, Hasard),
   avec recherche et **Récents** ; chaque motif s'essaie en un clic et suit l'accord joué.
 - **Vitesse** (1/4 à 1/32, normale / triolet / pointée), **octaves** (1 à 4), **pas** (4, 8 ou 16 : la
   longueur de la grille réglable pas à pas), **geste** (6 gestes tout prêts + **Ajuster ›**) et **durée des
   notes** (selon le geste, ou fixe : ¼ temps … 4 temps).
+- **Renversement** : tel quel, état fondamental (C), 1er (C/E), 2e (C/G), 3e renversement, **Tourne** (change à
+  chaque boucle) ou **Proche** (chaque accord prend le renversement qui bouge le moins depuis le précédent :
+  C → F/C → G/B). **Voicing** : serré, ouvert (Do Sol Mi′), drop 2, drop 3, basse grave.
+- **Lecture des pas** : avant, arrière, ping-pong ou hasard (graine) pour toutes les lignes pas à pas.
+- **Écho** : 1 à 4 répétitions de chaque note, écart de ½ à 4 pas, atténuation, transposées ou non (+1 / −1
+  degré de l'accord, ± octave, + quinte : spirales). **Ratchet roulé** : les répétitions d'un ratchet montent,
+  descendent ou font l'aller-retour dans l'accord.
 
 **Onglet Geste** — rendre un arpège moins mécanique, groupe de notes par groupe de notes :
 
