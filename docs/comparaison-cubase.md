@@ -78,7 +78,7 @@ comptent pour nos usages (synthés, arpèges, synthwave, techno mélodique, cin�
 | Key Editor (piano roll) | ✅ Piano roll : poser, allonger, déplacer, vélocité, accent ; sélection rectangle, copier / coller, Alt+glisser |
 | Saisie souris / pas à pas | ✅ Souris et tactile ; ✗ pas de saisie pas à pas depuis un clavier MIDI |
 | Transposer, copier, transformer | ✅ Flèches ↑ ↓ (demi-ton, octave), Ctrl+D ; ✗ pas d'inversion, de rétrograde ni de changement de gamme |
-| Contrôleurs (sustain, modulation, pitch bend…) | ◐ Lignes d'automation exportées en CC 74, 71, 11, 91 ; ni sustain, ni pitch bend, ni modulation |
+| Contrôleurs (sustain, modulation, pitch bend…) | ◐ Lignes d'automation exportées en CC 74, 71, 11, 91 ; ni pédale de sustain, ni pitch bend, ni modulation. La pédale (CC 64) d'un fichier importé est convertie en durées de notes ; le sustain d'enveloppe (ADSR) existe dans le sound design et sur le Juno-106 |
 | Éditeur de batterie | ✅ Pistes Drum nommées par élément |
 | Éditeur en liste | ✗ |
 | **Strum** (Cubase 16) | ◐ Gestes d'Arp One (Balayage, Roulé, Harpe) pour les pistes Arpège seulement ; rien pour les pistes Accord |
@@ -213,3 +213,28 @@ Classées par intérêt pour nos usages (synthés, arpèges, composition) et par
 5. **Tempo et mesure par scène** (pont plus lent, mesure en 3/4).
 6. **Triolets** dans la grille, et **groove** tiré d'une boucle.
 7. **Bus de groupe** dans la console (batterie, nappes).
+
+## Autres pistes intéressantes
+
+Au-delà de la comparaison directe, classées par rapport entre effort et intérêt :
+
+1. **Transformations mélodiques** dans le piano roll : inversion, rétrograde, passage dans un autre mode en restant
+   dans la gamme (la tonalité de la scène est connue), doubler / diviser les durées (version simple de Stretch
+   Selection).
+2. **Variations de scène en un clic** : alléger, densifier, fill de fin de phrase, préparation de la scène suivante
+   (filtre, bruit blanc, roulement) ; Band sait déjà les écrire, il s'agit d'en faire un outil sur tout morceau.
+3. **Pédale de sustain, modulation et pitch bend** dans les lignes d'automation et l'export MIDI (CC 64, CC 1,
+   pitch bend), pour un export jouable tel quel sur un synthé matériel.
+4. **Accords jouables au clavier de l'ordinateur** (façon Chord Pads) avec la grille de la scène, et écriture sur la
+   piste de ce qui est joué au clavier de la façade du Juno, quantifié à la double-croche.
+5. **Morceau de référence dans Auto Mix** : charger un MP3 et comparer balance tonale et volume perçu.
+
+Plus ciblées :
+
+- **Cinématique** : ligne d'expression (CC 1 / CC 11), articulations simples par note (legato, staccato), ralentis
+  par scène.
+- **Techno mélodique** : générateur de rythmes euclidiens, LFO sur les envois et les effets.
+- **Couches** : une piste qui joue deux sons (unisson, octave) sans dupliquer les notes, équivalent léger des
+  Instrument Stacks.
+- **Passage vers Cubase** : export groupé MIDI + pistes WAV + tempo + marqueurs de scènes.
+- **Partition** d'une piste ou d'une scène (le skill `midi-to-score` le fait déjà depuis un fichier MIDI).
