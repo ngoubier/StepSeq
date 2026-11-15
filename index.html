@@ -836,6 +836,16 @@
           <label class="sys-light-auto"><input type="checkbox" id="systemLightAuto"> Alléger automatiquement en cas de surcharge</label></div>
         <button id="systemLightBtn" type="button" class="btn" title="Coupe temporairement effets, reverbs, bus partagés, EQ, compresseurs, limiteurs, effets du Master et mastering">Alléger maintenant</button>
       </section>
+      <section id="systemLatency" class="sys-light" aria-labelledby="systemLatencyTitle">
+        <div class="sys-light-text"><h3 id="systemLatencyTitle">Latence du moteur audio</h3><p id="systemLatencyText"></p></div>
+        <div class="sys-latency-ctl">
+          <select id="systemLatencySel" aria-labelledby="systemLatencyTitle">
+            <option value="interactive">Réactive (jeu en direct)</option>
+            <option value="playback">Lecture sûre (moins de décrochages)</option>
+          </select>
+          <button id="systemLatencyReload" type="button" class="btn" hidden>Recharger maintenant</button>
+        </div>
+      </section>
       <div id="systemStatus" class="system-status"></div>
       <div id="systemMetrics" class="system-metrics"></div>
       <section class="sys-incidents" aria-labelledby="systemIncidentsTitle">

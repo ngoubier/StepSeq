@@ -85,7 +85,7 @@ SS.audioWatch = (() => {
 
   /**
    * Analyse un relevé de SS.audio.probe(). `env` : { now (ms), names (Map id -> nom), load (estimateLoad),
-   * masterVolume, hidden }. Renvoie { added: incidents nouveaux, actions: ['repair' | 'resume'] }.
+   * masterVolume, hidden, latency ('interactive' | 'playback') }. Renvoie { added: incidents nouveaux, actions: ['repair' | 'resume'] }.
    */
   function assess(state, snap, env = {}) {
     const now = env.now || 0;
@@ -166,7 +166,8 @@ SS.audioWatch = (() => {
     // 5. décrochages : statistiques du navigateur, charge mesurée, sinon horloge audio en retard sur l'horloge réelle
     const heavy = (env.load || []).slice(0, 3).map((x) => x.label);
     const lighten = heavy.length ? `Alléger d'abord : ${heavy.join(', ')}.` : 'Alléger les effets et synthés.';
-    const underAdvice = `Le processeur ne calcule pas le son assez vite. ${lighten} Fermer les autres onglets et applications ; sur un portable, brancher le secteur.`;
+    const latencyTip = env.latency === 'interactive' ? ' Le plus efficace : régler la latence sur « Lecture sûre » (fenêtre Système).' : '';
+    const underAdvice = `Le processeur ne calcule pas le son assez vite.${latencyTip} ${lighten} Fermer les autres onglets et applications ; sur un portable, brancher le secteur.`;
     if (snap.stats && snap.stats.underrunEvents != null) {
       const p0 = prev && prev.stats ? prev.stats.underrunEvents : snap.stats.underrunEvents;
       const d = Math.max(0, snap.stats.underrunEvents - p0);
@@ -393,7 +394,8 @@ SS.audioWatch = (() => {
       load = [];
     }
     const masterVolume = project ? SS.masterParams(project).volume : null;
-    const r = assess(state, snap, { now, names, load, masterVolume, hidden: document.hidden });
+    const latency = SS.audio.latency ? SS.audio.latency().active : null;
+    const r = assess(state, snap, { now, names, load, masterVolume, hidden: document.hidden, latency });
     if (r.actions.includes('resume')) SS.audio.ensureCtx();
     if (r.actions.includes('repair') && now - lastRepair > 2000) {
       lastRepair = now;

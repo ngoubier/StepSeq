@@ -884,6 +884,18 @@ function junoDspModule(scope) {
       if (!out || !out[0]) return this.alive;
       if (out.length < 2) out[1] = new Float32Array(out[0].length);
       const n = out[0].length;
+      // veille : aucune voix ne sonne et aucune note n'arrive dans ce bloc. Une fois les queues du chorus et des
+      // filtres finies (0,2 s), on rend du silence sans rien calculer (LFO, bruit, décimation, HPF, chorus).
+      const next = this.events.length ? this.events[0].frame : Infinity;
+      if (next >= currentFrame + n && !this.voices.some((v) => v.busy())) {
+        this.quiet = (this.quiet || 0) + n;
+        if (this.quiet > 0.2 * this.sr) {
+          out[0].fill(0);
+          out[1].fill(0);
+          this.levelSmooth = this.level;
+          return this.alive;
+        }
+      } else this.quiet = 0;
       if (this.bus.length < n * OS) this.bus = new Float32Array(n * OS);
       const bus = this.bus;
       bus.fill(0, 0, n * OS);
