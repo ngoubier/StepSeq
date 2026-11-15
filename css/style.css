@@ -2569,24 +2569,15 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
 .bt-key small { font-size: 12px; color: var(--muted); }
 
 /* Band, étape Mélodie : scènes à gauche, phrases, accords et instruments de la scène choisie à droite */
-.bh-wrap { flex: 1; min-height: 0; display: flex; gap: 14px; }
-.bh-scenes { width: 230px; flex: none; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; padding-bottom: 8px; }
-.bh-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 0 4px 2px; }
-.bh-scene { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
-.bh-scene:hover { border-color: #55555f; }
-.bh-scene.on { border-color: var(--accent-2); background: color-mix(in srgb, var(--accent) 22%, var(--panel-2)); }
+.bh-scenes { display: flex; gap: 4px; min-width: 0; overflow-x: auto; }
+.bh-scene { flex: none; display: flex; align-items: center; padding: 6px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); color: var(--muted); font: inherit; cursor: pointer; }
+.bh-scene:hover { border-color: #55555f; color: var(--text); }
+.bh-scene.on { border-color: var(--accent-2); background: color-mix(in srgb, var(--accent) 22%, var(--panel-2)); color: var(--text); }
 .bh-scene.playing .bh-sname b { color: var(--accent-2); }
 .bh-scene.on.playing .bh-sname b { color: #fff; }
-.bh-sname { display: flex; align-items: baseline; gap: 8px; }
-.bh-sname b { font-size: 14px; }
+.bh-sname { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+.bh-sname b { font-size: 13.5px; }
 .bh-sname small { font-size: 11px; color: var(--muted); }
-.bh-mini { display: flex; flex-wrap: wrap; gap: 3px; }
-.bh-mchip { font-size: 11px; font-weight: 600; padding: 2px 5px; border-radius: 4px; background: #1d1d20; box-shadow: inset 0 -2px 0 var(--role, var(--muted)); }
-.bh-legend { margin-top: auto; display: flex; flex-direction: column; gap: 6px; padding: 10px 6px 0; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
-.bh-legend span { display: flex; align-items: center; gap: 8px; }
-.bh-legend i { width: 18px; height: 7px; border-radius: 2px; box-sizing: border-box; }
-.bh-lg-in { background: var(--accent-2); }
-.bh-lg-out { border: 1.5px solid var(--accent-2); }
 .bh-key-role { font-weight: 600; color: var(--text); box-shadow: inset 0 -2px 0 var(--role); }
 .bh-main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
 .bh-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-height: 32px; }
@@ -2607,38 +2598,48 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
 .bh-tpop label span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bh-tpop label small { font-size: 11px; color: var(--accent-2); }
 .bh-tbtns { display: flex; gap: 6px; padding: 6px 6px 2px; margin-top: 4px; border-top: 1px solid var(--line); }
-/* caractère de la mélodie */
-.bh-chars { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; flex-basis: 100%; }
-.bh-char { display: grid; gap: 3px; justify-items: start; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); color: var(--text); font: inherit; text-align: left; cursor: pointer; min-width: 0; }
-.bh-char:hover { border-color: #55555f; }
-.bh-char.on { border-color: var(--accent-2); background: color-mix(in srgb, var(--accent) 22%, var(--panel-2)); }
-.bh-char b { font-size: 13px; }
-.bh-char svg { width: 100%; height: 18px; fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.bh-char.on svg { stroke: var(--accent-2); }
-.bh-char small { font-size: 11px; line-height: 1.3; color: var(--muted); }
-.bh-char:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
-/* phrases de la mélodie, calées sur les mesures ; la phrase choisie se règle dans la barre au-dessus */
-.bh-phrases { height: 46px; }
+/* en-tête : caractère, tout relancer, réglages fins (panneau) */
+.bh-head-mel { align-items: center; gap: 8px 10px; }
+.bh-lbl { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.bh-chars { flex-wrap: wrap; }
+.bh-fine { position: relative; }
+.bh-fine > .btn.on { border-color: var(--accent-2); }
+.bh-fine .bw-melform { position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; width: 300px; flex-direction: column; align-items: stretch; flex-wrap: nowrap; background: var(--panel-2); box-shadow: 0 10px 28px rgba(0, 0, 0, .5); }
+.bh-fine .bw-field { flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; }
+.bh-fine .bw-field select { width: 165px; min-width: 0; }
+/* phrases de la mélodie : une carte par phrase, calée sur les mesures, réglée sur place */
+.bh-phrases { height: 96px; }
 .bh-phrases .bh-track { background-color: #1c1c21; }
-.bh-phead { flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; background: color-mix(in srgb, var(--accent) 14%, #202024); box-shadow: inset 3px 0 0 var(--accent-2); }
+.bh-phead { flex-direction: column; align-items: flex-start; justify-content: center; gap: 4px; background: color-mix(in srgb, var(--accent) 14%, #202024); box-shadow: inset 3px 0 0 var(--accent-2); }
 .bh-phead b { font-size: 13.5px; }
-.bh-phead small { font-size: 11px; color: var(--muted); letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-.bh-phr { position: absolute; top: 5px; bottom: 5px; box-sizing: border-box; margin-left: 2px; display: flex; align-items: center; gap: 6px; padding: 0 8px; border: 1px solid color-mix(in srgb, var(--accent-2) 60%, transparent); border-radius: 7px; background: color-mix(in srgb, var(--accent) 18%, #1c1c21); color: var(--text); font: inherit; overflow: hidden; cursor: pointer; white-space: nowrap; }
-.bh-phr:hover { border-color: var(--accent-2); }
-.bh-phr.hold { background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 26%, #1c1c21) 0 40%, color-mix(in srgb, var(--accent) 10%, #1c1c21) 40%); }
-.bh-phr.off { border-style: dashed; border-color: #4a4a52; background: transparent; color: var(--muted); }
-.bh-phr.sel { border: 2px solid #fff; }
-.bh-phr .bh-pl { font-size: 15px; }
-.bh-phr .bh-pm { font-size: 12px; color: var(--muted); }
-.bh-phr small { font-size: 11px; color: var(--muted); }
-.bh-phr:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
-.bh-pbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--accent) 8%, var(--panel)); font-size: 13px; }
-.bh-pbar > small { color: var(--muted); }
-.bh-pf { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
-.bh-pf select { height: 28px; }
-.bh-pmode button { white-space: nowrap; }
+.bh-phead small { font-size: 11px; color: var(--muted); letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.bh-phead .btn { padding: 2px 8px; }
+.bh-phr { position: absolute; top: 6px; bottom: 6px; box-sizing: border-box; margin-left: 2px; display: flex; flex-direction: column; justify-content: center; gap: 5px; padding: 5px 8px; border: 1px solid var(--accent-2); border-radius: 8px; background: color-mix(in srgb, var(--accent) 16%, #1c1c21); overflow: hidden; }
+.bh-phr.hold { background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 26%, #1c1c21) 0 35%, color-mix(in srgb, var(--accent) 8%, #1c1c21) 35%); }
+.bh-phr.off { border-style: dashed; border-color: #4a4a52; background: transparent; }
+.bh-phr.mini { align-items: center; padding: 5px 3px; }
+.bh-ptop { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
+.bh-ptop small { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bh-prow { display: flex; align-items: center; gap: 5px; }
+.bh-pl { padding: 0 2px; border: 0; background: none; color: var(--accent-2); font: 700 18px/1 inherit; cursor: pointer; }
+.bh-pl:hover { color: #fff; }
+.bh-phr.off .bh-pl { color: var(--muted); }
+.bh-pmode button { padding: 2px 7px; font-size: 11px; }
+.bh-phr.mini .bh-pmode button { padding: 2px 5px; }
+.bh-step { display: inline-flex; align-items: center; border: 1px solid #3a3a42; border-radius: 5px; overflow: hidden; font-size: 11px; }
+.bh-step button { width: 20px; height: 20px; padding: 0; border: 0; background: var(--panel-3); color: var(--text); font: inherit; cursor: pointer; }
+.bh-step button:disabled { color: #55555f; cursor: default; }
+.bh-plen { padding: 0 6px; white-space: nowrap; }
+.bh-proll { width: 22px; height: 22px; padding: 0; border: 1px solid #3a3a42; border-radius: 5px; background: #1d1d23; cursor: pointer; font-size: 11px; }
+.bh-proll:hover { border-color: #55555f; }
+.bh-pl:focus-visible, .bh-step button:focus-visible, .bh-proll:focus-visible, .bh-acc-btn:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+/* accompagnement replié sur une ligne */
+.bh-acc { position: relative; z-index: 5; align-items: center; gap: 10px; padding: 0 10px 0 0; background: #1c1c20; min-height: 40px; }
+.bh-acc-btn { position: sticky; left: 0; display: flex; align-items: baseline; gap: 10px; padding: 10px 14px; border: 0; background: none; color: var(--text); font: inherit; font-size: 13px; cursor: pointer; text-align: left; min-width: 0; }
+.bh-acc-btn small { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bh-acc .bh-tracks { margin-left: auto; position: sticky; right: 10px; }
 .bh-scroll { flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
-.bh-board { --head: 200px; position: relative; min-width: calc(var(--head) + var(--bars) * 44px); }
+.bh-board { --head: 200px; position: relative; min-width: calc(var(--head) + var(--bars) * 62px); }
 .bh-row { display: flex; border-bottom: 1px solid #000; }
 .bh-head { width: var(--head); flex: none; box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 14px; background: #202024; border-right: 1px solid #000; position: sticky; left: 0; z-index: 2; }
 .bh-track { flex: 1; min-width: 0; position: relative; background-image: repeating-linear-gradient(90deg, #303036 0 1px, transparent 1px calc(100% / var(--bars))); }
@@ -2681,15 +2682,11 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
   .band-transport { padding: 6px 10px; gap: 6px 10px; }
   .bt-sep { display: none; }
   .bt-pos { min-width: 110px; }
-  .bh-wrap { flex-direction: column; }
-  .bh-scenes { width: auto; flex-direction: row; overflow-x: auto; overflow-y: hidden; flex: none; padding-bottom: 4px; }
-  .bh-label, .bh-legend { display: none; }
-  .bh-scene { width: auto; min-width: 130px; flex: none; }
   .bh-board { --head: 140px; }
   .bh-vol { min-width: 30px; }
-  .bh-chars { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-  .bh-char small { display: none; }
-  .bh-phr small, .bh-phr .bh-pm { display: none; }
+  .bh-head-mel .bh-lbl { display: none; }
+  .bh-acc-btn small { display: none; }
+  .bh-fine .bw-melform { width: min(300px, calc(100vw - 40px)); }
   .bh-head-mel .bw-melform { padding: 6px 8px; gap: 6px 10px; }
   .bh-role { display: none; }
   .bt-label { display: none; }

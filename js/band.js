@@ -644,6 +644,12 @@ SS.band = (() => {
   function setPlan(sc, fn) {
     const plan = scenePlan(sc).map((p) => ({ ...p }));
     fn(plan);
+    // silences côte à côte : une seule phrase muette
+    for (let i = plan.length - 1; i > 0; i--)
+      if (plan[i].mode === 'off' && plan[i - 1].mode === 'off') {
+        plan[i - 1].bars += plan[i].bars;
+        plan.splice(i, 1);
+      }
     S.wiz.plans[sc.sec] = BS().fitPlan(plan, sc.bars, S.mel.character, melForm());
     renderWiz();
   }
@@ -666,15 +672,6 @@ SS.band = (() => {
       }
     });
   }
-  /** Caractère : un petit contour dessiné (aperçu de la forme de la mélodie). */
-  const CHAR_ICON = {
-    inspiration: 'M2 14 L12 10 L22 12 L32 6 L42 10 L58 12',
-    chant: 'M2 16 L10 13 L18 11 L26 9 L34 11 L42 13 L50 15 L58 15',
-    hook: 'M2 14 L8 8 L14 14 M22 14 L28 8 L34 14 M42 14 L48 8 L58 16',
-    riff: 'M2 14h4M9 14h4M16 8h4M23 14h4M30 14h4M37 8h4M44 11h4M51 14h4',
-    float: 'M2 12h18M24 9h16M44 13h14',
-    lyric: 'M2 18 L14 14 L20 6 L28 9 L36 12 L44 4 L52 10 L58 14',
-  };
   /**
    * Réglages fins de la mélodie : rien n'est perdu de l'ancienne « mélodie composée » (pieds = notes par phrase,
    * mesures par vers = longueur des phrases, complexité, rythme, tessiture, fin), plus la forme des phrases.
@@ -939,36 +936,26 @@ SS.band = (() => {
     res.song.forEach((b) => plays.set(b.scene, (plays.get(b.scene) || 0) + b.repeat));
     const sceneInfo = (x) => `${x.bars} mes.` + (plays.get(x.id) > 1 ? ` · jouée ${plays.get(x.id)} fois` : '');
 
-    // scènes : nom, longueur, accords distincts
-    const nav = h(
+    // scènes en onglets au-dessus de la grille : nom et longueur (le résumé des accords est en info-bulle)
+    const tabs = h(
       'nav',
-      { class: 'bh-scenes', 'aria-label': 'Scènes' },
-      h('div', { class: 'bh-label' }, 'Scènes, dans l’ordre'),
+      { class: 'bh-scenes', 'aria-label': 'Scènes, dans l’ordre' },
       ...res.scenes.map((x) => {
-        const seen = new Map();
-        sceneSpans(x).forEach((sp) => !seen.has(sp.info.name) && seen.set(sp.info.name, sp.info));
+        const names = [...new Set(sceneSpans(x).map((sp) => sp.info.name))].join(' · ');
         const on = x.id === sc.id;
         return h(
           'button',
           {
-            type: 'button', class: 'bh-scene' + (on ? ' on' : ''), 'data-scene': x.id, 'aria-pressed': String(on), 'data-sec': x.sec,
+            type: 'button', class: 'bh-scene' + (on ? ' on' : ''), 'data-scene': x.id, 'aria-pressed': String(on), 'data-sec': x.sec, title: `${sceneInfo(x)}${names ? ' — ' + names : ''}`,
             onclick: () => {
               S.wiz.hscene = x.id;
-              S.wiz.psel = 0;
               renderHarmony();
               markListen();
             },
           },
-          h('span', { class: 'bh-sname' }, h('b', {}, x.name), h('small', {}, sceneInfo(x))),
-          h('span', { class: 'bh-mini' }, ...[...seen.values()].map((c) => h('span', { class: 'bh-mchip role-' + c.role.id, title: `${c.numeral} · ${c.role.label}` }, c.name)))
+          h('span', { class: 'bh-sname' }, h('b', {}, x.name), h('small', {}, String(x.bars)))
         );
-      }),
-      h(
-        'div',
-        { class: 'bh-legend' },
-        h('span', {}, h('i', { class: 'bh-lg-in' }), 'Note de l’accord'),
-        h('span', {}, h('i', { class: 'bh-lg-out' }), 'Note de passage')
-      )
+      })
     );
 
     const total = sc.bars * 16;
@@ -1085,69 +1072,79 @@ SS.band = (() => {
       'button',
       { type: 'button', class: 'btn btn-small bh-loop', 'aria-pressed': 'false', title: `Écouter « ${sc.name} » en boucle (re-clic : arrêt)`, onclick: () => listenScene(sc.id) },
       h('span', { class: 'bw-pico', html: PLAY + STOP }),
-      h('span', {}, 'Écouter la scène en boucle')
+      h('span', {}, 'Écouter la scène')
     );
-    const board = h('div', { class: 'bh-board', 'data-scene': sc.id, 'data-bars': sc.bars, style: `--bars:${sc.bars}` }, ruler, melPlays ? phraseRow(sc, pct, head, row) : null, chords, ...lanes.filter((x) => x.classList.contains('mel')), drums, ...lanes.filter((x) => !x.classList.contains('mel')), h('i', { class: 'bh-ph', 'aria-hidden': 'true' }));
+    // accompagnement : replié sur une ligne (les pistes cochées dans le menu « Pistes » s'affichent dépliées)
+    const accLanes = [drums, ...lanes.filter((x) => !x.classList.contains('mel'))].filter(Boolean);
+    const accN = cols.filter((c) => !melIds.has(c.id) && c.o.type !== 'drum').length + (drumCols.length ? 1 : 0);
+    const acc = accN
+      ? h(
+          'div',
+          { class: 'bh-row bh-acc' },
+          h(
+            'button',
+            { type: 'button', class: 'bh-acc-btn', id: 'bwAcc', 'aria-expanded': String(!!S.accOpen), onclick: () => ((S.accOpen = !S.accOpen), renderHarmony(), markListen()) },
+            `${S.accOpen ? '▾' : '▸'} Accompagnement · ${accN} piste${accN > 1 ? 's' : ''}`,
+            h('small', {}, [drumCols.length ? 'batterie' : null, ...cols.filter((c) => !melIds.has(c.id) && c.o.type !== 'drum').map((c) => c.o.name.toLowerCase())].filter(Boolean).join(', '))
+          ),
+          S.accOpen ? tracksMenu(cols, melIds) : null
+        )
+      : null;
+    const board = h(
+      'div',
+      { class: 'bh-board', 'data-scene': sc.id, 'data-bars': sc.bars, style: `--bars:${sc.bars}` },
+      ruler,
+      melPlays ? phraseRow(sc, pct, head, row) : null,
+      chords,
+      ...lanes.filter((x) => x.classList.contains('mel')),
+      acc,
+      ...(S.accOpen || !melIds.size ? accLanes : []),
+      h('i', { class: 'bh-ph', 'aria-hidden': 'true' })
+    );
     const main = h(
       'main',
       { class: 'bh-main' },
-      h('div', { class: 'bh-top' }, h('h3', {}, sc.name), loop, h('span', { class: 'spacer' }), tracksMenu(cols, melIds)),
-      melPlays ? phraseBar(sc) : null,
+      h('div', { class: 'bh-top' }, tabs, h('span', { class: 'spacer' }), loop),
       h('div', { class: 'bh-scroll' }, board)
     );
-    // en-tête : caractère de la mélodie, autre mélodie, réglages fins
+    // en-tête : caractère de la mélodie, tout relancer, réglages fins
     const top = h('div', { class: 'bw-top bh-head-mel' }, ...melodyBar(melIds.size > 0));
-    box.replaceChildren(top, h('div', { class: 'bh-wrap' }, nav, main));
+    box.replaceChildren(top, main);
   }
 
-  /** En-tête de l'étape Mélodie : le caractère, une autre mélodie, les réglages fins. */
+  /** En-tête de l'étape Mélodie, sur une ligne : caractère, tout relancer, réglages fins (panneau). */
   function melodyBar(has) {
     if (!has) return [h('div', { class: 'bw-actions' }, h('span', { class: 'bw-seed' }, 'Ce groupe n’a ni lead ni voix : pas de mélodie à générer. Ajoute un musicien à l’étape 1.'))];
     const m = S.mel;
-    const NS = 'http://www.w3.org/2000/svg';
-    const icon = (id) => {
-      const svg = document.createElementNS(NS, 'svg');
-      svg.setAttribute('viewBox', '0 0 60 22');
-      svg.setAttribute('aria-hidden', 'true');
-      const path = document.createElementNS(NS, 'path');
-      path.setAttribute('d', CHAR_ICON[id] || '');
-      svg.append(path);
-      return svg;
-    };
     return [
+      h('span', { class: 'bh-lbl' }, 'Caractère'),
       h(
-        'div',
-        { class: 'bh-chars', role: 'radiogroup', 'aria-label': 'Caractère de la mélodie', id: 'bwChars' },
+        'span',
+        { class: 'segmented bh-chars', role: 'radiogroup', 'aria-label': 'Caractère de la mélodie', id: 'bwChars' },
         ...Object.entries(BS().CHARACTERS).map(([id, c]) =>
           h(
             'button',
             {
-              type: 'button', role: 'radio', class: 'bh-char' + (m.character === id ? ' on' : ''), 'data-v': id, 'aria-checked': String(m.character === id), title: c.hint,
+              type: 'button', role: 'radio', class: 'bh-char' + (m.character === id ? ' active' : ''), 'data-v': id, 'aria-checked': String(m.character === id), title: c.hint,
               onclick: () => {
                 m.character = id;
                 renderWiz();
               },
             },
-            h('b', {}, c.label),
-            icon(id),
-            h('small', {}, c.hint)
+            c.label
           )
         )
       ),
+      h('button', { type: 'button', class: 'btn btn-accent', id: 'bwMelody', title: 'Une autre mélodie : toutes les phrases changent, leurs longueurs et silences restent', onclick: () => ((S.wiz.seed += 1), renderWiz()) }, '🎲 Tout relancer'),
+      S.wiz.seed ? h('button', { type: 'button', class: 'btn', id: 'bwMelodyBack', onclick: () => ((S.wiz.seed = 0), (S.wiz.pseeds = {}), renderWiz()) }, '↺ Première') : null,
+      h('span', { class: 'bw-seed', id: 'bwSeed' }, `n° ${S.wiz.seed + 1}`),
+      h('span', { class: 'spacer' }),
       h(
-        'div',
-        { class: 'bw-actions' },
-        h('button', { type: 'button', class: 'btn btn-accent', id: 'bwMelody', title: 'Toutes les phrases changent ; les longueurs et silences restent', onclick: () => ((S.wiz.seed += 1), renderWiz()) }, '🎲 Autre mélodie'),
-        S.wiz.seed ? h('button', { type: 'button', class: 'btn', id: 'bwMelodyBack', onclick: () => ((S.wiz.seed = 0), (S.wiz.pseeds = {}), renderWiz()) }, '↺ Première mélodie') : null,
-        h('span', { class: 'bw-seed', id: 'bwSeed' }, `Mélodie n° ${S.wiz.seed + 1}`),
-        h('span', { class: 'spacer' }),
-        h(
-          'button',
-          { type: 'button', class: 'btn', id: 'bwMelFine', 'aria-expanded': String(!!m.fine), onclick: () => ((m.fine = !m.fine), renderWiz()) },
-          (m.fine ? '▾' : '▸') + ' Réglages fins'
-        )
+        'span',
+        { class: 'bh-fine' },
+        h('button', { type: 'button', class: 'btn' + (m.fine ? ' on' : ''), id: 'bwMelFine', 'aria-expanded': String(!!m.fine), onclick: () => ((m.fine = !m.fine), renderWiz()) }, '⚙ Réglages fins'),
+        m.fine ? melodyForm() : null
       ),
-      m.fine ? melodyForm() : null,
     ];
   }
 
@@ -1156,95 +1153,78 @@ SS.band = (() => {
     ['hold', '━', 'Tenue', 'Un court motif, puis la dernière note tenue jusqu’au bout de la phrase'],
     ['off', '∅', 'Silence'],
   ];
-  /** Phrase choisie dans la scène (sa barre de réglages est affichée au-dessus de la grille). */
-  const phraseSel = (plan) => Math.max(0, Math.min(plan.length - 1, S.wiz.psel || 0));
+  /** Rôle d'une phrase, d'après sa lettre : A pose la question, ′ répond, B contraste, C apporte du neuf. */
+  const phraseRole = (p) => (p.mode === 'off' ? 'Silence' : p.letter.includes('′') ? 'Réponse' : p.letter[0] === 'B' ? 'Contraste' : p.letter[0] === 'C' ? 'Nouveau' : 'Question');
 
   /**
-   * Ligne « Phrases » de la scène : un bloc par phrase, calé sur les mesures, avec sa lettre (même lettre = même
-   * motif) et son jeu. Un clic choisit la phrase ; ses réglages sont dans la barre au-dessus (phraseBar).
+   * Ligne « Phrases » de la scène : une carte par phrase, calée sur les mesures, qui se règle sur place —
+   * motif (lettre : même lettre = même motif, ′ = fin variée), jeu (joue / tenue / silence), longueur (− / +), 🎲.
+   * Une carte étroite (phrase courte) se replie à l'essentiel.
    */
   function phraseRow(sc, pct, head, row) {
     const plan = scenePlan(sc);
-    const cur = phraseSel(plan);
+    const L = BS().LETTERS;
     let at = 0;
-    const blocks = plan.map((p, i) => {
+    const cards = plan.map((p, i) => {
       const start = at;
       at += p.bars;
-      const mode = PMODES.find((x) => x[0] === p.mode);
-      const label = `Phrase ${i + 1} : ${p.letter}, ${mode[2].toLowerCase()}, ${p.bars} mesure${p.bars > 1 ? 's' : ''} (mes. ${start + 1}${p.bars > 1 ? '–' + (start + p.bars) : ''})`;
-      return h(
+      const rest = plan.slice(i).reduce((a, q) => a + q.bars, 0);
+      const mini = p.bars / sc.bars < 0.25;
+      const where = `mes. ${start + 1}${p.bars > 1 ? '–' + (start + p.bars) : ''}`;
+      const base = p.letter[0];
+      const letter = h(
         'button',
-        {
-          type: 'button', class: `bh-phr ${p.mode}` + (i === cur ? ' sel' : ''), 'data-i': i, 'data-mode': p.mode, 'aria-pressed': String(i === cur), title: label, 'aria-label': label,
-          style: `left:${pct(start * 16)};width:calc(${pct(p.bars * 16)} - 4px)`,
-          onclick: () => ((S.wiz.psel = i), renderHarmony()),
-        },
-        h('b', { class: 'bh-pl' }, p.mode === 'off' ? '' : p.letter),
-        h('span', { class: 'bh-pm', 'aria-hidden': 'true' }, mode[1]),
-        h('small', {}, `${p.bars} mes.`)
+        { type: 'button', class: 'bh-pl', title: 'Motif de la phrase (clic : le suivant). Même lettre = même motif ; ′ = la fin varie.', 'aria-label': `Phrase ${i + 1}, motif ${p.letter}`, onclick: () => setPlan(sc, (pl) => (pl[i].letter = L[(L.indexOf(pl[i].letter) + 1) % L.length])) },
+        p.letter
+      );
+      const modes = h(
+        'span',
+        { class: 'segmented bh-pmode', role: 'radiogroup', 'aria-label': `Jeu de la phrase ${i + 1}` },
+        ...PMODES.map(([v, g, t, tip]) =>
+          h('button', { type: 'button', role: 'radio', 'data-v': v, class: p.mode === v ? 'active' : '', 'aria-checked': String(p.mode === v), title: tip || t, 'aria-label': t, onclick: () => setPlan(sc, (pl) => (pl[i].mode = v)) }, mini ? g : t.toLowerCase())
+        )
+      );
+      const len = h(
+        'span',
+        { class: 'bh-step', title: 'Longueur de la phrase. Plus courte : la place libérée devient un silence ; plus longue : elle prend sur les phrases suivantes.' },
+        h('button', { type: 'button', class: 'bh-pminus', 'aria-label': `Raccourcir la phrase ${i + 1}`, disabled: p.bars <= 1, onclick: () => setPhraseBars(sc, i, p.bars - 1) }, '−'),
+        h('span', { class: 'bh-plen' }, mini ? String(p.bars) : `${p.bars} mes.`),
+        h('button', { type: 'button', class: 'bh-pplus', 'aria-label': `Allonger la phrase ${i + 1}`, disabled: p.bars >= rest, onclick: () => setPhraseBars(sc, i, p.bars + 1) }, '+')
+      );
+      const roll =
+        p.mode === 'off'
+          ? null
+          : h(
+              'button',
+              {
+                type: 'button', class: 'bh-proll', title: `Un autre motif pour les phrases ${base} de cette scène`, 'aria-label': `Relancer les phrases ${base}`,
+                onclick: () => {
+                  const sd = (S.wiz.pseeds[sc.sec] = S.wiz.pseeds[sc.sec] || {});
+                  sd[base] = (sd[base] || 0) + 1;
+                  renderWiz();
+                },
+              },
+              '🎲'
+            );
+      return h(
+        'div',
+        { class: `bh-phr ${p.mode}` + (mini ? ' mini' : ''), 'data-i': i, 'data-mode': p.mode, style: `left:${pct(start * 16)};width:calc(${pct(p.bars * 16)} - 4px)` },
+        h('div', { class: 'bh-ptop' }, letter, mini ? null : h('small', {}, `${phraseRole(p)}${p.mode === 'hold' ? ', note tenue' : ''} · ${where}`)),
+        h('div', { class: 'bh-prow' }, modes),
+        h('div', { class: 'bh-prow' }, len, roll)
       );
     });
+    const own = !!S.wiz.plans[sc.sec] || !!S.wiz.pseeds[sc.sec];
+    const playing = plan.reduce((a, q) => a + (q.mode === 'off' ? 0 : q.bars), 0);
     return row(
       'bh-phrases',
-      head('bh-phead', h('b', {}, 'Phrases'), h('small', {}, plan.map((p) => (p.mode === 'off' ? '·' : p.letter)).join(' '))),
-      ...blocks
-    );
-  }
-
-  /** Réglages de la phrase choisie : lettre, jeu (joue / tenue / silence), longueur, relance, plan par défaut. */
-  function phraseBar(sc) {
-    const plan = scenePlan(sc);
-    const i = phraseSel(plan);
-    const p = plan[i];
-    const start = plan.slice(0, i).reduce((a, q) => a + q.bars, 0);
-    const rest = plan.slice(i).reduce((a, q) => a + q.bars, 0);
-    const base = p.letter[0];
-    const opt = (v, t, on) => {
-      const o = h('option', { value: v }, t);
-      o.selected = on;
-      return o;
-    };
-    const own = !!S.wiz.plans[sc.sec] || !!S.wiz.pseeds[sc.sec];
-    return h(
-      'div',
-      { class: 'bh-pbar', id: 'bwPhrase' },
-      h('b', {}, `Phrase ${i + 1}`),
-      h('small', {}, `mes. ${start + 1}${p.bars > 1 ? '–' + (start + p.bars) : ''}`),
-      h(
-        'label',
-        { class: 'bh-pf', title: 'Même lettre = même motif (rythme et contour) ; ′ = la fin varie' },
-        h('span', {}, 'Motif'),
-        h('select', { id: 'bwPLetter', onchange: (e) => setPlan(sc, (pl) => (pl[i].letter = e.target.value)) }, ...BS().LETTERS.map((l) => opt(l, l, l === p.letter)))
+      head(
+        'bh-phead',
+        h('b', {}, 'Phrases'),
+        h('small', {}, `${plan.map((p) => (p.mode === 'off' ? '·' : p.letter)).join(' ')} · ${playing} / ${sc.bars} mes.`),
+        own ? h('button', { type: 'button', class: 'btn btn-small', id: 'bwPhrReset', title: 'Revenir au découpage par défaut de cette scène', onclick: () => (delete S.wiz.plans[sc.sec], delete S.wiz.pseeds[sc.sec], renderWiz()) }, '↺ Par défaut') : null
       ),
-      h(
-        'span',
-        { class: 'segmented bh-pmode', id: 'bwPMode', role: 'radiogroup', 'aria-label': 'Jeu de la phrase' },
-        ...PMODES.map(([v, g, t, tip]) =>
-          h('button', { type: 'button', role: 'radio', 'data-v': v, class: p.mode === v ? 'active' : '', 'aria-checked': String(p.mode === v), title: tip || t, onclick: () => setPlan(sc, (pl) => (pl[i].mode = v)) }, `${g} ${t}`)
-        )
-      ),
-      h(
-        'label',
-        { class: 'bh-pf', title: 'Plus courte : la place libérée devient un silence. Plus longue : elle prend sur les phrases suivantes.' },
-        h('span', {}, 'Longueur'),
-        h('select', { id: 'bwPLen', onchange: (e) => setPhraseBars(sc, i, Number(e.target.value)) }, ...Array.from({ length: rest }, (_, k) => opt(k + 1, `${k + 1} mesure${k ? 's' : ''}`, k + 1 === p.bars)))
-      ),
-      p.mode === 'off'
-        ? null
-        : h(
-            'button',
-            {
-              type: 'button', class: 'btn btn-small', id: 'bwPRoll', title: `Un autre motif pour les phrases ${base} de cette scène`,
-              onclick: () => {
-                const sd = (S.wiz.pseeds[sc.sec] = S.wiz.pseeds[sc.sec] || {});
-                sd[base] = (sd[base] || 0) + 1;
-                renderWiz();
-              },
-            },
-            `🎲 Relancer les ${base}`
-          ),
-      h('span', { class: 'spacer' }),
-      own ? h('button', { type: 'button', class: 'btn btn-small', id: 'bwPhrReset', title: 'Revenir au plan de phrases par défaut de cette scène', onclick: () => (delete S.wiz.plans[sc.sec], delete S.wiz.pseeds[sc.sec], renderWiz()) }, '↺ Phrases par défaut') : null
+      ...cards
     );
   }
 
@@ -1265,7 +1245,7 @@ SS.band = (() => {
     const box = h(
       'details',
       { class: 'bh-tracks', id: 'bwTracks' },
-      h('summary', { class: 'btn', title: 'Afficher ou masquer des pistes (la mélodie reste affichée)' }, `Pistes · ${shownN} / ${entries.length}`),
+      h('summary', { class: 'btn btn-small', title: 'Choisir les pistes d’accompagnement affichées (la mélodie reste affichée)' }, `Pistes · ${shownN} / ${entries.length}`),
       h(
         'div',
         { class: 'bh-tpop', id: 'bwTracksPop' },
@@ -1282,7 +1262,7 @@ SS.band = (() => {
           'div',
           { class: 'bh-tbtns' },
           h('button', { type: 'button', class: 'btn btn-small', id: 'bwTracksAll', onclick: () => (S.hide.clear(), redraw()) }, 'Tout'),
-          h('button', { type: 'button', class: 'btn btn-small', id: 'bwTracksMel', disabled: !melIds.size, onclick: () => (cols.forEach((c) => !melIds.has(c.id) && S.hide.add(c.id)), redraw()) }, 'Mélodie seule')
+          h('button', { type: 'button', class: 'btn btn-small', id: 'bwTracksMel', onclick: () => (cols.forEach((c) => !melIds.has(c.id) && S.hide.add(c.id)), redraw()) }, 'Aucune')
         )
       )
     );

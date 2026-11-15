@@ -142,18 +142,17 @@ l'écoute en cours et à la chanson créée) et **tonalité** (armure, accord de
    case dessine ce que joue la piste (coups de batterie ou notes), une case en pointillés est un silence ;
    un bandeau donne l'ordre des scènes ; on écoute la chanson (ou à partir d'un bloc) et chaque scène en boucle,
    sur un projet temporaire (même mixage que la chanson créée) ;
-3. **Mélodie** : en haut, le **caractère** de la mélodie (Inspiration, Chantante, Accrocheuse, Riff, Planante,
-   Lyrique), **🎲 Autre mélodie** (`melodySeed`, les autres musiciens ne changent pas) et les **réglages fins**
-   (forme A A′ B A / A B A B / A A A A / A B A C, notes par phrase, rythme, mouvement, tessiture, fin). Scènes à gauche ;
-   pour la scène choisie, la ligne des **phrases**, calée sur les mesures : chaque phrase a un motif (même lettre =
-   même rythme et même contour, ′ = fin variée), un jeu (**joue**, **tenue** : un court motif puis la dernière note
-   tenue jusqu'au bout de la phrase, **silence**) et une longueur en mesures (plus courte : la place libérée devient
-   un silence, la mélodie peut donc être plus courte que la scène) ; 🎲 relance les phrases d'une lettre. Dessous,
-   la **piste d'accords** comme dans Key (degré, nom, rôle repos / préparation / tension : `SS.harmony.role`), la ligne
-   de la mélodie, puis une ligne par instrument (notes de l'accord pleines, notes de passage en creux) ; **M**uet /
-   **S**olo et **volume** (−30 à +6 dB, `gains` d'`addBandSong`, gardé dans la chanson créée) sur chaque instrument,
-   une seule commande pour la batterie ; le menu **Pistes** affiche ou masque chaque piste (la mélodie reste) ;
-   écoute de la scène en boucle, la vue suit la lecture ;
+3. **Mélodie** : en haut, sur une ligne, le **caractère** de la mélodie (Inspiration, Chantante, Accrocheuse, Riff,
+   Planante, Lyrique), **🎲 Tout relancer** (`melodySeed`, les autres musiciens ne changent pas) et **⚙ Réglages fins**
+   en panneau (forme A A′ B A / A B A B / A A A A / A B A C, notes par phrase, rythme, mouvement, tessiture, fin).
+   Les scènes en onglets ; pour la scène choisie, la ligne des **phrases** : une carte par phrase, calée sur les
+   mesures et réglée sur place — lettre (même lettre = même rythme et même contour, ′ = fin variée) et rôle
+   (question, réponse, contraste), jeu (**joue**, **tenue** : un court motif puis la dernière note tenue jusqu'au bout
+   de la phrase, **silence**), longueur avec − / + (plus courte, la place libérée devient un silence : la mélodie
+   peut être plus courte que la scène), 🎲 pour relancer les phrases d'une lettre. Dessous, la **piste d'accords**
+   comme dans Key (degré, nom, rôle : `SS.harmony.role`) et la ligne de la mélodie ; l'**accompagnement** est replié
+   sur une ligne, déplié avec **M**uet / **S**olo et **volume** (−30 à +6 dB, `gains` d'`addBandSong`) par instrument
+   et le menu **Pistes** ; écoute de la scène en boucle, la vue suit la lecture ;
 4. **Intégration** : cases à cocher par musicien (batterie, basse, nappes, arpèges, lead…) et par élément de batterie ;
    **Créer la chanson** écrit les pistes cochées, les scènes et l'arrangement (tempo du bandeau, mixage
    automatique de Band). Ce qui est créé est exactement l'aperçu ; Ctrl+Z revient à la chanson vide.

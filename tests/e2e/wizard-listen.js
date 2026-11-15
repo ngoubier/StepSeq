@@ -110,6 +110,8 @@ const SHOTS = process.env.SHOTS;
 
   // étape Mélodie : Muet / Solo / volume sur chaque instrument, pendant l'écoute
   ok(await playing(), 'étape Mélodie : la scène joue');
+  ok((await page.locator('.bh-lane').count()) === 1 && (await page.getAttribute('#bwAcc', 'aria-expanded')) === 'false', 'accompagnement replié : seule la mélodie');
+  await page.click('#bwAcc');
   const n = await page.locator('.bh-lane .bw-m').count();
   const lanesN = await page.locator('.bh-lane').count();
   ok(n === lanesN && (await page.locator('.bh-lane .bh-vol').count()) === lanesN, `M, S et volume sur chaque instrument (${n})`);

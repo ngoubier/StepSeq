@@ -100,6 +100,8 @@ const SHOTS = process.env.SHOTS;
   const hc = await page.evaluate(() => [...document.querySelectorAll('.bh-chord')].map((c) => [c.querySelector('small').textContent, c.querySelector('b').textContent, c.className]));
   ok(hc.length === 8 && hc[0][0] === 'i' && hc[0][1] === 'Cm' && /role-repos/.test(hc[0][2]) && hc[1][1] === 'B♭', `piste d’accords : ${hc.map((c) => c[1]).join(' ')}`);
   ok(!(await page.isVisible('.bw-hint')) && !(await page.isVisible('.bw-info')) && !(await page.isVisible('.bh-info')), 'en-tête sans petits textes');
+  ok((await page.locator('.bh-lane').count()) === 1 && (await page.locator('.bh-lane.mel').count()) === 1 && (await page.locator('.bh-drums').count()) === 0, 'accompagnement replié : seule la mélodie sous les accords');
+  await page.click('#bwAcc');
   ok((await page.locator('.bh-row.bh-drums .bh-hit').count()) > 0 && /Pistes · (\d+) \/ \1/.test(await page.textContent('#bwTracks summary')), 'toutes les pistes affichées par défaut (batterie comprise)');
   const lanes = await page.$$eval('.bh-lane', (ls) => ls.map((l) => l.querySelector('.bh-name b').textContent));
   ok(lanes.length >= 4 && !lanes.some((n) => /Kick|Snare|Hi-Hat/.test(n)), `instruments sous les accords (${lanes.join(', ')})`);
@@ -115,12 +117,12 @@ const SHOTS = process.env.SHOTS;
   await page.locator('#bwTracksPop label', { hasText: 'Batterie' }).locator('input').uncheck();
   ok((await page.locator('.bh-drums').count()) === 0 && (await page.locator('.bh-lane').count()) === lanes.length && (await page.isVisible('#bwTracksPop')), 'Batterie décochée : masquée, le menu reste ouvert');
   await page.click('#bwTracksMel');
-  ok((await page.locator('.bh-lane').count()) === 1 && (await page.locator('.bh-lane.mel').count()) === 1 && /Pistes · 1 \//.test(await page.textContent('#bwTracks summary')), 'Mélodie seule');
+  ok((await page.locator('.bh-lane').count()) === 1 && (await page.locator('.bh-lane.mel').count()) === 1 && /Pistes · 1 \//.test(await page.textContent('#bwTracks summary')), 'Aucune : seule la mélodie');
   await page.click('#bwTracksAll');
   ok((await page.locator('.bh-lane').count()) === lanes.length && (await page.locator('.bh-drums').count()) === 1, 'Tout : tout revient');
   await page.click('#bwTracks summary');
   await page.click('.bh-scene >> nth=2');
-  ok((await page.locator('.bh-scene.on .bh-sname b').textContent()) === 'Refrain' && (await page.locator('.bh-top h3').textContent()) === 'Refrain', 'clic sur une scène : ses accords');
+  ok((await page.locator('.bh-scene.on .bh-sname b').textContent()) === 'Refrain', 'clic sur une scène : ses accords');
   ok((await page.locator('.bh-lane', { hasText: 'Lead' }).locator('.bh-note.out').count()) > 0, 'notes de passage du lead dessinées en creux');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'wizard-harmonie.png') });
 
@@ -146,35 +148,34 @@ const SHOTS = process.env.SHOTS;
   ok((await leadSig()) === lead0, '« Première mélodie » revient à la première');
   await page.click('#bwChars [data-v="chant"]');
   ok((await leadSig()) !== lead0 && (await bassSig()) === bass0 && (await page.getAttribute('#bwChars [data-v="chant"]', 'aria-checked')) === 'true', 'caractère « Chantante » : une autre mélodie, le reste ne change pas');
-  // phrases du refrain (8 mesures) : A A′ B A′ de 2 mesures ; la première est choisie
+  // phrases du refrain (8 mesures) : A A′ B A′ de 2 mesures, réglées sur leurs cartes
   const ph = page.locator('.bh-phrases .bh-phr');
+  const PH = (i, sel) => `.bh-phr[data-i="${i}"] ${sel}`;
   ok((await ph.count()) === 4 && (await page.locator('.bh-phrases .bh-pl').allTextContents()).join(' ') === 'A A′ B A′', 'refrain : 4 phrases A A′ B A′');
-  ok((await page.getAttribute('.bh-phr[data-i="0"]', 'aria-pressed')) === 'true' && /Phrase 1/.test(await page.textContent('#bwPhrase')), 'la première phrase est choisie, ses réglages au-dessus');
+  ok(/Question/.test(await page.textContent('.bh-phr[data-i="0"]')) && /Réponse/.test(await page.textContent('.bh-phr[data-i="1"]')) && /Contraste/.test(await page.textContent('.bh-phr[data-i="2"]')), 'rôles : question, réponse, contraste');
   // 1re phrase : 4 mesures tenues ; la suite en silence → la mélodie ne dure que 4 mesures
-  await page.selectOption('#bwPLen', '4');
-  ok((await ph.count()) === 3, 'phrase allongée : elle prend sur la suivante');
-  await page.click('#bwPMode [data-v="hold"]');
-  for (const i of [1, 2]) {
-    await page.click(`.bh-phr[data-i="${i}"]`);
-    await page.click('#bwPMode [data-v="off"]');
-  }
-  ok((await page.locator('.bh-phr.off').count()) === 2 && (await page.getAttribute('.bh-phr[data-i="2"]', 'aria-pressed')) === 'true', 'phrases 2 et 3 en silence');
+  await page.click(PH(0, '.bh-pplus'));
+  await page.click(PH(0, '.bh-pplus'));
+  ok((await ph.count()) === 3 && /4 mes\./.test(await page.textContent(PH(0, '.bh-plen'))), 'phrase allongée à 4 mesures : elle prend sur la suivante');
+  await page.click(PH(0, '[data-v="hold"]'));
+  await page.click(PH(1, '[data-v="off"]'));
+  await page.click(PH(2, '[data-v="off"]'));
+  ok((await ph.count()) === 2 && (await page.locator('.bh-phr.off').count()) === 1 && /4 \/ 8 mes/.test(await page.textContent('.bh-phead')), 'phrases 2 et 3 en silence, réunies : 4 / 8 mesures jouées');
   let ev = await chorusLead();
   const lastEv = ev[ev.length - 1];
   ok(ev.length > 0 && lastEv.step + lastEv.len === 64 && lastEv.len >= 48, `phrase tenue : la dernière note dure ${lastEv.len / 16} mesures, la mélodie s’arrête à la mesure 4`);
-  await page.click('.bh-phr[data-i="0"]');
-  await page.selectOption('#bwPLen', '1');
+  for (let k = 0; k < 3; k++) await page.click(PH(0, '.bh-pminus'));
   ev = await chorusLead();
-  ok(ev.length === 1 && ev[0].len >= 14 && (await page.locator('.bh-phr.off').count()) >= 1, 'phrase d’une mesure tenue : une seule note, puis silence');
-  await page.click('#bwPMode [data-v="on"]');
+  ok(ev.length === 1 && ev[0].len >= 14 && (await page.isDisabled(PH(0, '.bh-pminus'))) && (await page.locator('.bh-phr.mini').count()) >= 1, 'phrase d’une mesure tenue : une seule note, carte repliée');
+  await page.click(PH(0, '[data-v="on"]'));
   const before = JSON.stringify(await chorusLead());
-  await page.click('#bwPRoll');
-  ok(JSON.stringify(await chorusLead()) !== before, '🎲 Relancer les A : un autre motif');
-  await page.selectOption('#bwPLetter', 'C');
-  ok((await page.textContent('.bh-phr[data-i="0"] .bh-pl')) === 'C', 'motif de la phrase : C');
+  await page.click(PH(0, '.bh-proll'));
+  ok(JSON.stringify(await chorusLead()) !== before, '🎲 de la phrase : un autre motif');
+  await page.click(PH(0, '.bh-pl'));
+  ok((await page.textContent(PH(0, '.bh-pl'))) === 'A′', 'clic sur la lettre : le motif suivant');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'wizard-phrases.png') });
   await page.click('#bwPhrReset');
-  ok((await ph.count()) === 4 && !(await page.isVisible('#bwPhrReset')), '↺ : plan de phrases par défaut');
+  ok((await ph.count()) === 4 && !(await page.isVisible('#bwPhrReset')), '↺ Par défaut : plan de phrases d’origine');
   // réglages fins : 6 notes par phrase, mouvement simple, voix moyenne
   ok(!(await page.isVisible('#bwMelForm')), 'réglages fins repliés');
   await page.click('#bwMelFine');
@@ -192,6 +193,8 @@ const SHOTS = process.env.SHOTS;
   ok(comp.length && comp.every((x) => x.n === x.phr * 6), `6 notes par phrase (${comp.map((x) => x.n).join(', ')} notes)`);
   ok(comp.every((x) => x.lo >= 60 && x.hi <= 72), 'tessiture voix moyenne');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'wizard-melodie.png') });
+  await page.click('#bwMelFine');
+  ok(!(await page.isVisible('#bwMelForm')), 'réglages fins refermés');
   await page.click('#bwMelody');
   const chosen = await page.evaluate(() => {
     const w = SS.band._state.wiz;
