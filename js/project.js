@@ -229,10 +229,18 @@ SS.AUTO_PARAMS = [
   { id: 'pw', label: 'Largeur (PWM)', min: 0.05, max: 0.95, def: 0.5, voice: true, pulse: true },
   { id: 'fdecay', label: 'Decay du filtre', min: -1, max: 1, def: 0, voice: true },
   { id: 'lfoamt', label: 'Quantité des LFO', min: 0, max: 2, def: 1, voice: true },
+  // contrôleurs MIDI (pistes instrument) : la pédale de sustain s'entend aussi dans StepSeq (les notes relâchées
+  // pédale enfoncée tiennent jusqu'à ce qu'elle se relève) ; la modulation et le pitch bend sont pour un synthé
+  // externe (export MIDI) ; `toggle` : deux valeurs, enfoncée ou relâchée, sans rampe entre les points
+  { id: 'sustain', label: 'Pédale de sustain', min: 0, max: 1, def: 0, cc: 64, midi: true, toggle: true },
+  { id: 'mod', label: 'Modulation (synthé externe)', min: 0, max: 1, def: 0, cc: 1, midi: true },
+  { id: 'bend', label: 'Pitch bend (synthé externe)', min: -1, max: 1, def: 0, bend: true, midi: true },
 ];
+/** Étendue du pitch bend exporté, en demi-tons (réglage par défaut des synthés). */
+SS.BEND_RANGE = 2;
 /** Réglages d'automation proposés pour une piste (les réglages du son : instruments non analogiques seulement). */
 SS.autoParamsFor = (track) => {
-  if (!track || track.type !== 'instrument') return SS.AUTO_PARAMS.filter((P) => !P.voice);
+  if (!track || track.type !== 'instrument') return SS.AUTO_PARAMS.filter((P) => !P.voice && !P.midi);
   const inst = SS.findInstrument ? SS.findInstrument(track.family, track.instrument) : null;
   if (inst && inst.kind === 'analog') return SS.AUTO_PARAMS.filter((P) => !P.voice);
   const sampled = inst && inst.kind !== 'synth';
@@ -284,9 +292,15 @@ SS.autoFormat = (id, v) => {
     return (v > 0 ? '+' : '−') + Math.abs(v * 4).toFixed(1).replace('.', ',') + ' oct';
   }
   if (id === 'lfoamt') return '×' + v.toFixed(2).replace('.', ',');
+  if (id === 'sustain') return v >= 0.5 ? 'Enfoncée' : 'Relâchée';
+  if (id === 'bend') {
+    if (Math.abs(v) < 0.005) return 'Au centre';
+    const st = v * SS.BEND_RANGE;
+    return (st > 0 ? '+' : '−') + Math.abs(st).toFixed(1).replace('.', ',') + ' demi-ton' + (Math.abs(st) >= 1.95 ? 's' : '');
+  }
   return Math.round(v * 100) + ' %';
 };
-const autoNum = (P, v) => Math.round(Math.max(P.min, Math.min(P.max, Number(v))) * 100) / 100;
+const autoNum = (P, v) => (P.toggle ? (Number(v) >= 0.5 ? 1 : 0) : Math.round(Math.max(P.min, Math.min(P.max, Number(v))) * 100) / 100);
 /** Nettoie track.auto (ou les données d'une scène) : paramètres connus, pas entiers < n, valeurs bornées. */
 SS.cleanAuto = (t, n = Infinity) => {
   const out = {};
@@ -320,21 +334,38 @@ SS.autoLen = (p, t) => (t && t.autoLen > 0 ? Math.min(t.autoLen, SS.totalSteps(p
 SS.copyAuto = (a) => (a ? Object.fromEntries(Object.entries(a).map(([k, l]) => [k, { ...l }])) : undefined);
 /**
  * Valeur d'une courbe au pas `s` (peut être fractionnaire) dans une boucle de `len` pas ; null si la courbe
- * n'a aucun point dans la boucle.
+ * n'a aucun point dans la boucle. `hold` (pédale de sustain) : la valeur du dernier point tient jusqu'au suivant,
+ * sans rampe ; avant le premier point, c'est celle du dernier point de la boucle (la pédale boucle avec elle).
  */
-SS.autoValue = (lane, s, len = Infinity) => {
+SS.autoValue = (lane, s, len = Infinity, hold = false) => {
   if (!lane) return null;
-  let a = null, b = null; // points juste avant (ou sur) s et juste après
+  let a = null, b = null, last = null; // points juste avant (ou sur) s et juste après ; dernier point de la boucle
   for (const k in lane) {
     const p = +k;
     if (p >= len) continue;
     if (p <= s && (a === null || p > a)) a = p;
     if (p > s && (b === null || p < b)) b = p;
+    if (last === null || p > last) last = p;
   }
   if (a === null && b === null) return null;
+  if (hold) return lane[a === null ? last : a];
   if (a === null) return lane[b];
   if (b === null) return lane[a];
   return lane[a] + ((lane[b] - lane[a]) * (s - a)) / (b - a);
+};
+/**
+ * Durée d'une note avec la pédale de sustain (track.auto.sustain), en pas : une note relâchée pédale enfoncée tient
+ * jusqu'au pas où la pédale se relève (au plus une boucle d'automation de plus). `start` : position de la note dans
+ * la boucle d'automation (pas, fractionnaire possible), `len` : sa durée écrite, `alen` : longueur de la boucle.
+ */
+SS.pedalLen = (track, start, len, alen) => {
+  const lane = track && track.auto && track.auto.sustain;
+  if (!lane || !(alen > 0)) return len;
+  const down = (x) => SS.autoValue(lane, ((x % alen) + alen) % alen, alen, true) >= 0.5;
+  const end = start + len;
+  if (!down(end)) return len;
+  for (let s = Math.floor(end) + 1; s <= end + alen; s++) if (!down(s)) return s - start;
+  return len + alen; // pédale jamais relevée : la note tient une boucle de plus
 };
 /** Pose (ou enlève, v = null) un point. */
 SS.setAutoPoint = (t, id, s, v) => {
@@ -415,17 +446,53 @@ SS.AUTO_SHAPES = {
     { id: 'up', label: 'Monter le Cosmos', points: ramp(0, 0.8) },
     { id: 'throw', label: 'Lâcher dans le Cosmos sur la dernière mesure', points: ramp(0, 1, 0.75) },
   ],
+  sustain: [
+    {
+      id: 'bar',
+      label: 'Relevée à chaque mesure (changement d’accord)',
+      points: (n, beat, bar = beat * 4) => {
+        const pts = {};
+        for (let s = 0; s < n; s += bar) {
+          pts[s] = 0;
+          if (s + 1 < n) pts[s + 1] = 1;
+        }
+        return pts;
+      },
+    },
+    {
+      id: 'half',
+      label: 'Relevée à chaque demi-mesure',
+      points: (n, beat, bar = beat * 4) => {
+        const pts = {};
+        const half = Math.max(2, Math.round(bar / 2));
+        for (let s = 0; s < n; s += half) {
+          pts[s] = 0;
+          if (s + 1 < n) pts[s + 1] = 1;
+        }
+        return pts;
+      },
+    },
+    { id: 'hold', label: 'Enfoncée tout du long', points: () => ({ 0: 1 }) },
+  ],
+  mod: [
+    { id: 'up', label: 'Monter la modulation', points: ramp(0, 0.8) },
+    { id: 'end', label: 'Vibrato sur la fin', points: ramp(0, 0.7, 0.5) },
+  ],
+  bend: [
+    { id: 'rise', label: 'Monter d’un ton sur la dernière mesure', points: ramp(0, 1, 0.75) },
+    { id: 'dive', label: 'Descendre d’un ton sur la dernière mesure', points: ramp(0, -1, 0.75) },
+  ],
   echo: [
     { id: 'up', label: 'Monter l’écho', points: ramp(0, 0.7) },
     { id: 'throw', label: 'Lâcher l’écho sur la dernière mesure', points: ramp(0, 1, 0.75) },
   ],
 };
 /** Remplace la courbe `id` de la piste par une forme toute prête. */
-SS.applyAutoShape = (t, id, shapeId, n, beat = 4) => {
+SS.applyAutoShape = (t, id, shapeId, n, beat = 4, bar = beat * 4) => {
   const sh = (SS.AUTO_SHAPES[id] || []).find((x) => x.id === shapeId);
   if (!sh || n < 2) return;
   if (t.auto) delete t.auto[id];
-  for (const [s, v] of Object.entries(sh.points(n, beat))) SS.setAutoPoint(t, id, +s, v);
+  for (const [s, v] of Object.entries(sh.points(n, beat, bar))) SS.setAutoPoint(t, id, +s, v);
 };
 
 SS.uid = () => Math.random().toString(36).slice(2, 10);

@@ -584,18 +584,23 @@ SS.ui = (() => {
 
     const param = h('select', { class: 'auto-param', 'aria-label': 'Réglage automatisé' });
     const opt = (x) => h('option', { value: x.id }, x.label + (track.auto && track.auto[x.id] ? ' ●' : ''));
-    // deux groupes : la tranche de la piste (tout instrument) et le son lui-même (lu au début de chaque note)
+    // trois groupes : la tranche de la piste (tout instrument), le son lui-même (lu au début de chaque note) et
+    // les contrôleurs MIDI (pédale de sustain, modulation, pitch bend : pistes instrument)
     const fillParams = () => {
       const list = offered();
-      const voice = list.filter((x) => x.voice);
-      if (!voice.length) return param.replaceChildren(...list.map(opt));
+      const groups = [
+        ['Tranche de la piste', list.filter((x) => !x.voice && !x.midi)],
+        ['Son, à chaque note', list.filter((x) => x.voice)],
+        ['Contrôleurs MIDI', list.filter((x) => x.midi)],
+      ].filter(([, xs]) => xs.length);
+      if (groups.length < 2) return param.replaceChildren(...list.map(opt));
       const og = (label, xs) => {
         const g = document.createElement('optgroup');
         g.label = label;
         g.append(...xs.map(opt));
         return g;
       };
-      param.replaceChildren(og('Tranche de la piste', list.filter((x) => !x.voice)), og('Son, à chaque note', voice));
+      param.replaceChildren(...groups.map(([label, xs]) => og(label, xs)));
     };
     const shapes = h('select', { class: 'auto-shape', 'aria-label': 'Forme toute prête', title: 'Remplace la courbe par une forme sur toute la longueur de l\'automation' });
     const fillShapes = () =>
@@ -645,7 +650,7 @@ SS.ui = (() => {
       const span = x.max - x.min;
       const zero = (0 - x.min) / span; // ligne de base (0 en bas, ou au milieu pour le filtre)
       ref.autoCells.forEach((c, s) => {
-        const v = s < len ? SS.autoValue(l, s, len) : null;
+        const v = s < len ? SS.autoValue(l, s, len, !!x.toggle) : null;
         const bar = c.firstChild;
         c.classList.toggle('beyond', s >= len);
         c.classList.toggle('pt', !!(l && l[s] !== undefined && s < len));
@@ -661,7 +666,7 @@ SS.ui = (() => {
       grid.classList.toggle('bipolar', x.min < 0);
       clear.disabled = !l;
       clearAll.disabled = !track.auto || !Object.keys(track.auto).length;
-      show(SS.autoValue(l, 0, len));
+      show(SS.autoValue(l, 0, len, !!x.toggle));
     }
     const changedAuto = () => {
       fillParams();
@@ -677,7 +682,7 @@ SS.ui = (() => {
     });
     shapes.addEventListener('change', () => {
       if (!shapes.value) return;
-      SS.applyAutoShape(track, P().id, shapes.value, SS.autoLen(app.project(), track), SS.stepsPerBeat(app.project()));
+      SS.applyAutoShape(track, P().id, shapes.value, SS.autoLen(app.project(), track), SS.stepsPerBeat(app.project()), SS.stepsPerBar(app.project()));
       shapes.value = '';
       changedAuto();
       app.changed();
@@ -756,7 +761,7 @@ SS.ui = (() => {
     grid.addEventListener('pointermove', (e) => {
       if (e.buttons) return;
       const c = e.target.closest('.acell');
-      if (c && !c.classList.contains('beyond')) show(SS.autoValue(lane(), +c.dataset.step, SS.autoLen(app.project(), track)));
+      if (c && !c.classList.contains('beyond')) show(SS.autoValue(lane(), +c.dataset.step, SS.autoLen(app.project(), track), !!P().toggle));
     });
 
     fillParams();
@@ -1641,6 +1646,7 @@ SS.ui = (() => {
     const has = !!(s && s.items.size);
     ['#selCopy', '#selCut', '#selDup', '#selDel'].forEach((id) => $(id) && ($(id).disabled = !has));
     if ($('#selPaste')) $('#selPaste').disabled = !clip;
+    fillXform(has ? s.track : null);
     if ($('#selClear')) $('#selClear').disabled = !s;
     const info = $('#selInfo');
     if (info) {
@@ -1652,6 +1658,64 @@ SS.ui = (() => {
       info.classList.toggle('on', !!s);
     }
     document.querySelectorAll('#tracks .track').forEach((el) => el.classList.toggle('selected', !!s && el.dataset.id === s.track.id));
+  }
+
+  /* ---------- Transformer la sélection (js/transform.js) ---------- */
+
+  /** Menu « Transformer… » : inversion, rétrograde, durées, autre mode (selon la tonalité de la scène). */
+  function fillXform(track) {
+    const box = $('#selXform');
+    if (!box) return;
+    const ok = !!track && !isDrum(track);
+    box.disabled = !ok;
+    const opts = [h('option', { value: '' }, 'Transformer…')];
+    if (ok) {
+      const key = SS.sceneKey(app.project());
+      const g = (label, items) => {
+        const og = document.createElement('optgroup');
+        og.label = label;
+        og.append(...items.map(([v, t]) => h('option', { value: v }, t)));
+        return og;
+      };
+      opts.push(
+        g('Hauteurs', [['invert', key ? 'Inverser (miroir dans la gamme)' : 'Inverser (miroir)']]),
+        g('Temps', [
+          ['retrograde', 'Rétrograde (à l’envers)'],
+          ['x2', 'Durées ×2 (deux fois plus lent)'],
+          ['x05', 'Durées ×½ (deux fois plus vite)'],
+        ])
+      );
+      if (key) {
+        const name = SS.harmony.label ? SS.harmony.label(key) : key.tonic;
+        const modes = SS.harmony.MODES.filter((m) => m.id !== key.mode).map((m) => ['mode:' + m.id, `${SS.harmony.french(key.tonic)} ${m.label.replace(' (mode)', '').toLowerCase()}`]);
+        opts.push(g(`Autre mode (scène : ${name})`, modes));
+      }
+    }
+    box.replaceChildren(...opts);
+    box.value = '';
+  }
+
+  function transformSelection(code) {
+    if (!validSelection() || !sel.items.size || isDrum(sel.track)) return;
+    const t = sel.track;
+    const p = app.project();
+    const key = SS.sceneKey(p);
+    const op =
+      code === 'invert' ? { kind: 'invert' }
+      : code === 'retrograde' ? { kind: 'retrograde' }
+      : code === 'x2' ? { kind: 'stretch', factor: 2 }
+      : code === 'x05' ? { kind: 'stretch', factor: 0.5 }
+      : code.startsWith('mode:') ? { kind: 'mode', mode: code.slice(5) }
+      : null;
+    if (!op) return;
+    const res = SS.transform.run(t, [...sel.items], op, { key, n: SS.trackLen(p, t) });
+    if (!res) return toast('Ce changement de mode demande une tonalité pour la scène (fenêtre Key).');
+    t.events = res.events;
+    setSelection(t, res.changed);
+    app.changed();
+    if (!SS.audio.isPlaying() && res.changed[0]) SS.audio.preview(t, res.changed[0].notes.length === 1 ? res.changed[0].notes[0] : res.changed[0].notes, 0.4);
+    const label = { invert: 'Inversé', retrograde: 'Rétrograde', x2: 'Durées ×2', x05: 'Durées ×½' }[code] || 'Mode changé';
+    toast(`${label} : ${unitLabel(t, res.changed.length)}${res.dropped ? ` · ${res.dropped} hors de la boucle ou superposée${res.dropped > 1 ? 's' : ''}, retirée${res.dropped > 1 ? 's' : ''}` : ''}`, 2200);
   }
 
   /* ---------- Copier / Couper / Coller ---------- */
@@ -3914,6 +3978,13 @@ SS.ui = (() => {
     on('#selPaste', () => paste());
     on('#selDup', duplicateSelection);
     on('#selDel', deleteSelection);
+    if ($('#selXform'))
+      $('#selXform').addEventListener('change', (e) => {
+        const v = e.target.value;
+        e.target.value = '';
+        if (v) transformSelection(v);
+        e.target.blur();
+      });
     on('#selClear', () => setSelection(null));
     updateSelBar();
   }

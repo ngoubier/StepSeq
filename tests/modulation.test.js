@@ -113,12 +113,14 @@ test('projet : les réglages LFO et PWM sont enregistrés et relus', () => {
 test('automation du son : réglages proposés selon la piste', () => {
   const ids = (t) => SS.autoParamsFor(t).map((P) => P.id);
   assert.deepEqual(ids({ type: 'drum' }), ['filter', 'res', 'volume', 'reverb', 'echo', 'space']);
-  assert.deepEqual(ids({ type: 'instrument', family: 'bass', instrument: 'syn_sawbass' }), ['filter', 'res', 'volume', 'reverb', 'echo', 'space', 'vcf', 'pw', 'fdecay', 'lfoamt']);
+  assert.deepEqual(ids({ type: 'instrument', family: 'bass', instrument: 'syn_sawbass' }), ['filter', 'res', 'volume', 'reverb', 'echo', 'space', 'vcf', 'pw', 'fdecay', 'lfoamt', 'sustain', 'mod', 'bend']);
   // échantillon : pas de PWM ; Juno-106 : son réglé dans sa façade, pas de réglages « voice »
   assert.ok(!ids({ type: 'instrument', family: 'keys', instrument: 'piano' }).includes('pw'));
   assert.ok(ids({ type: 'instrument', family: 'keys', instrument: 'piano' }).includes('vcf'));
   const juno = SS.ANALOG_FAMILY.instruments[0].id;
   assert.ok(!ids({ type: 'instrument', family: 'analog', instrument: juno }).includes('vcf'));
+  // contrôleurs MIDI : pistes instrument (Juno compris), jamais la batterie (canal 10 partagé)
+  assert.ok(ids({ type: 'instrument', family: 'analog', instrument: juno }).includes('sustain'));
 });
 
 test('automation du son : verrous lus au pas de la note, interpolés, absents sans courbe', () => {
