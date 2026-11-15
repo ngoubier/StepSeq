@@ -93,6 +93,28 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FAIL ') + m); if (!c) process
   await page.locator('#motifDialog button', { hasText: 'Annuler' }).click();
   ok((await page.locator('.arp-motif-text b').textContent()) === 'Double montée', 'Annuler dans le sélecteur garde le motif précédent');
 
+  // motif suivant / précédent, Surprends-moi (rythme verrouillé), prises
+  await page.click('#arpDialog .arp-motif-next');
+  ok((await page.locator('.arp-motif-text b').textContent()) !== 'Double montée', 'motif suivant');
+  await page.click('#arpDialog .arp-motif-prev');
+  ok((await page.locator('.arp-motif-text b').textContent()) === 'Double montée', 'motif précédent : retour à Double montée');
+  const r0 = JSON.parse(await arpNow());
+  const rLock = page.locator('#arpDialog .arp-lock', { hasText: 'le rythme' });
+  if ((await rLock.getAttribute('aria-pressed')) !== 'true') await rLock.click();
+  await page.click('#arpDialog .arp-surprise');
+  await page.click('#arpDialog .arp-surprise');
+  const r2 = JSON.parse(await arpNow());
+  ok(r2.rate === r0.rate && JSON.stringify(r2.lanes.rhythm) === JSON.stringify(r0.lanes.rhythm) && JSON.stringify(r2) !== JSON.stringify(r0), 'Surprends-moi : nouvel arpège, rythme gardé');
+  ok((await page.locator('#arpDialog .arp-takes').textContent()).includes('prise 3 / 3'), 'prises : 3 / 3');
+  await page.click('#arpDialog .arp-takes button[aria-label="Prise précédente"]');
+  await page.click('#arpDialog .arp-takes button[aria-label="Prise précédente"]');
+  ok((await arpNow()) === JSON.stringify(r0), 'retour à la prise de départ');
+  await page.click('#arpDialog .arp-takes button[aria-label="Prise suivante"]');
+  await page.click('#arpDialog .arp-takes button[aria-label="Prise suivante"]');
+  ok((await arpNow()) === JSON.stringify(r2), 'et de nouveau la dernière prise');
+  await page.click('#arpDialog .arp-takes button[aria-label="Prise précédente"]');
+  await page.click('#arpDialog .arp-takes button[aria-label="Prise précédente"]');
+
   // réglage d'un pas : clic sur la grille, 2 notes, 1 temps, vélocité, silence
   const g = await page.locator('.arp-grid').boundingBox();
   const cols = await page.evaluate(() => SS.arpPanel._info().ticks); // la grille montre toute la boucle

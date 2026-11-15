@@ -944,6 +944,79 @@ SS.arpPanel = (() => {
     render();
   }
   let mod = 'motif'; // module affiché
+  // « Surprends-moi » : verrous retenus dans ce navigateur ; prises de la séance (pour revenir à une prise)
+  const LOCK_KEY = 'stepseq.arp.locks';
+  let locks = { rythme: true };
+  try {
+    const l = JSON.parse(localStorage.getItem(LOCK_KEY) || 'null');
+    if (l && typeof l === 'object') locks = { motif: !!l.motif, rythme: !!l.rythme, accord: !!l.accord, effets: !!l.effets };
+  } catch (e) {
+    /* stockage indisponible */
+  }
+  let takes = [];
+  let takeIdx = -1;
+  const LOCKS = [
+    { id: 'motif', label: 'le motif' },
+    { id: 'rythme', label: 'le rythme' },
+    { id: 'accord', label: 'l’accord' },
+    { id: 'effets', label: 'les effets' },
+  ];
+  const LOCK_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+  function surprise() {
+    if (!takes.length) takes = [clone(track.arp)]; // prise 1 : l'arpège de départ
+    const next = SS.arpSurprise(track.arp, locks);
+    takes = [...takes.slice(0, takeIdx < 0 ? takes.length : takeIdx + 1), clone(next)].slice(-20);
+    takeIdx = takes.length - 1;
+    set(next);
+  }
+  function goTake(d) {
+    const i = Math.max(0, Math.min(takes.length - 1, takeIdx + d));
+    if (i === takeIdx) return;
+    takeIdx = i;
+    set(clone(takes[i]));
+  }
+  function surpriseRow() {
+    return [
+      h('button', { type: 'button', class: 'btn arp-surprise', title: 'Un nouvel arpège tiré au hasard, en gardant ce qui est verrouillé', onclick: surprise }, 'Surprends-moi'),
+      h(
+        'span',
+        { class: 'arp-locks', role: 'group', 'aria-label': 'Garder' },
+        h('small', {}, 'garder :'),
+        LOCKS.map((l) =>
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'chip arp-lock' + (locks[l.id] ? ' active' : ''),
+              'aria-pressed': String(!!locks[l.id]),
+              title: locks[l.id] ? `${l.label} reste tel quel` : `${l.label} peut changer`,
+              onclick: () => {
+                locks = { ...locks, [l.id]: !locks[l.id] };
+                try {
+                  localStorage.setItem(LOCK_KEY, JSON.stringify(locks));
+                } catch (e) {
+                  /* stockage indisponible */
+                }
+                render();
+              },
+            },
+            h('span', { html: LOCK_SVG }),
+            l.label
+          )
+        )
+      ),
+      takes.length > 1
+        ? h(
+            'span',
+            { class: 'arp-takes' },
+            h('button', { type: 'button', class: 'sd-mini', 'aria-label': 'Prise précédente', disabled: takeIdx <= 0, onclick: () => goTake(-1) }, '‹'),
+            h('span', {}, takeIdx === 0 ? `départ · 1 / ${takes.length}` : `prise ${takeIdx + 1} / ${takes.length}`),
+            h('button', { type: 'button', class: 'sd-mini', 'aria-label': 'Prise suivante', disabled: takeIdx >= takes.length - 1, onclick: () => goTake(1) }, '›')
+          )
+        : null,
+    ];
+  }
+
   const memo = {}; // réglages d'un module éteint, pour le rallumer tel qu'il était (le temps de la fenêtre)
 
   const ALL_LANES = () => ['rhythm', ...Object.keys(A().LANES)];
@@ -1051,7 +1124,17 @@ SS.arpPanel = (() => {
     let rows = [];
     if (m.id === 'motif') {
       rows = [
-        formRow('Motif', motifTile()),
+        formRow(
+          'Motif',
+          h(
+            'div',
+            { class: 'arp-motif-line' },
+            h('button', { type: 'button', class: 'btn arp-motif-prev', 'aria-label': 'Motif précédent', title: 'Motif précédent', onclick: () => applyMotif(SS.motifStep(track.arp, -1)) }, '‹'),
+            motifTile(),
+            h('button', { type: 'button', class: 'btn arp-motif-next', 'aria-label': 'Motif suivant', title: 'Motif suivant', onclick: () => applyMotif(SS.motifStep(track.arp, 1)) }, '›')
+          )
+        ),
+        formRow('Hasard', surpriseRow()),
         formRow('Octaves', segmented([1, 2, 3, 4].map((o) => ({ id: o, label: String(o) })), arp.octaves, (v) => set({ octaves: +v }), 'Octaves')),
       ];
     } else if (m.id === 'rythme') {
@@ -1255,6 +1338,8 @@ SS.arpPanel = (() => {
     sel = null;
     gesteOpen = false;
     mod = 'motif';
+    takes = [];
+    takeIdx = -1;
     gesteCompare = 'geste';
     render();
     dlg.showModal();
