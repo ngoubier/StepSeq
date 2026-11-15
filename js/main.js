@@ -769,7 +769,15 @@
   } catch (e) {
     console.warn('Auto Mix indisponible :', e);
   }
-  SS.systemPanel.init({ project: () => project });
+  SS.systemPanel.init({
+    project: () => project,
+    // avant un rechargement (changement de latence) : sauvegarde locale et bibliothèque
+    save: async () => {
+      clearTimeout(autosaveTimer);
+      saveLocal();
+      await SS.autosave.saveNow();
+    },
+  });
   SS.audioWatch.start({ project: () => project }); // surveillance audio automatique (grésillements, coupures)
   SS.song.init({ project: () => project, changed, state, switchScene, afterSceneChange, play, stop, setBars });
   SS.fx.init({ project: () => project, changed, renderTrack: (t) => SS.ui.renderTrack(t) });

@@ -127,6 +127,21 @@ SS.systemPanel = (() => {
     $('systemLightAuto').checked = W().autoLight();
     return on ? text : 'Mode allégé : inactif';
   }
+  /** Latence : préférence, et rechargement nécessaire si elle diffère du moteur en cours. */
+  function renderLatency() {
+    const { pref, active } = SS.audio.latency();
+    const sel = $('systemLatencySel');
+    if (document.activeElement !== sel && sel.value !== pref) sel.value = pref;
+    const pending = active && active !== pref;
+    $('systemLatencyReload').hidden = !pending;
+    const text = pending
+      ? 'Changement enregistré : il s’applique au rechargement de la page (la chanson est enregistrée avant).'
+      : pref === 'playback'
+        ? 'Lecture sûre : le navigateur garde plusieurs dizaines de ms d’avance, les pointes de calcul ne font plus sauter le son. Le clavier du Juno et le MIDI répondent un peu plus tard.'
+        : 'Réactive : délai minimal pour jouer au clavier, mais la moindre pointe de calcul fait sauter le son. En cas de grésillements, choisir « Lecture sûre ».';
+    if ($('systemLatencyText').textContent !== text) $('systemLatencyText').textContent = text;
+    return 'Latence : ' + (pref === 'playback' ? 'Lecture sûre' : 'Réactive') + (pending ? ' (au prochain chargement)' : '');
+  }
   function renderGauges(a) {
     const c = W().counters();
     const pct = (v) => Math.round(v * 100) + ' %';
@@ -228,7 +243,7 @@ SS.systemPanel = (() => {
     const list = warnings(a, { hidden: document.hidden, lag, maxBlock, heapRatio });
     const verdict = renderVerdict(a, now);
     renderGauges(a);
-    const lightText = renderLight();
+    const lightText = renderLight() + ' · ' + renderLatency();
     renderIncidents(now);
     const load = renderLoad();
     W().markSeen();
@@ -326,6 +341,15 @@ SS.systemPanel = (() => {
       refresh();
     });
     $('systemLightAuto').addEventListener('change', (e) => W().setAutoLight(e.target.checked));
+    $('systemLatencySel').addEventListener('change', (e) => {
+      SS.audio.setLatency(e.target.value);
+      if (!SS.audio.latency().active) SS.ui.toast('Latence enregistrée');
+      refresh();
+    });
+    $('systemLatencyReload').addEventListener('click', async () => {
+      try { if (app.save) await app.save(); } catch (e) { /* on recharge quand même : la sauvegarde locale est faite */ }
+      location.reload();
+    });
     let pending = false;
     W().onChange(() => {
       if (!dialog.open) return updateBadge();

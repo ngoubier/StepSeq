@@ -25,9 +25,32 @@ SS.audio = (() => {
   let masterReady = null; // chargement du module de mastering (attendu avant la première lecture)
   let onLoading = () => {}; // signale l'attente des sons avant la lecture (bouton Lecture)
 
+  /*
+   * Latence du moteur : « interactive » (≈ 10 ms, réactif au clavier et au MIDI, mais la moindre pointe de calcul
+   * fait sauter le son) ou « playback » (mémoire tampon de plusieurs dizaines de ms : beaucoup moins de
+   * décrochages, un peu de délai au jeu en direct). Choisie dans la fenêtre Système, appliquée au chargement.
+   */
+  const LATENCY_KEY = 'ss.latency';
+  const LATENCIES = ['interactive', 'playback'];
+  function latencyPref() {
+    try {
+      const v = localStorage.getItem(LATENCY_KEY);
+      return LATENCIES.includes(v) ? v : 'interactive';
+    } catch (e) {
+      return 'interactive';
+    }
+  }
+  let ctxLatency = null; // latence demandée à la création du contexte actuel
+
   function ensureCtx() {
     if (!ctx) {
-      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const AC = window.AudioContext || window.webkitAudioContext;
+      ctxLatency = latencyPref();
+      try {
+        ctx = new AC({ latencyHint: ctxLatency });
+      } catch (e) {
+        ctx = new AC();
+      }
       // Master : somme -> tranche de console (EQ, comp, limiteur) -> fader -> vumètre -> sortie
       master = ctx.createGain();
       masterStrip = makeStrip();
@@ -1700,6 +1723,21 @@ SS.audio = (() => {
       if (b.muted === off) return;
       b.muted = off;
       b.pre.gain.setTargetAtTime(off ? 0 : 1, ctx.currentTime, 0.01);
+      // vraie sortie du mix : une fois le fondu fini, la tranche n'est plus tirée par le Master. Égaliseur,
+      // compresseur, limiteur, écrêteur et synthé Juno de la piste ne calculent plus rien. Les queues des
+      // delays et reverbs déjà parties (après le fader) s'éteignent normalement.
+      clearTimeout(b.cutTimer);
+      if (off) {
+        b.cutTimer = setTimeout(() => {
+          if (b.muted && buses.get(t.id) === b) {
+            link(b.strip.out, b.pan, false);
+            b.cut = true;
+          }
+        }, 80);
+      } else if (b.cut) {
+        link(b.strip.out, b.pan, true);
+        b.cut = false;
+      }
     });
   }
 
@@ -1915,7 +1953,9 @@ SS.audio = (() => {
 
   function draw() {
     if (!seq.playing) return;
-    while (seq.queue.length && seq.queue[0].time <= ctx.currentTime) {
+    // latence « Lecture sûre » : le son sort plusieurs dizaines de ms après le calcul, l'affichage l'attend
+    const heard = ctx.currentTime - (ctxLatency === 'playback' ? ctx.outputLatency || ctx.baseLatency || 0 : 0);
+    while (seq.queue.length && seq.queue[0].time <= heard) {
       const e = seq.queue.shift();
       if (e.end) {
         seq.song.onEnd && seq.song.onEnd();
@@ -2362,6 +2402,17 @@ SS.audio = (() => {
     probe,
     repair,
     setLight,
+    /** Latence : préférence enregistrée, latence du moteur en cours (null avant la première lecture). */
+    latency: () => ({ pref: latencyPref(), active: ctxLatency }),
+    setLatency: (v) => {
+      if (!LATENCIES.includes(v)) return;
+      try {
+        localStorage.setItem(LATENCY_KEY, v);
+      } catch (e) {
+        /* stockage indisponible */
+      }
+    },
+    _isCut: (id) => !!(buses.get(id) && buses.get(id).cut),
     isLight: () => light,
     watchNode: (node, info) => (ctx ? watchNode(node, info) : node),
     ensureCtx,

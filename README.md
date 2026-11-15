@@ -429,6 +429,7 @@ node tests/e2e/automix-ui.js
 node tests/e2e/automix-modes.js
 node tests/e2e/automix-chains.js
 node tests/e2e/audio-light.js
+node tests/e2e/audio-perf.js
 node tests/e2e/automix-pilot.js
 node tests/e2e/automix-loud-bass.js
 node tests/e2e/band-close.js
