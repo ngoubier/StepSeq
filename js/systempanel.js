@@ -112,6 +112,21 @@ SS.systemPanel = (() => {
     if ($('systemVerdictText').textContent !== text) $('systemVerdictText').textContent = text;
     return { title, text };
   }
+  /** Mode allégé : état, bouton Alléger / Rétablir et réglage automatique. */
+  function renderLight() {
+    const on = W().isLight();
+    const info = W().lightInfo();
+    const box = $('systemLight');
+    if (box.dataset.on !== (on ? '1' : '0')) box.dataset.on = on ? '1' : '0';
+    const text = on
+      ? (info && info.auto ? 'Activé automatiquement (' + (info.reason || 'surcharge').toLowerCase() + ') : ' : 'Activé : ') + 'effets, reverbs, bus partagés, EQ, compresseurs, limiteurs, effets du Master et mastering sont coupés. ' + (info && info.auto ? 'Ils reviennent à l’arrêt de la lecture.' : 'Les réglages sont conservés.')
+      : 'En cas de grésillements ou de décrochages, coupe temporairement tout ce qui ralentit le moteur audio, sans toucher aux réglages.';
+    if ($('systemLightText').textContent !== text) $('systemLightText').textContent = text;
+    const label = on ? 'Rétablir les effets' : 'Alléger maintenant';
+    if ($('systemLightBtn').textContent !== label) $('systemLightBtn').textContent = label;
+    $('systemLightAuto').checked = W().autoLight();
+    return on ? text : 'Mode allégé : inactif';
+  }
   function renderGauges(a) {
     const c = W().counters();
     const pct = (v) => Math.round(v * 100) + ' %';
@@ -213,6 +228,7 @@ SS.systemPanel = (() => {
     const list = warnings(a, { hidden: document.hidden, lag, maxBlock, heapRatio });
     const verdict = renderVerdict(a, now);
     renderGauges(a);
+    const lightText = renderLight();
     renderIncidents(now);
     const load = renderLoad();
     W().markSeen();
@@ -226,7 +242,7 @@ SS.systemPanel = (() => {
     set('assetList', a.largestAssets.length ? a.largestAssets.map(x => x.name + ' : ' + mib(x.bytes)).join('\n') : 'Aucun échantillon décodé');
     const incidents = W().state().incidents.map((x) => `- [${LEVEL[x.level] || x.level}] ${x.title} (${ago(now, x.last)}${x.count > 1 ? ', ×' + x.count : ''}) : ${x.detail}${x.advice ? ' → ' + x.advice : ''}${x.fixed ? ' ✓ ' + x.fixed : ''}`);
     report = [
-      'StepSeq — Diagnostic Système', verdict.title + ' : ' + verdict.text, status.textContent, '',
+      'StepSeq — Diagnostic Système', verdict.title + ' : ' + verdict.text, status.textContent, lightText, '',
       ...['heroLoad', 'heroUnder', 'heroClip', 'heroLate'].map((k) => refs[k].previousElementSibling.textContent + ' : ' + refs[k].textContent + ' (' + refs[k].nextElementSibling.textContent + ')'), '',
       'Incidents détectés :', ...(incidents.length ? incidents : ['- aucun']), '',
       'Poids estimé sur le moteur audio :', ...load.slice(0, 8).map((x) => '- ' + x.label + ' : ' + Math.round(x.share * 100) + ' %'), '',
@@ -297,6 +313,19 @@ SS.systemPanel = (() => {
       refresh();
     });
     $('systemClearIncidents').addEventListener('click', () => { W().clear(); refresh(); });
+    $('systemLightBtn').addEventListener('click', () => {
+      if (W().isLight()) {
+        W().restore(true);
+        SS.ui.toast('Effets rétablis');
+      } else {
+        SS.audio.ensureCtx();
+        W().lighten('Demandé depuis la fenêtre Système', false);
+        SS.ui.toast('Mode allégé : effets coupés temporairement');
+      }
+      shownIncidents = '';
+      refresh();
+    });
+    $('systemLightAuto').addEventListener('change', (e) => W().setAutoLight(e.target.checked));
     let pending = false;
     W().onChange(() => {
       if (!dialog.open) return updateBadge();

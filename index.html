@@ -831,6 +831,11 @@
         <div class="sys-verdict-text"><h3 id="systemVerdictTitle">—</h3><p id="systemVerdictText" role="status" aria-live="polite"></p></div>
         <button id="systemRepair" type="button" class="btn" title="Remet à zéro les filtres, les boucles de delay et les modules audio bloqués">Réparer le son</button>
       </section>
+      <section id="systemLight" class="sys-light" data-on="0" aria-labelledby="systemLightTitle">
+        <div class="sys-light-text"><h3 id="systemLightTitle">Mode allégé</h3><p id="systemLightText"></p>
+          <label class="sys-light-auto"><input type="checkbox" id="systemLightAuto"> Alléger automatiquement en cas de surcharge</label></div>
+        <button id="systemLightBtn" type="button" class="btn" title="Coupe temporairement effets, reverbs, bus partagés, EQ, compresseurs, limiteurs, effets du Master et mastering">Alléger maintenant</button>
+      </section>
       <div id="systemStatus" class="system-status"></div>
       <div id="systemMetrics" class="system-metrics"></div>
       <section class="sys-incidents" aria-labelledby="systemIncidentsTitle">

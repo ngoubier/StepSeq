@@ -171,3 +171,27 @@ test('poids estimé : Juno, longues reverbs et Cosmos passent devant une piste d
   assert.ok(!load.some((x) => x.trackId === 'm'), 'piste muette ignorée');
   assert.ok(Math.abs(load.reduce((n, x) => n + x.share, 0) - 1) < 1e-9);
 });
+
+test('surcharge : les décrochages et les retards répétés déclenchent le mode allégé', () => {
+  const st = W.newState();
+  run(st, Array.from({ length: 4 }, () => snap()));
+  assert.equal(W.overload(st, 1000), null, 'lecture saine : rien à alléger');
+  const r = run(W.newState(), [snap({ render: { average: 0.9, peak: 1, underrun: 0.02 } })]);
+  assert.ok(r[0].added.some((x) => x.kind === 'underrun'));
+  const st2 = W.newState();
+  run(st2, [snap({ render: { average: 0.9, peak: 1, underrun: 0.02 } })]);
+  assert.equal(W.overload(st2, 250).kind, 'underrun');
+  const st5 = W.newState();
+  run(st5, [snap({ render: { average: 0.7, peak: 0.99, underrun: 0 } })]);
+  assert.equal(W.overload(st5, 250), null, 'pointe de charge sans décrochage : on ne coupe rien');
+  run(st5, [snap({ render: { average: 0.9, peak: 1, underrun: 0.03 } })]);
+  assert.equal(W.overload(st5, 250).level, 'bad', 'la pointe devenue décrochage aggrave l\'incident');
+  // notes en retard : un retard isolé (ouverture d'une fenêtre) ne suffit pas, trois de suite oui
+  const st3 = W.newState();
+  const late = (n) => snap({ scheduling: { lateSteps: n, maxLateMs: 60 } });
+  run(st3, [late(0), late(1)]);
+  assert.equal(W.overload(st3, 500), null);
+  const st4 = W.newState();
+  run(st4, [late(0), late(1), late(2), late(3)]);
+  assert.equal(W.overload(st4, 1000).kind, 'late');
+});

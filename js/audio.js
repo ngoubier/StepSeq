@@ -16,6 +16,7 @@ SS.audio = (() => {
   let lastMasterProject = null;
   let returns = null; // bus d'effets partagés : { plate, hall, echo }
   let pendingMaster = null;
+  let light = false; // mode allégé (js/audiowatch.js) : effets, tranches et mastering contournés, réglages intacts
   const buses = new Map(); // trackId -> GainNode
   const jsonCache = new Map();
   const bufferCache = new Map();
@@ -73,6 +74,7 @@ SS.audio = (() => {
     masterProc.connect(ctx.destination);
     masterProc.connect(masterMeter.node);
     if (lastMasterProject) applyMastering(lastMasterProject);
+    if (light) route();
   }
 
   /* ---------------- Santé du moteur (fenêtre Système, js/audiowatch.js) ---------------- */
@@ -551,6 +553,7 @@ SS.audio = (() => {
       buses.set(track.id, b);
       applyFx(track);
       applyMix(track);
+      if (light) routeBus(b);
     }
     return b.strip.entry;
   }
@@ -579,6 +582,7 @@ SS.audio = (() => {
     if (lastMasterProject) applyReturns(lastMasterProject);
     b.auto = a;
     autoNeutral(a, ctx.currentTime);
+    if (light) routeBus(b);
     return a;
   }
   const AUTO_Q = (res) => 0.7 + res * 11;
@@ -736,6 +740,7 @@ SS.audio = (() => {
           if (ctx !== own || r.node) return;
           r.node = watchNode(SS.space.create(own), { label: 'Reverb Cosmos', area: 'returns', ret: 'space' });
           r.pre.connect(r.node).connect(r.hp);
+          if (light) routeReturns();
           if (lastMasterProject) applyReturns(lastMasterProject);
         })
         .catch(() => {});
@@ -743,7 +748,10 @@ SS.audio = (() => {
     return r;
   }
   function ensureReturns() {
-    if (!returns) returns = { plate: buildReturnReverb(), hall: buildReturnReverb(), echo: buildReturnEcho(), space: buildReturnSpace() };
+    if (!returns) {
+      returns = { plate: buildReturnReverb(), hall: buildReturnReverb(), echo: buildReturnEcho(), space: buildReturnSpace() };
+      if (light) routeReturns();
+    }
     return returns;
   }
   /** Règle les bus partagés du projet (durées, filtres, temps de l'écho selon le tempo). */
@@ -873,6 +881,7 @@ SS.audio = (() => {
       master.disconnect(masterStrip.entry);
       reverb.out.connect(masterStrip.entry);
       masterEffects = { saturation, chorus, reverb };
+      if (light) route();
     }
     for (const [name, stage] of Object.entries(masterEffects)) {
       const amount = e.on && e[name].on ? (name === 'saturation' ? e[name].amount : e[name].mix) : 0;
@@ -1020,7 +1029,8 @@ SS.audio = (() => {
     if (!ctx || !track || !track.id) return;
     const b = buses.get(track.id);
     if (!b) return;
-    const f = SS.fxParams(track);
+    // mode allégé : effets à zéro (aucun nouvel étage créé), le projet garde ses réglages
+    const f = light ? { ...SS.fxParams(track), ...LIGHT_FX } : SS.fxParams(track);
     const now = ctx.currentTime;
     const ramp = (param, v) => param.setTargetAtTime(v, now, 0.03);
 
@@ -1975,6 +1985,7 @@ SS.audio = (() => {
 
   function begin(getProject, onStep, opts) {
     if (seq.playing) return;
+    seq.run = (seq.run || 0) + 1; // numéro de lecture (la surveillance repère une nouvelle lecture)
     Object.assign(scheduling, { ticks: 0, lateSteps: 0, maxLateMs: 0, lastLateAt: null, maxTickMs: 0 });
     seq.getProject = getProject;
     seq.onStep = onStep;
@@ -2134,7 +2145,7 @@ SS.audio = (() => {
       tracks, returns: ret, masterIn: readMeter(masterInMeter), out: readMeter(masterMeter), clipped,
       render: render && performance.now() - render.at < 3000 ? { ...render } : null, stats: playbackStats(),
       events: healthLog.splice(0), voices: voices.size, juno: (SS.juno && SS.juno.engineCount && SS.juno.engineCount()) || 0,
-      playing: seq.playing, paused: !!seq.paused, scheduling: { ...scheduling }, mastering: !!masterProc,
+      playing: seq.playing, paused: !!seq.paused, scheduling: { ...scheduling }, mastering: !!masterProc && !light, light, run: seq.run || 0,
     };
   }
   /** Remet à zéro l'état d'un filtre biquad (changer de type vide sa mémoire, bloquée par un NaN). */
@@ -2160,7 +2171,7 @@ SS.audio = (() => {
       if (b.auto) [b.auto.lp, b.auto.hp].forEach(resetBiquad);
       if (b.delay) {
         const d = b.delay;
-        b.duck.disconnect(d.send);
+        link(b.duck, d.send, false);
         [d.send, d.node, d.tone, d.fb].forEach((x) => x.disconnect());
         b.delay = null;
         buildDelay(b);
@@ -2194,10 +2205,111 @@ SS.audio = (() => {
       n++;
     }
     if (ctx.state === 'suspended') ctx.resume();
+    if (light) route();
     if (project) {
       if (returns) applyReturns(project);
       project.tracks.forEach((t) => buses.has(t.id) && applyFx(t));
     }
+    return n;
+  }
+
+  /* ---------------- Mode allégé (surcharge du processeur) ---------------- */
+
+  /*
+   * Quand le moteur décroche, on débranche réellement ce qui coûte du calcul : mettre un gain à zéro ne suffit
+   * pas, le navigateur continue de calculer les convolutions, compresseurs et modules AudioWorklet branchés
+   * (les vumètres, des analyseurs, les tirent même sans sortie). Sont contournés : chorus, delay et reverb des
+   * pistes, envois et bus partagés (Plate, Hall, Écho, Cosmos), tranches de console des pistes et du Master
+   * (EQ, VCF, compresseur, limiteur, écrêteur), effets créatifs du Master et mastering. Les réglages du projet
+   * ne changent pas : tout revient à l'identique en quittant le mode allégé.
+   */
+  const LIGHT_FX = { chorus: 0, delay: 0, room: 0, sendPlate: 0, sendHall: 0, sendEcho: 0, sendSpace: 0 };
+  /** Branche (on) ou débranche une connexion, sans erreur si elle existe déjà ou n'existe plus. */
+  function link(src, dst, on) {
+    if (!src || !dst) return;
+    try {
+      if (on) src.connect(dst);
+      else src.disconnect(dst);
+    } catch (e) {
+      /* connexion absente */
+    }
+  }
+  /** Tranche contournée : entrée -> sortie directe ; la chaîne EQ / comp / limiteur n'est plus tirée. */
+  function routeStrip(st, bypass) {
+    link(st.entry, st.hp, !bypass);
+    link(st.limOut, st.out, !bypass);
+    link(st.entry, st.out, bypass);
+  }
+  function routeBus(b) {
+    const on = !light;
+    routeStrip(b.strip, light);
+    if (b.chorus) {
+      link(b.input, b.chorus.dL, on);
+      link(b.input, b.chorus.dR, on);
+      link(b.chorus.wet, b.pre, on);
+    }
+    if (b.delay) {
+      link(b.duck, b.delay.send, on);
+      link(b.delay.tone, master, on);
+      link(b.delay.tone, b.delay.meter.node, on);
+    }
+    if (b.reverb) {
+      link(b.duck, b.reverb.send, on);
+      link(b.reverb.out, master, on);
+      link(b.reverb.out, b.reverb.meter.node, on);
+    }
+    if (b.sends) Object.values(b.sends).forEach((g) => link(b.duck, g, on));
+    if (b.auto) [b.auto.reverb, b.auto.echo, b.auto.space].forEach((g) => link(b.duck, g, on));
+  }
+  function routeReturns() {
+    if (!returns) return;
+    const on = !light;
+    for (const k of ['plate', 'hall']) {
+      const r = returns[k];
+      link(r.in, r.pre, on);
+      link(r.out, master, on);
+      link(r.out, r.meter.node, on);
+    }
+    const e = returns.echo;
+    link(e.in, e.hp, on);
+    link(e.out, master, on);
+    link(e.out, e.meter.node, on);
+    const sp = returns.space;
+    link(sp.in, sp.pre, on);
+    if (sp.node) link(sp.node, sp.hp, on);
+    link(sp.out, master, on);
+    link(sp.out, sp.meter.node, on);
+  }
+  /** Applique le trajet du son correspondant au mode (allégé ou normal). */
+  function route() {
+    if (!ctx) return;
+    routeStrip(masterStrip, light);
+    if (masterEffects) {
+      link(masterEffects.reverb.out, masterStrip.entry, !light);
+      link(master, masterStrip.entry, light);
+    }
+    if (masterProc) {
+      link(masterFader, masterProc, !light);
+      link(masterProc, ctx.destination, !light);
+      link(masterProc, masterMeter.node, !light);
+      link(masterFader, ctx.destination, light);
+      link(masterFader, masterMeter.node, light);
+    }
+    buses.forEach(routeBus);
+    routeReturns();
+  }
+  /** Active ou quitte le mode allégé ; renvoie le nombre d'étages contournés (ou rétablis). */
+  function setLight(on) {
+    on = !!on;
+    if (on === light) return 0;
+    light = on;
+    if (!ctx) return 0;
+    const project = (seq.getProject && seq.getProject()) || lastMasterProject;
+    route();
+    // effets des pistes à zéro (ou réglages rétablis) ; la tranche Master est contournée par route()
+    if (project) project.tracks.forEach((t) => buses.has(t.id) && applyFx(t));
+    let n = 1 + (masterEffects ? 1 : 0) + (masterProc ? 1 : 0) + (returns ? 4 : 0);
+    buses.forEach((b) => (n += 1 + !!b.chorus + !!b.delay + !!b.reverb + (b.sends ? Object.keys(b.sends).length : 0)));
     return n;
   }
 
@@ -2249,6 +2361,8 @@ SS.audio = (() => {
     diagnostics,
     probe,
     repair,
+    setLight,
+    isLight: () => light,
     watchNode: (node, info) => (ctx ? watchNode(node, info) : node),
     ensureCtx,
     loadJSON,
