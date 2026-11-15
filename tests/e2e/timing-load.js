@@ -32,7 +32,7 @@ const ok = (c, m) => {
   await page.addInitScript((p) => { if (!sessionStorage.done) { localStorage.setItem('stepseq.autosave', JSON.stringify(p)); sessionStorage.done = 1; } }, demo);
   await page.goto(`http://localhost:${server.address().port}/index.html`);
   await page.waitForTimeout(1500);
-  await page.locator('.track:has(.th-roll)').first().locator('.th-roll').first().click();
+  await page.locator('.th-roll:not([disabled])').first().click(); // la batterie n'a pas de piano roll (bouton désactivé)
   await page.waitForTimeout(300);
   ok((await page.locator('.roll').count()) === 1, 'piano roll ouvert');
   const cdp = await page.context().newCDPSession(page);

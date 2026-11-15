@@ -302,7 +302,7 @@ SS.ui = (() => {
     p.tracks.forEach((t) => container.append(buildTrack(t)));
     $('#empty').classList.toggle('none', p.tracks.length === 0);
     $('#ruler').style.display = p.tracks.length ? '' : 'none';
-    setPlayhead(nowStep);
+    playheadAfterBuild();
     if (SS.mixer && SS.mixer.isOpen()) SS.mixer.render();
     renderedShape = shape();
   }
@@ -312,7 +312,7 @@ SS.ui = (() => {
     const el = buildTrack(track);
     if (old) old.el.replaceWith(el);
     else $('#tracks').append(el);
-    setPlayhead(nowStep);
+    playheadAfterBuild();
     renderedShape = shape();
   }
 
@@ -332,7 +332,7 @@ SS.ui = (() => {
       paint(t);
       applyRollKey(t, refs.get(t.id) || {});
     });
-    setPlayhead(nowStep);
+    playheadAfterBuild();
     if (SS.mixer && SS.mixer.isOpen()) SS.mixer.render();
   }
 
@@ -2903,7 +2903,14 @@ SS.ui = (() => {
    * une colonne entière de cases (des milliers de cases à recalculer à chaque pas).
    */
   let litCells = [];
-  function setPlayhead(step) {
+  /*
+   * Après une reconstruction de la page pendant la lecture : la tête de lecture est posée sans rien lire de la
+   * mise en page (défilement, barre du piano roll). Lire la mise en page juste après la reconstruction forcerait
+   * à la recalculer en entier dans la même tâche que la reconstruction, et le séquenceur ne pourrait pas
+   * programmer de notes entre les deux ; le pas suivant fait ces lectures, une fois la page affichée.
+   */
+  const playheadAfterBuild = () => setPlayhead(nowStep, SS.audio.isPlaying());
+  function setPlayhead(step, noLayout = false) {
     nowStep = step;
     const p = app.project();
     if (step < 0) {
@@ -2919,9 +2926,9 @@ SS.ui = (() => {
     const spb = SS.stepsPerBar(p);
     // d'abord les lectures de mise en page (défilement, position des barres du piano roll), puis les
     // modifications : les mélanger forcerait le navigateur à recalculer la page plusieurs fois par pas
-    if (follow.on && SS.audio.isPlaying()) followPlayhead(g, spb);
+    if (follow.on && SS.audio.isPlaying() && !noLayout) followPlayhead(g, spb);
     const heads = [];
-    p.tracks.forEach((t) => {
+    if (!noLayout) p.tracks.forEach((t) => {
       const ref = refs.get(t.id);
       if (ref && ref.rollHead) heads.push([ref.rollHead, rollHeadAt(ref, step % SS.trackLen(p, t))]);
     });
@@ -3035,14 +3042,9 @@ SS.ui = (() => {
     const range = $('#zoomRange');
     if (range) range.value = Math.round((Math.log(zoom / ZOOM_MIN) / Math.log(ZOOM_MAX / ZOOM_MIN)) * 1000);
     const label = $('#zoomLabel');
-    if (label) {
-      label.textContent = `${Math.round(zoom * 100)} %`;
-      const ws = $('#workspace');
-      const p = app.project();
-      const barW = (BASE_COL.step * (SS.stepsPerBar(p) - 1) + BASE_COL.bar) * zoom;
-      const visible = Math.max(0, (ws.clientWidth - headWidth() - 20) / barW);
-      label.title = `Environ ${visible < 10 ? visible.toFixed(1).replace('.', ',') : Math.floor(visible)} mesure(s) visible(s)`;
-    }
+    // l'info-bulle (mesures visibles) lit la mise en page : elle est calculée au survol (zoomTitle), pas ici,
+    // car applyZoomVars précède la reconstruction de la page et forcerait un calcul de mise en page inutile
+    if (label) label.textContent = `${Math.round(zoom * 100)} %`;
     if ($('#zoomOut')) $('#zoomOut').disabled = zoom <= ZOOM_MIN + 1e-6;
     if ($('#zoomIn')) $('#zoomIn').disabled = zoom >= ZOOM_MAX - 1e-6;
   }
@@ -3101,6 +3103,7 @@ SS.ui = (() => {
     on('#zoomRange', 'input', (e) => setZoom(ZOOM_MIN * Math.pow(ZOOM_MAX / ZOOM_MIN, e.target.value / 1000)));
     on('#zoomRange', 'dblclick', () => setZoom(1));
     on('#zoomLabel', 'click', () => setZoom(1));
+    on('#zoomLabel', 'pointerenter', zoomTitle);
     window.addEventListener('resize', () => applyZoomVars());
   }
 
@@ -3110,6 +3113,17 @@ SS.ui = (() => {
     follow.on = localStorage.getItem('stepseq.follow') !== '0';
   } catch (e) {
     /* stockage indisponible : on garde la valeur par défaut */
+  }
+
+  /** Info-bulle du zoom : nombre de mesures visibles (lu au moment du survol). */
+  function zoomTitle() {
+    const label = $('#zoomLabel');
+    const ws = $('#workspace');
+    if (!label || !ws) return;
+    const p = app.project();
+    const barW = (BASE_COL.step * (SS.stepsPerBar(p) - 1) + BASE_COL.bar) * zoom;
+    const visible = Math.max(0, (ws.clientWidth - headWidth() - 20) / barW);
+    label.title = `Environ ${visible < 10 ? visible.toFixed(1).replace('.', ',') : Math.floor(visible)} mesure(s) visible(s)`;
   }
 
   /**
@@ -3128,8 +3142,9 @@ SS.ui = (() => {
     const barStart = $('#ruler').querySelector(`[data-step="${g - (g % spb)}"]`) || cell;
     const target = Math.max(0, barStart.offsetLeft - head - 8);
     if (Math.abs(target - ws.scrollLeft) < 2) return;
-    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    ws.scrollTo({ left: target, behavior: reduce ? 'auto' : 'smooth' });
+    // saut direct, comme une page qu'on tourne : un défilement animé redessine toute la page (piano roll compris)
+    // à chaque image pendant la lecture, et retarde la programmation des notes sur une machine lente
+    ws.scrollTo({ left: target, behavior: 'auto' });
   }
 
   function setFollow(on) {
