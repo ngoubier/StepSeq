@@ -152,3 +152,80 @@ SS.motifPatch = (arp, m) => {
   if (vel || prevVel) patch.lanes.vel = vel ? vel.slice() : [];
   return patch;
 };
+
+/*
+ * « Surprends-moi » : un nouvel arpège tiré au hasard, en gardant ce qui est verrouillé.
+ *   locks : { motif, rythme, accord, effets } (true = garder)
+ *   rand  : générateur dans [0, 1) (Math.random par défaut ; les tests passent un générateur à graine)
+ * Le résultat est un réglage complet (normalisé) : une fois tiré, il est rejoué à l'identique.
+ */
+SS.arpSurprise = (arp, locks = {}, rand = Math.random) => {
+  const A = SS.Arp;
+  const a = A.normalize(arp);
+  const pickOf = (arr) => arr[Math.floor(rand() * arr.length) % arr.length];
+  const chance = (p) => rand() < p;
+  let out = { ...a, seed: 1 + Math.floor(rand() * 999999), preset: '' };
+  const lanes = { ...a.lanes };
+  const steps = a.steps;
+  // ligne clairsemée : surtout la valeur neutre, quelques pas différents
+  const sparse = (def, vals, n) => {
+    const l = Array(steps).fill(def);
+    for (let i = 0; i < n; i++) l[1 + Math.floor(rand() * (steps - 1))] = pickOf(vals);
+    return l;
+  };
+
+  if (!locks.motif) {
+    const cur = SS.motifOf(a);
+    let pool = SS.MOTIFS.filter((m) => !cur || m.id !== cur.id);
+    if (locks.rythme) pool = pool.filter((m) => !m.arp.rhythm); // un motif à rythme propre changerait le rythme
+    const m = pickOf(pool);
+    const p = SS.motifPatch(out, m);
+    out = { ...out, ...p };
+    Object.assign(lanes, p.lanes || {});
+    if (!m.arp.octaves) out.octaves = pickOf([1, 2, 2, 3]);
+    if (locks.rythme) {
+      out.rhythm = a.rhythm; // rythme verrouillé : exactement le même, ligne comprise
+      lanes.rhythm = a.lanes.rhythm;
+    }
+    lanes.deg = chance(0.25) ? sparse(0, [-1, 1, 1, 2], 2) : [];
+  }
+  if (!locks.rythme) {
+    const own = (SS.motifOf({ ...out, lanes }) || { arp: {} }).arp.rhythm;
+    if (!own) {
+      const r = rand();
+      if (r < 0.45) {
+        out.rhythm = { ...out.rhythm, type: 'all' };
+        lanes.rhythm = [];
+      } else {
+        // euclidien ou dessiné, écrit comme une ligne : le motif reste reconnu
+        const l = r < 0.8 ? A.euclid(pickOf([5, 7, 9, 11, 13]), 16, Math.floor(rand() * 4)) : Array.from({ length: 16 }, (_, i) => (i === 0 || chance(0.72) ? 1 : 0));
+        l[0] = 1;
+        out.rhythm = { ...out.rhythm, type: 'lane' };
+        lanes.rhythm = l; // ligne de 16 pas, quelle que soit la longueur du motif
+      }
+    }
+    out.rate = pickOf([0.5, 1, 1, 1, 1.5, 2]);
+    lanes.div = chance(0.25) ? sparse(1, [2, 2, 3], 2) : [];
+  }
+  if (!locks.accord) {
+    out.inversion = pickOf(['asis', 'asis', 0, 1, 2, 'smooth']);
+    out.voicing = pickOf(['close', 'close', 'close', 'open', 'drop2', 'bass']);
+  }
+  if (!locks.effets) {
+    out.echo = chance(0.35) ? { n: pickOf([1, 2, 3]), gap: pickOf([1, 2, 3]), decay: pickOf([0.45, 0.6, 0.7]), shift: pickOf(A.ECHO_SHIFTS).id } : { ...a.echo, n: 0 };
+    out.roll = chance(0.2) ? pickOf(['up', 'down', 'updown']) : 'none';
+    lanes.ratchet = out.roll !== 'none' ? sparse(1, [2, 3, 4], 2) : chance(0.2) ? sparse(1, [2, 3], 1) : [];
+    const g = chance(0.45) ? pickOf(A.GESTES) : null;
+    out.geste = g ? { id: g.id, ...g.g } : undefined;
+  }
+  out.lanes = lanes;
+  return A.normalize(out);
+};
+
+/** Motif voisin dans le catalogue (dir = +1 suivant, −1 précédent) ; motif personnalisé : le premier / le dernier. */
+SS.motifStep = (arp, dir) => {
+  const cur = SS.motifOf(arp);
+  const i = cur ? SS.MOTIFS.findIndex((m) => m.id === cur.id) : dir > 0 ? -1 : 0;
+  const n = SS.MOTIFS.length;
+  return SS.MOTIFS[(((i + dir) % n) + n) % n];
+};

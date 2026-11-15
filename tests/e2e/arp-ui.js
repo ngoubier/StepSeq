@@ -48,7 +48,10 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FAIL ') + m); if (!c) process
   // la sauvegarde automatique a lieu 400 ms après chaque changement
   const arpNow = async () => (await page.waitForTimeout(500), page.evaluate(() => JSON.stringify(SS.Arp.normalize(JSON.parse(localStorage.getItem('stepseq.autosave')).tracks.find((t) => t.category === 'arp').arp))));
   const before = await arpNow();
-  ok((await page.locator('.arp-tabs2 [role=tab]').count()) === 2 && (await page.locator('.arp-tabs2 .on').textContent()) === 'Arpège', 'onglets Arpège / Geste, Arpège ouvert');
+  // modules : niveau Essentiel par défaut, module Motif ouvert
+  const modBtn = (name) => page.locator('#arpDialog .arp-mod-btn', { has: page.locator('b', { hasText: new RegExp('^' + name + '$') }) });
+  ok((await page.locator('#arpDialog .arp-level button.active').textContent()) === 'Essentiel', 'niveau Essentiel par défaut');
+  ok((await page.locator('#arpDialog .arp-mod').count()) >= 5 && (await page.locator('#arpDialog .arp-mod.active b').textContent()) === 'Motif', 'modules affichés, Motif ouvert');
   ok((await page.locator('.arp-step').count()) === 0, 'pas de panneau de réglage tant qu’aucun pas n’est choisi');
 
   // lecture en boucle
@@ -90,12 +93,34 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FAIL ') + m); if (!c) process
   await page.locator('#motifDialog button', { hasText: 'Annuler' }).click();
   ok((await page.locator('.arp-motif-text b').textContent()) === 'Double montée', 'Annuler dans le sélecteur garde le motif précédent');
 
+  // motif suivant / précédent, Surprends-moi (rythme verrouillé), prises
+  await page.click('#arpDialog .arp-motif-next');
+  ok((await page.locator('.arp-motif-text b').textContent()) !== 'Double montée', 'motif suivant');
+  await page.click('#arpDialog .arp-motif-prev');
+  ok((await page.locator('.arp-motif-text b').textContent()) === 'Double montée', 'motif précédent : retour à Double montée');
+  const r0 = JSON.parse(await arpNow());
+  const rLock = page.locator('#arpDialog .arp-lock', { hasText: 'le rythme' });
+  if ((await rLock.getAttribute('aria-pressed')) !== 'true') await rLock.click();
+  await page.click('#arpDialog .arp-surprise');
+  await page.click('#arpDialog .arp-surprise');
+  const r2 = JSON.parse(await arpNow());
+  ok(r2.rate === r0.rate && JSON.stringify(r2.lanes.rhythm) === JSON.stringify(r0.lanes.rhythm) && JSON.stringify(r2) !== JSON.stringify(r0), 'Surprends-moi : nouvel arpège, rythme gardé');
+  ok((await page.locator('#arpDialog .arp-takes').textContent()).includes('prise 3 / 3'), 'prises : 3 / 3');
+  await page.click('#arpDialog .arp-takes button[aria-label="Prise précédente"]');
+  await page.click('#arpDialog .arp-takes button[aria-label="Prise précédente"]');
+  ok((await arpNow()) === JSON.stringify(r0), 'retour à la prise de départ');
+  await page.click('#arpDialog .arp-takes button[aria-label="Prise suivante"]');
+  await page.click('#arpDialog .arp-takes button[aria-label="Prise suivante"]');
+  ok((await arpNow()) === JSON.stringify(r2), 'et de nouveau la dernière prise');
+  await page.click('#arpDialog .arp-takes button[aria-label="Prise précédente"]');
+  await page.click('#arpDialog .arp-takes button[aria-label="Prise précédente"]');
+
   // réglage d'un pas : clic sur la grille, 2 notes, 1 temps, vélocité, silence
   const g = await page.locator('.arp-grid').boundingBox();
   const cols = await page.evaluate(() => SS.arpPanel._info().ticks); // la grille montre toute la boucle
   await page.mouse.click(g.x + (g.width / cols) * 2.5, g.y + g.height / 2);
   ok((await page.locator('.arp-step-head b').textContent()) === 'Pas 3', 'clic sur la grille : réglages du pas 3');
-  await page.locator('.arp-step .arp-seg button', { hasText: /^2$/ }).click();
+  await page.locator('.arp-step .arp-field', { hasText: 'Notes à la fois' }).locator('.arp-seg button', { hasText: /^2$/ }).click();
   await page.locator('.arp-step .arp-seg button', { hasText: '1 temps' }).click();
   let a = JSON.parse(await arpNow());
   ok(a.lanes.poly[2] === 2 && a.lanes.len[2] === 4, 'pas 3 : 2 notes à la fois, longueur 1 temps');
@@ -105,7 +130,7 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FAIL ') + m); if (!c) process
   ok(a.lanes.rhythm[2] === 0, 'pas 3 en silence');
   await page.click('#arpDialog .arp-undo');
   a = JSON.parse(await arpNow());
-  ok(a.lanes.rhythm[2] === 1, 'Défaire : le pas 3 rejoue');
+  ok(!a.lanes.rhythm.length || a.lanes.rhythm[2] === 1, 'Défaire : le pas 3 rejoue');
   // la grille défile pendant la lecture : on l'arrête le temps de viser une colonne visible
   const wasOn = await page.evaluate(() => SS.arpPanel._loop.on);
   if (wasOn) await page.click('#arpDialog .arp-player .arp-loop');
@@ -120,7 +145,8 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FAIL ') + m); if (!c) process
   a = JSON.parse(await arpNow());
   ok(Math.abs(a.lanes.vel[stepIdx] - 0.5) < 0.06, `vélocité du pas ${stepIdx + 1} réglée en cliquant (colonne ${col + 1}) : ${a.lanes.vel[stepIdx]}`);
   if (wasOn) await page.click('#arpDialog .arp-player .arp-loop');
-  // réglages généraux
+  // réglages généraux (module Rythme)
+  await modBtn('Rythme').click();
   await page.locator('.arp-frow', { hasText: 'Pas' }).locator('.arp-seg button', { hasText: /^8$/ }).click();
   await page.locator('.arp-frow', { hasText: 'Durée des notes' }).locator('.arp-seg button', { hasText: '½ temps' }).click();
   a = JSON.parse(await arpNow());
@@ -128,14 +154,15 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FAIL ') + m); if (!c) process
   await page.locator('.arp-form .arp-seg button', { hasText: 'Triolet' }).click();
   ok(Math.abs(JSON.parse(await arpNow()).rate - 1.5) < 1e-9, '1/16 + Triolet = 1/16 triolet');
   await page.locator('.arp-form .arp-seg button', { hasText: 'Normale' }).click();
-  await page.locator('.arp-frow', { hasText: 'Durée des notes' }).locator('.arp-seg button', { hasText: 'Selon le geste' }).click();
+  await page.locator('.arp-frow', { hasText: 'Durée des notes' }).locator('.arp-seg button', { hasText: /Selon le geste|Selon la vitesse/ }).click();
 
-  // geste : un clic sur « Roulé », puis l'onglet Geste
+  // geste : un clic sur « Roulé », puis « Ajuster › »
+  await modBtn('Geste').click();
   await page.locator('.arp-form .geste-chip', { hasText: 'Roulé' }).click();
   a = JSON.parse(await arpNow());
   ok(a.geste && a.geste.id === 'roule' && Math.abs(a.geste.spread - 0.4) < 1e-9, 'geste « Roulé » choisi d’un clic');
   await page.click('.geste-adjust');
-  ok((await page.locator('.arp-tabs2 .on').textContent()) === 'Geste' && (await page.locator('.geste-pad').count()) === 1, '« Ajuster › » ouvre l’onglet Geste');
+  ok((await page.locator('.geste-pad').count()) === 1, '« Ajuster › » ouvre le réglage fin du geste');
   // pavé : glisser vers le coin « serré, en retard »
   const pad = await page.locator('.geste-pad').boundingBox();
   await page.mouse.move(pad.x + pad.width * 0.5, pad.y + pad.height * 0.5);
@@ -177,8 +204,37 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FAIL ') + m); if (!c) process
   ok(regular.length > 4 && regGaps.size === 1, `Régulier : attaques régulières (${[...regGaps].join(', ')} s)`);
   ok(new Set(gaps(withG).map((x) => x.toFixed(2))).size > 1, 'Geste : attaques resserrées / décalées');
   await page.locator('.geste-tab-head .arp-seg button', { hasText: 'Geste' }).click();
-  await page.click('.arp-tabs2 button:has-text("Arpège")');
-  ok(await loopOn(), 'la boucle continue en changeant d’onglet');
+  await modBtn('Motif').click();
+  ok(await loopOn(), 'la boucle continue en changeant de module');
+
+  // voyants : éteindre puis rallumer le geste le retrouve tel quel
+  const gesteBefore = JSON.parse(await arpNow()).geste;
+  await page.locator('#arpDialog .arp-mod', { hasText: 'Geste' }).locator('.arp-led').click();
+  ok(!JSON.parse(await arpNow()).geste, 'voyant Geste : éteint (arpège régulier)');
+  await page.locator('#arpDialog .arp-mod', { hasText: 'Geste' }).locator('.arp-led').click();
+  ok(JSON.stringify(JSON.parse(await arpNow()).geste) === JSON.stringify(gesteBefore), 'voyant Geste : rallumé tel qu’il était');
+  // écho allumé d'un clic sur son voyant
+  await page.locator('#arpDialog .arp-mod', { hasText: 'Écho' }).locator('.arp-led').click();
+  ok(JSON.parse(await arpNow()).echo.n === 2, 'voyant Écho : 2 échos');
+  // niveau Avancé : tous les modules, lignes de pas sous la grille
+  await page.locator('#arpDialog .arp-level button', { hasText: 'Avancé' }).click();
+  ok((await page.locator('#arpDialog .arp-mod').count()) === 8, 'Avancé : les 8 modules');
+  ok((await page.locator('#arpDialog .arp-lanetabs [role=tab]').count()) === 9, 'Avancé : 9 lignes de pas sous la grille');
+  await page.locator('#arpDialog .arp-lanetabs button', { hasText: 'Degré' }).click();
+  if (await loopOn()) await page.click('#arpDialog .arp-player .arp-loop');
+  await page.waitForTimeout(200);
+  const lr = await page.locator('.arp-vels').boundingBox();
+  const colsD = await page.evaluate(() => SS.arpPanel._info().ticks);
+  await page.locator('.arp-scroll').evaluate((x) => (x.scrollLeft = 0));
+  const lr2 = await page.locator('.arp-vels').boundingBox();
+  await page.mouse.click(lr2.x + (lr2.width / colsD) * 0.5, lr2.y + 2);
+  a = JSON.parse(await arpNow());
+  ok(a.lanes.deg[0] === 2, `ligne Degré dessinée : pas 1 = +${a.lanes.deg[0]}`);
+  await modBtn('Pas à pas').click();
+  await page.locator('#arpDialog .arp-pane select[aria-label="Longueur de la ligne"]').selectOption('3');
+  ok(JSON.parse(await arpNow()).lanes.deg.length === 3, 'ligne Degré raccourcie à 3 pas (polymétrie)');
+  await page.locator('#arpDialog .arp-level button', { hasText: 'Essentiel' }).click();
+  ok((await page.locator('#arpDialog .arp-lanetabs').count()) === 0, 'Essentiel : la ligne Vélocité seule');
   await page.click('#arpDialog .arp-player .arp-loop');
   await page.evaluate(() => (window.__n = 0));
   await page.waitForTimeout(400);

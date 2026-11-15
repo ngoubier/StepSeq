@@ -548,3 +548,40 @@ test('Motifs « Rythmes du monde » et accents reconnus et appliqués', () => {
   assert.deepEqual(back.lanes.vel, []);
   assert.equal(SS.motifOf(back).id, 'up');
 });
+
+test('Surprends-moi : les verrous gardent motif, rythme, accord et effets ; tirages variés', () => {
+  require('../js/motifs.js');
+  let s = 11;
+  const rand = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  const base = A.normalize({ ...SS.motifPatch({}, SS.MOTIFS.find((m) => m.id === 'midnight')), rate: 1, inversion: 1, voicing: 'open', echo: { n: 2, shift: 'oct' }, roll: 'up', geste: { id: 'harpe', ...A.GESTES.find((g) => g.id === 'harpe').g }, rhythm: { type: 'lane' }, lanes: { rhythm: [1, 0, 1, 1] } });
+  const all = { motif: true, rythme: true, accord: true, effets: true };
+  for (let i = 0; i < 30; i++) {
+    const a = SS.arpSurprise(base, all, rand);
+    assert.equal(a.pattern, base.pattern);
+    assert.equal(a.rate, base.rate);
+    assert.deepEqual(a.lanes.rhythm, base.lanes.rhythm);
+    assert.equal(a.inversion, 1);
+    assert.equal(a.voicing, 'open');
+    assert.deepEqual([a.echo, a.roll, a.geste], [base.echo, base.roll, base.geste]);
+  }
+  const names = new Set();
+  for (let i = 0; i < 30; i++) {
+    const a = SS.arpSurprise(base, { rythme: true }, rand);
+    assert.equal(a.rate, 1);
+    assert.deepEqual(a.lanes.rhythm, [1, 0, 1, 1]); // rythme gardé : aucun motif à rythme propre
+    assert.deepEqual(A.normalize(a), a);
+    names.add((SS.motifOf(a) || { id: 'perso' }).id);
+    assert.ok(A.preview(a, [57, 60, 64], 16).some((t) => t), 'le tirage joue des notes');
+  }
+  assert.ok(names.size >= 10, `motifs variés : ${names.size}`);
+});
+
+test('Motif suivant / précédent : on parcourt le catalogue en boucle', () => {
+  require('../js/motifs.js');
+  const up = { mode: 'up' };
+  assert.equal(SS.motifStep(up, 1).id, SS.MOTIFS[1].id);
+  assert.equal(SS.motifStep(up, -1).id, SS.MOTIFS[SS.MOTIFS.length - 1].id);
+  const last = A.normalize(SS.motifPatch({}, SS.MOTIFS[SS.MOTIFS.length - 1]));
+  assert.equal(SS.motifStep(last, 1).id, SS.MOTIFS[0].id);
+  assert.equal(SS.motifStep({ mode: 'pattern', pattern: 'd1 d1 d1' }, 1).id, SS.MOTIFS[0].id); // motif personnalisé
+});
