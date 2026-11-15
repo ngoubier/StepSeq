@@ -2,7 +2,7 @@
  * Écoute dans l'assistant « Nouvelle chanson » (js/band.js) :
  *   node tests/e2e/wizard-listen.js
  * Bandeau de l'ordre des scènes, écoute de la chanson ou d'une scène (projet temporaire, la chanson reste vide),
- * Muet / Solo / volume par instrument à l'étape Harmonie, nouvelle mélodie pendant l'écoute, arrêt à la fermeture.
+ * Muet / Solo / volume par instrument à l'étape Mélodie, nouvelle mélodie pendant l'écoute, arrêt à la fermeture.
  */
 const { chromium } = require('playwright');
 const fs = require('fs');
@@ -92,11 +92,11 @@ const SHOTS = process.env.SHOTS;
   await page.waitForTimeout(200);
   ok(!(await playing()), 're-clic : arrêt');
 
-  // étape Harmonie : la vue suit la scène qu'on entend, tempo changé en cours d'écoute
+  // étape Mélodie : la vue suit la scène qu'on entend, tempo changé en cours d'écoute
   await page.click('.bw-splay >> nth=2');
   await page.click('#bwNext');
   await page.waitForTimeout(300);
-  ok((await playing()), 'étape Harmonie : l’écoute continue');
+  ok((await playing()), 'étape Mélodie : l’écoute continue');
   await page.click('#bwFaster');
   ok(await page.evaluate(() => SS.band._listen().tempo === 133), 'tempo : la lecture en cours prend le nouveau tempo');
   await page.click('.bh-loop');
@@ -106,10 +106,10 @@ const SHOTS = process.env.SHOTS;
   await page.click('.bh-loop');
   await page.waitForFunction(() => SS.audio.isPlaying(), null, { timeout: 8000 });
   await page.waitForFunction(() => document.querySelector('.bh-board.playing'), null, { timeout: 8000 }).catch(() => {});
-  ok(await page.evaluate(() => !!document.querySelector('.bh-board.playing') && document.querySelector('.bh-loop').getAttribute('aria-pressed') === 'true'), 'Harmonie : tête de lecture sur la scène écoutée');
+  ok(await page.evaluate(() => !!document.querySelector('.bh-board.playing') && document.querySelector('.bh-loop').getAttribute('aria-pressed') === 'true'), 'Mélodie : tête de lecture sur la scène écoutée');
 
-  // étape Harmonie : Muet / Solo / volume sur chaque instrument, pendant l'écoute
-  ok(await playing(), 'étape Harmonie : la scène joue');
+  // étape Mélodie : Muet / Solo / volume sur chaque instrument, pendant l'écoute
+  ok(await playing(), 'étape Mélodie : la scène joue');
   const n = await page.locator('.bh-lane .bw-m').count();
   const lanesN = await page.locator('.bh-lane').count();
   ok(n === lanesN && (await page.locator('.bh-lane .bh-vol').count()) === lanesN, `M, S et volume sur chaque instrument (${n})`);
@@ -166,7 +166,7 @@ const SHOTS = process.env.SHOTS;
   await page.waitForTimeout(200);
   const over2 = await page.evaluate(() => document.querySelector('#bandDialog').scrollWidth - document.querySelector('#bandDialog').clientWidth);
   const foot = await page.evaluate(() => document.querySelector('.bh-scroll').getBoundingClientRect().bottom <= document.querySelector('.band-foot').getBoundingClientRect().top + 1);
-  ok(over2 <= 1 && foot, 'téléphone, étape Harmonie : rien ne déborde, le pied ne couvre pas les pistes');
+  ok(over2 <= 1 && foot, 'téléphone, étape Mélodie : rien ne déborde, le pied ne couvre pas les pistes');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'listen-mobile.png') });
 
   ok(!errs.length, 'aucune erreur JavaScript' + (errs.length ? ' : ' + errs.join(' | ') : ''));

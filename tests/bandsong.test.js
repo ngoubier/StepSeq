@@ -302,32 +302,54 @@ test('assistant « Nouvelle chanson » : une autre graine change la mélodie, et
   }
 });
 
-test('mélodie composée (réglages de l’atelier Mélodie) : pieds, mesures par vers, tessiture ; le reste ne change pas', () => {
+test('mélodie par phrases : caractère, notes par phrase, tessiture, phrases tenues ou muettes ; le reste ne change pas', () => {
   require('../js/melody.js');
-  const strip = (s) => JSON.stringify(s.scenes.map((sc) => Object.fromEntries(Object.entries(sc.data).filter(([id]) => !SS.bandSong.SINGERS.includes(id.split(':')[0])))));
+  const B = SS.bandSong;
+  const isSinger = (id) => B.SINGERS.includes(id.split(':')[0]);
+  const strip = (s) => JSON.stringify(s.scenes.map((sc) => Object.fromEntries(Object.entries(sc.data).filter(([id]) => !isSinger(id)))));
   for (const p of PRESETS) {
     const tr = tracksOf(p);
-    const singers = tr.filter((t) => SS.bandSong.SINGERS.includes(t.band.key.split(':')[0]));
+    const singers = tr.filter((t) => isSinger(t.band.key));
     if (!singers.length) continue;
     const spec = SS.BandSongs[p.id];
-    const a = SS.bandSong.build(spec, p.id, tr);
-    const o = { feet: 6, barsPerLine: 2, complexity: 'simple', style: 'simple', range: 'voix', ending: 'closed' };
-    const b = SS.bandSong.build(spec, p.id, tr, { melody: o });
-    assert.equal(strip(b), strip(a), `${p.id} : les autres musiciens ne changent pas`);
-    b.scenes.forEach((sc) => {
-      const sec = spec.sections[sc.sec];
-      singers.forEach((t) => {
-        const mode = sec[t.band.key.split(':')[0]];
-        if (!mode || mode === 'rise') return;
-        const ev = sc.data[t.id].events;
-        const lines = Math.max(1, Math.round(sc.bars / 2));
-        assert.equal(ev.length, lines * 6, `${p.id}/${sc.sec} : ${lines} vers de 6 pieds`);
-        assert.ok(ev.every((e) => e.notes[0] >= 60 && e.notes[0] <= 72), `${p.id}/${sc.sec} : tessiture voix`);
+    const a = B.build(spec, p.id, tr);
+    for (const character of Object.keys(B.CHARACTERS)) {
+      const o = { character, notes: 5, range: 'voix', complexity: 'simple' };
+      const b = B.build(spec, p.id, tr, { melody: o });
+      assert.equal(strip(b), strip(a), `${p.id}/${character} : les autres musiciens ne changent pas`);
+      b.scenes.forEach((sc) => {
+        const sec = spec.sections[sc.sec];
+        singers.forEach((t) => {
+          const mode = sec[t.band.key.split(':')[0]];
+          if (!mode || mode === 'rise') return;
+          const ev = sc.data[t.id].events;
+          const plan = B.defaultPlan(sc.bars, character);
+          assert.equal(plan.reduce((x, q) => x + q.bars, 0), sc.bars, `${p.id}/${sc.sec} : le plan couvre la scène`);
+          // section « gap » : le dernier temps est coupé (silence avant le drop)
+          const want = plan.length * 5;
+          if (sec.gap) assert.ok(ev.length >= want - 1 && ev.length <= want, `${p.id}/${sc.sec}/${character} : ${plan.length} phrases de 5 notes`);
+          else assert.equal(ev.length, want, `${p.id}/${sc.sec}/${character} : ${plan.length} phrases de 5 notes`);
+          assert.ok(ev.every((e) => e.notes[0] >= 60 && e.notes[0] <= 72), `${p.id}/${sc.sec} : tessiture voix`);
+          ev.forEach((e, i) => i && assert.ok(Math.abs(e.notes[0] - ev[i - 1].notes[0]) <= 12, `${p.id}/${sc.sec} : pas de saut de plus d'une octave`));
+        });
       });
+      // même réglage, même graine : même mélodie ; autre graine : une autre
+      assert.equal(JSON.stringify(B.build(spec, p.id, tr, { melody: o }).scenes.map((s) => s.data)), JSON.stringify(b.scenes.map((s) => s.data)));
+      const c = B.build(spec, p.id, tr, { melody: o, melodySeed: 2 });
+      assert.notEqual(JSON.stringify(c.scenes.map((s) => s.data)), JSON.stringify(b.scenes.map((s) => s.data)), `${p.id} : autre graine`);
+    }
+    // plan modifié dans une scène : une phrase tenue, puis un silence (mélodie plus courte que la scène)
+    const sc0 = a.scenes.find((sc) => singers.some((t) => spec.sections[sc.sec][t.band.key] && spec.sections[sc.sec][t.band.key] !== 'rise') && sc.bars >= 4);
+    if (!sc0) continue;
+    const plans = { [sc0.sec]: [{ bars: 2, mode: 'hold', letter: 'A' }, { bars: sc0.bars - 2, mode: 'off', letter: 'B' }] };
+    const d = B.build(spec, p.id, tr, { melody: { character: 'chant', plans } });
+    const sc = d.scenes.find((x) => x.sec === sc0.sec);
+    singers.forEach((t) => {
+      const ev = sc.data[t.id].events;
+      if (!spec.sections[sc.sec][t.band.key]) return;
+      assert.ok(ev.length > 0 && ev.every((e) => e.step + e.len <= 32), `${p.id}/${sc.sec} : rien après la phrase tenue`);
+      const last = ev[ev.length - 1];
+      assert.ok(last.step + last.len === 32 && last.len >= 16, `${p.id}/${sc.sec} : la dernière note tient jusqu'au bout de la phrase`);
     });
-    // même réglage, même graine : même mélodie ; autre graine : une autre
-    assert.equal(JSON.stringify(SS.bandSong.build(spec, p.id, tr, { melody: o }).scenes.map((s) => s.data)), JSON.stringify(b.scenes.map((s) => s.data)));
-    const c = SS.bandSong.build(spec, p.id, tr, { melody: o, melodySeed: 2 });
-    assert.notEqual(JSON.stringify(c.scenes.map((s) => s.data)), JSON.stringify(b.scenes.map((s) => s.data)), `${p.id} : autre graine`);
   }
 });

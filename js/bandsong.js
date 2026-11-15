@@ -445,144 +445,339 @@ SS.bandSong = (() => {
     return ev;
   }
 
-  /* ---------- mélodies (lead, voix, sax) ---------- */
-  // cellules rythmiques d'un temps (4 pas) : [début, longueur]
+  /* ---------- mélodies (lead, voix, sax) ----------
+   * La mélodie d'une section suit un plan de phrases (A A′ B A par défaut) : chaque phrase a une longueur en
+   * mesures, et joue, se tait, ou joue un court motif puis tient sa dernière note jusqu'au bout. Les règles,
+   * reprises des guides de composition :
+   *  - notes de l'accord sur les temps forts et les notes longues, notes de passage sur les temps faibles ;
+   *  - surtout des mouvements conjoints (au moins deux pas pour un saut), et après un saut on revient par degré
+   *    dans l'autre sens ; pas de rabattement d'octave (la ligne rebondit sur les bords de la tessiture) ;
+   *  - un motif par lettre : les phrases de même lettre reprennent le même rythme et le même contour, posés sur
+   *    leurs propres accords ; « ′ » varie la fin ;
+   *  - appel et réponse : A et B finissent en suspens (tierce ou quinte), A′ et la dernière phrase se posent
+   *    (fondamentale, tonique si possible) ;
+   *  - une respiration (un temps de silence) entre deux phrases ;
+   *  - un seul sommet : la note la plus haute est gardée pour la phrase B (ou celle des deux tiers).
+   */
+  // cellules rythmiques d'un temps (4 pas) : [début, longueur] ; h = blanche (2 temps), w = ronde (4 temps)
   const CELLS = {
-    q: [[0, 4]], ee: [[0, 2], [2, 2]], r: [], off: [[2, 2]], dot: [[0, 3], [3, 1]], es: [[0, 2], [2, 1], [3, 1]], se: [[0, 1], [1, 1], [2, 2]], ss: [[0, 1], [1, 1], [2, 1], [3, 1]], h: 'h',
+    q: [[0, 4]], ee: [[0, 2], [2, 2]], r: [], off: [[2, 2]], dot: [[0, 3], [3, 1]], es: [[0, 2], [2, 1], [3, 1]], se: [[0, 1], [1, 1], [2, 2]], ss: [[0, 1], [1, 1], [2, 1], [3, 1]], h: 'h', w: 'w',
   };
+  // rythmes des sections de l'inspiration (caractère « Inspiration »)
   const DENS = {
-    verse: { q: 3, ee: 3, r: 2.5, off: 1.5, h: 1.2, dot: 1 },
+    verse: { q: 3, ee: 3, r: 1.2, off: 1.5, h: 1.2, dot: 1 },
     hook: { ee: 3, q: 2.5, dot: 1.5, h: 1.5, off: 1.2, es: 0.6 },
-    long: { h: 5, q: 2, r: 2 },
+    long: { h: 4, w: 2, q: 2, r: 1 },
     solo: { es: 2, se: 2, ee: 3, q: 1, dot: 1, ss: 1 },
-    drop: { off: 2, ee: 2.5, es: 1.5, se: 1.5, dot: 1.5, r: 0.8 },
+    drop: { off: 2, ee: 2.5, es: 1.5, se: 1.5, dot: 1.5, r: 0.6 },
     riff: { ss: 2, es: 2, se: 2, ee: 2 },
     answer: { ee: 3, q: 2, off: 2, es: 1 },
   };
-  function rhythm2(r, mode, { endLong = false } = {}) {
-    // deux mesures (32 pas) ; une blanche occupe deux temps
-    const out = [];
-    for (let beat = 0; beat < 8; beat++) {
-      if (mode === 'answer' && beat < 4) continue; // réponse : seulement la 2e mesure
-      if (endLong && beat >= 6) {
-        out.push([beat * 4, 32 - beat * 4]);
-        break;
-      }
-      const c = weighted(r, DENS[mode] || DENS.verse);
-      if (c === 'h' && beat % 2 === 0 && beat < 7) {
-        out.push([beat * 4, 8]);
-        beat++;
-        continue;
-      }
-      (CELLS[c] === 'h' ? CELLS.q : CELLS[c]).forEach(([o, l]) => out.push([beat * 4 + o, l]));
-    }
-    if (!out.length) out.push([0, 8]);
-    return out;
-  }
+  // réglage fin « Rythme »
+  const RHYTHMS = {
+    simple: { q: 3, ee: 2, h: 1.5, r: 0.5 },
+    varie: { q: 2, ee: 2, dot: 2, off: 1.5, es: 1, se: 1, h: 1 },
+    dense: { ee: 2, es: 2, se: 2, ss: 2, dot: 1 },
+  };
+  /**
+   * Caractères de la mélodie. rhythm : cellules (null = celles de la section) ; leap : goût pour les sauts ;
+   * low / high : tessiture autour du centre ; cell : motif d'une mesure répété dans la phrase ; long : phrases
+   * deux fois plus longues ; stacc : notes courtes ; form : plan des phrases par défaut.
+   */
+  const CHARACTERS = {
+    inspiration: { label: 'Inspiration', hint: 'Dans l’esprit du morceau choisi : le rythme de chaque section', rhythm: null, leap: 0.22, low: 8, high: 9, form: 'AABA' },
+    chant: { label: 'Chantante', hint: 'Par degrés, des phrases qui respirent, faciles à fredonner', rhythm: { q: 3, ee: 3, h: 1.6, dot: 1.2, r: 0.4 }, leap: 0.12, low: 7, high: 8, form: 'AABA' },
+    hook: { label: 'Accrocheuse', hint: 'Un motif d’une mesure répété, en appel et réponse', rhythm: { ee: 3, q: 2, off: 1.5, es: 1, dot: 1 }, leap: 0.22, low: 7, high: 8, cell: true, form: 'AABA' },
+    riff: { label: 'Riff', hint: 'Rythmée, notes courtes et syncopes, motif d’une mesure', rhythm: { es: 2, se: 2, ee: 2.5, off: 1.5, ss: 1 }, leap: 0.3, low: 5, high: 7, cell: true, stacc: true, form: 'AAAA' },
+    float: { label: 'Planante', hint: 'Peu de notes, longues, des phrases amples', rhythm: { w: 3, h: 4, q: 1 }, leap: 0.18, low: 7, high: 8, long: true, form: 'ABAB' },
+    lyric: { label: 'Lyrique', hint: 'Grands élans et un sommet marqué', rhythm: { q: 2.5, ee: 2, h: 2, dot: 1.5 }, leap: 0.38, low: 9, high: 12, form: 'AABA' },
+  };
+  /** Plans de phrases (lettres répétées par groupes de 4 phrases). */
+  const FORMS = {
+    AABA: ['A', 'A′', 'B', 'A′'],
+    ABAB: ['A', 'B', 'A', 'B′'],
+    AAAA: ['A', 'A', 'A', 'A′'],
+    ABAC: ['A', 'B', 'A', 'C'],
+  };
+  const LETTERS = ['A', 'A′', 'B', 'B′', 'C', 'C′'];
   /** Rôles qui chantent la mélodie de la chanson. */
   const SINGERS = ['lead', 'vox', 'sax'];
   const CENTER = { verse: 64, hook: 70, long: 69, solo: 69, drop: 72, riff: 71, answer: 70, rise: 67 };
 
-  function melodyEvents(spans, mode, r, key, bars) {
-    const ev = [];
-    if (mode === 'rise') {
-      // montée : une note répétée (la tonique, ou la note de l'accord la plus proche quand la tonique frotte),
-      // en croches puis en doubles-croches, une octave plus haut à mi-chemin
-      const t = 60 + pcOf(H().scale(key)[0].pc);
-      for (let s = 0; s < bars * SPB; s += s >= (bars - 2) * SPB ? 1 : 2) {
-        const up = s >= (bars * SPB) / 2 ? 12 : 0;
-        const sp = spans.find((x) => s >= x.step && s < x.step + x.len) || spans[spans.length - 1];
-        const ct = tones(sp.chord);
-        const n = ct.includes(pcOf(t)) ? t : ct.map((pc) => nearest(pc, t)).sort((a, b) => Math.abs(a - t) - Math.abs(b - t))[0];
-        if (s < bars * SPB - 4) ev.push({ step: s, len: 1, notes: [n + up], vel: vel(r, 0.5 + (0.4 * s) / (bars * SPB)) });
+  /** Plan de phrases par défaut d'une section : phrases de 1, 2 ou 4 mesures selon sa longueur. */
+  function defaultPlan(bars, character = 'inspiration', form = null) {
+    const ch = CHARACTERS[character] || CHARACTERS.inspiration;
+    let len = bars >= 16 ? 4 : bars >= 8 ? 2 : 1;
+    if (ch.long) len = Math.min(bars, len * 2);
+    const n = Math.max(1, Math.floor(bars / len));
+    const letters = FORMS[form] || FORMS[ch.form];
+    return Array.from({ length: n }, (_, i) => ({ bars: i === n - 1 ? bars - len * (n - 1) : len, mode: 'on', letter: letters[i % 4] }));
+  }
+  /** Plan ramené à la longueur de la section : phrases coupées au-delà, phrases ajoutées s'il en manque. */
+  function fitPlan(plan, bars, character, form) {
+    const out = [];
+    let at = 0;
+    for (const p of plan || []) {
+      if (at >= bars) break;
+      const b = Math.max(1, Math.min(Math.round(p.bars) || 1, bars - at));
+      out.push({ bars: b, mode: ['on', 'hold', 'off'].includes(p.mode) ? p.mode : 'on', letter: LETTERS.includes(p.letter) ? p.letter : 'A' });
+      at += b;
+    }
+    if (at < bars) {
+      const more = defaultPlan(bars - at, character, form);
+      more.forEach((p, i) => (p.letter = (FORMS[form] || FORMS[(CHARACTERS[character] || CHARACTERS.inspiration).form])[(out.length + i) % 4]));
+      out.push(...more);
+    }
+    return out;
+  }
+
+  /** Rythme d'une phrase : [début, longueur] sur `L` pas ; la dernière note tient jusqu'au bout. */
+  function phraseRhythm(r, table, L, { answer = false } = {}) {
+    const out = [];
+    const beats = Math.floor(L / 4);
+    for (let beat = answer ? Math.floor(beats / 2) : 0; beat < beats; beat++) {
+      const c = weighted(r, table);
+      if (c === 'w' && beat % 4 === 0 && beat + 4 <= beats) {
+        out.push([beat * 4, 16]);
+        beat += 3;
+        continue;
       }
-      return ev;
+      if ((c === 'h' || c === 'w') && beat % 2 === 0 && beat + 2 <= beats) {
+        out.push([beat * 4, 8]);
+        beat++;
+        continue;
+      }
+      (CELLS[c] === 'h' || CELLS[c] === 'w' ? CELLS.q : CELLS[c]).forEach(([o, l]) => out.push([beat * 4 + o, l]));
     }
-    const keyPcs = H().scale(key).map((d) => d.pc);
-    const center = CENTER[mode] || 67;
-    const lo = center - 8;
-    const hi = center + 9;
-    const spanAt = (s) => spans.find((sp) => s >= sp.step && s < sp.step + sp.len) || spans[spans.length - 1];
-    const chordAt = (s) => spanAt(s).chord;
-    // note de passage : un pas dans la gamme du moment (jamais à un demi-ton d'une note de l'accord)
-    const stepScale = (n, dir, pcs) => {
-      let m = n + dir;
-      while (!pcs.includes(pcOf(m))) m += dir;
-      return m;
-    };
-    // motifs : A (2 mesures), B (2 mesures, fin longue), contours
-    const motA = rhythm2(r, mode);
-    const motB = rhythm2(r, mode, { endLong: !['drop', 'riff', 'solo'].includes(mode) });
-    const contour = Array.from({ length: 16 }, () => pick(r, [1, 1, 1, -1, -1, 2, -2, 0]));
-    let prev = nearest(tones(spans[0].chord)[1] ?? tones(spans[0].chord)[0], center);
-    const pairs = Math.ceil(bars / 2);
-    for (let p = 0; p < pairs; p++) {
-      const isB = pairs >= 2 && (p % 4 === 3 || p === pairs - 1);
-      const mot = isB ? motB : motA;
-      const base = p * 2 * SPB;
-      // les répétitions de A reprennent le même contour (motif reconnaissable), B le renverse
-      mot.forEach(([o, len], i) => {
-        const s = base + o;
-        if (s >= bars * SPB) return;
-        const c = chordAt(s);
-        const ct = tones(c);
-        let dir = contour[i % contour.length] * (isB ? -1 : 1);
-        let n;
-        if (o % 4 === 0 || len >= 4 || i === 0) {
-          // temps fort ou note longue : une note de l'accord, dans la direction du contour
-          const cands = ct.map((pc) => nearest(pc, prev + dir * 2)).sort((a, b) => Math.abs(a - (prev + dir * 2)) - Math.abs(b - (prev + dir * 2)));
-          n = cands[0];
-        } else {
-          const pcs = chordScale(c, keyPcs);
-          n = dir === 0 && pcs.includes(pcOf(prev)) ? prev : stepScale(prev, dir >= 0 ? 1 : -1, pcs);
-        }
-        if (n > hi) n -= 12;
-        if (n < lo) n += 12;
-        // fin de phrase B : on se pose sur la fondamentale ou la tierce (résolution)
-        if (isB && i === mot.length - 1) n = nearest(pick(r, [ct[0], ct[1] ?? ct[0]]), prev);
-        // une note tenue au-delà d'un changement d'accord s'arrête avec l'accord si elle frotte avec le suivant
-        let l = Math.min(len, bars * SPB - s);
-        const sp = spanAt(s);
-        const next = spans[spans.indexOf(sp) + 1];
-        if (next && s + l > next.step && !chordScale(next.chord, keyPcs).includes(pcOf(n))) l = next.step - s;
-        const strong = o % 8 === 0;
-        ev.push({ step: s, len: l, notes: [n], vel: vel(r, l >= 8 ? 0.74 : strong ? 0.86 : 0.7) });
-        prev = n;
-      });
+    if (!out.length || out[0][0] > L / 2) out.unshift([answer ? Math.floor(beats / 2) * 4 : 0, 4]);
+    const last = out[out.length - 1];
+    last[1] = L - last[0];
+    return out;
+  }
+  /** Exactement n notes (réglage « Notes par phrase ») : on fusionne les notes faibles, ou on coupe les longues. */
+  function fitCount(rhy, n) {
+    const weak = (s) => (s % 16 === 0 ? 0 : s % 8 === 0 ? 1 : s % 4 === 0 ? 2 : s % 2 === 0 ? 3 : 4);
+    while (rhy.length > n && rhy.length > 1) {
+      let k = 1;
+      for (let i = 2; i < rhy.length; i++) if (weak(rhy[i][0]) > weak(rhy[k][0])) k = i;
+      rhy[k - 1][1] += rhy[k][1];
+      rhy.splice(k, 1);
     }
-    return ev;
+    while (rhy.length < n) {
+      let k = 0;
+      for (let i = 1; i < rhy.length; i++) if (rhy[i][1] > rhy[k][1]) k = i;
+      if (rhy[k][1] < 2) break;
+      const half = rhy[k][1] >= 4 ? Math.floor(rhy[k][1] / 4) * 2 : 1;
+      rhy.splice(k + 1, 0, [rhy[k][0] + half, rhy[k][1] - half]);
+      rhy[k][1] = half;
+    }
+    return rhy;
+  }
+  /** Contour d'un motif : pour chaque note, le sens (−1, 0, 1), la taille du pas (1 ou 2 degrés) ou un saut. */
+  const SHAPES = ['arch', 'up', 'down', 'wave'];
+  function motifDirs(r, n, shape, leap) {
+    let leaps = 0;
+    return Array.from({ length: n }, (_, i) => {
+      const t = n > 1 ? i / (n - 1) : 0;
+      const want = shape === 'up' ? (t < 0.8 ? 1 : -1) : shape === 'down' ? (t < 0.15 ? 1 : -1) : shape === 'wave' ? (Math.floor(t * 4) % 2 ? -1 : 1) : t < 0.6 ? 1 : -1;
+      const dir = r() < 0.18 ? -want : r() < 0.12 ? 0 : want;
+      const isLeap = i > 0 && i < n - 1 && leaps * 3 < n && r() < leap;
+      if (isLeap) leaps++;
+      return { dir: dir || (isLeap ? want : 0), size: r() < 0.25 ? 2 : 1, leap: isLeap };
+    });
   }
 
   /**
-   * Mélodie composée comme dans l'atelier Mélodie : vers de `feet` syllabes (notes) sur `barsPerLine` mesures,
-   * plan A A' B A'', complexité, rythme, tessiture et fin au choix. null si la composition échoue.
+   * Mélodie d'une section d'après son plan de phrases.
+   *   o : { character, rhythm, complexity, range, ending, notes, form } ; plan : phrases (null = plan par défaut) ;
+   *   seeds : { A: n, B: n… } relance d'une lettre ; secMode : ce que joue le chanteur dans la section.
    */
-  const LETTERS = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
-  /** Accord → symbole en lettres lu par js/melody.js (« Bbmaj7 », « F#m »). */
-  const chordSymbol = (c) => LETTERS[c.rootPc] + ({ maj: '', min: 'm' }[c.type] ?? c.type);
-  function composedMelody(spans, key, bars, role, o, seedKey) {
-    if (!SS.melody) return null;
-    const bpl = Math.max(1, Math.min(bars, o.barsPerLine || 2));
-    const phrases = Math.max(1, Math.round(bars / bpl));
-    const feet = Math.max(0, Math.min(16, Math.round(o.feet || 0)));
-    const range = o.range && o.range !== 'auto' ? o.range : role === 'vox' ? 'voix' : 'instrument';
-    let seed = 0;
-    for (const ch of seedKey) seed = (seed * 31 + ch.charCodeAt(0)) % 100003;
-    const res = SS.melody.compose({
-      timeline: { bars, spans: spans.map((sp) => ({ step: sp.step, len: sp.len, symbol: chordSymbol(sp.chord) })) },
-      source: 'meter',
-      meter: feet ? Array.from({ length: phrases }, () => String(feet)).join(' ') : '',
-      fitGrid: true,
-      key,
-      range,
-      style: o.style || 'simple',
-      complexity: o.complexity || 'balanced',
-      ending: o.ending || 'closed',
-      timeSig: [4, 4],
-      seed: seed + 1,
+  function melodyPart(spans, key, bars, role, o, plan, seeds, seedKey, secMode) {
+    const ch = CHARACTERS[o.character] || CHARACTERS.inspiration;
+    const keyPcs = H().scale(key).map((d) => d.pc);
+    const tonic = keyPcs[0];
+    const cx = { simple: { leap: 0.5, max: 7 }, adventurous: { leap: 1.6, max: 12 } }[o.complexity] || { leap: 1, max: 9 };
+    // tessiture
+    const R = (SS.melody && SS.melody.RANGES) || {};
+    let lo;
+    let hi;
+    if (o.range && o.range !== 'auto' && R[o.range]) ({ lo, hi } = R[o.range]);
+    else {
+      const c = role === 'vox' ? 66 : o.character === 'inspiration' || !o.character ? CENTER[secMode] || 67 : 68;
+      lo = c - ch.low;
+      hi = c + ch.high;
+      if (role === 'vox') [lo, hi] = [Math.max(57, lo), Math.min(77, hi)];
+    }
+    const center = Math.round((lo + hi) / 2);
+    const table = RHYTHMS[o.rhythm] || ch.rhythm || DENS[secMode] || DENS.verse;
+    const phrases = fitPlan(plan || defaultPlan(bars, o.character, o.form), bars, o.character, o.form);
+    const spanAt = (s) => spans.find((sp) => s >= sp.step && s < sp.step + sp.len) || spans[spans.length - 1];
+    const stepIn = (n, dir, pcs, k = 1) => {
+      let m = n;
+      for (let j = 0; j < k; j++) {
+        m += dir;
+        while (!pcs.includes(pcOf(m))) m += dir;
+      }
+      return m;
+    };
+    // sommet : la première phrase B, sinon celle des deux tiers
+    const playing = phrases.map((p, i) => i).filter((i) => phrases[i].mode !== 'off');
+    let peakAt = playing.find((i) => phrases[i].letter[0] === 'B');
+    if (peakAt === undefined) peakAt = playing[Math.floor((playing.length * 2) / 3)] ?? -1;
+    const motifs = {};
+    const motif = (letter, L, n) => {
+      const base = letter[0];
+      const k = `${base}/${L}/${n}`;
+      if (motifs[k]) return motifs[k];
+      const r = rng(`${seedKey}/${base}/${(seeds && seeds[base]) || 0}`);
+      const unit = ch.cell ? Math.min(L, SPB) : L;
+      let rhy = phraseRhythm(r, table, unit, { answer: secMode === 'answer' && !ch.cell && o.character === 'inspiration' });
+      if (unit < L) {
+        // motif d'une mesure répété dans toute la phrase
+        const one = rhy.map(([s, l], i) => [s, i === rhy.length - 1 ? Math.min(l, 4) : l]);
+        rhy = [];
+        for (let b = 0; b < L; b += unit) one.forEach(([s, l]) => b + s < L && rhy.push([b + s, Math.min(l, L - b - s)]));
+        rhy[rhy.length - 1][1] = L - rhy[rhy.length - 1][0];
+      }
+      if (n > 0) fitCount(rhy, n);
+      const firstShape = pick(r, SHAPES);
+      const shape = base === 'A' ? firstShape : pick(r, SHAPES.filter((x) => x !== (motifs.Ashape || 'arch')));
+      if (base === 'A') motifs.Ashape = shape;
+      const per = ch.cell ? rhy.filter(([s]) => s < unit).length : rhy.length;
+      const d = motifDirs(r, per, shape, ch.leap * cx.leap);
+      const dirs = rhy.map((_, i) => d[i % per]);
+      // A′ : la fin repart dans l'autre sens
+      const alt = dirs.map((x, i) => (i >= dirs.length - Math.max(2, Math.round(dirs.length / 3)) ? { ...x, dir: -x.dir || -1, leap: false } : x));
+      const start = base === 'B' ? 3 : base === 'C' ? 1 : -2;
+      return (motifs[k] = { rhy, dirs, alt, start, r });
+    };
+
+    const ev = [];
+    let at = 0;
+    let prev = null;
+    let lastLeap = 0;
+    phrases.forEach((p, pi) => {
+      const p0 = at * SPB;
+      const L = p.bars * SPB;
+      at += p.bars;
+      if (p.mode === 'off') {
+        prev = null;
+        return;
+      }
+      const next = phrases[pi + 1];
+      const breath = next && next.mode !== 'off' ? (L >= 2 * SPB ? 4 : 2) : 0;
+      const last = pi === playing[playing.length - 1];
+      const prime = p.letter.includes('′');
+      // fin : réponse (′ ou dernière phrase) posée ; appel en suspens
+      const close = last ? (o.ending || 'closed') === 'closed' : prime;
+      const cap = pi === peakAt ? hi : hi - 3;
+      let rhy;
+      let dirs;
+      let m;
+      if (p.mode === 'hold') {
+        // court motif (une mesure) puis la dernière note tenue jusqu'au bout de la phrase
+        if (p.bars === 1) rhy = [[0, L - breath]];
+        else {
+          m = motif(p.letter, SPB, 0);
+          rhy = m.rhy.map(([s, l]) => [s, l]);
+          rhy[rhy.length - 1][1] = L - breath - rhy[rhy.length - 1][0];
+        }
+      } else {
+        m = motif(p.letter, L - breath, Math.max(0, Math.round(o.notes || 0)));
+        rhy = m.rhy;
+      }
+      dirs = m ? (prime ? m.alt : m.dirs) : [{ dir: 0, size: 1, leap: false }];
+      const rv = rng(`${seedKey}/v/${pi}`);
+      rhy.forEach(([s, len], i) => {
+        const abs = p0 + s;
+        if (abs >= bars * SPB) return;
+        const c = spanAt(abs).chord;
+        const ct = tones(c);
+        const pcs = chordScale(c, keyPcs);
+        const strong = abs % 8 === 0 || len >= 6;
+        const end = i === rhy.length - 1;
+        let n;
+        if (prev === null || i === 0) {
+          // départ : une note de l'accord près du point de départ de la lettre (et près de la note d'avant)
+          const aim = prev === null ? center + (m ? m.start : 0) : Math.round((prev + center + (m ? m.start : 0)) / 2);
+          n = ct.map((pc) => nearest(pc, aim)).sort((a, b) => Math.abs(a - aim) - Math.abs(b - aim))[0];
+          lastLeap = 0;
+        } else {
+          const d = dirs[i % dirs.length] || { dir: 0, size: 1 };
+          let dir = d.dir;
+          if (lastLeap) dir = -Math.sign(lastLeap); // après un saut : retour par degré, dans l'autre sens
+          if (d.leap && !lastLeap && dir) {
+            // saut vers une note de l'accord, entre une quarte et la limite de la complexité
+            const cands = [];
+            ct.forEach((pc) => [-24, -12, 0, 12, 24].forEach((o8) => {
+              const x = nearest(pc, prev) + o8;
+              const iv = (x - prev) * dir;
+              if (iv >= 5 && iv <= cx.max) cands.push(x);
+            }));
+            n = cands.length ? cands.sort((a, b) => Math.abs(a - prev) - Math.abs(b - prev))[0] : stepIn(prev, dir, pcs, 2);
+          } else n = dir ? stepIn(prev, dir, pcs, lastLeap ? 1 : d.size) : pcs.includes(pcOf(prev)) ? prev : stepIn(prev, 1, pcs);
+          if (strong && !ct.includes(pcOf(n))) {
+            // temps fort : la note de l'accord la plus proche, de préférence dans le sens du mouvement
+            const near = ct.map((pc) => nearest(pc, n)).sort((a, b) => Math.abs(a - n) - Math.abs(b - n) || (b - a) * (dir || 1));
+            n = near[0];
+          }
+        }
+        if (end) {
+          // fin de phrase : la réponse se pose (fondamentale, tonique si l'accord la contient), l'appel reste en suspens
+          let goal = close ? (ct.includes(tonic) ? [tonic] : [ct[0]]) : ct.slice(1, 3).filter((pc) => pc !== tonic);
+          if (p.mode === 'hold') {
+            // note tenue : celle qui sonne le mieux sur tous les accords qu'elle traverse
+            const fit = (pc) =>
+              spans.reduce((a, sp) => {
+                const ov = Math.min(abs + len, sp.step + sp.len) - Math.max(abs, sp.step);
+                return ov <= 0 ? a : a + ov * (tones(sp.chord).includes(pc) ? 2 : chordScale(sp.chord, keyPcs).includes(pc) ? 0.5 : -3);
+              }, 0) + (goal.includes(pc) ? 6 : 0);
+            goal = [[...new Set([...goal, ...ct])].sort((a, b) => fit(b) - fit(a))[0]];
+          }
+          const opts = (goal.length ? goal : [ct[0]]).flatMap((pc) => [nearest(pc, prev ?? n) - 12, nearest(pc, prev ?? n), nearest(pc, prev ?? n) + 12]).filter((x) => x >= lo && x <= cap);
+          const from = prev ?? n;
+          const near = (list) => list.sort((a, b) => Math.abs(a - from) - Math.abs(b - from))[0];
+          // pas de grand saut pour conclure : sinon une autre note de l'accord, la plus proche
+          let best = opts.length ? near(opts) : null;
+          if (best === null || Math.abs(best - from) > 7) best = near(ct.flatMap((pc) => [nearest(pc, from) - 12, nearest(pc, from), nearest(pc, from) + 12]).filter((x) => x >= lo && x <= cap)) ?? best;
+          if (best !== null && best !== undefined) n = best;
+        }
+        // tessiture : la ligne rebondit au lieu de sauter d'une octave
+        const ok = (x) => x >= lo && x <= cap;
+        const inside = (aim) => ct.flatMap((pc) => [nearest(pc, aim) - 12, nearest(pc, aim), nearest(pc, aim) + 12]).filter(ok).sort((a, b) => Math.abs(a - aim) - Math.abs(b - aim))[0];
+        if (!ok(n)) {
+          const back = prev !== null && ok(prev) ? stepIn(prev, n > cap ? -1 : 1, pcs) : null;
+          n = back !== null && ok(back) ? back : inside(n > cap ? cap - 4 : lo + 4) ?? Math.max(lo, Math.min(cap, n));
+        }
+        if (strong && !ct.includes(pcOf(n))) n = inside(n) ?? n;
+        lastLeap = prev !== null && Math.abs(n - prev) >= 5 ? n - prev : 0;
+        // une note qui dépasse sur l'accord suivant s'arrête avec l'accord si elle frotte (sauf note tenue voulue)
+        let l = Math.min(len, bars * SPB - abs);
+        const sp = spanAt(abs);
+        const nx = spans[spans.indexOf(sp) + 1];
+        if (p.mode !== 'hold' && nx && abs + l > nx.step && !chordScale(nx.chord, keyPcs).includes(pcOf(n))) l = Math.max(1, nx.step - abs);
+        if (ch.stacc && !end) l = Math.min(l, 2);
+        ev.push({ step: abs, len: l, notes: [n], vel: vel(rv, l >= 8 ? 0.74 : abs % 8 === 0 ? 0.86 : 0.7) });
+        prev = n;
+      });
+      // une phrase suivie d'un silence repart de zéro
+      if (!next || next.mode === 'off') prev = null;
     });
-    if (!res.ok) return null;
-    return SS.melody.toEvents(res).map(({ lyric, ...e }) => e); // eslint-disable-line no-unused-vars
+    return ev;
+  }
+
+  /** Montée (« rise ») : une note répétée, en croches puis en doubles-croches, une octave plus haut à mi-chemin. */
+  function riseEvents(spans, r, key, bars) {
+    const ev = [];
+    const t = 60 + pcOf(H().scale(key)[0].pc);
+    for (let s = 0; s < bars * SPB; s += s >= (bars - 2) * SPB ? 1 : 2) {
+      const up = s >= (bars * SPB) / 2 ? 12 : 0;
+      const sp = spans.find((x) => s >= x.step && s < x.step + x.len) || spans[spans.length - 1];
+      const ct = tones(sp.chord);
+      const n = ct.includes(pcOf(t)) ? t : ct.map((pc) => nearest(pc, t)).sort((a, b) => Math.abs(a - t) - Math.abs(b - t))[0];
+      if (s < bars * SPB - 4) ev.push({ step: s, len: 1, notes: [n + up], vel: vel(r, 0.5 + (0.4 * s) / (bars * SPB)) });
+    }
+    return ev;
   }
 
   /* ---------- effets (montée de bruit, ambiance, impact) ----------
@@ -713,13 +908,15 @@ SS.bandSong = (() => {
    *   spec : plan (js/band-songs.js) ; tracks : pistes du projet créées par Band (avec t.band.key « rôle » ou « rôle:son »)
    *   melodySeed : 0 = la mélodie d'origine de l'inspiration ; un autre nombre tire une autre mélodie (lead, voix,
    *   sax) sans rien changer aux autres musiciens (assistant « Nouvelle chanson »)
-   *   melody : null = mélodie dans le style de l'inspiration ; sinon elle est composée scène par scène par le
-   *   moteur de l'atelier Mélodie (js/melody.js) : { feet (syllabes par vers, 0 = automatique), barsPerLine,
-   *   complexity, style, range ('auto' = selon le rôle), ending }
+   *   melody : réglages de la mélodie (null = caractère « Inspiration », plan par défaut) :
+   *   { character (CHARACTERS), form (FORMS), rhythm ('auto' | RHYTHMS), complexity, range ('auto' = selon le rôle),
+   *     ending ('closed' | 'open'), notes (notes par phrase, 0 = libre),
+   *     plans: { section: [{ bars, mode: 'on'|'hold'|'off', letter }] }, seeds: { section: { A: n, B: n… } } }
    * → { key, scenes: [{ id, name, bars, key, emotion, data }], song: [{ scene, repeat }] }
    */
   function build(spec, presetId, tracks, { melodySeed = 0, melody = null } = {}) {
     const key = parseKey(spec.key);
+    const mel = melody || {};
     const order = [];
     const form = spec.form.split(/\s+/).filter(Boolean).map((t) => {
       const [id, n] = t.split('*');
@@ -750,7 +947,7 @@ SS.bandSong = (() => {
           if (role === 'bass') events = bassEvents(spans, mode, r, H().scale(k).map((d) => d.pc));
           else if (role === 'fx') events = fxEvents(spans, mode, k, bars);
           else if (role === 'arp') events = arpEvents(spans, mode, r);
-          else if (singer) events = (melody && mode !== 'rise' && composedMelody(spans, k, bars, role, melody, `${presetId}/${id}/${melodySeed}`)) || melodyEvents(spans, mode, r, k, bars);
+          else if (singer) events = mode === 'rise' ? riseEvents(spans, r, k, bars) : melodyPart(spans, k, bars, role, mel, mel.plans && mel.plans[id], mel.seeds && mel.seeds[id], `${presetId}/${id}/${role}/${melodySeed}`, mode);
           else if (role === 'arpchord') events = arpEvents(spans, mode, r);
           else {
             // nappe, cordes, piano, guitare : accords (ou arpège si le mode en est un)
@@ -777,5 +974,5 @@ SS.bandSong = (() => {
     return { key, scenes, song };
   }
 
-  return { build, parseChord, spansOf, SINGERS, NAMES, _rng: rng };
+  return { build, parseChord, spansOf, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, _rng: rng };
 })();

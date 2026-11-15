@@ -2521,10 +2521,8 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
 .bw-grid tr.playing .bw-clip::after { content: ''; position: absolute; top: 0; bottom: 0; left: calc(var(--ph, 0) * 100%); width: 2px; background: #fff; opacity: .85; }
 .bw-grid tr.playing:not([style*="--ph"]) .bw-clip::after { display: none; }
 .bw-melform { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 12px; flex-basis: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: #1a1a1f; }
-.bw-method { align-self: center; }
 .bw-field { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--muted); }
 .bw-field select { min-width: 110px; }
-.bw-field.off { opacity: .45; }
 .bw-ms { display: inline-flex; gap: 2px; margin-left: 6px; vertical-align: middle; }
 .bw-ms button { width: 20px; height: 18px; padding: 0; border-radius: 4px; border: 1px solid #3a3a42; background: #1d1d23; color: var(--muted); font: 600 10px/1 inherit; cursor: pointer; }
 .bw-ms button:hover { color: var(--text); border-color: #55555f; }
@@ -2570,7 +2568,7 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
 .bt-key b { font-size: 14px; }
 .bt-key small { font-size: 12px; color: var(--muted); }
 
-/* Band, étape Harmonie : scènes à gauche, accords et instruments de la scène choisie à droite */
+/* Band, étape Mélodie : scènes à gauche, phrases, accords et instruments de la scène choisie à droite */
 .bh-wrap { flex: 1; min-height: 0; display: flex; gap: 14px; }
 .bh-scenes { width: 230px; flex: none; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; padding-bottom: 8px; }
 .bh-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 0 4px 2px; }
@@ -2596,12 +2594,49 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
 .bh-info { font-size: 13px; color: var(--muted); }
 .bh-loop { display: inline-flex; align-items: center; gap: 6px; }
 .bh-loop.on { background: var(--accent); color: #fff; border-color: var(--accent-2); }
-.bh-switch { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
-.bh-switch:disabled { opacity: .45; cursor: default; }
-.bh-knob { position: relative; width: 30px; height: 17px; border-radius: 9px; background: #4a4a52; flex: none; transition: background .15s; }
-.bh-knob::after { content: ''; position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; border-radius: 50%; background: #fff; transition: left .15s; }
-.bh-switch[aria-checked=true] .bh-knob { background: var(--accent); }
-.bh-switch[aria-checked=true] .bh-knob::after { left: 15px; }
+/* menu « Pistes » : une case par piste, la mélodie toujours affichée */
+.bh-tracks { position: relative; }
+.bh-tracks > summary { list-style: none; display: inline-flex; align-items: center; gap: 6px; }
+.bh-tracks > summary::-webkit-details-marker { display: none; }
+.bh-tracks > summary::after { content: '▾'; font-size: 11px; color: var(--muted); }
+.bh-tpop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; width: 230px; max-height: 60vh; overflow: auto; padding: 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); box-shadow: 0 10px 28px rgba(0, 0, 0, .5); }
+.bh-tpop label { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 5px; font-size: 13px; cursor: pointer; }
+.bh-tpop label:hover { background: var(--panel-3); }
+.bh-tpop label.mel { color: var(--muted); cursor: default; }
+.bh-tpop label i { width: 10px; height: 10px; border-radius: 2px; background: var(--c); flex: none; }
+.bh-tpop label span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bh-tpop label small { font-size: 11px; color: var(--accent-2); }
+.bh-tbtns { display: flex; gap: 6px; padding: 6px 6px 2px; margin-top: 4px; border-top: 1px solid var(--line); }
+/* caractère de la mélodie */
+.bh-chars { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; flex-basis: 100%; }
+.bh-char { display: grid; gap: 3px; justify-items: start; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); color: var(--text); font: inherit; text-align: left; cursor: pointer; min-width: 0; }
+.bh-char:hover { border-color: #55555f; }
+.bh-char.on { border-color: var(--accent-2); background: color-mix(in srgb, var(--accent) 22%, var(--panel-2)); }
+.bh-char b { font-size: 13px; }
+.bh-char svg { width: 100%; height: 18px; fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.bh-char.on svg { stroke: var(--accent-2); }
+.bh-char small { font-size: 11px; line-height: 1.3; color: var(--muted); }
+.bh-char:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+/* phrases de la mélodie, calées sur les mesures ; la phrase choisie se règle dans la barre au-dessus */
+.bh-phrases { height: 46px; }
+.bh-phrases .bh-track { background-color: #1c1c21; }
+.bh-phead { flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; background: color-mix(in srgb, var(--accent) 14%, #202024); box-shadow: inset 3px 0 0 var(--accent-2); }
+.bh-phead b { font-size: 13.5px; }
+.bh-phead small { font-size: 11px; color: var(--muted); letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.bh-phr { position: absolute; top: 5px; bottom: 5px; box-sizing: border-box; margin-left: 2px; display: flex; align-items: center; gap: 6px; padding: 0 8px; border: 1px solid color-mix(in srgb, var(--accent-2) 60%, transparent); border-radius: 7px; background: color-mix(in srgb, var(--accent) 18%, #1c1c21); color: var(--text); font: inherit; overflow: hidden; cursor: pointer; white-space: nowrap; }
+.bh-phr:hover { border-color: var(--accent-2); }
+.bh-phr.hold { background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 26%, #1c1c21) 0 40%, color-mix(in srgb, var(--accent) 10%, #1c1c21) 40%); }
+.bh-phr.off { border-style: dashed; border-color: #4a4a52; background: transparent; color: var(--muted); }
+.bh-phr.sel { border: 2px solid #fff; }
+.bh-phr .bh-pl { font-size: 15px; }
+.bh-phr .bh-pm { font-size: 12px; color: var(--muted); }
+.bh-phr small { font-size: 11px; color: var(--muted); }
+.bh-phr:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.bh-pbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--accent) 8%, var(--panel)); font-size: 13px; }
+.bh-pbar > small { color: var(--muted); }
+.bh-pf { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+.bh-pf select { height: 28px; }
+.bh-pmode button { white-space: nowrap; }
 .bh-scroll { flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
 .bh-board { --head: 200px; position: relative; min-width: calc(var(--head) + var(--bars) * 44px); }
 .bh-row { display: flex; border-bottom: 1px solid #000; }
@@ -2652,7 +2687,9 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
   .bh-scene { width: auto; min-width: 130px; flex: none; }
   .bh-board { --head: 140px; }
   .bh-vol { min-width: 30px; }
-  .bh-head-mel .bw-field.off { display: none; } /* mélodie de l'inspiration : réglages inactifs masqués */
+  .bh-chars { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .bh-char small { display: none; }
+  .bh-phr small, .bh-phr .bh-pm { display: none; }
   .bh-head-mel .bw-melform { padding: 6px 8px; gap: 6px 10px; }
   .bh-role { display: none; }
   .bt-label { display: none; }

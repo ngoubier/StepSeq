@@ -2,7 +2,7 @@
  * Test de bout en bout de l'assistant « Nouvelle chanson » (menu de l'application, js/band.js) :
  *   node tests/e2e/new-song-wizard.js
  * 1. Modèle (Band) → 2. la chanson en vue session (une ligne par scène, une colonne par piste)
- * → 3. Harmonie (mélodie, M / S / volume) → 4. pistes à importer → la chanson créée suit exactement l'aperçu.
+ * → 3. Mélodie (caractère, phrases, M / S / volume) → 4. Intégration (pistes à importer) → la chanson créée suit exactement l'aperçu.
  * La fenêtre Band n'a plus d'onglet Mélodie.
  */
 const { chromium } = require('playwright');
@@ -91,15 +91,16 @@ const SHOTS = process.env.SHOTS;
   await page.press('#bwTempo', 'Enter');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'wizard-chanson.png') });
 
-  // 3. Harmonie : la scène choisie, ses accords (comme dans Key) et les instruments dessous
+  // 3. Mélodie : la scène choisie, les phrases de la mélodie, ses accords (comme dans Key) et les instruments dessous
   await page.click('#bwNext');
   await page.waitForTimeout(200);
-  ok((await page.locator('#bandWizSteps li.cur').textContent()).includes('Harmonie'), 'étape 3 : Harmonie');
+  ok((await page.locator('#bandWizSteps li.cur').textContent()).includes('Mélodie'), 'étape 3 : Mélodie');
+  ok((await page.locator('#bandWizSteps li').allTextContents()).join(' ').includes('Intégration'), 'étape 4 : Intégration');
   ok((await page.locator('.bh-scene').count()) === 5 && (await page.locator('.bh-scene.on .bh-sname b').textContent()) === 'Intro', 'scènes à gauche, la première choisie');
   const hc = await page.evaluate(() => [...document.querySelectorAll('.bh-chord')].map((c) => [c.querySelector('small').textContent, c.querySelector('b').textContent, c.className]));
   ok(hc.length === 8 && hc[0][0] === 'i' && hc[0][1] === 'Cm' && /role-repos/.test(hc[0][2]) && hc[1][1] === 'B♭', `piste d’accords : ${hc.map((c) => c[1]).join(' ')}`);
   ok(!(await page.isVisible('.bw-hint')) && !(await page.isVisible('.bw-info')) && !(await page.isVisible('.bh-info')), 'en-tête sans petits textes');
-  ok((await page.locator('.bh-row.bh-drums .bh-hit').count()) > 0 && (await page.getAttribute('#bwHarmAll', 'aria-checked')) === 'true', 'toutes les pistes affichées par défaut (batterie comprise)');
+  ok((await page.locator('.bh-row.bh-drums .bh-hit').count()) > 0 && /Pistes · (\d+) \/ \1/.test(await page.textContent('#bwTracks summary')), 'toutes les pistes affichées par défaut (batterie comprise)');
   const lanes = await page.$$eval('.bh-lane', (ls) => ls.map((l) => l.querySelector('.bh-name b').textContent));
   ok(lanes.length >= 4 && !lanes.some((n) => /Kick|Snare|Hi-Hat/.test(n)), `instruments sous les accords (${lanes.join(', ')})`);
   const pad = page.locator('.bh-lane', { hasText: 'Nappe' }).first();
@@ -107,37 +108,77 @@ const SHOTS = process.env.SHOTS;
   const rowsN = await page.locator('.bh-lane, .bh-drums').count();
   ok((await page.locator('.bh-row .bw-m').count()) === rowsN && (await page.locator('.bh-row .bw-s').count()) === rowsN && (await page.locator('.bh-row .bh-vol').count()) === rowsN, `M, S et volume sur chaque instrument (${rowsN})`);
   ok((await page.locator('.bh-lane.mel').count()) === 1, 'la ligne de la mélodie est marquée');
-  await page.click('#bwHarmAll');
-  ok((await page.locator('.bh-drums').count()) === 0 && (await page.locator('.bh-lane').count()) === 1 && (await page.locator('.bh-lane.mel').count()) === 1, 'Toutes les pistes : off, seule la mélodie reste');
-  await page.click('#bwHarmAll');
-  ok((await page.locator('.bh-lane').count()) === lanes.length && (await page.locator('.bh-drums').count()) === 1, 'Toutes les pistes : on, tout revient');
+  // menu « Pistes » : une case par piste (batterie en une), la mélodie ne se masque pas
+  await page.click('#bwTracks summary');
+  const tn = await page.locator('#bwTracksPop input').count();
+  ok(tn === lanes.length + 1 && (await page.locator('#bwTracksPop label.mel input:disabled').count()) === 1, `menu Pistes : ${tn} cases, la mélodie verrouillée`);
+  await page.locator('#bwTracksPop label', { hasText: 'Batterie' }).locator('input').uncheck();
+  ok((await page.locator('.bh-drums').count()) === 0 && (await page.locator('.bh-lane').count()) === lanes.length && (await page.isVisible('#bwTracksPop')), 'Batterie décochée : masquée, le menu reste ouvert');
+  await page.click('#bwTracksMel');
+  ok((await page.locator('.bh-lane').count()) === 1 && (await page.locator('.bh-lane.mel').count()) === 1 && /Pistes · 1 \//.test(await page.textContent('#bwTracks summary')), 'Mélodie seule');
+  await page.click('#bwTracksAll');
+  ok((await page.locator('.bh-lane').count()) === lanes.length && (await page.locator('.bh-drums').count()) === 1, 'Tout : tout revient');
+  await page.click('#bwTracks summary');
   await page.click('.bh-scene >> nth=2');
   ok((await page.locator('.bh-scene.on .bh-sname b').textContent()) === 'Refrain' && (await page.locator('.bh-top h3').textContent()) === 'Refrain', 'clic sur une scène : ses accords');
   ok((await page.locator('.bh-lane', { hasText: 'Lead' }).locator('.bh-note.out').count()) > 0, 'notes de passage du lead dessinées en creux');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'wizard-harmonie.png') });
 
-  // mélodie (dans l'étape Harmonie)
+  // mélodie : caractère, autre mélodie, phrases (lettre, jeu, longueur), réglages fins
   const leadSig = () => page.evaluate(() => {
     const w = SS.band._state.wiz;
     return JSON.stringify(w.res.scenes.map((sc) => Object.entries(sc.data).filter(([id]) => id.includes(':lead')).map(([, d]) => d.events.map((e) => e.notes[0]))));
   });
   const bassSig = () => page.evaluate(() => JSON.stringify(SS.band._state.wiz.res.scenes.map((sc) => Object.entries(sc.data).filter(([id]) => id.includes(':bass')).map(([, d]) => d.events))));
+  const chorusLead = () => page.evaluate(() => {
+    const sc = SS.band._state.wiz.res.scenes.find((s) => s.sec === 'chorus');
+    return sc.data[Object.keys(sc.data).find((k) => k.includes(':lead'))].events;
+  });
+  ok((await page.locator('#bwChars .bh-char').count()) === 6 && (await page.getAttribute('#bwChars [data-v="inspiration"]', 'aria-checked')) === 'true', 'six caractères, « Inspiration » par défaut');
   const lead0 = await leadSig();
   const bass0 = await bassSig();
   await page.click('#bwMelody');
   const lead1 = await leadSig();
-  ok(lead1 !== lead0, 'Générer la mélodie : une autre mélodie');
+  ok(lead1 !== lead0, 'Autre mélodie : une autre mélodie');
   ok((await bassSig()) === bass0, 'les autres musiciens ne changent pas');
   ok(/n° 2/.test(await page.textContent('#bwSeed')), 'numéro de la mélodie affiché');
-  await page.click('#bwMelody');
-  ok((await leadSig()) !== lead1, 'encore une autre');
   await page.click('#bwMelodyBack');
-  ok((await leadSig()) === lead0, '« Mélodie d’origine » revient à la première');
-  // réglages de l'atelier Mélodie : mélodie composée, 8 pieds par vers, 2 mesures par vers
-  ok((await page.isVisible('#bwMelForm')) && (await page.isDisabled('#bwFeet')), 'réglages de la mélodie : désactivés pour la mélodie de l’inspiration');
-  await page.click('#bwMelForm [data-v="compose"]');
-  ok(!(await page.isDisabled('#bwFeet')), '« Composée » : réglages actifs');
-  await page.selectOption('#bwFeet', '8');
+  ok((await leadSig()) === lead0, '« Première mélodie » revient à la première');
+  await page.click('#bwChars [data-v="chant"]');
+  ok((await leadSig()) !== lead0 && (await bassSig()) === bass0 && (await page.getAttribute('#bwChars [data-v="chant"]', 'aria-checked')) === 'true', 'caractère « Chantante » : une autre mélodie, le reste ne change pas');
+  // phrases du refrain (8 mesures) : A A′ B A′ de 2 mesures ; la première est choisie
+  const ph = page.locator('.bh-phrases .bh-phr');
+  ok((await ph.count()) === 4 && (await page.locator('.bh-phrases .bh-pl').allTextContents()).join(' ') === 'A A′ B A′', 'refrain : 4 phrases A A′ B A′');
+  ok((await page.getAttribute('.bh-phr[data-i="0"]', 'aria-pressed')) === 'true' && /Phrase 1/.test(await page.textContent('#bwPhrase')), 'la première phrase est choisie, ses réglages au-dessus');
+  // 1re phrase : 4 mesures tenues ; la suite en silence → la mélodie ne dure que 4 mesures
+  await page.selectOption('#bwPLen', '4');
+  ok((await ph.count()) === 3, 'phrase allongée : elle prend sur la suivante');
+  await page.click('#bwPMode [data-v="hold"]');
+  for (const i of [1, 2]) {
+    await page.click(`.bh-phr[data-i="${i}"]`);
+    await page.click('#bwPMode [data-v="off"]');
+  }
+  ok((await page.locator('.bh-phr.off').count()) === 2 && (await page.getAttribute('.bh-phr[data-i="2"]', 'aria-pressed')) === 'true', 'phrases 2 et 3 en silence');
+  let ev = await chorusLead();
+  const lastEv = ev[ev.length - 1];
+  ok(ev.length > 0 && lastEv.step + lastEv.len === 64 && lastEv.len >= 48, `phrase tenue : la dernière note dure ${lastEv.len / 16} mesures, la mélodie s’arrête à la mesure 4`);
+  await page.click('.bh-phr[data-i="0"]');
+  await page.selectOption('#bwPLen', '1');
+  ev = await chorusLead();
+  ok(ev.length === 1 && ev[0].len >= 14 && (await page.locator('.bh-phr.off').count()) >= 1, 'phrase d’une mesure tenue : une seule note, puis silence');
+  await page.click('#bwPMode [data-v="on"]');
+  const before = JSON.stringify(await chorusLead());
+  await page.click('#bwPRoll');
+  ok(JSON.stringify(await chorusLead()) !== before, '🎲 Relancer les A : un autre motif');
+  await page.selectOption('#bwPLetter', 'C');
+  ok((await page.textContent('.bh-phr[data-i="0"] .bh-pl')) === 'C', 'motif de la phrase : C');
+  if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'wizard-phrases.png') });
+  await page.click('#bwPhrReset');
+  ok((await ph.count()) === 4 && !(await page.isVisible('#bwPhrReset')), '↺ : plan de phrases par défaut');
+  // réglages fins : 6 notes par phrase, mouvement simple, voix moyenne
+  ok(!(await page.isVisible('#bwMelForm')), 'réglages fins repliés');
+  await page.click('#bwMelFine');
+  await page.selectOption('#bwNotes', '6');
   await page.selectOption('#bwComplexity', 'simple');
   await page.selectOption('#bwRange', 'voix');
   const comp = await page.evaluate(() => {
@@ -145,10 +186,10 @@ const SHOTS = process.env.SHOTS;
     return w.res.scenes.map((sc) => {
       const id = Object.keys(sc.data).find((k) => k.includes(':lead'));
       const ev = sc.data[id].events;
-      return { bars: sc.bars, n: ev.length, lo: Math.min(...ev.map((e) => e.notes[0])), hi: Math.max(...ev.map((e) => e.notes[0])) };
+      return { bars: sc.bars, n: ev.length, phr: SS.bandSong.defaultPlan(sc.bars, 'chant').length, lo: Math.min(...ev.map((e) => e.notes[0])), hi: Math.max(...ev.map((e) => e.notes[0])) };
     }).filter((x) => x.n);
   });
-  ok(comp.length && comp.every((x) => x.n === Math.max(1, x.bars / 2) * 8), `8 pieds par vers (${comp.map((x) => x.n).join(', ')} notes)`);
+  ok(comp.length && comp.every((x) => x.n === x.phr * 6), `6 notes par phrase (${comp.map((x) => x.n).join(', ')} notes)`);
   ok(comp.every((x) => x.lo >= 60 && x.hi <= 72), 'tessiture voix moyenne');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'wizard-melodie.png') });
   await page.click('#bwMelody');
