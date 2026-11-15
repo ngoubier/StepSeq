@@ -834,6 +834,16 @@
         <div class="sys-verdict-text"><h3 id="systemVerdictTitle">—</h3><p id="systemVerdictText" role="status" aria-live="polite"></p></div>
         <button id="systemRepair" type="button" class="btn" title="Remet à zéro les filtres, les boucles de delay et les modules audio bloqués">Réparer le son</button>
       </section>
+      <section id="systemDiag" class="sys-light" data-on="0" aria-labelledby="systemDiagTitle">
+        <div class="sys-light-text"><h3 id="systemDiagTitle">Mode Diagnostic</h3><p id="systemDiagText"></p>
+          <ul id="systemDiagList" class="sys-diag-list"></ul>
+          <label class="sys-light-auto"><input type="checkbox" id="systemDiagAuto"> En cas de décrochage, alléger d’abord l’effet le plus lourd (reverb raccourcie, puis coupée…)</label></div>
+        <div class="sys-latency-ctl">
+          <button id="systemDiagRestore" type="button" class="btn" hidden>Rétablir</button>
+          <button id="systemDebugCopy" type="button" class="btn" title="Journal technique horodaté à transmettre pour corriger le code fautif">Copier le journal de débogage</button>
+          <button id="systemDebugSave" type="button" class="btn btn-small" title="Enregistre le journal dans un fichier texte">Enregistrer (.txt)</button>
+        </div>
+      </section>
       <section id="systemLight" class="sys-light" data-on="0" aria-labelledby="systemLightTitle">
         <div class="sys-light-text"><h3 id="systemLightTitle">Mode allégé</h3><p id="systemLightText"></p>
           <label class="sys-light-auto"><input type="checkbox" id="systemLightAuto"> Alléger automatiquement en cas de surcharge</label></div>
@@ -892,7 +902,7 @@
   <script src="js/midi-file.js"></script>
   <script src="js/midi.js?v=ctl-1"></script>
   <script src="js/emotions.js"></script>
-  <script src="js/audio.js?v=ctl-1"></script>
+  <script src="js/audio.js?v=diag-1"></script>
   <script src="js/trackloop.js"></script>
   <script src="js/sounddesign.js?v=loop-1"></script>
   <script src="js/junopanel.js"></script>
@@ -918,8 +928,8 @@
   <script src="js/band.js"></script>
   <script src="js/midipanel.js"></script>
   <script src="js/ui.js?v=xform-1"></script>
-  <script src="js/audiowatch.js?v=watch-1"></script>
-  <script src="js/systempanel.js?v=watch-1"></script>
+  <script src="js/audiowatch.js?v=diag-1"></script>
+  <script src="js/systempanel.js?v=diag-1"></script>
   <script src="js/main.js?v=watch-1"></script>
 </body>
 </html>

@@ -127,6 +127,28 @@ SS.systemPanel = (() => {
     $('systemLightAuto').checked = W().autoLight();
     return on ? text : 'Mode allégé : inactif';
   }
+  /** Mode Diagnostic : réglage, allègements ciblés en cours avec leur bilan, bouton Rétablir. */
+  function renderDiag() {
+    const on = W().diagMode();
+    const done = W().relief();
+    const box = $('systemDiag');
+    if (box.dataset.on !== (done.length ? '1' : '0')) box.dataset.on = done.length ? '1' : '0';
+    const text = !on
+      ? 'Désactivé : en cas de décrochage, le mode allégé coupe tout d’un coup. Le journal de débogage reste disponible.'
+      : done.length
+        ? 'Pour stopper les décrochages, ces éléments ont été allégés un par un (réglages de la chanson intacts, jusqu’à « Rétablir » ou au rechargement) :'
+        : 'Actif : à chaque décrochage, l’élément le plus lourd est allégé (reverb raccourcie, puis coupée si besoin), puis l’effet est vérifié 4 s plus tard. Le mode allégé complet ne sert qu’en dernier recours.';
+    if ($('systemDiagText').textContent !== text) $('systemDiagText').textContent = text;
+    const sig = done.map((d) => d.key + d.ok).join('|');
+    const list = $('systemDiagList');
+    if (list.dataset.sig !== sig) {
+      list.dataset.sig = sig;
+      list.replaceChildren(...done.map((d) => el('li', d.label + (d.ok == null ? ' · vérification…' : d.ok ? ' · efficace' : ' · insuffisant'), d.ok == null ? '' : d.ok ? 'ok' : 'ko')));
+    }
+    $('systemDiagRestore').hidden = !done.length;
+    $('systemDiagAuto').checked = on;
+    return 'Mode Diagnostic : ' + (on ? 'actif' : 'inactif') + (done.length ? ' · ' + done.map((d) => d.label).join(' ; ') : '');
+  }
   /** Latence : préférence, et rechargement nécessaire si elle diffère du moteur en cours. */
   function renderLatency() {
     const { pref, active } = SS.audio.latency();
@@ -243,7 +265,7 @@ SS.systemPanel = (() => {
     const list = warnings(a, { hidden: document.hidden, lag, maxBlock, heapRatio });
     const verdict = renderVerdict(a, now);
     renderGauges(a);
-    const lightText = renderLight() + ' · ' + renderLatency();
+    const lightText = renderDiag() + '\n' + renderLight() + ' · ' + renderLatency();
     renderIncidents(now);
     const load = renderLoad();
     W().markSeen();
@@ -349,6 +371,28 @@ SS.systemPanel = (() => {
       refresh();
     });
     $('systemLightAuto').addEventListener('change', (e) => W().setAutoLight(e.target.checked));
+    $('systemDiagAuto').addEventListener('change', (e) => { W().setDiagMode(e.target.checked); refresh(); });
+    $('systemDiagRestore').addEventListener('click', () => {
+      W().clearRelief(true);
+      SS.ui.toast('Effets allégés rétablis');
+      shownIncidents = '';
+      refresh();
+    });
+    $('systemDebugCopy').addEventListener('click', async () => {
+      const text = W().debugLog();
+      try { await navigator.clipboard.writeText(text); SS.ui.toast('Journal de débogage copié : colle-le dans la conversation avec Claude'); }
+      catch (e) { SS.ui.toast('Copie indisponible : utiliser « Enregistrer (.txt) »'); }
+    });
+    $('systemDebugSave').addEventListener('click', () => {
+      const blob = new Blob([W().debugLog()], { type: 'text/plain;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'stepseq-debug-' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.txt';
+      document.body.append(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    });
     $('systemLatencySel').addEventListener('change', (e) => {
       SS.audio.setLatency(e.target.value);
       if (!SS.audio.latency().active) SS.ui.toast('Latence enregistrée');

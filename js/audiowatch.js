@@ -26,6 +26,9 @@ SS.audioWatch = (() => {
     merge: 10000, // un incident identique dans les 10 s est cumulé (compteur) au lieu d'être répété
     keep: 40, // incidents conservés
     lateRepeat: 3, // notes en retard signalées autant de fois (en 10 s) avant d'alléger
+    settle: 4000, // mode Diagnostic : attente après un allègement avant d'en décider un autre (ms)
+    maxSteps: 8, // mode Diagnostic : allègements ciblés au plus, ensuite mode allégé complet
+    journal: 500, // lignes gardées dans le journal de débogage
   };
   const dB = (v) => (v > 0 ? 20 * Math.log10(v) : -Infinity);
   const fmtDb = (v) => (v >= 0 ? '+' : '−') + Math.abs(dB(v)).toFixed(1).replace('.', ',') + ' dB';
@@ -295,6 +298,70 @@ SS.audioWatch = (() => {
     return out.sort((a, b) => b.cost - a.cost);
   }
 
+  /* ---------------------------------------------------------------- Mode Diagnostic : allègement pas à pas */
+
+  const sec = (v) => v.toFixed(1).replace('.', ',') + ' s';
+  /**
+   * Prochaines étapes d'allègement possibles, de l'élément le plus lourd au plus léger (fonction pure).
+   * `relief` = SS.audio.reliefState() ({ tracks: { id: { roomSize, cut } }, returns: { k: { size, shimmer, cut } } }).
+   * Chaque élément descend une marche à la fois : reverb raccourcie (moitié, au moins 0,8 s) puis coupée ;
+   * Cosmos : shimmer coupé puis bus coupé ; Hall / Plate : raccourcies (au moins 1 s) puis coupées ; delay, chorus,
+   * écho : coupés. `cost` = poids actuel de l'élément (même échelle qu'estimateLoad).
+   * Renvoie [{ key, target, patch, label, what, cost, cut }].
+   */
+  function reliefSteps(project, relief = {}) {
+    const rt = relief.tracks || {};
+    const rr = relief.returns || {};
+    const steps = [];
+    const solo = project.tracks.some((t) => t.solo);
+    const used = { plate: 0, hall: 0, echo: 0, space: 0 };
+    for (const t of project.tracks) {
+      if (t.mute || (solo && !t.solo)) continue;
+      const fx = SS.fxParams(t);
+      const r = rt[t.id] || {};
+      const cut = r.cut || {};
+      const name = `« ${t.name || 'Piste'} »`;
+      const target = { track: t.id };
+      if (fx.room > 0 && !cut.room) {
+        const size = Math.min(fx.roomSize, r.roomSize != null ? r.roomSize : Infinity);
+        const cost = 0.6 + 0.35 * size;
+        const next = Math.round(Math.max(0.8, size / 2) * 10) / 10;
+        if (size > 1 && next < size - 0.05) steps.push({ key: 'room:' + t.id, target, patch: { roomSize: next }, what: `Reverb de ${name}`, label: `Reverb de ${name} raccourcie : ${sec(size)} → ${sec(next)}`, cost });
+        else steps.push({ key: 'room:' + t.id, target, patch: { cut: 'room' }, what: `Reverb de ${name}`, label: `Reverb de ${name} coupée`, cost, cut: true });
+      }
+      if (fx.delay > 0 && !cut.delay) steps.push({ key: 'delay:' + t.id, target, patch: { cut: 'delay' }, what: `Delay de ${name}`, label: `Delay de ${name} coupé`, cost: 0.3, cut: true });
+      if (fx.chorus > 0 && !cut.chorus) steps.push({ key: 'chorus:' + t.id, target, patch: { cut: 'chorus' }, what: `Chorus de ${name}`, label: `Chorus de ${name} coupé`, cost: 0.3, cut: true });
+      for (const [k, ret] of [['sendPlate', 'plate'], ['sendHall', 'hall'], ['sendEcho', 'echo'], ['sendSpace', 'space']]) if (fx[k] > 0) used[ret]++;
+      // automation : envois vers Hall, Écho et Cosmos
+      if (t.auto) for (const [k, ret] of [['reverb', 'hall'], ['echo', 'echo'], ['space', 'space']]) if (t.auto[k]) used[ret]++;
+    }
+    const rp = SS.returnParams ? SS.returnParams(project) : SS.RETURN_DEFAULTS;
+    const ret = (k) => rr[k] || {};
+    if (used.space && !ret('space').cut) {
+      const shimmer = ret('space').shimmer === 0 ? 0 : rp.space.shimmer;
+      const cost = 4 + (shimmer > 0 ? 1.5 : 0);
+      if (shimmer > 0) steps.push({ key: 'ret:space', target: { ret: 'space' }, patch: { shimmer: 0 }, what: 'Reverb Cosmos partagée', label: 'Shimmer de la Reverb Cosmos coupé', cost });
+      else steps.push({ key: 'ret:space', target: { ret: 'space' }, patch: { cut: true }, what: 'Reverb Cosmos partagée', label: 'Reverb Cosmos (bus partagé) coupée', cost, cut: true });
+    }
+    for (const [k, base, label] of [['hall', 1.2, 'Hall'], ['plate', 0.8, 'Plate']]) {
+      if (!used[k] || ret(k).cut) continue;
+      const size = Math.min(rp[k].size, ret(k).size != null ? ret(k).size : Infinity);
+      const cost = base + 0.25 * size;
+      const next = Math.round(Math.max(1, size / 2) * 10) / 10;
+      if (size > 1.2 && next < size - 0.05) steps.push({ key: 'ret:' + k, target: { ret: k }, patch: { size: next }, what: `Reverb ${label} partagée`, label: `Reverb ${label} (bus partagé) raccourcie : ${sec(size)} → ${sec(next)}`, cost });
+      else steps.push({ key: 'ret:' + k, target: { ret: k }, patch: { cut: true }, what: `Reverb ${label} partagée`, label: `Reverb ${label} (bus partagé) coupée`, cost, cut: true });
+    }
+    if (used.echo && !ret('echo').cut) steps.push({ key: 'ret:echo', target: { ret: 'echo' }, patch: { cut: true }, what: 'Écho partagé', label: 'Écho à bande (bus partagé) coupé', cost: 0.5, cut: true });
+    return steps.sort((a, b) => b.cost - a.cost);
+  }
+
+  /** Décision du mode Diagnostic sur une surcharge : 'wait' (on laisse l'allègement précédent agir), 'step' ou 'light'. */
+  function diagDecide(diag, now, steps) {
+    if (diag.lastAt != null && now - diag.lastAt < CFG.settle) return { what: 'wait' };
+    if (diag.done.length >= CFG.maxSteps || !steps.length) return { what: 'light' };
+    return { what: 'step', step: steps[0] };
+  }
+
   /* ---------------------------------------------------------------- surveillance en continu (navigateur) */
 
   let state = newState();
@@ -304,8 +371,212 @@ SS.audioWatch = (() => {
   let lastSample = -Infinity;
   let lastRepair = -Infinity;
   let lastToast = -Infinity;
+  let wasPlaying = null;
   const listeners = new Set();
   const notify = () => listeners.forEach((fn) => fn(state, null));
+
+  /* ---- journal de débogage (copié depuis la fenêtre Système, à transmettre pour corriger le code) ---- */
+  const t0 = typeof performance !== 'undefined' ? performance.now() : 0;
+  const journal = [];
+  const stamp = (now) => '+' + ((now - t0) / 1000).toFixed(2).padStart(8, ' ') + 's';
+  function log(tag, text, now = performance.now()) {
+    journal.push(`${stamp(now)} ${tag.padEnd(7, ' ')} ${text}`);
+    if (journal.length > CFG.journal) journal.splice(0, journal.length - CFG.journal);
+  }
+  let lastMetrics = -Infinity;
+  /** Une ligne de mesures toutes les 2 s pendant la lecture : la tendance avant et après chaque allègement. */
+  function logMetrics(snap, now) {
+    if (!snap.playing || now - lastMetrics < 2000) return;
+    lastMetrics = now;
+    const c = state.counters;
+    const r = snap.render;
+    const parts = [
+      r ? `charge moy ${Math.round(r.average * 100)}% pic ${Math.round(r.peak * 100)}% underrun ${(r.underrun * 100).toFixed(1)}%` : 'charge n/d',
+      snap.stats && snap.stats.underrunEvents != null ? `underrunEvents ${snap.stats.underrunEvents}` : null,
+      c.clockRatio != null ? `horloge ${(c.clockRatio * 100).toFixed(1)}%` : null,
+      `décrochages ${c.underruns}`,
+      `retards ${snap.scheduling ? snap.scheduling.lateSteps : 0} (max ${snap.scheduling ? Math.round(snap.scheduling.maxLateMs) : 0} ms, tick max ${snap.scheduling && snap.scheduling.maxTickMs != null ? Math.round(snap.scheduling.maxTickMs) : '?'} ms)`,
+      `voix ${snap.voices} juno ${snap.juno}`,
+      `sortie ${snap.out ? (snap.out.peak > 0 ? dB(snap.out.peak).toFixed(1) : '-inf') + ' dBFS' : '?'}`,
+      snap.light ? 'ALLÉGÉ' : null,
+      diag.done.length ? `allègements ${diag.done.length}` : null,
+    ];
+    log('MESURE', parts.filter(Boolean).join(' · '), now);
+  }
+
+  /* ---- mode Diagnostic ---- */
+  const DIAG_KEY = 'ss.diagMode';
+  const diag = { done: [], lastAt: null, checked: true, base: null, declined: false, waitLogged: 0, overloads: 0 }; // overloads : relevés en surcharge (toutes sources)
+  function diagMode() {
+    try {
+      return localStorage.getItem(DIAG_KEY) !== '0';
+    } catch (e) {
+      return true;
+    }
+  }
+  function setDiagMode(on) {
+    try {
+      localStorage.setItem(DIAG_KEY, on ? '1' : '0');
+    } catch (e) {
+      /* session seulement */
+    }
+    log('MODE', 'Mode Diagnostic ' + (on ? 'activé' : 'désactivé'));
+  }
+  /** Applique la prochaine marche d'allègement ciblé ; renvoie l'étape, ou null. */
+  function relieveStep(step, reason, now) {
+    if (!SS.audio || !SS.audio.setRelief) return null;
+    SS.audio.setRelief(step.target, step.patch);
+    const prevStep = diag.done[diag.done.length - 1];
+    if (prevStep && prevStep.ok == null) {
+      prevStep.ok = false; // la surcharge a continué après l'attente : l'étape précédente n'a pas suffi
+      log('BILAN', `#${diag.done.length} ${prevStep.label} → insuffisant : surcharge encore ${Math.round((now - prevStep.at) / 100) / 10} s après`, now);
+    }
+    const entry = { at: now, key: step.key, label: step.label, what: step.what, cut: !!step.cut, reason, ok: null };
+    diag.done.push(entry);
+    diag.lastAt = now;
+    diag.checked = false;
+    diag.base = null;
+    log('ACTION', `#${diag.done.length} ${step.label} (cause : ${reason} ; poids estimé ${step.cost.toFixed(2)} ; patch ${JSON.stringify(step.patch)} ; cible ${JSON.stringify(step.target)})`, now);
+    raise(state, {
+      kind: 'relief',
+      level: 'info',
+      where: 'relief:' + diag.done.length + ':' + step.key,
+      title: `Mode Diagnostic : ${step.label}`,
+      detail: `${reason} : ${step.what} est l'élément le plus lourd encore actif ; ${step.cut ? 'il est coupé (plus aucun calcul)' : 'il est allégé'} pour soulager le processeur. Le réglage de la chanson n'est pas modifié.`,
+      advice: step.cut ? 'Pour le garder sans décrochage : choisir la latence « Lecture sûre », ou alléger un autre élément. « Rétablir » remet tout.' : 'Si les décrochages continuent, l\'étape suivante le coupera. « Rétablir » remet tout.',
+    }, now);
+    notify();
+    return entry;
+  }
+  /** Retire tous les allègements ciblés. `manual` : demandé par l'utilisateur (plus d'allègement pendant cette lecture). */
+  function clearRelief(manual) {
+    const n = SS.audio && SS.audio.clearRelief ? SS.audio.clearRelief() : 0;
+    if (manual && SS.audio.isPlaying()) diag.declined = true;
+    if (diag.done.length) log('RETOUR', `${diag.done.length} allègement(s) retiré(s)${manual ? ' à la main' : ''}`);
+    for (const inc of state.incidents) if (inc.kind === 'relief' && !inc.fixed) inc.fixed = 'Rétabli';
+    diag.done = [];
+    diag.lastAt = null;
+    diag.checked = true;
+    notify();
+    return n;
+  }
+  /**
+   * Après un allègement : la surcharge a-t-elle cessé ? Les premières secondes ne comptent pas (calcul de la
+   * nouvelle réverbération, queues d'effet) : on relève les décrochages entre `settle` et `2 × settle`.
+   */
+  function diagCheck(now, playing) {
+    if (diag.checked || diag.lastAt == null || !playing) return;
+    const since = now - diag.lastAt;
+    if (since < CFG.settle) return;
+    if (diag.base == null) {
+      diag.base = diag.overloads;
+      return;
+    }
+    if (since < CFG.settle * 2) return;
+    diag.checked = true;
+    const last = diag.done[diag.done.length - 1];
+    const more = Math.max(0, diag.overloads - diag.base);
+    diag.base = null;
+    last.ok = more === 0;
+    log('BILAN', `#${diag.done.length} ${last.label} → ${more === 0 ? `efficace : aucun décrochage entre ${CFG.settle / 1000} et ${(2 * CFG.settle) / 1000} s après` : more + ' relevé(s) encore en surcharge : insuffisant'}`, now);
+    if (more === 0 && SS.ui && SS.ui.toast) SS.ui.toast(`Diagnostic : son stable après « ${last.label} »`, 4000);
+  }
+  /** Surcharge en mode Diagnostic : une marche de plus, ou le mode allégé complet en dernier recours. */
+  function diagOverload(slow, project, now) {
+    const reason = slow.kind === 'underrun' ? 'Processeur saturé' : 'Lecture qui prend du retard';
+    let steps = [];
+    try {
+      steps = project ? reliefSteps(project, SS.audio.reliefState ? SS.audio.reliefState() : {}) : [];
+    } catch (e) {
+      log('ERREUR', 'reliefSteps : ' + (e && e.message), now);
+    }
+    const d = diagDecide(diag, now, steps);
+    if (d.what === 'wait') {
+      if (now - diag.waitLogged > 1000) {
+        diag.waitLogged = now;
+        log('ATTENTE', `${reason} pendant l'effet de l'allègement #${diag.done.length} (${Math.round((now - diag.lastAt) / 100) / 10} s / ${CFG.settle / 1000} s)`, now);
+      }
+      return;
+    }
+    if (d.what === 'step') {
+      const e = relieveStep(d.step, reason, now);
+      if (e && SS.ui && SS.ui.toast) {
+        lastToast = now;
+        SS.ui.toast(`Diagnostic (${reason.toLowerCase()}) : ${d.step.label}`, 7000, { label: 'Rétablir', run: () => clearRelief(true) });
+      }
+      return;
+    }
+    if (!autoLight()) {
+      if (now - diag.waitLogged > 5000) {
+        diag.waitLogged = now;
+        log('ACTION', `plus d'allègement ciblé possible (${diag.done.length} fait(s)) ; allègement automatique désactivé : rien de plus`, now);
+      }
+      return;
+    }
+    log('ACTION', `plus d'allègement ciblé possible (${diag.done.length} fait(s), ${steps.length} restant(s)) → mode allégé complet`, now);
+    if (lighten(reason + ' malgré les allègements ciblés', true) && SS.ui && SS.ui.toast) {
+      lastToast = now;
+      SS.ui.toast('Processeur toujours saturé : tous les effets et le mastering coupés temporairement', 8000, { label: 'Rétablir', run: () => restore(true) });
+    }
+  }
+
+  /** Journal complet à copier : contexte, chanson, poids estimé, allègements, puis les événements horodatés. */
+  function debugLog() {
+    const L = [];
+    const nav = typeof navigator !== 'undefined' ? navigator : {};
+    const project = app && app.project();
+    L.push('### STEPSEQ-DEBUG v1 ###');
+    L.push(`date ${new Date().toISOString()} · page ouverte depuis ${((performance.now() - t0) / 1000).toFixed(0)} s`);
+    L.push(`navigateur ${nav.userAgent || '?'}`);
+    L.push(`cœurs ${nav.hardwareConcurrency || '?'} · mémoire ${nav.deviceMemory || '?'} Gio · onglet ${typeof document !== 'undefined' && document.hidden ? 'arrière-plan' : 'premier plan'}`);
+    const a = SS.audio && SS.audio.diagnostics ? SS.audio.diagnostics() : null;
+    const lat = SS.audio && SS.audio.latency ? SS.audio.latency() : {};
+    if (a && a.context) L.push(`audio ${a.context.state} · ${a.context.sampleRate} Hz · latence pref ${lat.pref} active ${lat.active} · base ${(a.context.baseLatency * 1000).toFixed(1)} ms · sortie ${(a.context.outputLatency * 1000).toFixed(1)} ms`);
+    else L.push('audio non démarré');
+    const pv = state.prev;
+    L.push(`mesures : renderCapacity ${state.counters.load ? 'oui' : 'non/pas encore'} · playbackStats ${pv && pv.stats && pv.stats.underrunEvents != null ? 'oui' : 'non/pas encore'} · repli horloge ${state.counters.clockRatio != null ? 'oui' : 'non'}`);
+    if (a) L.push(`moteur : voix ${a.scheduledVoices} · juno ${a.junoEngines} · bus ${a.buses} · mastering ${a.masteringReady ? 'chargé' : 'non'} · tick max ${Math.round(a.scheduling.maxTickMs || 0)} ms · retards ${a.scheduling.lateSteps}`);
+    L.push(`modes : Diagnostic ${diagMode() ? 'ON' : 'OFF'} · allègement auto ${autoLight() ? 'ON' : 'OFF'} · allégé ${SS.audio && SS.audio.isLight && SS.audio.isLight() ? 'ACTIF' : 'non'} · Auto Mix ${SS.automixListen && SS.automixListen.listening() ? 'écoute' : 'arrêté'}`);
+    const c = state.counters;
+    L.push(`compteurs (depuis Lecture) : décrochages ${c.underruns} · écrêtage ${c.clipped} · retards ${c.late} (max ${Math.round(c.maxLateMs)} ms) · horloge ${c.clockRatio != null ? (c.clockRatio * 100).toFixed(1) + '%' : 'n/d'} · charge ${c.load ? Math.round(c.load.average * 100) + '/' + Math.round(c.load.peak * 100) + '%' : 'n/d'}`);
+    if (project) {
+      L.push('', `## Chanson : tempo ${project.tempo} · ${project.tracks.length} piste(s) · ${(project.scenes || []).length} scène(s) · ${(project.song || []).length} bloc(s)`);
+      const solo = project.tracks.some((t) => t.solo);
+      for (const t of project.tracks) {
+        const fx = SS.fxParams(t);
+        const mix = SS.mixParams(t);
+        const sd = t.sd ? (SS.soundParams ? SS.soundParams(t) : t.sd) : null;
+        const fxs = [];
+        if (fx.room > 0) fxs.push(`reverb ${fx.room.toFixed(2)} ${fx.roomSize.toFixed(1)}s`);
+        if (fx.delay > 0) fxs.push(`delay ${fx.delay.toFixed(2)} fb ${fx.delayFeedback.toFixed(2)}`);
+        if (fx.chorus > 0) fxs.push(`chorus ${fx.chorus.toFixed(2)}`);
+        for (const k of ['sendPlate', 'sendHall', 'sendEcho', 'sendSpace']) if (fx[k] > 0) fxs.push(`${k} ${fx[k].toFixed(2)}`);
+        const ins = ['eq', 'comp', 'lim', 'vcf'].filter((k) => mix[k] && mix[k].on);
+        const off = t.mute || (solo && !t.solo);
+        L.push(`- [${t.id}] « ${t.name || 'Piste'} » ${t.type}/${t.family || '-'}/${t.instrument || '-'}${off ? ' (muette)' : ''}${sd ? ` · voix ${sd.voices || 1} filtre ${sd.ftype || '-'}` : ''} · fx: ${fxs.join(', ') || 'aucun'} · inserts: ${ins.join('+') || 'aucun'}${t.auto && Object.keys(t.auto).length ? ' · automation: ' + Object.keys(t.auto).join('+') : ''}`);
+      }
+      const rp = SS.returnParams(project);
+      L.push(`retours : plate ${rp.plate.size}s · hall ${rp.hall.size}s · cosmos decay ${rp.space.decay} shimmer ${rp.space.shimmer} freeze ${rp.space.freeze} · écho fb ${rp.echo.feedback}`);
+      const mp = SS.masterParams(project);
+      L.push(`master : mastering ${mp.mastering.on ? 'on' : 'off'} · effets ${mp.effects.on ? ['saturation', 'chorus', 'reverb'].filter((k) => mp.effects[k].on).join('+') || 'aucun' : 'off'} · inserts ${['eq', 'comp', 'lim', 'vcf'].filter((k) => mp.mix[k] && mp.mix[k].on).join('+') || 'aucun'}`);
+      try {
+        L.push('', '## Poids estimé', ...estimateLoad(project, { automix: !!(SS.automixListen && SS.automixListen.listening()) }).map((x) => `- ${x.label} : ${x.cost.toFixed(2)} (${Math.round(x.share * 100)}%)`));
+        L.push('', '## Prochains allègements possibles', ...(reliefSteps(project, SS.audio.reliefState ? SS.audio.reliefState() : {}).map((x) => `- ${x.label} (poids ${x.cost.toFixed(2)})`)));
+      } catch (e) {
+        L.push('erreur estimation : ' + (e && e.message));
+      }
+    }
+    L.push('', '## Allègements ciblés en cours');
+    if (!diag.done.length) L.push('- aucun');
+    for (const [i, d] of diag.done.entries()) L.push(`- #${i + 1} ${stamp(d.at)} ${d.label} · cause ${d.reason} · ${d.ok == null ? 'bilan en attente' : d.ok ? 'efficace' : 'insuffisant'}`);
+    if (SS.audio && SS.audio.reliefState) L.push('état moteur : ' + JSON.stringify(SS.audio.reliefState()));
+    L.push('', '## Incidents');
+    for (const x of state.incidents.slice(0, 20)) L.push(`- ${stamp(x.at)}…${stamp(x.last)} [${x.level}] ${x.kind}@${x.where} ×${x.count} ${x.title} — ${x.detail}${x.fixed ? ' ✓ ' + x.fixed : ''}`);
+    L.push('', '## Journal');
+    L.push(...(journal.length ? journal : ['(vide : lancer la lecture)']));
+    L.push('### FIN STEPSEQ-DEBUG ###');
+    return L.join('\n');
+  }
 
   /* ---- mode allégé ---- */
   const AUTO_KEY = 'ss.autoLight';
@@ -335,6 +606,7 @@ SS.audioWatch = (() => {
     const automix = !!(SS.automixListen && SS.automixListen.listening());
     if (automix) SS.automixListen.stop();
     lightInfo = { at: now, auto: !!auto, reason, automix };
+    log('ALLÉGÉ', `activé (${auto ? 'auto' : 'manuel'}) : ${reason || '?'} · ${n} étages contournés${automix ? ' · Auto Mix suspendu' : ''}`, now);
     const inc = raise(state, {
       kind: 'light',
       level: 'info',
@@ -358,6 +630,7 @@ SS.audioWatch = (() => {
     if (manual && SS.audio.isPlaying()) declined = true;
     const inc = state.incidents.find((x) => x.kind === 'light' && !x.fixed);
     if (inc) inc.fixed = manual ? 'Effets rétablis' : 'Effets rétablis à l\'arrêt de la lecture';
+    log('ALLÉGÉ', `quitté (${manual ? 'à la main' : 'arrêt de la lecture'}) · ${n} étages rétablis`);
     lightInfo = null;
     notify();
     return n;
@@ -382,6 +655,8 @@ SS.audioWatch = (() => {
     if (snap.run !== lastRun) {
       lastRun = snap.run;
       declined = false;
+      diag.declined = false;
+      log('LECTURE', `départ #${snap.run} · ${snap.sampleRate} Hz · base ${((snap.baseLatency || 0) * 1000).toFixed(1)} ms · sortie ${((snap.outputLatency || 0) * 1000).toFixed(1)} ms${diag.done.length ? ' · ' + diag.done.length + ' allègement(s) ciblé(s) conservé(s)' : ''}`, now);
       if (lightInfo && lightInfo.auto) restore(false);
     }
     lastSample = now;
@@ -396,6 +671,18 @@ SS.audioWatch = (() => {
     const masterVolume = project ? SS.masterParams(project).volume : null;
     const latency = SS.audio.latency ? SS.audio.latency().active : null;
     const r = assess(state, snap, { now, names, load, masterVolume, hidden: document.hidden, latency });
+    if (snap.playing !== wasPlaying) {
+      if (wasPlaying !== null) log('LECTURE', snap.playing ? 'reprise' : snap.paused ? 'pause' : 'arrêt', now);
+      wasPlaying = snap.playing;
+    }
+    for (const x of r.added) log('INCIDENT', `[${x.level}] ${x.kind}@${x.where} ${x.title} — ${x.detail}`, now);
+    // incident cumulé (même problème répété) : journalisé aussi, au plus une fois par seconde et par type
+    for (const x of state.incidents) if (x.last === now && x.count > 1 && !r.added.includes(x) && now - (x.logged || 0) > 1000 && x.kind !== 'light' && x.kind !== 'relief') {
+      x.logged = now;
+      log('INCIDENT', `[${x.level}] ${x.kind}@${x.where} ×${x.count} ${x.detail}`, now);
+    }
+    logMetrics(snap, now);
+    diagCheck(now, snap.playing);
     if (r.actions.includes('resume')) SS.audio.ensureCtx();
     if (r.actions.includes('repair') && now - lastRepair > 2000) {
       lastRepair = now;
@@ -404,7 +691,14 @@ SS.audioWatch = (() => {
       setTimeout(() => SS.audio.repair(), 300);
       for (const inc of state.incidents) if (now - inc.last < 1000 && (inc.kind === 'nan' || inc.kind === 'silent' || inc.kind === 'crash')) inc.fixed = `Réparé automatiquement (${n} étages remis à zéro)`;
     }
-    const slow = snap.playing && !declined && autoLight() && !SS.audio.isLight() ? overload(state, now) : null;
+    const repairLog = r.actions.length ? r.actions.join('+') : null;
+    if (repairLog) log('RÉPARE', repairLog, now);
+    // mode Diagnostic : on allège d'abord l'élément le plus lourd, une marche à la fois, et on vérifie l'effet
+    const over = snap.playing ? overload(state, now) : null;
+    if (over) diag.overloads++;
+    const diagSlow = over && !diag.declined && !declined && diagMode() && !SS.audio.isLight() ? over : null;
+    if (diagSlow) diagOverload(diagSlow, project, now);
+    const slow = !diagMode() && snap.playing && !declined && autoLight() && !SS.audio.isLight() ? overload(state, now) : null;
     if (slow && lighten(slow.kind === 'underrun' ? 'Processeur saturé' : 'Lecture qui prend du retard', true)) {
       if (SS.ui && SS.ui.toast) {
         lastToast = now;
@@ -431,6 +725,14 @@ SS.audioWatch = (() => {
     verdict,
     estimateLoad,
     overload,
+    reliefSteps,
+    diagDecide,
+    diagMode,
+    setDiagMode,
+    clearRelief,
+    relief: () => diag.done.map((d) => ({ ...d })),
+    debugLog,
+    log: (tag, text) => log(tag, text),
     start,
     lighten,
     restore,

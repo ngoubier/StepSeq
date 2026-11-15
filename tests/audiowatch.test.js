@@ -195,3 +195,52 @@ test('surcharge : les décrochages et les retards répétés déclenchent le mod
   run(st4, [late(0), late(1), late(2), late(3)]);
   assert.equal(W.overload(st4, 1000).kind, 'late');
 });
+
+/* ---------------- Mode Diagnostic : allègement pas à pas ---------------- */
+
+function diagProject() {
+  return {
+    tempo: 120,
+    tracks: [
+      { id: 'a', type: 'instrument', name: 'Pad', fx: { room: 0.5, roomSize: 4, delay: 0.3 } },
+      { id: 'b', type: 'drum', name: 'Batterie', fx: { chorus: 0.4 } },
+      { id: 'c', type: 'instrument', name: 'Lead', fx: { sendSpace: 0.4 } },
+    ],
+    returns: { space: { shimmer: 0.5 } },
+  };
+}
+
+test('reliefSteps : l\'élément le plus lourd d\'abord, une marche à la fois', () => {
+  const p = diagProject();
+  const steps = W.reliefSteps(p, {});
+  assert.equal(steps[0].key, 'ret:space'); // Cosmos avec shimmer : le plus lourd
+  assert.deepEqual({ ...steps[0].patch }, { shimmer: 0 });
+  const room = steps.find((x) => x.key === 'room:a');
+  assert.deepEqual({ ...room.patch }, { roomSize: 2 }); // 4 s -> 2 s
+  assert.ok(/raccourcie/.test(room.label));
+  // shimmer déjà coupé : la Cosmos est coupée à l'étape suivante
+  const s2 = W.reliefSteps(p, { returns: { space: { shimmer: 0 } } });
+  assert.deepEqual({ ...s2[0].patch }, { cut: true });
+  assert.equal(s2[0].cut, true);
+});
+
+test('reliefSteps : reverb raccourcie jusqu\'à 0,8 s, puis coupée ; rien pour une piste muette', () => {
+  const p = diagProject();
+  const r1 = W.reliefSteps(p, { tracks: { a: { roomSize: 2, cut: {} } }, returns: { space: { cut: true } } }).find((x) => x.key === 'room:a');
+  assert.deepEqual({ ...r1.patch }, { roomSize: 1 });
+  const r2 = W.reliefSteps(p, { tracks: { a: { roomSize: 1, cut: {} } } }).find((x) => x.key === 'room:a');
+  assert.deepEqual({ ...r2.patch }, { cut: 'room' });
+  const r3 = W.reliefSteps(p, { tracks: { a: { roomSize: 1, cut: { room: true, delay: true } } } });
+  assert.ok(!r3.some((x) => x.target.track === 'a'));
+  p.tracks[0].mute = true;
+  assert.ok(!W.reliefSteps(p, {}).some((x) => x.target.track === 'a'));
+});
+
+test('diagDecide : attente après un allègement, étape suivante, puis mode allégé en dernier recours', () => {
+  const step = { key: 'x' };
+  assert.equal(W.diagDecide({ done: [], lastAt: null }, 1000, [step]).what, 'step');
+  assert.equal(W.diagDecide({ done: [{}], lastAt: 1000 }, 1000 + W.CFG.settle - 1, [step]).what, 'wait');
+  assert.equal(W.diagDecide({ done: [{}], lastAt: 1000 }, 1000 + W.CFG.settle, [step]).what, 'step');
+  assert.equal(W.diagDecide({ done: [{}], lastAt: 1000 }, 1000 + W.CFG.settle, []).what, 'light');
+  assert.equal(W.diagDecide({ done: new Array(W.CFG.maxSteps).fill({}), lastAt: 0 }, 99999, [step]).what, 'light');
+});

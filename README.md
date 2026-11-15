@@ -458,6 +458,7 @@ node tests/e2e/automix-ui.js
 node tests/e2e/automix-modes.js
 node tests/e2e/automix-chains.js
 node tests/e2e/audio-light.js
+node tests/e2e/audio-diag.js         # mode Diagnostic : reverb raccourcie puis coupée en cas de décrochage, journal de débogage
 node tests/e2e/audio-perf.js
 node tests/e2e/automix-pilot.js
 node tests/e2e/automix-loud-bass.js
@@ -693,6 +694,29 @@ par la fenêtre **Key** :
 | `arranger-orchestrer-finaliser` | Arrangement, orchestration, mixage, mastering | Méthode « une couche à la fois », démos mixées et masterisées |
 | `musicemotion` | Composer à partir d'une émotion : matrice émotion → procédés, trois pistes contrastées, essais A/B | Section Émotion : 13 intentions, propositions, essais A/B, modes |
 | `composer-melodies-accords-texte` | Mélodie sur une grille d'accords et des paroles ou une métrique : prosodie, rythme, notes cibles, contrôles, export MIDI | Key → Mélodie : scansion, proposition, tableau des notes, contrôles, écriture sur une piste |
+
+## Mode Diagnostic : décrochages audio (`js/audiowatch.js`, fenêtre Système)
+
+Quand le moteur audio décroche (processeur saturé, notes en retard à répétition), le mode Diagnostic, actif par
+défaut, n'éteint pas tout d'un coup : il allège **l'élément le plus lourd encore actif, une marche à la fois**, et le
+signale (notification avec « Rétablir », incident dans la fenêtre Système) :
+
+- reverb d'une piste : raccourcie de moitié (jusqu'à 0,8 s), puis **coupée** si les décrochages continuent ;
+- Reverb Cosmos partagée : shimmer coupé, puis bus coupé ; Hall / Plate : raccourcies (jusqu'à 1 s), puis coupées ;
+- delay, chorus, écho partagé : coupés.
+
+Un élément coupé est réellement débranché (plus aucun calcul). Après chaque marche, la surveillance attend 4 s
+(calcul de la nouvelle réverbération), puis vérifie pendant 4 s de plus si la surcharge a cessé : l'étape est
+notée « efficace » ou « insuffisante ». Après 8 marches, ou s'il ne reste rien d'ajustable (synthés Juno, filtres
+lourds), le mode allégé complet prend le relais. Les réglages de la chanson ne sont jamais modifiés : les
+allègements tiennent jusqu'à « Rétablir » ou au rechargement de la page (`SS.audio.setRelief` / `clearRelief`).
+
+**Journal de débogage** : fenêtre Système › Mode Diagnostic › « Copier le journal de débogage » (ou « Enregistrer
+(.txt) »). Le texte, entre `### STEPSEQ-DEBUG v1 ###` et `### FIN STEPSEQ-DEBUG ###`, contient le navigateur, la
+latence, les mesures disponibles, chaque piste avec ses effets, les retours et le Master, le poids estimé, les
+allègements et leur bilan, les incidents, puis un journal horodaté (`LECTURE`, `MESURE` toutes les 2 s, `INCIDENT`,
+`ACTION`, `ATTENTE`, `BILAN`, `ALLÉGÉ`, `RÉPARE`). Le coller dans une conversation avec Claude permet de retrouver
+l'élément et le code en cause.
 
 ## Aides de l'interface
 
