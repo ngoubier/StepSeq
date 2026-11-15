@@ -25,6 +25,8 @@ const ok = (c, m) => {
   const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
   try {
     const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    // l'Auto Mix écoute le son réel : sur une machine lente, le mode allégé automatique mettrait son analyse en pause
+    await page.addInitScript(() => localStorage.setItem('ss.autoLight', '0'));
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
     const demo = JSON.parse(fs.readFileSync(path.join(ROOT, 'demos/train-de-nuit.stepseq.json'), 'utf8'));

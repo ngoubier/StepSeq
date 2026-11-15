@@ -800,6 +800,8 @@ SS.automixPanel = (() => {
     if (!playing) status = 'En attente de la lecture';
     else if (p.tracks.some((t) => t.solo)) status = 'En pause : une piste est en solo (l\'équilibre se juge sur tout le mix)';
     else if (ab === 'A' || trying) status = 'En pause pendant l\'écoute comparée';
+    // le mode allégé (processeur saturé) contourne les effets et suspend l'écoute du mix : rien à juger
+    else if (SS.audio.isLight && SS.audio.isLight() && !L().listening()) status = 'En pause : mode allégé, l\'écoute du mix reprend quand les effets sont rétablis';
     if (status) return setPilotStatus(status);
     if (pilot.tk.t - pilot.lastMove < PL().P.settle) return setPilotStatus('Écoute…');
     for (const module of ['eq', 'comp', 'lim']) {

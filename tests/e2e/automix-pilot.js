@@ -25,6 +25,8 @@ const ok = (c, m) => {
   await new Promise((r) => server.listen(0, r));
   const b = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
   const page = await b.newPage({ viewport: { width: 1600, height: 1000 } });
+  // l'Auto Mix écoute le son réel : sur une machine lente, le mode allégé automatique mettrait son analyse en pause
+  await page.addInitScript(() => localStorage.setItem('ss.autoLight', '0'));
   const errs = [];
   page.on('pageerror', (e) => errs.push(e.message));
   await page.goto(`http://localhost:${server.address().port}/index.html`);
