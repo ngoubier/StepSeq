@@ -375,7 +375,13 @@ le moteur, `js/arppanel.js` pour la fenêtre, `js/motifs.js` pour le catalogue d
   **degré** (−2 à +2 : la note décalée d'une ou deux notes de l'accord), la **vitesse du pas** (×1 à ×4 : rafale
   des notes suivantes de l'arpège dans le pas), le **ratchet** (1 à 4 répétitions) ou en fait un **silence** ; la rangée de vélocités se règle aussi en glissant.
 
-**Onglet Arpège** — une ligne par réglage :
+**Organisation** — en haut, la grille et une **ligne de pas** dessinée en glissant (Essentiel : vélocité ;
+Avancé : vélocité, rythme, degré, vitesse ×, ratchet, longueur, notes, octave, probabilité, chacune avec sa
+longueur et son sens de lecture). En bas, des **modules** avec voyant et résumé (Motif, Rythme, Accord, Pas à pas,
+Geste, Écho, Ratchet roulé, Évolution) : clic sur le voyant = éteindre / rallumer tel qu'il était, clic sur le nom
+= ses réglages. **Essentiel / Avancé** choisit le niveau de détail (retenu dans le navigateur).
+
+**Réglages** :
 
 - **Motif** : la tuile du motif en cours ouvre la fenêtre de choix : 67 motifs classés en 10 catégories
   (Montées et descentes, Groupes qui grimpent — dont la **Double montée** A C E A′ · C E A′ C′ —, Sauts et
@@ -395,7 +401,7 @@ le moteur, `js/arppanel.js` pour la fenêtre, `js/motifs.js` pour le catalogue d
   degré de l'accord, ± octave, + quinte : spirales). **Ratchet roulé** : les répétitions d'un ratchet montent,
   descendent ou font l'aller-retour dans l'accord.
 
-**Onglet Geste** — rendre un arpège moins mécanique, groupe de notes par groupe de notes :
+**Geste** (module Geste, « Ajuster › ») — rendre un arpège moins mécanique, groupe de notes par groupe de notes :
 
 - 6 **gestes tout prêts** : Mécanique, Balayage, Roulé, Boiteux, Détendu, Harpe ;
 - un **pavé** : horizontal = **étalement** (resserrer le groupe, puis respirer avant le suivant), vertical =

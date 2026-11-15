@@ -2,13 +2,16 @@
  * Arp One, la fenêtre de l'arpégiateur (moteur : js/arp.js) d'une piste Arpège ; titre : « Arp One · piste — partie ».
  *
  *   En-tête (toujours visible) : ▶ lecture en boucle sur un accord d'essai, grille des pas avec curseur,
- *     vélocités ; un clic sur un pas règle sa vélocité, sa longueur, ses notes à la fois ou en fait un silence.
+ *     éditeur de lignes (vélocité ; en mode Avancé : rythme, degré, vitesse, ratchet, longueur, notes, octave,
+ *     probabilité), dessiné en glissant ; un clic sur un pas ouvre tous ses réglages.
  *     La boucle dure le plus petit nombre de mesures entières qui contient au moins 16 pas et un cycle complet
  *     du motif ; la grille la montre en entier (colonnes plus étroites, mais jamais moins de MIN_COL_PX pixels :
  *     au-delà, elle défile pour suivre le curseur).
- *   Onglet Arpège : motif (tuile → fenêtre de choix, js/motifs.js), vitesse, octaves, pas, geste, durée des notes.
- *   Onglet Geste : gestes tout prêts, pavé (étalement × alternance), zoom sur un groupe, 5 curseurs dans l'ordre
- *     d'application (étalement, alternance, microvariation, accent, articulation), écoute Régulier / Geste.
+ *   Modules (liste à gauche, voyant = actif, clic sur le voyant = allumer / éteindre) : Motif, Rythme, Accord,
+ *     Pas à pas, Geste, Écho, Ratchet roulé, Évolution ; le module choisi s'affiche à droite.
+ *   Niveau Essentiel / Avancé (en-tête) : Essentiel montre les modules principaux et ceux qui sont allumés.
+ *   Geste (« Ajuster › ») : gestes tout prêts, pavé (étalement × alternance), zoom sur un groupe, 5 curseurs dans
+ *     l'ordre d'application (étalement, alternance, microvariation, accent, articulation), écoute Régulier / Geste.
  *
  * Tout réglage est écrit dans track.arp (normalisé par SS.Arp.normalize) et s'entend tout de suite.
  */
@@ -77,15 +80,16 @@ SS.arpPanel = (() => {
   }
 
   function setStep(i, patch, opts) {
-    const lanes = sizedLanes(track.arp, P());
+    // chaque ligne garde sa longueur (polymétrie) ; une ligne vide prend la longueur du motif
+    const lanes = clone(track.arp.lanes);
+    const names = { play: 'rhythm', vel: 'vel', len: 'len', poly: 'poly', ratchet: 'ratchet', div: 'div', deg: 'deg' };
     const idx = i == null ? [...Array(P()).keys()] : [i];
-    idx.forEach((j) => {
-      if ('play' in patch) lanes.rhythm[j] = patch.play ? 1 : 0;
-      if ('vel' in patch) lanes.vel[j] = patch.vel;
-      if ('len' in patch) lanes.len[j] = patch.len;
-      for (const k of ['poly', 'ratchet', 'div', 'deg']) if (k in patch) lanes[k][j] = patch[k];
-    });
-    set({ lanes, rhythm: { ...track.arp.rhythm, type: 'lane' } }, opts);
+    for (const [k, name] of Object.entries(names)) {
+      if (!(k in patch)) continue;
+      lanes[name] = laneValues(name);
+      idx.forEach((j) => (lanes[name][j % lanes[name].length] = k === 'play' ? (patch.play ? 1 : 0) : patch[k]));
+    }
+    set('play' in patch ? { lanes, rhythm: { ...track.arp.rhythm, type: 'lane' } } : { lanes }, opts);
   }
 
   const trackChord = () => {
@@ -322,54 +326,133 @@ SS.arpPanel = (() => {
     return wrap;
   }
 
-  /** Rangée de vélocités sous la grille : cliquer / glisser verticalement pour régler chaque pas. */
-  function velRow() {
-    const p = P();
-    const row = h('div', { class: 'arp-vels', title: 'Vélocité de chaque pas : cliquer / glisser verticalement' });
+  /*
+   * Éditeur de lignes sous la grille : une ligne de pas à la fois (vélocité, rythme, degré…), dessinée en glissant.
+   * Les colonnes sont alignées sur la grille ; au-delà de la longueur de la ligne, les valeurs se répètent (grisées).
+   */
+  const LANE_UI = [
+    { id: 'vel', label: 'Vélocité', kind: 'bar', min: 0.05, max: 1, step: 0.05, from0: true, fmt: (v) => `${Math.round(v * 100)}` },
+    { id: 'rhythm', label: 'Rythme', kind: 'toggle', fmt: (v) => (v ? '●' : '·') },
+    { id: 'deg', label: 'Degré', kind: 'bi', min: -2, max: 2, step: 1, fmt: (v) => (v > 0 ? `+${v}` : v < 0 ? `−${-v}` : '0') },
+    { id: 'div', label: 'Vitesse ×', kind: 'bar', min: 1, max: 4, step: 1, fmt: (v) => `×${v}` },
+    { id: 'ratchet', label: 'Ratchet', kind: 'bar', min: 1, max: 4, step: 1, fmt: (v) => String(v) },
+    { id: 'len', label: 'Longueur', kind: 'list', opts: [0, 1, 2, 4, 8, 16], fmt: (v) => (v ? (v >= 4 ? `${v / 4}t` : `${v}/4`) : '–') },
+    { id: 'poly', label: 'Notes', kind: 'bar', min: 1, max: 3, step: 1, fmt: (v) => String(v) },
+    { id: 'oct', label: 'Octave', kind: 'bi', min: -2, max: 2, step: 1, fmt: (v) => (v > 0 ? `+${v}` : v < 0 ? `−${-v}` : '0') },
+    { id: 'prob', label: 'Probabilité', kind: 'bar', min: 0, max: 1, step: 0.05, fmt: (v) => `${Math.round(v * 100)}` },
+  ];
+  let laneSel = 'vel';
+  const laneUi = () => LANE_UI.find((x) => x.id === laneSel) || LANE_UI[0];
+
+  /** Valeurs actuelles d'une ligne (copie) ; ligne vide : la valeur neutre sur la longueur du motif. */
+  function laneValues(name, arp = track.arp) {
+    const l = arp.lanes[name];
+    if (name === 'rhythm' && !(arp.rhythm.type === 'lane' && l.length)) {
+      return arp.rhythm.type === 'euclid' ? A().euclid(arp.rhythm.hits, arp.rhythm.steps, arp.rhythm.rot) : Array(P()).fill(1);
+    }
+    return l.length ? l.slice() : Array(P()).fill(A().LANES[name].def);
+  }
+  function writeLane(name, values, opts) {
+    const patch = { lanes: { ...track.arp.lanes, [name]: values } };
+    if (name === 'rhythm') patch.rhythm = { ...track.arp.rhythm, type: 'lane' };
+    set(patch, opts);
+  }
+
+  /** Hauteur (0..1) et sens d'une cellule pour l'affichage. */
+  function cellShape(u, v) {
+    if (u.kind === 'toggle') return { lo: 0, hi: v ? 1 : 0 };
+    if (u.kind === 'list') return { lo: 0, hi: Math.max(0.04, u.opts.indexOf(v) / (u.opts.length - 1)) };
+    if (u.kind === 'bi') {
+      const mid = 0.5;
+      const f = (v - u.min) / (u.max - u.min);
+      return f >= mid ? { lo: mid, hi: Math.max(f, mid + 0.03) } : { lo: f, hi: mid };
+    }
+    return { lo: 0, hi: Math.max(0.04, (v - u.min) / (u.max - u.min)) };
+  }
+  function valueAt(u, f, cur) {
+    if (u.kind === 'toggle') return cur;
+    if (u.kind === 'list') return u.opts[Math.round(f * (u.opts.length - 1))];
+    const lo = u.from0 ? 0 : u.min; // vélocité : la hauteur se lit de 0 à 100 % (au moins 5 %)
+    const v = lo + Math.round((f * (u.max - lo)) / u.step) * u.step;
+    return Math.round(Math.max(u.min, Math.min(u.max, v)) * 100) / 100;
+  }
+
+  function laneRow() {
+    const u = laneUi();
     const info = loopInfo();
-    const off = 0;
     const C = info.ticks;
+    const row = h('div', { class: 'arp-vels lane-' + u.kind, title: `${u.label} de chaque pas : cliquer / glisser verticalement` });
     if (C > 20) row.classList.add('dense');
     const L = gridLayout();
     if (L.scroll) row.style.width = `${L.px.toFixed(0)}px`;
+    let vals = laneValues(u.id);
+    const cells = [];
+    const paint = () =>
+      cells.forEach((c, i) => {
+        const v = vals[i % vals.length];
+        const sh = cellShape(u, v);
+        c.firstChild.style.bottom = `${sh.lo * 100}%`;
+        c.firstChild.style.height = `${(sh.hi - sh.lo) * 100}%`;
+        c.lastChild.textContent = C <= 24 ? u.fmt(v) : '';
+      });
     for (let i = 0; i < C; i++) {
-      const k = (off + i) % p;
-      const v = stepValues(k).vel;
-      row.append(h('span', { class: 'arp-vel' + (k !== off + i ? ' rep' : '') + (sel != null && k === sel ? ' sel' : '') }, h('i', { style: `height:${Math.round(v * 100)}%` })));
+      const c = h('span', { class: 'arp-vel' + (i >= vals.length ? ' rep' : '') + (sel != null && i % P() === sel ? ' sel' : '') }, h('i'), h('em'));
+      cells.push(c);
+      row.append(c);
     }
+    paint();
     let drag = false;
+    let paintVal = null; // ligne Rythme : on peint la valeur du premier pas touché
     const apply = (e, push) => {
       const r = row.getBoundingClientRect();
       const i = Math.max(0, Math.min(C - 1, Math.floor(((e.clientX - r.left) / r.width) * C)));
-      const v = Math.max(0.05, Math.min(1, Math.round((1 - (e.clientY - r.top) / r.height) * 20) / 20));
-      if (off + i >= info.ticks) return;
-      const j = (off + i) % p;
-      if (!push && stepValues(j).vel === v) return;
+      const f = Math.max(0, Math.min(1, 1 - (e.clientY - r.top) / r.height));
+      const j = i % vals.length;
+      if (u.kind === 'toggle' && push) paintVal = vals[j] ? 0 : 1;
+      const v = u.kind === 'toggle' ? paintVal : valueAt(u, f, vals[j]);
+      if (!push && vals[j] === v) return;
+      vals = vals.slice();
+      vals[j] = v;
       if (push) undo.push(clone(track.arp));
-      const lanes = sizedLanes(track.arp, p);
-      lanes.vel[j] = v;
-      // la vélocité seule ne doit pas activer la ligne de rythme si elle n'existe pas encore
-      if (!track.arp.lanes.rhythm.length && track.arp.rhythm.type !== 'lane') lanes.rhythm = [];
-      track.arp = A().normalize({ ...track.arp, lanes, preset: '' });
-      row.querySelectorAll('.arp-vel').forEach((c, k) => off + k < info.ticks && (off + k) % p === j && (c.firstChild.style.height = `${Math.round(v * 100)}%`));
+      const patch = { ...track.arp, lanes: { ...track.arp.lanes, [u.id]: vals }, preset: '' };
+      if (u.id === 'rhythm') patch.rhythm = { ...track.arp.rhythm, type: 'lane' };
+      track.arp = A().normalize(patch);
+      paint();
       app.changed();
     };
     row.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       row.setPointerCapture(e.pointerId);
       drag = true;
+      sliding = true;
       apply(e, true);
     });
     row.addEventListener('pointermove', (e) => drag && apply(e, false));
     const end = () => {
-      if (drag) {
-        drag = false;
-        render();
-      }
+      if (!drag) return;
+      drag = false;
+      sliding = false;
+      render();
     };
     row.addEventListener('pointerup', end);
     row.addEventListener('pointercancel', end);
-    return h('div', { class: 'arp-vel-wrap' }, h('span', { class: 'dlg-label' }, 'Vélocité'), row);
+    const advanced = level === 'avance';
+    const tabs = advanced
+      ? h(
+          'div',
+          { class: 'arp-lanetabs', role: 'tablist', 'aria-label': 'Ligne de pas à éditer' },
+          LANE_UI.map((x) =>
+            h('button', { type: 'button', role: 'tab', 'aria-selected': String(x.id === u.id), class: (x.id === u.id ? 'on' : '') + (laneTouched(x.id) ? ' touched' : ''), onclick: () => ((laneSel = x.id), render()) }, x.label)
+          )
+        )
+      : h('span', { class: 'dlg-label' }, 'Vélocité');
+    return h('div', { class: 'arp-vel-wrap' }, tabs, row);
+  }
+  /** La ligne a-t-elle été modifiée (non vide et pas entièrement neutre) ? */
+  function laneTouched(name, arp = track.arp) {
+    if (name === 'rhythm') return arp.rhythm.type !== 'all' && !(arp.rhythm.type === 'lane' && arp.lanes.rhythm.every((v) => v));
+    const l = arp.lanes[name];
+    return l.length > 0 && l.some((v) => v !== A().LANES[name].def);
   }
 
   const LENGTHS = [
@@ -505,7 +588,7 @@ SS.arpPanel = (() => {
         return [
           h('div', { class: 'arp-pager' }, h('span', {}, `Boucle : ${info.bars} mesure${info.bars > 1 ? 's' : ''} · ${info.ticks} pas`), L.scroll ? h('small', {}, '↔ la grille défile avec la lecture') : null),
           // grille et vélocités défilent ensemble quand les colonnes ne tiennent pas dans la fenêtre
-          h('div', { class: 'arp-scroll' + (L.scroll ? ' on' : '') }, gridSvg(track.arp, src.notes), velRow()),
+          h('div', { class: 'arp-scroll' + (L.scroll ? ' on' : '') }, gridSvg(track.arp, src.notes), laneRow()),
         ];
       })(),
       stepPanel(),
@@ -638,7 +721,7 @@ SS.arpPanel = (() => {
   }
 
   /* ---------- Geste : étalement, alternance, microvariation, accent, articulation (moteur : SS.Arp.gesteTimes) ---------- */
-  let tab = 'arp'; // onglet sous l'en-tête : 'arp' (réglages) ou 'geste' (ajuster le geste)
+  let gesteOpen = false; // module Geste : réglage fin affiché
   let gesteCompare = 'geste'; // écoute : 'geste' ou 'regulier' (le même arpège, sans geste)
   const MECA = () => A().GESTES[0];
   const gesteOf = () => track.arp.geste || A().normGeste({ id: MECA().id, ...MECA().g });
@@ -840,49 +923,224 @@ SS.arpPanel = (() => {
     return vals.every((v) => v === vals[0]) ? vals[0] : '';
   }
 
-  function settingsView() {
+  /* ---------- Modules : chaque famille de réglages, avec un voyant (actif ou non) et un résumé ---------- */
+
+  // niveau d'affichage : 'essentiel' (moins de modules, la ligne Vélocité seule) ou 'avance' (tout) — retenu dans ce navigateur
+  const LEVEL_KEY = 'stepseq.arp.level';
+  let level = 'essentiel';
+  try {
+    if (localStorage.getItem(LEVEL_KEY) === 'avance') level = 'avance';
+  } catch (e) {
+    /* stockage indisponible */
+  }
+  function setLevel(v) {
+    level = v;
+    if (v !== 'avance') laneSel = 'vel';
+    try {
+      localStorage.setItem(LEVEL_KEY, v);
+    } catch (e) {
+      /* stockage indisponible */
+    }
+    render();
+  }
+  let mod = 'motif'; // module affiché
+  const memo = {}; // réglages d'un module éteint, pour le rallumer tel qu'il était (le temps de la fenêtre)
+
+  const ALL_LANES = () => ['rhythm', ...Object.keys(A().LANES)];
+  const label = (list, id) => (list.find((x) => x.id === id) || {}).label || '';
+  const MODULES = [
+    {
+      id: 'motif', name: 'Motif', basic: true,
+      sum: (a) => `${currentMotif().name} · ${a.octaves} octave${a.octaves > 1 ? 's' : ''}`,
+    },
+    {
+      id: 'rythme', name: 'Rythme', basic: true,
+      sum: (a) => `${A().rateLabel(a.rate)} · ${a.steps} pas` + (a.noteLen > 0 ? ` · notes de ${label(LENGTHS, a.noteLen)}` : ''),
+    },
+    {
+      id: 'accord', name: 'Accord', basic: true,
+      on: (a) => a.inversion !== 'asis' || a.voicing !== 'close',
+      keys: ['inversion', 'voicing'], off: { inversion: 'asis', voicing: 'close' }, def: { inversion: 'smooth' },
+      sum: (a) => (a.inversion === 'asis' && a.voicing === 'close' ? 'tel que joué' : `${a.inversion === 'asis' ? 'tel quel' : label(A().INVERSIONS, a.inversion)} · ${label(A().VOICINGS, a.voicing)}`),
+    },
+    {
+      id: 'pas', name: 'Pas à pas',
+      on: (a) => ALL_LANES().some((k) => laneTouched(k, a)),
+      keys: ['lanes', 'rhythm', 'laneDir'], off: { lanes: {}, rhythm: { type: 'all' }, laneDir: {} },
+      sum: (a) => {
+        const t = LANE_UI.filter((x) => laneTouched(x.id, a)).map((x) => x.label);
+        return t.length ? t.join(', ') : 'aucune ligne modifiée';
+      },
+    },
+    {
+      id: 'geste', name: 'Geste', basic: true,
+      on: (a) => !!a.geste,
+      keys: ['geste'], off: { geste: undefined }, def: () => ({ geste: { id: 'detendu', ...A().GESTES.find((x) => x.id === 'detendu').g } }),
+      sum: (a) => (a.geste ? label(A().GESTES, a.geste.id) || 'personnalisé' : 'régulier'),
+    },
+    {
+      id: 'echo', name: 'Écho', basic: true,
+      on: (a) => a.echo.n > 0,
+      keys: ['echo'], off: (a) => ({ echo: { ...a.echo, n: 0 } }), def: (a) => ({ echo: { ...a.echo, n: 2 } }),
+      sum: (a) => (a.echo.n ? `${a.echo.n} × ${label(A().ECHO_SHIFTS, a.echo.shift).toLowerCase()}` : 'éteint'),
+    },
+    {
+      id: 'roll', name: 'Ratchet roulé',
+      on: (a) => a.roll !== 'none',
+      keys: ['roll'], off: { roll: 'none' }, def: { roll: 'up' },
+      sum: (a) => (a.roll !== 'none' ? label(A().ROLLS, a.roll) : 'éteint'),
+    },
+    {
+      id: 'evol', name: 'Évolution',
+      on: (a) => a.evolve > 0 || a.motion > 0 || a.harmony !== 'chord' || a.swing > 0.5,
+      keys: ['evolve', 'motion', 'harmony', 'swing'], off: { evolve: 0, motion: 0, harmony: 'chord', swing: 0.5 }, def: { evolve: 0.4 },
+      sum: (a) => {
+        const t = [];
+        if (a.evolve > 0) t.push(`variations ${Math.round(a.evolve * 100)} %`);
+        if (a.motion > 0) t.push(`mouvement ${Math.round(a.motion * 100)} %`);
+        if (a.harmony !== 'chord') t.push(label(A().HARMONY, a.harmony).toLowerCase());
+        if (a.swing > 0.5) t.push('swing');
+        return t.length ? t.join(' · ') : 'éteint';
+      },
+    },
+  ];
+  const visibleModules = () => MODULES.filter((m) => level === 'avance' || m.basic || (m.on && m.on(track.arp)) || m.id === mod);
+
+  function toggleModule(m) {
+    const a = track.arp;
+    if (m.on(a)) {
+      memo[m.id] = clone(Object.fromEntries(m.keys.map((k) => [k, a[k]])));
+      set(typeof m.off === 'function' ? m.off(a) : { ...m.off }); // copie simple : « geste: undefined » doit rester
+    } else {
+      const back = memo[m.id] && m.keys.some((k) => JSON.stringify(memo[m.id][k]) !== JSON.stringify((typeof m.off === 'function' ? m.off(a) : m.off)[k]));
+      if (back) set(clone(memo[m.id]));
+      else if (m.def) set(typeof m.def === 'function' ? m.def(a) : clone(m.def));
+      // sans réglage à rallumer (Pas à pas jamais modifié) : on ouvre simplement le module
+    }
+    mod = m.id;
+    render();
+  }
+
+  function modulesNav() {
+    const a = track.arp;
+    return h(
+      'nav',
+      { class: 'arp-modnav', 'aria-label': 'Modules de l’arpégiateur' },
+      visibleModules().map((m) => {
+        const on = m.on ? m.on(a) : true;
+        return h(
+          'div',
+          { class: 'arp-mod' + (mod === m.id ? ' active' : '') + (on ? ' on' : '') },
+          m.on
+            ? h('button', { type: 'button', class: 'arp-led', 'aria-pressed': String(on), 'aria-label': `${on ? 'Éteindre' : 'Allumer'} : ${m.name}`, title: on ? 'Éteindre' : 'Allumer', onclick: () => toggleModule(m) })
+            : h('span', { class: 'arp-led fixed', 'aria-hidden': 'true' }),
+          h('button', { type: 'button', class: 'arp-mod-btn', 'aria-current': mod === m.id ? 'true' : null, onclick: () => ((mod = m.id), render()) }, h('b', {}, m.name), h('small', {}, m.sum(a)))
+        );
+      })
+    );
+  }
+
+  const adv = () => level === 'avance';
+  const help = (t) => h('small', { class: 'arp-fhelp' }, t);
+
+  function modulePane() {
     const arp = track.arp;
     const rs = splitRate(arp.rate);
-    return h(
-      'section',
-      { class: 'arp-form' },
-      formRow('Motif', motifTile()),
-      formRow(
-        'Vitesse',
-        segmented(BASE_RATES, rs ? rs.base : '', (v) => set({ rate: +v * (rs ? rs.feel : 1) }), 'Vitesse'),
-        segmented(FEEL, rs ? rs.feel : '', (v) => set({ rate: (rs ? rs.base : 1) * +v }), 'Triolet ou pointée')
-      ),
-      formRow('Octaves', segmented([1, 2, 3, 4].map((o) => ({ id: o, label: String(o) })), arp.octaves, (v) => set({ octaves: +v }), 'Octaves')),
-      formRow(
-        'Renversement',
-        segmented(A().INVERSIONS.map((x) => ({ id: x.id, label: x.short, hint: `${x.label} — ${x.hint}` })), arp.inversion, (v) => set({ inversion: v }), 'Renversement de l’accord'),
-        h('small', { class: 'arp-fhelp' }, 'quelle note de l’accord est à la basse (C, C/E, C/G…) ; « Proche » enchaîne les accords de la piste')
-      ),
-      formRow('Voicing', segmented(A().VOICINGS.map((x) => ({ id: x.id, label: x.label, hint: x.hint })), arp.voicing, (v) => set({ voicing: v }), 'Voicing')),
-      formRow(
-        'Lecture des pas',
-        segmented(A().LANE_DIRS, laneDirAll(arp), (v) => set({ laneDir: v === 'fwd' ? {} : Object.fromEntries(['rhythm', ...Object.keys(A().LANES)].map((k) => [k, v])) }), 'Sens de lecture des pas'),
-        h('small', { class: 'arp-fhelp' }, 'sens de lecture des réglages pas à pas (rythme, vélocité, degré…)')
-      ),
-      formRow(
-        'Écho',
-        segmented([0, 1, 2, 3, 4].map((n) => ({ id: n, label: n ? String(n) : 'Non' })), arp.echo.n, (v) => set({ echo: { ...arp.echo, n: +v } }), 'Nombre d’échos'),
-        arp.echo.n
-          ? [
-              segmented(A().ECHO_GAPS.map((g) => ({ id: g, label: g === 0.5 ? '½ pas' : g === 1.5 ? '1½ pas' : `${g} pas` })), arp.echo.gap, (v) => set({ echo: { ...arp.echo, gap: +v } }), 'Écart entre les échos'),
-              segmented(A().ECHO_SHIFTS, arp.echo.shift, (v) => set({ echo: { ...arp.echo, shift: v } }), 'Transposition des échos'),
-              slider('Atténuation', Math.round(arp.echo.decay * 100), 10, 95, 5, (x) => `${x} % à chaque écho`, (x, push) => set({ echo: { ...track.arp.echo, decay: x / 100 } }, { push })),
-            ]
-          : h('small', { class: 'arp-fhelp' }, 'chaque note se répète, plus faible, éventuellement transposée (spirales)')
-      ),
-      formRow('Ratchet roulé', segmented(A().ROLLS, arp.roll, (v) => set({ roll: v }), 'Ratchet roulé'), h('small', { class: 'arp-fhelp' }, 'les répétitions d’un ratchet parcourent l’accord')),
-      formRow('Pas', segmented([4, 8, 16].map((n) => ({ id: n, label: String(n) })), arp.steps, (v) => set({ steps: +v, lanes: sizedLanes(arp, +v) }), 'Nombre de pas du motif'), h('small', { class: 'arp-fhelp' }, 'longueur de la grille réglable pas à pas')),
-      formRow('Geste', h('div', { class: 'geste-line' }, gesteChips(false), h('button', { type: 'button', class: 'btn geste-adjust', title: 'Régler finement le geste', onclick: () => ((tab = 'geste'), render()) }, 'Ajuster ›'))),
-      formRow(
-        'Durée des notes',
-        segmented([{ id: 'geste', label: 'Selon le geste' }, ...LENGTHS], arp.noteLen > 0 ? arp.noteLen : 'geste', (v) => set(v === 'geste' ? { noteLen: 0 } : { noteLen: +v }), 'Durée des notes')
-      )
+    const m = MODULES.find((x) => x.id === mod) || MODULES[0];
+    const head = h('div', { class: 'arp-pane-head' }, h('h3', {}, m.name), m.on && !m.on(arp) && (m.def || memo[m.id]) ? h('button', { type: 'button', class: 'btn small', onclick: () => toggleModule(m) }, 'Allumer') : null);
+    let rows = [];
+    if (m.id === 'motif') {
+      rows = [
+        formRow('Motif', motifTile()),
+        formRow('Octaves', segmented([1, 2, 3, 4].map((o) => ({ id: o, label: String(o) })), arp.octaves, (v) => set({ octaves: +v }), 'Octaves')),
+      ];
+    } else if (m.id === 'rythme') {
+      rows = [
+        formRow(
+          'Vitesse',
+          segmented(BASE_RATES, rs ? rs.base : '', (v) => set({ rate: +v * (rs ? rs.feel : 1) }), 'Vitesse'),
+          segmented(FEEL, rs ? rs.feel : '', (v) => set({ rate: (rs ? rs.base : 1) * +v }), 'Triolet ou pointée')
+        ),
+        formRow('Pas', segmented([4, 8, 16].map((n) => ({ id: n, label: String(n) })), arp.steps, (v) => set({ steps: +v, lanes: sizedLanes(arp, +v) }), 'Nombre de pas du motif'), help('longueur du motif réglable pas à pas')),
+        formRow('Durée des notes', segmented([{ id: 'geste', label: arp.geste ? 'Selon le geste' : 'Selon la vitesse' }, ...LENGTHS], arp.noteLen > 0 ? arp.noteLen : 'geste', (v) => set(v === 'geste' ? { noteLen: 0 } : { noteLen: +v }), 'Durée des notes')),
+      ];
+    } else if (m.id === 'accord') {
+      const invs = A().INVERSIONS.filter((x) => adv() || !['3', 'cycle'].includes(String(x.id)) || x.id === arp.inversion);
+      rows = [
+        formRow('Renversement', segmented(invs.map((x) => ({ id: x.id, label: x.short, hint: `${x.label} — ${x.hint}` })), arp.inversion, (v) => set({ inversion: v }), 'Renversement de l’accord'), help('quelle note de l’accord est à la basse (C, C/E, C/G…) ; « Proche » enchaîne les accords de la piste en bougeant le moins possible')),
+        formRow('Voicing', segmented(A().VOICINGS.map((x) => ({ id: x.id, label: x.label, hint: x.hint })), arp.voicing, (v) => set({ voicing: v }), 'Voicing')),
+      ];
+    } else if (m.id === 'pas') {
+      const u = laneUi();
+      const cur = arp.lanes[u.id];
+      const len = cur.length || (u.id === 'rhythm' && arp.rhythm.type === 'euclid' ? arp.rhythm.steps : P());
+      const lenSel = h('select', { 'aria-label': 'Longueur de la ligne', onchange: (e) => {
+        const n = +e.target.value;
+        const src = laneValues(u.id);
+        writeLane(u.id, Array.from({ length: n }, (_, k) => src[k % src.length]));
+      } }, Array.from({ length: 32 }, (_, k) => k + 1).map((k) => h('option', { value: k, selected: k === len }, `${k} pas`)));
+      rows = [
+        h('p', { class: 'arp-help' }, adv() ? 'Choisis une ligne sous la grille, puis dessine-la en glissant. Chaque ligne a sa propre longueur : avec des longueurs différentes, le motif ne se répète pas pareil (polymétrie).' : 'Glisse sur la rangée sous la grille pour régler la vélocité de chaque pas ; le mode Avancé donne toutes les lignes (degré, vitesse, ratchet…).'),
+        adv() ? formRow('Ligne', h('b', { class: 'arp-lane-name' }, u.label), lenSel, h('button', { type: 'button', class: 'btn small', onclick: () => set(u.id === 'rhythm' ? { lanes: { ...arp.lanes, rhythm: [] }, rhythm: { ...arp.rhythm, type: 'all' } } : { lanes: { ...arp.lanes, [u.id]: [] } }) }, 'Remettre à zéro')) : null,
+        adv() ? formRow('Lecture de la ligne', segmented(A().LANE_DIRS, arp.laneDir[u.id] || 'fwd', (v) => set({ laneDir: { ...arp.laneDir, [u.id]: v } }), 'Sens de lecture de la ligne')) : null,
+        adv() && u.id === 'rhythm'
+          ? formRow(
+              'Rythme',
+              segmented([{ id: 'all', label: 'Tous les pas' }, { id: 'euclid', label: 'Euclidien' }, { id: 'lane', label: 'Dessiné' }], arp.rhythm.type, (v) => set({ rhythm: { ...arp.rhythm, type: v }, ...(v === 'lane' && !arp.lanes.rhythm.length ? { lanes: { ...arp.lanes, rhythm: laneValues('rhythm') } } : {}) }), 'Type de rythme'),
+              arp.rhythm.type === 'euclid'
+                ? [
+                    slider('Coups', arp.rhythm.hits, 0, arp.rhythm.steps, 1, (x) => `${x} sur ${track.arp.rhythm.steps}`, (x, push) => set({ rhythm: { ...track.arp.rhythm, hits: x } }, { push })),
+                    slider('Sur', arp.rhythm.steps, 2, 32, 1, (x) => `${x} pas`, (x, push) => set({ rhythm: { ...track.arp.rhythm, steps: x } }, { push })),
+                    slider('Décalage', arp.rhythm.rot, 0, arp.rhythm.steps - 1, 1, (x) => `${x}`, (x, push) => set({ rhythm: { ...track.arp.rhythm, rot: x } }, { push })),
+                  ]
+                : null
+            )
+          : null,
+        adv() ? formRow('Toutes les lignes', segmented(A().LANE_DIRS, laneDirAll(arp), (v) => set({ laneDir: v === 'fwd' ? {} : Object.fromEntries(ALL_LANES().map((k) => [k, v])) }), 'Sens de lecture de toutes les lignes'), help('même sens de lecture pour toutes les lignes')) : null,
+      ];
+    } else if (m.id === 'geste') {
+      rows = [
+        h('div', { class: 'geste-line' }, gesteChips(false), h('button', { type: 'button', class: 'btn geste-adjust', 'aria-expanded': String(gesteOpen), title: 'Régler finement le geste', onclick: () => ((gesteOpen = !gesteOpen), render()) }, gesteOpen ? 'Replier' : 'Ajuster ›')),
+        gesteOpen ? gesteTab() : null,
+      ];
+    } else if (m.id === 'echo') {
+      rows = [
+        formRow('Échos', segmented([0, 1, 2, 3, 4].map((n) => ({ id: n, label: n ? String(n) : 'Non' })), arp.echo.n, (v) => set({ echo: { ...arp.echo, n: +v } }), 'Nombre d’échos'), help('chaque note se répète, plus faible, éventuellement transposée (spirales)')),
+        arp.echo.n ? formRow('Écart', segmented(A().ECHO_GAPS.map((g) => ({ id: g, label: g === 0.5 ? '½ pas' : g === 1.5 ? '1½ pas' : `${g} pas` })), arp.echo.gap, (v) => set({ echo: { ...arp.echo, gap: +v } }), 'Écart entre les échos')) : null,
+        arp.echo.n ? formRow('Transposition', segmented(A().ECHO_SHIFTS, arp.echo.shift, (v) => set({ echo: { ...arp.echo, shift: v } }), 'Transposition des échos')) : null,
+        arp.echo.n && adv() ? formRow('Atténuation', slider('Atténuation', Math.round(arp.echo.decay * 100), 10, 95, 5, (x) => `${x} % à chaque écho`, (x, push) => set({ echo: { ...track.arp.echo, decay: x / 100 } }, { push }))) : null,
+      ];
+    } else if (m.id === 'roll') {
+      rows = [formRow('Ratchet roulé', segmented(A().ROLLS, arp.roll, (v) => set({ roll: v }), 'Ratchet roulé')), help('les répétitions d’un ratchet parcourent l’accord ; le nombre de répétitions se règle dans la ligne Ratchet (Pas à pas).')];
+    } else if (m.id === 'evol') {
+      rows = [
+        formRow('Variations', slider('Variations', Math.round(arp.evolve * 100), 0, 100, 5, (x) => (x ? `${x} %` : 'aucune'), (x, push) => set({ evolve: x / 100 }, { push })), help('d’une boucle à l’autre : nuances, notes déplacées, respirations (A, A′, B, A″)')),
+        formRow('Mouvement', slider('Mouvement', Math.round(arp.motion * 100), 0, 100, 5, (x) => (x ? `${x} %` : 'aucun'), (x, push) => set({ motion: x / 100 }, { push })), help('timbre, vélocité et durées qui ondulent lentement')),
+        formRow('Swing', slider('Swing', Math.round(arp.swing * 100), 50, 75, 1, (x) => (x > 50 ? `${x} %` : 'droit'), (x, push) => set({ swing: x / 100 }, { push }))),
+        formRow('Notes ajoutées', segmented(A().HARMONY.map((x) => ({ id: x.id, label: x.label, hint: x.hint })), arp.harmony, (v) => set({ harmony: v }), 'Notes ajoutées')),
+        adv() ? formRow('Lignes', segmented(A().RETRIG, arp.retrig, (v) => set({ retrig: v }), 'Relance des lignes'), help('à chaque accord, les lignes de pas repartent du début ; en libre, elles continuent')) : null,
+        formRow('Hasard', h('span', { class: 'arp-seed' }, `graine ${arp.seed}`), h('button', { type: 'button', class: 'btn small', title: 'Autres tirages pour les motifs aléatoires et les variations', onclick: () => set({ seed: arp.seed + 1 }) }, 'Nouvelle graine ↻')),
+      ];
+    }
+    return h('section', { class: 'arp-pane arp-form' }, head, rows);
+  }
+
+  function modulesView() {
+    return h('div', { class: 'arp-mods' }, modulesNav(), modulePane());
+  }
+
+  function levelSwitch() {
+    const el = segmented(
+      [
+        { id: 'essentiel', label: 'Essentiel', hint: 'les réglages principaux' },
+        { id: 'avance', label: 'Avancé', hint: 'tous les modules et toutes les lignes de pas' },
+      ],
+      level,
+      setLevel,
+      'Niveau de détail'
     );
+    el.classList.add('arp-level');
+    return el;
   }
 
   /** Titre de la fenêtre : « Nom de la piste — Partie » (la partie = la scène en cours, s'il y en a plusieurs ou une nommée). */
@@ -899,13 +1157,9 @@ SS.arpPanel = (() => {
     const scroll = body.scrollTop;
     const old = body.querySelector('.arp-scroll');
     const gridScroll = old ? old.scrollLeft : 0;
-    const tabs = h(
-      'div',
-      { class: 'arp-tabs2', role: 'tablist' },
-      h('button', { type: 'button', role: 'tab', 'aria-selected': String(tab === 'arp'), class: tab === 'arp' ? 'on' : '', onclick: () => ((tab = 'arp'), render()) }, 'Arpège'),
-      h('button', { type: 'button', role: 'tab', 'aria-selected': String(tab === 'geste'), class: tab === 'geste' ? 'on' : '', onclick: () => ((tab = 'geste'), render()) }, 'Geste')
-    );
-    body.replaceChildren(playerView(), h('div', { class: 'arp-tabbox' }, tabs, h('div', { class: 'arp-tabpanel', role: 'tabpanel' }, tab === 'arp' ? settingsView() : gesteTab())));
+    body.replaceChildren(playerView(), modulesView());
+    const lv = dlg.querySelector('.arp-level');
+    lv.replaceWith(levelSwitch());
     body.scrollTop = scroll;
     const sc = body.querySelector('.arp-scroll');
     if (sc) sc.scrollLeft = gridScroll;
@@ -920,7 +1174,7 @@ SS.arpPanel = (() => {
       h(
         'form',
         { method: 'dialog' },
-        h('div', { class: 'sd-head' }, h('h2', {}, h('span', { class: 'arp-brand' }, 'Arp One'), h('span', { class: 'arp-title' }, ''))),
+        h('div', { class: 'sd-head' }, h('h2', {}, h('span', { class: 'arp-brand' }, 'Arp One'), h('span', { class: 'arp-title' }, '')), h('span', { class: 'arp-level' })),
         h('div', { class: 'arp-body' }),
         h(
           'div',
@@ -999,7 +1253,8 @@ SS.arpPanel = (() => {
     undo = [];
     test = null;
     sel = null;
-    tab = 'arp';
+    gesteOpen = false;
+    mod = 'motif';
     gesteCompare = 'geste';
     render();
     dlg.showModal();
