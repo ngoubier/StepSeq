@@ -670,6 +670,20 @@ par la fenêtre **Key** :
 | `musicemotion` | Composer à partir d'une émotion : matrice émotion → procédés, trois pistes contrastées, essais A/B | Section Émotion : 13 intentions, propositions, essais A/B, modes |
 | `composer-melodies-accords-texte` | Mélodie sur une grille d'accords et des paroles ou une métrique : prosodie, rythme, notes cibles, contrôles, export MIDI | Key → Mélodie : scansion, proposition, tableau des notes, contrôles, écriture sur une piste |
 
+## Aides de l'interface
+
+Règle commune à toute l'application (`js/help.js`) : pas de ligne de texte d'aide sous un réglage, mais un
+petit **« ? »** à droite du libellé de la ligne. Au survol (ou au clavier), l'aide s'affiche en info-bulle ;
+au toucher, un appui l'ouvre. Une aide longue (plus de 160 caractères) montre son début en info-bulle et
+s'ouvre en entier dans une fenêtre avec une croix quand on clique sur le « ? ». Échap ferme l'info-bulle
+sans fermer la fenêtre en dessous.
+
+- En JavaScript : `SS.helpTip(texte, libellé)` crée le « ? ».
+- Texte d'aide écrit dans la page (`.fx-help`, `.mod-help` ou attribut `data-helpify`) : il est déplacé
+  automatiquement dans un « ? » à droite du titre ou du libellé qui le précède (`data-help-for="id"` pour en
+  viser un autre), y compris dans l'interface créée plus tard.
+- Les messages d'état (« Aucune chanson », compteurs, diagnostics) restent visibles : ce ne sont pas des aides.
+
 ## Structure du code
 
 | Fichier          | Rôle |
@@ -677,6 +691,7 @@ par la fenêtre **Key** :
 | `index.html`     | Structure de la page et dialogue d'ajout de piste |
 | `css/style.css`  | Thème et mise en page |
 | `icons/`        | Icône du projet : `stepseq.svg` (grille de pas + note, aussi logo de la barre du haut), `note-16.svg` (note seule pour le 16 px), PNG favicon 16 / 32 et icône d'écran d'accueil 180 |
+| `js/help.js`     | Aides de l'interface : « ? » à droite d'un libellé, info-bulle au survol, fenêtre pour une aide longue |
 | `js/library.js`  | Catalogue généré depuis strudel.cc (125 soundfonts gm_*, VCSL) |
 | `js/dirt.js`     | Catalogue généré des banques mélodiques de Dirt-Samples |
 | `js/sounds.js`   | Catalogue des sons (batterie, familles d'instruments, accords) |

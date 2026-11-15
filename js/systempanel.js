@@ -263,8 +263,16 @@ SS.systemPanel = (() => {
       'Poids estimé sur le moteur audio :', ...load.slice(0, 8).map((x) => '- ' + x.label + ' : ' + Math.round(x.share * 100) + ' %'), '',
       'Points à vérifier :', ...list.map((x) => '- ' + x), '',
       ...Object.entries(refs).filter(([k]) => !k.startsWith('hero')).map(([, e]) => e.previousElementSibling.textContent + ' : ' + e.textContent),
-      '', document.querySelector('.system-note').textContent,
+      '', systemNote(),
     ].join('\n');
+  }
+
+  /** Note sur la surveillance : dans le « ? » des Détails techniques (js/help.js), ou encore dans la page. */
+  function systemNote() {
+    const p = document.querySelector('.system-note');
+    if (p) return p.textContent;
+    const tip = document.querySelector('.sys-details > summary .help-tip');
+    return tip ? tip.dataset.help : '';
   }
 
   function stop() {

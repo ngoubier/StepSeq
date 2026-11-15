@@ -135,7 +135,7 @@ SS.melodyPanel = (() => {
   }
 
   function field(label, control, hint) {
-    return h('label', { class: 'mel-field' }, h('span', { class: 'dlg-label' }, label), control, hint ? h('small', { class: 'dlg-hint' }, hint) : null);
+    return h('label', { class: 'mel-field' }, h('span', { class: 'dlg-label' }, label, hint ? SS.helpTip(hint, label) : null), control);
   }
 
   function renderForm() {

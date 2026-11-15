@@ -486,30 +486,26 @@ SS.arpPanel = (() => {
         h(
           'div',
           { class: 'arp-field' },
-          h('span', { class: 'dlg-label' }, 'Notes à la fois'),
-          segmented([{ id: 1, label: '1' }, { id: 2, label: '2' }, { id: 3, label: '3' }], v.poly, (x) => setStep(sel, { poly: +x }), 'Notes à la fois'),
-          h('small', { class: 'arp-help' }, '2 = la note + la note de l’accord juste au-dessus.')
+          h('span', { class: 'dlg-label' }, 'Notes à la fois', SS.helpTip('2 = la note + la note de l’accord juste au-dessus.', 'Notes à la fois')),
+          segmented([{ id: 1, label: '1' }, { id: 2, label: '2' }, { id: 3, label: '3' }], v.poly, (x) => setStep(sel, { poly: +x }), 'Notes à la fois')
         ),
         h(
           'div',
           { class: 'arp-field' },
-          h('span', { class: 'dlg-label' }, 'Degré'),
-          segmented([-2, -1, 0, 1, 2].map((d) => ({ id: d, label: d > 0 ? `+${d}` : d < 0 ? `−${-d}` : '0' })), v.deg, (x) => setStep(sel, { deg: +x }), 'Degré'),
-          h('small', { class: 'arp-help' }, 'décale la note de ce pas d’une ou deux notes de l’accord (et non d’une octave).')
+          h('span', { class: 'dlg-label' }, 'Degré', SS.helpTip('décale la note de ce pas d’une ou deux notes de l’accord (et non d’une octave).', 'Degré')),
+          segmented([-2, -1, 0, 1, 2].map((d) => ({ id: d, label: d > 0 ? `+${d}` : d < 0 ? `−${-d}` : '0' })), v.deg, (x) => setStep(sel, { deg: +x }), 'Degré')
         ),
         h(
           'div',
           { class: 'arp-field' },
-          h('span', { class: 'dlg-label' }, 'Vitesse du pas'),
-          segmented([1, 2, 3, 4].map((d) => ({ id: d, label: `×${d}` })), v.div, (x) => setStep(sel, { div: +x }), 'Vitesse du pas'),
-          h('small', { class: 'arp-help' }, 'rafale : ×2 joue les deux notes suivantes de l’arpège dans ce pas.')
+          h('span', { class: 'dlg-label' }, 'Vitesse du pas', SS.helpTip('rafale : ×2 joue les deux notes suivantes de l’arpège dans ce pas.', 'Vitesse du pas')),
+          segmented([1, 2, 3, 4].map((d) => ({ id: d, label: `×${d}` })), v.div, (x) => setStep(sel, { div: +x }), 'Vitesse du pas')
         ),
         h(
           'div',
           { class: 'arp-field' },
-          h('span', { class: 'dlg-label' }, 'Ratchet'),
-          segmented([1, 2, 3, 4].map((d) => ({ id: d, label: String(d) })), v.ratchet, (x) => setStep(sel, { ratchet: +x }), 'Ratchet'),
-          h('small', { class: 'arp-help' }, 'répète la note dans le pas ; voir « Ratchet roulé » pour qu’elle parcoure l’accord.')
+          h('span', { class: 'dlg-label' }, 'Ratchet', SS.helpTip('répète la note dans le pas ; voir « Ratchet roulé » pour qu’elle parcoure l’accord.', 'Ratchet')),
+          segmented([1, 2, 3, 4].map((d) => ({ id: d, label: String(d) })), v.ratchet, (x) => setStep(sel, { ratchet: +x }), 'Ratchet')
         )
       )
     );
@@ -858,7 +854,7 @@ SS.arpPanel = (() => {
       h(
         'div',
         { class: 'geste-tab-head' },
-        h('small', { class: 'arp-help' }, (preset ? `${preset.label} — ${preset.desc}` : 'Personnalisé') + ` · groupes de ${n} notes`),
+        h('small', { class: 'arp-help' }, (preset ? `${preset.label} — ${preset.desc}` : 'Personnalisé') + ` · groupes de ${n} notes`, SS.helpTip('Pavé : glisser horizontalement pour l’étalement (serré → grille), verticalement pour l’alternance (notes paires en avance ↑ ou en retard ↓). Les curseurs 1 à 5 suivent l’ordre d’application.', 'Réglage fin du geste')),
         h('span', { class: 'spacer' }),
         h('span', { class: 'dlg-label' }, 'Écouter'),
         segmented(
@@ -875,7 +871,7 @@ SS.arpPanel = (() => {
       h(
         'div',
         { class: 'geste-detail' },
-        h('div', { class: 'geste-pad-col' }, gestePad(), h('small', { class: 'arp-help' }, 'Glisser : horizontal = étalement, vertical = alternance.')),
+        h('div', { class: 'geste-pad-col' }, gestePad()),
         h(
           'div',
           { class: 'geste-zoom' },
@@ -891,7 +887,7 @@ SS.arpPanel = (() => {
           h(
             'div',
             { class: 'ab' },
-            h('small', { class: 'arp-help' }, 'Pointillés : la grille · jaune : respiration avant le groupe suivant.'),
+            h('small', { class: 'arp-help' }, SS.helpTip('Pointillés : la grille · jaune : respiration avant le groupe suivant.', 'Zoom sur un groupe')),
             h('span', { class: 'spacer' }),
             h('button', { type: 'button', class: 'btn small', title: 'Tirer d’autres petits décalages', onclick: () => setGeste({ take: g.take + 1 }) }, `Nouvelle prise ↻ (prise ${g.take})`)
           )
@@ -910,7 +906,17 @@ SS.arpPanel = (() => {
   }
 
   /** Une ligne du formulaire : nom à gauche, réglage à droite. */
-  const formRow = (label, ...ctrl) => h('div', { class: 'arp-frow' }, h('span', { class: 'arp-flabel' }, label), h('div', { class: 'arp-fctrl' }, ...ctrl));
+  // les aides (help(…)) passent dans un « ? » à droite du libellé (js/help.js)
+  const formRow = (label, ...ctrl) => {
+    const flat = ctrl.flat(Infinity);
+    const tips = flat.filter((x) => x && x.__help).map((x) => x.__help);
+    return h(
+      'div',
+      { class: 'arp-frow' },
+      h('span', { class: 'arp-flabel' }, label, tips.length ? SS.helpTip(tips.join(' '), label) : null),
+      h('div', { class: 'arp-fctrl' }, ...flat.filter((x) => !(x && x.__help)))
+    );
+  };
 
   /** Sens de lecture commun à toutes les lignes (« fwd » si aucun, '' si les lignes ont des sens différents). */
   function laneDirAll(arp) {
@@ -1082,7 +1088,7 @@ SS.arpPanel = (() => {
       if (again) again.focus();
     });
     paint();
-    return h('div', { class: 'arp-knob', 'data-k': mc.id }, dial, h('b', { class: 'arp-knob-name' }, mc.label), now, h('small', {}, mc.what));
+    return h('div', { class: 'arp-knob', 'data-k': mc.id }, dial, h('b', { class: 'arp-knob-name' }, mc.label, SS.helpTip(`${mc.what[0].toUpperCase()}${mc.what.slice(1)}. Glisser vers le haut ou le bas (ou flèches du clavier). Le bouton remplace les réglages fins qu’il pilote ; « Défaire » revient en arrière.`, mc.label)), now);
   }
 
   function intuitiveView() {
@@ -1090,8 +1096,7 @@ SS.arpPanel = (() => {
       'div',
       { class: 'arp-intuitif' },
       h('div', { class: 'arp-motif-row' }, motifLine(), surprisePanel()),
-      h('div', { class: 'arp-knobs' }, A().MACROS.map(knob)),
-      h('small', { class: 'arp-help' }, 'Glisser un bouton vers le haut ou le bas (ou flèches du clavier). Chaque bouton remplace les réglages fins qu’il pilote ; « Défaire » revient en arrière. Les réglages fins restent dans Essentiel et Avancé.')
+      h('div', { class: 'arp-knobs' }, A().MACROS.map(knob))
     );
   }
 
@@ -1199,13 +1204,14 @@ SS.arpPanel = (() => {
   }
 
   const adv = () => level === 'avance';
-  const help = (t) => h('small', { class: 'arp-fhelp' }, t);
+  const help = (t) => ({ __help: t }); // aide d'une ligne : affichée par le « ? » de formRow
 
   function modulePane() {
     const arp = track.arp;
     const rs = splitRate(arp.rate);
     const m = MODULES.find((x) => x.id === mod) || MODULES[0];
-    const head = h('div', { class: 'arp-pane-head' }, h('h3', {}, m.name), m.on && !m.on(arp) && (m.def || memo[m.id]) ? h('button', { type: 'button', class: 'btn small', onclick: () => toggleModule(m) }, 'Allumer') : null);
+    const paneTip = m.id === 'pas' ? (adv() ? 'Choisis une ligne sous la grille, puis dessine-la en glissant. Chaque ligne a sa propre longueur : avec des longueurs différentes, le motif ne se répète pas pareil (polymétrie).' : 'Glisse sur la rangée sous la grille pour régler la vélocité de chaque pas ; le mode Avancé donne toutes les lignes (degré, vitesse, ratchet…).') : null;
+    const head = h('div', { class: 'arp-pane-head' }, h('h3', {}, m.name, paneTip ? SS.helpTip(paneTip, m.name) : null), m.on && !m.on(arp) && (m.def || memo[m.id]) ? h('button', { type: 'button', class: 'btn small', onclick: () => toggleModule(m) }, 'Allumer') : null);
     let rows = [];
     if (m.id === 'motif') {
       rows = [
@@ -1272,7 +1278,7 @@ SS.arpPanel = (() => {
         writeLane(u.id, Array.from({ length: n }, (_, k) => src[k % src.length]));
       } }, Array.from({ length: 32 }, (_, k) => k + 1).map((k) => h('option', { value: k, selected: k === len }, `${k} pas`)));
       rows = [
-        h('p', { class: 'arp-help' }, adv() ? 'Choisis une ligne sous la grille, puis dessine-la en glissant. Chaque ligne a sa propre longueur : avec des longueurs différentes, le motif ne se répète pas pareil (polymétrie).' : 'Glisse sur la rangée sous la grille pour régler la vélocité de chaque pas ; le mode Avancé donne toutes les lignes (degré, vitesse, ratchet…).'),
+        null,
         adv() ? formRow('Ligne', h('b', { class: 'arp-lane-name' }, u.label), lenSel, h('button', { type: 'button', class: 'btn small', onclick: () => set(u.id === 'rhythm' ? { lanes: { ...arp.lanes, rhythm: [] }, rhythm: { ...arp.rhythm, type: 'all' } } : { lanes: { ...arp.lanes, [u.id]: [] } }) }, 'Remettre à zéro')) : null,
         adv() ? formRow('Lecture de la ligne', segmented(A().LANE_DIRS, arp.laneDir[u.id] || 'fwd', (v) => set({ laneDir: { ...arp.laneDir, [u.id]: v } }), 'Sens de lecture de la ligne')) : null,
         adv() && u.id === 'rhythm'
@@ -1303,7 +1309,7 @@ SS.arpPanel = (() => {
         arp.echo.n && adv() ? formRow('Atténuation', slider('Atténuation', Math.round(arp.echo.decay * 100), 10, 95, 5, (x) => `${x} % à chaque écho`, (x, push) => set({ echo: { ...track.arp.echo, decay: x / 100 } }, { push }))) : null,
       ];
     } else if (m.id === 'roll') {
-      rows = [formRow('Ratchet roulé', segmented(A().ROLLS, arp.roll, (v) => set({ roll: v }), 'Ratchet roulé')), help('les répétitions d’un ratchet parcourent l’accord ; le nombre de répétitions se règle dans la ligne Ratchet (Pas à pas).')];
+      rows = [formRow('Ratchet roulé', segmented(A().ROLLS, arp.roll, (v) => set({ roll: v }), 'Ratchet roulé'), help('les répétitions d’un ratchet parcourent l’accord ; le nombre de répétitions se règle dans la ligne Ratchet (Pas à pas).'))];
     } else if (m.id === 'evol') {
       rows = [
         formRow('Variations', slider('Variations', Math.round(arp.evolve * 100), 0, 100, 5, (x) => (x ? `${x} %` : 'aucune'), (x, push) => set({ evolve: x / 100 }, { push })), help('d’une boucle à l’autre : nuances, notes déplacées, respirations (A, A′, B, A″)')),
