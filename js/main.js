@@ -501,7 +501,7 @@
    * Band : « Créer toute la chanson ». Remplace les pistes, les scènes et l'arrangement du projet par la chanson
    * écrite d'après le plan de l'inspiration (js/band-songs.js, js/bandsong.js). Ctrl+Z revient en arrière.
    */
-  function addBandSong(list, preset, tempo, { melodySeed = 0, melody = null, gains = null } = {}) {
+  function addBandSong(list, preset, tempo, { melodySeed = 0, melody = null, harmony = null, gains = null } = {}) {
     const spec = SS.BandSongs && SS.BandSongs[preset.id];
     if (!spec) return addBandTracks(list, tempo, { replace: true });
     stop();
@@ -516,8 +516,8 @@
       return t;
     });
     project.tracks = created;
-    const res = SS.bandSong.build(spec, preset.id, created, { melodySeed, melody });
-    project.scenes = res.scenes.map(({ sec, ...sc }) => sc); // eslint-disable-line no-unused-vars
+    const res = SS.bandSong.build(spec, preset.id, created, { melodySeed, melody, harmony });
+    project.scenes = res.scenes.map(({ sec, spans, ...sc }) => sc); // eslint-disable-line no-unused-vars
     project.song = res.song;
     project.playMode = 'song';
     project.songLoop = false;

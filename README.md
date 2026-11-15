@@ -130,10 +130,13 @@ enregistrés avant cette correction sont transposés à l'ouverture pour sonner 
 
 ### Nouvelle chanson : l'assistant
 
-**Nouvelle chanson…** (menu de l'icône de l'application) part d'une chanson vide et ouvre un assistant en quatre
-étapes, dans la fenêtre Band (`js/band.js`). Des étapes 2 à 4, un bandeau de commande sous le titre (`#bwTransport`) :
+**Nouvelle chanson…** (menu de l'icône de l'application) part d'une chanson vide et ouvre un assistant en cinq
+étapes, dans la fenêtre Band (`js/band.js`). Des étapes 2 à 5, un bandeau de commande (`#bwTransport`) :
 lecture / pause / reprise (`SS.audio.pause` / `resume`), stop, position, **tempo** réglable (40–240 BPM, appliqué à
-l'écoute en cours et à la chanson créée) et **tonalité** (armure, accord de tonique) :
+l'écoute en cours et à la chanson créée) et **tonalité** (armure, accord de tonique). Il est sous le titre aux étapes
+Chanson et Intégration ; aux étapes Accords et Mélodie, les **scènes** sont en colonne à gauche, sous le titre (nom,
+mesures, accords, et l'émotion ou le caractère choisis), le bandeau à leur droite, et **▶ joue la scène choisie en
+boucle** (pas toute la chanson ; choisir une autre scène pendant l'écoute la fait jouer) :
 
 1. **Modèle** : le modèle d'instruments de Band (style, inspiration, musiciens, kit et éléments du batteur) ;
    **Chanson vide** ferme l'assistant ;
@@ -142,18 +145,32 @@ l'écoute en cours et à la chanson créée) et **tonalité** (armure, accord de
    case dessine ce que joue la piste (coups de batterie ou notes), une case en pointillés est un silence ;
    un bandeau donne l'ordre des scènes ; on écoute la chanson (ou à partir d'un bloc) et chaque scène en boucle,
    sur un projet temporaire (même mixage que la chanson créée) ;
-3. **Mélodie** : en haut, sur une ligne, le **caractère** de la mélodie (Inspiration, Chantante, Accrocheuse, Riff,
-   Planante, Lyrique), **🎲 Tout relancer** (`melodySeed`, les autres musiciens ne changent pas) et **⚙ Réglages fins**
-   en panneau (forme A A′ B A / A B A B / A A A A / A B A C, notes par phrase, rythme, mouvement, tessiture, fin).
-   Les scènes en onglets ; pour la scène choisie, la ligne des **phrases** : une carte par phrase, calée sur les
+3. **Accords** : la **grille** de la scène choisie, comme celle de Key (`{ step, len, degree, type, acc }`, degrés dans
+   la tonalité de la scène) : **tonalité** de la scène (tonique et mode ; la grille garde ses degrés), **Aimanter** (à la
+   mesure, à la demi-mesure, au temps), **Effacer**, **↺ Inspiration** (accords et tonalité d'origine). Un clic sur un
+   accord l'écoute et ouvre sa barre : **durée** 1, 2, 3, 4 temps ou 2 mesures (plus courte, l'accord suivant commence
+   plus tôt ; plus longue, elle prend sur les suivants), Enlever ; on le déplace en le glissant, on tire son bord
+   droit, <kbd>Suppr</kbd> l'enlève. La grille couvre toute la scène (un trou est tenu par l'accord d'avant). Dessous,
+   la palette **Simple / Avancé** (7, 9, sus…) de `SS.harmony.gridPalette` : clic pour écouter, glisser pour poser.
+   **✦ Trouver l'inspiration** ouvre une fenêtre : **mode** (du lydien au phrygien, `SS.MODE_MOODS`), **émotion**, puis
+   les **propositions** (trois pistes et grilles de référence, transposées sur la tonique de la scène) ; un clic sur
+   une proposition la fait jouer dans la scène, en boucle, avec le groupe (lecture, stop, tempo et tempo conseillé
+   dans la fenêtre) ; **Choisir** la pose dans la grille (tonalité et émotion comprises, tempo conseillé si coché),
+   **Annuler** ou <kbd>Échap</kbd> laisse la scène intacte. Le tout passe à `SS.bandSong.build` par l'option
+   `harmony` (`keys`, `chords`, `emotions` par section) ;
+4. **Mélodie** : pour la scène choisie, son **caractère** (Inspiration, Chantante, Accrocheuse, Riff, Planante,
+   Lyrique) et son nombre de **notes par phrase** (− / + : libre, puis 2 à 12), propres à chaque scène
+   (`melody.scenes`), **🎲 Relancer la scène** (graines des phrases de la scène, les autres scènes et musiciens ne
+   changent pas) et **⚙ Réglages fins** en panneau, pour toute la chanson (forme A A′ B A / A B A B / A A A A / A B A C,
+   rythme, mouvement, tessiture, fin). La ligne des **phrases** : une carte par phrase, calée sur les
    mesures et réglée sur place — lettre (même lettre = même rythme et même contour, ′ = fin variée) et rôle
    (question, réponse, contraste), jeu (**joue**, **tenue** : un court motif puis la dernière note tenue jusqu'au bout
    de la phrase, **silence**), longueur avec − / + (plus courte, la place libérée devient un silence : la mélodie
    peut être plus courte que la scène), 🎲 pour relancer les phrases d'une lettre. Dessous, la **piste d'accords**
    comme dans Key (degré, nom, rôle : `SS.harmony.role`) et la ligne de la mélodie ; l'**accompagnement** est replié
    sur une ligne, déplié avec **M**uet / **S**olo et **volume** (−30 à +6 dB, `gains` d'`addBandSong`) par instrument
-   et le menu **Pistes** ; écoute de la scène en boucle, la vue suit la lecture ;
-4. **Intégration** : cases à cocher par musicien (batterie, basse, nappes, arpèges, lead…) et par élément de batterie ;
+   et le menu **Pistes** ;
+5. **Intégration** : cases à cocher par musicien (batterie, basse, nappes, arpèges, lead…) et par élément de batterie ;
    **Créer la chanson** écrit les pistes cochées, les scènes et l'arrangement (tempo du bandeau, mixage
    automatique de Band). Ce qui est créé est exactement l'aperçu ; Ctrl+Z revient à la chanson vide.
 
