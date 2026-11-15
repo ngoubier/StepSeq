@@ -3782,3 +3782,14 @@ dialog.arp-dialog { width: min(940px, calc(100vw - 32px)); }
   .arp-mod { flex: 1 1 140px; }
   .arp-mod-btn small { display: none; }
 }
+/* Arp One : motif précédent / suivant, Surprends-moi */
+.arp-motif-line { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; }
+.arp-motif-line .arp-motif-tile { flex: 1 1 auto; min-width: 0; }
+.arp-motif-prev, .arp-motif-next { flex: none; min-width: 40px; min-height: 40px; padding: 0 12px; font-size: 18px; }
+.arp-surprise { background: #6a4cc9; color: #fff; font-weight: 600; }
+.arp-surprise:hover { background: #7a5bd9; }
+.arp-locks { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.arp-locks small { color: var(--muted); font-size: 12px; }
+.arp-lock { display: inline-flex; align-items: center; gap: 5px; }
+.arp-lock:not(.active) svg { opacity: .45; }
+.arp-takes { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }

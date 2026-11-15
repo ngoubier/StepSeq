@@ -381,7 +381,9 @@ longueur et son sens de lecture). En bas, des **modules** avec voyant et résum�
 Geste, Écho, Ratchet roulé, Évolution) : clic sur le voyant = éteindre / rallumer tel qu'il était, clic sur le nom
 = ses réglages. **Essentiel / Avancé** choisit le niveau de détail (retenu dans le navigateur).
 
-**Réglages** :
+**Réglages** — dans le module Motif, **‹ ›** passe au motif précédent / suivant, et **Surprends-moi** tire un
+nouvel arpège au hasard en gardant ce qui est verrouillé (le motif, le rythme, l'accord, les effets) ; chaque
+tirage est une prise, ‹ › revient aux précédentes jusqu'à l'arpège de départ.
 
 - **Motif** : la tuile du motif en cours ouvre la fenêtre de choix : 67 motifs classés en 10 catégories
   (Montées et descentes, Groupes qui grimpent — dont la **Double montée** A C E A′ · C E A′ C′ —, Sauts et
