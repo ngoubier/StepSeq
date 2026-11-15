@@ -16,6 +16,9 @@
 | `autoroute-de-minuit.stepseq.json` | « Autoroute de minuit » : morceau original, synthwave, Ré mineur, 104 BPM, 13 pistes dont **5 Juno-106** (basse, nappe, arpège, cuivres, lead) ; batterie Oberheim DMX et toms Simmons. Mode chanson (Intro · Couplet · Refrain · Couplet 2 · Refrain · Pont · Refrain ×2 · Outro, 72 mesures, 2:46). Mixé et masterisé. |
 | `autoroute-de-minuit.mp3` | Le morceau rendu par StepSeq (rendu hors temps réel, MP3 256 kbit/s). |
 | `autoroute-de-minuit.compose.py` | Script qui génère « Autoroute de minuit » : harmonie, patches et réglages Juno commentés. `--brut` : sans mixage. |
+| `maree-lente.stepseq.json` | « Marée lente » : morceau original, **ambient planant** (drones, nappes, piano électrique lointain), Ré majeur, 60 BPM, 8 pistes, sans batterie. Mode chanson (Aube · Nappes · Courant · Suspension · Retour · Dissolution, 72 mesures, 4:48). Mixé et masterisé en douceur. |
+| `maree-lente.mp3` | Le morceau rendu par StepSeq (rendu hors temps réel, MP3 256 kbit/s). |
+| `maree-lente.compose.py` | Script qui génère « Marée lente » : harmonie, voicings, automations et réglages du Cosmos commentés. `--brut` : sans mixage. |
 
 ## « Horizon magnétique » — Melodic Techno / EDM
 
@@ -139,3 +142,42 @@ Mesures faites sur une capture PCM directe de la sortie de StepSeq (EBU R128 ave
 - **Montée finale** : passe par Do m – Mib – Fa – **Ré** (la dominante), avec le thème qui grimpe vers Fa#, pour retomber sur Sol mineur.
 - **Avant le premier drop**, la basse ne joue que les contretemps ; la basse roulante est réservée aux drops.
 - **Drops** : crash + impact sub saturé (Sol grave) sur le premier temps, kick 909 plein, clap, hi-hats en doubles-croches et open hat à contretemps ; le drop final ajoute la ride, l'arpège pluck, le chœur et le piano doublé à l'octave.
+
+## Fiche de composition — « Marée lente »
+
+Ambient planant : pas de batterie, le temps est porté par la respiration des nappes (attaques de 2,5 à 7 s,
+relâchements de 4 à 9 s), une pédale de Ré qui ne s'arrête jamais et la reverb longue **Cosmos** (16 s, shimmer 35 %).
+
+- **Tonalité** : Ré majeur, couleur lydienne dans la Suspension ; **tempo** 60 BPM (une mesure = 4 s) ; 4/4.
+- **Cycle** (Nappes, Courant, Retour) : Dmaj9 | Bm11 | Gmaj9 | Asus4(9), degrés **I – vi – IV – V(sus)**, quatre mesures par accord,
+  sur la pédale D2–A2 du drone. La dominante reste suspendue (pas de Do♯ à la basse) : rien ne « tire », tout flotte.
+- **Suspension** : Em9 | Gmaj7(♯11) : le Do♯ sur Sol, au-dessus de la pédale de Ré, donne la couleur lydienne.
+- **Voicings des nappes**, sans fondamentale (le sub et le drone la donnent) :
+  F♯3–A3–C♯4–E4 → F♯3–A3–D4–E4 → F♯3–A3–B3–D4 → E3–A3–B3–D4 (La toujours commun, une ou deux voix bougent d'un pas).
+- **Mélodie** (piano électrique, écho 3/8 et Cosmos) : notes longues, chaque entrée d'accord sur une de ses notes ;
+  la variation du Retour reprend le contour une tierce plus haut et se pose sur Ré.
+- **Célesta** : notes clairsemées tirées au hasard (graine fixe) parmi les notes aiguës de l'accord, hors des temps forts.
+
+| Scène | Mesures | Écriture |
+|---|---:|---|
+| Aube | 8 | Drone de Ré et vent ; le filtre du drone s'ouvre, la nappe qui respire entre à mi-scène. |
+| Nappes | 16 | Le cycle d'accords apparaît, premières poussières de célesta, envoi Cosmos qui monte. |
+| Courant | 16 | Nappe de verre à l'octave, sub lointain, mélodie du piano électrique. |
+| Suspension | 8 | Em9 – Gmaj7♯11 sur la pédale de Ré, chœur ; le piano se dissout dans le Cosmos. |
+| Retour | 16 | Tout revient, mélodie variée plus haute, chœur sur Gmaj9 et Asus. |
+| Dissolution | 8 | Dernier Dmaj9, fondu général par automation ; la queue de la reverb termine le morceau. |
+
+| Piste | Son | Rôle |
+|-------|-----|------|
+| Drone de Ré | Drone (synthé, dérive aléatoire du filtre) | pédale D2–A2, attaque 7 s |
+| Nappe qui respire | Breathing Pad (PWM, filtre sur 8 mesures) | accords, chorus lent |
+| Nappe de verre | Glass Pad | accords une octave plus haut, à droite |
+| Sub lointain | Sub Bass (sinus), attaque 2,5 s | fondamentales des accords |
+| Piano électrique | GM E. Piano 1 | mélodie, écho 3/8 |
+| Poussière d'étoiles | GM Celesta | scintillements, écho 3/16 |
+| Chœur lointain | GM Pad Choir | Suspension et Retour |
+| Vent | Wind (bruit rose filtré) | texture d'Aube, Nappes, Suspension et Dissolution |
+
+**Mixage** : EQ qui creuse le bas-médium (300–500 Hz) des nappes empilées, aucune compression lourde ; master à compression
+lente (1,6:1, attaque 80 ms) et limiteur de sécurité à −1,5 dB qui ne travaille presque pas.
+Mesures du rendu (EBU R128, ffmpeg) : **−16,7 LUFS** intégrés, true peak −5,3 dBTP, LRA 10,5 LU : dynamique d'ambient conservée.

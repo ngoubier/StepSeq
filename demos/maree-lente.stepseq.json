@@ -1,0 +1,2403 @@
+{
+ "format": "stepseq",
+ "version": 3,
+ "title": "Marée lente",
+ "tempo": 60,
+ "timeSig": [
+  4,
+  4
+ ],
+ "bars": 16,
+ "groove": {
+  "res": 16,
+  "swing": 0.5,
+  "human": 0.06
+ },
+ "tracks": [
+  {
+   "id": "ti_drone",
+   "type": "instrument",
+   "name": "Drone de Ré",
+   "color": "#3b5bdb",
+   "volume": 0.3,
+   "mute": false,
+   "solo": false,
+   "category": "mono",
+   "family": "pads",
+   "instrument": "syn_drone",
+   "sfv": 0,
+   "chord": "maj",
+   "arp": {
+    "mode": "up",
+    "rate": 1,
+    "octaves": 1
+   },
+   "octave": 2,
+   "events": [
+    {
+     "step": 0,
+     "len": 256,
+     "notes": [
+      38,
+      45
+     ],
+     "vel": 0.55
+    }
+   ],
+   "sd": {
+    "cutoff": 380,
+    "q": 4,
+    "attack": 7,
+    "release": 9
+   },
+   "fx": {
+    "chorus": 0.3,
+    "chorusRate": 0.15,
+    "chorusDepth": 0.6,
+    "sendSpace": 0.35
+   },
+   "mix": {
+    "pan": 0,
+    "eq": {
+     "on": true,
+     "hp": {
+      "on": true,
+      "f": 32
+     },
+     "low": {
+      "f": 100,
+      "g": 0
+     },
+     "lm": {
+      "f": 300,
+      "g": -4,
+      "q": 0.8
+     },
+     "hm": {
+      "f": 2500,
+      "g": 0,
+      "q": 1
+     },
+     "high": {
+      "f": 6000,
+      "g": -3
+     }
+    },
+    "comp": {
+     "on": false,
+     "th": -18,
+     "ratio": 3,
+     "att": 0.01,
+     "rel": 0.15,
+     "knee": 6,
+     "makeup": 0
+    },
+    "lim": {
+     "on": false,
+     "ceil": -1,
+     "rel": 0.1
+    }
+   }
+  },
+  {
+   "id": "ti_breath",
+   "type": "instrument",
+   "name": "Nappe qui respire",
+   "color": "#1ea7ff",
+   "volume": 0.3,
+   "mute": false,
+   "solo": false,
+   "category": "chord",
+   "family": "pads",
+   "instrument": "syn_breathpad",
+   "sfv": 0,
+   "chord": "maj",
+   "arp": {
+    "mode": "up",
+    "rate": 1,
+    "octaves": 1
+   },
+   "octave": 3,
+   "events": [
+    {
+     "step": 0,
+     "len": 64,
+     "notes": [
+      54,
+      57,
+      61,
+      64
+     ],
+     "vel": 0.5,
+     "chord": "maj7"
+    },
+    {
+     "step": 64,
+     "len": 64,
+     "notes": [
+      54,
+      57,
+      62,
+      64
+     ],
+     "vel": 0.5,
+     "chord": "min7"
+    },
+    {
+     "step": 128,
+     "len": 64,
+     "notes": [
+      54,
+      57,
+      59,
+      62
+     ],
+     "vel": 0.5,
+     "chord": "maj7"
+    },
+    {
+     "step": 192,
+     "len": 64,
+     "notes": [
+      52,
+      57,
+      59,
+      62
+     ],
+     "vel": 0.5,
+     "chord": "sus4"
+    }
+   ],
+   "sd": {
+    "attack": 3.5,
+    "release": 6,
+    "cutoff": 900
+   },
+   "fx": {
+    "chorus": 0.45,
+    "chorusRate": 0.25,
+    "chorusDepth": 0.6,
+    "sendSpace": 0.45
+   },
+   "mix": {
+    "pan": -0.1,
+    "eq": {
+     "on": true,
+     "hp": {
+      "on": true,
+      "f": 160
+     },
+     "low": {
+      "f": 100,
+      "g": 0
+     },
+     "lm": {
+      "f": 380,
+      "g": -4,
+      "q": 0.8
+     },
+     "hm": {
+      "f": 3000,
+      "g": -1,
+      "q": 0.8
+     },
+     "high": {
+      "f": 9000,
+      "g": 1.5
+     }
+    },
+    "comp": {
+     "on": false,
+     "th": -18,
+     "ratio": 3,
+     "att": 0.01,
+     "rel": 0.15,
+     "knee": 6,
+     "makeup": 0
+    },
+    "lim": {
+     "on": false,
+     "ceil": -1,
+     "rel": 0.1
+    }
+   }
+  },
+  {
+   "id": "ti_glass",
+   "type": "instrument",
+   "name": "Nappe de verre",
+   "color": "#99e9f2",
+   "volume": 0.18,
+   "mute": false,
+   "solo": false,
+   "category": "chord",
+   "family": "pads",
+   "instrument": "syn_glasspad",
+   "sfv": 0,
+   "chord": "maj",
+   "arp": {
+    "mode": "up",
+    "rate": 1,
+    "octaves": 1
+   },
+   "octave": 4,
+   "events": [
+    {
+     "step": 0,
+     "len": 64,
+     "notes": [
+      66,
+      69,
+      73,
+      76
+     ],
+     "vel": 0.42,
+     "chord": "maj7"
+    },
+    {
+     "step": 64,
+     "len": 64,
+     "notes": [
+      66,
+      69,
+      74,
+      76
+     ],
+     "vel": 0.42,
+     "chord": "min7"
+    },
+    {
+     "step": 128,
+     "len": 64,
+     "notes": [
+      66,
+      69,
+      71,
+      74
+     ],
+     "vel": 0.42,
+     "chord": "maj7"
+    },
+    {
+     "step": 192,
+     "len": 64,
+     "notes": [
+      64,
+      69,
+      71,
+      74
+     ],
+     "vel": 0.42,
+     "chord": "sus4"
+    }
+   ],
+   "sd": {
+    "attack": 2.5,
+    "release": 5
+   },
+   "fx": {
+    "chorus": 0.5,
+    "chorusRate": 0.3,
+    "chorusDepth": 0.7,
+    "sendSpace": 0.55
+   },
+   "mix": {
+    "pan": 0.25,
+    "eq": {
+     "on": true,
+     "hp": {
+      "on": true,
+      "f": 300
+     },
+     "low": {
+      "f": 100,
+      "g": 0
+     },
+     "lm": {
+      "f": 800,
+      "g": -2,
+      "q": 1
+     },
+     "hm": {
+      "f": 2500,
+      "g": 0,
+      "q": 1
+     },
+     "high": {
+      "f": 10000,
+      "g": 2.5
+     }
+    },
+    "comp": {
+     "on": false,
+     "th": -18,
+     "ratio": 3,
+     "att": 0.01,
+     "rel": 0.15,
+     "knee": 6,
+     "makeup": 0
+    },
+    "lim": {
+     "on": false,
+     "ceil": -1,
+     "rel": 0.1
+    }
+   }
+  },
+  {
+   "id": "ti_sub",
+   "type": "instrument",
+   "name": "Sub lointain",
+   "color": "#2b8a3e",
+   "volume": 0.3,
+   "mute": false,
+   "solo": false,
+   "category": "mono",
+   "family": "bass",
+   "instrument": "syn_sub",
+   "sfv": 0,
+   "chord": "maj",
+   "arp": {
+    "mode": "up",
+    "rate": 1,
+    "octaves": 1
+   },
+   "octave": 1,
+   "events": [
+    {
+     "step": 0,
+     "len": 62,
+     "notes": [
+      38
+     ],
+     "vel": 0.55
+    },
+    {
+     "step": 64,
+     "len": 62,
+     "notes": [
+      35
+     ],
+     "vel": 0.55
+    },
+    {
+     "step": 128,
+     "len": 62,
+     "notes": [
+      31
+     ],
+     "vel": 0.55
+    },
+    {
+     "step": 192,
+     "len": 62,
+     "notes": [
+      33
+     ],
+     "vel": 0.55
+    }
+   ],
+   "sd": {
+    "attack": 2.5,
+    "decay": 1,
+    "sustain": 0.9,
+    "release": 4
+   },
+   "mix": {
+    "pan": 0,
+    "eq": {
+     "on": true,
+     "hp": {
+      "on": true,
+      "f": 28
+     },
+     "low": {
+      "f": 100,
+      "g": 0
+     },
+     "lm": {
+      "f": 200,
+      "g": -4,
+      "q": 1
+     },
+     "hm": {
+      "f": 2500,
+      "g": 0,
+      "q": 1
+     },
+     "high": {
+      "f": 8000,
+      "g": 0
+     }
+    },
+    "comp": {
+     "on": true,
+     "th": -22,
+     "ratio": 2,
+     "att": 0.05,
+     "rel": 0.4,
+     "knee": 6,
+     "makeup": 1
+    },
+    "lim": {
+     "on": false,
+     "ceil": -1,
+     "rel": 0.1
+    }
+   }
+  },
+  {
+   "id": "ti_rhodes",
+   "type": "instrument",
+   "name": "Piano électrique",
+   "color": "#ffd8a8",
+   "volume": 0.36,
+   "mute": false,
+   "solo": false,
+   "category": "mono",
+   "family": "keys",
+   "instrument": "gm_epiano1",
+   "sfv": 0,
+   "chord": "maj",
+   "arp": {
+    "mode": "up",
+    "rate": 1,
+    "octaves": 1
+   },
+   "octave": 4,
+   "events": [
+    {
+     "step": 0,
+     "len": 8,
+     "notes": [
+      69
+     ],
+     "vel": 0.61
+    },
+    {
+     "step": 8,
+     "len": 8,
+     "notes": [
+      73
+     ],
+     "vel": 0.55
+    },
+    {
+     "step": 16,
+     "len": 24,
+     "notes": [
+      76
+     ],
+     "vel": 0.61
+    },
+    {
+     "step": 40,
+     "len": 8,
+     "notes": [
+      74
+     ],
+     "vel": 0.55
+    },
+    {
+     "step": 48,
+     "len": 16,
+     "notes": [
+      73
+     ],
+     "vel": 0.61
+    },
+    {
+     "step": 64,
+     "len": 12,
+     "notes": [
+      74
+     ],
+     "vel": 0.61
+    },
+    {
+     "step": 76,
+     "len": 4,
+     "notes": [
+      71
+     ],
+     "vel": 0.55
+    },
+    {
+     "step": 80,
+     "len": 24,
+     "notes": [
+      69
+     ],
+     "vel": 0.61
+    },
+    {
+     "step": 104,
+     "len": 8,
+     "notes": [
+      66
+     ],
+     "vel": 0.55
+    },
+    {
+     "step": 112,
+     "len": 16,
+     "notes": [
+      64
+     ],
+     "vel": 0.61
+    },
+    {
+     "step": 128,
+     "len": 8,
+     "notes": [
+      66
+     ],
+     "vel": 0.61
+    },
+    {
+     "step": 136,
+     "len": 8,
+     "notes": [
+      69
+     ],
+     "vel": 0.55
+    },
+    {
+     "step": 144,
+     "len": 24,
+     "notes": [
+      71
+     ],
+     "vel": 0.61
+    },
+    {
+     "step": 168,
+     "len": 8,
+     "notes": [
+      74
+     ],
+     "vel": 0.55
+    },
+    {
+     "step": 176,
+     "len": 16,
+     "notes": [
+      73
+     ],
+     "vel": 0.61
+    },
+    {
+     "step": 192,
+     "len": 16,
+     "notes": [
+      71
+     ],
+     "vel": 0.61
+    },
+    {
+     "step": 208,
+     "len": 16,
+     "notes": [
+      69
+     ],
+     "vel": 0.61
+    },
+    {
+     "step": 224,
+     "len": 28,
+     "notes": [
+      64
+     ],
+     "vel": 0.61
+    }
+   ],
+   "fx": {
+    "delay": 0.32,
+    "delayTime": "3/8",
+    "delayFeedback": 0.45,
+    "sendSpace": 0.5,
+    "sendHall": 0.2
+   },
+   "mix": {
+    "pan": -0.15,
+    "eq": {
+     "on": true,
+     "hp": {
+      "on": true,
+      "f": 110
+     },
+     "low": {
+      "f": 100,
+      "g": 0
+     },
+     "lm": {
+      "f": 350,
+      "g": -2,
+      "q": 1
+     },
+     "hm": {
+      "f": 2500,
+      "g": -1,
+      "q": 0.8
+     },
+     "high": {
+      "f": 9000,
+      "g": 1
+     }
+    },
+    "comp": {
+     "on": true,
+     "th": -20,
+     "ratio": 2,
+     "att": 0.02,
+     "rel": 0.25,
+     "knee": 6,
+     "makeup": 1
+    },
+    "lim": {
+     "on": false,
+     "ceil": -1,
+     "rel": 0.1
+    }
+   }
+  },
+  {
+   "id": "ti_celesta",
+   "type": "instrument",
+   "name": "Poussière d'étoiles",
+   "color": "#e599f7",
+   "volume": 0.24,
+   "mute": false,
+   "solo": false,
+   "category": "mono",
+   "family": "mallets",
+   "instrument": "gm_celesta",
+   "sfv": 0,
+   "chord": "maj",
+   "arp": {
+    "mode": "up",
+    "rate": 1,
+    "octaves": 1
+   },
+   "octave": 6,
+   "events": [
+    {
+     "step": 106,
+     "len": 6,
+     "notes": [
+      86
+     ],
+     "vel": 0.34
+    },
+    {
+     "step": 118,
+     "len": 6,
+     "notes": [
+      81
+     ],
+     "vel": 0.28
+    },
+    {
+     "step": 153,
+     "len": 6,
+     "notes": [
+      86
+     ],
+     "vel": 0.34
+    },
+    {
+     "step": 162,
+     "len": 6,
+     "notes": [
+      78
+     ],
+     "vel": 0.27
+    },
+    {
+     "step": 165,
+     "len": 6,
+     "notes": [
+      81
+     ],
+     "vel": 0.27
+    },
+    {
+     "step": 218,
+     "len": 6,
+     "notes": [
+      81
+     ],
+     "vel": 0.33
+    }
+   ],
+   "fx": {
+    "delay": 0.38,
+    "delayTime": "3/16",
+    "delayFeedback": 0.5,
+    "sendSpace": 0.75
+   },
+   "mix": {
+    "pan": 0.35,
+    "eq": {
+     "on": true,
+     "hp": {
+      "on": true,
+      "f": 600
+     },
+     "low": {
+      "f": 100,
+      "g": 0
+     },
+     "lm": {
+      "f": 400,
+      "g": 0,
+      "q": 1
+     },
+     "hm": {
+      "f": 3500,
+      "g": -2,
+      "q": 1
+     },
+     "high": {
+      "f": 12000,
+      "g": 1
+     }
+    },
+    "comp": {
+     "on": false,
+     "th": -18,
+     "ratio": 3,
+     "att": 0.01,
+     "rel": 0.15,
+     "knee": 6,
+     "makeup": 0
+    },
+    "lim": {
+     "on": false,
+     "ceil": -1,
+     "rel": 0.1
+    }
+   }
+  },
+  {
+   "id": "ti_choir",
+   "type": "instrument",
+   "name": "Chœur lointain",
+   "color": "#f3f0ff",
+   "volume": 0.22,
+   "mute": false,
+   "solo": false,
+   "category": "chord",
+   "family": "pads",
+   "instrument": "gm_pad_choir",
+   "sfv": 0,
+   "chord": "maj",
+   "arp": {
+    "mode": "up",
+    "rate": 1,
+    "octaves": 1
+   },
+   "octave": 4,
+   "events": [],
+   "fx": {
+    "sendSpace": 0.6,
+    "sendHall": 0.2
+   },
+   "mix": {
+    "pan": 0.08,
+    "eq": {
+     "on": true,
+     "hp": {
+      "on": true,
+      "f": 220
+     },
+     "low": {
+      "f": 100,
+      "g": 0
+     },
+     "lm": {
+      "f": 500,
+      "g": -2.5,
+      "q": 1
+     },
+     "hm": {
+      "f": 3000,
+      "g": -1,
+      "q": 1
+     },
+     "high": {
+      "f": 8000,
+      "g": 0
+     }
+    },
+    "comp": {
+     "on": false,
+     "th": -18,
+     "ratio": 3,
+     "att": 0.01,
+     "rel": 0.15,
+     "knee": 6,
+     "makeup": 0
+    },
+    "lim": {
+     "on": false,
+     "ceil": -1,
+     "rel": 0.1
+    }
+   }
+  },
+  {
+   "id": "ti_wind",
+   "type": "instrument",
+   "name": "Vent",
+   "color": "#868e96",
+   "volume": 0.16,
+   "mute": false,
+   "solo": false,
+   "category": "mono",
+   "family": "fx",
+   "instrument": "syn_wind",
+   "sfv": 0,
+   "chord": "maj",
+   "arp": {
+    "mode": "up",
+    "rate": 1,
+    "octaves": 1
+   },
+   "octave": 4,
+   "events": [],
+   "sd": {
+    "attack": 5,
+    "release": 6,
+    "cutoff": 600
+   },
+   "fx": {
+    "sendSpace": 0.4
+   },
+   "mix": {
+    "pan": -0.3,
+    "eq": {
+     "on": true,
+     "hp": {
+      "on": true,
+      "f": 250
+     },
+     "low": {
+      "f": 100,
+      "g": 0
+     },
+     "lm": {
+      "f": 400,
+      "g": 0,
+      "q": 1
+     },
+     "hm": {
+      "f": 2500,
+      "g": 0,
+      "q": 1
+     },
+     "high": {
+      "f": 9000,
+      "g": -2
+     }
+    },
+    "comp": {
+     "on": false,
+     "th": -18,
+     "ratio": 3,
+     "att": 0.01,
+     "rel": 0.15,
+     "knee": 6,
+     "makeup": 0
+    },
+    "lim": {
+     "on": false,
+     "ceil": -1,
+     "rel": 0.1
+    }
+   }
+  }
+ ],
+ "scenes": [
+  {
+   "id": "sc_aube",
+   "name": "Aube",
+   "bars": 8,
+   "key": {
+    "tonic": "D",
+    "mode": "major"
+   },
+   "data": {
+    "ti_drone": {
+     "events": [
+      {
+       "step": 0,
+       "len": 128,
+       "notes": [
+        38,
+        45
+       ],
+       "vel": 0.65
+      }
+     ],
+     "auto": {
+      "filter": {
+       "0": -0.75,
+       "127": -0.1
+      }
+     },
+     "autoLen": 128
+    },
+    "ti_breath": {
+     "events": [
+      {
+       "step": 64,
+       "len": 64,
+       "notes": [
+        54,
+        57,
+        61,
+        64
+       ],
+       "vel": 0.42,
+       "chord": "maj7"
+      }
+     ],
+     "auto": {
+      "filter": {
+       "64": -0.6,
+       "127": -0.05
+      }
+     },
+     "autoLen": 128
+    },
+    "ti_glass": {
+     "events": []
+    },
+    "ti_sub": {
+     "events": []
+    },
+    "ti_rhodes": {
+     "events": []
+    },
+    "ti_celesta": {
+     "events": []
+    },
+    "ti_choir": {
+     "events": []
+    },
+    "ti_wind": {
+     "events": [
+      {
+       "step": 0,
+       "len": 128,
+       "notes": [
+        62
+       ],
+       "vel": 0.6
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "sc_nappes",
+   "name": "Nappes",
+   "bars": 16,
+   "key": {
+    "tonic": "D",
+    "mode": "major"
+   },
+   "data": {
+    "ti_drone": {
+     "events": [
+      {
+       "step": 0,
+       "len": 256,
+       "notes": [
+        38,
+        45
+       ],
+       "vel": 0.6
+      }
+     ]
+    },
+    "ti_breath": {
+     "events": [
+      {
+       "step": 0,
+       "len": 64,
+       "notes": [
+        54,
+        57,
+        61,
+        64
+       ],
+       "vel": 0.5,
+       "chord": "maj7"
+      },
+      {
+       "step": 64,
+       "len": 64,
+       "notes": [
+        54,
+        57,
+        62,
+        64
+       ],
+       "vel": 0.5,
+       "chord": "min7"
+      },
+      {
+       "step": 128,
+       "len": 64,
+       "notes": [
+        54,
+        57,
+        59,
+        62
+       ],
+       "vel": 0.5,
+       "chord": "maj7"
+      },
+      {
+       "step": 192,
+       "len": 64,
+       "notes": [
+        52,
+        57,
+        59,
+        62
+       ],
+       "vel": 0.5,
+       "chord": "sus4"
+      }
+     ]
+    },
+    "ti_glass": {
+     "events": []
+    },
+    "ti_sub": {
+     "events": []
+    },
+    "ti_rhodes": {
+     "events": []
+    },
+    "ti_celesta": {
+     "events": [
+      {
+       "step": 10,
+       "len": 6,
+       "notes": [
+        81
+       ],
+       "vel": 0.28
+      },
+      {
+       "step": 34,
+       "len": 6,
+       "notes": [
+        88
+       ],
+       "vel": 0.27
+      },
+      {
+       "step": 37,
+       "len": 6,
+       "notes": [
+        88
+       ],
+       "vel": 0.24
+      },
+      {
+       "step": 85,
+       "len": 6,
+       "notes": [
+        81
+       ],
+       "vel": 0.31
+      },
+      {
+       "step": 154,
+       "len": 6,
+       "notes": [
+        78
+       ],
+       "vel": 0.28
+      },
+      {
+       "step": 157,
+       "len": 6,
+       "notes": [
+        83
+       ],
+       "vel": 0.24
+      },
+      {
+       "step": 250,
+       "len": 6,
+       "notes": [
+        86
+       ],
+       "vel": 0.35
+      },
+      {
+       "step": 253,
+       "len": 6,
+       "notes": [
+        83
+       ],
+       "vel": 0.24
+      }
+     ],
+     "auto": {
+      "space": {
+       "0": 0.2,
+       "255": 0.6
+      }
+     },
+     "autoLen": 256
+    },
+    "ti_choir": {
+     "events": []
+    },
+    "ti_wind": {
+     "events": [
+      {
+       "step": 0,
+       "len": 128,
+       "notes": [
+        62
+       ],
+       "vel": 0.45
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "sc_courant",
+   "name": "Courant",
+   "bars": 16,
+   "key": {
+    "tonic": "D",
+    "mode": "major"
+   },
+   "data": {
+    "ti_drone": {
+     "events": [
+      {
+       "step": 0,
+       "len": 256,
+       "notes": [
+        38,
+        45
+       ],
+       "vel": 0.55
+      }
+     ]
+    },
+    "ti_breath": {
+     "events": [
+      {
+       "step": 0,
+       "len": 64,
+       "notes": [
+        54,
+        57,
+        61,
+        64
+       ],
+       "vel": 0.5,
+       "chord": "maj7"
+      },
+      {
+       "step": 64,
+       "len": 64,
+       "notes": [
+        54,
+        57,
+        62,
+        64
+       ],
+       "vel": 0.5,
+       "chord": "min7"
+      },
+      {
+       "step": 128,
+       "len": 64,
+       "notes": [
+        54,
+        57,
+        59,
+        62
+       ],
+       "vel": 0.5,
+       "chord": "maj7"
+      },
+      {
+       "step": 192,
+       "len": 64,
+       "notes": [
+        52,
+        57,
+        59,
+        62
+       ],
+       "vel": 0.5,
+       "chord": "sus4"
+      }
+     ]
+    },
+    "ti_glass": {
+     "events": [
+      {
+       "step": 0,
+       "len": 64,
+       "notes": [
+        66,
+        69,
+        73,
+        76
+       ],
+       "vel": 0.42,
+       "chord": "maj7"
+      },
+      {
+       "step": 64,
+       "len": 64,
+       "notes": [
+        66,
+        69,
+        74,
+        76
+       ],
+       "vel": 0.42,
+       "chord": "min7"
+      },
+      {
+       "step": 128,
+       "len": 64,
+       "notes": [
+        66,
+        69,
+        71,
+        74
+       ],
+       "vel": 0.42,
+       "chord": "maj7"
+      },
+      {
+       "step": 192,
+       "len": 64,
+       "notes": [
+        64,
+        69,
+        71,
+        74
+       ],
+       "vel": 0.42,
+       "chord": "sus4"
+      }
+     ]
+    },
+    "ti_sub": {
+     "events": [
+      {
+       "step": 0,
+       "len": 62,
+       "notes": [
+        38
+       ],
+       "vel": 0.55
+      },
+      {
+       "step": 64,
+       "len": 62,
+       "notes": [
+        35
+       ],
+       "vel": 0.55
+      },
+      {
+       "step": 128,
+       "len": 62,
+       "notes": [
+        31
+       ],
+       "vel": 0.55
+      },
+      {
+       "step": 192,
+       "len": 62,
+       "notes": [
+        33
+       ],
+       "vel": 0.55
+      }
+     ]
+    },
+    "ti_rhodes": {
+     "events": [
+      {
+       "step": 0,
+       "len": 8,
+       "notes": [
+        69
+       ],
+       "vel": 0.61
+      },
+      {
+       "step": 8,
+       "len": 8,
+       "notes": [
+        73
+       ],
+       "vel": 0.55
+      },
+      {
+       "step": 16,
+       "len": 24,
+       "notes": [
+        76
+       ],
+       "vel": 0.61
+      },
+      {
+       "step": 40,
+       "len": 8,
+       "notes": [
+        74
+       ],
+       "vel": 0.55
+      },
+      {
+       "step": 48,
+       "len": 16,
+       "notes": [
+        73
+       ],
+       "vel": 0.61
+      },
+      {
+       "step": 64,
+       "len": 12,
+       "notes": [
+        74
+       ],
+       "vel": 0.61
+      },
+      {
+       "step": 76,
+       "len": 4,
+       "notes": [
+        71
+       ],
+       "vel": 0.55
+      },
+      {
+       "step": 80,
+       "len": 24,
+       "notes": [
+        69
+       ],
+       "vel": 0.61
+      },
+      {
+       "step": 104,
+       "len": 8,
+       "notes": [
+        66
+       ],
+       "vel": 0.55
+      },
+      {
+       "step": 112,
+       "len": 16,
+       "notes": [
+        64
+       ],
+       "vel": 0.61
+      },
+      {
+       "step": 128,
+       "len": 8,
+       "notes": [
+        66
+       ],
+       "vel": 0.61
+      },
+      {
+       "step": 136,
+       "len": 8,
+       "notes": [
+        69
+       ],
+       "vel": 0.55
+      },
+      {
+       "step": 144,
+       "len": 24,
+       "notes": [
+        71
+       ],
+       "vel": 0.61
+      },
+      {
+       "step": 168,
+       "len": 8,
+       "notes": [
+        74
+       ],
+       "vel": 0.55
+      },
+      {
+       "step": 176,
+       "len": 16,
+       "notes": [
+        73
+       ],
+       "vel": 0.61
+      },
+      {
+       "step": 192,
+       "len": 16,
+       "notes": [
+        71
+       ],
+       "vel": 0.61
+      },
+      {
+       "step": 208,
+       "len": 16,
+       "notes": [
+        69
+       ],
+       "vel": 0.61
+      },
+      {
+       "step": 224,
+       "len": 28,
+       "notes": [
+        64
+       ],
+       "vel": 0.61
+      }
+     ]
+    },
+    "ti_celesta": {
+     "events": [
+      {
+       "step": 106,
+       "len": 6,
+       "notes": [
+        86
+       ],
+       "vel": 0.34
+      },
+      {
+       "step": 118,
+       "len": 6,
+       "notes": [
+        81
+       ],
+       "vel": 0.28
+      },
+      {
+       "step": 153,
+       "len": 6,
+       "notes": [
+        86
+       ],
+       "vel": 0.34
+      },
+      {
+       "step": 162,
+       "len": 6,
+       "notes": [
+        78
+       ],
+       "vel": 0.27
+      },
+      {
+       "step": 165,
+       "len": 6,
+       "notes": [
+        81
+       ],
+       "vel": 0.27
+      },
+      {
+       "step": 218,
+       "len": 6,
+       "notes": [
+        81
+       ],
+       "vel": 0.33
+      }
+     ]
+    },
+    "ti_choir": {
+     "events": []
+    },
+    "ti_wind": {
+     "events": []
+    }
+   }
+  },
+  {
+   "id": "sc_suspension",
+   "name": "Suspension",
+   "bars": 8,
+   "key": {
+    "tonic": "D",
+    "mode": "major"
+   },
+   "data": {
+    "ti_drone": {
+     "events": [
+      {
+       "step": 0,
+       "len": 128,
+       "notes": [
+        38,
+        45
+       ],
+       "vel": 0.5
+      }
+     ]
+    },
+    "ti_breath": {
+     "events": [
+      {
+       "step": 0,
+       "len": 64,
+       "notes": [
+        55,
+        59,
+        62,
+        66
+       ],
+       "vel": 0.45,
+       "chord": "min7"
+      },
+      {
+       "step": 64,
+       "len": 64,
+       "notes": [
+        54,
+        59,
+        61,
+        62
+       ],
+       "vel": 0.45,
+       "chord": "maj7"
+      }
+     ]
+    },
+    "ti_glass": {
+     "events": []
+    },
+    "ti_sub": {
+     "events": []
+    },
+    "ti_rhodes": {
+     "events": [
+      {
+       "step": 4,
+       "len": 20,
+       "notes": [
+        71
+       ],
+       "vel": 0.45
+      },
+      {
+       "step": 32,
+       "len": 24,
+       "notes": [
+        66
+       ],
+       "vel": 0.51
+      },
+      {
+       "step": 68,
+       "len": 20,
+       "notes": [
+        73
+       ],
+       "vel": 0.45
+      },
+      {
+       "step": 96,
+       "len": 28,
+       "notes": [
+        71
+       ],
+       "vel": 0.51
+      }
+     ],
+     "auto": {
+      "space": {
+       "0": 0.2,
+       "127": 0.9
+      }
+     },
+     "autoLen": 128
+    },
+    "ti_celesta": {
+     "events": []
+    },
+    "ti_choir": {
+     "events": [
+      {
+       "step": 0,
+       "len": 64,
+       "notes": [
+        67,
+        71,
+        74,
+        78
+       ],
+       "vel": 0.5,
+       "chord": "min7"
+      },
+      {
+       "step": 64,
+       "len": 64,
+       "notes": [
+        66,
+        71,
+        73,
+        74
+       ],
+       "vel": 0.5,
+       "chord": "maj7"
+      }
+     ]
+    },
+    "ti_wind": {
+     "events": [
+      {
+       "step": 0,
+       "len": 128,
+       "notes": [
+        62
+       ],
+       "vel": 0.5
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "sc_retour",
+   "name": "Retour",
+   "bars": 16,
+   "key": {
+    "tonic": "D",
+    "mode": "major"
+   },
+   "data": {
+    "ti_drone": {
+     "events": [
+      {
+       "step": 0,
+       "len": 256,
+       "notes": [
+        38,
+        45
+       ],
+       "vel": 0.6
+      }
+     ]
+    },
+    "ti_breath": {
+     "events": [
+      {
+       "step": 0,
+       "len": 64,
+       "notes": [
+        54,
+        57,
+        61,
+        64
+       ],
+       "vel": 0.52,
+       "chord": "maj7"
+      },
+      {
+       "step": 64,
+       "len": 64,
+       "notes": [
+        54,
+        57,
+        62,
+        64
+       ],
+       "vel": 0.52,
+       "chord": "min7"
+      },
+      {
+       "step": 128,
+       "len": 64,
+       "notes": [
+        54,
+        57,
+        59,
+        62
+       ],
+       "vel": 0.52,
+       "chord": "maj7"
+      },
+      {
+       "step": 192,
+       "len": 64,
+       "notes": [
+        52,
+        57,
+        59,
+        62
+       ],
+       "vel": 0.52,
+       "chord": "sus4"
+      }
+     ]
+    },
+    "ti_glass": {
+     "events": [
+      {
+       "step": 0,
+       "len": 64,
+       "notes": [
+        66,
+        69,
+        73,
+        76
+       ],
+       "vel": 0.45,
+       "chord": "maj7"
+      },
+      {
+       "step": 64,
+       "len": 64,
+       "notes": [
+        66,
+        69,
+        74,
+        76
+       ],
+       "vel": 0.45,
+       "chord": "min7"
+      },
+      {
+       "step": 128,
+       "len": 64,
+       "notes": [
+        66,
+        69,
+        71,
+        74
+       ],
+       "vel": 0.45,
+       "chord": "maj7"
+      },
+      {
+       "step": 192,
+       "len": 64,
+       "notes": [
+        64,
+        69,
+        71,
+        74
+       ],
+       "vel": 0.45,
+       "chord": "sus4"
+      }
+     ]
+    },
+    "ti_sub": {
+     "events": [
+      {
+       "step": 0,
+       "len": 62,
+       "notes": [
+        38
+       ],
+       "vel": 0.6
+      },
+      {
+       "step": 64,
+       "len": 62,
+       "notes": [
+        35
+       ],
+       "vel": 0.6
+      },
+      {
+       "step": 128,
+       "len": 62,
+       "notes": [
+        31
+       ],
+       "vel": 0.6
+      },
+      {
+       "step": 192,
+       "len": 62,
+       "notes": [
+        33
+       ],
+       "vel": 0.6
+      }
+     ]
+    },
+    "ti_rhodes": {
+     "events": [
+      {
+       "step": 0,
+       "len": 16,
+       "notes": [
+        78
+       ],
+       "vel": 0.64
+      },
+      {
+       "step": 16,
+       "len": 8,
+       "notes": [
+        76
+       ],
+       "vel": 0.64
+      },
+      {
+       "step": 24,
+       "len": 8,
+       "notes": [
+        73
+       ],
+       "vel": 0.58
+      },
+      {
+       "step": 32,
+       "len": 28,
+       "notes": [
+        69
+       ],
+       "vel": 0.64
+      },
+      {
+       "step": 64,
+       "len": 8,
+       "notes": [
+        71
+       ],
+       "vel": 0.64
+      },
+      {
+       "step": 72,
+       "len": 8,
+       "notes": [
+        74
+       ],
+       "vel": 0.58
+      },
+      {
+       "step": 80,
+       "len": 24,
+       "notes": [
+        78
+       ],
+       "vel": 0.64
+      },
+      {
+       "step": 104,
+       "len": 8,
+       "notes": [
+        76
+       ],
+       "vel": 0.58
+      },
+      {
+       "step": 112,
+       "len": 16,
+       "notes": [
+        74
+       ],
+       "vel": 0.64
+      },
+      {
+       "step": 128,
+       "len": 8,
+       "notes": [
+        74
+       ],
+       "vel": 0.64
+      },
+      {
+       "step": 136,
+       "len": 8,
+       "notes": [
+        76
+       ],
+       "vel": 0.58
+      },
+      {
+       "step": 144,
+       "len": 16,
+       "notes": [
+        78
+       ],
+       "vel": 0.64
+      },
+      {
+       "step": 160,
+       "len": 16,
+       "notes": [
+        81
+       ],
+       "vel": 0.64
+      },
+      {
+       "step": 176,
+       "len": 16,
+       "notes": [
+        76
+       ],
+       "vel": 0.64
+      },
+      {
+       "step": 192,
+       "len": 16,
+       "notes": [
+        74
+       ],
+       "vel": 0.64
+      },
+      {
+       "step": 208,
+       "len": 8,
+       "notes": [
+        71
+       ],
+       "vel": 0.64
+      },
+      {
+       "step": 216,
+       "len": 8,
+       "notes": [
+        69
+       ],
+       "vel": 0.58
+      },
+      {
+       "step": 224,
+       "len": 28,
+       "notes": [
+        74
+       ],
+       "vel": 0.64
+      }
+     ]
+    },
+    "ti_celesta": {
+     "events": [
+      {
+       "step": 6,
+       "len": 6,
+       "notes": [
+        86
+       ],
+       "vel": 0.38
+      },
+      {
+       "step": 9,
+       "len": 6,
+       "notes": [
+        86
+       ],
+       "vel": 0.28
+      },
+      {
+       "step": 34,
+       "len": 6,
+       "notes": [
+        78
+       ],
+       "vel": 0.29
+      },
+      {
+       "step": 54,
+       "len": 6,
+       "notes": [
+        78
+       ],
+       "vel": 0.4
+      },
+      {
+       "step": 93,
+       "len": 6,
+       "notes": [
+        81
+       ],
+       "vel": 0.33
+      },
+      {
+       "step": 96,
+       "len": 6,
+       "notes": [
+        86
+       ],
+       "vel": 0.28
+      },
+      {
+       "step": 154,
+       "len": 6,
+       "notes": [
+        86
+       ],
+       "vel": 0.32
+      },
+      {
+       "step": 169,
+       "len": 6,
+       "notes": [
+        86
+       ],
+       "vel": 0.34
+      },
+      {
+       "step": 234,
+       "len": 6,
+       "notes": [
+        76
+       ],
+       "vel": 0.37
+      }
+     ]
+    },
+    "ti_choir": {
+     "events": [
+      {
+       "step": 128,
+       "len": 64,
+       "notes": [
+        66,
+        69,
+        71,
+        74
+       ],
+       "vel": 0.4,
+       "chord": "maj7"
+      },
+      {
+       "step": 192,
+       "len": 64,
+       "notes": [
+        64,
+        69,
+        71,
+        74
+       ],
+       "vel": 0.4,
+       "chord": "sus4"
+      }
+     ]
+    },
+    "ti_wind": {
+     "events": []
+    }
+   }
+  },
+  {
+   "id": "sc_dissolution",
+   "name": "Dissolution",
+   "bars": 8,
+   "key": {
+    "tonic": "D",
+    "mode": "major"
+   },
+   "data": {
+    "ti_drone": {
+     "events": [
+      {
+       "step": 0,
+       "len": 128,
+       "notes": [
+        38,
+        45
+       ],
+       "vel": 0.55
+      }
+     ],
+     "auto": {
+      "volume": {
+       "0": 1,
+       "32": 1,
+       "127": 0.0
+      }
+     },
+     "autoLen": 128
+    },
+    "ti_breath": {
+     "events": [
+      {
+       "step": 0,
+       "len": 128,
+       "notes": [
+        54,
+        57,
+        61,
+        64
+       ],
+       "vel": 0.45,
+       "chord": "maj7"
+      }
+     ],
+     "auto": {
+      "volume": {
+       "0": 1,
+       "32": 1,
+       "127": 0.0
+      },
+      "filter": {
+       "0": 0,
+       "127": -0.7
+      }
+     },
+     "autoLen": 128
+    },
+    "ti_glass": {
+     "events": [
+      {
+       "step": 0,
+       "len": 96,
+       "notes": [
+        66,
+        69,
+        73,
+        76
+       ],
+       "vel": 0.35,
+       "chord": "maj7"
+      }
+     ],
+     "auto": {
+      "volume": {
+       "0": 1,
+       "32": 1,
+       "127": 0.0
+      }
+     },
+     "autoLen": 128
+    },
+    "ti_sub": {
+     "events": [
+      {
+       "step": 0,
+       "len": 96,
+       "notes": [
+        38
+       ],
+       "vel": 0.45
+      }
+     ],
+     "auto": {
+      "volume": {
+       "0": 1,
+       "32": 1,
+       "127": 0.0
+      }
+     },
+     "autoLen": 128
+    },
+    "ti_rhodes": {
+     "events": [
+      {
+       "step": 0,
+       "len": 12,
+       "notes": [
+        62,
+        69
+       ],
+       "vel": 0.45
+      },
+      {
+       "step": 16,
+       "len": 32,
+       "notes": [
+        66,
+        73,
+        76
+       ],
+       "vel": 0.4
+      }
+     ],
+     "auto": {
+      "volume": {
+       "0": 1,
+       "32": 1,
+       "127": 0.0
+      }
+     },
+     "autoLen": 128
+    },
+    "ti_celesta": {
+     "events": [
+      {
+       "step": 38,
+       "len": 8,
+       "notes": [
+        81
+       ],
+       "vel": 0.3
+      },
+      {
+       "step": 74,
+       "len": 8,
+       "notes": [
+        78
+       ],
+       "vel": 0.25
+      }
+     ],
+     "auto": {
+      "volume": {
+       "0": 1,
+       "32": 1,
+       "127": 0.0
+      }
+     },
+     "autoLen": 128
+    },
+    "ti_choir": {
+     "events": [],
+     "auto": {
+      "volume": {
+       "0": 1,
+       "32": 1,
+       "127": 0.0
+      }
+     },
+     "autoLen": 128
+    },
+    "ti_wind": {
+     "events": [
+      {
+       "step": 0,
+       "len": 128,
+       "notes": [
+        62
+       ],
+       "vel": 0.5
+      }
+     ],
+     "auto": {
+      "volume": {
+       "0": 1,
+       "32": 1,
+       "127": 0.0
+      }
+     },
+     "autoLen": 128
+    }
+   }
+  }
+ ],
+ "current": "sc_courant",
+ "song": [
+  {
+   "scene": "sc_aube",
+   "repeat": 1
+  },
+  {
+   "scene": "sc_nappes",
+   "repeat": 1
+  },
+  {
+   "scene": "sc_courant",
+   "repeat": 1
+  },
+  {
+   "scene": "sc_suspension",
+   "repeat": 1
+  },
+  {
+   "scene": "sc_retour",
+   "repeat": 1
+  },
+  {
+   "scene": "sc_dissolution",
+   "repeat": 1
+  }
+ ],
+ "playMode": "song",
+ "songLoop": false,
+ "returns": {
+  "space": {
+   "decay": 16,
+   "size": 0.92,
+   "predelay": 0.06,
+   "damp": 6000,
+   "mod": 0.45,
+   "shimmer": 0.35,
+   "freeze": false,
+   "hp": 160,
+   "lp": 9000,
+   "level": 0.8
+  },
+  "echo": {
+   "time": "3/8",
+   "feedback": 0.4,
+   "hp": 300,
+   "lp": 3500,
+   "level": 1,
+   "wow": 0.3,
+   "drive": 0.1
+  }
+ },
+ "master": {
+  "volume": 0.65,
+  "mix": {
+   "pan": 0,
+   "eq": {
+    "on": true,
+    "hp": {
+     "on": true,
+     "f": 25
+    },
+    "low": {
+     "f": 80,
+     "g": -1
+    },
+    "lm": {
+     "f": 350,
+     "g": -2,
+     "q": 0.7
+    },
+    "hm": {
+     "f": 3000,
+     "g": 1,
+     "q": 0.7
+    },
+    "high": {
+     "f": 11000,
+     "g": 2.5
+    }
+   },
+   "comp": {
+    "on": true,
+    "th": -22,
+    "ratio": 1.6,
+    "att": 0.08,
+    "rel": 0.6,
+    "knee": 8,
+    "makeup": 2
+   },
+   "lim": {
+    "on": true,
+    "ceil": -1.5,
+    "rel": 0.2
+   }
+  }
+ }
+}

@@ -637,10 +637,15 @@ SS.audio = (() => {
     lin(a.space.gain, x0.space, x1.space);
     a.active = true;
   }
-  /** Arrêt : toutes les automations reviennent au neutre (écoute d'une piste, essais de son). */
+  /**
+   * Arrêt : toutes les automations reviennent au neutre (écoute d'une piste, essais de son). Le retour se fait
+   * une fois les voix coupées par silenceAll (arrêtées à +60 ms) : remonter tout de suite un volume automatisé
+   * à 0 (fondu de fin) ferait réentendre d'un coup les queues encore en relâchement, d'où un clic.
+   */
   function resetAutos() {
     if (!ctx) return;
-    for (const b of buses.values()) if (b.auto) autoNeutral(b.auto, ctx.currentTime);
+    const at = ctx.currentTime + 0.08;
+    for (const b of buses.values()) if (b.auto) autoNeutral(b.auto, at);
   }
   /** Lecture seule, pour les tests : valeurs actuelles des nœuds d'automation d'une piste. */
   function autoState(track) {
