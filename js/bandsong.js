@@ -145,6 +145,28 @@ SS.bandSong = (() => {
     }
     return out;
   }
+  /**
+   * Accords d'une grille de l'assistant (comme la grille de Key : { step, len, degree, type, acc, bass? }, degrés dans
+   * la tonalité de la scène) → spans. Les trous sont comblés par l'accord précédent (le premier commence au début).
+   */
+  function spansFromGrid(list, key, bars) {
+    const total = bars * SPB;
+    const cs = list
+      .filter((c) => c.step < total && c.len > 0)
+      .sort((a, b) => a.step - b.step)
+      .map((c) => {
+        const g = H().gridChord(key, c.degree, c.type, c.acc || 0);
+        return { step: c.step, len: c.len, chord: { rootPc: g.rootPc, type: c.type, tok: g.name } };
+      });
+    if (!cs.length) return null;
+    cs[0].len += cs[0].step;
+    cs[0].step = 0;
+    cs.forEach((c, i) => {
+      const next = cs[i + 1];
+      c.len = (next ? next.step : total) - c.step;
+    });
+    return cs.filter((c) => c.len > 0).map((c) => ({ ...c, bar: Math.floor(c.step / SPB) }));
+  }
   const tones = (c) => SS.chordNotes(60 + c.rootPc, c.type).map(pcOf);
   const semi = (a, b) => pcOf(a - b) === 1 || pcOf(b - a) === 1;
   /**
@@ -911,10 +933,13 @@ SS.bandSong = (() => {
    *   melody : réglages de la mélodie (null = caractère « Inspiration », plan par défaut) :
    *   { character (CHARACTERS), form (FORMS), rhythm ('auto' | RHYTHMS), complexity, range ('auto' = selon le rôle),
    *     ending ('closed' | 'open'), notes (notes par phrase, 0 = libre),
-   *     plans: { section: [{ bars, mode: 'on'|'hold'|'off', letter }] }, seeds: { section: { A: n, B: n… } } }
-   * → { key, scenes: [{ id, name, bars, key, emotion, data }], song: [{ scene, repeat }] }
+   *     plans: { section: [{ bars, mode: 'on'|'hold'|'off', letter }] }, seeds: { section: { A: n, B: n… } },
+   *     scenes: { section: { character, notes } } (caractère et notes par phrase propres à une scène) }
+   *   harmony : accords et tonalités choisis dans l'assistant (étape Accords), par section :
+   *     { keys: { section: { tonic, mode } }, chords: { section: [grille de Key] }, emotions: { section: id } }
+   * → { key, scenes: [{ id, name, bars, key, emotion, data, spans }], song: [{ scene, repeat }] }
    */
-  function build(spec, presetId, tracks, { melodySeed = 0, melody = null } = {}) {
+  function build(spec, presetId, tracks, { melodySeed = 0, melody = null, harmony = null } = {}) {
     const key = parseKey(spec.key);
     const mel = melody || {};
     const order = [];
@@ -927,8 +952,13 @@ SS.bandSong = (() => {
     const scenes = order.map((id) => {
       const sec = spec.sections[id];
       const bars = sec.bars;
-      const k = sec.key ? parseKey(sec.key) : key;
-      const spans = spansOf(sec, k, bars);
+      const hk = harmony && harmony.keys && harmony.keys[id];
+      const k = hk ? { tonic: hk.tonic, mode: hk.mode } : sec.key ? parseKey(sec.key) : key;
+      const grid = harmony && harmony.chords && harmony.chords[id];
+      const spans = (grid && grid.length && spansFromGrid(grid, k, bars)) || spansOf(sec, k, bars);
+      // caractère et notes par phrase de cette scène
+      const own = mel.scenes && mel.scenes[id];
+      const smel = own ? { ...mel, ...own } : mel;
       const energy = sec.energy ?? ENERGY[id] ?? 0.9;
       const data = {};
       tracks.forEach((t) => {
@@ -947,7 +977,7 @@ SS.bandSong = (() => {
           if (role === 'bass') events = bassEvents(spans, mode, r, H().scale(k).map((d) => d.pc));
           else if (role === 'fx') events = fxEvents(spans, mode, k, bars);
           else if (role === 'arp') events = arpEvents(spans, mode, r);
-          else if (singer) events = mode === 'rise' ? riseEvents(spans, r, k, bars) : melodyPart(spans, k, bars, role, mel, mel.plans && mel.plans[id], mel.seeds && mel.seeds[id], `${presetId}/${id}/${role}/${melodySeed}`, mode);
+          else if (singer) events = mode === 'rise' ? riseEvents(spans, r, k, bars) : melodyPart(spans, k, bars, role, smel, mel.plans && mel.plans[id], mel.seeds && mel.seeds[id], `${presetId}/${id}/${role}/${melodySeed}`, mode);
           else if (role === 'arpchord') events = arpEvents(spans, mode, r);
           else {
             // nappe, cordes, piano, guitare : accords (ou arpège si le mode en est un)
@@ -966,13 +996,14 @@ SS.bandSong = (() => {
         }
       });
       if (sec.gap) gapEnd(data, bars);
-      const sc = { id: SS.uid(), sec: id, name: sec.name || NAMES[id] || id, bars, key: k, data };
-      if (spec.emotion) sc.emotion = sec.emotion || spec.emotion;
+      const sc = { id: SS.uid(), sec: id, name: sec.name || NAMES[id] || id, bars, key: k, data, spans };
+      const emo = harmony && harmony.emotions && harmony.emotions[id];
+      if (emo || spec.emotion) sc.emotion = emo || sec.emotion || spec.emotion;
       return sc;
     });
     const song = form.map((f) => ({ scene: scenes[order.indexOf(f.id)].id, repeat: f.repeat }));
     return { key, scenes, song };
   }
 
-  return { build, parseChord, spansOf, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, _rng: rng };
+  return { build, parseChord, spansOf, spansFromGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, _rng: rng };
 })();

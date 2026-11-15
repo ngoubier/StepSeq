@@ -234,7 +234,7 @@
     <div class="band-shell">
       <header class="band-head">
         <h2 id="bandTitle">Band <small id="bandDlgSub"></small></h2>
-        <!-- Assistant (bouton Band ou « Nouvelle chanson… ») : étapes 1 Modèle → 2 Chanson → 3 Mélodie (phrases, accords, instruments) → 4 Intégration -->
+        <!-- Assistant (bouton Band ou « Nouvelle chanson… ») : étapes 1 Modèle → 2 Chanson → 3 Accords → 4 Mélodie → 5 Intégration -->
         <ol class="band-wiz-steps wiz-only" id="bandWizSteps" aria-label="Étapes de l'assistant" hidden></ol>
         <button type="button" class="btn band-gm" id="bandGm" aria-pressed="false" aria-label="General MIDI" title="Mode General MIDI du projet : chaque musicien joue un son General MIDI, la batterie prend la batterie General MIDI. Même réglage que dans la fenêtre de piste.">
           <span class="band-gm-box" aria-hidden="true"></span><span class="band-gm-long">General MIDI</span><span class="band-gm-short" aria-hidden="true">GM</span>
@@ -244,7 +244,8 @@
           <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </header>
-      <!-- Bandeau de commande des étapes 2 à 4 : lecture / pause, stop, position, tempo, tonalité (js/band.js) -->
+      <!-- Bandeau de commande des étapes 2 à 5 : lecture / pause, stop, position, tempo, tonalité (js/band.js) ;
+           aux étapes 3 Accords et 4 Mélodie, il est déplacé à droite de la colonne des scènes -->
       <div class="band-transport" id="bwTransport" role="toolbar" aria-label="Lecture de la chanson" hidden></div>
       <div class="band-body">
         <aside class="band-side">
@@ -261,8 +262,8 @@
         </main>
         <aside class="band-panel" id="bandPanel" hidden aria-live="polite"></aside>
       </div>
-      <!-- Assistant, étapes 2 à 4 : la chanson en vue « session » (une ligne = une scène, une colonne = une piste) ;
-           étape 3 Mélodie : phrases de la mélodie, accords de la scène choisie et notes des instruments -->
+      <!-- Assistant, étapes 2 à 5 : la chanson en vue « session » (une ligne = une scène, une colonne = une piste) ;
+           étape 3 Accords : grille de la scène choisie ; étape 4 Mélodie : phrases, accords et notes des instruments -->
       <div class="band-wiz" id="bandWiz" hidden></div>
       <div class="band-confirm" id="bandConfirm" hidden></div>
       <footer class="band-foot">

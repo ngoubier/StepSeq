@@ -353,3 +353,35 @@ test('mélodie par phrases : caractère, notes par phrase, tessiture, phrases te
     });
   }
 });
+
+test('assistant, étape Accords : grille, tonalité et émotion par section ; caractère et notes par scène', () => {
+  const B = SS.bandSong;
+  const p = PRESETS.find((x) => SS.BandSongs[x.id].sections.chorus);
+  const spec = SS.BandSongs[p.id];
+  const tr = tracksOf(p);
+  const a = B.build(spec, p.id, tr);
+  const ch = a.scenes.find((sc) => sc.sec === 'chorus');
+  assert.ok(ch.spans && ch.spans.length, 'chaque scène donne ses accords (spans)');
+  const total = ch.bars * 16;
+  // ii (2 temps), V (2 temps), I… avec un trou : l'accord d'avant le tient
+  const grid = [
+    { step: 0, len: 8, degree: 1, type: 'min', acc: 0 },
+    { step: 8, len: 8, degree: 4, type: 'maj', acc: 0 },
+    { step: 32, len: 16, degree: 0, type: 'maj', acc: 0 },
+  ];
+  const key = { tonic: 'D', mode: 'major' };
+  const b = B.build(spec, p.id, tr, { harmony: { keys: { chorus: key }, chords: { chorus: grid }, emotions: { chorus: 'joie' } } });
+  const c2 = b.scenes.find((sc) => sc.sec === 'chorus');
+  assert.deepEqual(c2.key, key, 'tonalité de la section');
+  assert.equal(c2.emotion, 'joie', 'émotion de la section');
+  assert.deepEqual(c2.spans.map((x) => [x.step, x.len, x.chord.rootPc]), [[0, 8, 4], [8, 24, 9], [32, total - 32, 2]], 'Em (2 temps), A (jusqu’au I), D jusqu’au bout');
+  // les autres sections ne changent pas
+  b.scenes.filter((sc) => sc.sec !== 'chorus').forEach((sc) => assert.deepEqual(sc.spans.map((x) => [x.step, x.len, x.chord.rootPc]), a.scenes.find((x) => x.sec === sc.sec).spans.map((x) => [x.step, x.len, x.chord.rootPc]), `${sc.sec} : mêmes accords`));
+  // caractère et notes par phrase propres à la scène
+  const singer = tr.find((t) => B.SINGERS.includes(t.band.key) && spec.sections.chorus[t.band.key] && spec.sections.chorus[t.band.key] !== 'rise');
+  if (!singer) return;
+  const m = B.build(spec, p.id, tr, { melody: { character: 'inspiration', scenes: { chorus: { character: 'chant', notes: 4 } } } });
+  const mc = m.scenes.find((sc) => sc.sec === 'chorus');
+  assert.equal(mc.data[singer.id].events.length, B.defaultPlan(mc.bars, 'chant').length * 4, 'refrain : 4 notes par phrase, phrases de « Chantante »');
+  m.scenes.filter((sc) => sc.sec !== 'chorus').forEach((sc) => assert.deepEqual(sc.data[singer.id], a.scenes.find((x) => x.sec === sc.sec).data[singer.id], `${sc.sec} : même mélodie`));
+});
