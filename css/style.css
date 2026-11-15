@@ -2543,7 +2543,7 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
   .bw-blocks li { min-width: 64px; }
   .band-dialog.wizard .band-foot { flex-wrap: wrap; }
 }
-/* Band : bandeau de commande (étapes 2 à 5) */
+/* Band : bandeau de commande (étapes 2 à 4) */
 .band-transport { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 8px 16px; background: #1c1c1f; border-bottom: 1px solid var(--line); }
 .band-transport[hidden] { display: none; }
 .bt-btn { width: 40px; height: 34px; padding: 0; display: inline-grid; place-items: center; flex: none; }
@@ -2603,7 +2603,7 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
 .bh-switch[aria-checked=true] .bh-knob { background: var(--accent); }
 .bh-switch[aria-checked=true] .bh-knob::after { left: 15px; }
 .bh-scroll { flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
-.bh-board { --head: 168px; position: relative; min-width: calc(var(--head) + var(--bars) * 44px); }
+.bh-board { --head: 200px; position: relative; min-width: calc(var(--head) + var(--bars) * 44px); }
 .bh-row { display: flex; border-bottom: 1px solid #000; }
 .bh-head { width: var(--head); flex: none; box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 14px; background: #202024; border-right: 1px solid #000; position: sticky; left: 0; z-index: 2; }
 .bh-track { flex: 1; min-width: 0; position: relative; background-image: repeating-linear-gradient(90deg, #303036 0 1px, transparent 1px calc(100% / var(--bars))); }
@@ -2626,11 +2626,19 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
 .bh-name b { font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bh-lane { height: 92px; --nh: 6px; }
 .bh-lane.empty .bh-track, .bh-lane.empty .bh-head { opacity: .5; }
+/* tête d'instrument : nom, part dans l'accord, Muet / Solo et volume */
+.bh-ihead .bh-name { flex: 1; gap: 4px; }
+.bh-ctl { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.bh-ctl .bw-ms { margin: 0; flex: none; }
+.bh-vol { flex: 1; min-width: 40px; max-width: 96px; height: 14px; margin: 0; accent-color: var(--c, var(--accent)); cursor: pointer; }
+.bh-row.muted .bh-track { opacity: .35; }
+.bh-row.muted .bh-name > b, .bh-row.muted .bh-name > small { opacity: .55; }
+.bh-lane.mel .bh-head { box-shadow: inset 3px 0 0 var(--accent-2); background: color-mix(in srgb, var(--accent) 14%, #202024); }
 .bh-band { position: absolute; top: 0; bottom: 0; pointer-events: none; }
 .bh-band.alt { background: rgba(255, 255, 255, .022); }
 .bh-note { position: absolute; height: var(--nh); border-radius: 2px; background: var(--c); box-sizing: border-box; }
 .bh-note.out { background: rgba(0, 0, 0, .3); border: 1.5px solid var(--c); }
-.bh-drums { height: calc(var(--rows, 3) * 11px + 16px); min-height: 48px; }
+.bh-drums { height: calc(var(--rows, 3) * 11px + 16px); min-height: 72px; }
 .bh-hit { position: absolute; width: 3px; height: 9px; margin: -4.5px 0 0 1px; border-radius: 1px; background: var(--c); }
 .bh-ph { display: none; position: absolute; top: 22px; bottom: 0; left: calc(var(--head) + (100% - var(--head)) * var(--ph, 0)); width: 2px; background: var(--accent-2); pointer-events: none; z-index: 1; }
 .bh-board.playing .bh-ph { display: block; }
@@ -2642,7 +2650,10 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
   .bh-scenes { width: auto; flex-direction: row; overflow-x: auto; overflow-y: hidden; flex: none; padding-bottom: 4px; }
   .bh-label, .bh-legend { display: none; }
   .bh-scene { width: auto; min-width: 130px; flex: none; }
-  .bh-board { --head: 110px; }
+  .bh-board { --head: 140px; }
+  .bh-vol { min-width: 30px; }
+  .bh-head-mel .bw-field.off { display: none; } /* mélodie de l'inspiration : réglages inactifs masqués */
+  .bh-head-mel .bw-melform { padding: 6px 8px; gap: 6px 10px; }
   .bh-role { display: none; }
   .bt-label { display: none; }
 }
