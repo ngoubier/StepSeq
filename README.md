@@ -652,6 +652,13 @@ par la fenêtre **Key** :
 | `musicemotion` | Composer à partir d'une émotion : matrice émotion → procédés, trois pistes contrastées, essais A/B | Section Émotion : 13 intentions, propositions, essais A/B, modes |
 | `composer-melodies-accords-texte` | Mélodie sur une grille d'accords et des paroles ou une métrique : prosodie, rythme, notes cibles, contrôles, export MIDI | Key → Mélodie : scansion, proposition, tableau des notes, contrôles, écriture sur une piste |
 
+## Point de comparaison : Cubase Pro 16
+
+[`docs/comparaison-cubase.md`](docs/comparaison-cubase.md) situe StepSeq par rapport à un DAW complet, d'après la
+[description fonctionnelle de Cubase Pro 16](docs/reference/cubase-16-description-fonctionnelle.md) : pour chacun
+des 18 domaines (harmonie, édition MIDI, arpèges, mixage, automation, export…), ce que StepSeq couvre, ce qui manque
+et les évolutions prioritaires qui en découlent (export audio, Web MIDI vers un synthé matériel, Strum…).
+
 ## Structure du code
 
 | Fichier          | Rôle |
