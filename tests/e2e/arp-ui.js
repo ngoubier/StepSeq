@@ -83,6 +83,22 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FAIL ') + m); if (!c) process
   ok((await page.locator('.arp-motif-text b').textContent()) === 'Double montée', 'motif choisi : Double montée');
   const grid = await page.locator('.arp-grid text:not(.ag-num):not(.ag-bartxt)').allTextContents();
   ok(grid.slice(0, 8).join(' ') === 'A C E A C E A C' || grid.length >= 8, `grille : ${grid.slice(0, 8).join(' ')}`);
+  // motif écrit à la main (mode générique) : saisie, aperçu sur l'accord, jeton non compris, exemple
+  await page.fill('#arpDialog .arp-pattern', '0 1 2 3 2 1 2 1');
+  await page.press('#arpDialog .arp-pattern', 'Enter');
+  let ap = JSON.parse(await arpNow());
+  ok(ap.mode === 'pattern' && ap.pattern === '0 1 2 3 2 1 2 1', 'motif écrit : enregistré en mode motif personnalisé');
+  ok((await page.locator('#arpDialog .arp-pattern-out').textContent()).startsWith('Sur l’accord :'), 'motif écrit : aperçu des notes sur l’accord');
+  await page.fill('#arpDialog .arp-pattern', '0 zz 2');
+  await page.press('#arpDialog .arp-pattern', 'Enter');
+  ok((await page.locator('#arpDialog .arp-pattern-bad').textContent()).includes('zz'), 'motif écrit : jeton non compris signalé');
+  await page.locator('#arpDialog .arp-pattern-ex button', { hasText: '0- 0 1 2' }).click();
+  ap = JSON.parse(await arpNow());
+  ok(ap.pattern === '0- 0 1 2 0- 0 1 2', 'motif écrit : exemple appliqué d’un clic');
+  await page.click('.arp-motif-tile');
+  await page.locator('.motif-cat', { hasText: 'Groupes qui grimpent' }).click();
+  await page.locator('.motif-list .arp-style', { hasText: 'Double montée' }).click();
+  await page.locator('#motifDialog button', { hasText: 'Choisir' }).click();
   // récents
   await page.click('.arp-motif-tile');
   await page.locator('.motif-cat', { hasText: 'Récents' }).click();
