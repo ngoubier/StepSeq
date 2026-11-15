@@ -379,7 +379,17 @@ le moteur, `js/arppanel.js` pour la fenêtre, `js/motifs.js` pour le catalogue d
 Avancé : vélocité, rythme, degré, vitesse ×, ratchet, longueur, notes, octave, probabilité, chacune avec sa
 longueur et son sens de lecture). En bas, des **modules** avec voyant et résumé (Motif, Rythme, Accord, Pas à pas,
 Geste, Écho, Ratchet roulé, Évolution) : clic sur le voyant = éteindre / rallumer tel qu'il était, clic sur le nom
-= ses réglages. **Essentiel / Avancé** choisit le niveau de détail (retenu dans le navigateur).
+= ses réglages. **Intuitif / Essentiel / Avancé** choisit le niveau de détail (retenu dans le navigateur) ; la
+croix × ferme en gardant les réglages, Annuler revient aux réglages d'ouverture.
+
+**Mode Intuitif** — le motif (‹ ›), Surprends-moi et 4 boutons rotatifs : **Densité** (silences → tous les pas →
+rafales et ratchets), **Ampleur** (1 octave serré → 4 octaves ouvert), **Mouvement** (figé → variations et timbre
+qui ondule), **Écho** (aucun → 4 échos qui montent dans l'accord). Chaque bouton remplace les réglages fins qu'il
+pilote (`SS.Arp.macroPatch` / `macroValue`).
+
+**Module Accord** — accord joué (de la piste ou d'essai, « Poser l'accord sur la piste »), **Hauteur** (telle
+quelle, ou l'octave où commence l'accord : C2 à C5), octaves, renversement, voicing. Un nouvel arpège joue en
+1/8 sur 8 pas.
 
 **Réglages** — dans le module Motif, **‹ ›** passe au motif précédent / suivant, et **Surprends-moi** tire un
 nouvel arpège au hasard en gardant ce qui est verrouillé (le motif, le rythme, l'accord, les effets) ; chaque
@@ -684,6 +694,20 @@ par la fenêtre **Key** :
 | `musicemotion` | Composer à partir d'une émotion : matrice émotion → procédés, trois pistes contrastées, essais A/B | Section Émotion : 13 intentions, propositions, essais A/B, modes |
 | `composer-melodies-accords-texte` | Mélodie sur une grille d'accords et des paroles ou une métrique : prosodie, rythme, notes cibles, contrôles, export MIDI | Key → Mélodie : scansion, proposition, tableau des notes, contrôles, écriture sur une piste |
 
+## Aides de l'interface
+
+Règle commune à toute l'application (`js/help.js`) : pas de ligne de texte d'aide sous un réglage, mais un
+petit **« ? »** à droite du libellé de la ligne. Au survol (ou au clavier), l'aide s'affiche en info-bulle ;
+au toucher, un appui l'ouvre. Une aide longue (plus de 160 caractères) montre son début en info-bulle et
+s'ouvre en entier dans une fenêtre avec une croix quand on clique sur le « ? ». Échap ferme l'info-bulle
+sans fermer la fenêtre en dessous.
+
+- En JavaScript : `SS.helpTip(texte, libellé)` crée le « ? ».
+- Texte d'aide écrit dans la page (`.fx-help`, `.mod-help` ou attribut `data-helpify`) : il est déplacé
+  automatiquement dans un « ? » à droite du titre ou du libellé qui le précède (`data-help-for="id"` pour en
+  viser un autre), y compris dans l'interface créée plus tard.
+- Les messages d'état (« Aucune chanson », compteurs, diagnostics) restent visibles : ce ne sont pas des aides.
+
 ## Point de comparaison : Cubase Pro 16
 
 [`docs/comparaison-cubase.md`](docs/comparaison-cubase.md) situe StepSeq par rapport à un DAW complet, d'après la
@@ -698,6 +722,7 @@ et les évolutions prioritaires qui en découlent (export audio, Web MIDI vers u
 | `index.html`     | Structure de la page et dialogue d'ajout de piste |
 | `css/style.css`  | Thème et mise en page |
 | `icons/`        | Icône du projet : `stepseq.svg` (grille de pas + note, aussi logo de la barre du haut), `note-16.svg` (note seule pour le 16 px), PNG favicon 16 / 32 et icône d'écran d'accueil 180 |
+| `js/help.js`     | Aides de l'interface : « ? » à droite d'un libellé, info-bulle au survol, fenêtre pour une aide longue |
 | `js/library.js`  | Catalogue généré depuis strudel.cc (125 soundfonts gm_*, VCSL) |
 | `js/dirt.js`     | Catalogue généré des banques mélodiques de Dirt-Samples |
 | `js/sounds.js`   | Catalogue des sons (batterie, familles d'instruments, accords) |

@@ -254,7 +254,7 @@
           <div class="band-presets" id="bandPresets" role="radiogroup" aria-label="Type de chanson"></div>
         </aside>
         <main class="band-main">
-          <div class="band-step"><b>3</b> Le groupe <small class="dlg-hint">clique sur un musicien pour choisir son instrument</small></div>
+          <div class="band-step"><b>3</b> Le groupe <small class="dlg-hint" data-helpify>clique sur un musicien pour choisir son instrument</small></div>
           <div class="band-song" id="bandSong"></div>
           <div class="band-stage" id="bandStage"></div>
         </main>
@@ -290,7 +290,7 @@
         <section class="sg-scenes" aria-labelledby="sgScenesTitle">
           <div class="sg-col-head">
             <h3 id="sgScenesTitle">Scènes</h3>
-            <small class="dlg-hint">clic : éditer · glisser ⠿ pour ranger · sur la frise pour arranger</small>
+            <small class="dlg-hint" data-helpify>clic : éditer · glisser ⠿ pour ranger · sur la frise pour arranger</small>
           </div>
           <div class="sg-scene-row">
             <div id="sgSceneList" class="sg-scene-list" role="list"></div>
@@ -300,7 +300,7 @@
         <section class="sg-arr" aria-labelledby="sgArrTitle">
           <div class="sg-col-head">
             <h3 id="sgArrTitle">Arrangement</h3>
-            <small class="dlg-hint">la chanson joue les blocs de gauche à droite · clic : partir de ce bloc · glisser pour déplacer</small>
+            <small class="dlg-hint" data-helpify>la chanson joue les blocs de gauche à droite · clic : partir de ce bloc · glisser pour déplacer</small>
             <span class="spacer"></span>
             <button type="button" class="btn btn-small sg-play" id="sgPlay" title="Écouter la chanson à partir du bloc choisi (mode Chanson)"><span class="sg-play-ic" aria-hidden="true">▶</span> <span class="sg-play-txt">Écouter</span></button>
             <label class="song-loop"><input type="checkbox" id="sgLoop"> Boucler</label>
@@ -331,7 +331,7 @@
           <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </header>
-      <p class="dlg-hint songs-intro">Chaque chanson est enregistrée automatiquement dans ce navigateur, sans rien demander. Un instantané est gardé au plus toutes les 10 minutes de travail (bouton <b>Versions</b>). Sur Chrome et Edge, après un premier <b>Enregistrer</b>, le fichier choisi est aussi mis à jour à chaque modification (📄).</p>
+      <p class="dlg-hint songs-intro" data-helpify>Chaque chanson est enregistrée automatiquement dans ce navigateur, sans rien demander. Un instantané est gardé au plus toutes les 10 minutes de travail (bouton <b>Versions</b>). Sur Chrome et Edge, après un premier <b>Enregistrer</b>, le fichier choisi est aussi mis à jour à chaque modification (📄).</p>
       <input id="songsFilter" class="br-search" type="search" placeholder="🔍 Chercher une chanson…" autocomplete="off" aria-label="Chercher une chanson">
       <div class="songs-list" id="songsList"></div>
     </div>
@@ -407,7 +407,7 @@
           <div class="nt-right br-col">
             <span class="dlg-label">Le synthé</span>
             <div class="synth-card" id="dlgSynthCard" aria-live="polite"></div>
-            <small class="dlg-hint">Après validation, le bouton <b>Sound design</b> de la piste ouvre la façade du synthé : tous ses réglages sont modifiables.</small>
+            <small class="dlg-hint" data-helpify>Après validation, le bouton <b>Sound design</b> de la piste ouvre la façade du synthé : tous ses réglages sont modifiables.</small>
           </div>
         </section>
 
@@ -570,7 +570,7 @@
           <div class="juno-kb" id="junoKeys"></div>
         </div>
       </div>
-      <p class="juno-help">Glisser un curseur (ou molette, flèches du clavier) · double-clic : valeur du patch · <span id="junoTrack"></span></p>
+      <p class="juno-help"><span id="junoTrack"></span><span data-helpify>Glisser un curseur (ou molette, flèches du clavier) · double-clic : valeur du patch.</span></p>
       <div class="dlg-footer">
         <button type="button" id="junoPreview" class="btn">
           <svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9z" class="fill"/><path d="M16 8.5a5 5 0 0 1 0 7"/></svg>
@@ -588,7 +588,7 @@
   <dialog id="grooveDialog">
     <form method="dialog" id="grooveForm">
       <h2>Groove</h2>
-      <p class="dlg-sub">Le swing retarde une note sur deux pour donner du balancement. Les changements s'entendent pendant la lecture.</p>
+      <p class="dlg-sub" data-helpify>Le swing retarde une note sur deux pour donner du balancement. Les changements s'entendent pendant la lecture.</p>
 
       <div class="dlg-row">
         <span class="dlg-label">Swing</span>
@@ -647,7 +647,7 @@
         </div>
       </div>
       <div id="miReport" class="midi-report" aria-live="polite"></div>
-      <p class="dlg-hint">Un nouveau projet est créé ; la chanson en cours reste dans <b>Chansons</b>.</p>
+      <p class="dlg-hint" data-helpify>Un nouveau projet est créé ; la chanson en cours reste dans <b>Chansons</b>.</p>
       <div class="dlg-footer">
         <span class="spacer"></span>
         <button type="button" id="miCancel" class="btn">Annuler</button>
@@ -660,7 +660,7 @@
   <dialog id="midiExportDialog" class="midi-dialog" aria-labelledby="meTitle">
     <form method="dialog" id="meForm">
       <h2 id="meTitle">Exporter en MIDI</h2>
-      <p class="dlg-sub">Un fichier .mid (type 1) à ouvrir dans un logiciel de musique : une piste par piste, la batterie sur le canal 10.</p>
+      <p class="dlg-sub" data-helpify>Un fichier .mid (type 1) à ouvrir dans un logiciel de musique : une piste par piste, la batterie sur le canal 10.</p>
       <div class="dlg-row">
         <span class="dlg-label">Contenu</span>
         <div class="segmented" id="meRange" role="radiogroup" aria-label="Contenu exporté">
@@ -863,7 +863,7 @@
       <details class="sys-details">
         <summary>Détails techniques</summary>
         <div id="systemSections" class="system-sections"></div>
-        <p class="system-note">La surveillance relève 4 fois par seconde le niveau de chaque piste, de ses effets, des bus partagés, de la somme du Master et de la sortie : elle repère les signaux invalides, les emballements, l’écrêtage, les décrochages du moteur audio et les coupures, et nomme l’étage d’origine. La charge par piste est une estimation : le navigateur ne mesure pas le CPU piste par piste. La mémoire audio inclut les sons conservés en cache des morceaux précédents. Les grésillements d’une liaison Bluetooth ou de la carte son ne sont pas toujours visibles depuis la page.</p>
+        <p class="system-note" data-helpify>La surveillance relève 4 fois par seconde le niveau de chaque piste, de ses effets, des bus partagés, de la somme du Master et de la sortie : elle repère les signaux invalides, les emballements, l’écrêtage, les décrochages du moteur audio et les coupures, et nomme l’étage d’origine. La charge par piste est une estimation : le navigateur ne mesure pas le CPU piste par piste. La mémoire audio inclut les sons conservés en cache des morceaux précédents. Les grésillements d’une liaison Bluetooth ou de la carte son ne sont pas toujours visibles depuis la page.</p>
       </details>
     </div>
     <div class="system-footer"><span>Surveillance automatique · aucune donnée envoyée</span><button id="systemCopy" type="button" class="btn">Copier le diagnostic</button></div>
@@ -871,6 +871,7 @@
 
   <div id="toast" role="status" popover="manual"></div>
 
+  <script src="js/help.js"></script>
   <script src="js/library.js"></script>
   <script src="js/dirt.js"></script>
   <script src="js/dirt-tuning.js"></script>

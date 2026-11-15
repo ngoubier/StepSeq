@@ -1012,7 +1012,7 @@ SS.automixPanel = (() => {
         ? h('section', { class: 'am-pilot-history' }, h('h4', {}, 'Dernières actions'),
           h('ol', { class: 'am-pilot-log', 'aria-live': 'polite' }, pilot.log.map((x) => h('li', {},
             h('time', { datetime: new Date(x.at).toISOString() }, new Date(x.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })), h('span', {}, x.txt)))))
-        : h('p', { class: 'am-hint' }, 'Équilibre du mix, traitements piste par piste, puis Master global. Après chaque piste : 10 s de réécoute du mix avant la suivante. Les pistes non entendues restent en attente. Retouche un module pour le reprendre en main ; Ctrl+Z annule chaque geste.')
+        : h('p', { class: 'am-hint', 'data-helpify': true }, 'Équilibre du mix, traitements piste par piste, puis Master global. Après chaque piste : 10 s de réécoute du mix avant la suivante. Les pistes non entendues restent en attente. Retouche un module pour le reprendre en main ; Ctrl+Z annule chaque geste.')
     ].filter((child) => child != null));
   }
 
@@ -1127,7 +1127,7 @@ SS.automixPanel = (() => {
     dlg.replaceChildren(
       h('div', { class: 'am-prefs-head' }, h('h3', { id: 'amPrefsTitle' }, 'Préférences Auto Mix'), h('button', { type: 'button', class: 'mx-close', onclick: () => dlg.close() }, 'Fermer')),
       h('div', { class: 'am-prefs-body' },
-        h('section', {}, h('h4', {}, 'Ce que l\'assistant peut modifier'), h('p', { class: 'am-hint' }, 'Les conseils qui touchent un réglage décoché ne sont pas proposés.'), ...scopes),
+        h('section', {}, h('h4', {}, 'Ce que l\'assistant peut modifier'), h('p', { class: 'am-hint', 'data-helpify': true }, 'Les conseils qui touchent un réglage décoché ne sont pas proposés.'), ...scopes),
         h('section', {}, h('h4', {}, 'Objectif par défaut'), ...targets),
         h('section', {}, h('h4', {}, 'Conseils affichés'), ...detail,
           h('label', { class: 'am-pref-row', for: 'amMinSecs' }, h('span', {}, h('b', {}, 'Écoute avant le premier diagnostic'), h('small', {}, 'Plus long = plus fiable')), secs))

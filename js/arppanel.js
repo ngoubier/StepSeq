@@ -486,30 +486,26 @@ SS.arpPanel = (() => {
         h(
           'div',
           { class: 'arp-field' },
-          h('span', { class: 'dlg-label' }, 'Notes à la fois'),
-          segmented([{ id: 1, label: '1' }, { id: 2, label: '2' }, { id: 3, label: '3' }], v.poly, (x) => setStep(sel, { poly: +x }), 'Notes à la fois'),
-          h('small', { class: 'arp-help' }, '2 = la note + la note de l’accord juste au-dessus.')
+          h('span', { class: 'dlg-label' }, 'Notes à la fois', SS.helpTip('2 = la note + la note de l’accord juste au-dessus.', 'Notes à la fois')),
+          segmented([{ id: 1, label: '1' }, { id: 2, label: '2' }, { id: 3, label: '3' }], v.poly, (x) => setStep(sel, { poly: +x }), 'Notes à la fois')
         ),
         h(
           'div',
           { class: 'arp-field' },
-          h('span', { class: 'dlg-label' }, 'Degré'),
-          segmented([-2, -1, 0, 1, 2].map((d) => ({ id: d, label: d > 0 ? `+${d}` : d < 0 ? `−${-d}` : '0' })), v.deg, (x) => setStep(sel, { deg: +x }), 'Degré'),
-          h('small', { class: 'arp-help' }, 'décale la note de ce pas d’une ou deux notes de l’accord (et non d’une octave).')
+          h('span', { class: 'dlg-label' }, 'Degré', SS.helpTip('décale la note de ce pas d’une ou deux notes de l’accord (et non d’une octave).', 'Degré')),
+          segmented([-2, -1, 0, 1, 2].map((d) => ({ id: d, label: d > 0 ? `+${d}` : d < 0 ? `−${-d}` : '0' })), v.deg, (x) => setStep(sel, { deg: +x }), 'Degré')
         ),
         h(
           'div',
           { class: 'arp-field' },
-          h('span', { class: 'dlg-label' }, 'Vitesse du pas'),
-          segmented([1, 2, 3, 4].map((d) => ({ id: d, label: `×${d}` })), v.div, (x) => setStep(sel, { div: +x }), 'Vitesse du pas'),
-          h('small', { class: 'arp-help' }, 'rafale : ×2 joue les deux notes suivantes de l’arpège dans ce pas.')
+          h('span', { class: 'dlg-label' }, 'Vitesse du pas', SS.helpTip('rafale : ×2 joue les deux notes suivantes de l’arpège dans ce pas.', 'Vitesse du pas')),
+          segmented([1, 2, 3, 4].map((d) => ({ id: d, label: `×${d}` })), v.div, (x) => setStep(sel, { div: +x }), 'Vitesse du pas')
         ),
         h(
           'div',
           { class: 'arp-field' },
-          h('span', { class: 'dlg-label' }, 'Ratchet'),
-          segmented([1, 2, 3, 4].map((d) => ({ id: d, label: String(d) })), v.ratchet, (x) => setStep(sel, { ratchet: +x }), 'Ratchet'),
-          h('small', { class: 'arp-help' }, 'répète la note dans le pas ; voir « Ratchet roulé » pour qu’elle parcoure l’accord.')
+          h('span', { class: 'dlg-label' }, 'Ratchet', SS.helpTip('répète la note dans le pas ; voir « Ratchet roulé » pour qu’elle parcoure l’accord.', 'Ratchet')),
+          segmented([1, 2, 3, 4].map((d) => ({ id: d, label: String(d) })), v.ratchet, (x) => setStep(sel, { ratchet: +x }), 'Ratchet')
         )
       )
     );
@@ -548,12 +544,20 @@ SS.arpPanel = (() => {
     );
   }
 
+  /** Nom de l'accord joué (après renversement : « C/E »). */
+  function chordLabel() {
+    const hyp = A().analyzeChord(A().voiced(sourceChord().notes, track.arp))[0];
+    return hyp ? hyp.name : '';
+  }
+  function openAccord() {
+    if (level === 'intuitif') level = 'essentiel';
+    mod = 'accord';
+    render();
+  }
+
   function playerView() {
     const src = sourceChord();
-    const hyp = A().analyzeChord(A().voiced(src.notes, track.arp))[0]; // nom après renversement : « C/E »
     const has = !!trackChord();
-    const pickShown = test || !has;
-    const cur = test || { root: 9, type: 'min' };
     return h(
       'div',
       { class: 'arp-player' },
@@ -563,23 +567,10 @@ SS.arpPanel = (() => {
         loopButton('▶ Lire en boucle'),
         h(
           'div',
-          { class: 'arp-chordpick' },
-          h('span', { class: 'dlg-label' }, 'Accord'),
-          has ? h('button', { type: 'button', class: 'chip' + (!test ? ' active' : ''), title: 'Le premier accord posé sur la piste', onclick: () => ((test = null), render()) }, 'De la piste') : null,
-          h(
-            'select',
-            { 'aria-label': 'Note fondamentale', class: pickShown ? 'active' : '', onchange: (e) => ((test = { root: +e.target.value, type: cur.type }), render()) },
-            !pickShown ? h('option', { value: '', selected: true, disabled: true }, 'Autre…') : null,
-            NOTES_FR.map((n, i) => h('option', { value: i, selected: pickShown && cur.root === i }, `${n} (${NOTES[i]})`))
-          ),
-          h(
-            'select',
-            { 'aria-label': 'Type d’accord', onchange: (e) => ((test = { root: cur.root, type: e.target.value }), render()) },
-            !pickShown ? h('option', { value: '', selected: true, disabled: true }, '—') : null,
-            SS.CHORDS.map((c) => h('option', { value: c.id, selected: pickShown && cur.type === c.id }, c.label))
-          ),
-          h('b', { class: 'arp-chordname' }, hyp ? hyp.name : ''),
-          src.from === 'essai' ? h('button', { type: 'button', class: 'btn arp-fill', title: 'Pose cet accord sur toute la boucle de la piste', onclick: fillTrack }, 'Poser sur la piste') : null
+          { class: 'arp-chordnow' },
+          h('span', { class: 'dlg-label' }, src.from === 'essai' ? 'Accord d’essai' : 'Accord'),
+          h('button', { type: 'button', class: 'arp-chordname', title: 'Choisir l’accord, sa hauteur, les octaves (module Accord)', onclick: openAccord }, chordLabel()),
+          h('span', { class: 'arp-chordgo', 'aria-hidden': 'true' }, '›')
         )
       ),
       (() => {
@@ -587,12 +578,12 @@ SS.arpPanel = (() => {
         const L = gridLayout();
         return [
           h('div', { class: 'arp-pager' }, h('span', {}, `Boucle : ${info.bars} mesure${info.bars > 1 ? 's' : ''} · ${info.ticks} pas`), L.scroll ? h('small', {}, '↔ la grille défile avec la lecture') : null),
-          // grille et vélocités défilent ensemble quand les colonnes ne tiennent pas dans la fenêtre
-          h('div', { class: 'arp-scroll' + (L.scroll ? ' on' : '') }, gridSvg(track.arp, src.notes), laneRow()),
+          // grille et lignes de pas défilent ensemble quand les colonnes ne tiennent pas dans la fenêtre
+          h('div', { class: 'arp-scroll' + (L.scroll ? ' on' : '') }, gridSvg(track.arp, src.notes), level === 'intuitif' ? null : laneRow()),
         ];
       })(),
       stepPanel(),
-      !has ? h('small', { class: 'arp-legend' }, 'La piste est vide : choisis un accord, écoute, puis « Poser sur la piste ».') : null
+      !has ? h('small', { class: 'arp-legend' }, 'La piste est vide : choisis un accord (module Accord), écoute, puis « Poser l’accord sur la piste ».') : null
     );
   }
 
@@ -863,7 +854,7 @@ SS.arpPanel = (() => {
       h(
         'div',
         { class: 'geste-tab-head' },
-        h('small', { class: 'arp-help' }, (preset ? `${preset.label} — ${preset.desc}` : 'Personnalisé') + ` · groupes de ${n} notes`),
+        h('small', { class: 'arp-help' }, (preset ? `${preset.label} — ${preset.desc}` : 'Personnalisé') + ` · groupes de ${n} notes`, SS.helpTip('Pavé : glisser horizontalement pour l’étalement (serré → grille), verticalement pour l’alternance (notes paires en avance ↑ ou en retard ↓). Les curseurs 1 à 5 suivent l’ordre d’application.', 'Réglage fin du geste')),
         h('span', { class: 'spacer' }),
         h('span', { class: 'dlg-label' }, 'Écouter'),
         segmented(
@@ -880,7 +871,7 @@ SS.arpPanel = (() => {
       h(
         'div',
         { class: 'geste-detail' },
-        h('div', { class: 'geste-pad-col' }, gestePad(), h('small', { class: 'arp-help' }, 'Glisser : horizontal = étalement, vertical = alternance.')),
+        h('div', { class: 'geste-pad-col' }, gestePad()),
         h(
           'div',
           { class: 'geste-zoom' },
@@ -896,7 +887,7 @@ SS.arpPanel = (() => {
           h(
             'div',
             { class: 'ab' },
-            h('small', { class: 'arp-help' }, 'Pointillés : la grille · jaune : respiration avant le groupe suivant.'),
+            h('small', { class: 'arp-help' }, SS.helpTip('Pointillés : la grille · jaune : respiration avant le groupe suivant.', 'Zoom sur un groupe')),
             h('span', { class: 'spacer' }),
             h('button', { type: 'button', class: 'btn small', title: 'Tirer d’autres petits décalages', onclick: () => setGeste({ take: g.take + 1 }) }, `Nouvelle prise ↻ (prise ${g.take})`)
           )
@@ -915,7 +906,17 @@ SS.arpPanel = (() => {
   }
 
   /** Une ligne du formulaire : nom à gauche, réglage à droite. */
-  const formRow = (label, ...ctrl) => h('div', { class: 'arp-frow' }, h('span', { class: 'arp-flabel' }, label), h('div', { class: 'arp-fctrl' }, ...ctrl));
+  // les aides (help(…)) passent dans un « ? » à droite du libellé (js/help.js)
+  const formRow = (label, ...ctrl) => {
+    const flat = ctrl.flat(Infinity);
+    const tips = flat.filter((x) => x && x.__help).map((x) => x.__help);
+    return h(
+      'div',
+      { class: 'arp-frow' },
+      h('span', { class: 'arp-flabel' }, label, tips.length ? SS.helpTip(tips.join(' '), label) : null),
+      h('div', { class: 'arp-fctrl' }, ...flat.filter((x) => !(x && x.__help)))
+    );
+  };
 
   /** Sens de lecture commun à toutes les lignes (« fwd » si aucun, '' si les lignes ont des sens différents). */
   function laneDirAll(arp) {
@@ -929,7 +930,8 @@ SS.arpPanel = (() => {
   const LEVEL_KEY = 'stepseq.arp.level';
   let level = 'essentiel';
   try {
-    if (localStorage.getItem(LEVEL_KEY) === 'avance') level = 'avance';
+    const lv = localStorage.getItem(LEVEL_KEY);
+    if (lv === 'avance' || lv === 'intuitif') level = lv;
   } catch (e) {
     /* stockage indisponible */
   }
@@ -956,10 +958,10 @@ SS.arpPanel = (() => {
   let takes = [];
   let takeIdx = -1;
   const LOCKS = [
-    { id: 'motif', label: 'le motif' },
-    { id: 'rythme', label: 'le rythme' },
-    { id: 'accord', label: 'l’accord' },
-    { id: 'effets', label: 'les effets' },
+    { id: 'motif', label: 'le motif', short: 'motif' },
+    { id: 'rythme', label: 'le rythme', short: 'rythme' },
+    { id: 'accord', label: 'l’accord', short: 'accord' },
+    { id: 'effets', label: 'les effets', short: 'effets' },
   ];
   const LOCK_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
   function surprise() {
@@ -967,16 +969,26 @@ SS.arpPanel = (() => {
     const next = SS.arpSurprise(track.arp, locks);
     takes = [...takes.slice(0, takeIdx < 0 ? takes.length : takeIdx + 1), clone(next)].slice(-20);
     takeIdx = takes.length - 1;
-    set(next);
+    replaceArp(next);
+  }
+  /** Remplace tout le réglage (une prise est complète : un geste absent doit le rester). */
+  function replaceArp(a) {
+    undo.push(clone(track.arp));
+    track.arp = A().normalize(clone(a));
+    app.changed();
+    render();
   }
   function goTake(d) {
     const i = Math.max(0, Math.min(takes.length - 1, takeIdx + d));
     if (i === takeIdx) return;
     takeIdx = i;
-    set(clone(takes[i]));
+    replaceArp(takes[i]);
   }
-  function surpriseRow() {
-    return [
+  /** « Surprends-moi » : bouton, verrous et prises, sur une ligne. */
+  function surprisePanel() {
+    return h(
+      'div',
+      { class: 'arp-surp' },
       h('button', { type: 'button', class: 'btn arp-surprise', title: 'Un nouvel arpège tiré au hasard, en gardant ce qui est verrouillé', onclick: surprise }, 'Surprends-moi'),
       h(
         'span',
@@ -1000,21 +1012,92 @@ SS.arpPanel = (() => {
                 render();
               },
             },
-            h('span', { html: LOCK_SVG }),
-            l.label
+            l.short
           )
         )
       ),
+      h('span', { class: 'spacer' }),
       takes.length > 1
         ? h(
             'span',
-            { class: 'arp-takes' },
+            { class: 'arp-takes', title: takeIdx === 0 ? 'l’arpège de départ' : `prise ${takeIdx + 1}` },
             h('button', { type: 'button', class: 'sd-mini', 'aria-label': 'Prise précédente', disabled: takeIdx <= 0, onclick: () => goTake(-1) }, '‹'),
-            h('span', {}, takeIdx === 0 ? `départ · 1 / ${takes.length}` : `prise ${takeIdx + 1} / ${takes.length}`),
+            h('span', {}, `${takeIdx + 1}/${takes.length}`),
             h('button', { type: 'button', class: 'sd-mini', 'aria-label': 'Prise suivante', disabled: takeIdx >= takes.length - 1, onclick: () => goTake(1) }, '›')
           )
-        : null,
-    ];
+        : null
+    );
+  }
+  /** Motif précédent, tuile du motif, motif suivant. */
+  function motifLine() {
+    return h(
+      'div',
+      { class: 'arp-motif-line' },
+      h('button', { type: 'button', class: 'btn arp-motif-prev', 'aria-label': 'Motif précédent', title: 'Motif précédent', onclick: () => applyMotif(SS.motifStep(track.arp, -1)) }, '‹'),
+      motifTile(),
+      h('button', { type: 'button', class: 'btn arp-motif-next', 'aria-label': 'Motif suivant', title: 'Motif suivant', onclick: () => applyMotif(SS.motifStep(track.arp, 1)) }, '›')
+    );
+  }
+
+  /* ---------- Mode Intuitif : 4 boutons rotatifs (moteur : SS.Arp.macroPatch / macroValue) ---------- */
+  function knob(mc) {
+    const val = () => A().macroValue(track.arp, mc.id);
+    let v = val();
+    const ring = h('div', { class: 'arp-knob-ring' }, h('div', { class: 'arp-knob-cap' }, h('b', {}, String(v))));
+    const now = h('span', { class: 'arp-knob-now' }, A().macroText(track.arp, mc.id));
+    const dial = h('div', { class: 'arp-knob-dial', role: 'slider', tabindex: '0', 'aria-label': mc.label, 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(v), 'aria-valuetext': now.textContent }, ring);
+    const paint = () => {
+      ring.style.setProperty('--p', `${v}%`);
+      ring.querySelector('b').textContent = String(v);
+      now.textContent = A().macroText(track.arp, mc.id);
+      dial.setAttribute('aria-valuenow', String(v));
+      dial.setAttribute('aria-valuetext', now.textContent);
+    };
+    const apply = (x) => {
+      v = Math.max(0, Math.min(100, Math.round(x)));
+      track.arp = A().normalize({ ...track.arp, ...A().macroPatch(track.arp, mc.id, v), macros: { ...track.arp.macros, [mc.id]: v }, preset: '' });
+      app.changed();
+      paint();
+    };
+    let drag = null;
+    dial.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      dial.setPointerCapture(e.pointerId);
+      undo.push(clone(track.arp));
+      drag = { y: e.clientY, v };
+      sliding = true;
+    });
+    dial.addEventListener('pointermove', (e) => drag && apply(drag.v + (drag.y - e.clientY) * 0.6));
+    const end = () => {
+      if (!drag) return;
+      drag = null;
+      sliding = false;
+      render();
+    };
+    dial.addEventListener('pointerup', end);
+    dial.addEventListener('pointercancel', end);
+    dial.addEventListener('keydown', (e) => {
+      const d = { ArrowUp: 5, ArrowRight: 5, ArrowDown: -5, ArrowLeft: -5, PageUp: 20, PageDown: -20 }[e.key];
+      const to = e.key === 'Home' ? 0 : e.key === 'End' ? 100 : d != null ? v + d : null;
+      if (to == null) return;
+      e.preventDefault();
+      undo.push(clone(track.arp));
+      apply(to);
+      render();
+      const again = dlg.querySelector(`.arp-knob[data-k="${mc.id}"] .arp-knob-dial`);
+      if (again) again.focus();
+    });
+    paint();
+    return h('div', { class: 'arp-knob', 'data-k': mc.id }, dial, h('b', { class: 'arp-knob-name' }, mc.label, SS.helpTip(`${mc.what[0].toUpperCase()}${mc.what.slice(1)}. Glisser vers le haut ou le bas (ou flèches du clavier). Le bouton remplace les réglages fins qu’il pilote ; « Défaire » revient en arrière.`, mc.label)), now);
+  }
+
+  function intuitiveView() {
+    return h(
+      'div',
+      { class: 'arp-intuitif' },
+      h('div', { class: 'arp-motif-row' }, motifLine(), surprisePanel()),
+      h('div', { class: 'arp-knobs' }, A().MACROS.map(knob))
+    );
   }
 
   const memo = {}; // réglages d'un module éteint, pour le rallumer tel qu'il était (le temps de la fenêtre)
@@ -1024,7 +1107,7 @@ SS.arpPanel = (() => {
   const MODULES = [
     {
       id: 'motif', name: 'Motif', basic: true,
-      sum: (a) => `${currentMotif().name} · ${a.octaves} octave${a.octaves > 1 ? 's' : ''}`,
+      sum: () => currentMotif().name,
     },
     {
       id: 'rythme', name: 'Rythme', basic: true,
@@ -1032,9 +1115,16 @@ SS.arpPanel = (() => {
     },
     {
       id: 'accord', name: 'Accord', basic: true,
-      on: (a) => a.inversion !== 'asis' || a.voicing !== 'close',
-      keys: ['inversion', 'voicing'], off: { inversion: 'asis', voicing: 'close' }, def: { inversion: 'smooth' },
-      sum: (a) => (a.inversion === 'asis' && a.voicing === 'close' ? 'tel que joué' : `${a.inversion === 'asis' ? 'tel quel' : label(A().INVERSIONS, a.inversion)} · ${label(A().VOICINGS, a.voicing)}`),
+      sum: (a) =>
+        [
+          chordLabel(),
+          a.register !== 'asis' ? `C${a.register}` : '',
+          `${a.octaves} oct.`,
+          a.inversion !== 'asis' ? (A().INVERSIONS.find((x) => x.id === a.inversion) || {}).short : '',
+          a.voicing !== 'close' ? label(A().VOICINGS, a.voicing).toLowerCase() : '',
+        ]
+          .filter(Boolean)
+          .join(' · '),
     },
     {
       id: 'pas', name: 'Pas à pas',
@@ -1114,28 +1204,19 @@ SS.arpPanel = (() => {
   }
 
   const adv = () => level === 'avance';
-  const help = (t) => h('small', { class: 'arp-fhelp' }, t);
+  const help = (t) => ({ __help: t }); // aide d'une ligne : affichée par le « ? » de formRow
 
   function modulePane() {
     const arp = track.arp;
     const rs = splitRate(arp.rate);
     const m = MODULES.find((x) => x.id === mod) || MODULES[0];
-    const head = h('div', { class: 'arp-pane-head' }, h('h3', {}, m.name), m.on && !m.on(arp) && (m.def || memo[m.id]) ? h('button', { type: 'button', class: 'btn small', onclick: () => toggleModule(m) }, 'Allumer') : null);
+    const paneTip = m.id === 'pas' ? (adv() ? 'Choisis une ligne sous la grille, puis dessine-la en glissant. Chaque ligne a sa propre longueur : avec des longueurs différentes, le motif ne se répète pas pareil (polymétrie).' : 'Glisse sur la rangée sous la grille pour régler la vélocité de chaque pas ; le mode Avancé donne toutes les lignes (degré, vitesse, ratchet…).') : null;
+    const head = h('div', { class: 'arp-pane-head' }, h('h3', {}, m.name, paneTip ? SS.helpTip(paneTip, m.name) : null), m.on && !m.on(arp) && (m.def || memo[m.id]) ? h('button', { type: 'button', class: 'btn small', onclick: () => toggleModule(m) }, 'Allumer') : null);
     let rows = [];
     if (m.id === 'motif') {
       rows = [
-        formRow(
-          'Motif',
-          h(
-            'div',
-            { class: 'arp-motif-line' },
-            h('button', { type: 'button', class: 'btn arp-motif-prev', 'aria-label': 'Motif précédent', title: 'Motif précédent', onclick: () => applyMotif(SS.motifStep(track.arp, -1)) }, '‹'),
-            motifTile(),
-            h('button', { type: 'button', class: 'btn arp-motif-next', 'aria-label': 'Motif suivant', title: 'Motif suivant', onclick: () => applyMotif(SS.motifStep(track.arp, 1)) }, '›')
-          )
-        ),
-        formRow('Hasard', surpriseRow()),
-        formRow('Octaves', segmented([1, 2, 3, 4].map((o) => ({ id: o, label: String(o) })), arp.octaves, (v) => set({ octaves: +v }), 'Octaves')),
+        formRow('Motif', motifLine()),
+        formRow('Hasard', surprisePanel()),
       ];
     } else if (m.id === 'rythme') {
       rows = [
@@ -1149,7 +1230,41 @@ SS.arpPanel = (() => {
       ];
     } else if (m.id === 'accord') {
       const invs = A().INVERSIONS.filter((x) => adv() || !['3', 'cycle'].includes(String(x.id)) || x.id === arp.inversion);
+      const has = !!trackChord();
+      const cur = test || { root: 9, type: 'min' };
+      const tryChord = () => {
+        if (test) return;
+        const hyp = A().analyzeChord(sourceChord().notes)[0];
+        const ok = hyp && SS.CHORDS.some((c) => c.id === hyp.type);
+        test = ok ? { root: hyp.root, type: hyp.type } : { root: 9, type: 'min' };
+        render();
+      };
       rows = [
+        formRow(
+          'Accord joué',
+          h(
+            'div',
+            { class: 'arp-chordpick' },
+            segmented(
+              [
+                { id: 'piste', label: 'De la piste', hint: has ? 'les accords posés sur la piste' : 'la piste est vide' },
+                { id: 'essai', label: 'Essai', hint: 'un accord pour écouter, à poser ensuite sur la piste' },
+              ],
+              test || !has ? 'essai' : 'piste',
+              (v) => (v === 'piste' ? has && ((test = null), render()) : tryChord()),
+              'Accord joué'
+            ),
+            test || !has
+              ? [
+                  h('select', { 'aria-label': 'Note fondamentale', onchange: (e) => ((test = { root: +e.target.value, type: cur.type }), render()) }, NOTES_FR.map((n, k) => h('option', { value: k, selected: cur.root === k }, `${n} (${NOTES[k]})`))),
+                  h('select', { 'aria-label': 'Type d’accord', onchange: (e) => ((test = { root: cur.root, type: e.target.value }), render()) }, SS.CHORDS.map((c) => h('option', { value: c.id, selected: cur.type === c.id }, c.label))),
+                ]
+              : null
+          ),
+          help(test || !has ? '« Poser l’accord sur la piste » (en bas) remplace les accords de la piste par cet accord.' : 'les accords posés sur la piste ; « Essai » pour écouter un autre accord')
+        ),
+        formRow('Hauteur', segmented(A().REGISTERS.map((x) => ({ id: x.id, label: x.label, hint: x.hint })), arp.register, (v) => set({ register: v }), 'Hauteur de l’accord'), help('l’octave où commence l’accord (sa note la plus grave), quelle que soit la hauteur des accords posés')),
+        formRow('Octaves', segmented([1, 2, 3, 4].map((o) => ({ id: o, label: String(o) })), arp.octaves, (v) => set({ octaves: +v }), 'Octaves'), help('sur combien d’octaves l’arpège monte')),
         formRow('Renversement', segmented(invs.map((x) => ({ id: x.id, label: x.short, hint: `${x.label} — ${x.hint}` })), arp.inversion, (v) => set({ inversion: v }), 'Renversement de l’accord'), help('quelle note de l’accord est à la basse (C, C/E, C/G…) ; « Proche » enchaîne les accords de la piste en bougeant le moins possible')),
         formRow('Voicing', segmented(A().VOICINGS.map((x) => ({ id: x.id, label: x.label, hint: x.hint })), arp.voicing, (v) => set({ voicing: v }), 'Voicing')),
       ];
@@ -1163,7 +1278,7 @@ SS.arpPanel = (() => {
         writeLane(u.id, Array.from({ length: n }, (_, k) => src[k % src.length]));
       } }, Array.from({ length: 32 }, (_, k) => k + 1).map((k) => h('option', { value: k, selected: k === len }, `${k} pas`)));
       rows = [
-        h('p', { class: 'arp-help' }, adv() ? 'Choisis une ligne sous la grille, puis dessine-la en glissant. Chaque ligne a sa propre longueur : avec des longueurs différentes, le motif ne se répète pas pareil (polymétrie).' : 'Glisse sur la rangée sous la grille pour régler la vélocité de chaque pas ; le mode Avancé donne toutes les lignes (degré, vitesse, ratchet…).'),
+        null,
         adv() ? formRow('Ligne', h('b', { class: 'arp-lane-name' }, u.label), lenSel, h('button', { type: 'button', class: 'btn small', onclick: () => set(u.id === 'rhythm' ? { lanes: { ...arp.lanes, rhythm: [] }, rhythm: { ...arp.rhythm, type: 'all' } } : { lanes: { ...arp.lanes, [u.id]: [] } }) }, 'Remettre à zéro')) : null,
         adv() ? formRow('Lecture de la ligne', segmented(A().LANE_DIRS, arp.laneDir[u.id] || 'fwd', (v) => set({ laneDir: { ...arp.laneDir, [u.id]: v } }), 'Sens de lecture de la ligne')) : null,
         adv() && u.id === 'rhythm'
@@ -1194,7 +1309,7 @@ SS.arpPanel = (() => {
         arp.echo.n && adv() ? formRow('Atténuation', slider('Atténuation', Math.round(arp.echo.decay * 100), 10, 95, 5, (x) => `${x} % à chaque écho`, (x, push) => set({ echo: { ...track.arp.echo, decay: x / 100 } }, { push }))) : null,
       ];
     } else if (m.id === 'roll') {
-      rows = [formRow('Ratchet roulé', segmented(A().ROLLS, arp.roll, (v) => set({ roll: v }), 'Ratchet roulé')), help('les répétitions d’un ratchet parcourent l’accord ; le nombre de répétitions se règle dans la ligne Ratchet (Pas à pas).')];
+      rows = [formRow('Ratchet roulé', segmented(A().ROLLS, arp.roll, (v) => set({ roll: v }), 'Ratchet roulé'), help('les répétitions d’un ratchet parcourent l’accord ; le nombre de répétitions se règle dans la ligne Ratchet (Pas à pas).'))];
     } else if (m.id === 'evol') {
       rows = [
         formRow('Variations', slider('Variations', Math.round(arp.evolve * 100), 0, 100, 5, (x) => (x ? `${x} %` : 'aucune'), (x, push) => set({ evolve: x / 100 }, { push })), help('d’une boucle à l’autre : nuances, notes déplacées, respirations (A, A′, B, A″)')),
@@ -1215,6 +1330,7 @@ SS.arpPanel = (() => {
   function levelSwitch() {
     const el = segmented(
       [
+        { id: 'intuitif', label: 'Intuitif', hint: 'quatre boutons rotatifs et Surprends-moi' },
         { id: 'essentiel', label: 'Essentiel', hint: 'les réglages principaux' },
         { id: 'avance', label: 'Avancé', hint: 'tous les modules et toutes les lignes de pas' },
       ],
@@ -1240,7 +1356,9 @@ SS.arpPanel = (() => {
     const scroll = body.scrollTop;
     const old = body.querySelector('.arp-scroll');
     const gridScroll = old ? old.scrollLeft : 0;
-    body.replaceChildren(playerView(), modulesView());
+    body.replaceChildren(playerView(), level === 'intuitif' ? intuitiveView() : modulesView());
+    const fill = dlg.querySelector('.arp-fill');
+    fill.hidden = sourceChord().from !== 'essai';
     const lv = dlg.querySelector('.arp-level');
     lv.replaceWith(levelSwitch());
     body.scrollTop = scroll;
@@ -1257,7 +1375,12 @@ SS.arpPanel = (() => {
       h(
         'form',
         { method: 'dialog' },
-        h('div', { class: 'sd-head' }, h('h2', {}, h('span', { class: 'arp-brand' }, 'Arp One'), h('span', { class: 'arp-title' }, '')), h('span', { class: 'arp-level' })),
+        h(
+          'div',
+          { class: 'sd-head' },
+          h('h2', {}, h('span', { class: 'arp-brand' }, 'Arp One'), h('span', { class: 'arp-title' }, '')),
+          h('span', { class: 'arp-head-right' }, h('span', { class: 'arp-level' }), h('button', { type: 'button', class: 'arp-close', 'aria-label': 'Fermer', title: 'Fermer (les réglages sont gardés)', onclick: close, html: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>' }))
+        ),
         h('div', { class: 'arp-body' }),
         h(
           'div',
@@ -1282,8 +1405,8 @@ SS.arpPanel = (() => {
             {
               type: 'button',
               class: 'btn',
-              title: 'Revenir à un arpège montant simple (1/16, 1 octave, pas neutres)',
-              onclick: () => ((sel = null), set({ ...clone(A().DEFAULTS), rate: 1, seed: track.arp.seed })),
+              title: 'Revenir à un arpège montant simple (1/8, 8 pas, 1 octave, pas neutres)',
+              onclick: () => ((sel = null), set({ ...clone(A().DEFAULTS), rate: 0.5, steps: 8, seed: track.arp.seed })),
             },
             'Réinitialiser'
           ),
@@ -1302,7 +1425,7 @@ SS.arpPanel = (() => {
             },
             'Annuler'
           ),
-          h('button', { type: 'button', class: 'btn btn-accent', onclick: close }, 'OK')
+          h('button', { type: 'button', class: 'btn arp-fill', title: 'Remplace les accords de la piste par l’accord d’essai, sur toute la boucle', onclick: fillTrack }, 'Poser l’accord sur la piste')
         )
       )
     );
@@ -1337,7 +1460,7 @@ SS.arpPanel = (() => {
     test = null;
     sel = null;
     gesteOpen = false;
-    mod = 'motif';
+    mod = trackChord() ? 'motif' : 'accord'; // piste vide : on commence par choisir l'accord
     takes = [];
     takeIdx = -1;
     gesteCompare = 'geste';

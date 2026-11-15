@@ -3794,3 +3794,65 @@ dialog.arp-dialog { width: min(940px, calc(100vw - 32px)); }
 .arp-lock { display: inline-flex; align-items: center; gap: 5px; }
 .arp-lock:not(.active) svg { opacity: .45; }
 .arp-takes { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* Arp One : en-tête (niveaux + fermer), accord cliquable, mode Intuitif (boutons rotatifs) */
+.arp-head-right { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
+.arp-close { width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 9px; background: transparent; color: #c4c4cc; cursor: pointer; }
+.arp-close:hover { background: var(--panel-3); color: var(--text); }
+.arp-close:focus-visible { outline: 2px solid var(--accent-2); }
+.arp-chordnow { display: inline-flex; align-items: center; gap: 8px; }
+.arp-chordname { font: inherit; font-size: 17px; font-weight: 700; color: var(--text); background: transparent; border: 0; padding: 4px 2px; cursor: pointer; border-bottom: 1px dashed #6d6d78; border-radius: 0; }
+.arp-chordname:hover { color: #cdb9ff; border-bottom-color: #a479ff; }
+.arp-chordgo { color: var(--muted); font-size: 16px; }
+.arp-dialog .dlg-footer .arp-fill[hidden] { display: none; }
+.arp-chordpick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.arp-chordpick select { font: inherit; font-size: 13px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+/* Surprends-moi sur une ligne */
+.arp-surp { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; min-width: 0; border: 1px solid #6a4cc9; border-radius: 12px; padding: 6px 8px; background: var(--panel); }
+.arp-surp .spacer { flex: 1; }
+.arp-surp .arp-surprise { padding: 8px 12px; white-space: nowrap; }
+.arp-surp .arp-locks { flex-wrap: nowrap; gap: 4px; }
+.arp-surp .arp-lock { padding: 3px 8px; font-size: 12px; }
+.arp-surp .arp-locks small { white-space: nowrap; }
+.arp-takes span { white-space: nowrap; }
+/* mode Intuitif */
+.arp-intuitif { display: flex; flex-direction: column; gap: 14px; margin-top: 14px; }
+.arp-motif-row { display: flex; align-items: stretch; gap: 10px; min-width: 0; }
+.arp-motif-row .arp-motif-line { flex: 0 1 380px; }
+.arp-motif-row .arp-surp { flex: 1 1 auto; }
+.arp-knobs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.arp-knob { display: flex; flex-direction: column; align-items: center; gap: 6px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 14px; padding: 16px 12px; text-align: center; }
+.arp-knob-dial { border-radius: 50%; cursor: ns-resize; touch-action: none; outline: none; }
+.arp-knob-dial:focus-visible { box-shadow: 0 0 0 3px var(--accent-2); }
+.arp-knob-ring { --p: 0%; width: 104px; height: 104px; border-radius: 50%; background: conic-gradient(#8b6cf0 0 var(--p), #44444c var(--p) 100%); display: flex; align-items: center; justify-content: center; }
+.arp-knob-cap { width: 80px; height: 80px; border-radius: 50%; background: var(--panel-2); display: flex; align-items: center; justify-content: center; }
+.arp-knob-cap b { font-size: 22px; font-variant-numeric: tabular-nums; }
+.arp-knob-name { font-size: 15px; }
+.arp-knob-now { font-size: 12px; color: var(--text); min-height: 1.3em; }
+.arp-knob small { font-size: 11px; color: var(--muted); line-height: 1.4; }
+@media (max-width: 860px) {
+  .arp-motif-row { flex-direction: column; }
+  .arp-motif-row .arp-motif-line { flex: none; }
+  .arp-surp { flex-wrap: wrap; }
+  .arp-knobs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 720px) {
+  .arp-head-right { margin-left: 0; width: 100%; justify-content: space-between; }
+}
+.arp-chordpick .arp-seg, .arp-fctrl .arp-seg { flex: none; }
+.arp-seg button { white-space: nowrap; }
+.arp-fctrl .arp-fhelp { flex: 1 1 260px; }
+.arp-fctrl > .arp-chordpick { flex: none; max-width: 100%; }
+
+/* Aides : « ? » à droite du libellé, info-bulle au survol, fenêtre pour une aide longue (js/help.js) */
+.help-tip { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 18px; height: 18px; margin: 0 0 0 6px; padding: 0; border: 1px solid #5d5d66; border-radius: 50%; background: transparent; color: #b4b4bd; font: 600 11px/1 system-ui, sans-serif; letter-spacing: 0; text-transform: none; cursor: help; vertical-align: middle; position: relative; }
+.help-tip::before { content: ''; position: absolute; inset: -9px; } /* zone tactile de 36 px */
+.help-tip:hover, .help-tip:focus-visible, .help-tip[aria-describedby] { border-color: #a479ff; color: #fff; background: #3b2f63; outline: none; }
+.help-bubble { position: fixed; z-index: 10000; max-width: 320px; padding: 8px 11px; border-radius: 8px; background: #111114; border: 1px solid #4a4a52; color: #ececf1; font: 400 13px/1.45 system-ui, sans-serif; text-transform: none; letter-spacing: 0; box-shadow: 0 6px 24px #0009; pointer-events: none; }
+.help-bubble b { display: block; margin-top: 4px; color: #cdb9ff; font-weight: 600; font-size: 12px; }
+dialog.help-dialog { width: min(480px, calc(100vw - 32px)); padding: 18px 20px 20px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); color: var(--text); }
+dialog.help-dialog::backdrop { background: #0008; }
+.help-dialog-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.help-dialog-head h2 { margin: 0; font-size: 17px; flex: 1; }
+.help-close { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: transparent; color: #c4c4cc; cursor: pointer; }
+.help-close:hover { background: var(--panel-3); color: var(--text); }
+.help-dialog-text { margin: 0; font-size: 14px; line-height: 1.6; white-space: pre-line; }
