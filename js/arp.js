@@ -115,6 +115,15 @@
     { id: 'bass', label: 'Basse grave', hint: 'la note de basse descend d’une octave' },
   ];
 
+  // hauteur : octave où commence l'accord (sa note la plus grave) ; 'asis' = telle que jouée
+  const REGISTERS = [
+    { id: 'asis', label: 'Telle quelle', hint: 'l’accord à la hauteur où il est posé sur la piste' },
+    { id: 2, label: 'Grave · C2' },
+    { id: 3, label: 'Médium · C3' },
+    { id: 4, label: 'Aigu · C4' },
+    { id: 5, label: 'Très aigu · C5' },
+  ];
+
   const ECHO_SHIFTS = [
     { id: 'none', label: 'Même note' },
     { id: 'up1', label: '+1 degré', hint: 'chaque écho monte d’une note de l’accord' },
@@ -169,6 +178,8 @@
     harmony: 'chord',
     inversion: 'asis',
     voicing: 'close',
+    register: 'asis',
+    macros: {}, // dernières positions des boutons rotatifs (mode Intuitif), 0..100
     echo: { n: 0, gap: 2, decay: 0.6, shift: 'none' },
     roll: 'none',
     laneDir: {},
@@ -289,6 +300,11 @@
     const inv = typeof o.inversion === 'string' && /^\d$/.test(o.inversion) ? +o.inversion : o.inversion;
     o.inversion = INVERSIONS.some((x) => x.id === inv) ? inv : 'asis';
     o.voicing = VOICINGS.some((x) => x.id === o.voicing) ? o.voicing : 'close';
+    const reg = typeof o.register === 'string' && /^\d$/.test(o.register) ? +o.register : o.register;
+    o.register = REGISTERS.some((x) => x.id === reg) ? reg : 'asis';
+    const mc = a.macros && typeof a.macros === 'object' ? a.macros : {};
+    o.macros = {};
+    for (const k of ['density', 'width', 'motion', 'echo']) if (Number.isFinite(+mc[k]) && mc[k] !== null && mc[k] !== '') o.macros[k] = clamp(Math.round(+mc[k]), 0, 100);
     o.roll = ROLLS.some((x) => x.id === o.roll) ? o.roll : 'none';
     const ec = { ...DEFAULTS.echo, ...(a.echo && typeof a.echo === 'object' ? a.echo : {}) };
     o.echo = {
@@ -555,6 +571,14 @@
         ns = hit || [...notes].sort((a, b) => a - b);
       } else if (o.inversion !== 'asis') ns = invertChord(notes, o.inversion === 'cycle' ? L | 0 : o.inversion);
       if (o.voicing !== 'close') ns = applyVoicing(ns, o.voicing);
+    }
+    if (o.register !== 'asis' && ns.length) {
+      // l'accord est déplacé par octaves entières pour commencer dans l'octave demandée (« Proche » : d'après
+      // l'accord joué, pour que l'enchaînement reste lié d'un accord à l'autre)
+      const low = Math.min(...(o.inversion === 'smooth' ? notes : ns));
+      const base = 12 * (o.register + 1);
+      const sh = base + mod(low - base, 12) - low;
+      if (sh) ns = ns.map((n) => n + sh);
     }
     return ns;
   }
@@ -1243,8 +1267,125 @@
     return t.iv.map((i) => rootN + i);
   }
 
+  /* ------------------------------------------------------------------ */
+  /* Boutons rotatifs (mode Intuitif) : un geste, plusieurs réglages      */
+  /* ------------------------------------------------------------------ */
+
+  /*
+   * Chaque bouton (0..100) écrit un groupe de réglages fins, et remplace ceux qu'il pilote :
+   *   density  silences (rythme euclidien clairsemé) → tous les pas (50) → rafales ×2 puis ratchets
+   *   width    1 octave serré → 2 octaves → 2 octaves ouvert → 3 octaves ouvert → 4 octaves ouvert
+   *   motion   figé → variations d'une boucle à l'autre → variations fortes + timbre qui ondule
+   *   echo     aucun → 1-2 échos sur la même note → 3-4 échos qui montent dans l'accord (spirale)
+   * macroValue relit la position du bouton : la dernière position enregistrée si elle donne toujours les
+   * réglages actuels, sinon une position déduite des réglages (changés ailleurs).
+   */
+  const MACROS = [
+    { id: 'density', label: 'Densité', what: 'peu → beaucoup de notes : silences, puis rafales et ratchets' },
+    { id: 'width', label: 'Ampleur', what: 'étendue en octaves, accord ouvert' },
+    { id: 'motion', label: 'Mouvement', what: 'l’arpège évolue d’une boucle à l’autre, le timbre ondule' },
+    { id: 'echo', label: 'Écho', what: 'nombre d’échos ; au-delà de la moitié, spirale dans l’accord' },
+  ];
+  const WIDTHS = [
+    { at: 12, octaves: 1, voicing: 'close' },
+    { at: 37, octaves: 2, voicing: 'close' },
+    { at: 60, octaves: 2, voicing: 'open' },
+    { at: 77, octaves: 3, voicing: 'open' },
+    { at: 93, octaves: 4, voicing: 'open' },
+  ];
+  const widthOf = (v) => WIDTHS[v < 25 ? 0 : v < 50 ? 1 : v < 70 ? 2 : v < 85 ? 3 : 4];
+
+  /** Réglages écrits par un bouton à la position v (patch à fusionner dans le réglage). */
+  function macroPatch(arp, id, v) {
+    const o = arp && arp.__norm ? arp : normalize(arp);
+    v = clamp(Math.round(+v || 0), 0, 100);
+    const P = o.steps;
+    if (id === 'density') {
+      const lanes = { ...o.lanes, div: [], ratchet: [] };
+      if (v < 48) {
+        const hits = Math.max(1, Math.round(P * (0.25 + (0.75 * v) / 50)));
+        return { rhythm: { ...o.rhythm, type: 'lane' }, lanes: { ...lanes, rhythm: euclid(hits, P, 0) } };
+      }
+      const out = { rhythm: { ...o.rhythm, type: 'all' }, lanes: { ...lanes, rhythm: [] } };
+      if (v > 52) {
+        const t = (v - 50) / 50;
+        const n = Math.max(1, Math.round((t * P) / 2));
+        out.lanes.div = euclid(n, P, 1).map((x) => (x ? 2 : 1));
+        if (t > 0.6) out.lanes.ratchet = euclid(Math.max(1, Math.round(((t - 0.6) / 0.4) * (P / 4))), P, 3).map((x) => (x ? 2 : 1));
+      }
+      return out;
+    }
+    if (id === 'width') {
+      const w = widthOf(v);
+      return { octaves: w.octaves, voicing: w.voicing };
+    }
+    if (id === 'motion') {
+      const t = v / 100;
+      return { evolve: Math.round(0.8 * t * 100) / 100, motion: t > 0.3 ? Math.round(((t - 0.3) / 0.7) * 0.8 * 100) / 100 : 0 };
+    }
+    if (id === 'echo') {
+      if (v < 5) return { echo: { ...o.echo, n: 0 } };
+      const n = Math.min(4, 1 + Math.floor(((v - 5) / 95) * 4));
+      return { echo: { n, gap: o.echo.n ? o.echo.gap : 2, decay: Math.round((0.4 + 0.3 * (v / 100)) * 100) / 100, shift: v >= 50 ? 'up1' : 'none' } };
+    }
+    return {};
+  }
+  const MACRO_KEYS = { density: ['rhythm', 'lanes'], width: ['octaves', 'voicing'], motion: ['evolve', 'motion'], echo: ['echo'] };
+  function macroFits(o, id, v) {
+    const p = normalize({ ...o, ...macroPatch(o, id, v) });
+    return MACRO_KEYS[id].every((k) => {
+      if (k === 'lanes') return ['rhythm', 'div', 'ratchet'].every((l) => JSON.stringify(p.lanes[l]) === JSON.stringify(o.lanes[l]));
+      if (k === 'rhythm') return p.rhythm.type === o.rhythm.type;
+      return JSON.stringify(p[k]) === JSON.stringify(o[k]);
+    });
+  }
+  /** Position actuelle d'un bouton (0..100). */
+  function macroValue(arp, id) {
+    const o = normalize(arp);
+    const v = o.macros[id];
+    if (v != null && macroFits(o, id, v)) return v;
+    if (id === 'density') {
+      const rl = rhythmLane(o);
+      if (rl && rl.some((x) => !x)) {
+        const f = rl.reduce((s, x) => s + (x ? 1 : 0), 0) / rl.length;
+        return clamp(Math.round(((f - 0.25) / 0.75) * 50), 0, 47);
+      }
+      const d = o.lanes.div;
+      const n = d.filter((x) => x > 1).length;
+      return n ? clamp(Math.round(50 + ((n / Math.max(1, d.length / 2)) * 50)), 53, 100) : 50;
+    }
+    if (id === 'width') {
+      let best = WIDTHS[0];
+      for (const w of WIDTHS) if (Math.abs(w.octaves - o.octaves) * 2 + (w.voicing === o.voicing ? 0 : 1) < Math.abs(best.octaves - o.octaves) * 2 + (best.voicing === o.voicing ? 0 : 1)) best = w;
+      return best.at;
+    }
+    if (id === 'motion') return clamp(Math.round((Math.max(o.evolve / 0.8, o.motion > 0 ? 0.3 + (o.motion / 0.8) * 0.7 : 0)) * 100), 0, 100);
+    if (id === 'echo') {
+      if (!o.echo.n) return 0;
+      const v = Math.round(5 + ((o.echo.n - 1) / 4) * 95 + 12);
+      return o.echo.shift === 'up1' ? Math.max(50, v) : Math.min(49, v);
+    }
+    return 0;
+  }
+  /** Ce que fait le bouton en ce moment, en quelques mots. */
+  function macroText(arp, id) {
+    const o = normalize(arp);
+    if (id === 'density') {
+      const rl = rhythmLane(o);
+      const hits = rl ? rl.reduce((s, x) => s + (x ? 1 : 0), 0) : 0;
+      if (rl && hits < rl.length) return `${hits} notes sur ${rl.length} pas`;
+      const r = o.lanes.div.filter((x) => x > 1).length;
+      const c = o.lanes.ratchet.filter((x) => x > 1).length;
+      return r || c ? [r ? `${r} rafale${r > 1 ? 's' : ''}` : '', c ? `${c} ratchet${c > 1 ? 's' : ''}` : ''].filter(Boolean).join(' · ') : 'tous les pas';
+    }
+    if (id === 'width') return `${o.octaves} octave${o.octaves > 1 ? 's' : ''} · ${(VOICINGS.find((x) => x.id === o.voicing) || VOICINGS[0]).label.toLowerCase()}`;
+    if (id === 'motion') return o.evolve || o.motion ? (o.motion ? 'variations + timbre qui ondule' : 'variations d’une boucle à l’autre') : 'figé';
+    if (id === 'echo') return o.echo.n ? `${o.echo.n} écho${o.echo.n > 1 ? 's' : ''}${o.echo.shift === 'up1' ? ' qui montent' : o.echo.shift === 'none' ? '' : ' transposés'}` : 'aucun';
+    return '';
+  }
+
   SS.Arp = {
-    MODES, RATES, HARMONY, INVERSIONS, VOICINGS, ECHO_SHIFTS, ECHO_GAPS, ROLLS, LANE_DIRS, RETRIG, LANES, DEFAULTS, PRESETS, CHORD_TYPES,
+    MODES, RATES, HARMONY, INVERSIONS, VOICINGS, REGISTERS, MACROS, macroPatch, macroValue, macroText, ECHO_SHIFTS, ECHO_GAPS, ROLLS, LANE_DIRS, RETRIG, LANES, DEFAULTS, PRESETS, CHORD_TYPES,
     normalize, fromPreset, analyzeChord, parsePattern, euclid, tick, renderStep, preview, parseChordSymbol,
     GESTES, GROUP_OF, GROUP_SIZES, normGeste, gesteTimes, gesteGroup: (arp) => gesteGroup(normalize(arp)),
     degreeNote: (notes, d) => degreeNote(chordOf(notes), d),

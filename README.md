@@ -379,7 +379,17 @@ le moteur, `js/arppanel.js` pour la fenêtre, `js/motifs.js` pour le catalogue d
 Avancé : vélocité, rythme, degré, vitesse ×, ratchet, longueur, notes, octave, probabilité, chacune avec sa
 longueur et son sens de lecture). En bas, des **modules** avec voyant et résumé (Motif, Rythme, Accord, Pas à pas,
 Geste, Écho, Ratchet roulé, Évolution) : clic sur le voyant = éteindre / rallumer tel qu'il était, clic sur le nom
-= ses réglages. **Essentiel / Avancé** choisit le niveau de détail (retenu dans le navigateur).
+= ses réglages. **Intuitif / Essentiel / Avancé** choisit le niveau de détail (retenu dans le navigateur) ; la
+croix × ferme en gardant les réglages, Annuler revient aux réglages d'ouverture.
+
+**Mode Intuitif** — le motif (‹ ›), Surprends-moi et 4 boutons rotatifs : **Densité** (silences → tous les pas →
+rafales et ratchets), **Ampleur** (1 octave serré → 4 octaves ouvert), **Mouvement** (figé → variations et timbre
+qui ondule), **Écho** (aucun → 4 échos qui montent dans l'accord). Chaque bouton remplace les réglages fins qu'il
+pilote (`SS.Arp.macroPatch` / `macroValue`).
+
+**Module Accord** — accord joué (de la piste ou d'essai, « Poser l'accord sur la piste »), **Hauteur** (telle
+quelle, ou l'octave où commence l'accord : C2 à C5), octaves, renversement, voicing. Un nouvel arpège joue en
+1/8 sur 8 pas.
 
 **Réglages** — dans le module Motif, **‹ ›** passe au motif précédent / suivant, et **Surprends-moi** tire un
 nouvel arpège au hasard en gardant ce qui est verrouillé (le motif, le rythme, l'accord, les effets) ; chaque

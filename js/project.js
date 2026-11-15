@@ -484,7 +484,7 @@ SS.newTrack = (opts, project) => {
     instrument: opts.instrument,
     sfv: opts.sfv || 0, // variante de soundfont (gm_*)
     chord: 'min',
-    arp: SS.Arp.normalize({ mode: 'up', rate: 2, octaves: 1 }),
+    arp: SS.Arp.normalize({ mode: 'up', rate: 0.5, steps: 8, octaves: 1 }), // 1/8, motif de 8 pas
     octave: opts.category === 'mono' ? fam.octave : Math.max(3, fam.octave),
     events: [],
   };

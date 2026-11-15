@@ -585,3 +585,38 @@ test('Motif suivant / précédent : on parcourt le catalogue en boucle', () => {
   assert.equal(SS.motifStep(last, 1).id, SS.MOTIFS[0].id);
   assert.equal(SS.motifStep({ mode: 'pattern', pattern: 'd1 d1 d1' }, 1).id, SS.MOTIFS[0].id); // motif personnalisé
 });
+
+test('Hauteur : l’accord commence dans l’octave demandée, quelle que soit sa hauteur sur la piste', () => {
+  const low = (notes, register, extra = {}) => Math.min(...A.voiced(notes, { register, ...extra }));
+  for (const notes of [[41, 44, 48], [65, 68, 72], [77, 80, 84]]) {
+    assert.ok(low(notes, 3) >= 48 && low(notes, 3) < 60);
+    assert.ok(low(notes, 5) >= 72 && low(notes, 5) < 84);
+  }
+  assert.deepEqual(A.voiced([65, 68, 72], { register: 'asis' }), [65, 68, 72]);
+  assert.equal(A.normalize({ register: '4' }).register, 4);
+  assert.equal(A.normalize({ register: 9 }).register, 'asis');
+  // avec un renversement : la note la plus grave reste dans l'octave choisie
+  assert.ok(low([65, 68, 72], 3, { inversion: 2 }) >= 48 && low([65, 68, 72], 3, { inversion: 2 }) < 60);
+});
+
+test('Boutons rotatifs : chaque position écrit ses réglages et se relit', () => {
+  const base = A.normalize({ mode: 'up', rate: 0.5, steps: 8 });
+  for (const mc of A.MACROS) {
+    for (const v of [0, 25, 50, 75, 100]) {
+      const a = A.normalize({ ...base, ...A.macroPatch(base, mc.id, v), macros: { [mc.id]: v } });
+      assert.equal(A.macroValue(a, mc.id), v, `${mc.id} ${v}`);
+      assert.ok(A.macroText(a, mc.id).length > 0);
+      assert.ok(A.preview(a, [57, 60, 64], 16).some((t) => t));
+    }
+  }
+  const d0 = A.normalize({ ...base, ...A.macroPatch(base, 'density', 0) });
+  assert.ok(d0.lanes.rhythm.filter((x) => x).length < 8);
+  const d100 = A.normalize({ ...base, ...A.macroPatch(base, 'density', 100) });
+  assert.ok(d100.lanes.div.some((x) => x > 1) && d100.lanes.ratchet.some((x) => x > 1));
+  assert.equal(A.normalize({ ...base, ...A.macroPatch(base, 'width', 100) }).octaves, 4);
+  assert.equal(A.normalize({ ...base, ...A.macroPatch(base, 'echo', 0) }).echo.n, 0);
+  assert.equal(A.normalize({ ...base, ...A.macroPatch(base, 'echo', 80) }).echo.shift, 'up1');
+  // réglage changé ailleurs : la position stockée ne vaut plus, elle est déduite des réglages
+  const w = A.normalize({ ...base, ...A.macroPatch(base, 'width', 30), macros: { width: 30 }, octaves: 4 });
+  assert.ok(A.macroValue(w, 'width') >= 85);
+});
