@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <title>StepSeq</title>
-  <link rel="stylesheet" href="css/style.css?v=loop-2">
+  <link rel="stylesheet" href="css/style.css?v=xform-1">
 </head>
 <body>
   <header class="topbar">
@@ -209,6 +209,9 @@
       <button type="button" id="selCut" class="btn btn-small" title="Couper la sélection (Ctrl+X)" disabled>Couper</button>
       <button type="button" id="selPaste" class="btn btn-small" title="Coller (Ctrl+V) : à la case survolée par la souris, sinon juste après la sélection" disabled>Coller</button>
       <button type="button" id="selDup" class="btn btn-small" title="Dupliquer la sélection juste après elle (Ctrl+D)" disabled>Dupliquer</button>
+      <select id="selXform" class="btn btn-small sel-xform" aria-label="Transformer la sélection" title="Transformer les notes sélectionnées : inversion, rétrograde, durées ×2 ou ×½, autre mode (Ctrl+Z pour revenir)" disabled>
+        <option value="">Transformer…</option>
+      </select>
       <button type="button" id="selDel" class="btn btn-small btn-danger" title="Supprimer les notes sélectionnées (Suppr)" disabled>Supprimer</button>
       <button type="button" id="selClear" class="btn btn-small btn-icon-small" title="Tout désélectionner (Échap)" aria-label="Tout désélectionner" disabled>✕</button>
     </div>
@@ -880,14 +883,15 @@
   <script src="js/juno-dsp.js?v=watch-1"></script>
   <script src="js/juno.js?v=watch-1"></script>
   <script src="js/arp.js"></script>
-  <script src="js/project.js?v=acc-1"></script>
+  <script src="js/project.js?v=ctl-1"></script>
   <script src="js/store.js"></script>
   <script src="js/mysongs.js"></script>
   <script src="js/harmony.js"></script>
+  <script src="js/transform.js"></script>
   <script src="js/midi-file.js"></script>
-  <script src="js/midi.js?v=acc-1"></script>
+  <script src="js/midi.js?v=ctl-1"></script>
   <script src="js/emotions.js"></script>
-  <script src="js/audio.js?v=watch-1"></script>
+  <script src="js/audio.js?v=ctl-1"></script>
   <script src="js/trackloop.js"></script>
   <script src="js/sounddesign.js?v=loop-1"></script>
   <script src="js/junopanel.js"></script>
@@ -912,7 +916,7 @@
   <script src="js/melodypanel.js"></script>
   <script src="js/band.js"></script>
   <script src="js/midipanel.js"></script>
-  <script src="js/ui.js?v=mono-lbl-1"></script>
+  <script src="js/ui.js?v=xform-1"></script>
   <script src="js/audiowatch.js?v=watch-1"></script>
   <script src="js/systempanel.js?v=watch-1"></script>
   <script src="js/main.js?v=watch-1"></script>

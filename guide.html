@@ -284,6 +284,15 @@
         <li>Les notes déplacées remplacent celles qu'elles chevauchent ; la sélection s'arrête au bord de la boucle de la piste. Un simple clic, sans glisser, sur une note sélectionnée garde son effet habituel (l'effacer).</li>
         <li>Un clic dans le vide (fond, en-tête) ou <kbd>Échap</kbd> : tout désélectionner.</li>
       </ul>
+      <h3>Transformer la sélection</h3>
+      <p>Le menu <b>Transformer…</b> de la barre du bas agit sur les notes sélectionnées d'une piste instrument ou synthé. Chaque choix s'entend tout de suite, la sélection reste active pour enchaîner, et <kbd>Ctrl</kbd>+<kbd>Z</kbd> revient en arrière.</p>
+      <table>
+        <tr><th>Choix</th><th>Effet</th></tr>
+        <tr><td>Inverser</td><td>Miroir des hauteurs autour de la première note : ce qui montait descend. Si la scène a une tonalité (fenêtre Key), le miroir reste dans la gamme (Do Ré Mi Fa → Do Si La Sol en Do majeur). Un accord se déplace en entier, dans la gamme.</td></tr>
+        <tr><td>Rétrograde</td><td>La phrase jouée à l'envers, de la dernière note à la première, avec les mêmes durées.</td></tr>
+        <tr><td>Durées ×2 / ×½</td><td>Deux fois plus lent ou deux fois plus vite, depuis le début de la sélection. Les notes qui sortiraient de la boucle sont retirées (le message les compte).</td></tr>
+        <tr><td>Autre mode</td><td>Même tonique, autre couleur : en Do majeur, « Do mineur naturel » change Mi, La et Si en Mi♭, La♭ et Si♭ ; chaque note garde son degré. Le type des accords suit (Do → Dom). Demande une tonalité pour la scène.</td></tr>
+      </table>
       <h3>Où sont collées les notes ?</h3>
       <ol>
         <li>Sur la case (de n'importe quelle piste compatible) <b>survolée par la souris</b> au moment du <kbd>Ctrl</kbd>+<kbd>V</kbd> ;</li>
@@ -425,8 +434,11 @@
         <li><b>Longueur</b> : par défaut, l'automation boucle avec la piste. Choisis une autre durée (1 ou 2 temps, 1, 2, 4… mesures, jusqu'à toute la scène) pour qu'elle boucle à son propre rythme, indépendamment des notes : une montée de filtre sur 4 mesures sous un motif d'une mesure, ou une pompe d'un temps sur une longue nappe. Les cases au-delà sont grisées. La longueur appartient à la scène, comme les courbes.</li>
         <li><b>Forme…</b> pose une courbe toute prête sur toute la longueur de l'automation : ouvrir ou fermer le passe-bas, monter le passe-haut avant le drop (ou seulement sur la 2e moitié), monter la résonance, fondu entrant ou sortant, <b>pompe à chaque temps</b> (l'effet « sidechain » sans piste source), lâcher la reverb ou l'écho sur la dernière mesure.</li>
         <li>La courbe appartient à la <b>scène</b> : une scène « Montée » peut ouvrir le filtre que le « Drop » laisse ouvert. Une scène sans courbe remet le réglage au neutre. Elle se recopie avec les mesures, comme les notes ; Ctrl+Z annule chaque geste.</li>
+        <li><b>Contrôleurs MIDI</b> (pistes instrument et synthé, dernier groupe du menu) :
+          <b>Pédale de sustain</b> — enfoncée ou relâchée, sans entre-deux : une note relâchée pédale enfoncée continue de sonner jusqu'à ce que la pédale se relève, comme au piano. Forme toute prête « Relevée à chaque mesure » pour suivre les changements d'accord. Exportée en CC 64.
+          <b>Modulation</b> et <b>Pitch bend</b> — pour un synthé externe : ils ne changent pas le son dans StepSeq, mais partent dans l'export MIDI (CC 1, et pitch bend sur ±2 demi-tons, le réglage habituel des synthés).</li>
         <li>À l'arrêt, tout revient au neutre (le bouton ▶ d'une piste fait entendre son son d'origine).</li>
-        <li><b>Export MIDI</b> : pour les pistes instrument, Filtre → CC 74, Résonance → CC 71, Volume → CC 11, Reverb → CC 91 (une valeur par pas). L'écho et les pistes de batterie ne sont pas exportés.</li>
+        <li><b>Export MIDI</b> : pour les pistes instrument, Filtre → CC 74, Résonance → CC 71, Volume → CC 11, Reverb → CC 91, Pédale de sustain → CC 64, Modulation → CC 1, Pitch bend (une valeur par pas). L'écho et les pistes de batterie ne sont pas exportés.</li>
         <li>Sur téléphone, le bouton ∿ est masqué (place trop réduite) : les courbes déjà posées sont jouées normalement.</li>
       </ul>
 

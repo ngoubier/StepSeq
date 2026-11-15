@@ -25,7 +25,7 @@ comptent pour nos usages (synthés, arpèges, synthwave, techno mélodique, cin�
 |---|---|:---:|---|
 | 1 | Organisation d'un projet | ◐ | Pistes Drum / Instrument / Synthé et scènes ; pas de pistes audio, de dossiers ni de groupes |
 | 2 | Accords, gammes, accompagnements | ➕ | Fenêtre Key : grille par scène, rôles des accords, émotions, 39 grilles, génération des couches |
-| 3 | Écriture et édition MIDI | ◐ | Ligne de pas et piano roll ; ni éditeur en liste ni contrôleurs MIDI ; pas de Strum hors arpège |
+| 3 | Écriture et édition MIDI | ◐ | Ligne de pas, piano roll, transformations (inversion, rétrograde, mode, durées), pédale / modulation / pitch bend ; ni éditeur en liste ni Strum hors arpège |
 | 4 | Quantification, groove, expression | ◐ | Grille à la double-croche, swing, humanisation, placement ; pas de triolets ni de groove extrait |
 | 5 | Arpégiateurs et transformations MIDI | ➕ | Arp One (67 motifs, pas par pas, écho, ratchets, gestes), conditions de déclenchement |
 | 6 | Instruments, sampling, rythmique | ◐ | Juno-106, synthés intégrés, échantillons, General MIDI ; pas de VST, d'échantillon importé ni de stacks |
@@ -77,12 +77,12 @@ comptent pour nos usages (synthés, arpèges, synthwave, techno mélodique, cin�
 |---|---|
 | Key Editor (piano roll) | ✅ Piano roll : poser, allonger, déplacer, vélocité, accent ; sélection rectangle, copier / coller, Alt+glisser |
 | Saisie souris / pas à pas | ✅ Souris et tactile ; ✗ pas de saisie pas à pas depuis un clavier MIDI |
-| Transposer, copier, transformer | ✅ Flèches ↑ ↓ (demi-ton, octave), Ctrl+D ; ✗ pas d'inversion, de rétrograde ni de changement de gamme |
-| Contrôleurs (sustain, modulation, pitch bend…) | ◐ Lignes d'automation exportées en CC 74, 71, 11, 91 ; ni pédale de sustain, ni pitch bend, ni modulation. La pédale (CC 64) d'un fichier importé est convertie en durées de notes ; le sustain d'enveloppe (ADSR) existe dans le sound design et sur le Juno-106 |
+| Transposer, copier, transformer | ✅ Flèches ↑ ↓ (demi-ton, octave), Ctrl+D ; menu **Transformer…** : inversion dans la gamme, rétrograde, autre mode, durées ×2 / ×½ |
+| Contrôleurs (sustain, modulation, pitch bend…) | ✅ Lignes d'automation exportées en CC 74, 71, 11, 91, et contrôleurs MIDI : **pédale de sustain** (entendue dans StepSeq, CC 64), **modulation** (CC 1) et **pitch bend** (±2 demi-tons) pour un synthé externe. La pédale d'un fichier importé est convertie en durées de notes ; le sustain d'enveloppe (ADSR) est dans le sound design et sur le Juno-106 |
 | Éditeur de batterie | ✅ Pistes Drum nommées par élément |
 | Éditeur en liste | ✗ |
 | **Strum** (Cubase 16) | ◐ Gestes d'Arp One (Balayage, Roulé, Harpe) pour les pistes Arpège seulement ; rien pour les pistes Accord |
-| **Stretch Selection** (Cubase 16) | ✗ |
+| **Stretch Selection** (Cubase 16) | ◐ Durées ×2 / ×½ de la sélection (pas d'étirement libre ni d'accélération interne) |
 | Noms de contrôleurs par synthé | — |
 
 ### 4. Quantification, groove et expression — ◐
@@ -218,13 +218,12 @@ Classées par intérêt pour nos usages (synthés, arpèges, composition) et par
 
 Au-delà de la comparaison directe, classées par rapport entre effort et intérêt :
 
-1. **Transformations mélodiques** dans le piano roll : inversion, rétrograde, passage dans un autre mode en restant
-   dans la gamme (la tonalité de la scène est connue), doubler / diviser les durées (version simple de Stretch
-   Selection).
+1. ✅ **Transformations mélodiques** (fait) : menu Transformer… — inversion dans la gamme, rétrograde, autre mode,
+   durées ×2 / ×½.
 2. **Variations de scène en un clic** : alléger, densifier, fill de fin de phrase, préparation de la scène suivante
    (filtre, bruit blanc, roulement) ; Band sait déjà les écrire, il s'agit d'en faire un outil sur tout morceau.
-3. **Pédale de sustain, modulation et pitch bend** dans les lignes d'automation et l'export MIDI (CC 64, CC 1,
-   pitch bend), pour un export jouable tel quel sur un synthé matériel.
+3. ✅ **Pédale de sustain, modulation et pitch bend** (fait) : contrôleurs MIDI des lignes d'automation, exportés
+   (CC 64, CC 1, pitch bend) ; la pédale s'entend aussi dans StepSeq.
 4. **Accords jouables au clavier de l'ordinateur** (façon Chord Pads) avec la grille de la scène, et écriture sur la
    piste de ce qui est joué au clavier de la façade du Juno, quantifié à la double-croche.
 5. **Morceau de référence dans Auto Mix** : charger un MP3 et comparer balance tonale et volume perçu.
