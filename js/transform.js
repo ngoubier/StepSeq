@@ -119,7 +119,7 @@ SS.transform = (() => {
     });
   }
 
-  const sharesVoice = (track, a, b) => track.category !== 'mono' || a.notes.some((m) => b.notes.includes(m));
+  const sharesVoice = (track, a, b) => a.notes.some((m) => b.notes.includes(m));
 
   /**
    * Applique `op` aux événements `selected` de la piste.
@@ -132,7 +132,7 @@ SS.transform = (() => {
     if (!sel.length) return null;
     const ordered = sel.slice().sort((a, b) => a.step - b.step || a.notes[0] - b.notes[0]);
     const pcs = scaleOf(ctx.key);
-    const mono = track.category === 'mono';
+    const mono = sel.every((ev) => ev.notes.length === 1); // notes seules (pas d'accords empilés)
     let out;
     if (op.kind === 'invert') out = invertEvents(ordered, pcs, ordered[0].notes[0], mono);
     else if (op.kind === 'retrograde') out = retroEvents(ordered);

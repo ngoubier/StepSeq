@@ -52,13 +52,13 @@ SS.harmonyPanel = (() => {
 
   /** Piste des accords : celle de la couche « Accords » de la grille, sinon la piste en cours si c'est une piste Accord / Arpège, sinon la première. */
   function chordTrack() {
-    const list = instTracks().filter((t) => t.category !== 'mono');
+    const list = instTracks().filter((t) => SS.chordTrack(t));
     const g = scene().grid;
     const chosen = g && list.find((t) => t.id === g.layers.comp.dst);
     if (chosen) return chosen;
     const active = app.activeTrack && app.activeTrack();
     if (active && list.includes(active)) return active;
-    return list.find((t) => t.category === 'chord') || list[0] || null;
+    return list.find((t) => !SS.arpOn(t)) || list[0] || null;
   }
 
   /** Piste qui joue les accords écoutés : la piste en cours si c'est un instrument, sinon la piste d'accords. */
@@ -70,12 +70,12 @@ SS.harmonyPanel = (() => {
 
   /** Piste proposée pour une couche : piste Mono de basse la plus grave, lead la plus aiguë, piste Arpège… */
   function defaultDst(group, srcId) {
-    const monos = instTracks().filter((t) => t.category === 'mono' && t.id !== srcId);
+    const monos = instTracks().filter((t) => !SS.chordTrack(t) && t.id !== srcId);
     const others = monos.filter((t) => !isBass(t));
     const named = (re) => monos.find((t) => re.test(t.name));
     if (group === 'Basse') return monos.find(isBass) || [...monos].sort((a, b) => avgPitch(a) - avgPitch(b))[0] || null;
     if (group === 'Mélodie') return named(/lead|m[ée]lodie|chant|th[èe]me/i) || [...others].sort((a, b) => avgPitch(b) - avgPitch(a))[0] || null;
-    return named(/arp/i) || instTracks().find((t) => t.category === 'arp' && t.id !== srcId) || others[0] || null;
+    return named(/arp/i) || instTracks().find((t) => SS.arpOn(t) && t.id !== srcId) || others[0] || null;
   }
 
   /* ---------- Écrire dans les pistes ---------- */
@@ -220,7 +220,7 @@ SS.harmonyPanel = (() => {
     const tr = H().TRANSFORMS.find((x) => x.id === id);
     let target;
     if (id === 'pedal') {
-      const monos = p.tracks.filter((t) => t.type === 'instrument' && t.category === 'mono' && t.events.length);
+      const monos = p.tracks.filter((t) => t.type === 'instrument' && !SS.chordTrack(t) && t.events.length);
       target = monos.find(isBass) || monos.sort((a, b) => avgPitch(a) - avgPitch(b))[0];
       if (!target) return toast('Il faut une piste de basse avec des notes (onglet Grille ▸ Basse, puis Générer).');
     } else {
@@ -387,7 +387,7 @@ SS.harmonyPanel = (() => {
   const KIND = { warn: 'À vérifier', info: 'Emprunt', tip: 'Conseil' };
 
   /** Pistes de mélodie d'une scène : Mono, pas la basse (piste « Mélodie », lead, chant…). */
-  const isMelody = (t, evs) => t.type === 'instrument' && t.category === 'mono' && evs.length && (t.melody || (!isBass(t) && evs.reduce((a, e) => a + Math.max(...e.notes), 0) / evs.length >= 55));
+  const isMelody = (t, evs) => t.type === 'instrument' && !SS.chordTrack(t) && evs.length && (t.melody || (!isBass(t) && evs.reduce((a, e) => a + Math.max(...e.notes), 0) / evs.length >= 55));
 
   /** Contrôles de la grille et des mélodies d'une scène (en plus de H().analyze). → { grid: [items], melodies: [{ track, items, stats }] } */
   function sceneChecks(sec) {
@@ -397,7 +397,7 @@ SS.harmonyPanel = (() => {
     if (!sc || !k) return { grid: [], melodies: [] };
     const evsOf = (t) => (sc.data[t.id] && sc.data[t.id].events) || [];
     const gch = sc.grid && sc.grid.chords.length ? [...sc.grid.chords].sort((a, b) => a.step - b.step).map((c) => ({ step: c.step, len: c.len, c: H().gridChord(k, c.degree, c.type, c.acc, c.bass) })) : [];
-    const chordEvs = instTracks().filter((t) => t.category !== 'mono').flatMap(evsOf);
+    const chordEvs = instTracks().filter((t) => SS.chordTrack(t) && !SS.follows(t)).flatMap(evsOf);
     // la grille n'est la référence que si elle a été générée dans les pistes (sinon : les accords joués)
     const comp = sc.grid && sc.grid.layers.comp;
     const live = gch.length && comp && comp.on && sc.data[comp.dst] && sc.grid.sig[comp.dst] === sigOf(sc.data[comp.dst].events);
@@ -492,9 +492,10 @@ SS.harmonyPanel = (() => {
     { id: 'charleston', label: 'Charleston (1 et 2&)' },
   ];
   const GLAYERS = [
-    { id: 'bass', title: 'Basse', cat: 'mono', make: { name: 'Basse', color: '#3fcf3f', category: 'mono', family: 'bass', instrument: 'syn_sawbass' } },
-    { id: 'comp', title: 'Accords', cat: 'chord', make: { name: 'Accords', color: '#1ea7ff', category: 'chord', family: 'pads', instrument: 'syn_softpad' } },
-    { id: 'arp', title: 'Arpège', cat: 'arp', make: { name: 'Arpège', color: '#13c2a3', category: 'arp', family: 'synth', instrument: 'syn_pluck' } },
+    // Basse : notes écrites ; Accords et Arpège : la piste joue la grille (bouton ACCORDS, et ARP pour l'arpège)
+    { id: 'bass', title: 'Basse', make: { name: 'Basse', color: '#3fcf3f', family: 'bass', instrument: 'syn_sawbass' } },
+    { id: 'comp', title: 'Accords', make: { name: 'Accords', color: '#1ea7ff', follow: true, family: 'pads', instrument: 'syn_softpad' } },
+    { id: 'arp', title: 'Arpège', make: { name: 'Arpège', color: '#13c2a3', arpOn: true, follow: true, family: 'synth', instrument: 'syn_pluck' } },
   ];
   const FAMS = [
     { id: 'repos', title: 'Repos', sub: 'on s’y pose' },
@@ -540,7 +541,9 @@ SS.harmonyPanel = (() => {
     }
     return g;
   }
-  const gridTracks = (L) => instTracks().filter((t) => t.category === L.cat);
+  // pistes proposées pour une couche : basse = notes seules, accords = accords sans arpège, arpège = ARP allumé
+  const gridTracks = (L) =>
+    instTracks().filter((t) => (L.id === 'bass' ? !SS.chordTrack(t) : L.id === 'arp' ? SS.arpOn(t) : SS.chordTrack(t) && !SS.arpOn(t)));
   const gStep = () => {
     const p = proj();
     return { spb: SS.stepsPerBar(p), beat: SS.stepsPerBeat(p), total: SS.totalSteps(p) };
@@ -622,8 +625,21 @@ SS.harmonyPanel = (() => {
     for (const { L, l, t } of todo) {
       const len = SS.trackLen(p, t);
       const center = (t.octave + 1) * 12 + 6;
+      // accords et arpège : la piste suit la grille (rien à réécrire quand elle change) ; seul un rythme est écrit
+      const follow = (play) => {
+        const prev = t.follow || t.lastFollow;
+        t.follow = SS.FOLLOW.clean({ ...(prev || { oct: Math.min(5, Math.max(1, t.octave || 3)) }), play });
+        delete t.lastFollow;
+      };
       if (L.id === 'bass') t.events = H().generate(gridEvents(g, 60, 'hold', len), { kind: l.gen, octave: t.octave, spb, beat, key: k, length: len });
-      else t.events = gridEvents(g, center, L.id === 'comp' ? l.rhythm : 'hold', len);
+      else if (L.id === 'comp') {
+        follow(l.rhythm === 'hold' ? 'hold' : 'steps');
+        t.events = l.rhythm === 'hold' ? [] : gridEvents(g, center, l.rhythm, len);
+      } else {
+        t.arpOn = true;
+        follow('hold');
+        t.events = [];
+      }
       g.sig[t.id] = sigOf(t.events);
     }
     gridWarned = '';
@@ -646,6 +662,7 @@ SS.harmonyPanel = (() => {
     else app.changed();
     SS.melodyPanel.stop();
     renderGri();
+    SS.ui.refreshScene(); // piste Accords de l'écran principal et pistes qui la suivent
   }
 
   /** Place un accord : il remplace ce qu'il recouvre (un accord coupé en deux garde ses deux bouts). */
@@ -711,7 +728,7 @@ SS.harmonyPanel = (() => {
     return GLAYERS.map((L) => {
       const t = byId(g.layers[L.id].dst);
       if (!g.layers[L.id].on) return '';
-      const evs = t ? t.events.filter((e) => e.step < total) : [];
+      const evs = t ? (SS.follows(t) ? SS.playEvents(proj(), t) : t.events).filter((e) => e.step < total) : [];
       const all = evs.flatMap((e) => e.notes);
       const lo = Math.min(...all, 127);
       const hi = Math.max(...all, 0);
@@ -756,7 +773,7 @@ SS.harmonyPanel = (() => {
       .map((pr, i) => `<option value="p:${i}">Grille ${esc(pr.label)} · ${esc(pr.style)}</option>`)
       .join('');
     const trackOpts = instTracks()
-      .filter((t) => t.category !== 'mono' && t.events.length)
+      .filter((t) => SS.chordTrack(t) && !SS.follows(t) && t.events.length)
       .map((t) => `<option value="t:${esc(t.id)}">Reprendre les accords de « ${esc(t.name)} »</option>`)
       .join('');
     const layerCard = (L) => {
@@ -768,7 +785,7 @@ SS.harmonyPanel = (() => {
           ? `<select data-gl="bass" data-gf="gen" aria-label="Style de basse">${gensOf('Basse').map((x) => `<option value="${x.id}"${x.id === l.gen ? ' selected' : ''}>${esc(x.label)}</option>`).join('')}</select>`
           : L.id === 'comp'
           ? `<select data-gl="comp" data-gf="rhythm" aria-label="Rythme des accords">${RHYTHMS.map((x) => `<option value="${x.id}"${x.id === l.rhythm ? ' selected' : ''}>${esc(x.label)}</option>`).join('')}</select>`
-          : `<p class="hm-muted gr-arpinfo">La piste reçoit les accords tenus ; <b>Arp One</b> les arpège selon ses réglages.</p>`;
+          : `<p class="hm-muted gr-arpinfo">La piste joue la grille (ARP + ACCORDS) : <b>Arp One</b> arpège chaque accord selon ses réglages.</p>`;
       const arpBtn = L.id === 'arp' ? `<button type="button" class="btn btn-small" id="grArpOne"${byId(l.dst) ? '' : ' disabled'}>Réglages Arp One ↗</button>` : '';
       return `<div class="hm-layer gr-layer${l.on ? '' : ' off'}">
         <h4><label><input type="checkbox" data-gl="${L.id}" data-gf="on"${l.on ? ' checked' : ''}> ${L.title}</label><small>${L.id === 'bass' ? gensOf('Basse').length + ' styles' : L.id === 'comp' ? RHYTHMS.length + ' rythmes' : 'via Arp One'}</small></h4>
@@ -979,7 +996,7 @@ SS.harmonyPanel = (() => {
     try {
       return SS.band.melodyTrackOpts();
     } catch (e) {
-      return { type: 'instrument', name: 'Mélodie', color: '#ff8c1a', category: 'mono', family: 'synth', instrument: 'syn_saw' };
+      return { type: 'instrument', name: 'Mélodie', color: '#ff8c1a', family: 'synth', instrument: 'syn_saw' };
     }
   }
 

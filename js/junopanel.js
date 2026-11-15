@@ -630,7 +630,7 @@ SS.junoPanel = (() => {
   function preview() {
     if (!track || SS.audio.isPlaying()) return; // en lecture, on entend déjà le résultat
     const root = track.lastRoot ?? (track.octave + 1) * 12;
-    const notes = track.category === 'mono' ? root : SS.chordNotes(root, track.chord);
+    const notes = SS.arpOn(track) || SS.follows(track) ? SS.chordNotes(root, track.chord) : root;
     const p = params();
     const len = Math.min(2, Math.max(0.5, D.attackMs(p.attack) / 1000 + 0.4));
     SS.audio.preview(track, notes, len);

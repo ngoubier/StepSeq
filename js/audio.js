@@ -1793,7 +1793,7 @@ SS.audio = (() => {
         const fires =
           track.type === 'drum'
             ? track.steps[st] > 0 && SS.trigOk(SS.drumCond(track, st), { ...at, step: st })
-            : (track.events || []).some((ev) => ev.step === st && SS.trigOk(ev.cond, { ...at, step: ev.step }));
+            : SS.playEvents(project, track).some((ev) => ev.step === st && SS.trigOk(ev.cond, { ...at, step: ev.step }));
         if (fires) duckFrom(project, track, time);
         return;
       }
@@ -1816,10 +1816,14 @@ SS.audio = (() => {
         }
         return;
       }
-      (track.events || []).forEach((ev) => {
+      // ce que la piste joue : ses notes, ou les accords de la scène (bouton ACCORDS, js/chords.js) ;
+      // en arpège, une suite d'accords (notes tenues ensemble) pour Arp One
+      const playing = SS.playEvents(project, track);
+      const arpOn = SS.arpOn(track);
+      playing.forEach((ev) => {
         // condition de déclenchement : jugée sur le passage en cours, pour toute la durée de la note ou de l'accord
         if (ev.cond && !SS.trigOk(ev.cond, { ...at, step: ev.step })) return;
-        if (track.category === 'arp') {
+        if (arpOn) {
           // ARP ONE (js/arp.js) : l'arpège joue tant que l'événement couvre ce pas
           const len = SS.trackLen(project, track);
           const notes = SS.Arp.renderStep(track.arp, ev, step, {
@@ -1827,7 +1831,7 @@ SS.audio = (() => {
             trackLen: len,
             stepSec: sd,
             stepsPerBeat: SS.stepsPerBeat(project),
-            events: track.events, // renversement « Le plus proche » : enchaînement des accords de la piste
+            events: playing, // renversement « Le plus proche » : enchaînement des accords de la piste
           });
           notes.forEach((n) => {
             const t = time + n.at;
@@ -1874,8 +1878,8 @@ SS.audio = (() => {
   function lookahead(project) {
     let early = 0;
     project.tracks.forEach((t) => {
-      if (t.type === 'instrument' && t.category !== 'arp')
-        (t.events || []).forEach((ev) => ev.shift < early && (early = ev.shift));
+      if (t.type === 'instrument' && !SS.arpOn(t))
+        SS.playEvents(project, t).forEach((ev) => ev.shift < early && (early = ev.shift));
     });
     return 0.12 - early * stepDur(project);
   }

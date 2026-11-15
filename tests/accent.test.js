@@ -6,7 +6,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 globalThis.window = globalThis;
-['library.js', 'dirt.js', 'dirt-tuning.js', 'modulation.js', 'sounds.js', 'juno.js', 'arp.js', 'project.js', 'harmony.js', 'midi-file.js', 'midi.js'].forEach((f) => require('../js/' + f));
+['library.js', 'dirt.js', 'dirt-tuning.js', 'modulation.js', 'sounds.js', 'juno.js', 'arp.js', 'project.js', 'harmony.js', 'chords.js', 'midi-file.js', 'midi.js'].forEach((f) => require('../js/' + f));
 const SS = globalThis.SS;
 const near = (a, b, eps = 1e-9) => assert.ok(Math.abs(a - b) < eps, `${a} ≈ ${b}`);
 

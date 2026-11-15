@@ -1,0 +1,249 @@
+/*
+ * Piste Accords de la scène et modes de jeu des pistes instrument.
+ *
+ * Chaque scène peut porter une grille d'accords (scene.grid.chords, voir SS.normalizeGrid) : des accords rangés
+ * par degré dans la tonalité de la scène, avec leur position et leur durée en pas. Elle s'affiche en haut des
+ * pistes (« piste Accords ») et dans la fenêtre Key.
+ *
+ * Une piste instrument a deux interrupteurs indépendants :
+ *   track.arpOn  : true → ses notes passent par Arp One (js/arp.js) ;
+ *   track.follow : null, ou { play, notes, oct, voicing, near, tie } → elle joue les accords de la scène
+ *                  au lieu de ses propres notes :
+ *     play    : 'hold'  (chaque accord tenu sur toute sa durée)
+ *               'steps' (les notes de la piste donnent le rythme, l'accord du moment donne les hauteurs)
+ *     notes   : 'chord' | 'root' (fondamentale seule) | 'noroot' (sans fondamentale) | 'bass' (basse + accord)
+ *     oct     : octave de départ (3 → do3 = 48)
+ *     voicing : 'close' (serré) | 'open' (ouvert) | 'drop2'
+ *     near    : enchaîner au plus proche (le renversement qui bouge le moins)
+ *     tie     : en jeu tenu, une note commune à deux accords qui se suivent n'est pas rejouée
+ *
+ * SS.playEvents(project, track) donne les événements que la piste joue réellement, au format de track.events :
+ * c'est ce que lisent la lecture (js/audio.js) et l'export MIDI (js/midi.js).
+ */
+window.SS = window.SS || {};
+
+(() => {
+  const cleanFollow = (f) => SS.FOLLOW.clean(f);
+  const FOLLOW_DEFAULTS = SS.FOLLOW.DEFAULTS;
+  const isInst = (t) => !!t && t.type === 'instrument';
+
+  /* ---------------- Accords de la scène ---------------- */
+
+  const pcOf = (m) => ((m % 12) + 12) % 12;
+
+  /** Grille d'accords de la scène `sc` (scène en cours par défaut), triée et bornée à la durée de la scène. */
+  SS.sceneGridChords = (p, sc) => {
+    sc = sc || (p.scenes && p.scenes.length ? SS.currentScene(p) : null);
+    const key = sc && SS.harmony && SS.harmony.valid(sc.key) ? sc.key : null;
+    if (!sc || !key || !sc.grid || !sc.grid.chords || !sc.grid.chords.length) return [];
+    const total = SS.stepsPerBar(p) * (sc.id === p.current ? p.bars : sc.bars || p.bars);
+    return [...sc.grid.chords]
+      .filter((c) => c.step < total)
+      .sort((a, b) => a.step - b.step)
+      .map((c) => ({ ...c, len: Math.max(1, Math.min(c.len, total - c.step)), info: SS.harmony.gridChord(key, c.degree, c.type, c.acc, c.bass || 0) }));
+  };
+
+  /** Notes de l'accord en position fondamentale, la fondamentale à l'octave `oct` (do`oct` = 12·(oct+1)). */
+  function rootPosition(info, oct) {
+    const root = 12 * (oct + 1) + info.rootPc;
+    return SS.chordNotes(root, info.type);
+  }
+
+  // renversements de l'accord, chacun décalé d'une octave en dessous / au-dessus
+  function candidates(notes) {
+    const out = [];
+    let cur = [...notes];
+    for (let i = 0; i < notes.length; i++) {
+      for (const d of [-12, 0, 12]) out.push(cur.map((m) => m + d));
+      cur = [...cur.slice(1), cur[0] + 12];
+    }
+    return out;
+  }
+  const distance = (a, b) => a.reduce((s, m) => s + Math.min(...b.map((x) => Math.abs(x - m))), 0) + b.reduce((s, m) => s + Math.min(...a.map((x) => Math.abs(x - m))), 0);
+
+  function applyVoicing(notes, voicing) {
+    const s = [...notes].sort((a, b) => a - b);
+    if (s.length < 3) return s;
+    if (voicing === 'open') s[1] += 12;
+    else if (voicing === 'drop2') s[s.length - 2] -= 12;
+    return s.sort((a, b) => a - b);
+  }
+
+  /**
+   * Notes de chaque accord de la grille pour une piste : renversement le plus proche du précédent (si `near`),
+   * voicing, choix des notes. → [{ step, len, notes, name }]
+   */
+  SS.voiceChords = (chords, f) => {
+    f = cleanFollow(f) || { ...FOLLOW_DEFAULTS };
+    const center = 12 * (f.oct + 1) + 6;
+    let prev = null;
+    return chords.map((c) => {
+      const info = c.info;
+      const base = rootPosition(info, f.oct);
+      let notes = base;
+      if (f.near && prev) {
+        let best = null;
+        for (const cand of candidates(base)) {
+          const mean = cand.reduce((a, b) => a + b, 0) / cand.length;
+          const cost = distance(cand, prev) + Math.abs(mean - center) * 0.5; // reste près du registre choisi
+          if (!best || cost < best.cost) best = { cand, cost };
+        }
+        notes = best.cand;
+      }
+      prev = notes;
+      notes = applyVoicing(notes, f.voicing);
+      const bassPc = info.bassPc != null ? info.bassPc : info.rootPc;
+      const low = Math.min(...notes);
+      const below = (pc) => low - (pcOf(low - pc) || 12); // la note `pc` juste sous l'accord
+      if (f.notes === 'root') notes = [12 * (f.oct + 1) + bassPc];
+      else if (f.notes === 'noroot') {
+        const rest = notes.filter((m) => pcOf(m) !== info.rootPc);
+        notes = rest.length ? rest : notes;
+      } else if (f.notes === 'bass') notes = [below(bassPc) - 12, ...notes];
+      else if (info.bassPc != null && info.bassPc !== info.rootPc) notes = [below(info.bassPc), ...notes];
+      notes = notes.map((m) => Math.max(12, Math.min(119, m)));
+      return { step: c.step, len: c.len, notes: [...new Set(notes)].sort((a, b) => a - b), name: info.name };
+    });
+  };
+
+  /**
+   * Jeu tenu : une note par note d'accord ; une note commune à deux accords qui se suivent est prolongée au lieu
+   * d'être rejouée (`tie`).
+   */
+  function holdEvents(voiced, tie, vel = 0.7) {
+    const out = [];
+    let open = new Map(); // note → événement en cours
+    for (const v of voiced) {
+      const next = new Map();
+      for (const m of v.notes) {
+        const ev = open.get(m);
+        if (tie && ev && ev.step + ev.len === v.step) {
+          ev.len += v.len;
+          next.set(m, ev);
+        } else {
+          const e = { step: v.step, len: v.len, notes: [m], vel };
+          out.push(e);
+          next.set(m, e);
+        }
+      }
+      open = next;
+    }
+    return out.sort((a, b) => a.step - b.step || a.notes[0] - b.notes[0]);
+  }
+
+  /** Jeu « sur mes pas » : chaque note de la piste joue l'accord en cours à son départ (une attaque par pas). */
+  function stepEvents(voiced, events) {
+    const byStep = new Map();
+    for (const ev of events) {
+      const cur = byStep.get(ev.step);
+      if (!cur || ev.len > cur.len) byStep.set(ev.step, ev);
+    }
+    const out = [];
+    for (const ev of [...byStep.values()].sort((a, b) => a.step - b.step)) {
+      const v = voiced.find((c) => ev.step >= c.step && ev.step < c.step + c.len);
+      if (!v) continue;
+      const e = { ...ev, notes: [...v.notes] };
+      delete e.chord;
+      delete e.lyric;
+      out.push(e);
+    }
+    return out;
+  }
+
+  /**
+   * Notes tenues en même temps → un accord par tranche de temps (pour l'arpégiateur) : une piste écrite note par
+   * note s'arpège comme si on tenait ces notes au clavier. La tranche s'arrête dès qu'une note commence ou finit.
+   */
+  SS.heldChords = (events) => {
+    if (!events.length) return [];
+    if (events.every((e, i) => i === 0 || e.step >= events[i - 1].step + events[i - 1].len) && events.every((e, i) => i === 0 || events[i - 1].step <= e.step)) return events; // déjà une suite d'accords
+    const cuts = [...new Set(events.flatMap((e) => [e.step, e.step + e.len]))].sort((a, b) => a - b);
+    const out = [];
+    for (let i = 0; i < cuts.length - 1; i++) {
+      const a = cuts[i];
+      const b = cuts[i + 1];
+      const on = events.filter((e) => e.step <= a && e.step + e.len > a);
+      if (!on.length) continue;
+      const starting = on.filter((e) => e.step === a);
+      const first = starting[0] || on[0];
+      const seg = { step: a, len: b - a, notes: [...new Set(on.flatMap((e) => e.notes))].sort((x, y) => x - y), vel: Math.max(...on.map((e) => e.vel)) };
+      if (first.cond) seg.cond = first.cond;
+      if (starting.some((e) => e.acc)) seg.acc = true;
+      // tranche qui prolonge exactement la précédente (aucune note ne commence) : l'arpège continue
+      const prev = out[out.length - 1];
+      if (prev && !starting.length && prev.step + prev.len === a && prev.notes.join() === seg.notes.join()) prev.len += seg.len;
+      else out.push(seg);
+    }
+    return out;
+  };
+
+  // petit cache : la lecture demande les événements de chaque piste à chaque pas
+  const cache = new WeakMap();
+  const sig = (x) => JSON.stringify(x);
+
+  /**
+   * Événements joués par une piste instrument :
+   *   - piste normale : ses notes ;
+   *   - suit les accords, sans arpège : accords tenus ou rythmés par ses notes ;
+   *   - arpège : une suite d'accords pour Arp One (les accords de la scène, ou les notes tenues de la piste).
+   * `opts.events` / `opts.scene` : notes et scène à utiliser (export MIDI), sinon celles de la scène en cours.
+   */
+  SS.playEvents = (p, track, opts = {}) => {
+    const events = opts.events || track.events || [];
+    if (!isInst(track)) return events;
+    const arp = !!track.arpOn;
+    if (!track.follow) return arp ? SS.heldChords(events) : events;
+    const chords = SS.sceneGridChords(p, opts.scene);
+    const f = cleanFollow(track.follow);
+    const key = sig([arp, f, chords.map((c) => [c.step, c.len, c.info.name, c.info.rootPc, c.info.type]), f.play === 'steps' && !arp ? events.map((e) => [e.step, e.len, e.vel, e.acc, e.cond, e.rat, e.shift]) : 0]);
+    const hit = cache.get(track);
+    if (hit && hit.key === key) return hit.out;
+    let out;
+    if (arp) out = SS.voiceChords(chords, { ...f, notes: f.notes === 'root' ? 'chord' : f.notes }).map((v) => ({ step: v.step, len: v.len, notes: v.notes, vel: 0.8 }));
+    else {
+      const voiced = SS.voiceChords(chords, f);
+      out = f.play === 'steps' ? stepEvents(voiced, events) : holdEvents(voiced, f.tie);
+    }
+    cache.set(track, { key, out });
+    return out;
+  };
+
+  /** Accords suivis par la piste, pour l'affichage (un bloc par accord) : [{ step, len, notes, name }]. */
+  SS.followBlocks = (p, track) => (SS.follows(track) ? SS.voiceChords(SS.sceneGridChords(p), track.follow) : []);
+
+  /** « Convertir en notes » : la piste reprend en notes ce qu'elle joue, et ne suit plus les accords. */
+  SS.freezeFollow = (p, track) => {
+    if (!SS.follows(track)) return false;
+    const evs = SS.playEvents(p, track).map((e) => ({ ...e, notes: [...e.notes] }));
+    // l'arpège garde des accords (une note empilée par note) : Arp One les arpège comme avant
+    track.events = SS.arpOn(track) ? evs.flatMap((e) => e.notes.map((m) => ({ step: e.step, len: e.len, notes: [m], vel: e.vel }))) : evs;
+    delete track.follow;
+    return true;
+  };
+
+  /* ---------------- Édition de la grille (piste Accords) ---------------- */
+
+  /** Grille de la scène, créée vide si besoin. */
+  SS.sceneGrid = (sc) => {
+    if (!sc.grid) sc.grid = SS.normalizeGrid({ chords: [], initialized: true });
+    return sc.grid;
+  };
+
+  /** Pose un accord : il remplace ce qu'il recouvre (un accord coupé en deux garde ses deux bouts). */
+  SS.gridPut = (g, chord) => {
+    const end = chord.step + chord.len;
+    g.chords = g.chords.flatMap((c) => {
+      if (c === chord) return [];
+      const ce = c.step + c.len;
+      if (ce <= chord.step || c.step >= end) return [c];
+      const out = [];
+      if (c.step < chord.step) out.push({ ...c, len: chord.step - c.step });
+      if (ce > end) out.push({ ...c, step: end, len: ce - end });
+      return out;
+    });
+    g.chords.push(chord);
+    g.chords.sort((a, b) => a.step - b.step);
+    return chord;
+  };
+
+})();

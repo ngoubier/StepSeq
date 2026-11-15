@@ -137,7 +137,7 @@
     const hat = add({ type: 'drum', name: 'Hi-Hat fermé 1', color: '#f5c400', sound: 'hh', machine: 'RolandTR808' });
     for (let s = 2; s < 16; s += 4) hat.steps[s] = 0.7;
     [0, 6, 10, 14].forEach((s) => (hat.steps[s] = 0.35));
-    const bass = add({ type: 'instrument', name: 'Saw Bass', color: '#3fcf3f', category: 'mono', family: 'bass', instrument: 'syn_sawbass' });
+    const bass = add({ type: 'instrument', name: 'Saw Bass', color: '#3fcf3f', family: 'bass', instrument: 'syn_sawbass' });
     bass.events = [
       { step: 0, len: 2, notes: [33], vel: 0.9 },
       { step: 3, len: 1, notes: [45], vel: 0.6 },
@@ -145,7 +145,7 @@
       { step: 10, len: 1, notes: [31], vel: 0.8 },
       { step: 12, len: 3, notes: [33], vel: 0.9 },
     ];
-    const pad = add({ type: 'instrument', name: 'Pad 2', color: '#1ea7ff', category: 'chord', family: 'pads', instrument: 'gm_pad_warm' });
+    const pad = add({ type: 'instrument', name: 'Pad 2', color: '#1ea7ff', family: 'pads', instrument: 'gm_pad_warm' });
     pad.volume = 0.55;
     pad.events = [
       { step: 0, len: 8, notes: SS.chordNotes(57, 'm7'), vel: 0.6, chord: 'm7' },
@@ -649,11 +649,23 @@
     } else if (opts.type === 'synth') {
       // un autre patch remplace les réglages du panneau
       if (opts.patch !== track.junoPatch || opts.analog !== track.instrument) delete track.juno;
-      Object.assign(track, { category: opts.category, instrument: opts.analog, junoPatch: opts.patch });
+      Object.assign(track, { instrument: opts.analog, junoPatch: opts.patch });
     } else {
       // un autre instrument repart de son propre preset de sound design
       if (opts.family !== track.family || opts.instrument !== track.instrument) delete track.sd;
-      Object.assign(track, { category: opts.category, family: opts.family, instrument: opts.instrument, sfv: opts.sfv || 0 });
+      Object.assign(track, { family: opts.family, instrument: opts.instrument, sfv: opts.sfv || 0 });
+    }
+    if (track.type === 'instrument') {
+      // interrupteurs ARP / ACCORDS de la fenêtre (les réglages d'accords sont gardés)
+      if (opts.arpOn) track.arpOn = true;
+      else delete track.arpOn;
+      if (opts.follow && !track.follow) {
+        track.follow = SS.FOLLOW.clean(track.lastFollow || true);
+        delete track.lastFollow;
+      } else if (!opts.follow && track.follow) {
+        track.lastFollow = track.follow;
+        delete track.follow;
+      }
     }
     SS.ui.renderTrack(track);
     SS.audio.prepareTrack(track);

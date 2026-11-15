@@ -113,7 +113,7 @@ const SHOTS = process.env.SHOTS;
   ok(!(await page.isVisible('#melTestDlg')), 'la fenêtre se ferme après écriture');
   const after = await P();
   const mel = after.tracks.find((t) => t.melody);
-  ok(!!mel && mel.category === 'mono', 'nouvelle piste « Mélodie » (Mono)');
+  ok(!!mel && !mel.arpOn && !mel.follow, 'nouvelle piste « Mélodie » (notes, sans arpège ni accords)');
   const evs = mel ? (after.scenes.find((s) => s.id === after.current) || {}).data?.[mel.id]?.events || mel.events || [] : [];
   ok(evs.length >= 14 && evs.every((e) => e.notes.length === 1 && e.lyric) && evs.every((e) => e.step < 4 * 16), `notes écrites avec leurs syllabes, dans les 4 mesures (${evs.length})`);
   ok(!after.tracks.find((t) => t.melody).band, 'la piste Mélodie n’est pas marquée Band');

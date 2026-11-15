@@ -519,7 +519,7 @@ SS.band = (() => {
   }
   /** Garde seulement ce qui décrit le son (pas le nom, la couleur ni la longueur du dialogue). */
   function pickOpts(r) {
-    const keys = ['type', 'category', 'family', 'instrument', 'analog', 'patch', 'sfv', 'source', 'sound', 'machine', 'bank', 'variant'];
+    const keys = ['type', 'category', 'arpOn', 'family', 'instrument', 'analog', 'patch', 'sfv', 'source', 'sound', 'machine', 'bank', 'variant'];
     const o = {};
     keys.forEach((k) => r[k] !== undefined && (o[k] = r[k]));
     return o;

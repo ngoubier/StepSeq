@@ -21,7 +21,9 @@
  *       rat?: { pas: 2..4 },                          // ratchet : le pas est rejoué 2 à 4 fois dans sa durée
  *       cond?: { pas: "p50"|"1:4"|"first"|… } }       // condition de déclenchement (SS.TRIG_CONDS)
  *     { id, type: "instrument", name, color, volume, mute, solo,
- *       category: "mono"|"arp"|"chord", family, instrument, sfv (variante soundfont ou échantillon Dirt-Samples),
+ *       family, instrument, sfv (variante soundfont ou échantillon Dirt-Samples),
+ *       arpOn?: true (les notes passent par l'arpégiateur), follow?: { play, notes, oct, voicing, near, tie }
+ *       (la piste joue la piste Accords de la scène, voir js/chords.js) — remplacent l'ancienne catégorie mono/arp/chord,
  *       chord: "min", arp: { mode, rate, octaves, gate, motion, evolve, seed, rhythm, lanes, … } (ARP ONE, voir js/arp.js), octave,
  *       sd: { wave, voices, detune, pw, sub, subOct, osc, noise, noiseColor, filter, ftype, fdrive, cutoff, q, env,  // sound design (optionnel,
  *             attack, decay, sustain, release, glide, glideMode,       //  sinon preset de l'instrument)
@@ -543,19 +545,93 @@ SS.newTrack = (opts, project) => {
   }
   const fam = SS.findFamily(opts.family);
   const extra = opts.family === 'analog' ? { junoPatch: opts.patch || SS.JUNO_PATCHES[0].id } : {};
-  return {
+  const track = {
     ...base,
     ...extra,
-    category: opts.category,
     family: opts.family,
     instrument: opts.instrument,
     sfv: opts.sfv || 0, // variante de soundfont (gm_*)
     chord: 'min',
     arp: SS.Arp.normalize({ mode: 'up', rate: 0.5, steps: 8, octaves: 1 }), // 1/8, motif de 8 pas
-    octave: opts.category === 'mono' ? fam.octave : Math.max(3, fam.octave),
+    octave: fam.octave,
     events: [],
   };
+  // interrupteurs ARP / ACCORDS (opts.arpOn, opts.follow ; l'ancienne opts.category 'arp' allume ARP)
+  SS.migrateCategory(track, opts);
+  // une piste qui arpège ou joue des accords part d'un registre médium
+  if (track.arpOn || track.follow || opts.category === 'chord') track.octave = Math.max(3, fam.octave);
+  return track;
 };
+
+/* ================================================================== */
+/* Modes de jeu d'une piste instrument : arpégiateur, suivre les accords */
+/* ================================================================== */
+// voir js/chords.js pour la lecture des accords de la scène
+(() => {
+  const FOLLOW_DEFAULTS = { play: 'hold', notes: 'chord', oct: 3, voicing: 'close', near: true, tie: true };
+  const PLAYS = [
+    { id: 'hold', label: 'Tenu', hint: 'Une note par note de l’accord, sur toute sa durée. Pour les nappes, cordes, orgues.' },
+    { id: 'steps', label: 'Sur mes pas', hint: 'Les notes de la piste donnent le rythme, l’accord donne les hauteurs. Pour les accords piqués et le comping.' },
+  ];
+  const NOTES = [
+    { id: 'chord', label: 'Accord' },
+    { id: 'root', label: 'Fondamentale' },
+    { id: 'noroot', label: 'Sans fond.' },
+    { id: 'bass', label: 'Basse + accord' },
+  ];
+  const VOICINGS = [
+    { id: 'close', label: 'Serré' },
+    { id: 'open', label: 'Ouvert' },
+    { id: 'drop2', label: 'Drop 2' },
+  ];
+  const OCTAVES = [1, 2, 3, 4, 5];
+
+  /** Réglages « suivre les accords » bornés, ou null (la piste joue ses notes). */
+  function cleanFollow(f) {
+    if (!f) return null;
+    if (f === true) return { ...FOLLOW_DEFAULTS };
+    if (typeof f !== 'object') return null;
+    const pick = (list, v, def) => (list.some((x) => x.id === v) ? v : def);
+    return {
+      play: pick(PLAYS, f.play, FOLLOW_DEFAULTS.play),
+      notes: pick(NOTES, f.notes, FOLLOW_DEFAULTS.notes),
+      oct: OCTAVES.includes(f.oct) ? f.oct : FOLLOW_DEFAULTS.oct,
+      voicing: pick(VOICINGS, f.voicing, FOLLOW_DEFAULTS.voicing),
+      near: f.near !== false,
+      tie: f.tie !== false,
+    };
+  }
+
+  const isInst = (t) => !!t && t.type === 'instrument';
+  SS.arpOn = (t) => isInst(t) && !!t.arpOn;
+  SS.follows = (t) => isInst(t) && !!t.follow;
+  /** La piste montre les accords de la scène à la place de ses notes (lecture seule dans la grille). */
+  SS.followsGhost = (t) => SS.follows(t) && (SS.arpOn(t) || t.follow.play === 'hold');
+  /** Piste qui joue des accords : arpège, accords suivis, ou au moins une note empilée sur une autre. */
+  SS.chordTrack = (t) => isInst(t) && (!!t.arpOn || !!t.follow || (t.events || []).some((e) => e.notes.length > 1));
+
+  /**
+   * Anciennes pistes : catégorie Mono / Arpège / Accord → interrupteurs. Une piste Arpège garde ses notes et
+   * allume l'arpégiateur ; une piste Accord devient une piste normale (ses accords restent des notes empilées).
+   */
+  SS.migrateCategory = (t, opts = t) => {
+    if (!isInst(t)) return t;
+    const cat = opts.category;
+    if (opts.arpOn != null) t.arpOn = !!opts.arpOn;
+    else if (cat === 'arp') t.arpOn = true;
+    if (!t.arpOn) delete t.arpOn;
+    const f = cleanFollow(opts.follow);
+    if (f) t.follow = f;
+    else delete t.follow;
+    const last = cleanFollow(opts.lastFollow); // réglages gardés quand on éteint ACCORDS
+    if (last && !f) t.lastFollow = last;
+    else delete t.lastFollow;
+    delete t.category;
+    return t;
+  };
+
+  SS.FOLLOW = { DEFAULTS: FOLLOW_DEFAULTS, PLAYS, NOTES, VOICINGS, OCTAVES, clean: cleanFollow };
+})();
 
 /** Ajuste la longueur des pistes après un changement de mesure / nombre de mesures. */
 SS.resizeProject = (p) => {
@@ -637,6 +713,7 @@ SS.normalizeProject = (data) => {
       track.events = Array.isArray(t.events) ? t.events : [];
       track.events.forEach((e) => SS.cleanAccent(SS.cleanCond(SS.cleanRatchet(SS.cleanShift(e)))));
       track.arp = SS.Arp.normalize(t.arp); // ARP ONE (js/arp.js) : réglages bornés, anciens projets compris
+      SS.migrateCategory(track, t); // catégorie Mono / Arpège / Accord des anciens projets → ARP / ACCORDS
       track.chord = t.chord || 'min';
       if (t.sd && typeof t.sd === 'object') {
         track.sd = {};

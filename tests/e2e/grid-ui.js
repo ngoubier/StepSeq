@@ -118,10 +118,16 @@ const shot = async (page, name) => SHOTS && page.locator('#harmonyDialog').scree
     const tr = (id) => p.tracks.find((t) => t.id === id);
     return { bass: tr(L.bass.dst), comp: tr(L.comp.dst), arp: tr(L.arp.dst), n: p.tracks.length };
   });
-  ok(res.bass && res.bass.category === 'mono' && res.bass.events.length > 0, `basse écrite dans « ${res.bass && res.bass.name} » (${res.bass && res.bass.events.length} notes)`);
-  ok(res.comp && res.comp.category === 'chord' && res.comp.events.length === 3, `accords tenus écrits dans « ${res.comp && res.comp.name} »`);
-  ok(res.arp && res.arp.category === 'arp' && res.arp.events.length === 3, `accords tenus pour Arp One dans « ${res.arp && res.arp.name} »`);
-  ok(res.comp.events[2].chord === 'maj7' && res.comp.events[2].notes.length === 4, 'Fmaj7 écrit avec ses 4 notes');
+  ok(res.bass && !res.bass.arpOn && !res.bass.follow && res.bass.events.length > 0, `basse écrite dans « ${res.bass && res.bass.name} » (${res.bass && res.bass.events.length} notes)`);
+  ok(res.comp && res.comp.follow && res.comp.follow.play === 'hold' && !res.comp.arpOn, `« ${res.comp && res.comp.name} » joue la grille en accords tenus (ACCORDS)`);
+  ok(res.arp && res.arp.arpOn && res.arp.follow, `« ${res.arp && res.arp.name} » arpège la grille (ARP + ACCORDS)`);
+  // ce que joue la piste d'accords : les accords de la grille (calculés à la lecture, rien n'est écrit)
+  const blocks = await page.evaluate(() => {
+    const p = SS.normalizeProject(JSON.parse(localStorage.getItem('stepseq.autosave')));
+    const sc = SS.currentScene(p);
+    return SS.followBlocks(p, p.tracks.find((t) => t.id === sc.grid.layers.comp.dst)).map((b) => ({ name: b.name, n: b.notes.length }));
+  });
+  ok(res.comp.events.length === 0 && blocks.length === 3 && blocks[2].n === 4, `Fmaj7 joué avec ses 4 notes (${JSON.stringify(blocks)})`);
   const bassRoots = [...new Set(res.bass.events.map((e) => e.notes[0] % 12))];
   ok(JSON.stringify(bassRoots) === JSON.stringify([2, 10, 5]), `la basse joue les fondamentales D, B♭, F (${bassRoots})`);
   await shot(page, 'g3-genere');
@@ -135,9 +141,10 @@ const shot = async (page, name) => SHOTS && page.locator('#harmonyDialog').scree
   const comp2 = await page.evaluate(() => {
     const p = JSON.parse(localStorage.getItem('stepseq.autosave'));
     const sc = p.scenes.find((s) => s.id === p.current);
-    return p.tracks.find((t) => t.id === sc.grid.layers.comp.dst).events.length;
+    const pp = SS.normalizeProject(p);
+    return SS.followBlocks(pp, pp.tracks.find((t) => t.id === sc.grid.layers.comp.dst)).length;
   });
-  ok(comp2 === 4 && !dialogs.length, `Auto : couches réécrites sans question (${comp2} accords)`);
+  ok(comp2 === 4 && !dialogs.length, `Auto : la piste d'accords suit la grille sans question (${comp2} accords)`);
 
   // grille connue
   await page.selectOption('#grFrom', { index: 1 });

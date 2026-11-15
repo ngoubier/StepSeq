@@ -46,7 +46,7 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FAIL ') + m); if (!c) process
   await page.locator('.roll-arp').first().click();
   ok(await page.locator('#arpDialog[open]').count() === 1, 'fenêtre de l’arpégiateur ouverte');
   // la sauvegarde automatique a lieu 400 ms après chaque changement
-  const arpNow = async () => (await page.waitForTimeout(500), page.evaluate(() => JSON.stringify(SS.Arp.normalize(JSON.parse(localStorage.getItem('stepseq.autosave')).tracks.find((t) => t.category === 'arp').arp))));
+  const arpNow = async () => (await page.waitForTimeout(500), page.evaluate(() => JSON.stringify(SS.Arp.normalize(JSON.parse(localStorage.getItem('stepseq.autosave')).tracks.find((t) => t.arpOn).arp))));
   const before = await arpNow();
   // modules : niveau Essentiel par défaut, module Motif ouvert
   const modBtn = (name) => page.locator('#arpDialog .arp-mod-btn', { has: page.locator('b', { hasText: new RegExp('^' + name + '$') }) });
@@ -241,7 +241,7 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FAIL ') + m); if (!c) process
   await page.locator('#arpDialog .arp-frow', { hasText: 'Hauteur' }).locator('.arp-seg button', { hasText: 'C5' }).click();
   a = JSON.parse(await arpNow());
   ok(a.register === 5, 'hauteur : très aigu (C5)');
-  const lowest = await page.evaluate(() => { const t = SS.Arp.preview(JSON.parse(localStorage.getItem('stepseq.autosave')).tracks.find((x) => x.category === 'arp').arp, [53, 56, 60], 8); return Math.min(...t.filter(Boolean).flatMap((x) => x.notes)); });
+  const lowest = await page.evaluate(() => { const t = SS.Arp.preview(JSON.parse(localStorage.getItem('stepseq.autosave')).tracks.find((x) => x.arpOn).arp, [53, 56, 60], 8); return Math.min(...t.filter(Boolean).flatMap((x) => x.notes)); });
   ok(lowest >= 72 && lowest < 84, `l’arpège commence dans l’octave C5 (note la plus grave ${lowest})`);
   await page.locator('#arpDialog .arp-frow', { hasText: 'Hauteur' }).locator('.arp-seg button', { hasText: 'Telle quelle' }).click();
   // mode Intuitif : boutons rotatifs au clavier
@@ -295,7 +295,7 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FAIL ') + m); if (!c) process
   // 4. piste vide : choisir un accord et le poser sur la piste
   await page.evaluate(() => {
     const p = JSON.parse(localStorage.getItem('stepseq.autosave'));
-    p.tracks.find((t) => t.category === 'arp').events = [];
+    p.tracks.find((t) => t.arpOn).events = [];
     localStorage.setItem('stepseq.autosave', JSON.stringify(p));
   });
   await page.reload();
@@ -307,13 +307,13 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FAIL ') + m); if (!c) process
   ok((await page.locator('.arp-chordname').textContent()) === 'Fmaj7', 'accord d’essai : Fmaj7');
   await page.click('.arp-fill');
   await page.waitForTimeout(500);
-  const ev = await page.evaluate(() => JSON.parse(localStorage.getItem('stepseq.autosave')).tracks.find((t) => t.category === 'arp').events);
+  const ev = await page.evaluate(() => JSON.parse(localStorage.getItem('stepseq.autosave')).tracks.find((t) => t.arpOn).events);
   ok(ev.length === 1 && ev[0].notes.length === 4 && ev[0].step === 0, 'Poser sur la piste : l’accord remplit la boucle');
   // 5. titre « piste — partie », et piano roll ⇄ fenêtre (même motif, même avec un pas en silence)
   const title = await page.locator('#arpDialog .arp-title').textContent();
   const expect = await page.evaluate(() => {
     const p = JSON.parse(localStorage.getItem('stepseq.autosave'));
-    const t = p.tracks.find((x) => x.category === 'arp');
+    const t = p.tracks.find((x) => x.arpOn);
     const sc = (p.scenes || []).find((x) => x.id === p.current) || (p.scenes || [])[0];
     return sc ? `${t.name} — ${sc.name}` : t.name;
   });

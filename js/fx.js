@@ -438,7 +438,7 @@ SS.fx = (() => {
       return 0.6;
     }
     const root = track.lastRoot ?? (track.octave + 1) * 12;
-    SS.audio.preview(track, track.category === 'mono' ? root : SS.chordNotes(root, track.chord), 0.35);
+    SS.audio.preview(track, SS.arpOn(track) || SS.follows(track) ? SS.chordNotes(root, track.chord) : root, 0.35);
     return 0.8; // un peu plus long : la reverb et l'écho ont le temps de s'entendre
   }
 

@@ -259,8 +259,9 @@
               else out.cc.push({ at: (base + tick) * TPS, cc: P.cc, val });
             }
           }
-          const events = d.events || [];
-          if (t.category === 'arp') {
+          // notes jouées : celles de la scène, ou les accords de la scène (piste qui suit la piste Accords)
+          const events = SS.playEvents(view, t, { events: d.events || [], scene: sc });
+          if (SS.arpOn(t)) {
             for (let tick = 0; tick < ticksTotal; tick++) {
               const step = tick % len;
               for (const ev of events) {
@@ -756,7 +757,7 @@
       let name = ci.name && !used.has(ci.name) ? ci.name : gm ? gm.label : 'Instrument';
       if (used.has(name)) name += ` (${g.ch + 1})`;
       used.add(name);
-      const t = SS.newTrack({ type: 'instrument', category: 'mono', family: fam, instrument: gm ? gm.id : undefined, name: name.slice(0, 40), color: color(i) }, p);
+      const t = SS.newTrack({ type: 'instrument', family: fam, instrument: gm ? gm.id : undefined, name: name.slice(0, 40), color: color(i) }, p);
       t.sfv = gmVariantFor(gm, prog);
       t.octave = clamp(Math.floor(median / 12) - 1, 0, 8);
       if (ci.volume != null) t.volume = Math.round(clamp(ci.volume / 127, 0.05, 1) * 100) / 100;

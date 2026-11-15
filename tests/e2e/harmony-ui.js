@@ -200,7 +200,8 @@ const shot = async (page, name) => SHOTS && page.locator('#harmonyDialog').scree
       hasProjectKey: 'key' in p || 'emotion' in p,
       key: sc.key, emotion: sc.emotion,
       grid: grid ? grid.chords.length : 0,
-      chords: grid ? ev(grid.layers.comp.dst) : 0, bass: grid ? ev(grid.layers.bass.dst) : 0,
+      // la couche Accords ne s'écrit plus en notes : la piste joue la grille (bouton ACCORDS)
+      chords: grid && (p.tracks.find((t) => t.id === grid.layers.comp.dst) || {}).follow ? 1 : 0, bass: grid ? ev(grid.layers.bass.dst) : 0,
       others: p.scenes.filter((s) => s.id !== p.current).map((s) => JSON.stringify(s.data)),
       otherKeys: p.scenes.filter((s) => s.id !== p.current).every((s) => s.key && s.key.tonic === 'D' && s.key.mode === 'minor'),
     };
@@ -208,7 +209,7 @@ const shot = async (page, name) => SHOTS && page.locator('#harmonyDialog').scree
   ok(!res.hasProjectKey, 'plus de tonalité au niveau du projet');
   ok(res.key && res.key.tonic === 'D' && res.key.mode === 'dorian', `la scène reçoit Ré dorien (${JSON.stringify(res.key)})`);
   ok(res.emotion === 'melancolie', 'et l’émotion Mélancolie lumineuse');
-  ok(res.grid > 0 && res.chords > 0 && res.bass > 0, `grille posée, accords et basse écrits (${res.grid} accords, ${res.chords} événements, ${res.bass} notes de basse)`);
+  ok(res.grid > 0 && res.chords > 0 && res.bass > 0, `grille posée, piste d'accords qui la suit, basse écrite (${res.grid} accords, ${res.bass} notes de basse)`);
   ok(JSON.stringify(res.others) === JSON.stringify(before), 'les notes des autres scènes ne changent pas');
   ok(res.otherKeys, 'les autres scènes gardent Ré mineur');
   const label = await page.locator('#keyLabel').textContent();
