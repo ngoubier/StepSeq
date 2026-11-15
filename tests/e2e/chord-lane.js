@@ -72,6 +72,36 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FAIL ') + m); if (!c) process
   sc = p.scenes.find((x) => x.id === p.current);
   ok(sc.grid.chords[1].len === 12, `bord droit glissé jusqu'au 3e temps : 12 pas (${sc.grid.chords[1].len})`);
 
+  // 3b. basse et pédale (éditeur d'accord, bande de pédale)
+  await page.locator('#chordLane .cl-blk').first().click();
+  await page.waitForSelector('.cl-menu');
+  ok(await page.locator('.cl-menu .cl-type select').nth(0).locator('option', { hasText: '7(no3)' }).count() === 1, 'type 7(no3) dans la liste');
+  await page.locator('.cl-menu label', { hasText: 'Basse' }).locator('select').selectOption({ index: 7 });
+  p = await saved();
+  sc = p.scenes.find((x) => x.id === p.current);
+  ok(sc.grid.chords[0].bass === 7, 'basse choisie : la quinte (accord renversé)');
+  ok((await page.locator('#chordLane .cl-blk b').first().textContent()).includes('/'), `nom de l'accord avec sa basse : ${await page.locator('#chordLane .cl-blk b').first().textContent()}`);
+  await page.locator('.cl-menu .cl-pedrow .chip', { hasText: '2 mesures' }).click();
+  p = await saved();
+  sc = p.scenes.find((x) => x.id === p.current);
+  ok(sc.grid.pedals && sc.grid.pedals.length === 1 && sc.grid.pedals[0].step === 0 && sc.grid.pedals[0].len === 32, 'pédale posée sur 2 mesures');
+  ok(await page.locator('#chordLane .cl-ped').count() === 1, 'bande de pédale sous les accords');
+  ok(await page.locator('.cl-menu label', { hasText: 'Basse' }).locator('select').isDisabled(), 'sous la pédale, la basse est imposée');
+  const names = await page.locator('#chordLane .cl-blk b').allTextContents();
+  ok(names[1].includes('/'), `le 2e accord prend la pédale à la basse : ${names.join(', ')}`);
+  await page.keyboard.press('Escape');
+  await page.locator('#chordLane .cl-ped').click();
+  await page.waitForSelector('.cl-menu');
+  ok((await page.locator('.cl-menu .ctx-current').textContent()).startsWith('Pédale de'), 'clic sur la bande : réglages de la pédale');
+  await page.locator('.cl-menu button', { hasText: 'Retirer la pédale' }).click();
+  p = await saved();
+  sc = p.scenes.find((x) => x.id === p.current);
+  ok(!sc.grid.pedals && await page.locator('#chordLane .cl-ped').count() === 0, 'pédale retirée');
+  await page.locator('#chordLane .cl-blk').first().click();
+  await page.waitForSelector('.cl-menu');
+  await page.locator('.cl-menu label', { hasText: 'Basse' }).locator('select').selectOption({ index: 0 });
+  await page.keyboard.press('Escape');
+
   // 4. ACCORDS sur la nappe : accords tenus, piste en lecture seule
   await trackEl('Nappe').locator('.th-chd').click();
   p = await saved();

@@ -398,6 +398,11 @@ SS.CHORDS = [
   { id: '6', label: '6', iv: [0, 4, 7, 9], ext: true },
   { id: 'm6', label: 'm6', iv: [0, 3, 7, 9], ext: true },
   { id: '7sus4', label: '7sus4', iv: [0, 5, 7, 10], ext: true },
+  // accords sans tierce ou à quarte ajoutée (pédales, synthwave, musique de film)
+  { id: '7no3', label: '7(no3)', iv: [0, 7, 10], ext: true },
+  { id: '5add9', label: '5(add9)', iv: [0, 7, 14], ext: true },
+  { id: 'add4', label: 'add4', iv: [0, 4, 5, 7], ext: true },
+  { id: 'madd4', label: 'm(add4)', iv: [0, 3, 5, 7], ext: true },
 ];
 SS.chordNotes = (root, chordId) => {
   const c = SS.CHORDS.find((x) => x.id === chordId) || SS.CHORDS[0];

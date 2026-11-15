@@ -1036,10 +1036,17 @@ SS.normalizeGrid = (g) => {
     for (const k of extra) if (typeof l[k] === 'string') out[k] = l[k];
     return out;
   };
+  // pédales : une note de basse tenue sous plusieurs accords ; `semi` = demi-tons au-dessus de la tonique de la scène
+  const pedals = (Array.isArray(g.pedals) ? g.pedals : [])
+    .filter((x) => x && Number.isFinite(Number(x.semi)))
+    .map((x) => ({ step: int(x.step, 0, 4096), len: int(x.len, 1, 4096), semi: ((Math.round(Number(x.semi)) % 12) + 12) % 12 }))
+    .sort((a, b) => a.step - b.step)
+    .filter((x, i, a) => i === 0 || x.step >= a[i - 1].step + a[i - 1].len);
   const sig = {};
   if (g.sig && typeof g.sig === 'object') for (const [k, v] of Object.entries(g.sig)) if (typeof v === 'string') sig[k] = v;
   return {
     chords,
+    ...(pedals.length ? { pedals } : {}),
     initialized: g.initialized === true,
     snap: ['bar', 'half', 'beat'].includes(g.snap) ? g.snap : 'bar',
     auto: !!g.auto,

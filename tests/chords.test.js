@@ -151,3 +151,81 @@ test('piste Accords : un accord posé remplace ce qu’il recouvre', () => {
   SS.gridPut(g, { step: 8, len: 16 });
   assert.deepEqual(g.chords.map((c) => [c.step, c.len]), [[0, 8], [8, 16], [24, 8]]);
 });
+
+/** Roadgame : La mineur, Asus4 – A7(no3) – Dm – Am sur une pédale de La (4 mesures). */
+function roadgame(pedal = true) {
+  const p = SS.newProject();
+  p.bars = 4;
+  SS.normalizeScenes(p, {});
+  const sc = SS.currentScene(p);
+  sc.key = { tonic: 'A', mode: 'minor' };
+  sc.grid = SS.normalizeGrid({
+    chords: [
+      { step: 0, len: 16, degree: 0, type: 'sus4' },
+      { step: 16, len: 16, degree: 0, type: '7no3' },
+      { step: 32, len: 16, degree: 3, type: 'min' },
+      { step: 48, len: 16, degree: 0, type: 'min' },
+    ],
+    ...(pedal ? { pedals: [{ step: 0, len: 64, semi: 0 }] } : {}),
+  });
+  return p;
+}
+
+test('nouveaux types : 7(no3), 5(add9), add4, m(add4) — noms et notes', () => {
+  const k = { tonic: 'A', mode: 'minor' };
+  assert.equal(SS.harmony.gridChord(k, 0, '7no3').name, 'A7(no3)');
+  assert.deepEqual(SS.harmony.gridChord(k, 0, '7no3').notes, ['A', 'E', 'G']);
+  assert.equal(SS.harmony.gridChord(k, 0, 'madd4').name, 'Am(add4)');
+  assert.equal(SS.harmony.gridChord(k, 2, 'add4').name, 'Cadd4');
+  assert.equal(SS.harmony.gridChord(k, 0, '5add9').name, 'A5(add9)');
+  assert.ok(SS.normalizeGrid({ chords: [{ step: 0, len: 4, degree: 0, type: '7no3' }] }).chords.length === 1, 'type gardé à l’enregistrement');
+});
+
+test('pédale : la note tenue à la basse de chaque accord, noms « Dm/A », enregistrée avec la grille', () => {
+  const p = roadgame();
+  const ch = SS.sceneGridChords(p);
+  assert.deepEqual(ch.map((c) => c.info.name), ['Asus4', 'A7(no3)', 'Dm/A', 'Am']);
+  const v = SS.voiceChords(ch, { ...SS.FOLLOW.DEFAULTS, oct: 3 });
+  assert.deepEqual(v.map((x) => x.notes.map(SS.noteName)), [
+    ['A3', 'D4', 'E4'],
+    ['A3', 'E4', 'G4'],
+    ['A3', 'D4', 'F4'],
+    ['A3', 'C4', 'E4'],
+  ]);
+  const g2 = SS.normalizeGrid(JSON.parse(JSON.stringify(SS.currentScene(p).grid)));
+  assert.deepEqual(g2.pedals, [{ step: 0, len: 64, semi: 0 }]);
+  assert.equal(SS.normalizeGrid({ chords: [] }).pedals, undefined);
+});
+
+test('pédale + Arp One : l’arpège de Roadgame depuis la piste Accords', () => {
+  const p = roadgame();
+  const t = inst(p, { arpOn: true });
+  t.follow = { ...SS.FOLLOW.DEFAULTS, oct: 4 };
+  t.arp = SS.Arp.normalize({ mode: 'pattern', pattern: '0 1 2 | 0 1 2 | 0 2 1 | 0 2 1', rate: 1 });
+  const evs = SS.playEvents(p, t);
+  const bar = (i) => {
+    const out = [];
+    for (let s = i * 16; s < i * 16 + 16; s++) SS.Arp.renderStep(t.arp, evs[i], s, { loop: 0, stepSec: 0.1, events: evs }).forEach((n) => out.push(SS.noteName(n.midi)));
+    return out.slice(0, 4).join(' ');
+  };
+  assert.deepEqual([0, 1, 2, 3].map(bar), ['A4 D5 E5 A4', 'A4 E5 G5 A4', 'A4 F5 D5 A4', 'A4 E5 C5 A4']);
+});
+
+test('basse déjà dans l’accord : renversement, sans note doublée (Dm/A = La Ré Fa)', () => {
+  const p = roadgame(false);
+  const sc = SS.currentScene(p);
+  sc.grid.chords[2].bass = 7; // Ré + 7 demi-tons = La
+  const ch = SS.sceneGridChords(p);
+  assert.equal(ch[2].info.name, 'Dm/A');
+  const v = SS.voiceChords(ch, { ...SS.FOLLOW.DEFAULTS, oct: 3 });
+  assert.equal(v[2].notes.length, 3);
+  assert.equal(pcs(v[2].notes)[0], 9);
+  assert.deepEqual([...pcs(v[2].notes)].sort((a, b) => a - b), [2, 5, 9]);
+  // une basse hors de l'accord s'ajoute sous l'accord (C/B♭ : 4 notes)
+  sc.grid.chords[3] = { step: 48, len: 16, degree: 2, type: 'maj', acc: 0, bass: 10 };
+  const v2 = SS.voiceChords(SS.sceneGridChords(p), { ...SS.FOLLOW.DEFAULTS, oct: 3 });
+  assert.equal(v2[3].notes.length, 4);
+  assert.equal(pcs(v2[3].notes)[0], 10);
+  // écoute d'un accord (SS.harmony.voice) : même règle
+  assert.deepEqual(pcs(SS.harmony.voice(ch[2].info, 60)), [9, 2, 5]);
+});
