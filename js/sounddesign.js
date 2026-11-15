@@ -608,7 +608,7 @@ SS.soundDesign = (() => {
     if (!track || SS.audio.isPlaying()) return 0; // en lecture, on entend déjà le résultat dans la boucle
     if (!fromLoop && SS.trackLoop.mode() === 'note') return 0; // la boucle rejoue déjà la note d'essai
     const root = track.lastRoot ?? (track.octave + 1) * 12;
-    const notes = track.category === 'mono' ? root : SS.chordNotes(root, track.chord);
+    const notes = SS.arpOn(track) || SS.follows(track) ? SS.chordNotes(root, track.chord) : root;
     const p = params();
     let dur = Math.min(1.6, Math.max(0.6, p.attack + p.decay + 0.3));
     // LFO : on écoute assez longtemps pour l'entendre bouger (un cycle, entre 2 et 6 s)
@@ -627,7 +627,7 @@ SS.soundDesign = (() => {
   /** Démo du glide : quelques notes liées (une octave, une quinte) pour l'entendre glisser. */
   function previewGlide() {
     if (SS.trackLoop.mode() === 'note') return; // la boucle rejoue déjà la note d'essai
-    if (!track || SS.audio.isPlaying() || track.category !== 'mono') return preview();
+    if (!track || SS.audio.isPlaying() || SS.arpOn(track) || SS.follows(track)) return preview();
     const root = track.lastRoot ?? (track.octave + 1) * 12;
     const step = 0.22;
     SS.audio.playPhrase(track, [0, 12, 7, 0].map((iv, i) => ({ midi: root + iv, at: i * step, dur: step * (i === 3 ? 2 : 1.02) })));

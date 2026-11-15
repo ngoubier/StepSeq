@@ -62,7 +62,7 @@ SS.melodyPanel = (() => {
     const [tonic, mode] = S.key.split('|');
     return { tonic, mode };
   }
-  const monoTracks = () => project().tracks.filter((t) => t.type === 'instrument' && t.category === 'mono');
+  const monoTracks = () => project().tracks.filter((t) => t.type === 'instrument' && !SS.chordTrack(t));
   function defaultTrack() {
     const list = monoTracks();
     const pref = list.find((t) => t.melody) || list.find((t) => t.band && ['vox', 'lead', 'sax'].includes(String(t.band.key).split(':')[0]));
@@ -573,7 +573,7 @@ SS.melodyPanel = (() => {
     delete t.id;
     return t;
   }
-  const PAD = { name: 'Nappe', color: '#1ea7ff', category: 'chord', family: 'pads', instrument: 'syn_softpad' };
+  const PAD = { name: 'Nappe', color: '#1ea7ff', family: 'pads', instrument: 'syn_softpad' };
   function padVoicing(chord) {
     const root = 48 + chord.rootPc;
     return [...new Set([root, ...chord.tones.map((pc) => root + ((pc - chord.rootPc + 12) % 12) + 12)])].sort((a, b) => a - b);
@@ -642,7 +642,7 @@ SS.melodyPanel = (() => {
     // Des bus distincts permettent d'arrêter l'aperçu sans couper les pistes du projet.
     const token = SS.uid();
     const layers = ctx.previewLayers ? ctx.previewLayers() : {
-      comp: { track: (ctx.padTrack && ctx.padTrack()) || p.tracks.find((t) => t.type === 'instrument' && t.category === 'chord') || tempTrack(PAD), events: res.spans.map((sp) => ({ step: sp.step, len: sp.len, notes: padVoicing(sp.chord), vel: 0.55 })) },
+      comp: { track: (ctx.padTrack && ctx.padTrack()) || p.tracks.find((t) => t.type === 'instrument' && SS.chordTrack(t) && !SS.arpOn(t)) || tempTrack(PAD), events: res.spans.map((sp) => ({ step: sp.step, len: sp.len, notes: padVoicing(sp.chord), vel: 0.55 })) },
     };
     if (res) layers.melody = { track: target || tempTrack(ctx.leadOpts()), events: M().toEvents(res) };
     else if (target) layers.melody = { track: target, events: target.events };

@@ -369,7 +369,9 @@ SS.harmony = (() => {
       }
       const scaleSet = new Set(scale(key).map((d) => d.pc));
       const leading = pcOf(scale(key)[0].pc + 11);
-      const chordTracks = sec.tracks.filter(({ track }) => track.category !== 'mono');
+      // pistes d'accords : arpège, ou notes empilées (une piste qui suit la piste Accords joue la grille, déjà dans la tonalité)
+      const chordy = ({ track, events }) => !track.follow && (!!track.arpOn || track.category === 'arp' || track.category === 'chord' || events.some((e) => e.notes.length > 1));
+      const chordTracks = sec.tracks.filter(chordy);
       const borrowed = new Map(); // nom d'accord -> { numeral, status, why, tracks, steps } (une remarque par accord)
       // accords qui sonnent à un pas donné (toutes pistes Accord / Arpège confondues)
       const chordAt = (step) => {
@@ -407,7 +409,7 @@ SS.harmony = (() => {
           const b = evs[i].notes;
           const move = Math.max(...b.map((n) => Math.min(...a.map((m) => Math.abs(n - m)))));
           const common = b.filter((n) => a.includes(n)).length;
-          if (move >= 7 && track.category === 'chord')
+          if (move >= 7 && !track.arpOn && track.category !== 'arp')
             res.remarks.push({
               kind: 'tip',
               track: track.name,
@@ -429,7 +431,7 @@ SS.harmony = (() => {
         });
       }
       // pistes Mono (basse, lead…) : les accords sont déjà analysés plus haut
-      for (const { track, events } of sec.tracks.filter(({ track }) => track.category === 'mono')) {
+      for (const { track, events } of sec.tracks.filter((x) => !x.track.follow && !chordy(x))) {
         // notes hors tonalité (regroupées par note)
         const outside = new Map();
         for (const ev of events)

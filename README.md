@@ -45,11 +45,13 @@ centre, les variantes à droite, les réglages de la piste en bas. Elle demande 
 2. un nom et une couleur ;
 3. pour une piste **Drum** : le type de son (Kick, Snare, Clap, Hi-Hat, Toms, Crash, Ride…),
    la boîte à rythmes (TR-808, TR-909, LinnDrum, …) et la variation ;
-4. pour une piste **Instrument** : la catégorie (**Mono**, **Arpège**, **Accord**), la famille
-   (Bass, Synth Lead, Pads, Keys, Mallets, Strings, Brass & Winds, Guitar) puis l'instrument.
-
-5. pour une piste **Synthé** : la catégorie, le synthé analogique (pour l'instant le **Roland Juno-106**)
-   et son patch ; une fiche affiche la configuration du synthé.
+4. pour une piste **Instrument** : la famille (Bass, Synth Lead, Pads, Keys, Mallets, Strings, Brass & Winds,
+   Guitar) puis l'instrument ;
+5. pour une piste **Synthé** : le synthé analogique (pour l'instant le **Roland Juno-106**) et son patch ; une fiche
+   affiche la configuration du synthé ;
+6. pour une piste Instrument ou Synthé, la ligne **Jeu** : deux cases facultatives, **Arpégiateur** et **Jouer la
+   piste Accords**, qui allument les interrupteurs **ARP** et **ACCORDS** de la piste (voir plus bas). Il n'y a plus de
+   catégorie Mono / Arpège / Accord : toutes les pistes instrument se jouent pareil et se changent à tout moment.
 
 Le bouton **Écouter** permet d'entendre le son avant de valider.
 
@@ -352,20 +354,56 @@ et la sélection des 128 patches d'usine (groupe, banque, numéro) avec l'affich
 façade d'origine. Un clavier de 2 octaves sous la façade se joue à la souris ou au clavier de l'ordinateur (lettre affichée sur
 chaque touche, 6 voix). Le son est un portage du moteur de l'[Ultramaster KR-106](https://github.com/kayrockscreenprinting/ultramaster_kr106).
 
-Le chevron **›** dans l'en-tête d'une piste instrument affiche son piano roll :
+Le chevron **›** dans l'en-tête d'une piste instrument affiche son piano roll : cliquer pour poser une note, glisser
+vers la droite pour l'allonger. Plusieurs notes au même pas font un accord ; cliquer sur l'une d'elles n'enlève
+qu'elle. Quand la scène a une tonalité, la palette d'accords pose un accord entier au dernier endroit cliqué.
 
-- **Mono** : une note par position ; cliquer pour poser, glisser vers la droite pour allonger.
-- **Accord** : cliquer sur la fondamentale pose un accord du type choisi (Majeur, Mineur, 7, Maj7…).
-- **Arpège** : comme Accord, mais les notes sont jouées par l'**arpégiateur** (voir ci-dessous).
+### Piste Accords et interrupteurs ARP / ACCORDS
+
+**Piste Accords de la scène** (`js/chords.js`, ligne dorée collée sous la règle) : chaque scène a sa propre suite
+d'accords, rangée par degré dans la tonalité de la scène (elle suit la tonalité si on la change). C'est la même grille
+que dans Key › Chanson.
+
+- Un **clic dans une case vide** pose l'accord de tonique sur 1 mesure (ou jusqu'à l'accord suivant), calé sur le
+  temps. Si la scène n'a pas encore de tonalité, elle est demandée d'abord (proposée d'après les notes de la scène).
+- Un **clic sur un accord** ouvre son panneau : les accords de la tonalité colorés par fonction (repos, préparation,
+  tension, comme dans Key), le type (7, maj7, sus4…), la **durée** (1 temps, 2 temps, 1, 2, 4 ou 8 mesures,
+  « Jusqu'à la fin »), Écouter, Dupliquer, Supprimer.
+- **Glisser** un accord le déplace (Alt : le duplique) ; glisser son **bord droit** change sa durée, au temps près.
+  La durée va de 1 temps à la fin de la scène. Un accord posé, déplacé ou allongé remplace ce qu'il recouvre.
+- **+ ACCORD** ajoute un accord après le dernier ; **KEY ›** ouvre la fenêtre Key (émotions, grilles toutes faites).
+
+**Interrupteurs d'une piste instrument** (sous son nom ; pas sur les pistes Drum ; dans le menu ⋯ en mode compact) :
+
+| ARP | ACCORDS | La piste joue… |
+| --- | --- | --- |
+| éteint | éteint | ses notes (piste normale : basse, lead, mélodie) |
+| éteint | allumé | les accords de la scène, **tenus** sur toute leur durée (nappes, cordes, orgue) |
+| allumé | éteint | l'**arpège** des notes tenues ensemble dans son piano roll |
+| allumé | allumé | l'**arpège des accords** de la scène : changer un accord change l'arpège, sans rien réécrire |
+
+Quand une piste joue les accords, sa ligne montre les accords en pointillés et ne s'édite pas ; un clic propose
+**Convertir en notes** (la piste reprend en notes ce qu'elle joue dans la scène et ne suit plus les accords).
+Un **clic droit sur ACCORDS** ouvre ses réglages : **Jeu** (Tenu, ou **Sur mes pas** : les notes de la piste donnent le
+rythme, l'accord du moment donne les hauteurs), **Notes** (Accord, Fondamentale seule, Sans fondamentale,
+Basse + accord), **Hauteur** (C1 à C5), **Voicing** (Serré, Ouvert, Drop 2), enchaînement au plus proche (le
+renversement qui bouge le moins) et notes communes liées (pas rejouées d'un accord au suivant).
+Une scène sans accords laisse se taire les pistes qui les suivent. La lecture et l'export MIDI passent par
+`SS.playEvents` : une piste qui suit les accords est exportée note par note.
+
+Anciens projets : une piste **Arpège** garde ses notes et allume ARP ; une piste **Accord** devient une piste normale
+(ses accords restent des notes empilées).
 
 ### Arp One, l'arpégiateur
 
-Le bouton **Arp One** du piano roll d'une piste Arpège ouvre l'arpégiateur, titré avec le nom de la piste et la partie en cours (« Arp One · Juno-106 — Couplet ») (`js/arp.js` pour
+Le bouton **Arp One** du piano roll d'une piste dont ARP est allumé ouvre l'arpégiateur, titré avec le nom de la piste et la partie en cours (« Arp One · Juno-106 — Couplet ») (`js/arp.js` pour
 le moteur, `js/arppanel.js` pour la fenêtre, `js/motifs.js` pour le catalogue de motifs).
 
 **En-tête, toujours visible**
 
-- **Lecture en boucle** de l'arpège sur l'accord de la piste ou un accord d'essai (choisi en deux menus) ;
+- **Lecture en boucle** de l'arpège sur l'accord de la piste ou un accord d'essai (choisi en deux menus) ; le module
+  Accord choisit la **source** : **Piste Accords** (les accords de la scène, même effet que le bouton ACCORDS),
+  **Notes de la piste** ou **Essai** ;
   chaque réglage s'entend tout de suite. Sur une piste vide, **Poser sur la piste** place l'accord sur la boucle.
   La boucle dure le plus petit nombre de mesures entières qui contient au moins 16 pas et un cycle complet du
   motif ; la grille montre toute la boucle (repères de temps et de mesures) : les colonnes s'affinent quand la
@@ -441,6 +479,7 @@ Tests de bout en bout des fenêtres de l'arpégiateur et Key dans Chromium (néc
 
 ```bash
 node tests/e2e/arp-ui.js
+node tests/e2e/chord-lane.js
 node tests/e2e/lfo.js
 node tests/e2e/voice-auto.js
 node tests/e2e/space.js

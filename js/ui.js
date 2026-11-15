@@ -61,7 +61,8 @@ SS.ui = (() => {
 
   function eventLabel(track, ev) {
     // mélodie écrite par l’atelier Mélodie : la syllabe chantée suit le nom de la note
-    if (track.category === 'mono' || ev.notes.length === 1) return SS.noteName(ev.notes[0]) + (ev.lyric ? ' ' + ev.lyric.replace(/\(.*?\)/g, '').replace('‿', '') : '');
+    if (ev.name) return ev.name; // accord de la piste Accords (piste qui suit les accords)
+    if (ev.notes.length === 1) return SS.noteName(ev.notes[0]) + (ev.lyric ? ' ' + ev.lyric.replace(/\(.*?\)/g, '').replace('‿', '') : '');
     // accord renversé (la basse n'est pas la fondamentale) ou tonalité choisie : nom calculé d'après les notes
     const key = SS.sceneKey(app.project());
     const plain = ev.chord && SS.chordNotes(ev.notes[0], ev.chord).join() === ev.notes.join();
@@ -74,7 +75,7 @@ SS.ui = (() => {
     return root + (CHORD_SUFFIX[ev.chord] ?? '');
   }
 
-  /* ---------- Palette d'accords de la tonalité (piano roll des pistes Accord / Arpège) ---------- */
+  /* ---------- Palette d'accords de la tonalité (piano roll des pistes instrument) ---------- */
 
   /** Pose l'accord `c` (voir SS.harmony.chords) au dernier endroit cliqué, jusqu'à la fin de la mesure. */
   function placeChord(track, c) {
@@ -105,7 +106,7 @@ SS.ui = (() => {
 
   function buildPalette(track) {
     const key = SS.sceneKey(app.project());
-    if (track.category === 'mono' || !SS.harmony || !SS.harmony.valid(key)) return null;
+    if (SS.followsGhost(track) || !SS.harmony || !SS.harmony.valid(key)) return null;
     const { diatonic, extra } = SS.harmony.chords(key);
     const chip = (c) =>
       h(
@@ -176,8 +177,8 @@ SS.ui = (() => {
   /** Équivalent General MIDI du son d'une piste (options de piste). */
   function gmEquivalentOf(track) {
     if (track.type === 'drum') return SS.midi.gmEquivalent({ type: 'drum', source: track.source, sound: track.sound, bank: track.bank, machine: track.machine });
-    if (SS.isAnalog(track)) return SS.midi.gmEquivalent({ type: 'synth', analog: track.instrument, patch: track.junoPatch, category: track.category });
-    return SS.midi.gmEquivalent({ type: 'instrument', family: track.family, instrument: track.instrument, sfv: track.sfv, category: track.category });
+    if (SS.isAnalog(track)) return SS.midi.gmEquivalent({ type: 'synth', analog: track.instrument, patch: track.junoPatch });
+    return SS.midi.gmEquivalent({ type: 'instrument', family: track.family, instrument: track.instrument, sfv: track.sfv });
   }
 
   /** Remplace le son d'une piste par son équivalent General MIDI (notes, volume, effets gardés ; annulable). */
@@ -216,27 +217,37 @@ SS.ui = (() => {
       const t = SS.DRUM_TYPES.find((d) => d.id === track.sound);
       return `${track.machine} · ${t ? t.label : track.sound} ${(track.variant || 0) + 1}`;
     }
-    const cat = SS.CATEGORIES.find((c) => c.id === track.category);
+    const mode = modeLabel(track);
+    const cat = mode ? { label: mode } : null;
+    const sep = cat ? ' · ' : '';
     if (SS.isAnalog(track)) {
       const patch = SS.findJunoPatch(track.junoPatch);
       const edited = track.juno && Object.keys(track.juno).length ? '*' : '';
-      return `${cat ? cat.label : ''} · ${SS.findAnalog(track.instrument).label.replace(/^Roland /, '')} · ${patch ? patch.id + ' ' + patch.name : ''}${edited}`;
+      return `${cat ? cat.label : ''}${sep}${SS.findAnalog(track.instrument).label.replace(/^Roland /, '')} · ${patch ? patch.id + ' ' + patch.name : ''}${edited}`;
     }
     const inst = SS.findInstrument(track.family, track.instrument);
     const variant = inst.files && inst.files.length > 1 ? ` (${SS.variantLabel(inst, SS.sfFile(inst, track))})` : '';
-    return `${cat ? cat.label : ''} · ${inst.label}${variant}`;
+    return `${cat ? cat.label : ''}${sep}${inst.label}${variant}`;
+  }
+
+  /** Mode de jeu affiché dans le sous-titre : « Arpège », « Accords », « Arpège des accords » ou rien. */
+  function modeLabel(track) {
+    if (track.type !== 'instrument') return '';
+    if (SS.arpOn(track)) return SS.follows(track) ? 'Arpège des accords' : 'Arpège';
+    if (SS.follows(track)) return track.follow.play === 'steps' ? 'Accords rythmés' : 'Accords tenus';
+    return '';
   }
 
   function trackIcon(track) {
     if (track.type === 'drum') return ICONS.drum;
     if (SS.isAnalog(track)) return ICONS.synth;
-    if (track.category === 'arp') return ICONS.arp;
-    if (track.category === 'chord') return ICONS.chord;
+    if (SS.arpOn(track)) return ICONS.arp;
+    if (SS.follows(track)) return ICONS.chord;
     return ICONS.keys;
   }
 
   const findEventAt = (track, s, midi = null) => track.events.find((e) => s >= e.step && s < e.step + e.len && (midi == null || e.notes.includes(midi)));
-  const sharesVoice = (track, a, b) => track.category !== 'mono' || a.notes.some((m) => b.notes.includes(m));
+  const sharesVoice = (track, a, b) => a.notes.some((m) => b.notes.includes(m));
 
   /** Message temporaire, avec un bouton d'action optionnel { label, run }. */
   function toast(msg, ms = 2600, action) {
@@ -296,6 +307,7 @@ SS.ui = (() => {
     document.documentElement.style.setProperty('--steps', SS.totalSteps(p));
     applyZoomVars();
     renderRuler();
+    renderChordLane();
     const container = $('#tracks');
     container.replaceChildren();
     refs.clear();
@@ -328,12 +340,494 @@ SS.ui = (() => {
   /** Après un changement de scène : repeint les notes si la page a la même forme, sinon la reconstruit. */
   function refreshScene() {
     if (shape() !== renderedShape) return renderAll();
+    renderChordLane();
     app.project().tracks.forEach((t) => {
       paint(t);
       applyRollKey(t, refs.get(t.id) || {});
     });
     playheadAfterBuild();
     if (SS.mixer && SS.mixer.isOpen()) SS.mixer.render();
+  }
+
+  /* ---------- Interrupteurs ARP / ACCORDS d'une piste instrument ---------- */
+
+  /** Allume / éteint l'arpégiateur de la piste. */
+  function setArp(track, on) {
+    if (on) track.arpOn = true;
+    else delete track.arpOn;
+    if (on && track.octave < 3) track.octave = 3;
+    renderTrack(track);
+    app.changed();
+    toast(on ? `« ${track.name} » : arpégiateur allumé${SS.follows(track) ? ' sur les accords de la scène' : ' sur les notes de la piste'}. Réglages : bouton Arp One du piano roll.` : `« ${track.name} » : arpégiateur éteint.`, 3500);
+  }
+
+  /** La piste joue (ou non) la piste Accords de la scène. */
+  function setTrackFollow(track, on) {
+    const p = app.project();
+    if (on) {
+      track.follow = SS.FOLLOW.clean(track.follow || track.lastFollow || true);
+      delete track.lastFollow;
+    } else {
+      track.lastFollow = track.follow; // réglages gardés si on rallume
+      delete track.follow;
+    }
+    renderTrack(track);
+    app.changed();
+    if (!on) return toast(`« ${track.name} » joue de nouveau ses propres notes.`);
+    const sc = SS.currentScene(p);
+    if (!SS.sceneGridChords(p).length)
+      toast(`Pas d'accords dans la scène « ${sc.name} » : la piste se tait. Cliquez dans la piste Accords pour en poser.`, 5000);
+    else toast(`« ${track.name} » joue la piste Accords. Clic droit sur ACCORDS : réglages.`, 3500);
+  }
+
+  /** Clic sur une piste qui suit les accords : ses notes ne s'éditent pas, on propose de les convertir. */
+  function followLocked(track) {
+    toast(`« ${track.name} » joue la piste Accords : modifiez les accords en haut, ou convertissez en notes pour les éditer.`, 5000, {
+      label: 'Convertir en notes',
+      run: () => freezeFollow(track),
+    });
+  }
+
+  function freezeFollow(track) {
+    if (!SS.freezeFollow(app.project(), track)) return;
+    renderTrack(track);
+    app.changed();
+    toast(`« ${track.name} » : accords convertis en notes (scène en cours). Ctrl+Z pour annuler.`, 4000);
+  }
+
+  function modeToggles(track) {
+    const arp = SS.arpOn(track);
+    const fol = SS.follows(track);
+    return h(
+      'span',
+      { class: 'th-modes' },
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'th-mode th-arp' + (arp ? ' on' : ''),
+          'aria-pressed': String(arp),
+          title: arp ? 'Arpégiateur allumé : clic pour l’éteindre (réglages : Arp One, dans le piano roll)' : 'Arpégiateur : clic pour arpéger les notes (ou les accords) de la piste',
+          onclick: (e) => {
+            e.stopPropagation();
+            setArp(track, !arp);
+          },
+        },
+        'ARP'
+      ),
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'th-mode th-chd' + (fol ? ' on' : ''),
+          'aria-pressed': String(fol),
+          title: fol
+            ? 'Joue la piste Accords de la scène : clic pour revenir aux notes de la piste · clic droit : réglages'
+            : 'Jouer la piste Accords de la scène (accords tenus, ou base de l’arpège) · clic droit : réglages',
+          onclick: (e) => {
+            e.stopPropagation();
+            setTrackFollow(track, !fol);
+          },
+          oncontextmenu: (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            openFollowMenu(track, e.clientX, e.clientY);
+          },
+        },
+        'ACCORDS'
+      )
+    );
+  }
+
+  /** Réglages « suivre les accords » : jeu, notes, hauteur, voicing, enchaînement. */
+  function openFollowMenu(track, x, y) {
+    closeChordMenu();
+    const F = SS.FOLLOW;
+    const f = SS.FOLLOW.clean(track.follow || track.lastFollow || true);
+    const apply = (patch) => {
+      Object.assign(f, patch);
+      if (SS.follows(track)) track.follow = SS.FOLLOW.clean(f);
+      else track.lastFollow = SS.FOLLOW.clean(f);
+      renderTrack(track);
+      app.changed();
+      render();
+      if (!SS.audio.isPlaying() && SS.follows(track)) SS.audio.preview(track, previewNotes(track));
+    };
+    const seg = (label, list, key) =>
+      h(
+        'div',
+        { class: 'ctx-param fol-row' },
+        h('span', { class: 'ctx-param-label' }, label),
+        h(
+          'div',
+          { class: 'segmented fol-seg', role: 'radiogroup', 'aria-label': label },
+          list.map((o) =>
+            h('button', { type: 'button', role: 'radio', 'aria-checked': String(f[key] === o.id), class: f[key] === o.id ? 'active' : null, title: o.hint || '', onclick: () => apply({ [key]: o.id }) }, o.label)
+          )
+        )
+      );
+    const check = (label, key) =>
+      h('label', { class: 'fol-check' }, h('input', { type: 'checkbox', checked: f[key], onchange: (e) => apply({ [key]: e.target.checked }) }), label);
+    menuEl = h('div', { class: 'ctx-menu fol-menu', role: 'dialog', 'aria-label': 'Réglages : jouer la piste Accords' });
+    function render() {
+      const on = SS.follows(track);
+      const arp = SS.arpOn(track);
+      menuEl.replaceChildren(
+        h('div', { class: 'ctx-head' }, h('b', { class: 'ctx-current' }, 'Accords · ' + track.name), h('span', { class: 'ctx-desc' }, on ? (arp ? 'base de l’arpège' : 'joue la piste Accords') : 'éteint')),
+        arp ? h('p', { class: 'fol-note' }, 'En mode ARP, Arp One arpège les accords de la scène ; son module Accord règle la hauteur et les renversements.') : seg('Jeu', F.PLAYS, 'play'),
+        arp ? null : seg('Notes', F.NOTES, 'notes'),
+        seg('Hauteur', F.OCTAVES.map((o) => ({ id: o, label: 'C' + o })), 'oct'),
+        seg('Voicing', F.VOICINGS, 'voicing'),
+        h('div', { class: 'fol-checks' }, check('Enchaîner au plus proche', 'near'), arp ? null : check('Notes communes liées', 'tie')),
+        h(
+          'div',
+          { class: 'ctx-foot' },
+          on ? h('button', { type: 'button', onclick: () => (closeChordMenu(), freezeFollow(track)), title: 'La piste reprend en notes ce qu’elle joue dans cette scène, et ne suit plus les accords' }, 'Convertir en notes') : null,
+          h('button', { type: 'button', class: on ? 'danger' : 'ctx-acc on', onclick: () => (closeChordMenu(), setTrackFollow(track, !on)) }, on ? 'Ne plus suivre' : 'Suivre les accords'),
+          h('button', { type: 'button', class: 'ctx-close', onclick: () => closeChordMenu() }, 'Fermer')
+        )
+      );
+    }
+    render();
+    placeMenu(x, y);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Piste Accords de la scène (scene.grid.chords, voir js/chords.js)    */
+  /* ------------------------------------------------------------------ */
+
+  const durLabel = (len) => {
+    const p = app.project();
+    const spb = SS.stepsPerBar(p);
+    const beat = SS.stepsPerBeat(p);
+    if (len % spb === 0) return `${len / spb} mes.`;
+    if (len % beat === 0) return `${len / beat} temps`;
+    return `${len} pas`;
+  };
+
+  /** Accord de grille → informations d'affichage (nom, chiffrage, rôle). */
+  const chordInfo = (key, c) => SS.harmony.gridChord(key, c.degree, c.type, c.acc, c.bass || 0);
+
+  function renderChordLane() {
+    const box = $('#chordLane');
+    if (!box) return;
+    const p = app.project();
+    box.hidden = !p.tracks.length;
+    const sc = SS.currentScene(p);
+    const n = SS.totalSteps(p);
+    const key = SS.sceneKey(p);
+    const g = sc.grid;
+    const head = h(
+      'div',
+      { class: 'track-head cl-head' },
+      h('span', { class: 'th-icon', html: ICONS.chord }),
+      h(
+        'div',
+        { class: 'th-name' },
+        h('b', {}, 'Accords'),
+        h('small', {}, key ? `${sc.name} · ${SS.harmony.label(key)}` : `${sc.name} · sans tonalité`)
+      ),
+      h(
+        'div',
+        { class: 'cl-tools' },
+        h('button', { type: 'button', class: 'th-mode cl-add', title: 'Ajouter un accord après le dernier (1 mesure)', onclick: () => addChordAt(nextFreeStep()) }, '+ ACCORD'),
+        h('button', { type: 'button', class: 'th-mode cl-key', title: 'Fenêtre Key : tonalité, grilles toutes faites, émotions', onclick: () => SS.harmonyPanel.open() }, 'KEY ›')
+      )
+    );
+    const grid = h('div', { class: 'grid cl-grid', title: key ? 'Clic : poser un accord · glisser un accord : le déplacer (Alt : le dupliquer) · bord droit : sa durée · clic sur un accord : le régler' : 'Clic : choisir la tonalité de la scène, puis poser un accord' });
+    for (let s = 0; s < n; s++) grid.append(h('div', { class: cellClass(p, s, 'clcell'), 'data-step': s, style: `grid-column:${s + 1}` }));
+    if (key && g)
+      g.chords.forEach((c, i) => {
+        if (c.step >= n) return;
+        const info = chordInfo(key, c);
+        const len = Math.min(c.len, n - c.step);
+        const blk = h(
+          'div',
+          {
+            class: `cl-blk role-${info.role.id}${info.borrowed ? ' borrowed' : ''}${lanePick === c ? ' sel' : ''}`,
+            style: `grid-column:${c.step + 1} / span ${len}`,
+            'data-ci': i,
+            tabindex: 0,
+            title: `${info.name} · ${info.numeral} · ${info.notes.join(' ')} · ${durLabel(len)} — clic : régler · glisser : déplacer · bord droit : durée · Suppr : enlever`,
+          },
+          h('b', {}, info.name),
+          h('small', {}, `${info.numeral} · ${durLabel(len)}`),
+          h('span', { class: 'cl-rz', title: 'Glisser : durée de l’accord' })
+        );
+        blk.addEventListener('pointerdown', (e) => chordPointer(c, blk, e));
+        blk.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          openChordEditor(c, blk);
+        });
+        blk.addEventListener('keydown', (e) => {
+          if (e.key === 'Delete' || e.key === 'Backspace') {
+            e.preventDefault();
+            e.stopPropagation();
+            removeChord(c);
+          } else if (e.key === 'Enter') openChordEditor(c, blk);
+        });
+        grid.append(blk);
+      });
+    grid.addEventListener('pointerdown', (e) => {
+      const cell = e.target.closest('.clcell');
+      if (!cell || e.button !== 0) return;
+      e.preventDefault();
+      addChordAt(+cell.dataset.step);
+    });
+    box.replaceChildren(h('div', { class: 'track-row cl-row' }, head, grid));
+    box.querySelectorAll('.clcell.now').forEach((c) => c.classList.remove('now'));
+  }
+
+  let lanePick = null; // accord réglé dans le panneau (surligné)
+
+  function nextFreeStep() {
+    const p = app.project();
+    const g = SS.currentScene(p).grid;
+    const end = g && g.chords.length ? Math.max(...g.chords.map((c) => c.step + c.len)) : 0;
+    return Math.min(end, SS.totalSteps(p) - 1);
+  }
+
+  /** Après un changement de la grille : piste Accords et pistes qui la suivent. */
+  function chordsChanged() {
+    renderChordLane();
+    app.project().tracks.forEach((t) => SS.follows(t) && paint(t));
+    app.changed();
+  }
+
+  /** Piste qui sert à écouter un accord : une piste qui suit les accords, sinon la première piste instrument. */
+  function listenTrack() {
+    const ts = app.project().tracks.filter((t) => t.type === 'instrument');
+    return ts.find((t) => SS.follows(t) && !SS.arpOn(t)) || ts.find((t) => !SS.arpOn(t)) || ts[0] || null;
+  }
+  function listenChord(info) {
+    const t = listenTrack();
+    if (!t) return toast('Ajoutez une piste Instrument ou Synthé pour écouter les accords.');
+    SS.audio.preview(t, SS.harmony.voice(info, 60), 0.9);
+  }
+
+  /** Clic dans une case vide : un accord de tonique (1 mesure, ou jusqu'à l'accord suivant). */
+  function addChordAt(s) {
+    const p = app.project();
+    const sc = SS.currentScene(p);
+    const key = SS.sceneKey(p);
+    if (!key) return openKeyPicker(() => addChordAt(s));
+    const n = SS.totalSteps(p);
+    const beat = SS.stepsPerBeat(p);
+    const spb = SS.stepsPerBar(p);
+    const g = SS.sceneGrid(sc);
+    const start = Math.max(0, s - (s % beat));
+    if (g.chords.some((c) => start >= c.step && start < c.step + c.len)) return;
+    const next = g.chords.filter((c) => c.step > start).sort((a, b) => a.step - b.step)[0];
+    const len = Math.max(1, Math.min(spb - (start % spb) || spb, (next ? next.step : n) - start, n - start));
+    const tonic = SS.harmony.gridPalette(key).simple[0];
+    const c = SS.gridPut(g, { step: start, len, degree: tonic.degree, type: tonic.type, acc: tonic.acc || 0 });
+    lanePick = c;
+    chordsChanged();
+    if (!SS.audio.isPlaying()) listenChord(chordInfo(key, c));
+    const blk = $('#chordLane').querySelector(`.cl-blk[data-ci="${g.chords.indexOf(c)}"]`);
+    if (blk) openChordEditor(c, blk);
+  }
+
+  function removeChord(c) {
+    const g = SS.currentScene(app.project()).grid;
+    if (!g) return;
+    g.chords = g.chords.filter((x) => x !== c);
+    if (lanePick === c) lanePick = null;
+    closeChordMenu();
+    chordsChanged();
+  }
+
+  /** Glisser un accord (déplacer, Alt : dupliquer) ou son bord droit (durée) ; un simple clic ouvre ses réglages. */
+  function chordPointer(c, blk, e) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const p = app.project();
+    const n = SS.totalSteps(p);
+    const beat = SS.stepsPerBeat(p);
+    const g = SS.currentScene(p).grid;
+    const cells = [...$('#chordLane').querySelectorAll('.clcell')];
+    const rects = cells.map((x) => x.getBoundingClientRect());
+    const stepAt = (x) => {
+      for (let i = 0; i < rects.length; i++) if (x < rects[i].right) return i;
+      return rects.length - 1;
+    };
+    const resize = !!e.target.closest('.cl-rz');
+    const x0 = e.clientX;
+    const s0 = stepAt(x0);
+    const orig = { step: c.step, len: c.len };
+    let moved = false;
+    let copy = null;
+    const onMove = (ev) => {
+      if (!moved && Math.abs(ev.clientX - x0) < 4) return;
+      if (!moved && e.altKey && !resize) {
+        copy = { ...c };
+        g.chords.push(copy); // le double reste en place, l'original part
+      }
+      moved = true;
+      closeChordMenu();
+      if (resize) {
+        // fin calée sur le temps le plus proche ; au moins un temps (ou un pas si l'accord est plus court)
+        const at = stepAt(ev.clientX) + 1;
+        const end = Math.max(c.step + Math.min(beat, orig.len), Math.round(at / beat) * beat);
+        c.len = Math.max(1, Math.min(end, n) - c.step);
+      } else {
+        const d = Math.round((stepAt(ev.clientX) - s0) / beat) * beat;
+        c.step = Math.max(0, Math.min(n - c.len, orig.step + d));
+      }
+      blk.style.gridColumn = `${c.step + 1} / span ${Math.min(c.len, n - c.step)}`;
+      blk.querySelector('small').textContent = blk.querySelector('small').textContent.replace(/·.*$/, '· ' + durLabel(c.len));
+    };
+    const onUp = () => {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      if (!moved) return openChordEditor(c, blk);
+      SS.gridPut(g, c); // l'accord déplacé ou allongé remplace ce qu'il recouvre
+      lanePick = c;
+      chordsChanged();
+    };
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+  }
+
+  /** Panneau d'un accord : degré (accords de la tonalité), type, durée, écouter, dupliquer, supprimer. */
+  function openChordEditor(c, blk) {
+    const p = app.project();
+    const key = SS.sceneKey(p);
+    if (!key) return;
+    closeChordMenu();
+    lanePick = c;
+    $('#chordLane').querySelectorAll('.cl-blk.sel').forEach((b) => b.classList.remove('sel'));
+    blk.classList.add('sel');
+    const n = SS.totalSteps(p);
+    const spb = SS.stepsPerBar(p);
+    const beat = SS.stepsPerBeat(p);
+    const g = SS.currentScene(p).grid;
+    const pal = SS.harmony.gridPalette(key).simple;
+    const set = (patch) => {
+      Object.assign(c, patch);
+      if (patch.len != null) SS.gridPut(g, c);
+      chordsChanged();
+      render();
+      if (!SS.audio.isPlaying() && (patch.degree != null || patch.type != null)) listenChord(chordInfo(key, c));
+    };
+    const durs = [
+      { len: beat, label: '1 temps' },
+      { len: 2 * beat, label: '2 temps' },
+      { len: spb, label: '1 mesure' },
+      { len: 2 * spb, label: '2 mesures' },
+      { len: 4 * spb, label: '4 mesures' },
+      { len: 8 * spb, label: '8 mesures' },
+    ].filter((d, i, a) => a.findIndex((x) => x.len === d.len) === i);
+    menuEl = h('div', { class: 'ctx-menu cl-menu', role: 'dialog', 'aria-label': 'Régler l’accord' });
+    function render() {
+      const info = chordInfo(key, c);
+      const bar = Math.floor(c.step / spb) + 1;
+      const bt = Math.floor((c.step % spb) / beat) + 1;
+      const same = (x) => x.degree === c.degree && x.type === c.type && (x.acc || 0) === (c.acc || 0);
+      menuEl.replaceChildren(
+        h('div', { class: 'ctx-head' }, h('b', { class: 'ctx-current' }, `${info.name} · ${info.numeral}`), h('span', { class: 'ctx-desc' }, `mesure ${bar}, temps ${bt} · ${SS.harmony.label(key)}`)),
+        h('div', { class: 'cl-sec' }, 'Accord'),
+        h(
+          'div',
+          { class: 'cl-degs' },
+          pal.map((x) =>
+            h(
+              'button',
+              { type: 'button', class: `cl-deg role-${x.role.id}${x.borrowed ? ' borrowed' : ''}${same(x) ? ' current' : ''}`, title: `${x.name} · ${x.role.text}`, onclick: () => set({ degree: x.degree, type: x.type, acc: x.acc || 0 }) },
+              h('b', {}, x.numeral),
+              h('span', {}, x.name)
+            )
+          )
+        ),
+        h(
+          'label',
+          { class: 'cl-type' },
+          'Type ',
+          h(
+            'select',
+            { onchange: (e) => set({ type: e.target.value }) },
+            SS.CHORDS.map((t) => h('option', { value: t.id, selected: t.id === c.type }, t.label))
+          )
+        ),
+        h('div', { class: 'cl-sec' }, 'Durée'),
+        h(
+          'div',
+          { class: 'cl-durs' },
+          durs.map((d) => h('button', { type: 'button', class: 'chip' + (c.len === d.len ? ' active' : ''), disabled: c.step + d.len > n, title: c.step + d.len > n ? 'Dépasse la fin de la scène' : '', onclick: () => set({ len: d.len }) }, d.label)),
+          h('button', { type: 'button', class: 'chip' + (c.step + c.len === n ? ' active' : ''), onclick: () => set({ len: n - c.step }) }, 'Jusqu’à la fin')
+        ),
+        h(
+          'div',
+          { class: 'ctx-foot' },
+          h('button', { type: 'button', onclick: () => listenChord(info) }, '▶ Écouter'),
+          h(
+            'button',
+            {
+              type: 'button',
+              disabled: c.step + c.len >= n,
+              title: 'Le même accord juste après',
+              onclick: () => {
+                const d = SS.gridPut(g, { ...c, step: c.step + c.len, len: Math.min(c.len, n - c.step - c.len) });
+                closeChordMenu();
+                lanePick = d;
+                chordsChanged();
+              },
+            },
+            'Dupliquer'
+          ),
+          h('button', { type: 'button', class: 'danger', onclick: () => removeChord(c) }, 'Supprimer'),
+          h('button', { type: 'button', class: 'ctx-close', onclick: () => closeChordMenu() }, 'Fermer')
+        )
+      );
+    }
+    render();
+    const r = blk.getBoundingClientRect();
+    placeMenu(r.left, r.bottom + 6);
+  }
+
+  /** Pas de tonalité dans la scène : on la choisit avant le premier accord (proposée d'après les notes). */
+  function openKeyPicker(then) {
+    const p = app.project();
+    const sc = SS.currentScene(p);
+    const H = SS.harmony;
+    const guess = (H.detect && H.detect(p, sc.id)) || null;
+    const k = guess ? { ...guess.key } : { tonic: 'C', mode: 'major' };
+    closeChordMenu();
+    const tonic = h('select', { 'aria-label': 'Tonique' }, H.TONICS.map((t) => h('option', { value: t, selected: t === k.tonic }, H.french ? H.french(t) : t)));
+    const mode = h('select', { 'aria-label': 'Mode' }, H.MODES.map((m) => h('option', { value: m.id, selected: m.id === k.mode }, m.label)));
+    menuEl = h(
+      'div',
+      { class: 'ctx-menu cl-menu', role: 'dialog', 'aria-label': 'Tonalité de la scène' },
+      h('div', { class: 'ctx-head' }, h('b', { class: 'ctx-current' }, `Tonalité de « ${sc.name} »`)),
+      h('p', { class: 'fol-note' }, guess ? 'Les accords sont rangés par degré dans la tonalité. Proposée d’après les notes de la scène :' : 'Les accords sont rangés par degré dans la tonalité de la scène.'),
+      h('div', { class: 'cl-keyrow' }, tonic, mode),
+      h(
+        'div',
+        { class: 'ctx-foot' },
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'ctx-acc on',
+            onclick: () => {
+              const key = { tonic: tonic.value, mode: mode.value };
+              if (!H.valid(key)) return;
+              sc.key = key;
+              closeChordMenu();
+              SS.harmonyPanel.updateButton();
+              renderChordLane();
+              app.changed();
+              then && then();
+            },
+          },
+          'Choisir'
+        ),
+        h('button', { type: 'button', class: 'ctx-close', onclick: () => closeChordMenu() }, 'Annuler')
+      )
+    );
+    const r = $('#chordLane').getBoundingClientRect();
+    placeMenu(r.left + 40, r.bottom + 6);
   }
 
   function buildTrack(track) {
@@ -379,7 +873,8 @@ SS.ui = (() => {
         'div',
         { class: 'th-name', title: 'Double-clic pour renommer', ondblclick: (e) => rename(track, e.currentTarget) },
         h('b', {}, track.name),
-        h('small', {}, gmBadge(track), trackSubtitle(track))
+        h('small', {}, gmBadge(track), trackSubtitle(track)),
+        instr ? modeToggles(track) : null
       ),
       h(
         'div',
@@ -496,6 +991,14 @@ SS.ui = (() => {
       const items = g.map((k) => byClass[k]).filter(Boolean);
       if (items.length) options.append(h('hr', { class: 'th-option-sep' }), ...items);
       if (i === 0) options.append(...volRow());
+      // mode compact : les interrupteurs ARP / ACCORDS passent aussi dans le menu
+      if (i === 1 && instr)
+        options.append(
+          h('button', { type: 'button', role: 'menuitemcheckbox', 'aria-checked': String(SS.arpOn(track)), class: 'th-btn th-opt-mode', onclick: () => setArp(track, !SS.arpOn(track)) },
+            h('span', { class: 'th-option-ico th-option-fx' }, 'ARP'), h('span', { class: 'th-option-label' }, SS.arpOn(track) ? 'Éteindre l’arpégiateur' : 'Arpégiateur')),
+          h('button', { type: 'button', role: 'menuitemcheckbox', 'aria-checked': String(SS.follows(track)), class: 'th-btn th-opt-mode', onclick: () => setTrackFollow(track, !SS.follows(track)) },
+            h('span', { class: 'th-option-ico th-option-fx' }, 'ACC'), h('span', { class: 'th-option-label' }, SS.follows(track) ? 'Ne plus suivre les accords' : 'Jouer la piste Accords'))
+        );
     });
     const more = h('button', {
       type: 'button', class: 'th-btn th-more', title: 'Commandes de la piste',
@@ -538,6 +1041,7 @@ SS.ui = (() => {
       e.preventDefault();
       const s = +cell.dataset.step;
       if (s >= SS.trackLen(app.project(), track)) return; // au-delà de la boucle de la piste
+      if (SS.followsGhost(track)) return followLocked(track);
       cursor = { trackId: track.id, step: s };
       if (e.shiftKey || e.ctrlKey || e.metaKey) return marquee(track, 'line', cell, e);
       const edge = noteEdgeAt(track, cell, e.clientX);
@@ -775,7 +1279,11 @@ SS.ui = (() => {
   function previewNotes(track) {
     if (track.type === 'drum') return null;
     const root = track.lastRoot ?? (track.octave + 1) * 12;
-    return track.category === 'mono' ? root : SS.chordNotes(root, track.chord);
+    if (SS.follows(track)) {
+      const b = SS.followBlocks(app.project(), track)[0];
+      if (b) return b.notes;
+    }
+    return SS.arpOn(track) ? SS.chordNotes(root, track.chord) : root;
   }
 
   function rename(track, box) {
@@ -856,18 +1364,7 @@ SS.ui = (() => {
         zoomLabel,
         h('button', { type: 'button', class: 'roll-vzoom-in', onclick: () => scroller.zoom(1), title: 'Notes plus hautes' }, '+')
       ),
-      track.category !== 'mono'
-        ? h(
-            'label',
-            {},
-            'Accord',
-            sel(SS.CHORDS, track.chord, (v) => {
-              track.chord = v;
-              app.changed();
-            })
-          )
-        : null,
-      track.category === 'arp'
+      SS.arpOn(track)
         ? [
             // même catalogue de motifs que la fenêtre de l'arpégiateur (mêmes noms, mêmes catégories)
             (() => {
@@ -914,10 +1411,11 @@ SS.ui = (() => {
           ]
         : null,
       (() => {
-        const hint =
-          track.category === 'mono'
-            ? 'Cliquer pour poser une note, glisser vers la droite pour l’allonger. Maj+glisser : sélectionner.'
-            : 'Cliquer sur la fondamentale pour poser un accord, glisser pour l’allonger. Clic droit (ou appui long) sur un accord : changer son type. Maj+glisser : sélectionner.';
+        const hint = SS.followsGhost(track)
+          ? 'Cette piste joue la piste Accords de la scène (bouton ACCORDS) : ses notes ne se dessinent pas ici. Clic droit sur ACCORDS : réglages, ou « Convertir en notes ».'
+          : SS.follows(track)
+          ? 'Accords rythmés : les notes posées ici donnent le rythme, la piste Accords donne les hauteurs.'
+          : 'Cliquer pour poser une note (plusieurs notes au même pas font un accord), glisser vers la droite pour l’allonger. Maj+glisser : sélectionner.';
         // l'aide se raccourcit (…) plutôt que de faire passer la barre sur deux lignes
         return h('span', { class: 'roll-hint', title: hint }, hint);
       })(),
@@ -1030,6 +1528,7 @@ SS.ui = (() => {
         if (!cell || e.button !== 0) return;
         e.preventDefault();
         if (+cell.dataset.step >= SS.trackLen(app.project(), track)) return;
+        if (SS.followsGhost(track)) return followLocked(track);
         cursor = { trackId: track.id, step: +cell.dataset.step };
         if (e.shiftKey || e.ctrlKey || e.metaKey) return marquee(track, 'roll', cell, e);
         const edge = noteEdgeAt(track, cell, e.clientX);
@@ -1055,7 +1554,7 @@ SS.ui = (() => {
               class: (black ? 'black' : '') + (isC ? ' c' : '') + (midi % 12 === 0 || midi % 12 === 5 ? ' edge' : ''),
               // clic : écouter la note ; glisser : faire défiler le piano roll
               onpointerdown: (e) =>
-                scroller.dragFrom(e, () => SS.audio.preview(track, track.category === 'mono' ? midi : SS.chordNotes(midi, track.chord))),
+                scroller.dragFrom(e, () => SS.audio.preview(track, midi)),
             },
             isC || !black ? SS.noteName(midi) : ''
           ))
@@ -1440,7 +1939,11 @@ SS.ui = (() => {
     ref.roll.forEach((cells) => cells.forEach((c) => c.classList.remove('on', 'start', 'root', 'sel', 'sel-hold', 'shifted')));
     ref.el?.querySelectorAll('.shift-mark, .rat-mark, .cond-mark, .acc-mark').forEach((m) => m.remove());
 
-    track.events.forEach((ev) => {
+    // piste qui suit la piste Accords : on montre les accords joués (en pointillés), pas ses notes
+    const ghost = SS.followsGhost(track);
+    ref.el?.classList.toggle('follow-ghost', ghost);
+    const shownEvents = ghost ? SS.followBlocks(app.project(), track).map((b) => ({ ...b, vel: 0.7 })) : track.events;
+    shownEvents.forEach((ev) => {
       const label = eventLabel(track, ev);
       for (let s = ev.step; s < ev.step + ev.len && s < ref.cells.length; s++) {
         const c = ref.cells[s];
@@ -1450,7 +1953,7 @@ SS.ui = (() => {
           if (ev.len > 1) c.classList.add('held');
           // piste mono : pas de nom de note sur la case (il reste dans l'infobulle) ; seule la syllabe chantée
           // d'une mélodie de l'atelier Mélodie s'affiche
-          const shown = track.category === 'mono' ? (ev.lyric ? ev.lyric.replace(/\(.*?\)/g, '').replace('‿', '') : '') : label;
+          const shown = ev.name || (ev.notes.length === 1 ? (ev.lyric ? ev.lyric.replace(/\(.*?\)/g, '').replace('‿', '') : '') : label);
           if (shown) c.append(h('span', { class: 'lbl' }, shown));
           c.title = `${label} · vélocité ${Math.round(ev.vel * 127)}` + (ev.acc ? ' · accent' : '') + shiftTitle(ev) + (ev.rat ? ` · ratchet ×${ev.rat}` : '') + condTitle(ev.cond);
           markAccent(c, ev);
@@ -1630,7 +2133,7 @@ SS.ui = (() => {
   }
 
   const unitLabel = (track, k) =>
-    isDrum(track) ? `${k} pas` : track.category === 'mono' ? `${k} note${k > 1 ? 's' : ''}` : `${k} accord${k > 1 ? 's' : ''}`;
+    isDrum(track) ? `${k} pas` : `${k} note${k > 1 ? 's' : ''}`;
 
   function rangeLabel(range) {
     const spb = SS.stepsPerBar(app.project());
@@ -1791,12 +2294,12 @@ SS.ui = (() => {
         return pasted.push(s);
       }
       const len = Math.min(it.len, n - s);
-      const ev = { step: s, len, notes: track.category === 'mono' ? [it.notes[0]] : [...it.notes], vel: it.vel };
+      const ev = { step: s, len, notes: [...it.notes], vel: it.vel };
       track.events = track.events.filter((e) => !(sharesVoice(track, ev, e) && e.step >= s && e.step < s + len));
       track.events.forEach((e) => {
         if (sharesVoice(track, ev, e) && e.step < s && e.step + e.len > s) e.len = s - e.step;
       });
-      if (track.category !== 'mono' && it.chord) ev.chord = it.chord;
+      if (it.chord && it.notes.length > 1) ev.chord = it.chord;
       if (it.shift) ev.shift = it.shift;
       if (it.rat) ev.rat = it.rat;
       if (it.cond) ev.cond = it.cond;
@@ -2439,7 +2942,8 @@ SS.ui = (() => {
 
   function noteGesture(track, s, midi, e) {
     const n = SS.trackLen(app.project(), track);
-    const existing = findEventAt(track, s, track.category === 'mono' ? midi : null);
+    if (SS.followsGhost(track)) return followLocked(track);
+    const existing = findEventAt(track, s, midi);
 
 
     // Tactile : un appui long sur un accord ouvre le menu de type d'accord ;
@@ -2455,6 +2959,14 @@ SS.ui = (() => {
       return;
     }
 
+    // une note d'un accord empilé : seule cette note s'en va
+    if (existing && midi != null && existing.notes.length > 1 && existing.notes.includes(midi)) {
+      existing.notes = existing.notes.filter((m) => m !== midi);
+      delete existing.chord;
+      paint(track);
+      app.changed();
+      return;
+    }
     if (existing && (midi == null || existing.notes.includes(midi) || midi === existing.notes[0])) {
       track.events = track.events.filter((x) => x !== existing);
       unselectIfRemoved(track);
@@ -2468,7 +2980,7 @@ SS.ui = (() => {
     track.lastRoot = root;
     // grille adaptée au zoom : début calé sur la case de grille, longueur d'une case
     const u = gridUnit();
-    const voice = track.category === 'mono' ? midi : null;
+    const voice = midi;
     let s0 = s - (s % u);
     if (s0 !== s && findEventAt(track, s0, voice)) s0 = s; // ne pas empiéter sur la note précédente
     const nextOf = (e0) => track.events.find((x) => x !== e0 && x.step > s0 && sharesVoice(track, e0, x));
@@ -2476,10 +2988,9 @@ SS.ui = (() => {
     const ev = {
       step: s,
       len: 1,
-      notes: track.category === 'mono' ? [root] : SS.chordNotes(root, track.chord),
+      notes: [root],
       vel: 0.8,
     };
-    if (track.category !== 'mono') ev.chord = track.chord;
     {
       const next = nextOf(ev);
       ev.len = clamp(u, 1, (next ? next.step : n) - s);
@@ -2558,7 +3069,7 @@ SS.ui = (() => {
   function openChordMenu(track, ev, x, y) {
     closeChordMenu();
     select(track, ev);
-    const mono = track.category === 'mono';
+    const mono = ev.notes.length === 1;
 
     const commit = () => {
       paint(track);
@@ -2573,8 +3084,8 @@ SS.ui = (() => {
       if (root - old > 6) root -= 12;
       if (old - root > 6) root += 12;
       root = Math.max(12, Math.min(119, root));
-      ev.notes = mono ? [root] : SS.chordNotes(root, ev.chord || track.chord);
-      if (!mono && !ev.chord) ev.chord = track.chord;
+      // accord sans type connu (notes empilées à la main) : transposé tel quel
+      ev.notes = mono ? [root] : ev.chord ? SS.chordNotes(root, ev.chord) : ev.notes.map((m) => m + root - old);
       track.lastRoot = root;
       commit();
     };
@@ -2585,7 +3096,7 @@ SS.ui = (() => {
     };
     const shiftOct = (d) => {
       const root = Math.max(12, Math.min(119, ev.notes[0] + 12 * d));
-      ev.notes = mono ? [root] : SS.chordNotes(root, ev.chord || track.chord);
+      ev.notes = ev.notes.map((m) => Math.max(12, Math.min(119, m + 12 * d)));
       track.lastRoot = root;
       commit();
     };
@@ -2662,7 +3173,7 @@ SS.ui = (() => {
         paramRow('Vélocité', () => Math.round(ev.vel * 127), (v) => (ev.vel = v / 127), 1, 127, (v) => String(v), 'Force de la note, de 1 à 127', 102),
         accentRow(),
         // micro-décalage : pas pour l'arpégiateur, qui a sa propre grille rythmique
-        track.category === 'arp'
+        SS.arpOn(track)
           ? null
           : paramRow(
               'Décalage',
@@ -2674,7 +3185,7 @@ SS.ui = (() => {
               'Micro-décalage : jouer la note un peu avant (−) ou après (+) le temps, en % d’un pas. Double-clic : sur le temps',
               0
             ),
-        track.category === 'arp'
+        SS.arpOn(track)
           ? null
           : h(
               'div',
@@ -2936,6 +3447,7 @@ SS.ui = (() => {
     litCells = [];
     const light = (el) => el && (el.classList.add('now'), litCells.push(el));
     $('#ruler').querySelectorAll(`[data-step="${g}"]`).forEach(light);
+    light($('#chordLane') && $('#chordLane').querySelector(`.clcell[data-step="${g}"]`));
     p.tracks.forEach((t) => {
       const ref = refs.get(t.id);
       if (!ref) return;
@@ -3454,19 +3966,15 @@ SS.ui = (() => {
       dlg.s.length = v >= total ? 0 : Math.max(1, v);
       syncLen(true);
     });
-    // Catégories
-    SS.CATEGORIES.forEach((c) =>
-      $('#dlgCategory').append(
-        h('button', {
-          type: 'button',
-          'data-v': c.id,
-          onclick: () => {
-            dlg.s.category = c.id;
-            syncDialog();
-          },
-        }, c.label)
-      )
-    );
+    // Jeu : arpégiateur, jouer la piste Accords (les mêmes interrupteurs que dans l'en-tête de la piste)
+    $('#dlgArp').addEventListener('change', (e) => {
+      dlg.s.arpOn = e.target.checked;
+      syncDialog();
+    });
+    $('#dlgFollow').addEventListener('change', (e) => {
+      dlg.s.follow = e.target.checked;
+      syncDialog();
+    });
     // Familles
     SS.FAMILIES.forEach((f) =>
       $('#dlgFamilies').append(
@@ -3767,8 +4275,9 @@ SS.ui = (() => {
     $('#dlgDrumFilter').hidden = !isDrum;
     $('#dlgInstFilter').hidden = s.type !== 'instrument';
     $('#dlgCatRow').classList.toggle('off', isDrum);
-    $('#dlgCatRow').title = isDrum ? 'Une piste de batterie joue des coups, sans catégorie' : '';
-    $('#dlgCategory').querySelectorAll('button').forEach((b) => (b.disabled = isDrum));
+    $('#dlgCatRow').hidden = isDrum; // une piste de batterie joue des coups : ni arpège ni accords
+    $('#dlgArp').checked = !!s.arpOn;
+    $('#dlgFollow').checked = !!s.follow;
     const src = s.source || 'tdm';
     $('#dlgDrumLib').querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.v === src));
     $('#dlgDrumLibHint').textContent = (SS.DRUM_LIBS.find((l) => l.id === src) || {}).hint || '';
@@ -3776,7 +4285,6 @@ SS.ui = (() => {
     $('#dlgColors').querySelectorAll('.swatch').forEach((b) => b.classList.toggle('active', b.dataset.c === s.color));
     dlg.colorInput.value = s.color;
     $('#dlgDrumTypes').querySelectorAll('.chip').forEach((b) => b.classList.toggle('active', b.dataset.v === s.sound));
-    $('#dlgCategory').querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.v === s.category));
     $('#dlgFamilies').querySelectorAll('.chip').forEach((b) => b.classList.toggle('active', b.dataset.v === s.family && !$('#dlgInstFilter').value.trim()));
     dlg.form.querySelectorAll('.pills-nav').forEach(rovePills);
   }
@@ -3791,7 +4299,7 @@ SS.ui = (() => {
     if (s.type === 'drum') SS.audio.preview(fake);
     else {
       const root = (SS.findFamily(family).octave + 1) * 12;
-      SS.audio.preview(fake, s.category === 'mono' ? root : SS.chordNotes(root, 'min'));
+      SS.audio.preview(fake, s.arpOn || s.follow ? SS.chordNotes(root, 'min') : root);
     }
   }
 
@@ -3810,9 +4318,9 @@ SS.ui = (() => {
   function toGmState() {
     const s = dlg.s;
     if (s.type === 'synth') {
-      Object.assign(s, SS.midi.gmEquivalent({ type: 'synth', analog: s.analog, patch: s.patch, category: s.category }), { type: 'instrument' });
+      Object.assign(s, SS.midi.gmEquivalent({ type: 'synth', analog: s.analog, patch: s.patch }), { type: 'instrument' });
     } else if (s.type === 'instrument') {
-      Object.assign(s, SS.midi.gmEquivalent({ type: 'instrument', family: s.family, instrument: s.instrument, sfv: s.sfv, category: s.category }));
+      Object.assign(s, SS.midi.gmEquivalent({ type: 'instrument', family: s.family, instrument: s.instrument, sfv: s.sfv }));
     } else if (s.source !== 'gm') {
       const g = SS.midi.gmEquivalent({ type: 'drum', source: s.source || 'tdm', sound: s.sound, bank: s.bank, machine: s.machine });
       Object.assign(s, { source: 'gm', bank: g.bank, variant: 0 });
@@ -3889,7 +4397,8 @@ SS.ui = (() => {
           machine: track.machine || SS.DEFAULT_MACHINE,
           bank: track.bank,
           variant: track.variant || 0,
-          category: track.category || 'mono',
+          arpOn: SS.arpOn(track),
+          follow: SS.follows(track),
           family: SS.isAnalog(track) ? 'bass' : track.family || 'bass',
           instrument: SS.isAnalog(track) ? SS.findFamily('bass').instruments[0].id : track.instrument || SS.findFamily('bass').instruments[0].id,
           analog: SS.isAnalog(track) ? track.instrument : SS.ANALOG_SYNTHS[0].id,
@@ -3908,7 +4417,8 @@ SS.ui = (() => {
           machine: SS.DEFAULT_MACHINE,
           bank: null,
           variant: 0,
-          category: 'mono',
+          arpOn: false,
+          follow: false,
           family: 'bass',
           instrument: SS.findFamily('bass').instruments[0].id,
           analog: SS.ANALOG_SYNTHS[0].id,
@@ -3922,6 +4432,7 @@ SS.ui = (() => {
       const st = { ...init.state };
       Object.keys(st).forEach((k) => st[k] == null && delete st[k]);
       Object.assign(dlg.s, st);
+      if (st.category === 'arp' && st.arpOn == null) dlg.s.arpOn = true; // ancienne catégorie Arpège
       if (st.instrument && !st.family) dlg.s.family = SS.locateInstrument(null, st.instrument).family.id;
       if (dlg.s.type === 'synth' && !st.instrument) dlg.s.instrument = SS.findFamily(dlg.s.family).instruments[0].id;
       if (st.name) dlg.s.nameEdited = true;
@@ -4008,6 +4519,7 @@ SS.ui = (() => {
     init,
     renderAll,
     renderTrack,
+    renderChordLane,
     refreshScene,
     paint,
     setPlayhead,

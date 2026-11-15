@@ -92,10 +92,25 @@ SS.arpPanel = (() => {
     set('play' in patch ? { lanes, rhythm: { ...track.arp.rhythm, type: 'lane' } } : { lanes }, opts);
   }
 
+  // premier accord joué par la piste : la piste Accords de la scène (ACCORDS), sinon les notes tenues ensemble
   const trackChord = () => {
-    const ev = (track.events || []).find((e) => e.notes && e.notes.length);
+    const ev = SS.playEvents(app.project(), track).find((e) => e.notes && e.notes.length);
     return ev ? ev.notes.slice() : null;
   };
+  /** Source des accords arpégés : piste Accords de la scène, ou notes de la piste (bouton ACCORDS de la piste). */
+  function setSource(follow) {
+    test = null;
+    if (follow && !track.follow) {
+      track.follow = SS.FOLLOW.clean(track.lastFollow || true);
+      delete track.lastFollow;
+    } else if (!follow && track.follow) {
+      track.lastFollow = track.follow;
+      delete track.follow;
+    }
+    app.changed();
+    app.renderTrack && app.renderTrack(track);
+    render();
+  }
   const rootMidi = (pc) => 12 * ((Number.isFinite(track.octave) ? track.octave : 3) + 1) + pc;
   function sourceChord() {
     if (test) return { notes: SS.chordNotes(rootMidi(test.root), test.type), from: 'essai' };
@@ -110,6 +125,11 @@ SS.arpPanel = (() => {
     const len = SS.trackLen(app.project(), track);
     if (track.events.length && !confirm('Remplacer les accords de la piste par cet accord sur toute la boucle ?')) return;
     track.events = [{ step: 0, len, notes, vel: 0.8 }];
+    if (track.follow) {
+      // la piste jouait la piste Accords : elle joue maintenant l'accord posé
+      track.lastFollow = track.follow;
+      delete track.follow;
+    }
     test = null;
     app.changed();
     app.renderTrack && app.renderTrack(track);
@@ -1247,12 +1267,13 @@ SS.arpPanel = (() => {
             { class: 'arp-chordpick' },
             segmented(
               [
-                { id: 'piste', label: 'De la piste', hint: has ? 'les accords posés sur la piste' : 'la piste est vide' },
+                { id: 'acc', label: 'Piste Accords', hint: 'les accords de la scène : l’arpège change avec chaque accord (bouton ACCORDS de la piste)' },
+                { id: 'piste', label: 'Notes de la piste', hint: 'les notes posées dans le piano roll, arpégées quand elles sont tenues ensemble' },
                 { id: 'essai', label: 'Essai', hint: 'un accord pour écouter, à poser ensuite sur la piste' },
               ],
-              test || !has ? 'essai' : 'piste',
-              (v) => (v === 'piste' ? has && ((test = null), render()) : tryChord()),
-              'Accord joué'
+              test ? 'essai' : SS.follows(track) ? 'acc' : has ? 'piste' : 'essai',
+              (v) => (v === 'acc' ? setSource(true) : v === 'piste' ? setSource(false) : tryChord()),
+              'Source des accords'
             ),
             test || !has
               ? [
@@ -1261,7 +1282,15 @@ SS.arpPanel = (() => {
                 ]
               : null
           ),
-          help(test || !has ? '« Poser l’accord sur la piste » (en bas) remplace les accords de la piste par cet accord.' : 'les accords posés sur la piste ; « Essai » pour écouter un autre accord')
+          help(
+            test || !has
+              ? SS.follows(track)
+                ? 'La scène n’a pas encore d’accords : posez-les dans la piste Accords, en haut des pistes.'
+                : '« Poser l’accord sur la piste » (en bas) remplace les notes de la piste par cet accord.'
+              : SS.follows(track)
+              ? 'les accords de la piste Accords de la scène ; « Essai » pour écouter un autre accord'
+              : 'les notes posées sur la piste ; « Essai » pour écouter un autre accord'
+          )
         ),
         formRow('Hauteur', segmented(A().REGISTERS.map((x) => ({ id: x.id, label: x.label, hint: x.hint })), arp.register, (v) => set({ register: v }), 'Hauteur de l’accord'), help('l’octave où commence l’accord (sa note la plus grave), quelle que soit la hauteur des accords posés')),
         formRow('Octaves', segmented([1, 2, 3, 4].map((o) => ({ id: o, label: String(o) })), arp.octaves, (v) => set({ octaves: +v }), 'Octaves'), help('sur combien d’octaves l’arpège monte')),

@@ -3863,3 +3863,97 @@ dialog.help-dialog::backdrop { background: #0008; }
 .help-close { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: transparent; color: #c4c4cc; cursor: pointer; }
 .help-close:hover { background: var(--panel-3); color: var(--text); }
 .help-dialog-text { margin: 0; font-size: 14px; line-height: 1.6; white-space: pre-line; }
+
+/* ------------------------------------------------------------------ */
+/* Interrupteurs ARP / ACCORDS d'une piste instrument (js/ui.js)        */
+/* ------------------------------------------------------------------ */
+:root { --arp: #9b5cff; --chordc: #e8a33d; }
+.th-modes { display: flex; gap: 4px; margin-top: 1px; }
+.th-mode {
+  height: 17px; padding: 0 6px; border-radius: 4px; border: 1px solid var(--line); background: transparent;
+  color: var(--muted); font: 700 9.5px/15px ui-monospace, Menlo, monospace; letter-spacing: .06em; cursor: pointer; white-space: nowrap;
+}
+.th-mode:hover { color: var(--text); border-color: #5a5a62; }
+.th-mode.th-arp.on { background: var(--arp); border-color: var(--arp); color: #fff; }
+.th-mode.th-chd.on { background: var(--chordc); border-color: var(--chordc); color: #1b1305; }
+.th-mode:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 1px; }
+.th-opt-mode { display: none; }
+.compact-tracks .th-modes { display: none; }
+@media (max-width: 760px) { .th-mode { padding: 0 4px; font-size: 8.5px; } }
+
+/* piste qui joue la piste Accords : les accords joués, en pointillés, non éditables ici */
+/* un seul cadre pointillé par accord : bords haut / bas sur toute la durée, gauche au début, droit à la fin */
+.follow-ghost .track-grid .cell.start, .follow-ghost .track-grid .cell.hold { border-top: 1px dashed color-mix(in srgb, var(--c) 80%, #fff); border-bottom: 1px dashed color-mix(in srgb, var(--c) 80%, #fff); }
+.follow-ghost .track-grid .cell.start { border-left: 1px dashed color-mix(in srgb, var(--c) 80%, #fff); }
+.follow-ghost .track-grid .cell.hold.end, .follow-ghost .track-grid .cell.start:not(.held) { border-right: 1px dashed color-mix(in srgb, var(--c) 80%, #fff); }
+.follow-ghost .track-grid .cell .fill { opacity: .55; }
+.follow-ghost .track-grid .cell.hold { background: color-mix(in srgb, var(--c) 22%, #18181a); }
+.follow-ghost .roll-row .rcell.on { opacity: .45; background-image: repeating-linear-gradient(135deg, transparent 0 3px, rgba(0,0,0,.25) 3px 5px); }
+.follow-ghost .track-grid .cell, .follow-ghost .roll-row .rcell { cursor: not-allowed; }
+
+/* réglages « jouer la piste Accords » */
+.fol-menu { width: min(460px, calc(100vw - 16px)); display: grid; gap: 8px; }
+.fol-row { display: grid; grid-template-columns: 70px 1fr; align-items: center; gap: 8px; }
+.fol-seg { display: flex; flex-wrap: wrap; }
+.ctx-menu .fol-seg button { flex: 1 1 auto; width: auto; padding: 4px 8px; font-size: 12px; white-space: nowrap; text-align: center; justify-content: center; }
+.ctx-menu .fol-seg button.active { background: var(--accent); }
+.fol-checks { display: grid; gap: 4px; font-size: 13px; padding: 0 4px; }
+.fol-check { display: flex; gap: 8px; align-items: center; }
+.fol-note { margin: 0; padding: 0 4px; font-size: 12px; color: var(--muted); max-width: 360px; }
+
+/* ------------------------------------------------------------------ */
+/* Piste Accords de la scène                                            */
+/* ------------------------------------------------------------------ */
+.chord-lane { position: sticky; top: 24px; z-index: 4; background: #1d1a15; border-bottom: 2px solid var(--chordc); }
+.chord-lane .cl-row { height: 46px; }
+.cl-head { background: linear-gradient(90deg, rgba(232, 163, 61, .16), transparent 75%), var(--panel-2); }
+.cl-head .th-icon { color: var(--chordc); }
+.cl-tools { display: flex; gap: 4px; flex: none; }
+.chord-lane .cl-grid { align-items: stretch; grid-template-rows: 1fr; height: 100%; }
+.cl-grid > * { grid-row: 1; }
+.clcell { border-left: 1px solid transparent; cursor: copy; }
+.clcell.bar { border-left-color: #4a4338; }
+.clcell.beat { border-left-color: #2e2a24; }
+.clcell:hover { background: rgba(232, 163, 61, .1); }
+.clcell.now { background: rgba(255, 255, 255, .12); }
+.cl-blk {
+  position: relative; z-index: 1; margin: 5px 2px; min-width: 0; overflow: hidden;
+  padding: 3px 12px 3px 7px; border-radius: 6px; background: var(--panel-2); border: 1px solid #4a4a52;
+  box-shadow: inset 0 -3px 0 var(--role, #888); cursor: grab; touch-action: none; user-select: none;
+  display: flex; flex-direction: column; justify-content: center; line-height: 1.1;
+}
+.cl-blk b { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cl-blk small { font-size: 10px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cl-blk.borrowed { border-style: dashed; }
+.cl-blk.sel, .cl-blk:focus-visible { border-color: var(--accent-2); outline: 2px solid var(--accent-2); outline-offset: -1px; }
+.cl-blk:active { cursor: grabbing; }
+.cl-rz { position: absolute; right: 0; top: 0; bottom: 0; width: 8px; cursor: ew-resize; background: rgba(255, 255, 255, .06); }
+.cl-blk:hover .cl-rz, .cl-blk.sel .cl-rz { background: var(--accent-2); }
+.cl-menu { width: min(460px, calc(100vw - 16px)); display: grid; gap: 8px; }
+.cl-sec { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; padding: 0 4px; }
+.cl-degs { display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 4px; }
+.cl-deg {
+  display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 4px 2px 6px; border-radius: 6px;
+  border: 1px solid transparent; background: var(--panel-2); color: var(--text); cursor: pointer; box-shadow: inset 0 -3px 0 var(--role, #888); font: inherit;
+}
+.cl-deg b { font-size: 11px; color: var(--muted); }
+.cl-deg span { font-size: 13px; font-weight: 600; }
+.cl-deg.borrowed { border-style: dashed; border-color: #55555c; }
+.cl-deg.current { border-color: var(--accent-2); background: #1d3550; }
+.cl-type { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 0 4px; }
+.cl-durs { display: flex; flex-wrap: wrap; gap: 4px; }
+.ctx-menu .cl-durs .chip { width: auto; display: inline-flex; padding: 3px 10px; font-size: 13px; }
+.ctx-menu .cl-durs .chip.active { background: var(--accent); }
+.cl-durs .chip:disabled { opacity: .35; cursor: default; }
+.ctx-menu .cl-deg { width: auto; background: var(--panel-2); padding: 4px 2px 6px; gap: 1px; justify-content: center; align-items: center; }
+.ctx-menu .cl-deg:hover { background: var(--panel-3); }
+.ctx-menu .cl-deg.current { background: #1d3550; }
+.cl-keyrow { display: flex; gap: 8px; padding: 0 4px; }
+
+/* fenêtre Nouvelle piste : Jeu */
+.nt-modes { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.nt-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; cursor: pointer; }
+@media (max-width: 760px) {
+  .cl-tools .cl-add { display: none; }
+  .cl-head .th-name small { display: none; }
+}
