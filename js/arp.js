@@ -10,6 +10,8 @@
  *   - rythme (rhythm)                   : tous les pas, euclidien (hits / steps / rotation) ou ligne de pas
  *   - lignes par pas (lanes)            : vélocité, gate, octave, ratchet, probabilité — chacune sa longueur
  *   - harmonie (harmony)                : notes de l'accord (défaut), notes de passage, approche chromatique
+ *   - renversement (inversion)          : tel que joué (défaut), état fondamental, 1er / 2e / 3e renversement,
+ *                                         ou renversement qui change à chaque passage de la boucle
  *   - macros PLAY                       : RATE, GATE, MOTION (LFO de timbre / dynamique), EVOLVE (variations)
  *
  * Vocabulaire :
@@ -81,6 +83,20 @@
     { id: 'chromatic', label: 'Approche chromatique', hint: 'sur les pas faibles, le demi-ton sous la note suivante' },
   ];
 
+  /*
+   * Renversements : la note à la basse change, les notes de l'accord restent les mêmes.
+   *   C3 E3 G3 → état fondamental (C) ; E3 G3 C4 → 1er renversement (C/E) ; G3 C4 E4 → 2e renversement (C/G).
+   * 'asis' garde les notes telles qu'elles sont posées sur la piste (comportement historique).
+   */
+  const INVERSIONS = [
+    { id: 'asis', label: 'Tel que joué', short: 'Tel quel', hint: 'les notes de la piste, sans changement' },
+    { id: 0, label: 'État fondamental', short: 'Fond.', hint: 'la fondamentale à la basse (C : Do Mi Sol)' },
+    { id: 1, label: '1er renversement', short: '1er', hint: 'la tierce à la basse (C/E : Mi Sol Do)' },
+    { id: 2, label: '2e renversement', short: '2e', hint: 'la quinte à la basse (C/G : Sol Do Mi)' },
+    { id: 3, label: '3e renversement', short: '3e', hint: 'la septième à la basse (C7/B♭) ; sur un accord de 3 sons, revient à l’état fondamental' },
+    { id: 'cycle', label: 'Tourne à chaque boucle', short: 'Tourne', hint: 'fondamental, puis 1er, puis 2e renversement… à chaque passage de la boucle' },
+  ];
+
   const RETRIG = [
     { id: 'chord', label: 'À chaque accord' },
     { id: 'free', label: 'Libre (les lignes continuent)' },
@@ -107,6 +123,7 @@
     seed: 1,
     swing: 0.5, // 0.5 = droit, jusqu'à 0.75
     harmony: 'chord',
+    inversion: 'asis',
     retrig: 'chord',
     pattern: '',
     range: [24, 108],
@@ -221,6 +238,8 @@
     o.seed = Math.round(clamp(num(+o.seed, 1), 0, 0x7fffffff));
     o.swing = clamp(num(+o.swing, 0.5), 0.5, 0.75);
     o.harmony = HARMONY.some((x) => x.id === o.harmony) ? o.harmony : 'chord';
+    const inv = typeof o.inversion === 'string' && /^\d$/.test(o.inversion) ? +o.inversion : o.inversion;
+    o.inversion = INVERSIONS.some((x) => x.id === inv) ? inv : 'asis';
     o.retrig = RETRIG.some((x) => x.id === o.retrig) ? o.retrig : 'chord';
     o.pattern = typeof o.pattern === 'string' ? o.pattern.slice(0, 400) : '';
     const r = Array.isArray(o.range) ? o.range.map(Number) : DEFAULTS.range;
@@ -353,6 +372,63 @@
       chordCache.set(key, c);
     }
     return c;
+  }
+
+  /** Tons de l'accord dans l'ordre des tierces (fondamentale, tierce, quinte, septième) puis tensions (9e…). */
+  function chordTones(c) {
+    const ivs = [...new Set(c.sorted.map((n) => mod(n - c.root, 12)))];
+    const hasThird = ivs.includes(3) || ivs.includes(4);
+    const key = (iv) => (hasThird && (iv === 1 || iv === 2) ? iv + 12 : iv); // 9e : tension, sauf dans un sus2
+    ivs.sort((a, b) => key(a) - key(b));
+    const core = ivs.filter((iv) => key(iv) < 12);
+    const tens = ivs.filter((iv) => key(iv) >= 12);
+    return { core, tens };
+  }
+
+  /**
+   * Renversement n° inv de l'accord (0 = état fondamental). Voicing serré, construit en montant depuis la
+   * basse : la basse est le ton n° inv, placé comme dans l'état fondamental bâti sur la fondamentale la plus
+   * proche sous la note la plus grave jouée ; les doublures d'octave sont conservées (même nombre de notes),
+   * les tensions (9e) restent au-dessus. Accord non reconnu (note seule, agrégat) : notes inchangées.
+   */
+  const invCache = new Map();
+  function invertChord(notes, inv) {
+    const ns = [...notes].filter(Number.isFinite).sort((a, b) => a - b);
+    if (ns.length < 2) return ns;
+    const key = ns.join(',') + '|' + inv;
+    const hit = invCache.get(key);
+    if (hit) return hit;
+    const c = chordOf(ns);
+    let out = ns;
+    if (c.type !== 'note' && c.type !== 'cluster') {
+      const { core, tens } = chordTones(c);
+      if (core.length >= 2) {
+        const i = mod(inv, core.length);
+        const rootN = ns[0] - mod(ns[0] - c.root, 12); // fondamentale à la basse ou juste en dessous
+        const nCore = Math.max(core.length, ns.length - tens.length);
+        out = [rootN + core[i]];
+        for (let k = 1; k < nCore; k++) {
+          const pc = core[mod(i + k, core.length)];
+          let n = out[k - 1] + 1;
+          n += mod(c.root + pc - n, 12);
+          out.push(n);
+        }
+        for (const iv of tens) {
+          let n = out[out.length - 1] + 1;
+          n += mod(c.root + iv - n, 12);
+          out.push(n);
+        }
+      }
+    }
+    if (invCache.size > 500) invCache.clear();
+    invCache.set(key, out);
+    return out;
+  }
+
+  /** Notes de l'accord après le renversement demandé (L = passage de la boucle, pour « Tourne à chaque boucle »). */
+  function voiced(notes, o, L) {
+    if (o.inversion === 'asis' || notes.length < 2) return notes;
+    return invertChord(notes, o.inversion === 'cycle' ? L | 0 : o.inversion);
   }
 
   /** Note la plus grave de l'accord dont l'intervalle à la fondamentale est l'un de ceux demandés. */
@@ -637,8 +713,9 @@
    *   cutoff (multiplicateur de fréquence de coupure), anchor, phrase }.
    */
   function tick(o, ev, k, info = {}) {
-    const notes = (ev.notes || []).filter(Number.isFinite);
-    if (!notes.length) return null;
+    const raw = (ev.notes || []).filter(Number.isFinite);
+    if (!raw.length) return null;
+    const notes = voiced(raw, o, o.freeze ? o.freezeLoop : info.loop);
     const c = chordOf(notes);
     const pool = buildPool(notes, o);
     const evKey = (ev.step | 0) * 131 + notes.length * 7 + mod(notes[0], 12);
@@ -930,10 +1007,12 @@
   }
 
   SS.Arp = {
-    MODES, RATES, HARMONY, RETRIG, LANES, DEFAULTS, PRESETS, CHORD_TYPES,
+    MODES, RATES, HARMONY, INVERSIONS, RETRIG, LANES, DEFAULTS, PRESETS, CHORD_TYPES,
     normalize, fromPreset, analyzeChord, parsePattern, euclid, tick, renderStep, preview, parseChordSymbol,
     GESTES, GROUP_OF, GROUP_SIZES, normGeste, gesteTimes, gesteGroup: (arp) => gesteGroup(normalize(arp)),
     degreeNote: (notes, d) => degreeNote(chordOf(notes), d),
+    invertChord,
+    voiced: (notes, arp, loop = 0) => voiced((notes || []).filter(Number.isFinite), normalize(arp), loop),
     rateLabel: (r) => {
       const x = RATES.find((y) => Math.abs(y.id - r) < 1e-6);
       return x ? x.label : `×${(+r).toFixed(2)}`;

@@ -420,3 +420,30 @@ test('Changer de motif garde les silences réglés pas à pas (sauf motif à ryt
   assert.equal(back.rhythm.type, 'all');
   assert.deepEqual(back.lanes.rhythm, []);
 });
+
+test('Renversements : C3 E3 G3 → C (fondamental), C/E (Mi Sol Do), C/G (Sol Do Mi)', () => {
+  const C3 = 48, E3 = 52, G3 = 55;
+  const inv = (notes, i) => A.invertChord(notes, i).map(A.noteName);
+  assert.deepEqual(inv([C3, E3, G3], 0), ['C3', 'E3', 'G3']);
+  assert.deepEqual(inv([C3, E3, G3], 1), ['E3', 'G3', 'C4']);
+  assert.deepEqual(inv([C3, E3, G3], 2), ['G3', 'C4', 'E4']);
+  // depuis un accord déjà renversé, l'état fondamental redescend la fondamentale à la basse
+  assert.deepEqual(inv([E3, G3, 60], 0), ['C3', 'E3', 'G3']);
+  // accord de 4 sons : 3e renversement = septième à la basse ; doublures et tensions conservées
+  assert.deepEqual(inv([C3, E3, G3, 58], 3), ['Bb3', 'C4', 'E4', 'G4']);
+  assert.deepEqual(inv([C3, E3, G3, 60], 1), ['E3', 'G3', 'C4', 'E4']);
+  assert.equal(A.analyzeChord(A.invertChord([C3, E3, G3], 1))[0].name, 'C/E');
+  assert.equal(A.analyzeChord(A.invertChord([C3, E3, G3], 2))[0].name, 'C/G');
+});
+
+test('Renversement dans l’arpège : Montant part de la basse renversée ; « Tel que joué » ne change rien', () => {
+  assert.deepEqual(names(seqOf({ mode: 'up', rate: 1, inversion: 1 }, [C, E, G], 4)), ['E4', 'G4', 'C5', 'E4']);
+  assert.deepEqual(names(seqOf({ mode: 'up', rate: 1, inversion: 2 }, [C, E, G], 3)), ['G4', 'C5', 'E5']);
+  assert.deepEqual(seqOf({ mode: 'up', rate: 1, inversion: 'asis' }, [E, G, 72], 6), seqOf({ mode: 'up', rate: 1 }, [E, G, 72], 6));
+  assert.equal(A.normalize({}).inversion, 'asis');
+  assert.equal(A.normalize({ inversion: '2' }).inversion, 2);
+  assert.equal(A.normalize({ inversion: 'bad' }).inversion, 'asis');
+  // « Tourne à chaque boucle » : fondamental, 1er, 2e renversement, puis on recommence
+  const first = (loop) => A.noteName(A.preview({ mode: 'up', rate: 1, inversion: 'cycle' }, [C, E, G], 1, { loop })[0].notes[0]);
+  assert.deepEqual([0, 1, 2, 3].map(first), ['C4', 'E4', 'G4', 'C4']);
+});

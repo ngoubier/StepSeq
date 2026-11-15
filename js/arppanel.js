@@ -446,7 +446,7 @@ SS.arpPanel = (() => {
 
   function playerView() {
     const src = sourceChord();
-    const hyp = A().analyzeChord(src.notes)[0];
+    const hyp = A().analyzeChord(A().voiced(src.notes, track.arp))[0]; // nom après renversement : « C/E »
     const has = !!trackChord();
     const pickShown = test || !has;
     const cur = test || { root: 9, type: 'min' };
@@ -826,6 +826,11 @@ SS.arpPanel = (() => {
         segmented(FEEL, rs ? rs.feel : '', (v) => set({ rate: (rs ? rs.base : 1) * +v }), 'Triolet ou pointée')
       ),
       formRow('Octaves', segmented([1, 2, 3, 4].map((o) => ({ id: o, label: String(o) })), arp.octaves, (v) => set({ octaves: +v }), 'Octaves')),
+      formRow(
+        'Renversement',
+        segmented(A().INVERSIONS.map((x) => ({ id: x.id, label: x.short, hint: `${x.label} — ${x.hint}` })), arp.inversion, (v) => set({ inversion: v }), 'Renversement de l’accord'),
+        h('small', { class: 'arp-fhelp' }, 'quelle note de l’accord est à la basse (C, C/E, C/G…)')
+      ),
       formRow('Pas', segmented([4, 8, 16].map((n) => ({ id: n, label: String(n) })), arp.steps, (v) => set({ steps: +v, lanes: sizedLanes(arp, +v) }), 'Nombre de pas du motif'), h('small', { class: 'arp-fhelp' }, 'longueur de la grille réglable pas à pas')),
       formRow('Geste', h('div', { class: 'geste-line' }, gesteChips(false), h('button', { type: 'button', class: 'btn geste-adjust', title: 'Régler finement le geste', onclick: () => ((tab = 'geste'), render()) }, 'Ajuster ›'))),
       formRow(
