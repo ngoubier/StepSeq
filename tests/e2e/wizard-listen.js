@@ -2,7 +2,7 @@
  * Écoute dans l'assistant « Nouvelle chanson » (js/band.js) :
  *   node tests/e2e/wizard-listen.js
  * Bandeau de l'ordre des scènes, écoute de la chanson ou d'une scène (projet temporaire, la chanson reste vide),
- * Muet / Solo par instrument à l'étape Mélodie, nouvelle mélodie pendant l'écoute, arrêt à la fermeture.
+ * Muet / Solo / volume par instrument à l'étape Harmonie, nouvelle mélodie pendant l'écoute, arrêt à la fermeture.
  */
 const { chromium } = require('playwright');
 const fs = require('fs');
@@ -108,29 +108,25 @@ const SHOTS = process.env.SHOTS;
   await page.waitForFunction(() => document.querySelector('.bh-board.playing'), null, { timeout: 8000 }).catch(() => {});
   ok(await page.evaluate(() => !!document.querySelector('.bh-board.playing') && document.querySelector('.bh-loop').getAttribute('aria-pressed') === 'true'), 'Harmonie : tête de lecture sur la scène écoutée');
 
-  // étape Mélodie : écoute d'une scène, Muet / Solo
-  await page.click('#bwNext');
-  await page.waitForTimeout(300);
-  ok((await playing()) && (await L()).rows.length === 1, 'étape Mélodie : l’écoute continue');
-  const n = await page.locator('.bw-track .bw-m').count();
-  const cols = await page.locator('.bw-track').count();
-  ok(n === cols, `M et S sur chaque instrument (${n})`);
-  ok((await page.locator('.bw-group .bw-ms').count()) >= 1, 'M et S sur le groupe de la batterie');
+  // étape Harmonie : Muet / Solo / volume sur chaque instrument, pendant l'écoute
+  ok(await playing(), 'étape Harmonie : la scène joue');
+  const n = await page.locator('.bh-lane .bw-m').count();
+  const lanesN = await page.locator('.bh-lane').count();
+  ok(n === lanesN && (await page.locator('.bh-lane .bh-vol').count()) === lanesN, `M, S et volume sur chaque instrument (${n})`);
+  ok((await page.locator('.bh-drums .bw-ms').count()) === 1, 'M et S pour toute la batterie');
   const tracks = () => page.evaluate(() => SS.band._listen().tracks.map((t) => [t.col, t.mute, t.solo]));
-  const bass = page.locator('.bw-track', { hasText: 'Basse' }).first();
-  const bassId = await page.evaluate(() => SS.band._state.wiz.res && Object.keys(SS.band._state.wiz.res.scenes[0].data).find((k) => k.startsWith('bass')));
+  const bass = page.locator('.bh-lane', { hasText: 'Basse' }).first();
+  const bassId = await bass.getAttribute('data-col');
   await bass.locator('.bw-m').click();
   let t = await tracks();
   ok(t.find((x) => x[0] === bassId)[1] && t.filter((x) => x[1]).length === 1, 'M : la basse est coupée');
-  const mc = await page.locator('.bw-cell.muted').count();
-  const pressed = await bass.locator('.bw-m').getAttribute('aria-pressed');
-  ok(mc === 5 && pressed === 'true', `colonne muette grisée (${mc} cases, ${pressed})`);
-  await bass.locator('.bw-m').click();
-  const lead = page.locator('.bw-track.mel').first();
-  await lead.locator('.bw-s').click();
+  const bass2 = page.locator('.bh-lane', { hasText: 'Basse' }).first();
+  ok((await bass2.locator('.bw-m').getAttribute('aria-pressed')) === 'true' && /muted/.test(await bass2.getAttribute('class')), 'ligne muette grisée');
+  await bass2.locator('.bw-m').click();
+  await page.locator('.bh-lane.mel .bw-s').click();
   t = await tracks();
   ok(t.filter((x) => x[2]).length === 1 && !t.some((x) => x[1]), 'S : la mélodie seule');
-  ok((await page.locator('.bw-track.muted').count()) === cols - 1, 'les autres colonnes sont grisées');
+  ok((await page.locator('.bh-row.muted').count()) === lanesN, 'les autres lignes sont grisées (batterie comprise)');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'listen-melody.png') });
 
   // nouvelle mélodie pendant l'écoute : on reprend avec les nouvelles notes, le solo est gardé
@@ -142,10 +138,13 @@ const SHOTS = process.env.SHOTS;
   t = await tracks();
   ok(t.filter((x) => x[2]).length === 1, 'le solo est gardé');
 
-  // la batterie entière : M du groupe
-  await page.locator('.bw-group .bw-m').first().click();
+  // la batterie entière : M de la ligne Batterie
+  await page.locator('.bh-drums .bw-m').click();
   t = await tracks();
-  ok(t.filter((x) => x[1]).length >= 3, 'M du groupe : toute la batterie');
+  ok(t.filter((x) => x[1]).length >= 3, 'M de la batterie : tous ses éléments');
+  // étape Chanson : les colonnes coupées sont grisées
+  await page.click('#bwBack');
+  ok((await page.locator('.bw-track.muted').count()) === (await page.locator('.bw-track').count()) - 1, 'étape Chanson : seules les colonnes qu’on entend restent claires');
 
   // fermeture : arrêt, rien n'est créé
   await page.keyboard.press('Escape');

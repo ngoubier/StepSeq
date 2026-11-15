@@ -501,7 +501,7 @@
    * Band : « Créer toute la chanson ». Remplace les pistes, les scènes et l'arrangement du projet par la chanson
    * écrite d'après le plan de l'inspiration (js/band-songs.js, js/bandsong.js). Ctrl+Z revient en arrière.
    */
-  function addBandSong(list, preset, tempo, { melodySeed = 0, melody = null } = {}) {
+  function addBandSong(list, preset, tempo, { melodySeed = 0, melody = null, gains = null } = {}) {
     const spec = SS.BandSongs && SS.BandSongs[preset.id];
     if (!spec) return addBandTracks(list, tempo, { replace: true });
     stop();
@@ -527,6 +527,8 @@
     // bus d'effets partagés, sidechain, caisse claire « posée » ; puis petite humanisation de tout le groupe
     const style = (created.find((t) => t.band) || { band: {} }).band.style || 'synthwave';
     SS.bandMix.mixTracks(created, levelKeys, style);
+    // volumes réglés dans l'assistant (étape Harmonie) : en plus ou en moins du mixage automatique
+    if (gains) created.forEach((t, i) => gains[i] != null && gains[i] !== 1 && (t.volume = Math.round((typeof t.volume === 'number' ? t.volume : 0.8) * gains[i] * 1000) / 1000));
     SS.bandMix.mixMaster(project, style, SS.bandMix.driveFor(preset.id, style));
     project.groove = { ...(project.groove || { res: 0, swing: 0.5 }), human: 0.15 };
     if (!project.title || project.title === 'Nouveau projet') project.title = `Dans l'esprit de ${preset.song}`;

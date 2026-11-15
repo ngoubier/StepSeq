@@ -1,15 +1,15 @@
 /*
  * Band : assistant de création d'une chanson avec un groupe de musiciens virtuels.
  * Ouvert par le bouton « Band » de l'en-tête (open) ou par « Nouvelle chanson… » du menu (openWizard,
- * sur une chanson vide). Cinq étapes :
+ * sur une chanson vide). Quatre étapes :
  *  1. Modèle : style musical, inspiration (type de chanson) et musiciens — un clic sur un musicien ouvre
  *     son panneau (rôle, instrument phare, 5 conseillés, toute la bibliothèque via « Nouvelle piste ») ;
  *     le batteur choisit un kit et ses éléments (une piste par élément) ;
  *  2. Chanson : vue session (scènes × pistes), ordre des scènes, écoute ;
- *  3. Harmonie : les accords de chaque scène (comme dans Key) et ce que joue chaque instrument dessus ;
- *  4. Mélodie : autres mélodies sur la même grille, écoute avec Muet / Solo ;
- *  5. Pistes : celles à importer.
- * Des étapes 2 à 5, un bandeau de commande : lecture / pause, stop, position, tempo (réglable), tonalité.
+ *  3. Harmonie : les accords de chaque scène (comme dans Key), ce que joue chaque instrument dessus
+ *     (Muet / Solo / volume par instrument) et toute la mélodie : générer, style, pieds, complexité… ;
+ *  4. Pistes : celles à importer.
+ * Des étapes 2 à 4, un bandeau de commande : lecture / pause, stop, position, tempo (réglable), tonalité.
  * Seul « Créer la chanson » modifie le projet (après confirmation s'il a déjà des pistes) ; fermer ne change rien.
  *
  * Catalogue : js/band-presets.js (SS.Band).
@@ -19,8 +19,9 @@ SS.band = (() => {
   const B = () => SS.Band;
   let app = null;
   let el = null;
-  // mel : réglages de la mélodie (étape Mélodie), gardés d'une ouverture à l'autre — voir melodyOpts()
-  const S = { styleId: null, presetId: null, sel: null, cache: {}, wiz: null, harmDrums: false, mel: { method: 'inspiration', feet: 0, barsPerLine: 2, complexity: 'balanced', style: 'simple', range: 'auto', ending: 'closed' } };
+  // mel : réglages de la mélodie (étape Harmonie), gardés d'une ouverture à l'autre — voir melodyOpts()
+  // harmAll : étape Harmonie, toutes les pistes affichées (sinon seulement la mélodie)
+  const S = { styleId: null, presetId: null, sel: null, cache: {}, wiz: null, harmAll: true, mel: { method: 'inspiration', feet: 0, barsPerLine: 2, complexity: 'balanced', style: 'simple', range: 'auto', ending: 'closed' } };
 
   /* ---------- Petits outils DOM ---------- */
   const $ = (q, root = document) => root.querySelector(q);
@@ -529,19 +530,18 @@ SS.band = (() => {
    * Ouvert par le menu de l'application, sur une chanson vide :
    *  1. Modèle : le style, l'inspiration et les musiciens (l'écran habituel de Band) ;
    *  2. Chanson : toute la chanson en vue « session » — une ligne par scène, une colonne par piste ;
-   *  3. Harmonie : les accords de la scène choisie, et les notes de chaque instrument dessus ;
-   *  4. Mélodie : « Générer la mélodie » tire une autre mélodie (lead, voix, sax) sur la même grille ;
-   *  5. Pistes : on coche les pistes à importer (batterie, basse, nappes, arpèges, lead…).
+   *  3. Harmonie : les accords de la scène choisie, les notes de chaque instrument dessus (Muet / Solo / volume),
+   *     et la mélodie : « Générer la mélodie » en tire une autre (lead, voix, sax) sur la même grille, réglages ;
+   *  4. Pistes : on coche les pistes à importer (batterie, basse, nappes, arpèges, lead…).
    * Rien n'est écrit dans le projet avant « Créer la chanson » ; fermer laisse la chanson vide.
    */
   const STEPS = [
     { label: 'Modèle', hint: 'Choisis le style, l’inspiration et les musiciens' },
     { label: 'Chanson', hint: 'Toute la chanson : une ligne par scène, une colonne par piste' },
-    { label: 'Harmonie', hint: 'Les accords de chaque scène, et ce que joue chaque instrument dessus' },
-    { label: 'Mélodie', hint: 'Génère d’autres mélodies sur la même grille d’accords' },
+    { label: 'Harmonie', hint: 'Les accords de chaque scène, ce que joue chaque instrument dessus, et la mélodie' },
     { label: 'Pistes', hint: 'Coche les pistes à importer dans la chanson' },
   ];
-  const ST = { model: 1, song: 2, harm: 3, mel: 4, pick: 5 }; // numéros des étapes
+  const ST = { model: 1, song: 2, harm: 3, pick: 4 }; // numéros des étapes
   const spec = () => preset() && SS.BandSongs && SS.BandSongs[preset().id];
   const singer = (role) => SS.bandSong.SINGERS.includes(role);
 
@@ -737,18 +737,8 @@ SS.band = (() => {
       else groups.push({ musician: c.musician, mu: p.musicians.find((m) => m.id === c.musician), cols: [c] });
     });
     const pick = step === ST.pick;
-    const mix = step === ST.mel;
-    const muted = (c) => {
-      const solo = S.wiz.solo.size > 0;
-      return mix && (S.wiz.mute.has(c.id) || (solo && !S.wiz.solo.has(c.id)));
-    };
-    const msBtns = (ids, label) =>
-      h(
-        'span',
-        { class: 'bw-ms' },
-        h('button', { type: 'button', class: 'bw-m' + (ids.every((id) => S.wiz.mute.has(id)) ? ' on' : ''), 'aria-pressed': String(ids.every((id) => S.wiz.mute.has(id))), title: `Muet : couper ${label}`, 'aria-label': `Muet ${label}`, onclick: () => toggleMS(S.wiz.mute, ids) }, 'M'),
-        h('button', { type: 'button', class: 'bw-s' + (ids.every((id) => S.wiz.solo.has(id)) ? ' on' : ''), 'aria-pressed': String(ids.every((id) => S.wiz.solo.has(id))), title: `Solo : écouter ${label} seul`, 'aria-label': `Solo ${label}`, onclick: () => toggleMS(S.wiz.solo, ids) }, 'S')
-      );
+    // étape Chanson : les colonnes coupées à l'étape Harmonie (Muet / Solo) sont grisées
+    const muted = (c) => !pick && silenced(c.id);
     const isOff = (c) => pick && S.wiz.off.has(c.id);
     const check = (ids, label) => {
       const on = ids.filter((id) => !S.wiz.off.has(id)).length;
@@ -760,7 +750,6 @@ SS.band = (() => {
     const len = res.song.reduce((a, b) => a + res.scenes.find((sc) => sc.id === b.scene).bars * b.repeat, 0);
     const secs = (len * 4 * 60) / tempo();
     const time = `${Math.floor(secs / 60)}:${String(Math.round(secs % 60)).padStart(2, '0')}`;
-    const melCols = cols.filter((c) => singer(c.role));
     const kept = cols.filter((c) => !S.wiz.off.has(c.id)).length;
 
     const order = h(
@@ -795,24 +784,8 @@ SS.band = (() => {
         h('b', {}, `« ${p.song} »`),
         h('span', {}, ` ${p.artist} · ${SS.harmony.label(res.key)} · ${tempo()} BPM · ${res.scenes.length} scènes · ${len} mesures · ${time}`)
       ),
-      h('p', { class: 'bw-hint' }, STEPS[step - 1].hint + '.' + (step === ST.mel ? ' Clique une scène pour l’écouter ; M coupe un instrument, S l’écoute seul.' : ' Clique une scène pour l’écouter en boucle.')),
+      h('p', { class: 'bw-hint' }, STEPS[step - 1].hint + '. Clique une scène pour l’écouter en boucle.'),
       order,
-      step === ST.mel
-        ? h(
-            'div',
-            { class: 'bw-actions' },
-            melCols.length
-              ? [
-                  h('button', { type: 'button', class: 'btn btn-accent', id: 'bwMelody', onclick: () => ((S.wiz.seed += 1), renderWiz()) }, '🎲 Générer la mélodie'),
-                  S.wiz.seed
-                    ? h('button', { type: 'button', class: 'btn', id: 'bwMelodyBack', onclick: () => ((S.wiz.seed = 0), renderWiz()) }, '↺ Mélodie d’origine')
-                    : null,
-                  h('span', { class: 'bw-seed', id: 'bwSeed' }, S.wiz.seed || S.mel.method === 'compose' ? `Mélodie n° ${S.wiz.seed + 1}` : 'Mélodie d’origine de l’inspiration'),
-                ]
-              : h('span', { class: 'bw-seed' }, 'Ce groupe n’a ni lead ni voix : pas de mélodie à générer. Ajoute un musicien à l’étape 1.')
-          )
-        : null,
-      step === ST.mel && melCols.length ? melodyForm() : null,
       step === ST.pick
         ? h(
             'div',
@@ -837,11 +810,10 @@ SS.band = (() => {
           {
             colspan: g.cols.length,
             scope: 'colgroup',
-            class: 'bw-group' + (off ? ' off' : '') + (step === ST.mel && singer(g.mu.role) ? ' mel' : ''),
+            class: 'bw-group' + (off ? ' off' : ''),
             style: `--c:${colorOf(g.mu)}`,
           },
-          h('label', { class: 'bw-glabel' }, pick ? check(ids, label) : null, h('span', { class: 'bw-ico', html: icon(g.mu.role) }), h('span', {}, label)),
-          mix && ids.length > 1 ? msBtns(ids, label) : null
+          h('label', { class: 'bw-glabel' }, pick ? check(ids, label) : null, h('span', { class: 'bw-ico', html: icon(g.mu.role) }), h('span', {}, label))
         );
       })
     );
@@ -852,9 +824,8 @@ SS.band = (() => {
         const multi = groups.find((g) => g.musician === c.musician).cols.length > 1;
         return h(
           'th',
-          { scope: 'col', class: 'bw-track' + (isOff(c) ? ' off' : '') + (muted(c) ? ' muted' : '') + (step === ST.mel && singer(c.role) ? ' mel' : ''), style: `--c:${c.o.color}`, title: B().describe(c.o).name },
-          h('label', {}, pick && multi ? check([c.id], c.o.name) : null, h('span', {}, c.o.name)),
-          mix ? msBtns([c.id], c.o.name) : null
+          { scope: 'col', class: 'bw-track' + (isOff(c) ? ' off' : '') + (muted(c) ? ' muted' : ''), style: `--c:${c.o.color}`, title: B().describe(c.o).name },
+          h('label', {}, pick && multi ? check([c.id], c.o.name) : null, h('span', {}, c.o.name))
         );
       })
     );
@@ -880,7 +851,7 @@ SS.band = (() => {
           const n = on ? (d.steps ? d.steps.filter((v) => v > 0).length : d.events.length) : 0;
           return h(
             'td',
-            { class: 'bw-cell' + (isOff(c) ? ' off' : '') + (muted(c) ? ' muted' : '') + (step === ST.mel && singer(c.role) ? ' mel' : '') },
+            { class: 'bw-cell' + (isOff(c) ? ' off' : '') + (muted(c) ? ' muted' : '') },
             on
               ? h('div', { class: 'bw-clip', style: `--c:${c.o.color}`, title: `${sc.name} · ${c.o.name} : ${n} ${d.steps ? 'coup' : 'note'}${n > 1 ? 's' : ''}` }, clipSvg(d, sc.bars, range.get(c.id)))
               : h('div', { class: 'bw-slot', title: `${sc.name} · ${c.o.name} : silence` })
@@ -922,7 +893,6 @@ SS.band = (() => {
   }
 
   function renderHarmony() {
-    const p = preset();
     const { cols, res } = wizSong();
     const box = $('#bandWiz');
     if (!res) return box.replaceChildren(h('p', { class: 'dlg-hint' }, 'Cette inspiration n’a pas de plan de chanson.'));
@@ -930,9 +900,6 @@ SS.band = (() => {
     const sc = res.scenes.find((x) => x.id === S.wiz.hscene);
     const plays = new Map();
     res.song.forEach((b) => plays.set(b.scene, (plays.get(b.scene) || 0) + b.repeat));
-    const len = res.song.reduce((a, b) => a + res.scenes.find((x) => x.id === b.scene).bars * b.repeat, 0);
-    const secs = (len * 4 * 60) / tempo();
-    const time = `${Math.floor(secs / 60)}:${String(Math.round(secs % 60)).padStart(2, '0')}`;
     const sceneInfo = (x) => `${x.bars} mes.` + (plays.get(x.id) > 1 ? ` · jouée ${plays.get(x.id)} fois` : '');
 
     // scènes : nom, longueur, accords distincts
@@ -997,12 +964,29 @@ SS.band = (() => {
       spans.length ? null : h('span', { class: 'bh-empty' }, 'Pas de grille d’accords pour cette scène')
     );
 
+    // tête d'une ligne : couleur, nom, Muet / Solo et volume (une seule commande pour toute la batterie)
+    const laneHead = (ids, name, sub, color) =>
+      head(
+        'bh-ihead',
+        h('i', { class: 'bh-swatch', style: `--c:${color}` }),
+        h(
+          'span',
+          { class: 'bh-name' },
+          h('b', { title: name }, name),
+          sub ? h('small', { title: sub }, sub) : null,
+          h('span', { class: 'bh-ctl' }, msBtns(ids, name), volCtl(ids, name))
+        )
+      );
+    const melIds = new Set(cols.filter((c) => singer(c.role)).map((c) => c.id));
+    const shown = (c) => S.harmAll || melIds.has(c.id);
+
     // batterie : une ligne par élément (coups, sans hauteur)
     const drumCols = cols.filter((c) => c.o.type === 'drum');
-    const drums = S.harmDrums && drumCols.length
+    const drumIds = drumCols.map((c) => c.id);
+    const drums = drumCols.length && drumCols.some(shown)
       ? row(
-          'bh-drums',
-          head('', h('i', { class: 'bh-swatch', style: `--c:${drumCols[0].o.color}` }), h('span', { class: 'bh-name' }, h('b', {}, 'Batterie'), h('small', {}, drumCols.map((c) => c.o.name).join(' · ')))),
+          'bh-drums' + (drumIds.every(silenced) ? ' muted' : ''),
+          laneHead(drumIds, 'Batterie', drumCols.map((c) => c.o.name).join(' · '), drumCols[0].o.color),
           ...bands(),
           ...drumCols.flatMap((c, i) => {
             const d = sc.data[c.id];
@@ -1016,7 +1000,7 @@ SS.band = (() => {
 
     // instruments : notes pleines (dans l'accord) ou en creux (notes de passage)
     const lanes = cols
-      .filter((c) => c.o.type !== 'drum')
+      .filter((c) => c.o.type !== 'drum' && shown(c))
       .map((c) => {
         const d = sc.data[c.id];
         const events = (d && d.events) || [];
@@ -1043,8 +1027,8 @@ SS.band = (() => {
         }
         const fit = all.length ? `${Math.round((100 * inCount) / all.length)} % dans l’accord` : 'ne joue pas ici';
         const el = row(
-          'bh-lane' + (all.length ? '' : ' empty'),
-          head('', h('i', { class: 'bh-swatch' }), h('span', { class: 'bh-name' }, h('b', {}, c.o.name), h('small', {}, fit))),
+          'bh-lane' + (all.length ? '' : ' empty') + (melIds.has(c.id) ? ' mel' : '') + (silenced(c.id) ? ' muted' : ''),
+          laneHead([c.id], c.o.name, fit, c.o.color),
           ...bands(),
           ...notes
         );
@@ -1062,42 +1046,89 @@ SS.band = (() => {
       h('span', { class: 'bw-pico', html: PLAY + STOP }),
       h('span', {}, 'Écouter la scène en boucle')
     );
-    const drumSwitch = h(
+    const others = cols.some((c) => !melIds.has(c.id));
+    const allSwitch = h(
       'button',
       {
-        type: 'button', role: 'switch', class: 'bh-switch', id: 'bwHarmDrums', 'aria-checked': String(S.harmDrums), disabled: !drumCols.length,
-        title: drumCols.length ? 'Afficher ou masquer la batterie (elle n’a pas d’accords)' : 'Ce groupe n’a pas de batterie',
+        type: 'button', role: 'switch', class: 'bh-switch', id: 'bwHarmAll', 'aria-checked': String(S.harmAll), disabled: !others || !melIds.size,
+        title: melIds.size ? 'Afficher ou masquer toutes les pistes, sauf celle de la mélodie' : 'Ce groupe n’a ni lead ni voix : toutes les pistes restent affichées',
         onclick: () => {
-          S.harmDrums = !S.harmDrums;
+          S.harmAll = !S.harmAll;
           renderHarmony();
           markListen();
         },
       },
       h('span', { class: 'bh-knob', 'aria-hidden': 'true' }),
-      h('span', {}, 'Batterie')
+      h('span', {}, 'Toutes les pistes')
     );
 
     const board = h('div', { class: 'bh-board', 'data-scene': sc.id, 'data-bars': sc.bars, style: `--bars:${sc.bars}` }, ruler, chords, drums, ...lanes, h('i', { class: 'bh-ph', 'aria-hidden': 'true' }));
     const main = h(
       'main',
       { class: 'bh-main' },
-      h('div', { class: 'bh-top' }, h('h3', {}, sc.name), h('span', { class: 'bh-info' }, `${sceneInfo(sc)} · ${SS.harmony.label(sc.key || res.key)}`), loop, h('span', { class: 'spacer' }), drumSwitch),
+      h('div', { class: 'bh-top' }, h('h3', {}, sc.name), loop, h('span', { class: 'spacer' }), allSwitch),
       h('div', { class: 'bh-scroll' }, board)
     );
-    const top = h(
-      'div',
-      { class: 'bw-top' },
-      h('div', { class: 'bw-info' }, h('b', {}, `« ${p.song} »`), h('span', {}, ` ${p.artist} · ${SS.harmony.label(res.key)} · ${tempo()} BPM · ${res.scenes.length} scènes · ${len} mesures · ${time}`)),
-      h(
-        'p',
-        { class: 'bw-hint' },
-        STEPS[ST.harm - 1].hint + '. Couleur des accords comme dans Key : ',
-        h('span', { class: 'bh-key-role role-repos' }, 'repos'), ', ',
-        h('span', { class: 'bh-key-role role-prep' }, 'préparation'), ', ',
-        h('span', { class: 'bh-key-role role-tension' }, 'tension'), '.'
-      )
-    );
+    // en-tête : toute la gestion de la mélodie (générer, revenir à l'origine, style, pieds, complexité…)
+    const top = h('div', { class: 'bw-top bh-head-mel' }, ...melodyBar(melIds.size > 0));
     box.replaceChildren(top, h('div', { class: 'bh-wrap' }, nav, main));
+  }
+
+  /** Mélodie : générer une autre mélodie, revenir à l'origine, numéro ; puis les réglages (méthode, pieds…). */
+  function melodyBar(has) {
+    if (!has) return [h('div', { class: 'bw-actions' }, h('span', { class: 'bw-seed' }, 'Ce groupe n’a ni lead ni voix : pas de mélodie à générer. Ajoute un musicien à l’étape 1.'))];
+    return [
+      h(
+        'div',
+        { class: 'bw-actions' },
+        h('button', { type: 'button', class: 'btn btn-accent', id: 'bwMelody', onclick: () => ((S.wiz.seed += 1), renderWiz()) }, '🎲 Générer la mélodie'),
+        S.wiz.seed ? h('button', { type: 'button', class: 'btn', id: 'bwMelodyBack', onclick: () => ((S.wiz.seed = 0), renderWiz()) }, '↺ Mélodie d’origine') : null,
+        h('span', { class: 'bw-seed', id: 'bwSeed' }, S.wiz.seed || S.mel.method === 'compose' ? `Mélodie n° ${S.wiz.seed + 1}` : 'Mélodie d’origine de l’inspiration')
+      ),
+      melodyForm(),
+    ];
+  }
+
+  /* ---------- Muet / Solo / volume (étape Harmonie) ---------- */
+  /** La colonne ne s'entend pas : coupée, ou une autre est en solo. */
+  function silenced(id) {
+    return S.wiz.mute.has(id) || (S.wiz.solo.size > 0 && !S.wiz.solo.has(id));
+  }
+  function msBtns(ids, label) {
+    const m = ids.every((id) => S.wiz.mute.has(id));
+    const s = ids.every((id) => S.wiz.solo.has(id));
+    return h(
+      'span',
+      { class: 'bw-ms' },
+      h('button', { type: 'button', class: 'bw-m' + (m ? ' on' : ''), 'aria-pressed': String(m), title: `Muet : couper ${label}`, 'aria-label': `Muet ${label}`, onclick: () => toggleMS(S.wiz.mute, ids) }, 'M'),
+      h('button', { type: 'button', class: 'bw-s' + (s ? ' on' : ''), 'aria-pressed': String(s), title: `Solo : écouter ${label} seul`, 'aria-label': `Solo ${label}`, onclick: () => toggleMS(S.wiz.solo, ids) }, 'S')
+    );
+  }
+  const VOL_MIN = -30;
+  const VOL_MAX = 6;
+  const volDb = (id) => S.wiz.vol.get(id) || 0;
+  const volText = (db) => (db <= VOL_MIN ? 'silence' : `${db > 0 ? '+' : ''}${db} dB`);
+  /** Volume d'un instrument (ou de toute la batterie) en dB autour du mixage automatique ; double-clic : 0 dB. */
+  function volCtl(ids, label) {
+    const db = volDb(ids[0]);
+    const inp = h('input', { type: 'range', class: 'bh-vol', min: VOL_MIN, max: VOL_MAX, step: 1, value: db, 'aria-label': `Volume ${label}`, title: `Volume ${label} : ${volText(db)} (double-clic : 0 dB)` });
+    const set = (v) => {
+      const x = Math.round(Number(v));
+      ids.forEach((id) => (x ? S.wiz.vol.set(id, x) : S.wiz.vol.delete(id)));
+      inp.value = x;
+      inp.title = `Volume ${label} : ${volText(x)} (double-clic : 0 dB)`;
+      inp.setAttribute('aria-valuetext', volText(x));
+      applyListenMutes();
+    };
+    inp.setAttribute('aria-valuetext', volText(db));
+    inp.addEventListener('input', () => set(inp.value));
+    inp.addEventListener('dblclick', () => set(0));
+    return inp;
+  }
+  /** Gain d'une colonne (multiplie le niveau du mixage automatique). */
+  function volGain(id) {
+    const db = volDb(id);
+    return db <= VOL_MIN ? 0 : Math.pow(10, db / 20);
   }
 
   /** Affiche l'étape en cours de l'assistant. */
@@ -1147,10 +1178,11 @@ SS.band = (() => {
     const seed = S.wiz.seed;
     hideConfirm();
     el.close('ok');
-    app.applySong(cols.map((c) => c.o), p, tempo(), { melodySeed: seed, melody: melodyOpts() });
+    // volumes réglés à l'étape Harmonie : appliqués au mixage automatique de la chanson créée
+    app.applySong(cols.map((c) => c.o), p, tempo(), { melodySeed: seed, melody: melodyOpts(), gains: cols.map((c) => volGain(c.id)) });
   }
 
-  /* ---------- Bandeau de commande (étapes 2 à 5) ----------
+  /* ---------- Bandeau de commande (étapes 2 à 4) ----------
    * Lecture / pause de la chanson (ou de la scène qu'on écoute en boucle), stop, position, tempo et tonalité.
    * Le tempo vaut pour l'écoute et pour « Créer la chanson » ; il revient à celui de l'inspiration si on en change.
    */
@@ -1273,7 +1305,7 @@ SS.band = (() => {
    * La chanson de la vue session est jouée telle qu'elle sera créée : pistes, scènes, mixage et mastering
    * automatiques, sur un projet temporaire (rien n'est écrit dans la chanson). Clic sur une scène : elle tourne
    * en boucle ; « Écouter la chanson » ou un bloc du bandeau : l'arrangement à partir de ce bloc.
-   * Muet / Solo (étape Mélodie) : par colonne, comme sur une console.
+   * Muet / Solo et volume (étape Harmonie) : par colonne, comme sur une console.
    */
   const L = { proj: null, sig: null, mode: null, scene: null, block: -1, step: -1, paused: false };
   const LID = (id) => 'bw·' + id; // identifiants des pistes d'écoute : jamais ceux de la chanson
@@ -1318,12 +1350,18 @@ SS.band = (() => {
     return proj;
   }
 
-  /** Muet / Solo des colonnes sur les pistes d'écoute. */
+  /** Muet / Solo et volume des colonnes sur les pistes d'écoute. */
   function applyListenMutes() {
     if (!L.proj) return;
     L.proj.tracks.forEach((t) => {
       t.mute = S.wiz.mute.has(t.col);
       t.solo = S.wiz.solo.has(t.col);
+      if (t.baseVol == null) t.baseVol = typeof t.volume === 'number' ? t.volume : 0.8;
+      const v = t.baseVol * volGain(t.col);
+      if (v !== t.volume) {
+        t.volume = v;
+        SS.audio.setTrackGain(t, v);
+      }
     });
     if (L.mode) SS.audio.applyMutes(L.proj);
   }
@@ -1474,7 +1512,7 @@ SS.band = (() => {
   }
   /** « Nouvelle chanson… » (menu de l'application) : l'assistant sur une chanson vide. */
   function openWizard({ fresh = true } = {}) {
-    S.wiz = { step: 1, seed: 0, off: new Set(), mute: new Set(), solo: new Set(), sig: null, res: null, fresh, mel: S.mel, hscene: null, tempo: null, tempoFor: null };
+    S.wiz = { step: 1, seed: 0, off: new Set(), mute: new Set(), solo: new Set(), sig: null, res: null, fresh, mel: S.mel, vol: new Map(), hscene: null, tempo: null, tempoFor: null };
     show();
   }
   function show() {

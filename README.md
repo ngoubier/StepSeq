@@ -130,8 +130,8 @@ enregistrés avant cette correction sont transposés à l'ouverture pour sonner 
 
 ### Nouvelle chanson : l'assistant
 
-**Nouvelle chanson…** (menu de l'icône de l'application) part d'une chanson vide et ouvre un assistant en cinq
-étapes, dans la fenêtre Band (`js/band.js`). Des étapes 2 à 5, un bandeau de commande sous le titre (`#bwTransport`) :
+**Nouvelle chanson…** (menu de l'icône de l'application) part d'une chanson vide et ouvre un assistant en quatre
+étapes, dans la fenêtre Band (`js/band.js`). Des étapes 2 à 4, un bandeau de commande sous le titre (`#bwTransport`) :
 lecture / pause / reprise (`SS.audio.pause` / `resume`), stop, position, **tempo** réglable (40–240 BPM, appliqué à
 l'écoute en cours et à la chanson créée) et **tonalité** (armure, accord de tonique) :
 
@@ -145,16 +145,17 @@ l'écoute en cours et à la chanson créée) et **tonalité** (armure, accord de
 3. **Harmonie** : scènes à gauche ; pour la scène choisie, la **piste d'accords** comme dans Key (degré, nom, rôle
    repos / préparation / tension : `SS.harmony.role`, accords tirés de `SS.bandSong.spansOf`), puis une ligne par
    instrument où les notes de l'accord sont pleines et les notes de passage en creux (part « dans l'accord » par
-   piste) ; batterie masquée par défaut (interrupteur), écoute de la scène en boucle, la vue suit la lecture ;
-4. **Mélodie** : **Générer la mélodie** tire une autre mélodie (lead, voix, sax) sur la même grille, sans changer
-   les autres musiciens (`melodySeed` de `SS.bandSong.build`) ; **Mélodie d'origine** revient à l'inspiration ;
-   écoute par scène avec **M**uet / **S**olo sur chaque instrument ;
-5. **Pistes** : cases à cocher par musicien (batterie, basse, nappes, arpèges, lead…) et par élément de batterie ;
+   piste) ; **M**uet / **S**olo et **volume** (−30 à +6 dB, `gains` d'`addBandSong`, gardé dans la chanson créée) sur
+   chaque instrument, une seule commande pour la batterie ; l'interrupteur **Toutes les pistes** masque tout sauf la
+   piste de la mélodie ; écoute de la scène en boucle, la vue suit la lecture. En haut, toute la **mélodie** :
+   **Générer la mélodie** tire une autre mélodie (lead, voix, sax) sur la même grille, sans changer les autres
+   musiciens (`melodySeed` de `SS.bandSong.build`) ; **Mélodie d'origine** revient à l'inspiration ; réglages ;
+4. **Pistes** : cases à cocher par musicien (batterie, basse, nappes, arpèges, lead…) et par élément de batterie ;
    **Créer la chanson** écrit les pistes cochées, les scènes et l'arrangement (tempo du bandeau, mixage
    automatique de Band). Ce qui est créé est exactement l'aperçu ; Ctrl+Z revient à la chanson vide.
 
 Le bouton **Band** ouvre le même assistant sur le projet en cours (l'ancien écran « Créer les pistes / Créer toute la
-chanson » n'existe plus) ; l'atelier Mélodie reste dans Key → Chanson. À l'étape Mélodie, les réglages de l'atelier
+chanson » n'existe plus) ; l'atelier Mélodie reste dans Key → Chanson. À l'étape Harmonie, les réglages de l'atelier
 (**pieds par vers**, mesures par vers, complexité, rythme, tessiture, fin) composent la mélodie scène par scène
 (`melody` de `SS.bandSong.build`, qui appelle `SS.melody.compose`).
 
