@@ -7,8 +7,11 @@
  *   - Master trop chaud, écrêtage de la sortie (grésillement) ;
  *   - décrochages du moteur audio (processeur saturé), notes programmées en retard (interface bloquée) ;
  *   - module audio planté, sortie interrompue, son coupé alors que les pistes jouent.
- * Les pannes qui coupent le son sont réparées automatiquement (SS.audio.repair). Les incidents s'affichent dans
- * la fenêtre Système ; un incident grave affiche aussi une notification.
+ * Les pannes qui coupent le son sont réparées automatiquement (SS.audio.repair). En cas de surcharge (décrochages,
+ * notes en retard à répétition), le mode allégé coupe temporairement ce qui ralentit (SS.audio.setLight : effets,
+ * reverbs, bus partagés, EQ / compresseurs / limiteurs, effets du Master, mastering, analyse de l'Auto Mix) jusqu'à
+ * l'arrêt de la lecture. Les incidents s'affichent dans la fenêtre Système ; un incident grave affiche aussi une
+ * notification.
  * assess() et estimateLoad() sont des fonctions pures, testées sous Node (tests/audiowatch.test.js).
  */
 window.SS = window.SS || {};
@@ -22,6 +25,7 @@ SS.audioWatch = (() => {
     clockRatio: 0.95, // horloge audio plus lente que l'horloge réelle : le moteur décroche
     merge: 10000, // un incident identique dans les 10 s est cumulé (compteur) au lieu d'être répété
     keep: 40, // incidents conservés
+    lateRepeat: 3, // notes en retard signalées autant de fois (en 10 s) avant d'alléger
   };
   const dB = (v) => (v > 0 ? 20 * Math.log10(v) : -Infinity);
   const fmtDb = (v) => (v >= 0 ? '+' : '−') + Math.abs(dB(v)).toFixed(1).replace('.', ',') + ' dB';
@@ -40,6 +44,7 @@ SS.audioWatch = (() => {
       same.last = now;
       if (inc.detail) same.detail = inc.detail;
       if (inc.advice) same.advice = inc.advice;
+      if (inc.level === 'bad' && same.level !== 'bad') Object.assign(same, { level: 'bad', title: inc.title }); // aggravation
       return null;
     }
     const full = { id: state.next++, key, count: 1, at: now, last: now, fixed: null, ...inc };
@@ -215,6 +220,11 @@ SS.audioWatch = (() => {
     return { added, actions: [...actions] };
   }
 
+  /** Incident de ce relevé qui justifie le mode allégé : vrais décrochages ou retards à répétition (pas une simple pointe). */
+  function overload(state, now) {
+    return state.incidents.find((x) => x.last === now && ((x.kind === 'underrun' && x.level === 'bad') || (x.kind === 'late' && x.count >= CFG.lateRepeat))) || null;
+  }
+
   /** Pire niveau des incidents récents : 'bad', 'warn' ou 'ok'. */
   function verdict(state, now, windowMs = 60000) {
     const recent = state.incidents.filter((x) => now - x.last < windowMs && !(x.fixed && x.level === 'bad' && now - x.last > 5000));
@@ -294,16 +304,85 @@ SS.audioWatch = (() => {
   let lastRepair = -Infinity;
   let lastToast = -Infinity;
   const listeners = new Set();
+  const notify = () => listeners.forEach((fn) => fn(state, null));
+
+  /* ---- mode allégé ---- */
+  const AUTO_KEY = 'ss.autoLight';
+  let lightInfo = null; // { at, auto, reason, automix } tant que le mode allégé est actif
+  let lastRun = 0;
+  let declined = false; // effets rétablis à la main pendant cette lecture : pas de nouvel allègement automatique
+  function autoLight() {
+    try {
+      return localStorage.getItem(AUTO_KEY) !== '0';
+    } catch (e) {
+      return true;
+    }
+  }
+  function setAutoLight(on) {
+    try {
+      localStorage.setItem(AUTO_KEY, on ? '1' : '0');
+    } catch (e) {
+      /* stockage indisponible : réglage pour cette session seulement */
+    }
+  }
+  /** Coupe temporairement ce qui ralentit. `reason` : cause affichée ; `auto` : décidé par la surveillance. */
+  function lighten(reason, auto) {
+    if (!SS.audio || !SS.audio.setLight || SS.audio.isLight()) return 0;
+    const now = performance.now();
+    const n = SS.audio.setLight(true);
+    // l'analyse de l'Auto Mix tire des analyseurs sur toute la chaîne : en pause pendant le mode allégé
+    const automix = !!(SS.automixListen && SS.automixListen.listening());
+    if (automix) SS.automixListen.stop();
+    lightInfo = { at: now, auto: !!auto, reason, automix };
+    const inc = raise(state, {
+      kind: 'light',
+      level: 'info',
+      where: 'light',
+      title: 'Mode allégé : effets coupés temporairement',
+      detail: `${reason ? reason + ' : ' : ''}reverbs, delays, chorus, envois et bus partagés, égaliseurs, compresseurs et limiteurs des pistes et du Master, effets du Master, mastering${automix ? ' et analyse de l’Auto Mix' : ''} sont contournés pour soulager le processeur. Les réglages ne sont pas modifiés.`,
+      advice: auto ? 'Tout revient à l’arrêt de la lecture, ou tout de suite avec « Rétablir les effets ». Sans limiteur, baisser le Master si le son sature.' : 'Tout revient avec « Rétablir les effets ». Sans limiteur, baisser le Master si le son sature.',
+    }, now);
+    if (!inc) {
+      const same = state.incidents.find((x) => x.kind === 'light');
+      if (same) same.fixed = null;
+    }
+    notify();
+    return n;
+  }
+  /** Rétablit tous les effets. `manual` : demandé par l'utilisateur (pas de nouvel allègement pendant cette lecture). */
+  function restore(manual) {
+    if (!SS.audio || !SS.audio.isLight || !SS.audio.isLight()) return 0;
+    const n = SS.audio.setLight(false);
+    if (lightInfo && lightInfo.automix && SS.automixPanel && SS.automixPanel._state().mode && SS.automixListen) SS.automixListen.start();
+    if (manual && SS.audio.isPlaying()) declined = true;
+    const inc = state.incidents.find((x) => x.kind === 'light' && !x.fixed);
+    if (inc) inc.fixed = manual ? 'Effets rétablis' : 'Effets rétablis à l\'arrêt de la lecture';
+    lightInfo = null;
+    notify();
+    return n;
+  }
 
   function sample() {
     if (!SS.audio || !SS.audio.probe) return;
     const now = performance.now();
     const playing = SS.audio.isPlaying();
+    const stopped = !playing && !(SS.audio.isPaused && SS.audio.isPaused());
+    if (stopped) {
+      declined = false;
+      // allègement automatique : il ne vaut que pour la lecture pendant laquelle le processeur a saturé
+      if (lightInfo && lightInfo.auto) restore(false);
+    }
     if (playing) lastActive = now;
     // à l'arrêt : un relevé par seconde pendant 10 s (fin des échos, emballement qui continue), puis plus rien
     if (!playing && (now - lastActive > 10000 || now - lastSample < 1000)) return;
     const snap = SS.audio.probe();
     if (!snap) return;
+    // nouvelle lecture, même relancée aussitôt après Stop : l'allègement automatique de la précédente prend fin
+    if (snap.run !== lastRun) {
+      lastRun = snap.run;
+      declined = false;
+      if (lightInfo && lightInfo.auto) restore(false);
+    }
     lastSample = now;
     const project = app && app.project();
     const names = new Map(project ? project.tracks.map((t) => [t.id, t.name || 'Piste']) : []);
@@ -322,6 +401,13 @@ SS.audioWatch = (() => {
       // second passage : les valeurs invalides encore en route pendant la réparation rebloqueraient le Master
       setTimeout(() => SS.audio.repair(), 300);
       for (const inc of state.incidents) if (now - inc.last < 1000 && (inc.kind === 'nan' || inc.kind === 'silent' || inc.kind === 'crash')) inc.fixed = `Réparé automatiquement (${n} étages remis à zéro)`;
+    }
+    const slow = snap.playing && !declined && autoLight() && !SS.audio.isLight() ? overload(state, now) : null;
+    if (slow && lighten(slow.kind === 'underrun' ? 'Processeur saturé' : 'Lecture qui prend du retard', true)) {
+      if (SS.ui && SS.ui.toast) {
+        lastToast = now;
+        SS.ui.toast('Processeur saturé : effets, reverbs, compression et mastering coupés temporairement', 8000, { label: 'Rétablir', run: () => restore(true) });
+      }
     }
     const grave = r.added.find((x) => x.level === 'bad');
     if (grave && now - lastToast > 12000 && SS.ui && SS.ui.toast && !(SS.systemPanel && SS.systemPanel.isOpen && SS.systemPanel.isOpen())) {
@@ -342,14 +428,21 @@ SS.audioWatch = (() => {
     assess,
     verdict,
     estimateLoad,
+    overload,
     start,
+    lighten,
+    restore,
+    isLight: () => !!(SS.audio && SS.audio.isLight && SS.audio.isLight()),
+    lightInfo: () => lightInfo,
+    autoLight,
+    setAutoLight,
     state: () => state,
     counters: () => state.counters,
     markSeen: () => (state.unseen = 0),
     clear: () => {
       state.incidents = [];
       state.unseen = 0;
-      listeners.forEach((fn) => fn(state, null));
+      notify();
     },
     /** Réparation demandée depuis la fenêtre Système. */
     repair: () => {
