@@ -1230,7 +1230,7 @@ SS.arpPanel = (() => {
   const PATTERN_HELP =
     'Une note par pas, séparées par des espaces. 0 1 2 3… : les notes de l’accord du grave à l’aigu (au-delà, on remonte d’une octave) ; ' +
     'd1 d3 d5 d7 d9 : fondamentale, tierce, quinte, septième, neuvième ; + ou − après : une octave plus haut ou plus bas (0+, d5-) ; ' +
-    '. : silence ; _ : la note précédente continue. Avec les numéros (0 1 2…) et le renversement « Proche » (module Accord), ' +
+    '. : silence ; _ : la note précédente continue ; | : un motif par accord (« 0 1 2 | 0 2 1 » : 1er accord, 2e accord, puis on recommence). Avec les numéros (0 1 2…) et le renversement « Proche » (module Accord), ' +
     'les notes communes à deux accords restent à la même hauteur.';
   const PATTERN_EXAMPLES = [
     { p: '0 1 2 3 2 1 2 1', hint: 'aller-retour de 8 notes' },
@@ -1241,7 +1241,7 @@ SS.arpPanel = (() => {
   function patternEditor(arp) {
     const cur = arp.mode === 'pattern' ? arp.pattern : '';
     const apply = (v) => {
-      v = v.trim().replace(/\s+/g, ' ');
+      v = v.trim().replace(/\s*\|\s*/g, ' | ').replace(/\s+/g, ' ');
       if (v) set({ mode: 'pattern', pattern: v });
     };
     const input = h('input', {
@@ -1253,11 +1253,15 @@ SS.arpPanel = (() => {
     // ce que donne le motif sur l'accord en cours (un cycle) ; les jetons non compris sont signalés
     let out = null;
     if (cur) {
-      const toks = A().parsePattern(cur);
-      const bad = toks.filter((t) => t.bad).map((t) => t.bad);
-      const ticks = A().preview({ ...arp, evolve: 0, harmony: 'chord', echo: { n: 0 }, rhythm: { type: 'all' }, lanes: {} }, sourceChord().notes, toks.length);
-      const seq = ticks.map((t, k) => (toks[k] && toks[k].tie ? '—' : t ? t.notes.map(A().noteName).join('+') : '·')).join(' ');
-      out = h('small', { class: 'arp-pattern-out' }, `Sur l’accord : ${seq}`, bad.length ? h('b', { class: 'arp-pattern-bad' }, ` · non compris : ${bad.join(' ')}`) : null);
+      const parts = A().patternParts(cur);
+      const bad = parts.flatMap((p) => A().parsePattern(p).filter((t) => t.bad).map((t) => t.bad));
+      const seqOf = (p) => {
+        const toks = A().parsePattern(p);
+        const ticks = A().preview({ ...arp, pattern: p, evolve: 0, harmony: 'chord', echo: { n: 0 }, rhythm: { type: 'all' }, lanes: {} }, sourceChord().notes, toks.length);
+        return ticks.map((t, k) => (toks[k] && toks[k].tie ? '—' : t ? t.notes.map(A().noteName).join('+') : '·')).join(' ');
+      };
+      const txt = parts.length > 1 ? parts.map((p, i) => `accord ${i + 1} : ${seqOf(p)}`).join(' · ') : `Sur l’accord : ${seqOf(parts[0] || '')}`;
+      out = h('small', { class: 'arp-pattern-out' }, txt, bad.length ? h('b', { class: 'arp-pattern-bad' }, ` · non compris : ${bad.join(' ')}`) : null);
     }
     const ex = h('div', { class: 'arp-pattern-ex' }, PATTERN_EXAMPLES.map((x) => h('button', { type: 'button', class: 'btn small', title: x.hint, onclick: () => set({ mode: 'pattern', pattern: x.p }) }, x.p)));
     return [input, out, ex];

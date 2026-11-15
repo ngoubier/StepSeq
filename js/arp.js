@@ -637,6 +637,7 @@
    *   d1 d3 d5 d7 d9   degré harmonique (fondamentale, tierce, quinte, septième, neuvième)
    *   suffixe + / - (répétable) : une octave plus haut / plus bas (« d1+ », « 2-- »)
    *   .         silence        _   prolonge la note précédente (liaison)
+   *   |         sépare un motif par accord (voir patternFor)
    */
   const patternCache = new Map();
   function parsePattern(str) {
@@ -654,6 +655,22 @@
     if (patternCache.size > 200) patternCache.clear();
     patternCache.set(key, out);
     return out;
+  }
+
+  /**
+   * Un motif par accord : « 0 1 2 | 0 2 1 » → le 1er accord de la piste joue « 0 1 2 », le 2e « 0 2 1 », le 3e
+   * reprend le premier motif, etc. (rang de l'accord dans les accords de la piste, info.events ; sans eux : le premier).
+   */
+  const patternParts = (str) => String(str || '').split('|').map((x) => x.trim()).filter(Boolean);
+  function patternFor(str, ev, events) {
+    const parts = patternParts(str);
+    if (parts.length < 2) return parts[0] || '';
+    let i = 0;
+    if (Array.isArray(events) && ev) {
+      const steps = [...new Set(events.filter((e) => e && Array.isArray(e.notes) && e.notes.some(Number.isFinite)).map((e) => e.step | 0))].sort((a, b) => a - b);
+      i = Math.max(0, steps.indexOf(ev.step | 0));
+    }
+    return parts[i % parts.length];
   }
 
   /* ------------------------------------------------------------------ */
@@ -937,6 +954,7 @@
   function tick(o, ev, k, info = {}) {
     const raw = (ev.notes || []).filter(Number.isFinite);
     if (!raw.length) return null;
+    if (o.mode === 'pattern' && o.pattern.includes('|')) o = { ...o, pattern: patternFor(o.pattern, ev, info.events) };
     const notes = voiced(raw, o, o.freeze ? o.freezeLoop : info.loop, info.events, ev);
     const c = chordOf(notes);
     const pool = buildPool(notes, o);
@@ -1386,7 +1404,7 @@
 
   SS.Arp = {
     MODES, RATES, HARMONY, INVERSIONS, VOICINGS, REGISTERS, MACROS, macroPatch, macroValue, macroText, ECHO_SHIFTS, ECHO_GAPS, ROLLS, LANE_DIRS, RETRIG, LANES, DEFAULTS, PRESETS, CHORD_TYPES,
-    normalize, fromPreset, analyzeChord, parsePattern, euclid, tick, renderStep, preview, parseChordSymbol,
+    normalize, fromPreset, analyzeChord, parsePattern, patternParts, euclid, tick, renderStep, preview, parseChordSymbol,
     GESTES, GROUP_OF, GROUP_SIZES, normGeste, gesteTimes, gesteGroup: (arp) => gesteGroup(normalize(arp)),
     degreeNote: (notes, d) => degreeNote(chordOf(notes), d),
     invertChord,

@@ -620,3 +620,22 @@ test('Boutons rotatifs : chaque position écrit ses réglages et se relit', () =
   const w = A.normalize({ ...base, ...A.macroPatch(base, 'width', 30), macros: { width: 30 }, octaves: 4 });
   assert.ok(A.macroValue(w, 'width') >= 85);
 });
+
+test('motif par accord (« | ») : chaque accord de la piste a son motif, qui repart à chaque accord', () => {
+  const arp = { mode: 'pattern', pattern: '0 1 2 | 0 1 2 | 0 2 1 | 0 2 1', rate: 1 };
+  const chords = [[69, 74, 76], [69, 76, 79], [69, 74, 77], [69, 72, 76]];
+  const events = chords.map((notes, i) => ({ step: i * 16, len: 16, notes, vel: 0.8 }));
+  const bar = (e) => {
+    const out = [];
+    for (let s = e.step; s < e.step + 16; s++) A.renderStep(arp, e, s, { loop: 0, stepSec: 0.1, events }).forEach((n) => out.push(A.noteName(n.midi)));
+    return out;
+  };
+  assert.deepEqual(bar(events[0]).slice(0, 4), ['A4', 'D5', 'E5', 'A4']);
+  assert.equal(bar(events[0]).length, 16);
+  assert.equal(bar(events[0])[15], 'A4'); // 5 groupes de 3 + la note de reprise
+  assert.deepEqual(bar(events[2]).slice(0, 3), ['A4', 'F5', 'D5']);
+  assert.deepEqual(bar(events[3]).slice(0, 3), ['A4', 'E5', 'C5']);
+  // sans les accords de la piste (aperçu) : le premier motif
+  assert.deepEqual(A.preview(arp, chords[2], 3).map((t) => A.noteName(t.notes[0])), ['A4', 'D5', 'F5']);
+  assert.deepEqual(A.patternParts(' 0 1 |  | 2 '), ['0 1', '2']);
+});
