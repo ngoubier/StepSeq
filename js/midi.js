@@ -189,7 +189,7 @@
     const outs = tracks.map((t) => {
       const drum = t.type === 'drum';
       const ch = drum ? 9 : melodicCh[nextCh++ % melodicCh.length];
-      return { t, ch, drum, notes: [], cc: [], ccLast: {}, prog: drum ? null : programOf(t) };
+      return { t, ch, drum, notes: [], cc: [], bend: [], ccLast: {}, prog: drum ? null : programOf(t) };
     });
     if (nextCh > melodicCh.length) approx.push(`${nextCh} pistes Instrument pour 15 canaux MIDI : certaines partagent un canal (elles restent sur des pistes séparées).`);
 
@@ -244,16 +244,19 @@
           const alen = SS.autoLen(view, { ...t, autoLen: d.autoLen }); // l'automation boucle sur sa propre longueur
           for (let tick = 0; tick < ticksTotal; tick++) {
             for (const P of SS.AUTO_PARAMS) {
-              if (!P.cc) continue;
-              let v = SS.autoValue(d.auto && d.auto[P.id], tick % alen, alen);
+              if (!P.cc && !P.bend) continue;
+              const slot = P.bend ? 'bend' : P.cc;
+              let v = SS.autoValue(d.auto && d.auto[P.id], tick % alen, alen, !!P.toggle);
               if (v === null) {
-                if (out.ccLast[P.cc] === undefined) continue;
+                if (out.ccLast[slot] === undefined) continue;
                 v = P.def;
               }
-              const val = clamp(Math.round(P.min < 0 ? 64 + v * 63 : v * 127), 0, 127);
-              if (out.ccLast[P.cc] === val) continue;
-              out.ccLast[P.cc] = val;
-              out.cc.push({ at: (base + tick) * TPS, cc: P.cc, val });
+              // pitch bend : 14 bits, 8192 = au centre ; contrôleurs : 0..127 (64 = milieu d'une valeur −1..+1)
+              const val = P.bend ? clamp(Math.round(8192 + v * 8191), 0, 16383) : clamp(Math.round(P.min < 0 ? 64 + v * 63 : v * 127), 0, 127);
+              if (out.ccLast[slot] === val) continue;
+              out.ccLast[slot] = val;
+              if (P.bend) out.bend.push({ at: (base + tick) * TPS, val });
+              else out.cc.push({ at: (base + tick) * TPS, cc: P.cc, val });
             }
           }
           const events = d.events || [];
@@ -311,6 +314,7 @@
         lastOf.set(n.note, n);
       }
       for (const c of out.cc) evs.push({ tick: Math.round(c.at), bytes: [0xb0 | ch, c.cc, c.val] });
+      for (const b of out.bend) evs.push({ tick: Math.round(b.at), bytes: [0xe0 | ch, b.val & 0x7f, b.val >> 7] });
       for (const n of notes) {
         const vel = clamp(Math.round(n.vel * 127), 1, 127);
         evs.push({ tick: n.at, bytes: [0x90 | ch, n.note, vel] });
@@ -326,7 +330,9 @@
       if (out.drum && t.source && t.source !== 'tdm' && t.source !== 'gm') approx.push(`« ${t.name} » (banque ${t.bank}) → note GM ${drumNoteOf(t)}`);
     }
     if (o.audibleOnly && tracks.length < p.tracks.length) ignored.push(`${p.tracks.length - tracks.length} piste(s) muette(s) non exportée(s).`);
-    const autos = SS.AUTO_PARAMS.filter((P) => P.cc).map((P) => `${P.label} → CC ${P.cc}`).join(', ');
+    const autos = SS.AUTO_PARAMS.filter((P) => P.cc || P.bend)
+      .map((P) => (P.bend ? `${P.label.replace(' (synthé externe)', '')} → pitch bend (±${SS.BEND_RANGE} demi-tons)` : `${P.label.replace(' (synthé externe)', '')} → CC ${P.cc}`))
+      .join(', ');
     const scenesData = p.scenes.flatMap((sc) => Object.entries(sc.data || {}));
     if (scenesData.some(([, d]) => d.auto)) {
       approx.push(`Automation des pistes instrument en contrôleurs MIDI : ${autos} (une valeur par pas).`);

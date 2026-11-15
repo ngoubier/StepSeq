@@ -629,7 +629,8 @@ SS.audio = (() => {
    * du pas suivant (fréquences : rampe exponentielle, à l'oreille). `time` = instant nominal du pas (sans swing).
    */
   function scheduleAuto(project, track, tick, time, sd) {
-    const lanes = track.auto;
+    // seules les courbes de la tranche passent par ces nœuds (pas celles du son, ni les contrôleurs MIDI)
+    const lanes = track.auto && SS.AUTO_PARAMS.some((P) => !P.voice && !P.midi && track.auto[P.id]) ? track.auto : null;
     let b = buses.get(track.id);
     if (!lanes) {
       if (b && b.auto && b.auto.active) autoNeutral(b.auto, time);
@@ -1832,15 +1833,20 @@ SS.audio = (() => {
             const t = time + n.at;
             const alen = SS.autoLen(project, track);
             const locks = SS.voiceLocks(track, (tick % alen) + n.at / sd, alen);
+            // pédale de sustain : la note relâchée pédale enfoncée tient jusqu'à ce qu'elle se relève
+            const ndur = track.auto && track.auto.sustain ? SS.pedalLen(track, (tick % alen) + n.at / sd, n.dur / sd, alen) * sd : n.dur;
             // notes simultanées (mode Accord rythmique) : jouées comme un accord (glide, niveau)
             const group = notes.filter((x) => x.at === n.at);
             const gi = group.indexOf(n);
-            playNote(track, n.midi, t + jt(), n.dur, jv(n.vel * (group.length > 1 ? 0.8 : 1)), undefined, gi, group.length, { cutoff: n.cutoff, locks, acc: !!ev.acc });
+            playNote(track, n.midi, t + jt(), ndur, jv(n.vel * (group.length > 1 ? 0.8 : 1)), undefined, gi, group.length, { cutoff: n.cutoff, locks, acc: !!ev.acc });
             if (n.first) duckFrom(project, track, t); // un arpège déclenche le sidechain au début de chaque accord
           });
         } else if (ev.step === step) {
-          // une note ne dépasse pas la fin de la boucle de sa piste
-          const dur = Math.min(ev.len, SS.trackLen(project, track) - ev.step) * sd * 0.98;
+          // une note ne dépasse pas la fin de la boucle de sa piste, sauf si la pédale de sustain la tient
+          const alen = SS.autoLen(project, track); // l'automation boucle sur sa propre longueur
+          const written = Math.min(ev.len, SS.trackLen(project, track) - ev.step);
+          const held = track.auto && track.auto.sustain ? SS.pedalLen(track, tick % alen, written, alen) : written;
+          const dur = held * sd * (held > written ? 1 : 0.98);
           // micro-décalage de la note (ev.shift, fraction de pas) : en avance ou en retard sur la grille
           const tt = time + jt() + (ev.shift || 0) * sd;
           const vv = jv(ev.vel);
@@ -1848,7 +1854,6 @@ SS.audio = (() => {
           const r = ev.rat || 1;
           const sub = sd / r;
           // automation du son (track.auto, réglages « voice ») : valeur au pas de la note
-          const alen = SS.autoLen(project, track); // l'automation boucle sur sa propre longueur
           const locks = SS.voiceLocks(track, tick % alen, alen);
           const nmod = locks || ev.acc ? { locks, acc: !!ev.acc } : null;
           for (let j = 0; j < r; j++) {

@@ -462,6 +462,7 @@ node tests/e2e/trigcond.js           # conditions de déclenchement (menus, rep�
 node tests/e2e/automation.js         # automation (ligne sous la piste, dessin, formes, son qui suit la courbe)
 node tests/e2e/compact-menu.js       # hauteur « Compact » : menu ⋯ des commandes de la piste
 node tests/e2e/line-select.js        # ligne et piano roll : clic = sélection (pas d'effacement), glisser = déplacer
+node tests/e2e/transform-sustain.js  # menu Transformer (inversion, durées, mode, rétrograde) et pédale de sustain
 ```
 
 Sur la ligne compacte comme dans le piano roll, un clic sur une note existante la sélectionne (poignées de longueur
@@ -516,6 +517,18 @@ en plus longues ou courtes, faire entrer / calmer les LFO.
   sans swing. Elle évolue donc pendant une note tenue. À l'arrêt, tout revient au neutre.
 - Export MIDI : une valeur par pas quand elle change, pistes instrument seulement (le canal 10 est partagé par toute
   la batterie).
+
+**Contrôleurs MIDI** (pistes instrument et synthé, Juno-106 compris ; troisième groupe du menu de la ligne) :
+
+| Réglage | Dans StepSeq | Export MIDI |
+|---|---|---|
+| Pédale de sustain | deux valeurs (enfoncée / relâchée), sans rampe ; une note relâchée pédale enfoncée tient jusqu'au pas où la pédale se relève (`SS.pedalLen`), au-delà de la fin de la boucle s'il le faut | CC 64 (127 / 0) ; les notes gardent leur durée écrite |
+| Modulation (synthé externe) | rien (pour la molette d'un synthé matériel) | CC 1 |
+| Pitch bend (synthé externe) | rien | pitch bend 14 bits, ±2 demi-tons (`SS.BEND_RANGE`) |
+
+Formes de la pédale : relevée à chaque mesure ou demi-mesure (relevée sur le pas du changement d'accord, enfoncée
+au pas suivant), enfoncée tout du long. Une courbe avant son premier point prend la valeur du dernier point de la
+boucle (`SS.autoValue(…, hold)`). Les courbes MIDI seules ne créent pas de nœuds audio sur la tranche.
 - Sur téléphone, le bouton ∿ est masqué ; les courbes posées restent jouées.
 
 ### Conditions de déclenchement
@@ -553,6 +566,17 @@ condition est remplie à ce passage de la boucle (`SS.TRIG_CONDS`, `SS.trigOk` d
 - **Glisser une note sélectionnée** déplace la sélection (en hauteur aussi dans le piano roll) ;
   **Alt+glisser** en déplace une copie. Flèches `←` `→` : un pas (Maj : une mesure),
   `↑` `↓` : un demi-ton (Maj : une octave).
+- **Transformer…** (menu de la barre du bas, pistes instrument et synthé ; `js/transform.js`, fonctions pures
+  testées) :
+  - **Inverser** : miroir des hauteurs autour de la première note, dans la gamme de la scène si elle a une
+    tonalité (Do Ré Mi Fa → Do Si La Sol en Do majeur), sinon en demi-tons ;
+  - **Rétrograde** : la phrase à l'envers, durées gardées (un micro-décalage s'inverse aussi) ;
+  - **Durées ×2 / ×½** : positions et durées depuis le début de la sélection ; les notes qui sortent de la boucle,
+    ou qui tombent sur la même note au même pas, sont retirées (le message les compte) ;
+  - **Autre mode** (scène avec une tonalité) : même tonique, chaque note garde son degré (Do majeur → Do mineur :
+    Mi → Mi♭, La → La♭, Si → Si♭) ; une note hors de la gamme garde son écart.
+  - Accords et arpèges : l'inversion déplace l'accord entier dans la gamme (sa fondamentale suit le miroir), le
+    type d'accord suit s'il est reconnu. Les notes recouvertes sont remplacées, comme au collage ; Ctrl+Z annule.
 
 ### Zoom horizontal
 
@@ -660,6 +684,13 @@ par la fenêtre **Key** :
 | `musicemotion` | Composer à partir d'une émotion : matrice émotion → procédés, trois pistes contrastées, essais A/B | Section Émotion : 13 intentions, propositions, essais A/B, modes |
 | `composer-melodies-accords-texte` | Mélodie sur une grille d'accords et des paroles ou une métrique : prosodie, rythme, notes cibles, contrôles, export MIDI | Key → Mélodie : scansion, proposition, tableau des notes, contrôles, écriture sur une piste |
 
+## Point de comparaison : Cubase Pro 16
+
+[`docs/comparaison-cubase.md`](docs/comparaison-cubase.md) situe StepSeq par rapport à un DAW complet, d'après la
+[description fonctionnelle de Cubase Pro 16](docs/reference/cubase-16-description-fonctionnelle.md) : pour chacun
+des 18 domaines (harmonie, édition MIDI, arpèges, mixage, automation, export…), ce que StepSeq couvre, ce qui manque
+et les évolutions prioritaires qui en découlent (export audio, Web MIDI vers un synthé matériel, Strum…).
+
 ## Structure du code
 
 | Fichier          | Rôle |
@@ -701,6 +732,7 @@ par la fenêtre **Key** :
 | `js/midi-file.js` | Lecture / écriture de fichiers MIDI standard (type 0 et 1), sans dépendance |
 | `js/midi.js`     | Import MIDI (quantification, pistes, analyse de la structure en scènes) et export MIDI (arrangement, arpèges rendus, correspondances General MIDI) |
 | `js/midipanel.js` | Fenêtres Importer MIDI / Exporter MIDI (options, bilan, téléchargement) |
+| `js/transform.js` | Transformations d'une sélection de notes : inversion, rétrograde, durées ×2 / ×½, autre mode |
 | `js/ui.js`       | Rendu des pistes, grille, piano roll, dialogue |
 | `js/main.js`     | Démarrage, barre d'outils, raccourcis |
 | `guide.html`     | Guide d'utilisation (bouton « Aide » de l'app) |
