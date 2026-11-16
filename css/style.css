@@ -209,6 +209,20 @@ a.btn { text-decoration: none; }
 }
 .field input[type=number] { width: 66px; }
 
+/* Mesure, mesures et groove : un bouton à icône seule, la bulle s'ouvre au survol (js/main.js, initMeta) */
+.meta-wrap { position: relative; }
+.meta-pop { display: none; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); padding-top: 8px; z-index: 60; }
+.meta-wrap:hover .meta-pop, .meta-wrap.open .meta-pop, .meta-wrap:focus-within .meta-pop { display: block; }
+.meta-card { display: flex; flex-direction: column; align-items: stretch; gap: 10px; min-width: 230px; padding: 12px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 32px rgba(0, 0, 0, .5); }
+.meta-card .field { justify-content: space-between; }
+.topbar .meta-card .field > span { display: inline; }
+.meta-groove { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; }
+.meta-groove svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.meta-groove #grooveLabel { flex: 1; }
+.meta-groove.on { border-color: var(--accent-2); }
+.meta-more { color: var(--muted); font-size: 16px; }
+.meta-btn.on { color: var(--accent-2); border-color: var(--accent-2); }
+
 .lcd {
   min-width: 150px;
   padding: 4px 12px;

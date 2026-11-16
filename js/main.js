@@ -94,6 +94,7 @@
   function changed() {
     dirty = true;
     syncStudio();
+    syncMeta();
     scheduleHistory();
     updateUndoButtons();
     // la durée de la chanson dépend des mesures / du tempo : on rafraîchit le panneau (sauf pendant un renommage)
@@ -157,6 +158,35 @@
   }
 
   /* ---------- Barre du haut ---------- */
+  /** Infobulle du bouton Mesure / groove : l'état, puisque le bouton n'a pas de texte. */
+  function syncMeta() {
+    const btn = $('#metaBtn');
+    if (!btn) return;
+    const gl = ($('#grooveLabel') || {}).textContent || '';
+    btn.title = `${project.timeSig[0]}/${project.timeSig[1]} · ${project.bars} mesure${project.bars > 1 ? 's' : ''} · ${gl}`;
+  }
+  SS.syncMeta = () => syncMeta();
+  /** Bulle Mesure / Mesures / Groove : ouverte au survol (CSS), au clic (toucher) ou au clavier ; Échap ou clic ailleurs la ferme. */
+  function initMeta() {
+    const wrap = $('#metaWrap');
+    const btn = $('#metaBtn');
+    if (!wrap || !btn) return;
+    const set = (on) => {
+      wrap.classList.toggle('open', on);
+      btn.setAttribute('aria-expanded', String(on || wrap.matches(':hover')));
+    };
+    btn.addEventListener('click', () => set(!wrap.classList.contains('open')));
+    wrap.addEventListener('mouseenter', () => btn.setAttribute('aria-expanded', 'true'));
+    wrap.addEventListener('mouseleave', () => btn.setAttribute('aria-expanded', String(wrap.classList.contains('open'))));
+    wrap.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      e.stopPropagation();
+      set(false);
+      btn.focus();
+    });
+    document.addEventListener('pointerdown', (e) => !wrap.contains(e.target) && set(false));
+    $('#grooveBtn').addEventListener('click', () => set(false));
+  }
   function syncHeader() {
     $('#title').value = project.title;
     $('#lcdTitle').textContent = project.title;
@@ -176,6 +206,7 @@
     SS.groove.updateButton();
     SS.harmonyPanel.updateButton();
     syncStudio();
+    syncMeta();
     document.title = project.title + ' — StepSeq';
   }
 
@@ -766,6 +797,7 @@
   SS.junoPanel.init({ changed, renderTrack: (t) => SS.ui.renderTrack(t) });
   SS.arpPanel.init({ project: () => project, changed, renderTrack: (t) => SS.ui.renderTrack(t) });
   SS.groove.init({ project: () => project, changed });
+  initMeta();
   SS.harmonyPanel.init({ project: () => project, changed, renderAll: () => SS.ui.renderAll(), activeTrack: () => SS.ui.activeTrack(), switchScene });
   SS.mixer.init({ project: () => project, changed, renderAll: () => SS.ui.renderAll() });
   // un module optionnel qui ne démarre pas (page en cache d'une version précédente…) ne doit pas bloquer l'application

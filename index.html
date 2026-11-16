@@ -34,25 +34,37 @@
         <input id="tempo" type="number" min="20" max="300" step="1">
         <small>BPM</small>
       </label>
-      <label class="field">
-        <span>Mesure</span>
-        <select id="sigNum" aria-label="Temps par mesure"></select>
-        <b>/</b>
-        <select id="sigDen" aria-label="Unité de temps">
-          <option value="4">4</option>
-          <option value="8">8</option>
-        </select>
-      </label>
-      <label class="field">
-        <span>Mesures</span>
-        <select id="bars">
-          <option>1</option><option>2</option><option>4</option><option>8</option><option>16</option><option>32</option><option>64</option>
-        </select>
-      </label>
-      <button id="grooveBtn" class="btn btn-icon groove-icon" type="button" title="Groove : droit (swing et humanisation)">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17c3 0 3-10 6-10s3 10 6 10 3-10 6-10"/></svg>
-        <span id="grooveLabel" class="sr">Groove : droit</span>
-      </button>
+      <!-- Mesure, nombre de mesures et groove : un bouton à icône seule, la bulle s'ouvre au survol
+           (au toucher et au clavier : clic / Entrée, Échap la ferme) — js/main.js, initMeta -->
+      <div class="meta-wrap" id="metaWrap">
+        <button id="metaBtn" class="btn btn-icon groove-icon meta-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="metaPop" aria-label="Mesure, mesures et groove">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17c3 0 3-10 6-10s3 10 6 10 3-10 6-10"/></svg>
+        </button>
+        <div class="meta-pop" id="metaPop" role="group" aria-label="Mesure, mesures et groove">
+          <div class="meta-card">
+            <label class="field">
+              <span>Mesure</span>
+              <select id="sigNum" aria-label="Temps par mesure"></select>
+              <b>/</b>
+              <select id="sigDen" aria-label="Unité de temps">
+                <option value="4">4</option>
+                <option value="8">8</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Mesures</span>
+              <select id="bars" aria-label="Nombre de mesures de la scène">
+                <option>1</option><option>2</option><option>4</option><option>8</option><option>16</option><option>32</option><option>64</option>
+              </select>
+            </label>
+            <button id="grooveBtn" class="btn meta-groove" type="button" title="Groove : droit (swing et humanisation)">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17c3 0 3-10 6-10s3 10 6 10 3-10 6-10"/></svg>
+              <span id="grooveLabel">Groove : droit</span>
+              <span class="meta-more" aria-hidden="true">›</span>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="topbar-group transport">

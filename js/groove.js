@@ -21,10 +21,12 @@ SS.groove = (() => {
 
   function updateButton() {
     const on = label() !== 'droit';
-    // bouton à icône seule : l'état s'affiche dans l'infobulle (et reste lu par les lecteurs d'écran)
+    // dans la bulle Mesure / groove de la barre du haut : l'état en clair, et dans l'infobulle
     $('#grooveLabel').textContent = 'Groove : ' + label();
     $('#grooveBtn').title = `Groove : ${label()} (swing et humanisation)`;
     $('#grooveBtn').classList.toggle('on', on);
+    $('#metaBtn') && $('#metaBtn').classList.toggle('on', on); // le bouton de la barre montre qu'un groove est actif
+    SS.syncMeta && SS.syncMeta();
   }
 
   function sync() {
