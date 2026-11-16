@@ -1,5 +1,5 @@
 /*
- * Atelier « Mélodie » (Key → Chanson → Mélodie) : proposer une mélodie sur une piste à partir d'une grille d'accords et d'une
+ * Atelier « Mélodie » (Harmonie → Chanson → Mélodie) : proposer une mélodie sur une piste à partir d'une grille d'accords et d'une
  * structure (notes par phrase). La mélodie dure exactement la grille : 4 accords → 4 mesures.
  * Vue simple : grille, structure, piste. Paroles, tonalité, tessiture, rythme et fin sont dans « Options ». Le calcul est dans js/melody.js (méthode du skill
  * « composer-melodies-accords-texte ») ; ce module gère le formulaire, l'affichage de la proposition
@@ -12,7 +12,7 @@ SS.melodyPanel = (() => {
   const M = () => SS.melody;
   const H = () => SS.harmony;
   let app = null;
-  // hôte : l'onglet Mélodie de Key (ou tout autre panneau). { box, leadOpts(), close(), buttons: { again, write },
+  // hôte : l'onglet Mélodie d’Harmonie (ou tout autre panneau). { box, leadOpts(), close(), buttons: { again, write },
   // preferSceneKey (la tonalité de la scène plutôt que celle déduite des accords), padTrack() (piste de la nappe) }
   let ctx = null;
   let box = null;
@@ -406,7 +406,7 @@ SS.melodyPanel = (() => {
           class: 'btn mel-scene',
           id: 'melFromScene',
           onclick: fromScene,
-          title: 'Lire les accords de la scène en cours (grille Key ou pistes d’accords)',
+          title: 'Lire les accords de la scène en cours (grille Harmonie ou pistes d’accords)',
         },
         'Reprendre les accords de la scène',
       )),
@@ -560,7 +560,7 @@ SS.melodyPanel = (() => {
   }
 
   /* ---------- Grille de la mélodie : accords en haut, notes en bas ---------- */
-  // fonction des accords (mêmes couleurs que la fenêtre Key) et type des notes
+  // fonction des accords (mêmes couleurs que la fenêtre Harmonie) et type des notes
   const CHORD_FN = {
     repos: { label: 'Repos', color: '#3fcf8e' },
     prep: { label: 'Préparation', color: '#f5c400' },

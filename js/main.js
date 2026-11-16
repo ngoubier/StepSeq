@@ -94,6 +94,7 @@
   function changed() {
     dirty = true;
     syncStudio();
+    syncMeta();
     scheduleHistory();
     updateUndoButtons();
     // la durée de la chanson dépend des mesures / du tempo : on rafraîchit le panneau (sauf pendant un renommage)
@@ -157,6 +158,35 @@
   }
 
   /* ---------- Barre du haut ---------- */
+  /** Infobulle du bouton Mesure / groove : l'état, puisque le bouton n'a pas de texte. */
+  function syncMeta() {
+    const btn = $('#metaBtn');
+    if (!btn) return;
+    const gl = ($('#grooveLabel') || {}).textContent || '';
+    btn.title = `${project.timeSig[0]}/${project.timeSig[1]} · ${project.bars} mesure${project.bars > 1 ? 's' : ''} · ${gl}`;
+  }
+  SS.syncMeta = () => syncMeta();
+  /** Bulle Mesure / Mesures / Groove : ouverte au survol (CSS), au clic (toucher) ou au clavier ; Échap ou clic ailleurs la ferme. */
+  function initMeta() {
+    const wrap = $('#metaWrap');
+    const btn = $('#metaBtn');
+    if (!wrap || !btn) return;
+    const set = (on) => {
+      wrap.classList.toggle('open', on);
+      btn.setAttribute('aria-expanded', String(on || wrap.matches(':hover')));
+    };
+    btn.addEventListener('click', () => set(!wrap.classList.contains('open')));
+    wrap.addEventListener('mouseenter', () => btn.setAttribute('aria-expanded', 'true'));
+    wrap.addEventListener('mouseleave', () => btn.setAttribute('aria-expanded', String(wrap.classList.contains('open'))));
+    wrap.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      e.stopPropagation();
+      set(false);
+      btn.focus();
+    });
+    document.addEventListener('pointerdown', (e) => !wrap.contains(e.target) && set(false));
+    $('#grooveBtn').addEventListener('click', () => set(false));
+  }
   function syncHeader() {
     $('#title').value = project.title;
     $('#lcdTitle').textContent = project.title;
@@ -176,26 +206,15 @@
     SS.groove.updateButton();
     SS.harmonyPanel.updateButton();
     syncStudio();
+    syncMeta();
     document.title = project.title + ' — StepSeq';
   }
 
   /**
-   * Sous-titres des boutons Band et Song (celui de Key vient de js/harmonypanel.js) :
-   * le groupe qui a inspiré les pistes Band et la scène en cours.
+   * Sous-titre du bouton Song (celui d'Harmonie vient de js/harmonypanel.js) :
+   * la scène en cours.
    */
   function syncStudio() {
-    // Band : l'artiste de l'inspiration la plus utilisée par les pistes créées dans Band
-    const count = new Map();
-    project.tracks.forEach((t) => {
-      if (!t.band) return;
-      const st = SS.Band && SS.Band.STYLES.find((x) => x.id === t.band.style);
-      const pr = st && st.presets.find((x) => x.id === t.band.preset);
-      if (pr && pr.artist) count.set(pr, (count.get(pr) || 0) + 1);
-    });
-    const best = [...count].sort((a, b) => b[1] - a[1])[0];
-    const band = best ? best[0].artist : 'Aucun groupe';
-    $('#bandSub').textContent = band;
-    $('#bandBtn').title = best ? `Band : groupe inspiré de ${best[0].artist} (« ${best[0].song} »)` : 'Band : créer une chanson avec un groupe de musiciens virtuels';
     // Song : la scène en cours
     const sc = SS.currentScene(project);
     $('#songSub').textContent = sc ? sc.name : '—';
@@ -599,7 +618,7 @@
   }
 
   /**
-   * Atelier Mélodie (Key → Chanson) : écrit une mélodie (js/melody.js) sur une piste Mono de la scène en cours, ou sur une nouvelle
+   * Atelier Mélodie (Harmonie → Chanson) : écrit une mélodie (js/melody.js) sur une piste Mono de la scène en cours, ou sur une nouvelle
    * piste « Mélodie ». La scène est allongée si la mélodie est plus longue (les autres pistes sont recopiées en boucle).
    */
   function writeMelody({ trackId, newTrack, events, bars, melodyBars, label }) {
@@ -778,6 +797,7 @@
   SS.junoPanel.init({ changed, renderTrack: (t) => SS.ui.renderTrack(t) });
   SS.arpPanel.init({ project: () => project, changed, renderTrack: (t) => SS.ui.renderTrack(t) });
   SS.groove.init({ project: () => project, changed });
+  initMeta();
   SS.harmonyPanel.init({ project: () => project, changed, renderAll: () => SS.ui.renderAll(), activeTrack: () => SS.ui.activeTrack(), switchScene });
   SS.mixer.init({ project: () => project, changed, renderAll: () => SS.ui.renderAll() });
   // un module optionnel qui ne démarre pas (page en cache d'une version précédente…) ne doit pas bloquer l'application

@@ -164,7 +164,7 @@ a.btn { text-decoration: none; }
 .app-menu button:hover, .app-menu button:focus-visible { background: var(--accent); outline: none; }
 .app-menu kbd { font: inherit; font-size: 11px; color: var(--muted); }
 .app-menu button:hover kbd, .app-menu button:focus-visible kbd { color: rgba(255, 255, 255, .75); }
-/* Band, Key, Song, Mix : regroupés */
+/* Nouvelle, Harmonie, Song, Mix : regroupés */
 .topbar-group.studio {
   display: grid;
   grid-auto-flow: column;
@@ -175,7 +175,7 @@ a.btn { text-decoration: none; }
   background: var(--panel);
 }
 .topbar-group.studio { padding: 4px; border-radius: 12px; }
-/* Band, Key, Song, Mix : titre en gras et sous-titre (groupe, tonalité, scène, console) */
+/* Nouvelle, Harmonie, Song, Mix : titre en gras et sous-titre (Créer · Reprendre, tonalité, scène, console) */
 .studio-btn { height: 54px; padding: 0 14px 0 12px; justify-content: flex-start; gap: 10px; min-width: 150px; border-radius: 9px; }
 .studio-btn .sb-ico svg { width: 22px; height: 22px; display: block; }
 .sb-txt { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; min-width: 0; }
@@ -208,6 +208,20 @@ a.btn { text-decoration: none; }
   font: inherit;
 }
 .field input[type=number] { width: 66px; }
+
+/* Mesure, mesures et groove : un bouton à icône seule, la bulle s'ouvre au survol (js/main.js, initMeta) */
+.meta-wrap { position: relative; }
+.meta-pop { display: none; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); padding-top: 8px; z-index: 60; }
+.meta-wrap:hover .meta-pop, .meta-wrap.open .meta-pop, .meta-wrap:focus-within .meta-pop { display: block; }
+.meta-card { display: flex; flex-direction: column; align-items: stretch; gap: 10px; min-width: 230px; padding: 12px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 32px rgba(0, 0, 0, .5); }
+.meta-card .field { justify-content: space-between; }
+.topbar .meta-card .field > span { display: inline; }
+.meta-groove { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; }
+.meta-groove svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.meta-groove #grooveLabel { flex: 1; }
+.meta-groove.on { border-color: var(--accent-2); }
+.meta-more { color: var(--muted); font-size: 16px; }
+.meta-btn.on { color: var(--accent-2); border-color: var(--accent-2); }
 
 .lcd {
   min-width: 150px;
@@ -2625,7 +2639,7 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
 .bh-lbl small { margin-left: 5px; text-transform: none; letter-spacing: 0; font-size: 11.5px; color: #c9b8ff; }
 .bh-notes output { min-width: 70px; padding: 0 4px; text-align: center; font-weight: 600; font-size: 14px; }
 .bh-notes button:disabled { color: #55555f; cursor: default; }
-/* étape Accords : la grille de la scène, comme dans Key */
+/* étape Accords : la grille de la scène, comme dans Harmonie */
 .bwc { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 12px; padding-bottom: 14px; }
 .bwc-head h3 { margin: 0; font-size: 18px; }
 .bwc-head .field select { min-width: 0; }
@@ -3064,7 +3078,7 @@ body[data-grid="half"] .rcell.half:not(.on) { border-left-color: #333338; }
   .topbar .field > span { display: none; }
   .topbar .field input[type=number] { width: 54px; }
   .topbar .field select, .topbar .field input { padding: 5px 4px; }
-  /* Band, Key, Song, Mix : quatre colonnes égales */
+  /* Nouvelle, Harmonie, Song, Mix : quatre colonnes égales */
   .topbar-group.studio { gap: 3px; padding: 3px; }
   .studio-btn { min-width: 0; height: 46px; padding: 0 6px; gap: 5px; border-radius: 8px; }
   .studio-btn .sb-ico svg { width: 17px; height: 17px; }
@@ -3103,7 +3117,7 @@ body[data-grid="half"] .rcell.half:not(.on) { border-left-color: #333338; }
 }
 
 /* Téléphone à l'horizontale (peu de hauteur) : barre du haut sur deux lignes, sans le panneau d'arrangement
-   (la fenêtre Song reste à un clic), boutons Band / Key / Song / Mix sans sous-titre. */
+   (la fenêtre Song reste à un clic), boutons Nouvelle / Harmonie / Song / Mix sans sous-titre. */
 @media (max-height: 500px) and (max-width: 1000px) {
   .topbar { padding: 6px 10px; gap: 6px 10px; }
   .topbar-group:first-child { order: 1; flex: 0 1 230px; min-width: 0; flex-wrap: nowrap; }
@@ -3558,7 +3572,7 @@ dialog.system-dialog { width: min(920px, calc(100vw - 24px)); max-height: calc(1
   .system-footer button { width: 100%; }
 }
 
-/* ---------- Atelier Mélodie (js/melodypanel.js, dans Key → Chanson) ---------- */
+/* ---------- Atelier Mélodie (js/melodypanel.js, dans Harmonie → Chanson) ---------- */
 .mel-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(320px, 420px) 1fr; }
 .mel-form { min-width: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; border-right: 1px solid var(--line); overflow-y: auto; min-height: 0; }
 .mel-form textarea, .mel-form input[type=text], .mel-form select {
@@ -3648,7 +3662,7 @@ dialog.system-dialog { width: min(920px, calc(100vw - 24px)); max-height: calc(1
 .mel-more[open], .mel-details[open] { display: flex; flex-direction: column; gap: 10px; padding-bottom: 10px; }
 .mel-lead { font-size: 14px !important; }
 
-/* ---------- Key → onglet Mélodie (le panneau de Band) et Vérifier ---------- */
+/* ---------- Harmonie → onglet Mélodie (le panneau de Band) et Vérifier ---------- */
 .hm-body:has(> .hm-mel) { padding: 0; overflow: hidden; display: flex; }
 .hm-mel { flex: 1; min-height: 0; display: flex; }
 @media (min-width: 901px) { .hm-mel .mel-body { grid-template-columns: minmax(300px, 360px) 1fr; } }
@@ -3669,7 +3683,7 @@ dialog.system-dialog { width: min(920px, calc(100vw - 24px)); max-height: calc(1
 .hm-checks2 .k-tip .ck { background: #4a6fa5; }
 .hm-checks2 .k-info .ck { background: #6b6b75; }
 
-/* ---------- Key → Ambiance : grilles de référence (SS.EMOTION_LIBRARY) ---------- */
+/* ---------- Harmonie → Ambiance : grilles de référence (SS.EMOTION_LIBRARY) ---------- */
 .emo-kind.k-ref { background: #1f4a3c; color: #c8f2df; }
 .hm-ref-l { font-size: 13px; }
 .hm-ex.ref { padding-top: 8px; padding-bottom: 8px; }
@@ -3690,7 +3704,7 @@ dialog.system-dialog { width: min(920px, calc(100vw - 24px)); max-height: calc(1
 .hm-lex { margin-top: 10px; }
 .hm-ex.ref .hm-why { margin: 2px 0 0; }
 
-/* Les contrôles de Key ne doivent pas hériter de sa hauteur compacte de 28 px. */
+/* Les contrôles d’Harmonie ne doivent pas hériter de sa hauteur compacte de 28 px. */
 .hm-dialog .mel-form select, .mel-form select {
   height: auto; min-height: 36px; line-height: 1.4; padding: 7px 8px;
   min-width: 0; max-width: 100%; flex-shrink: 0;
@@ -3700,7 +3714,7 @@ dialog.system-dialog { width: min(920px, calc(100vw - 24px)); max-height: calc(1
 .mel-play { flex-wrap: wrap; }
 .hm-mel, .mel-body { min-width: 0; }
 
-/* Key : une grille commune au-dessus des deux ateliers de la chanson. */
+/* Harmonie : une grille commune au-dessus des deux ateliers de la chanson. */
 .hm-song > section { min-width: 0; }
 .song-tabs { padding: 0; flex: none; }
 .song-chords { display: flex; flex-direction: column; gap: 18px; min-width: 0; }

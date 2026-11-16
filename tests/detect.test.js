@@ -1,5 +1,5 @@
 /*
- * « Détecter » de la fenêtre Key (js/harmony.js : detect, sceneChords) : tonalité estimée et accords reconnus.
+ * « Détecter » de la fenêtre Harmonie (js/harmony.js : detect, sceneChords) : tonalité estimée et accords reconnus.
  *   node --test
  */
 const test = require('node:test');

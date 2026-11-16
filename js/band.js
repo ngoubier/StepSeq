@@ -1,13 +1,13 @@
 /*
  * Band : assistant de création d'une chanson avec un groupe de musiciens virtuels.
- * Ouvert par le bouton « Band » de l'en-tête (open) ou par « Nouvelle chanson… » du menu (openWizard,
+ * Ouvert par le bouton « Nouvelle » de l'en-tête (open, sur le projet en cours) ou par « Nouvelle chanson… » du menu (openWizard,
  * sur une chanson vide). Cinq étapes :
  *  1. Modèle : deux portes, Créer ou Reprendre (une reprise tapée : titre, tempo, tonalité, parties et accords,
  *     ordre des parties — voir coverModel) ; style musical, inspiration (type de chanson) et musiciens — un clic sur un musicien ouvre
  *     son panneau (rôle, instrument phare, 5 conseillés, toute la bibliothèque via « Nouvelle piste ») ;
  *     le batteur choisit un kit et ses éléments (une piste par élément) ;
  *  2. Chanson : vue session (scènes × pistes), ordre des scènes, écoute ;
- *  3. Accords : la grille de chaque scène (comme dans Key) et la fenêtre « Trouver l'inspiration » ;
+ *  3. Accords : la grille de chaque scène (comme dans Harmonie) et la fenêtre « Trouver l'inspiration » ;
  *  4. Mélodie : caractère et notes par phrase de chaque scène, phrases, ce que joue chaque instrument
  *     (Muet / Solo / volume par instrument) ;
  *  5. Intégration : les pistes à importer.
@@ -679,7 +679,7 @@ SS.band = (() => {
    * Ouvert par le menu de l'application, sur une chanson vide :
    *  1. Modèle : le style, l'inspiration et les musiciens (l'écran habituel de Band) ;
    *  2. Chanson : toute la chanson en vue « session » — une ligne par scène, une colonne par piste ;
-   *  3. Accords : la grille de chaque scène (tonalité, accords au temps, palette Simple / Avancé, comme dans Key) ;
+   *  3. Accords : la grille de chaque scène (tonalité, accords au temps, palette Simple / Avancé, comme dans Harmonie) ;
    *     « Trouver l'inspiration » ouvre une fenêtre mode → émotion → propositions, à écouter avant de « Choisir » ;
    *  4. Mélodie : les phrases de la mélodie sur les accords de la scène choisie, son caractère et son nombre de notes
    *     par phrase (propres à chaque scène), les notes de chaque instrument (Muet / Solo / volume) ;
@@ -752,7 +752,7 @@ SS.band = (() => {
     if (has(2)) return 'sus2';
     return '5';
   }
-  /** Accords d'une partie tapée : { spans, bars, errors } (grille de Key : « | » sépare les mesures, « . » prolonge, « % » répète). */
+  /** Accords d'une partie tapée : { spans, bars, errors } (grille d’Harmonie : « | » sépare les mesures, « . » prolonge, « % » répète). */
   function coverParse(text) {
     if (!String(text || '').trim()) return { spans: [], bars: 0, errors: ['pas d’accords'] };
     try {
@@ -1247,7 +1247,7 @@ SS.band = (() => {
 
   /* ---------- Étape Mélodie (accords, phrases de la mélodie, instruments) ----------
    * À gauche les scènes (dans l'ordre d'arrivée, avec leurs accords en résumé) ; à droite la scène choisie : la
-   * piste d'accords en haut, dessinée comme dans Key (degré, nom, rôle : repos / préparation / tension), puis les
+   * piste d'accords en haut, dessinée comme dans Harmonie (degré, nom, rôle : repos / préparation / tension), puis les
    * instruments. Une note pleine appartient à l'accord du moment ; en creux, c'est une note de passage.
    * La batterie, sans hauteur de note, est masquée par défaut (interrupteur « Batterie »).
    */
@@ -1491,8 +1491,8 @@ SS.band = (() => {
     splitView(sceneNav(res, sc, melIds.size ? melOf : null, true), main);
   }
 
-  /* ---------- Étape Accords : la grille de chaque scène, comme dans Key ----------
-   * La grille est celle de Key ({ step, len, degree, type, acc }, en pas de double-croche, degrés dans la tonalité
+  /* ---------- Étape Accords : la grille de chaque scène, comme dans Harmonie ----------
+   * La grille est celle d’Harmonie ({ step, len, degree, type, acc }, en pas de double-croche, degrés dans la tonalité
    * de la scène) : changer de tonalité garde les degrés. Tant qu'on n'y touche pas, c'est celle de l'inspiration.
    * Elle couvre toute la scène : un trou est tenu par l'accord d'avant (comme à l'écoute).
    */
@@ -1607,7 +1607,7 @@ SS.band = (() => {
       setTimeout(() => elx.classList.remove('sounding'), 450);
     }
   }
-  /** Tonalité d'une scène : la nouvelle garde les degrés de la grille (comme dans Key). */
+  /** Tonalité d'une scène : la nouvelle garde les degrés de la grille (comme dans Harmonie). */
   function setSceneKey(sc, k) {
     if (!S.wiz.grids[sc.sec]) S.wiz.grids[sc.sec] = specGrid(sc); // les accords gardent leurs degrés
     S.wiz.keys[sc.sec] = k;
@@ -2300,7 +2300,7 @@ SS.band = (() => {
     const step = S.wiz.step;
     el.classList.add('wizard');
     el.querySelectorAll('.wiz-only').forEach((x) => (x.hidden = false));
-    $('#bandTitle').firstChild.textContent = S.wiz.fresh ? 'Nouvelle chanson ' : 'Band ';
+    $('#bandTitle').firstChild.textContent = 'Nouvelle chanson ';
     renderWizSteps();
     // bandeau de lecture : sous le titre (étapes 2 et 5), à droite de la colonne des scènes (étapes 3 et 4)
     const body = el.querySelector('.band-body');
@@ -2343,7 +2343,7 @@ SS.band = (() => {
   function createWizSong(confirmed) {
     const cols = wizCols().filter((c) => !S.wiz.off.has(c.id));
     if (!cols.length) return;
-    // projet déjà commencé (bouton Band) : la chanson le remplace, on demande d'abord
+    // projet déjà commencé (bouton Nouvelle de l'en-tête) : la chanson le remplace, on demande d'abord
     if (confirmed !== true && app.project().tracks.length) return showSongConfirm(cols.length);
     const p = preset();
     const seed = S.wiz.seed;
@@ -2708,7 +2708,7 @@ SS.band = (() => {
   }
 
   /* ---------- Ouverture / fermeture ---------- */
-  /** Bouton Band de l'en-tête : l'assistant, sur le projet en cours (remplacé à la création, après confirmation). */
+  /** Bouton Nouvelle de l'en-tête : l'assistant, sur le projet en cours (remplacé à la création, après confirmation). */
   function open() {
     openWizard({ fresh: false });
   }
@@ -2802,7 +2802,7 @@ SS.band = (() => {
       dropListen();
       S.wiz = null;
     });
-    SS.melodyPanel.init(app); // l'atelier Mélodie vit dans Key → Chanson
+    SS.melodyPanel.init(app); // l'atelier Mélodie vit dans Harmonie → Chanson
     // Échap = annuler (rien n'est créé)
     el.addEventListener('cancel', (e) => {
       e.preventDefault();

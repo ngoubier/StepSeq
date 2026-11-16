@@ -42,10 +42,10 @@ const SHOTS = process.env.SHOTS;
   await page.waitForTimeout(1200);
   const P = () => page.evaluate(() => JSON.parse(localStorage.getItem('stepseq.autosave')));
 
-  // Band (en-tête) : le même assistant, sur le projet en cours ; l'ancien écran n'existe plus
+  // bouton Nouvelle (en-tête, ancien Band) : le même assistant, sur le projet en cours ; l'ancien écran n'existe plus
   await page.click('#bandBtn');
   ok((await page.locator('#bandModes, #bandMelody, #melGo, #bandSongBtn, #bandCreate, #bandTempo').count()) === 0, 'Band : plus d’ancien écran (Créer les pistes, Créer toute la chanson)');
-  ok((await page.isVisible('#bandWizSteps')) && /^Band/.test(await page.textContent('#bandTitle')) && !(await page.isVisible('#bwEmpty')), 'Band : l’assistant en cinq étapes');
+  ok((await page.isVisible('#bandWizSteps')) && /^Nouvelle chanson/.test(await page.textContent('#bandTitle')) && /Nouvelle/.test(await page.textContent('#bandBtn')) && !/Band/.test(await page.textContent('#bandBtn')) && !(await page.isVisible('#bwEmpty')), 'bouton Nouvelle (plus de Band) : l’assistant en cinq étapes');
   await page.keyboard.press('Escape');
 
   // 1. Modèle
@@ -93,7 +93,7 @@ const SHOTS = process.env.SHOTS;
   await page.press('#bwTempo', 'Enter');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'wizard-chanson.png') });
 
-  // 3. Accords : la grille de la scène choisie (comme dans Key), la tonalité, les durées, l'inspiration
+  // 3. Accords : la grille de la scène choisie (comme dans Harmonie), la tonalité, les durées, l'inspiration
   await page.click('#bwNext');
   await page.waitForTimeout(200);
   ok((await page.locator('#bandWizSteps li.cur').textContent()).includes('Accords'), 'étape 3 : Accords');
@@ -177,7 +177,7 @@ const SHOTS = process.env.SHOTS;
   await page.click('#bwGridBack'); // le refrain revient à l'inspiration pour la suite
   await page.click('.bh-scene >> nth=0');
 
-  // 4. Mélodie : la scène choisie, les phrases de la mélodie, ses accords (comme dans Key) et les instruments dessous
+  // 4. Mélodie : la scène choisie, les phrases de la mélodie, ses accords (comme dans Harmonie) et les instruments dessous
   await page.click('#bwNext');
   await page.waitForTimeout(200);
   ok((await page.locator('#bandWizSteps li.cur').textContent()).includes('Mélodie'), 'étape 4 : Mélodie');
