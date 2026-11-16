@@ -181,6 +181,25 @@ composition : notes de l'accord sur les temps forts, surtout des mouvements conj
 saut, motif repris d'une phrase à l'autre, appel en suspens et réponse posée, respiration entre les phrases, un seul
 sommet par scène.
 
+### Reprendre : une reprise tapée au clavier
+
+L'étape **Modèle** de l'assistant a deux portes : **Créer** (une chanson dans l'esprit d'une inspiration, comme
+ci-dessus) et **Reprendre**, pour faire vite une reprise (`js/band.js`, `coverModel`). On y tape :
+
+- le **titre**, le **tempo** (ou **Tap** : quatre tapes en rythme) et la **tonalité** (**Auto** : déduite du premier
+  accord, Am → La mineur, F → Fa majeur ; ou choisie) ;
+- une ligne par **partie** : son nom et ses accords, avec la syntaxe de l'atelier Mélodie (`Am | F | C | G`, « | »
+  sépare les mesures, `Am F` partage une mesure, « . » prolonge, « % » répète la mesure ; `C/E`, `D/F#`, `Bb`,
+  `Fmaj7`, `Do`, `Ré`… acceptés). Sous chaque ligne : les accords lus, avec leur degré et leur rôle, ou l'erreur ;
+- l'**ordre des parties** (`Intro Couplet Refrain Couplet Refrain ×2 Outro`, vide : chaque partie une fois).
+
+L'inspiration choisie à gauche devient « le groupe joue à la façon de… » : chaque partie reprend le jeu de la section
+de l'inspiration qui lui correspond d'après son nom (couplet → couplet, refrain → refrain ou drop, pont → pont ou
+break, intro, outro, solo, pré-refrain ou montée), avec ses musiciens, sur les accords tapés. La basse suit la
+basse imposée des accords (`D/F#` : Fa♯). Les étapes suivantes (Chanson, Accords, Mélodie, Intégration) sont les
+mêmes que pour Créer ; **Créer la chanson** donne au projet le titre et le tempo de la reprise.
+Test : `node tests/e2e/cover-wizard.js`.
+
 ### Key → Mélodie : une mélodie sur une grille d'accords
 
 L'atelier **Mélodie** dans **Key → Chanson** (`js/melodypanel.js`, moteur `js/melody.js` ; il n'est plus dans la fenêtre Band) propose une mélodie sur une
@@ -537,6 +556,7 @@ node tests/e2e/playhead-ui.js
 node tests/e2e/song-ui.js
 node tests/e2e/melody-ui.js
 node tests/e2e/new-song-wizard.js
+node tests/e2e/cover-wizard.js        # porte « Reprendre » : reprise tapée (parties, accords, ordre)
 node tests/e2e/band-song-ui.js
 node tests/e2e/mix-master-ui.js
 node tests/e2e/automix-ui.js

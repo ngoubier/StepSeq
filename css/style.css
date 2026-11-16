@@ -2341,6 +2341,37 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
 .bp-meta { grid-column: 2; grid-row: 2 / 4; align-self: center; font-size: 11px; color: var(--muted); text-align: right; white-space: nowrap; }
 
 .band-main { display: flex; flex-direction: column; gap: 10px; padding: 14px; min-width: 0; min-height: 0; }
+/* Porte « Créer » / « Reprendre » et formulaire de la reprise (js/band.js, renderCover) */
+.band-mode { display: flex; }
+.band-mode button { flex: 1; padding: 8px 10px; font-weight: 600; }
+.band-mode button[aria-checked="true"] { background: var(--accent); color: #fff; }
+.band-dialog.cover .band-main { overflow-y: auto; }
+.band-dialog.cover .band-stage { min-height: 300px; flex: none; }
+.band-cover { display: flex; flex-direction: column; gap: 10px; }
+.bcv-top { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+.bcv-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.bcv-field.grow { flex: 1 1 200px; }
+.bcv-field.wide { width: 100%; }
+.bcv-field input, .bcv-field select, .bcv-row input { font: inherit; font-size: 14px; color: var(--text); background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; min-height: 36px; box-sizing: border-box; }
+.bcv-field input[type="number"] { width: 84px; }
+.bcv-tap { min-height: 36px; }
+.bcv-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; font-size: 14px; }
+.bcv-rows { display: flex; flex-direction: column; gap: 8px; }
+.bcv-row { display: grid; grid-template-columns: 140px minmax(0, 1fr) auto; gap: 4px 8px; align-items: center; }
+.bcv-chords { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important; }
+.bcv-info { grid-column: 2 / 4; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-height: 22px; font-size: 12px; }
+.bcv-chip { padding: 2px 7px; border-radius: 5px; background: var(--panel-3); box-shadow: inset 0 -2px 0 var(--role, transparent); }
+.bcv-chip small { margin-left: 5px; color: var(--muted); }
+.bcv-meta { color: var(--muted); margin-left: 4px; }
+.bcv-err { color: #ff9b8f; }
+.bcv-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.bcv-sum { margin: 0; font-size: 13px; color: var(--muted); }
+.bcv-sum.bad { color: #ff9b8f; }
+@media (max-width: 640px) {
+  .bcv-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .bcv-row .bcv-chords { grid-column: 1 / 2; grid-row: 2; }
+  .bcv-info { grid-column: 1 / -1; }
+}
 .band-song { display: flex; flex-direction: column; gap: 2px; }
 .bs-title { font-size: 15px; }
 .bs-desc { font-size: 13px; color: var(--muted); }
