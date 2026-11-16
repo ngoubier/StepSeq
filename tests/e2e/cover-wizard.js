@@ -83,14 +83,17 @@ const SHOTS = process.env.SHOTS;
   ok(/Sol majeur/.test(await page.textContent('#bwKey')), 'bandeau : Sol majeur');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'cover-song.png') });
 
-  // 3. Accords : la grille de la partie
+  // 3. Batterie, puis 4. Accords : la grille de la partie
+  await page.click('#bwNext');
+  await page.waitForTimeout(200);
+  ok((await page.locator('#bandWizSteps li.cur').textContent()).includes('Batterie') && (await page.locator('.bh-scene').count()) === 2, 'Batterie : les deux parties tapées à gauche');
   await page.click('#bwNext');
   await page.waitForTimeout(200);
   const gnames = await page.$$eval('#bwLane .gr-blk', (bs) => bs.map((x) => x.querySelector('b').textContent));
   ok(gnames.join(' ') === 'G D/F♯ Em C', `grille du couplet : ${gnames.join(' ')}`);
 
   // créer
-  await page.click('#bandWizSteps li >> nth=4 >> button');
+  await page.click('#bandWizSteps li >> nth=8 >> button');
   await page.waitForTimeout(150);
   await page.click('#bwCreate');
   await page.waitForTimeout(500);

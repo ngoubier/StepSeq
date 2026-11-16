@@ -2649,6 +2649,72 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
 .bwc-role { font-size: 13px; color: var(--role); }
 .bwc-dur button { padding: 4px 10px; font-size: 12px; }
 .bwc-hint { margin: 0; }
+/* Band : étapes Batterie, Basse, Nappes, Arpèges (réglages par scène) */
+.bwp { --K: #ff5c93; --S: #ffb347; --C: #f2d64b; --H: #5ec4e8; --O: #7ee2a8; }
+.bwp-card { display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #1b1b1f; }
+.bwp-ch { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.bwp-ch > b { font-size: 15px; }
+.bwp-mod { font-size: 12px; color: #f0c860; }
+.bwp-msg { color: #8fd69a; }
+.bwp-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; }
+.bwp-field { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.bwp-field select { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; font: inherit; }
+.bwp-field select:disabled { opacity: .45; }
+.bwp-check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+.bwp-none { padding: 14px 4px; font-size: 14px; }
+/* grille de la batterie : 5 pistes × 16 pas */
+.bwp-dgrid { display: grid; grid-template-columns: 112px repeat(16, minmax(0, 1fr)); gap: 3px; align-items: center; }
+.bwp-ln { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; }
+.bwp-ln i { flex: none; width: 8px; height: 8px; border-radius: 2px; background: var(--lc); }
+.bwp-ln.K, .bwp-cell.K, .bwp-mini i.K { --lc: var(--K); }
+.bwp-ln.S, .bwp-cell.S, .bwp-mini i.S { --lc: var(--S); }
+.bwp-ln.C, .bwp-cell.C, .bwp-mini i.C { --lc: var(--C); }
+.bwp-ln.H, .bwp-cell.H, .bwp-mini i.H { --lc: var(--H); }
+.bwp-ln.O, .bwp-cell.O, .bwp-mini i.O { --lc: var(--O); }
+.bwp-cell { aspect-ratio: 1; max-height: 30px; min-width: 0; padding: 0; border-radius: 4px; border: 1px solid #34343c; background: #202025; cursor: pointer; }
+.bwp-cell.beat { background: #27272d; }
+.bwp-cell:hover { border-color: #66666f; }
+.bwp-cell.v1 { background: var(--lc); border-color: var(--lc); }
+.bwp-cell.v2 { background: color-mix(in srgb, var(--lc) 65%, #202025); border-color: var(--lc); }
+.bwp-cell.v3 { background: color-mix(in srgb, var(--lc) 35%, #202025); border-color: color-mix(in srgb, var(--lc) 60%, #202025); }
+.bwp-cell:focus-visible, .bwp-pat:focus-visible, .bwp-mode:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.bwp-bars { display: flex; flex-wrap: wrap; gap: 3px; }
+.bwp-bars span { flex: 1 1 26px; min-width: 22px; max-width: 64px; height: 24px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 4px; background: #232329; font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.bwp-bars span.fill { background: color-mix(in srgb, var(--K) 30%, #232329); border-color: var(--K); color: var(--text); }
+/* bibliothèque de motifs */
+.bwp-lib { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.bwp-pat { display: flex; flex-direction: column; gap: 5px; min-width: 0; padding: 7px 8px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.bwp-pat:hover { border-color: #55555f; }
+.bwp-pat.on { border-color: var(--accent-2); box-shadow: inset 0 0 0 1px var(--accent-2); background: color-mix(in srgb, var(--accent) 16%, var(--panel-2)); }
+.bwp-pat b { display: flex; justify-content: space-between; gap: 4px; font-size: 12.5px; }
+.bwp-pat small { font-size: 11px; color: var(--muted); }
+.bwp-en { flex: none; font-size: 10px; letter-spacing: 1px; color: var(--K); }
+.bwp-sug { font-size: 10.5px; font-weight: 600; color: #f0c860; }
+.bwp-mini { display: grid; grid-template-columns: repeat(16, 1fr); gap: 1px; }
+.bwp-mini i { height: 4px; border-radius: 1px; background: #33333b; }
+.bwp-mini i.v { background: var(--lc); }
+/* modes de jeu (basse, nappes) et arpèges */
+.bwp-modes { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.bwp-mode { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.bwp-mode:hover { border-color: #55555f; }
+.bwp-mode.on { border-color: var(--c); box-shadow: inset 0 0 0 1px var(--c); background: color-mix(in srgb, var(--c) 14%, var(--panel-2)); }
+.bwp-mode b { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 6px; font-size: 13px; }
+.bwp-mode b em { font-style: normal; font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: #c9b8ff; }
+.bwp-mode small { font-size: 11.5px; line-height: 1.35; color: var(--muted); }
+.bwp-rhy { display: block; color: var(--c); }
+.bwp-rhy svg { display: block; width: 100%; height: 22px; }
+.bwp-chips .chip small { margin-left: 6px; color: var(--muted); font-size: 11px; }
+.bwp-chips .chip.active small { color: #e3eeff; }
+@media (max-width: 1000px) {
+  .band-wiz-steps span { display: none; }
+  .band-wiz-steps li.cur span { display: inline; }
+}
+@media (max-width: 760px) {
+  .bwp-dgrid { grid-template-columns: 30px repeat(16, minmax(0, 1fr)); gap: 2px; }
+  .bwp-ln span { display: none; }
+  .bwp-lib, .bwp-modes { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); }
+  .bwp-chips .chip small { display: none; }
+}
 /* fenêtre « Trouver l'inspiration » */
 .bw-insp { position: absolute; inset: 0; z-index: 6; display: flex; align-items: flex-start; justify-content: center; padding: 28px 16px; background: rgba(8, 8, 12, .66); border-radius: 14px; overflow: auto; }
 .bwi-card { width: min(1120px, 100%); max-height: 100%; display: flex; flex-direction: column; border: 1px solid #45454d; border-radius: 14px; background: var(--panel); box-shadow: 0 24px 60px rgba(0, 0, 0, .6); overflow: hidden; }

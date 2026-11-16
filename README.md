@@ -130,12 +130,12 @@ enregistrés avant cette correction sont transposés à l'ouverture pour sonner 
 
 ### Nouvelle chanson : l'assistant
 
-**Nouvelle chanson…** (menu de l'icône de l'application) part d'une chanson vide et ouvre un assistant en cinq
-étapes, dans la fenêtre Band (`js/band.js`). Des étapes 2 à 5, un bandeau de commande (`#bwTransport`) :
+**Nouvelle chanson…** (menu de l'icône de l'application) part d'une chanson vide et ouvre un assistant en neuf
+étapes, dans la fenêtre Band (`js/band.js`). Des étapes 2 à 9, un bandeau de commande (`#bwTransport`) :
 lecture / pause / reprise (`SS.audio.pause` / `resume`), stop, position, **tempo** réglable (40–240 BPM, appliqué à
 l'écoute en cours et à la chanson créée) et **tonalité** (armure, accord de tonique). Il est sous le titre aux étapes
-Chanson et Intégration ; aux étapes Accords et Mélodie, les **scènes** sont en colonne à gauche, sous le titre (nom,
-mesures, accords, et l'émotion ou le caractère choisis), le bandeau à leur droite, et **▶ joue la scène choisie en
+Chanson et Intégration ; aux étapes Batterie, Accords, Basse, Nappes, Arpèges et Mélodie, les **scènes** sont en colonne
+à gauche, sous le titre (nom, mesures, accords, et le choix de l'étape : motif, émotion, mode, caractère…), le bandeau à leur droite, et **▶ joue la scène choisie en
 boucle** (pas toute la chanson ; choisir une autre scène pendant l'écoute la fait jouer) :
 
 1. **Modèle** : le modèle d'instruments de Band (style, inspiration, musiciens, kit et éléments du batteur) ;
@@ -145,7 +145,14 @@ boucle** (pas toute la chanson ; choisir une autre scène pendant l'écoute la f
    case dessine ce que joue la piste (coups de batterie ou notes), une case en pointillés est un silence ;
    un bandeau donne l'ordre des scènes ; on écoute la chanson (ou à partir d'un bloc) et chaque scène en boucle,
    sur un projet temporaire (même mixage que la chanson créée) ;
-3. **Accords** : la **grille** de la scène choisie, comme celle d’Harmonie (`{ step, len, degree, type, acc }`, degrés dans
+3. **Batterie** : pour la scène choisie, une **bibliothèque de 20 motifs** du style (`SS.DRUM_PATTERNS`, carte avec nom,
+   énergie ●●○ et aperçu des cinq pistes ; filtre Tous / Calme / Moyen / Intense ; **Suggéré** pour la nuance de la
+   scène : intro, outro, break calmes, montée et pont moyens, refrain, drop et sommet intenses). **Motif de l'inspiration**
+   est choisi par défaut : tant qu'on ne touche à rien, c'est le groove du plan. Dessous, la **grille** du motif
+   (grosse caisse, caisse claire, clap, charleston fermé et ouvert × 16 pas : un clic fait tourner fort, moyen, léger,
+   éteint ; **Revenir au motif**), les mesures de la scène (fills en rose), le **fill** (jamais, fin de scène, toutes les
+   4 ou 8 mesures), son type et le **crash** ; **Assortir toutes les scènes** pose un motif suggéré par scène ;
+4. **Accords** : la **grille** de la scène choisie, comme celle d’Harmonie (`{ step, len, degree, type, acc }`, degrés dans
    la tonalité de la scène) : **tonalité** de la scène (tonique et mode ; la grille garde ses degrés), **Aimanter** (à la
    mesure, à la demi-mesure, au temps), **Effacer**, **↺ Inspiration** (accords et tonalité d'origine). Un clic sur un
    accord l'écoute et ouvre sa barre : **durée** 1, 2, 3, 4 temps ou 2 mesures (plus courte, l'accord suivant commence
@@ -158,7 +165,18 @@ boucle** (pas toute la chanson ; choisir une autre scène pendant l'écoute la f
    dans la fenêtre) ; **Choisir** la pose dans la grille (tonalité et émotion comprises, tempo conseillé si coché),
    **Annuler** ou <kbd>Échap</kbd> laisse la scène intacte. Le tout passe à `SS.bandSong.build` par l'option
    `harmony` (`keys`, `chords`, `emotions` par section) ;
-4. **Mélodie** : pour la scène choisie, son **caractère** (Inspiration, Chantante, Accrocheuse, Riff, Planante,
+5. **Basse**, 6. **Nappes**, 7. **Arpèges** : même disposition (scènes à gauche, lecture de la scène en boucle, chaque
+   choix s'entend aussitôt). Basse : 13 **modes de jeu** (tenue, blanches, noires, croches, galop, contretemps, octaves,
+   roulement, syncopée, marche, drone, croches piquées, après le kick) en cartes avec leur rythme dessiné, **pédale**
+   (aucune, tonique, dominante), **registre** (grave, médium), note d'approche. Nappes : 9 modes (tenue, montée douce,
+   planante, croches, blocs, stabs, house, hachée, pincée) et **voicing** serré / ouvert ; seule la nappe se règle
+   (cordes et clavier gardent le plan). Arpèges : 8 modes, et l'arpège peut être **allumé** dans une scène où
+   l'inspiration n'en avait pas. Le mode de l'inspiration est repéré et choisi tant qu'on n'a rien réglé ; **Joue dans
+   cette scène** coupe ou rend le musicien (`off`) ; **Copier vers les scènes du même type** (couplet et couplet 2…) ;
+   Arpèges : aussi **vers toutes les scènes** ; **↺ Inspiration** défait les réglages de la scène. Un groupe sans le
+   musicien garde l'étape, avec un message à la place des réglages. Les choix vont dans `S.wiz.parts`, passé à
+   `SS.bandSong.build` (aperçu, écoute et « Créer la chanson ») ; test : `node tests/e2e/wizard-parts.js` ;
+8. **Mélodie** : pour la scène choisie, son **caractère** (Inspiration, Chantante, Accrocheuse, Riff, Planante,
    Lyrique) et son nombre de **notes par phrase** (− / + : libre, puis 2 à 12), propres à chaque scène
    (`melody.scenes`), **🎲 Relancer la scène** (graines des phrases de la scène, les autres scènes et musiciens ne
    changent pas) et **⚙ Réglages fins** en panneau, pour toute la chanson (forme A A′ B A / A B A B / A A A A / A B A C,
@@ -170,7 +188,7 @@ boucle** (pas toute la chanson ; choisir une autre scène pendant l'écoute la f
    comme dans Harmonie (degré, nom, rôle : `SS.harmony.role`) et la ligne de la mélodie ; l'**accompagnement** est replié
    sur une ligne, déplié avec **M**uet / **S**olo et **volume** (−30 à +6 dB, `gains` d'`addBandSong`) par instrument
    et le menu **Pistes** ;
-5. **Intégration** : cases à cocher par musicien (batterie, basse, nappes, arpèges, lead…) et par élément de batterie ;
+9. **Intégration** : cases à cocher par musicien (batterie, basse, nappes, arpèges, lead…) et par élément de batterie ;
    **Créer la chanson** écrit les pistes cochées, les scènes et l'arrangement (tempo du bandeau, mixage
    automatique de Band). Ce qui est créé est exactement l'aperçu ; Ctrl+Z revient à la chanson vide.
 
@@ -182,7 +200,7 @@ saut, motif repris d'une phrase à l'autre, appel en suspens et réponse posée,
 sommet par scène.
 
 **Réglages par scène (`parts`).** `SS.bandSong.build(spec, id, tracks, { parts })` accepte, pour chaque section,
-`{ drums, bass, pad, arp, off }` (modèle de l'assistant pas à pas ; l'interface viendra ensuite). Sans `parts`, la chanson
+`{ drums, bass, pad, arp, off }` (réglés dans les étapes Batterie, Basse, Nappes et Arpèges de l'assistant). Sans `parts`, la chanson
 est exactement celle du plan. **Batterie** : `{ style, pattern, edits, fill: off|end|4|8, fillType: roll|toms|clap4|kick|cut|open,
 crash }` ; `pattern` est un identifiant de `js/drum-patterns.js` (kick, caisse claire, clap, charleston fermé et ouvert sur
 une mesure de 16 pas : `x` fort, `o` moyen, `.` léger, `-` silence), `edits` remplace ses pistes. **Basse** : `{ mode (dont
@@ -205,7 +223,7 @@ ci-dessus) et **Reprendre**, pour faire vite une reprise (`js/band.js`, `coverMo
 L'inspiration choisie à gauche devient « le groupe joue à la façon de… » : chaque partie reprend le jeu de la section
 de l'inspiration qui lui correspond d'après son nom (couplet → couplet, refrain → refrain ou drop, pont → pont ou
 break, intro, outro, solo, pré-refrain ou montée), avec ses musiciens, sur les accords tapés. La basse suit la
-basse imposée des accords (`D/F#` : Fa♯). Les étapes suivantes (Chanson, Accords, Mélodie, Intégration) sont les
+basse imposée des accords (`D/F#` : Fa♯). Les étapes suivantes (Chanson, Batterie, Accords, Basse, Nappes, Arpèges, Mélodie, Intégration) sont les
 mêmes que pour Créer ; **Créer la chanson** donne au projet le titre et le tempo de la reprise.
 Test : `node tests/e2e/cover-wizard.js`.
 
