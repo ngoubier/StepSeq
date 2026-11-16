@@ -4244,3 +4244,101 @@ svg.mel-contour.big { width: 150px; height: 54px; }
 }
 .bh-emo { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; background: rgba(180, 140, 255, .14); border: 1px solid #7c62b8; font-size: 12.5px; white-space: nowrap; }
 .bh-rec { margin-left: 6px; font-size: 10px; padding: 1px 5px; border-radius: 4px; background: rgba(180, 140, 255, .25); color: #e2d4ff; }
+
+/* ================================================================== */
+/* Assistant « Nouvelle chanson » : étapes Style, Instruments, Tempo et */
+/* tonalité, Scènes (js/band.js)                                         */
+/* ================================================================== */
+/* étape 1 : la fiche du style à droite des styles et inspirations ; étape 2 : les musiciens seuls */
+.band-styles button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; line-height: 1.2; }
+.band-styles button small { font-size: 10.5px; opacity: .75; white-space: nowrap; }
+.band-stylecard { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); }
+.band-stylecard h3 { margin: 0; font-size: 20px; }
+.bsc-desc { margin: 0; font-size: 14px; color: var(--muted); line-height: 1.45; max-width: 70ch; }
+.bsc-lbl { font-size: 12px; color: var(--muted); }
+.bsc-tempo { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; }
+.bsc-scale { position: relative; flex: 1 1 240px; height: 14px; min-width: 200px; border-radius: 7px; background: var(--panel-3); }
+.bsc-reco { position: absolute; top: 0; bottom: 0; border-radius: 7px; background: rgba(201, 162, 39, .35); border: 1px solid var(--gold); box-sizing: border-box; }
+.bsc-tick { position: absolute; top: 3px; bottom: 3px; width: 2px; margin-left: -1px; background: #fff; opacity: .7; border-radius: 1px; }
+.band-dialog.bs-inst .band-side, .band-dialog.bs-inst #bandCover, .band-dialog.bs-inst #bandStyleCard, .band-dialog.bs-style #bandStage, .band-dialog.bs-style #bandStageHead { display: none; }
+.band-dialog.bs-inst .band-body { grid-template-columns: 1fr; }
+.band-dialog.bs-inst.with-panel .band-body { grid-template-columns: 1fr 370px; }
+.band-dialog.bs-style .band-body { grid-template-columns: 330px 1fr; }
+.band-dialog.bs-style .band-main { overflow-y: auto; }
+
+/* étape 3 : tempo et tonalité */
+.bwt { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding-bottom: 12px; }
+.bwt-card { border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); padding: 12px 16px 14px; display: flex; flex-direction: column; gap: 10px; }
+.bwt-card h3 { margin: 0; font-size: 15px; }
+.bwt-card .dlg-hint { margin: 0; }
+.bwt-bpm { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 12px; }
+.bwt-lcd { min-width: 3.4ch; padding: 2px 14px; border-radius: 10px; background: #0d0d10; border: 1px solid var(--line); color: #8fc3ff; font: 600 56px/1.15 ui-monospace, "SF Mono", Menlo, Consolas, monospace; text-align: center; font-variant-numeric: tabular-nums; }
+.bwt-unit { font-size: 12px; letter-spacing: .06em; color: var(--muted); }
+.bwt-step { width: 44px; height: 44px; padding: 0; font-size: 22px; justify-content: center; }
+.bwt-range { position: relative; flex: 1 1 260px; min-width: 200px; height: 30px; display: flex; align-items: center; }
+.bwt-reco { position: absolute; top: 9px; height: 12px; border-radius: 6px; background: rgba(201, 162, 39, .35); border: 1px solid var(--gold); box-sizing: border-box; pointer-events: none; }
+.bwt-range input[type=range] { position: relative; width: 100%; margin: 0; accent-color: var(--accent-2); background: transparent; }
+.bwt-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; font-size: 13px; color: var(--muted); }
+.bwt-meta b { color: var(--gold); }
+.bwt-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.bwt-lbl { min-width: 70px; font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.bwt-tonics, .bwt-modes { display: flex; flex-wrap: wrap; gap: 6px; }
+.bwt-tonic { min-width: 46px; text-align: center; }
+.bwt-tonic.blk { background: color-mix(in srgb, var(--panel-3) 70%, #000); }
+.bwt-tonic.active, .bwt-mode.active { background: var(--accent); border-color: var(--accent-2); color: #fff; }
+.bwt-notes { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.bwt-note { display: flex; flex-direction: column; align-items: center; min-width: 62px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); transition: background .1s, border-color .1s; }
+.bwt-note small { font-size: 11px; color: var(--muted); }
+.bwt-note b { font-size: 16px; }
+.bwt-note.tonic { border-color: var(--accent-2); }
+.bwt-note.color { border-color: var(--gold); }
+.bwt-note.sounding { background: var(--accent); border-color: var(--accent-2); }
+.bwt-note.sounding small { color: #dbe9ff; }
+
+/* étape 4 : arrangement et scènes */
+.bw-arr { flex-basis: 100%; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.bw-arr-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; }
+.bw-arr .dlg-hint { margin: 0; }
+.bw-arr-blocks { flex-wrap: wrap; flex: none; gap: 5px; }
+.bw-arr-blocks li { flex-direction: column; gap: 3px; min-width: 158px; padding: 4px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--c) 60%, #000); background: color-mix(in srgb, var(--c) 22%, #1b1b20); cursor: grab; }
+.bw-arr-blocks li.dragging { opacity: .4; }
+.bw-arr-blocks li.over { outline: 2px dashed var(--accent-2); outline-offset: 1px; }
+.bw-arr-blocks .bw-block { height: 28px; background: color-mix(in srgb, var(--c) 45%, #1b1b20); border-color: color-mix(in srgb, var(--c) 70%, #000); }
+.bw-arr-blocks .bw-block.playing { background: var(--accent); border-color: var(--accent-2); }
+.bw-bctls { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 2px; }
+.bw-bc { min-width: 22px; height: 24px; padding: 0 4px; border: 1px solid transparent; border-radius: 5px; background: rgba(0, 0, 0, .25); color: var(--text); font: inherit; font-size: 13px; line-height: 1; cursor: pointer; }
+.bw-bc:hover:not(:disabled) { border-color: var(--accent-2); }
+.bw-bc:disabled { opacity: .3; cursor: default; }
+.bw-bc:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 1px; }
+.bw-bx { margin-left: 4px; }
+.bw-brn { min-width: 26px; text-align: center; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.bw-sc-list { display: flex; flex-direction: column; gap: 6px; padding: 8px; border-bottom: 1px solid var(--line); }
+.bw-sc { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; padding: 6px 10px 6px 0; border-radius: 8px; background: var(--panel-2); border: 1px solid var(--line); overflow: hidden; }
+.bw-sc.unused { opacity: .75; border-style: dashed; }
+.bw-sc-bar { align-self: stretch; width: 6px; flex: none; background: var(--c); }
+.bw-sc-id { display: flex; flex-direction: column; flex: 1 1 200px; min-width: 150px; }
+.bw-sc-id small { color: var(--muted); font-size: 11px; }
+.bw-sc-name { width: 100%; box-sizing: border-box; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--text); font: 600 14px/1.3 inherit; padding: 2px 6px; }
+.bw-sc-name:hover { border-color: var(--line); }
+.bw-sc-name:focus { outline: none; border-color: var(--accent-2); background: var(--panel); }
+.bw-bars button { padding: 5px 11px; }
+.bw-sc-del { width: 30px; justify-content: center; padding: 0; }
+.bw-sc-del svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+
+@media (max-width: 760px) {
+  .band-dialog.bs-inst .band-body, .band-dialog.bs-style .band-body, .band-dialog.bs-inst.with-panel .band-body { display: flex; flex-direction: column; overflow-y: auto; }
+  .band-stylecard { padding: 10px 12px; }
+  .band-stylecard h3 { font-size: 17px; }
+  .bwt-lcd { font-size: 40px; }
+  .bwt-step { width: 40px; height: 40px; }
+  .bwt-card { padding: 10px 12px 12px; }
+  .bwt-lbl { min-width: 0; flex-basis: 100%; }
+  .bw-arr-blocks li { min-width: 158px; }
+  .bw-sc-id { flex-basis: 100%; }
+}
+
+/* onze étapes : le fil des étapes reste sur une ligne */
+.band-dialog.wizard .band-head h2 { white-space: nowrap; }
+.band-dialog.wizard .band-wiz-steps { gap: 0; }
+.band-dialog.wizard .band-wiz-steps button { padding: 5px 7px 5px 4px; gap: 4px; font-size: 12.5px; }
+.band-dialog.wizard .band-wiz-steps li + li::before { width: 5px; margin-right: 1px; }

@@ -62,7 +62,7 @@ const ok = (c, m) => {
   await page.waitForTimeout(600);
   await page.click('#bandStyles [data-v="synthwave"]');
   await page.click('#bandPresets .band-preset >> nth=0'); // Smalltown Boy : arpège dans l'intro, le refrain, le pont et l'outro, pas dans le couplet
-  await next(2);
+  await next(4);
 
   // Batterie : l'inspiration d'abord, rien n'est réglé
   ok((await cur()).includes('Batterie') && (await page.locator('.bh-scene').count()) === 5, 'étape Batterie : les cinq scènes à gauche');
@@ -197,7 +197,7 @@ const ok = (c, m) => {
   await page.waitForTimeout(600);
   await page.click('#bandStyles [data-v="synthwave"]');
   await page.click('#bandPresets .band-preset >> nth=3'); // Sweet Dreams : pas d'arpège
-  await next(6);
+  await next(8);
   ok((await cur()).includes('Arpèges') && !!(await page.$('#bwpNone')) && (await page.locator('.bwp-chips').count()) === 0, 'groupe sans arpège : un message, pas de réglage');
   await page.click('#bwBack');
   ok((await cur()).includes('Nappes') && (await page.locator('.bwp-mode').count()) === 9, 'groupe avec nappe : les réglages');

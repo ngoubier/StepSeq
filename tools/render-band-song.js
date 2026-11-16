@@ -76,7 +76,7 @@ const server = http.createServer((req, res) => {
   await page.click(`#bandStyles [data-v="${style.id}"]`);
   await page.click(`#bandPresets .band-preset >> nth=${style.presets.indexOf(preset)}`);
   // assistant Nouvelle chanson : Suivant jusqu'à Intégration, puis Créer la chanson (toutes les pistes cochées)
-  for (let i = 0; i < 12 && (await page.isVisible('#bwNext')); i++) {
+  for (let i = 0; i < 14 && (await page.isVisible('#bwNext')); i++) {
     await page.click('#bwNext');
     await page.waitForTimeout(300);
   }

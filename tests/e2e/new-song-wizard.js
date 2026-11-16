@@ -3,7 +3,7 @@
  *   node tests/e2e/new-song-wizard.js
  * 1. Modèle (Band) → 2. la chanson en vue session (une ligne par scène, une colonne par piste)
  * → 3. Batterie (motif de la scène, parts) → 4. Accords (grille de la scène, tonalité, durées, fenêtre « Trouver l'inspiration »)
- * → 5. Basse → 6. Nappes → 7. Arpèges (réglages par scène, voir tests/e2e/wizard-parts.js)
+ * → 7. Basse → 8. Nappes → 9. Arpèges (réglages par scène, voir tests/e2e/wizard-parts.js)
  * → 8. Mélodie (caractère et notes par phrase par scène, phrases, M / S / volume) → 9. Intégration (pistes à importer)
  * → la chanson créée suit exactement l'aperçu.
  * La fenêtre Band n'a plus d'onglet Mélodie.
@@ -56,14 +56,20 @@ const SHOTS = process.env.SHOTS;
   await page.waitForTimeout(600);
   ok(await page.isVisible('#bandDialog'), 'l’assistant s’ouvre');
   ok(/Nouvelle chanson/.test(await page.textContent('#bandTitle')), 'titre « Nouvelle chanson »');
-  ok((await page.locator('#bandWizSteps li').count()) === 9 && (await page.locator('#bandWizSteps li.cur').textContent()).includes('Modèle'), 'neuf étapes, la première : Modèle');
+  ok((await page.locator('#bandWizSteps li').count()) === 11 && (await page.locator('#bandWizSteps li.cur').textContent()).includes('Style'), 'onze étapes, la première : Style');
   ok(!(await page.isVisible('#bwTransport')), 'étape 1 : pas de bandeau de commande');
   ok((await P()).tracks.length === 0, 'une chanson vide est déjà en place');
-  ok((await page.isVisible('#bandStage')) && (await page.isVisible('#bwEmpty')) && (await page.isVisible('#bwNext')), 'étape 1 : l’écran Band avec « Suivant »');
+  ok(!(await page.isVisible('#bandStage')) && (await page.isVisible('#bandStyles')) && (await page.isVisible('#bwEmpty')) && (await page.isVisible('#bwNext')), 'étape 1 : styles et inspirations (pas de musiciens) avec « Suivant »');
   await page.click('#bandStyles [data-v="synthwave"]');
   await page.click('#bandPresets .band-preset >> nth=0'); // Smalltown Boy
 
-  // 2. Chanson : une ligne par scène, une colonne par piste
+  // 2. Instruments : les musiciens, General MIDI ; 3. Tempo et tonalité
+  await page.click('#bwNext');
+  ok((await page.locator('#bandWizSteps li.cur').textContent()).includes('Instruments') && (await page.isVisible('#bandStage')) && (await page.isVisible('#bandGm')) && !(await page.isVisible('#bandStyles')), 'étape 2 : Instruments, la scène des musiciens et General MIDI');
+  await page.click('#bwNext');
+  ok((await page.locator('#bandWizSteps li.cur').textContent()).includes('Tempo') && (await page.isVisible('#bwTransport')) && !(await page.isVisible('#bandStage')), 'étape 3 : Tempo et tonalité, avec le bandeau de commande');
+
+  // 4. Scènes : une ligne par scène, une colonne par piste
   await page.click('#bwNext');
   await page.waitForTimeout(200);
   const g = await page.evaluate(() => ({
@@ -97,15 +103,15 @@ const SHOTS = process.env.SHOTS;
   // 3. Batterie : la bibliothèque de motifs, celui de l'inspiration choisi tant qu'on n'a rien réglé
   await page.click('#bwNext');
   await page.waitForTimeout(200);
-  ok((await page.locator('#bandWizSteps li.cur').textContent()).includes('Batterie'), 'étape 3 : Batterie');
+  ok((await page.locator('#bandWizSteps li.cur').textContent()).includes('Batterie'), 'étape 5 : Batterie');
   ok((await page.locator('.bwp-pat').count()) === 21 && (await page.locator('.bwp-pat.on').getAttribute('data-id')) === '', 'batterie : 20 motifs et celui de l’inspiration, choisi');
   ok((await page.locator('.bh-scene .bh-ssub').first().textContent()) === 'Inspiration' && (await page.evaluate(() => Object.keys(SS.band._state.wiz.parts).length)) === 0, 'batterie : une première visite ne change rien');
 
   // 4. Accords : la grille de la scène choisie (comme dans Harmonie), la tonalité, les durées, l'inspiration
   await page.click('#bwNext');
   await page.waitForTimeout(200);
-  ok((await page.locator('#bandWizSteps li.cur').textContent()).includes('Accords'), 'étape 4 : Accords');
-  ok((await page.locator('#bandWizSteps li').allTextContents()).join(' ').includes('Intégration'), 'étape 9 : Intégration');
+  ok((await page.locator('#bandWizSteps li.cur').textContent()).includes('Accords'), 'étape 6 : Accords');
+  ok((await page.locator('#bandWizSteps li').allTextContents()).join(' ').includes('Intégration'), 'étape 11 : Intégration');
   const layout = await page.evaluate(() => {
     const nav = document.querySelector('#bandWiz .bh-scenes').getBoundingClientRect();
     const tr = document.querySelector('#bwTransport').getBoundingClientRect();
@@ -185,8 +191,8 @@ const SHOTS = process.env.SHOTS;
   await page.click('#bwGridBack'); // le refrain revient à l'inspiration pour la suite
   await page.click('.bh-scene >> nth=0');
 
-  // 5. Basse, 6. Nappes, 7. Arpèges : une scène à gauche, les réglages de la scène choisie
-  for (const [n, label, sel] of [[5, 'Basse', '.bwp-mode'], [6, 'Nappes', '.bwp-mode'], [7, 'Arpèges', '.bwp-chips .chip']]) {
+  // 7. Basse, 8. Nappes, 9. Arpèges : une scène à gauche, les réglages de la scène choisie
+  for (const [n, label, sel] of [[7, 'Basse', '.bwp-mode'], [8, 'Nappes', '.bwp-mode'], [9, 'Arpèges', '.bwp-chips .chip']]) {
     await page.click('#bwNext');
     await page.waitForTimeout(200);
     ok((await page.locator('#bandWizSteps li.cur').textContent()).includes(label), `étape ${n} : ${label}`);
@@ -196,7 +202,7 @@ const SHOTS = process.env.SHOTS;
   // 8. Mélodie : la scène choisie, les phrases de la mélodie, ses accords (comme dans Harmonie) et les instruments dessous
   await page.click('#bwNext');
   await page.waitForTimeout(200);
-  ok((await page.locator('#bandWizSteps li.cur').textContent()).includes('Mélodie'), 'étape 8 : Mélodie');
+  ok((await page.locator('#bandWizSteps li.cur').textContent()).includes('Mélodie'), 'étape 10 : Mélodie');
   ok((await page.locator('.bh-scene').count()) === 5 && (await page.locator('.bh-scene.on .bh-sname b').textContent()) === 'Intro', 'scènes à gauche, la première choisie');
   ok(!!(await page.$('.bh-right > #bwTransport')), 'lecture à droite de la colonne des scènes');
   const hc = await page.evaluate(() => [...document.querySelectorAll('.bh-chord')].map((c) => [c.querySelector('small').textContent, c.querySelector('b').textContent, c.className]));
@@ -329,8 +335,8 @@ const SHOTS = process.env.SHOTS;
 
   // 9. Intégration
   await page.click('#bwNext');
-  ok((await page.locator('.bw-grid input[type=checkbox]').count()) > 5, 'étape 9 : des cases à cocher par musicien et par élément');
-  ok(!(await page.$('#bandWiz #bwTransport')), 'étape 9 : la lecture revient sous le titre');
+  ok((await page.locator('.bw-grid input[type=checkbox]').count()) > 5, 'étape 11 : des cases à cocher par musicien et par élément');
+  ok(!(await page.$('#bandWiz #bwTransport')), 'étape 11 : la lecture revient sous le titre');
   const bassBox = page.locator('.bw-group', { hasText: 'Bassiste' }).locator('input');
   await bassBox.uncheck();
   const hhBox = page.locator('.bw-track', { hasText: 'Hi-Hat ouvert' }).locator('input');
@@ -371,7 +377,7 @@ const SHOTS = process.env.SHOTS;
   await page.click('#appMenuBtn');
   await page.click('#newProject');
   await page.waitForTimeout(600);
-  await page.click('#bwNext');
+  for (let i = 0; i < 3; i++) await page.click('#bwNext');
   await page.waitForTimeout(200);
   const overflow = await page.evaluate(() => document.querySelector('#bandDialog').scrollWidth - document.querySelector('#bandDialog').clientWidth);
   ok(overflow <= 1, 'téléphone : la grille défile dans son cadre, pas la fenêtre');

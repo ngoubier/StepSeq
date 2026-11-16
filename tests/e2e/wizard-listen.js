@@ -44,7 +44,7 @@ const SHOTS = process.env.SHOTS;
   await page.waitForTimeout(500);
   await page.click('#bandStyles [data-v="synthwave"]');
   await page.click('#bandPresets .band-preset >> nth=0');
-  await page.click('#bwNext');
+  for (let i = 0; i < 3; i++) await page.click('#bwNext'); // Instruments, Tempo et tonalité, Scènes
   await page.waitForTimeout(200);
 
   // bandeau : l'ordre des scènes de la chanson
@@ -182,7 +182,7 @@ const SHOTS = process.env.SHOTS;
   await page.click('#appMenuBtn');
   await page.click('#newProject');
   await page.waitForTimeout(500);
-  await page.click('#bwNext');
+  for (let i = 0; i < 3; i++) await page.click('#bwNext');
   await page.waitForTimeout(200);
   const over = await page.evaluate(() => document.querySelector('#bandDialog').scrollWidth - document.querySelector('#bandDialog').clientWidth);
   ok(over <= 1, 'téléphone : pas de défilement horizontal de la fenêtre');

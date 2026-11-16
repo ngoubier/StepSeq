@@ -74,7 +74,10 @@ const SHOTS = process.env.SHOTS;
   ok(!(await page.isDisabled('#bwNext')), 'reprise correcte : Suivant possible');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'cover-form.png') });
 
-  // 2. Chanson : les scènes tapées
+  // 2. Instruments, 3. Tempo et tonalité, 4. Scènes : les scènes tapées
+  await page.click('#bwNext');
+  await page.click('#bwNext');
+  ok((await page.inputValue('#bwTempo')) === '96' && (await page.inputValue('#bwtRange')) === '96' && /Sol majeur/.test(await page.textContent('.bwt')), 'Tempo et tonalité : 96 BPM et Sol majeur de la reprise');
   await page.click('#bwNext');
   await page.waitForTimeout(200);
   const scenes = await page.$$eval('.bw-sname', (xs) => xs.map((x) => x.textContent));
@@ -83,7 +86,7 @@ const SHOTS = process.env.SHOTS;
   ok(/Sol majeur/.test(await page.textContent('#bwKey')), 'bandeau : Sol majeur');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'cover-song.png') });
 
-  // 3. Batterie, puis 4. Accords : la grille de la partie
+  // 5. Batterie, puis 6. Accords : la grille de la partie
   await page.click('#bwNext');
   await page.waitForTimeout(200);
   ok((await page.locator('#bandWizSteps li.cur').textContent()).includes('Batterie') && (await page.locator('.bh-scene').count()) === 2, 'Batterie : les deux parties tapées à gauche');
@@ -93,7 +96,7 @@ const SHOTS = process.env.SHOTS;
   ok(gnames.join(' ') === 'G D/F♯ Em C', `grille du couplet : ${gnames.join(' ')}`);
 
   // créer
-  await page.click('#bandWizSteps li >> nth=8 >> button');
+  await page.click('#bandWizSteps li >> nth=10 >> button');
   await page.waitForTimeout(150);
   await page.click('#bwCreate');
   await page.waitForTimeout(500);

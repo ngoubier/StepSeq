@@ -1,22 +1,27 @@
 /*
  * Band : assistant de création d'une chanson avec un groupe de musiciens virtuels.
  * Ouvert par le bouton « Nouvelle » de l'en-tête (open, sur le projet en cours) ou par « Nouvelle chanson… » du menu (openWizard,
- * sur une chanson vide). Neuf étapes :
- *  1. Modèle : deux portes, Créer ou Reprendre (une reprise tapée : titre, tempo, tonalité, parties et accords,
- *     ordre des parties — voir coverModel) ; style musical, inspiration (type de chanson) et musiciens — un clic sur un musicien ouvre
- *     son panneau (rôle, instrument phare, 5 conseillés, toute la bibliothèque via « Nouvelle piste ») ;
- *     le batteur choisit un kit et ses éléments (une piste par élément) ;
- *  2. Chanson : vue session (scènes × pistes), ordre des scènes, écoute ;
- *  3. Batterie : le motif de chaque scène (20 motifs du style, grille 5 pistes × 16 pas, fills, crash) ;
- *  4. Accords : la grille de chaque scène (comme dans Harmonie) et la fenêtre « Trouver l'inspiration » ;
- *  5. Basse : mode de jeu, pédale, registre et note d'approche de chaque scène ;
- *  6. Nappes : mode de jeu et voicing de chaque scène ; 7. Arpèges : mode de chaque scène ;
- *  8. Mélodie : caractère et notes par phrase de chaque scène, phrases, ce que joue chaque instrument
+ * sur une chanson vide). Onze étapes :
+ *  1. Style : deux portes, Créer ou Reprendre (une reprise tapée : titre, tempo, tonalité, parties et accords,
+ *     ordre des parties — voir coverModel) ; style musical (tempo conseillé, description) et inspiration (type de chanson) ;
+ *  2. Instruments : les musiciens — un clic sur un musicien ouvre son panneau (rôle, instrument phare, 5 conseillés,
+ *     toute la bibliothèque via « Nouvelle piste ») ; le batteur choisit un kit et ses éléments (une piste par élément) ;
+ *     interrupteur General MIDI ;
+ *  3. Tempo et tonalité : tempo (grand afficheur, − / +, curseur, Tap) et tonalité de la chanson (tonique, mode, gamme à
+ *     écouter) ; changer la tonalité transpose toutes les scènes ;
+ *  4. Scènes : vue session (scènes × pistes) et arrangement : ordre des blocs (glisser-déposer, ‹ ›), répétitions,
+ *     longueur, nom, duplication et suppression des scènes ; écoute de la chanson dans l'ordre choisi ;
+ *  5. Batterie : le motif de chaque scène (20 motifs du style, grille 5 pistes × 16 pas, fills, crash) ;
+ *  6. Accords : la grille de chaque scène (comme dans Harmonie) et la fenêtre « Trouver l'inspiration » ;
+ *  7. Basse : mode de jeu, pédale, registre et note d'approche de chaque scène ;
+ *  8. Nappes : mode de jeu et voicing de chaque scène ; 9. Arpèges : mode de chaque scène ;
+ *  10. Mélodie : caractère et notes par phrase de chaque scène, phrases, ce que joue chaque instrument
  *     (Muet / Solo / volume par instrument) ;
- *  9. Intégration : les pistes à importer.
- * Des étapes 2 à 9, un bandeau de commande : lecture / pause, stop, position, tempo (réglable), tonalité ;
- * aux étapes 3 à 8, il est à droite de la colonne des scènes et joue la scène choisie en boucle.
- * Les étapes 3, 5, 6 et 7 écrivent S.wiz.parts (option parts de SS.bandSong.build) ; sans réglage, c'est le jeu de l'inspiration.
+ *  11. Intégration : les pistes à importer.
+ * Des étapes 3 à 11, un bandeau de commande : lecture / pause, stop, position, tempo (réglable), tonalité ;
+ * aux étapes 5 à 10, il est à droite de la colonne des scènes et joue la scène choisie en boucle.
+ * Les étapes 5, 7, 8 et 9 écrivent S.wiz.parts (option parts de SS.bandSong.build) ; sans réglage, c'est le jeu de l'inspiration.
+ * Les étapes 3 et 4 écrivent des retouches du plan (S.wiz.skey, form, secs : voir specEff) ; sans retouche, c'est le plan de l'inspiration.
  * Seul « Créer la chanson » modifie le projet (après confirmation s'il a déjà des pistes) ; fermer ne change rien.
  *
  * Catalogue : js/band-presets.js (SS.Band).
@@ -183,14 +188,47 @@ SS.band = (() => {
   }
 
   /* ---------- Rendu ---------- */
+  /** Tempo conseillé d'un style : de la plus lente à la plus rapide de ses inspirations. */
+  const styleTempo = (st) => {
+    const t = st.presets.map((p) => p.tempo);
+    return [Math.min(...t), Math.max(...t)];
+  };
   function renderStyles() {
     const box = $('#bandStyles');
     box.replaceChildren(
-      ...B().STYLES.map((s) =>
-        h('button', { type: 'button', class: s.id === S.styleId ? 'active' : '', 'data-v': s.id, onclick: () => setStyle(s.id) }, s.label)
-      )
+      ...B().STYLES.map((s) => {
+        const [lo, hi] = styleTempo(s);
+        return h('button', { type: 'button', class: s.id === S.styleId ? 'active' : '', 'data-v': s.id, title: `${s.label} : ${lo}–${hi} BPM`, onclick: () => setStyle(s.id) }, h('span', {}, s.label), h('small', {}, `${lo}–${hi} BPM`));
+      })
     );
-    $('#bandStyleDesc').textContent = (style() || {}).desc || '';
+    const st = style();
+    $('#bandStyleDesc').textContent = (st || {}).desc || '';
+    renderStyleCard();
+  }
+  /** Fiche du style (étape 1) : description, tempo conseillé sur l'échelle des tempos, nombre d'inspirations. */
+  function renderStyleCard() {
+    const st = style();
+    const box = $('#bandStyleCard');
+    if (!st || !box) return;
+    const [lo, hi] = styleTempo(st);
+    const pos = (t) => `${(100 * (t - TEMPO_MIN)) / (TEMPO_MAX - TEMPO_MIN)}%`;
+    box.replaceChildren(
+      h('h3', {}, st.label),
+      h('p', { class: 'bsc-desc' }, st.desc || ''),
+      h(
+        'div',
+        { class: 'bsc-tempo' },
+        h('span', { class: 'bsc-lbl' }, 'Tempo conseillé'),
+        h('b', {}, `${lo}–${hi} BPM`),
+        h(
+          'span',
+          { class: 'bsc-scale', 'aria-hidden': 'true' },
+          h('i', { class: 'bsc-reco', style: `left:${pos(lo)};width:calc(${pos(hi)} - ${pos(lo)})` }),
+          ...st.presets.map((p) => h('i', { class: 'bsc-tick', style: `left:${pos(p.tempo)}`, title: `${p.song} : ${p.tempo} BPM` }))
+        )
+      ),
+      h('span', { class: 'bsc-lbl' }, `${st.presets.length} inspirations à gauche : chacune a son tempo, sa tonalité et sa structure.`)
+    );
   }
 
   function renderPresets() {
@@ -348,16 +386,22 @@ SS.band = (() => {
     const kn = H.french ? H.french(m.key.tonic) : m.key.tonic;
     sum.textContent = `${m.spec.form.split(' ').reduce((n, f) => n + (+f.split('*')[1] || 1), 0)} blocs · ${m.bars} mesures · ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')} à ${t} BPM · ${kn} ${m.key.mode === 'minor' ? 'mineur' : 'majeur'}${S.cover.key === 'auto' ? ' (déduite)' : ''} · Suivant pour entendre le groupe`;
   }
-  /** Tap tempo : la moyenne des derniers intervalles (on recommence après 2 s sans tape). */
+  /** Tap tempo : la moyenne des derniers intervalles (on recommence après 2 s sans tape) ; null tant qu'il y a moins de 3 tapes. */
   let taps = [];
-  function tapTempo() {
+  function tapBpm() {
     const now = performance.now();
     if (taps.length && now - taps[taps.length - 1] > 2000) taps = [];
     taps.push(now);
     taps = taps.slice(-8);
-    if (taps.length < 3) return;
+    if (taps.length < 3) return null;
     const avg = (taps[taps.length - 1] - taps[0]) / (taps.length - 1);
-    S.cover.tempo = Math.round(Math.min(TEMPO_MAX, Math.max(TEMPO_MIN, 60000 / avg)));
+    return Math.round(Math.min(TEMPO_MAX, Math.max(TEMPO_MIN, 60000 / avg)));
+  }
+  /** Tap du formulaire de la reprise. */
+  function tapTempo() {
+    const bpm = tapBpm();
+    if (!bpm) return;
+    S.cover.tempo = bpm;
     if (S.wiz) S.wiz.tempo = null;
     const inp = $('#bcvTempo');
     if (inp) inp.value = S.cover.tempo;
@@ -613,7 +657,7 @@ SS.band = (() => {
     S.styleId = id;
     S.presetId = style().presets[0].id;
     S.sel = null;
-    if (S.wiz) S.wiz.parts = {}; // les réglages par scène étaient ceux de l'autre inspiration
+    dropEdits(); // les réglages par scène, la tonalité et l'arrangement étaient ceux de l'autre inspiration
     renderStyles();
     renderPresets();
     renderSong();
@@ -623,7 +667,7 @@ SS.band = (() => {
   function setPreset(id) {
     S.presetId = id;
     S.sel = null;
-    if (S.wiz) S.wiz.parts = {};
+    dropEdits();
     renderPresets();
     renderSong();
     if (cover()) coverChanged(), coverInfo();
@@ -683,21 +727,26 @@ SS.band = (() => {
 
   /* ---------- Assistant « Nouvelle chanson » ----------
    * Ouvert par le menu de l'application, sur une chanson vide :
-   *  1. Modèle : le style, l'inspiration et les musiciens (l'écran habituel de Band) ;
-   *  2. Chanson : toute la chanson en vue « session » — une ligne par scène, une colonne par piste ;
-   *  3. Batterie : le motif de chaque scène (bibliothèque de 20 motifs, grille 5 pistes × 16 pas, fills, crash) ;
-   *  4. Accords : la grille de chaque scène (tonalité, accords au temps, palette Simple / Avancé, comme dans Harmonie) ;
+   *  1. Style : le style et l'inspiration (ou la reprise tapée) ;
+   *  2. Instruments : les musiciens du groupe et leurs instruments (l'écran habituel de Band) ;
+   *  3. Tempo et tonalité : tempo, tonalité de la chanson (transpose toutes les scènes), gamme à écouter ;
+   *  4. Scènes : toute la chanson en vue « session » — une ligne par scène, une colonne par piste — et l'arrangement
+   *     (ordre des blocs, répétitions, longueur, nom, duplication, suppression) ;
+   *  5. Batterie : le motif de chaque scène (bibliothèque de 20 motifs, grille 5 pistes × 16 pas, fills, crash) ;
+   *  6. Accords : la grille de chaque scène (tonalité, accords au temps, palette Simple / Avancé, comme dans Harmonie) ;
    *     « Trouver l'inspiration » ouvre une fenêtre mode → émotion → propositions, à écouter avant de « Choisir » ;
-   *  5. Basse, 6. Nappes, 7. Arpèges : le mode de jeu de chaque scène (pédale, registre, voicing, scène muette) ;
-   *  8. Mélodie : les phrases de la mélodie sur les accords de la scène choisie, son caractère et son nombre de notes
+   *  7. Basse, 8. Nappes, 9. Arpèges : le mode de jeu de chaque scène (pédale, registre, voicing, scène muette) ;
+   *  10. Mélodie : les phrases de la mélodie sur les accords de la scène choisie, son caractère et son nombre de notes
    *     par phrase (propres à chaque scène), les notes de chaque instrument (Muet / Solo / volume) ;
-   *  9. Intégration : on coche les pistes à importer (batterie, basse, nappes, arpèges, lead…).
-   * Étapes 3 à 8 : les scènes en colonne à gauche, sous le titre ; la lecture joue la scène choisie, en boucle.
+   *  11. Intégration : on coche les pistes à importer (batterie, basse, nappes, arpèges, lead…).
+   * Étapes 5 à 10 : les scènes en colonne à gauche, sous le titre ; la lecture joue la scène choisie, en boucle.
    * Rien n'est écrit dans le projet avant « Créer la chanson » ; fermer laisse la chanson vide.
    */
   const STEPS = [
-    { label: 'Modèle', hint: 'Choisis le style, l’inspiration et les musiciens' },
-    { label: 'Chanson', hint: 'Toute la chanson : une ligne par scène, une colonne par piste' },
+    { label: 'Style', hint: 'Choisis le style et l’inspiration (ou tape une reprise)' },
+    { label: 'Instruments', hint: 'Choisis les musiciens du groupe et leurs instruments' },
+    { label: 'Tempo et tonalité', hint: 'Le tempo et la tonalité de la chanson ; changer la tonalité transpose toutes les scènes' },
+    { label: 'Scènes', hint: 'Toute la chanson : les scènes, leur longueur et leur ordre dans l’arrangement' },
     { label: 'Batterie', hint: 'Le motif de batterie de chaque scène : 20 motifs du style, fills, crash' },
     { label: 'Accords', hint: 'Les accords de chaque scène : tonalité, grille au temps, inspiration par émotion' },
     { label: 'Basse', hint: 'La basse de chaque scène : mode de jeu, pédale, registre' },
@@ -706,13 +755,216 @@ SS.band = (() => {
     { label: 'Mélodie', hint: 'La mélodie, phrase par phrase, sur les accords de chaque scène, avec ce que joue chaque instrument' },
     { label: 'Intégration', hint: 'Coche les pistes à importer dans la chanson' },
   ];
-  const ST = { model: 1, song: 2, drums: 3, chords: 4, bass: 5, pad: 6, arp: 7, harm: 8, pick: 9 }; // numéros des étapes
+  const ST = { style: 1, inst: 2, tempo: 3, scenes: 4, drums: 5, chords: 6, bass: 7, pad: 8, arp: 9, harm: 10, pick: 11 }; // numéros des étapes
   const PART_STEPS = { [ST.drums]: 'drums', [ST.bass]: 'bass', [ST.pad]: 'pad', [ST.arp]: 'arp' }; // étapes de réglages par scène
   /** Étapes où l'on travaille une scène (colonne des scènes, lecture de la scène en boucle). */
   const sceneStep = (n = S.wiz && S.wiz.step) => n === ST.chords || n === ST.harm || n in PART_STEPS;
   const cover = () => S.mode === 'cover';
   /** Plan de la chanson : celui de l'inspiration, ou la reprise tapée (porte « Reprendre »), jouée à la façon de l'inspiration. */
   const spec = () => (cover() ? coverModel().spec : preset() && SS.BandSongs && SS.BandSongs[preset().id]);
+
+  /* ---------- Plan retouché : tonalité de la chanson, arrangement, scènes (étapes Tempo et tonalité, Scènes) ----------
+   * Les retouches sont gardées à part, dans S.wiz, et le plan de l'inspiration n'est jamais modifié :
+   *  - skey { tonic, mode } : tonalité de la chanson (sinon celle du plan) ; la changer transpose chaque scène
+   *    (S.wiz.keys, voir setSongKey). Les grilles sont des degrés dans la tonalité : elles suivent toutes seules ;
+   *  - form [{ id, repeat }] : l'arrangement (sinon celui du plan) ;
+   *  - secs { id: { bars, name, from, del } } : longueur et nom d'une scène ; from : scène copiée (une scène dupliquée
+   *    est une section de plus, sans lien avec sa source) ; del : scène supprimée.
+   * specEff() est le plan tel qu'il sera joué : il sert à tout ce qui construit ou lit les scènes.
+   */
+  const FORM_MAX = 32; // blocs de l'arrangement
+  const clone = (x) => (x === undefined ? x : JSON.parse(JSON.stringify(x)));
+  const parseKeyStr = (k) => {
+    const [tonic, mode] = String(k).split(' ');
+    return { tonic, mode: mode || 'major' };
+  };
+  const parseForm = (f) => f.split(/\s+/).filter(Boolean).map((t) => ({ id: t.split('*')[0], repeat: +t.split('*')[1] || 1 }));
+  const formStr = (f) => f.map((b) => b.id + (b.repeat > 1 ? `*${b.repeat}` : '')).join(' ');
+  const retouched = () => !!S.wiz && (!!S.wiz.form || !!S.wiz.skey || Object.keys(S.wiz.secs).length > 0);
+  /** Arrangement : celui qu'on a modifié, sinon celui du plan. */
+  const formOf = () => (S.wiz.form ? S.wiz.form.map((b) => ({ ...b })) : parseForm(spec().form));
+  /** Répète une grille d'accords (pas, durée) sur une scène plus longue, ou la coupe si elle est plus courte. */
+  function repeatFit(grid, from, to) {
+    const old = from * 16;
+    const total = to * 16;
+    const out = [];
+    for (let k = 0; k * old < total; k++) grid.forEach((c) => c.step + k * old < total && out.push({ ...c, step: c.step + k * old, len: Math.min(c.len, total - (c.step + k * old)) }));
+    return fillGrid(out, total);
+  }
+  let effMemo = { sig: null, val: null };
+  function specEff() {
+    const base = spec();
+    if (!base || !retouched()) return base;
+    const w = S.wiz;
+    const sig = JSON.stringify([cover() ? S.cover : preset().id, w.form, w.secs, w.skey]);
+    if (effMemo.sig === sig && effMemo.base === base) return effMemo.val;
+    const out = clone(base);
+    Object.entries(w.secs).forEach(([id, o]) => {
+      if (o.from && base.sections[o.from]) {
+        out.sections[id] = clone(base.sections[o.from]);
+        out.sections[id].as = base.sections[o.from].as || o.from;
+      }
+      const sec = out.sections[id];
+      if (!sec) return;
+      if (o.del) return void delete out.sections[id];
+      if (o.bars && o.bars !== sec.bars) {
+        if (sec.grid) sec.grid = repeatFit(sec.grid, sec.bars, o.bars);
+        sec.bars = o.bars;
+      }
+      if (o.name) sec.name = o.name;
+    });
+    if (w.form) out.form = formStr(w.form);
+    if (w.skey) out.key = `${w.skey.tonic} ${w.skey.mode}`;
+    effMemo = { sig, base, val: out };
+    return out;
+  }
+
+  /** Tonalité de la chanson : la retouchée, sinon celle du plan. */
+  const songKey = () => (S.wiz && S.wiz.skey) || parseKeyStr(spec().key);
+  const NATURAL_PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+  const tonicPc = (t) => (NATURAL_PC[t[0]] + [...t.slice(1)].reduce((a, c) => a + (c === '♯' || c === '#' ? 1 : c === '♭' || c === 'b' ? -1 : 0), 0) + 12) % 12;
+  const FAM_MAJOR = (mode) => (SS.harmony.MODES.find((m) => m.id === mode) || {}).fam === 'major';
+  // noms des 12 toniques (tous valides dans SS.harmony.TONICS) ; en mineur on préfère les dièses usuels
+  const TONIC_MAJ = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
+  const TONIC_MIN = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
+  const tonicName = (pc, mode) => (FAM_MAJOR(mode) ? TONIC_MAJ : TONIC_MIN)[((pc % 12) + 12) % 12];
+  /**
+   * Change la tonalité de la chanson : chaque scène est transposée de l'intervalle entre l'ancienne et la nouvelle
+   * tonique (S.wiz.keys). Si le mode change, les scènes qui étaient dans le mode de la chanson prennent le nouveau ;
+   * les autres (un pont en majeur dans une chanson mineure) gardent le leur.
+   */
+  function setSongKey(nk) {
+    const w = S.wiz;
+    const old = songKey();
+    const iv = tonicPc(nk.tonic) - tonicPc(old.tonic);
+    if (!iv && nk.mode === old.mode) return;
+    const sp = specEff();
+    Object.entries(sp.sections).forEach(([id, sec]) => {
+      const cur = w.keys[id] || (sec.key ? parseKeyStr(sec.key) : old);
+      const mode = cur.mode === old.mode ? nk.mode : cur.mode;
+      w.keys[id] = { tonic: tonicName(tonicPc(cur.tonic) + iv, mode), mode };
+    });
+    const orig = parseKeyStr(spec().key);
+    if (tonicPc(nk.tonic) === tonicPc(orig.tonic) && nk.mode === orig.mode) delete w.skey;
+    else w.skey = { tonic: nk.tonic, mode: nk.mode };
+    // une scène qui retombe sur la tonalité qu'elle aurait sans retouche n'a plus besoin de la sienne
+    const nsk = w.skey || orig;
+    Object.entries(spec().sections).forEach(([id, sec]) => {
+      const dflt = sec.key ? parseKeyStr(sec.key) : nsk;
+      const k = w.keys[id];
+      if (k && tonicPc(k.tonic) === tonicPc(dflt.tonic) && k.mode === dflt.mode) delete w.keys[id];
+    });
+    Object.keys(w.keys).forEach((id) => !sp.sections[id] && delete w.keys[id]);
+    renderWiz();
+  }
+
+  /* Scènes et arrangement : chaque fonction retouche S.wiz puis redessine (la chanson se recalcule à partir de specEff). */
+  const SEC_STATE = ['grids', 'keys', 'emos', 'parts', 'plans', 'pseeds', 'chars'];
+  const secBars = (id) => specEff().sections[id].bars;
+  const secName = (id) => {
+    const sec = specEff().sections[id];
+    return sec.name || BS().NAMES[id] || id;
+  };
+  function setForm(f) {
+    S.wiz.form = f.map((b) => ({ id: b.id, repeat: b.repeat }));
+    renderWiz();
+  }
+  function moveBlock(i, to) {
+    const f = formOf();
+    if (to < 0 || to >= f.length || i === to) return;
+    f.splice(to, 0, f.splice(i, 1)[0]);
+    setForm(f);
+  }
+  function removeBlock(i) {
+    const f = formOf();
+    if (f.length < 2) return; // une chanson garde au moins un bloc
+    f.splice(i, 1);
+    setForm(f);
+  }
+  function repeatBlock(i, d) {
+    const f = formOf();
+    f[i].repeat = Math.max(1, Math.min(16, f[i].repeat + d));
+    setForm(f);
+  }
+  function addBlock(id) {
+    const f = formOf();
+    if (f.length >= FORM_MAX) return;
+    f.push({ id, repeat: 1 });
+    setForm(f);
+  }
+  /** Longueur d'une scène en mesures ; sa grille d'accords modifiée est répétée ou coupée pour couvrir la scène. */
+  function setSecBars(id, bars) {
+    const old = secBars(id);
+    if (bars === old) return;
+    if (S.wiz.grids[id]) S.wiz.grids[id] = repeatFit(S.wiz.grids[id], old, bars);
+    S.wiz.gsel = null;
+    S.wiz.secs[id] = { ...(S.wiz.secs[id] || {}), bars };
+    renderWiz();
+  }
+  function renameSec(id, name) {
+    const o = { ...(S.wiz.secs[id] || {}) };
+    const n = String(name || '').trim();
+    if (n) o.name = n;
+    else delete o.name;
+    if (Object.keys(o).length) S.wiz.secs[id] = o;
+    else delete S.wiz.secs[id];
+    renderWiz();
+  }
+  /** Copie d'une scène : une section de plus (« chorus_b », « Refrain 2 »), indépendante, avec les mêmes réglages au départ. */
+  function dupScene(id) {
+    const sp = specEff();
+    const src = sp.sections[id];
+    if (!src) return;
+    const w = S.wiz;
+    const root = (w.secs[id] && w.secs[id].from) || id;
+    const taken = (x) => x in sp.sections || x in w.secs;
+    let nid;
+    for (let k = 98; k < 98 + 26 && (!nid || taken(nid)); k++) nid = `${root}_${String.fromCharCode(k)}`;
+    if (taken(nid)) return;
+    const stem = secName(id).replace(/\s+\d+$/, '');
+    const names = new Set(Object.keys(sp.sections).map(secName));
+    let n = 2;
+    while (names.has(`${stem} ${n}`)) n++;
+    w.secs[nid] = { from: root, bars: src.bars, name: `${stem} ${n}` };
+    SEC_STATE.forEach((k) => w[k][id] !== undefined && (w[k][nid] = clone(w[k][id])));
+    // son bloc suit le dernier bloc de la scène copiée
+    const f = formOf();
+    let at = f.length - 1;
+    f.forEach((b, i) => b.id === id && (at = i));
+    f.splice(at + 1, 0, { id: nid, repeat: 1 });
+    setForm(f);
+  }
+  /** Supprime une scène et ses blocs (sauf la dernière). */
+  function delScene(id) {
+    const sp = specEff();
+    const ids = Object.keys(sp.sections);
+    if (ids.length < 2 || !sp.sections[id]) return;
+    const w = S.wiz;
+    let f = formOf().filter((b) => b.id !== id);
+    if (!f.length) f = [{ id: ids.find((x) => x !== id), repeat: 1 }];
+    if (w.secs[id] && w.secs[id].from) delete w.secs[id];
+    else w.secs[id] = { ...(w.secs[id] || {}), del: true };
+    SEC_STATE.forEach((k) => delete w[k][id]);
+    w.gsel = null;
+    setForm(f);
+  }
+  /** Revient au plan de l'inspiration : arrangement, longueurs, noms, copies et suppressions (pas la tonalité). */
+  function resetStructure() {
+    const w = S.wiz;
+    const base = spec().sections;
+    Object.entries(w.secs).forEach(([id, o]) => {
+      if (o.from) SEC_STATE.forEach((k) => delete w[k][id]);
+      else if (o.bars && w.grids[id] && base[id]) w.grids[id] = repeatFit(w.grids[id], o.bars, base[id].bars);
+    });
+    w.form = null;
+    w.secs = {};
+    w.gsel = null;
+    renderWiz();
+  }
+  /** Efface toutes les retouches du plan (autre style ou autre inspiration, autre reprise). */
+  function dropEdits() {
+    if (S.wiz) Object.assign(S.wiz, { form: null, secs: {}, skey: null, keys: {}, grids: {}, emos: {}, parts: {} });
+  }
 
   /* ---------- Porte « Reprendre » : une reprise tapée au clavier ----------
    * Titre, tempo, tonalité (déduite du premier accord, ou choisie), parties (« Couplet : Am | F | C | G ») et ordre
@@ -885,7 +1137,7 @@ SS.band = (() => {
   }
   /** La reprise a changé : les retouches des étapes suivantes (grilles, phrases…) repartent des accords tapés. */
   function coverChanged() {
-    if (S.wiz) Object.assign(S.wiz, { plans: {}, pseeds: {}, keys: {}, grids: {}, emos: {}, chars: {}, parts: {}, gsel: null, insp: null });
+    if (S.wiz) Object.assign(S.wiz, { plans: {}, pseeds: {}, keys: {}, grids: {}, emos: {}, chars: {}, parts: {}, form: null, secs: {}, skey: null, gsel: null, insp: null });
   }
   const singer = (role) => SS.bandSong.SINGERS.includes(role);
 
@@ -905,9 +1157,9 @@ SS.band = (() => {
     const p = preset();
     const cols = wizCols();
     const harmony = harmonyOpts(true);
-    const sig = JSON.stringify([p.id, cover() && S.cover, S.wiz.seed, melodyOpts(), harmony, S.wiz.parts, cols.map((c) => [c.id, c.o])]);
+    const sig = JSON.stringify([p.id, cover() && S.cover, S.wiz.seed, melodyOpts(), harmony, S.wiz.parts, S.wiz.form, S.wiz.secs, S.wiz.skey, cols.map((c) => [c.id, c.o])]);
     if (S.wiz.sig !== sig) {
-      const sp = spec();
+      const sp = specEff();
       const fake = cols.map((c) => ({ id: c.id, type: c.o.type, sound: c.o.sound, band: c.o.band }));
       S.wiz.res = sp ? SS.bandSong.build(sp, p.id, fake, { melodySeed: S.wiz.seed, melody: melodyOpts(), harmony, parts: S.wiz.parts }) : null;
       S.wiz.sig = sig;
@@ -917,7 +1169,7 @@ SS.band = (() => {
 
   /** Accords d'une scène, par leur nom (« Cm | B♭ | A♭ | B♭ »). */
   function sceneChords(sc) {
-    const sec = spec().sections[sc.sec];
+    const sec = specEff().sections[sc.sec];
     if (!sec || !sec.chords) return '';
     return sec.chords
       .split('|')
@@ -1101,7 +1353,7 @@ SS.band = (() => {
     S.wiz.insp = null;
     S.wiz.gsel = null;
     if (sceneStep(n) && L.mode && L.scene) S.wiz.hscene = L.scene; // Accords, Mélodie : la scène qu'on entend
-    if (n === 1) dropListen();
+    if (n <= ST.inst) dropListen(); // style et instruments changent toute la chanson
     renderWiz();
     if (sceneStep(n) && L.mode === 'song' && !L.paused) playScene(S.wiz.hscene); // ici, on écoute une scène
   }
@@ -1109,6 +1361,263 @@ SS.band = (() => {
   function toggleCols(ids, on) {
     ids.forEach((id) => (on ? S.wiz.off.delete(id) : S.wiz.off.add(id)));
     renderWiz();
+  }
+
+  /* ---------- Étape Tempo et tonalité ----------
+   * Tempo : grand afficheur, − / +, curseur (la zone dorée : le tempo conseillé du style), Tap, tempo de l'inspiration.
+   * Tonalité de la chanson : 12 toniques, modes, gamme à écouter au piano ; la changer transpose toutes les scènes (setSongKey).
+   */
+  const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+  const mmss = (secs) => `${Math.floor(secs / 60)}:${String(Math.round(secs % 60)).padStart(2, '0')}`;
+  let scaleTimers = [];
+  /** Fait entendre la gamme (huit notes, au piano) ; chaque note allume sa case. */
+  function hearScale(key) {
+    scaleTimers.forEach(clearTimeout);
+    scaleTimers = [];
+    const m = SS.harmony.MODES.find((x) => x.id === key.mode);
+    if (!m) return;
+    stopListen();
+    SS.audio.ensureCtx();
+    const base = 57 + ((tonicPc(key.tonic) + 3) % 12);
+    const fake = { id: null, type: 'instrument', family: 'keys', instrument: 'piano', octave: 4, chord: 'min', sfv: 0, volume: 0.9, name: 'Piano', events: [] };
+    [...m.iv, 12].forEach((iv, i) => {
+      scaleTimers.push(
+        setTimeout(() => {
+          try {
+            Promise.resolve(SS.audio.preview(fake, base + iv, 0.55)).catch(() => {});
+          } catch (e) {
+            console.warn(e);
+          }
+          document.querySelectorAll('#bandWiz .bwt-note').forEach((n, k) => n.classList.toggle('sounding', k === i % 7 && i < 8));
+        }, i * 330)
+      );
+    });
+    scaleTimers.push(setTimeout(() => document.querySelectorAll('#bandWiz .bwt-note').forEach((n) => n.classList.remove('sounding')), 8 * 330 + 200));
+  }
+
+  function renderTempo() {
+    const box = $('#bandWiz');
+    const { res } = wizSong();
+    if (!res) return box.replaceChildren(h('p', { class: 'dlg-hint' }, 'Cette inspiration n’a pas de plan de chanson.'));
+    const H = SS.harmony;
+    const t = tempo();
+    const st = style();
+    const [lo, hi] = st ? styleTempo(st) : [TEMPO_MIN, TEMPO_MAX];
+    const pos = (v) => `${(100 * (v - TEMPO_MIN)) / (TEMPO_MAX - TEMPO_MIN)}%`;
+    const orig = origTempo();
+    const len = res.song.reduce((a, b) => a + res.scenes.find((sc) => sc.id === b.scene).bars * b.repeat, 0);
+    const key = songKey();
+    const fam = FAM_MAJOR(key.mode);
+    const modes = H.MODES;
+
+    const bpmCard = h(
+      'section',
+      { class: 'bwt-card', 'aria-labelledby': 'bwtTempoTitle' },
+      h('h3', { id: 'bwtTempoTitle' }, 'Tempo'),
+      h(
+        'div',
+        { class: 'bwt-bpm' },
+        h('div', { class: 'bwt-lcd', id: 'bwtLcd', 'aria-live': 'polite', 'aria-label': 'Tempo en BPM' }, String(t)),
+        h('span', { class: 'bwt-unit' }, 'BPM'),
+        h('button', { type: 'button', class: 'btn bwt-step', id: 'bwtMinus', 'aria-label': 'Ralentir de 1 BPM', title: 'Ralentir (−1 BPM)', onclick: () => setTempo(tempo() - 1) }, '−'),
+        h('button', { type: 'button', class: 'btn bwt-step', id: 'bwtPlus', 'aria-label': 'Accélérer de 1 BPM', title: 'Accélérer (+1 BPM)', onclick: () => setTempo(tempo() + 1) }, '+'),
+        h(
+          'div',
+          { class: 'bwt-range' },
+          st ? h('i', { class: 'bwt-reco', title: `Tempo conseillé pour ${st.label} : ${lo}–${hi} BPM`, style: `left:${pos(lo)};width:calc(${pos(hi)} - ${pos(lo)})` }) : null,
+          h('input', {
+            type: 'range', id: 'bwtRange', min: TEMPO_MIN, max: TEMPO_MAX, step: 1, value: t, 'aria-label': 'Tempo',
+            oninput: (e) => setTempo(e.target.value, true),
+            onchange: (e) => setTempo(e.target.value),
+          })
+        ),
+        h('button', { type: 'button', class: 'btn', id: 'bwtTap', title: 'Tape en rythme (3 fois ou plus) pour trouver le tempo', onclick: () => { const b = tapBpm(); if (b) setTempo(b); } }, 'Tap')
+      ),
+      h(
+        'div',
+        { class: 'bwt-meta' },
+        st ? h('span', {}, `Conseillé pour ${st.label} : `, h('b', {}, `${lo}–${hi} BPM`), ' (zone dorée)') : null,
+        h('span', { id: 'bwtDur' }, `${len} mesures · ${mmss((len * 4 * 60) / t)}`),
+        h('button', { type: 'button', class: 'btn btn-small', id: 'bwtOrig', hidden: t === orig, title: 'Revenir au tempo de l’inspiration', onclick: () => setTempo(orig) }, `↺ Tempo de l’inspiration : ${orig}`)
+      )
+    );
+
+    const keyCard = h(
+      'section',
+      { class: 'bwt-card', 'aria-labelledby': 'bwtKeyTitle' },
+      h('h3', { id: 'bwtKeyTitle' }, 'Tonalité de la chanson'),
+      h('p', { class: 'dlg-hint' }, 'Changer la tonalité transpose toutes les scènes : les accords gardent leurs degrés. Une scène qui jouait dans un autre mode (un pont en majeur dans une chanson mineure) garde son mode.'),
+      h(
+        'div',
+        { class: 'bwt-row', role: 'group', 'aria-label': 'Tonique' },
+        h('span', { class: 'bwt-lbl' }, 'Tonique'),
+        h(
+          'div',
+          { class: 'bwt-tonics' },
+          ...Array.from({ length: 12 }, (_, pc) => {
+            const name = tonicName(pc, key.mode);
+            const on = pc === tonicPc(key.tonic);
+            return h('button', { type: 'button', class: 'chip bwt-tonic' + (on ? ' active' : '') + (name.length > 1 ? ' blk' : ''), 'data-pc': pc, 'aria-pressed': String(on), onclick: () => setSongKey({ tonic: name, mode: key.mode }) }, H.french(name));
+          })
+        )
+      ),
+      h(
+        'div',
+        { class: 'bwt-row', role: 'group', 'aria-label': 'Mode' },
+        h('span', { class: 'bwt-lbl' }, 'Mode'),
+        h(
+          'div',
+          { class: 'bwt-modes' },
+          ...modes.map((m) => h('button', { type: 'button', class: 'chip bwt-mode' + (m.id === key.mode ? ' active' : ''), 'data-skmode': m.id, 'aria-pressed': String(m.id === key.mode), title: m.colorText ? `Note caractéristique : ${m.colorText}` : m.fam === 'major' ? 'Tierce majeure' : 'Tierce mineure', onclick: () => setSongKey({ tonic: key.tonic, mode: m.id }) }, m.label.replace(' (mode)', '')))
+        )
+      ),
+      h(
+        'div',
+        { class: 'bwt-row' },
+        h('span', { class: 'bwt-lbl' }, `Gamme de ${H.label(key)}`),
+        h('button', { type: 'button', class: 'btn', id: 'bwtScale', title: 'Fait entendre la gamme au piano', onclick: () => hearScale(key) }, '▶ Écouter la gamme'),
+        S.wiz.skey ? h('button', { type: 'button', class: 'btn btn-small', id: 'bwtKeyBack', title: 'Revenir à la tonalité de l’inspiration, scène par scène', onclick: () => setSongKey(parseKeyStr(spec().key)) }, `↺ Tonalité de l’inspiration : ${H.label(parseKeyStr(spec().key))}`) : null
+      ),
+      h(
+        'ol',
+        { class: 'bwt-notes', 'aria-label': 'Notes de la gamme' },
+        ...H.scale(key).map((d, i) => {
+          const mm = modes.find((x) => x.id === key.mode);
+          return h('li', { class: 'bwt-note' + (i === 0 ? ' tonic' : '') + (mm && mm.color === i ? ' color' : ''), title: mm && mm.color === i ? mm.colorText : null }, h('small', {}, `${i + 1} · ${ROMAN[i]}`), h('b', {}, H.french(d.name)));
+        })
+      ),
+      h('p', { class: 'dlg-hint' }, `${fam ? 'Mode à tierce majeure' : 'Mode à tierce mineure'} · ${keyInfo(key)}`)
+    );
+    box.replaceChildren(h('div', { class: 'bw-top' }, h('p', { class: 'bw-hint' }, STEPS[ST.tempo - 1].hint + '.')), h('div', { class: 'bwt' }, bpmCard, keyCard));
+  }
+
+  /* ---------- Étape Scènes : arrangement et scènes ----------
+   * L'arrangement est une bande de blocs (largeur = mesures × répétitions, couleur = type de scène) : glisser-déposer
+   * ou ‹ › pour l'ordre, − / + pour les répétitions, × pour retirer. Dessous, une ligne par scène : nom, longueur,
+   * « + Ajouter à la fin », « Dupliquer », suppression. Tout passe par specEff : la chanson écoutée est celle-là.
+   */
+  const SEC_COLORS = [
+    [/^intro/, '#4aa3c9'], [/^(verse|groove|theme)/, '#4f6bff'], [/^(pre|build)/, '#f08a00'], [/^(chorus|drop|peak|post)/, '#e3179c'],
+    [/^(bridge|break)/, '#9b5cff'], [/^(solo|instr|riff)/, '#13c2a3'], [/^outro/, '#7a8a99'],
+  ];
+  const secColor = (id) => (SEC_COLORS.find(([re]) => re.test(kindOf(id))) || [0, '#8a8a96'])[1];
+  const BAR_CHOICES = [4, 8, 16, 32];
+  let dragFrom = -1;
+  const ctl = (cls, label, text, onclick, disabled = false) => h('button', { type: 'button', class: 'bw-bc ' + cls, 'aria-label': label, title: label, disabled, onclick }, text);
+
+  /** La bande des blocs de l'arrangement, éditable. */
+  function arrangement(res, len, time) {
+    const w = S.wiz;
+    const edited = !!w.form || Object.keys(w.secs).length > 0;
+    const n = res.song.length;
+    return h(
+      'div',
+      { class: 'bw-arr', role: 'group', 'aria-label': 'Arrangement de la chanson' },
+      h(
+        'div',
+        { class: 'bw-arr-head' },
+        h('b', {}, 'Arrangement'),
+        h('span', { class: 'bw-seed', id: 'bwArrInfo' }, `${n} bloc${n > 1 ? 's' : ''} · ${len} mesures · ${time}`),
+        h('span', { class: 'spacer' }),
+        h('button', { type: 'button', class: 'btn btn-small', id: 'bwArrReset', hidden: !edited, title: 'Revenir à l’ordre, aux longueurs et aux scènes de l’inspiration', onclick: resetStructure }, '↺ Structure de l’inspiration')
+      ),
+      h(
+        'ol',
+        { class: 'bw-blocks bw-arr-blocks' },
+        ...res.song.map((b, i) => {
+          const sc = res.scenes.find((x) => x.id === b.scene);
+          const bars = sc.bars * b.repeat;
+          const li = h(
+            'li',
+            { draggable: 'true', 'data-i': i, style: `flex:${bars} 1 158px;--c:${secColor(sc.sec)}` },
+            h(
+              'button',
+              { type: 'button', class: 'bw-block', 'data-sec': sc.sec, title: `Écouter à partir de « ${sc.name} » (${bars} mesures)`, onclick: () => listenSong(i) },
+              h('span', {}, sc.name),
+              b.repeat > 1 ? h('small', {}, `×${b.repeat}`) : null
+            ),
+            h(
+              'div',
+              { class: 'bw-bctls' },
+              ctl('bw-bl', `Avancer « ${sc.name} » (vers le début)`, '‹', () => moveBlock(i, i - 1), i === 0),
+              ctl('bw-brl', 'Une répétition de moins', '−', () => repeatBlock(i, -1), b.repeat < 2),
+              h('span', { class: 'bw-brn', title: `Joué ${b.repeat} fois de suite` }, `×${b.repeat}`),
+              ctl('bw-brm', 'Une répétition de plus', '+', () => repeatBlock(i, 1), b.repeat > 15),
+              ctl('bw-br', `Reculer « ${sc.name} » (vers la fin)`, '›', () => moveBlock(i, i + 1), i === n - 1),
+              ctl('bw-bx', `Retirer ce bloc « ${sc.name} »`, '×', () => removeBlock(i), n < 2)
+            )
+          );
+          li.addEventListener('dragstart', (e) => {
+            dragFrom = i;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', String(i));
+            li.classList.add('dragging');
+          });
+          li.addEventListener('dragend', () => {
+            dragFrom = -1;
+            li.parentNode.querySelectorAll('li').forEach((x) => x.classList.remove('dragging', 'over'));
+          });
+          li.addEventListener('dragover', (e) => {
+            if (dragFrom < 0) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            li.classList.add('over');
+          });
+          li.addEventListener('dragleave', () => li.classList.remove('over'));
+          li.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const from = dragFrom;
+            dragFrom = -1;
+            if (from >= 0) moveBlock(from, i);
+          });
+          return li;
+        })
+      ),
+      h('p', { class: 'dlg-hint' }, 'Glisse un bloc pour le déplacer (ou ‹ ›), − / + pour le répéter, × pour le retirer ; clique son nom pour écouter à partir de là.')
+    );
+  }
+
+  /** Une ligne par scène du plan retouché (même celles que l'arrangement ne joue pas) : nom, longueur, ajouter, dupliquer, supprimer. */
+  function sceneEditor() {
+    const sp = specEff();
+    const f = formOf();
+    const plays = new Map();
+    f.forEach((b) => plays.set(b.id, (plays.get(b.id) || 0) + b.repeat));
+    const ids = [...new Set([...f.map((b) => b.id), ...Object.keys(sp.sections)])].filter((id) => sp.sections[id]);
+    const full = f.length >= FORM_MAX;
+    return h(
+      'div',
+      { class: 'bw-sc-list', role: 'list', 'aria-label': 'Scènes de la chanson' },
+      ...ids.map((id) => {
+        const sec = sp.sections[id];
+        const name = secName(id);
+        const bars = BAR_CHOICES.includes(sec.bars) ? BAR_CHOICES : [...BAR_CHOICES, sec.bars].sort((a, b) => a - b);
+        const n = plays.get(id) || 0;
+        return h(
+          'div',
+          { class: 'bw-sc' + (n ? '' : ' unused'), role: 'listitem', 'data-sec': id, style: `--c:${secColor(id)}` },
+          h('span', { class: 'bw-sc-bar', 'aria-hidden': 'true' }),
+          h(
+            'div',
+            { class: 'bw-sc-id' },
+            h('input', {
+              type: 'text', class: 'bw-sc-name', value: name, maxlength: 40, 'aria-label': `Nom de la scène « ${name} »`, spellcheck: 'false',
+              onchange: (e) => renameSec(id, e.target.value),
+              onkeydown: (e) => e.key === 'Enter' && e.target.blur(),
+            }),
+            h('small', {}, `${BS().NAMES[kindOf(id)] || kindOf(id)} · ${sec.bars} mesures · ` + (n ? `jouée ${n} fois` : 'pas dans l’arrangement'))
+          ),
+          h(
+            'span',
+            { class: 'segmented bw-bars', role: 'radiogroup', 'aria-label': `Longueur de « ${name} »` },
+            ...bars.map((b) => h('button', { type: 'button', role: 'radio', class: b === sec.bars ? 'active' : '', 'aria-checked': String(b === sec.bars), 'data-bars': b, title: `${b} mesures`, onclick: () => setSecBars(id, b) }, String(b)))
+          ),
+          h('button', { type: 'button', class: 'btn btn-small bw-sc-add', disabled: full, title: 'Joue cette scène une fois de plus, à la fin de la chanson', onclick: () => addBlock(id) }, '+ Ajouter à la fin'),
+          h('button', { type: 'button', class: 'btn btn-small bw-sc-dup', disabled: full || ids.length >= 26, title: 'Copie indépendante de la scène (nouveau nom, mêmes accords et mêmes réglages au départ)', onclick: () => dupScene(id) }, 'Dupliquer'),
+          h('button', { type: 'button', class: 'btn btn-small btn-icon bw-sc-del', disabled: ids.length < 2, 'aria-label': `Supprimer la scène « ${name} »`, title: ids.length < 2 ? 'La dernière scène ne peut pas être supprimée' : 'Supprime la scène et ses blocs', onclick: () => delScene(id), html: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>' })
+        );
+      })
+    );
   }
 
   function renderWizGrid() {
@@ -1148,7 +1657,8 @@ SS.band = (() => {
     const time = `${Math.floor(secs / 60)}:${String(Math.round(secs % 60)).padStart(2, '0')}`;
     const kept = cols.filter((c) => !S.wiz.off.has(c.id)).length;
 
-    const order = h(
+    const scenesStep = step === ST.scenes;
+    const order = scenesStep ? arrangement(res, len, time) : h(
       'div',
       { class: 'bw-order', role: 'group', 'aria-label': 'Ordre des scènes dans la chanson' },
       h(
@@ -1180,7 +1690,7 @@ SS.band = (() => {
         h('b', {}, `« ${p.song} »`),
         h('span', {}, ` ${p.artist} · ${SS.harmony.label(res.key)} · ${tempo()} BPM · ${res.scenes.length} scènes · ${len} mesures · ${time}`)
       ),
-      h('p', { class: 'bw-hint' }, STEPS[step - 1].hint + '. Clique une scène pour l’écouter en boucle.'),
+      h('p', { class: 'bw-hint' }, STEPS[step - 1].hint + (scenesStep ? '.' : '. Clique une scène pour l’écouter en boucle.')),
       order,
       step === ST.pick
         ? h(
@@ -1255,7 +1765,8 @@ SS.band = (() => {
         })
       )
     );
-    box.replaceChildren(top, h('div', { class: 'bw-scroll' }, h('table', { class: 'bw-grid', style: `--cols:${cols.length}` }, h('thead', {}, head1, head2), h('tbody', {}, ...body))));
+    const table = h('table', { class: 'bw-grid', style: `--cols:${cols.length}` }, h('thead', {}, head1, head2), h('tbody', {}, ...body));
+    box.replaceChildren(top, h('div', { class: 'bw-scroll' }, scenesStep ? sceneEditor() : null, table));
   }
 
   /* ---------- Étape Mélodie (accords, phrases de la mélodie, instruments) ----------
@@ -1280,7 +1791,7 @@ SS.band = (() => {
   /** Accords d'une scène, pas par pas : [{ step, len, bar, info }]. */
   function sceneSpans(sc) {
     if (sc.spans) return sc.spans.map((x) => ({ step: x.step, len: x.len, bar: x.bar, info: chordInfo(sc.key, x.chord) }));
-    const sec = spec() && spec().sections[sc.sec];
+    const sec = spec() && specEff().sections[sc.sec];
     if (!sec || !sec.chords) return [];
     try {
       return SS.bandSong.spansOf(sec, sc.key, sc.bars).map((x) => ({ step: x.step, len: x.len, bar: x.bar, info: chordInfo(sc.key, x.chord) }));
@@ -1396,7 +1907,7 @@ SS.band = (() => {
       );
     const melIds = new Set(cols.filter((c) => singer(c.role)).map((c) => c.id));
     // la mélodie joue dans cette scène (pas en montée « rise ») : ligne des phrases
-    const secSpec = spec() && spec().sections[sc.sec];
+    const secSpec = spec() && specEff().sections[sc.sec];
     const melPlays = !!secSpec && cols.some((c) => melIds.has(c.id) && secSpec[c.role] && secSpec[c.role] !== 'rise');
     const shown = (c) => melIds.has(c.id) || !S.hide.has(c.id);
 
@@ -1522,7 +2033,7 @@ SS.band = (() => {
 
   /** Grille de l'inspiration pour une scène (accords du plan, lus dans la tonalité de la scène). */
   function specGrid(sc) {
-    const sec = spec() && spec().sections[sc.sec];
+    const sec = spec() && specEff().sections[sc.sec];
     if (sec && sec.grid) return fillGrid(sec.grid.map((c) => ({ ...c })), sc.bars * 16); // reprise : les accords tapés
     if (!sec || !sec.chords) return [];
     try {
@@ -2315,9 +2826,9 @@ SS.band = (() => {
    */
   const partOf = (sec, role) => (S.wiz.parts[sec] && S.wiz.parts[sec][role]) || null;
   const mutedIn = (sec, role) => !!(S.wiz.parts[sec] && (S.wiz.parts[sec].off || []).includes(role));
-  const secOf = (sc) => (spec() && spec().sections[sc.sec]) || {};
+  const secOf = (sc) => (spec() && specEff().sections[sc.sec]) || {};
   /** Genre d'une section (verse2 → verse) ; une reprise suit la section du modèle dont elle reprend le jeu. */
-  const kindOf = (sec) => String(((spec().sections[sec] || {}).as) || sec).replace(/\d+$/, '');
+  const kindOf = (sec) => String(((specEff().sections[sec] || {}).as) || sec).replace(/\d+$/, '');
   const tidy = (sec) => !Object.keys(S.wiz.parts[sec]).length && delete S.wiz.parts[sec];
   /** Fusionne `patch` dans le réglage du rôle (undefined = enlevé) ; un réglage vide disparaît. */
   function putPart(sec, role, patch) {
@@ -2730,18 +3241,23 @@ SS.band = (() => {
     el.querySelectorAll('.wiz-only').forEach((x) => (x.hidden = false));
     $('#bandTitle').firstChild.textContent = 'Nouvelle chanson ';
     renderWizSteps();
-    // bandeau de lecture : sous le titre (étapes 2 et 9), à droite de la colonne des scènes (étapes 3 à 8)
+    // bandeau de lecture : sous le titre (étapes 3, 4 et 11), à droite de la colonne des scènes (étapes 5 à 10)
+    // étapes 1 et 2 : l'écran Band (style et inspiration, puis musiciens) ; les autres blocs sont cachés par le CSS (bs-style, bs-inst)
     const body = el.querySelector('.band-body');
     const tr = $('#bwTransport');
     if (tr.nextElementSibling !== body) body.before(tr);
     $('#bandWiz').classList.remove('bw-split');
-    body.hidden = step !== 1;
-    $('#bandWiz').hidden = step === 1;
-    $('#bandGm').hidden = step !== 1;
-    tr.hidden = step === 1;
-    if (step === 1) refresh();
+    const band = step === ST.style || step === ST.inst;
+    el.classList.toggle('bs-style', step === ST.style);
+    el.classList.toggle('bs-inst', step === ST.inst);
+    body.hidden = !band;
+    $('#bandWiz').hidden = band;
+    $('#bandGm').hidden = step !== ST.inst;
+    tr.hidden = band;
+    if (band) refresh();
     else {
-      if (step === ST.harm) renderHarmony();
+      if (step === ST.tempo) renderTempo();
+      else if (step === ST.harm) renderHarmony();
       else if (step === ST.chords) renderChords();
       else if (step in PART_STEPS) renderParts(PART_STEPS[step]);
       else renderWizGrid();
@@ -2755,7 +3271,7 @@ SS.band = (() => {
   /** Boutons du pied de la fenêtre selon l'étape. */
   function wizFoot() {
     const step = S.wiz.step;
-    $('#bwEmpty').hidden = step !== 1 || !S.wiz.fresh;
+    $('#bwEmpty').hidden = step !== ST.style || !S.wiz.fresh;
     $('#bwBack').hidden = step === 1;
     $('#bwNext').hidden = step === ST.pick;
     $('#bwNext').disabled = !canGo(step + 1);
@@ -2779,7 +3295,9 @@ SS.band = (() => {
     hideConfirm();
     el.close('ok');
     // volumes réglés à l'étape Mélodie : appliqués au mixage automatique de la chanson créée
-    const plan = cover() ? { ...p, spec: spec(), cover: { title: S.cover.title.trim() || 'Reprise' } } : p;
+    // plan : celui de l'inspiration ou de la reprise, avec les retouches des étapes Tempo et tonalité et Scènes
+    const eff = specEff();
+    const plan = cover() ? { ...p, spec: eff, cover: { title: S.cover.title.trim() || 'Reprise' } } : eff !== spec() ? { ...p, spec: eff } : p;
     app.applySong(cols.map((c) => c.o), plan, tempo(), { melodySeed: seed, melody: melodyOpts(), harmony: harmonyOpts(), parts: S.wiz.parts, gains: cols.map((c) => volGain(c.id)) });
   }
 
@@ -2797,7 +3315,10 @@ SS.band = (() => {
     const base = cover() ? S.cover.tempo : p.tempo;
     return S.wiz && S.wiz.tempo && S.wiz.tempoFor === tempoKey() ? S.wiz.tempo : base;
   }
-  function setTempo(v) {
+  /** Tempo de l'inspiration (ou de la reprise tapée) : celui où l'on revient. */
+  const origTempo = () => (cover() ? S.cover.tempo : preset().tempo);
+  /** soft : pendant qu'on glisse le curseur, on ne redessine pas l'étape (le curseur doit rester en main). */
+  function setTempo(v, soft) {
     if (!S.wiz) return;
     const t = Math.round(Math.min(TEMPO_MAX, Math.max(TEMPO_MIN, Number(v) || tempo())));
     S.wiz.tempo = t;
@@ -2805,6 +3326,12 @@ SS.band = (() => {
     if (L.proj) L.proj.tempo = t; // la lecture en cours prend le nouveau tempo au pas suivant
     const inp = $('#bwTempo');
     if (inp) inp.value = t; // valeur bornée, même pendant la saisie
+    if (soft) {
+      const lcd = $('#bwtLcd');
+      if (lcd) lcd.textContent = t;
+      markListen();
+      return;
+    }
     renderWiz();
   }
 
@@ -2835,7 +3362,7 @@ SS.band = (() => {
           h('button', { type: 'button', id: 'bwFaster', 'aria-label': 'Accélérer', title: 'Accélérer (+1 BPM)', onclick: () => setTempo(tempo() + 1) }, '+')
         ),
         h('span', { class: 'bt-unit' }, 'BPM'),
-        h('button', { type: 'button', id: 'bwTempoBack', class: 'bt-orig', title: 'Revenir au tempo de l’inspiration', onclick: () => setTempo(preset().tempo) })
+        h('button', { type: 'button', id: 'bwTempoBack', class: 'bt-orig', title: 'Revenir au tempo de l’inspiration', onclick: () => setTempo(origTempo()) })
       ),
       h('span', { class: 'bt-sep', 'aria-hidden': 'true' }),
       h('div', { class: 'bt-field' }, h('span', { class: 'bt-label' }, 'Tonalité'), h('span', { class: 'bt-key', id: 'bwKey' }, h('b', {}), h('small', {})))
@@ -2872,7 +3399,7 @@ SS.band = (() => {
     const t = tempo();
     const inp = $('#bwTempo');
     if (document.activeElement !== inp) inp.value = t;
-    const orig = preset().tempo;
+    const orig = origTempo();
     const back = $('#bwTempoBack');
     back.hidden = t === orig;
     back.textContent = `origine ${orig}`;
@@ -3144,10 +3671,10 @@ SS.band = (() => {
   /** « Nouvelle chanson… » (menu de l'application) : l'assistant sur une chanson vide. */
   function openWizard({ fresh = true } = {}) {
     // keys / grids / emos : étape Accords (tonalité, grille, émotion par section) ; parts : réglages par scène (batterie,
-    // basse, nappes, arpèges) ; chars : caractère et notes par phrase par section ; snap : aimant de la grille ; gsel : accord sélectionné ; insp : fenêtre d'inspiration
+    // basse, nappes, arpèges) ; form / secs / skey : arrangement, scènes et tonalité retouchés (specEff) ; chars : caractère et notes par phrase par section ; snap : aimant de la grille ; gsel : accord sélectionné ; insp : fenêtre d'inspiration
     S.wiz = {
       step: 1, seed: 0, off: new Set(), mute: new Set(), solo: new Set(), sig: null, res: null, fresh, mel: S.mel, vol: new Map(), hscene: null, hsec: null, tempo: null, tempoFor: null,
-      plans: {}, pseeds: {}, keys: {}, grids: {}, emos: {}, chars: {}, parts: {}, snap: 'beat', gsel: null, insp: null,
+      plans: {}, pseeds: {}, keys: {}, grids: {}, emos: {}, chars: {}, parts: {}, form: null, secs: {}, skey: null, snap: 'beat', gsel: null, insp: null,
     };
     show();
   }
