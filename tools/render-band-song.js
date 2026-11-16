@@ -75,7 +75,12 @@ const server = http.createServer((req, res) => {
   await page.waitForTimeout(400);
   await page.click(`#bandStyles [data-v="${style.id}"]`);
   await page.click(`#bandPresets .band-preset >> nth=${style.presets.indexOf(preset)}`);
-  await page.click('#bandSongBtn');
+  // assistant Nouvelle chanson : Suivant jusqu'à Intégration, puis Créer la chanson (toutes les pistes cochées)
+  for (let i = 0; i < 6 && (await page.isVisible('#bwNext')); i++) {
+    await page.click('#bwNext');
+    await page.waitForTimeout(300);
+  }
+  await page.click('#bwCreate');
   await page.waitForTimeout(300);
   if (await page.isVisible('#bcfSong')) await page.click('#bcfSong');
   await page.waitForTimeout(1500);
