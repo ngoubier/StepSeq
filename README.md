@@ -181,6 +181,15 @@ composition : notes de l'accord sur les temps forts, surtout des mouvements conj
 saut, motif repris d'une phrase à l'autre, appel en suspens et réponse posée, respiration entre les phrases, un seul
 sommet par scène.
 
+**Réglages par scène (`parts`).** `SS.bandSong.build(spec, id, tracks, { parts })` accepte, pour chaque section,
+`{ drums, bass, pad, arp, off }` (modèle de l'assistant pas à pas ; l'interface viendra ensuite). Sans `parts`, la chanson
+est exactement celle du plan. **Batterie** : `{ style, pattern, edits, fill: off|end|4|8, fillType: roll|toms|clap4|kick|cut|open,
+crash }` ; `pattern` est un identifiant de `js/drum-patterns.js` (kick, caisse claire, clap, charleston fermé et ouvert sur
+une mesure de 16 pas : `x` fort, `o` moyen, `.` léger, `-` silence), `edits` remplace ses pistes. **Basse** : `{ mode (dont
+half et quarter), pedal: none|tonic|fifth, approach, register: low|mid }`. **Nappe** : `{ mode, voicing: close|open }`.
+**Arpège** : `{ mode }`. `off` : rôles muets dans la scène (`['arp', 'lead']`). Un `mode` allume le musicien dans une scène
+où le plan ne le faisait pas jouer.
+
 ### Reprendre : une reprise tapée au clavier
 
 L'étape **Modèle** de l'assistant a deux portes : **Créer** (une chanson dans l'esprit d'une inspiration, comme
@@ -891,6 +900,7 @@ Les accords par mode et par émotion (`js/emotions.js`) s'appuient sur trois doc
 | `js/automix-pilot.js` | Auto Mix : pilote auto des faders (mesure entre pistes, petits gestes, gain staging) |
 | `js/automixpanel.js` | Auto Mix : panneau de la console, A/B, préférences, pilote auto |
 | `js/band-songs.js` | Band : plans des 20 chansons complètes (tonalité, sections, grilles, parties) |
+| `js/drum-patterns.js` | Bibliothèque de motifs de batterie (20 par style : synthwave, edm, ambient, techno), fills et fréquences de fill ; `SS.drumPattern` |
 | `js/bandsong.js` | Band : écrit les scènes, les notes de chaque musicien et l'arrangement d'après un plan |
 | `js/melody-profiles.js` | Profils mélodiques des 15 émotions : six axes d'intention, contour, note visée, fin, ornements, reprise du motif, motif de départ ; `SS.resolveMelodyProfile`, variante B |
 | `js/melody.js` | Harmonie → Mélodie : grille d'accords, syllabes du français, rythme, hauteurs (pilotées par le profil de l'émotion : contour, note visée, ornements, reprise), notes pivots, mesures descriptives, contrôles, export MIDI ; vérification d'une mélodie écrite (`checkMelody`) — fonctions pures |
