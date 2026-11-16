@@ -25,7 +25,7 @@ SS.band = (() => {
   // hide : étape Mélodie, colonnes masquées (menu « Pistes ») ; la mélodie reste toujours affichée
   const S = {
     styleId: null, presetId: null, sel: null, cache: {}, wiz: null, hide: new Set(),
-    mel: { character: 'inspiration', form: 'auto', rhythm: 'auto', complexity: 'balanced', range: 'auto', ending: 'closed', notes: 0, fine: false },
+    mel: { character: 'inspiration', form: 'auto', rhythm: 'auto', complexity: 'balanced', range: 'auto', ending: 'auto', notes: 0, fine: false, profile: 'on' },
   };
 
   /* ---------- Petits outils DOM ---------- */
@@ -640,6 +640,7 @@ SS.band = (() => {
     const m = S.mel;
     return {
       character: m.character, form: m.form === 'auto' ? null : m.form, rhythm: m.rhythm, complexity: m.complexity, range: m.range, ending: m.ending, notes: m.notes,
+      useProfile: m.profile !== 'off',
       plans: S.wiz.plans, seeds: S.wiz.pseeds, scenes: S.wiz.chars,
     };
   }
@@ -733,8 +734,9 @@ SS.band = (() => {
       sel('bwForm', 'Forme', 'form', [['auto', `Selon le caractère (${ch.form})`], ...Object.keys(BS().FORMS).map((f) => [f, f])], 'Lettres des phrases, par groupes de 4 : les phrases de même lettre reprennent le même motif ; ′ varie la fin.'),
       sel('bwRhythm', 'Rythme', 'rhythm', [['auto', 'Selon le caractère'], ['simple', 'Simple'], ['varie', 'Varié (pointées, syncopes)'], ['dense', 'Dense (doubles-croches)']]),
       sel('bwComplexity', 'Mouvement', 'complexity', [['simple', 'Simple (petits intervalles)'], ['balanced', 'Équilibré'], ['adventurous', 'Audacieux (grands sauts)']], 'Simple : sauts jusqu’à la quinte, rares. Audacieux : jusqu’à l’octave, plus souvent.'),
-      sel('bwRange', 'Tessiture', 'range', [['auto', 'Auto (voix ou instrument)'], ...Object.entries(R).map(([id, r]) => [id, r.label])]),
-      sel('bwEnding', 'Fin de la scène', 'ending', [['closed', 'Fermée (se pose)'], ['open', 'Ouverte (en suspens)']])
+      sel('bwRange', 'Tessiture', 'range', [['auto', 'Auto (voix ou instrument)'], ...Object.entries(R).filter(([id]) => id !== 'profil').map(([id, r]) => [id, r.label])]),
+      sel('bwEnding', 'Fin de la scène', 'ending', [['auto', 'Selon l’émotion (sinon fermée)'], ['closed', 'Fermée (se pose)'], ['open', 'Ouverte (en suspens)'], ['suspended', 'Suspendue']]),
+      sel('bwProfile', 'Émotion de la scène', 'profile', [['on', 'Guide la mélodie (profil)'], ['off', 'Ignorée']], 'Le profil de l’émotion (étape Accords) règle le contour, la note visée sur les temps forts, le registre et la fin. Le caractère garde le rythme et les sauts.')
     );
   }
 
@@ -1011,7 +1013,8 @@ SS.band = (() => {
     const sc = curScene(res);
     const melOf = (x) => {
       const n = notesOf(x.sec);
-      return `${BS().CHARACTERS[charOf(x.sec)].label} · ${n ? `${n} notes` : 'notes libres'}`;
+      const emo = S.mel.profile !== 'off' && S.wiz.emos[x.sec] && SS.findEmotion(S.wiz.emos[x.sec]);
+      return `${emo ? emo.label + ' · ' : ''}${BS().CHARACTERS[charOf(x.sec)].label} · ${n ? `${n} notes` : 'notes libres'}`;
     };
 
     const total = sc.bars * 16;
@@ -1759,13 +1762,19 @@ SS.band = (() => {
     };
     const ni = Math.max(0, NOTE_STEPS.indexOf(notes));
     const seeds = S.wiz.pseeds[sc.sec];
+    // émotion de la scène (étape Accords) → profil mélodique : caractère conseillé et badge
+    const emoId = m.profile !== 'off' ? S.wiz.emos[sc.sec] : null;
+    const prof = emoId && SS.resolveMelodyProfile ? SS.resolveMelodyProfile(emoId, {}, sc.key) : null;
     return [
+      prof
+        ? h('span', { class: 'bh-emo', id: 'bwEmoBadge', title: SS.melodyProfileSummary(prof).map((c) => `${c.k} : ${c.v}`).join(' · ') }, 'Émotion ', h('b', {}, SS.findEmotion(emoId).label), ' → profil ', h('b', {}, prof.name))
+        : null,
       h('span', { class: 'bh-lbl' }, 'Caractère', h('small', {}, `de « ${sc.name} »`)),
       h(
         'span',
         { class: 'segmented bh-chars', role: 'radiogroup', 'aria-label': `Caractère de la mélodie de « ${sc.name} »`, id: 'bwChars' },
         ...Object.entries(BS().CHARACTERS).map(([id, c]) =>
-          h('button', { type: 'button', role: 'radio', class: 'bh-char' + (ch === id ? ' active' : ''), 'data-v': id, 'aria-checked': String(ch === id), title: c.hint, onclick: () => setOwn('character', id) }, c.label)
+          h('button', { type: 'button', role: 'radio', class: 'bh-char' + (ch === id ? ' active' : ''), 'data-v': id, 'aria-checked': String(ch === id), title: c.hint + (prof && prof.character === id ? ' — conseillé pour cette émotion' : ''), onclick: () => setOwn('character', id) }, c.label, prof && prof.character === id ? h('small', { class: 'bh-rec' }, 'conseillé') : null)
         )
       ),
       h('span', { class: 'bt-sep', 'aria-hidden': 'true' }),

@@ -720,7 +720,10 @@ SS.melody = (() => {
 
   /**
    * Hauteurs d'un vers.
-   *   notes : [{ step (absolu), len, syl }] ; plan : { lo, hi, peak (0–1), endKind: 'closed'|'open'|'half', motif }
+   *   notes : [{ step (absolu), len, syl }] ; plan : { lo, hi, peak (0–1), endKind: 'closed'|'open'|'half'|'suspended', motif }
+   *   profil (facultatif, js/melody-profiles.js) : plan.contour ('arch'|'rise'|'fall'|'plateau'|'wave'), plan.target
+   *   (note visée sur les appuis : 'root'|'third'|'fifth'|'color'|'pivot', avec plan.colorPc / plan.pivotPc), plan.opening
+   *   (motif de départ : 'arch'|'call'|'repeat'), plan.absRef (hauteurs visées : reprise en séquence ou à l'octave), plan.leap
    * → midi[] (une note par syllabe)
    */
   function linePitches(notes, spans, keyPcs, tonicPc, plan, prevNote, r) {
@@ -728,6 +731,7 @@ SS.melody = (() => {
     const complexity = plan.complexity || 0;
     const span = hi - lo;
     const n = notes.length;
+    const contour = plan.contour || 'arch';
     // contour en arche : départ, sommet sur l'accent principal (hors dernière syllabe), arrivée
     let peakIdx = -1;
     notes.forEach((x, i) => i < n - 1 && x.syl.accent === 2 && (peakIdx = peakIdx < 0 ? i : peakIdx));
@@ -737,10 +741,50 @@ SS.melody = (() => {
       notes.forEach((x, i) => i < n - 1 && x.syl.accent === 1 && (peakIdx < 0 || Math.abs(i - aim) < Math.abs(peakIdx - aim)) && (peakIdx = i));
     }
     if (peakIdx < 0) peakIdx = Math.max(0, Math.round((n - 1) * 0.6));
+    // montée : le sommet arrive tard ; descente : il est au début
+    if (contour === 'rise') peakIdx = Math.max(0, Math.min(n - 2, Math.round((n - 1) * 0.82)));
+    if (contour === 'fall') peakIdx = Math.min(n - 1, n > 3 ? 1 : 0);
     const start = prevNote != null ? Math.max(lo + 2, Math.min(hi - 4, prevNote)) : lo + span * 0.35;
     const peak = lo + span * plan.peak;
     const endT = lo + span * (plan.endKind === 'closed' ? 0.25 : 0.45);
-    const target = (i) => (i <= peakIdx ? start + ((peak - start) * i) / Math.max(1, peakIdx) : peak + ((endT - peak) * (i - peakIdx)) / Math.max(1, n - 1 - peakIdx));
+    const u = (i) => i / Math.max(1, n - 1);
+    const arch = (i) => (i <= peakIdx ? start + ((peak - start) * i) / Math.max(1, peakIdx) : peak + ((endT - peak) * (i - peakIdx)) / Math.max(1, n - 1 - peakIdx));
+    const shapes = {
+      arch,
+      // départ grave, montée par paliers, léger retrait après le sommet
+      rise: (i) => (i <= peakIdx ? lo + span * 0.15 + (peak - lo - span * 0.15) * (i / Math.max(1, peakIdx)) : peak - span * 0.15 * ((i - peakIdx) / Math.max(1, n - 1 - peakIdx))),
+      // départ aigu, descente vers la fin
+      fall: (i) => lo + span * (Math.max(0.55, plan.peak) - (Math.max(0.55, plan.peak) - 0.12) * u(i)),
+      // ligne presque horizontale autour du milieu
+      plateau: () => (plan.anchor != null ? plan.anchor : lo + span * 0.55),
+      // ondulation autour du milieu, deux vagues par phrase
+      wave: (i) => lo + span * (0.5 + 0.2 * Math.sin(2 * Math.PI * u(i) * 2)),
+    };
+    const target = shapes[contour] || arch;
+    // note visée sur les appuis (profil) : classe de hauteur pour l'accord du moment
+    const targetPc = (chord) => {
+      const ivs = chord.ivs.map(pcOf);
+      const has = (iv) => ivs.includes(iv);
+      switch (plan.target) {
+        case 'root':
+          return chord.rootPc;
+        case 'third':
+          return has(4) ? pcOf(chord.rootPc + 4) : has(3) ? pcOf(chord.rootPc + 3) : null;
+        case 'fifth':
+          return has(7) ? pcOf(chord.rootPc + 7) : null;
+        case 'color': {
+          // la couleur du mode peut frotter avec la quinte (♯11 du lydien sur maj7), pas avec la fondamentale ni la tierce
+          const c3 = pcOf(chord.rootPc + (has(4) ? 4 : 3));
+          const ok = plan.colorPc != null && (chordScale(chord, keyPcs).includes(plan.colorPc) || (keyPcs.includes(plan.colorPc) && !semi(plan.colorPc, chord.rootPc) && !semi(plan.colorPc, c3)));
+          return ok ? plan.colorPc : null;
+        }
+        case 'pivot':
+          return plan.pivotPc != null && chordScale(chord, keyPcs).includes(plan.pivotPc) ? plan.pivotPc : null;
+        default:
+          return null;
+      }
+    };
+    const first = { midi: null };
     const out = [];
     let prev = prevNote != null ? prevNote : Math.round(start);
     let lastLeap = 0;
@@ -755,6 +799,21 @@ SS.melody = (() => {
       // Les appuis restent harmoniques ; les couleurs sûres peuvent durer dans le mode audacieux.
       let pool = complexity === 0 && plan.explicitSimple ? chord.tones : structural ? chord.tones : scale;
       if (complexity === 2 && i > 0 && i < n - 1 && !changeAt && x.syl.accent < 2) pool = scale;
+      // note visée hors de l'accord (couleur du mode, note pivot) : permise sur les appuis si elle est dans la gamme du moment
+      // note visée : sur l'accord du moment, ou sur un accord que la note tenue traverse (où elle est note de l'accord)
+      let tpc = plan.target ? targetPc(chord) : null;
+      if (plan.target && tpc == null) for (const o of over.slice(1)) {
+        const t2 = targetPc(o.chord);
+        if (t2 != null && o.chord.tones.includes(t2) && (chordScale(chord, keyPcs).includes(t2) || t2 === targetPc(chord))) {
+          tpc = t2;
+          break;
+        }
+      }
+      if (tpc != null && structural && !pool.includes(tpc)) pool = [...pool, tpc];
+      // motif de départ « appel et retenue » : la 2e note monte d'un degré
+      if (plan.opening === 'call' && i === 1) pool = scale;
+      // fin suspendue : une note de la gamme qui n'est pas dans l'accord (seconde, quarte), laissée sans résolution
+      if (i === n - 1 && plan.endKind === 'suspended') pool = scale;
       // fin fermée : la tonique, si l'accord final la contient (ou si la note tenue arrive sur un accord qui la contient)
       if (i === n - 1 && plan.endKind === 'closed' && (chord.tones.includes(tonicPc) || (over.some((o) => o.chord.tones.includes(tonicPc)) && chordScale(chord, keyPcs).includes(tonicPc))))
         pool = [tonicPc];
@@ -768,7 +827,8 @@ SS.melody = (() => {
         if (!pool.includes(pc)) continue;
         const leap = Math.abs(m - prev);
         if (leap > 12) continue;
-        let sc = -Math.abs(m - t) * 0.55;
+        // avec un profil, le contour voulu pèse davantage
+        let sc = -Math.abs(m - t) * (plan.contour ? 0.85 : 0.55);
         if (i > 0 || prevNote != null) {
           if (leap === 0) sc += x.syl.accent === 0 && !repeats ? 0.1 : -0.8;
           else if (leap <= 2) sc += 1;
@@ -776,6 +836,7 @@ SS.melody = (() => {
           else if (leap <= 7) sc -= 1.6;
           else sc -= 4.5;
           if (leap === 0 && repeats >= 1) sc -= 1.5 * repeats;
+          if (leap === 0 && plan.contour && plan.opening !== 'repeat') sc -= 1;
           if (Math.abs(lastLeap) > 4 && Math.sign(m - prev) === Math.sign(lastLeap)) sc -= 2.2; // après un saut : on revient
           if (Math.abs(lastLeap) > 4 && Math.sign(m - prev) === -Math.sign(lastLeap) && leap <= 2) sc += 1.4;
           if (leap === 6) sc -= 2; // triton mélodique
@@ -798,10 +859,35 @@ SS.melody = (() => {
           else if (chordScale(o.chord, keyPcs).includes(pc)) sc -= 0.6;
           else sc -= 3.5;
         });
-        if (desired != null) sc -= Math.abs(m - desired) * 0.9;
+        if (plan.absRef && plan.absRef[i] != null) sc -= Math.abs(m - plan.absRef[i]) * 0.9;
+        else if (desired != null) sc -= Math.abs(m - desired) * 0.9;
+        // profil : la note visée sur les appuis, surtout au sommet
+        const finalForced = plan.final && i === n - 1 && (plan.endKind === 'closed' || plan.endKind === 'suspended');
+        if (tpc != null && pc === tpc && !finalForced && (structural || i === peakIdx)) sc += i === peakIdx ? 3.5 : leap === 0 ? 0.5 : 2;
+        // profil : goût pour les sauts (retenu ↔ exubérant)
+        if (plan.leap != null && i > 0 && leap >= 5 && leap <= 9) sc += (plan.leap - 0.45) * 2;
+        // motif de départ (phrase A) : arche 1–3–5–3, note répétée puis saut, appel et retenue
+        if (plan.opening && i < 6) {
+          const iv = pcOf(pc - chord.rootPc);
+          const third = chord.ivs.includes(4) ? 4 : 3;
+          if (plan.opening === 'arch' && i < 4) {
+            if (iv === [0, third, 7, third][i]) sc += 4;
+            if ((i === 1 || i === 2) && m > prev) sc += 1;
+            if (i === 3 && m < prev) sc += 1;
+          } else if (plan.opening === 'repeat') {
+            if (i === 0 && iv === third) sc += 2;
+            if (i > 0 && i < 4 && first.midi != null && m === first.midi) sc += 5;
+            if (i === 4 && m - prev >= 3 && m - prev <= 9 && chord.tones.includes(pc)) sc += 4;
+          } else if (plan.opening === 'call') {
+            if (i === 0 && iv === 7) sc += 3;
+            if (i === 1 && m - prev >= 1 && m - prev <= 2) sc += 4;
+            if (i === 2 && prev - m >= 3 && prev - m <= 9 && chord.tones.includes(pc)) sc += 4;
+          }
+        }
         if (i === n - 1) {
           if (plan.endKind === 'closed') sc += pc === tonicPc ? 6 : pcOf(pc - chord.rootPc) === 0 ? 2 : 0;
-          else if (plan.endKind === 'open') sc += pc !== tonicPc && [3, 4, 7].includes(pcOf(pc - chord.rootPc)) ? 2.5 : 0;
+          else if (plan.endKind === 'open') sc += pc !== tonicPc && [3, 4, 7].includes(pcOf(pc - chord.rootPc)) ? 2.5 : pc === tonicPc && plan.contour && plan.final ? -6 : 0;
+          else if (plan.endKind === 'suspended') sc += !chord.tones.includes(pc) && [2, 5].includes(pcOf(pc - chord.rootPc)) ? 5 : !chord.tones.includes(pc) ? 2 : -3;
           else sc += pc === tonicPc ? 1 : 0.5;
         }
         sc += r() * (0.35 + complexity * 0.65);
@@ -816,6 +902,7 @@ SS.melody = (() => {
       }
       lastLeap = best - prev;
       repeats = best === prev ? repeats + 1 : 0;
+      if (i === 0) first.midi = best;
       out.push(best);
       prev = best;
     });
@@ -1031,6 +1118,7 @@ SS.melody = (() => {
   /* Composition complète                                                */
   /* ================================================================== */
   const RANGES = {
+    profil: { lo: 57, hi: 84, label: 'Selon le profil (dans A3–C6)' },
     voix: { lo: 60, hi: 72, label: 'Voix moyenne (C4–C5)' },
     soprano: { lo: 60, hi: 79, label: 'Soprano (C4–G5)' },
     alto: { lo: 55, hi: 74, label: 'Alto (G3–D5)' },
@@ -1050,7 +1138,10 @@ SS.melody = (() => {
     const timeSig = opts.timeSig || [4, 4];
     const spb = Math.round(timeSig[0] * (16 / timeSig[1]));
     let barsPerLine = Math.max(1, Math.min(8, opts.barsPerLine || 2));
-    const style = opts.style || 'simple';
+    // profil mélodique (js/melody-profiles.js, SS.resolveMelodyProfile) : null = comportement d'origine
+    const prof = opts.profile || null;
+    const style = opts.style && opts.style !== 'auto' ? opts.style : prof ? prof.style : 'simple';
+    const ending = opts.ending && opts.ending !== 'auto' ? opts.ending : prof ? prof.ending : 'closed';
     const complexity = ({ simple: 0, balanced: 1, adventurous: 2 })[opts.complexity] || 0;
     const seed = opts.seed || 1;
     const r = rng(`melodie/${seed}`);
@@ -1071,8 +1162,22 @@ SS.melody = (() => {
     if (opts.fitGrid && opts.source === 'meter' && !String(meter || '').trim()) {
       const phrases = grid.bars % 2 === 0 ? grid.bars / 2 : 1;
       const bpl = grid.bars / phrases;
-      meter = Array.from({ length: phrases }, () => String(bpl * 4 - 1)).join(' ');
-      hypotheses.push(`Structure automatique : ${plural(phrases, 'phrase')} de ${bpl * 4 - 1} notes (« ${meter} »).`);
+      if (prof) {
+        // notes par phrase d'après le profil (calme ↔ agité) ; augmentation / diminution : la reprise en a moins / plus
+        const cap = Math.max(2, Math.floor((bpl * spb) / 2) - 1);
+        const base = Math.max(2, Math.min(cap, Math.round(prof.density * bpl) - (bpl > 1 ? 1 : 0)));
+        const counts = Array.from({ length: phrases }, (_, i) => {
+          if (i % 2 === 0) return base;
+          if (prof.repeat === 'augment') return Math.max(2, Math.round(base * 0.6));
+          if (prof.repeat === 'diminish') return Math.min(cap, Math.round(base * 1.5));
+          return base;
+        });
+        meter = counts.join(' ');
+        hypotheses.push(`Structure d’après le profil : ${plural(phrases, 'phrase')} de ${counts.join(', ')} notes (environ ${prof.density} par mesure).`);
+      } else {
+        meter = Array.from({ length: phrases }, () => String(bpl * 4 - 1)).join(' ');
+        hypotheses.push(`Structure automatique : ${plural(phrases, 'phrase')} de ${bpl * 4 - 1} notes (« ${meter} »).`);
+      }
     }
     const fit = (count) => {
       if (!opts.fitGrid) return null;
@@ -1126,9 +1231,51 @@ SS.melody = (() => {
     const tonicPc = keyPcs[0];
 
     // --- tessiture ---
-    const rg = typeof opts.range === 'object' && opts.range ? opts.range : RANGES[opts.range] || RANGES.voix;
-    const lo = rg.lo;
-    const hi = rg.hi;
+    const rg = typeof opts.range === 'object' && opts.range ? opts.range : RANGES[opts.range] || (prof && (!opts.range || opts.range === 'auto') ? RANGES.profil : RANGES.voix);
+    let lo = rg.lo;
+    let hi = rg.hi;
+    if (prof) {
+      // profil : un ambitus (intime ↔ ample) placé dans la tessiture selon le registre (sombre ↔ lumineux)
+      const win = Math.min(hi - lo, prof.ambitus);
+      const c = lo + (hi - lo) * prof.center;
+      lo = Math.max(rg.lo, Math.min(rg.hi - win, Math.round(c - win / 2)));
+      hi = lo + win;
+    }
+    // notes pivots : communes à plusieurs accords de la grille (motif « note commune », note visée « pivot »)
+    const pivots = pivotNotes(grid.spans, key);
+    const pivotPc = opts.pivot != null && opts.pivot !== 'auto' ? (opts.pivot === 'none' ? null : +opts.pivot) : pivots.length ? pivots[0].pc : null;
+    // la note visée (couleur du mode, note pivot) doit exister dans la fenêtre du profil, près de son centre
+    const needPc = prof ? (prof.target === 'color' ? prof.colorPc : prof.target === 'pivot' || prof.motif === 'common' ? pivotPc : null) : null;
+    // descente qui se pose sur la tonique : la tonique en bas de la fenêtre, pour que la phrase ait de la place pour descendre
+    if (prof && prof.contour === 'fall' && ending === 'closed') {
+      const win = hi - lo;
+      const aim = lo + win * 0.15;
+      let occ = null;
+      for (let m = rg.lo; m <= rg.hi; m++) if (pcOf(m) === pcOf(H().scale(key)[0].pc) && (occ == null || Math.abs(m - aim) < Math.abs(occ - aim))) occ = m;
+      if (occ != null) {
+        lo = Math.max(rg.lo, Math.min(rg.hi - win, Math.round(occ - win * 0.15)));
+        hi = lo + win;
+      }
+    }
+    if (prof && needPc != null && prof.contour !== 'fall') {
+      const win = hi - lo;
+      const c = (lo + hi) / 2;
+      let occ = null;
+      for (let m = rg.lo; m <= rg.hi; m++) if (pcOf(m) === needPc && (occ == null || Math.abs(m - c) < Math.abs(occ - c))) occ = m;
+      if (occ != null && Math.abs(occ - c) > win * 0.3) {
+        const shift = Math.round(occ - c - Math.sign(occ - c) * win * 0.2);
+        lo = Math.max(rg.lo, Math.min(rg.hi - win, lo + shift));
+        hi = lo + win;
+      }
+    }
+    if (prof && prof.fallback) hypotheses.push(prof.fallback);
+    if (prof) {
+      hypotheses.push(
+        `Profil « ${prof.name} »${prof.emotion ? ` (${prof.emotion})` : ''} : contour ${SS.MELODY_CONTOURS[prof.contour].label.toLowerCase()}, note visée ${SS.MELODY_TARGETS[prof.target].toLowerCase()}` +
+          `${prof.target === 'color' && prof.colorPc != null ? ` (${noteLabel(60 + prof.colorPc, key).replace(/-?\d+$/, '')})` : prof.target === 'pivot' && pivotPc != null ? ` (${noteLabel(60 + pivotPc, key).replace(/-?\d+$/, '')})` : ''}` +
+          `, fin ${SS.MELODY_ENDINGS[ending] ? SS.MELODY_ENDINGS[ending].replace(/ \(.*\)$/, '').toLowerCase() : ending}, reprise : ${SS.MELODY_REPEATS[prof.repeat].toLowerCase()}.`
+      );
+    }
 
     // Une cellule de contour réutilisée donne une identité aux variantes complexes.
     const gestures = [[0, 2, -1, 3, 1, -2, 0, -1], [0, -2, 1, 0, 3, 1, -1, 0], [1, 0, 3, -1, 2, 0, -2, 1]];
@@ -1148,14 +1295,18 @@ SS.melody = (() => {
       return {
         role,
         peak: role === 'B' ? 0.95 : role === "A'" ? 0.68 : role === "A''" ? 0.6 : 0.58,
-        endKind: last ? opts.ending || 'closed' : role === 'A' || role === 'B' ? 'open' : 'half',
+        endKind: last ? ending : role === 'A' || role === 'B' ? 'open' : 'half',
       };
     });
+    // reprise du motif (A′, A″) selon le profil ; motif de départ sur les phrases A
+    const repeat = prof ? prof.repeat : 'varied';
+    const opening = prof && ['arch', 'call', 'repeat'].includes(prof.motif) ? prof.motif : null;
 
     // --- rythme puis hauteurs, vers par vers ---
     const notes = [];
     const rhythms = [];
     const motifs = [];
+    const pitches = [];
     let prevNote = null;
     try {
       lines.forEach((line, li) => {
@@ -1173,13 +1324,46 @@ SS.melody = (() => {
           ref = rhythms[aIdx];
           refWeight = plan.role === 'B' ? -0.4 : plan.role === "A'" ? 1.2 : 0.8;
         }
+        const reprise = plan.role === "A'" || plan.role === "A''";
+        // décalage d'une croche : la reprise suit le rythme du motif, deux pas plus tard
+        if (prof && reprise && repeat === 'shift' && ref) {
+          ref = ref.map((x) => ({ on: x.on + 2, dur: x.dur }));
+          refWeight = 2;
+        }
+        // appel et retenue : deux croches puis une blanche au début de la phrase A
+        if (opening === 'call' && plan.role === 'A' && line.count >= 3 && !ref) {
+          ref = [{ on: 0, dur: 2 }, { on: 2, dur: 2 }, { on: 4, dur: 8 }];
+          refWeight = 1.4;
+        }
         const rh = lineRhythm(line, { spb, timeSig, barsPerLine, style, r, ref, refWeight });
         rhythms.push(rh);
         const ln = rh.map((x, i) => ({ step: start + x.on, len: x.dur, syl: line.syllables[i], line: li, idx: i }));
         // motif mélodique : un vers A' / A'' reprend les intervalles du vers A s'il a le même nombre de syllabes
         const src = first != null ? first : plan.role !== 'A' && plan.role !== 'B' ? aIdx : null;
-        const motif = src != null && motifs[src] && motifs[src].length === ln.length ? motifs[src] : null;
-        const midis = linePitches(ln, spans, keyPcs, tonicPc, { lo, hi, peak: plan.peak, endKind: plan.endKind, motif, complexity, gesture: plan.role === "B" ? gesture.map((v) => -v) : gesture, explicitSimple: opts.complexity === "simple" }, prevNote, r);
+        let motif = src != null && motifs[src] && motifs[src].length === ln.length ? motifs[src] : null;
+        let absRef = null;
+        if (prof && reprise && src != null && pitches[src] && pitches[src].length === ln.length) {
+          const A = pitches[src];
+          if (repeat === 'sequence') absRef = A.map((m) => m + 3.5); // une tierce plus haut (majeure ou mineure selon la gamme)
+          else if (repeat === 'register') absRef = Math.max(...A) + 12 <= rg.hi ? A.map((m) => m + 12) : Math.min(...A) - 12 >= rg.lo ? A.map((m) => m - 12) : null;
+          else if (repeat === 'invert') motif = motif && motif.map((v) => (v == null ? null : -v));
+          else if (repeat === 'fragment' && motif) {
+            const half = Math.max(2, Math.ceil(motif.length / 2));
+            motif = motif.map((v, i) => (i === 0 ? null : motif[i % half] ?? motif[1]));
+          }
+        }
+        const lineLo = absRef && repeat === 'register' ? Math.min(lo, ...absRef.map(Math.round)) : lo;
+        const lineHi = absRef && repeat === 'register' ? Math.max(hi, ...absRef.map(Math.round)) : hi;
+        const pplan = { final: li === lines.length - 1, lo: lineLo, hi: lineHi, peak: plan.peak, endKind: plan.endKind, motif, absRef, complexity, gesture: plan.role === "B" ? gesture.map((v) => -v) : gesture, explicitSimple: opts.complexity === "simple" };
+        // note pivot absente (aucune note commune aux accords) : la tierce de chaque accord
+        const tgt = prof && prof.target === 'pivot' && pivotPc == null ? 'third' : prof && prof.target;
+        // plateau : la ligne tourne autour de la note visée (couleur du mode, note pivot)
+        let anchor = null;
+        if (prof && prof.contour === 'plateau' && needPc != null) for (let m = lo; m <= hi; m++) if (pcOf(m) === needPc && (anchor == null || Math.abs(m - (lo + hi) / 2) < Math.abs(anchor - (lo + hi) / 2))) anchor = m;
+        if (prof) Object.assign(pplan, { anchor, contour: prof.contour, target: tgt, colorPc: prof.colorPc, pivotPc, leap: prof.leap, opening: plan.role === 'A' ? opening : null });
+        if (prof && prof.target !== 'pivot' && prof.motif === 'common' && pivotPc != null) Object.assign(pplan, { target: 'pivot' });
+        const midis = linePitches(ln, spans, keyPcs, tonicPc, pplan, prevNote, r);
+        pitches.push(midis);
         motifs.push(midis.map((m, i) => (i ? m - midis[i - 1] : null)));
         ln.forEach((x, i) => (x.midi = midis[i]));
         prevNote = midis[midis.length - 1];
@@ -1212,10 +1396,14 @@ SS.melody = (() => {
       x.vel = Math.max(30, Math.min(120, Math.round(v)));
     });
 
+    // --- ornements du profil (mélodie sans paroles : une syllabe chantée garde une seule note) ---
+    if (prof && prof.ornamentRate && lines[0].abstract) addOrnaments(notes, spans, keyPcs, prof, r, { lo: rg.lo, hi: rg.hi });
+
     // --- rôles ---
     notes.forEach((x, i) => {
-      x.role = noteRole(notes, i, spans, keyPcs);
-      x.kind = noteKind(x.role);
+      x.role = x.ornament ? ORNAMENT_ROLE[x.ornament] : noteRole(notes, i, spans, keyPcs);
+      if (x.suspension) x.role = 'retard : tenue sur le nouvel accord, résolue ensuite';
+      x.kind = x.ornament === 'neighbor-return' ? 'chord' : x.ornament === 'passing' || x.ornament === 'neighbor' ? 'passing' : x.ornament || x.suspension ? 'appog' : noteKind(x.role);
     });
     // fonction de chaque accord (repos, préparation, tension…) pour l'aperçu
     grid.spans.forEach((sp) => (sp.chord.fn = chordFunction(sp.chord, key)));
@@ -1270,8 +1458,8 @@ SS.melody = (() => {
     ck(mono && t === total, `Temps : notes et silences couvrent exactement ${totalBars} mesure${totalBars > 1 ? 's' : ''} (${quarters(total)} noires), sans chevauchement (une seule voix).`);
     // une attaque par syllabe
     lines.forEach((l, li) => {
-      const att = notes.filter((x) => x.line === li).length;
-      const perBar = Array.from({ length: barsPerLine }, (_, b) => notes.filter((x) => x.line === li && Math.floor(x.step / spb) === li * barsPerLine + b).length);
+      const att = notes.filter((x) => x.line === li && !x.ornament).length;
+      const perBar = Array.from({ length: barsPerLine }, (_, b) => notes.filter((x) => x.line === li && !x.ornament && Math.floor(x.step / spb) === li * barsPerLine + b).length);
       const distOk = !l.dist || l.dist.every((k, b) => k === perBar[b]);
       ck(att === l.count && distOk, `Vers ${li + 1} : ${l.count} syllabe${l.count > 1 ? 's' : ''}, ${att} attaque${att > 1 ? 's' : ''} (${perBar.join('+')} par mesure${l.dist ? ', répartition demandée ' + l.dist.join('+') : ''}), pas de mélisme.`);
     });
@@ -1279,7 +1467,7 @@ SS.melody = (() => {
     const all = notes.map((x) => x.midi);
     const minN = Math.min(...all);
     const maxN = Math.max(...all);
-    ck(minN >= lo && maxN <= hi, `Tessiture : de ${noteLabel(minN, key)} à ${noteLabel(maxN, key)} (MIDI ${minN}–${maxN}), dans ${noteLabel(lo, key)}–${noteLabel(hi, key)}.`);
+    ck(minN >= rg.lo && maxN <= rg.hi, `Tessiture : de ${noteLabel(minN, key)} à ${noteLabel(maxN, key)} (MIDI ${minN}–${maxN}), dans ${noteLabel(rg.lo, key)}–${noteLabel(rg.hi, key)}.`);
     let bigLeaps = 0;
     let maxLeap = 0;
     notes.forEach((x, i) => {
@@ -1290,13 +1478,15 @@ SS.melody = (() => {
     });
     ck(bigLeaps <= Math.max(1, Math.floor(lines.length / 2)), `Sauts : le plus grand fait ${maxLeap} demi-ton${maxLeap > 1 ? 's' : ''}${bigLeaps ? `, ${bigLeaps} saut${bigLeaps > 1 ? 's' : ''} de plus d’une quinte` : ''}.`, bigLeaps > 0);
     // notes exposées (accentuées ou longues) hors accord
-    const exposed = notes.filter((x) => (x.syl.accent === 2 || x.len >= 8) && !spanAt(spans, x.step).chord.tones.includes(pcOf(x.midi)));
+    // notes exposées hors accord : sauf la note visée par le profil (couleur du mode, note pivot) et la fin suspendue voulue
+    const wanted = (x) => (prof && ((prof.target === 'color' && pcOf(x.midi) === prof.colorPc) || (prof.target === 'pivot' && pcOf(x.midi) === pivotPc))) || (ending === 'suspended' && x === notes[notes.length - 1]) || x.ornament || x.suspension;
+    const exposed = notes.filter((x) => (x.syl.accent === 2 || x.len >= 8) && !spanAt(spans, x.step).chord.tones.includes(pcOf(x.midi)) && !wanted(x));
     ck(!exposed.length, exposed.length ? `Notes exposées hors accord : ${exposed.map((x) => `${x.syl.text} (${noteLabel(x.midi, key)}, mesure ${Math.floor(x.step / spb) + 1})`).join(', ')} — à écouter.` : 'Notes exposées (accents principaux, notes longues) : toutes dans l’accord du moment.', exposed.length > 0);
     const ends = lines.map((_, li) => notes.filter((x) => x.line === li).pop());
     const fin = ends[ends.length - 1];
     const finKind = pcOf(fin.midi) === tonicPc ? 'sur la tonique (fin fermée)' : `sur ${noteLabel(fin.midi, key)} (${noteRole(notes, notes.indexOf(fin), spans, keyPcs)}), fin ouverte`;
     const lastChord = spanAt(spans, fin.step).chord;
-    const wantClosed = (opts.ending || 'closed') === 'closed';
+    const wantClosed = ending === 'closed';
     ck(
       !wantClosed || pcOf(fin.midi) === tonicPc || !lastChord.tones.includes(tonicPc),
       `Fin : ${finKind}.` +
@@ -1326,7 +1516,226 @@ SS.melody = (() => {
     );
     if (opts.source !== 'meter') hypotheses.push(opts.eMode === 'chanson' ? 'Scansion « chanson » : les e muets de fin de mot ne sont pas chantés.' : 'Scansion « classique » : e muet compté devant consonne, élidé devant voyelle, muet en fin de vers' + (opts.sungFinalE ? ' (ici chanté)' : '') + '.');
 
-    return { ok: true, errors: [], key, keyAuto, keyAlternatives, spb, timeSig, bars: totalBars, total, lines, notes, rows, checks, summary, hypotheses, spans };
+    if (prof && repeat !== 'varied' && lines.length > 1) summary.motif += ` Reprise : ${SS.MELODY_REPEATS[repeat].toLowerCase()}.`;
+    const metrics = describe({ notes, spb, bars: totalBars, total });
+    const profileReport = prof ? profileChecks({ notes, spans, prof, ending, pivotPc, tonicPc, key, keyPcs, lines }) : [];
+    return { ok: true, errors: [], key, keyAuto, keyAlternatives, spb, timeSig, bars: totalBars, total, lines, notes, rows, checks, summary, hypotheses, spans, profile: prof, pivots, pivotPc, metrics, profileReport, ending };
+  }
+
+  /* ================================================================== */
+  /* Profil : ornements, notes pivots, mesures descriptives              */
+  /* ================================================================== */
+  const ORNAMENT_ROLE = {
+    appoggiatura: 'appoggiature (ornement) : se résout d’un degré sur la note suivante',
+    neighbor: 'broderie (ornement) : s’écarte d’un degré et revient',
+    passing: 'note de passage (ornement) : relie deux notes de l’accord',
+    anticipation: 'anticipation (ornement) : la note du prochain accord arrive avant lui',
+    'neighbor-return': 'note de l’accord (retour de broderie)',
+  };
+
+  /**
+   * Ajoute les ornements permis par le profil, au plus `prof.ornamentRate` par phrase, sans changer le nombre de
+   * phrases ni la couverture du temps : une note est partagée (appoggiature, broderie, passage, anticipation) ou la
+   * note d'avant est prolongée sur le nouvel accord (retard). Les notes ajoutées portent `ornament`.
+   */
+  function addOrnaments(notes, spans, keyPcs, prof, r, { lo, hi }) {
+    const inKey = (m) => keyPcs.includes(pcOf(m));
+    const upper = (m) => (inKey(m + 1) ? m + 1 : inKey(m + 2) ? m + 2 : null);
+    const lineIds = [...new Set(notes.map((x) => x.line))];
+    const make = (x, step, len, midi, kind) => ({ step, len, midi, syl: { text: '(orn.)', accent: 0, ornament: true }, line: x.line, idx: x.idx, ornament: kind });
+    const tries = {
+      appoggiatura(ln) {
+        const cand = ln.filter((x, i) => i > 0 && x.len >= 4 && !x.ornament).sort((a, b) => b.midi - a.midi)[0];
+        const up = cand && upper(cand.midi);
+        if (!cand || up == null || up > hi) return null;
+        const half = cand.len >= 8 ? 4 : 2;
+        const o = make(cand, cand.step, half, up, 'appoggiatura');
+        cand.step += half;
+        cand.len -= half;
+        return [o];
+      },
+      neighbor(ln) {
+        const cand = ln.find((x, i) => i < ln.length - 1 && x.len >= 8 && !x.ornament) || ln.find((x, i) => i < ln.length - 1 && x.len >= 4 && !x.ornament);
+        const up = cand && upper(cand.midi);
+        if (!cand || up == null || up > hi) return null;
+        const q = cand.len >= 8 ? 2 : 1;
+        const tot = cand.len;
+        cand.len = tot - 2 * q;
+        return [make(cand, cand.step + cand.len, q, up, 'neighbor'), make(cand, cand.step + cand.len + q, q, cand.midi, 'neighbor-return')];
+      },
+      passing(ln) {
+        for (let i = 0; i < ln.length - 1; i++) {
+          const a = ln[i];
+          const b = ln[i + 1];
+          const d = b.midi - a.midi;
+          if (a.ornament || b.ornament || a.len < 4 || a.step + a.len !== b.step || Math.abs(d) < 3 || Math.abs(d) > 4) continue;
+          const mid = [1, 2].map((k) => a.midi + Math.sign(d) * k).find((m) => inKey(m) && Math.abs(b.midi - m) >= 1 && Math.abs(b.midi - m) <= 2);
+          if (mid == null) continue;
+          const half = a.len >= 8 ? 4 : 2;
+          a.len -= half;
+          return [make(a, a.step + a.len, half, mid, 'passing')];
+        }
+        return null;
+      },
+      suspension(ln) {
+        for (let i = 1; i < ln.length; i++) {
+          const p = ln[i - 1];
+          const x = ln[i];
+          const sp = spanAt(spans, x.step);
+          const d = p.midi - x.midi;
+          if (p.ornament || x.ornament || sp.step !== x.step || x.len < 4 || p.step + p.len !== x.step || d < 1 || d > 2) continue;
+          const half = x.len >= 8 ? 4 : 2;
+          p.len += half;
+          p.suspension = true;
+          x.step += half;
+          x.len -= half;
+          return [];
+        }
+        return null;
+      },
+      anticipation(ln) {
+        for (let i = 0; i < ln.length - 1; i++) {
+          const x = ln[i];
+          const nx = ln[i + 1];
+          const end = x.step + x.len;
+          const change = spans.some((sp) => sp.step === end && sp.step > x.step);
+          if (x.ornament || nx.ornament || x.len < 4 || nx.step !== end || !change || nx.midi === x.midi) continue;
+          x.len -= 2;
+          return [make(x, end - 2, 2, nx.midi, 'anticipation')];
+        }
+        return null;
+      },
+    };
+    lineIds.forEach((li, k) => {
+      const kinds = prof.ornaments.map((_, j) => prof.ornaments[(j + k) % prof.ornaments.length]);
+      let done = 0;
+      for (const kind of kinds) {
+        if (done >= prof.ornamentRate) break;
+        const ln = notes.filter((x) => x.line === li).sort((a, b) => a.step - b.step);
+        const added = tries[kind] && r() < 0.95 ? tries[kind](ln) : null;
+        if (added) {
+          notes.push(...added);
+          done++;
+        }
+      }
+    });
+    notes.sort((a, b) => a.step - b.step);
+  }
+
+  /**
+   * Notes communes à plusieurs accords de la grille (classe de hauteur), les plus partagées d'abord.
+   * → [{ pc, name, chords: [sym], roles: ['quinte de Am', 'fondamentale de Em'] }]
+   */
+  function pivotNotes(spans, key) {
+    const syms = [];
+    const chords = [];
+    spans.forEach((sp) => !syms.includes(sp.chord.sym) && (syms.push(sp.chord.sym), chords.push(sp.chord)));
+    if (chords.length < 2) return [];
+    const ROLE = { 0: 'fondamentale', 3: 'tierce', 4: 'tierce', 7: 'quinte', 10: 'septième', 11: 'septième', 2: 'neuvième', 5: 'quarte', 9: 'sixte', 6: 'quinte diminuée', 8: 'quinte augmentée' };
+    const out = [];
+    for (let pc = 0; pc < 12; pc++) {
+      const has = chords.filter((c) => c.tones.includes(pc));
+      if (has.length < 2) continue;
+      out.push({ pc, name: noteLabel(60 + pc, key).replace(/-?\d+$/, ''), chords: has.map((c) => c.sym), roles: has.map((c) => `${ROLE[pcOf(pc - c.rootPc)] || 'note'} de ${c.sym}`), count: has.length });
+    }
+    return out.sort((a, b) => b.count - a.count || a.pc - b.pc).slice(0, 3);
+  }
+
+  /**
+   * Mesures descriptives d'une mélodie (formation, chap. 17) : des repères, pas une note de qualité.
+   * → [{ id, k, v, s }]
+   */
+  function describe({ notes, spb, bars, total }) {
+    const ns = [...notes].sort((a, b) => a.step - b.step);
+    if (!ns.length) return [];
+    const mid = ns.map((x) => x.midi);
+    const lo = Math.min(...mid);
+    const hi = Math.max(...mid);
+    const ivs = [];
+    for (let i = 1; i < ns.length; i++) ivs.push(Math.abs(ns[i].midi - ns[i - 1].midi));
+    const conj = ivs.length ? Math.round((100 * ivs.filter((d) => d > 0 && d <= 2).length) / ivs.length) : 0;
+    const rep = ivs.length ? Math.round((100 * ivs.filter((d) => d === 0).length) / ivs.length) : 0;
+    const maxLeap = ivs.length ? Math.max(...ivs) : 0;
+    const perBar = Array.from({ length: bars }, (_, b) => ns.filter((x) => Math.floor(x.step / spb) === b).length);
+    let breaths = 0;
+    for (let i = 1; i < ns.length; i++) if (ns[i].step - (ns[i - 1].step + ns[i - 1].len) >= 2) breaths++;
+    if (ns[ns.length - 1].step + ns[ns.length - 1].len < total) breaths++;
+    // cellule rythmique de la première mesure : combien de mesures la reprennent
+    const cell = (b) => ns.filter((x) => Math.floor(x.step / spb) === b).map((x) => `${x.step % spb}/${Math.min(x.len, spb)}`).join(',');
+    const c0 = cell(0);
+    const reuse = c0 ? Array.from({ length: bars }, (_, b) => cell(b)).filter((c) => c === c0).length : 0;
+    const IV = { 1: 'seconde mineure', 2: 'seconde', 3: 'tierce mineure', 4: 'tierce', 5: 'quarte', 6: 'triton', 7: 'quinte', 8: 'sixte mineure', 9: 'sixte', 10: 'septième', 11: 'septième majeure', 12: 'octave' };
+    const span = hi - lo;
+    return [
+      { id: 'range', k: 'Tessiture', v: `${noteLabel(lo)} – ${noteLabel(hi)}`, s: span <= 12 ? `${IV[span] || 'unisson'}` : `octave + ${IV[span - 12] || 'octave'}` },
+      { id: 'conj', k: 'Mouvement', v: `${conj} % conjoint`, s: `plus grand saut : ${IV[maxLeap] || maxLeap + ' demi-tons'}` },
+      { id: 'repeat', k: 'Notes répétées', v: `${rep} %`, s: rep ? 'même note deux fois de suite' : 'aucune' },
+      { id: 'density', k: 'Attaques', v: `${Math.min(...perBar)} à ${Math.max(...perBar)} / mesure`, s: `${ns.length} notes en ${bars} mesure${bars > 1 ? 's' : ''}` },
+      { id: 'breaths', k: 'Respirations', v: String(breaths), s: breaths ? 'silences d’au moins une croche' : 'aucun silence' },
+      { id: 'cell', k: 'Cellule rythmique', v: reuse > 1 ? `reprise ${reuse} fois` : 'non reprise', s: 'rythme de la mesure 1' },
+    ];
+  }
+
+  /** Ce que le profil demandait, et si la mélodie le fait : [{ ok, text }]. */
+  function profileChecks({ notes, spans, prof, ending, pivotPc, tonicPc, key, keyPcs, lines }) {
+    const out = [];
+    const nm = (pc) => noteLabel(60 + pc, key).replace(/-?\d+$/, '');
+    const tpcAt = (x) => {
+      const c = spanAt(spans, x.step).chord;
+      if (prof.target === 'color') return prof.colorPc;
+      if (prof.target === 'pivot') return pivotPc != null ? pivotPc : pcOf(c.rootPc + (c.ivs.includes(4) ? 4 : 3));
+      if (prof.target === 'root') return c.rootPc;
+      if (prof.target === 'fifth') return pcOf(c.rootPc + 7);
+      return pcOf(c.rootPc + (c.ivs.includes(4) ? 4 : 3));
+    };
+    const main = notes.filter((x) => !x.ornament);
+    const noPivot = prof.target === 'pivot' && pivotPc == null;
+    // la note visée existe-t-elle dans les accords de la grille ?
+    const avail = noPivot || spans.some((sp) => {
+      const t = tpcAt({ step: sp.step });
+      return t != null && (sp.chord.tones.includes(t) || chordScale(sp.chord, keyPcs).includes(t));
+    });
+    const peaks = lines.map((_, li) => main.filter((x) => x.line === li).reduce((a, b) => (!a || b.midi > a.midi ? b : a), null)).filter(Boolean);
+    const hits = main.filter((x) => (x.len >= 4 || spanAt(spans, x.step).step === x.step) && tpcAt(x) != null && pcOf(x.midi) === tpcAt(x)).length;
+    const peakHits = peaks.filter((x) => tpcAt(x) != null && pcOf(x.midi) === tpcAt(x)).length;
+    const tName = SS.MELODY_TARGETS[prof.target].toLowerCase();
+    const tNote = prof.target === 'color' && prof.colorPc != null ? ` (${nm(prof.colorPc)})` : prof.target === 'pivot' && pivotPc != null ? ` (${nm(pivotPc)})` : '';
+    if (!avail) out.push({ ok: true, info: true, text: `Note visée, ${tName}${tNote} : elle n’appartient à aucun accord de cette grille ; la mélodie suit le contour sans elle.` });
+    else
+      out.push({
+        ok: hits > 0,
+        text:
+          (noPivot ? 'Aucune note commune aux accords : la note visée devient la tierce de chaque accord. ' : '') +
+          (hits ? `Note visée, ${noPivot ? 'tierce' : tName + tNote} : sur ${hits} appui${hits > 1 ? 's' : ''}${peakHits ? `, dont ${peakHits === peaks.length ? 'le sommet de chaque phrase' : `${peakHits} sommet${peakHits > 1 ? 's' : ''}`}` : ''}.` : `Note visée, ${tName}${tNote} : jamais sur un appui ; essaie une autre graine ou un contour plus libre.`),
+      });
+    // contour : où tombe le sommet dans chaque phrase (moyenne), et l'écart entre la note la plus haute et la plus basse
+    const all = [...main].sort((a, b) => a.step - b.step);
+    const pos = lines
+      .map((_, li) => {
+        const ln = all.filter((x) => x.line === li);
+        if (ln.length < 2) return null;
+        const top = Math.max(...ln.map((x) => x.midi));
+        const idx = ln.reduce((acc, x, i) => (x.midi === top ? [...acc, i] : acc), []);
+        return (100 * idx.reduce((a, b) => a + b, 0)) / idx.length / (ln.length - 1);
+      })
+      .filter((x) => x != null);
+    const at = pos.length ? Math.round(pos.reduce((a, b) => a + b, 0) / pos.length) : 50;
+    const expect = { arch: [20, 85], rise: [50, 100], fall: [0, 50], plateau: [0, 100], wave: [0, 100] }[prof.contour];
+    out.push({ ok: at >= expect[0] && at <= expect[1], text: `Contour ${SS.MELODY_CONTOURS[prof.contour].label.toLowerCase()} : sommet à ${at} % de la phrase, en moyenne.` });
+    const fin = all[all.length - 1];
+    const fc = spanAt(spans, fin.step).chord;
+    const finKind = pcOf(fin.midi) === tonicPc ? 'closed' : fc.tones.includes(pcOf(fin.midi)) ? 'open' : 'suspended';
+    const noTonic = ending === 'closed' && !fc.tones.includes(tonicPc);
+    out.push({
+      ok: finKind === ending || (ending === 'open' && finKind === 'suspended') || (noTonic && finKind !== 'suspended'),
+      text:
+        `Fin ${SS.MELODY_ENDINGS[ending].replace(/ \(.*\)$/, '').toLowerCase()} demandée : la dernière note est ${noteLabel(fin.midi, key)}${finKind === 'closed' ? ', la tonique' : finKind === 'open' ? ', une note de l’accord' : ', hors de l’accord'}.` +
+        (noTonic ? ` La grille finit sur ${fc.sym}, sans la tonique : pour une vraie fin fermée, termine-la sur l’accord de tonique.` : ''),
+    });
+    const orn = notes.filter((x) => x.ornament && x.ornament !== 'neighbor-return').length + notes.filter((x) => x.suspension).length;
+    if (prof.ornaments.length) out.push({ ok: true, text: orn ? `Ornements : ${orn} (${[...new Set(notes.filter((x) => x.ornament && x.ornament !== 'neighbor-return').map((x) => SS.MELODY_ORNAMENTS[x.ornament].label.toLowerCase()).concat(notes.some((x) => x.suspension) ? ['retard'] : []))].join(', ')}).` : 'Ornements : aucune place trouvée (notes trop courtes) ; essaie un rythme plus calme.' });
+    void keyPcs;
+    return out;
   }
 
   /* ================================================================== */
@@ -1377,5 +1786,8 @@ SS.melody = (() => {
     return res.notes.map((x) => ({ step: x.step, len: x.len, notes: [x.midi], vel: Math.round((x.vel / 127) * 100) / 100, lyric: x.syl.text }));
   }
 
-  return { compose, checkMelody, keyLabel, chordFunction, noteKind, parseGrid, parseChordSymbol, scanLine, scanLyrics, scanMeter, guessKeys, toMidi, toEvents, RANGES, metricWeight, valueName, quarters, posLabel, noteLabel, _rng: rng };
+  /** Accords d'une grille de scène (format de compose({ timeline })), sans contrôle de couverture. */
+  const parseTimelineSpans = (data, opts) => parseTimeline(data, opts).spans;
+
+  return { compose, checkMelody, keyLabel, chordFunction, noteKind, parseGrid, parseChordSymbol, parseTimelineSpans, scanLine, scanLyrics, scanMeter, guessKeys, toMidi, toEvents, RANGES, metricWeight, valueName, quarters, posLabel, noteLabel, pivotNotes, describe, _rng: rng };
 })();

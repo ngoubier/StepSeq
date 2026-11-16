@@ -101,6 +101,24 @@ const shot = async (page, name) => SHOTS && page.locator('#harmonyDialog').scree
   const controls = await page.locator('#hmMel select').evaluateAll((els) => els.map((e) => ({ height: e.getBoundingClientRect().height, line: parseFloat(getComputedStyle(e).fontSize), width: e.getBoundingClientRect().width, parent: e.parentElement.getBoundingClientRect().width })));
   ok(controls.every((e) => e.height >= e.line + 14 && e.width <= e.parent + 1), 'Key : tous les menus sont assez hauts et restent dans le formulaire');
   ok(!(await page.locator('#hmMelAgain').count()), 'un seul bouton de génération');
+  // profil mélodique de l'émotion : intention, motif, note pivot, contrôles du profil, variante B
+  ok(await page.locator('#melIntent').isVisible(), 'bandeau Intention au-dessus de la mélodie');
+  await page.selectOption('#melEmo', 'espoir');
+  ok(/Montée retenue/.test(await page.locator('#melIntent').textContent()), 'profil « Montée retenue » pour l’espoir');
+  ok((await page.locator('#melIntent .mel-intent-body input[type=range]').count()) === 3 && (await page.locator('#melFine input[type=range]').count()) === 3, 'trois axes visibles, trois dans les réglages fins');
+  ok((await page.locator('#melMotifRow .mel-seg').count()) === 5 && (await page.locator('#melMotifRow .mel-piv').count()) >= 1, 'motif de départ et note pivot');
+  await page.click('#hmMelGo');
+  await page.waitForTimeout(150);
+  ok((await page.locator('.mel-prof .mel-checks li').count()) >= 3, 'ce que le profil demandait, et ce que fait la mélodie');
+  ok((await page.locator('.mel-metric').count()) === 6, 'contrôle de la mélodie : six repères');
+  ok(!(await page.locator('#hmMelVarB').isDisabled()), 'Variante B active');
+  await page.click('#hmMelVarB');
+  await page.waitForTimeout(150);
+  ok(/seul changement/.test(await page.locator('.mel-variant').textContent()), 'Variante B : un seul levier change');
+  await page.click('#melVarA');
+  await page.waitForTimeout(100);
+  ok((await page.locator('.mel-variant').count()) === 0, 'retour à la version A');
+  await page.selectOption('#melEmo', 'none');
   await page.selectOption('#melComplexity', 'adventurous');
   await page.click('#hmMelGo');
   await page.evaluate(() => {

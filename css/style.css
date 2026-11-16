@@ -4070,3 +4070,66 @@ dialog.help-dialog::backdrop { background: #0008; }
 .cl-pedrow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 13px; padding: 0 4px; }
 .ctx-menu .cl-pedrow .chip { width: auto; display: inline-flex; padding: 3px 10px; font-size: 13px; }
 .cl-note { color: var(--muted); font-size: 12px; margin: 0; padding: 0 4px; }
+
+/* ---------- Mélodie : profil de l'émotion (js/melody-profiles.js, js/melodypanel.js) ---------- */
+.btn-outline { background: transparent; border: 1px solid var(--accent-2); color: #6cb6ff; }
+.btn-outline:hover:not(:disabled) { background: rgba(43, 140, 255, .12); }
+.btn-outline:disabled { opacity: .45; cursor: default; }
+.mel-intent { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border-radius: 10px; background: var(--panel-2); border: 1px solid #0a64b4; min-width: 0; }
+.mel-intent.off { border-color: var(--line); }
+.mel-intent-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.mel-intent-head select { flex: 0 1 300px; }
+.mel-intent-body { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(220px, 1fr); gap: 12px 20px; align-items: start; }
+.mel-pname { display: flex; align-items: center; gap: 10px; }
+.mel-pname small { font-size: 11px; color: #f5d860; }
+.mel-pchips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
+.mel-pchip { display: inline-flex; gap: 6px; align-items: baseline; padding: 3px 10px; border-radius: 999px; background: var(--panel-3); font-size: 12.5px; }
+.mel-pchip span { color: var(--muted); }
+.mel-pchip b { font-weight: 600; }
+.mel-appui { margin: 4px 0 0; }
+svg.mel-contour { width: 96px; height: 34px; fill: none; stroke: #b48cff; stroke-width: 2.5; stroke-linecap: round; flex: none; }
+svg.mel-contour.big { width: 150px; height: 54px; }
+.mel-axes { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.mel-axis { display: flex; flex-direction: column; gap: 2px; }
+.mel-axis-l { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+.mel-axis input[type=range] { width: 100%; accent-color: var(--accent-2); }
+.mel-fine { display: flex; flex-direction: column; gap: 10px; }
+.mel-fine > summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+.mel-fine[open] > summary { margin-bottom: 8px; }
+.mel-fine .mel-axes { flex-direction: row; flex-wrap: wrap; gap: 8px 18px; margin-bottom: 10px; }
+.mel-fine .mel-axis { flex: 1 1 200px; }
+.mel-fine-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 14px; margin-bottom: 10px; }
+.mel-fine-f { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.mel-fine-f .dlg-label { font-size: 11px; }
+.mel-orn { display: flex; flex-wrap: wrap; gap: 6px 16px; border: 0; padding: 0; margin: 0 0 10px; min-width: 0; }
+.mel-orn legend { font-size: 11px; color: var(--muted); padding: 0 0 5px; }
+.mel-orn label { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; cursor: pointer; }
+.mel-motifrow { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 12px 18px; min-width: 0; }
+.mel-motif, .mel-pivots { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.mel-segs { display: flex; flex-wrap: wrap; gap: 3px; padding: 3px; border-radius: 9px; background: var(--bg); border: 1px solid var(--line); }
+.mel-seg { height: 30px; padding: 0 11px; border: 0; border-radius: 7px; background: transparent; color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
+.mel-seg.on { background: var(--accent); color: #fff; }
+.mel-seg:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 1px; }
+.mel-pivots .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.mel-stale { color: #f5d860; }
+.mel-variant { padding: 8px 10px; border-radius: 8px; background: rgba(43, 140, 255, .1); border: 1px solid rgba(43, 140, 255, .35); }
+.mel-phrases { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.mel-phr { display: inline-flex; align-items: baseline; gap: 6px; padding: 4px 10px; border-radius: 8px; background: var(--panel-2); border: 1px solid var(--line); font-size: 12.5px; }
+.mel-phr b { color: #3fcf8e; }
+.mel-phr.rep b { color: #f5c400; }
+.mel-phr small { color: var(--muted); }
+.mel-metrics { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.mel-metric { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 9px; background: var(--panel-2); border: 1px solid var(--line); }
+.mel-metric span, .mel-metric small { font-size: 11.5px; color: var(--muted); }
+.mel-metric b { font-size: 14px; font-weight: 600; }
+.hm-melcard { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; margin: 4px 0 12px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--line); }
+.hm-melcard-in { display: flex; gap: 16px; align-items: center; }
+.hm-melcard .emo-matrix { margin: 6px 0 0; }
+.hm-melcard .btn { align-self: flex-start; }
+@media (max-width: 760px) {
+  .mel-intent-body, .mel-motifrow { grid-template-columns: 1fr; }
+  .mel-fine-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hm-melcard-in { flex-direction: column; align-items: flex-start; }
+}
+.bh-emo { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; background: rgba(180, 140, 255, .14); border: 1px solid #7c62b8; font-size: 12.5px; white-space: nowrap; }
+.bh-rec { margin-left: 6px; font-size: 10px; padding: 1px 5px; border-radius: 4px; background: rgba(180, 140, 255, .25); color: #e2d4ff; }
