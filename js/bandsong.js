@@ -155,8 +155,8 @@ SS.bandSong = (() => {
       .filter((c) => c.step < total && c.len > 0)
       .sort((a, b) => a.step - b.step)
       .map((c) => {
-        const g = H().gridChord(key, c.degree, c.type, c.acc || 0);
-        return { step: c.step, len: c.len, chord: { rootPc: g.rootPc, type: c.type, tok: g.name } };
+        const g = H().gridChord(key, c.degree, c.type, c.acc || 0, c.bass || 0);
+        return { step: c.step, len: c.len, chord: { rootPc: g.rootPc, type: c.type, tok: g.name, ...(g.bassPc != null ? { bassPc: g.bassPc } : {}) } };
       });
     if (!cs.length) return null;
     cs[0].len += cs[0].step;
@@ -321,7 +321,7 @@ SS.bandSong = (() => {
     const ev = [];
     const add = (s, len, n, v) => len > 0 && ev.push({ step: s, len, notes: [n], vel: vel(r, v) });
     spans.forEach((sp, i) => {
-      const root = bassMidi(sp.chord.rootPc);
+      const root = bassMidi(sp.chord.bassPc ?? sp.chord.rootPc); // basse imposée (D/F♯ : Fa♯)
       const fifth = root + 7;
       const next = spans[i + 1];
       const end = sp.step + sp.len;
@@ -989,15 +989,18 @@ SS.bandSong = (() => {
       const bars = sec.bars;
       const hk = harmony && harmony.keys && harmony.keys[id];
       const k = hk ? { tonic: hk.tonic, mode: hk.mode } : sec.key ? parseKey(sec.key) : key;
-      const grid = harmony && harmony.chords && harmony.chords[id];
+      // grille : celle de l'étape Accords, sinon celle de la section (reprise tapée au clavier), sinon ses degrés
+      const grid = (harmony && harmony.chords && harmony.chords[id]) || sec.grid;
       const spans = (grid && grid.length && spansFromGrid(grid, k, bars)) || spansOf(sec, k, bars);
+      // as : section du modèle dont une section de reprise reprend le jeu (nuance, automation)
+      const as = sec.as || id;
       // caractère et notes par phrase de cette scène
       const own = mel.scenes && mel.scenes[id];
       let smel = own ? { ...mel, ...own } : mel;
       // émotion de la scène → profil mélodique (contour, note visée sur les temps forts, registre, fin)
       const emoId = harmony && harmony.emotions && harmony.emotions[id];
       if (emoId && mel.useProfile !== false && SS.resolveMelodyProfile && SS.MELODY_PROFILES[emoId]) smel = { ...smel, profile: SS.resolveMelodyProfile(emoId, {}, k) };
-      const energy = sec.energy ?? ENERGY[id] ?? 0.9;
+      const energy = sec.energy ?? ENERGY[as] ?? 0.9;
       const data = {};
       tracks.forEach((t) => {
         const [role, sound] = (t.band && t.band.key ? t.band.key : '').split(':');
@@ -1029,7 +1032,7 @@ SS.bandSong = (() => {
         // intro et break planants : tout est joué piano (la basse tenue encore plus), le drop garde la pleine force
         if (spec.tech && sec.float && role !== 'fx') data[t.id].events.forEach((e) => (e.vel = clampV(e.vel * (role === 'bass' ? 0.5 : 0.68))));
         if (spec.tech && (events.length || role !== 'fx')) {
-          const auto = sectionAuto(id, sec, role, bars, role === 'fx');
+          const auto = sectionAuto(as, sec, role, bars, role === 'fx');
           if (auto && events.length) data[t.id].auto = auto;
         }
       });

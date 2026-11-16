@@ -2,7 +2,8 @@
  * Band : assistant de création d'une chanson avec un groupe de musiciens virtuels.
  * Ouvert par le bouton « Band » de l'en-tête (open) ou par « Nouvelle chanson… » du menu (openWizard,
  * sur une chanson vide). Cinq étapes :
- *  1. Modèle : style musical, inspiration (type de chanson) et musiciens — un clic sur un musicien ouvre
+ *  1. Modèle : deux portes, Créer ou Reprendre (une reprise tapée : titre, tempo, tonalité, parties et accords,
+ *     ordre des parties — voir coverModel) ; style musical, inspiration (type de chanson) et musiciens — un clic sur un musicien ouvre
  *     son panneau (rôle, instrument phare, 5 conseillés, toute la bibliothèque via « Nouvelle piste ») ;
  *     le batteur choisit un kit et ses éléments (une piste par élément) ;
  *  2. Chanson : vue session (scènes × pistes), ordre des scènes, écoute ;
@@ -24,7 +25,7 @@ SS.band = (() => {
   // mel : réglages de la mélodie (étape Mélodie), gardés d'une ouverture à l'autre — voir melodyOpts()
   // hide : étape Mélodie, colonnes masquées (menu « Pistes ») ; la mélodie reste toujours affichée
   const S = {
-    styleId: null, presetId: null, sel: null, cache: {}, wiz: null, hide: new Set(),
+    styleId: null, presetId: null, sel: null, cache: {}, wiz: null, hide: new Set(), mode: 'create', cover: null,
     mel: { character: 'inspiration', form: 'auto', rhythm: 'auto', complexity: 'balanced', range: 'auto', ending: 'auto', notes: 0, fine: false, profile: 'on' },
   };
 
@@ -216,6 +217,147 @@ SS.band = (() => {
       h('div', { class: 'bs-title' }, h('b', {}, `Inspiration « ${p.song} »`), ` — ${p.artist} (${p.year})`),
       h('div', { class: 'bs-desc' }, p.desc)
     );
+  }
+
+  /* ---------- Porte « Créer » ou « Reprendre » ---------- */
+  function renderMode() {
+    const cv = cover();
+    document.querySelectorAll('#bandMode [data-mode]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.mode === S.mode)));
+    el.classList.toggle('cover', cv);
+    $('#bandPresetsLabel').textContent = cv ? 'Le groupe joue à la façon de…' : 'Type de chanson';
+    const gs = $('.band-main > .band-step b');
+    if (gs) gs.textContent = cv ? '4' : '3';
+    $('#bandSong').hidden = cv;
+    $('#bandCover').hidden = !cv;
+    if (cv) renderCover();
+  }
+  function setMode(m) {
+    if (S.mode === m) return;
+    S.mode = m;
+    if (m === 'cover' && !S.cover) S.cover = COVER_DEFAULT();
+    coverChanged();
+    dropListen();
+    renderMode();
+    refresh();
+    renderWiz();
+  }
+
+  /** Formulaire de la reprise : titre, tempo, tonalité, une ligne par partie, ordre des parties. */
+  function renderCover() {
+    const c = S.cover;
+    const edit = (fn, full = false) => (e) => {
+      fn(e.target.value);
+      coverChanged();
+      if (full) renderCover();
+      else coverInfo();
+      if (S.wiz) wizFoot();
+    };
+    const keyOpts = [h('option', { value: 'auto', selected: c.key === 'auto' }, 'Auto (1er accord)')];
+    [['major', MAJOR_TONICS, 'majeur'], ['minor', MINOR_TONICS, 'mineur']].forEach(([mode, list, label]) =>
+      list.forEach((t) => {
+        const v = `${t} ${mode}`;
+        keyOpts.push(h('option', { value: v, selected: c.key === v }, `${SS.harmony.french ? SS.harmony.french(t) : t} ${label}`));
+      })
+    );
+    const rows = c.parts.map((pt, i) =>
+      h(
+        'div',
+        { class: 'bcv-row' },
+        h('input', { type: 'text', class: 'bcv-name', value: pt.name, 'aria-label': `Nom de la partie ${i + 1}`, placeholder: 'Couplet', oninput: edit((v) => (pt.name = v)) }),
+        h('input', {
+          type: 'text', class: 'bcv-chords', value: pt.chords, spellcheck: 'false', autocomplete: 'off',
+          'aria-label': `Accords de la partie ${i + 1}`, placeholder: 'Am | F | C | G', oninput: edit((v) => (pt.chords = v)),
+        }),
+        h('button', {
+          type: 'button', class: 'btn btn-icon bcv-del', title: 'Enlever cette partie', 'aria-label': `Enlever la partie ${i + 1}`, disabled: c.parts.length < 2,
+          onclick: edit(() => c.parts.splice(i, 1), true), html: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+        }),
+        h('div', { class: 'bcv-info', 'data-part': i })
+      )
+    );
+    const field = (label, input, cls = '') => h('label', { class: 'bcv-field ' + cls }, h('span', {}, label), input);
+    $('#bandCover').replaceChildren(
+      h('div', { class: 'band-step' }, h('b', {}, '3'), ' La reprise'),
+      h(
+        'div',
+        { class: 'bcv-top' },
+        field('Titre', h('input', { type: 'text', id: 'bcvTitle', value: c.title, placeholder: 'Titre de la reprise', oninput: edit((v) => (c.title = v)) }), 'grow'),
+        field('Tempo', h('input', { type: 'number', id: 'bcvTempo', min: TEMPO_MIN, max: TEMPO_MAX, value: c.tempo, onchange: edit((v) => {
+          c.tempo = Math.round(Math.min(TEMPO_MAX, Math.max(TEMPO_MIN, Number(v) || 110)));
+          if (S.wiz) S.wiz.tempo = null;
+        }, true) })),
+        h('button', { type: 'button', class: 'btn bcv-tap', title: 'Tape en rythme (4 fois ou plus) pour trouver le tempo', onclick: tapTempo }, 'Tap'),
+        field('Tonalité', h('select', { id: 'bcvKey', onchange: edit((v) => (c.key = v)) }, ...keyOpts))
+      ),
+      h(
+        'div',
+        { class: 'bcv-head' },
+        h('b', {}, 'Parties et accords'),
+        h('small', { class: 'dlg-hint' }, '« | » sépare les mesures · « Am F » partage une mesure · « . » prolonge · « % » répète la mesure · Do, Ré… et C/E acceptés')
+      ),
+      h('div', { class: 'bcv-rows' }, ...rows),
+      h(
+        'div',
+        { class: 'bcv-actions' },
+        h('button', { type: 'button', class: 'btn btn-small', onclick: edit(() => c.parts.push({ name: '', chords: '' }), true) }, '+ Partie'),
+        h('button', { type: 'button', class: 'btn btn-small', title: 'Revenir à l’exemple', onclick: edit(() => (S.cover = COVER_DEFAULT()), true) }, '↺ Exemple')
+      ),
+      field(
+        'Ordre des parties',
+        h('input', { type: 'text', id: 'bcvOrder', value: c.order, spellcheck: 'false', placeholder: 'Intro Couplet Refrain Couplet Refrain ×2 Outro (vide : chaque partie une fois)', oninput: edit((v) => (c.order = v)) }),
+        'wide'
+      ),
+      h('p', { class: 'bcv-sum', id: 'bcvSum', 'aria-live': 'polite' })
+    );
+    coverInfo();
+  }
+  /** Sous chaque partie : ses accords lus (nom et degré) ou ses erreurs ; en bas, le résumé de la reprise. */
+  function coverInfo() {
+    const m = coverModel();
+    const H = SS.harmony;
+    m.parts.forEach((pt, i) => {
+      const box = document.querySelector(`#bandCover [data-part="${i}"]`);
+      if (!box) return;
+      if (pt.errors.length) return box.replaceChildren(h('span', { class: 'bcv-err' }, '⚠ ' + pt.errors.join(' · ')));
+      const chips = pt.spans.map((sp) => {
+        let g = null;
+        try {
+          g = H.toGridChord(m.key, { rootPc: sp.chord.rootPc, type: coverType(sp.chord.ivs) });
+          const bass = (((sp.chord.bassPc - sp.chord.rootPc) % 12) + 12) % 12;
+          g = g && H.gridChord(m.key, g.degree, g.type, g.acc, bass);
+        } catch (e) {
+          g = null;
+        }
+        return h('span', { class: `bcv-chip role-${g ? g.role.id : 'color'}` }, sp.chord.sym, g ? h('small', {}, g.numeral) : null);
+      });
+      box.replaceChildren(
+        ...chips,
+        h('span', { class: 'bcv-meta' }, `${pt.bars} mesure${pt.bars > 1 ? 's' : ''} · jeu : ${(SS.bandSong.NAMES[pt.as] || pt.as || '').toLowerCase()} de « ${(preset() || {}).song} »${m.used.has(i) ? '' : ' · pas dans l’ordre'}`)
+      );
+    });
+    const sum = $('#bcvSum');
+    if (!sum) return;
+    sum.classList.toggle('bad', !m.spec);
+    if (!m.spec) return (sum.textContent = m.errors.length ? '⚠ ' + m.errors.join(' · ') : '⚠ Ajoute au moins une partie.');
+    const t = tempo();
+    const sec = Math.round((m.bars * 4 * 60) / t);
+    const kn = H.french ? H.french(m.key.tonic) : m.key.tonic;
+    sum.textContent = `${m.spec.form.split(' ').reduce((n, f) => n + (+f.split('*')[1] || 1), 0)} blocs · ${m.bars} mesures · ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')} à ${t} BPM · ${kn} ${m.key.mode === 'minor' ? 'mineur' : 'majeur'}${S.cover.key === 'auto' ? ' (déduite)' : ''} · Suivant pour entendre le groupe`;
+  }
+  /** Tap tempo : la moyenne des derniers intervalles (on recommence après 2 s sans tape). */
+  let taps = [];
+  function tapTempo() {
+    const now = performance.now();
+    if (taps.length && now - taps[taps.length - 1] > 2000) taps = [];
+    taps.push(now);
+    taps = taps.slice(-8);
+    if (taps.length < 3) return;
+    const avg = (taps[taps.length - 1] - taps[0]) / (taps.length - 1);
+    S.cover.tempo = Math.round(Math.min(TEMPO_MAX, Math.max(TEMPO_MIN, 60000 / avg)));
+    if (S.wiz) S.wiz.tempo = null;
+    const inp = $('#bcvTempo');
+    if (inp) inp.value = S.cover.tempo;
+    coverInfo();
   }
 
   function stageLine(mu) {
@@ -470,6 +612,7 @@ SS.band = (() => {
     renderStyles();
     renderPresets();
     renderSong();
+    if (cover()) coverChanged(), coverInfo();
     refresh();
   }
   function setPreset(id) {
@@ -477,6 +620,7 @@ SS.band = (() => {
     S.sel = null;
     renderPresets();
     renderSong();
+    if (cover()) coverChanged(), coverInfo();
     refresh();
   }
   function select(id) {
@@ -553,7 +697,183 @@ SS.band = (() => {
   const ST = { model: 1, song: 2, chords: 3, harm: 4, pick: 5 }; // numéros des étapes
   /** Étapes où l'on travaille une scène (colonne des scènes, lecture de la scène en boucle). */
   const sceneStep = (n = S.wiz && S.wiz.step) => n === ST.chords || n === ST.harm;
-  const spec = () => preset() && SS.BandSongs && SS.BandSongs[preset().id];
+  const cover = () => S.mode === 'cover';
+  /** Plan de la chanson : celui de l'inspiration, ou la reprise tapée (porte « Reprendre »), jouée à la façon de l'inspiration. */
+  const spec = () => (cover() ? coverModel().spec : preset() && SS.BandSongs && SS.BandSongs[preset().id]);
+
+  /* ---------- Porte « Reprendre » : une reprise tapée au clavier ----------
+   * Titre, tempo, tonalité (déduite du premier accord, ou choisie), parties (« Couplet : Am | F | C | G ») et ordre
+   * des parties. Chaque partie reprend le jeu de la section du modèle qui lui correspond (couplet → verse, refrain →
+   * chorus ou drop…) : batterie, basse, nappes, arpège, lead de l'inspiration choisie, sur les accords tapés.
+   */
+  const COVER_SECTIONS = [
+    [/^intro/, ['intro']],
+    [/^(pre|montee|build)/, ['pre', 'build', 'verse']],
+    [/^(couplet|verse|strophe|theme)/, ['verse', 'groove', 'theme']],
+    [/^(refrain|chorus|drop|hook)/, ['chorus', 'drop', 'peak']],
+    [/^post/, ['post', 'chorus', 'drop']],
+    [/^(pont|bridge|break)/, ['bridge', 'break']],
+    [/^(solo|instru|riff)/, ['solo', 'instr', 'riff', 'chorus']],
+    [/^(outro|fin|coda)/, ['outro']],
+  ];
+  const normName = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  const MAJOR_TONICS = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
+  const MINOR_TONICS = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'B♭', 'B'];
+  const COVER_DEFAULT = () => ({
+    title: '',
+    tempo: 110,
+    key: 'auto',
+    parts: [
+      { name: 'Intro', chords: 'Am | F | C | G' },
+      { name: 'Couplet', chords: 'Am | F | C | G' },
+      { name: 'Refrain', chords: 'F | G | Am | Am' },
+      { name: 'Outro', chords: 'Am | F | C | G' },
+    ],
+    order: 'Intro Couplet Refrain Couplet Refrain Refrain Outro',
+  });
+  /** Section du modèle dont une partie reprend le jeu (d'après son nom). */
+  function coverTemplate(base, name) {
+    const n = normName(name);
+    const hit = COVER_SECTIONS.find(([re]) => re.test(n));
+    const ids = [...(hit ? hit[1] : []), 'verse', 'chorus', 'groove', 'drop'];
+    return ids.find((id) => base.sections[id]) || Object.keys(base.sections)[0];
+  }
+  /** Type d'accord de l'application (SS.CHORDS) pour les intervalles d'un accord tapé. */
+  function coverType(ivs) {
+    const key = (a) => [...new Set(a.map((i) => ((i % 12) + 12) % 12))].sort((x, y) => x - y).join(',');
+    const k = key(ivs);
+    const hit = SS.CHORDS.find((c) => key(c.iv) === k);
+    if (hit) return hit.id;
+    const has = (i) => ivs.some((x) => ((x % 12) + 12) % 12 === i);
+    if (has(3) && has(6) && !has(7)) return has(10) ? 'm7b5' : 'dim';
+    if (has(3) && !has(4)) return has(10) ? 'm7' : 'min';
+    if (has(4)) return has(10) ? '7' : has(11) ? 'maj7' : 'maj';
+    if (has(5)) return has(10) ? '7sus4' : 'sus4';
+    if (has(2)) return 'sus2';
+    return '5';
+  }
+  /** Accords d'une partie tapée : { spans, bars, errors } (grille de Key : « | » sépare les mesures, « . » prolonge, « % » répète). */
+  function coverParse(text) {
+    if (!String(text || '').trim()) return { spans: [], bars: 0, errors: ['pas d’accords'] };
+    try {
+      return SS.melody.parseGrid(text, { spb: 16 });
+    } catch (e) {
+      return { spans: [], bars: 0, errors: [e.message] };
+    }
+  }
+  /** Tonalité de la reprise : choisie, sinon déduite du premier accord (Am → La mineur, F → Fa majeur). */
+  function coverKey(parsed) {
+    const c = S.cover;
+    if (c.key && c.key !== 'auto') {
+      const [tonic, mode] = c.key.split(' ');
+      return { tonic, mode: mode || 'major' };
+    }
+    const first = parsed.map((x) => x.spans[0]).find(Boolean);
+    if (!first) return { tonic: 'A', mode: 'minor' };
+    const iv = first.chord.ivs.map((i) => ((i % 12) + 12) % 12);
+    const minor = iv.includes(3) && !iv.includes(4);
+    return { tonic: (minor ? MINOR_TONICS : MAJOR_TONICS)[first.chord.rootPc], mode: minor ? 'minor' : 'major' };
+  }
+  /**
+   * Ordre des parties (« Intro Couplet Refrain ×2 Outro », virgules permises) → [{ i, repeat }].
+   * Le nom le plus long qui convient est pris (« Couplet 2 » avant « Couplet »). Vide : chaque partie une fois.
+   */
+  function coverOrder(names, text) {
+    const errors = [];
+    if (!String(text || '').trim()) return { seq: names.map((_, i) => i), errors };
+    const ns = names.map(normName);
+    let rest = normName(text);
+    const seq = [];
+    const SEP = /^[\s,;→>|]+/;
+    while ((rest = rest.replace(SEP, ''))) {
+      const rep = /^(?:[x×*])\s*(\d+)/.exec(rest);
+      if (rep && seq.length) {
+        for (let n = 1; n < +rep[1]; n++) seq.push(seq[seq.length - 1]);
+        rest = rest.slice(rep[0].length);
+        continue;
+      }
+      let best = -1;
+      ns.forEach((n, i) => {
+        if (n && rest.startsWith(n) && (rest.length === n.length || /[\s,;→>|x×*]/.test(rest[n.length])) && (best < 0 || n.length > ns[best].length)) best = i;
+      });
+      if (best < 0) {
+        const tok = rest.split(/[\s,;→>|]/)[0];
+        errors.push(`ordre : « ${tok} » n’est pas une partie`);
+        rest = rest.slice(tok.length);
+        continue;
+      }
+      seq.push(best);
+      rest = rest.slice(ns[best].length);
+    }
+    if (!seq.length && !errors.length) errors.push('ordre : aucune partie');
+    return { seq, errors };
+  }
+  let coverMemo = { sig: null, val: null };
+  /**
+   * La reprise → { spec, key, parts: [{ name, bars, spans, errors, id, as }], errors, bars } ; spec est null s'il y a
+   * une erreur. Le plan suit le format de js/band-songs.js, avec une grille par section (sec.grid, degrés dans la
+   * tonalité) et `as` (section du modèle reprise : nuance et automation).
+   */
+  function coverModel() {
+    const p = preset();
+    const sig = JSON.stringify([S.cover, p && p.id]);
+    if (coverMemo.sig === sig) return coverMemo.val;
+    const base = p && SS.BandSongs && SS.BandSongs[p.id];
+    const c = S.cover;
+    const parsed = c.parts.map((pt) => coverParse(pt.chords));
+    const key = coverKey(parsed);
+    const errors = [];
+    const seen = new Set();
+    const parts = c.parts.map((pt, i) => {
+      const r = parsed[i];
+      const name = String(pt.name || '').trim();
+      const errs = [...r.errors];
+      if (!name) errs.unshift('sans nom');
+      else if (seen.has(normName(name))) errs.unshift('nom déjà pris');
+      seen.add(normName(name));
+      errs.forEach((e) => errors.push(`${name || `Partie ${i + 1}`} : ${e}`));
+      const as = base ? coverTemplate(base, name) : null;
+      return { name, bars: r.bars, spans: r.spans, errors: errs, as, id: `${as}_${i + 1}` };
+    });
+    const order = coverOrder(parts.map((x) => x.name), c.order);
+    errors.push(...order.errors);
+    let spec = null;
+    let bars = 0;
+    if (base && !errors.length && parts.length) {
+      const sections = {};
+      parts.forEach((pt) => {
+        const t = { ...base.sections[pt.as] };
+        delete t.key;
+        delete t.emotion;
+        const grid = pt.spans.map((sp) => {
+          const g = SS.harmony.toGridChord(key, { rootPc: sp.chord.rootPc, type: coverType(sp.chord.ivs) });
+          const bass = (((sp.chord.bassPc - sp.chord.rootPc) % 12) + 12) % 12;
+          return g && { step: sp.step, len: sp.len, ...g, ...(bass ? { bass } : {}) };
+        });
+        sections[pt.id] = { ...t, as: pt.as, name: pt.name, bars: Math.max(1, pt.bars), grid: grid.filter(Boolean) };
+      });
+      const form = [];
+      order.seq.forEach((i) => {
+        const last = form[form.length - 1];
+        if (last && last.i === i) last.n++;
+        else form.push({ i, n: 1 });
+        bars += Math.max(1, parts[i].bars);
+      });
+      spec = {
+        ...base,
+        emotion: undefined,
+        key: `${key.tonic} ${key.mode}`,
+        sections,
+        form: form.map((f) => parts[f.i].id + (f.n > 1 ? `*${f.n}` : '')).join(' '),
+      };
+    }
+    coverMemo = { sig, val: { spec, key, parts, errors, bars, used: new Set(order.seq) } };
+    return coverMemo.val;
+  }
+  /** La reprise a changé : les retouches des étapes suivantes (grilles, phrases…) repartent des accords tapés. */
+  function coverChanged() {
+    if (S.wiz) Object.assign(S.wiz, { plans: {}, pseeds: {}, keys: {}, grids: {}, emos: {}, chars: {}, gsel: null, insp: null });
+  }
   const singer = (role) => SS.bandSong.SINGERS.includes(role);
 
   /** Colonnes de la vue session : une par piste prévue, avec un identifiant stable (musicien + son). */
@@ -572,7 +892,7 @@ SS.band = (() => {
     const p = preset();
     const cols = wizCols();
     const harmony = harmonyOpts(true);
-    const sig = JSON.stringify([p.id, S.wiz.seed, melodyOpts(), harmony, cols.map((c) => [c.id, c.o])]);
+    const sig = JSON.stringify([p.id, cover() && S.cover, S.wiz.seed, melodyOpts(), harmony, cols.map((c) => [c.id, c.o])]);
     if (S.wiz.sig !== sig) {
       const sp = spec();
       const fake = cols.map((c) => ({ id: c.id, type: c.o.type, sound: c.o.sound, band: c.o.band }));
@@ -1190,6 +1510,7 @@ SS.band = (() => {
   /** Grille de l'inspiration pour une scène (accords du plan, lus dans la tonalité de la scène). */
   function specGrid(sc) {
     const sec = spec() && spec().sections[sc.sec];
+    if (sec && sec.grid) return fillGrid(sec.grid.map((c) => ({ ...c })), sc.bars * 16); // reprise : les accords tapés
     if (!sec || !sec.chords) return [];
     try {
       return fillGrid(
@@ -2009,7 +2330,7 @@ SS.band = (() => {
     $('#bwBack').hidden = step === 1;
     $('#bwNext').hidden = step === ST.pick;
     $('#bwNext').disabled = !canGo(step + 1);
-    $('#bwNext').title = step < ST.pick ? (canGo(step + 1) ? `${STEPS[step].label} : ${STEPS[step].hint.toLowerCase()}` : 'Choisis au moins un musicien') : '';
+    $('#bwNext').title = step < ST.pick ? (canGo(step + 1) ? `${STEPS[step].label} : ${STEPS[step].hint.toLowerCase()}` : cover() && !spec() ? 'Corrige la reprise (parties, accords, ordre)' : 'Choisis au moins un musicien') : '';
     $('#bwCreate').hidden = step !== ST.pick;
     const kept = step === ST.pick ? wizCols().filter((c) => !S.wiz.off.has(c.id)).length : 0;
     $('#bwCreate').disabled = step === ST.pick && !kept;
@@ -2029,7 +2350,8 @@ SS.band = (() => {
     hideConfirm();
     el.close('ok');
     // volumes réglés à l'étape Mélodie : appliqués au mixage automatique de la chanson créée
-    app.applySong(cols.map((c) => c.o), p, tempo(), { melodySeed: seed, melody: melodyOpts(), harmony: harmonyOpts(), gains: cols.map((c) => volGain(c.id)) });
+    const plan = cover() ? { ...p, spec: spec(), cover: { title: S.cover.title.trim() || 'Reprise' } } : p;
+    app.applySong(cols.map((c) => c.o), plan, tempo(), { melodySeed: seed, melody: melodyOpts(), harmony: harmonyOpts(), gains: cols.map((c) => volGain(c.id)) });
   }
 
   /* ---------- Bandeau de commande (étapes 2 à 4) ----------
@@ -2038,16 +2360,19 @@ SS.band = (() => {
    */
   const TEMPO_MIN = 40;
   const TEMPO_MAX = 240;
-  /** Tempo de la chanson : celui choisi dans le bandeau, sinon celui de l'inspiration. */
+  /** Le tempo du bandeau vaut pour cette inspiration (ou pour la reprise). */
+  const tempoKey = () => (cover() ? 'cover' : preset().id);
+  /** Tempo de la chanson : celui choisi dans le bandeau, sinon celui de l'inspiration (ou de la reprise). */
   function tempo() {
     const p = preset();
-    return S.wiz && S.wiz.tempo && S.wiz.tempoFor === p.id ? S.wiz.tempo : p.tempo;
+    const base = cover() ? S.cover.tempo : p.tempo;
+    return S.wiz && S.wiz.tempo && S.wiz.tempoFor === tempoKey() ? S.wiz.tempo : base;
   }
   function setTempo(v) {
     if (!S.wiz) return;
     const t = Math.round(Math.min(TEMPO_MAX, Math.max(TEMPO_MIN, Number(v) || tempo())));
     S.wiz.tempo = t;
-    S.wiz.tempoFor = preset().id;
+    S.wiz.tempoFor = tempoKey();
     if (L.proj) L.proj.tempo = t; // la lecture en cours prend le nouveau tempo au pas suivant
     const inp = $('#bwTempo');
     if (inp) inp.value = t; // valeur bornée, même pendant la saisie
@@ -2407,6 +2732,7 @@ SS.band = (() => {
     renderStyles();
     renderPresets();
     renderSong();
+    renderMode();
     refresh();
     renderWiz();
     el.returnValue = '';
@@ -2431,7 +2757,9 @@ SS.band = (() => {
         h(
           'p',
           { id: 'bcfText' },
-          `« Créer la chanson » écrit une chanson dans l'esprit de « ${p.song} » : ${n} piste${n > 1 ? 's' : ''}, les scènes et l'arrangement. `,
+          cover()
+            ? `« Créer la chanson » écrit la reprise « ${S.cover.title.trim() || 'Reprise'} » : ${n} piste${n > 1 ? 's' : ''}, les scènes et l'arrangement. `
+            : `« Créer la chanson » écrit une chanson dans l'esprit de « ${p.song} » : ${n} piste${n > 1 ? 's' : ''}, les scènes et l'arrangement. `,
           `Elle remplace ${pr.tracks.length > 1 ? `les ${pr.tracks.length} pistes` : 'la piste'}, ${pr.scenes.length > 1 ? `les ${pr.scenes.length} scènes` : 'la scène'} et l'arrangement actuels.`
         ),
         notes ? h('p', { class: 'bcf-warn' }, `⚠ ${notes} piste${notes > 1 ? 's' : ''} contien${notes > 1 ? 'nent' : 't'} des notes : Ctrl+Z pour revenir en arrière, et la chanson actuelle reste dans « Mes chansons » (ses versions).`) : null,
@@ -2468,6 +2796,7 @@ SS.band = (() => {
     $('#bwBack').addEventListener('click', () => goStep(S.wiz.step - 1));
     $('#bwNext').addEventListener('click', () => goStep(S.wiz.step + 1));
     $('#bwCreate').addEventListener('click', () => createWizSong());
+    document.querySelectorAll('#bandMode [data-mode]').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
     buildTransport();
     el.addEventListener('close', () => {
       dropListen();

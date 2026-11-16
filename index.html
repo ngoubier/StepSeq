@@ -249,13 +249,20 @@
       <div class="band-transport" id="bwTransport" role="toolbar" aria-label="Lecture de la chanson" hidden></div>
       <div class="band-body">
         <aside class="band-side">
+          <!-- Deux portes : Créer (une chanson dans l'esprit d'une inspiration) ou Reprendre (une reprise tapée au clavier) -->
+          <div class="segmented band-mode" id="bandMode" role="radiogroup" aria-label="Créer ou reprendre une chanson">
+            <button type="button" role="radio" data-mode="create" aria-checked="true" title="Une chanson originale, dans l'esprit d'une inspiration">Créer</button>
+            <button type="button" role="radio" data-mode="cover" aria-checked="false" title="Une reprise : tape la structure et les accords, le groupe joue dessus">Reprendre</button>
+          </div>
           <div class="band-step"><b>1</b> Style musical</div>
           <div class="segmented pills-nav band-styles" id="bandStyles" role="radiogroup" aria-label="Style musical"></div>
           <p class="band-style-desc" id="bandStyleDesc"></p>
-          <div class="band-step"><b>2</b> Type de chanson</div>
+          <div class="band-step"><b>2</b> <span id="bandPresetsLabel">Type de chanson</span></div>
           <div class="band-presets" id="bandPresets" role="radiogroup" aria-label="Type de chanson"></div>
         </aside>
         <main class="band-main">
+          <!-- Porte « Reprendre » : titre, tempo, tonalité, parties et accords, ordre des parties (js/band.js) -->
+          <div class="band-cover" id="bandCover" hidden></div>
           <div class="band-step"><b>3</b> Le groupe <small class="dlg-hint" data-helpify>clique sur un musicien pour choisir son instrument</small></div>
           <div class="band-song" id="bandSong"></div>
           <div class="band-stage" id="bandStage"></div>
