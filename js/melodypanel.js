@@ -13,7 +13,10 @@ SS.melodyPanel = (() => {
   const H = () => SS.harmony;
   let app = null;
   // hôte : l'onglet Mélodie d’Harmonie (ou tout autre panneau). { box, leadOpts(), close(), buttons: { again, write },
-  // preferSceneKey (la tonalité de la scène plutôt que celle déduite des accords), padTrack() (piste de la nappe) }
+  // preferSceneKey (la tonalité de la scène plutôt que celle déduite des accords), padTrack() (piste de la nappe) ;
+  // hôte qui garde son propre contexte (assistant Nouvelle chanson) : sceneKey(), sceneEmotion(), timeSig, hideTrack (pas de champ
+  // « Piste »), noListen (pas de lecture : le bandeau de l'hôte joue), noScroll, actions (boutons placés après les options),
+  // onResult(res | null) à chaque proposition composée, variante B ou effacée ; getState() / setState() rangent un état par scène }
   let ctx = null;
   let box = null;
   let play = null; // { timers, raf } pendant l'écoute
@@ -61,7 +64,10 @@ SS.melodyPanel = (() => {
 
   /* ---------- Contexte du projet ---------- */
   const project = () => app.project();
-  const sceneKey = () => SS.sceneKey(project());
+  // un hôte (assistant Nouvelle chanson) peut imposer la tonalité, l'émotion et la mesure de sa scène
+  const sceneKey = () => (ctx && ctx.sceneKey ? ctx.sceneKey() : SS.sceneKey(project()));
+  const timeSig = () => (ctx && ctx.timeSig) || project().timeSig;
+  const barSteps = () => Math.round(timeSig()[0] * (16 / timeSig()[1]));
   function keyChoice() {
     if (ctx?.sharedGrid) return sceneKey();
     if (S.key === 'auto') return ctx && ctx.preferSceneKey ? sceneKey() : null;
@@ -71,6 +77,10 @@ SS.melodyPanel = (() => {
   }
   /* ---------- Profil mélodique de l'émotion ---------- */
   const sceneEmotion = () => {
+    if (ctx && ctx.sceneEmotion) {
+      const e = ctx.sceneEmotion();
+      return (e && SS.findEmotion(e) && e) || null;
+    }
     const sc = SS.currentScene(project());
     return (sc && sc.emotion && SS.findEmotion(sc.emotion) && sc.emotion) || null;
   };
@@ -85,8 +95,7 @@ SS.melodyPanel = (() => {
   }
   /** Accords de la grille (pour les notes pivots), sans composer. */
   function gridSpans() {
-    const p = project();
-    const spb = SS.stepsPerBar(p);
+    const spb = barSteps();
     try {
       if (ctx && ctx.gridData) {
         const d = ctx.gridData();
@@ -413,7 +422,7 @@ SS.melodyPanel = (() => {
       renderIntention(),
       renderMotifRow(),
       field('Structure', meter, 'Notes par phrase : « 8 8 » = deux phrases sur la grille. « 3+5 » = notes par mesure. Vide : automatique (d’après le profil s’il y en a un).'),
-      field('Piste de mélodie', sel('melTrack', S.track, [...monoTracks().map((t) => opt(t.id, `${t.name}${t.melody ? ' (mélodie)' : ''}`)), opt('new', '+ Nouvelle piste « Mélodie »')], (v) => {
+      ctx.hideTrack ? null : field('Piste de mélodie', sel('melTrack', S.track, [...monoTracks().map((t) => opt(t.id, `${t.name}${t.melody ? ' (mélodie)' : ''}`)), opt('new', '+ Nouvelle piste « Mélodie »')], (v) => {
         stopListen();
         S.track = v;
         renderOut();
@@ -470,6 +479,7 @@ SS.melodyPanel = (() => {
           ),
         ),
       ),
+      ctx.actions ? h('div', { class: 'mel-actions' }, ctx.actions) : null,
     );
   }
 
@@ -477,10 +487,9 @@ SS.melodyPanel = (() => {
     const el = $('#melGridChips');
     if (!el) return;
     if (!S.grid.trim()) return el.replaceChildren(h('small', { class: 'dlg-hint' }, 'Aucun accord.'));
-    const p = project();
     let res;
     try {
-      res = M().parseGrid(S.grid, { spb: SS.stepsPerBar(p), key: keyChoice() });
+      res = M().parseGrid(S.grid, { spb: barSteps(), key: keyChoice() });
     } catch (e) {
       res = { spans: [], errors: [e.message], bars: 0 };
     }
@@ -527,7 +536,6 @@ SS.melodyPanel = (() => {
       S.variant = null;
       S.variantN = 0;
     }
-    const p = project();
     S.source = S.text.trim() ? 'text' : 'meter';
     S.res = M().compose({
       grid: S.grid,
@@ -543,7 +551,7 @@ SS.melodyPanel = (() => {
       ending: S.ending,
       eMode: S.eMode,
       sungFinalE: S.sungFinalE,
-      timeSig: p.timeSig,
+      timeSig: timeSig(),
       seed: S.seed,
       profile: profile(),
       pivot: S.pivot,
@@ -551,8 +559,9 @@ SS.melodyPanel = (() => {
     S.resultSource = sourceSignature();
     renderOut();
     updateButtons();
+    if (ctx.onResult) ctx.onResult(S.res);
     const out = $('#melOut');
-    if (out) {
+    if (out && !ctx.noScroll) {
       out.scrollTo({ top: 0 });
       // petit écran : le résultat est sous le formulaire
       if (window.matchMedia && window.matchMedia('(max-width: 900px)').matches) out.scrollIntoView({ block: 'start', behavior: 'smooth' });
@@ -656,7 +665,7 @@ SS.melodyPanel = (() => {
     const out = $('#melOut');
     if (!out) return;
     const res = S.res;
-    if (ctx.transportBox) { ctx.transportBox.replaceChildren(makeTransport()); transport(); }
+    if (ctx.transportBox && !ctx.noListen) { ctx.transportBox.replaceChildren(makeTransport()); transport(); }
     if (!res) {
       out.replaceChildren(
         h(
@@ -672,7 +681,7 @@ SS.melodyPanel = (() => {
       out.replaceChildren(h('div', { class: 'mel-errors' }, h('b', {}, 'Impossible de proposer une mélodie'), h('ul', {}, ...res.errors.map((e) => h('li', {}, e)))));
       return;
     }
-    const target = S.track !== 'new' && project().tracks.find((t) => t.id === S.track);
+    const target = !ctx.hideTrack && S.track !== 'new' && project().tracks.find((t) => t.id === S.track);
     const sceneBars = project().bars;
     const scansion = res.lines[0].abstract
       ? null
@@ -732,7 +741,7 @@ SS.melodyPanel = (() => {
     const bad = res.checks.filter((c) => (!c.ok || c.warn) && !/aucune écoute|^Fin|^Scansion/.test(c.text));
     const warnTrack =
       target && app.hasNotes(target) ? h('p', { class: 'bcf-warn' }, `⚠ « ${target.name} » contient déjà des notes dans cette scène : elles seront remplacées (Ctrl+Z pour revenir).`) : null;
-    const longer = res.bars > sceneBars ? h('p', { class: 'dlg-hint' }, `La scène (${sceneBars} mesures) sera allongée à ${nextBars(res.bars)} mesures.`) : null;
+    const longer = !ctx.hideTrack && res.bars > sceneBars ? h('p', { class: 'dlg-hint' }, `La scène (${sceneBars} mesures) sera allongée à ${nextBars(res.bars)} mesures.`) : null;
     const notesLine = res.lines.map((l) => l.count).join(' + ');
     out.replaceChildren(
       ...[
@@ -745,7 +754,7 @@ SS.melodyPanel = (() => {
             { class: 'mel-lead' },
             `${res.notes.length} notes sur ${res.bars} mesure${res.bars > 1 ? 's' : ''} (${res.lines.length > 1 ? `${res.lines.length} phrases : ${notesLine}` : '1 phrase'}), en ${M().keyLabel(res.key)}${res.keyAuto ? ' (déduite des accords)' : ''}.`,
           ),
-          !ctx.transportBox && makeTransport(),
+          !ctx.transportBox && !ctx.noListen && makeTransport(),
           roll(res),
           legend(res),
           S.variant ? h('p', { class: 'mel-variant' }, h('b', {}, 'Variante B'), ` : ${S.variant.text} (seul changement, même graine). `, h('button', { type: 'button', class: 'btn btn-small', id: 'melVarA', onclick: () => ((S.variant = null), compose(false)) }, 'Revenir à A')) : null,
@@ -1007,7 +1016,7 @@ SS.melodyPanel = (() => {
 
   function sourceSignature() {
     const p = project();
-    return JSON.stringify([ctx.sharedGrid ? 'key' : 'band', p.id, p.current, p.timeSig, keyChoice(), ctx.gridData ? ctx.gridData() : S.grid]);
+    return JSON.stringify([ctx.sharedGrid ? 'key' : 'band', p.id, p.current, timeSig(), keyChoice(), ctx.gridData ? ctx.gridData() : S.grid]);
   }
 
   /** Affiche le panneau dans l'hôte `context`. Les accords de la scène sont repris tant que la grille n'a pas été retouchée. */
@@ -1021,7 +1030,11 @@ SS.melodyPanel = (() => {
     ctx = next;
     box = ctx.box;
     if (!ctx.sharedGrid && (!S.gridEdited || !S.grid)) S.grid = gridFromScene() || S.grid;
-    if (S.resultSource !== sourceSignature()) S.res = null;
+    if (S.resultSource !== sourceSignature()) {
+      const had = !!S.res;
+      S.res = null;
+      if (had && ctx.onResult) ctx.onResult(null);
+    }
     render();
   }
 
@@ -1037,5 +1050,22 @@ SS.melodyPanel = (() => {
     S.variantN = 0;
   }
 
-  return { init, show, render, compose, write, variantB, useEmotion, stop: stopListen, gridFromScene, _state: S };
+  /** Réglages, graine, retouches, variante et résultat : un hôte en garde un exemplaire par scène (voir setState). */
+  const STATE_KEYS = ['source', 'text', 'meter', 'range', 'style', 'complexity', 'ending', 'emo', 'pivot', 'variantN', 'eMode', 'sungFinalE', 'seed', 'resultSource', 'fineOpen'];
+  const FRESH = () => ({ source: 'meter', text: '', meter: '', range: 'auto', style: 'auto', complexity: 'balanced', ending: 'auto', emo: 'scene', pivot: 'auto', variantN: 0, eMode: 'classique', sungFinalE: false, seed: 1, resultSource: null, fineOpen: false });
+  function getState() {
+    const o = { over: JSON.parse(JSON.stringify(S.over || {})), variant: S.variant ? JSON.parse(JSON.stringify(S.variant)) : null, res: S.res };
+    STATE_KEYS.forEach((k) => (o[k] = S[k]));
+    return o;
+  }
+  /** Rétablit un état pris par getState ; null : état neuf. N'appelle pas onResult et ne redessine pas (show le fait). */
+  function setState(st) {
+    const f = { ...FRESH(), over: {}, variant: null, res: null, ...(st || {}) };
+    STATE_KEYS.forEach((k) => (S[k] = f[k]));
+    S.over = JSON.parse(JSON.stringify(f.over || {}));
+    S.variant = f.variant ? JSON.parse(JSON.stringify(f.variant)) : null;
+    S.res = f.res || null;
+  }
+
+  return { init, show, render, getState, setState, compose, write, variantB, useEmotion, stop: stopListen, gridFromScene, _state: S };
 })();

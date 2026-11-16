@@ -28,7 +28,11 @@
  *    allumer la basse ; s'ajoutent half et quarter) ; pedal joue la tonique (ou la quinte) de la tonalité sous tous les
  *    accords, sans notes d'approche ; approach false les supprime ; mid = une octave plus haut ;
  *  - pad { mode, voicing: close | open } ; arp { mode } : remplacent ceux du plan (et peuvent les allumer) ;
- *  - off : rôles muets dans la scène (['arp', 'lead']).
+ *  - off : rôles muets dans la scène (['arp', 'lead']) ;
+ *  - lead { events: [{ step, len, notes: [midi], vel }] } : la mélodie de la scène (étape Mélodie de l'assistant, panneau
+ *    d'Harmonie). Elle remplace celle du moteur sur la première piste chantante présente (lead, puis vox, puis sax) ;
+ *    [] = silence ; elle joue aussi dans une scène où l'inspiration ne chante pas (sauf rôle coupé par off).
+ *    Les autres pistes chantantes gardent leur mélodie.
  */
 window.SS = window.SS || {};
 
@@ -1074,6 +1078,10 @@ SS.bandSong = (() => {
       const pp = (parts && parts[id]) || null; // réglages de cette scène
       const muted = (pp && pp.off) || [];
       const dp = pp && pp.drums;
+      // mélodie imposée (parts[section].lead) : portée par la première piste chantante, dans l'ordre lead, vox, sax
+      const ownLead = pp && pp.lead && Array.isArray(pp.lead.events) ? pp.lead.events : null;
+      const roleOf = (x) => ((x.band && x.band.key) || '').split(':')[0];
+      const leadTrack = ownLead ? tracks.find((t) => roleOf(t) === SINGERS.find((r) => tracks.some((x) => roleOf(x) === r))) : null;
       tracks.forEach((t) => {
         const [role, sound] = (t.band && t.band.key ? t.band.key : '').split(':');
         const singer = SINGERS.includes(role);
@@ -1100,7 +1108,10 @@ SS.bandSong = (() => {
         const o = (pp && pp[role]) || null; // réglages du rôle (basse, nappe, arpège)
         const mode = muted.includes(role) ? null : (o && o.mode) || sec[role];
         let events = [];
-        if (mode) {
+        // mélodie imposée : même dans une scène où l'inspiration ne chante pas (sauf rôle coupé par « off »)
+        if (ownLead && t === leadTrack && !muted.includes(role))
+          events = ownLead.filter((e) => e && e.step >= 0 && e.step < bars * SPB && e.notes && e.notes.length).map((e) => ({ step: e.step, len: Math.max(1, Math.min(e.len, bars * SPB - e.step)), notes: [...e.notes], vel: e.vel ?? 0.8 }));
+        else if (mode) {
           if (role === 'bass') {
             const kp = H().scale(k).map((d) => d.pc);
             const ped = o && { tonic: kp[0], fifth: pcOf(kp[0] + 7) }[o.pedal];

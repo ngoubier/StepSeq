@@ -222,3 +222,34 @@ test('off : les rôles muets ne jouent plus dans la scène, les autres scènes n
   // off l'emporte sur un mode demandé
   assert.equal(scene(build({ a: { off: ['bass'], bass: { mode: 'half' } } })).data.bass.events.length, 0);
 });
+
+test('parts[section].lead : la mélodie imposée remplace celle du moteur sur la première piste chantante', () => {
+  const base = build({});
+  const evs = [{ step: 0, len: 4, notes: [72], vel: 0.9 }, { step: 16, len: 8, notes: [67], vel: 0.7 }, { step: 200, len: 4, notes: [60], vel: 0.7 }];
+  const s = build({ a: { lead: { events: evs } } });
+  const got = scene(s).data.lead.events;
+  assert.deepEqual(got.map((e) => [e.step, e.len, e.notes]), [[0, 4, [72]], [16, 8, [67]]]); // le pas 200 est hors scène (8 mesures = 128 pas)
+  assert.ok(got.every((e) => e.vel > 0 && e.vel <= 1));
+  // la section b et les autres pistes ne changent pas
+  assert.deepEqual(scene(s, 1).data, scene(base, 1).data);
+  assert.deepEqual(scene(s).data.bass, scene(base).data.bass);
+  // tableau vide : silence
+  assert.equal(build({ a: { lead: { events: [] } } }).scenes[0].data.lead.events.length, 0);
+  // une scène où l'inspiration ne chante pas la joue quand même, sauf si le rôle est coupé (off)
+  assert.equal(scene(base, 1).data.lead.events.length, 0);
+  assert.deepEqual(scene(build({ b: { lead: { events: evs } } }), 1).data.lead.events.map((e) => e.notes[0]), [72, 67]);
+  assert.equal(scene(build({ a: { lead: { events: evs }, off: ['lead'] } })).data.lead.events.length, 0);
+  // sans lead : identique
+  assert.equal(stripIds(build({ a: { off: [] } })), stripIds(base));
+  // plusieurs pistes chantantes : seule la première (lead avant vox) porte la mélodie imposée
+  const sp2 = { ...SPEC, sections: { ...SPEC.sections, a: { ...SPEC.sections.a, vox: 'verse' } } };
+  const tr = [...TR, { id: 'vox', type: 'instrument', category: 'mono', band: { key: 'vox' } }];
+  const two = SS.bandSong.build(sp2, 'test', tr, { parts: { a: { lead: { events: evs } } } });
+  const ref = SS.bandSong.build(sp2, 'test', tr, {});
+  assert.deepEqual(two.scenes[0].data.lead.events.map((e) => e.notes[0]), [72, 67]);
+  assert.deepEqual(two.scenes[0].data.vox, ref.scenes[0].data.vox);
+  // sans piste lead : la voix la porte
+  const nolead = tr.filter((t) => t.id !== 'lead');
+  const v = SS.bandSong.build(sp2, 'test', nolead, { parts: { a: { lead: { events: evs } } } });
+  assert.deepEqual(v.scenes[0].data.vox.events.map((e) => e.notes[0]), [72, 67]);
+});

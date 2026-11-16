@@ -2565,9 +2565,6 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
 .bw-clip { position: relative; }
 .bw-grid tr.playing .bw-clip::after { content: ''; position: absolute; top: 0; bottom: 0; left: calc(var(--ph, 0) * 100%); width: 2px; background: #fff; opacity: .85; }
 .bw-grid tr.playing:not([style*="--ph"]) .bw-clip::after { display: none; }
-.bw-melform { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 12px; flex-basis: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: #1a1a1f; }
-.bw-field { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--muted); }
-.bw-field select { min-width: 110px; }
 .bw-ms { display: inline-flex; gap: 2px; margin-left: 6px; vertical-align: middle; }
 .bw-ms button { width: 20px; height: 18px; padding: 0; border-radius: 4px; border: 1px solid #3a3a42; background: #1d1d23; color: var(--muted); font: 600 10px/1 inherit; cursor: pointer; }
 .bw-ms button:hover { color: var(--text); border-color: #55555f; }
@@ -2751,42 +2748,9 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
 .bh-tpop label span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bh-tpop label small { font-size: 11px; color: var(--accent-2); }
 .bh-tbtns { display: flex; gap: 6px; padding: 6px 6px 2px; margin-top: 4px; border-top: 1px solid var(--line); }
-/* en-tête : caractère, tout relancer, réglages fins (panneau) */
-.bh-head-mel { align-items: center; gap: 8px 10px; }
 .bh-lbl { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-.bh-chars { flex-wrap: wrap; }
-.bh-fine { position: relative; }
-.bh-fine > .btn.on { border-color: var(--accent-2); }
-.bh-fine .bw-melform { position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; width: 300px; flex-direction: column; align-items: stretch; flex-wrap: nowrap; background: var(--panel-2); box-shadow: 0 10px 28px rgba(0, 0, 0, .5); }
-.bh-fine .bw-field { flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; }
-.bh-fine .bw-field select { width: 165px; min-width: 0; }
-/* phrases de la mélodie : une carte par phrase, calée sur les mesures, réglée sur place */
-.bh-phrases { height: 96px; }
-.bh-phrases .bh-track { background-color: #1c1c21; }
-.bh-phead { flex-direction: column; align-items: flex-start; justify-content: center; gap: 4px; background: color-mix(in srgb, var(--accent) 14%, #202024); box-shadow: inset 3px 0 0 var(--accent-2); }
-.bh-phead b { font-size: 13.5px; }
-.bh-phead small { font-size: 11px; color: var(--muted); letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-.bh-phead .btn { padding: 2px 8px; }
-.bh-phr { position: absolute; top: 6px; bottom: 6px; box-sizing: border-box; margin-left: 2px; display: flex; flex-direction: column; justify-content: center; gap: 5px; padding: 5px 8px; border: 1px solid var(--accent-2); border-radius: 8px; background: color-mix(in srgb, var(--accent) 16%, #1c1c21); overflow: hidden; }
-.bh-phr.hold { background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 26%, #1c1c21) 0 35%, color-mix(in srgb, var(--accent) 8%, #1c1c21) 35%); }
-.bh-phr.off { border-style: dashed; border-color: #4a4a52; background: transparent; }
-.bh-phr.mini { align-items: center; padding: 5px 3px; }
-.bh-ptop { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
-.bh-ptop small { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bh-prow { display: flex; align-items: center; gap: 5px; }
-.bh-pl { padding: 0 2px; border: 0; background: none; color: var(--accent-2); font: 700 18px/1 inherit; cursor: pointer; }
-.bh-pl:hover { color: #fff; }
-.bh-phr.off .bh-pl { color: var(--muted); }
-.bh-pmode button { padding: 2px 7px; font-size: 11px; }
-.bh-phr.mini .bh-pmode button { padding: 2px 5px; }
-.bh-step { display: inline-flex; align-items: center; border: 1px solid #3a3a42; border-radius: 5px; overflow: hidden; font-size: 11px; }
-.bh-step button { width: 20px; height: 20px; padding: 0; border: 0; background: var(--panel-3); color: var(--text); font: inherit; cursor: pointer; }
-.bh-step button:disabled { color: #55555f; cursor: default; }
-.bh-plen { padding: 0 6px; white-space: nowrap; }
-.bh-proll { width: 22px; height: 22px; padding: 0; border: 1px solid #3a3a42; border-radius: 5px; background: #1d1d23; cursor: pointer; font-size: 11px; }
-.bh-proll:hover { border-color: #55555f; }
-.bh-pl:focus-visible, .bh-step button:focus-visible, .bh-proll:focus-visible, .bh-acc-btn:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
 /* accompagnement replié sur une ligne */
+.bh-acc-btn:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
 .bh-acc { position: relative; z-index: 5; align-items: center; gap: 10px; padding: 0 10px 0 0; background: #1c1c20; min-height: 40px; }
 .bh-acc-btn { position: sticky; left: 0; display: flex; align-items: baseline; gap: 10px; padding: 10px 14px; border: 0; background: none; color: var(--text); font: inherit; font-size: 13px; cursor: pointer; text-align: left; min-width: 0; }
 .bh-acc-btn small { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -2837,10 +2801,7 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
   .bt-pos { min-width: 110px; }
   .bh-board { --head: 140px; }
   .bh-vol { min-width: 30px; }
-  .bh-head-mel .bh-lbl { display: none; }
   .bh-acc-btn small { display: none; }
-  .bh-fine .bw-melform { width: min(300px, calc(100vw - 40px)); }
-  .bh-head-mel .bw-melform { padding: 6px 8px; gap: 6px 10px; }
   .bh-role { display: none; }
   .bt-label { display: none; }
   .bh-wrap { flex-direction: column; }
@@ -3785,19 +3746,30 @@ dialog.system-dialog { width: min(920px, calc(100vw - 24px)); max-height: calc(1
 .song-tabs { padding: 0; flex: none; }
 .song-chords { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
 .song-melody { display: block; min-width: 0; }
-.hm-song .mel-body { display: flex; flex-direction: column; min-height: auto; }
-.hm-song .mel-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 18px; padding: 0 0 14px; border-right: 0; border-bottom: 1px solid var(--line); overflow: visible; }
-.hm-song .mel-more { grid-column: 1 / -1; }
-.hm-song .mel-more .mel-grid2 { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
-.hm-song .mel-out { padding: 14px 0 0; overflow: visible; }
-.hm-song .mel-empty { margin: 18px auto; }
+.hm-song .mel-body, .bw-melpanel .mel-body { display: flex; flex-direction: column; min-height: auto; }
+.hm-song .mel-form, .bw-melpanel .mel-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 18px; padding: 0 0 14px; border-right: 0; border-bottom: 1px solid var(--line); overflow: visible; }
+.hm-song .mel-more, .bw-melpanel .mel-more { grid-column: 1 / -1; }
+.hm-song .mel-more .mel-grid2, .bw-melpanel .mel-more .mel-grid2 { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
+.hm-song .mel-out, .bw-melpanel .mel-out { padding: 14px 0 0; overflow: visible; }
+.hm-song .mel-empty, .bw-melpanel .mel-empty { margin: 18px auto; }
+/* Assistant Nouvelle chanson, étape Mélodie : la page défile d'un bloc (grille, source, panneau, accompagnement) */
+.bh-main.bw-mel { overflow-y: auto; padding-bottom: 14px; }
+.bw-mel > .bh-scroll { flex: none; overflow-x: auto; overflow-y: hidden; }
+.bw-melpanel { min-width: 0; flex: none; }
+.bw-melsrc { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); font-size: 13px; }
+.bw-melsrc.own { border-color: var(--accent-2); background: color-mix(in srgb, var(--accent) 12%, var(--panel-2)); }
+.bw-melsrc small { color: var(--muted); flex: 1; min-width: 0; }
+.bw-melsrc .btn { margin-left: auto; }
+.mel-actions { grid-column: 1 / -1; }
+.bw-melbtns { display: flex; flex-wrap: wrap; gap: 8px; }
+.bh-accboard .bh-ph { top: 0; }
 .mel-grid-source { display: flex; flex-direction: column; gap: 10px; }
 .mel-preview-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px; }
 .mel-audition { display: flex; flex-wrap: wrap; gap: 12px; border: 0; padding: 0; margin: 0; min-width: 0; }
 .mel-audition legend { font-size: 11px; color: var(--muted); padding: 0 0 5px; }
 .mel-audition label { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer; }
 @media (max-width: 760px) {
-  .hm-song .mel-form, .hm-song .mel-more .mel-grid2 { grid-template-columns: 1fr; }
+  .hm-song .mel-form, .hm-song .mel-more .mel-grid2, .bw-melpanel .mel-form, .bw-melpanel .mel-more .mel-grid2 { grid-template-columns: 1fr; }
   .mel-preview-controls { align-items: flex-start; flex-direction: column; gap: 6px; }
 }
 
@@ -4242,8 +4214,6 @@ svg.mel-contour.big { width: 150px; height: 54px; }
   .mel-fine-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .hm-melcard-in { flex-direction: column; align-items: flex-start; }
 }
-.bh-emo { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; background: rgba(180, 140, 255, .14); border: 1px solid #7c62b8; font-size: 12.5px; white-space: nowrap; }
-.bh-rec { margin-left: 6px; font-size: 10px; padding: 1px 5px; border-radius: 4px; background: rgba(180, 140, 255, .25); color: #e2d4ff; }
 
 /* ================================================================== */
 /* Assistant « Nouvelle chanson » : étapes Style, Instruments, Tempo et */

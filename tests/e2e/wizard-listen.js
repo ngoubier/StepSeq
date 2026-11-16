@@ -155,7 +155,7 @@ const SHOTS = process.env.SHOTS;
 
   // nouvelle mélodie pendant l'écoute : on reprend avec les nouvelles notes, le solo est gardé
   const before = await page.evaluate(() => SS.band._listen().scenes.map((s) => JSON.stringify(s.data)).join());
-  await page.click('#bwMelody');
+  await page.click('#bwMelGo');
   await page.waitForFunction(() => SS.audio.isPlaying(), null, { timeout: 8000 });
   const after = await page.evaluate(() => SS.band._listen().scenes.map((s) => JSON.stringify(s.data)).join());
   ok(before !== after, 'Générer la mélodie : l’écoute reprend avec la nouvelle mélodie');

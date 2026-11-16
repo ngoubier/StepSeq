@@ -195,36 +195,42 @@ boucle** (pas toute la chanson ; choisir une autre scène pendant l'écoute la f
    Arpèges : aussi **vers toutes les scènes** ; **↺ Inspiration** défait les réglages de la scène. Un groupe sans le
    musicien garde l'étape, avec un message à la place des réglages. Les choix vont dans `S.wiz.parts`, passé à
    `SS.bandSong.build` (aperçu, écoute et « Créer la chanson ») ; test : `node tests/e2e/wizard-parts.js` ; les étapes 1 à 4 : `node tests/e2e/wizard-foundations.js` ;
-10. **Mélodie** : pour la scène choisie, son **caractère** (Inspiration, Chantante, Accrocheuse, Riff, Planante,
-   Lyrique) et son nombre de **notes par phrase** (− / + : libre, puis 2 à 12), propres à chaque scène
-   (`melody.scenes`), **🎲 Relancer la scène** (graines des phrases de la scène, les autres scènes et musiciens ne
-   changent pas) et **⚙ Réglages fins** en panneau, pour toute la chanson (forme A A′ B A / A B A B / A A A A / A B A C,
-   rythme, mouvement, tessiture, fin). La ligne des **phrases** : une carte par phrase, calée sur les
-   mesures et réglée sur place — lettre (même lettre = même rythme et même contour, ′ = fin variée) et rôle
-   (question, réponse, contraste), jeu (**joue**, **tenue** : un court motif puis la dernière note tenue jusqu'au bout
-   de la phrase, **silence**), longueur avec − / + (plus courte, la place libérée devient un silence : la mélodie
-   peut être plus courte que la scène), 🎲 pour relancer les phrases d'une lettre. Dessous, la **piste d'accords**
-   comme dans Harmonie (degré, nom, rôle : `SS.harmony.role`) et la ligne de la mélodie ; l'**accompagnement** est replié
-   sur une ligne, déplié avec **M**uet / **S**olo et **volume** (−30 à +6 dB, `gains` d'`addBandSong`) par instrument
-   et le menu **Pistes** ;
+10. **Mélodie** : pour la scène choisie, l'**onglet Mélodie de la fenêtre Harmonie** (`js/melodypanel.js`, monté avec
+   `sharedGrid` : la grille est celle de la scène, il n'y a ni champ Grille, ni Tonalité, ni Piste, ni lecture propre : la
+   lecture du bandeau joue la scène en boucle). **Intention** : l'émotion de la scène (étape Accords) donne le profil
+   mélodique (contour, note visée, fin, reprise du motif ; trois curseurs et **Réglages fins**), **Motif de départ** et
+   **Note pivot**, puis **Structure** (notes par phrase), **Complexité mélodique** et **Options** (tessiture, rythme, fin,
+   paroles). **Générer une mélodie** (puis **🎲 Une autre**) et **Variante B** (même graine, un seul levier du profil changé)
+   écrivent la proposition dans `S.wiz.parts[section].lead` : elle remplace tout de suite la mélodie de la scène dans
+   l'aperçu, et la boucle de la scène la joue. Au-dessus du panneau, la **grille de la scène** en lecture seule : la piste
+   d'accords comme dans Harmonie (degré, nom, rôle : `SS.harmony.role`) et la ligne de la mélodie qui joue ; dessous, la
+   proposition (piano roll, légende, contrôle du profil, repères). Tant qu'on n'a rien généré, c'est la **mélodie de
+   l'inspiration** qui joue (même dans une scène où elle ne chante pas, Générer la fait chanter) ; **↺ Inspiration** la
+   rend. Chaque scène garde son propre état du panneau (réglages, graine, variante, proposition), rendu au retour ; la
+   colonne des scènes affiche le nom du profil, ou « inspiration ». Changer les accords d'une scène efface sa
+   proposition. L'**accompagnement** est sous le panneau, replié sur une ligne, déplié avec **M**uet / **S**olo et
+   **volume** (−30 à +6 dB, `gains` d'`addBandSong`) par instrument et le menu **Pistes** ; test :
+   `node tests/e2e/wizard-melody.js` ;
 11. **Intégration** : cases à cocher par musicien (batterie, basse, nappes, arpèges, lead…) et par élément de batterie ;
    **Créer la chanson** écrit les pistes cochées, les scènes et l'arrangement (tempo du bandeau, mixage
    automatique de Band). Ce qui est créé est exactement l'aperçu ; Ctrl+Z revient à la chanson vide.
 
 Le bouton **Nouvelle** de l'en-tête ouvre le même assistant sur le projet en cours (l'ancien écran « Créer les pistes / Créer toute la
-chanson » n'existe plus) ; l'atelier Mélodie reste dans Harmonie → Chanson. La mélodie de Band est écrite par
-`SS.bandSong.build` (`melody` : caractère, réglages fins, `plans` et `seeds` par section) selon des règles de
+chanson » n'existe plus). La mélodie par défaut de Band (celle de l'inspiration, tant qu'on n'a rien généré à l'étape
+Mélodie) est écrite par `SS.bandSong.build` (`melody` : caractère, réglages fins, `plans` et `seeds` par section) selon des règles de
 composition : notes de l'accord sur les temps forts, surtout des mouvements conjoints et retour par degré après un
 saut, motif repris d'une phrase à l'autre, appel en suspens et réponse posée, respiration entre les phrases, un seul
 sommet par scène.
 
 **Réglages par scène (`parts`).** `SS.bandSong.build(spec, id, tracks, { parts })` accepte, pour chaque section,
-`{ drums, bass, pad, arp, off }` (réglés dans les étapes Batterie, Basse, Nappes et Arpèges de l'assistant). Sans `parts`, la chanson
+`{ drums, bass, pad, arp, lead, off }` (réglés dans les étapes Batterie, Basse, Nappes, Arpèges et Mélodie de l'assistant). Sans `parts`, la chanson
 est exactement celle du plan. **Batterie** : `{ style, pattern, edits, fill: off|end|4|8, fillType: roll|toms|clap4|kick|cut|open,
 crash }` ; `pattern` est un identifiant de `js/drum-patterns.js` (kick, caisse claire, clap, charleston fermé et ouvert sur
 une mesure de 16 pas : `x` fort, `o` moyen, `.` léger, `-` silence), `edits` remplace ses pistes. **Basse** : `{ mode (dont
 half et quarter), pedal: none|tonic|fifth, approach, register: low|mid }`. **Nappe** : `{ mode, voicing: close|open }`.
-**Arpège** : `{ mode }`. `off` : rôles muets dans la scène (`['arp', 'lead']`). Un `mode` allume le musicien dans une scène
+**Arpège** : `{ mode }`. `off` : rôles muets dans la scène (`['arp', 'lead']`). **Mélodie** : `lead: { events: [{ step, len,
+notes: [midi], vel }] }` (étape Mélodie : proposition du panneau d'Harmonie) remplace la mélodie du moteur sur la première
+piste chantante présente (lead, puis vox, puis sax) ; `[]` = silence. Un `mode` allume le musicien dans une scène
 où le plan ne le faisait pas jouer.
 
 ### Reprendre : une reprise tapée au clavier
@@ -248,7 +254,7 @@ Test : `node tests/e2e/cover-wizard.js`.
 
 ### Harmonie → Mélodie : une mélodie sur une grille d'accords
 
-L'atelier **Mélodie** dans **Harmonie → Chanson** (`js/melodypanel.js`, moteur `js/melody.js` ; il n'est plus dans la fenêtre Band) propose une mélodie sur une
+L'atelier **Mélodie** dans **Harmonie → Chanson** (`js/melodypanel.js`, moteur `js/melody.js` ; l'étape Mélodie de l'assistant Nouvelle chanson de Band le monte aussi) propose une mélodie sur une
 piste à partir d'une **grille d'accords** et d'une **structure**, avec la méthode du skill
 `composer-melodies-accords-texte` (calculée dans le navigateur, sans réseau ni IA). La vue est simple :
 
@@ -284,8 +290,8 @@ fin), puis six repères descriptifs (tessiture, mouvement conjoint, notes répé
 respirations, cellule rythmique reprise). **Variante B** recompose avec la même graine en changeant un seul levier
 (contour, fin, note visée ou reprise), pour comparer à l'écoute. L'onglet Ambiance montre la **mélodie conseillée**
 de chaque émotion ; dans Band, l'émotion de chaque scène (étape Accords) guide aussi la mélodie (contour, note
-visée sur les temps forts, registre, fin) et le caractère conseillé est marqué ; **Réglages fins → Émotion de la
-scène : Ignorée** revient au comportement précédent.
+visée sur les temps forts, registre, fin) ; à l'étape Mélodie de l'assistant, c'est ce même panneau qui compose la
+mélodie de chaque scène.
 
 ### Auto Mix : l'assistant de mixage et de mastering
 
@@ -602,6 +608,7 @@ node tests/e2e/playhead-ui.js
 node tests/e2e/song-ui.js
 node tests/e2e/melody-ui.js
 node tests/e2e/new-song-wizard.js
+node tests/e2e/wizard-melody.js     # étape Mélodie de l'assistant : panneau d'Harmonie, parts[section].lead
 node tests/e2e/cover-wizard.js        # porte « Reprendre » : reprise tapée (parties, accords, ordre)
 node tests/e2e/band-song-ui.js
 node tests/e2e/mix-master-ui.js
@@ -941,7 +948,7 @@ Les accords par mode et par émotion (`js/emotions.js`) s'appuient sur trois doc
 | `js/bandsong.js` | Band : écrit les scènes, les notes de chaque musicien et l'arrangement d'après un plan |
 | `js/melody-profiles.js` | Profils mélodiques des 15 émotions : six axes d'intention, contour, note visée, fin, ornements, reprise du motif, motif de départ ; `SS.resolveMelodyProfile`, variante B |
 | `js/melody.js` | Harmonie → Mélodie : grille d'accords, syllabes du français, rythme, hauteurs (pilotées par le profil de l'émotion : contour, note visée, ornements, reprise), notes pivots, mesures descriptives, contrôles, export MIDI ; vérification d'une mélodie écrite (`checkMelody`) — fonctions pures |
-| `js/melodypanel.js` | Panneau Mélodie, affiché dans Band et dans Harmonie : formulaire, proposition (grille, écoute avec la nappe, contrôles), écriture sur la piste |
+| `js/melodypanel.js` | Panneau Mélodie, affiché dans Harmonie et dans l'étape Mélodie de l'assistant Band (options d'hôte : `sceneKey`, `sceneEmotion`, `hideTrack`, `noListen`, `onResult`, `getState` / `setState`) : formulaire, proposition (grille, écoute avec la nappe, contrôles), écriture sur la piste |
 | `js/bandmix.js`, `js/band-levels.js`, `js/band-drive.js` | Band : règles de mixage et de mastering, niveaux mesurés, gain de mastering par chanson |
 | `js/dirt-tuning.js` | Hauteur mesurée des échantillons Dirt-Samples |
 | `tools/`         | Outils de mesure : hauteur des échantillons, niveaux des instruments, rendu et mastering des chansons Band, calibrage de l'Auto Mix |

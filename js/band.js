@@ -15,12 +15,13 @@
  *  6. Accords : la grille de chaque scène (comme dans Harmonie) et la fenêtre « Trouver l'inspiration » ;
  *  7. Basse : mode de jeu, pédale, registre et note d'approche de chaque scène ;
  *  8. Nappes : mode de jeu et voicing de chaque scène ; 9. Arpèges : mode de chaque scène ;
- *  10. Mélodie : caractère et notes par phrase de chaque scène, phrases, ce que joue chaque instrument
+ *  10. Mélodie : l'onglet Mélodie de la fenêtre Harmonie (js/melodypanel.js) pour chaque scène : intention (émotion, profil),
+ *     motif, structure, complexité, Générer / Une autre / Variante B ; ce que joue chaque instrument
  *     (Muet / Solo / volume par instrument) ;
  *  11. Intégration : les pistes à importer.
  * Des étapes 3 à 11, un bandeau de commande : lecture / pause, stop, position, tempo (réglable), tonalité ;
  * aux étapes 5 à 10, il est à droite de la colonne des scènes et joue la scène choisie en boucle.
- * Les étapes 5, 7, 8 et 9 écrivent S.wiz.parts (option parts de SS.bandSong.build) ; sans réglage, c'est le jeu de l'inspiration.
+ * Les étapes 5, 7, 8, 9 et 10 (parts[section].lead) écrivent S.wiz.parts (option parts de SS.bandSong.build) ; sans réglage, c'est le jeu de l'inspiration.
  * Les étapes 3 et 4 écrivent des retouches du plan (S.wiz.skey, form, secs : voir specEff) ; sans retouche, c'est le plan de l'inspiration.
  * Seul « Créer la chanson » modifie le projet (après confirmation s'il a déjà des pistes) ; fermer ne change rien.
  *
@@ -736,8 +737,9 @@ SS.band = (() => {
    *  6. Accords : la grille de chaque scène (tonalité, accords au temps, palette Simple / Avancé, comme dans Harmonie) ;
    *     « Trouver l'inspiration » ouvre une fenêtre mode → émotion → propositions, à écouter avant de « Choisir » ;
    *  7. Basse, 8. Nappes, 9. Arpèges : le mode de jeu de chaque scène (pédale, registre, voicing, scène muette) ;
-   *  10. Mélodie : les phrases de la mélodie sur les accords de la scène choisie, son caractère et son nombre de notes
-   *     par phrase (propres à chaque scène), les notes de chaque instrument (Muet / Solo / volume) ;
+   *  10. Mélodie : l'onglet Mélodie d'Harmonie sur les accords de la scène choisie (intention, motif, structure, Générer,
+   *     Variante B) ; la mélodie générée remplace celle de l'inspiration dans la scène (parts[section].lead) ;
+   *     les notes de chaque instrument (Muet / Solo / volume) ;
    *  11. Intégration : on coche les pistes à importer (batterie, basse, nappes, arpèges, lead…).
    * Étapes 5 à 10 : les scènes en colonne à gauche, sous le titre ; la lecture joue la scène choisie, en boucle.
    * Rien n'est écrit dans le projet avant « Créer la chanson » ; fermer laisse la chanson vide.
@@ -752,7 +754,7 @@ SS.band = (() => {
     { label: 'Basse', hint: 'La basse de chaque scène : mode de jeu, pédale, registre' },
     { label: 'Nappes', hint: 'La nappe de chaque scène : mode de jeu et voicing' },
     { label: 'Arpèges', hint: 'L’arpège de chaque scène : mode, ou pas d’arpège' },
-    { label: 'Mélodie', hint: 'La mélodie, phrase par phrase, sur les accords de chaque scène, avec ce que joue chaque instrument' },
+    { label: 'Mélodie', hint: 'La mélodie de chaque scène : intention, motif, génération et variante B, avec ce que joue chaque instrument' },
     { label: 'Intégration', hint: 'Coche les pistes à importer dans la chanson' },
   ];
   const ST = { style: 1, inst: 2, tempo: 3, scenes: 4, drums: 5, chords: 6, bass: 7, pad: 8, arp: 9, harm: 10, pick: 11 }; // numéros des étapes
@@ -963,7 +965,7 @@ SS.band = (() => {
   }
   /** Efface toutes les retouches du plan (autre style ou autre inspiration, autre reprise). */
   function dropEdits() {
-    if (S.wiz) Object.assign(S.wiz, { form: null, secs: {}, skey: null, keys: {}, grids: {}, emos: {}, parts: {} });
+    if (S.wiz) Object.assign(S.wiz, { form: null, secs: {}, skey: null, keys: {}, grids: {}, emos: {}, parts: {}, melPanel: {} });
   }
 
   /* ---------- Porte « Reprendre » : une reprise tapée au clavier ----------
@@ -1137,7 +1139,7 @@ SS.band = (() => {
   }
   /** La reprise a changé : les retouches des étapes suivantes (grilles, phrases…) repartent des accords tapés. */
   function coverChanged() {
-    if (S.wiz) Object.assign(S.wiz, { plans: {}, pseeds: {}, keys: {}, grids: {}, emos: {}, chars: {}, parts: {}, form: null, secs: {}, skey: null, gsel: null, insp: null });
+    if (S.wiz) Object.assign(S.wiz, { plans: {}, pseeds: {}, keys: {}, grids: {}, emos: {}, chars: {}, parts: {}, melPanel: {}, form: null, secs: {}, skey: null, gsel: null, insp: null });
   }
   const singer = (role) => SS.bandSong.SINGERS.includes(role);
 
@@ -1244,86 +1246,7 @@ SS.band = (() => {
     }
     return out;
   }
-  /** Caractère et notes par phrase d'une scène (sinon ceux par défaut). */
-  const charOf = (sec) => (S.wiz.chars[sec] && S.wiz.chars[sec].character) || S.mel.character;
-  const notesOf = (sec) => (S.wiz.chars[sec] && S.wiz.chars[sec].notes != null ? S.wiz.chars[sec].notes : S.mel.notes);
   const BS = () => SS.bandSong;
-  const melForm = () => (S.mel.form === 'auto' ? null : S.mel.form);
-  /** Plan de phrases d'une scène : celui qu'on a modifié, sinon celui par défaut. */
-  function scenePlan(sc) {
-    const own = S.wiz.plans[sc.sec];
-    return own ? BS().fitPlan(own, sc.bars, charOf(sc.sec), melForm()) : BS().defaultPlan(sc.bars, charOf(sc.sec), melForm());
-  }
-  function setPlan(sc, fn) {
-    const plan = scenePlan(sc).map((p) => ({ ...p }));
-    fn(plan);
-    // silences côte à côte : une seule phrase muette
-    for (let i = plan.length - 1; i > 0; i--)
-      if (plan[i].mode === 'off' && plan[i - 1].mode === 'off') {
-        plan[i - 1].bars += plan[i].bars;
-        plan.splice(i, 1);
-      }
-    S.wiz.plans[sc.sec] = BS().fitPlan(plan, sc.bars, charOf(sc.sec), melForm());
-    renderWiz();
-  }
-  /** Longueur d'une phrase : plus courte, la place libérée devient un silence ; plus longue, elle prend sur les suivantes. */
-  function setPhraseBars(sc, i, bars) {
-    setPlan(sc, (plan) => {
-      const p = plan[i];
-      const d = bars - p.bars;
-      p.bars = bars;
-      if (d < 0) plan.splice(i + 1, 0, { bars: -d, mode: 'off', letter: p.letter });
-      else {
-        let take = d;
-        while (take > 0 && plan[i + 1]) {
-          const q = plan[i + 1];
-          const t = Math.min(take, q.bars);
-          q.bars -= t;
-          take -= t;
-          if (!q.bars) plan.splice(i + 1, 1);
-        }
-      }
-    });
-  }
-  /**
-   * Réglages fins de la mélodie : rien n'est perdu de l'ancienne « mélodie composée » (pieds = notes par phrase,
-   * mesures par vers = longueur des phrases, complexité, rythme, tessiture, fin), plus la forme des phrases.
-   */
-  function melodyForm() {
-    const m = S.mel;
-    const set = (k, v) => {
-      m[k] = v;
-      if (k === 'form') Object.entries(S.wiz.plans).forEach(([sec, plan]) => plan.forEach((p, i) => (p.letter = (BS().FORMS[melForm()] || BS().FORMS[BS().CHARACTERS[charOf(sec)].form])[i % 4])));
-      renderWiz();
-    };
-    const sel = (id, label, k, options, hint) =>
-      h(
-        'label',
-        { class: 'bw-field' },
-        h('span', {}, label),
-        h(
-          'select',
-          { id, title: hint || null, onchange: (e) => set(k, typeof m[k] === 'number' ? Number(e.target.value) : e.target.value) },
-          ...options.map(([v, t]) => {
-            const o = h('option', { value: v }, t);
-            o.selected = String(m[k]) === String(v);
-            return o;
-          })
-        )
-      );
-    const R = (SS.melody && SS.melody.RANGES) || {};
-    const ch = BS().CHARACTERS[(S.wiz && S.wiz.hsec && charOf(S.wiz.hsec)) || m.character] || BS().CHARACTERS.inspiration;
-    return h(
-      'div',
-      { class: 'bw-melform', id: 'bwMelForm' },
-      sel('bwForm', 'Forme', 'form', [['auto', `Selon le caractère (${ch.form})`], ...Object.keys(BS().FORMS).map((f) => [f, f])], 'Lettres des phrases, par groupes de 4 : les phrases de même lettre reprennent le même motif ; ′ varie la fin.'),
-      sel('bwRhythm', 'Rythme', 'rhythm', [['auto', 'Selon le caractère'], ['simple', 'Simple'], ['varie', 'Varié (pointées, syncopes)'], ['dense', 'Dense (doubles-croches)']]),
-      sel('bwComplexity', 'Mouvement', 'complexity', [['simple', 'Simple (petits intervalles)'], ['balanced', 'Équilibré'], ['adventurous', 'Audacieux (grands sauts)']], 'Simple : sauts jusqu’à la quinte, rares. Audacieux : jusqu’à l’octave, plus souvent.'),
-      sel('bwRange', 'Tessiture', 'range', [['auto', 'Auto (voix ou instrument)'], ...Object.entries(R).filter(([id]) => id !== 'profil').map(([id, r]) => [id, r.label])]),
-      sel('bwEnding', 'Fin de la scène', 'ending', [['auto', 'Selon l’émotion (sinon fermée)'], ['closed', 'Fermée (se pose)'], ['open', 'Ouverte (en suspens)'], ['suspended', 'Suspendue']]),
-      sel('bwProfile', 'Émotion de la scène', 'profile', [['on', 'Guide la mélodie (profil)'], ['off', 'Ignorée']], 'Le profil de l’émotion (étape Accords) règle le contour, la note visée sur les temps forts, le registre et la fin. Le caractère garde le rythme et les sauts.')
-    );
-  }
 
   function renderWizSteps() {
     const box = $('#bandWizSteps');
@@ -1850,17 +1773,12 @@ SS.band = (() => {
     box.replaceChildren(h('div', { class: 'bh-wrap' }, nav, h('div', { class: 'bh-right' }, $('#bwTransport'), h('div', { class: 'bh-content' }, ...content))));
   }
 
-  function renderHarmony() {
-    const { cols, res } = wizSong();
-    const box = $('#bandWiz');
-    if (!res) return box.replaceChildren(h('p', { class: 'dlg-hint' }, 'Cette inspiration n’a pas de plan de chanson.'));
-    const sc = curScene(res);
-    const melOf = (x) => {
-      const n = notesOf(x.sec);
-      const emo = S.mel.profile !== 'off' && S.wiz.emos[x.sec] && SS.findEmotion(S.wiz.emos[x.sec]);
-      return `${emo ? emo.label + ' · ' : ''}${BS().CHARACTERS[charOf(x.sec)].label} · ${n ? `${n} notes` : 'notes libres'}`;
-    };
-
+  /**
+   * Étape Mélodie, pour la scène choisie : titre, grille en lecture seule (accords et mélodie qui joue), puis l'onglet
+   * Mélodie d'Harmonie (js/melodypanel.js) ; l'accompagnement (Muet / Solo / volume, menu « Pistes ») est dessous.
+   * Renvoie les morceaux de la page : ils sont redessinés sans toucher au panneau (refreshMelFrame).
+   */
+  function melScene(cols, res, sc) {
     const total = sc.bars * 16;
     const pct = (x) => `${((100 * x) / total).toFixed(3)}%`;
     const spans = sceneSpans(sc);
@@ -1906,9 +1824,6 @@ SS.band = (() => {
         )
       );
     const melIds = new Set(cols.filter((c) => singer(c.role)).map((c) => c.id));
-    // la mélodie joue dans cette scène (pas en montée « rise ») : ligne des phrases
-    const secSpec = spec() && specEff().sections[sc.sec];
-    const melPlays = !!secSpec && cols.some((c) => melIds.has(c.id) && secSpec[c.role] && secSpec[c.role] !== 'rise');
     const shown = (c) => melIds.has(c.id) || !S.hide.has(c.id);
 
     // batterie : une ligne par élément (coups, sans hauteur)
@@ -1987,32 +1902,159 @@ SS.band = (() => {
           { class: 'bh-row bh-acc' },
           h(
             'button',
-            { type: 'button', class: 'bh-acc-btn', id: 'bwAcc', 'aria-expanded': String(!!S.accOpen), onclick: () => ((S.accOpen = !S.accOpen), renderHarmony(), markListen()) },
+            { type: 'button', class: 'bh-acc-btn', id: 'bwAcc', 'aria-expanded': String(!!S.accOpen), onclick: () => ((S.accOpen = !S.accOpen), refreshMelFrame()) },
             `${S.accOpen ? '▾' : '▸'} Accompagnement · ${accN} piste${accN > 1 ? 's' : ''}`,
             h('small', {}, [drumCols.length ? 'batterie' : null, ...cols.filter((c) => !melIds.has(c.id) && c.o.type !== 'drum').map((c) => c.o.name.toLowerCase())].filter(Boolean).join(', '))
           ),
           S.accOpen ? tracksMenu(cols, melIds) : null
         )
       : null;
-    const board = h(
-      'div',
-      { class: 'bh-board', 'data-scene': sc.id, 'data-bars': sc.bars, style: `--bars:${sc.bars}` },
-      ruler,
-      melPlays ? phraseRow(sc, pct, head, row) : null,
-      chords,
-      ...lanes.filter((x) => x.classList.contains('mel')),
-      acc,
-      ...(S.accOpen || !melIds.size ? accLanes : []),
-      h('i', { class: 'bh-ph', 'aria-hidden': 'true' })
-    );
-    const main = h(
-      'main',
-      { class: 'bh-main' },
-      h('div', { class: 'bh-top' }, h('h3', {}, sc.name), h('span', { class: 'bh-info' }, `${sc.bars} mesures` + (plays > 1 ? ` · jouée ${plays} fois` : '') + ` · ${SS.harmony.label(sc.key)}`), h('span', { class: 'spacer' }), loop),
-      h('div', { class: 'bw-top bh-head-mel' }, ...melodyBar(melIds.size > 0, sc)),
-      h('div', { class: 'bh-scroll' }, board)
-    );
-    splitView(sceneNav(res, sc, melIds.size ? melOf : null, true), main);
+    const at = { 'data-scene': sc.id, 'data-bars': sc.bars, style: `--bars:${sc.bars}` };
+    const board = h('div', { class: 'bh-board', ...at }, ruler, chords, ...lanes.filter((x) => x.classList.contains('mel')), h('i', { class: 'bh-ph', 'aria-hidden': 'true' }));
+    const accBoard = accN || accLanes.length ? h('div', { class: 'bh-board bh-accboard', ...at }, acc, ...(S.accOpen || !melIds.size ? accLanes : []), h('i', { class: 'bh-ph', 'aria-hidden': 'true' })) : null;
+    const own = !!(S.wiz.parts[sc.sec] && S.wiz.parts[sc.sec].lead);
+    return {
+      sc,
+      melIds,
+      nav: sceneNav(res, sc, melIds.size ? melSub : null, true),
+      top: h('div', { class: 'bh-top', id: 'bwMelHead' }, h('h3', {}, sc.name), h('span', { class: 'bh-info' }, `${sc.bars} mesures` + (plays > 1 ? ` · jouée ${plays} fois` : '') + ` · ${SS.harmony.label(sc.key)}`), h('span', { class: 'spacer' }), loop),
+      board: h('div', { class: 'bh-scroll', id: 'bwMelBoard' }, board),
+      src: melIds.size
+        ? h(
+            'div',
+            { class: 'bw-melsrc' + (own ? ' own' : ''), id: 'bwMelSrc', 'data-own': String(own) },
+            h('b', {}, own ? 'Mélodie générée' : 'Mélodie de l’inspiration'),
+            h('small', {}, own ? `profil : ${melSub(sc)} · remplace celle de l’inspiration dans « ${sc.name} »` : '« Générer une mélodie » la remplace pour cette scène'),
+            own ? h('button', { type: 'button', class: 'btn btn-small', id: 'bwMelBack', title: 'Revenir à la mélodie de l’inspiration pour cette scène', onclick: () => backToInspiration(sc.sec) }, '↺ Inspiration') : null
+          )
+        : h('p', { class: 'dlg-hint', id: 'bwMelSrc' }, 'Ce groupe n’a ni lead ni voix : pas de mélodie à générer. Ajoute un musicien à l’étape 1.'),
+      acc: accBoard ? h('div', { class: 'bh-scroll bw-melacc', id: 'bwMelAcc' }, accBoard) : null,
+    };
+  }
+
+  /** Ligne de la colonne des scènes : le profil de la mélodie générée, ou « inspiration ». */
+  function melSub(x) {
+    if (!(S.wiz.parts[x.sec] && S.wiz.parts[x.sec].lead)) return 'inspiration';
+    const st = x.sec === S.wiz.melSec ? SS.melodyPanel.getState() : S.wiz.melPanel[x.sec];
+    const r = st && st.res && st.res.ok ? st.res : null;
+    return r && r.profile ? r.profile.name : 'sans profil';
+  }
+
+  /** Grille d'une scène pour le panneau : des accords bout à bout sur toute sa durée (un trou est tenu par l'accord d'avant). */
+  function melGrid(sc) {
+    const total = sc.bars * 16;
+    const out = [];
+    sceneSpans(sc)
+      .filter((x) => x.step < total)
+      .sort((a, b) => a.step - b.step)
+      .forEach((x) => {
+        const last = out[out.length - 1];
+        const end = last ? last.step + last.len : 0;
+        if (x.step < end) return;
+        if (last) last.len += x.step - end;
+        out.push({ step: last ? x.step : 0, len: last ? x.len : x.step + x.len, symbol: x.info.name });
+      });
+    if (out.length) out[out.length - 1].len = total - out[out.length - 1].step;
+    return { spans: out, bars: sc.bars };
+  }
+
+  /** Un état du panneau par scène : on garde celui de la scène qu'on quitte, on rend celui de la scène choisie. */
+  function syncMelState(sc) {
+    const w = S.wiz;
+    if (w.melSec === sc.sec) return;
+    if (w.melSec) w.melPanel[w.melSec] = SS.melodyPanel.getState();
+    SS.melodyPanel.setState(w.melPanel[sc.sec] || null);
+    w.melSec = sc.sec;
+  }
+  /** On quitte l'étape (ou l'assistant) : l'état du panneau est rangé, Harmonie repart d'un panneau neuf. */
+  function leaveMel() {
+    const w = S.wiz;
+    if (!w || w.melSec == null) return;
+    w.melPanel[w.melSec] = SS.melodyPanel.getState();
+    w.melSec = null;
+    SS.melodyPanel.setState(null);
+    SS.melodyPanel.stop();
+  }
+
+  /** Le panneau a composé (ou effacé) une mélodie : elle devient celle de la scène dans la chanson, et on l'entend. */
+  function melResult(sec, res) {
+    if (!S.wiz || (res && !res.ok)) return;
+    putPart(sec, 'lead', { events: res ? SS.melody.toEvents(res).map(({ step, len, notes, vel }) => ({ step, len, notes, vel })) : undefined });
+    if (S.wiz.melMount) return void (S.wiz.melDirty = true); // pendant l'affichage : la page est redessinée ensuite
+    afterLead(sec);
+  }
+  function afterLead(sec, listen = true) {
+    wizSong();
+    if (S.wiz.step !== ST.harm) return;
+    refreshMelFrame();
+    if (!listen) return;
+    const sc = S.wiz.res && S.wiz.res.scenes.find((x) => x.sec === sec);
+    if (L.mode) relisten();
+    else if (sc) playScene(sc.id);
+    markListen();
+  }
+  /** « ↺ Inspiration » : la scène rejoue la mélodie de l'inspiration ; le panneau garde ses réglages, sans proposition. */
+  function backToInspiration(sec) {
+    putPart(sec, 'lead', { events: undefined });
+    SS.melodyPanel.setState({ ...SS.melodyPanel.getState(), res: null, resultSource: null, variant: null, variantN: 0 });
+    S.wiz.melPanel[sec] = SS.melodyPanel.getState();
+    renderHarmony();
+    relisten();
+    if (!L.mode) playScene(S.wiz.hscene);
+    markListen();
+  }
+
+  /** Redessine ce qui entoure le panneau (nav, grille, source, accompagnement) sans le remonter. */
+  function refreshMelFrame() {
+    const { cols, res } = wizSong();
+    const box = $('#bandWiz');
+    if (!res || !$('#bwMelBoard', box)) return renderHarmony();
+    const f = melScene(cols, res, curScene(res));
+    $('.bh-scenes', box).replaceWith(f.nav);
+    ['top:#bwMelHead', 'board:#bwMelBoard', 'src:#bwMelSrc', 'acc:#bwMelAcc'].forEach((x) => {
+      const [k, q] = x.split(':');
+      const old = $(q, box);
+      if (old && f[k]) old.replaceWith(f[k]);
+      else if (old) old.remove();
+    });
+    melGoLabel(f.sc.sec);
+    markListen();
+  }
+  const melGoLabel = (sec) => {
+    const go = $('#bwMelGo');
+    if (go) go.textContent = S.wiz.parts[sec] && S.wiz.parts[sec].lead ? '🎲 Une autre' : 'Générer une mélodie';
+  };
+
+  function renderHarmony() {
+    const { cols, res } = wizSong();
+    const box = $('#bandWiz');
+    if (!res) return box.replaceChildren(h('p', { class: 'dlg-hint' }, 'Cette inspiration n’a pas de plan de chanson.'));
+    const sc = curScene(res);
+    syncMelState(sc);
+    const f = melScene(cols, res, sc);
+    const panel = h('div', { class: 'bw-melpanel', id: 'bwMelPanel' });
+    splitView(f.nav, h('main', { class: 'bh-main bw-mel' }, f.top, f.board, f.src, f.melIds.size ? panel : null, f.acc));
+    if (!f.melIds.size) return;
+    const sec = sc.sec;
+    const fresh = () => (S.wiz && S.wiz.res && S.wiz.res.scenes.find((x) => x.sec === sec)) || sc;
+    const go = h('button', { type: 'button', class: 'btn btn-accent', id: 'bwMelGo', onclick: () => SS.melodyPanel.compose(true) }, 'Générer une mélodie');
+    const varB = h('button', { type: 'button', class: 'btn', id: 'bwMelVarB', disabled: true, onclick: () => SS.melodyPanel.variantB() }, 'Variante B');
+    S.wiz.melMount = true;
+    SS.melodyPanel.show({
+      box: panel, leadOpts: melodyTrackOpts, preferSceneKey: true, sharedGrid: true, hideTrack: true, noListen: true, noScroll: true, timeSig: [4, 4],
+      sceneKey: () => fresh().key,
+      sceneEmotion: () => fresh().emotion || null,
+      gridData: () => melGrid(fresh()),
+      actions: h('div', { class: 'bw-melbtns' }, go, varB),
+      buttons: { variant: varB },
+      onResult: (r) => melResult(sec, r),
+    });
+    S.wiz.melMount = false;
+    melGoLabel(sec);
+    if (S.wiz.melDirty) {
+      S.wiz.melDirty = false;
+      afterLead(sec, false);
+    }
   }
 
   /* ---------- Étape Accords : la grille de chaque scène, comme dans Harmonie ----------
@@ -2590,150 +2632,6 @@ SS.band = (() => {
     (f || $('#bwiClose', box)).focus();
   }
 
-  /** Notes par phrase proposées : libre (selon le rythme), puis de 2 à 12 (comme des pieds par vers). */
-  const NOTE_STEPS = [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-  /**
-   * En-tête de l'étape Mélodie, pour la scène choisie : caractère et notes par phrase (propres à la scène),
-   * relancer la scène, réglages fins (panneau, pour toute la chanson).
-   */
-  function melodyBar(has, sc) {
-    if (!has) return [h('div', { class: 'bw-actions' }, h('span', { class: 'bw-seed' }, 'Ce groupe n’a ni lead ni voix : pas de mélodie à générer. Ajoute un musicien à l’étape 1.'))];
-    const m = S.mel;
-    const ch = charOf(sc.sec);
-    const notes = notesOf(sc.sec);
-    const setOwn = (k, v) => {
-      S.wiz.chars[sc.sec] = { character: charOf(sc.sec), notes: notesOf(sc.sec), [k]: v };
-      renderWiz();
-    };
-    const ni = Math.max(0, NOTE_STEPS.indexOf(notes));
-    const seeds = S.wiz.pseeds[sc.sec];
-    // émotion de la scène (étape Accords) → profil mélodique : caractère conseillé et badge
-    const emoId = m.profile !== 'off' ? S.wiz.emos[sc.sec] : null;
-    const prof = emoId && SS.resolveMelodyProfile ? SS.resolveMelodyProfile(emoId, {}, sc.key) : null;
-    return [
-      prof
-        ? h('span', { class: 'bh-emo', id: 'bwEmoBadge', title: SS.melodyProfileSummary(prof).map((c) => `${c.k} : ${c.v}`).join(' · ') }, 'Émotion ', h('b', {}, SS.findEmotion(emoId).label), ' → profil ', h('b', {}, prof.name))
-        : null,
-      h('span', { class: 'bh-lbl' }, 'Caractère', h('small', {}, `de « ${sc.name} »`)),
-      h(
-        'span',
-        { class: 'segmented bh-chars', role: 'radiogroup', 'aria-label': `Caractère de la mélodie de « ${sc.name} »`, id: 'bwChars' },
-        ...Object.entries(BS().CHARACTERS).map(([id, c]) =>
-          h('button', { type: 'button', role: 'radio', class: 'bh-char' + (ch === id ? ' active' : ''), 'data-v': id, 'aria-checked': String(ch === id), title: c.hint + (prof && prof.character === id ? ' — conseillé pour cette émotion' : ''), onclick: () => setOwn('character', id) }, c.label, prof && prof.character === id ? h('small', { class: 'bh-rec' }, 'conseillé') : null)
-        )
-      ),
-      h('span', { class: 'bt-sep', 'aria-hidden': 'true' }),
-      h('span', { class: 'bh-lbl' }, 'Notes par phrase'),
-      h(
-        'span',
-        { class: 'bt-tempo bh-notes', id: 'bwNotes', title: 'Comme des pieds par vers : 8 = octosyllabe, 12 = alexandrin. Libre : selon le rythme.' },
-        h('button', { type: 'button', id: 'bwNotesLess', 'aria-label': 'Moins de notes par phrase', disabled: ni === 0, onclick: () => setOwn('notes', NOTE_STEPS[ni - 1]) }, '−'),
-        h('output', { id: 'bwNotesVal', 'aria-live': 'polite' }, notes ? `${notes} notes` : 'Libre'),
-        h('button', { type: 'button', id: 'bwNotesMore', 'aria-label': 'Plus de notes par phrase', disabled: ni === NOTE_STEPS.length - 1, onclick: () => setOwn('notes', NOTE_STEPS[ni + 1]) }, '+')
-      ),
-      h('span', { class: 'spacer' }),
-      h(
-        'button',
-        {
-          type: 'button', class: 'btn btn-accent', id: 'bwMelody', title: `Une autre mélodie pour « ${sc.name} » : ses phrases changent, leurs longueurs et silences restent`,
-          onclick: () => {
-            const sd = (S.wiz.pseeds[sc.sec] = { ...(S.wiz.pseeds[sc.sec] || {}) });
-            ['A', 'B', 'C'].forEach((l) => (sd[l] = (sd[l] || 0) + 1));
-            renderWiz();
-          },
-        },
-        '🎲 Relancer la scène'
-      ),
-      seeds ? h('span', { class: 'bw-seed', id: 'bwSeed' }, `n° ${Math.max(...Object.values(seeds)) + 1}`) : null,
-      h(
-        'span',
-        { class: 'bh-fine' },
-        h('button', { type: 'button', class: 'btn' + (m.fine ? ' on' : ''), id: 'bwMelFine', 'aria-expanded': String(!!m.fine), onclick: () => ((m.fine = !m.fine), renderWiz()) }, '⚙ Réglages fins'),
-        m.fine ? melodyForm() : null
-      ),
-    ];
-  }
-
-  const PMODES = [
-    ['on', '♪', 'Joue'],
-    ['hold', '━', 'Tenue', 'Un court motif, puis la dernière note tenue jusqu’au bout de la phrase'],
-    ['off', '∅', 'Silence'],
-  ];
-  /** Rôle d'une phrase, d'après sa lettre : A pose la question, ′ répond, B contraste, C apporte du neuf. */
-  const phraseRole = (p) => (p.mode === 'off' ? 'Silence' : p.letter.includes('′') ? 'Réponse' : p.letter[0] === 'B' ? 'Contraste' : p.letter[0] === 'C' ? 'Nouveau' : 'Question');
-
-  /**
-   * Ligne « Phrases » de la scène : une carte par phrase, calée sur les mesures, qui se règle sur place —
-   * motif (lettre : même lettre = même motif, ′ = fin variée), jeu (joue / tenue / silence), longueur (− / +), 🎲.
-   * Une carte étroite (phrase courte) se replie à l'essentiel.
-   */
-  function phraseRow(sc, pct, head, row) {
-    const plan = scenePlan(sc);
-    const L = BS().LETTERS;
-    let at = 0;
-    const cards = plan.map((p, i) => {
-      const start = at;
-      at += p.bars;
-      const rest = plan.slice(i).reduce((a, q) => a + q.bars, 0);
-      const mini = p.bars / sc.bars < 0.25;
-      const where = `mes. ${start + 1}${p.bars > 1 ? '–' + (start + p.bars) : ''}`;
-      const base = p.letter[0];
-      const letter = h(
-        'button',
-        { type: 'button', class: 'bh-pl', title: 'Motif de la phrase (clic : le suivant). Même lettre = même motif ; ′ = la fin varie.', 'aria-label': `Phrase ${i + 1}, motif ${p.letter}`, onclick: () => setPlan(sc, (pl) => (pl[i].letter = L[(L.indexOf(pl[i].letter) + 1) % L.length])) },
-        p.letter
-      );
-      const modes = h(
-        'span',
-        { class: 'segmented bh-pmode', role: 'radiogroup', 'aria-label': `Jeu de la phrase ${i + 1}` },
-        ...PMODES.map(([v, g, t, tip]) =>
-          h('button', { type: 'button', role: 'radio', 'data-v': v, class: p.mode === v ? 'active' : '', 'aria-checked': String(p.mode === v), title: tip || t, 'aria-label': t, onclick: () => setPlan(sc, (pl) => (pl[i].mode = v)) }, mini ? g : t.toLowerCase())
-        )
-      );
-      const len = h(
-        'span',
-        { class: 'bh-step', title: 'Longueur de la phrase. Plus courte : la place libérée devient un silence ; plus longue : elle prend sur les phrases suivantes.' },
-        h('button', { type: 'button', class: 'bh-pminus', 'aria-label': `Raccourcir la phrase ${i + 1}`, disabled: p.bars <= 1, onclick: () => setPhraseBars(sc, i, p.bars - 1) }, '−'),
-        h('span', { class: 'bh-plen' }, mini ? String(p.bars) : `${p.bars} mes.`),
-        h('button', { type: 'button', class: 'bh-pplus', 'aria-label': `Allonger la phrase ${i + 1}`, disabled: p.bars >= rest, onclick: () => setPhraseBars(sc, i, p.bars + 1) }, '+')
-      );
-      const roll =
-        p.mode === 'off'
-          ? null
-          : h(
-              'button',
-              {
-                type: 'button', class: 'bh-proll', title: `Un autre motif pour les phrases ${base} de cette scène`, 'aria-label': `Relancer les phrases ${base}`,
-                onclick: () => {
-                  const sd = (S.wiz.pseeds[sc.sec] = S.wiz.pseeds[sc.sec] || {});
-                  sd[base] = (sd[base] || 0) + 1;
-                  renderWiz();
-                },
-              },
-              '🎲'
-            );
-      return h(
-        'div',
-        { class: `bh-phr ${p.mode}` + (mini ? ' mini' : ''), 'data-i': i, 'data-mode': p.mode, style: `left:${pct(start * 16)};width:calc(${pct(p.bars * 16)} - 4px)` },
-        h('div', { class: 'bh-ptop' }, letter, mini ? null : h('small', {}, `${phraseRole(p)}${p.mode === 'hold' ? ', note tenue' : ''} · ${where}`)),
-        h('div', { class: 'bh-prow' }, modes),
-        h('div', { class: 'bh-prow' }, len, roll)
-      );
-    });
-    const own = !!S.wiz.plans[sc.sec] || !!S.wiz.pseeds[sc.sec];
-    const playing = plan.reduce((a, q) => a + (q.mode === 'off' ? 0 : q.bars), 0);
-    return row(
-      'bh-phrases',
-      head(
-        'bh-phead',
-        h('b', {}, 'Phrases'),
-        h('small', {}, `${plan.map((p) => (p.mode === 'off' ? '·' : p.letter)).join(' ')} · ${playing} / ${sc.bars} mes.`),
-        own ? h('button', { type: 'button', class: 'btn btn-small', id: 'bwPhrReset', title: 'Revenir au découpage par défaut de cette scène', onclick: () => (delete S.wiz.plans[sc.sec], delete S.wiz.pseeds[sc.sec], renderWiz()) }, '↺ Par défaut') : null
-      ),
-      ...cards
-    );
-  }
-
   /** Menu « Pistes » : une case par piste (la batterie en une seule) ; la mélodie reste affichée. */
   function tracksMenu(cols, melIds) {
     const entries = [];
@@ -2746,7 +2644,7 @@ SS.band = (() => {
     const shownN = entries.filter((e) => e.mel || !e.ids.every((id) => S.hide.has(id))).length;
     const redraw = () => {
       S.tracksOpen = true;
-      renderHarmony();
+      refreshMelFrame();
     };
     const box = h(
       'details',
@@ -3241,6 +3139,7 @@ SS.band = (() => {
     el.querySelectorAll('.wiz-only').forEach((x) => (x.hidden = false));
     $('#bandTitle').firstChild.textContent = 'Nouvelle chanson ';
     renderWizSteps();
+    if (step !== ST.harm) leaveMel();
     // bandeau de lecture : sous le titre (étapes 3, 4 et 11), à droite de la colonne des scènes (étapes 5 à 10)
     // étapes 1 et 2 : l'écran Band (style et inspiration, puis musiciens) ; les autres blocs sont cachés par le CSS (bs-style, bs-inst)
     const body = el.querySelector('.band-body');
@@ -3599,7 +3498,8 @@ SS.band = (() => {
     const all = ids.every((id) => set.has(id));
     ids.forEach((id) => (all ? set.delete(id) : set.add(id)));
     applyListenMutes();
-    renderWiz();
+    if (S.wiz.step === ST.harm && $('#bwMelBoard')) refreshMelFrame();
+    else renderWiz();
   }
 
   /** Ce qui joue : bandeau, ligne de la scène et tête de lecture (sans reconstruire la grille). */
@@ -3607,11 +3507,13 @@ SS.band = (() => {
     const box = $('#bandWiz');
     if (!box) return;
     updateTransport();
+    box.querySelectorAll('.bh-board').forEach((b) => {
+      const on = !!L.mode && L.scene === b.dataset.scene && L.step >= 0;
+      b.classList.toggle('playing', on);
+      if (on) b.style.setProperty('--ph', (L.step % (Number(b.dataset.bars) * 16)) / (Number(b.dataset.bars) * 16));
+    });
     const hb = $('.bh-board', box);
     if (hb) {
-      const on = !!L.mode && L.scene === hb.dataset.scene && L.step >= 0;
-      hb.classList.toggle('playing', on);
-      if (on) hb.style.setProperty('--ph', (L.step % (Number(hb.dataset.bars) * 16)) / (Number(hb.dataset.bars) * 16));
       box.querySelectorAll('.bh-scene').forEach((b) => b.classList.toggle('playing', !!L.mode && b.dataset.scene === L.scene));
       const lp = $('.bh-loop', box);
       if (lp) {
@@ -3671,10 +3573,10 @@ SS.band = (() => {
   /** « Nouvelle chanson… » (menu de l'application) : l'assistant sur une chanson vide. */
   function openWizard({ fresh = true } = {}) {
     // keys / grids / emos : étape Accords (tonalité, grille, émotion par section) ; parts : réglages par scène (batterie,
-    // basse, nappes, arpèges) ; form / secs / skey : arrangement, scènes et tonalité retouchés (specEff) ; chars : caractère et notes par phrase par section ; snap : aimant de la grille ; gsel : accord sélectionné ; insp : fenêtre d'inspiration
+    // basse, nappes, arpèges) ; form / secs / skey : arrangement, scènes et tonalité retouchés (specEff) ; chars : caractère et notes par phrase par section (réglages du moteur, sans écran) ; melPanel : état du panneau Mélodie par section ; snap : aimant de la grille ; gsel : accord sélectionné ; insp : fenêtre d'inspiration
     S.wiz = {
       step: 1, seed: 0, off: new Set(), mute: new Set(), solo: new Set(), sig: null, res: null, fresh, mel: S.mel, vol: new Map(), hscene: null, hsec: null, tempo: null, tempoFor: null,
-      plans: {}, pseeds: {}, keys: {}, grids: {}, emos: {}, chars: {}, parts: {}, form: null, secs: {}, skey: null, snap: 'beat', gsel: null, insp: null,
+      plans: {}, pseeds: {}, keys: {}, grids: {}, emos: {}, chars: {}, parts: {}, melPanel: {}, melSec: null, form: null, secs: {}, skey: null, snap: 'beat', gsel: null, insp: null,
     };
     show();
   }
@@ -3756,6 +3658,7 @@ SS.band = (() => {
     buildTransport();
     el.addEventListener('close', () => {
       dropListen();
+      leaveMel();
       S.wiz = null;
     });
     SS.melodyPanel.init(app); // l'atelier Mélodie vit dans Harmonie → Chanson
