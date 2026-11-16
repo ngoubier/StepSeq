@@ -180,22 +180,10 @@
   }
 
   /**
-   * Sous-titres des boutons Band et Song (celui de Key vient de js/harmonypanel.js) :
-   * le groupe qui a inspiré les pistes Band et la scène en cours.
+   * Sous-titre du bouton Song (celui d'Harmonie vient de js/harmonypanel.js) :
+   * la scène en cours.
    */
   function syncStudio() {
-    // Band : l'artiste de l'inspiration la plus utilisée par les pistes créées dans Band
-    const count = new Map();
-    project.tracks.forEach((t) => {
-      if (!t.band) return;
-      const st = SS.Band && SS.Band.STYLES.find((x) => x.id === t.band.style);
-      const pr = st && st.presets.find((x) => x.id === t.band.preset);
-      if (pr && pr.artist) count.set(pr, (count.get(pr) || 0) + 1);
-    });
-    const best = [...count].sort((a, b) => b[1] - a[1])[0];
-    const band = best ? best[0].artist : 'Aucun groupe';
-    $('#bandSub').textContent = band;
-    $('#bandBtn').title = best ? `Band : groupe inspiré de ${best[0].artist} (« ${best[0].song} »)` : 'Band : créer une chanson avec un groupe de musiciens virtuels';
     // Song : la scène en cours
     const sc = SS.currentScene(project);
     $('#songSub').textContent = sc ? sc.name : '—';
@@ -599,7 +587,7 @@
   }
 
   /**
-   * Atelier Mélodie (Key → Chanson) : écrit une mélodie (js/melody.js) sur une piste Mono de la scène en cours, ou sur une nouvelle
+   * Atelier Mélodie (Harmonie → Chanson) : écrit une mélodie (js/melody.js) sur une piste Mono de la scène en cours, ou sur une nouvelle
    * piste « Mélodie ». La scène est allongée si la mélodie est plus longue (les autres pistes sont recopiées en boucle).
    */
   function writeMelody({ trackId, newTrack, events, bars, melodyBars, label }) {

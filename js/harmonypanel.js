@@ -1,5 +1,5 @@
 /*
- * Fenêtre « Key », propre à la scène en cours (intro, couplet, refrain…) :
+ * Fenêtre « Harmonie », propre à la scène en cours (intro, couplet, refrain…) :
  *  - un ASSISTANT en 2 étapes (ambiance → grille d'accords) pour démarrer une scène qui n'a pas
  *    encore de tonalité : la grille choisie est posée sur la grille et les couches sont générées ;
  *  - des ONGLETS pour modifier ou vérifier ensuite :
@@ -45,7 +45,7 @@ SS.harmonyPanel = (() => {
     const k = key();
     $('#keyLabel').textContent = k ? H().label(k) : 'Pas de tonalité';
     $('#keyBtn').classList.toggle('on', !!k);
-    $('#keyBtn').title = `Key, harmonie de la scène « ${scene().name} » : émotion, grille d'accords, mélodie, vérification`;
+    $('#keyBtn').title = `Harmonie de la scène « ${scene().name} » : émotion, grille d'accords, mélodie, vérification`;
   }
 
   /* ---------- Pistes ---------- */
@@ -1113,7 +1113,7 @@ SS.harmonyPanel = (() => {
     $('#hmSteps').hidden = !wizOn;
     // dans l'assistant, seul « Détecter » reste utile (trouver la tonalité d'accords déjà posés)
     ['#hmTonic', '#hmMode', '#hmWizBtn', '.hm-key-label'].forEach((q) => ($(q).hidden = wizOn));
-    $('#hmTitle').textContent = wizOn ? 'Key · nouvelle harmonie' : 'Key';
+    $('#hmTitle').textContent = wizOn ? 'Harmonie · nouvelle grille' : 'Harmonie';
     if (wizOn) renderWizard();
     else renderTabs();
     $('#hmBody').scrollTop = 0;

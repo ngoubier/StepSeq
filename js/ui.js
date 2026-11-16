@@ -268,7 +268,7 @@ SS.ui = (() => {
       );
     }
     t.classList.toggle('has-action', !!action);
-    // couche supérieure (popover) : le message passe au-dessus d'une fenêtre ouverte (Key, Band…)
+    // couche supérieure (popover) : le message passe au-dessus d'une fenêtre ouverte (Harmonie, Band…)
     if (t.showPopover) {
       try {
         if (t.matches(':popover-open')) t.hidePopover();
@@ -533,7 +533,7 @@ SS.ui = (() => {
         'div',
         { class: 'cl-tools' },
         h('button', { type: 'button', class: 'th-mode cl-add', title: 'Ajouter un accord après le dernier (1 mesure)', onclick: () => addChordAt(nextFreeStep()) }, '+ ACCORD'),
-        h('button', { type: 'button', class: 'th-mode cl-key', title: 'Fenêtre Key : tonalité, grilles toutes faites, émotions', onclick: () => SS.harmonyPanel.open() }, 'KEY ›')
+        h('button', { type: 'button', class: 'th-mode cl-key', title: 'Fenêtre Harmonie : tonalité, grilles toutes faites, émotions', onclick: () => SS.harmonyPanel.open() }, 'HARMONIE ›')
       )
     );
     const grid = h('div', { class: 'grid cl-grid', title: key ? 'Clic : poser un accord · glisser un accord : le déplacer (Alt : le dupliquer) · bord droit : sa durée · clic sur un accord : le régler' : 'Clic : choisir la tonalité de la scène, puis poser un accord' });
@@ -2339,7 +2339,7 @@ SS.ui = (() => {
       : null;
     if (!op) return;
     const res = SS.transform.run(t, [...sel.items], op, { key, n: SS.trackLen(p, t) });
-    if (!res) return toast('Ce changement de mode demande une tonalité pour la scène (fenêtre Key).');
+    if (!res) return toast('Ce changement de mode demande une tonalité pour la scène (fenêtre Harmonie).');
     t.events = res.events;
     setSelection(t, res.changed);
     app.changed();

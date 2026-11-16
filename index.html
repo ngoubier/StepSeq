@@ -70,13 +70,14 @@
     </div>
 
     <div class="topbar-group studio" role="group" aria-label="Fenêtres">
-      <button id="bandBtn" class="btn studio-btn band-btn" type="button" title="Band : créer une chanson avec un groupe de musiciens virtuels">
-        <span class="sb-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="8" cy="7" r="3"/><circle cx="16.5" cy="8" r="2.5"/><path d="M2.5 20c0-3.3 2.5-6 5.5-6s5.5 2.7 5.5 6M13.5 15.2c.9-.8 1.9-1.2 3-1.2 2.5 0 4.5 2.2 4.5 5"/></svg></span>
-        <span class="sb-txt"><b>Band</b><small id="bandSub">Aucun groupe</small></span>
+      <!-- Nouvelle chanson (ancien bouton Band, même identifiant) : l'assistant Créer / Reprendre, sur le projet en cours -->
+      <button id="bandBtn" class="btn studio-btn band-btn" type="button" title="Nouvelle chanson : créer une chanson avec un groupe virtuel, ou reprendre une chanson en tapant ses accords">
+        <span class="sb-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
+        <span class="sb-txt"><b>Nouvelle</b><small>Créer · Reprendre</small></span>
       </button>
-      <button id="keyBtn" class="btn studio-btn key-btn" type="button" title="Key : ambiance, grille d'accords, mélodie et vérification">
+      <button id="keyBtn" class="btn studio-btn key-btn" type="button" title="Harmonie : ambiance, grille d'accords, mélodie et vérification de la scène">
         <span class="sb-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span>
-        <span class="sb-txt"><b>Key</b><small id="keyLabel">Pas de tonalité</small></span>
+        <span class="sb-txt"><b>Harmonie</b><small id="keyLabel">Pas de tonalité</small></span>
       </button>
       <button id="songBtn" class="btn studio-btn song-btn" type="button" aria-pressed="false" title="Song : scènes et arrangement de la chanson">
         <span class="sb-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="6" height="10" rx="1.5"/><rect x="9" y="7" width="6" height="10" rx="1.5"/><rect x="16" y="7" width="6" height="10" rx="1.5"/></svg></span>
@@ -233,8 +234,8 @@
   <dialog id="bandDialog" class="band-dialog" aria-labelledby="bandTitle">
     <div class="band-shell">
       <header class="band-head">
-        <h2 id="bandTitle">Band <small id="bandDlgSub"></small></h2>
-        <!-- Assistant (bouton Band ou « Nouvelle chanson… ») : étapes 1 Modèle → 2 Chanson → 3 Accords → 4 Mélodie → 5 Intégration -->
+        <h2 id="bandTitle">Nouvelle chanson <small id="bandDlgSub"></small></h2>
+        <!-- Assistant (bouton Nouvelle ou menu « Nouvelle chanson… ») : étapes 1 Modèle → 2 Chanson → 3 Accords → 4 Mélodie → 5 Intégration -->
         <ol class="band-wiz-steps wiz-only" id="bandWizSteps" aria-label="Étapes de l'assistant" hidden></ol>
         <button type="button" class="btn band-gm" id="bandGm" aria-pressed="false" aria-label="General MIDI" title="Mode General MIDI du projet : chaque musicien joue un son General MIDI, la batterie prend la batterie General MIDI. Même réglage que dans la fenêtre de piste.">
           <span class="band-gm-box" aria-hidden="true"></span><span class="band-gm-long">General MIDI</span><span class="band-gm-short" aria-hidden="true">GM</span>
@@ -696,7 +697,7 @@
   <dialog id="harmonyDialog" class="hm-dialog" aria-labelledby="hmTitle">
     <form method="dialog" id="harmonyForm">
       <div class="hm-top">
-        <h2 id="hmTitle">Key</h2>
+        <h2 id="hmTitle">Harmonie</h2>
         <span class="spacer"></span>
         <button type="submit" class="btn btn-icon hm-x" title="Fermer (Échap)" aria-label="Fermer">
           <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>

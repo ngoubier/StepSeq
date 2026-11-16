@@ -99,7 +99,7 @@ const shot = async (page, name) => SHOTS && page.locator('#harmonyDialog').scree
   ok(!(await page.locator('#hmMelWrite').isDisabled()), 'Écrire sur la piste actif');
   await page.click('#melMore summary');
   const controls = await page.locator('#hmMel select').evaluateAll((els) => els.map((e) => ({ height: e.getBoundingClientRect().height, line: parseFloat(getComputedStyle(e).fontSize), width: e.getBoundingClientRect().width, parent: e.parentElement.getBoundingClientRect().width })));
-  ok(controls.every((e) => e.height >= e.line + 14 && e.width <= e.parent + 1), 'Key : tous les menus sont assez hauts et restent dans le formulaire');
+  ok(controls.every((e) => e.height >= e.line + 14 && e.width <= e.parent + 1), 'Harmonie : tous les menus sont assez hauts et restent dans le formulaire');
   ok(!(await page.locator('#hmMelAgain').count()), 'un seul bouton de génération');
   // profil mélodique de l'émotion : intention, motif, note pivot, contrôles du profil, variante B
   ok(await page.locator('#melIntent').isVisible(), 'bandeau Intention au-dessus de la mélodie');
@@ -246,7 +246,7 @@ const shot = async (page, name) => SHOTS && page.locator('#harmonyDialog').scree
     const out = document.querySelector('#melOut').getBoundingClientRect();
     return out.top >= form.bottom - 1 && document.querySelector('#harmonyDialog').scrollWidth <= document.querySelector('#harmonyDialog').clientWidth + 1;
   });
-  ok(mobile, 'Key sur mobile : réglages empilés, sans chevauchement ni débordement');
+  ok(mobile, 'Harmonie sur mobile : réglages empilés, sans chevauchement ni débordement');
   ok(!errs.length, 'aucune erreur JavaScript' + (errs.length ? ' : ' + errs.join(' | ') : ''));
   await b.close();
   server.close();

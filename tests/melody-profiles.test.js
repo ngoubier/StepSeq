@@ -1,6 +1,6 @@
 /*
  * Profils mélodiques par émotion (js/melody-profiles.js) et leur effet sur les compositeurs de mélodie
- * (js/melody.js pour Key, js/bandsong.js pour Band).
+ * (js/melody.js pour Harmonie, js/bandsong.js pour Band).
  *   node --test
  */
 const test = require('node:test');

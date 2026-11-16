@@ -146,7 +146,7 @@ SS.bandSong = (() => {
     return out;
   }
   /**
-   * Accords d'une grille de l'assistant (comme la grille de Key : { step, len, degree, type, acc, bass? }, degrés dans
+   * Accords d'une grille de l'assistant (comme la grille d’Harmonie : { step, len, degree, type, acc, bass? }, degrés dans
    * la tonalité de la scène) → spans. Les trous sont comblés par l'accord précédent (le premier commence au début).
    */
   function spansFromGrid(list, key, bars) {
@@ -971,7 +971,7 @@ SS.bandSong = (() => {
    *     plans: { section: [{ bars, mode: 'on'|'hold'|'off', letter }] }, seeds: { section: { A: n, B: n… } },
    *     scenes: { section: { character, notes } } (caractère et notes par phrase propres à une scène) }
    *   harmony : accords et tonalités choisis dans l'assistant (étape Accords), par section :
-   *     { keys: { section: { tonic, mode } }, chords: { section: [grille de Key] }, emotions: { section: id } }
+   *     { keys: { section: { tonic, mode } }, chords: { section: [grille d’Harmonie] }, emotions: { section: id } }
    * → { key, scenes: [{ id, name, bars, key, emotion, data, spans }], song: [{ scene, repeat }] }
    */
   function build(spec, presetId, tracks, { melodySeed = 0, melody = null, harmony = null } = {}) {
