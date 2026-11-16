@@ -403,6 +403,11 @@ SS.CHORDS = [
   { id: '5add9', label: '5(add9)', iv: [0, 7, 14], ext: true },
   { id: 'add4', label: 'add4', iv: [0, 4, 5, 7], ext: true },
   { id: 'madd4', label: 'm(add4)', iv: [0, 3, 5, 7], ext: true },
+  // couleurs relevées dans les grilles de référence (docs/reference : Piano Diary, guide MusicEmotion)
+  { id: 'mmaj7', label: 'm(maj7)', iv: [0, 3, 7, 11], ext: true },
+  { id: 'madd11', label: 'm(add11)', iv: [0, 3, 7, 17], ext: true },
+  { id: 'maj7s11', label: 'maj7(♯11)', iv: [0, 4, 7, 11, 18], ext: true },
+  { id: '6sus2', label: '6sus2', iv: [0, 2, 7, 9], ext: true },
 ];
 SS.chordNotes = (root, chordId) => {
   const c = SS.CHORDS.find((x) => x.id === chordId) || SS.CHORDS[0];

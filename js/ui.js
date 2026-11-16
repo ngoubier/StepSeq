@@ -38,6 +38,7 @@ SS.ui = (() => {
     maj: '', min: 'm', 7: '7', maj7: 'maj7', m7: 'm7', sus2: 'sus2', sus4: 'sus4', dim: '°', aug: '+', add9: 'add9', m9: 'm9', 5: '5',
     m7b5: 'm7♭5', dim7: '°7', maj9: 'maj9', 9: '9', '7b9': '7♭9', madd9: 'm(add9)', 6: '6', m6: 'm6', '7sus4': '7sus4',
     '7no3': '7(no3)', '5add9': '5(add9)', add4: 'add4', madd4: 'm(add4)',
+    mmaj7: 'm(maj7)', madd11: 'm(add11)', maj7s11: 'maj7(♯11)', '6sus2': '6sus2',
   };
 
   let app; // { project(), changed(), state }

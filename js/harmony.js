@@ -25,6 +25,9 @@ SS.harmony = (() => {
     { id: 'phrygian', label: 'Phrygien (mode)', iv: [0, 1, 3, 5, 7, 8, 10], fam: 'minor', color: 1, colorText: 'seconde mineure' },
     { id: 'lydian', label: 'Lydien (mode)', iv: [0, 2, 4, 6, 7, 9, 11], fam: 'major', color: 3, colorText: 'quarte augmentée' },
     { id: 'mixolydian', label: 'Mixolydien (mode)', iv: [0, 2, 4, 5, 7, 9, 10], fam: 'major', color: 6, colorText: 'septième mineure' },
+    // modes ajoutés d'après le guide MusicEmotion (docs/reference/musicemotion-guide.md, chap. 4)
+    { id: 'phrygdom', label: 'Phrygien dominant (mode)', iv: [0, 1, 4, 5, 7, 8, 10], fam: 'major', color: 2, colorText: 'tierce majeure sur seconde mineure' },
+    { id: 'locrian', label: 'Locrien (mode)', iv: [0, 1, 3, 5, 6, 8, 10], fam: 'minor', color: 4, colorText: 'quinte diminuée' },
   ];
   const TONICS = ['C', 'C♯', 'D♭', 'D', 'E♭', 'E', 'F', 'F♯', 'G♭', 'G', 'A♭', 'A', 'B♭', 'B'];
   const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
@@ -88,6 +91,7 @@ SS.harmony = (() => {
     maj: '', min: 'm', 7: '7', maj7: 'maj7', m7: 'm7', sus2: 'sus2', sus4: 'sus4', dim: '°', aug: '+', add9: 'add9', m9: 'm9', 5: '5',
     m7b5: 'm7♭5', dim7: '°7', maj9: 'maj9', 9: '9', '7b9': '7♭9', madd9: 'm(add9)', 6: '6', m6: 'm6', '7sus4': '7sus4',
     '7no3': '7(no3)', '5add9': '5(add9)', add4: 'add4', madd4: 'm(add4)',
+    mmaj7: 'm(maj7)', madd11: 'm(add11)', maj7s11: 'maj7(♯11)', '6sus2': '6sus2',
   };
 
   function triadType(third, fifth) {
@@ -103,14 +107,15 @@ SS.harmony = (() => {
    * la casse suit la triade du degré dans la gamme (`baseType`).
    */
   function numeral(degree, type, baseType) {
-    const noThird = ['sus2', 'sus4', '5', '7sus4', '7no3', '5add9'].includes(type);
-    const lower = noThird ? ['min', 'dim'].includes(baseType) : ['min', 'dim', 'm7', 'm9', 'm7b5', 'dim7', 'madd9', 'm6', 'madd4'].includes(type);
+    const noThird = ['sus2', 'sus4', '5', '7sus4', '7no3', '5add9', '6sus2'].includes(type);
+    const lower = noThird ? ['min', 'dim'].includes(baseType) : ['min', 'dim', 'm7', 'm9', 'm7b5', 'dim7', 'madd9', 'm6', 'madd4', 'mmaj7', 'madd11'].includes(type);
     let r = lower ? ROMAN[degree].toLowerCase() : ROMAN[degree];
     r +=
       {
         dim: '°', aug: '+', 7: '7', maj7: 'maj7', m7: '7', m9: '9', add9: 'add9', sus2: 'sus2', sus4: 'sus4', 5: '5',
         m7b5: 'ø7', dim7: '°7', maj9: 'maj9', 9: '9', '7b9': '7♭9', madd9: 'add9', 6: '6', m6: '6', '7sus4': '7sus4',
         '7no3': '7(no3)', '5add9': '5(add9)', add4: 'add4', madd4: 'add4',
+        mmaj7: 'maj7', madd11: 'add11', maj7s11: 'maj7♯11', '6sus2': '6sus2',
       }[type] || '';
     return r;
   }
@@ -486,7 +491,7 @@ SS.harmony = (() => {
 
   function label(key) {
     if (!valid(key)) return 'aucune tonalité';
-    const m = { major: 'majeur', minor: 'mineur', harmonic: 'mineur harmonique', dorian: 'dorien', phrygian: 'phrygien', lydian: 'lydien', mixolydian: 'mixolydien' }[key.mode];
+    const m = { major: 'majeur', minor: 'mineur', harmonic: 'mineur harmonique', dorian: 'dorien', phrygian: 'phrygien', lydian: 'lydien', mixolydian: 'mixolydien', phrygdom: 'phrygien dominant', locrian: 'locrien' }[key.mode];
     return `${french(key.tonic)} ${m}`;
   }
 
@@ -502,10 +507,17 @@ SS.harmony = (() => {
     { id: 'min2', mode: 'minor', label: 'i – III – VII – VI', style: 'Mineur, montée dramatique', seq: [[0, 'min'], [2, 'maj'], [6, 'maj'], [5, 'maj']] },
     { id: 'min3', mode: 'minor', label: 'i – iv – V7 – i', style: 'Résolution tonale forte (V7 emprunté)', seq: [[0, 'min'], [3, 'min'], [4, '7'], [0, 'min']] },
     { id: 'min4', mode: 'minor', label: 'i – VII – VI – V', style: 'Mouvement descendant (V emprunté)', seq: [[0, 'min'], [6, 'maj'], [5, 'maj'], [4, 'maj']] },
+    // procédés H03, H05–H08 de la formation (docs/reference/formation-composition/23_bibliotheque_de_procedes.md) ;
+    // H01, H02 et H04 sont déjà pop1, min1 et min3. Les grilles modales ne sont proposées que dans leur mode.
+    { id: 'h03', mode: 'major', label: 'ii – V7 – I', style: 'H03 · conduire tierce et septième', seq: [[1, 'm7'], [4, '7'], [0, 'maj7'], [0, 'maj7']] },
+    { id: 'h05', mode: 'major', label: 'I – IV – iv – I', style: 'H05 · suivre la voix 6 – ♭6 – 5', seq: [[0, 'maj'], [3, 'maj'], [3, 'min'], [0, 'maj']] },
+    { id: 'h08', mode: 'major', label: 'ii7 – subV7 – Imaj7', style: 'H08 · substitution tritonique, basse chromatique', seq: [[1, 'm7'], [1, '7', -1], [0, 'maj7'], [0, 'maj7']] },
+    { id: 'h06', mode: 'dorian', label: 'i – IV', style: 'H06 · établir le centre, exposer la sixte majeure', seq: [[0, 'min'], [3, 'maj'], [0, 'min'], [3, 'maj']] },
+    { id: 'h07', mode: 'lydian', label: 'I – II', style: 'H07 · exposer la quarte augmentée sans perdre le centre', seq: [[0, 'maj'], [1, 'maj'], [0, 'maj'], [1, 'maj']] },
   ];
 
   // lettre de chaque intervalle d'accord (tierce = 2 lettres plus loin…) : Cdim = C E♭ G♭, Fm = F A♭ C
-  const LETTER_OFF = { 0: 0, 1: 1, 2: 1, 3: 2, 4: 2, 5: 3, 6: 4, 7: 4, 8: 4, 9: 5, 10: 6, 11: 6, 13: 1, 14: 1 };
+  const LETTER_OFF = { 0: 0, 1: 1, 2: 1, 3: 2, 4: 2, 5: 3, 6: 4, 7: 4, 8: 4, 9: 5, 10: 6, 11: 6, 13: 1, 14: 1, 17: 3, 18: 3 };
   function chordNoteNames(rootName, type) {
     const r = parseName(rootName);
     const li = LETTERS.indexOf(r.letter);
@@ -539,13 +551,13 @@ SS.harmony = (() => {
     };
   }
 
-  /** Progressions adaptées au mode de la tonalité, transposées. */
+  /** Progressions adaptées au mode de la tonalité (les grilles modales seulement dans leur mode), transposées. */
   function progressions(key) {
-    if (!isTonal(key)) return [];
     const minor = fam(key) === 'minor';
-    return PROGRESSIONS.filter((pr) => (pr.mode === 'minor') === minor).map((pr) => ({
+    const fits = (pr) => (isTonal(key) ? ['major', 'minor'].includes(pr.mode) && (pr.mode === 'minor') === minor : pr.mode === key.mode);
+    return PROGRESSIONS.filter(fits).map((pr) => ({
       ...pr,
-      chords: pr.seq.map(([d, t]) => makeChord(key, d, t)),
+      chords: pr.seq.map(([d, t, a]) => makeChord(key, d, t, a || 0)),
     }));
   }
 
@@ -553,26 +565,34 @@ SS.harmony = (() => {
   // Un accord de la grille est rangé par degré (0–6 dans la gamme de la scène), type et altération :
   // il suit la tonalité si on la change. `acc` = +1 : septième degré haussé du mineur (sensible, vii° emprunté).
 
+  /** Un degré peut-il être haussé (acc = +1) ? Tous, sauf le 7e quand le mode a déjà une sensible. */
+  const raisable = (key, degree) => !(degree === 6 && findMode(key.mode).iv[6] === 11);
+
   /**
    * Accord de la grille → format de la palette (nom, chiffrage, rôle, notes, emprunt). `bass` (1–11) : note
    * imposée à la basse, en demi-tons au-dessus de la fondamentale (C/E : 4) ; 0 = position fondamentale.
    */
   function gridChord(key, degree, type, acc = 0, bass = 0) {
     const sc = scale(key);
-    // +1 : sensible du mineur harmonique (seulement en mineur naturel) ; −1 : emprunt (♭VI, ♭VII, ♭II…)
-    acc = acc === -1 || (acc === 1 && key.mode === 'minor') ? acc : 0;
+    // −1 : emprunt (♭VI, ♭VII, ♭II…) ; +1 : degré haussé (sensible du mineur harmonique, ou fondamentale
+    // chromatique d'un accord de passage : ♯V° = A♯° en Ré majeur, ♯I° = C♯° en Fa majeur). Le 7e degré n'est
+    // pas haussé quand le mode a déjà une sensible : vii° d'une grille mineure reste B° si la scène passe en Do majeur.
+    acc = acc === -1 || (acc === 1 && raisable(key, degree)) ? acc : 0;
     const rootPc = pcOf(sc[degree].pc + acc);
     const rootName = acc ? spellLetter(sc[degree].name[0], rootPc) : sc[degree].name;
     const pcs = TYPE_IV(type).map((i) => pcOf(rootPc + i));
     const inKey = new Set(sc.map((d) => d.pc));
     const bassPc = bass ? pcOf(rootPc + bass) : null;
+    // basse imposée : nommée comme la note de l'accord quand elle en fait partie (Ddim/F, et non Ddim/E♯)
+    const toneIdx = bass ? TYPE_IV(type).findIndex((i) => pcOf(i) === bass) : -1;
+    const bassName = !bass ? '' : toneIdx >= 0 ? chordNoteNames(rootName, type)[toneIdx] : spell(key, bassPc);
     return {
       degree,
       acc,
       rootPc,
       type,
       ...(bass ? { bass, bassPc } : {}),
-      name: rootName + (SUFFIX[type] ?? '') + (bass ? '/' + spell(key, bassPc) : ''),
+      name: rootName + (SUFFIX[type] ?? '') + (bass ? '/' + bassName : ''),
       numeral: (acc < 0 ? '♭' : acc > 0 && !(key.mode === 'minor' && degree === 6) ? '♯' : '') + numeral(degree, type, acc ? (type === 'dim' || type === 'dim7' ? 'dim' : 'maj') : degTriad(sc, degree)),
       notes: chordNoteNames(rootName, type),
       quality: QUALITY[type] || (SS.CHORDS.find((c) => c.id === type) || {}).label || type,
@@ -581,11 +601,21 @@ SS.harmony = (() => {
     };
   }
 
-  /** Accord d'une proposition (makeChord) → accord de grille { degree, type, acc } dans la tonalité `key`. */
+  /**
+   * Accord d'une proposition (makeChord) → accord de grille { degree, type, acc } dans la tonalité `key`.
+   * `c.letter` (lettre écrite de la fondamentale, « A » pour A♯dim) choisit le degré : A♯ reste un La haussé
+   * et ne devient pas un Si♭. Sans lettre : la fondamentale diatonique, puis abaissée, puis haussée.
+   */
   function toGridChord(key, c, prefDegree = 0) {
     const sc = scale(key);
+    if (c.letter) {
+      const d = sc.findIndex((x) => x.name[0] === c.letter);
+      const acc = d >= 0 ? ((c.rootPc - sc[d].pc + 18) % 12) - 6 : 9;
+      if (d >= 0 && (acc === 0 || acc === -1 || (acc === 1 && raisable(key, d)))) return { degree: d, type: c.type, acc };
+    }
     const tries = [prefDegree, ...sc.map((_, i) => i).filter((i) => i !== prefDegree)];
     for (const d of tries) for (const acc of d === 6 && key.mode === 'minor' ? [0, 1, -1] : [0, -1]) if (pcOf(sc[d].pc + acc) === c.rootPc) return { degree: d, type: c.type, acc };
+    for (const d of tries) if (raisable(key, d) && pcOf(sc[d].pc + 1) === c.rootPc) return { degree: d, type: c.type, acc: 1 };
     return null;
   }
 

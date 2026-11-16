@@ -23,7 +23,7 @@ puis ouvrir <http://localhost:8000>.
 - **En-tête** : icône de l'application (menu **Chansons**, **Nouvelle chanson…** (assistant), **Ouvrir**, **Enregistrer**, **Importer MIDI**, **Exporter MIDI**), titre du projet, tempo (BPM), chiffrage de mesure (4/4 par défaut, x/4 ou x/8),
   nombre de mesures, le groove (swing, humanisation), **Lecture** et **Stop**, puis les fenêtres regroupées
   **Band**, **Key : tonalité** (fenêtre Key, propre à chaque scène : assistant
-  émotion → grille d'accords pour démarrer, puis onglets Ambiance (émotions rangées par mode, trois pistes et 39 grilles de référence sourcées, grille posée sur l'onglet suivant), Chanson (grille commune sur toute la largeur, reprise des accords existants ; sous-onglets Chords pour les couches et Mélodie pour les réglages horizontaux) et Vérifier (la même grille et les mélodies) ; palette d'accords dans le piano roll, essais A/B), **Song** (fenêtre Song : scènes et arrangement, avec une case pour garder le panneau
+  émotion → grille d'accords pour démarrer, puis onglets Ambiance (émotions rangées par mode, trois pistes et 94 grilles de référence sourcées, dont le guide MusicEmotion et 42 fiches Piano Diary ; guide de chaque mode : couleur à faire entendre et boucle d'essai, grille posée sur l'onglet suivant), Chanson (grille commune sur toute la largeur, reprise des accords existants ; sous-onglets Chords pour les couches et Mélodie pour les réglages horizontaux) et Vérifier (la même grille et les mélodies) ; palette d'accords dans le piano roll, essais A/B), **Song** (fenêtre Song : scènes et arrangement, avec une case pour garder le panneau
   d'arrangement affiché sous l'en-tête) et **Mix** (console de mixage, avec l'assistant **Auto Mix**).
   À droite : annuler / rétablir, l'indicateur d'enregistrement automatique et **Aide**.
   Le bouton **+ Ajouter une piste** se trouve sous les pistes.
@@ -754,7 +754,7 @@ par la fenêtre **Key** :
 |-------|---------|--------------|
 | `composition-harmonie-synthetiseur` | Gammes, accords, degrés, progressions, voicings, basse / arpège / mélodie, parcours en 8 modules | Tonalité, palette d'accords, progressions, génération de couches, vérificateur |
 | `arranger-orchestrer-finaliser` | Arrangement, orchestration, mixage, mastering | Méthode « une couche à la fois », démos mixées et masterisées |
-| `musicemotion` | Composer à partir d'une émotion : matrice émotion → procédés, trois pistes contrastées, essais A/B | Section Émotion : 13 intentions, propositions, essais A/B, modes |
+| `musicemotion` | Composer à partir d'une émotion : matrice émotion → procédés, trois pistes contrastées, essais A/B | Section Émotion : 15 intentions, propositions, essais A/B, modes |
 | `composer-melodies-accords-texte` | Mélodie sur une grille d'accords et des paroles ou une métrique : prosodie, rythme, notes cibles, contrôles, export MIDI | Key → Mélodie : scansion, proposition, tableau des notes, contrôles, écriture sur une piste |
 
 ## Mode Diagnostic : décrochages audio (`js/audiowatch.js`, fenêtre Système)
@@ -801,6 +801,21 @@ sans fermer la fenêtre en dessous.
 des 18 domaines (harmonie, édition MIDI, arpèges, mixage, automation, export…), ce que StepSeq couvre, ce qui manque
 et les évolutions prioritaires qui en découlent (export audio, Web MIDI vers un synthé matériel, Strum…).
 
+## Documents de référence : composition, émotions
+
+Les accords par mode et par émotion (`js/emotions.js`) s'appuient sur trois documents de `docs/reference/` :
+
+- [`musicemotion-guide.md`](docs/reference/musicemotion-guide.md) : manuel MusicEmotion (composition, harmonie et
+  émotions). Le répertoire d'intentions (chap. 8) donne les 15 émotions, leur grille et leur « appui à essayer » ; le
+  chapitre 4 donne, pour chaque mode, la couleur à faire entendre et une boucle d'essai.
+- [`piano-diary-accords-emotions.md`](docs/reference/piano-diary-accords-emotions.md) : relevé de 42 Shorts Piano
+  Diary (accords, durées en mesures, tempo de travail, émotion annoncée ou interprétée, réserves), repris tel quel
+  dans la bibliothèque de grilles.
+- [`formation-composition/`](docs/reference/formation-composition/00_LIRE_EN_PREMIER.md) : formation à la composition
+  en 29 chapitres (mélodie, motifs, modes, émotions, bibliothèque de procédés, validation). Les progressions H03 et
+  H05–H08 du chapitre 23 sont proposées dans la grille ; la méthode mélodique (chap. 05) servira au compositeur de
+  mélodie.
+
 ## Structure du code
 
 | Fichier          | Rôle |
@@ -823,7 +838,7 @@ et les évolutions prioritaires qui en découlent (export audio, Web MIDI vers u
 | `js/junopanel.js` | Façade du Juno-106 (sound design des pistes Synthé) |
 | `js/groove.js`   | Fenêtre Groove (swing, humanisation) |
 | `js/harmony.js`  | Aide à la composition : gammes, accords diatoniques, identification des accords, estimation de la tonalité, vérificateur d'harmonie |
-| `js/emotions.js` | Intentions émotionnelles (skill MusicEmotion) : matrice et trois propositions par intention, modes de l'onglet Ambiance, bibliothèque de 39 grilles de référence (accords, mode, émotions, source) |
+| `js/emotions.js` | Intentions émotionnelles (skill MusicEmotion) : matrice et trois propositions par intention, modes de l'onglet Ambiance et guide des modes (couleur, boucle d'essai), bibliothèque de 94 grilles de référence (accords, durées, mode, émotions, source, tempo de travail, émotion annoncée ou interprétée) |
 | `js/harmonypanel.js` | Fenêtre Key de la scène en cours : assistant en 2 étapes, onglets Ambiance, Chanson (grille commune, sous-onglets Chords et Mélodie), Vérifier (la même grille et les mélodies) |
 | `js/fx.js`       | Fenêtre Effets par piste (chorus, delay, reverb, sidechain, envois vers les bus partagés) |
 | `js/master-dsp.js` | Mastering du Master (AudioWorklet) : graves en mono, largeur, écrêtage doux, limiteur à anticipation, mesure LUFS / true peak |

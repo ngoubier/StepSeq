@@ -88,7 +88,23 @@ test('propositions d’émotion → grille : emprunts ♭VI, ♭VII, sensible', 
   assert.equal(H.gridChord(C, g.degree, g.type, g.acc).numeral, '♭VI');
   assert.deepEqual(H.toGridChord(Am, H.makeChord(Am, 6, 'dim', 1), 6), { degree: 6, type: 'dim', acc: 1 });
   assert.equal(H.gridChord(Am, 1, 'maj', -1).name, 'B♭'); // ♭II napolitain
-  assert.equal(H.gridChord(C, 6, 'dim', 1).name, 'B°'); // +1 seulement en mineur
+  assert.equal(H.gridChord(C, 6, 'dim', 1).name, 'B°'); // pas de 7e degré haussé quand le mode a une sensible
+  // fondamentale haussée d'un accord de passage : C♯° en Fa majeur (♯V°)
+  const F = { tonic: 'F', mode: 'major' };
+  assert.equal(H.gridChord(F, 4, 'dim', 1).name, 'C♯°');
+  assert.deepEqual(H.toGridChord(F, { rootPc: 1, letter: 'C', type: 'dim' }), { degree: 4, type: 'dim', acc: 1 });
+  assert.deepEqual(H.toGridChord(F, { rootPc: 1, type: 'dim' }), { degree: 5, type: 'dim', acc: -1 }); // sans lettre : D♭°
+});
+
+test('progressions de la formation : H05, H08 et grilles modales seulement dans leur mode', () => {
+  const C = { tonic: 'C', mode: 'major' };
+  const ids = H.progressions(C).map((p) => p.id);
+  assert.ok(['h03', 'h05', 'h08'].every((id) => ids.includes(id)));
+  assert.ok(!ids.includes('h06') && !ids.includes('h07'));
+  assert.deepEqual(H.progressions(C).find((p) => p.id === 'h08').chords.map((c) => c.name), ['Dm7', 'D♭7', 'Cmaj7', 'Cmaj7']);
+  assert.deepEqual(H.progressions({ tonic: 'D', mode: 'dorian' }).map((p) => p.id), ['h06']);
+  assert.deepEqual(H.progressions({ tonic: 'C', mode: 'lydian' })[0].chords.map((c) => c.name), ['C', 'D', 'C', 'D']);
+  assert.deepEqual(H.progressions({ tonic: 'A', mode: 'locrian' }), []);
 });
 
 test('reprise commune : renversements et accords chromatiques conservés', () => {
