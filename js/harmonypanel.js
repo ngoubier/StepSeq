@@ -182,6 +182,25 @@ SS.harmonyPanel = (() => {
     </div>`;
   }
 
+  /** Carte « Mélodie conseillée » : le profil mélodique de l'émotion (js/melody-profiles.js). */
+  function melodyCard(emo, m) {
+    if (!SS.resolveMelodyProfile || !SS.MELODY_PROFILES[emo.id]) return '';
+    // dans le mode de l'émotion (celui des pistes et des grilles), sur la tonique de la scène
+    const k = { tonic: anchorTonic() || (key() || {}).tonic || 'C', mode: m.mode };
+    const p = SS.resolveMelodyProfile(emo.id, {}, H().valid(k) ? k : null);
+    const rows = SS.melodyProfileSummary(p).map((c) => `<dt>${esc(c.k)}</dt><dd>${esc(c.v)}</dd>`).join('');
+    const color = p.target === 'color' && p.colorPc != null ? ` <span class="hm-muted">(${esc(H().spell(k, p.colorPc))} en ${esc(H().label(k))})</span>` : '';
+    return `<section class="hm-melcard" aria-label="Mélodie conseillée">
+      <div class="hm-lbl">Mélodie conseillée</div>
+      <div class="hm-melcard-in">
+        <svg viewBox="0 0 96 34" class="mel-contour big" role="img" aria-label="Contour : ${esc(SS.MELODY_CONTOURS[p.contour].label)}"><path d="${SS.melodyContourPath(p.contour)}"></path></svg>
+        <div><b>${esc(p.name)}</b>${color}<dl class="emo-matrix">${rows}</dl></div>
+      </div>
+      ${emo.appui ? `<p class="hm-muted">Appui du guide : ${esc(emo.appui)} (notes de l’exemple du guide)</p>` : ''}
+      <button type="button" class="btn btn-small btn-accent" id="hmEmoMel" data-emo-mel="${esc(emo.id)}">Composer avec ce profil ↗</button>
+    </section>`;
+  }
+
   function colorLine(modeId) {
     const md = H().MODES.find((m) => m.id === modeId);
     let txt;
@@ -357,6 +376,7 @@ SS.harmonyPanel = (() => {
         <div class="hm-lbl">Trois pistes</div>
         <div class="hm-exs">${props.map((pr, i) => propCard(pr, i)).join('')}</div>
         <label class="emo-opt"><input type="checkbox" id="hmEmoTempo"${tempoOn ? ' checked' : ''}> « Poser sur la grille » règle aussi le tempo conseillé (tout le morceau)</label>
+        ${melodyCard(emo, m)}
         ${refs.length ? `<div class="hm-lbl">Grilles de référence · ${refs.length}</div><div class="hm-exs">${refs.map(([x, i]) => propCard(x, i, { tags: emo.id })).join('')}</div>` : ''}
         <details class="hm-more"><summary>En savoir plus : repères, réserves, mélodie, essais A/B</summary>
           <div class="emo-dims">${dim('Valence', emo.dims[0])}${dim('Activation', emo.dims[1])}${dim('Tension', emo.dims[2])}<span class="hm-muted">repères subjectifs</span></div>
@@ -366,8 +386,7 @@ SS.harmonyPanel = (() => {
             ${emo.appui ? `<dt>Appui à essayer</dt><dd>${esc(emo.appui)} <span class="hm-muted">(guide MusicEmotion, notes de l’exemple)</span></dd>` : ''}
             ${props.map((pr) => `<dt>Réserve ${SS.EMOTION_KINDS[pr.kind].toLowerCase()}</dt><dd>${esc(pr.caveat)}</dd>`).join('')}
           </dl>
-          <p class="hm-muted"><b>Mélodie conseillée</b> : « ${esc(gen ? gen.label : '')} » (${esc(gen ? gen.text : '')}).
-            <button type="button" class="btn btn-small" id="hmEmoMel">Composer la mélodie ↗</button></p>
+          <p class="hm-muted"><b>Couche « Mélodie » de la grille</b> : « ${esc(gen ? gen.label : '')} » (${esc(gen ? gen.text : '')}).</p>
           <div class="emo-ab">
             <b>Essai A/B</b> <span class="hm-muted">La scène est copiée (scène « … B ») et un seul paramètre change. Passez de l'une à l'autre pendant la lecture et gardez celle qui communique le mieux l'intention.</span>
             <div class="chips">${abs
@@ -1046,6 +1065,7 @@ SS.harmonyPanel = (() => {
   function renderMelFoot() {
     $('#hmFoot').innerHTML = `
       <span class="hm-foot-info hm-muted">${esc(gridSummary(grid()))}</span>
+      <button type="button" class="btn btn-outline" id="hmMelVarB" disabled>Variante B : changer un levier</button>
       <button type="button" class="btn" id="hmMelGo">Générer une mélodie</button>
       <button type="button" class="btn btn-accent" id="hmMelWrite" disabled title="Écrire la mélodie sur la piste choisie (Ctrl+Z pour revenir)">Écrire sur la piste</button>
       <button type="submit" class="btn">Fermer</button>`;
@@ -1055,7 +1075,7 @@ SS.harmonyPanel = (() => {
     SS.melodyPanel.show({
       box: $('#hmMel'), leadOpts, preferSceneKey: true, sharedGrid: true,
       gridData: songGrid, previewLayers: songPreview, transportBox: $('#hmSongListen'),
-      buttons: { write: $('#hmMelWrite') },
+      buttons: { write: $('#hmMelWrite'), variant: $('#hmMelVarB') },
       onPosition: (step) => {
         const ph = $('#grPh');
         if (!ph) return;
@@ -1154,7 +1174,8 @@ SS.harmonyPanel = (() => {
       return applyProposal(pr, emo, !!$('#hmEmoTempo') && $('#hmEmoTempo').checked);
     }
     if ((b = el('[data-ab]'))) return abTest(b.dataset.ab);
-    if (el('#hmEmoMel')) {
+    if ((b = el('#hmEmoMel'))) {
+      SS.melodyPanel.useEmotion(b.dataset.emoMel);
       tab = 'gri';
       songTab = 'melody';
       return render();
@@ -1166,6 +1187,7 @@ SS.harmonyPanel = (() => {
     }
     // onglet Mélodie
     if (el('#hmMelGo')) return SS.melodyPanel.compose(true);
+    if (el('#hmMelVarB')) return SS.melodyPanel.variantB();
     if (el('#hmMelWrite')) {
       SS.melodyPanel.write();
       return render();

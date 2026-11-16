@@ -199,6 +199,29 @@ françaises, qui remplacent la structure) et **Détails** (hypothèses, contrôl
 Mélodie : notes de l'accord sur les appuis, notes de passage entre elles, motif repris et varié, respirations en
 fin de phrase. Le séquenceur avance par doubles-croches : pas de triolets.
 
+**Intention : le profil mélodique de l'émotion** (`js/melody-profiles.js`). En haut de l'atelier, l'émotion de la
+scène (onglet Ambiance), une autre émotion ou « Sans profil ». Chacune des 15 émotions a un profil, tiré de
+l'« appui à essayer » du guide MusicEmotion et de la méthode mélodique de la formation (`docs/reference/`) :
+
+- six **axes** (calme/agité, sombre/lumineux, intime/ample visibles ; stable/incertain, retenu/exubérant,
+  régulier/flottant dans **Réglages fins**) qui donnent les notes par mesure, l'ambitus, le registre, le goût pour
+  les sauts et le rythme ;
+- le **contour** de la phrase (arche, montée, descente, plateau, vagues), la **note visée** sur les appuis
+  (fondamentale, tierce, quinte, couleur du mode — la sixte majeure pour l'espoir —, note pivot), la **fin**
+  (fermée, ouverte, suspendue), les **ornements** permis (passage, broderie, retard, appoggiature, anticipation ;
+  seulement sans paroles), la **reprise du motif** (répétition variée, séquence, registre, renversement,
+  augmentation, diminution, fragmentation, décalage) ;
+- le **motif de départ** (Auto, Arche 1–3–5–3, Appel et retenue, Note répétée, Note commune) et la **note pivot**
+  (une note commune à plusieurs accords de la grille, qui change de rôle de l'un à l'autre).
+
+Le résultat montre ce que le profil demandait et ce que fait la mélodie (note visée entendue, sommet de la phrase,
+fin), puis six repères descriptifs (tessiture, mouvement conjoint, notes répétées, attaques par mesure,
+respirations, cellule rythmique reprise). **Variante B** recompose avec la même graine en changeant un seul levier
+(contour, fin, note visée ou reprise), pour comparer à l'écoute. L'onglet Ambiance montre la **mélodie conseillée**
+de chaque émotion ; dans Band, l'émotion de chaque scène (étape Accords) guide aussi la mélodie (contour, note
+visée sur les temps forts, registre, fin) et le caractère conseillé est marqué ; **Réglages fins → Émotion de la
+scène : Ignorée** revient au comportement précédent.
+
 ### Auto Mix : l'assistant de mixage et de mastering
 
 Dans la console **Mix** :
@@ -849,7 +872,8 @@ Les accords par mode et par émotion (`js/emotions.js`) s'appuient sur trois doc
 | `js/automixpanel.js` | Auto Mix : panneau de la console, A/B, préférences, pilote auto |
 | `js/band-songs.js` | Band : plans des 20 chansons complètes (tonalité, sections, grilles, parties) |
 | `js/bandsong.js` | Band : écrit les scènes, les notes de chaque musicien et l'arrangement d'après un plan |
-| `js/melody.js` | Key → Mélodie : grille d'accords, syllabes du français, rythme, hauteurs, contrôles, export MIDI ; vérification d'une mélodie écrite (`checkMelody`) — fonctions pures |
+| `js/melody-profiles.js` | Profils mélodiques des 15 émotions : six axes d'intention, contour, note visée, fin, ornements, reprise du motif, motif de départ ; `SS.resolveMelodyProfile`, variante B |
+| `js/melody.js` | Key → Mélodie : grille d'accords, syllabes du français, rythme, hauteurs (pilotées par le profil de l'émotion : contour, note visée, ornements, reprise), notes pivots, mesures descriptives, contrôles, export MIDI ; vérification d'une mélodie écrite (`checkMelody`) — fonctions pures |
 | `js/melodypanel.js` | Panneau Mélodie, affiché dans Band et dans Key : formulaire, proposition (grille, écoute avec la nappe, contrôles), écriture sur la piste |
 | `js/bandmix.js`, `js/band-levels.js`, `js/band-drive.js` | Band : règles de mixage et de mastering, niveaux mesurés, gain de mastering par chanson |
 | `js/dirt-tuning.js` | Hauteur mesurée des échantillons Dirt-Samples |

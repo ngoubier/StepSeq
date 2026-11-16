@@ -619,13 +619,39 @@ SS.bandSong = (() => {
     const keyPcs = H().scale(key).map((d) => d.pc);
     const tonic = keyPcs[0];
     const cx = { simple: { leap: 0.5, max: 7 }, adventurous: { leap: 1.6, max: 12 } }[o.complexity] || { leap: 1, max: 9 };
+    // profil de l'émotion (js/melody-profiles.js) : il s'ajoute au caractère, qui garde le rythme
+    const prof = o.profile || null;
+    const ending = o.ending && o.ending !== 'auto' ? o.ending : prof ? prof.ending : 'closed';
+    const PSHAPE = { arch: 'arch', rise: 'up', fall: 'down', wave: 'wave', plateau: 'wave' };
+    const leapK = prof ? 0.6 + prof.leap * 0.8 : 1;
+    // note pivot de la section : commune au plus grand nombre de ses accords
+    let pivotPc = null;
+    if (prof && (prof.target === 'pivot' || prof.motif === 'common')) {
+      const cs = [...new Map(spans.map((sp) => [sp.chord.sym || sp.chord.rootPc + ':' + tones(sp.chord).join(), sp.chord])).values()];
+      let best = 1;
+      for (let pc = 0; pc < 12; pc++) {
+        const n = cs.filter((c) => tones(c).includes(pc)).length;
+        if (n > best) [best, pivotPc] = [n, pc];
+      }
+    }
+    /** Note visée par le profil sur un accord (classe de hauteur, ou null). */
+    const targetOf = (c) => {
+      if (!prof) return null;
+      const ct = tones(c);
+      const t = prof.target === 'pivot' || prof.motif === 'common' ? pivotPc : prof.target === 'color' ? prof.colorPc : null;
+      if (t != null) return ct.includes(t) || chordScale(c, keyPcs).includes(t) ? t : null;
+      const root = ct[0];
+      const pick = { root: [0], third: [3, 4], fifth: [7] }[prof.target] || [];
+      return ct.find((pc) => pick.includes(pcOf(pc - root))) ?? null;
+    };
     // tessiture
     const R = (SS.melody && SS.melody.RANGES) || {};
     let lo;
     let hi;
-    if (o.range && o.range !== 'auto' && R[o.range]) ({ lo, hi } = R[o.range]);
+    if (o.range && o.range !== 'auto' && o.range !== 'profil' && R[o.range]) ({ lo, hi } = R[o.range]);
     else {
-      const c = role === 'vox' ? 66 : o.character === 'inspiration' || !o.character ? CENTER[secMode] || 67 : 68;
+      // registre : le profil déplace le centre (sombre → plus grave, lumineux → plus aigu)
+      const c = (role === 'vox' ? 66 : o.character === 'inspiration' || !o.character ? CENTER[secMode] || 67 : 68) + (prof ? Math.round((prof.center - 0.5) * 10) : 0);
       lo = c - ch.low;
       hi = c + ch.high;
       if (role === 'vox') [lo, hi] = [Math.max(57, lo), Math.min(77, hi)];
@@ -662,11 +688,11 @@ SS.bandSong = (() => {
         rhy[rhy.length - 1][1] = L - rhy[rhy.length - 1][0];
       }
       if (n > 0) fitCount(rhy, n);
-      const firstShape = pick(r, SHAPES);
+      const firstShape = prof ? PSHAPE[prof.contour] || pick(r, SHAPES) : pick(r, SHAPES);
       const shape = base === 'A' ? firstShape : pick(r, SHAPES.filter((x) => x !== (motifs.Ashape || 'arch')));
       if (base === 'A') motifs.Ashape = shape;
       const per = ch.cell ? rhy.filter(([s]) => s < unit).length : rhy.length;
-      const d = motifDirs(r, per, shape, ch.leap * cx.leap);
+      const d = motifDirs(r, per, shape, ch.leap * cx.leap * leapK);
       const dirs = rhy.map((_, i) => d[i % per]);
       // A′ : la fin repart dans l'autre sens
       const alt = dirs.map((x, i) => (i >= dirs.length - Math.max(2, Math.round(dirs.length / 3)) ? { ...x, dir: -x.dir || -1, leap: false } : x));
@@ -691,7 +717,8 @@ SS.bandSong = (() => {
       const last = pi === playing[playing.length - 1];
       const prime = p.letter.includes('′');
       // fin : réponse (′ ou dernière phrase) posée ; appel en suspens
-      const close = last ? (o.ending || 'closed') === 'closed' : prime;
+      const close = last ? ending === 'closed' : prime;
+      const suspend = last && ending === 'suspended';
       const cap = pi === peakAt ? hi : hi - 3;
       let rhy;
       let dirs;
@@ -743,10 +770,18 @@ SS.bandSong = (() => {
             const near = ct.map((pc) => nearest(pc, n)).sort((a, b) => Math.abs(a - n) - Math.abs(b - n) || (b - a) * (dir || 1));
             n = near[0];
           }
+          // profil : sur un temps fort, la note visée si elle est à portée (une tierce)
+          const tpc = strong ? targetOf(c) : null;
+          if (tpc != null && pcOf(n) !== tpc) {
+            const t = nearest(tpc, n);
+            if (Math.abs(t - n) <= 4 && t >= lo && t <= hi) n = t;
+          }
         }
         if (end) {
           // fin de phrase : la réponse se pose (fondamentale, tonique si l'accord la contient), l'appel reste en suspens
           let goal = close ? (ct.includes(tonic) ? [tonic] : [ct[0]]) : ct.slice(1, 3).filter((pc) => pc !== tonic);
+          // fin suspendue : la seconde ou la quarte de l'accord, laissée sans résolution
+          if (suspend) goal = [pcOf(ct[0] + 2), pcOf(ct[0] + 5)].filter((pc) => keyPcs.includes(pc) && !ct.includes(pc));
           if (p.mode === 'hold') {
             // note tenue : celle qui sonne le mieux sur tous les accords qu'elle traverse
             const fit = (pc) =>
@@ -771,7 +806,7 @@ SS.bandSong = (() => {
           const back = prev !== null && ok(prev) ? stepIn(prev, n > cap ? -1 : 1, pcs) : null;
           n = back !== null && ok(back) ? back : inside(n > cap ? cap - 4 : lo + 4) ?? Math.max(lo, Math.min(cap, n));
         }
-        if (strong && !ct.includes(pcOf(n))) n = inside(n) ?? n;
+        if (strong && !ct.includes(pcOf(n)) && pcOf(n) !== targetOf(c)) n = inside(n) ?? n;
         lastLeap = prev !== null && Math.abs(n - prev) >= 5 ? n - prev : 0;
         // une note qui dépasse sur l'accord suivant s'arrête avec l'accord si elle frotte (sauf note tenue voulue)
         let l = Math.min(len, bars * SPB - abs);
@@ -958,7 +993,10 @@ SS.bandSong = (() => {
       const spans = (grid && grid.length && spansFromGrid(grid, k, bars)) || spansOf(sec, k, bars);
       // caractère et notes par phrase de cette scène
       const own = mel.scenes && mel.scenes[id];
-      const smel = own ? { ...mel, ...own } : mel;
+      let smel = own ? { ...mel, ...own } : mel;
+      // émotion de la scène → profil mélodique (contour, note visée sur les temps forts, registre, fin)
+      const emoId = harmony && harmony.emotions && harmony.emotions[id];
+      if (emoId && mel.useProfile !== false && SS.resolveMelodyProfile && SS.MELODY_PROFILES[emoId]) smel = { ...smel, profile: SS.resolveMelodyProfile(emoId, {}, k) };
       const energy = sec.energy ?? ENERGY[id] ?? 0.9;
       const data = {};
       tracks.forEach((t) => {

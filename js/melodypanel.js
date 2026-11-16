@@ -23,10 +23,17 @@ SS.melodyPanel = (() => {
     text: '',
     meter: '',
     key: 'auto', // d'après les accords écrits ; la tonalité de la scène reste au choix dans les options
-    range: 'voix',
-    style: 'simple',
+    range: 'auto', // selon le profil (sinon voix moyenne)
+    style: 'auto', // selon le profil (sinon simple)
     complexity: 'balanced',
-    ending: 'closed',
+    ending: 'auto', // selon le profil (sinon fermée)
+    // profil mélodique (js/melody-profiles.js) : émotion de la scène, une autre émotion ou aucune ; retouches de
+    // l'utilisateur (axes, contour, note visée, fin, ornements, reprise, motif) ; note pivot ; variante B
+    emo: 'scene',
+    over: {},
+    pivot: 'auto',
+    variant: null,
+    variantN: 0,
     eMode: 'classique',
     sungFinalE: false,
     track: '',
@@ -62,6 +69,35 @@ SS.melodyPanel = (() => {
     const [tonic, mode] = S.key.split('|');
     return { tonic, mode };
   }
+  /* ---------- Profil mélodique de l'émotion ---------- */
+  const sceneEmotion = () => {
+    const sc = SS.currentScene(project());
+    return (sc && sc.emotion && SS.findEmotion(sc.emotion) && sc.emotion) || null;
+  };
+  /** Émotion qui pilote la mélodie : celle de la scène, une autre choisie, ou aucune (null). */
+  const emoId = () => (S.emo === 'none' ? null : S.emo === 'scene' ? sceneEmotion() : S.emo);
+  /** Profil résolu (avec les retouches et la variante B), ou null sans émotion. */
+  function profile(withVariant = true) {
+    const id = emoId();
+    if (!id || !SS.resolveMelodyProfile) return null;
+    const over = withVariant && S.variant ? S.variant.over : S.over;
+    return SS.resolveMelodyProfile(id, over, keyChoice() || sceneKey());
+  }
+  /** Accords de la grille (pour les notes pivots), sans composer. */
+  function gridSpans() {
+    const p = project();
+    const spb = SS.stepsPerBar(p);
+    try {
+      if (ctx && ctx.gridData) {
+        const d = ctx.gridData();
+        return d ? M().parseTimelineSpans(d, { spb, key: keyChoice() }) : [];
+      }
+      return M().parseGrid(S.grid, { spb, key: keyChoice() }).spans;
+    } catch (e) {
+      return [];
+    }
+  }
+
   const monoTracks = () => project().tracks.filter((t) => t.type === 'instrument' && !SS.chordTrack(t));
   function defaultTrack() {
     const list = monoTracks();
@@ -138,6 +174,185 @@ SS.melodyPanel = (() => {
     return h('label', { class: 'mel-field' }, h('span', { class: 'dlg-label' }, label, hint ? SS.helpTip(hint, label) : null), control);
   }
 
+  /* ---------- Intention : profil mélodique de l'émotion ---------- */
+  const svgNS = 'http://www.w3.org/2000/svg';
+  function contourSvg(contour, label) {
+    const svg = document.createElementNS(svgNS, 'svg');
+    svg.setAttribute('viewBox', '0 0 96 34');
+    svg.setAttribute('class', 'mel-contour');
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', label);
+    const path = document.createElementNS(svgNS, 'path');
+    path.setAttribute('d', SS.melodyContourPath(contour));
+    svg.append(path);
+    return svg;
+  }
+  /** Une retouche du profil : la variante B est oubliée, le résultat affiché reste celui d'avant. */
+  function retouch(fn) {
+    fn(S.over);
+    S.variant = null;
+    S.variantN = 0;
+    refreshIntention();
+  }
+  function axisSlider(a, value) {
+    const id = 'melAx-' + a.id;
+    return h(
+      'div',
+      { class: 'mel-axis' },
+      h('div', { class: 'mel-axis-l' }, h('span', {}, a.left), h('span', {}, a.right)),
+      h('input', {
+        type: 'range',
+        id,
+        min: 0,
+        max: 100,
+        step: 5,
+        value,
+        'aria-label': `${a.left} ou ${a.right}`,
+        onchange: (e) => retouch((o) => (o.axes = { ...(o.axes || {}), [a.id]: +e.target.value })),
+      }),
+    );
+  }
+  function renderIntention() {
+    const sceneEmo = sceneEmotion();
+    const emoSel = h(
+      'select',
+      {
+        id: 'melEmo',
+        'aria-label': 'Émotion qui guide la mélodie',
+        onchange: (e) => {
+          S.emo = e.target.value;
+          S.over = {};
+          S.variant = null;
+          S.variantN = 0;
+          refreshIntention();
+        },
+      },
+      opt('scene', sceneEmo ? `Émotion de la scène : ${SS.findEmotion(sceneEmo).label}` : 'Émotion de la scène (aucune)', S.emo === 'scene'),
+      ...(SS.EMOTIONS || []).map((e) => opt(e.id, e.label, S.emo === e.id)),
+      opt('none', 'Sans profil', S.emo === 'none'),
+    );
+    emoSel.value = S.emo;
+    const p = profile(false);
+    const head = h('div', { class: 'mel-intent-head' }, h('span', { class: 'dlg-label' }, 'Intention', SS.helpTip('Le profil de l’émotion règle le contour, la note visée sur les appuis, la fin, les ornements et la reprise du motif. Ce sont des points de départ : retouche-les et compare à l’écoute.', 'Intention')), emoSel);
+    if (!p) {
+      return h('section', { class: 'mel-intent off', id: 'melIntent' }, head, h('p', { class: 'dlg-hint' }, sceneEmo || S.emo !== 'scene' ? 'Sans profil : la mélodie suit seulement la grille et la structure.' : 'Cette scène n’a pas d’émotion (onglet Ambiance) : choisis-en une ici pour guider la mélodie, ou garde le comportement simple.'));
+    }
+    const emo = SS.findEmotion(p.id);
+    const touched = Object.keys(S.over).length > 0;
+    const chips = SS.melodyProfileSummary(p).map((c) => h('span', { class: 'mel-pchip' }, h('span', {}, c.k), h('b', {}, c.v)));
+    const main = SS.MELODY_AXES.filter((a) => a.main);
+    const fine = SS.MELODY_AXES.filter((a) => !a.main);
+    const choose = (id, label, value, entries, key) => {
+      const e = h('select', { id, 'aria-label': label, onchange: (ev) => retouch((o) => (o[key] = ev.target.value)) }, ...entries.map(([v, l]) => opt(v, l)));
+      e.value = value;
+      return h('label', { class: 'mel-fine-f' }, h('span', { class: 'dlg-label' }, label), e);
+    };
+    return h(
+      'section',
+      { class: 'mel-intent', id: 'melIntent' },
+      head,
+      h(
+        'div',
+        { class: 'mel-intent-body' },
+        h(
+          'div',
+          { class: 'mel-intent-sum' },
+          h('div', { class: 'mel-pname' }, h('b', {}, p.name), touched ? h('small', {}, 'retouché') : null, contourSvg(p.contour, `Contour : ${SS.MELODY_CONTOURS[p.contour].label}`)),
+          h('div', { class: 'mel-pchips' }, ...chips),
+          emo && emo.appui ? h('p', { class: 'dlg-hint mel-appui' }, 'Appui du guide : ', emo.appui, ' (notes de l’exemple du guide)') : null,
+          p.fallback ? h('p', { class: 'dlg-hint mel-stale' }, p.fallback) : null,
+        ),
+        h('div', { class: 'mel-axes' }, ...main.map((a) => axisSlider(a, p.axes[a.id]))),
+      ),
+      h(
+        'details',
+        { class: 'mel-fine', id: 'melFine', open: S.fineOpen ? true : null, ontoggle: (e) => (S.fineOpen = e.target.open) },
+        h('summary', {}, 'Réglages fins'),
+        h('div', { class: 'mel-axes' }, ...fine.map((a) => axisSlider(a, p.axes[a.id]))),
+        h(
+          'div',
+          { class: 'mel-fine-grid' },
+          choose('melContour', 'Contour', p.contour, Object.entries(SS.MELODY_CONTOURS).map(([k, v]) => [k, v.label]), 'contour'),
+          choose('melTarget', 'Note visée', p.target, Object.entries(SS.MELODY_TARGETS), 'target'),
+          choose('melEndingP', 'Fin', p.ending, Object.entries(SS.MELODY_ENDINGS), 'ending'),
+          choose('melRepeat', 'Reprise du motif', p.repeat, Object.entries(SS.MELODY_REPEATS), 'repeat'),
+        ),
+        h(
+          'fieldset',
+          { class: 'mel-orn' },
+          h('legend', {}, 'Ornements (mélodie sans paroles)'),
+          ...Object.entries(SS.MELODY_ORNAMENTS).map(([k, v]) =>
+            h(
+              'label',
+              { title: v.ex },
+              h('input', {
+                type: 'checkbox',
+                'data-orn': k,
+                checked: p.ornaments.includes(k) ? true : null,
+                onchange: (e) =>
+                  retouch((o) => {
+                    const cur = new Set(o.ornaments || p.ornaments);
+                    if (e.target.checked) cur.add(k);
+                    else cur.delete(k);
+                    o.ornaments = Object.keys(SS.MELODY_ORNAMENTS).filter((x) => cur.has(x));
+                  }),
+              }),
+              ' ',
+              v.label,
+            ),
+          ),
+        ),
+        touched ? h('button', { type: 'button', class: 'btn btn-small', id: 'melProfReset', onclick: () => ((S.over = {}), (S.variant = null), refreshIntention()) }, 'Revenir au profil') : null,
+      ),
+    );
+  }
+  /** Motif de départ et note pivot (sous l'intention). */
+  function renderMotifRow() {
+    const p = profile(false);
+    if (!p) return null;
+    const pivots = M().pivotNotes(gridSpans(), keyChoice() || sceneKey() || { tonic: 'C', mode: 'major' });
+    const motifBtns = Object.entries(SS.MELODY_MOTIFS).map(([k, m]) =>
+      h('button', { type: 'button', role: 'radio', 'aria-checked': String(p.motif === k), class: 'mel-seg' + (p.motif === k ? ' on' : ''), 'data-motif': k, title: m.text, onclick: () => retouch((o) => (o.motif = k)) }, m.label),
+    );
+    const pivBtn = (v, label, title) => h('button', { type: 'button', class: 'chip mel-piv' + (String(S.pivot) === String(v) ? ' active' : ''), 'aria-pressed': String(String(S.pivot) === String(v)), 'data-pivot': v, title, onclick: () => ((S.pivot = v), refreshIntention()) }, label);
+    const cur = SS.MELODY_MOTIFS[p.motif];
+    return h(
+      'div',
+      { class: 'mel-motifrow', id: 'melMotifRow' },
+      h('div', { class: 'mel-motif' }, h('span', { class: 'dlg-label' }, 'Motif de départ'), h('div', { class: 'mel-segs', role: 'radiogroup', 'aria-label': 'Motif de départ' }, ...motifBtns), h('small', { class: 'dlg-hint' }, cur.text)),
+      h(
+        'div',
+        { class: 'mel-pivots' },
+        h('span', { class: 'dlg-label' }, 'Note pivot', SS.helpTip('Une note commune à plusieurs accords de la grille : la même note change de rôle d’un accord à l’autre. Elle sert de note visée (profil « note pivot ») et au motif « note commune ».', 'Note pivot')),
+        h(
+          'div',
+          { class: 'chips' },
+          ...(pivots.length
+            ? [pivBtn('auto', `Auto · ${pivots[0].name}`, pivots[0].roles.join(', ')), ...pivots.map((x) => pivBtn(x.pc, `${x.name} · ${x.chords.join(', ')}`, x.roles.join(', '))), pivBtn('none', 'Aucune', 'pas de note pivot')]
+            : [h('small', { class: 'dlg-hint' }, 'Aucune note commune à deux accords de la grille.')]),
+        ),
+      ),
+    );
+  }
+  /** Redessine l'intention et le motif sans toucher au résultat (une retouche demande « Générer » à nouveau). */
+  function refreshIntention() {
+    const a = $('#melIntent');
+    if (a) a.replaceWith(renderIntention());
+    const b = $('#melMotifRow');
+    const nb = renderMotifRow();
+    if (b && nb) b.replaceWith(nb);
+    else if (b) b.remove();
+    else if (nb) {
+      const i = $('#melIntent');
+      if (i) i.after(nb);
+    }
+    const hint = $('#melStale');
+    if (S.res && S.res.ok && !hint) {
+      const out = $('#melOut');
+      if (out) out.prepend(h('p', { class: 'dlg-hint mel-stale', id: 'melStale' }, 'Réglages modifiés : « Générer une mélodie » pour les entendre.'));
+    }
+  }
+
   function renderForm() {
     if (S.key === 'scene' && !sceneKey()) S.key = 'auto';
     if (!S.track || (S.track !== 'new' && !monoTracks().some((t) => t.id === S.track))) S.track = defaultTrack();
@@ -195,7 +410,9 @@ SS.melodyPanel = (() => {
         },
         'Reprendre les accords de la scène',
       )),
-      field('Structure', meter, 'Notes par phrase : « 8 8 » = deux phrases sur la grille. « 3+5 » = notes par mesure. Vide : automatique.'),
+      renderIntention(),
+      renderMotifRow(),
+      field('Structure', meter, 'Notes par phrase : « 8 8 » = deux phrases sur la grille. « 3+5 » = notes par mesure. Vide : automatique (d’après le profil s’il y en a un).'),
       field('Piste de mélodie', sel('melTrack', S.track, [...monoTracks().map((t) => opt(t.id, `${t.name}${t.melody ? ' (mélodie)' : ''}`)), opt('new', '+ Nouvelle piste « Mélodie »')], (v) => {
         stopListen();
         S.track = v;
@@ -219,17 +436,17 @@ SS.melodyPanel = (() => {
             sel(
               'melRange',
               S.range,
-              Object.entries(M().RANGES).map(([id, r]) => opt(id, r.label)),
+              [opt('auto', 'Automatique (profil, sinon voix moyenne)'), ...Object.entries(M().RANGES).filter(([id]) => id !== 'profil').map(([id, r]) => opt(id, r.label))],
               (v) => (S.range = v),
             ),
           ),
           field(
             'Rythme',
-            sel('melStyle', S.style, [opt('simple', 'Simple'), opt('varie', 'Varié (pointées, syncopes)'), opt('dense', 'Dense (doubles-croches)')], (v) => (S.style = v)),
+            sel('melStyle', S.style, [opt('auto', 'Selon le profil'), opt('simple', 'Simple'), opt('varie', 'Varié (pointées, syncopes)'), opt('dense', 'Dense (doubles-croches)')], (v) => (S.style = v)),
           ),
           field(
             'Fin',
-            sel('melEnding', S.ending, [opt('closed', 'Fermée (tonique)'), opt('open', 'Ouverte')], (v) => (S.ending = v)),
+            sel('melEnding', S.ending, [opt('auto', 'Selon le profil'), opt('closed', 'Fermée (tonique)'), opt('open', 'Ouverte'), opt('suspended', 'Suspendue')], (v) => (S.ending = v)),
           ),
         ),
         field('Paroles', textArea, '« / » coupe une syllabe (vi/olon), (ent) rend des lettres muettes, [3+5] en fin de ligne fixe les syllabes par mesure.'),
@@ -305,7 +522,11 @@ SS.melodyPanel = (() => {
   /* ---------- Proposition ---------- */
   function compose(newSeed) {
     stopListen();
-    if (newSeed) S.seed += 1;
+    if (newSeed) {
+      S.seed += 1;
+      S.variant = null;
+      S.variantN = 0;
+    }
     const p = project();
     S.source = S.text.trim() ? 'text' : 'meter';
     S.res = M().compose({
@@ -324,6 +545,8 @@ SS.melodyPanel = (() => {
       sungFinalE: S.sungFinalE,
       timeSig: p.timeSig,
       seed: S.seed,
+      profile: profile(),
+      pivot: S.pivot,
     });
     S.resultSource = sourceSignature();
     renderOut();
@@ -525,12 +748,15 @@ SS.melodyPanel = (() => {
           !ctx.transportBox && makeTransport(),
           roll(res),
           legend(res),
+          S.variant ? h('p', { class: 'mel-variant' }, h('b', {}, 'Variante B'), ` : ${S.variant.text} (seul changement, même graine). `, h('button', { type: 'button', class: 'btn btn-small', id: 'melVarA', onclick: () => ((S.variant = null), compose(false)) }, 'Revenir à A')) : null,
           h('p', {}, res.summary.peak),
           h('p', {}, res.summary.ending),
           ...bad.map((c) => h('p', { class: 'bcf-warn' }, '⚠ ' + c.text)),
           warnTrack,
           longer,
         ),
+        res.profile ? profileSection(res) : null,
+        res.metrics && res.metrics.length ? h('div', { class: 'mel-sec' }, h('h3', {}, 'Contrôle de la mélodie', h('small', {}, 'des repères, pas une note de qualité')), h('div', { class: 'mel-metrics' }, ...res.metrics.map((m) => h('div', { class: 'mel-metric', 'data-metric': m.id }, h('span', {}, m.k), h('b', {}, m.v), h('small', {}, m.s))))) : null,
         scansion ? h('div', { class: 'mel-sec' }, h('h3', {}, 'Paroles'), scansion) : null,
         h(
           'details',
@@ -556,6 +782,36 @@ SS.melodyPanel = (() => {
     );
   }
 
+  /** Ce que le profil demandait et ce que fait la mélodie ; plan des phrases et reprise du motif. */
+  function profileSection(res) {
+    const p = res.profile;
+    const roles = res.lines.map((_, i) => {
+      const L = res.lines.length;
+      if (L === 1) return 'A';
+      const q = i % 4;
+      if (L - (i - q) === 2 || L === 2) return q === 0 ? 'A' : 'A′';
+      if (L - (i - q) === 3) return ['A', 'A′', 'B'][q];
+      return ['A', 'A′', 'B', 'A″'][q];
+    });
+    const per = res.bars / res.lines.length;
+    const plan = roles.map((r, i) => h('span', { class: 'mel-phr' + (r[0] === 'A' && r.length > 1 ? ' rep' : '') }, h('b', {}, r), ` m. ${i * per + 1}–${(i + 1) * per}`, r.length > 1 && r[0] === 'A' ? h('small', {}, SS.MELODY_REPEATS[p.repeat].replace(/ \(.*\)$/, '').toLowerCase()) : null));
+    return h(
+      'div',
+      { class: 'mel-sec mel-prof' },
+      h('h3', {}, `Profil « ${p.name} »`, p.emotion ? h('small', {}, p.emotion) : null),
+      h('div', { class: 'mel-phrases' }, ...plan),
+      h('ul', { class: 'mel-checks' }, ...res.profileReport.map((c) => h('li', { class: c.info ? 'warn' : c.ok ? 'ok' : 'bad' }, h('span', { class: 'ck' }, c.info ? '!' : c.ok ? '✓' : '✗'), c.text))),
+    );
+  }
+
+  /** Variante B : la même graine, un seul levier du profil changé (contour, fin, note visée, reprise, tour à tour). */
+  function variantB() {
+    const p = profile(false);
+    if (!p || !S.res || !S.res.ok) return;
+    S.variant = SS.melodyVariantB(p, S.over, S.variantN++);
+    compose(false);
+  }
+
   const BARS_OPTIONS = [1, 2, 4, 8, 16, 32, 64];
   const nextBars = (n) => BARS_OPTIONS.find((b) => b >= n) || 64;
 
@@ -563,6 +819,10 @@ SS.melodyPanel = (() => {
     const ok = !!(S.res && S.res.ok);
     const b = (ctx && ctx.buttons) || {};
     [b.write].forEach((x) => x && (x.disabled = !ok));
+    if (b.variant) {
+      b.variant.disabled = !ok || !profile(false);
+      b.variant.title = profile(false) ? 'La même mélodie avec un seul levier du profil changé (contour, fin, note visée ou reprise), pour comparer à l’écoute' : 'Choisis une émotion (Intention) pour comparer deux réglages';
+    }
   }
 
   /* ---------- Écouter : la mélodie et la nappe (accords tenus) ---------- */
@@ -769,5 +1029,13 @@ SS.melodyPanel = (() => {
     app = appApi;
   }
 
-  return { init, show, render, compose, write, stop: stopListen, gridFromScene, _state: S };
+  /** Ouvre l'atelier sur une émotion donnée (bouton « Composer avec ce profil » de l'onglet Ambiance). */
+  function useEmotion(id) {
+    S.emo = id && id === sceneEmotion() ? 'scene' : id || 'scene';
+    S.over = {};
+    S.variant = null;
+    S.variantN = 0;
+  }
+
+  return { init, show, render, compose, write, variantB, useEmotion, stop: stopListen, gridFromScene, _state: S };
 })();
