@@ -146,20 +146,8 @@ SS.harmonyPanel = (() => {
 
   /** Grille de référence (SS.EMOTION_LIBRARY) → proposition jouable, transposée sur la tonique de la scène. */
   function libOption(e) {
-    const k = { tonic: anchorTonic() || e.tonic, mode: e.mode };
-    const shift = H().scale(k)[0].pc - H().scale({ tonic: e.tonic, mode: e.mode })[0].pc;
-    const bars = SS.libraryBars(e);
-    const gridList = e.chords
-      .trim()
-      .split(/\s+/)
-      .map((sym, i) => {
-        const c = SS.parseLibraryChord(sym);
-        const g = c && H().toGridChord(k, { rootPc: (c.rootPc + shift + 12) % 12, type: c.type });
-        return g && { ...g, ...(c.bass ? { bass: c.bass } : {}), bars: bars[i] };
-      })
-      .filter(Boolean);
-    const chords = gridList.map((g) => H().gridChord(k, g.degree, g.type, g.acc, g.bass || 0));
-    return { kind: 'ref', ref: e, key: k, grid: gridList, chords, tempo: null, label: e.label, src: SS.EMOTION_SOURCES[e.src] };
+    const { key: k, grid: gridList, chords } = SS.libraryGrid(e, anchorTonic() || e.tonic);
+    return { kind: 'ref', ref: e, key: k, grid: gridList, chords, tempo: e.tempo || null, label: e.label, src: SS.EMOTION_SOURCES[e.src] };
   }
 
   /** Les trois pistes d'une émotion, puis ses grilles de référence. */
@@ -176,7 +164,15 @@ SS.harmonyPanel = (() => {
       : `<button type="button" class="btn btn-small" data-emo-listen="${i}">▶ Écouter</button><button type="button" class="btn btn-small btn-accent" data-emo-apply="${i}" title="Pose ces accords sur la grille de la scène (onglet 2)">Poser sur la grille</button>`;
     const ref = pr.kind === 'ref';
     const kind = ref ? `<span class="emo-kind k-ref">Référence</span><b class="hm-ref-l">${esc(pr.label)}</b>` : `<span class="emo-kind k-${pr.kind}">${SS.EMOTION_KINDS[pr.kind]}</span>`;
-    const src = ref && pr.src ? (pr.src.url ? `<a href="${esc(pr.src.url)}" target="_blank" rel="noopener">${esc(pr.src.name)} ↗</a>` : esc(pr.src.name)) + (pr.src.note ? ` <span class="hm-muted">(${esc(pr.src.note)})</span>` : '') : '';
+    // source : la fiche (vidéo) quand elle existe, sinon la page de la source ; statut de l'émotion et réserve du relevé
+    const r = ref ? pr.ref : null;
+    const srcUrl = r && (r.url || (pr.src && pr.src.url));
+    const srcName = pr.src ? pr.src.name + (r.n ? `, fiche ${r.n}` : '') : '';
+    const src = ref && pr.src
+      ? (srcUrl ? `<a href="${esc(srcUrl)}" target="_blank" rel="noopener">${esc(srcName)} ↗</a>` : esc(srcName)) +
+        (r.mood ? ` · <span class="hm-emo-st">${r.stated ? 'émotion annoncée' : 'interprétation'} : ${esc(r.mood)}</span>` : '') +
+        (r.note ? ` <span class="hm-muted">(${esc(r.note)})</span>` : !r.n && pr.src.note ? ` <span class="hm-muted">(${esc(pr.src.note)})</span>` : '')
+      : '';
     // les autres émotions que la grille illustre (cliquables) ; `tags` = l'émotion affichée, qu'on ne répète pas
     const emoTags = ref && tags ? pr.ref.emos.filter((id) => id !== tags).map((id) => `<button type="button" class="chip emo-tag" data-emo="${id}">${esc(SS.findEmotion(id).label)}</button>`).join('') : '';
     return `<div class="hm-ex${ref ? ' ref' : ''}${pick ? ' pick' : ''}${on ? ' on' : ''}"${pick ? ` data-wpick="${i}" tabindex="0" role="radio" aria-checked="${on}"` : ''}>
@@ -188,10 +184,16 @@ SS.harmonyPanel = (() => {
 
   function colorLine(modeId) {
     const md = H().MODES.find((m) => m.id === modeId);
-    if (md.color != null) return `Note caractéristique : <b>${esc(md.colorText)}</b>. Les accords qui la contiennent sont marqués « couleur du mode » ; faites-la entendre dans la mélodie.`;
-    if (modeId === 'major') return 'Le mode de référence : la dominante attire vers la tonique.';
-    if (modeId === 'harmonic') return 'La sensible (7<sup>e</sup> degré haussé) tire vers la tonique : tension, drame.';
-    return 'Pas de sensible : la boucle tourne sans se résoudre.';
+    let txt;
+    if (md.color != null) txt = `Note caractéristique : <b>${esc(md.colorText)}</b>. Les accords qui la contiennent sont marqués « couleur du mode » ; faites-la entendre dans la mélodie.`;
+    else if (modeId === 'major') txt = 'Le mode de référence : la dominante attire vers la tonique.';
+    else if (modeId === 'harmonic') txt = 'La sensible (7<sup>e</sup> degré haussé) tire vers la tonique : tension, drame.';
+    else txt = 'Pas de sensible : la boucle tourne sans se résoudre.';
+    // guide MusicEmotion, chap. 4 : ce qu'il faut faire entendre, boucle d'essai sur la tonique de la scène, appui
+    const g = SS.MODE_GUIDE && SS.MODE_GUIDE[modeId];
+    if (!g) return txt;
+    const loop = SS.modeLoop(modeId, anchorTonic() || 'C');
+    return `${txt}<br><span class="hm-muted">À faire entendre : ${esc(g.hear)}. Boucle d’essai : <b>${esc(loop.chords.map((c) => c.name).join(' – '))}</b>. ${esc(g.tip)}</span>`;
   }
 
   /** Pose une proposition sur la grille de la scène en cours (tonalité, émotion, tempo si demandé), puis ouvre l'onglet Grille. */
@@ -361,6 +363,7 @@ SS.harmonyPanel = (() => {
           <dl class="emo-matrix">
             <dt>Harmonie</dt><dd>${esc(emo.harmony)}</dd><dt>Mélodie</dt><dd>${esc(emo.melody)}</dd>
             <dt>Rythme, texture</dt><dd>${esc(emo.texture)}</dd><dt>Risque</dt><dd>${esc(emo.risk)}</dd>
+            ${emo.appui ? `<dt>Appui à essayer</dt><dd>${esc(emo.appui)} <span class="hm-muted">(guide MusicEmotion, notes de l’exemple)</span></dd>` : ''}
             ${props.map((pr) => `<dt>Réserve ${SS.EMOTION_KINDS[pr.kind].toLowerCase()}</dt><dd>${esc(pr.caveat)}</dd>`).join('')}
           </dl>
           <p class="hm-muted"><b>Mélodie conseillée</b> : « ${esc(gen ? gen.label : '')} » (${esc(gen ? gen.text : '')}).
@@ -972,7 +975,8 @@ SS.harmonyPanel = (() => {
       chords = [];
       for (let s = 0, i = 0; s < total; s += spb, i++) {
         const c = pr.chords[i % pr.chords.length];
-        chords.push({ step: s, len: Math.min(spb, total - s), degree: c.degree, type: c.type, acc: 0 });
+        const gc = H().toGridChord(k, c, c.degree) || { degree: c.degree, type: c.type, acc: 0 };
+        chords.push({ step: s, len: Math.min(spb, total - s), ...gc });
       }
       msg = `Grille ${pr.label} posée.`;
     } else {

@@ -1554,21 +1554,10 @@ SS.band = (() => {
       return { kind: pr.kind, label: SS.EMOTION_KINDS[pr.kind], key: k, chords, grid, tempo: pr.tempo || null, why: SS.fillEmotionText(pr.why, chords, k.tonic, H.french) };
     });
     const refs = SS.libraryFor(emoId).map((e) => {
-      const k = { tonic, mode: e.mode };
-      const shift = H.scale(k)[0].pc - H.scale({ tonic: e.tonic, mode: e.mode })[0].pc;
-      const bars = SS.libraryBars(e);
-      const grid = e.chords
-        .trim()
-        .split(/\s+/)
-        .map((sym, i) => {
-          const c = SS.parseLibraryChord(sym);
-          const gc = c && H.toGridChord(k, { rootPc: (((c.rootPc + shift) % 12) + 12) % 12, type: c.type });
-          return gc && { ...gc, bars: bars[i] };
-        })
-        .filter(Boolean);
-      const chords = grid.map((gc) => H.gridChord(k, gc.degree, gc.type, gc.acc));
+      const { key: k, grid, chords } = SS.libraryGrid(e, tonic);
       const src = SS.EMOTION_SOURCES && SS.EMOTION_SOURCES[e.src];
-      return { kind: 'ref', label: e.label, key: k, chords, grid, tempo: null, why: src ? `Source : ${src.name}` : '' };
+      const why = src ? `Source : ${src.name}${e.n ? `, fiche ${e.n}` : ''}${e.mood ? ` · ${e.stated ? 'émotion annoncée' : 'interprétation'} : ${e.mood}` : ''}` : '';
+      return { kind: 'ref', label: e.label, key: k, chords, grid, tempo: e.tempo || null, why };
     });
     return { props, refs };
   }
@@ -1579,7 +1568,7 @@ SS.band = (() => {
     for (let at = 0, i = 0; at < total && pr.grid.length; i++) {
       const { bars: b = 1, ...c } = pr.grid[i % pr.grid.length];
       const len = Math.max(4, Math.round(b * 16));
-      out.push({ step: at, len: Math.min(len, total - at), degree: c.degree, type: c.type, acc: c.acc || 0 });
+      out.push({ step: at, len: Math.min(len, total - at), degree: c.degree, type: c.type, acc: c.acc || 0, ...(c.bass ? { bass: c.bass } : {}) });
       at += len;
     }
     return out;

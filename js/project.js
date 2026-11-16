@@ -894,7 +894,7 @@ SS.trackLen = (p, t) => {
 /* ================================================================== *
  *
  * project.scenes  : [{ id, name, bars, data: { trackId: { steps, rat?, cond?, auto? } | { events, auto? } }, key?, emotion? }]
- *                   key     : { tonic: "D", mode: "major"|"minor"|"harmonic"|"dorian"|"phrygian"|"lydian"|"mixolydian" }
+ *                   key     : { tonic: "D", mode: "major"|"minor"|"harmonic"|"dorian"|"phrygian"|"lydian"|"mixolydian"|"phrygdom"|"locrian" }
  *                             tonalité ou mode de la scène (facultatif, js/harmony.js)
  *                   emotion : "nostalgie", intention choisie dans la fenêtre Harmo One (facultatif, js/emotions.js)
  * project.current : id de la scène en cours d'édition (son contenu vit dans les pistes)
@@ -1017,7 +1017,7 @@ SS.songLength = (p) => {
 
 /**
  * Grille d'accords d'une scène (onglet Grille de Harmo One), ou null :
- *   { chords: [{ step, len, degree (0–6), type (SS.CHORDS), acc (0 | 1) }],
+ *   { chords: [{ step, len, degree (0–6), type (SS.CHORDS), acc (−1 | 0 | 1) }],
  *     snap: 'bar'|'half'|'beat', auto: bool,
  *     layers: { bass: { on, gen, dst }, comp: { on, rhythm, dst }, arp: { on, dst } },
  *     sig: { trackId: empreinte des notes écrites par la grille } }  -- piste retouchée à la main → on demande avant d'écraser

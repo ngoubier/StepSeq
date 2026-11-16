@@ -51,12 +51,16 @@ const shot = async (page, name) => SHOTS && page.locator('#harmonyDialog').scree
   await page.locator('.emo-chip[data-emo="nostalgie"]').click();
   ok((await page.locator('.hm-ex:not(.ref)').count()) === 3, 'Ambiance : 3 pistes pour Nostalgie');
   const nRef = await page.locator('.hm-ex.ref').count();
-  ok(nRef === 7, `Ambiance : grilles de référence de Nostalgie (${nRef})`);
+  const nLib = await page.evaluate(() => SS.libraryFor('nostalgie').length);
+  ok(nRef === nLib && nRef >= 7, `Ambiance : grilles de référence de Nostalgie (${nRef})`);
+  ok((await page.locator('.hm-ex.ref .hm-emo-st').count()) > 0, 'statut des émotions (annoncée / interprétation)');
+  ok(/Boucle d’essai/.test(await page.locator('.hm-color').textContent()), 'guide du mode : boucle d’essai');
   ok((await page.locator('.hm-ex.ref a[href^="https://"]').count()) >= 5, 'chaque grille de référence cite sa source');
   ok(/Mineur naturel/.test(await page.locator('.hm-modes-line').textContent()), 'les modes des grilles de l’émotion');
   // toute la bibliothèque, rangée par mode
   await page.click('.hm-all');
-  ok((await page.locator('.hm-ex.ref').count()) === 39, 'Toutes les grilles : 39 grilles de référence');
+  const nAll = await page.evaluate(() => SS.EMOTION_LIBRARY.length);
+  ok((await page.locator('.hm-ex.ref').count()) === nAll, `Toutes les grilles : ${nAll} grilles de référence`);
   ok((await page.locator('.hm-lib-g').count()) >= 5, 'rangées par mode');
   const tender = page.locator('.hm-ex.ref', { hasText: 'Nostalgie tendre' });
   ok(/C\/B/.test(await tender.locator('.hm-progchords').textContent()) || /\//.test(await tender.locator('.hm-progchords').textContent()), 'accords sur basse imposée affichés (C/B…)');

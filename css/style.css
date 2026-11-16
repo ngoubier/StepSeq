@@ -3644,6 +3644,7 @@ dialog.system-dialog { width: min(920px, calc(100vw - 24px)); max-height: calc(1
 .hm-ex.ref { padding-top: 8px; padding-bottom: 8px; }
 .hm-why.hm-src { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: 12px; }
 .hm-why.hm-src a { color: var(--accent-2, #6cb6ff); }
+.hm-emo-st { color: var(--muted); }
 .emo-tag { font-size: 11px; padding: 1px 8px; }
 .emo-chip small { margin-left: 5px; font-size: 10px; opacity: .65; }
 .hm-mode.used { border-color: var(--line); border-style: dashed; }
