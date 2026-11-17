@@ -120,3 +120,16 @@ L'assistant n'est plus une fenêtre plein écran (`<dialog>`) mais une zone de l
 elle remplace les pistes, sous la barre du haut qui reste visible. Plus d'en-tête propre : Lecture / Stop, tempo, position et tonalité sont
 ceux de la barre du haut. Pied : un seul bouton **Fermer** (et « Chanson vide » à l'étape 1) ; on change d'étape par le stepper.
 « Créer la chanson » est dans l'étape Intégration, General MIDI dans l'étape 2.
+
+## Brouillon (novembre 2026)
+
+Le travail de l'assistant est enregistré **dans le projet** (`project.wizard = { v, savedAt, createdAt?, state }`, `js/wizdraft.js` pour la
+mise en forme JSON, `wizSnapshot` / `wizRestore` dans `js/band.js`), tout seul, débouncé, dès que l'état diffère de celui de l'ouverture.
+Rien n'est créé : ni piste, ni entrée Annuler / Rétablir (l'historique ignore `wizard`).
+
+- **Indication** : à gauche de « Chanson vide » / « Fermer », `#bandDraft`, « Brouillon enregistré » : texte discret de 12 px, `--bw-dim`, sans
+  bordure ni pastille (ce n'est pas un bouton) ; caché tant que rien n'est écrit ; l'heure d'enregistrement est dans l'infobulle.
+- **Fermer / Échap** gardent le brouillon. **Créer la chanson** le garde aussi, avec `createdAt` (le menu dit alors « chanson créée le… »).
+- **Reprendre** : « Reprendre l'assistant » dans le menu de l'application (visible seulement si le projet a un brouillon ; sous le libellé, la
+  date en `--muted`) rouvre à l'étape et à la scène où l'on était. « Nouvelle chanson sur ce projet… » demande « Remplacer le brouillon de
+  l'assistant ? » ; « Nouvelle chanson… » part d'un projet neuf (l'ancien, brouillon compris, reste dans Mes chansons).

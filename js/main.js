@@ -18,7 +18,7 @@
   const history = { past: [], future: [], present: null, timer: null };
 
   function snapshot() {
-    return SS.serialize(project);
+    return SS.serialize(project, { wizard: false }); // le brouillon de l'assistant a son propre enregistrement : Annuler ne le touche pas
   }
   function resetHistory() {
     history.past = [];
@@ -46,6 +46,7 @@
   }
   function restoreSnapshot(json) {
     const p = SS.normalizeProject(JSON.parse(json));
+    if (project.wizard) p.wizard = project.wizard; // Annuler / Rétablir ne concernent que les pistes
     project = p;
     SS.ui.clearSelection();
     syncHeader();
@@ -108,6 +109,20 @@
         /* stockage indisponible : on ignore */
       }
     }, 400);
+  }
+
+  /**
+   * Brouillon de l'assistant (js/band.js) : rangé dans project.wizard et enregistré comme n'importe quelle modification
+   * (stockage local, Mes chansons, fichier lié), mais sans toucher aux pistes ni à l'historique Annuler / Rétablir.
+   * null : on efface le brouillon.
+   */
+  function setWizardDraft(d) {
+    if (d) project.wizard = d;
+    else delete project.wizard;
+    dirty = true;
+    SS.autosave.schedule();
+    clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(saveLocal, 400);
   }
 
   function loadAutosave() {
@@ -298,6 +313,7 @@
       SS.band.openWizard();
     });
     $('#songsBtn').addEventListener('click', () => SS.mySongs.open());
+    $('#resumeWizard').addEventListener('click', () => SS.band.resume());
     initAppMenu();
     $('#openProject').addEventListener('click', openProject);
     $('#saveProject').addEventListener('click', (e) => saveProject(e.shiftKey));
@@ -327,11 +343,18 @@
   }
 
   /* ---------- Menu de l'icône de l'application (Chansons, Nouveau, Ouvrir, Enregistrer) ---------- */
+  /** « Reprendre l'assistant » : visible seulement si le projet garde un brouillon de l'assistant. */
+  function syncResumeItem() {
+    const d = project.wizard;
+    $('#resumeWizard').hidden = !d;
+    if (d) $('#resumeWizardInfo').textContent = SS.band.draftWhen(d);
+  }
   function initAppMenu() {
     const btn = $('#appMenuBtn');
     const menu = $('#appMenu');
-    const items = () => [...menu.querySelectorAll('[role=menuitem]')];
+    const items = () => [...menu.querySelectorAll('[role=menuitem]')].filter((b) => !b.hidden);
     const setOpen = (open, focusFirst) => {
+      if (open) syncResumeItem();
       menu.hidden = !open;
       btn.setAttribute('aria-expanded', String(open));
       if (open && focusFirst) items()[0].focus();
@@ -843,7 +866,7 @@
     editTrack,
     deleteTrack,
   });
-  SS.band.init({ project: () => project, changed, wizardMode, openTrackDialog: (t, init) => SS.ui.openTrackDialog(t, init), apply: addBandTracks, applySong: addBandSong, bandTracks, hasNotes, writeMelody });
+  SS.band.init({ project: () => project, changed, setWizardDraft, toast: (m) => SS.ui.toast(m), wizardMode, openTrackDialog: (t, init) => SS.ui.openTrackDialog(t, init), apply: addBandTracks, applySong: addBandSong, bandTracks, hasNotes, writeMelody });
   SS.mySongs.init({ project: () => project, loadSong, flush: () => SS.autosave.saveNow() });
   SS.midiPanel.init({ project: () => project, loadSong: (p) => loadSong(p, { changed: true }), flush: () => SS.autosave.saveNow() });
   initHeader();

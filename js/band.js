@@ -43,9 +43,10 @@ SS.band = (() => {
   let el = null;
   // mel : réglages de la mélodie (étape Mélodie), gardés d'une ouverture à l'autre — voir melodyOpts()
   // hide : étape Mélodie, colonnes masquées (menu « Pistes ») ; la mélodie reste toujours affichée
+  const MEL_DEFAULT = { character: 'inspiration', form: 'auto', rhythm: 'auto', complexity: 'balanced', range: 'auto', ending: 'auto', notes: 0, fine: false, profile: 'on' };
   const S = {
     kindPick: null, styleId: null, presetId: null, sel: null, cache: {}, wiz: null, hide: new Set(), mode: 'create', cover: null,
-    mel: { character: 'inspiration', form: 'auto', rhythm: 'auto', complexity: 'balanced', range: 'auto', ending: 'auto', notes: 0, fine: false, profile: 'on' },
+    mel: { ...MEL_DEFAULT },
   };
 
   /* ---------- Petits outils DOM ---------- */
@@ -3902,6 +3903,115 @@ SS.band = (() => {
     putPart(sc.sec, T, { one: next, mode: undefined });
     partChanged(focus);
   }
+
+  /** Potentiomètre rotatif d'un réglage Arp One (même rendu que le panneau Arp One) : glisser, molette, flèches ; appliqué au lâcher. */
+  function arpKnob(sc, T, one, mc) {
+    const A = A1();
+    let v = A.macroValue(one, mc.id);
+    const num = h('b', {}, String(v));
+    const ring = h('div', { class: 'arp-knob-ring' }, h('div', { class: 'arp-knob-cap' }, num));
+    const now = h('span', { class: 'arp-knob-now' }, A.macroText(one, mc.id));
+    const dial = h('div', { class: 'arp-knob-dial', id: 'bwaK-' + mc.id, role: 'slider', tabindex: '0', 'aria-label': mc.label, 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(v), 'aria-valuetext': now.textContent }, ring);
+    const paint = () => {
+      ring.style.setProperty('--p', v + '%');
+      num.textContent = String(v);
+      dial.setAttribute('aria-valuenow', String(v));
+    };
+    const live = (x) => {
+      v = Math.max(0, Math.min(100, Math.round(x)));
+      const p = A.normalize({ ...one, ...A.macroPatch(one, mc.id, v), macros: { ...one.macros, [mc.id]: v } });
+      now.textContent = A.macroText(p, mc.id);
+      dial.setAttribute('aria-valuetext', now.textContent);
+      paint();
+    };
+    const commit = () => arpEdit(sc, T, (a) => ({ ...a, ...A.macroPatch(a, mc.id, v), macros: { ...a.macros, [mc.id]: v }, preset: '' }), '#bwaK-' + mc.id);
+    let drag = null;
+    dial.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      dial.setPointerCapture(e.pointerId);
+      drag = { y: e.clientY, v, moved: false };
+    });
+    dial.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      drag.moved = true;
+      live(drag.v + (drag.y - e.clientY) * 0.6);
+    });
+    const end = () => {
+      if (!drag) return;
+      const moved = drag.moved;
+      drag = null;
+      if (moved) commit();
+    };
+    dial.addEventListener('pointerup', end);
+    dial.addEventListener('pointercancel', end);
+    let wt = 0;
+    dial.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      live(v + (e.deltaY < 0 ? 2 : -2));
+      clearTimeout(wt);
+      wt = setTimeout(commit, 350);
+    }, { passive: false });
+    dial.addEventListener('keydown', (e) => {
+      const d = { ArrowUp: 5, ArrowRight: 5, ArrowDown: -5, ArrowLeft: -5, PageUp: 20, PageDown: -20 }[e.key];
+      const to = e.key === 'Home' ? 0 : e.key === 'End' ? 100 : d != null ? v + d : null;
+      if (to == null) return;
+      e.preventDefault();
+      live(to);
+      commit();
+    });
+    paint();
+    return h('div', { class: 'arp-knob bwa-knob', 'data-k': mc.id, title: mc.what }, dial, h('b', { class: 'arp-knob-name' }, mc.label), now);
+  }
+
+  /** Fenêtre de choix du motif (même présentation que celle d'Arp One) : on choisit une tuile, puis « Choisir ». */
+  function openMotifPicker(cur, apply) {
+    const tools = SS.arpPanel.motifTools;
+    const pick = { id: cur ? cur.id : '', cat: (cur && cur.cat) || 'all', q: '' };
+    let dlg = document.getElementById('bwaMotifDialog');
+    if (dlg) dlg.remove();
+    dlg = h('dialog', { id: 'bwaMotifDialog', class: 'sd-dialog motif-dialog' }, h('form', { method: 'dialog' }));
+    document.body.append(dlg);
+    const done = () => (dlg.close(), dlg.remove());
+    dlg.addEventListener('cancel', (e) => (e.preventDefault(), done()));
+    const draw = () => {
+      const q = pick.q.trim().toLowerCase();
+      const recents = tools.recents();
+      const match = (m) => !q || (m.name + ' ' + (m.tags || '') + ' ' + tools.example(m)).toLowerCase().includes(q);
+      const inCat = (m, c) => c === 'all' || (c === 'recent' ? recents.includes(m.id) : m.cat === c);
+      const cats = [{ id: 'recent', label: '★ Récents' }, { id: 'all', label: 'Tous les motifs' }, ...SS.MOTIF_CATS];
+      const list = SS.MOTIFS.filter((m) => match(m) && inCat(m, q ? 'all' : pick.cat));
+      const groups = q || pick.cat === 'all'
+        ? SS.MOTIF_CATS.map((c) => ({ c, items: list.filter((m) => m.cat === c.id) })).filter((g) => g.items.length)
+        : [{ c: null, items: pick.cat === 'recent' ? recents.map((id) => list.find((m) => m.id === id)).filter(Boolean) : list }];
+      const sel = motifById(pick.id);
+      const tile = (m) => h('button', { type: 'button', class: 'arp-style' + (m.id === pick.id ? ' active' : ''), 'data-id': m.id, onclick: () => ((pick.id = m.id), draw()) },
+        h('span', { html: tools.icon(m) }), h('span', { class: 'arp-style-name' }, m.name), h('small', { class: 'arp-style-ex' }, tools.example(m)));
+      const search = h('input', { type: 'search', class: 'motif-search', placeholder: 'Rechercher : octave, basse, montée, synthwave…', value: pick.q });
+      search.addEventListener('input', () => {
+        pick.q = search.value;
+        draw();
+        const s2 = dlg.querySelector('.motif-search');
+        s2.focus();
+        s2.setSelectionRange(s2.value.length, s2.value.length);
+      });
+      dlg.querySelector('form').replaceChildren(
+        h('div', { class: 'motif-head' }, h('h2', {}, 'Choisir un motif'), search),
+        h('div', { class: 'motif-body' },
+          h('nav', { class: 'motif-cats' }, cats.map((c) => h('button', { type: 'button', class: 'motif-cat' + (!q && pick.cat === c.id ? ' active' : ''), onclick: () => ((pick.cat = c.id), (pick.q = ''), draw()) },
+            h('span', {}, c.label), h('small', {}, String(c.id === 'recent' ? recents.length : SS.MOTIFS.filter((m) => inCat(m, c.id)).length))))),
+          h('div', { class: 'motif-list' },
+            groups.length ? groups.map((g) => h('section', { class: 'motif-group' }, g.c ? h('h3', {}, g.c.label) : null, h('div', { class: 'arp-styles' }, g.items.map(tile)))) : h('p', { class: 'arp-help' }, 'Aucun motif ne correspond.'))
+        ),
+        h('div', { class: 'dlg-footer motif-foot' },
+          h('span', { class: 'motif-now' }, sel ? [h('span', { html: tools.icon(sel) }), h('span', {}, h('b', {}, sel.name), h('small', {}, tools.example(sel)))] : null),
+          h('span', { class: 'spacer' }),
+          h('button', { type: 'button', class: 'btn', id: 'bwaMotifCancel', onclick: done }, 'Annuler'),
+          h('button', { type: 'button', class: 'btn btn-accent', id: 'bwaMotifOk', disabled: !sel, onclick: () => { const m = motifById(pick.id); done(); if (m) { tools.remember(m.id); apply(m, '#bwaName'); } } }, 'Choisir'))
+      );
+    };
+    draw();
+    dlg.showModal();
+  }
   const ARP_RATES = [[0.5, '1/8'], [1, '1/16'], [1.5, '1/16 triolet'], [2, '1/32']];
   function arpBody(sc, T) {
     const A = A1();
@@ -3915,49 +4025,23 @@ SS.band = (() => {
     const rateKey = (r) => String(ARP_RATES.find(([x]) => Math.abs(x - r) < 1e-6)?.[0] ?? r);
     const rates = ARP_RATES.map(([r, t]) => [String(r), t]);
     if (!ARP_RATES.some(([r]) => rateKey(one.rate) === String(r))) rates.push([String(one.rate), A.rateLabel(one.rate)]);
+    const tools = SS.arpPanel.motifTools;
     const motifLine = h(
       'div',
       { class: 'bwa-motif' },
-      h('button', { type: 'button', class: 'btn bwa-nav', id: 'bwaPrev', 'aria-label': 'Motif précédent', title: 'Motif précédent', onclick: () => applyMotif(SS.motifStep(one, -1), '#bwaPrev') }, '‹'),
       h(
-        'div',
-        { class: 'bwa-name', id: 'bwaName', role: 'status' },
-        h('b', {}, cur ? cur.name : 'Motif perso'),
-        h('small', {}, (cat ? cat.label : 'Réglages à toi') + (o.one ? '' : ' · départ d’après l’inspiration'))
+        'button',
+        { type: 'button', class: 'bwa-name', id: 'bwaName', title: 'Choisir un autre motif', 'aria-haspopup': 'dialog', onclick: () => openMotifPicker(cur, applyMotif) },
+        h('span', { class: 'bwa-icon', html: cur ? tools.icon(cur) : '' }),
+        h('span', { class: 'bwa-nt' }, h('b', {}, cur ? cur.name : 'Motif perso'), h('small', {}, (cat ? cat.label : 'Réglages à toi') + (o.one ? '' : ' · départ d’après l’inspiration'))),
+        h('span', { class: 'bwa-chev', 'aria-hidden': 'true' }, '›')
       ),
-      h('button', { type: 'button', class: 'btn bwa-nav', id: 'bwaNext', 'aria-label': 'Motif suivant', title: 'Motif suivant', onclick: () => applyMotif(SS.motifStep(one, 1), '#bwaNext') }, '›')
+      h('button', { type: 'button', class: 'btn bwa-nav', id: 'bwaPrev', 'aria-label': 'Motif précédent', title: 'Motif précédent', onclick: () => applyMotif(SS.motifStep(one, -1), '#bwaPrev') }, '‹'),
+      h('button', { type: 'button', class: 'btn bwa-nav', id: 'bwaNext', 'aria-label': 'Motif suivant', title: 'Motif suivant', onclick: () => applyMotif(SS.motifStep(one, 1), '#bwaNext') }, '›'),
+      h('button', { type: 'button', class: 'btn bwa-surprise', id: 'bwaSurprise', title: 'Un nouvel arpège tiré au hasard', onclick: () => arpEdit(sc, T, (a) => A.normalize(SS.arpSurprise(a, {})), '#bwaSurprise') }, 'Surprends-moi'),
+      partSeg('Vitesse', 'bwaRate', rates, rateKey(one.rate), (v) => arpEdit(sc, T, (a) => ({ ...a, rate: +v }), `#bwaRate [data-v="${v}"]`))
     );
-    const picker = h(
-      'label',
-      { class: 'bwp-field bwa-pick' },
-      h('span', { class: 'bh-lbl' }, 'Motif'),
-      h(
-        'select',
-        { id: 'bwaMotif', 'aria-label': 'Choisir un motif d’Arp One', onchange: (e) => e.target.value && applyMotif(motifById(e.target.value), '#bwaMotif') },
-        !cur ? h('option', { value: '', selected: true }, 'Motif perso') : null,
-        ...SS.MOTIF_CATS.map((c) => h('optgroup', { label: c.label }, ...SS.MOTIFS.filter((m) => m.cat === c.id).map((m) => h('option', { value: m.id, selected: !!cur && cur.id === m.id }, m.name))))
-      )
-    );
-    const knobs = h(
-      'div',
-      { class: 'bwa-knobs' },
-      ...A.MACROS.map((mc) => {
-        const v = A.macroValue(one, mc.id);
-        const txt = h('small', {}, A.macroText(one, mc.id));
-        const val = h('output', {}, String(v));
-        return h(
-          'label',
-          { class: 'bwa-knob', title: mc.what },
-          h('span', { class: 'bwa-kh' }, h('b', {}, mc.label), val),
-          h('input', {
-            type: 'range', min: 0, max: 100, step: 1, value: v, id: 'bwaK-' + mc.id, 'aria-label': mc.label,
-            oninput: (e) => (val.textContent = e.target.value), // le réglage s'applique au lâcher
-            onchange: (e) => arpEdit(sc, T, (a) => ({ ...a, ...A.macroPatch(a, mc.id, +e.target.value), macros: { ...a.macros, [mc.id]: +e.target.value }, preset: '' }), '#bwaK-' + mc.id),
-          }),
-          txt
-        );
-      })
-    );
+    const knobs = h('div', { class: 'bwa-knobs' }, ...A.MACROS.map((mc) => arpKnob(sc, T, one, mc)));
     return [
       partHead(sc, T, 'arpège', true),
       rollBox(sc, T),
@@ -3966,13 +4050,6 @@ SS.band = (() => {
         { class: 'bwp-card bwa' },
         h('div', { class: 'bwp-ch' }, h('b', {}, `Arpège de « ${sc.name} »`), h('span', { class: 'bh-info' }, 'Arp One · mode Intuitif'), h('span', { class: 'spacer' }), playBox(sc, T, 'up16')),
         motifLine,
-        h(
-          'div',
-          { class: 'bwp-row' },
-          picker,
-          h('button', { type: 'button', class: 'btn btn-small', id: 'bwaSurprise', title: 'Un nouvel arpège tiré au hasard', onclick: () => arpEdit(sc, T, (a) => A.normalize(SS.arpSurprise(a, {})), '#bwaSurprise') }, '🎲 Surprends-moi'),
-          partSeg('Vitesse', 'bwaRate', rates, rateKey(one.rate), (v) => arpEdit(sc, T, (a) => ({ ...a, rate: +v }), `#bwaRate [data-v="${v}"]`))
-        ),
         knobs,
         muted ? h('p', { class: 'dlg-hint' }, 'L’arpège est coupé dans cette scène : un réglage le rallume.') : null,
         !insp && !o.one && !o.mode ? h('p', { class: 'dlg-hint' }, 'L’inspiration ne joue pas d’arpège dans cette scène : un premier réglage (motif, bouton, vitesse) l’allume.') : null
@@ -4044,8 +4121,10 @@ SS.band = (() => {
     const plan = cover() ? { ...p, spec: eff, cover: { title: S.cover.title.trim() || 'Reprise' } } : eff !== spec() ? { ...p, spec: eff } : p;
     // tout est lu avant de quitter l'assistant (leave efface S.wiz), puis la fenêtre principale reprend la place
     const args = [cols.map((c) => c.o), plan, tempo(), { melodySeed: seed, melody: melodyOpts(), harmony: harmonyOpts(), parts: S.wiz.parts, kinds: S.wiz.kinds, gains: cols.map((c) => volGain(c.id)), mix: S.wiz.mix }];
-    leave();
+    const draft = wizSnapshot(Date.now()); // le brouillon est gardé : rouvrir l'assistant permet de retoucher et de recréer
+    leave({ keep: false });
     app.applySong(...args);
+    app.setWizardDraft(draft);
   }
 
   /* ---------- Commande de l'écoute : la barre du haut de l'application ----------
@@ -4720,7 +4799,18 @@ SS.band = (() => {
   /* ---------- Ouverture / fermeture ---------- */
   /** Bouton Nouvelle de l'en-tête : l'assistant, sur le projet en cours (remplacé à la création, après confirmation). */
   function open() {
+    // le projet garde son brouillon : en commencer un autre le remplace, on demande d'abord (Annuler : « Reprendre l'assistant » le rouvre)
+    if (app.project().wizard && !S.wiz) {
+      if (!confirm(`Remplacer le brouillon de l’assistant ?\n\nCe projet garde déjà le travail d’un assistant (${draftWhen(app.project().wizard)}). OK l’efface pour en commencer un autre ; Annuler le garde (menu : « Reprendre l’assistant »).`)) return;
+      app.setWizardDraft(null);
+    }
     openWizard({ fresh: false });
+  }
+  /** « brouillon du 17/11 à 14:32 » ou « chanson créée le … » */
+  function draftWhen(d) {
+    const t = new Date(d.createdAt || d.savedAt || 0);
+    const fmt = `${t.toLocaleDateString('fr-FR')} à ${t.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+    return d.createdAt ? `chanson créée le ${fmt}` : `brouillon du ${fmt}`;
   }
   /** « Nouvelle chanson… » (menu de l'application) : l'assistant sur une chanson vide. */
   function openWizard({ fresh = true } = {}) {
@@ -4732,6 +4822,125 @@ SS.band = (() => {
       plans: {}, pseeds: {}, keys: {}, grids: {}, emos: {}, chars: {}, parts: {}, kinds: {}, melPanel: {}, melSec: null, form: null, secs: {}, skey: null, snap: 'beat', gsel: null, insp: null,
     };
     show();
+    draftStart();
+  }
+
+  /* ---------- Brouillon : l'état de l'assistant, rangé dans le projet (project.wizard) ----------
+   * Rien n'est créé : seulement un champ du projet, enregistré comme toute modification (js/main.js setWizardDraft).
+   * L'assistant s'écrit tout seul (débouncé) dès que son état diffère de celui de l'ouverture ; fermer le garde. */
+  /** L'état vivant, prêt pour SS.wizDraft.pack (le panneau Mélodie en cours est relu). */
+  function draftSrc() {
+    const w = { ...S.wiz };
+    if (w.melSec != null) w.melPanel = { ...w.melPanel, [w.melSec]: SS.melodyPanel.getState() };
+    return { mode: S.mode, styleId: S.styleId, presetId: S.presetId, cover: S.cover, cache: S.cache, hide: S.hide, mel: S.mel, accOpen: S.accOpen, tracksOpen: S.tracksOpen, w };
+  }
+  /** Le brouillon (enveloppe v, savedAt, createdAt, state) de l'assistant ouvert. */
+  function wizSnapshot(createdAt) {
+    const d = { v: SS.wizDraft.VERSION, savedAt: Date.now(), state: SS.wizDraft.pack(draftSrc()) };
+    const c = createdAt || S.wiz.createdAt;
+    if (c) d.createdAt = c;
+    return d;
+  }
+  /** Mélodie « Mix »… : les caches du catalogue (instruments choisis) ne gardent que ce qui existe encore. */
+  function cleanCache(raw) {
+    const out = {};
+    B().STYLES.forEach((st) =>
+      st.presets.forEach((p) => {
+        const r = raw && raw[p.id];
+        if (!r || typeof r !== 'object') return;
+        const o = {};
+        p.musicians.forEach((mu) => {
+          const x = r[mu.id];
+          if (!x || typeof x !== 'object') return;
+          if (mu.kits) {
+            const pieces = Array.isArray(x.pieces) ? x.pieces : [];
+            o[mu.id] = {
+              on: x.on !== false,
+              kit: mu.kits.includes(x.kit) ? x.kit : mu.kits[0],
+              pieces: pieces.filter((q) => q && typeof q.piece === 'string').map((q) => ({ piece: q.piece, on: q.on !== false })),
+            };
+          } else {
+            o[mu.id] = { on: x.on !== false, pick: Number.isInteger(x.pick) && x.pick >= 0 && x.pick < mu.pick.length ? x.pick : 0, custom: x.custom && typeof x.custom === 'object' ? x.custom : null };
+            if (x.picked) o[mu.id].picked = true;
+          }
+        });
+        out[p.id] = o;
+      })
+    );
+    return out;
+  }
+  /** Rouvre l'assistant dans l'état d'un brouillon. false : brouillon inutilisable (version inconnue, inspiration disparue…). */
+  function wizRestore(snap) {
+    const d = SS.wizDraft.clean(snap);
+    const x = d && SS.wizDraft.unpack(d.state);
+    const st = x && B().STYLES.find((s) => s.id === x.styleId);
+    const pr = st && st.presets.find((p) => p.id === x.presetId);
+    if (!pr) return false;
+    if (S.wiz) leave();
+    S.styleId = st.id;
+    S.presetId = pr.id;
+    S.mode = x.mode;
+    S.cover = x.mode === 'cover' ? { ...COVER_DEFAULT(), ...(x.cover || {}) } : x.cover ? { ...COVER_DEFAULT(), ...x.cover } : null;
+    S.cache = cleanCache(x.cache);
+    S.hide = x.hide;
+    S.mel = { ...MEL_DEFAULT, ...(x.mel || {}) };
+    S.accOpen = x.accOpen;
+    S.tracksOpen = x.tracksOpen;
+    S.wiz = {
+      seed: 0, off: new Set(), mute: new Set(), solo: new Set(), sig: null, res: null, mel: S.mel, vol: new Map(), mix: null, mixScope: 'song', mixOpen: null, mixTab: 'eq', hscene: null, hsec: null, tempo: null, tempoFor: null,
+      plans: {}, pseeds: {}, keys: {}, grids: {}, emos: {}, chars: {}, parts: {}, kinds: {}, melPanel: {}, form: null, secs: {}, skey: null, snap: 'beat', gsel: null, efilter: 0, fresh: false,
+      ...x.w, step: 1, melSec: null, insp: null, createdAt: d.createdAt,
+    };
+    const n = x.w.step;
+    if (n > 1 && n <= ST.pick && canGo(n)) S.wiz.step = n;
+    S.wiz.seen.add(S.wiz.step);
+    show();
+    draftStart();
+    return true;
+  }
+  /** « Reprendre l'assistant » (menu) : rouvre l'assistant du projet, à l'étape et à la scène où il en était. */
+  function resume() {
+    const d = app.project().wizard;
+    if (!d) return false;
+    if (wizRestore(d)) return true;
+    app.toast('Ce brouillon ne peut plus être rouvert (inspiration ou version inconnue).');
+    return false;
+  }
+  const hasDraft = () => !!(app && app.project().wizard);
+
+  let draftTimer = 0;
+  let draftTick = 0;
+  const draftSig = () => JSON.stringify(SS.wizDraft.pack(draftSrc()));
+  /** L'état de l'ouverture sert de référence : un assistant ouvert puis fermé sans rien changer n'écrit rien. */
+  function draftStart() {
+    S.wiz.draftSig = draftSig();
+    clearInterval(draftTick);
+    draftTick = setInterval(saveDraft, 1500);
+    draftInfo();
+  }
+  function draftSoon() {
+    if (!S.wiz) return;
+    clearTimeout(draftTimer);
+    draftTimer = setTimeout(saveDraft, 450);
+  }
+  /** Écrit le brouillon dans le projet s'il a changé (createdAt : la chanson vient d'être créée). */
+  function saveDraft(createdAt) {
+    clearTimeout(draftTimer);
+    if (!S.wiz || !app) return;
+    const sig = draftSig();
+    if (sig === S.wiz.draftSig && !createdAt) return;
+    S.wiz.draftSig = sig;
+    if (createdAt) S.wiz.createdAt = createdAt;
+    app.setWizardDraft(wizSnapshot());
+    draftInfo();
+  }
+  function draftInfo() {
+    const e = $('#bandDraft');
+    if (!e || !S.wiz) return;
+    const t = app.project().wizard ? new Date(app.project().wizard.savedAt) : null;
+    e.hidden = !t;
+    e.textContent = t ? 'Brouillon enregistré' : '';
+    e.title = t ? `Enregistré dans le projet à ${t.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} : « Reprendre l’assistant » dans le menu le rouvre tel quel.` : '';
   }
   function show() {
     SS.audio.ensureCtx();
@@ -4796,8 +5005,11 @@ SS.band = (() => {
   }
 
   /** Quitte le mode assistant sans rien écrire : l'écoute s'arrête, la barre du haut redevient celle du projet. */
-  function leave() {
+  function leave({ keep = true } = {}) {
     if (!S.wiz) return;
+    if (keep) saveDraft(); // fermer garde le brouillon (rien d'autre n'est écrit)
+    clearTimeout(draftTimer);
+    clearInterval(draftTick);
     hideConfirm();
     dropListen();
     leaveMel();
@@ -4814,9 +5026,11 @@ SS.band = (() => {
     app = appApi;
     el = $('#bandDialog');
     if (!el) return;
-    $('#bandClose').addEventListener('click', leave);
+    $('#bandClose').addEventListener('click', () => leave());
+    // chaque geste dans l'assistant (clic, saisie, choix, glissement) programme l'enregistrement du brouillon, débouncé
+    ['click', 'input', 'change', 'keyup', 'pointerup'].forEach((t) => el.addEventListener(t, draftSoon));
     $('#bandGm').addEventListener('click', () => setGm(!gm()));
-    $('#bwEmpty').addEventListener('click', leave);
+    $('#bwEmpty').addEventListener('click', () => leave());
     $('#bwBack').addEventListener('click', () => stepBy(-1));
     $('#bwNext').addEventListener('click', () => stepBy(1));
     $('#bwCreate').addEventListener('click', () => createWizSong());
@@ -4840,5 +5054,5 @@ SS.band = (() => {
     });
   }
 
-  return { init, open, openWizard, active, togglePlay, stopListen, setTempo, plannedTracks, instKind, setKind, insSteps, stepRef, stepNum, partsToInst, instPartOf, putInstPart, melodyTrackOpts, _state: S, _listen: () => L.proj };
+  return { init, open, openWizard, resume, hasDraft, wizSnapshot, wizRestore, draftWhen, active, togglePlay, stopListen, setTempo, plannedTracks, instKind, setKind, insSteps, stepRef, stepNum, partsToInst, instPartOf, putInstPart, melodyTrackOpts, _state: S, _listen: () => L.proj };
 })();

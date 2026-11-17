@@ -20,6 +20,7 @@
           <button id="songsBtn" type="button" role="menuitem" title="Mes chansons : toutes les chansons enregistrées automatiquement, et leurs versions">Chansons</button>
           <button id="newProject" type="button" role="menuitem" title="Nouvelle chanson : un assistant choisit le groupe, montre la chanson scène par scène, génère la mélodie et importe les pistes choisies">Nouvelle chanson…</button>
           <button id="bandBtn" type="button" role="menuitem" title="Nouvelle chanson sur le projet en cours : le même assistant, sans vider le projet (la chanson le remplace à la création, après confirmation)">Nouvelle chanson sur ce projet…</button>
+          <button id="resumeWizard" type="button" role="menuitem" hidden title="Rouvre l'assistant « Nouvelle chanson » de ce projet, à l'étape où tu l'as laissé">Reprendre l'assistant<small id="resumeWizardInfo"></small></button>
           <button id="openProject" type="button" role="menuitem" title="Ouvrir un fichier projet">Ouvrir…<kbd>Ctrl+O</kbd></button>
           <button id="saveProject" type="button" role="menuitem" title="Enregistrer (Ctrl+S ; Maj+clic : enregistrer sous)">Enregistrer<kbd>Ctrl+S</kbd></button>
           <button id="importMidi" type="button" role="menuitem" title="Créer un projet à partir d'un fichier MIDI (.mid) : pistes, scènes et arrangement">Importer MIDI…</button>
@@ -307,6 +308,7 @@
         <button type="button" id="bwBack" hidden tabindex="-1" aria-hidden="true">← Retour</button>
         <button type="button" id="bwNext" hidden tabindex="-1" aria-hidden="true">Suivant →</button>
         <span class="spacer"></span>
+        <span class="band-draft" id="bandDraft" role="status" aria-live="polite" hidden></span>
         <button type="button" class="btn wiz-only" id="bwEmpty" hidden title="Fermer l'assistant et partir d'une chanson vide">Chanson vide</button>
         <button type="button" class="btn" id="bandClose" title="Fermer l'assistant sans rien créer (Échap)">Fermer</button>
       </footer>
@@ -967,6 +969,7 @@
   <script src="js/melody.js"></script>
   <script src="js/melodypanel.js"></script>
   <script src="js/wizmix.js"></script>
+  <script src="js/wizdraft.js"></script>
   <script src="js/band.js"></script>
   <script src="js/midipanel.js"></script>
   <script src="js/ui.js?v=xform-1"></script>

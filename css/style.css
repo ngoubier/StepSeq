@@ -162,6 +162,8 @@ a.btn { text-decoration: none; }
   cursor: pointer;
 }
 .app-menu button:hover, .app-menu button:focus-visible { background: var(--accent); outline: none; }
+.app-menu small { font-size: 11px; color: var(--muted); }
+.app-menu button:hover small, .app-menu button:focus-visible small { color: rgba(255, 255, 255, .75); }
 .app-menu kbd { font: inherit; font-size: 11px; color: var(--muted); }
 .app-menu button:hover kbd, .app-menu button:focus-visible kbd { color: rgba(255, 255, 255, .75); }
 /* Nouvelle, Harmonie, Song, Mix : regroupés */
@@ -2659,18 +2661,20 @@ svg.g-big { width: 100%; height: auto; background: #1d1d22; border-radius: 8px; 
 .bwp-rhy { display: block; color: var(--c); }
 .bwp-rhy svg { display: block; width: 100%; height: 22px; }
 /* étape Arpèges : Arp One, mode Intuitif */
-.bwa-motif { display: flex; align-items: stretch; gap: 8px; min-width: 0; }
-.bwa-nav { flex: none; min-width: 40px; padding: 0 12px; font-size: 18px; }
-.bwa-name { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; gap: 2px; min-width: 0; padding: 8px 14px; border: 1px solid var(--accent-2); border-radius: 10px; background: var(--panel); }
+.bwa-motif { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 8px; min-width: 0; }
+.bwa-nav { flex: none; min-width: 40px; min-height: 40px; padding: 0 12px; font-size: 18px; }
+.bwa-name { flex: 1 1 260px; display: flex; align-items: center; gap: 12px; min-width: 0; padding: 6px 12px 6px 10px; border: 1px solid var(--accent-2); border-radius: 10px; background: var(--panel); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.bwa-name:hover { background: #2a3140; }
+.bwa-icon svg { display: block; width: 64px; height: 28px; stroke: #c9a6ff; stroke-width: 2; fill: none; }
+.bwa-icon svg circle, .bwa-icon svg rect { fill: #c9a6ff; stroke: none; }
+.bwa-nt { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
 .bwa-name b { font-size: 16px; }
-.bwa-name small { color: var(--muted); font-size: 12px; }
-.bwa-pick select { max-width: 100%; }
+.bwa-name small { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bwa-chev { font-size: 22px; color: var(--muted); }
+.bwa-surprise { min-height: 40px; background: #1f8f55; border-color: #2fbf74; color: #fff; font-weight: 600; }
+.bwa-surprise:hover { background: #26a863; }
 .bwa-knobs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-.bwa-knob { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); }
-.bwa-kh { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; font-size: 14px; }
-.bwa-kh output { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; }
-.bwa-knob input[type=range] { width: 100%; accent-color: #8b6cf0; }
-.bwa-knob small { color: var(--muted); font-size: 11.5px; min-height: 1.3em; }
+.bwa-knob { padding: 12px 8px; }
 @media (max-width: 1000px) {
 }
 @media (max-width: 760px) {
@@ -3158,6 +3162,7 @@ body[data-grid="half"] .rcell.half:not(.on) { border-left-color: #333338; }
   .band-foot .spacer { display: none; }
   .band-tempo { grid-column: 1 / -1; font-size: 12px; }
   .band-count { grid-column: 1 / -1; font-size: 12px; margin-top: -4px; }
+  #bandDialog .band-draft { grid-column: 1 / -1; margin: 0; text-align: center; }
   .band-foot .btn { justify-content: center; white-space: normal; text-align: center; height: auto; min-height: 40px; padding: 6px 10px; }
   #bandSongBtn { grid-column: 1 / -1; min-height: 44px; font-weight: 600; }
 }
@@ -4333,6 +4338,7 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 
 /* ----- Pied : étape précédente à gauche, étape suivante à droite ----- */
 #bandDialog .band-foot { display: flex; align-items: center; gap: 8px; padding: 12px 24px 12px 16px; background: var(--bw-panel); border-top: 1px solid var(--bw-line); }
+#bandDialog .band-draft { color: var(--bw-dim); font-size: 12px; margin-right: 4px; white-space: nowrap; }
 #bandDialog .band-count { color: var(--bw-muted); font-size: 13px; margin-right: 8px; }
 
 /* ----- Contrôles unifiés : boutons, segments, puces, champs ----- */
@@ -4450,7 +4456,7 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 #bandDialog .bw-rchords { background: var(--bw-panel2); border-bottom-color: var(--bw-line); }
 #bandDialog .bwp-card { gap: 12px; }
 /* motifs, modes et réglages : objets cliquables sans cadre au repos ; la couleur du rôle dit le choix */
-#bandDialog .bwp-pat, #bandDialog .bwp-mode, #bandDialog .bwa-knob, #bandDialog .bwa-name { border: 1px solid transparent; border-radius: var(--bw-r-ctl); background: var(--bw-panel2); }
+#bandDialog .bwp-pat, #bandDialog .bwp-mode, #bandDialog .bwa-knob { border: 1px solid transparent; border-radius: var(--bw-r-ctl); background: var(--bw-panel2); }
 #bandDialog .bwp-pat:hover, #bandDialog .bwp-mode:hover { border-color: var(--bw-line2); background: var(--bw-raise); }
 #bandDialog .bwp-pat.on { border-color: var(--c, #e3179c); box-shadow: inset 0 0 0 1px var(--c, #e3179c); background: color-mix(in srgb, var(--c, #e3179c) 16%, var(--bw-panel2)); }
 #bandDialog .bwp-mode.on { background: color-mix(in srgb, var(--c) 18%, var(--bw-panel2)); }
@@ -4692,3 +4698,7 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
   #bandDialog .bw-trackbar .tb-listen > * { flex: none; }
   #bandDialog .bw-trackbar select { padding: 3px 6px; font-size: 12px; }
 }
+#bandDialog .bwa-surprise { background: #1f8f55; border-color: #2fbf74; color: #fff; font-weight: 600; }
+#bandDialog .bwa-surprise:hover { background: #26a863; border-color: #4ad18c; }
+/* « Reprendre l'assistant » : le libellé, puis dessous la date du brouillon */
+.app-menu #resumeWizard { flex-direction: column; align-items: flex-start; gap: 1px; }

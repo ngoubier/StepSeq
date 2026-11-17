@@ -1544,5 +1544,6 @@ SS.arpPanel = (() => {
   }
 
   // _loop / _info : accès pour les tests de bout en bout
-  return { init: (a) => (app = a), open, _loop: loop, _info: () => loopInfo() };
+  // motifTools : dessin, exemple et récents des motifs, réutilisés par la fenêtre de choix de l'assistant (js/band.js)
+  return { init: (a) => (app = a), open, motifTools: { icon: styleIcon, example, remember, recents: () => RECENTS.slice() }, _loop: loop, _info: () => loopInfo() };
 })();

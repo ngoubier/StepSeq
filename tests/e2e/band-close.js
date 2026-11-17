@@ -33,7 +33,12 @@ const ok = (c, m) => {
   await page.addInitScript((p)=>{if(!sessionStorage.seed){localStorage.setItem('stepseq.autosave',JSON.stringify(p));sessionStorage.seed='1';}},demo);
   await page.goto(`http://localhost:${server.address().port}/index.html`);
   await page.waitForTimeout(1200);
-  const P=()=>page.evaluate(()=>localStorage.getItem('stepseq.autosave'));
+  // fermer garde un brouillon (project.wizard) : les pistes, elles, ne bougent pas (la version du format monte au premier enregistrement : ignorée) ; « Remplacer le brouillon ? » : OK
+  page.on('dialog',(d)=>d.accept());
+  const P=()=>page.evaluate(()=>{const p=JSON.parse(localStorage.getItem('stepseq.autosave'));delete p.wizard;delete p.version;return JSON.stringify(p);});
+  // le premier enregistrement normalise le projet du départ (identifiant, clés…) : on prend la référence après un premier aller-retour
+  await page.click('#appMenuBtn'); await page.click('#bandBtn');await page.click('#bandStyles [data-v="edm"]');await page.click('#bandClose');
+  await page.waitForTimeout(900);
   const original=await P();
   for(let i=0;i<3;i++){
     await page.click('#appMenuBtn'); await page.click('#bandBtn');
