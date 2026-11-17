@@ -447,6 +447,41 @@ SS.bandSong = (() => {
         case 'walk':
           each(8, (s, o) => add(s, 6, o === 0 ? root : fifth, o === 0 ? 0.9 : 0.75));
           break;
+        case 'rootfifth':
+          each(2, (s, o) => add(s, Math.min(2, end - s), (o / 2) % 2 ? fifth : root, (o / 2) % 2 ? 0.72 : 0.9));
+          break;
+        case 'arp': {
+          // arpège en croches : fondamentale, tierce (majeure ou mineure selon l'accord), quinte, octave
+          const third = root + ([3, 4].find((iv) => tones(sp.chord).includes(pcOf(sp.chord.rootPc + iv))) ?? 4);
+          const notes = [root, third, fifth, root + 12];
+          each(2, (s, o) => add(s, Math.min(2, end - s), notes[(o / 2) % 4], (o / 2) % 4 === 0 ? 0.9 : 0.72));
+          break;
+        }
+        case 'tresillo':
+          // trois, trois, deux (3+3+2), deux fois par mesure
+          for (let b = sp.step; b < end; b += SPB)
+            [[0, 3, 0.9], [3, 3, 0.78], [6, 2, 0.82], [8, 3, 0.9], [11, 3, 0.78], [14, 2, 0.82]].forEach(([o, l, v]) => b + o < end && add(b + o, Math.min(l, end - b - o), root, v));
+          break;
+        case 'trance':
+          // basse trance roulante : trois doubles après chaque temps, la première un peu plus douce
+          each(4, (s) => [1, 2, 3].forEach((d) => add(s + d, 1, root, d === 1 ? 0.66 : 0.8)));
+          break;
+        case 'sixteen':
+          each(1, (s, o) => add(s, 1, root, o % 4 === 0 ? 0.92 : 0.7));
+          break;
+        case 'oct16':
+          each(1, (s, o) => add(s, 1, o % 2 ? root + 12 : root, o % 2 ? 0.72 : 0.86));
+          break;
+        case 'pickup':
+          // fondamentale tenue, reprise à l'octave au pas 14
+          for (let b = sp.step; b < end; b += SPB)
+            [[0, 13, root, 0.88], [14, 2, root + 12, 0.8]].forEach(([o, l, n, v]) => b + o < end && add(b + o, Math.min(l, end - b - o), n, v));
+          break;
+        case 'funk':
+          // syncopes en doubles ; notes fantômes aux pas 7 et 10
+          for (let b = sp.step; b < end; b += SPB)
+            [[0, 2, root, 0.9], [3, 1, root, 0.8], [6, 1, root + 12, 0.84], [7, 1, root, 0.4], [10, 1, root, 0.4], [12, 2, root, 0.85], [14, 1, fifth, 0.8]].forEach(([o, l, n, v]) => b + o < end && add(b + o, Math.min(l, end - b - o), n, v));
+          break;
         default:
           return;
       }
@@ -1195,5 +1230,18 @@ SS.bandSong = (() => {
     return { key, scenes, song };
   }
 
-  return { build, parseChord, spansOf, spansFromGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, _rng: rng };
+  /* catalogue des modes de basse ajoutés : [id, nom, description, dessin] ; dessin = [pas, longueur, niveau] pour une mesure
+     (niveau 0 = fondamentale, 1 = quinte ou tierce, 2 = octave) */
+  const BASS_NEW = [
+    ['rootfifth', 'Fondamentale-quinte', 'Croches alternées fondamentale / quinte', [[0, 2, 0], [2, 2, 1], [4, 2, 0], [6, 2, 1], [8, 2, 0], [10, 2, 1], [12, 2, 0], [14, 2, 1]]],
+    ['arp', 'Arpège', 'Croches : fondamentale, tierce, quinte, octave', [[0, 2, 0], [2, 2, 1], [4, 2, 1], [6, 2, 2], [8, 2, 0], [10, 2, 1], [12, 2, 1], [14, 2, 2]]],
+    ['tresillo', 'Tresillo', 'Trois, trois, deux : le motif latin, deux fois par mesure', [[0, 3, 0], [3, 3, 0], [6, 2, 0], [8, 3, 0], [11, 3, 0], [14, 2, 0]]],
+    ['trance', 'Trance', 'Trois doubles après chaque temps : basse trance roulante', [1, 2, 3, 5, 6, 7, 9, 10, 11, 13, 14, 15].map((s) => [s, 1, 0])],
+    ['sixteen', 'Doubles', 'Seize doubles croches, accent sur chaque temps', Array.from({ length: 16 }, (_, s) => [s, 1, 0])],
+    ['oct16', 'Octaves en doubles', 'Doubles alternées fondamentale / octave', Array.from({ length: 16 }, (_, s) => [s, 1, s % 2 ? 2 : 0])],
+    ['pickup', 'Reprise', 'Fondamentale tenue, reprise à l’octave en fin de mesure', [[0, 13, 0], [14, 2, 2]]],
+    ['funk', 'Funk', 'Syncopes en doubles, notes fantômes', [[0, 2, 0], [3, 1, 0], [6, 1, 2], [7, 1, 0], [10, 1, 0], [12, 2, 0], [14, 1, 1]]],
+  ];
+
+  return { build, parseChord, spansOf, spansFromGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, _rng: rng };
 })();
