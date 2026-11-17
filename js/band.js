@@ -3258,6 +3258,8 @@ SS.band = (() => {
     ['drone', 'Drone', 'Une note tenue par accord, sans attaque marquée', [[0, 16, 0]], true],
     ['pulse8', 'Croches piquées', 'Huit croches courtes, détachées', every(2, 1)],
     ['off16', 'Après le kick', 'Deux doubles « et-a » après chaque temps : techno mélodique', perBeat((s) => [[s + 2, 1, 0], [s + 3, 1, 0]])],
+    // modes ajoutés au moteur : fondamentale-quinte, arpège, tresillo, trance, doubles, octaves en doubles, reprise, funk
+    ...((SS.bandSong && SS.bandSong.BASS_NEW) || []),
   ];
   /** Modes de la nappe (js/bandsong.js, chordEvents). */
   const PAD_MODES = [

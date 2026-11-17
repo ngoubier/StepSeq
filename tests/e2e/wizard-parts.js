@@ -135,7 +135,7 @@ const ok = (c, m) => {
   await next();
   ok((await cur()).includes('Accords'), 'étape Accords entre Batterie et Basse');
   await next();
-  ok((await cur()).includes('Basse') && (await page.locator('.bwp-mode').count()) === 13, 'étape Basse : 13 modes de jeu');
+  ok((await cur()).includes('Basse') && (await page.locator('.bwp-mode').count()) === 21, 'étape Basse : 21 modes de jeu (13 + 8 nouveaux)');
   ok((await page.locator('.bwp-mode.on em').textContent()) === 'Inspiration', 'basse : le mode de l’inspiration est choisi et repéré');
   await scene('Couplet');
   await page.click('#bwpPedal [data-v="tonic"]');
