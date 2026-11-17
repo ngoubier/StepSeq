@@ -63,6 +63,8 @@ const SHOTS = process.argv[2];
       return { fits: d.scrollWidth <= d.clientWidth + 1 && d.getBoundingClientRect().right <= innerWidth + 0.5, buttons: ['#bandCancel', '#bwNext'].every(inView) };
     });
     ok(band.fits && band.buttons, `${name} : fenêtre Band à l’écran, Annuler / Suivant visibles`);
+    await page.click('#bwNext'); // étape 2 : Instruments
+    await page.waitForTimeout(200);
     await page.click('#bandStage .band-mus >> nth=2');
     await page.waitForTimeout(300);
     const pan = await page.evaluate(() => {

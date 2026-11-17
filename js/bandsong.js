@@ -14,6 +14,25 @@
  *  - ratchets (rat) : roulement de caisse claire qui s'emballe à la fin de la montée, petits trilles de charleston ;
  *  - conditions de déclenchement (cond) : charleston fantôme et percussions qui varient d'un passage à l'autre ;
  *  - musicien « Effets » : montée de bruit blanc, nappe d'ambiance, impact au début du drop.
+ *
+ * Réglages par scène (option parts de build, assistant pas à pas) : { [section]: { drums, bass, pad, arp, off } }.
+ * Sans parts (ou vide), la chanson est exactement celle du plan. Tout est facultatif :
+ *  - drums { style, pattern, edits, fill, fillType, crash } : pattern = identifiant d'un motif de js/drum-patterns.js,
+ *    edits = pistes K S C H O (16 caractères) qui remplacent celles du motif. Avec un motif, bd ← K, sd ← S, cp ← C
+ *    (ou S si C est vide), hh ← H, oh / rd ← O ; les toms ne jouent que dans un fill « toms » ; rim, sh, tb… gardent le
+ *    jeu du plan. fill : off | end (dernière mesure) | 4 | 8 (une mesure sur 4 / 8) ; fillType : roll toms clap4 kick cut open
+ *    (dès le pas « from » du fill, le motif est remplacé par le fill, sauf le kick au pas « from » ; « cut » coupe) ;
+ *    crash : cymbale crash au premier pas. Sans motif, fill et crash s'ajoutent au jeu du plan (fill, même « off »,
+ *    remplace alors le roulement automatique de fin de section) ;
+ *  - bass { mode, pedal: none | tonic | fifth, approach, register: low | mid } : mode remplace celui du plan (et peut
+ *    allumer la basse ; s'ajoutent half et quarter) ; pedal joue la tonique (ou la quinte) de la tonalité sous tous les
+ *    accords, sans notes d'approche ; approach false les supprime ; mid = une octave plus haut ;
+ *  - pad { mode, voicing: close | open } ; arp { mode } : remplacent ceux du plan (et peuvent les allumer) ;
+ *  - off : rôles muets dans la scène (['arp', 'lead']) ;
+ *  - lead { events: [{ step, len, notes: [midi], vel }] } : la mélodie de la scène (étape Mélodie de l'assistant, panneau
+ *    d'Harmonie). Elle remplace celle du moteur sur la première piste chantante présente (lead, puis vox, puis sax) ;
+ *    [] = silence ; elle joue aussi dans une scène où l'inspiration ne chante pas (sauf rôle coupé par off).
+ *    Les autres pistes chantantes gardent leur mélodie.
  */
 window.SS = window.SS || {};
 
@@ -315,13 +334,58 @@ SS.bandSong = (() => {
     return out;
   }
 
+  /**
+   * Batterie d'une section d'après un motif de js/drum-patterns.js (lanes K S C H O, 16 caractères) et ses fills.
+   * lanes = null : on garde `base` (pas déjà écrits d'après le plan) et on n'y ajoute que fill et crash.
+   * Retourne null pour les pièces que le motif ne pilote pas (rim, sh, tb…).
+   */
+  const tomIndex = { ht: 0, mt: 1, lt: 2 };
+  function patternSteps(sound, bars, r, { lanes = null, base = null, fill = 'off', fillType = 'roll', crash = false, energy = 1 } = {}) {
+    const k = kind(sound);
+    if (!['bd', 'bk', 'hh', 'oh', 'tom', 'cr'].includes(k)) return null;
+    const n = bars * SPB;
+    const out = base ? base.slice() : new Array(n).fill(0);
+    const F = (SS.DRUM_FILLS && SS.DRUM_FILLS[fillType]) || (SS.DRUM_FILLS && SS.DRUM_FILLS.roll);
+    const hasC = lanes && /[xo.]/.test(lanes.C || '');
+    const lane = k === 'bd' ? 'K' : k === 'bk' ? (sound === 'cp' && (hasC || !lanes) ? 'C' : 'S') : k === 'hh' ? 'H' : k === 'oh' ? 'O' : null;
+    const spread = k === 'bd' ? 0.05 : k === 'bk' ? 0.08 : 0.14;
+    const e = ['bd', 'bk'].includes(k) ? Math.sqrt(energy) : energy;
+    // nuance de la section : même règle que drumSteps (les notes très douces restent telles quelles)
+    const put = (s, v) => {
+      if (s < 0 || s >= n) return;
+      const x = vel(r, v * (k === 'hh' ? [1, 0.74, 0.88, 0.74][s % 4] : 1), spread);
+      out[s] = x > 0.34 ? clampV(x * e) : x;
+    };
+    if (k === 'cr') {
+      if (crash && (lanes || base)) put(0, 0.9);
+      return out;
+    }
+    const isFill = (b) => (fill === 'end' ? b === bars - 1 : fill === '4' ? b % 4 === 3 : fill === '8' ? b % 8 === 7 : false);
+    for (let b = 0; b < bars; b++) {
+      const f = F && isFill(b);
+      for (let s = 0; s < SPB; s++) {
+        const keep = f && s === F.from && lane === 'K' && fillType !== 'cut'; // le kick tombe encore au début du fill
+        if (f && s >= F.from && !keep) out[b * SPB + s] = 0;
+        else if (lanes && lane) {
+          const v = LEVEL[(lanes[lane] || '')[s]];
+          if (v) put(b * SPB + s, v);
+        }
+      }
+      if (f)
+        F.ev.forEach(([s, ln, v, ti]) => {
+          if (ln === lane || (ln === 'C' && sound === 'cp') || (ln === 'T' && k === 'tom' && ti === (tomIndex[sound] ?? 1))) put(b * SPB + s, v);
+        });
+    }
+    return out;
+  }
+
   /* ---------- basse ---------- */
   const bassMidi = (pc) => 33 + pcOf(pc - 9); // de La1 à Sol♯2
-  function bassEvents(spans, mode, r, keyPcs) {
+  function bassEvents(spans, mode, r, keyPcs, { pedalPc = null, approach = true, shift = 0 } = {}) {
     const ev = [];
     const add = (s, len, n, v) => len > 0 && ev.push({ step: s, len, notes: [n], vel: vel(r, v) });
     spans.forEach((sp, i) => {
-      const root = bassMidi(sp.chord.bassPc ?? sp.chord.rootPc); // basse imposée (D/F♯ : Fa♯)
+      const root = bassMidi(pedalPc ?? sp.chord.bassPc ?? sp.chord.rootPc) + shift; // pédale, ou basse imposée (D/F♯ : Fa♯)
       const fifth = root + 7;
       const next = spans[i + 1];
       const end = sp.step + sp.len;
@@ -361,6 +425,12 @@ SS.bandSong = (() => {
             add(s + 3, 1, root, 0.7);
           });
           break;
+        case 'half':
+          each(Math.max(1, sp.len / 2), (s, o) => add(s, Math.min(sp.len / 2, end - s), root, o === 0 ? 0.88 : 0.74));
+          break;
+        case 'quarter':
+          each(4, (s, o) => add(s, Math.min(3, end - s), root, o % 16 === 0 ? 0.9 : 0.74));
+          break;
         case 'drone':
           // intro planante : une note tenue par accord, sans attaque marquée
           add(sp.step, sp.len, root, 0.6);
@@ -378,9 +448,9 @@ SS.bandSong = (() => {
           return;
       }
       // note d'approche vers l'accord suivant (sur les basses régulières, une fois sur deux)
-      if (next && ['8', 'oct', 'pulse8'].includes(mode) && next.chord.rootPc !== sp.chord.rootPc && r() < 0.5) {
+      if (approach && pedalPc === null && next && ['8', 'oct', 'pulse8'].includes(mode) && next.chord.rootPc !== sp.chord.rootPc && r() < 0.5) {
         // note d'approche diatonique (voisine de la cible dans la tonalité) ; si elle frotte avec l'accord en cours : la quinte
-        const target = bassMidi(next.chord.rootPc);
+        const target = bassMidi(next.chord.rootPc) + shift;
         const dir = target > root ? -1 : 1;
         let appr = target + dir;
         while (!keyPcs.includes(pcOf(appr))) appr += dir;
@@ -402,13 +472,15 @@ SS.bandSong = (() => {
     strum: [[0, 3], [4, 2], [6, 2], [10, 2], [12, 2], [14, 2]],
     chop: [[2, 1], [6, 1], [10, 1], [14, 1]],
   };
-  function chordEvents(spans, mode, r, { lo = 55, hi = 79 } = {}) {
+  function chordEvents(spans, mode, r, { lo = 55, hi = 79, open = false } = {}) {
     const ev = [];
     let prev = null;
     const add = (s, len, notes, v) => len > 0 && ev.push({ step: s, len, notes: [...notes], vel: vel(r, v) });
     spans.forEach((sp) => {
-      const notes = voiceChord(sp.chord, prev, lo, hi);
-      prev = notes;
+      const close = voiceChord(sp.chord, prev, lo, hi);
+      prev = close;
+      // accord ouvert : la note la plus grave descend d'une octave (une octave sous la tessiture au plus)
+      const notes = open && close.length >= 3 ? [close[0] - 12, ...close.slice(1)] : close;
       const end = sp.step + sp.len;
       if (mode === 'sustain') add(sp.step, sp.len, notes, 0.62);
       else if (mode === 'swell') add(sp.step, sp.len, notes, 0.45);
@@ -972,9 +1044,10 @@ SS.bandSong = (() => {
    *     scenes: { section: { character, notes } } (caractère et notes par phrase propres à une scène) }
    *   harmony : accords et tonalités choisis dans l'assistant (étape Accords), par section :
    *     { keys: { section: { tonic, mode } }, chords: { section: [grille d’Harmonie] }, emotions: { section: id } }
+   *   parts : réglages par scène (batterie, basse, nappe, arpège, rôles muets), voir l'en-tête du fichier ; null = le plan tel quel
    * → { key, scenes: [{ id, name, bars, key, emotion, data, spans }], song: [{ scene, repeat }] }
    */
-  function build(spec, presetId, tracks, { melodySeed = 0, melody = null, harmony = null } = {}) {
+  function build(spec, presetId, tracks, { melodySeed = 0, melody = null, harmony = null, parts = null } = {}) {
     const key = parseKey(spec.key);
     const mel = melody || {};
     const order = [];
@@ -1002,20 +1075,48 @@ SS.bandSong = (() => {
       if (emoId && mel.useProfile !== false && SS.resolveMelodyProfile && SS.MELODY_PROFILES[emoId]) smel = { ...smel, profile: SS.resolveMelodyProfile(emoId, {}, k) };
       const energy = sec.energy ?? ENERGY[as] ?? 0.9;
       const data = {};
+      const pp = (parts && parts[id]) || null; // réglages de cette scène
+      const muted = (pp && pp.off) || [];
+      const dp = pp && pp.drums;
+      // mélodie imposée (parts[section].lead) : portée par la première piste chantante, dans l'ordre lead, vox, sax
+      const ownLead = pp && pp.lead && Array.isArray(pp.lead.events) ? pp.lead.events : null;
+      const roleOf = (x) => ((x.band && x.band.key) || '').split(':')[0];
+      const leadTrack = ownLead ? tracks.find((t) => roleOf(t) === SINGERS.find((r) => tracks.some((x) => roleOf(x) === r))) : null;
       tracks.forEach((t) => {
         const [role, sound] = (t.band && t.band.key ? t.band.key : '').split(':');
         const singer = SINGERS.includes(role);
         const r = rng(`${presetId}/${id}/${t.band ? t.band.key : t.id}` + (singer && melodySeed ? `#${melodySeed}` : ''));
         if (t.type === 'drum') {
           const mode = role === 'perc' ? sec.perc ?? sec.drums : sec.drums;
-          data[t.id] = { steps: drumSteps(sound || t.sound, mode, sec.groove || spec.groove, bars, r, { perc: role === 'perc', last: sec.fill !== false, energy }) };
-          if (spec.tech) drumSpice(data[t.id], sound || t.sound, mode, bars, r);
+          const snd = sound || t.sound;
+          if (muted.includes(role)) return void (data[t.id] = { steps: new Array(bars * SPB).fill(0) });
+          const pat = dp && dp.pattern && SS.drumPattern ? SS.drumPattern(dp.style, dp.pattern) : null;
+          const lanes = dp && (dp.edits || (pat && pat.lanes));
+          const fo = { fill: dp && dp.fill, fillType: (dp && dp.fillType) || 'roll', crash: !!(dp && dp.crash), energy };
+          if (lanes) {
+            // motif de la bibliothèque : il pilote kick, caisse, clap, charleston, crash et toms
+            const st = patternSteps(snd, bars, r, { lanes, ...fo });
+            if (st) return void (data[t.id] = { steps: st });
+          }
+          // fill explicite (même « off ») : il remplace le roulement automatique de fin de section
+          let steps = drumSteps(snd, mode, sec.groove || spec.groove, bars, r, { perc: role === 'perc', last: sec.fill !== false && !(dp && dp.fill), energy });
+          if (dp && ((dp.fill && dp.fill !== 'off') || dp.crash) && mode && mode !== 'off' && mode !== 'build') steps = patternSteps(snd, bars, r, { base: steps, ...fo }) || steps;
+          data[t.id] = { steps };
+          if (spec.tech) drumSpice(data[t.id], snd, mode, bars, r);
           return;
         }
-        const mode = sec[role];
+        const o = (pp && pp[role]) || null; // réglages du rôle (basse, nappe, arpège)
+        const mode = muted.includes(role) ? null : (o && o.mode) || sec[role];
         let events = [];
-        if (mode) {
-          if (role === 'bass') events = bassEvents(spans, mode, r, H().scale(k).map((d) => d.pc));
+        // mélodie imposée : même dans une scène où l'inspiration ne chante pas (sauf rôle coupé par « off »)
+        if (ownLead && t === leadTrack && !muted.includes(role))
+          events = ownLead.filter((e) => e && e.step >= 0 && e.step < bars * SPB && e.notes && e.notes.length).map((e) => ({ step: e.step, len: Math.max(1, Math.min(e.len, bars * SPB - e.step)), notes: [...e.notes], vel: e.vel ?? 0.8 }));
+        else if (mode) {
+          if (role === 'bass') {
+            const kp = H().scale(k).map((d) => d.pc);
+            const ped = o && { tonic: kp[0], fifth: pcOf(kp[0] + 7) }[o.pedal];
+            events = bassEvents(spans, mode, r, kp, o ? { pedalPc: ped ?? null, approach: o.approach !== false, shift: o.register === 'mid' ? 12 : 0 } : undefined);
+          }
           else if (role === 'fx') events = fxEvents(spans, mode, k, bars);
           else if (role === 'arp') events = arpEvents(spans, mode, r);
           else if (singer) events = mode === 'rise' ? riseEvents(spans, r, k, bars) : melodyPart(spans, k, bars, role, smel, mel.plans && mel.plans[id], mel.seeds && mel.seeds[id], `${presetId}/${id}/${role}/${melodySeed}`, mode);
@@ -1023,7 +1124,7 @@ SS.bandSong = (() => {
           else {
             // nappe, cordes, piano, guitare : accords (ou arpège si le mode en est un)
             const range = role === 'keys' ? { lo: 57, hi: 79 } : role === 'guitar' ? { lo: 52, hi: 74 } : role === 'strings' ? { lo: 55, hi: 81 } : { lo: 53, hi: 76 };
-            events = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16', 'ost16', 'dotted'].includes(mode) ? arpEvents(spans, mode, r) : chordEvents(spans, mode, r, range);
+            events = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16', 'ost16', 'dotted'].includes(mode) ? arpEvents(spans, mode, r) : chordEvents(spans, mode, r, role === 'pad' && o && o.voicing === 'open' ? { ...range, open: true } : range);
           }
         }
         data[t.id] = { events: role === 'fx' ? events : shapeVel(events, role, { energy, bars, build: sec.drums === 'build' }) };

@@ -304,6 +304,138 @@ SS.BandSongs = {
     form: 'intro groove theme peak break theme peak outro',
   },
 
+  /* ================= Ambient ================= */
+
+  // Aéroport sans horloge : nappes qui se chevauchent, piano rare, cloches dans le silence, aucune pulsation
+  airports: {
+    key: 'C major', groove: 'slow', emotion: 'serenite',
+    sections: {
+      intro: { bars: 8, chords: 'I | I | vi | vi', drums: 'off', pad: 'swell', arp: 'bells' },
+      theme: { bars: 16, chords: 'I | I | IV | IV | vi | vi | V | I', drums: 'off', bass: 'drone', pad: 'sustain', keys: 'ballad', arp: 'bells' },
+      bridge: { bars: 8, chords: 'IV | IV | ii | V', drums: 'off', bass: 'whole', pad: 'float', keys: 'pluck', arp: 'dotted' },
+      peak: { bars: 16, chords: 'I | vi | IV | I | I | vi | ii | V', drums: 'light', bass: 'drone', pad: 'sustain', keys: 'ballad', arp: 'up8' },
+      outro: { bars: 8, chords: 'I | I | IV | I', drums: 'off', pad: 'swell', arp: 'bells', fill: false },
+    },
+    form: 'intro theme bridge peak theme outro',
+  },
+
+  // Piano de velours dans la réverbération : accords doux, une phrase de flûte rare
+  pearl: {
+    key: 'F major', groove: 'softpop', emotion: 'tendresse',
+    sections: {
+      intro: { bars: 8, chords: 'I | I | iii | vi', drums: 'off', keys: 'ballad', pad: 'swell' },
+      theme: { bars: 16, chords: 'I | iii | vi | IV | I | iii | IV | V', drums: 'hats', perc: 'hats', bass: 'drone', keys: 'ballad', pad: 'sustain', lead: 'long' },
+      bridge: { bars: 8, chords: 'vi | vi | IV | IV', drums: 'break', bass: 'whole', keys: 'pluck', pad: 'float', lead: 'long' },
+      peak: { bars: 16, chords: 'I | V | vi | iii | IV | I | ii | V', drums: 'light', perc: 'hats', bass: 'whole', keys: 'ballad', pad: 'sustain', lead: 'verse' },
+      outro: { bars: 8, chords: 'I | iii | IV | I', drums: 'off', keys: 'ballad', pad: 'swell', fill: false },
+    },
+    form: 'intro theme bridge peak theme outro',
+  },
+
+  // Cassette poussiéreuse : beat tranquille, basse chaude, petit motif de boîte à musique
+  roygbiv: {
+    key: 'G major', groove: 'half', emotion: 'nostalgie',
+    sections: {
+      intro: { bars: 8, chords: 'I | I | vi | vi', drums: 'hats', pad: 'swell', arp: 'bells' },
+      theme: { bars: 16, chords: 'I | vi | IV | IV | I | vi | ii | V', drums: 'light', bass: 'whole', pad: 'sustain', arp: 'bells', lead: 'long' },
+      bridge: { bars: 8, chords: 'IV | IV | vi | vi', drums: 'break', bass: 'drone', pad: 'float', arp: 'dotted' },
+      peak: { bars: 16, chords: 'I | vi | IV | V | I | vi | IV | I', drums: 'main', bass: 'whole', pad: 'sustain', arp: 'up8', lead: 'verse' },
+      outro: { bars: 8, chords: 'I | vi | IV | I', drums: 'hats', bass: 'drone', pad: 'swell', arp: 'bells', fill: false },
+    },
+    form: 'intro theme bridge peak theme outro',
+  },
+
+  // Chillwave d'aube : arpège doux comme un pas régulier, basse ronde, guitare claire qui rêve
+  awalk: {
+    key: 'A major', groove: 'half', emotion: 'emerveillement',
+    sections: {
+      intro: { bars: 8, chords: 'I | I | V | V', drums: 'hats', pad: 'swell', arp: 'up8' },
+      theme: { bars: 16, chords: 'I | V | vi | IV | I | V | IV | IV', drums: 'light', bass: 'whole', pad: 'sustain', arp: 'up8', lead: 'long' },
+      bridge: { bars: 8, chords: 'vi | vi | IV | V', drums: 'break', bass: 'drone', pad: 'float', arp: 'dotted', lead: 'long' },
+      peak: { bars: 16, chords: 'I | V | vi | IV | I | V | vi | V', drums: 'main', bass: 'whole', pad: 'sustain', arp: 'up8', lead: 'verse', guitar: 'pluck' },
+      outro: { bars: 8, chords: 'I | V | IV | IV', drums: 'light', bass: 'drone', pad: 'swell', arp: 'bells', fill: false },
+    },
+    form: 'intro theme bridge peak theme outro',
+  },
+
+  // Brume aqueuse : accords égrenés, cloches de verre, grande douceur
+  rhubarb: {
+    key: 'E♭ major', groove: 'slow', emotion: 'serenite',
+    sections: {
+      intro: { bars: 8, chords: 'I | I | IV | IV', drums: 'off', pad: 'swell', arp: 'bells' },
+      theme: { bars: 16, chords: 'I | iii | IV | IV | vi | vi | V | I', drums: 'hats', perc: 'hats', bass: 'drone', pad: 'sustain', keys: 'ballad', arp: 'bells' },
+      bridge: { bars: 8, chords: 'vi | vi | ii | ii', drums: 'off', bass: 'whole', pad: 'float', keys: 'pluck', arp: 'dotted' },
+      peak: { bars: 16, chords: 'I | IV | iii | vi | IV | V | I | I', drums: 'light', perc: 'hats', bass: 'whole', pad: 'sustain', keys: 'ballad', arp: 'up8' },
+      outro: { bars: 8, chords: 'I | I | IV | I', drums: 'off', pad: 'swell', arp: 'bells', fill: false },
+    },
+    form: 'intro theme bridge peak theme outro',
+  },
+
+  // Piano grave et sub profond : pulsation à peine suggérée, mélancolie lumineuse
+  abandon: {
+    key: 'E minor', groove: 'deep', emotion: 'melancolie',
+    sections: {
+      intro: { bars: 8, chords: 'i | i | VI | VI', drums: 'off', keys: 'ballad', pad: 'swell', arp: 'bells' },
+      theme: { bars: 16, chords: 'i | VI | III | VII | i | VI | iv | v', drums: 'hats', bass: 'drone', keys: 'ballad', pad: 'sustain', arp: 'bells' },
+      bridge: { bars: 8, chords: 'iv | iv | VI | VII', drums: 'break', bass: 'whole', keys: 'pluck', pad: 'float', arp: 'dotted' },
+      peak: { bars: 16, chords: 'i | VI | III | VII | iv | VI | VII | VII', drums: 'main', bass: 'whole', keys: 'ballad', pad: 'sustain', arp: 'up8' },
+      outro: { bars: 8, chords: 'i | VI | VII | i', drums: 'hats', bass: 'drone', keys: 'ballad', pad: 'swell', fill: false },
+    },
+    form: 'intro theme bridge peak theme outro',
+  },
+
+  // Cordes tenues et piano intime : la lumière monte puis s'éteint
+  nearlight: {
+    key: 'C♯ minor', groove: 'slow', emotion: 'melancolie',
+    sections: {
+      intro: { bars: 8, chords: 'i | i | VI | VI', drums: 'off', keys: 'ballad', strings: 'swell', arp: 'bells' },
+      theme: { bars: 16, chords: 'i | III | VI | VII | i | III | iv | v', drums: 'off', perc: 'hats', bass: 'drone', keys: 'ballad', strings: 'sustain', pad: 'swell', arp: 'bells' },
+      bridge: { bars: 8, chords: 'iv | iv | VI | VII', drums: 'off', bass: 'whole', keys: 'pluck', strings: 'swell', pad: 'float', arp: 'dotted' },
+      peak: { bars: 16, chords: 'VI | VII | i | i | iv | VI | VII | VII', drums: 'light', perc: 'hats', bass: 'whole', keys: 'ballad', strings: 'sustain', pad: 'sustain', arp: 'up8' },
+      outro: { bars: 8, chords: 'i | VI | VII | i', drums: 'off', keys: 'ballad', strings: 'swell', arp: 'bells', fill: false },
+    },
+    form: 'intro theme bridge peak theme outro',
+  },
+
+  // Trip-hop tendre : piano mélancolique, cordes planantes, beat sourd
+  porcelain: {
+    key: 'A minor', groove: 'half', emotion: 'nostalgie',
+    sections: {
+      intro: { bars: 8, chords: 'i | i | VI | VI', drums: 'hats', keys: 'ballad', pad: 'swell' },
+      theme: { bars: 16, chords: 'i | VI | III | VII | i | VI | iv | v', drums: 'light', bass: 'whole', keys: 'ballad', pad: 'sustain', lead: 'long' },
+      bridge: { bars: 8, chords: 'iv | iv | VI | VII', drums: 'break', bass: 'drone', keys: 'pluck', pad: 'float', arp: 'bells' },
+      peak: { bars: 16, chords: 'VI | VII | i | i | VI | VII | III | v', drums: 'main', bass: 'whole', keys: 'ballad', pad: 'sustain', lead: 'verse', arp: 'bells' },
+      outro: { bars: 8, chords: 'i | VI | VII | i', drums: 'hats', bass: 'drone', keys: 'ballad', pad: 'swell', fill: false },
+    },
+    form: 'intro theme bridge peak theme outro',
+  },
+
+  // Drone orchestral : très longues tenues, presque sans mouvement, appel lointain
+  sotl: {
+    key: 'D dorian', groove: 'slow', emotion: 'mystere',
+    sections: {
+      intro: { bars: 8, chords: 'i | i | IV | IV', drums: 'off', pad: 'float', strings: 'swell', float: true },
+      theme: { bars: 16, chords: 'i | i | IV | IV | VII | VII | i | i', drums: 'off', perc: 'hats', bass: 'drone', pad: 'sustain', strings: 'sustain', lead: 'long' },
+      bridge: { bars: 8, chords: 'VII | VII | VI | VI', drums: 'off', bass: 'drone', pad: 'float', strings: 'swell', lead: 'long' },
+      peak: { bars: 16, chords: 'i | IV | VII | i | i | IV | VI | VII', drums: 'light', perc: 'hats', bass: 'drone', pad: 'sustain', strings: 'sustain', lead: 'long' },
+      outro: { bars: 8, chords: 'i | i | IV | i', drums: 'off', pad: 'swell', strings: 'swell', fill: false },
+    },
+    form: 'intro theme bridge peak theme outro',
+  },
+
+  // Élévation lente : cordes qui s'ouvrent, vibraphone isolé, puis apaisement
+  anending: {
+    key: 'D major', groove: 'slow', emotion: 'emerveillement',
+    sections: {
+      intro: { bars: 8, chords: 'I | I | IV | IV', drums: 'off', pad: 'swell', arp: 'bells' },
+      theme: { bars: 16, chords: 'I | V | vi | IV | I | V | IV | IV', drums: 'off', bass: 'drone', pad: 'sustain', strings: 'swell', arp: 'bells', lead: 'long' },
+      bridge: { bars: 8, chords: 'vi | vi | IV | V', drums: 'off', bass: 'whole', pad: 'float', strings: 'swell', arp: 'dotted' },
+      peak: { bars: 16, chords: 'I | V | vi | iii | IV | I | V | V', drums: 'light', bass: 'drone', pad: 'sustain', strings: 'sustain', arp: 'up8', lead: 'long' },
+      outro: { bars: 8, chords: 'I | IV | I | I', drums: 'off', pad: 'swell', strings: 'swell', arp: 'bells', fill: false },
+    },
+    form: 'intro theme bridge peak theme outro',
+  },
+
   /* ================= Techno mélodique =================
    * Points communs : intro planante sans batterie (nappe ouverte, arpège en croches pointées, filtre qui s'ouvre),
    * montées de 8 à 16 mesures (passe-haut, bruit blanc, roulement en ratchets, un temps de silence), drops

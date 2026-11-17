@@ -46,14 +46,14 @@ const ok = (c, m) => {
   ok(!(await page.isVisible('#bandDialog')) && await P()===original,'Échap ferme sans créer de piste');
   await page.click('#bandBtn');await page.click('#bandCancel');
   ok(!(await page.isVisible('#bandDialog')) && await P()===original,'Annuler conserve le projet');
-  await page.click('#bandBtn');for (let i = 0; i < 4; i++) await page.click('#bwNext'); await page.click('#bwCreate');
+  await page.click('#bandBtn');for (let i = 0; i < 10; i++) await page.click('#bwNext'); await page.click('#bwCreate');
   ok(await page.isVisible('#bandConfirm'),'création de la chanson : confirmation avant de remplacer le projet');
   await page.keyboard.press('Escape');
   ok(await page.isVisible('#bandDialog') && !(await page.isVisible('#bandConfirm')),'Échap ferme d’abord la confirmation');
   await page.keyboard.press('Escape');
   await page.waitForTimeout(600);
   ok(!(await page.isVisible('#bandDialog')) && await P()===original,'annuler la création de chanson conserve le projet');
-  await page.click('#bandBtn');for (let i = 0; i < 4; i++) await page.click('#bwNext'); await page.click('#bwCreate');await page.click('#bcfSong');
+  await page.click('#bandBtn');for (let i = 0; i < 10; i++) await page.click('#bwNext'); await page.click('#bwCreate');await page.click('#bcfSong');
   await page.waitForTimeout(1200);
   const p=JSON.parse(await P());
   ok(p.tracks.length>2 && p.tracks.every((t)=>t.band) && p.playMode==='song','confirmer : la chanson remplace le projet');

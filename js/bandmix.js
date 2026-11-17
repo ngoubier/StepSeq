@@ -102,6 +102,15 @@ SS.bandMix = (() => {
       loud: -8.5,
       drive: 8,
     },
+    // ambient : très grande salle claire, écho long, pas de sidechain, de la dynamique (volume visé plus bas)
+    ambient: {
+      returns: { plate: { size: 1.8, predelay: 0.02, hp: 250, lp: 8000 }, hall: { size: 5, predelay: 0.05, hp: 250, lp: 6500 }, echo: { time: '3/8', feedback: 0.45, hp: 300, lp: 4000 } },
+      plate: 0.6,
+      hall: 1.35,
+      sc: { bass: 0, pad: 0, strings: 0, keys: 0 },
+      loud: -13,
+      drive: 4,
+    },
   };
 
   // gestion du gain : le mix arrive au master vers −18 LUFS, crêtes vers −6 dBFS (marge pour la glue et le limiteur)
