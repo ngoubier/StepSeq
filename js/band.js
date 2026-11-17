@@ -1,7 +1,7 @@
 /*
  * Band : assistant de création d'une chanson avec un groupe de musiciens virtuels.
  * Ouvert par le bouton « Nouvelle » de l'en-tête (open, sur le projet en cours) ou par « Nouvelle chanson… » du menu (openWizard,
- * sur une chanson vide). Onze étapes :
+ * sur une chanson vide). Douze étapes :
  *  1. Style : deux portes, Créer ou Reprendre (une reprise tapée : titre, tempo, tonalité, parties et accords,
  *     ordre des parties — voir coverModel) ; style musical (tempo conseillé, description) et inspiration (type de chanson) ;
  *  2. Instruments : les musiciens — un clic sur un musicien ouvre son panneau (rôle, instrument phare, 5 conseillés,
@@ -18,9 +18,11 @@
  *  10. Mélodie : l'onglet Mélodie de la fenêtre Harmonie (js/melodypanel.js) pour chaque scène : intention (émotion, profil),
  *     motif, structure, complexité, Générer / Une autre / Variante B ; ce que joue chaque instrument
  *     (Muet / Solo / volume par instrument) ;
- *  11. Intégration : les pistes à importer.
- * Des étapes 3 à 11, un bandeau de commande : lecture / pause, stop, position, tempo (réglable), tonalité ;
- * aux étapes 5 à 10, il est à droite de la colonne des scènes et joue la scène choisie en boucle.
+ *  11. Mix : la console de la chanson (une tranche par instrument, effets, Master), pour toute la chanson ou pour une
+ *     scène seulement (js/wizmix.js) ;
+ *  12. Intégration : les pistes à importer.
+ * Des étapes 3 à 12, un bandeau de commande : lecture / pause, stop, position, tempo (réglable), tonalité ;
+ * aux étapes 5 à 11, il est à droite de la colonne des scènes et joue la scène choisie en boucle.
  * Les étapes 5, 7, 8, 9 et 10 (parts[section].lead) écrivent S.wiz.parts (option parts de SS.bandSong.build) ; sans réglage, c'est le jeu de l'inspiration.
  * Les étapes 3 et 4 écrivent des retouches du plan (S.wiz.skey, form, secs : voir specEff) ; sans retouche, c'est le plan de l'inspiration.
  * Seul « Créer la chanson » modifie le projet (après confirmation s'il a déjà des pistes) ; fermer ne change rien.
@@ -918,8 +920,9 @@ SS.band = (() => {
    *  10. Mélodie : l'onglet Mélodie d'Harmonie sur les accords de la scène choisie (intention, motif, structure, Générer,
    *     Variante B) ; la mélodie générée remplace celle de l'inspiration dans la scène (parts[section].lead) ;
    *     les notes de chaque instrument (Muet / Solo / volume) ;
-   *  11. Intégration : on coche les pistes à importer (batterie, basse, nappes, arpèges, lead…).
-   * Étapes 5 à 10 : les scènes en colonne à gauche, sous le titre ; la lecture joue la scène choisie, en boucle.
+   *  11. Mix : volume, pan, effets et Master de chaque instrument, pour toute la chanson ou une scène (S.wiz.mix, js/wizmix.js) ;
+   *  12. Intégration : on coche les pistes à importer (batterie, basse, nappes, arpèges, lead…).
+   * Étapes 5 à 11 : les scènes en colonne à gauche, sous le titre ; la lecture joue la scène choisie, en boucle.
    * Rien n'est écrit dans le projet avant « Créer la chanson » ; fermer laisse la chanson vide.
    */
   const STEPS = [
@@ -933,9 +936,10 @@ SS.band = (() => {
     { label: 'Nappes', hint: 'La nappe de chaque scène : mode de jeu et voicing' },
     { label: 'Arpèges', hint: 'L’arpège de chaque scène : mode, ou pas d’arpège' },
     { label: 'Mélodie', hint: 'La mélodie de chaque scène : intention, motif, génération et variante B, avec ce que joue chaque instrument' },
+    { label: 'Mix', hint: 'Le volume, la place et les effets de chaque instrument, pour toute la chanson ou une scène' },
     { label: 'Intégration', hint: 'Coche les pistes à importer dans la chanson' },
   ];
-  const ST = { style: 1, inst: 2, tempo: 3, scenes: 4, drums: 5, chords: 6, bass: 7, pad: 8, arp: 9, harm: 10, pick: 11 }; // numéros des étapes
+  const ST = { style: 1, inst: 2, tempo: 3, scenes: 4, drums: 5, chords: 6, bass: 7, pad: 8, arp: 9, harm: 10, mix: 11, pick: 12 }; // numéros des étapes
   const PART_STEPS = { [ST.drums]: 'drums', [ST.bass]: 'bass', [ST.pad]: 'pad', [ST.arp]: 'arp' }; // étapes de réglages par scène
   /** Étapes où l'on travaille une scène (colonne des scènes, lecture de la scène en boucle). */
   const sceneStep = (n = S.wiz && S.wiz.step) => n === ST.chords || n === ST.harm || n in PART_STEPS;
@@ -1457,12 +1461,13 @@ SS.band = (() => {
     'La nappe tient l’harmonie sous les autres : mode de jeu et voicing.',
     'L’arpège fait tourner les notes de chaque accord, ou se tait dans la scène.',
     'Une mélodie sur la grille : intention, motif, génération et variante B.',
+    'Volume, place et effets de chaque instrument, pour la chanson ou une scène.',
     'Coche les pistes à importer, puis crée la chanson.',
   ];
   /** Groupes du fil des étapes : nom affiché au-dessus de l'étape qui l'ouvre. */
-  const STEP_GROUPS = { 1: 'Fondations', 5: 'Pistes, scène par scène', 11: 'Créer' };
+  const STEP_GROUPS = { 1: 'Fondations', 5: 'Pistes, scène par scène', 12: 'Créer' };
   /** Couleur du rôle de l'étape (coche des étapes visitées) ; les fondations sont en vert. */
-  const STEP_COLORS = { [ST.drums]: '#e3179c', [ST.chords]: '#c9a227', [ST.bass]: '#3fcf3f', [ST.pad]: '#4f6bff', [ST.arp]: '#13c2a3', [ST.harm]: '#9b5cff' };
+  const STEP_COLORS = { [ST.drums]: '#e3179c', [ST.chords]: '#c9a227', [ST.bass]: '#3fcf3f', [ST.pad]: '#4f6bff', [ST.arp]: '#13c2a3', [ST.harm]: '#9b5cff', [ST.mix]: '#d0d0da' };
 
   /** Résumé d'une ligne d'une étape (style, tempo, motif de la scène…) ; vide si on ne peut pas encore le dire. */
   function stepSummary(n) {
@@ -1480,6 +1485,12 @@ SS.band = (() => {
       if (n === ST.scenes) {
         const bars = res.song.reduce((a, b) => a + res.scenes.find((sc) => sc.id === b.scene).bars * b.repeat, 0);
         return `${res.scenes.length} scènes · ${bars} mesures`;
+      }
+      if (n === ST.mix) {
+        const m = S.wiz.mix;
+        const k = m ? res.scenes.filter((x) => SS.wizMix.ownCount(m, x.sec) > 0).length : 0;
+        if (k) return `${k} scène${k > 1 ? 's' : ''} retouchée${k > 1 ? 's' : ''}`;
+        return m && JSON.stringify([m.tracks, m.master]) !== JSON.stringify([m.base.tracks, m.base.master]) ? 'Chanson retouchée' : 'Mixage automatique';
       }
       if (n === ST.pick) {
         const k = cols.filter((c) => !S.wiz.off.has(c.id)).length;
@@ -3690,7 +3701,7 @@ SS.band = (() => {
     el.classList.add('wizard');
     el.querySelectorAll('.wiz-only').forEach((x) => (x.hidden = false));
     if (step !== ST.harm) leaveMel();
-    // bandeau de lecture : dans l'en-tête (étapes 3 à 11), caché aux étapes 1 et 2
+    // bandeau de lecture : dans l'en-tête (étapes 3 à 12), caché aux étapes 1 et 2
     // étapes 1 et 2 : l'écran Band (style et inspiration, puis musiciens) ; les autres blocs sont cachés par le CSS (bs-style, bs-inst)
     const body = el.querySelector('.band-body');
     $('#bandWiz').classList.remove('bw-split');
@@ -3709,6 +3720,7 @@ SS.band = (() => {
       else if (step === ST.harm) renderHarmony();
       else if (step === ST.chords) renderChords();
       else if (step in PART_STEPS) renderParts(PART_STEPS[step]);
+      else if (step === ST.mix) renderMix();
       else renderWizGrid();
       wizFoot();
       relisten();
@@ -3740,6 +3752,7 @@ SS.band = (() => {
     if (confirmed !== true && app.project().tracks.length) return showSongConfirm(cols.length);
     const p = preset();
     const seed = S.wiz.seed;
+    if (S.wiz.mix) mixSync(); // le mix suit les pistes du groupe, même si on a changé d'instruments depuis l'étape Mix
     hideConfirm();
     // volumes réglés à l'étape Mélodie : appliqués au mixage automatique de la chanson créée
     // plan : celui de l'inspiration ou de la reprise, avec les retouches des étapes Tempo et tonalité et Scènes
@@ -3794,7 +3807,8 @@ SS.band = (() => {
     } else if (L.mode && L.paused) {
       L.paused = false;
       SS.audio.resume();
-    } else if (sceneStep()) playScene(S.wiz.hscene);
+    } else if (mixStep()) mixPlay();
+    else if (sceneStep()) playScene(S.wiz.hscene);
     else listenSong(0);
     markListen();
   }
@@ -3808,7 +3822,7 @@ SS.band = (() => {
     play.classList.toggle('playing', playing);
     play.classList.toggle('paused', !!L.mode && L.paused);
     play.setAttribute('aria-pressed', String(playing));
-    play.title = playing ? 'Pause (Espace)' : L.paused ? 'Reprendre (Espace)' : sceneStep() ? 'Écouter la scène en boucle (Espace)' : 'Écouter la chanson (Espace)';
+    play.title = playing ? 'Pause (Espace)' : L.paused ? 'Reprendre (Espace)' : sceneStep() || (mixStep() && mixScope() !== 'song') ? 'Écouter la scène en boucle (Espace)' : 'Écouter la chanson (Espace)';
     play.setAttribute('aria-label', playing ? 'Pause' : 'Lecture');
     $('#stop').disabled = !L.mode;
     const inp = $('#tempo');
@@ -3845,21 +3859,323 @@ SS.band = (() => {
     }
   }
 
+  /* ---------- Étape Mix : la console de la chanson, pour toute la chanson ou une scène ----------
+   * Le modèle et son application à la création sont dans js/wizmix.js (SS.wizMix, S.wiz.mix) ; ici, l'écran :
+   *  - à gauche, la portée : « Toute la chanson » (réglage de base) puis une scène (réglages propres, clés = section) ;
+   *  - une tranche par instrument (la batterie : une par élément, sous un cadre), puis le Master ;
+   *  - le bouton FX ouvre le tiroir des effets de la tranche, qui écrit dans la portée choisie.
+   * Dans une scène, seuls le volume, Muet, le filtre et les envois hall / écho / Cosmos s'automatisent (voir wizmix.js) : les autres
+   * réglages sont grisés (« chanson seulement »). L'écoute joue la scène choisie en boucle (ou toute la chanson) avec le mix appliqué.
+   */
+  const mixStep = () => !!S.wiz && S.wiz.step === ST.mix;
+  const mixScope = () => S.wiz.mixScope || 'song';
+  const MIX_FX = [
+    ['eq', 'EQ', 'Graves, médiums, aigus'], ['comp', 'Compresseur', 'Tient le niveau'], ['filter', 'Filtre', 'Passe-bas qui s’ouvre'],
+    ['chorus', 'Chorus', 'Élargit, fait onduler'], ['delay', 'Delay', 'Écho calé sur le tempo'], ['reverb', 'Reverb', 'Espace propre à la piste'],
+    ['sends', 'Envois', 'Bus du morceau : plate, hall, écho, Cosmos'], ['sidechain', 'Sidechain', 'Pompe sur le kick'],
+  ];
+  /** Réglages qu'une scène peut avoir en propre (le reste vaut pour toute la chanson). */
+  const mixSceneOk = (path) => path === 'vol' || path === 'mute' || /^fx\.filter\./.test(path) || /^fx\.sends\.(hall|echo|cosmos)$/.test(path);
+  const mixDb = (v) => `${v > 0 ? '+' : ''}${(+v).toFixed(1)} dB`;
+  const mixPan = (p) => (Math.abs(p) < 0.03 ? 'C' : `${p < 0 ? 'G' : 'D'} ${Math.round(Math.abs(p) * 100)}`);
+
+  /** Met le mix en phase avec les pistes de l'assistant (première visite : le réglage automatique du style). */
+  function mixSync() {
+    const tr = wizCols().map((c) => ({ type: c.o.type, sound: c.o.sound, band: c.o.band, levelKey: c.o.levelKey }));
+    const style = (tr.find((t) => t.band) || { band: {} }).band.style || 'synthwave';
+    S.wiz.mix = SS.wizMix.sync(S.wiz.mix, style, tr);
+    return S.wiz.mix;
+  }
+  const mixSig = () => JSON.stringify(S.wiz.mix);
+  /** Un réglage a changé : l'écoute en cours le prend sans tout reconstruire. */
+  let mixTimer = 0;
+  function mixTouched() {
+    if (!L.proj || !L.mode) return;
+    clearTimeout(mixTimer);
+    mixTimer = setTimeout(() => S.wiz && L.proj && liveMix(), 40);
+  }
+  function mixSet(id, path, value) {
+    SS.wizMix.set(S.wiz.mix, mixScope(), id, path, value);
+    mixTouched();
+  }
+  const mixEqSvg = (f) => {
+    const W = 400, H = 90, y = (db) => H / 2 - db * 3.5;
+    const pts = [];
+    for (let x = 0; x <= W; x += 8) {
+      const t = x / W;
+      const db = f.on ? f.low * Math.exp(-((t - 0.1) ** 2) / 0.02) + f.mid * Math.exp(-((t - 0.5) ** 2) / 0.03) + f.high * Math.exp(-((t - 0.9) ** 2) / 0.02) : 0;
+      pts.push(`${x},${y(db).toFixed(1)}`);
+    }
+    return h('div', { class: 'mx-eq', html: `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><line x1="0" x2="${W}" y1="${H / 2}" y2="${H / 2}" stroke="currentColor" opacity=".25"/><polyline points="${pts.join(' ')}" fill="none" stroke="currentColor" stroke-width="2.5"/></svg>` });
+  };
+
+  /** Le bouton FX montre combien d'effets sont actifs ; la liste, lesquels. */
+  function mixFxOn(f, master) {
+    const out = [];
+    MIX_FX.forEach(([k, name]) => {
+      if (master && k !== 'eq' && k !== 'comp') return;
+      const on = k === 'sends' ? ['plate', 'hall', 'echo', 'cosmos'].some((s) => f.sends[s] > 0) : f[k].on;
+      if (on) out.push([k, name]);
+    });
+    return out;
+  }
+
+  function renderMix() {
+    const { cols, res } = wizSong();
+    const box = $('#bandWiz');
+    if (!res) return box.replaceChildren(h('p', { class: 'dlg-hint' }, 'Cette inspiration n’a pas de plan de chanson.'));
+    const M = SS.wizMix;
+    const mix = mixSync();
+    if (mixScope() !== 'song' && !res.scenes.some((x) => x.sec === mixScope())) S.wiz.mixScope = 'song';
+    const scope = mixScope();
+    const scene = res.scenes.find((x) => x.sec === scope) || null;
+    const keep = $('#bwMix');
+    const scrollTop = keep ? keep.scrollTop : 0;
+    const keepCons = keep && $('.mx-console', keep);
+    const scrollLeft = keepCons ? keepCons.scrollLeft : 0;
+    const focus = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.mx ? [document.activeElement.dataset.mx, document.activeElement.dataset.id] : null;
+
+    // couleur et instrument de chaque tranche : ceux de la première piste de l'assistant qui la porte
+    const colOf = new Map();
+    cols.forEach((c) => !colOf.has(M.idOf(c.o)) && colOf.set(M.idOf(c.o), c));
+    const strips = M.strips(cols.map((c) => ({ band: c.o.band })));
+    const drumCol = cols.find((c) => c.role === 'drums');
+    const kit = drumCol ? (B().KITS[kitOf(musState()[drumCol.musician])] || {}).label || '' : '';
+    const ownOf = (id) => (scene && mix.own[scope] && mix.own[scope][id]) || null;
+
+    // ---- portée : toute la chanson, puis une scène (colonne de gauche)
+    const nav = h(
+      'nav',
+      { class: 'bh-scenes mx-scenes', 'aria-label': 'Portée du mixage' },
+      h('div', { class: 'bh-label' }, 'Mixer pour'),
+      h(
+        'button',
+        { type: 'button', class: 'bh-scene mx-song' + (scope === 'song' ? ' on' : ''), id: 'mxSong', 'aria-pressed': String(scope === 'song'), onclick: () => mixPickScope('song') },
+        h('span', { class: 'bh-sname' }, h('b', {}, 'Toute la chanson')),
+        h('small', { class: 'bh-ssub' }, 'Réglage de base de chaque piste')
+      ),
+      h('div', { class: 'bh-label' }, 'ou une scène'),
+      ...res.scenes.map((x) => {
+        const n = M.ownCount(mix, x.sec);
+        return h(
+          'button',
+          { type: 'button', class: 'bh-scene' + (x.sec === scope ? ' on' : ''), style: `--c:${secColor(x.sec)}`, 'data-scene': x.id, 'data-sec': x.sec, 'aria-pressed': String(x.sec === scope), onclick: () => mixPickScope(x.sec) },
+          h('span', { class: 'bh-sname' }, h('b', {}, x.name), h('small', {}, `${x.bars} mes.`)),
+          h('small', { class: 'bh-ssub mx-ownct' + (n ? ' own' : ''), 'data-n': n }, n ? `${n} réglage${n > 1 ? 's' : ''} propre${n > 1 ? 's' : ''}` : 'comme la chanson')
+        );
+      })
+    );
+
+    // ---- bandeau de portée
+    const same = scene ? res.scenes.filter((x) => x.id !== scene.id && kindOf(x.sec) === kindOf(scene.sec)) : [];
+    const nOwn = scene ? M.ownCount(mix, scope) : 0;
+    const bar = h(
+      'div',
+      { class: 'mx-scope', style: `--c:${scene ? secColor(scene.sec) : 'var(--bw-text)'}` },
+      h('div', { class: 'mx-who' }, h('i', {}), scene ? `${scene.name} seulement` : 'Toute la chanson'),
+      h('p', {}, scene
+        ? `Ce que tu touches ici ne vaut que pour « ${scene.name} » ; le trait gris sur le fader montre le réglage de la chanson.`
+        : 'Chaque réglage vaut pour toutes les scènes, sauf celles qui ont leur propre réglage (point doré).'),
+      scene ? h('button', { type: 'button', class: 'btn', id: 'mxCopy', disabled: !nOwn || !same.length, title: same.length ? `Copie ces réglages vers : ${same.map((x) => x.name).join(', ')}` : 'Aucune autre scène du même type', onclick: () => { M.copyToSameType(mix, scope, same.map((x) => x.sec)); mixAfter(); } }, 'Copier vers les scènes du même type') : null,
+      scene ? h('button', { type: 'button', class: 'btn', id: 'mxResetScene', disabled: !nOwn, onclick: () => { M.reset(mix, scope); mixAfter(); } }, `↺ Comme la chanson (${nOwn})`) : null
+    );
+
+    // ---- console
+    const stripEl = (s) => {
+      const id = s.id;
+      const master = id === 'master';
+      const e = M.eff(mix, scope, id);
+      const o = ownOf(id);
+      const isOwn = !!o && Object.keys(o).length > 0;
+      const song = master ? mix.master : mix.tracks[id];
+      const c = colOf.get(id);
+      const color = master ? '#d0d0da' : c ? c.o.color : '#9c9ca8';
+      const inst = master ? 'Mastering' : c ? B().describe(c.o).name : '';
+      const lockedAll = !!scene && master; // le Master ne s'automatise pas
+      const on = mixFxOn(e.fx, master);
+      const ownFx = o && o.fx ? Object.keys(o.fx) : [];
+      const pct = (v) => (Math.max(-40, Math.min(6, v)) + 40) / 46;
+      const ctl = (path, attrs) => ({ 'data-mx': path, 'data-id': id, ...attrs });
+      const only = (path) => !!scene && !mixSceneOk(path);
+      const open = S.wiz.mixOpen === id;
+      return h(
+        'div',
+        { class: 'mx-strip' + (s.group ? ' drum' : '') + (master ? ' master' : '') + (open ? ' sel' : '') + (isOwn ? ' own' : ''), style: `--c:${color}`, 'data-id': id },
+        h('div', { class: 'mx-name' }, s.name, h('small', {}, inst)),
+        h('button', { type: 'button', class: 'mx-fxb' + (open ? ' open' : ''), 'data-fx': id, 'aria-expanded': String(open), title: lockedAll ? 'Le Master se règle pour toute la chanson' : `Effets de ${s.name}`, disabled: lockedAll, onclick: () => { S.wiz.mixOpen = open ? null : id; renderMix(); } }, 'FX ', h('span', { class: 'n' }, String(on.length))),
+        h('div', { class: 'mx-fxlist' }, ...(on.length ? on.slice(0, 4).map(([k, name]) => h('span', { class: ownFx.includes(k) ? 'own' : '' }, name)) : [h('span', {}, 'aucun effet')])),
+        master
+          ? h('div', { class: 'mx-pan' }, h('div', {}, h('span', {}, 'Stéréo'), h('b', {}, '—')), h('input', { type: 'range', disabled: true, value: 60, 'aria-label': 'Largeur du Master' }), scene ? h('small', { class: 'mx-only' }, 'chanson seulement') : null)
+          : h('div', { class: 'mx-pan' }, h('div', {}, h('span', {}, 'Pan'), h('b', {}, mixPan(e.pan))), h('input', { type: 'range', min: -1, max: 1, step: 0.05, value: e.pan, ...ctl('pan', { 'aria-label': `Panoramique ${s.name}`, disabled: only('pan'), title: only('pan') ? 'chanson seulement' : null }) }), only('pan') ? h('small', { class: 'mx-only' }, 'chanson seulement') : null),
+        h(
+          'div',
+          { class: 'mx-fader' },
+          h('input', { type: 'range', min: -40, max: 6, step: 0.1, value: e.vol, ...ctl('vol', { 'aria-label': `Volume ${s.name}`, disabled: lockedAll, orient: 'vertical' }) }),
+          scene && o && o.vol != null ? h('span', { class: 'mx-ghost', title: `Chanson : ${mixDb(song.vol)}`, style: `top:${((1 - pct(song.vol)) * 100).toFixed(1)}%` }) : null
+        ),
+        h('div', { class: 'mx-db' + (o && o.vol != null ? ' own' : '') }, mixDb(e.vol)),
+        master
+          ? h('div', { class: 'mx-ms' }, h('button', { type: 'button', disabled: true }, '—'), h('button', { type: 'button', disabled: true }, '—'))
+          : h(
+              'div',
+              { class: 'mx-ms' },
+              h('button', { type: 'button', class: 'm' + (e.mute ? ' on' : ''), 'data-mute': id, 'aria-pressed': String(!!e.mute), title: 'Muet', onclick: () => { mixSet(id, 'mute', !e.mute); mixAfter(); } }, 'M'),
+              h('button', { type: 'button', class: 's' + (song.solo ? ' on' : ''), 'data-solo': id, 'aria-pressed': String(!!song.solo), disabled: !!scene, title: scene ? 'chanson seulement' : 'Solo', onclick: () => { mixSet(id, 'solo', !song.solo); mixAfter(); } }, 'S')
+            ),
+        isOwn ? h('button', { type: 'button', class: 'mx-back', 'data-back': id, title: 'Revient au réglage de la chanson pour cette tranche', onclick: () => { M.reset(mix, scope, id); mixAfter(); } }, '↺ chanson') : null
+      );
+    };
+    const drums = strips.filter((s) => s.group);
+    const rest = strips.filter((s) => !s.group);
+    const dCol = '#e3179c';
+    const consoleEl = h(
+      'div',
+      { class: 'mx-console' },
+      drums.length ? h('div', { class: 'mx-group', style: `--c:${dCol}` }, h('div', { class: 'mx-ghead' }, `Batterie${kit ? ' · ' + kit : ''}`, h('small', {}, `${drums.length} élément${drums.length > 1 ? 's' : ''}`)), h('div', { class: 'mx-gstrips' }, ...drums.map(stripEl))) : null,
+      ...rest.map(stripEl),
+      stripEl({ id: 'master', name: 'Master', group: null })
+    );
+
+    const root = h('div', { class: 'bwc mx', id: 'bwMix' }, bar, consoleEl, mixDrawer(res, scene, strips, colOf));
+    const onInput = (ev) => {
+      const el = ev.target;
+      const path = el.dataset && el.dataset.mx;
+      if (!path || el.type === 'checkbox') return;
+      const id = el.dataset.id;
+      const v = +el.value;
+      mixSet(id, path, v);
+      const lab = el.previousElementSibling && el.previousElementSibling.querySelector && el.previousElementSibling.querySelector('b');
+      if (lab) lab.textContent = /eq\.(low|mid|high)$/.test(path) ? mixDb(v) : path === 'pan' ? mixPan(v) : `${Math.round(v)} %`;
+      if (path === 'vol') {
+        const st = el.closest('.mx-strip');
+        const db = $('.mx-db', st);
+        db.textContent = mixDb(v);
+        db.classList.toggle('own', !!scene);
+      }
+    };
+    root.addEventListener('input', onInput);
+    root.addEventListener('change', (ev) => {
+      const el = ev.target;
+      if (!el.dataset || !el.dataset.mx) return;
+      if (el.type === 'checkbox') mixSet(el.dataset.id, el.dataset.mx, el.checked);
+      mixAfter();
+    });
+    splitView(nav, root);
+    root.scrollTop = scrollTop;
+    const cons = $('.mx-console', root);
+    if (cons) cons.scrollLeft = scrollLeft;
+    if (focus) {
+      const again = root.querySelector(`[data-mx="${focus[0]}"][data-id="${focus[1]}"]`);
+      if (again && !again.disabled) again.focus({ preventScroll: true });
+    }
+    renderWizSteps();
+  }
+  /** Un réglage vient d'être posé (relâché, case, bouton) : l'écran est redessiné, l'écoute suit. */
+  function mixAfter() {
+    mixTouched();
+    renderMix();
+  }
+  /** Choix de la portée : la lecture en cours suit (la scène en boucle, ou toute la chanson). */
+  function mixPickScope(scope) {
+    if (scope === mixScope()) return;
+    S.wiz.mixScope = scope;
+    renderMix();
+    updateTransport();
+    if (!L.mode || L.paused) return;
+    const sc = scope === 'song' ? null : S.wiz.res.scenes.find((x) => x.sec === scope);
+    if (sc) playScene(sc.id);
+    else if (L.mode === 'scene') listenSong(0);
+  }
+  /** Lecture dans l'étape Mix : la scène choisie en boucle, ou toute la chanson. */
+  function mixPlay() {
+    const { res } = wizSong();
+    const sc = mixScope() === 'song' || !res ? null : res.scenes.find((x) => x.sec === mixScope());
+    if (sc) playScene(sc.id);
+    else listenSong(0);
+  }
+
+  /** Tiroir des effets de la tranche ouverte : onglets à gauche, réglages à droite ; écrit dans la portée choisie. */
+  function mixDrawer(res, scene, strips, colOf) {
+    const id = S.wiz.mixOpen;
+    const M = SS.wizMix;
+    const mix = S.wiz.mix;
+    const st = id && (id === 'master' ? { id, name: 'Master' } : strips.find((s) => s.id === id));
+    if (!st || (scene && id === 'master')) {
+      if (st) S.wiz.mixOpen = null;
+      return h('section', { class: 'mx-fx', hidden: true, id: 'mxFx' });
+    }
+    const master = id === 'master';
+    const scope = mixScope();
+    const e = M.eff(mix, scope, id);
+    const f = e.fx;
+    const o = (scene && mix.own[scope] && mix.own[scope][id]) || null;
+    const ownFx = (o && o.fx) || {};
+    const c = colOf.get(id);
+    const color = master ? '#d0d0da' : c ? c.o.color : '#9c9ca8';
+    const keys = MIX_FX.filter(([k]) => !master || k === 'eq' || k === 'comp');
+    if (!keys.some(([k]) => k === S.wiz.mixTab)) S.wiz.mixTab = keys[0][0];
+    const k = S.wiz.mixTab;
+    const info = MIX_FX.find((x) => x[0] === k);
+    const x = f[k];
+    const pct = (v) => `${Math.round(v)} %`;
+    const lock = (path) => !!scene && !mixSceneOk(path);
+    const knob = (path, label, v, min, max, step, fmt) =>
+      h('div', { class: 'mx-k' }, h('label', {}, label, h('b', {}, fmt(v))), h('input', { type: 'range', min, max, step, value: v, 'data-mx': path, 'data-id': id, 'aria-label': label, disabled: lock(path), title: lock(path) ? 'chanson seulement' : null }));
+    const on = (path, val) => h('label', { class: 'sw' }, h('input', { type: 'checkbox', 'data-mx': path, 'data-id': id, checked: val, disabled: lock(path) }), val ? 'actif' : 'éteint');
+    const onlyKeys = !scene || k === 'filter' || k === 'sends';
+    const pane = [h('h4', {}, info[1], k === 'sends' ? null : on(`fx.${k}.on`, !!x.on), ownFx[k] ? h('span', { class: 'mx-tag' }, `propre à ${scene.name}`) : null)];
+    pane.push(h('p', { class: 'hint' }, info[2] + (scene ? (onlyKeys ? ` · ce réglage ne vaudra que pour « ${scene.name} »` : ' · chanson seulement : le réglage de la chanson vaut dans toutes les scènes') : ' · pour toute la chanson') + '.'));
+    if (k === 'eq') pane.push(mixEqSvg(x), h('div', { class: 'mx-knobs' }, knob('fx.eq.low', 'Graves (120 Hz)', x.low, -12, 12, 0.5, mixDb), knob('fx.eq.mid', 'Médiums (800 Hz)', x.mid, -12, 12, 0.5, mixDb), knob('fx.eq.high', 'Aigus (8 kHz)', x.high, -12, 12, 0.5, mixDb)));
+    if (k === 'comp') pane.push(h('div', { class: 'mx-knobs' }, knob('fx.comp.amount', 'Quantité', x.amount, 0, 100, 1, pct)));
+    if (k === 'filter') pane.push(h('div', { class: 'mx-knobs' }, knob('fx.filter.cut', 'Ouverture', x.cut, 0, 100, 1, pct)), h('p', { class: 'hint' }, 'Astuce : filtre fermé dans l’intro, ouvert au refrain (réglage propre à la scène).'));
+    if (k === 'chorus' || k === 'reverb') pane.push(h('div', { class: 'mx-knobs' }, knob(`fx.${k}.mix`, 'Dosage', x.mix, 0, 100, 1, pct)));
+    if (k === 'delay') {
+      pane.push(h('div', { class: 'mx-knobs' }, knob('fx.delay.mix', 'Dosage', x.mix, 0, 100, 1, pct), h('div', { class: 'mx-k' }, h('label', {}, 'Temps', h('b', {}, (SS.DELAY_TIMES.find((d) => d.id === x.time) || { label: x.time }).label)), h('div', { class: 'mx-chips' }, ...SS.DELAY_TIMES.map((d) => h('button', { type: 'button', class: 'chip' + (x.time === d.id ? ' active' : ''), 'data-dtime': d.id, disabled: lock('fx.delay.time'), onclick: () => { mixSet(id, 'fx.delay.time', d.id); mixAfter(); } }, d.label))))));
+    }
+    if (k === 'sends') pane.push(h('div', { class: 'mx-knobs' }, ...['plate', 'hall', 'echo', 'cosmos'].map((s) => knob(`fx.sends.${s}`, { plate: 'Plate', hall: 'Hall', echo: 'Écho à bande', cosmos: 'Cosmos' }[s] + (lock(`fx.sends.${s}`) ? ' · chanson seulement' : ''), x[s], 0, 100, 1, pct))), h('p', { class: 'hint' }, 'Les bus sont partagés par toutes les pistes : leurs réglages (durée, couleur) sont dans la fenêtre FX de la piste, une fois la chanson créée.'));
+    if (k === 'sidechain') pane.push(h('div', { class: 'mx-knobs' }, knob('fx.sidechain.amount', 'Profondeur', x.amount, 0, 100, 1, pct)), h('p', { class: 'hint' }, 'La piste baisse à chaque coup de kick : la « pompe » de l’EDM et de la synthwave.'));
+    const tab = ([key, name]) => {
+      const t = f[key];
+      const act = key === 'sends' ? ['plate', 'hall', 'echo', 'cosmos'].some((s) => t[s] > 0) : t.on;
+      return h('button', { type: 'button', role: 'tab', class: key === k ? 'on' : '', 'data-tab': key, 'aria-selected': String(key === k), onclick: () => { S.wiz.mixTab = key; renderMix(); } }, name, h('i', { class: act ? 'act' : '' }, act ? (ownFx[key] ? 'scène' : 'on') : 'off'));
+    };
+    return h(
+      'section',
+      { class: 'mx-fx', id: 'mxFx', style: `--c:${color}` },
+      h('div', { class: 'mx-fxh' }, h('b', {}, `Effets · ${st.name}`), h('span', { class: 'mx-tag' }, scene ? `${scene.name} seulement` : 'Toute la chanson'), h('span', { class: 'spacer' }), h('button', { type: 'button', class: 'btn btn-small', id: 'mxFxClose', onclick: () => { S.wiz.mixOpen = null; renderMix(); } }, 'Fermer')),
+      h('div', { class: 'mx-tabs', role: 'tablist' }, ...keys.map(tab)),
+      h('div', { class: 'mx-pane' }, ...pane)
+    );
+  }
+
   /* ---------- Écoute dans l'assistant ----------
    * La chanson de la vue session est jouée telle qu'elle sera créée : pistes, scènes, mixage et mastering
    * automatiques, sur un projet temporaire (rien n'est écrit dans la chanson). Clic sur une scène : elle tourne
    * en boucle ; « Écouter la chanson » ou un bloc du bandeau : l'arrangement à partir de ce bloc.
    * Muet / Solo et volume (étape Mélodie) : par colonne, comme sur une console.
    */
-  const L = { proj: null, sig: null, mode: null, scene: null, sec: null, block: -1, step: -1, paused: false };
+  const L = { proj: null, sig: null, mixSig: null, mode: null, scene: null, sec: null, block: -1, step: -1, paused: false };
   const LID = (id) => 'bw·' + id; // identifiants des pistes d'écoute : jamais ceux de la chanson
 
   /** Projet d'écoute : construit comme « Créer la chanson » (main.js, addBandSong), recalculé si la chanson change. */
   function listenProject() {
     const { cols, res } = wizSong();
     if (!res) return null;
-    if (L.proj && L.sig === S.wiz.sig) return L.proj;
+    if (S.wiz.mix) mixSync(); // l'étape Mix a été visitée : son réglage s'entend aussi aux autres étapes
+    if (L.proj && L.sig === S.wiz.sig) {
+      if (L.mixSig !== mixSig()) liveMix();
+      return L.proj;
+    }
     dropListen();
+    L.proj = buildListen(cols, res);
+    L.sig = S.wiz.sig;
+    L.mixSig = mixSig();
+    applyListenMutes();
+    return L.proj;
+  }
+
+  /** Construit le projet d'écoute (sans le déclarer) : les pistes, les scènes, le mixage automatique, puis le mix de l'étape Mix. */
+  function buildListen(cols, res) {
     const p = preset();
     const proj = SS.newProject();
     proj.tempo = tempo();
@@ -3886,20 +4202,50 @@ SS.band = (() => {
     const st = (proj.tracks.find((t) => t.band) || { band: {} }).band.style || 'synthwave';
     SS.bandMix.mixTracks(proj.tracks, levelKeys, st);
     SS.bandMix.mixMaster(proj, st, SS.bandMix.driveFor(p.id, st));
+    if (S.wiz.mix) SS.wizMix.apply(proj, S.wiz.mix, res.scenes); // même application que « Créer la chanson » (volumes, effets, courbes de scène)
+    proj.tracks.forEach((t) => {
+      t.mixMute = !!t.mute;
+      t.mixSolo = !!t.solo;
+      t.baseVol = typeof t.volume === 'number' ? t.volume : 0.8;
+    });
     proj.groove = { ...(proj.groove || { res: 0, swing: 0.5 }), human: 0.15 };
     SS.loadScene(proj, proj.scenes[0].id, { commit: false });
-    L.proj = proj;
-    L.sig = S.wiz.sig;
-    applyListenMutes();
     return proj;
+  }
+
+  /** Le mix a changé : l'écoute en cours le prend sur place (volumes, pan, effets, Master, courbes de la scène), sans la reconstruire. */
+  function liveMix() {
+    const { cols, res } = wizSong();
+    if (!L.proj || !res) return;
+    const fresh = buildListen(cols, res);
+    const cur = L.proj.current;
+    L.proj.tracks.forEach((t, i) => {
+      const f = fresh.tracks[i];
+      if (!f) return;
+      t.baseVol = f.baseVol;
+      t.mixMute = f.mixMute;
+      t.mixSolo = f.mixSolo;
+      if (f.mix) t.mix = f.mix;
+      else delete t.mix;
+      if (f.fx) t.fx = f.fx;
+      else delete t.fx;
+      t.volume = f.baseVol * volGain(t.col);
+      SS.audio.setTrackGain(t, t.volume);
+    });
+    L.proj.master = fresh.master;
+    L.proj.scenes = fresh.scenes;
+    SS.loadScene(L.proj, cur, { commit: false });
+    L.mixSig = mixSig();
+    applyListenMutes();
+    SS.audio.applyAllFx(L.proj);
   }
 
   /** Muet / Solo et volume des colonnes sur les pistes d'écoute. */
   function applyListenMutes() {
     if (!L.proj) return;
     L.proj.tracks.forEach((t) => {
-      t.mute = S.wiz.mute.has(t.col);
-      t.solo = S.wiz.solo.has(t.col);
+      t.mute = S.wiz.mute.has(t.col) || !!t.mixMute; // Muet / Solo de l'étape Mélodie et ceux de l'étape Mix
+      t.solo = S.wiz.solo.has(t.col) || !!t.mixSolo;
       if (t.baseVol == null) t.baseVol = typeof t.volume === 'number' ? t.volume : 0.8;
       const v = t.baseVol * volGain(t.col);
       if (v !== t.volume) {
@@ -4100,7 +4446,7 @@ SS.band = (() => {
     // keys / grids / emos : étape Accords (tonalité, grille, émotion par section) ; parts : réglages par scène (batterie,
     // basse, nappes, arpèges) ; form / secs / skey : arrangement, scènes et tonalité retouchés (specEff) ; chars : caractère et notes par phrase par section (réglages du moteur, sans écran) ; melPanel : état du panneau Mélodie par section ; snap : aimant de la grille ; gsel : accord sélectionné ; insp : fenêtre d'inspiration
     S.wiz = {
-      step: 1, seen: new Set([1]), seed: 0, off: new Set(), mute: new Set(), solo: new Set(), sig: null, res: null, fresh, mel: S.mel, vol: new Map(), mix: null, hscene: null, hsec: null, tempo: null, tempoFor: null,
+      step: 1, seen: new Set([1]), seed: 0, off: new Set(), mute: new Set(), solo: new Set(), sig: null, res: null, fresh, mel: S.mel, vol: new Map(), mix: null, mixScope: 'song', mixOpen: null, mixTab: 'eq', hscene: null, hsec: null, tempo: null, tempoFor: null,
       plans: {}, pseeds: {}, keys: {}, grids: {}, emos: {}, chars: {}, parts: {}, melPanel: {}, melSec: null, form: null, secs: {}, skey: null, snap: 'beat', gsel: null, insp: null,
     };
     show();

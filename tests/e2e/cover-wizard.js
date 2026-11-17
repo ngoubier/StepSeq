@@ -96,7 +96,7 @@ const SHOTS = process.env.SHOTS;
   ok(gnames.join(' ') === 'G D/F♯ Em C', `grille du couplet : ${gnames.join(' ')}`);
 
   // créer
-  await page.click('#bandWizSteps li >> nth=10 >> button');
+  await page.click('#bandWizSteps li >> nth=11 >> button');
   await page.waitForTimeout(150);
   await page.click('#bwCreate');
   await page.waitForTimeout(500);
