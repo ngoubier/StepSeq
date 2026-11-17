@@ -83,7 +83,7 @@ const SHOTS = process.env.SHOTS;
   ok(g.cols === g.planned && g.cols >= 8, `une colonne par piste (${g.cols})`);
   ok(g.clips > g.rows * 3, `des clips dans les cases (${g.clips})`);
   ok(/Do mineur/.test(await page.textContent('.bw-info')), 'tonalité, tempo et durée de la chanson');
-  ok(await page.isVisible('#bwTransport'), 'bandeau de commande sous le titre');
+  ok(await page.isVisible('#bwTransport'), 'bandeau de commande dans l’en-tête');
   ok((await page.inputValue('#bwTempo')) === '132' && /Do mineur/.test(await page.textContent('#bwKey')) && /3 ♭ · i = Cm/.test(await page.textContent('#bwKey')), 'bandeau : tempo 132 et tonalité Do mineur (3 ♭)');
   ok(!(await page.isVisible('#bwTempoBack')), 'tempo d’origine : pas de rappel');
   await page.click('#bwSlower');
@@ -116,9 +116,10 @@ const SHOTS = process.env.SHOTS;
     const nav = document.querySelector('#bandWiz .bh-scenes').getBoundingClientRect();
     const tr = document.querySelector('#bwTransport').getBoundingClientRect();
     const head = document.querySelector('.band-head').getBoundingClientRect();
-    return { navTop: nav.top - head.bottom, left: tr.left - nav.right, inRight: !!document.querySelector('.bh-right > #bwTransport') };
+    const sh = document.querySelector('#bwStepHead').getBoundingClientRect();
+    return { navTop: nav.top - sh.bottom, inHead: !!document.querySelector('.band-head > #bwTransport'), trIn: tr.top >= head.top - 1 && tr.bottom <= head.bottom + 1, below: nav.top >= head.bottom };
   });
-  ok(layout.inRight && Math.abs(layout.navTop) <= 2 && layout.left >= 0 && layout.left <= 2, 'colonne des scènes sous le titre, lecture à sa droite');
+  ok(layout.inHead && layout.trIn && layout.below && layout.navTop >= 0 && layout.navTop <= 24, 'lecture dans l’en-tête, colonne des scènes sous la tête d’étape');
   ok((await page.locator('.bh-scene').count()) === 5 && (await page.locator('.bh-scene.on .bh-sname b').textContent()) === 'Intro', 'scènes à gauche, la première choisie');
   const gnames = () => page.$$eval('#bwLane .gr-blk', (bs) => bs.map((b) => b.querySelector('b').textContent));
   ok((await gnames()).join(' ') === 'Cm B♭ A♭ B♭ Cm B♭ A♭ B♭', `grille de l’intro : ${(await gnames()).join(' ')}`);
@@ -196,7 +197,7 @@ const SHOTS = process.env.SHOTS;
     await page.click('#bwNext');
     await page.waitForTimeout(200);
     ok((await page.locator('#bandWizSteps li.cur').textContent()).includes(label), `étape ${n} : ${label}`);
-    ok((await page.locator('.bh-scene').count()) === 5 && (await page.locator(sel).count()) >= (n === 9 ? 4 : 8) && !!(await page.$('.bh-right > #bwTransport')), `${label} : scènes à gauche, réglages à droite`);
+    ok((await page.locator('.bh-scene').count()) === 5 && (await page.locator(sel).count()) >= (n === 9 ? 4 : 8) && !!(await page.$('.band-head > #bwTransport')), `${label} : scènes à gauche, réglages à droite, lecture dans l’en-tête`);
   }
 
   // 8. Mélodie : la scène choisie, les phrases de la mélodie, ses accords (comme dans Harmonie) et les instruments dessous
@@ -204,7 +205,7 @@ const SHOTS = process.env.SHOTS;
   await page.waitForTimeout(200);
   ok((await page.locator('#bandWizSteps li.cur').textContent()).includes('Mélodie'), 'étape 10 : Mélodie');
   ok((await page.locator('.bh-scene').count()) === 5 && (await page.locator('.bh-scene.on .bh-sname b').textContent()) === 'Intro', 'scènes à gauche, la première choisie');
-  ok(!!(await page.$('.bh-right > #bwTransport')), 'lecture à droite de la colonne des scènes');
+  ok(!!(await page.$('.band-head > #bwTransport')), 'lecture dans l’en-tête');
   const hc = await page.evaluate(() => [...document.querySelectorAll('.bh-chord')].map((c) => [c.querySelector('small').textContent, c.querySelector('b').textContent, c.className]));
   ok(hc.length === 8 && hc[0][0] === 'i' && hc[0][1] === 'Cm' && /role-repos/.test(hc[0][2]) && hc[1][1] === 'B♭', `piste d’accords : ${hc.map((c) => c[1]).join(' ')}`);
   ok(!(await page.isVisible('.bw-hint')) && !(await page.isVisible('.bw-info')), 'en-tête sans petits textes');
@@ -290,7 +291,7 @@ const SHOTS = process.env.SHOTS;
   // 9. Intégration
   await page.click('#bwNext');
   ok((await page.locator('.bw-grid input[type=checkbox]').count()) > 5, 'étape 11 : des cases à cocher par musicien et par élément');
-  ok(!(await page.$('#bandWiz #bwTransport')), 'étape 11 : la lecture revient sous le titre');
+  ok(!(await page.$('#bandWiz #bwTransport')) && !!(await page.$('.band-head > #bwTransport')), 'étape 11 : la lecture reste dans l’en-tête');
   const bassBox = page.locator('.bw-group', { hasText: 'Bassiste' }).locator('input');
   await bassBox.uncheck();
   const hhBox = page.locator('.bw-track', { hasText: 'Hi-Hat ouvert' }).locator('input');
