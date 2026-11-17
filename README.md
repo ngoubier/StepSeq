@@ -147,7 +147,11 @@ caractère…), et **▶ joue la scène choisie en boucle** (pas toute la chanso
 
 1. **Style** : les deux portes **Créer** / **Reprendre**, le style musical (avec son **tempo conseillé**, de la plus
    lente à la plus rapide de ses inspirations, et sa description ; la fiche du style montre la zone sur l'échelle des
-   tempos) et l'inspiration (ou la reprise tapée) ; **Chanson vide** ferme l'assistant (comme Fermer) ;
+   tempos) et l'inspiration (ou la reprise tapée) ; **Chanson vide** ferme l'assistant (comme Fermer). En haut à droite de la tête d'étape,
+   le gros bouton vert **▶ Générer et écouter** (« puis affine étape par étape ») joue toute la chanson aperçue : tous les
+   instruments, toutes les scènes, comme l'écoute de l'étape Scènes et commandée par la barre du haut (Lecture, Stop, tempo). Sans
+   inspiration choisie, il prend la première du style choisi (ou du premier style) ; pendant l'écoute il devient
+   **■ Lecture · scène Intro** (re-clic : arrêt) ;
 2. **Instruments** : les musiciens du groupe (la scène, le panneau du musicien : instrument phare, conseillés, toute la
    bibliothèque ; kit et éléments du batteur) et l'interrupteur **General MIDI** (en haut du contenu de l'étape, à côté de la tête) ;
 3. **Tempo et tonalité** : le **tempo** (grand afficheur, − / +, curseur de 40 à 240 BPM avec la zone dorée du tempo
@@ -176,10 +180,32 @@ caractère…), et **▶ joue la scène choisie en boucle** (pas toute la chanso
 5. **Batterie** : pour la scène choisie, une **bibliothèque de 20 motifs** du style (`SS.DRUM_PATTERNS`, carte avec nom,
    énergie ●●○ et aperçu des cinq pistes ; filtre Tous / Calme / Moyen / Intense ; **Suggéré** pour la nuance de la
    scène : intro, outro, break calmes, montée et pont moyens, refrain, drop et sommet intenses). **Motif de l'inspiration**
-   est choisi par défaut : tant qu'on ne touche à rien, c'est le groove du plan. Dessous, la **grille** du motif
-   (grosse caisse, caisse claire, clap, charleston fermé et ouvert × 16 pas : un clic fait tourner fort, moyen, léger,
-   éteint ; **Revenir au motif**), les mesures de la scène (fills en rose), le **fill** (jamais, fin de scène, toutes les
-   4 ou 8 mesures), son type et le **crash** ; **Assortir toutes les scènes** pose un motif suggéré par scène ;
+   est choisi par défaut : tant qu'on ne touche à rien, c'est le groove du plan. Dessous, la **grille** : **une ligne par
+   élément coché du kit** (grosse caisse, caisse claire, clap, charleston fermé et ouvert, rimshot, crash, ride, percussions, toms… ce que
+   le batteur a coché à l'étape Instruments ; décocher un élément retire sa ligne), couleur de rôle, en **1, 2 ou 4 mesures**
+   (16, 32 ou 64 pas, temps groupés par quatre et mesures séparées ; passer à un motif plus long répète le motif, plus court le coupe).
+   Une ligne montre ce qui joue (le motif choisi, sinon le jeu du plan pour les pièces que le motif ne pilote pas : rimshot, percussions, toms) ;
+   le premier geste écrit toutes les lignes dans `edits`. **Un clic** fait tourner fort, moyen, léger, éteint ; **clic droit**, **appui long**
+   (tactile) ou la touche Menu contextuel / <kbd>Maj</kbd>+<kbd>F10</kbd> ouvre la fenêtre d'options de la case : **Vélocité**
+   (Fort / Moyen / Léger), **Répétitions** ×1 à ×4 (ratchet, `rat`), **Probabilité** 100 / 75 / 50 / 25 % ou 1:2, 2:2 (conditions de
+   déclenchement, `cond` : `p75`, `p50`, `p25`, `1:2`, `2:2`), **Effacer la case** (<kbd>Échap</kbd> ferme). Une case montre sa vélocité par la
+   hauteur de remplissage, ×2 / ×3 et la probabilité en petites marques. Les flèches déplacent le focus entre cases, <kbd>Entrée</kbd> /
+   <kbd>Espace</kbd> font tourner la case. Sur téléphone la grille défile en largeur dans sa carte. **Swing** (des doubles-croches, 0 à
+   100 % de 50 à 75 %) et **Humanisation** sont des réglages **de toute la chanson** (`project.groove`, `S.wiz.groove` ; le moteur n'a pas de swing par
+   scène, la mention « pour toute la chanson » est sur les curseurs) : ils s'entendent tout de suite et la chanson créée les garde
+   (humanisation 15 % et pas de swing tant qu'on n'y touche pas). Puis **Revenir au motif**, les mesures de la scène (fills en rose), le
+   **fill** (jamais, fin de scène, toutes les 4 ou 8 mesures), son type et le **crash** ; **Assortir toutes les scènes** pose un motif suggéré par scène ;
+   **Copier vers les scènes du même type** copie aussi la grille et la progression de montée. L'aperçu, l'écoute en boucle et « Créer la chanson » jouent exactement la grille (vélocité fort / moyen / léger, ratchets, conditions).
+   **Scène de montée** (`drums: 'build'`) : au-dessus de la grille, la carte **Progression de la montée**. Le roulement est joué par la caisse claire
+   (le clap si le kit n'en a pas) et se règle **mesure par mesure** : **Noires** (4 coups par mesure), **Croches** (8), **Doubles croches** (16),
+   **Triples** (24 : une croche sur deux pas rejouée en ratchet ×3). Préréglages **Linéaire** (montée régulière : 1/4 de la scène par
+   densité), **Rapide** (le roulement arrive tôt, le sommet est atteint à mi-scène puis tenu), **Tardive** (noires jusqu'aux deux dernières mesures,
+   doubles puis triples) et **Perso** : un clic sur une colonne rend la mesure plus dense d'un cran (<kbd>Maj</kbd> + clic, clic droit ou flèche bas : moins dense ; passe en Perso).
+   Le curseur **Crescendo de volume** règle la rampe de vélocité du roulement sur toute la scène (0 : plat, 100 % : de très doux à fort). Le numéro d'une colonne choisit la
+   mesure dont la grille de 16 pas (caisse claire, clap, charleston, crash) s'affiche dessous, « générée depuis la courbe » : modifier une case la
+   **verrouille** (pastille **🔒 Mesure libre**, un clic la rend à la courbe) et un changement de courbe ou de préréglage ne la touche plus. Sans réglage,
+   la montée est celle du plan (le roulement d'origine de `drumSpice`) ; dès qu'une progression est posée, elle le remplace. Les réglages
+   sont `parts[section].drums = { edits, build }` (voir plus bas) ; tests : `node tests/e2e/wizard-drums.js`, `node --test tests/drumgrid.test.js` ;
 6. **Accords** : la **grille** de la scène choisie, comme celle d’Harmonie (`{ step, len, degree, type, acc }`, degrés dans
    la tonalité de la scène) : **tonalité** de la scène (tonique et mode ; la grille garde ses degrés), **Aimanter** (à la
    mesure, à la demi-mesure, au temps), **Effacer**, **↺ Inspiration** (accords et tonalité d'origine). Un clic sur un
@@ -260,8 +286,14 @@ sommet par scène.
 **Réglages par scène (`parts`).** `SS.bandSong.build(spec, id, tracks, { parts })` accepte, pour chaque section,
 `{ drums, bass, pad, arp, lead, off }` (réglés dans les étapes Batterie, Basse, Nappes, Arpèges et Mélodie de l'assistant). Sans `parts`, la chanson
 est exactement celle du plan. **Batterie** : `{ style, pattern, edits, fill: off|end|4|8, fillType: roll|toms|clap4|kick|cut|open,
-crash }` ; `pattern` est un identifiant de `js/drum-patterns.js` (kick, caisse claire, clap, charleston fermé et ouvert sur
-une mesure de 16 pas : `x` fort, `o` moyen, `.` léger, `-` silence), `edits` remplace ses pistes. **Basse** : `{ mode (dont
+crash, build }` ; `pattern` est un identifiant de `js/drum-patterns.js` (kick, caisse claire, clap, charleston fermé et ouvert sur
+une mesure de 16 pas : `x` fort, `o` moyen, `.` léger, `-` silence), `edits` remplace ses pistes. `edits` (ancien format) : `{ K, S, C, H, O }`
+de 16 caractères ; depuis la grille de l'assistant : `{ bars: 1|2|4, K, S, C, H, O, rd, rim, cr, ht, mt, lt, perc… (une piste de 16 × bars
+caractères par pièce du kit ; K S C H O pour bd sd cp hh oh, l'identifiant du son pour les autres), rat: { piste: { pas: 2..4 } }, cond: { piste:
+{ pas: 'p75' | 'p50' | 'p25' | '1:2' | '2:2'… } } }` : une pièce qui a sa piste est jouée telle quelle (motif répété sur la scène, fill et crash compris), les anciens
+brouillons restent lus comme avant. `build` (scènes de montée) : `{ preset: 'lin'|'fast'|'late'|'custom', levels: [1..4 par mesure] (custom), cresc: 0..1, lock:
+{ [mesure]: { lanes: { sd, cp, hh, cr : 16 caractères }, rat, cond } } }` ; niveaux 1 à 4 = noires, croches, doubles-croches, triples (24 coups : une croche sur
+deux pas en ratchet ×3). **Basse** : `{ mode (dont
 half et quarter), pedal: none|tonic|fifth, approach, register: low|mid }`. **Nappe** : `{ mode, voicing: close|open }`. **Arpège** : `{ mode }` (8 modes simples du moteur) ou `{ one }`, des réglages
 d'Arp One (`js/arp.js`) : les accords de la scène passent dans `SS.Arp.renderStep` (voicing médium, tempo nominal 120 BPM, boucle 0 :
 déterministe) et les notes sont posées sur la grille de pas ; `one` l'emporte sur `mode`.
