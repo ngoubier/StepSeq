@@ -625,6 +625,12 @@ a.btn { text-decoration: none; }
 .add-track-row .empty-msg { display: none; margin: 0; }
 .add-track-row.none { padding: 60px 16px; }
 .add-track-row.none .empty-msg { display: block; }
+/* Projet sans piste : gros bouton « Nouvelle chanson » centré dans la zone des pistes */
+.add-track-row .btn-new-song { display: none; }
+.add-track-row.none .btn-new-song { display: inline-flex; }
+.btn-new-song { height: 64px; padding: 0 36px; border-radius: 14px; font-size: 20px; font-weight: 600; box-shadow: 0 6px 24px rgba(0, 0, 0, .35); margin-bottom: 10px; }
+body:not(.mixer-open):not(.wizard-mode) #workspace:has(> .add-track-row.none) { display: flex; flex-direction: column; }
+#workspace > .add-track-row.none { flex: 1; justify-content: center; }
 
 /* ---------- Barre du bas ---------- */
 .bottombar {
