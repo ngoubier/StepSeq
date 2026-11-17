@@ -3698,7 +3698,7 @@ SS.band = (() => {
       if (!sp || e.step + e.len < sp.step + sp.len - 1) return false;
       return e.notes.every((n) => !sp.info.pcs.includes(((n % 12) + 12) % 12)) && spans.some((x) => x.step === sp.step + sp.len);
     };
-    // basse : les notes se cliquent (accent), une ligne « Accents » les suit
+    // basse : les notes se cliquent (accent) ; la ligne « Accents » est dans son panneau (accPanel)
     const acc = kind === 'bass' ? accOf(sc.sec, T) : null;
     const per = acc ? BS().accentPeriod(acc.repeat, sc.bars) : 0;
     const isAcc = (e) => !!acc && acc.steps.includes(e.step % per);
@@ -3723,21 +3723,9 @@ SS.band = (() => {
         style: `left:${pct(e.step)};width:${pct(Math.min(e.len, total - e.step))};top:${((100 * (hi - n)) / rows).toFixed(3)}%;height:${(100 / rows).toFixed(3)}%`,
         'aria-label': `${names[((n % 12) + 12) % 12]}${Math.floor(n / 12) - 1}, pas ${e.step + 1}${on ? ', accentuée' : ''}`,
         title: on ? 'Note accentuée : clic pour la retirer' : 'Clic : accentuer cette note',
-        onclick: () => toggleAccent(sc, T, e.step),
+        onclick: () => toggleAccent(sc, T, e.step, `#bwRoll .bw-rnb[data-s="${e.step}"]`),
       });
     });
-    const dots = events.map((e) => {
-      const on = isAcc(e);
-      return h('button', {
-        type: 'button', class: 'bw-acell' + (on ? ' ac' : '') + (e.step >= per ? ' echo' : ''), 'data-s': e.step, 'aria-pressed': String(on),
-        style: `left:${pct(e.step)};width:${pct(1)}`,
-        'aria-label': `Accent, pas ${e.step + 1}${on ? ', accentué' : ''}`,
-        onclick: () => toggleAccent(sc, T, e.step),
-      }, h('i'));
-    });
-    const k = events.filter(isAcc).length;
-    const reps = [[1, 'Répéter chaque mesure'], [2, 'chaque 2 mesures'], ['scene', 'toute la scène']];
-    const hint = { 1: 'Le motif d’une mesure se répète sur chacune des mesures de la scène (les notes hachurées en reprennent le motif).', 2: 'Un motif de 2 mesures, repris toutes les 2 mesures.', scene: 'Les accents sont posés une seule fois pour toute la scène.' }[acc.repeat];
     return h(
       'div',
       { class: 'bw-roll bw-roll-acc', id: 'bwRoll', 'data-scene': sc.id, 'data-bars': sc.bars, style: `--c:${color}`, role: 'group', 'aria-label': `Notes de la scène ${sc.name}` },
@@ -3748,19 +3736,10 @@ SS.band = (() => {
           'div',
           { class: 'bw-rin', style: `--n:${total}` },
           chords,
-          h('div', { class: 'bw-rbody' }, svg, ...nb, h('i', { class: 'bw-roll-ph', hidden: true })),
-          h('div', { class: 'bw-racc' },
-            h('div', { class: 'bw-acap' }, h('span', {}, h('b', {}, 'Accents'), ' · un point par note, plein si accentuée'), h('span', { id: 'bwAccCount' }, `${k} sur ${events.length} notes`)),
-            h('div', { class: 'bw-acells', role: 'group', 'aria-label': 'Accents, un point par note' }, ...dots))
+          h('div', { class: 'bw-rbody' }, svg, ...nb, h('i', { class: 'bw-roll-ph', hidden: true }))
         )
       ),
-      empty,
-      h(
-        'div',
-        { class: 'bw-rrep' },
-        h('div', { class: 'bwp-row' }, partSeg('Le motif d’accents', 'bwAccRep', reps, acc.repeat, (v) => setAccRepeat(sc, T, v))),
-        h('p', { class: 'dlg-hint', id: 'bwAccHint' }, hint)
-      )
+      empty
     );
   }
 
@@ -3790,10 +3769,64 @@ SS.band = (() => {
     writeAcc(sc, T, patch);
     partChanged(focus);
   }
-  function toggleAccent(sc, T, step) {
+  function toggleAccent(sc, T, step, focus) {
     const A = accOf(sc.sec, T);
     const s = step % BS().accentPeriod(A.repeat, sc.bars);
-    putAcc(sc, T, { steps: A.steps.includes(s) ? A.steps.filter((x) => x !== s) : [...A.steps, s] }, `#bwRoll .bw-acell[data-s="${step}"]`);
+    putAcc(sc, T, { steps: A.steps.includes(s) ? A.steps.filter((x) => x !== s) : [...A.steps, s] }, focus);
+  }
+  /* Panneau « Accents » : affichage seulement (jamais enregistré avec la chanson), par instrument et par scène, comme les courbes
+   * d'automation mais en mémoire : absent = fermé (par défaut), 'open' = ouvert, 'fold' = replié sur sa tête. Fermer ne touche pas aux accents. */
+  const accKey = (sc, T) => `${T.id}|${sc.sec}`;
+  const accView = (sc, T) => (S.wiz.accView || (S.wiz.accView = {}))[accKey(sc, T)] || null;
+  function setAccView(sc, T, v, focus) {
+    const m = S.wiz.accView || (S.wiz.accView = {});
+    if (v) m[accKey(sc, T)] = v;
+    else delete m[accKey(sc, T)];
+    renderWiz(); // l'affichage seul change : la lecture continue
+    const f = focus && $(focus);
+    if (f) f.focus();
+  }
+  /** Panneau « Accents » (basse) : tête comme une courbe (chevron, ×), ligne de points, répétition, puis la carte des motifs. */
+  function accPanel(sc, T) {
+    const view = accView(sc, T);
+    if (!view) return null;
+    const fold = view === 'fold';
+    const A = accOf(sc.sec, T);
+    const per = BS().accentPeriod(A.repeat, sc.bars);
+    const events = ((sc.data[T.col.id] || {}).events || []);
+    const on = (e) => A.steps.includes(e.step % per);
+    const k = events.filter(on).length;
+    const pct = (x) => `${((100 * x) / (sc.bars * 16)).toFixed(3)}%`;
+    const head = h(
+      'div',
+      { class: 'bwau-lh' },
+      h('button', { type: 'button', class: 'bwau-xb bwau-fold', id: 'bwAccFold', 'aria-expanded': String(!fold), 'aria-label': `${fold ? 'Afficher' : 'Masquer'} le panneau Accents`, title: fold ? 'Afficher' : 'Masquer (les accents continuent de jouer)', onclick: () => setAccView(sc, T, fold ? 'open' : 'fold', '#bwAccFold') }, fold ? '▸' : '▾'),
+      h('i', { class: 'bwau-sq' }),
+      h('b', {}, 'Accents'),
+      h('span', { class: 'bwau-rd', id: 'bwAccCount' }, `${k} sur ${events.length} notes`),
+      h('span', { class: 'spacer' }),
+      h('button', { type: 'button', class: 'bwau-xb', id: 'bwAccClose', 'aria-label': 'Fermer le panneau Accents', title: 'Fermer le panneau (les accents sont gardés)', onclick: () => setAccView(sc, T, null, '#bwAutoBtn') }, '×')
+    );
+    const body = [];
+    if (!fold) {
+      const dots = events.map((e) =>
+        h('button', {
+          type: 'button', class: 'bw-acell' + (on(e) ? ' ac' : '') + (e.step >= per ? ' echo' : ''), 'data-s': e.step, 'aria-pressed': String(on(e)),
+          style: `left:${pct(e.step)};width:${pct(1)}`,
+          'aria-label': `Accent, pas ${e.step + 1}${on(e) ? ', accentué' : ''}`,
+          onclick: () => toggleAccent(sc, T, e.step, `#bwAccPanel .bw-acell[data-s="${e.step}"]`),
+        }, h('i'))
+      );
+      const reps = [[1, 'Répéter chaque mesure'], [2, 'chaque 2 mesures'], ['scene', 'toute la scène']];
+      const hint = { 1: 'Le motif d’une mesure se répète sur chacune des mesures de la scène (les points hachurés en reprennent le motif).', 2: 'Un motif de 2 mesures, repris toutes les 2 mesures.', scene: 'Les accents sont posés une seule fois pour toute la scène.' }[A.repeat];
+      body.push(
+        h('div', { class: 'bwau-xs', 'data-xs': '' }, h('div', { class: 'bwau-in' }, h('div', { class: 'bw-acells', role: 'group', 'aria-label': 'Accents, un point par note' }, ...dots))),
+        h('div', { class: 'bwp-row' }, partSeg('Le motif d’accents', 'bwAccRep', reps, A.repeat, (v) => setAccRepeat(sc, T, v))),
+        h('p', { class: 'dlg-hint', id: 'bwAccHint' }, hint),
+        accentsCard(sc, T)
+      );
+    }
+    return h('section', { class: 'bwp-card bw-card bwau bwac' + (fold ? ' fold' : ''), id: 'bwAccPanel', style: `--n:${sc.bars * 16};--c:${KIND_COLOR.bass}`, 'aria-label': `Accents de « ${sc.name} »` }, head, ...body);
   }
   /** Change la répétition : en grandissant le motif est recopié (même rendu), en rétrécissant on garde le début. */
   function setAccRepeat(sc, T, repeat) {
@@ -3905,11 +3938,11 @@ SS.band = (() => {
     const force = dialKnob('bwAccForce', 'Force de l’accent', A.force, { live: (v) => ((fl.textContent = accForce(v)), (fv.textContent = String(v))), commit: (v) => putAcc(sc, T, { force: v }, '#bwAccForce') });
     const bv = h('span', { id: 'bwAccBrightNum' }, String(A.bright));
     const bright = dialKnob('bwAccBright', 'Brillance', A.bright, { small: true, live: (v) => (bv.textContent = String(v)), commit: (v) => putAcc(sc, T, { bright: v }, '#bwAccBright') });
-    const hint = pat === 'custom' ? 'Motif personnalisé : tu as touché des notes à la main.' : A.steps.length && !accCount(sc, T) ? 'Aucune note du mode de jeu ne tombe sur ces accents.' : 'Choisir un motif remplit la ligne « Accents » sous les notes.';
+    const hint = pat === 'custom' ? 'Motif personnalisé : tu as touché des notes à la main.' : A.steps.length && !accCount(sc, T) ? 'Aucune note du mode de jeu ne tombe sur ces accents.' : 'Choisir un motif remplit la ligne de points ci-dessus.';
     return h(
-      'section',
-      { class: 'bwp-card bw-card bwa-card', id: 'bwAcc' },
-      h('div', { class: 'bwp-ch' }, h('b', {}, 'Accents'), h('span', { class: 'bh-info' }, 'des notes plus fortes, pour faire respirer la basse'), h('span', { class: 'spacer' }),
+      'div',
+      { class: 'bwa-card', id: 'bwAcc' },
+      h('div', { class: 'bwp-ch' }, h('b', {}, 'Motifs'), h('span', { class: 'bh-info' }, 'des notes plus fortes, pour faire respirer la basse'), h('span', { class: 'spacer' }),
         h('button', { type: 'button', class: 'btn btn-small', id: 'bwAccClear', disabled: !A.steps.length, onclick: () => putAcc(sc, T, { steps: [] }, '#bwAccClear') }, 'Effacer')),
       h(
         'div',
@@ -4060,6 +4093,21 @@ SS.band = (() => {
       true
     );
   }
+  /** Basse : section « Accents » du menu (hors paramètres d'automation) ; l'entrée ouvre ou ferme le panneau. */
+  function accMenuItems(sc, T) {
+    const shown = !!accView(sc, T);
+    const n = accCount(sc, T);
+    return [
+      h('div', { class: 'bwau-mh bwau-msep' }, 'Accents'),
+      h(
+        'button',
+        { type: 'button', role: 'menuitemcheckbox', class: 'bwau-item', id: 'bwauAcc', 'aria-checked': String(shown), style: `--pc:${KIND_COLOR.bass}`, onclick: () => setAccView(sc, T, shown ? null : 'open', '#bwauAcc') },
+        h('i'),
+        h('span', {}, (shown ? '✓ ' : '') + 'Accents' + (n ? ` · ${n}` : '')),
+        h('small', {}, shown ? 'ouvert' : 'des notes plus fortes')
+      ),
+    ];
+  }
   function autoMenuEl(sc, T) {
     const specs = autoOf(sc.sec, T);
     const n = Object.keys(specs).length;
@@ -4095,7 +4143,8 @@ SS.band = (() => {
       h('div', { class: 'bwau-mh' }, 'Panneaux'),
       h('div', { class: 'bwau-mrow' },
         h('button', { type: 'button', class: 'btn btn-small', id: 'bwauHideAll', disabled: !vis, onclick: all(true) }, 'Tout masquer'),
-        h('button', { type: 'button', class: 'btn btn-small', id: 'bwauShowAll', disabled: !n || vis === n, onclick: all(false) }, 'Tout afficher'))
+        h('button', { type: 'button', class: 'btn btn-small', id: 'bwauShowAll', disabled: !n || vis === n, onclick: all(false) }, 'Tout afficher')),
+      ...(T.kind === 'bass' ? accMenuItems(sc, T) : [])
     );
     menu.addEventListener('keydown', (e) => {
       const list = [...menu.querySelectorAll('button:not(:disabled)')];
@@ -4871,6 +4920,7 @@ SS.band = (() => {
       partHead(sc, T, 'basse', false),
       rollBox(sc, T),
       autoCard(sc, T),
+      accPanel(sc, T),
       h(
         'section',
         { class: 'bwp-card bw-card' },
@@ -4878,7 +4928,6 @@ SS.band = (() => {
         modeCards(sc, T, BASS_MODES, '#3fcf3f', () => pruneAccents(sc, T)),
         !planMode(sc, T) && !o.mode ? h('p', { class: 'dlg-hint' }, 'L’inspiration ne joue pas de basse dans cette scène : choisis un mode pour l’allumer.') : null
       ),
-      accentsCard(sc, T),
       h(
         'section',
         { class: 'bwp-card bw-card' },
