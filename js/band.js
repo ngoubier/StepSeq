@@ -3746,7 +3746,7 @@ SS.band = (() => {
     const eff = specEff();
     const plan = cover() ? { ...p, spec: eff, cover: { title: S.cover.title.trim() || 'Reprise' } } : eff !== spec() ? { ...p, spec: eff } : p;
     // tout est lu avant de quitter l'assistant (leave efface S.wiz), puis la fenêtre principale reprend la place
-    const args = [cols.map((c) => c.o), plan, tempo(), { melodySeed: seed, melody: melodyOpts(), harmony: harmonyOpts(), parts: S.wiz.parts, gains: cols.map((c) => volGain(c.id)) }];
+    const args = [cols.map((c) => c.o), plan, tempo(), { melodySeed: seed, melody: melodyOpts(), harmony: harmonyOpts(), parts: S.wiz.parts, gains: cols.map((c) => volGain(c.id)), mix: S.wiz.mix }];
     leave();
     app.applySong(...args);
   }
@@ -4100,7 +4100,7 @@ SS.band = (() => {
     // keys / grids / emos : étape Accords (tonalité, grille, émotion par section) ; parts : réglages par scène (batterie,
     // basse, nappes, arpèges) ; form / secs / skey : arrangement, scènes et tonalité retouchés (specEff) ; chars : caractère et notes par phrase par section (réglages du moteur, sans écran) ; melPanel : état du panneau Mélodie par section ; snap : aimant de la grille ; gsel : accord sélectionné ; insp : fenêtre d'inspiration
     S.wiz = {
-      step: 1, seen: new Set([1]), seed: 0, off: new Set(), mute: new Set(), solo: new Set(), sig: null, res: null, fresh, mel: S.mel, vol: new Map(), hscene: null, hsec: null, tempo: null, tempoFor: null,
+      step: 1, seen: new Set([1]), seed: 0, off: new Set(), mute: new Set(), solo: new Set(), sig: null, res: null, fresh, mel: S.mel, vol: new Map(), mix: null, hscene: null, hsec: null, tempo: null, tempoFor: null,
       plans: {}, pseeds: {}, keys: {}, grids: {}, emos: {}, chars: {}, parts: {}, melPanel: {}, melSec: null, form: null, secs: {}, skey: null, snap: 'beat', gsel: null, insp: null,
     };
     show();
