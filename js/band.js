@@ -5360,6 +5360,8 @@ SS.band = (() => {
     const keepCons = keep && $('.mx-console', keep);
     const scrollLeft = keepCons ? keepCons.scrollLeft : 0;
     const focus = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.mx ? [document.activeElement.dataset.mx, document.activeElement.dataset.id] : null;
+    const fxTab = document.activeElement && document.activeElement.closest && document.activeElement.closest('#mxFx') && document.activeElement.dataset.tab ? document.activeElement.dataset.tab : null;
+    const fxPaneTop = $('#mxFx .mx-fxin') ? $('#mxFx .mx-fxin').scrollTop : 0;
 
     // couleur et instrument de chaque tranche : ceux de la première piste de l'assistant qui la porte
     const colOf = new Map();
@@ -5428,7 +5430,7 @@ SS.band = (() => {
         'div',
         { class: 'mx-strip' + (s.group ? ' drum' : '') + (master ? ' master' : '') + (open ? ' sel' : '') + (isOwn ? ' own' : ''), style: `--c:${color}`, 'data-id': id },
         h('div', { class: 'mx-name' }, s.name, h('small', {}, inst)),
-        h('button', { type: 'button', class: 'mx-fxb' + (open ? ' open' : ''), 'data-fx': id, 'aria-expanded': String(open), title: lockedAll ? 'Le Master se règle pour toute la chanson' : `Effets de ${s.name}`, disabled: lockedAll, onclick: () => { S.wiz.mixOpen = open ? null : id; renderMix(); } }, 'FX ', h('span', { class: 'n' }, String(on.length))),
+        h('button', { type: 'button', class: 'mx-fxb' + (open ? ' open' : ''), 'data-fx': id, 'aria-expanded': String(open), title: lockedAll ? 'Le Master se règle pour toute la chanson' : `Effets de ${s.name}`, disabled: lockedAll, onclick: () => mixFxToggle(id) }, 'FX ', h('span', { class: 'n' }, String(on.length))),
         h('div', { class: 'mx-fxlist' }, ...(on.length ? on.slice(0, 4).map(([k, name]) => h('span', { class: ownFx.includes(k) ? 'own' : '' }, name)) : [h('span', {}, 'aucun effet')])),
         master
           ? h('div', { class: 'mx-pan' }, h('div', {}, h('span', {}, 'Stéréo'), h('b', {}, '—')), h('input', { type: 'range', disabled: true, value: 60, 'aria-label': 'Largeur du Master' }), scene ? h('small', { class: 'mx-only' }, 'chanson seulement') : null)
@@ -5494,7 +5496,90 @@ SS.band = (() => {
       const again = root.querySelector(`[data-mx="${focus[0]}"][data-id="${focus[1]}"]`);
       if (again && !again.disabled) again.focus({ preventScroll: true });
     }
+    if (fxTab) $(`#mxFx [data-tab="${fxTab}"]`)?.focus({ preventScroll: true });
+    mixFxPlace(false);
+    const fxIn = $('#mxFx .mx-fxin');
+    if (fxIn) fxIn.scrollTop = fxPaneTop;
+    mixFxListen();
     renderWizSteps();
+  }
+
+  /* ---------- Popover des effets (#mxFx) ----------
+   * Panneau flottant (position: fixed) ancré à la tranche ouverte : à droite s'il y a la place dans la zone visible de la
+   * console, sinon à gauche ; haut aligné sur celui de la tranche, borné à la fenêtre (le contenu défile dedans). Il suit la
+   * tranche quand la console ou la page défile ; si la tranche sort de la vue, il se ferme (un panneau resté en l'air, détaché
+   * de sa tranche, serait trompeur). Sous 760 px : feuille du bas (CSS), aucune position calculée.
+   */
+  const phoneMq = window.matchMedia('(max-width: 760px)');
+  function mixFxPlace(closeIfGone) {
+    const pop = $('#mxFx');
+    if (!pop || pop.hidden || !S.wiz || !S.wiz.mixOpen) return;
+    const id = S.wiz.mixOpen;
+    const strip = $(`#bwMix .mx-strip[data-id="${id}"]`);
+    if (!strip) return;
+    const set = (o) => ['left', 'top', 'maxHeight', 'width'].forEach((k) => (pop.style[k] = o ? o[k] : ''));
+    if (phoneMq.matches) return set(null);
+    const vw = document.documentElement.clientWidth;
+    const vh = window.innerHeight;
+    const sr = strip.getBoundingClientRect();
+    const cons = strip.closest('.mx-console');
+    const cr = cons ? cons.getBoundingClientRect() : sr;
+    const gone = sr.right < cr.left + 24 || sr.left > cr.right - 24 || sr.bottom < 24 || sr.top > vh - 24 || sr.right < 24 || sr.left > vw - 24;
+    if (gone && closeIfGone) return mixFxClose(false);
+    const gap = 12;
+    const lo = Math.max(8, cr.left);
+    const hi = Math.min(vw - 8, cr.right);
+    const W = 560;
+    const roomR = hi - sr.right - gap;
+    const roomL = sr.left - gap - lo;
+    const right = roomR >= W || roomR >= roomL;
+    const w = Math.max(280, Math.min(W, right ? roomR : roomL, vw - 16));
+    const left = right ? sr.right + gap : sr.left - gap - w;
+    pop.style.width = w + 'px';
+    pop.style.left = Math.max(8, Math.min(left, vw - 8 - w)) + 'px';
+    pop.style.maxHeight = vh - 16 + 'px';
+    const h = pop.offsetHeight;
+    const top = Math.max(8, Math.min(sr.top, vh - 8 - h));
+    pop.style.top = top + 'px';
+    pop.classList.toggle('left', !right);
+    const btn = $('.mx-fxb', strip);
+    const br = (btn || strip).getBoundingClientRect();
+    pop.style.setProperty('--arr', Math.max(14, Math.min(br.top + br.height / 2 - top, h - 14)) + 'px');
+  }
+  let fxRaf = 0;
+  function mixFxListen() {
+    if (mixFxListen.on) return;
+    mixFxListen.on = true;
+    const again = (ev) => {
+      if (!$('#mxFx') || $('#mxFx').hidden || (ev && ev.target && ev.target.nodeType === 1 && ev.target.closest && ev.target.closest('#mxFx'))) return;
+      cancelAnimationFrame(fxRaf);
+      fxRaf = requestAnimationFrame(() => mixFxPlace(true));
+    };
+    window.addEventListener('scroll', again, true);
+    window.addEventListener('resize', again);
+    // clic en dehors (ni console ni popover) : ferme ; une cible déjà retirée du DOM (réaffichage) ne compte pas
+    document.addEventListener('click', (ev) => {
+      const pop = $('#mxFx');
+      if (!pop || pop.hidden || !S.wiz || !ev.target.isConnected) return;
+      if (ev.target.closest('#mxFx, .mx-console')) return;
+      mixFxClose(false);
+    });
+  }
+  function mixFxToggle(id) {
+    if (S.wiz.mixOpen === id) return mixFxClose(true);
+    S.wiz.mixOpen = id;
+    renderMix();
+    const t = $('#mxFx .mx-tabs [aria-selected="true"]') || $('#mxFx button');
+    if (t) t.focus({ preventScroll: true });
+  }
+  /** Ferme le popover ; vrai s'il était ouvert. `focus` : le focus revient au bouton FX de la tranche. */
+  function mixFxClose(focus) {
+    const id = S.wiz && S.wiz.mixOpen;
+    if (!id) return false;
+    S.wiz.mixOpen = null;
+    renderMix();
+    if (focus) $(`#bwMix .mx-fxb[data-fx="${id}"]`)?.focus({ preventScroll: true });
+    return true;
   }
   /** Un réglage vient d'être posé (relâché, case, bouton) : l'écran est redessiné, l'écoute suit. */
   function mixAfter() {
@@ -5567,10 +5652,15 @@ SS.band = (() => {
     };
     return h(
       'section',
-      { class: 'mx-fx', id: 'mxFx', style: `--c:${color}` },
-      h('div', { class: 'mx-fxh' }, h('b', {}, `Effets · ${st.name}`), h('span', { class: 'mx-tag' }, scene ? `${scene.name} seulement` : 'Toute la chanson'), h('span', { class: 'spacer' }), h('button', { type: 'button', class: 'btn btn-small', id: 'mxFxClose', onclick: () => { S.wiz.mixOpen = null; renderMix(); } }, 'Fermer')),
-      h('div', { class: 'mx-tabs', role: 'tablist' }, ...keys.map(tab)),
-      h('div', { class: 'mx-pane' }, ...pane)
+      { class: 'mx-fx', id: 'mxFx', role: 'dialog', 'aria-modal': 'false', 'aria-labelledby': 'mxFxTitle', style: `--c:${color}` },
+      h('span', { class: 'mx-fxarr', 'aria-hidden': 'true' }),
+      h(
+        'div',
+        { class: 'mx-fxin' },
+        h('div', { class: 'mx-fxh' }, h('b', { id: 'mxFxTitle' }, `Effets · ${st.name}`), h('span', { class: 'mx-tag' }, scene ? `${scene.name} seulement` : 'Toute la chanson'), h('span', { class: 'spacer' }), h('button', { type: 'button', class: 'btn btn-small', id: 'mxFxClose', onclick: () => mixFxClose(true) }, 'Fermer')),
+        h('div', { class: 'mx-tabs', role: 'tablist', 'aria-label': 'Effets' }, ...keys.map(tab)),
+        h('div', { class: 'mx-pane' }, ...pane)
+      )
     );
   }
 
@@ -6111,7 +6201,10 @@ SS.band = (() => {
     document.addEventListener('keydown', (e) => {
       if (!S.wiz || e.defaultPrevented || document.querySelector('dialog[open]')) return;
       if (e.key === 'Escape') {
-        if (!$('#bandConfirm').hidden) hideConfirm();
+        if (S.wiz.mixOpen && $('#mxFx') && !$('#mxFx').hidden && $('#bandConfirm').hidden) {
+          e.preventDefault();
+          mixFxClose(true);
+        } else if (!$('#bandConfirm').hidden) hideConfirm();
         else if (S.wiz.insp) closeInsp();
         else leave();
       } else if (e.altKey && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
