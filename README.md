@@ -215,12 +215,24 @@ boucle** (pas toute la chanson ; choisir une autre scène pendant l'écoute la f
    l'inspiration** qui joue (même dans une scène où elle ne chante pas, Générer la fait chanter) ; **↺ Inspiration** la
    rend. Chaque scène garde son propre état du panneau (réglages, graine, variante, proposition), rendu au retour ; la
    colonne des scènes affiche le nom du profil, ou « inspiration ». Changer les accords d'une scène efface sa
-   proposition. L'**accompagnement** est sous le panneau, replié sur une ligne, déplié avec **M**uet / **S**olo et
-   **volume** (−30 à +6 dB, `gains` d'`addBandSong`) par instrument et le menu **Pistes** ; test :
+   proposition. L'**accompagnement** est sous le panneau, replié sur une ligne, déplié avec le
+   **volume** (−30 à +6 dB, `gains` d'`addBandSong`) par instrument et le menu **Pistes** (Muet et Solo : barre de piste) ; test :
    `node tests/e2e/wizard-melody.js` ;
 11. **Intégration** : cases à cocher par musicien (batterie, basse, nappes, arpèges, lead…) et par élément de batterie ;
    **Créer la chanson** écrit les pistes cochées, les scènes et l'arrangement (tempo du bandeau, mixage
    automatique de Band). Ce qui est créé est exactement l'aperçu ; Ctrl+Z revient à la chanson vide.
+
+**Barre de piste** (étapes 5 à 10, au-dessus du contenu) : **Piste** liste les instruments que l'étape 2 propose au musicien
+de l'étape (Batterie : menu du **kit** et cases des éléments ; Accords : « Accords de la scène » ; Nappes : la nappe, sinon
+cordes ou clavier ; Mélodie : voix ou lead), le choix en cours marqué « (étape 2) » tant qu'il est celui de l'étape 2.
+C'est le même état que l'étape 2 (`S.cache`) : changer ici change là-bas, l'aperçu sonne avec et la chanson créée l'utilise.
+**On entend** : une pastille par musicien, colorée comme son rôle (`ROLES`) ; clic = **Muet** (en solo, elle ajoute ou
+retire le musicien du solo), **Seule** met le musicien de l'étape en **Solo** (re-clic : plus de solo). Ce sont
+`S.wiz.mute` / `S.wiz.solo`, lus par `silenced()` et par l'écoute : la boucle se tait vraiment, et le réglage vaut pour
+toutes les étapes. Les lignes d'accompagnement de l'étape Mélodie ne gardent que le volume. Aux étapes **Basse**,
+**Nappes** et **Arpèges**, un **aperçu en rouleau** montre les notes de la scène telles que la chanson les joue, sous la
+bande des accords (couleur = fonction) et les barres de mesure, avec une tête de lecture qui suit la boucle ; la note
+d'approche de la basse est plus claire. Test : `node tests/e2e/wizard-trackbar.js`.
 
 Le bouton **Nouvelle** de l'en-tête ouvre le même assistant sur le projet en cours (l'ancien écran « Créer les pistes / Créer toute la
 chanson » n'existe plus). La mélodie par défaut de Band (celle de l'inspiration, tant qu'on n'a rien généré à l'étape

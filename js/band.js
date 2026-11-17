@@ -123,6 +123,8 @@ SS.band = (() => {
     const st = musState()[mu.id];
     return st.custom ? toGm(st.custom) : choiceAt(mu, effPick(mu, st));
   }
+  /** Deux choix donnent le même son (en mode GM, deux conseillés peuvent se rejoindre). */
+  const sameOpts = (a, b) => a.type === b.type && a.instrument === b.instrument && (a.sfv || 0) === (b.sfv || 0) && a.analog === b.analog && a.patch === b.patch;
   /** Clé de niveau (js/band-levels.js) d'un instrument : celle du son réellement joué en mode GM. */
   function instLevelKey(mu, ms) {
     if (ms.custom) return null;
@@ -506,11 +508,12 @@ SS.band = (() => {
       ms.pick = i;
       ms.picked = true;
       ms.custom = null;
+      ms.s2 = ms.s2custom = undefined; // le choix de l'étape 2 est celui-ci
       refresh();
       preview(instOpts(mu));
     };
     // en mode GM, deux choix peuvent donner le même son : on ne garde que le premier
-    const same = (a, b) => a.type === b.type && a.instrument === b.instrument && (a.sfv || 0) === (b.sfv || 0) && a.analog === b.analog && a.patch === b.patch;
+    const same = sameOpts;
     const cur = instOpts(mu);
     const seen = [];
     const cards = pickOrder(mu)
@@ -558,6 +561,7 @@ SS.band = (() => {
           'aria-checked': kitOf(ms) === k ? 'true' : 'false',
           onclick: () => {
             ms.kit = k;
+            ms.s2kit = undefined;
             refresh();
           },
         },
@@ -689,6 +693,7 @@ SS.band = (() => {
     });
     if (!res) return;
     ms.custom = pickOpts(res);
+    ms.s2 = ms.s2custom = undefined;
     ms.on = true;
     refresh();
   }
@@ -1839,7 +1844,7 @@ SS.band = (() => {
           { class: 'bh-name' },
           h('b', { title: name }, name),
           sub ? h('small', { title: sub }, sub) : null,
-          h('span', { class: 'bh-ctl' }, msBtns(ids, name), volCtl(ids, name))
+          h('span', { class: 'bh-ctl' }, volCtl(ids, name))
         )
       );
     const melIds = new Set(cols.filter((c) => singer(c.role)).map((c) => c.id));
@@ -1936,6 +1941,7 @@ SS.band = (() => {
       sc,
       melIds,
       nav: sceneNav(res, sc, melIds.size ? melSub : null, true),
+      bar: trackbar('mel'),
       top: h('div', { class: 'bh-top', id: 'bwMelHead' }, h('h3', {}, sc.name), h('span', { class: 'bh-info' }, `${sc.bars} mesures` + (plays > 1 ? ` · jouée ${plays} fois` : '') + ` · ${SS.harmony.label(sc.key)}`), h('span', { class: 'spacer' }), loop),
       board: h('div', { class: 'bh-scroll', id: 'bwMelBoard' }, board),
       src: melIds.size
@@ -2030,7 +2036,7 @@ SS.band = (() => {
     if (!res || !$('#bwMelBoard', box)) return renderHarmony();
     const f = melScene(cols, res, curScene(res));
     $('.bh-scenes', box).replaceWith(f.nav);
-    ['top:#bwMelHead', 'board:#bwMelBoard', 'src:#bwMelSrc', 'acc:#bwMelAcc'].forEach((x) => {
+    ['bar:#bwTrackbar', 'top:#bwMelHead', 'board:#bwMelBoard', 'src:#bwMelSrc', 'acc:#bwMelAcc'].forEach((x) => {
       const [k, q] = x.split(':');
       const old = $(q, box);
       if (old && f[k]) old.replaceWith(f[k]);
@@ -2052,7 +2058,7 @@ SS.band = (() => {
     syncMelState(sc);
     const f = melScene(cols, res, sc);
     const panel = h('div', { class: 'bw-melpanel', id: 'bwMelPanel' });
-    splitView(f.nav, h('main', { class: 'bh-main bw-mel' }, f.top, f.board, f.src, f.melIds.size ? panel : null, f.acc));
+    splitView(f.nav, f.bar, h('main', { class: 'bh-main bw-mel' }, f.top, f.board, f.src, f.melIds.size ? panel : null, f.acc));
     if (!f.melIds.size) return;
     const sec = sc.sec;
     const fresh = () => (S.wiz && S.wiz.res && S.wiz.res.scenes.find((x) => x.sec === sec)) || sc;
@@ -2335,7 +2341,7 @@ SS.band = (() => {
     });
     const keep = $('.bwc', box);
     const top = keep ? keep.scrollTop : 0;
-    splitView(sceneNav(res, sc, (x) => (S.wiz.emos[x.sec] ? SS.findEmotion(S.wiz.emos[x.sec]).label : S.wiz.grids[x.sec] ? 'accords modifiés' : null)), content);
+    splitView(sceneNav(res, sc, (x) => (S.wiz.emos[x.sec] ? SS.findEmotion(S.wiz.emos[x.sec]).label : S.wiz.grids[x.sec] ? 'accords modifiés' : null)), trackbar('chords'), content);
     content.scrollTop = top;
   }
 
@@ -2694,20 +2700,207 @@ SS.band = (() => {
     return box;
   }
 
-  /* ---------- Muet / Solo / volume (étape Mélodie) ---------- */
+  /* ---------- Barre de piste (étapes Batterie à Mélodie) ----------
+   * « Piste » : l'instrument du musicien de l'étape, parmi les choix de l'étape Instruments (même état : on le retrouve là-bas) ;
+   * « On entend » : une pastille par musicien (Muet), et « Seule » (Solo du musicien de l'étape). Même S.wiz.mute / S.wiz.solo
+   * que l'écoute : la boucle se tait vraiment, et le réglage vaut pour toutes les étapes.
+   */
+  const TB_ROLES = { drums: ['drums'], bass: ['bass'], pad: ['pad', 'strings', 'keys'], arp: ['arp'], mel: ['vox', 'lead', 'sax'] };
+  /** Musicien (présent dans le groupe) que règle l'étape. */
+  function stepMu(kind) {
+    const p = preset();
+    const st = p && musState();
+    for (const r of TB_ROLES[kind] || []) {
+      const mu = p.musicians.find((m) => m.role === r && st[m.id] && st[m.id].on);
+      if (mu) return mu;
+    }
+    return null;
+  }
+  /** Choix d'instrument d'un musicien, comme à l'étape Instruments : [{ v, o }]. */
+  function instChoices(mu) {
+    const out = [];
+    pickOrder(mu).forEach((i) => {
+      const o = choiceAt(mu, i);
+      if (!out.some((x) => sameOpts(x.o, o))) out.push({ v: String(i), o });
+    });
+    return out;
+  }
+  function trackSelect(mu) {
+    const ms = musState()[mu.id];
+    const opts = instChoices(mu);
+    const cur = instOpts(mu);
+    const curV = ms.custom ? 'custom' : (opts.find((x) => sameOpts(x.o, cur)) || opts[0]).v;
+    const s2 = ms.s2 !== undefined ? ms.s2 : curV; // le choix fait à l'étape Instruments
+    const custom = ms.custom || ms.s2custom;
+    if (custom) opts.push({ v: 'custom', o: toGm(custom) });
+    const short = roleOf(mu).short;
+    return h(
+      'select',
+      {
+        id: 'bwTbPiste',
+        'aria-label': `Piste ${short.toLowerCase()}`,
+        title: 'Instrument de cette piste (le même choix qu’à l’étape Instruments)',
+        onchange: (e) => {
+          const v = e.target.value;
+          if (ms.s2 === undefined) {
+            ms.s2 = curV;
+            ms.s2custom = ms.custom;
+          }
+          if (v === 'custom') ms.custom = ms.s2custom || ms.custom;
+          else {
+            ms.pick = +v;
+            ms.picked = true;
+            ms.custom = null;
+          }
+          renderWiz();
+          if (!L.mode) preview(instOpts(mu));
+        },
+      },
+      ...opts.map((x) => h('option', { value: x.v, selected: x.v === curV }, `${short} · ${x.v === 'custom' ? 'Ton choix · ' : ''}${B().describe(x.o).name}${x.v === s2 ? ' (étape 2)' : ''}`))
+    );
+  }
+  /** Batterie : menu du kit et éléments (mêmes cases qu'à l'étape Instruments). */
+  function kitControls(mu) {
+    const ms = musState()[mu.id];
+    const kits = gm() ? ['gm'] : mu.kits;
+    const s2 = ms.s2kit !== undefined ? ms.s2kit : kitOf(ms);
+    const sel = h(
+      'select',
+      {
+        id: 'bwTbKit',
+        'aria-label': 'Kit de batterie',
+        title: 'Kit de la batterie (le même choix qu’à l’étape Instruments)',
+        onchange: (e) => {
+          if (ms.s2kit === undefined) ms.s2kit = kitOf(ms);
+          ms.kit = e.target.value;
+          renderWiz();
+        },
+      },
+      ...kits.map((k) => h('option', { value: k, selected: kitOf(ms) === k }, `${roleOf(mu).short} · ${B().KITS[k].label}${k === s2 ? ' (étape 2)' : ''}`))
+    );
+    const pieces = ms.pieces.map((pc) => {
+      const label = pieceInfo(mu, pc).label;
+      return h('button', { type: 'button', class: 'tb-piece' + (pc.on ? ' on' : ''), 'aria-pressed': String(pc.on), title: `${label} : une piste de la batterie`, onclick: () => ((pc.on = !pc.on), renderWiz()) }, label);
+    });
+    return [sel, h('span', { class: 'tb-pieces', role: 'group', 'aria-label': 'Éléments de la batterie' }, ...pieces)];
+  }
+  /** Seule : le musicien de l'étape en solo ; re-clic : plus de solo. */
+  function soloOnly(ids) {
+    const same = S.wiz.solo.size === ids.length && ids.every((id) => S.wiz.solo.has(id));
+    S.wiz.solo.clear();
+    if (!same) ids.forEach((id) => S.wiz.solo.add(id));
+    afterMS();
+  }
+  /** La barre : Piste (selon l'étape), puis On entend (une pastille par musicien) et Seule. */
+  function trackbar(kind) {
+    const mu = kind === 'chords' ? null : stepMu(kind);
+    const p = preset();
+    const st = musState();
+    const cols = wizCols();
+    const idsOf = (m) => cols.filter((c) => c.musician === m.id).map((c) => c.id);
+    const piste = kind === 'chords'
+      ? [h('span', { class: 'tb-fixed' }, 'Accords de la scène')]
+      : mu ? (mu.kits ? kitControls(mu) : [trackSelect(mu)]) : [];
+    const chips = p.musicians
+      .filter((m) => st[m.id].on && idsOf(m).length)
+      .map((m) => {
+        const ids = idsOf(m);
+        const heard = ids.some((id) => !silenced(id));
+        const label = roleOf(m).short;
+        return h(
+          'button',
+          {
+            type: 'button',
+            class: 'tb-chip' + (heard ? ' on' : '') + (mu && m.id === mu.id ? ' cur' : ''),
+            style: `--c:${colorOf(m)}`,
+            'data-mu': m.id,
+            'aria-pressed': String(heard),
+            title: heard ? `${label} s’entend : clic pour le couper` : `${label} est coupé : clic pour le réentendre`,
+            // en solo, la pastille ajoute ou retire le musicien du solo ; sinon elle coupe (Muet)
+            onclick: () => toggleMS(S.wiz.solo.size ? S.wiz.solo : S.wiz.mute, ids),
+          },
+          h('i', {}),
+          label
+        );
+      });
+    const ids = mu ? idsOf(mu) : [];
+    const solo = ids.length > 0 && S.wiz.solo.size === ids.length && ids.every((id) => S.wiz.solo.has(id));
+    return h(
+      'div',
+      { class: 'bw-trackbar', id: 'bwTrackbar', style: `--c:${mu ? colorOf(mu) : 'var(--accent-2)'}` },
+      piste.length ? h('div', { class: 'tb-grp' }, h('span', { class: 'tb-lbl' }, 'Piste'), ...piste) : null,
+      h(
+        'div',
+        { class: 'tb-grp tb-listen' },
+        h('span', { class: 'tb-lbl' }, 'On entend'),
+        ...chips,
+        ids.length
+          ? h('button', { type: 'button', class: 'btn btn-small tb-solo' + (solo ? ' on' : ''), id: 'bwTbSolo', 'aria-pressed': String(solo), title: solo ? 'Revenir à tout le groupe' : `N’écouter que ${roleOf(mu).short.toLowerCase()}`, onclick: () => soloOnly(ids) }, 'Seule')
+          : null
+      )
+    );
+  }
+
+  /* ---------- Aperçu en rouleau (Basse, Nappes, Arpèges) ----------
+   * Les notes de la scène choisie, telles que la chanson les joue (wizSong().res), sous la bande des accords (couleur = fonction),
+   * avec les barres de mesure ; la tête de lecture suit la boucle (markListen). Dessiné au rendu seulement.
+   */
+  const BLACK_PC = [1, 3, 6, 8, 10];
+  function rollBox(sc, kind) {
+    const { cols } = wizSong();
+    const mine = cols.filter((c) => c.role === kind && c.o.type !== 'drum');
+    const total = sc.bars * 16;
+    const spans = sceneSpans(sc);
+    const events = mine.flatMap((c) => ((sc.data[c.id] || {}).events || []).map((e) => ({ ...e, col: c })));
+    const all = events.flatMap((e) => e.notes);
+    const color = mine.length ? mine[0].o.color : '#888';
+    const NS = 'http://www.w3.org/2000/svg';
+    const el = (name, attrs, parent) => {
+      const n = document.createElementNS(NS, name);
+      Object.entries(attrs).forEach(([k, v]) => n.setAttribute(k, v));
+      if (parent) parent.append(n);
+      return n;
+    };
+    const lo = (all.length ? Math.min(...all) : 60) - 1;
+    const hi = Math.max(all.length ? Math.max(...all) : 71, lo + 11) + 1;
+    const rows = hi - lo + 1;
+    const svg = el('svg', { viewBox: `0 0 ${total} ${rows}`, preserveAspectRatio: 'none', class: 'bw-roll-svg', 'aria-hidden': 'true' });
+    const tonic = sc.key ? tonicPc(sc.key.tonic) : -1;
+    for (let m = lo; m <= hi; m++) {
+      const pc = ((m % 12) + 12) % 12;
+      if (pc === tonic || BLACK_PC.includes(pc)) el('rect', { x: 0, y: hi - m, width: total, height: 1, class: pc === tonic ? 'bw-rt' : 'bw-rb' }, svg);
+    }
+    for (let s = 0; s < total; s += 4) el('line', { x1: s, x2: s, y1: 0, y2: rows, class: s % 16 === 0 ? 'bw-rbar' : 'bw-rbeat' }, svg);
+    // note d'approche (basse) : dernière attaque d'un accord, hors de l'accord, juste avant le suivant
+    const spanAt = (step) => spans.find((x) => step >= x.step && step < x.step + x.len);
+    const isAppr = (e) => {
+      if (kind !== 'bass') return false;
+      const sp = spanAt(e.step);
+      if (!sp || e.step + e.len < sp.step + sp.len - 1) return false;
+      return e.notes.every((n) => !sp.info.pcs.includes(((n % 12) + 12) % 12)) && spans.some((x) => x.step === sp.step + sp.len);
+    };
+    events.forEach((e) => {
+      const appr = isAppr(e);
+      e.notes.forEach((n) => el('rect', { x: e.step + 0.08, y: hi - n + 0.1, width: Math.max(0.5, Math.min(e.len, total - e.step) - 0.16), height: 0.8, class: 'bw-rn' + (appr ? ' appr' : '') }, svg));
+    });
+    const pct = (x) => `${((100 * x) / total).toFixed(3)}%`;
+    return h(
+      'div',
+      { class: 'bw-roll', id: 'bwRoll', 'data-scene': sc.id, 'data-bars': sc.bars, style: `--c:${color}`, role: 'img', 'aria-label': `Notes de la scène ${sc.name}` },
+      h(
+        'div',
+        { class: 'bw-rchords' },
+        ...spans.map((x) => h('span', { class: `bw-rc role-${x.info.role.id}`, style: `left:${pct(x.step)};width:${pct(x.len)}`, title: `${x.info.name} · ${x.info.numeral} — ${x.info.role.text}` }, x.info.name))
+      ),
+      h('div', { class: 'bw-rbody' }, svg, h('i', { class: 'bw-roll-ph', hidden: true })),
+      all.length ? null : h('p', { class: 'bw-rempty' }, 'Pas de notes dans cette scène.')
+    );
+  }
+
+  /* ---------- Muet / Solo (barre de piste) et volume (étape Mélodie) ---------- */
   /** La colonne ne s'entend pas : coupée, ou une autre est en solo. */
   function silenced(id) {
     return S.wiz.mute.has(id) || (S.wiz.solo.size > 0 && !S.wiz.solo.has(id));
-  }
-  function msBtns(ids, label) {
-    const m = ids.every((id) => S.wiz.mute.has(id));
-    const s = ids.every((id) => S.wiz.solo.has(id));
-    return h(
-      'span',
-      { class: 'bw-ms' },
-      h('button', { type: 'button', class: 'bw-m' + (m ? ' on' : ''), 'aria-pressed': String(m), title: `Muet : couper ${label}`, 'aria-label': `Muet ${label}`, onclick: () => toggleMS(S.wiz.mute, ids) }, 'M'),
-      h('button', { type: 'button', class: 'bw-s' + (s ? ' on' : ''), 'aria-pressed': String(s), title: `Solo : écouter ${label} seul`, 'aria-label': `Solo ${label}`, onclick: () => toggleMS(S.wiz.solo, ids) }, 'S')
-    );
   }
   const VOL_MIN = -30;
   const VOL_MAX = 6;
@@ -2920,7 +3113,7 @@ SS.band = (() => {
     const prev = $('#bwParts');
     const top = prev && prev.dataset.kind === kind ? prev.scrollTop : 0; // un clic bas dans la liste ne la remonte pas
     const content = h('div', { class: 'bwc bwp', id: 'bwParts', 'data-kind': kind }, ...(D.ok ? D.body() : [h('p', { class: 'dlg-hint bwp-none', id: 'bwpNone' }, D.none)]));
-    splitView(sceneNav(res, sc, D.ok ? D.sub : null), content);
+    splitView(sceneNav(res, sc, D.ok ? D.sub : null), trackbar(kind), content);
     content.scrollTop = top;
   }
 
@@ -3082,6 +3275,7 @@ SS.band = (() => {
     const set = (patch) => (putPart(sc.sec, 'bass', patch), partChanged());
     return [
       partHead(sc, 'bass', 'basse', false),
+      rollBox(sc, 'bass'),
       h(
         'section',
         { class: 'bwp-card' },
@@ -3110,6 +3304,7 @@ SS.band = (() => {
     const o = partOf(sc.sec, 'pad') || {};
     return [
       partHead(sc, 'pad', 'nappe', false),
+      rollBox(sc, 'pad'),
       h(
         'section',
         { class: 'bwp-card' },
@@ -3219,6 +3414,7 @@ SS.band = (() => {
     );
     return [
       partHead(sc, 'arp', 'arpège', true),
+      rollBox(sc, 'arp'),
       h(
         'section',
         { class: 'bwp-card bwa' },
@@ -3603,6 +3799,10 @@ SS.band = (() => {
   function toggleMS(set, ids) {
     const all = ids.every((id) => set.has(id));
     ids.forEach((id) => (all ? set.delete(id) : set.add(id)));
+    afterMS();
+  }
+  /** Muet / Solo ont changé : l'écoute et l'écran suivent (à l'étape Mélodie, sans refaire le panneau). */
+  function afterMS() {
     applyListenMutes();
     if (S.wiz.step === ST.harm && $('#bwMelBoard')) refreshMelFrame();
     else renderWiz();
@@ -3628,6 +3828,13 @@ SS.band = (() => {
         lp.setAttribute('aria-pressed', loop);
       }
     }
+    box.querySelectorAll('.bw-roll').forEach((r) => {
+      const total = Number(r.dataset.bars) * 16;
+      const ph = $('.bw-roll-ph', r);
+      const on = !!L.mode && L.scene === r.dataset.scene && L.step >= 0;
+      ph.hidden = !on;
+      if (on) ph.style.left = `${((L.step % total) / total) * 100}%`;
+    });
     const gt = $('.bw-gtl', box);
     const gph = $('#bwGridPh', box);
     if (gt && gph) {

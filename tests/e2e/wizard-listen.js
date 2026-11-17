@@ -134,22 +134,21 @@ const SHOTS = process.env.SHOTS;
   ok(await playing(), 'étape Mélodie : la scène joue');
   ok((await page.locator('.bh-lane').count()) === 1 && (await page.getAttribute('#bwAcc', 'aria-expanded')) === 'false', 'accompagnement replié : seule la mélodie');
   await page.click('#bwAcc');
-  const n = await page.locator('.bh-lane .bw-m').count();
   const lanesN = await page.locator('.bh-lane').count();
-  ok(n === lanesN && (await page.locator('.bh-lane .bh-vol').count()) === lanesN, `M, S et volume sur chaque instrument (${n})`);
-  ok((await page.locator('.bh-drums .bw-ms').count()) === 1, 'M et S pour toute la batterie');
+  ok((await page.locator('.bh-lane .bh-vol').count()) === lanesN && (await page.locator('.bh-lane .bw-m, .bh-lane .bw-s').count()) === 0, `volume sur chaque instrument (${lanesN}) ; Muet et Solo sont dans la barre de piste`);
+  ok((await page.locator('#bwTrackbar .tb-chip').count()) === lanesN + 1 && (await page.locator('#bwTbSolo').count()) === 1, 'une pastille par musicien (la batterie en une) et Seule');
   const tracks = () => page.evaluate(() => SS.band._listen().tracks.map((t) => [t.col, t.mute, t.solo]));
   const bass = page.locator('.bh-lane', { hasText: 'Basse' }).first();
   const bassId = await bass.getAttribute('data-col');
-  await bass.locator('.bw-m').click();
+  await page.locator('#bwTrackbar .tb-chip[data-mu="bass"]').click();
   let t = await tracks();
-  ok(t.find((x) => x[0] === bassId)[1] && t.filter((x) => x[1]).length === 1, 'M : la basse est coupée');
+  ok(t.find((x) => x[0] === bassId)[1] && t.filter((x) => x[1]).length === 1, 'pastille : la basse est coupée');
   const bass2 = page.locator('.bh-lane', { hasText: 'Basse' }).first();
-  ok((await bass2.locator('.bw-m').getAttribute('aria-pressed')) === 'true' && /muted/.test(await bass2.getAttribute('class')), 'ligne muette grisée');
-  await bass2.locator('.bw-m').click();
-  await page.locator('.bh-lane.mel .bw-s').click();
+  ok((await page.locator('#bwTrackbar .tb-chip[data-mu="bass"]').getAttribute('aria-pressed')) === 'false' && /muted/.test(await bass2.getAttribute('class')), 'ligne muette grisée, pastille éteinte');
+  await page.locator('#bwTrackbar .tb-chip[data-mu="bass"]').click();
+  await page.click('#bwTbSolo');
   t = await tracks();
-  ok(t.filter((x) => x[2]).length === 1 && !t.some((x) => x[1]), 'S : la mélodie seule');
+  ok(t.filter((x) => x[2]).length === 1 && !t.some((x) => x[1]), 'Seule : la mélodie seule');
   ok((await page.locator('.bh-row.muted').count()) === lanesN, 'les autres lignes sont grisées (batterie comprise)');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'listen-melody.png') });
 
@@ -163,12 +162,13 @@ const SHOTS = process.env.SHOTS;
   ok(t.filter((x) => x[2]).length === 1, 'le solo est gardé');
 
   // la batterie entière : M de la ligne Batterie
-  await page.locator('.bh-drums .bw-m').click();
+  await page.click('#bwTbSolo'); // plus de solo
+  await page.locator('#bwTrackbar .tb-chip[data-mu="drums"]').click();
   t = await tracks();
-  ok(t.filter((x) => x[1]).length >= 3, 'M de la batterie : tous ses éléments');
+  ok(t.filter((x) => x[1]).length >= 3, 'pastille de la batterie : tous ses éléments coupés');
   // étape Chanson : les colonnes coupées sont grisées
   for (let i = 0; i < 6; i++) await page.click('#bwBack'); // Arpèges, Nappes, Basse, Accords, Batterie, Chanson
-  ok((await page.locator('.bw-track.muted').count()) === (await page.locator('.bw-track').count()) - 1, 'étape Chanson : seules les colonnes qu’on entend restent claires');
+  ok((await page.locator('.bw-track.muted').count()) === t.filter((x) => x[1]).length && (await page.locator('.bw-track:not(.muted)').count()) > 0, 'étape Chanson : les colonnes coupées sont grisées, les autres restent claires');
 
   // fermeture : arrêt, rien n'est créé
   await page.keyboard.press('Escape');
