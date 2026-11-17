@@ -142,12 +142,12 @@ const SHOTS = process.env.SHOTS;
   const tracks = () => page.evaluate(() => SS.band._listen().tracks.map((t) => [t.col, t.mute, t.solo]));
   const bass = page.locator('.bh-lane', { hasText: 'Basse' }).first();
   const bassId = await bass.getAttribute('data-col');
-  await page.locator('#bwTrackbar .tb-chip[data-mu="bass"]').click();
+  await page.locator(`#bwTrackbar .tb-chip[data-ins="${bassId}"]`).click();
   let t = await tracks();
   ok(t.find((x) => x[0] === bassId)[1] && t.filter((x) => x[1]).length === 1, 'pastille : la basse est coupée');
   const bass2 = page.locator('.bh-lane', { hasText: 'Basse' }).first();
-  ok((await page.locator('#bwTrackbar .tb-chip[data-mu="bass"]').getAttribute('aria-pressed')) === 'false' && /muted/.test(await bass2.getAttribute('class')), 'ligne muette grisée, pastille éteinte');
-  await page.locator('#bwTrackbar .tb-chip[data-mu="bass"]').click();
+  ok((await page.locator(`#bwTrackbar .tb-chip[data-ins="${bassId}"]`).getAttribute('aria-pressed')) === 'false' && /muted/.test(await bass2.getAttribute('class')), 'ligne muette grisée, pastille éteinte');
+  await page.locator(`#bwTrackbar .tb-chip[data-ins="${bassId}"]`).click();
   await page.click('#bwTbSolo');
   t = await tracks();
   ok(t.filter((x) => x[2]).length === 1 && !t.some((x) => x[1]), 'Seule : la mélodie seule');
@@ -165,7 +165,7 @@ const SHOTS = process.env.SHOTS;
 
   // la batterie entière : M de la ligne Batterie
   await page.click('#bwTbSolo'); // plus de solo
-  await page.locator('#bwTrackbar .tb-chip[data-mu="drums"]').click();
+  await page.locator('#bwTrackbar .tb-chip[data-ins="drums"]').click();
   t = await tracks();
   ok(t.filter((x) => x[1]).length >= 3, 'pastille de la batterie : tous ses éléments coupés');
   // étape Chanson : les colonnes coupées sont grisées

@@ -4666,8 +4666,6 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 #bandDialog .band-wiz-steps .bw-sn { display: flex; align-items: center; gap: 6px; min-width: 0; }
 #bandDialog .band-wiz-steps .bw-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--c); }
 #bandDialog .band-wiz-steps li:not(.bw-ins) .bw-dot { display: none; }
-/* note sous la tête d'un onglet d'instrument */
-#bandDialog .bw-kindnote { flex: none; margin: 0; padding: 6px 10px; border: 1px dashed var(--c, var(--bw-line2)); border-radius: 8px; background: color-mix(in srgb, var(--c, var(--bw-line2)) 10%, transparent); font-size: 12.5px; }
 /* l'éditeur suit la couleur du type */
 #bandDialog .bwp .bwp-mode.on, #bandDialog .bwp .bwp-pat.on { border-color: var(--c); }
 #bandDialog .bw-trackbar .tb-chip.cur { box-shadow: 0 0 0 1px var(--c); }
@@ -4683,8 +4681,7 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 #bandDialog .bpn-ksel:disabled { opacity: .7; }
 #bandDialog .bpn-kdesc { grid-column: 1 / -1; color: var(--bw-muted); font-size: 12px; }
 @media (max-width: 720px) {
-  #bandDialog .bw-kindnote { font-size: 12px; padding: 4px 8px; }
-  #bandDialog .bh-content { gap: 8px; }
+    #bandDialog .bh-content { gap: 8px; }
   #bandDialog .bw-stephead.bw-insHead p { display: none; }
   #bandDialog .bw-stephead.bw-insHead { margin-bottom: 4px; }
   #bandDialog .bw-trackbar { padding: 6px 8px; gap: 4px 12px; }

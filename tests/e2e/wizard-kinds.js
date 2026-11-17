@@ -102,6 +102,7 @@ const ok = (c, m) => {
   ok(padSum0.startsWith('Accords') && (await padLi.getAttribute('style')).includes('#4f6bff'), `nappe : résumé « ${padSum0} », pastille bleue`);
   await page.selectOption('#bandPanel .bpn-ksel', 'arp');
   await page.waitForTimeout(400);
+  ok((await page.locator('#bandPanel .bpn-kdesc').allTextContents()).every((x) => !/était/.test(x)), 'étape 2 : plus de ligne « était une nappe » sous la liste Type');
   const padId = await page.evaluate(() => SS.band.insSteps().find((t) => t.def === 'chords').id);
   ok((await page.evaluate((id) => SS.band.insSteps().find((t) => t.id === id).kind, padId)) === 'arp' && (await page.locator('#bandWizSteps li[data-kind="chords"]').count()) === 0, 'la nappe est de type Arpèges');
   const padLi2 = page.locator('#bandWizSteps li[data-kind="arp"]').nth(0);
@@ -110,7 +111,20 @@ const ok = (c, m) => {
   await tab('arp');
   ok(!!(await page.$('#bwaMotif')) && (await page.locator('.bwa-knob').count()) === 4 && (await page.locator('.bw-kind').count()) === 0, 'l’éditeur Arp One s’affiche, sans cartes de type');
   ok((await page.locator('#bwKindTag').textContent()) === 'Arpèges', 'étiquette « Arpèges » en lecture seule');
-  ok((await page.textContent('#bwKindNote')) === 'Ce son était une nappe : il jouera maintenant des arpèges.', 'la note apparaît');
+  ok((await page.locator('#bwKindNote, .bw-kindnote').count()) === 0 && !/était/.test(await page.textContent('#bandWiz')), 'plus de note « était une nappe »');
+  // « On entend » : une pastille par instrument, nom de l'onglet et couleur de son type
+  const chipInfo = await page.$$eval('#bwTrackbar .tb-chip', (l) => l.map((x) => [x.dataset.ins, x.textContent.trim(), x.style.getPropertyValue('--c')]));
+  const expChips = await page.evaluate(() => SS.band.insSteps().map((t) => [t.id, t.name, t.kind]));
+  const COL = { drums: '#e3179c', bass: '#3fcf3f', chords: '#4f6bff', arp: '#13c2a3', melody: '#9b5cff' };
+  ok(chipInfo.length === expChips.length && chipInfo.every((c, i) => c[0] === expChips[i][0] && c[1] === expChips[i][1] && c[2] === COL[expChips[i][2]]), `pastilles « On entend » : une par instrument (${chipInfo.map((c) => c[1]).join(', ')}), nom de l’onglet et couleur du type`);
+  ok(chipInfo.find((c) => c[0] === padId)[2] === '#13c2a3', 'la nappe passée en arpèges : pastille turquoise');
+  await page.click('#play');
+  await page.waitForFunction(() => SS.audio.isPlaying(), null, { timeout: 8000 });
+  await page.locator(`#bwTrackbar .tb-chip[data-ins="${padId}"]`).click();
+  const mutedNow = await page.evaluate(() => SS.band._listen().tracks.filter((t) => t.mute).map((t) => t.col));
+  ok(mutedNow.length === 1 && mutedNow[0] === padId, 'couper un instrument ne coupe que lui à l’écoute');
+  await page.locator(`#bwTrackbar .tb-chip[data-ins="${padId}"]`).click();
+  await page.click('#stop');
   if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT + '/kinds2-pad-arp.png' });
   // un réglage d'arpège sur une scène : parts[section].inst[id]
   await page.locator('.bh-scene:has(.bh-sname b:text-is("Couplet"))').click();

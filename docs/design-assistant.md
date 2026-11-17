@@ -100,8 +100,7 @@ Le vrai assistant marche, mais il est plus lourd à l'œil que la maquette :
     des boutons icônes (+, dupliquer, ×).
 - **Un onglet par instrument** (maquette : `docs/maquette-instruments.html`) : tête « 07 Synth Bass » avec, à côté de la phrase, le type en
   lecture seule (petite étiquette colorée « Arpèges », `#bwKindTag`, couleur du type). Le type ne se choisit pas ici : plus de cartes. Sous la
-  tête, une note « Ce son était une nappe : il jouera maintenant des arpèges. » seulement quand le type diffère de celui du rôle, puis la barre
-  de piste, la colonne des scènes et l'éditeur du type. Les réglages sont ceux de l'instrument et de la scène (`parts[section].inst[id]`).
+  tête, la barre de piste, la colonne des scènes et l'éditeur du type. Les réglages sont ceux de l'instrument et de la scène (`parts[section].inst[id]`).
   **Le type se choisit à l'étape 2 (Instruments)**, dans le panneau de droite du musicien sélectionné : juste sous le titre, une liste
   « Type » (`<select>` : Drums, Basse, Accords, Arpèges, Mélodie) dans une ligne au liseré de la couleur du type. Un kit de batterie ne peut être
   que Drums : liste désactivée, avec « Un kit de batterie ne joue que des motifs de batterie. ». Un musicien à plusieurs instruments a une liste

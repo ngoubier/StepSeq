@@ -108,12 +108,12 @@ const ok = (c, m) => {
   // lance la boucle de la scène
   await page.click('#play');
   await page.waitForFunction(() => SS.audio.isPlaying(), null, { timeout: 8000 });
-  await page.locator('.tb-chip[data-mu="drums"]').click();
+  await page.locator('.tb-chip[data-ins="drums"]').click();
   const t1 = await tracks();
   const dr = t1.filter((t) => t[0].startsWith('drums:'));
   ok(dr.length >= 3 && dr.every((t) => t[1]) && t1.filter((t) => t[1]).length === dr.length, `pastille Batterie : ses ${dr.length} pistes sont coupées à l’écoute`);
-  ok((await page.locator('.tb-chip[data-mu="drums"]').getAttribute('aria-pressed')) === 'false', 'la pastille est éteinte');
-  await page.locator('.tb-chip[data-mu="drums"]').click();
+  ok((await page.locator('.tb-chip[data-ins="drums"]').getAttribute('aria-pressed')) === 'false', 'la pastille est éteinte');
+  await page.locator('.tb-chip[data-ins="drums"]').click();
   ok((await tracks()).every((t) => !t[1]), 'second clic : la batterie revient');
   // Seule
   await page.click('#bwTbSolo');

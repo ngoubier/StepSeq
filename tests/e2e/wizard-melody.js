@@ -155,9 +155,10 @@ const ok = (c, m) => {
   await page.selectOption('#melComplexity', 'balanced');
   await page.click('#bwAcc');
   ok((await page.locator('.bw-melacc .bh-lane').count()) >= 3 && (await page.inputValue('#melComplexity')) === 'balanced' && (await generated()), 'accompagnement déplié sous le panneau, le panneau reste tel quel');
-  await page.locator('#bwTrackbar .tb-chip[data-mu="bass"]').click();
+  const bassIns = await page.evaluate(() => SS.band.insSteps().find((t) => t.kind === 'bass').id);
+  await page.locator(`#bwTrackbar .tb-chip[data-ins="${bassIns}"]`).click();
   ok((await page.evaluate(() => SS.band._listen().tracks.filter((t) => t.mute).length)) === 1 && (await generated()), 'pastille Basse : un instrument coupé, la proposition reste affichée');
-  await page.locator('#bwTrackbar .tb-chip[data-mu="bass"]').click();
+  await page.locator(`#bwTrackbar .tb-chip[data-ins="${bassIns}"]`).click();
   await page.click('#bwTracks summary');
   ok((await page.locator('#bwTracksPop input').count()) >= 4, 'menu Pistes');
   await page.click('#bwTracks summary');

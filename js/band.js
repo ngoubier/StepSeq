@@ -664,7 +664,7 @@ SS.band = (() => {
             { id: 'bpnKindSel-' + T.id.replace(/\W/g, '_'), class: 'bpn-ksel', 'data-ins': T.id, disabled: T.kit ? true : null, 'aria-label': `Type de ${T.name}`, onchange: (e) => changeKind(T, e.target.value, refresh) },
             ...SS.bandSong.KINDS.map((k) => h('option', { value: k, selected: k === T.kind ? true : null, disabled: T.kit && k !== 'drums' ? true : null }, KIND_LABEL[k]))
           ),
-          T.kit ? h('small', { class: 'bpn-kdesc' }, 'Un kit de batterie ne joue que des motifs de batterie.') : typeChanged(T) ? h('small', { class: 'bpn-kdesc' }, `était ${KIND_ART[T.def]}`) : null
+          T.kit ? h('small', { class: 'bpn-kdesc' }, 'Un kit de batterie ne joue que des motifs de batterie.') : null
         )
       )
     );
@@ -981,8 +981,6 @@ SS.band = (() => {
   const KIND_SUM = { drums: 'Drums', bass: 'Basse', chords: 'Accords', arp: 'Arpège', melody: 'Mélodie' };
   const KIND_COLOR = { drums: '#e3179c', bass: '#3fcf3f', chords: '#4f6bff', arp: '#13c2a3', melody: '#9b5cff' };
   const KIND_DESC = { drums: 'Motifs rythmiques et fills', bass: 'Mode de jeu sur la fondamentale', chords: 'Joue la grille en nappe ou plaqué', arp: 'Arpège les accords (Arp One)', melody: 'Ligne mélodique générée' };
-  const KIND_ART = { drums: 'une batterie', bass: 'une basse', chords: 'une nappe', arp: 'un arpège', melody: 'une mélodie' };
-  const KIND_VERB = { drums: 'des motifs de batterie', bass: 'la basse', chords: 'les accords', arp: 'des arpèges', melody: 'la mélodie' };
   const KIND_SLOT = { drums: 'drums', bass: 'bass', chords: 'pad', arp: 'arp', melody: 'lead' }; // suffixe des identifiants de test (#bwp-on-bass…)
   const KIND_ICON = {
     drums: '<ellipse cx="15" cy="17" rx="9" ry="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 17v5c0 2 4 4 9 4s9-2 9-4v-5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 4l7 9M23 4l-7 9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
@@ -2510,7 +2508,7 @@ SS.band = (() => {
     syncMelState(sc, T);
     const f = melScene(cols, res, sc, T);
     const panel = h('div', { class: 'bw-melpanel', id: 'bwMelPanel' });
-    splitView(f.nav, kindNote(T), f.bar, h('main', { class: 'bh-main bw-mel' }, f.top, f.board, f.src, f.melIds.size ? panel : null, f.acc));
+    splitView(f.nav, f.bar, h('main', { class: 'bh-main bw-mel' }, f.top, f.board, f.src, f.melIds.size ? panel : null, f.acc));
     if (!f.melIds.size) return;
     const sec = sc.sec;
     const fresh = () => (S.wiz && S.wiz.res && S.wiz.res.scenes.find((x) => x.sec === sec)) || sc;
@@ -3154,7 +3152,7 @@ SS.band = (() => {
 
   /* ---------- Barre de piste (étapes Batterie à Mélodie) ----------
    * « Piste » : l'instrument du musicien de l'étape, parmi les choix de l'étape Instruments (même état : on le retrouve là-bas) ;
-   * « On entend » : une pastille par musicien (Muet), et « Seule » (Solo du musicien de l'étape). Même S.wiz.mute / S.wiz.solo
+   * « On entend » : une pastille par instrument (Muet), et « Seule » (Solo de l'instrument de l'étape). Même S.wiz.mute / S.wiz.solo
    * que l'écoute : la boucle se tait vraiment, et le réglage vaut pour toutes les étapes.
    */
   /** Choix d'instrument d'un musicien, comme à l'étape Instruments : [{ v, o }]. */
@@ -3232,39 +3230,35 @@ SS.band = (() => {
     if (!same) ids.forEach((id) => S.wiz.solo.add(id));
     afterMS();
   }
-  /** La barre : Piste (le son de l'instrument de l'étape), puis On entend (une pastille par musicien) et Seule. `T` : l'instrument, ou « chords ». */
+  /** La barre : Piste (le son de l'instrument de l'étape), puis On entend (une pastille par instrument) et Seule. `T` : l'instrument, ou « chords ». */
   function trackbar(T) {
     const p = preset();
-    const st = musState();
-    const cols = wizCols();
     const mu = isT(T) ? p.musicians.find((m) => m.id === T.musician) : null;
-    const idsOf = (m) => cols.filter((c) => c.musician === m.id).map((c) => c.id);
     const piste = !isT(T)
       ? [h('span', { class: 'tb-fixed' }, 'Accords de la scène')]
       : mu ? (mu.kits ? kitControls(mu) : [trackSelect(mu)]) : [];
-    const chips = p.musicians
-      .filter((m) => st[m.id].on && idsOf(m).length)
-      .map((m) => {
-        const ids = idsOf(m);
-        const heard = ids.some((id) => !silenced(id));
-        const label = roleOf(m).short;
-        return h(
-          'button',
-          {
-            type: 'button',
-            class: 'tb-chip' + (heard ? ' on' : '') + (mu && m.id === mu.id ? ' cur' : ''),
-            style: `--c:${colorOf(m)}`,
-            'data-mu': m.id,
-            'aria-pressed': String(heard),
-            title: heard ? `${label} s’entend : clic pour le couper` : `${label} est coupé : clic pour le réentendre`,
-            // en solo, la pastille ajoute ou retire le musicien du solo ; sinon elle coupe (Muet)
-            onclick: () => toggleMS(S.wiz.solo.size ? S.wiz.solo : S.wiz.mute, ids),
-          },
-          h('i', {}),
-          label
-        );
-      });
-    const ids = mu ? idsOf(mu) : [];
+    const chips = insSteps().map((t) => {
+      const ids = t.cols.map((c) => c.id);
+      const heard = ids.some((id) => !silenced(id));
+      const label = t.name;
+      return h(
+        'button',
+        {
+          type: 'button',
+          class: 'tb-chip' + (heard ? ' on' : '') + (isT(T) && t.id === T.id ? ' cur' : ''),
+          style: `--c:${KIND_COLOR[t.kind]}`,
+          'data-ins': t.id,
+          'data-mu': t.musician,
+          'aria-pressed': String(heard),
+          title: heard ? `${label} s’entend : clic pour le couper` : `${label} est coupé : clic pour le réentendre`,
+          // en solo, la pastille ajoute ou retire l'instrument du solo ; sinon elle coupe (Muet)
+          onclick: () => toggleMS(S.wiz.solo.size ? S.wiz.solo : S.wiz.mute, ids),
+        },
+        h('i', {}),
+        label
+      );
+    });
+    const ids = isT(T) ? T.cols.map((c) => c.id) : [];
     const solo = ids.length > 0 && S.wiz.solo.size === ids.length && ids.every((id) => S.wiz.solo.has(id));
     return h(
       'div',
@@ -3276,7 +3270,7 @@ SS.band = (() => {
         h('span', { class: 'tb-lbl' }, 'On entend'),
         ...chips,
         ids.length
-          ? h('button', { type: 'button', class: 'btn btn-small tb-solo' + (solo ? ' on' : ''), id: 'bwTbSolo', 'aria-pressed': String(solo), title: solo ? 'Revenir à tout le groupe' : `N’écouter que ${roleOf(mu).short.toLowerCase()}`, onclick: () => soloOnly(ids) }, 'Seule')
+          ? h('button', { type: 'button', class: 'btn btn-small tb-solo' + (solo ? ' on' : ''), id: 'bwTbSolo', 'aria-pressed': String(solo), title: solo ? 'Revenir à tout le groupe' : `N’écouter que ${T.name}`, onclick: () => soloOnly(ids) }, 'Seule')
           : null
       )
     );
@@ -3591,10 +3585,6 @@ SS.band = (() => {
       })
     );
   }
-  /** Sous la tête d'un onglet d'instrument : la note « Ce son était une nappe… » quand le type n'est plus celui du rôle (le type se choisit à l'étape 2). */
-  function kindNote(T) {
-    return typeChanged(T) ? h('p', { class: 'bw-kindnote', id: 'bwKindNote', style: `--c:${KIND_COLOR[T.kind]}` }, `Ce son était ${KIND_ART[T.def]} : il jouera maintenant ${KIND_VERB[T.kind]}.`) : null;
-  }
   /** Change le type d'un instrument : ses réglages par scène propres à l'ancien type sont oubliés (l'arrêt « muet » et la mélodie générée restent). */
   function changeKind(T, kind, after) {
     if (kind === T.kind || !setKind(T.id, kind)) return;
@@ -3622,7 +3612,7 @@ SS.band = (() => {
     const prev = $('#bwParts');
     const top = prev && prev.dataset.ins === T.id && prev.dataset.kind === T.kind ? prev.scrollTop : 0; // un clic bas dans la liste ne la remonte pas
     const content = h('div', { class: 'bwc bwp', id: 'bwParts', 'data-kind': T.kind, 'data-ins': T.id, style: `--c:${KIND_COLOR[T.kind]}` }, ...body);
-    splitView(sceneNav(res, sc, (x) => instSub(T, x)), kindNote(T), trackbar(T), content);
+    splitView(sceneNav(res, sc, (x) => instSub(T, x)), trackbar(T), content);
     content.scrollTop = top;
   }
 
