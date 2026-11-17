@@ -120,8 +120,8 @@ enregistrés avant cette correction sont transposés à l'ouverture pour sonner 
   mesuré (`tools/measure-levels.js` → `js/band-levels.js`) ; chaque piste part du même niveau puis est placée selon
   son rôle (kick et basse devant, caisse claire et lead présents, nappes et arpège derrière, percussions en fond),
   avec une marge d'environ 18 LU avant le master ;
-- **égalisation et dynamique** par rôle : passe-haut sur tout sauf kick et basse, creux du bas-médium des nappes et
-  claviers, présence de la caisse claire et du lead ; compresseur sur kick, caisse claire, basse, piano et voix ;
+- **égalisation et dynamique** par rôle : passe-haut sur tout sauf kick et basse, creux marqué du bas-médium (≈330–400 Hz) des nappes, claviers, arpège
+  et lead, « air » (étagère haute ≈11 kHz) sur nappes, lead, arpège, charleston et cymbales, présence de la caisse claire et du lead ; compresseur sur kick, caisse claire, basse, piano et voix ;
   sidechain sur le kick (fort en EDM et en techno mélodique, léger sur les nappes en synthwave) ;
 - **espace** : panoramique par rôle ; envois vers trois **bus d'effets partagés** (reverb plate pour la batterie,
   hall pour les instruments, écho ping-pong au tempo), chorus sur nappes, guitare et voix ; kick et basse secs ;
