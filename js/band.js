@@ -28,13 +28,17 @@
  *     d'Harmonie, js/melodypanel.js : intention, motif, structure, Générer / Une autre / Variante B). Les réglages sont ceux de
  *     l'instrument et de la scène : parts[section].inst[id] (instPartOf, putInstPart) ;
  *  Finaliser
- *  n+6. Mix : la console de la chanson (une tranche par instrument, effets, Master), pour toute la chanson ou pour une
+ *  n+6. Effets et transitions : la frise des scènes et, à chaque jonction, montée de bruit, passe-haut global, cymbale inversée,
+ *     coupure, impact, descente ; boucles de percussion par scène (S.wiz.fx, option fx de SS.bandSong.build ; voir renderFx) ;
+ *  n+7. Mix : la console de la chanson (une tranche par instrument, effets, Master), pour toute la chanson ou pour une
  *     scène seulement (js/wizmix.js) ;
- *  n+7. Intégration : les pistes à importer.
- * Numéros : ST.style 1, ST.inst 2, ST.tempo 3, ST.scenes 4, ST.chords 5 ; ST.mix et ST.pick suivent le nombre d'instruments (n).
+ *  n+8. Intégration : les pistes à importer.
+ * Numéros : ST.style 1, ST.inst 2, ST.tempo 3, ST.scenes 4, ST.chords 5 ; ST.fx, ST.mix et ST.pick suivent le nombre d'instruments (n).
+ * Un brouillon d'avant l'étape Effets (version < 3) est renuméroté à sa réouverture (wizRestore).
  * Une étape se désigne aussi par stepRef(n) / stepNum(ref) : « chords », « mix »… ou { inst: id }.
  * Des étapes 3 à la fin, un bandeau de commande : lecture / pause, stop, position, tempo (réglable), tonalité ;
  * aux étapes Accords, instruments et Mix, il est à droite de la colonne des scènes et joue la scène choisie en boucle.
+ * Les transitions et percussions (S.wiz.fx) vont à l'option fx de SS.bandSong.build.
  * Les réglages par scène (S.wiz.parts, parts[section].inst[id] et .lead) vont à l'option parts de SS.bandSong.build, le type de chaque
  * instrument (S.wiz.kinds) à son option kinds ; sans réglage, c'est le jeu de l'inspiration.
  * Les étapes 3 et 4 écrivent des retouches du plan (S.wiz.skey, form, secs : voir specEff) ; sans retouche, c'est le plan de l'inspiration.
@@ -1348,13 +1352,16 @@ SS.band = (() => {
     { key: 'chords', label: 'Accords', hint: 'Les accords de chaque scène : tonalité, grille au temps, inspiration par émotion', line: 'Les accords de chaque scène : une grille au temps, dans la tonalité.' },
   ];
   const FINAL = [
+    { key: 'fx', label: 'Effets et transitions', hint: 'Les montées, impacts et silences entre les scènes, et des percussions d’ambiance', line: 'Habille les passages entre scènes : montées, impacts, silences, percussions.' },
     { key: 'mix', label: 'Mix', hint: 'Le volume, la place et les effets de chaque instrument, pour toute la chanson ou une scène', line: 'Volume, place et effets de chaque instrument, pour la chanson ou une scène.' },
     { key: 'pick', label: 'Intégration', hint: 'Coche les pistes à importer dans la chanson', line: 'Coche les pistes à importer, puis crée la chanson.' },
   ];
+  const FX_COLOR = '#7a8a99'; // rôle Effets (gris), Percussionniste : orange #f08a00
   const ST = {
     style: 1, inst: 2, tempo: 3, scenes: 4, chords: 5,
-    get mix() { return 6 + insSteps().length; },
-    get pick() { return 7 + insSteps().length; },
+    get fx() { return 6 + insSteps().length; },
+    get mix() { return 7 + insSteps().length; },
+    get pick() { return 8 + insSteps().length; },
   };
   /** Types d'instrument : nom, résumé du fil des étapes, couleur de rôle (batterie rose, basse verte, nappe bleue, arpège turquoise, mélodie violette). */
   const KIND_LABEL = { drums: 'Drums', bass: 'Basse', chords: 'Accords', arp: 'Arpèges', melody: 'Mélodie' };
@@ -1399,12 +1406,14 @@ SS.band = (() => {
     insMemo = { sig, wiz: S.wiz, val: out };
     return out;
   }
-  const insAt = (n = S.wiz && S.wiz.step) => (n > ST.chords && n < ST.mix ? insSteps()[n - ST.chords - 1] || null : null);
+  const insAt = (n = S.wiz && S.wiz.step) => (n > ST.chords && n < ST.fx ? insSteps()[n - ST.chords - 1] || null : null);
+  /** Définition d'une étape fixe (Fondations ou Finaliser : FOUND, FINAL), null pour une étape instrument. */
+  const defAt = (n) => (n <= ST.chords ? FOUND[n - 1] : n >= ST.fx ? FINAL[n - ST.fx] : null) || null;
   /** Adresse stable d'une étape : { inst: id } pour un instrument, sinon sa clé (« style », « chords », « mix »…). */
   function stepRef(n) {
     const t = insAt(n);
     if (t) return { inst: t.id };
-    return (FOUND.concat(FINAL)[n <= ST.chords ? n - 1 : n === ST.mix ? 5 : 6] || {}).key || null;
+    return (defAt(n) || {}).key || null;
   }
   /** Numéro de l'étape d'une adresse (voir stepRef), 0 si elle n'existe pas. */
   function stepNum(ref) {
@@ -1420,8 +1429,8 @@ SS.band = (() => {
     if (t) {
       return { label: t.title, sub: t.sound, hint: `${KIND_STEP[t.kind]} : ce que joue cet instrument, scène par scène`, line: 'Règle ce que joue cet instrument, scène par scène.', color: KIND_COLOR[t.kind], ins: t, group: n === ST.chords + 1 ? 'Instruments, scène par scène' : null };
     }
-    const d = FOUND.concat(FINAL)[n <= ST.chords ? n - 1 : n === ST.mix ? 5 : 6];
-    return { ...d, color: d.key === 'chords' ? '#c9a227' : d.key === 'mix' ? '#d0d0da' : null, ins: null, group: n === 1 ? 'Fondations' : n === ST.mix ? 'Finaliser' : null };
+    const d = defAt(n);
+    return { ...d, color: d.key === 'chords' ? '#c9a227' : d.key === 'mix' ? '#d0d0da' : d.key === 'fx' ? FX_COLOR : null, ins: null, group: n === 1 ? 'Fondations' : n === ST.fx ? 'Finaliser' : null };
   }
   /** Étapes où l'on travaille une scène (colonne des scènes, lecture de la scène en boucle). */
   const sceneStep = (n = S.wiz && S.wiz.step) => n === ST.chords || !!insAt(n);
@@ -1632,7 +1641,7 @@ SS.band = (() => {
   /** Efface toutes les retouches du plan (autre style ou autre inspiration, autre reprise). */
   function dropEdits(sameStyle = false) {
     if (!S.wiz) return;
-    Object.assign(S.wiz, { form: null, secs: {}, skey: null, keys: {}, grids: {}, emos: {}, parts: keptParts(sameStyle), kinds: keptKinds(), melPanel: {} });
+    Object.assign(S.wiz, { form: null, secs: {}, skey: null, keys: {}, grids: {}, emos: {}, parts: keptParts(sameStyle), kinds: keptKinds(), melPanel: {}, fx: {} });
   }
   /**
    * Réglages par scène gardés quand on change d'inspiration : ceux des sections que la nouvelle inspiration a aussi
@@ -1944,11 +1953,11 @@ SS.band = (() => {
     const p = preset();
     const cols = wizCols();
     const harmony = harmonyOpts(true);
-    const sig = JSON.stringify([p.id, cover() && S.cover, S.wiz.seed, melodyOpts(), harmony, JSON.stringify(S.wiz.parts, (k, v) => (k === 'hidden' ? undefined : v)), S.wiz.kinds, S.wiz.form, S.wiz.secs, S.wiz.skey, cols.map((c) => [c.id, c.o])]);
+    const sig = JSON.stringify([p.id, cover() && S.cover, S.wiz.seed, melodyOpts(), harmony, JSON.stringify(S.wiz.parts, (k, v) => (k === 'hidden' ? undefined : v)), S.wiz.kinds, S.wiz.form, S.wiz.secs, S.wiz.skey, cols.map((c) => [c.id, c.o]), S.wiz.fx]);
     if (S.wiz.sig !== sig) {
       const sp = specEff();
       const fake = cols.map((c) => ({ id: c.id, type: c.o.type, sound: c.o.sound, band: c.o.band }));
-      S.wiz.res = sp ? SS.bandSong.build(sp, p.id, fake, { melodySeed: S.wiz.seed, melody: melodyOpts(), harmony, parts: S.wiz.parts, kinds: S.wiz.kinds }) : null;
+      S.wiz.res = sp ? SS.bandSong.build(sp, p.id, fake, { melodySeed: S.wiz.seed, melody: melodyOpts(), harmony, parts: S.wiz.parts, kinds: S.wiz.kinds, fx: fxOpts() }) : null;
       S.wiz.sig = sig;
     }
     return { cols, res: S.wiz.res };
@@ -2052,6 +2061,7 @@ SS.band = (() => {
         const bars = res.song.reduce((a, b) => a + res.scenes.find((sc) => sc.id === b.scene).bars * b.repeat, 0);
         return `${res.scenes.length} scènes · ${bars} mesures`;
       }
+      if (n === ST.fx) return fxSummary(res);
       if (n === ST.mix) {
         const m = S.wiz.mix;
         const k = m ? res.scenes.filter((x) => SS.wizMix.ownCount(m, x.sec) > 0).length : 0;
@@ -2122,7 +2132,9 @@ SS.band = (() => {
     box.replaceChildren(
       h('h1', {}, h('em', {}, String(n).padStart(2, '0')), info.label, n === ST.inst ? countBadge() : null),
       ...(info.sub ? [h('div', { class: 'bw-hsub', id: 'bwSound' }, info.sub)] : []),
-      info.ins
+      n === ST.fx
+        ? h('div', { class: 'bw-insline' }, h('span', { class: 'bw-ktag', style: `--c:${FX_COLOR}`, title: 'Rôle : Effets (montées, impacts) et Percussionniste' }, 'Effets'), h('p', {}, info.line))
+        : info.ins
         ? h('div', { class: 'bw-insline' }, h('span', { class: 'bw-ktag', id: 'bwKindTag', 'data-kind': info.ins.kind, style: `--c:${KIND_COLOR[info.ins.kind]}`, title: 'Type de cet instrument (à changer à l’étape 2, Instruments)' }, KIND_STEP[info.ins.kind]), h('p', {}, info.line))
         : h('p', {}, info.line)
     );
@@ -2142,6 +2154,7 @@ SS.band = (() => {
     S.wiz.gsel = null;
     if (sceneStep(n) && L.mode && L.scene) S.wiz.hscene = L.scene; // Accords, Mélodie : la scène qu'on entend
     if (n <= ST.inst) dropListen(); // style et instruments changent toute la chanson
+    else if (L.junc && n !== ST.fx) dropListen(); // la transition ne s'écoute que dans son étape
     renderWiz();
     if (sceneStep(n) && L.mode === 'song' && !L.paused) playScene(S.wiz.hscene); // ici, on écoute une scène
   }
@@ -5676,6 +5689,7 @@ SS.band = (() => {
       if (step === ST.tempo) renderTempo();
       else if (step === ST.chords) renderChords();
       else if (insAt(step)) renderIns(insAt(step));
+      else if (step === ST.fx) renderFx();
       else if (step === ST.mix) renderMix();
       else renderWizGrid();
       wizFoot();
@@ -5715,7 +5729,7 @@ SS.band = (() => {
     const eff = specEff();
     const plan = cover() ? { ...p, spec: eff, cover: { title: S.cover.title.trim() || 'Reprise' } } : eff !== spec() ? { ...p, spec: eff } : p;
     // tout est lu avant de quitter l'assistant (leave efface S.wiz), puis la fenêtre principale reprend la place
-    const args = [cols.map((c) => c.o), plan, tempo(), { melodySeed: seed, melody: melodyOpts(), harmony: harmonyOpts(), parts: S.wiz.parts, kinds: S.wiz.kinds, gains: cols.map((c) => volGain(c.id)), mix: S.wiz.mix, groove: grooveOf() }];
+    const args = [cols.map((c) => c.o), plan, tempo(), { melodySeed: seed, melody: melodyOpts(), harmony: harmonyOpts(), parts: S.wiz.parts, kinds: S.wiz.kinds, gains: cols.map((c) => volGain(c.id)), mix: S.wiz.mix, groove: grooveOf(), fx: fxOpts() }];
     const draft = wizSnapshot(Date.now()); // le brouillon est gardé : rouvrir l'assistant permet de retoucher et de recréer
     leave({ keep: false });
     app.applySong(...args);
@@ -6226,19 +6240,408 @@ SS.band = (() => {
     );
   }
 
+  /* ---------- Étape Effets et transitions ----------
+   * La frise montre les scènes dans l'ordre de l'arrangement ; entre deux blocs, une pastille ronde (nombre d'effets actifs) choisit la
+   * jonction à régler. Les réglages d'une jonction sont gardés par couple de sections, « avant>après » : S.wiz.fx.junctions[clé] =
+   * { riser, hp, rev, gap, impact, down } (partiels : ce qui n'est pas touché est ce que fait déjà le plan, voir junctionDefaults
+   * dans js/bandsong.js, qui lit S.wiz.fx par l'option fx de SS.bandSong.build). Percussions : S.wiz.fx.perc = { style, loops: { section: { sh, cg, tom } } }.
+   * Sans retouche, S.wiz.fx est vide et la chanson est celle du plan : l'étape montre ce que le plan fait déjà.
+   * Sans musicien Effets (ou Percussionniste) dans le groupe, les réglages qui en dépendent sont remplacés par un message et un
+   * bouton qui l'ajoute au groupe. « ▶ Écouter la transition » joue les dernières mesures de la scène d'avant puis les premières de
+   * la suivante, en boucle (listenJunction).
+   */
+  const fxState = () => (S.wiz.fx = S.wiz.fx || {});
+  /** Option fx de SS.bandSong.build : les retouches de l'étape, null tant qu'il n'y en a pas (la chanson est celle du plan). */
+  function fxOpts() {
+    const f = S.wiz && S.wiz.fx;
+    if (!f) return null;
+    return (f.junctions && Object.keys(f.junctions).length) || (f.perc && ((f.perc.loops && Object.keys(f.perc.loops).length) || f.perc.style)) ? f : null;
+  }
+  const FX_DROP = /^(drop|peak|chorus)/;
+  const FX_DROPS = { drop: 'drops', peak: 'sommets', chorus: 'refrains' };
+  const isDropSec = (sec) => FX_DROP.test(kindOf(sec));
+  const hasRole = (role) => musicians().some((m) => m.role === role);
+  /** Les jonctions de l'arrangement : [{ i, from, to (scènes), key, at (mesure où commence la scène d'après, 0 = début) }]. */
+  function fxJoins(res) {
+    let at = 0;
+    return res.song.slice(1).map((b, i) => {
+      const a = res.song[i];
+      const from = res.scenes.find((x) => x.id === a.scene);
+      const to = res.scenes.find((x) => x.id === b.scene);
+      at += from.bars * a.repeat;
+      return { i, from, to, key: `${from.sec}>${to.sec}`, at };
+    });
+  }
+  /** Réglages en vigueur d'une jonction (le plan, puis les retouches). */
+  const fxEff = (j) => SS.bandSong.junctionEff(specEff(), j.from.sec, j.to.sec, S.wiz.fx);
+  /** Effets actifs d'une jonction ; sans musicien Effets, ceux de sa piste ne comptent pas. */
+  function fxCount(e, withFx) {
+    return [withFx && e.riser.on, e.hp.on, withFx && e.rev.on, e.gap.len > 0, withFx && e.impact.on, withFx && e.down.on].filter(Boolean).length;
+  }
+  function fxSummary(res) {
+    const withFx = hasRole('fx');
+    const keys = new Set(fxJoins(res).filter((j) => fxCount(fxEff(j), withFx) > 0).map((j) => j.key));
+    const out = [];
+    if (keys.size) out.push(`${keys.size} transition${keys.size > 1 ? 's' : ''}`);
+    if (hasRole('perc')) out.push('percus');
+    return out.join(' · ') || 'Aucun effet';
+  }
+  /** Jonction choisie : avant le premier drop, sinon la première. */
+  function fxSel(joins) {
+    if (S.wiz.fxSel == null || S.wiz.fxSel >= joins.length) {
+      const d = joins.findIndex((j) => isDropSec(j.to.sec));
+      S.wiz.fxSel = Math.max(0, d);
+    }
+    return joins[S.wiz.fxSel];
+  }
+  /** Modifie les réglages d'un effet de la jonction `key` (le reste de la jonction garde ce que fait le plan). */
+  function fxSet(key, fxk, patch) {
+    const f = fxState();
+    const J = (f.junctions = f.junctions || {});
+    const o = (J[key] = J[key] || {});
+    o[fxk] = { ...(o[fxk] || {}), ...patch };
+    fxChanged();
+  }
+  function fxChanged() {
+    renderWiz();
+    draftSoon();
+  }
+  /** Ajoute au groupe le musicien d'un rôle (Effets, Percussionniste) de l'inspiration : même liste qu'à l'étape Instruments. */
+  function fxAddMember(role) {
+    const g = group();
+    const mu = preset().musicians.find((x) => x.role === role);
+    if (!mu || g.list.some((r) => r.id === mu.id) || !BG().canAdd(g)) return;
+    const was = ST.fx;
+    g.list.push({ id: mu.id, base: mu.id, name: BG().freeName(g.list, role === 'fx' ? 'Effets' : 'Percussionniste') });
+    if (S.wiz.mix) mixSync();
+    dropListen();
+    // le Percussionniste ajoute une étape instrument : l'étape Effets et les suivantes prennent un numéro de plus
+    const d = ST.fx - was;
+    S.wiz.seen = new Set([...S.wiz.seen].map((n) => (n >= was ? n + d : n)));
+    S.wiz.step = ST.fx;
+    renderWiz();
+    draftSoon();
+  }
+
+  const FX_ROWS = [
+    ['riser', 'Montée de bruit', 'Un souffle qui monte jusqu’à la scène'],
+    ['hp', 'Filtre passe-haut global', 'Allège tout le mix pendant la montée'],
+    ['rev', 'Cymbale inversée', 'Aspire vers le premier temps de la scène'],
+    ['gap', 'Coupure avant', 'Un silence qui laisse respirer'],
+    ['impact', 'Impact au début', 'Coup grave + crash sur le premier temps'],
+    ['down', 'Descente (downlifter)', 'Retombée après l’impact'],
+  ];
+  const FX_NEEDS = { riser: true, rev: true, impact: true, down: true }; // effets joués par la piste Effets
+  const FX_FILTERS = [['lp', 'Passe-bas qui s’ouvre'], ['hp', 'Passe-haut qui s’ouvre'], ['none', 'Sans filtre']];
+  const FX_IMPACTS = [['both', 'Impact grave + crash'], ['crash', 'Crash seul'], ['impact', 'Impact grave']];
+
+  /** Aperçu de la jonction : de −8 à +2 mesures autour d'elle, une ligne par effet. */
+  function fxPreview(e, prevBars, withFx, toName) {
+    const x = (m) => `${((Math.max(-8, Math.min(2, m)) + 8) * 10).toFixed(2)}%`;
+    const bar = (k, label, a, b, on, extra = '') =>
+      h('div', { class: 'fx-pl' + (on ? '' : ' off'), 'data-k': k }, h('i', {}, label), h('div', { style: `left:${x(a)};width:calc(${x(b)} - ${x(a)});${extra}` }));
+    const rl = Math.min(e.riser.len, prevBars);
+    const axis = h('div', { class: 'fx-axis' }, ...Array.from({ length: 10 }, (_, i) => h('span', { class: i === 8 ? 'drop' : '' }, i === 8 ? toName : i === 9 ? '+1' : `−${8 - i}`)));
+    return h(
+      'div',
+      { class: 'fx-pv', 'aria-hidden': 'true' },
+      axis,
+      bar('riser', 'Bruit', -rl, 0, withFx && e.riser.on, e.riser.filter === 'none' ? 'background:#9aa7b3' : 'background:linear-gradient(90deg,#3a4651,#cfd8e0)'),
+      bar('hp', 'Passe-haut', -prevBars / 2, 0, e.hp.on, 'background:repeating-linear-gradient(90deg,var(--fx) 0 6px,transparent 6px 9px);height:3px;top:8px;bottom:auto'),
+      bar('rev', 'Cymbale inversée', -e.rev.len / 16, 0, withFx && e.rev.on),
+      bar('gap', 'Coupure', -e.gap.len / 16, 0, e.gap.len > 0, 'background:repeating-linear-gradient(45deg,#e0523a 0 3px,transparent 3px 6px);border:1px solid #e0523a'),
+      bar('impact', 'Impact', 0, 0.2, withFx && e.impact.on, 'background:#fff'),
+      bar('down', 'Descente', 0.25, 0.25 + e.down.len, withFx && e.down.on),
+      h('div', { class: 'fx-dropline', style: `left:calc(120px + (100% - 130px) * .8)` })
+    );
+  }
+
+  function renderFx() {
+    const { cols, res } = wizSong();
+    const box = $('#bandWiz');
+    if (!res) return box.replaceChildren(h('p', { class: 'dlg-hint' }, 'Cette inspiration n’a pas de plan de chanson.'));
+    const joins = fxJoins(res);
+    const keep = $('#bwFx');
+    const top = keep ? keep.scrollTop : 0;
+    const fz = keep && $('.fx-frieze', keep);
+    const left = fz ? fz.scrollLeft : 0;
+    const withFx = hasRole('fx');
+    const sel = joins.length ? fxSel(joins) : null;
+
+    // ---- frise
+    const frieze = h('div', { class: 'fx-frieze', role: 'group', 'aria-label': 'Frise de la chanson : une pastille par jonction' });
+    res.song.forEach((b, i) => {
+      const sc = res.scenes.find((x) => x.id === b.scene);
+      if (i) {
+        const j = joins[i - 1];
+        const n = fxCount(fxEff(j), withFx);
+        frieze.append(
+          h('div', { class: 'fx-tm' }, h('button', { type: 'button', class: (n ? 'has' : '') + (sel && sel.i === j.i ? ' sel' : ''), 'data-j': j.i, 'aria-pressed': String(!!sel && sel.i === j.i), title: `Avant « ${j.to.name} » : ${n ? `${n} effet${n > 1 ? 's' : ''}` : 'aucun effet'}`, onclick: () => ((S.wiz.fxSel = j.i), renderWiz()) }, n ? String(n) : '+'))
+        );
+      }
+      const bars = sc.bars * b.repeat;
+      frieze.append(h('div', { class: 'fx-block', 'data-sec': sc.sec, style: `--c:${secColor(sc.sec)};flex:${bars} 0 88px` }, h('b', {}, sc.name), h('small', {}, `${bars} mes.`)));
+    });
+
+    // ---- carte « Transition »
+    const trans = [];
+    if (sel) {
+      const e = fxEff(sel);
+      const prevBars = sel.from.bars;
+      const J = (S.wiz.fx && S.wiz.fx.junctions) || {};
+      const last = Math.min(8, prevBars); // mesures montrées dans « fin de la scène »
+      const kind = kindOf(sel.to.sec);
+      const dropWord = FX_DROPS[kind.match(FX_DROP) ? kind.match(FX_DROP)[1] : 'drop'] || 'drops';
+      const targets = joins.filter((j) => j.key !== sel.key && isDropSec(j.to.sec));
+      const same = new Set(targets.map((j) => j.key)).size;
+      const seg = (id, items, active, onpick) =>
+        h('span', { class: 'segmented fx-seg', id, role: 'group' }, ...items.map(([v, label, dis]) => h('button', { type: 'button', 'data-v': String(v), 'aria-pressed': String(active === v), disabled: dis || null, onclick: () => onpick(v) }, label)));
+      const lbl = (t) => h('span', { class: 'bw-lbl' }, t);
+      const switchBtn = (k, on, set) => h('button', { type: 'button', class: 'fx-sw' + (on ? ' on' : ''), id: `fxon-${k}`, role: 'switch', 'aria-checked': String(on), 'aria-label': FX_ROWS.find((r) => r[0] === k)[1], onclick: () => set(!on) }, '');
+      const near = (list, v) => list.filter((n) => n <= v).pop() || list[0]; // la longueur proposée la plus proche, par défaut
+      const rows = FX_ROWS.map(([k, name, sub]) => {
+        const e1 = e[k];
+        const need = FX_NEEDS[k] && !withFx;
+        let on = k === 'gap' ? e.gap.len > 0 : e1.on;
+        let set = (v) => fxSet(sel.key, k, { on: v });
+        let ctl = [];
+        if (k === 'riser') {
+          const lens = [4, 8, 16];
+          ctl = [
+            lbl('Longueur'),
+            seg('fxlen-riser', lens.map((n) => [n, `${n} mes.`, n > prevBars]), near(lens.filter((n) => n <= prevBars), e1.len), (v) => fxSet(sel.key, 'riser', { on: true, len: v })),
+            lbl('Filtre'),
+            h('select', { id: 'fxfilter-riser', 'aria-label': 'Filtre de la montée de bruit', onchange: (ev) => fxSet(sel.key, 'riser', { filter: ev.target.value }) }, ...FX_FILTERS.map(([v, t]) => h('option', { value: v, selected: e1.filter === v }, t))),
+          ];
+        } else if (k === 'hp') {
+          const val = Math.max(200, Math.min(4000, e1.freq));
+          const out = h('b', { class: 'fx-num', id: 'fxhp-out' }, `${val} Hz`);
+          ctl = [
+            lbl('Fréquence finale'),
+            h('input', { type: 'range', id: 'fxhp-freq', min: 200, max: 4000, step: 10, value: val, 'aria-label': 'Fréquence finale du passe-haut', oninput: (ev) => (out.textContent = `${ev.target.value} Hz`), onchange: (ev) => fxSet(sel.key, 'hp', { on: true, freq: +ev.target.value }) }),
+            out,
+          ];
+        } else if (k === 'rev') {
+          ctl = [lbl('Longueur'), seg('fxlen-rev', [[4, '1 temps'], [16, '1 mesure'], [32, '2 mesures', prevBars < 2]], e1.len, (v) => fxSet(sel.key, 'rev', { on: true, len: v }))];
+        } else if (k === 'gap') {
+          set = (v) => fxSet(sel.key, 'gap', { len: v ? 4 : 0 });
+          ctl = [seg('fxgap', [[0, 'Aucune'], [4, '1 temps'], [16, '1 mesure']], e1.len, (v) => fxSet(sel.key, 'gap', { len: v }))];
+        } else if (k === 'impact') {
+          const out = h('b', { class: 'fx-num', id: 'fxlevel-out' }, `${Math.round(e1.level * 100)} %`);
+          ctl = [
+            lbl('Type'),
+            h('select', { id: 'fxtype-impact', 'aria-label': 'Type d’impact', onchange: (ev) => fxSet(sel.key, 'impact', { on: true, type: ev.target.value }) }, ...FX_IMPACTS.map(([v, t]) => h('option', { value: v, selected: e1.type === v }, t))),
+            lbl('Niveau'),
+            h('input', { type: 'range', id: 'fxlevel-impact', min: 0.2, max: 1, step: 0.05, value: e1.level, 'aria-label': 'Niveau de l’impact', oninput: (ev) => (out.textContent = `${Math.round(ev.target.value * 100)} %`), onchange: (ev) => fxSet(sel.key, 'impact', { on: true, level: +ev.target.value }) }),
+            out,
+          ];
+        } else if (k === 'down') {
+          ctl = [lbl('Longueur'), seg('fxlen-down', [[2, '2 mes.'], [4, '4 mes.']], e1.len, (v) => fxSet(sel.key, 'down', { on: true, len: v }))];
+        }
+        if (need) return null;
+        return h(
+          'div',
+          { class: 'fx-row' + (on ? '' : ' off'), id: `fxrow-${k}`, 'data-k': k },
+          h('div', { class: 'fx-nm' }, switchBtn(k, on, set), h('div', {}, h('b', {}, name), h('small', {}, sub))),
+          h('div', { class: 'fx-opt' }, ...ctl)
+        );
+      });
+      if (!withFx) {
+        // les effets joués par la piste Effets : un message et un bouton qui l'ajoute au groupe
+        const full = !BG().canAdd(group());
+        const miss = h(
+          'div',
+          { class: 'fx-miss', id: 'fxMissFx' },
+          h('p', {}, h('b', {}, 'Pas de musicien Effets dans ce groupe.'), ' Sans lui, pas de montée de bruit, de cymbale inversée, d’impact ni de descente : il joue ces effets sur sa propre piste.'),
+          h('button', { type: 'button', class: 'btn', id: 'fxAddFx', disabled: full || null, title: full ? 'Le groupe est complet (10 musiciens)' : 'Ajoute l’Effets au groupe, comme « + Ajouter un musicien » de l’étape Instruments', onclick: () => fxAddMember('fx') }, '+ Ajouter un musicien Effets')
+        );
+        rows.splice(0, 0, miss);
+      }
+      const joinBtn = h('button', { type: 'button', class: 'btn btn-small', id: 'fxJListen', 'data-key': sel.key, onclick: () => (L.junc === sel.key && L.mode ? stopListen() : listenJunction(sel)) }, L.junc === sel.key && L.mode ? '■ Arrêter' : '▶ Écouter la transition');
+      const copied = h('span', { class: 'fx-copied', id: 'fxCopied', 'aria-live': 'polite' }, '');
+      trans.push(
+        h('section', { class: 'bw-card fx-card', id: 'fxTrans', style: '--c:#7a8a99' },
+          h('div', { class: 'fx-head' },
+            h('h3', { class: 'bw-ctitle' }, h('b', {}, `Transition avant « ${sel.to.name} »`), h('small', {}, ` fin de ${sel.from.name}, mesures ${sel.at - last + 1} à ${sel.at}`)),
+            h('span', { class: 'spacer' }),
+            copied,
+            J[sel.key] ? h('button', { type: 'button', class: 'btn btn-small', id: 'fxReset', title: 'Revient à ce que fait le plan pour cette jonction', onclick: () => { delete fxState().junctions[sel.key]; fxChanged(); } }, '↺ Comme le plan') : null,
+            joinBtn,
+            h('button', { type: 'button', class: 'btn btn-small', id: 'fxCopy', disabled: !same || null, title: same ? `Copie ces réglages vers ${same} autre${same > 1 ? 's' : ''} jonction${same > 1 ? 's' : ''} qui entre${same > 1 ? 'nt' : ''} dans un ${dropWord.replace(/s$/, '')}` : 'Aucune autre jonction vers un drop', onclick: () => {
+              const f = fxState();
+              const Js = (f.junctions = f.junctions || {});
+              const done = new Set();
+              targets.forEach((t) => {
+                if (done.has(t.key)) return;
+                done.add(t.key);
+                Js[t.key] = JSON.parse(JSON.stringify({ ...e, riser: { ...e.riser, len: Math.min(e.riser.len, t.from.bars) } }));
+              });
+              fxChanged();
+              const c = $('#fxCopied');
+              if (c) c.textContent = `Copié vers ${done.size} jonction${done.size > 1 ? 's' : ''}`;
+            } }, `Copier vers les autres ${dropWord}`)
+          ),
+          fxPreview(e, prevBars, withFx, sel.to.name),
+          ...rows.filter(Boolean)
+        )
+      );
+    } else trans.push(h('section', { class: 'bw-card fx-card', id: 'fxTrans' }, h('p', { class: 'dlg-hint' }, 'Il faut au moins deux scènes dans l’arrangement pour régler une transition.')));
+
+    // ---- carte « Percussions »
+    const percEl = fxPercCard(cols, res);
+    const root = h('div', { class: 'bwc fx', id: 'bwFx' }, h('div', { class: 'bw-lbl' }, 'Frise de la chanson · cliquer une jonction'), frieze, h('div', { class: 'fx-cols' }, ...trans, percEl));
+    box.replaceChildren(root);
+    root.scrollTop = top;
+    frieze.scrollLeft = left;
+    const sb = frieze.querySelector('.fx-tm .sel');
+    if (sb && !left) frieze.scrollLeft = Math.max(0, sb.offsetLeft - frieze.clientWidth / 2); // la jonction choisie au milieu de la frise (défilement horizontal seulement)
+  }
+
+  /** Carte Percussions : une matrice scènes × boucles (Shaker, Conga, Tom) sur les pistes du Percussionniste. */
+  function fxPercCard(cols, res) {
+    const PC = SS.bandSong.PERC_LOOPS;
+    const perc = (S.wiz.fx && S.wiz.fx.perc) || {};
+    const loops = perc.loops || {};
+    const card = h('section', { class: 'bw-card fx-card fx-perc', id: 'fxPerc', style: '--c:#f08a00' }, h('h3', { class: 'bw-ctitle' }, h('b', {}, 'Percussions'), h('small', {}, ' boucles d’ambiance par scène')));
+    if (!hasRole('perc')) {
+      const full = !BG().canAdd(group());
+      card.append(
+        h('div', { class: 'fx-miss', id: 'fxMissPerc' },
+          h('p', {}, h('b', {}, 'Pas de Percussionniste dans ce groupe.'), ' Les boucles d’ambiance (shaker, conga, tom) sortent sur sa piste, dont le volume se règle dans Mix.'),
+          h('button', { type: 'button', class: 'btn', id: 'fxAddPerc', disabled: full || null, title: full ? 'Le groupe est complet (10 musiciens)' : 'Ajoute le Percussionniste au groupe, comme « + Ajouter un musicien » de l’étape Instruments', onclick: () => fxAddMember('perc') }, '+ Ajouter un Percussionniste'))
+      );
+      return card;
+    }
+    const pcols = (lp) => cols.filter((c) => c.role === 'perc' && c.o.sound === lp.piece);
+    const actual = (sc, lp) => pcols(lp).some((c) => ((sc.data[c.id] || {}).steps || []).some((v) => v > 0));
+    const on = (sc, lp) => (loops[sc.sec] && typeof loops[sc.sec][lp.id] === 'boolean' ? loops[sc.sec][lp.id] : actual(sc, lp));
+    const addPiece = (lp) => {
+      const mu = musicians().find((m) => m.role === 'perc');
+      const pc = mu && musState()[mu.id].pieces.find((q) => q.piece.split('@')[0] === lp.piece);
+      if (pc) pc.on = true;
+      else if (mu) musState()[mu.id].pieces.push({ piece: lp.piece, on: true });
+      if (S.wiz.mix) mixSync();
+      dropListen();
+      renderWiz();
+      draftSoon();
+    };
+    const head = h('tr', {}, h('th', {}), ...res.scenes.map((sc) => h('th', { title: sc.name, style: `--c:${secColor(sc.sec)}` }, h('i', {}), sc.name.replace('Drop final', 'Drop+').slice(0, 4))));
+    const rows = PC.map((lp) => {
+      const has = pcols(lp).length > 0;
+      return h(
+        'tr',
+        { 'data-loop': lp.id },
+        h('td', { class: 'lab' }, lp.name, h('small', {}, has ? lp.sub : h('button', { type: 'button', class: 'fx-addp', 'data-loop': lp.id, onclick: () => addPiece(lp) }, '+ ajouter la pièce'))),
+        ...res.scenes.map((sc) => {
+          const v = on(sc, lp);
+          return h('td', {}, h('button', { type: 'button', class: 'fx-cb' + (v ? ' on' : ''), 'data-loop': lp.id, 'data-sec': sc.sec, 'aria-pressed': String(v), 'aria-label': `${lp.name} : ${sc.name}`, disabled: !has || null, title: has ? `${lp.name} dans « ${sc.name} »` : 'Pièce absente du kit', onclick: () => {
+            const f = fxState();
+            const P = (f.perc = f.perc || {});
+            const Lp = (P.loops = P.loops || {});
+            (Lp[sc.sec] = Lp[sc.sec] || {})[lp.id] = !v;
+            fxChanged();
+          } }));
+        })
+      );
+    });
+    const first = res.scenes.find((sc) => PC.some((lp) => pcols(lp).length && on(sc, lp)));
+    const playing = L.mode === 'scene' && first && L.scene === first.id;
+    card.append(
+      h('div', { class: 'fx-pscroll' }, h('table', { class: 'fx-ptab', 'aria-label': 'Boucles de percussion par scène' }, h('thead', {}, head), h('tbody', {}, ...rows))),
+      h('p', { class: 'dlg-hint' }, 'Les percussions sortent sur leur propre piste, volume réglé dans Mix.'),
+      h('div', { class: 'fx-prow' }, h('span', { class: 'bw-lbl' }, 'Style'),
+        h('select', { id: 'fxPercStyle', 'aria-label': 'Style des percussions', onchange: (ev) => { const P = (fxState().perc = fxState().perc || {}); P.style = ev.target.value; fxChanged(); } }, ...SS.bandSong.PERC_STYLES.map((s) => h('option', { value: s.id, selected: (perc.style || 'techno') === s.id }, s.name))),
+        h('button', { type: 'button', class: 'btn btn-small', id: 'fxPercListen', 'data-scene': first ? first.id : null, disabled: !first || null, onclick: () => first && listenScene(first.id) }, playing ? '■ Arrêter' : '▶ Écouter')
+      )
+    );
+    return card;
+  }
+
+  /** Une partie de scène (données du projet d'écoute) réduite à `bars` mesures à partir de la mesure `from`. */
+  function sliceListenScene(sc, from, bars, id) {
+    const a = from * 16;
+    const b = (from + bars) * 16;
+    const data = {};
+    Object.entries(sc.data).forEach(([tid, d]) => {
+      const o = {};
+      if (d.steps) {
+        o.steps = d.steps.slice(a, b);
+        while (o.steps.length < bars * 16) o.steps.push(0);
+        ['rat', 'cond'].forEach((f) => d[f] && (o[f] = Object.fromEntries(Object.entries(d[f]).filter(([s]) => +s >= a && +s < b).map(([s, v]) => [+s - a, v]))));
+      }
+      if (d.events)
+        o.events = d.events
+          .filter((e) => e.step < b && e.step + e.len > a)
+          .map((e) => ({ ...e, step: Math.max(0, e.step - a), len: Math.min(e.step + e.len, b) - Math.max(e.step, a) }));
+      if (d.auto) {
+        o.auto = {};
+        Object.entries(d.auto).forEach(([param, lane]) => {
+          const pts = Object.entries(lane).map(([s, v]) => [+s, v]).sort((p, q) => p[0] - q[0]);
+          const out = { 0: SS.bandSong.autoAt(pts, a) };
+          pts.forEach(([s, v]) => s > a && s < b - 1 && (out[s - a] = v));
+          out[bars * 16 - 1] = SS.bandSong.autoAt(pts, b - 1);
+          o.auto[param] = out;
+        });
+      }
+      data[tid] = o;
+    });
+    return { id, name: sc.name, bars, key: sc.key, data };
+  }
+  /** Écoute d'une jonction, en boucle : les dernières mesures de la scène d'avant, puis les premières de la suivante. */
+  function listenJunction(j) {
+    const { cols, res } = wizSong();
+    if (!res || !j) return;
+    stopListen();
+    dropListen();
+    const proj = buildListen(cols, res);
+    L.proj = proj;
+    L.sig = S.wiz.sig;
+    L.mixSig = mixSig();
+    applyListenMutes();
+    const a = proj.scenes.find((x) => x.id === j.from.id);
+    const b = proj.scenes.find((x) => x.id === j.to.id);
+    const lead = Math.min(a.bars, 4);
+    const tail = Math.min(b.bars, 4);
+    const sa = sliceListenScene(a, a.bars - lead, lead, 'junc·a');
+    const sb = sliceListenScene(b, 0, tail, 'junc·b');
+    proj.scenes = [sa, sb];
+    proj.song = [{ scene: sa.id, repeat: 1 }, { scene: sb.id, repeat: 1 }];
+    proj.songLoop = true;
+    SS.loadScene(proj, sa.id, { commit: false });
+    L.junc = j.key;
+    L.mode = 'song';
+    L.block = 0;
+    L.scene = sa.id;
+    markListen();
+    SS.audio.start(() => proj, onListenStep, {
+      song: {
+        index: 0,
+        onBlock: (i) => SS.loadScene(proj, proj.song[i].scene, { commit: false }),
+        onBlockVisible: (i) => {
+          L.block = i;
+          L.scene = proj.song[i].scene;
+          L.step = -1;
+          markListen();
+        },
+        onEnd: stopListen,
+      },
+    });
+  }
+
   /* ---------- Écoute dans l'assistant ----------
    * La chanson de la vue session est jouée telle qu'elle sera créée : pistes, scènes, mixage et mastering
    * automatiques, sur un projet temporaire (rien n'est écrit dans la chanson). Clic sur une scène : elle tourne
    * en boucle ; « Écouter la chanson » ou un bloc du bandeau : l'arrangement à partir de ce bloc.
    * Muet / Solo et volume (étape Mélodie) : par colonne, comme sur une console.
    */
-  const L = { proj: null, sig: null, mixSig: null, mode: null, scene: null, sec: null, block: -1, step: -1, paused: false };
+  const L = { proj: null, sig: null, mixSig: null, junc: null, mode: null, scene: null, sec: null, block: -1, step: -1, paused: false };
   const LID = (id) => 'bw·' + id; // identifiants des pistes d'écoute : jamais ceux de la chanson
 
   /** Projet d'écoute : construit comme « Créer la chanson » (main.js, addBandSong), recalculé si la chanson change. */
   function listenProject() {
     const { cols, res } = wizSong();
     if (!res) return null;
+    if (L.junc) dropListen(); // le projet d'écoute était celui d'une jonction
     if (S.wiz.mix) mixSync(); // l'étape Mix a été visitée : son réglage s'entend aussi aux autres étapes
     if (L.proj && L.sig === S.wiz.sig) {
       if (L.mixSig !== mixSig()) liveMix();
@@ -6336,6 +6739,7 @@ SS.band = (() => {
 
   function stopListen() {
     if (L.mode) SS.audio.stop();
+    L.junc = null; // écoute d'une jonction (étape Effets et transitions)
     L.paused = false;
     L.mode = null;
     L.scene = null;
@@ -6420,7 +6824,14 @@ SS.band = (() => {
   /** La chanson a changé (autre mélodie…) pendant l'écoute : on reprend au même endroit avec les nouvelles notes. */
   function relisten() {
     if (!L.mode || L.sig === S.wiz.sig) return;
-    const { mode, sec, block, paused } = L;
+    const { mode, sec, block, paused, junc } = L;
+    if (junc) {
+      // une transition en écoute : on la reprend avec les nouveaux réglages
+      const j = S.wiz.res && fxJoins(S.wiz.res).find((x) => x.key === junc);
+      dropListen();
+      if (j && !paused) listenJunction(j);
+      return;
+    }
     dropListen();
     if (paused) return;
     // les scènes ont de nouveaux identifiants : on retrouve la même section
@@ -6448,6 +6859,10 @@ SS.band = (() => {
     const box = $('#bandWiz');
     if (!box || !S.wiz) return;
     updateTransport();
+    const jb = $('#fxJListen', box);
+    if (jb) jb.textContent = L.junc === jb.dataset.key && L.mode ? '■ Arrêter' : '▶ Écouter la transition';
+    const pb = $('#fxPercListen', box);
+    if (pb) pb.textContent = L.mode === 'scene' && L.scene === pb.dataset.scene ? '■ Arrêter' : '▶ Écouter';
     box.querySelectorAll('.bh-board').forEach((b) => {
       const on = !!L.mode && L.scene === b.dataset.scene && L.step >= 0;
       b.classList.toggle('playing', on);
@@ -6538,7 +6953,7 @@ SS.band = (() => {
     // basse, nappes, arpèges) ; form / secs / skey : arrangement, scènes et tonalité retouchés (specEff) ; chars : caractère et notes par phrase par section (réglages du moteur, sans écran) ; melPanel : état du panneau Mélodie par section ; snap : aimant de la grille ; gsel : accord sélectionné ; insp : fenêtre d'inspiration
     S.wiz = {
       step: 1, seen: new Set([1]), seed: 0, off: new Set(), mute: new Set(), solo: new Set(), sig: null, res: null, fresh, mel: S.mel, vol: new Map(), mix: null, mixScope: 'song', mixOpen: null, mixTab: 'eq', hscene: null, hsec: null, tempo: null, tempoFor: null,
-      plans: {}, pseeds: {}, keys: {}, grids: {}, emos: {}, chars: {}, parts: {}, kinds: {}, melPanel: {}, melSec: null, form: null, secs: {}, skey: null, snap: 'beat', gsel: null, insp: null,
+      plans: {}, pseeds: {}, keys: {}, grids: {}, emos: {}, chars: {}, parts: {}, kinds: {}, melPanel: {}, melSec: null, form: null, secs: {}, skey: null, snap: 'beat', gsel: null, insp: null, fx: {},
     };
     show();
     draftStart();
@@ -6611,9 +7026,16 @@ SS.band = (() => {
     S.tracksOpen = x.tracksOpen;
     S.wiz = {
       seed: 0, off: new Set(), mute: new Set(), solo: new Set(), sig: null, res: null, mel: S.mel, vol: new Map(), mix: null, mixScope: 'song', mixOpen: null, mixTab: 'eq', hscene: null, hsec: null, tempo: null, tempoFor: null,
-      plans: {}, pseeds: {}, keys: {}, grids: {}, emos: {}, chars: {}, parts: {}, kinds: {}, melPanel: {}, form: null, secs: {}, skey: null, snap: 'beat', gsel: null, efilter: 0, fresh: false,
+      plans: {}, pseeds: {}, keys: {}, grids: {}, emos: {}, chars: {}, parts: {}, kinds: {}, melPanel: {}, form: null, secs: {}, skey: null, snap: 'beat', gsel: null, efilter: 0, fresh: false, fx: {},
       ...x.w, step: 1, melSec: null, insp: null, createdAt: d.createdAt,
     };
+    // brouillon d'avant l'étape « Effets et transitions » (v < 3) : Mix et Intégration ont gagné un numéro
+    if (d.v < 3) {
+      const old = ST.mix - 1; // l'ancien numéro de Mix
+      const up = (m) => (typeof m === 'number' && m >= old ? m + 1 : m);
+      x.w.step = up(x.w.step);
+      S.wiz.seen = new Set([...x.w.seen].map(up));
+    }
     const n = x.w.step;
     if (n > 1 && n <= ST.pick && canGo(n)) S.wiz.step = n;
     S.wiz.seen.add(S.wiz.step);

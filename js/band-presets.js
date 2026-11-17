@@ -780,6 +780,15 @@ window.SS = window.SS || {};
     },
   ];
 
+  // Effets et Percussionniste : facultatifs dans toutes les inspirations (l'étape « Effets et transitions » de l'assistant
+  // peut les ajouter au groupe) ; jamais dans le groupe par défaut, donc sans effet sur les chansons existantes
+  STYLES.forEach((st) =>
+    st.presets.forEach((p) => {
+      if (!p.musicians.some((x) => x.role === 'fx')) p.musicians.push(m('fx', FX, { optional: true, injected: true, note: 'Montées, impacts et descentes entre les scènes' }));
+      if (!p.musicians.some((x) => x.role === 'perc')) p.musicians.push(kit('perc', 'sh perc misc', KPERC, { optional: true, injected: true }));
+    })
+  );
+
   // identifiants des musiciens : rôle (+ numéro si le rôle revient)
   STYLES.forEach((st) =>
     st.presets.forEach((p) => {

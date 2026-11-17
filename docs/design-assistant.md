@@ -64,7 +64,7 @@ Le vrai assistant marche, mais il est plus lourd à l'œil que la maquette :
    - **pied** : « ← <étape précédente> » et « <étape suivante> → » (avec le nom des étapes), « Créer la chanson » à la fin.
 2. **Stepper vertical** à la place de la barre horizontale. Les étapes sont groupées : « Fondations » (1 à 5 : Style, Instruments, Tempo et tonalité, Scènes, Accords),
    « Instruments, scène par scène » (une étape par instrument du groupe, nombre variable, pastille de la couleur de son type),
-   « Finaliser » (Mix, Intégration). Les numéros suivent ; en code, `ST.chords`, `ST.mix` et `ST.pick` sont calculés et une
+   « Finaliser » (Effets et transitions, Mix, Intégration). Les numéros suivent ; en code, `ST.chords`, `ST.fx`, `ST.mix` et `ST.pick` sont calculés et une
    étape instrument s'adresse par `{ inst: id }` (`stepRef`, `stepNum`).
    - Chaque étape a sa pastille numérotée, son nom et un résumé d'une ligne (par exemple « Synthwave », « 132 BPM · Do mineur »,
      « 5 scènes · 88 mesures », le motif de la scène…).
@@ -191,3 +191,11 @@ Le bouton « FX » d'une tranche ouvre `#mxFx` en **panneau flottant** (`positio
 - **Téléphone (≤ 760 px)** : feuille du bas pleine largeur (66 vh au plus), effets en onglets horizontaux défilants, pas de position calculée ni de pointe.
 - **Accessibilité** : `role="dialog"`, `aria-labelledby="mxFxTitle"`, `aria-expanded` sur le bouton FX, focus envoyé dans le popover à l'ouverture.
 - Test : `tests/e2e/wizard-mix.js` (position collée à la tranche ±24 px, dans la fenêtre, Échap, clic dehors, autre tranche, feuille à 390 px).
+
+## Étape Effets et transitions (maquette : `docs/maquette-production.html`, écran B)
+
+- **Place** : première étape du groupe « Finaliser » (après la dernière étape d'instrument, avant Mix) ; `ST.fx`, adresse `'fx'`. Pastille grise du rôle Effets (`#7a8a99`), puce « Effets » à côté de la phrase de la tête. Un brouillon de version < 3 (avant l'étape) est renuméroté à sa réouverture ; `project.wizard.v` passe à 3 et porte `state.w.fx`.
+- **Frise** : une carte, les scènes dans l'ordre de l'arrangement (couleur du type de scène, largeur selon les mesures, 88 px au moins : la frise défile à l'horizontale sur téléphone), et entre deux blocs une pastille ronde de 26 px (nombre d'effets actifs, « + » quand il n'y en a pas, bleue quand elle est choisie). La jonction choisie par défaut est celle d'avant le premier drop.
+- **Carte « Transition avant « X »** : aperçu de −8 à +1 mesures (une ligne par effet, estompée quand l'effet est coupé), puis une ligne par effet (interrupteur de 36 × 20 px, titre et phrase, réglages à droite ; sous 720 px les réglages passent sous le titre). Une seule carte par colonne, pas de cadre dans le cadre ; la carte **Percussions** est une matrice de cases orange (`#f08a00`) scènes × boucles.
+- **Sans le musicien** : un cadre en tirets avec une phrase et un bouton « + Ajouter … » (même mécanisme que « + Ajouter un musicien » : il ajoute l'Effets ou le Percussionniste, facultatifs dans chaque inspiration, au groupe) ; il remplace les réglages qui en dépendent.
+- **Moteur** : `S.wiz.fx` → option `fx` de `SS.bandSong.build` (voir `junctionDefaults` dans `js/bandsong.js`). Sans retouche, la chanson est celle du plan ; l'étape montre ce que le plan fait déjà.

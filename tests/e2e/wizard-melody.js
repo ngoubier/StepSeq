@@ -62,7 +62,7 @@ const ok = (c, m) => {
   await next(9);
 
   // l'étape : le panneau Mélodie d'Harmonie, sans les contrôles de la piste ni sa propre lecture
-  ok((await cur()).includes('Mélodie'), 'étape 10 : Mélodie');
+  ok(((await page.textContent('#bwKindTag').catch(() => '')) || '').includes('Mélodie'), 'étape 10 : Mélodie (pastille du type de l’étape)');
   ok(!!(await page.$('#bwMelPanel .mel-body')) && !!(await page.$('#melIntent')) && !!(await page.$('#melMotifRow')), 'panneau : intention, motif de départ et note pivot');
   ok(!(await page.$('#melTrack')) && !(await page.$('#melListen')) && !(await page.$('#melGrid')) && !(await page.$('#melKey')), 'pas de champ Piste, de lecture, de grille ni de tonalité');
   ok(!!(await page.$('#melMeter')) && !!(await page.$('#melComplexity')) && !!(await page.$('#melMore')), 'structure, complexité et options');
@@ -205,6 +205,8 @@ const ok = (c, m) => {
     const id = Object.keys(sc.data).find((k) => k.includes(':lead'));
     return [sc.name, sc.data[id].events.map((e) => [e.step, e.len, e.notes])];
   })));
+  await next(1);
+  ok((await cur()).includes('Effets et transitions'), 'étape Effets et transitions');
   await next(1);
   ok((await cur()).includes('Mix'), 'étape Mix');
   await next(1);

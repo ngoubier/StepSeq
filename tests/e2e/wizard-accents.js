@@ -259,7 +259,7 @@ const ok = (c, m) => {
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'accents-real.png') });
 
   // Créer la chanson : notes de basse accentuées, vélocité plus forte, filtre
-  for (let i = 0; i < 8 && !(await page.isVisible('#bwCreate')); i++) await next();
+  for (let i = 0; i < 10 && !(await page.isVisible('#bwCreate')); i++) await next();
   await page.click('#bwCreate');
   await page.waitForTimeout(1200);
   const p = await P();
