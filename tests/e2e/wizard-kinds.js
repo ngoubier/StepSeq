@@ -99,14 +99,14 @@ const ok = (c, m) => {
   if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT + '/kinds2-step2.png' });
   const padLi = page.locator('#bandWizSteps li[data-kind="chords"]');
   const padSum0 = await padLi.locator('.bw-ss').textContent();
-  ok(padSum0.startsWith('Accords') && (await padLi.getAttribute('style')).includes('#4f6bff'), `nappe : résumé « ${padSum0} », pastille bleue`);
+  ok(/^Nappe/.test(await padLi.locator('.bw-sn').textContent()) && padSum0.startsWith('A36') && (await padLi.getAttribute('style')).includes('#4f6bff'), `nappe : titre « Nappe », résumé (son d'abord) « ${padSum0} », pastille bleue`);
   await page.selectOption('#bandPanel .bpn-ksel', 'arp');
   await page.waitForTimeout(400);
   ok((await page.locator('#bandPanel .bpn-kdesc').allTextContents()).every((x) => !/était/.test(x)), 'étape 2 : plus de ligne « était une nappe » sous la liste Type');
   const padId = await page.evaluate(() => SS.band.insSteps().find((t) => t.def === 'chords').id);
   ok((await page.evaluate((id) => SS.band.insSteps().find((t) => t.id === id).kind, padId)) === 'arp' && (await page.locator('#bandWizSteps li[data-kind="chords"]').count()) === 0, 'la nappe est de type Arpèges');
   const padLi2 = page.locator('#bandWizSteps li[data-kind="arp"]').nth(0);
-  ok((await padLi2.locator('.bw-ss').textContent()).startsWith('Arpège') && ((await padLi2.getAttribute('style')) || '').includes('#13c2a3'), 'résumé « Arpège · … » et pastille turquoise');
+  ok(/^Nappe/.test(await padLi2.locator('.bw-sn').textContent()) && (await padLi2.locator('.bw-ss').textContent()).includes(' · ') && ((await padLi2.getAttribute('style')) || '').includes('#13c2a3'), 'titre « Nappe » (nom du musicien), résumé « son · réglage », pastille turquoise du type Arpèges');
   ok(await page.evaluate(() => Object.keys(SS.band._state.wiz.kinds).length === 1), 'S.wiz.kinds garde le choix');
   await tab('arp');
   ok(!!(await page.$('#bwaName')) && (await page.locator('.bwa-knob').count()) === 4 && (await page.locator('.bw-kind').count()) === 0, 'l’éditeur Arp One s’affiche, sans cartes de type');

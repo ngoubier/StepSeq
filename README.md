@@ -141,7 +141,7 @@ des pistes, entre la barre du haut et le bas de l'écran. À gauche, le **steppe
 passent à l'étape suivante / précédente. Au bas, un seul bouton **Fermer** (comme <kbd>Échap</kbd> : rien n'est créé). L'écoute se commande dans la
 barre du haut (`js/main.js` route Lecture, Stop et le champ tempo vers `SS.band` tant que l'assistant est ouvert) :
 lecture / pause / reprise (`SS.audio.pause` / `resume`), stop, position, **tempo** réglable (40–240 BPM, appliqué à
-l'écoute en cours et à la chanson créée) et **tonalité** (armure, accord de tonique). Aux étapes Batterie, Accords, Basse, Nappes, Arpèges et
+l'écoute en cours et à la chanson créée) et **tonalité** (armure, accord de tonique) ; tempo et tonalité suivent dès le choix du style, de l'inspiration ou de la reprise (étape 1), sans attendre l'étape 3. Aux étapes Batterie, Accords, Basse, Nappes, Arpèges et
 Mélodie, les **scènes** sont en colonne à gauche, sous la tête d'étape (nom, mesures, accords, et le choix de l'étape : motif, émotion, mode,
 caractère…), et **▶ joue la scène choisie en boucle** (pas toute la chanson ; choisir une autre scène pendant l'écoute la fait jouer) :
 
@@ -228,6 +228,15 @@ caractère…), et **▶ joue la scène choisie en boucle** (pas toute la chanso
 11. **Intégration** : cases à cocher par musicien (batterie, basse, nappes, arpèges, lead…) et par élément de batterie ;
    **Créer la chanson** (bouton dans l'étape, en haut à droite, avec le compte des pistes) écrit les pistes cochées, les scènes et l'arrangement (tempo de la barre du haut, mixage
    automatique de Band). Ce qui est créé est exactement l'aperçu ; Ctrl+Z revient à la chanson vide.
+
+**Étapes instrument** : le **titre** (tête d'étape et stepper) est le nom du musicien (Batterie, Basse, Arpège, Nappe, Lead… ou le nom
+donné à l'étape 2) ; le **son** (« Moog Bass (synthé, ladder + glide) ») est la ligne secondaire : sous le titre dans la tête, et en
+début de résumé dans le stepper (sans sa parenthèse). La pastille du type de la tête dit « Nappe » (et non « Accords », qui est l'étape 5) ; les
+couleurs de rôle sont inchangées.
+
+**Étapes Mix et Intégration** : à 1500 px de large, tout est visible sans défiler (bandes de mixeur et colonnes de piste qui se resserrent) ; plus
+étroit, la console du Mix et la grille de l'Intégration défilent en largeur, avec une barre de défilement bien visible et une ombre au bord
+qui cache la suite.
 
 **Barre de piste** (étapes 5 à 10, au-dessus du contenu) : **Piste** liste les instruments que l'étape 2 propose au musicien
 de l'étape (Batterie : menu du **kit** et cases des éléments ; Accords : « Accords de la scène » ; Nappes : la nappe, sinon

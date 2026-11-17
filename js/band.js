@@ -1167,7 +1167,10 @@ SS.band = (() => {
     syncGm();
     renderStage();
     renderPanel();
-    if (S.wiz) wizFoot();
+    if (S.wiz) {
+      wizFoot();
+      updateTransport(); // la barre du haut suit tout de suite le style, l'inspiration, le tempo et la tonalité choisis
+    }
   }
 
   /* ---------- Actions ---------- */
@@ -1355,7 +1358,9 @@ SS.band = (() => {
   };
   /** Types d'instrument : nom, résumé du fil des étapes, couleur de rôle (batterie rose, basse verte, nappe bleue, arpège turquoise, mélodie violette). */
   const KIND_LABEL = { drums: 'Drums', bass: 'Basse', chords: 'Accords', arp: 'Arpèges', melody: 'Mélodie' };
-  const KIND_SUM = { drums: 'Drums', bass: 'Basse', chords: 'Accords', arp: 'Arpège', melody: 'Mélodie' };
+  const KIND_SUM = { drums: 'Drums', bass: 'Basse', chords: 'Nappe', arp: 'Arpège', melody: 'Mélodie' };
+  /** Étiquette du type dans la tête d'étape instrument : « Nappe » et non « Accords », qui est l'étape 5. */
+  const KIND_STEP = { ...KIND_LABEL, chords: 'Nappe' };
   const KIND_COLOR = { drums: '#e3179c', bass: '#3fcf3f', chords: '#4f6bff', arp: '#13c2a3', melody: '#9b5cff' };
   const KIND_DESC = { drums: 'Motifs rythmiques et fills', bass: 'Mode de jeu sur la fondamentale', chords: 'Joue la grille en nappe ou plaqué', arp: 'Arpège les accords (Arp One)', melody: 'Ligne mélodique générée' };
   const KIND_SLOT = { drums: 'drums', bass: 'bass', chords: 'pad', arp: 'arp', melody: 'lead' }; // suffixe des identifiants de test (#bwp-on-bass…)
@@ -1388,7 +1393,7 @@ SS.band = (() => {
       const mu = muById(c.musician);
       out.push({
         id, key: id, kit, col: c, cols: [c], role: c.role, musician: c.musician, kind: instKind(c), def: defaultKind(c),
-        name: nameOf0(mu) || (kit ? roleOf(mu).short : B().describe(c.o).name.replace(/^[A-Z]\d+\s*[–-]\s*/, '')), sound: kit ? (B().KITS[kitOf(musState()[mu.id])] || {}).label || labelOf(mu) : B().describe(c.o).name,
+        title: nameOf0(mu) || roleOf(mu).short, name: nameOf0(mu) || (kit ? roleOf(mu).short : B().describe(c.o).name.replace(/^[A-Z]\d+\s*[–-]\s*/, '')), sound: kit ? (B().KITS[kitOf(musState()[mu.id])] || {}).label || labelOf(mu) : B().describe(c.o).name,
       });
     });
     insMemo = { sig, wiz: S.wiz, val: out };
@@ -1413,7 +1418,7 @@ SS.band = (() => {
   function stepInfo(n) {
     const t = insAt(n);
     if (t) {
-      return { label: t.name, hint: `${KIND_LABEL[t.kind]} : ce que joue cet instrument, scène par scène`, line: 'Règle ce que joue cet instrument, scène par scène.', color: KIND_COLOR[t.kind], ins: t, group: n === ST.chords + 1 ? 'Instruments, scène par scène' : null };
+      return { label: t.title, sub: t.sound, hint: `${KIND_STEP[t.kind]} : ce que joue cet instrument, scène par scène`, line: 'Règle ce que joue cet instrument, scène par scène.', color: KIND_COLOR[t.kind], ins: t, group: n === ST.chords + 1 ? 'Instruments, scène par scène' : null };
     }
     const d = FOUND.concat(FINAL)[n <= ST.chords ? n - 1 : n === ST.mix ? 5 : 6];
     return { ...d, color: d.key === 'chords' ? '#c9a227' : d.key === 'mix' ? '#d0d0da' : null, ins: null, group: n === 1 ? 'Fondations' : n === ST.mix ? 'Finaliser' : null };
@@ -2061,7 +2066,7 @@ SS.band = (() => {
       const sc = res.scenes.find((x) => x.id === S.wiz.hscene) || res.scenes.find((x) => x.sec === S.wiz.hsec) || res.scenes[0];
       if (n === ST.chords) return sceneChords(sc).split(' | ').slice(0, 4).join(' ');
       const t = insAt(n);
-      if (t) return `${KIND_SUM[t.kind]} · ${instSub(t, sc)}${autoCount(sc.sec, t) ? ' · auto' : ''}`;
+      if (t) return `${t.sound.replace(/\s*\(.*$/, '')} · ${instSub(t, sc)}${autoCount(sc.sec, t) ? ' · auto' : ''}`;
     } catch (e) {
       return '';
     }
@@ -2116,8 +2121,9 @@ SS.band = (() => {
     box.classList.toggle('bw-insHead', !!info.ins);
     box.replaceChildren(
       h('h1', {}, h('em', {}, String(n).padStart(2, '0')), info.label, n === ST.inst ? countBadge() : null),
+      ...(info.sub ? [h('div', { class: 'bw-hsub', id: 'bwSound' }, info.sub)] : []),
       info.ins
-        ? h('div', { class: 'bw-insline' }, h('span', { class: 'bw-ktag', id: 'bwKindTag', 'data-kind': info.ins.kind, style: `--c:${KIND_COLOR[info.ins.kind]}`, title: 'Type de cet instrument (à changer à l’étape 2, Instruments)' }, KIND_LABEL[info.ins.kind]), h('p', {}, info.line))
+        ? h('div', { class: 'bw-insline' }, h('span', { class: 'bw-ktag', id: 'bwKindTag', 'data-kind': info.ins.kind, style: `--c:${KIND_COLOR[info.ins.kind]}`, title: 'Type de cet instrument (à changer à l’étape 2, Instruments)' }, KIND_STEP[info.ins.kind]), h('p', {}, info.line))
         : h('p', {}, info.line)
     );
   }

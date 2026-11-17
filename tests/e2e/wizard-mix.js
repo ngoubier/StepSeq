@@ -183,6 +183,8 @@ const ok = (c, m) => {
   await page.click('.mx-back[data-back="bass"]');
   ok(!(await mix()).own[chorusId] && (await ownText('Refrain')) === 'comme la chanson' && (await page.locator('#mxResetScene').isDisabled()), '↺ chanson : la surcharge disparaît');
   await page.click('#mxSong');
+  // les tranches resserrées (tout le mixeur visible à 1400 px) : le popover de la basse couvre le FX du kick, on le ferme d'abord
+  if (await page.locator('#mxFx').isVisible()) await page.click('#mxFxClose');
   await page.click('.mx-strip[data-id="kick"] .mx-fxb');
   await page.click('#mxFx [data-tab="eq"]');
   ok(!(await page.locator('#mxFx [data-mx="fx.eq.low"]').isDisabled()), 'EQ réglable en portée chanson');

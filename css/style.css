@@ -2478,6 +2478,7 @@ svg.g-big { width: 100%; height: auto; background: #1d1d22; border-radius: 8px; 
 .bw-grid { border-collapse: separate; border-spacing: 0; font-size: 12px; min-width: 100%; }
 .bw-grid th, .bw-grid td { padding: 3px; border-bottom: 1px solid #2a2a2f; }
 .bw-grid thead th { position: sticky; z-index: 2; background: var(--panel); font-weight: 600; text-align: left; white-space: nowrap; }
+.bw-groups .bw-group { white-space: normal; line-height: 1.15; } /* « Clavier arpège (séquence) » passe à la ligne au lieu d'élargir la colonne */
 .bw-groups th { top: 0; height: 30px; }
 .bw-tracks th { top: 30px; }
 .bw-corner { left: 0; z-index: 3 !important; vertical-align: bottom; color: var(--muted); font-weight: 400 !important; text-transform: uppercase; letter-spacing: .05em; font-size: 11px; min-width: 150px; }
@@ -2485,14 +2486,14 @@ svg.g-big { width: 100%; height: auto; background: #1d1d22; border-radius: 8px; 
 .bw-glabel, .bw-track label { display: inline-flex; align-items: center; gap: 5px; cursor: default; }
 .bw-glabel:has(input), .bw-track label:has(input) { cursor: pointer; }
 .bw-ico svg { width: 15px; height: 15px; color: var(--c); }
-.bw-track { min-width: 96px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; color: var(--muted); font-weight: 400 !important; border-top: 3px solid var(--c); }
+.bw-track { min-width: 76px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; color: var(--muted); font-weight: 400 !important; border-top: 3px solid var(--c); }
 .bw-track span { overflow: hidden; text-overflow: ellipsis; }
 .bw-grid input[type=checkbox] { margin: 0; accent-color: var(--accent-2); }
 .bw-scene { position: sticky; left: 0; z-index: 1; background: var(--panel); text-align: left; font-weight: 400; display: table-cell; min-width: 150px; max-width: 220px; padding: 4px 8px !important; }
 .bw-sname { display: block; font-weight: 600; font-size: 13px; }
 .bw-scene small { display: block; color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bw-scene .bw-chords { color: #b8b8c2; }
-.bw-cell { min-width: 96px; height: 46px; }
+.bw-cell { min-width: 76px; height: 46px; }
 .bw-clip { height: 38px; border-radius: 5px; background: color-mix(in srgb, var(--c) 26%, #1b1b20); border: 1px solid color-mix(in srgb, var(--c) 55%, transparent); padding: 3px 2px; }
 .bw-clip-svg { display: block; width: 100%; height: 100%; }
 .bw-clip-svg rect { fill: color-mix(in srgb, var(--c) 70%, #fff); stroke: none; }
@@ -4322,6 +4323,7 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 #bandDialog .bw-stephead h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -.01em; }
 #bandDialog .bw-stephead h1 em { font-style: normal; font-weight: 600; margin-right: 8px; color: var(--bw-dim); font-variant-numeric: tabular-nums; }
 #bandDialog .bw-stephead p { margin: 0; color: var(--bw-muted); max-width: 78ch; }
+#bandDialog .bw-stephead .bw-hsub { margin: -2px 0 0 34px; color: var(--bw-muted); font-size: 13.5px; font-weight: 500; }
 
 /* stepper vertical : trois groupes, pastille, nom, résumé d'une ligne */
 #bandDialog .band-wiz-steps { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; overflow: visible; list-style: none; }
@@ -4727,16 +4729,21 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 #bandDialog .mx-scope .btn { border-color: var(--bw-gold); color: var(--bw-gold); }
 #bandDialog .mx-scope .btn:disabled { border-color: var(--bw-line2); color: var(--bw-muted); opacity: .5; }
 
-#bandDialog .mx-console { display: flex; align-items: stretch; gap: 8px; overflow-x: auto; padding-bottom: 8px; flex: none; max-width: 100%; }
-#bandDialog .mx-strip { flex: 0 0 116px; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; padding: 10px 8px; position: relative; background: var(--bw-panel); border: 1px solid var(--bw-line); border-top: 3px solid var(--c); border-radius: var(--bw-r-card); }
-#bandDialog .mx-strip.drum { flex-basis: 96px; }
-#bandDialog .mx-strip.master { flex-basis: 128px; margin-left: 8px; }
+#bandDialog .mx-console { display: flex; align-items: stretch; gap: 4px; overflow-x: auto; scrollbar-width: auto; scrollbar-color: var(--bw-dim) var(--bw-panel); padding-bottom: 10px; flex: none; max-width: 100%; }
+#bandDialog .mx-strip { flex: 0 1 116px; min-width: 92px; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; padding: 10px 8px; position: relative; background: var(--bw-panel); border: 1px solid var(--bw-line); border-top: 3px solid var(--c); border-radius: var(--bw-r-card); }
+/* Les bandes rétrécissent avec la fenêtre (jusqu'à un minimum lisible) : à 1500 px de large tout le mixeur est visible, en dessous la console défile. */
+#bandDialog .mx-strip.drum { flex-basis: 96px; min-width: 64px; contain: inline-size; padding-left: 4px; padding-right: 4px; }
+#bandDialog .mx-strip.drum .mx-db { font-size: 11.5px; letter-spacing: -.02em; }
+#bandDialog .mx-strip.drum .mx-ms { gap: 3px; }
+#bandDialog .mx-strip.drum .mx-ms button, #bandDialog .mx-strip.drum .mx-fxb { padding: 0; min-width: 0; }
+#bandDialog .mx-strip.drum .mx-fxb { gap: 4px; }
+#bandDialog .mx-strip.master { flex-basis: 128px; min-width: 92px; margin-left: 4px; }
 #bandDialog .mx-strip.sel { box-shadow: 0 0 0 2px var(--c), 0 0 14px color-mix(in srgb, var(--c) 45%, transparent); }
 #bandDialog .mx-strip.own::after { content: ""; position: absolute; top: 8px; right: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--bw-gold); }
-#bandDialog .mx-group { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 6px; border-radius: calc(var(--bw-r-card) + 4px); background: color-mix(in srgb, var(--c) 7%, transparent); border: 1px dashed color-mix(in srgb, var(--c) 45%, transparent); }
+#bandDialog .mx-group { flex: 0 1 auto; min-width: min-content; display: flex; flex-direction: column; gap: 6px; padding: 6px; border-radius: calc(var(--bw-r-card) + 4px); background: color-mix(in srgb, var(--c) 7%, transparent); border: 1px dashed color-mix(in srgb, var(--c) 45%, transparent); }
 #bandDialog .mx-ghead { padding: 0 4px; font-size: 12px; font-weight: 700; color: var(--c); }
 #bandDialog .mx-ghead small { margin-left: 6px; color: var(--bw-muted); font-weight: 500; }
-#bandDialog .mx-gstrips { display: flex; gap: 6px; }
+#bandDialog .mx-gstrips { display: flex; gap: 4px; min-width: 0; }
 #bandDialog .mx-name { min-height: 36px; display: flex; flex-direction: column; min-width: 0; font-size: 13px; font-weight: 700; }
 #bandDialog .mx-name small { font-size: 11px; font-weight: 500; color: var(--bw-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #bandDialog .mx-strip.drum .mx-name small { display: none; }
@@ -4896,3 +4903,21 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
   #bandDialog .bg-has { grid-column: 2; grid-row: auto; }
   #bandDialog .bg-tyc small { grid-column: 2; }
 }
+
+/* ----- Zones qui défilent en largeur (grille Intégration, console du Mix) -----
+ * Barre de défilement bien visible et ombre aux bords qui cachent du contenu : on voit qu'il y a une suite à droite (ou à gauche). */
+#bandDialog .bw-scroll, #bandDialog .mx-console {
+  --edge: var(--bw-panel); --shade: rgba(0, 0, 0, .55);
+  scrollbar-width: auto; scrollbar-color: var(--bw-dim) var(--bw-panel2);
+  background-image:
+    linear-gradient(to right, var(--edge), var(--edge)), linear-gradient(to left, var(--edge), var(--edge)),
+    linear-gradient(to right, var(--shade), transparent), linear-gradient(to left, var(--shade), transparent);
+  background-position: left center, right center, left center, right center;
+  background-size: 20px 100%, 20px 100%, 16px 100%, 16px 100%;
+  background-repeat: no-repeat;
+  background-attachment: local, local, scroll, scroll;
+}
+#bandDialog .mx-console { --edge: var(--bw-bg); }
+#bandDialog .bw-scroll::-webkit-scrollbar, #bandDialog .mx-console::-webkit-scrollbar { height: 12px; width: 12px; }
+#bandDialog .bw-scroll::-webkit-scrollbar-thumb, #bandDialog .mx-console::-webkit-scrollbar-thumb { background: var(--bw-dim); border-radius: 6px; border: 2px solid var(--bw-panel); }
+#bandDialog .bw-scroll::-webkit-scrollbar-track, #bandDialog .mx-console::-webkit-scrollbar-track { background: var(--bw-panel2); }
