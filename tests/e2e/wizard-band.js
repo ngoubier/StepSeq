@@ -87,9 +87,20 @@ const ok = (c, m) => {
   const names = await page.$$eval('#bandPanel .band-choice .bc-name', (xs) => xs.map((x) => x.textContent));
   const want = await page.evaluate(() => {
     const p = SS.Band.STYLES[0].presets[0];
-    return p.musicians.find((m) => m.role === 'arp').pick.map((tok) => SS.Band.describe(SS.Band.choiceOpts(tok, 'arp')).name);
+    // un seul par libellé affiché (deux réglages peuvent s'afficher pareil)
+    const seen = new Set();
+    return p.musicians
+      .find((m) => m.role === 'arp')
+      .pick.map((tok) => SS.Band.describe(SS.Band.choiceOpts(tok, 'arp')))
+      .filter((d) => {
+        const k = [d.kind, d.name, d.detail].join('|');
+        return !seen.has(k) && seen.add(k);
+      })
+      .map((d) => d.name);
   });
-  ok(names.length === 6 && names.join('|') === want.join('|'), `Conseillés réels du type (${names.slice(0, 3).join(', ')}…)`);
+  ok(names.length === want.length && names.join('|') === want.join('|'), `Conseillés réels du type (${names.slice(0, 3).join(', ')}…)`);
+  const shown = await page.$$eval('#bandPanel .band-choice .bc-main', (xs) => xs.map((x) => x.textContent));
+  ok(new Set(shown).size === shown.length, 'Conseillés : aucun son affiché deux fois');
   ok((await page.locator('#bgAllSounds').count()) === 1, '« Tous les instruments… » présent');
   await page.locator('#bandPanel .band-choice .bc-main').nth(2).click(); // un autre son que le phare
   ok((await page.locator('#bandPanel .band-choice.active .bc-name').textContent()) === want[2], 'le son choisi est marqué');

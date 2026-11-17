@@ -877,11 +877,16 @@ SS.band = (() => {
     const same = sameOpts;
     const cur = instOpts(mu);
     const seen = [];
+    const labels = new Set();
     const cards = pickOrder(mu)
       .map((i, k) => {
         const o = choiceAt(mu, i);
-        if (seen.some((x) => same(x, o))) return null;
+        // deux réglages différents peuvent s'afficher pareil (« Instrument · Synth Lead ») : un seul
+        const d = B().describe(o);
+        const label = [d.kind, d.name, d.detail].join('|');
+        if (seen.some((x) => same(x, o)) || labels.has(label)) return null;
         seen.push(o);
+        labels.add(label);
         return choiceCard(o, { active: !ms.custom && same(o, cur), star: k === 0, onPick: () => pick(i) });
       })
       .filter(Boolean);
@@ -1086,11 +1091,15 @@ SS.band = (() => {
     } else {
       const cur = instOpts(mu, ms);
       const seen = [];
+      const labels = new Set(); // un seul par libellé affiché (voir le panneau du musicien)
       const cards = pickOrder(mu)
         .map((i, k) => {
           const o = choiceAt(mu, i);
-          if (seen.some((x) => sameOpts(x, o))) return null;
+          const d = B().describe(o);
+          const label = [d.kind, d.name, d.detail].join('|');
+          if (seen.some((x) => sameOpts(x, o)) || labels.has(label)) return null;
           seen.push(o);
+          labels.add(label);
           return choiceCard(o, { active: !ms.custom && sameOpts(o, cur), star: k === 0, onPick: () => (setPick(mu, ms, i), refresh(), preview(instOpts(mu, ms))) });
         })
         .filter(Boolean);
