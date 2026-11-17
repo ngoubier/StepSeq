@@ -41,7 +41,7 @@ SS.melodyPanel = (() => {
     sungFinalE: false,
     track: '',
     gridEdited: false, // grille retouchée à la main : on ne la remplace plus par celle de la scène
-    seed: 1,
+    seed: 0, // 0 : rien de proposé ; la première proposition est la n° 1 (le moteur lit 0 comme 1)
     res: null,
     resultSource: null,
     hear: { comp: true, bass: false, arp: false, melody: true },
@@ -748,7 +748,7 @@ SS.melodyPanel = (() => {
         h(
           'div',
           { class: 'mel-sec' },
-          h('h3', {}, `Proposition ${S.seed}`),
+          h('h3', {}, `Proposition ${Math.max(1, S.seed)}`),
           h(
             'p',
             { class: 'mel-lead' },
@@ -1052,7 +1052,7 @@ SS.melodyPanel = (() => {
 
   /** Réglages, graine, retouches, variante et résultat : un hôte en garde un exemplaire par scène (voir setState). */
   const STATE_KEYS = ['source', 'text', 'meter', 'range', 'style', 'complexity', 'ending', 'emo', 'pivot', 'variantN', 'eMode', 'sungFinalE', 'seed', 'resultSource', 'fineOpen'];
-  const FRESH = () => ({ source: 'meter', text: '', meter: '', range: 'auto', style: 'auto', complexity: 'balanced', ending: 'auto', emo: 'scene', pivot: 'auto', variantN: 0, eMode: 'classique', sungFinalE: false, seed: 1, resultSource: null, fineOpen: false });
+  const FRESH = () => ({ source: 'meter', text: '', meter: '', range: 'auto', style: 'auto', complexity: 'balanced', ending: 'auto', emo: 'scene', pivot: 'auto', variantN: 0, eMode: 'classique', sungFinalE: false, seed: 0, resultSource: null, fineOpen: false });
   function getState() {
     const o = { over: JSON.parse(JSON.stringify(S.over || {})), variant: S.variant ? JSON.parse(JSON.stringify(S.variant)) : null, res: S.res };
     STATE_KEYS.forEach((k) => (o[k] = S[k]));
