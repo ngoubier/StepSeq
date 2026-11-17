@@ -4304,20 +4304,20 @@ dialog#bandDialog.band-dialog {
 #bandDialog .bt-btn svg { width: 14px; height: 14px; fill: currentColor; stroke: none; }
 #bandDialog .bt-play.on { background: color-mix(in srgb, var(--bw-accent) 22%, var(--bw-panel2)); border-color: var(--bw-accent); color: #fff; }
 #bandDialog .bt-play:hover { background: var(--bw-raise); }
-#bandDialog .bt-lcd { display: flex; align-items: center; gap: 4px 16px; min-width: 0; padding: 6px 12px 5px; background: #1a0606; border: 1px solid #000; border-radius: 4px; color: var(--bw-led); font-family: var(--bw-lcd); text-shadow: 0 0 6px rgba(255, 59, 42, .7); }
+#bandDialog .bt-lcd { display: flex; align-items: center; gap: 4px 16px; min-width: 0; padding: 5px 12px; background: var(--bw-panel2); border: 1px solid var(--bw-line); border-radius: var(--bw-r-ctl); color: var(--bw-text); }
 #bandDialog .bt-cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-#bandDialog .bt-label { font: 600 9px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: #b9625a; text-shadow: none; white-space: nowrap; }
+#bandDialog .bt-label { font: 600 9px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--bw-dim); white-space: nowrap; }
 #bandDialog .bt-tempo { display: inline-flex; align-items: center; gap: 2px; border: 0; background: none; overflow: visible; }
-#bandDialog .bt-tempo input { width: 58px; height: 20px; padding: 0; border: 0; background: transparent; color: inherit; font: 18px/20px var(--bw-lcd); text-align: center; text-shadow: inherit; }
-#bandDialog .bt-tempo button { width: 18px; height: 18px; padding: 0; border: 0; border-radius: 3px; background: rgba(255, 59, 42, .16); color: var(--bw-led); font: 600 13px/1 -apple-system, "Segoe UI", sans-serif; text-shadow: none; }
-#bandDialog .bt-tempo button:hover { background: rgba(255, 59, 42, .32); }
-#bandDialog .bt-key b { font: 18px/20px var(--bw-lcd); white-space: nowrap; }
+#bandDialog .bt-tempo input { width: 62px; min-width: 62px; box-sizing: border-box; height: 22px; padding: 0; border: 0; background: transparent; color: inherit; font: 600 15px/20px -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif; font-variant-numeric: tabular-nums; text-align: center; }
+#bandDialog .bt-tempo button { width: 18px; height: 18px; padding: 0; border: 0; border-radius: 3px; background: var(--bw-raise); color: var(--bw-muted); font: 600 13px/1 -apple-system, "Segoe UI", sans-serif; }
+#bandDialog .bt-tempo button:hover { color: var(--bw-text); background: var(--bw-line2); }
+#bandDialog .bt-key b { font: 600 15px/20px -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif; white-space: nowrap; }
 #bandDialog .bt-key small { display: none; }
 #bandDialog .bt-pos { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: 2px 8px; }
 #bandDialog .bt-pos .bt-label { grid-column: 1 / -1; }
-#bandDialog .bt-pos b { font: 18px/20px var(--bw-lcd); white-space: nowrap; }
+#bandDialog .bt-pos b { font: 17px/20px var(--bw-lcd); color: #6aa9ff; white-space: nowrap; }
 #bandDialog .bt-pos b i { font: 600 15px/20px -apple-system, "Segoe UI", sans-serif; font-style: normal; }
-#bandDialog .bt-pos small { font: 10.5px/1.2 -apple-system, "Segoe UI", sans-serif; color: #b9625a; text-shadow: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+#bandDialog .bt-pos small { font: 10.5px/1.2 -apple-system, "Segoe UI", sans-serif; color: var(--bw-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
 #bandDialog .bt-orig { height: var(--bw-h-sm); padding: 0 8px; border-radius: var(--bw-r-ctl); background: rgba(245, 196, 0, .14); color: #f0c860; font: 11.5px/1 -apple-system, "Segoe UI", sans-serif; text-shadow: none; }
 #bandDialog .band-gm { height: var(--bw-h); padding: 0 12px; }
 #bandDialog .band-gm.active { background: color-mix(in srgb, var(--bw-accent) 22%, var(--bw-panel2)); border-color: var(--bw-accent); color: var(--bw-text); }
@@ -4484,7 +4484,7 @@ dialog#bandDialog.band-dialog {
 /* ----- Étape 3 : tempo en LCD, tonique au clavier ----- */
 #bandDialog .bwt { gap: 16px; padding-bottom: 8px; }
 #bandDialog .bwt-card { gap: 12px; }
-#bandDialog .bwt-lcd { min-width: 3.4ch; padding: 8px 20px 4px; border-radius: 4px; border: 1px solid #000; background: #1a0606; color: var(--bw-led); font: 56px/1.1 var(--bw-lcd); text-shadow: 0 0 10px rgba(255, 59, 42, .7); text-align: center; font-variant-numeric: tabular-nums; }
+#bandDialog .bwt-lcd { min-width: 3.4ch; padding: 6px 18px; border-radius: var(--bw-r-card); border: 1px solid var(--bw-line); background: var(--bw-panel2); color: var(--bw-text); font: 700 48px/1.1 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif; text-align: center; font-variant-numeric: tabular-nums; }
 #bandDialog .bwt-unit { color: var(--bw-dim); font-size: 11px; font-weight: 600; letter-spacing: .08em; }
 #bandDialog .bwt-step { width: var(--bw-h); height: var(--bw-h); font-size: 16px; }
 #bandDialog .bwt-reco { border-radius: 6px; }

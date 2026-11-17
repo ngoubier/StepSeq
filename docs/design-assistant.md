@@ -57,8 +57,9 @@ Le vrai assistant marche, mais il est plus lourd à l'œil que la maquette :
 
 1. **Plein écran.** L'assistant occupe toute la fenêtre du navigateur : pas de marge, pas de coins, l'application n'est plus
    visible derrière. Il est en grille, de haut en bas :
-   - **en-tête** (hauteur fixe) : titre « Nouvelle chanson », écran tempo / tonalité / position façon LCD
-     (police Segment14, rouge, comme la maquette), transport (lecture, stop), fermer ;
+   - **en-tête** (hauteur fixe) : titre « Nouvelle chanson », un encadré tempo / tonalité / position (tempo et tonalité
+     dans la police de l'app, pas en LCD rouge ; seule la position garde la police Segment14, en bleu comme la barre de
+     l'application), transport (lecture, stop), fermer ;
    - **corps** : stepper à gauche (232 px), contenu à droite, qui défile seul ;
    - **pied** : « ← <étape précédente> » et « <étape suivante> → » (avec le nom des étapes), « Créer la chanson » à la fin.
 2. **Stepper vertical** à la place de la barre horizontale. Les étapes sont groupées : « Fondations » (1 à 4),
@@ -86,7 +87,7 @@ Le vrai assistant marche, mais il est plus lourd à l'œil que la maquette :
     tempo · musiciens. Le détail de l'inspiration choisie est à droite, ou sous la grille en étroit.
 - **2 Instruments** : la scène des musiciens telle quelle, mais dans une seule carte, sans double bordure.
 - **3 Tempo et tonalité** :
-  - le tempo s'affiche en grand façon LCD (Segment14) ;
+  - le tempo s'affiche en grand chiffres (police de l'app, pas de LCD rouge) ;
   - les toniques sont un clavier de 12 touches, les touches noires plus sombres ;
   - les modes sont un segment, les notes de la gamme des pastilles (la tonique bordée de vert).
 - **4 Scènes** :
