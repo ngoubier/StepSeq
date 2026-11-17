@@ -536,7 +536,7 @@
    * Band : « Créer toute la chanson ». Remplace les pistes, les scènes et l'arrangement du projet par la chanson
    * écrite d'après le plan de l'inspiration (js/band-songs.js, js/bandsong.js). Ctrl+Z revient en arrière.
    */
-  function addBandSong(list, preset, tempo, { melodySeed = 0, melody = null, harmony = null, parts = null, gains = null } = {}) {
+  function addBandSong(list, preset, tempo, { melodySeed = 0, melody = null, harmony = null, parts = null, gains = null, mix = null } = {}) {
     // preset.spec : plan d'une reprise tapée dans l'assistant (porte « Reprendre »), jouée à la façon de l'inspiration
     const spec = preset.spec || (SS.BandSongs && SS.BandSongs[preset.id]);
     if (!spec) return addBandTracks(list, tempo, { replace: true });
@@ -566,6 +566,8 @@
     // volumes réglés dans l'assistant (étape Harmonie) : en plus ou en moins du mixage automatique
     if (gains) created.forEach((t, i) => gains[i] != null && gains[i] !== 1 && (t.volume = Math.round((typeof t.volume === 'number' ? t.volume : 0.8) * gains[i] * 1000) / 1000));
     SS.bandMix.mixMaster(project, style, SS.bandMix.driveFor(preset.id, style));
+    // étape Mix de l'assistant (js/wizmix.js) : sans retouche (mix absent ou égal à sa base), rien ne change
+    if (mix && SS.wizMix) SS.wizMix.apply(project, mix, res.scenes);
     project.groove = { ...(project.groove || { res: 0, swing: 0.5 }), human: 0.15 };
     if (preset.cover) project.title = preset.cover.title;
     else if (!project.title || project.title === 'Nouveau projet') project.title = `Dans l'esprit de ${preset.song}`;

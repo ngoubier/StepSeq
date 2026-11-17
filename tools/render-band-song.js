@@ -75,8 +75,8 @@ const server = http.createServer((req, res) => {
   await page.waitForTimeout(400);
   await page.click(`#bandStyles [data-v="${style.id}"]`);
   await page.click(`#bandPresets .band-preset >> nth=${style.presets.indexOf(preset)}`);
-  // assistant Nouvelle chanson : Suivant jusqu'à Intégration, puis Créer la chanson (toutes les pistes cochées)
-  for (let i = 0; i < 14 && (await page.evaluate(() => SS.band._state.wiz.step)) < 11; i++) {
+  // assistant Nouvelle chanson : Suivant jusqu'à Intégration (étape 12), puis Créer la chanson (toutes les pistes cochées)
+  for (let i = 0; i < 14 && (await page.evaluate(() => SS.band._state.wiz.step)) < 12; i++) {
     await page.dispatchEvent('#bwNext', 'click');
     await page.waitForTimeout(300);
   }

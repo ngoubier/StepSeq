@@ -59,7 +59,7 @@ const SHOTS = process.env.SHOTS;
   ok(!(await page.isVisible('#keyBtn')) && !(await page.isVisible('#songBtn')) && (await page.isVisible('#wizKey')) && (await page.isVisible('#play')) && (await page.isVisible('#tempo')) && !(await page.isVisible('.bottombar')) && !(await page.isVisible('#workspace')), 'barre du haut : Harmonie et Song cachés, tonalité, Lecture, tempo ; ni pistes ni barre du bas');
   ok(!(await page.$('#bandCancel')) && !(await page.isVisible('#bwNext')) && !(await page.isVisible('#bwBack')), 'pied : plus de précédent / suivant / Annuler');
   ok((await page.isVisible('#bandClose')) && (await page.textContent('#bandClose')) === 'Fermer', 'pied : un seul bouton « Fermer »');
-  ok((await page.locator('#bandWizSteps li').count()) === 11 && (await page.locator('#bandWizSteps li.cur').textContent()).includes('Style'), 'onze étapes, la première : Style');
+  ok((await page.locator('#bandWizSteps li').count()) === 12 && (await page.locator('#bandWizSteps li.cur').textContent()).includes('Style'), 'douze étapes, la première : Style');
   ok((await P()).tracks.length === 0, 'une chanson vide est déjà en place');
   ok(!(await page.isVisible('#bandStage')) && (await page.isVisible('#bandStyles')) && (await page.isVisible('#bwEmpty')), 'étape 1 : styles et inspirations (pas de musiciens)');
   await page.click('#bandStyles [data-v="synthwave"]');
@@ -109,7 +109,7 @@ const SHOTS = process.env.SHOTS;
   await page.dispatchEvent('#bwNext', 'click');
   await page.waitForTimeout(200);
   ok((await page.locator('#bandWizSteps li.cur').textContent()).includes('Accords'), 'étape 6 : Accords');
-  ok((await page.locator('#bandWizSteps li').allTextContents()).join(' ').includes('Intégration'), 'étape 11 : Intégration');
+  ok((await page.locator('#bandWizSteps li').allTextContents()).join(' ').includes('Intégration'), 'étape 12 : Intégration');
   const layout = await page.evaluate(() => {
     const nav = document.querySelector('#bandWiz .bh-scenes').getBoundingClientRect();
     const head = document.querySelector('.topbar').getBoundingClientRect();
@@ -285,10 +285,12 @@ const SHOTS = process.env.SHOTS;
   await page.click('#bwTrackbar .tb-chip >> nth=0');
   await page.click('#stop');
 
-  // 9. Intégration
+  // 9. Mix puis Intégration
   await page.dispatchEvent('#bwNext', 'click');
-  ok((await page.locator('.bw-grid input[type=checkbox]').count()) > 5, 'étape 11 : des cases à cocher par musicien et par élément');
-  ok(await page.isVisible('#play') && (await page.isVisible('#bwCreate')) && (await page.isVisible('#bandWiz')), 'étape 11 : la lecture reste dans la barre du haut, « Créer la chanson » dans l’étape');
+  ok((await page.locator('#bwMix .mx-strip').count()) > 5, 'étape 11 : la console du mix');
+  await page.dispatchEvent('#bwNext', 'click');
+  ok((await page.locator('.bw-grid input[type=checkbox]').count()) > 5, 'étape 12 : des cases à cocher par musicien et par élément');
+  ok(await page.isVisible('#play') && (await page.isVisible('#bwCreate')) && (await page.isVisible('#bandWiz')), 'étape 12 : la lecture reste dans la barre du haut, « Créer la chanson » dans l’étape');
   const bassBox = page.locator('.bw-group', { hasText: 'Bassiste' }).locator('input');
   await bassBox.uncheck();
   const hhBox = page.locator('.bw-track', { hasText: 'Hi-Hat ouvert' }).locator('input');

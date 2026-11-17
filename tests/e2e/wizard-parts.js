@@ -216,7 +216,7 @@ const ok = (c, m) => {
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'parts-arpeges.png') });
 
   // Intégration, puis création : la chanson porte les réglages
-  await next(2);
+  await next(3);
   ok((await cur()).includes('Intégration'), 'étape Intégration');
   await page.click('#bwCreate');
   await page.waitForTimeout(900);

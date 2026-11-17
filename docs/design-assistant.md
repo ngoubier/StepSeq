@@ -8,7 +8,7 @@ sans perdre aucune fonction.
 
 Le vrai assistant marche, mais il est plus lourd à l'œil que la maquette :
 
-1. **Fenêtre posée sur l'application.** L'application reste visible autour. La barre des 11 étapes est horizontale, serrée,
+1. **Fenêtre posée sur l'application.** L'application reste visible autour. La barre des 12 étapes est horizontale, serrée,
    sans résumé, et l'espace utile est réduit.
 2. **Cadres dans des cadres.** Il y a une fenêtre, puis un panneau, puis une carte, puis des cases, chacune avec sa bordure.
 3. **Contrôles de générations différentes.** Les hauteurs de boutons, les rayons, les segments et les puces
@@ -63,7 +63,7 @@ Le vrai assistant marche, mais il est plus lourd à l'œil que la maquette :
    - **corps** : stepper à gauche (232 px), contenu à droite, qui défile seul ;
    - **pied** : « ← <étape précédente> » et « <étape suivante> → » (avec le nom des étapes), « Créer la chanson » à la fin.
 2. **Stepper vertical** à la place de la barre horizontale. Les étapes sont groupées : « Fondations » (1 à 4),
-   « Pistes, scène par scène » (5 à 10), « Créer » (11).
+   « Pistes, scène par scène » (5 à 11), « Créer » (12).
    - Chaque étape a sa pastille numérotée, son nom et un résumé d'une ligne (par exemple « Synthwave », « 132 BPM · Do mineur »,
      « 5 scènes · 88 mesures », le motif de la scène…).
    - L'étape en cours est en relief. Une étape visitée a une coche de la couleur de son rôle.
@@ -109,4 +109,4 @@ Les identifiants et crochets de test (`#bwNext`, `#bwBack`, `#bwCreate`, `#bandS
 L'assistant n'est plus une fenêtre plein écran (`<dialog>`) mais une zone de la fenêtre principale (`#bandDialog`, `body.wizard-mode`) :
 elle remplace les pistes, sous la barre du haut qui reste visible. Plus d'en-tête propre : Lecture / Stop, tempo, position et tonalité sont
 ceux de la barre du haut. Pied : un seul bouton **Fermer** (et « Chanson vide » à l'étape 1) ; on change d'étape par le stepper.
-« Créer la chanson » et General MIDI sont dans le contenu des étapes 11 et 2.
+« Créer la chanson » et General MIDI sont dans le contenu des étapes 12 et 2.

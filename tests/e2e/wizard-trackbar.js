@@ -178,7 +178,7 @@ const ok = (c, m) => {
 
   // création : la piste de basse porte l'instrument choisi à l'étape Basse
   await page.setViewportSize({ width: 1500, height: 920 });
-  await page.click('#bandWizSteps li:nth-child(11) button');
+  await page.click('#bandWizSteps li:nth-child(12) button');
   await page.click('#bwCreate');
   await page.waitForTimeout(1500);
   const made = await page.evaluate(() => {
