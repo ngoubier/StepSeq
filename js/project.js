@@ -746,11 +746,16 @@ SS.normalizeProject = (data) => {
     if (data.master.effects && typeof data.master.effects === 'object') p.master.effects = SS.cleanMasterEffects(data.master.effects);
   }
   if (data.returns && typeof data.returns === 'object') p.returns = SS.cleanReturns(data.returns);
+  // brouillon de l'assistant « Nouvelle chanson » (js/wizdraft.js) : il voyage avec le projet
+  const wd = SS.wizDraft && SS.wizDraft.clean(data.wizard);
+  if (wd) p.wizard = wd;
   return p;
 };
 
-SS.serialize = (p) => {
+/** opts.wizard === false : sans le brouillon de l'assistant (l'historique Annuler / Rétablir ne le suit pas). */
+SS.serialize = (p, opts) => {
   SS.commitScene(p); // les notes en cours d'édition sont rangées dans leur scène avant l'enregistrement
+  if (opts && opts.wizard === false && p.wizard) return JSON.stringify({ ...p, wizard: undefined }, null, 1);
   return JSON.stringify(p, null, 1);
 };
 
