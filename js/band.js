@@ -2778,7 +2778,7 @@ SS.band = (() => {
       nav: sceneNav(res, sc, (x) => withAutoBadge(melSub(x, T), x, T), true),
       bar: trackbar(T),
       top: h('div', { class: 'bh-top', id: 'bwMelHead' }, h('h3', {}, sc.name), h('span', { class: 'bh-info' }, `${sc.bars} mesures` + (plays > 1 ? ` · jouée ${plays} fois` : '') + ` · ${SS.harmony.label(sc.key)}`), h('span', { class: 'spacer' }), melIds.size ? autoButton(sc, T) : null, loop),
-      auto: h('div', { id: 'bwAuto', class: 'bwau-box' }, melIds.size ? autoCard(sc, T, { fit: true, copy: true }) : null),
+      auto: h('div', { id: 'bwAuto', class: 'bwau-box' }, melIds.size ? autoCard(sc, T, { fit: true, copy: true, grid: true }) : null),
       board: h('div', { class: 'bh-scroll', id: 'bwMelBoard' }, board),
       src: melIds.size
         ? h(
@@ -2885,6 +2885,7 @@ SS.band = (() => {
       else if (old) old.remove();
     });
     melGoLabel(f.sc.sec);
+    syncMelScroll();
     markListen();
   }
   const melGoLabel = (sec) => {
@@ -2901,6 +2902,7 @@ SS.band = (() => {
     const f = melScene(cols, res, sc, T);
     const panel = h('div', { class: 'bw-melpanel', id: 'bwMelPanel' });
     splitView(f.nav, f.bar, h('main', { class: 'bh-main bw-mel' }, f.top, f.board, f.auto, f.src, f.melIds.size ? panel : null, f.acc));
+    syncMelScroll();
     if (!f.melIds.size) return;
     const sec = sc.sec;
     const fresh = () => (S.wiz && S.wiz.res && S.wiz.res.scenes.find((x) => x.sec === sec)) || sc;
@@ -4314,7 +4316,7 @@ SS.band = (() => {
     return h('section', { class: 'bwau-ln' + (fold ? ' fold' : ''), 'data-param': p.id, style: `--pc:${p.color}` }, head, chips, xs);
   }
   /** Carte « Automation » de la scène (null : aucune courbe, rien n'est affiché). `fit` : sans défilement (largeur de la carte). */
-  function autoCard(sc, T, { fit = false, copy = false } = {}) {
+  function autoCard(sc, T, { fit = false, copy = false, grid = false } = {}) {
     const specs = autoOf(sc.sec, T);
     const params = AU().SCENE_AUTO.filter((p) => specs[p.id]);
     if (!params.length) return null;
@@ -4322,7 +4324,7 @@ SS.band = (() => {
     const ruler = h('div', { class: 'bwau-xs bwau-ruler', 'data-xs': '' }, h('div', { class: 'bwau-in' }, ...Array.from({ length: bars }, (_, b) => h('span', { style: `left:${((100 * b) / bars).toFixed(3)}%;width:${(100 / bars).toFixed(3)}%` }, String(b + 1)))));
     return h(
       'section',
-      { class: 'bwp-card bw-card bwau' + (fit ? ' fit' : ''), id: 'bwAuto', style: `--n:${sc.bars * 16}` },
+      { class: 'bwp-card bw-card bwau' + (fit ? ' fit' : '') + (grid ? ' grid' : ''), id: 'bwAuto', style: `--n:${sc.bars * 16};--bars:${sc.bars}` },
       h('div', { class: 'bwp-ch' }, h('b', {}, `Automation de « ${sc.name} »`), h('span', { class: 'bh-info' }, `${bars} mesure${bars > 1 ? 's' : ''} · réglée pour cette scène seulement`),
         copy ? h('span', { class: 'spacer' }) : null,
         copy ? h('button', { type: 'button', class: 'btn btn-small', id: 'bwauCopy', title: 'Même automation pour les autres scènes du même type (couplet et couplet 2…)', onclick: () => copyAuto(sc, T) }, 'Copier l’automation vers les scènes du même type') : null),
@@ -4338,6 +4340,28 @@ SS.band = (() => {
     to.forEach((x) => putPart(x.sec, T, { auto: a ? JSON.parse(JSON.stringify(a)) : undefined }));
     S.wiz.pmsg = to.length ? `Automation copiée vers ${to.map((x) => x.name).join(', ')}` : 'Aucune autre scène de ce type';
     renderWiz();
+  }
+  /** Onglet Mélodie : la grille des notes (#bwMelBoard) et les cadres de l'automation défilent ensemble (un seul écouteur, en capture). */
+  function syncMelScroll() {
+    const box = $('#bandWiz');
+    if (!box) return;
+    const xs = () => [...box.querySelectorAll('#bwAuto [data-xs]')];
+    const board = $('#bwMelBoard', box);
+    if (board) xs().forEach((e) => (e.scrollLeft = board.scrollLeft));
+    if (box._melSync) return;
+    box._melSync = true;
+    let lock = false;
+    box.addEventListener(
+      'scroll',
+      (ev) => {
+        const t = ev.target;
+        if (lock || !t || !t.matches || !(t.id === 'bwMelBoard' || (t.matches('[data-xs]') && t.closest('#bwAuto')))) return;
+        lock = true;
+        [$('#bwMelBoard', box), ...xs()].forEach((o) => o && o !== t && (o.scrollLeft = t.scrollLeft));
+        lock = false;
+      },
+      true
+    );
   }
   /** Défilement horizontal commun : le piano-roll, la règle et les courbes d'une scène bougent ensemble. */
   function syncAutoScroll(root) {

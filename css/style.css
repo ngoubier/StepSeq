@@ -4525,6 +4525,10 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 #bandDialog .bwau-xs::-webkit-scrollbar { display: none; }
 #bandDialog .bwau-in { position: relative; min-width: max(100%, calc(var(--n) * 9px)); }
 #bandDialog .bwau.fit .bwau-in { min-width: 100%; }
+/* onglet Mélodie : la courbe et la règle partent de la 1re mesure de la grille des notes (après sa colonne d'en-tête) et ont sa largeur par mesure */
+#bandDialog .bwau.grid { --head: 200px; }
+#bandDialog .bwau.grid .bwau-in { margin-left: var(--head); min-width: calc(var(--bars) * 62px); }
+@media (max-width: 760px) { #bandDialog .bwau.grid { --head: 140px; } }
 #bandDialog .bwau-ruler { border-block: 1px solid var(--bw-line); background: var(--bw-grid); }
 #bandDialog .bwau-ruler .bwau-in { height: 18px; }
 #bandDialog .bwau-ruler span { position: absolute; top: 0; height: 18px; box-sizing: border-box; padding-left: 5px; border-left: 1px solid #6a6a78; font-size: 10.5px; line-height: 18px; color: var(--bw-dim); font-variant-numeric: tabular-nums; overflow: hidden; }
