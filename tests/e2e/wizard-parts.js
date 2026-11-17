@@ -41,7 +41,7 @@ const ok = (c, m) => {
   const P = () => page.evaluate(() => JSON.parse(localStorage.getItem('stepseq.autosave')));
   const parts = () => page.evaluate(() => JSON.parse(JSON.stringify(SS.band._state.wiz.parts)));
   const next = async (n = 1) => {
-    for (let i = 0; i < n; i++) await page.click('#bwNext');
+    for (let i = 0; i < n; i++) await page.dispatchEvent('#bwNext', 'click');
     await page.waitForTimeout(250);
   };
   const cur = async () => (await page.locator('#bandWizSteps li.cur').textContent()).trim();
@@ -240,12 +240,12 @@ const ok = (c, m) => {
   await page.click('#bandPresets .band-preset >> nth=3'); // Sweet Dreams : pas d'arpège
   await next(8);
   ok((await cur()).includes('Arpèges') && !!(await page.$('#bwpNone')) && (await page.locator('.bwa').count()) === 0, 'groupe sans arpège : un message, pas de réglage');
-  await page.click('#bwBack');
+  await page.dispatchEvent('#bwBack', 'click');
   ok((await cur()).includes('Nappes') && (await page.locator('.bwp-mode').count()) === 9, 'groupe avec nappe : les réglages');
 
   // autre inspiration du même style : les réglages des sections communes restent, la mélodie générée est oubliée
   await page.evaluate(() => (SS.band._state.wiz.parts = { verse: { bass: { pedal: 'tonic' }, drums: { style: 'synthwave', pattern: 'motorik' }, lead: { events: [] } }, nulle: { bass: { mode: '8' } } }));
-  for (let i = 0; i < 10 && !(await cur()).includes('Style'); i++) await page.click('#bwBack');
+  for (let i = 0; i < 10 && !(await cur()).includes('Style'); i++) await page.dispatchEvent('#bwBack', 'click');
   await page.click('#bandPresets .band-preset >> nth=0');
   const kept = await parts();
   ok(kept.verse && kept.verse.bass.pedal === 'tonic' && kept.verse.drums.pattern === 'motorik' && !kept.verse.lead && !kept.nulle, 'autre inspiration : pédale et motif du couplet gardés, mélodie générée et section absente oubliées');
@@ -257,9 +257,9 @@ const ok = (c, m) => {
 
   // téléphone : rien ne déborde
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.click('#bwBack');
-  await page.click('#bwBack');
-  await page.click('#bwBack');
+  await page.dispatchEvent('#bwBack', 'click');
+  await page.dispatchEvent('#bwBack', 'click');
+  await page.dispatchEvent('#bwBack', 'click');
   await page.waitForTimeout(250);
   ok((await cur()).includes('Batterie'), 'téléphone : étape Batterie');
   const over = await page.evaluate(() => document.querySelector('#bandDialog').scrollWidth - document.querySelector('#bandDialog').clientWidth);

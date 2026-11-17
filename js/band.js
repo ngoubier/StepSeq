@@ -3687,22 +3687,22 @@ SS.band = (() => {
     const step = S.wiz.step;
     el.classList.add('wizard');
     el.querySelectorAll('.wiz-only').forEach((x) => (x.hidden = false));
-    $('#bandTitle').firstChild.textContent = 'Nouvelle chanson ';
     if (step !== ST.harm) leaveMel();
     // bandeau de lecture : dans l'en-tête (étapes 3 à 11), caché aux étapes 1 et 2
     // étapes 1 et 2 : l'écran Band (style et inspiration, puis musiciens) ; les autres blocs sont cachés par le CSS (bs-style, bs-inst)
     const body = el.querySelector('.band-body');
-    const tr = $('#bwTransport');
     $('#bandWiz').classList.remove('bw-split');
     const band = step === ST.style || step === ST.inst;
     el.classList.toggle('bs-style', step === ST.style);
     el.classList.toggle('bs-inst', step === ST.inst);
     body.hidden = !band;
     $('#bandWiz').hidden = band;
-    $('#bandGm').hidden = step !== ST.inst;
-    tr.hidden = band;
-    if (band) refresh();
-    else {
+    $('#bandGm').hidden = step !== ST.inst; // General MIDI : en tête de l'étape Instruments
+    $('#bwCreate').hidden = step !== ST.pick;
+    if (band) {
+      refresh();
+      updateTransport(); // la barre du haut montre déjà tempo et tonalité aux étapes 1 et 2
+    } else {
       if (step === ST.tempo) renderTempo();
       else if (step === ST.harm) renderHarmony();
       else if (step === ST.chords) renderChords();
@@ -3719,13 +3719,10 @@ SS.band = (() => {
   function wizFoot() {
     const step = S.wiz.step;
     $('#bwEmpty').hidden = step !== ST.style || !S.wiz.fresh;
-    $('#bwBack').hidden = step === 1;
-    $('#bwBack').textContent = step > 1 ? `← ${STEPS[step - 2].label}` : '← Retour';
-    $('#bwNext').textContent = step < ST.pick ? `${STEPS[step].label} →` : 'Suivant →';
-    $('#bwNext').hidden = step === ST.pick;
+    // #bwBack / #bwNext : cachés, ils servent aux tests et au clavier (Alt + flèches)
+    $('#bwBack').disabled = step === 1;
     $('#bwNext').disabled = !canGo(step + 1);
     $('#bwNext').title = step < ST.pick ? (canGo(step + 1) ? `${STEPS[step].label} : ${STEPS[step].hint.toLowerCase()}` : cover() && !spec() ? 'Corrige la reprise (parties, accords, ordre)' : 'Choisis au moins un musicien') : '';
-    $('#bwCreate').hidden = step !== ST.pick;
     const kept = step === ST.pick ? wizCols().filter((c) => !S.wiz.off.has(c.id)).length : 0;
     $('#bwCreate').disabled = step === ST.pick && !kept;
     $('#bwCount').hidden = step !== ST.pick;
@@ -3742,16 +3739,19 @@ SS.band = (() => {
     const p = preset();
     const seed = S.wiz.seed;
     hideConfirm();
-    el.close('ok');
     // volumes réglés à l'étape Mélodie : appliqués au mixage automatique de la chanson créée
     // plan : celui de l'inspiration ou de la reprise, avec les retouches des étapes Tempo et tonalité et Scènes
     const eff = specEff();
     const plan = cover() ? { ...p, spec: eff, cover: { title: S.cover.title.trim() || 'Reprise' } } : eff !== spec() ? { ...p, spec: eff } : p;
-    app.applySong(cols.map((c) => c.o), plan, tempo(), { melodySeed: seed, melody: melodyOpts(), harmony: harmonyOpts(), parts: S.wiz.parts, gains: cols.map((c) => volGain(c.id)) });
+    // tout est lu avant de quitter l'assistant (leave efface S.wiz), puis la fenêtre principale reprend la place
+    const args = [cols.map((c) => c.o), plan, tempo(), { melodySeed: seed, melody: melodyOpts(), harmony: harmonyOpts(), parts: S.wiz.parts, gains: cols.map((c) => volGain(c.id)) }];
+    leave();
+    app.applySong(...args);
   }
 
-  /* ---------- Bandeau de commande (étapes 2 à 8) ----------
-   * Lecture / pause de la chanson (ou de la scène qu'on écoute en boucle), stop, position, tempo et tonalité.
+  /* ---------- Commande de l'écoute : la barre du haut de l'application ----------
+   * Dans l'assistant (body.wizard-mode), Lecture / Stop, tempo et position de la barre du haut pilotent l'écoute
+   * (js/main.js route vers togglePlay, stopListen et setTempo) ; la tonalité s'affiche à la place d'Harmonie et Song.
    * Le tempo vaut pour l'écoute et pour « Créer la chanson » ; il revient à celui de l'inspiration si on en change.
    */
   const TEMPO_MIN = 40;
@@ -3773,7 +3773,7 @@ SS.band = (() => {
     S.wiz.tempo = t;
     S.wiz.tempoFor = tempoKey();
     if (L.proj) L.proj.tempo = t; // la lecture en cours prend le nouveau tempo au pas suivant
-    const inp = $('#bwTempo');
+    const inp = $('#tempo'); // le champ de la barre du haut
     if (inp) inp.value = t; // valeur bornée, même pendant la saisie
     if (soft) {
       const lcd = $('#bwtLcd');
@@ -3782,41 +3782,6 @@ SS.band = (() => {
       return;
     }
     renderWiz();
-  }
-
-  /** Construit le bandeau une fois (init) ; updateTransport en met à jour l'état. */
-  function buildTransport() {
-    const box = $('#bwTransport');
-    const btn = (id, label, html, onclick, cls = '') =>
-      h('button', { type: 'button', id, class: 'btn bt-btn ' + cls, title: label, 'aria-label': label, html, onclick });
-    const input = h('input', {
-      type: 'number', id: 'bwTempo', min: TEMPO_MIN, max: TEMPO_MAX, step: 1, 'aria-label': 'Tempo en BPM',
-      onchange: (e) => setTempo(e.target.value),
-      onkeydown: (e) => e.key === 'Enter' && setTempo(e.target.value),
-    });
-    // écran façon LCD : tempo (− / +), tonalité, position ; lecture et stop devant
-    const cell = (label, ...kids) => h('div', { class: 'bt-cell' }, h('span', { class: 'bt-label' }, label), ...kids);
-    box.replaceChildren(
-      btn('bwPlay', 'Lecture', PLAY, togglePlay, 'bt-play'),
-      btn('bwStop', 'Stop', STOP, () => stopListen(), 'bt-stop'),
-      h(
-        'div',
-        { class: 'bt-lcd' },
-        cell(
-          'Tempo',
-          h(
-            'span',
-            { class: 'bt-tempo' },
-            h('button', { type: 'button', id: 'bwSlower', 'aria-label': 'Ralentir', title: 'Ralentir (−1 BPM)', onclick: () => setTempo(tempo() - 1) }, '−'),
-            input,
-            h('button', { type: 'button', id: 'bwFaster', 'aria-label': 'Accélérer', title: 'Accélérer (+1 BPM)', onclick: () => setTempo(tempo() + 1) }, '+')
-          )
-        ),
-        h('button', { type: 'button', id: 'bwTempoBack', class: 'bt-orig', title: 'Revenir au tempo de l’inspiration', onclick: () => setTempo(origTempo()) }),
-        cell('Tonalité', h('span', { class: 'bt-key', id: 'bwKey' }, h('b', {}), h('small', {}))),
-        h('div', { class: 'bt-cell bt-pos', 'aria-live': 'off' }, h('span', { class: 'bt-label' }, 'Position'), h('b', { id: 'bwPos' }, '1', h('i', {}, ' . '), '1', h('i', {}, ' . '), '1'), h('small', { id: 'bwPosInfo' }, 'À l’arrêt'))
-      )
-    );
   }
 
   /** Lecture : reprend après une pause, sinon joue la chanson (depuis le début) ; en lecture : pause. */
@@ -3832,45 +3797,34 @@ SS.band = (() => {
     markListen();
   }
 
-  /** Position « mesure . temps . pas » : les points dans la police du texte (l'afficheur LCD les dessine mal). */
-  function setPos(bar, beat, step) {
-    const pos = $('#bwPos');
-    pos.replaceChildren(String(bar), h('i', {}, ' . '), String(beat), h('i', {}, ' . '), String(step));
-  }
+  /** Barre du haut : bouton Lecture, Stop, tempo, position et tonalité suivent l'écoute de l'assistant. */
   function updateTransport() {
-    if (!S.wiz || !$('#bwTransport')) return;
+    if (!S.wiz) return;
     const { res } = wizSong();
     const playing = !!L.mode && !L.paused;
-    const play = $('#bwPlay');
-    play.classList.toggle('on', playing);
-    if (play.dataset.icon !== String(playing)) {
-      play.innerHTML = playing ? PAUSE : PLAY;
-      play.dataset.icon = String(playing);
-    }
+    const play = $('#play');
+    play.classList.toggle('playing', playing);
+    play.classList.toggle('paused', !!L.mode && L.paused);
     play.setAttribute('aria-pressed', String(playing));
-    play.title = playing ? 'Pause' : L.paused ? 'Reprendre' : sceneStep() ? 'Écouter la scène en boucle' : 'Écouter la chanson';
-    play.setAttribute('aria-label', play.title);
-    $('#bwStop').disabled = !L.mode;
-    const t = tempo();
-    const inp = $('#bwTempo');
-    if (document.activeElement !== inp) inp.value = t;
-    const orig = origTempo();
-    const back = $('#bwTempoBack');
-    back.hidden = t === orig;
-    back.textContent = `origine ${orig}`;
+    play.title = playing ? 'Pause (Espace)' : L.paused ? 'Reprendre (Espace)' : sceneStep() ? 'Écouter la scène en boucle (Espace)' : 'Écouter la chanson (Espace)';
+    play.setAttribute('aria-label', playing ? 'Pause' : 'Lecture');
+    $('#stop').disabled = !L.mode;
+    const inp = $('#tempo');
+    if (document.activeElement !== inp) inp.value = tempo();
     const sc = res && L.scene ? res.scenes.find((x) => x.id === L.scene) : null;
+    let pos = '1 . 1 . 1';
     if (sc && L.step >= 0) {
       const st = L.step % (sc.bars * 16);
-      setPos(Math.floor(st / 16) + 1, Math.floor((st % 16) / 4) + 1, (st % 4) + 1);
-    } else if (!L.mode) setPos(1, 1, 1);
-    $('#bwPosInfo').textContent = sc ? `${sc.name}${L.mode === 'scene' ? ' · en boucle' : ''}${L.paused ? ' · en pause' : ''}` : 'À l’arrêt';
+      pos = `${Math.floor(st / 16) + 1} . ${Math.floor((st % 16) / 4) + 1} . ${(st % 4) + 1}`;
+    }
+    $('#position').textContent = pos;
+    $('#lcdTitle').textContent = sc ? `${sc.name}${L.mode === 'scene' ? ' · en boucle' : ''}${L.paused ? ' · en pause' : ''}` : 'À l’arrêt';
     // tonalité : celle de la scène qu'on entend (ou qu'on regarde à l'étape Mélodie), sinon celle de la chanson
     const shown = sc || (res && sceneStep() ? res.scenes.find((x) => x.id === S.wiz.hscene) : null);
     const key = (shown && shown.key) || (res && res.key);
-    const kb = $('#bwKey');
-    kb.firstChild.textContent = key ? SS.harmony.label(key) : '—';
-    kb.lastChild.textContent = key ? keyInfo(key) : '';
-    kb.title = key ? `${SS.harmony.label(key)} · ${keyInfo(key)}` : '';
+    $('#wizKeyName').textContent = key ? SS.harmony.label(key) : '—';
+    $('#wizKeyInfo').textContent = key ? keyInfo(key) : '';
+    $('#wizKey').title = key ? `Tonalité : ${SS.harmony.label(key)} · ${keyInfo(key)}` : 'Tonalité de la chanson';
   }
 
   /** « 3 ♭ · i = Cm » : armure (gamme de référence) et accord de tonique. */
@@ -4066,7 +4020,7 @@ SS.band = (() => {
   /** Ce qui joue : bandeau, ligne de la scène et tête de lecture (sans reconstruire la grille). */
   function markListen() {
     const box = $('#bandWiz');
-    if (!box) return;
+    if (!box || !S.wiz) return;
     updateTransport();
     box.querySelectorAll('.bh-board').forEach((b) => {
       const on = !!L.mode && L.scene === b.dataset.scene && L.step >= 0;
@@ -4140,6 +4094,7 @@ SS.band = (() => {
   }
   /** « Nouvelle chanson… » (menu de l'application) : l'assistant sur une chanson vide. */
   function openWizard({ fresh = true } = {}) {
+    if (S.wiz) leave(); // déjà ouvert : on repart de zéro
     // keys / grids / emos : étape Accords (tonalité, grille, émotion par section) ; parts : réglages par scène (batterie,
     // basse, nappes, arpèges) ; form / secs / skey : arrangement, scènes et tonalité retouchés (specEff) ; chars : caractère et notes par phrase par section (réglages du moteur, sans écran) ; melPanel : état du panneau Mélodie par section ; snap : aimant de la grille ; gsel : accord sélectionné ; insp : fenêtre d'inspiration
     S.wiz = {
@@ -4161,8 +4116,11 @@ SS.band = (() => {
     renderMode();
     refresh();
     renderWiz();
-    el.returnValue = '';
-    el.showModal();
+    // l'assistant prend la place de la zone des pistes ; la barre du haut reste (Lecture, tempo, position, tonalité)
+    el.setAttribute('open', '');
+    document.body.classList.add('wizard-mode');
+    app.wizardMode(true);
+    updateTransport();
     requestAnimationFrame(() => {
       const a = $('#bandPresets .band-preset.active');
       a && a.scrollIntoView({ block: 'nearest' });
@@ -4207,40 +4165,50 @@ SS.band = (() => {
     if (box) box.hidden = true;
   }
 
+  /** Quitte le mode assistant sans rien écrire : l'écoute s'arrête, la barre du haut redevient celle du projet. */
+  function leave() {
+    if (!S.wiz) return;
+    hideConfirm();
+    dropListen();
+    leaveMel();
+    S.wiz = null;
+    el.removeAttribute('open');
+    document.body.classList.remove('wizard-mode');
+    app.wizardMode(false);
+  }
+  const active = () => !!S.wiz;
+  /** Pas précédent / suivant (boutons cachés #bwBack / #bwNext, Alt + flèches). */
+  const stepBy = (d) => S.wiz && goStep(S.wiz.step + d);
+
   function init(appApi) {
     app = appApi;
     el = $('#bandDialog');
     if (!el) return;
-    const cancel = () => {
-      hideConfirm();
-      el.close('cancel');
-    };
-    $('#bandClose').addEventListener('click', cancel);
-    $('#bandCancel').addEventListener('click', cancel);
+    $('#bandClose').addEventListener('click', leave);
     $('#bandGm').addEventListener('click', () => setGm(!gm()));
-    $('#bwEmpty').addEventListener('click', cancel);
-    $('#bwBack').addEventListener('click', () => goStep(S.wiz.step - 1));
-    $('#bwNext').addEventListener('click', () => goStep(S.wiz.step + 1));
+    $('#bwEmpty').addEventListener('click', leave);
+    $('#bwBack').addEventListener('click', () => stepBy(-1));
+    $('#bwNext').addEventListener('click', () => stepBy(1));
     $('#bwCreate').addEventListener('click', () => createWizSong());
     document.querySelectorAll('#bandMode [data-mode]').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
-    buildTransport();
-    el.addEventListener('close', () => {
-      dropListen();
-      leaveMel();
-      S.wiz = null;
-    });
     SS.melodyPanel.init(app); // l'atelier Mélodie vit dans Harmonie → Chanson
-    // Échap = annuler (rien n'est créé)
-    el.addEventListener('cancel', (e) => {
-      e.preventDefault();
-      // Échap ferme d'abord la confirmation (ou la fenêtre d'inspiration), puis la fenêtre
-      if (!$('#bandConfirm').hidden) hideConfirm();
-      else if (S.wiz && S.wiz.insp) closeInsp();
-      else cancel();
+    // Échap = Fermer (rien n'est créé) : d'abord la confirmation, puis la fenêtre d'inspiration, puis l'assistant
+    document.addEventListener('keydown', (e) => {
+      if (!S.wiz || e.defaultPrevented || document.querySelector('dialog[open]')) return;
+      if (e.key === 'Escape') {
+        if (!$('#bandConfirm').hidden) hideConfirm();
+        else if (S.wiz.insp) closeInsp();
+        else leave();
+      } else if (e.altKey && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+        e.preventDefault();
+        stepBy(e.key === 'ArrowRight' ? 1 : -1);
+      }
     });
-    // la barre d'espace ne lance pas la lecture quand la fenêtre est ouverte
-    el.addEventListener('keydown', (e) => e.stopPropagation());
+    // les raccourcis de la fenêtre principale (Espace, Ctrl+Z…) ne jouent pas quand on tape dans l'assistant
+    el.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape' && !e.altKey) e.stopPropagation();
+    });
   }
 
-  return { init, open, openWizard, plannedTracks, melodyTrackOpts, _state: S, _listen: () => L.proj };
+  return { init, open, openWizard, active, togglePlay, stopListen, setTempo, plannedTracks, melodyTrackOpts, _state: S, _listen: () => L.proj };
 })();

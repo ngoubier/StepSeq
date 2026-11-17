@@ -38,7 +38,7 @@ const ok = (c, m) => {
   await page.goto(`http://localhost:${server.address().port}/index.html`);
   await page.waitForTimeout(1200);
   const next = async (n = 1) => {
-    for (let i = 0; i < n; i++) await page.click('#bwNext');
+    for (let i = 0; i < n; i++) await page.dispatchEvent('#bwNext', 'click');
     await page.waitForTimeout(250);
   };
   const cur = async () => (await page.locator('#bandWizSteps li.cur').textContent()).trim();
@@ -104,7 +104,7 @@ const ok = (c, m) => {
   const chipsN = await page.locator('.tb-chip').count();
   ok(chipsN >= 4 && (await page.locator('.tb-chip.on').count()) === chipsN, `On entend : ${chipsN} pastilles, toutes allumées`);
   // lance la boucle de la scène
-  await page.click('#bwPlay');
+  await page.click('#play');
   await page.waitForFunction(() => SS.audio.isPlaying(), null, { timeout: 8000 });
   await page.locator('.tb-chip[data-mu="drums"]').click();
   const t1 = await tracks();
@@ -121,7 +121,7 @@ const ok = (c, m) => {
   // l'état se retrouve aux autres étapes
   await next(1);
   ok((await cur()).includes('Nappes') && (await tracks()).filter((t) => t[2]).length === 1 && (await page.locator('.tb-chip.on').count()) === 1, 'le solo est partagé avec l’étape suivante');
-  await page.click('#bwBack');
+  await page.dispatchEvent('#bwBack', 'click');
   await page.waitForTimeout(250);
   await page.click('#bwTbSolo');
   ok((await tracks()).every((t) => !t[2]), 'Seule, re-clic : plus de solo');
@@ -137,15 +137,15 @@ const ok = (c, m) => {
   ok((await cur()).includes('Arpèges') && (await page.locator('#bwRoll .bw-rn').count()) > 0 && (await page.locator('#bwTbPiste').count()) === 1, 'Arpèges : rouleau et menu Piste');
 
   // Accords et Mélodie
-  await page.click('#bwBack');
-  await page.click('#bwBack');
-  await page.click('#bwBack');
+  await page.dispatchEvent('#bwBack', 'click');
+  await page.dispatchEvent('#bwBack', 'click');
+  await page.dispatchEvent('#bwBack', 'click');
   ok((await cur()).includes('Accords') && /Accords de la scène/.test(await page.textContent('#bwTrackbar')) && (await page.locator('#bwTbSolo').count()) === 0, 'Accords : « Piste Accords de la scène », pas de Seule');
   await next(4);
   ok((await cur()).includes('Mélodie') && (await page.locator('#bwTbPiste').count()) === 1 && (await page.locator('.bh-lane .bw-m, .bh-lane .bw-s').count()) === 0, 'Mélodie : barre de piste, plus de M / S par ligne');
 
   // Batterie : le kit
-  for (let i = 0; i < 5; i++) await page.click('#bwBack');
+  for (let i = 0; i < 5; i++) await page.dispatchEvent('#bwBack', 'click');
   await page.waitForTimeout(250);
   ok((await cur()).includes('Batterie') && (await page.locator('#bwTbKit').count()) === 1, 'étape Batterie : menu du kit');
   const kit0 = await page.inputValue('#bwTbKit');

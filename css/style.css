@@ -2326,11 +2326,7 @@ svg.g-big { width: 100%; height: auto; background: #1d1d22; border-radius: 8px; 
 
 /* ---------- Band : groupe de musiciens virtuels (js/band.js) ---------- */
 
-dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, calc(100vh - 16px)); max-width: none; max-height: none; }
 .band-shell { display: flex; flex-direction: column; height: 100%; }
-.band-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
-.band-head h2 { margin: 0; font-size: 20px; letter-spacing: .02em; }
-.band-head h2 small { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 8px; }
 .band-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 290px 1fr; }
 .band-dialog.with-panel .band-body { grid-template-columns: 290px 1fr 370px; }
 .band-step { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
@@ -2461,7 +2457,6 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
 
 /* ---------- Assistant « Nouvelle chanson » (js/band.js) ----------
    Étapes dans l'en-tête ; étapes 2 à 4 : la chanson en vue « session » (une ligne = une scène, une colonne = une piste). */
-.band-dialog.wizard .band-head h2 small:empty { display: none; }
 .band-dialog.wizard .band-step b { display: none; }
 
 .band-wiz { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 12px 16px 0; }
@@ -3135,11 +3130,7 @@ body[data-grid="half"] .rcell.half:not(.on) { border-left-color: #333338; }
 /* feuille qui monte du bas, pied avec les trois boutons visibles.      */
 /* ================================================================== */
 @media (max-width: 760px) {
-  dialog.band-dialog { width: 100vw; height: 100dvh; max-width: 100vw; max-height: 100dvh; margin: 0; border-radius: 0; border: 0; }
   .band-confirm { border-radius: 0; }
-  .band-head { padding: 8px 10px 8px 14px; }
-  .band-head h2 { font-size: 18px; }
-  .band-head h2 small { display: none; }
   .band-body, .band-dialog.with-panel .band-body { display: flex; flex-direction: column; overflow-y: auto; }
   .band-main { gap: 8px; padding: 10px 12px; flex: none; }
   .band-step { flex-wrap: wrap; }
@@ -3172,9 +3163,6 @@ body[data-grid="half"] .rcell.half:not(.on) { border-left-color: #333338; }
 }
 /* Band sur téléphone à l'horizontale : pied sur une ligne, panneau plus haut */
 @media (max-height: 500px) and (max-width: 1000px) {
-  dialog.band-dialog { width: 100vw; height: 100dvh; max-width: 100vw; max-height: 100dvh; margin: 0; border-radius: 0; border: 0; }
-  .band-head { padding: 6px 10px 6px 14px; }
-  .band-head h2 small { display: none; }
   .band-foot { display: flex; flex-wrap: nowrap; gap: 8px; padding: 6px 12px; }
   .band-foot .spacer { display: block; }
   .band-count { display: none; }
@@ -4260,7 +4248,6 @@ svg.mel-contour.big { width: 150px; height: 54px; }
 }
 
 /* onze étapes : le fil des étapes reste sur une ligne */
-.band-dialog.wizard .band-head h2 { white-space: nowrap; }
 
 /* ================================================================== */
 /* Assistant « Nouvelle chanson » : refonte (docs/design-assistant.md)  */
@@ -4286,39 +4273,31 @@ svg.mel-contour.big { width: 150px; height: 54px; }
   background: var(--bw-bg);
   font-size: 14px;
 }
-dialog#bandDialog.band-dialog {
-  width: 100vw; height: 100vh; height: 100dvh; max-width: 100vw; max-height: 100dvh; margin: 0; inset: 0;
+#bandDialog.band-dialog {
+  /* l'assistant prend la place de la zone des pistes : sous la barre du haut, au-dessus de rien (le bas de l'écran est caché) */
+  display: none; flex: 1 1 auto; min-height: 0; min-width: 0; margin: 0;
   border: 0; border-radius: 0; box-shadow: none; overflow: hidden;
 }
-#bandDialog::backdrop { background: var(--bw-bg); }
+body.wizard-mode #bandDialog.band-dialog { display: flex; flex-direction: column; }
+/* mode assistant : le reste de la fenêtre principale s'efface (pistes, arrangement, console, barre du bas) */
+body.wizard-mode #workspace, body.wizard-mode #songDock, body.wizard-mode #mixer, body.wizard-mode .bottombar,
+body.wizard-mode #keyBtn, body.wizard-mode #songBtn, body.wizard-mode #mixerBtn { display: none; }
+/* la tonalité de la chanson en création remplace Harmonie et Song dans la barre */
+.wiz-key { display: none; }
+body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); }
+.wiz-key .sb-txt { display: flex; flex-direction: column; gap: 1px; line-height: 1.15; }
+.wiz-key b { font-size: 14px; white-space: nowrap; }
+.wiz-key small { font-size: 10px; color: var(--muted); white-space: nowrap; text-transform: uppercase; letter-spacing: .06em; }
+.wiz-key small:last-child { text-transform: none; letter-spacing: 0; font-size: 11px; }
+.wiz-key small:last-child:empty { display: none; }
 #bandDialog :focus-visible { outline: 2px solid var(--bw-accent); outline-offset: 2px; }
-#bandDialog .band-shell { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; position: relative; }
+#bandDialog .band-shell { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; flex: 1 1 0; height: auto; min-height: 0; position: relative; }
 
-/* ----- En-tête : titre, bandeau de lecture façon LCD, fermer ----- */
-#bandDialog .band-head { display: flex; align-items: center; gap: 8px 16px; min-height: 64px; padding: 8px 16px; background: var(--bw-panel); border-bottom: 1px solid var(--bw-line); }
-#bandDialog .band-head h2 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: .01em; white-space: nowrap; }
-#bandDialog .band-head h2 small { font-size: 12px; margin-left: 8px; }
-#bandDialog .band-head h2 small:empty { display: none; }
-#bandDialog .band-transport { display: flex; align-items: center; flex-wrap: nowrap; gap: 8px; min-width: 0; padding: 0; background: none; border: 0; }
+/* ----- Lecture : boutons de l'inspiration (le bandeau de lecture est dans la barre du haut) ----- */
 #bandDialog .bt-btn { width: 40px; height: var(--bw-h); padding: 0; flex: none; }
 #bandDialog .bt-btn svg { width: 14px; height: 14px; fill: currentColor; stroke: none; }
 #bandDialog .bt-play.on { background: color-mix(in srgb, var(--bw-accent) 22%, var(--bw-panel2)); border-color: var(--bw-accent); color: #fff; }
 #bandDialog .bt-play:hover { background: var(--bw-raise); }
-#bandDialog .bt-lcd { display: flex; align-items: center; gap: 4px 16px; min-width: 0; padding: 5px 12px; background: var(--bw-panel2); border: 1px solid var(--bw-line); border-radius: var(--bw-r-ctl); color: var(--bw-text); }
-#bandDialog .bt-cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-#bandDialog .bt-label { font: 600 9px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--bw-dim); white-space: nowrap; }
-#bandDialog .bt-tempo { display: inline-flex; align-items: center; gap: 2px; border: 0; background: none; overflow: visible; }
-#bandDialog .bt-tempo input { width: 62px; min-width: 62px; box-sizing: border-box; height: 22px; padding: 0; border: 0; background: transparent; color: inherit; font: 600 15px/20px -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif; font-variant-numeric: tabular-nums; text-align: center; }
-#bandDialog .bt-tempo button { width: 18px; height: 18px; padding: 0; border: 0; border-radius: 3px; background: var(--bw-raise); color: var(--bw-muted); font: 600 13px/1 -apple-system, "Segoe UI", sans-serif; }
-#bandDialog .bt-tempo button:hover { color: var(--bw-text); background: var(--bw-line2); }
-#bandDialog .bt-key b { font: 600 15px/20px -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif; white-space: nowrap; }
-#bandDialog .bt-key small { display: none; }
-#bandDialog .bt-pos { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: 2px 8px; }
-#bandDialog .bt-pos .bt-label { grid-column: 1 / -1; }
-#bandDialog .bt-pos b { font: 17px/20px var(--bw-lcd); color: #6aa9ff; white-space: nowrap; }
-#bandDialog .bt-pos b i { font: 600 15px/20px -apple-system, "Segoe UI", sans-serif; font-style: normal; }
-#bandDialog .bt-pos small { font: 10.5px/1.2 -apple-system, "Segoe UI", sans-serif; color: var(--bw-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
-#bandDialog .bt-orig { height: var(--bw-h-sm); padding: 0 8px; border-radius: var(--bw-r-ctl); background: rgba(245, 196, 0, .14); color: #f0c860; font: 11.5px/1 -apple-system, "Segoe UI", sans-serif; text-shadow: none; }
 #bandDialog .band-gm { height: var(--bw-h); padding: 0 12px; }
 #bandDialog .band-gm.active { background: color-mix(in srgb, var(--bw-accent) 22%, var(--bw-panel2)); border-color: var(--bw-accent); color: var(--bw-text); }
 #bandDialog .band-gm.active .band-gm-box { border-color: var(--bw-accent); background: var(--bw-accent); box-shadow: inset 0 0 0 2px var(--bw-panel2); }
@@ -4327,6 +4306,10 @@ dialog#bandDialog.band-dialog {
 #bandDialog .bw-frame { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 0; }
 #bandDialog .bw-stepper { min-height: 0; overflow-y: auto; padding: 16px 8px 16px 16px; }
 #bandDialog .bw-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 16px 24px 16px 8px; }
+#bandDialog .bw-headrow { flex: none; display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 16px; margin-bottom: 12px; }
+#bandDialog .bw-headrow .bw-stephead { flex: 1 1 320px; min-width: 0; margin-bottom: 0; }
+#bandDialog .bw-headact { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px 12px; margin-left: auto; padding-top: 2px; }
+#bandDialog .bw-headact #bwCreate { height: 36px; padding: 0 20px; font-weight: 600; }
 #bandDialog .bw-stephead { flex: none; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin-bottom: 12px; }
 #bandDialog .bw-stephead h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -.01em; }
 #bandDialog .bw-stephead h1 em { font-style: normal; font-weight: 600; margin-right: 8px; color: var(--bw-dim); font-variant-numeric: tabular-nums; }
@@ -4564,10 +4547,6 @@ dialog#bandDialog.band-dialog {
   #bandDialog .bw-main { padding: 8px 12px 12px; }
   #bandDialog .bw-stephead h1 { font-size: 19px; }
   #bandDialog .bw-stephead p { font-size: 13px; }
-  #bandDialog .band-head { flex-wrap: wrap; padding: 8px 12px; min-height: 0; }
-  #bandDialog .band-transport { order: 5; flex: 1 0 100%; }
-  #bandDialog .bt-lcd { flex: 1 1 0; gap: 4px 12px; overflow: hidden; justify-content: space-between; }
-  #bandDialog .bt-pos small { max-width: 90px; }
   #bandDialog .band-foot { flex-wrap: wrap; padding: 8px 12px calc(8px + env(safe-area-inset-bottom)); }
   #bandDialog .band-count { flex: 1 0 100%; order: -1; margin: 0; }
   #bandDialog .bs1-insp { grid-template-columns: minmax(0, 1fr); }
@@ -4583,9 +4562,6 @@ dialog#bandDialog.band-dialog {
   #bandDialog .band-wiz:not(.bw-split) > .bw-scroll { flex: none; min-height: 320px; max-height: 75vh; }
 }
 @media (max-width: 560px) {
-  #bandDialog .bt-pos { display: none; }
-  #bandDialog .bt-lcd { padding: 4px 8px; }
-  #bandDialog .bt-key b, #bandDialog .bt-pos b, #bandDialog .bt-tempo input { font-size: 15px; }
   #bandDialog .bwt-lcd { font-size: 40px; padding: 6px 14px 2px; }
   #bandDialog .band-presets { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 }

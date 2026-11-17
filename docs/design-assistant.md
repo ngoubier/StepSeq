@@ -103,3 +103,10 @@ Le vrai assistant marche, mais il est plus lourd à l'œil que la maquette :
 
 Les identifiants et crochets de test (`#bwNext`, `#bwBack`, `#bwCreate`, `#bandStyles [data-v]`, `#bandPresets .band-preset`,
 `.bh-scene`, `#bwTransport`…), le comportement, les données. Seule la présentation change.
+
+## Mise à jour (novembre 2026) : dans la fenêtre principale
+
+L'assistant n'est plus une fenêtre plein écran (`<dialog>`) mais une zone de la fenêtre principale (`#bandDialog`, `body.wizard-mode`) :
+elle remplace les pistes, sous la barre du haut qui reste visible. Plus d'en-tête propre : Lecture / Stop, tempo, position et tonalité sont
+ceux de la barre du haut. Pied : un seul bouton **Fermer** (et « Chanson vide » à l'étape 1) ; on change d'étape par le stepper.
+« Créer la chanson » et General MIDI sont dans le contenu des étapes 11 et 2.

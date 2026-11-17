@@ -68,7 +68,7 @@ async function measure(browser, { style, preset }) {
   }, secs);
   await page.goto(`http://localhost:${server.address().port}/index.html`);
   await page.waitForTimeout(1500);
-  await page.click('#bandBtn');
+  await page.click('#appMenuBtn'); await page.click('#bandBtn');
   await page.waitForTimeout(400);
   await page.click(`#bandStyles [data-v="${style.id}"]`);
   await page.click(`#bandPresets .band-preset >> nth=${style.presets.indexOf(preset)}`);

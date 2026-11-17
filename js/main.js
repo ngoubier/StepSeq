@@ -257,6 +257,7 @@
       changed();
     });
     $('#tempo').addEventListener('change', (e) => {
+      if (SS.band.active()) return SS.band.setTempo(e.target.value); // assistant : le tempo de la chanson en création
       project.tempo = Math.max(20, Math.min(300, Math.round(+e.target.value || 120)));
       e.target.value = project.tempo;
       SS.audio.applyAllFx(project); // le delay suit le tempo
@@ -281,7 +282,7 @@
       const cell = e.target.closest('.grid [data-step]');
       if (cell) setCue(+cell.dataset.step);
     });
-    $('#stop').addEventListener('click', stop);
+    $('#stop').addEventListener('click', () => (SS.band.active() ? SS.band.stopListen() : stop()));
 
     $('#newProject').addEventListener('click', async () => {
       // la chanson en cours est déjà dans « Mes chansons » : pas besoin de confirmation
@@ -363,9 +364,24 @@
     });
   }
 
+  /**
+   * L'assistant « Nouvelle chanson » prend / rend la place de la zone des pistes (body.wizard-mode).
+   * Pendant qu'il est ouvert, Lecture, Stop, tempo et position de la barre du haut lui appartiennent (js/band.js) ;
+   * à la sortie, la barre redevient celle du projet.
+   */
+  function wizardMode(on) {
+    stop(); // le projet ne joue pas derrière l'assistant ; à la sortie, la barre repart de zéro
+    if (on) return;
+    const play = $('#play');
+    play.removeAttribute('aria-pressed');
+    $('#stop').disabled = false;
+    syncHeader();
+  }
+
   /* ---------- Transport ---------- */
   /** Bouton Lecture / Pause (et barre d'espace) */
   function togglePlay() {
+    if (SS.band.active()) return SS.band.togglePlay(); // assistant : Lecture écoute la scène choisie ou la chanson en création
     if (SS.trackLoop && SS.trackLoop.active()) return play(); // la boucle d'une piste seule laisse la place au morceau
     if (SS.audio.isPlaying()) pause();
     else if (SS.audio.isPaused()) resume();
@@ -825,7 +841,7 @@
     editTrack,
     deleteTrack,
   });
-  SS.band.init({ project: () => project, changed, openTrackDialog: (t, init) => SS.ui.openTrackDialog(t, init), apply: addBandTracks, applySong: addBandSong, bandTracks, hasNotes, writeMelody });
+  SS.band.init({ project: () => project, changed, wizardMode, openTrackDialog: (t, init) => SS.ui.openTrackDialog(t, init), apply: addBandTracks, applySong: addBandSong, bandTracks, hasNotes, writeMelody });
   SS.mySongs.init({ project: () => project, loadSong, flush: () => SS.autosave.saveNow() });
   SS.midiPanel.init({ project: () => project, loadSong: (p) => loadSong(p, { changed: true }), flush: () => SS.autosave.saveNow() });
   initHeader();

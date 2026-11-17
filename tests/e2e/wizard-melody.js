@@ -34,7 +34,7 @@ const ok = (c, m) => {
   const P = () => page.evaluate(() => JSON.parse(localStorage.getItem('stepseq.autosave')));
   const parts = () => page.evaluate(() => JSON.parse(JSON.stringify(SS.band._state.wiz.parts)));
   const next = async (n = 1) => {
-    for (let i = 0; i < n; i++) await page.click('#bwNext');
+    for (let i = 0; i < n; i++) await page.dispatchEvent('#bwNext', 'click');
     await page.waitForTimeout(250);
   };
   const cur = async () => (await page.locator('#bandWizSteps li.cur').textContent()).trim();
@@ -227,7 +227,7 @@ const ok = (c, m) => {
   await next(9);
   const over = await page.evaluate(() => document.querySelector('#bandDialog').scrollWidth - document.querySelector('#bandDialog').clientWidth);
   const wide = await page.evaluate(() => document.querySelector('#bwMelPanel').scrollWidth - document.querySelector('#bwMelPanel').clientWidth);
-  ok(over <= 1 && wide <= 1 && (await page.isVisible('#bwNext')), 'téléphone : la fenêtre et le panneau ne débordent pas');
+  ok(over <= 1 && wide <= 1 && (await page.isVisible('#bandClose')), 'téléphone : la fenêtre et le panneau ne débordent pas');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'wizard-melodie-mobile.png') });
 
   ok(!errs.length, 'aucune erreur JavaScript' + (errs.length ? ' : ' + errs.join(' | ') : ''));
