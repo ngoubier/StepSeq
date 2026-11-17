@@ -4725,7 +4725,7 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 #bandDialog .mx-strip { flex: 0 0 116px; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; padding: 10px 8px; position: relative; background: var(--bw-panel); border: 1px solid var(--bw-line); border-top: 3px solid var(--c); border-radius: var(--bw-r-card); }
 #bandDialog .mx-strip.drum { flex-basis: 96px; }
 #bandDialog .mx-strip.master { flex-basis: 128px; margin-left: 8px; }
-#bandDialog .mx-strip.sel { box-shadow: 0 0 0 1px var(--c); }
+#bandDialog .mx-strip.sel { box-shadow: 0 0 0 2px var(--c), 0 0 14px color-mix(in srgb, var(--c) 45%, transparent); }
 #bandDialog .mx-strip.own::after { content: ""; position: absolute; top: 8px; right: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--bw-gold); }
 #bandDialog .mx-group { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 6px; border-radius: calc(var(--bw-r-card) + 4px); background: color-mix(in srgb, var(--c) 7%, transparent); border: 1px dashed color-mix(in srgb, var(--c) 45%, transparent); }
 #bandDialog .mx-ghead { padding: 0 4px; font-size: 12px; font-weight: 700; color: var(--c); }
@@ -4760,8 +4760,11 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 #bandDialog .mx-ms button.s.on { background: #0f3a5a; border-color: var(--bw-accent); color: #9ccaff; }
 #bandDialog .mx-back { height: 22px; padding: 0 6px; border: 1px dashed var(--bw-gold); border-radius: 5px; background: none; color: var(--bw-gold); font: inherit; font-size: 11px; }
 
-#bandDialog .mx-fx { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 14px; padding: 12px; background: var(--bw-panel); border: 1px solid var(--c); border-radius: var(--bw-r-card); flex: none; }
+#bandDialog .mx-fx { position: fixed; z-index: 60; box-sizing: border-box; display: flex; flex-direction: column; width: 560px; max-width: calc(100vw - 16px); background: var(--bw-panel); border: 1px solid var(--c); border-radius: var(--bw-r-card); box-shadow: 0 14px 40px rgba(0, 0, 0, .55); }
 #bandDialog .mx-fx[hidden] { display: none; }
+#bandDialog .mx-fxin { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 10px 14px; align-content: start; padding: 12px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; border-radius: inherit; }
+#bandDialog .mx-fxarr { position: absolute; top: var(--arr, 24px); left: -7px; width: 12px; height: 12px; margin-top: -6px; box-sizing: border-box; background: var(--bw-panel); border: solid var(--c); border-width: 0 0 1px 1px; transform: rotate(45deg); }
+#bandDialog .mx-fx.left .mx-fxarr { left: auto; right: -7px; border-width: 1px 1px 0 0; }
 #bandDialog .mx-fxh { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 #bandDialog .mx-fxh b { font-size: 15px; }
 #bandDialog .mx-tag { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--c); background: color-mix(in srgb, var(--c) 18%, var(--bw-panel2)); font-size: 12px; font-weight: 500; }
@@ -4783,7 +4786,9 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 #bandDialog .mx-eq svg { display: block; width: 100%; height: 100%; }
 #bandDialog .mx input:disabled { opacity: .45; }
 @media (max-width: 760px) {
-  #bandDialog .mx-fx { grid-template-columns: minmax(0, 1fr); }
+  #bandDialog .mx-fx { left: 0; right: 0; bottom: 0; top: auto; width: auto; max-width: none; max-height: 66vh; border-width: 1px 0 0; border-radius: 14px 14px 0 0; box-shadow: 0 -10px 30px rgba(0, 0, 0, .55); }
+  #bandDialog .mx-fxarr { display: none; }
+  #bandDialog .mx-fxin { grid-template-columns: minmax(0, 1fr); padding: 12px 12px calc(12px + env(safe-area-inset-bottom)); }
   #bandDialog .mx-tabs { flex-direction: row; overflow-x: auto; }
   #bandDialog .mx-tabs button { flex: none; gap: 8px; }
   #bandDialog .mx-scenes .bh-scene { min-width: 132px; }

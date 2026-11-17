@@ -106,6 +106,68 @@ const ok = (c, m) => {
   ok((await page.locator('#bwMix [data-mx="vol"][data-id="master"]').isDisabled()) && (await page.locator('.mx-strip.master .mx-fxb').isDisabled()), 'Master : fader et FX grisés dans une scène');
   await page.click('.mx-strip[data-id="bass"] .mx-fxb');
   ok((await page.locator('#mxFx').isVisible()) && (await page.locator('#mxFx .mx-tabs button').count()) === 8, 'bouton FX : tiroir à 8 onglets (EQ, Compresseur, Filtre, Chorus, Delay, Reverb, Envois, Sidechain)');
+  // popover : flottant, collé à la tranche, dans la fenêtre ; le bouton FX et le fader restent visibles
+  const rect = (sel) => page.evaluate((q) => { const r = document.querySelector(q).getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom }; }, sel);
+  const inView = (r, vw, vh) => r.l >= 0 && r.t >= 0 && r.r <= vw && r.b <= vh;
+  const geo = async (id, vw = 1400, vh = 900) => {
+    const p = await rect('#mxFx');
+    const st = await rect(`.mx-strip[data-id="${id}"]`);
+    const fb = await rect(`.mx-strip[data-id="${id}"] .mx-fxb`);
+    return { p, st, fb, inside: inView(p, vw, vh), glued: Math.abs(p.l - st.r) <= 24 || Math.abs(p.r - st.l) <= 24, fxVis: inView(fb, vw, vh) && (await page.locator(`.mx-strip[data-id="${id}"] .mx-fxb`).isVisible()) };
+  };
+  const g1 = await geo('bass');
+  ok(g1.inside && g1.glued && g1.fxVis, `popover de la basse : dans la fenêtre, collé à la tranche (gauche ${Math.round(g1.p.l)} / bord droit tranche ${Math.round(g1.st.r)}), bouton FX visible`);
+  ok((await page.locator('#mxFx').evaluate((e) => getComputedStyle(e).position)) === 'fixed' && (await page.locator('.mx-strip[data-id="bass"].sel').count()) === 1 && (await page.locator('.mx-strip[data-id="bass"] .mx-fxb').getAttribute('aria-expanded')) === 'true', 'popover flottant, tranche mise en évidence, aria-expanded');
+  ok((await page.locator('#mxFx').getAttribute('role')) === 'dialog' && (await page.locator('#mxFx').getAttribute('aria-labelledby')) === 'mxFxTitle' && (await page.locator('#mxFxTitle').textContent()).startsWith('Effets'), 'role dialog, aria-labelledby sur le titre');
+  ok(await page.evaluate(() => document.getElementById('mxFx').contains(document.activeElement)), 'le focus est dans le popover');
+  const dy = await page.evaluate(() => document.documentElement.scrollHeight - innerHeight);
+  await page.click('#mxFx [data-tab="filter"]');
+  if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'pop-bass-filtre.png') });
+  // suit la console qui défile : la tranche reste collée, ou le popover se ferme si elle sort
+  await page.evaluate(() => { document.querySelector('.mx-console').scrollLeft += 40; });
+  await page.waitForTimeout(150);
+  if (await page.locator('#mxFx').isVisible()) { const g = await geo('bass'); ok(g.glued && g.inside, 'console défilée : le popover suit la tranche'); }
+  await page.evaluate(() => { document.querySelector('.mx-console').scrollLeft = 0; });
+  await page.waitForTimeout(150);
+  // Échap : ferme et rend le focus au bouton FX
+  await page.keyboard.press('Escape');
+  ok(!(await page.locator('#mxFx').isVisible()) && (await page.evaluate(() => document.activeElement === document.querySelector('.mx-strip[data-id="bass"] .mx-fxb'))) && (await page.locator('#bwMix').count()) === 1, 'Échap ferme le popover, focus rendu au bouton FX (l’assistant reste ouvert)');
+  await page.click('.mx-strip[data-id="bass"] .mx-fxb');
+  ok(await page.locator('#mxFx').isVisible(), 'FX rouvre');
+  ok((await page.locator('#mxFx [data-tab="filter"][aria-selected="true"]').count()) === 1, 'l’onglet courant est gardé');
+  await page.click('.mx-strip[data-id="bass"] .mx-fxb');
+  ok(!(await page.locator('#mxFx').isVisible()), 'recliquer FX de la même tranche ferme');
+  await page.click('.mx-strip[data-id="bass"] .mx-fxb');
+  await page.mouse.click(700, 8);
+  ok(!(await page.locator('#mxFx').isVisible()), 'clic en dehors ferme');
+  await page.click('.mx-strip[data-id="bass"] .mx-fxb');
+  await page.click('#mxFxClose');
+  ok(!(await page.locator('#mxFx').isVisible()) && (await page.evaluate(() => document.activeElement === document.querySelector('.mx-strip[data-id="bass"] .mx-fxb'))), 'Fermer ferme, focus au bouton FX');
+  // une tranche de droite : le popover s'ouvre à gauche ; FX d'une autre tranche le déplace
+  await page.click('.mx-strip[data-id="bass"] .mx-fxb');
+  const ids2 = await page.evaluate(() => [...document.querySelectorAll('.mx-strip:not(.master)')].map((e) => e.dataset.id));
+  const lastId = ids2[ids2.length - 1];
+  const bx = (await rect('.mx-strip[data-id="bass"]')).l;
+  await page.click(`.mx-strip[data-id="${lastId}"] .mx-fxb`);
+  const g2 = await geo(lastId);
+  ok((await page.locator('#mxFx').count()) === 1 && (await page.locator('#mxFx').isVisible()) && (await page.locator('#mxFxTitle').textContent()).includes((await page.locator(`.mx-strip[data-id="${lastId}"] .mx-name`).evaluate((e) => e.firstChild.textContent))) && g2.inside && g2.glued && g2.fxVis, `FX d’une autre tranche (${lastId}) : le popover s’y déplace, dans la fenêtre, collé`);
+  ok(Math.abs(g2.p.r - g2.st.l) <= 24, 'tranche de droite : popover ouvert à gauche');
+  ok((await page.locator('.mx-strip.sel').count()) === 1 && (await page.locator('.mx-fxb[aria-expanded="true"]').count()) === 1, 'une seule tranche ouverte');
+  if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'pop-droite.png') });
+  await page.click('#mxFxClose');
+  // téléphone : feuille du bas, pas de défilement horizontal
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(300);
+  await page.click('.mx-strip[data-id="bass"] .mx-fxb');
+  const gs = await geo('bass', 390, 844);
+  ok(gs.p.l === 0 && Math.abs(gs.p.r - 390) < 1 && Math.abs(gs.p.b - 844) < 1 && gs.p.t >= 0, 'à 390 px : feuille du bas pleine largeur');
+  ok((await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)) && (await page.evaluate(() => { const t = document.querySelector('#mxFx .mx-tabs'); return getComputedStyle(t).flexDirection === 'row' && t.scrollWidth > t.clientWidth; })), 'à 390 px : pas de défilement horizontal de page, onglets horizontaux défilants');
+  if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'pop-mobile.png') });
+  await page.click('#mxFxClose');
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.waitForTimeout(300);
+  await page.click('.mx-strip[data-id="bass"] .mx-fxb');
+  await page.click('#mxFx [data-tab="eq"]');
   ok((await page.locator('#mxFx [data-mx="fx.eq.low"]').isDisabled()) && (await page.locator('#mxFx .hint').first().textContent()).includes('chanson seulement'), 'EQ en portée scène : grisé, mention « chanson seulement »');
   await page.click('#mxFx [data-tab="sends"]');
   ok((await page.locator('#mxFx [data-mx="fx.sends.plate"]').isDisabled()) && !(await page.locator('#mxFx [data-mx="fx.sends.hall"]').isDisabled()), 'Envois : plate grisé, hall réglable');
