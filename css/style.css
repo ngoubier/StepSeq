@@ -3762,6 +3762,8 @@ dialog.system-dialog { width: min(920px, calc(100vw - 24px)); max-height: calc(1
 .bw-melsrc .btn { margin-left: auto; }
 .mel-actions { grid-column: 1 / -1; }
 .bw-melbtns { display: flex; flex-wrap: wrap; gap: 8px; }
+/* assistant : les boutons Générer / Variante B restent visibles au bas de l'étape, même sur un petit écran */
+.bh-content .mel-actions { position: sticky; bottom: 0; z-index: 3; background: var(--panel); padding: 8px 0; border-top: 1px solid var(--line); }
 .bh-accboard .bh-ph { top: 0; }
 .mel-grid-source { display: flex; flex-direction: column; gap: 10px; }
 .mel-preview-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px; }

@@ -162,7 +162,9 @@ boucle** (pas toute la chanson ; choisir une autre scène pendant l'écoute la f
    l'inspiration** rend l'ordre, les longueurs et les scènes du plan. Ces retouches sont gardées dans `S.wiz`
    (`skey`, `form`, `secs`) ; `specEff()` en fait le plan joué (copie du plan avec la tonalité, l'arrangement, les
    longueurs, les noms et les copies), utilisé par l'écoute et par « Créer la chanson » (l'écoute joue l'arrangement
-   retouché) ; changer de style ou d'inspiration les remet à zéro. On écoute la chanson (ou à partir d'un bloc) et
+   retouché) ; changer de style ou d'inspiration les remet à zéro (les réglages par scène des étapes Batterie à
+   Arpèges restent pour les sections que la nouvelle inspiration a aussi : couplet, refrain… ; les motifs de batterie
+   seulement dans le même style ; la mélodie générée est oubliée, elle suivait les autres accords). On écoute la chanson (ou à partir d'un bloc) et
    chaque scène en boucle, sur un projet temporaire (même mixage que la chanson créée) ;
 5. **Batterie** : pour la scène choisie, une **bibliothèque de 20 motifs** du style (`SS.DRUM_PATTERNS`, carte avec nom,
    énergie ●●○ et aperçu des cinq pistes ; filtre Tous / Calme / Moyen / Intense ; **Suggéré** pour la nuance de la

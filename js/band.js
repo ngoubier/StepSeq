@@ -668,7 +668,7 @@ SS.band = (() => {
   function setPreset(id) {
     S.presetId = id;
     S.sel = null;
-    dropEdits();
+    dropEdits(true);
     renderPresets();
     renderSong();
     if (cover()) coverChanged(), coverInfo();
@@ -964,8 +964,27 @@ SS.band = (() => {
     renderWiz();
   }
   /** Efface toutes les retouches du plan (autre style ou autre inspiration, autre reprise). */
-  function dropEdits() {
-    if (S.wiz) Object.assign(S.wiz, { form: null, secs: {}, skey: null, keys: {}, grids: {}, emos: {}, parts: {}, melPanel: {} });
+  function dropEdits(sameStyle = false) {
+    if (!S.wiz) return;
+    Object.assign(S.wiz, { form: null, secs: {}, skey: null, keys: {}, grids: {}, emos: {}, parts: keptParts(sameStyle), melPanel: {} });
+  }
+  /**
+   * Réglages par scène gardés quand on change d'inspiration : ceux des sections que la nouvelle inspiration a aussi
+   * (couplet, refrain…). La mélodie générée suivait les accords de l'autre inspiration : elle est oubliée ; les motifs
+   * de batterie appartiennent à leur style : gardés seulement dans le même style.
+   */
+  function keptParts(sameStyle) {
+    const sp = spec();
+    const out = {};
+    if (!sp || !S.wiz.parts) return out;
+    for (const [sec, part] of Object.entries(S.wiz.parts)) {
+      if (!sp.sections[sec]) continue;
+      const p = { ...part };
+      delete p.lead;
+      if (!sameStyle) delete p.drums;
+      if (Object.keys(p).length) out[sec] = p;
+    }
+    return out;
   }
 
   /* ---------- Porte « Reprendre » : une reprise tapée au clavier ----------

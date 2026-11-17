@@ -202,6 +202,18 @@ const ok = (c, m) => {
   await page.click('#bwBack');
   ok((await cur()).includes('Nappes') && (await page.locator('.bwp-mode').count()) === 9, 'groupe avec nappe : les réglages');
 
+  // autre inspiration du même style : les réglages des sections communes restent, la mélodie générée est oubliée
+  await page.evaluate(() => (SS.band._state.wiz.parts = { verse: { bass: { pedal: 'tonic' }, drums: { style: 'synthwave', pattern: 'motorik' }, lead: { events: [] } }, nulle: { bass: { mode: '8' } } }));
+  for (let i = 0; i < 10 && !(await cur()).includes('Style'); i++) await page.click('#bwBack');
+  await page.click('#bandPresets .band-preset >> nth=0');
+  const kept = await parts();
+  ok(kept.verse && kept.verse.bass.pedal === 'tonic' && kept.verse.drums.pattern === 'motorik' && !kept.verse.lead && !kept.nulle, 'autre inspiration : pédale et motif du couplet gardés, mélodie générée et section absente oubliées');
+  await page.click('#bandStyles [data-v="edm"]');
+  ok(Object.values(await parts()).every((x) => !x.drums && !x.lead), 'autre style : les motifs de batterie sont oubliés');
+  await page.click('#bandStyles [data-v="synthwave"]');
+  await page.click('#bandPresets .band-preset >> nth=3');
+  await next(7); // retour à l'étape Nappes
+
   // téléphone : rien ne déborde
   await page.setViewportSize({ width: 390, height: 844 });
   await page.click('#bwBack');
