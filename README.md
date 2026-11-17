@@ -191,8 +191,13 @@ boucle** (pas toute la chanson ; choisir une autre scène pendant l'écoute la f
    roulement, syncopée, marche, drone, croches piquées, après le kick) en cartes avec leur rythme dessiné, **pédale**
    (aucune, tonique, dominante), **registre** (grave, médium), note d'approche. Nappes : 9 modes (tenue, montée douce,
    planante, croches, blocs, stabs, house, hachée, pincée) et **voicing** serré / ouvert ; seule la nappe se règle
-   (cordes et clavier gardent le plan). Arpèges : 8 modes, et l'arpège peut être **allumé** dans une scène où
-   l'inspiration n'en avait pas. Le mode de l'inspiration est repéré et choisi tant qu'on n'a rien réglé ; **Joue dans
+   (cordes et clavier gardent le plan). Arpèges : le **mode Intuitif d'Arp One** (voir plus bas), par scène : nom et catégorie du motif,
+   ‹ › et sélecteur de motifs rangés par catégorie (`SS.MOTIFS`), **🎲 Surprends-moi**, quatre boutons Densité / Ampleur /
+   Mouvement / Écho (`SS.Arp.macroPatch` / `macroValue`) et **Vitesse** (1/8, 1/16, 1/16 triolet, 1/32) ; l'arpège peut être
+   **allumé** dans une scène où l'inspiration n'en avait pas. Tant qu'on n'a rien touché, c'est l'arpège de l'inspiration
+   qui joue (aucun réglage écrit) ; le premier réglage part du motif d'Arp One le plus proche de son mode (montée → Montant,
+   cloches → Pédale aiguë…). Les notes sont écrites telles quelles sur la piste d'arpège (les réglages Arp One ne sont pas
+   recopiés sur la piste créée). Le mode de l'inspiration est repéré et choisi tant qu'on n'a rien réglé ; **Joue dans
    cette scène** coupe ou rend le musicien (`off`) ; **Copier vers les scènes du même type** (couplet et couplet 2…) ;
    Arpèges : aussi **vers toutes les scènes** ; **↺ Inspiration** défait les réglages de la scène. Un groupe sans le
    musicien garde l'étape, avec un message à la place des réglages. Les choix vont dans `S.wiz.parts`, passé à
@@ -210,12 +215,24 @@ boucle** (pas toute la chanson ; choisir une autre scène pendant l'écoute la f
    l'inspiration** qui joue (même dans une scène où elle ne chante pas, Générer la fait chanter) ; **↺ Inspiration** la
    rend. Chaque scène garde son propre état du panneau (réglages, graine, variante, proposition), rendu au retour ; la
    colonne des scènes affiche le nom du profil, ou « inspiration ». Changer les accords d'une scène efface sa
-   proposition. L'**accompagnement** est sous le panneau, replié sur une ligne, déplié avec **M**uet / **S**olo et
-   **volume** (−30 à +6 dB, `gains` d'`addBandSong`) par instrument et le menu **Pistes** ; test :
+   proposition. L'**accompagnement** est sous le panneau, replié sur une ligne, déplié avec le
+   **volume** (−30 à +6 dB, `gains` d'`addBandSong`) par instrument et le menu **Pistes** (Muet et Solo : barre de piste) ; test :
    `node tests/e2e/wizard-melody.js` ;
 11. **Intégration** : cases à cocher par musicien (batterie, basse, nappes, arpèges, lead…) et par élément de batterie ;
    **Créer la chanson** écrit les pistes cochées, les scènes et l'arrangement (tempo du bandeau, mixage
    automatique de Band). Ce qui est créé est exactement l'aperçu ; Ctrl+Z revient à la chanson vide.
+
+**Barre de piste** (étapes 5 à 10, au-dessus du contenu) : **Piste** liste les instruments que l'étape 2 propose au musicien
+de l'étape (Batterie : menu du **kit** et cases des éléments ; Accords : « Accords de la scène » ; Nappes : la nappe, sinon
+cordes ou clavier ; Mélodie : voix ou lead), le choix en cours marqué « (étape 2) » tant qu'il est celui de l'étape 2.
+C'est le même état que l'étape 2 (`S.cache`) : changer ici change là-bas, l'aperçu sonne avec et la chanson créée l'utilise.
+**On entend** : une pastille par musicien, colorée comme son rôle (`ROLES`) ; clic = **Muet** (en solo, elle ajoute ou
+retire le musicien du solo), **Seule** met le musicien de l'étape en **Solo** (re-clic : plus de solo). Ce sont
+`S.wiz.mute` / `S.wiz.solo`, lus par `silenced()` et par l'écoute : la boucle se tait vraiment, et le réglage vaut pour
+toutes les étapes. Les lignes d'accompagnement de l'étape Mélodie ne gardent que le volume. Aux étapes **Basse**,
+**Nappes** et **Arpèges**, un **aperçu en rouleau** montre les notes de la scène telles que la chanson les joue, sous la
+bande des accords (couleur = fonction) et les barres de mesure, avec une tête de lecture qui suit la boucle ; la note
+d'approche de la basse est plus claire. Test : `node tests/e2e/wizard-trackbar.js`.
 
 Le bouton **Nouvelle** de l'en-tête ouvre le même assistant sur le projet en cours (l'ancien écran « Créer les pistes / Créer toute la
 chanson » n'existe plus). La mélodie par défaut de Band (celle de l'inspiration, tant qu'on n'a rien généré à l'étape
@@ -229,8 +246,10 @@ sommet par scène.
 est exactement celle du plan. **Batterie** : `{ style, pattern, edits, fill: off|end|4|8, fillType: roll|toms|clap4|kick|cut|open,
 crash }` ; `pattern` est un identifiant de `js/drum-patterns.js` (kick, caisse claire, clap, charleston fermé et ouvert sur
 une mesure de 16 pas : `x` fort, `o` moyen, `.` léger, `-` silence), `edits` remplace ses pistes. **Basse** : `{ mode (dont
-half et quarter), pedal: none|tonic|fifth, approach, register: low|mid }`. **Nappe** : `{ mode, voicing: close|open }`.
-**Arpège** : `{ mode }`. `off` : rôles muets dans la scène (`['arp', 'lead']`). **Mélodie** : `lead: { events: [{ step, len,
+half et quarter), pedal: none|tonic|fifth, approach, register: low|mid }`. **Nappe** : `{ mode, voicing: close|open }`. **Arpège** : `{ mode }` (8 modes simples du moteur) ou `{ one }`, des réglages
+d'Arp One (`js/arp.js`) : les accords de la scène passent dans `SS.Arp.renderStep` (voicing médium, tempo nominal 120 BPM, boucle 0 :
+déterministe) et les notes sont posées sur la grille de pas ; `one` l'emporte sur `mode`.
+`off` : rôles muets dans la scène (`['arp', 'lead']`). **Mélodie** : `lead: { events: [{ step, len,
 notes: [midi], vel }] }` (étape Mélodie : proposition du panneau d'Harmonie) remplace la mélodie du moteur sur la première
 piste chantante présente (lead, puis vox, puis sax) ; `[]` = silence. Un `mode` allume le musicien dans une scène
 où le plan ne le faisait pas jouer.

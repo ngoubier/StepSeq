@@ -192,11 +192,11 @@ const SHOTS = process.env.SHOTS;
   await page.click('.bh-scene >> nth=0');
 
   // 7. Basse, 8. Nappes, 9. Arpèges : une scène à gauche, les réglages de la scène choisie
-  for (const [n, label, sel] of [[7, 'Basse', '.bwp-mode'], [8, 'Nappes', '.bwp-mode'], [9, 'Arpèges', '.bwp-chips .chip']]) {
+  for (const [n, label, sel] of [[7, 'Basse', '.bwp-mode'], [8, 'Nappes', '.bwp-mode'], [9, 'Arpèges', '.bwa-knob']]) {
     await page.click('#bwNext');
     await page.waitForTimeout(200);
     ok((await page.locator('#bandWizSteps li.cur').textContent()).includes(label), `étape ${n} : ${label}`);
-    ok((await page.locator('.bh-scene').count()) === 5 && (await page.locator(sel).count()) >= 8 && !!(await page.$('.bh-right > #bwTransport')), `${label} : scènes à gauche, réglages à droite`);
+    ok((await page.locator('.bh-scene').count()) === 5 && (await page.locator(sel).count()) >= (n === 9 ? 4 : 8) && !!(await page.$('.bh-right > #bwTransport')), `${label} : scènes à gauche, réglages à droite`);
   }
 
   // 8. Mélodie : la scène choisie, les phrases de la mélodie, ses accords (comme dans Harmonie) et les instruments dessous
@@ -216,7 +216,7 @@ const SHOTS = process.env.SHOTS;
   const pad = page.locator('.bh-lane', { hasText: 'Nappe' }).first();
   ok((await pad.locator('.bh-note').count()) > 0 && /100 % dans l’accord/.test(await pad.textContent()), 'la nappe : toutes ses notes dans l’accord');
   const rowsN = await page.locator('.bh-lane, .bh-drums').count();
-  ok((await page.locator('.bh-row .bw-m').count()) === rowsN && (await page.locator('.bh-row .bw-s').count()) === rowsN && (await page.locator('.bh-row .bh-vol').count()) === rowsN, `M, S et volume sur chaque instrument (${rowsN})`);
+  ok((await page.locator('.bh-row .bh-vol').count()) === rowsN && (await page.locator('.bh-row .bw-m, .bh-row .bw-s').count()) === 0 && (await page.locator('#bwTrackbar .tb-chip').count()) >= 4 && (await page.locator('#bwTbSolo').count()) === 1, `volume sur chaque instrument (${rowsN}), Muet / Seule dans la barre de piste`);
   ok((await page.locator('.bh-lane.mel').count()) === 1, 'la ligne de la mélodie est marquée');
   // menu « Pistes » : une case par piste (batterie en une), la mélodie ne se masque pas
   await page.click('#bwTracks summary');
@@ -282,9 +282,9 @@ const SHOTS = process.env.SHOTS;
   });
   const padNow = await page.evaluate((c) => SS.band._listen().tracks.find((t) => t.col === c).volume, padCol);
   ok(Math.abs(padNow / padBase - 0.501) < 0.01, `volume de la nappe : −6 dB à l’écoute (${padBase} → ${padNow.toFixed(3)})`);
-  await page.click('.bh-row .bw-m >> nth=0');
-  ok(await page.evaluate(() => SS.band._listen().tracks.filter((t) => t.mute).length >= 1), 'M : coupe l’instrument à l’écoute');
-  await page.click('.bh-row .bw-m >> nth=0');
+  await page.click('#bwTrackbar .tb-chip >> nth=0');
+  ok(await page.evaluate(() => SS.band._listen().tracks.filter((t) => t.mute).length >= 1), 'pastille « On entend » : coupe l’instrument à l’écoute');
+  await page.click('#bwTrackbar .tb-chip >> nth=0');
   await page.click('#bwStop');
 
   // 9. Intégration

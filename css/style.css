@@ -2565,12 +2565,6 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
 .bw-clip { position: relative; }
 .bw-grid tr.playing .bw-clip::after { content: ''; position: absolute; top: 0; bottom: 0; left: calc(var(--ph, 0) * 100%); width: 2px; background: #fff; opacity: .85; }
 .bw-grid tr.playing:not([style*="--ph"]) .bw-clip::after { display: none; }
-.bw-ms { display: inline-flex; gap: 2px; margin-left: 6px; vertical-align: middle; }
-.bw-ms button { width: 20px; height: 18px; padding: 0; border-radius: 4px; border: 1px solid #3a3a42; background: #1d1d23; color: var(--muted); font: 600 10px/1 inherit; cursor: pointer; }
-.bw-ms button:hover { color: var(--text); border-color: #55555f; }
-.bw-ms .bw-m.on { background: #b8452f; border-color: #d4583f; color: #fff; }
-.bw-ms .bw-s.on { background: var(--gold); border-color: #e0b934; color: #1b1b20; }
-.bw-track .bw-ms { display: flex; margin: 3px 0 0; }
 @media (max-width: 760px) {
   .band-wiz-steps span { display: none; }
   .band-wiz-steps li.cur span { display: inline; }
@@ -2636,6 +2630,36 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
 .bh-lbl small { margin-left: 5px; text-transform: none; letter-spacing: 0; font-size: 11.5px; color: #c9b8ff; }
 .bh-notes output { min-width: 70px; padding: 0 4px; text-align: center; font-weight: 600; font-size: 14px; }
 .bh-notes button:disabled { color: #55555f; cursor: default; }
+/* barre de piste (étapes Batterie à Mélodie) et aperçu en rouleau (Basse, Nappes, Arpèges) */
+.bw-trackbar { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding: 8px 12px; border: 1px solid var(--line); border-left: 4px solid var(--c); border-radius: 10px; background: #1b1b1f; }
+.tb-grp { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-width: 0; }
+.tb-lbl { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.tb-fixed { font-size: 13px; font-weight: 600; }
+.bw-trackbar select { max-width: 100%; min-width: 0; padding: 5px 8px; border: 1px solid var(--c); border-radius: 6px; background: var(--panel-2); color: var(--text); font: inherit; font-size: 13px; }
+.tb-pieces { display: flex; flex-wrap: wrap; gap: 4px; }
+.tb-piece, .tb-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; }
+.tb-piece.on { color: var(--text); border-color: #55555f; background: var(--panel-2); }
+.tb-chip i { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--c); box-sizing: border-box; }
+.tb-chip.on { color: var(--text); border-color: var(--c); background: color-mix(in srgb, var(--c) 18%, transparent); }
+.tb-chip.on i { background: var(--c); }
+.tb-chip:hover, .tb-piece:hover { border-color: #55555f; }
+.tb-solo.on { background: var(--gold); border-color: #e0b934; color: #1b1b20; }
+.bw-roll { flex: none; position: relative; border: 1px solid var(--line); border-radius: 10px; background: #141418; overflow: hidden; }
+.bw-rchords { position: relative; height: 30px; background: #1d1d22; border-bottom: 1px solid var(--line); }
+.bw-rc { position: absolute; top: 3px; bottom: 3px; box-sizing: border-box; padding: 0 6px; display: flex; align-items: center; font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; border-left: 1px solid #45454c; border-bottom: 3px solid var(--role, var(--muted)); background: var(--panel-2); }
+.bw-rbody { position: relative; height: 150px; }
+.bw-roll-svg { display: block; width: 100%; height: 100%; }
+.bw-roll-svg rect { stroke: none; }
+.bw-roll-svg .bw-rb { fill: rgba(255, 255, 255, .03); }
+.bw-roll-svg .bw-rt { fill: rgba(63, 207, 142, .09); }
+.bw-roll-svg .bw-rbeat { stroke: #26262d; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.bw-roll-svg .bw-rbar { stroke: #4a4a55; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.bw-rn { fill: var(--c); }
+.bw-rn.appr { fill: color-mix(in srgb, var(--c) 45%, #fff); }
+.bw-roll-ph { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--accent-2); pointer-events: none; }
+.bw-roll-ph[hidden] { display: none; }
+.bw-rempty { position: absolute; inset: 40px 0 auto; margin: 0; text-align: center; font-size: 13px; color: var(--muted); }
+@media (max-width: 700px) { .bw-rbody { height: 110px; } .bw-rc { padding: 0 3px; font-size: 11px; } }
 /* étape Accords : la grille de la scène, comme dans Harmonie */
 .bwc { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 12px; padding-bottom: 14px; }
 .bwc-head h3 { margin: 0; font-size: 18px; }
@@ -2700,8 +2724,19 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
 .bwp-mode small { font-size: 11.5px; line-height: 1.35; color: var(--muted); }
 .bwp-rhy { display: block; color: var(--c); }
 .bwp-rhy svg { display: block; width: 100%; height: 22px; }
-.bwp-chips .chip small { margin-left: 6px; color: var(--muted); font-size: 11px; }
-.bwp-chips .chip.active small { color: #e3eeff; }
+/* étape Arpèges : Arp One, mode Intuitif */
+.bwa-motif { display: flex; align-items: stretch; gap: 8px; min-width: 0; }
+.bwa-nav { flex: none; min-width: 40px; padding: 0 12px; font-size: 18px; }
+.bwa-name { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; gap: 2px; min-width: 0; padding: 8px 14px; border: 1px solid var(--accent-2); border-radius: 10px; background: var(--panel); }
+.bwa-name b { font-size: 16px; }
+.bwa-name small { color: var(--muted); font-size: 12px; }
+.bwa-pick select { max-width: 100%; }
+.bwa-knobs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.bwa-knob { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); }
+.bwa-kh { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; font-size: 14px; }
+.bwa-kh output { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; }
+.bwa-knob input[type=range] { width: 100%; accent-color: #8b6cf0; }
+.bwa-knob small { color: var(--muted); font-size: 11.5px; min-height: 1.3em; }
 @media (max-width: 1000px) {
   .band-wiz-steps span { display: none; }
   .band-wiz-steps li.cur span { display: inline; }
@@ -2710,7 +2745,7 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
   .bwp-dgrid { grid-template-columns: 30px repeat(16, minmax(0, 1fr)); gap: 2px; }
   .bwp-ln span { display: none; }
   .bwp-lib, .bwp-modes { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); }
-  .bwp-chips .chip small { display: none; }
+  .bwa-knobs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 /* fenêtre « Trouver l'inspiration » */
 .bw-insp { position: absolute; inset: 0; z-index: 6; display: flex; align-items: flex-start; justify-content: center; padding: 28px 16px; background: rgba(8, 8, 12, .66); border-radius: 14px; overflow: auto; }
@@ -2782,7 +2817,6 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
 /* tête d'instrument : nom, part dans l'accord, Muet / Solo et volume */
 .bh-ihead .bh-name { flex: 1; gap: 4px; }
 .bh-ctl { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.bh-ctl .bw-ms { margin: 0; flex: none; }
 .bh-vol { flex: 1; min-width: 40px; max-width: 96px; height: 14px; margin: 0; accent-color: var(--c, var(--accent)); cursor: pointer; }
 .bh-row.muted .bh-track { opacity: .35; }
 .bh-row.muted .bh-name > b, .bh-row.muted .bh-name > small { opacity: .55; }

@@ -6,7 +6,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 globalThis.window = globalThis;
-['dirt.js', 'dirt-tuning.js', 'sounds.js', 'harmony.js', 'project.js', 'band-presets.js', 'band-songs.js', 'drum-patterns.js', 'bandsong.js'].forEach((f) => require('../js/' + f));
+['dirt.js', 'dirt-tuning.js', 'sounds.js', 'harmony.js', 'project.js', 'band-presets.js', 'band-songs.js', 'drum-patterns.js', 'arp.js', 'motifs.js', 'bandsong.js'].forEach((f) => require('../js/' + f));
 const SS = globalThis.SS;
 
 const PRESETS = SS.Band.STYLES.flatMap((st) => st.presets.map((p) => ({ ...p, style: st.id })));
@@ -252,4 +252,51 @@ test('parts[section].lead : la mélodie imposée remplace celle du moteur sur la
   const nolead = tr.filter((t) => t.id !== 'lead');
   const v = SS.bandSong.build(sp2, 'test', nolead, { parts: { a: { lead: { events: evs } } } });
   assert.deepEqual(v.scenes[0].data.vox.events.map((e) => e.notes[0]), [72, 67]);
+});
+
+/* ---------- Arp One dans l'arpège de la scène (parts[section].arp.one) ---------- */
+const arpEv = (parts, i = 0) => build(parts).scenes[i].data.arp.events;
+const motif = (id) => SS.MOTIFS.find((m) => m.id === id);
+const oneOf = (id, extra = {}) => SS.Arp.normalize({ ...SS.motifPatch({}, motif(id)), rate: 1, ...extra });
+const sameEv = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+
+test('Arp One : sans « one », l’arpège est inchangé (mode, off)', () => {
+  const base = JSON.stringify(build(null).scenes.map((s) => s.data));
+  assert.equal(JSON.stringify(build({ a: {} }).scenes.map((s) => s.data)), base);
+  assert.equal(JSON.stringify(build({ a: { arp: { mode: 'up16' } } }).scenes.map((s) => s.data)), base); // up16 = le plan
+  assert.notEqual(JSON.stringify(arpEv({ a: { arp: { mode: 'bells' } } })), JSON.stringify(arpEv(null)));
+  assert.equal(arpEv({ a: { off: ['arp'] } }).length, 0);
+});
+
+test('Arp One : des notes sur chaque accord, dans la scène, déterministes', () => {
+  const parts = { a: { arp: { one: oneOf('up') } } };
+  const r = build(parts);
+  const ev = r.scenes[0].data.arp.events;
+  assert.ok(ev.length > 0);
+  ev.forEach((e) => {
+    assert.ok(Number.isInteger(e.step) && e.step >= 0 && e.step < 8 * 16, 'dans la scène');
+    assert.ok(Number.isInteger(e.len) && e.len >= 1 && e.step + e.len <= 8 * 16);
+    assert.equal(e.notes.length, 1);
+    assert.ok(e.notes[0] >= 48 && e.notes[0] <= 100, 'registre médium : ' + e.notes[0]);
+    assert.ok(e.vel > 0 && e.vel <= 1);
+  });
+  // quatre accords de deux mesures : notes sur chacun
+  r.scenes[0].spans.forEach((sp) => assert.ok(ev.some((e) => e.step >= sp.step && e.step < sp.step + sp.len), 'accord à ' + sp.step));
+  assert.equal(JSON.stringify(arpEv(parts)), JSON.stringify(ev));
+  // une scène sans arpège dans le plan l'allume avec « one »
+  assert.ok(arpEv({ b: { arp: { one: oneOf('up') } } }, 1).length > 0);
+  // one l'emporte sur mode ; muet : silence
+  assert.ok(sameEv(arpEv({ a: { arp: { mode: 'bells', one: oneOf('up') } } }), ev));
+  assert.equal(arpEv({ a: { arp: { one: oneOf('up') }, off: ['arp'] } }).length, 0);
+});
+
+test('Arp One : deux motifs donnent des notes différentes ; moins de densité, moins de notes', () => {
+  const a = arpEv({ a: { arp: { one: oneOf('up') } } });
+  const b = arpEv({ a: { arp: { one: oneOf('down') } } });
+  assert.ok(!sameEv(a, b));
+  const low = SS.Arp.normalize({ ...oneOf('up'), ...SS.Arp.macroPatch(oneOf('up'), 'density', 10) });
+  const few = arpEv({ a: { arp: { one: low } } });
+  assert.ok(few.length > 0 && few.length < a.length, `${few.length} < ${a.length}`);
+  const high = SS.Arp.normalize({ ...oneOf('up'), ...SS.Arp.macroPatch(oneOf('up'), 'density', 90) });
+  assert.ok(arpEv({ a: { arp: { one: high } } }).length > a.length);
 });
