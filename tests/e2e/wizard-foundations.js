@@ -232,7 +232,7 @@ const ok = (c, m) => {
   const want = await order();
   const wantScenes = await scenes();
   ok(wantScenes.length === 5 && !wantScenes.some((x) => x.sec === 'outro') && (await page.locator('.bw-sc.unused').count()) === 1 && wantScenes.find((s) => s.sec === 'bridge').mode === 'major', `avant de créer : ${want}`);
-  await next(8); // Batterie, Accords, Basse, Nappes, Arpèges, Mélodie, Mix, Intégration
+  await next(8); // Accords, Batterie, Basse, Nappes, Arpèges, Mélodie, Mix, Intégration
   ok((await cur()).includes('Intégration') && (await page.isVisible('#bwCreate')), 'étape 12 : Intégration');
   await page.click('#bwCreate');
   await page.waitForTimeout(900);

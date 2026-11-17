@@ -86,17 +86,17 @@ const SHOTS = process.env.SHOTS;
   ok(/Sol majeur/.test(await page.textContent('#wizKey')), 'bandeau : Sol majeur');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'cover-song.png') });
 
-  // 5. Batterie, puis 6. Accords : la grille de la partie
-  await page.dispatchEvent('#bwNext', 'click');
-  await page.waitForTimeout(200);
-  ok((await page.locator('#bandWizSteps li.cur').textContent()).includes('Batterie') && (await page.locator('.bh-scene').count()) === 2, 'Batterie : les deux parties tapées à gauche');
+  // 5. Accords : la grille de la partie, puis l'onglet de la batterie
   await page.dispatchEvent('#bwNext', 'click');
   await page.waitForTimeout(200);
   const gnames = await page.$$eval('#bwLane .gr-blk', (bs) => bs.map((x) => x.querySelector('b').textContent));
   ok(gnames.join(' ') === 'G D/F♯ Em C', `grille du couplet : ${gnames.join(' ')}`);
+  await page.dispatchEvent('#bwNext', 'click');
+  await page.waitForTimeout(200);
+  ok((await page.locator('#bandWizSteps li.cur').getAttribute('data-kind')) === 'drums' && (await page.locator('.bh-scene').count()) === 2, 'Batterie : les deux parties tapées à gauche');
 
   // créer
-  await page.click('#bandWizSteps li >> nth=11 >> button');
+  await page.click('#bandWizSteps li >> nth=-1 >> button');
   await page.waitForTimeout(150);
   await page.click('#bwCreate');
   await page.waitForTimeout(500);

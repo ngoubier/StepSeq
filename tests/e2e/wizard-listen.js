@@ -97,10 +97,12 @@ const SHOTS = process.env.SHOTS;
   await page.click('.bw-splay >> nth=2');
   await page.dispatchEvent('#bwNext', 'click');
   await page.waitForTimeout(300);
-  ok((await playing()) && (await page.textContent('.bh-scene.on .bh-sname b')) === 'Refrain', 'étape Batterie : l’écoute continue, sur la scène qu’on entend');
+  ok((await playing()) && (await page.textContent('.bh-scene.on .bh-sname b')) === 'Refrain', 'étape Accords : l’écoute continue, sur la scène qu’on entend');
   await page.dispatchEvent('#bwNext', 'click');
   await page.waitForTimeout(300);
-  ok((await playing()) && (await page.textContent('.bh-scene.on .bh-sname b')) === 'Refrain', 'étape Accords : l’écoute continue, sur la scène qu’on entend');
+  ok((await playing()) && (await page.textContent('.bh-scene.on .bh-sname b')) === 'Refrain', 'étape Batterie : l’écoute continue, sur la scène qu’on entend');
+  await page.dispatchEvent('#bwBack', 'click'); // retour aux Accords (grille et tête de lecture)
+  await page.waitForTimeout(300);
   await page.click('#stop');
   await page.click('.bh-scene >> nth=1');
   await page.click('#play');
@@ -113,8 +115,8 @@ const SHOTS = process.env.SHOTS;
   await page.waitForFunction(() => !document.querySelector('#bwGridPh').hidden, null, { timeout: 8000 }).catch(() => {});
   ok(await page.evaluate(() => !document.querySelector('#bwGridPh').hidden), 'tête de lecture sur la grille d’accords');
 
-  // étape Mélodie (après Basse, Nappes, Arpèges) : tempo changé en cours d'écoute
-  for (let i = 0; i < 4; i++) {
+  // étape de la mélodie (après Batterie, Basse, Nappes, Arpèges) : tempo changé en cours d'écoute
+  for (let i = 0; i < 5; i++) {
     await page.dispatchEvent('#bwNext', 'click');
     await page.waitForTimeout(300);
   }
@@ -167,7 +169,7 @@ const SHOTS = process.env.SHOTS;
   t = await tracks();
   ok(t.filter((x) => x[1]).length >= 3, 'pastille de la batterie : tous ses éléments coupés');
   // étape Chanson : les colonnes coupées sont grisées
-  for (let i = 0; i < 6; i++) await page.dispatchEvent('#bwBack', 'click'); // Arpèges, Nappes, Basse, Accords, Batterie, Chanson
+  for (let i = 0; i < 6; i++) await page.dispatchEvent('#bwBack', 'click'); // Arpèges, Nappes, Basse, Batterie, Accords, Scènes
   ok((await page.locator('.bw-track.muted').count()) === t.filter((x) => x[1]).length && (await page.locator('.bw-track:not(.muted)').count()) > 0, 'étape Chanson : les colonnes coupées sont grisées, les autres restent claires');
 
   // fermeture : arrêt, rien n'est créé
@@ -187,12 +189,11 @@ const SHOTS = process.env.SHOTS;
   const over = await page.evaluate(() => document.querySelector('#bandDialog').scrollWidth - document.querySelector('#bandDialog').clientWidth);
   ok(over <= 1, 'téléphone : pas de défilement horizontal de la fenêtre');
   await page.dispatchEvent('#bwNext', 'click');
-  await page.dispatchEvent('#bwNext', 'click');
   await page.waitForTimeout(200);
   const over3 = await page.evaluate(() => document.querySelector('#bandDialog').scrollWidth - document.querySelector('#bandDialog').clientWidth);
   ok(over3 <= 1, 'téléphone, étape Accords : rien ne déborde');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'listen-mobile-accords.png') });
-  for (let i = 0; i < 4; i++) await page.dispatchEvent('#bwNext', 'click');
+  for (let i = 0; i < 5; i++) await page.dispatchEvent('#bwNext', 'click');
   await page.waitForTimeout(200);
   const over2 = await page.evaluate(() => document.querySelector('#bandDialog').scrollWidth - document.querySelector('#bandDialog').clientWidth);
   const foot = await page.evaluate(() => document.querySelector('.bh-scroll').getBoundingClientRect().bottom <= document.querySelector('.band-foot').getBoundingClientRect().top + 1);

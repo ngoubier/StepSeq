@@ -247,7 +247,7 @@
   <section id="bandDialog" class="band-dialog" aria-label="Nouvelle chanson">
     <div class="band-shell">
       <div class="bw-frame">
-        <!-- Assistant : douze étapes en trois groupes (Fondations 1 à 4, Pistes scène par scène 5 à 11, Créer 12), un résumé par étape -->
+        <!-- Assistant : trois groupes (Fondations 1 à 5, Instruments scène par scène : une étape par instrument, Finaliser : Mix et Intégration), un résumé par étape -->
         <nav class="bw-stepper" aria-label="Étapes de l'assistant">
           <ol class="band-wiz-steps wiz-only" id="bandWizSteps" aria-label="Étapes de l'assistant" hidden></ol>
         </nav>
@@ -294,6 +294,8 @@
             <div class="band-main">
               <div class="band-step" id="bandStageHead"><b>3</b> Le groupe <small class="dlg-hint" data-helpify>clique sur un musicien pour choisir son instrument</small></div>
               <div class="band-stage" id="bandStage"></div>
+              <!-- Type de chaque instrument (Drums, Basse, Accords, Arpèges, Mélodie) : js/band.js, renderKinds -->
+              <div class="bw-kinds-list" id="bandKinds" hidden></div>
             </div>
             <aside class="band-panel" id="bandPanel" hidden aria-live="polite"></aside>
           </div>

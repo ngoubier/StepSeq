@@ -32,6 +32,8 @@ const ok = (c, m) => {
   await page.goto(`http://localhost:${server.address().port}/index.html`);
   await page.waitForTimeout(1200);
   const P = () => page.evaluate(() => JSON.parse(localStorage.getItem('stepseq.autosave')));
+  /** Mélodie générée d'une scène : parts[section].inst[id].lead (réglage de l'instrument). */
+  const LD = (pp) => Object.values((pp && pp.inst) || {}).map((x) => x.lead).find(Boolean);
   const parts = () => page.evaluate(() => JSON.parse(JSON.stringify(SS.band._state.wiz.parts)));
   const next = async (n = 1) => {
     for (let i = 0; i < n; i++) await page.dispatchEvent('#bwNext', 'click');
@@ -85,10 +87,10 @@ const ok = (c, m) => {
   await page.click('#bwMelGo');
   await page.waitForTimeout(500);
   const p1 = await parts();
-  ok(!!p1[sec] && !!p1[sec].lead && p1[sec].lead.events.length > 0, 'parts[section].lead écrit');
+  ok(!!p1[sec] && !!LD(p1[sec]) && LD(p1[sec]).events.length > 0, 'parts[section].inst[id].lead écrit');
   const g1 = await sig(name);
   ok(g1 !== insp, 'la mélodie de la scène dans l’aperçu a changé');
-  ok(JSON.stringify(p1[sec].lead.events.map((e) => [e.step, e.len, e.notes])) === g1, 'l’aperçu joue exactement les notes de la proposition');
+  ok(JSON.stringify(LD(p1[sec]).events.map((e) => [e.step, e.len, e.notes])) === g1, 'l’aperçu joue exactement les notes de la proposition');
   ok(await generated(), 'la proposition est affichée (piano roll)');
   ok(/Mélodie générée/.test(await page.textContent('#bwMelSrc')) && !!(await page.$('#bwMelBack')) && (await page.textContent('#bwMelGo')).includes('Une autre'), '« Mélodie générée », ↺ Inspiration offert, bouton « Une autre »');
   await page.waitForFunction(() => SS.audio.isPlaying(), null, { timeout: 8000 });
@@ -120,7 +122,7 @@ const ok = (c, m) => {
   await scene(name);
   ok((await page.inputValue('#melComplexity')) === 'simple' && (await page.inputValue('#melMeter')) === '6 6' && (await page.inputValue('#melEmo')) === emoVal, 'retour : réglages restaurés (complexité, structure, émotion)');
   ok(await generated(), 'retour : la proposition est restaurée');
-  ok((await sig(name)) === g2 && !!(await parts())[sec].lead, 'retour : la mélodie de la scène est inchangée');
+  ok((await sig(name)) === g2 && !!LD((await parts())[sec]), 'retour : la mélodie de la scène est inchangée');
   await scene(other);
   ok((await page.inputValue('#melComplexity')) === 'adventurous', 'l’autre scène a gardé son propre réglage');
   await scene(name);
@@ -134,7 +136,7 @@ const ok = (c, m) => {
   await page.click('#bwMelVarB');
   await page.waitForTimeout(400);
   ok(!!(await page.$('.mel-variant')) && (await sig(name)) !== beforeB, 'Variante B : la mélodie de la scène change');
-  ok(JSON.stringify((await parts())[sec].lead.events.map((e) => [e.step, e.len, e.notes])) === (await sig(name)), 'Variante B : parts[section].lead suit');
+  ok(JSON.stringify(LD((await parts())[sec]).events.map((e) => [e.step, e.len, e.notes])) === (await sig(name)), 'Variante B : parts[section].lead suit');
   await page.click('#melVarA');
   await page.waitForTimeout(300);
   ok((await sig(name)) === beforeB && !(await page.$('.mel-variant')), 'Revenir à A : la mélodie d’avant');
@@ -162,19 +164,19 @@ const ok = (c, m) => {
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'wizard-melodie-accomp.png') });
 
   // aller-retour entre étapes
-  await page.click('#bandWizSteps li:nth-child(6) button');
+  await page.click('#bandWizSteps li:nth-child(5) button');
   await page.waitForTimeout(300);
   ok((await cur()).includes('Accords'), 'retour à l’étape Accords');
   await page.click('#bandWizSteps li:nth-child(10) button');
   await page.waitForTimeout(300);
-  ok((await sig(name)) === g3 && !!(await parts())[sec].lead && (await generated()), 'aller-retour entre étapes : la proposition est gardée');
+  ok((await sig(name)) === g3 && !!LD((await parts())[sec]) && (await generated()), 'aller-retour entre étapes : la proposition est gardée');
 
   // une scène où l'inspiration ne chante pas : Générer la fait chanter
   await scene('Intro');
   ok((await lead('Intro')).length === 0, 'Intro : pas de mélodie dans l’inspiration');
   await page.click('#bwMelGo');
   await page.waitForTimeout(400);
-  ok((await lead('Intro')).length > 0 && !!(await parts()).intro.lead, 'Intro : la mélodie générée joue');
+  ok((await lead('Intro')).length > 0 && !!LD((await parts()).intro), 'Intro : la mélodie générée joue');
   await page.click('#bwMelBack');
   await page.waitForTimeout(300);
   ok((await lead('Intro')).length === 0 && !(await parts()).intro, 'Intro : ↺ Inspiration la rend muette comme avant');
@@ -184,7 +186,7 @@ const ok = (c, m) => {
   await scene('Pont');
   await page.click('#bwMelGo');
   await page.waitForTimeout(400);
-  ok(!!(await parts()).bridge.lead, 'Pont : mélodie générée');
+  ok(!!LD((await parts()).bridge), 'Pont : mélodie générée');
   await page.evaluate(() => (SS.band._state.wiz.keys.bridge = { tonic: 'D', mode: 'minor' }));
   await page.click('#bandWizSteps li:nth-child(6) button');
   await page.click('#bandWizSteps li:nth-child(10) button');

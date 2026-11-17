@@ -54,12 +54,12 @@ const ok = (c, m) => {
   await page.waitForTimeout(600);
   await page.click('#bandStyles [data-v="synthwave"]');
   await page.click('#bandPresets .band-preset >> nth=0');
-  await next(4); // Batterie
+  await next(4); // Accords
   ok((await page.locator('#bandWizSteps li').count()) === 12, 'douze étapes');
   ok((await page.evaluate(() => SS.band._state.wiz.mix)) === null, 'avant l’étape Mix : pas de mix');
   await next(6);
   ok((await cur()).includes('Mix') && (await page.locator('#bwStepHead h1').textContent()).startsWith('11'), 'étape 11 : Mix');
-  ok((await page.locator('#bandWizSteps li:nth-child(11)').getAttribute('data-group')) === null && (await page.locator('#bandWizSteps li:nth-child(12)').getAttribute('data-group')) === 'Créer', 'Mix dans « Pistes, scène par scène », Intégration dans « Créer »');
+  ok((await page.locator('#bandWizSteps li:nth-child(11)').getAttribute('data-group')) === 'Finaliser' && (await page.locator('#bandWizSteps li:nth-child(12)').getAttribute('data-group')) === null, 'Mix ouvre « Finaliser », Intégration le suit');
   ok((await page.locator('#bandWizSteps li:nth-child(11) .bw-ss').textContent()) === 'Mixage automatique', 'résumé de l’étape : Mixage automatique');
 
   // la console : batterie sous un cadre, autres rôles, Master

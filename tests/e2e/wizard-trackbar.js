@@ -42,6 +42,8 @@ const ok = (c, m) => {
     await page.waitForTimeout(250);
   };
   const cur = async () => (await page.locator('#bandWizSteps li.cur').textContent()).trim();
+  /** Type de l'instrument de l'onglet en cours (Accords : « accords-grille »). */
+  const kindNow = async () => (await page.locator('#bwParts').count()) ? page.getAttribute('#bwParts', 'data-kind') : (await page.locator('#bwMelBoard').count()) ? 'melody' : 'grille';
   const tracks = () => page.evaluate(() => SS.band._listen().tracks.map((t) => [t.col, t.mute, t.solo, t.name, t.instrument || t.sound]));
 
   await page.click('#appMenuBtn');
@@ -61,7 +63,7 @@ const ok = (c, m) => {
 
   // étape 7 : Basse
   await next(5);
-  ok((await cur()).includes('Basse'), 'étape Basse');
+  ok((await kindNow()) === 'bass', 'onglet de la basse');
   ok((await page.locator('#bwTrackbar').count()) === 1, 'barre de piste présente');
   const opts = await page.$$eval('#bwTbPiste option', (xs) => xs.map((x) => x.textContent));
   ok(opts.length === nCards && names.every((n) => opts.some((o) => o.includes(n))), `Piste : les ${opts.length} choix de l'étape 2 (${opts.join(' | ')})`);
@@ -120,7 +122,7 @@ const ok = (c, m) => {
   ok((await page.locator('.tb-chip.on').count()) === 1 && (await page.getAttribute('#bwTbSolo', 'aria-pressed')) === 'true', 'une seule pastille allumée');
   // l'état se retrouve aux autres étapes
   await next(1);
-  ok((await cur()).includes('Nappes') && (await tracks()).filter((t) => t[2]).length === 1 && (await page.locator('.tb-chip.on').count()) === 1, 'le solo est partagé avec l’étape suivante');
+  ok((await kindNow()) === 'chords' && (await tracks()).filter((t) => t[2]).length === 1 && (await page.locator('.tb-chip.on').count()) === 1, 'le solo est partagé avec l’étape suivante');
   await page.dispatchEvent('#bwBack', 'click');
   await page.waitForTimeout(250);
   await page.click('#bwTbSolo');
@@ -130,24 +132,23 @@ const ok = (c, m) => {
 
   // Nappes et Arpèges : rouleau aussi
   await next(1);
-  ok((await cur()).includes('Nappes') && (await page.locator('#bwRoll .bw-rn').count()) > 0, 'Nappes : rouleau avec des notes');
+  ok((await kindNow()) === 'chords' && (await page.locator('#bwRoll .bw-rn').count()) > 0, 'Nappe : rouleau avec des notes');
   await next(1);
   await page.click('.bh-scene:has(.bh-sname b:text-is("Refrain"))'); // pas d'arpège dans le couplet
   await page.waitForTimeout(300);
-  ok((await cur()).includes('Arpèges') && (await page.locator('#bwRoll .bw-rn').count()) > 0 && (await page.locator('#bwTbPiste').count()) === 1, 'Arpèges : rouleau et menu Piste');
+  ok((await kindNow()) === 'arp' && (await page.locator('#bwRoll .bw-rn').count()) > 0 && (await page.locator('#bwTbPiste').count()) === 1, 'Arpèges : rouleau et menu Piste');
 
   // Accords et Mélodie
-  await page.dispatchEvent('#bwBack', 'click');
-  await page.dispatchEvent('#bwBack', 'click');
-  await page.dispatchEvent('#bwBack', 'click');
+  for (let i = 0; i < 4; i++) await page.dispatchEvent('#bwBack', 'click');
+  await page.waitForTimeout(250);
   ok((await cur()).includes('Accords') && /Accords de la scène/.test(await page.textContent('#bwTrackbar')) && (await page.locator('#bwTbSolo').count()) === 0, 'Accords : « Piste Accords de la scène », pas de Seule');
-  await next(4);
-  ok((await cur()).includes('Mélodie') && (await page.locator('#bwTbPiste').count()) === 1 && (await page.locator('.bh-lane .bw-m, .bh-lane .bw-s').count()) === 0, 'Mélodie : barre de piste, plus de M / S par ligne');
+  await next(5);
+  ok((await kindNow()) === 'melody' && (await page.locator('#bwTbPiste').count()) === 1 && (await page.locator('.bh-lane .bw-m, .bh-lane .bw-s').count()) === 0, 'Mélodie : barre de piste, plus de M / S par ligne');
 
   // Batterie : le kit
-  for (let i = 0; i < 5; i++) await page.dispatchEvent('#bwBack', 'click');
+  for (let i = 0; i < 4; i++) await page.dispatchEvent('#bwBack', 'click');
   await page.waitForTimeout(250);
-  ok((await cur()).includes('Batterie') && (await page.locator('#bwTbKit').count()) === 1, 'étape Batterie : menu du kit');
+  ok((await kindNow()) === 'drums' && (await page.locator('#bwTbKit').count()) === 1, 'étape Batterie : menu du kit');
   const kit0 = await page.inputValue('#bwTbKit');
   let kitName = '';
   const kitVal = await page.$$eval('#bwTbKit option', (xs) => xs.find((x) => !x.selected).value);
