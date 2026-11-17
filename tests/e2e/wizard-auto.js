@@ -267,7 +267,52 @@ const ok = (c, m) => {
   await page.keyboard.press('Escape');
   ok((await page.locator('#bwAuto .bwau-ln').count()) === 1 && (await page.locator('#bwauCopy').count()) === 1, 'mélodie : le panneau Reverb apparaît, avec sa copie');
   await page.click('.bwau-ln[data-param="reverb"] [data-shape="rise"]');
+
+  // alignement mesuré : début des mesures 1 et 2 de la grille de notes = repères 1 et 2 de la règle de la courbe
+  const xs = (kind) =>
+    page.evaluate((k) => {
+      const ruler = [...document.querySelectorAll('#bwAuto .bwau-ruler span')].slice(0, 2).map((e) => e.getBoundingClientRect().left);
+      let grid;
+      if (k === 'melody') grid = [...document.querySelectorAll('#bwMelBoard .bh-ruler .bh-num')].slice(0, 2).map((e) => e.getBoundingClientRect().left - parseFloat(getComputedStyle(e).marginLeft));
+      else {
+        const r = document.querySelector('#bwRoll .bw-rbody').getBoundingClientRect();
+        const n = Number(document.querySelector('#bwRoll').dataset.bars);
+        grid = [r.left, r.left + r.width / n];
+      }
+      const mini = [...document.querySelectorAll('#bwAuto .bwau-ln.fold .bwau-cv')].map((e) => e.getBoundingClientRect().left);
+      return { ruler, grid, mini };
+    }, kind);
+  const same = (a, b) => a.length === 2 && b.length === 2 && a.every((x, i) => Math.abs(x - b[i]) <= 2);
+  const align = async (kind, label) => {
+    const r = await xs(kind);
+    ok(same(r.ruler, r.grid), `${label} : mesures 1 et 2 de la règle alignées sur la grille (${r.ruler.map(Math.round)} / ${r.grid.map(Math.round)})`);
+    return r;
+  };
+  await align('melody', 'mélodie');
+  await page.click('#bwAutoBtn');
+  await menuItem('filter').click();
+  await page.keyboard.press('Escape');
+  await page.click('.bwau-ln[data-param="filter"] .bwau-fold');
+  const rm = await align('melody', 'mélodie (une courbe repliée)');
+  const g0 = await page.evaluate(() => document.querySelector('#bwMelBoard .bh-ruler .bh-track').getBoundingClientRect().left);
+  ok(rm.mini.length === 1 && Math.abs(rm.mini[0] - g0) <= 2, `mélodie : la mini-courbe repliée part de la mesure 1 (${Math.round(rm.mini[0])} / ${Math.round(g0)})`);
+  // grille qui défile (largeur étroite) : les courbes suivent
+  await page.setViewportSize({ width: 800, height: 900 });
+  await page.waitForTimeout(300);
+  await align('melody', 'mélodie 800 px');
+  const sc = await page.evaluate(() => {
+    const b = document.querySelector('#bwMelBoard');
+    const max = b.scrollWidth - b.clientWidth;
+    b.scrollLeft = Math.min(120, max);
+    return [max, b.scrollLeft];
+  });
+  await page.waitForTimeout(250);
+  if (sc[0] > 4) await align('melody', `mélodie défilée de ${Math.round(sc[1])} px`);
+  else console.log('INFO la grille ne défile pas à 800 px');
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.waitForTimeout(300);
   await kindTab('bass');
+  await align('bass', 'basse (non-régression)');
 
   // pas de défilement horizontal à 390 px
   await page.setViewportSize({ width: 390, height: 844 });
