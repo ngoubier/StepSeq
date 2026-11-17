@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Accents de basse</title>
+<style>
+/* Assistant « Nouvelle chanson » : un onglet par instrument, le type (Drums, Basse, Accords, Arpèges, Mélodie) choisit l'éditeur. */
+:root {
+  color-scheme: dark;
+  --bg: #121215; --panel: #1b1b20; --panel2: #232329; --raise: #2c2c34; --line: #36363f; --line2: #4a4a55;
+  --text: #ececf1; --muted: #9c9ca8; --dim: #6a6a76; --accent: #3b8eea; --gold: #c9a227;
+  --drums: #e3179c; --bass: #3fcf3f; --pad: #4f6bff; --arp: #13c2a3; --lead: #9b5cff; --master: #d0d0da;
+  --ok: #3fcf8e; --warn: #f5c400; --hot: #ff5c5c;
+  --r-ctl: 6px; --r-card: 10px; --h: 30px; --h-sm: 26px;
+  --f: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+}
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 var(--f); }
+button, select, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* bandeau principal */
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--panel); }
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 6; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; background: #1f1f24; border-bottom: 1px solid var(--line);
+  padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.logo { width: 40px; height: 40px; border-radius: 9px; background: #23232a; display: grid; place-items: center; flex: none; }
+.ptitle { font-size: 19px; font-weight: 700; min-width: 0; }
+.tbox { display: flex; align-items: center; gap: 6px; color: var(--dim); font-size: 12px; letter-spacing: .06em; }
+.tbox input { width: 64px; height: 30px; background: var(--panel2); border: 1px solid var(--line2); border-radius: var(--r-ctl); text-align: center; color: var(--text); font-size: 14px; }
+.play { width: 64px; height: 44px; border-radius: 8px; border: 0; background: #2ea44f; color: #fff; display: grid; place-items: center; }
+.play.on { background: #1f7a3a; }
+.stopb { width: 40px; height: 40px; border-radius: 8px; border: 1px solid var(--line2); background: var(--panel2); display: grid; place-items: center; }
+.pos { min-width: 130px; padding: 4px 14px; border-radius: 8px; background: #0f1830; text-align: center; color: #6aa9ff; font: 600 18px/1.1 ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: .15em; }
+.pos small { display: block; font: 12px var(--f); letter-spacing: 0; color: #9db8e8; }
+.keybox { padding: 4px 12px; border: 1px solid var(--line2); border-radius: 8px; background: var(--panel2); }
+.keybox small { display: block; font-size: 9px; letter-spacing: .1em; color: var(--dim); text-transform: uppercase; }
+.keybox b { font-size: 15px; }
+.spacer { flex: 1; }
+.ghost { height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line2); background: var(--panel2); color: var(--muted); }
+
+
+.body { display: grid; grid-template-columns: 216px 200px minmax(0, 1fr); gap: 16px; padding-block: 16px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.body.noscene { grid-template-columns: 216px minmax(0, 1fr); }
+.body.noscene .scenes { display: none; }
+.steps { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.steps h6 { margin: 10px 8px 4px; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); font-weight: 600; }
+.steps h6:first-child { margin-top: 0; }
+.st { display: grid; grid-template-columns: 26px 1fr; gap: 0 10px; align-items: center; padding: 6px 8px; border-radius: 8px; border: 1px solid transparent; background: none; text-align: left; width: 100%; }
+.st:hover { background: var(--panel); }
+.st i { grid-row: span 2; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 12px; font-weight: 700; border: 1px solid var(--line2); color: var(--muted); }
+.st.inst i { border-color: var(--c); color: var(--c); }
+.st.cur { background: var(--panel2); border-color: var(--line2); }
+.st.cur i { background: var(--accent); border-color: var(--accent); color: #fff; }
+.st.inst.cur i { background: var(--c); border-color: var(--c); color: #0b0b0e; }
+.st b { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.st b .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c); flex: none; }
+.st b .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st > span { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st.gold i { border-color: var(--gold); color: var(--gold); }
+.st.gold.cur i { background: var(--gold); color: #0b0b0e; }
+
+.scenes { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.lbl { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); font-weight: 600; }
+.sc { text-align: left; background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--c); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
+.sc:hover { background: var(--panel2); }
+.sc.cur { background: var(--panel2); box-shadow: inset 0 0 0 1px var(--c); }
+.sc b { display: flex; justify-content: space-between; gap: 6px; font-size: 13px; }
+.sc b small { font-weight: 500; color: var(--dim); }
+.sc span { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sc span.mute { color: var(--warn); }
+
+.main { min-width: 0; display: flex; flex-direction: column; gap: 14px; --c: var(--accent); }
+.head h1 { margin: 0; font-size: 22px; } .head h1 em { font-style: normal; color: var(--dim); margin-right: 8px; }
+.head p { margin: 4px 0 0; color: var(--muted); max-width: 80ch; }
+.btn { height: var(--h); padding: 0 12px; border-radius: var(--r-ctl); border: 1px solid var(--line2); background: var(--panel2); display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.btn:hover { background: var(--raise); }
+.btn.sm { height: var(--h-sm); padding: 0 8px; font-size: 12px; }
+.btn.pri { background: color-mix(in srgb, var(--c) 30%, var(--panel2)); border-color: var(--c); }
+.btn.on { background: #6b4b00; border-color: var(--warn); color: var(--warn); }
+.btn.s.on { background: #0f3a5a; border-color: var(--accent); color: #9ccaff; }
+.btn.gold { border-color: var(--gold); color: var(--gold); }
+
+/* sélecteur de type */
+.types { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.ty { text-align: left; background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--tc); border-radius: var(--r-card); padding: 8px 10px; display: grid; grid-template-columns: 30px 1fr; gap: 0 8px; align-items: center; }
+.ty:hover { background: var(--panel2); }
+.ty svg { grid-row: span 2; width: 30px; height: 30px; color: var(--tc); }
+.ty b { font-size: 13.5px; }
+.ty small { grid-column: 2; font-size: 11px; color: var(--muted); line-height: 1.3; }
+.ty.on { background: color-mix(in srgb, var(--tc) 16%, var(--panel)); box-shadow: inset 0 0 0 1px var(--tc); }
+.tnote { margin: 0; font-size: 12.5px; padding: 6px 10px; border-radius: 8px; border: 1px dashed var(--c); color: var(--text); background: color-mix(in srgb, var(--c) 10%, transparent); }
+
+.trackbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--c); border-radius: var(--r-card); padding: 8px 12px; }
+.trackbar .who { font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.trackbar .who i { width: 10px; height: 10px; border-radius: 3px; background: var(--c); }
+.trackbar p { margin: 0; flex: 1 1 200px; color: var(--muted); font-size: 12.5px; }
+
+.editor { background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--c); border-radius: var(--r-card); padding: 14px; display: flex; flex-direction: column; gap: 14px; }
+.editor.muted > :not(.mutedmsg) { opacity: .35; pointer-events: none; }
+.mutedmsg { display: none; color: var(--warn); font-size: 13px; }
+.editor.muted .mutedmsg { display: block; }
+.editor h3 { margin: 0; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.editor h3 small { color: var(--dim); font-weight: 500; }
+.sect { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.card { text-align: left; background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.card:hover { background: var(--raise); }
+.card.on { border-color: var(--c); background: color-mix(in srgb, var(--c) 18%, var(--panel2)); }
+.card b { font-size: 12.5px; display: flex; justify-content: space-between; gap: 6px; }
+.card b small { color: var(--dim); font-weight: 500; }
+.card span { font-size: 11px; color: var(--muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { height: var(--h-sm); padding: 0 10px; border-radius: 999px; border: 1px solid var(--line2); background: var(--panel2); font-size: 12px; }
+.chip:hover { background: var(--raise); }
+.chip.on { border-color: var(--c); background: color-mix(in srgb, var(--c) 22%, var(--panel2)); }
+.knobs { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.k { display: flex; flex-direction: column; gap: 3px; }
+.k label { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+.k label b { color: var(--text); font-variant-numeric: tabular-nums; }
+.k input { width: 100%; accent-color: var(--c); }
+.row2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+.hint { margin: 0; font-size: 12px; color: var(--dim); }
+.status { font-size: 12.5px; color: var(--muted); }
+.status b { color: var(--c); }
+
+/* étapes simples */
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-card); padding: 14px; }
+.inst-row { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 10px 12px; background: var(--panel2); border: 1px solid var(--line); border-left: 4px solid var(--c); border-radius: var(--r-card); }
+.inst-row .dot { width: 10px; height: 10px; border-radius: 3px; background: var(--c); }
+.inst-row .nm { font-weight: 700; } .inst-row .nm small { display: block; font-weight: 500; color: var(--muted); font-size: 12px; }
+.tag { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--c); background: color-mix(in srgb, var(--c) 20%, var(--panel2)); font-size: 12.5px; font-weight: 600; }
+.tag::after { content: "▾"; font-size: 10px; color: var(--muted); }
+.inst-pick { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; padding-top: 4px; }
+.inst-pick .chip { border-color: var(--tc); }
+.inst-pick .chip.on { background: color-mix(in srgb, var(--tc) 30%, var(--panel2)); }
+.insts { display: flex; flex-direction: column; gap: 8px; }
+.chgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+.ch { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+.ch b { font-size: 15px; } .ch small { color: var(--dim); font-size: 11px; }
+
+@media (max-width: 1100px) { .body { grid-template-columns: 190px 170px minmax(0, 1fr); } .body.noscene { grid-template-columns: 190px minmax(0, 1fr); } .types { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 900px) {
+  .body, .body.noscene { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .steps { flex-direction: row; overflow-x: auto; gap: 4px; padding-bottom: 4px; }
+  .steps h6 { display: none; }
+  .st { flex: none; width: auto; max-width: 190px; }
+  .st > span { display: none; }
+  .st i { grid-row: auto; } .st { grid-template-columns: 26px auto; }
+  .scenes { flex-direction: row; overflow-x: auto; } .scenes .lbl { display: none; } .sc { flex: none; width: 140px; }
+}
+@media (max-width: 720px) {
+  .tbox, .ghost, .keybox small { display: none; }
+  .row2 { grid-template-columns: minmax(0, 1fr); }
+  .types { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* ---- Accents de basse ---- */
+.rollhead { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.rollhead h2 { margin: 0; font-size: 19px; } .rollhead small { color: var(--muted); font-size: 13px; }
+.sel { height: var(--h); background: var(--panel2); border: 1px solid var(--line2); border-radius: var(--r-ctl); padding: 0 8px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--line2); background: var(--panel2); font-size: 12.5px; }
+.pill i { width: 8px; height: 8px; border-radius: 50%; background: var(--pc, var(--dim)); }
+.pill.off { opacity: .6; }
+.lbl2 { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); font-weight: 600; }
+.roll { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-card); overflow: hidden; position: relative; }
+.scr { overflow-x: auto; }
+.rollin { min-width: 620px; padding: 0 0 4px; position: relative; --cols: 32; }
+.chordrow { display: grid; grid-template-columns: repeat(32, minmax(0, 1fr)); height: 30px; border-bottom: 1px solid var(--line); }
+.chordrow b { grid-column: var(--s) / span var(--l); border-left: 1px solid var(--line2); border-bottom: 3px solid var(--cc); padding: 5px 6px 0; font-size: 13px; white-space: nowrap; overflow: hidden; }
+.chordrow b.bar { border-left-color: #6a6a78; }
+.notes { position: relative; margin: 0; background:
+  repeating-linear-gradient(90deg, transparent 0, transparent calc(100% / 8 - 1px), rgba(255,255,255,.07) calc(100% / 8 - 1px), rgba(255,255,255,.07) calc(100% / 8)),
+  repeating-linear-gradient(90deg, transparent 0, transparent calc(100% / 32 - 1px), rgba(255,255,255,.035) calc(100% / 32 - 1px), rgba(255,255,255,.035) calc(100% / 32)); }
+.notes::after { content: ""; position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: #6a6a78; pointer-events: none; }
+.rowbg { position: absolute; left: 0; right: 0; height: var(--rh); border-bottom: 1px solid rgba(255,255,255,.04); }
+.rowbg.blk { background: rgba(255,255,255,.025); }
+.rowbg span { position: absolute; left: 4px; top: 0; font-size: 9px; line-height: var(--rh); color: var(--dim); }
+.nt { position: absolute; height: calc(var(--rh) - 3px); margin-top: 1px; border: 0; padding: 0; border-radius: 3px; background: color-mix(in srgb, var(--bass) 52%, #15301a); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bass) 60%, transparent); transition: background .12s, box-shadow .12s; min-width: 4px; }
+.nt:hover { background: color-mix(in srgb, var(--bass) 75%, #15301a); }
+.nt.ac { background: #9dff8f; box-shadow: 0 0 0 1px #e8ffe2, 0 0 9px 1px color-mix(in srgb, var(--bass) 80%, transparent); z-index: 2; }
+.nt.ac::before { content: ""; position: absolute; left: 50%; top: -11px; width: 7px; height: 7px; border-top: 2px solid #d9ffd2; border-right: 2px solid #d9ffd2; transform: translateX(-70%) rotate(45deg); }
+.nt.ac::after { content: ""; position: absolute; inset: 0; }
+.accrow { border-top: 1px solid var(--line); padding: 8px 0 6px; }
+.accrow .cap { display: flex; justify-content: space-between; gap: 8px; padding: 0 10px 6px; font-size: 12px; color: var(--muted); }
+.accrow .cap b { color: var(--text); }
+.cells { display: grid; grid-template-columns: repeat(32, minmax(0, 1fr)); }
+.cell { height: 30px; border: 0; background: none; padding: 0; display: grid; place-items: center; border-left: 1px solid rgba(255,255,255,.05); position: relative; }
+.cell:nth-child(4n+1) { border-left-color: rgba(255,255,255,.16); }
+.cell:nth-child(16n+1) { border-left-color: #6a6a78; }
+.cell:hover:not(:disabled) { background: rgba(255,255,255,.07); }
+.cell:disabled { cursor: default; }
+.cell .d { width: 11px; height: 11px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--bass) 70%, #000); box-sizing: border-box; }
+.cell.ac .d { background: #9dff8f; border-color: #e8ffe2; box-shadow: 0 0 8px color-mix(in srgb, var(--bass) 80%, transparent); width: 13px; height: 13px; }
+.cell.nonote .d { width: 3px; height: 3px; border: 0; background: var(--line2); }
+.cell.echo { background: repeating-linear-gradient(135deg, transparent 0 4px, rgba(255,255,255,.04) 4px 8px); }
+.beats { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); font-size: 10px; color: var(--dim); }
+.beats span { padding-left: 4px; border-left: 1px solid rgba(255,255,255,.16); } .beats span:first-child, .beats span:nth-child(5) { border-left-color: #6a6a78; }
+.playhead { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; opacity: .0; z-index: 3; pointer-events: none; }
+.playing .playhead { opacity: .8; animation: sweep 3.6s linear infinite; }
+@keyframes sweep { from { left: 0; } to { left: 100%; } }
+.repeat { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.seg { display: inline-flex; border: 1px solid var(--line2); border-radius: var(--r-ctl); overflow: hidden; }
+.seg button { height: var(--h-sm); padding: 0 10px; border: 0; border-right: 1px solid var(--line2); background: var(--panel2); font-size: 12px; }
+.seg button:last-child { border-right: 0; }
+.seg button.on { background: color-mix(in srgb, var(--bass) 28%, var(--panel2)); color: #fff; box-shadow: inset 0 -2px 0 var(--bass); }
+.warn { color: var(--warn); }
+.cardx { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-card); padding: 14px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.cardx h3 { margin: 0; font-size: 15px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cardx h3 small { font-weight: 500; color: var(--dim); font-size: 12px; }
+.cardx h3 .grow { flex: 1; }
+.checkl { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; }
+.checkl input { width: 16px; height: 16px; accent-color: var(--bass); }
+.modes { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.mode { text-align: left; background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.mode:hover { background: var(--raise); }
+.mode.on { border-color: var(--bass); background: color-mix(in srgb, var(--bass) 16%, var(--panel2)); }
+.mode b { font-size: 12.5px; } .mode span { font-size: 11px; color: var(--muted); }
+.mode svg { width: 100%; height: 22px; display: block; }
+.accgrid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 18px; }
+.pats { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 6px; }
+.pat { border-radius: 999px; border-radius: 10px; text-align: left; background: var(--panel2); border: 1px solid var(--line2); padding: 6px 10px 5px; display: flex; flex-direction: column; gap: 3px; font-size: 12.5px; min-width: 0; }
+.pat:hover { background: var(--raise); }
+.pat.on { border-color: var(--bass); background: color-mix(in srgb, var(--bass) 20%, var(--panel2)); }
+.pat svg { width: 100%; height: 16px; display: block; }
+.pat small { color: var(--dim); font-size: 10.5px; }
+.side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.ctl { display: flex; align-items: center; gap: 12px; }
+.ctl .txt { display: flex; flex-direction: column; gap: 1px; min-width: 0; font-size: 13px; }
+.ctl .txt b { font-size: 13px; } .ctl .txt small { color: var(--muted); font-size: 11.5px; }
+.knob { width: 58px; height: 58px; flex: none; border-radius: 50%; touch-action: none; cursor: ns-resize; }
+.knob.s { width: 44px; height: 44px; }
+.knob svg { width: 100%; height: 100%; display: block; }
+.knob:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sw { width: 44px; height: 24px; border-radius: 999px; border: 1px solid var(--line2); background: var(--panel2); position: relative; flex: none; padding: 0; }
+.sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--muted); transition: transform .15s, background .15s; }
+.sw[aria-checked="true"] { background: color-mix(in srgb, var(--bass) 35%, var(--panel2)); border-color: var(--bass); }
+.sw[aria-checked="true"]::after { transform: translateX(20px); background: #9dff8f; }
+.filt { display: flex; flex-direction: column; gap: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel2); }
+.filt .sub { padding-top: 10px; border-top: 1px dashed var(--line2); }
+.sc .row { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.abadge { flex: none; display: inline-flex; align-items: center; gap: 3px; font-size: 10.5px; font-weight: 600; color: #bfffb3; border: 1px solid color-mix(in srgb, var(--bass) 70%, transparent); background: color-mix(in srgb, var(--bass) 18%, transparent); border-radius: 999px; padding: 0 6px; height: 17px; }
+.abadge svg { width: 8px; height: 8px; }
+.rowbtns { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+.top2 { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+@media (max-width: 900px) { .accgrid { grid-template-columns: minmax(0, 1fr); } .scenes .abadge { display: none; } .sc .row small { display: none; } }
+@media (max-width: 720px) { .rowbtns { margin-left: 0; } .rollhead h2 { font-size: 17px; } }
+</style></head><body>
+<header class="top">
+  <div class="logo"><svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><rect x="3" y="4" width="4" height="4" rx="1" fill="#2b8cff"/><rect x="9" y="4" width="4" height="4" rx="1" fill="#2b8cff"/><rect x="15" y="4" width="4" height="4" rx="1" fill="#2b8cff"/><rect x="3" y="10" width="4" height="4" rx="1" fill="#2b8cff"/><rect x="9" y="10" width="4" height="4" rx="1" fill="#2b8cff"/><rect x="3" y="16" width="4" height="4" rx="1" fill="#2b8cff"/><path d="M18 9v9a3 3 0 1 1-2-2.8V9z" fill="#3fcf3f"/></svg></div>
+  <div class="ptitle">Nouveau projet</div>
+  <label class="tbox">TEMPO <input id="tempo" value="132" aria-label="Tempo"> BPM</label>
+  <button class="play" id="play" aria-label="Lecture"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l12-7.5z"/></svg></button>
+  <button class="stopb" id="stop" aria-label="Stop"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg></button>
+  <div class="pos"><span>1 . 1 . 1</span><small>À l’arrêt</small></div>
+  <div class="keybox"><small>Tonalité</small><b>Do mineur</b></div>
+  <div class="spacer"></div>
+  <button class="ghost">Aide</button>
+</header>
+<div class="body" id="body">
+  <nav class="steps" id="steps" aria-label="Étapes"></nav>
+  <nav class="scenes" id="scenes" aria-label="Scènes"></nav>
+  <main class="main" id="main" style="--c: var(--bass)">
+    <div class="head"><h1><em>07</em>Synth Bass I</h1>
+      <p style="display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center"><span class="tag" style="--c:var(--bass)">Basse</span>Règle ce que joue cet instrument, scène par scène.</p></div>
+    <div class="trackbar"><span class="lbl2">Piste</span><select class="sel" aria-label="Piste"><option>Basse · A48 – Synth Bass I (étape 2)</option></select>
+      <span class="lbl2" style="margin-left:8px">On entend</span>
+      <span class="pill" style="--pc:var(--drums)"><i></i>Batterie</span><span class="pill off" style="--pc:var(--bass)"><i></i>Synth Bass I</span><span class="pill" style="--pc:var(--pad)"><i></i>Strings III</span><span class="pill" style="--pc:var(--arp)"><i></i>Chorused Bell</span><span class="pill" style="--pc:var(--lead)"><i></i>Flutes</span><button class="btn sm">Seule</button></div>
+    <div class="rollhead"><h2 id="sname">Couplet</h2><small id="ssub"></small>
+      <div class="rowbtns"><button class="btn" id="listen">▶ Écouter la scène</button><button class="btn" id="copy">Copier vers les scènes du même type</button></div></div>
+    <div class="roll" id="roll"></div>
+    <div class="cardx" id="modecard"></div>
+    <div class="cardx" id="acccard"></div>
+    <div class="row2"><div class="cardx"><h3>Pédale</h3><div class="chips"><button class="chip on">Aucune</button><button class="chip">Tonique tenue</button><button class="chip">Quinte tenue</button></div></div>
+      <div class="cardx"><h3>Registre</h3><div class="chips"><button class="chip on">Grave</button><button class="chip">Médium</button><button class="chip">Aigu</button></div></div></div>
+  </main>
+</div>
+<script>
+(() => {
+'use strict';
+const $ = (id) => document.getElementById(id);
+const ROOT = { Cm: 36, Gm: 31, 'A♭': 32, Fm: 29, 'E♭': 27, 'B♭': 34, G: 31 };
+const NN = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
+const every = (st, l, f = () => 0) => Array.from({ length: 16 / st }, (_, i) => [i * st, l, f(i)]);
+const MODES = [
+  ['whole', 'Tenue', 'Une note par accord, tenue', [[0, 16, 0]]],
+  ['half', 'Blanches', 'Deux attaques par mesure', every(8, 8)],
+  ['quarter', 'Noires', 'Sur chaque temps', every(4, 3)],
+  ['8', 'Croches', 'Le moteur synthwave', every(2, 2)],
+  ['gallop', 'Galop', 'La cavalcade 80s', [0, 4, 8, 12].flatMap((s) => [[s, 2, 0], [s + 2, 1, 0], [s + 3, 1, 0]])],
+  ['offbeat', 'Contretemps', 'Entre les kicks : house', every(4, 2).map(([s, l, v]) => [s + 2, l, v])],
+  ['rootfifth', 'Fondamentale-quinte', 'Croches alternées', every(2, 2, (i) => i % 2)],
+  ['pulse8', 'Croches piquées', 'Huit croches courtes', every(2, 1)],
+];
+const SCENES = [
+  { id: 'intro', n: 'Intro', bars: 8, c: '#6b7fa6', ch: ['Cm', 'B♭', 'A♭'], mode: 'whole' },
+  { id: 'verse', n: 'Couplet', bars: 16, c: '#2b8cff', ch: ['Cm', 'Gm', 'A♭', 'Fm', 'E♭', 'B♭'], st: [0, 6, 12, 16, 22, 28], mode: '8' },
+  { id: 'chorus', n: 'Refrain', bars: 8, c: '#e3179c', ch: ['A♭', 'B♭', 'E♭', 'Cm'], mode: 'gallop' },
+  { id: 'bridge', n: 'Pont', bars: 8, c: '#f08a00', ch: ['Fm', 'Cm', 'G'], mode: 'quarter' },
+  { id: 'outro', n: 'Outro', bars: 8, c: '#6b7fa6', ch: ['Cm', 'B♭', 'A♭'], mode: 'whole' },
+];
+const PATS = [
+  ['none', 'Aucun', '', () => false, 'bar'],
+  ['strong', 'Temps forts', '1 et 3', (s) => s % 16 === 0 || s % 16 === 8, 'bar'],
+  ['beat', 'Chaque temps', '', (s) => s % 4 === 0, 'bar'],
+  ['off', 'Contretemps', 'les « et »', (s) => s % 4 === 2, 'bar'],
+  ['gallop', 'Galop', '1re de chaque groupe', (s) => s % 6 === 0, '2bars'],
+  ['sync', 'Synco 3-3-2', '', (s) => [0, 6, 12].includes(s % 16), 'bar'],
+  ['rand', 'Aléatoire léger', 'un nouveau tirage', null, null],
+];
+const mk = (f) => Array.from({ length: 32 }, (_, s) => !!f(s));
+SCENES.forEach((s) => {
+  s.st = s.st || s.ch.map((_, i) => Math.round(i * 16 / s.ch.length) * 2);
+  s.play = true; s.rep = 'bar'; s.force = 75; s.open = false; s.bright = 60; s.pat = 'none'; s.acc = mk(() => false);
+});
+SCENES[1].pat = 'strong'; SCENES[1].acc = mk(PATS[1][3]); SCENES[1].open = true;
+SCENES[2].pat = 'beat'; SCENES[2].acc = mk(PATS[2][3]);
+SCENES[3].pat = 'off'; SCENES[3].acc = mk(PATS[3][3]);
+const S = { sc: 1, playing: false };
+const cur = () => SCENES[S.sc];
+const mode = (sc) => MODES.find((m) => m[0] === sc.mode);
+
+
+function notesOf(sc) {
+  if (!sc.play) return [];
+  const endOf = (k) => (k + 1 < sc.ch.length ? sc.st[k + 1] : 32);
+  const chordAt = (s) => { let k = 0; sc.st.forEach((x, i) => { if (x <= s) k = i; }); return k; };
+  const out = [];
+  if (sc.mode === 'whole') sc.ch.forEach((c, k) => out.push({ s: sc.st[k], l: endOf(k) - sc.st[k], p: ROOT[c], k }));
+  else for (let b = 0; b < 2; b++) mode(sc)[3].forEach(([s, l, v]) => {
+    const st = s + 16 * b, k = chordAt(st);
+    out.push({ s: st, l: Math.max(1, Math.min(l, endOf(k) - st)), p: ROOT[sc.ch[k]] + [0, 7, 12][v], k });
+  });
+  return out;
+}
+const hasNote = (notes) => { const a = new Array(32).fill(false); notes.forEach((n) => { a[n.s] = true; }); return a; };
+const count = (sc) => { const h = hasNote(notesOf(sc)); return sc.acc.filter((v, s) => v && h[s]).length; };
+const same = (a, b) => a.every((v, s) => v === b[s]);
+function fold(sc) { if (sc.rep === 'bar') for (let s = 0; s < 16; s++) sc.acc[s + 16] = sc.acc[s]; }
+function detect(sc) {
+  const f = PATS.find((p) => p[3] && same(sc.acc, (() => { const a = mk(p[3]); if (sc.rep === 'bar') for (let s = 0; s < 16; s++) a[s + 16] = a[s]; return a; })()));
+  sc.pat = f ? f[0] : 'custom';
+}
+function applyPat(id) {
+  const sc = cur(), p = PATS.find((x) => x[0] === id);
+  if (p[4] === '2bars' && sc.rep === 'bar') sc.rep = '2bars';
+  if (id === 'rand') {
+    const h = hasNote(notesOf(sc)), a = new Array(32).fill(false);
+    for (let s = 0; s < 32; s++) a[s] = h[s] && Math.random() < 0.22 && (sc.rep !== 'bar' || s < 16);
+    sc.acc = a; fold(sc); sc.pat = 'rand';
+  } else { sc.acc = mk(p[3]); fold(sc); sc.pat = id; }
+}
+function toggle(s) {
+  const sc = cur(); const v = !sc.acc[s];
+  sc.acc[s] = v;
+  if (sc.rep === 'bar') sc.acc[(s + 16) % 32] = v;
+  detect(sc);
+}
+const pname = (id) => (PATS.find((p) => p[0] === id) || [0, 'Personnalisé'])[1];
+
+/* ---------- dessins ---------- */
+function patSvg(p, on) {
+  let h = '';
+  const acc = p[3] ? mk(p[3]) : [true, false, false, false, false, false, true, false, false, true, false, false, false, false, false, false];
+  for (let s = 0; s < 16; s++) {
+    const x = s * 6 + 1, a = acc[s];
+    h += `<rect x="${x}" y="${a ? 1 : 9}" width="4" height="${a ? 14 : 6}" rx="1" fill="${a ? '#9dff8f' : 'currentColor'}" opacity="${a ? 1 : .35}"/>`;
+  }
+  return `<svg viewBox="0 0 96 16" preserveAspectRatio="none" aria-hidden="true">${h}</svg>`;
+}
+function modeSvg(m) {
+  const ev = m[3], rr = [0, 7, 12];
+  return `<svg viewBox="0 0 160 22" preserveAspectRatio="none" aria-hidden="true">${ev.map(([s, l, v]) => `<rect x="${s * 10}" y="${14 - (v === 2 ? 10 : v === 1 ? 5 : 0)}" width="${Math.max(l * 10 - 1.5, 3)}" height="6" rx="1.5" fill="var(--bass)"/>`).join('')}</svg>`;
+}
+
+/* ---------- potentiomètre rond ---------- */
+function polar(cx, cy, r, deg) { const a = (deg - 90) * Math.PI / 180; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; }
+function arc(r, a0, a1) { const [x0, y0] = polar(30, 30, r, a0), [x1, y1] = polar(30, 30, r, a1); return `M${x0.toFixed(2)} ${y0.toFixed(2)}A${r} ${r} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`; }
+function knobHtml(v) {
+  const a = -135 + 270 * v / 100, [x, y] = polar(30, 30, 17, a), [x2, y2] = polar(30, 30, 9, a);
+  return `<svg viewBox="0 0 60 60" aria-hidden="true"><path d="${arc(26, -135, 135)}" fill="none" stroke="#3a3a45" stroke-width="4" stroke-linecap="round"/>${v > 0 ? `<path d="${arc(26, -135, a)}" fill="none" stroke="var(--bass)" stroke-width="4" stroke-linecap="round"/>` : ''}<circle cx="30" cy="30" r="19" fill="#2a2a32" stroke="#4a4a55"/><line x1="${x2.toFixed(2)}" y1="${y2.toFixed(2)}" x2="${x.toFixed(2)}" y2="${y.toFixed(2)}" stroke="#eaffe6" stroke-width="3" stroke-linecap="round"/></svg>`;
+}
+const knob = (key, v, label, small) => `<div class="knob${small ? ' s' : ''}" role="slider" tabindex="0" data-knob="${key}" aria-label="${label}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${v}">${knobHtml(v)}</div>`;
+const legend = (f) => `+${(f * 0.06).toFixed(1).replace('.0', '')} dB / vélocité ${Math.round(100 + f * 0.27)}`;
+
+/* ---------- rendus ---------- */
+function renderRoll() {
+  const sc = cur(), notes = notesOf(sc), has = hasNote(notes), old = ($('roll').querySelector('.scr') || {}).scrollLeft || 0;
+  const ps = notes.map((n) => n.p), lo = Math.min(...ps, 27) - 1, hi = Math.max(...ps, 36) + 1, RH = 14, rows = hi - lo + 1;
+  let h = `<div class="scr"><div class="rollin ${S.playing ? 'playing' : ''}" style="--rh:${RH}px">`;
+  h += `<div class="chordrow">${sc.ch.map((c, k) => `<b class="${sc.st[k] === 16 ? 'bar' : ''}" style="--s:${sc.st[k] + 1};--l:${(k + 1 < sc.ch.length ? sc.st[k + 1] : 32) - sc.st[k]};--cc:${['#3fcf3f', '#ff5c5c', '#f5c400', '#4f6bff', '#13c2a3', '#9b5cff'][k % 6]}">${c}</b>`).join('')}</div>`;
+  h += `<div class="notes" style="height:${rows * RH + 14}px"><div class="playhead"></div>`;
+  for (let p = hi; p >= lo; p--) { const i = hi - p; h += `<div class="rowbg ${[1, 3, 6, 8, 10].includes(p % 12) ? 'blk' : ''}" style="top:${14 + i * RH}px">${p % 12 === 0 ? `<span>C${Math.floor(p / 12) - 1}</span>` : ''}</div>`; }
+  notes.forEach((n) => {
+    h += `<button class="nt${sc.acc[n.s] ? ' ac' : ''}" data-s="${n.s}" style="left:${n.s / 32 * 100}%;width:calc(${n.l / 32 * 100}% - 2px);top:${14 + (hi - n.p) * RH}px" aria-pressed="${!!sc.acc[n.s]}" aria-label="${NN[n.p % 12]}${Math.floor(n.p / 12) - 1}, pas ${n.s + 1}${sc.acc[n.s] ? ', accentuée' : ''}"></button>`;
+  });
+  if (!notes.length) h += `<div style="position:absolute;inset:14px 0 0;display:grid;place-items:center;color:var(--muted)">Pas de notes dans cette scène.</div>`;
+  h += `</div><div class="accrow"><div class="cap"><span><b>Accents</b> · un point par note, plein si accentuée</span><span>${count(sc)} sur ${notes.length} notes</span></div><div class="cells">`;
+  for (let s = 0; s < 32; s++) {
+    const a = sc.acc[s] && has[s];
+    h += `<button class="cell${a ? ' ac' : ''}${has[s] ? '' : ' nonote'}${sc.rep === 'bar' && s >= 16 ? ' echo' : ''}" data-s="${s}" ${has[s] ? '' : 'disabled'} aria-label="Pas ${s + 1}${has[s] ? (a ? ', accent' : ', note') : ', pas de note'}" aria-pressed="${a}"><span class="d"></span></button>`;
+  }
+  h += `</div><div class="beats">${Array.from({ length: 8 }, (_, i) => `<span>${i % 4 + 1}</span>`).join('')}</div></div></div></div>`;
+  const reps = [['bar', 'Répéter chaque mesure'], ['2bars', 'chaque 2 mesures'], ['scene', 'toute la scène']];
+  const hint = { bar: 'Le motif d’une mesure se répète sur chacune des mesures de la scène (la 2e mesure, hachurée, le reprend).', '2bars': 'Un motif de 2 mesures, repris toutes les 2 mesures.', scene: 'Les accents sont posés une fois pour toute la scène (cycle d’accords de 2 mesures affiché).' }[sc.rep];
+  h += `<div style="padding:8px 10px 10px;border-top:1px solid var(--line)"><div class="repeat"><span class="lbl2">Le motif d’accents</span><div class="seg" role="radiogroup" aria-label="Répétition des accents">${reps.map((r) => `<button class="${sc.rep === r[0] ? 'on' : ''}" role="radio" aria-checked="${sc.rep === r[0]}" data-rep="${r[0]}">${r[1]}</button>`).join('')}</div></div><p class="hint" style="margin-top:6px">${hint}</p></div>`;
+  $('roll').innerHTML = h;
+  const sc2 = $('roll').querySelector('.scr'); if (sc2) sc2.scrollLeft = old;
+}
+function renderCards() {
+  const sc = cur(), m = mode(sc), n = count(sc);
+  $('modecard').innerHTML = `<h3>Mode de jeu de « ${sc.n} » <span class="grow"></span><label class="checkl"><input type="checkbox" id="playchk" ${sc.play ? 'checked' : ''}>Joue dans cette scène</label></h3>
+    <div class="modes">${MODES.map((x) => `<button class="mode${sc.mode === x[0] ? ' on' : ''}" data-mode="${x[0]}"><b>${x[1]}</b>${modeSvg(x)}<span>${x[2]}</span></button>`).join('')}</div>`;
+  const miss = n === 0 && sc.pat !== 'none' && sc.acc.some(Boolean) && sc.play;
+  $('acccard').innerHTML = `<h3>Accents <small>des notes plus fortes, pour faire respirer la basse</small><span class="grow"></span><button class="btn sm" data-act="clear">Effacer</button></h3>
+    <div class="accgrid"><div class="side"><div class="lbl2">Motifs prêts</div><div class="pats">${PATS.map((p) => `<button class="pat${sc.pat === p[0] ? ' on' : ''}" data-pat="${p[0]}"><b>${p[1]}</b>${patSvg(p)}<small>${p[2] || '&nbsp;'}</small></button>`).join('')}</div>
+      <p class="hint ${miss ? 'warn' : ''}">${miss ? `Aucune note du mode « ${m[1]} » ne tombe sur ce motif.` : sc.pat === 'custom' ? 'Motif personnalisé : tu as touché des notes ou des cases à la main.' : 'Choisir un motif remplit la ligne « Accents » sous les notes.'}</p></div>
+      <div class="side"><div class="ctl">${knob('force', sc.force, 'Force de l’accent')}<div class="txt"><b>Force <span id="fv">${sc.force}</span></b><small id="fl">${legend(sc.force)}</small></div></div>
+        <div class="filt"><div class="ctl"><button class="sw" role="switch" id="opensw" aria-checked="${sc.open}" aria-label="Ouvre le filtre"></button><div class="txt"><b>Ouvre le filtre</b><small>L’accent ouvre le filtre : la basse acide.</small></div></div>
+          ${sc.open ? `<div class="ctl sub">${knob('bright', sc.bright, 'Brillance', true)}<div class="txt"><b>Brillance <span id="bv">${sc.bright}</span></b><small>Jusqu’où le filtre s’ouvre.</small></div></div>` : ''}</div></div></div>`;
+}
+function renderSteps() {
+  const sc = cur(), n = count(sc);
+  const base = [['Style', 'Synthwave'], ['Instruments', '5 musiciens'], ['Tempo et tonalité', '132 BPM · Do mineur'], ['Scènes', '5 scènes · 48 mesures'], ['Accords', 'Cm Gm A♭ Fm']];
+  const insts = [['Batterie', 'Drums · Inspiration', 'var(--drums)', 6], ['Synth Bass I', `Basse · ${sc.play ? mode(sc)[1] : 'aucune'}${n ? ` · ${n} accent${n > 1 ? 's' : ''}` : ''}`, 'var(--bass)', 7], ['Strings III', 'Accords · Montée douce', 'var(--pad)', 8], ['Choral Bell'.replace('Choral', 'Chorused'), 'Arpège · Cloches', 'var(--arp)', 9], ['Flutes', 'Mélodie · inspiration', 'var(--lead)', 10]];
+  let h = '<h6>Fondations</h6>' + base.map((b, k) => `<button class="st ${k === 4 ? 'gold' : ''}"><i>${k + 1}</i><b><span class="nm">${b[0]}</b><span>${b[1]}</span></button>`.replace('<span class="nm">', '<span class="nm">').replace('</b><span>', '</span></b><span>')).join('');
+  h += '<h6>Instruments, scène par scène</h6>' + insts.map((b) => `<button class="st inst ${b[3] === 7 ? 'cur' : ''}" style="--c:${b[2]}"><i>${b[3]}</i><b><span class="dot"></span><span class="nm">${b[0]}</span></b><span>${b[1]}</span></button>`).join('');
+  h += '<h6>Finaliser</h6><button class="st"><i>11</i><b><span class="nm">Mix</span></b><span>Mixage automatique</span></button><button class="st"><i>12</i><b><span class="nm">Intégration</span></b><span>10 pistes</span></button>';
+  $('steps').innerHTML = h;
+}
+const chev = '<svg viewBox="0 0 8 8" aria-hidden="true"><path d="M1.5 1l4 3-4 3" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>';
+function renderScenes() {
+  let h = '<div class="lbl">Régler pour la scène</div>';
+  SCENES.forEach((s, k) => {
+    const n = count(s);
+    h += `<button class="sc ${S.sc === k ? 'cur' : ''}" style="--c:${s.c}" data-scene="${k}"><div class="row"><b style="flex:1">${s.n}<small>${s.bars} mes.</small></b></div><span>${s.ch.join(' ')}</span><div class="row"><span>${s.play ? mode(s)[1] : 'aucune'}</span>${n ? `<em class="abadge" style="font-style:normal" title="${n} accents">${chev}${n} accent${n > 1 ? 's' : ''}</em>` : ''}</div></button>`;
+  });
+  $('scenes').innerHTML = h;
+}
+function renderHead() { const sc = cur(); $('sname').textContent = sc.n; $('ssub').textContent = `${sc.bars} mesures · basse`; }
+function render() { renderHead(); renderSteps(); renderScenes(); renderRoll(); renderCards(); }
+function refresh() { renderSteps(); renderScenes(); renderRoll(); renderCards(); }
+
+document.addEventListener('click', (ev) => {
+  const t = ev.target.closest('[data-s],[data-scene],[data-pat],[data-rep],[data-mode],[data-act],#opensw,#listen,#copy'); if (!t) return;
+  const sc = cur(), d = t.dataset;
+  if (t.id === 'listen') { S.playing = !S.playing; t.textContent = S.playing ? '■ Arrêter' : '▶ Écouter la scène'; renderRoll(); return; }
+  if (t.id === 'copy') { const o = t.textContent; t.textContent = '✓ Copié vers les scènes de type basse'; setTimeout(() => { t.textContent = o; }, 1500);
+    SCENES.forEach((x) => { if (x !== sc) { x.acc = sc.acc.slice(); x.rep = sc.rep; x.pat = sc.pat; x.force = sc.force; x.open = sc.open; x.bright = sc.bright; } }); refresh(); return; }
+  if (t.id === 'opensw') sc.open = !sc.open;
+  else if (d.scene !== undefined) { S.sc = +d.scene; $('listen').textContent = S.playing ? '■ Arrêter' : '▶ Écouter la scène'; renderHead(); }
+  else if (d.s !== undefined) { if (t.disabled) return; toggle(+d.s); }
+  else if (d.pat) applyPat(d.pat);
+  else if (d.rep) { sc.rep = d.rep; if (d.rep === 'bar') { fold(sc); } detect(sc); }
+  else if (d.mode) sc.mode = d.mode;
+  else if (d.act === 'clear') { sc.acc = mk(() => false); sc.pat = 'none'; }
+  refresh();
+});
+document.addEventListener('change', (ev) => { if (ev.target.id === 'playchk') { cur().play = ev.target.checked; refresh(); } });
+
+/* potentiomètres : glisser verticalement, molette, flèches */
+function setKnob(el, v) {
+  const sc = cur(), k = el.dataset.knob; v = Math.max(0, Math.min(100, Math.round(v))); sc[k] = v;
+  el.innerHTML = knobHtml(v); el.setAttribute('aria-valuenow', v);
+  if (k === 'force') { $('fv').textContent = v; $('fl').textContent = legend(v); } else $('bv').textContent = v;
+}
+let drag = null;
+document.addEventListener('pointerdown', (e) => { const el = e.target.closest('.knob'); if (!el) return; drag = { el, y: e.clientY, v: cur()[el.dataset.knob] }; el.setPointerCapture(e.pointerId); el.focus(); e.preventDefault(); });
+document.addEventListener('pointermove', (e) => { if (drag) setKnob(drag.el, drag.v + (drag.y - e.clientY) * 0.7); });
+document.addEventListener('pointerup', () => { drag = null; });
+document.addEventListener('wheel', (e) => { const el = e.target.closest('.knob'); if (!el) return; e.preventDefault(); setKnob(el, cur()[el.dataset.knob] - Math.sign(e.deltaY) * 3); }, { passive: false });
+document.addEventListener('keydown', (e) => { const el = e.target.closest && e.target.closest('.knob'); if (!el) return; const dv = { ArrowUp: 5, ArrowRight: 5, ArrowDown: -5, ArrowLeft: -5, Home: -100, End: 100 }[e.key]; if (dv === undefined) return; e.preventDefault(); setKnob(el, cur()[el.dataset.knob] + dv); });
+render();
+})();
+</script></body></html>
