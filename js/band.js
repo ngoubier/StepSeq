@@ -3315,21 +3315,242 @@ SS.band = (() => {
       if (!sp || e.step + e.len < sp.step + sp.len - 1) return false;
       return e.notes.every((n) => !sp.info.pcs.includes(((n % 12) + 12) % 12)) && spans.some((x) => x.step === sp.step + sp.len);
     };
+    // basse : les notes se cliquent (accent), une ligne « Accents » les suit
+    const acc = kind === 'bass' ? accOf(sc.sec, T) : null;
+    const per = acc ? BS().accentPeriod(acc.repeat, sc.bars) : 0;
+    const isAcc = (e) => !!acc && acc.steps.includes(e.step % per);
     events.forEach((e) => {
       const appr = isAppr(e);
-      e.notes.forEach((n) => el('rect', { x: e.step + 0.08, y: hi - n + 0.1, width: Math.max(0.5, Math.min(e.len, total - e.step) - 0.16), height: 0.8, class: 'bw-rn' + (appr ? ' appr' : '') }, svg));
+      e.notes.forEach((n) => el('rect', { x: e.step + 0.08, y: hi - n + 0.1, width: Math.max(0.5, Math.min(e.len, total - e.step) - 0.16), height: 0.8, class: 'bw-rn' + (appr ? ' appr' : '') + (isAcc(e) ? ' ac' : '') }, svg));
     });
     const pct = (x) => `${((100 * x) / total).toFixed(3)}%`;
+    const chords = h(
+      'div',
+      { class: 'bw-rchords' },
+      ...spans.map((x) => h('span', { class: `bw-rc role-${x.info.role.id}`, style: `left:${pct(x.step)};width:${pct(x.len)}`, title: `${x.info.name} · ${x.info.numeral} — ${x.info.role.text}` }, x.info.name))
+    );
+    const empty = all.length ? null : h('p', { class: 'bw-rempty' }, 'Pas de notes dans cette scène.');
+    if (!acc) return h('div', { class: 'bw-roll', id: 'bwRoll', 'data-scene': sc.id, 'data-bars': sc.bars, style: `--c:${color}`, role: 'img', 'aria-label': `Notes de la scène ${sc.name}` }, chords, h('div', { class: 'bw-rbody' }, svg, h('i', { class: 'bw-roll-ph', hidden: true })), empty);
+    const names = ['Do', 'Do♯', 'Ré', 'Mi♭', 'Mi', 'Fa', 'Fa♯', 'Sol', 'La♭', 'La', 'Si♭', 'Si'];
+    const nb = events.map((e) => {
+      const on = isAcc(e);
+      const n = e.notes[0];
+      return h('button', {
+        type: 'button', class: 'bw-rnb' + (on ? ' ac' : ''), 'data-s': e.step, 'aria-pressed': String(on),
+        style: `left:${pct(e.step)};width:${pct(Math.min(e.len, total - e.step))};top:${((100 * (hi - n)) / rows).toFixed(3)}%;height:${(100 / rows).toFixed(3)}%`,
+        'aria-label': `${names[((n % 12) + 12) % 12]}${Math.floor(n / 12) - 1}, pas ${e.step + 1}${on ? ', accentuée' : ''}`,
+        title: on ? 'Note accentuée : clic pour la retirer' : 'Clic : accentuer cette note',
+        onclick: () => toggleAccent(sc, T, e.step),
+      });
+    });
+    const dots = events.map((e) => {
+      const on = isAcc(e);
+      return h('button', {
+        type: 'button', class: 'bw-acell' + (on ? ' ac' : '') + (e.step >= per ? ' echo' : ''), 'data-s': e.step, 'aria-pressed': String(on),
+        style: `left:${pct(e.step)};width:${pct(1)}`,
+        'aria-label': `Accent, pas ${e.step + 1}${on ? ', accentué' : ''}`,
+        onclick: () => toggleAccent(sc, T, e.step),
+      }, h('i'));
+    });
+    const k = events.filter(isAcc).length;
+    const reps = [[1, 'Répéter chaque mesure'], [2, 'chaque 2 mesures'], ['scene', 'toute la scène']];
+    const hint = { 1: 'Le motif d’une mesure se répète sur chacune des mesures de la scène (les notes hachurées en reprennent le motif).', 2: 'Un motif de 2 mesures, repris toutes les 2 mesures.', scene: 'Les accents sont posés une seule fois pour toute la scène.' }[acc.repeat];
     return h(
       'div',
-      { class: 'bw-roll', id: 'bwRoll', 'data-scene': sc.id, 'data-bars': sc.bars, style: `--c:${color}`, role: 'img', 'aria-label': `Notes de la scène ${sc.name}` },
+      { class: 'bw-roll bw-roll-acc', id: 'bwRoll', 'data-scene': sc.id, 'data-bars': sc.bars, style: `--c:${color}`, role: 'group', 'aria-label': `Notes de la scène ${sc.name}` },
       h(
         'div',
-        { class: 'bw-rchords' },
-        ...spans.map((x) => h('span', { class: `bw-rc role-${x.info.role.id}`, style: `left:${pct(x.step)};width:${pct(x.len)}`, title: `${x.info.name} · ${x.info.numeral} — ${x.info.role.text}` }, x.info.name))
+        { class: 'bw-rscr' },
+        h(
+          'div',
+          { class: 'bw-rin', style: `--n:${total}` },
+          chords,
+          h('div', { class: 'bw-rbody' }, svg, ...nb, h('i', { class: 'bw-roll-ph', hidden: true })),
+          h('div', { class: 'bw-racc' },
+            h('div', { class: 'bw-acap' }, h('span', {}, h('b', {}, 'Accents'), ' · un point par note, plein si accentuée'), h('span', { id: 'bwAccCount' }, `${k} sur ${events.length} notes`)),
+            h('div', { class: 'bw-acells', role: 'group', 'aria-label': 'Accents, un point par note' }, ...dots))
+        )
       ),
-      h('div', { class: 'bw-rbody' }, svg, h('i', { class: 'bw-roll-ph', hidden: true })),
-      all.length ? null : h('p', { class: 'bw-rempty' }, 'Pas de notes dans cette scène.')
+      empty,
+      h(
+        'div',
+        { class: 'bw-rrep' },
+        h('div', { class: 'bwp-row' }, partSeg('Le motif d’accents', 'bwAccRep', reps, acc.repeat, (v) => setAccRepeat(sc, T, v))),
+        h('p', { class: 'dlg-hint', id: 'bwAccHint' }, hint)
+      )
+    );
+  }
+
+  /* ---------- Accents de la basse (parts[section].inst[id].accents, js/bandsong.js) ----------
+   * Un accent est posé sur un pas d'une période (16 pas : chaque mesure, 32 : chaque 2 mesures, ou toute la scène) : toutes les notes
+   * qui commencent à ce pas, modulo la période, sont plus fortes (vélocité) et, si « Ouvre le filtre » est allumé, ouvrent le filtre.
+   */
+  /** Accents de la scène pour cet instrument (jamais null : réglages par défaut, sans pas). */
+  const accOf = (sec, T) => BS().normalizeAccents((partOf(sec, T) || {}).accents) || { ...BS().ACC_DEFAULT, steps: [] };
+  const noteSteps = (sc, T) => (((sc.data[T.col.id] || {}).events) || []).map((e) => e.step);
+  /** Nombre d'accents du motif qui tombent sur une note de la scène. */
+  function accCount(sc, T) {
+    const A = accOf(sc.sec, T);
+    if (!A.steps.length) return 0;
+    const per = BS().accentPeriod(A.repeat, sc.bars);
+    const has = new Set(noteSteps(sc, T).map((s) => s % per));
+    return A.steps.filter((s) => has.has(s)).length;
+  }
+  /** Écrit les accents (sans redessiner) ; des accents sans pas et aux réglages par défaut disparaissent. */
+  function writeAcc(sc, T, patch) {
+    const next = BS().normalizeAccents({ ...accOf(sc.sec, T), ...patch });
+    const d = BS().ACC_DEFAULT;
+    const blank = !next.steps.length && next.repeat === 1 && next.force === d.force && !next.filter && next.bright === d.bright;
+    putPart(sc.sec, T, { accents: blank ? undefined : next });
+  }
+  function putAcc(sc, T, patch, focus) {
+    writeAcc(sc, T, patch);
+    partChanged(focus);
+  }
+  function toggleAccent(sc, T, step) {
+    const A = accOf(sc.sec, T);
+    const s = step % BS().accentPeriod(A.repeat, sc.bars);
+    putAcc(sc, T, { steps: A.steps.includes(s) ? A.steps.filter((x) => x !== s) : [...A.steps, s] }, `#bwRoll .bw-acell[data-s="${step}"]`);
+  }
+  /** Change la répétition : en grandissant le motif est recopié (même rendu), en rétrécissant on garde le début. */
+  function setAccRepeat(sc, T, repeat) {
+    const A = accOf(sc.sec, T);
+    const from = BS().accentPeriod(A.repeat, sc.bars);
+    const to = BS().accentPeriod(repeat, sc.bars);
+    const steps = to > from ? Array.from({ length: Math.ceil(to / from) }, (_, k) => A.steps.map((s) => s + k * from)).flat().filter((s) => s < to) : A.steps.filter((s) => s < to);
+    putAcc(sc, T, { repeat, steps }, `#bwAccRep [data-v="${repeat}"]`);
+  }
+  /** Après un changement de jeu (mode, pédale, registre) : on garde les accents qui tombent encore sur une note. */
+  function pruneAccents(sc, T) {
+    const A = accOf(sc.sec, T);
+    if (!A.steps.length) return;
+    const { res } = wizSong();
+    const x = res && res.scenes.find((s) => s.sec === sc.sec);
+    if (!x) return;
+    const per = BS().accentPeriod(A.repeat, x.bars);
+    const has = new Set(noteSteps(x, T).map((s) => s % per));
+    const keep = A.steps.filter((s) => has.has(s));
+    if (keep.length !== A.steps.length) writeAcc(sc, T, { steps: keep });
+  }
+  let accLast = null; // dernier motif posé { clé, id, pas } : « Aléatoire léger » n'est pas recalculable
+  function applyAccPreset(sc, T, id) {
+    const A = accOf(sc.sec, T);
+    const p = BS().ACC_PRESETS.find((x) => x[0] === id);
+    const repeat = p[3] === 2 && A.repeat === 1 ? 2 : A.repeat;
+    const per = BS().accentPeriod(repeat, sc.bars);
+    const steps = BS().accentPreset(id, noteSteps(sc, T), per, id === 'rand' ? Date.now() % 100000 : 0);
+    accLast = { key: sc.sec + '/' + T.id, id, steps: JSON.stringify(steps) };
+    putAcc(sc, T, { steps, repeat }, `.bwa-pat[data-id="${id}"]`);
+  }
+  /** Motif prêt qui correspond aux accents de la scène ('custom' : à la main, 'none' : aucun). */
+  function accPatOf(sc, T) {
+    const A = accOf(sc.sec, T);
+    if (!A.steps.length) return 'none';
+    const per = BS().accentPeriod(A.repeat, sc.bars);
+    const j = JSON.stringify(A.steps);
+    if (accLast && accLast.key === sc.sec + '/' + T.id && accLast.steps === j) return accLast.id;
+    const f = BS().ACC_PRESETS.find((p) => p[0] !== 'rand' && p[0] !== 'none' && JSON.stringify(BS().accentPreset(p[0], noteSteps(sc, T), per)) === j);
+    return f ? f[0] : 'custom';
+  }
+  const accForce = (v) => `+${(v * 0.06).toFixed(1).replace('.0', '')} dB / vélocité ${Math.round(100 + v * 0.27)}`;
+  /** Petit dessin d'un motif prêt : une mesure de 16 pas, les accents en vert vif. */
+  function accPatSvg(id) {
+    const on = id === 'rand' ? [0, 6, 9] : BS().accentPreset(id, Array.from({ length: 16 }, (_, i) => i), 16);
+    return `<svg viewBox="0 0 96 16" preserveAspectRatio="none" aria-hidden="true">${Array.from({ length: 16 }, (_, s) => `<rect x="${s * 6 + 1}" y="${on.includes(s) ? 1 : 9}" width="4" height="${on.includes(s) ? 14 : 6}" rx="1" fill="${on.includes(s) ? '#9dff8f' : 'currentColor'}" opacity="${on.includes(s) ? 1 : 0.35}"/>`).join('')}</svg>`;
+  }
+  /**
+   * Potentiomètre rond (rendu des potentiomètres d'Arp One) : glisser, molette, flèches ; `live(v)` à chaque geste (texte), `commit(v)` au lâcher.
+   * Rend l'élément ; `text` (facultatif) est tenu à jour par l'appelant dans live.
+   */
+  function dialKnob(id, label, value, { live, commit, small }) {
+    let v = value;
+    const num = h('b', {}, String(v));
+    const ring = h('div', { class: 'arp-knob-ring' }, h('div', { class: 'arp-knob-cap' }, num));
+    const dial = h('div', { class: 'arp-knob-dial bwa-dial' + (small ? ' s' : ''), id, role: 'slider', tabindex: '0', 'aria-label': label, 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(v) }, ring);
+    const paint = () => {
+      ring.style.setProperty('--p', v + '%');
+      num.textContent = String(v);
+      dial.setAttribute('aria-valuenow', String(v));
+      live(v);
+    };
+    const set = (x) => ((v = Math.max(0, Math.min(100, Math.round(x)))), paint());
+    let drag = null;
+    dial.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      dial.setPointerCapture(e.pointerId);
+      drag = { y: e.clientY, v, moved: false };
+    });
+    dial.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      drag.moved = true;
+      set(drag.v + (drag.y - e.clientY) * 0.6);
+    });
+    const end = () => {
+      if (!drag) return;
+      const moved = drag.moved;
+      drag = null;
+      if (moved) commit(v);
+    };
+    dial.addEventListener('pointerup', end);
+    dial.addEventListener('pointercancel', end);
+    let wt = 0;
+    dial.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      set(v + (e.deltaY < 0 ? 2 : -2));
+      clearTimeout(wt);
+      wt = setTimeout(() => commit(v), 350);
+    }, { passive: false });
+    dial.addEventListener('keydown', (e) => {
+      const d = { ArrowUp: 5, ArrowRight: 5, ArrowDown: -5, ArrowLeft: -5, PageUp: 20, PageDown: -20 }[e.key];
+      const to = e.key === 'Home' ? 0 : e.key === 'End' ? 100 : d != null ? v + d : null;
+      if (to == null) return;
+      e.preventDefault();
+      set(to);
+      commit(v);
+    });
+    paint();
+    return dial;
+  }
+  /** Carte « Accents » de l'onglet Basse : motifs prêts, force, ouverture du filtre. */
+  function accentsCard(sc, T) {
+    const A = accOf(sc.sec, T);
+    const pat = accPatOf(sc, T);
+    const fl = h('small', { id: 'bwAccForceText' }, accForce(A.force));
+    const fv = h('span', { id: 'bwAccForceNum' }, String(A.force));
+    const force = dialKnob('bwAccForce', 'Force de l’accent', A.force, { live: (v) => ((fl.textContent = accForce(v)), (fv.textContent = String(v))), commit: (v) => putAcc(sc, T, { force: v }, '#bwAccForce') });
+    const bv = h('span', { id: 'bwAccBrightNum' }, String(A.bright));
+    const bright = dialKnob('bwAccBright', 'Brillance', A.bright, { small: true, live: (v) => (bv.textContent = String(v)), commit: (v) => putAcc(sc, T, { bright: v }, '#bwAccBright') });
+    const hint = pat === 'custom' ? 'Motif personnalisé : tu as touché des notes à la main.' : A.steps.length && !accCount(sc, T) ? 'Aucune note du mode de jeu ne tombe sur ces accents.' : 'Choisir un motif remplit la ligne « Accents » sous les notes.';
+    return h(
+      'section',
+      { class: 'bwp-card bw-card bwa-card', id: 'bwAcc' },
+      h('div', { class: 'bwp-ch' }, h('b', {}, 'Accents'), h('span', { class: 'bh-info' }, 'des notes plus fortes, pour faire respirer la basse'), h('span', { class: 'spacer' }),
+        h('button', { type: 'button', class: 'btn btn-small', id: 'bwAccClear', disabled: !A.steps.length, onclick: () => putAcc(sc, T, { steps: [] }, '#bwAccClear') }, 'Effacer')),
+      h(
+        'div',
+        { class: 'bwa-accgrid' },
+        h(
+          'div',
+          { class: 'bwa-side' },
+          h('div', { class: 'bh-lbl' }, 'Motifs prêts'),
+          h('div', { class: 'bwa-pats', role: 'radiogroup', 'aria-label': 'Motifs d’accents' },
+            ...BS().ACC_PRESETS.map(([id, name, tip]) => h('button', { type: 'button', role: 'radio', class: 'bwa-pat' + (pat === id ? ' on' : ''), 'data-id': id, 'aria-checked': String(pat === id), onclick: () => applyAccPreset(sc, T, id) }, h('b', {}, name), h('span', { html: accPatSvg(id) }), h('small', {}, tip || ' ')))),
+          h('p', { class: 'dlg-hint', id: 'bwAccPatHint' }, hint)
+        ),
+        h(
+          'div',
+          { class: 'bwa-side' },
+          h('div', { class: 'bwa-ctl' }, force, h('div', { class: 'bwa-txt' }, h('b', {}, 'Force ', fv), fl)),
+          h(
+            'div',
+            { class: 'bwa-filt' },
+            h('div', { class: 'bwa-ctl' },
+              h('button', { type: 'button', class: 'bwa-sw', id: 'bwAccFilter', role: 'switch', 'aria-checked': String(A.filter), 'aria-label': 'Ouvre le filtre', onclick: () => putAcc(sc, T, { filter: !A.filter }, '#bwAccFilter') }),
+              h('div', { class: 'bwa-txt' }, h('b', {}, 'Ouvre le filtre'), h('small', {}, 'L’accent ouvre le filtre : la basse acide.'))),
+            A.filter ? h('div', { class: 'bwa-ctl bwa-sub' }, bright, h('div', { class: 'bwa-txt' }, h('b', {}, 'Brillance ', bv), h('small', {}, 'Jusqu’où le filtre s’ouvre.'))) : null
+          )
+        )
+      )
     );
   }
 
@@ -3567,7 +3788,7 @@ SS.band = (() => {
     });
   }
   /** Cartes de modes (basse, nappes) : celui de l'inspiration est choisi tant qu'on n'a rien réglé. */
-  function modeCards(sc, role, list, color) {
+  function modeCards(sc, role, list, color, after) {
     const insp = planMode(sc, role);
     const cur = (partOf(sc.sec, role) || {}).mode || insp;
     return h(
@@ -3575,7 +3796,7 @@ SS.band = (() => {
       { class: 'bwp-modes', role: 'radiogroup', 'aria-label': 'Mode de jeu', style: `--c:${color}` },
       ...list.map(([id, name, desc, notes, soft]) => {
         const on = id === cur && !mutedIn(sc.sec, role);
-        const pick = () => (putOff(sc.sec, role, false), putPart(sc.sec, role, { mode: id === insp ? undefined : id }), partChanged(`.bwp-mode[data-v="${id}"]`));
+        const pick = () => (putOff(sc.sec, role, false), putPart(sc.sec, role, { mode: id === insp ? undefined : id }), after && after(), partChanged(`.bwp-mode[data-v="${id}"]`));
         return h(
           'button',
           { type: 'button', role: 'radio', class: 'bwp-mode' + (on ? ' on' : ''), 'data-v': id, 'aria-checked': String(on), title: desc, onclick: pick },
@@ -3613,7 +3834,7 @@ SS.band = (() => {
     const prev = $('#bwParts');
     const top = prev && prev.dataset.ins === T.id && prev.dataset.kind === T.kind ? prev.scrollTop : 0; // un clic bas dans la liste ne la remonte pas
     const content = h('div', { class: 'bwc bwp', id: 'bwParts', 'data-kind': T.kind, 'data-ins': T.id, style: `--c:${KIND_COLOR[T.kind]}` }, ...body);
-    splitView(sceneNav(res, sc, (x) => instSub(T, x)), trackbar(T), content);
+    splitView(sceneNav(res, sc, (x) => (T.kind === 'bass' ? bassSceneSub(x, T) : instSub(T, x))), trackbar(T), content);
     content.scrollTop = top;
   }
 
@@ -3812,14 +4033,20 @@ SS.band = (() => {
   }
 
   /* --- Basse : mode de jeu, pédale, registre, note d'approche --- */
-  function bassSub(x, T) {
+  function bassSub(x, T, noAcc) {
     const o = partOf(x.sec, T) || {};
     const m = o.mode || planMode(x, T);
-    return mutedIn(x.sec, T) ? 'muette' : (m ? nameOf(BASS_MODES, m) : 'aucune') + (o.pedal ? ' + pédale' : '') + (o.mode ? '' : m && !typeChanged(T) ? ' · inspiration' : '');
+    const n = noAcc || mutedIn(x.sec, T) ? 0 : accCount(x, T);
+    return mutedIn(x.sec, T) ? 'muette' : (m ? nameOf(BASS_MODES, m) : 'aucune') + (o.pedal ? ' + pédale' : '') + (o.mode ? '' : m && !typeChanged(T) ? ' · inspiration' : '') + (n ? ` · ${n} accent${n > 1 ? 's' : ''}` : '');
+  }
+  /** Colonne des scènes (basse) : le jeu de la scène, et à droite la pastille « n accents ». */
+  function bassSceneSub(x, T) {
+    const n = mutedIn(x.sec, T) ? 0 : accCount(x, T);
+    return h('span', { class: 'bwa-ssub' }, h('span', {}, bassSub(x, T, true)), n ? h('em', { class: 'bwa-badge', title: `${n} accent${n > 1 ? 's' : ''}` }, h('i', { html: '<svg viewBox="0 0 8 8" aria-hidden="true"><path d="M1.5 1l4 3-4 3" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>' }), `${n} accent${n > 1 ? 's' : ''}`) : null);
   }
   function bassBody(sc, T) {
     const o = partOf(sc.sec, T) || {};
-    const set = (patch) => (putPart(sc.sec, T, patch), partChanged());
+    const set = (patch) => (putPart(sc.sec, T, patch), pruneAccents(sc, T), partChanged());
     return [
       partHead(sc, T, 'basse', false),
       rollBox(sc, T),
@@ -3827,8 +4054,13 @@ SS.band = (() => {
         'section',
         { class: 'bwp-card bw-card' },
         h('div', { class: 'bwp-ch' }, h('b', {}, `Mode de jeu de « ${sc.name} »`), h('span', { class: 'spacer' }), playBox(sc, T, '8')),
-        modeCards(sc, T, BASS_MODES, '#3fcf3f'),
-        !planMode(sc, T) && !o.mode ? h('p', { class: 'dlg-hint' }, 'L’inspiration ne joue pas de basse dans cette scène : choisis un mode pour l’allumer.') : null,
+        modeCards(sc, T, BASS_MODES, '#3fcf3f', () => pruneAccents(sc, T)),
+        !planMode(sc, T) && !o.mode ? h('p', { class: 'dlg-hint' }, 'L’inspiration ne joue pas de basse dans cette scène : choisis un mode pour l’allumer.') : null
+      ),
+      accentsCard(sc, T),
+      h(
+        'section',
+        { class: 'bwp-card bw-card' },
         h(
           'div',
           { class: 'bwp-row' },

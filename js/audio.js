@@ -1583,7 +1583,7 @@ SS.audio = (() => {
     // accent (ev.acc) : réglages de la note poussés ; mémoire des accents rapprochés, par piste
     if (mod && mod.acc) {
       const a = accentCharge(track, Math.max(time, ctx.currentTime), idx === 0);
-      const r = SS.accentParams(p, vel, p.accent, a);
+      const r = SS.accentParams(p, vel, mod.accAmt ?? p.accent, a);
       p = r.p;
       vel = r.vel;
     }
@@ -1843,7 +1843,7 @@ SS.audio = (() => {
             // notes simultanées (mode Accord rythmique) : jouées comme un accord (glide, niveau)
             const group = notes.filter((x) => x.at === n.at);
             const gi = group.indexOf(n);
-            playNote(track, n.midi, t + jt(), ndur, jv(n.vel * (group.length > 1 ? 0.8 : 1)), undefined, gi, group.length, { cutoff: n.cutoff, locks, acc: !!ev.acc });
+            playNote(track, n.midi, t + jt(), ndur, jv(n.vel * (group.length > 1 ? 0.8 : 1)), undefined, gi, group.length, { cutoff: n.cutoff, locks, acc: !!ev.acc, accAmt: ev.accAmt });
             if (n.first) duckFrom(project, track, t); // un arpège déclenche le sidechain au début de chaque accord
           });
         } else if (ev.step === step) {
@@ -1860,7 +1860,7 @@ SS.audio = (() => {
           const sub = sd / r;
           // automation du son (track.auto, réglages « voice ») : valeur au pas de la note
           const locks = SS.voiceLocks(track, tick % alen, alen);
-          const nmod = locks || ev.acc ? { locks, acc: !!ev.acc } : null;
+          const nmod = locks || ev.acc ? { locks, acc: !!ev.acc, accAmt: ev.accAmt } : null;
           for (let j = 0; j < r; j++) {
             const d = j < r - 1 ? sub * 0.9 : Math.max(sub * 0.9, dur - j * sub);
             const v = vv * (ev.notes.length > 1 ? 0.8 : 1) * (j ? 0.85 : 1);

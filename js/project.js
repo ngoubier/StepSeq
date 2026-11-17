@@ -54,6 +54,10 @@ SS.SHIFT_MAX = 0.5;
 SS.cleanAccent = (ev) => {
   if (ev.acc) ev.acc = true;
   else delete ev.acc;
+  // accAmt : jusqu'où le filtre s'ouvre sur cette note (0..1), remplace le réglage « accent » du son (accents de basse de l'assistant)
+  const a = Number(ev.accAmt);
+  if (ev.acc && Number.isFinite(a)) ev.accAmt = Math.round(Math.max(0, Math.min(1, a)) * 100) / 100;
+  else delete ev.accAmt;
   return ev;
 };
 /** Vélocité exportée (MIDI) d'une note accentuée. */
