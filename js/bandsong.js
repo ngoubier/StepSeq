@@ -1931,7 +1931,9 @@ SS.bandSong = (() => {
           });
         }
         // crash de la batterie au premier pas (jonction entrante réglée : impact)
-        if (ij && fxJ[ij.key].impact) {
+        // (réglage égal à celui du plan : le crash du plan reste tel quel, vélocité comprise)
+        const impDef = ij ? junctionDefaults(spec, ij.from, ij.to).impact : null;
+        if (ij && fxJ[ij.key].impact && (inE.impact.on !== impDef.on || inE.impact.type !== impDef.type || (inE.impact.on && inE.impact.level !== impDef.level))) {
           tracks.forEach((t) => {
             const [rl, snd] = ((t.band && t.band.key) || '').split(':');
             const d = data[t.id];

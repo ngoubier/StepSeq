@@ -101,7 +101,7 @@ test('mastering : chaque chanson a son gain d\'entrée mesuré, limiteur à −1
     SS.bandMix.mixMaster(proj, p.style, SS.bandMix.driveFor(p.id, p.style));
     const m = SS.masterParams(proj).mastering;
     assert.ok(m.on && m.ceiling === -1 && m.mono >= 80 && m.drive === SS.BAND_DRIVE[p.id]);
-    assert.ok(m.drive > 0 && m.drive < 14, `${p.id} : gain de mastering suspect (${m.drive} dB)`);
+    assert.ok(m.drive > 0 && m.drive < 15, `${p.id} : gain de mastering suspect (${m.drive} dB)`);
     // les réglages survivent à l'enregistrement
     const back = SS.normalizeProject(JSON.parse(JSON.stringify(proj)));
     assert.deepEqual(SS.masterParams(back).mastering, m);

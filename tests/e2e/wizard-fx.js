@@ -76,29 +76,39 @@ const ok = (c, m) => {
 
   // ---------- 2. La frise, la jonction choisie, ce que fait déjà le plan
   const sceneNames = await page.$$eval('.fx-block b', (l) => l.map((x) => x.textContent));
-  ok(sceneNames.join(',') === 'Intro,Groove,Montée,Drop,Break,Montée,Drop final,Outro' && (await page.locator('.fx-tm button').count()) === sceneNames.length - 1, `frise : ${sceneNames.length} blocs dans l’ordre de l’arrangement, une pastille entre deux blocs`);
+  ok(sceneNames.join(',') === 'Intro,Groove,Montée,Drop,Break,Montée 2,Drop final,Outro' && (await page.locator('.fx-tm button').count()) === sceneNames.length - 1, `frise : ${sceneNames.length} blocs dans l’ordre de l’arrangement, une pastille entre deux blocs`);
   ok((await page.locator('.fx-tm button.sel').getAttribute('data-j')) === '2' && (await page.textContent('#fxTrans h3')).includes('Transition avant « Drop »'), 'jonction choisie par défaut : avant le premier drop');
   ok((await page.locator('.fx-tm button').nth(2).textContent()) === '4' && (await page.locator('.fx-tm button').nth(0).textContent()) === '+', 'la pastille compte les effets actifs (4 avant le drop, « + » quand il n’y en a pas)');
   ok((await on(page, 'riser')) === 'true' && (await on(page, 'hp')) === 'true' && (await on(page, 'gap')) === 'true' && (await on(page, 'impact')) === 'true' && (await on(page, 'rev')) === 'false' && (await on(page, 'down')) === 'false', 'état initial : ce que fait le plan (montée, passe-haut, coupure, impact), ni cymbale ni descente');
-  ok((await page.locator('#fxlen-riser [aria-pressed="true"]').getAttribute('data-v')) === '8' && (await page.locator('#fxgap [aria-pressed="true"]').getAttribute('data-v')) === '4', 'montée de 8 mesures, coupure d’un temps');
-  ok((await page.locator('#fxlen-riser [data-v="16"]').isDisabled()), 'la montée est plafonnée à la longueur de la scène d’avant (16 mesures refusées sur 8)');
+  // longueurs lues dans le plan : la montée dure toute la scène d'avant (8 ou 16 mesures), pas 8 en dur
+  const B = await wiz(page, 'W.res.scenes.find((s) => s.name === "Montée").bars');
+  const B2 = await wiz(page, 'W.res.scenes.find((s) => s.name === "Montée 2").bars');
+  const N = B * 16; // pas de la montée avant le premier drop
+  ok(B >= 8 && B2 >= 4, `plan : montées de ${B} et ${B2} mesures`);
+  ok((await page.locator('#fxlen-riser [aria-pressed="true"]').getAttribute('data-v')) === String(Math.min(B, 16)) && (await page.locator('#fxgap [aria-pressed="true"]').getAttribute('data-v')) === '4', `montée de ${B} mesures (toute la scène), coupure d’un temps`);
+  ok((await page.locator(`#fxlen-riser [data-v="${B}"]`).count()) === 0 || !(await page.locator(`#fxlen-riser [data-v="${B}"]`).isDisabled()), 'la longueur du plan est proposée');
+  await page.click('.fx-tm button >> nth=5'); // la montée de 8 mesures : 16 refusées
+  await page.waitForTimeout(200);
+  ok(B2 < 16 && (await page.locator('#fxlen-riser [data-v="16"]').isDisabled()), `la montée est plafonnée à la longueur de la scène d’avant (16 mesures refusées sur ${B2})`);
+  await page.click('.fx-tm button >> nth=2');
+  await page.waitForTimeout(200);
   ok((await page.textContent('#bandWizSteps li.cur .bw-ss')).includes('transition'), 'le résumé du stepper compte les transitions');
   ok((await wiz(page, 'JSON.stringify(W.fx)')) === '{}', 'visiter l’étape ne retouche rien');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'fx-overview.png') });
 
   // ---------- 3. Montée de bruit : sa longueur change la piste Effets
   const riser0 = await dataOf(page, 'Montée', 'fx');
-  ok(riser0.events.length === 1 && riser0.events[0].step === 0 && riser0.events[0].len === 124, 'montée du plan : une note tenue sur toute la scène (jusqu’à la coupure)');
+  ok(riser0.events.length === 1 && riser0.events[0].step === 0 && riser0.events[0].len === N - 4, 'montée du plan : une note tenue sur toute la scène (jusqu’à la coupure)');
   await page.click('#fxlen-riser [data-v="4"]');
   await page.waitForTimeout(300);
   const riser4 = await dataOf(page, 'Montée', 'fx');
-  ok(riser4.events.length === 1 && riser4.events[0].step === 64 && riser4.events[0].len === 60, 'montée de 4 mesures : la note ne couvre que les 4 dernières mesures');
-  ok(Object.keys(riser4.auto.filter).every((s) => +s >= 63) && riser4.auto.volume[64] === 0.15, 'les courbes (filtre, volume) suivent la montée');
+  ok(riser4.events.length === 1 && riser4.events[0].step === N - 64 && riser4.events[0].len === 60, 'montée de 4 mesures : la note ne couvre que les 4 dernières mesures');
+  ok(Object.keys(riser4.auto.filter).every((s) => +s >= N - 65) && riser4.auto.volume[N - 64] === 0.15, 'les courbes (filtre, volume) suivent la montée');
   ok((await wiz(page, 'W.fx.junctions["build>drop"].riser.len')) === 4, 'S.wiz.fx.junctions : réglage rangé par couple de scènes');
   await page.selectOption('#fxfilter-riser', 'hp');
   await page.waitForTimeout(250);
   const hpR = await dataOf(page, 'Montée', 'fx');
-  ok(hpR.auto.filter[64] === 0.85, 'filtre « Passe-haut qui s’ouvre » : la courbe part du passe-haut fermé');
+  ok(hpR.auto.filter[N - 64] === 0.85, 'filtre « Passe-haut qui s’ouvre » : la courbe part du passe-haut fermé');
   await page.selectOption('#fxfilter-riser', 'none');
   await page.waitForTimeout(250);
   ok(!(await dataOf(page, 'Montée', 'fx')).auto.filter, 'sans filtre : pas de courbe de filtre');
@@ -108,23 +118,23 @@ const ok = (c, m) => {
   await page.click('#fxon-riser');
   await page.click('#fxfilter-riser', { trial: true }).catch(() => {});
   await page.selectOption('#fxfilter-riser', 'lp');
-  await page.click('#fxlen-riser [data-v="8"]');
+  await page.click(`#fxlen-riser [data-v="${B}"]`);
   await page.waitForTimeout(250);
   ok(JSON.stringify((await dataOf(page, 'Montée', 'fx')).events) === JSON.stringify(riser0.events), 'revenir au réglage du plan redonne la montée d’origine');
 
   // ---------- 4. Coupure : une mesure de silence avant le drop
   await page.click('#fxgap [data-v="16"]');
   await page.waitForTimeout(300);
-  const quiet = await page.evaluate(() => {
+  const quiet = await page.evaluate((n) => {
     const sc = SS.band._state.wiz.res.scenes.find((x) => x.name === 'Montée');
-    return Object.entries(sc.data).map(([id, d]) => [id, d.steps ? d.steps.slice(112).some((v) => v > 0) : d.events.some((e) => e.step >= 112)]);
-  });
+    return Object.entries(sc.data).map(([id, d]) => [id, d.steps ? d.steps.slice(n - 16).some((v) => v > 0) : d.events.some((e) => e.step >= n - 16)]);
+  }, N);
   ok(quiet.length > 4 && quiet.every(([, loud]) => !loud), 'coupure d’une mesure : plus rien ne joue sur la dernière mesure de la montée (toutes les pistes)');
   const before = await dataOf(page, 'Montée', 'pad');
   await page.click('#fxgap [data-v="0"]');
   await page.waitForTimeout(250);
   const none = await dataOf(page, 'Montée', 'pad');
-  ok(none.events.some((e) => e.step === 112 && e.len === 16) && !before.events.some((e) => e.step >= 112) && (await on(page, 'gap')) === 'false', '« Aucune » : la dernière mesure joue (la nappe tient jusqu’au drop), l’interrupteur est éteint');
+  ok(none.events.some((e) => e.step === N - 16 && e.len === 16) && !before.events.some((e) => e.step >= N - 16) && (await on(page, 'gap')) === 'false', '« Aucune » : la dernière mesure joue (la nappe tient jusqu’au drop), l’interrupteur est éteint');
   await page.click('#fxgap [data-v="4"]');
   await page.waitForTimeout(250);
 
@@ -132,11 +142,11 @@ const ok = (c, m) => {
   ok((await dataOf(page, 'Drop', 'fx')).events.length === 1, 'le drop du plan : un impact sur la piste Effets');
   await page.click('#fxon-rev');
   await page.waitForTimeout(250);
-  const rev = (await dataOf(page, 'Montée', 'fx')).events.find((e) => e.step === 112);
-  ok(!!rev && rev.len === 16 && (await dataOf(page, 'Montée', 'fx')).auto.volume[127] > 0.5, 'cymbale inversée (1 mesure) : une montée de bruit qui finit sur le premier temps du drop, hors de la coupure');
+  const rev = (await dataOf(page, 'Montée', 'fx')).events.find((e) => e.step === N - 16);
+  ok(!!rev && rev.len === 16 && (await dataOf(page, 'Montée', 'fx')).auto.volume[N - 1] > 0.5, 'cymbale inversée (1 mesure) : une montée de bruit qui finit sur le premier temps du drop, hors de la coupure');
   await page.click('#fxlen-rev [data-v="4"]');
   await page.waitForTimeout(250);
-  ok((await dataOf(page, 'Montée', 'fx')).events.some((e) => e.step === 124 && e.len === 4), 'cymbale inversée d’un temps : 4 pas avant le drop');
+  ok((await dataOf(page, 'Montée', 'fx')).events.some((e) => e.step === N - 4 && e.len === 4), 'cymbale inversée d’un temps : 4 pas avant le drop');
   await page.click('#fxon-down');
   await page.waitForTimeout(250);
   const drop2 = await dataOf(page, 'Drop', 'fx');
@@ -153,7 +163,7 @@ const ok = (c, m) => {
   await page.selectOption('#fxtype-impact', 'both');
   await page.waitForTimeout(250);
   const padBase = await dataOf(page, 'Montée', 'pad');
-  ok(Math.abs(padBase.auto.filter[127] - 0.55) < 1e-6, 'passe-haut global du plan : 0,55 sur la nappe (777 Hz)');
+  ok(Math.abs(padBase.auto.filter[N - 1] - 0.55) < 1e-6, 'passe-haut global du plan : 0,55 sur la nappe (777 Hz)');
   await page.evaluate(() => {
     const e = document.querySelector('#fxhp-freq');
     e.value = 2000;
@@ -161,7 +171,7 @@ const ok = (c, m) => {
   });
   await page.waitForTimeout(300);
   const padHp = await dataOf(page, 'Montée', 'pad');
-  ok(padHp.auto.filter[127] > 0.65 && padHp.auto.filter[127] < 0.75, 'passe-haut à 2000 Hz : l’ouverture finale de la nappe suit le réglage (0,69)');
+  ok(padHp.auto.filter[N - 1] > 0.65 && padHp.auto.filter[N - 1] < 0.75, 'passe-haut à 2000 Hz : l’ouverture finale de la nappe suit le réglage (0,69)');
   await page.click('#fxon-hp');
   await page.waitForTimeout(250);
   ok(!(await dataOf(page, 'Montée', 'pad')).auto || !(await dataOf(page, 'Montée', 'pad')).auto.filter, 'passe-haut éteint : plus de courbe de filtre sur la nappe');
@@ -178,7 +188,7 @@ const ok = (c, m) => {
   await page.click('#fxCopy');
   await page.waitForTimeout(300);
   const J = await wiz(page, 'JSON.parse(JSON.stringify(W.fx.junctions))');
-  ok(!!J['build>drop2'] && J['build>drop2'].riser.len === 4 && J['build>drop2'].rev.on === true && J['build>drop2'].down.len === 4, 'copie : la jonction vers le second drop reçoit les mêmes réglages');
+  ok(!!J['build2>drop2'] && J['build2>drop2'].riser.len === 4 && J['build2>drop2'].rev.on === true && J['build2>drop2'].down.len === 4, 'copie : la jonction vers le second drop reçoit les mêmes réglages');
   ok(!J['groove>build'] && !J['intro>groove'], 'les jonctions qui ne mènent pas à un drop ne bougent pas');
   ok((await page.textContent('#fxCopied')).includes('Copié vers 1'), 'confirmation « Copié vers 1 jonction »');
   await page.click('.fx-tm button >> nth=5');
@@ -213,10 +223,10 @@ const ok = (c, m) => {
   await page.waitForTimeout(500);
   ok((await wiz(page, 'S.group.list.length')) === n0 + 1 && (await page.evaluate(() => SS.band.insSteps().some((t) => t.role === 'perc'))), 'le bouton ajoute le Percussionniste au groupe (une étape instrument de plus)');
   ok((await num(page, 'fx')) === f0 + 1 && (await wiz(page, 'W.step')) === f0 + 1 && (await page.locator('#fxMissPerc').count()) === 0, 'les numéros suivent, on reste sur l’étape Effets');
-  ok((await page.locator('.fx-ptab tbody tr').count()) === 3 && (await page.locator('.fx-ptab th').count()) === 7 + 1, 'matrice : trois boucles (shaker, conga, tom) × sept scènes (une colonne par scène, pas par bloc)');
+  ok((await page.locator('.fx-ptab tbody tr').count()) === 3 && (await page.locator('.fx-ptab th').count()) === (await wiz(page, 'W.res.scenes.length')) + 1, 'matrice : trois boucles (shaker, conga, tom) × une colonne par scène (pas par bloc)');
   // le plan joue déjà le shaker (et la conga) : l'affichage le montre
   const shOn = await page.$$eval('.fx-cb[data-loop="sh"]', (l) => l.map((x) => x.getAttribute('aria-pressed') === 'true'));
-  ok(shOn.join() === 'false,true,true,true,false,true,true', `le shaker du plan : joué sauf intro et break (${shOn.join(' ')})`);
+  ok(shOn.join() === 'true,true,true,true,false,true,true,true', `le shaker du plan : joué partout (intro DJ en « light » comprise) sauf dans le break (${shOn.join(' ')})`);
   // tout éteindre, puis allumer le shaker dans Groove et Drop seulement
   for (const loop of ['sh', 'cg', 'tom'])
     for (const sec of await page.$$eval(`.fx-cb[data-loop="${loop}"]`, (l) => l.map((x) => x.dataset.sec)))
@@ -270,11 +280,11 @@ const ok = (c, m) => {
   const pr = await P(page);
   const track = (k) => pr.tracks.find((t) => t.band && t.band.key === k);
   const inScene = (n, k) => pr.scenes.find((s) => s.name === n).data[track(k).id].steps.some((v) => v > 0);
-  ok(['Intro', 'Montée', 'Break', 'Drop final', 'Outro'].every((n) => !inScene(n, 'perc:sh')) && inScene('Groove', 'perc:sh') && inScene('Drop', 'perc:sh') && inScene('Drop', 'perc:misc') && !inScene('Groove', 'perc:perc'), 'la chanson créée : percussions seulement dans les scènes choisies');
+  ok(['Intro', 'Montée', 'Break', 'Montée 2', 'Drop final', 'Outro'].every((n) => !inScene(n, 'perc:sh')) && inScene('Groove', 'perc:sh') && inScene('Drop', 'perc:sh') && inScene('Drop', 'perc:misc') && !inScene('Groove', 'perc:perc'), 'la chanson créée : percussions seulement dans les scènes choisies');
   const fxT = track('fx:fx') || track('fx');
   const dropFx = pr.scenes.find((s) => s.name === 'Drop').data[fxT.id].events;
   const buildFx = pr.scenes.find((s) => s.name === 'Montée').data[fxT.id].events;
-  ok(dropFx.some((e) => e.step === 4 && e.len === 64) && buildFx.some((e) => e.step === 112 || e.step === 124), 'la chanson créée : descente, cymbale inversée et montée réglées');
+  ok(dropFx.some((e) => e.step === 4 && e.len === 64) && buildFx.some((e) => e.step === N - 16 || e.step === N - 4), 'la chanson créée : descente, cymbale inversée et montée réglées');
   await page.close();
 
   // ---------- 9. Sans retouche, la chanson créée est celle d'avant
@@ -306,7 +316,7 @@ const ok = (c, m) => {
   const same = await (async () => {
     const pg = await open('techno');
     await go(pg, 'fx');
-    await pg.click('#fxlen-riser [data-v="8"]'); // réglage explicite, égal à celui du plan
+    await pg.click(`#fxlen-riser [data-v="${Math.min(B, 16)}"]`); // réglage explicite, égal à celui du plan
     await pg.waitForTimeout(300);
     const a = await pg.evaluate(() => JSON.stringify(SS.band._state.wiz.res.scenes.map((s) => Object.values(s.data))));
     await pg.click('#fxReset');

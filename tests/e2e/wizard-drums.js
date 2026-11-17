@@ -187,14 +187,21 @@ const ok = (c, m) => {
     await page.waitForTimeout(300);
     return perBar((await preview('Montée', rollerSnd)).steps);
   };
+  // la longueur de la montée vient du plan (8 ou 16 mesures) : les attendus se déduisent des préréglages
   const bars = await page.evaluate(() => SS.band._state.wiz.res.scenes.find((x) => x.name === 'Montée').bars);
+  const LV = (preset, b) => (preset === 'late' ? (b === bars - 1 ? 4 : b === bars - 2 ? 3 : 1) : Math.min(4, 1 + Math.floor((b * (preset === 'fast' ? 8 : 4)) / bars)));
+  // coups du roulant par mesure : noires 4, croches 8, doubles 16, triples 8 (ratchet ×3) ; le silence avant le drop coupe le dernier temps (pas 12 à 15)
+  const hits = (l, b) => [4, 8, 16, 8][l - 1] - (b === bars - 1 ? { 1: 1, 2: 2, 3: 4, 4: 2 }[l] : 0);
+  const want = (preset) => Array.from({ length: bars }, (_, b) => hits(LV(preset, b), b));
   const lin = await bpm('lin');
-  ok(bars === 8 && lin.join() === '4,4,8,8,16,16,8,6', `Linéaire : noires, croches, doubles, triples (ratchet ×3 sur une croche) : ${lin}`);
+  ok(bars >= 8 && lin.length === bars && lin.join() === want('lin').join(), `Linéaire sur ${bars} mesures : noires, croches, doubles, triples (ratchet ×3 sur une croche), montée régulière : ${lin}`);
+  ok(LV('lin', 0) === 1 && LV('lin', bars - 3) === 4 && Array.from({ length: bars }, (_, b) => LV('lin', b)).every((l, b, a) => b === 0 || (l >= a[b - 1] && a.filter((x) => x === l).length === bars / 4)), 'Linéaire : quatre paliers de même durée');
   const rat = (await preview('Montée', rollerSnd)).rat;
-  ok(rat && rat[7 * 16] === 3 && rat[7 * 16 + 2] === 3, 'triples : ratchet ×3 posé dans la dernière mesure');
+  ok(rat && rat[(bars - 1) * 16] === 3 && rat[(bars - 1) * 16 + 2] === 3, 'triples : ratchet ×3 posé dans la dernière mesure');
   const fast = await bpm('fast');
   const late = await bpm('late');
-  ok(fast.join() === '4,8,16,8,8,8,8,6' && late.join() === '4,4,4,4,4,4,16,6', `Rapide : ${fast} ; Tardive : ${late}`);
+  ok(fast.join() === want('fast').join() && late.join() === want('late').join(), `Rapide : ${fast} ; Tardive : ${late}`);
+  ok(LV('fast', Math.floor(bars / 2) - 1) === 4 && fast.slice(Math.ceil(bars / 2)).every((n, i, a) => n === a[0] || i === a.length - 1) && late.slice(0, bars - 2).every((n) => n === 4), 'Rapide : sommet atteint avant la mi-scène puis tenu ; Tardive : noires jusqu\'aux deux dernières mesures');
   ok(fast.join() !== lin.join() && late.join() !== fast.join(), 'les préréglages changent la densité du roulement');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'drums-montee.png') });
   // cliquer une colonne : un cran de plus, Perso
@@ -221,10 +228,10 @@ const ok = (c, m) => {
   await bpm('fast');
   const afterFast = (await preview('Montée', rollerSnd)).steps;
   ok(afterFast.slice(32, 48).map((v) => v > 0).join() === lockedSteps && perBar(afterFast)[2] === lockedCount, 'changer de préréglage : la mesure libre ne bouge pas');
-  ok(perBar(afterFast)[0] !== custom[0] || perBar(afterFast)[1] === 8, 'les autres mesures suivent le nouveau préréglage');
+  ok(perBar(afterFast)[0] !== custom[0] || perBar(afterFast)[1] === want('fast')[1], 'les autres mesures suivent le nouveau préréglage');
   await page.click('#bwbFree');
   d = await drums('build');
-  ok(!d.build.lock && perBar((await preview('Montée', rollerSnd)).steps)[2] === 16, 'clic sur « Mesure libre » : la mesure revient à la courbe');
+  ok(!d.build.lock && perBar((await preview('Montée', rollerSnd)).steps)[2] === want('fast')[2], 'clic sur « Mesure libre » : la mesure revient à la courbe');
   // crescendo
   await page.evaluate(() => {
     const i = document.querySelector('#bwbCresc');
@@ -253,7 +260,7 @@ const ok = (c, m) => {
   ok(g.data[tr('bd').id].steps[52] > 0 && g.data[tr('bd').id].steps.length === 16 * g.bars, 'projet créé : le kick de la mesure 2 du motif est joué');
   const m = sc('Montée');
   const mr = m.data[tr(rollerSnd).id];
-  ok(perBar(mr.steps).join() === perBar(afterFast).map((x, i) => (i === 2 ? 16 : x)).join() || perBar(mr.steps).length === 8, 'projet créé : le roulement de la montée suit la progression');
+  ok(perBar(mr.steps).length === bars && perBar(mr.steps).join() === want('fast').join(), 'projet créé : le roulement de la montée suit la progression');
   ok(!!mr.rat && Object.keys(mr.rat).length > 0, 'projet créé : ratchets du roulement');
   ok(p.groove && typeof p.groove.human === 'number', 'projet créé : groove de la chanson (swing, humanisation)');
 
