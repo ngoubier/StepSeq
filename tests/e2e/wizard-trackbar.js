@@ -1,7 +1,7 @@
 /*
  * Test de bout en bout de la barre de piste et de l'aperçu en rouleau de l'assistant « Nouvelle chanson » (js/band.js) :
  *   node tests/e2e/wizard-trackbar.js
- * Étapes Batterie à Mélodie : le menu « Piste » reprend les choix de l'étape Instruments (même état), « On entend » coupe un
+ * Étapes Batterie à Mélodie : pas de menu « Piste » (le son et le kit se choisissent à l'étape Instruments), « On entend » coupe un
  * musicien dans la boucle d'écoute, « Seule » le met en solo ; Basse, Nappes et Arpèges dessinent les notes de la scène.
  */
 const { chromium } = require('playwright');
@@ -65,26 +65,10 @@ const ok = (c, m) => {
   await next(5);
   ok((await kindNow()) === 'bass', 'onglet de la basse');
   ok((await page.locator('#bwTrackbar').count()) === 1, 'barre de piste présente');
-  const opts = await page.$$eval('#bwTbPiste option', (xs) => xs.map((x) => x.textContent));
-  ok(opts.length === nCards && names.every((n) => opts.some((o) => o.includes(n))), `Piste : les ${opts.length} choix de l'étape 2 (${opts.join(' | ')})`);
-  ok(/\(étape 2\)/.test(await page.locator('#bwTbPiste option:checked').textContent()) && opts.filter((o) => /étape 2/.test(o)).length === 1, 'le choix courant est marqué (étape 2)');
-  // changer de piste
-  const target = await page.$$eval('#bwTbPiste option', (xs) => xs.find((x) => !x.selected).value);
-  const before = await page.evaluate(() => SS.band._state.cache);
-  await page.selectOption('#bwTbPiste', target);
-  await page.waitForTimeout(300);
-  const sel = await page.locator('#bwTbPiste option:checked').textContent();
-  ok(!/étape 2/.test(sel) && (await page.locator('#bwTbPiste option', { hasText: 'étape 2' }).count()) === 1, 'après le changement, « (étape 2) » reste sur l’ancien choix');
+  const noPiste = async (m) => ok((await page.locator('#bwTbPiste, #bwTbKit, .tb-piece').count()) === 0 && !/Piste/.test(await page.textContent('#bwTrackbar')) && /On entend/.test(await page.textContent('#bwTrackbar')), m + ' : pas de menu Piste (ni #bwTbPiste, #bwTbKit, libellé « Piste »), « On entend » présent');
+  await noPiste('Basse');
+  ok((await page.locator('#bwTbSolo').count()) === 1, 'Basse : « Seule » présent');
   const chosen = await page.evaluate(() => SS.band.plannedTracks().find((t) => t.band.key === 'bass'));
-  // le choix de l'étape 2 a suivi
-  await page.click('#bandWizSteps li:nth-child(2) button');
-  await page.waitForTimeout(300);
-  await page.locator('#bandStage .band-mus', { hasText: 'Bassiste' }).first().click();
-  const now = await activeName();
-  ok(now !== first && sel.includes(now), `l'étape 2 montre le nouveau choix (${first} → ${now})`);
-  await page.click('#bandWizSteps li:nth-child(7) button');
-  await page.waitForTimeout(300);
-  ok((await page.locator('#bwTbPiste option:checked').textContent()).includes(now), 'retour à Basse : même choix');
 
   // le rouleau : autant de rectangles que de notes de la basse dans la scène
   const rolls = async () => ({
@@ -133,39 +117,30 @@ const ok = (c, m) => {
   // Nappes et Arpèges : rouleau aussi
   await next(1);
   ok((await kindNow()) === 'chords' && (await page.locator('#bwRoll .bw-rn').count()) > 0, 'Nappe : rouleau avec des notes');
+  await noPiste('Nappe');
   await next(1);
   await page.click('.bh-scene:has(.bh-sname b:text-is("Refrain"))'); // pas d'arpège dans le couplet
   await page.waitForTimeout(300);
-  ok((await kindNow()) === 'arp' && (await page.locator('#bwRoll .bw-rn').count()) > 0 && (await page.locator('#bwTbPiste').count()) === 1, 'Arpèges : rouleau et menu Piste');
+  ok((await kindNow()) === 'arp' && (await page.locator('#bwRoll .bw-rn').count()) > 0 , 'Arpèges : rouleau');
+  await noPiste('Arpèges');
+  ok((await page.locator('#bwTbSolo').count()) === 1, 'Arpèges : « Seule » présent');
 
   // Accords et Mélodie
   for (let i = 0; i < 4; i++) await page.dispatchEvent('#bwBack', 'click');
   await page.waitForTimeout(250);
-  ok((await cur()).includes('Accords') && /Accords de la scène/.test(await page.textContent('#bwTrackbar')) && (await page.locator('#bwTbSolo').count()) === 0, 'Accords : « Piste Accords de la scène », pas de Seule');
+  ok((await cur()).includes('Accords') && (await page.locator('#bwTbSolo').count()) === 0, 'Accords : pas de Seule');
+  await noPiste('Accords');
   await next(5);
-  ok((await kindNow()) === 'melody' && (await page.locator('#bwTbPiste').count()) === 1 && (await page.locator('.bh-lane .bw-m, .bh-lane .bw-s').count()) === 0, 'Mélodie : barre de piste, plus de M / S par ligne');
+  ok((await kindNow()) === 'melody' && (await page.locator('.bh-lane .bw-m, .bh-lane .bw-s').count()) === 0, 'Mélodie : plus de M / S par ligne');
+  await noPiste('Mélodie');
+  ok((await page.locator('#bwTbSolo').count()) === 1, 'Mélodie : « Seule » présent');
 
   // Batterie : le kit
   for (let i = 0; i < 4; i++) await page.dispatchEvent('#bwBack', 'click');
   await page.waitForTimeout(250);
-  ok((await kindNow()) === 'drums' && (await page.locator('#bwTbKit').count()) === 1, 'étape Batterie : menu du kit');
-  const kit0 = await page.inputValue('#bwTbKit');
-  let kitName = '';
-  const kitVal = await page.$$eval('#bwTbKit option', (xs) => xs.find((x) => !x.selected).value);
-  const piecesBefore = await page.locator('.tb-piece.on').count();
-  await page.selectOption('#bwTbKit', kitVal);
-  await page.waitForTimeout(300);
-  kitName = (await page.locator('#bwTbKit option:checked').textContent()).replace(/^.*· /, '').replace(' (étape 2)', '');
-  ok((await page.inputValue('#bwTbKit')) === kitVal && (await page.evaluate(() => { const st = SS.band._state; const c = st.cache[st.presetId]; return Object.values(c).find((x) => x.kit).kit; })) === kitVal && kitVal !== kit0, `le kit change (${kit0} → ${kitVal}) dans l’état partagé`);
-  ok((await page.locator('#bwTbKit option:checked').textContent()).indexOf('étape 2') < 0 && (await page.locator('#bwTbKit option', { hasText: 'étape 2' }).count()) === 1, 'kit : « (étape 2) » reste sur celui de l’étape 2');
-  // éléments
-  await page.locator('.tb-piece.on').first().click();
-  await page.waitForTimeout(250);
-  ok((await page.locator('.tb-piece.on').count()) === piecesBefore - 1, 'un élément décoché dans la barre');
-  await page.click('#bandWizSteps li:nth-child(2) button');
-  await page.waitForTimeout(250);
-  await page.locator('#bandStage .band-mus', { hasText: 'Batteur' }).first().click();
-  ok((await page.locator('#bandPanel .band-kit.active').count()) === 1 && (await page.locator('#bandPanel .band-kit.active .bk-name').textContent()).replace('★ ', '') === kitName && (await page.locator('#bandPanel .band-piece.on').count()) === piecesBefore - 1, 'étape 2 : même kit, mêmes éléments cochés');
+  ok((await kindNow()) === 'drums', 'étape Batterie');
+  await noPiste('Batterie');
+  ok((await page.locator('#bwTbSolo').count()) === 1 && (await page.locator('.tb-chip').count()) >= 4, 'Batterie : « Seule » et « On entend » présents');
 
   // téléphone : rien ne déborde
   await page.setViewportSize({ width: 390, height: 800 });
@@ -186,7 +161,7 @@ const ok = (c, m) => {
     const t = JSON.parse(localStorage.getItem('stepseq.autosave')).tracks.find((x) => x.band && x.band.key === 'bass');
     return t && { instrument: t.instrument, analog: t.analog, sound: t.sound, family: t.family };
   });
-  ok(made && (made.instrument === chosen.instrument || made.analog === chosen.analog) && made.instrument !== undefined, `la basse créée joue l’instrument choisi (${made && made.instrument})`);
+  ok(made && (made.instrument === chosen.instrument || made.instrument === chosen.analog || made.analog === chosen.analog) && made.instrument !== undefined, `la basse créée joue l’instrument choisi (${made && made.instrument})`);
 
   ok(errs.length === 0, 'aucune erreur de page' + (errs.length ? ' : ' + errs[0] : ''));
   await b.close();
