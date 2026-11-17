@@ -159,19 +159,59 @@ const ok = (c, m) => {
   await page.click('#bwpVoicing [data-v="open"]');
   ok((await parts()).verse.pad.mode === 'stabs' && (await parts()).verse.pad.voicing === 'open', 'nappe : stabs, voicing ouvert');
 
-  // Arpèges : allumé dans le couplet (le plan n'en avait pas), coupé dans le refrain
+  // Arpèges : Arp One (mode Intuitif). L'inspiration joue tant qu'on n'a rien touché ; allumé dans le couplet (le plan n'en avait pas)
   await next();
   ok((await cur()).includes('Arpèges'), 'étape Arpèges');
-  ok(!(await page.isChecked('#bwp-on-arp')) && (await preview('Couplet', ':arp')).events.length === 0, 'couplet : pas d’arpège dans l’inspiration');
+  ok((await page.locator('.bwp-chips').count()) === 0 && (await page.locator('#bwaMotif').count()) === 1 && (await page.locator('.bwa-knob').count()) === 4, 'panneau Arp One : motif, 4 boutons Densité / Ampleur / Mouvement / Écho');
+  ok((await page.locator('#bwaMotif optgroup').count()) === (await page.evaluate(() => SS.MOTIF_CATS.length)) && (await page.locator('#bwaMotif option').count()) >= (await page.evaluate(() => SS.MOTIFS.length)), 'le sélecteur range les motifs par catégorie');
+  ok(!(await page.isChecked('#bwp-on-arp')) && (await preview('Couplet', ':arp')).events.length === 0 && !(await parts()).verse.arp, 'couplet : pas d’arpège dans l’inspiration, rien de réglé');
+  await scene('Intro');
+  ok((await page.textContent('#bwaName b')) === 'Pédale aiguë' && !((await parts()).intro || {}).arp, 'intro : le motif de départ suit l’inspiration (bells → Pédale aiguë), sans réglage écrit');
+  await scene('Couplet');
   await page.check('#bwp-on-arp');
   ok((await parts()).verse.arp.mode === 'up16' && (await preview('Couplet', ':arp')).events.length > 0, 'arpège allumé dans le couplet');
+  const notesOf = async (n) => JSON.stringify(((await preview(n, ':arp')).events || []).map((e) => [e.step, e.len, e.notes]));
+  const countOf = async (n) => ((await preview(n, ':arp')).events || []).length;
+  const before = await notesOf('Couplet');
+  // un motif choisi : parts.verse.arp.one, et les notes changent
+  await page.selectOption('#bwaMotif', 'midnight');
+  let one = (await parts()).verse.arp.one;
+  ok(one && one.mode === 'pattern' && !(await parts()).verse.arp.mode && (await page.textContent('#bwaName b')) === 'Midnight Drive', 'motif choisi : arp.one posé, nom affiché');
+  const midnight = await notesOf('Couplet');
+  ok(midnight !== before && (await countOf('Couplet')) > 0, 'les notes de l’arpège de l’aperçu changent');
+  ok(/Midnight Drive/.test(await page.textContent('.bh-scene.on .bh-ssub')), 'la colonne des scènes donne le nom du motif');
+  // ‹ ›
+  await page.click('#bwaNext');
+  const nextName = await page.textContent('#bwaName b');
+  ok(nextName !== 'Midnight Drive' && (await notesOf('Couplet')) !== midnight, `› : motif suivant (${nextName})`);
+  await page.click('#bwaPrev');
+  ok((await page.textContent('#bwaName b')) === 'Midnight Drive' && (await notesOf('Couplet')) === midnight, '‹ : retour au motif précédent, mêmes notes');
+  // vitesse
+  await page.click('#bwaRate [data-v="0.5"]');
+  ok((await parts()).verse.arp.one.rate === 0.5, 'vitesse 1/8');
+  await page.click('#bwaRate [data-v="1"]');
+  // Densité : moins de notes
+  const full = await countOf('Couplet');
+  await page.fill('#bwaK-density', '15');
+  const sparse = await countOf('Couplet');
+  ok(sparse > 0 && sparse < full && (await parts()).verse.arp.one.macros.density === 15, `Densité basse : moins de notes (${sparse} < ${full})`);
+  // Ampleur
+  await page.fill('#bwaK-width', '93');
+  ok((await parts()).verse.arp.one.octaves === 4, 'Ampleur : 4 octaves');
+  // Surprends-moi
+  const pre = JSON.stringify((await parts()).verse.arp.one);
+  await page.click('#bwaSurprise');
+  ok(JSON.stringify((await parts()).verse.arp.one) !== pre && (await countOf('Couplet')) > 0, 'Surprends-moi : un nouvel arpège, qui joue');
+  const verseNotes = await notesOf('Couplet');
   await page.click('#bwpAll');
-  ok((await parts()).intro.arp.mode === 'up16' && (await parts()).outro.arp.mode === 'up16', 'copié vers toutes les scènes');
+  ok((await parts()).intro.arp.one && (await parts()).outro.arp.one && !!(await parts()).chorus.arp.one, 'copié vers toutes les scènes (réglages Arp One compris)');
   await scene('Refrain');
   ok(await page.isChecked('#bwp-on-arp'), 'refrain : l’arpège joue');
   await page.uncheck('#bwp-on-arp');
   ok((await parts()).chorus.off.includes('arp') && (await preview('Refrain', ':arp')).events.length === 0, 'arpège coupé dans le refrain');
   ok(/muet/.test(await page.textContent('.bh-scene.on .bh-ssub')), 'la colonne des scènes : muet');
+  await page.click('#bwpBack');
+  ok(!((await parts()).chorus || {}).arp && !((await parts()).chorus || {}).off && (await preview('Refrain', ':arp')).events.length > 0, '↺ Inspiration : le refrain rejoue l’arpège du plan');
 
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'parts-arpeges.png') });
 
@@ -188,7 +228,8 @@ const ok = (c, m) => {
   ok(sceneOf('Couplet').data[bd.id].steps.length === bars * 16 && sceneOf('Couplet').data[by('drums:cr').id].steps[0] > 0, 'projet : crash au début du couplet');
   const bassEv = sceneOf('Couplet').data[by('bass').id].events;
   ok(bassEv.length > 0 && bassEv.every((e) => e.notes.every((n) => n % 12 === 0)), 'projet : la basse du couplet est en pédale de tonique');
-  ok(sceneOf('Couplet').data[by('arp').id].events.length > 0 && (sceneOf('Refrain').data[by('arp').id].events || []).length === 0, 'projet : arpège dans le couplet, coupé dans le refrain');
+  ok(JSON.stringify(sceneOf('Couplet').data[by('arp').id].events.map((e) => [e.step, e.len, e.notes])) === verseNotes, 'projet : l’arpège Arp One du couplet porte les notes de l’aperçu');
+  ok((sceneOf('Refrain').data[by('arp').id].events || []).length > 0, 'projet : refrain revenu à l’inspiration, il joue');
   ok(sceneOf('Intro').data[by('arp').id].events.length > 0, 'projet : arpège de l’intro gardé');
 
   // un groupe sans arpégiateur : un message à la place des réglages
@@ -198,7 +239,7 @@ const ok = (c, m) => {
   await page.click('#bandStyles [data-v="synthwave"]');
   await page.click('#bandPresets .band-preset >> nth=3'); // Sweet Dreams : pas d'arpège
   await next(8);
-  ok((await cur()).includes('Arpèges') && !!(await page.$('#bwpNone')) && (await page.locator('.bwp-chips').count()) === 0, 'groupe sans arpège : un message, pas de réglage');
+  ok((await cur()).includes('Arpèges') && !!(await page.$('#bwpNone')) && (await page.locator('.bwa').count()) === 0, 'groupe sans arpège : un message, pas de réglage');
   await page.click('#bwBack');
   ok((await cur()).includes('Nappes') && (await page.locator('.bwp-mode').count()) === 9, 'groupe avec nappe : les réglages');
 

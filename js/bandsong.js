@@ -28,6 +28,9 @@
  *    allumer la basse ; s'ajoutent half et quarter) ; pedal joue la tonique (ou la quinte) de la tonalité sous tous les
  *    accords, sans notes d'approche ; approach false les supprime ; mid = une octave plus haut ;
  *  - pad { mode, voicing: close | open } ; arp { mode } : remplacent ceux du plan (et peuvent les allumer) ;
+ *  - arp { one } : réglages d'Arp One (js/arp.js, SS.Arp.normalize) ; les accords de la scène passent dans l'arpégiateur
+ *    (voicing médium 57-76, tempo nominal 120 BPM, boucle 0 : déterministe), les notes sont placées sur la grille de pas.
+ *    one l'emporte sur mode ; il faut que js/arp.js soit chargé, sinon mode / plan ;
  *  - off : rôles muets dans la scène (['arp', 'lead']) ;
  *  - lead { events: [{ step, len, notes: [midi], vel }] } : la mélodie de la scène (étape Mélodie de l'assistant, panneau
  *    d'Harmonie). Elle remplace celle du moteur sur la première piste chantante présente (lead, puis vox, puis sax) ;
@@ -537,6 +540,49 @@ SS.bandSong = (() => {
       }
     });
     return ev;
+  }
+
+  /* ---------- Arp One (parts[section].arp.one) ----------
+   * Les accords de la scène passent dans le vrai arpégiateur (SS.Arp.renderStep, js/arp.js), comme l'aperçu de
+   * l'atelier Mélodie (js/harmonypanel.js, songPreview). Chaque accord est posé en position serrée dans le médium
+   * (57-76), l'octave du dessus est faite par le réglage « octaves » d'Arp One. Les temps (secondes) sont convertis
+   * en pas avec un tempo nominal fixe : seul le rapport compte. Même accords + mêmes réglages = mêmes notes.
+   */
+  function arpOneEvents(spans, one, bars) {
+    const A = SS.Arp;
+    const total = bars * SPB;
+    const sd = 60 / 120 / 4; // tempo nominal : 120 BPM
+    const chords = [];
+    let prev = null;
+    spans.forEach((sp) => {
+      const v = voiceChord(sp.chord, prev, 57, 76);
+      prev = v;
+      chords.push({ step: sp.step, len: sp.len, notes: v, vel: 0.8 });
+    });
+    const arp = A.normalize(one);
+    const seen = new Map();
+    const ev = [];
+    chords.forEach((c) => {
+      const end = Math.min(c.step + c.len, total);
+      for (let step = c.step; step < end; step++) {
+        A.renderStep(arp, c, step, { loop: 0, trackLen: total, stepSec: sd, stepsPerBeat: 4, events: chords }).forEach((n) => {
+          const s = Math.round(step + n.at / sd);
+          if (s < 0 || s >= total) return;
+          const key = s + ':' + n.midi;
+          const len = Math.max(1, Math.min(Math.round(n.dur / sd), total - s));
+          if (seen.has(key)) {
+            const e = seen.get(key); // deux notes identiques au même pas (rafale, écho) : on garde la plus longue et la plus forte
+            e.len = Math.max(e.len, len);
+            e.vel = Math.max(e.vel, n.vel);
+            return;
+          }
+          const e = { step: s, len, notes: [n.midi], vel: n.vel };
+          seen.set(key, e);
+          ev.push(e);
+        });
+      }
+    });
+    return ev.sort((a, b) => a.step - b.step || a.notes[0] - b.notes[0]);
   }
 
   /* ---------- mélodies (lead, voix, sax) ----------
@@ -1107,10 +1153,12 @@ SS.bandSong = (() => {
         }
         const o = (pp && pp[role]) || null; // réglages du rôle (basse, nappe, arpège)
         const mode = muted.includes(role) ? null : (o && o.mode) || sec[role];
+        const one = role === 'arp' && !muted.includes(role) && o && o.one && SS.Arp ? o.one : null; // Arp One : l'emporte sur le mode
         let events = [];
         // mélodie imposée : même dans une scène où l'inspiration ne chante pas (sauf rôle coupé par « off »)
         if (ownLead && t === leadTrack && !muted.includes(role))
           events = ownLead.filter((e) => e && e.step >= 0 && e.step < bars * SPB && e.notes && e.notes.length).map((e) => ({ step: e.step, len: Math.max(1, Math.min(e.len, bars * SPB - e.step)), notes: [...e.notes], vel: e.vel ?? 0.8 }));
+        else if (one) events = arpOneEvents(spans, one, bars);
         else if (mode) {
           if (role === 'bass') {
             const kp = H().scale(k).map((d) => d.pc);

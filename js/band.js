@@ -2877,7 +2877,7 @@ SS.band = (() => {
   const partCheck = (id, label, on, change, disabled) => h('label', { class: 'bwp-check' }, h('input', { type: 'checkbox', id, checked: on, disabled, onchange: (e) => change(e.target.checked) }), label);
   /** « Joue dans cette scène » (rôle muet via `off`) ; allumer un rôle absent du plan lui donne le mode `def`. */
   function playBox(sc, role, def) {
-    const has = !!((partOf(sc.sec, role) || {}).mode || secOf(sc)[role]);
+    const has = !!((partOf(sc.sec, role) || {}).mode || (partOf(sc.sec, role) || {}).one || secOf(sc)[role]);
     return partCheck(`bwp-on-${role}`, 'Joue dans cette scène', has && !mutedIn(sc.sec, role), (on) => {
       putOff(sc.sec, role, !on);
       if (on && !has) putPart(sc.sec, role, { mode: def });
@@ -3121,32 +3121,119 @@ SS.band = (() => {
     ];
   }
 
-  /* --- Arpèges : mode ; l'arpège peut être allumé dans une scène où l'inspiration n'en avait pas --- */
+  /* --- Arpèges : Arp One, mode Intuitif (js/arp.js, js/motifs.js) ; l'arpège peut être allumé dans une scène où l'inspiration n'en avait pas ---
+   * Tant qu'on n'a rien touché, l'arpège de l'inspiration joue (parts[section].arp absent). Le premier réglage crée
+   * parts[section].arp.one à partir du motif d'Arp One le plus proche du mode de l'inspiration (ARP_START).
+   */
+  const A1 = () => SS.Arp;
+  /** Mode de l'inspiration → [motif d'Arp One, vitesse] (vitesse : 1 = doubles-croches, 0,5 = croches). */
+  const ARP_START = {
+    up16: ['up', 1], updown16: ['updown', 1], up8: ['up', 0.5], bells: ['pedalehaute', 0.5], strobe: ['pendule', 1],
+    pluck16: ['alberti', 1], ost16: ['ostinato', 1], dotted: ['up', 1 / 3], rise: ['wave', 1],
+  };
+  const motifById = (id) => SS.MOTIFS.find((m) => m.id === id);
+  /** Réglages Arp One qui jouent comme le mode donné (ou, sans mode, le motif « Midnight Drive »). */
+  function arpStart(mode) {
+    const [id, rate] = ARP_START[mode] || ['midnight', 1];
+    const m = motifById(id);
+    return A1().normalize({ ...SS.motifPatch({}, m), rate, octaves: m.arp.octaves || 2 });
+  }
+  /** Réglages Arp One affichés pour la scène : les siens, sinon le point de départ d'après l'inspiration. */
+  const arpOne = (sc) => {
+    const o = partOf(sc.sec, 'arp') || {};
+    return o.one ? A1().normalize(o.one) : arpStart(o.mode || secOf(sc).arp);
+  };
+  const motifLabel = (one) => {
+    const m = SS.motifOf(one);
+    return m ? m.name : 'Motif perso';
+  };
   function arpSub(x) {
     const o = partOf(x.sec, 'arp') || {};
+    if (mutedIn(x.sec, 'arp')) return 'muet';
+    if (o.one) return motifLabel(o.one);
     const m = o.mode || secOf(x).arp;
-    return mutedIn(x.sec, 'arp') ? 'muet' : (m ? nameOf(ARP_MODES, m) : 'aucun') + (o.mode ? '' : m ? ' · inspiration' : '');
+    return (m ? nameOf(ARP_MODES, m) : 'aucun') + (o.mode ? '' : m ? ' · inspiration' : '');
   }
+  /** Change les réglages Arp One de la scène (f reçoit les réglages actuels et rend les nouveaux) ; l'arpège s'allume. */
+  function arpEdit(sc, f, focus) {
+    const next = A1().normalize(f(arpOne(sc)));
+    putOff(sc.sec, 'arp', false);
+    putPart(sc.sec, 'arp', { one: next, mode: undefined });
+    partChanged(focus);
+  }
+  const ARP_RATES = [[0.5, '1/8'], [1, '1/16'], [1.5, '1/16 triolet'], [2, '1/32']];
   function arpBody(sc) {
-    const insp = secOf(sc).arp;
+    const A = A1();
     const o = partOf(sc.sec, 'arp') || {};
-    const cur = o.mode || insp;
+    const insp = secOf(sc).arp;
+    const one = arpOne(sc);
+    const muted = mutedIn(sc.sec, 'arp');
+    const cur = SS.motifOf(one);
+    const cat = cur && SS.MOTIF_CATS.find((c) => c.id === cur.cat);
+    const applyMotif = (m, focus) => arpEdit(sc, (a) => ({ ...a, ...SS.motifPatch(a, m) }), focus);
+    const rateKey = (r) => String(ARP_RATES.find(([x]) => Math.abs(x - r) < 1e-6)?.[0] ?? r);
+    const rates = ARP_RATES.map(([r, t]) => [String(r), t]);
+    if (!ARP_RATES.some(([r]) => rateKey(one.rate) === String(r))) rates.push([String(one.rate), A.rateLabel(one.rate)]);
+    const motifLine = h(
+      'div',
+      { class: 'bwa-motif' },
+      h('button', { type: 'button', class: 'btn bwa-nav', id: 'bwaPrev', 'aria-label': 'Motif précédent', title: 'Motif précédent', onclick: () => applyMotif(SS.motifStep(one, -1), '#bwaPrev') }, '‹'),
+      h(
+        'div',
+        { class: 'bwa-name', id: 'bwaName', role: 'status' },
+        h('b', {}, cur ? cur.name : 'Motif perso'),
+        h('small', {}, (cat ? cat.label : 'Réglages à toi') + (o.one ? '' : ' · départ d’après l’inspiration'))
+      ),
+      h('button', { type: 'button', class: 'btn bwa-nav', id: 'bwaNext', 'aria-label': 'Motif suivant', title: 'Motif suivant', onclick: () => applyMotif(SS.motifStep(one, 1), '#bwaNext') }, '›')
+    );
+    const picker = h(
+      'label',
+      { class: 'bwp-field bwa-pick' },
+      h('span', { class: 'bh-lbl' }, 'Motif'),
+      h(
+        'select',
+        { id: 'bwaMotif', 'aria-label': 'Choisir un motif d’Arp One', onchange: (e) => e.target.value && applyMotif(motifById(e.target.value), '#bwaMotif') },
+        !cur ? h('option', { value: '', selected: true }, 'Motif perso') : null,
+        ...SS.MOTIF_CATS.map((c) => h('optgroup', { label: c.label }, ...SS.MOTIFS.filter((m) => m.cat === c.id).map((m) => h('option', { value: m.id, selected: !!cur && cur.id === m.id }, m.name))))
+      )
+    );
+    const knobs = h(
+      'div',
+      { class: 'bwa-knobs' },
+      ...A.MACROS.map((mc) => {
+        const v = A.macroValue(one, mc.id);
+        const txt = h('small', {}, A.macroText(one, mc.id));
+        const val = h('output', {}, String(v));
+        return h(
+          'label',
+          { class: 'bwa-knob', title: mc.what },
+          h('span', { class: 'bwa-kh' }, h('b', {}, mc.label), val),
+          h('input', {
+            type: 'range', min: 0, max: 100, step: 1, value: v, id: 'bwaK-' + mc.id, 'aria-label': mc.label,
+            oninput: (e) => (val.textContent = e.target.value), // le réglage s'applique au lâcher
+            onchange: (e) => arpEdit(sc, (a) => ({ ...a, ...A.macroPatch(a, mc.id, +e.target.value), macros: { ...a.macros, [mc.id]: +e.target.value }, preset: '' }), '#bwaK-' + mc.id),
+          }),
+          txt
+        );
+      })
+    );
     return [
       partHead(sc, 'arp', 'arpège', true),
       h(
         'section',
-        { class: 'bwp-card' },
-        h('div', { class: 'bwp-ch' }, h('b', {}, `Arpège de « ${sc.name} »`), h('span', { class: 'spacer' }), playBox(sc, 'arp', 'up16')),
+        { class: 'bwp-card bwa' },
+        h('div', { class: 'bwp-ch' }, h('b', {}, `Arpège de « ${sc.name} »`), h('span', { class: 'bh-info' }, 'Arp One · mode Intuitif'), h('span', { class: 'spacer' }), playBox(sc, 'arp', 'up16')),
+        motifLine,
         h(
           'div',
-          { class: 'chips bwp-chips', role: 'radiogroup', 'aria-label': 'Mode de l’arpège' },
-          ...ARP_MODES.filter(([id]) => id !== 'rise' || insp === 'rise').map(([id, name, desc]) => {
-            const on = id === cur && !mutedIn(sc.sec, 'arp');
-            const pick = () => (putOff(sc.sec, 'arp', false), putPart(sc.sec, 'arp', { mode: id === insp ? undefined : id }), partChanged(`.bwp-chips [data-v="${id}"]`));
-            return h('button', { type: 'button', role: 'radio', class: 'chip' + (on ? ' active' : ''), 'data-v': id, 'aria-checked': String(on), title: desc, onclick: pick }, name, h('small', {}, id === insp ? 'inspiration' : desc));
-          })
+          { class: 'bwp-row' },
+          picker,
+          h('button', { type: 'button', class: 'btn btn-small', id: 'bwaSurprise', title: 'Un nouvel arpège tiré au hasard', onclick: () => arpEdit(sc, (a) => A.normalize(SS.arpSurprise(a, {})), '#bwaSurprise') }, '🎲 Surprends-moi'),
+          partSeg('Vitesse', 'bwaRate', rates, rateKey(one.rate), (v) => arpEdit(sc, (a) => ({ ...a, rate: +v }), `#bwaRate [data-v="${v}"]`))
         ),
-        !insp && !o.mode ? h('p', { class: 'dlg-hint' }, 'L’inspiration ne joue pas d’arpège dans cette scène : choisis un mode pour l’allumer.') : null
+        knobs,
+        muted ? h('p', { class: 'dlg-hint' }, 'L’arpège est coupé dans cette scène : un réglage le rallume.') : null,
+        !insp && !o.one && !o.mode ? h('p', { class: 'dlg-hint' }, 'L’inspiration ne joue pas d’arpège dans cette scène : un premier réglage (motif, bouton, vitesse) l’allume.') : null
       ),
     ];
   }

@@ -191,8 +191,13 @@ boucle** (pas toute la chanson ; choisir une autre scène pendant l'écoute la f
    roulement, syncopée, marche, drone, croches piquées, après le kick) en cartes avec leur rythme dessiné, **pédale**
    (aucune, tonique, dominante), **registre** (grave, médium), note d'approche. Nappes : 9 modes (tenue, montée douce,
    planante, croches, blocs, stabs, house, hachée, pincée) et **voicing** serré / ouvert ; seule la nappe se règle
-   (cordes et clavier gardent le plan). Arpèges : 8 modes, et l'arpège peut être **allumé** dans une scène où
-   l'inspiration n'en avait pas. Le mode de l'inspiration est repéré et choisi tant qu'on n'a rien réglé ; **Joue dans
+   (cordes et clavier gardent le plan). Arpèges : le **mode Intuitif d'Arp One** (voir plus bas), par scène : nom et catégorie du motif,
+   ‹ › et sélecteur de motifs rangés par catégorie (`SS.MOTIFS`), **🎲 Surprends-moi**, quatre boutons Densité / Ampleur /
+   Mouvement / Écho (`SS.Arp.macroPatch` / `macroValue`) et **Vitesse** (1/8, 1/16, 1/16 triolet, 1/32) ; l'arpège peut être
+   **allumé** dans une scène où l'inspiration n'en avait pas. Tant qu'on n'a rien touché, c'est l'arpège de l'inspiration
+   qui joue (aucun réglage écrit) ; le premier réglage part du motif d'Arp One le plus proche de son mode (montée → Montant,
+   cloches → Pédale aiguë…). Les notes sont écrites telles quelles sur la piste d'arpège (les réglages Arp One ne sont pas
+   recopiés sur la piste créée). Le mode de l'inspiration est repéré et choisi tant qu'on n'a rien réglé ; **Joue dans
    cette scène** coupe ou rend le musicien (`off`) ; **Copier vers les scènes du même type** (couplet et couplet 2…) ;
    Arpèges : aussi **vers toutes les scènes** ; **↺ Inspiration** défait les réglages de la scène. Un groupe sans le
    musicien garde l'étape, avec un message à la place des réglages. Les choix vont dans `S.wiz.parts`, passé à
@@ -229,8 +234,10 @@ sommet par scène.
 est exactement celle du plan. **Batterie** : `{ style, pattern, edits, fill: off|end|4|8, fillType: roll|toms|clap4|kick|cut|open,
 crash }` ; `pattern` est un identifiant de `js/drum-patterns.js` (kick, caisse claire, clap, charleston fermé et ouvert sur
 une mesure de 16 pas : `x` fort, `o` moyen, `.` léger, `-` silence), `edits` remplace ses pistes. **Basse** : `{ mode (dont
-half et quarter), pedal: none|tonic|fifth, approach, register: low|mid }`. **Nappe** : `{ mode, voicing: close|open }`.
-**Arpège** : `{ mode }`. `off` : rôles muets dans la scène (`['arp', 'lead']`). **Mélodie** : `lead: { events: [{ step, len,
+half et quarter), pedal: none|tonic|fifth, approach, register: low|mid }`. **Nappe** : `{ mode, voicing: close|open }`. **Arpège** : `{ mode }` (8 modes simples du moteur) ou `{ one }`, des réglages
+d'Arp One (`js/arp.js`) : les accords de la scène passent dans `SS.Arp.renderStep` (voicing médium, tempo nominal 120 BPM, boucle 0 :
+déterministe) et les notes sont posées sur la grille de pas ; `one` l'emporte sur `mode`.
+`off` : rôles muets dans la scène (`['arp', 'lead']`). **Mélodie** : `lead: { events: [{ step, len,
 notes: [midi], vel }] }` (étape Mélodie : proposition du panneau d'Harmonie) remplace la mélodie du moteur sur la première
 piste chantante présente (lead, puis vox, puis sax) ; `[]` = silence. Un `mode` allume le musicien dans une scène
 où le plan ne le faisait pas jouer.

@@ -192,11 +192,11 @@ const SHOTS = process.env.SHOTS;
   await page.click('.bh-scene >> nth=0');
 
   // 7. Basse, 8. Nappes, 9. Arpèges : une scène à gauche, les réglages de la scène choisie
-  for (const [n, label, sel] of [[7, 'Basse', '.bwp-mode'], [8, 'Nappes', '.bwp-mode'], [9, 'Arpèges', '.bwp-chips .chip']]) {
+  for (const [n, label, sel] of [[7, 'Basse', '.bwp-mode'], [8, 'Nappes', '.bwp-mode'], [9, 'Arpèges', '.bwa-knob']]) {
     await page.click('#bwNext');
     await page.waitForTimeout(200);
     ok((await page.locator('#bandWizSteps li.cur').textContent()).includes(label), `étape ${n} : ${label}`);
-    ok((await page.locator('.bh-scene').count()) === 5 && (await page.locator(sel).count()) >= 8 && !!(await page.$('.bh-right > #bwTransport')), `${label} : scènes à gauche, réglages à droite`);
+    ok((await page.locator('.bh-scene').count()) === 5 && (await page.locator(sel).count()) >= (n === 9 ? 4 : 8) && !!(await page.$('.bh-right > #bwTransport')), `${label} : scènes à gauche, réglages à droite`);
   }
 
   // 8. Mélodie : la scène choisie, les phrases de la mélodie, ses accords (comme dans Harmonie) et les instruments dessous

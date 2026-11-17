@@ -2700,8 +2700,19 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
 .bwp-mode small { font-size: 11.5px; line-height: 1.35; color: var(--muted); }
 .bwp-rhy { display: block; color: var(--c); }
 .bwp-rhy svg { display: block; width: 100%; height: 22px; }
-.bwp-chips .chip small { margin-left: 6px; color: var(--muted); font-size: 11px; }
-.bwp-chips .chip.active small { color: #e3eeff; }
+/* étape Arpèges : Arp One, mode Intuitif */
+.bwa-motif { display: flex; align-items: stretch; gap: 8px; min-width: 0; }
+.bwa-nav { flex: none; min-width: 40px; padding: 0 12px; font-size: 18px; }
+.bwa-name { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; gap: 2px; min-width: 0; padding: 8px 14px; border: 1px solid var(--accent-2); border-radius: 10px; background: var(--panel); }
+.bwa-name b { font-size: 16px; }
+.bwa-name small { color: var(--muted); font-size: 12px; }
+.bwa-pick select { max-width: 100%; }
+.bwa-knobs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.bwa-knob { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); }
+.bwa-kh { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; font-size: 14px; }
+.bwa-kh output { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; }
+.bwa-knob input[type=range] { width: 100%; accent-color: #8b6cf0; }
+.bwa-knob small { color: var(--muted); font-size: 11.5px; min-height: 1.3em; }
 @media (max-width: 1000px) {
   .band-wiz-steps span { display: none; }
   .band-wiz-steps li.cur span { display: inline; }
@@ -2710,7 +2721,7 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
   .bwp-dgrid { grid-template-columns: 30px repeat(16, minmax(0, 1fr)); gap: 2px; }
   .bwp-ln span { display: none; }
   .bwp-lib, .bwp-modes { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); }
-  .bwp-chips .chip small { display: none; }
+  .bwa-knobs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 /* fenêtre « Trouver l'inspiration » */
 .bw-insp { position: absolute; inset: 0; z-index: 6; display: flex; align-items: flex-start; justify-content: center; padding: 28px 16px; background: rgba(8, 8, 12, .66); border-radius: 14px; overflow: auto; }
