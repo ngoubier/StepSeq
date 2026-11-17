@@ -292,6 +292,8 @@
 
     $('#bandBtn').addEventListener('click', () => SS.band.open());
     $('#emptyAdd').addEventListener('click', addTrack);
+    // projet sans piste : le gros bouton « Nouvelle chanson » ouvre l'assistant sur ce projet (rien à perdre)
+    $('#emptySong').addEventListener('click', () => SS.band.open());
     $('#play').addEventListener('click', togglePlay);
     $('#ruler').addEventListener('click', (e) => {
       const cell = e.target.closest('.grid [data-step]');
