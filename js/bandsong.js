@@ -57,7 +57,7 @@
  * mélodie du premier instrument mélodique, une octave au-dessus ou une tierce diatonique au-dessus) ; drums
  * (instrument mélodique) { mode: both | kick | snare, pattern, style, edits } ; kit de batterie { pattern, style,
  * edits, fill, fillType, crash } (clé : id de la pièce ou id du musicien) ; off : true coupe l'instrument dans la scène.
- * Sans kinds ni inst, la chanson est exactement celle d'avant.
+ * Automation par scène : inst[id].auto (voir « automation par scène » plus bas). Sans kinds ni inst, la chanson est exactement celle d'avant.
  */
 window.SS = window.SS || {};
 
@@ -155,6 +155,149 @@ SS.bandSong = (() => {
       }
     });
     return events;
+  }
+
+  /* ---------- automation par scène ----------
+   * parts[section].inst[id].auto = { [param]: { shape, a, b, period?, points?, from?, hidden? } } (tout instrument, kit compris).
+   * param : un réglage de SS.AUTO_PARAMS (filter, res, volume, reverb, echo, space, vcf, fdecay, lfoamt : voir SCENE_AUTO) ou
+   * « vel » (vélocité). a, b, points : valeurs normalisées 0..1 de l'étendue du réglage (min..max de SCENE_AUTO) ; pas = doubles
+   * croches depuis le début de la scène. Formes (shape), avec L = longueur de la scène en pas :
+   *   flat   : a partout ;                                   rise / fall : a au pas 0 → b au dernier pas (droite) ;
+   *   open   : a → b au milieu → a (ouvre puis ferme) ;      close : idem, b est le creux (ferme puis ouvre) ;
+   *   lfo    : b + (a / 2) × sinus, période `period` mesures (1, 2 ou 4), a = profondeur, b = centre ;
+   *   steps  : une marche par mesure, de a à b ;             final : a jusqu'aux 2 dernières mesures, puis monte à b ;
+   *   breath : de a à b et retour, sur 2 mesures (cosinus) ; drawn : `points` [[pas, valeur]] posés à la main (from : la forme
+   *   d'origine, a, b, period gardés pour « Revenir à la forme »). hidden : seul l'affichage est replié, la courbe joue.
+   * Écriture : chaque courbe devient track.auto[param] = { pas: valeur réelle } de la scène (celle de la scène, le pas 0 est son
+   * début) pour toutes les pistes de l'instrument (un kit : toutes ses pièces). Elle REMPLACE, pour ce réglage et cette scène,
+   * la courbe du plan (intro qui s'ouvre, riser, fondu) ; wizmix.js passe après : il met à l'échelle « volume » et ajoute ses envois
+   * à « reverb » / « echo » / « space », et remplace « filter » seulement si son filtre est allumé. Un instrument sans note
+   * (muet, scène vide) n'a pas de courbe. « vel » n'est pas une courbe de piste : la valeur (30..127, 100 = inchangé) multiplie
+   * la vélocité de chaque note (ou coup de batterie) à son pas, AVANT les accents de la basse (l'accent s'ajoute ensuite).
+   * Sans `auto`, rien ne change.
+   */
+  const AUTO_SHAPES = ['flat', 'rise', 'fall', 'open', 'close', 'lfo', 'steps', 'final', 'breath', 'drawn'];
+  /** Réglages automatisables d'une scène : id (celui de SS.AUTO_PARAMS, ou « vel »), étendue réelle, valeur neutre. */
+  const SCENE_AUTO = [
+    { id: 'filter', name: 'Cutoff', menu: 'Cutoff (Filtre)', sub: 'filtre de la piste', min: -1, max: 1, def: 0, color: '#ff9a2e' },
+    { id: 'res', name: 'Résonance', min: 0, max: 1, def: 0, color: '#ff6b8b' },
+    { id: 'vel', name: 'Vélocité', sub: 'module les notes de la scène', min: 30, max: 127, def: 100, color: '#3fcf3f', notes: true },
+    { id: 'volume', name: 'Volume', min: 0, max: 1, def: 1, color: '#b4b4c2' },
+    { id: 'reverb', name: 'Reverb', min: 0, max: 1, def: 0, color: '#4f8cff' },
+    { id: 'echo', name: 'Écho', min: 0, max: 1, def: 0, color: '#33b5ff' },
+    { id: 'space', name: 'Cosmos', sub: 'reverb longue', min: 0, max: 1, def: 0, color: '#7b83ff' },
+    { id: 'vcf', name: 'Cutoff du son', sub: 'filtre de la voix', min: -1, max: 1, def: 0, color: '#ffd23f', voice: true },
+    { id: 'fdecay', name: 'Decay du filtre', min: -1, max: 1, def: 0, color: '#d9a066', voice: true },
+    { id: 'lfoamt', name: 'Quantité des LFO', min: 0, max: 2, def: 1, color: '#e879c8', voice: true },
+  ];
+  const sceneParam = (id) => SCENE_AUTO.find((p) => p.id === id);
+  const AUTO_DEF = {
+    flat: { a: 0.5, b: 0.5 }, rise: { a: 0.2, b: 0.7 }, fall: { a: 0.7, b: 0.2 }, open: { a: 0.2, b: 0.8 }, close: { a: 0.8, b: 0.2 },
+    lfo: { a: 0.4, b: 0.5, period: 2 }, steps: { a: 0.2, b: 0.8 }, final: { a: 0.3, b: 0.9 }, breath: { a: 0.3, b: 0.8 },
+  };
+  const unit = (v) => Math.max(0, Math.min(1, Math.round(v * 1000) / 1000));
+  /** Valeur normalisée d'une valeur réelle, et inversement. */
+  const autoNorm = (param, real) => unit((real - sceneParam(param).min) / (sceneParam(param).max - sceneParam(param).min));
+  const autoReal = (param, n) => {
+    const p = sceneParam(param);
+    return Math.round((p.min + n * (p.max - p.min)) * 1000) / 1000;
+  };
+  /** Courbe neuve d'un réglage : forme `shape` (plate, au niveau neutre du réglage), réglages par défaut de la forme. */
+  function newAutoSpec(param, shape = 'flat') {
+    const d = AUTO_DEF[shape];
+    return shape === 'flat' ? { shape, a: autoNorm(param, sceneParam(param).def), b: autoNorm(param, sceneParam(param).def) } : { shape, ...d };
+  }
+  /** Courbe propre : forme connue, a / b bornés, période 1, 2 ou 4, points triés à pas entiers uniques (null : inutilisable). */
+  function normalizeAutoSpec(s) {
+    if (!s || typeof s !== 'object') return null;
+    const shape = AUTO_SHAPES.includes(s.shape) ? s.shape : 'flat';
+    const d = AUTO_DEF[shape === 'drawn' ? AUTO_SHAPES.includes(s.from) && s.from !== 'drawn' ? s.from : 'rise' : shape];
+    const n = (x, f) => unit(Number.isFinite(+x) && x !== null && x !== '' ? +x : f);
+    const o = { shape, a: n(s.a, d.a), b: n(s.b, d.b) };
+    const per = shape === 'lfo' || s.period != null || s.from === 'lfo' ? +s.period : 0;
+    if (shape === 'lfo' || per) o.period = [1, 2, 4].includes(per) ? per : 2;
+    if (shape === 'drawn') {
+      const pts = new Map();
+      (Array.isArray(s.points) ? s.points : []).forEach((p) => Array.isArray(p) && Number.isInteger(+p[0]) && +p[0] >= 0 && Number.isFinite(+p[1]) && pts.set(+p[0], unit(+p[1])));
+      if (!pts.size) return { ...o, shape: AUTO_SHAPES.includes(s.from) && s.from !== 'drawn' ? s.from : 'flat' };
+      o.points = [...pts].sort((x, y) => x[0] - y[0]);
+      if (AUTO_SHAPES.includes(s.from) && s.from !== 'drawn') o.from = s.from;
+    }
+    if (s.hidden) o.hidden = true;
+    return o;
+  }
+  /** `auto` propre d'un instrument : ne garde que les réglages connus aux courbes valides ; null si rien. */
+  function normalizeAuto(a) {
+    if (!a || typeof a !== 'object') return null;
+    const out = {};
+    SCENE_AUTO.forEach((p) => {
+      const s = normalizeAutoSpec(a[p.id]);
+      if (s) out[p.id] = s;
+    });
+    return Object.keys(out).length ? out : null;
+  }
+  /** Points de rupture [[pas, valeur 0..1]] d'une courbe sur une scène de `len` pas (pas croissants, entiers, dans [0, len − 1]). */
+  function autoPoints(spec, len) {
+    const s = normalizeAutoSpec(spec) || { shape: 'flat', a: 0.5, b: 0.5 };
+    const last = Math.max(0, Math.round(len) - 1);
+    const bars = Math.max(1, Math.round(len / SPB));
+    const { a, b } = s;
+    let p = [];
+    if (s.shape === 'drawn') p = s.points.filter(([x]) => x <= last);
+    else if (s.shape === 'flat') p = [[0, a], [last, a]];
+    else if (s.shape === 'rise' || s.shape === 'fall') p = [[0, a], [last, b]];
+    else if (s.shape === 'open' || s.shape === 'close') p = [[0, a], [Math.round(last / 2), b], [last, a]];
+    else if (s.shape === 'lfo' || s.shape === 'breath') {
+      const per = (s.shape === 'lfo' ? s.period || 2 : 2) * SPB;
+      const f = (x) => (s.shape === 'lfo' ? b + (a / 2) * Math.sin((2 * Math.PI * x) / per) : a + (b - a) * (0.5 - 0.5 * Math.cos((2 * Math.PI * x) / per)));
+      for (let x = 0; x < last; x += 2) p.push([x, f(x)]);
+      p.push([last, f(last)]);
+    } else if (s.shape === 'steps')
+      for (let i = 0; i < bars; i++) {
+        const v = bars > 1 ? a + ((b - a) * i) / (bars - 1) : a;
+        p.push([Math.min(last, i * SPB), v], [Math.min(last, (i + 1) * SPB - 1), v]);
+      }
+    else if (s.shape === 'final') p = [[0, a], [Math.min(last, (bars - 2) * SPB), a], [last, b]];
+    const m = new Map();
+    p.forEach(([x, y]) => m.set(Math.max(0, Math.min(last, x)), unit(y)));
+    return [...m].sort((x, y) => x[0] - y[0]);
+  }
+  /** Courbe d'une scène de `len` pas : { pas: valeur 0..1 }, prête à être mise à l'échelle du réglage (autoReal). */
+  const autoCurve = (spec, len) => Object.fromEntries(autoPoints(spec, len));
+  /** Valeur 0..1 de la courbe au pas `s` (droites entre les points, tenue avant le premier et après le dernier). */
+  function autoAt(points, s) {
+    if (!points.length) return 0;
+    if (s <= points[0][0]) return points[0][1];
+    for (let i = 1; i < points.length; i++)
+      if (s <= points[i][0]) {
+        const [x0, y0] = points[i - 1];
+        const [x1, y1] = points[i];
+        return x1 === x0 ? y1 : y0 + ((y1 - y0) * (s - x0)) / (x1 - x0);
+      }
+    return points[points.length - 1][1];
+  }
+  /** Courbe d'une scène en valeurs réelles d'un réglage de piste : { pas: valeur } pour track.auto[param]. */
+  const autoLane = (param, spec, len) => Object.fromEntries(autoPoints(spec, len).map(([x, y]) => [x, autoReal(param, y)]));
+  /** Multiplicateur de vélocité au pas `s` d'après la courbe « vel » (vél. 100 = ×1). */
+  const velMul = (spec, len) => {
+    const pts = autoPoints(spec, len);
+    return (s) => autoReal('vel', autoAt(pts, s)) / 100;
+  };
+  /** Applique la courbe de vélocité aux notes (events) ou aux coups de batterie (steps) d'une partie. */
+  function applyVelCurve(d, spec, bars) {
+    const mul = velMul(spec, bars * SPB);
+    if (d.events) d.events.forEach((e) => (e.vel = clampV(e.vel * mul(e.step))));
+    if (d.steps) for (let s = 0; s < d.steps.length; s++) if (d.steps[s] > 0) d.steps[s] = clampV(d.steps[s] * mul(s));
+    return d;
+  }
+  /** Écrit les courbes de réglages d'un instrument dans track.auto de la scène (rien si la partie n'a ni note ni coup). */
+  function applyAutoLanes(d, auto, bars) {
+    const A = normalizeAuto(auto);
+    if (!A || !(d.events ? d.events.length : d.steps && d.steps.some((v) => v > 0))) return d;
+    const lanes = {};
+    Object.entries(A).forEach(([param, spec]) => param !== 'vel' && (lanes[param] = autoLane(param, spec, bars * SPB)));
+    if (Object.keys(lanes).length) d.auto = { ...(d.auto || {}), ...lanes };
+    return d;
   }
 
   /** Applique nuance, accents et phrasé aux notes d'une partie (vélocités déjà tirées autour de leur valeur de base). */
@@ -1402,6 +1545,8 @@ SS.bandSong = (() => {
         if (spec.tech && sec.drums === 'build' && ['lead', 'vox', 'arp', 'keys'].includes(er)) data[t.id].events.forEach((e) => (e.vel = clampV(e.vel * 0.6)));
         // intro et break planants : tout est joué piano (la basse tenue encore plus), le drop garde la pleine force
         if (spec.tech && sec.float && role !== 'fx') data[t.id].events.forEach((e) => (e.vel = clampV(e.vel * (er === 'bass' ? 0.5 : 0.68))));
+        const myAuto = ie && ie.auto && !off ? normalizeAuto(ie.auto) : null; // automation de l'instrument dans la scène
+        if (myAuto && myAuto.vel && role !== 'fx') applyVelCurve(data[t.id], myAuto.vel, bars); // vélocité : avant les accents, qui s'y ajoutent
         if (kd === 'bass' && o && o.accents && !off) applyAccents(data[t.id].events, o.accents, bars); // accents : après la nuance, pour qu'ils restent audibles
         if (spec.tech && (events.length || role !== 'fx')) {
           const auto = sectionAuto(as, sec, er, bars, role === 'fx');
@@ -1416,6 +1561,15 @@ SS.bandSong = (() => {
           data[t.id] = { events: src.events.map((e) => ({ ...e, notes: e.notes.map((n) => (how === 'third' ? scaleUp(n, 2, kp) : n + 12)), vel: clampV(e.vel * 0.85) })) };
         });
       }
+      // automation de la scène : vélocité des kits et des doublures, courbes de réglages de toutes les pistes (elles remplacent celles du plan)
+      tracks.forEach((t, ti) => {
+        const im = pp && pp.inst;
+        const ie = im && (im[ids[ti].id] || im[t.id] || (t.type === 'drum' && t.band && im[t.band.musician]));
+        const A = ie && !ie.off && data[t.id] ? normalizeAuto(ie.auto) : null;
+        if (!A) return;
+        if (A.vel && (t.type === 'drum' || doubles.some((x) => x[0] === t))) applyVelCurve(data[t.id], A.vel, bars);
+        applyAutoLanes(data[t.id], A, bars);
+      });
       if (sec.gap) gapEnd(data, bars);
       const sc = { id: SS.uid(), sec: id, name: sec.name || NAMES[id] || id, bars, key: k, data, spans };
       const emo = harmony && harmony.emotions && harmony.emotions[id];
@@ -1439,5 +1593,5 @@ SS.bandSong = (() => {
     ['funk', 'Funk', 'Syncopes en doubles, notes fantômes', [[0, 2, 0], [3, 1, 0], [6, 1, 2], [7, 1, 0], [10, 1, 0], [12, 2, 0], [14, 1, 1]]],
   ];
 
-  return { build, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, _rng: rng };
+  return { build, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, _rng: rng };
 })();
