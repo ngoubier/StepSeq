@@ -1148,7 +1148,7 @@ SS.band = (() => {
   /** Efface toutes les retouches du plan (autre style ou autre inspiration, autre reprise). */
   function dropEdits(sameStyle = false) {
     if (!S.wiz) return;
-    Object.assign(S.wiz, { form: null, secs: {}, skey: null, keys: {}, grids: {}, emos: {}, parts: keptParts(sameStyle), melPanel: {} });
+    Object.assign(S.wiz, { form: null, secs: {}, skey: null, keys: {}, grids: {}, emos: {}, parts: keptParts(sameStyle), kinds: keptKinds(), melPanel: {} });
   }
   /**
    * Réglages par scène gardés quand on change d'inspiration : ceux des sections que la nouvelle inspiration a aussi
@@ -1159,11 +1159,27 @@ SS.band = (() => {
     const sp = spec();
     const out = {};
     if (!sp || !S.wiz.parts) return out;
+    const cols = new Map(wizCols().map((c) => [c.id, c]));
     for (const [sec, part] of Object.entries(S.wiz.parts)) {
       if (!sp.sections[sec]) continue;
       const p = { ...part };
       delete p.lead;
       if (!sameStyle) delete p.drums;
+      if (p.inst) {
+        // réglages par instrument : gardés pour les instruments qui existent encore ; ni mélodie imposée, ni motif d'un autre style
+        const inst = {};
+        for (const [id, o] of Object.entries(p.inst)) {
+          const c = cols.get(id);
+          const kit = !c && wizCols().some((x) => x.musician === id && x.o.type === 'drum'); // clé d'un kit : id du musicien
+          if (!c && !kit) continue;
+          const q = { ...o };
+          delete q.lead;
+          if (!sameStyle && (kit || c.o.type === 'drum')) ['style', 'pattern', 'edits'].forEach((f) => delete q[f]);
+          if (Object.keys(q).length) inst[id] = q;
+        }
+        if (Object.keys(inst).length) p.inst = inst;
+        else delete p.inst;
+      }
       if (Object.keys(p).length) out[sec] = p;
     }
     return out;
@@ -1344,6 +1360,82 @@ SS.band = (() => {
   }
   const singer = (role) => SS.bandSong.SINGERS.includes(role);
 
+  /* ---------- Type d'instrument (S.wiz.kinds) ----------
+   * Chaque instrument du groupe (colonne de wizCols, id « musicien:clé[#n] ») a un type : drums, bass, chords, arp ou
+   * melody (SS.bandSong.KINDS). S.wiz.kinds = { [id]: type } ne garde que les types choisis ; sans entrée, c'est le type de
+   * son rôle (SS.bandSong.DEFAULT_KIND : drums → drums, bass → bass, pad / strings / keys / guitar → chords, arp → arp,
+   * lead / vox / sax → melody ; fx n'a pas de type). Un kit de batterie reste drums. Les réglages par scène d'un instrument
+   * sont dans S.wiz.parts[section].inst[id], avec repli sur ceux de son rôle (parts[section][rôle]).
+   */
+  const defaultKind = (c) => (c.o.type === 'drum' ? 'drums' : SS.bandSong.kindOfRole(c.role));
+  /** Type d'un instrument (colonne de wizCols) : celui qu'on a choisi, sinon celui de son rôle (null pour fx). */
+  function instKind(c) {
+    const k = S.wiz && S.wiz.kinds && S.wiz.kinds[c.id];
+    return k && SS.bandSong.checkKind({ type: c.o.type }, k) && defaultKind(c) ? k : defaultKind(c);
+  }
+  /** Change le type d'un instrument ; refusé (false) pour un kit de batterie hors drums ou pour fx. Le type du rôle efface le choix. */
+  function setKind(id, kind) {
+    const c = wizCols().find((x) => x.id === id);
+    if (!c || !defaultKind(c) || !SS.bandSong.checkKind({ type: c.o.type }, kind)) return false;
+    if (kind === defaultKind(c)) delete S.wiz.kinds[id];
+    else S.wiz.kinds[id] = kind;
+    return true;
+  }
+  /** Types gardés quand le groupe change : ceux des instruments qui existent encore. */
+  function keptKinds() {
+    const ids = new Set(wizCols().map((c) => c.id));
+    return Object.fromEntries(Object.entries((S.wiz && S.wiz.kinds) || {}).filter(([id]) => ids.has(id)));
+  }
+  /**
+   * Convertit des parts par rôle en parts par instrument : chaque réglage de rôle (basse, nappe, arpège…) est copié sur
+   * les instruments de ce rôle (parts[sec].inst[id]), la batterie sur le kit (clé : id du musicien), et « off » devient
+   * inst[id].off. Les réglages déjà par instrument l'emportent. Ne modifie pas parts.
+   */
+  function partsToInst(parts, cols) {
+    const out = {};
+    for (const [sec, part] of Object.entries(parts || {})) {
+      const p = { ...part };
+      const inst = { ...(p.inst || {}) };
+      const put = (key, o) => (inst[key] = { ...o, ...(inst[key] || {}) });
+      for (const role of Object.keys(p)) {
+        if (['inst', 'off', 'lead'].includes(role)) continue;
+        const mine = cols.filter((c) => c.role === role);
+        if (!mine.length) continue;
+        if (role === 'drums') put(mine[0].musician, p[role]);
+        else mine.forEach((c) => put(c.id, p[role]));
+        delete p[role];
+      }
+      for (const role of p.off || []) {
+        const mine = cols.filter((c) => c.role === role);
+        (role === 'drums' ? mine.slice(0, 1).map((c) => c.musician) : mine.map((c) => c.id)).forEach((key) => put(key, { off: true }));
+      }
+      if (cols.some((c) => (p.off || []).includes(c.role))) p.off = (p.off || []).filter((r) => !cols.some((c) => c.role === r));
+      if (!(p.off && p.off.length)) delete p.off;
+      if (Object.keys(inst).length) p.inst = inst;
+      out[sec] = p;
+    }
+    return out;
+  }
+  /** Réglage d'un instrument dans une scène : le sien (parts[sec].inst[id]), sinon celui de son rôle. */
+  function instPartOf(sec, c) {
+    const pp = S.wiz.parts[sec];
+    const own = pp && pp.inst && (pp.inst[c.id] || (c.o.type === 'drum' && pp.inst[c.musician]));
+    return own ? { ...((pp && pp[c.role]) || {}), ...own } : (pp && pp[c.role]) || null;
+  }
+  /** Fusionne `patch` dans le réglage d'un instrument pour une scène (undefined = enlevé) ; un réglage vide disparaît. */
+  function putInstPart(sec, id, patch) {
+    const p = { ...(S.wiz.parts[sec] || {}) };
+    const inst = { ...(p.inst || {}) };
+    const o = { ...(inst[id] || {}), ...patch };
+    Object.keys(o).forEach((k) => o[k] === undefined && delete o[k]);
+    if (Object.keys(o).length) inst[id] = o;
+    else delete inst[id];
+    if (Object.keys(inst).length) p.inst = inst;
+    else delete p.inst;
+    S.wiz.parts[sec] = p;
+    tidy(sec);
+  }
+
   /** Colonnes de la vue session : une par piste prévue, avec un identifiant stable (musicien + son). */
   function wizCols() {
     const seen = new Map();
@@ -1360,11 +1452,11 @@ SS.band = (() => {
     const p = preset();
     const cols = wizCols();
     const harmony = harmonyOpts(true);
-    const sig = JSON.stringify([p.id, cover() && S.cover, S.wiz.seed, melodyOpts(), harmony, S.wiz.parts, S.wiz.form, S.wiz.secs, S.wiz.skey, cols.map((c) => [c.id, c.o])]);
+    const sig = JSON.stringify([p.id, cover() && S.cover, S.wiz.seed, melodyOpts(), harmony, S.wiz.parts, S.wiz.kinds, S.wiz.form, S.wiz.secs, S.wiz.skey, cols.map((c) => [c.id, c.o])]);
     if (S.wiz.sig !== sig) {
       const sp = specEff();
       const fake = cols.map((c) => ({ id: c.id, type: c.o.type, sound: c.o.sound, band: c.o.band }));
-      S.wiz.res = sp ? SS.bandSong.build(sp, p.id, fake, { melodySeed: S.wiz.seed, melody: melodyOpts(), harmony, parts: S.wiz.parts }) : null;
+      S.wiz.res = sp ? SS.bandSong.build(sp, p.id, fake, { melodySeed: S.wiz.seed, melody: melodyOpts(), harmony, parts: S.wiz.parts, kinds: S.wiz.kinds }) : null;
       S.wiz.sig = sig;
     }
     return { cols, res: S.wiz.res };
@@ -3759,7 +3851,7 @@ SS.band = (() => {
     const eff = specEff();
     const plan = cover() ? { ...p, spec: eff, cover: { title: S.cover.title.trim() || 'Reprise' } } : eff !== spec() ? { ...p, spec: eff } : p;
     // tout est lu avant de quitter l'assistant (leave efface S.wiz), puis la fenêtre principale reprend la place
-    const args = [cols.map((c) => c.o), plan, tempo(), { melodySeed: seed, melody: melodyOpts(), harmony: harmonyOpts(), parts: S.wiz.parts, gains: cols.map((c) => volGain(c.id)), mix: S.wiz.mix }];
+    const args = [cols.map((c) => c.o), plan, tempo(), { melodySeed: seed, melody: melodyOpts(), harmony: harmonyOpts(), parts: S.wiz.parts, kinds: S.wiz.kinds, gains: cols.map((c) => volGain(c.id)), mix: S.wiz.mix }];
     leave();
     app.applySong(...args);
   }
@@ -4447,7 +4539,7 @@ SS.band = (() => {
     // basse, nappes, arpèges) ; form / secs / skey : arrangement, scènes et tonalité retouchés (specEff) ; chars : caractère et notes par phrase par section (réglages du moteur, sans écran) ; melPanel : état du panneau Mélodie par section ; snap : aimant de la grille ; gsel : accord sélectionné ; insp : fenêtre d'inspiration
     S.wiz = {
       step: 1, seen: new Set([1]), seed: 0, off: new Set(), mute: new Set(), solo: new Set(), sig: null, res: null, fresh, mel: S.mel, vol: new Map(), mix: null, mixScope: 'song', mixOpen: null, mixTab: 'eq', hscene: null, hsec: null, tempo: null, tempoFor: null,
-      plans: {}, pseeds: {}, keys: {}, grids: {}, emos: {}, chars: {}, parts: {}, melPanel: {}, melSec: null, form: null, secs: {}, skey: null, snap: 'beat', gsel: null, insp: null,
+      plans: {}, pseeds: {}, keys: {}, grids: {}, emos: {}, chars: {}, parts: {}, kinds: {}, melPanel: {}, melSec: null, form: null, secs: {}, skey: null, snap: 'beat', gsel: null, insp: null,
     };
     show();
   }
@@ -4558,5 +4650,5 @@ SS.band = (() => {
     });
   }
 
-  return { init, open, openWizard, active, togglePlay, stopListen, setTempo, plannedTracks, melodyTrackOpts, _state: S, _listen: () => L.proj };
+  return { init, open, openWizard, active, togglePlay, stopListen, setTempo, plannedTracks, instKind, setKind, partsToInst, instPartOf, putInstPart, melodyTrackOpts, _state: S, _listen: () => L.proj };
 })();
