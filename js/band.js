@@ -22,7 +22,7 @@
  *  5. Accords : la grille de chaque scène (comme dans Harmonie) et la fenêtre « Trouver l'inspiration » ;
  *  Instruments, scène par scène : une étape par instrument du groupe (6 à 5 + n ; le kit de batterie, toutes ses pièces, est
  *     un seul onglet ; « fx » n'en a pas). Tête « 07 Synth Bass », le type en lecture seule (le select de l’étape 2 appelle setKind), la barre de piste
- *     (son, Muet, Solo) et la colonne des scènes, puis l'éditeur du type — batterie (20 motifs, grille 5 pistes × 16 pas, fills,
+ *     (On entend : Muet, Seule ; le son et le kit se choisissent à l'étape Instruments) et la colonne des scènes, puis l'éditeur du type — batterie (20 motifs, grille 5 pistes × 16 pas, fills,
  *     crash ; pour un instrument qui n'est pas un kit : motifs et « les deux / grosse caisse / caisse claire »), basse (mode de
  *     jeu, pédale, registre, approche), accords (mode de jeu, voicing), arpèges (Arp One), mélodie (l'onglet Mélodie
  *     d'Harmonie, js/melodypanel.js : intention, motif, structure, Générer / Une autre / Variante B). Les réglages sont ceux de
@@ -869,7 +869,6 @@ SS.band = (() => {
     const cat = catOf(mu);
     const pick = (i) => {
       setPick(mu, ms, i);
-      ms.s2 = ms.s2custom = undefined; // le choix de l'étape 2 est celui-ci
       refresh();
       preview(instOpts(mu));
     };
@@ -938,7 +937,6 @@ SS.band = (() => {
     const panel = $('#bandPanel');
     const cards = kitCards(mu, ms, (k) => {
       ms.kit = k;
-      ms.s2kit = undefined;
       refresh();
     });
     const rows = ms.pieces.map((pc) => {
@@ -1284,7 +1282,6 @@ SS.band = (() => {
     });
     if (!res) return;
     ms.custom = pickOpts(res);
-    ms.s2 = ms.s2custom = undefined;
     ms.on = true;
     refresh();
   }
@@ -1866,7 +1863,7 @@ SS.band = (() => {
     const mu = muById(c.musician);
     const ms = mu && !mu.kits ? musState()[mu.id] : null;
     if (ms) {
-      Object.assign(ms, { pick: 0, picked: false, custom: null, s2: undefined, s2custom: undefined });
+      Object.assign(ms, { pick: 0, picked: false, custom: null });
       if (mu.added) ms.tok = picksOf(mu)[0];
     }
     return true;
@@ -3546,76 +3543,10 @@ SS.band = (() => {
   }
 
   /* ---------- Barre de piste (étapes Batterie à Mélodie) ----------
-   * « Piste » : l'instrument du musicien de l'étape, parmi les choix de l'étape Instruments (même état : on le retrouve là-bas) ;
+   * Le son et le kit se choisissent à l'étape Instruments (pas de menu « Piste » ici) ;
    * « On entend » : une pastille par instrument (Muet), et « Seule » (Solo de l'instrument de l'étape). Même S.wiz.mute / S.wiz.solo
    * que l'écoute : la boucle se tait vraiment, et le réglage vaut pour toutes les étapes.
    */
-  /** Choix d'instrument d'un musicien, comme à l'étape Instruments : [{ v, o }]. */
-  function instChoices(mu) {
-    const out = [];
-    pickOrder(mu).forEach((i) => {
-      const o = choiceAt(mu, i);
-      if (!out.some((x) => sameOpts(x.o, o))) out.push({ v: String(i), o });
-    });
-    return out;
-  }
-  function trackSelect(mu) {
-    const ms = musState()[mu.id];
-    const opts = instChoices(mu);
-    const cur = instOpts(mu);
-    const curV = ms.custom ? 'custom' : (opts.find((x) => sameOpts(x.o, cur)) || opts[0]).v;
-    const s2 = ms.s2 !== undefined ? ms.s2 : curV; // le choix fait à l'étape Instruments
-    const custom = ms.custom || ms.s2custom;
-    if (custom) opts.push({ v: 'custom', o: toGm(custom) });
-    const short = roleOf(mu).short;
-    return h(
-      'select',
-      {
-        id: 'bwTbPiste',
-        'aria-label': `Piste ${short.toLowerCase()}`,
-        title: 'Instrument de cette piste (le même choix qu’à l’étape Instruments)',
-        onchange: (e) => {
-          const v = e.target.value;
-          if (ms.s2 === undefined) {
-            ms.s2 = curV;
-            ms.s2custom = ms.custom;
-          }
-          if (v === 'custom') ms.custom = ms.s2custom || ms.custom;
-          else {
-            setPick(mu, ms, +v);
-          }
-          renderWiz();
-          if (!L.mode) preview(instOpts(mu));
-        },
-      },
-      ...opts.map((x) => h('option', { value: x.v, selected: x.v === curV }, `${short} · ${x.v === 'custom' ? 'Ton choix · ' : ''}${B().describe(x.o).name}${x.v === s2 ? ' (étape 2)' : ''}`))
-    );
-  }
-  /** Batterie : menu du kit et éléments (mêmes cases qu'à l'étape Instruments). */
-  function kitControls(mu) {
-    const ms = musState()[mu.id];
-    const kits = gm() ? ['gm'] : mu.kits;
-    const s2 = ms.s2kit !== undefined ? ms.s2kit : kitOf(ms);
-    const sel = h(
-      'select',
-      {
-        id: 'bwTbKit',
-        'aria-label': 'Kit de batterie',
-        title: 'Kit de la batterie (le même choix qu’à l’étape Instruments)',
-        onchange: (e) => {
-          if (ms.s2kit === undefined) ms.s2kit = kitOf(ms);
-          ms.kit = e.target.value;
-          renderWiz();
-        },
-      },
-      ...kits.map((k) => h('option', { value: k, selected: kitOf(ms) === k }, `${roleOf(mu).short} · ${B().KITS[k].label}${k === s2 ? ' (étape 2)' : ''}`))
-    );
-    const pieces = ms.pieces.map((pc) => {
-      const label = pieceInfo(mu, pc).label;
-      return h('button', { type: 'button', class: 'tb-piece' + (pc.on ? ' on' : ''), 'aria-pressed': String(pc.on), title: `${label} : une piste de la batterie`, onclick: () => ((pc.on = !pc.on), renderWiz()) }, label);
-    });
-    return [sel, h('span', { class: 'tb-pieces', role: 'group', 'aria-label': 'Éléments de la batterie' }, ...pieces)];
-  }
   /** Seule : le musicien de l'étape en solo ; re-clic : plus de solo. */
   function soloOnly(ids) {
     const same = S.wiz.solo.size === ids.length && ids.every((id) => S.wiz.solo.has(id));
@@ -3623,13 +3554,8 @@ SS.band = (() => {
     if (!same) ids.forEach((id) => S.wiz.solo.add(id));
     afterMS();
   }
-  /** La barre : Piste (le son de l'instrument de l'étape), puis On entend (une pastille par instrument) et Seule. `T` : l'instrument, ou « chords ». */
+  /** La barre : On entend (une pastille par instrument) et Seule. `T` : l'instrument, ou « chords ». */
   function trackbar(T) {
-    const p = preset();
-    const mu = isT(T) ? muById(T.musician) : null;
-    const piste = !isT(T)
-      ? [h('span', { class: 'tb-fixed' }, 'Accords de la scène')]
-      : mu ? (mu.kits ? kitControls(mu) : [trackSelect(mu)]) : [];
     const chips = insSteps().map((t) => {
       const ids = t.cols.map((c) => c.id);
       const heard = ids.some((id) => !silenced(id));
@@ -3656,7 +3582,6 @@ SS.band = (() => {
     return h(
       'div',
       { class: 'bw-trackbar', id: 'bwTrackbar', style: `--c:${isT(T) ? KIND_COLOR[T.kind] : 'var(--accent-2)'}` },
-      piste.length ? h('div', { class: 'tb-grp' }, h('span', { class: 'tb-lbl' }, 'Piste'), ...piste) : null,
       h(
         'div',
         { class: 'tb-grp tb-listen' },

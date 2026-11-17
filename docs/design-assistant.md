@@ -107,7 +107,7 @@ Le vrai assistant marche, mais il est plus lourd à l'œil que la maquette :
   que Drums : liste désactivée, avec « Un kit de batterie ne joue que des motifs de batterie. ». Un musicien à plusieurs instruments a une liste
   par instrument. Changer la valeur met à jour le stepper (pastille, résumé) ; il n'y a plus de liste d'étiquettes sous la scène. Il n'y a pas de
   bouton « + Ajouter un instrument » : l'assistant n'a pas de mécanisme d'ajout d'un musicien.
-- **Accords et onglets d'instrument** : la barre de piste reste, en haut du contenu, sous la tête d'étape. Les cartes internes (bibliothèque de motifs,
+- **Accords et onglets d'instrument** : la barre de piste reste, en haut du contenu, sous la tête d'étape ; elle n'a que « On entend » (une pastille par instrument, Muet) et « Seule » (solo) : il n'y a plus de menu « Piste » (le son et le kit se choisissent à l'étape Instruments, avec leurs éléments). Les cartes internes (bibliothèque de motifs,
   modes, aperçu des notes) perdent leur bordure quand elles sont déjà dans une carte.
 
 ## Ce qui ne change pas
