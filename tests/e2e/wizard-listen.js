@@ -34,7 +34,7 @@ const SHOTS = process.env.SHOTS;
   const playing = () => page.evaluate(() => SS.audio.isPlaying());
   const L = () =>
     page.evaluate(() => ({
-      song: document.querySelector('#bwPlay').getAttribute('aria-pressed') === 'true' && SS.band._state.wiz && !!document.querySelector('.bw-block.playing'),
+      song: document.querySelector('#play').getAttribute('aria-pressed') === 'true' && SS.band._state.wiz && !!document.querySelector('.bw-block.playing'),
       block: [...document.querySelectorAll('.bw-block')].findIndex((x) => x.classList.contains('playing')),
       rows: [...document.querySelectorAll('.bw-grid tbody tr.playing')].map((tr) => tr.querySelector('.bw-sname').textContent),
     }));
@@ -44,17 +44,17 @@ const SHOTS = process.env.SHOTS;
   await page.waitForTimeout(500);
   await page.click('#bandStyles [data-v="synthwave"]');
   await page.click('#bandPresets .band-preset >> nth=0');
-  for (let i = 0; i < 3; i++) await page.click('#bwNext'); // Instruments, Tempo et tonalité, Scènes
+  for (let i = 0; i < 3; i++) await page.dispatchEvent('#bwNext', 'click'); // Instruments, Tempo et tonalité, Scènes
   await page.waitForTimeout(200);
 
   // bandeau : l'ordre des scènes de la chanson
   const blocks = await page.$$eval('.bw-block', (bs) => bs.map((x) => x.textContent));
   const song = await page.evaluate(() => SS.band._state.wiz.res.song.map((bl) => SS.band._state.wiz.res.scenes.find((s) => s.id === bl.scene).name));
   ok(blocks.length === song.length && blocks.every((t, i) => t.startsWith(song[i])), `bandeau : ${blocks.join(' → ')}`);
-  ok(await page.isVisible('#bwPlay') && await page.isDisabled('#bwStop'), 'bandeau : Lecture (Stop grisé à l’arrêt)');
+  ok(await page.isVisible('#play') && await page.isDisabled('#stop'), 'bandeau : Lecture (Stop grisé à l’arrêt)');
 
   // écouter la chanson
-  await page.click('#bwPlay');
+  await page.click('#play');
   await page.waitForFunction(() => SS.audio.isPlaying(), null, { timeout: 8000 });
   await page.waitForFunction(() => (document.querySelector('.bw-grid tr.playing') || { style: { getPropertyValue: () => '' } }).style.getPropertyValue('--ph') !== '', null, { timeout: 8000 }).catch(() => {});
   let s = await L();
@@ -71,15 +71,15 @@ const SHOTS = process.env.SHOTS;
   s = await L();
   ok(s.song && s.block === k && s.rows[0] === song[k], `clic sur « ${song[k]} » : écoute à partir de ce bloc`);
   // pause puis reprise au même endroit
-  await page.click('#bwPlay');
+  await page.click('#play');
   await page.waitForTimeout(200);
-  ok(!(await playing()) && (await page.evaluate(() => SS.audio.isPaused())) && /en pause/.test(await page.textContent('#bwPosInfo')), 'Pause : le son s’arrête, la position est gardée');
-  await page.click('#bwPlay');
+  ok(!(await playing()) && (await page.evaluate(() => SS.audio.isPaused())) && /en pause/.test(await page.textContent('#lcdTitle')), 'Pause : le son s’arrête, la position est gardée');
+  await page.click('#play');
   await page.waitForFunction(() => SS.audio.isPlaying(), null, { timeout: 8000 });
   ok((await L()).block === k, 'Lecture : reprise dans le même bloc');
-  await page.click('#bwStop');
+  await page.click('#stop');
   await page.waitForTimeout(200);
-  ok(!(await playing()) && !(await page.evaluate(() => SS.audio.isPaused())) && (await page.textContent('#bwPos')) === '1 . 1 . 1', 'Stop : arrêt et retour au début');
+  ok(!(await playing()) && !(await page.evaluate(() => SS.audio.isPaused())) && (await page.textContent('#position')) === '1 . 1 . 1', 'Stop : arrêt et retour au début');
 
   // une scène en boucle
   await page.click('.bw-splay >> nth=1');
@@ -95,31 +95,31 @@ const SHOTS = process.env.SHOTS;
 
   // étape Accords : la vue suit la scène qu'on entend ; Lecture joue la scène choisie, pas la chanson
   await page.click('.bw-splay >> nth=2');
-  await page.click('#bwNext');
+  await page.dispatchEvent('#bwNext', 'click');
   await page.waitForTimeout(300);
   ok((await playing()) && (await page.textContent('.bh-scene.on .bh-sname b')) === 'Refrain', 'étape Batterie : l’écoute continue, sur la scène qu’on entend');
-  await page.click('#bwNext');
+  await page.dispatchEvent('#bwNext', 'click');
   await page.waitForTimeout(300);
   ok((await playing()) && (await page.textContent('.bh-scene.on .bh-sname b')) === 'Refrain', 'étape Accords : l’écoute continue, sur la scène qu’on entend');
-  await page.click('#bwStop');
+  await page.click('#stop');
   await page.click('.bh-scene >> nth=1');
-  await page.click('#bwPlay');
+  await page.click('#play');
   await page.waitForFunction(() => SS.audio.isPlaying(), null, { timeout: 8000 });
   const heard = () => page.$$eval('.bh-scene.playing .bh-sname b', (bs) => bs.map((b) => b.textContent).join());
-  ok((await heard()) === 'Couplet' && /Couplet · en boucle/.test(await page.textContent('#bwPosInfo')), 'Accords : Lecture joue la scène choisie en boucle');
+  ok((await heard()) === 'Couplet' && /Couplet · en boucle/.test(await page.textContent('#lcdTitle')), 'Accords : Lecture joue la scène choisie en boucle');
   await page.click('.bh-scene >> nth=2');
   await page.waitForTimeout(300);
-  ok((await heard()) === 'Refrain' && /Refrain · en boucle/.test(await page.textContent('#bwPosInfo')), 'une autre scène choisie : la lecture la suit');
+  ok((await heard()) === 'Refrain' && /Refrain · en boucle/.test(await page.textContent('#lcdTitle')), 'une autre scène choisie : la lecture la suit');
   await page.waitForFunction(() => !document.querySelector('#bwGridPh').hidden, null, { timeout: 8000 }).catch(() => {});
   ok(await page.evaluate(() => !document.querySelector('#bwGridPh').hidden), 'tête de lecture sur la grille d’accords');
 
   // étape Mélodie (après Basse, Nappes, Arpèges) : tempo changé en cours d'écoute
   for (let i = 0; i < 4; i++) {
-    await page.click('#bwNext');
+    await page.dispatchEvent('#bwNext', 'click');
     await page.waitForTimeout(300);
   }
   ok((await playing()), 'étape Mélodie : l’écoute continue');
-  await page.click('#bwFaster');
+  await page.fill('#tempo', '133'); await page.press('#tempo', 'Enter');
   ok(await page.evaluate(() => SS.band._listen().tempo === 133), 'tempo : la lecture en cours prend le nouveau tempo');
   await page.click('.bh-loop');
   await page.waitForTimeout(200);
@@ -167,7 +167,7 @@ const SHOTS = process.env.SHOTS;
   t = await tracks();
   ok(t.filter((x) => x[1]).length >= 3, 'pastille de la batterie : tous ses éléments coupés');
   // étape Chanson : les colonnes coupées sont grisées
-  for (let i = 0; i < 6; i++) await page.click('#bwBack'); // Arpèges, Nappes, Basse, Accords, Batterie, Chanson
+  for (let i = 0; i < 6; i++) await page.dispatchEvent('#bwBack', 'click'); // Arpèges, Nappes, Basse, Accords, Batterie, Chanson
   ok((await page.locator('.bw-track.muted').count()) === t.filter((x) => x[1]).length && (await page.locator('.bw-track:not(.muted)').count()) > 0, 'étape Chanson : les colonnes coupées sont grisées, les autres restent claires');
 
   // fermeture : arrêt, rien n'est créé
@@ -182,17 +182,17 @@ const SHOTS = process.env.SHOTS;
   await page.click('#appMenuBtn');
   await page.click('#newProject');
   await page.waitForTimeout(500);
-  for (let i = 0; i < 3; i++) await page.click('#bwNext');
+  for (let i = 0; i < 3; i++) await page.dispatchEvent('#bwNext', 'click');
   await page.waitForTimeout(200);
   const over = await page.evaluate(() => document.querySelector('#bandDialog').scrollWidth - document.querySelector('#bandDialog').clientWidth);
   ok(over <= 1, 'téléphone : pas de défilement horizontal de la fenêtre');
-  await page.click('#bwNext');
-  await page.click('#bwNext');
+  await page.dispatchEvent('#bwNext', 'click');
+  await page.dispatchEvent('#bwNext', 'click');
   await page.waitForTimeout(200);
   const over3 = await page.evaluate(() => document.querySelector('#bandDialog').scrollWidth - document.querySelector('#bandDialog').clientWidth);
   ok(over3 <= 1, 'téléphone, étape Accords : rien ne déborde');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'listen-mobile-accords.png') });
-  for (let i = 0; i < 4; i++) await page.click('#bwNext');
+  for (let i = 0; i < 4; i++) await page.dispatchEvent('#bwNext', 'click');
   await page.waitForTimeout(200);
   const over2 = await page.evaluate(() => document.querySelector('#bandDialog').scrollWidth - document.querySelector('#bandDialog').clientWidth);
   const foot = await page.evaluate(() => document.querySelector('.bh-scroll').getBoundingClientRect().bottom <= document.querySelector('.band-foot').getBoundingClientRect().top + 1);

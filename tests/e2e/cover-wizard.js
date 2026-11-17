@@ -75,22 +75,22 @@ const SHOTS = process.env.SHOTS;
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'cover-form.png') });
 
   // 2. Instruments, 3. Tempo et tonalité, 4. Scènes : les scènes tapées
-  await page.click('#bwNext');
-  await page.click('#bwNext');
-  ok((await page.inputValue('#bwTempo')) === '96' && (await page.inputValue('#bwtRange')) === '96' && /Sol majeur/.test(await page.textContent('.bwt')), 'Tempo et tonalité : 96 BPM et Sol majeur de la reprise');
-  await page.click('#bwNext');
+  await page.dispatchEvent('#bwNext', 'click');
+  await page.dispatchEvent('#bwNext', 'click');
+  ok((await page.inputValue('#tempo')) === '96' && (await page.inputValue('#bwtRange')) === '96' && /Sol majeur/.test(await page.textContent('.bwt')), 'Tempo et tonalité : 96 BPM et Sol majeur de la reprise');
+  await page.dispatchEvent('#bwNext', 'click');
   await page.waitForTimeout(200);
   const scenes = await page.$$eval('.bw-sname', (xs) => xs.map((x) => x.textContent));
   ok(scenes.join() === 'Couplet,Refrain', `une ligne par partie : ${scenes.join(', ')}`);
-  ok((await page.inputValue('#bwTempo')) === '96', 'bandeau : le tempo de la reprise');
-  ok(/Sol majeur/.test(await page.textContent('#bwKey')), 'bandeau : Sol majeur');
+  ok((await page.inputValue('#tempo')) === '96', 'bandeau : le tempo de la reprise');
+  ok(/Sol majeur/.test(await page.textContent('#wizKey')), 'bandeau : Sol majeur');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'cover-song.png') });
 
   // 5. Batterie, puis 6. Accords : la grille de la partie
-  await page.click('#bwNext');
+  await page.dispatchEvent('#bwNext', 'click');
   await page.waitForTimeout(200);
   ok((await page.locator('#bandWizSteps li.cur').textContent()).includes('Batterie') && (await page.locator('.bh-scene').count()) === 2, 'Batterie : les deux parties tapées à gauche');
-  await page.click('#bwNext');
+  await page.dispatchEvent('#bwNext', 'click');
   await page.waitForTimeout(200);
   const gnames = await page.$$eval('#bwLane .gr-blk', (bs) => bs.map((x) => x.querySelector('b').textContent));
   ok(gnames.join(' ') === 'G D/F♯ Em C', `grille du couplet : ${gnames.join(' ')}`);

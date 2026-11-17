@@ -44,9 +44,9 @@ const SHOTS = process.env.SHOTS;
   const P = () => page.evaluate(() => JSON.parse(localStorage.getItem('stepseq.autosave')));
 
   // bouton Nouvelle (en-tête, ancien Band) : le même assistant, sur le projet en cours ; l'ancien écran n'existe plus
-  await page.click('#bandBtn');
+  await page.click('#appMenuBtn'); await page.click('#bandBtn');
   ok((await page.locator('#bandModes, #bandMelody, #melGo, #bandSongBtn, #bandCreate, #bandTempo').count()) === 0, 'Band : plus d’ancien écran (Créer les pistes, Créer toute la chanson)');
-  ok((await page.isVisible('#bandWizSteps')) && /^Nouvelle chanson/.test(await page.textContent('#bandTitle')) && /Nouvelle/.test(await page.textContent('#bandBtn')) && !/Band/.test(await page.textContent('#bandBtn')) && !(await page.isVisible('#bwEmpty')), 'bouton Nouvelle (plus de Band) : l’assistant en cinq étapes');
+  ok((await page.isVisible('#bandWizSteps')) && /Nouvelle chanson/.test(await page.textContent('#bandBtn')) && !/Band/.test(await page.textContent('#bandBtn')) && !(await page.isVisible('#bandBtn')) && !(await page.$('#bandDialog .band-head')) && !(await page.isVisible('#bwEmpty')), 'menu « Nouvelle chanson sur ce projet… » (plus de bouton Nouvelle, plus de Band) : l’assistant dans la fenêtre principale');
   await page.keyboard.press('Escape');
 
   // 1. Modèle
@@ -55,22 +55,24 @@ const SHOTS = process.env.SHOTS;
   await page.click('#newProject');
   await page.waitForTimeout(600);
   ok(await page.isVisible('#bandDialog'), 'l’assistant s’ouvre');
-  ok(/Nouvelle chanson/.test(await page.textContent('#bandTitle')), 'titre « Nouvelle chanson »');
+  ok(await page.evaluate(() => document.body.classList.contains('wizard-mode') && !document.querySelector('#bandDialog').matches('dialog') && !!document.querySelector('.topbar') && document.querySelector('.topbar').getBoundingClientRect().bottom <= document.querySelector('#bandDialog').getBoundingClientRect().top + 1), 'mode assistant : l’assistant sous la barre du haut, qui reste là');
+  ok(!(await page.isVisible('#keyBtn')) && !(await page.isVisible('#songBtn')) && (await page.isVisible('#wizKey')) && (await page.isVisible('#play')) && (await page.isVisible('#tempo')) && !(await page.isVisible('.bottombar')) && !(await page.isVisible('#workspace')), 'barre du haut : Harmonie et Song cachés, tonalité, Lecture, tempo ; ni pistes ni barre du bas');
+  ok(!(await page.$('#bandCancel')) && !(await page.isVisible('#bwNext')) && !(await page.isVisible('#bwBack')), 'pied : plus de précédent / suivant / Annuler');
+  ok((await page.isVisible('#bandClose')) && (await page.textContent('#bandClose')) === 'Fermer', 'pied : un seul bouton « Fermer »');
   ok((await page.locator('#bandWizSteps li').count()) === 11 && (await page.locator('#bandWizSteps li.cur').textContent()).includes('Style'), 'onze étapes, la première : Style');
-  ok(!(await page.isVisible('#bwTransport')), 'étape 1 : pas de bandeau de commande');
   ok((await P()).tracks.length === 0, 'une chanson vide est déjà en place');
-  ok(!(await page.isVisible('#bandStage')) && (await page.isVisible('#bandStyles')) && (await page.isVisible('#bwEmpty')) && (await page.isVisible('#bwNext')), 'étape 1 : styles et inspirations (pas de musiciens) avec « Suivant »');
+  ok(!(await page.isVisible('#bandStage')) && (await page.isVisible('#bandStyles')) && (await page.isVisible('#bwEmpty')), 'étape 1 : styles et inspirations (pas de musiciens)');
   await page.click('#bandStyles [data-v="synthwave"]');
   await page.click('#bandPresets .band-preset >> nth=0'); // Smalltown Boy
 
   // 2. Instruments : les musiciens, General MIDI ; 3. Tempo et tonalité
-  await page.click('#bwNext');
+  await page.dispatchEvent('#bwNext', 'click');
   ok((await page.locator('#bandWizSteps li.cur').textContent()).includes('Instruments') && (await page.isVisible('#bandStage')) && (await page.isVisible('#bandGm')) && !(await page.isVisible('#bandStyles')), 'étape 2 : Instruments, la scène des musiciens et General MIDI');
-  await page.click('#bwNext');
-  ok((await page.locator('#bandWizSteps li.cur').textContent()).includes('Tempo') && (await page.isVisible('#bwTransport')) && !(await page.isVisible('#bandStage')), 'étape 3 : Tempo et tonalité, avec le bandeau de commande');
+  await page.dispatchEvent('#bwNext', 'click');
+  ok((await page.locator('#bandWizSteps li.cur').textContent()).includes('Tempo') && !(await page.isVisible('#bandStage')), 'étape 3 : Tempo et tonalité');
 
   // 4. Scènes : une ligne par scène, une colonne par piste
-  await page.click('#bwNext');
+  await page.dispatchEvent('#bwNext', 'click');
   await page.waitForTimeout(200);
   const g = await page.evaluate(() => ({
     rows: document.querySelectorAll('.bw-grid tbody tr').length,
@@ -83,43 +85,38 @@ const SHOTS = process.env.SHOTS;
   ok(g.cols === g.planned && g.cols >= 8, `une colonne par piste (${g.cols})`);
   ok(g.clips > g.rows * 3, `des clips dans les cases (${g.clips})`);
   ok(/Do mineur/.test(await page.textContent('.bw-info')), 'tonalité, tempo et durée de la chanson');
-  ok(await page.isVisible('#bwTransport'), 'bandeau de commande dans l’en-tête');
-  ok((await page.inputValue('#bwTempo')) === '132' && /Do mineur/.test(await page.textContent('#bwKey')) && /3 ♭ · i = Cm/.test(await page.textContent('#bwKey')), 'bandeau : tempo 132 et tonalité Do mineur (3 ♭)');
-  ok(!(await page.isVisible('#bwTempoBack')), 'tempo d’origine : pas de rappel');
-  await page.click('#bwSlower');
-  await page.fill('#bwTempo', '126');
-  await page.press('#bwTempo', 'Enter');
-  ok((await page.inputValue('#bwTempo')) === '126' && /126 BPM/.test(await page.textContent('.bw-info')), 'tempo réglé à 126 (durée recalculée)');
-  ok((await page.isVisible('#bwTempoBack')) && /origine 132/.test(await page.textContent('#bwTempoBack')), 'rappel du tempo d’origine');
-  await page.fill('#bwTempo', '999');
-  await page.press('#bwTempo', 'Enter');
-  ok((await page.inputValue('#bwTempo')) === '240', 'tempo borné à 240');
-  await page.click('#bwTempoBack');
-  ok((await page.inputValue('#bwTempo')) === '132', '« origine 132 » revient au tempo de l’inspiration');
-  await page.fill('#bwTempo', '128');
-  await page.press('#bwTempo', 'Enter');
+  ok((await page.inputValue('#tempo')) === '132' && /Do mineur/.test(await page.textContent('#wizKey')) && /3 ♭ · i = Cm/.test(await page.textContent('#wizKey')), 'bandeau : tempo 132 et tonalité Do mineur (3 ♭)');
+  await page.fill('#tempo', '126');
+  await page.press('#tempo', 'Enter');
+  ok((await page.inputValue('#tempo')) === '126' && /126 BPM/.test(await page.textContent('.bw-info')), 'tempo réglé à 126 (durée recalculée)');
+  await page.fill('#tempo', '999');
+  await page.press('#tempo', 'Enter');
+  ok((await page.inputValue('#tempo')) === '240', 'tempo borné à 240');
+  await page.fill('#tempo', '132'); await page.press('#tempo', 'Enter');
+  ok((await page.inputValue('#tempo')) === '132', 'retour au tempo de l’inspiration');
+  await page.fill('#tempo', '128');
+  await page.press('#tempo', 'Enter');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'wizard-chanson.png') });
 
   // 3. Batterie : la bibliothèque de motifs, celui de l'inspiration choisi tant qu'on n'a rien réglé
-  await page.click('#bwNext');
+  await page.dispatchEvent('#bwNext', 'click');
   await page.waitForTimeout(200);
   ok((await page.locator('#bandWizSteps li.cur').textContent()).includes('Batterie'), 'étape 5 : Batterie');
   ok((await page.locator('.bwp-pat').count()) === 21 && (await page.locator('.bwp-pat.on').getAttribute('data-id')) === '', 'batterie : 20 motifs et celui de l’inspiration, choisi');
   ok((await page.locator('.bh-scene .bh-ssub').first().textContent()) === 'Inspiration' && (await page.evaluate(() => Object.keys(SS.band._state.wiz.parts).length)) === 0, 'batterie : une première visite ne change rien');
 
   // 4. Accords : la grille de la scène choisie (comme dans Harmonie), la tonalité, les durées, l'inspiration
-  await page.click('#bwNext');
+  await page.dispatchEvent('#bwNext', 'click');
   await page.waitForTimeout(200);
   ok((await page.locator('#bandWizSteps li.cur').textContent()).includes('Accords'), 'étape 6 : Accords');
   ok((await page.locator('#bandWizSteps li').allTextContents()).join(' ').includes('Intégration'), 'étape 11 : Intégration');
   const layout = await page.evaluate(() => {
     const nav = document.querySelector('#bandWiz .bh-scenes').getBoundingClientRect();
-    const tr = document.querySelector('#bwTransport').getBoundingClientRect();
-    const head = document.querySelector('.band-head').getBoundingClientRect();
+    const head = document.querySelector('.topbar').getBoundingClientRect();
     const sh = document.querySelector('#bwStepHead').getBoundingClientRect();
-    return { navTop: nav.top - sh.bottom, inHead: !!document.querySelector('.band-head > #bwTransport'), trIn: tr.top >= head.top - 1 && tr.bottom <= head.bottom + 1, below: nav.top >= head.bottom };
+    return { navTop: nav.top - sh.bottom, inHead: !!document.querySelector('.topbar #play'), trIn: true, below: nav.top >= head.bottom };
   });
-  ok(layout.inHead && layout.trIn && layout.below && layout.navTop >= 0 && layout.navTop <= 24, 'lecture dans l’en-tête, colonne des scènes sous la tête d’étape');
+  ok(layout.inHead && layout.trIn && layout.below && layout.navTop >= 0 && layout.navTop <= 24, 'lecture dans la barre du haut, colonne des scènes sous la tête d’étape');
   ok((await page.locator('.bh-scene').count()) === 5 && (await page.locator('.bh-scene.on .bh-sname b').textContent()) === 'Intro', 'scènes à gauche, la première choisie');
   const gnames = () => page.$$eval('#bwLane .gr-blk', (bs) => bs.map((b) => b.querySelector('b').textContent));
   ok((await gnames()).join(' ') === 'Cm B♭ A♭ B♭ Cm B♭ A♭ B♭', `grille de l’intro : ${(await gnames()).join(' ')}`);
@@ -152,7 +149,7 @@ const SHOTS = process.env.SHOTS;
   ok(ic.some((x) => x[0] === 48 && x[1] === 4 && x[2] === 5), 'Fm posé au temps 1 de la mesure 4 (un temps)');
   // tonalité : Ré mineur, les degrés restent
   await page.selectOption('#bwTonic', 'D');
-  ok((await gnames())[0] === 'Dm' && /Ré mineur/.test(await page.textContent('#bwKey')), 'Ré mineur : la grille est transposée (degrés gardés)');
+  ok((await gnames())[0] === 'Dm' && /Ré mineur/.test(await page.textContent('#wizKey')), 'Ré mineur : la grille est transposée (degrés gardés)');
   await page.click('#bwGridBack');
   ok((await gnames()).join(' ') === 'Cm B♭ A♭ B♭ Cm B♭ A♭ B♭' && !(await page.isVisible('#bwGridBack')), '↺ Inspiration : accords et tonalité d’origine');
   // fenêtre « Trouver l'inspiration » sur le refrain : écouter, Annuler, puis Choisir
@@ -187,25 +184,25 @@ const SHOTS = process.env.SHOTS;
   ok(ck.tonic === 'C' && (await page.evaluate((k) => SS.harmony.label(k), ck)) === wantKey && (await page.inputValue('#bwMode')) === ck.mode, `les accords et la tonalité de la proposition (${want}, ${wantKey})`);
   ok(/Espoir/.test(await page.textContent('.bh-scene.on')), 'la colonne rappelle l’émotion choisie');
   ok([...new Set(await gnames())].join(' – ') === [...new Set(want.split(' – '))].join(' – '), 'la grille du refrain : les accords choisis');
-  await page.click('#bwStop');
+  await page.click('#stop');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'wizard-accords.png') });
   await page.click('#bwGridBack'); // le refrain revient à l'inspiration pour la suite
   await page.click('.bh-scene >> nth=0');
 
   // 7. Basse, 8. Nappes, 9. Arpèges : une scène à gauche, les réglages de la scène choisie
   for (const [n, label, sel] of [[7, 'Basse', '.bwp-mode'], [8, 'Nappes', '.bwp-mode'], [9, 'Arpèges', '.bwa-knob']]) {
-    await page.click('#bwNext');
+    await page.dispatchEvent('#bwNext', 'click');
     await page.waitForTimeout(200);
     ok((await page.locator('#bandWizSteps li.cur').textContent()).includes(label), `étape ${n} : ${label}`);
-    ok((await page.locator('.bh-scene').count()) === 5 && (await page.locator(sel).count()) >= (n === 9 ? 4 : 8) && !!(await page.$('.band-head > #bwTransport')), `${label} : scènes à gauche, réglages à droite, lecture dans l’en-tête`);
+    ok((await page.locator('.bh-scene').count()) === 5 && (await page.locator(sel).count()) >= (n === 9 ? 4 : 8) && (await page.isVisible('#play')), `${label} : scènes à gauche, réglages à droite, lecture dans la barre du haut`);
   }
 
   // 8. Mélodie : la scène choisie, les phrases de la mélodie, ses accords (comme dans Harmonie) et les instruments dessous
-  await page.click('#bwNext');
+  await page.dispatchEvent('#bwNext', 'click');
   await page.waitForTimeout(200);
   ok((await page.locator('#bandWizSteps li.cur').textContent()).includes('Mélodie'), 'étape 10 : Mélodie');
   ok((await page.locator('.bh-scene').count()) === 5 && (await page.locator('.bh-scene.on .bh-sname b').textContent()) === 'Intro', 'scènes à gauche, la première choisie');
-  ok(!!(await page.$('.band-head > #bwTransport')), 'lecture dans l’en-tête');
+  ok(await page.isVisible('#play'), 'lecture dans la barre du haut');
   const hc = await page.evaluate(() => [...document.querySelectorAll('.bh-chord')].map((c) => [c.querySelector('small').textContent, c.querySelector('b').textContent, c.className]));
   ok(hc.length === 8 && hc[0][0] === 'i' && hc[0][1] === 'Cm' && /role-repos/.test(hc[0][2]) && hc[1][1] === 'B♭', `piste d’accords : ${hc.map((c) => c[1]).join(' ')}`);
   ok(!(await page.isVisible('.bw-hint')) && !(await page.isVisible('.bw-info')), 'en-tête sans petits textes');
@@ -286,12 +283,12 @@ const SHOTS = process.env.SHOTS;
   await page.click('#bwTrackbar .tb-chip >> nth=0');
   ok(await page.evaluate(() => SS.band._listen().tracks.filter((t) => t.mute).length >= 1), 'pastille « On entend » : coupe l’instrument à l’écoute');
   await page.click('#bwTrackbar .tb-chip >> nth=0');
-  await page.click('#bwStop');
+  await page.click('#stop');
 
   // 9. Intégration
-  await page.click('#bwNext');
+  await page.dispatchEvent('#bwNext', 'click');
   ok((await page.locator('.bw-grid input[type=checkbox]').count()) > 5, 'étape 11 : des cases à cocher par musicien et par élément');
-  ok(!(await page.$('#bandWiz #bwTransport')) && !!(await page.$('.band-head > #bwTransport')), 'étape 11 : la lecture reste dans l’en-tête');
+  ok(await page.isVisible('#play') && (await page.isVisible('#bwCreate')) && (await page.isVisible('#bandWiz')), 'étape 11 : la lecture reste dans la barre du haut, « Créer la chanson » dans l’étape');
   const bassBox = page.locator('.bw-group', { hasText: 'Bassiste' }).locator('input');
   await bassBox.uncheck();
   const hhBox = page.locator('.bw-track', { hasText: 'Hi-Hat ouvert' }).locator('input');
@@ -332,11 +329,11 @@ const SHOTS = process.env.SHOTS;
   await page.click('#appMenuBtn');
   await page.click('#newProject');
   await page.waitForTimeout(600);
-  for (let i = 0; i < 3; i++) await page.click('#bwNext');
+  for (let i = 0; i < 3; i++) await page.dispatchEvent('#bwNext', 'click');
   await page.waitForTimeout(200);
   const overflow = await page.evaluate(() => document.querySelector('#bandDialog').scrollWidth - document.querySelector('#bandDialog').clientWidth);
   ok(overflow <= 1, 'téléphone : la grille défile dans son cadre, pas la fenêtre');
-  ok(await page.isVisible('#bwNext'), 'téléphone : boutons visibles');
+  ok((await page.isVisible('#bandClose')) && (await page.isVisible('#play')), 'téléphone : Fermer et Lecture visibles');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'wizard-mobile.png') });
 
   ok(!errs.length, 'aucune erreur JavaScript' + (errs.length ? ' : ' + errs.join(' | ') : ''));

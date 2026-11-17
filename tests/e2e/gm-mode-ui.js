@@ -79,10 +79,10 @@ const saved = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('ste
   }
 
   // ---- Band suit le même réglage ----
-  await page.click('#bandBtn');
+  await page.click('#appMenuBtn'); await page.click('#bandBtn');
   await page.waitForSelector('#bandDialog[open]');
   await page.waitForTimeout(300);
-  await page.click('#bwNext'); // étape 2 : Instruments (musiciens et General MIDI)
+  await page.dispatchEvent('#bwNext', 'click'); // étape 2 : Instruments (musiciens et General MIDI)
   ok(await page.$eval('#bandGm', (e) => e.classList.contains('active')), 'Band : General MIDI activé (réglage du projet)');
   const stage = await page.$$eval('#bandStage .bm-inst', (xs) => xs.map((x) => x.textContent));
   ok(stage.some((x) => /Batterie General MIDI/.test(x)), `scène : ${stage.join(' | ')}`);
@@ -90,7 +90,7 @@ const saved = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('ste
   await page.waitForTimeout(200);
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'gm-band.png') });
   await page.click('#bandStage .band-mus');
-  for (let i = 0; i < 9; i++) await page.click('#bwNext'); await page.click('#bwCreate');
+  for (let i = 0; i < 9; i++) await page.dispatchEvent('#bwNext', 'click'); await page.click('#bwCreate');
   await page.waitForTimeout(400);
   if (await page.isVisible('#bcfSong')) await page.click('#bcfSong');
   await page.waitForTimeout(800);
@@ -100,14 +100,14 @@ const saved = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('ste
   ok(created.length > 3 && gmOk.every(Boolean), `Band : ${created.length} pistes créées, toutes General MIDI (${created.map((t) => t.name).join(', ')})`);
 
   // ---- couper le mode depuis Band : la fenêtre de piste revient à tous les sons ----
-  await page.click('#bandBtn');
+  await page.click('#appMenuBtn'); await page.click('#bandBtn');
   await page.waitForSelector('#bandDialog[open]');
-  await page.click('#bwNext');
+  await page.dispatchEvent('#bwNext', 'click');
   await page.click('#bandGm');
   await page.waitForTimeout(200);
   const kit = await page.$$eval('#bandStage .bm-inst', (xs) => xs.map((x) => x.textContent).join(' | '));
   ok(!/General MIDI/.test(kit), 'Band sans General MIDI : kits habituels');
-  await page.click('#bandCancel');
+  await page.click('#bandClose');
   await page.click('#emptyAdd, #empty button');
   await page.waitForSelector('#trackDialog[open]');
   ok(await page.$eval('#dlgGm button[data-v="all"]', (e) => e.classList.contains('active')), 'fenêtre de piste : retour à « Tous »');

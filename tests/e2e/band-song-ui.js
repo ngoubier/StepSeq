@@ -31,11 +31,11 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FAIL ') + m); if (!c) process
     return { mode: p.playMode, tempo: p.tempo, tracks: p.tracks.length, scenes: p.scenes.map((s) => s.name), song: p.song.length, sc: p.tracks.filter((t) => t.fx && t.fx.scSource).length };
   });
   const before = await S();
-  await page.click('#bandBtn'); await page.waitForTimeout(400);
+  await page.click('#appMenuBtn'); await page.click('#bandBtn'); await page.waitForTimeout(400);
   await page.click('#bandStyles [data-v="edm"]');
   await page.click('#bandPresets .band-preset >> nth=1'); // Don't You Worry Child
-  ok(await page.isVisible('#bandWizSteps') && await page.isVisible('#bwNext') && !(await page.isVisible('#bwEmpty')), 'Band : l’assistant (sans « Chanson vide »)');
-  for (let i = 0; i < 10; i++) await page.click('#bwNext'); await page.click('#bwCreate'); await page.waitForTimeout(200);
+  ok(await page.isVisible('#bandWizSteps') && !(await page.isVisible('#bwEmpty')), 'Band : l’assistant (sans « Chanson vide »)');
+  for (let i = 0; i < 10; i++) await page.dispatchEvent('#bwNext', 'click'); await page.click('#bwCreate'); await page.waitForTimeout(200);
   ok(await page.isVisible('#bcfSong'), 'projet non vide : confirmation avant de remplacer');
   await page.click('#bcfSong'); await page.waitForTimeout(800);
   const st = await S();

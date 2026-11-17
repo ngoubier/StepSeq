@@ -41,7 +41,7 @@ const ok = (c, m) => {
   await page.waitForTimeout(1200);
   const P = () => page.evaluate(() => JSON.parse(localStorage.getItem('stepseq.autosave')));
   const next = async (n = 1) => {
-    for (let i = 0; i < n; i++) await page.click('#bwNext');
+    for (let i = 0; i < n; i++) await page.dispatchEvent('#bwNext', 'click');
     await page.waitForTimeout(250);
   };
   const cur = async () => (await page.locator('#bandWizSteps li.cur').textContent()).trim();
@@ -88,19 +88,19 @@ const ok = (c, m) => {
   await page.click('#bandStage .band-mus >> nth=0');
   ok(await page.isVisible('#bandPanel'), 'étape 2 : un clic sur un musicien ouvre son panneau');
   await page.click('#bandStage .band-mus >> nth=0');
-  await page.click('#bwBack');
+  await page.dispatchEvent('#bwBack', 'click');
   ok((await page.isVisible('#bandStyles')) && !(await page.isVisible('#bandStage')), 'retour à l’étape 1 : les styles reviennent');
   await next(2);
 
   // 3. Tempo : curseur, − / +, Tap, tempo de l'inspiration
-  ok((await cur()).includes('Tempo') && (await page.isVisible('#bwTransport')) && (await page.textContent('#bwtLcd')) === '132' && !(await page.isVisible('#bwtOrig')), 'étape 3 : bandeau, tempo 132 (celui de l’inspiration)');
+  ok((await cur()).includes('Tempo') && (await page.textContent('#bwtLcd')) === '132' && !(await page.isVisible('#bwtOrig')), 'étape 3 : bandeau, tempo 132 (celui de l’inspiration)');
   ok((await page.locator('.bwt-reco').count()) === 1 && (await page.getAttribute('#bwtRange', 'min')) === '40' && (await page.getAttribute('#bwtRange', 'max')) === '240', 'curseur de 40 à 240 avec la zone du tempo conseillé');
   await range(100);
-  ok((await page.inputValue('#bwTempo')) === '100' && (await page.textContent('#bwtLcd')) === '100' && (await page.isVisible('#bwtOrig')), 'curseur : 100 BPM (bandeau et afficheur)');
+  ok((await page.inputValue('#tempo')) === '100' && (await page.textContent('#bwtLcd')) === '100' && (await page.isVisible('#bwtOrig')), 'curseur : 100 BPM (bandeau et afficheur)');
   await page.click('#bwtPlus');
   await page.click('#bwtPlus');
   await page.click('#bwtMinus');
-  ok((await page.textContent('#bwtLcd')) === '101' && (await page.inputValue('#bwTempo')) === '101', '+ + − : 101 BPM');
+  ok((await page.textContent('#bwtLcd')) === '101' && (await page.inputValue('#tempo')) === '101', '+ + − : 101 BPM');
   for (let i = 0; i < 4; i++) {
     await page.click('#bwtTap');
     await page.waitForTimeout(400);
@@ -114,7 +114,7 @@ const ok = (c, m) => {
 
   // 3. Tonalité : transposer toutes les scènes
   ok((await page.locator('.bwt-tonic').count()) === 12 && (await page.locator('.bwt-mode').count()) >= 6 && (await page.locator('.bwt-note').count()) === 7, '12 toniques, les modes, les 7 notes de la gamme');
-  ok((await page.getAttribute('.bwt-tonic.active', 'data-pc')) === '0' && (await page.getAttribute('.bwt-mode.active', 'data-skmode')) === 'minor' && /Do mineur/.test(await page.textContent('#bwKey')), 'tonalité de l’inspiration : Do mineur');
+  ok((await page.getAttribute('.bwt-tonic.active', 'data-pc')) === '0' && (await page.getAttribute('.bwt-mode.active', 'data-skmode')) === 'minor' && /Do mineur/.test(await page.textContent('#wizKey')), 'tonalité de l’inspiration : Do mineur');
   const k0 = await scenes();
   ok(k0.length === 5 && k0.every((s) => s.tonic === 'C' && s.mode === 'minor'), 'toutes les scènes en Do mineur');
   // le pont passe en majeur (relatif) : il doit garder son mode
@@ -123,7 +123,7 @@ const ok = (c, m) => {
   const k1 = await scenes();
   ok(k1.filter((s) => s.sec !== 'bridge').every((s) => s.tonic === 'E' && s.mode === 'minor'), 'Mi : les scènes sont transposées de +4 demi-tons (Mi mineur)');
   ok(k1.find((s) => s.sec === 'bridge').tonic === 'G' && k1.find((s) => s.sec === 'bridge').mode === 'major', 'le pont (Mi♭ majeur) devient Sol majeur : même intervalle, son mode');
-  ok(k1.find((s) => s.sec === 'intro').root === 4 && /Mi mineur/.test(await page.textContent('#bwKey')) && (await page.isVisible('#bwtKeyBack')), 'les accords suivent (tonique de l’intro : Mi) ; bandeau : Mi mineur');
+  ok(k1.find((s) => s.sec === 'intro').root === 4 && /Mi mineur/.test(await page.textContent('#wizKey')) && (await page.isVisible('#bwtKeyBack')), 'les accords suivent (tonique de l’intro : Mi) ; bandeau : Mi mineur');
   await page.click('.bwt-mode[data-skmode="dorian"]');
   const k2 = await scenes();
   ok(k2.filter((s) => s.sec !== 'bridge').every((s) => s.tonic === 'E' && s.mode === 'dorian') && k2.find((s) => s.sec === 'bridge').mode === 'major', 'Dorien : les scènes en mode de la chanson le prennent, le pont garde son majeur');
@@ -200,11 +200,11 @@ const ok = (c, m) => {
   ok((await page.locator('.bw-sc-del:not([disabled])').count()) === 5, 'plusieurs scènes : on peut les supprimer');
 
   // tout est entendu : la lecture suit l'arrangement retouché
-  await page.click('#bwPlay');
+  await page.click('#play');
   await page.waitForFunction(() => SS.audio.isPlaying(), null, { timeout: 8000 });
   const lp = await page.evaluate(() => { const proj = SS.band._listen(); return proj.song.map((x) => proj.scenes.find((s) => s.id === x.scene).name + (x.repeat > 1 ? '×' + x.repeat : '')).join(' | '); });
   ok(lp === (await order()), `l’écoute joue l’arrangement retouché (${lp})`);
-  await page.click('#bwStop');
+  await page.click('#stop');
 
   const finalOrder = await order();
   const finalScenes = await scenes();
@@ -247,7 +247,7 @@ const ok = (c, m) => {
   ok(p.scenes.some((s) => s.name === 'Refrain 2' && s.bars === 4), 'la copie « Refrain 2 » est dans le projet');
 
   // la dernière scène ne peut pas être supprimée
-  await page.click('#bandBtn');
+  await page.click('#appMenuBtn'); await page.click('#bandBtn');
   await page.waitForTimeout(400);
   await page.click('#bandStyles [data-v="synthwave"]');
   await next(3);

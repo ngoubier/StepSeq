@@ -48,22 +48,22 @@ const SHOTS = process.argv[2];
     });
     ok(m.sw <= m.w, `${name} : pas de débordement horizontal (${m.sw} / ${m.w} px)`);
     ok(m.grid >= minGrid, `${name} : la grille garde ${Math.round(m.grid)} px de hauteur`);
-    ok(m.play && m.studio, `${name} : Lecture et les 4 boutons Nouvelle / Harmonie / Song / Mix (même largeur) sont à l’écran`);
+    ok(m.play && m.studio, `${name} : Lecture et les 3 boutons Harmonie / Song / Mix (même largeur) sont à l’écran`);
     if (m.w > 1000) ok(m.headVisible, `${name} : en-têtes de piste complets (volume visible)`);
     // la lecture et la fenêtre Song marchent au doigt / à la souris
     await page.click('#songBtn');
     ok(await page.locator('#songDialog[open]').count() === 1, `${name} : la fenêtre Song s’ouvre`);
     await page.click('#songClose');
     // fenêtre Band : tout tient à l'écran, les trois boutons du pied sont visibles, le panneau du musicien aussi
-    await page.click('#bandBtn');
+    await page.click('#appMenuBtn'); await page.click('#bandBtn');
     await page.waitForTimeout(400);
     const band = await page.evaluate(() => {
       const d = document.querySelector('#bandDialog');
       const inView = (q) => { const r = document.querySelector(q).getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth + 0.5 && r.bottom <= innerHeight + 0.5 && r.width > 0; };
-      return { fits: d.scrollWidth <= d.clientWidth + 1 && d.getBoundingClientRect().right <= innerWidth + 0.5, buttons: ['#bandCancel', '#bwNext'].every(inView) };
+      return { fits: d.scrollWidth <= d.clientWidth + 1 && d.getBoundingClientRect().right <= innerWidth + 0.5, buttons: ['#bandClose', '#play', '#tempo'].every(inView) };
     });
-    ok(band.fits && band.buttons, `${name} : fenêtre Band à l’écran, Annuler / Suivant visibles`);
-    await page.click('#bwNext'); // étape 2 : Instruments
+    ok(band.fits && band.buttons, `${name} : fenêtre Band à l’écran, Fermer, Lecture et tempo visibles`);
+    await page.dispatchEvent('#bwNext', 'click'); // étape 2 : Instruments
     await page.waitForTimeout(200);
     await page.click('#bandStage .band-mus >> nth=2');
     await page.waitForTimeout(300);
@@ -74,7 +74,7 @@ const SHOTS = process.argv[2];
       return { visible: !p.hidden && r.top < innerHeight && r.bottom <= innerHeight + 1, names: names.length > 0 && names.every((h) => h > 8), nul: /null/.test(p.textContent) };
     });
     ok(pan.visible && pan.names && !pan.nul, `${name} : panneau du musicien lisible (noms d’instrument visibles, pas de « null »)`);
-    await page.click('#bandCancel');
+    await page.click('#bandClose');
     SHOTS && (await page.screenshot({ path: path.join(SHOTS, `mobile-${name.replace(/\W+/g, '-')}.png`) }));
     ok(!errs.length, `${name} : aucune erreur JavaScript` + (errs.length ? ' : ' + errs.join(' | ') : ''));
     await ctx.close();

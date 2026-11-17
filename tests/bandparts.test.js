@@ -300,3 +300,44 @@ test('Arp One : deux motifs donnent des notes différentes ; moins de densité, 
   const high = SS.Arp.normalize({ ...oneOf('up'), ...SS.Arp.macroPatch(oneOf('up'), 'density', 90) });
   assert.ok(arpEv({ a: { arp: { one: high } } }).length > a.length);
 });
+
+test('nouveaux modes de basse : pas de la première mesure, bornes, registre, pédale et catalogue', () => {
+  const NEW = {
+    rootfifth: [0, 2, 4, 6, 8, 10, 12, 14],
+    arp: [0, 2, 4, 6, 8, 10, 12, 14],
+    tresillo: [0, 3, 6, 8, 11, 14],
+    trance: [1, 2, 3, 5, 6, 7, 9, 10, 11, 13, 14, 15],
+    sixteen: Array.from({ length: 16 }, (_, s) => s),
+    oct16: Array.from({ length: 16 }, (_, s) => s),
+    pickup: [0, 14],
+    funk: [0, 3, 6, 7, 10, 12, 14],
+  };
+  const SINGLE = ['tresillo', 'trance', 'sixteen', 'oct16', 'pickup'];
+  for (const [mode, steps] of Object.entries(NEW)) {
+    const sc = scene(build({ a: { bass: { mode } } }));
+    const ev = sc.data.bass.events;
+    assert.ok(ev.length > 0, mode);
+    assert.ok(ev.every((e) => e.step >= 0 && e.step + e.len <= sc.bars * 16 && e.len >= 1), mode + ' : dans la scène');
+    assert.deepEqual(ev.filter((e) => e.step < 16).map((e) => e.step).sort((a, b) => a - b), steps, mode + ' : pas de la mesure 1');
+    // registre médium : une octave de plus, mêmes pas
+    const mid = scene(build({ a: { bass: { mode, register: 'mid' } } })).data.bass.events;
+    assert.equal(mid.length, ev.length, mode);
+    mid.forEach((e, i) => assert.equal(e.notes[0], ev[i].notes[0] + 12, mode));
+    // pédale tonique : rythme conservé, hauteurs tirées de la tonique (Do) et de ses intervalles
+    const ped = scene(build({ a: { bass: { mode, pedal: 'tonic' } } })).data.bass.events;
+    assert.deepEqual(ped.map((e) => [e.step, e.len]), ev.map((e) => [e.step, e.len]), mode + ' : rythme');
+    if (SINGLE.includes(mode)) assert.deepEqual(pcs(ped), [0], mode + ' : une seule hauteur');
+    else assert.ok(pcs(ped).every((p) => [0, 3, 4, 7].includes(p)), mode + ' : tonique et intervalles');
+  }
+  // arpège : tierce mineure sur un accord mineur (Do mineur), majeure sur un accord majeur (La♭ majeur)
+  const arp = scene(build({ a: { bass: { mode: 'arp' } } })).data.bass.events;
+  assert.deepEqual(arp.slice(0, 4).map((e) => e.notes[0] % 12), [0, 3, 7, 0], 'Do mineur : fondamentale, tierce mineure, quinte, octave');
+  assert.deepEqual(arp.filter((e) => e.step >= 16 && e.step < 32).slice(0, 2).map((e) => e.notes[0] % 12), [8, 0], 'VI : la♭ majeur');
+  // catalogue
+  const cat = SS.bandSong.BASS_NEW;
+  assert.deepEqual(cat.map((c) => c[0]), Object.keys(NEW));
+  for (const [id, nom, desc, dessin] of cat) {
+    assert.ok(nom && desc, id);
+    assert.ok(dessin.length > 0 && dessin.every(([s, l, lv]) => s >= 0 && l > 0 && s + l <= 16 && [0, 1, 2].includes(lv)), id);
+  }
+});

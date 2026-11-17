@@ -20,11 +20,15 @@ puis ouvrir <http://localhost:8000>.
 
 ## Interface
 
-- **En-tête** : icône de l'application (menu **Chansons**, **Nouvelle chanson…** (assistant), **Ouvrir**, **Enregistrer**, **Importer MIDI**, **Exporter MIDI**), titre du projet, tempo (BPM), un bouton ∿ à icône seule dont la bulle (au survol, au clic ou au clavier)
+- **En-tête** : icône de l'application (menu **Chansons**, **Nouvelle chanson…** (assistant sur une chanson vide), **Nouvelle chanson sur ce projet…** (le même assistant, sur le projet en cours), **Ouvrir**, **Enregistrer**, **Importer MIDI**, **Exporter MIDI**), titre du projet, tempo (BPM), un bouton ∿ à icône seule dont la bulle (au survol, au clic ou au clavier)
   regroupe le chiffrage de mesure (4/4 par défaut, x/4 ou x/8), le nombre de mesures et le groove (swing, humanisation), **Lecture** et **Stop**, puis les fenêtres regroupées
-  **Nouvelle** (l'assistant de création, Créer ou Reprendre, sur le projet en cours ; ancien bouton Band), **Harmonie** (ancien Key ; la tonalité de la scène en sous-titre ; fenêtre Harmonie, propre à chaque scène : assistant
+  **Harmonie** (ancien Key ; la tonalité de la scène en sous-titre ; fenêtre Harmonie, propre à chaque scène : assistant
   émotion → grille d'accords pour démarrer, puis onglets Ambiance (émotions rangées par mode, trois pistes et 94 grilles de référence sourcées, dont le guide MusicEmotion et 42 fiches Piano Diary ; guide de chaque mode : couleur à faire entendre et boucle d'essai, grille posée sur l'onglet suivant), Chanson (grille commune sur toute la largeur, reprise des accords existants ; sous-onglets Chords pour les couches et Mélodie pour les réglages horizontaux) et Vérifier (la même grille et les mélodies) ; palette d'accords dans le piano roll, essais A/B), **Song** (fenêtre Song : scènes et arrangement, avec une case pour garder le panneau
   d'arrangement affiché sous l'en-tête) et **Mix** (console de mixage, avec l'assistant **Auto Mix**).
+  **Mode assistant** : quand l'assistant « Nouvelle chanson » est ouvert (`body.wizard-mode`), il prend la place de la zone des pistes, sous cette
+  barre qui reste visible ; la barre du bas, Harmonie, Song et Mix s'effacent et la **tonalité** de la chanson en création (« Do mineur », avec son armure)
+  prend leur place. **Lecture / Stop**, **tempo** et **position** de la barre pilotent alors l'écoute de l'assistant (scène choisie en boucle ou chanson) ;
+  à la fermeture, la barre redevient celle du projet.
   À droite : annuler / rétablir, l'indicateur d'enregistrement automatique et **Aide**.
   Le bouton **+ Ajouter une piste** se trouve sous les pistes.
 - **Partie centrale** : les pistes, les unes sous les autres. Chaque piste a un en-tête
@@ -57,7 +61,7 @@ Le bouton **Écouter** permet d'entendre le son avant de valider.
 
 ### Band : monter un groupe virtuel
 
-Le bouton **Nouvelle** de l'en-tête (l'ancien bouton Band) ouvre l'assistant de création de chanson (`js/band.js`, catalogue `js/band-presets.js`,
+Le menu de l'icône de l'application (**Nouvelle chanson sur ce projet…**, l'ancien bouton Band) ouvre l'assistant de création de chanson (`js/band.js`, catalogue `js/band-presets.js`,
 voir « Nouvelle chanson » plus bas), sur le projet en cours. Ses deux premières étapes, **Style** puis **Instruments**, montent le groupe :
 
 1. le **style musical** : **Synthwave**, **EDM mélodique** ou **Techno mélodique** ;
@@ -72,7 +76,7 @@ voir « Nouvelle chanson » plus bas), sur le projet en cours. Ses deux premièr
 **Créer la chanson** (dernière étape de l'assistant) écrit une chanson complète dans l'esprit de l'inspiration : scènes (intro,
 couplet, refrain… ou break, montée et drop en EDM), parties de chaque musicien et arrangement, en mode Chanson.
 Les plans des 30 chansons sont dans `js/band-songs.js` (tonalité, forme, grilles originales, ce que joue chaque
-musicien par section) et les notes sont écrites par `js/bandsong.js` (déterministe). La croix de fermeture, **Annuler** et **Échap** ferment sans rien créer ;
+musicien par section) et les notes sont écrites par `js/bandsong.js` (déterministe). Le bouton **Fermer** et **Échap** quittent l'assistant sans rien créer ;
 si le projet a déjà des pistes, une confirmation précède le remplacement (Ctrl+Z revient en arrière).
 
 **Techno mélodique** (10 inspirations : Stephan Bodzin, Anyma & Chris Avantgarde, ARTBAT, Monolink, Kölsch,
@@ -131,18 +135,21 @@ enregistrés avant cette correction sont transposés à l'ouverture pour sonner 
 ### Nouvelle chanson : l'assistant
 
 **Nouvelle chanson…** (menu de l'icône de l'application) part d'une chanson vide et ouvre un assistant en onze
-étapes, dans la fenêtre Band (`js/band.js`). Des étapes 3 à 11, un bandeau de commande (`#bwTransport`) :
+étapes, dans la fenêtre principale (`js/band.js`, mode `body.wizard-mode`) : plus de fenêtre plein écran, l'assistant occupe la zone
+des pistes, entre la barre du haut et le bas de l'écran. À gauche, le **stepper** (les onze étapes, un résumé chacune) : un clic va à l'étape
+(seul le calcul de la chanson verrouille les étapes : inspiration ou reprise sans plan, aucun musicien) ; <kbd>Alt</kbd>+<kbd>→</kbd> / <kbd>←</kbd>
+passent à l'étape suivante / précédente. Au bas, un seul bouton **Fermer** (comme <kbd>Échap</kbd> : rien n'est créé). L'écoute se commande dans la
+barre du haut (`js/main.js` route Lecture, Stop et le champ tempo vers `SS.band` tant que l'assistant est ouvert) :
 lecture / pause / reprise (`SS.audio.pause` / `resume`), stop, position, **tempo** réglable (40–240 BPM, appliqué à
-l'écoute en cours et à la chanson créée) et **tonalité** (armure, accord de tonique). Il est sous le titre aux étapes
-Tempo et tonalité, Scènes et Intégration ; aux étapes Batterie, Accords, Basse, Nappes, Arpèges et Mélodie, les **scènes** sont en colonne
-à gauche, sous le titre (nom, mesures, accords, et le choix de l'étape : motif, émotion, mode, caractère…), le bandeau à leur droite, et **▶ joue la scène choisie en
-boucle** (pas toute la chanson ; choisir une autre scène pendant l'écoute la fait jouer) :
+l'écoute en cours et à la chanson créée) et **tonalité** (armure, accord de tonique). Aux étapes Batterie, Accords, Basse, Nappes, Arpèges et
+Mélodie, les **scènes** sont en colonne à gauche, sous la tête d'étape (nom, mesures, accords, et le choix de l'étape : motif, émotion, mode,
+caractère…), et **▶ joue la scène choisie en boucle** (pas toute la chanson ; choisir une autre scène pendant l'écoute la fait jouer) :
 
 1. **Style** : les deux portes **Créer** / **Reprendre**, le style musical (avec son **tempo conseillé**, de la plus
    lente à la plus rapide de ses inspirations, et sa description ; la fiche du style montre la zone sur l'échelle des
-   tempos) et l'inspiration (ou la reprise tapée) ; **Chanson vide** ferme l'assistant ;
+   tempos) et l'inspiration (ou la reprise tapée) ; **Chanson vide** ferme l'assistant (comme Fermer) ;
 2. **Instruments** : les musiciens du groupe (la scène, le panneau du musicien : instrument phare, conseillés, toute la
-   bibliothèque ; kit et éléments du batteur) et l'interrupteur **General MIDI** ;
+   bibliothèque ; kit et éléments du batteur) et l'interrupteur **General MIDI** (en haut du contenu de l'étape, à côté de la tête) ;
 3. **Tempo et tonalité** : le **tempo** (grand afficheur, − / +, curseur de 40 à 240 BPM avec la zone dorée du tempo
    conseillé, **Tap**, **↺ tempo de l'inspiration**) et la **tonalité de la chanson** (12 toniques, les modes de
    `SS.harmony.MODES`, **▶ Écouter la gamme** au piano, notes de la gamme avec leur degré). Changer la tonalité
@@ -184,7 +191,7 @@ boucle** (pas toute la chanson ; choisir une autre scène pendant l'écoute la f
    les **propositions** (trois pistes et grilles de référence, transposées sur la tonique de la scène) ; un clic sur
    une proposition la fait jouer dans la scène, en boucle, avec le groupe (lecture, stop, tempo et tempo conseillé
    dans la fenêtre) ; **Choisir** la pose dans la grille (tonalité et émotion comprises, tempo conseillé si coché),
-   **Annuler** ou <kbd>Échap</kbd> laisse la scène intacte. Le tout passe à `SS.bandSong.build` par l'option
+   **Annuler** (de cette fenêtre d'inspiration) ou <kbd>Échap</kbd> laisse la scène intacte. Le tout passe à `SS.bandSong.build` par l'option
    `harmony` (`keys`, `chords`, `emotions` par section) ;
 7. **Basse**, 8. **Nappes**, 9. **Arpèges** : même disposition (scènes à gauche, lecture de la scène en boucle, chaque
    choix s'entend aussitôt). Basse : 13 **modes de jeu** (tenue, blanches, noires, croches, galop, contretemps, octaves,
@@ -219,7 +226,7 @@ boucle** (pas toute la chanson ; choisir une autre scène pendant l'écoute la f
    **volume** (−30 à +6 dB, `gains` d'`addBandSong`) par instrument et le menu **Pistes** (Muet et Solo : barre de piste) ; test :
    `node tests/e2e/wizard-melody.js` ;
 11. **Intégration** : cases à cocher par musicien (batterie, basse, nappes, arpèges, lead…) et par élément de batterie ;
-   **Créer la chanson** écrit les pistes cochées, les scènes et l'arrangement (tempo du bandeau, mixage
+   **Créer la chanson** (bouton dans l'étape, en haut à droite, avec le compte des pistes) écrit les pistes cochées, les scènes et l'arrangement (tempo de la barre du haut, mixage
    automatique de Band). Ce qui est créé est exactement l'aperçu ; Ctrl+Z revient à la chanson vide.
 
 **Barre de piste** (étapes 5 à 10, au-dessus du contenu) : **Piste** liste les instruments que l'étape 2 propose au musicien
@@ -234,7 +241,7 @@ toutes les étapes. Les lignes d'accompagnement de l'étape Mélodie ne gardent 
 bande des accords (couleur = fonction) et les barres de mesure, avec une tête de lecture qui suit la boucle ; la note
 d'approche de la basse est plus claire. Test : `node tests/e2e/wizard-trackbar.js`.
 
-Le bouton **Nouvelle** de l'en-tête ouvre le même assistant sur le projet en cours (l'ancien écran « Créer les pistes / Créer toute la
+Le menu de l'icône (**Nouvelle chanson sur ce projet…**) ouvre le même assistant sur le projet en cours (l'ancien écran « Créer les pistes / Créer toute la
 chanson » n'existe plus). La mélodie par défaut de Band (celle de l'inspiration, tant qu'on n'a rien généré à l'étape
 Mélodie) est écrite par `SS.bandSong.build` (`melody` : caractère, réglages fins, `plans` et `seeds` par section) selon des règles de
 composition : notes de l'accord sur les temps forts, surtout des mouvements conjoints et retour par degré après un

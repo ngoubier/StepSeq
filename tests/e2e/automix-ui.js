@@ -30,11 +30,11 @@ const ok = (c, m) => {
   page.on('pageerror', (e) => errs.push(e.message));
   await page.goto(`http://localhost:${server.address().port}/index.html`);
   await page.waitForTimeout(1000);
-  await page.click('#bandBtn');
+  await page.click('#appMenuBtn'); await page.click('#bandBtn');
   await page.waitForTimeout(400);
   await page.click('#bandStyles [data-v="synthwave"]');
   await page.click('#bandPresets .band-preset >> nth=1'); // Nightcall
-  for (let i = 0; i < 10; i++) await page.click('#bwNext'); await page.click('#bwCreate');
+  for (let i = 0; i < 10; i++) await page.dispatchEvent('#bwNext', 'click'); await page.click('#bwCreate');
   await page.waitForTimeout(200);
   if (await page.isVisible('#bcfSong')) await page.click('#bcfSong');
   await page.waitForTimeout(1500);
