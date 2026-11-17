@@ -2337,28 +2337,9 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
 .band-step b { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 11px; }
 .band-step small { text-transform: none; letter-spacing: 0; margin-left: 4px; }
 
-.band-side { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-right: 1px solid var(--line); min-height: 0; }
-.band-styles { display: flex; }
-.band-styles button { flex: 1; padding: 7px 8px; }
-.band-style-desc { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.4; }
-.band-presets { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; min-height: 0; padding-right: 4px; }
-.band-preset {
-  display: grid; grid-template-columns: 1fr auto; gap: 1px 8px; text-align: left;
-  padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); font: inherit; cursor: pointer;
-}
-.band-preset:hover { border-color: #5a5a62; }
-.band-preset.active { border-color: var(--accent-2); background: color-mix(in srgb, var(--accent) 30%, var(--panel-2)); }
-.band-preset:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
-.bp-insp { grid-column: 1 / -1; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
-.bp-song { font-weight: 600; font-size: 14px; }
-.bp-artist { grid-column: 1; font-size: 12px; color: var(--muted); }
-.bp-meta { grid-column: 2; grid-row: 2 / 4; align-self: center; font-size: 11px; color: var(--muted); text-align: right; white-space: nowrap; }
 
 .band-main { display: flex; flex-direction: column; gap: 10px; padding: 14px; min-width: 0; min-height: 0; }
 /* Porte « Créer » / « Reprendre » et formulaire de la reprise (js/band.js, renderCover) */
-.band-mode { display: flex; }
-.band-mode button { flex: 1; padding: 8px 10px; font-weight: 600; }
-.band-mode button[aria-checked="true"] { background: var(--accent); color: #fff; }
 .band-dialog.cover .band-main { overflow-y: auto; }
 .band-dialog.cover .band-stage { min-height: 300px; flex: none; }
 .band-cover { display: flex; flex-direction: column; gap: 10px; }
@@ -2386,9 +2367,6 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
   .bcv-row .bcv-chords { grid-column: 1 / 2; grid-row: 2; }
   .bcv-info { grid-column: 1 / -1; }
 }
-.band-song { display: flex; flex-direction: column; gap: 2px; }
-.bs-title { font-size: 15px; }
-.bs-desc { font-size: 13px; color: var(--muted); }
 .band-stage {
   position: relative; flex: 1; min-height: 340px; border-radius: 14px; overflow: auto;
   display: flex; flex-direction: column; justify-content: space-evenly; gap: 10px; padding: 26px 16px 22px;
@@ -2464,8 +2442,6 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
 
 @media (max-width: 900px) {
   .band-body, .band-dialog.with-panel .band-body { grid-template-columns: 1fr; overflow-y: auto; }
-  .band-side { border-right: 0; border-bottom: 1px solid var(--line); }
-  .band-presets { max-height: 220px; }
   .band-panel { border-left: 0; border-top: 1px solid var(--line); }
   .band-mus { width: 112px; }
 }
@@ -2485,16 +2461,6 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
 
 /* ---------- Assistant « Nouvelle chanson » (js/band.js) ----------
    Étapes dans l'en-tête ; étapes 2 à 4 : la chanson en vue « session » (une ligne = une scène, une colonne = une piste). */
-.band-wiz-steps { display: flex; gap: 4px; margin: 0 0 0 8px; padding: 0; list-style: none; min-width: 0; overflow-x: auto; }
-.band-wiz-steps button { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px 5px 6px; border: 1px solid transparent; border-radius: 16px; background: none; color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap; }
-.band-wiz-steps button:disabled { cursor: default; opacity: .55; }
-.band-wiz-steps button:not(:disabled):hover { border-color: var(--line); color: var(--text); }
-.band-wiz-steps b { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--panel-3); color: var(--text); font-size: 11px; }
-.band-wiz-steps li.done b { background: color-mix(in srgb, var(--accent) 55%, var(--panel-3)); }
-.band-wiz-steps li.cur button { border-color: var(--accent-2); color: var(--text); background: color-mix(in srgb, var(--accent) 22%, transparent); }
-.band-wiz-steps li.cur b { background: var(--accent); color: #fff; }
-.band-wiz-steps li + li::before { content: ''; align-self: center; display: inline-block; width: 10px; height: 1px; background: var(--line); margin-right: 4px; vertical-align: middle; }
-.band-wiz-steps li { display: flex; align-items: center; }
 .band-dialog.wizard .band-head h2 small:empty { display: none; }
 .band-dialog.wizard .band-step b { display: none; }
 
@@ -2566,8 +2532,6 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
 .bw-grid tr.playing .bw-clip::after { content: ''; position: absolute; top: 0; bottom: 0; left: calc(var(--ph, 0) * 100%); width: 2px; background: #fff; opacity: .85; }
 .bw-grid tr.playing:not([style*="--ph"]) .bw-clip::after { display: none; }
 @media (max-width: 760px) {
-  .band-wiz-steps span { display: none; }
-  .band-wiz-steps li.cur span { display: inline; }
   .band-wiz { padding: 8px 10px 0; }
   .bw-corner, .bw-scene { min-width: 104px; }
   .bw-scene .bw-chords { display: none; }
@@ -2578,31 +2542,6 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
   .band-dialog.wizard .band-foot { flex-wrap: wrap; }
 }
 /* Band : bandeau de commande (étapes 2 à 4) */
-.band-transport { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 8px 16px; background: #1c1c1f; border-bottom: 1px solid var(--line); }
-.band-transport[hidden] { display: none; }
-.bt-btn { width: 40px; height: 34px; padding: 0; display: inline-grid; place-items: center; flex: none; }
-.bt-btn svg { width: 16px; height: 16px; }
-.bt-btn .stop { width: 13px; height: 13px; }
-.bt-play { background: var(--accent); border-color: var(--accent-2); color: #fff; }
-.bt-play:hover { background: #0c74d0; }
-.bt-btn:disabled { opacity: .4; cursor: default; }
-.bt-pos { display: flex; flex-direction: column; min-width: 150px; padding: 4px 12px; border-radius: 8px; background: #111113; line-height: 1.15; }
-.bt-pos b { font: 500 15px/1.15 ui-monospace, "SF Mono", Menlo, Consolas, monospace; color: #8fc3ff; letter-spacing: .04em; }
-.bt-pos small { font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
-.bt-sep { width: 1px; height: 26px; background: var(--line); }
-.bt-field { display: flex; align-items: center; gap: 8px; }
-.bt-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-.bt-tempo { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); overflow: hidden; }
-.bt-tempo button { width: 28px; height: 30px; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 16px; cursor: pointer; }
-.bt-tempo button:hover { background: var(--panel-3); }
-.bt-tempo input { width: 48px; height: 30px; border: 0; background: transparent; color: var(--text); font: 600 15px/1 inherit; text-align: center; -moz-appearance: textfield; }
-.bt-tempo input::-webkit-outer-spin-button, .bt-tempo input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-.bt-unit { font-size: 12px; color: var(--muted); }
-.bt-orig { border: 0; border-radius: 6px; padding: 3px 7px; background: rgba(245, 196, 0, .12); color: #f0c860; font: inherit; font-size: 11.5px; cursor: pointer; }
-.bt-orig:hover { background: rgba(245, 196, 0, .22); }
-.bt-key { display: inline-flex; align-items: baseline; gap: 8px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); }
-.bt-key b { font-size: 14px; }
-.bt-key small { font-size: 12px; color: var(--muted); }
 
 /* Band, étapes Accords et Mélodie : colonne des scènes sous le titre ; bandeau de lecture et contenu à sa droite */
 .band-wiz.bw-split { padding: 0; gap: 0; }
@@ -2738,8 +2677,6 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
 .bwa-knob input[type=range] { width: 100%; accent-color: #8b6cf0; }
 .bwa-knob small { color: var(--muted); font-size: 11.5px; min-height: 1.3em; }
 @media (max-width: 1000px) {
-  .band-wiz-steps span { display: none; }
-  .band-wiz-steps li.cur span { display: inline; }
 }
 @media (max-width: 760px) {
   .bwp-dgrid { grid-template-columns: 30px repeat(16, minmax(0, 1fr)); gap: 2px; }
@@ -2830,14 +2767,10 @@ dialog.band-dialog { width: min(1360px, calc(100vw - 16px)); height: min(880px, 
 .bh-ph { display: none; position: absolute; top: 22px; bottom: 0; left: calc(var(--head) + (100% - var(--head)) * var(--ph, 0)); width: 2px; background: var(--accent-2); pointer-events: none; z-index: 1; }
 .bh-board.playing .bh-ph { display: block; }
 @media (max-width: 760px) {
-  .band-transport { padding: 6px 10px; gap: 6px 10px; }
-  .bt-sep { display: none; }
-  .bt-pos { min-width: 110px; }
   .bh-board { --head: 140px; }
   .bh-vol { min-width: 30px; }
   .bh-acc-btn small { display: none; }
   .bh-role { display: none; }
-  .bt-label { display: none; }
   .bh-wrap { flex-direction: column; }
   .bh-scenes { width: auto; flex-direction: row; overflow-x: auto; overflow-y: hidden; padding: 8px 10px; border-right: 0; border-bottom: 1px solid var(--line); }
   .bh-label, .bh-legend, .bh-mini { display: none; }
@@ -3208,18 +3141,9 @@ body[data-grid="half"] .rcell.half:not(.on) { border-left-color: #333338; }
   .band-head h2 { font-size: 18px; }
   .band-head h2 small { display: none; }
   .band-body, .band-dialog.with-panel .band-body { display: flex; flex-direction: column; overflow-y: auto; }
-  .band-side { gap: 8px; padding: 10px 12px; flex: none; }
-  .band-style-desc { font-size: 11.5px; }
-  /* inspirations : bandeau horizontal qui défile au doigt */
-  .band-presets { flex-direction: row; max-height: none; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x proximity; padding: 2px 2px 6px; margin: 0 -12px; padding-left: 12px; padding-right: 12px; }
-  .band-preset { flex: 0 0 auto; width: 172px; grid-template-columns: 1fr; padding: 7px 10px; scroll-snap-align: start; }
-  .band-preset .bp-song { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .band-preset .bp-artist, .band-preset .bp-meta { grid-column: 1; grid-row: auto; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .band-main { gap: 8px; padding: 10px 12px; flex: none; }
   .band-step { flex-wrap: wrap; }
   .band-step small { flex: 1 1 100%; margin: 0 0 0 28px; }
-  .bs-title { font-size: 14px; }
-  .bs-desc { font-size: 12px; }
   /* scène : musiciens en grille serrée */
   .band-stage { min-height: 0; flex: none; overflow: visible; padding: 14px 8px; gap: 8px; }
   .stage-back { display: none; }
@@ -4256,13 +4180,7 @@ svg.mel-contour.big { width: 150px; height: 54px; }
 /* tonalité, Scènes (js/band.js)                                         */
 /* ================================================================== */
 /* étape 1 : la fiche du style à droite des styles et inspirations ; étape 2 : les musiciens seuls */
-.band-styles button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; line-height: 1.2; }
-.band-styles button small { font-size: 10.5px; opacity: .75; white-space: nowrap; }
-.band-stylecard { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); }
-.band-stylecard h3 { margin: 0; font-size: 20px; }
-.bsc-desc { margin: 0; font-size: 14px; color: var(--muted); line-height: 1.45; max-width: 70ch; }
 .bsc-lbl { font-size: 12px; color: var(--muted); }
-.bsc-tempo { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; }
 .bsc-scale { position: relative; flex: 1 1 240px; height: 14px; min-width: 200px; border-radius: 7px; background: var(--panel-3); }
 .bsc-reco { position: absolute; top: 0; bottom: 0; border-radius: 7px; background: rgba(201, 162, 39, .35); border: 1px solid var(--gold); box-sizing: border-box; }
 .bsc-tick { position: absolute; top: 3px; bottom: 3px; width: 2px; margin-left: -1px; background: #fff; opacity: .7; border-radius: 1px; }
@@ -4333,8 +4251,6 @@ svg.mel-contour.big { width: 150px; height: 54px; }
 
 @media (max-width: 760px) {
   .band-dialog.bs-inst .band-body, .band-dialog.bs-style .band-body, .band-dialog.bs-inst.with-panel .band-body { display: flex; flex-direction: column; overflow-y: auto; }
-  .band-stylecard { padding: 10px 12px; }
-  .band-stylecard h3 { font-size: 17px; }
   .bwt-lcd { font-size: 40px; }
   .bwt-step { width: 40px; height: 40px; }
   .bwt-card { padding: 10px 12px 12px; }
@@ -4345,6 +4261,334 @@ svg.mel-contour.big { width: 150px; height: 54px; }
 
 /* onze étapes : le fil des étapes reste sur une ligne */
 .band-dialog.wizard .band-head h2 { white-space: nowrap; }
-.band-dialog.wizard .band-wiz-steps { gap: 0; }
-.band-dialog.wizard .band-wiz-steps button { padding: 5px 7px 5px 4px; gap: 4px; font-size: 12.5px; }
-.band-dialog.wizard .band-wiz-steps li + li::before { width: 5px; margin-right: 1px; }
+
+/* ================================================================== */
+/* Assistant « Nouvelle chanson » : refonte (docs/design-assistant.md)  */
+/* Jetons --bw-* scopés sur la fenêtre ; une seule carte par zone ;     */
+/* plein écran, en-tête LCD, stepper vertical, tête d'étape, pied.      */
+/* Cette section vient en dernier : elle l'emporte sur les règles       */
+/* d'origine de la fenêtre (même sélecteurs, #bandDialog en plus).      */
+/* ================================================================== */
+#bandDialog {
+  --bw-bg: #121215; --bw-panel: #1b1b20; --bw-panel2: #232329; --bw-raise: #2c2c34;
+  --bw-line: #36363f; --bw-line2: #4a4a55;
+  --bw-text: #ececf1; --bw-muted: #9c9ca8; --bw-dim: #6a6a76;
+  --bw-accent: #3b8eea;                         /* sélection neutre (étape en cours, bouton principal) */
+  --bw-r-ctl: 6px; --bw-r-card: 10px;           /* deux rayons seulement */
+  --bw-h: 30px; --bw-h-sm: 26px;                /* hauteur des contrôles */
+  --bw-led: #ff3b2a; --bw-repos: #3fcf8e;
+  --bw-lcd: Segment14, "Courier New", monospace;
+  /* tous les composants de l'assistant reprennent cette palette */
+  --bg: var(--bw-bg); --panel: var(--bw-panel); --panel-2: var(--bw-panel2); --panel-3: var(--bw-raise);
+  --line: var(--bw-line); --text: var(--bw-text); --muted: var(--bw-muted);
+  --accent: var(--bw-accent); --accent-2: var(--bw-accent);
+  color: var(--bw-text);
+  background: var(--bw-bg);
+  font-size: 14px;
+}
+dialog#bandDialog.band-dialog {
+  width: 100vw; height: 100vh; height: 100dvh; max-width: 100vw; max-height: 100dvh; margin: 0; inset: 0;
+  border: 0; border-radius: 0; box-shadow: none; overflow: hidden;
+}
+#bandDialog::backdrop { background: var(--bw-bg); }
+#bandDialog :focus-visible { outline: 2px solid var(--bw-accent); outline-offset: 2px; }
+#bandDialog .band-shell { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; position: relative; }
+
+/* ----- En-tête : titre, bandeau de lecture façon LCD, fermer ----- */
+#bandDialog .band-head { display: flex; align-items: center; gap: 8px 16px; min-height: 64px; padding: 8px 16px; background: var(--bw-panel); border-bottom: 1px solid var(--bw-line); }
+#bandDialog .band-head h2 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: .01em; white-space: nowrap; }
+#bandDialog .band-head h2 small { font-size: 12px; margin-left: 8px; }
+#bandDialog .band-head h2 small:empty { display: none; }
+#bandDialog .band-transport { display: flex; align-items: center; flex-wrap: nowrap; gap: 8px; min-width: 0; padding: 0; background: none; border: 0; }
+#bandDialog .bt-btn { width: 40px; height: var(--bw-h); padding: 0; flex: none; }
+#bandDialog .bt-btn svg { width: 14px; height: 14px; fill: currentColor; stroke: none; }
+#bandDialog .bt-play.on { background: color-mix(in srgb, var(--bw-accent) 22%, var(--bw-panel2)); border-color: var(--bw-accent); color: #fff; }
+#bandDialog .bt-play:hover { background: var(--bw-raise); }
+#bandDialog .bt-lcd { display: flex; align-items: center; gap: 4px 16px; min-width: 0; padding: 6px 12px 5px; background: #1a0606; border: 1px solid #000; border-radius: 4px; color: var(--bw-led); font-family: var(--bw-lcd); text-shadow: 0 0 6px rgba(255, 59, 42, .7); }
+#bandDialog .bt-cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+#bandDialog .bt-label { font: 600 9px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: #b9625a; text-shadow: none; white-space: nowrap; }
+#bandDialog .bt-tempo { display: inline-flex; align-items: center; gap: 2px; border: 0; background: none; overflow: visible; }
+#bandDialog .bt-tempo input { width: 58px; height: 20px; padding: 0; border: 0; background: transparent; color: inherit; font: 18px/20px var(--bw-lcd); text-align: center; text-shadow: inherit; }
+#bandDialog .bt-tempo button { width: 18px; height: 18px; padding: 0; border: 0; border-radius: 3px; background: rgba(255, 59, 42, .16); color: var(--bw-led); font: 600 13px/1 -apple-system, "Segoe UI", sans-serif; text-shadow: none; }
+#bandDialog .bt-tempo button:hover { background: rgba(255, 59, 42, .32); }
+#bandDialog .bt-key b { font: 18px/20px var(--bw-lcd); white-space: nowrap; }
+#bandDialog .bt-key small { display: none; }
+#bandDialog .bt-pos { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: 2px 8px; }
+#bandDialog .bt-pos .bt-label { grid-column: 1 / -1; }
+#bandDialog .bt-pos b { font: 18px/20px var(--bw-lcd); white-space: nowrap; }
+#bandDialog .bt-pos b i { font: 600 15px/20px -apple-system, "Segoe UI", sans-serif; font-style: normal; }
+#bandDialog .bt-pos small { font: 10.5px/1.2 -apple-system, "Segoe UI", sans-serif; color: #b9625a; text-shadow: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+#bandDialog .bt-orig { height: var(--bw-h-sm); padding: 0 8px; border-radius: var(--bw-r-ctl); background: rgba(245, 196, 0, .14); color: #f0c860; font: 11.5px/1 -apple-system, "Segoe UI", sans-serif; text-shadow: none; }
+#bandDialog .band-gm { height: var(--bw-h); padding: 0 12px; }
+#bandDialog .band-gm.active { background: color-mix(in srgb, var(--bw-accent) 22%, var(--bw-panel2)); border-color: var(--bw-accent); color: var(--bw-text); }
+#bandDialog .band-gm.active .band-gm-box { border-color: var(--bw-accent); background: var(--bw-accent); box-shadow: inset 0 0 0 2px var(--bw-panel2); }
+
+/* ----- Cadre : stepper à gauche, contenu à droite qui défile seul ----- */
+#bandDialog .bw-frame { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 0; }
+#bandDialog .bw-stepper { min-height: 0; overflow-y: auto; padding: 16px 8px 16px 16px; }
+#bandDialog .bw-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 16px 24px 16px 8px; }
+#bandDialog .bw-stephead { flex: none; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin-bottom: 12px; }
+#bandDialog .bw-stephead h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -.01em; }
+#bandDialog .bw-stephead h1 em { font-style: normal; font-weight: 600; margin-right: 8px; color: var(--bw-dim); font-variant-numeric: tabular-nums; }
+#bandDialog .bw-stephead p { margin: 0; color: var(--bw-muted); max-width: 78ch; }
+
+/* stepper vertical : trois groupes, pastille, nom, résumé d'une ligne */
+#bandDialog .band-wiz-steps { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; overflow: visible; list-style: none; }
+#bandDialog .band-wiz-steps li { display: block; }
+#bandDialog .band-wiz-steps li + li::before { content: none; }
+#bandDialog .band-wiz-steps li[data-group]::before { content: attr(data-group); display: block; width: auto; height: auto; margin: 12px 8px 4px; background: none; font-size: 10px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--bw-dim); }
+#bandDialog .band-wiz-steps li:first-child::before { margin-top: 0; }
+#bandDialog .band-wiz-steps button { display: grid; grid-template-columns: 26px minmax(0, 1fr); align-items: center; gap: 0 10px; width: 100%; padding: 9px 8px; border: 1px solid transparent; border-radius: var(--bw-r-ctl); background: transparent; color: var(--bw-text); font: inherit; text-align: left; }
+#bandDialog .band-wiz-steps button:not(:disabled):hover { background: var(--bw-panel); border-color: transparent; color: var(--bw-text); }
+#bandDialog .band-wiz-steps button:disabled { opacity: .45; }
+#bandDialog .band-wiz-steps li.cur button { background: var(--bw-panel2); border-color: var(--bw-line2); }
+#bandDialog .band-wiz-steps .bw-pill { grid-row: span 2; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--bw-panel2); border: 1px solid var(--bw-line2); color: var(--bw-text); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+#bandDialog .band-wiz-steps li.cur .bw-pill { background: var(--bw-accent); border-color: var(--bw-accent); color: #fff; }
+#bandDialog .band-wiz-steps li.done .bw-pill { border-color: var(--c, var(--bw-repos)); color: var(--c, var(--bw-repos)); background: color-mix(in srgb, var(--c, var(--bw-repos)) 14%, var(--bw-panel2)); }
+#bandDialog .band-wiz-steps .bw-sn { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#bandDialog .band-wiz-steps .bw-ss { grid-column: 2; min-width: 0; color: var(--bw-muted); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ----- Pied : étape précédente à gauche, étape suivante à droite ----- */
+#bandDialog .band-foot { display: flex; align-items: center; gap: 8px; padding: 12px 24px 12px 16px; background: var(--bw-panel); border-top: 1px solid var(--bw-line); }
+#bandDialog .band-count { color: var(--bw-muted); font-size: 13px; margin-right: 8px; }
+
+/* ----- Contrôles unifiés : boutons, segments, puces, champs ----- */
+#bandDialog .btn { height: var(--bw-h); padding: 0 12px; border: 1px solid var(--bw-line2); border-radius: var(--bw-r-ctl); background: var(--bw-panel2); color: var(--bw-text); font-size: 13px; font-weight: 500; }
+#bandDialog .btn:hover:not(:disabled) { background: var(--bw-raise); }
+#bandDialog .btn:disabled { opacity: .4; cursor: default; }
+#bandDialog .btn-small { height: var(--bw-h-sm); padding: 0 8px; font-size: 12px; }
+#bandDialog .btn-icon { width: var(--bw-h); padding: 0; justify-content: center; }
+#bandDialog .btn-icon svg { width: 14px; height: 14px; }
+#bandDialog .btn-accent { background: var(--bw-accent); border-color: var(--bw-accent); color: #fff; font-weight: 600; }
+#bandDialog .btn-accent:hover:not(:disabled) { background: color-mix(in srgb, var(--bw-accent) 85%, #fff); }
+#bandDialog .btn.active, #bandDialog .bh-loop.on, #bandDialog .bw-playsong.on { background: color-mix(in srgb, var(--bw-accent) 22%, var(--bw-panel2)); border-color: var(--bw-accent); color: var(--bw-text); }
+#bandDialog .segmented { display: inline-flex; flex-wrap: wrap; align-items: center; min-height: var(--bw-h); padding: 2px; gap: 0; border: 1px solid var(--bw-line2); border-radius: var(--bw-r-ctl); background: var(--bw-panel2); }
+#bandDialog .segmented button { height: calc(var(--bw-h) - 6px); padding: 0 12px; border: 0; border-radius: calc(var(--bw-r-ctl) - 2px); background: transparent; color: var(--bw-muted); font-size: 13px; font-weight: 500; }
+#bandDialog .segmented button:hover:not(:disabled) { color: var(--bw-text); }
+#bandDialog .segmented button.active, #bandDialog .segmented button[aria-checked="true"], #bandDialog .segmented button[aria-pressed="true"] { background: var(--bw-raise); color: var(--bw-text); box-shadow: inset 0 0 0 1px var(--bw-line2); }
+#bandDialog .chip, #bandDialog .tb-chip, #bandDialog .tb-piece { display: inline-flex; align-items: center; gap: 6px; height: var(--bw-h-sm); padding: 0 12px; border: 1px solid var(--bw-line2); border-radius: 999px; background: var(--bw-panel2); color: var(--bw-text); font-size: 13px; }
+#bandDialog .chip:hover, #bandDialog .tb-chip:hover, #bandDialog .tb-piece:hover { background: var(--bw-raise); border-color: var(--bw-line2); }
+#bandDialog .chip.active, #bandDialog .tb-piece.on, #bandDialog .tb-chip.on { background: color-mix(in srgb, var(--c, var(--bw-accent)) 22%, var(--bw-panel2)); border-color: var(--c, var(--bw-accent)); color: var(--bw-text); }
+#bandDialog .tb-chip:not(.on) { color: var(--bw-muted); opacity: .8; }
+#bandDialog .tb-chip i { width: 8px; height: 8px; }
+#bandDialog select, #bandDialog input[type=text], #bandDialog input[type=number], #bandDialog input:not([type]) { height: var(--bw-h); padding: 0 8px; border: 1px solid var(--bw-line2); border-radius: var(--bw-r-ctl); background: var(--bw-panel2); color: var(--bw-text); font: inherit; font-size: 13px; }
+#bandDialog select { max-width: 100%; }
+#bandDialog input[type=checkbox], #bandDialog input[type=range] { accent-color: var(--bw-accent); }
+
+/* ----- Une zone = une carte ----- */
+#bandDialog .bw-card, #bandDialog .bwt-card, #bandDialog .bwp-card, #bandDialog .bw-trackbar, #bandDialog .bw-roll, #bandDialog .bw-arr,
+#bandDialog .bw-scroll, #bandDialog .bh-scroll, #bandDialog .band-stage, #bandDialog .band-panel, #bandDialog .band-song, #bandDialog .band-cover {
+  background: var(--bw-panel); border: 1px solid var(--bw-line); border-radius: var(--bw-r-card);
+}
+#bandDialog .bw-card, #bandDialog .bwt-card, #bandDialog .bwp-card, #bandDialog .bw-arr, #bandDialog .band-panel, #bandDialog .band-song, #bandDialog .band-cover { padding: 16px; gap: 8px; }
+#bandDialog .bw-ctitle { margin: 0; font-size: 13px; font-weight: 600; color: var(--bw-muted); letter-spacing: .02em; }
+#bandDialog .bw-lbl, #bandDialog .bh-lbl, #bandDialog .tb-lbl, #bandDialog .bh-label, #bandDialog .bwt-lbl, #bandDialog .bt-label.bw { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--bw-dim); }
+#bandDialog .dlg-hint { color: var(--bw-muted); font-size: 12px; }
+
+/* ----- Étape 1 : style et inspiration ----- */
+#bandDialog .band-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: 16px; overflow-y: auto; padding: 0 0 8px; }
+#bandDialog.bs-inst .band-side, #bandDialog.bs-inst .band-body .band-cover { display: none; }
+#bandDialog.bs-style .band-main, #bandDialog.bs-style .band-panel { display: none; }
+#bandDialog .band-side { display: flex; flex-direction: column; gap: 16px; padding: 0; border: 0; }
+#bandDialog .band-side > * { flex: none; }
+#bandDialog .bs1-top { display: flex; align-items: center; gap: 12px; }
+#bandDialog .band-mode { min-height: var(--bw-h); }
+#bandDialog .band-mode button { flex: none; padding: 0 16px; font-weight: 500; }
+#bandDialog .band-mode button[aria-checked="true"] { background: var(--bw-raise); color: var(--bw-text); }
+#bandDialog .band-styles { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+#bandDialog .bsty { display: flex; flex-direction: column; justify-content: flex-start; padding: 0; overflow: hidden; text-align: left; border: 1px solid var(--bw-line); border-radius: var(--bw-r-card); background: var(--bw-panel); color: var(--bw-text); font: inherit; cursor: pointer; }
+#bandDialog .bsty:hover { border-color: var(--bw-line2); }
+#bandDialog .bsty.active { border-color: var(--bw-accent); box-shadow: 0 0 0 1px var(--bw-accent); }
+#bandDialog .bsty-art { display: block; width: 100%; height: 110px; background: var(--bw-panel2); }
+#bandDialog .bsty-body { display: flex; flex-direction: column; gap: 6px; padding: 12px 16px 16px; }
+#bandDialog .bsty-name { font-size: 19px; font-weight: 700; line-height: 1.2; }
+#bandDialog .bsty-desc { color: var(--bw-muted); font-size: 13px; }
+#bandDialog .bsty-list { margin: 4px 0 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; font-size: 12px; }
+#bandDialog .bsty-list dt { color: var(--bw-dim); }
+#bandDialog .bsty-list dd { margin: 0; min-width: 0; }
+#bandDialog .bsty-list dd.clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+#bandDialog .bs1-insp-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: -8px; }
+#bandDialog .band-stylecard { display: flex; flex-direction: row; align-items: center; flex-wrap: wrap; flex: 1 1 320px; gap: 4px 12px; min-width: 0; padding: 0; border: 0; border-radius: 0; background: none; }
+#bandDialog .bsc-lbl { color: var(--bw-dim); font-size: 12px; }
+#bandDialog .bsc-scale { flex: 1 1 160px; min-width: 120px; height: 10px; border-radius: 5px; background: var(--bw-panel2); }
+#bandDialog .bsc-reco { border-radius: 5px; }
+#bandDialog .bs1-insp { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+#bandDialog .bs1-insp:has(#bandSong[hidden]) { grid-template-columns: minmax(0, 1fr); }
+#bandDialog .band-presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; overflow: visible; max-height: none; padding: 0; margin: 0; }
+#bandDialog .band-preset { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 10px 12px; border: 1px solid var(--bw-line); border-radius: var(--bw-r-ctl); background: var(--bw-panel); color: var(--bw-text); text-align: left; font: inherit; cursor: pointer; }
+#bandDialog .band-preset:hover { border-color: var(--bw-line2); background: var(--bw-panel2); }
+#bandDialog .band-preset.active { border-color: var(--bw-accent); background: color-mix(in srgb, var(--bw-accent) 14%, var(--bw-panel)); box-shadow: inset 0 0 0 1px var(--bw-accent); }
+#bandDialog .bp-song { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#bandDialog .bp-artist { font-size: 12px; color: var(--bw-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#bandDialog .bp-meta { grid-column: auto; grid-row: auto; text-align: left; align-self: auto; font-size: 11px; color: var(--bw-dim); white-space: nowrap; font-variant-numeric: tabular-nums; }
+#bandDialog .band-song { display: flex; flex-direction: column; gap: 8px; position: sticky; top: 0; }
+#bandDialog .bs-kind { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--bw-dim); }
+#bandDialog .bs-title { font-size: 19px; line-height: 1.2; }
+#bandDialog .bs-artist { color: var(--bw-muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+#bandDialog .bs-desc { color: var(--bw-text); font-size: 13px; line-height: 1.45; }
+#bandDialog .bs-mus { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 0; padding: 0; list-style: none; }
+#bandDialog .bs-mus li { display: inline-flex; align-items: center; gap: 6px; height: var(--bw-h-sm); padding: 0 10px; border-radius: 999px; background: var(--bw-panel2); font-size: 12px; }
+#bandDialog .bs-mus i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+#bandDialog .bs-mus small { color: var(--bw-dim); }
+#bandDialog .band-cover { display: flex; flex-direction: column; gap: 12px; }
+#bandDialog .bcv-field input, #bandDialog .bcv-field select, #bandDialog .bcv-row input { min-height: var(--bw-h); height: var(--bw-h); padding: 0 8px; border: 1px solid var(--bw-line2); border-radius: var(--bw-r-ctl); background: var(--bw-panel2); font-size: 13px; }
+#bandDialog .bcv-tap { min-height: var(--bw-h); }
+#bandDialog .bcv-chip { background: var(--bw-panel2); }
+
+/* ----- Étape 2 : le groupe ----- */
+#bandDialog .band-main { display: flex; flex-direction: column; gap: 8px; min-height: 0; padding: 0; }
+#bandDialog #bandStageHead { display: none; }
+#bandDialog.bs-inst .band-body { overflow: hidden; align-content: stretch; grid-template-rows: minmax(0, 1fr); }
+#bandDialog.bs-inst.with-panel .band-body { grid-template-columns: minmax(0, 1fr) 370px; }
+#bandDialog .band-stage { padding: 24px 16px; min-height: 0; }
+#bandDialog .band-panel { border-left: 1px solid var(--bw-line); min-height: 0; overflow-y: auto; }
+#bandDialog .band-mus { border-radius: var(--bw-r-card); }
+#bandDialog .band-choice, #bandDialog .band-kit, #bandDialog .band-piece { border-radius: var(--bw-r-ctl); border-color: var(--bw-line); background: var(--bw-panel2); }
+#bandDialog .band-choice.active, #bandDialog .band-kit.active { background: color-mix(in srgb, var(--bw-accent) 16%, var(--bw-panel2)); border-color: var(--bw-accent); }
+#bandDialog .band-choice.active .bc-kind { color: var(--bw-muted); }
+#bandDialog .bpc-btn { height: var(--bw-h-sm); border-radius: var(--bw-r-ctl); background: var(--bw-raise); }
+
+/* ----- Étapes 3 à 11 : contenu ----- */
+#bandDialog .band-wiz { flex: 1; min-height: 0; padding: 0; gap: 12px; }
+#bandDialog .band-wiz.bw-split { padding: 0; gap: 0; }
+#bandDialog .bh-wrap { gap: 16px; }
+#bandDialog .bh-content { padding: 0; gap: 12px; }
+#bandDialog .bh-scenes { width: 208px; padding: 0 4px 0 0; gap: 8px; border: 0; background: none; }
+#bandDialog .bh-scene { gap: 6px; padding: 8px 10px; border: 1px solid var(--bw-line); border-left: 4px solid var(--c, var(--bw-line2)); border-radius: var(--bw-r-ctl); background: var(--bw-panel); }
+#bandDialog .bh-scene:hover { background: var(--bw-panel2); border-color: var(--bw-line2); border-left-color: var(--c, var(--bw-line2)); }
+#bandDialog .bh-scene.on { background: var(--bw-panel2); border-color: var(--bw-line2); border-left-color: var(--c, var(--bw-accent)); box-shadow: inset 0 0 0 1px var(--c, var(--bw-accent)); }
+#bandDialog .bh-scene.on.playing .bh-sname b { color: var(--bw-text); }
+#bandDialog .bh-sname b { font-size: 13px; }
+#bandDialog .bh-ssub { color: var(--bw-muted); font-size: 11.5px; }
+#bandDialog .bh-legend { border-top-color: var(--bw-line); }
+#bandDialog .bw-trackbar { padding: 10px 12px; gap: 8px 16px; }
+#bandDialog .bw-trackbar select { border-color: var(--c, var(--bw-line2)); }
+#bandDialog .bw-roll { border-radius: var(--bw-r-card); }
+#bandDialog .bw-rchords { background: var(--bw-panel2); border-bottom-color: var(--bw-line); }
+#bandDialog .bwp-card { gap: 12px; }
+/* motifs, modes et réglages : objets cliquables sans cadre au repos ; la couleur du rôle dit le choix */
+#bandDialog .bwp-pat, #bandDialog .bwp-mode, #bandDialog .bwa-knob, #bandDialog .bwa-name { border: 1px solid transparent; border-radius: var(--bw-r-ctl); background: var(--bw-panel2); }
+#bandDialog .bwp-pat:hover, #bandDialog .bwp-mode:hover { border-color: var(--bw-line2); background: var(--bw-raise); }
+#bandDialog .bwp-pat.on { border-color: var(--c, #e3179c); box-shadow: inset 0 0 0 1px var(--c, #e3179c); background: color-mix(in srgb, var(--c, #e3179c) 16%, var(--bw-panel2)); }
+#bandDialog .bwp-mode.on { background: color-mix(in srgb, var(--c) 18%, var(--bw-panel2)); }
+#bandDialog .bwp-cell { border-radius: 4px; }
+#bandDialog .bwp-bars span { border-radius: 4px; }
+#bandDialog .bwp-field select { height: var(--bw-h); }
+#bandDialog .bw-scroll, #bandDialog .bh-scroll { background: var(--bw-panel); }
+#bandDialog .bw-grid thead th { background: var(--bw-panel); }
+#bandDialog .bw-scene { background: var(--bw-panel); }
+#bandDialog .bw-grid th, #bandDialog .bw-grid td { border-bottom-color: var(--bw-line); }
+#bandDialog .bw-block { border-radius: var(--bw-r-ctl); }
+#bandDialog .bw-playsong { height: var(--bw-h); padding: 0 12px; }
+
+/* ----- Étape 3 : tempo en LCD, tonique au clavier ----- */
+#bandDialog .bwt { gap: 16px; padding-bottom: 8px; }
+#bandDialog .bwt-card { gap: 12px; }
+#bandDialog .bwt-lcd { min-width: 3.4ch; padding: 8px 20px 4px; border-radius: 4px; border: 1px solid #000; background: #1a0606; color: var(--bw-led); font: 56px/1.1 var(--bw-lcd); text-shadow: 0 0 10px rgba(255, 59, 42, .7); text-align: center; font-variant-numeric: tabular-nums; }
+#bandDialog .bwt-unit { color: var(--bw-dim); font-size: 11px; font-weight: 600; letter-spacing: .08em; }
+#bandDialog .bwt-step { width: var(--bw-h); height: var(--bw-h); font-size: 16px; }
+#bandDialog .bwt-reco { border-radius: 6px; }
+#bandDialog .bwt-tonics { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; flex: 1 1 360px; min-width: 0; }
+#bandDialog .bwt-tonic { height: 44px; min-width: 0; padding: 0; border: 1px solid var(--bw-line2); border-radius: var(--bw-r-ctl); background: var(--bw-raise); color: var(--bw-text); font: inherit; font-size: 13px; cursor: pointer; }
+#bandDialog .bwt-tonic.blk { background: #17171b; }
+#bandDialog .bwt-tonic:hover { border-color: var(--bw-muted); }
+#bandDialog .bwt-tonic.active { background: var(--bw-accent); border-color: var(--bw-accent); color: #fff; font-weight: 700; }
+#bandDialog .bwt-modes { flex: 0 1 auto; }
+#bandDialog .bwt-notes { gap: 6px; }
+#bandDialog .bwt-note { flex-direction: row; align-items: baseline; gap: 6px; min-width: 0; padding: 0 10px; height: var(--bw-h); align-items: center; border: 1px solid var(--bw-line2); border-radius: var(--bw-r-ctl); background: var(--bw-panel2); font-variant-numeric: tabular-nums; }
+#bandDialog .bwt-note small { order: 2; font-size: 11px; color: var(--bw-muted); }
+#bandDialog .bwt-note b { font-size: 13px; }
+#bandDialog .bwt-note.tonic { border-color: var(--bw-repos); color: var(--bw-repos); }
+#bandDialog .bwt-note.color { border-color: var(--gold); }
+#bandDialog .bwt-note.sounding { background: color-mix(in srgb, var(--bw-accent) 28%, var(--bw-panel2)); border-color: var(--bw-accent); }
+#bandDialog .bwt-note.sounding small { color: var(--bw-text); }
+
+/* ----- Étape 4 : arrangement et scènes ----- */
+#bandDialog .bw-top { gap: 6px 16px; }
+#bandDialog .bw-arr { gap: 12px; }
+#bandDialog .bw-arr-blocks { gap: 8px; }
+#bandDialog .bw-arr-blocks li { position: relative; display: block; min-width: 150px; min-height: 88px; padding: 0; border: 0; border-radius: var(--bw-r-ctl); background: none; }
+#bandDialog .bw-arr-blocks li.over { outline: 2px dashed var(--bw-accent); outline-offset: 2px; }
+#bandDialog .bw-arr-blocks .bw-block { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 2px; width: 100%; height: 100%; min-height: 88px; padding: 10px 12px 36px; border: 1px solid var(--c); border-radius: var(--bw-r-ctl); background: color-mix(in srgb, var(--c) 24%, var(--bw-panel2)); text-align: left; }
+#bandDialog .bw-arr-blocks .bw-block:hover { background: color-mix(in srgb, var(--c) 34%, var(--bw-panel2)); }
+#bandDialog .bw-arr-blocks .bw-block.playing { background: color-mix(in srgb, var(--c) 55%, var(--bw-panel2)); box-shadow: 0 0 0 2px #fff; }
+#bandDialog .bw-bn { font-size: 15px; font-weight: 600; }
+#bandDialog .bw-bm { font-size: 12px; color: var(--bw-muted); font-variant-numeric: tabular-nums; }
+#bandDialog .bw-bctls { position: absolute; left: 4px; right: 4px; bottom: 4px; display: flex; flex-wrap: nowrap; justify-content: center; gap: 2px; opacity: 0; transition: opacity .12s; }
+#bandDialog .bw-arr-blocks li:hover .bw-bctls, #bandDialog .bw-arr-blocks li:focus-within .bw-bctls { opacity: 1; }
+@media (hover: none) { #bandDialog .bw-bctls { opacity: 1; } }
+#bandDialog .bw-bc { min-width: 24px; height: 24px; padding: 0 4px; border: 1px solid var(--bw-line2); border-radius: var(--bw-r-ctl); background: var(--bw-panel2); }
+#bandDialog .bw-bc:hover:not(:disabled) { background: var(--bw-raise); border-color: var(--bw-muted); }
+#bandDialog .bw-brn { color: var(--bw-text); align-self: center; }
+#bandDialog .bw-sc-list { gap: 4px; padding: 8px; border-bottom: 1px solid var(--bw-line); }
+#bandDialog .bw-sc { gap: 8px 12px; padding: 4px 8px 4px 0; border: 0; border-radius: var(--bw-r-ctl); background: var(--bw-panel2); }
+#bandDialog .bw-sc-bar { width: 4px; margin: 0; }
+#bandDialog .bw-sc-id { flex: 1 1 180px; min-width: 140px; }
+#bandDialog .bw-sc-name { height: var(--bw-h-sm); padding: 0 6px; border-color: transparent; background: transparent; font-size: 14px; font-weight: 600; }
+#bandDialog .bw-sc-name:hover { border-color: var(--bw-line2); }
+#bandDialog .bw-sc-name:focus { background: var(--bw-panel); border-color: var(--bw-accent); }
+#bandDialog .bw-bars button { padding: 0 12px; }
+#bandDialog .bw-sc-id small { color: var(--bw-muted); }
+#bandDialog .bw-sc .btn-icon { width: var(--bw-h-sm); height: var(--bw-h-sm); }
+
+/* ----- Étapes 5 à 10 : pas de cadre dans un cadre ----- */
+#bandDialog .bw-melpanel { background: var(--bw-panel); border: 1px solid var(--bw-line); border-radius: var(--bw-r-card); padding: 16px; }
+#bandDialog .bw-melpanel .mel-intent { padding: 0; border: 0; background: none; }
+#bandDialog .bw-melpanel .mel-form { border-bottom-color: var(--bw-line); }
+#bandDialog .bw-melsrc { background: var(--bw-panel); border: 1px solid var(--bw-line); border-radius: var(--bw-r-card); padding: 8px 16px; }
+#bandDialog .bw-melsrc.own { border-color: #9b5cff; background: color-mix(in srgb, #9b5cff 12%, var(--bw-panel)); }
+#bandDialog .mel-pchip, #bandDialog .mel-metric, #bandDialog .mel-phr:not(.rep), #bandDialog .mel-roll-wrap, #bandDialog .mel-more, #bandDialog .mel-details, #bandDialog .mel-segs { border-color: transparent; background: var(--bw-panel2); }
+#bandDialog .mel-more, #bandDialog .mel-details { border: 0; }
+#bandDialog .mel-segs { padding: 2px; border: 1px solid var(--bw-line2); border-radius: var(--bw-r-ctl); gap: 0; }
+#bandDialog .mel-seg { height: calc(var(--bw-h) - 6px); border-radius: calc(var(--bw-r-ctl) - 2px); color: var(--bw-muted); }
+#bandDialog .mel-seg.on, #bandDialog .mel-seg.active, #bandDialog .mel-seg[aria-pressed="true"], #bandDialog .mel-seg[aria-checked="true"] { background: var(--bw-raise); color: var(--bw-text); box-shadow: inset 0 0 0 1px var(--bw-line2); }
+#bandDialog .mel-form select, #bandDialog .mel-form input, #bandDialog .mel-form textarea { border-radius: var(--bw-r-ctl); }
+#bandDialog .bh-acc { background: var(--bw-panel); }
+#bandDialog .bh-head, #bandDialog .bh-chead { background: var(--bw-panel2); }
+#bandDialog .bh-chords .bh-track { background-color: var(--bw-panel); }
+
+/* ----- Fenêtres posées sur l'assistant ----- */
+#bandDialog .band-confirm, #bandDialog .bw-insp { border-radius: 0; }
+#bandDialog .bcf-card, #bandDialog .bwi-card { border-radius: var(--bw-r-card); background: var(--bw-panel); border-color: var(--bw-line2); }
+
+/* ----- Écrans étroits : stepper en bande horizontale, pas de résumés ----- */
+@media (max-width: 900px) {
+  #bandDialog .bw-frame { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  #bandDialog .bw-stepper { padding: 8px 12px 4px; overflow-x: auto; overflow-y: hidden; }
+  #bandDialog .band-wiz-steps { flex-direction: row; gap: 4px; width: max-content; }
+  #bandDialog .band-wiz-steps li[data-group]::before { content: none; }
+  #bandDialog .band-wiz-steps li { flex: none; }
+  #bandDialog .band-wiz-steps button { grid-template-columns: 26px auto; width: auto; padding: 4px 10px 4px 4px; }
+  #bandDialog .band-wiz-steps .bw-pill { grid-row: auto; }
+  #bandDialog .band-wiz-steps .bw-ss { display: none; }
+  #bandDialog .bw-main { padding: 8px 12px 12px; }
+  #bandDialog .bw-stephead h1 { font-size: 19px; }
+  #bandDialog .bw-stephead p { font-size: 13px; }
+  #bandDialog .band-head { flex-wrap: wrap; padding: 8px 12px; min-height: 0; }
+  #bandDialog .band-transport { order: 5; flex: 1 0 100%; }
+  #bandDialog .bt-lcd { flex: 1 1 0; gap: 4px 12px; overflow: hidden; justify-content: space-between; }
+  #bandDialog .bt-pos small { max-width: 90px; }
+  #bandDialog .band-foot { flex-wrap: wrap; padding: 8px 12px calc(8px + env(safe-area-inset-bottom)); }
+  #bandDialog .band-count { flex: 1 0 100%; order: -1; margin: 0; }
+  #bandDialog .bs1-insp { grid-template-columns: minmax(0, 1fr); }
+  #bandDialog .band-song { position: static; }
+  #bandDialog.bs-inst .band-body, #bandDialog.bs-inst.with-panel .band-body { display: flex; flex-direction: column; overflow-y: auto; }
+  #bandDialog .band-side { gap: 12px; }
+  #bandDialog .band-main { flex: none; }
+  #bandDialog .band-stage { padding: 12px 8px; }
+  #bandDialog .bwt-tonics { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  #bandDialog .bh-scenes { width: auto; padding: 0 0 4px; }
+  /* étapes 4 et 11 : l'arrangement puis la grille défilent ensemble */
+  #bandDialog .band-wiz:not(.bw-split) { overflow-y: auto; }
+  #bandDialog .band-wiz:not(.bw-split) > .bw-scroll { flex: none; min-height: 320px; max-height: 75vh; }
+}
+@media (max-width: 560px) {
+  #bandDialog .bt-pos { display: none; }
+  #bandDialog .bt-lcd { padding: 4px 8px; }
+  #bandDialog .bt-key b, #bandDialog .bt-pos b, #bandDialog .bt-tempo input { font-size: 15px; }
+  #bandDialog .bwt-lcd { font-size: 40px; padding: 6px 14px 2px; }
+  #bandDialog .band-presets { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #bandDialog *, #bandDialog *::before, #bandDialog *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+}

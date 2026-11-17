@@ -196,19 +196,190 @@ SS.band = (() => {
     const t = st.presets.map((p) => p.tempo);
     return [Math.min(...t), Math.max(...t)];
   };
+  /** Tonalités les plus fréquentes des inspirations d'un style (« Do mineur, La mineur »). */
+  function styleKeys(st) {
+    const n = new Map();
+    st.presets.forEach((p) => {
+      const sp = SS.BandSongs && SS.BandSongs[p.id];
+      if (!sp) return;
+      const k = SS.harmony.label(parseKeyStr(sp.key));
+      n.set(k, (n.get(k) || 0) + 1);
+    });
+    return [...n.entries()].sort((x, y) => y[1] - x[1]).slice(0, 3).map((x) => x[0]).join(', ');
+  }
+  /** Structure type d'un style : l'ordre des scènes de sa première inspiration (« Intro · Couplet · Refrain… »). */
+  function styleForm(st) {
+    const sp = SS.BandSongs && SS.BandSongs[st.presets[0].id];
+    if (!sp) return '';
+    return parseForm(sp.form).map((b) => (SS.bandSong.NAMES[b.id] || b.id) + (b.repeat > 1 ? ` ×${b.repeat}` : '')).join(' · ');
+  }
+  /** Boîtes à rythmes proposées au batteur du style. */
+  function styleDrums(st) {
+    const mu = st.presets[0].musicians.find((m) => m.role === 'drums');
+    return mu ? mu.kits.slice(0, 3).map((k) => (B().KITS[k] || { label: k }).label).join(', ') : '';
+  }
+
+  /* Image d'un style : dessinée en canvas à la résolution de l'écran (devicePixelRatio), repère de 220 px de haut. */
+  const ART_H = 220;
+  const ART = {
+    synthwave(g, w, h) {
+      // soleil couchant rayé et grille en perspective, violet et rose
+      const hy = h * 0.55;
+      g.fillStyle = '#ff8a3d';
+      g.beginPath();
+      g.arc(w / 2, hy, 60, Math.PI, 0);
+      g.fill();
+      g.fillStyle = '#3a0d4a';
+      for (let i = 0; i < 5; i++) g.fillRect(w / 2 - 62, hy - 10 - i * 11, 124, 3 + i * 0.6);
+      g.strokeStyle = '#ff3d8b';
+      g.lineWidth = 2;
+      g.globalAlpha = 0.6;
+      for (let i = 0; i < 9; i++) {
+        const y = hy + Math.pow(i / 8, 2) * (h - hy);
+        g.beginPath();
+        g.moveTo(0, y);
+        g.lineTo(w, y);
+        g.stroke();
+      }
+      for (let i = -10; i <= 10; i++) {
+        g.beginPath();
+        g.moveTo(w / 2 + i * 12, hy);
+        g.lineTo(w / 2 + i * 80, h);
+        g.stroke();
+      }
+    },
+    edm(g, w, h) {
+      // barres d'égaliseur, bleu cyan
+      for (let i = 0; i < 40; i++) {
+        const v = Math.abs(Math.sin(i * 0.7) * Math.cos(i * 0.23)) * h * 0.7 + 10;
+        g.fillStyle = i % 4 === 0 ? '#fff' : '#2bd1ff';
+        g.globalAlpha = 0.8;
+        g.fillRect(i * (w / 40) + 4, h - v, w / 40 - 5, v);
+      }
+    },
+    ambient(g, w, h) {
+      // ondes superposées, vert d'eau
+      g.strokeStyle = '#9fe8d0';
+      g.lineWidth = 2;
+      for (let k = 0; k < 6; k++) {
+        g.globalAlpha = 0.15 + k * 0.1;
+        g.beginPath();
+        for (let x = 0; x <= w; x += 6) {
+          const y = h * 0.5 + Math.sin(x / 80 + k) * (20 + k * 6) + k * 8 - 20;
+          x ? g.lineTo(x, y) : g.moveTo(x, y);
+        }
+        g.stroke();
+      }
+    },
+    techno(g, w, h) {
+      // cercles concentriques et stroboscope, gris acier et rouge
+      const cx = w / 2;
+      const cy = h * 0.52;
+      g.strokeStyle = '#a4afbd';
+      g.lineWidth = 1;
+      for (let i = -Math.ceil(w / 16); i <= Math.ceil(w / 16); i++) {
+        // faisceaux verticaux du stroboscope : un sur deux, d'intensité variable
+        g.globalAlpha = 0.05 + 0.14 * Math.abs(Math.sin(i * 1.9));
+        g.beginPath();
+        g.moveTo(cx + i * 16, 0);
+        g.lineTo(cx + i * 16, h);
+        g.stroke();
+      }
+      for (let k = 1; k <= 11; k++) {
+        const red = k % 4 === 0;
+        g.strokeStyle = red ? '#ff3b2a' : '#8e99a8';
+        g.lineWidth = red ? 2.5 : 1.5;
+        g.globalAlpha = red ? 0.9 : 0.55 - k * 0.025;
+        g.beginPath();
+        g.arc(cx, cy, k * 15, 0, Math.PI * 2);
+        g.stroke();
+      }
+      g.globalAlpha = 1;
+      g.fillStyle = '#ff3b2a';
+      g.beginPath();
+      g.arc(cx, cy, 11, 0, Math.PI * 2);
+      g.fill();
+      g.strokeStyle = '#ff3b2a';
+      g.lineWidth = 2;
+      g.globalAlpha = 0.75;
+      for (let i = 0; i < 5; i++) {
+        const y = h * 0.12 + i * 9;
+        g.beginPath();
+        g.moveTo(0, y);
+        g.lineTo(w * (0.18 - i * 0.025), y);
+        g.moveTo(w, h - y);
+        g.lineTo(w * (0.82 + i * 0.025), h - y);
+        g.stroke();
+      }
+    },
+  };
+  const ART_BG = { synthwave: ['#1b0b2e', '#3a0d4a'], edm: ['#06121f', '#0a2a4a'], ambient: ['#0d1a1a', '#173a3a'], techno: ['#0b0c0f', '#232830'] };
+  function drawArt(cv) {
+    const id = cv.dataset.art;
+    const cw = cv.clientWidth;
+    const ch = cv.clientHeight;
+    if (!cw || !ch || !ART[id]) return;
+    const dpr = window.devicePixelRatio || 1;
+    const px = [Math.round(cw * dpr), Math.round(ch * dpr)];
+    if (cv.width !== px[0] || cv.height !== px[1]) [cv.width, cv.height] = px;
+    const g = cv.getContext('2d');
+    const k = px[1] / ART_H; // un repère logique de 220 px de haut, quelle que soit la largeur de la carte
+    g.setTransform(k, 0, 0, k, 0, 0);
+    const w = px[0] / k;
+    const bg = ART_BG[id];
+    const grd = g.createLinearGradient(0, 0, 0, ART_H);
+    grd.addColorStop(0, bg[0]);
+    grd.addColorStop(1, bg[1]);
+    g.fillStyle = grd;
+    g.fillRect(0, 0, w, ART_H);
+    g.save();
+    ART[id](g, w, ART_H);
+    g.restore();
+    g.globalAlpha = 1;
+  }
+  let artObserver = null;
+  /** Les images se redessinent quand leur carte change de taille (fenêtre ouverte, redimensionnée, écran tactile tourné). */
+  function watchArt(cv) {
+    if (typeof ResizeObserver === 'undefined') return drawArt(cv);
+    if (!artObserver) artObserver = new ResizeObserver((es) => es.forEach((e) => drawArt(e.target)));
+    artObserver.observe(cv);
+  }
+
   function renderStyles() {
     const box = $('#bandStyles');
+    if (artObserver) artObserver.disconnect();
     box.replaceChildren(
       ...B().STYLES.map((s) => {
         const [lo, hi] = styleTempo(s);
-        return h('button', { type: 'button', class: s.id === S.styleId ? 'active' : '', 'data-v': s.id, title: `${s.label} : ${lo}–${hi} BPM`, onclick: () => setStyle(s.id) }, h('span', {}, s.label), h('small', {}, `${lo}–${hi} BPM`));
+        const on = s.id === S.styleId;
+        const cv = h('canvas', { class: 'bsty-art', 'data-art': s.id, 'aria-hidden': 'true' });
+        watchArt(cv);
+        return h(
+          'button',
+          { type: 'button', class: 'bsty' + (on ? ' active' : ''), role: 'radio', 'aria-checked': String(on), 'data-v': s.id, title: `${s.label} : ${lo}–${hi} BPM`, onclick: () => setStyle(s.id) },
+          cv,
+          h(
+            'span',
+            { class: 'bsty-body' },
+            h('span', { class: 'bsty-name' }, s.label),
+            h('span', { class: 'bsty-desc' }, s.desc || ''),
+            h(
+              'dl',
+              { class: 'bsty-list' },
+              h('dt', {}, 'Tempo'), h('dd', {}, `${lo}–${hi} BPM`),
+              h('dt', {}, 'Tonalités'), h('dd', {}, styleKeys(s)),
+              h('dt', {}, 'Structure'), h('dd', { class: 'clamp' }, styleForm(s)),
+              h('dt', {}, 'Batterie'), h('dd', {}, styleDrums(s))
+            )
+          )
+        );
       })
     );
     const st = style();
     $('#bandStyleDesc').textContent = (st || {}).desc || '';
     renderStyleCard();
   }
-  /** Fiche du style (étape 1) : description, tempo conseillé sur l'échelle des tempos, nombre d'inspirations. */
+  /** Sous le choix du style : le tempo conseillé sur l'échelle des tempos, un trait par inspiration. */
   function renderStyleCard() {
     const st = style();
     const box = $('#bandStyleCard');
@@ -216,21 +387,14 @@ SS.band = (() => {
     const [lo, hi] = styleTempo(st);
     const pos = (t) => `${(100 * (t - TEMPO_MIN)) / (TEMPO_MAX - TEMPO_MIN)}%`;
     box.replaceChildren(
-      h('h3', {}, st.label),
-      h('p', { class: 'bsc-desc' }, st.desc || ''),
+      h('span', { class: 'bsc-lbl' }, `${st.presets.length} inspirations ${st.label} · tempo conseillé`),
+      h('b', {}, `${lo}–${hi} BPM`),
       h(
-        'div',
-        { class: 'bsc-tempo' },
-        h('span', { class: 'bsc-lbl' }, 'Tempo conseillé'),
-        h('b', {}, `${lo}–${hi} BPM`),
-        h(
-          'span',
-          { class: 'bsc-scale', 'aria-hidden': 'true' },
-          h('i', { class: 'bsc-reco', style: `left:${pos(lo)};width:calc(${pos(hi)} - ${pos(lo)})` }),
-          ...st.presets.map((p) => h('i', { class: 'bsc-tick', style: `left:${pos(p.tempo)}`, title: `${p.song} : ${p.tempo} BPM` }))
-        )
-      ),
-      h('span', { class: 'bsc-lbl' }, `${st.presets.length} inspirations à gauche : chacune a son tempo, sa tonalité et sa structure.`)
+        'span',
+        { class: 'bsc-scale', 'aria-hidden': 'true' },
+        h('i', { class: 'bsc-reco', style: `left:${pos(lo)};width:calc(${pos(hi)} - ${pos(lo)})` }),
+        ...st.presets.map((p) => h('i', { class: 'bsc-tick', style: `left:${pos(p.tempo)}`, title: `${p.song} : ${p.tempo} BPM` }))
+      )
     );
   }
 
@@ -247,7 +411,6 @@ SS.band = (() => {
             'aria-checked': p.id === S.presetId ? 'true' : 'false',
             onclick: () => setPreset(p.id),
           },
-          h('span', { class: 'bp-insp' }, 'Inspiration'),
           h('span', { class: 'bp-song' }, p.song),
           h('span', { class: 'bp-artist' }, `${p.artist} · ${p.year}`),
           h('span', { class: 'bp-meta' }, `${p.tempo} BPM · ${p.musicians.filter((m) => !m.optional).length} musiciens`)
@@ -256,11 +419,21 @@ SS.band = (() => {
     );
   }
 
+  /** Détail de l'inspiration choisie : titre, artiste, description et musiciens du groupe. */
   function renderSong() {
     const p = preset();
     $('#bandSong').replaceChildren(
-      h('div', { class: 'bs-title' }, h('b', {}, `Inspiration « ${p.song} »`), ` — ${p.artist} (${p.year})`),
-      h('div', { class: 'bs-desc' }, p.desc)
+      h('div', { class: 'bs-kind' }, 'Inspiration'),
+      h('div', { class: 'bs-title' }, h('b', {}, p.song)),
+      h('div', { class: 'bs-artist' }, `${p.artist} · ${p.year} · ${p.tempo} BPM`),
+      h('div', { class: 'bs-desc' }, p.desc),
+      h(
+        'ul',
+        { class: 'bs-mus' },
+        ...p.musicians.map((mu) =>
+          h('li', { style: `--c:${colorOf(mu)}`, title: mu.note || '' }, h('i', { 'aria-hidden': 'true' }), h('span', {}, labelOf(mu)), mu.optional ? h('small', {}, 'facultatif') : null)
+        )
+      )
     );
   }
 
@@ -1272,19 +1445,94 @@ SS.band = (() => {
   }
   const BS = () => SS.bandSong;
 
+  /* Tête d'étape : une phrase courte et concrète par étape (78 caractères au plus). */
+  const STEP_LINES = [
+    'Choisis un style, puis une inspiration pour partir d’une vraie chanson.',
+    'Un musicien par rôle : clique sur chacun pour choisir son instrument.',
+    'Règle la vitesse et la tonalité ; toutes les scènes suivent.',
+    'Dessine la forme : les scènes, leur longueur et leur ordre dans la chanson.',
+    'Un motif de batterie par scène, retouché case par case, avec un fill de fin.',
+    'Les accords de chaque scène : une grille au temps, dans la tonalité.',
+    'Comment la basse suit les accords, scène par scène : jeu, pédale, registre.',
+    'La nappe tient l’harmonie sous les autres : mode de jeu et voicing.',
+    'L’arpège fait tourner les notes de chaque accord, ou se tait dans la scène.',
+    'Une mélodie sur la grille : intention, motif, génération et variante B.',
+    'Coche les pistes à importer, puis crée la chanson.',
+  ];
+  /** Groupes du fil des étapes : nom affiché au-dessus de l'étape qui l'ouvre. */
+  const STEP_GROUPS = { 1: 'Fondations', 5: 'Pistes, scène par scène', 11: 'Créer' };
+  /** Couleur du rôle de l'étape (coche des étapes visitées) ; les fondations sont en vert. */
+  const STEP_COLORS = { [ST.drums]: '#e3179c', [ST.chords]: '#c9a227', [ST.bass]: '#3fcf3f', [ST.pad]: '#4f6bff', [ST.arp]: '#13c2a3', [ST.harm]: '#9b5cff' };
+
+  /** Résumé d'une ligne d'une étape (style, tempo, motif de la scène…) ; vide si on ne peut pas encore le dire. */
+  function stepSummary(n) {
+    try {
+      const p = preset();
+      if (n === ST.style) return cover() ? 'Reprise' : (style() || {}).label || '';
+      if (n === ST.inst) {
+        const k = Object.values(musState()).filter((m) => m.on).length;
+        return `${k} musicien${k > 1 ? 's' : ''}`;
+      }
+      if (!spec()) return '';
+      if (n === ST.tempo) return `${tempo()} BPM · ${SS.harmony.label(songKey())}`;
+      const { cols, res } = wizSong();
+      if (!res) return '';
+      if (n === ST.scenes) {
+        const bars = res.song.reduce((a, b) => a + res.scenes.find((sc) => sc.id === b.scene).bars * b.repeat, 0);
+        return `${res.scenes.length} scènes · ${bars} mesures`;
+      }
+      if (n === ST.pick) {
+        const k = cols.filter((c) => !S.wiz.off.has(c.id)).length;
+        return k ? `${k} piste${k > 1 ? 's' : ''}` : 'aucune piste';
+      }
+      // étapes par scène : le réglage de la scène qu'on regarde (sans changer de scène)
+      const sc = res.scenes.find((x) => x.id === S.wiz.hscene) || res.scenes.find((x) => x.sec === S.wiz.hsec) || res.scenes[0];
+      if (n === ST.drums) return drumsSub(sc);
+      if (n === ST.chords) return sceneChords(sc).split(' | ').slice(0, 4).join(' ');
+      if (n === ST.bass) return bassSub(sc);
+      if (n === ST.pad) return padSub(sc);
+      if (n === ST.arp) return arpSub(sc);
+      if (n === ST.harm) return S.wiz.emos[sc.sec] ? SS.findEmotion(S.wiz.emos[sc.sec]).label : p && sc.name;
+    } catch (e) {
+      return '';
+    }
+    return '';
+  }
+
   function renderWizSteps() {
     const box = $('#bandWizSteps');
+    const w = S.wiz;
+    w.seen.add(w.step);
     box.replaceChildren(
       ...STEPS.map((st, i) => {
         const n = i + 1;
-        const cls = n === S.wiz.step ? 'cur' : n < S.wiz.step ? 'done' : '';
+        const cur = n === w.step;
+        const seen = w.seen.has(n) && !cur;
+        const sum = stepSummary(n);
         return h(
           'li',
-          { class: cls, 'aria-current': n === S.wiz.step ? 'step' : null },
-          h('button', { type: 'button', disabled: n > S.wiz.step && !canGo(n), title: st.hint, onclick: () => goStep(n) }, h('b', {}, String(n)), h('span', {}, st.label))
+          { class: (cur ? 'cur' : '') + (seen ? ' done' : ''), 'aria-current': cur ? 'step' : null, 'data-group': STEP_GROUPS[n] || null, style: STEP_COLORS[n] ? `--c:${STEP_COLORS[n]}` : null },
+          h(
+            'button',
+            { type: 'button', disabled: n > w.step && !canGo(n), title: st.hint, onclick: () => goStep(n) },
+            h('b', { class: 'bw-pill' }, seen ? '✓' : String(n)),
+            h('span', { class: 'bw-sn' }, st.label),
+            sum ? h('small', { class: 'bw-ss' }, sum) : null
+          )
         );
       })
     );
+    const cur = box.querySelector('li.cur');
+    if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: 'nearest', inline: 'center' }); // la bande étroite défile jusqu'à l'étape en cours
+    renderStepHead();
+  }
+
+  /** Tête d'étape : le numéro en gris, le nom en grand, puis une phrase. */
+  function renderStepHead() {
+    const n = S.wiz.step;
+    const box = $('#bwStepHead');
+    box.hidden = false;
+    box.replaceChildren(h('h1', {}, h('em', {}, String(n).padStart(2, '0')), STEPS[n - 1].label), h('p', {}, STEP_LINES[n - 1]));
   }
 
   /** On peut aller à l'étape n si la chanson se calcule (inspiration avec un plan, au moins une piste). */
@@ -1359,7 +1607,7 @@ SS.band = (() => {
 
     const bpmCard = h(
       'section',
-      { class: 'bwt-card', 'aria-labelledby': 'bwtTempoTitle' },
+      { class: 'bwt-card bw-card', 'aria-labelledby': 'bwtTempoTitle' },
       h('h3', { id: 'bwtTempoTitle' }, 'Tempo'),
       h(
         'div',
@@ -1391,7 +1639,7 @@ SS.band = (() => {
 
     const keyCard = h(
       'section',
-      { class: 'bwt-card', 'aria-labelledby': 'bwtKeyTitle' },
+      { class: 'bwt-card bw-card', 'aria-labelledby': 'bwtKeyTitle' },
       h('h3', { id: 'bwtKeyTitle' }, 'Tonalité de la chanson'),
       h('p', { class: 'dlg-hint' }, 'Changer la tonalité transpose toutes les scènes : les accords gardent leurs degrés. Une scène qui jouait dans un autre mode (un pont en majeur dans une chanson mineure) garde son mode.'),
       h(
@@ -1404,7 +1652,7 @@ SS.band = (() => {
           ...Array.from({ length: 12 }, (_, pc) => {
             const name = tonicName(pc, key.mode);
             const on = pc === tonicPc(key.tonic);
-            return h('button', { type: 'button', class: 'chip bwt-tonic' + (on ? ' active' : '') + (name.length > 1 ? ' blk' : ''), 'data-pc': pc, 'aria-pressed': String(on), onclick: () => setSongKey({ tonic: name, mode: key.mode }) }, H.french(name));
+            return h('button', { type: 'button', class: 'bwt-tonic' + (on ? ' active' : '') + (name.length > 1 ? ' blk' : ''), 'data-pc': pc, 'aria-pressed': String(on), onclick: () => setSongKey({ tonic: name, mode: key.mode }) }, H.french(name));
           })
         )
       ),
@@ -1414,8 +1662,8 @@ SS.band = (() => {
         h('span', { class: 'bwt-lbl' }, 'Mode'),
         h(
           'div',
-          { class: 'bwt-modes' },
-          ...modes.map((m) => h('button', { type: 'button', class: 'chip bwt-mode' + (m.id === key.mode ? ' active' : ''), 'data-skmode': m.id, 'aria-pressed': String(m.id === key.mode), title: m.colorText ? `Note caractéristique : ${m.colorText}` : m.fam === 'major' ? 'Tierce majeure' : 'Tierce mineure', onclick: () => setSongKey({ tonic: key.tonic, mode: m.id }) }, m.label.replace(' (mode)', '')))
+          { class: 'bwt-modes segmented' },
+          ...modes.map((m) => h('button', { type: 'button', class: 'bwt-mode' + (m.id === key.mode ? ' active' : ''), 'data-skmode': m.id, 'aria-pressed': String(m.id === key.mode), title: m.colorText ? `Note caractéristique : ${m.colorText}` : m.fam === 'major' ? 'Tierce majeure' : 'Tierce mineure', onclick: () => setSongKey({ tonic: key.tonic, mode: m.id }) }, m.label.replace(' (mode)', '')))
         )
       ),
       h(
@@ -1435,7 +1683,7 @@ SS.band = (() => {
       ),
       h('p', { class: 'dlg-hint' }, `${fam ? 'Mode à tierce majeure' : 'Mode à tierce mineure'} · ${keyInfo(key)}`)
     );
-    box.replaceChildren(h('div', { class: 'bw-top' }, h('p', { class: 'bw-hint' }, STEPS[ST.tempo - 1].hint + '.')), h('div', { class: 'bwt' }, bpmCard, keyCard));
+    box.replaceChildren(h('div', { class: 'bwt' }, bpmCard, keyCard));
   }
 
   /* ---------- Étape Scènes : arrangement et scènes ----------
@@ -1476,12 +1724,12 @@ SS.band = (() => {
           const bars = sc.bars * b.repeat;
           const li = h(
             'li',
-            { draggable: 'true', 'data-i': i, style: `flex:${bars} 1 158px;--c:${secColor(sc.sec)}` },
+            { draggable: 'true', 'data-i': i, style: `flex:${bars} 1 172px;--c:${secColor(sc.sec)}` },
             h(
               'button',
               { type: 'button', class: 'bw-block', 'data-sec': sc.sec, title: `Écouter à partir de « ${sc.name} » (${bars} mesures)`, onclick: () => listenSong(i) },
-              h('span', {}, sc.name),
-              b.repeat > 1 ? h('small', {}, `×${b.repeat}`) : null
+              h('span', { class: 'bw-bn' }, sc.name),
+              h('small', { class: 'bw-bm' }, `${bars} mesures`)
             ),
             h(
               'div',
@@ -1559,9 +1807,9 @@ SS.band = (() => {
             { class: 'segmented bw-bars', role: 'radiogroup', 'aria-label': `Longueur de « ${name} »` },
             ...bars.map((b) => h('button', { type: 'button', role: 'radio', class: b === sec.bars ? 'active' : '', 'aria-checked': String(b === sec.bars), 'data-bars': b, title: `${b} mesures`, onclick: () => setSecBars(id, b) }, String(b)))
           ),
-          h('button', { type: 'button', class: 'btn btn-small bw-sc-add', disabled: full, title: 'Joue cette scène une fois de plus, à la fin de la chanson', onclick: () => addBlock(id) }, '+ Ajouter à la fin'),
-          h('button', { type: 'button', class: 'btn btn-small bw-sc-dup', disabled: full || ids.length >= 26, title: 'Copie indépendante de la scène (nouveau nom, mêmes accords et mêmes réglages au départ)', onclick: () => dupScene(id) }, 'Dupliquer'),
-          h('button', { type: 'button', class: 'btn btn-small btn-icon bw-sc-del', disabled: ids.length < 2, 'aria-label': `Supprimer la scène « ${name} »`, title: ids.length < 2 ? 'La dernière scène ne peut pas être supprimée' : 'Supprime la scène et ses blocs', onclick: () => delScene(id), html: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>' })
+          h('button', { type: 'button', class: 'btn btn-icon bw-sc-add', disabled: full, 'aria-label': `Ajouter « ${name} » à la fin de la chanson`, title: 'Ajouter à la fin : joue cette scène une fois de plus, à la fin de la chanson', onclick: () => addBlock(id), html: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>' }),
+          h('button', { type: 'button', class: 'btn btn-icon bw-sc-dup', disabled: full || ids.length >= 26, 'aria-label': `Dupliquer la scène « ${name} »`, title: 'Dupliquer : copie indépendante de la scène (nouveau nom, mêmes accords et mêmes réglages au départ)', onclick: () => dupScene(id), html: '<svg viewBox="0 0 24 24"><path d="M9 9h10v10H9z"/><path d="M5 15V5h10"/></svg>' }),
+          h('button', { type: 'button', class: 'btn btn-icon bw-sc-del', disabled: ids.length < 2, 'aria-label': `Supprimer la scène « ${name} »`, title: ids.length < 2 ? 'La dernière scène ne peut pas être supprimée' : 'Supprime la scène et ses blocs', onclick: () => delScene(id), html: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>' })
         );
       })
     );
@@ -1637,7 +1885,7 @@ SS.band = (() => {
         h('b', {}, `« ${p.song} »`),
         h('span', {}, ` ${p.artist} · ${SS.harmony.label(res.key)} · ${tempo()} BPM · ${res.scenes.length} scènes · ${len} mesures · ${time}`)
       ),
-      h('p', { class: 'bw-hint' }, STEPS[step - 1].hint + (scenesStep ? '.' : '. Clique une scène pour l’écouter en boucle.')),
+      scenesStep ? null : h('p', { class: 'bw-hint' }, 'Clique une scène pour l’écouter en boucle.'),
       order,
       step === ST.pick
         ? h(
@@ -1781,7 +2029,7 @@ SS.band = (() => {
         const line = sub && sub(x);
         return h(
           'button',
-          { type: 'button', class: 'bh-scene' + (on ? ' on' : ''), 'data-scene': x.id, 'data-sec': x.sec, 'aria-pressed': String(on), title: `Travailler « ${x.name} » (la lecture joue la scène choisie)`, onclick: () => pickScene(x) },
+          { type: 'button', class: 'bh-scene' + (on ? ' on' : ''), style: `--c:${secColor(x.sec)}`, 'data-scene': x.id, 'data-sec': x.sec, 'aria-pressed': String(on), title: `Travailler « ${x.name} » (la lecture joue la scène choisie)`, onclick: () => pickScene(x) },
           h('span', { class: 'bh-sname' }, h('b', {}, x.name), h('small', {}, `${x.bars} mes.` + (plays.get(x.id) > 1 ? ` · ×${plays.get(x.id)}` : ''))),
           h('span', { class: 'bh-mini' }, ...[...seen.values()].map((c) => h('span', { class: 'bh-mchip role-' + c.role.id, title: `${c.numeral} · ${c.role.label}` }, c.name))),
           line ? h('small', { class: 'bh-ssub' }, line) : null
@@ -1794,7 +2042,7 @@ SS.band = (() => {
   function splitView(nav, ...content) {
     const box = $('#bandWiz');
     box.classList.add('bw-split');
-    box.replaceChildren(h('div', { class: 'bh-wrap' }, nav, h('div', { class: 'bh-right' }, $('#bwTransport'), h('div', { class: 'bh-content' }, ...content))));
+    box.replaceChildren(h('div', { class: 'bh-wrap' }, nav, h('div', { class: 'bh-right' }, h('div', { class: 'bh-content' }, ...content))));
   }
 
   /**
@@ -3212,7 +3460,7 @@ SS.band = (() => {
     const bars = h('div', { class: 'bwp-bars', role: 'img', 'aria-label': 'La scène, mesure par mesure' }, ...Array.from({ length: sc.bars }, (_, b) => h('span', { class: fillBar(sc, b) ? 'fill' : '', title: fillBar(sc, b) ? 'Fill' : null }, String(b + 1))));
     const card1 = h(
       'section',
-      { class: 'bwp-card' },
+      { class: 'bwp-card bw-card' },
       h(
         'div',
         { class: 'bwp-ch' },
@@ -3250,7 +3498,7 @@ SS.band = (() => {
     };
     const card2 = h(
       'section',
-      { class: 'bwp-card' },
+      { class: 'bwp-card bw-card' },
       h(
         'div',
         { class: 'bwp-ch' },
@@ -3278,7 +3526,7 @@ SS.band = (() => {
       rollBox(sc, 'bass'),
       h(
         'section',
-        { class: 'bwp-card' },
+        { class: 'bwp-card bw-card' },
         h('div', { class: 'bwp-ch' }, h('b', {}, `Mode de jeu de « ${sc.name} »`), h('span', { class: 'spacer' }), playBox(sc, 'bass', '8')),
         modeCards(sc, 'bass', BASS_MODES, '#3fcf3f'),
         !secOf(sc).bass && !o.mode ? h('p', { class: 'dlg-hint' }, 'L’inspiration ne joue pas de basse dans cette scène : choisis un mode pour l’allumer.') : null,
@@ -3307,7 +3555,7 @@ SS.band = (() => {
       rollBox(sc, 'pad'),
       h(
         'section',
-        { class: 'bwp-card' },
+        { class: 'bwp-card bw-card' },
         h('div', { class: 'bwp-ch' }, h('b', {}, `Nappe de « ${sc.name} »`), h('span', { class: 'spacer' }), playBox(sc, 'pad', 'sustain')),
         modeCards(sc, 'pad', PAD_MODES, '#4f6bff'),
         !secOf(sc).pad && !o.mode ? h('p', { class: 'dlg-hint' }, 'L’inspiration ne joue pas de nappe dans cette scène : choisis un mode pour l’allumer.') : null,
@@ -3440,13 +3688,11 @@ SS.band = (() => {
     el.classList.add('wizard');
     el.querySelectorAll('.wiz-only').forEach((x) => (x.hidden = false));
     $('#bandTitle').firstChild.textContent = 'Nouvelle chanson ';
-    renderWizSteps();
     if (step !== ST.harm) leaveMel();
-    // bandeau de lecture : sous le titre (étapes 3, 4 et 11), à droite de la colonne des scènes (étapes 5 à 10)
+    // bandeau de lecture : dans l'en-tête (étapes 3 à 11), caché aux étapes 1 et 2
     // étapes 1 et 2 : l'écran Band (style et inspiration, puis musiciens) ; les autres blocs sont cachés par le CSS (bs-style, bs-inst)
     const body = el.querySelector('.band-body');
     const tr = $('#bwTransport');
-    if (tr.nextElementSibling !== body) body.before(tr);
     $('#bandWiz').classList.remove('bw-split');
     const band = step === ST.style || step === ST.inst;
     el.classList.toggle('bs-style', step === ST.style);
@@ -3474,6 +3720,8 @@ SS.band = (() => {
     const step = S.wiz.step;
     $('#bwEmpty').hidden = step !== ST.style || !S.wiz.fresh;
     $('#bwBack').hidden = step === 1;
+    $('#bwBack').textContent = step > 1 ? `← ${STEPS[step - 2].label}` : '← Retour';
+    $('#bwNext').textContent = step < ST.pick ? `${STEPS[step].label} →` : 'Suivant →';
     $('#bwNext').hidden = step === ST.pick;
     $('#bwNext').disabled = !canGo(step + 1);
     $('#bwNext').title = step < ST.pick ? (canGo(step + 1) ? `${STEPS[step].label} : ${STEPS[step].hint.toLowerCase()}` : cover() && !spec() ? 'Corrige la reprise (parties, accords, ordre)' : 'Choisis au moins un musicien') : '';
@@ -3546,27 +3794,28 @@ SS.band = (() => {
       onchange: (e) => setTempo(e.target.value),
       onkeydown: (e) => e.key === 'Enter' && setTempo(e.target.value),
     });
+    // écran façon LCD : tempo (− / +), tonalité, position ; lecture et stop devant
+    const cell = (label, ...kids) => h('div', { class: 'bt-cell' }, h('span', { class: 'bt-label' }, label), ...kids);
     box.replaceChildren(
       btn('bwPlay', 'Lecture', PLAY, togglePlay, 'bt-play'),
       btn('bwStop', 'Stop', STOP, () => stopListen(), 'bt-stop'),
-      h('div', { class: 'bt-pos', 'aria-live': 'off' }, h('b', { id: 'bwPos' }, '1 . 1 . 1'), h('small', { id: 'bwPosInfo' }, 'À l’arrêt')),
-      h('span', { class: 'bt-sep', 'aria-hidden': 'true' }),
       h(
         'div',
-        { class: 'bt-field' },
-        h('span', { class: 'bt-label' }, 'Tempo'),
-        h(
-          'span',
-          { class: 'bt-tempo' },
-          h('button', { type: 'button', id: 'bwSlower', 'aria-label': 'Ralentir', title: 'Ralentir (−1 BPM)', onclick: () => setTempo(tempo() - 1) }, '−'),
-          input,
-          h('button', { type: 'button', id: 'bwFaster', 'aria-label': 'Accélérer', title: 'Accélérer (+1 BPM)', onclick: () => setTempo(tempo() + 1) }, '+')
+        { class: 'bt-lcd' },
+        cell(
+          'Tempo',
+          h(
+            'span',
+            { class: 'bt-tempo' },
+            h('button', { type: 'button', id: 'bwSlower', 'aria-label': 'Ralentir', title: 'Ralentir (−1 BPM)', onclick: () => setTempo(tempo() - 1) }, '−'),
+            input,
+            h('button', { type: 'button', id: 'bwFaster', 'aria-label': 'Accélérer', title: 'Accélérer (+1 BPM)', onclick: () => setTempo(tempo() + 1) }, '+')
+          )
         ),
-        h('span', { class: 'bt-unit' }, 'BPM'),
-        h('button', { type: 'button', id: 'bwTempoBack', class: 'bt-orig', title: 'Revenir au tempo de l’inspiration', onclick: () => setTempo(origTempo()) })
-      ),
-      h('span', { class: 'bt-sep', 'aria-hidden': 'true' }),
-      h('div', { class: 'bt-field' }, h('span', { class: 'bt-label' }, 'Tonalité'), h('span', { class: 'bt-key', id: 'bwKey' }, h('b', {}), h('small', {})))
+        h('button', { type: 'button', id: 'bwTempoBack', class: 'bt-orig', title: 'Revenir au tempo de l’inspiration', onclick: () => setTempo(origTempo()) }),
+        cell('Tonalité', h('span', { class: 'bt-key', id: 'bwKey' }, h('b', {}), h('small', {}))),
+        h('div', { class: 'bt-cell bt-pos', 'aria-live': 'off' }, h('span', { class: 'bt-label' }, 'Position'), h('b', { id: 'bwPos' }, '1', h('i', {}, ' . '), '1', h('i', {}, ' . '), '1'), h('small', { id: 'bwPosInfo' }, 'À l’arrêt'))
+      )
     );
   }
 
@@ -3583,6 +3832,11 @@ SS.band = (() => {
     markListen();
   }
 
+  /** Position « mesure . temps . pas » : les points dans la police du texte (l'afficheur LCD les dessine mal). */
+  function setPos(bar, beat, step) {
+    const pos = $('#bwPos');
+    pos.replaceChildren(String(bar), h('i', {}, ' . '), String(beat), h('i', {}, ' . '), String(step));
+  }
   function updateTransport() {
     if (!S.wiz || !$('#bwTransport')) return;
     const { res } = wizSong();
@@ -3607,8 +3861,8 @@ SS.band = (() => {
     const sc = res && L.scene ? res.scenes.find((x) => x.id === L.scene) : null;
     if (sc && L.step >= 0) {
       const st = L.step % (sc.bars * 16);
-      $('#bwPos').textContent = `${Math.floor(st / 16) + 1} . ${Math.floor((st % 16) / 4) + 1} . ${(st % 4) + 1}`;
-    } else if (!L.mode) $('#bwPos').textContent = '1 . 1 . 1';
+      setPos(Math.floor(st / 16) + 1, Math.floor((st % 16) / 4) + 1, (st % 4) + 1);
+    } else if (!L.mode) setPos(1, 1, 1);
     $('#bwPosInfo').textContent = sc ? `${sc.name}${L.mode === 'scene' ? ' · en boucle' : ''}${L.paused ? ' · en pause' : ''}` : 'À l’arrêt';
     // tonalité : celle de la scène qu'on entend (ou qu'on regarde à l'étape Mélodie), sinon celle de la chanson
     const shown = sc || (res && sceneStep() ? res.scenes.find((x) => x.id === S.wiz.hscene) : null);
@@ -3616,6 +3870,7 @@ SS.band = (() => {
     const kb = $('#bwKey');
     kb.firstChild.textContent = key ? SS.harmony.label(key) : '—';
     kb.lastChild.textContent = key ? keyInfo(key) : '';
+    kb.title = key ? `${SS.harmony.label(key)} · ${keyInfo(key)}` : '';
   }
 
   /** « 3 ♭ · i = Cm » : armure (gamme de référence) et accord de tonique. */
@@ -3888,7 +4143,7 @@ SS.band = (() => {
     // keys / grids / emos : étape Accords (tonalité, grille, émotion par section) ; parts : réglages par scène (batterie,
     // basse, nappes, arpèges) ; form / secs / skey : arrangement, scènes et tonalité retouchés (specEff) ; chars : caractère et notes par phrase par section (réglages du moteur, sans écran) ; melPanel : état du panneau Mélodie par section ; snap : aimant de la grille ; gsel : accord sélectionné ; insp : fenêtre d'inspiration
     S.wiz = {
-      step: 1, seed: 0, off: new Set(), mute: new Set(), solo: new Set(), sig: null, res: null, fresh, mel: S.mel, vol: new Map(), hscene: null, hsec: null, tempo: null, tempoFor: null,
+      step: 1, seen: new Set([1]), seed: 0, off: new Set(), mute: new Set(), solo: new Set(), sig: null, res: null, fresh, mel: S.mel, vol: new Map(), hscene: null, hsec: null, tempo: null, tempoFor: null,
       plans: {}, pseeds: {}, keys: {}, grids: {}, emos: {}, chars: {}, parts: {}, melPanel: {}, melSec: null, form: null, secs: {}, skey: null, snap: 'beat', gsel: null, insp: null,
     };
     show();
