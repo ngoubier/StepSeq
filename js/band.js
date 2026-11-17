@@ -15,7 +15,7 @@
  *     longueur, nom, duplication et suppression des scènes ; écoute de la chanson dans l'ordre choisi ;
  *  5. Accords : la grille de chaque scène (comme dans Harmonie) et la fenêtre « Trouver l'inspiration » ;
  *  Instruments, scène par scène : une étape par instrument du groupe (6 à 5 + n ; le kit de batterie, toutes ses pièces, est
- *     un seul onglet ; « fx » n'en a pas). Tête « 07 Synth Bass », les 5 cartes de type (setKind), la barre de piste
+ *     un seul onglet ; « fx » n'en a pas). Tête « 07 Synth Bass », le type en lecture seule (le select de l’étape 2 appelle setKind), la barre de piste
  *     (son, Muet, Solo) et la colonne des scènes, puis l'éditeur du type — batterie (20 motifs, grille 5 pistes × 16 pas, fills,
  *     crash ; pour un instrument qui n'est pas un kit : motifs et « les deux / grosse caisse / caisse claire »), basse (mode de
  *     jeu, pédale, registre, approche), accords (mode de jeu, voicing), arpèges (Arp One), mélodie (l'onglet Mélodie
@@ -643,41 +643,30 @@ SS.band = (() => {
     );
   }
 
-  /** Étape 2, sous la scène : pour chaque instrument, son type (étiquette colorée) ; un clic déplie les cinq types (un kit : Drums seulement). */
-  function renderKinds() {
-    const box = $('#bandKinds');
-    if (!box) return;
-    const list = S.wiz && preset() ? insSteps() : [];
-    box.hidden = !list.length;
-    box.replaceChildren(
-      list.length ? h('div', { class: 'bw-lbl' }, 'Ce que joue chaque instrument') : null,
-      ...list.map((T) => {
-        const open = S.kindPick === T.id;
-        return h(
+  /**
+   * Étape 2, panneau de droite, sous le titre : le type de l'instrument du musicien (liste « Type »). Un kit de batterie ne joue
+   * que Drums (liste désactivée, avec une explication). Un musicien à plusieurs instruments a une liste par instrument.
+   */
+  function kindSelect(mu) {
+    const list = S.wiz && preset() ? insSteps().filter((T) => T.musician === mu.id) : [];
+    if (!list.length) return null;
+    return h(
+      'div',
+      { class: 'bpn-kind', id: 'bpnKind' },
+      ...list.map((T) =>
+        h(
           'div',
-          { class: 'bw-krow' + (open ? ' open' : ''), style: `--c:${KIND_COLOR[T.kind]}`, 'data-ins': T.id },
+          { class: 'bpn-krow', style: `--c:${KIND_COLOR[T.kind]}`, 'data-ins': T.id },
           h('i', { class: 'bw-dot' }),
-          h('span', { class: 'bw-kname' }, h('b', {}, T.name), typeChanged(T) ? h('small', {}, `était ${KIND_ART[T.def]}`) : null),
-          h('button', { type: 'button', class: 'bw-ktag', 'data-kind': T.kind, 'aria-expanded': String(open), title: 'Changer ce que joue cet instrument', onclick: () => ((S.kindPick = open ? null : T.id), renderKinds()) }, KIND_LABEL[T.kind]),
-          open
-            ? h(
-                'div',
-                { class: 'bw-kpick', role: 'radiogroup', 'aria-label': `Type de ${T.name}` },
-                ...SS.bandSong.KINDS.map((k) =>
-                  h(
-                    'button',
-                    {
-                      type: 'button', role: 'radio', class: 'bw-kchip' + (k === T.kind ? ' on' : ''), style: `--tc:${KIND_COLOR[k]}`, 'data-kind': k, 'aria-checked': String(k === T.kind), disabled: T.kit && k !== 'drums' ? true : null,
-                      title: T.kit && k !== 'drums' ? 'Un kit de batterie ne joue que des motifs de batterie' : KIND_DESC[k],
-                      onclick: () => (setKind(T.id, k), refresh()),
-                    },
-                    KIND_LABEL[k]
-                  )
-                )
-              )
-            : null
-        );
-      })
+          h('label', { for: 'bpnKindSel-' + T.id.replace(/\W/g, '_') }, list.length > 1 ? `Type · ${T.name}` : 'Type'),
+          h(
+            'select',
+            { id: 'bpnKindSel-' + T.id.replace(/\W/g, '_'), class: 'bpn-ksel', 'data-ins': T.id, disabled: T.kit ? true : null, 'aria-label': `Type de ${T.name}`, onchange: (e) => changeKind(T, e.target.value, refresh) },
+            ...SS.bandSong.KINDS.map((k) => h('option', { value: k, selected: k === T.kind ? true : null, disabled: T.kit && k !== 'drums' ? true : null }, KIND_LABEL[k]))
+          ),
+          T.kit ? h('small', { class: 'bpn-kdesc' }, 'Un kit de batterie ne joue que des motifs de batterie.') : typeChanged(T) ? h('small', { class: 'bpn-kdesc' }, `était ${KIND_ART[T.def]}`) : null
+        )
+      )
     );
   }
 
@@ -749,6 +738,7 @@ SS.band = (() => {
     panel.replaceChildren(
       ...[
         panelHead(mu, ms),
+        kindSelect(mu),
         h('div', { class: 'bpn-sec' }, 'Instrument phare'),
         cards[0],
         h('div', { class: 'bpn-sec' }, 'Conseillés'),
@@ -825,6 +815,7 @@ SS.band = (() => {
     const n = ms.pieces.filter((pc) => pc.on).length;
     panel.replaceChildren(
       panelHead(mu, ms),
+      ...[kindSelect(mu)].filter(Boolean),
       h('div', { class: 'bpn-sec' }, gm() ? 'Kit (mode General MIDI)' : 'Kit (★ phare + 5 conseillés)'),
       h('div', { class: 'band-kits', role: 'radiogroup', 'aria-label': 'Kit' }, ...kitCards),
       h('div', { class: 'bpn-sec' }, `Éléments — une piste par élément coché (${n})`),
@@ -872,7 +863,6 @@ SS.band = (() => {
   function refresh() {
     syncGm();
     renderStage();
-    renderKinds();
     renderPanel();
     if (S.wiz) wizFoot();
   }
@@ -1048,7 +1038,7 @@ SS.band = (() => {
   function stepInfo(n) {
     const t = insAt(n);
     if (t) {
-      return { label: t.name, hint: `${KIND_LABEL[t.kind]} : ce que joue cet instrument, scène par scène`, line: 'Choisis ce que joue cet instrument, puis règle-le scène par scène.', color: KIND_COLOR[t.kind], ins: t, group: n === ST.chords + 1 ? 'Instruments, scène par scène' : null };
+      return { label: t.name, hint: `${KIND_LABEL[t.kind]} : ce que joue cet instrument, scène par scène`, line: 'Règle ce que joue cet instrument, scène par scène.', color: KIND_COLOR[t.kind], ins: t, group: n === ST.chords + 1 ? 'Instruments, scène par scène' : null };
     }
     const d = FOUND.concat(FINAL)[n <= ST.chords ? n - 1 : n === ST.mix ? 5 : 6];
     return { ...d, color: d.key === 'chords' ? '#c9a227' : d.key === 'mix' ? '#d0d0da' : null, ins: null, group: n === 1 ? 'Fondations' : n === ST.mix ? 'Finaliser' : null };
@@ -1735,7 +1725,12 @@ SS.band = (() => {
     const info = stepInfo(n);
     box.hidden = false;
     box.classList.toggle('bw-insHead', !!info.ins);
-    box.replaceChildren(h('h1', {}, h('em', {}, String(n).padStart(2, '0')), info.label), h('p', {}, info.line));
+    box.replaceChildren(
+      h('h1', {}, h('em', {}, String(n).padStart(2, '0')), info.label),
+      info.ins
+        ? h('div', { class: 'bw-insline' }, h('span', { class: 'bw-ktag', id: 'bwKindTag', 'data-kind': info.ins.kind, style: `--c:${KIND_COLOR[info.ins.kind]}`, title: 'Type de cet instrument (à changer à l’étape 2, Instruments)' }, KIND_LABEL[info.ins.kind]), h('p', {}, info.line))
+        : h('p', {}, info.line)
+    );
   }
 
   /** On peut aller à l'étape n si la chanson se calcule (inspiration avec un plan, au moins une piste). */
@@ -2515,7 +2510,7 @@ SS.band = (() => {
     syncMelState(sc, T);
     const f = melScene(cols, res, sc, T);
     const panel = h('div', { class: 'bw-melpanel', id: 'bwMelPanel' });
-    splitView(f.nav, kindPicker(T), f.bar, h('main', { class: 'bh-main bw-mel' }, f.top, f.board, f.src, f.melIds.size ? panel : null, f.acc));
+    splitView(f.nav, kindNote(T), f.bar, h('main', { class: 'bh-main bw-mel' }, f.top, f.board, f.src, f.melIds.size ? panel : null, f.acc));
     if (!f.melIds.size) return;
     const sec = sc.sec;
     const fresh = () => (S.wiz && S.wiz.res && S.wiz.res.scenes.find((x) => x.sec === sec)) || sc;
@@ -3596,43 +3591,19 @@ SS.band = (() => {
       })
     );
   }
-  /** Les 5 cartes de type, sous le titre de l'étape (note quand le type n'est plus celui du rôle). Un kit ne joue que Drums. */
-  function kindPicker(T) {
-    const cards = h(
-      'div',
-      { class: 'bw-kinds', id: 'bwKinds', role: 'radiogroup', 'aria-label': 'Type d’instrument' },
-      ...SS.bandSong.KINDS.map((k) => {
-        const on = k === T.kind;
-        const off = T.kit && k !== 'drums';
-        return h(
-          'button',
-          {
-            type: 'button', role: 'radio', class: 'bw-kind' + (on ? ' on' : ''), style: `--tc:${KIND_COLOR[k]}`, 'data-kind': k, 'aria-checked': String(on), disabled: off || null,
-            title: off ? 'Un kit de batterie ne peut jouer que des motifs de batterie' : `${T.name} jouera ${KIND_VERB[k]}`,
-            onclick: () => changeKind(T, k),
-          },
-          h('span', { class: 'bw-kico', html: `<svg viewBox="0 0 30 30" aria-hidden="true">${KIND_ICON[k]}</svg>` }),
-          h('b', {}, KIND_LABEL[k]),
-          h('small', {}, KIND_DESC[k])
-        );
-      })
-    );
-    const note = T.kit
-      ? h('p', { class: 'bw-kindnote', id: 'bwKindNote' }, 'Un kit de batterie ne joue que des motifs de batterie : les autres types sont indisponibles.')
-      : typeChanged(T)
-        ? h('p', { class: 'bw-kindnote', id: 'bwKindNote', style: `--c:${KIND_COLOR[T.kind]}` }, `Ce son était ${KIND_ART[T.def]} : il jouera maintenant ${KIND_VERB[T.kind]}.`)
-        : null;
-    return h('div', { class: 'bw-kindbox' }, cards, note);
+  /** Sous la tête d'un onglet d'instrument : la note « Ce son était une nappe… » quand le type n'est plus celui du rôle (le type se choisit à l'étape 2). */
+  function kindNote(T) {
+    return typeChanged(T) ? h('p', { class: 'bw-kindnote', id: 'bwKindNote', style: `--c:${KIND_COLOR[T.kind]}` }, `Ce son était ${KIND_ART[T.def]} : il jouera maintenant ${KIND_VERB[T.kind]}.`) : null;
   }
   /** Change le type d'un instrument : ses réglages par scène propres à l'ancien type sont oubliés (l'arrêt « muet » et la mélodie générée restent). */
-  function changeKind(T, kind) {
+  function changeKind(T, kind, after) {
     if (kind === T.kind || !setKind(T.id, kind)) return;
     Object.keys(S.wiz.parts).forEach((sec) => {
       const own = ownPart(sec, T);
       if (own) putInstPart(sec, T.key, Object.fromEntries(Object.keys(own).filter((k) => k !== 'off' && k !== 'lead').map((k) => [k, undefined])));
     });
     if (T.kind === 'melody') leaveMel();
-    partChanged('.bw-kind.on');
+    after ? after() : partChanged();
   }
   /** Réglage d'un instrument dans une scène, en une ligne pour la colonne des scènes et le fil des étapes. */
   function instSub(T, x) {
@@ -3651,7 +3622,7 @@ SS.band = (() => {
     const prev = $('#bwParts');
     const top = prev && prev.dataset.ins === T.id && prev.dataset.kind === T.kind ? prev.scrollTop : 0; // un clic bas dans la liste ne la remonte pas
     const content = h('div', { class: 'bwc bwp', id: 'bwParts', 'data-kind': T.kind, 'data-ins': T.id, style: `--c:${KIND_COLOR[T.kind]}` }, ...body);
-    splitView(sceneNav(res, sc, (x) => instSub(T, x)), kindPicker(T), trackbar(T), content);
+    splitView(sceneNav(res, sc, (x) => instSub(T, x)), kindNote(T), trackbar(T), content);
     content.scrollTop = top;
   }
 

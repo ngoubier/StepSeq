@@ -77,7 +77,7 @@ const ok = (c, m) => {
   await next(5);
 
   // Batterie : l'inspiration d'abord, rien n'est réglé
-  ok((await page.getAttribute('#bwParts', 'data-kind')) === 'drums' && (await page.locator('.bh-scene').count()) === 5 && (await page.locator('.bw-kind').count()) === 5, 'onglet de la batterie : les cinq scènes à gauche');
+  ok((await page.getAttribute('#bwParts', 'data-kind')) === 'drums' && (await page.locator('.bh-scene').count()) === 5 && (await page.locator('.bw-kind').count()) === 0 && (await page.locator('#bwKindTag').textContent()) === 'Drums', 'onglet de la batterie : les cinq scènes à gauche');
   ok((await page.locator('.bwp-pat').count()) === 21 && (await page.locator('.bwp-pat.on').getAttribute('data-id')) === '', 'vingt motifs, et « Motif de l’inspiration » choisi par défaut');
   ok(Object.keys(await parts()).length === 0 && !(await page.evaluate(() => SS.audio.isPlaying())), 'première visite : rien n’est réglé, rien ne joue');
 

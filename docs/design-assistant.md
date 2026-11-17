@@ -98,11 +98,15 @@ Le vrai assistant marche, mais il est plus lourd à l'œil que la maquette :
     (`@media (hover: none)`).
   - Les lignes de scène sont plus simples : un liseré de couleur du type, le nom éditable, le segment 4 / 8 / 16 / 32 et
     des boutons icônes (+, dupliquer, ×).
-- **Un onglet par instrument** (maquette : `docs/maquette-instruments.html`) : tête « 07 Synth Bass », puis les cinq cartes de type
-  (Drums, Basse, Accords, Arpèges, Mélodie ; un kit de batterie ne peut être que Drums), une note « Ce son était une nappe : il
-  jouera maintenant des arpèges. » quand le type change, la barre de piste, la colonne des scènes et l'éditeur du type. Les réglages
-  sont ceux de l'instrument et de la scène (`parts[section].inst[id]`). L'étape 2 montre, sous la scène, l'étiquette de type de chaque
-  instrument. Il n'y a pas de bouton « + Ajouter un instrument » : l'assistant n'a pas de mécanisme d'ajout d'un musicien.
+- **Un onglet par instrument** (maquette : `docs/maquette-instruments.html`) : tête « 07 Synth Bass » avec, à côté de la phrase, le type en
+  lecture seule (petite étiquette colorée « Arpèges », `#bwKindTag`, couleur du type). Le type ne se choisit pas ici : plus de cartes. Sous la
+  tête, une note « Ce son était une nappe : il jouera maintenant des arpèges. » seulement quand le type diffère de celui du rôle, puis la barre
+  de piste, la colonne des scènes et l'éditeur du type. Les réglages sont ceux de l'instrument et de la scène (`parts[section].inst[id]`).
+  **Le type se choisit à l'étape 2 (Instruments)**, dans le panneau de droite du musicien sélectionné : juste sous le titre, une liste
+  « Type » (`<select>` : Drums, Basse, Accords, Arpèges, Mélodie) dans une ligne au liseré de la couleur du type. Un kit de batterie ne peut être
+  que Drums : liste désactivée, avec « Un kit de batterie ne joue que des motifs de batterie. ». Un musicien à plusieurs instruments a une liste
+  par instrument. Changer la valeur met à jour le stepper (pastille, résumé) ; il n'y a plus de liste d'étiquettes sous la scène. Il n'y a pas de
+  bouton « + Ajouter un instrument » : l'assistant n'a pas de mécanisme d'ajout d'un musicien.
 - **Accords et onglets d'instrument** : la barre de piste reste, en haut du contenu, sous la tête d'étape. Les cartes internes (bibliothèque de motifs,
   modes, aperçu des notes) perdent leur bordure quand elles sont déjà dans une carte.
 
