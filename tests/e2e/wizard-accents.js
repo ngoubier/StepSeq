@@ -225,7 +225,9 @@ const ok = (c, m) => {
 
   // brouillon : les accents sont rangés et restaurés
   const before = await page.evaluate(() => JSON.stringify(SS.band._state.wiz.parts));
+  const viewBefore = await page.evaluate(() => JSON.stringify(SS.band._state.wiz.accView || {}));
   const snap = await page.evaluate(() => SS.band.wizSnapshot());
+  ok(JSON.stringify(snap.state.w.accView || {}) === viewBefore, `brouillon : l’état du panneau Accents est rangé (${viewBefore})`);
   ok(JSON.stringify(snap).includes('"accents"') && JSON.stringify(snap).includes('"steps":[0,8]'), 'brouillon : les accents sont dans l’instantané');
   await page.click('#bandClose');
   await page.waitForTimeout(500);
@@ -234,7 +236,24 @@ const ok = (c, m) => {
   ok(okRestore && (await page.evaluate(() => JSON.stringify(SS.band._state.wiz.parts))) === before, 'wizRestore : mêmes accents dans toutes les scènes');
   await page.click('#bandWizSteps li[data-kind="bass"] button');
   await page.waitForTimeout(300);
-  ok((await page.locator('.bw-rnb.ac').count()) > 0 && (await page.locator('#bwAccPanel').count()) === 0, 'l’onglet Basse retrouve les notes accentuées, panneau masqué');
+  ok((await page.evaluate(() => JSON.stringify(SS.band._state.wiz.accView || {}))) === viewBefore, 'wizRestore : même état du panneau Accents');
+  const wasOpen = /"open"/.test(viewBefore);
+  ok((await page.locator('.bw-rnb.ac').count()) > 0, 'l’onglet Basse retrouve les notes accentuées');
+  // le panneau est tel qu'on l'avait laissé ; puis fermé, il reste fermé après restauration
+  if (wasOpen) {
+    ok((await page.locator('#bwAccPanel').count()) === 1, 'panneau Accents rouvert comme on l’avait laissé');
+    await page.click('#bwAccClose');
+    await page.waitForTimeout(300);
+  }
+  ok((await page.locator('#bwAccPanel').count()) === 0, 'panneau Accents fermé');
+  const snap2 = await page.evaluate(() => SS.band.wizSnapshot());
+  await page.click('#bandClose');
+  await page.waitForTimeout(500);
+  await page.evaluate((s) => SS.band.wizRestore(s), snap2);
+  await page.waitForTimeout(600);
+  await page.click('#bandWizSteps li[data-kind="bass"] button');
+  await page.waitForTimeout(300);
+  ok((await page.locator('#bwAccPanel').count()) === 0 && (await page.locator('.bw-rnb.ac').count()) > 0, 'fermé dans le brouillon : fermé après restauration, accents gardés');
   await openAcc();
   ok((await page.locator('.bwa-sw[aria-checked="true"]').count()) === 1, 'panneau rouvert : filtre allumé');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'accents-real.png') });

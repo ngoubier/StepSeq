@@ -3710,8 +3710,9 @@ SS.band = (() => {
     const s = step % BS().accentPeriod(A.repeat, sc.bars);
     putAcc(sc, T, { steps: A.steps.includes(s) ? A.steps.filter((x) => x !== s) : [...A.steps, s] }, focus);
   }
-  /* Panneau « Accents » : affichage seulement (jamais enregistré avec la chanson), par instrument et par scène, comme les courbes
-   * d'automation mais en mémoire : absent = fermé (par défaut), 'open' = ouvert, 'fold' = replié sur sa tête. Fermer ne touche pas aux accents. */
+  /* Panneau « Accents » : affichage seulement (pas dans la chanson créée), par instrument et par scène, gardé dans le brouillon
+   * (S.wiz.accView) comme l'état replié des courbes : absent = fermé (par défaut), 'open' = ouvert, 'fold' = replié sur sa tête.
+   * Fermer ne touche pas aux accents. */
   const accKey = (sc, T) => `${T.id}|${sc.sec}`;
   const accView = (sc, T) => (S.wiz.accView || (S.wiz.accView = {}))[accKey(sc, T)] || null;
   function setAccView(sc, T, v, focus) {

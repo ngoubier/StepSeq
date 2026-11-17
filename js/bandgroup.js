@@ -183,7 +183,7 @@ SS.bandGroup = (() => {
       }
       if (!Object.keys(pp || {}).length) delete w.parts[sec];
     });
-    ['melPanel', 'plans', 'pseeds', 'chars'].forEach((f) => Object.keys(w[f] || {}).forEach((k) => [...set].some((x) => k.startsWith(x + '|')) && delete w[f][k]));
+    ['melPanel', 'plans', 'pseeds', 'chars', 'accView'].forEach((f) => Object.keys(w[f] || {}).forEach((k) => [...set].some((x) => k.startsWith(x + '|')) && delete w[f][k]));
   }
 
   /**

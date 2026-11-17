@@ -92,3 +92,14 @@ test('le projet garde le brouillon (normalizeProject, serialize) et l\'historiqu
   assert.equal(SS.normalizeProject(JSON.parse(JSON.stringify({ ...p, wizard: { v: 7, state: {} } }))).wizard, undefined);
   assert.equal(SS.normalizeProject(JSON.parse(SS.serialize(SS.newProject()))).wizard, undefined);
 });
+
+test('panneau « Accents » : son état ouvert / replié est rangé, les valeurs inconnues sont écartées', () => {
+  const src = live();
+  src.w.accView = { 'bass:bass|verse': 'open', 'bass:bass|chorus': 'fold' };
+  const back = D.unpack(D.pack(src));
+  assert.deepEqual(back.w.accView, { 'bass:bass|verse': 'open', 'bass:bass|chorus': 'fold' });
+  const bad = D.pack(live());
+  bad.w.accView = { a: 'open', b: 'grand', c: 3 };
+  assert.deepEqual(D.unpack(bad).w.accView, { a: 'open' });
+  assert.deepEqual(D.unpack(D.pack(live())).w.accView, {}, 'ancien brouillon : panneau fermé');
+});

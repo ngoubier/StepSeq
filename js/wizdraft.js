@@ -18,7 +18,7 @@ SS.wizDraft = (() => {
   const list = (x) => (Array.isArray(x) ? x : []);
 
   /** Champs de S.wiz rangés tels quels (objets), puis les ensembles et le Map. */
-  const OBJ = ['plans', 'pseeds', 'keys', 'grids', 'emos', 'chars', 'parts', 'kinds', 'melPanel', 'secs'];
+  const OBJ = ['plans', 'pseeds', 'keys', 'grids', 'emos', 'chars', 'parts', 'kinds', 'melPanel', 'secs', 'accView'];
   const SETS = ['seen', 'off', 'mute', 'solo'];
 
   /** src : { mode, styleId, presetId, cover, group, cache, hide: Set, mel, accOpen, tracksOpen, w: S.wiz } */
@@ -100,6 +100,8 @@ SS.wizDraft = (() => {
     };
     SETS.forEach((k) => (out.w[k] = new Set(list(w[k]).filter((v) => typeof v === 'string' || typeof v === 'number'))));
     OBJ.forEach((k) => (out.w[k] = obj(w[k])));
+    // panneau « Accents » : seulement les états connus (ouvert, replié)
+    out.w.accView = Object.fromEntries(Object.entries(out.w.accView).filter(([k, v]) => typeof k === 'string' && (v === 'open' || v === 'fold')));
     if (!out.w.seen.size) out.w.seen.add(out.w.step);
     return out;
   }
