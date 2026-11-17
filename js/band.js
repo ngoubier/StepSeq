@@ -1555,7 +1555,7 @@ SS.band = (() => {
     const p = preset();
     const cols = wizCols();
     const harmony = harmonyOpts(true);
-    const sig = JSON.stringify([p.id, cover() && S.cover, S.wiz.seed, melodyOpts(), harmony, S.wiz.parts, S.wiz.kinds, S.wiz.form, S.wiz.secs, S.wiz.skey, cols.map((c) => [c.id, c.o])]);
+    const sig = JSON.stringify([p.id, cover() && S.cover, S.wiz.seed, melodyOpts(), harmony, JSON.stringify(S.wiz.parts, (k, v) => (k === 'hidden' ? undefined : v)), S.wiz.kinds, S.wiz.form, S.wiz.secs, S.wiz.skey, cols.map((c) => [c.id, c.o])]);
     if (S.wiz.sig !== sig) {
       const sp = specEff();
       const fake = cols.map((c) => ({ id: c.id, type: c.o.type, sound: c.o.sound, band: c.o.band }));
@@ -1677,7 +1677,7 @@ SS.band = (() => {
       const sc = res.scenes.find((x) => x.id === S.wiz.hscene) || res.scenes.find((x) => x.sec === S.wiz.hsec) || res.scenes[0];
       if (n === ST.chords) return sceneChords(sc).split(' | ').slice(0, 4).join(' ');
       const t = insAt(n);
-      if (t) return `${KIND_SUM[t.kind]} · ${instSub(t, sc)}`;
+      if (t) return `${KIND_SUM[t.kind]} · ${instSub(t, sc)}${autoCount(sc.sec, t) ? ' · auto' : ''}`;
     } catch (e) {
       return '';
     }
@@ -2385,9 +2385,10 @@ SS.band = (() => {
     return {
       sc,
       melIds,
-      nav: sceneNav(res, sc, (x) => melSub(x, T), true),
+      nav: sceneNav(res, sc, (x) => withAutoBadge(melSub(x, T), x, T), true),
       bar: trackbar(T),
-      top: h('div', { class: 'bh-top', id: 'bwMelHead' }, h('h3', {}, sc.name), h('span', { class: 'bh-info' }, `${sc.bars} mesures` + (plays > 1 ? ` · jouée ${plays} fois` : '') + ` · ${SS.harmony.label(sc.key)}`), h('span', { class: 'spacer' }), loop),
+      top: h('div', { class: 'bh-top', id: 'bwMelHead' }, h('h3', {}, sc.name), h('span', { class: 'bh-info' }, `${sc.bars} mesures` + (plays > 1 ? ` · jouée ${plays} fois` : '') + ` · ${SS.harmony.label(sc.key)}`), h('span', { class: 'spacer' }), melIds.size ? autoButton(sc, T) : null, loop),
+      auto: h('div', { id: 'bwAuto', class: 'bwau-box' }, melIds.size ? autoCard(sc, T, { fit: true, copy: true }) : null),
       board: h('div', { class: 'bh-scroll', id: 'bwMelBoard' }, board),
       src: melIds.size
         ? h(
@@ -2487,7 +2488,7 @@ SS.band = (() => {
     if (!res || !$('#bwMelBoard', box)) return renderHarmony(insAt());
     const f = melScene(cols, res, curScene(res), insAt());
     $('.bh-scenes', box).replaceWith(f.nav);
-    ['bar:#bwTrackbar', 'top:#bwMelHead', 'board:#bwMelBoard', 'src:#bwMelSrc', 'acc:#bwMelAcc'].forEach((x) => {
+    ['bar:#bwTrackbar', 'top:#bwMelHead', 'board:#bwMelBoard', 'auto:#bwAuto', 'src:#bwMelSrc', 'acc:#bwMelAcc'].forEach((x) => {
       const [k, q] = x.split(':');
       const old = $(q, box);
       if (old && f[k]) old.replaceWith(f[k]);
@@ -2509,7 +2510,7 @@ SS.band = (() => {
     syncMelState(sc, T);
     const f = melScene(cols, res, sc, T);
     const panel = h('div', { class: 'bw-melpanel', id: 'bwMelPanel' });
-    splitView(f.nav, f.bar, h('main', { class: 'bh-main bw-mel' }, f.top, f.board, f.src, f.melIds.size ? panel : null, f.acc));
+    splitView(f.nav, f.bar, h('main', { class: 'bh-main bw-mel' }, f.top, f.board, f.auto, f.src, f.melIds.size ? panel : null, f.acc));
     if (!f.melIds.size) return;
     const sec = sc.sec;
     const fresh = () => (S.wiz && S.wiz.res && S.wiz.res.scenes.find((x) => x.sec === sec)) || sc;
@@ -3439,8 +3440,10 @@ SS.band = (() => {
     const repeat = p[3] === 2 && A.repeat === 1 ? 2 : A.repeat;
     const per = BS().accentPeriod(repeat, sc.bars);
     const steps = BS().accentPreset(id, noteSteps(sc, T), per, id === 'rand' ? Date.now() % 100000 : 0);
-    accLast = { key: sc.sec + '/' + T.id, id, steps: JSON.stringify(steps) };
-    putAcc(sc, T, { steps, repeat }, `.bwa-pat[data-id="${id}"]`);
+    writeAcc(sc, T, { steps, repeat });
+    // motif repéré tel que rangé (normalisé), avant le nouveau rendu
+    accLast = { key: sc.sec + '/' + T.id, id, steps: JSON.stringify(accOf(sc.sec, T).steps) };
+    partChanged(`.bwa-pat[data-id="${id}"]`);
   }
   /** Motif prêt qui correspond aux accents de la scène ('custom' : à la main, 'none' : aucun). */
   function accPatOf(sc, T) {
@@ -3551,6 +3554,438 @@ SS.band = (() => {
           )
         )
       )
+    );
+  }
+
+  /* ---------- Automation par scène (parts[section].inst[id].auto, js/bandsong.js) ----------
+   * Rien n'est affiché tant qu'on n'ajoute pas de courbe : le bouton « Automation » de la tête de scène ouvre le menu des réglages.
+   * Chaque courbe a son panneau sous le piano-roll (ou sous la tête, sans piano-roll), aligné sur les mesures : formes prêtes,
+   * deux réglages, retouche au dessin (glisser un point, double-clic pour en ajouter, clic droit ou Alt+clic pour l'enlever :
+   * la forme devient « Dessinée »). Un panneau se replie en une ligne ; une courbe repliée joue quand même.
+   */
+  const AU = () => SS.bandSong;
+  const AU_H = 72; // hauteur d'une courbe (px)
+  const AU_PAD = 8;
+  const AU_SHAPES = [['flat', 'Plate'], ['rise', 'Montée'], ['fall', 'Descente'], ['open', 'Ouvre puis ferme'], ['close', 'Ferme puis ouvre'], ['lfo', 'LFO lent'], ['steps', 'Marches'], ['final', 'Montée finale'], ['breath', 'Respiration']];
+  const AU_LABELS = { flat: ['Niveau'], rise: ['Début', 'Fin'], fall: ['Début', 'Fin'], open: ['Bords', 'Sommet'], close: ['Bords', 'Creux'], lfo: ['Profondeur', 'Centre'], steps: ['Début', 'Fin'], final: ['Niveau', 'Sommet'], breath: ['Bas', 'Haut'] };
+  let autoOpen = null; // « instrument|scène » dont le menu est ouvert
+  let autoBound = false;
+  let autoProj = null;
+  const autoKey = (sc, T) => `${T.id}|${sc.sec}`;
+  /** Courbes de la scène pour cet instrument ({} si aucune). */
+  const autoOf = (sec, T) => AU().normalizeAuto((partOf(sec, T) || {}).auto) || {};
+  const autoCount = (sec, T) => (mutedIn(sec, T) ? 0 : Object.keys(autoOf(sec, T)).length);
+  /** Écrit les courbes de la scène (sans redessiner) ; aucune courbe : le champ disparaît. */
+  function setAuto(sc, T, next) {
+    putPart(sc.sec, T, { auto: Object.keys(next).length ? next : undefined });
+  }
+  /** Après un changement : la chanson est refaite et on l'entend (la mélodie : sans remonter son panneau). */
+  function autoChanged(sc, T, focus) {
+    if (T.kind !== 'melody') return partChanged(focus);
+    afterLead(sc.sec);
+    const f = focus && $(focus);
+    if (f) f.focus();
+  }
+  /** Ce réglage est-il proposé pour cet instrument (réglages du son : synthés seulement, comme SS.autoParamsFor) ? */
+  function autoAllowed(T, id) {
+    if (id === 'vel') return true;
+    autoProj = autoProj || SS.newProject();
+    try {
+      return SS.autoParamsFor(SS.newTrack(T.col.o, autoProj)).some((P) => P.id === id);
+    } catch (e) {
+      return !AU().SCENE_AUTO.find((x) => x.id === id).voice;
+    }
+  }
+  const autoFmt = (id, n) => {
+    const v = AU().autoReal(id, n);
+    const num = (x, d = 2) => Math.abs(x).toFixed(d).replace('.', ',');
+    if (id === 'filter') return (v < 0 ? '−' : '+') + num(v);
+    if (id === 'vel') return 'vél. ' + Math.round(v);
+    if (id === 'vcf' || id === 'fdecay' || id === 'lfoamt') return SS.autoFormat(id, v);
+    return Math.round(v * 100) + ' %';
+  };
+  const autoPct = (n) => Math.round(n * 100) + ' %';
+  /** « Montée +0,20 → +0,70 », « Respiration vél. 80 ↔ vél. 112 »… */
+  function autoReadout(id, spec, len) {
+    const ys = AU().autoPoints(spec, len).map((p) => p[1]);
+    if (spec.shape === 'flat') return autoFmt(id, ys[0]);
+    if (['open', 'close', 'lfo', 'breath'].includes(spec.shape)) return `${autoFmt(id, Math.min(...ys))} ↔ ${autoFmt(id, Math.max(...ys))}`;
+    return `${autoFmt(id, ys[0])} → ${autoFmt(id, ys[ys.length - 1])}`;
+  }
+  const autoSummary = (id, spec, len) => (spec.shape === 'drawn' ? 'Dessinée' : nameOf(AU_SHAPES, spec.shape)) + ' ' + autoReadout(id, spec, len);
+  const AU_CURVE_IC = '<svg viewBox="0 0 12 9" aria-hidden="true"><path d="M1 7.5C3 7.5 3.5 1.5 6 1.5S9 7.5 11 7.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+
+  /** Pastille « auto » de la colonne des scènes, ajoutée à la ligne de la scène (texte ou élément .bwa-ssub). */
+  function withAutoBadge(line, x, T) {
+    const n = autoCount(x.sec, T);
+    if (!n) return line;
+    const badge = h('em', { class: 'bwau-badge', title: `${n} courbe${n > 1 ? 's' : ''} d’automation` }, h('i', { html: AU_CURVE_IC }), 'auto');
+    if (line && line.nodeType) return line.append(badge), line;
+    return h('span', { class: 'bwa-ssub' }, h('span', {}, line || ''), badge);
+  }
+
+  /* --- dessin d'une courbe --- */
+  const yOfN = (n, hh = AU_H, pad = AU_PAD) => pad + (1 - n) * (hh - 2 * pad);
+  /** SVG d'une courbe sur `len` pas (largeur = la scène, étirée) ; les points sont des éléments HTML par-dessus. */
+  function autoSvg(pts, len, color, hh, pad, mini) {
+    const bars = Math.max(1, Math.round(len / 16));
+    let grid = '';
+    for (let b = 0; b <= bars; b++) grid += `M${b * 16} 0V${hh}`;
+    let beats = '';
+    for (let b = 1; b < bars * 4; b++) if (b % 4) beats += `M${b * 4} 0V${hh}`;
+    const xy = pts.map(([x, y]) => `${x} ${yOfN(y, hh, pad).toFixed(1)}`);
+    const first = pts[0] || [0, 0.5];
+    const last = pts[pts.length - 1] || [0, 0.5];
+    const path = `M0 ${yOfN(first[1], hh, pad).toFixed(1)}` + xy.map((p) => `L${p}`).join('') + `L${len} ${yOfN(last[1], hh, pad).toFixed(1)}`;
+    const vec = 'vector-effect="non-scaling-stroke"';
+    return `<svg viewBox="0 0 ${len} ${hh}" preserveAspectRatio="none" width="100%" height="${hh}" aria-hidden="true"><path d="${beats}" stroke="rgba(255,255,255,.05)" stroke-width="1" fill="none" ${vec}/><path d="${grid}" stroke="#4a4a58" stroke-width="1" fill="none" ${vec}/>${mini ? '' : `<path d="M0 ${yOfN(0.5, hh, pad)}H${len}" stroke="rgba(255,255,255,.12)" stroke-width="1" stroke-dasharray="3 5" fill="none" ${vec}/>`}<path d="${path}L${len} ${hh}L0 ${hh}Z" fill="${color}" stroke="none" opacity=".16"/><path d="${path}" fill="none" stroke="${color}" stroke-width="${mini ? 1.8 : 2.4}" stroke-linejoin="round" ${vec}/></svg>`;
+  }
+  /** Petit dessin d'une forme prête (pour ses puces). */
+  const autoMini = (spec, len) => {
+    const pts = AU().autoPoints(spec, len);
+    const d = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${((100 * x) / Math.max(1, len - 1)).toFixed(1)} ${(14 - y * 12).toFixed(1)}`).join('');
+    return `<svg viewBox="0 0 100 15" preserveAspectRatio="none" aria-hidden="true"><path d="${d}" fill="none" stroke="currentColor" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>`;
+  };
+
+  /* --- menu et bouton de la tête de scène --- */
+  function closeAutoMenu(focusBtn) {
+    if (!autoOpen) return;
+    autoOpen = null;
+    const w = $('.bwau-add');
+    if (!w) return;
+    const m = $('.bwau-menu', w);
+    if (m) m.remove();
+    const b = $('.bwau-btn', w);
+    if (b) {
+      b.setAttribute('aria-expanded', 'false');
+      if (focusBtn) b.focus();
+    }
+  }
+  function bindAutoMenu() {
+    if (autoBound) return;
+    autoBound = true;
+    document.addEventListener('pointerdown', (e) => {
+      if (autoOpen && !(e.target.closest && e.target.closest('.bwau-add'))) closeAutoMenu(false);
+    });
+    document.addEventListener(
+      'keydown',
+      (e) => {
+        if (e.key !== 'Escape' || !autoOpen) return;
+        e.preventDefault();
+        e.stopPropagation();
+        closeAutoMenu(true);
+      },
+      true
+    );
+  }
+  function autoMenuEl(sc, T) {
+    const specs = autoOf(sc.sec, T);
+    const n = Object.keys(specs).length;
+    const vis = Object.values(specs).filter((s) => !s.hidden).length;
+    const items = AU().SCENE_AUTO.map((p) => {
+      const added = !!specs[p.id];
+      const off = !autoAllowed(T, p.id);
+      return h(
+        'button',
+        {
+          type: 'button', role: 'menuitemcheckbox', class: 'bwau-item', 'aria-checked': String(added), 'data-param': p.id, style: `--pc:${p.color}`, disabled: added || off,
+          onclick: () => {
+            setAuto(sc, T, { ...autoOf(sc.sec, T), [p.id]: AU().newAutoSpec(p.id) });
+            autoChanged(sc, T, '.bwau-item:not(:disabled)');
+          },
+        },
+        h('i'),
+        h('span', {}, (added ? '✓ ' : '') + (p.menu || p.name), p.sub ? h('small', {}, ` · ${p.sub}`) : null),
+        h('small', {}, added ? 'ajouté' : off ? 'synthés seulement' : p.voice ? 'synthé' : '')
+      );
+    });
+    const all = (hidden) => () => {
+      setAuto(sc, T, Object.fromEntries(Object.entries(autoOf(sc.sec, T)).map(([k, s]) => [k, { ...s, hidden: hidden || undefined }])));
+      renderWiz(); // l'affichage seul change : la lecture continue
+      const f = $('.bwau-menu .bwau-item');
+      if (f) f.focus();
+    };
+    const menu = h(
+      'div',
+      { class: 'bwau-menu', role: 'menu', 'aria-label': `Ajouter une automation à « ${sc.name} »` },
+      h('div', { class: 'bwau-mh' }, `Ajouter une automation à « ${sc.name} »`),
+      ...items,
+      h('div', { class: 'bwau-mh' }, 'Panneaux'),
+      h('div', { class: 'bwau-mrow' },
+        h('button', { type: 'button', class: 'btn btn-small', id: 'bwauHideAll', disabled: !vis, onclick: all(true) }, 'Tout masquer'),
+        h('button', { type: 'button', class: 'btn btn-small', id: 'bwauShowAll', disabled: !n || vis === n, onclick: all(false) }, 'Tout afficher'))
+    );
+    menu.addEventListener('keydown', (e) => {
+      const list = [...menu.querySelectorAll('button:not(:disabled)')];
+      const i = list.indexOf(document.activeElement);
+      const to = e.key === 'ArrowDown' ? list[(i + 1) % list.length] : e.key === 'ArrowUp' ? list[(i - 1 + list.length) % list.length] : e.key === 'Home' ? list[0] : e.key === 'End' ? list[list.length - 1] : null;
+      if (!to) return;
+      e.preventDefault();
+      to.focus();
+    });
+    return menu;
+  }
+  /** Bouton « Automation · n ▾ » et son menu (dans la tête de la scène). */
+  function autoButton(sc, T) {
+    bindAutoMenu();
+    if (autoOpen && autoOpen !== autoKey(sc, T)) autoOpen = null; // on a changé de scène ou d'instrument
+    const n = Object.keys(autoOf(sc.sec, T)).length;
+    const open = autoOpen === autoKey(sc, T);
+    const btn = h('button', { type: 'button', class: 'btn btn-small bwau-btn' + (n ? ' has' : ''), id: 'bwAutoBtn', 'aria-haspopup': 'menu', 'aria-expanded': String(open), title: 'Ajouter une courbe d’automation (filtre, volume, vélocité…) à cette scène' }, `Automation${n ? ` · ${n}` : ''} ▾`);
+    const w = h('span', { class: 'bwau-add' }, btn, open ? autoMenuEl(sc, T) : null);
+    btn.addEventListener('click', () => {
+      if (autoOpen === autoKey(sc, T)) return closeAutoMenu(true);
+      autoOpen = autoKey(sc, T);
+      const m = autoMenuEl(sc, T);
+      w.append(m);
+      btn.setAttribute('aria-expanded', 'true');
+      const f = m.querySelector('button:not(:disabled)');
+      if (f) f.focus();
+    });
+    return w;
+  }
+
+  /* --- panneaux des courbes --- */
+  /** Réglages (curseurs, période) d'une courbe prête, ou « Revenir à la forme ». */
+  function autoControls(sc, T, p, spec, live) {
+    const id = p.id;
+    if (spec.shape === 'drawn') {
+      const from = spec.from;
+      return h('div', { class: 'bwau-lcn' }, h('button', { type: 'button', class: 'bwau-rev', onclick: () => revertAuto(sc, T, id) }, from ? `↺ Revenir à la forme « ${nameOf(AU_SHAPES, from)} »` : '↺ Revenir à une courbe plate'));
+    }
+    const labels = AU_LABELS[spec.shape];
+    const sl = (which, i) => {
+      const val = h('b', {}, spec.shape === 'lfo' && which === 'a' ? autoPct(spec[which]) : autoFmt(id, spec[which]));
+      const inp = h('input', { type: 'range', min: '0', max: '100', step: '1', value: String(Math.round(spec[which] * 100)), id: `bwau-${id}-${which}`, 'aria-label': `${p.name} : ${labels[i]}` });
+      inp.addEventListener('input', () => {
+        spec[which] = inp.value / 100;
+        val.textContent = spec.shape === 'lfo' && which === 'a' ? autoPct(spec[which]) : autoFmt(id, spec[which]);
+        live();
+      });
+      inp.addEventListener('change', () => commitAuto(sc, T, id, spec, `#bwau-${id}-${which}`));
+      return h('div', { class: 'bwau-k' }, h('label', { for: inp.id }, labels[i], val), inp);
+    };
+    return h(
+      'div',
+      { class: 'bwau-lcn', 'data-ctl': '' },
+      sl('a', 0),
+      labels[1] ? sl('b', 1) : null,
+      spec.shape === 'lfo'
+        ? h('div', { class: 'bwau-per' }, h('span', { class: 'bh-lbl' }, 'Période'),
+            h('span', { class: 'segmented', role: 'radiogroup', 'aria-label': 'Période du LFO' },
+              ...[1, 2, 4].map((n) => h('button', { type: 'button', role: 'radio', class: (spec.period || 2) === n ? 'active' : '', 'aria-checked': String((spec.period || 2) === n), 'data-per': n, onclick: () => commitAuto(sc, T, id, { ...spec, period: n }, `.bwau-ln[data-param="${id}"] [data-per="${n}"]`) }, `${n} mes.`))))
+        : null
+    );
+  }
+  function commitAuto(sc, T, id, spec, focus) {
+    setAuto(sc, T, { ...autoOf(sc.sec, T), [id]: spec });
+    autoChanged(sc, T, focus);
+  }
+  function revertAuto(sc, T, id) {
+    const s = autoOf(sc.sec, T)[id];
+    const back = s.from ? { shape: s.from, a: s.a, b: s.b, ...(s.period ? { period: s.period } : {}) } : AU().newAutoSpec(id);
+    if (s.hidden) back.hidden = true;
+    commitAuto(sc, T, id, back, `.bwau-ln[data-param="${id}"] .bwau-xb`);
+  }
+  function delAuto(sc, T, id) {
+    const next = { ...autoOf(sc.sec, T) };
+    delete next[id];
+    setAuto(sc, T, next);
+    autoChanged(sc, T, '#bwAutoBtn');
+  }
+  function foldAuto(sc, T, id) {
+    const s = autoOf(sc.sec, T)[id];
+    setAuto(sc, T, { ...autoOf(sc.sec, T), [id]: { ...s, hidden: s.hidden ? undefined : true } });
+    renderWiz(); // seul l'affichage change : la lecture continue
+    const f = $(`.bwau-ln[data-param="${id}"] .bwau-fold`);
+    if (f) f.focus();
+  }
+
+  /** Une courbe : tête (nom, valeur, réglages, ×), formes prêtes, courbe éditable ; repliée : une ligne et une mini-courbe. */
+  function autoLine(sc, T, p, spec, fit) {
+    const len = sc.bars * 16;
+    const fold = !!spec.hidden;
+    const lane = h('div', { class: 'bwau-cv' + (fold ? ' mini' : ''), style: `height:${fold ? 30 : AU_H}px` });
+    const pts = () => AU().autoPoints(spec, len);
+    const rd = h('span', { class: 'bwau-rd', 'data-rd': '' }, fold ? autoSummary(p.id, spec, len) : autoReadout(p.id, spec, len));
+    const handles = [];
+    const paint = () => {
+      const q = pts();
+      lane.querySelector('svg')?.remove();
+      lane.insertAdjacentHTML('afterbegin', autoSvg(q, len, p.color, fold ? 30 : AU_H, fold ? 5 : AU_PAD, fold));
+      if (fold) return;
+      while (handles.length > q.length) handles.pop().remove();
+      q.forEach(([x, y], i) => {
+        if (!handles[i]) {
+          const d = h('div', { class: 'bwau-pt', role: 'slider', tabindex: '0', 'data-i': i, title: 'Glisser : déplacer · double-clic sur la courbe : ajouter un point · clic droit ou Alt+clic : enlever' });
+          handles[i] = d;
+          lane.append(d);
+        }
+        const d = handles[i];
+        d.dataset.i = i;
+        d.style.left = `${(100 * x) / len}%`;
+        d.style.top = `${yOfN(y)}px`;
+        d.setAttribute('aria-label', `${p.name}, point ${i + 1} sur ${q.length}, pas ${x + 1}`);
+        d.setAttribute('aria-valuemin', '0');
+        d.setAttribute('aria-valuemax', '100');
+        d.setAttribute('aria-valuenow', String(Math.round(y * 100)));
+        d.setAttribute('aria-valuetext', autoFmt(p.id, y));
+      });
+      rd.textContent = autoReadout(p.id, spec, len);
+    };
+    paint();
+    const head = h(
+      'div',
+      { class: 'bwau-lh' },
+      h('button', { type: 'button', class: 'bwau-xb bwau-fold', 'aria-expanded': String(!fold), 'aria-label': `${fold ? 'Afficher' : 'Masquer'} la courbe ${p.name}`, title: fold ? 'Afficher' : 'Masquer (elle continue de jouer)', onclick: () => foldAuto(sc, T, p.id) }, fold ? '▸' : '▾'),
+      h('i', { class: 'bwau-sq' }),
+      h('b', {}, p.name),
+      !fold && p.sub ? h('span', { class: 'bwau-sub' }, p.sub) : null,
+      rd,
+      h('span', { class: 'spacer' }),
+      fold ? null : autoControls(sc, T, p, spec, () => paint()),
+      h('button', { type: 'button', class: 'bwau-xb bwau-del', 'aria-label': `Supprimer la courbe ${p.name}`, title: 'Supprimer la courbe', onclick: () => delAuto(sc, T, p.id) }, '×')
+    );
+    const chips = fold
+      ? null
+      : h('div', { class: 'bwau-shapes', role: 'group', 'aria-label': 'Formes prêtes' },
+          ...AU_SHAPES.map(([sid, name]) => {
+            const on = spec.shape === sid;
+            const base = { ...AU().AUTO_DEF[sid], shape: sid };
+            if (sid === 'flat') base.a = base.b = AU().newAutoSpec(p.id).a;
+            return h('button', { type: 'button', class: 'bwau-shp' + (on ? ' on' : ''), 'data-shape': sid, 'aria-pressed': String(on), style: `--pc:${p.color}`, onclick: () => commitAuto(sc, T, p.id, { ...base, ...(spec.period && sid === 'lfo' ? { period: spec.period } : {}), ...(spec.hidden ? { hidden: true } : {}) }, `.bwau-ln[data-param="${p.id}"] [data-shape="${sid}"]`) }, h('span', { html: autoMini(base, len) }), h('span', {}, name));
+          }),
+          spec.shape === 'drawn' ? h('button', { type: 'button', class: 'bwau-shp on drawn', 'aria-pressed': 'true', tabindex: '-1', style: `--pc:${p.color}` }, h('span', { html: autoMini(spec, len) }), h('span', {}, 'Dessinée')) : null);
+    // retouche au dessin
+    const toDrawn = () => {
+      if (spec.shape === 'drawn') return;
+      const from = spec.shape;
+      const q = pts();
+      Object.assign(spec, { shape: 'drawn', from, points: q });
+    };
+    const posOf = (e) => {
+      const r = lane.getBoundingClientRect();
+      return [((e.clientX - r.left) / r.width) * len, 1 - (e.clientY - r.top - AU_PAD) / (AU_H - 2 * AU_PAD)];
+    };
+    const cl01 = (v) => Math.max(0, Math.min(1, v));
+    let drag = null;
+    lane.addEventListener('pointerdown', (e) => {
+      const g = e.target.closest('.bwau-pt');
+      if (!g || (e.button !== undefined && e.button !== 0)) return;
+      e.preventDefault();
+      const i = +g.dataset.i;
+      if (e.altKey) return delPoint(i);
+      g.setPointerCapture(e.pointerId);
+      drag = { i, moved: false };
+    });
+    lane.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      toDrawn();
+      const q = spec.points || pts();
+      const [fx, fy] = posOf(e);
+      const { i } = drag;
+      let x = q[i][0];
+      if (i > 0 && i < q.length - 1) x = Math.min(q[i + 1][0] - 1, Math.max(q[i - 1][0] + 1, Math.round(fx / 2) * 2));
+      const y = Math.round(cl01(fy) * 100) / 100;
+      if (x === q[i][0] && y === q[i][1]) return;
+      q[i] = [x, y];
+      spec.points = q;
+      drag.moved = true;
+      paint();
+    });
+    const end = () => {
+      if (!drag) return;
+      const m = drag.moved;
+      const i = drag.i;
+      drag = null;
+      if (m) commitAuto(sc, T, p.id, spec, `.bwau-ln[data-param="${p.id}"] .bwau-pt[data-i="${i}"]`);
+    };
+    lane.addEventListener('pointerup', end);
+    lane.addEventListener('pointercancel', end);
+    const delPoint = (i) => {
+      const q = pts();
+      if (i <= 0 || i >= q.length - 1 || q.length <= 2) return;
+      toDrawn();
+      spec.points = q.filter((_, k) => k !== i);
+      commitAuto(sc, T, p.id, spec, `.bwau-ln[data-param="${p.id}"] .bwau-pt[data-i="${Math.max(0, i - 1)}"]`);
+    };
+    lane.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      const g = e.target.closest('.bwau-pt');
+      if (g) delPoint(+g.dataset.i);
+    });
+    lane.addEventListener('dblclick', (e) => {
+      if (fold || e.target.closest('.bwau-pt')) return;
+      const [fx, fy] = posOf(e);
+      const x = Math.max(1, Math.min(len - 2, Math.round(fx)));
+      const q = pts();
+      if (q.some((a) => a[0] === x)) return;
+      toDrawn();
+      spec.points = [...q, [x, Math.round(cl01(fy) * 100) / 100]].sort((a, b) => a[0] - b[0]);
+      commitAuto(sc, T, p.id, spec, `.bwau-ln[data-param="${p.id}"] .bwau-pt[data-i="${spec.points.findIndex((a) => a[0] === x)}"]`);
+    });
+    lane.addEventListener('keydown', (e) => {
+      const g = e.target.closest('.bwau-pt');
+      if (!g) return;
+      const i = +g.dataset.i;
+      const q = pts();
+      const big = e.shiftKey ? 0.1 : 0.02;
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault();
+        return delPoint(i);
+      }
+      const dy = { ArrowUp: big, ArrowDown: -big }[e.key];
+      const dx = { ArrowRight: 2, ArrowLeft: -2 }[e.key];
+      if (dy === undefined && dx === undefined) return;
+      e.preventDefault();
+      toDrawn();
+      const [x, y] = q[i];
+      const nx = dx !== undefined && i > 0 && i < q.length - 1 ? Math.min(q[i + 1][0] - 1, Math.max(q[i - 1][0] + 1, x + dx)) : x;
+      q[i] = [nx, Math.round(cl01(y + (dy || 0)) * 100) / 100];
+      spec.points = q;
+      commitAuto(sc, T, p.id, spec, `.bwau-ln[data-param="${p.id}"] .bwau-pt[data-i="${i}"]`);
+    });
+    const xs = h('div', { class: 'bwau-xs', 'data-xs': '' }, h('div', { class: 'bwau-in' }, lane));
+    return h('section', { class: 'bwau-ln' + (fold ? ' fold' : ''), 'data-param': p.id, style: `--pc:${p.color}` }, head, chips, xs);
+  }
+  /** Carte « Automation » de la scène (null : aucune courbe, rien n'est affiché). `fit` : sans défilement (largeur de la carte). */
+  function autoCard(sc, T, { fit = false, copy = false } = {}) {
+    const specs = autoOf(sc.sec, T);
+    const params = AU().SCENE_AUTO.filter((p) => specs[p.id]);
+    if (!params.length) return null;
+    const bars = sc.bars;
+    const ruler = h('div', { class: 'bwau-xs bwau-ruler', 'data-xs': '' }, h('div', { class: 'bwau-in' }, ...Array.from({ length: bars }, (_, b) => h('span', { style: `left:${((100 * b) / bars).toFixed(3)}%;width:${(100 / bars).toFixed(3)}%` }, String(b + 1)))));
+    return h(
+      'section',
+      { class: 'bwp-card bw-card bwau' + (fit ? ' fit' : ''), id: 'bwAuto', style: `--n:${sc.bars * 16}` },
+      h('div', { class: 'bwp-ch' }, h('b', {}, `Automation de « ${sc.name} »`), h('span', { class: 'bh-info' }, `${bars} mesure${bars > 1 ? 's' : ''} · réglée pour cette scène seulement`),
+        copy ? h('span', { class: 'spacer' }) : null,
+        copy ? h('button', { type: 'button', class: 'btn btn-small', id: 'bwauCopy', title: 'Même automation pour les autres scènes du même type (couplet et couplet 2…)', onclick: () => copyAuto(sc, T) }, 'Copier l’automation vers les scènes du même type') : null),
+      ruler,
+      ...params.map((p) => autoLine(sc, T, p, JSON.parse(JSON.stringify(specs[p.id])), fit)),
+      h('p', { class: 'dlg-hint' }, 'Retouche : glisse un point (haut/bas et gauche/droite) · double-clic pour en ajouter · clic droit ou Alt+clic sur un point pour l’enlever.')
+    );
+  }
+  /** Copie les courbes de la scène vers les scènes du même type (onglet Mélodie, sans bouton de copie général). */
+  function copyAuto(sc, T) {
+    const a = (partOf(sc.sec, T) || {}).auto;
+    const to = S.wiz.res.scenes.filter((x) => x.sec !== sc.sec && kindOf(x.sec) === kindOf(sc.sec));
+    to.forEach((x) => putPart(x.sec, T, { auto: a ? JSON.parse(JSON.stringify(a)) : undefined }));
+    S.wiz.pmsg = to.length ? `Automation copiée vers ${to.map((x) => x.name).join(', ')}` : 'Aucune autre scène de ce type';
+    renderWiz();
+  }
+  /** Défilement horizontal commun : le piano-roll, la règle et les courbes d'une scène bougent ensemble. */
+  function syncAutoScroll(root) {
+    const els = [...root.querySelectorAll('[data-xs], .bw-rscr')];
+    if (els.length < 2) return;
+    let lock = false;
+    els.forEach((e) =>
+      e.addEventListener('scroll', () => {
+        if (lock) return;
+        lock = true;
+        els.forEach((o) => o !== e && (o.scrollLeft = e.scrollLeft));
+        lock = false;
+      })
     );
   }
 
@@ -3757,6 +4192,7 @@ SS.band = (() => {
       h('span', { class: 'bh-info' }, `${sc.bars} mesures · ${what}`),
       h('span', { class: 'spacer' }),
       msg ? h('span', { class: 'bh-info bwp-msg', role: 'status' }, msg) : null,
+      isT(role) ? autoButton(sc, role) : null,
       isT(role) ? loopBtn(sc) : null,
       own ? h('button', { type: 'button', class: 'btn btn-small', id: 'bwpBack', title: 'Revenir au jeu de l’inspiration dans cette scène', onclick: () => resetPart(sc, role) }, '↺ Inspiration') : null,
       h('button', { type: 'button', class: 'btn btn-small', id: 'bwpSame', title: 'Même réglage pour les autres scènes du même type (couplet et couplet 2…)', onclick: () => copyPart(sc, role, false) }, 'Copier vers les scènes du même type'),
@@ -3812,7 +4248,7 @@ SS.band = (() => {
     if (kind === T.kind || !setKind(T.id, kind)) return;
     Object.keys(S.wiz.parts).forEach((sec) => {
       const own = ownPart(sec, T);
-      if (own) putInstPart(sec, T.key, Object.fromEntries(Object.keys(own).filter((k) => k !== 'off' && k !== 'lead').map((k) => [k, undefined])));
+      if (own) putInstPart(sec, T.key, Object.fromEntries(Object.keys(own).filter((k) => k !== 'off' && k !== 'lead' && k !== 'auto').map((k) => [k, undefined])));
     });
     if (T.kind === 'melody') leaveMel();
     after ? after() : partChanged();
@@ -3834,8 +4270,9 @@ SS.band = (() => {
     const prev = $('#bwParts');
     const top = prev && prev.dataset.ins === T.id && prev.dataset.kind === T.kind ? prev.scrollTop : 0; // un clic bas dans la liste ne la remonte pas
     const content = h('div', { class: 'bwc bwp', id: 'bwParts', 'data-kind': T.kind, 'data-ins': T.id, style: `--c:${KIND_COLOR[T.kind]}` }, ...body);
-    splitView(sceneNav(res, sc, (x) => (T.kind === 'bass' ? bassSceneSub(x, T) : instSub(T, x))), trackbar(T), content);
+    splitView(sceneNav(res, sc, (x) => withAutoBadge(T.kind === 'bass' ? bassSceneSub(x, T) : instSub(T, x), x, T)), trackbar(T), content);
     content.scrollTop = top;
+    syncAutoScroll(content);
   }
 
   /* --- Batterie : bibliothèque de motifs, grille 5 pistes × 16 pas, fills, crash --- */
@@ -3983,7 +4420,7 @@ SS.band = (() => {
       ),
       h('div', { class: 'bwp-lib', role: 'radiogroup', 'aria-label': 'Motifs de batterie' }, card(null), ...list.filter((p) => !flt || p.energy === flt).map(card))
     );
-    return [partHead(sc, T, 'batterie', false), card1, card2];
+    return [partHead(sc, T, 'batterie', false), autoCard(sc, T), card1, card2];
   }
 
   /* --- Drums d'un instrument qui n'est pas un kit : notes courtes sur la fondamentale, jouées sur la grosse caisse et / ou la caisse claire du motif --- */
@@ -4011,6 +4448,7 @@ SS.band = (() => {
     };
     return [
       partHead(sc, T, 'drums', true),
+      autoCard(sc, T),
       h(
         'section',
         { class: 'bwp-card bw-card' },
@@ -4050,6 +4488,7 @@ SS.band = (() => {
     return [
       partHead(sc, T, 'basse', false),
       rollBox(sc, T),
+      autoCard(sc, T),
       h(
         'section',
         { class: 'bwp-card bw-card' },
@@ -4084,6 +4523,7 @@ SS.band = (() => {
     return [
       partHead(sc, T, 'nappe', false),
       rollBox(sc, T),
+      autoCard(sc, T, { fit: true }),
       h(
         'section',
         { class: 'bwp-card bw-card' },
@@ -4277,6 +4717,7 @@ SS.band = (() => {
     return [
       partHead(sc, T, 'arpège', true),
       rollBox(sc, T),
+      autoCard(sc, T, { fit: true }),
       h(
         'section',
         { class: 'bwp-card bwa' },
