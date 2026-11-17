@@ -62,8 +62,10 @@ Le vrai assistant marche, mais il est plus lourd à l'œil que la maquette :
      l'application), transport (lecture, stop), fermer ;
    - **corps** : stepper à gauche (232 px), contenu à droite, qui défile seul ;
    - **pied** : « ← <étape précédente> » et « <étape suivante> → » (avec le nom des étapes), « Créer la chanson » à la fin.
-2. **Stepper vertical** à la place de la barre horizontale. Les étapes sont groupées : « Fondations » (1 à 4),
-   « Pistes, scène par scène » (5 à 11), « Créer » (12).
+2. **Stepper vertical** à la place de la barre horizontale. Les étapes sont groupées : « Fondations » (1 à 5 : Style, Instruments, Tempo et tonalité, Scènes, Accords),
+   « Instruments, scène par scène » (une étape par instrument du groupe, nombre variable, pastille de la couleur de son type),
+   « Finaliser » (Mix, Intégration). Les numéros suivent ; en code, `ST.chords`, `ST.mix` et `ST.pick` sont calculés et une
+   étape instrument s'adresse par `{ inst: id }` (`stepRef`, `stepNum`).
    - Chaque étape a sa pastille numérotée, son nom et un résumé d'une ligne (par exemple « Synthwave », « 132 BPM · Do mineur »,
      « 5 scènes · 88 mesures », le motif de la scène…).
    - L'étape en cours est en relief. Une étape visitée a une coche de la couleur de son rôle.
@@ -96,7 +98,15 @@ Le vrai assistant marche, mais il est plus lourd à l'œil que la maquette :
     (`@media (hover: none)`).
   - Les lignes de scène sont plus simples : un liseré de couleur du type, le nom éditable, le segment 4 / 8 / 16 / 32 et
     des boutons icônes (+, dupliquer, ×).
-- **5 à 10** : la barre de piste reste, en haut du contenu, sous la tête d'étape. Les cartes internes (bibliothèque de motifs,
+- **Un onglet par instrument** (maquette : `docs/maquette-instruments.html`) : tête « 07 Synth Bass » avec, à côté de la phrase, le type en
+  lecture seule (petite étiquette colorée « Arpèges », `#bwKindTag`, couleur du type). Le type ne se choisit pas ici : plus de cartes. Sous la
+  tête, la barre de piste, la colonne des scènes et l'éditeur du type. Les réglages sont ceux de l'instrument et de la scène (`parts[section].inst[id]`).
+  **Le type se choisit à l'étape 2 (Instruments)**, dans le panneau de droite du musicien sélectionné : juste sous le titre, une liste
+  « Type » (`<select>` : Drums, Basse, Accords, Arpèges, Mélodie) dans une ligne au liseré de la couleur du type. Un kit de batterie ne peut être
+  que Drums : liste désactivée, avec « Un kit de batterie ne joue que des motifs de batterie. ». Un musicien à plusieurs instruments a une liste
+  par instrument. Changer la valeur met à jour le stepper (pastille, résumé) ; il n'y a plus de liste d'étiquettes sous la scène. Il n'y a pas de
+  bouton « + Ajouter un instrument » : l'assistant n'a pas de mécanisme d'ajout d'un musicien.
+- **Accords et onglets d'instrument** : la barre de piste reste, en haut du contenu, sous la tête d'étape. Les cartes internes (bibliothèque de motifs,
   modes, aperçu des notes) perdent leur bordure quand elles sont déjà dans une carte.
 
 ## Ce qui ne change pas
@@ -109,4 +119,4 @@ Les identifiants et crochets de test (`#bwNext`, `#bwBack`, `#bwCreate`, `#bandS
 L'assistant n'est plus une fenêtre plein écran (`<dialog>`) mais une zone de la fenêtre principale (`#bandDialog`, `body.wizard-mode`) :
 elle remplace les pistes, sous la barre du haut qui reste visible. Plus d'en-tête propre : Lecture / Stop, tempo, position et tonalité sont
 ceux de la barre du haut. Pied : un seul bouton **Fermer** (et « Chanson vide » à l'étape 1) ; on change d'étape par le stepper.
-« Créer la chanson » et General MIDI sont dans le contenu des étapes 12 et 2.
+« Créer la chanson » est dans l'étape Intégration, General MIDI dans l'étape 2.

@@ -4652,3 +4652,43 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
   #bandDialog .mx-tabs button { flex: none; gap: 8px; }
   #bandDialog .mx-scenes .bh-scene { min-width: 132px; }
 }
+
+/* ================================================================== */
+/* Un onglet par instrument (js/band.js : renderIns, kindPicker)       */
+/* Maquette : docs/maquette-instruments.html. Jetons --bw-*, couleur   */
+/* du type en --c / --tc (batterie rose, basse verte, accords bleu,    */
+/* arpège turquoise, mélodie violette).                                */
+/* ================================================================== */
+/* stepper : pastille et point de la couleur du type */
+#bandDialog .band-wiz-steps li.bw-ins .bw-pill { border-color: var(--c); color: var(--c); }
+#bandDialog .band-wiz-steps li.bw-ins.cur .bw-pill { background: var(--c); border-color: var(--c); color: #0b0b0e; }
+#bandDialog .band-wiz-steps li.bw-ins.done .bw-pill { background: color-mix(in srgb, var(--c) 14%, var(--bw-panel2)); }
+#bandDialog .band-wiz-steps .bw-sn { display: flex; align-items: center; gap: 6px; min-width: 0; }
+#bandDialog .band-wiz-steps .bw-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--c); }
+#bandDialog .band-wiz-steps li:not(.bw-ins) .bw-dot { display: none; }
+/* l'éditeur suit la couleur du type */
+#bandDialog .bwp .bwp-mode.on, #bandDialog .bwp .bwp-pat.on { border-color: var(--c); }
+#bandDialog .bw-trackbar .tb-chip.cur { box-shadow: 0 0 0 1px var(--c); }
+/* tête d'un onglet d'instrument : type en lecture seule */
+#bandDialog .bw-insline { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; min-width: 0; }
+#bandDialog .bw-ktag { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border: 1px solid var(--c); border-radius: 999px; background: color-mix(in srgb, var(--c) 20%, var(--bw-panel2)); color: var(--bw-text); font-size: 12px; font-weight: 600; white-space: nowrap; }
+/* étape 2, panneau de droite : liste « Type » sous le titre */
+#bandDialog .bpn-kind { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+#bandDialog .bpn-krow { display: grid; grid-template-columns: 10px auto minmax(0, 1fr); gap: 4px 8px; align-items: center; padding: 8px 10px; border: 1px solid var(--bw-line); border-left: 4px solid var(--c); border-radius: var(--bw-r-card); background: var(--bw-panel2); }
+#bandDialog .bpn-krow .bw-dot { width: 10px; height: 10px; border-radius: 3px; background: var(--c); }
+#bandDialog .bpn-krow label { font-size: 12px; color: var(--bw-muted); }
+#bandDialog .bpn-ksel { min-width: 0; height: var(--bw-h-sm); padding: 0 8px; border: 1px solid var(--c); border-radius: 8px; background: var(--bw-panel); color: var(--bw-text); font: inherit; font-size: 13px; }
+#bandDialog .bpn-ksel:disabled { opacity: .7; }
+#bandDialog .bpn-kdesc { grid-column: 1 / -1; color: var(--bw-muted); font-size: 12px; }
+@media (max-width: 720px) {
+    #bandDialog .bh-content { gap: 8px; }
+  #bandDialog .bw-stephead.bw-insHead p { display: none; }
+  #bandDialog .bw-stephead.bw-insHead { margin-bottom: 4px; }
+  #bandDialog .bw-trackbar { padding: 6px 8px; gap: 4px 12px; }
+  #bandDialog .bw-trackbar .tb-lbl { display: none; }
+  #bandDialog .bw-trackbar .tb-chip { padding: 2px 7px; font-size: 11px; gap: 4px; }
+  #bandDialog .bw-trackbar .tb-grp { gap: 4px 5px; }
+  #bandDialog .bw-trackbar .tb-listen { flex: 1 1 100%; flex-wrap: nowrap; overflow-x: auto; }
+  #bandDialog .bw-trackbar .tb-listen > * { flex: none; }
+  #bandDialog .bw-trackbar select { padding: 3px 6px; font-size: 12px; }
+}

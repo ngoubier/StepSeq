@@ -36,6 +36,28 @@
  *    d'Harmonie). Elle remplace celle du moteur sur la première piste chantante présente (lead, puis vox, puis sax) ;
  *    [] = silence ; elle joue aussi dans une scène où l'inspiration ne chante pas (sauf rôle coupé par off).
  *    Les autres pistes chantantes gardent leur mélodie.
+ *
+ * Type d'instrument (option kinds de build) : chaque instrument a un type parmi KINDS = drums, bass, chords, arp, melody.
+ * Le type choisit le générateur qui joue ses notes. Par défaut c'est celui de son rôle (DEFAULT_KIND : drums et perc →
+ * drums, bass → bass, pad, strings, keys, guitar → chords, arp, arpchord → arp, lead, vox, sax → melody ; fx n'a pas
+ * de type). Identifiant d'instrument : « musicien:clé » de t.band (la clé de colonne de l'assistant), suivi de « #n »
+ * pour le n-ième doublon ; sans t.band.musician, la clé seule. kinds = { [idInstrument]: type } (repli : t.id, puis t.kind).
+ *  - Un kit de batterie (piste drum) ne peut être que drums (checkKind) : tout autre type est ignoré.
+ *  - bass : basse (registre grave) ; chords : accords plaqués ou tenus (53-76) ; arp : arpège des accords (60-79, ou Arp One) ;
+ *    melody : mélodie du moteur (même mélodie que le lead pour le premier, une autre graine pour chaque autre : la
+ *    graine contient le rôle de la piste et son « #n ») ; drums : notes courtes sur la fondamentale de l'accord (36-47),
+ *    jouées sur la grosse caisse et la caisse claire du motif de la scène (parts.drums, ou le jeu du plan).
+ *  - Un instrument dont le type a changé ne reprend pas les réglages de son rôle : son mode vient de inst.mode, sinon du
+ *    mode du plan pour ce type dans la section (sec.arp, sec.pad, sec.lead…), sinon d'un mode par défaut (DEFAULT_MODE).
+ *    Il reste muet là où son propre rôle est muet dans le plan, sauf si inst.mode (ou inst.one) l'allume.
+ * Réglages par instrument et par scène : parts[section].inst[idInstrument] = { mode, off, ...réglages du type }, avec repli
+ * sur les réglages du rôle (parts[section][rôle]) tant que le type est celui du rôle. Champs : bass { mode, pedal,
+ * approach, register } ; chords { mode, voicing } ; arp { mode, one } ; melody { mode, character, notes, rhythm,
+ * complexity, range, ending, form, plan, seeds, lead: { events }, double: 'octave' | 'third' } (double : copie de la
+ * mélodie du premier instrument mélodique, une octave au-dessus ou une tierce diatonique au-dessus) ; drums
+ * (instrument mélodique) { mode: both | kick | snare, pattern, style, edits } ; kit de batterie { pattern, style,
+ * edits, fill, fillType, crash } (clé : id de la pièce ou id du musicien) ; off : true coupe l'instrument dans la scène.
+ * Sans kinds ni inst, la chanson est exactement celle d'avant.
  */
 window.SS = window.SS || {};
 
@@ -1113,8 +1135,49 @@ SS.bandSong = (() => {
     }
   }
 
+  /* ---------- types d'instrument ---------- */
+  const KINDS = ['drums', 'bass', 'chords', 'arp', 'melody'];
+  const DEFAULT_KIND = { drums: 'drums', perc: 'drums', bass: 'bass', pad: 'chords', strings: 'chords', keys: 'chords', guitar: 'chords', arp: 'arp', arpchord: 'arp', lead: 'melody', vox: 'melody', sax: 'melody' };
+  const DEFAULT_MODE = { bass: '8', chords: 'sustain', arp: 'up16', melody: 'verse', drums: 'both' };
+  const ARP_MODES = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16', 'rise', 'ost16', 'dotted'];
+  const MODES = () => ({
+    bass: [...['whole', '8', 'pulse8', 'oct', 'gallop', 'offbeat', 'roll', 'off16', 'half', 'quarter', 'drone', 'sync', 'walk'], ...BASS_NEW.map((b) => b[0])],
+    chords: ['sustain', 'swell', 'float', 'ballad', 'pluck', ...Object.keys(RHYTHM)],
+    arp: ARP_MODES,
+    melody: Object.keys(CENTER),
+    drums: ['both', 'kick', 'snare'],
+  });
+  const roleOfTrack = (t) => ((t.band && t.band.key) || '').split(':')[0];
+  /** Type par défaut d'un rôle (null : pas de type, comme « fx »). */
+  const kindOfRole = (role) => (role === 'fx' ? null : DEFAULT_KIND[role] || 'chords');
+  /** Identifiants d'instrument, un par piste : « musicien:clé », puis « #n » pour le n-ième doublon (comme les colonnes de l'assistant). */
+  function instIds(tracks) {
+    const seen = new Map();
+    return tracks.map((t) => {
+      const b = t.band || {};
+      const base = b.musician ? `${b.musician}:${b.key}` : b.key || t.id;
+      const n = seen.get(base) || 0;
+      seen.set(base, n + 1);
+      return { id: n ? `${base}#${n}` : base, dup: n };
+    });
+  }
+  /** Ce type convient-il à cette piste ? Un kit de batterie (piste drum) ne peut être que drums. */
+  const checkKind = (t, kind) => KINDS.includes(kind) && (t.type !== 'drum' || kind === 'drums');
+  /** Ancres de la fondamentale pour les notes percussives du type drums. */
+  const percMidi = (pc) => 36 + pcOf(pc);
+  /** Remonte une note de n degrés de la gamme (tierce diatonique : 2). */
+  function scaleUp(note, n, keyPcs) {
+    let m = note;
+    for (let i = 0; i < n; i++) {
+      m++;
+      while (!keyPcs.includes(pcOf(m))) m++;
+    }
+    return m;
+  }
+
   /**
    * Construit la chanson.
+   *   kinds : { [idInstrument]: 'drums' | 'bass' | 'chords' | 'arp' | 'melody' } (voir l'en-tête), null = le type du rôle
    *   spec : plan (js/band-songs.js) ; tracks : pistes du projet créées par Band (avec t.band.key « rôle » ou « rôle:son »)
    *   melodySeed : 0 = la mélodie d'origine de l'inspiration ; un autre nombre tire une autre mélodie (lead, voix,
    *   sax) sans rien changer aux autres musiciens (assistant « Nouvelle chanson »)
@@ -1128,8 +1191,20 @@ SS.bandSong = (() => {
    *   parts : réglages par scène (batterie, basse, nappe, arpège, rôles muets), voir l'en-tête du fichier ; null = le plan tel quel
    * → { key, scenes: [{ id, name, bars, key, emotion, data, spans }], song: [{ scene, repeat }] }
    */
-  function build(spec, presetId, tracks, { melodySeed = 0, melody = null, harmony = null, parts = null } = {}) {
+  function build(spec, presetId, tracks, { melodySeed = 0, melody = null, harmony = null, parts = null, kinds = null } = {}) {
     const key = parseKey(spec.key);
+    const ids = instIds(tracks);
+    // type de chaque piste (null : fx, qui garde son jeu) ; un kit de batterie reste drums
+    const kindOfT = new Map();
+    tracks.forEach((t, i) => {
+      const role = roleOfTrack(t);
+      const def = t.type === 'drum' ? 'drums' : kindOfRole(role);
+      const want = kinds && (kinds[ids[i].id] ?? kinds[t.id]) !== undefined ? kinds[ids[i].id] ?? kinds[t.id] : t.kind;
+      kindOfT.set(t, def && want && checkKind(t, want) ? want : def);
+    });
+    const melTracks = tracks.filter((t) => t.type !== 'drum' && kindOfT.get(t) === 'melody');
+    // premier instrument mélodique : lead, vox, sax dans cet ordre, sinon le premier de la liste ; il porte la mélodie imposée
+    const primaryMel = melTracks.find((t) => roleOfTrack(t) === SINGERS.find((r) => melTracks.some((x) => roleOfTrack(x) === r))) || melTracks[0] || null;
     const mel = melody || {};
     const order = [];
     const form = spec.form.split(/\s+/).filter(Boolean).map((t) => {
@@ -1158,19 +1233,23 @@ SS.bandSong = (() => {
       const data = {};
       const pp = (parts && parts[id]) || null; // réglages de cette scène
       const muted = (pp && pp.off) || [];
-      const dp = pp && pp.drums;
+      const dp0 = pp && pp.drums;
       // mélodie imposée (parts[section].lead) : portée par la première piste chantante, dans l'ordre lead, vox, sax
       const ownLead = pp && pp.lead && Array.isArray(pp.lead.events) ? pp.lead.events : null;
-      const roleOf = (x) => ((x.band && x.band.key) || '').split(':')[0];
-      const leadTrack = ownLead ? tracks.find((t) => roleOf(t) === SINGERS.find((r) => tracks.some((x) => roleOf(x) === r))) : null;
-      tracks.forEach((t) => {
+      const leadTrack = ownLead ? primaryMel : null;
+      const doubles = []; // instruments mélodiques qui doublent le premier (inst.double)
+      tracks.forEach((t, ti) => {
+        // réglages de cet instrument dans la scène (clé : id d'instrument, id de piste ; pour un kit, id du musicien)
+        const im = pp && pp.inst;
+        const ie = (im && (im[ids[ti].id] || im[t.id] || (t.type === 'drum' && t.band && im[t.band.musician]))) || null;
         const [role, sound] = (t.band && t.band.key ? t.band.key : '').split(':');
         const singer = SINGERS.includes(role);
         const r = rng(`${presetId}/${id}/${t.band ? t.band.key : t.id}` + (singer && melodySeed ? `#${melodySeed}` : ''));
         if (t.type === 'drum') {
+          const dp = ie ? { ...(dp0 || {}), ...ie } : dp0; // réglages du kit : par instrument, sinon ceux du rôle
           const mode = role === 'perc' ? sec.perc ?? sec.drums : sec.drums;
           const snd = sound || t.sound;
-          if (muted.includes(role)) return void (data[t.id] = { steps: new Array(bars * SPB).fill(0) });
+          if (muted.includes(role) || (ie && ie.off)) return void (data[t.id] = { steps: new Array(bars * SPB).fill(0) });
           const pat = dp && dp.pattern && SS.drumPattern ? SS.drumPattern(dp.style, dp.pattern) : null;
           const lanes = dp && (dp.edits || (pat && pat.lanes));
           const fo = { fill: dp && dp.fill, fillType: (dp && dp.fillType) || 'roll', crash: !!(dp && dp.crash), energy };
@@ -1186,15 +1265,56 @@ SS.bandSong = (() => {
           if (spec.tech) drumSpice(data[t.id], snd, mode, bars, r);
           return;
         }
-        const o = (pp && pp[role]) || null; // réglages du rôle (basse, nappe, arpège)
-        const mode = muted.includes(role) ? null : (o && o.mode) || sec[role];
-        const one = role === 'arp' && !muted.includes(role) && o && o.one && SS.Arp ? o.one : null; // Arp One : l'emporte sur le mode
+        const kd = kindOfT.get(t); // type de l'instrument (null : fx)
+        const changed = !!kd && kd !== kindOfRole(role); // type différent de celui du rôle : pas de réglages du rôle
+        const o = changed ? ie : ie ? { ...((pp && pp[role]) || {}), ...ie } : (pp && pp[role]) || null; // réglages de l'instrument, du rôle (basse, nappe, arpège)
+        const off = muted.includes(role) || !!(ie && ie.off);
+        const er = !changed ? role : kd === 'bass' || kd === 'drums' ? 'bass' : kd === 'arp' ? 'arp' : kd === 'melody' ? 'lead' : 'pad'; // rôle dont l'instrument prend la nuance et les effets
+        let mode;
+        if (off) mode = null;
+        else if (!changed) mode = (o && o.mode) || sec[role];
+        else if (!((o && (o.mode || o.one)) || sec[role])) mode = null; // muet dans le plan, rien ne l'allume
+        else {
+          const valid = MODES()[kd];
+          const plan = { bass: [sec.bass], chords: [sec.pad, sec.strings, sec.keys], arp: [sec.arp, sec.arpchord], melody: [sec.lead, sec.vox, sec.sax], drums: [] }[kd];
+          mode = o && valid.includes(o.mode) ? o.mode : plan.find((m) => m && valid.includes(m)) || DEFAULT_MODE[kd];
+        }
+        const one = kd === 'arp' && (role === 'arp' || changed) && !off && o && o.one && SS.Arp ? o.one : null; // Arp One : l'emporte sur le mode
+        const ownL = ie && ie.lead && Array.isArray(ie.lead.events) ? ie.lead.events : t === leadTrack ? ownLead : null; // mélodie imposée de cet instrument
+        // mélodie du moteur : réglages de l'instrument par-dessus ceux de la scène ; la graine contient le rôle et le doublon
+        const sing = (mrole, m) => {
+          const im2 = ie ? Object.fromEntries(['character', 'notes', 'rhythm', 'complexity', 'range', 'ending', 'form'].filter((f) => ie[f] !== undefined).map((f) => [f, ie[f]])) : null;
+          const dup = ids[ti].dup ? `#${ids[ti].dup}` : '';
+          return m === 'rise' ? riseEvents(spans, r, k, bars) : melodyPart(spans, k, bars, mrole, im2 && Object.keys(im2).length ? { ...smel, ...im2 } : smel, (ie && ie.plan) || (mel.plans && mel.plans[id]), (ie && ie.seeds) || (mel.seeds && mel.seeds[id]), `${presetId}/${id}/${role}${dup}/${melodySeed}`, m);
+        };
         let events = [];
         // mélodie imposée : même dans une scène où l'inspiration ne chante pas (sauf rôle coupé par « off »)
-        if (ownLead && t === leadTrack && !muted.includes(role))
-          events = ownLead.filter((e) => e && e.step >= 0 && e.step < bars * SPB && e.notes && e.notes.length).map((e) => ({ step: e.step, len: Math.max(1, Math.min(e.len, bars * SPB - e.step)), notes: [...e.notes], vel: e.vel ?? 0.8 }));
+        if (ownL && kd === 'melody' && !off)
+          events = ownL.filter((e) => e && e.step >= 0 && e.step < bars * SPB && e.notes && e.notes.length).map((e) => ({ step: e.step, len: Math.max(1, Math.min(e.len, bars * SPB - e.step)), notes: [...e.notes], vel: e.vel ?? 0.8 }));
         else if (one) events = arpOneEvents(spans, one, bars);
-        else if (mode) {
+        else if (mode && changed) {
+          if (kd === 'bass') {
+            const kp = H().scale(k).map((d) => d.pc);
+            const ped = o && { tonic: kp[0], fifth: pcOf(kp[0] + 7) }[o.pedal];
+            events = bassEvents(spans, mode, r, kp, o ? { pedalPc: ped ?? null, approach: o.approach !== false, shift: o.register === 'mid' ? 12 : 0 } : undefined);
+          } else if (kd === 'arp') events = arpEvents(spans, mode, r);
+          else if (kd === 'chords') events = chordEvents(spans, mode, r, { lo: 53, hi: 76, open: !!(o && o.voicing === 'open') });
+          else if (kd === 'melody') events = sing(role === 'vox' ? 'vox' : 'lead', mode);
+          else {
+            // notes percussives : fondamentale de l'accord sur la grosse caisse et la caisse claire du motif de la scène
+            const dsrc = ie && (ie.pattern || ie.edits) ? ie : dp0;
+            const dpat = dsrc && dsrc.pattern && SS.drumPattern ? SS.drumPattern(dsrc.style, dsrc.pattern) : null;
+            const lanes = dsrc && (dsrc.edits || (dpat && dpat.lanes));
+            const hit = (snd) => (lanes ? patternSteps(snd, bars, r, { lanes }) : drumSteps(snd, sec.drums, sec.groove || spec.groove, bars, r, {})) || [];
+            const kick = mode === 'snare' ? [] : hit('bd');
+            const snare = mode === 'kick' ? [] : hit('sd');
+            for (let s = 0; s < bars * SPB; s++) {
+              const v = Math.max(kick[s] || 0, snare[s] || 0);
+              const sp = v > 0 && spans.find((x) => s >= x.step && s < x.step + x.len);
+              if (sp) events.push({ step: s, len: 1, notes: [percMidi(sp.chord.rootPc)], vel: v });
+            }
+          }
+        } else if (mode) {
           if (role === 'bass') {
             const kp = H().scale(k).map((d) => d.pc);
             const ped = o && { tonic: kp[0], fifth: pcOf(kp[0] + 7) }[o.pedal];
@@ -1202,7 +1322,7 @@ SS.bandSong = (() => {
           }
           else if (role === 'fx') events = fxEvents(spans, mode, k, bars);
           else if (role === 'arp') events = arpEvents(spans, mode, r);
-          else if (singer) events = mode === 'rise' ? riseEvents(spans, r, k, bars) : melodyPart(spans, k, bars, role, smel, mel.plans && mel.plans[id], mel.seeds && mel.seeds[id], `${presetId}/${id}/${role}/${melodySeed}`, mode);
+          else if (singer) events = sing(role, mode);
           else if (role === 'arpchord') events = arpEvents(spans, mode, r);
           else {
             // nappe, cordes, piano, guitare : accords (ou arpège si le mode en est un)
@@ -1210,16 +1330,25 @@ SS.bandSong = (() => {
             events = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16', 'ost16', 'dotted'].includes(mode) ? arpEvents(spans, mode, r) : chordEvents(spans, mode, r, role === 'pad' && o && o.voicing === 'open' ? { ...range, open: true } : range);
           }
         }
-        data[t.id] = { events: role === 'fx' ? events : shapeVel(events, role, { energy, bars, build: sec.drums === 'build' }) };
+        data[t.id] = { events: role === 'fx' ? events : shapeVel(events, er, { energy, bars, build: sec.drums === 'build' }) };
+        if (ie && ie.double && kd === 'melody' && t !== primaryMel && !off) doubles.push([t, ie.double, o]);
         // techno : dans la montée, les mélodies restent en retrait pour que le drop frappe plus fort
-        if (spec.tech && sec.drums === 'build' && ['lead', 'vox', 'arp', 'keys'].includes(role)) data[t.id].events.forEach((e) => (e.vel = clampV(e.vel * 0.6)));
+        if (spec.tech && sec.drums === 'build' && ['lead', 'vox', 'arp', 'keys'].includes(er)) data[t.id].events.forEach((e) => (e.vel = clampV(e.vel * 0.6)));
         // intro et break planants : tout est joué piano (la basse tenue encore plus), le drop garde la pleine force
-        if (spec.tech && sec.float && role !== 'fx') data[t.id].events.forEach((e) => (e.vel = clampV(e.vel * (role === 'bass' ? 0.5 : 0.68))));
+        if (spec.tech && sec.float && role !== 'fx') data[t.id].events.forEach((e) => (e.vel = clampV(e.vel * (er === 'bass' ? 0.5 : 0.68))));
         if (spec.tech && (events.length || role !== 'fx')) {
-          const auto = sectionAuto(as, sec, role, bars, role === 'fx');
+          const auto = sectionAuto(as, sec, er, bars, role === 'fx');
           if (auto && events.length) data[t.id].auto = auto;
         }
       });
+      // doublure : la mélodie du premier instrument mélodique, une octave ou une tierce diatonique au-dessus
+      const src = primaryMel && data[primaryMel.id];
+      if (src) {
+        const kp = H().scale(k).map((d) => d.pc);
+        doubles.forEach(([t, how]) => {
+          data[t.id] = { events: src.events.map((e) => ({ ...e, notes: e.notes.map((n) => (how === 'third' ? scaleUp(n, 2, kp) : n + 12)), vel: clampV(e.vel * 0.85) })) };
+        });
+      }
       if (sec.gap) gapEnd(data, bars);
       const sc = { id: SS.uid(), sec: id, name: sec.name || NAMES[id] || id, bars, key: k, data, spans };
       const emo = harmony && harmony.emotions && harmony.emotions[id];
@@ -1243,5 +1372,5 @@ SS.bandSong = (() => {
     ['funk', 'Funk', 'Syncopes en doubles, notes fantômes', [[0, 2, 0], [3, 1, 0], [6, 1, 2], [7, 1, 0], [10, 1, 0], [12, 2, 0], [14, 1, 1]]],
   ];
 
-  return { build, parseChord, spansOf, spansFromGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, _rng: rng };
+  return { build, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, _rng: rng };
 })();
