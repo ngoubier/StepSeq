@@ -138,7 +138,10 @@ SS.bandSong = (() => {
     const out = [];
     if (id === 'rand') {
       const r = rng('accents/' + seed);
-      [...has].sort((a, b) => a - b).forEach((s) => r() < 0.22 && out.push(s));
+      const pool = [...has].sort((a, b) => a - b);
+      pool.forEach((s) => r() < 0.22 && out.push(s));
+      // jamais vide : un tirage sans accent se lirait « Aucun »
+      if (!out.length && pool.length) out.push(pool[Math.floor(r() * pool.length)]);
     } else if (want) for (let s = 0; s < period; s++) if (has.has(s) && want(s)) out.push(s);
     return out;
   }
