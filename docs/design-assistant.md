@@ -87,7 +87,8 @@ Le vrai assistant marche, mais il est plus lourd à l'œil que la maquette :
   - La carte choisie a une bordure accent.
   - Dessous, les **inspirations** en grille de cartes compactes (2 ou 3 colonnes) : titre, artiste · année,
     tempo · musiciens. Le détail de l'inspiration choisie est à droite, ou sous la grille en étroit.
-- **2 Instruments** : la scène des musiciens telle quelle, mais dans une seule carte, sans double bordure.
+- **2 Instruments** : la scène des musiciens (tuiles rondes placées par rôle), dans une seule carte, sans double bordure ; le groupe est
+  **éditable** (voir « Le groupe éditable » plus bas).
 - **3 Tempo et tonalité** :
   - le tempo s'affiche en grand chiffres (police de l'app, pas de LCD rouge) ;
   - les toniques sont un clavier de 12 touches, les touches noires plus sombres ;
@@ -133,6 +134,37 @@ Rien n'est créé : ni piste, ni entrée Annuler / Rétablir (l'historique ignor
 - **Reprendre** : « Reprendre l'assistant » dans le menu de l'application (visible seulement si le projet a un brouillon ; sous le libellé, la
   date en `--muted`) rouvre à l'étape et à la scène où l'on était. « Nouvelle chanson sur ce projet… » demande « Remplacer le brouillon de
   l'assistant ? » ; « Nouvelle chanson… » part d'un projet neuf (l'ancien, brouillon compris, reste dans Mes chansons).
+
+## Le groupe éditable (novembre 2026)
+
+Maquette approuvée : `docs/maquette-musiciens.html` ; code : `js/bandgroup.js` (modèle, sans navigateur, `tests/bandgroup.test.js`) et
+l'étape 2 de `js/band.js`. Écart voulu avec la maquette : la disposition en scène (tuiles rondes placées par rôle : fond, milieu, devant)
+est gardée, avec la tuile « + Ajouter un musicien » dans une dernière rangée ; les sons proposés sont les vrais conseillés de l'appli.
+
+- **Modèle** : `S.group = { style, nextId, list }`, une liste de 2 à 10 musiciens `{ id, base, name, custom?, type?, ms? }`. Le groupe par défaut est
+  celui de l'inspiration : ses musiciens non facultatifs, dans son ordre (sans retouche la chanson est strictement identique ; les anciens
+  musiciens facultatifs, dont le percussionniste, ne sont plus « dans le groupe » : on ajoute un musicien du type voulu). Un musicien ajouté
+  ou dupliqué a un id stable `x1`, `x2`… (jamais réutilisé), un nom (premier numéro libre : « Bassiste 2 »), un type et son choix de son. L'ordre
+  de la liste est celui des onglets. `musicians()` rend chaque membre sous la forme d'un musicien d'inspiration, pour que `musState`,
+  `plannedTracks`, `wizCols` (ids `musicien:clé[#n]`), `insSteps`, la barre de piste, le mix et l'écoute n'aient rien à changer.
+- **Moteur** : un musicien ajouté prend le rôle de son type (`ROLE_OF_TYPE` : drums → `perc`, bass, chords → `pad`, arp, melody → `lead`) ;
+  `SS.bandSong.build` le reconnaît à son id (`isExtra`) : il joue dans toutes les scènes avec le générateur de son type (comme un type
+  changé : réglages de l'instrument seulement, mode du plan pour ce type sinon mode par défaut) et sa graine contient son id (deuxième mélodie
+  différente, deuxième kit au motif propre). Mix (`js/wizmix.js`) : ses tranches sont les siennes, suffixées par son id (`arp@x1`, `kick@x2`).
+  Changer le type d'un musicien (liste « Type ») remplace son son par le phare du nouveau type ; ses conseillés sont ceux de ce type
+  (`SS.bandGroup.recommended` : le musicien de ce type dans l'inspiration, même facultatif, sinon dans le style, sinon dans le catalogue).
+- **Interface** : compteur « N musiciens · 2 à 10 » près du titre (alerte à 10). Tuile « + Ajouter un musicien » (désactivée à 10 avec la
+  mention). Ajout en deux temps dans le panneau de droite : 1/2 cinq cartes de type (avec « n dans le groupe »), 2/2 le son (Conseillés réels,
+  « Tous les instruments… » ; pour Drums, les kits et « Tous les kits… ») avec le nom éditable ; tuile fantôme pendant l'ajout ; Annuler.
+  Panneau d'un musicien : nom éditable au titre (l'onglet est renommé ; un onglet non renommé garde le nom du son), Type (un kit : Drums
+  seulement), son, ‹ › pour l'ordre (ou glisser une tuile sur une autre), Dupliquer, « Retirer du groupe » avec confirmation en ligne
+  (désactivé à 2 : « 2 musiciens au minimum »). Retirer efface ses réglages par scène, son type, son muet / solo / volume et sa tranche de mix
+  (`SS.bandGroup.purge`, puis `mixSync`).
+- **Changer d'inspiration** : même style, le groupe repart de celui de la nouvelle inspiration en gardant les musiciens ajoutés (à la fin) ;
+  autre style, le groupe du nouveau style, sans rien garder. « Nouvelle chanson » repart toujours du groupe de l'inspiration.
+- **Brouillon** : `project.wizard.v` passe à 2 et porte `state.group`. Un brouillon v1 (sans groupe) est migré : les musiciens qui étaient
+  « dans le groupe » (`cache[preset][id].on`) forment la liste, ou le groupe par défaut s'il en reste moins de deux.
+- CSS : `#bandDialog .bg-*`, jetons `--bw-*` ; à 390 px le panneau reste une feuille du bas, sans défilement horizontal.
 
 ## Accents de la basse (novembre 2026)
 

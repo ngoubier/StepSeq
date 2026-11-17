@@ -56,9 +56,11 @@ SS.wizMix = (() => {
     const key = t && t.band && t.band.key;
     if (!key) return null;
     const [role, sound] = key.split(':');
-    if (role === 'drums') return DRUM_ID[sound] || 'drum:' + sound;
-    if (role === 'perc') return 'perc:' + sound;
-    return role;
+    // musicien ajouté à l'assistant (id « x1 »…) : ses propres tranches, suffixées par son id (« kick@x1 », « bass@x2 »)
+    const sfx = /^x\d+$/.test(t.band.musician || '') ? '@' + t.band.musician : '';
+    if (role === 'drums') return (DRUM_ID[sound] || 'drum:' + sound) + sfx;
+    if (role === 'perc') return 'perc:' + sound + sfx;
+    return role + sfx;
   }
   /**
    * Tranches à afficher pour ces pistes, dans l'ordre de la console : [{ id, name, group: 'drums' | 'perc' | null, order }].
@@ -66,14 +68,17 @@ SS.wizMix = (() => {
    */
   function strips(tracks) {
     const seen = new Map();
+    let order_n = 0;
     for (const t of tracks) {
       const id = idOf(t);
       if (!id || seen.has(id)) continue;
       const [role, sound] = t.band.key.split(':');
       const group = role === 'drums' || role === 'perc' ? role : null;
-      const name = group ? (DRUM_NAME[sound] || sound) + (role === 'perc' ? ' (percu)' : '') : ROLE_NAME[role] || role;
-      const order = role === 'drums' ? DRUM_ORDER.indexOf(sound) : role === 'perc' ? 100 + DRUM_ORDER.indexOf(sound) : 200 + ROLE_ORDER.indexOf(role);
-      seen.set(id, { id, name, group, order });
+      const own = /^x\d+$/.test(t.band.musician || '') ? t.band.label || t.band.musician : null; // musicien ajouté : son nom
+      let name = group ? (DRUM_NAME[sound] || sound) + (role === 'perc' ? ' (percu)' : '') : ROLE_NAME[role] || role;
+      if (own) name = group ? `${DRUM_NAME[sound] || sound} (${own})` : own;
+      const order = (role === 'drums' ? DRUM_ORDER.indexOf(sound) : role === 'perc' ? 100 + DRUM_ORDER.indexOf(sound) : 200 + ROLE_ORDER.indexOf(role)) + (own ? 0.5 + order_n++ / 1000 : 0);
+      seen.set(id, { id, name, group: own && group ? group + ':' + t.band.musician : group, order, ...(own ? { musician: t.band.musician } : {}) });
     }
     return [...seen.values()].sort((a, b) => a.order - b.order);
   }

@@ -5,8 +5,14 @@
  *  Fondations
  *  1. Style : deux portes, Créer ou Reprendre (une reprise tapée : titre, tempo, tonalité, parties et accords,
  *     ordre des parties — voir coverModel) ; style musical (tempo conseillé, description) et inspiration (type de chanson) ;
- *  2. Instruments : les musiciens — un clic sur un musicien ouvre son panneau (rôle, instrument phare, 5 conseillés,
- *     toute la bibliothèque via « Nouvelle piste ») ; le batteur choisit un kit et ses éléments (une piste par élément) ;
+ *  2. Instruments : le groupe, une liste éditable de 2 à 10 musiciens (js/bandgroup.js, S.group ; musicians() en donne la forme d'un
+ *     musicien d'inspiration). Par défaut : les musiciens non facultatifs de l'inspiration (sans retouche, chanson identique). Compteur
+ *     « N musiciens · 2 à 10 », tuile « + Ajouter un musicien » (type, puis son : les conseillés réels du type, tuile fantôme, Annuler) ;
+ *     un clic sur un musicien ouvre son panneau : nom éditable (l'onglet suit), Type, instrument phare, conseillés, toute la bibliothèque,
+ *     ordre ‹ › ou glisser-déposer, Dupliquer, Retirer du groupe (confirmation, réglages et tranche de mix effacés). Un musicien ajouté a
+ *     l'id « x1 »… et le rôle de son type (il joue avec le générateur de son type) ; le batteur (et tout kit, y compris un 2e Drums) choisit
+ *     un kit et ses éléments (une piste par élément). Changer d'inspiration : même style, les musiciens ajoutés sont gardés ; autre
+ *     style, le groupe du nouveau style. Brouillon v2 : state.group ; un brouillon v1 est migré (musiciens « dans le groupe ») ;
  *     sous la scène, l'étiquette colorée du type de chaque instrument (Drums, Basse, Accords, Arpèges, Mélodie ; un kit : Drums)
  *     qui se déplie pour le changer ; interrupteur General MIDI ;
  *  3. Tempo et tonalité : tempo (grand afficheur, − / +, curseur, Tap) et tonalité de la chanson (tonique, mode, gamme à
@@ -45,7 +51,7 @@ SS.band = (() => {
   // hide : étape Mélodie, colonnes masquées (menu « Pistes ») ; la mélodie reste toujours affichée
   const MEL_DEFAULT = { character: 'inspiration', form: 'auto', rhythm: 'auto', complexity: 'balanced', range: 'auto', ending: 'auto', notes: 0, fine: false, profile: 'on' };
   const S = {
-    kindPick: null, styleId: null, presetId: null, sel: null, cache: {}, wiz: null, hide: new Set(), mode: 'create', cover: null,
+    kindPick: null, styleId: null, presetId: null, sel: null, cache: {}, group: null, addMode: null, add: null, confirmRm: null, allKits: false, fresh: null, wiz: null, hide: new Set(), mode: 'create', cover: null,
     mel: { ...MEL_DEFAULT },
   };
 
@@ -87,30 +93,90 @@ SS.band = (() => {
   /* ---------- Modèle ---------- */
   const style = () => B().STYLES.find((s) => s.id === S.styleId);
   const preset = () => (style() || { presets: [] }).presets.find((p) => p.id === S.presetId);
+  const BG = () => SS.bandGroup;
   const roleOf = (mu) => B().ROLES[mu.role];
-  const catOf = (mu) => mu.cat || roleOf(mu).cat || 'mono';
-  const labelOf = (mu) => mu.label || roleOf(mu).label;
+  const labelOf = (mu) => mu.name || mu.label || roleOf(mu).label;
   const colorOf = (mu) => roleOf(mu).color;
 
-  /** État des choix d'une inspiration (gardé si on revient dessus). */
+  /* ---------- Le groupe : une liste éditable de musiciens (2 à 10, js/bandgroup.js) ----------
+   * S.group = { style, nextId, list: [{ id, base, name, custom?, type?, ms? }] }. Le groupe par défaut est celui de l'inspiration
+   * (ses musiciens non facultatifs) ; un musicien ajouté (id « x1 »…) porte son type et son choix de son (ms). musicians() en donne
+   * la forme que le reste de l'assistant connaît (celle d'un musicien de l'inspiration : id, role, pick, kits, pieces…), dans
+   * l'ordre du groupe, qui est celui des onglets d'instrument. Changer de style repart du groupe du nouveau style ; changer
+   * d'inspiration dans le même style repart du groupe de la nouvelle inspiration en gardant les musiciens ajoutés (à la fin). */
+  function group() {
+    const p = preset();
+    if (!S.group || S.group.style !== S.styleId) S.group = { ...BG().defaultGroup(p || { musicians: [] }), style: S.styleId };
+    return S.group;
+  }
+  const recMemo = new Map();
+  /** Conseillés d'un type pour l'inspiration en cours (mis en mémoire : le catalogue ne change pas). */
+  function recFor(kind) {
+    const k = `${kind}|${S.styleId}|${S.presetId}`;
+    if (!recMemo.has(k)) recMemo.set(k, BG().recommended(kind, S.styleId, S.presetId));
+    return recMemo.get(k);
+  }
+  /** Le musicien d'un enregistrement du groupe, sous la forme d'un musicien d'inspiration. */
+  function resolveMu(rec) {
+    if (rec.base) {
+      const base = preset().musicians.find((m) => m.id === rec.base);
+      return base ? { ...base, name: rec.name, custom: !!rec.custom } : null;
+    }
+    const rc = recFor(rec.type);
+    const mu = { id: rec.id, role: rc.role, added: true, type: rec.type, name: rec.name, custom: true, label: rec.name };
+    if (rec.type === 'drums') Object.assign(mu, { kits: rc.kits, pieces: rc.pieces });
+    else Object.assign(mu, { pick: rc.pick, cat: rc.cat });
+    return mu;
+  }
+  /** Les musiciens du groupe, dans l'ordre du groupe. */
+  function musicians() {
+    if (!preset()) return [];
+    return group().list.map(resolveMu).filter(Boolean);
+  }
+  const muById = (id) => musicians().find((m) => m.id === id) || null;
+  const nameOf0 = (mu) => (mu.added || mu.custom ? mu.name : null);
+  /** Type d'un musicien : celui qu'on a choisi (S.wiz.kinds), sinon celui de son rôle ; null pour « fx ». */
+  function kindNow(mu) {
+    if (mu.kits) return 'drums';
+    const def = BG().typeOfRole(mu.role);
+    const k = S.wiz && S.wiz.kinds && S.wiz.kinds[`${mu.id}:${mu.role}`];
+    return def && k && BG().TYPES.includes(k) ? k : def;
+  }
+  const kindChanged = (mu) => !mu.kits && !!kindNow(mu) && kindNow(mu) !== BG().typeOfRole(mu.role);
+  /** Choix d'instrument d'un musicien (le premier est le phare) : ceux de son rôle, ou les conseillés du type choisi s'il a changé. */
+  const picksOf = (mu) => (kindChanged(mu) ? recFor(kindNow(mu)).pick : mu.pick);
+  const catOf = (mu) => (kindChanged(mu) ? BG().CAT_OF_TYPE[kindNow(mu)] : mu.cat || roleOf(mu).cat || 'mono');
+
+  /** Choix de départ d'un musicien (kit : le premier kit et ses éléments ; sinon le premier choix). */
+  function newMs(mu) {
+    if (mu.kits) {
+      const extra = B().EXTRA_PIECES[mu.role === 'perc' ? 'perc' : 'drums'].filter((x) => !mu.pieces.some((pc) => pc.split('@')[0] === x));
+      return { on: true, kit: mu.kits[0], pieces: [...mu.pieces.map((pc) => ({ piece: pc, on: true })), ...extra.map((pc) => ({ piece: pc, on: false }))] };
+    }
+    return { on: true, pick: 0, custom: null, ...(mu.added ? { tok: mu.pick[0] } : {}) };
+  }
+  /** Choix de son de chaque musicien du groupe, par id (état gardé par inspiration ; celui d'un musicien ajouté vit dans le groupe). */
   function musState() {
     const p = preset();
     if (!p) return {};
-    if (!S.cache[p.id]) {
-      const st = {};
-      p.musicians.forEach((mu) => {
-        if (mu.kits) {
-          const extra = B().EXTRA_PIECES[mu.role].filter((x) => !mu.pieces.some((pc) => pc.split('@')[0] === x));
-          st[mu.id] = {
-            on: !mu.optional,
-            kit: mu.kits[0],
-            pieces: [...mu.pieces.map((pc) => ({ piece: pc, on: true })), ...extra.map((pc) => ({ piece: pc, on: false }))],
-          };
-        } else st[mu.id] = { on: !mu.optional, pick: 0, custom: null };
-      });
-      S.cache[p.id] = st;
-    }
-    return S.cache[p.id];
+    if (!S.cache[p.id]) S.cache[p.id] = {};
+    const st = S.cache[p.id];
+    const out = {};
+    const g = group();
+    musicians().forEach((mu) => {
+      if (mu.added) {
+        const rec = g.list.find((r) => r.id === mu.id);
+        out[mu.id] = rec.ms || (rec.ms = newMs(mu));
+      } else out[mu.id] = st[mu.id] || (st[mu.id] = newMs(mu));
+    });
+    return out;
+  }
+  /** Choisit le choix n° i d'un musicien : le son choisi à l'étape Instruments (les autres étapes le retrouvent). */
+  function setPick(mu, ms, i) {
+    ms.pick = i;
+    ms.picked = true;
+    ms.custom = null;
+    if (mu.added) ms.tok = picksOf(mu)[i];
   }
 
   /* Mode General MIDI du projet (project.gm, même réglage que la fenêtre de piste) :
@@ -119,18 +185,18 @@ SS.band = (() => {
   const toGm = (opts) => (gm() ? SS.midi.gmEquivalent(opts) : opts);
   const kitOf = (ms) => (gm() ? 'gm' : ms.kit);
   /** Choix n° i d'un musicien (avant le choix libre). */
-  const choiceAt = (mu, i) => toGm(B().choiceOpts(mu.pick[i], catOf(mu)));
+  const choiceAt = (mu, i) => toGm(B().choiceOpts(picksOf(mu)[i], catOf(mu)));
   /** Ordre des conseillés : en mode GM, les sons déjà General MIDI (gm_*) d'abord, ils sont plus fidèles qu'une conversion. */
   const pickOrder = (mu) => {
-    const idx = mu.pick.map((_, i) => i);
-    return gm() ? [...idx.filter((i) => mu.pick[i].startsWith('gm_')), ...idx.filter((i) => !mu.pick[i].startsWith('gm_'))] : idx;
+    const pk = picksOf(mu);
+    const idx = pk.map((_, i) => i);
+    return gm() ? [...idx.filter((i) => pk[i].startsWith('gm_')), ...idx.filter((i) => !pk[i].startsWith('gm_'))] : idx;
   };
   /** Choix retenu : celui de l'utilisateur, sinon le premier de la liste (en mode GM, le premier son GM). */
   const effPick = (mu, ms) => (ms.picked || !gm() ? ms.pick : pickOrder(mu)[0]);
 
   /** Options de piste de l'instrument retenu pour un musicien (hors batterie). */
-  function instOpts(mu) {
-    const st = musState()[mu.id];
+  function instOpts(mu, st = musState()[mu.id]) {
     return st.custom ? toGm(st.custom) : choiceAt(mu, effPick(mu, st));
   }
   /** Deux choix donnent le même son (en mode GM, deux conseillés peuvent se rejoindre). */
@@ -138,8 +204,8 @@ SS.band = (() => {
   /** Clé de niveau (js/band-levels.js) d'un instrument : celle du son réellement joué en mode GM. */
   function instLevelKey(mu, ms) {
     if (ms.custom) return null;
-    const tok = gm() ? instOpts(mu).instrument : mu.pick[effPick(mu, ms)];
-    return `${mu.role}|${tok}|${catOf(mu)}`;
+    const tok = gm() ? instOpts(mu).instrument : picksOf(mu)[effPick(mu, ms)];
+    return `${kindChanged(mu) ? BG().ROLE_OF_TYPE[kindNow(mu)] : mu.role}|${tok}|${catOf(mu)}`;
   }
   /** Élément de batterie résolu : { opts, label, borrowed, custom } */
   function pieceInfo(mu, pc) {
@@ -155,7 +221,7 @@ SS.band = (() => {
   }
 
   /** Marque d'une piste créée par Band (gardée dans le projet) : sert à la retrouver pour la remplacer. */
-  const tag = (p, mu, sound) => ({ style: S.styleId, preset: p.id, musician: mu.id, key: mu.role + (sound ? ':' + sound : '') });
+  const tag = (p, mu, sound) => ({ style: S.styleId, preset: p.id, musician: mu.id, key: mu.role + (sound ? ':' + sound : ''), ...(mu.added ? { label: mu.name } : {}) });
 
   /** Pistes à créer : [{ opts, name, color, band }] */
   function plannedTracks() {
@@ -163,20 +229,19 @@ SS.band = (() => {
     if (!p) return [];
     const st = musState();
     const out = [];
-    p.musicians.forEach((mu) => {
+    musicians().forEach((mu) => {
       const ms = st[mu.id];
-      if (!ms.on) return;
       const color = colorOf(mu);
       if (mu.kits) {
         ms.pieces.filter((pc) => pc.on).forEach((pc) => {
           const info = pieceInfo(mu, pc);
-          const name = mu.role === 'perc' ? `Percu · ${info.label}` : info.label;
+          const name = mu.added ? `${mu.name} · ${info.label}` : mu.role === 'perc' ? `Percu · ${info.label}` : info.label;
           // levelKey : clé de la mesure de niveau (js/band-levels.js) qui sert au mixage automatique (js/bandmix.js)
           out.push({ ...info.opts, name, color, band: tag(p, mu, info.opts.sound), levelKey: pc.custom ? null : `${kitOf(ms)}|${pc.piece}` });
         });
       } else {
         const o = instOpts(mu);
-        out.push({ ...o, category: o.category || catOf(mu), name: roleOf(mu).short, color, band: tag(p, mu), levelKey: instLevelKey(mu, ms) });
+        out.push({ ...o, category: o.category || catOf(mu), name: nameOf0(mu) || roleOf(mu).short, color, band: tag(p, mu), levelKey: instLevelKey(mu, ms) });
       }
     });
     return out;
@@ -603,45 +668,86 @@ SS.band = (() => {
     return B().describe(instOpts(mu)).name;
   }
 
+  /** Scène : les musiciens du groupe, placés par rôle (fond, milieu, devant), puis la tuile « + Ajouter un musicien ». */
   function renderStage() {
-    const p = preset();
     const st = musState();
+    const list = musicians();
     const rows = B().STAGE_ROWS.map(() => []);
-    p.musicians.forEach((mu) => {
+    list.forEach((mu, i) => {
       let r = B().STAGE_ROWS.findIndex((row) => row.includes(mu.role));
       if (r < 0) r = rows.length - 1;
-      rows[r].push(mu);
+      rows[r].push({ mu, i });
     });
-    const order = (row, r) => row.slice().sort((a, b) => B().STAGE_ROWS[r].indexOf(a.role) - B().STAGE_ROWS[r].indexOf(b.role));
+    const order = (row, r) => row.slice().sort((a, b) => B().STAGE_ROWS[r].indexOf(a.mu.role) - B().STAGE_ROWS[r].indexOf(b.mu.role) || a.i - b.i);
+    const full = list.length >= BG().MAX;
+    const adding = !!S.addMode;
+    let drag = null;
+    const tile = ({ mu, i }) => {
+      const ms = st[mu.id];
+      const sel = S.sel === mu.id && !adding;
+      const kd = kindNow(mu);
+      return h(
+        'button',
+        {
+          type: 'button',
+          class: 'band-mus' + (sel ? ' sel' : '') + (S.fresh === mu.id ? ' fresh' : ''),
+          style: `--c:${colorOf(mu)}`,
+          'data-mu': mu.id,
+          draggable: 'true',
+          'aria-pressed': sel ? 'true' : 'false',
+          'aria-label': `${mu.name}, ${kd ? KIND_LABEL[kd] : 'Effets'}, position ${i + 1}`,
+          title: `${mu.name} · position ${i + 1} dans le groupe (glisser pour changer l’ordre)`,
+          onclick: () => select(sel ? null : mu.id),
+          ondragstart: (e) => {
+            drag = mu.id;
+            e.currentTarget.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', mu.id);
+          },
+          ondragend: (e) => {
+            e.currentTarget.classList.remove('dragging');
+            el.querySelectorAll('.band-mus.over').forEach((x) => x.classList.remove('over'));
+          },
+          ondragover: (e) => {
+            e.preventDefault();
+            e.currentTarget.classList.add('over');
+          },
+          ondragleave: (e) => e.currentTarget.classList.remove('over'),
+          ondrop: (e) => {
+            e.preventDefault();
+            moveMember(drag || e.dataTransfer.getData('text/plain'), mu.id);
+          },
+        },
+        h('span', { class: 'bm-ord', 'aria-hidden': 'true' }, String(i + 1)),
+        h('span', { class: 'bm-avatar', html: icon(mu.role) }),
+        h('span', { class: 'bm-role' }, mu.name),
+        h('span', { class: 'bm-inst' }, stageLine(mu)),
+        mu.kits ? h('span', { class: 'bm-badge' }, String(ms.pieces.filter((pc) => pc.on).length)) : null
+      );
+    };
+    const left = BG().MAX - list.length;
+    const ghost = adding && S.add ? { type: S.add.type, color: KIND_COLOR[S.add.type], name: S.add.name } : null;
+    const addTile = adding
+      ? h(
+          'div',
+          { class: 'band-mus pending', id: 'bgGhost', style: `--c:${ghost ? ghost.color : 'var(--accent)'}` },
+          h('span', { class: 'bm-avatar', html: ghost ? `<svg viewBox="0 0 30 30">${KIND_ICON[ghost.type]}</svg>` : '<span class="bg-q">?</span>' }),
+          h('span', { class: 'bm-role' }, ghost ? ghost.name : 'Nouveau musicien'),
+          h('span', { class: 'bm-inst' }, ghost ? 'en cours d’ajout…' : 'choisis un type')
+        )
+      : h(
+          'button',
+          { type: 'button', class: 'band-mus band-add', id: 'bgAdd', disabled: full ? true : null, title: full ? '10 musiciens au maximum' : 'Ajouter un musicien au groupe', onclick: startAdd },
+          h('span', { class: 'bm-avatar bm-plus', 'aria-hidden': 'true' }, '+'),
+          h('span', { class: 'bm-role' }, 'Ajouter un musicien'),
+          h('span', { class: 'bm-inst' }, full ? '10 musiciens au maximum' : `${left} place${left > 1 ? 's' : ''} restante${left > 1 ? 's' : ''}`)
+        );
     $('#bandStage').replaceChildren(
       h('div', { class: 'stage-back', 'aria-hidden': 'true' }),
-      ...rows.map((row, r) =>
-        row.length
-          ? h(
-              'div',
-              { class: 'stage-row stage-row-' + r },
-              ...order(row, r).map((mu) => {
-                const ms = st[mu.id];
-                return h(
-                  'button',
-                  {
-                    type: 'button',
-                    class: 'band-mus' + (S.sel === mu.id ? ' sel' : '') + (ms.on ? '' : ' off'),
-                    style: `--c:${colorOf(mu)}`,
-                    'aria-pressed': S.sel === mu.id ? 'true' : 'false',
-                    title: ms.on ? labelOf(mu) : `${labelOf(mu)} (optionnel, pas dans le groupe)`,
-                    onclick: () => select(S.sel === mu.id ? null : mu.id),
-                  },
-                  h('span', { class: 'bm-avatar', html: icon(mu.role) }),
-                  h('span', { class: 'bm-role' }, labelOf(mu)),
-                  h('span', { class: 'bm-inst' }, ms.on ? stageLine(mu) : '+ optionnel'),
-                  mu.kits && ms.on ? h('span', { class: 'bm-badge' }, String(ms.pieces.filter((pc) => pc.on).length)) : null
-                );
-              })
-            )
-          : null
-      )
+      ...rows.map((row, r) => (row.length ? h('div', { class: 'stage-row stage-row-' + r }, ...order(row, r).map(tile)) : null)).filter(Boolean),
+      h('div', { class: 'stage-row stage-row-add' }, addTile)
     );
+    S.fresh = null;
   }
 
   /**
@@ -687,27 +793,74 @@ SS.band = (() => {
     );
   }
 
+  /** Nom par défaut d'un musicien (celui du rôle ou du type) : celui qu'on retrouve en vidant le nom. */
+  const baseNameOf = (mu) => (mu.added ? BG().BASE_NAME[mu.type] : (preset().musicians.find((m) => m.id === mu.id) || mu).label || roleOf(mu).label);
+  const soundName = (mu, ms = musState()[mu.id]) => (mu.kits ? (B().KITS[kitOf(ms)] || {}).label || '' : B().describe(instOpts(mu, ms)).name);
+  const kindName = (mu) => (kindNow(mu) ? KIND_LABEL[kindNow(mu)] : 'Effets');
+
+  /** Renommer : le musicien, sa tuile et son onglet suivent (sans refaire le panneau, pour garder la saisie). */
+  function renameMu(mu, value, final) {
+    if (!final && !String(value).trim()) return;
+    BG().rename(group(), mu.id, value, baseNameOf(mu));
+    renderStage();
+    if (S.wiz) wizFoot();
+  }
+
   function panelHead(mu, ms) {
+    const ic = h('span', { class: 'bm-avatar', html: icon(mu.role) });
+    const inp = h('input', {
+      type: 'text', class: 'bpn-name', id: 'bpnName', value: mu.name, maxlength: '24', 'aria-label': 'Nom du musicien', spellcheck: 'false',
+      oninput: () => renameMu(mu, inp.value, false),
+      onblur: () => {
+        renameMu(mu, inp.value, true);
+        inp.value = (muById(mu.id) || mu).name;
+      },
+      onkeydown: (e) => e.key === 'Enter' && inp.blur(),
+    });
     return h(
       'div',
       { class: 'bpn-head', style: `--c:${colorOf(mu)}` },
-      h('span', { class: 'bm-avatar', html: icon(mu.role) }),
-      h('div', { class: 'bpn-title' }, h('b', {}, labelOf(mu)), h('small', {}, roleOf(mu).label + (mu.optional ? ' · optionnel' : ''))),
-      h('button', { type: 'button', class: 'btn btn-icon', title: 'Fermer le panneau', 'aria-label': 'Fermer le panneau', html: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>', onclick: () => select(null) }),
-      mu.note ? h('p', { class: 'bpn-note' }, mu.note) : null,
+      ic,
+      h('div', { class: 'bpn-title' }, inp, h('small', { id: 'bpnSub' }, `${kindName(mu)} · ${soundName(mu)}`)),
+      h('button', { type: 'button', class: 'btn btn-icon', id: 'bpnClose', title: 'Fermer le panneau', 'aria-label': 'Fermer le panneau', html: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>', onclick: () => select(null) }),
+      mu.note ? h('p', { class: 'bpn-note' }, mu.note) : null
+    );
+  }
+
+  /** Bas du panneau d'un musicien : place dans le groupe (‹ ›), Dupliquer, Retirer du groupe (confirmation en ligne). */
+  function groupActions(mu) {
+    const g = group();
+    const i = g.list.findIndex((r) => r.id === mu.id);
+    const n = g.list.length;
+    const canRm = BG().canRemove(g);
+    const canDup = BG().canAdd(g) && !!kindNow(mu);
+    if (S.confirmRm === mu.id) {
+      return h(
+        'div',
+        { class: 'bg-confirm', id: 'bgConfirm', role: 'alertdialog', 'aria-label': 'Retirer du groupe' },
+        h('p', {}, 'Retirer ', h('b', {}, mu.name), ' du groupe ? Ses réglages de scène seront perdus.'),
+        h('div', {}, h('button', { type: 'button', class: 'btn', id: 'bgRmNo', onclick: () => ((S.confirmRm = null), refresh()) }, 'Annuler'), h('button', { type: 'button', class: 'btn bg-hot', id: 'bgRmYes', onclick: () => removeMember(mu.id) }, 'Retirer'))
+      );
+    }
+    return h(
+      'div',
+      { class: 'bg-edit' },
       h(
-        'label',
-        { class: 'bpn-on' },
-        h('input', {
-          type: 'checkbox',
-          checked: ms.on,
-          onchange: (e) => {
-            ms.on = e.target.checked;
-            refresh();
-          },
-        }),
-        ' Dans le groupe'
-      )
+        'div',
+        { class: 'bg-order' },
+        h('span', { id: 'bgOrder' }, `Ordre ${i + 1} / ${n}`),
+        h('button', { type: 'button', class: 'btn btn-small', id: 'bgLeft', 'aria-label': 'Déplacer avant', title: 'Déplacer avant', disabled: i === 0 ? true : null, onclick: () => moveMember(mu.id, -1) }, '‹'),
+        h('button', { type: 'button', class: 'btn btn-small', id: 'bgRight', 'aria-label': 'Déplacer après', title: 'Déplacer après', disabled: i === n - 1 ? true : null, onclick: () => moveMember(mu.id, 1) }, '›')
+      ),
+      h(
+        'div',
+        { class: 'bg-actions' },
+        h('button', { type: 'button', class: 'btn', id: 'bgDup', disabled: canDup ? null : true, title: !kindNow(mu) ? 'Les effets ne se dupliquent pas' : canDup ? 'Ajoute une copie de ce musicien (même son)' : '10 musiciens au maximum', onclick: () => dupMember(mu.id) }, '⧉ Dupliquer'),
+        h('span', { class: 'spacer' }),
+        h('button', { type: 'button', class: 'btn bg-danger', id: 'bgRemove', disabled: canRm ? null : true, onclick: () => ((S.confirmRm = mu.id), refresh(), $('#bgRmNo') && $('#bgRmNo').focus()) }, 'Retirer du groupe')
+      ),
+      !canRm ? h('p', { class: 'dlg-hint bg-limit' }, '2 musiciens au minimum') : null,
+      !BG().canAdd(g) ? h('p', { class: 'dlg-hint bg-limit' }, '10 musiciens au maximum : impossible de dupliquer.') : null
     );
   }
 
@@ -715,9 +868,7 @@ SS.band = (() => {
     const panel = $('#bandPanel');
     const cat = catOf(mu);
     const pick = (i) => {
-      ms.pick = i;
-      ms.picked = true;
-      ms.custom = null;
+      setPick(mu, ms, i);
       ms.s2 = ms.s2custom = undefined; // le choix de l'étape 2 est celui-ci
       refresh();
       preview(instOpts(mu));
@@ -754,31 +905,36 @@ SS.band = (() => {
         ),
         h('p', { class: 'dlg-hint' }, gm()
           ? `Jeu : ${catLabel}. Mode General MIDI : les sons conseillés sont remplacés par le programme GM le plus proche ; « Tous les instruments… » propose les 128 programmes.`
-          : `Jeu : ${catLabel}. La fenêtre « Nouvelle piste » donne accès à toute la bibliothèque (instruments et synthés).`)
+          : `Jeu : ${catLabel}. La fenêtre « Nouvelle piste » donne accès à toute la bibliothèque (instruments et synthés).`),
+        groupActions(mu)
       ].filter(Boolean)
     );
   }
 
-  function renderKitPanel(mu, ms) {
-    const panel = $('#bandPanel');
-    const kitCards = (gm() ? ['gm'] : mu.kits).map((k, i) => {
+  /** Cartes de kit (étape Instruments) : les kits conseillés, puis (« Tous les kits… ») tous les autres. */
+  function kitCards(mu, ms, onPick) {
+    const all = gm() ? ['gm'] : S.allKits ? [...mu.kits, ...Object.keys(B().KITS).filter((k) => k !== 'gm' && !mu.kits.includes(k))] : mu.kits;
+    return all.map((k, i) => {
       const def = B().KITS[k];
       return h(
         'button',
-        {
-          type: 'button',
-          class: 'band-kit' + (kitOf(ms) === k ? ' active' : ''),
-          role: 'radio',
-          'aria-checked': kitOf(ms) === k ? 'true' : 'false',
-          onclick: () => {
-            ms.kit = k;
-            ms.s2kit = undefined;
-            refresh();
-          },
-        },
+        { type: 'button', class: 'band-kit' + (kitOf(ms) === k ? ' active' : ''), 'data-kit': k, role: 'radio', 'aria-checked': kitOf(ms) === k ? 'true' : 'false', onclick: () => onPick(k) },
         h('span', { class: 'bk-name' }, (i === 0 ? '★ ' : '') + def.label),
         h('span', { class: 'bk-detail' }, def.source ? ({ vcsl: 'Échantillons acoustiques', gm: 'Les 47 sons de la norme, canal 10' }[def.source] || 'Dirt-Samples') : `Boîte à rythmes · ${def.year}`)
       );
+    });
+  }
+  const allKitsBtn = (mu) =>
+    gm()
+      ? null
+      : h('button', { type: 'button', class: 'btn bpn-browse', id: 'bgAllKits', 'aria-pressed': String(!!S.allKits), onclick: () => ((S.allKits = !S.allKits), refresh()) }, h('span', { html: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>' }), S.allKits ? 'Kits conseillés seulement' : 'Tous les kits…');
+
+  function renderKitPanel(mu, ms) {
+    const panel = $('#bandPanel');
+    const cards = kitCards(mu, ms, (k) => {
+      ms.kit = k;
+      ms.s2kit = undefined;
+      refresh();
     });
     const rows = ms.pieces.map((pc) => {
       const info = pieceInfo(mu, pc);
@@ -818,7 +974,8 @@ SS.band = (() => {
       panelHead(mu, ms),
       ...[kindSelect(mu)].filter(Boolean),
       h('div', { class: 'bpn-sec' }, gm() ? 'Kit (mode General MIDI)' : 'Kit (★ phare + 5 conseillés)'),
-      h('div', { class: 'band-kits', role: 'radiogroup', 'aria-label': 'Kit' }, ...kitCards),
+      h('div', { class: 'band-kits', role: 'radiogroup', 'aria-label': 'Kit' }, ...cards),
+      allKitsBtn(mu),
       h('div', { class: 'bpn-sec' }, `Éléments — une piste par élément coché (${n})`),
       h('div', { class: 'band-pieces' }, ...rows),
       h(
@@ -829,14 +986,152 @@ SS.band = (() => {
       ),
       h('p', { class: 'dlg-hint' }, gm()
         ? `Mode General MIDI : chaque élément est un son de la batterie General MIDI. « Ajouter un élément… » propose les 47 sons (bongos, congas, claves, triangles…).`
-        : `${mu.role === 'perc' ? 'Le percussionniste' : 'Le batteur'} n’a accès qu’aux drums et échantillons : boîtes à rythmes, Dirt-Samples, percussions acoustiques. Les éléments peuvent venir de kits différents.`)
+        : `Un kit n’a accès qu’aux drums et échantillons : boîtes à rythmes, Dirt-Samples, percussions acoustiques. Les éléments peuvent venir de kits différents.`),
+      groupActions(mu)
     );
+  }
+
+  /* ---------- Ajouter un musicien : le type, puis le son (panneau de droite, en deux temps) ---------- */
+  const TYPE_DESC = {
+    drums: 'Le rythme : un kit de batterie ou de percussions, motifs et fills.',
+    bass: 'La fondation grave : suit la fondamentale de chaque accord.',
+    chords: 'Joue la grille en nappe, plaqué ou en stabs.',
+    arp: 'Égrène les notes des accords en motif répété.',
+    melody: 'La ligne chantante par-dessus : thème et motifs.',
+  };
+  const kindIcon = (k) => `<svg viewBox="0 0 30 30" aria-hidden="true">${KIND_ICON[k]}</svg>`;
+  function startAdd() {
+    if (!BG().canAdd(group())) return;
+    S.addMode = 'type';
+    S.add = null;
+    S.sel = null;
+    S.confirmRm = null;
+    refresh();
+  }
+  function cancelAdd() {
+    S.addMode = null;
+    S.add = null;
+    S.allKits = false;
+    refresh();
+  }
+  /** Le musicien en cours d'ajout, sous la forme d'un musicien du groupe (son choix : S.add.ms). */
+  function addMu() {
+    const a = S.add;
+    return resolveMu({ id: 'x0', base: null, type: a.type, name: a.name });
+  }
+  function renderAddType(panel) {
+    const cnt = (k) => musicians().filter((m) => kindNow(m) === k).length;
+    panel.style.setProperty('--c', 'var(--accent)');
+    panel.replaceChildren(
+      h('div', { class: 'bg-crumb' }, h('h2', {}, 'Nouveau musicien'), h('span', { class: 'bg-n' }, '1 / 2 · Type'), h('button', { type: 'button', class: 'btn btn-small', id: 'bgCancel', onclick: cancelAdd }, 'Annuler')),
+      h('p', { class: 'dlg-hint' }, 'Quel rôle ce musicien joue-t-il dans le groupe ?'),
+      h(
+        'div',
+        { class: 'bg-tycards', role: 'group', 'aria-label': 'Type du musicien' },
+        ...BG().TYPES.map((k) => {
+          const c = cnt(k);
+          return h(
+            'button',
+            {
+              type: 'button', class: 'bg-tyc', 'data-type': k, style: `--tc:${KIND_COLOR[k]}`,
+              onclick: () => {
+                const g = group();
+                S.add = { type: k, name: BG().freeName(g.list, BG().BASE_NAME[k]), custom: false };
+                S.add.ms = newMs(resolveMu({ id: 'x0', base: null, type: k, name: S.add.name }));
+                S.addMode = 'son';
+                refresh();
+                const i = $('#bgAddName');
+                i && i.focus();
+              },
+            },
+            h('span', { class: 'bm-avatar', html: kindIcon(k) }),
+            h('b', {}, KIND_LABEL[k]),
+            h('span', { class: 'bg-has' }, c ? `${c} dans le groupe` : ''),
+            h('small', {}, TYPE_DESC[k] + (k === 'drums' && c ? ' Un kit de plus est possible.' : ''))
+          );
+        })
+      )
+    );
+  }
+  function renderAddSound(panel) {
+    const a = S.add;
+    const mu = addMu();
+    const ms = a.ms;
+    panel.style.setProperty('--c', KIND_COLOR[a.type]);
+    const inp = h('input', {
+      type: 'text', class: 'bpn-name', id: 'bgAddName', value: a.name, maxlength: '24', 'aria-label': 'Nom du musicien', spellcheck: 'false',
+      oninput: () => {
+        a.name = inp.value || a.name;
+        a.custom = true;
+        renderStage();
+      },
+      onblur: () => {
+        if (!inp.value.trim()) {
+          a.name = BG().freeName(group().list, BG().BASE_NAME[a.type]);
+          a.custom = false;
+          inp.value = a.name;
+          renderStage();
+        }
+      },
+      onkeydown: (e) => e.key === 'Enter' && $('#bgValidate').click(),
+    });
+    let body;
+    if (mu.kits) {
+      body = [
+        h('div', { class: 'bpn-sec' }, 'Kit (★ phare + conseillés)'),
+        h('div', { class: 'band-kits', role: 'radiogroup', 'aria-label': 'Kit' }, ...kitCards(mu, ms, (k) => ((ms.kit = k), refresh()))),
+        allKitsBtn(mu),
+        h('p', { class: 'dlg-hint' }, 'Ses éléments (une piste chacun) se règlent ensuite dans son panneau.')
+      ];
+    } else {
+      const cur = instOpts(mu, ms);
+      const seen = [];
+      const cards = pickOrder(mu)
+        .map((i, k) => {
+          const o = choiceAt(mu, i);
+          if (seen.some((x) => sameOpts(x, o))) return null;
+          seen.push(o);
+          return choiceCard(o, { active: !ms.custom && sameOpts(o, cur), star: k === 0, onPick: () => (setPick(mu, ms, i), refresh(), preview(instOpts(mu, ms))) });
+        })
+        .filter(Boolean);
+      body = [
+        h('div', { class: 'bpn-sec' }, `Conseillés · ${KIND_LABEL[a.type]} · ${(style() || {}).label || ''}`),
+        h('div', { class: 'bg-snds', role: 'radiogroup', 'aria-label': 'Sons conseillés' }, ...cards),
+        ms.custom ? h('div', { class: 'bpn-sec' }, 'Ton choix') : null,
+        ms.custom ? choiceCard(instOpts(mu, ms), { active: true, onPick: () => {}, extraClass: ' custom' }) : null,
+        h('button', { type: 'button', class: 'btn bpn-browse', id: 'bgAllSounds', onclick: () => browseInstrument(mu, ms) }, h('span', { html: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>' }), 'Tous les instruments…')
+      ].filter(Boolean);
+    }
+    panel.replaceChildren(
+      h('div', { class: 'bg-crumb' }, h('button', { type: 'button', class: 'btn btn-small', id: 'bgBack', 'aria-label': 'Retour au choix du type', onclick: () => ((S.addMode = 'type'), refresh()) }, '‹ Type'), h('h2', {}, 'Nouveau musicien'), h('span', { class: 'bg-n' }, '2 / 2 · Son')),
+      h('div', { class: 'bpn-head', style: `--c:${KIND_COLOR[a.type]}` }, h('span', { class: 'bm-avatar', html: kindIcon(a.type) }), h('div', { class: 'bpn-title' }, inp, h('small', {}, `${KIND_LABEL[a.type]} · ${soundName(mu, ms)}`))),
+      ...body,
+      h('div', { class: 'bg-actions' }, h('button', { type: 'button', class: 'btn', id: 'bgCancel', onclick: cancelAdd }, 'Annuler'), h('span', { class: 'spacer' }), h('button', { type: 'button', class: 'btn btn-accent', id: 'bgValidate', style: `--c:${KIND_COLOR[a.type]}`, onclick: validateAdd }, 'Ajouter au groupe'))
+    );
+  }
+  function validateAdd() {
+    const a = S.add;
+    if (!a) return;
+    const ms = a.ms;
+    const rec = BG().add(group(), a.type, { name: a.custom ? a.name : undefined, ms });
+    if (!rec) return cancelAdd();
+    S.addMode = null;
+    S.add = null;
+    S.allKits = false;
+    S.sel = rec.id;
+    S.fresh = rec.id;
+    groupChanged();
   }
 
   function renderPanel() {
     const panel = $('#bandPanel');
-    const p = preset();
-    const mu = p && p.musicians.find((x) => x.id === S.sel);
+    if (S.addMode) {
+      panel.hidden = false;
+      el.classList.add('with-panel');
+      return S.addMode === 'type' || !S.add ? renderAddType(panel) : renderAddSound(panel);
+    }
+    panel.style.removeProperty('--c');
+    const mu = S.sel ? muById(S.sel) : null;
     panel.hidden = !mu;
     el.classList.toggle('with-panel', !!mu);
     if (!mu) return;
@@ -874,6 +1169,8 @@ SS.band = (() => {
     S.styleId = id;
     S.presetId = style().presets[0].id;
     S.sel = null;
+    resetAdd();
+    S.group = null; // autre style : le groupe repart de celui du nouveau style
     dropEdits(); // les réglages par scène, la tonalité et l'arrangement étaient ceux de l'autre inspiration
     renderStyles();
     renderPresets();
@@ -884,6 +1181,9 @@ SS.band = (() => {
   function setPreset(id) {
     S.presetId = id;
     S.sel = null;
+    resetAdd();
+    S.group = { ...BG().rebase(group(), preset(), true), style: S.styleId }; // même style : le groupe de la nouvelle inspiration, avec les musiciens ajoutés
+    rebaseAdded();
     dropEdits(true);
     renderPresets();
     renderSong();
@@ -892,11 +1192,81 @@ SS.band = (() => {
   }
   function select(id) {
     S.sel = id;
+    S.addMode = null;
+    S.add = null;
+    S.confirmRm = null;
     refresh();
+  }
+  const resetAdd = () => Object.assign(S, { addMode: null, add: null, confirmRm: null, allKits: false });
+  /** Autre inspiration, même style : le choix de son d'un musicien ajouté suit ses conseillés (son retrouvé par son nom, sinon gardé tel quel). */
+  function rebaseAdded() {
+    group().list.forEach((r) => {
+      const ms = r.ms;
+      if (r.base || !ms || ms.pick === undefined) return;
+      const pk = recFor(r.type).pick;
+      const i = ms.tok ? pk.indexOf(ms.tok) : 0;
+      if (i >= 0) ms.pick = i;
+      else {
+        ms.custom = ms.custom || B().choiceOpts(ms.tok, BG().CAT_OF_TYPE[r.type]);
+        ms.pick = 0;
+      }
+    });
+  }
+
+  /** Le groupe a changé (ajout, retrait, copie, ordre) : le mix, l'écoute et les onglets suivent. */
+  function groupChanged() {
+    if (S.wiz) {
+      if (S.wiz.mix) mixSync();
+      dropListen();
+    }
+    refresh();
+  }
+  /** Retire un musicien : ses réglages (par scène, type, tranches du mix, muet / solo / volume) disparaissent avec lui. */
+  function removeMember(id) {
+    const g = group();
+    const i = g.list.findIndex((r) => r.id === id);
+    if (i < 0 || !BG().canRemove(g)) return;
+    const ids = new Set([id]);
+    if (S.wiz) wizCols().filter((c) => c.musician === id).forEach((c) => ids.add(c.id));
+    BG().remove(g, id);
+    if (S.wiz) BG().purge(S.wiz, [...ids]);
+    S.confirmRm = null;
+    S.sel = (g.list[Math.min(i, g.list.length - 1)] || {}).id || null;
+    groupChanged();
+  }
+  /** Copie : même type, même son, nom libre (« Bassiste 2 »), juste après l'original. */
+  function dupMember(id) {
+    const g = group();
+    const mu = muById(id);
+    const kind = mu && kindNow(mu);
+    if (!mu || !kind || !BG().canAdd(g)) return;
+    const src = musState()[id];
+    let ms;
+    if (mu.kits) ms = { ...BG().clone(src), on: true };
+    else {
+      const rc = recFor(kind);
+      const tok = picksOf(mu)[effPick(mu, src)];
+      const i = rc.pick.indexOf(tok);
+      ms = { on: true, pick: Math.max(0, i), custom: src.custom ? BG().clone(src.custom) : i < 0 ? B().choiceOpts(tok, catOf(mu)) : null, tok: i < 0 ? rc.pick[0] : tok, picked: true };
+    }
+    const rec = BG().insertAfter(g, id, { id: BG().newId(g), base: null, name: BG().copyName(g, mu.name), custom: true, type: kind, ms });
+    S.sel = rec.id;
+    S.fresh = rec.id;
+    S.confirmRm = null;
+    groupChanged();
+  }
+  /** Ordre : delta (‹ -1, › +1) ou une tuile qui en prend une autre (glisser-déposer). Les onglets suivent. */
+  function moveMember(id, to) {
+    const g = group();
+    const ok = typeof to === 'number' ? BG().move(g, id, to) : BG().moveTo(g, id, to);
+    if (!ok) return;
+    S.sel = id;
+    S.addMode = null;
+    groupChanged();
   }
 
   async function browseInstrument(mu, ms) {
-    const cur = instOpts(mu);
+    const cur = instOpts(mu, ms);
     const res = await app.openTrackDialog(null, {
       state: { ...cur, name: labelOf(mu) },
       types: ['instrument', 'synth'],
@@ -963,7 +1333,7 @@ SS.band = (() => {
    * (mix, pick : ils suivent le nombre d'instruments). Une étape instrument est { inst: id } (stepRef, stepNum, insAt). */
   const FOUND = [
     { key: 'style', label: 'Style', hint: 'Choisis le style et l’inspiration (ou tape une reprise)', line: 'Choisis un style, puis une inspiration pour partir d’une vraie chanson.' },
-    { key: 'inst', label: 'Instruments', hint: 'Choisis les musiciens du groupe et leurs instruments', line: 'Un musicien par rôle : clique sur chacun pour choisir son instrument, puis ce qu’il joue.' },
+    { key: 'inst', label: 'Instruments', hint: 'Compose le groupe : ajoute, renomme, ordonne les musiciens et choisis leurs instruments', line: 'Ajoute des musiciens, renomme-les, change leur type ou leur son (2 à 10).' },
     { key: 'tempo', label: 'Tempo et tonalité', hint: 'Le tempo et la tonalité de la chanson ; changer la tonalité transpose toutes les scènes', line: 'Règle la vitesse et la tonalité ; toutes les scènes suivent.' },
     { key: 'scenes', label: 'Scènes', hint: 'Toute la chanson : les scènes, leur longueur et leur ordre dans l’arrangement', line: 'Dessine la forme : les scènes, leur longueur et leur ordre dans la chanson.' },
     { key: 'chords', label: 'Accords', hint: 'Les accords de chaque scène : tonalité, grille au temps, inspiration par émotion', line: 'Les accords de chaque scène : une grille au temps, dans la tonalité.' },
@@ -995,12 +1365,12 @@ SS.band = (() => {
    * id : celui de la colonne (musicien:clé[#n]) ; un kit de batterie (toutes ses pièces) est un seul instrument, d'id le musicien,
    * qui est aussi la clé de ses réglages (parts[section].inst[id]). « fx » n'a pas de type : pas d'étape.
    */
-  const kitOfAll = () => (preset() ? preset().musicians.filter((m) => m.kits).map((m) => kitOf(musState()[m.id])) : []);
+  const kitOfAll = () => (preset() ? musicians().filter((m) => m.kits).map((m) => kitOf(musState()[m.id])) : []);
   let insMemo = { sig: null, val: [] };
   function insSteps() {
     if (!S.wiz || !preset()) return [];
     const cols = wizCols();
-    const sig = JSON.stringify([cols.map((c) => [c.id, c.o]), S.wiz.kinds, gm(), kitOfAll()]);
+    const sig = JSON.stringify([cols.map((c) => [c.id, c.o]), S.wiz.kinds, gm(), kitOfAll(), musicians().map((m) => [m.id, m.name, m.custom])]);
     if (insMemo.sig === sig && insMemo.wiz === S.wiz) return insMemo.val;
     const out = [];
     cols.forEach((c) => {
@@ -1009,10 +1379,10 @@ SS.band = (() => {
       const t = out.find((x) => x.id === id);
       if (t) return void t.cols.push(c);
       if (!defaultKind(c)) return;
-      const mu = preset().musicians.find((m) => m.id === c.musician);
+      const mu = muById(c.musician);
       out.push({
         id, key: id, kit, col: c, cols: [c], role: c.role, musician: c.musician, kind: instKind(c), def: defaultKind(c),
-        name: kit ? roleOf(mu).short : B().describe(c.o).name.replace(/^[A-Z]\d+\s*[–-]\s*/, ''), sound: kit ? (B().KITS[kitOf(musState()[mu.id])] || {}).label || labelOf(mu) : B().describe(c.o).name,
+        name: nameOf0(mu) || (kit ? roleOf(mu).short : B().describe(c.o).name.replace(/^[A-Z]\d+\s*[–-]\s*/, '')), sound: kit ? (B().KITS[kitOf(musState()[mu.id])] || {}).label || labelOf(mu) : B().describe(c.o).name,
       });
     });
     insMemo = { sig, wiz: S.wiz, val: out };
@@ -1480,8 +1850,16 @@ SS.band = (() => {
   function setKind(id, kind) {
     const c = wizCols().find((x) => x.id === id);
     if (!c || !defaultKind(c) || !SS.bandSong.checkKind({ type: c.o.type }, kind)) return false;
+    if (kind === instKind(c)) return true;
     if (kind === defaultKind(c)) delete S.wiz.kinds[id];
     else S.wiz.kinds[id] = kind;
+    // le son devient le phare du nouveau type (ses conseillés sont ceux de ce type)
+    const mu = muById(c.musician);
+    const ms = mu && !mu.kits ? musState()[mu.id] : null;
+    if (ms) {
+      Object.assign(ms, { pick: 0, picked: false, custom: null, s2: undefined, s2custom: undefined });
+      if (mu.added) ms.tok = picksOf(mu)[0];
+    }
     return true;
   }
   /** Types gardés quand le groupe change : ceux des instruments qui existent encore. */
@@ -1652,7 +2030,7 @@ SS.band = (() => {
       const p = preset();
       if (n === ST.style) return cover() ? 'Reprise' : (style() || {}).label || '';
       if (n === ST.inst) {
-        const k = Object.values(musState()).filter((m) => m.on).length;
+        const k = musicians().length;
         return `${k} musicien${k > 1 ? 's' : ''}`;
       }
       if (!spec()) return '';
@@ -1717,6 +2095,12 @@ SS.band = (() => {
     renderStepHead();
   }
 
+  /** Étape Instruments : « N musiciens · 2 à 10 » près du titre. */
+  function countBadge() {
+    const n = group().list.length;
+    return h('span', { class: 'bg-count' + (n >= BG().MAX ? ' max' : ''), id: 'bgCount', 'aria-live': 'polite' }, `${n} musicien${n > 1 ? 's' : ''} · ${BG().MIN} à ${BG().MAX}`);
+  }
+
   /** Tête d'étape : le numéro en gris, le nom en grand, puis une phrase. */
   function renderStepHead() {
     const n = S.wiz.step;
@@ -1725,7 +2109,7 @@ SS.band = (() => {
     box.hidden = false;
     box.classList.toggle('bw-insHead', !!info.ins);
     box.replaceChildren(
-      h('h1', {}, h('em', {}, String(n).padStart(2, '0')), info.label),
+      h('h1', {}, h('em', {}, String(n).padStart(2, '0')), info.label, n === ST.inst ? countBadge() : null),
       info.ins
         ? h('div', { class: 'bw-insline' }, h('span', { class: 'bw-ktag', id: 'bwKindTag', 'data-kind': info.ins.kind, style: `--c:${KIND_COLOR[info.ins.kind]}`, title: 'Type de cet instrument (à changer à l’étape 2, Instruments)' }, KIND_LABEL[info.ins.kind]), h('p', {}, info.line))
         : h('p', {}, info.line)
@@ -2031,7 +2415,7 @@ SS.band = (() => {
     cols.forEach((c) => {
       const g = groups[groups.length - 1];
       if (g && g.musician === c.musician) g.cols.push(c);
-      else groups.push({ musician: c.musician, mu: p.musicians.find((m) => m.id === c.musician), cols: [c] });
+      else groups.push({ musician: c.musician, mu: muById(c.musician), cols: [c] });
     });
     const pick = step === ST.pick;
     // étape Chanson : les colonnes coupées à l'étape Mélodie (Muet / Solo) sont grisées
@@ -3189,9 +3573,7 @@ SS.band = (() => {
           }
           if (v === 'custom') ms.custom = ms.s2custom || ms.custom;
           else {
-            ms.pick = +v;
-            ms.picked = true;
-            ms.custom = null;
+            setPick(mu, ms, +v);
           }
           renderWiz();
           if (!L.mode) preview(instOpts(mu));
@@ -3235,7 +3617,7 @@ SS.band = (() => {
   /** La barre : Piste (le son de l'instrument de l'étape), puis On entend (une pastille par instrument) et Seule. `T` : l'instrument, ou « chords ». */
   function trackbar(T) {
     const p = preset();
-    const mu = isT(T) ? p.musicians.find((m) => m.id === T.musician) : null;
+    const mu = isT(T) ? muById(T.musician) : null;
     const piste = !isT(T)
       ? [h('span', { class: 'tb-fixed' }, 'Accords de la scène')]
       : mu ? (mu.kits ? kitControls(mu) : [trackSelect(mu)]) : [];
@@ -5463,9 +5845,11 @@ SS.band = (() => {
       mu = find(p);
     }
     const ms = S.cache[p.id] && S.cache[p.id][mu.id];
-    const pi = ms ? effPick(mu, ms) : gm() ? pickOrder(mu)[0] : 0;
-    const opts = ms && ms.custom ? toGm(ms.custom) : choiceAt(mu, pi);
-    const levelKey = ms && ms.custom ? null : `${mu.role}|${gm() ? opts.instrument : mu.pick[pi]}|${catOf(mu)}`;
+    const cat = mu.cat || roleOf(mu).cat || 'mono';
+    const order = gm() ? [...mu.pick.keys()].sort((x, y) => mu.pick[y].startsWith('gm_') - mu.pick[x].startsWith('gm_')) : [...mu.pick.keys()];
+    const pi = ms && (ms.picked || !gm()) ? ms.pick : order[0];
+    const opts = ms && ms.custom ? toGm(ms.custom) : toGm(B().choiceOpts(mu.pick[pi], cat));
+    const levelKey = ms && ms.custom ? null : `${mu.role}|${gm() ? opts.instrument : mu.pick[pi]}|${cat}`;
     return { ...opts, category: 'mono', name: 'Mélodie', color: colorOf(mu), levelKey, role: mu.role, style: S.styleId || 'synthwave' };
   }
 
@@ -5488,6 +5872,8 @@ SS.band = (() => {
   /** « Nouvelle chanson… » (menu de l'application) : l'assistant sur une chanson vide. */
   function openWizard({ fresh = true } = {}) {
     if (S.wiz) leave(); // déjà ouvert : on repart de zéro
+    S.group = null; // le groupe repart de celui de l'inspiration
+    resetAdd();
     // keys / grids / emos : étape Accords (tonalité, grille, émotion par section) ; parts : réglages par scène (batterie,
     // basse, nappes, arpèges) ; form / secs / skey : arrangement, scènes et tonalité retouchés (specEff) ; chars : caractère et notes par phrase par section (réglages du moteur, sans écran) ; melPanel : état du panneau Mélodie par section ; snap : aimant de la grille ; gsel : accord sélectionné ; insp : fenêtre d'inspiration
     S.wiz = {
@@ -5505,7 +5891,7 @@ SS.band = (() => {
   function draftSrc() {
     const w = { ...S.wiz };
     if (w.melSec != null) w.melPanel = { ...w.melPanel, [w.melSec]: SS.melodyPanel.getState() };
-    return { mode: S.mode, styleId: S.styleId, presetId: S.presetId, cover: S.cover, cache: S.cache, hide: S.hide, mel: S.mel, accOpen: S.accOpen, tracksOpen: S.tracksOpen, w };
+    return { mode: S.mode, styleId: S.styleId, presetId: S.presetId, cover: S.cover, group: group(), cache: S.cache, hide: S.hide, mel: S.mel, accOpen: S.accOpen, tracksOpen: S.tracksOpen, w };
   }
   /** Le brouillon (enveloppe v, savedAt, createdAt, state) de l'assistant ouvert. */
   function wizSnapshot(createdAt) {
@@ -5528,12 +5914,12 @@ SS.band = (() => {
           if (mu.kits) {
             const pieces = Array.isArray(x.pieces) ? x.pieces : [];
             o[mu.id] = {
-              on: x.on !== false,
+              on: true,
               kit: mu.kits.includes(x.kit) ? x.kit : mu.kits[0],
               pieces: pieces.filter((q) => q && typeof q.piece === 'string').map((q) => ({ piece: q.piece, on: q.on !== false })),
             };
           } else {
-            o[mu.id] = { on: x.on !== false, pick: Number.isInteger(x.pick) && x.pick >= 0 && x.pick < mu.pick.length ? x.pick : 0, custom: x.custom && typeof x.custom === 'object' ? x.custom : null };
+            o[mu.id] = { on: true, pick: Number.isInteger(x.pick) && x.pick >= 0 && x.pick < mu.pick.length ? x.pick : 0, custom: x.custom && typeof x.custom === 'object' ? x.custom : null };
             if (x.picked) o[mu.id].picked = true;
           }
         });
@@ -5554,6 +5940,10 @@ SS.band = (() => {
     S.presetId = pr.id;
     S.mode = x.mode;
     S.cover = x.mode === 'cover' ? { ...COVER_DEFAULT(), ...(x.cover || {}) } : x.cover ? { ...COVER_DEFAULT(), ...x.cover } : null;
+    // groupe : celui du brouillon ; un brouillon v1 (musiciens « dans le groupe » ou non, sans liste) est migré
+    const g = BG().clean(x.group, pr) || BG().fromV1(pr, x.cache && x.cache[pr.id]);
+    S.group = { ...g, style: st.id };
+    resetAdd();
     S.cache = cleanCache(x.cache);
     S.hide = x.hide;
     S.mel = { ...MEL_DEFAULT, ...(x.mel || {}) };

@@ -4830,3 +4830,57 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 #bandDialog .bwa-surprise:hover { background: #26a863; border-color: #4ad18c; }
 /* « Reprendre l'assistant » : le libellé, puis dessous la date du brouillon */
 .app-menu #resumeWizard { flex-direction: column; align-items: flex-start; gap: 1px; }
+
+/* ===== Étape 2 : le groupe éditable (ajouter, modifier, dupliquer, retirer, ordonner : 2 à 10 musiciens) ===== */
+#bandDialog { --bw-warn: #f5c400; --bw-hot: #ff5c5c; }
+#bandDialog .bg-count { margin-left: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--bw-line2); background: var(--bw-panel2); color: var(--bw-muted); font-size: 13px; font-weight: 600; vertical-align: middle; white-space: nowrap; }
+#bandDialog .bg-count.max { border-color: var(--bw-warn); color: var(--bw-warn); }
+#bandDialog .stage-row-add { margin-top: 2px; }
+#bandDialog .bm-ord { position: absolute; top: 6px; left: 9px; font-size: 11px; color: var(--bw-dim); font-variant-numeric: tabular-nums; }
+#bandDialog .band-mus.dragging { opacity: .4; }
+#bandDialog .band-mus.over { outline: 2px dashed var(--c); outline-offset: 2px; }
+#bandDialog .band-mus.fresh { animation: bgPop .5s ease-out; }
+@keyframes bgPop { 0% { transform: scale(.85); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { #bandDialog .band-mus.fresh { animation: none; } }
+#bandDialog .band-add { border: 1px dashed var(--bw-line2); background: transparent; color: var(--bw-muted); justify-content: center; }
+#bandDialog .band-add:hover:not(:disabled) { color: var(--bw-text); border-color: var(--bw-accent); background: color-mix(in srgb, var(--bw-accent) 10%, transparent); }
+#bandDialog .band-add:disabled { opacity: .6; cursor: not-allowed; }
+#bandDialog .band-add:disabled .bm-inst { color: var(--bw-warn); }
+#bandDialog .bm-plus { background: none; box-shadow: none; border: 2px dashed currentColor; font-size: 28px; line-height: 1; color: inherit; }
+#bandDialog .band-mus.pending { border: 1px dashed var(--c); background: color-mix(in srgb, var(--c) 8%, transparent); cursor: default; }
+#bandDialog .band-mus.pending .bm-avatar { opacity: .6; }
+#bandDialog .bg-q { font-size: 26px; }
+#bandDialog .bpn-name { width: 100%; min-width: 0; box-sizing: border-box; height: 32px; padding: 0 8px; margin-left: -8px; font: inherit; font-size: 16px; font-weight: 700; color: var(--bw-text); background: transparent; border: 1px solid transparent; border-radius: var(--bw-r-ctl); }
+#bandDialog .bpn-name:hover { border-color: var(--bw-line2); }
+#bandDialog .bpn-name:focus { border-color: var(--c, var(--bw-accent)); background: var(--bw-panel2); outline: none; }
+#bandDialog .bg-edit { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; padding-top: 10px; border-top: 1px solid var(--bw-line); }
+#bandDialog .bg-order { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--bw-muted); }
+#bandDialog .bg-order span { flex: 1; }
+#bandDialog .bg-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+#bandDialog .bg-actions .spacer { flex: 1; }
+#bandDialog .bg-danger { background: none; border-color: transparent; color: #ff8a8a; }
+#bandDialog .bg-danger:hover:not(:disabled) { background: color-mix(in srgb, var(--bw-hot) 14%, transparent); border-color: var(--bw-hot); }
+#bandDialog .bg-hot { background: color-mix(in srgb, var(--bw-hot) 30%, var(--bw-panel2)); border-color: var(--bw-hot); }
+#bandDialog .bg-limit { margin: 0; text-align: right; }
+#bandDialog .bg-confirm { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; padding: 10px 12px; border-radius: var(--bw-r-card); border: 1px solid var(--bw-hot); background: color-mix(in srgb, var(--bw-hot) 10%, var(--bw-panel)); }
+#bandDialog .bg-confirm p { margin: 0; font-size: 13px; }
+#bandDialog .bg-confirm div { display: flex; gap: 8px; justify-content: flex-end; }
+#bandDialog .bg-crumb { display: flex; align-items: center; gap: 10px; }
+#bandDialog .bg-crumb h2 { margin: 0; font-size: 16px; flex: 1; min-width: 0; }
+#bandDialog .bg-n { font-size: 12px; color: var(--bw-dim); white-space: nowrap; }
+#bandDialog .bg-tycards { display: flex; flex-direction: column; gap: 8px; }
+#bandDialog .bg-tyc { text-align: left; width: 100%; display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: 2px 12px; align-items: center; padding: 10px 12px; border-radius: var(--bw-r-card); border: 1px solid var(--bw-line); border-left: 5px solid var(--tc); background: var(--bw-panel2); color: var(--bw-text); font: inherit; cursor: pointer; }
+#bandDialog .bg-tyc:hover { background: color-mix(in srgb, var(--tc) 16%, var(--bw-panel2)); border-color: var(--tc); }
+#bandDialog .bg-tyc .bm-avatar { grid-row: span 2; --c: var(--tc); width: 44px; height: 44px; }
+#bandDialog .bg-tyc .bm-avatar svg { width: 26px; height: 26px; }
+#bandDialog .bg-tyc b { font-size: 15px; }
+#bandDialog .bg-tyc small { grid-column: 2 / -1; color: var(--bw-muted); font-size: 12px; line-height: 1.35; }
+#bandDialog .bg-has { grid-row: 1; grid-column: 3; font-size: 11px; color: var(--bw-dim); white-space: nowrap; }
+#bandDialog .bg-snds { display: flex; flex-direction: column; gap: 6px; }
+@media (max-width: 720px) {
+  #bandDialog .bg-count { display: inline-block; margin: 4px 0 0; }
+  #bandDialog .stage-row { gap: 10px; }
+  #bandDialog .bg-tyc { grid-template-columns: 40px minmax(0, 1fr); }
+  #bandDialog .bg-has { grid-column: 2; grid-row: auto; }
+  #bandDialog .bg-tyc small { grid-column: 2; }
+}
