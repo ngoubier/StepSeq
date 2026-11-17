@@ -258,6 +258,11 @@
             <!-- Tête d'étape : « 05 Batterie » et une phrase (js/band.js, renderStepHead) -->
             <div class="bw-stephead" id="bwStepHead" hidden></div>
             <div class="bw-headact">
+              <!-- Étape 1 : « Générer et écouter » lance toute la chanson (même écoute que l'étape Scènes, commandée par la barre du haut) -->
+              <div class="bw-quick wiz-only" id="bwQuick" hidden>
+                <button type="button" class="btn-go" id="bwGo" aria-pressed="false" title="Crée l'aperçu complet (tous les instruments, toutes les scènes) et le joue ; on affine ensuite étape par étape"><span class="bw-go-ico" aria-hidden="true">▶</span><span id="bwGoText">Générer et écouter</span></button>
+                <small>puis affine étape par étape</small>
+              </div>
               <!-- Étape 2 : General MIDI (même réglage que dans la fenêtre de piste) -->
               <button type="button" class="btn band-gm" id="bandGm" aria-pressed="false" aria-label="General MIDI" title="Mode General MIDI du projet : chaque musicien joue un son General MIDI, la batterie prend la batterie General MIDI. Même réglage que dans la fenêtre de piste.">
                 <span class="band-gm-box" aria-hidden="true"></span><span class="band-gm-long">General MIDI</span><span class="band-gm-short" aria-hidden="true">GM</span>

@@ -4671,8 +4671,8 @@ SS.band = (() => {
     syncAutoScroll(content);
   }
 
-  /* --- Batterie : bibliothèque de motifs, grille 5 pistes × 16 pas, fills, crash --- */
-  const LANES = [['K', 'Grosse caisse'], ['S', 'Caisse claire'], ['C', 'Clap'], ['H', 'Charleston'], ['O', 'Charl. ouvert']];
+  /* --- Batterie : bibliothèque de motifs, grille des éléments du kit (1, 2 ou 4 mesures), fills, crash, montée --- */
+  const LANES = [['K', 'Grosse caisse'], ['S', 'Caisse claire'], ['C', 'Clap'], ['H', 'Charleston'], ['O', 'Charl. ouvert']]; // pistes des motifs (miniatures)
   const E16 = '-'.repeat(16);
   const NEXT_VEL = { '-': 'x', x: 'o', o: '.', '.': '-' }; // case : éteinte → fort → moyen → léger → éteinte
   const velChar = (v) => (v >= 0.85 ? 'x' : v >= 0.6 ? 'o' : v > 0 ? '.' : '-');
@@ -4697,15 +4697,288 @@ SS.band = (() => {
     });
     return out;
   }
-  const lanesOf = (sc, T) => {
-    const d = partOf(sc.sec, T);
-    const p = patOf(sc.sec, T);
-    return (d && d.edits) || (p && p.lanes) || inspLanes(sc, T.cols);
+
+  /* Grille : une ligne par élément coché du kit (T.cols). Chaque ligne est une piste de edits (K S C H O pour grosse caisse, caisse claire, clap,
+   * charleston, charleston ouvert ; l'identifiant du son pour les autres : rd, rim, cr, toms, perc…) de 16, 32 ou 64 pas, avec ses ratchets
+   * (edits.rat) et ses conditions (edits.cond). Tant qu'on n'a rien touché, la ligne montre ce qui joue (motif choisi, sinon plan de l'inspiration) ;
+   * le premier geste écrit toutes les lignes dans edits (format décrit dans js/bandsong.js). */
+  const LANE_COLOR = { K: '#ff5c93', S: '#ffb347', C: '#f2d64b', H: '#5ec4e8', O: '#7ee2a8', rd: '#4fd1c5', rim: '#c792ea', cr: '#ff8a65', ht: '#f48fb1', mt: '#f48fb1', lt: '#f48fb1', perc: '#f08a00' };
+  const VEL_CLS = { x: 'v1', o: 'v2', '.': 'v3' };
+  const VEL_NAME = { x: 'fort', o: 'moyen', '.': 'léger' };
+  const COND_LIST = [['', '100 %'], ['p75', '75 %'], ['p50', '50 %'], ['p25', '25 %'], ['1:2', '1:2'], ['2:2', '2:2']];
+  let dScroll = 0; // défilement horizontal de la grille, gardé d'un rendu à l'autre
+  const norm = (str, n) => String(str || '').padEnd(n, '-').slice(0, n);
+  /** Lignes de la grille : un élément du kit chacune (deux colonnes du même son ne font qu'une ligne). */
+  function kitLanes(T) {
+    const seen = new Set();
+    return T.cols
+      .map((c) => {
+        const snd = c.o.band.key.split(':')[1] || c.o.sound;
+        const key = SS.bandSong.laneKey(snd);
+        return { id: c.id, snd, key, name: c.o.name || snd, color: LANE_COLOR[key] || '#9aa5b1' };
+      })
+      .filter((l) => !seen.has(l.key) && seen.add(l.key));
+  }
+  /** Piste d'un motif (ou d'anciennes edits) qui joue ce son, comme patternSteps ; null : le motif ne le pilote pas. */
+  function patLane(L, snd) {
+    if (snd === 'bd') return L.K || '';
+    if (snd === 'sd') return L.S || '';
+    if (snd === 'cp') return /[xo.]/.test(L.C || '') ? L.C : L.S || '';
+    if (snd === 'hh') return L.H || '';
+    if (snd === 'oh' || snd === 'rd') return L.O || '';
+    return null;
+  }
+  /** La grille de la scène : { bars, lanes, rat, cond, kit } (édition en cours, sinon le motif choisi, sinon le jeu de l'inspiration). */
+  function drumGridOf(sc, T) {
+    const d = partOf(sc.sec, T) || {};
+    const ed = d.edits && typeof d.edits === 'object' ? d.edits : null;
+    const grid = !!(ed && ed.bars);
+    const bars = grid && [1, 2, 4].includes(ed.bars) ? ed.bars : 1;
+    const n = 16 * bars;
+    const pat = patOf(sc.sec, T);
+    const kit = kitLanes(T);
+    const lanes = {};
+    const rat = {};
+    const cond = {};
+    kit.forEach((l) => {
+      rat[l.key] = {};
+      cond[l.key] = {};
+      if (grid && typeof ed[l.key] === 'string') {
+        lanes[l.key] = norm(ed[l.key], n);
+        Object.assign(rat[l.key], (ed.rat || {})[l.key]);
+        Object.assign(cond[l.key], (ed.cond || {})[l.key]);
+        return;
+      }
+      const src = ed || (pat && pat.lanes);
+      let str = src ? patLane(src, l.snd) : null;
+      const r1 = {};
+      const c1 = {};
+      if (str == null) {
+        const dd = sc.data[l.id] || {};
+        str = Array.from({ length: 16 }, (_, s) => velChar((dd.steps || [])[s] || 0)).join('');
+        for (let s = 0; s < 16; s++) {
+          if (dd.rat && dd.rat[s] > 1) r1[s] = dd.rat[s];
+          if (dd.cond && dd.cond[s]) c1[s] = dd.cond[s];
+        }
+      }
+      lanes[l.key] = norm(norm(str, 16).repeat(bars), n);
+      for (let q = 0; q < bars; q++) {
+        Object.keys(r1).forEach((s) => (rat[l.key][q * 16 + +s] = r1[s]));
+        Object.keys(c1).forEach((s) => (cond[l.key][q * 16 + +s] = c1[s]));
+      }
+    });
+    return { bars, lanes, rat, cond, kit };
+  }
+  /** Écrit la grille dans parts[section].drums.edits (ratchets et conditions seulement sur les cases allumées). */
+  function putDrumGrid(sc, T, g) {
+    const n = 16 * g.bars;
+    const edits = { bars: g.bars };
+    const rat = {};
+    const cond = {};
+    g.kit.forEach((l) => {
+      edits[l.key] = norm(g.lanes[l.key], n);
+      const keep = (m) => Object.fromEntries(Object.entries(m[l.key] || {}).filter(([s, v]) => v && +s < n && edits[l.key][s] !== '-'));
+      const r = keep(g.rat);
+      const c = keep(g.cond);
+      if (Object.keys(r).length) rat[l.key] = r;
+      if (Object.keys(c).length) cond[l.key] = c;
+    });
+    if (Object.keys(rat).length) edits.rat = rat;
+    if (Object.keys(cond).length) edits.cond = cond;
+    putPart(sc.sec, T, { edits });
+  }
+  /** Retouche la grille (fn reçoit la copie de travail), l'écrit, refait la chanson et l'entend. */
+  function editDrumGrid(sc, T, fn, focus) {
+    const g = drumGridOf(sc, T);
+    fn(g);
+    putDrumGrid(sc, T, g);
+    keepScroll();
+    partChanged(focus);
+  }
+  const keepScroll = () => {
+    const sc = $('.bwd-scroll');
+    if (sc) dScroll = sc.scrollLeft;
   };
+  const setChar = (g, key, s, ch) => (g.lanes[key] = g.lanes[key].slice(0, s) + ch + g.lanes[key].slice(s + 1));
+  /** Longueur du motif : 1, 2 ou 4 mesures ; plus long, la grille est répétée ; plus court, elle est coupée. */
+  function setLength(sc, T, bars) {
+    editDrumGrid(sc, T, (g) => {
+      const n = 16 * bars;
+      const old = 16 * g.bars;
+      g.kit.forEach((l) => {
+        const base = g.lanes[l.key].slice(0, old);
+        g.lanes[l.key] = norm(base.repeat(Math.ceil(n / old)), n);
+        ['rat', 'cond'].forEach((m) => {
+          const src = g[m][l.key] || {};
+          const out = {};
+          for (let s = 0; s < n; s++) if (src[s % old] != null && (s < old || bars > g.bars)) out[s] = src[s % old];
+          g[m][l.key] = out;
+        });
+      });
+      g.bars = bars;
+    });
+  }
+  /** Ouvre (ou ferme, avec null) la fenêtre d'options d'une case. */
+  function openPop(sel) {
+    S.wiz.dsel = sel;
+    keepScroll();
+    renderWiz();
+    const f = sel ? $('.bwd-pop [data-v].active') || $('.bwd-pop button') : null;
+    if (f) f.focus();
+  }
+  function closePop(refocus) {
+    const sel = S.wiz.dsel;
+    S.wiz.dsel = null;
+    keepScroll();
+    renderWiz();
+    const c = refocus && sel && $(`.bwd-sc-${sel.scope} .bwp-cell[data-l="${sel.key}"][data-s="${sel.s}"]`);
+    if (c) c.focus();
+  }
+  /**
+   * Grille d'une ou plusieurs mesures : o = { lanes: [{ key, name, color }], data: { piste: texte }, rat, cond, bars, scope, sel,
+   * cycle(key, s), pop(key, s), label(key) }. Les pas sont groupés par temps (4) et par mesure ; la ligne du haut numérote les temps.
+   */
+  function gridView(o) {
+    const n = o.bars * 16;
+    const row = (cls, head, cell) =>
+      h(
+        'div',
+        { class: 'bwd-row ' + cls },
+        head,
+        h('div', { class: 'bwd-cells' }, ...Array.from({ length: o.bars }, (_, b) => h('div', { class: 'bwd-bar' }, ...[0, 1, 2, 3].map((q) => h('div', { class: 'bwd-beat' }, ...[0, 1, 2, 3].map((i) => cell(b * 16 + q * 4 + i, b, q, i)))))))
+      );
+    const barRow = h('div', { class: 'bwd-row bwd-barh', 'aria-hidden': 'true' }, h('span', { class: 'bwd-ln' }), h('div', { class: 'bwd-cells' }, ...Array.from({ length: o.bars }, (_, b) => h('div', { class: 'bwd-bar' }, o.barName ? o.barName(b) : `Mesure ${b + 1}`))));
+    const beatRow = row('bwd-beatrow', h('span', { class: 'bwd-ln' }), (s, b, q, i) => h('span', { class: 'bwd-bt' + (i === 0 ? ' one' : '') }, i === 0 ? String(q + 1) : ''));
+    const lanes = o.lanes.map((l) =>
+      row('', h('div', { class: 'bwd-ln ' + l.key, style: `--lc:${l.color}`, title: l.name }, h('i'), h('span', {}, l.name)), (s, b, q, i) => {
+        const c = (o.data[l.key] || '')[s] || '-';
+        const rt = (o.rat[l.key] || {})[s];
+        const cd = (o.cond[l.key] || {})[s];
+        const sel = o.sel && o.sel.key === l.key && o.sel.s === s;
+        const state = c === '-' ? 'vide' : VEL_NAME[c] + (rt > 1 ? `, répété ${rt} fois` : '') + (cd ? `, condition ${SS.condLabel(cd)}` : '');
+        let press = null; // appui long (tactile) : ouvre les options, le clic qui suit ne fait rien
+        const stop = () => press && (clearTimeout(press), (press = null));
+        const btn = h(
+          'button',
+          {
+            type: 'button',
+            class: `bwp-cell bwd-c ${l.key}` + (c !== '-' ? ' ' + VEL_CLS[c] : '') + (sel ? ' csel' : ''),
+            'data-l': l.key,
+            'data-s': s,
+            style: `--lc:${l.color}`,
+            tabindex: s === 0 && l === o.lanes[0] ? '0' : '-1',
+            'aria-label': `${l.name}, mesure ${b + 1}, temps ${q + 1}, pas ${i + 1} : ${state}`,
+            'aria-pressed': String(c !== '-'),
+            'aria-haspopup': 'dialog',
+            title: 'Clic : fort, moyen, léger, éteint · clic droit ou appui long : options de la case',
+            onclick: (e) => {
+              if (btn._lp) return void (btn._lp = false);
+              o.cycle(l.key, s);
+            },
+            oncontextmenu: (e) => (e.preventDefault(), o.pop(l.key, s)),
+            onpointerdown: (e) => {
+              if (e.pointerType === 'mouse') return;
+              btn._lp = false;
+              press = setTimeout(() => ((btn._lp = true), (press = null), o.pop(l.key, s)), 520);
+            },
+            onpointerup: stop,
+            onpointerleave: stop,
+            onpointercancel: stop,
+            onfocus: () => {
+              if (o.root) o.root.querySelectorAll('.bwp-cell[tabindex="0"]').forEach((x) => x !== btn && x.setAttribute('tabindex', '-1'));
+              btn.setAttribute('tabindex', '0');
+            },
+            onkeydown: (e) => {
+              if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) return e.preventDefault(), o.pop(l.key, s);
+              if (e.key === 'Escape' && S.wiz.dsel) return e.preventDefault(), closePop(true);
+              const di = { ArrowLeft: [0, -1], ArrowRight: [0, 1], ArrowUp: [-1, 0], ArrowDown: [1, 0] }[e.key];
+              if (!di) return;
+              e.preventDefault();
+              const li = o.lanes.indexOf(l) + di[0];
+              const nx = o.lanes[li] && $(`.bwd-sc-${o.scope} .bwp-cell[data-l="${o.lanes[li].key}"][data-s="${s + di[1]}"]`);
+              if (nx) nx.focus();
+            },
+          },
+          h('i', { class: 'f' }),
+          rt > 1 ? h('span', { class: 'rt' }, '×' + rt) : null,
+          cd ? h('span', { class: 'pr' }, SS.condMark(cd)) : null
+        );
+        return btn;
+      })
+    );
+    const inner = h('div', { class: 'bwd-in', style: `--n:${n}` }, barRow, beatRow, ...lanes);
+    const sc = h('div', { class: `bwd-scroll bwd-sc-${o.scope}`, role: 'group', 'aria-label': o.aria }, inner);
+    o.root = sc;
+    return sc;
+  }
+  /** Fenêtre d'options d'une case : vélocité, répétitions (ratchet), probabilité ou condition, effacer. */
+  function drumPop(o) {
+    const seg = (label, id, opts, cur, pick) =>
+      h(
+        'div',
+        { class: 'f2' },
+        h('span', { class: 'bh-lbl' }, label),
+        h('span', { class: 'segmented', role: 'radiogroup', 'aria-label': label, id }, ...opts.map(([v, t]) => h('button', { type: 'button', role: 'radio', class: String(v) === String(cur) ? 'active' : '', 'aria-checked': String(String(v) === String(cur)), 'data-v': v, onclick: () => pick(v) }, t)))
+      );
+    return h(
+      'div',
+      { class: 'bwd-pop', role: 'dialog', 'aria-label': `Options de la case : ${o.name}`, onkeydown: (e) => e.key === 'Escape' && (e.preventDefault(), e.stopPropagation(), closePop(true)) },
+      h('h4', {}, h('b', {}, o.name), h('span', {}, o.where)),
+      seg('Vélocité', 'bwdVel', [['x', 'Fort'], ['o', 'Moyen'], ['.', 'Léger']], o.vel === '-' ? '' : o.vel, o.setVel),
+      seg('Répétitions (ratchet)', 'bwdRat', [1, 2, 3, 4].map((v) => [v, '×' + v]), o.rat || 1, o.setRat),
+      seg('Probabilité', 'bwdCond', COND_LIST, o.cond || '', o.setCond),
+      h('div', { class: 'bwd-popbtns' }, h('button', { type: 'button', class: 'btn btn-small', id: 'bwdClear', onclick: o.clear }, 'Effacer la case'), h('span', { class: 'spacer' }), h('button', { type: 'button', class: 'btn btn-small', id: 'bwdClose', onclick: () => closePop(true) }, 'Fermer'))
+    );
+  }
+  /** Place la fenêtre d'options sous la case (dans la carte, sans être coupée par le défilement de la grille). */
+  function placePop(wrap) {
+    const pop = $('.bwd-pop', wrap);
+    const sel = S.wiz.dsel;
+    const cell = pop && sel && $(`.bwd-sc-${sel.scope} .bwp-cell[data-l="${sel.key}"][data-s="${sel.s}"]`, wrap);
+    if (!cell) return;
+    const w = wrap.getBoundingClientRect();
+    const c = cell.getBoundingClientRect();
+    const pw = pop.offsetWidth || 290;
+    const left = Math.max(6, Math.min(w.width - pw - 6, c.left - w.left + c.width / 2 - pw / 2));
+    pop.style.left = left + 'px';
+    // sous la case ; au-dessus quand il n'y a pas la place en bas de l'écran
+    let sp = wrap.parentElement; // le plus proche parent qui défile : sa bordure basse limite ce qu'on voit
+    while (sp && sp !== document.body && sp.scrollHeight <= sp.clientHeight + 1) sp = sp.parentElement;
+    const area = (sp || document.body).getBoundingClientRect();
+    const up = c.bottom + pop.offsetHeight + 16 > area.bottom && c.top - pop.offsetHeight - 16 > area.top;
+    pop.classList.toggle('up', up);
+    pop.style.top = (up ? c.top - w.top - pop.offsetHeight - 8 : c.bottom - w.top + 8) + 'px';
+    pop.scrollIntoView({ block: 'nearest' }); // ni dessus ni dessous sans défiler : on fait défiler jusqu'à elle
+    pop.style.setProperty('--ax', Math.max(14, Math.min(pw - 14, c.left - w.left + c.width / 2 - left)) + 'px');
+  }
+  /** Réglage du groove de la chanson : swing des doubles-croches et humanisation (project.groove, valable pour toute la chanson). */
+  const grooveVals = () => ({ swing: 0, human: 15, ...((S.wiz && S.wiz.groove) || {}) });
+  function grooveOf() {
+    const g = grooveVals();
+    return { res: g.swing > 0 ? 16 : 0, swing: 0.5 + (0.25 * g.swing) / 100, human: g.human / 100 };
+  }
+  function grooveSliders() {
+    const g = grooveVals();
+    const one = (id, label, key, max) => {
+      const out = h('output', { class: 'bwd-val', for: id }, `${g[key]} %`);
+      const inp = h('input', {
+        type: 'range', id, min: 0, max, step: 1, value: g[key], 'aria-label': `${label}, pour toute la chanson`,
+        oninput: () => {
+          S.wiz.groove = { ...grooveVals(), [key]: +inp.value };
+          out.textContent = `${inp.value} %`;
+          if (L.proj) L.proj.groove = { ...L.proj.groove, ...grooveOf() }; // s'entend tout de suite, sans refaire la chanson
+        },
+      });
+      return h('label', { class: 'bwd-slider' }, h('span', {}, label), inp, out);
+    };
+    return h('div', { class: 'bwd-groove', title: 'Le swing et l’humanisation valent pour toute la chanson (project.groove), pas pour cette scène seule' }, one('bwdSwing', 'Swing', 'swing', 100), one('bwdHuman', 'Humanisation', 'human', 100), h('small', { class: 'bwd-hint' }, 'pour toute la chanson'));
+  }
+  const barWhere = (b, q, i) => `Mesure ${b + 1} · temps ${q + 1} · pas ${i + 1}`;
+
   function drumsSub(x, T) {
     const d = partOf(x.sec, T);
     const p = patOf(x.sec, T);
-    return (p ? p.name : d && d.edits ? 'Motif perso' : 'Inspiration') + (d && d.edits && p ? ' · modifié' : '') + (d && d.fill && d.fill !== 'off' ? ' · fill' : '');
+    return (p ? p.name : d && d.edits ? 'Motif perso' : 'Inspiration') + (d && d.edits && p ? ' · modifié' : '') + (d && d.edits && d.edits.bars > 1 ? ` · ${d.edits.bars} mes.` : '') + (d && d.build ? ' · montée réglée' : '') + (d && d.fill && d.fill !== 'off' ? ' · fill' : '');
   }
   /** Mesure avec fill : celui choisi, sinon le roulement de fin de section du plan (sans motif). */
   function fillBar(sc, b, T) {
@@ -4719,14 +4992,227 @@ SS.band = (() => {
     putPart(sc.sec, T, p ? { style: drumStyle(), pattern: p.id, edits: undefined } : { style: undefined, pattern: undefined, edits: undefined });
     partChanged(`.bwp-pat[data-id="${p ? p.id : ''}"]`);
   }
-  /** Clic sur une case de la grille : le motif devient `edits` (cinq pistes de 16 caractères). */
-  function editCell(sc, T, k, s) {
-    const lanes = lanesOf(sc, T);
-    const edits = Object.fromEntries(LANES.map(([l]) => [l, (lanes[l] || E16).padEnd(16, '-').slice(0, 16)]));
-    edits[k] = edits[k].slice(0, s) + NEXT_VEL[edits[k][s]] + edits[k].slice(s + 1);
-    putPart(sc.sec, T, { edits });
-    partChanged(`.bwp-cell[data-l="${k}"][data-s="${s}"]`);
+  /** Clic sur une case de la grille : fort, moyen, léger, éteint. */
+  function cycleCell(sc, T, k, s) {
+    editDrumGrid(sc, T, (g) => setChar(g, k, s, NEXT_VEL[g.lanes[k][s]] || 'x'), `.bwd-sc-main .bwp-cell[data-l="${k}"][data-s="${s}"]`);
   }
+  /** Options d'une case de la grille de la scène. */
+  function cellPop(sc, T, g, sel) {
+    const l = g.kit.find((x) => x.key === sel.key);
+    if (!l) return null;
+    const s = sel.s;
+    const ch = g.lanes[l.key][s] || '-';
+    const act = (fn) => (v) => editDrumGrid(sc, T, (gg) => fn(gg, v), `.bwd-pop [data-v="${v}"]`);
+    const alive = (gg) => gg.lanes[l.key][s] === '-' && setChar(gg, l.key, s, 'o'); // une option posée sur une case éteinte l'allume (moyen)
+    return drumPop({
+      name: l.name,
+      where: barWhere(Math.floor(s / 16), Math.floor((s % 16) / 4), s % 4),
+      vel: ch,
+      rat: (g.rat[l.key] || {})[s],
+      cond: (g.cond[l.key] || {})[s],
+      setVel: act((gg, v) => setChar(gg, l.key, s, v)),
+      setRat: act((gg, v) => (alive(gg), (gg.rat[l.key] = { ...gg.rat[l.key], [s]: +v > 1 ? +v : undefined }))),
+      setCond: act((gg, v) => (alive(gg), (gg.cond[l.key] = { ...gg.cond[l.key], [s]: v || undefined }))),
+      clear: () => editDrumGrid(sc, T, (gg) => setChar(gg, l.key, s, '-'), '#bwdClose'),
+    });
+  }
+
+  /* --- Montée : progression du roulement, mesure par mesure --- */
+  const BP = () => SS.bandSong;
+  const isBuild = (sc) => secOf(sc).drums === 'build';
+  /** Sons du kit (hors percussionniste) : le roulement est joué par la caisse claire, sinon le clap. */
+  const kitSnds = (T) => new Set(kitLanes(T).map((l) => l.snd));
+  /** Niveaux de roulement de la scène telle qu'elle joue aujourd'hui (sans progression réglée) : d'après les coups de la caisse claire. */
+  function planLevels(sc, T) {
+    const roller = BP().rollerOf(kitSnds(T));
+    const col = T.cols.find((c) => c.o.band.key.split(':')[1] === roller);
+    const dd = (col && sc.data[col.id]) || { steps: [] };
+    return Array.from({ length: sc.bars }, (_, b) => {
+      let k = 0;
+      for (let s = 0; s < 16; s++) if ((dd.steps || [])[b * 16 + s] > 0) k += (dd.rat && dd.rat[b * 16 + s]) || 1;
+      return k <= 6 ? 1 : k <= 12 ? 2 : k <= 20 ? 3 : 4;
+    });
+  }
+  const buildOf = (sc, T) => (partOf(sc.sec, T) || {}).build || null;
+  const levelsOf = (sc, T) => (buildOf(sc, T) ? BP().progLevels(buildOf(sc, T), sc.bars) : planLevels(sc, T));
+  const curBar = (sc) => Math.max(0, Math.min(sc.bars - 1, S.wiz.bsel && S.wiz.bsel.sec === sc.sec ? S.wiz.bsel.b : Math.floor(sc.bars * 0.75)));
+  /** Règle la progression (patch fusionné ; sans progression, on part du roulement actuel). */
+  function putBuild(sc, T, patch, focus) {
+    const cur = buildOf(sc, T) || { preset: 'custom', levels: planLevels(sc, T), cresc: 0.6 };
+    const nb = { ...cur, ...patch };
+    Object.keys(nb).forEach((k) => nb[k] === undefined && delete nb[k]);
+    putPart(sc.sec, T, { build: nb });
+    keepScroll();
+    partChanged(focus);
+  }
+  /** Les quatre lignes de la mesure b : { lanes, rat, cond } (la progression, sinon ce que le plan joue). */
+  function barOf(sc, T, b) {
+    const bp = buildOf(sc, T);
+    const snds = kitSnds(T);
+    const kit = kitLanes(T);
+    const roller = BP().rollerOf(snds);
+    if (bp) return BP().rollBar(bp, sc.bars, b, roller, snds);
+    const out = { lanes: {}, rat: {}, cond: {} };
+    ['sd', 'cp', 'hh', 'cr'].forEach((snd) => {
+      const l = kit.find((x) => x.snd === snd);
+      if (!l) return;
+      const dd = sc.data[l.id] || {};
+      out.lanes[snd] = Array.from({ length: 16 }, (_, s) => velChar((dd.steps || [])[b * 16 + s] || 0)).join('');
+      out.rat[snd] = {};
+      out.cond[snd] = {};
+      for (let s = 0; s < 16; s++) {
+        if (dd.rat && dd.rat[b * 16 + s] > 1) out.rat[snd][s] = dd.rat[b * 16 + s];
+        if (dd.cond && dd.cond[b * 16 + s]) out.cond[snd][s] = dd.cond[b * 16 + s];
+      }
+    });
+    return out;
+  }
+  /** Retouche une case de la mesure b : la mesure est verrouillée avec ses quatre lignes (« Mesure libre »). */
+  function editBar(sc, T, b, fn, focus) {
+    const cur = buildOf(sc, T) || { preset: 'custom', levels: planLevels(sc, T), cresc: 0.6 };
+    const bar = barOf(sc, T, b);
+    const lanes = { ...bar.lanes };
+    const rat = Object.fromEntries(Object.entries(bar.rat).map(([k, v]) => [k, { ...v }]));
+    const cond = Object.fromEntries(Object.entries(bar.cond || {}).map(([k, v]) => [k, { ...v }]));
+    fn(lanes, rat, cond);
+    const clean = (m) => Object.fromEntries(Object.entries(m).map(([k, v]) => [k, Object.fromEntries(Object.entries(v).filter(([s, x]) => x && lanes[k][s] !== '-'))]).filter(([, v]) => Object.keys(v).length));
+    putBuild(sc, T, { ...cur, lock: { ...(cur.lock || {}), [b]: { lanes, rat: clean(rat), cond: clean(cond) } } }, focus);
+  }
+  function unlockBar(sc, T, b) {
+    const cur = buildOf(sc, T);
+    if (!cur || !cur.lock) return;
+    const lock = { ...cur.lock };
+    delete lock[b];
+    putBuild(sc, T, { lock: Object.keys(lock).length ? lock : undefined });
+  }
+  function barPop(sc, T, b, bar, kit, sel) {
+    const l = kit.find((x) => x.key === sel.key);
+    if (!l) return null;
+    const s = sel.s;
+    const ch = (bar.lanes[l.key] || '')[s] || '-';
+    const act = (fn) => (v) => editBar(sc, T, b, (lanes, rat, cond) => fn(lanes, rat, cond, v), `.bwd-pop [data-v="${v}"]`);
+    const setC = (lanes, v) => (lanes[l.key] = lanes[l.key].slice(0, s) + v + lanes[l.key].slice(s + 1));
+    const alive = (lanes) => lanes[l.key][s] === '-' && setC(lanes, 'o');
+    return drumPop({
+      name: l.name,
+      where: `Mesure ${b + 1} · temps ${Math.floor(s / 4) + 1} · pas ${(s % 4) + 1}`,
+      vel: ch,
+      rat: (bar.rat[l.key] || {})[s],
+      cond: (bar.cond[l.key] || {})[s],
+      setVel: act((lanes, rat, cond, v) => setC(lanes, v)),
+      setRat: act((lanes, rat, cond, v) => (alive(lanes), (rat[l.key] = { ...rat[l.key], [s]: +v > 1 ? +v : undefined }))),
+      setCond: act((lanes, rat, cond, v) => (alive(lanes), (cond[l.key] = { ...cond[l.key], [s]: v || undefined }))),
+      clear: () => editBar(sc, T, b, (lanes) => setC(lanes, '-'), '#bwdClose'),
+    });
+  }
+  /** Cartes « Progression de la montée » et « Mesure n » (scènes de montée). Retourne [cartes, fenêtre d'options] */
+  function buildCards(sc, T) {
+    const bp = buildOf(sc, T);
+    const snds = kitSnds(T);
+    const roller = BP().rollerOf(snds);
+    const levels = levelsOf(sc, T);
+    const b = curBar(sc);
+    const LV = BP().BUILD_LEVELS;
+    const preset = bp ? bp.preset : null;
+    const rollerName = roller === 'sd' ? 'caisse claire' : roller === 'cp' ? 'clap' : null;
+    const setLevel = (i, delta) => {
+      const lv = levels.slice();
+      lv[i] = delta > 0 ? (lv[i] % 4) + 1 : lv[i] === 1 ? 4 : lv[i] - 1;
+      S.wiz.bsel = { sec: sc.sec, b: i };
+      putBuild(sc, T, { preset: 'custom', levels: lv }, `.bwb-col[data-i="${i}"]`);
+    };
+    const cols = levels.map((lv, i) =>
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'bwb-col' + (i === b ? ' cur' : ''),
+          'data-i': i,
+          'aria-label': `Mesure ${i + 1} : ${LV[lv - 1].name.toLowerCase()}, ${LV[lv - 1].per} coups par mesure. Clic ou Entrée : plus dense ; Maj + clic ou flèche bas : moins dense`,
+          title: `Mesure ${i + 1} : ${LV[lv - 1].name.toLowerCase()} (${LV[lv - 1].per}/mesure) · clic : plus dense · Maj + clic : moins dense`,
+          onclick: (e) => setLevel(i, e.shiftKey ? -1 : 1),
+          oncontextmenu: (e) => (e.preventDefault(), setLevel(i, -1)),
+          onkeydown: (e) => {
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown') return e.preventDefault(), setLevel(i, e.key === 'ArrowUp' ? 1 : -1);
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+              const nx = $(`.bwb-col[data-i="${i + (e.key === 'ArrowRight' ? 1 : -1)}"]`);
+              if (nx) e.preventDefault(), nx.focus();
+            }
+          },
+        },
+        ...[4, 3, 2, 1].map((r) => h('span', { class: 'lv' + (lv >= r ? ' on' : '') })),
+        h('span', { class: 'nm', onclick: (e) => (e.stopPropagation(), (S.wiz.bsel = { sec: sc.sec, b: i }), keepScroll(), renderWiz()) }, String(i + 1))
+      )
+    );
+    const N = levels.length;
+    const pts = levels.map((lv, i) => `${(((i + 0.5) / N) * 100).toFixed(2)},${(4 - lv) * 27 + 12}`).join(' ');
+    const curve = h('div', { class: 'bwb-curve', style: `--n:${N}` }, ...cols, h('span', { class: 'bwb-line', 'aria-hidden': 'true', html: `<svg viewBox="0 0 100 105" preserveAspectRatio="none"><polyline points="${pts}" fill="none" vector-effect="non-scaling-stroke"/></svg>` }));
+    const lvLabels = h('div', { class: 'bwb-lvl', 'aria-hidden': 'true' }, ...[4, 3, 2, 1].map((r) => h('div', {}, LV[r - 1].name.split(' ')[0], h('em', {}, ` ${LV[r - 1].per}/m.`))));
+    const cresc = Math.round(((bp && typeof bp.cresc === 'number' ? bp.cresc : 0.6)) * 100);
+    const cout = h('output', { class: 'bwd-val', for: 'bwbCresc' }, `${cresc} %`);
+    const cinp = h('input', { type: 'range', id: 'bwbCresc', min: 0, max: 100, step: 5, value: cresc, 'aria-label': 'Crescendo de volume du roulement', oninput: () => (cout.textContent = `${cinp.value} %`), onchange: () => putBuild(sc, T, { cresc: +cinp.value / 100 }, '#bwbCresc') });
+    const presets = BP().BUILD_PRESETS;
+    const lock = (bp && bp.lock) || {};
+    const lockedBars = Object.keys(lock).filter((k) => lock[k] && lock[k].lanes).length;
+    const card1 = h(
+      'section',
+      { class: 'bwp-card bw-card bwb-card' },
+      h(
+        'div',
+        { class: 'bwp-ch' },
+        h('b', {}, 'Progression de la montée'),
+        h('span', { class: 'bh-info' }, 'Densité du roulement, mesure par mesure. Clic sur une colonne : plus dense (Maj + clic : moins).'),
+        h('span', { class: 'spacer' }),
+        bp ? h('button', { type: 'button', class: 'btn btn-small', id: 'bwbReset', title: 'Reprendre le roulement de l’inspiration', onclick: () => (putPart(sc.sec, T, { build: undefined }), partChanged()) }, '↺ Roulement de l’inspiration') : null
+      ),
+      !rollerName ? h('p', { class: 'dlg-hint' }, 'Le kit n’a ni caisse claire ni clap : cochez-en une à l’étape Instruments pour jouer le roulement.') : null,
+      h(
+        'div',
+        { class: 'bwp-row bwb-top' },
+        partSeg('Courbe', 'bwbPreset', Object.entries(presets), preset, (v) => putBuild(sc, T, v === 'custom' ? { preset: 'custom', levels } : { preset: v, levels: undefined }, `#bwbPreset [data-v="${v}"]`)),
+        h('span', { class: 'spacer' }),
+        h('label', { class: 'bwd-slider' }, h('span', {}, 'Crescendo de volume'), cinp, cout)
+      ),
+      h('div', { class: 'bwb-scroll' }, h('div', { class: 'bwb-prog', style: `--n:${N}` }, lvLabels, curve)),
+      h(
+        'p',
+        { class: 'bwb-cap' },
+        h('b', {}, `Mesure ${b + 1} sur ${sc.bars} : ${LV[levels[b] - 1].name}`),
+        ` · ${LV[levels[b] - 1].per} coups par mesure` + (rollerName ? ` · le roulement est joué par la ${rollerName}${roller === 'sd' && snds.has('cp') ? ' ; le clap marque les temps 2 et 4' : ''}${snds.has('hh') ? ', le charleston suit' : ''}` : ''),
+        bp ? '' : ' · roulement de l’inspiration : un réglage le remplace',
+        lockedBars ? ` · ${lockedBars} mesure${lockedBars > 1 ? 's' : ''} libre${lockedBars > 1 ? 's' : ''}` : ''
+      )
+    );
+    // grille de la mesure choisie
+    const bar = barOf(sc, T, b);
+    const kit = kitLanes(T)
+      .filter((l) => ['sd', 'cp', 'hh', 'cr'].includes(l.snd))
+      .map((l) => ({ ...l, key: l.snd }));
+    const sel = S.wiz.dsel && S.wiz.dsel.sec === sc.sec && S.wiz.dsel.scope === 'bar' ? S.wiz.dsel : null;
+    const locked = !!(bp && bp.lock && bp.lock[b] && bp.lock[b].lanes);
+    const view = gridView({
+      scope: 'bar', bars: 1, lanes: kit, data: bar.lanes, rat: bar.rat, cond: bar.cond || {}, sel, aria: `Mesure ${b + 1} de la montée, 16 pas`,
+      barName: () => `Mesure ${b + 1} / ${sc.bars}`,
+      cycle: (k, s) => editBar(sc, T, b, (lanes) => (lanes[k] = lanes[k].slice(0, s) + (NEXT_VEL[lanes[k][s]] || 'x') + lanes[k].slice(s + 1)), `.bwd-sc-bar .bwp-cell[data-l="${k}"][data-s="${s}"]`),
+      pop: (k, s) => openPop({ sec: sc.sec, scope: 'bar', key: k, s }),
+    });
+    const card2 = h(
+      'section',
+      { class: 'bwp-card bw-card bwd-wrap' },
+      h(
+        'div',
+        { class: 'bwp-ch' },
+        h('b', {}, `Mesure ${b + 1} · ${LV[levels[b] - 1].name.toLowerCase()}`),
+        h('span', { class: 'bh-info' }, locked ? 'Mesure libre : la courbe ne la change plus.' : 'Générée depuis la courbe. Modifier une case la verrouille.'),
+        h('span', { class: 'spacer' }),
+        locked ? h('button', { type: 'button', class: 'btn btn-small bwb-free', id: 'bwbFree', title: 'Rendre la mesure à la courbe', onclick: () => unlockBar(sc, T, b) }, '🔒 Mesure libre') : null
+      ),
+      view,
+      sel ? barPop(sc, T, b, bar, kit, sel) : null
+    );
+    return [card1, card2];
+  }
+
   /** « Assortir toutes les scènes » : un motif de la nuance de chaque scène, le même pour les scènes du même type. */
   function matchAllDrums(T) {
     const list = SS.DRUM_PATTERNS[drumStyle()];
@@ -4744,53 +5230,83 @@ SS.band = (() => {
     S.wiz.pmsg = 'Un motif suggéré pour chaque scène';
     partChanged();
   }
+  /** Chips du kit sous la grille : une ligne par élément coché ; les autres éléments du kit sont en pointillés. */
+  function kitChips(T) {
+    const mu = musState()[T.musician];
+    const on = new Set(T.cols.map((c) => c.o.band.key.split(':')[1]));
+    const off = mu && mu.pieces ? mu.pieces.filter((pc) => !pc.on) : [];
+    return h(
+      'div',
+      { class: 'bwd-kit' },
+      h('span', { class: 'bh-lbl' }, 'Kit : une ligne par élément coché'),
+      ...kitLanes(T).map((l) => h('span', { class: 'bwd-chip', style: `--lc:${l.color}` }, h('i'), l.name)),
+      ...off.map((pc) => h('span', { class: 'bwd-chip off', title: 'Non coché dans l’étape Instruments : pas de ligne' }, (B().drumLabel ? B().drumLabel(String(pc.piece || '').split('@')[0]) : String(pc.piece || '')))),
+      h('button', { type: 'button', class: 'link-btn bwd-edit', id: 'bwdKit', onclick: () => goStep(ST.inst) }, 'Modifier le kit…')
+    );
+  }
   function drumsBody(sc, T) {
-    const cols = T.cols;
     const d = partOf(sc.sec, T) || {};
     const pat = patOf(sc.sec, T);
-    const lanes = lanesOf(sc, T);
     const list = SS.DRUM_PATTERNS[drumStyle()];
     const en = secEnergy(sc.sec);
     const flt = S.wiz.efilter || 0;
     const fill = d.fill != null ? d.fill : d.pattern || d.edits ? 'off' : fillBar(sc, sc.bars - 1, T) ? 'end' : 'off';
-    const grid = h(
-      'div',
-      { class: 'bwp-dgrid', role: 'group', 'aria-label': 'Motif de la scène, une mesure de 16 pas' },
-      ...LANES.flatMap(([k, name]) => [
-        h('div', { class: 'bwp-ln ' + k }, h('i'), h('span', {}, name)),
-        ...Array.from({ length: 16 }, (_, s) => {
-          const c = (lanes[k] || E16)[s] || '-';
-          return h('button', { type: 'button', class: `bwp-cell ${k}` + (s % 4 === 0 ? ' beat' : '') + (c === 'x' ? ' v1' : c === 'o' ? ' v2' : c === '.' ? ' v3' : ''), 'data-l': k, 'data-s': s, 'aria-label': `${name}, pas ${s + 1}`, 'aria-pressed': String(c !== '-'), onclick: () => editCell(sc, T, k, s) });
-        }),
-      ])
-    );
+    const build = isBuild(sc);
+    const g = drumGridOf(sc, T);
+    const sel = S.wiz.dsel && S.wiz.dsel.sec === sc.sec && S.wiz.dsel.scope === 'main' ? S.wiz.dsel : null;
+    const view = gridView({
+      scope: 'main', bars: g.bars, lanes: g.kit, data: g.lanes, rat: g.rat, cond: g.cond, sel, aria: `Motif de la scène, ${g.bars} mesure${g.bars > 1 ? 's' : ''} de 16 pas`,
+      cycle: (k, s) => cycleCell(sc, T, k, s),
+      pop: (k, s) => openPop({ sec: sc.sec, scope: 'main', key: k, s }),
+    });
     const bars = h('div', { class: 'bwp-bars', role: 'img', 'aria-label': 'La scène, mesure par mesure' }, ...Array.from({ length: sc.bars }, (_, b) => h('span', { class: fillBar(sc, b, T) ? 'fill' : '', title: fillBar(sc, b, T) ? 'Fill' : null }, String(b + 1))));
+    const legend = h(
+      'div',
+      { class: 'bwd-legend' },
+      h('span', {}, h('i', { class: 'sw v1' }), 'Fort'),
+      h('span', {}, h('i', { class: 'sw v2' }), 'Moyen'),
+      h('span', {}, h('i', { class: 'sw v3' }), 'Léger'),
+      h('span', {}, h('b', { class: 'tag' }, '×2'), h('b', { class: 'tag' }, '×3'), 'répétitions dans le pas'),
+      h('span', {}, h('b', { class: 'tag' }, '75%'), 'probabilité'),
+      h('span', {}, h('b', { class: 'tag' }, '1:2'), 'un passage sur deux')
+    );
     const card1 = h(
       'section',
-      { class: 'bwp-card bw-card' },
+      { class: 'bwp-card bw-card bwd-wrap' + (build ? ' bwd-sec' : '') },
       h(
         'div',
         { class: 'bwp-ch' },
-        h('b', {}, pat ? pat.name : d.edits ? 'Motif perso' : 'Motif de l’inspiration'),
+        h('b', {}, pat ? pat.name : d.edits ? 'Motif perso' : build ? 'Reste de la batterie' : 'Motif de la scène'),
         d.edits ? h('span', { class: 'bwp-mod' }, '· modifié') : null,
         d.edits ? h('button', { type: 'button', class: 'btn btn-small', id: 'bwpUnedit', onclick: () => (putPart(sc.sec, T, { edits: undefined }), partChanged()) }, pat ? 'Revenir au motif' : 'Revenir à l’inspiration') : null,
-        h('span', { class: 'bh-info' }, 'Clic sur une case : fort, moyen, léger, éteint')
+        h('span', { class: 'bh-info' }, 'Clic : fort, moyen, léger, éteint · clic droit (appui long) : options de la case')
       ),
-      grid,
-      h('div', { class: 'bh-lbl' }, 'La scène, mesure par mesure (fills en rose)'),
-      bars,
       h(
         'div',
-        { class: 'bwp-row' },
-        partSeg('Fill automatique', 'bwpFill', Object.entries(SS.DRUM_FILL_EVERY), fill, (v) => (putPart(sc.sec, T, { fill: v }), partChanged())),
-        h(
-          'label',
-          { class: 'bwp-field' },
-          h('span', { class: 'bh-lbl' }, 'Type'),
-          h('select', { id: 'bwpFillType', disabled: fill === 'off', onchange: (e) => (putPart(sc.sec, T, { fillType: e.target.value }), partChanged()) }, ...Object.entries(SS.DRUM_FILLS).map(([id, f]) => h('option', { value: id, selected: (d.fillType || 'roll') === id }, f.name)))
-        ),
-        partCheck('bwpCrash', 'Crash au début de la scène', !!d.crash, (on) => (putPart(sc.sec, T, { crash: on || undefined }), partChanged()))
-      )
+        { class: 'bwd-ctl' },
+        partSeg('Longueur du motif', 'bwdLen', [[1, '1 mesure'], [2, '2 mesures'], [4, '4 mesures']], g.bars, (v) => setLength(sc, T, +v)),
+        grooveSliders()
+      ),
+      view,
+      legend,
+      sel ? cellPop(sc, T, g, sel) : null,
+      build ? null : h('div', { class: 'bh-lbl' }, 'La scène, mesure par mesure (fills en rose)'),
+      build ? null : bars,
+      build
+        ? null
+        : h(
+            'div',
+            { class: 'bwp-row' },
+            partSeg('Fill automatique', 'bwpFill', Object.entries(SS.DRUM_FILL_EVERY), fill, (v) => (putPart(sc.sec, T, { fill: v }), partChanged())),
+            h(
+              'label',
+              { class: 'bwp-field' },
+              h('span', { class: 'bh-lbl' }, 'Type'),
+              h('select', { id: 'bwpFillType', disabled: fill === 'off', onchange: (e) => (putPart(sc.sec, T, { fillType: e.target.value }), partChanged()) }, ...Object.entries(SS.DRUM_FILLS).map(([id, f]) => h('option', { value: id, selected: (d.fillType || 'roll') === id }, f.name)))
+            ),
+            partCheck('bwpCrash', 'Crash au début de la scène', !!d.crash, (on) => (putPart(sc.sec, T, { crash: on || undefined }), partChanged()))
+          ),
+      kitChips(T)
     );
     // carte d'un motif ; sans motif : celle de l'inspiration (le jeu du plan), choisie tant qu'on n'a rien réglé
     const card = (p) => {
@@ -4799,7 +5315,7 @@ SS.band = (() => {
         'button',
         { type: 'button', role: 'radio', class: 'bwp-pat' + (on ? ' on' : ''), 'data-id': p ? p.id : '', 'aria-checked': String(on), onclick: () => pickPattern(sc, T, p) },
         h('b', {}, p ? p.name : 'Motif de l’inspiration', p ? h('span', { class: 'bwp-en', title: ['calme', 'moyen', 'intense'][p.energy - 1] }, '●'.repeat(p.energy) + '○'.repeat(3 - p.energy)) : null),
-        h('span', { html: miniLanes(p ? p.lanes : inspLanes(sc, cols)) }),
+        h('span', { html: miniLanes(p ? p.lanes : inspLanes(sc, T.cols)) }),
         p ? (p.energy === en ? h('span', { class: 'bwp-sug' }, 'Suggéré') : null) : h('small', {}, 'Le jeu du plan, sans rien changer')
       );
     };
@@ -4816,7 +5332,16 @@ SS.band = (() => {
       ),
       h('div', { class: 'bwp-lib', role: 'radiogroup', 'aria-label': 'Motifs de batterie' }, card(null), ...list.filter((p) => !flt || p.energy === flt).map(card))
     );
-    return [partHead(sc, T, 'batterie', false), autoCard(sc, T), card1, card2];
+    // la fenêtre d'options se place sous sa case une fois la carte dans la page ; le défilement de la grille est rendu
+    setTimeout(() => {
+      const wraps = document.querySelectorAll('.bwd-wrap');
+      wraps.forEach((w) => {
+        const sc2 = $('.bwd-scroll', w);
+        if (sc2 && dScroll) sc2.scrollLeft = dScroll;
+        placePop(w);
+      });
+    }, 0);
+    return [partHead(sc, T, 'batterie', false), autoCard(sc, T), ...(build ? [...buildCards(sc, T)] : []), card1, card2];
   }
 
   /* --- Drums d'un instrument qui n'est pas un kit : notes courtes sur la fondamentale, jouées sur la grosse caisse et / ou la caisse claire du motif --- */
@@ -5143,6 +5668,7 @@ SS.band = (() => {
     $('#bandWiz').hidden = band;
     $('#bandGm').hidden = step !== ST.inst; // General MIDI : en tête de l'étape Instruments
     $('#bwCreate').hidden = step !== ST.pick;
+    $('#bwQuick').hidden = step !== ST.style || (cover() && !spec()); // étape 1 : « Générer et écouter »
     if (band) {
       refresh();
       updateTransport(); // la barre du haut montre déjà tempo et tonalité aux étapes 1 et 2
@@ -5189,7 +5715,7 @@ SS.band = (() => {
     const eff = specEff();
     const plan = cover() ? { ...p, spec: eff, cover: { title: S.cover.title.trim() || 'Reprise' } } : eff !== spec() ? { ...p, spec: eff } : p;
     // tout est lu avant de quitter l'assistant (leave efface S.wiz), puis la fenêtre principale reprend la place
-    const args = [cols.map((c) => c.o), plan, tempo(), { melodySeed: seed, melody: melodyOpts(), harmony: harmonyOpts(), parts: S.wiz.parts, kinds: S.wiz.kinds, gains: cols.map((c) => volGain(c.id)), mix: S.wiz.mix }];
+    const args = [cols.map((c) => c.o), plan, tempo(), { melodySeed: seed, melody: melodyOpts(), harmony: harmonyOpts(), parts: S.wiz.parts, kinds: S.wiz.kinds, gains: cols.map((c) => volGain(c.id)), mix: S.wiz.mix, groove: grooveOf() }];
     const draft = wizSnapshot(Date.now()); // le brouillon est gardé : rouvrir l'assistant permet de retoucher et de recréer
     leave({ keep: false });
     app.applySong(...args);
@@ -5231,6 +5757,35 @@ SS.band = (() => {
     renderWiz();
   }
 
+  /**
+   * Étape 1, « Générer et écouter » : la chanson complète de l'inspiration choisie (la première du style, ou du premier style, si
+   * aucune n'est choisie) est jouée comme à l'étape Scènes (listenSong, commandée par la barre du haut) ; re-clic : arrêt.
+   */
+  function quickGo() {
+    if (!S.wiz) return;
+    if (L.mode) return stopListen();
+    if (!S.styleId) S.styleId = B().STYLES[0].id;
+    if (!preset()) S.presetId = style().presets[0].id;
+    if (!spec()) return;
+    renderStyles();
+    renderPresets();
+    renderSong();
+    listenSong(0);
+  }
+  /** Le bouton de l'étape 1 montre l'état : « Générer et écouter », ou « Lecture · scène X » (re-clic : stop). */
+  function syncQuick() {
+    const b = $('#bwGo');
+    if (!b || !S.wiz) return;
+    const { res } = wizSong();
+    const sc = res && L.scene ? res.scenes.find((x) => x.id === L.scene) : null;
+    const on = !!L.mode;
+    b.classList.toggle('busy', on);
+    b.setAttribute('aria-pressed', String(on));
+    $('.bw-go-ico', b).textContent = on ? '■' : '▶';
+    $('#bwGoText').textContent = on ? `Lecture${sc ? ` · scène ${sc.name}` : ''}` : 'Générer et écouter';
+    b.title = on ? 'Arrêter l’écoute' : 'Crée l’aperçu complet (tous les instruments, toutes les scènes) et le joue ; on affine ensuite étape par étape';
+  }
+
   /** Lecture : reprend après une pause, sinon joue la chanson (depuis le début) ; en lecture : pause. */
   function togglePlay() {
     if (L.mode && !L.paused) {
@@ -5257,6 +5812,7 @@ SS.band = (() => {
     play.title = playing ? 'Pause (Espace)' : L.paused ? 'Reprendre (Espace)' : sceneStep() || (mixStep() && mixScope() !== 'song') ? 'Écouter la scène en boucle (Espace)' : 'Écouter la chanson (Espace)';
     play.setAttribute('aria-label', playing ? 'Pause' : 'Lecture');
     $('#stop').disabled = !L.mode;
+    syncQuick();
     const inp = $('#tempo');
     if (document.activeElement !== inp) inp.value = tempo();
     const sc = res && L.scene ? res.scenes.find((x) => x.id === L.scene) : null;
@@ -5730,7 +6286,7 @@ SS.band = (() => {
       t.mixSolo = !!t.solo;
       t.baseVol = typeof t.volume === 'number' ? t.volume : 0.8;
     });
-    proj.groove = { ...(proj.groove || { res: 0, swing: 0.5 }), human: 0.15 };
+    proj.groove = { ...(proj.groove || { res: 0, swing: 0.5 }), ...grooveOf() }; // swing et humanisation de l'étape Batterie (toute la chanson)
     SS.loadScene(proj, proj.scenes[0].id, { commit: false });
     return proj;
   }
@@ -6201,6 +6757,7 @@ SS.band = (() => {
     $('#bwBack').addEventListener('click', () => stepBy(-1));
     $('#bwNext').addEventListener('click', () => stepBy(1));
     $('#bwCreate').addEventListener('click', () => createWizSong());
+    $('#bwGo').addEventListener('click', () => quickGo());
     document.querySelectorAll('#bandMode [data-mode]').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
     SS.melodyPanel.init(app); // l'atelier Mélodie vit dans Harmonie → Chanson
     // Échap = Fermer (rien n'est créé) : d'abord la confirmation, puis la fenêtre d'inspiration, puis l'assistant
@@ -6211,11 +6768,20 @@ SS.band = (() => {
           e.preventDefault();
           mixFxClose(true);
         } else if (!$('#bandConfirm').hidden) hideConfirm();
+        else if (S.wiz.dsel) closePop(true);
         else if (S.wiz.insp) closeInsp();
         else leave();
       } else if (e.altKey && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
         e.preventDefault();
         stepBy(e.key === 'ArrowRight' ? 1 : -1);
+      }
+    });
+    // fenêtre d'options d'une case de batterie : un clic ailleurs la ferme
+    document.addEventListener('pointerdown', (e) => {
+      if (S.wiz && S.wiz.dsel && !e.target.closest('.bwd-pop, .bwp-cell')) {
+        S.wiz.dsel = null;
+        keepScroll();
+        renderWiz();
       }
     });
     // les raccourcis de la fenêtre principale (Espace, Ctrl+Z…) ne jouent pas quand on tape dans l'assistant
