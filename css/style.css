@@ -4455,6 +4455,57 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 #bandDialog .bw-roll { border-radius: var(--bw-r-card); }
 #bandDialog .bw-rchords { background: var(--bw-panel2); border-bottom-color: var(--bw-line); }
 #bandDialog .bwp-card { gap: 12px; }
+/* accents de la basse : notes cliquables, ligne « Accents », carte des motifs (vert basse) */
+#bandDialog .bw-rscr { overflow-x: auto; }
+#bandDialog .bw-rin { position: relative; min-width: max(100%, calc(var(--n) * 9px)); }
+#bandDialog .bw-roll-acc .bw-rn.ac { fill: #9dff8f; }
+#bandDialog .bw-rnb { position: absolute; min-width: 5px; padding: 0; border: 0; border-radius: 3px; background: transparent; cursor: pointer; }
+#bandDialog .bw-rnb:hover { background: rgba(255, 255, 255, .18); }
+#bandDialog .bw-rnb.ac { box-shadow: 0 0 0 1px #e8ffe2, 0 0 9px 1px color-mix(in srgb, var(--c) 80%, transparent); z-index: 2; }
+#bandDialog .bw-rnb.ac::before { content: ""; position: absolute; left: 50%; top: -9px; width: 6px; height: 6px; border-top: 2px solid #d9ffd2; border-right: 2px solid #d9ffd2; transform: translateX(-70%) rotate(45deg); pointer-events: none; }
+#bandDialog .bw-racc { border-top: 1px solid var(--bw-line); padding: 6px 0 4px; }
+#bandDialog .bw-acap { display: flex; justify-content: space-between; gap: 8px; padding: 0 10px 4px; font-size: 12px; color: var(--bw-muted); position: sticky; left: 0; }
+#bandDialog .bw-acap b { color: var(--bw-text); }
+#bandDialog .bw-acells { position: relative; height: 28px; }
+#bandDialog .bw-acell { position: absolute; top: 0; height: 28px; padding: 0; border: 0; background: none; display: grid; place-items: center; cursor: pointer; }
+#bandDialog .bw-acell:hover { background: rgba(255, 255, 255, .08); }
+#bandDialog .bw-acell i { width: 10px; height: 10px; border-radius: 50%; box-sizing: border-box; border: 2px solid color-mix(in srgb, var(--c) 70%, #000); }
+#bandDialog .bw-acell.ac i { width: 13px; height: 13px; background: #9dff8f; border-color: #e8ffe2; box-shadow: 0 0 8px color-mix(in srgb, var(--c) 80%, transparent); }
+#bandDialog .bw-acell.echo { background: repeating-linear-gradient(135deg, transparent 0 4px, rgba(255, 255, 255, .04) 4px 8px); }
+#bandDialog .bw-rrep { border-top: 1px solid var(--bw-line); padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 6px; }
+#bandDialog .bw-rrep .dlg-hint { margin: 0; }
+#bandDialog .bwa-accgrid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 18px; }
+#bandDialog .bwa-side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+#bandDialog .bwa-pats { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 6px; }
+#bandDialog .bwa-pat { display: flex; flex-direction: column; gap: 3px; min-width: 0; padding: 6px 10px 5px; border: 1px solid var(--bw-line2); border-radius: 10px; background: var(--bw-panel2); color: var(--bw-text); font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; }
+#bandDialog .bwa-pat:hover { background: var(--bw-raise); }
+#bandDialog .bwa-pat.on { border-color: #3fcf3f; background: color-mix(in srgb, #3fcf3f 20%, var(--bw-panel2)); }
+#bandDialog .bwa-pat svg { display: block; width: 100%; height: 16px; }
+#bandDialog .bwa-pat small { color: var(--bw-dim); font-size: 10.5px; min-height: 1.2em; }
+#bandDialog .bwa-ctl { display: flex; align-items: center; gap: 12px; }
+#bandDialog .bwa-txt { display: flex; flex-direction: column; gap: 1px; min-width: 0; font-size: 13px; }
+#bandDialog .bwa-txt small { color: var(--bw-muted); font-size: 11.5px; }
+#bandDialog .bwa-dial { flex: none; }
+#bandDialog .bwa-dial .arp-knob-ring { width: 58px; height: 58px; background: conic-gradient(#3fcf3f 0 var(--p), #44444c var(--p) 100%); }
+#bandDialog .bwa-dial .arp-knob-cap { width: 44px; height: 44px; background: var(--bw-panel2); }
+#bandDialog .bwa-dial .arp-knob-cap b { font-size: 15px; }
+#bandDialog .bwa-dial.s .arp-knob-ring { width: 46px; height: 46px; }
+#bandDialog .bwa-dial.s .arp-knob-cap { width: 34px; height: 34px; }
+#bandDialog .bwa-dial.s .arp-knob-cap b { font-size: 12px; }
+#bandDialog .bwa-filt { display: flex; flex-direction: column; gap: 10px; padding: 10px; border: 1px solid var(--bw-line); border-radius: 8px; background: var(--bw-panel2); }
+#bandDialog .bwa-sub { padding-top: 10px; border-top: 1px dashed var(--bw-line2); }
+#bandDialog .bwa-sw { flex: none; position: relative; width: 44px; height: 24px; padding: 0; border: 1px solid var(--bw-line2); border-radius: 999px; background: var(--bw-panel2); cursor: pointer; }
+#bandDialog .bwa-sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--bw-muted); transition: transform .15s, background .15s; }
+#bandDialog .bwa-sw[aria-checked="true"] { border-color: #3fcf3f; background: color-mix(in srgb, #3fcf3f 35%, var(--bw-panel2)); }
+#bandDialog .bwa-sw[aria-checked="true"]::after { transform: translateX(20px); background: #9dff8f; }
+#bandDialog .bh-ssub:has(.bwa-ssub) { display: block; min-width: 0; max-width: 100%; }
+#bandDialog .bwa-ssub { width: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; }
+#bandDialog .bwa-ssub > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#bandDialog .bwa-badge { flex: none; display: inline-flex; align-items: center; gap: 3px; height: 17px; padding: 0 6px; border: 1px solid color-mix(in srgb, #3fcf3f 70%, transparent); border-radius: 999px; background: color-mix(in srgb, #3fcf3f 18%, transparent); color: #bfffb3; font-size: 10.5px; font-style: normal; font-weight: 600; white-space: nowrap; }
+#bandDialog .bwa-badge i { display: inline-flex; width: 8px; height: 8px; }
+#bandDialog .bwa-badge svg { width: 8px; height: 8px; }
+@media (max-width: 900px) { #bandDialog .bwa-accgrid { grid-template-columns: minmax(0, 1fr); } #bandDialog .bwa-badge { display: none; } }
+@media (prefers-reduced-motion: reduce) { #bandDialog .bwa-sw::after { transition: none; } }
 /* motifs, modes et réglages : objets cliquables sans cadre au repos ; la couleur du rôle dit le choix */
 #bandDialog .bwp-pat, #bandDialog .bwp-mode, #bandDialog .bwa-knob { border: 1px solid transparent; border-radius: var(--bw-r-ctl); background: var(--bw-panel2); }
 #bandDialog .bwp-pat:hover, #bandDialog .bwp-mode:hover { border-color: var(--bw-line2); background: var(--bw-raise); }

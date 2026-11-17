@@ -52,7 +52,7 @@
  *    Il reste muet là où son propre rôle est muet dans le plan, sauf si inst.mode (ou inst.one) l'allume.
  * Réglages par instrument et par scène : parts[section].inst[idInstrument] = { mode, off, ...réglages du type }, avec repli
  * sur les réglages du rôle (parts[section][rôle]) tant que le type est celui du rôle. Champs : bass { mode, pedal,
- * approach, register } ; chords { mode, voicing } ; arp { mode, one } ; melody { mode, character, notes, rhythm,
+ * approach, register, accents } (accents : voir « accents de la basse » plus bas) ; chords { mode, voicing } ; arp { mode, one } ; melody { mode, character, notes, rhythm,
  * complexity, range, ending, form, plan, seeds, lead: { events }, double: 'octave' | 'third' } (double : copie de la
  * mélodie du premier instrument mélodique, une octave au-dessus ou une tierce diatonique au-dessus) ; drums
  * (instrument mélodique) { mode: both | kick | snare, pattern, style, edits } ; kit de batterie { pattern, style,
@@ -90,6 +90,72 @@ SS.bandSong = (() => {
   };
   const DEPTH = { bass: 0.6, arp: 1, lead: 0.5, vox: 0.5, sax: 0.5, pad: 0.3, strings: 0.4, keys: 0.7, guitar: 0.8 };
   const clampV = (v) => Math.round(Math.max(0.12, Math.min(1, v)) * 100) / 100;
+
+  /* ---------- accents de la basse ----------
+   * parts[section].inst[id].accents = { steps: [pas en doubles-croches dans la période], repeat: 1 | 2 | 'scene', force: 0..100,
+   * filter: bool, bright: 0..100 }. La période est 16 pas (repeat 1 : le motif d'une mesure revient à chaque mesure), 32 pas
+   * (repeat 2 : motif de 2 mesures) ou toute la scène. Une note de basse qui commence sur un pas accentué (pas modulo la période)
+   * est plus forte : vélocité + ACC_VEL × force / 100 (ACC_VEL = 27 / 127 : de la vélocité 100 à 127 pour force 100) ; avec
+   * filter, la note porte aussi ev.acc (accent du séquenceur : le filtre s'ouvre sur la note, voir SS.accentParams) et
+   * ev.accAmt = bright / 100 (jusqu'où il s'ouvre ; remplace le réglage « accent » du son pour cette note). Sans accents : rien ne change.
+   */
+  const ACC_VEL = 27 / 127;
+  const ACC_DEFAULT = { steps: [], repeat: 1, force: 75, filter: false, bright: 60 };
+  const accentPeriod = (repeat, bars) => (repeat === 'scene' ? Math.max(1, bars) * SPB : repeat === 2 ? 2 * SPB : SPB);
+  /** Accents propres : pas entiers uniques triés, répétition valide, force et brillance bornées (null : pas un objet). */
+  function normalizeAccents(a) {
+    if (!a || typeof a !== 'object') return null;
+    const n = (x, d) => Math.max(0, Math.min(100, Math.round(Number.isFinite(+x) && x !== null && x !== '' ? +x : d)));
+    const steps = [...new Set((Array.isArray(a.steps) ? a.steps : []).map(Number).filter((s) => Number.isInteger(s) && s >= 0))].sort((x, y) => x - y);
+    return { steps, repeat: a.repeat === 2 || a.repeat === 'scene' ? a.repeat : 1, force: n(a.force, ACC_DEFAULT.force), filter: !!a.filter, bright: n(a.bright, ACC_DEFAULT.bright) };
+  }
+  /** Motifs d'accents prêts : [identifiant, nom, aide, répétition conseillée]. */
+  const ACC_PRESETS = [
+    ['none', 'Aucun', '', 1],
+    ['strong', 'Temps forts', '1 et 3', 1],
+    ['beat', 'Chaque temps', '', 1],
+    ['off', 'Contretemps', 'les « et »', 1],
+    ['gallop', 'Galop', '1re de chaque groupe', 2],
+    ['sync', 'Synco 3-3-2', '', 1],
+    ['rand', 'Aléatoire léger', 'un nouveau tirage', 1],
+  ];
+  /**
+   * Pas accentués d'un motif prêt. notesSteps : pas où une note commence (modulo la période, ou dans la scène) ; period : 16, 32 ou
+   * la longueur de la scène ; seed : graine de « rand » (même graine, même tirage). Ne rend que des pas où il y a une note, dans [0, period).
+   */
+  function accentPreset(id, notesSteps, period, seed = 0) {
+    const has = new Set((notesSteps || []).map((s) => ((s % period) + period) % period));
+    const want = {
+      none: () => false,
+      strong: (s) => s % 16 === 0 || s % 16 === 8,
+      beat: (s) => s % 4 === 0,
+      off: (s) => s % 4 === 2,
+      gallop: (s) => s % 6 === 0,
+      sync: (s) => [0, 6, 12].includes(s % 16),
+    }[id];
+    const out = [];
+    if (id === 'rand') {
+      const r = rng('accents/' + seed);
+      [...has].sort((a, b) => a - b).forEach((s) => r() < 0.22 && out.push(s));
+    } else if (want) for (let s = 0; s < period; s++) if (has.has(s) && want(s)) out.push(s);
+    return out;
+  }
+  /** Marque les notes de la basse qui tombent sur un pas accentué (modifie et rend `events`). */
+  function applyAccents(events, accents, bars) {
+    const A = normalizeAccents(accents);
+    if (!A || !A.steps.length) return events;
+    const period = accentPeriod(A.repeat, bars);
+    const on = new Set(A.steps.filter((s) => s < period));
+    events.forEach((e) => {
+      if (!on.has(e.step % period)) return;
+      e.vel = clampV(e.vel + (ACC_VEL * A.force) / 100);
+      if (A.filter) {
+        e.acc = true;
+        e.accAmt = A.bright / 100;
+      }
+    });
+    return events;
+  }
 
   /** Applique nuance, accents et phrasé aux notes d'une partie (vélocités déjà tirées autour de leur valeur de base). */
   function shapeVel(events, role, { energy, bars, build }) {
@@ -1336,6 +1402,7 @@ SS.bandSong = (() => {
         if (spec.tech && sec.drums === 'build' && ['lead', 'vox', 'arp', 'keys'].includes(er)) data[t.id].events.forEach((e) => (e.vel = clampV(e.vel * 0.6)));
         // intro et break planants : tout est joué piano (la basse tenue encore plus), le drop garde la pleine force
         if (spec.tech && sec.float && role !== 'fx') data[t.id].events.forEach((e) => (e.vel = clampV(e.vel * (er === 'bass' ? 0.5 : 0.68))));
+        if (kd === 'bass' && o && o.accents && !off) applyAccents(data[t.id].events, o.accents, bars); // accents : après la nuance, pour qu'ils restent audibles
         if (spec.tech && (events.length || role !== 'fx')) {
           const auto = sectionAuto(as, sec, er, bars, role === 'fx');
           if (auto && events.length) data[t.id].auto = auto;
@@ -1372,5 +1439,5 @@ SS.bandSong = (() => {
     ['funk', 'Funk', 'Syncopes en doubles, notes fantômes', [[0, 2, 0], [3, 1, 0], [6, 1, 2], [7, 1, 0], [10, 1, 0], [12, 2, 0], [14, 1, 1]]],
   ];
 
-  return { build, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, _rng: rng };
+  return { build, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, _rng: rng };
 })();
