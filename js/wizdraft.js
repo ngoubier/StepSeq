@@ -8,7 +8,7 @@
  */
 window.SS = window.SS || {};
 SS.wizDraft = (() => {
-  const VERSION = 2; // 2 : le groupe (liste de musiciens, js/bandgroup.js) ; un brouillon v1 est migré par band.js (musiciens « dans le groupe »)
+  const VERSION = 3; // 3 : l'étape « Effets et transitions » (fx) a décalé Mix et Intégration (band.js renumérote un brouillon plus ancien) ; 2 : le groupe (liste de musiciens, js/bandgroup.js) ; un brouillon v1 est migré par band.js (musiciens « dans le groupe »)
   const clone = (x) => (x === undefined ? undefined : JSON.parse(JSON.stringify(x)));
   const isObj = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
   const str = (x, d = null) => (typeof x === 'string' && x.length < 200 ? x : d);
@@ -18,7 +18,7 @@ SS.wizDraft = (() => {
   const list = (x) => (Array.isArray(x) ? x : []);
 
   /** Champs de S.wiz rangés tels quels (objets), puis les ensembles et le Map. */
-  const OBJ = ['plans', 'pseeds', 'keys', 'grids', 'emos', 'chars', 'parts', 'kinds', 'melPanel', 'secs', 'accView'];
+  const OBJ = ['plans', 'pseeds', 'keys', 'grids', 'emos', 'chars', 'parts', 'kinds', 'melPanel', 'secs', 'accView', 'fx'];
   const SETS = ['seen', 'off', 'mute', 'solo'];
 
   /** src : { mode, styleId, presetId, cover, group, cache, hide: Set, mel, accOpen, tracksOpen, w: S.wiz } */

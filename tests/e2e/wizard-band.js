@@ -70,7 +70,7 @@ const ok = (c, m) => {
   await pick('pad');
   ok((await page.locator('.bpn-on').count()) === 0 && !(await page.textContent('#bandPanel')).includes('Dans le groupe'), 'plus de case « Dans le groupe »');
   ok((await page.inputValue('#bpnName')) === 'Clavier nappe' && (await page.locator('.bpn-ksel').count()) === 1, 'panneau : nom éditable au titre, liste Type');
-  ok((await lis()).length === 12 && (await tabs()).length === 5, 'stepper : 12 étapes, 5 onglets d\'instrument');
+  ok((await lis()).length === 13 && (await tabs()).length === 5, 'stepper : 13 étapes, 5 onglets d\'instrument');
   const a0 = await page.evaluate(() => JSON.stringify(SS.band.plannedTracks().map((x) => [x.name, x.band.key, x.band.musician])));
 
   // ---- ajouter un Arpèges : type, son, valider
@@ -112,8 +112,8 @@ const ok = (c, m) => {
   ok(x1 && x1.name === 'Clavier arpège' && t.length === 6, 'la tuile est là (sélectionnée)');
   const tb = await tabs();
   const li = await lis();
-  ok(tb.length === 6 && tb[5].id === 'x1:arp' && tb[5].kind === 'arp' && li.length === 13 && li[11].includes('Mix') && li[12].includes('Intégration') && li[11].startsWith('12') && li[10].includes('Clavier arpège'), `onglet avant Mix, Mix 12, Intégration 13 (${li[10].slice(0, 40)})`);
-  ok((await page.evaluate(() => SS.band.stepNum('mix') === 12 && SS.band.stepNum('pick') === 13 && SS.band.stepNum({ inst: 'x1:arp' }) === 11)), 'stepNum suit');
+  ok(tb.length === 6 && tb[5].id === 'x1:arp' && tb[5].kind === 'arp' && li.length === 14 && li[11].includes('Effets et transitions') && li[12].includes('Mix') && li[13].includes('Intégration') && li[12].startsWith('13') && li[10].includes('Clavier arpège'), `onglet avant Effets, Effets 12, Mix 13, Intégration 14 (${li[10].slice(0, 40)})`);
+  ok((await page.evaluate(() => SS.band.stepNum('fx') === 12 && SS.band.stepNum('mix') === 13 && SS.band.stepNum('pick') === 14 && SS.band.stepNum({ inst: 'x1:arp' }) === 11)), 'stepNum suit');
   const a1 = await page.evaluate(() => JSON.stringify(SS.band.plannedTracks().filter((x) => x.band.musician !== 'x1').map((x) => [x.name, x.band.key, x.band.musician])));
   ok(a1 === a0, 'les pistes des autres musiciens sont inchangées');
   ok((await page.evaluate(() => SS.band.plannedTracks().find((x) => x.band.musician === 'x1').band.key)) === 'arp', 'piste Arpèges du musicien ajouté');
@@ -134,7 +134,7 @@ const ok = (c, m) => {
     SS.band.putInstPart('verse', 'x1:arp', { mode: 'up8' });
     SS.band._state.wiz.kinds['x1:arp'] = 'arp';
   });
-  await page.click('#bandWizSteps li[data-group="Finaliser"] button');
+  await page.click('#bandWizSteps li[data-group="Finaliser"] + li button'); // Mix, qui suit Effets et transitions
   await page.waitForTimeout(500);
   ok((await page.evaluate(() => Object.keys(SS.band._state.wiz.mix.tracks).includes('arp@x1'))), 'Mix : une tranche pour le musicien ajouté');
   ok((await page.locator('#bwMix .mx-strip[data-id="arp@x1"]').count()) === 1, 'la console montre sa tranche');
@@ -185,7 +185,7 @@ const ok = (c, m) => {
     return { parts: JSON.stringify(w.parts), kinds: JSON.stringify(w.kinds), mix: Object.keys(w.mix.tracks).filter((k) => k.includes('@')), mute: [...w.mute, ...w.solo, ...w.off].filter((k) => k.startsWith('x')), cols: SS.band.insSteps().length };
   });
   ok(!clean.parts.includes('x1') && !clean.kinds.includes('x1') && clean.mix.length === 0 && clean.mute.length === 0 && clean.cols === 5, `réglages, type et tranche de mix effacés (${clean.parts} ${clean.mix})`);
-  ok((await lis()).length === 12 && (await lis())[10].includes('Mix'), 'stepper renuméroté');
+  ok((await lis()).length === 13 && (await lis())[10].includes('Effets et transitions') && (await lis())[11].includes('Mix'), 'stepper renuméroté');
 
   // ---- limites : 2 minimum, 10 maximum
   for (const id of ['arp', 'pad', 'lead']) await remove(id);
@@ -216,7 +216,7 @@ const ok = (c, m) => {
   await page.waitForTimeout(1800);
   const before = await page.evaluate(() => SS.band._state.group.list.map((r) => r.id + ':' + r.name).join());
   const pr = await P();
-  ok(pr.wizard && pr.wizard.v === 2 && pr.wizard.state.group && pr.wizard.state.group.list.length === 10, 'project.wizard v2 contient le groupe');
+  ok(pr.wizard && pr.wizard.v === 3 && pr.wizard.state.group && pr.wizard.state.group.list.length === 10, 'project.wizard v3 contient le groupe');
   await page.click('#bandClose');
   await page.waitForTimeout(300);
   await page.evaluate(() => SS.band.resume());
@@ -253,7 +253,7 @@ const ok = (c, m) => {
   await add('arp', { sound: 1, name: 'Cloches' });
   await add('drums');
   await page.evaluate(() => SS.band.stepNum('pick') && (SS.band._state.wiz.step = 1));
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < 14; i++) {
     const dis = await page.evaluate(() => document.querySelector('#bwNext').disabled);
     if (dis || (await page.evaluate(() => SS.band._state.wiz.step === SS.band.stepNum('pick')))) break;
     await page.dispatchEvent('#bwNext', 'click');

@@ -12,7 +12,7 @@ const SS = globalThis.SS;
 const PRESETS = SS.Band.STYLES.flatMap((st) => st.presets.map((p) => ({ ...p, style: st.id })));
 /** Une piste par musicien (et par pièce de batterie), comme les crée Band. */
 const tracksOf = (p) =>
-  p.musicians.flatMap((m) =>
+  p.musicians.filter((m) => !m.injected).flatMap((m) =>
     m.kits
       ? m.pieces.map((pc) => ({ id: m.role + ':' + pc, type: 'drum', sound: pc, band: { key: m.role + ':' + pc } }))
       : [{ id: m.role, type: 'instrument', category: m.role === 'bass' || m.role === 'lead' ? 'mono' : 'chord', band: { key: m.role } }]
@@ -384,4 +384,52 @@ test('assistant, étape Accords : grille, tonalité et émotion par section ; ca
   const mc = m.scenes.find((sc) => sc.sec === 'chorus');
   assert.equal(mc.data[singer.id].events.length, B.defaultPlan(mc.bars, 'chant').length * 4, 'refrain : 4 notes par phrase, phrases de « Chantante »');
   m.scenes.filter((sc) => sc.sec !== 'chorus').forEach((sc) => assert.deepEqual(sc.data[singer.id], a.scenes.find((x) => x.sec === sc.sec).data[singer.id], `${sc.sec} : même mélodie`));
+});
+
+/* ---------- Transitions : option fx (étape « Effets et transitions » de l'assistant) ---------- */
+test('transitions : sans option fx (ou vide) la chanson est celle du plan ; un réglage égal au plan donne les mêmes notes', () => {
+  const p = PRESETS.find((x) => x.id === 'powersoften');
+  const tr = tracksOf(p);
+  const spec = SS.BandSongs[p.id];
+  const strip = (r) => JSON.stringify(r.scenes.map((s) => ({ ...s, id: 0 })));
+  const base = strip(SS.bandSong.build(spec, p.id, tr));
+  assert.equal(strip(SS.bandSong.build(spec, p.id, tr, { fx: null })), base);
+  assert.equal(strip(SS.bandSong.build(spec, p.id, tr, { fx: {} })), base);
+  assert.equal(strip(SS.bandSong.build(spec, p.id, tr, { fx: { junctions: { 'build>drop': { riser: { on: true, len: 8 }, hp: { on: true }, gap: { len: 4 } } } } })), base);
+});
+
+test('transitions : montée plus courte, coupure d\'une mesure, cymbale inversée, descente, passe-haut', () => {
+  const p = PRESETS.find((x) => x.id === 'powersoften');
+  const tr = tracksOf(p);
+  const spec = SS.BandSongs[p.id];
+  const fxOf = (r, n) => r.scenes.find((s) => s.name === n).data.fx;
+  const r = SS.bandSong.build(spec, p.id, tr, { fx: { junctions: { 'build>drop': { riser: { len: 4 }, gap: { len: 16 }, rev: { on: true, len: 16 }, down: { on: true, len: 4 } } } } });
+  const riser = fxOf(r, 'Montée').events;
+  assert.equal(riser[0].step, 64, 'montée de 4 mesures sur les 4 dernières');
+  assert.ok(riser.some((e) => e.step === 112 && e.len === 16), 'cymbale inversée sur la dernière mesure, malgré la coupure');
+  const build = r.scenes.find((s) => s.name === 'Montée');
+  for (const [id, d] of Object.entries(build.data)) {
+    if (id === 'fx') continue;
+    assert.ok(d.steps ? d.steps.slice(112).every((v) => v === 0) : d.events.every((e) => e.step < 112), `${id} se tait sur la dernière mesure`);
+  }
+  assert.ok(fxOf(r, 'Drop').events.some((e) => e.step === 4 && e.len === 64), 'descente de 4 mesures après l\'impact');
+  // passe-haut : l'ouverture finale suit la fréquence
+  const hp = (hz) => SS.bandSong.build(spec, p.id, tr, { fx: { junctions: { 'build>drop': { hp: { on: true, freq: hz } } } } }).scenes.find((s) => s.name === 'Montée').data.pad.auto.filter;
+  const last = (f) => f[Math.max(...Object.keys(f).map(Number))];
+  assert.ok(last(hp(2000)) > last(hp(777)) + 0.1);
+  assert.equal(last(hp(777)), 0.55);
+});
+
+test('transitions : boucles de percussion par scène (vrai joue la boucle du style, faux coupe)', () => {
+  const p = PRESETS.find((x) => x.id === 'powersoften');
+  const tr = [...tracksOf(p), ...['sh', 'perc', 'misc'].map((pc) => ({ id: 'perc:' + pc, type: 'drum', sound: pc, band: { key: 'perc:' + pc } }))].filter((t, i, a) => a.findIndex((x) => x.id === t.id) === i);
+  const spec = SS.BandSongs[p.id];
+  const loops = { intro: { sh: true, cg: false, tom: false }, groove: { sh: false, cg: true, tom: true } };
+  const r = SS.bandSong.build(spec, p.id, tr, { fx: { perc: { style: 'latin', loops } } });
+  const on = (n, id) => r.scenes.find((s) => s.name === n).data[id].steps.some((v) => v > 0);
+  assert.ok(on('Intro', 'perc:sh') && !on('Intro', 'perc:perc') && !on('Intro', 'perc:misc'));
+  assert.ok(!on('Groove', 'perc:sh') && on('Groove', 'perc:perc') && on('Groove', 'perc:misc'));
+  const a = SS.bandSong.build(spec, p.id, tr, { fx: { perc: { style: 'minimal', loops } } });
+  assert.notEqual(JSON.stringify(a.scenes[0].data['perc:sh']), JSON.stringify(r.scenes[0].data['perc:sh']), 'le style change la boucle');
+  assert.deepEqual(r.scenes.find((s) => s.name === 'Drop').data['perc:sh'], SS.bandSong.build(spec, p.id, tr).scenes.find((s) => s.name === 'Drop').data['perc:sh'], 'une scène non réglée garde le plan');
 });

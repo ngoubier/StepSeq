@@ -222,7 +222,7 @@ test('brouillon v2 : le groupe est rangé et relu tel quel ; un groupe incohére
   BG.add(g, 'drums', { ms: { on: true, kit: 'LinnDrum', pieces: [{ piece: 'tb', on: true }] } });
   BG.move(g, 'lead', -2);
   const packed = SS.wizDraft.pack({ styleId: 'synthwave', presetId: 'smalltown', group: g, cache: {}, w: { step: 2 } });
-  assert.equal(SS.wizDraft.VERSION, 2);
+  assert.equal(SS.wizDraft.VERSION, 3);
   const back = BG.clean(SS.wizDraft.unpack(JSON.parse(JSON.stringify(packed))).group, SMALL);
   assert.deepEqual(back.list.map((r) => [r.id, r.name, r.type || null]), g.list.map((r) => [r.id, r.name, r.type || null]));
   assert.equal(back.list.find((r) => r.id === 'x1').ms.tok, 'x');

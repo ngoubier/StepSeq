@@ -358,7 +358,7 @@ const ok = (c, m) => {
   await menuItem('vel').click();
   await page.click('.bwau-ln[data-param="vel"] [data-shape="fall"]');
   const wantVel = await bassNotes('Couplet');
-  for (let i = 0; i < 8 && !(await page.isVisible('#bwCreate')); i++) await next();
+  for (let i = 0; i < 10 && !(await page.isVisible('#bwCreate')); i++) await next();
   await page.click('#bwCreate');
   await page.waitForTimeout(1200);
   const p = await P();
