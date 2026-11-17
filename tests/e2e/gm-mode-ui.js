@@ -100,6 +100,7 @@ const saved = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('ste
   ok(created.length > 3 && gmOk.every(Boolean), `Band : ${created.length} pistes créées, toutes General MIDI (${created.map((t) => t.name).join(', ')})`);
 
   // ---- couper le mode depuis Band : la fenêtre de piste revient à tous les sons ----
+  page.once('dialog', (d) => d.accept()); // « Remplacer le brouillon de l’assistant ? » (la chanson créée garde son brouillon)
   await page.click('#appMenuBtn'); await page.click('#bandBtn');
   await page.waitForSelector('#bandDialog[open]');
   await page.dispatchEvent('#bwNext', 'click');
@@ -112,6 +113,7 @@ const saved = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('ste
   await page.waitForSelector('#trackDialog[open]');
   ok(await page.$eval('#dlgGm button[data-v="all"]', (e) => e.classList.contains('active')), 'fenêtre de piste : retour à « Tous »');
   await page.click('#dlgCancel');
+  await page.waitForTimeout(800); // enregistrement automatique différé
   ok(!(await saved(page)).gm, 'réglage retiré du projet');
   bs = await badges();
   ok(!bs.some(([, , no]) => no) && bs.some(([, g]) => /^GM/.test(g)), 'mode coupé : plus de badge orange, les badges GM restent');

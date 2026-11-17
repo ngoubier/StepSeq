@@ -86,10 +86,11 @@ const ok = (c, m) => {
 
   // menu : ouverture, 10 réglages, clavier, Échap
   await page.click('#bwAutoBtn');
-  ok((await page.getAttribute('#bwAutoBtn', 'aria-expanded')) === 'true' && (await page.locator('.bwau-item').count()) === 10, 'le menu s’ouvre : 10 réglages');
-  const names = await page.$$eval('.bwau-item', (l) => l.map((x) => x.querySelector('span').textContent.trim().split(' · ')[0]));
+  ok((await page.getAttribute('#bwAutoBtn', 'aria-expanded')) === 'true' && (await page.locator('.bwau-item[data-param]').count()) === 10, 'le menu s’ouvre : 10 réglages (+ l’entrée « Accents » de la basse, hors automation)');
+  ok((await page.locator('#bwauAcc').count()) === 1 && (await page.locator('.bwau-menu .bwau-msep').count()) === 1, 'basse : section « Accents » séparée des réglages');
+  const names = await page.$$eval('.bwau-item[data-param]', (l) => l.map((x) => x.querySelector('span').textContent.trim().split(' · ')[0]));
   ok(JSON.stringify(names) === JSON.stringify(['Cutoff (Filtre)', 'Résonance', 'Vélocité', 'Volume', 'Reverb', 'Écho', 'Cosmos', 'Cutoff du son', 'Decay du filtre', 'Quantité des LFO']), 'noms : ' + names.join(', '));
-  const disabled = await page.$$eval('.bwau-item:disabled', (l) => l.map((x) => x.dataset.param));
+  const disabled = await page.$$eval('.bwau-item[data-param]:disabled', (l) => l.map((x) => x.dataset.param));
   const synth = await page.evaluate(() => {
     const T = SS.band.insSteps().find((t) => t.role === 'bass');
     const t = SS.newTrack(T.col.o, SS.newProject());
@@ -121,8 +122,11 @@ const ok = (c, m) => {
     return [Math.round(r.left), Math.round(c.left), Math.round(r.width), Math.round(c.width)];
   });
   ok(Math.abs(geo[0] - geo[1]) <= 2 && Math.abs(geo[2] - geo[3]) <= 2, `la courbe a les mesures du piano-roll (${geo})`);
-  ok((await page.locator('#bwRoll').evaluate((e) => e.compareDocumentPosition(document.querySelector('#bwAuto')) & Node.DOCUMENT_POSITION_FOLLOWING)) > 0 && (await page.locator('#bwAuto').evaluate((e) => e.compareDocumentPosition(document.querySelector('#bwAcc')) & Node.DOCUMENT_POSITION_FOLLOWING)) > 0, 'panneau sous le piano-roll, avant « Accents »');
+  await page.click('#bwauAcc'); // basse : le panneau « Accents » se range après les courbes
+  ok((await page.locator('#bwRoll').evaluate((e) => e.compareDocumentPosition(document.querySelector('#bwAuto')) & Node.DOCUMENT_POSITION_FOLLOWING)) > 0 && (await page.locator('#bwAuto').evaluate((e) => e.compareDocumentPosition(document.querySelector('#bwAccPanel')) & Node.DOCUMENT_POSITION_FOLLOWING)) > 0, 'panneau sous le piano-roll, avant le panneau « Accents »');
+  await page.click('#bwauAcc'); // referme le panneau « Accents » (le menu reste ouvert)
   await page.click('#bwAutoBtn'); // ferme
+
   ok(!(await page.locator('.bwau-menu').count()), 'le bouton referme le menu');
 
   // forme Montée + Début / Fin
@@ -242,10 +246,15 @@ const ok = (c, m) => {
   for (const k of kinds) {
     await kindTab(k);
     ok((await page.locator('#bwAutoBtn').count()) === 1, `onglet ${k} : bouton « Automation »`);
+    if (k !== 'bass') {
+      await page.click('#bwAutoBtn');
+      ok((await page.locator('#bwauAcc').count()) === 0 && (await page.locator('.bwau-msep').count()) === 0, `onglet ${k} : pas d’entrée « Accents » dans le menu`);
+      await page.keyboard.press('Escape');
+    }
   }
   await kindTab('drums');
   await page.click('#bwAutoBtn');
-  const dis = await page.$$eval('.bwau-item:disabled', (l) => l.map((x) => x.dataset.param));
+  const dis = await page.$$eval('.bwau-item[data-param]:disabled', (l) => l.map((x) => x.dataset.param));
   ok(JSON.stringify(dis) === JSON.stringify(['vcf', 'fdecay', 'lfoamt']), 'batterie : réglages du son grisés (« synthés seulement »)');
   await menuItem('volume').click();
   await page.keyboard.press('Escape');

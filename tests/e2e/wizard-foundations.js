@@ -247,6 +247,7 @@ const ok = (c, m) => {
   ok(p.scenes.some((s) => s.name === 'Refrain 2' && s.bars === 4), 'la copie « Refrain 2 » est dans le projet');
 
   // la dernière scène ne peut pas être supprimée
+  page.once('dialog', (d) => d.accept()); // « Remplacer le brouillon de l’assistant ? » : la chanson créée garde son brouillon
   await page.click('#appMenuBtn'); await page.click('#bandBtn');
   await page.waitForTimeout(400);
   await page.click('#bandStyles [data-v="synthwave"]');

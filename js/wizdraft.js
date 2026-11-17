@@ -8,7 +8,7 @@
  */
 window.SS = window.SS || {};
 SS.wizDraft = (() => {
-  const VERSION = 1;
+  const VERSION = 2; // 2 : le groupe (liste de musiciens, js/bandgroup.js) ; un brouillon v1 est migré par band.js (musiciens « dans le groupe »)
   const clone = (x) => (x === undefined ? undefined : JSON.parse(JSON.stringify(x)));
   const isObj = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
   const str = (x, d = null) => (typeof x === 'string' && x.length < 200 ? x : d);
@@ -21,7 +21,7 @@ SS.wizDraft = (() => {
   const OBJ = ['plans', 'pseeds', 'keys', 'grids', 'emos', 'chars', 'parts', 'kinds', 'melPanel', 'secs'];
   const SETS = ['seen', 'off', 'mute', 'solo'];
 
-  /** src : { mode, styleId, presetId, cover, cache, hide: Set, mel, accOpen, tracksOpen, w: S.wiz } */
+  /** src : { mode, styleId, presetId, cover, group, cache, hide: Set, mel, accOpen, tracksOpen, w: S.wiz } */
   function pack(src) {
     const w = src.w || {};
     const o = {
@@ -29,6 +29,7 @@ SS.wizDraft = (() => {
       styleId: src.styleId || null,
       presetId: src.presetId || null,
       cover: clone(src.cover || null),
+      group: clone(src.group || null),
       cache: clone(src.cache || {}),
       hide: [...(src.hide || [])],
       mel: clone(src.mel || null),
@@ -60,7 +61,7 @@ SS.wizDraft = (() => {
     return JSON.parse(JSON.stringify(o)); // undefined et fonctions disparaissent
   }
 
-  /** state (JSON) → { mode, styleId, presetId, cover, cache, hide: Set, mel, accOpen, tracksOpen, w } ou null. */
+  /** state (JSON) → { mode, styleId, presetId, cover, group, cache, hide: Set, mel, accOpen, tracksOpen, w } ou null. */
   function unpack(state) {
     if (!isObj(state)) return null;
     const x = state;
@@ -70,6 +71,7 @@ SS.wizDraft = (() => {
       styleId: str(x.styleId),
       presetId: str(x.presetId),
       cover: objOrNull(x.cover),
+      group: objOrNull(x.group),
       cache: obj(x.cache),
       hide: new Set(list(x.hide).filter((v) => typeof v === 'string')),
       mel: objOrNull(x.mel),

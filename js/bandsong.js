@@ -57,6 +57,8 @@
  * mélodie du premier instrument mélodique, une octave au-dessus ou une tierce diatonique au-dessus) ; drums
  * (instrument mélodique) { mode: both | kick | snare, pattern, style, edits } ; kit de batterie { pattern, style,
  * edits, fill, fillType, crash } (clé : id de la pièce ou id du musicien) ; off : true coupe l'instrument dans la scène.
+ * Musicien ajouté à l'assistant (id « x1 », « x2 »… : js/bandgroup.js, isExtra) : il joue dans toutes les scènes avec le générateur de son type
+ *    (jamais muet d'office : mode du plan pour ce type, sinon mode par défaut) et sa graine contient son id (autre mélodie, autre motif de kit).
  * Automation par scène : inst[id].auto (voir « automation par scène » plus bas). Sans kinds ni inst, la chanson est exactement celle d'avant.
  */
 window.SS = window.SS || {};
@@ -136,7 +138,10 @@ SS.bandSong = (() => {
     const out = [];
     if (id === 'rand') {
       const r = rng('accents/' + seed);
-      [...has].sort((a, b) => a - b).forEach((s) => r() < 0.22 && out.push(s));
+      const pool = [...has].sort((a, b) => a - b);
+      pool.forEach((s) => r() < 0.22 && out.push(s));
+      // jamais vide : un tirage sans accent se lirait « Aucun »
+      if (!out.length && pool.length) out.push(pool[Math.floor(r() * pool.length)]);
     } else if (want) for (let s = 0; s < period; s++) if (has.has(s) && want(s)) out.push(s);
     return out;
   }
@@ -1357,6 +1362,8 @@ SS.bandSong = (() => {
     drums: ['both', 'kick', 'snare'],
   });
   const roleOfTrack = (t) => ((t.band && t.band.key) || '').split(':')[0];
+  /** Musicien ajouté à l'assistant (id « x1 », « x2 »… : js/bandgroup.js) : il joue partout avec le générateur de son type et a sa propre graine. */
+  const isExtra = (t) => !!(t.band && /^x\d+$/.test(t.band.musician || ''));
   /** Type par défaut d'un rôle (null : pas de type, comme « fx »). */
   const kindOfRole = (role) => (role === 'fx' ? null : DEFAULT_KIND[role] || 'chords');
   /** Identifiants d'instrument, un par piste : « musicien:clé », puis « #n » pour le n-ième doublon (comme les colonnes de l'assistant). */
@@ -1453,7 +1460,7 @@ SS.bandSong = (() => {
         const ie = (im && (im[ids[ti].id] || im[t.id] || (t.type === 'drum' && t.band && im[t.band.musician]))) || null;
         const [role, sound] = (t.band && t.band.key ? t.band.key : '').split(':');
         const singer = SINGERS.includes(role);
-        const r = rng(`${presetId}/${id}/${t.band ? t.band.key : t.id}` + (singer && melodySeed ? `#${melodySeed}` : ''));
+        const r = rng(`${presetId}/${id}/${t.band ? t.band.key : t.id}` + (isExtra(t) ? `@${t.band.musician}` : '') + (singer && melodySeed ? `#${melodySeed}` : ''));
         if (t.type === 'drum') {
           const dp = ie ? { ...(dp0 || {}), ...ie } : dp0; // réglages du kit : par instrument, sinon ceux du rôle
           const mode = role === 'perc' ? sec.perc ?? sec.drums : sec.drums;
@@ -1475,14 +1482,15 @@ SS.bandSong = (() => {
           return;
         }
         const kd = kindOfT.get(t); // type de l'instrument (null : fx)
-        const changed = !!kd && kd !== kindOfRole(role); // type différent de celui du rôle : pas de réglages du rôle
+        const extra = isExtra(t); // musicien ajouté : jamais muet d'office, réglages de l'instrument seulement
+        const changed = !!kd && (extra || kd !== kindOfRole(role)); // type différent de celui du rôle : pas de réglages du rôle
         const o = changed ? ie : ie ? { ...((pp && pp[role]) || {}), ...ie } : (pp && pp[role]) || null; // réglages de l'instrument, du rôle (basse, nappe, arpège)
         const off = muted.includes(role) || !!(ie && ie.off);
         const er = !changed ? role : kd === 'bass' || kd === 'drums' ? 'bass' : kd === 'arp' ? 'arp' : kd === 'melody' ? 'lead' : 'pad'; // rôle dont l'instrument prend la nuance et les effets
         let mode;
         if (off) mode = null;
         else if (!changed) mode = (o && o.mode) || sec[role];
-        else if (!((o && (o.mode || o.one)) || sec[role])) mode = null; // muet dans le plan, rien ne l'allume
+        else if (!extra && !((o && (o.mode || o.one)) || sec[role])) mode = null; // muet dans le plan, rien ne l'allume
         else {
           const valid = MODES()[kd];
           const plan = { bass: [sec.bass], chords: [sec.pad, sec.strings, sec.keys], arp: [sec.arp, sec.arpchord], melody: [sec.lead, sec.vox, sec.sax], drums: [] }[kd];
@@ -1493,7 +1501,7 @@ SS.bandSong = (() => {
         // mélodie du moteur : réglages de l'instrument par-dessus ceux de la scène ; la graine contient le rôle et le doublon
         const sing = (mrole, m) => {
           const im2 = ie ? Object.fromEntries(['character', 'notes', 'rhythm', 'complexity', 'range', 'ending', 'form'].filter((f) => ie[f] !== undefined).map((f) => [f, ie[f]])) : null;
-          const dup = ids[ti].dup ? `#${ids[ti].dup}` : '';
+          const dup = (ids[ti].dup ? `#${ids[ti].dup}` : '') + (extra ? `@${t.band.musician}` : '');
           return m === 'rise' ? riseEvents(spans, r, k, bars) : melodyPart(spans, k, bars, mrole, im2 && Object.keys(im2).length ? { ...smel, ...im2 } : smel, (ie && ie.plan) || (mel.plans && mel.plans[id]), (ie && ie.seeds) || (mel.seeds && mel.seeds[id]), `${presetId}/${id}/${role}${dup}/${melodySeed}`, m);
         };
         let events = [];
@@ -1593,5 +1601,5 @@ SS.bandSong = (() => {
     ['funk', 'Funk', 'Syncopes en doubles, notes fantômes', [[0, 2, 0], [3, 1, 0], [6, 1, 2], [7, 1, 0], [10, 1, 0], [12, 2, 0], [14, 1, 1]]],
   ];
 
-  return { build, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, _rng: rng };
+  return { build, isExtra, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, _rng: rng };
 })();

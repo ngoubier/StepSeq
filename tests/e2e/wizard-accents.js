@@ -1,6 +1,7 @@
 /*
  * Test de bout en bout des accents de la basse dans l'assistant « Nouvelle chanson » (js/band.js, js/bandsong.js) :
  *   node tests/e2e/wizard-accents.js [dossier-captures]
+ * Panneau « Accents » masqué par défaut, ouvert par le menu du bouton Automation (basse seulement), fermer garde les accents.
  * Clic sur une note (accent + chevron), ligne « Accents » synchronisée, motif « Temps forts », Force, filtre, résumé du stepper et pastille
  * de scène, accents propres à chaque scène, changement de mode de jeu, copie, brouillon restauré, chanson créée (vélocité plus forte).
  */
@@ -61,6 +62,15 @@ const ok = (c, m) => {
       return sc.data[id].events.map((e) => ({ step: e.step, vel: e.vel, acc: e.acc, accAmt: e.accAmt }));
     }, name);
 
+  /** Ouvre le panneau « Accents » de la scène par le menu du bouton Automation (puis ferme le menu). */
+  const openAcc = async () => {
+    if (await page.locator('#bwAccPanel').count()) return;
+    await page.click('#bwAutoBtn');
+    await page.click('#bwauAcc');
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(150);
+  };
+
   await page.click('#appMenuBtn');
   await page.click('#newProject');
   await page.waitForTimeout(600);
@@ -74,21 +84,45 @@ const ok = (c, m) => {
   await scene('Couplet');
   await page.click('.bwp-mode[data-v="8"]'); // croches : une note tous les deux pas
   const base = await notes('Couplet');
+  // par défaut : ni ligne ni carte « Accents » ; l'entrée du menu les ouvre
+  ok((await page.locator('#bwAccPanel').count()) === 0 && (await page.locator('#bwAcc').count()) === 0 && (await page.locator('.bw-acell').count()) === 0, 'panneau Accents masqué par défaut (ni ligne, ni carte)');
+  ok((await page.locator('#bwRoll .bw-rnb').count()) === base.length, 'les notes restent cliquables, panneau masqué');
+  await page.click('#bwAutoBtn');
+  ok((await page.locator('.bwau-menu .bwau-msep').textContent()) === 'Accents' && (await page.getAttribute('#bwauAcc', 'aria-checked')) === 'false' && /^Accents/.test(await page.textContent('#bwauAcc')), 'menu Automation : section « Accents » et entrée non cochée');
+  await page.click('#bwauAcc');
+  ok((await page.locator('#bwAccPanel').count()) === 1 && (await page.getAttribute('#bwauAcc', 'aria-checked')) === 'true', 'l’entrée ouvre le panneau, entrée cochée');
+  await page.keyboard.press('Escape');
+  await page.click('#bwAccFold');
+  ok((await page.locator('#bwAccPanel .bw-acell').count()) === 0 && (await page.getAttribute('#bwAccFold', 'aria-expanded')) === 'false', 'chevron : panneau replié sur sa tête');
+  await page.click('#bwAccFold');
+  ok((await page.locator('#bwAccPanel .bw-acell').count()) === base.length, 'chevron : panneau rouvert');
   ok(base.length > 8 && base.every((e) => e.acc === undefined), `couplet en croches, sans accent (${base.length} notes)`);
-  ok((await page.locator('#bwRoll .bw-rnb').count()) === base.length && (await page.locator('#bwRoll .bw-acell').count()) === base.length, 'une note cliquable et un point d’accent par note');
+  ok((await page.locator('#bwRoll .bw-rnb').count()) === base.length && (await page.locator('#bwAccPanel .bw-acell').count()) === base.length, 'une note cliquable et un point d’accent par note');
   ok(!(await acc('verse')) && (await page.locator('#bwAcc').count()) === 1 && (await page.locator('.bwa-pat').count()) === 7, 'carte « Accents » : 7 motifs prêts, rien d’accentué');
 
+  // clic sur une note (panneau fermé) : l'accent est posé, le panneau reste fermé ; fermer ne perd rien
+  await page.click('#bwAccClose');
+  await page.click('#bwRoll .bw-rnb[data-s="0"]');
+  ok((await page.locator('#bwAccPanel').count()) === 0 && (await acc('verse')) && (await page.locator('#bwRoll .bw-rnb.ac').count()) > 1, 'panneau fermé : clic sur une note accentue, notes vives et chevron, pas de panneau');
+  await page.click('#bwRoll .bw-rnb[data-s="0"]');
+  ok(!(await acc('verse')), 'clic sur une note accentuée : retirée');
+  await page.click('#bwRoll .bw-rnb[data-s="0"]');
+  await openAcc();
+  ok((await page.locator('#bwAccPanel .bw-acell.ac').count()) > 1 && /1 accent\b/.test(await page.textContent('.bh-scene.on .bwa-badge')), 'réouvert par le menu : accents gardés, pastille « 1 accent »');
+  ok(/Accents · 1/.test(await (async () => { await page.click('#bwAutoBtn'); const t = await page.textContent('#bwauAcc'); await page.keyboard.press('Escape'); return t; })()), 'entrée du menu : « Accents · 1 »');
+  await page.click('#bwRoll .bw-rnb[data-s="0"]');
+  ok(!(await acc('verse')), 'accent retiré avant la suite');
   // clic sur une note : accent, chevron, ligne synchronisée
   await page.click('#bwRoll .bw-rnb[data-s="0"]');
   let a = await acc('verse');
   ok(a && JSON.stringify(a.steps) === '[0]' && a.repeat === 1 && a.force === 75, 'clic sur la première note : accent au pas 0 (répété à chaque mesure)');
-  ok((await page.locator('#bwRoll .bw-rnb.ac').count()) > 1 && (await page.locator('#bwRoll .bw-acell.ac').count()) === (await page.locator('#bwRoll .bw-rnb.ac').count()), 'la note devient vive et la ligne « Accents » suit (une par mesure)');
+  ok((await page.locator('#bwRoll .bw-rnb.ac').count()) > 1 && (await page.locator('#bwAccPanel .bw-acell.ac').count()) === (await page.locator('#bwRoll .bw-rnb.ac').count()), 'la note devient vive et la ligne « Accents » suit (une par mesure)');
   ok(await page.evaluate(() => getComputedStyle(document.querySelector('#bwRoll .bw-rnb.ac'), '::before').content !== 'none'), 'chevron « > » sur la note accentuée');
   let n1 = await notes('Couplet');
   ok(n1.filter((e) => e.step % 16 === 0).every((e, i) => e.vel > base.filter((x) => x.step % 16 === 0)[i].vel) && n1.filter((e) => e.step % 16 !== 0).every((e, i) => e.vel === base.filter((x) => x.step % 16 !== 0)[i].vel), 'seules les notes du pas 1 de chaque mesure sont plus fortes');
   ok(/1 sur \d+ notes|\d+ sur \d+ notes/.test(await page.textContent('#bwAccCount')) && /1 accent\b/.test(await page.textContent('.bh-scene.on .bwa-badge')), 'décompte sous la ligne et pastille « 1 accent » dans la colonne des scènes');
   // clic sur le point : retire
-  await page.click('#bwRoll .bw-acell[data-s="0"]');
+  await page.click('#bwAccPanel .bw-acell[data-s="0"]');
   ok(!(await acc('verse')) && (await page.locator('#bwRoll .bw-rnb.ac').count()) === 0, 'clic sur le point : accent retiré, le réglage disparaît');
 
   // motif « Temps forts »
@@ -138,10 +172,13 @@ const ok = (c, m) => {
 
   // chaque scène a ses accents
   await scene('Refrain');
+  ok((await page.locator('#bwAccPanel').count()) === 0, 'Refrain : le panneau est masqué (affichage propre à chaque scène)');
+  await openAcc();
   ok(!(await acc('chorus')) && (await page.locator('.bw-rnb.ac').count()) === 0 && !(await page.locator('.bh-scene:has(.bh-sname b:text-is("Refrain")) .bwa-badge').count()), 'Refrain : aucun accent (ceux du couplet ne passent pas)');
   await page.click('.bwa-pat[data-id="beat"]');
   ok(JSON.stringify((await acc('chorus')).steps) === '[0,4,8,12]' && JSON.stringify((await acc('verse')).steps) === '[0,8]', 'Refrain : Chaque temps, le couplet garde les siens');
   await scene('Couplet');
+  await openAcc();
   ok((await page.locator('.bwa-pat.on').getAttribute('data-id')) === 'strong' && /2 accents/.test(await page.textContent('.bh-scene.on .bwa-badge')), 'retour au couplet : ses accents, sa pastille');
 
   // Aléatoire, Effacer
@@ -156,6 +193,7 @@ const ok = (c, m) => {
   // copie vers les scènes du même type : le couplet copié reçoit les accents (et la force, le filtre)
   ok((await page.locator('.bh-scene').count()) === 6, 'six scènes (couplet dupliqué)');
   await page.click('#bwpSame');
+  await page.waitForTimeout(200);
   const msg = await page.textContent('.bwp-msg');
   const all = await page.evaluate(() => SS.band._state.wiz.parts);
   const T = await page.evaluate(() => SS.band.insSteps().find((t) => t.role === 'bass').key);
@@ -196,7 +234,9 @@ const ok = (c, m) => {
   ok(okRestore && (await page.evaluate(() => JSON.stringify(SS.band._state.wiz.parts))) === before, 'wizRestore : mêmes accents dans toutes les scènes');
   await page.click('#bandWizSteps li[data-kind="bass"] button');
   await page.waitForTimeout(300);
-  ok((await page.locator('.bw-rnb.ac').count()) > 0 && (await page.locator('.bwa-sw[aria-checked="true"]').count()) === 1, 'l’onglet Basse retrouve notes accentuées et filtre');
+  ok((await page.locator('.bw-rnb.ac').count()) > 0 && (await page.locator('#bwAccPanel').count()) === 0, 'l’onglet Basse retrouve les notes accentuées, panneau masqué');
+  await openAcc();
+  ok((await page.locator('.bwa-sw[aria-checked="true"]').count()) === 1, 'panneau rouvert : filtre allumé');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'accents-real.png') });
 
   // Créer la chanson : notes de basse accentuées, vélocité plus forte, filtre

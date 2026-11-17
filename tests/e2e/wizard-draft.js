@@ -116,7 +116,7 @@ const ok = (c, m) => {
   await page.waitForTimeout(1200);
   ok((await page.textContent('#bandDraft')).trim() === 'Brouillon enregistré' && (await page.isVisible('#bandDraft')), 'indication « Brouillon enregistré » à côté de Fermer');
   let pr = await P();
-  ok(pr.wizard && pr.wizard.v === 1 && typeof pr.wizard.savedAt === 'number' && !pr.wizard.createdAt, 'project.wizard écrit dans le stockage automatique pendant que l’assistant est ouvert');
+  ok(pr.wizard && pr.wizard.v === 2 && typeof pr.wizard.savedAt === 'number' && !pr.wizard.createdAt, 'project.wizard écrit dans le stockage automatique pendant que l’assistant est ouvert');
   ok(pr.tracks.length === tracks0, 'aucune piste créée ni modifiée par l’enregistrement');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'draft-wizard.png') });
 
