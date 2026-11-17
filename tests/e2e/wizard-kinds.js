@@ -109,7 +109,7 @@ const ok = (c, m) => {
   ok((await padLi2.locator('.bw-ss').textContent()).startsWith('Arpège') && ((await padLi2.getAttribute('style')) || '').includes('#13c2a3'), 'résumé « Arpège · … » et pastille turquoise');
   ok(await page.evaluate(() => Object.keys(SS.band._state.wiz.kinds).length === 1), 'S.wiz.kinds garde le choix');
   await tab('arp');
-  ok(!!(await page.$('#bwaMotif')) && (await page.locator('.bwa-knob').count()) === 4 && (await page.locator('.bw-kind').count()) === 0, 'l’éditeur Arp One s’affiche, sans cartes de type');
+  ok(!!(await page.$('#bwaName')) && (await page.locator('.bwa-knob').count()) === 4 && (await page.locator('.bw-kind').count()) === 0, 'l’éditeur Arp One s’affiche, sans cartes de type');
   ok((await page.locator('#bwKindTag').textContent()) === 'Arpèges', 'étiquette « Arpèges » en lecture seule');
   ok((await page.locator('#bwKindNote, .bw-kindnote').count()) === 0 && !/était/.test(await page.textContent('#bandWiz')), 'plus de note « était une nappe »');
   // « On entend » : une pastille par instrument, nom de l'onglet et couleur de son type
@@ -128,7 +128,10 @@ const ok = (c, m) => {
   if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT + '/kinds2-pad-arp.png' });
   // un réglage d'arpège sur une scène : parts[section].inst[id]
   await page.locator('.bh-scene:has(.bh-sname b:text-is("Couplet"))').click();
-  await page.selectOption('#bwaMotif', 'midnight');
+  await page.click('#bwaName');
+  await page.click('#bwaMotifDialog .motif-cat:has-text("Tous les motifs")');
+  await page.click('#bwaMotifDialog .arp-style[data-id="midnight"]');
+  await page.click('#bwaMotifOk');
   const part = await page.evaluate((id) => SS.band._state.wiz.parts.verse && SS.band._state.wiz.parts.verse.inst && SS.band._state.wiz.parts.verse.inst[id], padId);
   ok(part && part.one && part.one.mode === 'pattern' && !(await page.evaluate(() => SS.band._state.wiz.parts.verse.arp)), 'réglage de la scène : parts[couplet].inst[id].one (pas par rôle)');
   const verseEv = await page.evaluate((id) => SS.band._state.wiz.res.scenes.find((x) => x.name === 'Couplet').data[id].events, padId);

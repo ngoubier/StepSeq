@@ -3902,6 +3902,115 @@ SS.band = (() => {
     putPart(sc.sec, T, { one: next, mode: undefined });
     partChanged(focus);
   }
+
+  /** Potentiomètre rotatif d'un réglage Arp One (même rendu que le panneau Arp One) : glisser, molette, flèches ; appliqué au lâcher. */
+  function arpKnob(sc, T, one, mc) {
+    const A = A1();
+    let v = A.macroValue(one, mc.id);
+    const num = h('b', {}, String(v));
+    const ring = h('div', { class: 'arp-knob-ring' }, h('div', { class: 'arp-knob-cap' }, num));
+    const now = h('span', { class: 'arp-knob-now' }, A.macroText(one, mc.id));
+    const dial = h('div', { class: 'arp-knob-dial', id: 'bwaK-' + mc.id, role: 'slider', tabindex: '0', 'aria-label': mc.label, 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(v), 'aria-valuetext': now.textContent }, ring);
+    const paint = () => {
+      ring.style.setProperty('--p', v + '%');
+      num.textContent = String(v);
+      dial.setAttribute('aria-valuenow', String(v));
+    };
+    const live = (x) => {
+      v = Math.max(0, Math.min(100, Math.round(x)));
+      const p = A.normalize({ ...one, ...A.macroPatch(one, mc.id, v), macros: { ...one.macros, [mc.id]: v } });
+      now.textContent = A.macroText(p, mc.id);
+      dial.setAttribute('aria-valuetext', now.textContent);
+      paint();
+    };
+    const commit = () => arpEdit(sc, T, (a) => ({ ...a, ...A.macroPatch(a, mc.id, v), macros: { ...a.macros, [mc.id]: v }, preset: '' }), '#bwaK-' + mc.id);
+    let drag = null;
+    dial.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      dial.setPointerCapture(e.pointerId);
+      drag = { y: e.clientY, v, moved: false };
+    });
+    dial.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      drag.moved = true;
+      live(drag.v + (drag.y - e.clientY) * 0.6);
+    });
+    const end = () => {
+      if (!drag) return;
+      const moved = drag.moved;
+      drag = null;
+      if (moved) commit();
+    };
+    dial.addEventListener('pointerup', end);
+    dial.addEventListener('pointercancel', end);
+    let wt = 0;
+    dial.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      live(v + (e.deltaY < 0 ? 2 : -2));
+      clearTimeout(wt);
+      wt = setTimeout(commit, 350);
+    }, { passive: false });
+    dial.addEventListener('keydown', (e) => {
+      const d = { ArrowUp: 5, ArrowRight: 5, ArrowDown: -5, ArrowLeft: -5, PageUp: 20, PageDown: -20 }[e.key];
+      const to = e.key === 'Home' ? 0 : e.key === 'End' ? 100 : d != null ? v + d : null;
+      if (to == null) return;
+      e.preventDefault();
+      live(to);
+      commit();
+    });
+    paint();
+    return h('div', { class: 'arp-knob bwa-knob', 'data-k': mc.id, title: mc.what }, dial, h('b', { class: 'arp-knob-name' }, mc.label), now);
+  }
+
+  /** Fenêtre de choix du motif (même présentation que celle d'Arp One) : on choisit une tuile, puis « Choisir ». */
+  function openMotifPicker(cur, apply) {
+    const tools = SS.arpPanel.motifTools;
+    const pick = { id: cur ? cur.id : '', cat: (cur && cur.cat) || 'all', q: '' };
+    let dlg = document.getElementById('bwaMotifDialog');
+    if (dlg) dlg.remove();
+    dlg = h('dialog', { id: 'bwaMotifDialog', class: 'sd-dialog motif-dialog' }, h('form', { method: 'dialog' }));
+    document.body.append(dlg);
+    const done = () => (dlg.close(), dlg.remove());
+    dlg.addEventListener('cancel', (e) => (e.preventDefault(), done()));
+    const draw = () => {
+      const q = pick.q.trim().toLowerCase();
+      const recents = tools.recents();
+      const match = (m) => !q || (m.name + ' ' + (m.tags || '') + ' ' + tools.example(m)).toLowerCase().includes(q);
+      const inCat = (m, c) => c === 'all' || (c === 'recent' ? recents.includes(m.id) : m.cat === c);
+      const cats = [{ id: 'recent', label: '★ Récents' }, { id: 'all', label: 'Tous les motifs' }, ...SS.MOTIF_CATS];
+      const list = SS.MOTIFS.filter((m) => match(m) && inCat(m, q ? 'all' : pick.cat));
+      const groups = q || pick.cat === 'all'
+        ? SS.MOTIF_CATS.map((c) => ({ c, items: list.filter((m) => m.cat === c.id) })).filter((g) => g.items.length)
+        : [{ c: null, items: pick.cat === 'recent' ? recents.map((id) => list.find((m) => m.id === id)).filter(Boolean) : list }];
+      const sel = motifById(pick.id);
+      const tile = (m) => h('button', { type: 'button', class: 'arp-style' + (m.id === pick.id ? ' active' : ''), 'data-id': m.id, onclick: () => ((pick.id = m.id), draw()) },
+        h('span', { html: tools.icon(m) }), h('span', { class: 'arp-style-name' }, m.name), h('small', { class: 'arp-style-ex' }, tools.example(m)));
+      const search = h('input', { type: 'search', class: 'motif-search', placeholder: 'Rechercher : octave, basse, montée, synthwave…', value: pick.q });
+      search.addEventListener('input', () => {
+        pick.q = search.value;
+        draw();
+        const s2 = dlg.querySelector('.motif-search');
+        s2.focus();
+        s2.setSelectionRange(s2.value.length, s2.value.length);
+      });
+      dlg.querySelector('form').replaceChildren(
+        h('div', { class: 'motif-head' }, h('h2', {}, 'Choisir un motif'), search),
+        h('div', { class: 'motif-body' },
+          h('nav', { class: 'motif-cats' }, cats.map((c) => h('button', { type: 'button', class: 'motif-cat' + (!q && pick.cat === c.id ? ' active' : ''), onclick: () => ((pick.cat = c.id), (pick.q = ''), draw()) },
+            h('span', {}, c.label), h('small', {}, String(c.id === 'recent' ? recents.length : SS.MOTIFS.filter((m) => inCat(m, c.id)).length))))),
+          h('div', { class: 'motif-list' },
+            groups.length ? groups.map((g) => h('section', { class: 'motif-group' }, g.c ? h('h3', {}, g.c.label) : null, h('div', { class: 'arp-styles' }, g.items.map(tile)))) : h('p', { class: 'arp-help' }, 'Aucun motif ne correspond.'))
+        ),
+        h('div', { class: 'dlg-footer motif-foot' },
+          h('span', { class: 'motif-now' }, sel ? [h('span', { html: tools.icon(sel) }), h('span', {}, h('b', {}, sel.name), h('small', {}, tools.example(sel)))] : null),
+          h('span', { class: 'spacer' }),
+          h('button', { type: 'button', class: 'btn', id: 'bwaMotifCancel', onclick: done }, 'Annuler'),
+          h('button', { type: 'button', class: 'btn btn-accent', id: 'bwaMotifOk', disabled: !sel, onclick: () => { const m = motifById(pick.id); done(); if (m) { tools.remember(m.id); apply(m, '#bwaName'); } } }, 'Choisir'))
+      );
+    };
+    draw();
+    dlg.showModal();
+  }
   const ARP_RATES = [[0.5, '1/8'], [1, '1/16'], [1.5, '1/16 triolet'], [2, '1/32']];
   function arpBody(sc, T) {
     const A = A1();
@@ -3915,49 +4024,23 @@ SS.band = (() => {
     const rateKey = (r) => String(ARP_RATES.find(([x]) => Math.abs(x - r) < 1e-6)?.[0] ?? r);
     const rates = ARP_RATES.map(([r, t]) => [String(r), t]);
     if (!ARP_RATES.some(([r]) => rateKey(one.rate) === String(r))) rates.push([String(one.rate), A.rateLabel(one.rate)]);
+    const tools = SS.arpPanel.motifTools;
     const motifLine = h(
       'div',
       { class: 'bwa-motif' },
-      h('button', { type: 'button', class: 'btn bwa-nav', id: 'bwaPrev', 'aria-label': 'Motif précédent', title: 'Motif précédent', onclick: () => applyMotif(SS.motifStep(one, -1), '#bwaPrev') }, '‹'),
       h(
-        'div',
-        { class: 'bwa-name', id: 'bwaName', role: 'status' },
-        h('b', {}, cur ? cur.name : 'Motif perso'),
-        h('small', {}, (cat ? cat.label : 'Réglages à toi') + (o.one ? '' : ' · départ d’après l’inspiration'))
+        'button',
+        { type: 'button', class: 'bwa-name', id: 'bwaName', title: 'Choisir un autre motif', 'aria-haspopup': 'dialog', onclick: () => openMotifPicker(cur, applyMotif) },
+        h('span', { class: 'bwa-icon', html: cur ? tools.icon(cur) : '' }),
+        h('span', { class: 'bwa-nt' }, h('b', {}, cur ? cur.name : 'Motif perso'), h('small', {}, (cat ? cat.label : 'Réglages à toi') + (o.one ? '' : ' · départ d’après l’inspiration'))),
+        h('span', { class: 'bwa-chev', 'aria-hidden': 'true' }, '›')
       ),
-      h('button', { type: 'button', class: 'btn bwa-nav', id: 'bwaNext', 'aria-label': 'Motif suivant', title: 'Motif suivant', onclick: () => applyMotif(SS.motifStep(one, 1), '#bwaNext') }, '›')
+      h('button', { type: 'button', class: 'btn bwa-nav', id: 'bwaPrev', 'aria-label': 'Motif précédent', title: 'Motif précédent', onclick: () => applyMotif(SS.motifStep(one, -1), '#bwaPrev') }, '‹'),
+      h('button', { type: 'button', class: 'btn bwa-nav', id: 'bwaNext', 'aria-label': 'Motif suivant', title: 'Motif suivant', onclick: () => applyMotif(SS.motifStep(one, 1), '#bwaNext') }, '›'),
+      h('button', { type: 'button', class: 'btn bwa-surprise', id: 'bwaSurprise', title: 'Un nouvel arpège tiré au hasard', onclick: () => arpEdit(sc, T, (a) => A.normalize(SS.arpSurprise(a, {})), '#bwaSurprise') }, 'Surprends-moi'),
+      partSeg('Vitesse', 'bwaRate', rates, rateKey(one.rate), (v) => arpEdit(sc, T, (a) => ({ ...a, rate: +v }), `#bwaRate [data-v="${v}"]`))
     );
-    const picker = h(
-      'label',
-      { class: 'bwp-field bwa-pick' },
-      h('span', { class: 'bh-lbl' }, 'Motif'),
-      h(
-        'select',
-        { id: 'bwaMotif', 'aria-label': 'Choisir un motif d’Arp One', onchange: (e) => e.target.value && applyMotif(motifById(e.target.value), '#bwaMotif') },
-        !cur ? h('option', { value: '', selected: true }, 'Motif perso') : null,
-        ...SS.MOTIF_CATS.map((c) => h('optgroup', { label: c.label }, ...SS.MOTIFS.filter((m) => m.cat === c.id).map((m) => h('option', { value: m.id, selected: !!cur && cur.id === m.id }, m.name))))
-      )
-    );
-    const knobs = h(
-      'div',
-      { class: 'bwa-knobs' },
-      ...A.MACROS.map((mc) => {
-        const v = A.macroValue(one, mc.id);
-        const txt = h('small', {}, A.macroText(one, mc.id));
-        const val = h('output', {}, String(v));
-        return h(
-          'label',
-          { class: 'bwa-knob', title: mc.what },
-          h('span', { class: 'bwa-kh' }, h('b', {}, mc.label), val),
-          h('input', {
-            type: 'range', min: 0, max: 100, step: 1, value: v, id: 'bwaK-' + mc.id, 'aria-label': mc.label,
-            oninput: (e) => (val.textContent = e.target.value), // le réglage s'applique au lâcher
-            onchange: (e) => arpEdit(sc, T, (a) => ({ ...a, ...A.macroPatch(a, mc.id, +e.target.value), macros: { ...a.macros, [mc.id]: +e.target.value }, preset: '' }), '#bwaK-' + mc.id),
-          }),
-          txt
-        );
-      })
-    );
+    const knobs = h('div', { class: 'bwa-knobs' }, ...A.MACROS.map((mc) => arpKnob(sc, T, one, mc)));
     return [
       partHead(sc, T, 'arpège', true),
       rollBox(sc, T),
@@ -3966,13 +4049,6 @@ SS.band = (() => {
         { class: 'bwp-card bwa' },
         h('div', { class: 'bwp-ch' }, h('b', {}, `Arpège de « ${sc.name} »`), h('span', { class: 'bh-info' }, 'Arp One · mode Intuitif'), h('span', { class: 'spacer' }), playBox(sc, T, 'up16')),
         motifLine,
-        h(
-          'div',
-          { class: 'bwp-row' },
-          picker,
-          h('button', { type: 'button', class: 'btn btn-small', id: 'bwaSurprise', title: 'Un nouvel arpège tiré au hasard', onclick: () => arpEdit(sc, T, (a) => A.normalize(SS.arpSurprise(a, {})), '#bwaSurprise') }, '🎲 Surprends-moi'),
-          partSeg('Vitesse', 'bwaRate', rates, rateKey(one.rate), (v) => arpEdit(sc, T, (a) => ({ ...a, rate: +v }), `#bwaRate [data-v="${v}"]`))
-        ),
         knobs,
         muted ? h('p', { class: 'dlg-hint' }, 'L’arpège est coupé dans cette scène : un réglage le rallume.') : null,
         !insp && !o.one && !o.mode ? h('p', { class: 'dlg-hint' }, 'L’inspiration ne joue pas d’arpège dans cette scène : un premier réglage (motif, bouton, vitesse) l’allume.') : null

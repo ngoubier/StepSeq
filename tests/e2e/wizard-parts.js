@@ -173,8 +173,15 @@ const ok = (c, m) => {
   // Arpèges : Arp One (mode Intuitif). L'inspiration joue tant qu'on n'a rien touché ; allumé dans le couplet (le plan n'en avait pas)
   await tab('arp');
   ok((await page.getAttribute('#bwParts', 'data-kind')) === 'arp', 'onglet de l’arpège');
-  ok((await page.locator('.bwp-chips').count()) === 0 && (await page.locator('#bwaMotif').count()) === 1 && (await page.locator('.bwa-knob').count()) === 4, 'panneau Arp One : motif, 4 boutons Densité / Ampleur / Mouvement / Écho');
-  ok((await page.locator('#bwaMotif optgroup').count()) === (await page.evaluate(() => SS.MOTIF_CATS.length)) && (await page.locator('#bwaMotif option').count()) >= (await page.evaluate(() => SS.MOTIFS.length)), 'le sélecteur range les motifs par catégorie');
+  ok((await page.locator('.bwp-chips').count()) === 0 && (await page.locator('#bwaName').count()) === 1 && (await page.locator('#bwaMotif').count()) === 0 && (await page.locator('.bwa-knob .arp-knob-dial').count()) === 4, 'panneau Arp One : bouton de motif (plus de select), 4 potentiomètres Densité / Ampleur / Mouvement / Écho');
+  const geo = await page.evaluate(() => {
+    const r = (q) => document.querySelector(q).getBoundingClientRect();
+    const n = r('#bwaName'), p = r('#bwaPrev'), x = r('#bwaNext'), s = r('#bwaSurprise'), v = r('#bwaRate');
+    const d = r('#bwaK-density');
+    return { order: n.right <= p.left + 1 && p.right <= x.left + 1 && x.right <= s.left + 1 && s.right <= v.left + 1, line: Math.max(n.top, p.top, x.top, s.top, v.top) < Math.min(n.bottom, p.bottom, x.bottom, s.bottom, v.bottom), round: Math.abs(d.width - d.height) < 2 && d.width > 60, rad: getComputedStyle(document.querySelector('#bwaK-density')).borderRadius, sur: document.querySelector('#bwaSurprise').textContent, bg: getComputedStyle(document.querySelector('#bwaSurprise')).backgroundColor, scroll: document.querySelector('#bwParts').scrollWidth <= document.querySelector('#bwParts').clientWidth + 1 };
+  });
+  ok(geo.order && geo.line, 'une ligne : motif, ‹, ›, Surprends-moi, Vitesse (dans cet ordre)');
+  ok(geo.sur === 'Surprends-moi' && /^rgb\(\d+, 1[3-9]\d, \d+\)$/.test(geo.bg) && geo.round && geo.rad.includes('50%'), `Surprends-moi vert sans icône (${geo.bg}) ; potentiomètres ronds`);
   ok(!(await page.isChecked('#bwp-on-arp')) && (await preview('Couplet', ':arp')).events.length === 0 && !(await part('verse', 'arp')), 'couplet : pas d’arpège dans l’inspiration, rien de réglé');
   await scene('Intro');
   ok((await page.textContent('#bwaName b')) === 'Pédale aiguë' && !(await part('intro', 'arp')), 'intro : le motif de départ suit l’inspiration (bells → Pédale aiguë), sans réglage écrit');
@@ -185,7 +192,14 @@ const ok = (c, m) => {
   const countOf = async (n) => ((await preview(n, ':arp')).events || []).length;
   const before = await notesOf('Couplet');
   // un motif choisi : parts.verse.arp.one, et les notes changent
-  await page.selectOption('#bwaMotif', 'midnight');
+  await page.click('#bwaName');
+  ok((await page.locator('#bwaMotifDialog[open]').count()) === 1 && (await page.locator('#bwaMotifDialog .arp-style').count()) > 0 && (await page.locator('#bwaMotifDialog .motif-cat').count()) === (await page.evaluate(() => SS.MOTIF_CATS.length)) + 2, 'clic sur le bouton de motif : fenêtre de sélection (catégories et motifs)');
+  await page.click('#bwaMotifCancel');
+  ok((await page.locator('#bwaMotifDialog').count()) === 0 && !(await part('verse', 'arp')).one, 'Annuler : rien ne change');
+  await page.click('#bwaName');
+  await page.click('#bwaMotifDialog .motif-cat:has-text("Tous les motifs")');
+  await page.click('#bwaMotifDialog .arp-style[data-id="midnight"]');
+  await page.click('#bwaMotifOk');
   let one = (await part('verse', 'arp')).one;
   ok(one && one.mode === 'pattern' && !(await part('verse', 'arp')).mode && (await page.textContent('#bwaName b')) === 'Midnight Drive', 'motif choisi : arp.one posé, nom affiché');
   const midnight = await notesOf('Couplet');
@@ -203,11 +217,13 @@ const ok = (c, m) => {
   await page.click('#bwaRate [data-v="1"]');
   // Densité : moins de notes
   const full = await countOf('Couplet');
-  await page.fill('#bwaK-density', '15');
+  await page.focus('#bwaK-density');
+  for (const k of ['Home', 'ArrowUp', 'ArrowUp', 'ArrowUp']) await page.keyboard.press(k);
   const sparse = await countOf('Couplet');
   ok(sparse > 0 && sparse < full && (await part('verse', 'arp')).one.macros.density === 15, `Densité basse : moins de notes (${sparse} < ${full})`);
   // Ampleur
-  await page.fill('#bwaK-width', '93');
+  await page.focus('#bwaK-width');
+  for (const k of ['End', 'ArrowDown']) await page.keyboard.press(k);
   ok((await part('verse', 'arp')).one.octaves === 4, 'Ampleur : 4 octaves');
   // Surprends-moi
   const pre = JSON.stringify((await part('verse', 'arp')).one);
