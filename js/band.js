@@ -2146,13 +2146,18 @@ SS.band = (() => {
     return !!spec() && plannedTracks().length > 0;
   }
 
-  function goStep(n) {
+  /** Va à l'étape n ; `sc` (scène) : l'ouvrir sur cette scène plutôt que sur celle qu'on entend. */
+  function goStep(n, sc = null) {
     if (n === S.wiz.step || !canGo(n)) return;
     S.wiz.step = n;
     S.sel = null;
     S.wiz.insp = null;
     S.wiz.gsel = null;
-    if (sceneStep(n) && L.mode && L.scene) S.wiz.hscene = L.scene; // Accords, Mélodie : la scène qu'on entend
+    if (sc && sceneStep(n)) {
+      S.wiz.hscene = sc.id;
+      S.wiz.hsec = sc.sec;
+      if (L.mode === 'scene' && L.scene !== sc.id) playScene(sc.id); // la lecture suit la scène ouverte
+    } else if (sceneStep(n) && L.mode && L.scene) S.wiz.hscene = L.scene; // Accords, Mélodie : la scène qu'on entend
     if (n <= ST.inst) dropListen(); // style et instruments changent toute la chanson
     else if (L.junc && n !== ST.fx) dropListen(); // la transition ne s'écoute que dans son étape
     renderWiz();
@@ -2556,12 +2561,19 @@ SS.band = (() => {
           const d = sc.data[c.id];
           const on = hasData(d);
           const n = on ? (d.steps ? d.steps.filter((v) => v > 0).length : d.events.length) : 0;
+          // double-clic : ouvre l'étape de cet instrument (Effets : l'étape Effets et transitions) sur cette scène
+          const t = insSteps().find((x) => x.cols.some((y) => y.id === c.id));
+          const dest = t ? stepNum({ inst: t.id }) : (muById(c.musician) || {}).role === 'fx' ? ST.fx : 0;
+          const tip = dest && !pick ? ` · double-clic : ouvrir ${t ? `« ${t.title} »` : 'les effets'} sur cette scène` : '';
           return h(
             'td',
-            { class: 'bw-cell' + (isOff(c) ? ' off' : '') + (muted(c) ? ' muted' : '') },
+            {
+              class: 'bw-cell' + (isOff(c) ? ' off' : '') + (muted(c) ? ' muted' : '') + (dest && !pick ? ' bw-open' : ''),
+              ondblclick: dest && !pick ? () => goStep(dest, sc) : null,
+            },
             on
-              ? h('div', { class: 'bw-clip', style: `--c:${c.o.color}`, title: `${sc.name} · ${c.o.name} : ${n} ${d.steps ? 'coup' : 'note'}${n > 1 ? 's' : ''}` }, clipSvg(d, sc.bars, range.get(c.id)))
-              : h('div', { class: 'bw-slot', title: `${sc.name} · ${c.o.name} : silence` })
+              ? h('div', { class: 'bw-clip', style: `--c:${c.o.color}`, title: `${sc.name} · ${c.o.name} : ${n} ${d.steps ? 'coup' : 'note'}${n > 1 ? 's' : ''}${tip}` }, clipSvg(d, sc.bars, range.get(c.id)))
+              : h('div', { class: 'bw-slot', title: `${sc.name} · ${c.o.name} : silence${tip}` })
           );
         })
       )
