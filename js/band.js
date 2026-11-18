@@ -96,6 +96,12 @@ SS.band = (() => {
 
   /* ---------- Modèle ---------- */
   const style = () => B().STYLES.find((s) => s.id === S.styleId);
+  /* Styles de modèles (js/band-templates.js) : leurs chansons sont des morceaux complets, ouverts tels quels (S.tplStyle,
+   * S.tplId). Le style et l'inspiration « générés » (S.styleId, S.presetId) restent en place derrière : l'assistant les
+   * retrouve si l'on revient à un style ordinaire. */
+  const TPL = () => SS.BandTemplates || [];
+  const tplStyle = () => (S.tplStyle && !cover() ? TPL().find((s) => s.id === S.tplStyle) || null : null);
+  const tpl = () => (tplStyle() ? tplStyle().templates.find((t) => t.id === S.tplId) || tplStyle().templates[0] : null);
   const preset = () => (style() || { presets: [] }).presets.find((p) => p.id === S.presetId);
   const BG = () => SS.bandGroup;
   const roleOf = (mu) => B().ROLES[mu.role];
@@ -301,6 +307,32 @@ SS.band = (() => {
   /* Image d'un style : dessinée en canvas à la résolution de l'écran (devicePixelRatio), repère de 220 px de haut. */
   const ART_H = 220;
   const ART = {
+    cinematic(g, w, h) {
+      // écran de cinéma dans la pénombre : faisceau du projecteur, portée qui monte vers la lumière, bandes noires
+      const cx = w * 0.72;
+      const beam = g.createRadialGradient(cx, h * 0.42, 4, cx, h * 0.42, h * 0.75);
+      beam.addColorStop(0, 'rgba(255, 214, 150, 0.85)');
+      beam.addColorStop(0.25, 'rgba(240, 170, 90, 0.35)');
+      beam.addColorStop(1, 'rgba(240, 170, 90, 0)');
+      g.fillStyle = beam;
+      g.fillRect(0, 0, w, h);
+      g.strokeStyle = '#e8c47a';
+      g.lineWidth = 1.4;
+      for (let i = 0; i < 5; i++) {
+        g.globalAlpha = 0.25 + i * 0.1;
+        g.beginPath();
+        for (let x = 0; x <= w; x += 6) {
+          const y = h * 0.78 - i * 9 - Math.pow(x / w, 2.2) * h * 0.38 + Math.sin(x / 23 + i) * 3;
+          if (x === 0) g.moveTo(x, y);
+          else g.lineTo(x, y);
+        }
+        g.stroke();
+      }
+      g.globalAlpha = 1;
+      g.fillStyle = '#000';
+      g.fillRect(0, 0, w, h * 0.09);
+      g.fillRect(0, h * 0.91, w, h * 0.09);
+    },
     synthwave(g, w, h) {
       // soleil couchant rayé et grille en perspective, violet et rose
       const hy = h * 0.55;
@@ -392,7 +424,7 @@ SS.band = (() => {
       }
     },
   };
-  const ART_BG = { synthwave: ['#1b0b2e', '#3a0d4a'], edm: ['#06121f', '#0a2a4a'], ambient: ['#0d1a1a', '#173a3a'], techno: ['#0b0c0f', '#232830'] };
+  const ART_BG = { synthwave: ['#1b0b2e', '#3a0d4a'], edm: ['#06121f', '#0a2a4a'], ambient: ['#0d1a1a', '#173a3a'], techno: ['#0b0c0f', '#232830'], cinematic: ['#07090f', '#1d1a14'] };
   function drawArt(cv) {
     const id = cv.dataset.art;
     const cw = cv.clientWidth;
@@ -430,7 +462,7 @@ SS.band = (() => {
     box.replaceChildren(
       ...B().STYLES.map((s) => {
         const [lo, hi] = styleTempo(s);
-        const on = s.id === S.styleId;
+        const on = s.id === S.styleId && !tplStyle();
         const cv = h('canvas', { class: 'bsty-art', 'data-art': s.id, 'aria-hidden': 'true' });
         watchArt(cv);
         return h(
@@ -452,14 +484,56 @@ SS.band = (() => {
             )
           )
         );
-      })
+      }),
+      ...(cover() ? [] : TPL().map(tplStyleCard))
     );
-    const st = style();
+    const st = tplStyle() || style();
     $('#bandStyleDesc').textContent = (st || {}).desc || '';
+    el.classList.toggle('tpl', !!tplStyle());
     renderStyleCard();
+  }
+  /** Durée et nombre de pistes d'un modèle. */
+  function tplInfo(t) {
+    const pr = t.project;
+    const bars = (pr.song || []).reduce((a, b) => a + ((pr.scenes.find((x) => x.id === b.scene) || {}).bars || 0) * (b.repeat || 1), 0);
+    return { bars, seconds: (bars * 4 * 60) / pr.tempo, tracks: pr.tracks.length, scenes: pr.scenes.length };
+  }
+  /** Carte d'un style de modèles : mêmes rubriques que les autres styles. */
+  function tplStyleCard(s) {
+    const on = !!tplStyle() && s.id === S.tplStyle;
+    const tempos = s.templates.map((t) => Math.round(t.tempo));
+    const lo = Math.min(...tempos);
+    const hi = Math.max(...tempos);
+    const cv = h('canvas', { class: 'bsty-art', 'data-art': s.id, 'aria-hidden': 'true' });
+    watchArt(cv);
+    return h(
+      'button',
+      { type: 'button', class: 'bsty bsty-tpl' + (on ? ' active' : ''), role: 'radio', 'aria-checked': String(on), 'data-v': s.id, title: `${s.label} : morceaux complets, prêts à jouer`, onclick: () => setTplStyle(s.id) },
+      cv,
+      h(
+        'span',
+        { class: 'bsty-body' },
+        h('span', { class: 'bsty-name' }, s.label),
+        h('span', { class: 'bsty-desc' }, s.desc || ''),
+        h(
+          'dl',
+          { class: 'bsty-list' },
+          h('dt', {}, 'Tempo'), h('dd', {}, lo === hi ? `${lo} BPM` : `${lo}–${hi} BPM`),
+          h('dt', {}, 'Tonalités'), h('dd', {}, [...new Set(s.templates.map((t) => t.key))].join(', ')),
+          h('dt', {}, 'Structure'), h('dd', { class: 'clamp' }, 'Morceaux complets : scènes, arrangement, mix et master'),
+          h('dt', {}, 'Chansons'), h('dd', {}, `${s.templates.length} modèle${s.templates.length > 1 ? 's' : ''}`)
+        )
+      )
+    );
   }
   /** Sous le choix du style : le tempo conseillé sur l'échelle des tempos, un trait par inspiration. */
   function renderStyleCard() {
+    const ts = tplStyle();
+    if (ts && $('#bandStyleCard')) {
+      const n = ts.templates.length;
+      $('#bandStyleCard').replaceChildren(h('span', { class: 'bsc-lbl' }, `${n} chanson${n > 1 ? 's' : ''} ${ts.label} · morceau${n > 1 ? 'x' : ''} complet${n > 1 ? 's' : ''}, prêt${n > 1 ? 's' : ''} à jouer`));
+      return;
+    }
     const st = style();
     const box = $('#bandStyleCard');
     if (!st || !box) return;
@@ -478,6 +552,23 @@ SS.band = (() => {
   }
 
   function renderPresets() {
+    const ts = tplStyle();
+    if (ts) {
+      $('#bandPresets').replaceChildren(
+        ...ts.templates.map((t) => {
+          const on = t.id === tpl().id;
+          const i = tplInfo(t);
+          return h(
+            'button',
+            { type: 'button', class: 'band-preset' + (on ? ' active' : ''), role: 'radio', 'aria-checked': String(on), 'data-tpl': t.id, onclick: () => setTpl(t.id) },
+            h('span', { class: 'bp-song' }, t.song),
+            h('span', { class: 'bp-artist' }, `Modèle · ${t.key}`),
+            h('span', { class: 'bp-meta' }, `${Math.round(t.tempo)} BPM · ${i.tracks} pistes · ${mmss(i.seconds)}`)
+          );
+        })
+      );
+      return;
+    }
     const st = style();
     $('#bandPresets').replaceChildren(
       ...st.presets.map((p) =>
@@ -500,6 +591,25 @@ SS.band = (() => {
 
   /** Détail de l'inspiration choisie : titre, artiste, description et musiciens du groupe. */
   function renderSong() {
+    const t = tpl();
+    if (t) {
+      const i = tplInfo(t);
+      const pr = t.project;
+      $('#bandSong').replaceChildren(
+        h('div', { class: 'bs-kind' }, 'Modèle'),
+        h('div', { class: 'bs-title' }, h('b', {}, t.song)),
+        h('div', { class: 'bs-artist' }, `${t.key} · ${Math.round(t.tempo)} BPM · ${i.bars} mesures · ${mmss(i.seconds)} · ${i.scenes} scènes`),
+        h('div', { class: 'bs-desc' }, t.desc),
+        h(
+          'div',
+          { class: 'bs-tpl-actions' },
+          h('button', { type: 'button', class: 'btn btn-accent', id: 'bsTplOpen', title: 'Ouvre une copie du morceau complet (scènes, arrangement, mix et master), prête à jouer et à modifier', onclick: () => openTemplate() }, 'Ouvrir cette chanson'),
+          h('small', { class: 'dlg-hint' }, 'Une copie : le modèle reste intact.')
+        ),
+        h('ul', { class: 'bs-mus' }, ...pr.tracks.map((tr) => h('li', { style: `--c:${tr.color || '#888'}` }, h('i', { 'aria-hidden': 'true' }), h('span', {}, String(tr.name).replace(/^\d+\s+/, '')))))
+      );
+      return;
+    }
     const p = preset();
     $('#bandSong').replaceChildren(
       h('div', { class: 'bs-kind' }, 'Inspiration'),
@@ -533,6 +643,10 @@ SS.band = (() => {
     S.mode = m;
     if (m === 'cover' && !S.cover) S.cover = COVER_DEFAULT();
     coverChanged();
+    // les modèles n'existent qu'en « Créer » : leurs cartes disparaissent (ou reviennent) avec la porte
+    renderStyles();
+    renderPresets();
+    if (!cover()) renderSong();
     dropListen();
     renderMode();
     refresh();
@@ -1178,7 +1292,76 @@ SS.band = (() => {
   }
 
   /* ---------- Actions ---------- */
+  /** Choisit un style de modèles (js/band-templates.js) : sa première chanson. */
+  function setTplStyle(id) {
+    if (S.tplStyle === id && tplStyle()) return;
+    if (S.wiz) dropListen();
+    S.tplStyle = id;
+    S.tplId = (TPL().find((s) => s.id === id) || { templates: [{}] }).templates[0].id;
+    renderStyles();
+    renderPresets();
+    renderSong();
+    refresh();
+    if (S.wiz) renderWiz(); // « Générer et écouter » et les étapes disparaissent
+  }
+  function setTpl(id) {
+    S.tplId = id;
+    renderPresets();
+    renderSong();
+  }
+  /**
+   * Ouvre une copie du modèle choisi à la place du projet (même chemin qu'Ouvrir : nouvelle chanson dans « Mes chansons »).
+   * Projet déjà commencé : on demande d'abord.
+   */
+  function openTemplate(confirmed) {
+    const t = tpl();
+    if (!t) return;
+    const pr = app.project();
+    if (confirmed !== true && pr.tracks.length) return showTplConfirm(t);
+    const p = SS.normalizeProject(JSON.parse(JSON.stringify(t.project)));
+    p.id = SS.uid();
+    p.title = t.song;
+    S.tplStyle = null; // à la prochaine ouverture, l'assistant repart d'un style ordinaire
+    leave({ keep: false });
+    app.loadSong(p, { changed: true, origin: { kind: `modèle de l'assistant « ${t.song} »` } });
+    app.toast(`« ${t.song} » ouverte : ${p.tracks.length} pistes, ${p.scenes.length} scènes. Lecture pour l'écouter.`);
+  }
+  function showTplConfirm(t) {
+    const pr = app.project();
+    const notes = pr.tracks.filter((x) => app.hasNotes(x)).length;
+    const box = $('#bandConfirm');
+    box.replaceChildren(
+      h(
+        'div',
+        { class: 'bcf-card', role: 'alertdialog', 'aria-modal': 'true', 'aria-labelledby': 'bcfTitle', 'aria-describedby': 'bcfText' },
+        h('h3', { id: 'bcfTitle' }, 'Ouvrir le modèle ?'),
+        h('p', { id: 'bcfText' }, `« ${t.song} » s'ouvre comme une nouvelle chanson, à la place du projet en cours « ${pr.title} ».`),
+        notes ? h('p', { class: 'bcf-warn' }, `Le projet en cours reste dans « Mes chansons ».`) : null,
+        h(
+          'div',
+          { class: 'bcf-actions' },
+          h('button', { type: 'button', class: 'btn', id: 'bcfBack', onclick: hideConfirm }, 'Retour'),
+          h('span', { class: 'spacer' }),
+          h('button', { type: 'button', class: 'btn btn-accent', id: 'bcfSong', onclick: () => openTemplate(true) }, 'Ouvrir le modèle')
+        )
+      )
+    );
+    box.hidden = false;
+    requestAnimationFrame(() => $('#bcfSong').focus());
+  }
   function setStyle(id) {
+    const wasTpl = !!tplStyle();
+    if (wasTpl) {
+      S.tplStyle = null;
+      if (S.styleId === id) {
+        renderStyles();
+        renderPresets();
+        renderSong();
+        refresh();
+        if (S.wiz) renderWiz();
+        return;
+      }
+    }
     if (S.styleId === id) return;
     S.styleId = id;
     S.presetId = style().presets[0].id;
@@ -1191,6 +1374,7 @@ SS.band = (() => {
     renderSong();
     if (cover()) coverChanged(), coverInfo();
     refresh();
+    if (S.wiz && wasTpl) renderWiz();
   }
   function setPreset(id) {
     S.presetId = id;
@@ -2048,6 +2232,7 @@ SS.band = (() => {
   function stepSummary(n) {
     try {
       const p = preset();
+      if (tplStyle()) return n === ST.style ? `${tplStyle().label} · modèle` : ''; // un modèle s'ouvre tel quel : pas d'étapes
       if (n === ST.style) return cover() ? 'Reprise' : (style() || {}).label || '';
       if (n === ST.inst) {
         const k = musicians().length;
@@ -2143,6 +2328,7 @@ SS.band = (() => {
   /** On peut aller à l'étape n si la chanson se calcule (inspiration avec un plan, au moins une piste). */
   function canGo(n) {
     if (n <= 1) return true;
+    if (tplStyle()) return false; // un modèle s'ouvre tel quel : pas d'étapes
     return !!spec() && plannedTracks().length > 0;
   }
 
@@ -5681,7 +5867,7 @@ SS.band = (() => {
     $('#bandWiz').hidden = band;
     $('#bandGm').hidden = step !== ST.inst; // General MIDI : en tête de l'étape Instruments
     $('#bwCreate').hidden = step !== ST.pick;
-    $('#bwQuick').hidden = step !== ST.style || (cover() && !spec()); // étape 1 : « Générer et écouter »
+    $('#bwQuick').hidden = step !== ST.style || (cover() && !spec()) || !!tplStyle(); // étape 1 : « Générer et écouter »
     if (band) {
       refresh();
       updateTransport(); // la barre du haut montre déjà tempo et tonalité aux étapes 1 et 2
@@ -5776,7 +5962,7 @@ SS.band = (() => {
    * aucune n'est choisie) est jouée comme à l'étape Scènes (listenSong, commandée par la barre du haut) ; re-clic : arrêt.
    */
   function quickGo() {
-    if (!S.wiz) return;
+    if (!S.wiz || tplStyle()) return;
     if (L.mode) return stopListen();
     if (!S.styleId) S.styleId = B().STYLES[0].id;
     if (!preset()) S.presetId = style().presets[0].id;

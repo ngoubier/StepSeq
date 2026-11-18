@@ -5106,3 +5106,6 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
   #bandDialog .fx-dropline { left: calc(84px + (100% - 94px) * .8) !important; }
   #bandDialog .fx-block { flex-basis: 76px !important; }
 }
+
+/* Assistant : style de modèles (js/band-templates.js) — la chanson s'ouvre telle quelle */
+#bandDialog .bs-tpl-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
