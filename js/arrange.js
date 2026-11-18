@@ -6,6 +6,7 @@
  *   blocks(res)                 les passages de la chanson dans l'ordre (une scène répétée = plusieurs passages) : { sceneId, start, bars, t }
  *   target(curve, t)            l'énergie voulue à la position t (0..1) de la chanson pour une courbe (CURVES)
  *   diagnose(scenes, blocks, c) les points à travailler : [{ kind: ok | warn | info, sec, text, hint?, act? }]
+ *   moves(ctx)                  mouvements de son (cutoff, vélocité, résonance par temps) proposés d'après l'énergie
  *
  * Fonctions pures (aucun DOM) : tests/arrange.test.js.
  */
@@ -113,5 +114,94 @@ SS.arrange = (() => {
     return items;
   }
 
-  return { CURVES, target, stats, energies, blocks, diagnose };
+  /*
+   * Mouvements de son (automation par temps, js/beatauto.js) proposés d'après l'énergie de la chanson :
+   *   open  : le filtre s'ouvre vers le sommet — accords, basse, arpège : cutoff fermé (−2 octaves) dans le passage qui
+   *           précède une scène nettement plus forte, et qui s'ouvre jusqu'au réglage du son sur ses 4 dernières mesures ;
+   *   qa    : questions et réponses — mélodie : une mesure forte (110 %), une mesure douce (75 %) dans les scènes calmes ;
+   *   acid  : montée acide — basse : la résonance grimpe (×1 → ×2,6) sur le pont, puis retombe d'un coup à la scène suivante.
+   * ctx : { song: [{ scene, repeat }], scenes: [{ id, sec, name, bars }], energy: Map(sec → 0..1), beatsPerBar,
+   *         ins: [{ cols: [id], kind, name, filter: bool }] }.
+   * Renvoie [{ id, label, why, k, plan: [{ col, block, rep, k, beats: { temps: valeur } }] }] (mouvements possibles seulement).
+   */
+  const MOVES = [
+    { id: 'open', label: 'Le filtre s’ouvre vers le sommet', k: 'cut', need: 'Il faut une scène nettement plus forte que celle d’avant, et des accords, une basse ou un arpège à filtre (pas le Juno-106).' },
+    { id: 'qa', label: 'Questions et réponses de vélocité', k: 'vel', need: 'Il faut une mélodie et au moins une scène calme.' },
+    { id: 'acid', label: 'Montée acide au pont', k: 'res', need: 'Il faut une basse à filtre (pas le Juno-106) et un pont, ou une scène calme au milieu de la chanson.' },
+  ];
+  function moves(ctx) {
+    const bpb = ctx.beatsPerBar || 4;
+    const sceneOf = (id) => ctx.scenes.find((x) => x.id === id);
+    const eOf = (b) => {
+      const sc = b && sceneOf(b.scene);
+      return sc && ctx.energy.has(sc.sec) ? ctx.energy.get(sc.sec) : null;
+    };
+    const join = (a) => a.join(', ').replace(/, ([^,]*)$/, ' et $1');
+    const names = (list) => join(list.map((x) => x.name));
+    const uniq = (a) => [...new Set(a)];
+    const top = Math.max(0, ...ctx.song.map(eOf).filter((x) => x != null));
+    const out = [];
+    const make = (id, targets, blocksFn, why) => {
+      const plan = [];
+      const where = [];
+      for (const T of targets)
+        for (const [i, b] of ctx.song.entries()) {
+          const sc = sceneOf(b.scene);
+          if (!sc) continue;
+          const reps = blocksFn(i, b, sc);
+          if (!reps) continue;
+          where.push(sc.name);
+          for (const [rep, beats] of reps) if (Object.keys(beats).length) T.cols.forEach((col) => plan.push({ col, block: i, rep, k: MOVES.find((m) => m.id === id).k, beats }));
+        }
+      if (plan.length) out.push({ ...MOVES.find((m) => m.id === id), plan, why: why(targets, uniq(where)) });
+    };
+    // le filtre s'ouvre : passage suivi d'une scène nettement plus forte (dans le haut de la chanson)
+    const opens = ctx.ins.filter((T) => T.filter && ['chords', 'bass', 'arp'].includes(T.kind));
+    make('open', opens, (i, b, sc) => {
+      const e = eOf(b), en = eOf(ctx.song[i + 1]);
+      if (e == null || en == null || en < top - 0.2 || en - e < 0.1) return null;
+      const n = sc.bars * bpb;
+      const L = Math.min(4, sc.bars) * bpb;
+      const reps = [];
+      for (let r = 0; r < b.repeat; r++) {
+        const beats = {};
+        for (let x = 0; x < n; x++) {
+          const j = x - (n - L);
+          beats[x] = r === b.repeat - 1 && j >= 0 ? -2 + (2 * j) / Math.max(1, L - 1) : -2;
+        }
+        reps.push([r, beats]);
+      }
+      return reps;
+    }, (ts, where) => `${names(ts)} : le filtre fermé dans ${join(where)} s’ouvre sur les 4 dernières mesures. L’oreille sent le sommet arriver avant qu’il n’éclate.`);
+    // questions et réponses : mélodie, scènes calmes
+    const singers = ctx.ins.filter((T) => T.kind === 'melody');
+    make('qa', singers, (i, b, sc) => {
+      const e = eOf(b);
+      if (e == null || e > 0.6 || e >= top) return null;
+      const n = sc.bars * bpb;
+      const reps = [];
+      for (let r = 0; r < b.repeat; r++) {
+        const beats = {};
+        for (let x = 0; x < n; x++) beats[x] = Math.floor(x / bpb) % 2 ? 0.75 : 1.1;
+        reps.push([r, beats]);
+      }
+      return reps;
+    }, (ts, where) => `${names(ts)} : une mesure forte, une mesure douce, dans ${join(where)}. La phrase respire sans changer une note.`);
+    // montée acide : la basse sur le pont (ou le passage le plus calme du milieu, suivi d'une montée)
+    const basses = ctx.ins.filter((T) => T.filter && T.kind === 'bass');
+    const mids = ctx.song.map((b, i) => ({ b, i })).filter(({ i }) => i > 0 && i < ctx.song.length - 1);
+    const named = mids.find(({ b }) => /pont|bridge|break|middle|interlude/i.test(((sceneOf(b.scene) || {}).sec || '') + ' ' + ((sceneOf(b.scene) || {}).name || '')));
+    const calm = mids.filter(({ b, i }) => eOf(b) != null && eOf(ctx.song[i + 1]) != null && eOf(ctx.song[i + 1]) > eOf(b)).sort((x, y) => eOf(x.b) - eOf(y.b))[0];
+    const pick = named || calm;
+    make('acid', pick ? basses : [], (i, b, sc) => {
+      if (i !== pick.i) return null;
+      const n = sc.bars * bpb;
+      const beats = {};
+      for (let x = 0; x < n; x++) beats[x] = 1 + 1.6 * Math.pow(x / Math.max(1, n - 1), 1.6);
+      return [[b.repeat - 1, beats]];
+    }, (ts, where) => `${names(ts)} : la résonance grimpe pendant ${where[0]} puis retombe d’un coup à la scène suivante. La tension monte sur un seul instrument.`);
+    return out;
+  }
+
+  return { CURVES, target, stats, energies, blocks, diagnose, MOVES, moves };
 })();

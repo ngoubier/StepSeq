@@ -170,7 +170,7 @@
 
   function exportProject(project, opts = {}) {
     const o = { range: 'song', loops: 1, audibleOnly: true, swing: true, expression: true, ...opts };
-    const played = { velo: 0, art: 0, strum: 0, pedal: 0, cc11: 0 }; // jeu exporté (bilan)
+    const played = { velo: 0, art: 0, strum: 0, pedal: 0, cc11: 0, bauto: 0, bautoCc: 0 }; // jeu exporté (bilan)
     // copie complète (les notes en cours d'édition sont rangées dans leur scène)
     const p = SS.normalizeProject(JSON.parse(SS.serialize(project)));
     const spb = SS.stepsPerBar(p);
@@ -230,6 +230,17 @@
           // conditions de déclenchement : même passage et même tirage qu'à la lecture (js/audio.js, trigAt)
           const ok = (cond, step, tick) =>
             SS.trigOk(cond, { id: t.id, step, block: b.continuous ? 0 : bi, pass: b.continuous ? Math.floor(tick / len) : SS.trigPass(tick, len, r, total) });
+          // automation par temps (js/beatauto.js) : le passage joué (bloc, répétition), ou celui choisi pour la boucle
+          const ba = SS.beatAuto ? SS.beatAuto.forTrack(p, t, b.continuous ? null : { index: bi, rep: r }) : null;
+          const beatOf = (tick) => (tick % total) / SS.stepsPerBeat(p);
+          // une piste qui a une courbe par temps de cutoff (ou de résonance) quelque part dans la chanson : le CC 74 (71)
+          // lui revient sur toute la chanson, sans mélange avec le filtre DJ de l'automation par pas
+          const owned = new Set(SS.beatAuto ? ['cut', 'res'].filter((k) => SS.beatAuto.paramsFor(t).some((x) => x.id === k) && SS.beatAuto.has(p, t.id, k)).map((k) => SS.beatAuto.P[k].cc) : []);
+          const bvel = (tick) => {
+            const m = ba && ba.vel ? ba.vel(beatOf(tick)) : null;
+            if (m != null && m !== 1) played.bauto++;
+            return m == null ? 1 : m;
+          };
           if (out.drum) {
             const steps = d.steps || [];
             const drumNote = drumNoteOf(t);
@@ -237,7 +248,8 @@
               const v = steps[tick % len] || 0;
               if (!(v > 0) || !ok(d.cond && d.cond[tick % len], tick % len, tick)) continue;
               const r = SS.drumRatchet({ steps, rat: d.rat }, tick % len); // ratchet : coups répétés dans le pas
-              for (let j = 0; j < r; j++) out.notes.push({ at: (base + tick + swingAt(tick) + j / r) * TPS + nudge, dur: TPS / 2 / r, note: drumNote, vel: v * (j ? 0.85 : 1) });
+              const bv = bvel(tick);
+              for (let j = 0; j < r; j++) out.notes.push({ at: (base + tick + swingAt(tick) + j / r) * TPS + nudge, dur: TPS / 2 / r, note: drumNote, vel: Math.min(1, v * bv * (j ? 0.85 : 1)) });
             }
             continue;
           }
@@ -247,6 +259,7 @@
           for (let tick = 0; tick < ticksTotal; tick++) {
             for (const P of SS.AUTO_PARAMS) {
               if (!P.cc && !P.bend) continue;
+              if (owned.has(P.cc)) continue; // la piste a des courbes par temps sur ce contrôleur : elles ont la main
               const slot = P.bend ? 'bend' : P.cc;
               let v = SS.autoValue(d.auto && d.auto[P.id], tick % alen, alen, !!P.toggle);
               if (v === null) {
@@ -260,6 +273,21 @@
               if (P.bend) out.bend.push({ at: (base + tick) * TPS, val });
               else out.cc.push({ at: (base + tick) * TPS, cc: P.cc, val });
             }
+            // automation par temps : cutoff → CC 74, résonance → CC 71, une valeur par pas quand elle change
+            for (const k of ['cut', 'res']) {
+              const X = SS.beatAuto && SS.beatAuto.P[k];
+              if (!X || !owned.has(X.cc)) continue;
+              let v = ba && ba[k] ? ba[k](beatOf(tick)) : null;
+              if (v == null) {
+                if (out.ccLast[X.cc] === undefined) continue;
+                v = X.def;
+              }
+              const val = SS.beatAuto.ccValue(k, v);
+              if (out.ccLast[X.cc] === val) continue;
+              out.ccLast[X.cc] = val;
+              out.cc.push({ at: (base + tick) * TPS, cc: X.cc, val });
+              played.bautoCc++;
+            }
           }
           // notes jouées : celles de la scène, ou les accords de la scène (piste qui suit la piste Accords)
           const events = SS.playEvents(view, t, { events: d.events || [], scene: sc });
@@ -269,7 +297,7 @@
               for (const ev of events) {
                 if (ev.cond && !ok(ev.cond, ev.step, tick)) continue;
                 const notes = SS.Arp.renderStep(t.arp, ev, step, { loop: Math.floor(tick / len), trackLen: len, stepSec, stepsPerBeat: SS.stepsPerBeat(p), events });
-                for (const n of notes) out.notes.push({ at: (base + tick + swingAt(tick) + n.at / stepSec) * TPS + nudge, dur: (n.dur / stepSec) * TPS, note: n.midi, vel: ev.acc ? SS.accentVel(n.vel) : n.vel });
+                for (const n of notes) out.notes.push({ at: (base + tick + swingAt(tick) + n.at / stepSec) * TPS + nudge, dur: (n.dur / stepSec) * TPS, note: n.midi, vel: Math.min(1, (ev.acc ? SS.accentVel(n.vel) : n.vel) * bvel(tick + n.at / stepSec)) });
               }
             }
             continue;
@@ -309,6 +337,7 @@
               }
               // ratchet : répétitions dans le premier pas, la dernière tient le reste de la note
               const r = ev.rat || 1;
+              const bv = bvel(tick + (ev.shift || 0));
               for (let j = 0; j < r; j++) {
                 const dd = j < r - 1 ? (TPS / r) * 0.9 : Math.max((TPS / r) * 0.9, dur - (j * TPS) / r);
                 const v0 = ev.acc ? SS.accentVel(ev.vel) : ev.vel; // note accentuée : plus forte
@@ -319,7 +348,7 @@
                   const dl = ex && ex.noteDelay ? sec(ex.noteDelay[i] || 0) : 0;
                   if (dl) played.strum++;
                   if (vm !== 1) played.velo++;
-                  out.notes.push({ at: at + (j * TPS) / r + dl, dur: Math.max(TPS / 8, dd - dl), note: nn, vel: Math.min(1, v0 * (j ? 0.85 : 1) * vm) });
+                  out.notes.push({ at: at + (j * TPS) / r + dl, dur: Math.max(TPS / 8, dd - dl), note: nn, vel: Math.min(1, v0 * (j ? 0.85 : 1) * vm * bv) });
                 });
               }
             }
@@ -384,6 +413,8 @@
       if (scenesData.some(([, d]) => d.auto && d.auto.echo) || scenesData.some(([id, d]) => d.auto && p.tracks.some((t) => t.id === id && t.type === 'drum')))
         ignored.push("L'automation de l'écho et celle des pistes de batterie ne sont pas exportées.");
     }
+    if (played.bauto || played.bautoCc)
+      approx.push(`Automation par temps : ${[played.bautoCc ? 'cutoff → CC 74, résonance → CC 71 (64 = réglage du son)' : '', played.bauto ? 'vélocité appliquée aux notes' : ''].filter(Boolean).join(', ')}.`);
     if (played.velo || played.art || played.strum || played.pedal || played.cc11) {
       const what = [
         played.velo ? 'nuances par la vélocité' : '',
