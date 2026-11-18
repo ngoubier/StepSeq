@@ -9,7 +9,8 @@
  * Export : une piste MIDI par piste StepSeq (canal 10 pour la batterie), les arpèges sont rendus en notes
  *   (ARP ONE est déterministe : on obtient exactement ce qu'on entend), l'arrangement est déplié, chaque bloc
  *   est marqué par le nom de sa scène, la tonalité des scènes devient une armure.
- * Import : notes quantifiées à la double-croche ; la batterie (canal 10) donne une piste Drum par son
+ * Import : notes placées sur la double-croche, avec leur décalage d'attaque gardé (ev.shift) ; l'expression (CC 11)
+ *   devient une courbe de volume par scène (auto.volume) ; la batterie (canal 10) donne une piste Drum par son
  *   (bibliothèque General MIDI : chaque note GM garde son son d'origine ; ou par élément sur une boîte à rythmes) ;
  *   le morceau est analysé pour retrouver ses parties (scènes) et l'arrangement qui les enchaîne (analyze()).
  */
@@ -421,7 +422,7 @@
       let name = '';
       const chInfo = (ch) => {
         const k = src + ':' + ch;
-        if (!info.has(k)) info.set(k, { name, program: null, volume: null, pan: null, programs: 0 });
+        if (!info.has(k)) info.set(k, { name, program: null, volume: null, pan: null, programs: 0, expr: [] });
         return info.get(k);
       };
       const release = (n, tick) => {
@@ -446,6 +447,7 @@
           const ci = chInfo(e.ch);
           if (e.cc === 7 && ci.volume == null) ci.volume = e.value;
           else if (e.cc === 10 && ci.pan == null) ci.pan = e.value;
+          else if (e.cc === 11) ci.expr.push({ tick: e.tick, value: e.value });
           else if (e.cc === 64) {
             const down = e.value >= 64;
             pedal.set(e.ch, down);
@@ -487,6 +489,39 @@
       metas.names[src] = name;
     });
     return { notes, info, metas, pitchBends, otherCC, programChanges };
+  }
+
+  /**
+   * Courbe de volume d'une scène (pas -> 0..1) d'après les points de CC 11 [{ tick, value }] d'une piste, ou null.
+   * Valeur au début de chaque pas (la dernière reçue), puis on ne garde que les points utiles : les courbes de StepSeq
+   * sont linéaires entre deux points.
+   */
+  function exprLane(points, from, to, tps) {
+    if (!points || !points.length) return null;
+    const vals = [];
+    let i = 0;
+    let v = 127;
+    for (let s = from; s < to; s++) {
+      const tick = s * tps;
+      while (i < points.length && points[i].tick <= tick) v = points[i++].value;
+      vals.push(Math.round((v / 127) * 1000) / 1000);
+    }
+    if (vals.every((x) => x >= 0.995)) return null;
+    const keep = [0];
+    for (let s = 1; s < vals.length - 1; s++) {
+      const a = keep[keep.length - 1];
+      // le point s est inutile s'il est sur la droite entre le dernier gardé et le suivant
+      const lin = vals[a] + ((vals[s + 1] - vals[a]) * (s - a)) / (s + 1 - a);
+      const ok = (() => {
+        for (let j = a + 1; j <= s; j++) if (Math.abs(vals[a] + ((vals[s + 1] - vals[a]) * (j - a)) / (s + 1 - a) - vals[j]) > 0.012) return false;
+        return Math.abs(lin - vals[s]) <= 0.012;
+      })();
+      if (!ok) keep.push(s);
+    }
+    if (vals.length > 1) keep.push(vals.length - 1);
+    const lane = {};
+    keep.forEach((s) => (lane[s] = vals[s]));
+    return lane;
   }
 
   /** Tempo qui dure le plus longtemps. */
@@ -727,16 +762,17 @@
     const tempoChanges = new Set(metas.tempos.map((t) => Math.round(t.bpm * 10))).size;
     if (tempoChanges > 1) warnings.push(`Le tempo change ${tempoChanges - 1} fois dans le fichier : le morceau est importé à ${Math.round(tempo)} BPM constant (les notes restent en place).`);
 
-    // quantification à la double-croche
+    // placement à la double-croche ; l'écart à la grille (jeu humain, triolets) reste en micro-décalage (ev.shift)
     const tps = midi.ppq / 4;
-    let moved = 0;
+    let shifted = 0;
     let fine = 0;
     for (const n of notes) {
       const exact = n.start / tps;
       n.step = Math.round(exact);
-      const off = Math.abs(exact - n.step);
-      if (off > 0.2) moved++;
-      if (off > 0.05 && Math.abs(exact * 3 - Math.round(exact * 3)) < 0.05 && off > 0.2) fine++;
+      const off = exact - n.step;
+      n.shift = n.ch === 9 ? 0 : Math.round(Math.max(-SS.SHIFT_MAX, Math.min(SS.SHIFT_MAX, off)) * 100) / 100;
+      if (n.shift) shifted++;
+      if (Math.abs(off) > 0.2 && Math.abs(exact * 3 - Math.round(exact * 3)) < 0.05) fine++;
       n.len = Math.max(1, Math.round((n.end - n.start) / tps));
     }
     // mesures entièrement vides au début : supprimées
@@ -745,6 +781,7 @@
     if (firstBar > 0) {
       notes.forEach((n) => (n.step -= firstBar * spb));
       metas.markers.forEach((m) => (m.tick -= firstBar * spb * tps));
+      for (const ci of info.values()) ci.expr.forEach((x) => (x.tick -= firstBar * spb * tps));
     }
     const totalBars = Math.ceil((Math.max(...notes.map((n) => n.step)) + 1) / spb);
 
@@ -817,6 +854,7 @@
       if (ci.pan != null && ci.pan !== 64) t.mix = { pan: Math.round(clamp((ci.pan - 64) / 63, -1, 1) * 100) / 100 };
       g.track = t;
       g.program = prog;
+      g.expr = (ci.expr || []).slice().sort((a, b) => a.tick - b.tick);
       return t;
     });
     p.tracks = tracks;
@@ -837,6 +875,7 @@
     const A = analyze(bars, { unit: o.unit || 4, periods: o.periods, stepsPerBar: spb, similar: o.similar, markers });
 
     // scènes : contenu pris à la première apparition de chaque boucle
+    const exprTracks = new Set();
     const scenes = A.scenes.map((s) => {
       const from = s.start * spb;
       const to = from + s.bars * spb;
@@ -854,12 +893,17 @@
             const step = n.step - from;
             const len = Math.min(n.len, to - n.step);
             const vel = Math.round((n.vel / 127) * 100) / 100;
-            const k = `${step}:${len}:${vel}`;
-            if (!evs.has(k)) evs.set(k, { step, len, notes: [], vel });
+            const k = `${step}:${len}:${vel}:${n.shift}`;
+            if (!evs.has(k)) evs.set(k, { step, len, notes: [], vel, ...(n.shift ? { shift: n.shift } : {}) });
             const ev = evs.get(k);
             if (!ev.notes.includes(n.note)) ev.notes.push(n.note);
           }
           data[t.id] = { events: [...evs.values()].sort((a, b) => a.step - b.step).map((e) => ({ ...e, notes: e.notes.sort((a, b) => a - b) })) };
+          const lane = exprLane(g.expr, from, to, tps);
+          if (lane) {
+            data[t.id].auto = { volume: lane };
+            exprTracks.add(t.id);
+          }
         }
       });
       return { id: SS.uid(), name: s.name, bars: s.bars, data, key: s.key };
@@ -890,7 +934,7 @@
     const data = { ...p, scenes, current: scenes[0].id, song, playMode: 'song', bars: scenes[0].bars };
     data.tracks = p.tracks.map((t) => {
       const d = scenes[0].data[t.id];
-      return t.type === 'drum' ? { ...t, steps: d.steps } : { ...t, events: d.events };
+      return t.type === 'drum' ? { ...t, steps: d.steps } : { ...t, events: d.events, ...(d.auto ? { auto: d.auto } : {}) };
     });
     const project = SS.normalizeProject(JSON.parse(JSON.stringify(data)));
 
@@ -904,7 +948,8 @@
 
     // bilan
     const covered = A.blocks.reduce((a, b) => a + b.bars * b.repeat, 0);
-    if (moved) warnings.push(`${moved} note(s) hors de la grille des doubles-croches ont été recalées${fine ? ` (dont ${fine} en triolets)` : ''}.`);
+    if (shifted) warnings.push(`${shifted} note(s) jouée(s) à côté de la grille des doubles-croches : leur décalage d'attaque est gardé (micro-décalage)${fine ? `, dont ${fine} en triolets, rapprochés de la double-croche la plus proche` : ''}.`);
+    if (exprTracks.size) warnings.push(`Expression (CC 11) reprise en courbe de volume dans les scènes, sur ${exprTracks.size} piste(s) : le jeu automatique de StepSeq leur laisse la nuance.`);
     const drumRolls = notes.filter((n) => n.ch === 9).length - list.filter((g) => g.drum).reduce((a, g) => a + new Set(g.notes.map((n) => n.step)).size, 0);
     if (drumRolls > 0) warnings.push(`${drumRolls} coup(s) de batterie plus rapides que la double-croche (roulements, doublages) ont été fusionnés.`);
     if (pitchBends) warnings.push(`${pitchBends} message(s) de pitch bend ignorés.`);

@@ -139,7 +139,7 @@ SS.expression = (() => {
    * events : notes de la scène ({ step, len, notes, vel, art? }) ; opts : { amt (0..1,5), family, phrase (bool) }.
    * Retourne une Map événement → jeu (voir l'en-tête). Une note sans rien de particulier n'y figure pas.
    */
-  function plan(events, { amt = 1, family = 'strings', phrase = true, pedal = true, stepsPerBeat = 4, stepsPerBar = 16 } = {}) {
+  function plan(events, { amt = 1, family = 'strings', phrase = true, pedal = true, ownDyn = false, stepsPerBeat = 4, stepsPerBar = 16 } = {}) {
     const out = new Map();
     const evs = (events || []).filter((e) => e && e.notes && e.notes.length && e.len > 0).slice().sort((a, b) => a.step - b.step || top(b) - top(a));
     if (!evs.length) return out;
@@ -238,6 +238,9 @@ SS.expression = (() => {
           o.release = struck ? 0 : 0.08;
           if (!struck) legIn.add(next); // un piano réattaque toujours : seule la note précédente se prolonge
         }
+        // la scène a sa propre courbe de volume (CC 11 d'un fichier MIDI, automation) : elle seule fait la nuance dans
+        // la note ; l'expression garde l'articulation, le phrasé et, pour les instruments frappés, la force de frappe
+        if (ownDyn && !struck) o.shape = [[0, 1], [1, 1]];
         // respiration : vents et voix, au bout d'une longue ligne sans silence
         if (blowing && k > 0 && isLast && ph.forced) o.breath = 0.08;
         out.set(ev, o);
@@ -281,10 +284,12 @@ SS.expression = (() => {
     const phrase = !(track.sd && track.sd.phrase === 0);
     // pédale automatique : sauf si la piste a sa propre courbe de pédale, ou si on l'a coupée
     const pedal = !(track.sd && track.sd.pedal === 0) && !(track.auto && track.auto.sustain);
-    const s = sig(events, amt, phrase, family) + (pedal ? 'p' : '') + `|${spb}|${spbar}`;
+    // courbe de volume propre à la scène : c'est elle qui fait la nuance dans la note
+    const ownDyn = !!(track.auto && track.auto.volume && Object.keys(track.auto.volume).length);
+    const s = sig(events, amt, phrase, family) + (pedal ? 'p' : '') + (ownDyn ? 'v' : '') + `|${spb}|${spbar}`;
     const hit = memo.get(events);
     if (hit && hit.s === s) return hit.plan;
-    const p = plan(events, { amt, family, phrase, pedal, stepsPerBeat: spb, stepsPerBar: spbar });
+    const p = plan(events, { amt, family, phrase, pedal, ownDyn, stepsPerBeat: spb, stepsPerBar: spbar });
     memo.set(events, { s, plan: p });
     return p;
   }
