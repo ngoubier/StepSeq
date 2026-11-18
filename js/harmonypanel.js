@@ -357,7 +357,6 @@ SS.harmonyPanel = (() => {
     } else if (emo) {
       const m = SS.emotionMode(emo.id);
       const tempoOn = ambTempo ?? proj().scenes.length === 1;
-      const gen = genById(emo.melodyGen);
       const abs = [...emo.ab, ...H().TRANSFORMS.map((t) => t.id).filter((id) => !emo.ab.includes(id))];
       const dim = (name, v) => `<span class="emo-dim"><small>${name}</small><i style="--v:${v}%"></i><b>${v}</b></span>`;
       const props = emoProps.filter((x) => x.kind !== 'ref');
@@ -386,7 +385,6 @@ SS.harmonyPanel = (() => {
             ${emo.appui ? `<dt>Appui à essayer</dt><dd>${esc(emo.appui)} <span class="hm-muted">(guide MusicEmotion, notes de l’exemple)</span></dd>` : ''}
             ${props.map((pr) => `<dt>Réserve ${SS.EMOTION_KINDS[pr.kind].toLowerCase()}</dt><dd>${esc(pr.caveat)}</dd>`).join('')}
           </dl>
-          <p class="hm-muted"><b>Couche « Mélodie » de la grille</b> : « ${esc(gen ? gen.label : '')} » (${esc(gen ? gen.text : '')}).</p>
           <div class="emo-ab">
             <b>Essai A/B</b> <span class="hm-muted">La scène est copiée (scène « … B ») et un seul paramètre change. Passez de l'une à l'autre pendant la lecture et gardez celle qui communique le mieux l'intention.</span>
             <div class="chips">${abs

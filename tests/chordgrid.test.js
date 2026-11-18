@@ -6,7 +6,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 globalThis.window = globalThis;
-['dirt.js', 'dirt-tuning.js', 'sounds.js', 'harmony.js', 'project.js', 'band-presets.js', 'band-songs.js', 'bandsong.js', 'chords.js'].forEach((f) => require('../js/' + f));
+['dirt.js', 'dirt-tuning.js', 'sounds.js', 'harmony.js', 'project.js', 'band-presets.js', 'band-songs.js', 'melody.js', 'bandsong.js', 'chords.js'].forEach((f) => require('../js/' + f));
 const SS = globalThis.SS;
 const H = SS.harmony;
 

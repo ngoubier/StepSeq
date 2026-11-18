@@ -768,9 +768,6 @@ SS.harmony = (() => {
     { id: 'bass-off', group: 'Basse', label: 'Contretemps', text: 'entre les coups de grosse caisse (trance, techno)' },
     { id: 'arp-1353', group: 'Arpège', label: '1 – 3 – 5 – 3 en croches', text: 'le motif de départ du skill' },
     { id: 'arp-up16', group: 'Arpège', label: '1 – 3 – 5 – 8 en doubles-croches', text: 'montant, plus dense' },
-    { id: 'mel-sketch', group: 'Mélodie', label: 'Esquisse de mélodie', text: 'notes de l’accord sur les temps forts, notes de passage entre elles ; contour en vagues' },
-    { id: 'mel-up', group: 'Mélodie', label: 'Esquisse montante', text: 'même principe, le contour monte (intensifier, ouvrir : espoir, élan…)' },
-    { id: 'mel-down', group: 'Mélodie', label: 'Esquisse descendante', text: 'même principe, le contour descend (relâcher : tristesse, apaisement…)' },
   ];
 
   /** Accords d'une liste d'événements : [{ step, len, rootPc, tones: [pc fondamentale, tierce, quinte, (7e)] }]. */
@@ -836,41 +833,6 @@ SS.harmony = (() => {
         let i = 0;
         for (let s = sp.step; s < sp.step + sp.len; s += dt, i++) add(s, dt, pattern[i % 4], i % 4 === 0 ? 0.85 : 0.68);
       }
-    } else if (kind.startsWith('mel')) {
-      const contour = kind === 'mel-up' ? 'up' : kind === 'mel-down' ? 'down' : 'wave';
-      // une note de l'accord par demi-mesure (temps forts), au plus près de la précédente ;
-      // la note de passage (degré de la gamme voisin de la note suivante) prépare chaque arrivée.
-      const sc = opt.key ? scale(opt.key).map((d) => d.pc) : null;
-      const unit = spb % 2 === 0 ? spb / 2 : spb;
-      const targets = [];
-      let prev = base + (spans[0] ? pcOf(spans[0].tones[1]) : 4); // départ sur la tierce de l'accord, dans l'octave de la piste
-      if (prev < base + 4 && contour !== 'up') prev += 12; // une montée part du bas de la tessiture
-      if (contour === 'down') prev += 7; // une descente part du haut
-      spans.forEach((sp, ci) => {
-        for (let s = sp.step; s < sp.step + sp.len; s += unit) {
-          const k = targets.length;
-          // alternance de contours : on vise tour à tour la note de l'accord la plus proche au-dessus, puis au-dessous
-          const cands = sp.tones.map((pc) => nearest(pc, prev)).filter((m) => m !== prev || sp.tones.length === 1);
-          const up = cands.filter((m) => m >= prev).sort((a, b) => a - b)[0];
-          const down = cands.filter((m) => m <= prev).sort((a, b) => b - a)[0];
-          const goUp = contour === 'up' || (contour === 'wave' && (Math.floor(k / 2) + ci) % 2 === 0);
-          let m = goUp ? up ?? down : down ?? up;
-          // tessiture : environ une octave et demie au-dessus du Do de la piste ; un contour qui sort repart d'une octave
-          if (m > base + 19) m = contour === 'up' ? m - 12 : down ?? m - 12;
-          if (m < base + 2) m = contour === 'down' ? m + 12 : up ?? m + 12;
-          targets.push({ step: s, len: Math.min(unit, sp.step + sp.len - s), midi: m });
-          prev = m;
-        }
-      });
-      targets.forEach((t, i) => {
-        const next = targets[i + 1];
-        const pass = next && sc && t.len >= 4 ? passing(sc, t.midi, next.midi) : null;
-        if (pass != null) {
-          add(t.step, t.len - Math.max(1, Math.round(t.len / 4)), t.midi, t.step % spb === 0 ? 0.85 : 0.78);
-          const pl = Math.max(1, Math.round(t.len / 4));
-          add(t.step + t.len - pl, pl, pass, 0.66);
-        } else add(t.step, t.len, t.midi, t.step % spb === 0 ? 0.85 : 0.78);
-      });
     }
     return out;
   }
@@ -1003,17 +965,6 @@ SS.harmony = (() => {
       changed = 1;
     }
     return { events: evs, changed };
-  }
-
-  /** Note de la gamme juste avant `to` en venant de `from` (note de passage), ou null si les deux sont égales. */
-  function passing(scalePcs, from, to) {
-    if (from === to) return null;
-    const dir = to > from ? -1 : 1; // on approche la cible par le degré voisin, du côté d'où l'on vient
-    for (let d = 1; d <= 2; d++) {
-      const m = to + dir * d;
-      if (scalePcs.includes(pcOf(m)) && m !== from) return m;
-    }
-    return null;
   }
 
   /**
