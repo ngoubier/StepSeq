@@ -29,13 +29,14 @@ window.SS = window.SS || {};
     strings: { label: 'Cordes', short: 'Cordes', cat: 'chord', color: '#1ea7ff', icon: 'strings', families: ['strings'] },
     sax: { label: 'Saxophoniste', short: 'Sax', cat: 'mono', color: '#c9a227', icon: 'sax', families: ['winds'] },
     vox: { label: 'Voix / vocoder', short: 'Voix', cat: 'mono', color: '#c0c0c0', icon: 'vox', families: ['voices', 'synth'] },
+    orch: { label: 'Orchestre', short: 'Orchestre', cat: 'mono', color: '#ff8a3d', icon: 'strings', families: ['strings', 'winds', 'brass'] },
     fx: { label: 'Effets (montées, impacts)', short: 'Effets', cat: 'mono', color: '#7a8a99', icon: 'fx', families: ['fx', 'pads'] },
   };
 
   /* Ordre de placement sur la scène : fond (rythmique), milieu (claviers), devant (solistes). */
   const STAGE_ROWS = [
     ['perc', 'drums', 'fx'],
-    ['pad', 'keys', 'strings', 'arp'],
+    ['pad', 'keys', 'strings', 'orch', 'arp'],
     ['bass', 'lead', 'vox', 'sax', 'guitar'],
   ];
 
