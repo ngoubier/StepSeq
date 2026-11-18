@@ -74,7 +74,7 @@ const ok = (c, m) => {
   await open(0); // Smalltown Boy : Do mineur, 132 BPM, Intro Couplet Refrain Couplet Refrain Pont Refrain×2 Outro
 
   // 1. Style : les styles (tempo conseillé), les inspirations, pas de musiciens
-  ok((await cur()).includes('Style') && (await page.locator('#bandWizSteps li').count()) === 13, 'treize étapes, la première : Style');
+  ok((await cur()).includes('Style') && (await page.locator('#bandWizSteps li').count()) === 14, 'quatorze étapes, la première : Style');
   ok(!(await page.isVisible('#bandStage')) && !(await page.isVisible('#bandPanel')) && !(await page.isVisible('#bandGm')), 'étape 1 : ni musiciens, ni panneau, ni General MIDI');
   ok((await page.isVisible('#bandMode')) && (await page.isVisible('#bandStyles')) && (await page.isVisible('#bandPresets')) && (await page.isVisible('#bwEmpty')), 'étape 1 : portes Créer / Reprendre, styles, inspirations, « Chanson vide »');
   const pill = await page.textContent('#bandStyles [data-v="synthwave"]');
@@ -232,8 +232,8 @@ const ok = (c, m) => {
   const want = await order();
   const wantScenes = await scenes();
   ok(wantScenes.length === 5 && !wantScenes.some((x) => x.sec === 'outro') && (await page.locator('.bw-sc.unused').count()) === 1 && wantScenes.find((s) => s.sec === 'bridge').mode === 'major', `avant de créer : ${want}`);
-  await next(9); // Accords, Batterie, Basse, Nappes, Arpèges, Mélodie, Effets et transitions, Mix, Intégration
-  ok((await cur()).includes('Intégration') && (await page.isVisible('#bwCreate')), 'étape 13 : Intégration');
+  await next(10); // Accords, Batterie, Basse, Nappes, Arpèges, Mélodie, Arrangement, Effets et transitions, Mix, Intégration
+  ok((await cur()).includes('Intégration') && (await page.isVisible('#bwCreate')), 'étape 14 : Intégration');
   await page.click('#bwCreate');
   await page.waitForTimeout(900);
   const p = await P();

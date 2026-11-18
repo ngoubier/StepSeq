@@ -61,8 +61,8 @@ const ok = (c, m) => {
   const page = await open('techno');
   const labels = await page.$$eval('#bandWizSteps li', (l) => l.map((x) => ({ n: +x.dataset.step, kind: x.dataset.kind, group: x.dataset.group || null, name: x.querySelector('.bw-sn').textContent.trim() })));
   const iFx = labels.findIndex((x) => x.name === 'Effets et transitions');
-  ok(iFx > 0 && labels[iFx - 1].kind === 'melody' && labels[iFx + 1].name === 'Mix' && labels[iFx + 2].name === 'Intégration', 'étape « Effets et transitions » entre la Mélodie et le Mix, Intégration après');
-  ok(labels[iFx].group === 'Finaliser' && labels[iFx + 1].group === null && labels.length === labels[iFx].n + 2, 'elle ouvre « Finaliser » ; les numéros suivent (Mix + 1, Intégration + 2)');
+  ok(iFx > 1 && labels[iFx - 1].name === 'Arrangement' && labels[iFx - 2].kind === 'melody' && labels[iFx + 1].name === 'Mix' && labels[iFx + 2].name === 'Intégration', 'étape « Effets et transitions » entre l’Arrangement et le Mix, Intégration après');
+  ok(labels[iFx - 1].group === 'Finaliser' && labels[iFx].group === null && labels[iFx + 1].group === null && labels.length === labels[iFx].n + 2, 'Arrangement ouvre « Finaliser » ; les numéros suivent (Mix + 1, Intégration + 2)');
   const ref = await page.evaluate(() => [SS.band.stepNum('fx'), SS.band.stepNum('mix'), SS.band.stepNum('pick'), SS.band.stepRef(SS.band.stepNum('fx')), SS.band.stepRef(SS.band.stepNum('mix'))]);
   ok(ref[1] === ref[0] + 1 && ref[2] === ref[0] + 2 && ref[3] === 'fx' && ref[4] === 'mix', 'stepNum / stepRef : fx, mix, pick se suivent');
   await go(page, 'fx');
@@ -388,12 +388,12 @@ const ok = (c, m) => {
   await dr.waitForTimeout(300);
   const state0 = await wiz(dr, 'JSON.stringify(W.fx)');
   const snap = await dr.evaluate(() => JSON.parse(JSON.stringify(SS.band.wizSnapshot())));
-  ok(snap.v === 3 && JSON.stringify(snap.state.w.fx) === state0 && snap.state.w.step === (await num(dr, 'fx')), 'brouillon (v3) : les réglages et l’étape sont rangés');
+  ok(snap.v === 4 && JSON.stringify(snap.state.w.fx) === state0 && snap.state.w.step === (await num(dr, 'fx')), 'brouillon (v4) : les réglages et l’étape sont rangés');
   await dr.evaluate((s) => SS.band.wizRestore(s), snap);
   await dr.waitForTimeout(500);
   ok((await wiz(dr, 'JSON.stringify(W.fx)')) === state0 && (await wiz(dr, 'W.step')) === (await num(dr, 'fx')) && (await dr.locator('#fxTrans').count()) === 1, 'rouvrir le brouillon : mêmes réglages, même étape Effets');
-  // ancienne numérotation (v2) : Mix était l'étape fx − 0, Intégration la suivante
-  const fxN = await num(dr, 'fx');
+  // ancienne numérotation (v2) : Mix était l'étape arr (fx − 1), Intégration la suivante
+  const fxN = (await num(dr, 'fx')) - 1;
   const old = JSON.parse(JSON.stringify(snap));
   old.v = 2;
   delete old.state.w.fx;

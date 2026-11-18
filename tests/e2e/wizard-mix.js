@@ -55,12 +55,12 @@ const ok = (c, m) => {
   await page.click('#bandStyles [data-v="synthwave"]');
   await page.click('#bandPresets .band-preset >> nth=0');
   await next(4); // Accords
-  ok((await page.locator('#bandWizSteps li').count()) === 13, 'treize étapes');
+  ok((await page.locator('#bandWizSteps li').count()) === 14, 'quatorze étapes');
   ok((await page.evaluate(() => SS.band._state.wiz.mix)) === null, 'avant l’étape Mix : pas de mix');
-  await next(7);
-  ok((await cur()).includes('Mix') && (await page.locator('#bwStepHead h1').textContent()).startsWith('12'), 'étape 12 : Mix');
-  ok((await page.locator('#bandWizSteps li:nth-child(11)').getAttribute('data-group')) === 'Finaliser' && (await page.locator('#bandWizSteps li:nth-child(12)').getAttribute('data-group')) === null, 'Effets et transitions ouvre « Finaliser », Mix puis Intégration le suivent');
-  ok((await page.locator('#bandWizSteps li:nth-child(12) .bw-ss').textContent()) === 'Mixage automatique', 'résumé de l’étape : Mixage automatique');
+  await next(8);
+  ok((await cur()).includes('Mix') && (await page.locator('#bwStepHead h1').textContent()).startsWith('13'), 'étape 13 : Mix');
+  ok((await page.locator('#bandWizSteps li:nth-child(11)').getAttribute('data-group')) === 'Finaliser' && (await page.locator('#bandWizSteps li:nth-child(12)').getAttribute('data-group')) === null, 'Arrangement ouvre « Finaliser », Effets, Mix puis Intégration le suivent');
+  ok((await page.locator('#bandWizSteps li:nth-child(13) .bw-ss').textContent()) === 'Mixage automatique', 'résumé de l’étape : Mixage automatique');
 
   // la console : batterie sous un cadre, autres rôles, Master
   const m0 = await mix();
@@ -199,11 +199,11 @@ const ok = (c, m) => {
   await page.click('.mx-strip[data-id="pad"] .mx-ms .m');
   await page.waitForTimeout(150);
   const m4 = await mix();
-  ok(m4.own[verseId].pad.mute === true && (await page.locator('#bandWizSteps li:nth-child(12) .bw-ss').textContent()) === '1 scène retouchée', 'Muet de scène, résumé « 1 scène retouchée »');
+  ok(m4.own[verseId].pad.mute === true && (await page.locator('#bandWizSteps li:nth-child(13) .bw-ss').textContent()) === '1 scène retouchée', 'Muet de scène, résumé « 1 scène retouchée »');
   const heardKick = await page.evaluate(() => SS.band._listen().tracks.find((t) => t.id.endsWith(':bd')).volume);
-  await page.click('#bandWizSteps li:nth-child(13) button');
+  await page.click('#bandWizSteps li:nth-child(14) button');
   await page.waitForTimeout(300);
-  ok((await cur()).includes('Intégration') && (await page.isVisible('#bwCreate')), 'étape 13 : Intégration');
+  ok((await cur()).includes('Intégration') && (await page.isVisible('#bwCreate')), 'étape 14 : Intégration');
   await page.click('#bwCreate');
   if (await page.isVisible('#bcfSong')) await page.click('#bcfSong');
   await page.waitForTimeout(1500);
