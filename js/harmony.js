@@ -619,6 +619,64 @@ SS.harmony = (() => {
     return null;
   }
 
+  /* ---------------- Grille d'accords : opérations communes ----------------
+   * Une grille = une liste d'accords { step, len, degree, type, acc, bass? } (degrés dans la tonalité de la scène).
+   * Partagées par la piste Accords (js/chords.js), Harmonie, l'assistant Nouvelle chanson (js/band.js) et js/bandsong.js.
+   */
+  /** Accords triés, sans chevauchement, qui couvrent toute la scène (un trou : l'accord d'avant tient). Nouvelle liste. */
+  function gridFill(list, total) {
+    const g = list
+      .filter((c) => c && c.len > 0 && c.step < total)
+      .map((c) => ({ ...c, len: Math.min(c.len, total - c.step) }))
+      .sort((a, b) => a.step - b.step);
+    if (!g.length) return g;
+    g[0].len += g[0].step;
+    g[0].step = 0;
+    g.forEach((c, i) => (c.len = (g[i + 1] ? g[i + 1].step : total) - c.step));
+    return g.filter((c) => c.len > 0);
+  }
+  /** Pose un accord dans la liste (modifiée en place) : il remplace ce qu'il recouvre ; un accord coupé en deux garde ses deux bouts. */
+  function gridPut(list, chord) {
+    const end = chord.step + chord.len;
+    const out = list.flatMap((c) => {
+      if (c === chord) return [];
+      const ce = c.step + c.len;
+      if (ce <= chord.step || c.step >= end) return [c];
+      const parts = [];
+      if (c.step < chord.step) parts.push({ ...c, len: chord.step - c.step });
+      if (ce > end) parts.push({ ...c, step: end, len: ce - end });
+      return parts;
+    });
+    list.splice(0, list.length, ...out, chord);
+    list.sort((a, b) => a.step - b.step);
+    return chord;
+  }
+  /**
+   * Durée de l'accord n° i (liste triée, modifiée en place) : plus long, il prend sur les suivants ; plus court, le suivant
+   * commence plus tôt (la grille reste pleine). → l'accord.
+   */
+  function gridSetLen(list, i, len, total) {
+    const c = list[i];
+    len = Math.max(1, Math.min(len, total - c.step));
+    const end = c.step + len;
+    const next = list[i + 1];
+    if (len < c.len && next) {
+      next.len += next.step - end;
+      next.step = end;
+    } else
+      for (let j = i + 1; list[j] && list[j].step < end; ) {
+        const e = list[j].step + list[j].len;
+        if (e <= end) list.splice(j, 1);
+        else {
+          list[j].len = e - end;
+          list[j].step = end;
+          j++;
+        }
+      }
+    c.len = len;
+    return c;
+  }
+
   // colonnes du mode avancé : pour chaque triade de base, les types essayés dans l'ordre
   const GRID_COLS = [
     { id: '7', label: '7', types: { maj: ['maj7'], min: ['m7'], dim: ['m7b5'] } },
@@ -917,5 +975,5 @@ SS.harmony = (() => {
     return notes;
   }
 
-  return { MODES, TONICS, GENERATORS, TRANSFORMS, valid, isTonal, scale, spell, french, chords, role, makeChord, progressions, gridChord, toGridChord, gridPalette, gridFromEvents, identify, chordName, analyzeChord, detect, sceneChords, analyze, generate, transform, label, voice, pcOf };
+  return { MODES, TONICS, GENERATORS, TRANSFORMS, valid, isTonal, scale, spell, french, chords, role, makeChord, progressions, gridChord, toGridChord, gridFill, gridPut, gridSetLen, gridPalette, gridFromEvents, identify, chordName, analyzeChord, detect, sceneChords, analyze, generate, transform, label, voice, pcOf };
 })();

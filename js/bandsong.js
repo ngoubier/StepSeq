@@ -408,6 +408,21 @@ SS.bandSong = (() => {
    * Accords d'une grille de l'assistant (comme la grille d’Harmonie : { step, len, degree, type, acc, bass? }, degrés dans
    * la tonalité de la scène) → spans. Les trous sont comblés par l'accord précédent (le premier commence au début).
    */
+  /**
+   * Grille d'une scène, au format de la piste Accords et de l'assistant ({ step, len, degree, type, acc, bass? }, degrés
+   * dans la tonalité de la scène) : celle de l'étape Accords si elle existe, sinon les accords du plan (spans) convertis.
+   * Accords triés, sans trou ni chevauchement, qui couvrent toute la scène.
+   */
+  function sceneGrid(list, spans, key, bars) {
+    const total = bars * SPB;
+    const src = list && list.length
+      ? list.map((c) => ({ ...c }))
+      : (spans || []).map((x) => {
+          const g = H().toGridChord(key, x.chord);
+          return g && { step: x.step, len: x.len, ...g };
+        }).filter(Boolean);
+    return H().gridFill(src, total);
+  }
   function spansFromGrid(list, key, bars) {
     const total = bars * SPB;
     const cs = list
@@ -1846,7 +1861,13 @@ SS.bandSong = (() => {
       const k = hk ? { tonic: hk.tonic, mode: hk.mode } : sec.key ? parseKey(sec.key) : key;
       // grille : celle de l'étape Accords, sinon celle de la section (reprise tapée au clavier), sinon ses degrés
       const grid = (harmony && harmony.chords && harmony.chords[id]) || sec.grid;
-      const spans = (grid && grid.length && spansFromGrid(grid, k, bars)) || spansOf(sec, k, bars);
+      const spans0 = (grid && grid.length && spansFromGrid(grid, k, bars)) || spansOf(sec, k, bars);
+      // pédales de l'étape Accords : la note tenue passe à la basse des accords qui commencent sous elle
+      const peds = (harmony && harmony.pedals && harmony.pedals[id]) || [];
+      const spans = peds.length ? spans0.map((sp) => {
+        const ped = peds.find((x) => sp.step >= x.step && sp.step < x.step + x.len);
+        return ped ? { ...sp, chord: { ...sp.chord, bassPc: pcOf(H().scale(k)[0].pc + ped.semi) } } : sp;
+      }) : spans0;
       // as : section du modèle dont une section de reprise reprend le jeu (nuance, automation)
       const as = sec.as || id;
       // caractère et notes par phrase de cette scène
@@ -2057,6 +2078,9 @@ SS.bandSong = (() => {
       }
       if (gapSteps) gapEnd(data, bars, gapSteps, oj ? new Set(tracks.filter((t) => roleOfTrack(t) === 'fx').map((t) => t.id)) : null);
       const sc = { id: SS.uid(), sec: id, name: sec.name || NAMES[id] || id, bars, key: k, data, spans };
+      // grille de la scène (piste Accords du projet) : la même que celle de l'étape Accords de l'assistant
+      const gch = sceneGrid(grid, spans0, k, bars);
+      if (gch.length) sc.grid = { chords: gch, ...(peds.length ? { pedals: peds.map((x) => ({ ...x })) } : {}), initialized: true };
       const emo = harmony && harmony.emotions && harmony.emotions[id];
       if (emo || spec.emotion) sc.emotion = emo || sec.emotion || spec.emotion;
       return sc;
@@ -2078,5 +2102,5 @@ SS.bandSong = (() => {
     ['funk', 'Funk', 'Syncopes en doubles, notes fantômes', [[0, 2, 0], [3, 1, 0], [6, 1, 2], [7, 1, 0], [10, 1, 0], [12, 2, 0], [14, 1, 1]]],
   ];
 
-  return { build, junctionDefaults, junctionEff, PERC_LOOPS, PERC_STYLES, hpHz, hpAmt, HP_MEL, isExtra, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, BUILD_LEVELS, BUILD_PRESETS, buildLevels, progLevels, rollBar, rollerOf, hasGridLane, laneKey, _rng: rng };
+  return { build, junctionDefaults, junctionEff, PERC_LOOPS, PERC_STYLES, hpHz, hpAmt, HP_MEL, isExtra, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, sceneGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, BUILD_LEVELS, BUILD_PRESETS, buildLevels, progLevels, rollBar, rollerOf, hasGridLane, laneKey, _rng: rng };
 })();

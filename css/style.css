@@ -5106,3 +5106,14 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
   #bandDialog .fx-dropline { left: calc(84px + (100% - 94px) * .8) !important; }
   #bandDialog .fx-block { flex-basis: 76px !important; }
 }
+
+/* ---------- Assistant, étape Accords : pédales (comme .cl-ped sur la piste Accords) ---------- */
+.bwc-peds { position: relative; height: 20px; margin-top: 4px; }
+.bwc-ped {
+  position: absolute; top: 0; height: 18px; min-width: 0; padding: 0 6px; border: 0; border-radius: 4px;
+  background: rgba(232, 163, 61, .35); color: var(--text); font: 600 11px/18px inherit; text-align: left;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;
+}
+.bwc-ped:hover, .bwc-ped:focus-visible { background: rgba(232, 163, 61, .6); }
+.bwc-ped.sel { outline: 2px solid #fff; outline-offset: 1px; }
+.bwc-pedsel { border-color: rgba(232, 163, 61, .8); background: #2a2216; }

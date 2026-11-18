@@ -18,7 +18,7 @@ SS.wizDraft = (() => {
   const list = (x) => (Array.isArray(x) ? x : []);
 
   /** Champs de S.wiz rangés tels quels (objets), puis les ensembles et le Map. */
-  const OBJ = ['plans', 'pseeds', 'keys', 'grids', 'emos', 'chars', 'parts', 'kinds', 'melPanel', 'secs', 'accView', 'groove', 'fx'];
+  const OBJ = ['plans', 'pseeds', 'keys', 'grids', 'peds', 'emos', 'chars', 'parts', 'kinds', 'melPanel', 'secs', 'accView', 'groove', 'fx'];
   const SETS = ['seen', 'off', 'mute', 'solo'];
 
   /** src : { mode, styleId, presetId, cover, group, cache, hide: Set, mel, accOpen, tracksOpen, w: S.wiz } */

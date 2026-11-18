@@ -262,20 +262,6 @@ window.SS = window.SS || {};
   };
 
   /** Pose un accord : il remplace ce qu'il recouvre (un accord coupé en deux garde ses deux bouts). */
-  SS.gridPut = (g, chord) => {
-    const end = chord.step + chord.len;
-    g.chords = g.chords.flatMap((c) => {
-      if (c === chord) return [];
-      const ce = c.step + c.len;
-      if (ce <= chord.step || c.step >= end) return [c];
-      const out = [];
-      if (c.step < chord.step) out.push({ ...c, len: chord.step - c.step });
-      if (ce > end) out.push({ ...c, step: end, len: ce - end });
-      return out;
-    });
-    g.chords.push(chord);
-    g.chords.sort((a, b) => a.step - b.step);
-    return chord;
-  };
+  SS.gridPut = (g, chord) => SS.harmony.gridPut(g.chords, chord);
 
 })();
