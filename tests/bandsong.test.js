@@ -259,7 +259,7 @@ test('techno mélodique : conditions de déclenchement et trilles sur la batteri
   }
 });
 
-test('techno mélodique : automation valide (bornes, pas dans la scène) et absente des autres styles', () => {
+test('EDM et techno : automation valide (bornes, pas dans la scène) et absente de la synthwave et de l\'ambient', () => {
   for (const p of PRESETS) {
     const tr = tracksOf(p);
     const s = SS.bandSong.build(SS.BandSongs[p.id], p.id, tr);
@@ -267,7 +267,7 @@ test('techno mélodique : automation valide (bornes, pas dans la scène) et abse
       tr.forEach((t) => {
         const a = sc.data[t.id].auto;
         if (!a) return;
-        assert.equal(p.style, 'techno', `${p.id} : automation hors techno`);
+        assert.ok(['edm', 'techno'].includes(p.style), `${p.id} : automation hors EDM et techno`);
         for (const [id, lane] of Object.entries(a)) {
           const P = SS.autoParam(id);
           assert.ok(P, `${p.id} : réglage inconnu ${id}`);
@@ -469,4 +469,61 @@ test('transitions : boucles de percussion par scène (vrai joue la boucle du sty
   const a = SS.bandSong.build(spec, p.id, tr, { fx: { perc: { style: 'minimal', loops } } });
   assert.notEqual(JSON.stringify(a.scenes[0].data['perc:sh']), JSON.stringify(r.scenes[0].data['perc:sh']), 'le style change la boucle');
   assert.deepEqual(r.scenes.find((s) => s.name === 'Drop').data['perc:sh'], SS.bandSong.build(spec, p.id, tr).scenes.find((s) => s.name === 'Drop').data['perc:sh'], 'une scène non réglée garde le plan');
+});
+
+test('EDM et techno : le groove est retenu, la montée avance, le dernier drop est le sommet, l\'outro se retire', () => {
+  const vol = (d) => (d && d.auto && d.auto.volume ? d.auto.volume : null);
+  const first = (l) => l[Math.min(...Object.keys(l).map(Number))];
+  const last = (l) => l[Math.max(...Object.keys(l).map(Number))];
+  for (const p of PRESETS.filter((x) => ['edm', 'techno'].includes(x.style))) {
+    const spec = SS.BandSongs[p.id];
+    if (!Object.values(spec.sections).some((x) => x.drums === 'drop')) continue; // deep house sans drop : rien ne change
+    const tr = tracksOf(p);
+    const s = SS.bandSong.build(spec, p.id, tr);
+    const mels = tr.filter((t) => ['pad', 'arp', 'lead', 'keys', 'strings'].includes(t.band.key));
+    const bySec = (id) => s.scenes.find((sc) => sc.sec === id);
+    for (const sc of s.scenes) {
+      const sec = spec.sections[sc.sec];
+      if (sec.drums === 'main' && sc.sec !== 'outro') {
+        // groove : nappes, arpège, lead plus bas ; basse filtrée et plus basse ; le drop n'a pas ces courbes de retenue
+        mels.forEach((t) => plays(sc.data[t.id]) && assert.ok(vol(sc.data[t.id]) && first(vol(sc.data[t.id])) < 0.8, `${p.id} / ${sc.sec} : ${t.id} pas retenu`));
+        if (sc.data.bass && plays(sc.data.bass)) assert.ok(first(vol(sc.data.bass)) < 0.6 && sc.data.bass.auto.filter[0] < 0, `${p.id} / ${sc.sec} : basse non retenue`);
+      }
+      if (sec.drums === 'build') {
+        mels.forEach((t) => plays(sc.data[t.id]) && assert.ok(first(vol(sc.data[t.id])) < 0.5 && last(vol(sc.data[t.id])) === 1, `${p.id} : ${t.id} ne monte pas dans la montée`));
+        const kick = tr.find((t) => t.sound === 'bd');
+        if (kick && plays(sc.data[kick.id])) assert.ok(first(vol(sc.data[kick.id])) < 0.5, `${p.id} : le kick revient dans la montée`);
+      }
+      if (sec.drums === 'drop' && spec.sections[sc.sec] && sc.sec === Object.keys(spec.sections).filter((k) => spec.sections[k].drums === 'drop').pop()) {
+        // dernier drop : pleine force (aucune retenue sur les nappes ni l'arpège)
+        mels.forEach((t) => assert.ok(!vol(sc.data[t.id]), `${p.id} : ${t.id} retenu dans le dernier drop`));
+      }
+    }
+    const outro = bySec('outro');
+    if (outro && ['main', 'full', 'light'].includes(spec.sections.outro.drums)) {
+      mels.forEach((t) => plays(outro.data[t.id]) && assert.ok(first(vol(outro.data[t.id])) <= 0.5, `${p.id} : ${t.id} de l'outro pas baissé`));
+      const kick = tr.find((t) => t.sound === 'bd');
+      assert.ok(plays(outro.data[kick.id]) && first(vol(outro.data[kick.id])) >= 0.7, `${p.id} : le kick de l'outro reste`);
+    }
+  }
+  // synthwave et ambient : aucune courbe de volume ajoutée
+  for (const p of PRESETS.filter((x) => ['synthwave', 'ambient'].includes(x.style))) {
+    const s = SS.bandSong.build(SS.BandSongs[p.id], p.id, tracksOf(p));
+    s.scenes.forEach((sc) => Object.values(sc.data).forEach((d) => assert.ok(!d.auto, `${p.id} : automation inattendue`)));
+  }
+});
+
+test('EDM et techno : l\'automation choisie par l\'utilisateur remplace celle de la dynamique', () => {
+  const p = PRESETS.find((x) => x.id === 'opus');
+  const tr = tracksOf(p);
+  const spec = SS.BandSongs.opus;
+  const mine = { volume: { shape: 'flat', a: 1, b: 1 } };
+  const s = SS.bandSong.build(spec, p.id, tr, { parts: { groove: { inst: { pad: { auto: mine } } } } });
+  const g = s.scenes.find((sc) => sc.sec === 'groove');
+  assert.ok(Object.values(g.data.pad.auto.volume).every((v) => v === 1), 'volume du groove : celui de l\'utilisateur');
+  // progression de montée réglée dans l'assistant : le kick ne reçoit pas la courbe de la dynamique
+  const sb = SS.bandSong.build(spec, p.id, tr, { parts: { build: { drums: { build: { preset: 'fast' } } } } }).scenes.find((sc) => sc.sec === 'build');
+  const kick = tr.find((t) => t.sound === 'bd');
+  assert.ok(!sb.data[kick.id].auto, 'le kick de la montée réglée dans l\'assistant garde son jeu');
+  assert.ok(SS.bandSong.build(spec, p.id, tr).scenes.find((sc) => sc.sec === 'build').data[kick.id].auto.volume, 'le plan, lui, a la courbe de la dynamique');
 });

@@ -73,6 +73,15 @@ SS.bandMix = (() => {
   // percussionniste : un peu plus loin et plus écarté que le batteur
   const PERC_SHIFT = { lu: -2, pan: 1.3 };
 
+  /** EDM et techno : le drop doit être large. Chorus plus marqué sur l'arpège, le lead, la nappe et les claviers (mix, vitesse, profondeur ; remplace celui du rôle). */
+  const WIDE = { pad: [0.8, 0.4, 0.6], strings: [0.6, 0.5, 0.55], keys: [0.5, 0.6, 0.45], arp: [0.65, 0.45, 0.55], lead: [0.55, 0.55, 0.55], vox: [0.35, 0.6, 0.4], guitar: [0.45, 0.7, 0.45] };
+
+  /** Techno : la basse et les nappes sont déjà plus larges (grande reverb, arpège analogique) ; un peu moins de chorus sur la nappe et l'arpège. */
+  const WIDE_TECHNO = { ...WIDE, pad: [0.6, 0.4, 0.55], strings: [0.5, 0.5, 0.5], arp: [0.5, 0.45, 0.5] };
+
+  /** EDM et techno : charleston, cymbales et arpège plus écartés (le centre est pris par le kick, la caisse claire, la basse et le lead). */
+  const WIDE_PAN = { 'drums:hh': 0.5, 'drums:oh': -0.5, 'drums:rd': -0.55, 'drums:cr': -0.45, arp: 0.4 };
+
   /** Réglages propres au style : espace, sidechain, volume visé. */
   const STYLE = {
     synthwave: {
@@ -89,6 +98,8 @@ SS.bandMix = (() => {
       hall: 1,
       sc: { bass: 0.7, pad: 0.5, strings: 0.45, keys: 0.35 },
       lu: { bass: 2.5 }, // la basse sidechainée sur les contretemps paraît plus discrète
+      chorus: WIDE,
+      pan: WIDE_PAN,
       loud: -8.5,
       drive: 8,
     },
@@ -99,6 +110,8 @@ SS.bandMix = (() => {
       hall: 1.15,
       sc: { bass: 0.75, pad: 0.55, strings: 0.45, keys: 0.3, arp: 0.25, fx: 0.3 },
       lu: { bass: 2.5 },
+      chorus: WIDE_TECHNO,
+      pan: WIDE_PAN,
       loud: -8.5,
       drive: 8,
     },
@@ -154,7 +167,7 @@ SS.bandMix = (() => {
       const m = measured(levelKeys.get(t.id), t.type === 'drum');
       if (m != null) t.volume = round(clamp(dbToGain(r.lu + ((S.lu && S.lu[role]) || 0) + HEADROOM - m), 0.01, 2));
       // piano et guitare de part et d'autre ; sans guitare, le piano reste plus près du centre
-      let pan = r.pan || 0;
+      let pan = (S.pan && S.pan[t.band.key]) ?? (r.pan || 0);
       if (role === 'keys' && !roles.has('guitar')) pan = 0.12;
       if (role === 'arp' && roles.has('keys') && !roles.has('guitar')) pan = -0.3;
       t.mix = { ...JSON.parse(JSON.stringify(SS.MIX_DEFAULTS)), pan, eq: JSON.parse(JSON.stringify(r.eq || SS.MIX_DEFAULTS.eq)) };
@@ -176,7 +189,8 @@ SS.bandMix = (() => {
       if (r.plate) fx.sendPlate = round(Math.min(1, r.plate * (isSnare ? S.plate : 1)), 2);
       if (r.hall) fx.sendHall = round(Math.min(1, r.hall * S.hall), 2);
       if (r.echo) fx.sendEcho = r.echo;
-      if (r.chorus) Object.assign(fx, { chorus: r.chorus[0], chorusRate: r.chorus[1], chorusDepth: r.chorus[2] });
+      const ch = (S.chorus && S.chorus[role]) || r.chorus;
+      if (ch) Object.assign(fx, { chorus: ch[0], chorusRate: ch[1], chorusDepth: ch[2] });
       const sc = S.sc[role];
       if (kick && sc) Object.assign(fx, { scSource: kick.id, scDepth: sc, scRelease: role === 'bass' ? 0.16 : 0.22 });
       else if (fx.scSource && !sc) delete fx.scSource;
@@ -199,7 +213,7 @@ SS.bandMix = (() => {
     master.mix.comp = comp(-10, 2, 0.03, 0.2, 0, 8); // « glue » : 1 à 2 dB de réduction sur les passages forts
     master.mix.lim = { ...master.mix.lim, on: false }; // le limiteur du mastering prend le relais
     const club = style === 'edm' || style === 'techno';
-    master.mastering = { on: true, drive, ceiling: -1, width: style === 'techno' ? 1.18 : 1.12, mono: club ? 120 : 100, release: club ? 0.12 : 0.18, clip: 0.5 };
+    master.mastering = { on: true, drive, ceiling: -1, width: style === 'edm' ? 1.5 : style === 'techno' ? 1.35 : 1.12, mono: club ? 120 : 100, release: club ? 0.12 : 0.18, clip: 0.5 };
     project.master = master;
   }
 

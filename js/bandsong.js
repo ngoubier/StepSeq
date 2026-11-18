@@ -1414,7 +1414,66 @@ SS.bandSong = (() => {
     const s0 = Math.min(n - 1, Math.round(n * from));
     return s0 > 0 ? { 0: a, [s0]: a, [n - 1]: b } : { 0: a, [n - 1]: b };
   };
+  const RISER_TOP = 0.8; // volume de la montée de bruit à la fin de la montée (elle fait avancer la montée quand le kick se retire)
   const MELODIC = ['pad', 'arp', 'keys', 'strings', 'guitar', 'lead', 'vox', 'sax'];
+
+  /* ---------- dynamique des chansons EDM et techno ----------
+   * Un producteur retient le groove pour que le drop frappe : nappes et claviers plus bas et plus sombres, charleston
+   * plus doux, basse un peu filtrée ; la montée avance en volume (nappes, arpège, mélodie) ; le dernier drop est le
+   * sommet ; l'outro garde le kick et baisse le reste. Réglages posés comme automation de la scène (volume, filtre) :
+   * ceux de l'utilisateur les remplacent. Sans drop dans le plan (deep house), rien ne change.
+   *   dyn : 'intro' | 'groove' | 'build' | 'first' (drop suivi d'un autre) | 'drop' | 'outro'
+   */
+  const HOLD = { pad: [0.5, -0.2], strings: [0.55, -0.2], keys: [0.6, 0], guitar: [0.65, 0], arp: [0.62, -0.25], lead: [0.7, -0.15], vox: [0.72, 0], sax: [0.72, 0] };
+  /** Nature de la scène pour la dynamique : null (inchangée) ou groove / build / first (drop suivi d'un autre) / drop / outro. */
+  function dynKind(spec, id, form) {
+    if (!spec.sc) return null;
+    const sec = spec.sections[id];
+    const drops = form.filter((f) => spec.sections[f.id].drums === 'drop');
+    if (!drops.length) return null;
+    if (sec.drums === 'build') return 'build';
+    if (sec.drums === 'drop') return drops.length > 1 && id !== drops[drops.length - 1].id ? 'first' : 'drop';
+    if (id === 'outro' && ['main', 'full', 'light'].includes(sec.drums)) return 'outro';
+    if (id === 'intro' && ['light', 'hats'].includes(sec.drums)) return 'intro'; // intro DJ : le kick n'est pas plus fort que celui du groove
+    if (['main', 'full'].includes(sec.drums)) return 'groove';
+    return null;
+  }
+  /** Groove retenu : charleston et percussions plus doux, charleston ouvert presque absent (le drop les ouvre en grand). */
+  const HOLD_DRUMS = { hh: 0.8, oh: 0.5, sh: 0.85, tb: 0.85, rim: 0.85 };
+  function holdDrums(steps, sound) {
+    const g = HOLD_DRUMS[kind(sound)];
+    if (g) for (let s = 0; s < steps.length; s++) if (steps[s] > 0) steps[s] = clampV(steps[s] * g);
+  }
+  /** Montée : volume de la batterie qui revient (kick, charleston, percussions) sur la longueur de la scène. */
+  function dynDrumsAuto(k, bars, dyn = 'build', tech = false) {
+    const n = bars * SPB;
+    if (dyn === 'outro') return k === 'bd' ? { volume: { 0: 0.75 } } : null; // outro DJ : le kick reste, tout le reste baisse
+    if (dyn === 'groove' || dyn === 'intro') return k === 'bd' ? { volume: { 0: tech ? 0.6 : 0.8 } } : null; // techno : le kick du groove est plus en retrait, le drop est son retour
+    if (k === 'bd') return { volume: { 0: 0.42, [Math.round(n * 0.75)]: 1 } };
+    if (k === 'bk') return { volume: ramp(n, 0.6, 1) };
+    if (['hh', 'sh', 'tb', 'rim', 'oh'].includes(k)) return { volume: ramp(n, 0.5, 1) };
+    return null;
+  }
+  function dynAuto(kind, role, bars) {
+    const n = bars * SPB;
+    const mel = MELODIC.includes(role);
+    if (kind === 'groove') {
+      if (mel && HOLD[role]) {
+        const [v, f] = HOLD[role];
+        const a = { volume: { 0: v } };
+        if (f) a.filter = { 0: f };
+        return a;
+      }
+      if (role === 'bass') return { volume: { 0: 0.4 }, filter: { 0: -0.2 } };
+    }
+    if (kind === 'build' && mel) return { volume: ramp(n, 0.35, 1) };
+    if (kind === 'first' && mel && role !== 'lead') return { volume: { 0: 0.9 } };
+    if (kind === 'outro') {
+      if (mel) return { volume: ramp(n, 0.5, 0, 0.75) };
+      if (role === 'bass') return { volume: ramp(n, 0.45, 0, 0.75), filter: { 0: -0.2 } };
+    }
+    return null;
+  }
   /**
    * Courbes d'automation d'une piste pour une section (null si rien) :
    *  - intro planante (sec.float) : le passe-bas des nappes et de l'arpège s'ouvre lentement, la reverb se retire ;
@@ -1423,11 +1482,40 @@ SS.bandSong = (() => {
    *  - drop : le lead et l'arpège partent un peu fermés et s'ouvrent sur la première mesure (attaque du drop) ;
    *  - outro : tout se referme, fondu des dernières mesures.
    */
-  function sectionAuto(id, sec, role, bars, isFx) {
+  function sectionAuto(id, sec, role, bars, isFx, dyn = null, tech = true) {
+    const base = tech ? sectionAutoTech(id, sec, role, bars, isFx) : null;
+    const d = dyn && !isFx ? dynAuto(dyn, role, bars) : null;
+    if (!d) return base;
+    return mergeAuto(base, d);
+  }
+  /** Courbes du plan puis de la dynamique : la dynamique ajoute ses courbes ; sur une courbe commune, le volume se multiplie et le filtre garde celui du plan. */
+  function mergeAuto(a, d) {
+    if (!a) return d;
+    const out = { ...a };
+    Object.entries(d).forEach(([k, v]) => {
+      if (!out[k]) out[k] = v;
+      else if (k === 'volume') out[k] = mulLane(out[k], v);
+    });
+    return out;
+  }
+  /** Produit de deux courbes de volume { pas: valeur } (aux pas des deux). */
+  function mulLane(a, b) {
+    const pa = Object.entries(a).map(([x, y]) => [+x, y]).sort((p, q) => p[0] - q[0]);
+    const pb = Object.entries(b).map(([x, y]) => [+x, y]).sort((p, q) => p[0] - q[0]);
+    const at = (pts, s) => {
+      if (s <= pts[0][0]) return pts[0][1];
+      for (let i = 1; i < pts.length; i++) if (s <= pts[i][0]) return pts[i - 1][1] + ((pts[i][1] - pts[i - 1][1]) * (s - pts[i - 1][0])) / (pts[i][0] - pts[i - 1][0] || 1);
+      return pts[pts.length - 1][1];
+    };
+    const out = {};
+    [...new Set([...pa, ...pb].map((p) => p[0]))].sort((x, y) => x - y).forEach((s) => (out[s] = Math.round(at(pa, s) * at(pb, s) * 1000) / 1000));
+    return out;
+  }
+  function sectionAutoTech(id, sec, role, bars, isFx) {
     const n = bars * SPB;
     if (isFx) {
-      // la montée de bruit reste sous le drop : volume plafonné, le filtre fait l'essentiel de l'effet
-      if (sec.fx === 'riser') return { filter: ramp(n, -0.9, 0.1), volume: ramp(n, 0.15, 0.5), reverb: ramp(n, 0.2, 0.6, 0.5) };
+      // la montée de bruit reste sous le drop : volume plafonné (RISER_TOP), le filtre fait l'essentiel de l'effet
+      if (sec.fx === 'riser') return { filter: ramp(n, -0.9, 0.1), volume: ramp(n, 0.15, RISER_TOP), reverb: ramp(n, 0.2, 0.6, 0.5) };
       if (sec.fx === 'down') return { volume: { 0: 1, [Math.min(n - 1, 2 * SPB - 1)]: 0 }, reverb: { 0: 0.6 } };
       if (sec.fx === 'swell') return { filter: ramp(n, -0.75, -0.35), volume: { 0: 0.5 }, reverb: { 0: 0.6 } };
       return null;
@@ -1615,7 +1703,7 @@ SS.bandSong = (() => {
     if (out.riser.on) {
       const L = Math.min(out.riser.len, bars) * SPB;
       const off = n - L;
-      const lanes = { volume: shift(off, ramp(L, 0.15, 0.5)), reverb: shift(off, ramp(L, 0.2, 0.6, 0.5)) };
+      const lanes = { volume: shift(off, ramp(L, 0.15, RISER_TOP)), reverb: shift(off, ramp(L, 0.2, 0.6, 0.5)) };
       if (out.riser.filter === 'lp') lanes.filter = shift(off, ramp(L, -0.9, 0.1));
       else if (out.riser.filter === 'hp') lanes.filter = shift(off, ramp(L, 0.85, 0));
       add([{ step: off, len: L, notes: [t + 12], vel: 0.8 }], off, n - 1, lanes);
@@ -1768,6 +1856,8 @@ SS.bandSong = (() => {
       const emoId = harmony && harmony.emotions && harmony.emotions[id];
       if (emoId && mel.useProfile !== false && SS.resolveMelodyProfile && SS.MELODY_PROFILES[emoId]) smel = { ...smel, profile: SS.resolveMelodyProfile(emoId, {}, k) };
       const energy = sec.energy ?? ENERGY[as] ?? 0.9;
+      const dynK = dynKind(spec, id, form);
+      const ownBuild = new Set();
       const data = {};
       const pp = (parts && parts[id]) || null; // réglages de cette scène
       const muted = (pp && pp.off) || [];
@@ -1793,6 +1883,7 @@ SS.bandSong = (() => {
           const pat = dp && dp.pattern && SS.drumPattern ? SS.drumPattern(dp.style, dp.pattern) : null;
           const lanes = dp && (dp.edits || (pat && pat.lanes));
           const fo = { fill: dp && dp.fill, fillType: (dp && dp.fillType) || 'roll', crash: !!(dp && dp.crash), energy };
+          if (dp && dp.build) ownBuild.add(t.id); // progression réglée dans l'assistant : la dynamique n'y touche pas
           // montée avec progression réglée dans l'assistant : le roulement (caisse claire ou clap, charleston, crash) suit la courbe
           if (sec.drums === 'build' && dp && dp.build && role !== 'perc') {
             const rs = rollSteps(snd, bars, r, dp.build, rollerOf(kitSounds), role, kitSounds);
@@ -1809,6 +1900,7 @@ SS.bandSong = (() => {
           let steps = drumSteps(snd, mode, sec.groove || spec.groove, bars, r, { perc: role === 'perc', last: sec.fill !== false && !(dp && dp.fill), energy });
           if (dp && ((dp.fill && dp.fill !== 'off') || dp.crash) && mode && mode !== 'off' && mode !== 'build') steps = patternSteps(snd, bars, r, { base: steps, ...fo }) || steps;
           data[t.id] = { steps };
+          if (dynK === 'groove') holdDrums(steps, snd);
           if (spec.tech && !(mode === 'build' && dp && dp.build)) drumSpice(data[t.id], snd, mode, bars, r); // la progression de montée remplace le roulement d'origine
           return;
         }
@@ -1893,8 +1985,8 @@ SS.bandSong = (() => {
         const myAuto = ie && ie.auto && !off ? normalizeAuto(ie.auto) : null; // automation de l'instrument dans la scène
         if (myAuto && myAuto.vel && role !== 'fx') applyVelCurve(data[t.id], myAuto.vel, bars); // vélocité : avant les accents, qui s'y ajoutent
         if (kd === 'bass' && o && o.accents && !off) applyAccents(data[t.id].events, o.accents, bars); // accents : après la nuance, pour qu'ils restent audibles
-        if (spec.tech && (events.length || role !== 'fx')) {
-          const auto = fxScene ? fxScene.auto : sectionAuto(as, sec, er, bars, role === 'fx');
+        if ((spec.tech || dynK) && (events.length || role !== 'fx')) {
+          const auto = fxScene ? fxScene.auto : sectionAuto(as, sec, er, bars, role === 'fx', dynK, !!spec.tech);
           if (auto && events.length) data[t.id].auto = auto;
         }
       });
@@ -1906,6 +1998,13 @@ SS.bandSong = (() => {
           data[t.id] = { events: src.events.map((e) => ({ ...e, notes: e.notes.map((n) => (how === 'third' ? scaleUp(n, 2, kp) : n + 12)), vel: clampV(e.vel * 0.85) })) };
         });
       }
+      // montée EDM / techno : la grosse caisse et le charleston reviennent en force (volume), la montée avance
+      if (dynK === 'build' || dynK === 'groove' || dynK === 'outro' || dynK === 'intro')
+        tracks.forEach((t) => {
+          const d = data[t.id];
+          const a = t.type === 'drum' && !ownBuild.has(t.id) && d && d.steps && d.steps.some((v) => v > 0) ? dynDrumsAuto(kind((t.band && t.band.key ? t.band.key.split(':')[1] : '') || t.sound), bars, dynK, !!spec.tech) : null;
+          if (a) d.auto = { ...(d.auto || {}), ...a };
+        });
       // automation de la scène : vélocité des kits et des doublures, courbes de réglages de toutes les pistes (elles remplacent celles du plan)
       tracks.forEach((t, ti) => {
         const im = pp && pp.inst;
