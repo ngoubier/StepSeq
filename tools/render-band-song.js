@@ -94,6 +94,15 @@ const server = http.createServer((req, res) => {
     await Promise.all(jobs);
   });
   await page.waitForTimeout(3000);
+  // rendu hors temps réel : la surveillance audio prend un rendu plus lent que la durée de la chanson pour un
+  // processeur saturé et passerait en mode allégé (effets et mastering coupés) au milieu du morceau
+  await page.evaluate(() => {
+    window.__lightTries = 0;
+    const no = () => { window.__lightTries++; };
+    SS.audio.setLight = no;
+    SS.audio.setRelief = no; // allègements ciblés (reverbs raccourcies ou coupées) du mode Diagnostic
+    if (SS.audioWatch) SS.audioWatch.lighten = no;
+  });
   await page.click('#play');
   await page.evaluate(
     ({ patch, solo }) => {
@@ -161,7 +170,8 @@ const server = http.createServer((req, res) => {
   hdr.write('data', 36);
   hdr.writeUInt32LE(raw.length, 40);
   fs.writeFileSync(OUT, Buffer.concat([hdr, raw]));
-  console.log(`${PRESET} : ${Math.round(SECS)} s rendues en ${Math.round((Date.now() - t0) / 1000)} s`);
+  const tries = await page.evaluate(() => window.__lightTries).catch(() => 0);
+  console.log(`${PRESET} : ${Math.round(SECS)} s rendues en ${Math.round((Date.now() - t0) / 1000)} s${tries ? ` (mode allégé évité ${tries} fois)` : ''}`);
   await browser.close();
   server.close();
 })();
