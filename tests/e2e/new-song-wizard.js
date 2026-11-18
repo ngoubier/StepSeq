@@ -347,6 +347,22 @@ const SHOTS = process.env.SHOTS;
   } else ok(false, 'au moins une variation proposée');
   await page.evaluate((p) => { SS.band._state.wiz.parts = JSON.parse(p); }, parts0);
   await page.click('#bwArrCurve [data-curve="middle"]');
+  // mouvements de son (automation par temps) : essai A/B dans le projet d'écoute, puis gardé
+  const mv = page.locator('[data-move-try]').first();
+  let keptMove = null;
+  if (await mv.count()) {
+    keptMove = await mv.getAttribute('data-move-try');
+    await mv.click();
+    await page.waitForTimeout(300);
+    if (SHOTS) await page.locator('#bwArrMoves').screenshot({ path: path.join(SHOTS, 'wizard-mouvements.png') });
+    ok((await page.isVisible('#bwMoveB')) && (await page.evaluate(() => SS.band._listen().song.some((b) => b.bauto))), `mouvement « ${keptMove} » : essai B, courbes dans le projet d’écoute`);
+    await page.click('#bwMoveA');
+    ok(await page.evaluate(() => !SS.band._listen().song.some((b) => b.bauto)), 'A : sans les courbes');
+    await page.click('#bwMoveKeep');
+    ok((await page.evaluate((id) => (SS.band._state.wiz.arr.moves || []).includes(id), keptMove)) && (await page.locator(`[data-unmove="${keptMove}"]`).count()) === 1, 'Garder B : mouvement gardé');
+    ok(await page.evaluate(() => SS.band._listen().song.some((b) => b.bauto)), 'gardé : le projet d’écoute l’entend');
+    await page.click('#stop');
+  } else ok(false, 'au moins un mouvement de son proposé');
 
   // 10. Effets et transitions, Mix puis Intégration
   await page.dispatchEvent('#bwNext', 'click');
@@ -380,6 +396,9 @@ const SHOTS = process.env.SHOTS;
   const chorus = p.scenes.find((s) => s.name === 'Refrain');
   const got = JSON.stringify(((chorus.data[lead.id] || {}).events || []).map((e) => [e.step, e.len, e.notes]));
   ok(got === chosen, 'la mélodie créée est celle de l’aperçu');
+  const ids = new Set(p.tracks.map((t) => t.id));
+  const bautoIds = p.song.flatMap((b) => Object.keys(b.bauto || {}));
+  ok(bautoIds.every((id) => ids.has(id)) && (keptMove === 'acid' || bautoIds.length > 0), `mouvement de son gardé : courbes par temps dans la chanson créée (${bautoIds.length})`);
   // la grille de l'assistant passe dans la piste Accords de chaque scène (avec ses pédales et l'émotion choisie)
   const intro = p.scenes.find((s) => s.name === 'Intro');
   ok(p.scenes.every((s) => s.grid && s.grid.chords.length && s.grid.initialized), 'chaque scène créée a sa grille d’accords');

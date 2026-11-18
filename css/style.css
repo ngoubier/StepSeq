@@ -5062,3 +5062,12 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 
 /* Assistant : style de modèles (js/band-templates.js) — la chanson s'ouvre telle quelle */
 #bandDialog .bs-tpl-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+/* étape Arrangement : mouvements de son (automation par temps) */
+.bwar-moves { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.bwar-move { display: grid; grid-template-columns: 96px 1fr auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 8px; background: rgba(255, 255, 255, .03); border: 1px solid rgba(255, 255, 255, .08); }
+.bwar-move.kept { border-color: rgba(63, 207, 63, .45); }
+.bwar-move small { display: block; color: var(--muted); }
+.bwar-move-ic svg { width: 96px; height: 30px; display: block; }
+.bwar-kept { color: #3fcf3f; font-size: 12px; margin-right: 6px; }
+@media (max-width: 640px) { .bwar-move { grid-template-columns: 1fr; } }
+.bwar-move.na { opacity: .55; }

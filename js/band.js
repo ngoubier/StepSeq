@@ -6426,7 +6426,7 @@ SS.band = (() => {
     const eff = specEff();
     const plan = cover() ? { ...p, spec: eff, cover: { title: S.cover.title.trim() || 'Reprise' } } : eff !== spec() ? { ...p, spec: eff } : p;
     // tout est lu avant de quitter l'assistant (leave efface S.wiz), puis la fenêtre principale reprend la place
-    const args = [cols.map((c) => c.o), plan, tempo(), { melodySeed: seed, melody: melodyOpts(), harmony: harmonyOpts(), parts: S.wiz.parts, kinds: S.wiz.kinds, gains: cols.map((c) => volGain(c.id)), mix: S.wiz.mix, groove: grooveOf(), fx: fxOpts() }];
+    const args = [cols.map((c) => c.o), plan, tempo(), { melodySeed: seed, melody: melodyOpts(), harmony: harmonyOpts(), parts: S.wiz.parts, kinds: S.wiz.kinds, gains: cols.map((c) => volGain(c.id)), mix: S.wiz.mix, groove: grooveOf(), fx: fxOpts(), bauto: movePlan(wizSong().res, { trial: false }).map((e) => ({ ...e, col: cols.findIndex((c) => c.id === e.col) })) }];
     const draft = wizSnapshot(Date.now()); // le brouillon est gardé : rouvrir l'assistant permet de retoucher et de recréer
     leave({ keep: false });
     app.applySong(...args);
@@ -7135,6 +7135,110 @@ SS.band = (() => {
     }
     return out.slice(0, 2);
   }
+  /*
+   * Mouvements de son (automation par temps, js/beatauto.js) : proposés par SS.arrange.moves d'après l'énergie. Gardés :
+   * S.wiz.arr.moves (brouillon) ; essai A/B : S.wiz.arrMove = { id, label, why, on }. La chanson créée et le projet
+   * d'écoute reçoivent le même plan (movePlan), posé sur les blocs de l'arrangement.
+   */
+  let movesMemo = { sig: null };
+  function arrMoves(res) {
+    if (movesMemo.sig === S.wiz.sig && movesMemo.res === res) return movesMemo.val;
+    const m = arrModel(res);
+    const ins = m.ins.map((T) => ({
+      cols: T.cols.map((c) => c.id),
+      kind: T.kind,
+      name: T.name,
+      filter: !T.kit && SS.beatAuto.paramsFor({ type: T.col.o.type, family: T.col.o.family, instrument: T.col.o.instrument }).some((x) => x.id === 'cut'),
+    }));
+    const val = AR().moves({ song: res.song, scenes: res.scenes, energy: new Map(m.scenes.map((x) => [x.sec, x.e])), beatsPerBar: 4, ins });
+    movesMemo = { sig: S.wiz.sig, res, val };
+    return val;
+  }
+  const keptMoves = () => (Array.isArray(arrState().moves) ? arrState().moves : []);
+  /** Courbes entendues : les mouvements gardés, plus l'essai en cours (version B) à l'étape Arrangement. */
+  function movePlan(res, { trial = true } = {}) {
+    if (!res || !SS.beatAuto) return [];
+    const ids = new Set(keptMoves());
+    const t = S.wiz.arrMove;
+    if (trial && t && t.on && S.wiz.step === ST.arr) ids.add(t.id);
+    return arrMoves(res).filter((x) => ids.has(x.id)).flatMap((x) => x.plan);
+  }
+  const moveSig = () => JSON.stringify([keptMoves(), S.wiz.arrMove && S.wiz.step === ST.arr ? [S.wiz.arrMove.id, S.wiz.arrMove.on] : null]);
+  /** Le projet d'écoute prend les courbes du moment, sur place (la lecture en cours les entend au pas suivant). */
+  function syncMoves() {
+    if (!L.proj || !S.wiz.res) return;
+    L.proj.song.forEach((b) => delete b.bauto);
+    SS.beatAuto.applyPlan(L.proj, movePlan(S.wiz.res), LID);
+    L.moveSig = moveSig();
+  }
+  function startMove(x) {
+    S.wiz.arrMove = { id: x.id, label: x.label, why: x.why, on: true };
+    renderWiz();
+    const proj = listenProject();
+    syncMoves();
+    const first = x.plan.reduce((a, e) => Math.min(a, e.block), Infinity);
+    if (proj && Number.isFinite(first) && !(L.mode === 'song' && !L.paused)) listenSong(first);
+  }
+  function moveAbBar() {
+    const t = S.wiz.arrMove;
+    if (!t) return null;
+    const flip = (on) => {
+      t.on = on;
+      syncMoves();
+      renderWiz();
+    };
+    const done = (keep) => {
+      if (keep) arrState().moves = [...new Set([...keptMoves(), t.id])];
+      S.wiz.arrMove = null;
+      syncMoves();
+      renderWiz();
+    };
+    return h(
+      'div',
+      { class: 'bwc-ab on', id: 'bwMoveAb' },
+      h('span', { class: 'bh-lbl' }, 'Essai'),
+      h('b', {}, t.label),
+      h(
+        'span',
+        { class: 'segmented', role: 'radiogroup', 'aria-label': 'Version à l’écoute' },
+        h('button', { type: 'button', role: 'radio', id: 'bwMoveA', class: t.on ? '' : 'active', 'aria-checked': String(!t.on), onclick: () => flip(false) }, 'A · sans'),
+        h('button', { type: 'button', role: 'radio', id: 'bwMoveB', class: t.on ? 'active' : '', 'aria-checked': String(t.on), onclick: () => flip(true) }, 'B · avec')
+      ),
+      h('span', { class: 'dlg-hint' }, t.why),
+      h('span', { class: 'spacer' }),
+      h('button', { type: 'button', class: 'btn btn-small', id: 'bwMoveCancel', onclick: () => done(false) }, 'Garder A'),
+      h('button', { type: 'button', class: 'btn btn-small btn-accent', id: 'bwMoveKeep', onclick: () => done(true) }, 'Garder B')
+    );
+  }
+  const MOVE_ICON = {
+    open: '<svg viewBox="0 0 120 36" aria-hidden="true"><path d="M2 30 L50 30 C70 30 80 6 118 6" fill="none" stroke="#f5a623" stroke-width="3"/></svg>',
+    qa: '<svg viewBox="0 0 120 36" aria-hidden="true"><path d="M2 10 L30 10 L30 26 L60 26 L60 10 L90 10 L90 26 L118 26" fill="none" stroke="#3fcf3f" stroke-width="3"/></svg>',
+    acid: '<svg viewBox="0 0 120 36" aria-hidden="true"><path d="M2 30 C50 30 80 22 100 6 L100 30 L118 30" fill="none" stroke="#ff5c8a" stroke-width="3"/></svg>',
+  };
+  function movesCard(res) {
+    const list = arrMoves(res);
+    const kept = new Set(keptMoves());
+    const t = S.wiz.arrMove;
+    const rows = AR().MOVES.map((d) => {
+      const x = list.find((m) => m.id === d.id);
+      if (!x) return h('li', { class: 'bwar-move na', 'data-move': d.id }, h('span', { class: 'bwar-move-ic', html: MOVE_ICON[d.id] || '' }), h('div', {}, h('b', {}, d.label), h('small', {}, `Pas proposé pour cette chanson. ${d.need}`)), h('span', {}));
+      return h('li', { class: 'bwar-move' + (kept.has(x.id) ? ' kept' : ''), 'data-move': x.id },
+        h('span', { class: 'bwar-move-ic', html: MOVE_ICON[x.id] || '' }),
+        h('div', {}, h('b', {}, x.label), h('small', {}, x.why)),
+        kept.has(x.id)
+          ? h('span', { class: 'bwar-acts' }, h('span', { class: 'bwar-kept' }, '✓ Gardé'), h('button', { type: 'button', class: 'btn btn-small', 'data-unmove': x.id, title: 'Retirer ces courbes de la chanson', onclick: () => {
+              arrState().moves = keptMoves().filter((id) => id !== x.id);
+              syncMoves();
+              renderWiz();
+            } }, 'Retirer'))
+          : h('button', { type: 'button', class: 'btn btn-small', 'data-move-try': x.id, disabled: !!t, title: 'Écouter la chanson à partir de là, avec (B) et sans (A)', onclick: () => startMove(x) }, '▶ Essayer'));
+    });
+    return h('section', { class: 'bwar-card', id: 'bwArrMoves' },
+      h('div', { class: 'bwar-head' }, h('b', {}, 'Mouvements de son'), h('span', { class: 'bh-info' }, 'cutoff, vélocité, résonance par temps · retouchables ensuite sous les notes de chaque piste')),
+      moveAbBar(),
+      h('ul', { class: 'bwar-moves' }, ...rows));
+  }
+
   function startArr(scn, v) {
     S.wiz.arrAb = { sec: scn.sec, label: v.label, why: v.why, part: v.part, on: true };
     renderWiz();
@@ -7230,7 +7334,7 @@ SS.band = (() => {
     const todo = h('section', { class: 'bwar-card' }, h('div', { class: 'bwar-head' }, h('b', {}, 'À travailler'), h('span', { class: 'bh-info' }, `${m.items.filter((x) => x.kind === 'warn').length} point(s)`)), list);
     const keep = $('#bwArr');
     const top = keep ? keep.scrollTop : 0;
-    const content = h('div', { class: 'bwar', id: 'bwArr' }, energy, arrAbBar(), h('div', { class: 'bwar-cols' }, who, todo));
+    const content = h('div', { class: 'bwar', id: 'bwArr' }, energy, arrAbBar(), movesCard(res), h('div', { class: 'bwar-cols' }, who, todo));
     box.classList.remove('bw-split');
     box.replaceChildren(content);
     content.scrollTop = top;
@@ -7567,11 +7671,13 @@ SS.band = (() => {
     if (S.wiz.mix) mixSync(); // l'étape Mix a été visitée : son réglage s'entend aussi aux autres étapes
     if (L.proj && L.sig === S.wiz.sig) {
       if (L.mixSig !== mixSig()) liveMix();
+      if (L.moveSig !== moveSig()) syncMoves();
       return L.proj;
     }
     dropListen();
     L.proj = buildListen(cols, res);
     L.sig = S.wiz.sig;
+    L.moveSig = moveSig();
     L.mixSig = mixSig();
     applyListenMutes();
     return L.proj;
@@ -7600,6 +7706,7 @@ SS.band = (() => {
       data: Object.fromEntries(Object.entries(sc.data).map(([id, d]) => [LID(id), d])),
     }));
     proj.song = res.song.map((b) => ({ ...b }));
+    if (SS.beatAuto) SS.beatAuto.applyPlan(proj, movePlan(res), LID); // mouvements de son de l'étape Arrangement
     proj.playMode = 'song';
     proj.songLoop = false;
     const st = (proj.tracks.find((t) => t.band) || { band: {} }).band.style || 'synthwave';

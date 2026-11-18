@@ -22,8 +22,8 @@
 window.SS = window.SS || {};
 
 SS.BEAT_AUTO = [
-  { id: 'cut', label: 'Cutoff', sub: 'autour du son', min: -4, max: 4, def: 0, color: '#f5a623' },
-  { id: 'res', label: 'Résonance', sub: 'du son', min: 0, max: 3, def: 1, color: '#ff5c8a' },
+  { id: 'cut', label: 'Cutoff', sub: 'autour du son', min: -4, max: 4, def: 0, color: '#f5a623', cc: 74 },
+  { id: 'res', label: 'Résonance', sub: 'du son', min: 0, max: 3, def: 1, color: '#ff5c8a', cc: 71 },
   { id: 'vel', label: 'Vélocité', sub: 'des notes', min: 0.4, max: 1.3, def: 1, color: '#3fcf3f' },
 ];
 
@@ -273,6 +273,17 @@ SS.beatAuto = (() => {
     { id: 'clear', label: 'Effacer' },
   ];
 
+  /**
+   * Valeur MIDI (0..127) d'une courbe pour l'export : cutoff → CC 74, 64 = réglage du son, ±4 octaves aux extrêmes ;
+   * résonance → CC 71, 64 = celle du son (×1), 0 = aucune (×0), 127 = ×3.
+   */
+  function ccValue(k, v) {
+    const c = (x) => Math.max(0, Math.min(127, Math.round(x)));
+    if (k === 'cut') return c(64 + (v / 4) * 63);
+    if (k === 'res') return c(v <= 1 ? 64 * v : 64 + ((v - 1) / 2) * 63);
+    return null;
+  }
+
   const fmt = (k, v) => {
     if (v == null) return 'comme écrit';
     if (k === 'cut') return (v > 0.05 ? '+' : v < -0.05 ? '−' : '') + Math.abs(v).toFixed(1).replace('.', ',') + ' oct';
@@ -280,5 +291,14 @@ SS.beatAuto = (() => {
     return Math.round(v * 100) + ' %';
   };
 
-  return { P, paramsFor, passages, sceneBeats, beatsPerBar, layer, get, set, prune, clean, has, hasIn, curveAt, reader, forTrack, setLoopPass, loopPass, resQ, brush, shape, SHAPES, fmt };
+  /** Pose un plan de courbes : [{ col, block, rep, k, beats: { temps: valeur } }] ; idOf(col) → identifiant de piste. */
+  function applyPlan(p, plan, idOf) {
+    for (const e of plan || []) {
+      const id = idOf(e.col);
+      if (!id || !p.song[e.block]) continue;
+      for (const [b, v] of Object.entries(e.beats)) set(p, { block: e.block, rep: e.rep }, id, e.k, +b, v);
+    }
+  }
+
+  return { P, ccValue, applyPlan, paramsFor, passages, sceneBeats, beatsPerBar, layer, get, set, prune, clean, has, hasIn, curveAt, reader, forTrack, setLoopPass, loopPass, resQ, brush, shape, SHAPES, fmt };
 })();
