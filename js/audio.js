@@ -1223,13 +1223,33 @@ SS.audio = (() => {
     amp.gain.setTargetAtTime(0, tOff, release / 4);
     last.connect(amp);
 
+    // expression (js/expression.js) : la nuance évolue dans la note (gain après le VCA) et le timbre la suit (filtre)
+    let tail = amp;
+    const X = p._expr;
+    if (X && X.shape && SS.expression) {
+      const ex = ctx.createGain();
+      const len = Math.max(0.02, tOff - t);
+      ex.gain.setValueAtTime(X.shape[0][1], t);
+      X.shape.forEach(([x, v], i) => i && ex.gain.linearRampToValueAtTime(v, t + x * len));
+      amp.connect(ex);
+      tail = ex;
+      if (!(p.env > 0) && X.bright && X.bright.ratio < 1) {
+        const d = (v) => v * (0.55 + 0.45 * Math.max(0, Math.min(1, vel)));
+        const hz = (v) => SS.expression.brightHz(base, X.bright.ratio, d(v));
+        flt.freqs.forEach((param) => {
+          param.cancelScheduledValues(t);
+          param.setValueAtTime(hz(X.shape[0][1]), t);
+          X.shape.forEach(([x, v], i) => i && param.exponentialRampToValueAtTime(hz(v), t + x * len));
+        });
+      }
+    }
+
     // LFO vers le volume (trémolo) : gain après le VCA ; LFO vers le pan : panoramique toujours présent
     const lfos = SS.activeLfos ? SS.activeLfos(p) : [];
-    let tail = amp;
     let trem = null;
     if (lfos.some((l) => l.dest === 'amp')) {
       trem = ctx.createGain();
-      amp.connect(trem);
+      tail.connect(trem);
       tail = trem;
     }
 
@@ -1589,6 +1609,13 @@ SS.audio = (() => {
     }
     if (mod && mod.locks) p = SS.applyVoiceLocks(p, mod.locks); // automation du son (verrous par pas)
     if (mod && mod.cutoff && mod.cutoff !== 1) p = { ...p, cutoff: Math.max(30, Math.min(20000, p.cutoff * mod.cutoff)) };
+    // expression (js/expression.js) : forme de nuance dans la note, attaque adoucie (legato), relâchement court
+    if (mod && mod.expr) {
+      const x = mod.expr;
+      p = { ...p, _expr: x };
+      if (x.attack) p.attack = Math.max(p.attack, x.attack);
+      if (x.release) p.release = Math.min(p.release, x.release);
+    }
     // ce qui suit doit rester synchrone jusqu'au glide (ordre des notes) : on résout d'abord la source
     let src = null; // { buffer, rate, loop }
     if (inst.kind === 'sf') {
@@ -1639,7 +1666,7 @@ SS.audio = (() => {
     return level;
   }
 
-  /** Courte phrase de notes (démo du glide, écoute de l'arpégiateur) : [{ midi, at (s), dur (s), vel?, cutoff? }]. */
+  /** Courte phrase de notes (démo du glide, écoute de l'arpégiateur, du jeu) : [{ midi, at (s), dur (s), vel?, cutoff?, expr? }]. */
   async function playPhrase(track, notes) {
     ensureCtx();
     await prepareTrack(track);
@@ -1649,7 +1676,7 @@ SS.audio = (() => {
     }
     const t0 = ctx.currentTime + 0.05;
     const out = track.id ? bus(track) : master;
-    notes.forEach((n) => playNote(track, n.midi, t0 + n.at, n.dur, n.vel ?? 0.8, out, 0, 1, n.cutoff ? { cutoff: n.cutoff } : null));
+    notes.forEach((n) => playNote(track, n.midi, t0 + n.at, n.dur, n.vel ?? 0.8, out, 0, 1, n.cutoff || n.expr ? { cutoff: n.cutoff, expr: n.expr } : null));
   }
 
   /** Précharge les hauteurs utiles avant un aperçu synchronisé. */
@@ -1821,6 +1848,12 @@ SS.audio = (() => {
       // en arpège, une suite d'accords (notes tenues ensemble) pour Arp One
       const playing = SS.playEvents(project, track);
       const arpOn = SS.arpOn(track);
+      // expression et articulations (js/expression.js) : calculées sur toute la scène, à la première note qui part
+      let expr;
+      const exprOf = (ev) => {
+        if (expr === undefined) expr = arpOn || !SS.expression ? null : SS.expression.forTrack(track, playing, { stepsPerBeat: SS.stepsPerBeat(project), stepsPerBar: SS.stepsPerBar(project) });
+        return expr && expr.get(ev);
+      };
       playing.forEach((ev) => {
         // condition de déclenchement : jugée sur le passage en cours, pour toute la durée de la note ou de l'accord
         if (ev.cond && !SS.trigOk(ev.cond, { ...at, step: ev.step })) return;
@@ -1851,20 +1884,31 @@ SS.audio = (() => {
           const alen = SS.autoLen(project, track); // l'automation boucle sur sa propre longueur
           const written = Math.min(ev.len, SS.trackLen(project, track) - ev.step);
           const held = track.auto && track.auto.sustain ? SS.pedalLen(track, tick % alen, written, alen) : written;
-          const dur = held * sd * (held > written ? 1 : 0.98);
+          let dur = held * sd * (held > written ? 1 : 0.98);
+          // jeu de la note : durée (staccato, legato qui chevauche la suivante, respiration), nuance dans la note
+          const ex = exprOf(ev);
+          if (ex && held <= written) dur = Math.max(Math.min(dur, 0.05), dur * ex.durK + ex.overlap - Math.min(ex.breath, dur * 0.4));
+          // pédale automatique (piano) : la note tient jusqu'à la suivante, la pédale se relève sur son attaque
+          if (ex && ex.holdTo && held <= written) dur = Math.max(dur, Math.min(ex.holdTo, SS.trackLen(project, track) - ev.step) * sd + 0.03);
           // micro-décalage de la note (ev.shift, fraction de pas) : en avance ou en retard sur la grille
-          const tt = time + jt() + (ev.shift || 0) * sd;
+          const tt = time + jt() + (ev.shift || 0) * sd + (ex ? ex.delay || 0 : 0); // ex.delay : rubato de fin de phrase
           const vv = jv(ev.vel);
           // ratchet : la note est rejouée dans son premier pas ; la dernière répétition tient le reste de la note
           const r = ev.rat || 1;
           const sub = sd / r;
           // automation du son (track.auto, réglages « voice ») : valeur au pas de la note
           const locks = SS.voiceLocks(track, tick % alen, alen);
-          const nmod = locks || ev.acc ? { locks, acc: !!ev.acc, accAmt: ev.accAmt } : null;
+          const nmod = locks || ev.acc || ex ? { locks, acc: !!ev.acc, accAmt: ev.accAmt, expr: ex || null } : null;
           for (let j = 0; j < r; j++) {
             const d = j < r - 1 ? sub * 0.9 : Math.max(sub * 0.9, dur - j * sub);
             const v = vv * (ev.notes.length > 1 ? 0.8 : 1) * (j ? 0.85 : 1);
-            ev.notes.forEach((n, i) => playNote(track, n, tt + j * sub, d, v, undefined, i, ev.notes.length, nmod));
+            ev.notes.forEach((n, i) => {
+              // jeu (js/expression.js) : force de la frappe, mélodie au-dessus de l'accord, doigts ou strum décalés
+              const vm = ex ? (ex.velK ?? 1) * (ex.noteVel ? ex.noteVel[i] ?? 1 : 1) : 1;
+              if (!vm) return; // strum vers le haut : la corde grave n'est pas jouée
+              const dl = ex && ex.noteDelay ? ex.noteDelay[i] || 0 : 0;
+              playNote(track, n, tt + j * sub + dl, Math.max(0.03, d - dl), v * vm, undefined, i, ev.notes.length, nmod);
+            });
           }
           duckFrom(project, track, tt);
         }

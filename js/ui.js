@@ -2023,7 +2023,17 @@ SS.ui = (() => {
   /** Accent : liseré doré en haut de la note. */
   function markAccent(cell, ev) {
     if (ev.acc) cell.append(h('span', { class: 'acc-mark', 'aria-hidden': 'true' }));
+    markArt(cell, ev);
   }
+  /** Articulation (js/expression.js) : son signe en bas à gauche de la note (⌒ legato, • staccato…). */
+  function markArt(cell, ev) {
+    const a = ev.art && SS.ARTS && SS.ARTS.find((x) => x.id === ev.art);
+    if (a) cell.append(h('span', { class: 'art-mark art-' + a.id, 'aria-hidden': 'true' }, a.mark));
+  }
+  const artTitle = (ev) => {
+    const a = ev.art && SS.ARTS && SS.ARTS.find((x) => x.id === ev.art);
+    return a ? ' · ' + a.label.toLowerCase() : '';
+  };
   function markRatchet(cell, r) {
     if (!(r > 1)) return;
     cell.append(h('span', { class: 'rat-mark', style: `--r:${r}`, 'aria-hidden': 'true' }));
@@ -2064,7 +2074,7 @@ SS.ui = (() => {
       c.title = '';
     });
     ref.roll.forEach((cells) => cells.forEach((c) => c.classList.remove('on', 'start', 'root', 'sel', 'sel-hold', 'shifted')));
-    ref.el?.querySelectorAll('.shift-mark, .rat-mark, .cond-mark, .acc-mark').forEach((m) => m.remove());
+    ref.el?.querySelectorAll('.shift-mark, .rat-mark, .cond-mark, .acc-mark, .art-mark').forEach((m) => m.remove());
 
     // piste qui suit la piste Accords : on montre les accords joués (en pointillés), pas ses notes
     const ghost = SS.followsGhost(track);
@@ -2082,7 +2092,7 @@ SS.ui = (() => {
           // d'une mélodie de l'atelier Mélodie s'affiche
           const shown = ev.name || (ev.notes.length === 1 ? (ev.lyric ? ev.lyric.replace(/\(.*?\)/g, '').replace('‿', '') : '') : label);
           if (shown) c.append(h('span', { class: 'lbl' }, shown));
-          c.title = `${label} · vélocité ${Math.round(ev.vel * 127)}` + (ev.acc ? ' · accent' : '') + shiftTitle(ev) + (ev.rat ? ` · ratchet ×${ev.rat}` : '') + condTitle(ev.cond);
+          c.title = `${label} · vélocité ${Math.round(ev.vel * 127)}` + (ev.acc ? ' · accent' : '') + artTitle(ev) + shiftTitle(ev) + (ev.rat ? ` · ratchet ×${ev.rat}` : '') + condTitle(ev.cond);
           markAccent(c, ev);
           markShift(c, ev);
           markRatchet(c, ev.rat);
@@ -2362,7 +2372,7 @@ SS.ui = (() => {
       ? { kind: 'drum', items: items.map((s) => ({ off: s - from, vel: t.steps[s], rat: SS.drumRatchet(t, s), cond: SS.drumCond(t, s) })) }
       : {
           kind: 'notes',
-          items: items.map((ev) => ({ off: ev.step - from, len: ev.len, notes: [...ev.notes], vel: ev.vel, chord: ev.chord, shift: ev.shift, rat: ev.rat, cond: ev.cond, acc: ev.acc })),
+          items: items.map((ev) => ({ off: ev.step - from, len: ev.len, notes: [...ev.notes], vel: ev.vel, chord: ev.chord, shift: ev.shift, rat: ev.rat, cond: ev.cond, acc: ev.acc, art: ev.art })),
         };
     Object.assign(clip, { span: to - from, trackId: t.id, from });
     const what = unitLabel(t, items.length);
@@ -2431,6 +2441,7 @@ SS.ui = (() => {
       if (it.rat) ev.rat = it.rat;
       if (it.cond) ev.cond = it.cond;
       if (it.acc) ev.acc = true;
+      if (it.art) ev.art = it.art;
       track.events.push(ev);
       pasted.push(ev);
     });
@@ -3289,6 +3300,41 @@ SS.ui = (() => {
       show();
       return h('div', { class: 'ctx-param' }, h('span', { class: 'ctx-param-label' }, 'Accent'), b);
     }
+    // articulation (js/expression.js) : Auto (le phrasé de la piste décide) ou une articulation écrite
+    function artRow() {
+      const box = h('div', { class: 'ctx-arts', role: 'radiogroup', 'aria-label': 'Articulation' });
+      const opts = [{ id: '', label: 'Auto', mark: '', desc: 'Pas d’articulation écrite : le phrasé automatique de la piste décide (onglet Jeu du Sound design).' }, ...SS.ARTS];
+      const show = () =>
+        box.querySelectorAll('button').forEach((b) => {
+          const on = b.dataset.v === (ev.art || '');
+          b.classList.toggle('on', on);
+          b.setAttribute('aria-checked', String(on));
+        });
+      opts.forEach((a) =>
+        box.append(
+          h(
+            'button',
+            {
+              type: 'button',
+              role: 'radio',
+              'data-v': a.id,
+              title: `${a.label} : ${a.desc}`,
+              onclick: () => {
+                if (a.id) ev.art = a.id;
+                else delete ev.art;
+                show();
+                paint(track);
+                saveSoon();
+              },
+            },
+            a.mark ? h('b', { 'aria-hidden': 'true' }, a.mark) : null,
+            a.label
+          )
+        )
+      );
+      show();
+      return h('div', { class: 'ctx-param ctx-param-art' }, h('span', { class: 'ctx-param-label' }, 'Jeu'), box);
+    }
     const spb = SS.stepsPerBar(app.project());
     const fmtShift = (v) => (v ? `${v > 0 ? 'retard' : 'avance'} ${Math.abs(v)} %` : '0 %');
     const fmtLen = (v) => `${v} pas` + (v % spb === 0 ? ` · ${v / spb} mes.` : v % 4 === 0 ? ` · ${v / 4} t.` : '');
@@ -3299,6 +3345,7 @@ SS.ui = (() => {
         paramRow('Longueur', () => ev.len, (v) => (ev.len = v), 1, maxLen, fmtLen, `De 1 à ${maxLen} pas (jusqu'à la note suivante)`),
         paramRow('Vélocité', () => Math.round(ev.vel * 127), (v) => (ev.vel = v / 127), 1, 127, (v) => String(v), 'Force de la note, de 1 à 127', 102),
         accentRow(),
+        SS.arpOn(track) || !SS.ARTS ? null : artRow(),
         // micro-décalage : pas pour l'arpégiateur, qui a sa propre grille rythmique
         SS.arpOn(track)
           ? null

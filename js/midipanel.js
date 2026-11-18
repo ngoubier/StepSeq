@@ -107,7 +107,7 @@ SS.midiPanel = (() => {
   }
 
   /* ---------------- Export ---------------- */
-  const exp = { range: 'song', loops: 4, audibleOnly: true, swing: true };
+  const exp = { range: 'song', loops: 4, audibleOnly: true, swing: true, expression: true };
 
   function exportOptions() {
     return { ...exp };
@@ -144,6 +144,7 @@ SS.midiPanel = (() => {
     $('#meLoops').value = exp.loops;
     $('#meAudible').checked = exp.audibleOnly;
     $('#meSwing').checked = exp.swing;
+    $('#meExpr').checked = exp.expression;
     renderExport();
     const dlg = $('#midiExportDialog');
     dlg.returnValue = '';
@@ -200,6 +201,10 @@ SS.midiPanel = (() => {
     });
     $('#meAudible').addEventListener('change', (e) => {
       exp.audibleOnly = e.target.checked;
+      renderExport();
+    });
+    $('#meExpr').addEventListener('change', (e) => {
+      exp.expression = e.target.checked;
       renderExport();
     });
     $('#meSwing').addEventListener('change', (e) => {

@@ -20,7 +20,7 @@ puis ouvrir <http://localhost:8000>.
 
 ## Interface
 
-- **En-tête** : icône de l'application (menu **Chansons**, **Nouvelle chanson…** (assistant sur une chanson vide), **Nouvelle chanson sur ce projet…** (le même assistant, sur le projet en cours), **Ouvrir**, **Enregistrer**, **Importer MIDI**, **Exporter MIDI**), titre du projet, tempo (BPM), un bouton ∿ à icône seule dont la bulle (au survol, au clic ou au clavier)
+- **En-tête** : icône de l'application (menu **Chansons**, **Nouvelle chanson…** (assistant sur une chanson vide), **Nouvelle chanson sur ce projet…** (le même assistant, sur le projet en cours), **Ouvrir**, **Enregistrer**, **Importer MIDI**, **Exporter MIDI**, **Exporter l'audio**), titre du projet, tempo (BPM), un bouton ∿ à icône seule dont la bulle (au survol, au clic ou au clavier)
   regroupe le chiffrage de mesure (4/4 par défaut, x/4 ou x/8), le nombre de mesures et le groove (swing, humanisation), **Lecture** et **Stop**, puis les fenêtres regroupées
   **Harmonie** (ancien Key ; la tonalité de la scène en sous-titre ; fenêtre Harmonie, propre à chaque scène : assistant
   émotion → grille d'accords pour démarrer, puis onglets Ambiance (émotions rangées par mode, trois pistes et 94 grilles de référence sourcées, dont le guide MusicEmotion et 42 fiches Piano Diary ; guide de chaque mode : couleur à faire entendre et boucle d'essai, grille posée sur l'onglet suivant), Chanson (grille commune sur toute la largeur, reprise des accords existants ; sous-onglets Chords pour les couches et Mélodie pour les réglages horizontaux) et Vérifier (la même grille et les mélodies) ; palette d'accords dans le piano roll, essais A/B), **Song** (fenêtre Song : scènes et arrangement, avec une case pour garder le panneau
@@ -541,6 +541,54 @@ sélection (toutes accentuées, sinon l'accent est retiré). Les arpèges accent
 Juno-106 reçoit l'accent par la vélocité ; l'export MIDI donne aux notes accentuées une vélocité plus forte.
 Presets : **Acid Sub** et **Techno Sub Bass** (Bass).
 
+### Jeu : expression et articulations (`js/expression.js`)
+
+Pour les cordes, les cuivres, les bois, les voix, le piano et la guitare, l'onglet **Jeu** du Sound design fait
+jouer la piste comme un musicien (réglage rangé dans `track.sd`, comme le reste du son : Annuler, versions et fichier le gardent ;
+**Réinitialiser** ne le touche pas) :
+
+- **Expression** (`sd.expr` : `light`, `natural`, `expressive` ; absente : chaque note telle qu'elle est écrite). Les
+  notes de la scène sont groupées en **phrases** (séparées par une croche de silence, 4 mesures au plus). La phrase
+  monte vers sa note la plus haute puis retombe (arc), les notes d'une blanche ou plus **enflent puis se posent**
+  (soufflet), la dernière note s'éteint ; en Expressive, les rondes des cordes et des cuivres font un **« fp »**
+  (attaque, recul, crescendo). Les vents et les voix **respirent** (80 ms) au bout d'une ligne de 4 mesures sans
+  silence. Un **filtre suit la nuance** : le piano est plus sombre, le forte s'ouvre jusqu'au réglage du son (comme
+  les couches de nuance d'une banque orchestrale). Une note n'est jamais plus forte que sa vélocité.
+- **Phrasé automatique** (coupé par `sd.phrase = 0`) : notes qui se touchent → legato, notes répétées → détaché,
+  doubles-croches isolées → staccato.
+- **Articulation d'une note** (`ev.art`, menu de la note, rangée **Jeu** ; signe sur la note) : `leg` legato ⌒ (la
+  note chevauche la suivante de 50 ms et s'éteint vite, la suivante attaque en douceur), `stac` staccato • (45 % de
+  la durée), `det` détaché ‐ (82 %), `ten` tenuto — (toute la durée, sans retombée), `swell` soufflet ◇, `mute`
+  étouffé × (palm mute : 35 % de la durée, plus doux, sourd). Elle l'emporte sur le phrasé automatique et marche sur
+  tout instrument, même sans expression.
+- **Piano et claviers** (famille Keys : pianos, pianos électriques, clavecin, clavinet ; pas l'orgue) : le son ne fait
+  que s'éteindre, donc pas de forme dans la note. La nuance passe par la **force de frappe** (arc de phrase sur la
+  vélocité, le timbre la suit) ; dans un accord, la **note du haut** est jouée plus fort (+10 %) que les autres
+  (−8 %), qui partent 3 à 12 ms après elle (**doigts** pas tout à fait ensemble, écarts reproductibles) ; la dernière
+  note de la phrase arrive 15 ms plus tard (**rubato**). **Pédale automatique** (`sd.pedal = 0` la coupe ; sans
+  effet si la piste a sa propre courbe de pédale) : chaque note tient jusqu'à la note suivante, au plus une mesure,
+  et la pédale se relève sur son attaque ; pas sur un staccato, un détaché ou un étouffé. Pas de legato automatique
+  (un piano réattaque toujours).
+- **Guitares** : les accords de 3 notes ou plus sont **grattés** (strum) : vers le bas (de la corde grave à l'aiguë,
+  18 à 36 ms) sur le temps et sa première moitié, vers le haut sur la seconde moitié (plus court, 15 % plus doux, sans
+  la corde grave si l'accord a 4 notes ou plus). **Accents du rythme** d'après la mesure du projet : premier temps,
+  temps (−7 %), contretemps (−15 %), doubles (−22 %), à l'échelle de l'expression. L'étouffé n'est pas gratté.
+- **Par défaut** : expression Naturelle pour les nouvelles pistes de cordes, cuivres, bois, voix, piano et guitare
+  (`SS.newTrack`, donc aussi les chansons de l'assistant) ; changer d'instrument garde le jeu. Les cordes et cuivres
+  de synthé peuvent l'avoir (non posée d'office) ; les pistes Synthé (Juno-106), les arpèges, l'orgue et les cordes
+  pincées n'en ont pas.
+
+Le plan de chaque note est calculé une fois par scène (`SS.expression.plan`, fonction pure mise en mémoire tant que
+les notes ne changent pas) et appliqué par `js/audio.js` : gain qui suit la forme de la note après le VCA, filtre
+qui suit la nuance, durée, attaque et relâchement, force et décalage de chaque note d'un accord, pédale. Il s'entend à la lecture, dans la boucle du Sound design et à
+l'export audio. **Export MIDI** (case « Appliquer le jeu des pistes », cochée par défaut) : le même plan, écrit en
+données MIDI — nuances dans la vélocité (frappe, mélodie au-dessus de l'accord), nuance dans les notes en **CC 11**
+(un point par demi-pas ; pas sur une scène qui a sa propre courbe de volume, déjà en CC 11), articulations dans les
+durées, strum et doigts décalés dans les départs, rubato, pédale automatique du piano en **CC 64** (enfoncée juste
+après l'attaque, relevée juste avant la note suivante ; les notes restent écrites). Le timbre qui suit la nuance reste
+dans StepSeq. Pas encore : les techniques de jeu (pizzicato, trémolo) dans une même piste, le vibrato retardé. Tests : `node --test tests/expression.test.js`,
+`node --test tests/midi-expression.test.js`, `node tests/e2e/expression.js`.
+
 ### Effets d'espace : Cosmos et écho à bande
 
 La fenêtre **FX** d'une piste a une taille fixe et des **onglets verticaux** (une rangée de pastilles sur
@@ -718,6 +766,8 @@ node tests/e2e/debug-origin.js       # journal : origine des projets (démo, nou
 node tests/e2e/juno-eco.js           # mode éco des synthés Juno (mode allégé, mode Diagnostic, Rétablir)
 node tests/e2e/audio-diag.js         # mode Diagnostic : reverb raccourcie puis coupée en cas de décrochage, journal de débogage
 node tests/e2e/audio-perf.js
+node tests/e2e/audio-export.js       # Exporter l'audio : master .wav, master + stems .zip, arrêt, bilan
+node tests/e2e/expression.js         # Jeu : expression (rendu), onglet Jeu du Sound design, articulations des notes
 node tests/e2e/automix-pilot.js
 node tests/e2e/automix-loud-bass.js
 node tests/e2e/band-close.js
@@ -921,10 +971,47 @@ drums (`SS.DRUM_TYPES`) et les sons de `SS.GM_DRUMS` ont `midi` = leur note GM. 
 **Export** (fichier type 1, 480 PPQ) : chanson (arrangement déplié, marqueurs de scènes, armure par scène) ou
 scène en cours répétée ; une piste MIDI par piste, batterie sur le canal 10 ; arpèges rendus note par note
 (ARP ONE est déterministe), swing et placement des pistes en option, pistes muettes exclues en option ; volume
-(CC 7) et panoramique (CC 10). Sons non GM → programme GM le plus proche (synthés intégrés, VCSL, Juno-106 selon
+(CC 7) et panoramique (CC 10) ; jeu des pistes en option (nuances, CC 11, articulations, strum, pédale en CC 64 :
+voir « Jeu »). Sons non GM → programme GM le plus proche (synthés intégrés, VCSL, Juno-106 selon
 le nom du patch) ; batteries Dirt-Samples / VCSL → note GM devinée d'après le nom de la banque. Les instruments
 `gm_*` (programme de la variante jouée) et la batterie General MIDI (note de la banque) sont exportés exactement. Non exporté :
 sound design, effets, mixage, mastering, humanisation.
+
+### Exporter l'audio : master et stems en WAV (`js/render.js`, `js/audioexport.js`, `render.html`)
+
+**Exporter l'audio…** (menu de l'icône de l'application) calcule la chanson en fichier WAV, **hors temps réel** :
+exactement ce qu'on entend avec Lecture (sons, mixage, effets, Master et mastering), mais plus vite que le temps réel
+et sans décrochage possible, puis le télécharge. Tout se fait dans le navigateur, rien n'est envoyé.
+
+- **Contenu** : la chanson (arrangement) ou la scène en cours, répétée 1 à 64 fois.
+- **Fichiers** : le **master** (la chanson mixée et masterisée) et, au choix, des **stems** : un fichier **par
+  musicien** (pistes Band d'un même musicien ensemble : toute la batterie, le percussionniste à part ; les autres
+  pistes, une par fichier) ou **par piste**. Seules les pistes qu'on entend (Muet / Solo) donnent un stem. Chaque stem
+  garde sa part de reverb et d'écho (envois vers les bus partagés) et le pompage du sidechain, mais pas le traitement
+  du Master : posés ensemble dans un logiciel de musique, ils redonnent le mix avant mastering (écart mesuré : −62 dB
+  sur la démo). Plusieurs fichiers : une archive `.zip` (`Titre - master.wav`, `Titre - stems/01 Batterie.wav`…).
+- **Format** : WAV PCM **24 bits** (par défaut) ou **16 bits** (CD), avec dither triangulaire (TPDF), ou **32 bits
+  flottant** (rien n'est écrêté) ; **44,1 kHz** ou **48 kHz** (vidéo).
+- **Bornes** : le pré-roll du moteur est retiré (le fichier commence sur la première note, en gardant les notes jouées
+  en avance et l'humanisation), la fin est coupée quand la queue de reverb passe sous −80 dBFS (8 s rendues après
+  la dernière mesure ; si elle sonne encore, fondu d'une demi-seconde). Master et stems ont le même départ et la même
+  longueur ; le master est recalé sur les stems (intercorrélation : le limiteur à anticipation du mastering le
+  retarde de 4 à 5 ms).
+- **Bilan du master** (EBU R128 / BS.1770-4, mesuré sur le fichier) : volume intégré et court terme maximal (LUFS),
+  ce qu'en feront les plateformes (−14 LUFS), crête vraie (sur-échantillonnage ×4, alerte au-dessus de −1 dBTP),
+  dynamique (PLR), écart de volume (LRA) et corrélation stéréo (compatibilité mono) ; crête de chaque stem (alerte à
+  0 dBFS hors 32 bits flottant).
+- **Arrêter** (ou <kbd>Échap</kbd>) interrompt le rendu. Durée : environ la moitié de la durée de la chanson par rendu
+  sur un ordinateur récent, et un rendu par stem en plus du master.
+
+Fonctionnement : chaque rendu se fait dans un cadre invisible qui charge `render.html` (le moteur audio seul : ni
+interface, ni « Mes chansons », ni enregistrement automatique ; le stockage du navigateur y est en lecture seule).
+`js/render-boot.js` y remplace le contexte audio par un `OfflineAudioContext` et retient la minuterie du séquenceur ;
+`js/render-host.js` charge tous les sons de toutes les scènes, lance la lecture en mode chanson comme le bouton
+Lecture et appelle le séquenceur toutes les 50 ms de son rendu. Pour qu'un stem tombe exactement sur le master, les
+tirages aléatoires (humanisation, bruit, réponses de reverb) suivent une suite fixe, et les autres pistes jouent à
+volume nul plutôt qu'en muet (mêmes notes programmées dans le même ordre, sidechain du kick compris). Tests :
+`node --test tests/render.test.js`, `node tests/e2e/audio-export.js`.
 
 ## Sons
 
@@ -1072,6 +1159,9 @@ Les accords par mode et par émotion (`js/emotions.js`) s'appuient sur trois doc
 | `js/midi-file.js` | Lecture / écriture de fichiers MIDI standard (type 0 et 1), sans dépendance |
 | `js/midi.js`     | Import MIDI (quantification, pistes, analyse de la structure en scènes) et export MIDI (arrangement, arpèges rendus, correspondances General MIDI) |
 | `js/midipanel.js` | Fenêtres Importer MIDI / Exporter MIDI (options, bilan, téléchargement) |
+| `js/render.js`, `js/audioexport.js` | Exporter l'audio : rendu hors temps réel (master, stems), mesures EBU R128, WAV 16 / 24 / 32 bits, archive ZIP ; fenêtre (options, progression, bilan) |
+| `js/expression.js` | Jeu des cordes, cuivres, bois, voix, piano et guitare : phrases, arc, soufflet, frappe, accords (mélodie, doigts, strum), pédale automatique, phrasé automatique, articulations des notes — fonctions pures |
+| `render.html`, `js/render-boot.js`, `js/render-host.js` | Page de rendu chargée dans un cadre invisible : moteur audio seul sur un `OfflineAudioContext` |
 | `js/transform.js` | Transformations d'une sélection de notes : inversion, rétrograde, durées ×2 / ×½, autre mode |
 | `js/ui.js`       | Rendu des pistes, grille, piano roll, dialogue |
 | `js/main.js`     | Démarrage, barre d'outils, raccourcis |

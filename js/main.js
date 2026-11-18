@@ -728,9 +728,15 @@
       if (opts.patch !== track.junoPatch || opts.analog !== track.instrument) delete track.juno;
       Object.assign(track, { instrument: opts.analog, junoPatch: opts.patch });
     } else {
-      // un autre instrument repart de son propre preset de sound design
-      if (opts.family !== track.family || opts.instrument !== track.instrument) delete track.sd;
+      // un autre instrument repart de son propre preset de sound design ; le jeu (expression, phrasé) le suit
+      const changedInst = opts.family !== track.family || opts.instrument !== track.instrument;
+      const prev = track.sd || {};
+      if (changedInst) delete track.sd;
       Object.assign(track, { family: opts.family, instrument: opts.instrument, sfv: opts.sfv || 0 });
+      if (changedInst) {
+        if (prev.expr && SS.exprFamily(track)) track.sd = { expr: prev.expr, ...(prev.phrase === 0 ? { phrase: 0 } : {}), ...(prev.pedal === 0 ? { pedal: 0 } : {}) };
+        else SS.applyExprDefault(track);
+      }
     }
     if (track.type === 'instrument') {
       // interrupteurs ARP / ACCORDS de la fenêtre (les réglages d'accords sont gardés)
@@ -881,6 +887,7 @@
   SS.band.init({ project: () => project, changed, setWizardDraft, toast: (m) => SS.ui.toast(m), wizardMode, openTrackDialog: (t, init) => SS.ui.openTrackDialog(t, init), apply: addBandTracks, applySong: addBandSong, bandTracks, hasNotes, writeMelody });
   SS.mySongs.init({ project: () => project, loadSong, flush: () => SS.autosave.saveNow() });
   SS.midiPanel.init({ project: () => project, loadSong: (p, opts) => loadSong(p, { changed: true, ...(opts || {}) }), flush: () => SS.autosave.saveNow() });
+  SS.audioExport.init({ project: () => project, stop });
   initHeader();
   initKeys();
   {

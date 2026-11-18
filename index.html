@@ -25,6 +25,7 @@
           <button id="saveProject" type="button" role="menuitem" title="Enregistrer (Ctrl+S ; Maj+clic : enregistrer sous)">Enregistrer<kbd>Ctrl+S</kbd></button>
           <button id="importMidi" type="button" role="menuitem" title="Créer un projet à partir d'un fichier MIDI (.mid) : pistes, scènes et arrangement">Importer MIDI…</button>
           <button id="exportMidi" type="button" role="menuitem" title="Exporter la chanson ou la scène en fichier MIDI (.mid) pour un logiciel de musique">Exporter MIDI…</button>
+          <button id="exportAudio" type="button" role="menuitem" title="Exporter la chanson en fichier audio WAV : le master (la chanson mixée et masterisée) et, si on veut, un fichier par musicien (stems)">Exporter l'audio…</button>
         </div>
       </div>
       <input id="title" class="title-input" type="text" spellcheck="false" aria-label="Titre du projet">
@@ -505,6 +506,7 @@
           <button type="button" class="fx-tab sd-tab" data-tab="env"><svg viewBox="0 0 24 24" class="sd-tab-ic" aria-hidden="true"><path d="M3 19 L7 5 L11 11 H16 L21 19"/></svg><span class="sd-tab-txt"><span>Enveloppes</span><small id="sdState_env" class="fx-state"></small></span></button>
           <button type="button" class="fx-tab sd-tab" data-tab="lfo"><svg viewBox="0 0 24 24" class="sd-tab-ic" aria-hidden="true"><path d="M3 12 C6 3 9 3 12 12 S18 21 21 12"/></svg><span class="sd-tab-txt"><span>LFOs</span><small id="sdState_lfo" class="fx-state"></small></span></button>
           <button type="button" class="fx-tab sd-tab" data-tab="glide"><svg viewBox="0 0 24 24" class="sd-tab-ic" aria-hidden="true"><path d="M3 18 H8 L16 6 H21"/></svg><span class="sd-tab-txt"><span>Glide</span><small id="sdState_glide" class="fx-state"></small></span></button>
+          <button type="button" class="fx-tab sd-tab" data-tab="play"><svg viewBox="0 0 24 24" class="sd-tab-ic" aria-hidden="true"><path d="M3 17 C8 5 16 5 21 17"/><path d="M7 19 H17"/></svg><span class="sd-tab-txt"><span>Jeu</span><small id="sdState_play" class="fx-state"></small></span></button>
           <button type="button" class="fx-tab sd-tab" data-tab="out"><svg viewBox="0 0 24 24" class="sd-tab-ic" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z M16 8.5a5 5 0 0 1 0 7"/></svg><span class="sd-tab-txt"><span>Sortie</span><small id="sdState_out" class="fx-state"></small></span></button>
           <p class="sd-flow" aria-hidden="true">VCO → Filtre → Ampli → Sortie</p>
         </nav>
@@ -578,6 +580,20 @@
             <div class="segmented sd-ftype" id="sdGlideMode" role="radiogroup" aria-label="Mode de glide"></div>
             <p id="sdGlideHint" class="sd-hint"></p>
             <div class="sd-sliders" id="sdGlideSliders"></div>
+          </section>
+
+          <section class="fx-pane" data-pane="play" aria-labelledby="sdPlayTitle">
+            <div class="fx-pane-head"><h3 id="sdPlayTitle">Jeu <small>expression et phrasé</small></h3></div>
+            <p class="fx-help">Comment le musicien joue les notes : nuances dans la phrase, timbre qui s’éclaircit dans le forte, notes liées ou détachées. Pour les cordes, les cuivres, les bois, les voix, le piano et la guitare.</p>
+            <span class="dlg-label">Expression</span>
+            <div class="segmented sd-ftype" id="sdExpr" role="radiogroup" aria-label="Expression"></div>
+            <p id="sdExprHint" class="sd-hint"></p>
+            <label class="sd-check"><input type="checkbox" id="sdPhrase"> <span id="sdPhraseText">Phrasé automatique : notes liées jouées legato, notes répétées détachées, doubles-croches isolées piquées</span></label>
+            <label class="sd-check" hidden><input type="checkbox" id="sdPedal"> Pédale automatique : chaque note tient jusqu’à la suivante, la pédale se relève sur le nouvel accord</label>
+            <p id="sdPedalHint" class="sd-hint" hidden>La piste a sa propre courbe de pédale (automation) : c’est elle qui joue.</p>
+            <p class="sd-hint">Une articulation écrite sur une note (clic droit sur la note : legato, staccato, détaché, tenuto, soufflet, étouffé) l’emporte toujours.</p>
+            <p id="sdExprFamily" class="sd-note"></p>
+            <div><button type="button" id="sdPlayPhrase" class="btn">▶ Écouter une phrase</button></div>
           </section>
 
           <section class="fx-pane" data-pane="out" aria-labelledby="sdOutTitle">
@@ -718,12 +734,63 @@
       <div class="dlg-row">
         <label class="midi-check"><input id="meAudible" type="checkbox" checked> Seulement les pistes qu'on entend (Mute / Solo)</label>
         <label class="midi-check"><input id="meSwing" type="checkbox" checked> Appliquer le swing et le placement des pistes</label>
+        <label class="midi-check"><input id="meExpr" type="checkbox" checked> Appliquer le jeu des pistes : nuances, articulations, strum, pédale (onglet Jeu)</label>
       </div>
       <div id="meReport" class="midi-report" aria-live="polite"></div>
       <div class="dlg-footer">
         <span class="spacer"></span>
         <button type="button" id="meCancel" class="btn">Annuler</button>
         <button type="submit" class="btn btn-accent">Exporter</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Exporter l'audio (js/audioexport.js, moteur js/render.js) : master et stems en WAV, rendus hors temps réel -->
+  <dialog id="audioExportDialog" class="midi-dialog ax-dialog" aria-labelledby="axTitle">
+    <form method="dialog" id="axForm">
+      <h2 id="axTitle">Exporter l'audio</h2>
+      <p class="dlg-sub">La chanson est calculée hors temps réel, exactement comme on l'entend (mixage et mastering compris), sans décrochage possible. Le rendu se fait dans le navigateur : rien n'est envoyé.</p>
+      <div id="axOptions" class="ax-options">
+        <div class="dlg-row">
+          <span class="dlg-label">Contenu</span>
+          <div class="segmented" id="axRange" role="radiogroup" aria-label="Contenu exporté">
+            <button type="button" data-v="song">Chanson (arrangement)</button>
+            <button type="button" data-v="scene">Scène en cours</button>
+          </div>
+          <label class="midi-check" id="axLoopsRow">Répéter la scène <input id="axLoops" type="number" min="1" max="64" value="4"> fois</label>
+        </div>
+        <div class="dlg-row">
+          <span class="dlg-label">Fichiers</span>
+          <label class="midi-check"><input id="axMaster" type="checkbox" checked> Master : la chanson mixée et masterisée</label>
+          <div class="segmented" id="axStems" role="radiogroup" aria-label="Stems">
+            <button type="button" data-v="none">Sans stems</button>
+            <button type="button" data-v="musician">Stems par musicien</button>
+            <button type="button" data-v="track">Stems par piste</button>
+          </div>
+          <small class="ax-hint">Stems : un fichier par musicien (toute la batterie ensemble) ou par piste, avec sa part de reverb et d'écho, sans le traitement du Master. Ensemble, ils redonnent le mix avant mastering, au même départ et à la même longueur.</small>
+        </div>
+        <div class="dlg-row ax-format">
+          <span class="dlg-label">Format</span>
+          <div class="segmented" id="axBits" role="radiogroup" aria-label="Résolution">
+            <button type="button" data-v="24">24 bits</button>
+            <button type="button" data-v="16">16 bits (CD)</button>
+            <button type="button" data-v="32">32 bits flottant</button>
+          </div>
+          <div class="segmented" id="axRate" role="radiogroup" aria-label="Fréquence d'échantillonnage">
+            <button type="button" data-v="44100">44,1 kHz</button>
+            <button type="button" data-v="48000">48 kHz (vidéo)</button>
+          </div>
+        </div>
+      </div>
+      <div id="axProgress" class="ax-progress" hidden>
+        <div class="ax-bar"><span id="axBarFill"></span></div>
+        <p id="axStage" aria-live="polite"></p>
+      </div>
+      <div id="axReport" class="midi-report" aria-live="polite"></div>
+      <div class="dlg-footer">
+        <span class="spacer"></span>
+        <button type="button" id="axCancel" class="btn">Annuler</button>
+        <button type="submit" id="axGo" class="btn btn-accent">Exporter</button>
       </div>
     </form>
   </dialog>
@@ -939,6 +1006,7 @@
   <script src="js/master-dsp.js?v=watch-1"></script>
   <script src="js/juno-dsp.js?v=watch-1"></script>
   <script src="js/juno.js?v=watch-1"></script>
+  <script src="js/expression.js"></script>
   <script src="js/arp.js"></script>
   <script src="js/project.js?v=ctl-1"></script>
   <script src="js/store.js"></script>
@@ -979,6 +1047,8 @@
   <script src="js/wizdraft.js"></script>
   <script src="js/band.js"></script>
   <script src="js/midipanel.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/audioexport.js"></script>
   <script src="js/ui.js?v=xform-1"></script>
   <script src="js/audiowatch.js?v=diag-1"></script>
   <script src="js/systempanel.js?v=diag-1"></script>

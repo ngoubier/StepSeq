@@ -168,7 +168,8 @@
   /* ================================================================== */
 
   function exportProject(project, opts = {}) {
-    const o = { range: 'song', loops: 1, audibleOnly: true, swing: true, ...opts };
+    const o = { range: 'song', loops: 1, audibleOnly: true, swing: true, expression: true, ...opts };
+    const played = { velo: 0, art: 0, strum: 0, pedal: 0, cc11: 0 }; // jeu exporté (bilan)
     // copie complète (les notes en cours d'édition sont rangées dans leur scène)
     const p = SS.normalizeProject(JSON.parse(SS.serialize(project)));
     const spb = SS.stepsPerBar(p);
@@ -272,20 +273,53 @@
             }
             continue;
           }
+          // jeu de la piste (js/expression.js) : le même plan qu'à la lecture, avec les courbes de la scène
+          const plan = o.expression && SS.expression ? SS.expression.forTrack({ ...t, auto: d.auto }, events, { stepsPerBeat: SS.stepsPerBeat(p), stepsPerBar: spb }) : null;
+          const fam = plan ? SS.exprFamily(t) : null;
+          const sec = (s) => (s / stepSec) * TPS; // secondes -> ticks
+          // nuance dans la note -> CC 11 (expression), sauf si la scène a sa propre courbe de volume (déjà en CC 11)
+          const cc11 = plan && !SS.exprStruck(fam) && !(d.auto && d.auto.volume);
           for (let start = 0; start < ticksTotal; start += len) {
             for (const ev of events) {
               if (ev.step >= len || start + ev.step >= ticksTotal) continue;
               const tick = start + ev.step;
               if (ev.cond && !ok(ev.cond, ev.step, tick)) continue;
-              const dur = Math.min(ev.len, len - ev.step) * TPS;
+              const ex = plan && plan.get(ev);
+              let dur = Math.min(ev.len, len - ev.step) * TPS;
+              if (ex) {
+                // durée jouée : staccato, détaché, legato qui chevauche, respiration
+                const written = dur;
+                dur = Math.max(Math.min(dur, sec(0.05)), dur * ex.durK + sec(ex.overlap) - Math.min(sec(ex.breath), dur * 0.4));
+                if (Math.abs(dur - written) > 1) played.art++;
+              }
               const shift = (ev.shift || 0) * TPS; // micro-décalage de la note (fraction de pas)
-              const at = (base + tick + swingAt(tick)) * TPS + nudge + shift;
+              const at = (base + tick + swingAt(tick)) * TPS + nudge + shift + (ex ? sec(ex.delay || 0) : 0);
+              if (ex && ex.holdTo) {
+                // pédale automatique du piano -> CC 64 : enfoncée juste après l'attaque, relevée sur la note suivante
+                const upAt = at + Math.min(ex.holdTo, len - ev.step) * TPS;
+                out.cc.push({ at: at + TPS / 8, cc: 64, val: 127 }, { at: upAt - 1, cc: 64, val: 0 });
+                played.pedal++;
+              }
+              if (cc11 && ex) {
+                // la forme de la note, un point tous les demi-pas (une courbe d'expression comme au clavier MIDI)
+                const n = Math.max(1, Math.round(dur / (TPS / 2)));
+                for (let q = 0; q <= n; q++) out.cc.push({ at: at + (q / n) * dur, cc: 11, val: clamp(Math.round(127 * Math.min(1, SS.expression.at(ex.shape, q / n))), 0, 127) });
+                played.cc11++;
+              }
               // ratchet : répétitions dans le premier pas, la dernière tient le reste de la note
               const r = ev.rat || 1;
               for (let j = 0; j < r; j++) {
-                const d = j < r - 1 ? (TPS / r) * 0.9 : Math.max((TPS / r) * 0.9, dur - (j * TPS) / r);
+                const dd = j < r - 1 ? (TPS / r) * 0.9 : Math.max((TPS / r) * 0.9, dur - (j * TPS) / r);
                 const v0 = ev.acc ? SS.accentVel(ev.vel) : ev.vel; // note accentuée : plus forte
-                for (const n of ev.notes) out.notes.push({ at: at + (j * TPS) / r, dur: d, note: n, vel: v0 * (j ? 0.85 : 1) });
+                ev.notes.forEach((nn, i) => {
+                  // force de frappe, mélodie au-dessus de l'accord ; doigts ou strum décalés
+                  const vm = ex ? (ex.velK ?? 1) * (ex.noteVel ? ex.noteVel[i] ?? 1 : 1) : 1;
+                  if (!vm) return; // strum vers le haut : la corde grave n'est pas jouée
+                  const dl = ex && ex.noteDelay ? sec(ex.noteDelay[i] || 0) : 0;
+                  if (dl) played.strum++;
+                  if (vm !== 1) played.velo++;
+                  out.notes.push({ at: at + (j * TPS) / r + dl, dur: Math.max(TPS / 8, dd - dl), note: nn, vel: Math.min(1, v0 * (j ? 0.85 : 1) * vm) });
+                });
               }
             }
           }
@@ -314,7 +348,16 @@
         if (prev && prev.end > n.at) prev.end = Math.max(prev.at + 1, n.at);
         lastOf.set(n.note, n);
       }
-      for (const c of out.cc) evs.push({ tick: Math.round(c.at), bytes: [0xb0 | ch, c.cc, c.val] });
+      // contrôleurs : dans l'ordre, un seul par contrôleur et par tick (le dernier gagne), sans répéter une même valeur
+      const ccs = out.cc.map((c, i) => ({ ...c, at: Math.max(0, Math.round(c.at)), i })).sort((a, b) => a.at - b.at || a.i - b.i);
+      const lastCc = {};
+      ccs.forEach((c, k) => {
+        const nx = ccs[k + 1];
+        if (nx && nx.at === c.at && nx.cc === c.cc) return;
+        if (lastCc[c.cc] === c.val) return;
+        lastCc[c.cc] = c.val;
+        evs.push({ tick: c.at, bytes: [0xb0 | ch, c.cc, c.val] });
+      });
       for (const b of out.bend) evs.push({ tick: Math.round(b.at), bytes: [0xe0 | ch, b.val & 0x7f, b.val >> 7] });
       for (const n of notes) {
         const vel = clamp(Math.round(n.vel * 127), 1, 127);
@@ -339,6 +382,16 @@
       approx.push(`Automation des pistes instrument en contrôleurs MIDI : ${autos} (une valeur par pas).`);
       if (scenesData.some(([, d]) => d.auto && d.auto.echo) || scenesData.some(([id, d]) => d.auto && p.tracks.some((t) => t.id === id && t.type === 'drum')))
         ignored.push("L'automation de l'écho et celle des pistes de batterie ne sont pas exportées.");
+    }
+    if (played.velo || played.art || played.strum || played.pedal || played.cc11) {
+      const what = [
+        played.velo ? 'nuances par la vélocité' : '',
+        played.cc11 ? 'nuance dans les notes en CC 11 (expression)' : '',
+        played.art ? 'articulations dans les durées (legato, staccato…)' : '',
+        played.strum ? 'strum et doigts décalés' : '',
+        played.pedal ? 'pédale automatique du piano en CC 64' : '',
+      ].filter(Boolean);
+      approx.push(`Jeu des pistes (onglet Jeu) : ${what.join(', ')}. Le timbre qui suit la nuance reste dans StepSeq.`);
     }
     if (p.groove && p.groove.human) ignored.push("L'humanisation (aléatoire) n'est pas appliquée.");
     if (p.tracks.some((t) => t.sd || t.fx || t.mix || t.juno)) ignored.push('Le sound design, les effets, le mixage et les réglages du Juno restent dans StepSeq (ce ne sont pas des données MIDI).');

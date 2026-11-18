@@ -412,6 +412,19 @@
         <li>Changer d'instrument avec ⚙ remet les réglages du preset du nouvel instrument.</li>
       </ul>
 
+      <h3 id="jeu">Jeu : expression et articulations (cordes, cuivres, bois, voix, piano, guitare)</h3>
+      <p>Un violoniste ne joue jamais deux notes pareil : l'archet enfle, lie, détache. L'onglet <b>Jeu</b> du Sound design fait jouer ta piste comme un musicien, sans rien dessiner.</p>
+      <ul>
+        <li><b>Expression</b> : <b>Aucune</b> (chaque note telle qu'elle est écrite), <b>Légère</b>, <b>Naturelle</b> ou <b>Expressive</b>. La phrase monte vers sa note la plus haute puis retombe, les notes longues enflent puis se posent, la fin de phrase s'éteint, et le timbre s'éclaircit dans le forte comme un vrai instrument. En Expressive, les très longues notes des cordes et des cuivres font un « fp » (attaque, recul, crescendo). Les vents et les voix respirent au bout des longues lignes. Une note n'est jamais plus forte que ce qui est écrit.</li>
+        <li><b>Phrasé automatique</b> : les notes qui se touchent sont jouées legato (sans nouvelle attaque), les notes répétées détachées, les doubles-croches isolées piquées.</li>
+        <li><b>Piano et claviers</b> : un piano ne peut pas enfler une note, alors la nuance passe par la <b>force de frappe</b> : la phrase monte et retombe, le timbre s'éclaircit quand on frappe fort. Dans un accord, la <b>mélodie chante au-dessus</b> et les doigts ne tombent pas tout à fait ensemble ; la fin de phrase s'étire un peu. La <b>pédale automatique</b> fait tenir chaque note jusqu'à la suivante et se relève sur le nouvel accord (case à décocher ; si tu as dessiné ta propre courbe de pédale, c'est elle qui joue).</li>
+        <li><b>Guitare</b> : les accords sont <b>grattés</b>, vers le bas sur les temps, vers le haut (plus léger, sans la corde grave) sur les contretemps, et le premier temps est plus marqué. Pour une rythmique étouffée, choisis <b>Étouffé</b> × dans le menu de la note.</li>
+        <li><b>Articulation d'une note</b> : clic droit sur la note, rangée <b>Jeu</b> : <b>Legato</b> ⌒ (liée à la suivante), <b>Staccato</b> • (courte), <b>Détaché</b> ‐, <b>Tenuto</b> — (tenue jusqu'au bout), <b>Soufflet</b> ◇ (crescendo puis decrescendo), <b>Étouffé</b> × (main posée sur les cordes), ou <b>Auto</b> (le phrasé décide). Le signe s'affiche sur la note. Une articulation écrite marche même sans expression, sur tous les instruments.</li>
+        <li>Les nouvelles pistes de cordes, cuivres, bois, voix, piano et guitare, et celles de l'assistant <b>Nouvelle chanson</b>, partent en <b>Naturelle</b>. Les cordes et cuivres de synthé peuvent l'avoir aussi (à choisir). Les pistes Synthé (Juno-106), les arpèges et l'orgue n'en ont pas.</li>
+        <li><b>Export MIDI</b> : la case <b>Appliquer le jeu des pistes</b> (cochée) écrit ce jeu dans le fichier, pour Cubase ou un autre logiciel : nuances dans la force des notes, nuance dans les notes en CC 11 (expression), articulations dans les durées, strum et doigts décalés, pédale du piano en CC 64. Décoche-la pour avoir les notes telles qu'écrites.</li>
+        <li><b>▶ Écouter une phrase</b> joue une phrase d'essai avec le réglage ; <b>Boucle</b> fait entendre tes propres notes. <b>Réinitialiser</b> ne touche pas au jeu.</li>
+      </ul>
+
       <h3 id="juno">Sound design d'une piste Synthé : la façade du Juno-106</h3>
       <p>Sur une piste Synthé, le bouton à curseurs ouvre une copie de la façade d'origine du Juno-106 : bandeaux rouges, curseurs gradués 0–10, touches blanches, jaunes et bleu pâle à LED, inverseurs, afficheur à LED rouge. Le son vient d'un portage du moteur de KR-106 (firmware du Juno-106, filtre IR3109, chorus BBD) : les réglages s'entendent tout de suite, même sur les notes tenues.</p>
       <div class="table-wrap"><table>
@@ -700,6 +713,17 @@
         <li>Le morceau est <b>analysé pour retrouver ses parties</b> : phrases de 4 mesures, changements d'orchestration, boucles qui se répètent. Chaque partie devient une scène, l'arrangement les enchaîne, et la lecture passe en mode Chanson. <b>Fidèle</b> garde toutes les variations (scènes plus longues), <b>Compact</b> confond les boucles qui se ressemblent (arrangement plus court). La fenêtre indique la part des notes du fichier rejouées à leur place. Les noms (Intro, Couplet, Refrain…) sont une estimation : renomme les scènes dans la fenêtre Song.</li>
         <li>Ce qui se perd à l'import : tout est placé sur la grille des doubles-croches (triolets et jeu non quantifié recalés), les roulements plus rapides sont fusionnés, le tempo et la mesure restent ceux du début, le pitch bend, la modulation et les autres contrôleurs sont ignorés. La fenêtre fait la liste de ce qui a été arrondi ou ignoré avant de créer le projet.</li>
         <li><b>Exporter</b> écrit la chanson (l'arrangement déplié, avec le nom des scènes en marqueurs) ou la scène en cours répétée, pour un logiciel de musique. Les arpèges sont exportés note par note, exactement comme on les entend ; le swing et le placement des pistes peuvent être appliqués. Les instruments <code>gm_*</code> et la batterie General MIDI sont exportés tels quels ; les autres sons (synthés intégrés, Juno-106, échantillons) sont remplacés par le programme ou la note GM le plus proche ; le sound design, les effets et le mixage restent dans StepSeq.</li>
+      </ul>
+
+      <h3 id="audio">Exporter l'audio (WAV)</h3>
+      <p><b>Exporter l'audio…</b> (menu de l'icône de l'application) crée le fichier audio de ta chanson, tel que tu l'entends : sons, mixage, effets et mastering compris. Le calcul se fait hors temps réel, dans le navigateur : pas de décrochage, et rien n'est envoyé sur Internet.</p>
+      <ul>
+        <li><b>Contenu</b> : toute la chanson (l'arrangement) ou la scène en cours, répétée le nombre de fois voulu.</li>
+        <li><b>Master</b> : la chanson finie, mixée et masterisée, prête à écouter ou à publier.</li>
+        <li><b>Stems</b> : un fichier par musicien (toute la batterie ensemble) ou par piste, avec sa reverb et son écho mais sans le traitement du Master. Posés ensemble dans un logiciel de musique (Cubase, Ableton…), ils redonnent le mix : c'est ce qu'on envoie à un ingénieur de mixage ou de mastering. Tous commencent au même instant et ont la même longueur. Plusieurs fichiers sont regroupés dans une archive <code>.zip</code>.</li>
+        <li><b>Format</b> : 24 bits pour travailler ou livrer, 16 bits pour un CD, 32 bits flottant si un stem sature ; 44,1 kHz pour la musique, 48 kHz pour la vidéo.</li>
+        <li>Après l'export, le <b>bilan du master</b> donne son volume (LUFS) et ce qu'en feront Spotify ou YouTube (ils ramènent tout vers −14 LUFS), sa crête vraie (à garder sous −1 dBTP), sa dynamique et sa compatibilité mono.</li>
+        <li>Le calcul prend environ la moitié de la durée de la chanson pour le master, autant pour chaque stem. <b>Arrêter</b> l'interrompt.</li>
       </ul>
 
       <h2 id="raccourcis">Raccourcis et astuces</h2>
