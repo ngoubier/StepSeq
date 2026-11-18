@@ -29,6 +29,9 @@ SS.audioWatch = (() => {
     settle: 4000, // mode Diagnostic : attente après un allègement avant d'en décider un autre (ms)
     maxSteps: 8, // mode Diagnostic : allègements ciblés au plus, ensuite mode allégé complet
     journal: 500, // lignes gardées dans le journal de débogage
+    warmup: 1500, // début de lecture : les décrochages du démarrage de la sortie (Android) ne déclenchent pas d'allègement (ms)
+    lightCheck: 8000, // mode allégé : délai après lequel on juge s'il a fait cesser les décrochages (ms)
+    lightUseless: 3, // décrochages encore relevés pendant ce délai : la surcharge ne vient pas du moteur
   };
   const dB = (v) => (v > 0 ? 20 * Math.log10(v) : -Infinity);
   const fmtDb = (v) => (v >= 0 ? '+' : '−') + Math.abs(dB(v)).toFixed(1).replace('.', ',') + ' dB';
@@ -55,6 +58,17 @@ SS.audioWatch = (() => {
     if (state.incidents.length > CFG.keep) state.incidents.length = CFG.keep;
     state.unseen++;
     return full;
+  }
+
+  const externalAdvice = 'Essayer sans casque ou enceinte Bluetooth, désactiver l\'économie d\'énergie (et le mode « Performances optimisées » éventuel) et l\'optimisation de batterie de Chrome, fermer les applications en arrière-plan, puis recharger la page.';
+
+  /**
+   * Bilan du mode allégé automatique : a-t-il fait cesser les décrochages ? `light` : { at, underruns } au moment où il
+   * a été activé ; `underruns` : compteur actuel. 'wait' tant que le délai n'est pas écoulé, 'ok' ou 'useless' ensuite.
+   */
+  function lightVerdict(light, now, underruns) {
+    if (!light || now - light.at < CFG.lightCheck) return 'wait';
+    return underruns - light.underruns >= CFG.lightUseless ? 'useless' : 'ok';
   }
 
   const trackName = (names, id) => (names && names.get(id)) || 'piste';
@@ -170,7 +184,9 @@ SS.audioWatch = (() => {
     const heavy = (env.load || []).slice(0, 3).map((x) => x.label);
     const lighten = heavy.length ? `Alléger d'abord : ${heavy.join(', ')}.` : 'Alléger les effets et synthés.';
     const latencyTip = env.latency === 'interactive' ? ' Le plus efficace : régler la latence sur « Lecture sûre » (fenêtre Système).' : '';
-    const underAdvice = `Le processeur ne calcule pas le son assez vite.${latencyTip} ${lighten} Fermer les autres onglets et applications ; sur un portable, brancher le secteur.`;
+    const underAdvice = env.external
+      ? `Les coupures continuent même effets coupés : elles viennent de la sortie audio de l'appareil, pas des calculs de StepSeq. ${externalAdvice}`
+      : `Le processeur ne calcule pas le son assez vite.${latencyTip} ${lighten} Fermer les autres onglets et applications ; sur un portable, brancher le secteur.`;
     if (snap.stats && snap.stats.underrunEvents != null) {
       const p0 = prev && prev.stats ? prev.stats.underrunEvents : snap.stats.underrunEvents;
       const d = Math.max(0, snap.stats.underrunEvents - p0);
@@ -384,6 +400,8 @@ SS.audioWatch = (() => {
     if (journal.length > CFG.journal) journal.splice(0, journal.length - CFG.journal);
   }
   let lastMetrics = -Infinity;
+  let runAt = -Infinity; // début de la lecture en cours
+  let external = false; // décrochages indépendants de la charge (mode allégé inefficace) pendant cette lecture
   /** Une ligne de mesures toutes les 2 s pendant la lecture : la tendance avant et après chaque allègement. */
   function logMetrics(snap, now) {
     if (!snap.playing || now - lastMetrics < 2000) return;
@@ -392,7 +410,8 @@ SS.audioWatch = (() => {
     const r = snap.render;
     const parts = [
       r ? `charge moy ${Math.round(r.average * 100)}% pic ${Math.round(r.peak * 100)}% underrun ${(r.underrun * 100).toFixed(1)}%` : 'charge n/d',
-      snap.stats && snap.stats.underrunEvents != null ? `underrunEvents ${snap.stats.underrunEvents}` : null,
+      snap.stats && snap.stats.underrunEvents != null ? `underrunEvents ${snap.stats.underrunEvents}${snap.stats.underrunDuration != null ? ` (${Math.round(snap.stats.underrunDuration * 1000)} ms de trous)` : ''}` : null,
+      snap.outputLatency != null ? `latence sortie ${Math.round(snap.outputLatency * 1000)} ms` : null,
       c.clockRatio != null ? `horloge ${(c.clockRatio * 100).toFixed(1)}%` : null,
       `décrochages ${c.underruns}`,
       `retards ${snap.scheduling ? snap.scheduling.lateSteps : 0} (max ${snap.scheduling ? Math.round(snap.scheduling.maxLateMs) : 0} ms, tick max ${snap.scheduling && snap.scheduling.maxTickMs != null ? Math.round(snap.scheduling.maxTickMs) : '?'} ms)`,
@@ -605,7 +624,7 @@ SS.audioWatch = (() => {
     // l'analyse de l'Auto Mix tire des analyseurs sur toute la chaîne : en pause pendant le mode allégé
     const automix = !!(SS.automixListen && SS.automixListen.listening());
     if (automix) SS.automixListen.stop();
-    lightInfo = { at: now, auto: !!auto, reason, automix };
+    lightInfo = { at: now, auto: !!auto, reason, automix, underruns: state.counters.underruns, judged: false };
     log('ALLÉGÉ', `activé (${auto ? 'auto' : 'manuel'}) : ${reason || '?'} · ${n} étages contournés${automix ? ' · Auto Mix suspendu' : ''}`, now);
     const inc = raise(state, {
       kind: 'light',
@@ -654,6 +673,8 @@ SS.audioWatch = (() => {
     // nouvelle lecture, même relancée aussitôt après Stop : l'allègement automatique de la précédente prend fin
     if (snap.run !== lastRun) {
       lastRun = snap.run;
+      runAt = now;
+      external = false;
       declined = false;
       diag.declined = false;
       log('LECTURE', `départ #${snap.run} · ${snap.sampleRate} Hz · base ${((snap.baseLatency || 0) * 1000).toFixed(1)} ms · sortie ${((snap.outputLatency || 0) * 1000).toFixed(1)} ms${diag.done.length ? ' · ' + diag.done.length + ' allègement(s) ciblé(s) conservé(s)' : ''}`, now);
@@ -670,7 +691,7 @@ SS.audioWatch = (() => {
     }
     const masterVolume = project ? SS.masterParams(project).volume : null;
     const latency = SS.audio.latency ? SS.audio.latency().active : null;
-    const r = assess(state, snap, { now, names, load, masterVolume, hidden: document.hidden, latency });
+    const r = assess(state, snap, { now, names, load, masterVolume, hidden: document.hidden, latency, external });
     if (snap.playing !== wasPlaying) {
       if (wasPlaying !== null) log('LECTURE', snap.playing ? 'reprise' : snap.paused ? 'pause' : 'arrêt', now);
       wasPlaying = snap.playing;
@@ -694,11 +715,32 @@ SS.audioWatch = (() => {
     const repairLog = r.actions.length ? r.actions.join('+') : null;
     if (repairLog) log('RÉPARE', repairLog, now);
     // mode Diagnostic : on allège d'abord l'élément le plus lourd, une marche à la fois, et on vérifie l'effet
-    const over = snap.playing ? overload(state, now) : null;
+    // mode allégé automatique sans effet : la sortie de l'appareil décroche d'elle-même, on rend les effets
+    if (lightInfo && lightInfo.auto && !lightInfo.judged && snap.playing) {
+      const v = lightVerdict(lightInfo, now, state.counters.underruns);
+      if (v !== 'wait') {
+        lightInfo.judged = true;
+        const more = state.counters.underruns - lightInfo.underruns;
+        log('BILAN', `mode allégé → ${v === 'ok' ? 'efficace' : `inefficace : ${more} décrochage(s) en ${CFG.lightCheck / 1000} s, effets coupés et presque rien à calculer`}`, now);
+        if (v === 'useless') {
+          external = true;
+          restore(true);
+          for (const inc of state.incidents) if (inc.kind === 'light' && inc.fixed) inc.fixed = 'Effets rétablis : le mode allégé ne supprimait pas les coupures';
+          raise(state, { kind: 'external', level: 'warn', where: 'device', title: 'Coupures venant de l\'appareil', detail: `Les décrochages continuent effets coupés (${more} en ${CFG.lightCheck / 1000} s) : ils ne viennent pas de la charge de StepSeq mais de la sortie audio du système.`, advice: externalAdvice }, now);
+          if (SS.ui && SS.ui.toast) {
+            lastToast = now;
+            SS.ui.toast('Coupures venant de l\'appareil, pas de StepSeq : effets rétablis', 8000, { label: 'Diagnostic', run: () => SS.systemPanel.open() });
+          }
+          notify();
+        }
+      }
+    }
+    // pas d'allègement sur les à-coups du démarrage de la sortie, ni quand on sait que la charge n'y est pour rien
+    const over = snap.playing && !external && now - runAt >= CFG.warmup ? overload(state, now) : null;
     if (over) diag.overloads++;
     const diagSlow = over && !diag.declined && !declined && diagMode() && !SS.audio.isLight() ? over : null;
     if (diagSlow) diagOverload(diagSlow, project, now);
-    const slow = !diagMode() && snap.playing && !declined && autoLight() && !SS.audio.isLight() ? overload(state, now) : null;
+    const slow = !diagMode() && !declined && autoLight() && !SS.audio.isLight() ? over : null;
     if (slow && lighten(slow.kind === 'underrun' ? 'Processeur saturé' : 'Lecture qui prend du retard', true)) {
       if (SS.ui && SS.ui.toast) {
         lastToast = now;
@@ -725,6 +767,7 @@ SS.audioWatch = (() => {
     verdict,
     estimateLoad,
     overload,
+    lightVerdict,
     reliefSteps,
     diagDecide,
     diagMode,
