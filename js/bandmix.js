@@ -213,7 +213,7 @@ SS.bandMix = (() => {
     master.mix.comp = comp(-10, 2, 0.03, 0.2, 0, 8); // « glue » : 1 à 2 dB de réduction sur les passages forts
     master.mix.lim = { ...master.mix.lim, on: false }; // le limiteur du mastering prend le relais
     const club = style === 'edm' || style === 'techno';
-    master.mastering = { on: true, drive, ceiling: -1, width: style === 'edm' ? 1.5 : style === 'techno' ? 1.35 : 1.12, mono: club ? 120 : 100, release: club ? 0.12 : 0.18, clip: 0.5 };
+    master.mastering = { on: true, drive, ceiling: -1, width: style === 'edm' || style === 'techno' ? 1.35 : 1.12, mono: club ? 120 : 100, release: club ? 0.12 : 0.18, clip: 0.5 };
     project.master = master;
   }
 

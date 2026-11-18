@@ -1448,7 +1448,7 @@ SS.bandSong = (() => {
   function dynDrumsAuto(k, bars, dyn = 'build', tech = false) {
     const n = bars * SPB;
     if (dyn === 'outro') return k === 'bd' ? { volume: { 0: 0.75 } } : null; // outro DJ : le kick reste, tout le reste baisse
-    if (dyn === 'groove' || dyn === 'intro') return k === 'bd' ? { volume: { 0: tech ? 0.6 : 0.8 } } : null; // techno : le kick du groove est plus en retrait, le drop est son retour
+    if (dyn === 'groove' || dyn === 'intro') return k === 'bd' ? { volume: { 0: tech ? 0.75 : 0.85 } } : null; // kick du groove un peu en retrait (−2,5 dB en techno, −1,4 dB en EDM) : il reste le moteur, le drop est son plein retour
     if (k === 'bd') return { volume: { 0: 0.42, [Math.round(n * 0.75)]: 1 } };
     if (k === 'bk') return { volume: ramp(n, 0.6, 1) };
     if (['hh', 'sh', 'tb', 'rim', 'oh'].includes(k)) return { volume: ramp(n, 0.5, 1) };
@@ -1464,7 +1464,7 @@ SS.bandSong = (() => {
         if (f) a.filter = { 0: f };
         return a;
       }
-      if (role === 'bass') return { volume: { 0: 0.4 }, filter: { 0: -0.2 } };
+      if (role === 'bass') return { volume: { 0: 0.6 }, filter: { 0: -0.25 } }; // basse retenue (−4,4 dB) et un peu fermée
     }
     if (kind === 'build' && mel) return { volume: ramp(n, 0.35, 1) };
     if (kind === 'first' && mel && role !== 'lead') return { volume: { 0: 0.9 } };

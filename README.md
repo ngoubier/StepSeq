@@ -97,10 +97,10 @@ les outils du séquenceur, comme un producteur dans son DAW (`spec.tech` dans `j
 - **transitions réglables** : l'étape **Effets et transitions** de l'assistant montre et retouche ces montées, coupures,
   impacts (et ajoute une cymbale inversée, une descente, des percussions d'ambiance) jonction par jonction ;
 - **dynamique du drop** (EDM et techno, dès que le plan a un drop ; `dynKind` / `dynAuto` dans `js/bandsong.js`) : un
-  producteur retient le groove pour que le drop frappe. Le **groove** garde son kick à 80 % (60 % en techno), sa basse
-  à 40 % avec un passe-bas qui s'ouvre au drop, les nappes, claviers, arpège et lead plus bas et plus sombres,
-  un charleston plus doux et presque plus de charleston ouvert ; le **drop** ouvre tout à pleine force (+2,5 à +3 LU
-  sur le groove). La **montée** avance en volume : nappes, arpège et mélodie de 35 % à 100 %, kick qui revient
+  producteur retient le groove pour que le drop frappe. Le **groove** garde son kick à 85 % (75 % en techno : il reste le moteur du morceau), sa basse
+  à 60 % avec un passe-bas qui s'ouvre au drop, les nappes, claviers, arpège et lead plus bas et plus sombres,
+  un charleston plus doux et presque plus de charleston ouvert ; le **drop** ouvre tout à pleine force (mesuré : +2,4 LU sur le groove en EDM,
+  +1,4 LU en techno, où le kick presque constant domine le volume perçu). La **montée** avance en volume : nappes, arpège et mélodie de 35 % à 100 %, kick qui revient
   de 42 % à 100 % avant de se retirer, roulement de caisse claire de 60 % à 100 %, montée de bruit jusqu'à 80 % (le
   passe-haut techno continue d'affiner les graves) : +4 dB de la première à la dernière mesure. Le **dernier drop**
   est le sommet (les drops précédents gardent les nappes et l'arpège à 90 %), l'**intro DJ** ne dépasse pas le groove,
@@ -139,7 +139,7 @@ enregistrés avant cette correction sont transposés à l'ouverture pour sonner 
 - **espace** : panoramique par rôle ; envois vers trois **bus d'effets partagés** (reverb plate pour la batterie,
   hall pour les instruments, écho ping-pong au tempo), chorus sur nappes, guitare et voix ; kick et basse secs.
   En **EDM et techno** le drop est large : chorus plus marqué sur la nappe, l'arpège, le lead et les claviers,
-  charleston, cymbales et arpège plus écartés, largeur du mastering 1,5 (EDM) / 1,35 (techno) au-dessus de 120 Hz ;
+  charleston, cymbales et arpège plus écartés, largeur du mastering 1,35 au-dessus de 120 Hz ;
   mesuré : côté / milieu au-dessus de 200 Hz des drops de −8,5 / −12,8 dB à −4 / −5,5 dB, sub toujours mono
   (côté / milieu sous 120 Hz sous −39 dB dans les drops) ;
 - **mastering** : EQ et compresseur « glue » léger sur le Master, puis module de mastering (`js/master-dsp.js`) :

@@ -487,7 +487,7 @@ test('EDM et techno : le groove est retenu, la montée avance, le dernier drop e
       if (sec.drums === 'main' && sc.sec !== 'outro') {
         // groove : nappes, arpège, lead plus bas ; basse filtrée et plus basse ; le drop n'a pas ces courbes de retenue
         mels.forEach((t) => plays(sc.data[t.id]) && assert.ok(vol(sc.data[t.id]) && first(vol(sc.data[t.id])) < 0.8, `${p.id} / ${sc.sec} : ${t.id} pas retenu`));
-        if (sc.data.bass && plays(sc.data.bass)) assert.ok(first(vol(sc.data.bass)) < 0.6 && sc.data.bass.auto.filter[0] < 0, `${p.id} / ${sc.sec} : basse non retenue`);
+        if (sc.data.bass && plays(sc.data.bass)) assert.ok(first(vol(sc.data.bass)) < 0.7 && sc.data.bass.auto.filter[0] < 0, `${p.id} / ${sc.sec} : basse non retenue`);
       }
       if (sec.drums === 'build') {
         mels.forEach((t) => plays(sc.data[t.id]) && assert.ok(first(vol(sc.data[t.id])) < 0.5 && last(vol(sc.data[t.id])) === 1, `${p.id} : ${t.id} ne monte pas dans la montée`));
