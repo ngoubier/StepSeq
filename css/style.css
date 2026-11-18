@@ -2368,6 +2368,8 @@ svg.g-big { width: 100%; height: auto; background: #1d1d22; border-radius: 8px; 
 .bw-cell.off .bw-slot { opacity: .4; }
 .bw-track.off, .bw-group.off { opacity: .5; text-decoration: line-through; }
 .bw-cell.muted .bw-clip { opacity: .3; filter: saturate(.3); }
+.bw-cell.bw-open { cursor: pointer; }
+.bw-cell.bw-open:hover .bw-clip, .bw-cell.bw-open:hover .bw-slot { outline: 1px solid color-mix(in srgb, var(--c, #888) 70%, #fff); outline-offset: 1px; }
 .bw-track.muted span { opacity: .55; }
 /* écoute : bandeau de l'ordre des scènes, scène qui joue, tête de lecture, Muet / Solo */
 .bw-order { display: flex; align-items: center; gap: 10px; flex-basis: 100%; min-width: 0; }
