@@ -4972,6 +4972,16 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 .bwhz-meter i::after { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--v); background: #c9a227; }
 .bwhz-empty { display: flex; flex-direction: column; gap: 4px; padding: 16px; border: 1px dashed var(--line2); border-radius: 10px; color: var(--muted); font-size: 13px; }
 .bwhz-empty b { color: var(--text); }
+/* Développer le motif / Section qui contraste (étape Mélodie) */
+.bwdv-roll { height: 132px; }
+.bwdv-roll.mini { height: 54px; background: #141418; }
+.bwdv-roll .bwhz-bl.odd { background: #222228; }
+.bwdv-mark { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, #b07cff 12%, transparent); border-left: 1px solid color-mix(in srgb, #b07cff 50%, transparent); border-right: 1px solid color-mix(in srgb, #b07cff 50%, transparent); }
+.bwdv-roll.mini .bwhz-n { height: 5px; }
+.bwhz-n.mot, .bwdv-sw.mot { background: #b07cff; }
+.bwhz-n.new, .bwdv-sw.new { background: #3fcf8e; }
+.bwdv-card { cursor: default; }
+.bwdv-why { margin: 0; font-size: 13px; line-height: 1.45; color: var(--muted); }
 /* Assistant, étape Arrangement : énergie voulue et mesurée, qui joue où, à travailler */
 .bwar { display: flex; flex-direction: column; gap: 12px; overflow: auto; min-height: 0; }
 .bwar > * { flex-shrink: 0; }
