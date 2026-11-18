@@ -564,6 +564,8 @@ SS.newTrack = (opts, project) => {
   SS.migrateCategory(track, opts);
   // une piste qui arpège ou joue des accords part d'un registre médium
   if (track.arpOn || track.follow || opts.category === 'chord') track.octave = Math.max(3, fam.octave);
+  // cordes, cuivres, bois, voix : jouées avec une expression naturelle (js/expression.js, onglet Jeu du Sound design)
+  if (SS.applyExprDefault && !track.arpOn && !track.follow) SS.applyExprDefault(track);
   return track;
 };
 
@@ -715,7 +717,7 @@ SS.normalizeProject = (data) => {
       track.sfv = Number.isInteger(t.sfv) && t.sfv >= 0 ? t.sfv : track.sfv || 0;
       track.type = 'instrument';
       track.events = Array.isArray(t.events) ? t.events : [];
-      track.events.forEach((e) => SS.cleanAccent(SS.cleanCond(SS.cleanRatchet(SS.cleanShift(e)))));
+      track.events.forEach((e) => SS.cleanAccent(SS.cleanCond(SS.cleanRatchet(SS.cleanShift(SS.cleanArt ? SS.cleanArt(e) : e)))));
       track.arp = SS.Arp.normalize(t.arp); // ARP ONE (js/arp.js) : réglages bornés, anciens projets compris
       SS.migrateCategory(track, t); // catégorie Mono / Arpège / Accord des anciens projets → ARP / ACCORDS
       track.chord = t.chord || 'min';

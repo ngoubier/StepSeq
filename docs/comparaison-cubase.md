@@ -36,9 +36,9 @@ comptent pour nos usages (synthés, arpèges, synthwave, techno mélodique, cin�
 | 11 | Mixage | ➕ | Console Mix, bus partagés, sidechain, mastering, et l'assistant Auto Mix |
 | 12 | Automation et modulation | ✅ | Lignes d'automation par scène, verrous de son par note, LFO 1 et 2 |
 | 13 | Synthés et contrôleurs physiques | ✗ | Seulement par fichier MIDI exporté ; pas de Web MIDI |
-| 14 | Orchestration, partition, image | ◐ | Instruments GM et cordes / cuivres échantillonnés ; pas d'articulations, de partition ni de vidéo |
+| 14 | Orchestration, partition, image | ◐ | Instruments GM et cordes / cuivres échantillonnés, expression et articulations par note ; pas de techniques de jeu par note, de partition ni de vidéo |
 | 15 | Voix synthétiques et paroles | ◐ | Les paroles guident la mélodie (syllabes) ; pas de synthèse vocale |
-| 16 | Export et livraison | ◐ | Export MIDI complet, mastering intégré ; pas d'export audio dans l'application |
+| 16 | Export et livraison | ✅ | Export MIDI complet ; export audio WAV (master et stems, 16 / 24 / 32 bits) avec bilan EBU R128 |
 | 17 | Éditions | — | StepSeq : gratuit, dans le navigateur, sans installation |
 | 18 | Fonctions clés pour nos usages | — | Voir « Priorités » plus bas |
 
@@ -81,7 +81,7 @@ comptent pour nos usages (synthés, arpèges, synthwave, techno mélodique, cin�
 | Contrôleurs (sustain, modulation, pitch bend…) | ✅ Lignes d'automation exportées en CC 74, 71, 11, 91, et contrôleurs MIDI : **pédale de sustain** (entendue dans StepSeq, CC 64), **modulation** (CC 1) et **pitch bend** (±2 demi-tons) pour un synthé externe. La pédale d'un fichier importé est convertie en durées de notes ; le sustain d'enveloppe (ADSR) est dans le sound design et sur le Juno-106 |
 | Éditeur de batterie | ✅ Pistes Drum nommées par élément |
 | Éditeur en liste | ✗ |
-| **Strum** (Cubase 16) | ◐ Gestes d'Arp One (Balayage, Roulé, Harpe) pour les pistes Arpège seulement ; rien pour les pistes Accord |
+| **Strum** (Cubase 16) | ✅ Gestes d'Arp One (Balayage, Roulé, Harpe) pour les pistes Arpège ; strum automatique des guitares (bas sur les temps, haut sur les contretemps) dans l'onglet Jeu, pistes Accord comprises |
 | **Stretch Selection** (Cubase 16) | ◐ Durées ×2 / ×½ de la sélection (pas d'étirement libre ni d'accélération interne) |
 | Noms de contrôleurs par synthé | — |
 
@@ -173,7 +173,10 @@ séquenceur du synthé. Il manque :
 
 ### 14. Orchestration, partition, image — ◐
 
-Instruments General MIDI, cordes, cuivres et bois VCSL ; pas d'Expression Maps (articulations), pas d'éditeur de
+Instruments General MIDI, cordes, cuivres et bois VCSL. **Jeu** (onglet du Sound design) : expression automatique
+(arc de phrase, soufflet, « fp », timbre qui suit la nuance, respiration), phrasé automatique et articulations par
+note (legato, staccato, détaché, tenuto, soufflet) — l'équivalent des Expression Maps, sans changement de technique
+(pizzicato, trémolo) dans une même piste pour l'instant. Pas d'éditeur de
 partition (le skill `midi-to-score` peut afficher la partition d'un fichier MIDI exporté), pas de vidéo.
 
 ### 15. Voix et paroles — ◐
@@ -181,12 +184,12 @@ partition (le skill `midi-to-score` peut afficher la partition d'un fichier MIDI
 Dans **Key → Mélodie**, des paroles facultatives sont découpées en syllabes françaises et donnent la structure de
 la mélodie (une note par syllabe). Pas de synthèse vocale, et les paroles ne sont pas gardées sur les notes.
 
-### 16. Export et livraison — ◐
+### 16. Export et livraison — ✅
 
 | Cubase | StepSeq |
 |---|---|
-| Export audio (format, résolution, fréquence) | ✗ dans l'application ; `tools/render-band-song.js` rend un WAV hors temps réel, en ligne de commande |
-| Export de stems (par piste) | ◐ Seulement piste par piste en ligne de commande (`SOLO=…`) |
+| Export audio (format, résolution, fréquence) | ✅ **Exporter l'audio…** : rendu hors temps réel, WAV 16 / 24 bits (dither TPDF) ou 32 bits flottant, 44,1 ou 48 kHz ; pas de MP3 ni de FLAC |
+| Export de stems (par piste) | ✅ Par musicien ou par piste, avec leurs envois d'effets, sans le traitement du Master, alignés sur le master (archive .zip) |
 | Export MIDI | ✅ Type 1, 480 PPQ, arrangement déplié, marqueurs, armures, arpèges rendus, correspondances GM |
 | Traitements de sortie, presets de mastering | ✅ Module de mastering (graves en mono, largeur, écrêtage doux, limiteur −1 dBTP) et objectifs LUFS par style |
 
@@ -204,11 +207,11 @@ la mélodie (une note par syllabe). Pas de synthèse vocale, et les paroles ne s
 
 Classées par intérêt pour nos usages (synthés, arpèges, composition) et par effort, compte tenu du code existant :
 
-1. **Export audio dans l'application** (WAV du mix, puis une piste à la fois pour les stems) : le rendu hors temps
-   réel existe déjà dans `tools/render-band-song.js`.
+1. ✅ **Export audio dans l'application** (fait) : menu **Exporter l'audio…** — master et stems en WAV, rendus hors
+   temps réel, avec le bilan EBU R128 du master.
 2. **Sortie Web MIDI** vers un synthé matériel (Fantom-06, Take-5), piste par piste, avec canal MIDI : l'export
    MIDI sait déjà convertir notes, arpèges et automation.
-3. **Strum sur les pistes Accord** : reprendre les gestes d'Arp One (Balayage, Roulé, Harpe).
+3. ✅ **Strum sur les pistes Accord** (fait pour les guitares) : onglet Jeu du Sound design, bas / haut selon le temps.
 4. **Entrée Web MIDI** : jouer depuis un clavier, puis enregistrement quantifié à la double-croche.
 5. **Tempo et mesure par scène** (pont plus lent, mesure en 3/4).
 6. **Triolets** dans la grille, et **groove** tiré d'une boucle.
@@ -230,8 +233,8 @@ Au-delà de la comparaison directe, classées par rapport entre effort et intér
 
 Plus ciblées :
 
-- **Cinématique** : ligne d'expression (CC 1 / CC 11), articulations simples par note (legato, staccato), ralentis
-  par scène.
+- **Cinématique** : ✅ expression et articulations par note (onglet Jeu), exportées en MIDI (CC 11, durées, CC 64) ;
+  restent les ralentis par scène.
 - **Techno mélodique** : générateur de rythmes euclidiens, LFO sur les envois et les effets.
 - **Couches** : une piste qui joue deux sons (unisson, octave) sans dupliquer les notes, équivalent léger des
   Instrument Stacks.

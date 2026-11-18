@@ -256,6 +256,7 @@ SS.juno = (() => {
   let moduleState = null; // { ctx, promise, ready }
   const nodes = new Map(); // clé de piste -> { node, dest, sent }
   let nextId = 1;
+  let eco = false; // mode éco (appareil trop lent) : voix sans suréchantillonnage, 4 voix au plus
 
   /** Charge le module (URL Blob : fonctionne aussi en ouvrant index.html directement). */
   function load(ctx) {
@@ -289,6 +290,7 @@ SS.juno = (() => {
       if (SS.audio && SS.audio.watchNode) SS.audio.watchNode(node, { label: 'Synthé Juno', area: 'track', trackId: key, engine: 'juno' });
       e = { ctx, node, dest: null, sent: '' };
       nodes.set(key, e);
+      if (eco) node.port.postMessage({ type: 'eco', on: true });
     }
     if (dest && e.dest !== dest) {
       e.node.disconnect();
@@ -351,5 +353,14 @@ SS.juno = (() => {
     nodes.delete(key);
   }
 
-  return { engineCount: () => nodes.size, load, play, noteOn, noteOff, applyParams, applyChorus: applyParams, allOff, remove, POLY: 6 };
+  /** Mode éco de tous les synthés (mode allégé, allègement ciblé du mode Diagnostic). */
+  function setEco(on) {
+    on = !!on;
+    if (on === eco) return false;
+    eco = on;
+    nodes.forEach((e) => e.node.port.postMessage({ type: 'eco', on }));
+    return true;
+  }
+
+  return { setEco, isEco: () => eco, engineCount: () => nodes.size, load, play, noteOn, noteOff, applyParams, applyChorus: applyParams, allOff, remove, POLY: 6 };
 })();

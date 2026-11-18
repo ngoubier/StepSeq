@@ -437,6 +437,14 @@ a.btn { text-decoration: none; }
 .acc-mark { position: absolute; left: 1px; right: 1px; top: 1px; height: 3px; border-radius: 2px; background: var(--gold); z-index: 2; pointer-events: none; }
 .ctx-acc { min-width: 92px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
 .ctx-acc.on { background: var(--gold); border-color: var(--gold); color: #161618; font-weight: 600; }
+.art-mark { position: absolute; left: 2px; bottom: 0; font-size: 10px; line-height: 1; color: #fff; text-shadow: 0 0 2px #000; z-index: 2; pointer-events: none; font-weight: 700; }
+.ctx-param.ctx-param-art { align-items: start; }
+.ctx-param-art .ctx-param-label { padding-top: 5px; }
+.ctx-arts { grid-column: 2 / -1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; min-width: 0; }
+.ctx-picker .ctx-param .ctx-arts button { width: auto; height: 26px; padding: 0 6px; border: 1px solid var(--line); background: var(--panel-3); color: var(--text); font-size: 12px; font-weight: 500; display: inline-flex; gap: 4px; align-items: center; justify-content: center; white-space: nowrap; }
+.ctx-picker .ctx-param .ctx-arts button b { color: var(--muted); font-weight: 700; }
+.ctx-picker .ctx-param .ctx-arts button.on { background: #6b4fd8; border-color: #8a72ff; color: #fff; }
+.ctx-picker .ctx-param .ctx-arts button.on b { color: #fff; }
 /* ratchet (pas de batterie ou note rejoués 2 à 4 fois) : un petit trait par coup, en bas du pas */
 .rat-mark {
   position: absolute;
@@ -810,6 +818,11 @@ dialog.sd-dialog { width: min(820px, calc(100vw - 32px)); }
 .sd-waves button svg { width: 28px; height: 20px; stroke-width: 1.8; }
 .sd-waves button.active { background: var(--accent); border-color: var(--accent); }
 .sd-ftype { align-self: flex-start; flex-wrap: wrap; margin-bottom: 4px; }
+.sd-check { display: flex; align-items: flex-start; gap: 8px; font-size: 13.5px; margin: 6px 0 2px; line-height: 1.4; }
+.sd-check input { margin-top: 3px; }
+.sd-check[hidden] { display: none; }
+.sd-check.dim { opacity: .5; }
+[data-pane="play"] .dlg-label { display: block; margin: 4px 0 6px; }
 .sd-ftype button { padding: 5px 10px; font-size: 13px; }
 .sd-hint { margin: 0 0 6px; font-size: 12px; color: var(--muted, #999); min-height: 1.2em; }
 .sd-note { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.5; }
@@ -3752,6 +3765,25 @@ dialog.midi-dialog { width: min(720px, calc(100vw - 32px)); }
 .midi-check input[type=number] { width: 60px; background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 4px 6px; font: inherit; }
 .midi-check[hidden] { display: none; }
 @media (max-width: 560px) { .midi-options { grid-template-columns: 1fr; } }
+
+/* ---------- Exporter l'audio (js/audioexport.js) ---------- */
+.ax-options { display: flex; flex-direction: column; gap: 14px; }
+.ax-options[hidden], .ax-progress[hidden] { display: none; }
+.ax-options .segmented { flex-wrap: wrap; align-self: flex-start; }
+.ax-format { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.ax-format .dlg-label { width: 100%; }
+.ax-hint { margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.45; }
+.ax-progress { display: flex; flex-direction: column; gap: 8px; }
+.ax-progress p { margin: 0; font-size: 14px; font-variant-numeric: tabular-nums; }
+.ax-bar { height: 8px; border-radius: 4px; background: var(--panel-2); border: 1px solid var(--line); overflow: hidden; }
+.ax-bar span { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+.ax-meas { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.ax-meas li { display: grid; grid-template-columns: minmax(150px, 190px) 110px 1fr; gap: 4px 12px; align-items: baseline; font-size: 13.5px; }
+.ax-meas b { font-weight: 600; }
+.ax-meas span { font-variant-numeric: tabular-nums; }
+.ax-meas small { color: var(--muted); }
+.ax-meas li.ax-warn span, .ax-meas li.ax-warn small, small.ax-warn, .ax-hint.ax-warn { color: #ffb347; }
+@media (max-width: 560px) { .ax-meas li { grid-template-columns: 1fr auto; } .ax-meas small { grid-column: 1 / -1; } }
 
 /* ---------- Mode General MIDI (fenêtre de piste, Band) ---------- */
 #dlgGmGroups .chip small { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }

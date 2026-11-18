@@ -244,3 +244,50 @@ test('diagDecide : attente après un allègement, étape suivante, puis mode all
   assert.equal(W.diagDecide({ done: [{}], lastAt: 1000 }, 1000 + W.CFG.settle, []).what, 'light');
   assert.equal(W.diagDecide({ done: new Array(W.CFG.maxSteps).fill({}), lastAt: 0 }, 99999, [step]).what, 'light');
 });
+
+test('mode allégé : jugé inefficace quand les décrochages continuent effets coupés', () => {
+  const L = { at: 1000, underruns: 5 };
+  assert.equal(W.lightVerdict(null, 99999, 50), 'wait');
+  assert.equal(W.lightVerdict(L, 1000 + W.CFG.lightCheck - 1, 50), 'wait');
+  assert.equal(W.lightVerdict(L, 1000 + W.CFG.lightCheck, 5 + W.CFG.lightUseless), 'useless');
+  assert.equal(W.lightVerdict(L, 1000 + W.CFG.lightCheck, 5 + W.CFG.lightUseless - 1), 'ok');
+  assert.equal(W.lightVerdict(L, 1000 + W.CFG.lightCheck, 5 + W.CFG.lightUseless, 3), 'synths');
+  assert.equal(W.lightVerdict(L, 1000 + W.CFG.lightCheck, 5 + W.CFG.lightUseless - 1, 3), 'ok');
+});
+
+test('décrochages hors moteur : le conseil ne parle plus du processeur', () => {
+  const st = W.newState();
+  const s = (n, t) => snap({ stats: { underrunEvents: n }, time: t });
+  W.assess(st, s(0, 0), { now: 0 });
+  W.assess(st, s(3, 0.25), { now: 250, external: true });
+  const inc = st.incidents.find((x) => x.kind === 'underrun');
+  assert.ok(inc && /sortie audio de l'appareil/.test(inc.advice) && /Bluetooth/.test(inc.advice));
+});
+
+test('mode Diagnostic : les synthés Juno passent en mode éco en premier', () => {
+  const p = SS.newProject();
+  p.tracks = [
+    { id: 'j1', name: 'Pad', type: 'instrument', family: 'analog' },
+    { id: 'j2', name: 'Basse', type: 'instrument', family: 'analog' },
+    { id: 'm', name: 'Muet', type: 'instrument', family: 'analog', mute: true },
+  ];
+  const steps = W.reliefSteps(p, {});
+  assert.equal(steps[0].key, 'juno');
+  assert.deepEqual({ ...steps[0].target }, { juno: true });
+  assert.match(steps[0].label, /2 pistes/);
+  assert.ok(!W.reliefSteps(p, { juno: true }).some((x) => x.key === 'juno'));
+});
+
+test('journal : résumé et origine d’un projet', () => {
+  const p = SS.newProject();
+  p.title = 'Essai';
+  p.tracks = [{ id: 'bw·a', type: 'instrument', family: 'analog' }, { id: 'bw·d', type: 'drum' }];
+  p.wizard = { savedAt: Date.UTC(2026, 10, 18, 5, 0), state: { mode: 'create', styleId: 'synthwave', presetId: 'nightcall', w: { step: 7 } } };
+  const s = W.projectSummary(p, { kind: 'écoute de l’assistant', detail: { lecture: 'scène « A » en boucle', vide: null } });
+  assert.match(s, /« Essai » \[/);
+  assert.match(s, /2 piste\(s\) \(Juno 1, batterie 1, autres 0\)/);
+  assert.match(s, /pistes d'écoute de l'assistant/);
+  assert.match(s, /style synthwave, inspiration nightcall, étape 7/);
+  assert.match(s, /origine : écoute de l’assistant — lecture scène « A » en boucle$/);
+  assert.match(W.projectSummary(SS.newProject(), null), /origine : inconnue/);
+});

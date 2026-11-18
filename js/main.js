@@ -47,6 +47,8 @@
   function restoreSnapshot(json) {
     const p = SS.normalizeProject(JSON.parse(json));
     if (project.wizard) p.wizard = project.wizard; // Annuler / Rétablir ne concernent que les pistes
+    const o = SS.audioWatch && SS.audioWatch.origin ? SS.audioWatch.origin(project) : null;
+    noteOrigin(p, 'Annuler / Rétablir (copie de l\'historique)', { avant: o ? o.kind : 'inconnue' });
     project = p;
     SS.ui.clearSelection();
     syncHeader();
@@ -235,9 +237,15 @@
     $('#songSub').textContent = sc ? sc.name : '—';
   }
 
-  function setProject(p) {
+  /** Origine d'une chanson pour le journal de débogage (js/audiowatch.js, section « Origine des projets »). */
+  function noteOrigin(p, kind, detail, keep) {
+    if (SS.audioWatch && SS.audioWatch.setOrigin) SS.audioWatch.setOrigin(p, { kind, detail, keep });
+  }
+
+  function setProject(p, origin) {
     stop();
     project = p;
+    if (origin) noteOrigin(p, origin.kind, origin.detail);
     SS.commitScene(p);
     SS.ui.clearSelection();
     state.openRolls = new Set();
@@ -309,7 +317,7 @@
       const fresh = SS.newProject();
       fresh.bars = 4; // nouvelle chanson : 4 mesures par défaut
       SS.commitScene(fresh);
-      await loadSong(fresh, { changed: true });
+      await loadSong(fresh, { changed: true, origin: { kind: 'nouvelle chanson vide', detail: { via: 'menu « Nouvelle chanson… » (assistant ouvert ensuite)' } } });
       // assistant : modèle d'instruments → la chanson en scènes × pistes → mélodie → pistes à importer
       // (fermer l'assistant laisse la chanson vide)
       SS.band.openWizard();
@@ -596,6 +604,7 @@
     project.groove = { ...(project.groove || { res: 0, swing: 0.5 }), ...(groove || { human: 0.15 }) }; // groove : swing et humanisation réglés à l'étape Batterie
     if (preset.cover) project.title = preset.cover.title;
     else if (!project.title || project.title === 'Nouveau projet') project.title = `Dans l'esprit de ${preset.song}`;
+    noteOrigin(project, 'assistant « Nouvelle chanson » : Créer la chanson', { style, inspiration: `${preset.id} (« ${preset.song} »${preset.artist ? ', ' + preset.artist : ''})`, reprise: preset.cover ? preset.cover.title : null, pistes: created.length, graineMelodie: melodySeed }, true);
     SS.loadScene(project, project.scenes[0].id, { commit: false });
     state.openRolls.clear();
     SS.audio.applyAllFx(project);
@@ -612,6 +621,7 @@
   }
 
   function addBandTracks(list, tempo, { replace = false } = {}) {
+    noteOrigin(project, replace ? 'assistant : pistes du groupe remplacées' : 'assistant : pistes du groupe ajoutées', { pistes: list.length }, true);
     let removed = [];
     if (replace) {
       removed = bandTracks();
@@ -718,9 +728,15 @@
       if (opts.patch !== track.junoPatch || opts.analog !== track.instrument) delete track.juno;
       Object.assign(track, { instrument: opts.analog, junoPatch: opts.patch });
     } else {
-      // un autre instrument repart de son propre preset de sound design
-      if (opts.family !== track.family || opts.instrument !== track.instrument) delete track.sd;
+      // un autre instrument repart de son propre preset de sound design ; le jeu (expression, phrasé) le suit
+      const changedInst = opts.family !== track.family || opts.instrument !== track.instrument;
+      const prev = track.sd || {};
+      if (changedInst) delete track.sd;
       Object.assign(track, { family: opts.family, instrument: opts.instrument, sfv: opts.sfv || 0 });
+      if (changedInst) {
+        if (prev.expr && SS.exprFamily(track)) track.sd = { expr: prev.expr, ...(prev.phrase === 0 ? { phrase: 0 } : {}), ...(prev.pedal === 0 ? { pedal: 0 } : {}) };
+        else SS.applyExprDefault(track);
+      }
     }
     if (track.type === 'instrument') {
       // interrupteurs ARP / ACCORDS de la fenêtre (les réglages d'accords sont gardés)
@@ -775,7 +791,7 @@
       const handle = SS.files.current();
       // la même chanson déjà dans la bibliothèque : son état actuel reste dans ses versions
       if (SS.autosave.libraryAvailable()) await SS.store.keepVersion(p.id).catch(() => {});
-      await loadSong(p, { changed: true, handle });
+      await loadSong(p, { changed: true, handle, origin: { kind: 'fichier ouvert', detail: { fichier: handle && handle.name, titre: p.title } } });
       SS.ui.toast(`Projet « ${p.title} » ouvert.`);
     } catch (e) {
       console.error(e);
@@ -784,8 +800,8 @@
   }
 
   /** Charge une chanson (Nouveau, Ouvrir, Mes chansons) et la range tout de suite dans la bibliothèque. */
-  async function loadSong(p, { changed: mark = false, handle = null } = {}) {
-    setProject(p);
+  async function loadSong(p, { changed: mark = false, handle = null, origin = null } = {}) {
+    setProject(p, origin || { kind: 'chargée (origine non précisée)' });
     if (mark) changed();
     else persist(); // c'est la chanson qu'on retrouvera au prochain démarrage
     dirty = false;
@@ -870,10 +886,14 @@
   });
   SS.band.init({ project: () => project, changed, setWizardDraft, toast: (m) => SS.ui.toast(m), wizardMode, openTrackDialog: (t, init) => SS.ui.openTrackDialog(t, init), apply: addBandTracks, applySong: addBandSong, bandTracks, hasNotes, writeMelody });
   SS.mySongs.init({ project: () => project, loadSong, flush: () => SS.autosave.saveNow() });
-  SS.midiPanel.init({ project: () => project, loadSong: (p) => loadSong(p, { changed: true }), flush: () => SS.autosave.saveNow() });
+  SS.midiPanel.init({ project: () => project, loadSong: (p, opts) => loadSong(p, { changed: true, ...(opts || {}) }), flush: () => SS.autosave.saveNow() });
+  SS.audioExport.init({ project: () => project, stop });
   initHeader();
   initKeys();
-  setProject(loadAutosave() || demoProject());
+  {
+    const saved = loadAutosave();
+    setProject(saved || demoProject(), saved ? { kind: 'démarrage : dernière chanson (sauvegarde locale)', detail: { titre: saved.title } } : { kind: 'démarrage : projet de démonstration (aucune sauvegarde locale)' });
+  }
   SS.autosave.init({ project: () => project, openLibrary: () => SS.mySongs.open() }).then(() => SS.autosave.songChanged());
   // L'audio ne peut démarrer qu'après un geste de l'utilisateur : on précharge les sons à ce moment-là.
   const unlock = () => {
