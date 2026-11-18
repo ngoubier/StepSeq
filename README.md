@@ -20,7 +20,7 @@ puis ouvrir <http://localhost:8000>.
 
 ## Interface
 
-- **En-tête** : icône de l'application (menu **Chansons**, **Nouvelle chanson…** (assistant sur une chanson vide), **Nouvelle chanson sur ce projet…** (le même assistant, sur le projet en cours), **Ouvrir**, **Enregistrer**, **Importer MIDI**, **Exporter MIDI**), titre du projet, tempo (BPM), un bouton ∿ à icône seule dont la bulle (au survol, au clic ou au clavier)
+- **En-tête** : icône de l'application (menu **Chansons**, **Nouvelle chanson…** (assistant sur une chanson vide), **Nouvelle chanson sur ce projet…** (le même assistant, sur le projet en cours), **Ouvrir**, **Enregistrer**, **Importer MIDI**, **Exporter MIDI**, **Exporter l'audio**), titre du projet, tempo (BPM), un bouton ∿ à icône seule dont la bulle (au survol, au clic ou au clavier)
   regroupe le chiffrage de mesure (4/4 par défaut, x/4 ou x/8), le nombre de mesures et le groove (swing, humanisation), **Lecture** et **Stop**, puis les fenêtres regroupées
   **Harmonie** (ancien Key ; la tonalité de la scène en sous-titre ; fenêtre Harmonie, propre à chaque scène : assistant
   émotion → grille d'accords pour démarrer, puis onglets Ambiance (émotions rangées par mode, trois pistes et 94 grilles de référence sourcées, dont le guide MusicEmotion et 42 fiches Piano Diary ; guide de chaque mode : couleur à faire entendre et boucle d'essai, grille posée sur l'onglet suivant), Chanson (grille commune sur toute la largeur, reprise des accords existants ; sous-onglets Chords pour les couches et Mélodie pour les réglages horizontaux) et Vérifier (la même grille et les mélodies) ; palette d'accords dans le piano roll, essais A/B), **Song** (fenêtre Song : scènes et arrangement, avec une case pour garder le panneau
@@ -718,6 +718,7 @@ node tests/e2e/debug-origin.js       # journal : origine des projets (démo, nou
 node tests/e2e/juno-eco.js           # mode éco des synthés Juno (mode allégé, mode Diagnostic, Rétablir)
 node tests/e2e/audio-diag.js         # mode Diagnostic : reverb raccourcie puis coupée en cas de décrochage, journal de débogage
 node tests/e2e/audio-perf.js
+node tests/e2e/audio-export.js       # Exporter l'audio : master .wav, master + stems .zip, arrêt, bilan
 node tests/e2e/automix-pilot.js
 node tests/e2e/automix-loud-bass.js
 node tests/e2e/band-close.js
@@ -926,6 +927,42 @@ le nom du patch) ; batteries Dirt-Samples / VCSL → note GM devinée d'après l
 `gm_*` (programme de la variante jouée) et la batterie General MIDI (note de la banque) sont exportés exactement. Non exporté :
 sound design, effets, mixage, mastering, humanisation.
 
+### Exporter l'audio : master et stems en WAV (`js/render.js`, `js/audioexport.js`, `render.html`)
+
+**Exporter l'audio…** (menu de l'icône de l'application) calcule la chanson en fichier WAV, **hors temps réel** :
+exactement ce qu'on entend avec Lecture (sons, mixage, effets, Master et mastering), mais plus vite que le temps réel
+et sans décrochage possible, puis le télécharge. Tout se fait dans le navigateur, rien n'est envoyé.
+
+- **Contenu** : la chanson (arrangement) ou la scène en cours, répétée 1 à 64 fois.
+- **Fichiers** : le **master** (la chanson mixée et masterisée) et, au choix, des **stems** : un fichier **par
+  musicien** (pistes Band d'un même musicien ensemble : toute la batterie, le percussionniste à part ; les autres
+  pistes, une par fichier) ou **par piste**. Seules les pistes qu'on entend (Muet / Solo) donnent un stem. Chaque stem
+  garde sa part de reverb et d'écho (envois vers les bus partagés) et le pompage du sidechain, mais pas le traitement
+  du Master : posés ensemble dans un logiciel de musique, ils redonnent le mix avant mastering (écart mesuré : −62 dB
+  sur la démo). Plusieurs fichiers : une archive `.zip` (`Titre - master.wav`, `Titre - stems/01 Batterie.wav`…).
+- **Format** : WAV PCM **24 bits** (par défaut) ou **16 bits** (CD), avec dither triangulaire (TPDF), ou **32 bits
+  flottant** (rien n'est écrêté) ; **44,1 kHz** ou **48 kHz** (vidéo).
+- **Bornes** : le pré-roll du moteur est retiré (le fichier commence sur la première note, en gardant les notes jouées
+  en avance et l'humanisation), la fin est coupée quand la queue de reverb passe sous −80 dBFS (8 s rendues après
+  la dernière mesure ; si elle sonne encore, fondu d'une demi-seconde). Master et stems ont le même départ et la même
+  longueur ; le master est recalé sur les stems (intercorrélation : le limiteur à anticipation du mastering le
+  retarde de 4 à 5 ms).
+- **Bilan du master** (EBU R128 / BS.1770-4, mesuré sur le fichier) : volume intégré et court terme maximal (LUFS),
+  ce qu'en feront les plateformes (−14 LUFS), crête vraie (sur-échantillonnage ×4, alerte au-dessus de −1 dBTP),
+  dynamique (PLR), écart de volume (LRA) et corrélation stéréo (compatibilité mono) ; crête de chaque stem (alerte à
+  0 dBFS hors 32 bits flottant).
+- **Arrêter** (ou <kbd>Échap</kbd>) interrompt le rendu. Durée : environ la moitié de la durée de la chanson par rendu
+  sur un ordinateur récent, et un rendu par stem en plus du master.
+
+Fonctionnement : chaque rendu se fait dans un cadre invisible qui charge `render.html` (le moteur audio seul : ni
+interface, ni « Mes chansons », ni enregistrement automatique ; le stockage du navigateur y est en lecture seule).
+`js/render-boot.js` y remplace le contexte audio par un `OfflineAudioContext` et retient la minuterie du séquenceur ;
+`js/render-host.js` charge tous les sons de toutes les scènes, lance la lecture en mode chanson comme le bouton
+Lecture et appelle le séquenceur toutes les 50 ms de son rendu. Pour qu'un stem tombe exactement sur le master, les
+tirages aléatoires (humanisation, bruit, réponses de reverb) suivent une suite fixe, et les autres pistes jouent à
+volume nul plutôt qu'en muet (mêmes notes programmées dans le même ordre, sidechain du kick compris). Tests :
+`node --test tests/render.test.js`, `node tests/e2e/audio-export.js`.
+
 ## Sons
 
 Les sons proviennent des bibliothèques utilisées par [strudel.cc](https://strudel.cc) :
@@ -1072,6 +1109,8 @@ Les accords par mode et par émotion (`js/emotions.js`) s'appuient sur trois doc
 | `js/midi-file.js` | Lecture / écriture de fichiers MIDI standard (type 0 et 1), sans dépendance |
 | `js/midi.js`     | Import MIDI (quantification, pistes, analyse de la structure en scènes) et export MIDI (arrangement, arpèges rendus, correspondances General MIDI) |
 | `js/midipanel.js` | Fenêtres Importer MIDI / Exporter MIDI (options, bilan, téléchargement) |
+| `js/render.js`, `js/audioexport.js` | Exporter l'audio : rendu hors temps réel (master, stems), mesures EBU R128, WAV 16 / 24 / 32 bits, archive ZIP ; fenêtre (options, progression, bilan) |
+| `render.html`, `js/render-boot.js`, `js/render-host.js` | Page de rendu chargée dans un cadre invisible : moteur audio seul sur un `OfflineAudioContext` |
 | `js/transform.js` | Transformations d'une sélection de notes : inversion, rétrograde, durées ×2 / ×½, autre mode |
 | `js/ui.js`       | Rendu des pistes, grille, piano roll, dialogue |
 | `js/main.js`     | Démarrage, barre d'outils, raccourcis |

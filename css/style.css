@@ -3753,6 +3753,25 @@ dialog.midi-dialog { width: min(720px, calc(100vw - 32px)); }
 .midi-check[hidden] { display: none; }
 @media (max-width: 560px) { .midi-options { grid-template-columns: 1fr; } }
 
+/* ---------- Exporter l'audio (js/audioexport.js) ---------- */
+.ax-options { display: flex; flex-direction: column; gap: 14px; }
+.ax-options[hidden], .ax-progress[hidden] { display: none; }
+.ax-options .segmented { flex-wrap: wrap; align-self: flex-start; }
+.ax-format { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.ax-format .dlg-label { width: 100%; }
+.ax-hint { margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.45; }
+.ax-progress { display: flex; flex-direction: column; gap: 8px; }
+.ax-progress p { margin: 0; font-size: 14px; font-variant-numeric: tabular-nums; }
+.ax-bar { height: 8px; border-radius: 4px; background: var(--panel-2); border: 1px solid var(--line); overflow: hidden; }
+.ax-bar span { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+.ax-meas { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.ax-meas li { display: grid; grid-template-columns: minmax(150px, 190px) 110px 1fr; gap: 4px 12px; align-items: baseline; font-size: 13.5px; }
+.ax-meas b { font-weight: 600; }
+.ax-meas span { font-variant-numeric: tabular-nums; }
+.ax-meas small { color: var(--muted); }
+.ax-meas li.ax-warn span, .ax-meas li.ax-warn small, small.ax-warn, .ax-hint.ax-warn { color: #ffb347; }
+@media (max-width: 560px) { .ax-meas li { grid-template-columns: 1fr auto; } .ax-meas small { grid-column: 1 / -1; } }
+
 /* ---------- Mode General MIDI (fenêtre de piste, Band) ---------- */
 #dlgGmGroups .chip small { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 #dlgGmGroups .chip.active small { color: inherit; opacity: .8; }

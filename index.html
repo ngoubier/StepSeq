@@ -25,6 +25,7 @@
           <button id="saveProject" type="button" role="menuitem" title="Enregistrer (Ctrl+S ; Maj+clic : enregistrer sous)">Enregistrer<kbd>Ctrl+S</kbd></button>
           <button id="importMidi" type="button" role="menuitem" title="Créer un projet à partir d'un fichier MIDI (.mid) : pistes, scènes et arrangement">Importer MIDI…</button>
           <button id="exportMidi" type="button" role="menuitem" title="Exporter la chanson ou la scène en fichier MIDI (.mid) pour un logiciel de musique">Exporter MIDI…</button>
+          <button id="exportAudio" type="button" role="menuitem" title="Exporter la chanson en fichier audio WAV : le master (la chanson mixée et masterisée) et, si on veut, un fichier par musicien (stems)">Exporter l'audio…</button>
         </div>
       </div>
       <input id="title" class="title-input" type="text" spellcheck="false" aria-label="Titre du projet">
@@ -728,6 +729,56 @@
     </form>
   </dialog>
 
+  <!-- Exporter l'audio (js/audioexport.js, moteur js/render.js) : master et stems en WAV, rendus hors temps réel -->
+  <dialog id="audioExportDialog" class="midi-dialog ax-dialog" aria-labelledby="axTitle">
+    <form method="dialog" id="axForm">
+      <h2 id="axTitle">Exporter l'audio</h2>
+      <p class="dlg-sub">La chanson est calculée hors temps réel, exactement comme on l'entend (mixage et mastering compris), sans décrochage possible. Le rendu se fait dans le navigateur : rien n'est envoyé.</p>
+      <div id="axOptions" class="ax-options">
+        <div class="dlg-row">
+          <span class="dlg-label">Contenu</span>
+          <div class="segmented" id="axRange" role="radiogroup" aria-label="Contenu exporté">
+            <button type="button" data-v="song">Chanson (arrangement)</button>
+            <button type="button" data-v="scene">Scène en cours</button>
+          </div>
+          <label class="midi-check" id="axLoopsRow">Répéter la scène <input id="axLoops" type="number" min="1" max="64" value="4"> fois</label>
+        </div>
+        <div class="dlg-row">
+          <span class="dlg-label">Fichiers</span>
+          <label class="midi-check"><input id="axMaster" type="checkbox" checked> Master : la chanson mixée et masterisée</label>
+          <div class="segmented" id="axStems" role="radiogroup" aria-label="Stems">
+            <button type="button" data-v="none">Sans stems</button>
+            <button type="button" data-v="musician">Stems par musicien</button>
+            <button type="button" data-v="track">Stems par piste</button>
+          </div>
+          <small class="ax-hint">Stems : un fichier par musicien (toute la batterie ensemble) ou par piste, avec sa part de reverb et d'écho, sans le traitement du Master. Ensemble, ils redonnent le mix avant mastering, au même départ et à la même longueur.</small>
+        </div>
+        <div class="dlg-row ax-format">
+          <span class="dlg-label">Format</span>
+          <div class="segmented" id="axBits" role="radiogroup" aria-label="Résolution">
+            <button type="button" data-v="24">24 bits</button>
+            <button type="button" data-v="16">16 bits (CD)</button>
+            <button type="button" data-v="32">32 bits flottant</button>
+          </div>
+          <div class="segmented" id="axRate" role="radiogroup" aria-label="Fréquence d'échantillonnage">
+            <button type="button" data-v="44100">44,1 kHz</button>
+            <button type="button" data-v="48000">48 kHz (vidéo)</button>
+          </div>
+        </div>
+      </div>
+      <div id="axProgress" class="ax-progress" hidden>
+        <div class="ax-bar"><span id="axBarFill"></span></div>
+        <p id="axStage" aria-live="polite"></p>
+      </div>
+      <div id="axReport" class="midi-report" aria-live="polite"></div>
+      <div class="dlg-footer">
+        <span class="spacer"></span>
+        <button type="button" id="axCancel" class="btn">Annuler</button>
+        <button type="submit" id="axGo" class="btn btn-accent">Exporter</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- Fenêtre Key : assistant (scène sans tonalité) ou onglets (modifier, vérifier) ; s'applique à la scène en cours -->
   <dialog id="harmonyDialog" class="hm-dialog" aria-labelledby="hmTitle">
     <form method="dialog" id="harmonyForm">
@@ -979,6 +1030,8 @@
   <script src="js/wizdraft.js"></script>
   <script src="js/band.js"></script>
   <script src="js/midipanel.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/audioexport.js"></script>
   <script src="js/ui.js?v=xform-1"></script>
   <script src="js/audiowatch.js?v=diag-1"></script>
   <script src="js/systempanel.js?v=diag-1"></script>

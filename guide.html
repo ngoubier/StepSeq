@@ -702,6 +702,17 @@
         <li><b>Exporter</b> écrit la chanson (l'arrangement déplié, avec le nom des scènes en marqueurs) ou la scène en cours répétée, pour un logiciel de musique. Les arpèges sont exportés note par note, exactement comme on les entend ; le swing et le placement des pistes peuvent être appliqués. Les instruments <code>gm_*</code> et la batterie General MIDI sont exportés tels quels ; les autres sons (synthés intégrés, Juno-106, échantillons) sont remplacés par le programme ou la note GM le plus proche ; le sound design, les effets et le mixage restent dans StepSeq.</li>
       </ul>
 
+      <h3 id="audio">Exporter l'audio (WAV)</h3>
+      <p><b>Exporter l'audio…</b> (menu de l'icône de l'application) crée le fichier audio de ta chanson, tel que tu l'entends : sons, mixage, effets et mastering compris. Le calcul se fait hors temps réel, dans le navigateur : pas de décrochage, et rien n'est envoyé sur Internet.</p>
+      <ul>
+        <li><b>Contenu</b> : toute la chanson (l'arrangement) ou la scène en cours, répétée le nombre de fois voulu.</li>
+        <li><b>Master</b> : la chanson finie, mixée et masterisée, prête à écouter ou à publier.</li>
+        <li><b>Stems</b> : un fichier par musicien (toute la batterie ensemble) ou par piste, avec sa reverb et son écho mais sans le traitement du Master. Posés ensemble dans un logiciel de musique (Cubase, Ableton…), ils redonnent le mix : c'est ce qu'on envoie à un ingénieur de mixage ou de mastering. Tous commencent au même instant et ont la même longueur. Plusieurs fichiers sont regroupés dans une archive <code>.zip</code>.</li>
+        <li><b>Format</b> : 24 bits pour travailler ou livrer, 16 bits pour un CD, 32 bits flottant si un stem sature ; 44,1 kHz pour la musique, 48 kHz pour la vidéo.</li>
+        <li>Après l'export, le <b>bilan du master</b> donne son volume (LUFS) et ce qu'en feront Spotify ou YouTube (ils ramènent tout vers −14 LUFS), sa crête vraie (à garder sous −1 dBTP), sa dynamique et sa compatibilité mono.</li>
+        <li>Le calcul prend environ la moitié de la durée de la chanson pour le master, autant pour chaque stem. <b>Arrêter</b> l'interrompt.</li>
+      </ul>
+
       <h2 id="raccourcis">Raccourcis et astuces</h2>
       <div class="table-wrap"><table>
         <tr><th>Raccourci</th><th>Action</th></tr>

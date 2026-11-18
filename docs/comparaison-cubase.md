@@ -38,7 +38,7 @@ comptent pour nos usages (synthés, arpèges, synthwave, techno mélodique, cin�
 | 13 | Synthés et contrôleurs physiques | ✗ | Seulement par fichier MIDI exporté ; pas de Web MIDI |
 | 14 | Orchestration, partition, image | ◐ | Instruments GM et cordes / cuivres échantillonnés ; pas d'articulations, de partition ni de vidéo |
 | 15 | Voix synthétiques et paroles | ◐ | Les paroles guident la mélodie (syllabes) ; pas de synthèse vocale |
-| 16 | Export et livraison | ◐ | Export MIDI complet, mastering intégré ; pas d'export audio dans l'application |
+| 16 | Export et livraison | ✅ | Export MIDI complet ; export audio WAV (master et stems, 16 / 24 / 32 bits) avec bilan EBU R128 |
 | 17 | Éditions | — | StepSeq : gratuit, dans le navigateur, sans installation |
 | 18 | Fonctions clés pour nos usages | — | Voir « Priorités » plus bas |
 
@@ -181,12 +181,12 @@ partition (le skill `midi-to-score` peut afficher la partition d'un fichier MIDI
 Dans **Key → Mélodie**, des paroles facultatives sont découpées en syllabes françaises et donnent la structure de
 la mélodie (une note par syllabe). Pas de synthèse vocale, et les paroles ne sont pas gardées sur les notes.
 
-### 16. Export et livraison — ◐
+### 16. Export et livraison — ✅
 
 | Cubase | StepSeq |
 |---|---|
-| Export audio (format, résolution, fréquence) | ✗ dans l'application ; `tools/render-band-song.js` rend un WAV hors temps réel, en ligne de commande |
-| Export de stems (par piste) | ◐ Seulement piste par piste en ligne de commande (`SOLO=…`) |
+| Export audio (format, résolution, fréquence) | ✅ **Exporter l'audio…** : rendu hors temps réel, WAV 16 / 24 bits (dither TPDF) ou 32 bits flottant, 44,1 ou 48 kHz ; pas de MP3 ni de FLAC |
+| Export de stems (par piste) | ✅ Par musicien ou par piste, avec leurs envois d'effets, sans le traitement du Master, alignés sur le master (archive .zip) |
 | Export MIDI | ✅ Type 1, 480 PPQ, arrangement déplié, marqueurs, armures, arpèges rendus, correspondances GM |
 | Traitements de sortie, presets de mastering | ✅ Module de mastering (graves en mono, largeur, écrêtage doux, limiteur −1 dBTP) et objectifs LUFS par style |
 
@@ -204,8 +204,8 @@ la mélodie (une note par syllabe). Pas de synthèse vocale, et les paroles ne s
 
 Classées par intérêt pour nos usages (synthés, arpèges, composition) et par effort, compte tenu du code existant :
 
-1. **Export audio dans l'application** (WAV du mix, puis une piste à la fois pour les stems) : le rendu hors temps
-   réel existe déjà dans `tools/render-band-song.js`.
+1. ✅ **Export audio dans l'application** (fait) : menu **Exporter l'audio…** — master et stems en WAV, rendus hors
+   temps réel, avec le bilan EBU R128 du master.
 2. **Sortie Web MIDI** vers un synthé matériel (Fantom-06, Take-5), piste par piste, avec canal MIDI : l'export
    MIDI sait déjà convertir notes, arpèges et automation.
 3. **Strum sur les pistes Accord** : reprendre les gestes d'Arp One (Balayage, Roulé, Harpe).

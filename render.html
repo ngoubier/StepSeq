@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>StepSeq — rendu audio</title>
+  <!--
+    Page de rendu hors temps réel (js/render.js) : chargée dans un cadre invisible par « Exporter l'audio… ».
+    Seul le moteur audio est chargé (ni interface, ni « Mes chansons », ni enregistrement automatique) :
+    js/render-boot.js remplace le contexte audio par un OfflineAudioContext avant que le moteur ne démarre,
+    js/render-host.js joue la chanson reçue de la page principale et rend le son plus vite que le temps réel.
+  -->
+  <script src="js/render-boot.js"></script>
+  <script src="js/library.js"></script>
+  <script src="js/dirt.js"></script>
+  <script src="js/dirt-tuning.js"></script>
+  <script src="js/sample-tuning.js?v=octave-1"></script>
+  <script src="js/modulation.js"></script>
+  <script src="js/sounds.js?v=refs-1"></script>
+  <script src="js/filters.js?v=watch-1"></script>
+  <script src="js/space-dsp.js?v=watch-1"></script>
+  <script src="js/master-dsp.js?v=watch-1"></script>
+  <script src="js/juno-dsp.js?v=watch-1"></script>
+  <script src="js/juno.js?v=watch-1"></script>
+  <script src="js/arp.js"></script>
+  <script src="js/project.js?v=ctl-1"></script>
+  <script src="js/harmony.js"></script>
+  <script src="js/chords.js"></script>
+  <script src="js/audio.js?v=diag-1"></script>
+  <script src="js/render-host.js"></script>
+</head>
+<body></body>
+</html>
