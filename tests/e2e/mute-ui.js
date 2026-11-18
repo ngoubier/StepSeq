@@ -29,7 +29,8 @@ const ok = (c, m) => {
   await page.goto(`http://localhost:${server.address().port}/index.html`);
   await page.waitForTimeout(1500);
   // projet de démo : Kick 1, Clap 1, Hi-Hat fermé 1, Saw Bass, Pad 2 (nappe aux notes longues)
-  const names = await page.$$eval('.track-name, .th-name', (els) => els.map((e) => e.value || e.textContent));
+  // noms lus depuis les boutons Muet : le bandeau Accords a lui aussi un .th-name mais pas de Muet
+  const names = await page.$$eval('.th-btn.mute', (els) => els.map((e) => e.closest('[data-id]').querySelector('.th-name').textContent));
   const pad = Math.max(0, names.findIndex((n) => /Pad/.test(n)));
   const peak = (i, ms = 600) =>
     page.evaluate(async ({ i, ms }) => {
