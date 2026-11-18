@@ -132,6 +132,30 @@ const shot = async (page, name) => SHOTS && page.locator('#harmonyDialog').scree
   ok(JSON.stringify(bassRoots) === JSON.stringify([2, 10, 5]), `la basse joue les fondamentales D, B♭, F (${bassRoots})`);
   await shot(page, 'g3-genere');
 
+  // procédés de la formation : pédale B04, harmonie résonante A04, arpège huit pas A03 (Arp One)
+  ok((await page.locator('select[data-gf="gen"] option').count()) === 9 && (await page.locator('select[data-gf="rhythm"] option').count()) === 6, 'styles B01–B04 et rythmes A01, A02, A04 proposés');
+  await page.selectOption('select[data-gf="gen"]', 'bass-b04');
+  await page.selectOption('select[data-gf="rhythm"]', 'a04');
+  await page.selectOption('select[data-gf="motif"]', 'a03');
+  dialogs.length = 0;
+  await page.click('#grGen');
+  await page.waitForTimeout(600);
+  const res2 = await page.evaluate(() => {
+    const p = JSON.parse(localStorage.getItem('stepseq.autosave'));
+    const sc = p.scenes.find((s) => s.id === p.current);
+    const L = sc.grid.layers;
+    const tr = (id) => p.tracks.find((t) => t.id === id);
+    return { bass: tr(L.bass.dst), comp: tr(L.comp.dst), arp: tr(L.arp.dst), motif: L.arp.motif };
+  });
+  ok(!dialogs.length && res2.bass.events.length > 0 && res2.bass.events.every((e) => e.notes[0] % 12 === 2), 'B04 : la basse tient Ré (tonique) sous Dm, B♭, Fmaj7');
+  ok(res2.comp.follow.play === 'steps' && res2.comp.events.length === 3 && res2.comp.events[0].len > res2.comp.events[1].step, `A04 : une attaque par accord, qui résonne sur le suivant (${JSON.stringify(res2.comp.events.map((e) => [e.step, e.len]))})`);
+  ok(res2.motif === 'a03' && res2.arp.arp.mode === 'pattern' && res2.arp.arp.pattern === 'd1 d3 d5 d7 d5 d3 d5 d3', 'A03 : Arp One reçoit l’arpège huit pas');
+  await page.selectOption('select[data-gf="gen"]', 'bass-8');
+  await page.selectOption('select[data-gf="rhythm"]', 'hold');
+  await page.selectOption('select[data-gf="motif"]', '');
+  await page.click('#grGen');
+  await page.waitForTimeout(400);
+
   // mode Auto : un nouvel accord réécrit les couches sans question (pistes non retouchées)
   await page.check('#grAuto');
   dialogs.length = 0;

@@ -5069,6 +5069,8 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 #bandDialog .fx-pl.off { opacity: .25; }
 #bandDialog .fx-dropline { position: absolute; top: 28px; bottom: 4px; width: 2px; background: var(--drops); opacity: .7; }
 #bandDialog .fx-row { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 12px; align-items: center; padding: 5px 0; border-top: 1px solid var(--bw-line); min-height: 44px; }
+#bandDialog .fx-group { margin: 10px 0 0; font-size: 13px; color: var(--bw-text); }
+#bandDialog .fx-group small { color: var(--bw-muted); font-weight: 400; }
 #bandDialog .fx-nm { display: flex; align-items: center; gap: 12px; }
 #bandDialog .fx-nm b { display: block; font-size: 14px; font-weight: 600; }
 #bandDialog .fx-nm small { display: block; color: var(--bw-muted); font-size: 12px; line-height: 1.25; }

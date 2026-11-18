@@ -194,8 +194,8 @@ test('Rythmes non entiers (1/8 pointÃ©e, triolets) : aucun pas perdu ni dupliquÃ
   }
 });
 
-test('Les 10 presets sont valides et jouent', () => {
-  assert.equal(A.PRESETS.length, 10);
+test('Les 11 presets sont valides et jouent', () => {
+  assert.equal(A.PRESETS.length, 11);
   for (const p of A.PRESETS) {
     const arp = A.fromPreset(p.id);
     const notes = A.parseChordSymbol(p.chord, 3);

@@ -277,9 +277,10 @@ caractère…), et **▶ joue la scène choisie en boucle** (pas toute la chanso
    **Montée de bruit** (4 / 8 / 16 mesures, plafonnées à la longueur de la scène d'avant ; filtre : passe-bas qui s'ouvre, passe-haut
    qui s'ouvre ou sans filtre), **Filtre passe-haut global** (toutes les pistes mélodiques et la basse, sur la 2e moitié de la scène
    d'avant ; curseur de la fréquence finale, 200 à 4 000 Hz : c'est l'automation de filtre des montées, dont l'ouverture suit
-   le réglage), **Cymbale inversée** (1 temps, 1 mesure, 2 mesures avant la jonction), **Coupure avant** (aucune, 1 temps, 1 mesure de
-   silence : le `gap` du plan, généralisé), **Impact au début** (impact grave + crash, crash seul ou impact grave ; niveau) et
-   **Descente** (2 ou 4 mesures après l'impact). **Copier vers les autres drops** recopie les réglages vers toutes les jonctions qui
+   le réglage), **Cymbale inversée** (1 temps, 1 mesure, 2 mesures avant la jonction), **Coupure avant** (aucune, 1 temps, 2 temps,
+   1 mesure de silence : le `gap` du plan, généralisé ; procédé T06), **Impact au début** (impact grave + crash, crash seul ou impact
+   grave ; niveau) et **Descente** (2 ou 4 mesures après l'impact), puis les **Procédés d'écriture** T01–T05 de la formation (retrait,
+   fragmentation, pédale, élargissement, suspension : voir « Documents de référence »), qui réécrivent les parties elles-mêmes. **Copier vers les autres drops** recopie les réglages vers toutes les jonctions qui
    entrent dans une scène de type drop. **▶ Écouter la transition** boucle les 4 dernières mesures de la scène d'avant puis les 4
    premières de la suivante (le réglage change : l'écoute reprend ; quitter l'étape l'arrête). **↺ Comme le plan** efface les
    retouches de la jonction. Sans retouche, la chanson est **exactement** celle du plan : l'étape montre ce que le plan fait déjà
@@ -1128,7 +1129,23 @@ Les accords par mode et par émotion (`js/emotions.js`) s'appuient sur trois doc
 - [`formation-composition/`](docs/reference/formation-composition/00_LIRE_EN_PREMIER.md) : formation à la composition
   en 29 chapitres (mélodie, motifs, modes, émotions, bibliothèque de procédés, validation). Les progressions H03 et
   H05–H08 du chapitre 23 sont proposées dans la grille ; la méthode mélodique (chap. 05) servira au compositeur de
-  mélodie.
+  mélodie. Les autres procédés du chapitre 23 :
+  - **basses B01–B04**, dans les styles de basse de la grille (Harmonie ▸ Chanson ▸ Chords, couche Basse ;
+    `SS.harmony.GENERATORS`) : fondamentale régulière en croches avec une seule note d'approche vers l'accord suivant
+    (B01), fondamentale / quinte en noires (B02), ligne conjointe qui choisit la note de l'accord la plus proche (B03,
+    les basses imposées C/E restent), pédale de tonique, une attaque par mesure (B04) ;
+  - **accompagnements A01–A04** : dans la couche Accords de la grille, accords espacés en rondes (A01), pulsation en
+    noires à gate court (A02, l'ancien « Stabs sur les temps ») et harmonie résonante, une attaque par changement qui
+    résonne un temps sur l'accord suivant (A04) ; l'arpège huit pas A03 (pool de quatre notes redéfini à chaque accord,
+    ordre 1–2–3–4–3–2–3–2) est un motif d'Arp One (`SS.Arp.PRESETS`, exemple du module Motif) que la couche Arpège
+    peut poser sur sa piste ;
+  - **transitions T01–T06**, dans l'étape « Effets et transitions » de l'assistant, groupe **Procédés d'écriture** de
+    chaque jonction (éteints par défaut : la chanson reste celle du plan) : retrait de la batterie sur 1 ou 2 mesures, le
+    charleston fermé garde le compte (T01) ; fragmentation de la mélodie des 2 dernières mesures, 1 mesure du motif puis
+    ½ mesure deux fois (T02) ; pédale de dominante ou de tonique à la basse sur 2 ou 4 mesures (T03) ; élargissement des
+    accords et arpèges à l'octave, en haut puis en bas, sans dépasser Sol6 ni descendre sous Mi2 (T04) ; suspension :
+    la tierce du premier accord de la scène suivante retardée par la quarte pendant 1 ou 2 temps (T05) ; la **Coupure
+    avant** est le silence T06 (1 temps, 2 temps ou 1 mesure ; reverb et écho continuent de sonner).
 
 ## Structure du code
 

@@ -1233,6 +1233,7 @@ SS.arpPanel = (() => {
     '. : silence ; _ : la note précédente continue ; | : un motif par accord (« 0 1 2 | 0 2 1 » : 1er accord, 2e accord, puis on recommence). Avec les numéros (0 1 2…) et le renversement « Proche » (module Accord), ' +
     'les notes communes à deux accords restent à la même hauteur.';
   const PATTERN_EXAMPLES = [
+    { p: 'd1 d3 d5 d7 d5 d3 d5 d3', hint: 'A03 : arpège huit pas, pool 1-3-5-7 redéfini à chaque accord (l’octave sans septième)' },
     { p: '0 1 2 3 2 1 2 1', hint: 'aller-retour de 8 notes' },
     { p: '0 2 1 2 3 2 1 2', hint: 'broderie autour de la note du milieu' },
     { p: '0- 0 1 2 0- 0 1 2', hint: 'basse grave puis l’accord' },

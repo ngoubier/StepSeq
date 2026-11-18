@@ -6276,7 +6276,7 @@ SS.band = (() => {
   const fxEff = (j) => SS.bandSong.junctionEff(specEff(), j.from.sec, j.to.sec, S.wiz.fx);
   /** Effets actifs d'une jonction ; sans musicien Effets, ceux de sa piste ne comptent pas. */
   function fxCount(e, withFx) {
-    return [withFx && e.riser.on, e.hp.on, withFx && e.rev.on, e.gap.len > 0, withFx && e.impact.on, withFx && e.down.on].filter(Boolean).length;
+    return [withFx && e.riser.on, e.hp.on, withFx && e.rev.on, e.gap.len > 0, withFx && e.impact.on, withFx && e.down.on, ...FX_WRITE.map((k) => e[k].on)].filter(Boolean).length;
   }
   function fxSummary(res) {
     const withFx = hasRole('fx');
@@ -6327,10 +6327,17 @@ SS.band = (() => {
     ['riser', 'Montée de bruit', 'Un souffle qui monte jusqu’à la scène'],
     ['hp', 'Filtre passe-haut global', 'Allège tout le mix pendant la montée'],
     ['rev', 'Cymbale inversée', 'Aspire vers le premier temps de la scène'],
-    ['gap', 'Coupure avant', 'Un silence qui laisse respirer'],
+    ['gap', 'Coupure avant (T06 · silence)', 'Tous les rôles se taisent ; reverb et écho continuent de sonner'],
     ['impact', 'Impact au début', 'Coup grave + crash sur le premier temps'],
     ['down', 'Descente (downlifter)', 'Retombée après l’impact'],
+    // procédés d'écriture T01–T05 de la formation (chap. 23, § 6) : ils réécrivent les parties, sans piste Effets
+    ['retrait', 'Retrait (T01)', 'La batterie se retire avant le retour ; le charleston garde le compte'],
+    ['frag', 'Fragmentation (T02)', 'La mélodie des 2 dernières mesures : 1 mesure du motif, puis ½ mesure deux fois'],
+    ['pedal', 'Pédale (T03)', 'La basse tient une note sous les accords qui changent : écouter les frottements'],
+    ['widen', 'Élargissement (T04)', 'Accords et arpèges s’ouvrent à l’octave, en haut puis en bas, avec une marge sous le sommet'],
+    ['susp', 'Suspension (T05)', 'Le premier accord de la scène retarde sa tierce par la quarte, puis se résout'],
   ];
+  const FX_WRITE = ['retrait', 'frag', 'pedal', 'widen', 'susp'];
   const FX_NEEDS = { riser: true, rev: true, impact: true, down: true }; // effets joués par la piste Effets
   const FX_FILTERS = [['lp', 'Passe-bas qui s’ouvre'], ['hp', 'Passe-haut qui s’ouvre'], ['none', 'Sans filtre']];
   const FX_IMPACTS = [['both', 'Impact grave + crash'], ['crash', 'Crash seul'], ['impact', 'Impact grave']];
@@ -6352,6 +6359,11 @@ SS.band = (() => {
       bar('gap', 'Coupure', -e.gap.len / 16, 0, e.gap.len > 0, 'background:repeating-linear-gradient(45deg,#e0523a 0 3px,transparent 3px 6px);border:1px solid #e0523a'),
       bar('impact', 'Impact', 0, 0.2, withFx && e.impact.on, 'background:#fff'),
       bar('down', 'Descente', 0.25, 0.25 + e.down.len, withFx && e.down.on),
+      e.retrait.on ? bar('retrait', 'Retrait', -e.retrait.len, 0, e.retrait.on, 'background:repeating-linear-gradient(90deg,#c9a24a 0 4px,transparent 4px 8px)') : null,
+      e.frag.on ? bar('frag', 'Fragmentation', -2, 0, e.frag.on, 'background:linear-gradient(90deg,#b07ad6 50%,#b07ad6aa 50% 75%,#b07ad666 75%)') : null,
+      e.pedal.on ? bar('pedal', 'Pédale', -e.pedal.len, 0, e.pedal.on, 'background:#3fcf3f') : null,
+      e.widen.on ? bar('widen', 'Élargissement', -e.widen.len, 0, e.widen.on, 'background:linear-gradient(90deg,#1ea7ff33,#1ea7ff)') : null,
+      e.susp.on ? bar('susp', 'Suspension', 0, e.susp.len / 16, e.susp.on, 'background:#1ea7ff') : null,
       h('div', { class: 'fx-dropline', style: `left:calc(120px + (100% - 130px) * .8)` })
     );
   }
@@ -6425,7 +6437,7 @@ SS.band = (() => {
           ctl = [lbl('Longueur'), seg('fxlen-rev', [[4, '1 temps'], [16, '1 mesure'], [32, '2 mesures', prevBars < 2]], e1.len, (v) => fxSet(sel.key, 'rev', { on: true, len: v }))];
         } else if (k === 'gap') {
           set = (v) => fxSet(sel.key, 'gap', { len: v ? 4 : 0 });
-          ctl = [seg('fxgap', [[0, 'Aucune'], [4, '1 temps'], [16, '1 mesure']], e1.len, (v) => fxSet(sel.key, 'gap', { len: v }))];
+          ctl = [seg('fxgap', [[0, 'Aucune'], [4, '1 temps'], [8, '2 temps'], [16, '1 mesure']], e1.len, (v) => fxSet(sel.key, 'gap', { len: v }))];
         } else if (k === 'impact') {
           const out = h('b', { class: 'fx-num', id: 'fxlevel-out' }, `${Math.round(e1.level * 100)} %`);
           ctl = [
@@ -6437,14 +6449,31 @@ SS.band = (() => {
           ];
         } else if (k === 'down') {
           ctl = [lbl('Longueur'), seg('fxlen-down', [[2, '2 mes.'], [4, '4 mes.']], e1.len, (v) => fxSet(sel.key, 'down', { on: true, len: v }))];
+        } else if (k === 'retrait') {
+          ctl = [lbl('Longueur'), seg('fxlen-retrait', [[1, '1 mes.'], [2, '2 mes.', prevBars < 2]], e1.len, (v) => fxSet(sel.key, 'retrait', { on: true, len: v }))];
+        } else if (k === 'frag') {
+          ctl = prevBars < 2 ? [lbl('Il faut une scène d’au moins 2 mesures')] : [];
+        } else if (k === 'pedal') {
+          ctl = [
+            lbl('Longueur'),
+            seg('fxlen-pedal', [[2, '2 mes.', prevBars < 2], [4, '4 mes.', prevBars < 4]], e1.len, (v) => fxSet(sel.key, 'pedal', { on: true, len: v })),
+            lbl('Note'),
+            h('select', { id: 'fxnote-pedal', 'aria-label': 'Note de la pédale', onchange: (ev) => fxSet(sel.key, 'pedal', { on: true, note: ev.target.value }) }, ...[['dom', 'Dominante (Ve degré)'], ['tonic', 'Tonique']].map(([v, t]) => h('option', { value: v, selected: e1.note === v }, t))),
+          ];
+        } else if (k === 'widen') {
+          ctl = [lbl('Longueur'), seg('fxlen-widen', [[2, '2 mes.', prevBars < 2], [4, '4 mes.', prevBars < 4]], e1.len, (v) => fxSet(sel.key, 'widen', { on: true, len: v }))];
+        } else if (k === 'susp') {
+          ctl = [lbl('Retard'), seg('fxlen-susp', [[4, '1 temps'], [8, '2 temps']], e1.len, (v) => fxSet(sel.key, 'susp', { on: true, len: v }))];
         }
         if (need) return null;
-        return h(
+        const row = h(
           'div',
           { class: 'fx-row' + (on ? '' : ' off'), id: `fxrow-${k}`, 'data-k': k },
           h('div', { class: 'fx-nm' }, switchBtn(k, on, set), h('div', {}, h('b', {}, name), h('small', {}, sub))),
           h('div', { class: 'fx-opt' }, ...ctl)
         );
+        // titre du groupe des procédés d'écriture, avant le premier
+        return k === FX_WRITE[0] ? [h('h4', { class: 'fx-group', id: 'fxWriteHead' }, 'Procédés d’écriture', h('small', {}, ' les parties elles-mêmes changent (formation, T01–T06)')), row] : row;
       });
       if (!withFx) {
         // les effets joués par la piste Effets : un message et un bouton qui l'ajoute au groupe
@@ -6482,7 +6511,7 @@ SS.band = (() => {
             } }, `Copier vers les autres ${dropWord}`)
           ),
           fxPreview(e, prevBars, withFx, sel.to.name),
-          ...rows.filter(Boolean)
+          ...rows.flat().filter(Boolean)
         )
       );
     } else trans.push(h('section', { class: 'bw-card fx-card', id: 'fxTrans' }, h('p', { class: 'dlg-hint' }, 'Il faut au moins deux scènes dans l’arrangement pour régler une transition.')));

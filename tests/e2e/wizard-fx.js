@@ -182,6 +182,35 @@ const ok = (c, m) => {
     await page.screenshot({ path: path.join(SHOTS, 'fx-all-on.png') });
   }
 
+  // ---------- 5 bis. Procédés d'écriture T01–T05 (formation, chap. 23) : éteints par défaut, ils réécrivent les parties
+  // (jonction Groove > Montée : le groove a sa grosse caisse et sa basse jusqu'au bout ; remise « Comme le plan » ensuite)
+  await page.click('.fx-tm button >> nth=1');
+  await page.waitForTimeout(250);
+  const NG = (await wiz(page, 'W.res.scenes.find((x) => x.name === "Groove").bars')) * 16;
+  ok((await page.locator('#fxWriteHead').count()) === 1 && (await page.locator('#fxrow-retrait, #fxrow-frag, #fxrow-pedal, #fxrow-widen, #fxrow-susp').count()) === 5, 'procédés d’écriture : titre et cinq lignes (T01–T05), la coupure porte T06');
+  ok((await on(page, 'retrait')) === 'false' && (await on(page, 'susp')) === 'false', 'procédés éteints dans le plan');
+  const pastille = async () => +(await page.locator('.fx-tm button.sel').textContent()) || 0;
+  const p0 = await pastille();
+  const bdBefore = await dataOf(page, 'Groove', ':bd');
+  await page.click('#fxon-retrait');
+  await page.waitForTimeout(250);
+  const bdAfter = await dataOf(page, 'Groove', ':bd');
+  ok(bdAfter.steps.slice(NG - 16).every((v) => v === 0) && bdBefore.steps.slice(NG - 16).some((v) => v > 0) && JSON.stringify(bdAfter.steps.slice(0, NG - 16)) === JSON.stringify(bdBefore.steps.slice(0, NG - 16)), 'T01 retrait : la grosse caisse se tait sur la dernière mesure du groove, seulement là');
+  ok((await pastille()) === p0 + 1, 'la pastille compte le procédé');
+  await page.click('#fxon-pedal');
+  await page.waitForTimeout(250);
+  const ped = (await dataOf(page, 'Groove', 'bass')).events.filter((e) => e.step >= NG - 32);
+  ok(ped.length === 2 && ped.every((e) => e.len === 16 && e.notes[0] === ped[0].notes[0]), 'T03 pédale : une note tenue par mesure sur les 2 dernières mesures');
+  await page.click('#fxon-susp');
+  await page.waitForTimeout(250);
+  ok((await page.locator('.fx-pl[data-k="susp"]').count()) === 1, 'l’aperçu montre la suspension après la jonction');
+  if (SHOTS) await page.locator('#fxTrans').screenshot({ path: path.join(SHOTS, 'fx-procedes.png') });
+  await page.click('#fxReset');
+  await page.waitForTimeout(250);
+  ok((await pastille()) === p0 && JSON.stringify((await dataOf(page, 'Groove', ':bd')).steps) === JSON.stringify(bdBefore.steps), '« Comme le plan » : la batterie revient');
+  await page.click('.fx-tm button >> nth=2');
+  await page.waitForTimeout(250);
+
   // ---------- 6. Copier vers les autres drops
   await page.click('#fxlen-riser [data-v="4"]');
   await page.waitForTimeout(200);

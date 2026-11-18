@@ -250,6 +250,13 @@
       arp: { mode: 'pattern', pattern: 'd1 d3 d5 d3 d7 d5 d3 d5', rate: 1, octaves: 1, gate: 0.6, lanes: { vel: [1, 0.65, 0.8, 0.65] } },
     },
     {
+      // procédé A03 de la formation (chap. 23, § 5) : le pool de quatre notes est redéfini à chaque accord
+      // (fondamentale, tierce, quinte, septième ; sans septième, l'octave), ordre 1–2–3–4–3–2–3–2
+      id: 'a03', label: 'Arpège huit pas (A03)',
+      desc: 'Pool de quatre notes redéfini à chaque accord (1, 3, 5, 7 ou octave), ordre 1–2–3–4–3–2–3–2 en croches.', chord: 'Am', bpm: 100,
+      arp: { mode: 'pattern', pattern: 'd1 d3 d5 d7 d5 d3 d5 d3', rate: 0.5, octaves: 1, gate: 0.7, lanes: { vel: [1, 0.65, 0.75, 0.7, 0.8, 0.65, 0.75, 0.65] } },
+    },
+    {
       id: 'orbit', label: 'Poly Orbit',
       desc: 'Rythme de 15 pas contre des accents de 16 et des ratchets sur 6 : polymétrie sur le même accord.', chord: 'Em', bpm: 120,
       arp: {
