@@ -656,6 +656,263 @@ SS.harmony = (() => {
     return { grid, changed };
   }
 
+  /* ---------------- Harmoniser une mélodie (étape Accords de l'assistant, sous-onglet « Harmoniser la mélodie ») ----------------
+   * La mélodie est découpée en tranches (un accord par tranche : `slot` pas, 16 = une mesure). Pour chaque tranche, chaque accord
+   * candidat reçoit une note d'accord (fit) : les notes appuyées (longues, sur un temps) qui sont dans l'accord comptent pour, celles
+   * qui frottent d'un demi-ton contre une note de l'accord comptent contre. Trois « intentions » choisissent ensuite le meilleur
+   * chemin (Viterbi) avec leurs propres préférences d'enchaînement, et chaque proposition dit pourquoi elle marche. */
+  const HZ_PROFILES = ['simple', 'tension', 'color'];
+
+  /** Accords candidats : triades de la gamme (sans diminué ni augmenté), plus les emprunts qui ont un sens dans la tonalité. */
+  function hzCandidates(key) {
+    const sc = scale(key);
+    const out = [];
+    for (let d = 0; d < 7; d++) {
+      const t = degTriad(sc, d);
+      if (t === 'maj' || t === 'min') out.push({ degree: d, type: t, acc: 0, kind: 'dia' });
+    }
+    if (key.mode === 'minor') out.push({ degree: 4, type: 'maj', acc: 0, kind: 'harmV' }, { degree: 3, type: 'maj', acc: 0, kind: 'dorIV' });
+    if (key.mode === 'major') out.push({ degree: 3, type: 'min', acc: 0, kind: 'minIV' }, { degree: 6, type: 'maj', acc: -1, kind: 'flatVII' }, { degree: 5, type: 'maj', acc: -1, kind: 'flatVI' });
+    return out.map((x) => {
+      const c = gridChord(key, x.degree, x.type, x.acc);
+      return { ...x, c, pcs: TYPE_IV(x.type).map((i) => pcOf(c.rootPc + i)) };
+    });
+  }
+  /** Poids d'une note dans une tranche : durée entendue (en temps) × appui (premier temps 2, temps 1,4, sinon 1). */
+  const hzAccent = (step) => (step % 16 === 0 ? 2 : step % 4 === 0 ? 1.4 : 1);
+  /** Note appuyée : une blanche ou plus, ou une noire au moins sur le premier temps (une noire de passage ne l'est pas). */
+  const hzLeaned = (n) => n.len >= 8 || (n.len >= 4 && n.step % 16 === 0);
+  /** Rôle d'une note sur un accord (pcs, rootPc) : 'chord' | 'tension' (9e, quarte, sixte, septième) | 'clash' (demi-ton au-dessus d'une note de l'accord) | 'pass'. */
+  function hzNoteRole(pc, cand) {
+    if (cand.pcs.includes(pc)) return 'chord';
+    const r = pcOf(pc - cand.c.rootPc);
+    // un demi-ton au-dessus d'une note de l'accord frotte ; au-dessous aussi, sauf la neuvième (Si sur La mineur) et la
+    // septième majeure d'un accord majeur
+    if (cand.pcs.some((q) => pcOf(pc - q) === 1) || (cand.pcs.some((q) => pcOf(q - pc) === 1) && r !== 2 && !(r === 11 && cand.c.type === 'maj'))) return 'clash';
+    return [2, 5, 9, 10, 11].includes(r) ? 'tension' : 'pass';
+  }
+  /** Note d'un accord pour une tranche [a, b) de la mélodie. */
+  function hzFit(notes, a, b, cand) {
+    let s = 0;
+    for (const n of notes) {
+      const ov = Math.min(b, n.step + n.len) - Math.max(a, n.step);
+      if (ov <= 0) continue;
+      const starts = n.step >= a;
+      const w = (ov / 4) * (starts ? hzAccent(n.step) : 0.8);
+      const strong = starts && hzLeaned(n);
+      const role = hzNoteRole(pcOf(n.midi), cand);
+      if (role === 'chord') s += w;
+      else if (role === 'clash') s -= strong ? 1.2 * w : 0.3 * w;
+      else if (role === 'tension') s -= strong ? 0.2 * w : 0;
+      else s -= strong ? 0.6 * w : 0.1 * w;
+    }
+    return s;
+  }
+  /** Préférences propres à une intention : un accord dans une tranche, et un enchaînement. */
+  function hzPrefs(profile, key, n) {
+    const minor = key.mode === 'minor';
+    const isDom = (x) => x.degree === 4 && x.type === 'maj';
+    const chord = (x, i) => {
+      let v = 0;
+      const first = i === 0;
+      const last = i === n - 1;
+      if (first && x.degree === 0) v += profile === 'simple' ? 1 : 0.6;
+      if (profile === 'simple') {
+        if (x.kind !== 'dia') v -= 1;
+        if (last && ['repos', 'tension'].includes(x.c.role.id)) v += 0.3;
+      } else if (profile === 'tension') {
+        if (x.kind === 'harmV') v += last ? 1 : 0.3;
+        if (!minor && isDom(x) && last) v += 0.8;
+        if (x.kind === 'minIV') v += 0.3;
+        if (['dorIV', 'flatVII'].includes(x.kind)) v -= 0.4;
+      } else {
+        v += { dorIV: 1.2, flatVII: 1.2, flatVI: 0.8, minIV: 0.6, harmV: -0.3 }[x.kind] || 0;
+        if (x.c.role.id === 'color') v += 0.6;
+        if (minor && (x.degree === 2 || x.degree === 5)) v += 0.15;
+      }
+      return v;
+    };
+    const trans = (p, x) => {
+      const down = pcOf(p.c.rootPc - x.c.rootPc);
+      let v = 0;
+      if (p === x) v -= profile === 'tension' ? 0.8 : 0.5;
+      if (down === 7) v += 0.3; // quinte descendante
+      else if (down === 1 || down === 2) v += profile === 'tension' ? 0.5 : 0.15; // basse qui descend d'un degré
+      else if (down === 10 || down === 11) v += 0.1;
+      if (isDom(p) && x.degree === 0) v += profile === 'tension' ? 0.6 : 0.3; // cadence
+      return v;
+    };
+    return { chord, trans };
+  }
+
+  /**
+   * Trois harmonisations contrastées d'une mélodie. notes : [{ step, len, midi }] (pas de la scène) ; total : longueur de la scène ;
+   * slot : longueur d'un accord (16 = une mesure) ; current : grille actuelle (pour éviter de reproposer la même chose).
+   * loop : longueur de la boucle en mesures (0 : grille libre).
+   * → null (moins de deux notes) ou [{ id, title, grid, cycle, reps, chords, numerals, why: [phrases], tension, color, fit }]
+   */
+  function harmonize(key, notes, total, { slot = 16, current = [], loop = 4 } = {}) {
+    notes = (notes || []).filter((x) => x && x.len > 0 && x.step < total);
+    if (notes.length < 2 || !valid(key)) return null;
+    const cands = hzCandidates(key);
+    const n = Math.max(1, Math.ceil(total / slot));
+    const fit = Array.from({ length: n }, (_, i) => cands.map((x) => hzFit(notes, i * slot, Math.min(total, (i + 1) * slot), x)));
+    // boucle : une scène de 8 mesures ou plus est harmonisée comme une boucle de `loop` mesures répétée (la grille des styles de
+    // l'assistant), chaque tranche de la boucle notée sur toutes ses répétitions ; loop = 0 : une grille libre sur toute la scène
+    const per = loop ? (loop * 16) / slot : 0;
+    const m = per >= 1 && Number.isInteger(per) && n >= 2 * per ? per : n;
+    const fitM = m === n ? fit : Array.from({ length: m }, (_, p) => cands.map((_, j) => fit.reduce((s2, row, i) => s2 + (i % m === p ? row[j] : 0), 0)));
+    const curAt = (i) => {
+      const st = i * slot;
+      const c = current.find((y) => st >= y.step && st < y.step + y.len);
+      return c ? cands.findIndex((x) => x.degree === c.degree && x.type === c.type && (x.acc || 0) === (c.acc || 0)) : -1;
+    };
+    const taken = [];
+    const out = [];
+    const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+    for (const profile of HZ_PROFILES) {
+      const P = hzPrefs(profile, key, m);
+      let { path } = hzPath(m, cands, fitM, P, curAt, taken, null);
+      // une proposition qui redirait une précédente : on interdit tour à tour l'accord d'une tranche et on garde le meilleur résultat
+      if (taken.some((t) => same(t, path))) {
+        let best = null;
+        for (let i = 0; i < m; i++) {
+          const r = hzPath(m, cands, fitM, P, curAt, taken, { i, j: path[i] });
+          if (!taken.some((t) => same(t, r.path)) && (!best || r.score > best.score)) best = r;
+        }
+        if (best) path = best.path;
+      }
+      taken.push(path);
+      const d = hzDescribe(key, notes, total, slot, cands, Array.from({ length: n }, (_, i) => path[i % m]), fit, profile);
+      // une boucle : le cycle à afficher (cycle) et son nombre de tours (reps) ; grid reste la grille de toute la scène
+      d.cycle = m < n ? d.grid.filter((g) => g.step < m * slot) : d.grid;
+      d.reps = m < n ? Math.ceil(n / m) : 1;
+      d.numerals = d.cycle.map((g) => gridChord(key, g.degree, g.type, g.acc).numeral).join(' – ');
+      out.push(d);
+    }
+    return out;
+  }
+  /** Meilleur chemin d'accords (Viterbi) : note de la mélodie, préférences de l'intention, écart aux propositions déjà faites. */
+  function hzPath(n, cands, fit, P, curAt, taken, ban) {
+    {
+      const local = (i, j) => 2.5 * fit[i][j] + P.chord(cands[j], i) - (curAt(i) === j ? 0.3 : 0) - 1.2 * taken.filter((path) => path[i] === j).length - (ban && ban.i === i && ban.j === j ? 1e6 : 0);
+      // Viterbi : meilleur chemin d'accords sur les tranches
+      let score = cands.map((_, j) => local(0, j));
+      const back = [];
+      for (let i = 1; i < n; i++) {
+        const prev = score;
+        const bk = [];
+        score = cands.map((x, j) => {
+          let best = -Infinity;
+          let arg = 0;
+          prev.forEach((s, p) => {
+            const v = s + P.trans(cands[p], x);
+            if (v > best) (best = v), (arg = p);
+          });
+          bk.push(arg);
+          return best + local(i, j);
+        });
+        back.push(bk);
+      }
+      // boucle : le dernier accord enchaîne sur le premier
+      let end = 0;
+      let bestEnd = -Infinity;
+      score.forEach((s, j) => s > bestEnd && ((bestEnd = s), (end = j)));
+      const path = [end];
+      for (let i = n - 2; i >= 0; i--) path.unshift(back[i][path[0]]);
+      return { path, score: bestEnd };
+    }
+  }
+
+  /** Grille, titre, explications et jauges d'un chemin d'accords. */
+  function hzDescribe(key, notes, total, slot, cands, path, fit, profile) {
+    const grid = [];
+    path.forEach((j, i) => {
+      const x = cands[j];
+      const last = grid[grid.length - 1];
+      if (last && last.j === j) last.len += Math.min(slot, total - i * slot);
+      else grid.push({ step: i * slot, len: Math.min(slot, total - i * slot), degree: x.degree, type: x.type, acc: x.acc, j });
+    });
+    const used = grid.map((g) => cands[g.j]);
+    grid.forEach((g) => delete g.j);
+    const nm = (x) => x.c.name;
+    const pcName = (pc) => french(spell(key, pc));
+    const why = [];
+    // notes appuyées dans leur accord
+    const chordAt = (st) => cands[path[Math.min(path.length - 1, Math.floor(st / slot))]];
+    const strong = notes.filter(hzLeaned);
+    const roles = notes.map((x) => hzNoteRole(pcOf(x.midi), chordAt(x.step)));
+    const inChord = strong.filter((x) => hzNoteRole(pcOf(x.midi), chordAt(x.step)) === 'chord').length;
+    if (strong.length < 3) why.push('Ta mélodie a surtout des notes courtes : les accords suivent ses notes les plus présentes.');
+    else {
+      if (inChord === strong.length) why.push(`Tes notes appuyées sont toutes dans leur accord (${inChord} sur ${strong.length}).`);
+      else why.push(`${inChord} notes appuyées sur ${strong.length} sont dans leur accord ; les autres sont des tensions qui colorent.`);
+    }
+    // basse qui descend pas à pas
+    let run = [used[0]];
+    let bestRun = run;
+    for (let i = 1; i < used.length; i++) {
+      const d = pcOf(used[i - 1].c.rootPc - used[i].c.rootPc);
+      run = d === 1 || d === 2 ? [...run, used[i]] : [used[i]];
+      if (run.length > bestRun.length) bestRun = run;
+    }
+    const descending = bestRun.length >= 3;
+    if (descending) why.push(`La basse descend pas à pas (${bestRun.map((x) => pcName(x.c.rootPc)).join(' – ')}) : une pente qui entraîne.`);
+    // cadence V → I (aussi au retour de la boucle)
+    const dom = used.findIndex((x, i) => x.degree === 4 && x.type === 'maj' && (used[(i + 1) % used.length] || {}).degree === 0);
+    if (dom >= 0) why.push(`${nm(used[dom])} → ${nm(used[(dom + 1) % used.length])} : la dominante appelle la tonique${dom === used.length - 1 ? ', au retour de la boucle' : ''}.`);
+    // emprunts expliqués
+    const kinds = [...new Set(used.map((x) => x.kind))];
+    const ex = (k) => used.find((x) => x.kind === k);
+    if (kinds.includes('harmV')) why.push(`${nm(ex('harmV'))} est emprunté au mineur harmonique : sa tierce ${french(ex('harmV').c.notes[1])} est la sensible, elle tire vers ${pcName(scale(key)[0].pc)}.`);
+    if (kinds.includes('dorIV')) why.push(`${nm(ex('dorIV'))} apporte le ${french(ex('dorIV').c.notes[1])}, la note du dorien : une lumière dans le mineur.`);
+    if (kinds.includes('minIV')) why.push(`${nm(ex('minIV'))} (iv mineur emprunté) : sa note ${french(ex('minIV').c.notes[1])} donne une couleur nostalgique.`);
+    if (kinds.includes('flatVII')) why.push(`${nm(ex('flatVII'))} (♭VII du mixolydien) revient vers la tonique sans sensible : ouvert, rock.`);
+    if (kinds.includes('flatVI')) why.push(`${nm(ex('flatVI'))} (♭VI emprunté au mineur) : effet ample, épique.`);
+    if (!kinds.some((k) => k !== 'dia') && profile === 'simple') why.push('Que des accords de la gamme : rien ne surprend, la mélodie reste au premier plan.');
+    const clashes = notes.filter((x, i) => roles[i] === 'clash' && hzLeaned(x));
+    if (clashes.length) {
+      const x = clashes[0];
+      why.push(`À écouter : ${clashes.length} frottement${clashes.length > 1 ? 's' : ''} d'un demi-ton (mes. ${Math.floor(x.step / 16) + 1}, ${pcName(pcOf(x.midi))} sur ${nm(chordAt(x.step))}).`);
+    }
+    // titre selon ce que la grille fait vraiment
+    let title;
+    if (profile === 'simple') title = 'Simple et chantante';
+    else if (profile === 'tension') title = descending ? 'Sombre, descendante' : dom >= 0 ? 'Tendue, qui résout' : 'Plus tendue';
+    else if (kinds.includes('dorIV')) title = 'Lumineuse (dorien)';
+    else if (kinds.includes('flatVII')) title = 'Ouverte (mixolydien)';
+    else if (kinds.includes('minIV') || kinds.includes('flatVI')) title = 'Nostalgique (emprunts)';
+    else title = isTonal(key) ? 'Colorée' : 'Couleur du mode';
+    const nUsed = used.length;
+    const tension = Math.min(1, (used.filter((x) => x.c.role.id === 'tension').length + clashes.length) / nUsed + (dom >= 0 ? 0.2 : 0));
+    const color = Math.min(1, used.filter((x) => x.kind !== 'dia' || x.c.role.id === 'color').length / nUsed + 0.5 * (roles.filter((r) => r === 'tension').length / roles.length));
+    const fitSum = path.reduce((s, j, i) => s + fit[i][j], 0);
+    return {
+      id: profile,
+      title,
+      grid,
+      chords: used.map((x) => x.c),
+      numerals: used.map((x) => x.c.numeral).join(' – '),
+      why: why.slice(0, 3),
+      tension: Math.round(tension * 100) / 100,
+      color: Math.round(color * 100) / 100,
+      fit: Math.round(fitSum * 100) / 100,
+    };
+  }
+
+  /** Rôle de chaque note d'une mélodie sur une grille ({ step, len, degree, type, acc }) : 'chord' | 'tension' | 'clash' | 'pass'. */
+  function noteRoles(key, grid, notes) {
+    return notes.map((x) => {
+      const g = grid.find((y) => x.step >= y.step && x.step < y.step + y.len);
+      if (!g) return 'pass';
+      const c = gridChord(key, g.degree, g.type, g.acc || 0);
+      const r = hzNoteRole(pcOf(x.midi), { c, pcs: TYPE_IV(g.type).map((i) => pcOf(c.rootPc + i)) });
+      // une note de passage brève reste « passage » ; une tension n'est signalée que si elle est appuyée
+      if (r !== 'chord' && !hzLeaned(x)) return 'pass';
+      return r;
+    });
+  }
+
   /**
    * Notes MIDI d'un accord de la palette (position fondamentale) : fondamentale au plus près de `near`
    * (l'accord précédent), sans s'éloigner de plus d'une quinte du centre `center` de la piste — sinon les
@@ -675,5 +932,5 @@ SS.harmony = (() => {
     return notes;
   }
 
-  return { MODES, TONICS, TRANSFORMS, valid, scale, spell, french, chords, role, makeChord, progressions, gridChord, toGridChord, gridFill, gridPut, gridSetLen, gridPalette, identify, chordName, analyzeChord, detect, sceneChords, transformGrid, gridChecks, label, voice, pcOf };
+  return { MODES, TONICS, TRANSFORMS, valid, scale, spell, french, chords, role, makeChord, progressions, gridChord, toGridChord, gridFill, gridPut, gridSetLen, gridPalette, identify, chordName, analyzeChord, detect, sceneChords, transformGrid, gridChecks, harmonize, noteRoles, label, voice, pcOf };
 })();

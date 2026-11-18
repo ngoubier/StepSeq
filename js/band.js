@@ -1964,14 +1964,28 @@ SS.band = (() => {
     const p = preset();
     const cols = wizCols();
     const harmony = harmonyOpts(true);
-    const sig = JSON.stringify([p.id, cover() && S.cover, S.wiz.seed, melodyOpts(), harmony, JSON.stringify(S.wiz.parts, (k, v) => (k === 'hidden' ? undefined : v)), S.wiz.kinds, S.wiz.form, S.wiz.secs, S.wiz.skey, cols.map((c) => [c.id, c.o]), S.wiz.fx]);
+    const parts = partsEff();
+    const sig = JSON.stringify([p.id, cover() && S.cover, S.wiz.seed, melodyOpts(), harmony, JSON.stringify(parts, (k, v) => (k === 'hidden' ? undefined : v)), S.wiz.kinds, S.wiz.form, S.wiz.secs, S.wiz.skey, cols.map((c) => [c.id, c.o]), S.wiz.fx]);
     if (S.wiz.sig !== sig) {
       const sp = specEff();
       const fake = cols.map((c) => ({ id: c.id, type: c.o.type, sound: c.o.sound, band: c.o.band }));
-      S.wiz.res = sp ? SS.bandSong.build(sp, p.id, fake, { melodySeed: S.wiz.seed, melody: melodyOpts(), harmony, parts: S.wiz.parts, kinds: S.wiz.kinds, fx: fxOpts() }) : null;
+      S.wiz.res = sp ? SS.bandSong.build(sp, p.id, fake, { melodySeed: S.wiz.seed, melody: melodyOpts(), harmony, parts, kinds: S.wiz.kinds, fx: fxOpts() }) : null;
       S.wiz.sig = sig;
     }
     return { cols, res: S.wiz.res };
+  }
+
+  /**
+   * Réglages par scène pour l'écoute : ceux de l'assistant, plus, pendant un essai d'harmonisation (version B à l'écoute),
+   * la mélodie de la scène figée telle qu'elle est (sinon le moteur la récrirait sur les nouveaux accords).
+   */
+  function partsEff() {
+    const ab = S.wiz.ab;
+    if (!ab || !ab.lead || !ab.on || S.wiz.step !== ST.chords) return S.wiz.parts;
+    const p = { ...(S.wiz.parts[ab.sec] || {}) };
+    const inst = { ...(p.inst || {}) };
+    inst[ab.lead.key] = { ...(inst[ab.lead.key] || {}), lead: { events: ab.lead.events } };
+    return { ...S.wiz.parts, [ab.sec]: { ...p, inst } };
   }
 
   /** Accords d'une scène, par leur nom (« Cm | B♭ | A♭ | B♭ »). */
@@ -2047,6 +2061,7 @@ SS.band = (() => {
     if (ab) {
       out.chords[ab.sec] = ab.grid;
       if (ab.peds) out.pedals[ab.sec] = ab.peds;
+      else if (ab.lead) delete out.pedals[ab.sec]; // harmonisation : pas de pédale sous les accords proposés
     }
     const pv = preview && w.insp && w.insp.preview;
     if (pv) {
@@ -2998,7 +3013,10 @@ SS.band = (() => {
   /** Essai A/B en cours sur cette scène, version B à l'écoute (sinon null). */
   const abOn = (sec) => (S.wiz.ab && S.wiz.ab.sec === sec && S.wiz.ab.on && S.wiz.step === ST.chords ? S.wiz.ab : null);
   /** Pédales affichées : celles de l'essai B s'il est à l'écoute, sinon celles de la scène. */
-  const pedsOf = (sec) => (abOn(sec) || {}).peds || S.wiz.peds[sec] || [];
+  const pedsOf = (sec) => {
+    const a = abOn(sec);
+    return (a && (a.peds || (a.lead ? [] : null))) || S.wiz.peds[sec] || [];
+  };
   const fillGrid = (list, total) => HM().gridFill(list, total); // js/harmony.js : commun avec la piste Accords et bandsong
   /** Modifie la grille de la scène (copie de celle de l'inspiration au premier changement). */
   function editGrid(sc, fn) {
@@ -3125,13 +3143,13 @@ SS.band = (() => {
           return h('button', { type: 'button', class: 'chip', 'data-ab': id, title: tr.text, onclick: () => startAb(sc, id) }, tr.label);
         })
       );
-    const tr = H.TRANSFORMS.find((x) => x.id === ab.id);
+    const tr = H.TRANSFORMS.find((x) => x.id === ab.id) || {};
     const flip = (on) => ((ab.on = on), renderWiz());
     return h(
       'div',
       { class: 'bwc-ab on', id: 'bwAb' },
       h('span', { class: 'bh-lbl' }, 'Essai'),
-      h('b', {}, tr.label),
+      h('b', {}, ab.label || tr.label),
       h(
         'span',
         { class: 'segmented', role: 'radiogroup', 'aria-label': 'Version à l’écoute' },
@@ -3148,6 +3166,10 @@ SS.band = (() => {
           onclick: () => {
             S.wiz.grids[sc.sec] = ab.grid;
             if (ab.peds) S.wiz.peds[sc.sec] = ab.peds;
+            else if (ab.lead) delete S.wiz.peds[sc.sec]; // harmonisation : la nouvelle grille n'a pas de pédale
+            // harmonisation : la mélodie reste celle qu'on a harmonisée (elle devient la mélodie imposée de la scène)
+            const T = ab.lead && insSteps().find((x) => x.key === ab.lead.key);
+            if (T && !(partOf(sc.sec, T) || {}).lead) putPart(sc.sec, T, { lead: { events: ab.lead.events } });
             S.wiz.ab = null;
             renderWiz();
           },
@@ -3162,7 +3184,7 @@ SS.band = (() => {
    * instrument mélodique sur cette grille (notes exposées, tessiture, fin… : SS.melody.checkMelody).
    */
   const CK_ICON = { ok: '✓', warn: '!', tip: '•', info: 'i' };
-  function checksBox(sc, g) {
+  function checksBox(sc, g, forceOpen = false) {
     const H = HM();
     const k = sc.key;
     const gch = g.map((x) => ({ step: x.step, len: x.len, c: chordOf(k, x) }));
@@ -3176,7 +3198,7 @@ SS.band = (() => {
       .map((T) => ({ T, r: SS.melody.checkMelody({ events: ((sc.data[T.col.id] || {}).events) || [], chordAt, key: k, spb: 16, beat: 4 }) }));
     const gridItems = H.gridChecks(k, gch);
     const warns = gridItems.concat(...mels.map((m) => m.r.items)).filter((i) => i.kind === 'warn').length;
-    const open = !!S.wiz.ckOpen;
+    const open = forceOpen || !!S.wiz.ckOpen;
     return h(
       'details',
       { class: 'bwc-checks', id: 'bwChecks', open: open || null, ontoggle: (e) => (S.wiz.ckOpen = e.target.open) },
@@ -3187,6 +3209,118 @@ SS.band = (() => {
           ? mels.map(({ T, r }) => h('div', { class: 'hm-vsec' }, h('h5', {}, `Mélodie · ${T.name}`, r.stats ? h('small', {}, ` ${r.stats.notes} notes`) : null), r.items.length ? list(r.items) : h('p', { class: 'hm-muted' }, 'Trop peu de notes pour juger.')))
           : [h('div', { class: 'hm-vsec' }, h('h5', {}, 'Mélodie'), h('p', { class: 'hm-muted' }, 'Pas de mélodie dans cette scène.'))])
       )
+    );
+  }
+
+  /* ---------- Harmoniser la mélodie (sous-onglet de l'étape Accords) ----------
+   * Trois grilles contrastées pour la mélodie de la scène (SS.harmony.harmonize), chacune expliquée, à écouter en essai A/B.
+   * Pendant l'essai, la mélodie est figée (partsEff) ; « Garder B » écrit la grille et garde cette mélodie pour la scène. */
+  const HZ_SLOTS = [[16, '1 par mesure'], [8, '2 par mesure'], [32, '1 toutes les 2 mesures']];
+  const HZ_ROLES = { chord: 'note de l’accord', pass: 'passage', tension: 'tension (9e, quarte, 7e…)', clash: 'frottement à vérifier' };
+  /** Instruments Mélodie qui chantent dans la scène, avec leurs notes ({ step, len, midi : la plus haute }). */
+  function harmMelodies(sc) {
+    return insSteps()
+      .filter((T) => T.kind === 'melody' && !mutedIn(sc.sec, T))
+      .map((T) => {
+        const evs = (((sc.data[T.col.id] || {}).events) || []).filter((e) => e.notes && e.notes.length);
+        return { T, evs, notes: evs.map((e) => ({ step: e.step, len: e.len, midi: Math.max(...e.notes) })) };
+      })
+      .filter((m) => m.notes.length >= 2);
+  }
+  /** Lance l'essai A/B d'une proposition : la mélodie est figée telle qu'elle joue maintenant. */
+  function startHarm(sc, m, p, i) {
+    const prev = S.wiz.ab && S.wiz.ab.sec === sc.sec && S.wiz.ab.lead;
+    const lead = prev || { key: m.T.key, events: m.evs.map(({ step, len, notes, vel }) => ({ step, len, notes: [...notes], vel })), notes: m.notes };
+    S.wiz.ab = { sec: sc.sec, id: 'harm', label: `${i + 1} · ${p.title}`, grid: p.grid.map((x) => ({ ...x })), peds: null, on: true, pi: i, lead };
+    S.wiz.hz.view = i;
+    S.wiz.gsel = null;
+    S.wiz.psel = null;
+    renderWiz();
+    const now = S.wiz.res && S.wiz.res.scenes.find((x) => x.sec === sc.sec);
+    if (now && !(L.mode === 'scene' && L.sec === sc.sec && !L.paused)) playScene(now.id);
+  }
+  function harmTab(sc) {
+    const H = HM();
+    const k = sc.key;
+    const total = sc.bars * 16;
+    const pct = (x) => `${((100 * x) / total).toFixed(3)}%`;
+    const mels = harmMelodies(sc);
+    const ab = S.wiz.ab && S.wiz.ab.sec === sc.sec && S.wiz.ab.lead ? S.wiz.ab : null;
+    if (!mels.length && !ab)
+      return h(
+        'div',
+        { class: 'bwhz-empty', id: 'bwHarm' },
+        h('b', {}, 'Pas de mélodie dans cette scène.'),
+        h('span', {}, 'Choisis une scène où la mélodie chante, ou écris-la dans l’onglet de l’instrument Mélodie : l’assistant proposera ensuite des accords pour elle.')
+      );
+    if (!S.wiz.hz || S.wiz.hz.sec !== sc.sec) S.wiz.hz = { sec: sc.sec, key: null, slot: 16, loop: true, view: 0 };
+    const st = S.wiz.hz;
+    const m = mels.find((x) => x.T.key === (ab ? ab.lead.key : st.key)) || mels[0];
+    st.key = m ? m.T.key : ab.lead.key;
+    const notes = ab ? ab.lead.notes : m.notes; // pendant l'essai : la mélodie figée
+    const base = S.wiz.grids[sc.sec] || specGrid(sc);
+    const sig = JSON.stringify([k, total, st.slot, st.loop, notes, base]);
+    if (!st.memo || st.memo.sig !== sig) st.memo = { sig, props: H.harmonize(k, notes, total, { slot: st.slot, current: base, loop: st.loop ? 4 : 0 }) || [] };
+    const props = st.memo.props;
+    if (ab) st.view = ab.pi;
+    const view = props[st.view] ? st.view : -1;
+    // la mélodie sur la grille regardée (A : les accords de la scène ; 1, 2, 3 : une proposition)
+    const vg = view >= 0 ? props[view].grid : base;
+    const roles = H.noteRoles(k, vg, notes);
+    const lo = Math.min(...notes.map((x) => x.midi)) - 1;
+    const hi = Math.max(...notes.map((x) => x.midi)) + 1;
+    const noteName = (midi) => H.french(H.spell(k, midi % 12)) + (Math.floor(midi / 12) - 1);
+    const roll = h(
+      'div',
+      { class: 'bwhz-roll', id: 'bwHzRoll' },
+      ...vg.map((x) => h('div', { class: 'bwhz-band role-' + chordOf(k, x).role.id, style: `left:${pct(x.step)};width:${pct(x.len)}` }, chordOf(k, x).name)),
+      ...Array.from({ length: sc.bars - 1 }, (_, b) => h('i', { class: 'bwhz-bl', style: `left:${pct((b + 1) * 16)}` })),
+      ...notes.map((x, i) =>
+        h('span', {
+          class: 'bwhz-n ' + roles[i],
+          style: `left:${pct(x.step)};width:calc(${pct(x.len)} - 2px);top:${(26 + ((hi - x.midi) / Math.max(1, hi - lo)) * 96).toFixed(1)}px`,
+          title: `${noteName(x.midi)} · ${HZ_ROLES[roles[i]]}`,
+        })
+      )
+    );
+    const seg = (items, cur, set, label) =>
+      h('span', { class: 'segmented', role: 'radiogroup', 'aria-label': label }, ...items.map(([v, l]) => h('button', { type: 'button', role: 'radio', class: v === cur ? 'active' : '', 'aria-checked': String(v === cur), onclick: () => set(v) }, l)));
+    const head = h(
+      'div',
+      { class: 'bwhz-head' },
+      h('span', { class: 'bwhz-grp' }, h('span', { class: 'bh-lbl' }, 'Mélodie'),
+        mels.length > 1 && !ab ? seg(mels.map((x) => [x.T.key, x.T.name]), st.key, (v) => ((st.key = v), renderWiz()), 'Mélodie à harmoniser') : h('b', {}, (m || mels[0] || { T: { name: 'mélodie figée' } }).T.name)),
+      h('span', { class: 'spacer' }),
+      sc.bars >= 8 ? h('span', { class: 'bwhz-grp' }, h('span', { class: 'bh-lbl' }, 'Forme'), seg([[true, 'Boucle de 4 mesures'], [false, 'Toute la scène']], st.loop, (v) => ((st.loop = v), renderWiz()), 'Forme de la grille')) : null,
+      h('span', { class: 'bwhz-grp' }, h('span', { class: 'bh-lbl' }, 'Accords'), seg(HZ_SLOTS, st.slot, (v) => ((st.slot = v), renderWiz()), 'Rythme des accords'))
+    );
+    const viewSeg = seg([[-1, 'Accords actuels'], ...props.map((p, i) => [i, `${i + 1} · ${p.title}`])], view, (v) => ((st.view = v), renderWiz()), 'Grille regardée');
+    const legend = h('div', { class: 'bwhz-legend' }, ...Object.entries(HZ_ROLES).map(([id, l]) => h('span', {}, h('i', { class: 'bwhz-sw ' + id }), l)));
+    const same = (a, b) => a.step === b.step && a.degree === b.degree && a.type === b.type && (a.acc || 0) === (b.acc || 0);
+    const meter = (label, v) => h('span', { class: 'bwhz-meter' }, label, h('i', { style: `--v:${Math.round(v * 100)}%` }));
+    const cards = props.map((p, i) => {
+      const trying = ab && ab.pi === i;
+      return h(
+        'div',
+        { class: 'bwhz-card' + (view === i ? ' on' : '') + (trying ? ' trying' : ''), 'data-hz': p.id, onclick: (e) => !e.target.closest('button') && !ab && ((st.view = i), renderWiz()) },
+        h('header', {}, h('b', {}, `${i + 1} · ${p.title}`), h('small', {}, p.numerals)),
+        h('div', { class: 'bwhz-chords' }, ...p.cycle.map((x) => {
+          const c = chordOf(k, x);
+          const chg = !base.some((y) => same(x, y));
+          return h('span', { class: `bwhz-ch role-${c.role.id}${chg ? ' chg' : ''}`, title: `${c.name} · ${c.numeral} · ${c.role.label}${chg ? ' · nouveau' : ''}` }, c.name, h('small', {}, c.numeral));
+        }), p.reps > 1 ? h('span', { class: 'bwhz-reps', title: 'La boucle est jouée sur toute la scène' }, `× ${p.reps}`) : null),
+        h('ul', { class: 'bwhz-why' }, ...p.why.map((t) => h('li', {}, t))),
+        h('div', { class: 'bwhz-foot' }, meter('Tension', p.tension), meter('Couleur', p.color), h('span', { class: 'spacer' }),
+          h('button', { type: 'button', class: 'btn btn-small' + (trying ? ' btn-accent' : ''), 'data-hzab': i, onclick: () => startHarm(sc, m || { T: { key: ab.lead.key }, evs: ab.lead.events, notes }, p, i) }, trying ? '▶ À l’essai' : '▶ Essai A/B'))
+      );
+    });
+    return h(
+      'div',
+      { class: 'bwhz', id: 'bwHarm' },
+      head,
+      h('div', { class: 'bwhz-mel' }, h('div', { class: 'bwhz-mhead' }, h('b', {}, `Mélodie · ${sc.name}`), h('span', { class: 'bh-info' }, 'chaque note colorée selon son rôle dans l’accord'), h('span', { class: 'spacer' }), viewSeg), roll, legend),
+      props.length ? h('div', { class: 'bwhz-cards' }, ...cards) : h('p', { class: 'dlg-hint' }, 'Pas assez de notes pour proposer des accords.'),
+      ab ? abBar(sc) : h('p', { class: 'dlg-hint', id: 'bwHzHint' }, 'Lance l’essai d’une proposition : la scène tourne en boucle, tu passes de A (tes accords) à B (la proposition), puis tu gardes celle que tu préfères. La mélodie ne change pas.')
     );
   }
 
@@ -3355,7 +3489,12 @@ SS.band = (() => {
       ),
       pal
     );
-    const content = h('div', { class: 'bwc', id: 'bwChords' }, head, modeGuide(k), abBar(sc), h('div', { class: 'gr-scroll' }, tl), selBar, palette, checksBox(sc, g));
+    // sous-onglets : la grille, l'harmonisation de la mélodie, la vérification
+    const tab = S.wiz.ctab || 'grid';
+    const CT = [['grid', 'Grille'], ['harm', 'Harmoniser la mélodie'], ['check', 'Vérifier']];
+    const tabs = h('div', { class: 'bwc-tabs', role: 'tablist', 'aria-label': 'Étape Accords' }, ...CT.map(([id, label]) => h('button', { type: 'button', role: 'tab', id: 'bwTab-' + id, class: tab === id ? 'on' : '', 'aria-selected': String(tab === id), onclick: () => ((S.wiz.ctab = id), renderWiz()) }, label)));
+    const body = tab === 'harm' ? [harmTab(sc)] : tab === 'check' ? [checksBox(sc, g, true)] : [head, modeGuide(k), abBar(sc), h('div', { class: 'gr-scroll' }, tl), selBar, palette];
+    const content = h('div', { class: 'bwc', id: 'bwChords' }, tabs, ...body);
     content.addEventListener('pointerdown', (e) => gridDown(e, sc));
     content.addEventListener('keydown', (e) => {
       const blk = e.target.closest && e.target.closest('.gr-blk');

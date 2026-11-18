@@ -157,8 +157,27 @@ const SHOTS = process.env.SHOTS;
   await page.selectOption('#bwProg', '0');
   ok((await page.isVisible('#bwGridBack')) && (await gnames()).length === 8, `grille de la tonalité posée (${(await gnames()).join(' ')})`);
   await page.click('#bwGridBack');
-  await page.click('#bwChecks summary');
+  await page.click('#bwTab-check');
   ok((await page.locator('#bwChecks .hm-checks2 li').count()) >= 2 && /Mélodie · /.test(await page.textContent('#bwChecks')), `Vérifier la scène : accords et mélodie (${(await page.textContent('#bwChecks summary')).trim()})`);
+  // Harmoniser la mélodie : trois grilles expliquées pour la mélodie de la scène, essai A/B où la mélodie ne bouge pas
+  await page.click('#bwTab-harm');
+  ok(/Pas de mélodie/.test(await page.textContent('#bwHarm')), 'Harmoniser : l’intro n’a pas de mélodie');
+  await page.click('.bh-scene:has-text("Refrain")');
+  ok((await page.locator('#bwHarm .bwhz-card').count()) === 3 && (await page.locator('#bwHzRoll .bwhz-n').count()) > 4 && (await page.locator('#bwHarm .bwhz-why li').count()) >= 3, 'Harmoniser : trois propositions expliquées, la mélodie du refrain colorée');
+  const melOf = () => page.evaluate(() => JSON.stringify(Object.entries(SS.band._state.wiz.res.scenes.find((s) => s.sec === 'chorus').data).filter(([id]) => /lead/.test(id)).map(([, d]) => d.events.map((e) => [e.step, e.notes[0]]))));
+  const melA = await melOf();
+  await page.click('#bwHarm .bwhz-card >> nth=0 >> [data-hzab]');
+  const hzTrial = await page.evaluate(() => {
+    const w = SS.band._state.wiz;
+    const sc = w.res.scenes.find((s) => s.sec === 'chorus');
+    const g0 = w.ab.grid[0];
+    return { on: w.ab.on && !!w.ab.lead, first: sc.spans[0].chord.rootPc === SS.harmony.gridChord(sc.key, g0.degree, g0.type, g0.acc).rootPc };
+  });
+  ok(hzTrial.on && hzTrial.first && (await page.isVisible('#bwAbB')) && (await melOf()) === melA, 'essai B : les accords proposés à l’écoute, la même mélodie');
+  await page.click('#bwAbCancel');
+  ok(await page.evaluate(() => !SS.band._state.wiz.ab && !SS.band._state.wiz.grids.chorus && !JSON.stringify(SS.band._state.wiz.parts).includes('"lead":{"events"')), 'Garder A : ni grille ni mélodie figée');
+  await page.click('.bh-scene:has-text("Intro")');
+  await page.click('#bwTab-grid');
   // pédale (reprise de la piste Accords / Harmonie) : la note tenue passe à la basse des accords qu'elle couvre
   await page.click('#bwLane .gr-blk >> nth=0');
   await page.click('#bwPedAdd');

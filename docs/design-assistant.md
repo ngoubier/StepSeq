@@ -199,3 +199,33 @@ Le bouton « FX » d'une tranche ouvre `#mxFx` en **panneau flottant** (`positio
 - **Carte « Transition avant « X »** : aperçu de −8 à +1 mesures (une ligne par effet, estompée quand l'effet est coupé), puis une ligne par effet (interrupteur de 36 × 20 px, titre et phrase, réglages à droite ; sous 720 px les réglages passent sous le titre). Une seule carte par colonne, pas de cadre dans le cadre ; la carte **Percussions** est une matrice de cases orange (`#f08a00`) scènes × boucles.
 - **Sans le musicien** : un cadre en tirets avec une phrase et un bouton « + Ajouter … » (même mécanisme que « + Ajouter un musicien » : il ajoute l'Effets ou le Percussionniste, facultatifs dans chaque inspiration, au groupe) ; il remplace les réglages qui en dépendent.
 - **Moteur** : `S.wiz.fx` → option `fx` de `SS.bandSong.build` (voir `junctionDefaults` dans `js/bandsong.js`). Sans retouche, la chanson est celle du plan ; l'étape montre ce que le plan fait déjà.
+
+## Assistants de composition, d'orchestration et d'arrangement (novembre 2026)
+
+Maquette : `docs/maquette-assistant-integre.html`. Les trois aides vivent dans l'assistant Nouvelle chanson (pas de fenêtre à part) et
+suivent la même boucle : ce que la scène contient, ce qu'on y entend, trois propositions expliquées (« pourquoi ça marche »), essai A/B
+en boucle, « Garder » (rien n'est écrit avant). Ordre de livraison : 1 Harmoniser la mélodie (fait), 2 étape Arrangement (énergie,
+variations de scène), 3 onglet Mélodie : développer le motif et section qui contraste, 4–5 Orchestration (musicien Orchestre, étape
+Orchestration, doublures, articulations), puis l'ouverture d'une chanson existante dans l'assistant.
+
+### Étape Accords : sous-onglets et « Harmoniser la mélodie »
+
+- **Sous-onglets** (`.bwc-tabs`, `S.wiz.ctab`, non enregistré) : **Grille** (l'éditeur d'avant : en-tête, guide du mode, essais A/B,
+  grille, palette), **Harmoniser la mélodie** (`#bwHarm`), **Vérifier** (`#bwChecks`, toujours ouvert dans son onglet).
+- **Moteur** (`SS.harmony.harmonize(key, notes, total, { slot, current, loop })`, `noteRoles`, js/harmony.js, `tests/harmonize.test.js`) :
+  la mélodie est découpée en tranches d'un accord (`slot` : 16 = une mesure, 8, 32). Candidats : triades majeures et mineures de la
+  gamme, plus les emprunts (en mineur : V majeur du mineur harmonique, IV majeur du dorien ; en majeur : iv mineur, ♭VII, ♭VI). Chaque
+  accord est noté sur la tranche : une note appuyée (blanche ou plus, ou noire sur le premier temps) dans l'accord compte pour, un
+  demi-ton contre une note de l'accord compte contre (sauf neuvième, et septième majeure d'un accord majeur). Trois intentions
+  (simple, tension, couleur) choisissent leur chemin par Viterbi avec leurs préférences d'enchaînement (quinte descendante, basse qui
+  descend d'un degré, cadence V → I, emprunts), et s'écartent des propositions déjà faites. Une scène de 8 mesures ou plus est
+  harmonisée comme une **boucle de 4 mesures** (chaque tranche notée sur toutes ses répétitions), ou en grille libre (« Toute la scène »).
+  Chaque proposition a un titre selon ce qu'elle fait (« Sombre, descendante », « Lumineuse (dorien) »…), au plus trois phrases
+  d'explication, des jauges Tension et Couleur.
+- **Interface** : la mélodie de la scène (un instrument de type Mélodie qui joue ; choix s'il y en a plusieurs) dans un rouleau, chaque
+  note colorée selon son rôle sur la grille regardée (accord, passage, tension, frottement) ; « Accords actuels » ou une proposition.
+  Trois cartes : accords d'un cycle (les nouveaux bordés de blanc, « × n » pour les tours de boucle), explications, « ▶ Essai A/B ».
+- **Essai A/B** : le même que celui de la Grille (`S.wiz.ab`, avec `lead` et `label`). Pendant l'essai, la mélodie est **figée** telle
+  qu'elle jouait (`partsEff` dans `wizSong`), sinon le moteur la récrirait sur les nouveaux accords ; les pédales de la scène ne sont
+  pas jouées sous la version B. **Garder B** écrit la grille de la scène et fait de cette mélodie la mélodie imposée de la scène
+  (`parts[section].inst[id].lead`, comme « Générer une mélodie ») ; **Garder A** ne touche à rien.
