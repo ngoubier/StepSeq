@@ -277,3 +277,17 @@ test('mode Diagnostic : les synthés Juno passent en mode éco en premier', () =
   assert.match(steps[0].label, /2 pistes/);
   assert.ok(!W.reliefSteps(p, { juno: true }).some((x) => x.key === 'juno'));
 });
+
+test('journal : résumé et origine d’un projet', () => {
+  const p = SS.newProject();
+  p.title = 'Essai';
+  p.tracks = [{ id: 'bw·a', type: 'instrument', family: 'analog' }, { id: 'bw·d', type: 'drum' }];
+  p.wizard = { savedAt: Date.UTC(2026, 10, 18, 5, 0), state: { mode: 'create', styleId: 'synthwave', presetId: 'nightcall', w: { step: 7 } } };
+  const s = W.projectSummary(p, { kind: 'écoute de l’assistant', detail: { lecture: 'scène « A » en boucle', vide: null } });
+  assert.match(s, /« Essai » \[/);
+  assert.match(s, /2 piste\(s\) \(Juno 1, batterie 1, autres 0\)/);
+  assert.match(s, /pistes d'écoute de l'assistant/);
+  assert.match(s, /style synthwave, inspiration nightcall, étape 7/);
+  assert.match(s, /origine : écoute de l’assistant — lecture scène « A » en boucle$/);
+  assert.match(W.projectSummary(SS.newProject(), null), /origine : inconnue/);
+});

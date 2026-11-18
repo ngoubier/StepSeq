@@ -6613,6 +6613,7 @@ SS.band = (() => {
     L.block = 0;
     L.scene = sa.id;
     markListen();
+    noteListen(proj, `jonction ${a.name || a.id} → ${b.name || b.id} en boucle`);
     SS.audio.start(() => proj, onListenStep, {
       song: {
         index: 0,
@@ -6636,6 +6637,30 @@ SS.band = (() => {
    */
   const L = { proj: null, sig: null, mixSig: null, junc: null, mode: null, scene: null, sec: null, block: -1, step: -1, paused: false };
   const LID = (id) => 'bw·' + id; // identifiants des pistes d'écoute : jamais ceux de la chanson
+
+  /** Journal de débogage (js/audiowatch.js) : d'où vient le projet d'écoute qui va jouer. */
+  function noteListen(proj, lecture) {
+    const W = SS.audioWatch;
+    if (!W || !W.setOrigin || !proj) return;
+    const ed = app.project();
+    const p = preset();
+    W.setOrigin(proj, {
+      kind: 'écoute de l\'assistant « Nouvelle chanson » (projet temporaire, rien n\'est écrit dans la chanson)',
+      detail: {
+        lecture,
+        démarche: S.mode === 'cover' ? `reprise « ${(S.cover && S.cover.title) || '?'} »` : 'création',
+        style: S.styleId,
+        inspiration: p ? `${p.id} (« ${p.song} »${p.artist ? ', ' + p.artist : ''})` : S.presetId,
+        étape: S.wiz ? S.wiz.step : null,
+        assistant: S.wiz && S.wiz.fresh ? 'ouvert sur une chanson vide' : 'ouvert sur la chanson en cours',
+        chansonÉditeur: ed ? `« ${ed.title} » [${ed.id}], ${ed.tracks.length} piste(s)` : null,
+        pistesÉcoute: proj.tracks.length,
+        pistesMuettes: proj.tracks.filter((t) => t.mute).length || null,
+      },
+    });
+  }
+  /** Ligne « ASSIST » du journal de débogage : ouverture, reprise de l'assistant. */
+  const noteWizard = (text) => SS.audioWatch && SS.audioWatch.log && SS.audioWatch.log('ASSIST', text);
 
   /** Projet d'écoute : construit comme « Créer la chanson » (main.js, addBandSong), recalculé si la chanson change. */
   function listenProject() {
@@ -6786,6 +6811,8 @@ SS.band = (() => {
     L.scene = id;
     L.sec = (S.wiz.res.scenes.find((x) => x.id === id) || {}).sec || null;
     markListen();
+    const sc = proj.scenes.find((x) => x.id === id);
+    noteListen(proj, `scène « ${(sc && sc.name) || id} » en boucle`);
     SS.audio.start(() => proj, onListenStep, {});
   }
 
@@ -6798,6 +6825,7 @@ SS.band = (() => {
     L.block = index;
     L.scene = proj.song[index].scene;
     markListen();
+    noteListen(proj, `chanson à partir du bloc ${index + 1} sur ${proj.song.length}`);
     SS.audio.start(() => proj, onListenStep, {
       song: {
         index,
@@ -6936,6 +6964,7 @@ SS.band = (() => {
       if (!confirm(`Remplacer le brouillon de l’assistant ?\n\nCe projet garde déjà le travail d’un assistant (${draftWhen(app.project().wizard)}). OK l’efface pour en commencer un autre ; Annuler le garde (menu : « Reprendre l’assistant »).`)) return;
       app.setWizardDraft(null);
     }
+    noteWizard(`ouvert sur la chanson en cours « ${app.project().title} » [${app.project().id}]`);
     openWizard({ fresh: false });
   }
   /** « brouillon du 17/11 à 14:32 » ou « chanson créée le … » */
@@ -6957,6 +6986,7 @@ SS.band = (() => {
     };
     show();
     draftStart();
+    if (fresh) noteWizard(`ouvert sur une chanson vide « ${app.project().title} » [${app.project().id}]`);
   }
 
   /* ---------- Brouillon : l'état de l'assistant, rangé dans le projet (project.wizard) ----------
@@ -7047,7 +7077,10 @@ SS.band = (() => {
   function resume() {
     const d = app.project().wizard;
     if (!d) return false;
-    if (wizRestore(d)) return true;
+    if (wizRestore(d)) {
+      noteWizard(`repris depuis le brouillon de « ${app.project().title} » [${app.project().id}] (${draftWhen(d)}, étape ${S.wiz ? S.wiz.step : '?'})`);
+      return true;
+    }
     app.toast('Ce brouillon ne peut plus être rouvert (inspiration ou version inconnue).');
     return false;
   }

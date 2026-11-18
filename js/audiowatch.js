@@ -74,6 +74,53 @@ SS.audioWatch = (() => {
     return juno > 0 ? 'synths' : 'useless';
   }
 
+  const pad2 = (n) => String(n).padStart(2, '0');
+  const when = (ms) => {
+    if (!ms) return '?';
+    const d = new Date(ms);
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  };
+  /** Description d'une origine : « type — détails ». */
+  function originText(o) {
+    if (!o) return 'inconnue (chargée avant le début du journal, ou chemin non instrumenté)';
+    const d = o.detail ? Object.entries(o.detail).filter(([, v]) => v != null && v !== '').map(([k, v]) => `${k} ${typeof v === 'object' ? JSON.stringify(v) : v}`).join(', ') : '';
+    return `${o.kind}${d ? ' — ' + d : ''}${o.before ? ` (au départ : ${o.before.kind})` : ''}`;
+  }
+  /** Brouillon de l'assistant rangé dans le projet (project.wizard) : style, inspiration, étape, dates. */
+  function draftText(w) {
+    if (!w || !w.state) return null;
+    const st = w.state;
+    const parts = [st.mode === 'cover' ? 'reprise' : 'création', `style ${st.styleId || '?'}`, `inspiration ${st.presetId || '?'}`, `étape ${st.w && st.w.step != null ? st.w.step : '?'}`];
+    if (w.createdAt) parts.push(`chanson créée ${when(w.createdAt)}`);
+    parts.push(`brouillon enregistré ${when(w.savedAt)}`);
+    return parts.join(', ');
+  }
+  /**
+   * Résumé d'un projet pour le journal : titre, identifiant, contenu, brouillon de l'assistant et origine.
+   * Fonction pure (testée sous Node).
+   */
+  function projectSummary(p, origin) {
+    if (!p) return 'aucun projet';
+    const tracks = p.tracks || [];
+    const n = (f) => tracks.filter(f).length;
+    const juno = n((t) => t.type === 'instrument' && t.family === 'analog');
+    const drums = n((t) => t.type === 'drum');
+    const listen = tracks.some((t) => String(t.id).startsWith('bw·'));
+    const parts = [
+      `« ${p.title || 'sans titre'} » [${p.id || '?'}]`,
+      `tempo ${p.tempo}`,
+      `${tracks.length} piste(s) (Juno ${juno}, batterie ${drums}, autres ${tracks.length - juno - drums})`,
+      `${(p.scenes || []).length} scène(s)`,
+      `${(p.song || []).length} bloc(s)`,
+      `mode ${p.playMode || 'pattern'}`,
+    ];
+    if (listen) parts.push('pistes d\'écoute de l\'assistant (bw·)');
+    const dr = draftText(p.wizard);
+    if (dr) parts.push(`brouillon d'assistant : ${dr}`);
+    parts.push(`origine : ${originText(origin)}`);
+    return parts.join(' · ');
+  }
+
   const trackName = (names, id) => (names && names.get(id)) || 'piste';
   const RET = { plate: 'Reverb Plate (bus partagé)', hall: 'Reverb Hall (bus partagé)', echo: 'Écho à bande (bus partagé)', space: 'Reverb Cosmos (bus partagé)' };
 
@@ -406,6 +453,18 @@ SS.audioWatch = (() => {
     journal.push(`${stamp(now)} ${tag.padEnd(7, ' ')} ${text}`);
     if (journal.length > CFG.journal) journal.splice(0, journal.length - CFG.journal);
   }
+  /* ---- origine des projets : d'où vient chaque chanson jouée ou chargée (journal, section « Origine ») ---- */
+  const origins = new WeakMap(); // projet -> { kind, detail, at }
+  /** Enregistre l'origine d'un projet (création, ouverture, import, assistant…) et la note dans le journal. */
+  function setOrigin(project, info) {
+    if (!project || !info) return;
+    const prev = origins.get(project);
+    const o = { ...info, at: performance.now() };
+    if (prev && info.keep) o.before = prev.before ? prev.before : prev; // même objet modifié sur place : on garde la première origine
+    delete o.keep;
+    origins.set(project, o);
+    log('PROJET', projectSummary(project, o));
+  }
   let lastMetrics = -Infinity;
   let runAt = -Infinity; // début de la lecture en cours
   let external = false; // décrochages indépendants de la charge (mode allégé inefficace) pendant cette lecture
@@ -595,6 +654,10 @@ SS.audioWatch = (() => {
         L.push('erreur estimation : ' + (e && e.message));
       }
     }
+    L.push('', '## Origine des projets');
+    L.push(`- chanson jouée${project === editor ? ' (= chanson de l\'éditeur)' : ''} : ${projectSummary(project, project && origins.get(project))}`);
+    if (editor && editor !== project) L.push(`- chanson de l'éditeur : ${projectSummary(editor, origins.get(editor))}`);
+    if (SS.band && SS.band.active && SS.band.active()) L.push('- assistant « Nouvelle chanson » ouvert');
     L.push('', '## Allègements ciblés en cours');
     if (!diag.done.length) L.push('- aucun');
     for (const [i, d] of diag.done.entries()) L.push(`- #${i + 1} ${stamp(d.at)} ${d.label} · cause ${d.reason} · ${d.ok == null ? 'bilan en attente' : d.ok ? 'efficace' : 'insuffisant'}`);
@@ -692,6 +755,10 @@ SS.audioWatch = (() => {
     }
     lastSample = now;
     const project = watched();
+    if (snap.playing && project && project !== lastLogged) {
+      lastLogged = project;
+      log('PROJET', `joué : ${projectSummary(project, origins.get(project))}`, now);
+    }
     const names = new Map(project ? project.tracks.map((t) => [t.id, t.name || 'Piste']) : []);
     let load = [];
     try {
@@ -771,6 +838,7 @@ SS.audioWatch = (() => {
   }
 
   /** Chanson surveillée : celle qui joue (écoute de l'assistant « Nouvelle chanson » comprise), sinon celle de l'éditeur. */
+  let lastLogged = null; // dernière chanson décrite par une ligne « PROJET joué »
   let lastPlayed = null; // dernière chanson jouée : le journal copié après Stop la décrit encore
   function watched() {
     const p = SS.audio && SS.audio.playingProject && SS.audio.playingProject();
@@ -791,6 +859,9 @@ SS.audioWatch = (() => {
     estimateLoad,
     overload,
     lightVerdict,
+    projectSummary,
+    setOrigin,
+    origin: (p) => origins.get(p) || null,
     reliefSteps,
     diagDecide,
     diagMode,

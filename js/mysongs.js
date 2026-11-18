@@ -106,7 +106,7 @@ SS.mySongs = (() => {
   async function openSong(id) {
     const json = await SS.store.get(id);
     if (!json) return;
-    await app.loadSong(SS.normalizeProject(JSON.parse(json)));
+    await app.loadSong(SS.normalizeProject(JSON.parse(json)), { origin: { kind: 'Mes chansons : chanson ouverte', detail: { id } } });
     el.close();
   }
 
@@ -140,7 +140,7 @@ SS.mySongs = (() => {
     await SS.store.keepVersion(songId);
     const p = SS.normalizeProject(JSON.parse(json));
     p.id = songId;
-    await app.loadSong(p, { changed: true });
+    await app.loadSong(p, { changed: true, origin: { kind: 'Mes chansons : version restaurée', detail: { id: songId, version: vid } } });
     el.close();
   }
 

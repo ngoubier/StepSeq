@@ -714,6 +714,7 @@ node tests/e2e/automix-ui.js
 node tests/e2e/automix-modes.js
 node tests/e2e/automix-chains.js
 node tests/e2e/audio-light.js
+node tests/e2e/debug-origin.js       # journal : origine des projets (démo, nouvelle chanson, écoute de l'assistant)
 node tests/e2e/juno-eco.js           # mode éco des synthés Juno (mode allégé, mode Diagnostic, Rétablir)
 node tests/e2e/audio-diag.js         # mode Diagnostic : reverb raccourcie puis coupée en cas de décrochage, journal de débogage
 node tests/e2e/audio-perf.js
@@ -979,7 +980,16 @@ allègements tiennent jusqu'à « Rétablir » ou au rechargement de la page (`S
 (.txt) »). Le texte, entre `### STEPSEQ-DEBUG v1 ###` et `### FIN STEPSEQ-DEBUG ###`, contient le navigateur, la
 latence, les mesures disponibles, chaque piste avec ses effets, les retours et le Master, le poids estimé, les
 allègements et leur bilan, les incidents, puis un journal horodaté (`LECTURE`, `MESURE` toutes les 2 s, `INCIDENT`,
-`ACTION`, `ATTENTE`, `BILAN`, `ALLÉGÉ`, `RÉPARE`). Le coller dans une conversation avec Claude permet de retrouver
+`ACTION`, `ATTENTE`, `BILAN`, `ALLÉGÉ`, `RÉPARE`, `PROJET`, `ASSIST`).
+
+**Origine des projets** : chaque chanson est décrite par titre, identifiant, tempo, pistes (dont Juno et batterie),
+scènes, blocs, mode de lecture, brouillon d'assistant éventuel (création ou reprise, style, inspiration, étape,
+dates) et **origine** : démarrage (sauvegarde locale ou démo), nouvelle chanson vide, fichier ouvert, import MIDI,
+Mes chansons (ouverte ou version restaurée), Annuler / Rétablir, « Créer la chanson » de l'assistant (style,
+inspiration, graine de mélodie), ou **écoute de l'assistant** (projet temporaire : scène en boucle, chanson à partir
+d'un bloc ou jonction, étape, chanson de l'éditeur). Une ligne `PROJET` est écrite à chaque changement, et une ligne
+`PROJET joué` dès qu'une autre chanson se met à jouer ; la section « Origine des projets » décrit la chanson jouée et
+celle de l'éditeur quand elles diffèrent (`SS.audioWatch.setOrigin`, `projectSummary`). Le coller dans une conversation avec Claude permet de retrouver
 l'élément et le code en cause.
 
 ## Aides de l'interface
