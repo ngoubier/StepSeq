@@ -40,8 +40,8 @@ SS.BAND_DRIVE = {
   returntooz: 11.9,
   allthatmatters: 11.3,
   gravity: 12.5,
-  skyandsand: 11.6,
-  yourmind: 11.9,
-  rej: 14.3,
-  blurred: 12,
+  skyandsand: 11.4,
+  yourmind: 11.6,
+  rej: 13.7,
+  blurred: 11.7,
 };

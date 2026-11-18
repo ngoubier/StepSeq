@@ -171,7 +171,7 @@ const ok = (c, m) => {
   ok(a.filter.shape === 'rise' && !a.filter.points && a.filter.a === 0 && a.filter.b === 1, 'Revenir à la forme : Montée 0 → 1 retrouvée');
 
   // pastille et résumé
-  ok(/auto/.test(await page.textContent('.bh-scene.on .bwau-badge')) && /Basse · Croches · auto/.test((await page.textContent('#bandWizSteps li.cur')).replace(/\s+/g, ' ')), 'pastille « auto » de la scène et résumé « Basse · Croches · auto »');
+  ok(/auto/.test(await page.textContent('.bh-scene.on .bwau-badge')) && /Basse.* · Croches · auto/.test((await page.textContent('#bandWizSteps li.cur')).replace(/\s+/g, ' ')), 'pastille « auto » de la scène et résumé « Basse … · Croches · auto »');
   // chaque scène a ses courbes
   await scene('Refrain');
   ok((await page.locator('#bwAuto').count()) === 0 && !(await auto('bass', 'chorus')) && !(await page.locator('.bh-scene:has(.bh-sname b:text-is("Refrain")) .bwau-badge').count()) && !/auto/.test(await page.textContent('#bandWizSteps li.cur')), 'Refrain : pas de courbe, pas de pastille, pas de « auto »');

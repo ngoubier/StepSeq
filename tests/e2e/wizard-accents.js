@@ -129,7 +129,7 @@ const ok = (c, m) => {
   await page.click('.bwa-pat[data-id="strong"]');
   a = await acc('verse');
   ok(a && JSON.stringify(a.steps) === '[0,8]' && (await page.locator('.bwa-pat.on').getAttribute('data-id')) === 'strong', 'Temps forts : pas 0 et 8, motif repéré');
-  ok(/Basse · Croches · 2 accents/.test((await page.textContent('#bandWizSteps li.cur')).replace(/\s+/g, ' ')) && /2 accents/.test(await page.textContent('.bh-scene.on .bwa-badge')), 'résumé du stepper « Basse · Croches · 2 accents » et pastille « 2 accents »');
+  ok(/Basse.* · Croches · 2 accents/.test((await page.textContent('#bandWizSteps li.cur')).replace(/\s+/g, ' ')) && /2 accents/.test(await page.textContent('.bh-scene.on .bwa-badge')), 'résumé du stepper « Basse … · Croches · 2 accents » et pastille « 2 accents »');
   // le motif se répète : repeat 2 ne change pas le jeu (le motif d'une mesure est recopié)
   await page.click('#bwAccRep [data-v="2"]');
   a = await acc('verse');
