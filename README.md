@@ -941,7 +941,9 @@ premier enregistrement ; les autres navigateurs téléchargent le fichier.
   le jeu humain et les triolets restent à leur place), vélocité, durée (pédale de sustain appliquée) ;
 - **expression (CC 11)** : devient une courbe de **Volume** dans chaque scène (seulement les points utiles, la courbe
   est linéaire entre deux points). Sur une piste qui a cette courbe, le jeu automatique (onglet Jeu) ne gonfle plus les
-  notes : il garde l'articulation, le phrasé et la force de frappe ; à l'export, la courbe repart en CC 11 ;
+  notes (sauf un soufflet posé à la main) : il garde l'articulation, le phrasé et la force de frappe, et le **timbre suit
+  la courbe** (plus sombre quand elle est basse, il s'ouvre quand elle monte, pendant la note aussi) ; à l'export, la
+  courbe repart en CC 11 ;
 - une piste par
   instrument (piste MIDI × canal), avec le soundfont `gm_*` du programme GM, le nom de piste, le volume (CC 7)
   et le panoramique (CC 10) de départ ;

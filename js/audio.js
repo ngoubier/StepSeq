@@ -1236,10 +1236,11 @@ SS.audio = (() => {
       if (!(p.env > 0) && X.bright && X.bright.ratio < 1) {
         const d = (v) => v * (0.55 + 0.45 * Math.max(0, Math.min(1, vel)));
         const hz = (v) => SS.expression.brightHz(base, X.bright.ratio, d(v));
+        const B = X.bright.shape || X.shape; // courbe de volume de la scène (CC 11 importé), sinon la forme de la note
         flt.freqs.forEach((param) => {
           param.cancelScheduledValues(t);
-          param.setValueAtTime(hz(X.shape[0][1]), t);
-          X.shape.forEach(([x, v], i) => i && param.exponentialRampToValueAtTime(hz(v), t + x * len));
+          param.setValueAtTime(hz(B[0][1]), t);
+          B.forEach(([x, v], i) => i && param.exponentialRampToValueAtTime(hz(v), t + x * len));
         });
       }
     }

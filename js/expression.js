@@ -139,6 +139,7 @@ SS.expression = (() => {
    * events : notes de la scène ({ step, len, notes, vel, art? }) ; opts : { amt (0..1,5), family, phrase (bool) }.
    * Retourne une Map événement → jeu (voir l'en-tête). Une note sans rien de particulier n'y figure pas.
    */
+  // ownDyn : la scène a sa propre courbe de volume, { lane: { pas: valeur }, len: boucle de la courbe } (ou false)
   function plan(events, { amt = 1, family = 'strings', phrase = true, pedal = true, ownDyn = false, stepsPerBeat = 4, stepsPerBar = 16 } = {}) {
     const out = new Map();
     const evs = (events || []).filter((e) => e && e.notes && e.notes.length && e.len > 0).slice().sort((a, b) => a.step - b.step || top(b) - top(a));
@@ -238,9 +239,13 @@ SS.expression = (() => {
           o.release = struck ? 0 : 0.08;
           if (!struck) legIn.add(next); // un piano réattaque toujours : seule la note précédente se prolonge
         }
-        // la scène a sa propre courbe de volume (CC 11 d'un fichier MIDI, automation) : elle seule fait la nuance dans
-        // la note ; l'expression garde l'articulation, le phrasé et, pour les instruments frappés, la force de frappe
-        if (ownDyn && !struck) o.shape = [[0, 1], [1, 1]];
+        // la scène a sa propre courbe de volume (CC 11 d'un fichier MIDI, automation) : elle fait la nuance dans la note
+        // (sauf un soufflet posé à la main) ; l'expression garde l'articulation, le phrasé et, pour les instruments frappés, la force de frappe
+        if (ownDyn && !struck) {
+          if (art !== 'swell') o.shape = [[0, 1], [1, 1]]; // un soufflet posé à la main reste, par-dessus la courbe
+          // le timbre suit la courbe : plus sombre dans le piano, il s'ouvre quand la courbe monte (pendant la note aussi)
+          if (ownDyn.lane) o.bright = { ...o.bright, shape: [0, 0.25, 0.5, 0.75, 1].map((x) => [x, Math.max(0, Math.min(1, SS.autoValue(ownDyn.lane, ev.step + x * ev.len, ownDyn.len) ?? 1))]) };
+        }
         // respiration : vents et voix, au bout d'une longue ligne sans silence
         if (blowing && k > 0 && isLast && ph.forced) o.breath = 0.08;
         out.set(ev, o);
@@ -285,8 +290,9 @@ SS.expression = (() => {
     // pédale automatique : sauf si la piste a sa propre courbe de pédale, ou si on l'a coupée
     const pedal = !(track.sd && track.sd.pedal === 0) && !(track.auto && track.auto.sustain);
     // courbe de volume propre à la scène : c'est elle qui fait la nuance dans la note
-    const ownDyn = !!(track.auto && track.auto.volume && Object.keys(track.auto.volume).length);
-    const s = sig(events, amt, phrase, family) + (pedal ? 'p' : '') + (ownDyn ? 'v' : '') + `|${spb}|${spbar}`;
+    const lane = track.auto && track.auto.volume && Object.keys(track.auto.volume).length ? track.auto.volume : null;
+    const ownDyn = lane ? { lane, len: track.autoLen > 0 ? track.autoLen : Infinity } : false;
+    const s = sig(events, amt, phrase, family) + (pedal ? 'p' : '') + (lane ? 'v' + JSON.stringify(lane) + ownDyn.len : '') + `|${spb}|${spbar}`;
     const hit = memo.get(events);
     if (hit && hit.s === s) return hit.plan;
     const p = plan(events, { amt, family, phrase, pedal, ownDyn, stepsPerBeat: spb, stepsPerBar: spbar });

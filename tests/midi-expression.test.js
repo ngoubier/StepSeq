@@ -161,3 +161,30 @@ test('import d’un jeu humain : décalages d’attaque gardés, CC 11 en courbe
   const c11 = back.filter((e) => e.type === 'cc' && e.cc === 11).map((e) => e.value);
   assert.ok(c11.length > 2 && Math.max(...c11) > Math.min(...c11) + 40, `CC 11 retrouvé : ${c11}`);
 });
+
+test('courbe de volume : le timbre la suit (sombre quand elle est basse, il s’ouvre quand elle monte)', () => {
+  const t = SS.newTrack({ name: 'C', color: '#888', type: 'instrument', family: 'brass', instrument: 'gm_french_horn' }, SS.newProject());
+  const evs = [{ step: 0, len: 16, notes: [60], vel: 0.8 }, { step: 16, len: 16, notes: [62], vel: 0.8 }];
+  const o = SS.expression.forTrack({ ...t, auto: { volume: { 0: 0.2, 16: 0.9, 31: 0.9 } } }, evs);
+  const b0 = o.get(evs[0]).bright.shape;
+  assert.ok(b0, 'forme du timbre');
+  assert.ok(Math.abs(b0[0][1] - 0.2) < 1e-6 && b0[4][1] > 0.85, `suit la courbe dans la note : ${JSON.stringify(b0)}`);
+  assert.ok(o.get(evs[0]).shape.every(([, v]) => v === 1), 'le volume, lui, reste à la courbe');
+  const hz = (d) => SS.expression.brightHz(4000, o.get(evs[0]).bright.ratio, d);
+  assert.ok(hz(b0[0][1]) < hz(b0[4][1]) / 2, 'plus sombre dans le piano');
+  // une autre courbe sur les mêmes notes : le plan est recalculé
+  const o2 = SS.expression.forTrack({ ...t, auto: { volume: { 0: 0.9, 31: 0.9 } } }, evs);
+  assert.ok(o2.get(evs[0]).bright.shape[0][1] > 0.85);
+  // instrument frappé : pas de forme de timbre (la force de frappe s'en charge)
+  const pia = SS.newTrack({ name: 'P', color: '#888', type: 'instrument', family: 'keys', instrument: 'gm_piano' }, SS.newProject());
+  const op = SS.expression.forTrack({ ...pia, auto: { volume: { 0: 0.2 } } }, evs.map((e) => ({ ...e })));
+  assert.ok(![...op.values()].some((x) => x.bright && x.bright.shape));
+});
+
+test('courbe de volume : un soufflet posé à la main garde sa forme', () => {
+  const t = SS.newTrack({ name: 'C', color: '#888', type: 'instrument', family: 'brass', instrument: 'gm_french_horn' }, SS.newProject());
+  const evs = [{ step: 0, len: 16, notes: [60], vel: 0.8, art: 'swell' }, { step: 16, len: 16, notes: [62], vel: 0.8 }];
+  const o = SS.expression.forTrack({ ...t, sd: { expr: 'expressive' }, auto: { volume: { 0: 0.5, 31: 0.5 } } }, evs);
+  assert.ok(o.get(evs[0]).shape.some(([, v]) => v !== 1), 'soufflet gardé');
+  assert.ok(o.get(evs[1]).shape.every(([, v]) => v === 1), 'les autres notes suivent la courbe');
+});
