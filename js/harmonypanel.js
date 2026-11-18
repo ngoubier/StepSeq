@@ -507,11 +507,20 @@ SS.harmonyPanel = (() => {
   // des trois couches, et l'empreinte des notes écrites par la grille dans chaque piste (une piste
   // retouchée à la main n'est pas écrasée sans le demander).
 
+  // A01, A02 et A04 : accompagnements de la formation (docs/reference/formation-composition/23_bibliotheque_de_procedes.md, § 5) ;
+  // A03 (arpège huit pas) est un motif d'Arp One, proposé dans la couche Arpège (ARP_MOTIFS)
   const RHYTHMS = [
     { id: 'hold', label: 'Tenus (toute la durée)' },
-    { id: 'beats', label: 'Stabs sur les temps' },
+    { id: 'a01', label: 'Accords espacés, une ronde par mesure (A01)' },
+    { id: 'beats', label: 'Pulsation en noires, gate court (A02)' },
     { id: 'pump', label: 'Pompe en croches' },
     { id: 'charleston', label: 'Charleston (1 et 2&)' },
+    { id: 'a04', label: 'Harmonie résonante, une attaque par changement (A04)' },
+  ];
+  /** Motif d'Arp One posé par la couche Arpège : '' garde les réglages de la piste. */
+  const ARP_MOTIFS = [
+    { id: '', label: 'Réglages actuels de la piste' },
+    { id: 'a03', label: 'Arpège huit pas 1–2–3–4–3–2–3–2 (A03)' },
   ];
   const GLAYERS = [
     // Basse : notes écrites ; Accords et Arpège : la piste joue la grille (bouton ACCORDS, et ARP pour l'arpège)
@@ -560,6 +569,7 @@ SS.harmonyPanel = (() => {
       }
       if (L.id === 'bass' && !genById(l.gen)) l.gen = 'bass-8';
       if (L.id === 'comp' && !RHYTHMS.some((r) => r.id === l.rhythm)) l.rhythm = 'hold';
+      if (L.id === 'arp' && !ARP_MOTIFS.some((m) => m.id === (l.motif || ''))) delete l.motif;
     }
     return g;
   }
@@ -590,7 +600,8 @@ SS.harmonyPanel = (() => {
     const half = Math.max(1, Math.round(beat / 2));
     const out = [];
     let near = center;
-    for (const gc of [...g.chords].sort((a, b) => a.step - b.step)) {
+    const sorted = [...g.chords].sort((a, b) => a.step - b.step);
+    for (const [ci, gc] of sorted.entries()) {
       if (gc.step >= length) continue;
       const end = Math.min(gc.step + gc.len, length);
       const c = gChord(gc);
@@ -606,6 +617,18 @@ SS.harmonyPanel = (() => {
           if (s === gc.step || pos === 0) add(s, beat, 0.8);
           else if (pos === off) add(s, half, 0.7);
         }
+      } else if (rhythm === 'a01') {
+        // A01 : une ronde par mesure (et à chaque changement), voix enchaînées au plus près : les notes communes restent
+        for (let s = gc.step; s < end; ) {
+          const e = Math.min(end, (Math.floor(s / spb) + 1) * spb);
+          add(s, e - s, s === gc.step ? 0.66 : 0.58);
+          s = e;
+        }
+      } else if (rhythm === 'a04') {
+        // A04 : une attaque par changement d'accord, résonance d'un temps sur l'accord suivant (chevauchement borné)
+        const nx = sorted[ci + 1];
+        const ring = nx && nx.step === gc.step + gc.len && nx.step < length ? Math.min(beat, length - end) : 0;
+        if (gc.step < end) out.push({ step: gc.step, len: end - gc.step + ring, notes: [...notes], vel: 0.62, chord: c.type });
       } else add(gc.step, end - gc.step, 0.7);
     }
     return out;
@@ -659,6 +682,8 @@ SS.harmonyPanel = (() => {
         t.events = l.rhythm === 'hold' ? [] : gridEvents(g, center, l.rhythm, len);
       } else {
         t.arpOn = true;
+        // motif d'Arp One choisi dans la couche (A03) : il remplace les réglages de l'arpège (la graine reste)
+        if (l.motif && SS.Arp) t.arp = SS.Arp.fromPreset(l.motif, { seed: t.arp && t.arp.seed });
         follow('hold');
         t.events = [];
       }
@@ -807,7 +832,8 @@ SS.harmonyPanel = (() => {
           ? `<select data-gl="bass" data-gf="gen" aria-label="Style de basse">${gensOf('Basse').map((x) => `<option value="${x.id}"${x.id === l.gen ? ' selected' : ''}>${esc(x.label)}</option>`).join('')}</select>`
           : L.id === 'comp'
           ? `<select data-gl="comp" data-gf="rhythm" aria-label="Rythme des accords">${RHYTHMS.map((x) => `<option value="${x.id}"${x.id === l.rhythm ? ' selected' : ''}>${esc(x.label)}</option>`).join('')}</select>`
-          : `<p class="hm-muted gr-arpinfo">La piste joue la grille (ARP + ACCORDS) : <b>Arp One</b> arpège chaque accord selon ses réglages.</p>`;
+          : `<select data-gl="arp" data-gf="motif" aria-label="Motif d'Arp One">${ARP_MOTIFS.map((x) => `<option value="${x.id}"${x.id === (l.motif || '') ? ' selected' : ''}>${esc(x.label)}</option>`).join('')}</select>
+             <p class="hm-muted gr-arpinfo">La piste joue la grille (ARP + ACCORDS) : <b>Arp One</b> arpège chaque accord selon ses réglages${l.motif ? ', remplacés par ce motif à la génération' : ''}.</p>`;
       const arpBtn = L.id === 'arp' ? `<button type="button" class="btn btn-small" id="grArpOne"${byId(l.dst) ? '' : ' disabled'}>Réglages Arp One ↗</button>` : '';
       return `<div class="hm-layer gr-layer${l.on ? '' : ' off'}">
         <h4><label><input type="checkbox" data-gl="${L.id}" data-gf="on"${l.on ? ' checked' : ''}> ${L.title}</label><small>${L.id === 'bass' ? gensOf('Basse').length + ' styles' : L.id === 'comp' ? RHYTHMS.length + ' rythmes' : 'via Arp One'}</small></h4>
@@ -1044,10 +1070,11 @@ SS.harmonyPanel = (() => {
       const chords = gridEvents(g, L.id === 'bass' ? 60 : center, L.id === 'comp' ? l.rhythm : 'hold', total);
       let events = L.id === 'bass' ? H().generate(chords, { kind: l.gen, octave: track.octave, spb, beat, key: key(), length: total }) : chords;
       if (L.id === 'arp') {
+        const arpOf = l.motif ? SS.Arp.fromPreset(l.motif, { seed: track.arp && track.arp.seed }) : track.arp;
         events = chords.flatMap((ev) => {
           const out = [];
           for (let step = ev.step; step < ev.step + ev.len; step++) {
-            SS.Arp.renderStep(track.arp, ev, step, { loop: 0, trackLen: total, stepSec: 60 / p.tempo / 4, stepsPerBeat: beat, events: track.events }).forEach((n) => {
+            SS.Arp.renderStep(arpOf, ev, step, { loop: 0, trackLen: total, stepSec: 60 / p.tempo / 4, stepsPerBeat: beat, events: track.events }).forEach((n) => {
               const sd = 60 / p.tempo / 4;
               out.push({ step: step + n.at / sd, len: n.dur / sd, notes: [n.midi], vel: n.vel });
             });

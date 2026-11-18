@@ -1061,7 +1061,7 @@ SS.normalizeGrid = (g) => {
     initialized: g.initialized === true,
     snap: ['bar', 'half', 'beat'].includes(g.snap) ? g.snap : 'bar',
     auto: !!g.auto,
-    layers: { bass: layer(lay.bass, ['gen']), comp: layer(lay.comp, ['rhythm']), arp: layer(lay.arp, []) },
+    layers: { bass: layer(lay.bass, ['gen']), comp: layer(lay.comp, ['rhythm']), arp: layer(lay.arp, ['motif']) },
     sig,
   };
 };

@@ -1599,6 +1599,19 @@ SS.bandSong = (() => {
    *  - gap { len (pas : 0, 4, 16) } : silence avant la jonction (tout est coupé, sauf la cymbale inversée) ;
    *  - impact { on, type: both | crash | impact, level } : coup grave de la piste Effets et/ou crash de la batterie au pas 0 ;
    *  - down { on, len (mesures : 2, 4) } : descente (bruit qui retombe) après l'impact.
+   *  Procédés d'écriture T01–T06 de la formation (docs/reference/formation-composition/23_bibliotheque_de_procedes.md, § 6),
+   *  tous éteints par défaut (le plan ne les emploie pas) ; voir writeTransitions :
+   *  - retrait { on, len (mesures : 1, 2) } (T01) : la batterie se retire sur les dernières mesures de la scène d'avant,
+   *    le charleston fermé reste, plus doux, pour garder le compte ;
+   *  - frag { on } (T02) : la mélodie des deux dernières mesures se fragmente : la 1re mesure du motif (les deux mesures
+   *    d'avant), puis sa première demi-mesure deux fois ;
+   *  - pedal { on, len (mesures : 2, 4), note: dom | tonic } (T03) : la basse tient la dominante (ou la tonique), une note
+   *    par mesure, sous les accords qui continuent de changer ;
+   *  - widen { on, len (mesures : 2, 4) } (T04) : les accords et arpèges s'ouvrent : doublure à l'octave au-dessus au
+   *    premier tiers, à l'octave grave au deuxième (avec une marge sous le sommet : rien au-dessus de Sol6) ;
+   *  - susp { on, len (pas : 4, 8) } (T05) : au début de la scène d'après, la tierce du premier accord est retardée par la
+   *    quarte (sus4) pendant un ou deux temps, puis se résout ;
+   *  - gap (T06) : le silence, ci-dessus ; les queues d'effets (reverb, écho) continuent de sonner.
    * perc { style: techno | latin | minimal, loops: { section: { sh, cg, tom } } } : boucles de la piste Percussionniste
    * (sh : shaker, cg : conga, tom : tom grave) ; vrai = la boucle du style, faux = coupée, absent = le jeu du plan.
    */
@@ -1617,7 +1630,102 @@ SS.bandSong = (() => {
       gap: { len: a && a.gap ? 4 : 0 },
       impact: { on: !!b && b.fx === 'down', type: 'both', level: 0.95 },
       down: { on: false, len: 2 },
+      retrait: { on: false, len: 1 },
+      frag: { on: false },
+      pedal: { on: false, len: 2, note: 'dom' },
+      widen: { on: false, len: 2 },
+      susp: { on: false, len: 4 },
     };
+  }
+
+  /**
+   * Procédés T01–T05 d'une scène (voir l'en-tête des transitions) : `out` = réglages de la jonction qui en sort,
+   * `inn` = de celle qui y entre, `role(t)` = type de l'instrument (drums, bass, chords, arp, melody ; null : piste Effets).
+   */
+  function writeTransitions(data, tracks, role, { bars, key, spans, out, inn }) {
+    const n = bars * SPB;
+    const kp = H().scale(key).map((d) => d.pc);
+    const evsOf = (t) => (data[t.id] && data[t.id].events) || null;
+    // T01 : retrait de la batterie
+    if (out && out.retrait.on) {
+      const from = n - Math.min(bars, out.retrait.len) * SPB;
+      tracks.forEach((t) => {
+        const d = data[t.id];
+        if (!d) return;
+        if (d.steps) {
+          const [rl, snd] = ((t.band && t.band.key) || '').split(':');
+          const hat = rl !== 'perc' && kind(snd || t.sound) === 'hh';
+          for (let s = from; s < n; s++) d.steps[s] = hat && d.steps[s] ? clampV(d.steps[s] * 0.6) : 0;
+        } else if (role(t) === 'drums' && d.events) d.events = d.events.filter((e) => e.step < from).map((e) => ({ ...e, len: Math.min(e.len, from - e.step) }));
+      });
+    }
+    // T02 : fragmentation de la mélodie (motif de 2 mesures → 1 → 1/2)
+    if (out && out.frag.on && bars >= 2) {
+      const win = n - 2 * SPB;
+      const src = bars >= 4 ? n - 4 * SPB : win;
+      const cut = (evs, a, b, at) => evs.filter((e) => e.step >= a && e.step < b).map((e) => ({ ...e, notes: [...e.notes], step: e.step - a + at, len: Math.min(e.len, b - e.step) }));
+      tracks.forEach((t) => {
+        const evs = role(t) === 'melody' && evsOf(t);
+        if (!evs || !evs.some((e) => e.step >= src && e.step < src + SPB / 2)) return; // motif muet au départ : rien à fragmenter
+        const keep = evs.filter((e) => e.step < win).map((e) => ({ ...e, len: Math.min(e.len, win - e.step) }));
+        data[t.id].events = [...keep, ...cut(evs, src, src + SPB, win), ...cut(evs, src, src + SPB / 2, n - SPB), ...cut(evs, src, src + SPB / 2, n - SPB / 2)];
+      });
+    }
+    // T03 : pédale de dominante (ou de tonique) à la basse
+    if (out && out.pedal.on) {
+      const from = n - Math.min(bars, out.pedal.len) * SPB;
+      const pc = out.pedal.note === 'tonic' ? kp[0] : pcOf(kp[0] + 7);
+      tracks.forEach((t) => {
+        const evs = role(t) === 'bass' && evsOf(t);
+        if (!evs || !evs.length) return;
+        const near = evs.filter((e) => e.step >= from)[0] || evs[evs.length - 1];
+        const ref = Math.min(...near.notes);
+        let m = ref - pcOf(ref) + pc;
+        if (m - ref > 6) m -= 12;
+        const v = clampV(Math.max(...evs.filter((e) => e.step >= from).map((e) => e.vel ?? 0.8), 0.7));
+        const keep = evs.filter((e) => e.step < from).map((e) => ({ ...e, len: Math.min(e.len, from - e.step) }));
+        for (let s = from; s < n; s += SPB) keep.push({ step: s, len: Math.min(SPB, n - s), notes: [m], vel: s === from ? v : clampV(v * 0.9) });
+        data[t.id].events = keep;
+      });
+    }
+    // T04 : élargissement du registre des accords et des arpèges
+    if (out && out.widen.on) {
+      const L = Math.min(bars, out.widen.len) * SPB;
+      const from = n - L;
+      tracks.forEach((t) => {
+        const evs = ['chords', 'arp'].includes(role(t)) && evsOf(t);
+        if (!evs) return;
+        evs.forEach((e) => {
+          if (e.step < from || !e.notes.length) return;
+          const p = (e.step - from + Math.min(e.len, n - e.step) / 2) / L; // position du milieu de la note dans la fenêtre
+          const lo = Math.min(...e.notes);
+          const hi = Math.max(...e.notes);
+          const add = [];
+          if (p >= 1 / 3 && hi + 12 <= 91) add.push(hi + 12);
+          if (p >= 2 / 3 && e.notes.length >= 3 && lo - 12 >= 40) add.push(lo - 12);
+          if (add.length) e.notes = [...new Set([...e.notes, ...add])].sort((a, b) => a - b);
+        });
+      });
+    }
+    // T05 : suspension (retard de la tierce par la quarte) au début de la scène
+    if (inn && inn.susp.on && spans.length) {
+      const D = Math.min(inn.susp.len, spans[0].len);
+      const root = spans[0].chord.rootPc;
+      const isThird = (m) => [3, 4].includes(pcOf(m - root));
+      tracks.forEach((t) => {
+        const evs = ['chords', 'arp'].includes(role(t)) && evsOf(t);
+        if (!evs) return;
+        const outE = [];
+        evs.forEach((e) => {
+          if (e.step >= D || !e.notes.some(isThird)) return void outE.push(e);
+          const sus = e.notes.map((m) => (isThird(m) ? m - pcOf(m - root) + 5 : m));
+          const susE = { ...e, notes: [...new Set(sus)].sort((a, b) => a - b), len: Math.min(e.len, D - e.step) };
+          outE.push(susE);
+          if (e.step + e.len > D) outE.push({ ...e, step: D, len: e.step + e.len - D, vel: clampV((e.vel ?? 0.7) * 0.9) });
+        });
+        data[t.id].events = outE.sort((a, b) => a.step - b.step);
+      });
+    }
   }
   /** Réglages d'une jonction : le plan, puis ce que l'utilisateur a changé (fx.junctions['de>à']). */
   function junctionEff(spec, from, to, fx) {
@@ -2055,6 +2163,9 @@ SS.bandSong = (() => {
             d.steps = loops[lp.id] ? percLoopSteps(lp.id, (fx.perc && fx.perc.style) || 'techno', bars, rng(`${presetId}/${id}/loop/${lp.id}`)) : new Array(bars * SPB).fill(0);
           });
       }
+      // procédés d'écriture T01–T05 (réglés dans une jonction : éteints dans le plan)
+      if (fx && (oj || ij))
+        writeTransitions(data, tracks, (t) => (t.type === 'drum' ? 'drums' : kindOfT.get(t) || null), { bars, key: k, spans, out: oj ? outE : null, inn: ij ? inE : null });
       if (gapSteps) gapEnd(data, bars, gapSteps, oj ? new Set(tracks.filter((t) => roleOfTrack(t) === 'fx').map((t) => t.id)) : null);
       const sc = { id: SS.uid(), sec: id, name: sec.name || NAMES[id] || id, bars, key: k, data, spans };
       const emo = harmony && harmony.emotions && harmony.emotions[id];

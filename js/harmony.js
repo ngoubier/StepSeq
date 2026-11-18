@@ -708,6 +708,11 @@ SS.harmony = (() => {
     { id: 'bass-oct', group: 'Basse', label: 'Octaves en croches', text: 'fondamentale / octave en alternance (disco, synthpop)' },
     { id: 'bass-gallop', group: 'Basse', label: 'Galop (1 – et – a)', text: 'basse « roulante » de la synthwave' },
     { id: 'bass-off', group: 'Basse', label: 'Contretemps', text: 'entre les coups de grosse caisse (trance, techno)' },
+    // procédés B01–B04 de la formation (docs/reference/formation-composition/23_bibliotheque_de_procedes.md, § 4)
+    { id: 'bass-b01', group: 'Basse', label: 'Fondamentale régulière + approche (B01)', text: 'huit croches sur la fondamentale, accents différenciés, une seule note d’approche vers l’accord suivant' },
+    { id: 'bass-b02', group: 'Basse', label: 'Fondamentale / quinte (B02)', text: 'noires alternées fondamentale / quinte au-dessus (La2 – Mi3 sur Am)' },
+    { id: 'bass-b03', group: 'Basse', label: 'Ligne conjointe (B03)', text: 'la basse choisit la note de l’accord la plus proche pour avancer par degrés (C – G/B – Am – Am/G), notes de passage au dernier temps' },
+    { id: 'bass-b04', group: 'Basse', label: 'Pédale de tonique (B04)', text: 'la tonique tenue sous tous les accords, une attaque par mesure : la basse change la couleur des accords du dessus' },
     { id: 'arp-1353', group: 'Arpège', label: '1 – 3 – 5 – 3 en croches', text: 'le motif de départ du skill' },
     { id: 'arp-up16', group: 'Arpège', label: '1 – 3 – 5 – 8 en doubles-croches', text: 'montant, plus dense' },
     { id: 'mel-sketch', group: 'Mélodie', label: 'Esquisse de mélodie', text: 'notes de l’accord sur les temps forts, notes de passage entre elles ; contour en vagues' },
@@ -751,7 +756,9 @@ SS.harmony = (() => {
     const base = (opt.octave + 1) * 12; // Do de l'octave de la piste
     const rootMidi = (pc) => base + pcOf(pc);
     const half = beat / 2 >= 1 ? beat / 2 : 1; // croche (en pas)
-    if (kind.startsWith('bass')) {
+    if (kind === 'bass-b01' || kind === 'bass-b02' || kind === 'bass-b03' || kind === 'bass-b04') {
+      bassRecipe(spans, opt, add, rootMidi, half);
+    } else if (kind.startsWith('bass')) {
       for (const sp of spans) {
         const r = rootMidi(sp.bassPc ?? sp.rootPc); // C/E : la basse joue Mi
         const end = sp.step + sp.len;
@@ -815,6 +822,96 @@ SS.harmony = (() => {
       });
     }
     return out;
+  }
+
+  /**
+   * Basses B01–B04 de la formation (chap. 23, § 4). `add(step, len, midi, vel)` écrit une note ; les accords sur une
+   * basse imposée (C/E, pédale de la grille) gardent leur note de basse.
+   *  B01 : huit croches sur la fondamentale ; 1er temps fort, 3e temps appuyé, contretemps plus doux ; la dernière croche
+   *        avant un changement de basse devient une approche (degré voisin de la gamme, sinon demi-ton).
+   *  B02 : noires, fondamentale puis quinte au-dessus.
+   *  B03 : ligne conjointe : pour chaque accord, la note de l'accord la plus proche de la précédente (un ou deux demi-tons
+   *        de préférence), une attaque par mesure ; si la suivante est à plus d'un ton, le dernier temps est une note de passage.
+   *  B04 : pédale : la tonique de la tonalité (sinon la basse du premier accord) sous tous les accords, une attaque par mesure.
+   */
+  function bassRecipe(spans, opt, add, rootMidi, half) {
+    const { kind, spb, beat } = opt;
+    const sc = opt.key ? scale(opt.key).map((d) => d.pc) : null;
+    const base = (opt.octave + 1) * 12;
+    const bassOf = (sp) => sp.bassPc ?? sp.rootPc;
+    // découpe [from, to) aux barres de mesure : une attaque par mesure
+    const perBar = (from, to, fn) => {
+      for (let s = from; s < to; ) {
+        const e = Math.min(to, (Math.floor(s / spb) + 1) * spb);
+        fn(s, e - s, s === from);
+        s = e;
+      }
+    };
+    const approach = (from, to) => {
+      if (from === to) return null;
+      const p = sc ? passing(sc, from, to) : null;
+      return p != null ? p : to + (to > from ? -1 : 1);
+    };
+    if (kind === 'bass-b01') {
+      spans.forEach((sp, i) => {
+        const r = rootMidi(bassOf(sp));
+        const end = sp.step + sp.len;
+        const next = spans[i + 1];
+        const target = next && next.step === end ? nearest(bassOf(next), r) : null;
+        for (let s = sp.step; s < end; s += half) {
+          const pos = s % spb;
+          const vel = pos === 0 ? 0.95 : spb % 2 === 0 && pos === spb / 2 ? 0.86 : pos % beat === 0 ? 0.8 : 0.66;
+          const last = s + half >= end;
+          const ap = last && target != null && s > sp.step ? approach(r, target) : null;
+          add(s, Math.min(half, end - s), ap ?? r, ap != null ? 0.76 : vel);
+        }
+      });
+    } else if (kind === 'bass-b02') {
+      for (const sp of spans) {
+        const r = rootMidi(bassOf(sp));
+        const fifth = nearest(sp.tones[2] ?? pcOf(sp.rootPc + 7), r + 7);
+        const end = sp.step + sp.len;
+        for (let s = sp.step, i = 0; s < end; s += beat, i++) add(s, Math.min(beat, end - s), i % 2 ? (fifth > r ? fifth : fifth + 12) : r, i % 2 ? 0.76 : s % spb === 0 ? 0.92 : 0.86);
+      }
+    } else if (kind === 'bass-b03') {
+      // une note par accord, choisie pour avancer par degrés conjoints
+      const line = [];
+      let prev = null;
+      spans.forEach((sp, i) => {
+        const imposed = sp.bassPc != null && sp.bassPc !== sp.rootPc;
+        const pcs = imposed ? [sp.bassPc] : [sp.rootPc, ...sp.tones.slice(1, 3)];
+        if (prev == null) {
+          prev = rootMidi(pcs[0]);
+          return void line.push(prev);
+        }
+        const lastOne = i === spans.length - 1;
+        let best = null;
+        pcs.forEach((pc, k) => {
+          const m = nearest(pc, prev);
+          const d = Math.abs(m - prev);
+          // conjoint (1 ou 2 demi-tons) d'abord, puis note répétée, puis le plus petit saut ; la fondamentale départage
+          let cost = d >= 1 && d <= 2 ? 0 : d === 0 ? 2.5 : d;
+          if (k === 0) cost -= lastOne ? 1.5 : 0.4;
+          if (m < base - 5 || m > base + 14) cost += 6; // reste dans la tessiture de la piste
+          if (!best || cost < best.cost) best = { m, cost };
+        });
+        prev = best.m;
+        line.push(prev);
+      });
+      spans.forEach((sp, i) => {
+        const m = line[i];
+        const end = sp.step + sp.len;
+        const nxt = spans[i + 1] && spans[i + 1].step === end ? line[i + 1] : null;
+        const pass = nxt != null && Math.abs(nxt - m) > 2 && sp.len >= 2 * beat && sc ? passing(sc, m, nxt) : null;
+        const stop = pass != null ? end - beat : end;
+        perBar(sp.step, stop, (s, l, first) => add(s, l, m, first ? 0.9 : 0.8));
+        if (pass != null) add(stop, beat, pass, 0.74);
+      });
+    } else if (kind === 'bass-b04') {
+      const pc = sc ? sc[0] : spans[0] ? bassOf(spans[0]) : 0;
+      const m = rootMidi(pc);
+      for (const sp of spans) perBar(sp.step, sp.step + sp.len, (s, l) => add(s, l, m, s % spb === 0 ? 0.88 : 0.8));
+    }
   }
 
   /* ---------------- Essais A/B : un seul paramètre change ---------------- */
