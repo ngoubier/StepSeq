@@ -56,10 +56,10 @@ const ok = (c, m) => {
 
   // onglets : plus de cartes de type, étiquette en lecture seule dans la tête
   await tab('drums');
-  ok((await page.locator('.bw-kind, .bw-kinds, #bwKinds').count()) === 0 && (await page.locator('#bwKindTag').textContent()) === 'Drums' && (await page.locator('#bwKindTag').evaluate((e) => e.tagName)) === 'SPAN', 'kit : plus de cartes de type, étiquette « Drums » en lecture seule');
+  ok((await page.locator('.bw-kind, .bw-kinds, #bwKinds').count()) === 0 && (await page.getAttribute('#bwStepHead', 'data-kind')) === 'drums' && (await page.locator('#bwStepHead .bw-insline, #bwStepHead p').count()) === 0, 'kit : plus de cartes de type, étiquette « Drums » en lecture seule');
   ok((await page.locator('#bwKindNote').count()) === 0 && (await page.locator('.bwp-pat').count()) === 21, 'kit : pas de note, l’éditeur de motifs');
   await tab('bass');
-  ok((await page.locator('#bwKindTag').textContent()) === 'Basse' && (await page.locator('.bwp-mode').count()) === 22 && (await page.locator('#bwKindNote').count()) === 0, 'basse : étiquette « Basse », éditeur de basse, pas de note');
+  ok((await page.getAttribute('#bwStepHead', 'data-kind')) === 'bass' && (await page.locator('.bwp-mode').count()) === 22 && (await page.locator('#bwKindNote').count()) === 0, 'basse : étiquette « Basse », éditeur de basse, pas de note');
 
   // étape 2 : le type est une liste dans le panneau de droite
   const toStep2 = async () => {
@@ -110,13 +110,13 @@ const ok = (c, m) => {
   ok(await page.evaluate(() => Object.keys(SS.band._state.wiz.kinds).length === 1), 'S.wiz.kinds garde le choix');
   await tab('arp');
   ok(!!(await page.$('#bwaName')) && (await page.locator('.bwa-knob').count()) === 4 && (await page.locator('.bw-kind').count()) === 0, 'l’éditeur Arp One s’affiche, sans cartes de type');
-  ok((await page.locator('#bwKindTag').textContent()) === 'Arpèges', 'étiquette « Arpèges » en lecture seule');
+  ok((await page.getAttribute('#bwStepHead', 'data-kind')) === 'arp', 'étiquette « Arpèges » en lecture seule');
   ok((await page.locator('#bwKindNote, .bw-kindnote').count()) === 0 && !/était/.test(await page.textContent('#bandWiz')), 'plus de note « était une nappe »');
-  // « On entend » : une pastille par instrument, nom de l'onglet et couleur de son type
+  // « Mix » : une pastille par instrument, nom du type (comme la colonne des étapes) et couleur de son type
   const chipInfo = await page.$$eval('#bwTrackbar .tb-chip', (l) => l.map((x) => [x.dataset.ins, x.textContent.trim(), x.style.getPropertyValue('--c')]));
-  const expChips = await page.evaluate(() => SS.band.insSteps().map((t) => [t.id, t.name, t.kind]));
+  const expChips = await page.evaluate(() => SS.band.insSteps().map((t) => [t.id, t.title, t.kind]));
   const COL = { drums: '#e3179c', bass: '#3fcf3f', chords: '#4f6bff', arp: '#13c2a3', melody: '#9b5cff' };
-  ok(chipInfo.length === expChips.length && chipInfo.every((c, i) => c[0] === expChips[i][0] && c[1] === expChips[i][1] && c[2] === COL[expChips[i][2]]), `pastilles « On entend » : une par instrument (${chipInfo.map((c) => c[1]).join(', ')}), nom de l’onglet et couleur du type`);
+  ok(chipInfo.length === expChips.length && chipInfo.every((c, i) => c[0] === expChips[i][0] && c[1] === expChips[i][1] && c[2] === COL[expChips[i][2]]), `pastilles « Mix » : une par instrument (${chipInfo.map((c) => c[1]).join(', ')}), nom du type et couleur du type`);
   ok(chipInfo.find((c) => c[0] === padId)[2] === '#13c2a3', 'la nappe passée en arpèges : pastille turquoise');
   await page.click('#play');
   await page.waitForFunction(() => SS.audio.isPlaying(), null, { timeout: 8000 });

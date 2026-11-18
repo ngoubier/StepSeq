@@ -22,7 +22,7 @@
  *  5. Accords : la grille de chaque scène (comme dans Harmonie) et la fenêtre « Trouver l'inspiration » ;
  *  Instruments, scène par scène : une étape par instrument du groupe (6 à 5 + n ; le kit de batterie, toutes ses pièces, est
  *     un seul onglet ; « fx » n'en a pas). Tête « 07 Synth Bass », le type en lecture seule (le select de l’étape 2 appelle setKind), la barre de piste
- *     (On entend : Muet, Seule ; le son et le kit se choisissent à l'étape Instruments) et la colonne des scènes, puis l'éditeur du type — batterie (20 motifs, grille 5 pistes × 16 pas, fills,
+ *     (Mix : Muet, Seule ; le son et le kit se choisissent à l'étape Instruments) et la colonne des scènes, puis l'éditeur du type — batterie (20 motifs, grille 5 pistes × 16 pas, fills,
  *     crash ; pour un instrument qui n'est pas un kit : motifs et « les deux / grosse caisse / caisse claire »), basse (mode de
  *     jeu, pédale, registre, approche), accords (mode de jeu, voicing), arpèges (Arp One), mélodie (l'onglet Mélodie
  *     d'Harmonie, js/melodypanel.js : intention, motif, structure, Générer / Une autre / Variante B). Les réglages sont ceux de
@@ -2403,14 +2403,13 @@ SS.band = (() => {
     box.hidden = false;
     box.classList.toggle('bw-insHead', !!info.ins);
     box.replaceChildren(
-      h('h1', {}, h('em', {}, String(n).padStart(2, '0')), info.label, n === ST.inst ? countBadge() : null),
+      h('div', { class: 'bw-htitle' }, h('h1', {}, h('em', {}, String(n).padStart(2, '0')), info.label, n === ST.inst ? countBadge() : null), h('div', { class: 'bw-hmix', id: 'bwHeadMix' }, ...(headBar ? [headBar] : []))),
       ...(info.sub ? [h('div', { class: 'bw-hsub', id: 'bwSound' }, info.sub)] : []),
-      n === ST.fx
-        ? h('div', { class: 'bw-insline' }, h('span', { class: 'bw-ktag', style: `--c:${FX_COLOR}`, title: 'Rôle : Effets (montées, impacts) et Percussionniste' }, 'Effets'), h('p', {}, info.line))
-        : info.ins
-        ? h('div', { class: 'bw-insline' }, h('span', { class: 'bw-ktag', id: 'bwKindTag', 'data-kind': info.ins.kind, style: `--c:${KIND_COLOR[info.ins.kind]}`, title: 'Type de cet instrument (à changer à l’étape 2, Instruments)' }, KIND_STEP[info.ins.kind]), h('p', {}, info.line))
-        : h('p', {}, info.line)
+      // instruments et effets : pas de ligne sous le titre (pastille du type et phrase retirées) ; le type reste en data-kind
+      ...(n === ST.fx || info.ins ? [] : [h('p', {}, info.line)])
     );
+    if (info.ins) box.dataset.kind = info.ins.kind;
+    else delete box.dataset.kind;
   }
 
   /** On peut aller à l'étape n si la chanson se calcule (inspiration avec un plan, au moins une piste). */
@@ -2922,7 +2921,16 @@ SS.band = (() => {
   function splitView(nav, ...content) {
     const box = $('#bandWiz');
     box.classList.add('bw-split');
-    box.replaceChildren(h('div', { class: 'bh-wrap' }, nav, h('div', { class: 'bh-right' }, h('div', { class: 'bh-content' }, ...content))));
+    // la barre « Mix » (#bwTrackbar) monte dans la tête d'étape, à droite du titre
+    placeBar(content.find((x) => x && x.id === 'bwTrackbar') || null);
+    box.replaceChildren(h('div', { class: 'bh-wrap' }, nav, h('div', { class: 'bh-right' }, h('div', { class: 'bh-content' }, ...content.filter((x) => !x || x.id !== 'bwTrackbar')))));
+  }
+  /** Barre « Mix » de l'étape en cours, posée à droite du titre (renderStepHead la reprend à chaque rendu). */
+  let headBar = null;
+  function placeBar(bar) {
+    headBar = bar;
+    const slot = $('#bwHeadMix');
+    if (slot) slot.replaceChildren(...(bar ? [bar] : []));
   }
 
   /**
@@ -3172,7 +3180,8 @@ SS.band = (() => {
     if (!res || !$('#bwMelBoard', box) || (S.wiz.mtab || 'mel') !== 'mel') return renderHarmony(insAt());
     const f = melScene(cols, res, curScene(res), insAt());
     $('.bh-scenes', box).replaceWith(f.nav);
-    ['bar:#bwTrackbar', 'top:#bwMelHead', 'board:#bwMelBoard', 'auto:#bwAuto', 'src:#bwMelSrc', 'acc:#bwMelAcc'].forEach((x) => {
+    placeBar(f.bar);
+    ['top:#bwMelHead', 'board:#bwMelBoard', 'auto:#bwAuto', 'src:#bwMelSrc', 'acc:#bwMelAcc'].forEach((x) => {
       const [k, q] = x.split(':');
       const old = $(q, box);
       if (old && f[k]) old.replaceWith(f[k]);
@@ -4300,7 +4309,7 @@ SS.band = (() => {
 
   /* ---------- Barre de piste (étapes Batterie à Mélodie) ----------
    * Le son et le kit se choisissent à l'étape Instruments (pas de menu « Piste » ici) ;
-   * « On entend » : une pastille par instrument (Muet), et « Seule » (Solo de l'instrument de l'étape). Même S.wiz.mute / S.wiz.solo
+   * « Mix » : une pastille par instrument (Muet), et « Seule » (Solo de l'instrument de l'étape). Même S.wiz.mute / S.wiz.solo
    * que l'écoute : la boucle se tait vraiment, et le réglage vaut pour toutes les étapes.
    */
   /** Seule : le musicien de l'étape en solo ; re-clic : plus de solo. */
@@ -4310,12 +4319,12 @@ SS.band = (() => {
     if (!same) ids.forEach((id) => S.wiz.solo.add(id));
     afterMS();
   }
-  /** La barre : On entend (une pastille par instrument) et Seule. `T` : l'instrument, ou « chords ». */
+  /** La barre « Mix » : une pastille par instrument, nommée par son type (comme dans la colonne des étapes), et Seule. `T` : l'instrument, ou « chords ». */
   function trackbar(T) {
     const chips = insSteps().map((t) => {
       const ids = t.cols.map((c) => c.id);
       const heard = ids.some((id) => !silenced(id));
-      const label = t.name;
+      const label = t.title;
       return h(
         'button',
         {
@@ -4341,7 +4350,7 @@ SS.band = (() => {
       h(
         'div',
         { class: 'tb-grp tb-listen' },
-        h('span', { class: 'tb-lbl' }, 'On entend'),
+        h('span', { class: 'tb-lbl' }, 'Mix'),
         ...chips,
         ids.length
           ? h('button', { type: 'button', class: 'btn btn-small tb-solo' + (solo ? ' on' : ''), id: 'bwTbSolo', 'aria-pressed': String(solo), title: solo ? 'Revenir à tout le groupe' : `N’écouter que ${T.name}`, onclick: () => soloOnly(ids) }, 'Seule')
@@ -6497,6 +6506,7 @@ SS.band = (() => {
     el.classList.add('wizard');
     el.querySelectorAll('.wiz-only').forEach((x) => (x.hidden = false));
     if (!melStep()) leaveMel();
+    headBar = null; // l'étape qui se dessine remet sa barre « Mix » (splitView)
     // bandeau de lecture : dans l'en-tête (étapes 3 à 12), caché aux étapes 1 et 2
     // étapes 1 et 2 : l'écran Band (style et inspiration, puis musiciens) ; les autres blocs sont cachés par le CSS (bs-style, bs-inst)
     const body = el.querySelector('.band-body');

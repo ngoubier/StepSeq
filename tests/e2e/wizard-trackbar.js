@@ -1,7 +1,7 @@
 /*
  * Test de bout en bout de la barre de piste et de l'aperçu en rouleau de l'assistant « Nouvelle chanson » (js/band.js) :
  *   node tests/e2e/wizard-trackbar.js
- * Étapes Batterie à Mélodie : pas de menu « Piste » (le son et le kit se choisissent à l'étape Instruments), « On entend » coupe un
+ * Étapes Batterie à Mélodie : pas de menu « Piste » (le son et le kit se choisissent à l'étape Instruments), « Mix » coupe un
  * musicien dans la boucle d'écoute, « Seule » le met en solo ; Basse, Nappes et Arpèges dessinent les notes de la scène.
  */
 const { chromium } = require('playwright');
@@ -65,7 +65,7 @@ const ok = (c, m) => {
   await next(5);
   ok((await kindNow()) === 'bass', 'onglet de la basse');
   ok((await page.locator('#bwTrackbar').count()) === 1, 'barre de piste présente');
-  const noPiste = async (m) => ok((await page.locator('#bwTbPiste, #bwTbKit, .tb-piece').count()) === 0 && !/Piste/.test(await page.textContent('#bwTrackbar')) && /On entend/.test(await page.textContent('#bwTrackbar')), m + ' : pas de menu Piste (ni #bwTbPiste, #bwTbKit, libellé « Piste »), « On entend » présent');
+  const noPiste = async (m) => ok((await page.locator('#bwTbPiste, #bwTbKit, .tb-piece').count()) === 0 && !/Piste/.test(await page.textContent('#bwTrackbar')) && /Mix/.test(await page.textContent('#bwTrackbar')), m + ' : pas de menu Piste (ni #bwTbPiste, #bwTbKit, libellé « Piste »), « Mix » présent');
   await noPiste('Basse');
   ok((await page.locator('#bwTbSolo').count()) === 1, 'Basse : « Seule » présent');
   const chosen = await page.evaluate(() => SS.band.plannedTracks().find((t) => t.band.key === 'bass'));
@@ -86,9 +86,9 @@ const ok = (c, m) => {
   ok((await page.locator('#bwRoll .bw-rc').count()) > 0 && (await page.locator('#bwRoll .bw-rbar').count()) > 0, 'bande des accords et barres de mesure');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'trackbar-bass.png') });
 
-  // l'écoute : la boucle de la scène, puis On entend / Seule
+  // l'écoute : la boucle de la scène, puis Mix / Seule
   const chipsN = await page.locator('.tb-chip').count();
-  ok(chipsN >= 4 && (await page.locator('.tb-chip.on').count()) === chipsN, `On entend : ${chipsN} pastilles, toutes allumées`);
+  ok(chipsN >= 4 && (await page.locator('.tb-chip.on').count()) === chipsN, `Mix : ${chipsN} pastilles, toutes allumées`);
   // lance la boucle de la scène
   await page.click('#play');
   await page.waitForFunction(() => SS.audio.isPlaying(), null, { timeout: 8000 });
@@ -140,7 +140,7 @@ const ok = (c, m) => {
   await page.waitForTimeout(250);
   ok((await kindNow()) === 'drums', 'étape Batterie');
   await noPiste('Batterie');
-  ok((await page.locator('#bwTbSolo').count()) === 1 && (await page.locator('.tb-chip').count()) >= 4, 'Batterie : « Seule » et « On entend » présents');
+  ok((await page.locator('#bwTbSolo').count()) === 1 && (await page.locator('.tb-chip').count()) >= 4, 'Batterie : « Seule » et « Mix » présents');
 
   // téléphone : rien ne déborde
   await page.setViewportSize({ width: 390, height: 800 });

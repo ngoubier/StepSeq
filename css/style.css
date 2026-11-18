@@ -4162,6 +4162,11 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 #bandDialog .bw-stephead h1 em { font-style: normal; font-weight: 600; margin-right: 8px; color: var(--bw-dim); font-variant-numeric: tabular-nums; }
 #bandDialog .bw-stephead p { margin: 0; color: var(--bw-muted); max-width: 78ch; }
 #bandDialog .bw-stephead .bw-hsub { margin: -2px 0 0 34px; color: var(--bw-muted); font-size: 13.5px; font-weight: 500; }
+/* titre de l'étape, et à sa droite la barre « Mix » (une pastille par type d'instrument, Seule) */
+#bandDialog .bw-htitle { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 20px; align-self: stretch; min-width: 0; }
+#bandDialog .bw-hmix { flex: 1 1 auto; min-width: 0; }
+#bandDialog .bw-hmix:empty { display: none; }
+#bandDialog .bw-hmix .bw-trackbar { padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
 
 /* stepper vertical : trois groupes, pastille, nom, résumé d'une ligne */
 #bandDialog .band-wiz-steps { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; overflow: visible; list-style: none; }

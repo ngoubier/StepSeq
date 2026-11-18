@@ -330,7 +330,7 @@ const SHOTS = process.env.SHOTS;
   const padNow = await page.evaluate((c) => SS.band._listen().tracks.find((t) => t.col === c).volume, padCol);
   ok(Math.abs(padNow / padBase - 0.501) < 0.01, `volume de la nappe : −6 dB à l’écoute (${padBase} → ${padNow.toFixed(3)})`);
   await page.click('#bwTrackbar .tb-chip >> nth=0');
-  ok(await page.evaluate(() => SS.band._listen().tracks.filter((t) => t.mute).length >= 1), 'pastille « On entend » : coupe l’instrument à l’écoute');
+  ok(await page.evaluate(() => SS.band._listen().tracks.filter((t) => t.mute).length >= 1), 'pastille « Mix » : coupe l’instrument à l’écoute');
   await page.click('#bwTrackbar .tb-chip >> nth=0');
   await page.click('#stop');
 
