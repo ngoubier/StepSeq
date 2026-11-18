@@ -3,7 +3,7 @@
  *   node tests/e2e/wizard-mix.js
  * Étape 11 : la console (une tranche par instrument, la batterie sous un cadre, le Master), un réglage pour toute la chanson,
  * un réglage propre à une scène (point doré, « ↺ chanson », compte dans la colonne des scènes), « chanson seulement » pour
- * ce qu'une scène ne peut pas automatiser, le tiroir des effets, l'écoute qui suit un fader, puis « Créer la chanson ».
+ * ce qu'une scène ne peut pas automatiser, le tiroir des effets, les vumètres, l'écoute qui suit un fader, puis « Créer la chanson ».
  */
 const { chromium } = require('playwright');
 const fs = require('fs');
@@ -73,6 +73,9 @@ const ok = (c, m) => {
   // un réglage pour toute la chanson
   await page.click('#play');
   await page.waitForFunction(() => SS.audio.isPlaying(), null, { timeout: 8000 });
+  ok((await page.locator('#bwMix .mx-meter').count()) === ids.length + 1, 'un vumètre par tranche et pour le Master');
+  await page.waitForFunction(() => +document.querySelector('#bwMix .mx-meter[data-meter="master"]').style.getPropertyValue('--pk') > 0.2, null, { timeout: 5000 }).catch(() => {});
+  ok(+(await page.locator('#bwMix .mx-meter[data-meter="master"]').evaluate((e) => e.style.getPropertyValue('--pk'))) > 0.2 && (await page.locator('#bwMix [data-peak="master"]').textContent()) !== '−∞', 'le vumètre du Master bouge pendant l’écoute et garde sa crête');
   const kickVol = () => page.evaluate(() => SS.band._listen().tracks.find((t) => t.id.endsWith(':bd')).volume);
   const v0 = await kickVol();
   await fader('kick').fill(String(R(m0.tracks.kick.vol + 3)));
