@@ -64,7 +64,7 @@ SS.audioWatch = (() => {
 
   /**
    * Bilan du mode allégé automatique : a-t-il fait cesser les décrochages ? `light` : { at, underruns } au moment où il
-   * a été activé ; `underruns` : compteur actuel ; `juno` : synthés Juno actifs (le mode allégé ne les touche pas).
+   * a été activé ; `underruns` : compteur actuel ; `juno` : synthés Juno actifs (en mode éco pendant le mode allégé, mais toujours joués).
    * 'wait' tant que le délai n'est pas écoulé, puis 'ok', 'synths' (les synthés restent trop lourds) ou 'useless'
    * (presque plus rien à calculer : la sortie de l'appareil décroche d'elle-même).
    */
@@ -322,7 +322,8 @@ SS.audioWatch = (() => {
   const sec = (v) => v.toFixed(1).replace('.', ',') + ' s';
   /**
    * Prochaines étapes d'allègement possibles, de l'élément le plus lourd au plus léger (fonction pure).
-   * `relief` = SS.audio.reliefState() ({ tracks: { id: { roomSize, cut } }, returns: { k: { size, shimmer, cut } } }).
+   * `relief` = SS.audio.reliefState() ({ tracks: { id: { roomSize, cut } }, returns: { k: { size, shimmer, cut } }, juno }).
+   * Les synthés Juno passent en mode éco (une seule marche : ils restent joués).
    * Chaque élément descend une marche à la fois : reverb raccourcie (moitié, au moins 0,8 s) puis coupée ;
    * Cosmos : shimmer coupé puis bus coupé ; Hall / Plate : raccourcies (au moins 1 s) puis coupées ; delay, chorus,
    * écho : coupés. `cost` = poids actuel de l'élément (même échelle qu'estimateLoad).
@@ -370,6 +371,9 @@ SS.audioWatch = (() => {
       if (size > 1.2 && next < size - 0.05) steps.push({ key: 'ret:' + k, target: { ret: k }, patch: { size: next }, what: `Reverb ${label} partagée`, label: `Reverb ${label} (bus partagé) raccourcie : ${sec(size)} → ${sec(next)}`, cost });
       else steps.push({ key: 'ret:' + k, target: { ret: k }, patch: { cut: true }, what: `Reverb ${label} partagée`, label: `Reverb ${label} (bus partagé) coupée`, cost, cut: true });
     }
+    // synthés Juno : le plus lourd (6 voix suréchantillonnées chacun) ; le mode éco divise leur calcul par deux environ
+    const junos = project.tracks.filter((t) => t.type === 'instrument' && t.family === 'analog' && !t.mute && !(solo && !t.solo)).length;
+    if (junos && !relief.juno) steps.push({ key: 'juno', target: { juno: true }, patch: { eco: true }, what: `Synthés Juno (${junos})`, label: `Synthés Juno en mode éco (${junos} piste${junos > 1 ? 's' : ''} : 4 voix, sans suréchantillonnage)`, cost: 5 * junos });
     if (used.echo && !ret('echo').cut) steps.push({ key: 'ret:echo', target: { ret: 'echo' }, patch: { cut: true }, what: 'Écho partagé', label: 'Écho à bande (bus partagé) coupé', cost: 0.5, cut: true });
     return steps.sort((a, b) => b.cost - a.cost);
   }
@@ -421,6 +425,7 @@ SS.audioWatch = (() => {
       `voix ${snap.voices} juno ${snap.juno}`,
       `sortie ${snap.out ? (snap.out.peak > 0 ? dB(snap.out.peak).toFixed(1) : '-inf') + ' dBFS' : '?'}`,
       snap.light ? 'ALLÉGÉ' : null,
+      SS.juno && SS.juno.isEco && SS.juno.isEco() ? 'JUNO ÉCO' : null,
       diag.done.length ? `allègements ${diag.done.length}` : null,
     ];
     log('MESURE', parts.filter(Boolean).join(' · '), now);
@@ -636,7 +641,7 @@ SS.audioWatch = (() => {
       level: 'info',
       where: 'light',
       title: 'Mode allégé : effets coupés temporairement',
-      detail: `${reason ? reason + ' : ' : ''}reverbs, delays, chorus, envois et bus partagés, égaliseurs, compresseurs et limiteurs des pistes et du Master, effets du Master, mastering${automix ? ' et analyse de l’Auto Mix' : ''} sont contournés pour soulager le processeur. Les réglages ne sont pas modifiés.`,
+      detail: `${reason ? reason + ' : ' : ''}reverbs, delays, chorus, envois et bus partagés, égaliseurs, compresseurs et limiteurs des pistes et du Master, effets du Master, mastering${automix ? ' et analyse de l’Auto Mix' : ''} sont contournés et les synthés Juno passent en mode éco (4 voix, sans suréchantillonnage) pour soulager le processeur. Les réglages ne sont pas modifiés.`,
       advice: auto ? 'Tout revient à l’arrêt de la lecture, ou tout de suite avec « Rétablir les effets ». Sans limiteur, baisser le Master si le son sature.' : 'Tout revient avec « Rétablir les effets ». Sans limiteur, baisser le Master si le son sature.',
     }, now);
     if (!inc) {
@@ -726,10 +731,10 @@ SS.audioWatch = (() => {
       if (v !== 'wait') {
         lightInfo.judged = true;
         const more = state.counters.underruns - lightInfo.underruns;
-        const why = v === 'synths' ? `${snap.juno} synthé(s) Juno restent actifs, le mode allégé ne les touche pas` : 'effets coupés et presque rien à calculer';
+        const why = v === 'synths' ? `${snap.juno} synthé(s) Juno restent trop lourds, même en mode éco` : 'effets coupés et presque rien à calculer';
         log('BILAN', `mode allégé → ${v === 'ok' ? 'efficace' : `insuffisant : ${more} décrochage(s) en ${CFG.lightCheck / 1000} s, ${why}`}`, now);
         if (v === 'synths') {
-          raise(state, { kind: 'synths', level: 'warn', where: 'juno', title: 'Synthés Juno trop lourds pour cet appareil', detail: `Les décrochages continuent effets coupés (${more} en ${CFG.lightCheck / 1000} s) : ${snap.juno} synthé(s) Juno jouent et chacun calcule jusqu'à 6 voix suréchantillonnées.`, advice: 'Couper (Muet) une ou deux pistes Synthé pour écouter, ou les remplacer par un instrument échantillonné ; sur ordinateur, ces synthés passent sans peine.' }, now);
+          raise(state, { kind: 'synths', level: 'warn', where: 'juno', title: 'Synthés Juno trop lourds pour cet appareil', detail: `Les décrochages continuent effets coupés et synthés en mode éco (${more} en ${CFG.lightCheck / 1000} s) : ${snap.juno} synthé(s) Juno jouent ensemble.`, advice: 'Couper (Muet) une ou deux pistes Synthé pour écouter, ou les remplacer par un instrument échantillonné ; sur ordinateur, ces synthés passent sans peine.' }, now);
           notify();
         }
         if (v === 'useless') {

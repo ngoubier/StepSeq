@@ -263,3 +263,17 @@ test('décrochages hors moteur : le conseil ne parle plus du processeur', () => 
   const inc = st.incidents.find((x) => x.kind === 'underrun');
   assert.ok(inc && /sortie audio de l'appareil/.test(inc.advice) && /Bluetooth/.test(inc.advice));
 });
+
+test('mode Diagnostic : les synthés Juno passent en mode éco en premier', () => {
+  const p = SS.newProject();
+  p.tracks = [
+    { id: 'j1', name: 'Pad', type: 'instrument', family: 'analog' },
+    { id: 'j2', name: 'Basse', type: 'instrument', family: 'analog' },
+    { id: 'm', name: 'Muet', type: 'instrument', family: 'analog', mute: true },
+  ];
+  const steps = W.reliefSteps(p, {});
+  assert.equal(steps[0].key, 'juno');
+  assert.deepEqual({ ...steps[0].target }, { juno: true });
+  assert.match(steps[0].label, /2 pistes/);
+  assert.ok(!W.reliefSteps(p, { juno: true }).some((x) => x.key === 'juno'));
+});

@@ -714,6 +714,7 @@ node tests/e2e/automix-ui.js
 node tests/e2e/automix-modes.js
 node tests/e2e/automix-chains.js
 node tests/e2e/audio-light.js
+node tests/e2e/juno-eco.js           # mode éco des synthés Juno (mode allégé, mode Diagnostic, Rétablir)
 node tests/e2e/audio-diag.js         # mode Diagnostic : reverb raccourcie puis coupée en cas de décrochage, journal de débogage
 node tests/e2e/audio-perf.js
 node tests/e2e/automix-pilot.js
@@ -957,14 +958,21 @@ Quand le moteur audio décroche (processeur saturé, notes en retard à répéti
 défaut, n'éteint pas tout d'un coup : il allège **l'élément le plus lourd encore actif, une marche à la fois**, et le
 signale (notification avec « Rétablir », incident dans la fenêtre Système) :
 
+- synthés Juno (les plus lourds, surtout sur téléphone) : **mode éco** — voix sans suréchantillonnage et 4 voix
+  au plus par synthé, environ deux fois moins de calcul ; même niveau, aigus à peine plus doux (1 à 2 dB) ;
 - reverb d'une piste : raccourcie de moitié (jusqu'à 0,8 s), puis **coupée** si les décrochages continuent ;
 - Reverb Cosmos partagée : shimmer coupé, puis bus coupé ; Hall / Plate : raccourcies (jusqu'à 1 s), puis coupées ;
 - delay, chorus, écho partagé : coupés.
 
 Un élément coupé est réellement débranché (plus aucun calcul). Après chaque marche, la surveillance attend 4 s
 (calcul de la nouvelle réverbération), puis vérifie pendant 4 s de plus si la surcharge a cessé : l'étape est
-notée « efficace » ou « insuffisante ». Après 8 marches, ou s'il ne reste rien d'ajustable (synthés Juno, filtres
-lourds), le mode allégé complet prend le relais. Les réglages de la chanson ne sont jamais modifiés : les
+notée « efficace » ou « insuffisante ». Après 8 marches, ou s'il ne reste rien d'ajustable (filtres lourds), le
+mode allégé complet prend le relais (il met aussi les Juno en mode éco). 8 s après, s'il n'a pas fait cesser les
+décrochages : avec des Juno encore actifs, incident « Synthés Juno trop lourds » (couper une piste Synthé) ; sans
+eux, les effets sont rétablis et l'incident « Coupures venant de l'appareil » oriente vers le système (Bluetooth,
+économie d'énergie). Les à-coups de la première 1,5 s de lecture (démarrage de la sortie sur Android) ne
+déclenchent aucun allègement. La surveillance suit la chanson qui joue réellement, y compris l'écoute de
+l'assistant « Nouvelle chanson ». Les réglages de la chanson ne sont jamais modifiés : les
 allègements tiennent jusqu'à « Rétablir » ou au rechargement de la page (`SS.audio.setRelief` / `clearRelief`).
 
 **Journal de débogage** : fenêtre Système › Mode Diagnostic › « Copier le journal de débogage » (ou « Enregistrer
