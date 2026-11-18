@@ -174,6 +174,13 @@ const SHOTS = process.env.SHOTS;
     return { on: w.ab.on && !!w.ab.lead, first: sc.spans[0].chord.rootPc === SS.harmony.gridChord(sc.key, g0.degree, g0.type, g0.acc).rootPc };
   });
   ok(hzTrial.on && hzTrial.first && (await page.isVisible('#bwAbB')) && (await melOf()) === melA, 'essai B : les accords proposés à l’écoute, la même mélodie');
+  await page.waitForTimeout(700);
+  const ph = await page.evaluate(() => {
+    const r = document.querySelector('#bwHzRoll');
+    const c = r && r.querySelector('.bwhz-ph');
+    return c && !c.hidden ? [parseFloat(c.style.left), r.querySelectorAll('.bwhz-n.now').length] : null;
+  });
+  ok(!!ph && ph[0] >= 0 && ph[0] < 100, 'pendant l’écoute, le curseur de lecture avance sur la mélodie' + (ph ? ` (${ph[0].toFixed(1)} %)` : ''));
   await page.click('#bwAbCancel');
   ok(await page.evaluate(() => !SS.band._state.wiz.ab && !SS.band._state.wiz.grids.chorus && !JSON.stringify(SS.band._state.wiz.parts).includes('"lead":{"events"')), 'Garder A : ni grille ni mélodie figée');
   await page.click('.bh-scene:has-text("Intro")');
