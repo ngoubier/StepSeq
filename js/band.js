@@ -7406,7 +7406,7 @@ SS.band = (() => {
     $('#bwCreate').addEventListener('click', () => createWizSong());
     $('#bwGo').addEventListener('click', () => quickGo());
     document.querySelectorAll('#bandMode [data-mode]').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
-    SS.melodyPanel.init(app); // l'atelier Mélodie vit dans Harmonie → Chanson
+    SS.melodyPanel.init(app); // l'atelier Mélodie vit dans l'étape Mélodie de l'assistant
     // Échap = Fermer (rien n'est créé) : d'abord la confirmation, puis la fenêtre d'inspiration, puis l'assistant
     document.addEventListener('keydown', (e) => {
       if (!S.wiz || e.defaultPrevented || document.querySelector('dialog[open]')) return;

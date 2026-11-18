@@ -24,7 +24,7 @@ test('bandsong passe par le moteur de mélodie unique', () => {
   assert.equal(SS.bandSong.CHARACTERS, SS.melody.CHARACTERS);
   assert.equal(SS.bandSong.FORMS, SS.melody.FORMS);
   assert.equal(typeof SS.melody.section, 'function');
-  assert.ok(!SS.harmony.GENERATORS.some((g) => g.group === 'Mélodie'), 'plus d’esquisses de mélodie dans js/harmony.js');
+  assert.ok(!SS.harmony.GENERATORS && !SS.harmony.generate, 'plus de générateur de couches (ni d’esquisses de mélodie) dans js/harmony.js');
 });
 
 test('les mélodies des 40 inspirations sont identiques, note pour note', () => {

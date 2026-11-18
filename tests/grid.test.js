@@ -1,5 +1,5 @@
 /*
- * Grille d'accords de Harmo One (js/harmony.js : gridChord, gridPalette, gridFromEvents) et nouveaux types d'accords.
+ * Grille d'accords (js/harmony.js : gridChord, gridPalette) et nouveaux types d'accords.
  *   node --test
  */
 const test = require('node:test');
@@ -55,28 +55,10 @@ test('accords de la grille : notes épelées, la grille suit la tonalité', () =
   assert.equal(H.gridChord(C, 6, 'dim', 1).name, 'B°'); // l'emprunt ne s'applique qu'en mineur naturel
 });
 
-test('reprendre les accords d’une piste : degrés retrouvés, accords hors tonalité comptés', () => {
-  const ev = (step, len, root, type) => ({ step, len, notes: SS.chordNotes(root, type), chord: type });
-  const r = H.gridFromEvents(Dm, [ev(0, 16, 50, 'min'), ev(16, 16, 46, 'maj7'), ev(32, 8, 57, '7'), ev(40, 8, 61, 'dim'), ev(48, 16, 51, 'maj')]);
-  assert.deepEqual(r.chords.map((c) => [c.step, c.len, c.degree, c.type, c.acc]), [
-    [0, 16, 0, 'min', 0],
-    [16, 16, 5, 'maj7', 0],
-    [32, 8, 4, '7', 0],
-    [40, 8, 6, 'dim', 1],
-  ]);
-  assert.equal(r.skipped, 1); // E♭ majeur
-});
-
 test('identify garde les noms connus : Do–Mi–Sol–La reste Am7/C, et les couleurs avancées sont reconnues', () => {
   assert.deepEqual(H.identify([48, 52, 55, 57]), { rootPc: 9, type: 'm7', bassPc: 0 });
   assert.equal(H.identify([45, 49, 52, 55, 58]).type, '7b9');
   assert.equal(H.identify([50, 53, 57, 60, 64]).type, 'm9');
-});
-
-test('générateur : une basse sur une grille de C6 joue Do (le type posé fait foi)', () => {
-  const evs = [{ step: 0, len: 16, notes: SS.chordNotes(60, '6'), chord: '6' }];
-  const bass = H.generate(evs, { kind: 'bass-whole', octave: 2, spb: 16, beat: 4, key: C, length: 16 });
-  assert.equal(bass[0].notes[0] % 12, 0);
 });
 
 test('propositions d’émotion → grille : emprunts ♭VI, ♭VII, sensible', () => {
@@ -107,12 +89,3 @@ test('progressions de la formation : H05, H08 et grilles modales seulement dans 
   assert.deepEqual(H.progressions({ tonic: 'A', mode: 'locrian' }), []);
 });
 
-test('reprise commune : renversements et accords chromatiques conservés', () => {
-  const r = H.gridFromEvents(Dm, [
-    { step: 0, len: 8, notes: [48, 53, 57] }, // F/C
-    { step: 8, len: 8, notes: [53, 57, 60] }, // F : autre basse, ne pas fusionner
-    { step: 16, len: 16, notes: SS.chordNotes(51, 'maj'), chord: 'maj' },
-  ], { chromatic: true });
-  assert.equal(r.skipped, 0);
-  assert.deepEqual(r.chords.map((c) => [c.step, c.len, H.gridChord(Dm, c.degree, c.type, c.acc, c.bass).name]), [[0, 8, 'F/C'], [8, 8, 'F'], [16, 16, 'E♭']]);
-});

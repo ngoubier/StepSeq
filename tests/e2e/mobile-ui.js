@@ -48,7 +48,7 @@ const SHOTS = process.argv[2];
     });
     ok(m.sw <= m.w, `${name} : pas de débordement horizontal (${m.sw} / ${m.w} px)`);
     ok(m.grid >= minGrid, `${name} : la grille garde ${Math.round(m.grid)} px de hauteur`);
-    ok(m.play && m.studio, `${name} : Lecture et les 3 boutons Harmonie / Song / Mix (même largeur) sont à l’écran`);
+    ok(m.play && m.studio, `${name} : Lecture et les 3 boutons Tonalité / Song / Mix (même largeur) sont à l’écran`);
     if (m.w > 1000) ok(m.headVisible, `${name} : en-têtes de piste complets (volume visible)`);
     // la lecture et la fenêtre Song marchent au doigt / à la souris
     await page.click('#songBtn');

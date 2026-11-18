@@ -992,8 +992,8 @@ SS.bandSong = (() => {
   }
 
   /* ---------- Arp One (parts[section].arp.one) ----------
-   * Les accords de la scène passent dans le vrai arpégiateur (SS.Arp.renderStep, js/arp.js), comme l'aperçu de
-   * l'atelier Mélodie (js/harmonypanel.js, songPreview). Chaque accord est posé en position serrée dans le médium
+   * Les accords de la scène passent dans le vrai arpégiateur (SS.Arp.renderStep, js/arp.js).
+   * Chaque accord est posé en position serrée dans le médium
    * (57-76), l'octave du dessus est faite par le réglage « octaves » d'Arp One. Les temps (secondes) sont convertis
    * en pas avec un tempo nominal fixe : seul le rapport compte. Même accords + mêmes réglages = mêmes notes.
    */
