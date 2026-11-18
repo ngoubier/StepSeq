@@ -365,6 +365,15 @@ SS.harmony = (() => {
     { id: 'h08', mode: 'major', label: 'ii7 – subV7 – Imaj7', style: 'H08 · substitution tritonique, basse chromatique', seq: [[1, 'm7'], [1, '7', -1], [0, 'maj7'], [0, 'maj7']] },
     { id: 'h06', mode: 'dorian', label: 'i – IV', style: 'H06 · établir le centre, exposer la sixte majeure', seq: [[0, 'min'], [3, 'maj'], [0, 'min'], [3, 'maj']] },
     { id: 'h07', mode: 'lydian', label: 'I – II', style: 'H07 · exposer la quarte augmentée sans perdre le centre', seq: [[0, 'maj'], [1, 'maj'], [0, 'maj'], [1, 'maj']] },
+    // grilles des styles de nov. 2026 (pop-rock, funk, hip-hop lo-fi, soul et jazz, drum & bass liquid, reggae)
+    { id: 'rock1', mode: 'major', label: 'I – ♭VII – IV – I', style: 'Rock mixolydien (♭VII emprunté)', seq: [[0, 'maj'], [6, 'maj', -1], [3, 'maj'], [0, 'maj']] },
+    { id: 'pop4', mode: 'major', label: 'I – IV – vi – V', style: 'Pop-rock, couplet qui avance', seq: [[0, 'maj'], [3, 'maj'], [5, 'min'], [4, 'maj']] },
+    { id: 'lofi1', mode: 'major', label: 'ii7 – V7 – Imaj7 – vi7', style: 'Hip-hop lo-fi, jazz', seq: [[1, 'm7'], [4, '7'], [0, 'maj7'], [5, 'm7']] },
+    { id: 'soul1', mode: 'major', label: 'IVmaj7 – iii7 – ii7 – Imaj7', style: 'Neo-soul, descente', seq: [[3, 'maj7'], [2, 'm7'], [1, 'm7'], [0, 'maj7']] },
+    { id: 'soul2', mode: 'major', label: 'Imaj7 – vi7 – ii7 – V7', style: 'Soul, turnaround', seq: [[0, 'maj7'], [5, 'm7'], [1, 'm7'], [4, '7']] },
+    { id: 'reggae1', mode: 'major', label: 'I – IV – V – IV', style: 'Reggae', seq: [[0, 'maj'], [3, 'maj'], [4, 'maj'], [3, 'maj']] },
+    { id: 'funk1', mode: 'dorian', label: 'i7 – IV7', style: 'Funk, vamp dorien', seq: [[0, 'm7'], [3, '7'], [0, 'm7'], [3, '7']] },
+    { id: 'dnb1', mode: 'minor', label: 'i7 – VImaj7 – iv7 – v7', style: 'Drum & bass liquid', seq: [[0, 'm7'], [5, 'maj7'], [3, 'm7'], [4, 'm7']] },
   ];
 
   // lettre de chaque intervalle d'accord (tierce = 2 lettres plus loin…) : Cdim = C E♭ G♭, Fm = F A♭ C

@@ -10,14 +10,21 @@ require('../js/dirt.js');
 require('../js/sounds.js');
 require('../js/juno.js');
 require('../js/band-presets.js');
+require('../js/drum-patterns.js');
 const B = globalThis.SS.Band;
 const SS = globalThis.SS;
 
-test('4 styles, 10 inspirations chacun, identifiants uniques', () => {
-  assert.deepEqual(B.STYLES.map((s) => s.id), ['synthwave', 'edm', 'ambient', 'techno']);
-  B.STYLES.forEach((s) => {
-    assert.equal(s.presets.length, 10, s.id);
-    assert.equal(new Set(s.presets.map((p) => p.id)).size, 10);
+test('10 styles : 10 inspirations pour les 4 premiers, une chanson de démo pour les autres ; identifiants uniques', () => {
+  assert.deepEqual(B.STYLES.map((s) => s.id), ['synthwave', 'edm', 'ambient', 'techno', 'pop', 'funk', 'hiphop', 'dnb', 'latin', 'soul']);
+  assert.equal(new Set(B.STYLES.flatMap((s) => s.presets.map((p) => p.id))).size, 46);
+  B.STYLES.forEach((s, i) => {
+    const n = i < 4 ? 10 : 1;
+    assert.equal(s.presets.length, n, s.id);
+    assert.equal(new Set(s.presets.map((p) => p.id)).size, n);
+    if (i >= 4) {
+      assert.ok(s.swing >= 0 && s.swing <= 100, s.id + ' : swing');
+      assert.ok(SS.DRUM_PATTERNS[s.id] && SS.DRUM_PATTERNS[s.id].length, s.id + ' : bibliothèque de motifs');
+    }
     s.presets.forEach((p) => {
       assert.ok(p.tempo >= 60 && p.tempo <= 200, p.id);
       assert.equal(p.musicians.filter((m) => m.role === 'drums').length, 1, p.id + ' : un batteur');
