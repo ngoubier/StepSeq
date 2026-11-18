@@ -3516,16 +3516,19 @@ SS.band = (() => {
     const noteName = (midi) => H.french(H.spell(k, midi % 12)) + (Math.floor(midi / 12) - 1);
     const roll = h(
       'div',
-      { class: 'bwhz-roll', id: 'bwHzRoll' },
+      { class: 'bwhz-roll', id: 'bwHzRoll', 'data-phroll': '', 'data-scene': sc.id, 'data-bars': sc.bars },
       ...vg.map((x) => h('div', { class: 'bwhz-band role-' + chordOf(k, x).role.id, style: `left:${pct(x.step)};width:${pct(x.len)}` }, chordOf(k, x).name)),
       ...Array.from({ length: sc.bars - 1 }, (_, b) => h('i', { class: 'bwhz-bl', style: `left:${pct((b + 1) * 16)}` })),
       ...notes.map((x, i) =>
         h('span', {
           class: 'bwhz-n ' + roles[i],
+          'data-s': x.step,
+          'data-e': x.step + x.len,
           style: `left:${pct(x.step)};width:calc(${pct(x.len)} - 2px);top:${(26 + ((hi - x.midi) / Math.max(1, hi - lo)) * 96).toFixed(1)}px`,
           title: `${noteName(x.midi)} · ${HZ_ROLES[roles[i]]}`,
         })
-      )
+      ),
+      h('i', { class: 'bwhz-ph', hidden: true, 'aria-hidden': 'true' })
     );
     const seg = (items, cur, set, label) =>
       h('span', { class: 'segmented', role: 'radiogroup', 'aria-label': label }, ...items.map(([v, l]) => h('button', { type: 'button', role: 'radio', class: v === cur ? 'active' : '', 'aria-checked': String(v === cur), onclick: () => set(v) }, l)));
@@ -7749,6 +7752,18 @@ SS.band = (() => {
       const on = !!L.mode && L.scene === r.dataset.scene && L.step >= 0;
       ph.hidden = !on;
       if (on) ph.style.left = `${((L.step % total) / total) * 100}%`;
+    });
+    // rouleaux de notes (Harmoniser la mélodie) : curseur de lecture et note qui sonne
+    box.querySelectorAll('[data-phroll]').forEach((r) => {
+      const total = Number(r.dataset.bars) * 16;
+      const ph = $('.bwhz-ph', r);
+      const on = !!L.mode && L.scene === r.dataset.scene && L.step >= 0;
+      const pos = on ? L.step % total : -1;
+      if (ph) {
+        ph.hidden = !on;
+        if (on) ph.style.left = `${(pos / total) * 100}%`;
+      }
+      r.querySelectorAll('.bwhz-n').forEach((n) => n.classList.toggle('now', on && pos >= Number(n.dataset.s) && pos < Number(n.dataset.e)));
     });
     const gt = $('.bw-gtl', box);
     const gph = $('#bwGridPh', box);

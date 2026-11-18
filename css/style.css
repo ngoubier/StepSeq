@@ -4948,6 +4948,8 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 .bwhz-roll { position: relative; height: 134px; background: #17171c; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .bwhz-band { position: absolute; top: 0; height: 22px; padding-left: 6px; font: 600 12px/22px inherit; color: var(--role, #c9a227); background: color-mix(in srgb, var(--role, #c9a227) 10%, transparent); border-right: 1px solid var(--line); white-space: nowrap; overflow: hidden; }
 .bwhz-bl { position: absolute; top: 22px; bottom: 0; width: 1px; background: #2a2a31; }
+.bwhz-ph { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #fff; box-shadow: 0 0 6px rgba(255, 255, 255, .6); pointer-events: none; z-index: 2; }
+.bwhz-n.now { outline: 2px solid #fff; outline-offset: 1px; filter: brightness(1.25); z-index: 1; }
 .bwhz-n { position: absolute; height: 8px; border-radius: 3px; background: #8c8c99; }
 .bwhz-n.chord, .bwhz-sw.chord { background: #3fcf8e; }
 .bwhz-n.tension, .bwhz-sw.tension { background: #f0b429; }
