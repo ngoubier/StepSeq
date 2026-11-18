@@ -5059,3 +5059,6 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 .ba-row-name { position: sticky; left: 0; z-index: 3; display: inline-block; padding: 1px 6px; margin-bottom: 1px; font-size: 11px; color: var(--text); background: rgba(24, 24, 28, .85); border-left: 3px solid var(--c); border-radius: 3px; }
 .ba-row-grid { position: relative; display: flex; height: 46px; background: #1d1d22; border-radius: 4px; touch-action: none; cursor: ns-resize; }
 .ba-row-grid .ba-cell { flex: none; height: 100%; }
+
+/* Assistant : style de modèles (js/band-templates.js) — la chanson s'ouvre telle quelle */
+#bandDialog .bs-tpl-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 6px; }

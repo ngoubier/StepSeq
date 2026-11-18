@@ -79,6 +79,13 @@ Les plans des 30 chansons sont dans `js/band-songs.js` (tonalité, forme, grille
 musicien par section) et les notes sont écrites par `js/bandsong.js` (déterministe). Le bouton **Fermer** et **Échap** quittent l'assistant sans rien créer ;
 si le projet a déjà des pistes, une confirmation précède le remplacement (Ctrl+Z revient en arrière).
 
+**Modèles** (`js/band-templates.js`) : à côté des styles générés, un style de **morceaux complets**, prêts à jouer :
+**Cinematic music**, avec « Reconstitution cinématique » (piano, cordes, cors, guitare, taiko et cuivres graves ;
+La mineur, 63,2 BPM, 72 mesures, 4:33 ; jeu expressif, réverbération de salle, master à −16 LUFS). Choisir le modèle
+puis **Ouvrir cette chanson** ouvre une copie du morceau (scènes, arrangement, mix et master), rangée dans
+« Mes chansons » ; sur un projet commencé, on confirme d'abord. Un modèle n'a pas d'étapes : il s'ouvre tel quel.
+Test : `node tests/e2e/band-template.js`.
+
 **Techno mélodique** (10 inspirations : Stephan Bodzin, Anyma & Chris Avantgarde, ARTBAT, Monolink, Kölsch,
 Boris Brejcha, Paul & Fritz Kalkbrenner, Adam Beyer & Bart Skils, Âme, Kiasmos) : les chansons se servent de tous
 les outils du séquenceur, comme un producteur dans son DAW (`spec.tech` dans `js/band-songs.js`) :
@@ -778,6 +785,7 @@ node tests/e2e/playhead-ui.js
 node tests/e2e/song-ui.js
 node tests/e2e/melody-ui.js
 node tests/e2e/new-song-wizard.js
+node tests/e2e/band-template.js       # style de modèles « Cinematic music » : ouvrir un morceau complet
 node tests/e2e/wizard-melody.js     # étape Mélodie de l'assistant : panneau Mélodie, parts[section].lead
 node tests/e2e/cover-wizard.js        # porte « Reprendre » : reprise tapée (parties, accords, ordre)
 node tests/e2e/band-song-ui.js
@@ -1198,6 +1206,7 @@ Les accords par mode et par émotion (`js/emotions.js`) s'appuient sur trois doc
 | `js/automix-listen.js` | Auto Mix : écoute pendant la lecture (analyseurs sur les pistes et le Master) |
 | `js/automix-pilot.js` | Auto Mix : pilote auto des faders (mesure entre pistes, petits gestes, gain staging) |
 | `js/automixpanel.js` | Auto Mix : panneau de la console, A/B, préférences, pilote auto |
+| `js/band-templates.js` | Assistant : styles de modèles (morceaux complets prêts à jouer, projet inclus) — « Cinematic music » |
 | `js/band-songs.js` | Band : plans des 20 chansons complètes (tonalité, sections, grilles, parties) |
 | `js/drum-patterns.js` | Bibliothèque de motifs de batterie (20 par style : synthwave, edm, ambient, techno), fills et fréquences de fill ; `SS.drumPattern` |
 | `js/bandsong.js` | Band : écrit les scènes, les notes de chaque musicien et l'arrangement d'après un plan |
