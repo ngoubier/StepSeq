@@ -5123,3 +5123,8 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 .bwc-ab .chip { font-size: 12px; }
 .bwc-ab.on { padding: 8px 12px; border: 1px solid var(--accent-2); border-radius: 10px; background: #1b2536; color: var(--text); }
 .bwc-head .bwc-prog { flex: 0 1 240px; width: 240px; min-width: 0; }
+/* Assistant, étape Accords : Vérifier la scène (ex-onglet Vérifier d'Harmonie) */
+.bwc-checks { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; background: var(--panel); }
+.bwc-checks > summary { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; }
+.bwc-ck-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-top: 8px; }
+.bwc > * { flex-shrink: 0; } /* l'étape défile : la grille (et ses pédales) ne se tasse pas quand le contenu s'allonge */

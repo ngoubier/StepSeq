@@ -886,6 +886,30 @@ SS.harmony = (() => {
   ];
 
   /**
+   * Contrôles d'une grille (ex-onglet Vérifier d'Harmonie, aussi dans l'assistant) : centre, cadences, fin, emprunts.
+   * gch : [{ step, len, c }] triés, c = gridChord (nom, rôle, emprunt). → [{ kind: ok | tip | info | warn, text, hint? }]
+   */
+  function gridChecks(key, gch) {
+    const out = [];
+    if (!gch.length) return out;
+    const roles = gch.map((x) => x.c.role.id);
+    const first = gch[0].c;
+    const last = gch[gch.length - 1].c;
+    if (!roles.includes('repos')) out.push({ kind: 'tip', text: 'Aucun accord de repos sur la grille : le centre tonal reste flou.', hint: `Placer ${gridPalette(key).simple[0].name} au début ou à la fin pour l’ancrer.` });
+    else if (first.role.id === 'repos') out.push({ kind: 'ok', text: `Commence sur le centre (${first.name}).` });
+    const tens = roles.map((r, i) => (r === 'tension' ? i : -1)).filter((i) => i >= 0);
+    const resolved = tens.filter((i) => roles[(i + 1) % roles.length] === 'repos');
+    if (tens.length && !resolved.length) out.push({ kind: 'tip', text: 'Les accords de tension ne vont jamais vers le repos.', hint: 'Une tension (V, vii°) appelle la tonique juste après : c’est la cadence.' });
+    else if (resolved.length) out.push({ kind: 'ok', text: `Cadence : ${gch[resolved[0]].c.name} → ${gch[(resolved[0] + 1) % gch.length].c.name}.` });
+    if (last.role.id === 'repos') out.push({ kind: 'ok', text: `Finit sur le repos (${last.name}) : la boucle est fermée.` });
+    else if (last.role.id === 'tension') out.push({ kind: 'ok', text: `Finit sur une tension (${last.name}) : elle relance la boucle vers ${first.name}.` });
+    else out.push({ kind: 'tip', text: `Finit sur ${last.name} (${last.role.label}) : la fin reste suspendue.`, hint: 'Voulu pour enchaîner sur la scène suivante ? Sinon, finir sur une tension ou le repos.' });
+    const bor = gch.filter((x) => x.c.borrowed).map((x) => x.c.name);
+    if (bor.length) out.push({ kind: 'info', text: `Emprunt${bor.length > 1 ? 's' : ''} : ${[...new Set(bor)].join(', ')}.`, hint: 'Une couleur hors de la gamme : la mélodie évite ou suit sa note altérée.' });
+    return out;
+  }
+
+  /**
    * Les essais A/B appliqués à une grille ({ step, len, degree, type, acc, bass? }) plutôt qu'aux notes d'une piste :
    * l'assistant Nouvelle chanson compare ainsi deux versions de la même scène. `total` : longueur de la scène en pas.
    * → { grid, pedals?, changed } (copie ; le rythme des accords ne change pas). 'open' (voicing) ne concerne pas la grille.
@@ -1011,5 +1035,5 @@ SS.harmony = (() => {
     return notes;
   }
 
-  return { MODES, TONICS, GENERATORS, TRANSFORMS, valid, isTonal, scale, spell, french, chords, role, makeChord, progressions, gridChord, toGridChord, gridFill, gridPut, gridSetLen, gridPalette, gridFromEvents, identify, chordName, analyzeChord, detect, sceneChords, analyze, generate, transform, transformGrid, label, voice, pcOf };
+  return { MODES, TONICS, GENERATORS, TRANSFORMS, valid, isTonal, scale, spell, french, chords, role, makeChord, progressions, gridChord, toGridChord, gridFill, gridPut, gridSetLen, gridPalette, gridFromEvents, identify, chordName, analyzeChord, detect, sceneChords, analyze, generate, transform, transformGrid, gridChecks, label, voice, pcOf };
 })();

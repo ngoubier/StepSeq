@@ -3157,6 +3157,39 @@ SS.band = (() => {
     );
   }
 
+  /**
+   * Vérifier (ex-onglet d'Harmonie) : la grille de la scène (centre, cadences, fin, emprunts) et la mélodie de chaque
+   * instrument mélodique sur cette grille (notes exposées, tessiture, fin… : SS.melody.checkMelody).
+   */
+  const CK_ICON = { ok: '✓', warn: '!', tip: '•', info: 'i' };
+  function checksBox(sc, g) {
+    const H = HM();
+    const k = sc.key;
+    const gch = g.map((x) => ({ step: x.step, len: x.len, c: chordOf(k, x) }));
+    const chordAt = (st) => {
+      const x = gch.find((y) => st >= y.step && st < y.step + y.len);
+      return x ? { pcs: H.voice(x.c, 60).map(H.pcOf), name: x.c.name } : null;
+    };
+    const list = (items) => h('ul', { class: 'hm-checks2' }, ...items.map((r) => h('li', { class: 'k-' + r.kind }, h('span', { class: 'ck' }, CK_ICON[r.kind] || '•'), h('div', {}, r.text, r.hint ? h('small', {}, r.hint) : null))));
+    const mels = insSteps()
+      .filter((T) => T.kind === 'melody' && !mutedIn(sc.sec, T))
+      .map((T) => ({ T, r: SS.melody.checkMelody({ events: ((sc.data[T.col.id] || {}).events) || [], chordAt, key: k, spb: 16, beat: 4 }) }));
+    const gridItems = H.gridChecks(k, gch);
+    const warns = gridItems.concat(...mels.map((m) => m.r.items)).filter((i) => i.kind === 'warn').length;
+    const open = !!S.wiz.ckOpen;
+    return h(
+      'details',
+      { class: 'bwc-checks', id: 'bwChecks', open: open || null, ontoggle: (e) => (S.wiz.ckOpen = e.target.open) },
+      h('summary', {}, h('b', {}, 'Vérifier la scène'), h('span', { class: 'hm-pill ' + (warns ? 'warn' : 'ok') }, warns ? `${warns} à vérifier` : 'rien à signaler')),
+      h('div', { class: 'bwc-ck-cols' },
+        h('div', { class: 'hm-vsec' }, h('h5', {}, 'Accords'), gridItems.length ? list(gridItems) : h('p', { class: 'hm-muted' }, 'Pas d’accords dans cette scène.')),
+        ...(mels.length
+          ? mels.map(({ T, r }) => h('div', { class: 'hm-vsec' }, h('h5', {}, `Mélodie · ${T.name}`, r.stats ? h('small', {}, ` ${r.stats.notes} notes`) : null), r.items.length ? list(r.items) : h('p', { class: 'hm-muted' }, 'Trop peu de notes pour juger.')))
+          : [h('div', { class: 'hm-vsec' }, h('h5', {}, 'Mélodie'), h('p', { class: 'hm-muted' }, 'Pas de mélodie dans cette scène.'))])
+      )
+    );
+  }
+
   function renderChords() {
     const { res } = wizSong();
     const box = $('#bandWiz');
@@ -3322,7 +3355,7 @@ SS.band = (() => {
       ),
       pal
     );
-    const content = h('div', { class: 'bwc', id: 'bwChords' }, head, modeGuide(k), abBar(sc), h('div', { class: 'gr-scroll' }, tl), selBar, palette);
+    const content = h('div', { class: 'bwc', id: 'bwChords' }, head, modeGuide(k), abBar(sc), h('div', { class: 'gr-scroll' }, tl), selBar, palette, checksBox(sc, g));
     content.addEventListener('pointerdown', (e) => gridDown(e, sc));
     content.addEventListener('keydown', (e) => {
       const blk = e.target.closest && e.target.closest('.gr-blk');

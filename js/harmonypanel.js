@@ -436,22 +436,7 @@ SS.harmonyPanel = (() => {
     const grid = [];
     if (gch.length && !live && chordEvs.length)
       grid.push({ kind: 'warn', text: 'La grille commune diffère des accords joués par les pistes.', hint: 'Cliquez sur « Générer » dans Chanson → Chords pour écrire la grille dans les pistes ; la mélodie est vérifiée sur la grille commune.' });
-    if (gch.length) {
-      const roles = gch.map((x) => x.c.role.id);
-      const first = gch[0].c;
-      const last = gch[gch.length - 1].c;
-      if (!roles.includes('repos')) grid.push({ kind: 'tip', text: 'Aucun accord de repos sur la grille : le centre tonal reste flou.', hint: `Placer ${H().gridPalette(k).simple[0].name} au début ou à la fin pour l’ancrer.` });
-      else if (first.role.id === 'repos') grid.push({ kind: 'ok', text: `Commence sur le centre (${first.name}).` });
-      const tens = roles.map((r, i) => (r === 'tension' ? i : -1)).filter((i) => i >= 0);
-      const resolved = tens.filter((i) => roles[(i + 1) % roles.length] === 'repos');
-      if (tens.length && !resolved.length) grid.push({ kind: 'tip', text: 'Les accords de tension ne vont jamais vers le repos.', hint: 'Une tension (V, vii°) appelle la tonique juste après : c’est la cadence.' });
-      else if (resolved.length) grid.push({ kind: 'ok', text: `Cadence : ${gch[resolved[0]].c.name} → ${gch[(resolved[0] + 1) % gch.length].c.name}.` });
-      if (last.role.id === 'repos') grid.push({ kind: 'ok', text: `Finit sur le repos (${last.name}) : la boucle est fermée.` });
-      else if (last.role.id === 'tension') grid.push({ kind: 'ok', text: `Finit sur une tension (${last.name}) : elle relance la boucle vers ${first.name}.` });
-      else grid.push({ kind: 'tip', text: `Finit sur ${last.name} (${last.role.label}) : la fin reste suspendue.`, hint: 'Voulu pour enchaîner sur la scène suivante ? Sinon, finir sur une tension ou le repos.' });
-      const out = gch.filter((x) => x.c.borrowed).map((x) => x.c.name);
-      if (out.length) grid.push({ kind: 'info', text: `Emprunt${out.length > 1 ? 's' : ''} : ${[...new Set(out)].join(', ')}.`, hint: 'Une couleur hors de la gamme : la mélodie évite ou suit sa note altérée.' });
-    }
+    grid.push(...H().gridChecks(k, gch)); // js/harmony.js : les mêmes contrôles que dans l'assistant
     const melodies = instTracks()
       .filter((t) => isMelody(t, evsOf(t)))
       .map((t) => ({ track: t, ...SS.melody.checkMelody({ events: evsOf(t), chordAt, key: k, spb: SS.stepsPerBar(p), beat: SS.stepsPerBeat(p) }) }));

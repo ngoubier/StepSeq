@@ -157,6 +157,8 @@ const SHOTS = process.env.SHOTS;
   await page.selectOption('#bwProg', '0');
   ok((await page.isVisible('#bwGridBack')) && (await gnames()).length === 8, `grille de la tonalité posée (${(await gnames()).join(' ')})`);
   await page.click('#bwGridBack');
+  await page.click('#bwChecks summary');
+  ok((await page.locator('#bwChecks .hm-checks2 li').count()) >= 2 && /Mélodie · /.test(await page.textContent('#bwChecks')), `Vérifier la scène : accords et mélodie (${(await page.textContent('#bwChecks summary')).trim()})`);
   // pédale (reprise de la piste Accords / Harmonie) : la note tenue passe à la basse des accords qu'elle couvre
   await page.click('#bwLane .gr-blk >> nth=0');
   await page.click('#bwPedAdd');
