@@ -233,8 +233,8 @@ Au-delà de la comparaison directe, classées par rapport entre effort et intér
 
 Plus ciblées :
 
-- **Cinématique** : ✅ expression et articulations par note (onglet Jeu) ; reste l'export MIDI en CC 11 et les
-  ralentis par scène.
+- **Cinématique** : ✅ expression et articulations par note (onglet Jeu), exportées en MIDI (CC 11, durées, CC 64) ;
+  restent les ralentis par scène.
 - **Techno mélodique** : générateur de rythmes euclidiens, LFO sur les envois et les effets.
 - **Couches** : une piste qui joue deux sons (unisson, octave) sans dupliquer les notes, équivalent léger des
   Instrument Stacks.

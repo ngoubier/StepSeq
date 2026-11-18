@@ -581,9 +581,13 @@ jouer la piste comme un musicien (réglage rangé dans `track.sd`, comme le rest
 Le plan de chaque note est calculé une fois par scène (`SS.expression.plan`, fonction pure mise en mémoire tant que
 les notes ne changent pas) et appliqué par `js/audio.js` : gain qui suit la forme de la note après le VCA, filtre
 qui suit la nuance, durée, attaque et relâchement, force et décalage de chaque note d'un accord, pédale. Il s'entend à la lecture, dans la boucle du Sound design et à
-l'export audio. Pas encore : l'export MIDI des articulations et de l'expression (CC11), les techniques de jeu
-(pizzicato, trémolo) dans une même piste, le vibrato retardé. Tests : `node --test tests/expression.test.js`,
-`node tests/e2e/expression.js`.
+l'export audio. **Export MIDI** (case « Appliquer le jeu des pistes », cochée par défaut) : le même plan, écrit en
+données MIDI — nuances dans la vélocité (frappe, mélodie au-dessus de l'accord), nuance dans les notes en **CC 11**
+(un point par demi-pas ; pas sur une scène qui a sa propre courbe de volume, déjà en CC 11), articulations dans les
+durées, strum et doigts décalés dans les départs, rubato, pédale automatique du piano en **CC 64** (enfoncée juste
+après l'attaque, relevée juste avant la note suivante ; les notes restent écrites). Le timbre qui suit la nuance reste
+dans StepSeq. Pas encore : les techniques de jeu (pizzicato, trémolo) dans une même piste, le vibrato retardé. Tests : `node --test tests/expression.test.js`,
+`node --test tests/midi-expression.test.js`, `node tests/e2e/expression.js`.
 
 ### Effets d'espace : Cosmos et écho à bande
 
@@ -967,7 +971,8 @@ drums (`SS.DRUM_TYPES`) et les sons de `SS.GM_DRUMS` ont `midi` = leur note GM. 
 **Export** (fichier type 1, 480 PPQ) : chanson (arrangement déplié, marqueurs de scènes, armure par scène) ou
 scène en cours répétée ; une piste MIDI par piste, batterie sur le canal 10 ; arpèges rendus note par note
 (ARP ONE est déterministe), swing et placement des pistes en option, pistes muettes exclues en option ; volume
-(CC 7) et panoramique (CC 10). Sons non GM → programme GM le plus proche (synthés intégrés, VCSL, Juno-106 selon
+(CC 7) et panoramique (CC 10) ; jeu des pistes en option (nuances, CC 11, articulations, strum, pédale en CC 64 :
+voir « Jeu »). Sons non GM → programme GM le plus proche (synthés intégrés, VCSL, Juno-106 selon
 le nom du patch) ; batteries Dirt-Samples / VCSL → note GM devinée d'après le nom de la banque. Les instruments
 `gm_*` (programme de la variante jouée) et la batterie General MIDI (note de la banque) sont exportés exactement. Non exporté :
 sound design, effets, mixage, mastering, humanisation.

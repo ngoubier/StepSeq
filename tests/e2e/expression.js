@@ -238,6 +238,17 @@ const ok = (c, m) => {
   const arts = await page.evaluate(() => SS.normalizeProject(JSON.parse(localStorage.getItem('stepseq.autosave'))).tracks[0].events.map((e) => e.art || ''));
   ok(arts.join(',') === ',leg,,', `après rechargement : ${arts.join(',')}`);
 
+  // export MIDI : case « jeu des pistes » et bilan (la note liée allonge sa durée)
+  await page.click('#appMenuBtn');
+  await page.click('#exportMidi');
+  await page.waitForSelector('#midiExportDialog[open]');
+  ok(await page.isChecked('#meExpr'), 'export MIDI : « Appliquer le jeu des pistes » coché');
+  ok(/Jeu des pistes/.test(await page.textContent('#meReport')), 'export MIDI : le bilan cite le jeu exporté');
+  await page.uncheck('#meExpr');
+  await page.waitForTimeout(150);
+  ok(!/Jeu des pistes/.test(await page.textContent('#meReport')), 'export MIDI : case décochée, plus de jeu');
+  await page.click('#meCancel');
+
   // lecture : aucune erreur
   await page.click('#play');
   await page.waitForTimeout(1500);
