@@ -100,7 +100,7 @@ SS.midiPanel = (() => {
     $('#midiImportDialog').close('ok');
     await app.flush();
     SS.files.reset();
-    await app.loadSong(project);
+    await app.loadSong(project, { origin: { kind: 'import MIDI', detail: { fichier: file && file.name, machine: $('#miMachine').value } } });
     SS.ui.toast(`« ${project.title} » importé : ${project.tracks.length} pistes, ${project.scenes.length} scènes. Lecture en mode Chanson.`, 6000);
     result = null;
     file = null;

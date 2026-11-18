@@ -714,6 +714,8 @@ node tests/e2e/automix-ui.js
 node tests/e2e/automix-modes.js
 node tests/e2e/automix-chains.js
 node tests/e2e/audio-light.js
+node tests/e2e/debug-origin.js       # journal : origine des projets (démo, nouvelle chanson, écoute de l'assistant)
+node tests/e2e/juno-eco.js           # mode éco des synthés Juno (mode allégé, mode Diagnostic, Rétablir)
 node tests/e2e/audio-diag.js         # mode Diagnostic : reverb raccourcie puis coupée en cas de décrochage, journal de débogage
 node tests/e2e/audio-perf.js
 node tests/e2e/automix-pilot.js
@@ -957,21 +959,37 @@ Quand le moteur audio décroche (processeur saturé, notes en retard à répéti
 défaut, n'éteint pas tout d'un coup : il allège **l'élément le plus lourd encore actif, une marche à la fois**, et le
 signale (notification avec « Rétablir », incident dans la fenêtre Système) :
 
+- synthés Juno (les plus lourds, surtout sur téléphone) : **mode éco** — voix sans suréchantillonnage et 4 voix
+  au plus par synthé, environ deux fois moins de calcul ; même niveau, aigus à peine plus doux (1 à 2 dB) ;
 - reverb d'une piste : raccourcie de moitié (jusqu'à 0,8 s), puis **coupée** si les décrochages continuent ;
 - Reverb Cosmos partagée : shimmer coupé, puis bus coupé ; Hall / Plate : raccourcies (jusqu'à 1 s), puis coupées ;
 - delay, chorus, écho partagé : coupés.
 
 Un élément coupé est réellement débranché (plus aucun calcul). Après chaque marche, la surveillance attend 4 s
 (calcul de la nouvelle réverbération), puis vérifie pendant 4 s de plus si la surcharge a cessé : l'étape est
-notée « efficace » ou « insuffisante ». Après 8 marches, ou s'il ne reste rien d'ajustable (synthés Juno, filtres
-lourds), le mode allégé complet prend le relais. Les réglages de la chanson ne sont jamais modifiés : les
+notée « efficace » ou « insuffisante ». Après 8 marches, ou s'il ne reste rien d'ajustable (filtres lourds), le
+mode allégé complet prend le relais (il met aussi les Juno en mode éco). 8 s après, s'il n'a pas fait cesser les
+décrochages : avec des Juno encore actifs, incident « Synthés Juno trop lourds » (couper une piste Synthé) ; sans
+eux, les effets sont rétablis et l'incident « Coupures venant de l'appareil » oriente vers le système (Bluetooth,
+économie d'énergie). Les à-coups de la première 1,5 s de lecture (démarrage de la sortie sur Android) ne
+déclenchent aucun allègement. La surveillance suit la chanson qui joue réellement, y compris l'écoute de
+l'assistant « Nouvelle chanson ». Les réglages de la chanson ne sont jamais modifiés : les
 allègements tiennent jusqu'à « Rétablir » ou au rechargement de la page (`SS.audio.setRelief` / `clearRelief`).
 
 **Journal de débogage** : fenêtre Système › Mode Diagnostic › « Copier le journal de débogage » (ou « Enregistrer
 (.txt) »). Le texte, entre `### STEPSEQ-DEBUG v1 ###` et `### FIN STEPSEQ-DEBUG ###`, contient le navigateur, la
 latence, les mesures disponibles, chaque piste avec ses effets, les retours et le Master, le poids estimé, les
 allègements et leur bilan, les incidents, puis un journal horodaté (`LECTURE`, `MESURE` toutes les 2 s, `INCIDENT`,
-`ACTION`, `ATTENTE`, `BILAN`, `ALLÉGÉ`, `RÉPARE`). Le coller dans une conversation avec Claude permet de retrouver
+`ACTION`, `ATTENTE`, `BILAN`, `ALLÉGÉ`, `RÉPARE`, `PROJET`, `ASSIST`).
+
+**Origine des projets** : chaque chanson est décrite par titre, identifiant, tempo, pistes (dont Juno et batterie),
+scènes, blocs, mode de lecture, brouillon d'assistant éventuel (création ou reprise, style, inspiration, étape,
+dates) et **origine** : démarrage (sauvegarde locale ou démo), nouvelle chanson vide, fichier ouvert, import MIDI,
+Mes chansons (ouverte ou version restaurée), Annuler / Rétablir, « Créer la chanson » de l'assistant (style,
+inspiration, graine de mélodie), ou **écoute de l'assistant** (projet temporaire : scène en boucle, chanson à partir
+d'un bloc ou jonction, étape, chanson de l'éditeur). Une ligne `PROJET` est écrite à chaque changement, et une ligne
+`PROJET joué` dès qu'une autre chanson se met à jouer ; la section « Origine des projets » décrit la chanson jouée et
+celle de l'éditeur quand elles diffèrent (`SS.audioWatch.setOrigin`, `projectSummary`). Le coller dans une conversation avec Claude permet de retrouver
 l'élément et le code en cause.
 
 ## Aides de l'interface

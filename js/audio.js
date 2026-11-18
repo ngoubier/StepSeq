@@ -2364,6 +2364,7 @@ SS.audio = (() => {
     on = !!on;
     if (on === light) return 0;
     light = on;
+    junoEco();
     if (!ctx) return 0;
     const project = (seq.getProject && seq.getProject()) || lastMasterProject;
     route();
@@ -2386,6 +2387,9 @@ SS.audio = (() => {
    */
   const reliefTracks = new Map();
   const reliefRet = {};
+  let reliefJuno = false; // synthés Juno en mode éco (allègement ciblé)
+  /** Juno en mode éco tant que le mode allégé ou l'allègement ciblé le demandent. */
+  const junoEco = () => SS.juno && SS.juno.setEco && SS.juno.setEco(light || reliefJuno);
   const rerouted = () => light || reliefTracks.size > 0 || Object.keys(reliefRet).length > 0;
   function relievedFx(id, f) {
     const r = reliefTracks.get(id);
@@ -2403,8 +2407,13 @@ SS.audio = (() => {
     if (reliefRet.space && reliefRet.space.shimmer === 0) rp.space.shimmer = 0;
     return rp;
   }
-  /** Applique un allègement : target = { track: id } ou { ret: 'plate' | 'hall' | 'echo' | 'space' }. */
+  /** Applique un allègement : target = { track: id }, { ret: 'plate' | 'hall' | 'echo' | 'space' } ou { juno: true }. */
   function setRelief(target, patch) {
+    if (target.juno) {
+      reliefJuno = true;
+      junoEco();
+      return;
+    }
     if (target.track) {
       const r = reliefTracks.get(target.track) || { cut: {} };
       if (patch.roomSize != null) r.roomSize = Math.min(r.roomSize != null ? r.roomSize : Infinity, patch.roomSize);
@@ -2420,7 +2429,11 @@ SS.audio = (() => {
     reapplyRelief();
   }
   function clearRelief() {
-    const had = reliefTracks.size + Object.keys(reliefRet).length;
+    const had = reliefTracks.size + Object.keys(reliefRet).length + (reliefJuno ? 1 : 0);
+    if (reliefJuno) {
+      reliefJuno = false;
+      junoEco();
+    }
     reliefTracks.clear();
     for (const k of Object.keys(reliefRet)) delete reliefRet[k];
     if (had) {
@@ -2442,7 +2455,7 @@ SS.audio = (() => {
   function reliefState() {
     const tracks = {};
     reliefTracks.forEach((r, id) => (tracks[id] = { roomSize: r.roomSize, cut: { ...r.cut } }));
-    return { tracks, returns: JSON.parse(JSON.stringify(reliefRet)) };
+    return { tracks, returns: JSON.parse(JSON.stringify(reliefRet)), juno: reliefJuno };
   }
 
   /** Lecture seule : aucune création de contexte ni copie des données PCM. */
@@ -2548,6 +2561,8 @@ SS.audio = (() => {
     start,
     stop,
     isPlaying: () => seq.playing || !!seq.pending, // en attente des sons : compte comme en lecture
+    /** Projet en cours de lecture (celui de l'écoute de l'assistant, par exemple), ou null à l'arrêt. */
+    playingProject: () => ((seq.playing || seq.paused) && seq.getProject ? seq.getProject() : null),
     isLoading: () => !!seq.pending,
     setOnLoading: (fn) => (onLoading = fn || (() => {})),
     isPaused: () => !!seq.paused,
