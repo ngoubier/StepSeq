@@ -7023,9 +7023,11 @@ SS.band = (() => {
           'div',
           { class: 'mx-fader' },
           h('input', { type: 'range', min: -40, max: 6, step: 0.1, value: e.vol, ...ctl('vol', { 'aria-label': `Volume ${s.name}`, disabled: lockedAll, orient: 'vertical' }) }),
+          h('div', { class: 'mx-meter', 'data-meter': id, 'aria-hidden': 'true' }, h('i', { class: 'pk' }), h('i', { class: 'rms' }), h('b', { class: 'hold' })),
           scene && o && o.vol != null ? h('span', { class: 'mx-ghost', title: `Chanson : ${mixDb(song.vol)}`, style: `top:${((1 - pct(song.vol)) * 100).toFixed(1)}%` }) : null
         ),
         h('div', { class: 'mx-db' + (o && o.vol != null ? ' own' : '') }, mixDb(e.vol)),
+        h('div', { class: 'mx-peak', 'data-peak': id, title: 'Crête atteinte pendant l’écoute (clic : remise à zéro)', onclick: () => mixMeterReset(id) }, mixPeakText(id)),
         master
           ? h('div', { class: 'mx-ms' }, h('button', { type: 'button', disabled: true }, '—'), h('button', { type: 'button', disabled: true }, '—'))
           : h(
@@ -7085,7 +7087,85 @@ SS.band = (() => {
     const fxIn = $('#mxFx .mx-fxin');
     if (fxIn) fxIn.scrollTop = fxPaneTop;
     mixFxListen();
+    mixMeterStart();
     renderWizSteps();
+  }
+
+  /* ---------- Vumètres de la console ----------
+   * Chaque tranche lit la sortie de ses pistes d'écoute (après fader et sidechain, SS.audio.levels) : la plus forte si plusieurs
+   * pistes portent la même tranche. Le Master lit la sortie finale. Barre claire = crête, barre pleine = RMS, trait = maintien
+   * de crête (redescend après 0,8 s) ; sous le volume, la crête max depuis le début de l'écoute (rouge au-delà de 0 dB).
+   * La boucle s'arrête d'elle-même quand la console n'est plus affichée.
+   */
+  const MX_LO = -48, MX_HI = 6;
+  const mxPos = (db) => (db <= MX_LO ? 0 : Math.min(1, (db - MX_LO) / (MX_HI - MX_LO)));
+  const mxMeters = new Map(); // id -> { hold, holdT, max }
+  let mxRaf = 0;
+  let mxLast = 0;
+  const mixPeakText = (id) => {
+    const m = mxMeters.get(id);
+    return m && m.max > -100 ? `${m.max > 0 ? '+' : ''}${m.max.toFixed(1)}` : '−∞';
+  };
+  function mixMeterReset(id) {
+    if (id) mxMeters.delete(id);
+    else mxMeters.clear();
+    const el = id ? $(`#bwMix [data-peak="${id}"]`) : null;
+    if (el) {
+      el.textContent = '−∞';
+      el.classList.remove('clip');
+    }
+  }
+  /** Niveau d'une tranche : { peak, rms } en linéaire (0 sans écoute). */
+  function mixLevel(id) {
+    if (!L.proj || !SS.audio.levels) return { peak: 0, rms: 0 };
+    if (id === 'master') return SS.audio.levels('__master') || { peak: 0, rms: 0 };
+    let peak = 0, rms = 0;
+    L.proj.tracks.forEach((t) => {
+      if (SS.wizMix.idOf(t) !== id) return;
+      const l = SS.audio.levels(t.id);
+      if (!l) return;
+      if (l.peak > peak) peak = l.peak;
+      if (l.rms > rms) rms = l.rms;
+    });
+    return { peak, rms };
+  }
+  function mixMeterStart() {
+    if (mxRaf) return;
+    mxLast = performance.now();
+    const db = (g) => (g > 1e-5 ? 20 * Math.log10(g) : -Infinity);
+    const tick = (now) => {
+      const box = $('#bwMix');
+      if (!box || !mixStep()) {
+        mxRaf = 0;
+        return;
+      }
+      const dt = Math.min(0.1, (now - mxLast) / 1000);
+      mxLast = now;
+      const live = !!L.proj && !!L.mode && !L.paused;
+      box.querySelectorAll('.mx-meter').forEach((el) => {
+        const id = el.dataset.meter;
+        const lv = live ? mixLevel(id) : { peak: 0, rms: 0 };
+        const pk = db(lv.peak);
+        const m = mxMeters.get(id) || { hold: -Infinity, holdT: 0, max: -Infinity };
+        if (pk >= m.hold) {
+          m.hold = pk;
+          m.holdT = 0.8;
+        } else if ((m.holdT -= dt) <= 0) m.hold -= 20 * dt;
+        if (pk > m.max) m.max = pk;
+        mxMeters.set(id, m);
+        el.style.setProperty('--pk', mxPos(pk).toFixed(3));
+        el.style.setProperty('--rms', mxPos(db(lv.rms)).toFixed(3));
+        el.style.setProperty('--hold', mxPos(m.hold).toFixed(3));
+        el.classList.toggle('clip', m.hold >= 0);
+        const pe = box.querySelector(`[data-peak="${id}"]`);
+        if (pe) {
+          pe.textContent = mixPeakText(id);
+          pe.classList.toggle('clip', m.max >= 0);
+        }
+      });
+      mxRaf = requestAnimationFrame(tick);
+    };
+    mxRaf = requestAnimationFrame(tick);
   }
 
   /* ---------- Popover des effets (#mxFx) ----------
@@ -7183,6 +7263,7 @@ SS.band = (() => {
   }
   /** Lecture dans l'étape Mix : la scène choisie en boucle, ou toute la chanson. */
   function mixPlay() {
+    mixMeterReset();
     const { res } = wizSong();
     const sc = mixScope() === 'song' || !res ? null : res.scenes.find((x) => x.sec === mixScope());
     if (sc) playScene(sc.id);

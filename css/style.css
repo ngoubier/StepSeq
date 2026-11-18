@@ -4617,6 +4617,19 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 #bandDialog .mx-ghost::before { content: "chanson"; position: absolute; left: 0; top: -13px; font-size: 9px; color: var(--bw-muted); }
 #bandDialog .mx-db { text-align: center; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
 #bandDialog .mx-db.own { color: var(--bw-gold); }
+#bandDialog .mx-fader input { padding-right: 10px; box-sizing: border-box; }
+#bandDialog .mx-meter { position: absolute; right: 2px; top: 4px; bottom: 4px; width: 6px; border-radius: 3px; overflow: hidden; pointer-events: none;
+  background: #0c0c0f; --pk: 0; --rms: 0; --hold: 0;
+  --grad: linear-gradient(to top, #2fbf4a 0%, #2fbf4a 66%, #e8c22c 78%, #ff4040 89%, #ff4040 100%); }
+#bandDialog .mx-meter i { position: absolute; left: 0; right: 0; bottom: 0; top: 0; background: var(--grad); }
+#bandDialog .mx-meter .pk { opacity: .45; clip-path: inset(calc((1 - var(--pk)) * 100%) 0 0 0); }
+#bandDialog .mx-meter .rms { clip-path: inset(calc((1 - var(--rms)) * 100%) 0 0 0); }
+#bandDialog .mx-meter .hold { position: absolute; left: 0; right: 0; height: 2px; bottom: calc(var(--hold) * 100% - 1px); background: #fff; opacity: calc(var(--hold) * 40); }
+#bandDialog .mx-meter.clip .hold { background: #ff4040; }
+#bandDialog .mx-strip.master .mx-meter { width: 10px; }
+#bandDialog .mx-strip.master .mx-fader input { padding-right: 14px; }
+#bandDialog .mx-peak { align-self: center; min-width: 44px; padding: 1px 6px; border-radius: 4px; background: #0c0c0f; color: #9c9ca8; font-size: 11px; text-align: center; font-variant-numeric: tabular-nums; cursor: pointer; }
+#bandDialog .mx-peak.clip { background: #ff4040; color: #fff; }
 #bandDialog .mx-ms { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
 #bandDialog .mx-ms button { height: var(--bw-h-sm); border: 1px solid var(--bw-line2); border-radius: var(--bw-r-ctl); background: var(--bw-panel2); color: var(--bw-text); font: inherit; font-size: 12px; font-weight: 700; }
 #bandDialog .mx-ms button:disabled { opacity: .4; }
