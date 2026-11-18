@@ -4972,4 +4972,30 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 .bwhz-meter i::after { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--v); background: #c9a227; }
 .bwhz-empty { display: flex; flex-direction: column; gap: 4px; padding: 16px; border: 1px dashed var(--line2); border-radius: 10px; color: var(--muted); font-size: 13px; }
 .bwhz-empty b { color: var(--text); }
+/* Assistant, étape Arrangement : énergie voulue et mesurée, qui joue où, à travailler */
+.bwar { display: flex; flex-direction: column; gap: 12px; overflow: auto; min-height: 0; }
+.bwar > * { flex-shrink: 0; }
+.bwar-card { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; background: var(--panel); display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.bwar-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.bwar-chart { position: relative; height: 140px; background: #17171c; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.bwar-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.bwar-want { fill: none; stroke: #9c9ca8; stroke-width: 2; stroke-dasharray: 6 6; vector-effect: non-scaling-stroke; }
+.bwar-got { fill: none; stroke: #13c2a3; stroke-width: 3; vector-effect: non-scaling-stroke; }
+.bwar-strip { display: flex; gap: 3px; min-width: 0; }
+.bwar-blk { min-width: 0; height: 30px; display: flex; align-items: center; gap: 4px; padding: 0 6px; border: 1px solid color-mix(in srgb, var(--c) 70%, transparent); border-radius: 5px; background: color-mix(in srgb, var(--c) 28%, var(--panel-2)); color: var(--text); font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; overflow: hidden; }
+.bwar-blk b { overflow: hidden; text-overflow: ellipsis; }
+.bwar-blk small { color: var(--muted); }
+.bwar-blk.warn { box-shadow: inset 0 -3px 0 #f0b429; }
+.bwar-cols { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+@media (max-width: 900px) { .bwar-cols { grid-template-columns: 1fr; } }
+.bwar-grid { display: grid; gap: 3px; font-size: 12px; overflow-x: auto; }
+.bwar-gh { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 2px 2px; }
+.bwar-rn { display: flex; align-items: center; gap: 6px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bwar-rn i { flex: none; width: 9px; height: 9px; border-radius: 2px; background: var(--c); }
+.bwar-cell { height: 24px; border-radius: 4px; background: #25252c; border: 1px solid #30303a; display: grid; place-items: center; color: var(--muted); }
+.bwar-cell.l1 { background: color-mix(in srgb, var(--c) 30%, #25252c); }
+.bwar-cell.l2 { background: color-mix(in srgb, var(--c) 60%, #25252c); }
+.bwar-cell.l3 { background: var(--c); }
+.bwar-items li > div { gap: 2px; }
+.bwar-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
 .bwc > * { flex-shrink: 0; } /* l'étape défile : la grille (et ses pédales) ne se tasse pas quand le contenu s'allonge */

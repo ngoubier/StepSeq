@@ -1352,16 +1352,19 @@ SS.band = (() => {
     { key: 'chords', label: 'Accords', hint: 'Les accords de chaque scène : tonalité, grille au temps, inspiration par émotion', line: 'Les accords de chaque scène : une grille au temps, dans la tonalité.' },
   ];
   const FINAL = [
+    { key: 'arr', label: 'Arrangement', hint: 'L’énergie de la chanson, scène par scène : où elle monte, où elle respire', line: 'Compare l’énergie voulue et celle qu’on entend, puis varie les scènes.' },
     { key: 'fx', label: 'Effets et transitions', hint: 'Les montées, impacts et silences entre les scènes, et des percussions d’ambiance', line: 'Habille les passages entre scènes : montées, impacts, silences, percussions.' },
     { key: 'mix', label: 'Mix', hint: 'Le volume, la place et les effets de chaque instrument, pour toute la chanson ou une scène', line: 'Volume, place et effets de chaque instrument, pour la chanson ou une scène.' },
     { key: 'pick', label: 'Intégration', hint: 'Coche les pistes à importer dans la chanson', line: 'Coche les pistes à importer, puis crée la chanson.' },
   ];
   const FX_COLOR = '#7a8a99'; // rôle Effets (gris), Percussionniste : orange #f08a00
+  const ARR_COLOR = '#13c2a3'; // étape Arrangement
   const ST = {
     style: 1, inst: 2, tempo: 3, scenes: 4, chords: 5,
-    get fx() { return 6 + insSteps().length; },
-    get mix() { return 7 + insSteps().length; },
-    get pick() { return 8 + insSteps().length; },
+    get arr() { return 6 + insSteps().length; },
+    get fx() { return 7 + insSteps().length; },
+    get mix() { return 8 + insSteps().length; },
+    get pick() { return 9 + insSteps().length; },
   };
   /** Types d'instrument : nom, résumé du fil des étapes, couleur de rôle (batterie rose, basse verte, nappe bleue, arpège turquoise, mélodie violette). */
   const KIND_LABEL = { drums: 'Drums', bass: 'Basse', chords: 'Accords', arp: 'Arpèges', melody: 'Mélodie' };
@@ -1406,9 +1409,9 @@ SS.band = (() => {
     insMemo = { sig, wiz: S.wiz, val: out };
     return out;
   }
-  const insAt = (n = S.wiz && S.wiz.step) => (n > ST.chords && n < ST.fx ? insSteps()[n - ST.chords - 1] || null : null);
+  const insAt = (n = S.wiz && S.wiz.step) => (n > ST.chords && n < ST.arr ? insSteps()[n - ST.chords - 1] || null : null);
   /** Définition d'une étape fixe (Fondations ou Finaliser : FOUND, FINAL), null pour une étape instrument. */
-  const defAt = (n) => (n <= ST.chords ? FOUND[n - 1] : n >= ST.fx ? FINAL[n - ST.fx] : null) || null;
+  const defAt = (n) => (n <= ST.chords ? FOUND[n - 1] : n >= ST.arr ? FINAL[n - ST.arr] : null) || null;
   /** Adresse stable d'une étape : { inst: id } pour un instrument, sinon sa clé (« style », « chords », « mix »…). */
   function stepRef(n) {
     const t = insAt(n);
@@ -1430,7 +1433,7 @@ SS.band = (() => {
       return { label: t.title, sub: t.sound, hint: `${KIND_STEP[t.kind]} : ce que joue cet instrument, scène par scène`, line: 'Règle ce que joue cet instrument, scène par scène.', color: KIND_COLOR[t.kind], ins: t, group: n === ST.chords + 1 ? 'Instruments, scène par scène' : null };
     }
     const d = defAt(n);
-    return { ...d, color: d.key === 'chords' ? '#c9a227' : d.key === 'mix' ? '#d0d0da' : d.key === 'fx' ? FX_COLOR : null, ins: null, group: n === 1 ? 'Fondations' : n === ST.fx ? 'Finaliser' : null };
+    return { ...d, color: d.key === 'chords' ? '#c9a227' : d.key === 'mix' ? '#d0d0da' : d.key === 'fx' ? FX_COLOR : d.key === 'arr' ? ARR_COLOR : null, ins: null, group: n === 1 ? 'Fondations' : n === ST.arr ? 'Finaliser' : null };
   }
   /** Étapes où l'on travaille une scène (colonne des scènes, lecture de la scène en boucle). */
   const sceneStep = (n = S.wiz && S.wiz.step) => n === ST.chords || !!insAt(n);
@@ -1980,6 +1983,13 @@ SS.band = (() => {
    * la mélodie de la scène figée telle qu'elle est (sinon le moteur la récrirait sur les nouveaux accords).
    */
   function partsEff() {
+    const t = S.wiz.arrAb;
+    if (t && t.on && S.wiz.step === ST.arr) {
+      const out = { ...S.wiz.parts };
+      if (t.part) out[t.sec] = t.part;
+      else delete out[t.sec];
+      return out;
+    }
     const ab = S.wiz.ab;
     if (!ab || !ab.lead || !ab.on || S.wiz.step !== ST.chords) return S.wiz.parts;
     const p = { ...(S.wiz.parts[ab.sec] || {}) };
@@ -2092,6 +2102,7 @@ SS.band = (() => {
         const bars = res.song.reduce((a, b) => a + res.scenes.find((sc) => sc.id === b.scene).bars * b.repeat, 0);
         return `${res.scenes.length} scènes · ${bars} mesures`;
       }
+      if (n === ST.arr) return arrSummary(res);
       if (n === ST.fx) return fxSummary(res);
       if (n === ST.mix) {
         const m = S.wiz.mix;
@@ -5991,6 +6002,7 @@ SS.band = (() => {
       if (step === ST.tempo) renderTempo();
       else if (step === ST.chords) renderChords();
       else if (insAt(step)) renderIns(insAt(step));
+      else if (step === ST.arr) renderArr();
       else if (step === ST.fx) renderFx();
       else if (step === ST.mix) renderMix();
       else renderWizGrid();
@@ -6668,6 +6680,177 @@ SS.band = (() => {
       e.susp.on ? bar('susp', 'Suspension', 0, e.susp.len / 16, e.susp.on, 'background:#1ea7ff') : null,
       h('div', { class: 'fx-dropline', style: `left:calc(120px + (100% - 130px) * .8)` })
     );
+  }
+
+  /* ---------- Étape Arrangement (Finaliser) : énergie voulue et mesurée, qui joue où, diagnostic et variations de scène ----------
+   * Moteur : SS.arrange (js/arrange.js). La courbe voulue est S.wiz.arr.curve (brouillon). Une variation est un essai A/B sur les
+   * réglages d'une scène (S.wiz.arrAb = { sec, label, part, on }) : partsEff le fait entendre, « Garder B » l'écrit dans S.wiz.parts. */
+  const AR = () => SS.arrange;
+  const arrState = () => S.wiz.arr || (S.wiz.arr = {});
+  const arrCurve = () => (AR().CURVES.some((c) => c.id === arrState().curve) ? arrState().curve : 'rise');
+  let arrMemo = { sig: null };
+  /** Ce que la chanson calculée fait, scène par scène : instruments, énergies, passages, diagnostic. */
+  function arrModel(res) {
+    const sig = S.wiz.sig + '|' + arrCurve();
+    if (arrMemo.sig === sig && arrMemo.res === res) return arrMemo;
+    const ins = insSteps();
+    const groups = ins.map((T) => ({ id: T.id, cols: T.cols.map((c) => c.id) }));
+    const bl = AR().blocks(res);
+    const order = [...new Set(bl.list.map((b) => b.sceneId))].map((id) => res.scenes.find((x) => x.id === id));
+    const st = order.map((sc) => AR().stats(sc, groups));
+    const en = AR().energies(st);
+    const scenes = order.map((sc, i) => ({ sc, sec: sc.sec, name: sc.name, e: en[i], counts: st[i].counts }));
+    const items = AR().diagnose(scenes, bl.list, arrCurve());
+    arrMemo = { sig, res, ins, bl, scenes, items };
+    return arrMemo;
+  }
+  function arrSummary(res) {
+    const m = arrModel(res);
+    const n = m.items.filter((x) => x.kind === 'warn').length;
+    return `${AR().CURVES.find((c) => c.id === arrCurve()).label} · ${n ? `${n} à voir` : 'suit la courbe'}`;
+  }
+  /** Variations d'une scène pour aller dans le sens voulu (densifier ou alléger) : [{ label, why, part }] (2 au plus). */
+  function arrVariants(scn, act) {
+    const sc = scn.sc;
+    const out = [];
+    const plays = (T) => (scn.counts[T.id] || 0) > 0;
+    const modeOf = (T) => (partOf(sc.sec, T) || {}).mode || planMode(sc, T);
+    const tryPart = (label, why, fn) => {
+      const saved = S.wiz.parts;
+      S.wiz.parts = JSON.parse(JSON.stringify(saved));
+      let part = null;
+      try {
+        fn();
+        part = S.wiz.parts[sc.sec] ? JSON.parse(JSON.stringify(S.wiz.parts[sc.sec])) : null;
+      } finally {
+        S.wiz.parts = saved;
+      }
+      if (JSON.stringify(part) !== JSON.stringify(saved[sc.sec] || null)) out.push({ label, why, part });
+    };
+    const ins = insSteps().filter((T) => T.kind !== 'melody');
+    const playing = insSteps().filter(plays).length;
+    if (act === 'lighter') {
+      for (const kind of ['arp', 'chords', 'drums']) {
+        const T = ins.find((x) => x.kind === kind && plays(x));
+        if (T && playing > 2) tryPart(`Sans ${T.name}`, `${T.name} se tait dans « ${sc.name} » : la scène respire, la suivante paraîtra plus forte.`, () => putOff(sc.sec, T, true));
+      }
+      const B = ins.find((x) => x.kind === 'bass' && plays(x));
+      if (B && ['8', 'gallop', 'oct', 'roll', 'sync', 'off16', 'pulse8', 'offbeat'].includes(modeOf(B))) tryPart('Basse en blanches', 'La basse pose deux notes par mesure au lieu de courir : moins de pression.', () => putPart(sc.sec, B, { mode: 'half' }));
+    } else {
+      for (const T of ins.filter((x) => !plays(x))) {
+        const where = AR() && arrMemo.scenes ? arrMemo.scenes.filter((x) => (x.counts[T.id] || 0) > 0).length : 0;
+        if (!where) continue;
+        tryPart(`Avec ${T.name}`, `${T.name} entre dans « ${sc.name} » : une couche de plus, la scène monte d’un cran.`, () => {
+          if (mutedIn(sc.sec, T)) putOff(sc.sec, T, false);
+          if (!planMode(sc, T) && !(partOf(sc.sec, T) || {}).mode) putPart(sc.sec, T, { mode: SS.bandSong.DEFAULT_MODE[T.kind] });
+        });
+      }
+      const B = ins.find((x) => x.kind === 'bass' && plays(x));
+      if (B && ['whole', 'half', 'drone', 'walk', 'quarter'].includes(modeOf(B))) tryPart('Basse en croches', 'Huit croches par mesure : le moteur rythmique accélère sans changer les notes.', () => putPart(sc.sec, B, { mode: '8' }));
+      const P = ins.find((x) => x.kind === 'chords' && plays(x));
+      if (P && ['sustain', 'swell', 'float'].includes(modeOf(P))) tryPart('Nappe en croches', 'L’accord tenu devient des croches : plus de mouvement, même harmonie.', () => putPart(sc.sec, P, { mode: 'pulse8' }));
+    }
+    return out.slice(0, 2);
+  }
+  function startArr(scn, v) {
+    S.wiz.arrAb = { sec: scn.sec, label: v.label, why: v.why, part: v.part, on: true };
+    renderWiz();
+    const now = S.wiz.res && S.wiz.res.scenes.find((x) => x.sec === scn.sec);
+    if (now && !(L.mode === 'scene' && L.sec === scn.sec && !L.paused)) playScene(now.id);
+  }
+  function arrAbBar() {
+    const t = S.wiz.arrAb;
+    if (!t) return h('p', { class: 'dlg-hint', id: 'bwArrHint' }, 'Essaie une variation : la scène tourne en boucle, tu passes de A (la scène) à B (la variation), puis tu gardes celle que tu préfères.');
+    const flip = (on) => ((t.on = on), renderWiz());
+    const name = (S.wiz.res.scenes.find((x) => x.sec === t.sec) || {}).name || t.sec;
+    return h(
+      'div',
+      { class: 'bwc-ab on', id: 'bwArrAb' },
+      h('span', { class: 'bh-lbl' }, 'Essai'),
+      h('b', {}, `${name} · ${t.label}`),
+      h(
+        'span',
+        { class: 'segmented', role: 'radiogroup', 'aria-label': 'Version à l’écoute' },
+        h('button', { type: 'button', role: 'radio', id: 'bwArrA', class: t.on ? '' : 'active', 'aria-checked': String(!t.on), onclick: () => flip(false) }, 'A · avant'),
+        h('button', { type: 'button', role: 'radio', id: 'bwArrB', class: t.on ? 'active' : '', 'aria-checked': String(t.on), onclick: () => flip(true) }, 'B · essai')
+      ),
+      h('span', { class: 'dlg-hint' }, t.why),
+      h('span', { class: 'spacer' }),
+      h('button', { type: 'button', class: 'btn btn-small', id: 'bwArrCancel', onclick: () => ((S.wiz.arrAb = null), renderWiz()) }, 'Garder A'),
+      h(
+        'button',
+        {
+          type: 'button', class: 'btn btn-small btn-accent', id: 'bwArrKeep',
+          onclick: () => {
+            if (t.part) S.wiz.parts[t.sec] = t.part;
+            else delete S.wiz.parts[t.sec];
+            S.wiz.arrAb = null;
+            renderWiz();
+          },
+        },
+        'Garder B'
+      )
+    );
+  }
+  function renderArr() {
+    const { res } = wizSong();
+    const box = $('#bandWiz');
+    if (!res) return box.replaceChildren(h('p', { class: 'dlg-hint' }, 'Cette inspiration n’a pas de plan de chanson.'));
+    const m = arrModel(res);
+    const curve = arrCurve();
+    const t = S.wiz.arrAb;
+    const total = m.bl.bars || 1;
+    const bySec = new Map(m.scenes.map((x) => [x.sec, x]));
+    const warnSecs = new Set(m.items.filter((x) => x.kind === 'warn' && x.sec).map((x) => x.sec));
+    // ---- courbe : voulue (pointillés), mesurée (un palier par passage), scènes à voir en jaune
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 1000 140');
+    svg.setAttribute('preserveAspectRatio', 'none');
+    svg.setAttribute('class', 'bwar-svg');
+    const y = (v) => (130 - v * 118).toFixed(1);
+    const add = (tag, attrs) => {
+      const e = document.createElementNS(NS, tag);
+      Object.entries(attrs).forEach(([k, v]) => e.setAttribute(k, v));
+      svg.append(e);
+    };
+    add('polyline', { class: 'bwar-want', points: Array.from({ length: 51 }, (_, i) => `${i * 20},${y(AR().target(curve, i / 50))}`).join(' ') });
+    add('polyline', { class: 'bwar-got', points: m.bl.list.flatMap((b) => { const e = bySec.get(b.sec).e; return [`${((1000 * b.start) / total).toFixed(1)},${y(e)}`, `${((1000 * (b.start + b.bars)) / total).toFixed(1)},${y(e)}`]; }).join(' ') });
+    const strip = h('div', { class: 'bwar-strip' }, ...m.bl.list.map((b) => h('button', { type: 'button', class: 'bwar-blk' + (warnSecs.has(b.sec) ? ' warn' : ''), 'data-sec': b.sec, style: `flex:${b.bars} 1 0;--c:${secColor(b.sec)}`, title: `${b.name} · ${b.bars} mesures — clic : écouter la scène en boucle`, onclick: () => listenScene(b.sceneId) }, h('b', {}, b.name), h('small', {}, String(b.bars)))));
+    const seg = h('span', { class: 'segmented', role: 'radiogroup', 'aria-label': 'Courbe voulue', id: 'bwArrCurve' }, ...AR().CURVES.map((c) => h('button', { type: 'button', role: 'radio', 'data-curve': c.id, title: c.text, class: c.id === curve ? 'active' : '', 'aria-checked': String(c.id === curve), onclick: () => ((arrState().curve = c.id), renderWiz()) }, c.label)));
+    const energy = h('section', { class: 'bwar-card', id: 'bwArrEnergy' },
+      h('div', { class: 'bwar-head' }, h('b', {}, 'Énergie'), h('span', { class: 'bh-info' }, t && t.on ? 'voulue (pointillés) · mesurée avec la version B à l’écoute' : 'voulue (pointillés) · mesurée (trait plein) · scènes à voir soulignées en jaune'), h('span', { class: 'spacer' }), seg),
+      h('div', { class: 'bwar-chart' }, svg), strip);
+    // ---- qui joue où
+    const maxOf = (id) => Math.max(1, ...m.scenes.map((x) => x.counts[id] || 0));
+    const grid = h('div', { class: 'bwar-grid', id: 'bwArrGrid', style: `grid-template-columns: minmax(96px, 140px) repeat(${m.scenes.length}, minmax(44px, 1fr))` },
+      h('span', {}),
+      ...m.scenes.map((x) => h('span', { class: 'bwar-gh', title: x.name }, x.name)),
+      ...m.ins.flatMap((T) => [
+        h('span', { class: 'bwar-rn', style: `--c:${KIND_COLOR[T.kind]}` }, h('i', {}), T.name),
+        ...m.scenes.map((x) => {
+          const n = x.counts[T.id] || 0;
+          const lvl = n ? Math.min(3, Math.ceil((3 * n) / maxOf(T.id))) : 0;
+          const off = mutedIn(x.sec, T);
+          return h('span', { class: `bwar-cell l${lvl}${off ? ' off' : ''}`, style: `--c:${KIND_COLOR[T.kind]}`, title: `${T.name} · ${x.name} : ${off ? 'muet' : n ? `${n} notes ou coups` : 'ne joue pas'}` }, off ? '×' : '');
+        }),
+      ]));
+    const who = h('section', { class: 'bwar-card' }, h('div', { class: 'bwar-head' }, h('b', {}, 'Qui joue où'), h('span', { class: 'bh-info' }, 'clair : léger · foncé : plein · × : muet')), grid);
+    // ---- à travailler
+    const list = h('ul', { class: 'hm-checks2 bwar-items', id: 'bwArrItems' }, ...m.items.map((it) => {
+      const scn = it.sec && bySec.get(it.sec);
+      const vs = it.act && scn && !t ? arrVariants(scn, it.act) : [];
+      return h('li', { class: 'k-' + it.kind, 'data-sec': it.sec || '' }, h('span', { class: 'ck' }, CK_ICON[it.kind] || '•'),
+        h('div', {}, it.text, it.hint ? h('small', {}, it.hint) : null,
+          vs.length ? h('span', { class: 'bwar-acts' }, ...vs.map((v) => h('button', { type: 'button', class: 'btn btn-small', 'data-arrv': v.label, title: v.why, onclick: () => startArr(scn, v) }, `▶ ${v.label}`))) : null));
+    }));
+    const todo = h('section', { class: 'bwar-card' }, h('div', { class: 'bwar-head' }, h('b', {}, 'À travailler'), h('span', { class: 'bh-info' }, `${m.items.filter((x) => x.kind === 'warn').length} point(s)`)), list);
+    const keep = $('#bwArr');
+    const top = keep ? keep.scrollTop : 0;
+    const content = h('div', { class: 'bwar', id: 'bwArr' }, energy, arrAbBar(), h('div', { class: 'bwar-cols' }, who, todo));
+    box.classList.remove('bw-split');
+    box.replaceChildren(content);
+    content.scrollTop = top;
   }
 
   function renderFx() {
@@ -7390,13 +7573,16 @@ SS.band = (() => {
       plans: {}, pseeds: {}, keys: {}, grids: {}, peds: {}, emos: {}, chars: {}, parts: {}, kinds: {}, melPanel: {}, form: null, secs: {}, skey: null, snap: 'beat', gsel: null, efilter: 0, fresh: false, fx: {},
       ...x.w, step: 1, melSec: null, insp: null, createdAt: d.createdAt,
     };
-    // brouillon d'avant l'étape « Effets et transitions » (v < 3) : Mix et Intégration ont gagné un numéro
-    if (d.v < 3) {
-      const old = ST.mix - 1; // l'ancien numéro de Mix
-      const up = (m) => (typeof m === 'number' && m >= old ? m + 1 : m);
+    // brouillon d'avant l'étape « Effets et transitions » (v < 3), puis d'avant l'étape « Arrangement » (v < 4) : les étapes
+    // de Finaliser ont gagné un numéro à chaque fois (Mix était à ST.arr avant la v3)
+    const shift = (from) => {
+      const up = (m) => (typeof m === 'number' && m >= from ? m + 1 : m);
       x.w.step = up(x.w.step);
-      S.wiz.seen = new Set([...x.w.seen].map(up));
-    }
+      x.w.seen = new Set([...x.w.seen].map(up));
+    };
+    if (d.v < 3) shift(ST.arr);
+    if (d.v < 4) shift(ST.arr);
+    S.wiz.seen = new Set(x.w.seen);
     const n = x.w.step;
     if (n > 1 && n <= ST.pick && canGo(n)) S.wiz.step = n;
     S.wiz.seen.add(S.wiz.step);

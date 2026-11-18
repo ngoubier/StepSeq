@@ -229,3 +229,21 @@ Orchestration, doublures, articulations), puis l'ouverture d'une chanson existan
   qu'elle jouait (`partsEff` dans `wizSong`), sinon le moteur la récrirait sur les nouveaux accords ; les pédales de la scène ne sont
   pas jouées sous la version B. **Garder B** écrit la grille de la scène et fait de cette mélodie la mélodie imposée de la scène
   (`parts[section].inst[id].lead`, comme « Générer une mélodie ») ; **Garder A** ne touche à rien.
+
+### Étape Arrangement (12 avec un musicien par étape, ouvre « Finaliser »)
+
+Moteur pur dans `js/arrange.js` (`SS.arrange`, tests `tests/arrange.test.js`) :
+l'énergie de chaque scène se mesure (instruments actifs, densité de notes par mesure,
+vélocité) et se ramène entre 0,15 et 1 sur la chanson. L'utilisateur choisit une courbe
+voulue (« Montée vers le final », « Deux vagues », « Sommet au milieu ») ; l'écran trace
+la courbe voulue et l'énergie mesurée passage par passage (une scène répétée = plusieurs passages).
+
+- **Grille musiciens × scènes** : qui joue où, avec le nombre de notes ou de coups.
+- **Points à travailler** : scène plus calme ou plus chargée que la courbe, sommet mal placé,
+  deux scènes voisines de même énergie, scène qui revient à l'identique alors que la courbe change.
+- **Variations en un clic** : pour une scène à densifier ou alléger, l'assistant propose
+  « Sans l'arpège », « Basse en blanches », « Avec la batterie », « Nappe en croches »…
+  Essai A/B en boucle (`S.wiz.arrAb`, appliqué par `partsEff` sans toucher à l'état),
+  « Garder B » écrit le réglage dans `S.wiz.parts` (annulable comme toute retouche de scène).
+- Brouillon v4 : la courbe choisie (`arr`) est rangée ; les brouillons v2/v3 décalent
+  leurs numéros d'étape à partir de l'Arrangement.

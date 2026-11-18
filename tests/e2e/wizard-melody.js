@@ -206,6 +206,8 @@ const ok = (c, m) => {
     return [sc.name, sc.data[id].events.map((e) => [e.step, e.len, e.notes])];
   })));
   await next(1);
+  ok((await cur()).includes('Arrangement'), 'étape Arrangement');
+  await next(1);
   ok((await cur()).includes('Effets et transitions'), 'étape Effets et transitions');
   await next(1);
   ok((await cur()).includes('Mix'), 'étape Mix');

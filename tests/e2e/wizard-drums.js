@@ -248,7 +248,7 @@ const ok = (c, m) => {
   // ---- Créer la chanson : le projet porte la grille et la montée ----
   await scene('Groove');
   let guard = 0;
-  while (!(await page.isVisible('#bwCreate')) && guard++ < 14) await next(1);
+  while (!(await page.isVisible('#bwCreate')) && guard++ < 16) await next(1);
   await page.click('#bwCreate');
   await page.waitForTimeout(1200);
   const p = await P();

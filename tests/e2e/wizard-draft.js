@@ -104,19 +104,19 @@ const ok = (c, m) => {
   await page.waitForTimeout(600);
   ok(await page.evaluate(() => !!document.querySelector('#melOut .mel-roll')), 'mélodie générée dans le Couplet');
   // un réglage de mix
-  await page.click('#bandWizSteps li[data-group="Finaliser"] + li button'); // Mix, qui suit Effets et transitions
+  await page.click('#bandWizSteps li[data-group="Finaliser"] + li + li button'); // Mix, qui suit Arrangement et Effets et transitions
   await page.waitForTimeout(400);
   const m0 = await page.evaluate(() => SS.band._state.wiz.mix.tracks.bass.vol);
   await page.locator('#bwMix [data-mx="vol"][data-id="bass"]').fill(String(Math.round((m0 + 3) * 10) / 10));
   await page.waitForTimeout(300);
   const A = await live();
-  ok(A.mix.tracks.bass.vol !== m0 && A.step === 12 && Object.keys(A.kinds).length === 1, 'état avant fermeture : mix modifié, étape Mix, un type changé');
+  ok(A.mix.tracks.bass.vol !== m0 && A.step === 13 && Object.keys(A.kinds).length === 1, 'état avant fermeture : mix modifié, étape Mix, un type changé');
 
   // enregistrement automatique : indication, project.wizard, aucune piste
   await page.waitForTimeout(1200);
   ok((await page.textContent('#bandDraft')).trim() === 'Brouillon enregistré' && (await page.isVisible('#bandDraft')), 'indication « Brouillon enregistré » à côté de Fermer');
   let pr = await P();
-  ok(pr.wizard && pr.wizard.v === 3 && typeof pr.wizard.savedAt === 'number' && !pr.wizard.createdAt, 'project.wizard écrit dans le stockage automatique pendant que l’assistant est ouvert');
+  ok(pr.wizard && pr.wizard.v === 4 && typeof pr.wizard.savedAt === 'number' && !pr.wizard.createdAt, 'project.wizard écrit dans le stockage automatique pendant que l’assistant est ouvert');
   ok(pr.tracks.length === tracks0, 'aucune piste créée ni modifiée par l’enregistrement');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'draft-wizard.png') });
 
@@ -150,7 +150,7 @@ const ok = (c, m) => {
   ok((await page.isVisible('#bandDraft')) && (await P()).wizard.savedAt === pr.wizard.savedAt, 'reprise sans rien changer : le brouillon n’est pas réécrit');
   await tab('melody');
   ok(await page.evaluate(() => !!document.querySelector('#melOut .mel-roll')), 'étape Mélodie : la proposition générée est affichée telle quelle');
-  await page.click('#bandWizSteps li[data-group="Finaliser"] + li button'); // Mix, qui suit Effets et transitions
+  await page.click('#bandWizSteps li[data-group="Finaliser"] + li + li button'); // Mix, qui suit Arrangement et Effets et transitions
   await page.waitForTimeout(300);
 
   // Créer la chanson : pistes créées, brouillon gardé avec createdAt
