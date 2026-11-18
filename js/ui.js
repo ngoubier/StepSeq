@@ -1078,16 +1078,21 @@ SS.ui = (() => {
           : h('button', { class: 'th-btn th-sd', disabled: true, title: 'Sound design : pas sur une piste de batterie (le son se choisit avec ⚙)', html: ICONS.sliders }),
         h('button', {
           type: 'button',
-          class: 'th-btn th-auto' + (autoOpen ? ' open' : '') + (track.auto ? ' on' : ''),
-          title: 'Automation : filtre, résonance, volume, reverb, écho, pas à pas (propre à la scène)',
+          class: 'th-btn th-auto' + (autoOpen || SS.beatAutoUI.shown(p, track).length ? ' open' : '') + (track.auto || SS.beatAutoUI.isOn(p, track) ? ' on' : ''),
+          title: 'Automation : cutoff, résonance, vélocité par temps sur toute la chanson ; filtre DJ, volume, envois… pas à pas (propre à la scène)',
           'aria-label': `Automation de la piste ${track.name}`,
-          'aria-expanded': String(autoOpen),
+          'aria-haspopup': 'menu',
           html: ICONS.auto,
-          onclick: () => {
-            if (autoOpen) openAutos().delete(track.id);
-            else openAutos().add(track.id);
-            renderTrack(track);
-          },
+          onclick: (e) =>
+            SS.beatAutoUI.openMenu(track, e.currentTarget, app, {
+              stepOpen: autoOpen,
+              toggleStep: () => {
+                if (openAutos().has(track.id)) openAutos().delete(track.id);
+                else openAutos().add(track.id);
+                renderTrack(track);
+              },
+              rerender: () => renderTrack(track),
+            }),
         }),
         h('button', {
           class: 'th-btn fx-btn' + (SS.fxActive(track) ? ' on' : ''),
@@ -1206,6 +1211,9 @@ SS.ui = (() => {
     const el = h('div', { class: 'track' + (selected ? ' selected' : ''), style: `--c:${track.color}`, 'data-id': track.id }, h('div', { class: 'track-row' }, head, grid));
     if (autoOpen) el.append(buildAutoLane(track, ref));
     if (track.type === 'instrument' && isOpen) el.append(buildRoll(track, ref));
+    // automation par temps (js/beatautoui.js) : sous les notes, seulement si elle est active
+    const ba = SS.beatAutoUI.panel(track, app, () => renderTrack(track));
+    if (ba) el.append(ba);
     ref.el = el;
     SS.audio.setTrackGain(track, track.volume);
     paint(track);

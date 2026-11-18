@@ -385,6 +385,7 @@ SS.song = (() => {
     const blocks = pr.song.map(blockTile).filter(Boolean);
     $('#sgBlocks').replaceChildren(...blocks, h('div', { class: 'sg-drop-hint' }, blocks.length ? 'Déposer une scène ici' : 'Glisser une scène ici'));
     layoutTimeline();
+    if (SS.beatAutoUI) SS.beatAutoUI.songView($('#sgAuto'), $('#sgAutoTools'), px, app);
     const len = SS.songLength(pr);
     $('#sgTotal').textContent = `${len.bars} mesures · ${fmtTime(len.seconds)}`;
     $('#sgLoop').checked = !!pr.songLoop;

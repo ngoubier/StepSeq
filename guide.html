@@ -207,7 +207,7 @@
       <h2 id="band"><small>Démarrer vite</small>Band : monter un groupe virtuel</h2>
       <p>Le bouton <b>Nouvelle</b> de l'en-tête (l'ancien bouton Band) ouvre l'<a href="#nouvelle-chanson">assistant de création de chanson</a> (le même que <b>Nouvelle chanson…</b>, mais sur le projet en cours). Sa première étape, <b>Modèle</b>, sert à monter le groupe :</p>
       <ol>
-        <li><b>Style musical</b> : <b>Synthwave</b>, <b>EDM mélodique</b> ou <b>Techno mélodique</b>.</li>
+        <li><b>Style musical</b> : <b>Synthwave</b>, <b>EDM mélodique</b> ou <b>Techno mélodique</b>, ou un style de <b>modèles</b> : <b>Cinematic music</b> propose un morceau complet, prêt à jouer (« Reconstitution cinématique ») ; <b>Ouvrir cette chanson</b> en ouvre une copie, avec ses scènes, son arrangement, son mix et son master, sans passer par les étapes.</li>
         <li><b>Type de chanson</b> : 10 inspirations par style (« Smalltown Boy », « Nightcall », « Blinding Lights », « Levels », « Strobe », « Powers of Ten », « Eternity », « Return to Oz »…), avec un tempo suggéré.</li>
         <li><b>Le groupe</b> : les musiciens apparaissent sur une scène (rythmique au fond, claviers au milieu, solistes devant). Un clic sur un musicien ouvre son panneau à droite ; un autre clic (ou ✕) le referme.</li>
       </ol>
@@ -481,6 +481,18 @@
         <li>À l'arrêt, tout revient au neutre (le bouton ▶ d'une piste fait entendre son son d'origine).</li>
         <li><b>Export MIDI</b> : pour les pistes instrument, Filtre → CC 74, Résonance → CC 71, Volume → CC 11, Reverb → CC 91, Pédale de sustain → CC 64, Modulation → CC 1, Pitch bend (une valeur par pas). L'écho et les pistes de batterie ne sont pas exportés.</li>
         <li>Sur téléphone, le bouton ∿ est masqué (place trop réduite) : les courbes déjà posées sont jouées normalement.</li>
+      </ul>
+
+      <h3 id="automation-temps">Automation par temps : cutoff, résonance et vélocité sur toute la chanson</h3>
+      <p>Le bouton <b>∿</b> ouvre un petit menu. Coche <b>Cutoff</b>, <b>Résonance</b> ou <b>Vélocité</b> : un panneau s'ouvre sous les notes de la piste, avec <b>une barre par temps</b>. Il n'apparaît que si une de ces automations est active. La dernière ligne du menu ouvre la ligne d'automation par pas décrite plus haut.</p>
+      <ul>
+        <li><b>Dessiner</b> : glisse sur les barres. Les barres voisines suivent pour garder une transition fluide (<b>Liaison</b> : Douce, 3 temps de chaque côté ; Large, 6 ; Aucune). Alt+clic ou clic droit efface un temps : il joue alors comme écrit.</li>
+        <li><b>Toute la chanson</b> : contrairement à l'automation par pas, ces courbes suivent l'arrangement. Chaque passage d'une scène a les siennes : <b>Passage</b> choisit de modifier tous les passages ensemble ou un seul (le 2ᵉ couplet plus ouvert que le 1er). En boucle, on entend le passage choisi.</li>
+        <li><b>Lecture</b> : <b>Fluide</b>, la valeur glisse d'un temps à l'autre (la courbe lissée par-dessus les barres) ; <b>Paliers</b>, chaque temps garde sa valeur.</li>
+        <li><b>Cutoff</b> : −4 à +4 octaves autour du réglage du son, et <b>Résonance</b> : ×0 à ×3, évoluent pendant la note (une nappe tenue s'ouvre). <b>Vélocité</b> : 40 % à 130 % des notes écrites, lue au début de chaque note. La batterie et le Juno-106 n'ont que la vélocité.</li>
+        <li>La fenêtre <b>Song</b> montre les mêmes courbes sous la frise de l'arrangement, une ligne par piste : on peut y dessiner une montée qui traverse plusieurs scènes.</li>
+        <li><b>Export MIDI</b> : le cutoff part en CC 74 et la résonance en CC 71 (64 = le réglage du son), la vélocité directement dans les notes.</li>
+        <li>Dans l'assistant <b>Nouvelle chanson</b>, l'étape <b>Arrangement</b> propose des <b>mouvements de son</b> d'après l'énergie de la chanson : le filtre qui s'ouvre vers le sommet, des questions et réponses de vélocité sur la mélodie, une montée acide de la basse au pont. Essaie-les en A/B, garde ceux qui te plaisent : la chanson créée les reçoit, et tu les retouches ensuite sous les notes.</li>
       </ul>
 
       <h2 id="groove">Groove</h2>

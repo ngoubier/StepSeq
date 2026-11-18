@@ -705,6 +705,8 @@ SS.normalizeProject = (data) => {
     track.auto = t.auto;
     track.autoLen = t.autoLen;
     SS.cleanAuto(track);
+    if (t.bautoStep === true) track.bautoStep = true; // automation par temps (js/beatauto.js) : lecture en paliers
+    else delete track.bautoStep;
     if (t.type === 'drum') {
       track.steps = Array.isArray(t.steps) ? t.steps.map(Number) : [];
       track.rat = t.rat;
@@ -909,7 +911,8 @@ SS.trackLen = (p, t) => {
  *                             tonalité ou mode de la scène (facultatif, js/harmony.js)
  *                   emotion : "nostalgie", intention choisie dans la fenêtre Harmo One (facultatif, js/emotions.js)
  * project.current : id de la scène en cours d'édition (son contenu vit dans les pistes)
- * project.song    : [{ scene: id, repeat: n }]  -- l'arrangement, joué dans l'ordre
+ * project.song    : [{ scene: id, repeat: n, bauto? }]  -- l'arrangement, joué dans l'ordre ;
+ *                   bauto : automation par temps (cutoff, résonance, vélocité) de chaque répétition, voir js/beatauto.js
  * project.playMode: 'loop' (boucle la scène en cours) | 'song' (joue l'arrangement)
  * project.songLoop: true pour reboucler la chanson à la fin
  * project.gm      : true en mode General MIDI (seuls les sons GM sont proposés : fenêtre de piste, Band)
@@ -1096,7 +1099,15 @@ SS.normalizeScenes = (p, data = {}) => {
   p.song = Array.isArray(data.song)
     ? data.song
         .filter((b) => b && ids.has(b.scene))
-        .map((b) => ({ scene: b.scene, repeat: Math.min(64, Math.max(1, Math.round(Number(b.repeat) || 1))) }))
+        .map((b) => {
+          const o = { scene: b.scene, repeat: Math.min(64, Math.max(1, Math.round(Number(b.repeat) || 1))) };
+          // automation par temps (js/beatauto.js), par répétition du bloc
+          if (b.bauto && SS.beatAuto) {
+            o.bauto = b.bauto;
+            SS.beatAuto.clean(o, new Set(p.tracks.map((t) => t.id)));
+          }
+          return o;
+        })
     : [];
   if (!p.song.length) p.song = [{ scene: p.current, repeat: 1 }];
   // anciens fichiers : tonalité et émotion du projet entier → chaque scène qui n'a pas les siennes
