@@ -2473,7 +2473,7 @@ svg.g-big { width: 100%; height: auto; background: #1d1d22; border-radius: 8px; 
 .bwc-dur button { padding: 4px 10px; font-size: 12px; }
 .bwc-hint { margin: 0; }
 /* Band : étapes Batterie, Basse, Nappes, Arpèges (réglages par scène) */
-.bwp { --K: #ff5c93; --S: #ffb347; --C: #f2d64b; --H: #5ec4e8; --O: #7ee2a8; }
+.bwp { --K: #ff5c93; --S: #ffb347; --C: #f2d64b; --H: #5ec4e8; --O: #7ee2a8; --R: #c792ea; --T: #f48fb1; --P: #f08a00; }
 .bwp-card { display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #1b1b1f; }
 .bwp-ch { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
 .bwp-ch > b { font-size: 15px; }
@@ -2516,6 +2516,12 @@ svg.g-big { width: 100%; height: auto; background: #1d1d22; border-radius: 8px; 
 .bwp-mini { display: grid; grid-template-columns: repeat(16, 1fr); gap: 1px; }
 .bwp-mini i { height: 4px; border-radius: 1px; background: #33333b; }
 .bwp-mini i.v { background: var(--lc); }
+.bwp-mini i.R { --lc: var(--R); }
+.bwp-mini i.T { --lc: var(--T); }
+.bwp-mini i.P { --lc: var(--P); }
+.bwp-mini i.v.r { background: repeating-linear-gradient(90deg, var(--lc) 0 2px, transparent 2px 3px); }
+.bwp-from { margin-top: -3px; }
+.bwp-libsel { max-width: 220px; font-size: 12px; }
 /* modes de jeu (basse, nappes) et arpèges */
 .bwp-modes { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
 .bwp-mode { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); color: var(--text); font: inherit; text-align: left; cursor: pointer; }

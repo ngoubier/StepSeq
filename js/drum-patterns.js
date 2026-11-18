@@ -2,9 +2,11 @@
  * Bibliothèque de motifs de batterie (une mesure de 16 pas), par style : utilisée par l'assistant de chanson
  * (SS.bandSong.build, option parts.drums, js/bandsong.js). Aucun accès au DOM.
  *
- * Motif : { id, name, energy (1 calme, 2 moyen, 3 intense), lanes: { K, S, C, H, O } }
- *   K kick, S caisse claire, C clap, H charleston fermé, O charleston ouvert.
- *   Chaque piste est un texte de 16 caractères : x = fort, o = moyen, . = léger, - = silence ; absente ou vide = muette.
+ * Motif : { id, name, energy (1 calme, 2 moyen, 3 intense), desc?, lanes: { K, S, C, H, O, R?, T?, P? } }
+ *   K kick, S caisse claire, C clap, H charleston fermé, O charleston ouvert (ou ride),
+ *   R rimshot, T toms (pas 0–5 : tom aigu, 6–10 : médium, 11–15 : grave), P percussion (shaker, tambourin, congas…).
+ *   Chaque piste est un texte de 16 caractères : x = fort, o = moyen, . = léger, r = roulement (trois coups dans le pas),
+ *   - = silence ; absente ou vide = muette. R, T et P absentes : ces pièces gardent le jeu du plan.
  * Fills : { name, from (pas de départ dans la mesure), ev: [[pas, piste, vélocité, tom?]] } ; piste T = toms
  *   (tom 0 aigu, 1 médium, 2 grave).
  */
@@ -100,6 +102,162 @@ SS.DRUM_PATTERNS = {
       { id: 'break-charleston', name: 'Break : charleston seul', energy: 1, lanes: { H: 'o.o.o.o.o.o.o.o.' } },
     ],
 };
+
+/* ---------- Motifs ajoutés (nov. 2026) : lignes R, T, P et roulements « r » ---------- */
+(() => {
+  const D = (id, name, energy, lanes, desc) => ({ id, name, energy, lanes, ...(desc ? { desc } : {}) });
+  const ADD = {
+    synthwave: [
+      D('italo', 'Italo disco', 3, { K: 'x---x---x---x---', S: '----x-------x---', H: 'xoxoxoxoxoxoxoxo', P: '.o.o.o.o.o.o.o.o' }, 'Doubles serrées et shaker : le dancefloor de 1984'),
+      D('toms-80s', 'Toms électroniques', 2, { K: 'x-------x-x-----', S: '----x-------x---', H: 'x-x-x-x-x-x-x-x-', T: '----------x-x-xx' }, 'Toms Simmons en fin de mesure'),
+      D('new-wave', 'New wave', 2, { K: 'x-x---x-x-x-----', S: '----x-------x---', H: 'x-x-x-x-x-x-x-x-', R: '--------------x-' }, 'Kick bondissant, rim discret'),
+      D('vaporwave', 'Vaporwave', 1, { K: 'x-------x--x----', S: '--------x-------', H: '--o---o---o---o-', R: '----o-------o---' }, 'Lent et feutré, rim sur 2 et 4'),
+      D('tambourin-pop', 'Tambourin pop', 2, { K: 'x-----x-x-------', S: '----x-------x---', H: 'x-x-x-x-x-x-x-x-', P: '----x-------x---' }, 'Le tambourin double la caisse claire'),
+      D('rim-nocturne', 'Rim nocturne', 1, { K: 'x-------x-------', R: '----x-------x---', H: '..o...o...o...o.' }, 'Couplet retenu : rim à la place de la caisse'),
+      D('trap-retro', 'Trap rétro', 3, { K: 'x------x--x-----', C: '--------x-------', H: 'x-x-x-x-xrx-x-rr' }, 'Half-time, charlestons qui roulent'),
+      D('toms-final', 'Toms du final', 3, { K: 'x---x---x---x---', S: '----x-------x---', H: 'x-x-x-x-x-x-x-x-', T: 'x--x--x-----xxxx' }, 'Toms qui descendent vers la reprise'),
+    ],
+    edm: [
+      D('future-bass', 'Future bass', 3, { K: 'x-----x---x-----', C: '--------x-------', H: 'x-x-x-xrx-x-x-rr' }, 'Half-time, clap sur le 3, charlestons qui roulent'),
+      D('bass-house', 'Bass house', 3, { K: 'x---x---x---x---', C: '----x-------x---', H: '..x...x...x...x.', P: 'x..x..x...x..x..' }, 'Percussion syncopée en 3-3-2'),
+      D('uk-2step', 'UK 2-step', 2, { K: 'x------x--x-----', S: '----x-------x---', H: '..xx..x...xx..x.', R: '-------o------o-' }, 'Kick décalé, charleston qui sautille'),
+      D('afro-house', 'Afro house', 2, { K: 'x---x---x---x---', C: '------------x---', H: '--x---x---x---x-', P: 'x.ox.oxox.ox.ox.' }, 'Percussions roulantes sur kick droit'),
+      D('melodic-house', 'Melodic house', 2, { K: 'x---x---x---x---', C: '----x-------x---', H: '..o...o...o...o.', R: '---o-----o----o-' }, 'Rim syncopé, très aéré'),
+      D('hardstyle', 'Hardstyle', 3, { K: 'x---x---x---x---', C: '----x-------x---', O: '--x---x---x---x-' }, 'Kick massif, charleston ouvert sur le « et »'),
+      D('slap-house', 'Slap house', 3, { K: 'x---x---x---x---', C: '----x-------x---', H: 'x.x.x.x.x.x.x.x.', P: '--o---o---o---o-' }, 'Kick droit, shaker sur les contretemps'),
+      D('toms-tribaux', 'Toms tribaux', 2, { K: 'x---x---x---x---', H: '..o...o...o...o.', T: '--x--x----x--x-x' }, 'Toms qui tournent autour du kick'),
+    ],
+    ambient: [
+      D('mains', 'Percussions de mains', 1, { P: 'o..o..o...o..o..', R: '----.-------.---' }, 'Sans kick : des mains sur une peau'),
+      D('balais', 'Balais', 1, { K: 'o-------o-------', H: '.o.o.o.o.o.o.o.o', R: '----o-------o---' }, 'Batterie aux balais, très douce'),
+      D('dub-lent', 'Dub lent', 2, { K: 'x-------x-------', R: '--------x-------', O: '------o-------o-', T: '-------------o-o' }, 'Rim sur le 3, toms en écho'),
+      D('tambours', 'Tambours lointains', 1, { K: 'o---------------', T: 'o-----o---o-----' }, 'Toms graves et espacés'),
+      D('shaker', 'Shaker seul', 1, { P: '.o.o.o.o.o.o.o.o' }, 'Un souffle régulier'),
+      D('rim-kick', 'Rim et kick', 1, { K: 'x-------x-------', R: '------------o---' }, 'Le strict minimum'),
+      D('neo-classique', 'Néo-classique', 2, { K: 'x-----x---x-----', R: '----o-------o---', H: 'o.o.o.o.o.o.o.o.', P: '...o...o...o...o' }, 'Beat minimal sous le piano'),
+      D('marche-lente', 'Marche lente', 2, { K: 'x-------x-------', S: '----o-------o---', T: '--------------oo' }, 'Pas lents, toms en fin de mesure'),
+    ],
+    techno: [
+      D('acid', 'Acid', 3, { K: 'x---x---x---x---', C: '----x-------x---', H: 'x.x.x.x.x.x.x.x.', R: '--o--o----o--o--' }, 'Pour la basse 303 : rim en 3-3-2'),
+      D('hard-techno', 'Hard techno', 3, { K: 'x---x---x---x-x-', C: '----x-------x---', H: 'xx.xxx.xxx.xxx.x', O: '--x---x---x---x-' }, 'Kick doublé, charleston plein'),
+      D('techno-cassee', 'Techno cassée', 2, { K: 'x-----x---x-----', S: '----x-------x---', H: '..o...o...o...o.', P: '.o..o..o.o..o..o' }, 'Kick brisé, percussions en zigzag'),
+      D('dub-techno', 'Dub techno', 1, { K: 'x---x---x---x---', R: '------o-------o-', H: '--.---.---.---.-' }, 'Rim à contretemps, tout est dans l’écho'),
+      D('tribale', 'Techno tribale', 2, { K: 'x---x---x---x---', H: '..o...o...o...o.', T: '--x---x--x---x-x' }, 'Toms qui roulent sur le kick'),
+      D('rumble', 'Rumble', 3, { K: 'x-o-x-o-x-o-x-o-', C: '----x-------x---', H: '..o...o...o...o.' }, 'Kick et sa traîne grave en croches'),
+      D('ebm', 'EBM', 2, { K: 'x-x-x-x-x-x-x-x-', S: '----x-------x---', H: '--o---o---o---o-' }, 'Kick en croches, martial'),
+      D('percu-roulantes', 'Percussions roulantes', 2, { K: 'x---x---x---x---', C: '----x-------x---', H: '..o...o...o...o.', P: 'xoo.xoo.xoo.xoo.' }, 'Shaker en doubles, accent sur le temps'),
+    ],
+    pop: [
+      D('rock8', 'Rock en croches', 2, { K: 'x-------x-x-----', S: '----x-------x---', H: 'x-x-x-x-x-x-x-x-' }, 'Le groove de base du rock'),
+      D('pop4', 'Pop quatre temps', 2, { K: 'x---x---x---x---', S: '----x-------x---', H: 'x-x-x-x-x-x-x-x-' }, 'Kick sur chaque temps : pop dansante'),
+      D('disco-rock', 'Disco-rock', 3, { K: 'x---x---x---x---', S: '----x-------x---', H: 'x---x---x---x---', O: '--x---x---x---x-' }, 'Charleston ouvert sur le « et »'),
+      D('train', 'Train', 2, { K: 'x-------x-------', S: '.o.ox.o..o.ox.o.' }, 'Caisse claire en doubles, accents sur 2 et 4'),
+      D('ballade-rock', 'Ballade rock', 1, { K: 'x-----x---------', S: '--------x-------', H: 'x-x-x-x-x-x-x-x-' }, 'Half-time : caisse claire sur le 3'),
+      D('toms', 'Toms', 2, { K: 'x-------x-------', S: '----x-------x---', T: 'x--x--x---x--x--' }, 'Toms qui martèlent, sans charleston'),
+      D('punk', 'Punk', 3, { K: 'x---x---x---x---', S: '--x---x---x---x-', H: 'x-x-x-x-x-x-x-x-' }, 'Caisse claire sur tous les contretemps'),
+      D('refrain-ride', 'Refrain : ride', 3, { K: 'x-----x-x-------', S: '----x-------x---', O: 'x-x-x-x-x-x-x-x-' }, 'Le refrain s’ouvre sur la ride'),
+      D('couplet-rim', 'Couplet : rim', 1, { K: 'x-------x-x-----', R: '----x-------x---', H: 'x-x-x-x-x-x-x-x-' }, 'Rim au lieu de caisse : couplet retenu'),
+      D('pont-tambours', 'Pont : tambours', 1, { K: 'x-------x-------', T: 'x-----x---x-----' }, 'Juste kick et toms'),
+      D('rock-doubles', 'Rock en doubles', 3, { K: 'x-----x-x-x-----', S: '----x-------x---', H: 'xoxoxoxoxoxoxoxo' }, 'Charleston en doubles, ça pousse'),
+      D('hymne', 'Hymne de stade', 3, { K: 'x---x---x---x---', S: '----x-------x---', C: '----x-------x---', O: 'x-x-x-x-x-x-x-x-' }, 'Kick, caisse et clap ensemble, ride ouverte'),
+      D('pop-moderne', 'Pop moderne', 2, { K: 'x------x--x-----', C: '----x-------x---', H: '..x...x...x...x.', P: '.o.o.o.o.o.o.o.o' }, 'Kick syncopé, clap, shaker'),
+      D('shuffle', 'Shuffle', 2, { K: 'x-----x-x-------', S: '----x-------x---', H: 'x--xx--xx--xx--x' }, 'Croches ternaires : ça balance'),
+      D('intro-toms', 'Intro : toms', 1, { K: 'x-------x-------', T: 'x-------x---x-x-' }, 'Une entrée aux toms'),
+      D('charleston-pop', 'Charleston seul', 1, { H: 'x-x-x-x-x-x-x-x-' }, 'Le décompte avant l’entrée du groupe'),
+    ],
+    funk: [
+      D('disco', 'Disco', 3, { K: 'x---x---x---x---', S: '----x-------x---', H: 'x---x---x---x---', O: '--x---x---x---x-' }, 'Le charleston qui s’ouvre sur le « et »'),
+      D('funk16', 'Funk en doubles', 2, { K: 'x-x---x---x--x--', S: '----x--o-o--x--o', H: 'xoxoxoxoxoxoxoxo' }, 'Doubles au charleston, caisse qui répond'),
+      D('ghost', 'Notes fantômes', 2, { K: 'x-----x-x-------', S: '----x..o..o.x...', H: 'x-x-x-x-x-x-x-x-' }, 'Petites notes de caisse entre les temps'),
+      D('nu-disco', 'Nu-disco', 2, { K: 'x---x---x---x---', C: '----x-------x---', H: '..x...x...x...x.', P: '.o.o.o.o.o.o.o.o' }, 'Kick droit, shaker, clap'),
+      D('french', 'French touch', 3, { K: 'x---x---x---x---', C: '----x-------x---', H: 'x.-.x.-.x.-.x.-.', O: '--x---x---x---x-' }, 'Filtré, compressé, qui pompe'),
+      D('break-funk', 'Break funk', 3, { K: 'x-x---x--xx-----', S: '----x--o-o--x--o', H: 'x-x-x-x-x-x-x-x-' }, 'Un break à sampler'),
+      D('congas', 'Pont : congas', 1, { P: 'x--x--x-x--x-x--', H: 'x-x-x-x-x-x-x-x-' }, 'Sans kick : congas et charleston'),
+      D('boogie', 'Boogie', 2, { K: 'x--x--x-x-------', C: '----x-------x---', H: 'x-x-x-x-x-x-x-x-', R: '-------o-------o' }, 'Kick syncopé, électro-funk 80s'),
+      D('disco-tambourin', 'Disco : tambourin', 3, { K: 'x---x---x---x---', S: '----x-------x---', H: 'x---x---x---x---', O: '--x---x---x---x-', P: '----x-------x---' }, 'Le tambourin sur 2 et 4'),
+      D('funk-lent', 'Funk lent', 2, { K: 'x--x------x-----', S: '----x-------x---', H: 'x-x-x-x-x-x-x-x-' }, 'Lourd et posé'),
+      D('go-go', 'Go-go', 2, { K: 'x-----x---x-----', S: '----x--o----x--o', H: 'x-x-x-x-x-x-x-x-', P: 'x--x--x---x-x---' }, 'Congas en clave, caisse qui rebondit'),
+      D('funk-syncope', 'Funk syncopé', 3, { K: 'x--x-x----x-x---', S: '----x-------x---', H: 'xoxoxoxoxoxoxoxo' }, 'Kick qui danse autour des temps'),
+      D('intro-charleston', 'Intro : charleston', 1, { H: 'x---x---x---x---', O: '--x---x---x---x-' }, 'Le « tss » disco tout seul'),
+      D('kick-disco', 'Kick seul', 1, { K: 'x---x---x---x---' }, 'Le quatre temps avant l’entrée'),
+      D('electro-funk', 'Électro-funk', 2, { K: 'x-----x-x-----x-', C: '----x-------x---', H: 'x-x-x-x-x-x-x-x-', R: '--o-----o-------' }, 'Boîte à rythmes 80s, rim syncopé'),
+      D('breakdown-funk', 'Breakdown', 1, { K: 'x-------x-------', R: '----x-------x---', P: '.o.o.o.o.o.o.o.o' }, 'La batterie se retire'),
+    ],
+    hiphop: [
+      D('boombap', 'Boom bap', 2, { K: 'x------x--x-----', S: '----x-------x---', H: 'x-x-x-x-x-x-x-x-' }, 'Kick lourd, caisse sèche'),
+      D('lofi', 'Lo-fi', 1, { K: 'x------x-x------', S: '----o-------o---', H: 'o.o.o.o.o.o.o.o.' }, 'Feutré : tout un peu en retrait'),
+      D('trap', 'Trap', 3, { K: 'x------x--x-----', C: '--------x-------', H: 'x-x-x-x-xrx-x-rr' }, 'Clap sur le 3, charlestons qui roulent'),
+      D('drill', 'Drill', 3, { K: 'x-----x---x-----', C: '--------x-----x-', H: 'x--x--x-x--x-r-x' }, 'Caisse décalée, charleston en triolets'),
+      D('trap-minimal', 'Trap minimal', 2, { K: 'x-------x-------', C: '--------x-------', H: 'x---x---x---x-r-' }, 'Presque vide : la 808 fait le reste'),
+      D('decale', 'Groove décalé', 2, { K: 'x-----x--x------', S: '----x-------x--o', H: 'x-xxx-x-x-xxx-x-' }, 'Swing lourd, caisse en retard'),
+      D('jazz-hop', 'Jazz-hop', 1, { K: 'x-------x-x-----', R: '----x-------x---', H: 'x-x-x-x-x-x-x-x-' }, 'Rim et charleston doux, très swingué'),
+      D('vinyle', 'Intro : vinyle', 1, { H: '..o...o...o...o.', R: '------------o---' }, 'Juste un charleston et un rim'),
+      D('trap-intro', 'Trap : intro', 1, { H: 'x-x-x-x-x-x-x-x-' }, 'Charleston seul avant le drop'),
+      D('trap-drop', 'Trap : drop', 3, { K: 'x------x--x--x--', C: '--------x-------', H: 'x-x-xrx-x-x-xrrr' }, 'Tout tombe, roulements à chaque fin de temps'),
+      D('lofi-pluie', 'Lo-fi pluie', 1, { K: 'x-------x-x-----', R: '----o-------o---', P: '.o.o.o.o.o.o.o.o' }, 'Shaker comme une pluie fine'),
+      D('boombap-lourd', 'Boom bap lourd', 3, { K: 'x-x----x--x-----', S: '----x-------x---', H: 'xoxoxoxoxoxoxoxo', O: '--------------x-' }, 'Le refrain qui cogne'),
+      D('west-coast', 'West coast', 2, { K: 'x------x-x------', C: '----x-------x---', H: 'x-x-x-x-x-x-x-x-' }, 'Clap sec, kick qui rebondit'),
+      D('phonk', 'Phonk', 3, { K: 'x------x--x-----', C: '--------x-------', H: 'x-x-x-x-x-x-x-xr', P: 'x.x.x.x.x.x.x.x.' }, 'Percussions en croches, très sombre'),
+      D('old-school', 'Old school', 2, { K: 'x------x-x------', S: '----x-------x---', C: '----x-------x---', H: 'x-x-x-x-x-x-x-x-' }, 'Caisse et clap ensemble, boîte à rythmes 80s'),
+      D('kick-808', 'Kick et 808', 1, { K: 'x-------x-x-----' }, 'Le kick seul, la basse remplit'),
+    ],
+    dnb: [
+      D('two-step', 'Two-step', 3, { K: 'x---------x-----', S: '----x-------x---', H: 'x-x-x-x-x-x-x-x-' }, 'Le squelette de la drum & bass'),
+      D('liquid', 'Liquid', 2, { K: 'x---------x-----', S: '----x-------x---', H: 'xoxoxoxoxoxoxoxo', P: '.o.o.o.o.o.o.o.o' }, 'Doux, shaker en doubles'),
+      D('jungle', 'Jungle', 3, { K: 'x-x-------x-----', S: '----x--o-o--x--o', H: 'x-x-x-x-x-x-x-x-' }, 'Break haché, caisses fantômes'),
+      D('roller', 'Roller', 3, { K: 'x---------x--x--', S: '----x-------x---', H: 'xo-oxoxoxoxoxo-o', O: '--x-----------x-' }, 'Kick de relance, roule sans fin'),
+      D('half-time', 'Half-time', 2, { K: 'x-----x---------', S: '--------x-------', H: 'x-x-x-x-x-x-x-x-' }, 'Moitié de vitesse : lourd'),
+      D('breakbeat', 'Breakbeat 90s', 2, { K: 'x--x--x---x-----', S: '----x-------x---', H: 'x-x-x-x-x-x-x---', O: '--------------x-' }, 'À 130–140 : big beat'),
+      D('intro-dnb', 'Intro : charleston', 1, { H: 'x-x-x-x-x-x-x-x-', P: '.o.o.o.o.o.o.o.o' }, 'L’intro avant que le break tombe'),
+      D('drop-dnb', 'Drop : kick et caisse', 3, { K: 'x---------x-----', S: '----x-------x---', C: '----x-------x---' }, 'Sec, la basse prend toute la place'),
+      D('liquid-intro', 'Liquid : intro', 1, { H: '..o...o...o...o.', P: '.o.o.o.o.o.o.o.o' }, 'Nappes et shaker'),
+      D('neurofunk', 'Neurofunk', 3, { K: 'x---------x--x--', S: '----x-------x---', H: 'x.x.x.x.x.x.x.x.', R: '-------o------o-' }, 'Précis et sombre'),
+      D('jump-up', 'Jump-up', 3, { K: 'x-x-------x-----', S: '----x-------x---', C: '----x-------x---', H: 'x-x-x-x-x-x-x-x-' }, 'Kick doublé, très dansant'),
+      D('minimal-dnb', 'Minimal', 2, { K: 'x---------x-----', S: '----x-------x---', R: '--o-----o-------' }, 'Sans charleston, rim discret'),
+      D('big-beat', 'Big beat', 3, { K: 'x--x--x---x-x---', S: '----x-------x---', H: 'xoxoxoxoxoxoxo-o', O: '--------------x-' }, 'Break massif à 135'),
+      D('break-toms', 'Break : toms', 2, { K: 'x---------x-----', S: '----x-----------', T: '--x---x-----x-xx' }, 'Toms qui roulent dans le break'),
+      D('half-drop', 'Half-time : drop', 3, { K: 'x-----x---x-----', S: '--------x-------', H: 'x-x-x-x-x-x-x---', O: '--------------x-' }, 'Le drop lourd'),
+      D('kick-dnb', 'Kick seul', 1, { K: 'x---------x-----' }, 'Le kick avant le drop'),
+    ],
+    latin: [
+      D('dembow', 'Dembow', 2, { K: 'x---x---x---x---', S: '---x--x----x--x-', H: 'x-x-x-x-x-x-x-x-' }, 'Le moteur du reggaeton'),
+      D('afrobeats', 'Afrobeats', 2, { K: 'x-----x---x-----', R: '---x--x----x--x-', H: '--x---x---x---x-', P: 'xoxoxoxoxoxoxoxo' }, 'Kick posé, rim en 3-3-2, shaker'),
+      D('one-drop', 'One drop', 1, { K: '--------x-------', R: '--------x-------', H: 'x-x-x-x-x-x-x-x-' }, 'Rien sur le 1 : kick et rim sur le 3'),
+      D('steppers', 'Steppers', 2, { K: 'x---x---x---x---', R: '--------x-------', H: '--x---x---x---x-' }, 'Reggae qui avance, kick sur chaque temps'),
+      D('bossa', 'Bossa nova', 1, { K: 'o--oo--oo--oo--o', R: 'x--x--x---x--x--', H: 'x-x-x-x-x-x-x-x-' }, 'Clave bossa au rim, kick doux'),
+      D('clave-son', 'Clave son', 2, { K: 'x---------x-----', R: 'x--x--x---x-x---', H: 'x-x-x-x-x-x-x-x-', P: '----x-x-----x-xo' }, 'Clave 3-2 et congas'),
+      D('samba', 'Samba', 3, { K: 'o-----x-o-----x-', S: '--x--x-x--x--x-x', P: 'xoxxxoxxxoxxxoxx' }, 'Surdo, tamborim, roulement'),
+      D('percussions', 'Pont : percussions', 1, { P: 'x.ox.ox.x.ox.ox.' }, 'Les percussions seules'),
+      D('reggaeton-lent', 'Reggaeton lent', 1, { K: 'x---x---x---x---', R: '---x--x----x--x-' }, 'Dembow au rim, très doux'),
+      D('moombahton', 'Moombahton', 3, { K: 'x---x---x---x---', S: '---x--x----x--x-', H: 'x-x-x-x-x-x-x---', O: '--------------x-' }, 'Dembow plein, charleston ouvert en fin de mesure'),
+      D('amapiano', 'Amapiano', 2, { K: 'x---x---x---x---', R: '--o--o----o--o--', P: '.o.o.o.o.o.o.o.o' }, 'Kick droit, rim en 3-3-2, shaker'),
+      D('rockers', 'Rockers', 2, { K: 'x-------x-------', R: '--------x-------', H: 'x-x-x-x-x-x-x-x-', P: '--o---o---o---o-' }, 'Reggae : kick sur 1 et 3, rim sur le 3'),
+      D('cumbia', 'Cumbia', 2, { K: 'x-------x-------', R: '--x---x---x---x-', P: 'x-xxx-xxx-xxx-xx' }, 'Guacharaca en doubles'),
+      D('bossa-balais', 'Bossa : balais', 1, { H: '.o.o.o.o.o.o.o.o', R: 'x--x--x---x--x--' }, 'Sans kick, juste les balais et la clave'),
+      D('afrobeat-70', 'Afrobeat 70s', 3, { K: 'x-----x---x--x--', S: '----x--o----x---', H: 'x-x-x-x-x-x-x-x-', P: 'x--x--x---x-x---' }, 'Batterie qui ne s’arrête jamais, clave aux congas'),
+      D('dancehall', 'Dancehall', 2, { K: 'x-----x-x-------', S: '---x--x----x--x-', H: 'x-x-x-x-x-x-x-x-' }, 'Kick bondissant, caisse en 3-3-2'),
+    ],
+    soul: [
+      D('neo-soul', 'Neo-soul', 2, { K: 'x------x-x------', S: '----x-------x---', H: 'x-xxx-x-x-xxx-x-' }, 'En retard, très swingué'),
+      D('motown', 'Motown', 2, { K: 'x-----x-x-----x-', S: '----x-------x---', H: 'x-x-x-x-x-x-x-x-', P: 'x---x---x---x---' }, 'Tambourin sur chaque temps'),
+      D('swing', 'Swing jazz', 2, { K: 'o-------o-------', H: '----x-------x---', O: 'x---x--xx---x--x' }, 'Ride « ding ding-a », charleston au pied sur 2 et 4'),
+      D('ballade-soul', 'Ballade soul', 1, { K: 'x-------x-x-----', R: '----x-------x---', H: 'x-x-x-x-x-x-x-x-' }, 'Rim sur 2 et 4, très posé'),
+      D('gospel', 'Gospel shuffle', 3, { K: 'x-----x-x-----x-', S: '----x-------x---', H: 'x-xxx-xxx-xxx-xx' }, 'Shuffle qui pousse'),
+      D('rnb-90', 'R&B 90s', 2, { K: 'x-------x-x--x--', S: '----x-------x---', H: 'x-x-x-x-x-x-x-x-', R: '-------o--------' }, 'Kick syncopé, très propre'),
+      D('balais-soul', 'Balais', 1, { K: 'o-------o-------', H: '.o.o.o.o.o.o.o.o', R: '----o-------o---' }, 'Batterie aux balais'),
+      D('funk-moite', 'Funk lent', 2, { K: 'x--x------x-----', S: '----x-------x---', H: 'x-x-x-x-x-x-x-x-' }, 'Moite et lourd'),
+      D('swing-balais', 'Swing : balais', 1, { H: '.o.o.o.o.o.o.o.o', O: 'x---x--xx---x--x' }, 'Balais et ride, sans kick'),
+      D('ride-seule', 'Jazz : ride seule', 1, { H: '----x-------x---', O: 'x---x--xx---x--x' }, 'Ride et charleston au pied'),
+      D('philly', 'Philly soul', 3, { K: 'x---x---x---x---', S: '----x-------x---', H: 'x---x---x---x---', O: '--x---x---x---x-' }, 'Soul orchestrale qui annonce le disco'),
+      D('soul-60', 'Soul 60s', 2, { K: 'x-----x-x-------', S: '----x-------x---', P: 'x-x-x-x-x-x-x-x-' }, 'Tambourin en croches'),
+      D('neo-soul-couplet', 'Neo-soul : couplet', 1, { K: 'x------x-x------', R: '----x-------x---', H: 'x-x-x-x-x-x-x-x-' }, 'Rim au lieu de caisse'),
+      D('gospel-refrain', 'Gospel : refrain', 3, { K: 'x-----x-x-----x-', S: '----x-------x---', C: '----x-------x---', O: 'x-x-x-x-x-x-x-x-' }, 'Claps et ride : tout le monde chante'),
+      D('quiet-storm', 'Quiet storm', 1, { K: 'x-------x-------', R: '----x-------x---', P: '.o.o.o.o.o.o.o.o' }, 'Ballade R&B nocturne'),
+      D('bebop', 'Bebop', 3, { K: 'o---------o-----', S: '-----o-----o---o', H: '----x-------x---', O: 'x---x--xx---x--x' }, 'Ride rapide, caisse qui commente'),
+    ],
+  };
+  Object.entries(ADD).forEach(([st, list]) => (SS.DRUM_PATTERNS[st] = (SS.DRUM_PATTERNS[st] || []).concat(list)));
+})();
 
 SS.DRUM_FILLS = {
   roll: { name: 'Roulement de caisse claire', from: 8, ev: [8, 9, 10, 11, 12, 13, 14, 15].map((s, i) => [s, 'S', Math.round((0.35 + i * 0.09) * 100) / 100]) },
