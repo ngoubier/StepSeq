@@ -7269,7 +7269,7 @@ SS.band = (() => {
     });
   }
   /** Réglages en vigueur d'une jonction (le plan, puis les retouches). */
-  const fxEff = (j) => SS.bandSong.junctionEff(specEff(), j.from.sec, j.to.sec, S.wiz.fx);
+  const fxEff = (j) => SS.bandSong.junctionEff(SS.bandSong.withSceneFx(specEff(), S.wiz.parts), j.from.sec, j.to.sec, S.wiz.fx);
   /** Effets actifs d'une jonction ; sans musicien Effets, ceux de sa piste ne comptent pas. */
   function fxCount(e, withFx) {
     return [withFx && e.riser.on, e.hp.on, withFx && e.rev.on, e.gap.len > 0, withFx && e.impact.on, withFx && e.down.on, ...FX_WRITE.map((k) => e[k].on)].filter(Boolean).length;
@@ -7789,12 +7789,78 @@ SS.band = (() => {
 
     // ---- carte « Percussions »
     const percEl = fxPercCard(cols, res);
-    const root = h('div', { class: 'bwc fx', id: 'bwFx' }, h('div', { class: 'bw-lbl' }, 'Frise de la chanson · cliquer une jonction'), frieze, h('div', { class: 'fx-cols' }, ...trans, percEl));
+    const root = h('div', { class: 'bwc fx', id: 'bwFx' }, h('div', { class: 'bw-lbl' }, 'Frise de la chanson · cliquer une jonction'), frieze, fxSceneCard(res, withFx), h('div', { class: 'fx-cols' }, ...trans, percEl));
     box.replaceChildren(root);
     root.scrollTop = top;
     frieze.scrollLeft = left;
     const sb = frieze.querySelector('.fx-tm .sel');
     if (sb && !left) frieze.scrollLeft = Math.max(0, sb.offsetLeft - frieze.clientWidth / 2); // la jonction choisie au milieu de la frise (défilement horizontal seulement)
+  }
+
+  /* ---------- Carte « Musicien Effets, scène par scène » ----------
+   * Ce que joue la piste Effets dans chaque scène, hors transitions : parts[section].fx (voir withSceneFx dans js/bandsong.js).
+   * Sans réglage, c'est le rôle du plan (sec.fx). Une montée de scène règle aussi la montée de bruit de la jonction qui en sort,
+   * une descente l'impact de celle qui y entre : ce sont les mêmes notes, réglées à un seul endroit.
+   */
+  const FX_SCENE_ROLES = [
+    ['swell', 'Ambiance', 'Un souffle filtré, noyé de reverb, qui remplit l’espace'],
+    ['riser', 'Montée', 'Un souffle qui monte et s’éclaircit jusqu’à la scène suivante'],
+    ['down', 'Descente', 'Un souffle qui retombe juste après le premier temps'],
+    ['none', 'Rien', 'Le musicien Effets se tait (les effets de transition jouent quand même)'],
+  ];
+  const FX_SCENE_COLOR = { swell: '#6fa8c9', riser: '#e8b04a', down: '#c77dff', none: '#5a5a66' };
+  function fxSceneSet(sec, patch) {
+    putPart(sec, 'fx', patch);
+    fxChanged();
+  }
+  function fxSceneCard(res, withFx) {
+    const card = h('section', { class: 'bw-card fx-card fx-scn', id: 'fxScenes', style: '--c:#7a8a99' },
+      h('div', { class: 'fx-head' }, h('h3', { class: 'bw-ctitle' }, h('b', {}, 'Musicien Effets, scène par scène'), h('small', {}, ' ce qu’il joue dans la scène, en dehors des transitions'))));
+    if (!withFx) {
+      const full = !BG().canAdd(group());
+      card.append(h('div', { class: 'fx-miss', id: 'fxMissScn' },
+        h('p', {}, h('b', {}, 'Pas de musicien Effets dans ce groupe.'), ' Il joue les ambiances, montées et descentes des scènes sur sa propre piste.'),
+        h('button', { type: 'button', class: 'btn', id: 'fxAddFx2', disabled: full || null, onclick: () => fxAddMember('fx') }, '+ Ajouter un musicien Effets')));
+      return card;
+    }
+    const seen = new Set();
+    const rows = res.song.map((b) => res.scenes.find((x) => x.id === b.scene)).filter((sc) => sc && !seen.has(sc.sec) && seen.add(sc.sec)).map((sc) => {
+      const plan = (specEff().sections[sc.sec] || {}).fx || 'none';
+      const own = (S.wiz.parts[sc.sec] && S.wiz.parts[sc.sec].fx) || {};
+      const mode = own.mode || plan;
+      const lv = own.level == null ? 1 : own.level;
+      const touched = Object.keys(own).length > 0;
+      const lbl = (t) => h('span', { class: 'bw-lbl' }, t);
+      const seg = (id, items, active, onpick) =>
+        h('span', { class: 'segmented fx-seg', id, role: 'group' }, ...items.map(([v, label, dis]) => h('button', { type: 'button', 'data-v': String(v), 'aria-pressed': String(active === v), disabled: dis || null, onclick: () => onpick(v) }, label)));
+      const roles = h('span', { class: 'segmented fx-seg fx-roles', id: `fxscn-${sc.sec}`, role: 'group', 'aria-label': `Rôle du musicien Effets dans « ${sc.name} »` },
+        ...FX_SCENE_ROLES.map(([v, label, tip]) => h('button', { type: 'button', 'data-v': v, 'aria-pressed': String(mode === v), title: tip, style: `--rc:${FX_SCENE_COLOR[v]}`, onclick: () => fxSceneSet(sc.sec, { mode: v === plan ? undefined : v }) }, label)));
+      let opts = [];
+      if (mode === 'swell') {
+        const ev = [[1, 'Chaque mesure'], [2, 'Toutes les 2'], [4, 'Toutes les 4'], [sc.bars, 'Tenue']].filter(([v], i, a) => v <= sc.bars && a.findIndex((x) => x[0] === v) === i);
+        opts = [lbl('Rythme'), seg(`fxscn-every-${sc.sec}`, ev, Math.min(own.every || 4, sc.bars), (v) => fxSceneSet(sc.sec, { every: v === 4 ? undefined : v })),
+          lbl('Couleur'), seg(`fxscn-color-${sc.sec}`, [['dark', 'Sombre'], ['bright', 'Claire']], own.color || 'dark', (v) => fxSceneSet(sc.sec, { color: v === 'dark' ? undefined : v }))];
+      } else if (mode === 'riser') {
+        const lens = [4, 8, 16, 32].filter((n) => n <= sc.bars);
+        const cur = Math.min(own.len || sc.bars, sc.bars);
+        opts = [lbl('Longueur'), seg(`fxscn-len-${sc.sec}`, [...lens.filter((n) => n < sc.bars).map((n) => [n, `${n} mes.`]), [sc.bars, 'Toute la scène']], cur, (v) => fxSceneSet(sc.sec, { len: v >= sc.bars ? undefined : v })),
+          lbl('Filtre'), seg(`fxscn-filter-${sc.sec}`, FX_FILTERS.map(([v, t]) => [v, t.replace(' qui s’ouvre', '')]), own.filter || 'lp', (v) => fxSceneSet(sc.sec, { filter: v === 'lp' ? undefined : v }))];
+      } else if (mode === 'down') {
+        opts = [lbl('Longueur'), seg(`fxscn-dlen-${sc.sec}`, [[1, '1 mes.'], [2, '2 mes.'], [4, '4 mes.', sc.bars < 4]], own.dlen || 2, (v) => fxSceneSet(sc.sec, { dlen: v === 2 ? undefined : v }))];
+      }
+      const out = h('b', { class: 'fx-num' }, `${Math.round(lv * 100)} %`);
+      const level = mode === 'none' ? h('span', { class: 'fx-lv' }) : h('span', { class: 'fx-lv' }, lbl('Niveau'),
+        h('input', { type: 'range', id: `fxscn-level-${sc.sec}`, min: 0.2, max: 1.5, step: 0.05, value: lv, 'aria-label': `Niveau du musicien Effets dans « ${sc.name} »`, oninput: (e) => (out.textContent = `${Math.round(e.target.value * 100)} %`), onchange: (e) => fxSceneSet(sc.sec, { level: +e.target.value === 1 ? undefined : +e.target.value }) }), out);
+      const playing = L.mode === 'scene' && L.scene === sc.id;
+      return h('div', { class: 'fx-srow' + (mode === 'none' ? ' off' : ''), 'data-sec': sc.sec, style: `--c:${secColor(sc.sec)}` },
+        h('div', { class: 'fx-snm' }, h('i', {}), h('div', {}, h('b', {}, sc.name), h('small', {}, `${sc.bars} mes. · `, touched ? h('span', { class: 'fx-chg' }, `retouché (plan : ${FX_SCENE_ROLES.find((x) => x[0] === plan)[1]}) `, h('button', { type: 'button', class: 'fx-undo', title: 'Revient au jeu du plan', onclick: () => { const p = { ...(S.wiz.parts[sc.sec] || {}) }; delete p.fx; S.wiz.parts[sc.sec] = p; tidy(sc.sec); fxChanged(); } }, '↺')) : 'plan de l’inspiration'))),
+        roles,
+        h('div', { class: 'fx-sopt' }, ...opts),
+        level,
+        h('button', { type: 'button', class: 'btn btn-small fx-slisten', 'data-scene': sc.id, title: `Écouter « ${sc.name} » en boucle`, onclick: () => listenScene(sc.id) }, playing ? '■' : '▶'));
+    });
+    card.append(h('div', { class: 'fx-slist' }, ...rows));
+    return card;
   }
 
   /** Carte Percussions : une matrice scènes × boucles (Shaker, Conga, Tom) sur les pistes du Percussionniste. */
