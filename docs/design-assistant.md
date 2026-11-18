@@ -247,3 +247,19 @@ la courbe voulue et l'énergie mesurée passage par passage (une scène répét�
   « Garder B » écrit le réglage dans `S.wiz.parts` (annulable comme toute retouche de scène).
 - Brouillon v4 : la courbe choisie (`arr`) est rangée ; les brouillons v2/v3 décalent
   leurs numéros d'étape à partir de l'Arrangement.
+
+### Étape Mélodie : « Développer le motif » et « Section qui contraste »
+
+L'étape d'un instrument Mélodie a trois sous-onglets (`S.wiz.mtab`) : **Mélodie** (le panneau d'avant),
+**Développer le motif**, **Section qui contraste**. Moteur pur dans `js/develop.js` (`SS.develop`, tests
+`tests/develop.test.js`).
+
+- **Développer le motif** : on choisit deux mesures de la mélodie de la scène (le motif) et une forme de phrase
+  (A A’ B A, A B A C, question / réponse). Quatre suites : séquence (un degré plus bas), réponse (même rythme, fin sur
+  la tonique), variation rythmique (syncope sur les temps 2 et 4), augmentation (durées doublées). La phrase de
+  8 mesures est répétée sur toute la scène ; les notes longues sur un temps vont sur la note de l'accord la plus
+  proche, le motif reste tel quel ; la dernière note conclut sur la tonique (la dominante pour une question).
+- **Section qui contraste** : la mélodie d'une autre scène écrite à partir du même motif, dans sa tonalité et sur ses
+  accords : plus haut et plus long, renversé, ou plus serré.
+- Essai A/B (`S.wiz.devAb`, appliqué par `partsEff`) : B chante même dans une scène où la mélodie est muette ;
+  « Garder B » écrit `parts[sec].inst[T].lead = { events, how }`, et `how` s'affiche dans la colonne des scènes.

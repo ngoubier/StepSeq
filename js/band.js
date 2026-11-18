@@ -1983,6 +1983,16 @@ SS.band = (() => {
    * la mélodie de la scène figée telle qu'elle est (sinon le moteur la récrirait sur les nouveaux accords).
    */
   function partsEff() {
+    const dv = S.wiz.devAb;
+    if (dv && dv.on && melStep() && insAt().key === dv.key) {
+      const p = { ...(S.wiz.parts[dv.sec] || {}) };
+      const inst = { ...(p.inst || {}) };
+      inst[dv.key] = { ...(inst[dv.key] || {}), lead: { events: dv.events } };
+      delete inst[dv.key].off;
+      const role = insAt().role;
+      if (p.off && !typeChanged(insAt())) p.off = p.off.filter((r) => r !== role); // B chante même là où le rôle est coupé
+      return { ...S.wiz.parts, [dv.sec]: { ...p, inst } };
+    }
     const t = S.wiz.arrAb;
     if (t && t.on && S.wiz.step === ST.arr) {
       const out = { ...S.wiz.parts };
@@ -2860,6 +2870,7 @@ SS.band = (() => {
   function melSub(x, T = insAt()) {
     if (mutedIn(x.sec, T)) return 'muette';
     if (!(partOf(x.sec, T) || {}).lead) return typeChanged(T) ? 'mélodie du moteur' : 'inspiration';
+    if (partOf(x.sec, T).lead.how) return partOf(x.sec, T).lead.how;
     const k = melKey(T, x.sec);
     const st = k === S.wiz.melSec ? SS.melodyPanel.getState() : S.wiz.melPanel[k];
     const r = st && st.res && st.res.ok ? st.res : null;
@@ -2936,7 +2947,7 @@ SS.band = (() => {
   function refreshMelFrame() {
     const { cols, res } = wizSong();
     const box = $('#bandWiz');
-    if (!res || !$('#bwMelBoard', box)) return renderHarmony(insAt());
+    if (!res || !$('#bwMelBoard', box) || (S.wiz.mtab || 'mel') !== 'mel') return renderHarmony(insAt());
     const f = melScene(cols, res, curScene(res), insAt());
     $('.bh-scenes', box).replaceWith(f.nav);
     ['bar:#bwTrackbar', 'top:#bwMelHead', 'board:#bwMelBoard', 'auto:#bwAuto', 'src:#bwMelSrc', 'acc:#bwMelAcc'].forEach((x) => {
@@ -2954,15 +2965,201 @@ SS.band = (() => {
     if (go) go.textContent = (partOf(sec, insAt()) || {}).lead ? '🎲 Une autre' : 'Générer une mélodie';
   };
 
+  /* ---------- Développer le motif / Section qui contraste (sous-onglets de l'étape Mélodie) ----------
+   * SS.develop écrit, à partir d'un motif de 2 mesures de la mélodie de la scène, quatre suites pour finir la phrase,
+   * ou trois mélodies pour une autre scène. Essai A/B (S.wiz.devAb = { tab, from, sec, key, label, why, how, events, on }) :
+   * partsEff fait entendre B, « Garder B » écrit la mélodie de la scène (parts[sec].inst[T].lead). */
+  const DV = () => SS.develop;
+  const DV_PART = { motif: 'ton motif', suite: 'suite', contraste: 'contraste' };
+  function sceneChordAt(sc) {
+    const H = HM();
+    const gch = gridOf(sc).map((x) => ({ step: x.step, len: x.len, c: chordOf(sc.key, x) }));
+    return (st) => {
+      const x = gch.find((y) => st >= y.step && st < y.step + y.len);
+      return x ? H.voice(x.c, 60).map(H.pcOf) : null;
+    };
+  }
+  const scalePcs = (k) => HM().scale(k).map((d) => d.pc);
+  /** Notes de la mélodie T dans la scène (une par attaque, la plus haute), telles qu'elles jouent sans l'essai. */
+  function devNotes(sc, T) {
+    const dv = S.wiz.devAb;
+    if (dv && dv.on && dv.sec === sc.sec && dv.base) return dv.base;
+    return (((sc.data[T.col.id] || {}).events) || []).filter((e) => e.notes && e.notes.length).map((e) => ({ step: e.step, len: e.len, midi: Math.max(...e.notes), vel: e.vel ?? 0.8 }));
+  }
+  /** Petit rouleau : bandes d'accords, mesures, notes (classe par note). */
+  function devRoll(sc, notes, { cls = () => '', mark = null, id = null, mini = false } = {}) {
+    const total = sc.bars * 16;
+    const pct = (x) => `${((100 * x) / total).toFixed(3)}%`;
+    const ms = notes.map((x) => x.midi);
+    const lo = Math.min(...ms, 60) - 1;
+    const hi = Math.max(...ms, 72) + 1;
+    const H = mini ? 44 : 96;
+    const top = mini ? 4 : 26;
+    return h(
+      'div',
+      { class: 'bwhz-roll bwdv-roll' + (mini ? ' mini' : ''), id },
+      mark ? h('i', { class: 'bwdv-mark', style: `left:${pct(mark[0])};width:${pct(mark[1] - mark[0])}` }) : null,
+      ...(mini ? [] : gridOf(sc).map((x) => h('div', { class: 'bwhz-band role-' + chordOf(sc.key, x).role.id, style: `left:${pct(x.step)};width:${pct(x.len)}` }, chordOf(sc.key, x).name))),
+      ...Array.from({ length: sc.bars - 1 }, (_, b) => h('i', { class: 'bwhz-bl' + ((b + 1) % 2 ? ' odd' : ''), style: `left:${pct((b + 1) * 16)}` })),
+      ...notes.map((x, i) => h('span', { class: 'bwhz-n bwdv-n ' + cls(x, i), style: `left:${pct(x.step)};width:calc(${pct(x.len)} - 1px);top:${(top + ((hi - x.midi) / Math.max(1, hi - lo)) * H).toFixed(1)}px` }))
+    );
+  }
+  function startDev(tab, from, target, T, p, base) {
+    S.wiz.devAb = { tab, from: from.sec, sec: target.sec, key: T.key, label: p.title, why: p.why, how: tab === 'dev' ? `motif développé · ${p.title.toLowerCase()}` : `contraste · ${p.title.toLowerCase()}`, events: p.events, base, id: p.id, on: true };
+    wizSong();
+    renderWiz();
+    const now = S.wiz.res && S.wiz.res.scenes.find((x) => x.sec === target.sec);
+    if (now && !(L.mode === 'scene' && L.sec === target.sec && !L.paused)) playScene(now.id);
+  }
+  function devAbBar(hint) {
+    const t = S.wiz.devAb;
+    if (!t) return h('p', { class: 'dlg-hint', id: 'bwDevHint' }, hint);
+    const T = insSteps().find((x) => x.key === t.key);
+    const flip = (on) => ((t.on = on), wizSong(), relisten(), renderWiz());
+    const name = (S.wiz.res.scenes.find((x) => x.sec === t.sec) || {}).name || t.sec;
+    return h(
+      'div',
+      { class: 'bwc-ab on', id: 'bwDevAb' },
+      h('span', { class: 'bh-lbl' }, 'Essai'),
+      h('b', {}, `${name} · ${t.label}`),
+      h(
+        'span',
+        { class: 'segmented', role: 'radiogroup', 'aria-label': 'Version à l’écoute' },
+        h('button', { type: 'button', role: 'radio', id: 'bwDevA', class: t.on ? '' : 'active', 'aria-checked': String(!t.on), onclick: () => flip(false) }, 'A · avant'),
+        h('button', { type: 'button', role: 'radio', id: 'bwDevB', class: t.on ? 'active' : '', 'aria-checked': String(t.on), onclick: () => flip(true) }, 'B · essai')
+      ),
+      h('span', { class: 'dlg-hint' }, `La scène « ${name} » tourne en boucle.`),
+      h('span', { class: 'spacer' }),
+      h('button', { type: 'button', class: 'btn btn-small', id: 'bwDevCancel', onclick: () => ((S.wiz.devAb = null), wizSong(), relisten(), renderWiz()) }, 'Garder A'),
+      h(
+        'button',
+        {
+          type: 'button', class: 'btn btn-small btn-accent', id: 'bwDevKeep',
+          onclick: () => {
+            S.wiz.devAb = null;
+            if (T) {
+              putOff(t.sec, T, false);
+              putPart(t.sec, T, { lead: { events: t.events.map((e) => ({ ...e, notes: [...e.notes] })), how: t.how } });
+            }
+            wizSong();
+            relisten();
+            renderWiz();
+          },
+        },
+        'Garder B'
+      )
+    );
+  }
+  function devTab(sc, T, tab) {
+    const notes = devNotes(sc, T);
+    const pairs = DV().motifBars(notes, sc.bars);
+    if (!pairs.length)
+      return h('div', { class: 'bwhz-empty', id: 'bwDev' }, h('b', {}, 'Pas de motif dans cette scène.'), h('span', {}, 'Il faut au moins deux notes sur deux mesures : choisis une scène où la mélodie chante, ou génère-la dans l’onglet Mélodie.'));
+    if (!S.wiz.dev || S.wiz.dev.sec !== sc.sec) S.wiz.dev = { sec: sc.sec, bar: pairs[0], form: 'aaba', target: null };
+    const st = S.wiz.dev;
+    if (!pairs.includes(st.bar)) st.bar = pairs[0];
+    const t = S.wiz.devAb;
+    const seg = (items, cur, set, label, id) =>
+      h('span', { class: 'segmented', role: 'radiogroup', 'aria-label': label, id }, ...items.map(([v, l]) => h('button', { type: 'button', role: 'radio', 'data-v': String(v), class: v === cur ? 'active' : '', 'aria-checked': String(v === cur), disabled: t ? true : null, onclick: () => set(v) }, l)));
+    const motifPick = h('span', { class: 'bwhz-grp' }, h('span', { class: 'bh-lbl' }, 'Motif'), seg(pairs.map((b) => [b, `mesures ${b + 1}-${b + 2}`]), st.bar, (v) => ((st.bar = v), renderWiz()), 'Motif choisi', 'bwDevBar'));
+    const mark = [st.bar * 16, st.bar * 16 + 32];
+    const inMotif = (x) => x.step >= mark[0] && x.step < mark[1];
+    const pcs = scalePcs(sc.key);
+    if (tab === 'dev') {
+      const props = DV().continuations(notes, { pcs, chordAt: sceneChordAt(sc), bars: sc.bars, bar: st.bar, form: st.form });
+      const viewP = t ? props.find((p) => p.id === t.id) : null;
+      const shown = viewP && t.on ? viewP.events.map((e) => ({ step: e.step, len: e.len, midi: e.notes[0] })) : notes;
+      const phraseBars = sc.bars >= 8 ? 8 : Math.floor(sc.bars / 2) * 2;
+      const head = h(
+        'div',
+        { class: 'bwhz-head' },
+        motifPick,
+        h('span', { class: 'spacer' }),
+        sc.bars >= 8 ? h('span', { class: 'bwhz-grp' }, h('span', { class: 'bh-lbl' }, 'Phrase'), seg(DV().FORMS.map((f) => [f.id, f.label]), st.form, (v) => ((st.form = v), renderWiz()), 'Forme de la phrase', 'bwDevForm')) : null
+      );
+      const form = DV().FORMS.find((f) => f.id === st.form);
+      const mel = h(
+        'div',
+        { class: 'bwhz-mel' },
+        h('div', { class: 'bwhz-mhead' }, h('b', {}, `Ta phrase · ${sc.name}`), h('span', { class: 'bh-info' }, viewP && t.on ? `B : ${viewP.title.toLowerCase()} · motif en mesures 1-2` : `motif choisi : mesures ${st.bar + 1} et ${st.bar + 2} · l’assistant écrit la suite de la phrase de ${phraseBars} mesures` + (sc.bars > phraseBars ? `, répétée sur les ${sc.bars}` : ''))),
+        devRoll(sc, shown, { id: 'bwDevRoll', mark: viewP && t.on ? [0, 32] : mark, cls: (x) => (viewP && t.on ? (x.step < 32 ? 'mot' : 'new') : inMotif(x) ? 'mot' : '') }),
+        h('div', { class: 'bwhz-legend' }, h('span', {}, h('i', { class: 'bwhz-sw bwdv-sw mot' }), 'ton motif'), h('span', {}, h('i', { class: 'bwhz-sw bwdv-sw new' }), 'suite proposée (B)'), h('span', {}, h('i', { class: 'bwhz-sw' }), 'mélodie actuelle'), sc.bars >= 8 ? h('span', { class: 'bh-info' }, `forme : ${form.text}`) : null)
+      );
+      const cards = props.map((p) => {
+        const trying = t && t.id === p.id;
+        const ns = p.events.filter((e) => e.step < phraseBars * 16).map((e) => ({ step: e.step, len: e.len, midi: e.notes[0] }));
+        return h(
+          'div',
+          { class: 'bwhz-card bwdv-card' + (trying ? ' trying on' : ''), 'data-dev': p.id },
+          h('header', {}, h('b', {}, p.title), p.form ? h('small', {}, p.parts.map((x) => DV_PART[x]).join(' · ')) : null),
+          devRoll({ ...sc, bars: phraseBars }, ns, { mini: true, cls: (x) => (x.step < 32 ? 'mot' : 'new') }),
+          h('p', { class: 'bwdv-why' }, p.why),
+          h('div', { class: 'bwhz-foot' }, h('span', { class: 'spacer' }), h('button', { type: 'button', class: 'btn btn-small' + (trying ? ' btn-accent' : ''), 'data-devab': p.id, onclick: () => startDev('dev', sc, sc, T, p, notes) }, trying ? '▶ À l’essai' : '▶ Essai A/B'))
+        );
+      });
+      return h('div', { class: 'bwhz bwdv', id: 'bwDev' }, head, mel, h('div', { class: 'bwhz-cards bwdv-cards' }, ...cards), devAbBar('Lance l’essai d’une suite : la scène tourne en boucle, tu passes de A (la mélodie actuelle) à B (le motif développé), puis tu gardes celle que tu préfères.'));
+    }
+    // Section qui contraste : une autre scène, écrite à partir du motif de celle-ci
+    const others = S.wiz.res.scenes.filter((x) => x.sec !== sc.sec && x.bars >= 2);
+    if (!others.length) return h('div', { class: 'bwhz-empty', id: 'bwDev' }, h('b', {}, 'Une seule scène dans la chanson.'), h('span', {}, 'Ajoute une scène à l’étape Scènes pour lui écrire une mélodie qui contraste.'));
+    const target = others.find((x) => x.sec === st.target) || others.find((x) => /chorus|refrain/i.test(x.sec + x.name)) || others[0];
+    st.target = target.sec;
+    const props = DV().contrast(notes, { pcs, toPcs: scalePcs(target.key), chordAt: sceneChordAt(target), bars: target.bars, bar: st.bar });
+    const viewP = t ? props.find((p) => p.id === t.id) : null;
+    const tNotes = viewP && t.on ? viewP.events.map((e) => ({ step: e.step, len: e.len, midi: e.notes[0] })) : devNotes(target, T);
+    const muted = mutedIn(target.sec, T);
+    const head = h(
+      'div',
+      { class: 'bwhz-head' },
+      motifPick,
+      h('span', { class: 'spacer' }),
+      h('span', { class: 'bwhz-grp' }, h('span', { class: 'bh-lbl' }, 'Scène à écrire'), seg(others.map((x) => [x.sec, x.name]), target.sec, (v) => ((st.target = v), renderWiz()), 'Scène à écrire', 'bwDevTarget'))
+    );
+    const src = h('div', { class: 'bwhz-mel' }, h('div', { class: 'bwhz-mhead' }, h('b', {}, `Ton motif · ${sc.name}`), h('span', { class: 'bh-info' }, `mesures ${st.bar + 1} et ${st.bar + 2}`)), devRoll(sc, notes, { mark, cls: (x) => (inMotif(x) ? 'mot' : '') }));
+    const dst = h(
+      'div',
+      { class: 'bwhz-mel' },
+      h('div', { class: 'bwhz-mhead' }, h('b', {}, `${target.name}`), h('span', { class: 'bh-info' }, viewP && t.on ? `B : ${viewP.title.toLowerCase()}` : muted ? 'la mélodie est muette dans cette scène : « Garder B » la fera chanter' : 'mélodie actuelle')),
+      devRoll(target, tNotes, { id: 'bwDevRoll', cls: () => (viewP && t.on ? 'new' : '') })
+    );
+    const cards = props.map((p) => {
+      const trying = t && t.id === p.id;
+      return h(
+        'div',
+        { class: 'bwhz-card bwdv-card' + (trying ? ' trying on' : ''), 'data-dev': p.id },
+        h('header', {}, h('b', {}, p.title)),
+        devRoll(target, p.events.map((e) => ({ step: e.step, len: e.len, midi: e.notes[0] })), { mini: true, cls: () => 'new' }),
+        h('p', { class: 'bwdv-why' }, p.why),
+        h('div', { class: 'bwhz-foot' }, h('span', { class: 'spacer' }), h('button', { type: 'button', class: 'btn btn-small' + (trying ? ' btn-accent' : ''), 'data-devab': p.id, onclick: () => startDev('con', sc, target, T, p, null) }, trying ? '▶ À l’essai' : '▶ Essai A/B'))
+      );
+    });
+    return h('div', { class: 'bwhz bwdv', id: 'bwDev' }, head, src, dst, h('div', { class: 'bwhz-cards bwdv-cards' }, ...cards), devAbBar(`Lance l’essai d’une mélodie : « ${target.name} » tourne en boucle, tu passes de A (sa mélodie actuelle) à B (la proposition), puis tu gardes celle que tu préfères.`));
+  }
+
   function renderHarmony(T = insAt()) {
     const { cols, res } = wizSong();
     const box = $('#bandWiz');
     if (!res) return box.replaceChildren(h('p', { class: 'dlg-hint' }, 'Cette inspiration n’a pas de plan de chanson.'));
     const sc = curScene(res);
+    const mtab = S.wiz.mtab || 'mel';
+    if (S.wiz.devAb && (S.wiz.devAb.key !== T.key || S.wiz.devAb.tab !== mtab || S.wiz.devAb.from !== sc.sec)) {
+      S.wiz.devAb = null; // un essai ne suit pas d'une scène ou d'un onglet à l'autre
+      wizSong();
+      relisten();
+      return renderHarmony(T);
+    }
+    const MT = [['mel', 'Mélodie'], ['dev', 'Développer le motif'], ['con', 'Section qui contraste']];
+    const tabs = h('div', { class: 'bwc-tabs', role: 'tablist', 'aria-label': 'Étape Mélodie' }, ...MT.map(([id, label]) => h('button', { type: 'button', role: 'tab', id: 'bwMTab-' + id, class: mtab === id ? 'on' : '', 'aria-selected': String(mtab === id), onclick: () => ((S.wiz.mtab = id), (S.wiz.devAb = null), wizSong(), renderWiz()) }, label)));
+    if (mtab !== 'mel') {
+      leaveMel();
+      const f = melScene(cols, res, sc, T);
+      splitView(f.nav, f.bar, h('main', { class: 'bh-main bw-mel' }, tabs, f.top, devTab(sc, T, mtab)));
+      return;
+    }
     syncMelState(sc, T);
     const f = melScene(cols, res, sc, T);
     const panel = h('div', { class: 'bw-melpanel', id: 'bwMelPanel' });
-    splitView(f.nav, f.bar, h('main', { class: 'bh-main bw-mel' }, f.top, f.board, f.auto, f.src, f.melIds.size ? panel : null, f.acc));
+    splitView(f.nav, f.bar, h('main', { class: 'bh-main bw-mel' }, tabs, f.top, f.board, f.auto, f.src, f.melIds.size ? panel : null, f.acc));
     syncMelScroll();
     if (!f.melIds.size) return;
     const sec = sc.sec;

@@ -201,6 +201,34 @@ const ok = (c, m) => {
   await page.click('#bwMelGo');
   await page.waitForTimeout(400);
   const gOther = await sig(other);
+
+  // Développer le motif : quatre suites, essai A/B, Garder A ne touche à rien
+  await page.click('#bwMTab-dev');
+  await page.waitForTimeout(250);
+  ok((await page.locator('.bwdv-card').count()) === 4 && (await page.locator('#bwDevRoll .bwdv-n.mot').count()) >= 2 && !(await page.$('#bwMelPanel')), 'Développer le motif : quatre suites, le motif surligné, pas de panneau Mélodie');
+  await page.click('[data-devab="answer"]');
+  await page.waitForTimeout(300);
+  ok((await page.isVisible('#bwDevB')) && (await sig(other)) !== gOther, 'essai B : la scène joue la phrase développée');
+  await page.click('#bwDevCancel');
+  await page.waitForTimeout(250);
+  ok((await sig(other)) === gOther && !(await page.$('#bwDevAb')), 'Garder A : la mélodie de la scène n’a pas changé');
+  // Section qui contraste : la mélodie du Pont écrite à partir du motif du Refrain
+  await page.click('#bwMTab-con');
+  await page.waitForTimeout(250);
+  await page.click('#bwDevTarget button:text-is("Pont")');
+  await page.waitForTimeout(200);
+  const pont0 = await sig('Pont');
+  ok((await page.locator('.bwdv-card').count()) === 3, 'Section qui contraste : trois propositions');
+  await page.click('[data-devab="high"]');
+  await page.waitForTimeout(300);
+  const pontB = await sig('Pont');
+  ok(pontB !== pont0, 'essai B : le Pont chante la proposition');
+  await page.click('#bwDevKeep');
+  await page.waitForTimeout(300);
+  ok((await sig('Pont')) === pontB && /contraste · plus haut/.test(await page.textContent('.bh-scene:has(.bh-sname b:text-is("Pont")) .bh-ssub')), 'Garder B : la mélodie du Pont est gardée, la colonne des scènes le dit');
+  await page.click('#bwMTab-mel');
+  await page.waitForTimeout(300);
+  ok(!!(await page.$('#bwMelPanel .mel-body')) && (await sig(other)) === gOther, 'retour à l’onglet Mélodie : le panneau revient');
   const previews = await page.evaluate(() => Object.fromEntries(SS.band._state.wiz.res.scenes.map((sc) => {
     const id = Object.keys(sc.data).find((k) => k.includes(':lead'));
     return [sc.name, sc.data[id].events.map((e) => [e.step, e.len, e.notes])];
