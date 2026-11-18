@@ -953,7 +953,14 @@ premier enregistrement ; les autres navigateurs téléchargent le fichier.
 
 **Import** (nouveau projet) :
 
-- notes quantifiées à la double-croche, vélocité, durée (pédale de sustain appliquée) ; une piste par
+- notes placées sur la double-croche, avec leur **décalage d'attaque gardé** en micro-décalage (`ev.shift`, ± ½ pas :
+  le jeu humain et les triolets restent à leur place), vélocité, durée (pédale de sustain appliquée) ;
+- **expression (CC 11)** : devient une courbe de **Volume** dans chaque scène (seulement les points utiles, la courbe
+  est linéaire entre deux points). Sur une piste qui a cette courbe, le jeu automatique (onglet Jeu) ne gonfle plus les
+  notes (sauf un soufflet posé à la main) : il garde l'articulation, le phrasé et la force de frappe, et le **timbre suit
+  la courbe** (plus sombre quand elle est basse, il s'ouvre quand elle monte, pendant la note aussi) ; à l'export, la
+  courbe repart en CC 11 ;
+- une piste par
   instrument (piste MIDI × canal), avec le soundfont `gm_*` du programme GM, le nom de piste, le volume (CC 7)
   et le panoramique (CC 10) de départ ;
 - batterie (canal 10), au choix : **General MIDI** (par défaut) — une piste Drum par note GM (35–81), jouée par
@@ -1189,7 +1196,7 @@ Les accords par mode et par émotion (`js/emotions.js`) s'appuient sur trois doc
 | `tools/`         | Outils de mesure : hauteur des échantillons, niveaux des instruments, rendu et mastering des chansons Band, calibrage de l'Auto Mix |
 | `js/song.js`     | Mode chanson : scènes et arrangement, fenêtre Song |
 | `js/midi-file.js` | Lecture / écriture de fichiers MIDI standard (type 0 et 1), sans dépendance |
-| `js/midi.js`     | Import MIDI (quantification, pistes, analyse de la structure en scènes) et export MIDI (arrangement, arpèges rendus, correspondances General MIDI) |
+| `js/midi.js`     | Import MIDI (placement sur la grille et micro-décalages, CC 11 en courbe de volume, pistes, analyse de la structure en scènes) et export MIDI (arrangement, arpèges rendus, correspondances General MIDI) |
 | `js/midipanel.js` | Fenêtres Importer MIDI / Exporter MIDI (options, bilan, téléchargement) |
 | `js/render.js`, `js/audioexport.js` | Exporter l'audio : rendu hors temps réel (master, stems), mesures EBU R128, WAV 16 / 24 / 32 bits, archive ZIP ; fenêtre (options, progression, bilan) |
 | `js/expression.js` | Jeu des cordes, cuivres, bois, voix, piano et guitare : phrases, arc, soufflet, frappe, accords (mélodie, doigts, strum), pédale automatique, phrasé automatique, articulations des notes — fonctions pures |

@@ -118,3 +118,73 @@ test('option « jeu » coupée : les notes telles qu’écrites, ni CC 11 ni CC 
   const plain = exportOne('keys', 'gm_piano', evs.map((e) => ({ ...e, art: undefined })), null);
   assert.ok(plain.notes.every((n) => n.vel === Math.round(0.8 * 127)));
 });
+
+test('courbe de volume dans la scène (CC 11 importé) : le jeu automatique ne gonfle plus les notes, l’articulation reste', () => {
+  const t = SS.newTrack({ name: 'V', color: '#888', type: 'instrument', family: 'strings', instrument: 'gm_violin' }, SS.newProject());
+  t.sd = { expr: 'expressive' };
+  const evs = [{ step: 0, len: 16, notes: [69], vel: 0.8 }, { step: 16, len: 2, notes: [71], vel: 0.8, art: 'stac' }, { step: 20, len: 4, notes: [72], vel: 0.8 }];
+  const free = SS.expression.forTrack(t, evs);
+  assert.ok(free.get(evs[0]).shape.some(([, v]) => v !== 1), 'sans courbe : la note longue enfle');
+  const own = SS.expression.forTrack({ ...t, auto: { volume: { 0: 0.4, 8: 0.9, 15: 0.5 } } }, evs.map((e) => ({ ...e })));
+  const plans = [...own.values()];
+  assert.ok(plans.every((o) => o.shape.every(([, v]) => v === 1)), 'avec courbe : formes plates');
+  assert.ok(plans[1].durK < 0.6, 'le staccato reste court');
+  // à l'export, la courbe de la scène part en CC 11 et l'expression n'en ajoute pas
+  const p = SS.newProject();
+  const v = SS.newTrack({ name: 'V', color: '#888', type: 'instrument', family: 'strings', instrument: 'gm_violin' }, p);
+  v.events = evs.map((e) => ({ ...e }));
+  v.auto = { volume: { 0: 0.4, 8: 0.9, 15: 0.5 } };
+  v.sd = { expr: 'expressive' };
+  p.tracks = [v];
+  SS.commitScene(p);
+  const c11 = SS.midiFile.parse(SS.midi.exportProject(p, { range: 'scene', loops: 1 }).bytes).tracks[1].filter((e) => e.type === 'cc' && e.cc === 11).map((e) => e.value);
+  assert.equal(c11[0], Math.round(0.4 * 127));
+  assert.ok(Math.max(...c11) === Math.round(0.9 * 127), `la courbe de la scène : ${c11}`);
+});
+
+test('import d’un jeu humain : décalages d’attaque gardés, CC 11 en courbe, puis export : les nuances reviennent', () => {
+  const M = SS.midiFile;
+  const trk = [M.meta.name(0, 'Cordes'), { tick: 0, bytes: [0xc0, 48] }];
+  const on = (tick, n, len) => trk.push({ tick, bytes: [0x90, n, 70] }, { tick: tick + len, bytes: [0x80, n, 0] });
+  on(17, 57, 7 * 480); // un peu en retard
+  on(1920 * 2 - 25, 60, 1800); // un peu en avance
+  for (let s = 0; s < 64; s += 2) trk.push({ tick: s * T, bytes: [0xb0, 11, 40 + s] });
+  trk.sort((a, b) => a.tick - b.tick);
+  const { project: p } = SS.midi.importFile(M.write({ ppq: 480, tracks: [[M.meta.tempo(0, 70)], trk] }));
+  const t = p.tracks[0];
+  const evs = p.scenes.flatMap((s) => s.data[t.id].events);
+  assert.equal(evs[0].shift, Math.round((17 / T) * 100) / 100);
+  assert.equal(evs[1].shift, -Math.round((25 / T) * 100) / 100);
+  const back = SS.midiFile.parse(SS.midi.exportProject(p, { range: 'song', expression: false }).bytes).tracks[1];
+  const starts = back.filter((e) => e.type === 'note' && !e.off).map((e) => e.tick);
+  assert.ok(Math.abs(starts[0] - 17) <= 2 && Math.abs(starts[1] - (1920 * 2 - 25)) <= 2, `attaques : ${starts}`);
+  const c11 = back.filter((e) => e.type === 'cc' && e.cc === 11).map((e) => e.value);
+  assert.ok(c11.length > 2 && Math.max(...c11) > Math.min(...c11) + 40, `CC 11 retrouvé : ${c11}`);
+});
+
+test('courbe de volume : le timbre la suit (sombre quand elle est basse, il s’ouvre quand elle monte)', () => {
+  const t = SS.newTrack({ name: 'C', color: '#888', type: 'instrument', family: 'brass', instrument: 'gm_french_horn' }, SS.newProject());
+  const evs = [{ step: 0, len: 16, notes: [60], vel: 0.8 }, { step: 16, len: 16, notes: [62], vel: 0.8 }];
+  const o = SS.expression.forTrack({ ...t, auto: { volume: { 0: 0.2, 16: 0.9, 31: 0.9 } } }, evs);
+  const b0 = o.get(evs[0]).bright.shape;
+  assert.ok(b0, 'forme du timbre');
+  assert.ok(Math.abs(b0[0][1] - 0.2) < 1e-6 && b0[4][1] > 0.85, `suit la courbe dans la note : ${JSON.stringify(b0)}`);
+  assert.ok(o.get(evs[0]).shape.every(([, v]) => v === 1), 'le volume, lui, reste à la courbe');
+  const hz = (d) => SS.expression.brightHz(4000, o.get(evs[0]).bright.ratio, d);
+  assert.ok(hz(b0[0][1]) < hz(b0[4][1]) / 2, 'plus sombre dans le piano');
+  // une autre courbe sur les mêmes notes : le plan est recalculé
+  const o2 = SS.expression.forTrack({ ...t, auto: { volume: { 0: 0.9, 31: 0.9 } } }, evs);
+  assert.ok(o2.get(evs[0]).bright.shape[0][1] > 0.85);
+  // instrument frappé : pas de forme de timbre (la force de frappe s'en charge)
+  const pia = SS.newTrack({ name: 'P', color: '#888', type: 'instrument', family: 'keys', instrument: 'gm_piano' }, SS.newProject());
+  const op = SS.expression.forTrack({ ...pia, auto: { volume: { 0: 0.2 } } }, evs.map((e) => ({ ...e })));
+  assert.ok(![...op.values()].some((x) => x.bright && x.bright.shape));
+});
+
+test('courbe de volume : un soufflet posé à la main garde sa forme', () => {
+  const t = SS.newTrack({ name: 'C', color: '#888', type: 'instrument', family: 'brass', instrument: 'gm_french_horn' }, SS.newProject());
+  const evs = [{ step: 0, len: 16, notes: [60], vel: 0.8, art: 'swell' }, { step: 16, len: 16, notes: [62], vel: 0.8 }];
+  const o = SS.expression.forTrack({ ...t, sd: { expr: 'expressive' }, auto: { volume: { 0: 0.5, 31: 0.5 } } }, evs);
+  assert.ok(o.get(evs[0]).shape.some(([, v]) => v !== 1), 'soufflet gardé');
+  assert.ok(o.get(evs[1]).shape.every(([, v]) => v === 1), 'les autres notes suivent la courbe');
+});

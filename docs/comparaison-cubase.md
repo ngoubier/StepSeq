@@ -89,7 +89,7 @@ comptent pour nos usages (synthés, arpèges, synthwave, techno mélodique, cin�
 
 | Cubase | StepSeq |
 |---|---|
-| Quantification stricte | Toujours : la grille est à la double-croche (l'import MIDI quantifie aussi) |
+| Quantification stricte | Toujours : la grille est à la double-croche (l'import MIDI garde l'écart à la grille en micro-décalage, et le CC 11 en courbe de volume) |
 | Quantification progressive, retour au non-quantifié | ◐ Micro-décalage par note (± ½ pas) et réglage **Placement** de la console |
 | Grilles en triolets | ✗ — pas de triolets dans la grille (Arp One a des vitesses en triolets) |
 | Groove extrait d'une boucle | ✗ — swing (1/16 ou 1/8, 50 à 75 %) et humanisation globale seulement |

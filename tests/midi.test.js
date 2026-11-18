@@ -122,9 +122,15 @@ test('import : quantification, sustain, mesures vides au début et bilan des per
   const { project: p, report } = SS.midi.importFile(bytes);
   const keys = p.tracks.find((t) => t.name === 'Accords');
   const evs = p.scenes.flatMap((s) => (s.data[keys.id] || {}).events || []);
-  assert.ok(evs.some((e) => e.step === 18 && e.notes.includes(72)), 'note recalée sur la double-croche');
+  const behind = evs.find((e) => e.step === 18 && e.notes.includes(72));
+  assert.ok(behind, 'note placée sur la double-croche la plus proche');
+  assert.equal(behind.shift, Math.round((13 / T) * 100) / 100, 'son retard est gardé en micro-décalage');
+  const trip = evs.find((e) => e.notes.includes(74));
+  assert.equal(trip.step, 33);
+  assert.equal(trip.shift, Math.round((160 / T - 1) * 100) / 100, 'triolet : la double-croche la plus proche, plus l’écart');
   assert.ok(evs.some((e) => e.notes.includes(76) && e.len === 7), 'pédale de sustain : la note dure jusqu’au relâchement');
-  assert.ok(report.warnings.some((w) => /recalées/.test(w)));
+  assert.ok(evs.filter((e) => !e.notes.some((n) => n === 72 || n === 74)).every((e) => !e.shift), 'les notes sur la grille n’ont pas de décalage');
+  assert.ok(report.warnings.some((w) => /décalage d'attaque est gardé/.test(w) && /triolets/.test(w)));
   assert.ok(report.warnings.some((w) => /pitch bend/.test(w)));
 
   // une mesure vide au début : supprimée
@@ -134,6 +140,33 @@ test('import : quantification, sustain, mesures vides au début et bilan des per
   assert.deepEqual(r2.project.tracks[0].events, [{ step: 0, len: 4, notes: [60], vel: 0.71 }]);
   assert.ok(r2.report.warnings.some((w) => /vide/.test(w)));
   assert.throws(() => SS.midi.importFile(M.write({ ppq: 96, tracks: [[M.meta.tempo(0, 100)]] })), /aucune note/);
+});
+
+test('import : l’expression (CC 11) devient une courbe de volume par scène', () => {
+  // une seule scène : 4 mesures de cordes tenues, CC 11 qui monte puis redescend dans chaque mesure
+  const strings = [M.meta.name(0, 'Cordes'), { tick: 0, bytes: [0xc0, 48] }];
+  const other = [M.meta.name(0, 'Piano'), { tick: 0, bytes: [0xc1, 0] }];
+  for (let bar = 0; bar < 4; bar++) {
+    const at = bar * 16 * T;
+    note(strings, 0, at, 16 * T, 57, 80);
+    note(other, 1, at, 4 * T, 69, 80);
+    for (let s = 0; s <= 16; s++) strings.push({ tick: at + s * T, bytes: [0xb0, 11, Math.round(60 + 60 * Math.sin((Math.PI * s) / 16))] });
+  }
+  const { project: p, report } = SS.midi.importFile(M.write({ ppq: 480, tracks: [[M.meta.tempo(0, 90)], strings, other] }));
+  const str = p.tracks.find((t) => t.name === 'Cordes');
+  const pia = p.tracks.find((t) => t.name === 'Piano');
+  const sc = p.scenes[0];
+  const lane = sc.data[str.id].auto && sc.data[str.id].auto.volume;
+  assert.ok(lane, 'courbe de volume dans la scène');
+  assert.ok(Object.keys(lane).length < 16 * 4 && Object.keys(lane).length > 8, `points utiles seulement (${Object.keys(lane).length})`);
+  for (const s of [0, 4, 8, 12, 16 + 8]) {
+    const want = Math.round(60 + 60 * Math.sin((Math.PI * (s % 16)) / 16)) / 127;
+    assert.ok(Math.abs(SS.autoValue(lane, s) - want) < 0.02, `pas ${s} : ${SS.autoValue(lane, s)} ≈ ${want}`);
+  }
+  assert.ok(!(sc.data[pia.id].auto && sc.data[pia.id].auto.volume), 'pas de CC 11 : pas de courbe');
+  assert.ok(report.warnings.some((w) => /CC 11/.test(w) && /1 piste/.test(w)));
+  assert.ok(!report.warnings.some((w) => /contrôleur\(s\)/.test(w)), 'le CC 11 n’est plus compté comme ignoré');
+
 });
 
 test('import : un morceau long est découpé en scènes de 64 mesures au plus', () => {
