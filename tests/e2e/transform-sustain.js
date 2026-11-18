@@ -69,6 +69,7 @@ const ok = (c, m) => {
   // ligne d'automation : groupe « Contrôleurs MIDI », pédale relevée à chaque mesure
   await page.keyboard.press('Escape');
   await page.click('.track .th-auto');
+  await page.locator('.ba-menu button').last().click(); // menu Automation : ligne par pas
   const lane = page.locator('.auto-lane');
   const groups = await lane.locator('.auto-param optgroup').evaluateAll((gs) => gs.map((g) => g.label));
   ok(groups.includes('Contrôleurs MIDI'), `groupes : ${groups.join(' | ')}`);

@@ -43,6 +43,7 @@ const ok = (c, m) => {
 
   ok((await lane.count()) === 0, 'ligne d’automation fermée au départ');
   await page.click('.track .th-auto');
+  await page.locator('.ba-menu button').last().click(); // menu Automation : ligne par pas
   ok((await lane.count()) === 1, 'bouton ∿ : la ligne s’ouvre sous la piste');
   ok((await lane.locator('.acell').count()) === 16, '16 cases alignées sur la grille');
   const x0 = await lane.locator('.acell').first().boundingBox();
@@ -107,6 +108,7 @@ const ok = (c, m) => {
   await page.reload();
   await page.waitForTimeout(500);
   await page.click('.track .th-auto');
+  await page.locator('.ba-menu button').last().click(); // menu Automation : ligne par pas
   await page.waitForTimeout(300);
   const lenSel = lane.locator('.auto-len');
   ok((await lenSel.inputValue()) === '', 'longueur par défaut : comme la piste');

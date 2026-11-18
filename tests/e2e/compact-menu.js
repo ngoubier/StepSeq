@@ -47,6 +47,7 @@ const ok = (c, m) => {
   await menu.locator('.th-vol').fill('0.3');
   ok((await menu.locator('.th-option-pct').textContent()) === '30 %', 'le pourcentage suit le volume');
   await menu.locator('.th-auto').click();
+  await page.locator('.ba-menu button').last().click(); // menu Automation : ligne par pas
   await page.waitForTimeout(200);
   ok((await page.locator('.th-options:popover-open').count()) === 0, 'un choix ferme le menu');
   ok((await page.locator('.auto-lane').count()) === 1, 'Automation : la ligne s’ouvre');
