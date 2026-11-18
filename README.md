@@ -541,6 +541,36 @@ sélection (toutes accentuées, sinon l'accent est retiré). Les arpèges accent
 Juno-106 reçoit l'accent par la vélocité ; l'export MIDI donne aux notes accentuées une vélocité plus forte.
 Presets : **Acid Sub** et **Techno Sub Bass** (Bass).
 
+### Jeu : expression et articulations (`js/expression.js`)
+
+Pour les cordes, les cuivres, les bois et les voix, l'onglet **Jeu** du Sound design fait jouer la piste comme un
+musicien (réglage rangé dans `track.sd`, comme le reste du son : Annuler, versions et fichier le gardent ;
+**Réinitialiser** ne le touche pas) :
+
+- **Expression** (`sd.expr` : `light`, `natural`, `expressive` ; absente : chaque note telle qu'elle est écrite). Les
+  notes de la scène sont groupées en **phrases** (séparées par une croche de silence, 4 mesures au plus). La phrase
+  monte vers sa note la plus haute puis retombe (arc), les notes d'une blanche ou plus **enflent puis se posent**
+  (soufflet), la dernière note s'éteint ; en Expressive, les rondes des cordes et des cuivres font un **« fp »**
+  (attaque, recul, crescendo). Les vents et les voix **respirent** (80 ms) au bout d'une ligne de 4 mesures sans
+  silence. Un **filtre suit la nuance** : le piano est plus sombre, le forte s'ouvre jusqu'au réglage du son (comme
+  les couches de nuance d'une banque orchestrale). Une note n'est jamais plus forte que sa vélocité.
+- **Phrasé automatique** (coupé par `sd.phrase = 0`) : notes qui se touchent → legato, notes répétées → détaché,
+  doubles-croches isolées → staccato.
+- **Articulation d'une note** (`ev.art`, menu de la note, rangée **Jeu** ; signe sur la note) : `leg` legato ⌒ (la
+  note chevauche la suivante de 50 ms et s'éteint vite, la suivante attaque en douceur), `stac` staccato • (45 % de
+  la durée), `det` détaché ‐ (82 %), `ten` tenuto — (toute la durée, sans retombée), `swell` soufflet ◇. Elle
+  l'emporte sur le phrasé automatique et marche sur tout instrument, même sans expression.
+- **Par défaut** : expression Naturelle pour les nouvelles pistes de cordes, cuivres, bois et voix (`SS.newTrack`,
+  donc aussi les chansons de l'assistant) ; changer d'instrument garde le jeu. Les cordes et cuivres de synthé
+  peuvent l'avoir (non posée d'office) ; les pistes Synthé (Juno-106), les arpèges et les cordes pincées n'en ont pas.
+
+Le plan de chaque note est calculé une fois par scène (`SS.expression.plan`, fonction pure mise en mémoire tant que
+les notes ne changent pas) et appliqué par `js/audio.js` : gain qui suit la forme de la note après le VCA, filtre
+qui suit la nuance, durée, attaque et relâchement. Il s'entend à la lecture, dans la boucle du Sound design et à
+l'export audio. Pas encore : l'export MIDI des articulations et de l'expression (CC11), les techniques de jeu
+(pizzicato, trémolo) dans une même piste, le vibrato retardé. Tests : `node --test tests/expression.test.js`,
+`node tests/e2e/expression.js`.
+
 ### Effets d'espace : Cosmos et écho à bande
 
 La fenêtre **FX** d'une piste a une taille fixe et des **onglets verticaux** (une rangée de pastilles sur
@@ -719,6 +749,7 @@ node tests/e2e/juno-eco.js           # mode éco des synthés Juno (mode allég�
 node tests/e2e/audio-diag.js         # mode Diagnostic : reverb raccourcie puis coupée en cas de décrochage, journal de débogage
 node tests/e2e/audio-perf.js
 node tests/e2e/audio-export.js       # Exporter l'audio : master .wav, master + stems .zip, arrêt, bilan
+node tests/e2e/expression.js         # Jeu : expression (rendu), onglet Jeu du Sound design, articulations des notes
 node tests/e2e/automix-pilot.js
 node tests/e2e/automix-loud-bass.js
 node tests/e2e/band-close.js
@@ -1110,6 +1141,7 @@ Les accords par mode et par émotion (`js/emotions.js`) s'appuient sur trois doc
 | `js/midi.js`     | Import MIDI (quantification, pistes, analyse de la structure en scènes) et export MIDI (arrangement, arpèges rendus, correspondances General MIDI) |
 | `js/midipanel.js` | Fenêtres Importer MIDI / Exporter MIDI (options, bilan, téléchargement) |
 | `js/render.js`, `js/audioexport.js` | Exporter l'audio : rendu hors temps réel (master, stems), mesures EBU R128, WAV 16 / 24 / 32 bits, archive ZIP ; fenêtre (options, progression, bilan) |
+| `js/expression.js` | Jeu des cordes, cuivres, bois et voix : phrases, arc, soufflet, phrasé automatique, articulations des notes — fonctions pures |
 | `render.html`, `js/render-boot.js`, `js/render-host.js` | Page de rendu chargée dans un cadre invisible : moteur audio seul sur un `OfflineAudioContext` |
 | `js/transform.js` | Transformations d'une sélection de notes : inversion, rétrograde, durées ×2 / ×½, autre mode |
 | `js/ui.js`       | Rendu des pistes, grille, piano roll, dialogue |

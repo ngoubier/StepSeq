@@ -36,7 +36,7 @@ comptent pour nos usages (synthés, arpèges, synthwave, techno mélodique, cin�
 | 11 | Mixage | ➕ | Console Mix, bus partagés, sidechain, mastering, et l'assistant Auto Mix |
 | 12 | Automation et modulation | ✅ | Lignes d'automation par scène, verrous de son par note, LFO 1 et 2 |
 | 13 | Synthés et contrôleurs physiques | ✗ | Seulement par fichier MIDI exporté ; pas de Web MIDI |
-| 14 | Orchestration, partition, image | ◐ | Instruments GM et cordes / cuivres échantillonnés ; pas d'articulations, de partition ni de vidéo |
+| 14 | Orchestration, partition, image | ◐ | Instruments GM et cordes / cuivres échantillonnés, expression et articulations par note ; pas de techniques de jeu par note, de partition ni de vidéo |
 | 15 | Voix synthétiques et paroles | ◐ | Les paroles guident la mélodie (syllabes) ; pas de synthèse vocale |
 | 16 | Export et livraison | ✅ | Export MIDI complet ; export audio WAV (master et stems, 16 / 24 / 32 bits) avec bilan EBU R128 |
 | 17 | Éditions | — | StepSeq : gratuit, dans le navigateur, sans installation |
@@ -173,7 +173,10 @@ séquenceur du synthé. Il manque :
 
 ### 14. Orchestration, partition, image — ◐
 
-Instruments General MIDI, cordes, cuivres et bois VCSL ; pas d'Expression Maps (articulations), pas d'éditeur de
+Instruments General MIDI, cordes, cuivres et bois VCSL. **Jeu** (onglet du Sound design) : expression automatique
+(arc de phrase, soufflet, « fp », timbre qui suit la nuance, respiration), phrasé automatique et articulations par
+note (legato, staccato, détaché, tenuto, soufflet) — l'équivalent des Expression Maps, sans changement de technique
+(pizzicato, trémolo) dans une même piste pour l'instant. Pas d'éditeur de
 partition (le skill `midi-to-score` peut afficher la partition d'un fichier MIDI exporté), pas de vidéo.
 
 ### 15. Voix et paroles — ◐
@@ -230,8 +233,8 @@ Au-delà de la comparaison directe, classées par rapport entre effort et intér
 
 Plus ciblées :
 
-- **Cinématique** : ligne d'expression (CC 1 / CC 11), articulations simples par note (legato, staccato), ralentis
-  par scène.
+- **Cinématique** : ✅ expression et articulations par note (onglet Jeu) ; reste l'export MIDI en CC 11 et les
+  ralentis par scène.
 - **Techno mélodique** : générateur de rythmes euclidiens, LFO sur les envois et les effets.
 - **Couches** : une piste qui joue deux sons (unisson, octave) sans dupliquer les notes, équivalent léger des
   Instrument Stacks.

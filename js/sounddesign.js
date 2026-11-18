@@ -259,6 +259,8 @@ SS.soundDesign = (() => {
     st('lfo', active ? `${active} actif${active > 1 ? 's' : ''}` : 'off', active > 0);
     st('glide', p.glide ? `${p.glideMode === 'legato' ? 'legato' : 'toujours'} · ${fmtTime(p.glide)}` : 'off', p.glide > 0);
     st('out', `${fmtPct(p.gain)} · ${SPECS.pan.fmt(p.pan)}`);
+    const xl = SS.EXPR_LEVELS.find((e) => e.id === p.expr);
+    st('play', xl ? xl.label.toLowerCase() + (p.phrase === 0 ? '' : ' · phrasé') : 'off', !!xl);
     for (let i = 1; i <= SS.LFO_COUNT; i++) {
       const dest = p[`lfo${i}Dest`];
       $(`#sdLfoTab${i} .dot`).classList.toggle('on', !!dest && dest !== 'off');
@@ -267,9 +269,81 @@ SS.soundDesign = (() => {
 
   const noiseColor = (p) => SS.NOISE_COLORS.find((c) => c.id === p.noiseColor) || SS.NOISE_COLORS[0];
 
+  /* ---------- Onglet Jeu : expression et phrasé (js/expression.js) ---------- */
+  function buildPlay() {
+    SS.EXPR_LEVELS.forEach((e) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.v = e.id;
+      b.setAttribute('role', 'radio');
+      b.textContent = e.label;
+      b.title = e.desc;
+      b.addEventListener('click', () => {
+        set('expr', e.id === 'off' ? undefined : e.id);
+        refresh();
+        previewPhrase();
+      });
+      $('#sdExpr').append(b);
+    });
+    $('#sdPhrase').addEventListener('change', (e) => {
+      set('phrase', e.target.checked ? undefined : 0);
+      refresh();
+      previewPhrase();
+    });
+    $('#sdPlayPhrase').addEventListener('click', () => previewPhrase(true));
+  }
+
+  /** Une phrase d'essai jouée avec l'expression et le phrasé de la piste (montée, note longue, notes répétées, retour). */
+  function previewPhrase(force) {
+    if (!track || SS.audio.isPlaying() || SS.arpOn(track) || SS.follows(track)) return;
+    if (!force && SS.trackLoop.active(track)) return; // la boucle fait déjà entendre la piste
+    const root = track.lastRoot ?? (track.octave + 1) * 12;
+    const pr = app.project && app.project();
+    const sd = 60 / (pr ? pr.tempo : 100) / 4;
+    const line = [[0, 2, 0], [2, 2, 2], [4, 2, 4], [6, 2, 5], [8, 12, 7], [20, 2, 5], [22, 2, 4], [24, 1, 2], [26, 1, 2], [28, 12, 0]];
+    const evs = line.map(([step, len, iv]) => ({ step, len, notes: [root + iv], vel: 0.8 }));
+    const amt = SS.exprAmount(track);
+    const plan = amt ? SS.expression.plan(evs, { amt, family: SS.exprFamily(track) || 'synth', phrase: !(track.sd && track.sd.phrase === 0) }) : new Map();
+    SS.audio.playPhrase(
+      track,
+      evs.map((ev) => {
+        const o = plan.get(ev);
+        let dur = ev.len * sd * 0.98;
+        if (o) dur = Math.max(0.05, dur * o.durK + o.overlap - Math.min(o.breath, dur * 0.4));
+        return { midi: ev.notes[0], at: ev.step * sd, dur, vel: ev.vel, expr: o || null };
+      })
+    );
+  }
+
+  function refreshPlay(p) {
+    const cur = (track.sd && track.sd.expr) || 'off';
+    $('#sdExpr').querySelectorAll('button').forEach((b) => {
+      b.classList.toggle('active', b.dataset.v === cur);
+      b.setAttribute('aria-checked', String(b.dataset.v === cur));
+    });
+    const lvl = SS.EXPR_LEVELS.find((e) => e.id === cur) || SS.EXPR_LEVELS[0];
+    $('#sdExprHint').textContent = lvl.desc;
+    const ph = $('#sdPhrase');
+    ph.checked = !(track.sd && track.sd.phrase === 0);
+    ph.disabled = cur === 'off';
+    ph.closest('label').classList.toggle('dim', cur === 'off');
+    const fam = SS.exprFamily(track);
+    const FAM = {
+      strings: 'Cordes frottées : arc de phrase, soufflet des notes longues, « fp » en Expressive.',
+      brass: 'Cuivres : arc de phrase, soufflet, respiration au bout des longues lignes, timbre très sensible à la nuance.',
+      winds: 'Bois et sax : arc de phrase, soufflet, respiration au bout des longues lignes.',
+      voice: 'Voix et chœurs : arc de phrase, soufflet, respiration au bout des longues lignes.',
+      synth: 'Cordes ou cuivres de synthé : l’expression s’applique aussi, comme à un ensemble joué au clavier avec une pédale d’expression.',
+      pluck: 'Instrument pincé ou piqué : l’expression a peu d’effet sur un son qui s’éteint seul ; les articulations restent utiles.',
+    };
+    $('#sdExprFamily').textContent = FAM[fam] || 'Pensé pour les cordes, les cuivres, les bois et les voix ; sur ce son, l’expression joue surtout sur les nuances.';
+    $('#sdPlayPhrase').disabled = SS.arpOn(track) || SS.follows(track);
+  }
+
   function build() {
     buildTabs();
     buildLfoPanels();
+    buildPlay();
     for (const [key, spec] of Object.entries(SPECS)) {
       const id = 'sd_' + key;
       const out = document.createElement('output');
@@ -416,7 +490,12 @@ SS.soundDesign = (() => {
       SS.trackLoop.start(track, app.project(), () => preview(true), setLoopBtn);
     });
     $('#sdReset').addEventListener('click', () => {
-      delete track.sd;
+      // le jeu (expression, phrasé) n'est pas un réglage du preset : il reste
+      const keep = {};
+      if (track.sd && track.sd.expr) keep.expr = track.sd.expr;
+      if (track.sd && track.sd.phrase === 0) keep.phrase = 0;
+      if (Object.keys(keep).length) track.sd = keep;
+      else delete track.sd;
       refresh();
       app.changed();
       preview();
@@ -491,6 +570,7 @@ SS.soundDesign = (() => {
     const gm = SS.GLIDE_MODES.find((m) => m.id === p.glideMode) || SS.GLIDE_MODES[0];
     $('#sdNoiseHint').textContent = p.noise > 0 ? noiseColor(p).hint + '.' : 'Ajoute du souffle au son de l’oscillateur ; coupe l’oscillateur pour n’entendre que le bruit.';
     $('#sdGlideHint').textContent = p.glide ? gm.hint + '.' : 'Réglez un temps pour faire glisser la hauteur d’une note à la suivante.';
+    refreshPlay(p);
     updateValues(true);
   }
 
