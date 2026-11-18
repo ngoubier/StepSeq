@@ -8,7 +8,7 @@
  */
 window.SS = window.SS || {};
 SS.wizDraft = (() => {
-  const VERSION = 2; // 2 : le groupe (liste de musiciens, js/bandgroup.js) ; un brouillon v1 est migré par band.js (musiciens « dans le groupe »)
+  const VERSION = 3; // 3 : l'étape « Effets et transitions » (fx) a décalé Mix et Intégration (band.js renumérote un brouillon plus ancien) ; 2 : le groupe (liste de musiciens, js/bandgroup.js) ; un brouillon v1 est migré par band.js (musiciens « dans le groupe »)
   const clone = (x) => (x === undefined ? undefined : JSON.parse(JSON.stringify(x)));
   const isObj = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
   const str = (x, d = null) => (typeof x === 'string' && x.length < 200 ? x : d);
@@ -18,7 +18,7 @@ SS.wizDraft = (() => {
   const list = (x) => (Array.isArray(x) ? x : []);
 
   /** Champs de S.wiz rangés tels quels (objets), puis les ensembles et le Map. */
-  const OBJ = ['plans', 'pseeds', 'keys', 'grids', 'emos', 'chars', 'parts', 'kinds', 'melPanel', 'secs', 'accView'];
+  const OBJ = ['plans', 'pseeds', 'keys', 'grids', 'emos', 'chars', 'parts', 'kinds', 'melPanel', 'secs', 'accView', 'groove', 'fx'];
   const SETS = ['seen', 'off', 'mute', 'solo'];
 
   /** src : { mode, styleId, presetId, cover, group, cache, hide: Set, mel, accOpen, tracksOpen, w: S.wiz } */
@@ -101,6 +101,7 @@ SS.wizDraft = (() => {
     SETS.forEach((k) => (out.w[k] = new Set(list(w[k]).filter((v) => typeof v === 'string' || typeof v === 'number'))));
     OBJ.forEach((k) => (out.w[k] = obj(w[k])));
     // panneau « Accents » : seulement les états connus (ouvert, replié)
+    out.w.groove = Object.fromEntries(Object.entries(out.w.groove).filter(([k, v]) => (k === 'swing' || k === 'human') && typeof v === 'number' && v >= 0 && v <= 100)); // groove de la chanson : swing et humanisation en %
     out.w.accView = Object.fromEntries(Object.entries(out.w.accView).filter(([k, v]) => typeof k === 'string' && (v === 'open' || v === 'fold')));
     if (!out.w.seen.size) out.w.seen.add(out.w.step);
     return out;

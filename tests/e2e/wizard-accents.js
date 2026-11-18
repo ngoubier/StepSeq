@@ -129,7 +129,7 @@ const ok = (c, m) => {
   await page.click('.bwa-pat[data-id="strong"]');
   a = await acc('verse');
   ok(a && JSON.stringify(a.steps) === '[0,8]' && (await page.locator('.bwa-pat.on').getAttribute('data-id')) === 'strong', 'Temps forts : pas 0 et 8, motif repéré');
-  ok(/Basse · Croches · 2 accents/.test((await page.textContent('#bandWizSteps li.cur')).replace(/\s+/g, ' ')) && /2 accents/.test(await page.textContent('.bh-scene.on .bwa-badge')), 'résumé du stepper « Basse · Croches · 2 accents » et pastille « 2 accents »');
+  ok(/Basse.* · Croches · 2 accents/.test((await page.textContent('#bandWizSteps li.cur')).replace(/\s+/g, ' ')) && /2 accents/.test(await page.textContent('.bh-scene.on .bwa-badge')), 'résumé du stepper « Basse … · Croches · 2 accents » et pastille « 2 accents »');
   // le motif se répète : repeat 2 ne change pas le jeu (le motif d'une mesure est recopié)
   await page.click('#bwAccRep [data-v="2"]');
   a = await acc('verse');
@@ -259,7 +259,7 @@ const ok = (c, m) => {
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'accents-real.png') });
 
   // Créer la chanson : notes de basse accentuées, vélocité plus forte, filtre
-  for (let i = 0; i < 8 && !(await page.isVisible('#bwCreate')); i++) await next();
+  for (let i = 0; i < 10 && !(await page.isVisible('#bwCreate')); i++) await next();
   await page.click('#bwCreate');
   await page.waitForTimeout(1200);
   const p = await P();

@@ -94,6 +94,8 @@ les outils du séquenceur, comme un producteur dans son DAW (`spec.tech` dans `j
   et arpège dont le filtre s'ouvre sur la première mesure ; trilles de charleston (ratchets) en fin de phrase ;
 - **conditions de déclenchement** : charleston fantôme à 50 %, percussions, rimshots, open hat et ride à 75 % ou
   « 1:2 » — la batterie change un peu à chaque passage ;
+- **transitions réglables** : l'étape **Effets et transitions** de l'assistant montre et retouche ces montées, coupures,
+  impacts (et ajoute une cymbale inversée, une descente, des percussions d'ambiance) jonction par jonction ;
 - **outro** qui se referme (passe-bas) avec un fondu ; mixage propre au style (grande reverb sombre, écho en croche
   pointée, image stéréo plus large).
 
@@ -120,8 +122,8 @@ enregistrés avant cette correction sont transposés à l'ouverture pour sonner 
   mesuré (`tools/measure-levels.js` → `js/band-levels.js`) ; chaque piste part du même niveau puis est placée selon
   son rôle (kick et basse devant, caisse claire et lead présents, nappes et arpège derrière, percussions en fond),
   avec une marge d'environ 18 LU avant le master ;
-- **égalisation et dynamique** par rôle : passe-haut sur tout sauf kick et basse, creux du bas-médium des nappes et
-  claviers, présence de la caisse claire et du lead ; compresseur sur kick, caisse claire, basse, piano et voix ;
+- **égalisation et dynamique** par rôle : passe-haut sur tout sauf kick et basse, creux marqué du bas-médium (≈330–400 Hz) des nappes, claviers, arpège
+  et lead, « air » (étagère haute ≈11 kHz) sur nappes, lead, arpège, charleston et cymbales, présence de la caisse claire et du lead ; compresseur sur kick, caisse claire, basse, piano et voix ;
   sidechain sur le kick (fort en EDM et en techno mélodique, léger sur les nappes en synthwave) ;
 - **espace** : panoramique par rôle ; envois vers trois **bus d'effets partagés** (reverb plate pour la batterie,
   hall pour les instruments, écho ping-pong au tempo), chorus sur nappes, guitare et voix ; kick et basse secs ;
@@ -134,20 +136,24 @@ enregistrés avant cette correction sont transposés à l'ouverture pour sonner 
 
 ### Nouvelle chanson : l'assistant
 
-**Nouvelle chanson…** (menu de l'icône de l'application) part d'une chanson vide et ouvre un assistant en onze
-étapes, dans la fenêtre principale (`js/band.js`, mode `body.wizard-mode`) : plus de fenêtre plein écran, l'assistant occupe la zone
-des pistes, entre la barre du haut et le bas de l'écran. À gauche, le **stepper** (les onze étapes, un résumé chacune) : un clic va à l'étape
+**Nouvelle chanson…** (menu de l'icône de l'application) part d'une chanson vide et ouvre un assistant en douze
+étapes (une par instrument du groupe : le nombre varie), dans la fenêtre principale (`js/band.js`, mode `body.wizard-mode`) : plus de fenêtre plein écran, l'assistant occupe la zone
+des pistes, entre la barre du haut et le bas de l'écran. À gauche, le **stepper** (les étapes, un résumé chacune ; Finaliser : Effets et transitions, Mix, Intégration) : un clic va à l'étape
 (seul le calcul de la chanson verrouille les étapes : inspiration ou reprise sans plan, aucun musicien) ; <kbd>Alt</kbd>+<kbd>→</kbd> / <kbd>←</kbd>
 passent à l'étape suivante / précédente. Au bas, un seul bouton **Fermer** (comme <kbd>Échap</kbd> : rien n'est créé). L'écoute se commande dans la
 barre du haut (`js/main.js` route Lecture, Stop et le champ tempo vers `SS.band` tant que l'assistant est ouvert) :
 lecture / pause / reprise (`SS.audio.pause` / `resume`), stop, position, **tempo** réglable (40–240 BPM, appliqué à
-l'écoute en cours et à la chanson créée) et **tonalité** (armure, accord de tonique). Aux étapes Batterie, Accords, Basse, Nappes, Arpèges et
+l'écoute en cours et à la chanson créée) et **tonalité** (armure, accord de tonique) ; tempo et tonalité suivent dès le choix du style, de l'inspiration ou de la reprise (étape 1), sans attendre l'étape 3. Aux étapes Batterie, Accords, Basse, Nappes, Arpèges et
 Mélodie, les **scènes** sont en colonne à gauche, sous la tête d'étape (nom, mesures, accords, et le choix de l'étape : motif, émotion, mode,
 caractère…), et **▶ joue la scène choisie en boucle** (pas toute la chanson ; choisir une autre scène pendant l'écoute la fait jouer) :
 
 1. **Style** : les deux portes **Créer** / **Reprendre**, le style musical (avec son **tempo conseillé**, de la plus
    lente à la plus rapide de ses inspirations, et sa description ; la fiche du style montre la zone sur l'échelle des
-   tempos) et l'inspiration (ou la reprise tapée) ; **Chanson vide** ferme l'assistant (comme Fermer) ;
+   tempos) et l'inspiration (ou la reprise tapée) ; **Chanson vide** ferme l'assistant (comme Fermer). En haut à droite de la tête d'étape,
+   le gros bouton vert **▶ Générer et écouter** (« puis affine étape par étape ») joue toute la chanson aperçue : tous les
+   instruments, toutes les scènes, comme l'écoute de l'étape Scènes et commandée par la barre du haut (Lecture, Stop, tempo). Sans
+   inspiration choisie, il prend la première du style choisi (ou du premier style) ; pendant l'écoute il devient
+   **■ Lecture · scène Intro** (re-clic : arrêt) ;
 2. **Instruments** : les musiciens du groupe (la scène, le panneau du musicien : instrument phare, conseillés, toute la
    bibliothèque ; kit et éléments du batteur) et l'interrupteur **General MIDI** (en haut du contenu de l'étape, à côté de la tête) ;
 3. **Tempo et tonalité** : le **tempo** (grand afficheur, − / +, curseur de 40 à 240 BPM avec la zone dorée du tempo
@@ -176,10 +182,32 @@ caractère…), et **▶ joue la scène choisie en boucle** (pas toute la chanso
 5. **Batterie** : pour la scène choisie, une **bibliothèque de 20 motifs** du style (`SS.DRUM_PATTERNS`, carte avec nom,
    énergie ●●○ et aperçu des cinq pistes ; filtre Tous / Calme / Moyen / Intense ; **Suggéré** pour la nuance de la
    scène : intro, outro, break calmes, montée et pont moyens, refrain, drop et sommet intenses). **Motif de l'inspiration**
-   est choisi par défaut : tant qu'on ne touche à rien, c'est le groove du plan. Dessous, la **grille** du motif
-   (grosse caisse, caisse claire, clap, charleston fermé et ouvert × 16 pas : un clic fait tourner fort, moyen, léger,
-   éteint ; **Revenir au motif**), les mesures de la scène (fills en rose), le **fill** (jamais, fin de scène, toutes les
-   4 ou 8 mesures), son type et le **crash** ; **Assortir toutes les scènes** pose un motif suggéré par scène ;
+   est choisi par défaut : tant qu'on ne touche à rien, c'est le groove du plan. Dessous, la **grille** : **une ligne par
+   élément coché du kit** (grosse caisse, caisse claire, clap, charleston fermé et ouvert, rimshot, crash, ride, percussions, toms… ce que
+   le batteur a coché à l'étape Instruments ; décocher un élément retire sa ligne), couleur de rôle, en **1, 2 ou 4 mesures**
+   (16, 32 ou 64 pas, temps groupés par quatre et mesures séparées ; passer à un motif plus long répète le motif, plus court le coupe).
+   Une ligne montre ce qui joue (le motif choisi, sinon le jeu du plan pour les pièces que le motif ne pilote pas : rimshot, percussions, toms) ;
+   le premier geste écrit toutes les lignes dans `edits`. **Un clic** fait tourner fort, moyen, léger, éteint ; **clic droit**, **appui long**
+   (tactile) ou la touche Menu contextuel / <kbd>Maj</kbd>+<kbd>F10</kbd> ouvre la fenêtre d'options de la case : **Vélocité**
+   (Fort / Moyen / Léger), **Répétitions** ×1 à ×4 (ratchet, `rat`), **Probabilité** 100 / 75 / 50 / 25 % ou 1:2, 2:2 (conditions de
+   déclenchement, `cond` : `p75`, `p50`, `p25`, `1:2`, `2:2`), **Effacer la case** (<kbd>Échap</kbd> ferme). Une case montre sa vélocité par la
+   hauteur de remplissage, ×2 / ×3 et la probabilité en petites marques. Les flèches déplacent le focus entre cases, <kbd>Entrée</kbd> /
+   <kbd>Espace</kbd> font tourner la case. Sur téléphone la grille défile en largeur dans sa carte. **Swing** (des doubles-croches, 0 à
+   100 % de 50 à 75 %) et **Humanisation** sont des réglages **de toute la chanson** (`project.groove`, `S.wiz.groove` ; le moteur n'a pas de swing par
+   scène, la mention « pour toute la chanson » est sur les curseurs) : ils s'entendent tout de suite et la chanson créée les garde
+   (humanisation 15 % et pas de swing tant qu'on n'y touche pas). Puis **Revenir au motif**, les mesures de la scène (fills en rose), le
+   **fill** (jamais, fin de scène, toutes les 4 ou 8 mesures), son type et le **crash** ; **Assortir toutes les scènes** pose un motif suggéré par scène ;
+   **Copier vers les scènes du même type** copie aussi la grille et la progression de montée. L'aperçu, l'écoute en boucle et « Créer la chanson » jouent exactement la grille (vélocité fort / moyen / léger, ratchets, conditions).
+   **Scène de montée** (`drums: 'build'`) : au-dessus de la grille, la carte **Progression de la montée**. Le roulement est joué par la caisse claire
+   (le clap si le kit n'en a pas) et se règle **mesure par mesure** : **Noires** (4 coups par mesure), **Croches** (8), **Doubles croches** (16),
+   **Triples** (24 : une croche sur deux pas rejouée en ratchet ×3). Préréglages **Linéaire** (montée régulière : 1/4 de la scène par
+   densité), **Rapide** (le roulement arrive tôt, le sommet est atteint à mi-scène puis tenu), **Tardive** (noires jusqu'aux deux dernières mesures,
+   doubles puis triples) et **Perso** : un clic sur une colonne rend la mesure plus dense d'un cran (<kbd>Maj</kbd> + clic, clic droit ou flèche bas : moins dense ; passe en Perso).
+   Le curseur **Crescendo de volume** règle la rampe de vélocité du roulement sur toute la scène (0 : plat, 100 % : de très doux à fort). Le numéro d'une colonne choisit la
+   mesure dont la grille de 16 pas (caisse claire, clap, charleston, crash) s'affiche dessous, « générée depuis la courbe » : modifier une case la
+   **verrouille** (pastille **🔒 Mesure libre**, un clic la rend à la courbe) et un changement de courbe ou de préréglage ne la touche plus. Sans réglage,
+   la montée est celle du plan (le roulement d'origine de `drumSpice`) ; dès qu'une progression est posée, elle le remplace. Les réglages
+   sont `parts[section].drums = { edits, build }` (voir plus bas) ; tests : `node tests/e2e/wizard-drums.js`, `node --test tests/drumgrid.test.js` ;
 6. **Accords** : la **grille** de la scène choisie, comme celle d’Harmonie (`{ step, len, degree, type, acc }`, degrés dans
    la tonalité de la scène) : **tonalité** de la scène (tonique et mode ; la grille garde ses degrés), **Aimanter** (à la
    mesure, à la demi-mesure, au temps), **Effacer**, **↺ Inspiration** (accords et tonalité d'origine). Un clic sur un
@@ -225,9 +253,45 @@ caractère…), et **▶ joue la scène choisie en boucle** (pas toute la chanso
    proposition. L'**accompagnement** est sous le panneau, replié sur une ligne, déplié avec le
    **volume** (−30 à +6 dB, `gains` d'`addBandSong`) par instrument et le menu **Pistes** (Muet et Solo : barre de piste) ; test :
    `node tests/e2e/wizard-melody.js` ;
-11. **Intégration** : cases à cocher par musicien (batterie, basse, nappes, arpèges, lead…) et par élément de batterie ;
+11. **Effets et transitions** (groupe « Finaliser », entre la dernière étape d'instrument et Mix ; `ST.fx`, adresse `'fx'` :
+   `stepRef` / `stepNum`, et `ST.mix` / `ST.pick` prennent un numéro de plus ; un brouillon enregistré avant l'étape, version < 3, est
+   renuméroté à sa réouverture). En haut, la **frise** des scènes dans l'ordre de l'arrangement (blocs de la couleur du type de
+   scène, défilement horizontal sur téléphone) et, entre deux blocs, une **pastille ronde** : le nombre d'effets actifs à cette
+   jonction ; un clic la choisit (par défaut, la jonction avant le premier drop, sinon la première). La carte **Transition avant
+   « Drop »** montre un **aperçu** de −8 à +1 mesures autour de la jonction, puis une ligne par effet (interrupteur et réglages) :
+   **Montée de bruit** (4 / 8 / 16 mesures, plafonnées à la longueur de la scène d'avant ; filtre : passe-bas qui s'ouvre, passe-haut
+   qui s'ouvre ou sans filtre), **Filtre passe-haut global** (toutes les pistes mélodiques et la basse, sur la 2e moitié de la scène
+   d'avant ; curseur de la fréquence finale, 200 à 4 000 Hz : c'est l'automation de filtre des montées, dont l'ouverture suit
+   le réglage), **Cymbale inversée** (1 temps, 1 mesure, 2 mesures avant la jonction), **Coupure avant** (aucune, 1 temps, 1 mesure de
+   silence : le `gap` du plan, généralisé), **Impact au début** (impact grave + crash, crash seul ou impact grave ; niveau) et
+   **Descente** (2 ou 4 mesures après l'impact). **Copier vers les autres drops** recopie les réglages vers toutes les jonctions qui
+   entrent dans une scène de type drop. **▶ Écouter la transition** boucle les 4 dernières mesures de la scène d'avant puis les 4
+   premières de la suivante (le réglage change : l'écoute reprend ; quitter l'étape l'arrête). **↺ Comme le plan** efface les
+   retouches de la jonction. Sans retouche, la chanson est **exactement** celle du plan : l'étape montre ce que le plan fait déjà
+   (montée de 8 mesures, coupure d'un temps, passe-haut, impact sur les montées et drops techno) et ne l'écrit pas. Les retouches sont dans `S.wiz.fx`
+   (`junctions['avant>après']` par sections, partielles ; `perc`), enregistrées dans le brouillon et passées à l'option `fx` de
+   `SS.bandSong.build` (aperçu, écoute, « Créer la chanson ») ; défauts : `SS.bandSong.junctionDefaults`. Limites : les réglages sont
+   gardés par couple de sections (deux blocs « Montée → Drop » partagent les leurs ; une scène qui sort vers deux scènes différentes
+   prend les réglages de la première jonction retouchée) ; la **cymbale inversée** n'est pas un échantillon lu à l'envers (le moteur n'en
+   sait pas) mais une courte **montée de bruit à enveloppe montante** sur la piste Effets, qui finit sur le premier temps. La carte
+   **Percussions** est une matrice **scènes × boucles** (Shaker 16es, Conga / tumbao, Tom roulant grave) sur les pistes du Percussionniste
+   (pièces `sh`, `perc`, `misc` de son kit) : une case allumée joue la boucle du **style** (Techno, Latin, Minimal ; **▶ Écouter** joue la
+   première scène qui en a), éteinte elle coupe la boucle ; sans réglage, la case montre ce que le plan joue déjà. Une pièce absente du kit
+   est grisée, avec « + ajouter la pièce ». **Sans musicien Effets** (ou sans Percussionniste), un message et un bouton **+ Ajouter** à la
+   place des réglages (l'Effets et le Percussionniste sont des musiciens facultatifs de chaque inspiration : `optional` dans
+   `js/band-presets.js`, jamais dans le groupe par défaut) ; le passe-haut et la coupure restent. Sans retouche de percussions les pistes jouent le plan. Test : `node tests/e2e/wizard-fx.js` ;
+12. **Intégration** : cases à cocher par musicien (batterie, basse, nappes, arpèges, lead…) et par élément de batterie ;
    **Créer la chanson** (bouton dans l'étape, en haut à droite, avec le compte des pistes) écrit les pistes cochées, les scènes et l'arrangement (tempo de la barre du haut, mixage
    automatique de Band). Ce qui est créé est exactement l'aperçu ; Ctrl+Z revient à la chanson vide.
+
+**Étapes instrument** : le **titre** (tête d'étape et stepper) est le nom du musicien (Batterie, Basse, Arpège, Nappe, Lead… ou le nom
+donné à l'étape 2) ; le **son** (« Moog Bass (synthé, ladder + glide) ») est la ligne secondaire : sous le titre dans la tête, et en
+début de résumé dans le stepper (sans sa parenthèse). La pastille du type de la tête dit « Nappe » (et non « Accords », qui est l'étape 5) ; les
+couleurs de rôle sont inchangées.
+
+**Étapes Mix et Intégration** : à 1500 px de large, tout est visible sans défiler (bandes de mixeur et colonnes de piste qui se resserrent) ; plus
+étroit, la console du Mix et la grille de l'Intégration défilent en largeur, avec une barre de défilement bien visible et une ombre au bord
+qui cache la suite.
 
 **Barre de piste** (étapes 5 à 10, au-dessus du contenu) : **Piste** liste les instruments que l'étape 2 propose au musicien
 de l'étape (Batterie : menu du **kit** et cases des éléments ; Accords : « Accords de la scène » ; Nappes : la nappe, sinon
@@ -251,8 +315,14 @@ sommet par scène.
 **Réglages par scène (`parts`).** `SS.bandSong.build(spec, id, tracks, { parts })` accepte, pour chaque section,
 `{ drums, bass, pad, arp, lead, off }` (réglés dans les étapes Batterie, Basse, Nappes, Arpèges et Mélodie de l'assistant). Sans `parts`, la chanson
 est exactement celle du plan. **Batterie** : `{ style, pattern, edits, fill: off|end|4|8, fillType: roll|toms|clap4|kick|cut|open,
-crash }` ; `pattern` est un identifiant de `js/drum-patterns.js` (kick, caisse claire, clap, charleston fermé et ouvert sur
-une mesure de 16 pas : `x` fort, `o` moyen, `.` léger, `-` silence), `edits` remplace ses pistes. **Basse** : `{ mode (dont
+crash, build }` ; `pattern` est un identifiant de `js/drum-patterns.js` (kick, caisse claire, clap, charleston fermé et ouvert sur
+une mesure de 16 pas : `x` fort, `o` moyen, `.` léger, `-` silence), `edits` remplace ses pistes. `edits` (ancien format) : `{ K, S, C, H, O }`
+de 16 caractères ; depuis la grille de l'assistant : `{ bars: 1|2|4, K, S, C, H, O, rd, rim, cr, ht, mt, lt, perc… (une piste de 16 × bars
+caractères par pièce du kit ; K S C H O pour bd sd cp hh oh, l'identifiant du son pour les autres), rat: { piste: { pas: 2..4 } }, cond: { piste:
+{ pas: 'p75' | 'p50' | 'p25' | '1:2' | '2:2'… } } }` : une pièce qui a sa piste est jouée telle quelle (motif répété sur la scène, fill et crash compris), les anciens
+brouillons restent lus comme avant. `build` (scènes de montée) : `{ preset: 'lin'|'fast'|'late'|'custom', levels: [1..4 par mesure] (custom), cresc: 0..1, lock:
+{ [mesure]: { lanes: { sd, cp, hh, cr : 16 caractères }, rat, cond } } }` ; niveaux 1 à 4 = noires, croches, doubles-croches, triples (24 coups : une croche sur
+deux pas en ratchet ×3). **Basse** : `{ mode (dont
 half et quarter), pedal: none|tonic|fifth, approach, register: low|mid }`. **Nappe** : `{ mode, voicing: close|open }`. **Arpège** : `{ mode }` (8 modes simples du moteur) ou `{ one }`, des réglages
 d'Arp One (`js/arp.js`) : les accords de la scène passent dans `SS.Arp.renderStep` (voicing médium, tempo nominal 120 BPM, boucle 0 :
 déterministe) et les notes sont posées sur la grille de pas ; `one` l'emporte sur `mode`.
@@ -276,7 +346,7 @@ ci-dessus) et **Reprendre**, pour faire vite une reprise (`js/band.js`, `coverMo
 L'inspiration choisie à gauche devient « le groupe joue à la façon de… » : chaque partie reprend le jeu de la section
 de l'inspiration qui lui correspond d'après son nom (couplet → couplet, refrain → refrain ou drop, pont → pont ou
 break, intro, outro, solo, pré-refrain ou montée), avec ses musiciens, sur les accords tapés. La basse suit la
-basse imposée des accords (`D/F#` : Fa♯). Les étapes suivantes (Chanson, Batterie, Accords, Basse, Nappes, Arpèges, Mélodie, Intégration) sont les
+basse imposée des accords (`D/F#` : Fa♯). Les étapes suivantes (Chanson, Batterie, Accords, Basse, Nappes, Arpèges, Mélodie, Effets et transitions, Mix, Intégration) sont les
 mêmes que pour Créer ; **Créer la chanson** donne au projet le titre et le tempo de la reprise.
 Test : `node tests/e2e/cover-wizard.js`.
 

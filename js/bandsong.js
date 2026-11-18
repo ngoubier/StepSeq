@@ -23,7 +23,8 @@
  *    jeu du plan. fill : off | end (dernière mesure) | 4 | 8 (une mesure sur 4 / 8) ; fillType : roll toms clap4 kick cut open
  *    (dès le pas « from » du fill, le motif est remplacé par le fill, sauf le kick au pas « from » ; « cut » coupe) ;
  *    crash : cymbale crash au premier pas. Sans motif, fill et crash s'ajoutent au jeu du plan (fill, même « off »,
- *    remplace alors le roulement automatique de fin de section) ;
+ *    remplace alors le roulement automatique de fin de section) ; edits peut aussi être la grille de l'assistant (bars, une piste par
+ *    pièce du kit, rat, cond : voir gridSteps) et build la progression d'une scène de montée (voir rollBar) ;
  *  - bass { mode, pedal: none | tonic | fifth, approach, register: low | mid } : mode remplace celui du plan (et peut
  *    allumer la basse ; s'ajoutent half et quarter) ; pedal joue la tonique (ou la quinte) de la tonalité sous tous les
  *    accords, sans notes d'approche ; approach false les supprime ; mid = une octave plus haut ;
@@ -615,6 +616,167 @@ SS.bandSong = (() => {
           if (ln === lane || (ln === 'C' && sound === 'cp') || (ln === 'T' && k === 'tom' && ti === (tomIndex[sound] ?? 1))) put(b * SPB + s, v);
         });
     }
+    return out;
+  }
+
+  /* ---------- grille de batterie de l'assistant (edits) et progression de montée (build) ----------
+   * edits : { K, S, C, H, O } (anciens brouillons : cinq pistes de 16 caractères) ou, depuis la grille de l'assistant,
+   *   { bars: 1 | 2 | 4, K S C H O (grosse caisse, caisse claire, clap, charleston, charleston ouvert) et l'identifiant du son pour
+   *     les autres pièces du kit (rd, rim, cr, ht, mt, lt, perc…) : texte de 16 × bars caractères (x o . -),
+   *     rat: { piste: { pas: 2..4 } }, cond: { piste: { pas: 'p75' | 'p50' | 'p25' | '1:2' | '2:2' … } } }.
+   *   Avec bars, une pièce qui a sa piste dans edits est jouée telle quelle (gridSteps, même vide) ; sinon c'est le jeu de
+   *   l'ancien format (patternSteps) ou du plan.
+   */
+  const LANE_KEY = { bd: 'K', sd: 'S', cp: 'C', hh: 'H', oh: 'O' };
+  const laneKey = (sound) => LANE_KEY[sound] || sound;
+  /** La pièce a-t-elle sa propre piste dans edits (grille de l'assistant) ? */
+  const hasGridLane = (ed, sound) => !!ed && typeof ed === 'object' && typeof ed.bars === 'number' && typeof ed[laneKey(sound)] === 'string';
+  /**
+   * Pas d'une pièce d'après sa piste de la grille : le motif se répète sur la scène, vélocité x o . (fort, moyen, léger),
+   * ratchets et conditions par pas ; fill et crash comme patternSteps. Retourne { steps, rat?, cond? }.
+   */
+  function gridSteps(sound, bars, r, ed, { fill = 'off', fillType = 'roll', crash = false, energy = 1 } = {}) {
+    const k = kind(sound);
+    const n = bars * SPB;
+    const steps = new Array(n).fill(0);
+    const key = laneKey(sound);
+    const lane = ed[key];
+    const L = lane.length;
+    const rt = (ed.rat && ed.rat[key]) || {};
+    const cd = (ed.cond && ed.cond[key]) || {};
+    const rat = {};
+    const cond = {};
+    const F = (SS.DRUM_FILLS && SS.DRUM_FILLS[fillType]) || (SS.DRUM_FILLS && SS.DRUM_FILLS.roll);
+    const spread = k === 'bd' ? 0.05 : k === 'bk' ? 0.08 : 0.14;
+    const e = ['bd', 'bk'].includes(k) ? Math.sqrt(energy) : energy;
+    const put = (s, v) => {
+      if (s < 0 || s >= n) return;
+      const x = vel(r, v, spread);
+      steps[s] = x > 0.34 ? clampV(x * e) : x;
+    };
+    const isFill = (b) => (fill === 'end' ? b === bars - 1 : fill === '4' ? b % 4 === 3 : fill === '8' ? b % 8 === 7 : false);
+    const letter = k === 'bd' ? 'K' : k === 'bk' ? (sound === 'cp' ? 'C' : 'S') : k === 'hh' ? 'H' : k === 'oh' ? 'O' : null;
+    for (let b = 0; b < bars; b++) {
+      const f = !!F && isFill(b);
+      for (let s = 0; s < SPB; s++) {
+        const i = b * SPB + s;
+        if (f && s >= F.from && !(s === F.from && k === 'bd' && fillType !== 'cut')) continue; // le fill remplace le motif (le kick du pas « from » reste)
+        const v = L ? LEVEL[lane[i % L]] : 0;
+        if (!v) continue;
+        put(i, v);
+        const q = rt[i % L];
+        if (q > 1) rat[i] = Math.min(4, Math.round(q));
+        if (cd[i % L]) cond[i] = cd[i % L];
+      }
+      if (f)
+        F.ev.forEach(([s, ln, v, ti]) => {
+          if (ln === letter || (ln === 'T' && k === 'tom' && ti === (tomIndex[sound] ?? 1))) put(b * SPB + s, v);
+        });
+    }
+    if (k === 'cr' && crash) put(0, 0.9);
+    const out = { steps };
+    if (Object.keys(rat).length) out.rat = rat;
+    if (Object.keys(cond).length) out.cond = cond;
+    return out;
+  }
+
+  /* Progression de la montée : parts[section].drums.build = { preset: lin | fast | late | custom, levels: [1..4 par mesure] (custom),
+   * cresc: 0..1, lock: { [mesure]: { lanes: { son: 16 caractères }, rat: { son: { pas: n } }, cond: { son: { pas: id } } } } }.
+   * Un niveau est une densité de roulement par mesure : 1 noires (4 coups), 2 croches (8), 3 doubles-croches (16), 4 triples
+   * (24 : une croche sur deux pas, jouée en ratchet ×3, soit six coups par temps). */
+  const BUILD_LEVELS = [{ name: 'Noires', per: 4, step: 4, rat: 1 }, { name: 'Croches', per: 8, step: 2, rat: 1 }, { name: 'Doubles croches', per: 16, step: 1, rat: 1 }, { name: 'Triples', per: 24, step: 2, rat: 3 }];
+  const BUILD_PRESETS = { lin: 'Linéaire', fast: 'Rapide', late: 'Tardive', custom: 'Perso' };
+  /** Niveaux (1 à 4) de chaque mesure pour un préréglage : lin monte régulièrement, fast atteint le sommet à mi-scène puis tient, late reste en noires jusqu'aux deux dernières mesures. */
+  function buildLevels(preset, bars) {
+    return Array.from({ length: bars }, (_, b) => {
+      if (preset === 'fast') return Math.min(4, 1 + Math.floor((b * 8) / bars));
+      if (preset === 'late') return b === bars - 1 ? 4 : b === bars - 2 ? 3 : 1;
+      return Math.min(4, 1 + Math.floor((b * 4) / bars));
+    });
+  }
+  /** Niveaux effectifs d'une progression pour une scène de `bars` mesures. */
+  function progLevels(bp, bars) {
+    if (bp && bp.preset === 'custom' && Array.isArray(bp.levels) && bp.levels.length)
+      return Array.from({ length: bars }, (_, b) => Math.max(1, Math.min(4, Math.round(bp.levels[Math.min(b, bp.levels.length - 1)]) || 1)));
+    return buildLevels((bp && bp.preset) || 'lin', bars);
+  }
+  /** Vélocité du roulement au pas s de la mesure b : rampe de la scène (crescendo 0 : plat, 1 : de très doux à fort). */
+  function rollVel(bp, bars, b, s) {
+    const c = bp && typeof bp.cresc === 'number' ? Math.max(0, Math.min(1, bp.cresc)) : 0.6;
+    const t = (b * SPB + s) / (bars * SPB);
+    return 0.6 - 0.3 * c + 0.65 * c * t;
+  }
+  /** Qui roule : la caisse claire, sinon le clap ; null si le kit n'a ni l'un ni l'autre. */
+  const rollerOf = (sounds) => (sounds.has('sd') ? 'sd' : sounds.has('cp') ? 'cp' : null);
+  /**
+   * La mesure b de la montée, telle que le moteur l'écrit : { lanes: { son: 16 caractères }, rat: { son: { pas: n } }, cond: { son: { pas: id } }, vels: { son: [16 vélocités] }, level, locked }
+   * pour le roulant (caisse claire ou clap), le clap de contretemps, le charleston et le crash (vide). Une mesure verrouillée rend la sienne.
+   */
+  function rollBar(bp, bars, b, roller, sounds = new Set(['sd', 'cp', 'hh', 'cr'])) {
+    const lock = bp && bp.lock && bp.lock[b];
+    const level = progLevels(bp, bars)[b];
+    const lv = BUILD_LEVELS[level - 1];
+    const lanes = {};
+    const rat = {};
+    const cond = {};
+    const vels = {};
+    const blank = () => new Array(SPB).fill(0);
+    const ch = (v) => (v >= 0.85 ? 'x' : v >= 0.6 ? 'o' : v > 0 ? '.' : '-');
+    const lane = (snd, v) => {
+      vels[snd] = v;
+      lanes[snd] = v.map(ch).join('');
+    };
+    if (roller && sounds.has(roller)) {
+      const v = blank();
+      for (let s = 0; s < SPB; s += lv.step) {
+        v[s] = Math.max(0.12, rollVel(bp, bars, b, s) * (lv.rat === 3 ? 0.8 : 1));
+        if (lv.rat > 1) (rat[roller] = rat[roller] || {})[s] = lv.rat;
+      }
+      lane(roller, v);
+    }
+    if (roller === 'sd' && sounds.has('cp')) {
+      const v = blank();
+      v[4] = v[12] = 0.7;
+      lane('cp', v);
+    }
+    if (sounds.has('hh')) {
+      const v = blank();
+      if (level >= 2) for (let s = level >= 3 ? 0 : 2; s < SPB; s += level >= 3 ? 2 : 4) v[s] = 0.45;
+      lane('hh', v);
+    }
+    if (sounds.has('cr')) lane('cr', blank());
+    const locked = !!(lock && lock.lanes);
+    if (locked)
+      Object.entries(lock.lanes).forEach(([snd, str]) => {
+        if (typeof str !== 'string') return;
+        lane(snd, Array.from({ length: SPB }, (_, s) => LEVEL[str[s]] || 0));
+        delete rat[snd];
+        delete cond[snd];
+        if (lock.rat && lock.rat[snd]) rat[snd] = { ...lock.rat[snd] };
+        if (lock.cond && lock.cond[snd]) cond[snd] = { ...lock.cond[snd] };
+      });
+    return { lanes, rat, cond, vels, level, locked };
+  }
+  /** Pas du roulement de montée pour une pièce (null : cette pièce ne suit pas la progression). */
+  function rollSteps(sound, bars, r, bp, roller, role, sounds) {
+    if (role === 'perc' || !['sd', 'cp', 'hh', 'cr'].includes(sound)) return null;
+    const steps = new Array(bars * SPB).fill(0);
+    const rat = {};
+    const cond = {};
+    for (let b = 0; b < bars; b++) {
+      const bar = rollBar(bp, bars, b, roller, sounds);
+      const v = bar.vels[sound];
+      if (!v) continue;
+      const own = bar.locked && typeof bp.lock[b].lanes[sound] === 'string';
+      v.forEach((x, s) => {
+        if (x > 0) steps[b * SPB + s] = own ? x : vel(r, x, 0.06);
+      });
+      Object.entries(bar.rat[sound] || {}).forEach(([s, n]) => (rat[b * SPB + +s] = n));
+      Object.entries(bar.cond[sound] || {}).forEach(([s, c]) => (cond[b * SPB + +s] = c));
+    }
+    const out = { steps };
+    if (Object.keys(rat).length) out.rat = rat;
+    if (Object.keys(cond).length) out.cond = cond;
     return out;
   }
 
@@ -1336,11 +1498,157 @@ SS.bandSong = (() => {
     return d;
   }
 
+  /* ---------- transitions : étape « Effets et transitions » de l'assistant ----------
+   * Option fx de build : { junctions: { 'sectionAvant>sectionAprès': { riser, hp, rev, gap, impact, down } }, perc: { style, loops } }.
+   * Une jonction relie deux scènes consécutives de l'arrangement ; ses réglages sont partiels : ce qui manque vaut ce que le plan
+   * fait déjà (junctionDefaults : montée de bruit si la scène d'avant a fx « riser », silence d'un temps si elle a « gap »,
+   * passe-haut des montées techno, impact si la scène d'après a fx « down »). Sans option fx (ou vide), la chanson est celle du plan.
+   *  - riser { on, len (mesures : 4, 8, 16), filter: lp | hp | none } : bruit tenu sur les dernières mesures de la scène d'avant,
+   *    le filtre s'ouvre (lp : passe-bas, hp : passe-haut), le volume et la reverb montent ;
+   *  - hp { on, freq (Hz) } : passe-haut sur toutes les pistes mélodiques et la basse, sur la 2e moitié de la scène d'avant ;
+   *  - rev { on, len (pas : 4, 16, 32) } : « cymbale inversée », bruit qui aspire vers le premier temps de la scène d'après
+   *    (une montée de bruit courte, d'enveloppe montante : le moteur n'a pas de lecture inversée d'échantillon) ;
+   *  - gap { len (pas : 0, 4, 16) } : silence avant la jonction (tout est coupé, sauf la cymbale inversée) ;
+   *  - impact { on, type: both | crash | impact, level } : coup grave de la piste Effets et/ou crash de la batterie au pas 0 ;
+   *  - down { on, len (mesures : 2, 4) } : descente (bruit qui retombe) après l'impact.
+   * perc { style: techno | latin | minimal, loops: { section: { sh, cg, tom } } } : boucles de la piste Percussionniste
+   * (sh : shaker, cg : conga, tom : tom grave) ; vrai = la boucle du style, faux = coupée, absent = le jeu du plan.
+   */
+  const HP_MEL = 0.55; // passe-haut des montées techno (filtre DJ : 20 Hz × 2^(9,6 v))
+  const HP_BASS = 0.75;
+  const hpHz = (v) => Math.round(20 * Math.pow(2, 9.6 * v));
+  const hpAmt = (hz) => (hz === hpHz(HP_MEL) ? HP_MEL : Math.max(0.1, Math.min(0.95, Math.log2(Math.max(20, hz) / 20) / 9.6)));
+  /** Réglages par défaut d'une jonction : ce que le plan fait déjà (from ou to peut manquer : première ou dernière scène). */
+  function junctionDefaults(spec, from, to) {
+    const a = from && spec.sections[from];
+    const b = to && spec.sections[to];
+    return {
+      riser: { on: !!a && a.fx === 'riser', len: a ? a.bars : 8, filter: 'lp' },
+      hp: { on: !!spec.tech && !!a && a.drums === 'build', freq: hpHz(HP_MEL) },
+      rev: { on: false, len: SPB },
+      gap: { len: a && a.gap ? 4 : 0 },
+      impact: { on: !!b && b.fx === 'down', type: 'both', level: 0.95 },
+      down: { on: false, len: 2 },
+    };
+  }
+  /** Réglages d'une jonction : le plan, puis ce que l'utilisateur a changé (fx.junctions['de>à']). */
+  function junctionEff(spec, from, to, fx) {
+    const d = junctionDefaults(spec, from, to);
+    const u = (fx && fx.junctions && fx.junctions[`${from}>${to}`]) || {};
+    Object.keys(d).forEach((k) => (d[k] = { ...d[k], ...(u[k] || {}) }));
+    return d;
+  }
+  const PERC_LOOPS = [
+    { id: 'sh', piece: 'sh', name: 'Shaker', sub: 'boucle 16es' },
+    { id: 'cg', piece: 'perc', name: 'Conga', sub: 'tumbao' },
+    { id: 'tom', piece: 'misc', name: 'Tom', sub: 'roulant, grave' },
+  ];
+  const PERC_STYLES = [
+    { id: 'techno', name: 'Techno : shaker 16es' },
+    { id: 'latin', name: 'Latin : tumbao' },
+    { id: 'minimal', name: 'Minimal : contretemps' },
+  ];
+  // une mesure de 16 pas : un chiffre = vélocité (en dixièmes), « . » = silence
+  const PERC_PAT = {
+    techno: { sh: '6354636463546364', cg: '..5..6..5.6..5.6', tom: '....5.......5...' },
+    latin: { sh: '6.4.6.4.6.4.6.4.', cg: '..6.76..6.76.67.', tom: '.5..5.5.5..5..5.' },
+    minimal: { sh: '..5...5...5...5.', cg: '......5.......5.', tom: '..............5.' },
+  };
+  /** Pas d'une boucle de percussion sur `bars` mesures (le tom roule sur la dernière mesure de chaque phrase de 4). */
+  function percLoopSteps(loop, style, bars, r) {
+    const pat = (PERC_PAT[style] || PERC_PAT.techno)[loop];
+    const out = new Array(bars * SPB).fill(0);
+    for (let b = 0; b < bars; b++) {
+      for (let i = 0; i < SPB; i++) if (pat[i] !== '.') out[b * SPB + i] = vel(r, +pat[i] / 10, 0.06);
+      if (loop === 'tom' && style !== 'minimal' && b % 4 === 3) [12, 13, 14, 15].forEach((i, k) => (out[b * SPB + i] = vel(r, 0.5 + k * 0.1, 0.04)));
+    }
+    return out;
+  }
+  /** Fusionne des courbes { pas: valeur } de segments qui se recouvrent (volume : le plus fort ; sinon la plus récente). */
+  function mergeLanes(comps, param, n) {
+    const have = comps.filter((c) => c.lanes && c.lanes[param]);
+    if (!have.length) return null;
+    const pts = have.map((c) => Object.entries(c.lanes[param]).map(([x, y]) => [+x, y]).sort((p, q) => p[0] - q[0]));
+    const steps = new Set();
+    have.forEach((c, i) => {
+      pts[i].forEach(([x]) => steps.add(x));
+      if (have.length > 1) {
+        if (c.from > 0) steps.add(c.from - 1);
+        if (c.to < n - 1) steps.add(c.to + 1);
+      }
+    });
+    const def = (sceneParam(param) || {}).def ?? 0;
+    const out = {};
+    let hold = def;
+    [...steps].sort((x, y) => x - y).forEach((s) => {
+      let v = null;
+      have.forEach((c, i) => {
+        if (s < c.from || s > c.to) return;
+        const y = autoAt(pts[i], s);
+        v = v === null ? y : param === 'volume' ? Math.max(v, y) : y;
+      });
+      if (v === null) v = hold;
+      hold = v;
+      out[s] = Math.round(v * 1000) / 1000;
+    });
+    return out;
+  }
+  /**
+   * Piste Effets d'une scène quand ses jonctions sont réglées : notes et courbes. Composantes : ambiance (plan : fx « swell »),
+   * montée de bruit (jonction sortante), cymbale inversée (sortante), impact et descente (entrante). `cut` : pas de silence
+   * avant la fin de la scène (la montée et l'ambiance s'arrêtent, la cymbale inversée non). Avec les réglages du plan,
+   * le résultat est celui de fxEvents / sectionAuto.
+   */
+  function fxSceneTrack(sec, key, bars, out, inn, cut, tech) {
+    const n = bars * SPB;
+    const t = 48 + pcOf(H().scale(key)[0].pc);
+    const stop = n - cut;
+    const comps = [];
+    const trim = (e) => (cut && e.step >= stop ? null : cut ? { ...e, len: Math.min(e.len, stop - e.step) } : e);
+    const add = (events, from, to, lanes, keep) => comps.push({ events: keep ? events : events.map(trim).filter(Boolean), from, to, lanes: tech ? lanes : null });
+    const shift = (off, o) => Object.fromEntries(Object.entries(o).map(([x, y]) => [+x + off, y]));
+    if (sec.fx === 'swell') {
+      const ev = [];
+      for (let s = 0; s < n; s += 4 * SPB) ev.push({ step: s, len: Math.min(4 * SPB, n - s), notes: [t + 12], vel: 0.55 });
+      add(ev, 0, n - 1, { filter: ramp(n, -0.75, -0.35), volume: { 0: 0.5 }, reverb: { 0: 0.6 } });
+    }
+    if (out.riser.on) {
+      const L = Math.min(out.riser.len, bars) * SPB;
+      const off = n - L;
+      const lanes = { volume: shift(off, ramp(L, 0.15, 0.5)), reverb: shift(off, ramp(L, 0.2, 0.6, 0.5)) };
+      if (out.riser.filter === 'lp') lanes.filter = shift(off, ramp(L, -0.9, 0.1));
+      else if (out.riser.filter === 'hp') lanes.filter = shift(off, ramp(L, 0.85, 0));
+      add([{ step: off, len: L, notes: [t + 12], vel: 0.8 }], off, n - 1, lanes);
+    }
+    if (out.rev.on) {
+      const L = Math.min(out.rev.len, n);
+      const off = n - L;
+      add([{ step: off, len: L, notes: [t + 12], vel: 0.75 }], off, n - 1, { volume: shift(off, { 0: 0.1, [L - 1]: 0.85 }), filter: shift(off, { 0: -0.8, [L - 1]: 0.1 }), reverb: shift(off, { 0: 0.4 }) }, true);
+    }
+    if (inn.impact.on && inn.impact.type !== 'crash') {
+      const L = Math.min(n, 2 * SPB);
+      add([{ step: 0, len: L, notes: [t], vel: inn.impact.level }], 0, L - 1, { volume: { 0: 1, [L - 1]: 0 }, reverb: { 0: 0.6 } });
+    }
+    if (inn.down.on) {
+      const off = Math.min(4, n - 1);
+      const L = Math.min(inn.down.len * SPB, n - off);
+      add([{ step: off, len: L, notes: [t + 12], vel: 0.6 }], off, off + L - 1, { volume: shift(off, { 0: 0.6, [L - 1]: 0 }), filter: shift(off, { 0: 0, [L - 1]: -0.85 }), reverb: shift(off, { 0: 0.5 }) });
+    }
+    const events = comps.flatMap((c) => c.events).sort((x, y) => x.step - y.step);
+    const auto = {};
+    ['filter', 'volume', 'reverb'].forEach((p) => {
+      const m = mergeLanes(comps, p, n);
+      if (m) auto[p] = m;
+    });
+    return { events, auto: Object.keys(auto).length ? auto : null };
+  }
+
   /* ---------- section et chanson ---------- */
-  /** Coupe ce qui sonne au dernier temps d'une section (silence avant le drop). */
-  function gapEnd(data, bars) {
-    const cut = bars * SPB - 4;
-    for (const d of Object.values(data)) {
+  /** Coupe ce qui sonne dans les derniers pas d'une section (silence avant le drop : un temps par défaut) ; skip : pistes épargnées. */
+  function gapEnd(data, bars, steps = 4, skip = null) {
+    const cut = bars * SPB - steps;
+    for (const [id, d] of Object.entries(data)) {
+      if (skip && skip.has(id)) continue;
       if (d.steps) for (let s = cut; s < d.steps.length; s++) d.steps[s] = 0;
       if (d.events) {
         d.events = d.events.filter((e) => e.step < cut);
@@ -1405,9 +1713,10 @@ SS.bandSong = (() => {
    *   harmony : accords et tonalités choisis dans l'assistant (étape Accords), par section :
    *     { keys: { section: { tonic, mode } }, chords: { section: [grille d’Harmonie] }, emotions: { section: id } }
    *   parts : réglages par scène (batterie, basse, nappe, arpège, rôles muets), voir l'en-tête du fichier ; null = le plan tel quel
+   *   fx : transitions et percussions d'ambiance (étape « Effets et transitions »), voir junctionDefaults ; null = le plan tel quel
    * → { key, scenes: [{ id, name, bars, key, emotion, data, spans }], song: [{ scene, repeat }] }
    */
-  function build(spec, presetId, tracks, { melodySeed = 0, melody = null, harmony = null, parts = null, kinds = null } = {}) {
+  function build(spec, presetId, tracks, { melodySeed = 0, melody = null, harmony = null, parts = null, kinds = null, fx = null } = {}) {
     const key = parseKey(spec.key);
     const ids = instIds(tracks);
     // type de chaque piste (null : fx, qui garde son jeu) ; un kit de batterie reste drums
@@ -1429,9 +1738,22 @@ SS.bandSong = (() => {
       if (!order.includes(id)) order.push(id);
       return { id, repeat: +n || 1 };
     });
+    // jonctions de l'arrangement réglées par l'utilisateur : la première, dans l'ordre, qui sort de la scène (outJ) ou y entre (inJ)
+    const fxJ = (fx && fx.junctions) || {};
+    const touchedJ = (key) => !!fxJ[key] && Object.keys(fxJ[key]).length > 0;
+    const joins = form.slice(1).map((b, i) => ({ from: form[i].id, to: b.id, key: `${form[i].id}>${b.id}` }));
+    const outJ = (id) => joins.find((j) => j.from === id && touchedJ(j.key)) || null;
+    const inJ = (id) => joins.find((j) => j.to === id && touchedJ(j.key)) || null;
     const scenes = order.map((id) => {
       const sec = spec.sections[id];
       const bars = sec.bars;
+      const oj = outJ(id);
+      const ij = inJ(id);
+      const nextId = (joins.find((j) => j.from === id) || {}).to || null;
+      const prevId = (joins.find((j) => j.to === id) || {}).from || null;
+      const outE = oj ? junctionEff(spec, oj.from, oj.to, fx) : junctionDefaults(spec, id, nextId);
+      const inE = ij ? junctionEff(spec, ij.from, ij.to, fx) : junctionDefaults(spec, prevId, id);
+      const gapSteps = oj ? outE.gap.len : sec.gap ? 4 : 0;
       const hk = harmony && harmony.keys && harmony.keys[id];
       const k = hk ? { tonic: hk.tonic, mode: hk.mode } : sec.key ? parseKey(sec.key) : key;
       // grille : celle de l'étape Accords, sinon celle de la section (reprise tapée au clavier), sinon ses degrés
@@ -1454,6 +1776,8 @@ SS.bandSong = (() => {
       const ownLead = pp && pp.lead && Array.isArray(pp.lead.events) ? pp.lead.events : null;
       const leadTrack = ownLead ? primaryMel : null;
       const doubles = []; // instruments mélodiques qui doublent le premier (inst.double)
+      // pièces du kit (hors percussionniste) : la caisse claire, sinon le clap, joue le roulement de la montée
+      const kitSounds = new Set(tracks.filter((x) => x.type === 'drum' && roleOfTrack(x) !== 'perc').map((x) => ((x.band && x.band.key ? x.band.key : '').split(':')[1]) || x.sound));
       tracks.forEach((t, ti) => {
         // réglages de cet instrument dans la scène (clé : id d'instrument, id de piste ; pour un kit, id du musicien)
         const im = pp && pp.inst;
@@ -1469,6 +1793,13 @@ SS.bandSong = (() => {
           const pat = dp && dp.pattern && SS.drumPattern ? SS.drumPattern(dp.style, dp.pattern) : null;
           const lanes = dp && (dp.edits || (pat && pat.lanes));
           const fo = { fill: dp && dp.fill, fillType: (dp && dp.fillType) || 'roll', crash: !!(dp && dp.crash), energy };
+          // montée avec progression réglée dans l'assistant : le roulement (caisse claire ou clap, charleston, crash) suit la courbe
+          if (sec.drums === 'build' && dp && dp.build && role !== 'perc') {
+            const rs = rollSteps(snd, bars, r, dp.build, rollerOf(kitSounds), role, kitSounds);
+            if (rs) return void (data[t.id] = rs);
+          }
+          // grille de l'assistant : ce son a sa piste (toute longueur, ratchets, conditions)
+          if (hasGridLane(dp && dp.edits, snd)) return void (data[t.id] = gridSteps(snd, bars, r, dp.edits, fo));
           if (lanes) {
             // motif de la bibliothèque : il pilote kick, caisse, clap, charleston, crash et toms
             const st = patternSteps(snd, bars, r, { lanes, ...fo });
@@ -1478,7 +1809,7 @@ SS.bandSong = (() => {
           let steps = drumSteps(snd, mode, sec.groove || spec.groove, bars, r, { perc: role === 'perc', last: sec.fill !== false && !(dp && dp.fill), energy });
           if (dp && ((dp.fill && dp.fill !== 'off') || dp.crash) && mode && mode !== 'off' && mode !== 'build') steps = patternSteps(snd, bars, r, { base: steps, ...fo }) || steps;
           data[t.id] = { steps };
-          if (spec.tech) drumSpice(data[t.id], snd, mode, bars, r);
+          if (spec.tech && !(mode === 'build' && dp && dp.build)) drumSpice(data[t.id], snd, mode, bars, r); // la progression de montée remplace le roulement d'origine
           return;
         }
         const kd = kindOfT.get(t); // type de l'instrument (null : fx)
@@ -1522,7 +1853,7 @@ SS.bandSong = (() => {
             const dsrc = ie && (ie.pattern || ie.edits) ? ie : dp0;
             const dpat = dsrc && dsrc.pattern && SS.drumPattern ? SS.drumPattern(dsrc.style, dsrc.pattern) : null;
             const lanes = dsrc && (dsrc.edits || (dpat && dpat.lanes));
-            const hit = (snd) => (lanes ? patternSteps(snd, bars, r, { lanes }) : drumSteps(snd, sec.drums, sec.groove || spec.groove, bars, r, {})) || [];
+            const hit = (snd) => (hasGridLane(lanes, snd) ? gridSteps(snd, bars, r, lanes).steps : lanes ? patternSteps(snd, bars, r, { lanes }) : drumSteps(snd, sec.drums, sec.groove || spec.groove, bars, r, {})) || [];
             const kick = mode === 'snare' ? [] : hit('bd');
             const snare = mode === 'kick' ? [] : hit('sd');
             for (let s = 0; s < bars * SPB; s++) {
@@ -1547,6 +1878,12 @@ SS.bandSong = (() => {
             events = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16', 'ost16', 'dotted'].includes(mode) ? arpEvents(spans, mode, r) : chordEvents(spans, mode, r, role === 'pad' && o && o.voicing === 'open' ? { ...range, open: true } : range);
           }
         }
+        // piste Effets d'une scène dont une jonction est réglée : montée, cymbale inversée, impact, descente (voir fxSceneTrack)
+        let fxScene = null;
+        if (role === 'fx' && !changed && !off && (oj || ij)) {
+          fxScene = fxSceneTrack(sec, k, bars, outE, inE, gapSteps, !!spec.tech);
+          events = fxScene.events;
+        }
         data[t.id] = { events: role === 'fx' ? events : shapeVel(events, er, { energy, bars, build: sec.drums === 'build' }) };
         if (ie && ie.double && kd === 'melody' && t !== primaryMel && !off) doubles.push([t, ie.double, o]);
         // techno : dans la montée, les mélodies restent en retrait pour que le drop frappe plus fort
@@ -1557,7 +1894,7 @@ SS.bandSong = (() => {
         if (myAuto && myAuto.vel && role !== 'fx') applyVelCurve(data[t.id], myAuto.vel, bars); // vélocité : avant les accents, qui s'y ajoutent
         if (kd === 'bass' && o && o.accents && !off) applyAccents(data[t.id].events, o.accents, bars); // accents : après la nuance, pour qu'ils restent audibles
         if (spec.tech && (events.length || role !== 'fx')) {
-          const auto = sectionAuto(as, sec, er, bars, role === 'fx');
+          const auto = fxScene ? fxScene.auto : sectionAuto(as, sec, er, bars, role === 'fx');
           if (auto && events.length) data[t.id].auto = auto;
         }
       });
@@ -1578,7 +1915,48 @@ SS.bandSong = (() => {
         if (A.vel && (t.type === 'drum' || doubles.some((x) => x[0] === t))) applyVelCurve(data[t.id], A.vel, bars);
         applyAutoLanes(data[t.id], A, bars);
       });
-      if (sec.gap) gapEnd(data, bars);
+      if (fx) {
+        // passe-haut global (jonction sortante réglée) : toutes les pistes mélodiques et la basse, sur la 2e moitié de la scène
+        if (oj && oj.key && fxJ[oj.key].hp) {
+          const n = bars * SPB;
+          tracks.forEach((t) => {
+            const kd = kindOfT.get(t);
+            const d = data[t.id];
+            if (t.type === 'drum' || !kd || kd === 'drums' || roleOfTrack(t) === 'fx' || !d || !d.events || !d.events.length) return;
+            const lane = { ...(d.auto || {}) };
+            if (outE.hp.on) lane.filter = ramp(n, 0, kd === 'bass' ? Math.min(0.95, hpAmt(outE.hp.freq) + (HP_BASS - HP_MEL)) : hpAmt(outE.hp.freq), 0.5);
+            else if (sec.drums === 'build' && !sec.float) delete lane.filter; // le plan l'y mettait : coupé
+            if (Object.keys(lane).length) d.auto = lane;
+            else delete d.auto;
+          });
+        }
+        // crash de la batterie au premier pas (jonction entrante réglée : impact)
+        // (réglage égal à celui du plan : le crash du plan reste tel quel, vélocité comprise)
+        const impDef = ij ? junctionDefaults(spec, ij.from, ij.to).impact : null;
+        if (ij && fxJ[ij.key].impact && (inE.impact.on !== impDef.on || inE.impact.type !== impDef.type || (inE.impact.on && inE.impact.level !== impDef.level))) {
+          tracks.forEach((t) => {
+            const [rl, snd] = ((t.band && t.band.key) || '').split(':');
+            const d = data[t.id];
+            if (t.type !== 'drum' || rl === 'perc' || (snd || t.sound) !== 'cr' || !d || !d.steps) return;
+            if (!inE.impact.on || inE.impact.type === 'impact') d.steps[0] = 0;
+            else if (fxJ[ij.key].impact.level !== undefined) d.steps[0] = clampV(inE.impact.level * 0.95);
+            else if (!d.steps[0]) d.steps[0] = 0.9;
+          });
+        }
+        // boucles de percussion : vrai = la boucle du style, faux = coupée
+        const loops = fx.perc && fx.perc.loops && fx.perc.loops[id];
+        if (loops)
+          tracks.forEach((t) => {
+            const [rl, snd] = ((t.band && t.band.key) || '').split(':');
+            const d = data[t.id];
+            const lp = PERC_LOOPS.find((x) => x.piece === (snd || t.sound));
+            if (t.type !== 'drum' || rl !== 'perc' || !lp || typeof loops[lp.id] !== 'boolean' || !d || !d.steps) return;
+            delete d.rat;
+            delete d.cond;
+            d.steps = loops[lp.id] ? percLoopSteps(lp.id, (fx.perc && fx.perc.style) || 'techno', bars, rng(`${presetId}/${id}/loop/${lp.id}`)) : new Array(bars * SPB).fill(0);
+          });
+      }
+      if (gapSteps) gapEnd(data, bars, gapSteps, oj ? new Set(tracks.filter((t) => roleOfTrack(t) === 'fx').map((t) => t.id)) : null);
       const sc = { id: SS.uid(), sec: id, name: sec.name || NAMES[id] || id, bars, key: k, data, spans };
       const emo = harmony && harmony.emotions && harmony.emotions[id];
       if (emo || spec.emotion) sc.emotion = emo || sec.emotion || spec.emotion;
@@ -1601,5 +1979,5 @@ SS.bandSong = (() => {
     ['funk', 'Funk', 'Syncopes en doubles, notes fantômes', [[0, 2, 0], [3, 1, 0], [6, 1, 2], [7, 1, 0], [10, 1, 0], [12, 2, 0], [14, 1, 1]]],
   ];
 
-  return { build, isExtra, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, _rng: rng };
+  return { build, junctionDefaults, junctionEff, PERC_LOOPS, PERC_STYLES, hpHz, hpAmt, HP_MEL, isExtra, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, BUILD_LEVELS, BUILD_PRESETS, buildLevels, progLevels, rollBar, rollerOf, hasGridLane, laneKey, _rng: rng };
 })();

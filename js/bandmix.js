@@ -44,10 +44,10 @@ SS.bandMix = (() => {
     sd: { lu: -16.5, below: 6, eq: eq({ hp: 120, lm: [450, -2.5, 1], hm: [5000, 3, 0.8], high: [10000, 1.5] }), comp: comp(-16, 3, 0.005, 0.12, 1.5), plate: 0.3 },
     cp: { lu: -16.5, eq: eq({ hp: 220, high: [9000, 2] }), pan: 0.06, plate: 0.28 },
     rim: { lu: -24, eq: eq({ hp: 300 }), pan: -0.2, plate: 0.15 },
-    hh: { lu: -25, eq: eq({ hp: 400, high: [10000, 2] }), pan: 0.25 },
-    oh: { lu: -26, eq: eq({ hp: 350, high: [11000, 1.5] }), pan: -0.25, plate: 0.08 },
-    rd: { lu: -27, eq: eq({ hp: 350, high: [11000, 1] }), pan: -0.3 },
-    cr: { lu: -25, eq: eq({ hp: 350, high: [12000, 1] }), pan: -0.35, hall: 0.1 },
+    hh: { lu: -25, eq: eq({ hp: 400, hm: [7500, 2.5, 0.6], high: [10000, 3.5] }), pan: 0.25 },
+    oh: { lu: -26, eq: eq({ hp: 350, hm: [7500, 2.5, 0.6], high: [11000, 3.5] }), pan: -0.25, plate: 0.08 },
+    rd: { lu: -27, eq: eq({ hp: 350, hm: [8000, 2.5, 0.6], high: [11000, 3] }), pan: -0.3 },
+    cr: { lu: -25, eq: eq({ hp: 350, hm: [8000, 2.5, 0.6], high: [12000, 3] }), pan: -0.35, hall: 0.1 },
     lt: { lu: -20, eq: eq({ hp: 60, lm: [400, -2, 1] }), pan: 0.3, plate: 0.22 },
     mt: { lu: -20, eq: eq({ hp: 80, lm: [450, -2, 1] }), pan: 0, plate: 0.22 },
     ht: { lu: -20, eq: eq({ hp: 100, lm: [500, -2, 1] }), pan: -0.3, plate: 0.22 },
@@ -59,13 +59,13 @@ SS.bandMix = (() => {
   };
   const INST = {
     bass: { lu: -22, below: 9, eq: eq({ hp: 32, lm: [250, -2.5, 1], hm: [1200, 1.5, 1] }), comp: comp(-20, 4, 0.004, 0.1, 2) },
-    pad: { lu: -20.5, eq: eq({ hp: 180, lm: [500, -2.5, 0.8], high: [9000, 1.5] }), hall: 0.4, chorus: [0.35, 0.5, 0.45] },
-    strings: { lu: -21, eq: eq({ hp: 150, lm: [400, -2, 0.9], high: [10000, 1] }), hall: 0.35, pan: -0.15 },
-    keys: { lu: -25, below: 8, eq: eq({ hp: 90, lm: [300, -2, 1], hm: [3000, 1, 1] }), comp: comp(-18, 2.5, 0.01, 0.15, 1), hall: 0.22, pan: 0.2 },
+    pad: { lu: -20.5, eq: eq({ hp: 230, lm: [340, -5, 0.7], high: [11000, 4] }), hall: 0.4, chorus: [0.35, 0.5, 0.45] },
+    strings: { lu: -21, eq: eq({ hp: 200, lm: [340, -4.5, 0.7], high: [11000, 3] }), hall: 0.35, pan: -0.15 },
+    keys: { lu: -25, below: 8, eq: eq({ hp: 130, lm: [330, -4, 0.8], hm: [3000, 1, 1] }), comp: comp(-18, 2.5, 0.01, 0.15, 1), hall: 0.22, pan: 0.2 },
     guitar: { lu: -22, eq: eq({ hp: 110, lm: [350, -2.5, 1], hm: [3000, 1.5, 1] }), hall: 0.15, echo: 0.12, pan: -0.25, chorus: [0.22, 0.7, 0.35] },
-    arp: { lu: -24, eq: eq({ hp: 250, lm: [600, -2, 1], hm: [3000, -1, 1.2], high: [9000, 1.5] }), hall: 0.2, echo: 0.25, pan: 0.3 },
-    lead: { lu: -21, below: 7, eq: eq({ hp: 160, lm: [600, -2, 1], hm: [3000, 1.5, 0.9], high: [10000, 1] }), comp: comp(-18, 2.5, 0.01, 0.15, 1.5), hall: 0.25, echo: 0.18 },
-    vox: { lu: -22, below: 8, eq: eq({ hp: 150, lm: [400, -2, 1], hm: [2500, 2, 1] }), comp: comp(-20, 3, 0.008, 0.15, 1.5), hall: 0.3, echo: 0.12, chorus: [0.2, 0.6, 0.3] },
+    arp: { lu: -24, eq: eq({ hp: 280, lm: [400, -5, 0.7], hm: [3000, -1, 1.2], high: [11000, 3.5] }), hall: 0.2, echo: 0.25, pan: 0.3 },
+    lead: { lu: -21, below: 7, eq: eq({ hp: 220, lm: [380, -5.5, 0.7], hm: [3000, 1.5, 0.9], high: [11000, 3] }), comp: comp(-18, 2.5, 0.01, 0.15, 1.5), hall: 0.25, echo: 0.18 },
+    vox: { lu: -22, below: 8, eq: eq({ hp: 170, lm: [350, -3.5, 0.9], hm: [2500, 2, 1], high: [11000, 2] }), comp: comp(-20, 3, 0.008, 0.15, 1.5), hall: 0.3, echo: 0.12, chorus: [0.2, 0.6, 0.3] },
     sax: { lu: -21, below: 7, eq: eq({ hp: 140, lm: [500, -1.5, 1], hm: [2500, 1.5, 1] }), comp: comp(-18, 2.5, 0.01, 0.15, 1), hall: 0.3, pan: 0.08 },
     // effets (montées de bruit, ambiances, impacts) : en fond, sans graves, très réverbérés
     fx: { lu: -25, eq: eq({ hp: 220, lm: [500, -2, 0.8], high: [9000, -1.5] }), hall: 0.5, echo: 0.1, pan: 0 },
@@ -195,7 +195,7 @@ SS.bandMix = (() => {
     project.returns = SS.cleanReturns(S.returns);
     const master = JSON.parse(JSON.stringify(SS.MASTER_DEFAULTS));
     master.volume = 1;
-    master.mix.eq = eq({ hp: 25, lm: [300, -1, 0.7], high: [11000, 1.5] });
+    master.mix.eq = eq({ hp: 25, lm: [300, -1, 0.7], high: [11000, 3.5] });
     master.mix.comp = comp(-10, 2, 0.03, 0.2, 0, 8); // « glue » : 1 à 2 dB de réduction sur les passages forts
     master.mix.lim = { ...master.mix.lim, on: false }; // le limiteur du mastering prend le relais
     const club = style === 'edm' || style === 'techno';

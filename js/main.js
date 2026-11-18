@@ -561,7 +561,7 @@
    * Band : « Créer toute la chanson ». Remplace les pistes, les scènes et l'arrangement du projet par la chanson
    * écrite d'après le plan de l'inspiration (js/band-songs.js, js/bandsong.js). Ctrl+Z revient en arrière.
    */
-  function addBandSong(list, preset, tempo, { melodySeed = 0, melody = null, harmony = null, parts = null, kinds = null, gains = null, mix = null } = {}) {
+  function addBandSong(list, preset, tempo, { melodySeed = 0, melody = null, harmony = null, parts = null, kinds = null, gains = null, mix = null, groove = null, fx = null } = {}) {
     // preset.spec : plan d'une reprise tapée dans l'assistant (porte « Reprendre »), jouée à la façon de l'inspiration
     const spec = preset.spec || (SS.BandSongs && SS.BandSongs[preset.id]);
     if (!spec) return addBandTracks(list, tempo, { replace: true });
@@ -577,7 +577,7 @@
       return t;
     });
     project.tracks = created;
-    const res = SS.bandSong.build(spec, preset.id, created, { melodySeed, melody, harmony, parts, kinds });
+    const res = SS.bandSong.build(spec, preset.id, created, { melodySeed, melody, harmony, parts, kinds, fx });
     project.scenes = res.scenes.map(({ sec, spans, ...sc }) => sc); // eslint-disable-line no-unused-vars
     project.song = res.song;
     project.playMode = 'song';
@@ -593,7 +593,7 @@
     SS.bandMix.mixMaster(project, style, SS.bandMix.driveFor(preset.id, style));
     // étape Mix de l'assistant (js/wizmix.js) : sans retouche (mix absent ou égal à sa base), rien ne change
     if (mix && SS.wizMix) SS.wizMix.apply(project, mix, res.scenes);
-    project.groove = { ...(project.groove || { res: 0, swing: 0.5 }), human: 0.15 };
+    project.groove = { ...(project.groove || { res: 0, swing: 0.5 }), ...(groove || { human: 0.15 }) }; // groove : swing et humanisation réglés à l'étape Batterie
     if (preset.cover) project.title = preset.cover.title;
     else if (!project.title || project.title === 'Nouveau projet') project.title = `Dans l'esprit de ${preset.song}`;
     SS.loadScene(project, project.scenes[0].id, { commit: false });

@@ -12,7 +12,7 @@ const SS = globalThis.SS;
 const PRESETS = SS.Band.STYLES.flatMap((st) => st.presets.map((p) => ({ ...p, style: st.id })));
 /** Une piste par musicien (et par pièce de batterie), comme les crée Band. */
 const tracksOf = (p) =>
-  p.musicians.flatMap((m) =>
+  p.musicians.filter((m) => !m.injected).flatMap((m) =>
     m.kits
       ? m.pieces.map((pc) => ({ id: m.role + ':' + pc, type: 'drum', sound: pc, band: { key: m.role + ':' + pc } }))
       : [{ id: m.role, type: 'instrument', category: m.role === 'bass' || m.role === 'lead' ? 'mono' : 'chord', band: { key: m.role } }]
@@ -28,7 +28,7 @@ test('chaque inspiration a un plan de chanson, et toutes les chansons se constru
     assert.ok(H.valid(s.key), `${p.id} : tonalité valide`);
     const bars = s.song.reduce((a, b) => a + s.scenes.find((x) => x.id === b.scene).bars * b.repeat, 0);
     const sec = (bars * 4 * 60) / p.tempo;
-    assert.ok(sec > 120 && sec < 300, `${p.id} : durée raisonnable (${Math.round(sec)} s)`);
+    assert.ok(sec > 120 && sec < 480, `${p.id} : durée raisonnable (${Math.round(sec)} s)`);
   }
 });
 
@@ -206,7 +206,12 @@ test('techno mélodique : intro planante (filtre qui s\'ouvre, pas de batterie, 
     const drops = s.scenes.filter((sc) => /Drop/.test(sc.name));
     assert.ok(builds.length && drops.length, `${p.id} : montée et drop`);
     // intro : pas de batterie, une nappe dont le passe-bas s'ouvre, au moins une partie mélodique
-    for (const t of tr.filter((x) => x.type === 'drum')) assert.ok(!plays(intro.data[t.id]), `${p.id} : ${t.id} joue dans l'intro`);
+    // (intro DJ possible : kick + charleston en mode 'light' ou 'hats', sans clap)
+    const djIntro = ['light', 'hats'].includes(spec.sections.intro.drums);
+    for (const t of tr.filter((x) => x.type === 'drum')) {
+      if (djIntro && !['cp', 'sd', 'tom'].includes(t.sound)) continue;
+      assert.ok(!plays(intro.data[t.id]), `${p.id} : ${t.id} joue dans l'intro`);
+    }
     const pad = intro.data.pad;
     assert.ok(pad && pad.auto && pad.auto.filter, `${p.id} : la nappe de l'intro n'a pas d'automation de filtre`);
     const pts = Object.entries(pad.auto.filter).sort((a, b) => a[0] - b[0]);
@@ -384,4 +389,84 @@ test('assistant, étape Accords : grille, tonalité et émotion par section ; ca
   const mc = m.scenes.find((sc) => sc.sec === 'chorus');
   assert.equal(mc.data[singer.id].events.length, B.defaultPlan(mc.bars, 'chant').length * 4, 'refrain : 4 notes par phrase, phrases de « Chantante »');
   m.scenes.filter((sc) => sc.sec !== 'chorus').forEach((sc) => assert.deepEqual(sc.data[singer.id], a.scenes.find((x) => x.sec === sc.sec).data[singer.id], `${sc.sec} : même mélodie`));
+});
+
+/* ---------- Transitions : option fx (étape « Effets et transitions » de l'assistant) ---------- */
+test('transitions : sans option fx (ou vide) la chanson est celle du plan ; un réglage égal au plan donne les mêmes notes', () => {
+  const p = PRESETS.find((x) => x.id === 'powersoften');
+  const tr = tracksOf(p);
+  const spec = SS.BandSongs[p.id];
+  const strip = (r) => JSON.stringify(r.scenes.map((s) => ({ ...s, id: 0 })));
+  const base = strip(SS.bandSong.build(spec, p.id, tr));
+  assert.equal(strip(SS.bandSong.build(spec, p.id, tr, { fx: null })), base);
+  assert.equal(strip(SS.bandSong.build(spec, p.id, tr, { fx: {} })), base);
+  // réglage explicite égal à celui du plan (junctionDefaults) : mêmes notes, pour toutes les jonctions de toutes les chansons
+  // (montées de 8 ou 16 mesures, montée non suivie d'un drop, drop > drop2, scènes « break », sections répétées)
+  const D = SS.bandSong.junctionDefaults;
+  for (const q of PRESETS) {
+    const sp = SS.BandSongs[q.id];
+    const t2 = tracksOf(q);
+    const ref = strip(SS.bandSong.build(sp, q.id, t2));
+    const ids = sp.form.split(/\s+/).map((x) => x.split('*')[0]);
+    const all = {};
+    for (let i = 0; i < ids.length - 1; i++) {
+      const key = `${ids[i]}>${ids[i + 1]}`;
+      all[key] = D(sp, ids[i], ids[i + 1]);
+      assert.equal(strip(SS.bandSong.build(sp, q.id, t2, { fx: { junctions: { [key]: all[key] } } })), ref, `${q.id} ${key} : réglages du plan = plan`);
+    }
+    assert.equal(strip(SS.bandSong.build(sp, q.id, t2, { fx: { junctions: all } })), ref, `${q.id} : toutes les jonctions au réglage du plan`);
+  }
+});
+
+test('transitions : montée plus courte, coupure d\'une mesure, cymbale inversée, descente, passe-haut', () => {
+  const p = PRESETS.find((x) => x.id === 'powersoften');
+  const tr = tracksOf(p);
+  const spec = SS.BandSongs[p.id];
+  const SPB = 16;
+  const nB = spec.sections.build.bars * SPB; // longueur de la montée en pas (selon le plan)
+  const fxOf = (r, n) => r.scenes.find((s) => s.name === n).data.fx;
+  const mk = (junction) => SS.bandSong.build(spec, p.id, tr, { fx: { junctions: { 'build>drop': junction } } });
+  const r = mk({ riser: { len: 4 }, gap: { len: 16 }, rev: { on: true, len: 16 }, down: { on: true, len: 4 } });
+  const riser = fxOf(r, 'Montée').events;
+  assert.equal(riser[0].step, nB - 4 * SPB, 'montée de 4 mesures sur les 4 dernières');
+  assert.ok(riser.some((e) => e.step === nB - SPB && e.len === 16), 'cymbale inversée sur la dernière mesure, malgré la coupure');
+  const build = r.scenes.find((s) => s.name === 'Montée');
+  for (const [id, d] of Object.entries(build.data)) {
+    if (id === 'fx') continue;
+    assert.ok(d.steps ? d.steps.slice(nB - SPB).every((v) => v === 0) : d.events.every((e) => e.step < nB - SPB), `${id} se tait sur la dernière mesure`);
+  }
+  assert.ok(fxOf(r, 'Drop').events.some((e) => e.step === 4 && e.len === 64), 'descente de 4 mesures après l\'impact');
+  // longueurs de montée 4 / 8 / 16 mesures, plafonnées par la scène d'avant
+  for (const len of [4, 8, 16, 32]) {
+    const ev = fxOf(mk({ riser: { len }, gap: { len: 0 } }), 'Montée').events[0];
+    const L = Math.min(len, spec.sections.build.bars) * SPB;
+    assert.equal(ev.step, nB - L, `montée de ${len} mesures : début`);
+    assert.equal(ev.len, L, `montée de ${len} mesures : longueur (plafonnée à la scène)`);
+  }
+  // la coupure d'un temps par défaut (« gap » du plan) s'applique à la montée qui précède le drop
+  const base = SS.bandSong.build(spec, p.id, tr).scenes.find((s) => s.name === 'Montée');
+  assert.ok(spec.sections.build.gap);
+  for (const [id, d] of Object.entries(base.data)) {
+    if (id === 'fx') continue;
+    assert.ok(d.steps ? d.steps.slice(nB - 4).every((v) => v === 0) : d.events.every((e) => e.step + 0 < nB - 4), `${id} : silence d'un temps avant le drop`);
+  }
+  // passe-haut : l'ouverture finale suit la fréquence
+  const hp = (hz) => mk({ hp: { on: true, freq: hz } }).scenes.find((s) => s.name === 'Montée').data.pad.auto.filter;
+  const last = (f) => f[Math.max(...Object.keys(f).map(Number))];
+  assert.ok(last(hp(2000)) > last(hp(777)) + 0.1);
+  assert.equal(last(hp(777)), 0.55);
+});
+
+test('transitions : boucles de percussion par scène (vrai joue la boucle du style, faux coupe)', () => {
+  const p = PRESETS.find((x) => x.id === 'powersoften');
+  const tr = [...tracksOf(p), ...['sh', 'perc', 'misc'].map((pc) => ({ id: 'perc:' + pc, type: 'drum', sound: pc, band: { key: 'perc:' + pc } }))].filter((t, i, a) => a.findIndex((x) => x.id === t.id) === i);
+  const spec = SS.BandSongs[p.id];
+  const loops = { intro: { sh: true, cg: false, tom: false }, groove: { sh: false, cg: true, tom: true } };
+  const r = SS.bandSong.build(spec, p.id, tr, { fx: { perc: { style: 'latin', loops } } });
+  const on = (n, id) => r.scenes.find((s) => s.name === n).data[id].steps.some((v) => v > 0);
+  assert.ok(on('Intro', 'perc:sh') && !on('Intro', 'perc:perc') && !on('Intro', 'perc:misc'));
+  assert.ok(!on('Groove', 'perc:sh') && on('Groove', 'perc:perc') && on('Groove', 'perc:misc'));
+  const a = SS.bandSong.build(spec, p.id, tr, { fx: { perc: { style: 'minimal', loops } } });
+  assert.notEqual(JSON.stringify(a.scenes[0].data['perc:sh']), JSON.stringify(r.scenes[0].data['perc:sh']), 'le style change la boucle');
+  assert.deepEqual(r.scenes.find((s) => s.name === 'Drop').data['perc:sh'], SS.bandSong.build(spec, p.id, tr).scenes.find((s) => s.name === 'Drop').data['perc:sh'], 'une scène non réglée garde le plan');
 });

@@ -114,7 +114,7 @@ const ok = (c, m) => {
   ok(/Darksynth/.test(await page.textContent('.bh-scene.on .bh-ssub')), 'la colonne des scènes rappelle le motif');
 
   // la grille : un clic sur une case la change (cinq pistes de 16 pas), « Revenir au motif » la rend
-  ok((await page.locator('.bwp-cell').count()) === 80, 'grille : 5 pistes × 16 pas');
+  ok((await page.locator('.bwp-cell').count()) === 16 * (await page.locator('.bwd-ln:not(:empty)').count()) && (await page.locator('.bwp-cell[data-l="K"]').count()) === 16, 'grille : une ligne de 16 pas par élément coché du kit');
   await page.click('.bwp-cell[data-l="K"][data-s="1"]');
   let d = (await part('verse', 'drums'));
   ok(d.edits && d.edits.K[1] === 'x' && d.pattern === 'darksynth' && (await kick('Couplet'))[1] > 0, 'une case de kick ajoutée : edits, et le kick joue le pas 2');
@@ -243,7 +243,7 @@ const ok = (c, m) => {
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'parts-arpeges.png') });
 
   // Intégration, puis création : la chanson porte les réglages
-  await next(3);
+  await next(4);
   ok((await cur()).includes('Intégration'), 'étape Intégration');
   await page.click('#bwCreate');
   await page.waitForTimeout(900);
