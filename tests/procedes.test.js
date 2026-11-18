@@ -1,6 +1,6 @@
 /*
  * Procédés de la formation (docs/reference/formation-composition/23_bibliotheque_de_procedes.md) :
- * arpège huit pas A03 (Arp One, js/arp.js), transitions T01–T05 (étape « Effets et transitions » de l'assistant, js/bandsong.js).
+ * basse B03 (mode de basse de l'assistant, js/bandsong.js), arpège huit pas A03 (Arp One, js/arp.js), transitions T01–T05 (étape « Effets et transitions » de l'assistant, js/bandsong.js).
  *   node --test
  */
 const test = require('node:test');
@@ -11,6 +11,24 @@ const SS = globalThis.SS;
 const H = SS.harmony;
 
 const pc = (m) => ((m % 12) + 12) % 12;
+
+/* ---------- basse B03 (mode de basse de l'assistant, js/bandsong.js recipeBass) ---------- */
+const C = { tonic: 'C', mode: 'major' };
+const ch = (rootPc, type, bassPc) => ({ rootPc, type, ...(bassPc != null ? { bassPc } : {}) });
+/** Une mesure par accord. */
+const spansOf = (list) => list.map((c, i) => ({ step: i * 16, len: 16, chord: c }));
+const gen = (mode, spans, key, opt) => SS.bandSong.bassEvents(spans, mode, () => 0.5, H.scale(key).map((d) => d.pc), opt);
+
+test('B03 est un mode de basse de l’assistant', () => {
+  assert.ok(SS.bandSong.BASS_NEW.some((b) => b[0] === 'b03'));
+});
+
+test('B03 : ligne conjointe sur C – G – Am – F : Do, Si, La… (la basse choisit la note de l’accord la plus proche)', () => {
+  const line = gen('b03', spansOf([ch(0, 'maj'), ch(7, 'maj'), ch(9, 'min'), ch(5, 'maj')]), C).filter((e) => e.step % 16 === 0).map((e) => e.notes[0]);
+  assert.deepEqual(line.slice(0, 3).map(pc), [0, 11, 9], 'Do – Si – La');
+  for (let i = 1; i < line.length; i++) assert.ok(Math.abs(line[i] - line[i - 1]) <= 2, `mouvement conjoint ${line[i - 1]} → ${line[i]}`);
+  assert.equal(pc(gen('b03', spansOf([ch(0, 'maj', 4)]), C)[0].notes[0]), 4, 'basse imposée (C/E) respectée');
+});
 
 test('A03 : arpège huit pas, pool redéfini à chaque accord (1 2 3 4 3 2 3 2)', () => {
   const A = SS.Arp;

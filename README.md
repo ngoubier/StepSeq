@@ -1145,11 +1145,11 @@ Les accords par mode et par émotion (`js/emotions.js`) s'appuient sur trois doc
   en 29 chapitres (mélodie, motifs, modes, émotions, bibliothèque de procédés, validation). Les progressions H03 et
   H05–H08 du chapitre 23 sont proposées dans la grille ; la méthode mélodique (chap. 05) servira au compositeur de
   mélodie. Les autres procédés du chapitre 23 :
-  - **accompagnements A01–A04** : dans la couche Accords de la grille, accords espacés en rondes (A01), pulsation en
-    noires à gate court (A02, l'ancien « Stabs sur les temps ») et harmonie résonante, une attaque par changement qui
-    résonne un temps sur l'accord suivant (A04) ; l'arpège huit pas A03 (pool de quatre notes redéfini à chaque accord,
-    ordre 1–2–3–4–3–2–3–2) est un motif d'Arp One (`SS.Arp.PRESETS`, exemple du module Motif) que la couche Arpège
-    peut poser sur sa piste ;
+  - **basse B03** (ligne conjointe : la note de l'accord la plus proche, une attaque par mesure, note de passage avant
+    un saut) : style de basse « Ligne conjointe (B03) » de l'assistant (`js/bandsong.js`, `recipeBass`). B01, B02 et B04
+    ont leurs équivalents parmi les styles existants (Croches, Marche / Fondamentale-quinte, Tenue + pédale tonique) ;
+  - **accompagnements** : A01 et A04 correspondent à la nappe Tenue, A02 aux Blocs ; l'arpège huit pas A03 (pool de
+    quatre notes redéfini à chaque accord, ordre 1–2–3–4–3–2–3–2) est un motif d'Arp One (`SS.Arp.PRESETS`) ;
   - **transitions T01–T06**, dans l'étape « Effets et transitions » de l'assistant, groupe **Procédés d'écriture** de
     chaque jonction (éteints par défaut : la chanson reste celle du plan) : retrait de la batterie sur 1 ou 2 mesures, le
     charleston fermé garde le compte (T01) ; fragmentation de la mélodie des 2 dernières mesures, 1 mesure du motif puis
