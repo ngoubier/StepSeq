@@ -1,7 +1,7 @@
 /*
  * Band : catalogue des groupes virtuels (styles, inspirations, musiciens, kits de batterie).
  *
- * Chaque style propose 10 « inspirations » (un type de chanson, d'après un titre connu) ; chaque
+ * Chaque style propose des « inspirations » (10 pour les quatre premiers, une chanson de démo pour ceux de nov. 2026) ; chaque
  * inspiration réunit des musiciens. Un musicien a un rôle (batteur, bassiste, clavier nappe…) et :
  *  - pour un instrumentiste : 6 choix, le premier est l'instrument phare, les 5 suivants les conseillés ;
  *  - pour le batteur / percussionniste : une liste d'éléments (kick, snare…) et 6 kits (le premier = phare).
@@ -775,6 +775,149 @@ window.SS = window.SS || {};
             m('bass', 'syn_sub syn_moogbass syn_sawbass gm_synth_bass_1 j:A55 syn_reese'),
             m('arp', 'syn_pluck gm_celesta dirt_arpy syn_triangle j:B24 gm_music_box'),
             m('fx', FX),
+          ],
+        },
+      ],
+    },
+    /* ---------- Styles de nov. 2026 : une chanson de démo chacun ; `swing` : swing des doubles par défaut (0–100, étape Batterie) ---------- */
+    {
+      id: 'pop',
+      label: 'Pop-rock',
+      desc: 'Batterie acoustique, guitares en croches, basse qui pousse, refrains qui s’ouvrent.',
+      swing: 0,
+      presets: [
+        {
+          id: 'brightside',
+          song: 'Mr. Brightside',
+          artist: 'The Killers',
+          year: 2003,
+          tempo: 148,
+          desc: 'Rock nerveux : guitare en croches qui ne s’arrête jamais, basse rock, refrain qui monte d’un cran.',
+          musicians: [
+            kit('drums', 'bd sd hh oh cr lt ht', 'RolandR8 LinnDrum Linn9000 EmuSP12 AkaiMPC60 OberheimDMX'),
+            m('bass', 'gm_electric_bass_pick gm_electric_bass_finger dirt_bass1 gm_fretless_bass syn_sqbass gm_synth_bass_1', { note: 'Croches rock, octave en fin de mesure' }),
+            m('guitar', 'gm_overdriven_guitar gm_distortion_guitar gm_electric_guitar_clean gm_electric_guitar_muted dirt_gtr gm_acoustic_guitar_steel', { note: 'Les croches du riff' }),
+            m('pad', 'syn_softpad gm_pad_warm gm_synth_strings_1 j:A15 gm_string_ensemble_1 syn_superpad', opt),
+            m('lead', 'gm_lead_5_charang syn_saw gm_lead_2_sawtooth j:A53 gm_lead_8_bass_lead gm_synth_brass_1', { label: 'Mélodie (voix)' }),
+          ],
+        },
+      ],
+    },
+    {
+      id: 'funk',
+      label: 'Funk & Disco',
+      desc: 'Charleston ouvert sur le contretemps, basse octaviée, guitare rythmique en doubles, cordes disco.',
+      swing: 15,
+      presets: [
+        {
+          id: 'getlucky',
+          song: 'Get Lucky',
+          artist: 'Daft Punk',
+          year: 2013,
+          tempo: 116,
+          desc: 'Disco-funk : boucle de quatre accords en dorien, guitare funk hachée, basse qui danse, voix robot.',
+          musicians: [
+            kit('drums', 'bd sd hh oh cr', 'LinnDrum RolandR8 EmuSP12 AkaiMPC60 OberheimDMX Linn9000'),
+            kit('perc', 'tb sh perc', KPERC, opt),
+            m('bass', 'gm_electric_bass_finger gm_slap_bass_1 gm_fretless_bass dirt_jvbass syn_moogbass gm_synth_bass_2', { note: 'Disco syncopée' }),
+            m('guitar', 'gm_electric_guitar_muted gm_electric_guitar_clean gm_electric_guitar_jazz dirt_gtr gm_acoustic_guitar_steel gm_acoustic_guitar_nylon', { note: 'Accords hachés en doubles' }),
+            m('keys', 'gm_epiano1 gm_clavinet gm_epiano2 piano j:A27 vcsl_fmpiano', { label: 'Clavier (Rhodes, clavinet)' }),
+            m('strings', 'gm_string_ensemble_1 gm_synth_strings_1 gm_string_ensemble_2 gm_tremolo_strings j:A36 gm_violin', opt),
+            m('vox', 'gm_lead_6_voice gm_synth_choir gm_voice_oohs gm_choir_aahs j:A17 syn_square', { label: 'Voix robot (vocoder)' }),
+          ],
+        },
+      ],
+    },
+    {
+      id: 'hiphop',
+      label: 'Hip-hop & Lo-fi',
+      desc: 'Boom bap swingué, beats lo-fi feutrés, accords à 7e et 9e, flûte et Rhodes.',
+      swing: 35,
+      presets: [
+        {
+          id: 'feather',
+          song: 'Feather',
+          artist: 'Nujabes',
+          year: 2005,
+          tempo: 84,
+          desc: 'Jazz-hop : piano et flûte en boucle, batterie swinguée et feutrée, contrebasse qui marche au refrain.',
+          musicians: [
+            kit('drums', 'bd sd hh oh rim', 'AkaiMPC60 EmuSP12 RolandTR808 LinnDrum RolandR8 dirt808'),
+            m('bass', 'gm_acoustic_bass gm_fretless_bass gm_electric_bass_finger syn_sub dirt_bass1 gm_synth_bass_1', { note: 'Boom bap, walking au refrain' }),
+            m('keys', 'gm_epiano1 piano vcsl_piano1 gm_epiano2 vcsl_fmpiano gm_piano', { label: 'Piano / Rhodes' }),
+            m('lead', 'gm_flute gm_recorder gm_pan_flute gm_shakuhachi gm_ocarina syn_triangle', { note: 'La flûte' }),
+            m('pad', 'gm_pad_warm syn_softpad gm_pad_new_age gm_choir_aahs syn_glasspad gm_pad_halo', opt),
+          ],
+        },
+      ],
+    },
+    {
+      id: 'dnb',
+      label: 'Drum & bass',
+      desc: 'Breakbeats rapides, basse reese ou roulante, nappes et pianos liquides.',
+      swing: 0,
+      presets: [
+        {
+          id: 'lk',
+          song: 'LK',
+          artist: 'DJ Marky & XRS',
+          year: 2002,
+          tempo: 172,
+          desc: 'Liquid : voix douce, nappes chaudes, Rhodes, break léger, basse ronde qui roule au drop.',
+          musicians: [
+            kit('drums', 'bd sd hh oh rd cr', 'AkaiMPC60 EmuSP12 RolandTR909 dirtclub LinnDrum RolandR8'),
+            kit('perc', 'sh tb', KPERC, opt),
+            m('bass', 'syn_sub syn_reese gm_acoustic_bass syn_pwmreese gm_synth_bass_2 gm_fretless_bass', { note: 'Reese, roller au drop' }),
+            m('pad', 'gm_pad_warm syn_superpad gm_pad_halo syn_softpad j:B56 gm_string_ensemble_1'),
+            m('keys', 'gm_epiano1 piano gm_epiano2 vcsl_fmpiano j:A27 vcsl_piano1', { label: 'Rhodes' }),
+            m('vox', 'gm_voice_oohs gm_choir_aahs gm_synth_choir gm_lead_6_voice gm_pad_choir j:A17', { label: 'Voix samplée' }),
+          ],
+        },
+      ],
+    },
+    {
+      id: 'latin',
+      label: 'Latin, Afro & Reggae',
+      desc: 'Dembow, afrobeats, bossa, clave et one drop : percussions, guitare nylon, basse ronde.',
+      swing: 8,
+      presets: [
+        {
+          id: 'despacito',
+          song: 'Despacito',
+          artist: 'Luis Fonsi',
+          year: 2017,
+          tempo: 89,
+          desc: 'Reggaeton pop : dembow, guitare pincée, quatre accords mineurs en boucle, refrain qui s’embrase.',
+          musicians: [
+            kit('drums', 'bd sd hh oh rim cr', 'RolandTR808 AkaiMPC60 RolandR8 dirt808 EmuSP12 LinnDrum'),
+            kit('perc', 'sh perc misc tb', KPERC),
+            m('bass', 'syn_sub gm_synth_bass_1 gm_electric_bass_finger dirt_bass1 syn_moogbass gm_fretless_bass', { note: 'Dembow' }),
+            m('guitar', 'gm_acoustic_guitar_nylon gm_acoustic_guitar_steel vcsl_strumstick gm_electric_guitar_clean dirt_gtr gm_banjo', { note: 'Guitare pincée, puis grattée au refrain' }),
+            m('pad', 'syn_softpad gm_pad_warm gm_string_ensemble_1 syn_glasspad gm_pad_poly j:A15', opt),
+            m('lead', 'gm_lead_6_voice gm_voice_oohs gm_trumpet gm_flute syn_triangle gm_pan_flute', { label: 'Mélodie (voix)' }),
+          ],
+        },
+      ],
+    },
+    {
+      id: 'soul',
+      label: 'Soul & Jazz',
+      desc: 'Soul, Motown, neo-soul et swing : accords à 7e, Rhodes, basse qui marche, batterie qui balance.',
+      swing: 30,
+      presets: [
+        {
+          id: 'lovely',
+          song: 'Isn’t She Lovely',
+          artist: 'Stevie Wonder',
+          year: 1976,
+          tempo: 119,
+          desc: 'Soul joyeuse : boucle de quatre accords à 7e, Rhodes haché, basse Motown, harmonica en solo.',
+          musicians: [
+            kit('drums', 'bd sd hh oh rd cr', 'RolandR8 LinnDrum Linn9000 AkaiMPC60 EmuSP12 OberheimDMX'),
+            kit('perc', 'tb sh', KPERC, opt),
+            m('bass', 'gm_electric_bass_finger gm_fretless_bass gm_acoustic_bass gm_slap_bass_1 dirt_jvbass syn_moogbass', { note: 'Motown, walking au refrain' }),
+            m('keys', 'gm_epiano1 gm_epiano2 piano vcsl_fmpiano gm_clavinet j:A27', { label: 'Rhodes' }),
+            m('lead', 'gm_harmonica vcsl_harmonica vcsl_harmonica_vib gm_alto_sax gm_flute gm_trumpet', { label: 'Harmonica (mélodie, solo)' }),
           ],
         },
       ],

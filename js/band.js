@@ -435,7 +435,124 @@ SS.band = (() => {
       }
     },
   };
-  const ART_BG = { synthwave: ['#1b0b2e', '#3a0d4a'], edm: ['#06121f', '#0a2a4a'], ambient: ['#0d1a1a', '#173a3a'], techno: ['#0b0c0f', '#232830'], cinematic: ['#07090f', '#1d1a14'] };
+  // styles de nov. 2026 : dessins simples, une idée par style
+  Object.assign(ART, {
+    pop(g, w, h) {
+      // ampli et ondes de guitare, rouge corail
+      g.strokeStyle = '#ff6b5a';
+      g.lineWidth = 3;
+      for (let k = 0; k < 4; k++) {
+        g.globalAlpha = 0.9 - k * 0.2;
+        g.beginPath();
+        g.arc(w * 0.3, h * 0.55, 30 + k * 26, -Math.PI / 3, Math.PI / 3);
+        g.stroke();
+      }
+      g.globalAlpha = 1;
+      g.fillStyle = '#2a1414';
+      g.fillRect(w * 0.12, h * 0.3, w * 0.16, h * 0.5);
+      g.fillStyle = '#ff6b5a';
+      g.beginPath();
+      g.arc(w * 0.2, h * 0.55, h * 0.13, 0, Math.PI * 2);
+      g.fill();
+    },
+    funk(g, w, h) {
+      // boule à facettes et rayons dorés
+      const cx = w / 2;
+      const cy = h * 0.42;
+      g.strokeStyle = '#ffb000';
+      for (let i = 0; i < 18; i++) {
+        g.globalAlpha = 0.15 + (i % 3) * 0.12;
+        g.lineWidth = 2;
+        g.beginPath();
+        g.moveTo(cx, cy);
+        g.lineTo(cx + Math.cos(i / 2.86) * w, cy + Math.sin(i / 2.86) * w);
+        g.stroke();
+      }
+      g.globalAlpha = 1;
+      for (let x = -4; x <= 4; x++)
+        for (let y = -4; y <= 4; y++) {
+          if (x * x + y * y > 17) continue;
+          g.fillStyle = (x + y) % 2 ? '#fff3c4' : '#c9a227';
+          g.fillRect(cx + x * 9 - 4, cy + y * 9 - 4, 8, 8);
+        }
+    },
+    hiphop(g, w, h) {
+      // vinyle vert anis
+      const cx = w / 2;
+      const cy = h * 0.5;
+      g.fillStyle = '#111';
+      g.beginPath();
+      g.arc(cx, cy, 82, 0, Math.PI * 2);
+      g.fill();
+      g.strokeStyle = '#3a3a3a';
+      g.lineWidth = 1;
+      for (let r = 34; r < 80; r += 5) {
+        g.beginPath();
+        g.arc(cx, cy, r, 0, Math.PI * 2);
+        g.stroke();
+      }
+      g.fillStyle = '#a3d65c';
+      g.beginPath();
+      g.arc(cx, cy, 28, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = '#111';
+      g.beginPath();
+      g.arc(cx, cy, 4, 0, Math.PI * 2);
+      g.fill();
+    },
+    dnb(g, w, h) {
+      // forme d'onde rapide, rose
+      g.strokeStyle = '#ff4fa3';
+      g.lineWidth = 2;
+      g.beginPath();
+      for (let x = 0; x <= w; x += 2) {
+        const y = h * 0.5 + Math.sin(x / 5) * Math.sin(x / 47) * 60 * Math.abs(Math.sin(x / 130));
+        x ? g.lineTo(x, y) : g.moveTo(x, y);
+      }
+      g.stroke();
+      g.globalAlpha = 0.35;
+      g.fillStyle = '#ff4fa3';
+      for (let i = 0; i < 12; i++) g.fillRect(i * (w / 12), h * 0.86, w / 24, 6);
+    },
+    latin(g, w, h) {
+      // soleil et palmes, orangé
+      g.fillStyle = '#ff8a3d';
+      g.beginPath();
+      g.arc(w * 0.68, h * 0.42, 44, 0, Math.PI * 2);
+      g.fill();
+      g.strokeStyle = '#ffd08a';
+      g.lineWidth = 2.5;
+      for (let i = 0; i < 6; i++) {
+        g.beginPath();
+        g.moveTo(w * 0.22, h * 0.95);
+        g.quadraticCurveTo(w * 0.22 + (i - 2.5) * 22, h * 0.25, w * 0.22 + (i - 2.5) * 46, h * (0.32 + Math.abs(i - 2.5) * 0.08));
+        g.stroke();
+      }
+    },
+    soul(g, w, h) {
+      // touches de piano et notes, cuivré
+      const kw = w / 18;
+      for (let i = 0; i < 18; i++) {
+        g.fillStyle = '#efe3d0';
+        g.fillRect(i * kw + 1, h * 0.55, kw - 2, h * 0.4);
+        if ([0, 1, 3, 4, 5].includes(i % 7) && i < 17) {
+          g.fillStyle = '#2a1d14';
+          g.fillRect(i * kw + kw * 0.65, h * 0.55, kw * 0.7, h * 0.24);
+        }
+      }
+      g.fillStyle = '#c98a5a';
+      [[0.25, 0.3], [0.45, 0.2], [0.65, 0.32], [0.8, 0.18]].forEach(([x, y]) => {
+        g.beginPath();
+        g.ellipse(w * x, h * y + 20, 9, 6, -0.4, 0, Math.PI * 2);
+        g.fill();
+        g.fillRect(w * x + 7, h * y - 12, 2, 32);
+      });
+    },
+  });
+  const ART_BG = {
+    synthwave: ['#1b0b2e', '#3a0d4a'], edm: ['#06121f', '#0a2a4a'], ambient: ['#0d1a1a', '#173a3a'], techno: ['#0b0c0f', '#232830'], cinematic: ['#07090f', '#1d1a14'],
+    pop: ['#1c0d0d', '#3a1717'], funk: ['#1d1406', '#3a2a08'], hiphop: ['#0f140a', '#232f16'], dnb: ['#170812', '#2e0f24'], latin: ['#1f1006', '#3d2010'], soul: ['#170f0a', '#33221a'],
+  };
   function drawArt(cv) {
     const id = cv.dataset.art;
     const cw = cv.clientWidth;
@@ -5832,7 +5949,8 @@ SS.band = (() => {
     pop.style.setProperty('--ax', Math.max(14, Math.min(pw - 14, c.left - w.left + c.width / 2 - left)) + 'px');
   }
   /** Réglage du groove de la chanson : swing des doubles-croches et humanisation (project.groove, valable pour toute la chanson). */
-  const grooveVals = () => ({ swing: 0, human: 15, ...((S.wiz && S.wiz.groove) || {}) });
+  // swing par défaut : celui du style (styles de nov. 2026 : hip-hop, soul, funk…), sinon droit
+  const grooveVals = () => ({ swing: (style() && style().swing) || 0, human: 15, ...((S.wiz && S.wiz.groove) || {}) });
   function grooveOf() {
     const g = grooveVals();
     return { res: g.swing > 0 ? 16 : 0, swing: 0.5 + (0.25 * g.swing) / 100, human: g.human / 100 };

@@ -606,4 +606,88 @@ SS.BandSongs = {
     },
     form: 'intro theme groove build drop break build2 drop2 outro',
   },
+
+  /* ================= Styles de nov. 2026 : une chanson de démo chacun ================= */
+
+  // Pop-rock nerveux : guitare en croches du début à la fin, pré-refrain qui monte, refrain sur le IV
+  brightside: {
+    key: 'D♭ major', groove: 'rock', emotion: 'euphorie',
+    sections: {
+      intro: { bars: 8, chords: 'I | iii | IV | IV', drums: 'hats', guitar: 'pulse8' },
+      verse: { bars: 16, chords: 'I | iii | IV | IV', drums: 'main', bass: 'rock8', guitar: 'pulse8', lead: 'verse' },
+      pre: { bars: 8, chords: 'vi | IV | I | V', drums: 'main', bass: '8', guitar: 'pulse8', pad: 'swell', lead: 'verse' },
+      chorus: { bars: 16, chords: 'IV | I | V | vi', drums: 'full', bass: 'rock8', guitar: 'strum', pad: 'sustain', lead: 'hook' },
+      bridge: { bars: 8, chords: 'vi | V | IV | IV', drums: 'break', bass: 'whole', guitar: 'pluck', pad: 'swell', lead: 'long' },
+      outro: { bars: 8, chords: 'I | iii | IV | IV', drums: 'light', bass: 'whole', guitar: 'pulse8', fill: false },
+    },
+    form: 'intro verse pre chorus verse pre chorus bridge chorus*2 outro',
+  },
+
+  // Disco-funk en dorien : une seule boucle de quatre accords, l'énergie vient de l'arrangement
+  getlucky: {
+    key: 'B dorian', groove: 'disco', emotion: 'joie',
+    sections: {
+      intro: { bars: 8, chords: 'i | III | v | IV', drums: 'hats', guitar: 'chop' },
+      verse: { bars: 16, chords: 'i | III | v | IV', drums: 'main', perc: 'main', bass: 'disco16', guitar: 'chop', keys: 'stabs', vox: 'verse' },
+      chorus: { bars: 16, chords: 'i | III | v | IV', drums: 'full', perc: 'full', bass: 'disco16', guitar: 'chop', keys: 'block4', strings: 'sustain', vox: 'hook' },
+      break: { bars: 8, chords: 'i | III | v | IV', drums: 'break', bass: 'whole', keys: 'pluck', strings: 'swell', vox: 'long' },
+      solo: { bars: 8, chords: 'i | III | v | IV', drums: 'full', bass: 'slap', guitar: 'chop', keys: 'stabs', vox: 'answer' },
+      outro: { bars: 8, chords: 'i | III | v | IV', drums: 'main', bass: 'disco16', guitar: 'chop', fill: false },
+    },
+    form: 'intro verse chorus verse chorus break solo chorus*2 outro',
+  },
+
+  // Jazz-hop : accords à 7e, flûte en boucle, contrebasse qui marche au refrain
+  feather: {
+    key: 'F major', groove: 'boombap', emotion: 'serenite',
+    sections: {
+      intro: { bars: 8, chords: 'IVmaj7 | iii7 | ii7 | Imaj7', drums: 'off', keys: 'ballad' },
+      verse: { bars: 16, chords: 'ii7 | V7 | Imaj7 | vi7', drums: 'main', bass: 'boombap', keys: 'chop', lead: 'verse' },
+      chorus: { bars: 16, chords: 'IVmaj7 | iii7 | ii7 | V7', drums: 'full', bass: 'walking', keys: 'block4', pad: 'sustain', lead: 'hook' },
+      bridge: { bars: 8, chords: 'vi7 | ii7 | V7 | Imaj7', drums: 'light', bass: 'whole', keys: 'ballad', pad: 'swell', lead: 'solo' },
+      outro: { bars: 8, chords: 'IVmaj7 | iii7 | ii7 | Imaj7', drums: 'light', keys: 'ballad', fill: false },
+    },
+    form: 'intro verse chorus verse chorus bridge chorus outro',
+  },
+
+  // Liquid : nappes et Rhodes, voix douce, montée courte, drop où la basse roule
+  lk: {
+    key: 'F minor', groove: 'dnb', emotion: 'melancolie',
+    sections: {
+      intro: { bars: 16, chords: 'i7 | VImaj7 | iv7 | v7', drums: 'hats', pad: 'float', keys: 'ballad' },
+      verse: { bars: 32, chords: 'i7 | VImaj7 | iv7 | v7', drums: 'main', perc: 'main', bass: 'reese', pad: 'sustain', keys: 'pluck', vox: 'verse' },
+      build: { bars: 8, chords: 'iv7 | v7 | VI | VII', drums: 'build', bass: 'whole', pad: 'swell', vox: 'rise' },
+      drop: { bars: 32, chords: 'i7 | VImaj7 | iv7 | v7', drums: 'drop', perc: 'full', bass: 'dnbroll', pad: 'sustain', keys: 'block4', vox: 'hook' },
+      break: { bars: 16, chords: 'VImaj7 | v7 | iv7 | i7', drums: 'break', pad: 'float', keys: 'ballad', vox: 'long' },
+      outro: { bars: 16, chords: 'i7 | VImaj7 | iv7 | v7', drums: 'light', pad: 'swell', keys: 'ballad', fill: false },
+    },
+    form: 'intro verse build drop break build drop outro',
+  },
+
+  // Reggaeton pop : dembow, guitare pincée puis grattée, quatre accords mineurs en boucle
+  despacito: {
+    key: 'B minor', groove: 'dembow', emotion: 'joie',
+    sections: {
+      intro: { bars: 8, chords: 'i | VI | III | VII', drums: 'off', guitar: 'pluck' },
+      verse: { bars: 16, chords: 'i | VI | III | VII', drums: 'main', perc: 'main', bass: 'dembow', guitar: 'pluck', lead: 'verse' },
+      pre: { bars: 8, chords: 'VI | III | VII | i', drums: 'light', bass: 'whole', guitar: 'strum', pad: 'swell', lead: 'verse' },
+      chorus: { bars: 16, chords: 'i | VI | III | VII', drums: 'full', perc: 'full', bass: 'dembow', guitar: 'strum', pad: 'sustain', lead: 'hook' },
+      bridge: { bars: 8, chords: 'VI | VII | i | i', drums: 'break', guitar: 'pluck', pad: 'swell', lead: 'long' },
+      outro: { bars: 8, chords: 'i | VI | III | VII', drums: 'light', guitar: 'pluck', fill: false },
+    },
+    form: 'intro verse pre chorus verse pre chorus bridge chorus outro',
+  },
+
+  // Soul joyeuse : boucle à 7e, Rhodes haché, basse Motown, walking au refrain, solo d'harmonica
+  lovely: {
+    key: 'C♯ minor', groove: 'soul', emotion: 'joie',
+    sections: {
+      intro: { bars: 8, chords: 'i7 | IV7 | VIImaj7 | VImaj7', drums: 'light', keys: 'ballad' },
+      verse: { bars: 16, chords: 'i7 | IV7 | VIImaj7 | VImaj7', drums: 'main', perc: 'main', bass: 'motown', keys: 'chop', lead: 'verse' },
+      chorus: { bars: 16, chords: 'VImaj7 | VII7 | i7 | i7', drums: 'full', perc: 'full', bass: 'walking', keys: 'block4', lead: 'hook' },
+      solo: { bars: 16, chords: 'i7 | IV7 | VIImaj7 | VImaj7', drums: 'full', bass: 'motown', keys: 'chop', lead: 'solo' },
+      outro: { bars: 8, chords: 'i7 | IV7 | VIImaj7 | VImaj7', drums: 'light', bass: 'whole', keys: 'ballad', lead: 'long', fill: false },
+    },
+    form: 'intro verse chorus verse chorus solo chorus*2 outro',
+  },
 };

@@ -124,6 +124,65 @@ SS.bandMix = (() => {
       loud: -13,
       drive: 4,
     },
+    // styles de nov. 2026
+    // pop-rock : salle moyenne, caisse claire présente, pas de sidechain, fort sans écraser
+    pop: {
+      returns: { plate: { size: 1.4, predelay: 0.015, hp: 250, lp: 9000 }, hall: { size: 2.4, predelay: 0.03, hp: 300, lp: 6500 }, echo: { time: '1/8', feedback: 0.25, hp: 300, lp: 4500 } },
+      plate: 1,
+      hall: 0.85,
+      sc: { bass: 0, pad: 0.1, strings: 0, keys: 0 },
+      loud: -9.5,
+      drive: 7,
+    },
+    // funk et disco : sec et serré, un peu de pompe sur les nappes et les cordes
+    funk: {
+      returns: { plate: { size: 1.1, predelay: 0.01, hp: 300, lp: 9500 }, hall: { size: 2.2, predelay: 0.025, hp: 300, lp: 7000 }, echo: { time: '1/8', feedback: 0.22, hp: 300, lp: 5000 } },
+      plate: 0.7,
+      hall: 0.75,
+      sc: { bass: 0.15, pad: 0.3, strings: 0.25, keys: 0.1 },
+      chorus: WIDE,
+      loud: -9.5,
+      drive: 7,
+    },
+    // hip-hop et lo-fi : salle petite et sombre, écho en croche, plus de dynamique
+    hiphop: {
+      returns: { plate: { size: 1.2, predelay: 0.015, hp: 250, lp: 6500 }, hall: { size: 2.6, predelay: 0.03, hp: 300, lp: 5000 }, echo: { time: '1/8', feedback: 0.3, hp: 300, lp: 3500 } },
+      plate: 0.8,
+      hall: 0.9,
+      sc: { bass: 0, pad: 0.15, strings: 0, keys: 0 },
+      loud: -11,
+      drive: 6,
+    },
+    // drum & bass : large, sidechain franc sur la basse et les nappes, fort comme l'EDM
+    dnb: {
+      returns: { plate: { size: 1.1, predelay: 0.01, hp: 300, lp: 9500 }, hall: { size: 3.6, predelay: 0.03, hp: 300, lp: 6500 }, echo: { time: '3/16', feedback: 0.35, hp: 300, lp: 5000 } },
+      plate: 0.7,
+      hall: 1.1,
+      sc: { bass: 0.45, pad: 0.45, strings: 0.35, keys: 0.25 },
+      lu: { bass: 1.5 },
+      chorus: WIDE,
+      pan: WIDE_PAN,
+      loud: -8.5,
+      drive: 8,
+    },
+    // latin, afro, reggae : percussions écartées, écho dub, basse pleine
+    latin: {
+      returns: { plate: { size: 1.3, predelay: 0.015, hp: 250, lp: 9000 }, hall: { size: 2.6, predelay: 0.03, hp: 300, lp: 6500 }, echo: { time: '3/16', feedback: 0.35, hp: 300, lp: 4500 } },
+      plate: 0.8,
+      hall: 0.9,
+      sc: { bass: 0.2, pad: 0.25, strings: 0.2, keys: 0 },
+      loud: -9.5,
+      drive: 7,
+    },
+    // soul et jazz : salle chaleureuse, pas de sidechain, de la dynamique
+    soul: {
+      returns: { plate: { size: 1.5, predelay: 0.02, hp: 220, lp: 8000 }, hall: { size: 2.8, predelay: 0.035, hp: 250, lp: 6000 }, echo: { time: '1/8', feedback: 0.2, hp: 300, lp: 4000 } },
+      plate: 1,
+      hall: 1,
+      sc: { bass: 0, pad: 0, strings: 0, keys: 0 },
+      loud: -11,
+      drive: 5,
+    },
   };
 
   // gestion du gain : le mix arrive au master vers −18 LUFS, crêtes vers −6 dBFS (marge pour la glue et le limiteur)

@@ -44,4 +44,10 @@ SS.BAND_DRIVE = {
   yourmind: 11.6,
   rej: 13.7,
   blurred: 11.7,
+  brightside: 10.2,
+  getlucky: 11.9,
+  feather: 11.1,
+  lk: 11.5,
+  despacito: 9.9,
+  lovely: 9,
 };
