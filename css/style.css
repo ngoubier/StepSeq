@@ -4617,19 +4617,26 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 #bandDialog .mx-ghost::before { content: "chanson"; position: absolute; left: 0; top: -13px; font-size: 9px; color: var(--bw-muted); }
 #bandDialog .mx-db { text-align: center; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
 #bandDialog .mx-db.own { color: var(--bw-gold); }
-#bandDialog .mx-fader input { padding-right: 10px; box-sizing: border-box; }
-#bandDialog .mx-meter { position: absolute; right: 2px; top: 4px; bottom: 4px; width: 6px; border-radius: 3px; overflow: hidden; pointer-events: none;
+#bandDialog .mx-fader { gap: 4px; }
+#bandDialog .mx-scale { position: relative; flex: 0 0 18px; margin: 8px 0; }
+#bandDialog .mx-scale span { position: absolute; right: 0; transform: translateY(50%); font-size: 9px; color: #75757f; font-variant-numeric: tabular-nums; }
+#bandDialog .mx-fwrap { position: relative; flex: 1 1 auto; min-width: 18px; display: flex; justify-content: center; }
+#bandDialog .mx-meter { position: relative; flex: 0 0 10px; margin: 8px 0; border-radius: 2px; overflow: hidden; pointer-events: none;
   background: #0c0c0f; --pk: 0; --rms: 0; --hold: 0;
-  --grad: linear-gradient(to top, #2fbf4a 0%, #2fbf4a 66%, #e8c22c 78%, #ff4040 89%, #ff4040 100%); }
-#bandDialog .mx-meter i { position: absolute; left: 0; right: 0; bottom: 0; top: 0; background: var(--grad); }
+  --grad: linear-gradient(to top, #2fbf4a 0%, #2fbf4a 61%, #e8c22c 74%, #ff4040 87%, #ff4040 100%); }
+#bandDialog .mx-meter i { position: absolute; inset: 0 1px; background: var(--grad); }
 #bandDialog .mx-meter .pk { opacity: .45; clip-path: inset(calc((1 - var(--pk)) * 100%) 0 0 0); }
 #bandDialog .mx-meter .rms { clip-path: inset(calc((1 - var(--rms)) * 100%) 0 0 0); }
-#bandDialog .mx-meter .hold { position: absolute; left: 0; right: 0; height: 2px; bottom: calc(var(--hold) * 100% - 1px); background: #fff; opacity: calc(var(--hold) * 40); }
+#bandDialog .mx-meter .hold { position: absolute; left: 1px; right: 1px; height: 2px; bottom: calc(var(--hold) * 100% - 1px); background: #fff; opacity: calc(var(--hold) * 40); }
 #bandDialog .mx-meter.clip .hold { background: #ff4040; }
-#bandDialog .mx-strip.master .mx-meter { width: 10px; }
-#bandDialog .mx-strip.master .mx-fader input { padding-right: 14px; }
-#bandDialog .mx-peak { align-self: center; min-width: 44px; padding: 1px 6px; border-radius: 4px; background: #0c0c0f; color: #9c9ca8; font-size: 11px; text-align: center; font-variant-numeric: tabular-nums; cursor: pointer; }
+#bandDialog .mx-vals { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; }
+#bandDialog .mx-vals .mx-db, #bandDialog .mx-strip.drum .mx-vals .mx-db { font-size: 11.5px; white-space: nowrap; letter-spacing: -.02em; }
+#bandDialog .mx-peak { white-space: nowrap; padding: 0 3px; border-radius: 3px; color: var(--bw-muted); font-size: 11px; font-variant-numeric: tabular-nums; cursor: pointer; }
 #bandDialog .mx-peak.clip { background: #ff4040; color: #fff; }
+#bandDialog .mx-gr { display: flex; flex-direction: column; gap: 2px; font-size: 9px; color: var(--bw-muted); }
+#bandDialog .mx-gr span { display: flex; align-items: center; gap: 4px; }
+#bandDialog .mx-gr b { flex: 1; height: 4px; background: #111; border-radius: 2px; overflow: hidden; display: flex; justify-content: flex-end; }
+#bandDialog .mx-gr i { display: block; height: 100%; width: 0; background: #f5a524; }
 #bandDialog .mx-ms { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
 #bandDialog .mx-ms button { height: var(--bw-h-sm); border: 1px solid var(--bw-line2); border-radius: var(--bw-r-ctl); background: var(--bw-panel2); color: var(--bw-text); font: inherit; font-size: 12px; font-weight: 700; }
 #bandDialog .mx-ms button:disabled { opacity: .4; }

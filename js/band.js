@@ -7019,15 +7019,25 @@ SS.band = (() => {
         master
           ? h('div', { class: 'mx-pan' }, h('div', {}, h('span', {}, 'Stéréo'), h('b', {}, '—')), h('input', { type: 'range', disabled: true, value: 60, 'aria-label': 'Largeur du Master' }), scene ? h('small', { class: 'mx-only' }, 'chanson seulement') : null)
           : h('div', { class: 'mx-pan' }, h('div', {}, h('span', {}, 'Pan'), h('b', {}, mixPan(e.pan))), h('input', { type: 'range', min: -1, max: 1, step: 0.05, value: e.pan, ...ctl('pan', { 'aria-label': `Panoramique ${s.name}`, disabled: only('pan'), title: only('pan') ? 'chanson seulement' : null }) }), only('pan') ? h('small', { class: 'mx-only' }, 'chanson seulement') : null),
+        h('div', { class: 'mx-gr', title: 'Réduction de gain : compresseur (C) et limiteur (L)' }, h('span', {}, 'C', h('b', {}, h('i', { 'data-grc': id }))), h('span', {}, 'L', h('b', {}, h('i', { 'data-grl': id })))),
         h(
           'div',
           { class: 'mx-fader' },
-          h('input', { type: 'range', min: -40, max: 6, step: 0.1, value: e.vol, ...ctl('vol', { 'aria-label': `Volume ${s.name}`, disabled: lockedAll, orient: 'vertical' }) }),
-          h('div', { class: 'mx-meter', 'data-meter': id, 'aria-hidden': 'true' }, h('i', { class: 'pk' }), h('i', { class: 'rms' }), h('b', { class: 'hold' })),
-          scene && o && o.vol != null ? h('span', { class: 'mx-ghost', title: `Chanson : ${mixDb(song.vol)}`, style: `top:${((1 - pct(song.vol)) * 100).toFixed(1)}%` }) : null
+          h('div', { class: 'mx-scale', 'aria-hidden': 'true' }, ...MX_SCALE.map((d) => h('span', { style: `bottom:${(mxPos(d) * 100).toFixed(1)}%` }, d > 0 ? '+' + d : String(d)))),
+          h(
+            'div',
+            { class: 'mx-fwrap' },
+            h('input', { type: 'range', min: -40, max: 6, step: 0.1, value: e.vol, ...ctl('vol', { 'aria-label': `Volume ${s.name}`, disabled: lockedAll, orient: 'vertical' }) }),
+            scene && o && o.vol != null ? h('span', { class: 'mx-ghost', title: `Chanson : ${mixDb(song.vol)}`, style: `top:${((1 - pct(song.vol)) * 100).toFixed(1)}%` }) : null
+          ),
+          h('div', { class: 'mx-meter', 'data-meter': id, 'aria-hidden': 'true' }, h('i', { class: 'pk' }), h('i', { class: 'rms' }), h('b', { class: 'hold' }))
         ),
-        h('div', { class: 'mx-db' + (o && o.vol != null ? ' own' : '') }, mixDb(e.vol)),
-        h('div', { class: 'mx-peak', 'data-peak': id, title: 'Crête atteinte pendant l’écoute (clic : remise à zéro)', onclick: () => mixMeterReset(id) }, mixPeakText(id)),
+        h(
+          'div',
+          { class: 'mx-vals' },
+          h('div', { class: 'mx-db' + (o && o.vol != null ? ' own' : '') }, mixDb(e.vol)),
+          h('div', { class: 'mx-peak', 'data-peak': id, title: 'Crête (cliquer pour remettre à zéro)', onclick: () => mixMeterReset(id) }, mixPeakText(id))
+        ),
         master
           ? h('div', { class: 'mx-ms' }, h('button', { type: 'button', disabled: true }, '—'), h('button', { type: 'button', disabled: true }, '—'))
           : h(
@@ -7097,7 +7107,8 @@ SS.band = (() => {
    * de crête (redescend après 0,8 s) ; sous le volume, la crête max depuis le début de l'écoute (rouge au-delà de 0 dB).
    * La boucle s'arrête d'elle-même quand la console n'est plus affichée.
    */
-  const MX_LO = -48, MX_HI = 6;
+  const MX_LO = -40, MX_HI = 6; // même échelle que le fader : la graduation sert aux deux
+  const MX_SCALE = [6, 0, -6, -12, -20, -30, -40];
   const mxPos = (db) => (db <= MX_LO ? 0 : Math.min(1, (db - MX_LO) / (MX_HI - MX_LO)));
   const mxMeters = new Map(); // id -> { hold, holdT, max }
   let mxRaf = 0;
@@ -7117,17 +7128,20 @@ SS.band = (() => {
   }
   /** Niveau d'une tranche : { peak, rms } en linéaire (0 sans écoute). */
   function mixLevel(id) {
-    if (!L.proj || !SS.audio.levels) return { peak: 0, rms: 0 };
-    if (id === 'master') return SS.audio.levels('__master') || { peak: 0, rms: 0 };
-    let peak = 0, rms = 0;
+    const none = { peak: 0, rms: 0, comp: 0, lim: 0 };
+    if (!L.proj || !SS.audio.levels) return none;
+    const one = (l) => (l ? { peak: l.peak, rms: l.rms, comp: (l.gr && l.gr.comp) || 0, lim: (l.gr && l.gr.lim) || 0 } : none);
+    if (id === 'master') return one(SS.audio.levels('__master'));
+    const out = { ...none };
     L.proj.tracks.forEach((t) => {
       if (SS.wizMix.idOf(t) !== id) return;
-      const l = SS.audio.levels(t.id);
-      if (!l) return;
-      if (l.peak > peak) peak = l.peak;
-      if (l.rms > rms) rms = l.rms;
+      const l = one(SS.audio.levels(t.id));
+      out.peak = Math.max(out.peak, l.peak);
+      out.rms = Math.max(out.rms, l.rms);
+      out.comp = Math.min(out.comp, l.comp); // réductions en dB négatifs : la plus forte
+      out.lim = Math.min(out.lim, l.lim);
     });
-    return { peak, rms };
+    return out;
   }
   function mixMeterStart() {
     if (mxRaf) return;
@@ -7144,7 +7158,13 @@ SS.band = (() => {
       const live = !!L.proj && !!L.mode && !L.paused;
       box.querySelectorAll('.mx-meter').forEach((el) => {
         const id = el.dataset.meter;
-        const lv = live ? mixLevel(id) : { peak: 0, rms: 0 };
+        const lv = live ? mixLevel(id) : { peak: 0, rms: 0, comp: 0, lim: 0 };
+        const gr = (sel, v) => {
+          const g = box.querySelector(`[${sel}="${id}"]`);
+          if (g) g.style.width = Math.max(0, Math.min(100, (-v / 20) * 100)).toFixed(1) + '%';
+        };
+        gr('data-grc', lv.comp);
+        gr('data-grl', lv.lim);
         const pk = db(lv.peak);
         const m = mxMeters.get(id) || { hold: -Infinity, holdT: 0, max: -Infinity };
         if (pk >= m.hold) {
