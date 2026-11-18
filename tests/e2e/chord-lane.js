@@ -143,7 +143,7 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FAIL ') + m); if (!c) process
   await page.click('#emptyAdd');
   await page.waitForTimeout(300);
   ok(await page.locator('#dlgCategory').count() === 0, 'Nouvelle piste : plus de catégorie');
-  await page.locator('#dlgType button[data-v="instrument"]').click();
+  await page.locator('#dlgRoles button[data-v="bass"]').click();
   ok(await page.locator('#dlgArp').isVisible() && await page.locator('#dlgFollow').isVisible(), 'Nouvelle piste : cases Arpégiateur et Jouer la piste Accords');
   await page.locator('#dlgFollow').check();
   await page.click('#dlgOk');

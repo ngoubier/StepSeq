@@ -5180,3 +5180,50 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 .bpn-det > summary { cursor: pointer; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--bw-muted, var(--muted)); margin-bottom: 2px; }
 .bpn-det[open] > summary { margin-bottom: 6px; }
 @media (max-width: 420px) { .bpn-grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* Fenêtre « Nouvelle piste » : rôles à gauche, sons en cartes au centre, fiche à droite (js/ui.js, js/catalog.js) */
+#trackDialog { width: min(1040px, calc(100vw - 24px)); height: min(660px, calc(100dvh - 24px)); }
+.nt-body { grid-template-columns: 210px minmax(0, 1fr) 240px; grid-template-rows: minmax(0, 1fr) auto; }
+.nt-roles-col { grid-column: 1; grid-row: 1 / 3; display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+.nt-roles { flex: 1 1 auto; }
+.nt-roles button { gap: 8px; justify-content: flex-start; }
+.nt-roles button .nt-dot { width: 9px; height: 9px; border-radius: 3px; background: var(--rc); flex: none; }
+.nt-roles button .nt-role-n { margin-left: auto; color: var(--muted); font-size: 11px; }
+.nt-roles button:disabled { opacity: .35; cursor: default; }
+.nt-roles button.active .nt-role-n { color: inherit; opacity: .8; }
+.nt-center, .nt-right { grid-row: 1 / 3; display: flex; flex-direction: column; gap: 8px; }
+.nt-filter { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.nt-filter > .dlg-label { flex: none; width: 52px; }
+.nt-filter .nt-chips:empty { display: none; }
+.nt-filter:has(.nt-chips:empty) { display: none; }
+.nt-filter .chip small { color: var(--muted); font-size: 10.5px; }
+.nt-filter .chip.active small { color: inherit; opacity: .8; }
+.nt-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(178px, 1fr)); align-content: start; gap: 5px; }
+.nt-cards .pl-group { grid-column: 1 / -1; }
+.nt-cards .pl-empty { grid-column: 1 / -1; }
+.nt-cards .pl-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; gap: 1px 6px; align-items: center; padding: 6px 8px; border: 1px solid var(--line); background: var(--panel); min-height: 44px; }
+.nt-cards .pl-item .pl-label { grid-column: 1; grid-row: 1; font-weight: 600; font-size: 12.5px; }
+.nt-cards .pl-item .pl-meta { grid-column: 1 / -1; grid-row: 2; }
+.nt-cards .pl-item .pl-tag { grid-column: 2; grid-row: 1; }
+.nt-cards .pl-item.sel { border-color: var(--accent-2); }
+.pl-tag { font-size: 9.5px; letter-spacing: .04em; text-transform: uppercase; border: 1px solid var(--sc); color: var(--sc); border-radius: 4px; padding: 0 5px; line-height: 15px; white-space: nowrap; background: var(--panel); }
+.nt-fiche { display: flex; flex-direction: column; gap: 5px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); flex: none; }
+.nt-fiche-name { font-size: 16px; line-height: 1.25; }
+.nt-fiche-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.nt-right .synth-card[hidden], .nt-right [hidden] { display: none; }
+.nt-gm-hint { grid-column: 2 / 4; grid-row: 2; }
+@media (max-width: 760px) {
+  .nt-roles-col { flex: none; flex-direction: row; align-items: center; }
+  .nt-roles-col > .dlg-label { display: none; }
+  .nt-roles { flex-direction: row; overflow-x: auto; overflow-y: hidden; }
+  .nt-roles button { width: auto; }
+  .nt-roles button .nt-role-n { display: none; }
+  .nt-filter > .dlg-label { display: none; }
+  .nt-cards { grid-template-columns: minmax(0, 1fr); }
+  .nt-fiche { display: none; }
+  .nt-center { flex: 3 1 0; min-height: 200px; }
+  .nt-right { flex: 1 1 0; min-height: 90px; }
+}
+.nt-cards .pl-item.sel { background: var(--accent); border-color: var(--accent-2); color: #fff; }
+.nt-cards:not(:focus) .pl-item.sel { background: color-mix(in srgb, var(--accent) 55%, var(--panel-2)); }
+.nt-cards .pl-item:hover:not(.sel) { background: var(--panel-3); }
