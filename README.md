@@ -234,8 +234,18 @@ caractère…), et **▶ joue la scène choisie en boucle** (pas toute la chanso
    les **propositions** (trois pistes et grilles de référence, transposées sur la tonique de la scène) ; un clic sur
    une proposition la fait jouer dans la scène, en boucle, avec le groupe (lecture, stop, tempo et tempo conseillé
    dans la fenêtre) ; **Choisir** la pose dans la grille (tonalité et émotion comprises, tempo conseillé si coché),
-   **Annuler** (de cette fenêtre d'inspiration) ou <kbd>Échap</kbd> laisse la scène intacte. Le tout passe à `SS.bandSong.build` par l'option
-   `harmony` (`keys`, `chords`, `emotions` par section) ;
+   **Annuler** (de cette fenêtre d'inspiration) ou <kbd>Échap</kbd> laisse la scène intacte. Repris d'Harmonie (l'assistant
+   devient l'écran de référence) : la ligne du **guide du mode** (note caractéristique, ce qu'il faut faire entendre, **boucle
+   d'essai** à poser), le menu **Grilles de la tonalité** (catalogue `SS.harmony.progressions`), les **essais A/B**
+   (`SS.harmony.transformGrid` : septièmes prises dans la gamme, sus2, tonique majeur / mineur, cadence évitée, pédale de
+   tonique ; **A · avant** / **B · essai** à l'écoute en boucle, **Garder A** ou **Garder B**), les **pédales** (bouton
+   **Pédale** d'un accord, puis note et durée ; `S.wiz.peds`, même format que `scene.grid.pedals` : la note tenue passe à
+   la basse des accords qu'elle couvre) et **Vérifier la scène** (`SS.harmony.gridChecks` et `SS.melody.checkMelody` sur
+   la mélodie de chaque instrument mélodique). Le tout passe à `SS.bandSong.build` par l'option `harmony` (`keys`, `chords`,
+   `emotions`, `pedals` par section) ; chaque scène créée reçoit sa **grille** (`scene.grid`, avec ses pédales) et son
+   émotion : la piste Accords du projet montre les accords de l'assistant. Les opérations de grille (`gridFill`, `gridPut`,
+   `gridSetLen`) sont communes à la piste Accords, à Harmonie, à l'assistant et à `js/bandsong.js` (`js/harmony.js`) ;
+   tests : `node --test tests/chordgrid.test.js` ;
 7. **Basse**, 8. **Nappes**, 9. **Arpèges** : même disposition (scènes à gauche, lecture de la scène en boucle, chaque
    choix s'entend aussitôt). Basse : 13 **modes de jeu** (tenue, blanches, noires, croches, galop, contretemps, octaves,
    roulement, syncopée, marche, drone, croches piquées, après le kick) en cartes avec leur rythme dessiné, **pédale**

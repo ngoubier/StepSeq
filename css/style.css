@@ -5108,3 +5108,25 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
   #bandDialog .fx-dropline { left: calc(84px + (100% - 94px) * .8) !important; }
   #bandDialog .fx-block { flex-basis: 76px !important; }
 }
+
+/* ---------- Assistant, étape Accords : pédales (comme .cl-ped sur la piste Accords) ---------- */
+.bwc-peds { position: relative; height: 20px; margin-top: 4px; }
+.bwc-ped {
+  position: absolute; top: 0; height: 18px; min-width: 0; padding: 0 6px; border: 0; border-radius: 4px;
+  background: rgba(232, 163, 61, .35); color: var(--text); font: 600 11px/18px inherit; text-align: left;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;
+}
+.bwc-ped:hover, .bwc-ped:focus-visible { background: rgba(232, 163, 61, .6); }
+.bwc-ped.sel { outline: 2px solid #fff; outline-offset: 1px; }
+.bwc-pedsel { border-color: rgba(232, 163, 61, .8); background: #2a2216; }
+/* Assistant, étape Accords : guide du mode et essais A/B (repris d'Harmonie) */
+.bwc-guide, .bwc-ab { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 13px; color: var(--muted); }
+.bwc-guide b { color: var(--text); }
+.bwc-ab .chip { font-size: 12px; }
+.bwc-ab.on { padding: 8px 12px; border: 1px solid var(--accent-2); border-radius: 10px; background: #1b2536; color: var(--text); }
+.bwc-head .bwc-prog { flex: 0 1 240px; width: 240px; min-width: 0; }
+/* Assistant, étape Accords : Vérifier la scène (ex-onglet Vérifier d'Harmonie) */
+.bwc-checks { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; background: var(--panel); }
+.bwc-checks > summary { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; }
+.bwc-ck-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-top: 8px; }
+.bwc > * { flex-shrink: 0; } /* l'étape défile : la grille (et ses pédales) ne se tasse pas quand le contenu s'allonge */

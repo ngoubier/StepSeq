@@ -357,7 +357,6 @@ SS.harmonyPanel = (() => {
     } else if (emo) {
       const m = SS.emotionMode(emo.id);
       const tempoOn = ambTempo ?? proj().scenes.length === 1;
-      const gen = genById(emo.melodyGen);
       const abs = [...emo.ab, ...H().TRANSFORMS.map((t) => t.id).filter((id) => !emo.ab.includes(id))];
       const dim = (name, v) => `<span class="emo-dim"><small>${name}</small><i style="--v:${v}%"></i><b>${v}</b></span>`;
       const props = emoProps.filter((x) => x.kind !== 'ref');
@@ -386,7 +385,6 @@ SS.harmonyPanel = (() => {
             ${emo.appui ? `<dt>Appui à essayer</dt><dd>${esc(emo.appui)} <span class="hm-muted">(guide MusicEmotion, notes de l’exemple)</span></dd>` : ''}
             ${props.map((pr) => `<dt>Réserve ${SS.EMOTION_KINDS[pr.kind].toLowerCase()}</dt><dd>${esc(pr.caveat)}</dd>`).join('')}
           </dl>
-          <p class="hm-muted"><b>Couche « Mélodie » de la grille</b> : « ${esc(gen ? gen.label : '')} » (${esc(gen ? gen.text : '')}).</p>
           <div class="emo-ab">
             <b>Essai A/B</b> <span class="hm-muted">La scène est copiée (scène « … B ») et un seul paramètre change. Passez de l'une à l'autre pendant la lecture et gardez celle qui communique le mieux l'intention.</span>
             <div class="chips">${abs
@@ -436,22 +434,7 @@ SS.harmonyPanel = (() => {
     const grid = [];
     if (gch.length && !live && chordEvs.length)
       grid.push({ kind: 'warn', text: 'La grille commune diffère des accords joués par les pistes.', hint: 'Cliquez sur « Générer » dans Chanson → Chords pour écrire la grille dans les pistes ; la mélodie est vérifiée sur la grille commune.' });
-    if (gch.length) {
-      const roles = gch.map((x) => x.c.role.id);
-      const first = gch[0].c;
-      const last = gch[gch.length - 1].c;
-      if (!roles.includes('repos')) grid.push({ kind: 'tip', text: 'Aucun accord de repos sur la grille : le centre tonal reste flou.', hint: `Placer ${H().gridPalette(k).simple[0].name} au début ou à la fin pour l’ancrer.` });
-      else if (first.role.id === 'repos') grid.push({ kind: 'ok', text: `Commence sur le centre (${first.name}).` });
-      const tens = roles.map((r, i) => (r === 'tension' ? i : -1)).filter((i) => i >= 0);
-      const resolved = tens.filter((i) => roles[(i + 1) % roles.length] === 'repos');
-      if (tens.length && !resolved.length) grid.push({ kind: 'tip', text: 'Les accords de tension ne vont jamais vers le repos.', hint: 'Une tension (V, vii°) appelle la tonique juste après : c’est la cadence.' });
-      else if (resolved.length) grid.push({ kind: 'ok', text: `Cadence : ${gch[resolved[0]].c.name} → ${gch[(resolved[0] + 1) % gch.length].c.name}.` });
-      if (last.role.id === 'repos') grid.push({ kind: 'ok', text: `Finit sur le repos (${last.name}) : la boucle est fermée.` });
-      else if (last.role.id === 'tension') grid.push({ kind: 'ok', text: `Finit sur une tension (${last.name}) : elle relance la boucle vers ${first.name}.` });
-      else grid.push({ kind: 'tip', text: `Finit sur ${last.name} (${last.role.label}) : la fin reste suspendue.`, hint: 'Voulu pour enchaîner sur la scène suivante ? Sinon, finir sur une tension ou le repos.' });
-      const out = gch.filter((x) => x.c.borrowed).map((x) => x.c.name);
-      if (out.length) grid.push({ kind: 'info', text: `Emprunt${out.length > 1 ? 's' : ''} : ${[...new Set(out)].join(', ')}.`, hint: 'Une couleur hors de la gamme : la mélodie évite ou suit sa note altérée.' });
-    }
+    grid.push(...H().gridChecks(k, gch)); // js/harmony.js : les mêmes contrôles que dans l'assistant
     const melodies = instTracks()
       .filter((t) => isMelody(t, evsOf(t)))
       .map((t) => ({ track: t, ...SS.melody.checkMelody({ events: evsOf(t), chordAt, key: k, spb: SS.stepsPerBar(p), beat: SS.stepsPerBeat(p) }) }));
@@ -712,20 +695,7 @@ SS.harmonyPanel = (() => {
     SS.ui.refreshScene(); // piste Accords de l'écran principal et pistes qui la suivent
   }
 
-  /** Place un accord : il remplace ce qu'il recouvre (un accord coupé en deux garde ses deux bouts). */
-  function gridPut(g, chord) {
-    const end = chord.step + chord.len;
-    g.chords = g.chords.flatMap((c) => {
-      const ce = c.step + c.len;
-      if (ce <= chord.step || c.step >= end) return [c];
-      const out = [];
-      if (c.step < chord.step) out.push({ ...c, len: chord.step - c.step });
-      if (ce > end) out.push({ ...c, step: end, len: ce - end });
-      return out;
-    });
-    g.chords.push(chord);
-    g.chords.sort((a, b) => a.step - b.step);
-  }
+  const gridPut = (g, chord) => SS.gridPut(g, chord); // js/harmony.js, gridPut (commun avec l'assistant)
 
   function gridListen(c, el) {
     const t = byId(grid().layers.comp.dst) || previewTrack();

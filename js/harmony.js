@@ -619,6 +619,64 @@ SS.harmony = (() => {
     return null;
   }
 
+  /* ---------------- Grille d'accords : opérations communes ----------------
+   * Une grille = une liste d'accords { step, len, degree, type, acc, bass? } (degrés dans la tonalité de la scène).
+   * Partagées par la piste Accords (js/chords.js), Harmonie, l'assistant Nouvelle chanson (js/band.js) et js/bandsong.js.
+   */
+  /** Accords triés, sans chevauchement, qui couvrent toute la scène (un trou : l'accord d'avant tient). Nouvelle liste. */
+  function gridFill(list, total) {
+    const g = list
+      .filter((c) => c && c.len > 0 && c.step < total)
+      .map((c) => ({ ...c, len: Math.min(c.len, total - c.step) }))
+      .sort((a, b) => a.step - b.step);
+    if (!g.length) return g;
+    g[0].len += g[0].step;
+    g[0].step = 0;
+    g.forEach((c, i) => (c.len = (g[i + 1] ? g[i + 1].step : total) - c.step));
+    return g.filter((c) => c.len > 0);
+  }
+  /** Pose un accord dans la liste (modifiée en place) : il remplace ce qu'il recouvre ; un accord coupé en deux garde ses deux bouts. */
+  function gridPut(list, chord) {
+    const end = chord.step + chord.len;
+    const out = list.flatMap((c) => {
+      if (c === chord) return [];
+      const ce = c.step + c.len;
+      if (ce <= chord.step || c.step >= end) return [c];
+      const parts = [];
+      if (c.step < chord.step) parts.push({ ...c, len: chord.step - c.step });
+      if (ce > end) parts.push({ ...c, step: end, len: ce - end });
+      return parts;
+    });
+    list.splice(0, list.length, ...out, chord);
+    list.sort((a, b) => a.step - b.step);
+    return chord;
+  }
+  /**
+   * Durée de l'accord n° i (liste triée, modifiée en place) : plus long, il prend sur les suivants ; plus court, le suivant
+   * commence plus tôt (la grille reste pleine). → l'accord.
+   */
+  function gridSetLen(list, i, len, total) {
+    const c = list[i];
+    len = Math.max(1, Math.min(len, total - c.step));
+    const end = c.step + len;
+    const next = list[i + 1];
+    if (len < c.len && next) {
+      next.len += next.step - end;
+      next.step = end;
+    } else
+      for (let j = i + 1; list[j] && list[j].step < end; ) {
+        const e = list[j].step + list[j].len;
+        if (e <= end) list.splice(j, 1);
+        else {
+          list[j].len = e - end;
+          list[j].step = end;
+          j++;
+        }
+      }
+    c.len = len;
+    return c;
+  }
+
   // colonnes du mode avancé : pour chaque triade de base, les types essayés dans l'ordre
   const GRID_COLS = [
     { id: '7', label: '7', types: { maj: ['maj7'], min: ['m7'], dim: ['m7b5'] } },
@@ -715,9 +773,6 @@ SS.harmony = (() => {
     { id: 'bass-b04', group: 'Basse', label: 'Pédale de tonique (B04)', text: 'la tonique tenue sous tous les accords, une attaque par mesure : la basse change la couleur des accords du dessus' },
     { id: 'arp-1353', group: 'Arpège', label: '1 – 3 – 5 – 3 en croches', text: 'le motif de départ du skill' },
     { id: 'arp-up16', group: 'Arpège', label: '1 – 3 – 5 – 8 en doubles-croches', text: 'montant, plus dense' },
-    { id: 'mel-sketch', group: 'Mélodie', label: 'Esquisse de mélodie', text: 'notes de l’accord sur les temps forts, notes de passage entre elles ; contour en vagues' },
-    { id: 'mel-up', group: 'Mélodie', label: 'Esquisse montante', text: 'même principe, le contour monte (intensifier, ouvrir : espoir, élan…)' },
-    { id: 'mel-down', group: 'Mélodie', label: 'Esquisse descendante', text: 'même principe, le contour descend (relâcher : tristesse, apaisement…)' },
   ];
 
   /** Accords d'une liste d'événements : [{ step, len, rootPc, tones: [pc fondamentale, tierce, quinte, (7e)] }]. */
@@ -785,41 +840,6 @@ SS.harmony = (() => {
         let i = 0;
         for (let s = sp.step; s < sp.step + sp.len; s += dt, i++) add(s, dt, pattern[i % 4], i % 4 === 0 ? 0.85 : 0.68);
       }
-    } else if (kind.startsWith('mel')) {
-      const contour = kind === 'mel-up' ? 'up' : kind === 'mel-down' ? 'down' : 'wave';
-      // une note de l'accord par demi-mesure (temps forts), au plus près de la précédente ;
-      // la note de passage (degré de la gamme voisin de la note suivante) prépare chaque arrivée.
-      const sc = opt.key ? scale(opt.key).map((d) => d.pc) : null;
-      const unit = spb % 2 === 0 ? spb / 2 : spb;
-      const targets = [];
-      let prev = base + (spans[0] ? pcOf(spans[0].tones[1]) : 4); // départ sur la tierce de l'accord, dans l'octave de la piste
-      if (prev < base + 4 && contour !== 'up') prev += 12; // une montée part du bas de la tessiture
-      if (contour === 'down') prev += 7; // une descente part du haut
-      spans.forEach((sp, ci) => {
-        for (let s = sp.step; s < sp.step + sp.len; s += unit) {
-          const k = targets.length;
-          // alternance de contours : on vise tour à tour la note de l'accord la plus proche au-dessus, puis au-dessous
-          const cands = sp.tones.map((pc) => nearest(pc, prev)).filter((m) => m !== prev || sp.tones.length === 1);
-          const up = cands.filter((m) => m >= prev).sort((a, b) => a - b)[0];
-          const down = cands.filter((m) => m <= prev).sort((a, b) => b - a)[0];
-          const goUp = contour === 'up' || (contour === 'wave' && (Math.floor(k / 2) + ci) % 2 === 0);
-          let m = goUp ? up ?? down : down ?? up;
-          // tessiture : environ une octave et demie au-dessus du Do de la piste ; un contour qui sort repart d'une octave
-          if (m > base + 19) m = contour === 'up' ? m - 12 : down ?? m - 12;
-          if (m < base + 2) m = contour === 'down' ? m + 12 : up ?? m + 12;
-          targets.push({ step: s, len: Math.min(unit, sp.step + sp.len - s), midi: m });
-          prev = m;
-        }
-      });
-      targets.forEach((t, i) => {
-        const next = targets[i + 1];
-        const pass = next && sc && t.len >= 4 ? passing(sc, t.midi, next.midi) : null;
-        if (pass != null) {
-          add(t.step, t.len - Math.max(1, Math.round(t.len / 4)), t.midi, t.step % spb === 0 ? 0.85 : 0.78);
-          const pl = Math.max(1, Math.round(t.len / 4));
-          add(t.step + t.len - pl, pl, pass, 0.66);
-        } else add(t.step, t.len, t.midi, t.step % spb === 0 ? 0.85 : 0.78);
-      });
     }
     return out;
   }
@@ -925,6 +945,66 @@ SS.harmony = (() => {
   ];
 
   /**
+   * Contrôles d'une grille (ex-onglet Vérifier d'Harmonie, aussi dans l'assistant) : centre, cadences, fin, emprunts.
+   * gch : [{ step, len, c }] triés, c = gridChord (nom, rôle, emprunt). → [{ kind: ok | tip | info | warn, text, hint? }]
+   */
+  function gridChecks(key, gch) {
+    const out = [];
+    if (!gch.length) return out;
+    const roles = gch.map((x) => x.c.role.id);
+    const first = gch[0].c;
+    const last = gch[gch.length - 1].c;
+    if (!roles.includes('repos')) out.push({ kind: 'tip', text: 'Aucun accord de repos sur la grille : le centre tonal reste flou.', hint: `Placer ${gridPalette(key).simple[0].name} au début ou à la fin pour l’ancrer.` });
+    else if (first.role.id === 'repos') out.push({ kind: 'ok', text: `Commence sur le centre (${first.name}).` });
+    const tens = roles.map((r, i) => (r === 'tension' ? i : -1)).filter((i) => i >= 0);
+    const resolved = tens.filter((i) => roles[(i + 1) % roles.length] === 'repos');
+    if (tens.length && !resolved.length) out.push({ kind: 'tip', text: 'Les accords de tension ne vont jamais vers le repos.', hint: 'Une tension (V, vii°) appelle la tonique juste après : c’est la cadence.' });
+    else if (resolved.length) out.push({ kind: 'ok', text: `Cadence : ${gch[resolved[0]].c.name} → ${gch[(resolved[0] + 1) % gch.length].c.name}.` });
+    if (last.role.id === 'repos') out.push({ kind: 'ok', text: `Finit sur le repos (${last.name}) : la boucle est fermée.` });
+    else if (last.role.id === 'tension') out.push({ kind: 'ok', text: `Finit sur une tension (${last.name}) : elle relance la boucle vers ${first.name}.` });
+    else out.push({ kind: 'tip', text: `Finit sur ${last.name} (${last.role.label}) : la fin reste suspendue.`, hint: 'Voulu pour enchaîner sur la scène suivante ? Sinon, finir sur une tension ou le repos.' });
+    const bor = gch.filter((x) => x.c.borrowed).map((x) => x.c.name);
+    if (bor.length) out.push({ kind: 'info', text: `Emprunt${bor.length > 1 ? 's' : ''} : ${[...new Set(bor)].join(', ')}.`, hint: 'Une couleur hors de la gamme : la mélodie évite ou suit sa note altérée.' });
+    return out;
+  }
+
+  /**
+   * Les essais A/B appliqués à une grille ({ step, len, degree, type, acc, bass? }) plutôt qu'aux notes d'une piste :
+   * l'assistant Nouvelle chanson compare ainsi deux versions de la même scène. `total` : longueur de la scène en pas.
+   * → { grid, pedals?, changed } (copie ; le rythme des accords ne change pas). 'open' (voicing) ne concerne pas la grille.
+   */
+  function transformGrid(id, list, key, total) {
+    const sc = scale(key);
+    let changed = 0;
+    const grid = list.map((c) => ({ ...c }));
+    const inKey = new Set(sc.map((d) => d.pc));
+    const set = (c, type) => {
+      if (type && type !== c.type) {
+        c.type = type;
+        changed++;
+      }
+    };
+    if (id === 'pedal') return { grid, pedals: [{ step: 0, len: total, semi: 0 }], changed: 1 };
+    for (const c of grid) {
+      const plain = ['maj', 'min'].includes(c.type);
+      if (id === 'sus2' && plain) set(c, 'sus2');
+      // septième prise dans la gamme : Cmaj7 et Fmaj7 en Do majeur, mais G7 ; B♭7 (et non B♭maj7) en Do mineur
+      else if (id === 'seventh') set(c, { maj: inKey.has(pcOf(sc[c.degree].pc + (c.acc || 0) + 11)) ? 'maj7' : '7', min: 'm7', dim: inKey.has(pcOf(sc[c.degree].pc + (c.acc || 0) + 9)) ? 'dim7' : 'm7b5' }[c.type]);
+      else if (id === 'mode' && c.degree === 0 && !c.acc && plain) set(c, c.type === 'maj' ? 'min' : 'maj');
+    }
+    if (id === 'avoid' && grid.length) {
+      const last = grid[grid.length - 1];
+      const t = degTriad(sc, 5);
+      if (last.degree !== 5 || last.acc || last.type !== t) {
+        Object.assign(last, { degree: 5, acc: 0, type: t === 'dim' ? 'dim' : t });
+        delete last.bass;
+        changed++;
+      }
+    }
+    return { grid, changed };
+  }
+
+  /**
    * Applique une transformation à des événements (copie modifiée). `role` : 'chords' (piste d'accords) ou 'bass'.
    * Retourne { events, changed } ; les autres paramètres (rythme, durées, vélocités) restent identiques.
    */
@@ -984,17 +1064,6 @@ SS.harmony = (() => {
     return { events: evs, changed };
   }
 
-  /** Note de la gamme juste avant `to` en venant de `from` (note de passage), ou null si les deux sont égales. */
-  function passing(scalePcs, from, to) {
-    if (from === to) return null;
-    const dir = to > from ? -1 : 1; // on approche la cible par le degré voisin, du côté d'où l'on vient
-    for (let d = 1; d <= 2; d++) {
-      const m = to + dir * d;
-      if (scalePcs.includes(pcOf(m)) && m !== from) return m;
-    }
-    return null;
-  }
-
   /**
    * Notes MIDI d'un accord de la palette (position fondamentale) : fondamentale au plus près de `near`
    * (l'accord précédent), sans s'éloigner de plus d'une quinte du centre `center` de la piste — sinon les
@@ -1014,5 +1083,5 @@ SS.harmony = (() => {
     return notes;
   }
 
-  return { MODES, TONICS, GENERATORS, TRANSFORMS, valid, isTonal, scale, spell, french, chords, role, makeChord, progressions, gridChord, toGridChord, gridPalette, gridFromEvents, identify, chordName, analyzeChord, detect, sceneChords, analyze, generate, transform, label, voice, pcOf };
+  return { MODES, TONICS, GENERATORS, TRANSFORMS, valid, isTonal, scale, spell, french, chords, role, makeChord, progressions, gridChord, toGridChord, gridFill, gridPut, gridSetLen, gridPalette, gridFromEvents, identify, chordName, analyzeChord, detect, sceneChords, analyze, generate, transform, transformGrid, gridChecks, label, voice, pcOf };
 })();

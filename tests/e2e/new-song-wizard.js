@@ -145,6 +145,29 @@ const SHOTS = process.env.SHOTS;
   ok((await gnames())[0] === 'Dm' && /Ré mineur/.test(await page.textContent('#wizKey')), 'Ré mineur : la grille est transposée (degrés gardés)');
   await page.click('#bwGridBack');
   ok((await gnames()).join(' ') === 'Cm B♭ A♭ B♭ Cm B♭ A♭ B♭' && !(await page.isVisible('#bwGridBack')), '↺ Inspiration : accords et tonalité d’origine');
+  // repris d'Harmonie : guide du mode, essais A/B, grilles de la tonalité
+  ok(/Note caractéristique|À faire entendre/.test(await page.textContent('#bwGuide')), 'guide du mode sous l’en-tête');
+  await page.click('#bwAb [data-ab="seventh"]');
+  ok((await gnames()).join(' ') === 'Cm7 B♭7 A♭maj7 B♭7 Cm7 B♭7 A♭maj7 B♭7' && (await page.isVisible('#bwAbB')), `essai B : septièmes (${(await gnames()).join(' ')})`);
+  ok(await page.evaluate(() => SS.band._state.wiz.res.scenes.find((s) => s.sec === 'intro').spans[0].chord.type === 'm7'), 'la scène à l’écoute joue la version B');
+  await page.click('#bwAbA');
+  ok((await gnames())[0] === 'Cm' && (await page.evaluate(() => SS.band._state.wiz.res.scenes.find((s) => s.sec === 'intro').spans[0].chord.type)) === 'min', 'A : retour aux accords d’avant, à l’écoute aussi');
+  await page.click('#bwAbCancel');
+  ok(!(await page.isVisible('#bwAbB')) && !(await page.isVisible('#bwGridBack')), 'Garder A : la scène n’est pas retouchée');
+  await page.selectOption('#bwProg', '0');
+  ok((await page.isVisible('#bwGridBack')) && (await gnames()).length === 8, `grille de la tonalité posée (${(await gnames()).join(' ')})`);
+  await page.click('#bwGridBack');
+  await page.click('#bwChecks summary');
+  ok((await page.locator('#bwChecks .hm-checks2 li').count()) >= 2 && /Mélodie · /.test(await page.textContent('#bwChecks')), `Vérifier la scène : accords et mélodie (${(await page.textContent('#bwChecks summary')).trim()})`);
+  // pédale (reprise de la piste Accords / Harmonie) : la note tenue passe à la basse des accords qu'elle couvre
+  await page.click('#bwLane .gr-blk >> nth=0');
+  await page.click('#bwPedAdd');
+  ok((await page.locator('#bwPeds .bwc-ped').count()) === 1 && (await page.isVisible('#bwPedSel')), 'Pédale : une bande sous l’accord, sa barre de réglage');
+  await page.selectOption('#bwPedNote', '7');
+  await page.click('#bwPedSel [role=radio] >> text="2"');
+  const pedSpans = await page.evaluate(() => SS.band._state.wiz.res.scenes.find((s) => s.sec === 'intro').spans.map((x) => [x.step, x.chord.bassPc ?? null]));
+  ok(pedSpans.filter((x) => x[0] < 32).every((x) => x[1] === 7) && pedSpans.filter((x) => x[0] >= 32).every((x) => x[1] === null), `pédale de Sol sur 2 mesures : la basse tient Sol (${JSON.stringify(pedSpans.slice(0, 3))})`);
+  ok(/Pédale Sol/.test(await page.textContent('#bwPeds')) && (await page.isVisible('#bwGridBack')), 'la pédale est nommée, la scène est retouchée');
   // fenêtre « Trouver l'inspiration » sur le refrain : écouter, Annuler, puis Choisir
   await page.click('.bh-scene >> nth=2');
   const chorusKey = () => page.evaluate(() => SS.band._state.wiz.res.scenes.find((s) => s.sec === 'chorus').key);
@@ -317,6 +340,11 @@ const SHOTS = process.env.SHOTS;
   const chorus = p.scenes.find((s) => s.name === 'Refrain');
   const got = JSON.stringify(((chorus.data[lead.id] || {}).events || []).map((e) => [e.step, e.len, e.notes]));
   ok(got === chosen, 'la mélodie créée est celle de l’aperçu');
+  // la grille de l'assistant passe dans la piste Accords de chaque scène (avec ses pédales et l'émotion choisie)
+  const intro = p.scenes.find((s) => s.name === 'Intro');
+  ok(p.scenes.every((s) => s.grid && s.grid.chords.length && s.grid.initialized), 'chaque scène créée a sa grille d’accords');
+  ok(intro.grid.pedals && intro.grid.pedals.length === 1 && intro.grid.pedals[0].semi === 7 && intro.grid.pedals[0].len === 32, `pédale de l’intro gardée (${JSON.stringify(intro.grid.pedals)})`);
+  ok(chorus.emotion && chorus.grid.chords.length > 0, `refrain : émotion ${chorus.emotion} et grille gardées`);
   const padT = p.tracks.find((t) => t.band && `${t.band.musician}:${t.band.key}` === padCol);
   ok(padT && Math.abs(padT.volume - padBase * 0.501) < 0.005, `volume de la nappe gardé dans la chanson (${padT && padT.volume})`);
 

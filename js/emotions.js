@@ -11,7 +11,7 @@
  * why / caveat : textes ; les noms de notes y sont des repères remplacés d'après les accords transposés
  *        (SS.fillEmotionText) : {cI} nom de l'accord n° I de seq, {nI} ses notes, {cI.J} sa note n° J
  *        (0 fondamentale, 1 tierce…), {t} tonique ; préfixe F = nom français ({Fc1.1} → « Si »).
- * melody : couche « Mélodie » conseillée (js/harmony.js, GENERATORS) ; ab : essais A/B conseillés (TRANSFORMS).
+ * ab : essais A/B conseillés (js/harmony.js, TRANSFORMS). La mélodie vient du moteur unique (js/melody.js) et du profil de l'émotion (js/melody-profiles.js).
  * appui  : « appui à essayer » du répertoire d'intentions du guide MusicEmotion (docs/reference/musicemotion-guide.md,
  *          chap. 8) ; les notes citées sont celles de l'exemple du guide.
  * Émerveillement et Beauté inquiétante viennent de ce même répertoire (15 intentions).
@@ -24,7 +24,7 @@ SS.EMOTIONS = [
     harmony: 'Majeur, I–IV–V–I, add9', melody: 'Ascendante, répétitive', texture: 'Pulsation claire, timbres lumineux',
     risk: 'Majeur ne garantit pas la joie : le tempo, le rythme et la mélodie comptent autant.',
     appui: 'Note finale sur la tonique et rebond rythmique.',
-    melodyGen: 'mel-up', ab: ['mode', 'sus2'],
+    ab: ['mode', 'sus2'],
     proposals: [
       { kind: 'evidence', mode: 'major', tonic: 'C', tempo: 120, seq: [[0, 'maj'], [3, 'maj'], [4, 'maj'], [0, 'maj']], why: 'Cadence parfaite simple : départ, préparation, tension, retour au repos, très lisible.', caveat: 'Peut sonner enfantin ou scolaire sans groove ni timbre travaillé.' },
       { kind: 'nuance', mode: 'major', tonic: 'C', tempo: 116, seq: [[0, 'add9'], [5, 'min'], [3, 'add9'], [4, 'maj']], why: 'La neuvième ajoutée éclaircit les accords ; vi apporte un léger contraste avant le retour.', caveat: 'Trop d’add9 brouille la basse : garder les voicings aérés.' },
@@ -36,7 +36,7 @@ SS.EMOTIONS = [
     harmony: 'I–V–vi–IV, mixolydien selon le style', melody: 'Registre haut, séquences ascendantes', texture: 'Densité et accents croissants',
     risk: 'Trop d’intensité sans contraste fatigue : prévoir des respirations.',
     appui: 'Mélodie en séquence ascendante, batterie plus dense au dernier passage.',
-    melodyGen: 'mel-up', ab: ['open', 'seventh'],
+    ab: ['open', 'seventh'],
     proposals: [
       { kind: 'evidence', mode: 'major', tonic: 'C', tempo: 128, seq: [[0, 'maj'], [4, 'maj'], [5, 'min'], [3, 'maj']], why: 'La boucle pop par excellence : énergie continue, aucun accord ne retient longtemps.', caveat: 'Très entendue : la différence se fait sur le son, le groove et la mélodie.' },
       { kind: 'nuance', mode: 'mixolydian', tonic: 'G', tempo: 126, seq: [[0, 'maj'], [6, 'maj'], [3, 'maj'], [0, 'maj']], why: 'Mixolydien : le VII majeur (septième mineure) donne une couleur festive, moins « résolue » qu’une dominante.', caveat: 'Le mode ne s’entend que si la mélodie appuie la septième mineure.' },
@@ -48,7 +48,7 @@ SS.EMOTIONS = [
     harmony: 'Mineur naturel, i–VI–III–VII', melody: 'Descente, silences, ambitus réduit', texture: 'Douce, tempo souvent lent',
     risk: 'Le mineur n’est pas toujours triste : un tempo vif le rend énergique.',
     appui: 'Descente lente de la quinte vers la tonique (E5 → A4 en La), respirations entre les groupes.',
-    melodyGen: 'mel-down', ab: ['mode', 'seventh'],
+    ab: ['mode', 'seventh'],
     proposals: [
       { kind: 'evidence', mode: 'minor', tonic: 'A', tempo: 72, seq: [[0, 'min'], [5, 'maj'], [2, 'maj'], [6, 'maj']], why: 'Boucle mineure naturelle, sans sensible : pas de résolution forte, un sentiment qui tourne en rond.', caveat: 'Avec batterie rapide, elle devient synthwave énergique plutôt que triste.' },
       { kind: 'nuance', mode: 'minor', tonic: 'A', tempo: 70, seq: [[0, 'm7'], [5, 'maj7'], [3, 'm7'], [0, 'm7']], why: 'Les septièmes adoucissent les contours ; iv m7 → i m7 garde une résignation calme.', caveat: 'Les septièmes peuvent tirer vers le jazz ou le lounge selon les timbres.' },
@@ -60,7 +60,7 @@ SS.EMOTIONS = [
     harmony: 'Maj7, m7, add9, emprunts modaux', melody: 'Phrases récurrentes légèrement variées', texture: 'Chorus, pad chaud, arpège discret',
     risk: 'Les extensions ne suffisent pas seules : la répétition variée du motif fait beaucoup.',
     appui: 'Garder la tonique en haut ; dans une autre voix, faire alterner la tierce de IV puis sa version abaissée (A puis A♭ en Do).',
-    melodyGen: 'mel-sketch', ab: ['seventh', 'pedal'],
+    ab: ['seventh', 'pedal'],
     proposals: [
       { kind: 'evidence', mode: 'minor', tonic: 'A', tempo: 96, seq: [[0, 'min'], [5, 'maj7'], [2, 'maj'], [6, 'maj']], why: 'La grille synthwave de l’exemple du skill : {c1} garde {n0} de l’accord précédent, comme un souvenir qui persiste.', caveat: 'Nostalgie « années 80 » : un codage de genre, pas une émotion universelle.' },
       { kind: 'nuance', mode: 'major', tonic: 'C', tempo: 98, seq: [[0, 'maj7'], [5, 'm7'], [1, 'm7'], [3, 'maj7']], why: 'Tout en septièmes, en majeur : douceur un peu voilée, sans tension forte.', caveat: 'Peut paraître trop « confortable » : varier la mélodie.' },
@@ -72,7 +72,7 @@ SS.EMOTIONS = [
     harmony: 'Dorien, m7, IV majeur en mineur dorien', melody: 'Appuyer la note caractéristique du mode (sixte majeure)', texture: 'Groove souple',
     risk: 'Le dorien n’implique aucune émotion fixe : c’est une couleur à faire entendre.',
     appui: 'Mettre en évidence la sixte majeure sur le IV (B sur G en Ré dorien) et la tonique aux fins de phrase.',
-    melodyGen: 'mel-sketch', ab: ['seventh', 'open'],
+    ab: ['seventh', 'open'],
     proposals: [
       { kind: 'evidence', mode: 'dorian', tonic: 'D', tempo: 90, seq: [[0, 'm7'], [3, 'maj'], [0, 'm7'], [3, 'maj']], why: '{c0} → {c1} : le {Fc1.1} de {c1} est la sixte majeure du dorien, la touche de lumière dans le mineur (exemple 3 du skill).', caveat: 'Deux accords seulement : la mélodie et le groove portent la variété.' },
       { kind: 'nuance', mode: 'dorian', tonic: 'D', tempo: 92, seq: [[0, 'm7'], [3, 'maj'], [6, 'maj'], [0, 'm7']], why: 'VII majeur ({c2}) avant le retour : mouvement plus large, la couleur modale reste présente par le IV.', caveat: 'Le VII peut faire entendre {Fc2.0} majeur si la basse insiste dessus.' },
@@ -84,7 +84,7 @@ SS.EMOTIONS = [
     harmony: 'Départ mineur → zone majeure, IV–V–vi', melody: 'Montée de registre, ouverture', texture: 'Crescendo, ajout de couches',
     risk: 'La seule montée ne suffit pas : préparer un point de départ plus sombre ou plus calme.',
     appui: 'Faire apparaître la sixte majeure (F♯ sur D en La) seulement au moment de la montée ; orienter la mélodie vers la tonique.',
-    melodyGen: 'mel-up', ab: ['avoid', 'open'],
+    ab: ['avoid', 'open'],
     proposals: [
       { kind: 'evidence', mode: 'major', tonic: 'C', tempo: 100, seq: [[5, 'min'], [3, 'maj'], [0, 'maj'], [4, 'maj']], why: 'vi – IV – I – V : la boucle part du relatif mineur et s’élève vers le majeur, centre volontairement ambigu.', caveat: 'Le centre perçu dépend de la mélodie : terminer les phrases sur {Ft} pour la lumière.' },
       { kind: 'nuance', mode: 'major', tonic: 'C', tempo: 104, seq: [[3, 'maj'], [4, 'maj'], [5, 'min'], [0, 'add9']], why: 'IV – V – vi : la cadence est d’abord évitée (vi), puis la tonique arrive, ouverte par la neuvième.', caveat: 'L’effet dépend du placement : la tonique doit tomber sur un temps fort de la phrase.' },
@@ -96,7 +96,7 @@ SS.EMOTIONS = [
     harmony: 'Dominante prolongée, sus4, pédale', melody: 'Notes tenues instables, peu de résolution', texture: 'Ostinato, silences',
     risk: 'Épuiser la tension trop tôt : garder une réserve pour la montée.',
     appui: 'Conserver le dernier accord jusqu’au début de la boucle suivante.',
-    melodyGen: 'mel-sketch', ab: ['pedal', 'avoid'],
+    ab: ['pedal', 'avoid'],
     proposals: [
       { kind: 'evidence', mode: 'minor', tonic: 'A', tempo: 90, seq: [[0, 'min'], [0, 'min'], [4, 'sus4'], [4, '7']], why: 'Deux mesures de tonique, puis la dominante prolongée (sus4 puis {c3}) : l’attente de la résolution s’installe.', caveat: 'Si la boucle repart sur i, la tension se résout à chaque tour : prolonger {c3} dans la section suivante.' },
       { kind: 'nuance', mode: 'minor', tonic: 'A', tempo: 88, seq: [[0, 'sus2'], [5, 'maj'], [3, 'min'], [4, 'sus4']], why: 'La tierce absente du premier accord laisse la couleur indécise ; la fin sus4 ne résout pas.', caveat: 'Avec une basse en pédale (essai A/B), la tension monte encore.' },
@@ -108,7 +108,7 @@ SS.EMOTIONS = [
     harmony: 'Chromatisme, ♭II, accords diminués, clusters mesurés', melody: 'Seconde mineure, fragments courts', texture: 'Pulsation irrégulière ou drone',
     risk: 'Une dissonance excessive et uniforme lasse : doser et faire respirer.',
     appui: 'Seconde mineure au-dessus de la tonique (B♭ sur A) dans le dessus, grave peu mobile.',
-    melodyGen: 'mel-down', ab: ['pedal', 'open'],
+    ab: ['pedal', 'open'],
     proposals: [
       { kind: 'evidence', mode: 'phrygian', tonic: 'E', tempo: 110, seq: [[0, 'min'], [1, 'maj'], [0, 'min'], [1, 'maj']], why: 'Phrygien : {Fc0.0} → {Fc1.0}, un demi-ton au-dessus de la tonique, oppressant et obstiné.', caveat: 'Très typé (metal, thriller) : jouer sur le timbre pour éviter le cliché.' },
       { kind: 'nuance', mode: 'minor', tonic: 'A', tempo: 100, seq: [[0, 'min'], [6, 'dim', 1], [0, 'min'], [1, 'maj', -1]], why: '{c1} (sensible, mineur harmonique) et {c3} (♭II napolitain) encerclent {Ft} par demi-tons.', caveat: 'Deux chromatismes rapprochés : vérifier que la basse reste lisible.' },
@@ -120,7 +120,7 @@ SS.EMOTIONS = [
     harmony: 'Sus2 / sus4, modalité, voicings ouverts', melody: 'Phrases incomplètes', texture: 'Réverbération, espace spectral',
     risk: 'Trop de réverbération brouille l’harmonie.',
     appui: 'Répéter une même note dans l’aigu (A en La) et écouter son rôle changer d’un accord à l’autre.',
-    melodyGen: 'mel-sketch', ab: ['open', 'sus2'],
+    ab: ['open', 'sus2'],
     proposals: [
       { kind: 'evidence', mode: 'minor', tonic: 'A', tempo: 80, seq: [[0, 'sus2'], [6, 'sus4'], [5, 'sus2'], [0, 'sus2']], why: 'Sans tierces, ni majeur ni mineur : la couleur reste indécise, la phrase ne se « ferme » pas.', caveat: 'Le centre tonal peut devenir flou : laisser la basse sur les fondamentales.' },
       { kind: 'nuance', mode: 'lydian', tonic: 'F', tempo: 84, seq: [[0, 'maj'], [1, 'maj'], [0, 'maj'], [1, 'maj']], why: 'Lydien : {c0} → {c1}, le {Fc1.1} (quarte augmentée) donne une lumière étrange, en apesanteur.', caveat: 'Effet « merveilleux » ou « irréel » selon le timbre.' },
@@ -132,7 +132,7 @@ SS.EMOTIONS = [
     harmony: 'Harmonie stable, faible vitesse harmonique', melody: 'Mouvement conjoint, longues tenues', texture: 'Peu de couches, attaques douces',
     risk: 'Uniformité sans direction : prévoir une évolution lente (filtre, densité).',
     appui: 'Basse stable sur la tonique, quelques notes seulement dans l’aigu.',
-    melodyGen: 'mel-down', ab: ['sus2', 'pedal'],
+    ab: ['sus2', 'pedal'],
     proposals: [
       { kind: 'evidence', mode: 'major', tonic: 'C', tempo: 70, seq: [[0, 'add9'], [0, 'add9'], [3, 'maj7'], [3, 'maj7']], why: 'Deux accords, deux mesures chacun : le temps s’étire, rien ne presse.', caveat: 'Le rythme harmonique lent demande une mélodie ou une texture qui vit.' },
       { kind: 'nuance', mode: 'lydian', tonic: 'F', tempo: 72, seq: [[0, 'maj7'], [1, 'maj'], [0, 'maj7'], [1, 'maj']], why: 'Lydien flottant : aucun accord ne tire vers une résolution.', caveat: 'Peut sembler suspendu plutôt que serein.' },
@@ -144,7 +144,7 @@ SS.EMOTIONS = [
     harmony: 'Maj7, add9, m9, conduite conjointe', melody: 'Petits intervalles, résolutions douces', texture: 'Dynamique subtile',
     risk: 'Une harmonie trop dense étouffe la douceur.',
     appui: 'Longues tenues, attaque arrondie, une note commune tenue d’un accord à l’autre (E sur Dm9 en Do).',
-    melodyGen: 'mel-sketch', ab: ['open', 'mode'],
+    ab: ['open', 'mode'],
     proposals: [
       { kind: 'evidence', mode: 'major', tonic: 'C', tempo: 76, seq: [[0, 'maj7'], [3, 'maj7'], [0, 'maj7'], [3, 'maj7']], why: 'I maj7 ↔ IV maj7 : deux couleurs douces qui partagent des notes, mouvements minimes.', caveat: 'Statique : la mélodie doit raconter.' },
       { kind: 'nuance', mode: 'major', tonic: 'C', tempo: 78, seq: [[0, 'add9'], [5, 'm7'], [1, 'm9'], [4, 'sus4']], why: 'La sus4 finale retarde la dominante : une hésitation tendre avant le retour.', caveat: 'm9 est dense : voicing ouvert conseillé.' },
@@ -156,7 +156,7 @@ SS.EMOTIONS = [
     harmony: 'Retour affirmé à la tonique, contraste modal éventuel', melody: 'Ambitus large, sommet clair', texture: 'Batterie, basse ferme, couches',
     risk: 'Le volume seul ne fait pas le triomphe : préparer le sommet.',
     appui: 'Préparer un sommet mélodique sur la tonique et élargir la disposition au retour.',
-    melodyGen: 'mel-up', ab: ['open', 'avoid'],
+    ab: ['open', 'avoid'],
     proposals: [
       { kind: 'evidence', mode: 'major', tonic: 'C', tempo: 110, seq: [[0, 'maj'], [3, 'maj'], [4, 'maj'], [0, 'maj']], why: 'Cadence parfaite affirmée : I – IV – V – I, la tonique « arrive » sur la dernière mesure.', caveat: 'Préparer ce passage par une section plus calme ou plus tendue.' },
       { kind: 'nuance', mode: 'major', tonic: 'C', tempo: 108, seq: [[0, 'maj'], [5, 'maj', -1], [6, 'maj', -1], [0, 'maj']], why: '♭VI – ♭VII – I : cadence « épique » du cinéma et du rock, la tonique est atteinte par le haut.', caveat: 'Cliché si trop fréquent.' },
@@ -168,7 +168,7 @@ SS.EMOTIONS = [
     harmony: 'Alternance majeur / mineur, accords communs', melody: 'Cible mélodique ambiguë', texture: 'Timbres contrastés',
     risk: 'Une explication émotionnelle trop catégorique.',
     appui: 'Même motif autour de la quinte, alternance tierce majeure / mineure à l’intérieur (E / E♭ en Do).',
-    melodyGen: 'mel-sketch', ab: ['mode', 'sus2'],
+    ab: ['mode', 'sus2'],
     proposals: [
       { kind: 'evidence', mode: 'major', tonic: 'C', tempo: 92, seq: [[0, 'maj'], [3, 'min'], [0, 'maj'], [3, 'min']], why: 'I ↔ iv : le majeur et l’ombre du mineur alternent, sans trancher.', caveat: 'Peut sembler indécis plutôt qu’ambivalent : soigner la mélodie.' },
       { kind: 'nuance', mode: 'minor', tonic: 'A', tempo: 94, seq: [[0, 'min'], [2, 'maj'], [3, 'maj'], [0, 'min']], why: 'IV majeur en mineur (couleur dorienne) : un éclat de lumière entouré de mineur.', caveat: 'Le {Fc2.1} du IV majeur contredit la gamme : l’assumer dans la mélodie.' },
@@ -180,7 +180,7 @@ SS.EMOTIONS = [
     harmony: 'Lydien : maj7(♯11), II majeur sur basse de tonique, médiantes chromatiques', melody: 'Quarte augmentée isolée dans l’aigu, attaques espacées', texture: 'Basse stable, nappes claires, réverbération maîtrisée',
     risk: 'Le lydien bascule vers la dominante si la basse quitte la tonique : garder la pédale.',
     appui: 'Basse stable sur la tonique, quarte augmentée isolée dans l’aigu (F♯ en Do), attaques espacées.',
-    melodyGen: 'mel-up', ab: ['pedal', 'open'],
+    ab: ['pedal', 'open'],
     proposals: [
       { kind: 'evidence', mode: 'lydian', tonic: 'C', tempo: 76, seq: [[0, 'maj7s11'], [1, 'maj'], [0, 'maj7s11'], [0, 'maj']], why: '{c1} au-dessus de la tonique : son {Fc1.1} est la quarte augmentée du lydien, une lumière en apesanteur (guide, chap. 8).', caveat: 'Jouer {c1} sur une basse {t} : sur sa propre fondamentale, il tire vers la dominante.' },
       { kind: 'nuance', mode: 'lydian', tonic: 'F', tempo: 80, seq: [[0, 'add9'], [1, 'add9'], [6, 'min'], [0, 'add9']], why: 'II add9 puis vii : la couleur lydienne passe par {Fc1.1} sans jamais créer de dominante.', caveat: 'Les add9 rapprochées brouillent le grave : aérer les voicings.' },
@@ -192,7 +192,7 @@ SS.EMOTIONS = [
     harmony: 'Mineur harmonique : V majeur ↔ i, sixte ajoutée, emprunts chromatiques', melody: 'Sensible → tonique soignée, sixte majeure à la dernière arrivée', texture: 'Piano ou cordes, tempo modéré, rubato possible',
     risk: 'Trop de sensible rend la phrase scolaire : laisser une arrivée ouverte.',
     appui: 'Soigner la sensible → tonique (G♯ → A en La) et laisser apparaître la sixte majeure (F♯) à la dernière arrivée.',
-    melodyGen: 'mel-sketch', ab: ['seventh', 'pedal'],
+    ab: ['seventh', 'pedal'],
     proposals: [
       { kind: 'evidence', mode: 'harmonic', tonic: 'A', tempo: 72, seq: [[4, 'maj'], [0, 'min'], [4, 'maj'], [0, 'm6']], why: '{c0} ↔ {c1} : {Fc0.1} monte sur {Fc1.0} ; la sixte majeure de {c3} ({Fc3.3}) éclaire la dernière arrivée (guide, chap. 8 ; Piano Diary, fiche 4).', caveat: 'Deux accords seulement : la mélodie doit varier d’un passage à l’autre.' },
       { kind: 'nuance', mode: 'harmonic', tonic: 'A', tempo: 70, seq: [[0, 'min'], [3, 'madd9'], [5, 'maj7'], [4, '7']], why: 'Les notes ajoutées adoucissent ; {c3} rappelle la sensible {Fc3.1} : la beauté garde son inquiétude.', caveat: 'Le maj7 sur le VI peut sonner trop confortable : le jouer bref.' },
