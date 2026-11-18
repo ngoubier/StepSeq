@@ -44,19 +44,19 @@ test('sans parts, ou avec parts vide, la chanson est identique pour les 30 plans
   }
 });
 
-test('bibliothèque : 4 styles de 20 motifs bien formés', () => {
-  assert.deepEqual(Object.keys(SS.DRUM_PATTERNS).sort(), ['ambient', 'edm', 'synthwave', 'techno']);
+test('bibliothèque : 10 styles (28 motifs pour les 4 styles Band, 16 pour les autres) bien formés', () => {
+  assert.deepEqual(Object.keys(SS.DRUM_PATTERNS).sort(), ['ambient', 'dnb', 'edm', 'funk', 'hiphop', 'latin', 'pop', 'soul', 'synthwave', 'techno']);
   const ids = new Set();
   for (const [style, list] of Object.entries(SS.DRUM_PATTERNS)) {
-    assert.equal(list.length, 20, style);
+    assert.equal(list.length, ['synthwave', 'edm', 'ambient', 'techno'].includes(style) ? 28 : 16, style);
     for (const p of list) {
       assert.match(p.id, /^[a-z0-9]+(-[a-z0-9]+)*$/, p.id);
       assert.ok(!ids.has(p.id), 'id en double : ' + p.id);
       ids.add(p.id);
       assert.ok([1, 2, 3].includes(p.energy), p.id);
       for (const [k, l] of Object.entries(p.lanes)) {
-        assert.ok('KSCHO'.includes(k), p.id + ' piste ' + k);
-        assert.match(l, /^[xo.-]{16}$/, `${p.id}.${k}`);
+        assert.ok('KSCHORTP'.includes(k), p.id + ' piste ' + k);
+        assert.match(l, /^[xo.r-]{16}$/, `${p.id}.${k}`);
       }
       assert.equal(SS.drumPattern(style, p.id), p);
     }
@@ -336,9 +336,52 @@ test('nouveaux modes de basse : pas de la première mesure, bornes, registre, p�
   assert.deepEqual(arp.filter((e) => e.step >= 16 && e.step < 32).slice(0, 2).map((e) => e.notes[0] % 12), [8, 0], 'VI : la♭ majeur');
   // catalogue
   const cat = SS.bandSong.BASS_NEW;
-  assert.deepEqual(cat.map((c) => c[0]), Object.keys(NEW));
+  assert.deepEqual(cat.map((c) => c[0]).slice(0, Object.keys(NEW).length), Object.keys(NEW));
   for (const [id, nom, desc, dessin] of cat) {
     assert.ok(nom && desc, id);
     assert.ok(dessin.length > 0 && dessin.every(([s, l, lv]) => s >= 0 && l > 0 && s + l <= 16 && [0, 1, 2].includes(lv)), id);
   }
+});
+
+test('motifs : lignes rimshot (R), toms (T, le tom suit le pas), percussion (P) et roulements « r »', () => {
+  const TR2 = [...TR, { id: 'drums:sh', type: 'drum', sound: 'sh', band: { key: 'drums:sh' } }];
+  const run = (style, pattern) => SS.bandSong.build(SPEC, 'test', TR2, { parts: { a: { drums: { style, pattern } } } }).scenes[0].data;
+  // rim et shaker : la ligne du motif ; sans ligne, le jeu du plan
+  const af = run('latin', 'afrobeats');
+  assert.deepEqual(rows(af['drums:rim'].steps, 1), ['0001001000010010']);
+  assert.deepEqual(rows(af['drums:sh'].steps, 1), ['1111111111111111']);
+  // toms : x--x--x---x--x-- → aigu aux pas 0 et 3, médium aux pas 6 et 10, grave au pas 13
+  const tm = run('pop', 'toms');
+  assert.deepEqual(rows(tm['drums:ht'].steps, 1), ['1001000000000000']);
+  assert.deepEqual(rows(tm['drums:mt'].steps, 1), ['0000001000100000']);
+  assert.deepEqual(rows(tm['drums:lt'].steps, 1), ['0000000000000100']);
+  // trap : roulement de trois coups aux pas 9, 14 et 15
+  const tr = run('hiphop', 'trap');
+  assert.deepEqual(Object.keys(tr['drums:hh'].rat || {}).map(Number).filter((s) => s < 16), [9, 14, 15]);
+  assert.ok(Object.values(tr['drums:hh'].rat).every((v) => v === 3));
+  // un motif sans R garde le rim du plan (comportement d'avant)
+  const mo = run('synthwave', 'motorik');
+  assert.ok(mo['drums:rim'].steps.some((v) => v > 0));
+});
+
+test('modes de basse de nov. 2026 : rythme de la première mesure, approche et anticipation', () => {
+  const NEW = {
+    rock8: [0, 2, 4, 6, 8, 10, 12, 14], ballade: [0, 10, 12], disco16: [0, 2, 3, 4, 6, 7, 8, 10, 11, 12, 14, 15], slap: [0, 3, 4, 6, 7, 10, 11, 12, 14, 15],
+    motown: [0, 3, 4, 6, 8, 11, 12, 14], walking: [0, 4, 8, 12], boombap: [0, 7, 10, 14], sub808: [0, 14], trap808: [0, 3, 6, 8, 12, 14], reese: [0, 8, 14],
+    dnbroll: [0, 3, 6, 7, 10, 13, 14, 15], dembow: [0, 3, 6, 8, 11, 14], tumbao: [6, 12], onedrop: [2, 4, 6, 8, 14], bossa: [0, 6, 8, 14], afro: [0, 6, 10, 12],
+    acid: [0, 1, 2, 3, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15],
+  };
+  const ids = SS.bandSong.BASS_NEW.map((c) => c[0]);
+  for (const [mode, steps] of Object.entries(NEW)) {
+    assert.ok(ids.includes(mode), mode + ' au catalogue');
+    const sc = scene(build({ a: { bass: { mode } } }));
+    const ev = sc.data.bass.events;
+    assert.ok(ev.every((e) => e.step >= 0 && e.step + e.len <= sc.bars * 16 && e.len >= 1), mode + ' : dans la scène');
+    assert.deepEqual(ev.filter((e) => e.step < 16).map((e) => e.step).sort((a, b) => a - b), steps, mode + ' : pas de la mesure 1');
+  }
+  // Do mineur → La♭ : la ballade approche La♭ par Sol (un demi-ton dessous), le tumbao l'annonce au 4e temps
+  const pc = (mode, step) => scene(build({ a: { bass: { mode } } })).data.bass.events.find((e) => e.step === step).notes[0] % 12;
+  assert.equal(pc('ballade', 12), 7);
+  assert.equal(pc('tumbao', 12), 8);
+  assert.equal(pc('walking', 4), 3, 'walking : tierce mineure de Do mineur');
 });

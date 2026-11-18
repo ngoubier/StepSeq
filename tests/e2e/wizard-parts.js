@@ -78,7 +78,7 @@ const ok = (c, m) => {
 
   // Batterie : l'inspiration d'abord, rien n'est réglé
   ok((await page.getAttribute('#bwParts', 'data-kind')) === 'drums' && (await page.locator('.bh-scene').count()) === 5 && (await page.locator('.bw-kind').count()) === 0 && (await page.getAttribute('#bwStepHead', 'data-kind')) === 'drums', 'onglet de la batterie : les cinq scènes à gauche');
-  ok((await page.locator('.bwp-pat').count()) === 21 && (await page.locator('.bwp-pat.on').getAttribute('data-id')) === '', 'vingt motifs, et « Motif de l’inspiration » choisi par défaut');
+  ok((await page.locator('.bwp-pat').count()) === 29 && (await page.locator('.bwp-pat.on').getAttribute('data-id')) === '', '28 motifs synthwave, et « Motif de l’inspiration » choisi par défaut');
   ok(Object.keys(await parts()).length === 0 && !(await page.evaluate(() => SS.audio.isPlaying())), 'première visite : rien n’est réglé, rien ne joue');
 
   // filtre par énergie et motifs suggérés (Couplet : moyen)
@@ -89,6 +89,24 @@ const ok = (c, m) => {
   await page.click('#bwpFilter [data-v="2"]');
   ok((await page.locator('.bwp-sug').count()) === (await page.locator('.bwp-pat:not([data-id=""])').count()), 'filtre Moyen : tous « Suggéré » pour un couplet');
   await page.click('#bwpFilter [data-v="0"]');
+
+  // bibliothèque d'un autre style : un dembow dans une chanson synthwave, puis « Tous les styles »
+  await page.selectOption('#bwpLib', 'latin');
+  await page.waitForTimeout(250);
+  ok((await page.locator('.bwp-pat').count()) === 17, 'bibliothèque Latin, Afro & Reggae : 16 motifs');
+  await page.click('.bwp-pat[data-id="dembow"]');
+  await page.waitForTimeout(500);
+  const dv = await part('verse', 'drums');
+  const dembow = await page.evaluate(() => SS.drumPattern('latin', 'dembow'));
+  ok(dv.pattern === 'dembow' && dv.style === 'latin' && (await page.locator('.bwp-pat.on').getAttribute('data-st')) === 'latin', 'Dembow (Latin) choisi pour le couplet');
+  ok(rowsOf(await kick('Couplet'), 1)[0] === lane(dembow.lanes.K), 'le kick suit le dembow');
+  await page.selectOption('#bwpLib', 'all');
+  await page.waitForTimeout(250);
+  const total = await page.evaluate(() => Object.values(SS.DRUM_PATTERNS).reduce((a, l) => a + l.length, 0));
+  ok((await page.locator('.bwp-pat').count()) === total + 1 && (await page.locator('.bwp-from').count()) === total, `Tous les styles : ${total} motifs, chacun avec son style`);
+  if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'bibliotheque-tous-styles.png') });
+  await page.selectOption('#bwpLib', 'synthwave');
+  await page.waitForTimeout(250);
 
   // Assortir toutes les scènes : un motif par scène, de la nuance de la scène
   await page.click('#bwpMatch');
@@ -146,7 +164,7 @@ const ok = (c, m) => {
 
   // Accords, puis Basse : pédale
   await tab('bass');
-  ok((await page.getAttribute('#bwParts', 'data-kind')) === 'bass' && (await page.locator('.bwp-mode').count()) === 21, 'étape Basse : 21 modes de jeu (13 + 8 nouveaux)');
+  ok((await page.getAttribute('#bwParts', 'data-kind')) === 'bass' && (await page.locator('.bwp-mode').count()) === 39, 'étape Basse : 39 modes de jeu (13 + 9 + 17 de nov. 2026)');
   ok((await page.locator('.bwp-mode.on em').textContent()) === 'Inspiration', 'basse : le mode de l’inspiration est choisi et repéré');
   await scene('Couplet');
   await page.click('#bwpPedal [data-v="tonic"]');

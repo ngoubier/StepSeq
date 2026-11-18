@@ -504,7 +504,7 @@ SS.bandSong = (() => {
     // minimal / high-tech : kick sec, clap retenu, charleston serré
     minimal: { bd: 'x---x---x---x---', bk: '----o-------x---', hh: 'o.o.o.o.o.o.o.o.', oh: '------o-------o-', sh: '..o...o...o...o.', tb: '---o-------o----', rim: '--o--o----o--o--', tom: '--------------oo' },
   };
-  const LEVEL = { x: 1, o: 0.72, '.': 0.45 };
+  const LEVEL = { x: 1, o: 0.72, '.': 0.45, r: 0.72 }; // r : roulement (trois coups dans le pas, motifs de js/drum-patterns.js)
   const kind = (sound) => {
     if (sound === 'bd') return 'bd';
     if (['sd', 'cp'].includes(sound)) return 'bk';
@@ -591,19 +591,34 @@ SS.bandSong = (() => {
   }
 
   /**
-   * Batterie d'une section d'après un motif de js/drum-patterns.js (lanes K S C H O, 16 caractères) et ses fills.
-   * lanes = null : on garde `base` (pas déjà écrits d'après le plan) et on n'y ajoute que fill et crash.
-   * Retourne null pour les pièces que le motif ne pilote pas (rim, sh, tb…).
+   * Batterie d'une section d'après un motif de js/drum-patterns.js (lanes K S C H O, et R T P s'il les a ; 16 caractères)
+   * et ses fills. lanes = null : on garde `base` (pas déjà écrits d'après le plan) et on n'y ajoute que fill et crash.
+   * Retourne null pour les pièces que le motif ne pilote pas (rim, shaker, tambourin… quand il n'a pas de ligne R ou P).
+   * `rat` (objet) reçoit les roulements « r » : { pas: 3 }.
    */
   const tomIndex = { ht: 0, mt: 1, lt: 2 };
-  function patternSteps(sound, bars, r, { lanes = null, base = null, fill = 'off', fillType = 'roll', crash = false, energy = 1 } = {}) {
+  /** Ligne T des motifs : le tom joué dépend du pas (0–5 aigu, 6–10 médium, 11–15 grave). */
+  const tomOfStep = (s) => (s < 6 ? 0 : s < 11 ? 1 : 2);
+  /** Ligne du motif qui pilote ce son (null : aucune). */
+  function patternLane(sound, lanes) {
     const k = kind(sound);
-    if (!['bd', 'bk', 'hh', 'oh', 'tom', 'cr'].includes(k)) return null;
+    if (k === 'bd') return 'K';
+    if (k === 'bk') return sound === 'cp' && (!lanes || /[xo.r]/.test(lanes.C || '')) ? 'C' : 'S';
+    if (k === 'hh') return 'H';
+    if (k === 'oh') return 'O';
+    if (k === 'rim') return lanes && lanes.R ? 'R' : null;
+    if (k === 'tom') return lanes && lanes.T ? 'T' : null;
+    if (k === 'sh' || k === 'tb') return lanes && lanes.P ? 'P' : null;
+    return null;
+  }
+  function patternSteps(sound, bars, r, { lanes = null, base = null, fill = 'off', fillType = 'roll', crash = false, energy = 1, rat = null } = {}) {
+    const k = kind(sound);
+    if (!['bd', 'bk', 'hh', 'oh', 'tom', 'cr'].includes(k) && !(lanes && patternLane(sound, lanes))) return null;
     const n = bars * SPB;
     const out = base ? base.slice() : new Array(n).fill(0);
     const F = (SS.DRUM_FILLS && SS.DRUM_FILLS[fillType]) || (SS.DRUM_FILLS && SS.DRUM_FILLS.roll);
-    const hasC = lanes && /[xo.]/.test(lanes.C || '');
-    const lane = k === 'bd' ? 'K' : k === 'bk' ? (sound === 'cp' && (hasC || !lanes) ? 'C' : 'S') : k === 'hh' ? 'H' : k === 'oh' ? 'O' : null;
+    const lane = patternLane(sound, lanes);
+    const ti = tomIndex[sound] ?? 1;
     const spread = k === 'bd' ? 0.05 : k === 'bk' ? 0.08 : 0.14;
     const e = ['bd', 'bk'].includes(k) ? Math.sqrt(energy) : energy;
     // nuance de la section : même règle que drumSteps (les notes très douces restent telles quelles)
@@ -623,13 +638,17 @@ SS.bandSong = (() => {
         const keep = f && s === F.from && lane === 'K' && fillType !== 'cut'; // le kick tombe encore au début du fill
         if (f && s >= F.from && !keep) out[b * SPB + s] = 0;
         else if (lanes && lane) {
-          const v = LEVEL[(lanes[lane] || '')[s]];
-          if (v) put(b * SPB + s, v);
+          const c = (lanes[lane] || '')[s];
+          const v = LEVEL[c];
+          if (v && !(lane === 'T' && tomOfStep(s) !== ti)) {
+            put(b * SPB + s, v);
+            if (c === 'r' && rat) rat[b * SPB + s] = 3;
+          }
         }
       }
       if (f)
         F.ev.forEach(([s, ln, v, ti]) => {
-          if (ln === lane || (ln === 'C' && sound === 'cp') || (ln === 'T' && k === 'tom' && ti === (tomIndex[sound] ?? 1))) put(b * SPB + s, v);
+          if ((ln === lane && ln !== 'T') || (ln === 'C' && sound === 'cp') || (ln === 'T' && k === 'tom' && ti === (tomIndex[sound] ?? 1))) put(b * SPB + s, v);
         });
     }
     return out;
@@ -813,6 +832,41 @@ SS.bandSong = (() => {
       const each = (dt, fn) => {
         for (let s = sp.step; s < end; s += dt) fn(s, s - sp.step);
       };
+      // modes ajoutés en nov. 2026 (BASS_RHYTHMS) : une mesure type, répétée ; notes relatives à l'accord
+      if (BASS_RHYTHMS[mode]) {
+        const third = root + ([3, 4].find((iv) => tones(sp.chord).includes(pcOf(sp.chord.rootPc + iv))) ?? 4);
+        const seventh = root + (tones(sp.chord).includes(pcOf(sp.chord.rootPc + 11)) ? 11 : 10);
+        const nextRoot = next && next.step === end ? bassMidi(pedalPc ?? next.chord.bassPc ?? next.chord.rootPc) + shift : null;
+        for (let b = sp.step; b < end; b += SPB) {
+          const lastBar = b + SPB >= end;
+          BASS_RHYTHMS[mode].forEach(([o, l, n, v]) => {
+            if (b + o >= end) return;
+            let m;
+            if (n === 't') m = third;
+            else if (n === 's') m = seventh;
+            else if (n === 'a') m = lastBar && nextRoot != null && nextRoot !== root ? nextRoot + (nextRoot > root ? -1 : 1) : fifth; // approche chromatique
+            else if (n === 'n') m = lastBar && nextRoot != null ? nextRoot : root; // anticipation de l'accord suivant
+            else m = root + n;
+            add(b + o, Math.min(l, end - b - o), m, v);
+          });
+        }
+        return;
+      }
+      if (mode === 'walking') {
+        // walking : une noire par temps, notes de l'accord ; le dernier temps de l'accord approche le suivant d'un demi-ton
+        const third = root + ([3, 4].find((iv) => tones(sp.chord).includes(pcOf(sp.chord.rootPc + iv))) ?? 4);
+        const line = [root, third, fifth, third];
+        const nextRoot = next && next.step === end ? bassMidi(pedalPc ?? next.chord.bassPc ?? next.chord.rootPc) + shift : null;
+        let prev = root;
+        each(4, (s, o) => {
+          const lastQ = s + 4 >= end;
+          let m = line[(o / 4) % 4];
+          if (lastQ && o > 0 && nextRoot != null) m = nextRoot + (prev > nextRoot ? 1 : -1);
+          add(s, Math.min(4, end - s), m, o % 16 === 0 ? 0.88 : 0.74);
+          prev = m;
+        });
+        return;
+      }
       switch (mode) {
         case 'whole':
           add(sp.step, sp.len, root, 0.85);
@@ -1758,8 +1812,9 @@ SS.bandSong = (() => {
           if (hasGridLane(dp && dp.edits, snd)) return void (data[t.id] = gridSteps(snd, bars, r, dp.edits, fo));
           if (lanes) {
             // motif de la bibliothèque : il pilote kick, caisse, clap, charleston, crash et toms
-            const st = patternSteps(snd, bars, r, { lanes, ...fo });
-            if (st) return void (data[t.id] = { steps: st });
+            const rat = {};
+            const st = patternSteps(snd, bars, r, { lanes, ...fo, rat });
+            if (st) return void (data[t.id] = Object.keys(rat).length ? { steps: st, rat } : { steps: st });
           }
           // fill explicite (même « off ») : il remplace le roulement automatique de fin de section
           let steps = drumSteps(snd, mode, sec.groove || spec.groove, bars, r, { perc: role === 'perc', last: sec.fill !== false && !(dp && dp.fill), energy });
@@ -1966,6 +2021,30 @@ SS.bandSong = (() => {
     return { key, scenes, song };
   }
 
+  /* Modes de basse de nov. 2026 : une mesure type [pas, longueur, note, vélocité] ; note : demi-tons au-dessus de la fondamentale
+     (0, 7, 12), « t » tierce de l'accord, « s » septième, « a » approche chromatique de l'accord suivant (dernière mesure de
+     l'accord, sinon la quinte), « n » fondamentale de l'accord suivant jouée en avance (dernière mesure, sinon la fondamentale). */
+  const BASS_RHYTHMS = {
+    rock8: [[0, 2, 0, 0.9], [2, 2, 0, 0.7], [4, 2, 0, 0.8], [6, 2, 0, 0.7], [8, 2, 0, 0.88], [10, 2, 0, 0.7], [12, 2, 0, 0.8], [14, 2, 12, 0.78]],
+    ballade: [[0, 10, 0, 0.85], [10, 2, 7, 0.7], [12, 4, 'a', 0.72]],
+    disco16: [[0, 2, 0, 0.92], [2, 1, 12, 0.74], [3, 1, 0, 0.7], [4, 2, 0, 0.88], [6, 1, 12, 0.74], [7, 1, 0, 0.7], [8, 2, 0, 0.9], [10, 1, 12, 0.74], [11, 1, 0, 0.7], [12, 2, 0, 0.88], [14, 1, 12, 0.76], [15, 1, 'a', 0.7]],
+    slap: [[0, 1, 0, 0.95], [3, 1, 0, 0.8], [4, 1, 12, 0.9], [6, 1, 0, 0.85], [7, 1, 12, 0.75], [10, 1, 0, 0.88], [11, 1, 7, 0.72], [12, 1, 12, 0.9], [14, 1, 0, 0.82], [15, 1, 's', 0.72]],
+    motown: [[0, 3, 0, 0.9], [3, 1, 0, 0.7], [4, 2, 12, 0.78], [6, 2, 7, 0.76], [8, 3, 0, 0.88], [11, 1, 't', 0.7], [12, 2, 7, 0.76], [14, 2, 'a', 0.74]],
+    boombap: [[0, 3, 0, 0.92], [7, 2, 0, 0.78], [10, 3, 7, 0.8], [14, 2, 's', 0.7]],
+    sub808: [[0, 14, 0, 0.92], [14, 2, 12, 0.75]],
+    trap808: [[0, 3, 0, 0.95], [3, 3, 0, 0.8], [6, 2, 12, 0.78], [8, 4, 0, 0.9], [12, 2, 7, 0.76], [14, 2, 0, 0.8]],
+    reese: [[0, 8, 0, 0.88], [8, 6, 0, 0.8], [14, 2, 12, 0.74]],
+    dnbroll: [[0, 2, 0, 0.92], [3, 1, 0, 0.72], [6, 1, 0, 0.78], [7, 1, 12, 0.7], [10, 2, 0, 0.88], [13, 1, 0, 0.72], [14, 1, 7, 0.74], [15, 1, 0, 0.7]],
+    dembow: [[0, 3, 0, 0.92], [3, 3, 0, 0.78], [6, 2, 7, 0.8], [8, 3, 0, 0.9], [11, 3, 0, 0.78], [14, 2, 12, 0.76]],
+    tumbao: [[6, 6, 7, 0.86], [12, 4, 'n', 0.9]],
+    onedrop: [[2, 2, 0, 0.82], [4, 2, 0, 0.76], [6, 2, 't', 0.74], [8, 4, 7, 0.86], [14, 2, 12, 0.72]],
+    bossa: [[0, 6, 0, 0.88], [6, 2, 7, 0.72], [8, 6, 7, 0.82], [14, 2, 0, 0.72]],
+    afro: [[0, 3, 0, 0.9], [6, 2, 0, 0.78], [10, 2, 12, 0.76], [12, 3, 0, 0.84]],
+    acid: [[0, 1, 0, 0.95], [1, 1, 0, 0.6], [2, 1, 12, 0.85], [3, 1, 0, 0.6], [5, 1, 0, 0.75], [6, 1, 's', 0.8], [7, 1, 12, 0.7], [8, 1, 0, 0.92], [10, 1, 0, 0.65], [11, 1, 7, 0.8], [12, 1, 12, 0.88], [13, 1, 0, 0.6], [14, 1, 0, 0.75], [15, 1, 't', 0.7]],
+  };
+  /** Dessin d'une mesure type (niveau 0 = fondamentale, 1 = quinte, tierce, septième ou approche, 2 = octave). */
+  const rhythmDraw = (id) => BASS_RHYTHMS[id].map(([o, l, n]) => [o, l, n === 0 ? 0 : n === 12 ? 2 : 1]);
+
   /* catalogue des modes de basse ajoutés : [id, nom, description, dessin] ; dessin = [pas, longueur, niveau] pour une mesure
      (niveau 0 = fondamentale, 1 = quinte ou tierce, 2 = octave) */
   const BASS_NEW = [
@@ -1979,7 +2058,25 @@ SS.bandSong = (() => {
     ['funk', 'Funk', 'Syncopes en doubles, notes fantômes', [[0, 2, 0], [3, 1, 0], [6, 1, 2], [7, 1, 0], [10, 1, 0], [12, 2, 0], [14, 1, 1]]],
     // procédé B03 de la formation (chapitre 23, § 4), recette de recipeBass
     ['b03', 'Ligne conjointe (B03)', 'La note de l’accord la plus proche : la basse avance par degrés (C – G/B – Am)', [[0, 12, 0], [12, 4, 1]]],
+    // nov. 2026 : rythmes de basse par style (BASS_RHYTHMS) et walking
+    ['rock8', 'Croches rock', 'Fondamentale en croches, octave sur le dernier « et » : pop-rock', rhythmDraw('rock8')],
+    ['ballade', 'Ballade', 'Fondamentale tenue, quinte, puis approche chromatique de l’accord suivant', rhythmDraw('ballade')],
+    ['disco16', 'Disco syncopée', 'Octaves avec doubles en fin de temps : disco, nu-disco', rhythmDraw('disco16')],
+    ['slap', 'Slap', 'Pouce sur la fondamentale, « pop » à l’octave : funk', rhythmDraw('slap')],
+    ['motown', 'Motown', 'Fondamentale, octave, quinte et approche chromatique : soul', rhythmDraw('motown')],
+    ['walking', 'Walking', 'Une noire par temps, notes de l’accord, approche d’un demi-ton : jazz', [[0, 4, 0], [4, 4, 1], [8, 4, 1], [12, 4, 1]]],
+    ['boombap', 'Boom bap', 'Notes courtes posées sur le kick : hip-hop', rhythmDraw('boombap')],
+    ['sub808', '808 tenue', 'Longue note grave, reprise à l’octave : trap, hip-hop', rhythmDraw('sub808')],
+    ['trap808', '808 trap', 'Syncopes 3-3-2 avec octave et quinte : trap', rhythmDraw('trap808')],
+    ['reese', 'Reese', 'Une note par demi-mesure, reprise à l’octave : drum & bass', rhythmDraw('reese')],
+    ['dnbroll', 'Roller', 'Doubles sur les contretemps du break : drum & bass', rhythmDraw('dnbroll')],
+    ['dembow', 'Dembow', 'Fondamentale en 3-3-2, quinte et octave : reggaeton', rhythmDraw('dembow')],
+    ['tumbao', 'Tumbao', 'Le « et » du 2 et le 4 annoncent l’accord suivant : salsa', rhythmDraw('tumbao')],
+    ['onedrop', 'One drop', 'Silence sur le 1, la ligne commence après : reggae', rhythmDraw('onedrop')],
+    ['bossa', 'Bossa nova', 'Fondamentale et quinte en noire pointée-croche', rhythmDraw('bossa')],
+    ['afro', 'Afrobeats', 'Syncopes posées, fondamentale et octave', rhythmDraw('afro')],
+    ['acid', 'Acide 303', 'Doubles accentuées, octaves, septième : acid techno', rhythmDraw('acid')],
   ];
 
-  return { build, bassEvents, junctionDefaults, junctionEff, PERC_LOOPS, PERC_STYLES, hpHz, hpAmt, HP_MEL, isExtra, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, sceneGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, BUILD_LEVELS, BUILD_PRESETS, buildLevels, progLevels, rollBar, rollerOf, hasGridLane, laneKey, _rng: rng };
+  return { build, bassEvents, tomOfStep, junctionDefaults, junctionEff, PERC_LOOPS, PERC_STYLES, hpHz, hpAmt, HP_MEL, isExtra, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, sceneGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, BUILD_LEVELS, BUILD_PRESETS, buildLevels, progLevels, rollBar, rollerOf, hasGridLane, laneKey, _rng: rng };
 })();
