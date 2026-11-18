@@ -251,6 +251,8 @@ test('mode allégé : jugé inefficace quand les décrochages continuent effets 
   assert.equal(W.lightVerdict(L, 1000 + W.CFG.lightCheck - 1, 50), 'wait');
   assert.equal(W.lightVerdict(L, 1000 + W.CFG.lightCheck, 5 + W.CFG.lightUseless), 'useless');
   assert.equal(W.lightVerdict(L, 1000 + W.CFG.lightCheck, 5 + W.CFG.lightUseless - 1), 'ok');
+  assert.equal(W.lightVerdict(L, 1000 + W.CFG.lightCheck, 5 + W.CFG.lightUseless, 3), 'synths');
+  assert.equal(W.lightVerdict(L, 1000 + W.CFG.lightCheck, 5 + W.CFG.lightUseless - 1, 3), 'ok');
 });
 
 test('décrochages hors moteur : le conseil ne parle plus du processeur', () => {

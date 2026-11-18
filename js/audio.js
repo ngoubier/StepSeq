@@ -2548,6 +2548,8 @@ SS.audio = (() => {
     start,
     stop,
     isPlaying: () => seq.playing || !!seq.pending, // en attente des sons : compte comme en lecture
+    /** Projet en cours de lecture (celui de l'écoute de l'assistant, par exemple), ou null à l'arrêt. */
+    playingProject: () => ((seq.playing || seq.paused) && seq.getProject ? seq.getProject() : null),
     isLoading: () => !!seq.pending,
     setOnLoading: (fn) => (onLoading = fn || (() => {})),
     isPaused: () => !!seq.paused,

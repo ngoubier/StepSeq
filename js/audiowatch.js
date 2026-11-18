@@ -64,11 +64,14 @@ SS.audioWatch = (() => {
 
   /**
    * Bilan du mode allégé automatique : a-t-il fait cesser les décrochages ? `light` : { at, underruns } au moment où il
-   * a été activé ; `underruns` : compteur actuel. 'wait' tant que le délai n'est pas écoulé, 'ok' ou 'useless' ensuite.
+   * a été activé ; `underruns` : compteur actuel ; `juno` : synthés Juno actifs (le mode allégé ne les touche pas).
+   * 'wait' tant que le délai n'est pas écoulé, puis 'ok', 'synths' (les synthés restent trop lourds) ou 'useless'
+   * (presque plus rien à calculer : la sortie de l'appareil décroche d'elle-même).
    */
-  function lightVerdict(light, now, underruns) {
+  function lightVerdict(light, now, underruns, juno = 0) {
     if (!light || now - light.at < CFG.lightCheck) return 'wait';
-    return underruns - light.underruns >= CFG.lightUseless ? 'useless' : 'ok';
+    if (underruns - light.underruns < CFG.lightUseless) return 'ok';
+    return juno > 0 ? 'synths' : 'useless';
   }
 
   const trackName = (names, id) => (names && names.get(id)) || 'piste';
@@ -543,7 +546,9 @@ SS.audioWatch = (() => {
   function debugLog() {
     const L = [];
     const nav = typeof navigator !== 'undefined' ? navigator : {};
-    const project = app && app.project();
+    const editor = app && app.project();
+    const project = watched() === editor && lastPlayed ? lastPlayed : watched();
+    const other = project && project !== editor;
     L.push('### STEPSEQ-DEBUG v1 ###');
     L.push(`date ${new Date().toISOString()} · page ouverte depuis ${((performance.now() - t0) / 1000).toFixed(0)} s`);
     L.push(`navigateur ${nav.userAgent || '?'}`);
@@ -559,7 +564,7 @@ SS.audioWatch = (() => {
     const c = state.counters;
     L.push(`compteurs (depuis Lecture) : décrochages ${c.underruns} · écrêtage ${c.clipped} · retards ${c.late} (max ${Math.round(c.maxLateMs)} ms) · horloge ${c.clockRatio != null ? (c.clockRatio * 100).toFixed(1) + '%' : 'n/d'} · charge ${c.load ? Math.round(c.load.average * 100) + '/' + Math.round(c.load.peak * 100) + '%' : 'n/d'}`);
     if (project) {
-      L.push('', `## Chanson : tempo ${project.tempo} · ${project.tracks.length} piste(s) · ${(project.scenes || []).length} scène(s) · ${(project.song || []).length} bloc(s)`);
+      L.push('', `## Chanson${other ? ' (jouée en dernier : écoute de l\'assistant, pas la chanson de l\'éditeur)' : ''} : tempo ${project.tempo} · ${project.tracks.length} piste(s) · ${(project.scenes || []).length} scène(s) · ${(project.song || []).length} bloc(s)`);
       const solo = project.tracks.some((t) => t.solo);
       for (const t of project.tracks) {
         const fx = SS.fxParams(t);
@@ -681,7 +686,7 @@ SS.audioWatch = (() => {
       if (lightInfo && lightInfo.auto) restore(false);
     }
     lastSample = now;
-    const project = app && app.project();
+    const project = watched();
     const names = new Map(project ? project.tracks.map((t) => [t.id, t.name || 'Piste']) : []);
     let load = [];
     try {
@@ -717,11 +722,16 @@ SS.audioWatch = (() => {
     // mode Diagnostic : on allège d'abord l'élément le plus lourd, une marche à la fois, et on vérifie l'effet
     // mode allégé automatique sans effet : la sortie de l'appareil décroche d'elle-même, on rend les effets
     if (lightInfo && lightInfo.auto && !lightInfo.judged && snap.playing) {
-      const v = lightVerdict(lightInfo, now, state.counters.underruns);
+      const v = lightVerdict(lightInfo, now, state.counters.underruns, snap.juno);
       if (v !== 'wait') {
         lightInfo.judged = true;
         const more = state.counters.underruns - lightInfo.underruns;
-        log('BILAN', `mode allégé → ${v === 'ok' ? 'efficace' : `inefficace : ${more} décrochage(s) en ${CFG.lightCheck / 1000} s, effets coupés et presque rien à calculer`}`, now);
+        const why = v === 'synths' ? `${snap.juno} synthé(s) Juno restent actifs, le mode allégé ne les touche pas` : 'effets coupés et presque rien à calculer';
+        log('BILAN', `mode allégé → ${v === 'ok' ? 'efficace' : `insuffisant : ${more} décrochage(s) en ${CFG.lightCheck / 1000} s, ${why}`}`, now);
+        if (v === 'synths') {
+          raise(state, { kind: 'synths', level: 'warn', where: 'juno', title: 'Synthés Juno trop lourds pour cet appareil', detail: `Les décrochages continuent effets coupés (${more} en ${CFG.lightCheck / 1000} s) : ${snap.juno} synthé(s) Juno jouent et chacun calcule jusqu'à 6 voix suréchantillonnées.`, advice: 'Couper (Muet) une ou deux pistes Synthé pour écouter, ou les remplacer par un instrument échantillonné ; sur ordinateur, ces synthés passent sans peine.' }, now);
+          notify();
+        }
         if (v === 'useless') {
           external = true;
           restore(true);
@@ -753,6 +763,14 @@ SS.audioWatch = (() => {
       SS.ui.toast(`Audio : ${grave.title}`, 7000, { label: 'Diagnostic', run: () => SS.systemPanel.open() });
     }
     listeners.forEach((fn) => fn(state, snap));
+  }
+
+  /** Chanson surveillée : celle qui joue (écoute de l'assistant « Nouvelle chanson » comprise), sinon celle de l'éditeur. */
+  let lastPlayed = null; // dernière chanson jouée : le journal copié après Stop la décrit encore
+  function watched() {
+    const p = SS.audio && SS.audio.playingProject && SS.audio.playingProject();
+    if (p) lastPlayed = p;
+    return p || (app && app.project());
   }
 
   function start(options) {
