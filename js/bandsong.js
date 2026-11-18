@@ -4,7 +4,8 @@
  * et des pistes créées par Band, écrit toutes les scènes (notes et pas de batterie) et l'arrangement.
  *
  * Tout est déterministe (générateur pseudo-aléatoire initialisé par l'inspiration et la section) :
- * la même inspiration donne toujours la même chanson. Les mélodies sont originales : un motif rythmique
+ * la même inspiration donne toujours la même chanson. Les mélodies (calculées par le moteur unique, js/melody.js,
+ * SS.melody.section) sont originales : un motif rythmique
  * et un contour sont tirés pour chaque section, puis répétés et variés (A A' A B) sur les accords.
  *
  * Plans « techno mélodique » (spec.tech) : en plus des notes, la chanson se sert des outils du séquenceur,
@@ -408,6 +409,21 @@ SS.bandSong = (() => {
    * Accords d'une grille de l'assistant (comme la grille d’Harmonie : { step, len, degree, type, acc, bass? }, degrés dans
    * la tonalité de la scène) → spans. Les trous sont comblés par l'accord précédent (le premier commence au début).
    */
+  /**
+   * Grille d'une scène, au format de la piste Accords et de l'assistant ({ step, len, degree, type, acc, bass? }, degrés
+   * dans la tonalité de la scène) : celle de l'étape Accords si elle existe, sinon les accords du plan (spans) convertis.
+   * Accords triés, sans trou ni chevauchement, qui couvrent toute la scène.
+   */
+  function sceneGrid(list, spans, key, bars) {
+    const total = bars * SPB;
+    const src = list && list.length
+      ? list.map((c) => ({ ...c }))
+      : (spans || []).map((x) => {
+          const g = H().toGridChord(key, x.chord);
+          return g && { step: x.step, len: x.len, ...g };
+        }).filter(Boolean);
+    return H().gridFill(src, total);
+  }
   function spansFromGrid(list, key, bars) {
     const total = bars * SPB;
     const cs = list
@@ -785,6 +801,10 @@ SS.bandSong = (() => {
   function bassEvents(spans, mode, r, keyPcs, { pedalPc = null, approach = true, shift = 0 } = {}) {
     const ev = [];
     const add = (s, len, n, v) => len > 0 && ev.push({ step: s, len, notes: [n], vel: vel(r, v) });
+    if (RECIPES.includes(mode)) {
+      recipeBass(spans, mode, keyPcs, pedalPc, shift, add);
+      return ev;
+    }
     spans.forEach((sp, i) => {
       const root = bassMidi(pedalPc ?? sp.chord.bassPc ?? sp.chord.rootPc) + shift; // pédale, ou basse imposée (D/F♯ : Fa♯)
       const fifth = root + 7;
@@ -899,6 +919,74 @@ SS.bandSong = (() => {
     return ev;
   }
 
+  /**
+   * Basse B03 de la formation (docs/reference/formation-composition/23_bibliotheque_de_procedes.md, § 4) : ligne
+   * conjointe. Pour chaque accord, la note de l'accord la plus proche de la précédente, une attaque par mesure ; si la
+   * suivante est à plus d'un ton, le dernier temps est une note de passage. Basse imposée (C/E) et pédale gardées.
+   * (B01, B02 et B04 ont des équivalents : Croches, Marche / Fondamentale-quinte, Tenue + pédale tonique.)
+   */
+  const RECIPES = ['b03'];
+  function recipeBass(spans, mode, keyPcs, pedalPc, shift, add) {
+    const bassPcOf = (sp) => pedalPc ?? sp.chord.bassPc ?? sp.chord.rootPc;
+    const low = (pc) => bassMidi(pc) + shift;
+    const nearest = (pc, near) => {
+      let m = near - pcOf(near) + pcOf(pc);
+      if (m - near > 6) m -= 12;
+      if (near - m > 6) m += 12;
+      return m;
+    };
+    // note de la gamme voisine de `to`, du côté de `from`
+    const approachTo = (from, to) => {
+      if (from === to) return null;
+      const dir = to > from ? -1 : 1;
+      let m = to + dir;
+      for (let k = 0; k < 3 && !keyPcs.includes(pcOf(m)); k++) m += dir;
+      return m;
+    };
+    // découpe [from, to) aux barres de mesure : une attaque par mesure
+    const perBar = (from, to, fn) => {
+      for (let s = from; s < to; ) {
+        const e = Math.min(to, (Math.floor(s / SPB) + 1) * SPB);
+        fn(s, e - s);
+        s = e;
+      }
+    };
+    if (mode === 'b03') {
+      // une note par accord, choisie pour avancer par degrés conjoints, dans la tessiture de la basse
+      const lo = low(0) - 5; // Sol1 … Ré3 (avec le registre de la partie)
+      const hi = low(0) + 14;
+      const line = [];
+      let prev = null;
+      spans.forEach((sp, i) => {
+        const c = sp.chord;
+        const t = tones(c);
+        const pcs = pedalPc != null ? [pedalPc] : c.bassPc != null && c.bassPc !== c.rootPc ? [c.bassPc] : [c.rootPc, t[1], t[2]].filter((x) => x != null);
+        if (prev == null) return void line.push((prev = low(pcs[0])));
+        const lastOne = i === spans.length - 1;
+        let best = null;
+        pcs.forEach((pc, k) => {
+          const m = nearest(pc, prev);
+          const d = Math.abs(m - prev);
+          // conjoint (1 ou 2 demi-tons) d'abord, puis note répétée, puis le plus petit saut ; la fondamentale départage
+          let cost = d >= 1 && d <= 2 ? 0 : d === 0 ? 2.5 : d;
+          if (k === 0) cost -= lastOne ? 1.5 : 0.4;
+          if (m < lo || m > hi) cost += 6;
+          if (!best || cost < best.cost) best = { m, cost };
+        });
+        line.push((prev = best.m));
+      });
+      spans.forEach((sp, i) => {
+        const m = line[i];
+        const end = sp.step + sp.len;
+        const nxt = spans[i + 1] && spans[i + 1].step === end ? line[i + 1] : null;
+        const pass = nxt != null && Math.abs(nxt - m) > 2 && sp.len >= 8 ? approachTo(m, nxt) : null;
+        const stop = pass != null ? end - 4 : end;
+        perBar(sp.step, stop, (s, l) => add(s, l, m, s === sp.step ? 0.9 : 0.8));
+        if (pass != null) add(stop, 4, pass, 0.74);
+      });
+    }
+  }
+
   /* ---------- accords (nappe, cordes, piano, guitare) ---------- */
   const RHYTHM = {
     pulse8: [[0, 2], [2, 2], [4, 2], [6, 2], [8, 2], [10, 2], [12, 2], [14, 2]],
@@ -976,8 +1064,8 @@ SS.bandSong = (() => {
   }
 
   /* ---------- Arp One (parts[section].arp.one) ----------
-   * Les accords de la scène passent dans le vrai arpégiateur (SS.Arp.renderStep, js/arp.js), comme l'aperçu de
-   * l'atelier Mélodie (js/harmonypanel.js, songPreview). Chaque accord est posé en position serrée dans le médium
+   * Les accords de la scène passent dans le vrai arpégiateur (SS.Arp.renderStep, js/arp.js).
+   * Chaque accord est posé en position serrée dans le médium
    * (57-76), l'octave du dessus est faite par le réglage « octaves » d'Arp One. Les temps (secondes) sont convertis
    * en pas avec un tempo nominal fixe : seul le rapport compte. Même accords + mêmes réglages = mêmes notes.
    */
@@ -1032,349 +1120,12 @@ SS.bandSong = (() => {
    *  - une respiration (un temps de silence) entre deux phrases ;
    *  - un seul sommet : la note la plus haute est gardée pour la phrase B (ou celle des deux tiers).
    */
-  // cellules rythmiques d'un temps (4 pas) : [début, longueur] ; h = blanche (2 temps), w = ronde (4 temps)
-  const CELLS = {
-    q: [[0, 4]], ee: [[0, 2], [2, 2]], r: [], off: [[2, 2]], dot: [[0, 3], [3, 1]], es: [[0, 2], [2, 1], [3, 1]], se: [[0, 1], [1, 1], [2, 2]], ss: [[0, 1], [1, 1], [2, 1], [3, 1]], h: 'h', w: 'w',
-  };
-  // rythmes des sections de l'inspiration (caractère « Inspiration »)
-  const DENS = {
-    verse: { q: 3, ee: 3, r: 1.2, off: 1.5, h: 1.2, dot: 1 },
-    hook: { ee: 3, q: 2.5, dot: 1.5, h: 1.5, off: 1.2, es: 0.6 },
-    long: { h: 4, w: 2, q: 2, r: 1 },
-    solo: { es: 2, se: 2, ee: 3, q: 1, dot: 1, ss: 1 },
-    drop: { off: 2, ee: 2.5, es: 1.5, se: 1.5, dot: 1.5, r: 0.6 },
-    riff: { ss: 2, es: 2, se: 2, ee: 2 },
-    answer: { ee: 3, q: 2, off: 2, es: 1 },
-  };
-  // réglage fin « Rythme »
-  const RHYTHMS = {
-    simple: { q: 3, ee: 2, h: 1.5, r: 0.5 },
-    varie: { q: 2, ee: 2, dot: 2, off: 1.5, es: 1, se: 1, h: 1 },
-    dense: { ee: 2, es: 2, se: 2, ss: 2, dot: 1 },
-  };
-  /**
-   * Caractères de la mélodie. rhythm : cellules (null = celles de la section) ; leap : goût pour les sauts ;
-   * low / high : tessiture autour du centre ; cell : motif d'une mesure répété dans la phrase ; long : phrases
-   * deux fois plus longues ; stacc : notes courtes ; form : plan des phrases par défaut.
-   */
-  const CHARACTERS = {
-    inspiration: { label: 'Inspiration', hint: 'Dans l’esprit du morceau choisi : le rythme de chaque section', rhythm: null, leap: 0.22, low: 8, high: 9, form: 'AABA' },
-    chant: { label: 'Chantante', hint: 'Par degrés, des phrases qui respirent, faciles à fredonner', rhythm: { q: 3, ee: 3, h: 1.6, dot: 1.2, r: 0.4 }, leap: 0.12, low: 7, high: 8, form: 'AABA' },
-    hook: { label: 'Accrocheuse', hint: 'Un motif d’une mesure répété, en appel et réponse', rhythm: { ee: 3, q: 2, off: 1.5, es: 1, dot: 1 }, leap: 0.22, low: 7, high: 8, cell: true, form: 'AABA' },
-    riff: { label: 'Riff', hint: 'Rythmée, notes courtes et syncopes, motif d’une mesure', rhythm: { es: 2, se: 2, ee: 2.5, off: 1.5, ss: 1 }, leap: 0.3, low: 5, high: 7, cell: true, stacc: true, form: 'AAAA' },
-    float: { label: 'Planante', hint: 'Peu de notes, longues, des phrases amples', rhythm: { w: 3, h: 4, q: 1 }, leap: 0.18, low: 7, high: 8, long: true, form: 'ABAB' },
-    lyric: { label: 'Lyrique', hint: 'Grands élans et un sommet marqué', rhythm: { q: 2.5, ee: 2, h: 2, dot: 1.5 }, leap: 0.38, low: 9, high: 12, form: 'AABA' },
-  };
-  /** Plans de phrases (lettres répétées par groupes de 4 phrases). */
-  const FORMS = {
-    AABA: ['A', 'A′', 'B', 'A′'],
-    ABAB: ['A', 'B', 'A', 'B′'],
-    AAAA: ['A', 'A', 'A', 'A′'],
-    ABAC: ['A', 'B', 'A', 'C'],
-  };
-  const LETTERS = ['A', 'A′', 'B', 'B′', 'C', 'C′'];
   /** Rôles qui chantent la mélodie de la chanson. */
   const SINGERS = ['lead', 'vox', 'sax'];
-  const CENTER = { verse: 64, hook: 70, long: 69, solo: 69, drop: 72, riff: 71, answer: 70, rise: 67 };
+  // mélodie des sections : le moteur de mélodie unique (js/melody.js, SS.melody.section et ses réglages)
+  const { CHARACTERS, FORMS, LETTERS, RHYTHMS, CENTER, defaultPlan, fitPlan } = SS.melody;
+  const melodyPart = (...a) => SS.melody.section(...a);
 
-  /** Plan de phrases par défaut d'une section : phrases de 1, 2 ou 4 mesures selon sa longueur. */
-  function defaultPlan(bars, character = 'inspiration', form = null) {
-    const ch = CHARACTERS[character] || CHARACTERS.inspiration;
-    let len = bars >= 16 ? 4 : bars >= 8 ? 2 : 1;
-    if (ch.long) len = Math.min(bars, len * 2);
-    const n = Math.max(1, Math.floor(bars / len));
-    const letters = FORMS[form] || FORMS[ch.form];
-    return Array.from({ length: n }, (_, i) => ({ bars: i === n - 1 ? bars - len * (n - 1) : len, mode: 'on', letter: letters[i % 4] }));
-  }
-  /** Plan ramené à la longueur de la section : phrases coupées au-delà, phrases ajoutées s'il en manque. */
-  function fitPlan(plan, bars, character, form) {
-    const out = [];
-    let at = 0;
-    for (const p of plan || []) {
-      if (at >= bars) break;
-      const b = Math.max(1, Math.min(Math.round(p.bars) || 1, bars - at));
-      out.push({ bars: b, mode: ['on', 'hold', 'off'].includes(p.mode) ? p.mode : 'on', letter: LETTERS.includes(p.letter) ? p.letter : 'A' });
-      at += b;
-    }
-    if (at < bars) {
-      const more = defaultPlan(bars - at, character, form);
-      more.forEach((p, i) => (p.letter = (FORMS[form] || FORMS[(CHARACTERS[character] || CHARACTERS.inspiration).form])[(out.length + i) % 4]));
-      out.push(...more);
-    }
-    return out;
-  }
-
-  /** Rythme d'une phrase : [début, longueur] sur `L` pas ; la dernière note tient jusqu'au bout. */
-  function phraseRhythm(r, table, L, { answer = false } = {}) {
-    const out = [];
-    const beats = Math.floor(L / 4);
-    for (let beat = answer ? Math.floor(beats / 2) : 0; beat < beats; beat++) {
-      const c = weighted(r, table);
-      if (c === 'w' && beat % 4 === 0 && beat + 4 <= beats) {
-        out.push([beat * 4, 16]);
-        beat += 3;
-        continue;
-      }
-      if ((c === 'h' || c === 'w') && beat % 2 === 0 && beat + 2 <= beats) {
-        out.push([beat * 4, 8]);
-        beat++;
-        continue;
-      }
-      (CELLS[c] === 'h' || CELLS[c] === 'w' ? CELLS.q : CELLS[c]).forEach(([o, l]) => out.push([beat * 4 + o, l]));
-    }
-    if (!out.length || out[0][0] > L / 2) out.unshift([answer ? Math.floor(beats / 2) * 4 : 0, 4]);
-    const last = out[out.length - 1];
-    last[1] = L - last[0];
-    return out;
-  }
-  /** Exactement n notes (réglage « Notes par phrase ») : on fusionne les notes faibles, ou on coupe les longues. */
-  function fitCount(rhy, n) {
-    const weak = (s) => (s % 16 === 0 ? 0 : s % 8 === 0 ? 1 : s % 4 === 0 ? 2 : s % 2 === 0 ? 3 : 4);
-    while (rhy.length > n && rhy.length > 1) {
-      let k = 1;
-      for (let i = 2; i < rhy.length; i++) if (weak(rhy[i][0]) > weak(rhy[k][0])) k = i;
-      rhy[k - 1][1] += rhy[k][1];
-      rhy.splice(k, 1);
-    }
-    while (rhy.length < n) {
-      let k = 0;
-      for (let i = 1; i < rhy.length; i++) if (rhy[i][1] > rhy[k][1]) k = i;
-      if (rhy[k][1] < 2) break;
-      const half = rhy[k][1] >= 4 ? Math.floor(rhy[k][1] / 4) * 2 : 1;
-      rhy.splice(k + 1, 0, [rhy[k][0] + half, rhy[k][1] - half]);
-      rhy[k][1] = half;
-    }
-    return rhy;
-  }
-  /** Contour d'un motif : pour chaque note, le sens (−1, 0, 1), la taille du pas (1 ou 2 degrés) ou un saut. */
-  const SHAPES = ['arch', 'up', 'down', 'wave'];
-  function motifDirs(r, n, shape, leap) {
-    let leaps = 0;
-    return Array.from({ length: n }, (_, i) => {
-      const t = n > 1 ? i / (n - 1) : 0;
-      const want = shape === 'up' ? (t < 0.8 ? 1 : -1) : shape === 'down' ? (t < 0.15 ? 1 : -1) : shape === 'wave' ? (Math.floor(t * 4) % 2 ? -1 : 1) : t < 0.6 ? 1 : -1;
-      const dir = r() < 0.18 ? -want : r() < 0.12 ? 0 : want;
-      const isLeap = i > 0 && i < n - 1 && leaps * 3 < n && r() < leap;
-      if (isLeap) leaps++;
-      return { dir: dir || (isLeap ? want : 0), size: r() < 0.25 ? 2 : 1, leap: isLeap };
-    });
-  }
-
-  /**
-   * Mélodie d'une section d'après son plan de phrases.
-   *   o : { character, rhythm, complexity, range, ending, notes, form } ; plan : phrases (null = plan par défaut) ;
-   *   seeds : { A: n, B: n… } relance d'une lettre ; secMode : ce que joue le chanteur dans la section.
-   */
-  function melodyPart(spans, key, bars, role, o, plan, seeds, seedKey, secMode) {
-    const ch = CHARACTERS[o.character] || CHARACTERS.inspiration;
-    const keyPcs = H().scale(key).map((d) => d.pc);
-    const tonic = keyPcs[0];
-    const cx = { simple: { leap: 0.5, max: 7 }, adventurous: { leap: 1.6, max: 12 } }[o.complexity] || { leap: 1, max: 9 };
-    // profil de l'émotion (js/melody-profiles.js) : il s'ajoute au caractère, qui garde le rythme
-    const prof = o.profile || null;
-    const ending = o.ending && o.ending !== 'auto' ? o.ending : prof ? prof.ending : 'closed';
-    const PSHAPE = { arch: 'arch', rise: 'up', fall: 'down', wave: 'wave', plateau: 'wave' };
-    const leapK = prof ? 0.6 + prof.leap * 0.8 : 1;
-    // note pivot de la section : commune au plus grand nombre de ses accords
-    let pivotPc = null;
-    if (prof && (prof.target === 'pivot' || prof.motif === 'common')) {
-      const cs = [...new Map(spans.map((sp) => [sp.chord.sym || sp.chord.rootPc + ':' + tones(sp.chord).join(), sp.chord])).values()];
-      let best = 1;
-      for (let pc = 0; pc < 12; pc++) {
-        const n = cs.filter((c) => tones(c).includes(pc)).length;
-        if (n > best) [best, pivotPc] = [n, pc];
-      }
-    }
-    /** Note visée par le profil sur un accord (classe de hauteur, ou null). */
-    const targetOf = (c) => {
-      if (!prof) return null;
-      const ct = tones(c);
-      const t = prof.target === 'pivot' || prof.motif === 'common' ? pivotPc : prof.target === 'color' ? prof.colorPc : null;
-      if (t != null) return ct.includes(t) || chordScale(c, keyPcs).includes(t) ? t : null;
-      const root = ct[0];
-      const pick = { root: [0], third: [3, 4], fifth: [7] }[prof.target] || [];
-      return ct.find((pc) => pick.includes(pcOf(pc - root))) ?? null;
-    };
-    // tessiture
-    const R = (SS.melody && SS.melody.RANGES) || {};
-    let lo;
-    let hi;
-    if (o.range && o.range !== 'auto' && o.range !== 'profil' && R[o.range]) ({ lo, hi } = R[o.range]);
-    else {
-      // registre : le profil déplace le centre (sombre → plus grave, lumineux → plus aigu)
-      const c = (role === 'vox' ? 66 : o.character === 'inspiration' || !o.character ? CENTER[secMode] || 67 : 68) + (prof ? Math.round((prof.center - 0.5) * 10) : 0);
-      lo = c - ch.low;
-      hi = c + ch.high;
-      if (role === 'vox') [lo, hi] = [Math.max(57, lo), Math.min(77, hi)];
-    }
-    const center = Math.round((lo + hi) / 2);
-    const table = RHYTHMS[o.rhythm] || ch.rhythm || DENS[secMode] || DENS.verse;
-    const phrases = fitPlan(plan || defaultPlan(bars, o.character, o.form), bars, o.character, o.form);
-    const spanAt = (s) => spans.find((sp) => s >= sp.step && s < sp.step + sp.len) || spans[spans.length - 1];
-    const stepIn = (n, dir, pcs, k = 1) => {
-      let m = n;
-      for (let j = 0; j < k; j++) {
-        m += dir;
-        while (!pcs.includes(pcOf(m))) m += dir;
-      }
-      return m;
-    };
-    // sommet : la première phrase B, sinon celle des deux tiers
-    const playing = phrases.map((p, i) => i).filter((i) => phrases[i].mode !== 'off');
-    let peakAt = playing.find((i) => phrases[i].letter[0] === 'B');
-    if (peakAt === undefined) peakAt = playing[Math.floor((playing.length * 2) / 3)] ?? -1;
-    const motifs = {};
-    const motif = (letter, L, n) => {
-      const base = letter[0];
-      const k = `${base}/${L}/${n}`;
-      if (motifs[k]) return motifs[k];
-      const r = rng(`${seedKey}/${base}/${(seeds && seeds[base]) || 0}`);
-      const unit = ch.cell ? Math.min(L, SPB) : L;
-      let rhy = phraseRhythm(r, table, unit, { answer: secMode === 'answer' && !ch.cell && o.character === 'inspiration' });
-      if (unit < L) {
-        // motif d'une mesure répété dans toute la phrase
-        const one = rhy.map(([s, l], i) => [s, i === rhy.length - 1 ? Math.min(l, 4) : l]);
-        rhy = [];
-        for (let b = 0; b < L; b += unit) one.forEach(([s, l]) => b + s < L && rhy.push([b + s, Math.min(l, L - b - s)]));
-        rhy[rhy.length - 1][1] = L - rhy[rhy.length - 1][0];
-      }
-      if (n > 0) fitCount(rhy, n);
-      const firstShape = prof ? PSHAPE[prof.contour] || pick(r, SHAPES) : pick(r, SHAPES);
-      const shape = base === 'A' ? firstShape : pick(r, SHAPES.filter((x) => x !== (motifs.Ashape || 'arch')));
-      if (base === 'A') motifs.Ashape = shape;
-      const per = ch.cell ? rhy.filter(([s]) => s < unit).length : rhy.length;
-      const d = motifDirs(r, per, shape, ch.leap * cx.leap * leapK);
-      const dirs = rhy.map((_, i) => d[i % per]);
-      // A′ : la fin repart dans l'autre sens
-      const alt = dirs.map((x, i) => (i >= dirs.length - Math.max(2, Math.round(dirs.length / 3)) ? { ...x, dir: -x.dir || -1, leap: false } : x));
-      const start = base === 'B' ? 3 : base === 'C' ? 1 : -2;
-      return (motifs[k] = { rhy, dirs, alt, start, r });
-    };
-
-    const ev = [];
-    let at = 0;
-    let prev = null;
-    let lastLeap = 0;
-    phrases.forEach((p, pi) => {
-      const p0 = at * SPB;
-      const L = p.bars * SPB;
-      at += p.bars;
-      if (p.mode === 'off') {
-        prev = null;
-        return;
-      }
-      const next = phrases[pi + 1];
-      const breath = next && next.mode !== 'off' ? (L >= 2 * SPB ? 4 : 2) : 0;
-      const last = pi === playing[playing.length - 1];
-      const prime = p.letter.includes('′');
-      // fin : réponse (′ ou dernière phrase) posée ; appel en suspens
-      const close = last ? ending === 'closed' : prime;
-      const suspend = last && ending === 'suspended';
-      const cap = pi === peakAt ? hi : hi - 3;
-      let rhy;
-      let dirs;
-      let m;
-      if (p.mode === 'hold') {
-        // court motif (une mesure) puis la dernière note tenue jusqu'au bout de la phrase
-        if (p.bars === 1) rhy = [[0, L - breath]];
-        else {
-          m = motif(p.letter, SPB, 0);
-          rhy = m.rhy.map(([s, l]) => [s, l]);
-          rhy[rhy.length - 1][1] = L - breath - rhy[rhy.length - 1][0];
-        }
-      } else {
-        m = motif(p.letter, L - breath, Math.max(0, Math.round(o.notes || 0)));
-        rhy = m.rhy;
-      }
-      dirs = m ? (prime ? m.alt : m.dirs) : [{ dir: 0, size: 1, leap: false }];
-      const rv = rng(`${seedKey}/v/${pi}`);
-      rhy.forEach(([s, len], i) => {
-        const abs = p0 + s;
-        if (abs >= bars * SPB) return;
-        const c = spanAt(abs).chord;
-        const ct = tones(c);
-        const pcs = chordScale(c, keyPcs);
-        const strong = abs % 8 === 0 || len >= 6;
-        const end = i === rhy.length - 1;
-        let n;
-        if (prev === null || i === 0) {
-          // départ : une note de l'accord près du point de départ de la lettre (et près de la note d'avant)
-          const aim = prev === null ? center + (m ? m.start : 0) : Math.round((prev + center + (m ? m.start : 0)) / 2);
-          n = ct.map((pc) => nearest(pc, aim)).sort((a, b) => Math.abs(a - aim) - Math.abs(b - aim))[0];
-          lastLeap = 0;
-        } else {
-          const d = dirs[i % dirs.length] || { dir: 0, size: 1 };
-          let dir = d.dir;
-          if (lastLeap) dir = -Math.sign(lastLeap); // après un saut : retour par degré, dans l'autre sens
-          if (d.leap && !lastLeap && dir) {
-            // saut vers une note de l'accord, entre une quarte et la limite de la complexité
-            const cands = [];
-            ct.forEach((pc) => [-24, -12, 0, 12, 24].forEach((o8) => {
-              const x = nearest(pc, prev) + o8;
-              const iv = (x - prev) * dir;
-              if (iv >= 5 && iv <= cx.max) cands.push(x);
-            }));
-            n = cands.length ? cands.sort((a, b) => Math.abs(a - prev) - Math.abs(b - prev))[0] : stepIn(prev, dir, pcs, 2);
-          } else n = dir ? stepIn(prev, dir, pcs, lastLeap ? 1 : d.size) : pcs.includes(pcOf(prev)) ? prev : stepIn(prev, 1, pcs);
-          if (strong && !ct.includes(pcOf(n))) {
-            // temps fort : la note de l'accord la plus proche, de préférence dans le sens du mouvement
-            const near = ct.map((pc) => nearest(pc, n)).sort((a, b) => Math.abs(a - n) - Math.abs(b - n) || (b - a) * (dir || 1));
-            n = near[0];
-          }
-          // profil : sur un temps fort, la note visée si elle est à portée (une tierce)
-          const tpc = strong ? targetOf(c) : null;
-          if (tpc != null && pcOf(n) !== tpc) {
-            const t = nearest(tpc, n);
-            if (Math.abs(t - n) <= 4 && t >= lo && t <= hi) n = t;
-          }
-        }
-        if (end) {
-          // fin de phrase : la réponse se pose (fondamentale, tonique si l'accord la contient), l'appel reste en suspens
-          let goal = close ? (ct.includes(tonic) ? [tonic] : [ct[0]]) : ct.slice(1, 3).filter((pc) => pc !== tonic);
-          // fin suspendue : la seconde ou la quarte de l'accord, laissée sans résolution
-          if (suspend) goal = [pcOf(ct[0] + 2), pcOf(ct[0] + 5)].filter((pc) => keyPcs.includes(pc) && !ct.includes(pc));
-          if (p.mode === 'hold') {
-            // note tenue : celle qui sonne le mieux sur tous les accords qu'elle traverse
-            const fit = (pc) =>
-              spans.reduce((a, sp) => {
-                const ov = Math.min(abs + len, sp.step + sp.len) - Math.max(abs, sp.step);
-                return ov <= 0 ? a : a + ov * (tones(sp.chord).includes(pc) ? 2 : chordScale(sp.chord, keyPcs).includes(pc) ? 0.5 : -3);
-              }, 0) + (goal.includes(pc) ? 6 : 0);
-            goal = [[...new Set([...goal, ...ct])].sort((a, b) => fit(b) - fit(a))[0]];
-          }
-          const opts = (goal.length ? goal : [ct[0]]).flatMap((pc) => [nearest(pc, prev ?? n) - 12, nearest(pc, prev ?? n), nearest(pc, prev ?? n) + 12]).filter((x) => x >= lo && x <= cap);
-          const from = prev ?? n;
-          const near = (list) => list.sort((a, b) => Math.abs(a - from) - Math.abs(b - from))[0];
-          // pas de grand saut pour conclure : sinon une autre note de l'accord, la plus proche
-          let best = opts.length ? near(opts) : null;
-          if (best === null || Math.abs(best - from) > 7) best = near(ct.flatMap((pc) => [nearest(pc, from) - 12, nearest(pc, from), nearest(pc, from) + 12]).filter((x) => x >= lo && x <= cap)) ?? best;
-          if (best !== null && best !== undefined) n = best;
-        }
-        // tessiture : la ligne rebondit au lieu de sauter d'une octave
-        const ok = (x) => x >= lo && x <= cap;
-        const inside = (aim) => ct.flatMap((pc) => [nearest(pc, aim) - 12, nearest(pc, aim), nearest(pc, aim) + 12]).filter(ok).sort((a, b) => Math.abs(a - aim) - Math.abs(b - aim))[0];
-        if (!ok(n)) {
-          const back = prev !== null && ok(prev) ? stepIn(prev, n > cap ? -1 : 1, pcs) : null;
-          n = back !== null && ok(back) ? back : inside(n > cap ? cap - 4 : lo + 4) ?? Math.max(lo, Math.min(cap, n));
-        }
-        if (strong && !ct.includes(pcOf(n)) && pcOf(n) !== targetOf(c)) n = inside(n) ?? n;
-        lastLeap = prev !== null && Math.abs(n - prev) >= 5 ? n - prev : 0;
-        // une note qui dépasse sur l'accord suivant s'arrête avec l'accord si elle frotte (sauf note tenue voulue)
-        let l = Math.min(len, bars * SPB - abs);
-        const sp = spanAt(abs);
-        const nx = spans[spans.indexOf(sp) + 1];
-        if (p.mode !== 'hold' && nx && abs + l > nx.step && !chordScale(nx.chord, keyPcs).includes(pcOf(n))) l = Math.max(1, nx.step - abs);
-        if (ch.stacc && !end) l = Math.min(l, 2);
-        ev.push({ step: abs, len: l, notes: [n], vel: vel(rv, l >= 8 ? 0.74 : abs % 8 === 0 ? 0.86 : 0.7) });
-        prev = n;
-      });
-      // une phrase suivie d'un silence repart de zéro
-      if (!next || next.mode === 'off') prev = null;
-    });
-    return ev;
-  }
-
-  /** Montée (« rise ») : une note répétée, en croches puis en doubles-croches, une octave plus haut à mi-chemin. */
   function riseEvents(spans, r, key, bars) {
     const ev = [];
     const t = 60 + pcOf(H().scale(key)[0].pc);
@@ -1414,7 +1165,66 @@ SS.bandSong = (() => {
     const s0 = Math.min(n - 1, Math.round(n * from));
     return s0 > 0 ? { 0: a, [s0]: a, [n - 1]: b } : { 0: a, [n - 1]: b };
   };
+  const RISER_TOP = 0.8; // volume de la montée de bruit à la fin de la montée (elle fait avancer la montée quand le kick se retire)
   const MELODIC = ['pad', 'arp', 'keys', 'strings', 'guitar', 'lead', 'vox', 'sax'];
+
+  /* ---------- dynamique des chansons EDM et techno ----------
+   * Un producteur retient le groove pour que le drop frappe : nappes et claviers plus bas et plus sombres, charleston
+   * plus doux, basse un peu filtrée ; la montée avance en volume (nappes, arpège, mélodie) ; le dernier drop est le
+   * sommet ; l'outro garde le kick et baisse le reste. Réglages posés comme automation de la scène (volume, filtre) :
+   * ceux de l'utilisateur les remplacent. Sans drop dans le plan (deep house), rien ne change.
+   *   dyn : 'intro' | 'groove' | 'build' | 'first' (drop suivi d'un autre) | 'drop' | 'outro'
+   */
+  const HOLD = { pad: [0.5, -0.2], strings: [0.55, -0.2], keys: [0.6, 0], guitar: [0.65, 0], arp: [0.62, -0.25], lead: [0.7, -0.15], vox: [0.72, 0], sax: [0.72, 0] };
+  /** Nature de la scène pour la dynamique : null (inchangée) ou groove / build / first (drop suivi d'un autre) / drop / outro. */
+  function dynKind(spec, id, form) {
+    if (!spec.sc) return null;
+    const sec = spec.sections[id];
+    const drops = form.filter((f) => spec.sections[f.id].drums === 'drop');
+    if (!drops.length) return null;
+    if (sec.drums === 'build') return 'build';
+    if (sec.drums === 'drop') return drops.length > 1 && id !== drops[drops.length - 1].id ? 'first' : 'drop';
+    if (id === 'outro' && ['main', 'full', 'light'].includes(sec.drums)) return 'outro';
+    if (id === 'intro' && ['light', 'hats'].includes(sec.drums)) return 'intro'; // intro DJ : le kick n'est pas plus fort que celui du groove
+    if (['main', 'full'].includes(sec.drums)) return 'groove';
+    return null;
+  }
+  /** Groove retenu : charleston et percussions plus doux, charleston ouvert presque absent (le drop les ouvre en grand). */
+  const HOLD_DRUMS = { hh: 0.8, oh: 0.5, sh: 0.85, tb: 0.85, rim: 0.85 };
+  function holdDrums(steps, sound) {
+    const g = HOLD_DRUMS[kind(sound)];
+    if (g) for (let s = 0; s < steps.length; s++) if (steps[s] > 0) steps[s] = clampV(steps[s] * g);
+  }
+  /** Montée : volume de la batterie qui revient (kick, charleston, percussions) sur la longueur de la scène. */
+  function dynDrumsAuto(k, bars, dyn = 'build', tech = false) {
+    const n = bars * SPB;
+    if (dyn === 'outro') return k === 'bd' ? { volume: { 0: 0.75 } } : null; // outro DJ : le kick reste, tout le reste baisse
+    if (dyn === 'groove' || dyn === 'intro') return k === 'bd' ? { volume: { 0: tech ? 0.75 : 0.85 } } : null; // kick du groove un peu en retrait (−2,5 dB en techno, −1,4 dB en EDM) : il reste le moteur, le drop est son plein retour
+    if (k === 'bd') return { volume: { 0: 0.42, [Math.round(n * 0.75)]: 1 } };
+    if (k === 'bk') return { volume: ramp(n, 0.6, 1) };
+    if (['hh', 'sh', 'tb', 'rim', 'oh'].includes(k)) return { volume: ramp(n, 0.5, 1) };
+    return null;
+  }
+  function dynAuto(kind, role, bars) {
+    const n = bars * SPB;
+    const mel = MELODIC.includes(role);
+    if (kind === 'groove') {
+      if (mel && HOLD[role]) {
+        const [v, f] = HOLD[role];
+        const a = { volume: { 0: v } };
+        if (f) a.filter = { 0: f };
+        return a;
+      }
+      if (role === 'bass') return { volume: { 0: 0.6 }, filter: { 0: -0.25 } }; // basse retenue (−4,4 dB) et un peu fermée
+    }
+    if (kind === 'build' && mel) return { volume: ramp(n, 0.35, 1) };
+    if (kind === 'first' && mel && role !== 'lead') return { volume: { 0: 0.9 } };
+    if (kind === 'outro') {
+      if (mel) return { volume: ramp(n, 0.5, 0, 0.75) };
+      if (role === 'bass') return { volume: ramp(n, 0.45, 0, 0.75), filter: { 0: -0.2 } };
+    }
+    return null;
+  }
   /**
    * Courbes d'automation d'une piste pour une section (null si rien) :
    *  - intro planante (sec.float) : le passe-bas des nappes et de l'arpège s'ouvre lentement, la reverb se retire ;
@@ -1423,11 +1233,40 @@ SS.bandSong = (() => {
    *  - drop : le lead et l'arpège partent un peu fermés et s'ouvrent sur la première mesure (attaque du drop) ;
    *  - outro : tout se referme, fondu des dernières mesures.
    */
-  function sectionAuto(id, sec, role, bars, isFx) {
+  function sectionAuto(id, sec, role, bars, isFx, dyn = null, tech = true) {
+    const base = tech ? sectionAutoTech(id, sec, role, bars, isFx) : null;
+    const d = dyn && !isFx ? dynAuto(dyn, role, bars) : null;
+    if (!d) return base;
+    return mergeAuto(base, d);
+  }
+  /** Courbes du plan puis de la dynamique : la dynamique ajoute ses courbes ; sur une courbe commune, le volume se multiplie et le filtre garde celui du plan. */
+  function mergeAuto(a, d) {
+    if (!a) return d;
+    const out = { ...a };
+    Object.entries(d).forEach(([k, v]) => {
+      if (!out[k]) out[k] = v;
+      else if (k === 'volume') out[k] = mulLane(out[k], v);
+    });
+    return out;
+  }
+  /** Produit de deux courbes de volume { pas: valeur } (aux pas des deux). */
+  function mulLane(a, b) {
+    const pa = Object.entries(a).map(([x, y]) => [+x, y]).sort((p, q) => p[0] - q[0]);
+    const pb = Object.entries(b).map(([x, y]) => [+x, y]).sort((p, q) => p[0] - q[0]);
+    const at = (pts, s) => {
+      if (s <= pts[0][0]) return pts[0][1];
+      for (let i = 1; i < pts.length; i++) if (s <= pts[i][0]) return pts[i - 1][1] + ((pts[i][1] - pts[i - 1][1]) * (s - pts[i - 1][0])) / (pts[i][0] - pts[i - 1][0] || 1);
+      return pts[pts.length - 1][1];
+    };
+    const out = {};
+    [...new Set([...pa, ...pb].map((p) => p[0]))].sort((x, y) => x - y).forEach((s) => (out[s] = Math.round(at(pa, s) * at(pb, s) * 1000) / 1000));
+    return out;
+  }
+  function sectionAutoTech(id, sec, role, bars, isFx) {
     const n = bars * SPB;
     if (isFx) {
-      // la montée de bruit reste sous le drop : volume plafonné, le filtre fait l'essentiel de l'effet
-      if (sec.fx === 'riser') return { filter: ramp(n, -0.9, 0.1), volume: ramp(n, 0.15, 0.5), reverb: ramp(n, 0.2, 0.6, 0.5) };
+      // la montée de bruit reste sous le drop : volume plafonné (RISER_TOP), le filtre fait l'essentiel de l'effet
+      if (sec.fx === 'riser') return { filter: ramp(n, -0.9, 0.1), volume: ramp(n, 0.15, RISER_TOP), reverb: ramp(n, 0.2, 0.6, 0.5) };
       if (sec.fx === 'down') return { volume: { 0: 1, [Math.min(n - 1, 2 * SPB - 1)]: 0 }, reverb: { 0: 0.6 } };
       if (sec.fx === 'swell') return { filter: ramp(n, -0.75, -0.35), volume: { 0: 0.5 }, reverb: { 0: 0.6 } };
       return null;
@@ -1511,6 +1350,19 @@ SS.bandSong = (() => {
    *  - gap { len (pas : 0, 4, 16) } : silence avant la jonction (tout est coupé, sauf la cymbale inversée) ;
    *  - impact { on, type: both | crash | impact, level } : coup grave de la piste Effets et/ou crash de la batterie au pas 0 ;
    *  - down { on, len (mesures : 2, 4) } : descente (bruit qui retombe) après l'impact.
+   *  Procédés d'écriture T01–T06 de la formation (docs/reference/formation-composition/23_bibliotheque_de_procedes.md, § 6),
+   *  tous éteints par défaut (le plan ne les emploie pas) ; voir writeTransitions :
+   *  - retrait { on, len (mesures : 1, 2) } (T01) : la batterie se retire sur les dernières mesures de la scène d'avant,
+   *    le charleston fermé reste, plus doux, pour garder le compte ;
+   *  - frag { on } (T02) : la mélodie des deux dernières mesures se fragmente : la 1re mesure du motif (les deux mesures
+   *    d'avant), puis sa première demi-mesure deux fois ;
+   *  - pedal { on, len (mesures : 2, 4), note: dom | tonic } (T03) : la basse tient la dominante (ou la tonique), une note
+   *    par mesure, sous les accords qui continuent de changer ;
+   *  - widen { on, len (mesures : 2, 4) } (T04) : les accords et arpèges s'ouvrent : doublure à l'octave au-dessus au
+   *    premier tiers, à l'octave grave au deuxième (avec une marge sous le sommet : rien au-dessus de Sol6) ;
+   *  - susp { on, len (pas : 4, 8) } (T05) : au début de la scène d'après, la tierce du premier accord est retardée par la
+   *    quarte (sus4) pendant un ou deux temps, puis se résout ;
+   *  - gap (T06) : le silence, ci-dessus ; les queues d'effets (reverb, écho) continuent de sonner.
    * perc { style: techno | latin | minimal, loops: { section: { sh, cg, tom } } } : boucles de la piste Percussionniste
    * (sh : shaker, cg : conga, tom : tom grave) ; vrai = la boucle du style, faux = coupée, absent = le jeu du plan.
    */
@@ -1529,7 +1381,102 @@ SS.bandSong = (() => {
       gap: { len: a && a.gap ? 4 : 0 },
       impact: { on: !!b && b.fx === 'down', type: 'both', level: 0.95 },
       down: { on: false, len: 2 },
+      retrait: { on: false, len: 1 },
+      frag: { on: false },
+      pedal: { on: false, len: 2, note: 'dom' },
+      widen: { on: false, len: 2 },
+      susp: { on: false, len: 4 },
     };
+  }
+
+  /**
+   * Procédés T01–T05 d'une scène (voir l'en-tête des transitions) : `out` = réglages de la jonction qui en sort,
+   * `inn` = de celle qui y entre, `role(t)` = type de l'instrument (drums, bass, chords, arp, melody ; null : piste Effets).
+   */
+  function writeTransitions(data, tracks, role, { bars, key, spans, out, inn }) {
+    const n = bars * SPB;
+    const kp = H().scale(key).map((d) => d.pc);
+    const evsOf = (t) => (data[t.id] && data[t.id].events) || null;
+    // T01 : retrait de la batterie
+    if (out && out.retrait.on) {
+      const from = n - Math.min(bars, out.retrait.len) * SPB;
+      tracks.forEach((t) => {
+        const d = data[t.id];
+        if (!d) return;
+        if (d.steps) {
+          const [rl, snd] = ((t.band && t.band.key) || '').split(':');
+          const hat = rl !== 'perc' && kind(snd || t.sound) === 'hh';
+          for (let s = from; s < n; s++) d.steps[s] = hat && d.steps[s] ? clampV(d.steps[s] * 0.6) : 0;
+        } else if (role(t) === 'drums' && d.events) d.events = d.events.filter((e) => e.step < from).map((e) => ({ ...e, len: Math.min(e.len, from - e.step) }));
+      });
+    }
+    // T02 : fragmentation de la mélodie (motif de 2 mesures → 1 → 1/2)
+    if (out && out.frag.on && bars >= 2) {
+      const win = n - 2 * SPB;
+      const src = bars >= 4 ? n - 4 * SPB : win;
+      const cut = (evs, a, b, at) => evs.filter((e) => e.step >= a && e.step < b).map((e) => ({ ...e, notes: [...e.notes], step: e.step - a + at, len: Math.min(e.len, b - e.step) }));
+      tracks.forEach((t) => {
+        const evs = role(t) === 'melody' && evsOf(t);
+        if (!evs || !evs.some((e) => e.step >= src && e.step < src + SPB / 2)) return; // motif muet au départ : rien à fragmenter
+        const keep = evs.filter((e) => e.step < win).map((e) => ({ ...e, len: Math.min(e.len, win - e.step) }));
+        data[t.id].events = [...keep, ...cut(evs, src, src + SPB, win), ...cut(evs, src, src + SPB / 2, n - SPB), ...cut(evs, src, src + SPB / 2, n - SPB / 2)];
+      });
+    }
+    // T03 : pédale de dominante (ou de tonique) à la basse
+    if (out && out.pedal.on) {
+      const from = n - Math.min(bars, out.pedal.len) * SPB;
+      const pc = out.pedal.note === 'tonic' ? kp[0] : pcOf(kp[0] + 7);
+      tracks.forEach((t) => {
+        const evs = role(t) === 'bass' && evsOf(t);
+        if (!evs || !evs.length) return;
+        const near = evs.filter((e) => e.step >= from)[0] || evs[evs.length - 1];
+        const ref = Math.min(...near.notes);
+        let m = ref - pcOf(ref) + pc;
+        if (m - ref > 6) m -= 12;
+        const v = clampV(Math.max(...evs.filter((e) => e.step >= from).map((e) => e.vel ?? 0.8), 0.7));
+        const keep = evs.filter((e) => e.step < from).map((e) => ({ ...e, len: Math.min(e.len, from - e.step) }));
+        for (let s = from; s < n; s += SPB) keep.push({ step: s, len: Math.min(SPB, n - s), notes: [m], vel: s === from ? v : clampV(v * 0.9) });
+        data[t.id].events = keep;
+      });
+    }
+    // T04 : élargissement du registre des accords et des arpèges
+    if (out && out.widen.on) {
+      const L = Math.min(bars, out.widen.len) * SPB;
+      const from = n - L;
+      tracks.forEach((t) => {
+        const evs = ['chords', 'arp'].includes(role(t)) && evsOf(t);
+        if (!evs) return;
+        evs.forEach((e) => {
+          if (e.step < from || !e.notes.length) return;
+          const p = (e.step - from + Math.min(e.len, n - e.step) / 2) / L; // position du milieu de la note dans la fenêtre
+          const lo = Math.min(...e.notes);
+          const hi = Math.max(...e.notes);
+          const add = [];
+          if (p >= 1 / 3 && hi + 12 <= 91) add.push(hi + 12);
+          if (p >= 2 / 3 && e.notes.length >= 3 && lo - 12 >= 40) add.push(lo - 12);
+          if (add.length) e.notes = [...new Set([...e.notes, ...add])].sort((a, b) => a - b);
+        });
+      });
+    }
+    // T05 : suspension (retard de la tierce par la quarte) au début de la scène
+    if (inn && inn.susp.on && spans.length) {
+      const D = Math.min(inn.susp.len, spans[0].len);
+      const root = spans[0].chord.rootPc;
+      const isThird = (m) => [3, 4].includes(pcOf(m - root));
+      tracks.forEach((t) => {
+        const evs = ['chords', 'arp'].includes(role(t)) && evsOf(t);
+        if (!evs) return;
+        const outE = [];
+        evs.forEach((e) => {
+          if (e.step >= D || !e.notes.some(isThird)) return void outE.push(e);
+          const sus = e.notes.map((m) => (isThird(m) ? m - pcOf(m - root) + 5 : m));
+          const susE = { ...e, notes: [...new Set(sus)].sort((a, b) => a - b), len: Math.min(e.len, D - e.step) };
+          outE.push(susE);
+          if (e.step + e.len > D) outE.push({ ...e, step: D, len: e.step + e.len - D, vel: clampV((e.vel ?? 0.7) * 0.9) });
+        });
+        data[t.id].events = outE.sort((a, b) => a.step - b.step);
+      });
+    }
   }
   /** Réglages d'une jonction : le plan, puis ce que l'utilisateur a changé (fx.junctions['de>à']). */
   function junctionEff(spec, from, to, fx) {
@@ -1615,7 +1562,7 @@ SS.bandSong = (() => {
     if (out.riser.on) {
       const L = Math.min(out.riser.len, bars) * SPB;
       const off = n - L;
-      const lanes = { volume: shift(off, ramp(L, 0.15, 0.5)), reverb: shift(off, ramp(L, 0.2, 0.6, 0.5)) };
+      const lanes = { volume: shift(off, ramp(L, 0.15, RISER_TOP)), reverb: shift(off, ramp(L, 0.2, 0.6, 0.5)) };
       if (out.riser.filter === 'lp') lanes.filter = shift(off, ramp(L, -0.9, 0.1));
       else if (out.riser.filter === 'hp') lanes.filter = shift(off, ramp(L, 0.85, 0));
       add([{ step: off, len: L, notes: [t + 12], vel: 0.8 }], off, n - 1, lanes);
@@ -1758,7 +1705,13 @@ SS.bandSong = (() => {
       const k = hk ? { tonic: hk.tonic, mode: hk.mode } : sec.key ? parseKey(sec.key) : key;
       // grille : celle de l'étape Accords, sinon celle de la section (reprise tapée au clavier), sinon ses degrés
       const grid = (harmony && harmony.chords && harmony.chords[id]) || sec.grid;
-      const spans = (grid && grid.length && spansFromGrid(grid, k, bars)) || spansOf(sec, k, bars);
+      const spans0 = (grid && grid.length && spansFromGrid(grid, k, bars)) || spansOf(sec, k, bars);
+      // pédales de l'étape Accords : la note tenue passe à la basse des accords qui commencent sous elle
+      const peds = (harmony && harmony.pedals && harmony.pedals[id]) || [];
+      const spans = peds.length ? spans0.map((sp) => {
+        const ped = peds.find((x) => sp.step >= x.step && sp.step < x.step + x.len);
+        return ped ? { ...sp, chord: { ...sp.chord, bassPc: pcOf(H().scale(k)[0].pc + ped.semi) } } : sp;
+      }) : spans0;
       // as : section du modèle dont une section de reprise reprend le jeu (nuance, automation)
       const as = sec.as || id;
       // caractère et notes par phrase de cette scène
@@ -1768,6 +1721,8 @@ SS.bandSong = (() => {
       const emoId = harmony && harmony.emotions && harmony.emotions[id];
       if (emoId && mel.useProfile !== false && SS.resolveMelodyProfile && SS.MELODY_PROFILES[emoId]) smel = { ...smel, profile: SS.resolveMelodyProfile(emoId, {}, k) };
       const energy = sec.energy ?? ENERGY[as] ?? 0.9;
+      const dynK = dynKind(spec, id, form);
+      const ownBuild = new Set();
       const data = {};
       const pp = (parts && parts[id]) || null; // réglages de cette scène
       const muted = (pp && pp.off) || [];
@@ -1793,6 +1748,7 @@ SS.bandSong = (() => {
           const pat = dp && dp.pattern && SS.drumPattern ? SS.drumPattern(dp.style, dp.pattern) : null;
           const lanes = dp && (dp.edits || (pat && pat.lanes));
           const fo = { fill: dp && dp.fill, fillType: (dp && dp.fillType) || 'roll', crash: !!(dp && dp.crash), energy };
+          if (dp && dp.build) ownBuild.add(t.id); // progression réglée dans l'assistant : la dynamique n'y touche pas
           // montée avec progression réglée dans l'assistant : le roulement (caisse claire ou clap, charleston, crash) suit la courbe
           if (sec.drums === 'build' && dp && dp.build && role !== 'perc') {
             const rs = rollSteps(snd, bars, r, dp.build, rollerOf(kitSounds), role, kitSounds);
@@ -1809,6 +1765,7 @@ SS.bandSong = (() => {
           let steps = drumSteps(snd, mode, sec.groove || spec.groove, bars, r, { perc: role === 'perc', last: sec.fill !== false && !(dp && dp.fill), energy });
           if (dp && ((dp.fill && dp.fill !== 'off') || dp.crash) && mode && mode !== 'off' && mode !== 'build') steps = patternSteps(snd, bars, r, { base: steps, ...fo }) || steps;
           data[t.id] = { steps };
+          if (dynK === 'groove') holdDrums(steps, snd);
           if (spec.tech && !(mode === 'build' && dp && dp.build)) drumSpice(data[t.id], snd, mode, bars, r); // la progression de montée remplace le roulement d'origine
           return;
         }
@@ -1893,8 +1850,8 @@ SS.bandSong = (() => {
         const myAuto = ie && ie.auto && !off ? normalizeAuto(ie.auto) : null; // automation de l'instrument dans la scène
         if (myAuto && myAuto.vel && role !== 'fx') applyVelCurve(data[t.id], myAuto.vel, bars); // vélocité : avant les accents, qui s'y ajoutent
         if (kd === 'bass' && o && o.accents && !off) applyAccents(data[t.id].events, o.accents, bars); // accents : après la nuance, pour qu'ils restent audibles
-        if (spec.tech && (events.length || role !== 'fx')) {
-          const auto = fxScene ? fxScene.auto : sectionAuto(as, sec, er, bars, role === 'fx');
+        if ((spec.tech || dynK) && (events.length || role !== 'fx')) {
+          const auto = fxScene ? fxScene.auto : sectionAuto(as, sec, er, bars, role === 'fx', dynK, !!spec.tech);
           if (auto && events.length) data[t.id].auto = auto;
         }
       });
@@ -1906,6 +1863,13 @@ SS.bandSong = (() => {
           data[t.id] = { events: src.events.map((e) => ({ ...e, notes: e.notes.map((n) => (how === 'third' ? scaleUp(n, 2, kp) : n + 12)), vel: clampV(e.vel * 0.85) })) };
         });
       }
+      // montée EDM / techno : la grosse caisse et le charleston reviennent en force (volume), la montée avance
+      if (dynK === 'build' || dynK === 'groove' || dynK === 'outro' || dynK === 'intro')
+        tracks.forEach((t) => {
+          const d = data[t.id];
+          const a = t.type === 'drum' && !ownBuild.has(t.id) && d && d.steps && d.steps.some((v) => v > 0) ? dynDrumsAuto(kind((t.band && t.band.key ? t.band.key.split(':')[1] : '') || t.sound), bars, dynK, !!spec.tech) : null;
+          if (a) d.auto = { ...(d.auto || {}), ...a };
+        });
       // automation de la scène : vélocité des kits et des doublures, courbes de réglages de toutes les pistes (elles remplacent celles du plan)
       tracks.forEach((t, ti) => {
         const im = pp && pp.inst;
@@ -1956,8 +1920,14 @@ SS.bandSong = (() => {
             d.steps = loops[lp.id] ? percLoopSteps(lp.id, (fx.perc && fx.perc.style) || 'techno', bars, rng(`${presetId}/${id}/loop/${lp.id}`)) : new Array(bars * SPB).fill(0);
           });
       }
+      // procédés d'écriture T01–T05 (réglés dans une jonction : éteints dans le plan)
+      if (fx && (oj || ij))
+        writeTransitions(data, tracks, (t) => (t.type === 'drum' ? 'drums' : kindOfT.get(t) || null), { bars, key: k, spans, out: oj ? outE : null, inn: ij ? inE : null });
       if (gapSteps) gapEnd(data, bars, gapSteps, oj ? new Set(tracks.filter((t) => roleOfTrack(t) === 'fx').map((t) => t.id)) : null);
       const sc = { id: SS.uid(), sec: id, name: sec.name || NAMES[id] || id, bars, key: k, data, spans };
+      // grille de la scène (piste Accords du projet) : la même que celle de l'étape Accords de l'assistant
+      const gch = sceneGrid(grid, spans0, k, bars);
+      if (gch.length) sc.grid = { chords: gch, ...(peds.length ? { pedals: peds.map((x) => ({ ...x })) } : {}), initialized: true };
       const emo = harmony && harmony.emotions && harmony.emotions[id];
       if (emo || spec.emotion) sc.emotion = emo || sec.emotion || spec.emotion;
       return sc;
@@ -1977,7 +1947,9 @@ SS.bandSong = (() => {
     ['oct16', 'Octaves en doubles', 'Doubles alternées fondamentale / octave', Array.from({ length: 16 }, (_, s) => [s, 1, s % 2 ? 2 : 0])],
     ['pickup', 'Reprise', 'Fondamentale tenue, reprise à l’octave en fin de mesure', [[0, 13, 0], [14, 2, 2]]],
     ['funk', 'Funk', 'Syncopes en doubles, notes fantômes', [[0, 2, 0], [3, 1, 0], [6, 1, 2], [7, 1, 0], [10, 1, 0], [12, 2, 0], [14, 1, 1]]],
+    // procédé B03 de la formation (chapitre 23, § 4), recette de recipeBass
+    ['b03', 'Ligne conjointe (B03)', 'La note de l’accord la plus proche : la basse avance par degrés (C – G/B – Am)', [[0, 12, 0], [12, 4, 1]]],
   ];
 
-  return { build, junctionDefaults, junctionEff, PERC_LOOPS, PERC_STYLES, hpHz, hpAmt, HP_MEL, isExtra, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, BUILD_LEVELS, BUILD_PRESETS, buildLevels, progLevels, rollBar, rollerOf, hasGridLane, laneKey, _rng: rng };
+  return { build, bassEvents, junctionDefaults, junctionEff, PERC_LOOPS, PERC_STYLES, hpHz, hpAmt, HP_MEL, isExtra, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, sceneGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, BUILD_LEVELS, BUILD_PRESETS, buildLevels, progLevels, rollBar, rollerOf, hasGridLane, laneKey, _rng: rng };
 })();

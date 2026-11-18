@@ -61,8 +61,8 @@ const ok = (c, m) => {
   const page = await open('techno');
   const labels = await page.$$eval('#bandWizSteps li', (l) => l.map((x) => ({ n: +x.dataset.step, kind: x.dataset.kind, group: x.dataset.group || null, name: x.querySelector('.bw-sn').textContent.trim() })));
   const iFx = labels.findIndex((x) => x.name === 'Effets et transitions');
-  ok(iFx > 0 && labels[iFx - 1].kind === 'melody' && labels[iFx + 1].name === 'Mix' && labels[iFx + 2].name === 'Intégration', 'étape « Effets et transitions » entre la Mélodie et le Mix, Intégration après');
-  ok(labels[iFx].group === 'Finaliser' && labels[iFx + 1].group === null && labels.length === labels[iFx].n + 2, 'elle ouvre « Finaliser » ; les numéros suivent (Mix + 1, Intégration + 2)');
+  ok(iFx > 1 && labels[iFx - 1].name === 'Arrangement' && labels[iFx - 2].kind === 'melody' && labels[iFx + 1].name === 'Mix' && labels[iFx + 2].name === 'Intégration', 'étape « Effets et transitions » entre l’Arrangement et le Mix, Intégration après');
+  ok(labels[iFx - 1].group === 'Finaliser' && labels[iFx].group === null && labels[iFx + 1].group === null && labels.length === labels[iFx].n + 2, 'Arrangement ouvre « Finaliser » ; les numéros suivent (Mix + 1, Intégration + 2)');
   const ref = await page.evaluate(() => [SS.band.stepNum('fx'), SS.band.stepNum('mix'), SS.band.stepNum('pick'), SS.band.stepRef(SS.band.stepNum('fx')), SS.band.stepRef(SS.band.stepNum('mix'))]);
   ok(ref[1] === ref[0] + 1 && ref[2] === ref[0] + 2 && ref[3] === 'fx' && ref[4] === 'mix', 'stepNum / stepRef : fx, mix, pick se suivent');
   await go(page, 'fx');
@@ -181,6 +181,35 @@ const ok = (c, m) => {
     await page.waitForTimeout(300);
     await page.screenshot({ path: path.join(SHOTS, 'fx-all-on.png') });
   }
+
+  // ---------- 5 bis. Procédés d'écriture T01–T05 (formation, chap. 23) : éteints par défaut, ils réécrivent les parties
+  // (jonction Groove > Montée : le groove a sa grosse caisse et sa basse jusqu'au bout ; remise « Comme le plan » ensuite)
+  await page.click('.fx-tm button >> nth=1');
+  await page.waitForTimeout(250);
+  const NG = (await wiz(page, 'W.res.scenes.find((x) => x.name === "Groove").bars')) * 16;
+  ok((await page.locator('#fxWriteHead').count()) === 1 && (await page.locator('#fxrow-retrait, #fxrow-frag, #fxrow-pedal, #fxrow-widen, #fxrow-susp').count()) === 5, 'procédés d’écriture : titre et cinq lignes (T01–T05), la coupure porte T06');
+  ok((await on(page, 'retrait')) === 'false' && (await on(page, 'susp')) === 'false', 'procédés éteints dans le plan');
+  const pastille = async () => +(await page.locator('.fx-tm button.sel').textContent()) || 0;
+  const p0 = await pastille();
+  const bdBefore = await dataOf(page, 'Groove', ':bd');
+  await page.click('#fxon-retrait');
+  await page.waitForTimeout(250);
+  const bdAfter = await dataOf(page, 'Groove', ':bd');
+  ok(bdAfter.steps.slice(NG - 16).every((v) => v === 0) && bdBefore.steps.slice(NG - 16).some((v) => v > 0) && JSON.stringify(bdAfter.steps.slice(0, NG - 16)) === JSON.stringify(bdBefore.steps.slice(0, NG - 16)), 'T01 retrait : la grosse caisse se tait sur la dernière mesure du groove, seulement là');
+  ok((await pastille()) === p0 + 1, 'la pastille compte le procédé');
+  await page.click('#fxon-pedal');
+  await page.waitForTimeout(250);
+  const ped = (await dataOf(page, 'Groove', 'bass')).events.filter((e) => e.step >= NG - 32);
+  ok(ped.length === 2 && ped.every((e) => e.len === 16 && e.notes[0] === ped[0].notes[0]), 'T03 pédale : une note tenue par mesure sur les 2 dernières mesures');
+  await page.click('#fxon-susp');
+  await page.waitForTimeout(250);
+  ok((await page.locator('.fx-pl[data-k="susp"]').count()) === 1, 'l’aperçu montre la suspension après la jonction');
+  if (SHOTS) await page.locator('#fxTrans').screenshot({ path: path.join(SHOTS, 'fx-procedes.png') });
+  await page.click('#fxReset');
+  await page.waitForTimeout(250);
+  ok((await pastille()) === p0 && JSON.stringify((await dataOf(page, 'Groove', ':bd')).steps) === JSON.stringify(bdBefore.steps), '« Comme le plan » : la batterie revient');
+  await page.click('.fx-tm button >> nth=2');
+  await page.waitForTimeout(250);
 
   // ---------- 6. Copier vers les autres drops
   await page.click('#fxlen-riser [data-v="4"]');
@@ -359,12 +388,12 @@ const ok = (c, m) => {
   await dr.waitForTimeout(300);
   const state0 = await wiz(dr, 'JSON.stringify(W.fx)');
   const snap = await dr.evaluate(() => JSON.parse(JSON.stringify(SS.band.wizSnapshot())));
-  ok(snap.v === 3 && JSON.stringify(snap.state.w.fx) === state0 && snap.state.w.step === (await num(dr, 'fx')), 'brouillon (v3) : les réglages et l’étape sont rangés');
+  ok(snap.v === 4 && JSON.stringify(snap.state.w.fx) === state0 && snap.state.w.step === (await num(dr, 'fx')), 'brouillon (v4) : les réglages et l’étape sont rangés');
   await dr.evaluate((s) => SS.band.wizRestore(s), snap);
   await dr.waitForTimeout(500);
   ok((await wiz(dr, 'JSON.stringify(W.fx)')) === state0 && (await wiz(dr, 'W.step')) === (await num(dr, 'fx')) && (await dr.locator('#fxTrans').count()) === 1, 'rouvrir le brouillon : mêmes réglages, même étape Effets');
-  // ancienne numérotation (v2) : Mix était l'étape fx − 0, Intégration la suivante
-  const fxN = await num(dr, 'fx');
+  // ancienne numérotation (v2) : Mix était l'étape arr (fx − 1), Intégration la suivante
+  const fxN = (await num(dr, 'fx')) - 1;
   const old = JSON.parse(JSON.stringify(snap));
   old.v = 2;
   delete old.state.w.fx;

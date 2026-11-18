@@ -139,14 +139,12 @@ test('bibliothèque : basses imposées, emprunts et modes', () => {
   assert.deepEqual(SS.parseLibraryChord('B♭'), { rootPc: 10, letter: 'B', type: 'maj', bass: 0 });
   assert.equal(SS.parseLibraryChord('Xm'), null);
   const C = { tonic: 'C', mode: 'major' };
-  // C/E : la basse sous l'accord, et la couche Basse joue Mi
+  // C/E : la basse sous l'accord
   const ce = H.gridChord(C, 0, 'maj', 0, 4);
   assert.equal(ce.name, 'C/E');
   const v = H.voice(ce, 60);
   assert.equal(H.pcOf(v[0]), 4);
   assert.ok(v[0] < v[1]);
-  const bass = H.generate([{ step: 0, len: 16, notes: v }], { kind: 'bass-whole', octave: 2, spb: 16, beat: 4, key: C, length: 16 });
-  assert.equal(H.pcOf(bass[0].notes[0]), 4);
   // Am – B♭ s'entend en La phrygien (B♭ diatonique), Am – Em – D en La dorien
   const phr = { tonic: 'A', mode: 'phrygian' };
   assert.equal(H.gridChord(phr, 1, 'maj').name, 'B♭');

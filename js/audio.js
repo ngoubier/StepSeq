@@ -1295,7 +1295,53 @@ SS.audio = (() => {
         return chain.end;
       },
     };
+    if (p._bauto) beatAutoVoice(p._bauto, chain);
     return chain;
+  }
+
+  /*
+   * Automation par temps (js/beatauto.js) pendant la note : le cutoff (décalage en cents des filtres) et la résonance
+   * suivent la courbe de la chanson, même sur une note tenue. `ba` : { cut(t), res(t) } (temps audio → valeur ou null).
+   */
+  function beatAutoVoice(ba, chain) {
+    const flt = chain.flt;
+    const curve = (fn, a, b, map) => {
+      const n = Math.max(2, Math.min(2000, Math.ceil((b - a) * 100)));
+      const c = new Float32Array(n);
+      for (let i = 0; i < n; i++) c[i] = map(fn(a + ((b - a) * i) / (n - 1)));
+      return c;
+    };
+    const follow = (apply) => {
+      apply(chain.t, chain.end);
+      chain.hooks.push((end, oldEnd) => end > oldEnd && apply(oldEnd + 0.002, end));
+    };
+    if (ba.cut && flt.detunes && flt.detunes.length) {
+      const src = ctx.createConstantSource();
+      src.offset.value = 0;
+      flt.detunes.forEach((param) => src.connect(param));
+      const cents = (v) => (v == null ? 0 : v * 1200);
+      src.start(chain.t);
+      follow((a, b) => {
+        try {
+          src.offset.setValueCurveAtTime(curve(ba.cut, a, b, cents), a, b - a);
+        } catch (e) {
+          /* courbe déjà dépassée : la valeur reste */
+        }
+        src.stop(b);
+      });
+    }
+    if (ba.res && flt.qs) {
+      flt.qs.forEach(({ param, base, max }) => {
+        const q = (v) => Math.min(max, SS.beatAuto.resQ(base, v == null ? 1 : v));
+        follow((a, b) => {
+          try {
+            param.setValueCurveAtTime(curve(ba.res, a, b, q), a, b - a);
+          } catch (e) {
+            /* idem */
+          }
+        });
+      });
+    }
   }
 
   /*
@@ -1609,6 +1655,7 @@ SS.audio = (() => {
       vel = r.vel;
     }
     if (mod && mod.locks) p = SS.applyVoiceLocks(p, mod.locks); // automation du son (verrous par pas)
+    if (mod && mod.bauto) p = { ...p, _bauto: mod.bauto }; // automation par temps : cutoff et résonance pendant la note
     if (mod && mod.cutoff && mod.cutoff !== 1) p = { ...p, cutoff: Math.max(30, Math.min(20000, p.cutoff * mod.cutoff)) };
     // expression (js/expression.js) : forme de nuance dans la note, attaque adoucie (legato), relâchement court
     if (mod && mod.expr) {
@@ -1834,13 +1881,25 @@ SS.audio = (() => {
       const jt = () => nudge + (human ? (Math.random() * 2 - 1) * human * 0.015 : 0);
       const jv = (v) => (human ? Math.max(0.05, Math.min(1, v * (1 + (Math.random() * 2 - 1) * human * 0.25))) : v);
       const at = trigAt(project, track, tick);
+      // automation par temps (js/beatauto.js) : position dans la scène, en temps ; vélocité au début de la note,
+      // cutoff et résonance qui suivent la courbe pendant la note
+      const ba = SS.beatAuto ? SS.beatAuto.forTrack(project, track, seq.song ? { index: seq.song.index, rep: seq.song.rep } : null) : null;
+      const sceneStep = tick % SS.totalSteps(project);
+      const spbeat = SS.stepsPerBeat(project);
+      const baVel = (st) => (ba && ba.vel ? ba.vel(st / spbeat) ?? 1 : 1);
+      const baVoice = (st, t0) => {
+        if (!ba || !(ba.cut || ba.res)) return null;
+        const x = (t) => (st + (t - t0) / sd) / spbeat;
+        return { cut: ba.cut && ((t) => ba.cut(x(t))), res: ba.res && ((t) => ba.res(x(t))) };
+      };
       if (track.type === 'drum') {
         const v = track.steps[step];
         if (v > 0 && SS.trigOk(SS.drumCond(track, step), { ...at, step })) {
           const tt = time + jt();
           // ratchet : le coup est rejoué à intervalles égaux dans la durée du pas, un peu moins fort
           const r = SS.drumRatchet(track, step);
-          for (let j = 0; j < r; j++) playDrum(track, tt + (j * sd) / r, jv(v) * (j ? 0.85 : 1));
+          const bv = baVel(sceneStep);
+          for (let j = 0; j < r; j++) playDrum(track, tt + (j * sd) / r, Math.min(1, jv(v) * bv * (j ? 0.85 : 1)));
           duckFrom(project, track, tt);
         }
         return;
@@ -1877,7 +1936,8 @@ SS.audio = (() => {
             // notes simultanées (mode Accord rythmique) : jouées comme un accord (glide, niveau)
             const group = notes.filter((x) => x.at === n.at);
             const gi = group.indexOf(n);
-            playNote(track, n.midi, t + jt(), ndur, jv(n.vel * (group.length > 1 ? 0.8 : 1)), undefined, gi, group.length, { cutoff: n.cutoff, locks, acc: !!ev.acc, accAmt: ev.accAmt });
+            const nst = sceneStep + n.at / sd;
+            playNote(track, n.midi, t + jt(), ndur, Math.min(1, jv(n.vel * (group.length > 1 ? 0.8 : 1)) * baVel(nst)), undefined, gi, group.length, { cutoff: n.cutoff, locks, acc: !!ev.acc, accAmt: ev.accAmt, bauto: baVoice(nst, t) });
             if (n.first) duckFrom(project, track, t); // un arpège déclenche le sidechain au début de chaque accord
           });
         } else if (ev.step === step) {
@@ -1893,13 +1953,15 @@ SS.audio = (() => {
           if (ex && ex.holdTo && held <= written) dur = Math.max(dur, Math.min(ex.holdTo, SS.trackLen(project, track) - ev.step) * sd + 0.03);
           // micro-décalage de la note (ev.shift, fraction de pas) : en avance ou en retard sur la grille
           const tt = time + jt() + (ev.shift || 0) * sd + (ex ? ex.delay || 0 : 0); // ex.delay : rubato de fin de phrase
-          const vv = jv(ev.vel);
+          const nst = sceneStep + (ev.shift || 0);
+          const vv = Math.min(1, jv(ev.vel) * baVel(nst));
           // ratchet : la note est rejouée dans son premier pas ; la dernière répétition tient le reste de la note
           const r = ev.rat || 1;
           const sub = sd / r;
           // automation du son (track.auto, réglages « voice ») : valeur au pas de la note
           const locks = SS.voiceLocks(track, tick % alen, alen);
-          const nmod = locks || ev.acc || ex ? { locks, acc: !!ev.acc, accAmt: ev.accAmt, expr: ex || null } : null;
+          const bauto = baVoice(nst, tt);
+          const nmod = locks || ev.acc || ex || bauto ? { locks, acc: !!ev.acc, accAmt: ev.accAmt, expr: ex || null, bauto } : null;
           for (let j = 0; j < r; j++) {
             const d = j < r - 1 ? sub * 0.9 : Math.max(sub * 0.9, dur - j * sub);
             const v = vv * (ev.notes.length > 1 ? 0.8 : 1) * (j ? 0.85 : 1);

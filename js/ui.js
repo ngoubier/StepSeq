@@ -268,7 +268,7 @@ SS.ui = (() => {
       );
     }
     t.classList.toggle('has-action', !!action);
-    // couche supérieure (popover) : le message passe au-dessus d'une fenêtre ouverte (Harmonie, Band…)
+    // couche supérieure (popover) : le message passe au-dessus d'une fenêtre ouverte (Band, Song…)
     if (t.showPopover) {
       try {
         if (t.matches(':popover-open')) t.hidePopover();
@@ -533,7 +533,7 @@ SS.ui = (() => {
         'div',
         { class: 'cl-tools' },
         h('button', { type: 'button', class: 'th-mode cl-add', title: 'Ajouter un accord après le dernier (1 mesure)', onclick: () => addChordAt(nextFreeStep()) }, '+ ACCORD'),
-        h('button', { type: 'button', class: 'th-mode cl-key', title: 'Fenêtre Harmonie : tonalité, grilles toutes faites, émotions', onclick: () => SS.harmonyPanel.open() }, 'HARMONIE ›')
+        h('button', { type: 'button', class: 'th-mode cl-key', title: 'Tonalité de la scène (proposée d’après les notes)', onclick: () => openKeyPicker() }, 'TONALITÉ ›')
       )
     );
     const grid = h('div', { class: 'grid cl-grid', title: key ? 'Clic : poser un accord · glisser un accord : le déplacer (Alt : le dupliquer) · bord droit : sa durée · clic sur un accord : le régler' : 'Clic : choisir la tonalité de la scène, puis poser un accord' });
@@ -913,13 +913,28 @@ SS.ui = (() => {
     placeMenu(r.left, r.bottom + 6);
   }
 
-  /** Pas de tonalité dans la scène : on la choisit avant le premier accord (proposée d'après les notes). */
-  function openKeyPicker(then) {
+  /** Bouton « Tonalité » de la barre du haut : la tonalité de la scène affichée. */
+  function updateKeyButton() {
+    const btn = $('#keyBtn');
+    if (!btn) return;
+    const p = app.project();
+    const k = SS.sceneKey(p);
+    $('#keyLabel').textContent = k ? SS.harmony.label(k) : 'Pas de tonalité';
+    btn.classList.toggle('on', !!k);
+    btn.title = `Tonalité de la scène « ${SS.currentScene(p).name} »`;
+  }
+
+  /**
+   * Choisir la tonalité de la scène (avant le premier accord, ou depuis le bouton « Tonalité ») :
+   * la tonalité en cours, sinon celle proposée d'après les notes. `anchor` : élément sous lequel ouvrir le menu.
+   */
+  function openKeyPicker(then, anchor) {
     const p = app.project();
     const sc = SS.currentScene(p);
     const H = SS.harmony;
-    const guess = (H.detect && H.detect(p, sc.id)) || null;
-    const k = guess ? { ...guess.key } : { tonic: 'C', mode: 'major' };
+    const cur = H.valid(sc.key) ? sc.key : null;
+    const guess = (!cur && H.detect && H.detect(p, sc.id)) || null;
+    const k = cur ? { ...cur } : guess ? { ...guess.key } : { tonic: 'C', mode: 'major' };
     closeChordMenu();
     const tonic = h('select', { 'aria-label': 'Tonique' }, H.TONICS.map((t) => h('option', { value: t, selected: t === k.tonic }, H.french ? H.french(t) : t)));
     const mode = h('select', { 'aria-label': 'Mode' }, H.MODES.map((m) => h('option', { value: m.id, selected: m.id === k.mode }, m.label)));
@@ -942,8 +957,8 @@ SS.ui = (() => {
               if (!H.valid(key)) return;
               sc.key = key;
               closeChordMenu();
-              SS.harmonyPanel.updateButton();
-              renderChordLane();
+              updateKeyButton();
+              renderAll(); // le piano roll met en évidence les notes de la nouvelle gamme
               app.changed();
               then && then();
             },
@@ -953,8 +968,8 @@ SS.ui = (() => {
         h('button', { type: 'button', class: 'ctx-close', onclick: () => closeChordMenu() }, 'Annuler')
       )
     );
-    const r = $('#chordLane').getBoundingClientRect();
-    placeMenu(r.left + 40, r.bottom + 6);
+    const r = (anchor || $('#chordLane')).getBoundingClientRect();
+    placeMenu(r.left + (anchor ? 0 : 40), r.bottom + 6);
   }
 
   function buildTrack(track) {
@@ -1063,16 +1078,21 @@ SS.ui = (() => {
           : h('button', { class: 'th-btn th-sd', disabled: true, title: 'Sound design : pas sur une piste de batterie (le son se choisit avec ⚙)', html: ICONS.sliders }),
         h('button', {
           type: 'button',
-          class: 'th-btn th-auto' + (autoOpen ? ' open' : '') + (track.auto ? ' on' : ''),
-          title: 'Automation : filtre, résonance, volume, reverb, écho, pas à pas (propre à la scène)',
+          class: 'th-btn th-auto' + (autoOpen || SS.beatAutoUI.shown(p, track).length ? ' open' : '') + (track.auto || SS.beatAutoUI.isOn(p, track) ? ' on' : ''),
+          title: 'Automation : cutoff, résonance, vélocité par temps sur toute la chanson ; filtre DJ, volume, envois… pas à pas (propre à la scène)',
           'aria-label': `Automation de la piste ${track.name}`,
-          'aria-expanded': String(autoOpen),
+          'aria-haspopup': 'menu',
           html: ICONS.auto,
-          onclick: () => {
-            if (autoOpen) openAutos().delete(track.id);
-            else openAutos().add(track.id);
-            renderTrack(track);
-          },
+          onclick: (e) =>
+            SS.beatAutoUI.openMenu(track, e.currentTarget, app, {
+              stepOpen: autoOpen,
+              toggleStep: () => {
+                if (openAutos().has(track.id)) openAutos().delete(track.id);
+                else openAutos().add(track.id);
+                renderTrack(track);
+              },
+              rerender: () => renderTrack(track),
+            }),
         }),
         h('button', {
           class: 'th-btn fx-btn' + (SS.fxActive(track) ? ' on' : ''),
@@ -1191,6 +1211,9 @@ SS.ui = (() => {
     const el = h('div', { class: 'track' + (selected ? ' selected' : ''), style: `--c:${track.color}`, 'data-id': track.id }, h('div', { class: 'track-row' }, head, grid));
     if (autoOpen) el.append(buildAutoLane(track, ref));
     if (track.type === 'instrument' && isOpen) el.append(buildRoll(track, ref));
+    // automation par temps (js/beatautoui.js) : sous les notes, seulement si elle est active
+    const ba = SS.beatAutoUI.panel(track, app, () => renderTrack(track));
+    if (ba) el.append(ba);
     ref.el = el;
     SS.audio.setTrackGain(track, track.volume);
     paint(track);
@@ -2349,7 +2372,7 @@ SS.ui = (() => {
       : null;
     if (!op) return;
     const res = SS.transform.run(t, [...sel.items], op, { key, n: SS.trackLen(p, t) });
-    if (!res) return toast('Ce changement de mode demande une tonalité pour la scène (fenêtre Harmonie).');
+    if (!res) return toast('Ce changement de mode demande une tonalité pour la scène (bouton Tonalité en haut).');
     t.events = res.events;
     setSelection(t, res.changed);
     app.changed();
@@ -4694,6 +4717,8 @@ SS.ui = (() => {
     renderAll,
     renderTrack,
     renderChordLane,
+    updateKeyButton,
+    openKeyPicker,
     refreshScene,
     paint,
     setPlayhead,

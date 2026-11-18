@@ -5,7 +5,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 globalThis.window = globalThis;
-['dirt.js', 'dirt-tuning.js', 'sounds.js', 'harmony.js', 'project.js', 'band-presets.js', 'bandgroup.js', 'band-songs.js', 'band-levels.js', 'bandmix.js', 'wizmix.js', 'drum-patterns.js', 'arp.js', 'motifs.js', 'bandsong.js', 'wizdraft.js'].forEach((f) => require('../js/' + f));
+['dirt.js', 'dirt-tuning.js', 'sounds.js', 'harmony.js', 'project.js', 'band-presets.js', 'bandgroup.js', 'band-songs.js', 'band-levels.js', 'bandmix.js', 'wizmix.js', 'drum-patterns.js', 'arp.js', 'motifs.js', 'melody.js', 'bandsong.js', 'wizdraft.js'].forEach((f) => require('../js/' + f));
 const SS = globalThis.SS;
 const BG = SS.bandGroup;
 const BS = SS.bandSong;
@@ -222,7 +222,7 @@ test('brouillon v2 : le groupe est rangé et relu tel quel ; un groupe incohére
   BG.add(g, 'drums', { ms: { on: true, kit: 'LinnDrum', pieces: [{ piece: 'tb', on: true }] } });
   BG.move(g, 'lead', -2);
   const packed = SS.wizDraft.pack({ styleId: 'synthwave', presetId: 'smalltown', group: g, cache: {}, w: { step: 2 } });
-  assert.equal(SS.wizDraft.VERSION, 3);
+  assert.equal(SS.wizDraft.VERSION, 4);
   const back = BG.clean(SS.wizDraft.unpack(JSON.parse(JSON.stringify(packed))).group, SMALL);
   assert.deepEqual(back.list.map((r) => [r.id, r.name, r.type || null]), g.list.map((r) => [r.id, r.name, r.type || null]));
   assert.equal(back.list.find((r) => r.id === 'x1').ms.tok, 'x');

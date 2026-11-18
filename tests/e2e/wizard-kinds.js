@@ -50,16 +50,16 @@ const ok = (c, m) => {
   ok(lis[4].t.includes('Accords') && lis[4].kind === null, 'Accords est l’étape 5');
   ok(ins.length === 5 && lis.filter((x) => x.kind).length === 5 && lis.slice(5, 10).every((x) => x.kind), 'un onglet par instrument, de 6 à 10');
   ok(ins.filter((x) => x[1]).length === 1 && ins[0][0] === 'drums', 'le kit de batterie (toutes ses pièces) est un seul onglet');
-  ok(lis[10].t.includes('Effets et transitions') && lis[10].group === 'Finaliser' && lis[11].t.includes('Mix') && lis[12].t.includes('Intégration') && lis.length === 13, 'Effets et transitions, Mix puis Intégration à la fin, groupe « Finaliser »');
+  ok(lis[10].t.includes('Arrangement') && lis[10].group === 'Finaliser' && lis[11].t.includes('Effets et transitions') && lis[12].t.includes('Mix') && lis[13].t.includes('Intégration') && lis.length === 14, 'Arrangement, Effets et transitions, Mix puis Intégration à la fin, groupe « Finaliser »');
   ok(lis[5].group === 'Instruments, scène par scène' && lis[0].group === 'Fondations', 'trois groupes');
-  ok(await page.evaluate(() => SS.band.stepNum('fx') === 11 && SS.band.stepNum('mix') === 12 && SS.band.stepNum('pick') === 13 && SS.band.stepNum({ inst: SS.band.insSteps()[1].id }) === 7 && SS.band.stepRef(7).inst === SS.band.insSteps()[1].id), 'stepNum / stepRef : adresses stables');
+  ok(await page.evaluate(() => SS.band.stepNum('arr') === 11 && SS.band.stepNum('fx') === 12 && SS.band.stepNum('mix') === 13 && SS.band.stepNum('pick') === 14 && SS.band.stepNum({ inst: SS.band.insSteps()[1].id }) === 7 && SS.band.stepRef(7).inst === SS.band.insSteps()[1].id), 'stepNum / stepRef : adresses stables');
 
   // onglets : plus de cartes de type, étiquette en lecture seule dans la tête
   await tab('drums');
   ok((await page.locator('.bw-kind, .bw-kinds, #bwKinds').count()) === 0 && (await page.locator('#bwKindTag').textContent()) === 'Drums' && (await page.locator('#bwKindTag').evaluate((e) => e.tagName)) === 'SPAN', 'kit : plus de cartes de type, étiquette « Drums » en lecture seule');
   ok((await page.locator('#bwKindNote').count()) === 0 && (await page.locator('.bwp-pat').count()) === 21, 'kit : pas de note, l’éditeur de motifs');
   await tab('bass');
-  ok((await page.locator('#bwKindTag').textContent()) === 'Basse' && (await page.locator('.bwp-mode').count()) === 21 && (await page.locator('#bwKindNote').count()) === 0, 'basse : étiquette « Basse », éditeur de basse, pas de note');
+  ok((await page.locator('#bwKindTag').textContent()) === 'Basse' && (await page.locator('.bwp-mode').count()) === 22 && (await page.locator('#bwKindNote').count()) === 0, 'basse : étiquette « Basse », éditeur de basse, pas de note');
 
   // étape 2 : le type est une liste dans le panneau de droite
   const toStep2 = async () => {
@@ -164,7 +164,7 @@ const ok = (c, m) => {
   await page.setViewportSize({ width: 1400, height: 900 });
 
   // Créer la chanson : la piste de la nappe contient des notes arpégées
-  await page.click(`#bandWizSteps li:nth-child(13) button`);
+  await page.click(`#bandWizSteps li:nth-child(14) button`);
   await page.click('#bwCreate');
   await page.waitForTimeout(500);
   if (await page.isVisible('#bcfSong')) await page.click('#bcfSong');

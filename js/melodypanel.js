@@ -1,5 +1,5 @@
 /*
- * Atelier « Mélodie » (Harmonie → Chanson → Mélodie) : proposer une mélodie sur une piste à partir d'une grille d'accords et d'une
+ * Atelier « Mélodie » (étape Mélodie de l'assistant Nouvelle chanson) : proposer une mélodie sur une piste à partir d'une grille d'accords et d'une
  * structure (notes par phrase). La mélodie dure exactement la grille : 4 accords → 4 mesures.
  * Vue simple : grille, structure, piste. Paroles, tonalité, tessiture, rythme et fin sont dans « Options ». Le calcul est dans js/melody.js (méthode du skill
  * « composer-melodies-accords-texte ») ; ce module gère le formulaire, l'affichage de la proposition
@@ -12,7 +12,7 @@ SS.melodyPanel = (() => {
   const M = () => SS.melody;
   const H = () => SS.harmony;
   let app = null;
-  // hôte : l'onglet Mélodie d’Harmonie (ou tout autre panneau). { box, leadOpts(), close(), buttons: { again, write },
+  // hôte : l'étape Mélodie de l'assistant (ou tout autre panneau). { box, leadOpts(), close(), buttons: { again, write },
   // preferSceneKey (la tonalité de la scène plutôt que celle déduite des accords), padTrack() (piste de la nappe) ;
   // hôte qui garde son propre contexte (assistant Nouvelle chanson) : sceneKey(), sceneEmotion(), timeSig, hideTrack (pas de champ
   // « Piste »), noListen (pas de lecture : le bandeau de l'hôte joue), noScroll, actions (boutons placés après les options),
@@ -1042,14 +1042,6 @@ SS.melodyPanel = (() => {
     app = appApi;
   }
 
-  /** Ouvre l'atelier sur une émotion donnée (bouton « Composer avec ce profil » de l'onglet Ambiance). */
-  function useEmotion(id) {
-    S.emo = id && id === sceneEmotion() ? 'scene' : id || 'scene';
-    S.over = {};
-    S.variant = null;
-    S.variantN = 0;
-  }
-
   /** Réglages, graine, retouches, variante et résultat : un hôte en garde un exemplaire par scène (voir setState). */
   const STATE_KEYS = ['source', 'text', 'meter', 'range', 'style', 'complexity', 'ending', 'emo', 'pivot', 'variantN', 'eMode', 'sungFinalE', 'seed', 'resultSource', 'fineOpen'];
   const FRESH = () => ({ source: 'meter', text: '', meter: '', range: 'auto', style: 'auto', complexity: 'balanced', ending: 'auto', emo: 'scene', pivot: 'auto', variantN: 0, eMode: 'classique', sungFinalE: false, seed: 0, resultSource: null, fineOpen: false });
@@ -1067,5 +1059,5 @@ SS.melodyPanel = (() => {
     S.res = f.res || null;
   }
 
-  return { init, show, render, getState, setState, compose, write, variantB, useEmotion, stop: stopListen, gridFromScene, _state: S };
+  return { init, show, render, getState, setState, compose, write, variantB, stop: stopListen, gridFromScene, _state: S };
 })();

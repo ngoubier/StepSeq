@@ -221,14 +221,14 @@
     }
     barsSel.value = project.bars;
     SS.groove.updateButton();
-    SS.harmonyPanel.updateButton();
+    SS.ui.updateKeyButton();
     syncStudio();
     syncMeta();
     document.title = project.title + ' — StepSeq';
   }
 
   /**
-   * Sous-titre du bouton Song (celui d'Harmonie vient de js/harmonypanel.js) :
+   * Sous-titre du bouton Song (celui de Tonalité vient de SS.ui.updateKeyButton) :
    * la scène en cours.
    */
   function syncStudio() {
@@ -671,7 +671,7 @@
   }
 
   /**
-   * Atelier Mélodie (Harmonie → Chanson) : écrit une mélodie (js/melody.js) sur une piste Mono de la scène en cours, ou sur une nouvelle
+   * Atelier Mélodie (étape Mélodie de l'assistant) : écrit une mélodie (js/melody.js) sur une piste Mono de la scène en cours, ou sur une nouvelle
    * piste « Mélodie ». La scène est allongée si la mélodie est plus longue (les autres pistes sont recopiées en boucle).
    */
   function writeMelody({ trackId, newTrack, events, bars, melodyBars, label }) {
@@ -857,7 +857,7 @@
   SS.arpPanel.init({ project: () => project, changed, renderTrack: (t) => SS.ui.renderTrack(t) });
   SS.groove.init({ project: () => project, changed });
   initMeta();
-  SS.harmonyPanel.init({ project: () => project, changed, renderAll: () => SS.ui.renderAll(), activeTrack: () => SS.ui.activeTrack(), switchScene });
+  $('#keyBtn').addEventListener('click', (e) => SS.ui.openKeyPicker(null, e.currentTarget));
   SS.mixer.init({ project: () => project, changed, renderAll: () => SS.ui.renderAll() });
   // un module optionnel qui ne démarre pas (page en cache d'une version précédente…) ne doit pas bloquer l'application
   try {

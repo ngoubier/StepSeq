@@ -44,7 +44,9 @@ const ok = (c, m) => {
 
   // menus : deux groupes pour la basse, réglages de tranche seulement pour la batterie
   await page.locator('.track').nth(0).locator('.th-auto').click();
+  await page.locator('.ba-menu button').last().click(); // menu Automation : ligne par pas
   await page.locator('.track').nth(1).locator('.th-auto').click();
+  await page.locator('.ba-menu button').last().click(); // menu Automation : ligne par pas
   const lanes = page.locator('.auto-lane');
   const groups = await lanes.nth(0).locator('.auto-param optgroup').evaluateAll((gs) => gs.map((g) => g.label + ':' + [...g.children].map((o) => o.value).join(',')));
   ok(groups.join(' | ') === 'Tranche de la piste:filter,res,volume,reverb,echo,space | Son, à chaque note:vcf,pw,fdecay,lfoamt | Contrôleurs MIDI:sustain,mod,bend', `basse : ${groups.join(' | ')}`);
