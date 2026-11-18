@@ -24,6 +24,12 @@ test('familles : cordes, cuivres, bois, voix ; cordes pincées et Juno à part ;
   assert.equal(SS.exprFamily(t('winds', 'gm_flute')), 'winds');
   assert.equal(SS.exprFamily(t('winds', 'vcsl_sax_stacc')), 'pluck');
   assert.equal(SS.exprFamily({ type: 'drum' }), null);
+  assert.equal(SS.exprFamily(t('keys', 'piano')), 'piano');
+  assert.equal(SS.exprFamily(t('keys', 'gm_epiano1')), 'piano');
+  assert.equal(SS.exprFamily(t('guitar', 'gm_acoustic_guitar_steel')), 'guitar');
+  assert.equal(SS.exprFamily(t('organ', 'gm_drawbar_organ')), null, 'orgue : pas de nuance de frappe');
+  assert.equal(SS.exprDefault(t('keys', 'piano')), 'natural');
+  assert.equal(SS.exprDefault(t('guitar', 'gm_electric_guitar_clean')), 'natural');
   assert.equal(SS.exprDefault(t('strings', 'gm_cello')), 'natural');
   assert.equal(SS.exprDefault(t('strings', 'gm_synth_strings_1')), null);
   const tr = SS.applyExprDefault(t('brass', 'gm_trumpet'));
@@ -136,4 +142,96 @@ test('piste : aucun calcul sans expression ni articulation ; mémoire tant que l
   assert.notEqual(X.forTrack(t, evs), p1, 'une note modifiée : nouveau calcul');
   t.sd.phrase = 0;
   assert.equal(X.forTrack(t, evs).get(evs[0]).overlap, 0, 'phrasé automatique coupé');
+});
+
+test('piano : la nuance passe par la frappe (pas de soufflet), arc de phrase, rubato en fin de phrase', () => {
+  const evs = [n(0, 2, 60), n(2, 2, 62), n(4, 2, 64), n(6, 2, 67), n(8, 8, 65), n(16, 2, 62), n(18, 8, 60)];
+  const p = X.plan(evs, { amt: 1, family: 'piano', phrase: false, pedal: false });
+  for (const o of p.values()) assert.deepEqual(o.shape, [[0, 1], [1, 1]], 'le son ne fait que s’éteindre : pas de forme dans la note');
+  const v = evs.map((e) => p.get(e).velK);
+  assert.equal(Math.max(...v), v[3], 'frappe la plus forte sur la note la plus haute');
+  assert.ok(v[0] < v[3] && v[6] < v[3]);
+  assert.ok(p.get(evs[6]).delay > 0, 'la dernière note arrive un peu en retard (rubato)');
+  assert.equal(p.get(evs[0]).delay, 0);
+  assert.ok(p.get(evs[0]).bright.ratio < 1, 'le timbre suit la frappe');
+});
+
+test('piano : la mélodie chante au-dessus de l’accord, les doigts ne tombent pas tout à fait ensemble', () => {
+  const ch = { step: 0, len: 8, notes: [64, 48, 72, 55], vel: 0.8 };
+  const o = X.plan([ch], { amt: 1, family: 'piano' }).get(ch);
+  assert.ok(o.noteVel[2] > 1 && o.noteVel[0] < 1 && o.noteVel[1] < 1, 'note du haut (72) plus forte');
+  assert.equal(o.noteDelay[2], 0, 'la mélodie part la première');
+  for (const i of [0, 1, 3]) assert.ok(o.noteDelay[i] >= 0.003 && o.noteDelay[i] <= 0.012, `doigt ${i} : ${o.noteDelay[i]}`);
+  assert.deepEqual(X.plan([ch], { amt: 1, family: 'piano' }).get(ch).noteDelay, o.noteDelay, 'reproductible');
+});
+
+test('piano : pédale automatique jusqu’à la note suivante (une mesure au plus), pas sur un staccato ni sans pédale', () => {
+  const a = n(0, 2, 60);
+  const b = n(8, 2, 62);
+  const c = n(12, 1, 64, { art: 'stac' });
+  const d = n(40, 2, 65);
+  const p = X.plan([a, b, c, d], { amt: 1, family: 'piano' });
+  assert.equal(p.get(a).holdTo, 8);
+  assert.equal(p.get(b).holdTo, 4);
+  assert.equal(p.get(c).holdTo, undefined, 'staccato : pas de pédale');
+  const q = X.plan([a, b, c, d], { amt: 1, family: 'piano' });
+  void q;
+  const far = X.plan([n(0, 2, 60), n(30, 2, 62)], { amt: 1, family: 'piano' });
+  assert.equal([...far.values()][0].holdTo, undefined, 'plus d’une mesure : la pédale se relève');
+  const off = X.plan([a, b], { amt: 1, family: 'piano', pedal: false });
+  assert.equal(off.get(a).holdTo, undefined);
+  // pas de legato automatique au piano (pas d'attaque adoucie)
+  const l1 = n(0, 4, 60);
+  const l2 = n(4, 4, 62);
+  const lp = X.plan([l1, l2], { amt: 1, family: 'piano' });
+  assert.equal(lp.get(l2).attack, 0);
+});
+
+test('piano : la piste qui a sa propre courbe de pédale garde la sienne', () => {
+  const t = { type: 'instrument', family: 'keys', instrument: 'piano', sd: { expr: 'natural' } };
+  const evs = [n(0, 2, 60), n(8, 2, 62)];
+  assert.equal(X.forTrack(t, evs).get(evs[0]).holdTo, 8);
+  t.auto = { sustain: { 0: 1 } };
+  assert.equal(X.forTrack(t, evs).get(evs[0]).holdTo, undefined);
+  delete t.auto;
+  t.sd.pedal = 0;
+  assert.equal(X.forTrack(t, evs).get(evs[0]).holdTo, undefined);
+});
+
+test('guitare : strum vers le bas sur le temps, vers le haut sur le contretemps (plus léger, sans la corde grave)', () => {
+  const chord = (step) => ({ step, len: 2, notes: [40, 47, 52, 56, 59, 64], vel: 0.8 });
+  const dn = chord(0);
+  const up = chord(2);
+  const p = X.plan([dn, up], { amt: 1, family: 'guitar' });
+  const D = p.get(dn);
+  const U = p.get(up);
+  assert.equal(D.strum, 'down');
+  assert.equal(U.strum, 'up');
+  assert.equal(D.noteDelay[0], 0, 'vers le bas : la corde grave d’abord');
+  assert.ok(D.noteDelay[5] > 0.02 && D.noteDelay[5] < 0.04, `balayage ${D.noteDelay[5]} s`);
+  for (let i = 1; i < 6; i++) assert.ok(D.noteDelay[i] > D.noteDelay[i - 1]);
+  assert.equal(U.noteDelay[5], 0, 'vers le haut : la corde aiguë d’abord');
+  assert.equal(U.noteVel[0], 0, 'vers le haut : la corde grave n’est pas jouée');
+  assert.ok(U.noteVel[3] < D.noteVel[3]);
+  assert.ok(U.velK < D.velK, 'contretemps moins marqué que le premier temps');
+  // une note seule n'est pas grattée
+  const single = n(4, 2, 60);
+  assert.equal(X.plan([single], { amt: 1, family: 'guitar' }).get(single).noteDelay, undefined);
+});
+
+test('guitare : étouffé (palm mute) court, plus doux et sourd ; pas de strum', () => {
+  const m = { step: 0, len: 4, notes: [40, 47, 52], vel: 0.8, art: 'mute' };
+  const o = X.plan([m], { amt: 1, family: 'guitar' }).get(m);
+  assert.equal(o.durK, 0.35);
+  assert.ok(o.velK < 0.9);
+  assert.ok(o.bright.ratio <= 0.18);
+  assert.equal(o.noteDelay, undefined);
+  assert.equal(SS.cleanArt({ art: 'mute' }).art, 'mute');
+});
+
+test('guitare et piano en 3/4 et 6/8 : les temps et la mesure viennent du projet', () => {
+  const chord = (step) => ({ step, len: 2, notes: [40, 47, 52], vel: 0.8 });
+  const evs = [chord(0), chord(4), chord(12)];
+  const p = X.plan(evs, { amt: 1, family: 'guitar', stepsPerBeat: 4, stepsPerBar: 12 });
+  assert.ok(p.get(evs[2]).velK > p.get(evs[1]).velK, 'pas 12 = premier temps de la 2e mesure en 3/4');
 });

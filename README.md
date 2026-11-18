@@ -543,8 +543,8 @@ Presets : **Acid Sub** et **Techno Sub Bass** (Bass).
 
 ### Jeu : expression et articulations (`js/expression.js`)
 
-Pour les cordes, les cuivres, les bois et les voix, l'onglet **Jeu** du Sound design fait jouer la piste comme un
-musicien (réglage rangé dans `track.sd`, comme le reste du son : Annuler, versions et fichier le gardent ;
+Pour les cordes, les cuivres, les bois, les voix, le piano et la guitare, l'onglet **Jeu** du Sound design fait
+jouer la piste comme un musicien (réglage rangé dans `track.sd`, comme le reste du son : Annuler, versions et fichier le gardent ;
 **Réinitialiser** ne le touche pas) :
 
 - **Expression** (`sd.expr` : `light`, `natural`, `expressive` ; absente : chaque note telle qu'elle est écrite). Les
@@ -558,15 +558,29 @@ musicien (réglage rangé dans `track.sd`, comme le reste du son : Annuler, vers
   doubles-croches isolées → staccato.
 - **Articulation d'une note** (`ev.art`, menu de la note, rangée **Jeu** ; signe sur la note) : `leg` legato ⌒ (la
   note chevauche la suivante de 50 ms et s'éteint vite, la suivante attaque en douceur), `stac` staccato • (45 % de
-  la durée), `det` détaché ‐ (82 %), `ten` tenuto — (toute la durée, sans retombée), `swell` soufflet ◇. Elle
-  l'emporte sur le phrasé automatique et marche sur tout instrument, même sans expression.
-- **Par défaut** : expression Naturelle pour les nouvelles pistes de cordes, cuivres, bois et voix (`SS.newTrack`,
-  donc aussi les chansons de l'assistant) ; changer d'instrument garde le jeu. Les cordes et cuivres de synthé
-  peuvent l'avoir (non posée d'office) ; les pistes Synthé (Juno-106), les arpèges et les cordes pincées n'en ont pas.
+  la durée), `det` détaché ‐ (82 %), `ten` tenuto — (toute la durée, sans retombée), `swell` soufflet ◇, `mute`
+  étouffé × (palm mute : 35 % de la durée, plus doux, sourd). Elle l'emporte sur le phrasé automatique et marche sur
+  tout instrument, même sans expression.
+- **Piano et claviers** (famille Keys : pianos, pianos électriques, clavecin, clavinet ; pas l'orgue) : le son ne fait
+  que s'éteindre, donc pas de forme dans la note. La nuance passe par la **force de frappe** (arc de phrase sur la
+  vélocité, le timbre la suit) ; dans un accord, la **note du haut** est jouée plus fort (+10 %) que les autres
+  (−8 %), qui partent 3 à 12 ms après elle (**doigts** pas tout à fait ensemble, écarts reproductibles) ; la dernière
+  note de la phrase arrive 15 ms plus tard (**rubato**). **Pédale automatique** (`sd.pedal = 0` la coupe ; sans
+  effet si la piste a sa propre courbe de pédale) : chaque note tient jusqu'à la note suivante, au plus une mesure,
+  et la pédale se relève sur son attaque ; pas sur un staccato, un détaché ou un étouffé. Pas de legato automatique
+  (un piano réattaque toujours).
+- **Guitares** : les accords de 3 notes ou plus sont **grattés** (strum) : vers le bas (de la corde grave à l'aiguë,
+  18 à 36 ms) sur le temps et sa première moitié, vers le haut sur la seconde moitié (plus court, 15 % plus doux, sans
+  la corde grave si l'accord a 4 notes ou plus). **Accents du rythme** d'après la mesure du projet : premier temps,
+  temps (−7 %), contretemps (−15 %), doubles (−22 %), à l'échelle de l'expression. L'étouffé n'est pas gratté.
+- **Par défaut** : expression Naturelle pour les nouvelles pistes de cordes, cuivres, bois, voix, piano et guitare
+  (`SS.newTrack`, donc aussi les chansons de l'assistant) ; changer d'instrument garde le jeu. Les cordes et cuivres
+  de synthé peuvent l'avoir (non posée d'office) ; les pistes Synthé (Juno-106), les arpèges, l'orgue et les cordes
+  pincées n'en ont pas.
 
 Le plan de chaque note est calculé une fois par scène (`SS.expression.plan`, fonction pure mise en mémoire tant que
 les notes ne changent pas) et appliqué par `js/audio.js` : gain qui suit la forme de la note après le VCA, filtre
-qui suit la nuance, durée, attaque et relâchement. Il s'entend à la lecture, dans la boucle du Sound design et à
+qui suit la nuance, durée, attaque et relâchement, force et décalage de chaque note d'un accord, pédale. Il s'entend à la lecture, dans la boucle du Sound design et à
 l'export audio. Pas encore : l'export MIDI des articulations et de l'expression (CC11), les techniques de jeu
 (pizzicato, trémolo) dans une même piste, le vibrato retardé. Tests : `node --test tests/expression.test.js`,
 `node tests/e2e/expression.js`.
@@ -1141,7 +1155,7 @@ Les accords par mode et par émotion (`js/emotions.js`) s'appuient sur trois doc
 | `js/midi.js`     | Import MIDI (quantification, pistes, analyse de la structure en scènes) et export MIDI (arrangement, arpèges rendus, correspondances General MIDI) |
 | `js/midipanel.js` | Fenêtres Importer MIDI / Exporter MIDI (options, bilan, téléchargement) |
 | `js/render.js`, `js/audioexport.js` | Exporter l'audio : rendu hors temps réel (master, stems), mesures EBU R128, WAV 16 / 24 / 32 bits, archive ZIP ; fenêtre (options, progression, bilan) |
-| `js/expression.js` | Jeu des cordes, cuivres, bois et voix : phrases, arc, soufflet, phrasé automatique, articulations des notes — fonctions pures |
+| `js/expression.js` | Jeu des cordes, cuivres, bois, voix, piano et guitare : phrases, arc, soufflet, frappe, accords (mélodie, doigts, strum), pédale automatique, phrasé automatique, articulations des notes — fonctions pures |
 | `render.html`, `js/render-boot.js`, `js/render-host.js` | Page de rendu chargée dans un cadre invisible : moteur audio seul sur un `OfflineAudioContext` |
 | `js/transform.js` | Transformations d'une sélection de notes : inversion, rétrograde, durées ×2 / ×½, autre mode |
 | `js/ui.js`       | Rendu des pistes, grille, piano roll, dialogue |

@@ -734,7 +734,7 @@
       if (changedInst) delete track.sd;
       Object.assign(track, { family: opts.family, instrument: opts.instrument, sfv: opts.sfv || 0 });
       if (changedInst) {
-        if (prev.expr && SS.exprFamily(track)) track.sd = { expr: prev.expr, ...(prev.phrase === 0 ? { phrase: 0 } : {}) };
+        if (prev.expr && SS.exprFamily(track)) track.sd = { expr: prev.expr, ...(prev.phrase === 0 ? { phrase: 0 } : {}), ...(prev.pedal === 0 ? { pedal: 0 } : {}) };
         else SS.applyExprDefault(track);
       }
     }

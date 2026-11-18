@@ -584,12 +584,14 @@
 
           <section class="fx-pane" data-pane="play" aria-labelledby="sdPlayTitle">
             <div class="fx-pane-head"><h3 id="sdPlayTitle">Jeu <small>expression et phrasé</small></h3></div>
-            <p class="fx-help">Comment le musicien joue les notes : nuances dans la phrase et dans chaque note, timbre qui s’éclaircit dans le forte, notes liées ou détachées. Pour les cordes, les cuivres, les bois et les voix.</p>
+            <p class="fx-help">Comment le musicien joue les notes : nuances dans la phrase, timbre qui s’éclaircit dans le forte, notes liées ou détachées. Pour les cordes, les cuivres, les bois, les voix, le piano et la guitare.</p>
             <span class="dlg-label">Expression</span>
             <div class="segmented sd-ftype" id="sdExpr" role="radiogroup" aria-label="Expression"></div>
             <p id="sdExprHint" class="sd-hint"></p>
-            <label class="sd-check"><input type="checkbox" id="sdPhrase"> Phrasé automatique : notes liées jouées legato, notes répétées détachées, doubles-croches isolées piquées</label>
-            <p class="sd-hint">Une articulation écrite sur une note (clic droit sur la note : legato, staccato, détaché, tenuto, soufflet) l’emporte toujours.</p>
+            <label class="sd-check"><input type="checkbox" id="sdPhrase"> <span id="sdPhraseText">Phrasé automatique : notes liées jouées legato, notes répétées détachées, doubles-croches isolées piquées</span></label>
+            <label class="sd-check" hidden><input type="checkbox" id="sdPedal"> Pédale automatique : chaque note tient jusqu’à la suivante, la pédale se relève sur le nouvel accord</label>
+            <p id="sdPedalHint" class="sd-hint" hidden>La piste a sa propre courbe de pédale (automation) : c’est elle qui joue.</p>
+            <p class="sd-hint">Une articulation écrite sur une note (clic droit sur la note : legato, staccato, détaché, tenuto, soufflet, étouffé) l’emporte toujours.</p>
             <p id="sdExprFamily" class="sd-note"></p>
             <div><button type="button" id="sdPlayPhrase" class="btn">▶ Écouter une phrase</button></div>
           </section>

@@ -285,6 +285,11 @@ SS.soundDesign = (() => {
       });
       $('#sdExpr').append(b);
     });
+    $('#sdPedal').addEventListener('change', (e) => {
+      set('pedal', e.target.checked ? undefined : 0);
+      refresh();
+      previewPhrase();
+    });
     $('#sdPhrase').addEventListener('change', (e) => {
       set('phrase', e.target.checked ? undefined : 0);
       refresh();
@@ -293,26 +298,46 @@ SS.soundDesign = (() => {
     $('#sdPlayPhrase').addEventListener('click', () => previewPhrase(true));
   }
 
-  /** Une phrase d'essai jouée avec l'expression et le phrasé de la piste (montée, note longue, notes répétées, retour). */
+  /**
+   * Une phrase d'essai jouée avec l'expression et le phrasé de la piste : mélodie (montée, note longue, notes répétées,
+   * retour) ; au piano, des accords sous la mélodie ; à la guitare, une rythmique grattée (bas, haut, étouffés).
+   */
   function previewPhrase(force) {
     if (!track || SS.audio.isPlaying() || SS.arpOn(track) || SS.follows(track)) return;
     if (!force && SS.trackLoop.active(track)) return; // la boucle fait déjà entendre la piste
     const root = track.lastRoot ?? (track.octave + 1) * 12;
     const pr = app.project && app.project();
     const sd = 60 / (pr ? pr.tempo : 100) / 4;
-    const line = [[0, 2, 0], [2, 2, 2], [4, 2, 4], [6, 2, 5], [8, 12, 7], [20, 2, 5], [22, 2, 4], [24, 1, 2], [26, 1, 2], [28, 12, 0]];
-    const evs = line.map(([step, len, iv]) => ({ step, len, notes: [root + iv], vel: 0.8 }));
+    const family = SS.exprFamily(track) || 'synth';
+    let evs;
+    if (family === 'guitar') {
+      const chord = (iv) => [0, 7, 12, 16, 19, 24].map((x) => root - 12 + iv + x);
+      const rhythm = [[0, 3], [3, 3], [6, 2], [8, 2], [10, 2], [12, 2], [14, 2]];
+      evs = [0, 5].flatMap((iv, bar) => rhythm.map(([st, len], i) => ({ step: bar * 16 + st, len, notes: chord(iv), vel: 0.8, ...(bar && i >= 4 ? { art: 'mute' } : {}) })));
+    } else {
+      const line = [[0, 2, 0], [2, 2, 2], [4, 2, 4], [6, 2, 5], [8, 12, 7], [20, 2, 5], [22, 2, 4], [24, 1, 2], [26, 1, 2], [28, 12, 0]];
+      evs = line.map(([step, len, iv]) => ({ step, len, notes: [root + iv], vel: 0.8 }));
+      if (family === 'piano') {
+        // accords tenus à la main gauche, la mélodie au-dessus : la pédale et l'équilibre de l'accord s'entendent
+        evs = evs.map((ev) => (ev.step % 8 === 0 ? { ...ev, notes: [root - 12, root - 5, root, ev.notes[0]] } : ev));
+      }
+    }
     const amt = SS.exprAmount(track);
-    const plan = amt ? SS.expression.plan(evs, { amt, family: SS.exprFamily(track) || 'synth', phrase: !(track.sd && track.sd.phrase === 0) }) : new Map();
-    SS.audio.playPhrase(
-      track,
-      evs.map((ev) => {
-        const o = plan.get(ev);
-        let dur = ev.len * sd * 0.98;
-        if (o) dur = Math.max(0.05, dur * o.durK + o.overlap - Math.min(o.breath, dur * 0.4));
-        return { midi: ev.notes[0], at: ev.step * sd, dur, vel: ev.vel, expr: o || null };
-      })
-    );
+    const plan = amt || evs.some((e) => e.art) ? SS.expression.plan(evs, { amt, family, phrase: !(track.sd && track.sd.phrase === 0), pedal: !(track.sd && track.sd.pedal === 0) }) : new Map();
+    const notes = [];
+    evs.forEach((ev) => {
+      const o = plan.get(ev);
+      let dur = ev.len * sd * 0.98;
+      if (o) dur = Math.max(0.05, dur * o.durK + o.overlap - Math.min(o.breath, dur * 0.4));
+      if (o && o.holdTo) dur = Math.max(dur, o.holdTo * sd + 0.03);
+      ev.notes.forEach((m, i) => {
+        const vm = o ? (o.velK ?? 1) * (o.noteVel ? o.noteVel[i] ?? 1 : 1) : 1;
+        if (!vm) return;
+        const dl = (o && o.noteDelay ? o.noteDelay[i] || 0 : 0) + (o ? o.delay || 0 : 0);
+        notes.push({ midi: m, at: ev.step * sd + dl, dur: Math.max(0.03, dur - dl), vel: ev.vel * (ev.notes.length > 1 ? 0.8 : 1) * vm, expr: o || null });
+      });
+    });
+    SS.audio.playPhrase(track, notes);
   }
 
   function refreshPlay(p) {
@@ -328,12 +353,25 @@ SS.soundDesign = (() => {
     ph.disabled = cur === 'off';
     ph.closest('label').classList.toggle('dim', cur === 'off');
     const fam = SS.exprFamily(track);
+    const struck = SS.exprStruck(fam);
+    $('#sdPhraseText').textContent = struck
+      ? 'Phrasé automatique : notes répétées détachées, doubles-croches isolées piquées'
+      : 'Phrasé automatique : notes liées jouées legato, notes répétées détachées, doubles-croches isolées piquées';
+    const pd = $('#sdPedal');
+    pd.closest('label').hidden = fam !== 'piano';
+    pd.checked = !(track.sd && track.sd.pedal === 0);
+    const ownPedal = !!(track.auto && track.auto.sustain);
+    pd.disabled = cur === 'off' || ownPedal;
+    pd.closest('label').classList.toggle('dim', pd.disabled);
+    $('#sdPedalHint').hidden = fam !== 'piano' || !ownPedal;
     const FAM = {
       strings: 'Cordes frottées : arc de phrase, soufflet des notes longues, « fp » en Expressive.',
       brass: 'Cuivres : arc de phrase, soufflet, respiration au bout des longues lignes, timbre très sensible à la nuance.',
       winds: 'Bois et sax : arc de phrase, soufflet, respiration au bout des longues lignes.',
       voice: 'Voix et chœurs : arc de phrase, soufflet, respiration au bout des longues lignes.',
       synth: 'Cordes ou cuivres de synthé : l’expression s’applique aussi, comme à un ensemble joué au clavier avec une pédale d’expression.',
+      piano: 'Piano et claviers : le son s’éteint seul, la nuance passe par la force de frappe (la phrase monte et retombe, le timbre s’éclaircit quand on frappe fort). Dans un accord, la mélodie chante au-dessus et les doigts ne tombent pas tout à fait ensemble ; la fin de phrase s’étire un peu.',
+      guitar: 'Guitare : les accords sont grattés (strum), vers le bas sur les temps et vers le haut, plus léger et sans la corde grave, sur les contretemps ; le premier temps est plus marqué. Articulation « Étouffé » (clic droit sur la note) pour la main posée sur les cordes.',
       pluck: 'Instrument pincé ou piqué : l’expression a peu d’effet sur un son qui s’éteint seul ; les articulations restent utiles.',
     };
     $('#sdExprFamily').textContent = FAM[fam] || 'Pensé pour les cordes, les cuivres, les bois et les voix ; sur ce son, l’expression joue surtout sur les nuances.';
@@ -494,6 +532,7 @@ SS.soundDesign = (() => {
       const keep = {};
       if (track.sd && track.sd.expr) keep.expr = track.sd.expr;
       if (track.sd && track.sd.phrase === 0) keep.phrase = 0;
+      if (track.sd && track.sd.pedal === 0) keep.pedal = 0;
       if (Object.keys(keep).length) track.sd = keep;
       else delete track.sd;
       refresh();

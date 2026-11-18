@@ -35,7 +35,8 @@ SS.ARTS = [
   { id: 'stac', label: 'Staccato', mark: '•', desc: 'Piquée : courte, détachée, vite éteinte.' },
   { id: 'det', label: 'Détaché', mark: '‐', desc: 'Durée presque pleine avec un léger espace : chaque note se détache.' },
   { id: 'ten', label: 'Tenuto', mark: '—', desc: 'Tenue jusqu’au bout, sans retombée.' },
-  { id: 'swell', label: 'Soufflet', mark: '◇', desc: 'Crescendo puis decrescendo dans la note.' },
+  { id: 'swell', label: 'Soufflet', mark: '◇', desc: 'Crescendo puis decrescendo dans la note (instruments à archet ou à vent).' },
+  { id: 'mute', label: 'Étouffé', mark: '×', desc: 'Courte et sourde, la main posée sur les cordes (palm mute de la guitare).' },
 ];
 
 /** Articulation d'une note : bornée, absente si aucune. */
@@ -62,11 +63,16 @@ SS.exprFamily = (track) => {
   if (fam === 'brass') return 'brass';
   if (fam === 'winds') return 'winds';
   if (fam === 'voices' && /choir|voice|oohs|aahs/.test(id)) return 'voice';
+  if (fam === 'keys') return 'piano';
+  if (fam === 'guitar') return 'guitar';
   return null;
 };
 
+/** Instruments frappés ou pincés : le son ne fait que s'éteindre, l'expression passe par la frappe, pas par la note. */
+SS.exprStruck = (family) => family === 'piano' || family === 'guitar';
+
 /** Expression proposée d'office pour une piste : 'natural' pour les instruments acoustiques, sinon null. */
-SS.exprDefault = (track) => (['strings', 'brass', 'winds', 'voice'].includes(SS.exprFamily(track)) ? 'natural' : null);
+SS.exprDefault = (track) => (['strings', 'brass', 'winds', 'voice', 'piano', 'guitar'].includes(SS.exprFamily(track)) ? 'natural' : null);
 
 /** Pose l'expression proposée d'office (nouvelle piste, Band). Ne touche pas une piste qui en a déjà une. */
 SS.applyExprDefault = (track) => {
@@ -88,7 +94,13 @@ SS.expression = (() => {
   const LONG = 8; // une blanche
   const VLONG = 16; // une ronde
   // nuance la plus douce (fraction) du filtre qui suit la nuance, par famille : le forte s'ouvre jusqu'au réglage du son
-  const DARK = { strings: 0.11, brass: 0.08, winds: 0.16, voice: 0.14, synth: 0.1, pluck: 0.2 };
+  const DARK = { strings: 0.11, brass: 0.08, winds: 0.16, voice: 0.14, synth: 0.1, pluck: 0.2, piano: 0.16, guitar: 0.22 };
+  // petit nombre reproductible dans [0, 1) (décalage des doigts)
+  const h01 = (a, b) => {
+    let x = Math.imul((a + 1) * 2654435761, (b + 7) * 40503) ^ 0x9e3779b9;
+    x = Math.imul(x ^ (x >>> 15), 0x2c1b3c6d);
+    return ((x ^ (x >>> 12)) >>> 0) / 4294967296;
+  };
   const lerp = (a, b, u) => a + (b - a) * u;
   const ease = (u) => 0.5 - 0.5 * Math.cos(Math.PI * Math.max(0, Math.min(1, u)));
   const top = (ev) => Math.max(...ev.notes);
@@ -112,9 +124,12 @@ SS.expression = (() => {
   }
 
   /** Phrasé automatique d'une note sans articulation écrite. */
-  function autoArt(ev, next) {
+  function autoArt(ev, next, struck = false) {
     const touching = next && next.step <= ev.step + ev.len && next.step > ev.step;
-    if (touching) return next.notes.length === ev.notes.length && next.notes.every((m, k) => m === ev.notes[k]) ? 'det' : 'leg';
+    if (touching) {
+      const same = next.notes.length === ev.notes.length && next.notes.every((m, k) => m === ev.notes[k]);
+      return same ? 'det' : struck ? null : 'leg'; // piano, guitare : le legato vient des doigts et de la pédale
+    }
     const gapAfter = next ? next.step - (ev.step + ev.len) : Infinity;
     if (ev.len <= 1 && gapAfter >= 1) return 'stac';
     return null;
@@ -124,12 +139,13 @@ SS.expression = (() => {
    * events : notes de la scène ({ step, len, notes, vel, art? }) ; opts : { amt (0..1,5), family, phrase (bool) }.
    * Retourne une Map événement → jeu (voir l'en-tête). Une note sans rien de particulier n'y figure pas.
    */
-  function plan(events, { amt = 1, family = 'strings', phrase = true } = {}) {
+  function plan(events, { amt = 1, family = 'strings', phrase = true, pedal = true, stepsPerBeat = 4, stepsPerBar = 16 } = {}) {
     const out = new Map();
     const evs = (events || []).filter((e) => e && e.notes && e.notes.length && e.len > 0).slice().sort((a, b) => a.step - b.step || top(b) - top(a));
     if (!evs.length) return out;
     const k = Math.max(0, Math.min(1.5, amt));
     const blowing = family === 'winds' || family === 'brass' || family === 'voice';
+    const struck = SS.exprStruck(family);
     const ratio = Math.pow(DARK[family] || 0.15, Math.min(1, k));
     // note suivante qui commence après (les notes d'un même accord partagent le même pas)
     const nextOf = (i) => {
@@ -152,16 +168,51 @@ SS.expression = (() => {
       ph.idx.forEach((i, n) => {
         const ev = evs[i];
         const next = nextOf(i);
-        const art = ev.art || (phrase && k > 0 ? autoArt(ev, next) : null);
+        const art = ev.art || (phrase && k > 0 ? autoArt(ev, next, struck) : null);
         const isLast = n === ph.idx.length - 1 || evs[ph.idx[ph.idx.length - 1]].step === ev.step;
         // niveau de la note dans l'arc de la phrase
         const u = (ev.step - start) / span;
         const arc = single ? 1 : u <= up ? lerp(0.86, 1, ease(u / up)) : lerp(1, 0.84, ease((u - up) / (1 - up)));
         const L = 1 - k * (1 - arc);
-        const o = { shape: [[0, L], [1, L]], durK: 1, overlap: 0, attack: 0, release: 0, breath: 0, bright: { ratio } };
+        const o = { shape: [[0, L], [1, L]], durK: 1, overlap: 0, attack: 0, release: 0, breath: 0, bright: { ratio }, velK: 1, delay: 0 };
 
-        // forme dans la note
-        if (art === 'swell') o.shape = [[0, L * 0.55], [0.5, Math.min(1.1, L * 1.08)], [1, L * 0.5]];
+        if (struck) {
+          // frappé ou pincé : la nuance passe par la force de la frappe (et le timbre qui la suit), pas par la note
+          o.shape = [[0, 1], [1, 1]];
+          o.velK = 1 - k * (1 - arc) * (family === 'guitar' ? 0.6 : 1.3);
+          if (family === 'guitar') {
+            // accents du rythme : premier temps, temps, contretemps, doubles
+            const pos = ev.step % stepsPerBar;
+            const m = pos === 0 ? 1 : pos % stepsPerBeat === 0 ? 0.93 : pos % (stepsPerBeat / 2 || 1) === 0 ? 0.85 : 0.78;
+            o.velK *= 1 - k * (1 - m) * 0.9;
+          }
+          if (family === 'piano' && isLast && !single) o.delay = 0.015 * Math.min(1, k); // rubato : la fin de phrase s'étire
+          const ord = ev.notes.map((m, i) => [m, i]).sort((a, b) => a[0] - b[0]).map((x) => x[1]); // du grave à l'aigu
+          if (family === 'piano' && ev.notes.length > 1) {
+            // la mélodie (note du haut) chante au-dessus de l'accord, les doigts ne tombent pas tout à fait ensemble
+            const topI = ord[ord.length - 1];
+            o.noteVel = ev.notes.map((_, i) => (i === topI ? 1 + 0.1 * k : 1 - 0.08 * k));
+            o.noteDelay = ev.notes.map((m, i) => (i === topI ? 0 : (0.003 + 0.009 * h01(ev.step, m)) * Math.min(1, k)));
+          }
+          if (family === 'guitar' && ev.notes.length >= 3 && art !== 'mute') {
+            // strum : vers le bas sur le temps et sa première moitié, vers le haut sur les contretemps
+            const down = ev.step % stepsPerBeat < stepsPerBeat / 2;
+            const total = (0.018 + 0.012 * Math.min(1.5, k)) * (down ? 1 : 0.75);
+            const order = down ? ord : ord.slice().reverse();
+            o.noteDelay = ev.notes.map(() => 0);
+            o.noteVel = ev.notes.map(() => (down ? 1 : 0.85));
+            order.forEach((i, j) => (o.noteDelay[i] = (total * j) / Math.max(1, order.length - 1)));
+            if (!down && ev.notes.length >= 4) o.noteVel[ord[0]] = 0; // le coup vers le haut ne touche pas la corde grave
+            o.strum = down ? 'down' : 'up';
+          }
+          // pédale automatique (piano) : la note tient jusqu'à la note suivante (au plus une mesure), puis la pédale se relève
+          if (family === 'piano' && pedal && k > 0 && !['stac', 'det', 'mute'].includes(art) && next) {
+            const ext = next.step - ev.step;
+            if (ext > ev.len && ext <= stepsPerBar) o.holdTo = ext;
+          }
+        }
+        // forme dans la note (instruments à archet, à vent, voix)
+        else if (art === 'swell') o.shape = [[0, L * 0.55], [0.5, Math.min(1.1, L * 1.08)], [1, L * 0.5]];
         else if (art === 'ten') o.shape = [[0, L], [1, L]];
         else if (art !== 'stac' && k > 0 && ev.len >= VLONG && k >= 1.5 && (family === 'strings' || family === 'brass'))
           o.shape = [[0, L], [0.12, L * 0.62], [0.8, Math.min(1.08, L * 1.07)], [1, L * (isLast ? 0.7 : 0.95)]];
@@ -173,14 +224,19 @@ SS.expression = (() => {
         if (art === 'stac') {
           o.durK = 0.45;
           o.release = 0.06;
+        } else if (art === 'mute') {
+          o.durK = 0.35;
+          o.release = 0.04;
+          o.velK *= 0.85;
+          o.bright = { ratio: Math.min(ratio, 0.18), dark: true };
         } else if (art === 'det') {
           o.durK = 0.82;
         } else if (art === 'ten') {
           o.durK = 1.02;
         } else if (art === 'leg' && next) {
           o.overlap = 0.05;
-          o.release = 0.08;
-          legIn.add(next);
+          o.release = struck ? 0 : 0.08;
+          if (!struck) legIn.add(next); // un piano réattaque toujours : seule la note précédente se prolonge
         }
         // respiration : vents et voix, au bout d'une longue ligne sans silence
         if (blowing && k > 0 && isLast && ph.forced) o.breath = 0.08;
@@ -217,16 +273,18 @@ SS.expression = (() => {
     return `${events.length}|${h}|${amt}|${phrase}|${family}`;
   };
   /** Plan d'une piste pour ses notes jouées (null si la piste n'a pas d'expression ni d'articulation). */
-  function forTrack(track, events) {
+  function forTrack(track, events, { stepsPerBeat: spb = 4, stepsPerBar: spbar = 16 } = {}) {
     const amt = SS.exprAmount(track);
     if (!events || !events.length) return null;
     if (!amt && !events.some((e) => e.art)) return null;
     const family = SS.exprFamily(track) || 'synth';
     const phrase = !(track.sd && track.sd.phrase === 0);
-    const s = sig(events, amt, phrase, family);
+    // pédale automatique : sauf si la piste a sa propre courbe de pédale, ou si on l'a coupée
+    const pedal = !(track.sd && track.sd.pedal === 0) && !(track.auto && track.auto.sustain);
+    const s = sig(events, amt, phrase, family) + (pedal ? 'p' : '') + `|${spb}|${spbar}`;
     const hit = memo.get(events);
     if (hit && hit.s === s) return hit.plan;
-    const p = plan(events, { amt, family, phrase });
+    const p = plan(events, { amt, family, phrase, pedal, stepsPerBeat: spb, stepsPerBar: spbar });
     memo.set(events, { s, plan: p });
     return p;
   }

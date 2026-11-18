@@ -1851,7 +1851,7 @@ SS.audio = (() => {
       // expression et articulations (js/expression.js) : calculées sur toute la scène, à la première note qui part
       let expr;
       const exprOf = (ev) => {
-        if (expr === undefined) expr = arpOn || !SS.expression ? null : SS.expression.forTrack(track, playing);
+        if (expr === undefined) expr = arpOn || !SS.expression ? null : SS.expression.forTrack(track, playing, { stepsPerBeat: SS.stepsPerBeat(project), stepsPerBar: SS.stepsPerBar(project) });
         return expr && expr.get(ev);
       };
       playing.forEach((ev) => {
@@ -1888,8 +1888,10 @@ SS.audio = (() => {
           // jeu de la note : durée (staccato, legato qui chevauche la suivante, respiration), nuance dans la note
           const ex = exprOf(ev);
           if (ex && held <= written) dur = Math.max(Math.min(dur, 0.05), dur * ex.durK + ex.overlap - Math.min(ex.breath, dur * 0.4));
+          // pédale automatique (piano) : la note tient jusqu'à la suivante, la pédale se relève sur son attaque
+          if (ex && ex.holdTo && held <= written) dur = Math.max(dur, Math.min(ex.holdTo, SS.trackLen(project, track) - ev.step) * sd + 0.03);
           // micro-décalage de la note (ev.shift, fraction de pas) : en avance ou en retard sur la grille
-          const tt = time + jt() + (ev.shift || 0) * sd;
+          const tt = time + jt() + (ev.shift || 0) * sd + (ex ? ex.delay || 0 : 0); // ex.delay : rubato de fin de phrase
           const vv = jv(ev.vel);
           // ratchet : la note est rejouée dans son premier pas ; la dernière répétition tient le reste de la note
           const r = ev.rat || 1;
@@ -1900,7 +1902,13 @@ SS.audio = (() => {
           for (let j = 0; j < r; j++) {
             const d = j < r - 1 ? sub * 0.9 : Math.max(sub * 0.9, dur - j * sub);
             const v = vv * (ev.notes.length > 1 ? 0.8 : 1) * (j ? 0.85 : 1);
-            ev.notes.forEach((n, i) => playNote(track, n, tt + j * sub, d, v, undefined, i, ev.notes.length, nmod));
+            ev.notes.forEach((n, i) => {
+              // jeu (js/expression.js) : force de la frappe, mélodie au-dessus de l'accord, doigts ou strum décalés
+              const vm = ex ? (ex.velK ?? 1) * (ex.noteVel ? ex.noteVel[i] ?? 1 : 1) : 1;
+              if (!vm) return; // strum vers le haut : la corde grave n'est pas jouée
+              const dl = ex && ex.noteDelay ? ex.noteDelay[i] || 0 : 0;
+              playNote(track, n, tt + j * sub + dl, Math.max(0.03, d - dl), v * vm, undefined, i, ev.notes.length, nmod);
+            });
           }
           duckFrom(project, track, tt);
         }

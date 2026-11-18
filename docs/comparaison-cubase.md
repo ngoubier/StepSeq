@@ -81,7 +81,7 @@ comptent pour nos usages (synthés, arpèges, synthwave, techno mélodique, cin�
 | Contrôleurs (sustain, modulation, pitch bend…) | ✅ Lignes d'automation exportées en CC 74, 71, 11, 91, et contrôleurs MIDI : **pédale de sustain** (entendue dans StepSeq, CC 64), **modulation** (CC 1) et **pitch bend** (±2 demi-tons) pour un synthé externe. La pédale d'un fichier importé est convertie en durées de notes ; le sustain d'enveloppe (ADSR) est dans le sound design et sur le Juno-106 |
 | Éditeur de batterie | ✅ Pistes Drum nommées par élément |
 | Éditeur en liste | ✗ |
-| **Strum** (Cubase 16) | ◐ Gestes d'Arp One (Balayage, Roulé, Harpe) pour les pistes Arpège seulement ; rien pour les pistes Accord |
+| **Strum** (Cubase 16) | ✅ Gestes d'Arp One (Balayage, Roulé, Harpe) pour les pistes Arpège ; strum automatique des guitares (bas sur les temps, haut sur les contretemps) dans l'onglet Jeu, pistes Accord comprises |
 | **Stretch Selection** (Cubase 16) | ◐ Durées ×2 / ×½ de la sélection (pas d'étirement libre ni d'accélération interne) |
 | Noms de contrôleurs par synthé | — |
 
@@ -211,7 +211,7 @@ Classées par intérêt pour nos usages (synthés, arpèges, composition) et par
    temps réel, avec le bilan EBU R128 du master.
 2. **Sortie Web MIDI** vers un synthé matériel (Fantom-06, Take-5), piste par piste, avec canal MIDI : l'export
    MIDI sait déjà convertir notes, arpèges et automation.
-3. **Strum sur les pistes Accord** : reprendre les gestes d'Arp One (Balayage, Roulé, Harpe).
+3. ✅ **Strum sur les pistes Accord** (fait pour les guitares) : onglet Jeu du Sound design, bas / haut selon le temps.
 4. **Entrée Web MIDI** : jouer depuis un clavier, puis enregistrement quantifié à la double-croche.
 5. **Tempo et mesure par scène** (pont plus lent, mesure en 3/4).
 6. **Triolets** dans la grille, et **groove** tiré d'une boucle.
