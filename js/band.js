@@ -1024,21 +1024,77 @@ SS.band = (() => {
     );
   }
 
-  function choiceCard(opts, { active, star, onPick, extraClass = '' }) {
-    const d = B().describe(opts);
+  /* ---------- Cartes de son (étape Instruments) ----------
+   * Une seule carte pour un instrument, un kit ou un effectif d'orchestre : nom du son, étiquette de source, détail, ▶.
+   * Les cartes se rangent en grille de deux colonnes (.bpn-grid) ; le son retenu est rappelé en grand au-dessus (.bpn-now). */
+  const SRC_TAG = {
+    juno: ['Juno-106', '#13c2a3'],
+    syn: ['Synthé intégré', '#9b5cff'],
+    gm: ['General MIDI', '#6fa8c9'],
+    smp: ['Échantillons', '#e8b04a'],
+    dirt: ['Dirt-Samples', '#b08a5a'],
+    tdm: ['Boîte à rythmes', '#e3179c'],
+    ens: ['Orchestre', '#ff8a3d'],
+  };
+  /** Source et détail d'un son d'instrument : { src, detail }. */
+  function soundInfo(opts) {
+    if (opts.type === 'synth') {
+      const syn = (SS.ANALOG_SYNTHS || []).find((x) => x.id === opts.analog);
+      return { src: 'juno', detail: syn ? `Synthé analogique · ${syn.year}` : 'Synthé analogique' };
+    }
+    const { family, inst } = SS.locateInstrument(opts.family, opts.instrument);
+    const gmInfo = SS.trackMidi({ type: 'instrument', family: opts.family, instrument: opts.instrument, sfv: opts.sfv });
+    if (gmInfo) return { src: 'gm', detail: `${family.label} · programme ${gmInfo.program + 1}` };
+    // « Moog Bass (synthé, ladder + glide) » : le détail entre parenthèses, sans le nom de la source
+    const m = /\(([^)]*)\)\s*$/.exec(inst.label || '');
+    const extra = m ? m[1].split(',').map((x) => x.trim()).filter((x) => x && !/^(synthé|VCSL|Dirt-Samples|strudel)$/i.test(x)).join(', ') : '';
+    const src = inst.kind === 'synth' ? 'syn' : inst.bank === 'dirt' || inst.kind === 'dirt' ? 'dirt' : 'smp';
+    return { src, detail: [family.label, extra].filter(Boolean).join(' · ') };
+  }
+  const srcTag = (k) => h('span', { class: 'bc-src', style: `--sc:${SRC_TAG[k][1]}` }, SRC_TAG[k][0]);
+  const PLAY_BTN = (label, onclick, cls = 'bc-play') => h('button', { type: 'button', class: cls, title: 'Écouter', 'aria-label': 'Écouter ' + label, html: PLAY, onclick });
+  /**
+   * Carte de son : { name, src, detail, active, star, onPick, onPlay, extraClass, mainAttrs }.
+   * Le nom (.bc-name) est celui de describe() : les autres étapes l'affichent pareil.
+   */
+  function sndCard({ name, src, detail, active, star, onPick, onPlay, extraClass = '', mainAttrs = {} }) {
     return h(
       'div',
-      { class: 'band-choice' + (active ? ' active' : '') + extraClass },
+      { class: 'band-choice snd-card' + (active ? ' active' : '') + extraClass },
       h(
         'button',
-        { type: 'button', class: 'bc-main', role: 'radio', 'aria-checked': active ? 'true' : 'false', onclick: onPick },
-        h('span', { class: 'bc-kind' }, star ? '★ ' + d.kind : d.kind),
-        h('span', { class: 'bc-name' }, d.name),
-        h('span', { class: 'bc-detail' }, d.detail)
+        { type: 'button', class: 'bc-main', role: 'radio', 'aria-checked': active ? 'true' : 'false', onclick: onPick, ...mainAttrs },
+        h('span', { class: 'bc-top' }, star ? h('span', { class: 'bc-star', title: 'Instrument phare de l’inspiration' }, '★') : null, src ? srcTag(src) : null),
+        h('span', { class: 'bc-name' }, name),
+        detail ? h('span', { class: 'bc-detail' }, detail) : null
       ),
-      h('button', { type: 'button', class: 'bc-play', title: 'Écouter', 'aria-label': 'Écouter ' + d.name, html: PLAY, onclick: () => preview(opts) })
+      onPlay ? PLAY_BTN(name, onPlay) : null
     );
   }
+  function choiceCard(opts, { active, star, onPick, extraClass = '' }) {
+    const d = B().describe(opts);
+    const inf = soundInfo(opts);
+    return sndCard({ name: d.name, src: inf.src, detail: inf.detail, active, star, onPick, onPlay: () => preview(opts), extraClass });
+  }
+  /** Le son retenu, en grand : nom, source, détail et ▶. */
+  function nowCard({ name, src, detail, onPlay, custom }) {
+    return h(
+      'div',
+      { class: 'bpn-now' + (custom ? ' custom' : ''), id: 'bpnNow' },
+      onPlay ? PLAY_BTN(name, onPlay, 'bc-play bpn-now-play') : null,
+      h('div', { class: 'bpn-now-tx' }, h('b', {}, name), h('span', {}, src ? srcTag(src) : null, detail ? ' ' + detail : '', custom ? h('em', {}, ' · ton choix') : null))
+    );
+  }
+  /** Bloc repliable des réglages propres au type (éléments du kit, jeu, effectif) ; son état ouvert / fermé est retenu. */
+  function detBlock(key, summary, defOpen, ...kids) {
+    S.detOpen = S.detOpen || {};
+    const open = key in S.detOpen ? S.detOpen[key] : defOpen;
+    const d = h('details', { class: 'bpn-det', open: open ? true : null }, h('summary', {}, summary), ...kids);
+    d.addEventListener('toggle', () => (S.detOpen[key] = d.open));
+    return d;
+  }
+  const exploreBtn = (label, onclick, id) =>
+    h('button', { type: 'button', class: 'btn bpn-browse', id, onclick }, h('span', { html: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>' }), label);
 
   /** Nom par défaut d'un musicien (celui du rôle ou du type) : celui qu'on retrouve en vidant le nom. */
   const baseNameOf = (mu) => (mu.added ? BG().BASE_NAME[mu.type] : (preset().musicians.find((m) => m.id === mu.id) || mu).label || roleOf(mu).label);
@@ -1111,93 +1167,116 @@ SS.band = (() => {
     );
   }
 
-  /** Effectifs d'un orchestre (étape Instruments) : une carte par effectif, avec ses pupitres. */
+  /** Effectifs d'un orchestre (étape Instruments) : le même panneau que les autres types (effectif retenu, cartes, détails). */
   function ensCards(ms, after) {
+    const cur = ensOf(ms);
     return [
-      h('div', { class: 'bpn-sec' }, 'Effectif'),
+      nowCard({ name: cur.label, src: 'ens', detail: `${cur.parts.length} pupitres` }),
+      h('div', { class: 'bpn-sec' }, 'Effectifs'),
       h(
         'div',
-        { class: 'bg-ens', role: 'radiogroup', 'aria-label': 'Effectif de l’orchestre' },
+        { class: 'bpn-grid bg-ens', role: 'radiogroup', 'aria-label': 'Effectif de l’orchestre' },
         ...SS.orchestra.ENSEMBLES.map((e) =>
-          h(
-            'button',
-            { type: 'button', class: 'band-kit bg-ensc' + (ensOf(ms).id === e.id ? ' active' : ''), role: 'radio', 'data-ens': e.id, 'aria-checked': String(ensOf(ms).id === e.id), onclick: () => ((ms.ens = e.id), after()) },
-            h('span', { class: 'bk-name' }, e.label),
-            h('span', { class: 'bk-detail' }, e.parts.map((id) => SS.orchestra.PART[id].label).join(', '))
-          )
+          sndCard({
+            name: e.label,
+            src: null,
+            detail: e.parts.map((id) => SS.orchestra.PART[id].label).join(', '),
+            active: cur.id === e.id,
+            onPick: () => ((ms.ens = e.id), after()),
+            mainAttrs: { class: 'bc-main bg-ensc', 'data-ens': e.id, title: e.parts.map((id) => SS.orchestra.PART[id].label).join(', ') },
+          })
         )
       ),
-      h('p', { class: 'dlg-hint' }, `${ensOf(ms).text} Une piste par pupitre ; l’étape Orchestration répartit la mélodie, les accords et la basse de chaque scène.`),
+      detBlock('orch', 'Comment joue l’orchestre', false, h('p', { class: 'dlg-hint' }, `${cur.text} Une piste par pupitre ; l’étape Orchestration répartit la mélodie, les accords et la basse de chaque scène.`)),
     ];
   }
-  function renderInstPanel(mu, ms) {
-    const panel = $('#bandPanel');
-    const cat = catOf(mu);
-    const pick = (i) => {
-      setPick(mu, ms, i);
-      refresh();
-      preview(instOpts(mu));
-    };
-    // en mode GM, deux choix peuvent donner le même son : on ne garde que le premier
-    const same = sameOpts;
-    const cur = instOpts(mu);
+  /** Cartes des conseillés d'un musicien (en mode GM, deux choix peuvent donner le même son : on ne garde que le premier). */
+  function instCards(mu, ms, onPick) {
+    const cur = instOpts(mu, ms);
     const seen = [];
     const labels = new Set();
-    const cards = pickOrder(mu)
+    return pickOrder(mu)
       .map((i, k) => {
         const o = choiceAt(mu, i);
         // deux réglages différents peuvent s'afficher pareil (« Instrument · Synth Lead ») : un seul
         const d = B().describe(o);
         const label = [d.kind, d.name, d.detail].join('|');
-        if (seen.some((x) => same(x, o)) || labels.has(label)) return null;
+        if (seen.some((x) => sameOpts(x, o)) || labels.has(label)) return null;
         seen.push(o);
         labels.add(label);
-        return choiceCard(o, { active: !ms.custom && same(o, cur), star: k === 0, onPick: () => pick(i) });
+        return choiceCard(o, { active: !ms.custom && sameOpts(o, cur), star: k === 0, onPick: () => onPick(i) });
       })
       .filter(Boolean);
+  }
+  /** Le son retenu d'un instrumentiste, en grand. */
+  function instNow(mu, ms) {
+    const o = instOpts(mu, ms);
+    const inf = soundInfo(o);
+    return nowCard({ name: B().describe(o).name, src: inf.src, detail: inf.detail, onPlay: () => preview(o), custom: !!ms.custom });
+  }
+  function renderInstPanel(mu, ms) {
+    const panel = $('#bandPanel');
+    const cat = catOf(mu);
+    const cards = instCards(mu, ms, (i) => {
+      setPick(mu, ms, i);
+      refresh();
+      preview(instOpts(mu));
+    });
     const catLabel = (SS.CATEGORIES.find((c) => c.id === cat) || {}).label;
     // replaceChildren écrirait « null » en texte : on retire les absents
     panel.replaceChildren(
       ...[
         panelHead(mu, ms),
         kindSelect(mu),
-        h('div', { class: 'bpn-sec' }, 'Instrument phare'),
-        cards[0],
-        h('div', { class: 'bpn-sec' }, 'Conseillés'),
-        ...cards.slice(1),
-        ms.custom ? h('div', { class: 'bpn-sec' }, 'Ton choix') : null,
-        ms.custom ? choiceCard(instOpts(mu), { active: true, onPick: () => {}, extraClass: ' custom' }) : null,
-        h(
-          'button',
-          { type: 'button', class: 'btn bpn-browse', onclick: () => browseInstrument(mu, ms) },
-          h('span', { html: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>' }),
-          'Tous les instruments…'
-        ),
-        h('p', { class: 'dlg-hint' }, gm()
-          ? `Jeu : ${catLabel}. Mode General MIDI : les sons conseillés sont remplacés par le programme GM le plus proche ; « Tous les instruments… » propose les 128 programmes.`
-          : `Jeu : ${catLabel}. La fenêtre « Nouvelle piste » donne accès à toute la bibliothèque (instruments et synthés).`),
+        instNow(mu, ms),
+        h('div', { class: 'bpn-sec' }, `Conseillés${(style() || {}).label ? ' · ' + style().label : ''}`),
+        h('div', { class: 'bpn-grid', role: 'radiogroup', 'aria-label': 'Sons conseillés' }, ...cards),
+        exploreBtn(gm() ? 'Tous les programmes General MIDI…' : 'Tous les instruments…', () => browseInstrument(mu, ms), 'bpnAllSounds'),
+        detBlock('inst', 'Jeu', false, h('p', { class: 'dlg-hint' }, gm()
+          ? `Jeu : ${catLabel}. Mode General MIDI : les sons conseillés sont remplacés par le programme GM le plus proche ; « Tous les programmes… » propose les 128 programmes.`
+          : `Jeu : ${catLabel}. ★ : l’instrument phare de l’inspiration. « Tous les instruments… » donne accès à toute la bibliothèque (instruments et synthés).`)),
         groupActions(mu)
       ].filter(Boolean)
     );
   }
 
-  /** Cartes de kit (étape Instruments) : les kits conseillés, puis (« Tous les kits… ») tous les autres. */
+  /** Cartes de kit (étape Instruments) : les kits conseillés, puis (« Tous les kits… ») tous les autres. ▶ : le kick et la caisse claire. */
   function kitCards(mu, ms, onPick) {
     const all = gm() ? ['gm'] : S.allKits ? [...mu.kits, ...Object.keys(B().KITS).filter((k) => k !== 'gm' && !mu.kits.includes(k))] : mu.kits;
     return all.map((k, i) => {
       const def = B().KITS[k];
-      return h(
-        'button',
-        { type: 'button', class: 'band-kit' + (kitOf(ms) === k ? ' active' : ''), 'data-kit': k, role: 'radio', 'aria-checked': kitOf(ms) === k ? 'true' : 'false', onclick: () => onPick(k) },
-        h('span', { class: 'bk-name' }, (i === 0 ? '★ ' : '') + def.label),
-        h('span', { class: 'bk-detail' }, def.source ? ({ vcsl: 'Échantillons acoustiques', gm: 'Les 47 sons de la norme, canal 10' }[def.source] || 'Dirt-Samples') : `Boîte à rythmes · ${def.year}`)
-      );
+      const on = kitOf(ms) === k;
+      return sndCard({
+        name: def.label,
+        src: kitSrc(def),
+        detail: def.source ? ({ vcsl: 'Percussions acoustiques', gm: 'Les 47 sons de la norme, canal 10' }[def.source] || 'Échantillons') : `${def.year}`,
+        active: on,
+        star: i === 0 && !gm(),
+        onPick: () => onPick(k),
+        onPlay: () => kitPreview(k),
+        mainAttrs: { 'data-kit': k },
+      });
     });
+  }
+  const kitSrc = (def) => (def.source === 'gm' ? 'gm' : def.source === 'dirt' ? 'dirt' : def.source ? 'smp' : 'tdm');
+  /** Écoute d'un kit : kick, caisse claire, charleston. */
+  function kitPreview(k) {
+    ['bd', 'sd', 'hh'].forEach((pc, i) => setTimeout(() => {
+      try {
+        preview(B().pieceOpts(k, pc).opts);
+      } catch (e) {
+        /* élément absent */
+      }
+    }, i * 220));
   }
   const allKitsBtn = (mu) =>
     gm()
       ? null
-      : h('button', { type: 'button', class: 'btn bpn-browse', id: 'bgAllKits', 'aria-pressed': String(!!S.allKits), onclick: () => ((S.allKits = !S.allKits), refresh()) }, h('span', { html: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>' }), S.allKits ? 'Kits conseillés seulement' : 'Tous les kits…');
+      : (() => {
+          const b = exploreBtn(S.allKits ? 'Kits conseillés seulement' : 'Tous les kits…', () => ((S.allKits = !S.allKits), refresh()), 'bgAllKits');
+          b.setAttribute('aria-pressed', String(!!S.allKits));
+          return b;
+        })();
 
   function renderKitPanel(mu, ms) {
     const panel = $('#bandPanel');
@@ -1239,24 +1318,32 @@ SS.band = (() => {
       );
     });
     const n = ms.pieces.filter((pc) => pc.on).length;
+    const def = B().KITS[kitOf(ms)] || { label: kitOf(ms) };
     panel.replaceChildren(
-      panelHead(mu, ms),
-      ...[kindSelect(mu)].filter(Boolean),
-      h('div', { class: 'bpn-sec' }, gm() ? 'Kit (mode General MIDI)' : 'Kit (★ phare + 5 conseillés)'),
-      h('div', { class: 'band-kits', role: 'radiogroup', 'aria-label': 'Kit' }, ...cards),
-      allKitsBtn(mu),
-      h('div', { class: 'bpn-sec' }, `Éléments — une piste par élément coché (${n})`),
-      h('div', { class: 'band-pieces' }, ...rows),
-      h(
-        'button',
-        { type: 'button', class: 'btn bpn-browse', onclick: () => addPiece(mu, ms) },
-        h('span', { html: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>' }),
-        'Ajouter un élément…'
-      ),
-      h('p', { class: 'dlg-hint' }, gm()
-        ? `Mode General MIDI : chaque élément est un son de la batterie General MIDI. « Ajouter un élément… » propose les 47 sons (bongos, congas, claves, triangles…).`
-        : `Un kit n’a accès qu’aux drums et échantillons : boîtes à rythmes, Dirt-Samples, percussions acoustiques. Les éléments peuvent venir de kits différents.`),
-      groupActions(mu)
+      ...[
+        panelHead(mu, ms),
+        kindSelect(mu),
+        nowCard({ name: def.label, src: kitSrc(def), detail: `${n} élément${n > 1 ? 's' : ''}`, onPlay: () => kitPreview(kitOf(ms)) }),
+        h('div', { class: 'bpn-sec' }, gm() ? 'Kit (mode General MIDI)' : `Conseillés${(style() || {}).label ? ' · ' + style().label : ''}`),
+        h('div', { class: 'bpn-grid band-kits', role: 'radiogroup', 'aria-label': 'Kit' }, ...cards),
+        allKitsBtn(mu),
+        detBlock(
+          'kit',
+          `Éléments du kit — une piste par élément coché (${n})`,
+          true,
+          h('div', { class: 'band-pieces' }, ...rows),
+          h(
+            'button',
+            { type: 'button', class: 'btn bpn-browse', onclick: () => addPiece(mu, ms) },
+            h('span', { html: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>' }),
+            'Ajouter un élément…'
+          ),
+          h('p', { class: 'dlg-hint' }, gm()
+            ? `Mode General MIDI : chaque élément est un son de la batterie General MIDI. « Ajouter un élément… » propose les 47 sons (bongos, congas, claves, triangles…).`
+            : `Un kit n’a accès qu’aux drums et échantillons : boîtes à rythmes, Dirt-Samples, percussions acoustiques. Les éléments peuvent venir de kits différents.`)
+        ),
+        groupActions(mu)
+      ].filter(Boolean)
     );
   }
 
@@ -1348,34 +1435,22 @@ SS.band = (() => {
     let body;
     if (mu.orch) body = ensCards(ms, refresh);
     else if (mu.kits) {
+      const def = B().KITS[kitOf(ms)] || { label: kitOf(ms) };
       body = [
-        h('div', { class: 'bpn-sec' }, 'Kit (★ phare + conseillés)'),
-        h('div', { class: 'band-kits', role: 'radiogroup', 'aria-label': 'Kit' }, ...kitCards(mu, ms, (k) => ((ms.kit = k), refresh()))),
+        nowCard({ name: def.label, src: kitSrc(def), detail: def.year ? String(def.year) : '', onPlay: () => kitPreview(kitOf(ms)) }),
+        h('div', { class: 'bpn-sec' }, `Conseillés · ${KIND_LABEL[a.type]}`),
+        h('div', { class: 'bpn-grid band-kits', role: 'radiogroup', 'aria-label': 'Kit' }, ...kitCards(mu, ms, (k) => ((ms.kit = k), refresh()))),
         allKitsBtn(mu),
         h('p', { class: 'dlg-hint' }, 'Ses éléments (une piste chacun) se règlent ensuite dans son panneau.')
-      ];
-    } else {
-      const cur = instOpts(mu, ms);
-      const seen = [];
-      const labels = new Set(); // un seul par libellé affiché (voir le panneau du musicien)
-      const cards = pickOrder(mu)
-        .map((i, k) => {
-          const o = choiceAt(mu, i);
-          const d = B().describe(o);
-          const label = [d.kind, d.name, d.detail].join('|');
-          if (seen.some((x) => sameOpts(x, o)) || labels.has(label)) return null;
-          seen.push(o);
-          labels.add(label);
-          return choiceCard(o, { active: !ms.custom && sameOpts(o, cur), star: k === 0, onPick: () => (setPick(mu, ms, i), refresh(), preview(instOpts(mu, ms))) });
-        })
-        .filter(Boolean);
-      body = [
-        h('div', { class: 'bpn-sec' }, `Conseillés · ${KIND_LABEL[a.type]} · ${(style() || {}).label || ''}`),
-        h('div', { class: 'bg-snds', role: 'radiogroup', 'aria-label': 'Sons conseillés' }, ...cards),
-        ms.custom ? h('div', { class: 'bpn-sec' }, 'Ton choix') : null,
-        ms.custom ? choiceCard(instOpts(mu, ms), { active: true, onPick: () => {}, extraClass: ' custom' }) : null,
-        h('button', { type: 'button', class: 'btn bpn-browse', id: 'bgAllSounds', onclick: () => browseInstrument(mu, ms) }, h('span', { html: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>' }), 'Tous les instruments…')
       ].filter(Boolean);
+    } else {
+      const cards = instCards(mu, ms, (i) => (setPick(mu, ms, i), refresh(), preview(instOpts(mu, ms))));
+      body = [
+        instNow(mu, ms),
+        h('div', { class: 'bpn-sec' }, `Conseillés · ${KIND_LABEL[a.type]} · ${(style() || {}).label || ''}`),
+        h('div', { class: 'bpn-grid bg-snds', role: 'radiogroup', 'aria-label': 'Sons conseillés' }, ...cards),
+        exploreBtn('Tous les instruments…', () => browseInstrument(mu, ms), 'bgAllSounds')
+      ];
     }
     panel.replaceChildren(
       h('div', { class: 'bg-crumb' }, h('button', { type: 'button', class: 'btn btn-small', id: 'bgBack', 'aria-label': 'Retour au choix du type', onclick: () => ((S.addMode = 'type'), refresh()) }, '‹ Type'), h('h2', {}, 'Nouveau musicien'), h('span', { class: 'bg-n' }, '2 / 2 · Son')),

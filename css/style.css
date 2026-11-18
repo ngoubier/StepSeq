@@ -4746,7 +4746,7 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 #bandDialog .bg-tyc b { font-size: 15px; }
 #bandDialog .bg-tyc small { grid-column: 2 / -1; color: var(--bw-muted); font-size: 12px; line-height: 1.35; }
 #bandDialog .bg-has { grid-row: 1; grid-column: 3; font-size: 11px; color: var(--bw-dim); white-space: nowrap; }
-#bandDialog .bg-snds { display: flex; flex-direction: column; gap: 6px; }
+#bandDialog .bg-snds { gap: 6px; }
 @media (max-width: 720px) {
   #bandDialog .bg-count { display: inline-block; margin: 4px 0 0; }
   #bandDialog .stage-row { gap: 10px; }
@@ -5042,7 +5042,7 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 .bwc > * { flex-shrink: 0; } /* l'étape défile : la grille (et ses pédales) ne se tasse pas quand le contenu s'allonge */
 
 /* Assistant, étape Orchestration : carte des registres, qui joue quoi */
-.bg-ens { display: flex; flex-direction: column; gap: 6px; }
+.bg-ens { gap: 6px; }
 .bwor-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; }
 .bwor-chips { display: inline-flex; flex-wrap: wrap; gap: 6px; }
 .bwor-chip { border: 1px solid var(--line2); background: var(--panel); color: var(--muted); border-radius: 999px; padding: 3px 10px; font: inherit; font-size: 12.5px; cursor: pointer; }
@@ -5132,3 +5132,31 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 .bwar-kept { color: #3fcf3f; font-size: 12px; margin-right: 6px; }
 @media (max-width: 640px) { .bwar-move { grid-template-columns: 1fr; } }
 .bwar-move.na { opacity: .55; }
+
+/* Étape Instruments : le panneau du musicien a la même forme pour un instrument, un kit ou un orchestre
+   (son retenu en grand, conseillés en grille de cartes, réglages propres au type repliés). */
+.band-panel > * { flex-shrink: 0; } /* le panneau défile : ses cartes ne se tassent pas (les noms disparaissaient) */
+.bpn-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.snd-card { position: relative; border-radius: var(--bw-r-ctl, 8px); }
+.snd-card .bc-main { gap: 3px; padding: 7px 34px 8px 9px; justify-content: flex-start; }
+.snd-card .bc-top { display: flex; align-items: center; gap: 5px; min-height: 16px; }
+.snd-card .bc-star { color: #f5c400; font-size: 12px; }
+.bc-src { font-size: 9.5px; letter-spacing: .04em; text-transform: uppercase; border: 1px solid var(--sc); color: var(--sc); border-radius: 4px; padding: 0 5px; line-height: 15px; white-space: nowrap; }
+.snd-card .bc-name { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.25; font-size: 12.5px; }
+.snd-card .bc-detail { font-size: 11px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.snd-card .bc-play { position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; border: 1px solid var(--bw-line2, var(--line)); border-radius: 50%; background: var(--bw-panel, var(--panel)); }
+.snd-card .bc-play svg { width: 10px; height: 10px; }
+.snd-card .bc-play:hover { border-color: var(--c, var(--accent)); color: var(--c, var(--accent)); }
+.bpn-now { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--bw-r-card, 10px); border: 1px solid color-mix(in srgb, var(--c, var(--accent)) 60%, transparent); background: linear-gradient(90deg, color-mix(in srgb, var(--c, var(--accent)) 20%, transparent), transparent); }
+.bpn-now.custom { border-style: dashed; }
+.bpn-now .bpn-now-play { flex: none; width: 38px; height: 38px; border: 1px solid var(--bw-line2, var(--line)); border-radius: 50%; background: var(--bw-panel, var(--panel)); }
+.bpn-now .bpn-now-play svg { width: 14px; height: 14px; }
+.bpn-now-tx { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.bpn-now-tx b { font-size: 15px; line-height: 1.25; }
+.bpn-now-tx span { font-size: 11.5px; color: var(--bw-muted, var(--muted)); }
+.bpn-now-tx em { font-style: normal; color: var(--c, var(--accent)); }
+.bpn-browse { border-style: dashed; }
+.bpn-det { border-top: 1px solid var(--bw-line, var(--line)); padding-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+.bpn-det > summary { cursor: pointer; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--bw-muted, var(--muted)); margin-bottom: 2px; }
+.bpn-det[open] > summary { margin-bottom: 6px; }
+@media (max-width: 420px) { .bpn-grid { grid-template-columns: minmax(0, 1fr); } }
