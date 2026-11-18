@@ -2043,6 +2043,11 @@ SS.band = (() => {
   function harmonyOpts(preview = false) {
     const w = S.wiz;
     const out = { keys: { ...w.keys }, chords: { ...w.grids }, emotions: { ...w.emos }, pedals: { ...(w.peds || {}) } };
+    const ab = preview && w.ab && w.ab.on && w.step === ST.chords ? w.ab : null; // essai A/B : la version B à l'écoute
+    if (ab) {
+      out.chords[ab.sec] = ab.grid;
+      if (ab.peds) out.pedals[ab.sec] = ab.peds;
+    }
     const pv = preview && w.insp && w.insp.preview;
     if (pv) {
       out.keys[pv.sec] = pv.key;
@@ -2986,11 +2991,18 @@ SS.band = (() => {
   function gridOf(sc) {
     const pv = S.wiz.insp && S.wiz.insp.preview;
     if (pv && pv.sec === sc.sec) return pv.grid; // la proposition qu'on écoute (fenêtre d'inspiration)
+    const ab = abOn(sc.sec);
+    if (ab) return ab.grid; // essai A/B : la version B à l'écoute
     return S.wiz.grids[sc.sec] || specGrid(sc);
   }
+  /** Essai A/B en cours sur cette scène, version B à l'écoute (sinon null). */
+  const abOn = (sec) => (S.wiz.ab && S.wiz.ab.sec === sec && S.wiz.ab.on && S.wiz.step === ST.chords ? S.wiz.ab : null);
+  /** Pédales affichées : celles de l'essai B s'il est à l'écoute, sinon celles de la scène. */
+  const pedsOf = (sec) => (abOn(sec) || {}).peds || S.wiz.peds[sec] || [];
   const fillGrid = (list, total) => HM().gridFill(list, total); // js/harmony.js : commun avec la piste Accords et bandsong
   /** Modifie la grille de la scène (copie de celle de l'inspiration au premier changement). */
   function editGrid(sc, fn) {
+    if (S.wiz.ab && S.wiz.ab.sec === sc.sec) S.wiz.ab = null; // on retouche la version A : l'essai s'arrête
     const g = gridOf(sc).map((c) => ({ ...c }));
     const keep = fn(g);
     const out = fillGrid(g, sc.bars * 16);
@@ -3037,11 +3049,120 @@ SS.band = (() => {
     renderWiz();
   }
 
+  /* ---------- Repris d'Harmonie : guide du mode, grilles de la tonalité, essais A/B ---------- */
+  const AB_IDS = ['seventh', 'sus2', 'mode', 'avoid', 'pedal'];
+  /** Une ligne : la note caractéristique du mode, ce qu'il faut faire entendre et une boucle d'essai (guide MusicEmotion). */
+  function modeGuide(k) {
+    const H = HM();
+    const md = H.MODES.find((m) => m.id === k.mode) || {};
+    const g = SS.MODE_GUIDE && SS.MODE_GUIDE[k.mode];
+    const loop = g && SS.modeLoop(k.mode, k.tonic);
+    const parts = [];
+    if (md.color != null && md.colorText) parts.push(h('span', {}, 'Note caractéristique : ', h('b', {}, md.colorText)));
+    else if (k.mode === 'major') parts.push(h('span', {}, 'La dominante attire vers la tonique.'));
+    else if (k.mode === 'harmonic') parts.push(h('span', {}, 'La sensible tire vers la tonique : tension, drame.'));
+    if (g) parts.push(h('span', {}, `À faire entendre : ${g.hear}.`), h('span', {}, g.tip));
+    if (!parts.length) return null;
+    return h(
+      'div',
+      { class: 'bwc-guide', id: 'bwGuide' },
+      h('span', { class: 'bh-lbl' }, H.label(k)),
+      ...parts,
+      loop && loop.grid.length
+        ? h('button', { type: 'button', class: 'btn btn-small', id: 'bwModeLoop', title: 'Poser la boucle d’essai du mode sur la scène (↺ Inspiration pour revenir)', onclick: () => setGridFrom(curSceneOf(), loop.grid) }, `Boucle d’essai : ${loop.chords.map((c) => c.name).join(' – ')}`)
+        : null
+    );
+  }
+  const curSceneOf = () => curScene(wizSong().res);
+  /** Remplace la grille de la scène par une suite d'accords répétée ({ degree, type, acc, bars? }), sans pédale. */
+  function setGridFrom(sc, seq) {
+    delete S.wiz.peds[sc.sec];
+    S.wiz.psel = null;
+    const g = fitProposal({ grid: seq }, sc.bars);
+    editGrid(sc, (gg) => void gg.splice(0, gg.length, ...g));
+  }
+  /** Grilles de la tonalité (catalogue d'Harmonie, js/harmony.js PROGRESSIONS) : un accord par mesure. */
+  function progSelect(sc, k) {
+    const list = HM().progressions(k);
+    if (!list.length) return null;
+    return h(
+      'select',
+      {
+        id: 'bwProg', class: 'bwc-prog', 'aria-label': 'Grilles de la tonalité', style: 'width:240px;flex:0 1 240px',
+        onchange: (e) => {
+          const pr = list[+e.target.value];
+          if (pr) setGridFrom(sc, pr.seq.map(([degree, type, acc]) => ({ degree, type, acc: acc || 0 })));
+        },
+      },
+      h('option', { value: '', selected: true }, 'Grilles de la tonalité…'),
+      ...list.map((pr, i) => h('option', { value: i }, `${pr.chords.map((c) => c.name).join(' – ')} · ${pr.label}${pr.style ? ' · ' + pr.style : ''}`))
+    );
+  }
+  /** Essai A/B : la même scène avec un seul changement (septièmes, sus2…), à comparer en boucle avant de le garder. */
+  function startAb(sc, id) {
+    const k = sc.key;
+    const base = S.wiz.grids[sc.sec] || specGrid(sc);
+    const r = HM().transformGrid(id, base, k, sc.bars * 16);
+    const tr = HM().TRANSFORMS.find((x) => x.id === id);
+    if (!r.changed) return app.toast(`« ${tr.label} » ne change rien ici (aucun accord concerné).`);
+    S.wiz.ab = { sec: sc.sec, id, grid: r.grid, peds: r.pedals || null, on: true };
+    S.wiz.gsel = null;
+    S.wiz.psel = null;
+    renderWiz();
+    const now = S.wiz.res && S.wiz.res.scenes.find((x) => x.sec === sc.sec);
+    if (now && !(L.mode === 'scene' && L.sec === sc.sec && !L.paused)) playScene(now.id);
+  }
+  function abBar(sc) {
+    const ab = S.wiz.ab && S.wiz.ab.sec === sc.sec && S.wiz.ab;
+    const H = HM();
+    if (!ab)
+      return h(
+        'div',
+        { class: 'bwc-ab', id: 'bwAb' },
+        h('span', { class: 'bh-lbl' }, 'Essai A/B'),
+        ...AB_IDS.map((id) => {
+          const tr = H.TRANSFORMS.find((x) => x.id === id);
+          return h('button', { type: 'button', class: 'chip', 'data-ab': id, title: tr.text, onclick: () => startAb(sc, id) }, tr.label);
+        })
+      );
+    const tr = H.TRANSFORMS.find((x) => x.id === ab.id);
+    const flip = (on) => ((ab.on = on), renderWiz());
+    return h(
+      'div',
+      { class: 'bwc-ab on', id: 'bwAb' },
+      h('span', { class: 'bh-lbl' }, 'Essai'),
+      h('b', {}, tr.label),
+      h(
+        'span',
+        { class: 'segmented', role: 'radiogroup', 'aria-label': 'Version à l’écoute' },
+        h('button', { type: 'button', role: 'radio', id: 'bwAbA', class: ab.on ? '' : 'active', 'aria-checked': String(!ab.on), onclick: () => flip(false) }, 'A · avant'),
+        h('button', { type: 'button', role: 'radio', id: 'bwAbB', class: ab.on ? 'active' : '', 'aria-checked': String(ab.on), onclick: () => flip(true) }, 'B · essai')
+      ),
+      h('span', { class: 'dlg-hint' }, 'La scène tourne en boucle : passe de A à B pendant l’écoute.'),
+      h('span', { class: 'spacer' }),
+      h('button', { type: 'button', class: 'btn btn-small', id: 'bwAbCancel', onclick: () => ((S.wiz.ab = null), renderWiz()) }, 'Garder A'),
+      h(
+        'button',
+        {
+          type: 'button', class: 'btn btn-small btn-accent', id: 'bwAbKeep',
+          onclick: () => {
+            S.wiz.grids[sc.sec] = ab.grid;
+            if (ab.peds) S.wiz.peds[sc.sec] = ab.peds;
+            S.wiz.ab = null;
+            renderWiz();
+          },
+        },
+        'Garder B'
+      )
+    );
+  }
+
   function renderChords() {
     const { res } = wizSong();
     const box = $('#bandWiz');
     if (!res) return box.replaceChildren(h('p', { class: 'dlg-hint' }, 'Cette inspiration n’a pas de plan de chanson.'));
     const sc = curScene(res);
+    if (S.wiz.ab && S.wiz.ab.sec !== sc.sec) S.wiz.ab = null; // un essai A/B ne suit pas d'une scène à l'autre
     const k = sc.key;
     const total = sc.bars * 16;
     const g = gridOf(sc);
@@ -3061,6 +3182,7 @@ SS.band = (() => {
       h('span', { class: 'spacer' }),
       h('label', { class: 'field' }, h('span', {}, 'Tonalité'), tonic, mode),
       h('label', { class: 'field' }, h('span', {}, 'Aimanter'), snap),
+      progSelect(sc, k),
       h('button', { type: 'button', class: 'btn btn-small', id: 'bwGridClear', title: 'Un seul accord, la tonique, sur toute la scène', onclick: () => (delete S.wiz.peds[sc.sec], editGrid(sc, (gg) => void gg.splice(0, gg.length, { step: 0, len: total, degree: 0, type: H.gridPalette(k).simple[0].type, acc: 0 }))) }, 'Effacer'),
       own
         ? h('button', { type: 'button', class: 'btn btn-small', id: 'bwGridBack', title: 'Revenir aux accords et à la tonalité de l’inspiration', onclick: () => (delete S.wiz.grids[sc.sec], delete S.wiz.peds[sc.sec], delete S.wiz.keys[sc.sec], delete S.wiz.emos[sc.sec], (S.wiz.gsel = null), (S.wiz.psel = null), renderWiz()) }, '↺ Inspiration')
@@ -3093,7 +3215,7 @@ SS.band = (() => {
     });
     const lane = h('div', { class: 'gr-lane', id: 'bwLane' }, ...lines, ...blocks);
     // pédales : une note tenue à la basse sous plusieurs accords (comme sur la piste Accords du projet)
-    const peds = S.wiz.peds[sc.sec] || [];
+    const peds = pedsOf(sc.sec);
     const pedName = (x) => H.french(H.spell(k, pedPc(k, x)));
     const pedRow = peds.length
       ? h(
@@ -3200,7 +3322,7 @@ SS.band = (() => {
       ),
       pal
     );
-    const content = h('div', { class: 'bwc', id: 'bwChords' }, head, h('div', { class: 'gr-scroll' }, tl), selBar, palette);
+    const content = h('div', { class: 'bwc', id: 'bwChords' }, head, modeGuide(k), abBar(sc), h('div', { class: 'gr-scroll' }, tl), selBar, palette);
     content.addEventListener('pointerdown', (e) => gridDown(e, sc));
     content.addEventListener('keydown', (e) => {
       const blk = e.target.closest && e.target.closest('.gr-blk');

@@ -5117,3 +5117,9 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 .bwc-ped:hover, .bwc-ped:focus-visible { background: rgba(232, 163, 61, .6); }
 .bwc-ped.sel { outline: 2px solid #fff; outline-offset: 1px; }
 .bwc-pedsel { border-color: rgba(232, 163, 61, .8); background: #2a2216; }
+/* Assistant, étape Accords : guide du mode et essais A/B (repris d'Harmonie) */
+.bwc-guide, .bwc-ab { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 13px; color: var(--muted); }
+.bwc-guide b { color: var(--text); }
+.bwc-ab .chip { font-size: 12px; }
+.bwc-ab.on { padding: 8px 12px; border: 1px solid var(--accent-2); border-radius: 10px; background: #1b2536; color: var(--text); }
+.bwc-head .bwc-prog { flex: 0 1 240px; width: 240px; min-width: 0; }

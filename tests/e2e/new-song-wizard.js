@@ -145,6 +145,18 @@ const SHOTS = process.env.SHOTS;
   ok((await gnames())[0] === 'Dm' && /Ré mineur/.test(await page.textContent('#wizKey')), 'Ré mineur : la grille est transposée (degrés gardés)');
   await page.click('#bwGridBack');
   ok((await gnames()).join(' ') === 'Cm B♭ A♭ B♭ Cm B♭ A♭ B♭' && !(await page.isVisible('#bwGridBack')), '↺ Inspiration : accords et tonalité d’origine');
+  // repris d'Harmonie : guide du mode, essais A/B, grilles de la tonalité
+  ok(/Note caractéristique|À faire entendre/.test(await page.textContent('#bwGuide')), 'guide du mode sous l’en-tête');
+  await page.click('#bwAb [data-ab="seventh"]');
+  ok((await gnames()).join(' ') === 'Cm7 B♭7 A♭maj7 B♭7 Cm7 B♭7 A♭maj7 B♭7' && (await page.isVisible('#bwAbB')), `essai B : septièmes (${(await gnames()).join(' ')})`);
+  ok(await page.evaluate(() => SS.band._state.wiz.res.scenes.find((s) => s.sec === 'intro').spans[0].chord.type === 'm7'), 'la scène à l’écoute joue la version B');
+  await page.click('#bwAbA');
+  ok((await gnames())[0] === 'Cm' && (await page.evaluate(() => SS.band._state.wiz.res.scenes.find((s) => s.sec === 'intro').spans[0].chord.type)) === 'min', 'A : retour aux accords d’avant, à l’écoute aussi');
+  await page.click('#bwAbCancel');
+  ok(!(await page.isVisible('#bwAbB')) && !(await page.isVisible('#bwGridBack')), 'Garder A : la scène n’est pas retouchée');
+  await page.selectOption('#bwProg', '0');
+  ok((await page.isVisible('#bwGridBack')) && (await gnames()).length === 8, `grille de la tonalité posée (${(await gnames()).join(' ')})`);
+  await page.click('#bwGridBack');
   // pédale (reprise de la piste Accords / Harmonie) : la note tenue passe à la basse des accords qu'elle couvre
   await page.click('#bwLane .gr-blk >> nth=0');
   await page.click('#bwPedAdd');

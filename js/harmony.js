@@ -886,6 +886,42 @@ SS.harmony = (() => {
   ];
 
   /**
+   * Les essais A/B appliqués à une grille ({ step, len, degree, type, acc, bass? }) plutôt qu'aux notes d'une piste :
+   * l'assistant Nouvelle chanson compare ainsi deux versions de la même scène. `total` : longueur de la scène en pas.
+   * → { grid, pedals?, changed } (copie ; le rythme des accords ne change pas). 'open' (voicing) ne concerne pas la grille.
+   */
+  function transformGrid(id, list, key, total) {
+    const sc = scale(key);
+    let changed = 0;
+    const grid = list.map((c) => ({ ...c }));
+    const inKey = new Set(sc.map((d) => d.pc));
+    const set = (c, type) => {
+      if (type && type !== c.type) {
+        c.type = type;
+        changed++;
+      }
+    };
+    if (id === 'pedal') return { grid, pedals: [{ step: 0, len: total, semi: 0 }], changed: 1 };
+    for (const c of grid) {
+      const plain = ['maj', 'min'].includes(c.type);
+      if (id === 'sus2' && plain) set(c, 'sus2');
+      // septième prise dans la gamme : Cmaj7 et Fmaj7 en Do majeur, mais G7 ; B♭7 (et non B♭maj7) en Do mineur
+      else if (id === 'seventh') set(c, { maj: inKey.has(pcOf(sc[c.degree].pc + (c.acc || 0) + 11)) ? 'maj7' : '7', min: 'm7', dim: inKey.has(pcOf(sc[c.degree].pc + (c.acc || 0) + 9)) ? 'dim7' : 'm7b5' }[c.type]);
+      else if (id === 'mode' && c.degree === 0 && !c.acc && plain) set(c, c.type === 'maj' ? 'min' : 'maj');
+    }
+    if (id === 'avoid' && grid.length) {
+      const last = grid[grid.length - 1];
+      const t = degTriad(sc, 5);
+      if (last.degree !== 5 || last.acc || last.type !== t) {
+        Object.assign(last, { degree: 5, acc: 0, type: t === 'dim' ? 'dim' : t });
+        delete last.bass;
+        changed++;
+      }
+    }
+    return { grid, changed };
+  }
+
+  /**
    * Applique une transformation à des événements (copie modifiée). `role` : 'chords' (piste d'accords) ou 'bass'.
    * Retourne { events, changed } ; les autres paramètres (rythme, durées, vélocités) restent identiques.
    */
@@ -975,5 +1011,5 @@ SS.harmony = (() => {
     return notes;
   }
 
-  return { MODES, TONICS, GENERATORS, TRANSFORMS, valid, isTonal, scale, spell, french, chords, role, makeChord, progressions, gridChord, toGridChord, gridFill, gridPut, gridSetLen, gridPalette, gridFromEvents, identify, chordName, analyzeChord, detect, sceneChords, analyze, generate, transform, label, voice, pcOf };
+  return { MODES, TONICS, GENERATORS, TRANSFORMS, valid, isTonal, scale, spell, french, chords, role, makeChord, progressions, gridChord, toGridChord, gridFill, gridPut, gridSetLen, gridPalette, gridFromEvents, identify, chordName, analyzeChord, detect, sceneChords, analyze, generate, transform, transformGrid, label, voice, pcOf };
 })();
