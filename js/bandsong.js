@@ -801,6 +801,10 @@ SS.bandSong = (() => {
   function bassEvents(spans, mode, r, keyPcs, { pedalPc = null, approach = true, shift = 0 } = {}) {
     const ev = [];
     const add = (s, len, n, v) => len > 0 && ev.push({ step: s, len, notes: [n], vel: vel(r, v) });
+    if (RECIPES.includes(mode)) {
+      recipeBass(spans, mode, keyPcs, pedalPc, shift, add);
+      return ev;
+    }
     spans.forEach((sp, i) => {
       const root = bassMidi(pedalPc ?? sp.chord.bassPc ?? sp.chord.rootPc) + shift; // pédale, ou basse imposée (D/F♯ : Fa♯)
       const fifth = root + 7;
@@ -915,6 +919,74 @@ SS.bandSong = (() => {
     return ev;
   }
 
+  /**
+   * Basse B03 de la formation (docs/reference/formation-composition/23_bibliotheque_de_procedes.md, § 4) : ligne
+   * conjointe. Pour chaque accord, la note de l'accord la plus proche de la précédente, une attaque par mesure ; si la
+   * suivante est à plus d'un ton, le dernier temps est une note de passage. Basse imposée (C/E) et pédale gardées.
+   * (B01, B02 et B04 ont des équivalents : Croches, Marche / Fondamentale-quinte, Tenue + pédale tonique.)
+   */
+  const RECIPES = ['b03'];
+  function recipeBass(spans, mode, keyPcs, pedalPc, shift, add) {
+    const bassPcOf = (sp) => pedalPc ?? sp.chord.bassPc ?? sp.chord.rootPc;
+    const low = (pc) => bassMidi(pc) + shift;
+    const nearest = (pc, near) => {
+      let m = near - pcOf(near) + pcOf(pc);
+      if (m - near > 6) m -= 12;
+      if (near - m > 6) m += 12;
+      return m;
+    };
+    // note de la gamme voisine de `to`, du côté de `from`
+    const approachTo = (from, to) => {
+      if (from === to) return null;
+      const dir = to > from ? -1 : 1;
+      let m = to + dir;
+      for (let k = 0; k < 3 && !keyPcs.includes(pcOf(m)); k++) m += dir;
+      return m;
+    };
+    // découpe [from, to) aux barres de mesure : une attaque par mesure
+    const perBar = (from, to, fn) => {
+      for (let s = from; s < to; ) {
+        const e = Math.min(to, (Math.floor(s / SPB) + 1) * SPB);
+        fn(s, e - s);
+        s = e;
+      }
+    };
+    if (mode === 'b03') {
+      // une note par accord, choisie pour avancer par degrés conjoints, dans la tessiture de la basse
+      const lo = low(0) - 5; // Sol1 … Ré3 (avec le registre de la partie)
+      const hi = low(0) + 14;
+      const line = [];
+      let prev = null;
+      spans.forEach((sp, i) => {
+        const c = sp.chord;
+        const t = tones(c);
+        const pcs = pedalPc != null ? [pedalPc] : c.bassPc != null && c.bassPc !== c.rootPc ? [c.bassPc] : [c.rootPc, t[1], t[2]].filter((x) => x != null);
+        if (prev == null) return void line.push((prev = low(pcs[0])));
+        const lastOne = i === spans.length - 1;
+        let best = null;
+        pcs.forEach((pc, k) => {
+          const m = nearest(pc, prev);
+          const d = Math.abs(m - prev);
+          // conjoint (1 ou 2 demi-tons) d'abord, puis note répétée, puis le plus petit saut ; la fondamentale départage
+          let cost = d >= 1 && d <= 2 ? 0 : d === 0 ? 2.5 : d;
+          if (k === 0) cost -= lastOne ? 1.5 : 0.4;
+          if (m < lo || m > hi) cost += 6;
+          if (!best || cost < best.cost) best = { m, cost };
+        });
+        line.push((prev = best.m));
+      });
+      spans.forEach((sp, i) => {
+        const m = line[i];
+        const end = sp.step + sp.len;
+        const nxt = spans[i + 1] && spans[i + 1].step === end ? line[i + 1] : null;
+        const pass = nxt != null && Math.abs(nxt - m) > 2 && sp.len >= 8 ? approachTo(m, nxt) : null;
+        const stop = pass != null ? end - 4 : end;
+        perBar(sp.step, stop, (s, l) => add(s, l, m, s === sp.step ? 0.9 : 0.8));
+        if (pass != null) add(stop, 4, pass, 0.74);
+      });
+    }
+  }
+
   /* ---------- accords (nappe, cordes, piano, guitare) ---------- */
   const RHYTHM = {
     pulse8: [[0, 2], [2, 2], [4, 2], [6, 2], [8, 2], [10, 2], [12, 2], [14, 2]],
@@ -992,8 +1064,8 @@ SS.bandSong = (() => {
   }
 
   /* ---------- Arp One (parts[section].arp.one) ----------
-   * Les accords de la scène passent dans le vrai arpégiateur (SS.Arp.renderStep, js/arp.js), comme l'aperçu de
-   * l'atelier Mélodie (js/harmonypanel.js, songPreview). Chaque accord est posé en position serrée dans le médium
+   * Les accords de la scène passent dans le vrai arpégiateur (SS.Arp.renderStep, js/arp.js).
+   * Chaque accord est posé en position serrée dans le médium
    * (57-76), l'octave du dessus est faite par le réglage « octaves » d'Arp One. Les temps (secondes) sont convertis
    * en pas avec un tempo nominal fixe : seul le rapport compte. Même accords + mêmes réglages = mêmes notes.
    */
@@ -1875,7 +1947,9 @@ SS.bandSong = (() => {
     ['oct16', 'Octaves en doubles', 'Doubles alternées fondamentale / octave', Array.from({ length: 16 }, (_, s) => [s, 1, s % 2 ? 2 : 0])],
     ['pickup', 'Reprise', 'Fondamentale tenue, reprise à l’octave en fin de mesure', [[0, 13, 0], [14, 2, 2]]],
     ['funk', 'Funk', 'Syncopes en doubles, notes fantômes', [[0, 2, 0], [3, 1, 0], [6, 1, 2], [7, 1, 0], [10, 1, 0], [12, 2, 0], [14, 1, 1]]],
+    // procédé B03 de la formation (chapitre 23, § 4), recette de recipeBass
+    ['b03', 'Ligne conjointe (B03)', 'La note de l’accord la plus proche : la basse avance par degrés (C – G/B – Am)', [[0, 12, 0], [12, 4, 1]]],
   ];
 
-  return { build, junctionDefaults, junctionEff, PERC_LOOPS, PERC_STYLES, hpHz, hpAmt, HP_MEL, isExtra, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, sceneGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, BUILD_LEVELS, BUILD_PRESETS, buildLevels, progLevels, rollBar, rollerOf, hasGridLane, laneKey, _rng: rng };
+  return { build, bassEvents, junctionDefaults, junctionEff, PERC_LOOPS, PERC_STYLES, hpHz, hpAmt, HP_MEL, isExtra, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, sceneGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, BUILD_LEVELS, BUILD_PRESETS, buildLevels, progLevels, rollBar, rollerOf, hasGridLane, laneKey, _rng: rng };
 })();

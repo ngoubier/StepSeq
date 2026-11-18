@@ -1,6 +1,6 @@
 /*
  * Test de bout en bout de l'atelier Mélodie (js/melodypanel.js, js/melody.js), monté dans une fenêtre de test
- * (il n'est plus dans Band ; Harmonie → Chanson → Mélodie a son propre test, harmony-ui.js).
+ * (il n'est plus dans Band ; l'étape Mélodie de l'assistant a son propre test, wizard-melody.js).
  *   node tests/e2e/melody-ui.js
  * Grille + paroles → proposition (scansion, tableau, contrôles) → écriture sur une nouvelle piste ; Ctrl+Z.
  */

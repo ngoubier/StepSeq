@@ -3,7 +3,7 @@
  *
  * Chaque scène peut porter une grille d'accords (scene.grid.chords, voir SS.normalizeGrid) : des accords rangés
  * par degré dans la tonalité de la scène, avec leur position et leur durée en pas. Elle s'affiche en haut des
- * pistes (« piste Accords ») et dans la fenêtre Harmonie.
+ * pistes (« piste Accords ») et dans l'assistant Nouvelle chanson.
  *
  * Une piste instrument a deux interrupteurs indépendants :
  *   track.arpOn  : true → ses notes passent par Arp One (js/arp.js) ;

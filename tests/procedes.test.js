@@ -1,63 +1,33 @@
 /*
  * Procédés de la formation (docs/reference/formation-composition/23_bibliotheque_de_procedes.md) :
- * basses B01–B04 (styles de basse de la grille, js/harmony.js), arpège huit pas A03 (Arp One, js/arp.js),
- * transitions T01–T05 (étape « Effets et transitions » de l'assistant, js/bandsong.js).
+ * basse B03 (mode de basse de l'assistant, js/bandsong.js), arpège huit pas A03 (Arp One, js/arp.js), transitions T01–T05 (étape « Effets et transitions » de l'assistant, js/bandsong.js).
  *   node --test
  */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 globalThis.window = globalThis;
-['dirt.js', 'dirt-tuning.js', 'sounds.js', 'harmony.js', 'project.js', 'arp.js', 'band-presets.js', 'band-songs.js', 'bandsong.js'].forEach((f) => require('../js/' + f));
+['dirt.js', 'dirt-tuning.js', 'sounds.js', 'harmony.js', 'project.js', 'emotions.js', 'melody-profiles.js', 'melody.js', 'arp.js', 'band-presets.js', 'band-songs.js', 'bandsong.js'].forEach((f) => require('../js/' + f));
 const SS = globalThis.SS;
 const H = SS.harmony;
 
-const C = { tonic: 'C', mode: 'major' };
-const Am = { tonic: 'A', mode: 'minor' };
-/** Une mesure par accord : [notes MIDI de l'accord, type]. */
-const chordsOf = (list) => list.map(([notes, chord], i) => ({ step: i * 16, len: 16, notes, chord }));
-const gen = (kind, evs, key) => H.generate(evs, { kind, octave: 2, spb: 16, beat: 4, key, length: evs.length * 16 });
 const pc = (m) => ((m % 12) + 12) % 12;
 
-test('B01–B04 sont des styles de basse de la grille', () => {
-  const ids = H.GENERATORS.filter((g) => g.group === 'Basse').map((g) => g.id);
-  ['bass-b01', 'bass-b02', 'bass-b03', 'bass-b04'].forEach((id) => assert.ok(ids.includes(id), id));
-});
+/* ---------- basse B03 (mode de basse de l'assistant, js/bandsong.js recipeBass) ---------- */
+const C = { tonic: 'C', mode: 'major' };
+const ch = (rootPc, type, bassPc) => ({ rootPc, type, ...(bassPc != null ? { bassPc } : {}) });
+/** Une mesure par accord. */
+const spansOf = (list) => list.map((c, i) => ({ step: i * 16, len: 16, chord: c }));
+const gen = (mode, spans, key, opt) => SS.bandSong.bassEvents(spans, mode, () => 0.5, H.scale(key).map((d) => d.pc), opt);
 
-test('B01 : huit croches sur la fondamentale, accents différenciés, une seule approche vers l’accord suivant', () => {
-  const evs = chordsOf([[[57, 60, 64], 'min'], [[53, 57, 60], 'maj']]); // Am – F
-  const b = gen('bass-b01', evs, Am);
-  const bar1 = b.filter((e) => e.step < 16);
-  assert.equal(bar1.length, 8);
-  assert.ok(bar1.slice(0, 7).every((e) => pc(e.notes[0]) === 9), 'La sur les sept premières croches');
-  assert.ok(pc(bar1[7].notes[0]) !== 9, 'la dernière croche approche le Fa');
-  assert.ok(Math.abs(bar1[7].notes[0] - b.find((e) => e.step === 16).notes[0]) <= 2, 'approche à un degré du Fa');
-  assert.ok(bar1[0].vel > bar1[4].vel && bar1[4].vel > bar1[2].vel && bar1[2].vel > bar1[1].vel, '1er temps > 3e > 2e > contretemps');
-  // dernière mesure : pas d'accord suivant, pas d'approche
-  assert.ok(b.filter((e) => e.step >= 16).every((e) => pc(e.notes[0]) === 5));
-});
-
-test('B02 : noires alternées fondamentale / quinte au-dessus (La2 – Mi3 sur Am)', () => {
-  const b = gen('bass-b02', chordsOf([[[57, 60, 64], 'min']]), Am);
-  assert.deepEqual(b.map((e) => [e.step, e.len]), [[0, 4], [4, 4], [8, 4], [12, 4]]);
-  assert.equal(b[1].notes[0] - b[0].notes[0], 7);
-  assert.equal(b[0].notes[0], 45, 'La2');
+test('B03 est un mode de basse de l’assistant', () => {
+  assert.ok(SS.bandSong.BASS_NEW.some((b) => b[0] === 'b03'));
 });
 
 test('B03 : ligne conjointe sur C – G – Am – F : Do, Si, La… (la basse choisit la note de l’accord la plus proche)', () => {
-  const evs = chordsOf([[[60, 64, 67], 'maj'], [[55, 59, 62], 'maj'], [[57, 60, 64], 'min'], [[53, 57, 60], 'maj']]);
-  const line = gen('bass-b03', evs, C).filter((e) => e.step % 16 === 0).map((e) => e.notes[0]);
+  const line = gen('b03', spansOf([ch(0, 'maj'), ch(7, 'maj'), ch(9, 'min'), ch(5, 'maj')]), C).filter((e) => e.step % 16 === 0).map((e) => e.notes[0]);
   assert.deepEqual(line.slice(0, 3).map(pc), [0, 11, 9], 'Do – Si – La');
   for (let i = 1; i < line.length; i++) assert.ok(Math.abs(line[i] - line[i - 1]) <= 2, `mouvement conjoint ${line[i - 1]} → ${line[i]}`);
-  // basse imposée (C/E) respectée
-  const slash = [{ step: 0, len: 16, notes: [52, 60, 64, 67], chord: 'maj' }];
-  assert.equal(pc(gen('bass-b03', slash, C)[0].notes[0]), 4);
-});
-
-test('B04 : pédale de tonique sous Am – F – Dm – E7, une attaque par mesure', () => {
-  const evs = chordsOf([[[57, 60, 64], 'min'], [[53, 57, 60], 'maj'], [[50, 53, 57], 'min'], [[52, 56, 59, 62], '7']]);
-  const b = gen('bass-b04', evs, Am);
-  assert.equal(b.length, 4);
-  assert.ok(b.every((e) => e.notes[0] === b[0].notes[0] && pc(e.notes[0]) === 9 && e.len === 16));
+  assert.equal(pc(gen('b03', spansOf([ch(0, 'maj', 4)]), C)[0].notes[0]), 4, 'basse imposée (C/E) respectée');
 });
 
 test('A03 : arpège huit pas, pool redéfini à chaque accord (1 2 3 4 3 2 3 2)', () => {

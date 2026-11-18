@@ -311,8 +311,9 @@ test('nouveaux modes de basse : pas de la premiÃ¨re mesure, bornes, registre, pÃ
     oct16: Array.from({ length: 16 }, (_, s) => s),
     pickup: [0, 14],
     funk: [0, 3, 6, 7, 10, 12, 14],
+    b03: [0],
   };
-  const SINGLE = ['tresillo', 'trance', 'sixteen', 'oct16', 'pickup'];
+  const SINGLE = ['tresillo', 'trance', 'sixteen', 'oct16', 'pickup', 'b03'];
   for (const [mode, steps] of Object.entries(NEW)) {
     const sc = scene(build({ a: { bass: { mode } } }));
     const ev = sc.data.bass.events;

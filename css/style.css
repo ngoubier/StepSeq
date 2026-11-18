@@ -166,7 +166,7 @@ a.btn { text-decoration: none; }
 .app-menu button:hover small, .app-menu button:focus-visible small { color: rgba(255, 255, 255, .75); }
 .app-menu kbd { font: inherit; font-size: 11px; color: var(--muted); }
 .app-menu button:hover kbd, .app-menu button:focus-visible kbd { color: rgba(255, 255, 255, .75); }
-/* Nouvelle, Harmonie, Song, Mix : regroupés */
+/* Nouvelle, Tonalité, Song, Mix : regroupés */
 .topbar-group.studio {
   display: grid;
   grid-auto-flow: column;
@@ -177,7 +177,7 @@ a.btn { text-decoration: none; }
   background: var(--panel);
 }
 .topbar-group.studio { padding: 4px; border-radius: 12px; }
-/* Nouvelle, Harmonie, Song, Mix : titre en gras et sous-titre (Créer · Reprendre, tonalité, scène, console) */
+/* Nouvelle, Tonalité, Song, Mix : titre en gras et sous-titre (Créer · Reprendre, tonalité, scène, console) */
 .studio-btn { height: 54px; padding: 0 14px 0 12px; justify-content: flex-start; gap: 10px; min-width: 150px; border-radius: 9px; }
 .studio-btn .sb-ico svg { width: 22px; height: 22px; display: block; }
 .sb-txt { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; min-width: 0; }
@@ -1891,7 +1891,7 @@ dialog.arp-dialog { width: min(860px, calc(100vw - 32px)); }
   .arp-cell em { display: none; }
 }
 
-/* ---------- Harmonie : tonalité, palette d'accords, analyse ---------- */
+/* ---------- Tonalité, palette d'accords ---------- */
 .roll-row.in-key .rcell:not(.on) { background: #222229; }
 .roll-row.in-key.black .rcell:not(.on) { background: #1d1d24; }
 .roll-row.out-key .rcell:not(.on) { background: #18181b; }
@@ -1909,64 +1909,12 @@ dialog.arp-dialog { width: min(860px, calc(100vw - 32px)); }
 .role-repos { --role: #3fcf8e; }
 .role-prep { --role: #f5c400; }
 .role-tension { --role: #ff6b6b; }
-.pal-chip.borrowed, .hm-chord.borrowed { border-style: dashed; }
+.pal-chip.borrowed { border-style: dashed; }
 
-/* Fenêtre Harmonie : hauteur fixe, seul le contenu de l'onglet (ou de l'étape) défile */
-dialog.hm-dialog { width: min(1240px, calc(100vw - 32px)); height: min(960px, calc(100vh - 32px)); max-width: none; max-height: none; }
-.hm-dialog form { padding: 0; gap: 0; height: 100%; }
-.hm-top { display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 16px; border-bottom: 1px solid var(--line); flex: none; }
-.hm-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding: 8px 16px; background: var(--panel-2); border-bottom: 1px solid var(--line); flex: none; }
-.hm-key-label { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-right: 2px; }
-/* résultat de « Détecter » : tonalité estimée et accords reconnus */
-.hm-detect { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 16px; background: #1d2a3a; border-bottom: 1px solid #2f4b6e; font-size: 13px; flex: none; }
-.hm-detect b { color: #cfe4ff; }
-.hm-detect .hm-dchords { display: flex; flex-wrap: wrap; gap: 4px; }
-.hm-detect .hm-dchord { display: inline-flex; flex-direction: column; align-items: center; padding: 2px 8px; border-radius: 6px; background: rgba(0, 0, 0, .25); line-height: 1.2; }
-.hm-detect .hm-dchord small { font-size: 10px; color: var(--muted); }
-.hm-detect .hm-dchord.off { box-shadow: inset 0 0 0 1px #ffb36b; }
-.hm-detect .spacer { flex: 1; }
-.hm-detect-x { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 16px; padding: 0 4px; }
-.hm-top h2 { margin: 0; font-size: 17px; }
-.hm-scenepick select { max-width: 160px; }
-.hm-key { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.hm-key select, .hm-dialog select { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; height: 28px; padding: 0 6px; font: inherit; font-size: 13px; }
-.hm-x { width: 34px; height: 34px; }
-.hm-tabs { display: flex; gap: 2px; padding: 0 12px; border-bottom: 1px solid var(--line); overflow-x: auto; flex: none; }
-.hm-tabs button { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--muted); padding: 9px 12px 8px; font: inherit; cursor: pointer; white-space: nowrap; }
-.hm-tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent-2); }
-.hm-tabs button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: -2px; }
-.hm-tabs small { margin-left: 6px; font-size: 11px; color: #ffb36b; }
-.hm-body { flex: 1; min-height: 0; overflow: auto; padding: 14px 16px; }
-.hm-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 16px; border-top: 1px solid var(--line); flex: none; }
-.hm-foot-info { margin-right: auto; color: var(--muted); font-size: 13px; }
-.hm-foot .hm-muted { margin-right: auto; }
-.hm-foot .hm-foot-info + .hm-muted { margin-right: 0; }
+/* Cartes de grilles, contrôles et accords (assistant Nouvelle chanson, js/band.js) */
 .hm-lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin-bottom: 6px; }
-.hm-q { font-size: 16px; font-weight: 600; margin: 0 0 4px; }
-.hm-stack { display: flex; flex-direction: column; gap: 18px; }
-.hm-stack .hm-muted { margin-top: 6px; }
-.hm-note.color { border-color: #b48cff; }
 
-/* Ambiance : échelle des modes (gauche), exemples (droite) */
-.hm-amb { display: grid; grid-template-columns: minmax(230px, 290px) 1fr; gap: 18px; }
-.hm-amb > * { min-width: 0; }
-.hm-modes { display: flex; flex-direction: column; gap: 3px; position: relative; padding-left: 12px; }
-.hm-modes::before { content: ""; position: absolute; left: 0; top: 4px; bottom: 4px; width: 4px; border-radius: 2px; background: linear-gradient(#f2d27a, #d7a95a 30%, #8fa6c9 50%, #6b6aa6 75%, #5a4a8a); }
-.hm-mode { padding: 6px 8px; border-radius: 8px; border: 1px solid transparent; }
-.hm-mode.on { background: var(--panel-2); border-color: var(--line); }
-.hm-mode-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; margin-bottom: 4px; }
-.hm-mode-h b { font-size: 13px; }
-.hm-mode-h span { font-size: 12px; color: var(--muted); }
-.hm-mode .chips { gap: 4px; }
-.hm-mode .chip { font-size: 12px; padding: 2px 10px; }
 .emo-chip.current { box-shadow: inset 0 0 0 1px #b48cff; }
-.hm-ex-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
-.hm-ex-head h3 { margin: 0; font-size: 17px; }
-.hm-ex-head span { color: var(--muted); font-size: 13px; }
-.hm-cur { font-style: normal; font-size: 11px; padding: 1px 8px; border-radius: 10px; background: #4b2d7a; color: #e3d4ff; }
-.hm-color { color: var(--muted); font-size: 13px; margin: 4px 0 10px; }
-.hm-color b { color: #d9b26a; font-weight: 600; }
-.hm-exs { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
 .hm-ex { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); }
 .hm-ex.pick { cursor: pointer; }
 .hm-ex.pick:hover { border-color: var(--muted); }
@@ -1975,133 +1923,35 @@ dialog.hm-dialog { width: min(1240px, calc(100vw - 32px)); height: min(960px, ca
 .hm-ex-meta { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 .hm-ex-btns { margin-left: auto; display: flex; gap: 6px; }
 .hm-why { margin: 0; color: var(--muted); font-size: 12.5px; }
-.hm-more { margin-top: 12px; font-size: 13px; }
-.hm-more summary { cursor: pointer; color: #8fc3ff; margin-bottom: 8px; }
-.hm-more > * + * { margin-top: 10px; }
 
-/* Assistant */
-.hm-steps { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 16px; border-bottom: 1px solid var(--line); flex: none; }
-.hm-st { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--muted); }
-.hm-st + .hm-st::before { content: "›"; color: var(--line); margin: 0 6px 0 4px; }
-.hm-st i { font-style: normal; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--panel-3); font-size: 12px; }
-.hm-st.on { color: var(--text); } .hm-st.on i { background: var(--accent); }
-.hm-st.past i { background: #3fb27f; color: #10241a; }
-.hm-emogrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-top: 12px; }
-.hm-emo { position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 4px; padding: 10px 10px 10px 14px; text-align: left; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); color: var(--text); font: inherit; cursor: pointer; }
-.hm-emo::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--lum); }
-.hm-emo:hover { border-color: var(--muted); }
-.hm-emo.on { border-color: var(--accent-2); background: #1d2a3a; }
-.hm-emo b { font-size: 14px; }
-.hm-emo span { font-size: 11.5px; color: var(--muted); }
-.hm-checks { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
-.hm-check { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); }
-.hm-check > div { flex: 1 1 200px; min-width: 0; }
-.hm-check small { display: block; color: var(--muted); font-size: 12px; }
-.hm-check input[type=checkbox] { accent-color: var(--accent-2); }
-
-/* Couches */
-.hm-src { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 14px; }
-.hm-layers { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-bottom: 12px; }
-.hm-layer { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); }
-.hm-layer h4 { margin: 0; font-size: 15px; display: flex; justify-content: space-between; align-items: baseline; }
-.hm-layer h4 small { color: var(--muted); font-weight: 400; font-size: 12px; }
-.hm-layer p { min-height: 34px; }
-.hm-layer select { width: 100%; }
-.hm-layer .field select { flex: 1; min-width: 0; }
-
-/* Vérifier */
-.hm-ver { gap: 8px; }
-.hm-scene-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
-.hm-scene-h b { font-size: 14px; }
-.hm-scene.current { border-top-color: var(--accent-2); }
 .hm-pill { margin-left: auto; font-size: 11px; padding: 1px 8px; border-radius: 10px; }
 .hm-pill.ok { background: rgba(63, 178, 127, .18); color: #8fe3b5; }
 .hm-pill.warn { background: rgba(255, 107, 107, .18); color: #ffc9c9; }
 .hm-pill.none { background: var(--panel-3); color: var(--muted); }
-@media (max-width: 760px) {
-  .hm-amb { grid-template-columns: 1fr; }
-}
 .hm-muted { color: var(--muted); font-size: 13px; margin: 0; }
-.hm-empty { color: var(--muted); margin: 0; }
-.hm-sec { gap: 8px !important; }
-.hm-sec h3 { margin: 6px 0 0; font-size: 14px; display: flex; align-items: center; gap: 10px; }
-.hm-sec h3 small { color: var(--muted); font-weight: 400; }
-.hm-scale { display: flex; flex-wrap: wrap; gap: 6px; }
-.hm-note { display: flex; flex-direction: column; align-items: center; min-width: 52px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); }
-.hm-note b { font-size: 16px; }
-.hm-note small { color: var(--muted); }
-.hm-note.tonic { border-color: var(--accent-2); box-shadow: inset 0 0 0 1px var(--accent-2); }
-.hm-chords { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
-.hm-chord {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 10px;
-  border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); color: var(--text);
-  font: inherit; text-align: left; cursor: pointer; box-shadow: inset 0 -3px 0 var(--role, transparent);
-}
-.hm-chord:hover { border-color: var(--accent-2); }
-.hm-chord b { font-size: 15px; }
-.hm-chord .hm-name { font-size: 14px; }
-.hm-chord small { color: var(--muted); font-size: 12px; }
-.hm-chord em { font-style: normal; font-size: 11px; color: var(--role); }
-.hm-scene { border-top: 1px solid var(--line); padding-top: 8px; display: flex; flex-direction: column; gap: 6px; }
-.hm-scene h4 { margin: 0; font-size: 13px; }
-.hm-prog { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 13px; }
-.hm-track { color: var(--muted); min-width: 140px; }
 .hm-step { display: inline-flex; flex-direction: column; align-items: center; padding: 2px 8px; border-radius: 6px; background: var(--panel-2); border: 1px solid var(--line); }
 .hm-step b { font-size: 11px; color: var(--muted); font-weight: 600; }
 .hm-step.st-emprunt { border-style: dashed; border-color: #f5c400; }
 .hm-step.st-chromatique, .hm-step.st-inconnu { border-color: #ff6b6b; }
-.hm-remarks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
-.hm-remarks li { display: flex; gap: 10px; align-items: flex-start; }
-.hm-remarks small { color: var(--muted); }
-.hm-badge { flex: none; font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--panel-3); }
-.k-warn .hm-badge { background: #5a2a2a; color: #ffc9c9; }
-.k-info .hm-badge { background: #4d4316; color: #ffe9a3; }
-.k-tip .hm-badge { background: #1f3a5c; color: #cfe4ff; }
-.hm-ok { color: #8fe3b5; margin: 0; font-size: 13px; }
-@media (max-width: 760px) {
-  .hm-track { min-width: 0; width: 100%; }
-}
-.hm-target, .hm-gen { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-.hm-progs { display: flex; flex-direction: column; gap: 6px; }
-.hm-progrow { display: grid; grid-template-columns: minmax(170px, 1fr) auto auto auto; align-items: center; gap: 10px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); }
-.hm-proglabel { display: flex; flex-direction: column; }
-.hm-proglabel small { color: var(--muted); }
 .hm-progchords { display: flex; flex-wrap: wrap; gap: 4px; }
 .hm-progchords .hm-step { box-shadow: inset 0 -2px 0 var(--role, transparent); }
 .hm-step.borrowed { border-style: dashed; }
-@media (max-width: 760px) { .hm-progrow { grid-template-columns: 1fr auto auto; } .hm-progchords { grid-column: 1 / -1; grid-row: 2; } }
+@media (max-width: 760px) { .hm-progchords { grid-column: 1 / -1; grid-row: 2; } }
 
 /* ---------- Émotion (skill MusicEmotion) ---------- */
 .role-color { --role: #b48cff; }
-.hm-emo .chips { gap: 6px; }
 .emo-chip.active { background: #4b2d7a; border-color: #b48cff; }
 .emo-card { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
-.emo-dims { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
-.emo-dim { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
-.emo-dim small { color: var(--muted); }
-.emo-dim i { width: 70px; height: 6px; border-radius: 3px; background: linear-gradient(90deg, #b48cff var(--v), var(--panel-3) var(--v)); }
-.emo-dim b { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 22px; }
-.emo-matrix { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0; font-size: 13px; }
-.emo-matrix dt { color: var(--muted); }
-.emo-matrix dd { margin: 0; }
 .emo-opt { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
-.emo-prop .hm-proglabel { gap: 3px; }
-.emo-prop .hm-proglabel small { line-height: 1.35; }
 .emo-caveat { color: #d9b26a !important; }
 .emo-kind { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 10px; margin-right: 4px; vertical-align: 1px; }
 .emo-kind.k-evidence { background: #1f3a5c; color: #cfe4ff; }
 .emo-kind.k-nuance { background: #3d2d5c; color: #e3d4ff; }
 .emo-kind.k-surprise { background: #5a3a16; color: #ffe0b0; }
-.emo-ab { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
-.emo-ab .chip.emo-rec { border-color: #b48cff; }
-.emo-ab .chip:disabled, #hmEmoMel:disabled { opacity: .45; cursor: not-allowed; }
 .emo-prop { grid-template-columns: minmax(260px, 1.4fr) auto auto auto; }
 @media (max-width: 760px) {
-  .emo-prop, .hm-progrow { grid-template-columns: 1fr auto auto; }
-  .emo-prop .hm-proglabel, .hm-progrow .hm-proglabel { grid-column: 1 / -1; }
-  .emo-prop .hm-progchords, .hm-progrow .hm-progchords { grid-column: 1; grid-row: 2; }
-  .emo-matrix { grid-template-columns: 1fr; }
-  .emo-matrix dd { margin-bottom: 4px; }
+  .emo-prop { grid-template-columns: 1fr auto auto; }
+  .emo-prop .hm-progchords { grid-column: 1; grid-row: 2; }
 }
 
 /* Arpégiateur : lecteur + écran Simple (inspiré de l'Arpeggiator d'Ableton) */
@@ -2612,7 +2462,7 @@ svg.g-big { width: 100%; height: auto; background: #1d1d22; border-radius: 8px; 
 .bw-roll-ph[hidden] { display: none; }
 .bw-rempty { position: absolute; inset: 40px 0 auto; margin: 0; text-align: center; font-size: 13px; color: var(--muted); }
 @media (max-width: 700px) { .bw-rbody { height: 110px; } .bw-rc { padding: 0 3px; font-size: 11px; } }
-/* étape Accords : la grille de la scène, comme dans Harmonie */
+/* étape Accords : la grille de la scène */
 .bwc { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 12px; padding-bottom: 14px; }
 .bwc-head h3 { margin: 0; font-size: 18px; }
 .bwc-head .field select { min-width: 0; }
@@ -2691,8 +2541,6 @@ svg.g-big { width: 100%; height: auto; background: #1d1d22; border-radius: 8px; 
 .bwa-surprise:hover { background: #26a863; }
 .bwa-knobs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .bwa-knob { padding: 12px 8px; }
-@media (max-width: 1000px) {
-}
 @media (max-width: 760px) {
   .bwp-dgrid { grid-template-columns: 30px repeat(16, minmax(0, 1fr)); gap: 2px; }
   .bwp-ln span { display: none; }
@@ -2867,7 +2715,6 @@ dialog.songs-dialog { width: min(760px, calc(100vw - 32px)); height: min(640px, 
 .gr-lane { position: relative; height: 64px; }
 .gr-bl { position: absolute; top: 0; bottom: 0; border-left: 1px solid #48484e; }
 .gr-bt { position: absolute; top: 0; bottom: 0; border-left: 1px dashed #333338; }
-.gr-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 13px; pointer-events: none; }
 .gr-blk {
   position: absolute; top: 6px; bottom: 6px; border-radius: 8px; padding: 4px 8px; overflow: hidden; cursor: grab;
   display: flex; flex-direction: column; justify-content: center;
@@ -2891,9 +2738,6 @@ dialog.songs-dialog { width: min(760px, calc(100vw - 32px)); height: min(640px, 
 }
 .gr-fly.out { border-color: #ff6b6b; text-decoration: line-through; }
 .gr-ph { position: absolute; top: 0; bottom: 0; width: 2px; background: #3fcf8e; pointer-events: none; }
-.gr-pv { position: relative; height: 20px; border-top: 1px solid var(--line); background: #1d1d20; overflow: hidden; }
-.gr-pv label { position: absolute; left: 6px; top: 3px; z-index: 1; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; background: #1d1d20cc; padding: 0 3px; border-radius: 3px; }
-.gr-pv i { position: absolute; height: 2px; border-radius: 1px; background: var(--c); }
 .gr-pv-bass { --c: #3fcf8e; }
 .gr-pv-comp { --c: #2b8cff; }
 .gr-pv-arp { --c: #b48cff; }
@@ -2932,13 +2776,6 @@ dialog.songs-dialog { width: min(760px, calc(100vw - 32px)); height: min(640px, 
 .gr-chip:hover { background: color-mix(in srgb, var(--role) 18%, transparent); color: #fff; }
 .gr-chip.borrowed { border-style: dashed; }
 .gr-no { justify-self: center; color: #4a4a50; }
-.gr-layer.off > :not(h4) { opacity: .45; }
-.gr-layer h4 label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
-.gr-layer h4 input { accent-color: var(--accent-2); }
-.gr-arpinfo { margin: 0; }
-.gr-auto { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); cursor: pointer; }
-.gr-auto input { accent-color: var(--accent-2); }
-.gr-sum { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
 @media (max-width: 640px) {
   .gr-adv { grid-template-columns: minmax(100px, 1fr) repeat(8, minmax(64px, 1fr)) !important; }
 }
@@ -3087,7 +2924,7 @@ body[data-grid="half"] .rcell.half:not(.on) { border-left-color: #333338; }
   .topbar .field > span { display: none; }
   .topbar .field input[type=number] { width: 54px; }
   .topbar .field select, .topbar .field input { padding: 5px 4px; }
-  /* Nouvelle, Harmonie, Song, Mix : quatre colonnes égales */
+  /* Nouvelle, Tonalité, Song, Mix : quatre colonnes égales */
   .topbar-group.studio { gap: 3px; padding: 3px; }
   .studio-btn { min-width: 0; height: 46px; padding: 0 6px; gap: 5px; border-radius: 8px; }
   .studio-btn .sb-ico svg { width: 17px; height: 17px; }
@@ -3126,7 +2963,7 @@ body[data-grid="half"] .rcell.half:not(.on) { border-left-color: #333338; }
 }
 
 /* Téléphone à l'horizontale (peu de hauteur) : barre du haut sur deux lignes, sans le panneau d'arrangement
-   (la fenêtre Song reste à un clic), boutons Nouvelle / Harmonie / Song / Mix sans sous-titre. */
+   (la fenêtre Song reste à un clic), boutons Nouvelle / Tonalité / Song / Mix sans sous-titre. */
 @media (max-height: 500px) and (max-width: 1000px) {
   .topbar { padding: 6px 10px; gap: 6px 10px; }
   .topbar-group:first-child { order: 1; flex: 0 1 230px; min-width: 0; flex-wrap: nowrap; }
@@ -3566,7 +3403,7 @@ dialog.system-dialog { width: min(920px, calc(100vw - 24px)); max-height: calc(1
   .system-footer button { width: 100%; }
 }
 
-/* ---------- Atelier Mélodie (js/melodypanel.js, dans Harmonie → Chanson) ---------- */
+/* ---------- Atelier Mélodie (js/melodypanel.js, étape Mélodie de l'assistant) ---------- */
 .mel-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(320px, 420px) 1fr; }
 .mel-form { min-width: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; border-right: 1px solid var(--line); overflow-y: auto; min-height: 0; }
 .mel-form textarea, .mel-form input[type=text], .mel-form select {
@@ -3656,11 +3493,7 @@ dialog.system-dialog { width: min(920px, calc(100vw - 24px)); max-height: calc(1
 .mel-more[open], .mel-details[open] { display: flex; flex-direction: column; gap: 10px; padding-bottom: 10px; }
 .mel-lead { font-size: 14px !important; }
 
-/* ---------- Harmonie → onglet Mélodie (le panneau de Band) et Vérifier ---------- */
-.hm-body:has(> .hm-mel) { padding: 0; overflow: hidden; display: flex; }
-.hm-mel { flex: 1; min-height: 0; display: flex; }
-@media (min-width: 901px) { .hm-mel .mel-body { grid-template-columns: minmax(300px, 360px) 1fr; } }
-@media (max-width: 900px) { .hm-body:has(> .hm-mel) { overflow-y: auto; } }
+/* ---------- Assistant : Vérifier la scène ---------- */
 .mel-play { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
 .mel-roll-wrap { position: relative; }
 .mel-roll .mel-ph { stroke: #ffb347; stroke-width: 3; vector-effect: non-scaling-stroke; pointer-events: none; }
@@ -3677,48 +3510,29 @@ dialog.system-dialog { width: min(920px, calc(100vw - 24px)); max-height: calc(1
 .hm-checks2 .k-tip .ck { background: #4a6fa5; }
 .hm-checks2 .k-info .ck { background: #6b6b75; }
 
-/* ---------- Harmonie → Ambiance : grilles de référence (SS.EMOTION_LIBRARY) ---------- */
+/* ---------- Grilles de référence (SS.EMOTION_LIBRARY) ---------- */
 .emo-kind.k-ref { background: #1f4a3c; color: #c8f2df; }
 .hm-ref-l { font-size: 13px; }
 .hm-ex.ref { padding-top: 8px; padding-bottom: 8px; }
-.hm-why.hm-src { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: 12px; }
-.hm-why.hm-src a { color: var(--accent-2, #6cb6ff); }
-.hm-emo-st { color: var(--muted); }
-.emo-tag { font-size: 11px; padding: 1px 8px; }
 .emo-chip small { margin-left: 5px; font-size: 10px; opacity: .65; }
-.hm-mode.used { border-color: var(--line); border-style: dashed; }
-.hm-all { align-self: flex-start; margin-bottom: 8px; font-size: 12px; }
-.hm-amb-l { display: flex; flex-direction: column; }
-.hm-modes-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 0; font-size: 12px; }
-.hm-mchip { padding: 1px 8px; border-radius: 10px; background: var(--panel-3); }
-.hm-mchip.main { outline: 1px solid var(--line); }
-.hm-mchip b { opacity: .7; margin-left: 2px; }
-.hm-lib-g { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
-.hm-legend { padding: 0 6px; border-radius: 6px; border: 1px solid var(--role); color: var(--role); }
-.hm-lex { margin-top: 10px; }
 .hm-ex.ref .hm-why { margin: 2px 0 0; }
 
-/* Les contrôles d’Harmonie ne doivent pas hériter de sa hauteur compacte de 28 px. */
-.hm-dialog .mel-form select, .mel-form select {
+/* Les listes de l’atelier Mélodie ne doivent pas hériter de la hauteur compacte de 28 px. */
+.mel-form select {
   height: auto; min-height: 36px; line-height: 1.4; padding: 7px 8px;
   min-width: 0; max-width: 100%; flex-shrink: 0;
 }
 .mel-form select { text-overflow: ellipsis; }
 .mel-more > * { flex-shrink: 0; }
 .mel-play { flex-wrap: wrap; }
-.hm-mel, .mel-body { min-width: 0; }
+.mel-body { min-width: 0; }
 
-/* Harmonie : une grille commune au-dessus des deux ateliers de la chanson. */
-.hm-song > section { min-width: 0; }
-.song-tabs { padding: 0; flex: none; }
-.song-chords { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
-.song-melody { display: block; min-width: 0; }
-.hm-song .mel-body, .bw-melpanel .mel-body { display: flex; flex-direction: column; min-height: auto; }
-.hm-song .mel-form, .bw-melpanel .mel-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 18px; padding: 0 0 14px; border-right: 0; border-bottom: 1px solid var(--line); overflow: visible; }
-.hm-song .mel-more, .bw-melpanel .mel-more { grid-column: 1 / -1; }
-.hm-song .mel-more .mel-grid2, .bw-melpanel .mel-more .mel-grid2 { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
-.hm-song .mel-out, .bw-melpanel .mel-out { padding: 14px 0 0; overflow: visible; }
-.hm-song .mel-empty, .bw-melpanel .mel-empty { margin: 18px auto; }
+.bw-melpanel .mel-body { display: flex; flex-direction: column; min-height: auto; }
+.bw-melpanel .mel-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 18px; padding: 0 0 14px; border-right: 0; border-bottom: 1px solid var(--line); overflow: visible; }
+.bw-melpanel .mel-more { grid-column: 1 / -1; }
+.bw-melpanel .mel-more .mel-grid2 { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
+.bw-melpanel .mel-out { padding: 14px 0 0; overflow: visible; }
+.bw-melpanel .mel-empty { margin: 18px auto; }
 /* Assistant Nouvelle chanson, étape Mélodie : la page défile d'un bloc (grille, source, panneau, accompagnement) */
 .bh-main.bw-mel { overflow-y: auto; padding-bottom: 14px; }
 .bw-mel > .bh-scroll { flex: none; overflow-x: auto; overflow-y: hidden; }
@@ -3738,7 +3552,7 @@ dialog.system-dialog { width: min(920px, calc(100vw - 24px)); max-height: calc(1
 .mel-audition legend { font-size: 11px; color: var(--muted); padding: 0 0 5px; }
 .mel-audition label { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer; }
 @media (max-width: 760px) {
-  .hm-song .mel-form, .hm-song .mel-more .mel-grid2, .bw-melpanel .mel-form, .bw-melpanel .mel-more .mel-grid2 { grid-template-columns: 1fr; }
+  .bw-melpanel .mel-form, .bw-melpanel .mel-more .mel-grid2 { grid-template-columns: 1fr; }
   .mel-preview-controls { align-items: flex-start; flex-direction: column; gap: 6px; }
 }
 
@@ -4143,9 +3957,6 @@ dialog.help-dialog::backdrop { background: #0008; }
 .cl-note { color: var(--muted); font-size: 12px; margin: 0; padding: 0 4px; }
 
 /* ---------- Mélodie : profil de l'émotion (js/melody-profiles.js, js/melodypanel.js) ---------- */
-.btn-outline { background: transparent; border: 1px solid var(--accent-2); color: #6cb6ff; }
-.btn-outline:hover:not(:disabled) { background: rgba(43, 140, 255, .12); }
-.btn-outline:disabled { opacity: .45; cursor: default; }
 .mel-intent { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border-radius: 10px; background: var(--panel-2); border: 1px solid #0a64b4; min-width: 0; }
 .mel-intent.off { border-color: var(--line); }
 .mel-intent-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
@@ -4193,14 +4004,9 @@ svg.mel-contour.big { width: 150px; height: 54px; }
 .mel-metric { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 9px; background: var(--panel-2); border: 1px solid var(--line); }
 .mel-metric span, .mel-metric small { font-size: 11.5px; color: var(--muted); }
 .mel-metric b { font-size: 14px; font-weight: 600; }
-.hm-melcard { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; margin: 4px 0 12px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--line); }
-.hm-melcard-in { display: flex; gap: 16px; align-items: center; }
-.hm-melcard .emo-matrix { margin: 6px 0 0; }
-.hm-melcard .btn { align-self: flex-start; }
 @media (max-width: 760px) {
   .mel-intent-body, .mel-motifrow { grid-template-columns: 1fr; }
   .mel-fine-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .hm-melcard-in { flex-direction: column; align-items: flex-start; }
 }
 
 /* ================================================================== */
@@ -4323,7 +4129,7 @@ body.wizard-mode #bandDialog.band-dialog { display: flex; flex-direction: column
 /* mode assistant : le reste de la fenêtre principale s'efface (pistes, arrangement, console, barre du bas) */
 body.wizard-mode #workspace, body.wizard-mode #songDock, body.wizard-mode #mixer, body.wizard-mode .bottombar,
 body.wizard-mode #keyBtn, body.wizard-mode #songBtn, body.wizard-mode #mixerBtn { display: none; }
-/* la tonalité de la chanson en création remplace Harmonie et Song dans la barre */
+/* la tonalité de la chanson en création remplace Tonalité et Song dans la barre */
 .wiz-key { display: none; }
 body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); }
 .wiz-key .sb-txt { display: flex; flex-direction: column; gap: 1px; line-height: 1.15; }
