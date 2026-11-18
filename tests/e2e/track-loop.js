@@ -94,6 +94,7 @@ const demo = JSON.parse(fs.readFileSync(path.join(ROOT, 'demos', 'train-de-nuit.
 
   // ligne d'automation sous la piste : Tout effacer (pas de boucle ici)
   await page.locator('.th-auto').nth(idx).click();
+  await page.locator('.ba-menu button').last().click(); // menu Automation : ligne par pas
   await page.waitForTimeout(300);
   ok((await page.locator('.auto-lane .auto-loop').count()) === 0 && (await page.locator('.auto-lane .auto-clear-all').count()) === 1, 'automation : bouton Tout effacer, pas de boucle');
   await page.selectOption('.auto-lane .auto-shape', { index: 1 });

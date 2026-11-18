@@ -186,7 +186,7 @@ SS.filters = (() => {
   /**
    * Filtre d'une voix. Renvoie { input, output, freqs, detunes } où `freqs` liste les AudioParam de fréquence
    * à automatiser (l'enveloppe de filtre les pilote tous de la même façon) et `detunes` les décalages en cents
-   * (modulation par LFO).
+   * (modulation par LFO), `qs` les résonances [{ param, base }] (automation par temps, js/beatauto.js).
    * Si le module n'est pas encore prêt, ladder / SEM retombent sur le 24 dB.
    */
   function create(ctx, p) {
@@ -207,7 +207,8 @@ SS.filters = (() => {
       });
       node.parameters.get('q').value = Math.max(0, p.q);
       node.parameters.get('drive').value = Math.max(0, Math.min(1, p.fdrive ?? 0.5));
-      return { input: node, output: node, freqs: [node.parameters.get('frequency')], detunes: [node.parameters.get('detune')] };
+      const qp = node.parameters.get('q');
+      return { input: node, output: node, freqs: [node.parameters.get('frequency')], detunes: [node.parameters.get('detune')], qs: [{ param: qp, base: qp.value, max: 40 }] };
     }
     const bq = (q) => {
       const f = ctx.createBiquadFilter();
@@ -217,11 +218,13 @@ SS.filters = (() => {
     };
     const q = Math.max(0.0001, p.q);
     const f1 = bq(q);
-    if (model !== '24db') return { input: f1, output: f1, freqs: [f1.frequency], detunes: [f1.detune] };
+    const qs = [{ param: f1.Q, base: q, max: 30 }];
+    if (model !== '24db') return { input: f1, output: f1, freqs: [f1.frequency], detunes: [f1.detune], qs };
     // 24 dB : deuxième étage sans pic (Q en dB pour passe-bas / passe-haut : -3 dB ≈ Butterworth)
     const f2 = bq(type === 'lowpass' || type === 'highpass' ? -3 : q);
     f1.connect(f2);
-    return { input: f1, output: f2, freqs: [f1.frequency, f2.frequency], detunes: [f1.detune, f2.detune] };
+    if (!(type === 'lowpass' || type === 'highpass')) qs.push({ param: f2.Q, base: q, max: 30 });
+    return { input: f1, output: f2, freqs: [f1.frequency, f2.frequency], detunes: [f1.detune, f2.detune], qs };
   }
 
   return { load, ready, create };

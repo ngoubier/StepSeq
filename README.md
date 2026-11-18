@@ -874,6 +874,16 @@ au pas suivant), enfoncée tout du long. Une courbe avant son premier point pren
 boucle (`SS.autoValue(…, hold)`). Les courbes MIDI seules ne créent pas de nœuds audio sur la tranche.
 - Sur téléphone, le bouton ∿ est masqué ; les courbes posées restent jouées.
 
+
+### Automation par temps : cutoff, résonance, vélocité sur toute la chanson
+
+Le menu du bouton **∿** active aussi des courbes **par temps** qui suivent l'arrangement (pas la boucle d'une scène) :
+un panneau sous les notes de la piste (histogramme, une barre par temps, courbe lissée par-dessus), affiché
+seulement quand une de ces courbes est active, et les mêmes courbes sous la frise de la fenêtre Song.
+Données : `project.song[i].bauto[trackId][réglage][répétition] = { temps: valeur }` ; moteur `SS.beatAuto`
+(`js/beatauto.js` : passages, spline monotone, liaison des voisines), interface `SS.beatAutoUI` (`js/beatautoui.js`).
+Cutoff (−4…+4 octaves) et résonance (×0…×3) pilotent le filtre de la voix pendant la note (`beatAutoVoice` dans
+`js/audio.js`) ; la vélocité (40…130 %) multiplie celle des notes et des coups de batterie.
 ### Conditions de déclenchement
 
 Inspirées des « trig conditions » des machines Elektron (et de la probabilité des notes d'Ableton Live) : une note
