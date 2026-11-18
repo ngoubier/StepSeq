@@ -59,6 +59,7 @@
  * mélodie du premier instrument mélodique, une octave au-dessus ou une tierce diatonique au-dessus) ; drums
  * (instrument mélodique) { mode: both | kick | snare, pattern, style, edits } ; kit de batterie { pattern, style,
  * edits, fill, fillType, crash } (clé : id de la pièce ou id du musicien) ; off : true coupe l'instrument dans la scène.
+ * Piste Effets (rôle fx, sans type) : parts[section].fx = { mode, level, every, color, len, filter, dlen } (voir withSceneFx).
  * Musicien ajouté à l'assistant (id « x1 », « x2 »… : js/bandgroup.js, isExtra) : il joue dans toutes les scènes avec le générateur de son type
  *    (jamais muet d'office : mode du plan pour ce type, sinon mode par défaut) et sa graine contient son id (autre mélodie, autre motif de kit).
  * Automation par scène : inst[id].auto (voir « automation par scène » plus bas). Sans kinds ni inst, la chanson est exactement celle d'avant.
@@ -1443,8 +1444,9 @@ SS.bandSong = (() => {
   function junctionDefaults(spec, from, to) {
     const a = from && spec.sections[from];
     const b = to && spec.sections[to];
+    const ao = (a && a.fxo) || {};
     return {
-      riser: { on: !!a && a.fx === 'riser', len: a ? a.bars : 8, filter: 'lp' },
+      riser: { on: !!a && a.fx === 'riser', len: a ? Math.min(a.bars, ao.len || a.bars) : 8, filter: ao.filter || 'lp' },
       hp: { on: !!spec.tech && !!a && a.drums === 'build', freq: hpHz(HP_MEL) },
       rev: { on: false, len: SPB },
       gap: { len: a && a.gap ? 4 : 0 },
@@ -1548,6 +1550,26 @@ SS.bandSong = (() => {
     }
   }
   /** Réglages d'une jonction : le plan, puis ce que l'utilisateur a changé (fx.junctions['de>à']). */
+  /**
+   * Jeu de la piste Effets réglé scène par scène (étape Effets et transitions, carte « Musicien Effets ») :
+   * parts[section].fx = { mode: swell | riser | down | none, level (0–1,5), every (mesures, ambiance), color: dark | bright (ambiance),
+   * len (mesures, montée), filter: lp | hp | none (montée), dlen (mesures, descente) }. Le plan rendu a ces réglages dans ses
+   * sections : sec.fx (le rôle, null pour « none ») et sec.fxo (les options). Sans réglage, le plan est rendu tel quel.
+   */
+  function withSceneFx(spec, parts) {
+    if (!spec || !parts) return spec;
+    let sections = null;
+    Object.entries(parts).forEach(([id, p]) => {
+      const f = p && p.fx;
+      const sec = spec.sections[id];
+      if (!f || !sec || !Object.keys(f).length) return;
+      sections = sections || { ...spec.sections };
+      const s = { ...sec, fxo: f };
+      if (f.mode) s.fx = f.mode === 'none' ? null : f.mode;
+      sections[id] = s;
+    });
+    return sections ? { ...spec, sections } : spec;
+  }
   function junctionEff(spec, from, to, fx) {
     const d = junctionDefaults(spec, from, to);
     const u = (fx && fx.junctions && fx.junctions[`${from}>${to}`]) || {};
@@ -1623,18 +1645,27 @@ SS.bandSong = (() => {
     const trim = (e) => (cut && e.step >= stop ? null : cut ? { ...e, len: Math.min(e.len, stop - e.step) } : e);
     const add = (events, from, to, lanes, keep) => comps.push({ events: keep ? events : events.map(trim).filter(Boolean), from, to, lanes: tech ? lanes : null });
     const shift = (off, o) => Object.fromEntries(Object.entries(o).map(([x, y]) => [+x + off, y]));
+    // niveau de la scène (réglage « Musicien Effets ») : vélocité et volume de ce que joue la scène, pas des effets de transition
+    const fo = sec.fxo || {};
+    const lv = fo.level == null ? 1 : Math.max(0, Math.min(1.5, +fo.level));
+    const lvE = (evs) => (lv === 1 ? evs : evs.map((e) => ({ ...e, vel: clampV(e.vel * lv) })));
+    const lvV = (vol) => (lv === 1 ? vol : Object.fromEntries(Object.entries(vol).map(([x, y]) => [x, Math.round(Math.min(1, y * lv) * 1000) / 1000])));
     if (sec.fx === 'swell') {
       const ev = [];
-      for (let s = 0; s < n; s += 4 * SPB) ev.push({ step: s, len: Math.min(4 * SPB, n - s), notes: [t + 12], vel: 0.55 });
-      add(ev, 0, n - 1, { filter: ramp(n, -0.75, -0.35), volume: { 0: 0.5 }, reverb: { 0: 0.6 } });
+      const every = Math.max(1, Math.min(bars, fo.every || 4)) * SPB;
+      for (let s = 0; s < n; s += every) ev.push({ step: s, len: Math.min(every, n - s), notes: [t + 12], vel: 0.55 });
+      const bright = fo.color === 'bright';
+      add(lvE(ev), 0, n - 1, { filter: bright ? ramp(n, -0.3, 0) : ramp(n, -0.75, -0.35), volume: lvV({ 0: 0.5 }), reverb: { 0: bright ? 0.45 : 0.6 } });
     }
     if (out.riser.on) {
       const L = Math.min(out.riser.len, bars) * SPB;
       const off = n - L;
-      const lanes = { volume: shift(off, ramp(L, 0.15, RISER_TOP)), reverb: shift(off, ramp(L, 0.2, 0.6, 0.5)) };
+      const mine = sec.fx === 'riser'; // la montée de la scène : son niveau s'applique
+      const lanes = { volume: shift(off, mine ? lvV(ramp(L, 0.15, RISER_TOP)) : ramp(L, 0.15, RISER_TOP)), reverb: shift(off, ramp(L, 0.2, 0.6, 0.5)) };
       if (out.riser.filter === 'lp') lanes.filter = shift(off, ramp(L, -0.9, 0.1));
       else if (out.riser.filter === 'hp') lanes.filter = shift(off, ramp(L, 0.85, 0));
-      add([{ step: off, len: L, notes: [t + 12], vel: 0.8 }], off, n - 1, lanes);
+      const ev = [{ step: off, len: L, notes: [t + 12], vel: 0.8 }];
+      add(mine ? lvE(ev) : ev, off, n - 1, lanes);
     }
     if (out.rev.on) {
       const L = Math.min(out.rev.len, n);
@@ -1642,8 +1673,11 @@ SS.bandSong = (() => {
       add([{ step: off, len: L, notes: [t + 12], vel: 0.75 }], off, n - 1, { volume: shift(off, { 0: 0.1, [L - 1]: 0.85 }), filter: shift(off, { 0: -0.8, [L - 1]: 0.1 }), reverb: shift(off, { 0: 0.4 }) }, true);
     }
     if (inn.impact.on && inn.impact.type !== 'crash') {
-      const L = Math.min(n, 2 * SPB);
-      add([{ step: 0, len: L, notes: [t], vel: inn.impact.level }], 0, L - 1, { volume: { 0: 1, [L - 1]: 0 }, reverb: { 0: 0.6 } });
+      // descente de la scène (plan : fx « down ») : longueur et niveau réglables
+      const mine = sec.fx === 'down';
+      const L = Math.min(n, (mine && fo.dlen ? fo.dlen : 2) * SPB);
+      const ev = [{ step: 0, len: L, notes: [t], vel: inn.impact.level }];
+      add(mine ? lvE(ev) : ev, 0, L - 1, { volume: mine ? lvV({ 0: 1, [L - 1]: 0 }) : { 0: 1, [L - 1]: 0 }, reverb: { 0: 0.6 } });
     }
     if (inn.down.on) {
       const off = Math.min(4, n - 1);
@@ -1733,6 +1767,7 @@ SS.bandSong = (() => {
    * → { key, scenes: [{ id, name, bars, key, emotion, data, spans }], song: [{ scene, repeat }] }
    */
   function build(spec, presetId, tracks, { melodySeed = 0, melody = null, harmony = null, parts = null, kinds = null, fx = null } = {}) {
+    spec = withSceneFx(spec, parts); // jeu de la piste Effets réglé scène par scène
     const key = parseKey(spec.key);
     const ids = instIds(tracks);
     // type de chaque piste (null : fx, qui garde son jeu) ; un kit de batterie reste drums
@@ -1908,7 +1943,7 @@ SS.bandSong = (() => {
         }
         // piste Effets d'une scène dont une jonction est réglée : montée, cymbale inversée, impact, descente (voir fxSceneTrack)
         let fxScene = null;
-        if (role === 'fx' && !changed && !off && (oj || ij)) {
+        if (role === 'fx' && !changed && !off && (oj || ij || sec.fxo)) {
           fxScene = fxSceneTrack(sec, k, bars, outE, inE, gapSteps, !!spec.tech);
           events = fxScene.events;
         }
@@ -2094,5 +2129,5 @@ SS.bandSong = (() => {
     ['acid', 'Acide 303', 'Doubles accentuées, octaves, septième : acid techno', rhythmDraw('acid')],
   ];
 
-  return { build, bassEvents, tomOfStep, junctionDefaults, junctionEff, PERC_LOOPS, PERC_STYLES, hpHz, hpAmt, HP_MEL, isExtra, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, sceneGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, BUILD_LEVELS, BUILD_PRESETS, buildLevels, progLevels, rollBar, rollerOf, hasGridLane, laneKey, _rng: rng };
+  return { build, bassEvents, tomOfStep, junctionDefaults, junctionEff, withSceneFx, PERC_LOOPS, PERC_STYLES, hpHz, hpAmt, HP_MEL, isExtra, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, sceneGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, BUILD_LEVELS, BUILD_PRESETS, buildLevels, progLevels, rollBar, rollerOf, hasGridLane, laneKey, _rng: rng };
 })();
