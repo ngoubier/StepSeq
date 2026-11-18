@@ -2369,12 +2369,11 @@ SS.band = (() => {
     box.replaceChildren(
       h('div', { class: 'bw-htitle' }, h('h1', {}, h('em', {}, String(n).padStart(2, '0')), info.label, n === ST.inst ? countBadge() : null), h('div', { class: 'bw-hmix', id: 'bwHeadMix' }, ...(headBar ? [headBar] : []))),
       ...(info.sub ? [h('div', { class: 'bw-hsub', id: 'bwSound' }, info.sub)] : []),
-      n === ST.fx
-        ? h('div', { class: 'bw-insline' }, h('span', { class: 'bw-ktag', style: `--c:${FX_COLOR}`, title: 'Rôle : Effets (montées, impacts) et Percussionniste' }, 'Effets'), h('p', {}, info.line))
-        : info.ins
-        ? h('div', { class: 'bw-insline' }, h('span', { class: 'bw-ktag', id: 'bwKindTag', 'data-kind': info.ins.kind, style: `--c:${KIND_COLOR[info.ins.kind]}`, title: 'Type de cet instrument (à changer à l’étape 2, Instruments)' }, KIND_STEP[info.ins.kind]), h('p', {}, info.line))
-        : h('p', {}, info.line)
+      // instruments et effets : pas de ligne sous le titre (pastille du type et phrase retirées) ; le type reste en data-kind
+      ...(n === ST.fx || info.ins ? [] : [h('p', {}, info.line)])
     );
+    if (info.ins) box.dataset.kind = info.ins.kind;
+    else delete box.dataset.kind;
   }
 
   /** On peut aller à l'étape n si la chanson se calcule (inspiration avec un plan, au moins une piste). */

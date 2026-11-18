@@ -62,7 +62,7 @@ const ok = (c, m) => {
   await next(9);
 
   // l'étape : le panneau Mélodie d'Harmonie, sans les contrôles de la piste ni sa propre lecture
-  ok(((await page.textContent('#bwKindTag').catch(() => '')) || '').includes('Mélodie'), 'étape 10 : Mélodie (pastille du type de l’étape)');
+  ok((await page.getAttribute('#bwStepHead', 'data-kind')) === 'melody', 'étape 10 : Mélodie (pastille du type de l’étape)');
   ok(!!(await page.$('#bwMelPanel .mel-body')) && !!(await page.$('#melIntent')) && !!(await page.$('#melMotifRow')), 'panneau : intention, motif de départ et note pivot');
   ok(!(await page.$('#melTrack')) && !(await page.$('#melListen')) && !(await page.$('#melGrid')) && !(await page.$('#melKey')), 'pas de champ Piste, de lecture, de grille ni de tonalité');
   ok(!!(await page.$('#melMeter')) && !!(await page.$('#melComplexity')) && !!(await page.$('#melMore')), 'structure, complexité et options');

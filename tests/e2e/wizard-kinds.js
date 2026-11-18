@@ -56,10 +56,10 @@ const ok = (c, m) => {
 
   // onglets : plus de cartes de type, étiquette en lecture seule dans la tête
   await tab('drums');
-  ok((await page.locator('.bw-kind, .bw-kinds, #bwKinds').count()) === 0 && (await page.locator('#bwKindTag').textContent()) === 'Drums' && (await page.locator('#bwKindTag').evaluate((e) => e.tagName)) === 'SPAN', 'kit : plus de cartes de type, étiquette « Drums » en lecture seule');
+  ok((await page.locator('.bw-kind, .bw-kinds, #bwKinds').count()) === 0 && (await page.getAttribute('#bwStepHead', 'data-kind')) === 'drums' && (await page.locator('#bwStepHead .bw-insline, #bwStepHead p').count()) === 0, 'kit : plus de cartes de type, étiquette « Drums » en lecture seule');
   ok((await page.locator('#bwKindNote').count()) === 0 && (await page.locator('.bwp-pat').count()) === 21, 'kit : pas de note, l’éditeur de motifs');
   await tab('bass');
-  ok((await page.locator('#bwKindTag').textContent()) === 'Basse' && (await page.locator('.bwp-mode').count()) === 22 && (await page.locator('#bwKindNote').count()) === 0, 'basse : étiquette « Basse », éditeur de basse, pas de note');
+  ok((await page.getAttribute('#bwStepHead', 'data-kind')) === 'bass' && (await page.locator('.bwp-mode').count()) === 22 && (await page.locator('#bwKindNote').count()) === 0, 'basse : étiquette « Basse », éditeur de basse, pas de note');
 
   // étape 2 : le type est une liste dans le panneau de droite
   const toStep2 = async () => {
@@ -110,7 +110,7 @@ const ok = (c, m) => {
   ok(await page.evaluate(() => Object.keys(SS.band._state.wiz.kinds).length === 1), 'S.wiz.kinds garde le choix');
   await tab('arp');
   ok(!!(await page.$('#bwaName')) && (await page.locator('.bwa-knob').count()) === 4 && (await page.locator('.bw-kind').count()) === 0, 'l’éditeur Arp One s’affiche, sans cartes de type');
-  ok((await page.locator('#bwKindTag').textContent()) === 'Arpèges', 'étiquette « Arpèges » en lecture seule');
+  ok((await page.getAttribute('#bwStepHead', 'data-kind')) === 'arp', 'étiquette « Arpèges » en lecture seule');
   ok((await page.locator('#bwKindNote, .bw-kindnote').count()) === 0 && !/était/.test(await page.textContent('#bandWiz')), 'plus de note « était une nappe »');
   // « Mix » : une pastille par instrument, nom du type (comme la colonne des étapes) et couleur de son type
   const chipInfo = await page.$$eval('#bwTrackbar .tb-chip', (l) => l.map((x) => [x.dataset.ins, x.textContent.trim(), x.style.getPropertyValue('--c')]));
