@@ -1606,7 +1606,7 @@ SS.bandSong = (() => {
 
   /* ---------- types d'instrument ---------- */
   const KINDS = ['drums', 'bass', 'chords', 'arp', 'melody'];
-  const DEFAULT_KIND = { drums: 'drums', perc: 'drums', bass: 'bass', pad: 'chords', strings: 'chords', keys: 'chords', guitar: 'chords', arp: 'arp', arpchord: 'arp', lead: 'melody', vox: 'melody', sax: 'melody' };
+  const DEFAULT_KIND = { drums: 'drums', perc: 'drums', bass: 'bass', pad: 'chords', strings: 'chords', keys: 'chords', guitar: 'chords', arp: 'arp', arpchord: 'arp', lead: 'melody', vox: 'melody', sax: 'melody', orch: 'orch' };
   const DEFAULT_MODE = { bass: '8', chords: 'sustain', arp: 'up16', melody: 'verse', drums: 'both' };
   const ARP_MODES = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16', 'rise', 'ost16', 'dotted'];
   const MODES = () => ({
@@ -1769,6 +1769,7 @@ SS.bandSong = (() => {
           if (spec.tech && !(mode === 'build' && dp && dp.build)) drumSpice(data[t.id], snd, mode, bars, r); // la progression de montée remplace le roulement d'origine
           return;
         }
+        if (role === 'orch') return; // orchestre : écrit après les autres (il part de la mélodie de la scène), voir plus bas
         const kd = kindOfT.get(t); // type de l'instrument (null : fx)
         const extra = isExtra(t); // musicien ajouté : jamais muet d'office, réglages de l'instrument seulement
         const changed = !!kd && (extra || kd !== kindOfRole(role)); // type différent de celui du rôle : pas de réglages du rôle
@@ -1863,6 +1864,34 @@ SS.bandSong = (() => {
           data[t.id] = { events: src.events.map((e) => ({ ...e, notes: e.notes.map((n) => (how === 'third' ? scaleUp(n, 2, kp) : n + 12)), vel: clampV(e.vel * 0.85) })) };
         });
       }
+      // orchestre (js/orchestra.js) : un musicien, une piste par pupitre ; il distribue la mélodie, les accords et la basse
+      const orchOut = {};
+      const orchMus = [...new Set(tracks.filter((t) => roleOfTrack(t) === 'orch').map((t) => t.band.musician))];
+      orchMus.forEach((mid) => {
+        const ts = tracks.filter((t) => roleOfTrack(t) === 'orch' && t.band.musician === mid);
+        const ie = (pp && pp.inst && pp.inst[mid]) || null;
+        const ord = ts.map((t) => (t.band.key.split(':')[1] || ''));
+        if (!SS.orchestra || muted.includes('orch') || (ie && ie.off)) {
+          ts.forEach((t) => (data[t.id] = { events: [] }));
+          return;
+        }
+        const top = (primaryMel && data[primaryMel.id] && data[primaryMel.id].events) || [];
+        const level = (ie && ie.orch && ie.orch.level) || SS.orchestra.levelOf(energy);
+        const res = SS.orchestra.orchestrate({
+          parts: ord,
+          spans: spans.map((sp) => ({ step: sp.step, len: sp.len, pcs: [...new Set(tones(sp.chord))], bassPc: sp.chord.bassPc ?? sp.chord.rootPc })),
+          melody: top.filter((e) => e.notes && e.notes.length).map((e) => ({ step: e.step, len: e.len, midi: Math.max(...e.notes) })),
+          level,
+          off: (ie && ie.orch && ie.orch.off) || [],
+        });
+        ts.forEach((t, i) => {
+          const L = res.lines[ord[i]];
+          data[t.id] = { events: L ? L.events.map((e) => ({ ...e, notes: [...e.notes] })) : [] };
+          const A = ie && ie.auto ? normalizeAuto(ie.auto) : null;
+          if (A) applyAutoLanes(data[t.id], A, bars);
+        });
+        orchOut[mid] = { level, auto: !(ie && ie.orch && ie.orch.level), lines: res.lines, items: res.items };
+      });
       // montée EDM / techno : la grosse caisse et le charleston reviennent en force (volume), la montée avance
       if (dynK === 'build' || dynK === 'groove' || dynK === 'outro' || dynK === 'intro')
         tracks.forEach((t) => {
@@ -1925,6 +1954,7 @@ SS.bandSong = (() => {
         writeTransitions(data, tracks, (t) => (t.type === 'drum' ? 'drums' : kindOfT.get(t) || null), { bars, key: k, spans, out: oj ? outE : null, inn: ij ? inE : null });
       if (gapSteps) gapEnd(data, bars, gapSteps, oj ? new Set(tracks.filter((t) => roleOfTrack(t) === 'fx').map((t) => t.id)) : null);
       const sc = { id: SS.uid(), sec: id, name: sec.name || NAMES[id] || id, bars, key: k, data, spans };
+      if (orchMus.length) Object.defineProperty(sc, 'orch', { value: orchOut, enumerable: false }); // rapport de l'étape Orchestration (pas dans le projet)
       // grille de la scène (piste Accords du projet) : la même que celle de l'étape Accords de l'assistant
       const gch = sceneGrid(grid, spans0, k, bars);
       if (gch.length) sc.grid = { chords: gch, ...(peds.length ? { pedals: peds.map((x) => ({ ...x })) } : {}), initialized: true };

@@ -129,6 +129,7 @@ SS.band = (() => {
     const rc = recFor(rec.type);
     const mu = { id: rec.id, role: rc.role, added: true, type: rec.type, name: rec.name, custom: true, label: rec.name };
     if (rec.type === 'drums') Object.assign(mu, { kits: rc.kits, pieces: rc.pieces });
+    else if (rec.type === 'orch') Object.assign(mu, { orch: true, pick: rc.pick, cat: rc.cat });
     else Object.assign(mu, { pick: rc.pick, cat: rc.cat });
     return mu;
   }
@@ -142,6 +143,7 @@ SS.band = (() => {
   /** Type d'un musicien : celui qu'on a choisi (S.wiz.kinds), sinon celui de son rôle ; null pour « fx ». */
   function kindNow(mu) {
     if (mu.kits) return 'drums';
+    if (mu.orch) return 'orch';
     const def = BG().typeOfRole(mu.role);
     const k = S.wiz && S.wiz.kinds && S.wiz.kinds[`${mu.id}:${mu.role}`];
     return def && k && BG().TYPES.includes(k) ? k : def;
@@ -157,6 +159,7 @@ SS.band = (() => {
       const extra = B().EXTRA_PIECES[mu.role === 'perc' ? 'perc' : 'drums'].filter((x) => !mu.pieces.some((pc) => pc.split('@')[0] === x));
       return { on: true, kit: mu.kits[0], pieces: [...mu.pieces.map((pc) => ({ piece: pc, on: true })), ...extra.map((pc) => ({ piece: pc, on: false }))] };
     }
+    if (mu.orch) return { on: true, ens: 'chamber' };
     return { on: true, pick: 0, custom: null, ...(mu.added ? { tok: mu.pick[0] } : {}) };
   }
   /** Choix de son de chaque musicien du groupe, par id (état gardé par inspiration ; celui d'un musicien ajouté vit dans le groupe). */
@@ -224,6 +227,8 @@ SS.band = (() => {
     return info;
   }
 
+  /** Effectif d'un orchestre (js/orchestra.js). */
+  const ensOf = (ms) => SS.orchestra.ENS[(ms && ms.ens) || 'chamber'] || SS.orchestra.ENSEMBLES[0];
   /** Marque d'une piste créée par Band (gardée dans le projet) : sert à la retrouver pour la remplacer. */
   const tag = (p, mu, sound) => ({ style: S.styleId, preset: p.id, musician: mu.id, key: mu.role + (sound ? ':' + sound : ''), ...(mu.added ? { label: mu.name } : {}) });
 
@@ -242,6 +247,12 @@ SS.band = (() => {
           const name = mu.added ? `${mu.name} · ${info.label}` : mu.role === 'perc' ? `Percu · ${info.label}` : info.label;
           // levelKey : clé de la mesure de niveau (js/band-levels.js) qui sert au mixage automatique (js/bandmix.js)
           out.push({ ...info.opts, name, color, band: tag(p, mu, info.opts.sound), levelKey: pc.custom ? null : `${kitOf(ms)}|${pc.piece}` });
+        });
+      } else if (mu.orch) {
+        // orchestre : une piste par pupitre de l'effectif choisi (js/orchestra.js)
+        ensOf(ms).parts.forEach((id) => {
+          const part = SS.orchestra.PART[id];
+          out.push({ ...toGm(B().choiceOpts(part.tok, 'mono')), category: 'mono', name: `${mu.name} · ${part.label}`, color, band: tag(p, mu, id), levelKey: null });
         });
       } else {
         const o = instOpts(mu);
@@ -669,6 +680,7 @@ SS.band = (() => {
       const n = ms.pieces.filter((pc) => pc.on).length;
       return `${(B().KITS[kitOf(ms)] || {}).label} · ${n} piste${n > 1 ? 's' : ''}`;
     }
+    if (mu.orch) return `${ensOf(ms).label} · ${ensOf(ms).parts.length} pistes`;
     return B().describe(instOpts(mu)).name;
   }
 
@@ -799,7 +811,7 @@ SS.band = (() => {
 
   /** Nom par défaut d'un musicien (celui du rôle ou du type) : celui qu'on retrouve en vidant le nom. */
   const baseNameOf = (mu) => (mu.added ? BG().BASE_NAME[mu.type] : (preset().musicians.find((m) => m.id === mu.id) || mu).label || roleOf(mu).label);
-  const soundName = (mu, ms = musState()[mu.id]) => (mu.kits ? (B().KITS[kitOf(ms)] || {}).label || '' : B().describe(instOpts(mu, ms)).name);
+  const soundName = (mu, ms = musState()[mu.id]) => (mu.kits ? (B().KITS[kitOf(ms)] || {}).label || '' : mu.orch ? ensOf(ms).label : B().describe(instOpts(mu, ms)).name);
   const kindName = (mu) => (kindNow(mu) ? KIND_LABEL[kindNow(mu)] : 'Effets');
 
   /** Renommer : le musicien, sa tuile et son onglet suivent (sans refaire le panneau, pour garder la saisie). */
@@ -868,6 +880,25 @@ SS.band = (() => {
     );
   }
 
+  /** Effectifs d'un orchestre (étape Instruments) : une carte par effectif, avec ses pupitres. */
+  function ensCards(ms, after) {
+    return [
+      h('div', { class: 'bpn-sec' }, 'Effectif'),
+      h(
+        'div',
+        { class: 'bg-ens', role: 'radiogroup', 'aria-label': 'Effectif de l’orchestre' },
+        ...SS.orchestra.ENSEMBLES.map((e) =>
+          h(
+            'button',
+            { type: 'button', class: 'band-kit bg-ensc' + (ensOf(ms).id === e.id ? ' active' : ''), role: 'radio', 'data-ens': e.id, 'aria-checked': String(ensOf(ms).id === e.id), onclick: () => ((ms.ens = e.id), after()) },
+            h('span', { class: 'bk-name' }, e.label),
+            h('span', { class: 'bk-detail' }, e.parts.map((id) => SS.orchestra.PART[id].label).join(', '))
+          )
+        )
+      ),
+      h('p', { class: 'dlg-hint' }, `${ensOf(ms).text} Une piste par pupitre ; l’étape Orchestration répartit la mélodie, les accords et la basse de chaque scène.`),
+    ];
+  }
   function renderInstPanel(mu, ms) {
     const panel = $('#bandPanel');
     const cat = catOf(mu);
@@ -1005,6 +1036,7 @@ SS.band = (() => {
     chords: 'Joue la grille en nappe, plaqué ou en stabs.',
     arp: 'Égrène les notes des accords en motif répété.',
     melody: 'La ligne chantante par-dessus : thème et motifs.',
+    orch: 'Un effectif (cordes, cor, bois) qui se partage mélodie, accords et basse : une piste par pupitre.',
   };
   const kindIcon = (k) => `<svg viewBox="0 0 30 30" aria-hidden="true">${KIND_ICON[k]}</svg>`;
   function startAdd() {
@@ -1083,7 +1115,8 @@ SS.band = (() => {
       onkeydown: (e) => e.key === 'Enter' && $('#bgValidate').click(),
     });
     let body;
-    if (mu.kits) {
+    if (mu.orch) body = ensCards(ms, refresh);
+    else if (mu.kits) {
       body = [
         h('div', { class: 'bpn-sec' }, 'Kit (★ phare + conseillés)'),
         h('div', { class: 'band-kits', role: 'radiogroup', 'aria-label': 'Kit' }, ...kitCards(mu, ms, (k) => ((ms.kit = k), refresh()))),
@@ -1148,6 +1181,7 @@ SS.band = (() => {
     if (!mu) return;
     const ms = musState()[mu.id];
     if (mu.kits) renderKitPanel(mu, ms);
+    else if (mu.orch) $('#bandPanel').replaceChildren(panelHead(mu, ms), ...ensCards(ms, () => groupChanged()), groupActions(mu));
     else renderInstPanel(mu, ms);
   }
 
@@ -1256,7 +1290,7 @@ SS.band = (() => {
     if (!mu || !kind || !BG().canAdd(g)) return;
     const src = musState()[id];
     let ms;
-    if (mu.kits) ms = { ...BG().clone(src), on: true };
+    if (mu.kits || mu.orch) ms = { ...BG().clone(src), on: true };
     else {
       const rc = recFor(kind);
       const tok = picksOf(mu)[effPick(mu, src)];
@@ -1367,19 +1401,20 @@ SS.band = (() => {
     get pick() { return 9 + insSteps().length; },
   };
   /** Types d'instrument : nom, résumé du fil des étapes, couleur de rôle (batterie rose, basse verte, nappe bleue, arpège turquoise, mélodie violette). */
-  const KIND_LABEL = { drums: 'Drums', bass: 'Basse', chords: 'Accords', arp: 'Arpèges', melody: 'Mélodie' };
-  const KIND_SUM = { drums: 'Drums', bass: 'Basse', chords: 'Nappe', arp: 'Arpège', melody: 'Mélodie' };
+  const KIND_LABEL = { drums: 'Drums', bass: 'Basse', chords: 'Accords', arp: 'Arpèges', melody: 'Mélodie', orch: 'Orchestre' };
+  const KIND_SUM = { drums: 'Drums', bass: 'Basse', chords: 'Nappe', arp: 'Arpège', melody: 'Mélodie', orch: 'Orchestre' };
   /** Étiquette du type dans la tête d'étape instrument : « Nappe » et non « Accords », qui est l'étape 5. */
-  const KIND_STEP = { ...KIND_LABEL, chords: 'Nappe' };
-  const KIND_COLOR = { drums: '#e3179c', bass: '#3fcf3f', chords: '#4f6bff', arp: '#13c2a3', melody: '#9b5cff' };
-  const KIND_DESC = { drums: 'Motifs rythmiques et fills', bass: 'Mode de jeu sur la fondamentale', chords: 'Joue la grille en nappe ou plaqué', arp: 'Arpège les accords (Arp One)', melody: 'Ligne mélodique générée' };
-  const KIND_SLOT = { drums: 'drums', bass: 'bass', chords: 'pad', arp: 'arp', melody: 'lead' }; // suffixe des identifiants de test (#bwp-on-bass…)
+  const KIND_STEP = { ...KIND_LABEL, chords: 'Nappe', orch: 'Orchestration' };
+  const KIND_COLOR = { drums: '#e3179c', bass: '#3fcf3f', chords: '#4f6bff', arp: '#13c2a3', melody: '#9b5cff', orch: '#ff8a3d' };
+  const KIND_DESC = { drums: 'Motifs rythmiques et fills', bass: 'Mode de jeu sur la fondamentale', chords: 'Joue la grille en nappe ou plaqué', arp: 'Arpège les accords (Arp One)', melody: 'Ligne mélodique générée', orch: 'Répartit mélodie, accords et basse entre les pupitres' };
+  const KIND_SLOT = { drums: 'drums', bass: 'bass', chords: 'pad', arp: 'arp', melody: 'lead', orch: 'orch' }; // suffixe des identifiants de test (#bwp-on-bass…)
   const KIND_ICON = {
     drums: '<ellipse cx="15" cy="17" rx="9" ry="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 17v5c0 2 4 4 9 4s9-2 9-4v-5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 4l7 9M23 4l-7 9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
     bass: '<path d="M3 15h4l3-9 4 18 3-12 2 3h8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>',
     chords: '<rect x="4" y="5" width="22" height="5" rx="2" fill="currentColor" opacity=".5"/><rect x="4" y="12.5" width="22" height="5" rx="2" fill="currentColor" opacity=".75"/><rect x="4" y="20" width="22" height="5" rx="2" fill="currentColor"/>',
     arp: '<path d="M3 24h5v-5h5v-5h5v-5h5V4h4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><circle cx="7" cy="14" r="1.6" fill="currentColor"/><circle cx="17" cy="22" r="1.6" fill="currentColor"/>',
     melody: '<path d="M3 20c4-12 7-12 10-3s6 8 9-4c1-4 3-5 5-4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="25" cy="9" r="2" fill="currentColor"/>',
+    orch: '<path d="M15 3v7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M11 10h8c0 2.5-2 3-2 5s3 2.5 3 5.5S18 26 15 26s-5-2-5-5.5 3-3.5 3-5.5-2-2.5-2-5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M5 27L25 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
   };
   /**
    * Instruments du groupe, un par étape : [{ id, key, kit, col, cols, role, musician, kind, def, name, sound }].
@@ -1396,14 +1431,15 @@ SS.band = (() => {
     const out = [];
     cols.forEach((c) => {
       const kit = c.o.type === 'drum';
-      const id = kit ? c.musician : c.id;
+      const orch = c.role === 'orch'; // un orchestre (tous ses pupitres) est un seul instrument, comme un kit
+      const id = kit || orch ? c.musician : c.id;
       const t = out.find((x) => x.id === id);
       if (t) return void t.cols.push(c);
       if (!defaultKind(c)) return;
       const mu = muById(c.musician);
       out.push({
-        id, key: id, kit, col: c, cols: [c], role: c.role, musician: c.musician, kind: instKind(c), def: defaultKind(c),
-        title: nameOf0(mu) || roleOf(mu).short, name: nameOf0(mu) || (kit ? roleOf(mu).short : B().describe(c.o).name.replace(/^[A-Z]\d+\s*[–-]\s*/, '')), sound: kit ? (B().KITS[kitOf(musState()[mu.id])] || {}).label || labelOf(mu) : B().describe(c.o).name,
+        id, key: id, kit, orch, col: c, cols: [c], role: c.role, musician: c.musician, kind: instKind(c), def: defaultKind(c),
+        title: nameOf0(mu) || roleOf(mu).short, name: nameOf0(mu) || (kit ? roleOf(mu).short : B().describe(c.o).name.replace(/^[A-Z]\d+\s*[–-]\s*/, '')), sound: kit ? (B().KITS[kitOf(musState()[mu.id])] || {}).label || labelOf(mu) : orch ? ensOf(musState()[mu.id]).label : B().describe(c.o).name,
       });
     });
     insMemo = { sig, wiz: S.wiz, val: out };
@@ -5175,7 +5211,7 @@ SS.band = (() => {
   /** Réglage d'un instrument dans une scène, en une ligne pour la colonne des scènes et le fil des étapes. */
   function instSub(T, x) {
     if (mutedIn(x.sec, T)) return 'muette';
-    const k = T.kind === 'drums' ? (T.kit ? drumsSub : drumsLiteSub) : { bass: bassSub, chords: padSub, arp: arpSub, melody: melSub }[T.kind];
+    const k = T.kind === 'drums' ? (T.kit ? drumsSub : drumsLiteSub) : { bass: bassSub, chords: padSub, arp: arpSub, melody: melSub, orch: orchSub }[T.kind];
     return k(x, T);
   }
   /** Étape d'un instrument : types, barre de piste, scènes à gauche, éditeur du type choisi (réglages de cet instrument). */
@@ -5185,13 +5221,105 @@ SS.band = (() => {
     const box = $('#bandWiz');
     if (!res) return box.replaceChildren(h('p', { class: 'dlg-hint' }, 'Cette inspiration n’a pas de plan de chanson.'));
     const sc = curScene(res);
-    const body = { drums: () => (T.kit ? drumsBody(sc, T) : drumsLiteBody(sc, T)), bass: () => bassBody(sc, T), chords: () => padBody(sc, T), arp: () => arpBody(sc, T) }[T.kind]();
+    const body = { drums: () => (T.kit ? drumsBody(sc, T) : drumsLiteBody(sc, T)), bass: () => bassBody(sc, T), chords: () => padBody(sc, T), arp: () => arpBody(sc, T), orch: () => orchBody(sc, T) }[T.kind]();
     const prev = $('#bwParts');
     const top = prev && prev.dataset.ins === T.id && prev.dataset.kind === T.kind ? prev.scrollTop : 0; // un clic bas dans la liste ne la remonte pas
     const content = h('div', { class: 'bwc bwp', id: 'bwParts', 'data-kind': T.kind, 'data-ins': T.id, style: `--c:${KIND_COLOR[T.kind]}` }, ...body);
     splitView(sceneNav(res, sc, (x) => withAutoBadge(T.kind === 'bass' ? bassSceneSub(x, T) : instSub(T, x), x, T)), trackbar(T), content);
     content.scrollTop = top;
     syncAutoScroll(content);
+  }
+
+  /* --- Orchestre (étape Orchestration) : densité et pupitres par scène, carte des registres, qui joue quoi et pourquoi ---
+   * SS.bandSong.build écrit chaque pupitre avec SS.orchestra.orchestrate et laisse son rapport dans sc.orch[musicien] ;
+   * réglages de la scène : parts[sec].inst[musicien].orch = { level: light | mid | full, off: [pupitres coupés] }. */
+  const OR = () => SS.orchestra;
+  const ORCH_ROLE_C = { melody: '#9b5cff', counter: '#13c2a3', harmony: '#4f6bff', bass: '#3fcf3f', pad: '#c9a227', tacet: '#55555f' };
+  const orchSet = (sc, T) => (partOf(sc.sec, T) || {}).orch || {};
+  function orchSub(x, T) {
+    if (mutedIn(x.sec, T)) return 'muet';
+    const r = x.orch && x.orch[T.musician];
+    if (!r) return '';
+    const L = OR().LEVELS.find((l) => l.id === r.level);
+    const n = Object.values(r.lines).filter((l) => l.role !== 'tacet').length;
+    return `${L ? L.label : r.level} · ${n} pupitre${n > 1 ? 's' : ''}`;
+  }
+  function orchEdit(sc, T, patch, focus) {
+    const o = { ...orchSet(sc, T), ...patch };
+    Object.keys(o).forEach((k) => (o[k] === undefined || (Array.isArray(o[k]) && !o[k].length)) && delete o[k]);
+    putPart(sc.sec, T, { orch: Object.keys(o).length ? o : undefined });
+    partChanged(focus);
+  }
+  function orchBody(sc, T) {
+    const r = sc.orch && sc.orch[T.musician];
+    const muted = mutedIn(sc.sec, T);
+    const own = orchSet(sc, T);
+    const ens = ensOf(musState()[T.musician]);
+    const head = partHead(sc, T, `orchestre · ${ens.label.toLowerCase()}`, true);
+    const play = partCheck('bwp-on-orch', 'Joue dans cette scène', !muted, (on) => (putOff(sc.sec, T, !on), partChanged()));
+    if (muted || !r) return [head, h('div', { class: 'bwp-row' }, play), h('p', { class: 'dlg-hint', id: 'bwOrchMuted' }, 'L’orchestre se tait dans cette scène.')];
+    const lvl = partSeg('Densité', 'bwOrchLevel', [['auto', `Auto · ${OR().LEVELS.find((l) => l.id === r.level).label}`, 'D’après l’énergie de la scène'], ...OR().LEVELS.map((l) => [l.id, l.label, l.text])], own.level || 'auto', (v) => orchEdit(sc, T, { level: v === 'auto' ? undefined : v }, `#bwOrchLevel [data-v="${v}"]`));
+    const off = own.off || [];
+    const chips = h(
+      'div',
+      { class: 'bwp-field' },
+      h('span', { class: 'bh-lbl' }, 'Pupitres'),
+      h('span', { class: 'bwor-chips', id: 'bwOrchParts' }, ...ens.parts.map((id) => {
+        const on = !off.includes(id);
+        return h('button', { type: 'button', class: 'bwor-chip' + (on ? ' on' : ''), 'data-part': id, 'aria-pressed': String(on), title: on ? 'Couper ce pupitre dans la scène' : 'Faire jouer ce pupitre', onclick: () => orchEdit(sc, T, { off: on ? [...off, id] : off.filter((x) => x !== id) }, `#bwOrchParts [data-part="${id}"]`) }, OR().PART[id].short);
+      }))
+    );
+    // carte des registres : tessiture, zone confortable, notes jouées dans la scène
+    const LO = 26;
+    const HI = 100;
+    const x = (m) => `${(((m - LO) / (HI - LO)) * 100).toFixed(2)}%`;
+    const w = (a, b) => `${(((b - a) / (HI - LO)) * 100).toFixed(2)}%`;
+    const axis = h('div', { class: 'bwor-axis' }, ...[36, 48, 60, 72, 84, 96].map((m) => h('span', { style: `left:${x(m)}` }, OR().midiName(m))));
+    const rows = ens.parts.map((id) => {
+      const p = OR().PART[id];
+      const L = r.lines[id];
+      return h(
+        'div',
+        { class: 'bwor-row', 'data-part': id },
+        h('span', { class: 'bwor-name' }, p.short, h('small', { style: `color:${ORCH_ROLE_C[L.role]}` }, OR().ROLE_LABEL[L.role].toLowerCase())),
+        h(
+          'span',
+          { class: 'bwor-lane' },
+          h('i', { class: 'bwor-tess', style: `left:${x(p.lo)};width:${w(p.lo, p.hi)}` }),
+          h('i', { class: 'bwor-comf', style: `left:${x(p.clo)};width:${w(p.clo, p.chi)}` }),
+          L.lo !== null ? h('i', { class: 'bwor-part', style: `left:${x(L.lo)};width:max(4px, ${w(L.lo, L.hi)});background:${ORCH_ROLE_C[L.role]}` }) : null
+        )
+      );
+    });
+    const map = h(
+      'div',
+      { class: 'bwar-card bwor-map', id: 'bwOrchMap' },
+      h('div', { class: 'bwar-head' }, h('b', {}, 'Carte des registres'), h('span', { class: 'bh-info' }, 'tessiture · zone confortable · notes jouées')),
+      axis,
+      ...rows,
+      h('div', { class: 'bwhz-legend' }, ...['melody', 'counter', 'harmony', 'bass', 'pad'].map((k) => h('span', {}, h('i', { class: 'bwhz-sw', style: `background:${ORCH_ROLE_C[k]}` }), OR().ROLE_LABEL[k])))
+    );
+    const table = h(
+      'div',
+      { class: 'bwar-card bwor-who', id: 'bwOrchWho' },
+      h('div', { class: 'bwar-head' }, h('b', {}, 'Qui joue quoi'), h('span', { class: 'bh-info' }, OR().LEVELS.find((l) => l.id === r.level).text)),
+      h(
+        'table',
+        { class: 'bwor-table' },
+        h('thead', {}, h('tr', {}, h('th', {}, 'Pupitre'), h('th', {}, 'Rôle'), h('th', {}, 'Registre'), h('th', {}, 'Pourquoi'))),
+        h('tbody', {}, ...ens.parts.map((id) => {
+          const L = r.lines[id];
+          return h('tr', { 'data-part': id, class: L.role === 'tacet' ? 'tacet' : '' }, h('td', {}, OR().PART[id].label), h('td', { style: `color:${ORCH_ROLE_C[L.role]}` }, OR().ROLE_LABEL[L.role]), h('td', {}, L.lo !== null ? `${OR().midiName(L.lo)} – ${OR().midiName(L.hi)}` : '—'), h('td', {}, L.why));
+        }))
+      )
+    );
+    const items = h(
+      'div',
+      { class: 'bwar-card', id: 'bwOrchItems' },
+      h('div', { class: 'bwar-head' }, h('b', {}, 'À voir'), h('span', { class: 'bh-info' }, `${r.items.filter((i) => i.kind === 'warn').length} point(s)`)),
+      h('ul', { class: 'hm-checks2' }, ...r.items.map((i) => h('li', { class: 'k-' + i.kind }, h('span', { class: 'ck' }, CK_ICON[i.kind] || '•'), h('div', {}, i.text, i.hint ? h('small', {}, i.hint) : null))))
+    );
+    return [head, h('div', { class: 'bwp-row bwor-ctl' }, play, lvl, chips), h('div', { class: 'bwor-cols' }, map, h('div', { class: 'bwor-side' }, items)), table];
   }
 
   /* --- Batterie : bibliothèque de motifs, grille des éléments du kit (1, 2 ou 4 mesures), fills, crash, montée --- */

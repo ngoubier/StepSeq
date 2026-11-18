@@ -7,8 +7,9 @@
  *    ajouté reçoit « x1 », « x2 »… (jamais réutilisé dans un même groupe) ;
  *  - base : l'id du musicien de l'inspiration dont il vient (null pour un musicien ajouté ou dupliqué) ;
  *  - name : son nom (« Bassiste », « Bassiste 2 »…), custom : renommé à la main ;
- *  - type : (musicien ajouté) son type d'origine : drums | bass | chords | arp | melody ;
- *  - ms : (musicien ajouté) son choix de son : { pick, picked, custom, tok } ou, pour un kit, { kit, pieces }.
+ *  - type : (musicien ajouté) son type d'origine : drums | bass | chords | arp | melody | orch ;
+ *  - ms : (musicien ajouté) son choix de son : { pick, picked, custom, tok } ; pour un kit, { kit, pieces } ; pour un
+ *    orchestre, { ens } (effectif de js/orchestra.js : une piste par pupitre).
  * L'ordre de la liste est l'ordre des onglets d'instrument de l'assistant.
  *
  * Groupe par défaut (defaultGroup) : les musiciens non facultatifs de l'inspiration, dans l'ordre de l'inspiration (sans retouche,
@@ -19,12 +20,12 @@ window.SS = window.SS || {};
 SS.bandGroup = (() => {
   const MIN = 2;
   const MAX = 10;
-  const TYPES = ['drums', 'bass', 'chords', 'arp', 'melody'];
-  const ROLE_OF_TYPE = { drums: 'perc', bass: 'bass', chords: 'pad', arp: 'arp', melody: 'lead' };
-  const BASE_NAME = { drums: 'Batteur', bass: 'Bassiste', chords: 'Clavier nappe', arp: 'Clavier arpège', melody: 'Clavier lead' };
-  const CAT_OF_TYPE = { bass: 'mono', chords: 'chord', arp: 'arp', melody: 'mono' };
+  const TYPES = ['drums', 'bass', 'chords', 'arp', 'melody', 'orch'];
+  const ROLE_OF_TYPE = { drums: 'perc', bass: 'bass', chords: 'pad', arp: 'arp', melody: 'lead', orch: 'orch' };
+  const BASE_NAME = { drums: 'Batteur', bass: 'Bassiste', chords: 'Clavier nappe', arp: 'Clavier arpège', melody: 'Clavier lead', orch: 'Orchestre' };
+  const CAT_OF_TYPE = { bass: 'mono', chords: 'chord', arp: 'arp', melody: 'mono', orch: 'mono' };
   /** Type d'un rôle de l'inspiration (null : « fx », sans type). */
-  const TYPE_OF_ROLE = { drums: 'drums', perc: 'drums', bass: 'bass', pad: 'chords', strings: 'chords', keys: 'chords', guitar: 'chords', arp: 'arp', arpchord: 'arp', lead: 'melody', vox: 'melody', sax: 'melody' };
+  const TYPE_OF_ROLE = { drums: 'drums', perc: 'drums', bass: 'bass', pad: 'chords', strings: 'chords', keys: 'chords', guitar: 'chords', arp: 'arp', arpchord: 'arp', lead: 'melody', vox: 'melody', sax: 'melody', orch: 'orch' };
   const typeOfRole = (role) => (role === 'fx' ? null : TYPE_OF_ROLE[role] || 'chords');
   const isExtraId = (id) => /^x\d+$/.test(String(id || ''));
   const clone = (x) => (x === undefined ? undefined : JSON.parse(JSON.stringify(x)));
@@ -81,6 +82,7 @@ SS.bandGroup = (() => {
       const drumsHere = pr && pr.musicians.find((mu) => mu.role === 'drums' && mu.kits);
       return { role: 'perc', kits: (drumsHere || kit).kits.slice(), pieces: (perc || { pieces: ['tb', 'sh'] }).pieces.slice() };
     }
+    if (kind === 'orch') return { role: 'orch', pick: ['gm_violin'], cat: 'mono', ens: SS.orchestra ? SS.orchestra.ENSEMBLES.map((e) => e.id) : ['strings'] };
     const pref = { bass: ['bass'], chords: ['pad', 'keys', 'strings', 'guitar'], arp: ['arp'], melody: ['lead', 'vox', 'sax'] }[kind];
     let mu = null;
     outer: for (const strict of [true, false])
@@ -209,6 +211,10 @@ SS.bandGroup = (() => {
         .filter((q) => isObj(q) && typeof q.piece === 'string')
         .map((q) => ({ piece: q.piece, on: q.on !== false, ...(isObj(q.custom) ? { custom: clone(q.custom) } : {}) }));
       return { on: true, kit: typeof x.kit === 'string' ? x.kit : 'RolandTR808', pieces };
+    }
+    if (type === 'orch') {
+      const ids = SS.orchestra ? SS.orchestra.ENSEMBLES.map((e) => e.id) : ['strings'];
+      return { on: true, ens: ids.includes(x.ens) ? x.ens : ids[0] };
     }
     const o = { on: true, pick: Number.isInteger(x.pick) && x.pick >= 0 && x.pick < 12 ? x.pick : 0, custom: isObj(x.custom) ? clone(x.custom) : null };
     if (x.picked) o.picked = true;

@@ -75,7 +75,7 @@ const ok = (c, m) => {
 
   // ---- ajouter un Arpèges : type, son, valider
   await page.click('#bgAdd');
-  ok((await page.locator('.bg-tyc').count()) === 5 && (await page.textContent('#bandPanel')).includes('1 / 2'), 'ajout, 1 / 2 : cinq cartes de type');
+  ok((await page.locator('.bg-tyc').count()) === 6 && (await page.textContent('#bandPanel')).includes('1 / 2'), 'ajout, 1 / 2 : six cartes de type (avec Orchestre)');
   ok((await page.textContent('.bg-tyc[data-type="arp"] .bg-has')).trim() === '1 dans le groupe' && (await page.textContent('.bg-tyc[data-type="drums"] .bg-has')).trim() === '1 dans le groupe', 'cartes : « 1 dans le groupe »');
   ok((await page.locator('#bgGhost').count()) === 1 && (await page.locator('#bgAdd').count()) === 0, 'tuile fantôme pendant l\'ajout');
   await page.click('#bgCancel');

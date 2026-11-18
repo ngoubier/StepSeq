@@ -231,3 +231,16 @@ test('brouillon v2 : le groupe est rangé et relu tel quel ; un groupe incohére
   assert.equal(BG.clean({ nextId: 1, list: [{ id: 'zzz', base: 'zzz', name: 'a' }, { id: 'bass', base: 'bass', name: 'b' }] }, SMALL), null, 'musicien inconnu');
   assert.equal(BG.clean(null, SMALL), null);
 });
+
+test('orchestre : type « orch », effectif rangé dans le brouillon (un effectif inconnu devient le premier)', () => {
+  require('../js/orchestra.js');
+  const g = BG.defaultGroup(SMALL);
+  const r = BG.add(g, 'orch', { ms: { on: true, ens: 'winds' } });
+  assert.equal(r.name, 'Orchestre');
+  assert.equal(BG.ROLE_OF_TYPE.orch, 'orch');
+  const back = BG.clean(JSON.parse(JSON.stringify(g)), SMALL);
+  assert.deepEqual(back.list.find((x) => x.type === 'orch').ms, { on: true, ens: 'winds' });
+  const bad = JSON.parse(JSON.stringify(g));
+  bad.list.find((x) => x.type === 'orch').ms.ens = 'fanfare';
+  assert.equal(BG.clean(bad, SMALL).list.find((x) => x.type === 'orch').ms.ens, 'strings');
+});

@@ -263,3 +263,23 @@ L'étape d'un instrument Mélodie a trois sous-onglets (`S.wiz.mtab`) : **Mélod
   accords : plus haut et plus long, renversé, ou plus serré.
 - Essai A/B (`S.wiz.devAb`, appliqué par `partsEff`) : B chante même dans une scène où la mélodie est muette ;
   « Garder B » écrit `parts[sec].inst[T].lead = { events, how }`, et `how` s'affiche dans la colonne des scènes.
+
+### Musicien « Orchestre » et étape Orchestration
+
+Nouveau type de musicien `orch` (js/bandgroup.js) : on l'ajoute à l'étape Instruments en choisissant un **effectif**
+(`ms.ens`) parmi ceux de `js/orchestra.js` : Cordes ; Cordes, cor et flûte ; Cordes et bois ; Synthé et cordes. Comme
+un kit de batterie, c'est un seul instrument de l'assistant (une étape, clé = id du musicien) et **une piste par pupitre**
+(`band.key = orch:vl1`…, son General MIDI du pupitre).
+
+`SS.bandSong.build` écrit l'orchestre après les autres instruments de la scène (`SS.orchestra.orchestrate`) :
+- basse de l'accord au pupitre le plus grave, harmonie une note par pupitre (voix qui bougent le moins possible, sans
+  croiser ni passer au-dessus de la mélodie ; le cor prend tierce ou septième), premiers violons à la mélodie en
+  densité pleine, contrechant d'un bois dans les silences de la mélodie, nappe pour les cordes synthé ;
+- densité par scène : `light` (cordes seules), `mid`, `full`, automatique d'après l'énergie du plan ; réglages de la
+  scène `parts[sec].inst[musicien].orch = { level, off: [pupitres coupés] }` ;
+- le rapport (rôles, registres, pourquoi, points à voir) reste sur la scène de l'aperçu (`sc.orch`, non énumérable :
+  il n'entre pas dans le projet).
+
+L'étape Orchestration montre la densité et les pupitres de la scène, la carte des registres (tessiture, zone
+confortable, notes jouées), « Qui joue quoi » avec le pourquoi, et « À voir » (croisements, mélodie couverte,
+tessitures). Doublures, trois couleurs en A/B et articulations : lot suivant.
