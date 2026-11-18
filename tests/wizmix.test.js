@@ -77,7 +77,7 @@ test('defaults : reprend le mixage automatique (volume en dB, pan, eq, comp, env
       assert.equal(T.kick.fx.comp.on, true);
       assert.equal(T.kick.fx.eq.on, true);
     }
-    if (T.hh) assert.equal(T.hh.pan, 0.25);
+    if (T.hh) assert.equal(T.hh.pan, ['edm', 'techno'].includes(style) ? 0.5 : 0.25); // EDM et techno : charleston plus écarté (largeur du drop)
     if (T.snare) assert.equal(T.snare.fx.sends.plate > 0, true);
     assert.equal(mix.master.fx.comp.on, true);
     assert.equal(mix.master.vol, 0);
