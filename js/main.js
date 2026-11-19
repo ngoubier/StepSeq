@@ -396,6 +396,7 @@
     $('#songsBtn').addEventListener('click', () => SS.mySongs.open());
     $('#resumeWizard').addEventListener('click', () => SS.band.resume());
     initAppMenu();
+    initOptions();
     initViewSwitch();
     $('#openProject').addEventListener('click', openProject);
     $('#saveProject').addEventListener('click', (e) => saveProject(e.shiftKey));
@@ -430,6 +431,30 @@
     const d = project.wizard;
     $('#resumeWizard').hidden = !d;
     if (d) $('#resumeWizardInfo').textContent = SS.band.draftWhen(d);
+  }
+  /** Fenêtre Options (menu principal → Options…) : onglets en haut, un panneau par onglet. */
+  function initOptions() {
+    const dlg = $('#optionsDialog');
+    const tabs = [...dlg.querySelectorAll('.opt-tab')];
+    const show = (name) => {
+      tabs.forEach((t) => {
+        const on = t.dataset.tab === name;
+        t.setAttribute('aria-selected', String(on));
+        t.tabIndex = on ? 0 : -1;
+      });
+      dlg.querySelectorAll('.opt-panel').forEach((p) => { p.hidden = p.dataset.panel !== name; });
+    };
+    tabs.forEach((t) => t.addEventListener('click', () => show(t.dataset.tab)));
+    dlg.querySelector('.opt-tabs').addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      const i = tabs.indexOf(document.activeElement);
+      const next = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+      show(next.dataset.tab);
+      next.focus();
+    });
+    dlg.addEventListener('keydown', (e) => e.stopPropagation()); // pas de raccourcis du séquenceur derrière la fenêtre
+    show(tabs[0].dataset.tab);
+    $('#optionsBtn').addEventListener('click', () => dlg.showModal());
   }
   function initAppMenu() {
     const btn = $('#appMenuBtn');
