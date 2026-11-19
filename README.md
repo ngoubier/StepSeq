@@ -1117,6 +1117,15 @@ lire : `aide`, `etat`, `piste`, `accords`, `sons` ; chanson : `titre`, `tempo`, 
 `StepSeq.groupe("titre", () => { … })` en regroupe plusieurs. Le badge « ✳ Claude · N actions » apparaît dans la barre du haut.
 `StepSeq.outils` décrit chaque outil : la même liste servira au futur panneau intégré (API Claude). Test : `node tests/e2e/claude-tools.js`.
 
+Assistant **Nouvelle chanson** (pont `SS.band.claude` dans `js/band.js`) : `assistantStyles`, `assistantEtat`, `assistantSons`,
+`assistantOuvrir` (reprend le brouillon s'il existe), `assistantEtape`, `assistantEcouter` / `assistantStop`, `assistantFermer`,
+`assistantStyle` (style, inspiration), `assistantMusicien` (ajouter, son, type, nom, retirer), `assistantTempo`, `assistantTonalite`
+(toutes les scènes transposées), `assistantScene` (mesures, nom, copie, suppression), `assistantStructure`, `assistantAccords` (une
+mesure par élément, répétée sur la scène), `assistantMelodie` (une autre mélodie) et `assistantCreer`. L'assistant s'affiche et
+avance comme sous les clics ; ses réglages restent un brouillon (enregistré tout seul, sans Ctrl+Z). `assistantCreer` écrit la
+chanson dans la grille (une étape Ctrl+Z) ; si une fenêtre de choix s'ouvre (grille déjà remplie), c'est l'utilisateur qui choisit.
+Pendant que l'assistant est ouvert, les outils d'écriture de la grille sont refusés.
+
 ## Skills de composition (Claude Code)
 
 Le dossier `.claude/skills/` contient les skills qui guident la composition, et dont les règles sont reprises
