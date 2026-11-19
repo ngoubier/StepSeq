@@ -121,6 +121,7 @@
   function setWizardDraft(d) {
     if (d) project.wizard = d;
     else delete project.wizard;
+    syncView();
     dirty = true;
     SS.autosave.schedule();
     clearTimeout(autosaveTimer);
@@ -225,7 +226,53 @@
     SS.ui.updateKeyButton();
     syncStudio();
     syncMeta();
+    syncView();
     document.title = project.title + ' — StepSeq';
+  }
+
+  /* ---------- Bascule Assistant | Grille (barre du haut) ----------
+   * L'assistant est une « recette » rangée dans le projet (project.wizard) ; la grille, ce sont les pistes du projet.
+   * Passer de l'un à l'autre ne crée ni n'efface rien : seul « Créer la chanson » (ou le bandeau) écrit les pistes. */
+  function syncView() {
+    const on = !!(SS.band && SS.band.active());
+    const d = project && project.wizard;
+    const late = !!(d && SS.wizDraft && SS.wizDraft.pending(d));
+    $('#viewWiz').classList.toggle('active', on);
+    $('#viewGrid').classList.toggle('active', !on);
+    $('#viewWiz').setAttribute('aria-checked', String(on));
+    $('#viewGrid').setAttribute('aria-checked', String(!on));
+    $('#viewDot').hidden = !late;
+    $('#viewWiz').title = late
+      ? 'L’assistant « Nouvelle chanson » : il a des changements qui ne sont pas encore dans la grille'
+      : d ? 'L’assistant « Nouvelle chanson », à l’étape où tu l’as laissé' : 'L’assistant « Nouvelle chanson », sur ce projet';
+    const banner = $('#wizBanner');
+    banner.hidden = on || !late;
+    if (!banner.hidden)
+      $('#wizBannerText').textContent = d.createdAt
+        ? 'L’assistant a des changements qui ne sont pas encore dans la grille.'
+        : 'La chanson de l’assistant n’est pas encore dans la grille : tu vois le projet tel qu’il était.';
+  }
+  function initViewSwitch() {
+    const toWizard = () => {
+      if (SS.band.active()) return;
+      if (project.wizard) SS.band.resume();
+      else SS.band.open();
+    };
+    $('#viewWiz').addEventListener('click', toWizard);
+    $('#viewGrid').addEventListener('click', () => SS.band.active() && SS.band.close());
+    $('#wizBannerBack').addEventListener('click', toWizard);
+    // « Mettre la chanson dans la grille » = « Créer la chanson » de l'assistant (avec sa confirmation si le projet a des pistes)
+    $('#wizBannerPut').addEventListener('click', () => {
+      if (project.wizard && SS.band.resume()) SS.band.create();
+    });
+    // flèches gauche / droite dans le sélecteur (groupe radio)
+    $('#viewSeg').addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      e.preventDefault();
+      const b = e.key === 'ArrowLeft' ? $('#viewWiz') : $('#viewGrid');
+      b.click();
+      b.focus();
+    });
   }
 
   /**
@@ -326,6 +373,7 @@
     $('#songsBtn').addEventListener('click', () => SS.mySongs.open());
     $('#resumeWizard').addEventListener('click', () => SS.band.resume());
     initAppMenu();
+    initViewSwitch();
     $('#openProject').addEventListener('click', openProject);
     $('#saveProject').addEventListener('click', (e) => saveProject(e.shiftKey));
   }
@@ -405,6 +453,7 @@
    */
   function wizardMode(on) {
     stop(); // le projet ne joue pas derrière l'assistant ; à la sortie, la barre repart de zéro
+    syncView();
     if (on) return SS.live && SS.live.setOn(false); // pas de mode Jouer dans l'assistant (pas de piste à armer)
     const play = $('#play');
     play.removeAttribute('aria-pressed');

@@ -5276,3 +5276,13 @@ body.kb-on .track.armed { box-shadow: inset 0 0 0 2px #e5484d; }
 @media (max-width: 900px) {
   .kb-dock { grid-template-columns: 1fr; }
 }
+
+/* ---------- Bascule Assistant | Grille (barre du haut) et bandeau de la grille (js/main.js syncView) ---------- */
+.view-seg { margin-left: 4px; flex-shrink: 0; }
+.view-seg button { padding: 5px 12px; font-weight: 600; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.view-seg button.active { color: #fff; }
+.view-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 0 2px var(--panel-3); }
+.wiz-banner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 7px 14px; font-size: 13px;
+  background: #2a2516; border-bottom: 1px solid #4a3e1d; flex-shrink: 0; }
+.wiz-banner-ic { color: var(--gold); }
+body.wizard-mode .wiz-banner { display: none; }

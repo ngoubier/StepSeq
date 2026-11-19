@@ -114,8 +114,33 @@ SS.wizDraft = (() => {
     if (v < 1 || v > VERSION) return null;
     const o = { v, savedAt: num(d.savedAt, 0), state: clone(d.state) };
     if (typeof d.createdAt === 'number' && Number.isFinite(d.createdAt)) o.createdAt = d.createdAt;
+    if (typeof d.builtSig === 'string' && d.builtSig.length < 40) o.builtSig = d.builtSig;
     return o;
   }
 
-  return { VERSION, pack, unpack, clean };
+  /* ---------- Ce qui est dans la grille, et ce qui ne l'est pas encore ----------
+   * contentSig(state) : empreinte de ce qui fait la chanson (accords, parties, sons, mix…), sans l'état de navigation
+   * (étape, scène affichée, onglets, écoute en solo…) : changer d'étape ne rend pas la grille « en retard ».
+   * « Créer la chanson » la range dans le brouillon (builtSig) ; pending(d) : la grille n'a pas (ou plus) la chanson
+   * de l'assistant (jamais créée, ou retouchée dans l'assistant depuis). */
+  const NAV_W = ['step', 'seen', 'hscene', 'hsec', 'mixOpen', 'mixTab', 'mixScope', 'gsel', 'efilter', 'melSec', 'snap', 'fresh', 'mute', 'solo', 'accView'];
+  const NAV = ['accOpen', 'tracksOpen', 'hide'];
+  function contentSig(state) {
+    if (!isObj(state)) return '';
+    const o = { ...state, w: { ...(state.w || {}) } };
+    NAV.forEach((k) => delete o[k]);
+    NAV_W.forEach((k) => delete o.w[k]);
+    const txt = JSON.stringify(o);
+    let a = 5381;
+    let b = 52711;
+    for (let i = 0; i < txt.length; i++) {
+      const c = txt.charCodeAt(i);
+      a = (Math.imul(a, 33) ^ c) >>> 0;
+      b = (Math.imul(b, 31) ^ c) >>> 0;
+    }
+    return a.toString(36) + b.toString(36) + ':' + txt.length.toString(36);
+  }
+  const pending = (d) => !!d && (!d.createdAt || !d.builtSig || contentSig(d.state) !== d.builtSig);
+
+  return { VERSION, pack, unpack, clean, contentSig, pending };
 })();

@@ -6814,6 +6814,7 @@ SS.band = (() => {
     // tout est lu avant de quitter l'assistant (leave efface S.wiz), puis la fenêtre principale reprend la place
     const args = [cols.map((c) => c.o), plan, tempo(), { melodySeed: seed, melody: melodyOpts(), harmony: harmonyOpts(), parts: S.wiz.parts, kinds: S.wiz.kinds, gains: cols.map((c) => volGain(c.id)), mix: S.wiz.mix, groove: grooveOf(), fx: fxOpts(), bauto: movePlan(wizSong().res, { trial: false }).map((e) => ({ ...e, col: cols.findIndex((c) => c.id === e.col) })) }];
     const draft = wizSnapshot(Date.now()); // le brouillon est gardé : rouvrir l'assistant permet de retoucher et de recréer
+    draft.builtSig = SS.wizDraft.contentSig(draft.state); // la grille a maintenant cette chanson (bascule Assistant | Grille)
     leave({ keep: false });
     app.applySong(...args);
     app.setWizardDraft(draft);
@@ -8572,6 +8573,7 @@ SS.band = (() => {
     const d = { v: SS.wizDraft.VERSION, savedAt: Date.now(), state: SS.wizDraft.pack(draftSrc()) };
     const c = createdAt || S.wiz.createdAt;
     if (c) d.createdAt = c;
+    if (S.wiz.builtSig) d.builtSig = S.wiz.builtSig; // ce qui est dans la grille (SS.wizDraft.pending)
     return d;
   }
   /** Mélodie « Mix »… : les caches du catalogue (instruments choisis) ne gardent que ce qui existe encore. */
@@ -8626,7 +8628,7 @@ SS.band = (() => {
     S.wiz = {
       seed: 0, off: new Set(), mute: new Set(), solo: new Set(), sig: null, res: null, mel: S.mel, vol: new Map(), mix: null, mixScope: 'song', mixOpen: null, mixTab: 'eq', hscene: null, hsec: null, tempo: null, tempoFor: null,
       plans: {}, pseeds: {}, keys: {}, grids: {}, peds: {}, emos: {}, chars: {}, parts: {}, kinds: {}, melPanel: {}, form: null, secs: {}, skey: null, snap: 'beat', gsel: null, efilter: 0, fresh: false, fx: {},
-      ...x.w, step: 1, melSec: null, insp: null, createdAt: d.createdAt,
+      ...x.w, step: 1, melSec: null, insp: null, createdAt: d.createdAt, builtSig: d.builtSig,
     };
     // brouillon d'avant l'étape « Effets et transitions » (v < 3), puis d'avant l'étape « Arrangement » (v < 4) : les étapes
     // de Finaliser ont gagné un numéro à chaque fois (Mix était à ST.arr avant la v3)
@@ -8817,5 +8819,5 @@ SS.band = (() => {
     });
   }
 
-  return { init, open, openWizard, resume, hasDraft, wizSnapshot, wizRestore, draftWhen, active, togglePlay, stopListen, setTempo, plannedTracks, instKind, setKind, insSteps, stepRef, stepNum, partsToInst, instPartOf, putInstPart, melodyTrackOpts, _state: S, _listen: () => L.proj };
+  return { init, open, openWizard, resume, close: () => leave(), create: () => S.wiz && createWizSong(), hasDraft, wizSnapshot, wizRestore, draftWhen, active, togglePlay, stopListen, setTempo, plannedTracks, instKind, setKind, insSteps, stepRef, stepNum, partsToInst, instPartOf, putInstPart, melodyTrackOpts, _state: S, _listen: () => L.proj };
 })();

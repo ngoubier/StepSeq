@@ -29,6 +29,11 @@ puis ouvrir <http://localhost:8000>.
   barre qui reste visible ; la barre du bas, Tonalité, Song et Mix s'effacent et la **tonalité** de la chanson en création (« Do mineur », avec son armure)
   prend leur place. **Lecture / Stop**, **tempo** et **position** de la barre pilotent alors l'écoute de l'assistant (scène choisie en boucle ou chanson) ;
   à la fermeture, la barre redevient celle du projet.
+  **Bascule Assistant | Grille** : à côté du titre, un sélecteur passe à tout moment de l'assistant « Nouvelle chanson » à la grille
+  (les pistes du projet) et revient à la même étape, sans rien créer ni effacer. Tant que la grille n'a pas la chanson de l'assistant
+  (jamais créée, ou changée dans l'assistant depuis : accords, sons, tempo… ; changer d'étape ne compte pas), un point doré s'allume sur
+  « Assistant » et un bandeau au-dessus des pistes propose **Mettre la chanson dans la grille** (= « Créer la chanson ») ou **Continuer l'assistant**.
+  L'assistant ne relit pas la grille : recréer la chanson remplace les pistes (Ctrl+Z pour revenir).
   À droite : annuler / rétablir, l'indicateur d'enregistrement automatique et **Aide**.
   Le bouton **+ Ajouter une piste** se trouve sous les pistes.
 - **Partie centrale** : les pistes, les unes sous les autres. Chaque piste a un en-tête
