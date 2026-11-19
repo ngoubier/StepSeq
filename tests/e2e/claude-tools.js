@@ -104,6 +104,36 @@ const ok = (c, m) => {
   const e2 = await ev(() => StepSeq.ecrireAccords({ accords: ['Hm7'] }));
   ok(!e2.ok && e2.erreur, `accord illisible : ${e2.erreur}`);
 
+
+  // assistant « Nouvelle chanson »
+  const ouv = await ev(() => StepSeq.assistantOuvrir());
+  ok(ouv.ok && ouv.attente && (await ev(() => SS.band.active())), `assistantOuvrir : ${ouv.message || ouv.erreur} (grille à relire : ${!!ouv.attente})`);
+  await page.click('#brgSkip'); // l'utilisateur choisit : ouvrir sans reprendre les instruments de la grille
+  const sty = await ev(() => StepSeq.assistantStyle({ style: 'synthwave', inspiration: 'nightcall' }));
+  ok(sty.ok && /Nightcall/.test(sty.message), `assistantStyle : ${sty.message || sty.erreur}`);
+  const ae = await ev(() => StepSeq.assistantTempo({ bpm: 96 }));
+  const ton2 = await ev(() => StepSeq.assistantTonalite({ tonique: 'Ré', mode: 'mineur' }));
+  ok(ae.ok && ton2.ok && (await ev(() => StepSeq.assistantEtat().tempo)) === 96, `assistantTempo + Tonalite : ${ton2.message || ton2.erreur}`);
+  const sax = await ev(() => StepSeq.assistantMusicien({ ajouter: 'melodie', son: 'sax', nom: 'Saxo' }));
+  ok(sax.ok && sax.musicien.nom === 'Saxo' && /sax/i.test(sax.musicien.son), `assistantMusicien ajouter : ${sax.message || sax.erreur}`);
+  const scs = await ev(() => StepSeq.assistantEtat().scenes);
+  const ch = scs.find((x) => /chorus|refrain/i.test(x.id + x.nom)) || scs[0];
+  const sc8 = await ev((id) => StepSeq.assistantScene({ scene: id, mesures: 8 }), ch.id);
+  const acc3 = await ev((id) => StepSeq.assistantAccords({ scene: id, accords: ['Am', 'F', 'C', 'G'] }), ch.id);
+  ok(sc8.ok && acc3.ok && /Am – F – C – G – Am – F – C – G/.test(acc3.message), `assistantScene + Accords : ${acc3.message || acc3.erreur}`);
+  const so2 = await ev((id) => StepSeq.assistantStructure({ blocs: [{ scene: id, fois: 2 }] }), ch.id);
+  ok(so2.ok && /×2/.test(so2.message), `assistantStructure : ${so2.message || so2.erreur}`);
+  const stp = await ev(() => StepSeq.assistantEtape({ etape: 'accords' }));
+  ok(stp.ok && (await ev(() => StepSeq.assistantEtat().etape)) === 'chords', `assistantEtape : ${stp.message || stp.erreur}`);
+  const blocked = await ev(() => StepSeq.tempo({ bpm: 120 }));
+  ok(!blocked.ok && /assistantFermer/.test(blocked.erreur), 'outils de la grille refusés pendant l’assistant');
+  if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'claude-assistant.png') });
+  const cr = await ev(() => StepSeq.assistantCreer());
+  ok(cr.ok && cr.attente && (await ev(() => !document.getElementById('bandConfirm').hidden)), `assistantCreer : grille non vide, confirmation affichée`);
+  await page.click('#bcfSong');
+  await page.waitForTimeout(800);
+  const fin = await ev(() => StepSeq.etat());
+  ok(!(await ev(() => SS.band.active())) && fin.tempo === 96 && fin.pistes.some((t) => t.nom === 'Saxo' || /Saxo/.test(t.nom)), `chanson créée : ${fin.tempo} BPM, ${fin.pistes.length} pistes`);
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'claude-boite-a-outils.png') });
   ok(!errs.length, 'aucune erreur JavaScript' + (errs.length ? ' : ' + errs.join(' | ') : ''));
   await b.close();

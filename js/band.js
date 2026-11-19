@@ -9467,6 +9467,237 @@ SS.band = (() => {
   /** Pas précédent / suivant (boutons cachés #bwBack / #bwNext, Alt + flèches). */
   const stepBy = (d) => S.wiz && goStep(S.wiz.step + d);
 
+  /* ---------- Pont pour Claude (js/claude-tools.js : StepSeq.assistant…) ----------
+   * Mêmes actions que les clics de l'assistant, sur des identifiants internes (sections, musiciens, jetons de son) ;
+   * la lecture des noms (« Refrain », « Am », « Fa mineur ») est faite par js/claude-tools.js. Tout reste un brouillon de
+   * l'assistant (enregistré tout seul) : rien ne touche la grille avant creer(). Une erreur est levée en clair. */
+  const claude = (() => {
+    const err = (m) => {
+      throw new Error(m);
+    };
+    const fold = (s) => String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+    const need = () => S.wiz || err('l’assistant n’est pas ouvert : StepSeq.assistantOuvrir()');
+    const needPlan = () => {
+      need();
+      if (tplStyle()) err('un style de modèles est choisi : choisis un style ordinaire avec assistantStyle({ style })');
+      if (!preset() || !spec()) err('choisis d’abord un style : StepSeq.assistantStyle({ style })');
+    };
+    /** Après une action : le brouillon s'enregistre et l'étape se redessine. */
+    const touched = () => {
+      if (S.wiz) {
+        renderWiz();
+        draftSoon();
+      }
+    };
+    function secId(ref) {
+      const sp = specEff();
+      const ids = Object.keys(sp.sections);
+      if (ref == null || ref === '') {
+        const res = wizSong().res;
+        return res ? curScene(res).sec : ids[0];
+      }
+      const id = ids.find((x) => x === ref) || ids.find((x) => fold(secName(x)) === fold(ref)) || ids.find((x) => fold(secName(x)).startsWith(fold(ref)));
+      return id || err(`scène inconnue : « ${ref} ». Scènes : ${ids.map((x) => `${secName(x)} (${x})`).join(', ')}`);
+    }
+    /** La scène telle que l'étape Accords la voit : { id, sec, bars, key } (même hors de l'arrangement). */
+    function sceneOf(id) {
+      const res = wizSong().res;
+      const s = res && res.scenes.find((x) => x.sec === id);
+      if (s) return s;
+      const sec = specEff().sections[id];
+      return { id, sec: id, bars: sec.bars, key: S.wiz.keys[id] || (sec.key ? parseKeyStr(sec.key) : songKey()) };
+    }
+    function muId(ref) {
+      const list = musicians();
+      const mu = list.find((m) => m.id === ref) || list.find((m) => fold(labelOf(m)) === fold(ref)) || list.find((m) => fold(labelOf(m)).startsWith(fold(ref)));
+      return mu || err(`musicien inconnu : « ${ref} ». Musiciens : ${list.map((m) => `${labelOf(m)} (${m.id})`).join(', ')}`);
+    }
+    const stepKey = () => {
+      const r = stepRef(S.wiz.step);
+      return r && r.inst ? `instrument ${r.inst}` : r;
+    };
+    function etat() {
+      if (!S.wiz) return { ouvert: false, brouillon: hasDraft() };
+      const st = style();
+      const p = preset();
+      const out = { ouvert: true, etape: stepKey(), style: st ? st.id : null, inspiration: p ? { id: p.id, chanson: p.song, artiste: p.artist } : null };
+      if (!p || !spec() || tplStyle()) return out;
+      const ms = musState();
+      out.musiciens = musicians().map((m) => ({ id: m.id, nom: labelOf(m), type: kindNow(m) || 'effets', son: soundName(m, ms[m.id]) }));
+      out.tempo = tempo();
+      out.tonalite = songKey();
+      const sp = specEff();
+      out.scenes = Object.keys(sp.sections).map((id) => {
+        const sc = sceneOf(id);
+        return { id, nom: secName(id), mesures: sc.bars, tonalite: sc.key, grille: gridOf(sc).map((c) => ({ pas: c.step, duree: c.len, accord: chordOf(sc.key, c).name })) };
+      });
+      out.structure = formOf().map((b) => ({ scene: b.id, fois: b.repeat }));
+      return out;
+    }
+    const styles = () =>
+      B().STYLES.map((s) => ({ style: s.id, nom: s.label, inspirations: s.presets.map((p) => ({ id: p.id, chanson: p.song, artiste: p.artist, annee: p.year, tempo: p.tempo })) }));
+    function sons(type) {
+      needPlan();
+      if (!BG().TYPES.includes(type)) err(`type inconnu : « ${type} » (${BG().TYPES.join(', ')})`);
+      const rc = recFor(type);
+      if (type === 'drums') return rc.kits.map((k) => ({ son: k, nom: (B().KITS[k] || { label: k }).label }));
+      if (type === 'orch') return SS.orchestra.ENSEMBLES.map((e) => ({ son: e.id, nom: e.label }));
+      return rc.pick.map((tok) => ({ son: tok, nom: B().describe(B().choiceOpts(tok, rc.cat)).name }));
+    }
+    function ouvrir() {
+      if (S.wiz) return 'déjà ouvert';
+      if (hasDraft() && resume()) return 'brouillon repris';
+      open();
+      return S.wiz ? 'ouvert' : err('l’assistant ne s’est pas ouvert');
+    }
+    function etape(ref) {
+      need();
+      const n = typeof ref === 'object' ? stepNum(ref) : stepNum(ref);
+      if (!n) err(`étape inconnue : « ${typeof ref === 'object' ? JSON.stringify(ref) : ref} »`);
+      if (!canGo(n)) err('choisis d’abord un style et une inspiration');
+      goStep(n);
+      draftSoon();
+      return stepKey();
+    }
+    function setStyleOf(id, pid) {
+      need();
+      const st = B().STYLES.find((s) => s.id === id);
+      if (!st) err(`style inconnu : « ${id} » (${B().STYLES.map((s) => s.id).join(', ')})`);
+      setStyle(id);
+      if (pid) {
+        const p = st.presets.find((x) => x.id === pid);
+        if (!p) err(`inspiration inconnue pour ${st.label} : « ${pid} » (${st.presets.map((x) => x.id).join(', ')})`);
+        if (S.presetId !== pid) setPreset(pid);
+      }
+      touched();
+    }
+    function setSound(mu, tok) {
+      const ms = musState()[mu.id];
+      if (mu.kits) {
+        if (!B().KITS[tok]) err(`kit inconnu : « ${tok} » (${Object.keys(B().KITS).join(', ')})`);
+        ms.kit = tok;
+      } else if (mu.orch) {
+        if (!SS.orchestra.ENS[tok]) err(`effectif inconnu : « ${tok} » (${SS.orchestra.ENSEMBLES.map((e) => e.id).join(', ')})`);
+        ms.ens = tok;
+      } else {
+        const i = picksOf(mu).indexOf(tok);
+        if (i >= 0) setPick(mu, ms, i);
+        else {
+          ms.custom = B().choiceOpts(tok, catOf(mu));
+          ms.picked = true;
+        }
+      }
+    }
+    function addMu(type, tok, name) {
+      needPlan();
+      if (!BG().TYPES.includes(type)) err(`type inconnu : « ${type} » (${BG().TYPES.join(', ')})`);
+      if (!BG().canAdd(group())) err('le groupe est complet (10 musiciens)');
+      const rec = BG().add(group(), type, { name });
+      if (tok) {
+        try {
+          setSound(muById(rec.id), tok);
+        } catch (e) {
+          BG().remove(group(), rec.id);
+          throw e;
+        }
+      }
+      groupChanged();
+      touched();
+      return muById(rec.id);
+    }
+    function editMu(ref, { son, type, nom, retirer }) {
+      needPlan();
+      const mu = muId(ref);
+      if (retirer) {
+        if (!BG().canRemove(group())) err('le groupe garde au moins 2 musiciens');
+        removeMember(mu.id);
+        touched();
+        return null;
+      }
+      if (type) {
+        if (!BG().TYPES.includes(type)) err(`type inconnu : « ${type} » (${BG().TYPES.join(', ')})`);
+        const cols = wizCols().filter((c) => c.musician === mu.id);
+        if (!cols.length || !cols.every((c) => setKind(c.id, type))) err(`${labelOf(mu)} ne peut pas devenir ${KIND_LABEL[type]} (un kit reste une batterie)`);
+      }
+      if (son) setSound(muById(mu.id), son);
+      if (nom != null) BG().rename(group(), mu.id, nom, baseNameOf(mu));
+      groupChanged();
+      touched();
+      return muById(mu.id);
+    }
+    function setKey(k) {
+      needPlan();
+      setSongKey(k);
+      draftSoon();
+    }
+    function scene(ref, { mesures, nom, dupliquer, supprimer }) {
+      needPlan();
+      const id = secId(ref);
+      if (supprimer) {
+        if (Object.keys(specEff().sections).length < 2) err('la dernière scène ne peut pas être supprimée');
+        delScene(id);
+        touched();
+        return null;
+      }
+      let target = id;
+      if (dupliquer) {
+        const before = new Set(Object.keys(specEff().sections));
+        dupScene(id);
+        target = Object.keys(specEff().sections).find((x) => !before.has(x)) || err('copie impossible (trop de scènes ou de blocs)');
+      }
+      if (mesures != null) {
+        const b = Math.round(Number(mesures));
+        if (!(b >= 1 && b <= 64)) err('mesures : de 1 à 64');
+        setSecBars(target, b);
+      }
+      if (nom != null) renameSec(target, nom);
+      touched();
+      return target;
+    }
+    function structure(blocs) {
+      needPlan();
+      const f = blocs.map((b) => ({ id: secId(b.scene), repeat: Math.max(1, Math.min(16, Math.round(b.fois || 1))) }));
+      if (!f.length) err('la structure garde au moins un bloc');
+      if (f.length > FORM_MAX) err(`au plus ${FORM_MAX} blocs`);
+      setForm(f);
+      draftSoon();
+    }
+    /** bars : [[{ degree, type, acc, bass? }, …], …] une liste d'accords par mesure, répétée pour couvrir la scène. */
+    function accords(ref, bars, key) {
+      needPlan();
+      const id = secId(ref);
+      if (key) setSceneKey(sceneOf(id), key);
+      const sc = sceneOf(id);
+      if (!bars) return sc;
+      const out = [];
+      for (let b = 0; b < sc.bars; b++) {
+        const list = bars[b % bars.length];
+        const len = Math.floor(16 / list.length);
+        list.forEach((c, i) => out.push({ step: b * 16 + i * len, len: i === list.length - 1 ? 16 - i * len : len, degree: c.degree, type: c.type, acc: c.acc || 0, ...(c.bass ? { bass: c.bass } : {}) }));
+      }
+      delete S.wiz.peds[id];
+      S.wiz.psel = null;
+      editGrid(sc, (g) => void g.splice(0, g.length, ...out));
+      draftSoon();
+      return sceneOf(id);
+    }
+    function creer() {
+      needPlan();
+      createWizSong();
+      return S.wiz ? 'confirmation' : 'creee';
+    }
+    return {
+      etat, styles, sons, ouvrir, etape, sceneId: secId, sceneOf, chordName: (key, c) => chordOf(key, c).name,
+      style: setStyleOf, ajouter: addMu, musicien: editMu, tonalite: setKey, scene, structure, accords, creer,
+      tempo: (v) => (needPlan(), setTempo(v), draftSoon(), tempo()),
+      melodie: () => (needPlan(), S.wiz.seed++, touched(), S.wiz.seed),
+      ecouter: () => (needPlan(), L.mode && !L.paused ? null : togglePlay()),
+      stop: () => (need(), stopListen()),
+      fermer: () => leave(),
+      label: labelOf, soundOf: (mu) => soundName(mu),
+    };
+  })();
+
   function init(appApi) {
     app = appApi;
     el = $('#bandDialog');
@@ -9512,5 +9743,5 @@ SS.band = (() => {
     });
   }
 
-  return { init, open, openWizard, resume, close: () => leave(), create: () => S.wiz && createWizSong(), hasDraft, wizSnapshot, wizRestore, draftWhen, active, togglePlay, stopListen, setTempo, plannedTracks, instKind, setKind, insSteps, stepRef, stepNum, partsToInst, instPartOf, putInstPart, melodyTrackOpts, _state: S, _listen: () => L.proj };
+  return { init, open, openWizard, resume, close: () => leave(), create: () => S.wiz && createWizSong(), hasDraft, wizSnapshot, wizRestore, draftWhen, active, togglePlay, stopListen, setTempo, plannedTracks, instKind, setKind, insSteps, stepRef, stepNum, partsToInst, instPartOf, putInstPart, melodyTrackOpts, claude, _state: S, _listen: () => L.proj };
 })();

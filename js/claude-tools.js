@@ -733,6 +733,164 @@ SS.claudeTools = (() => {
     return { message: 'Action rétablie' };
   }
 
+  /* ---------------- Assistant « Nouvelle chanson » (pont SS.band.claude, js/band.js) ----------------
+   * L'assistant s'affiche et avance comme sous les clics. Ses réglages sont un brouillon (enregistré tout seul, pas de
+   * Ctrl+Z) ; seule assistantCreer() écrit dans la grille, en une étape Ctrl+Z. */
+  const W = () => SS.band.claude;
+  const TYPE_FR = { batterie: 'drums', drums: 'drums', percu: 'drums', basse: 'bass', bass: 'bass', nappe: 'chords', accords: 'chords', chords: 'chords', pad: 'chords', clavier: 'chords', piano: 'chords', arpege: 'arp', arp: 'arp', melodie: 'melody', melody: 'melody', lead: 'melody', orchestre: 'orch', orch: 'orch' };
+  function typeOf(t) {
+    const id = TYPE_FR[fold(t)];
+    if (!id) fail(`type de musicien inconnu : « ${t} » (batterie, basse, nappe, arpege, melodie, orchestre)`);
+    return id;
+  }
+  const STEP_FR = { style: 'style', instruments: 'inst', inst: 'inst', tempo: 'tempo', tonalite: 'tempo', scenes: 'scenes', accords: 'chords', chords: 'chords', arrangement: 'arr', arr: 'arr', effets: 'fx', transitions: 'fx', fx: 'fx', mix: 'mix', integration: 'pick', pick: 'pick', creer: 'pick' };
+  /** Un son pour un type : id ou nom d'un conseillé (assistantSons), sinon un son du catalogue (id, « j:A48 », bout de nom). */
+  function soundTok(type, son) {
+    const list = W().sons(type);
+    const q = fold(son);
+    const hit = list.find((x) => fold(x.son) === q) || list.find((x) => fold(x.nom) === q) || list.find((x) => fold(x.nom).includes(q) || fold(x.son).includes(q));
+    if (hit) return hit.son;
+    if (type === 'drums' || type === 'orch') fail(`« ${son} » : choisis parmi ${list.map((x) => `${x.son} (${x.nom})`).join(', ')}`);
+    if (/^j:/i.test(son)) return 'j:' + soundOpts(son).patch;
+    return soundOpts(son).instrument;
+  }
+  const keyOfArg = (k) => (k && typeof k === 'object' ? { tonic: tonicOf(k.tonique), mode: modeOf(k.mode || 'majeur') } : null);
+  function draft(label) {
+    actions++;
+    badge();
+    SS.ui.toast(`✳ Claude : ${label}`, 4000);
+  }
+  const muText = (m) => `${m.nom} (${m.son})`;
+  const findMu = (id) => (W().etat().musiciens || []).find((m) => m.id === id);
+
+  function assistantStyles() {
+    return { styles: W().styles(), conseil: 'assistantStyle({ style: "synthwave", inspiration: "<id d’une inspiration>" })' };
+  }
+  function assistantEtat() {
+    return W().etat();
+  }
+  function assistantSons({ type } = {}) {
+    return { sons: W().sons(typeOf(type)) };
+  }
+  function assistantOuvrir() {
+    const r = W().ouvrir();
+    const box = document.getElementById('bandConfirm');
+    const wait = box && !box.hidden ? { attente: 'une fenêtre de l’assistant attend le choix de l’utilisateur (reprendre les instruments de la grille, verrouiller des pistes) : demande-lui de choisir' } : {};
+    return { message: `Assistant ${r}`, ...wait, etat: W().etat() };
+  }
+  function assistantEtape({ etape } = {}) {
+    const k = STEP_FR[fold(etape)];
+    if (!k) fail(`étape inconnue : « ${etape} » (${Object.keys(STEP_FR).filter((x) => !/^(inst|chords|arr|fx|pick|creer|transitions|tonalite)$/.test(x)).join(', ')})`);
+    return { message: `Étape ${W().etape(k)}` };
+  }
+  function assistantEcouter() {
+    W().ecouter();
+    return { message: 'Écoute lancée (le son ne part qu’après un clic de l’utilisateur dans la page)' };
+  }
+  function assistantStop() {
+    W().stop();
+    return { message: 'Écoute arrêtée' };
+  }
+  function assistantFermer() {
+    W().fermer();
+    return { message: 'Retour à la grille, le brouillon de l’assistant est gardé' };
+  }
+  function assistantStyle({ style, inspiration } = {}) {
+    const st = W().styles().find((s) => fold(s.style) === fold(style) || fold(s.nom) === fold(style));
+    if (!st) fail(`style inconnu : « ${style} » (${W().styles().map((s) => s.style).join(', ')})`);
+    let pid = null;
+    if (inspiration) {
+      const q = fold(inspiration);
+      const p = st.inspirations.find((x) => fold(x.id) === q || fold(x.chanson) === q) || st.inspirations.find((x) => fold(x.chanson).includes(q) || fold(x.artiste).includes(q));
+      if (!p) fail(`inspiration inconnue pour ${st.nom} : « ${inspiration} » (${st.inspirations.map((x) => `${x.id} : ${x.chanson}, ${x.artiste}`).join(' ; ')})`);
+      pid = p.id;
+    }
+    W().style(st.style, pid);
+    const e = W().etat();
+    draft(`style ${st.nom}${e.inspiration ? `, dans l’esprit de « ${e.inspiration.chanson} »` : ''}`);
+    return { message: `Style ${st.nom} · ${e.inspiration ? e.inspiration.chanson + ', ' + e.inspiration.artiste : ''} · ${e.tempo} BPM`, musiciens: e.musiciens };
+  }
+  function assistantMusicien({ ajouter, musicien, son, type, nom, retirer } = {}) {
+    if (ajouter) {
+      const t = typeOf(ajouter);
+      const mu = W().ajouter(t, son ? soundTok(t, son) : null, nom);
+      const m = findMu(mu.id);
+      draft(`musicien ajouté : ${muText(m)}`);
+      return { message: `Musicien ajouté : ${muText(m)}`, musicien: m };
+    }
+    if (!musicien) fail('donne « ajouter » (un type) ou « musicien » (id ou nom, voir assistantEtat())');
+    const before = (W().etat().musiciens || []).find((m) => m.id === musicien || fold(m.nom) === fold(musicien) || fold(m.nom).startsWith(fold(musicien)));
+    const t = type ? typeOf(type) : null;
+    const tok = son ? soundTok(t || (before && before.type !== 'effets' ? before.type : 'melody'), son) : null;
+    const mu = W().musicien(musicien, { son: tok, type: t, nom, retirer });
+    if (!mu) {
+      draft(`musicien retiré : ${before ? before.nom : musicien}`);
+      return { message: `Musicien retiré : ${before ? before.nom : musicien}` };
+    }
+    const m = findMu(mu.id);
+    draft(`musicien ${muText(m)}`);
+    return { message: `Musicien : ${muText(m)}, type ${m.type}`, musicien: m };
+  }
+  function assistantTempo({ bpm } = {}) {
+    if (!Number.isFinite(Number(bpm))) fail('bpm : un nombre (40 à 240)');
+    const t = W().tempo(Number(bpm));
+    draft(`tempo ${t} BPM`);
+    return { message: `Tempo de la chanson : ${t} BPM` };
+  }
+  function assistantTonalite({ tonique, mode = 'majeur' } = {}) {
+    const k = { tonic: tonicOf(tonique), mode: modeOf(mode) };
+    W().tonalite(k);
+    draft(`tonalité ${keyText(k)}`);
+    return { message: `Tonalité de la chanson : ${keyText(k)}, toutes les scènes transposées`, scenes: W().etat().scenes.map((s) => ({ scene: s.nom, tonalite: keyText(s.tonalite) })) };
+  }
+  function assistantScene({ scene, mesures: bars, nom, dupliquer, supprimer } = {}) {
+    const id = W().scene(scene, { mesures: bars, nom, dupliquer, supprimer });
+    if (!id) {
+      draft(`scène supprimée : ${scene}`);
+      return { message: `Scène supprimée : ${scene}`, structure: W().etat().structure };
+    }
+    const s = W().etat().scenes.find((x) => x.id === id);
+    draft(`scène ${s.nom}`);
+    return { message: `${dupliquer ? 'Copie : ' : 'Scène '}${s.nom} (${s.id}), ${s.mesures} mesures`, scene: s };
+  }
+  function assistantStructure({ blocs } = {}) {
+    if (!Array.isArray(blocs) || !blocs.length) fail('blocs : une liste, ex. ["intro", { scene: "chorus", fois: 2 }]');
+    W().structure(blocs.map((b) => (typeof b === 'string' ? { scene: b, fois: 1 } : b)));
+    const e = W().etat();
+    const txt = e.structure.map((b) => e.scenes.find((s) => s.id === b.scene).nom + (b.fois > 1 ? ` ×${b.fois}` : '')).join(' → ');
+    draft(`structure ${txt}`);
+    return { message: `Structure : ${txt}` };
+  }
+  function assistantAccords({ scene, accords: list, tonalite: k } = {}) {
+    const key = keyOfArg(k);
+    if (key && !list) {
+      const s = W().accords(scene, null, key);
+      draft(`tonalité de la scène : ${keyText(s.key)}`);
+      return { message: `Tonalité de la scène : ${keyText(s.key)} (les accords gardent leurs degrés)` };
+    }
+    if (!Array.isArray(list) || !list.length) fail('accords : une liste, une mesure par élément, ex. ["Am", "F", "C G", "E7"]');
+    const sc = W().sceneOf(W().sceneId(scene));
+    const kk = key || sc.key;
+    const bars = list.map((x) => String(x).trim().split(/\s+/).map((sym) => gridChordOf(sym, kk)));
+    const s = W().accords(sc.sec, bars, key);
+    const e = W().etat().scenes.find((x) => x.id === s.sec);
+    const txt = e.grille.map((c) => c.accord).join(' – ');
+    draft(`accords de ${e.nom}`);
+    return { message: `${e.nom} (${e.mesures} mesures, ${keyText(e.tonalite)}) : ${txt}`, ...(list.length > e.mesures ? { attention: `${list.length - e.mesures} mesure(s) en trop ignorée(s)` } : {}) };
+  }
+  function assistantMelodie() {
+    W().melodie();
+    draft('une autre mélodie');
+    return { message: 'Nouvelle mélodie pour toute la chanson (propose à l’utilisateur d’écouter)' };
+  }
+  function assistantCreer() {
+    const r = W().creer();
+    if (r === 'confirmation') return { message: 'Une fenêtre de confirmation est ouverte (la grille a déjà des pistes) : c’est l’utilisateur qui choisit', attente: true };
+    actions++;
+    badge();
+    return { message: `Chanson créée dans la grille (Ctrl+Z revient en arrière)`, etat: etat() };
+  }
+
   /* ---------------- Liste des outils (aussi pour le futur panneau intégré, API Claude) ---------------- */
   const S = (type, description, requis) => ({ type, description, ...(requis ? { requis: true } : {}) });
   const SCENE = S('texte', 'nom ou id de la scène (par défaut : la scène en cours)');
@@ -770,7 +928,25 @@ SS.claudeTools = (() => {
     { nom: 'stop', lecture: true, description: 'Arrête la lecture.', params: {}, faire: stop },
     { nom: 'annuler', lecture: true, description: 'Annule la dernière action (comme Ctrl+Z).', params: {}, faire: annuler },
     { nom: 'retablir', lecture: true, description: 'Rétablit l’action annulée (comme Ctrl+Y).', params: {}, faire: retablir },
+    { nom: 'assistantStyles', lecture: true, assistant: true, description: 'Assistant « Nouvelle chanson » : les styles et leurs inspirations (chanson, artiste, tempo).', params: {}, faire: assistantStyles },
+    { nom: 'assistantEtat', lecture: true, assistant: true, description: 'Assistant : ouvert ou non, étape, style, inspiration, musiciens (id, type, son), tempo, tonalité, scènes (id, mesures, tonalité, grille), structure.', params: {}, faire: assistantEtat },
+    { nom: 'assistantSons', lecture: true, assistant: true, description: 'Assistant : les sons conseillés pour un type de musicien (batterie : les kits ; orchestre : les effectifs).', params: { type: S('texte', 'batterie, basse, nappe, arpege, melodie, orchestre', true) }, faire: assistantSons },
+    { nom: 'assistantOuvrir', assistant: true, description: 'Ouvre l’assistant « Nouvelle chanson » sur la chanson (reprend son brouillon s’il y en a un).', params: {}, faire: assistantOuvrir },
+    { nom: 'assistantEtape', assistant: true, description: 'Affiche une étape de l’assistant.', params: { etape: S('texte', 'style, instruments, tempo, scenes, accords, arrangement, effets, mix, integration', true) }, faire: assistantEtape },
+    { nom: 'assistantEcouter', lecture: true, assistant: true, description: 'Écoute la chanson en cours de création (ou la scène, aux étapes Accords et instruments).', params: {}, faire: assistantEcouter },
+    { nom: 'assistantStop', lecture: true, assistant: true, description: 'Arrête l’écoute de l’assistant.', params: {}, faire: assistantStop },
+    { nom: 'assistantFermer', assistant: true, description: 'Revient à la grille ; le brouillon de l’assistant est gardé.', params: {}, faire: assistantFermer },
+    { nom: 'assistantStyle', assistant: true, description: 'Choisit le style et l’inspiration (le groupe, le tempo et le plan de la chanson suivent).', params: { style: S('texte', 'synthwave, edm, ambient, techno, pop, funk, hiphop, dnb, latin, soul', true), inspiration: S('texte', 'id, titre ou artiste d’une inspiration (voir assistantStyles())') }, faire: assistantStyle },
+    { nom: 'assistantMusicien', assistant: true, description: 'Ajoute un musicien, ou change le son, le type ou le nom d’un musicien, ou le retire.', params: { ajouter: S('texte', 'type du musicien à ajouter : batterie, basse, nappe, arpege, melodie, orchestre'), musicien: S('texte', 'id ou nom d’un musicien (voir assistantEtat())'), son: S('texte', 'id ou nom d’un son conseillé (assistantSons), ou tout son du catalogue (sons()), "j:A48"…'), type: S('texte', 'nouveau type'), nom: S('texte', 'nouveau nom'), retirer: S('booléen', 'retirer ce musicien') }, faire: assistantMusicien },
+    { nom: 'assistantTempo', assistant: true, description: 'Tempo de la chanson à créer.', params: { bpm: S('nombre', '40 à 240', true) }, faire: assistantTempo },
+    { nom: 'assistantTonalite', assistant: true, description: 'Tonalité de la chanson : toutes les scènes sont transposées.', params: { tonique: S('texte', '"D", "Ré", "F#"…', true), mode: S('texte', 'majeur (défaut), mineur, dorien…') }, faire: assistantTonalite },
+    { nom: 'assistantScene', assistant: true, description: 'Longueur, nom, copie ou suppression d’une scène de l’assistant.', params: { scene: S('texte', 'id ou nom (voir assistantEtat())', true), mesures: S('nombre', '1 à 64'), nom: S('texte', 'nouveau nom'), dupliquer: S('booléen', 'faire une copie (les autres réglages s’appliquent à la copie)'), supprimer: S('booléen', 'supprimer la scène') }, faire: assistantScene },
+    { nom: 'assistantStructure', assistant: true, description: 'L’ordre des scènes de la chanson (remplace l’arrangement).', params: { blocs: S('liste', '["intro", { scene: "chorus", fois: 2 }, "outro"]', true) }, faire: assistantStructure },
+    { nom: 'assistantAccords', assistant: true, description: 'La grille d’une scène, une mesure par élément ("C G" = deux accords), répétée pour couvrir la scène ; ou sa tonalité seule.', params: { scene: S('texte', 'id ou nom (défaut : la scène affichée)'), accords: S('liste', '["Am", "F", "C", "G"]'), tonalite: S('objet', '{ tonique, mode } : tonalité de la scène') }, faire: assistantAccords },
+    { nom: 'assistantMelodie', assistant: true, description: 'Une autre mélodie pour toute la chanson (comme 🎲).', params: {}, faire: assistantMelodie },
+    { nom: 'assistantCreer', assistant: true, description: 'Crée la chanson dans la grille (une étape Ctrl+Z). Si la grille a déjà des pistes, la fenêtre de confirmation s’ouvre : l’utilisateur choisit.', params: {}, faire: assistantCreer },
   ];
+
 
   function aideTexte() {
     const lines = [
@@ -781,6 +957,7 @@ SS.claudeTools = (() => {
       'Notes : "C4" = do central (MIDI 60), "E2" basse, "F#3", "Sib2", ou un numéro MIDI. Vélocité 0–1 : 1 accent, 0.8 normal, 0.3 ghost note.',
       'La chanson = des scènes (Couplet, Refrain…) ; chaque scène a ses notes, sa tonalité et sa grille d’accords ; les sons et le mix sont communs.',
       'Écrire dans une scène l’affiche à l’écran. Claude n’entend pas le son : décris ce que tu fais et propose à l’utilisateur d’écouter.',
+      'Assistant « Nouvelle chanson » : outils assistant… (assistantOuvrir, assistantStyle, assistantMusicien, assistantAccords… puis assistantCreer). Ses réglages sont un brouillon sans Ctrl+Z ; assistantCreer écrit la chanson dans la grille (une étape Ctrl+Z).',
       '',
       'Outils :',
     ];
@@ -796,7 +973,7 @@ SS.claudeTools = (() => {
   function wrap(o) {
     return (args = {}) => {
       if (!app) return { ok: false, erreur: 'StepSeq n’est pas encore prêt' };
-      if (SS.band && SS.band.active() && !o.lecture) return { ok: false, erreur: 'l’assistant « Nouvelle chanson » est ouvert : demande à l’utilisateur de revenir à la Grille (bouton ▦ Grille en haut)' };
+      if (SS.band && SS.band.active() && !o.lecture && !o.assistant) return { ok: false, erreur: 'l’assistant « Nouvelle chanson » est ouvert : pilote-le avec les outils assistant…, ou reviens à la grille avec StepSeq.assistantFermer()' };
       try {
         const r = o.faire(args && typeof args === 'object' ? args : {}) || {};
         return { ok: true, ...r };
