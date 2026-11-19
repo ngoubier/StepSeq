@@ -222,6 +222,8 @@ SS.claudeTools = (() => {
       out.notes = (d.events || []).map((e) => ({ pas: e.step, note: e.notes.length > 1 ? e.notes.map(SS.noteName) : SS.noteName(e.notes[0]), dur: e.len, vel: Math.round((e.vel ?? 0.8) * 100) / 100 }));
     }
     if (t.fx) out.effets = t.fx;
+    const au = sc.id === P().current ? t.auto : d.auto;
+    if (au) out.automation = Object.fromEntries(Object.entries(au).map(([k, l]) => [k, Object.entries(l).map(([pas, valeur]) => ({ pas: +pas, valeur }))]));
     return out;
   }
   function accords({ scene } = {}) {
@@ -559,6 +561,97 @@ SS.claudeTools = (() => {
     return { message: `${t.name}, ${sc.name} : ${hits} coups sur ${n} pas` };
   }
 
+  /* ---------------- Effets et automation ---------------- */
+  // nom en français → réglage de track.fx (js/fx.js), avec ses bornes
+  const FX_KEYS = {
+    chorus: ['chorus', 0, 1], chorusVitesse: ['chorusRate', 0.1, 6], chorusProfondeur: ['chorusDepth', 0, 1],
+    delay: ['delay', 0, 1], delayRepetitions: ['delayFeedback', 0, 0.9],
+    reverb: ['room', 0, 1], reverbTaille: ['roomSize', 0.2, 10], reverbBrillance: ['roomLp', 500, 20000],
+    sidechainProfondeur: ['scDepth', 0, 1], sidechainRelachement: ['scRelease', 0.03, 1],
+    envoiPlate: ['sendPlate', 0, 1], envoiHall: ['sendHall', 0, 1], envoiEcho: ['sendEcho', 0, 1], envoiCosmos: ['sendSpace', 0, 1],
+  };
+  function effets({ piste: ref, aucun, delayTemps, sidechainSource, scene, ...vals } = {}) { // eslint-disable-line no-unused-vars
+    // les effets sont communs à toutes les scènes : `scene` est ignorée
+    const p = P();
+    const t = findTrack(ref);
+    const patch = {};
+    const what = [];
+    if (aucun) {
+      delete t.fx;
+      what.push('effets retirés');
+    }
+    for (const [k, v] of Object.entries(vals)) {
+      if (v == null) continue;
+      const spec = FX_KEYS[k];
+      if (!spec) fail(`réglage d'effet inconnu : « ${k} ». Réglages : ${Object.keys(FX_KEYS).join(', ')}, delayTemps, sidechainSource, aucun`);
+      const n = Number(v);
+      if (!(n >= spec[1] && n <= spec[2])) fail(`${k} : entre ${spec[1]} et ${spec[2]}`);
+      patch[spec[0]] = n;
+      what.push(`${k} ${n}`);
+    }
+    if (delayTemps != null) {
+      const d = SS.DELAY_TIMES.find((x) => x.id === String(delayTemps) || fold(x.label) === fold(delayTemps));
+      if (!d) fail(`delayTemps : ${SS.DELAY_TIMES.map((x) => `"${x.id}" (${x.label})`).join(', ')}`);
+      patch.delayTime = d.id;
+      what.push(`delay ${d.label}`);
+    }
+    if (sidechainSource != null) {
+      const src = sidechainSource ? findTrack(sidechainSource) : null;
+      if (src === t) fail('une piste ne peut pas se déclencher elle-même en sidechain');
+      patch.scSource = src ? src.id : '';
+      what.push(src ? `sidechain déclenché par ${src.name}` : 'sidechain retiré');
+    }
+    if (!what.length) fail(`rien à changer. Réglages : ${Object.keys(FX_KEYS).join(', ')}, delayTemps, sidechainSource, aucun`);
+    t.fx = { ...(t.fx || {}), ...patch };
+    for (const [k, v] of Object.entries(t.fx)) if (v === SS.FX_DEFAULTS[k]) delete t.fx[k]; // comme la fenêtre Effets
+    if (!Object.keys(t.fx).length) delete t.fx;
+    SS.audio.applyFx(t);
+    SS.ui.renderTrack(t);
+    changedNow(`effets de « ${t.name} » : ${what.join(', ')}`);
+    return { message: `${t.name} : ${what.join(', ')}`, effets: { ...SS.fxParams(t), ...(SS.fxParams(t).scSource ? { scSource: (p.tracks.find((x) => x.id === SS.fxParams(t).scSource) || {}).name } : {}) } };
+  }
+
+  /** Paramètres et formes d'automation proposés pour une piste. */
+  function automations({ piste: ref } = {}) {
+    const t = findTrack(ref);
+    return {
+      piste: t.name,
+      parametres: SS.autoParamsFor(t).map((P) => ({ parametre: P.id, nom: P.label, min: P.min, max: P.max, defaut: P.def, formes: (SS.AUTO_SHAPES[P.id] || []).map((x) => `${x.id} (${x.label})`) })),
+      enPlace: t.auto ? Object.keys(t.auto) : [],
+    };
+  }
+  function automation({ piste: ref, scene, parametre, forme, points, effacer } = {}) {
+    const p = P();
+    const t = findTrack(ref);
+    const Pm = SS.autoParamsFor(t).find((x) => x.id === parametre || fold(x.label) === fold(parametre));
+    if (!Pm) fail(`paramètre d'automation inconnu pour « ${t.name} » : « ${parametre} ». Voir automations({ piste: "${t.name}" })`);
+    const sc = goScene(scene);
+    const n = SS.autoLen(p, t);
+    let what;
+    if (effacer) {
+      if (t.auto) delete t.auto[Pm.id];
+      what = `automation ${Pm.label} effacée`;
+    } else if (forme) {
+      const sh = (SS.AUTO_SHAPES[Pm.id] || []).find((x) => x.id === forme || fold(x.label) === fold(forme));
+      if (!sh) fail(`forme inconnue pour ${Pm.label} : ${(SS.AUTO_SHAPES[Pm.id] || []).map((x) => x.id).join(', ') || 'aucune forme toute prête, donne des points'}`);
+      SS.applyAutoShape(t, Pm.id, sh.id, n, SS.stepsPerBeat(p), SS.stepsPerBar(p));
+      what = `${Pm.label} : ${sh.label}`;
+    } else if (Array.isArray(points) && points.length) {
+      if (t.auto) delete t.auto[Pm.id];
+      for (const pt of points) {
+        const s = Math.round(Number(pt && pt.pas));
+        const v = Number(pt && pt.valeur);
+        if (!(s >= 0 && s < n) || !(v >= Pm.min && v <= Pm.max)) fail(`point invalide ${JSON.stringify(pt)} : pas 0 à ${n - 1}, valeur ${Pm.min} à ${Pm.max}`);
+        SS.setAutoPoint(t, Pm.id, s, v);
+      }
+      what = `${Pm.label} : ${points.length} points`;
+    } else fail('donne une forme (voir automations()), des points [{ pas, valeur }] ou effacer: true');
+    SS.cleanAuto(t);
+    SS.ui.renderTrack(t);
+    changedNow(`${t.name}, ${sc.name} : ${what}`);
+    return { message: `${t.name}, ${sc.name} : ${what} (les valeurs glissent d'un point à l'autre)` };
+  }
+
   /* ---------------- Scènes et structure ---------------- */
   function allerScene({ scene } = {}) {
     const sc = goScene(scene);
@@ -663,6 +756,9 @@ SS.claudeTools = (() => {
     { nom: 'ecrireBatterie', description: 'Pose le motif d’une piste de batterie dans une scène (répété sur toute la scène).', params: { piste: PISTE, motif: S('texte', 'un caractère par pas : X accent, x coup, o ghost note, . silence ; ex. "x...x...x...x..."'), pas: S('liste', 'ou une liste de pas : [0, 4, 8, 12] ou [{ pas, vel }]'), vel: S('nombre', 'vélocité des pas donnés en liste (défaut 0.8)'), scene: SCENE }, faire: ecrireBatterie },
     { nom: 'son', description: 'Change le son d’une piste (batterie : le kit).', params: { piste: PISTE, son: S('texte', 'id ou bout de nom (voir sons()), "j:A48", ou un kit pour la batterie', true) }, faire: son },
     { nom: 'mix', description: 'Volume, muet, solo d’une piste.', params: { piste: PISTE, volume: S('nombre', '0 à 1'), muet: S('booléen', ''), solo: S('booléen', '') }, faire: mix },
+    { nom: 'effets', description: 'Règle les effets d’une piste (comme la fenêtre Effets). Seuls les réglages donnés changent.', params: { piste: PISTE, chorus: S('nombre', 'mix 0–1'), chorusVitesse: S('nombre', 'Hz 0.1–6'), chorusProfondeur: S('nombre', '0–1'), delay: S('nombre', 'mix de l’écho 0–1'), delayTemps: S('texte', '"1/16", "1/8", "3/16" (croche pointée), "1/4"…'), delayRepetitions: S('nombre', 'feedback 0–0.9'), reverb: S('nombre', 'mix 0–1'), reverbTaille: S('nombre', 'secondes 0.2–10'), reverbBrillance: S('nombre', 'Hz 500–20000'), sidechainSource: S('texte', 'piste qui fait pomper celle-ci (souvent le kick) ; "" pour retirer'), sidechainProfondeur: S('nombre', '0–1'), sidechainRelachement: S('nombre', 'secondes 0.03–1'), envoiPlate: S('nombre', 'envoi vers la reverb Plate commune (batterie) 0–1'), envoiHall: S('nombre', 'envoi vers la reverb Hall commune (instruments) 0–1'), envoiEcho: S('nombre', 'envoi vers l’écho à bande commun 0–1'), envoiCosmos: S('nombre', 'envoi vers Cosmos, reverb longue ambient 0–1'), aucun: S('booléen', 'retirer tous les effets d’abord') }, faire: effets },
+    { nom: 'automations', lecture: true, description: 'Les paramètres automatisables d’une piste et leurs formes toutes prêtes.', params: { piste: PISTE }, faire: automations },
+    { nom: 'automation', description: 'Fait évoluer un réglage au fil d’une scène : une forme toute prête ou des points (les valeurs glissent d’un point à l’autre).', params: { piste: PISTE, parametre: S('texte', 'filter, res, volume, reverb, echo, space, vcf, pw, fdecay, lfoamt, sustain, mod, bend (voir automations())', true), forme: S('texte', 'ex. "lp-open", "hp-rise", "in", "pump" (voir automations())'), points: S('liste', '[{ pas, valeur }] ; filter : −1 passe-bas fermé … 0 ouvert … +1 passe-haut'), effacer: S('booléen', 'retirer cette automation'), scene: SCENE }, faire: automation },
     { nom: 'renommerPiste', description: 'Renomme une piste.', params: { piste: PISTE, nom: S('texte', 'nouveau nom', true) }, faire: renommerPiste },
     { nom: 'supprimerPiste', description: 'Supprime une piste (Ctrl+Z la ramène).', params: { piste: PISTE }, faire: supprimerPiste },
     { nom: 'allerScene', description: 'Affiche une scène (sans rien modifier).', params: { scene: S('texte', 'nom ou id', true) }, faire: allerScene, lecture: true },
