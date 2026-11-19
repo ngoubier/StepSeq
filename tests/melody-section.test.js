@@ -14,7 +14,9 @@ globalThis.window = globalThis;
 const SS = globalThis.SS;
 
 const SIG = '1cf7163caf5ebcfd867b3eaf716a0ca9ec7e3e9a';
-const PRESETS = SS.Band.STYLES.flatMap((st) => st.presets);
+// les 40 inspirations d'origine (les six styles ajoutés ensuite, brightside… lovely, ont leurs propres chansons)
+const NEW_STYLES = ['brightside', 'getlucky', 'feather', 'lk', 'despacito', 'lovely'];
+const PRESETS = SS.Band.STYLES.flatMap((st) => st.presets).filter((p) => !NEW_STYLES.includes(p.id));
 const tracksOf = (p) =>
   p.musicians.filter((m) => !m.injected).flatMap((m) =>
     m.kits ? m.pieces.map((pc) => ({ id: m.role + ':' + pc, type: 'drum', sound: pc, band: { key: m.role + ':' + pc } })) : [{ id: m.role, type: 'instrument', band: { key: m.role } }]

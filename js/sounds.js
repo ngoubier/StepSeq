@@ -677,6 +677,19 @@ SS.FX_DEFAULTS = {
   scSource: '', scDepth: 0.6, scRelease: 0.22, // sidechain : piste qui déclenche, profondeur 0..1, relâchement (s)
   sendPlate: 0, sendHall: 0, sendEcho: 0, sendSpace: 0, // envois vers les bus partagés (SS.RETURN_DEFAULTS), 0..1
 };
+/**
+ * Effets suggérés par un preset du synthé intégré (meta fx : cho / dly / rev), en réglages de piste (track.fx) :
+ * chorus, écho à la croche pointée, envoi vers la reverb Hall partagée. null si le preset n'en suggère pas.
+ */
+SS.presetFx = (family, instrument) => {
+  const f = (SS.findInstrument(family, instrument) || {}).fx;
+  if (!f) return null;
+  const o = {};
+  if (f.cho) Object.assign(o, { chorus: f.cho, chorusRate: 0.6, chorusDepth: 0.5 });
+  if (f.dly) Object.assign(o, { delay: f.dly, delayTime: '3/16', delayFeedback: 0.38 });
+  if (f.rev) o.sendHall = f.rev;
+  return Object.keys(o).length ? o : null;
+};
 SS.fxParams = (track) => ({ ...SS.FX_DEFAULTS, ...(track.fx || {}) });
 SS.fxActive = (track) => {
   const f = SS.fxParams(track);

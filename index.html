@@ -491,6 +491,7 @@
 
       <div class="fx-layout">
         <nav class="fx-tabs sd-tabs" id="sdTabs" aria-label="Sections du sound design">
+          <button type="button" class="fx-tab sd-tab" data-tab="easy"><svg viewBox="0 0 24 24" class="sd-tab-ic" aria-hidden="true"><path d="M4 7 H20 M4 12 H20 M4 17 H20"/><circle cx="9" cy="7" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="7" cy="17" r="2"/></svg><span class="sd-tab-txt"><span>Simple</span><small id="sdState_easy" class="fx-state"></small></span></button>
           <button type="button" class="fx-tab sd-tab" data-tab="vco"><svg viewBox="0 0 24 24" class="sd-tab-ic" aria-hidden="true"><path d="M3 17 L11 6 L11 17 L19 6 L19 17"/></svg><span class="sd-tab-txt"><span>VCO</span><small id="sdState_vco" class="fx-state"></small></span></button>
           <button type="button" class="fx-tab sd-tab" data-tab="vcf"><svg viewBox="0 0 24 24" class="sd-tab-ic" aria-hidden="true"><path d="M3 9 H12 C15 9 15 5 17 12 L21 19"/></svg><span class="sd-tab-txt"><span>Filtre</span><small id="sdState_vcf" class="fx-state"></small></span></button>
           <button type="button" class="fx-tab sd-tab" data-tab="env"><svg viewBox="0 0 24 24" class="sd-tab-ic" aria-hidden="true"><path d="M3 19 L7 5 L11 11 H16 L21 19"/></svg><span class="sd-tab-txt"><span>Enveloppes</span><small id="sdState_env" class="fx-state"></small></span></button>
@@ -502,6 +503,11 @@
         </nav>
 
         <div class="fx-panes">
+          <section class="fx-pane" data-pane="easy" aria-labelledby="sdEasyTitle">
+            <div class="fx-pane-head"><h3 id="sdEasyTitle">Réglages simples <small>les six gestes du preset</small></h3></div>
+            <p class="sd-hint" id="sdEasyHint">Chaque curseur règle un paramètre du synthé (le même que dans les autres onglets). Double-clic : valeur du preset.</p>
+            <div class="sd-sliders" id="sdEasySliders"></div>
+          </section>
           <section class="fx-pane" data-pane="vco" aria-labelledby="sdVcoTitle">
             <div class="fx-pane-head"><h3 id="sdVcoTitle">Oscillateur <small>VCO</small></h3></div>
             <p class="fx-help">La matière première du son : forme d’onde, unisson, sous-oscillateur, et du bruit à mélanger.</p>

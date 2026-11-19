@@ -84,7 +84,7 @@ test('progressions de la formation : H05, H08 et grilles modales seulement dans 
   assert.ok(['h03', 'h05', 'h08'].every((id) => ids.includes(id)));
   assert.ok(!ids.includes('h06') && !ids.includes('h07'));
   assert.deepEqual(H.progressions(C).find((p) => p.id === 'h08').chords.map((c) => c.name), ['Dm7', 'D♭7', 'Cmaj7', 'Cmaj7']);
-  assert.deepEqual(H.progressions({ tonic: 'D', mode: 'dorian' }).map((p) => p.id), ['h06']);
+  assert.deepEqual(H.progressions({ tonic: 'D', mode: 'dorian' }).map((p) => p.id), ['h06', 'funk1']); // funk1 : vamp dorien des styles
   assert.deepEqual(H.progressions({ tonic: 'C', mode: 'lydian' })[0].chords.map((c) => c.name), ['C', 'D', 'C', 'D']);
   assert.deepEqual(H.progressions({ tonic: 'A', mode: 'locrian' }), []);
 });

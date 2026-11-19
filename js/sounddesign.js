@@ -74,6 +74,27 @@ SS.soundDesign = (() => {
   const GROUP_EL = { vco: '#sdVcoSliders', noise: '#sdNoiseSliders', vcf: '#sdVcfSliders', glide: '#sdGlideSliders', fenv: '#sdFenvSliders', vca: '#sdVcaSliders', out: '#sdOutSliders' };
   for (let i = 1; i <= SS.LFO_COUNT; i++) GROUP_EL[`lfo${i}`] = `#sdLfo${i}Sliders`;
 
+  /*
+   * Onglet « Simple » : six gestes qui pilotent chacun un paramètre du synthé (mêmes clés de track.sd que les autres onglets).
+   * Mouvement : part de la quantité du LFO 1 du preset (0 = immobile, 100 % = le preset, jusqu'à 200 %).
+   */
+  const EASY = [
+    { id: 'bright', label: 'Luminosité', key: 'cutoff' },
+    { id: 'bite', label: 'Mordant', key: 'q' },
+    { id: 'att', label: 'Attaque', key: 'attack' },
+    { id: 'rel', label: 'Relâchement', key: 'release' },
+    {
+      id: 'move', label: 'Mouvement', key: 'lfo1Amt',
+      scale: lin(0, 2),
+      fmt: (v, p) => (p.lfo1Dest && p.lfo1Dest !== 'off' ? `${Math.round(v * 100)} % du LFO` : 'pas de LFO'),
+      get: (p, d) => (d.lfo1Amt ? p.lfo1Amt / d.lfo1Amt : 0),
+      put: (v, d) => +(d.lfo1Amt * v).toPrecision(3),
+      off: (p, d) => !d.lfo1Amt || !p.lfo1Dest || p.lfo1Dest === 'off',
+    },
+    { id: 'glide', label: 'Glide', key: 'glide' },
+  ];
+  const easyInputs = [];
+
   const WAVE_ICONS = {
     sawtooth: 'M2 16 L10 4 L10 16 L18 4 L18 16 L22 10',
     square: 'M2 16 V5 H8 V16 H14 V5 H20 V16 H22',
@@ -184,12 +205,12 @@ SS.soundDesign = (() => {
       }
     },
   };
-  let tab = store.get(TAB_KEY) || 'vco';
+  let tab = store.get(TAB_KEY) || 'easy';
   let lfoTab = Math.min(SS.LFO_COUNT, Math.max(1, +store.get(LFO_KEY) || 1));
 
   function showTab(id, focus = false) {
     const btns = [...document.querySelectorAll('#sdTabs .fx-tab')];
-    if (!btns.some((b) => b.dataset.tab === id)) id = 'vco';
+    if (!btns.some((b) => b.dataset.tab === id)) id = 'easy';
     tab = id;
     btns.forEach((b) => {
       const on = b.dataset.tab === id;
@@ -255,6 +276,8 @@ SS.soundDesign = (() => {
     const f = SS.FILTER_TYPES.find((x) => x.id === p.filter) || SS.FILTER_TYPES[0];
     st('vcf', p.filter === 'lowpass' && p.cutoff >= 19999 ? 'ouvert' : `${f.label} · ${fmtHz(p.cutoff)}`);
     st('env', `A ${fmtTime(p.attack)} · R ${fmtTime(p.release)}`);
+    const nEasy = easyInputs.filter((x) => x.row.classList.contains('changed')).length;
+    st('easy', nEasy ? `${nEasy} retouché${nEasy > 1 ? 's' : ''}` : 'preset', nEasy > 0);
     const active = SS.activeLfos(p).length;
     st('lfo', active ? `${active} actif${active > 1 ? 's' : ''}` : 'off', active > 0);
     st('glide', p.glide ? `${p.glideMode === 'legato' ? 'legato' : 'toujours'} · ${fmtTime(p.glide)}` : 'off', p.glide > 0);
@@ -414,6 +437,29 @@ SS.soundDesign = (() => {
       $(GROUP_EL[spec.group]).append(row);
       inputs.set(key, { input, out, spec, row });
     }
+
+    EASY.forEach((m) => {
+      const spec = SPECS[m.key];
+      const scale = m.scale || spec.scale;
+      const input = Object.assign(document.createElement('input'), { type: 'range', id: 'sdEasy_' + m.id, min: 0, max: 1000, step: 1 });
+      const out = document.createElement('output');
+      out.htmlFor = input.id;
+      input.addEventListener('input', () => {
+        const v = +scale.to(+input.value / 1000).toPrecision(3);
+        set(m.key, m.put ? m.put(v, SS.soundDefaults(track)) : v);
+      });
+      input.addEventListener('change', () => (m.key === 'glide' ? previewGlide() : preview()));
+      input.addEventListener('dblclick', () => {
+        set(m.key, SS.soundDefaults(track)[m.key]);
+        refresh();
+      });
+      const label = Object.assign(document.createElement('label'), { htmlFor: input.id, textContent: m.label });
+      const row = document.createElement('div');
+      row.className = 'sd-row';
+      row.append(label, out, input);
+      $('#sdEasySliders').append(row);
+      easyInputs.push({ m, input, out, row, scale, fmt: m.fmt || ((v) => spec.fmt(v)) });
+    });
 
     SS.WAVES.forEach((w) => {
       const b = document.createElement('button');
@@ -621,6 +667,15 @@ SS.soundDesign = (() => {
       if (moveSliders || document.activeElement !== input) input.value = Math.round(Math.max(0, Math.min(1, spec.scale.from(v))) * 1000);
       out.textContent = spec.fmt(v);
       row.classList.toggle('changed', typeof d[key] === 'number' && Math.abs(v - d[key]) > 1e-6);
+    }
+    for (const { m, input, out, row, scale, fmt } of easyInputs) {
+      const v = m.get ? m.get(p, d) : p[m.key];
+      if (moveSliders || document.activeElement !== input) input.value = Math.round(Math.max(0, Math.min(1, scale.from(v))) * 1000);
+      out.textContent = fmt(v, p);
+      const off = m.off ? m.off(p, d) : false;
+      input.disabled = off;
+      row.classList.toggle('dim', off);
+      row.classList.toggle('changed', typeof d[m.key] === 'number' && Math.abs(p[m.key] - d[m.key]) > 1e-6);
     }
     const detuneRow = inputs.get('detune').row;
     detuneRow.classList.toggle('dim', p.voices < 2 && p.wave !== 'supersaw');
