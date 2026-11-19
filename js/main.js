@@ -536,6 +536,9 @@
     const opts = await SS.ui.openTrackDialog();
     if (!opts) return;
     const track = SS.newTrack(opts, project);
+    // effets suggérés par le preset du synthé (chorus, écho, reverb), modifiables ensuite dans Effets
+    const fx = track.type === 'instrument' && !track.fx && SS.presetFx(track.family, track.instrument);
+    if (fx) track.fx = fx;
     project.tracks.push(track);
     if (track.type === 'instrument') state.openRolls.add(track.id);
     SS.ui.renderAll();
@@ -737,6 +740,11 @@
       const prev = track.sd || {};
       if (changedInst) delete track.sd;
       Object.assign(track, { family: opts.family, instrument: opts.instrument, sfv: opts.sfv || 0 });
+      // nouvel instrument sur une piste sans effets : ceux que suggère son preset
+      if (changedInst && !SS.fxActive(track)) {
+        const fx = SS.presetFx(track.family, track.instrument);
+        if (fx) track.fx = fx;
+      }
       if (changedInst) {
         if (prev.expr && SS.exprFamily(track)) track.sd = { expr: prev.expr, ...(prev.phrase === 0 ? { phrase: 0 } : {}), ...(prev.pedal === 0 ? { pedal: 0 } : {}) };
         else SS.applyExprDefault(track);

@@ -33,7 +33,7 @@ const server = http.createServer((req, res) => {
     page.setDefaultTimeout(15000);
     await page.goto(`http://localhost:${server.address().port}/index.html`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => window.SS && SS.ui && SS.catalog);
-    await page.evaluate(() => { SS.ui.openTrackDialog(null); });
+    await page.click('#emptyAdd');
     await page.click('#dlgRoles button[data-v="synth"]');
     const subs = await page.$$eval('#dlgSub .chip', (b) => b.map((x) => x.textContent));
     check(!(await page.$eval('#dlgSubRow', (e) => e.hidden)) && subs.some((s) => s.startsWith('Arpèges')) && subs.some((s) => s.startsWith('★')), 'sous-groupes et « Sons célèbres » : ' + subs.join(' | '));
@@ -48,6 +48,22 @@ const server = http.createServer((req, res) => {
     const fiche = await page.$eval('#dlgFiche', (e) => e.textContent);
     check(/Dans l’esprit de/.test(fiche), 'fiche : ' + fiche.slice(0, 90));
     if (process.argv[2]) await page.screenshot({ path: process.argv[2] });
+    // création : la piste reçoit les effets suggérés du preset
+    await page.click('#dlgOk');
+    await page.waitForFunction(() => document.querySelector('.track'));
+    await page.waitForTimeout(1500); // sauvegarde automatique
+    const fx = await page.evaluate(() => (JSON.parse(localStorage.getItem('stepseq.autosave') || '{}').tracks || []).slice(-1)[0]?.fx || null);
+    const fxLive = await page.evaluate(() => [...document.querySelectorAll('.track')].length);
+    check(fxLive === 1 && fx && fx.delay === 0.2 && fx.sendHall === 0.2, 'piste créée avec les effets suggérés : ' + JSON.stringify(fx));
+    // sound design : onglet Simple (6 gestes) qui écrit dans track.sd
+    await page.click('.track .th-sd');
+    const rows = await page.$$eval('#sdEasySliders .sd-row label', (l) => l.map((x) => x.textContent));
+    check(rows.join() === 'Luminosité,Mordant,Attaque,Relâchement,Mouvement,Glide', 'onglet Simple : ' + rows.join(', '));
+    await page.$eval('#sdEasy_bright', (i) => { i.value = 900; i.dispatchEvent(new Event('input')); });
+    const sd = await page.evaluate(() => document.querySelector('#sdState_easy').textContent);
+    check(/retouché/.test(sd), 'Luminosité retouchée : ' + sd);
+    if (process.argv[3]) await page.screenshot({ path: process.argv[3] });
+
     check(!errs.length, 'aucune erreur JS ' + errs.join(' / '));
   } finally {
     await browser.close();
