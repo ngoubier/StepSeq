@@ -699,6 +699,8 @@ SS.normalizeProject = (data) => {
     if (t.band && typeof t.band === 'object' && typeof t.band.key === 'string') {
       track.band = {};
       ['style', 'preset', 'musician', 'key'].forEach((k) => typeof t.band[k] === 'string' && t.band[k].length < 40 && (track.band[k] = t.band[k]));
+      // colonne de l'assistant et empreinte du contenu créé : retouchée ou non (js/gridsync.js)
+      ['col', 'sig'].forEach((k) => typeof t.band[k] === 'string' && t.band[k].length < 80 && (track.band[k] = t.band[k]));
     } else delete track.band;
     track.mute = !!t.mute;
     track.solo = !!t.solo;

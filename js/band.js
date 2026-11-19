@@ -6798,11 +6798,15 @@ SS.band = (() => {
   }
 
   /** Crée la chanson avec les pistes cochées (même calcul que la vue session, même mélodie). */
-  function createWizSong(confirmed) {
+  function createWizSong(confirmed, keep) {
     const cols = wizCols().filter((c) => !S.wiz.off.has(c.id));
     if (!cols.length) return;
-    // projet déjà commencé (bouton Nouvelle de l'en-tête) : la chanson le remplace, on demande d'abord
-    if (confirmed !== true && app.project().tracks.length) return showSongConfirm(cols.length);
+    // projet déjà commencé (bouton Nouvelle de l'en-tête) : la chanson le remplace, on demande d'abord ; grille déjà
+    // créée par l'assistant : mise à jour piste par piste (pistes retouchées gardées ou régénérées, js/gridsync.js)
+    if (confirmed !== true && app.project().tracks.length) {
+      const gp = SS.gridSync && SS.gridSync.plan(app.project());
+      return gp ? showGridUpdate(gp) : showSongConfirm(cols.length);
+    }
     const p = preset();
     const seed = S.wiz.seed;
     if (S.wiz.mix) mixSync(); // le mix suit les pistes du groupe, même si on a changé d'instruments depuis l'étape Mix
@@ -6812,7 +6816,7 @@ SS.band = (() => {
     const eff = specEff();
     const plan = cover() ? { ...p, spec: eff, cover: { title: S.cover.title.trim() || 'Reprise' } } : eff !== spec() ? { ...p, spec: eff } : p;
     // tout est lu avant de quitter l'assistant (leave efface S.wiz), puis la fenêtre principale reprend la place
-    const args = [cols.map((c) => c.o), plan, tempo(), { melodySeed: seed, melody: melodyOpts(), harmony: harmonyOpts(), parts: S.wiz.parts, kinds: S.wiz.kinds, gains: cols.map((c) => volGain(c.id)), mix: S.wiz.mix, groove: grooveOf(), fx: fxOpts(), bauto: movePlan(wizSong().res, { trial: false }).map((e) => ({ ...e, col: cols.findIndex((c) => c.id === e.col) })) }];
+    const args = [cols.map((c) => ({ ...c.o, band: { ...c.o.band, col: c.id } })), plan, tempo(), { keep: keep || null, melodySeed: seed, melody: melodyOpts(), harmony: harmonyOpts(), parts: S.wiz.parts, kinds: S.wiz.kinds, gains: cols.map((c) => volGain(c.id)), mix: S.wiz.mix, groove: grooveOf(), fx: fxOpts(), bauto: movePlan(wizSong().res, { trial: false }).map((e) => ({ ...e, col: cols.findIndex((c) => c.id === e.col) })) }];
     const draft = wizSnapshot(Date.now()); // le brouillon est gardé : rouvrir l'assistant permet de retoucher et de recréer
     draft.builtSig = SS.wizDraft.contentSig(draft.state); // la grille a maintenant cette chanson (bascule Assistant | Grille)
     leave({ keep: false });
@@ -8749,6 +8753,61 @@ SS.band = (() => {
     );
     box.hidden = false;
     requestAnimationFrame(() => $('#bcfSong').focus());
+  }
+
+  /* ---------- Mettre la grille à jour : la chanson est déjà dans la grille (bascule Assistant | Grille) ----------
+   * Les pistes retouchées dans la grille sont gardées par défaut (on peut les régénérer), les pistes ajoutées à la main
+   * restent toujours, les autres sont régénérées. */
+  function showGridUpdate(gp) {
+    const pick = new Map(gp.retouched.map((t) => [t.id, 'keep']));
+    const names = (list) => list.map((t) => t.name).join(', ');
+    const box = $('#bandConfirm');
+    const row = (t) =>
+      h(
+        'div',
+        { class: 'bgu-row', 'data-id': t.id },
+        h('span', { class: 'bgu-name' }, t.name, h('span', { class: 'trk-badge retouch' }, '✎ retouchée')),
+        h(
+          'span',
+          { class: 'segmented bgu-seg', role: 'radiogroup', 'aria-label': `Piste ${t.name}` },
+          ...[['keep', 'Garder mes retouches'], ['redo', 'Régénérer']].map(([v, label]) =>
+            h('button', { type: 'button', role: 'radio', 'data-v': v, class: pick.get(t.id) === v ? 'active' : '', 'aria-checked': String(pick.get(t.id) === v), onclick: (e) => {
+              pick.set(t.id, v);
+              e.currentTarget.parentNode.querySelectorAll('button').forEach((b) => {
+                const on = b.dataset.v === v;
+                b.classList.toggle('active', on);
+                b.setAttribute('aria-checked', String(on));
+              });
+            } }, label)
+          )
+        )
+      );
+    box.replaceChildren(
+      h(
+        'div',
+        { class: 'bcf-card bgu-card', role: 'alertdialog', 'aria-modal': 'true', 'aria-labelledby': 'bguTitle' },
+        h('h3', { id: 'bguTitle' }, 'Mettre la grille à jour ?'),
+        h('p', {}, gp.retouched.length ? `Les pistes de l’assistant vont être régénérées. ${gp.retouched.length > 1 ? `${gp.retouched.length} pistes ont été retouchées` : 'Une piste a été retouchée'} dans la grille :` : 'Les pistes de l’assistant vont être régénérées avec tes changements.'),
+        h(
+          'div',
+          { class: 'bgu-list' },
+          ...gp.retouched.map(row),
+          gp.fresh.length ? h('div', { class: 'bgu-row' }, h('span', { class: 'bgu-name' }, names(gp.fresh)), h('small', {}, gp.fresh.length > 1 ? 'régénérées (pas retouchées)' : 'régénérée (pas retouchée)')) : null,
+          gp.hand.length ? h('div', { class: 'bgu-row' }, h('span', { class: 'bgu-name' }, names(gp.hand), h('span', { class: 'trk-badge hand' }, 'ajoutée à la main')), h('small', {}, 'toujours gardée' + (gp.hand.length > 1 ? 's' : ''))) : null
+        ),
+        gp.retouched.length ? h('p', { class: 'bgu-note' }, 'Une piste gardée ne suit plus l’assistant : par exemple, une basse gardée garde ses notes même si les accords changent.') : null,
+        h('p', { class: 'bgu-note' }, 'Ctrl+Z annule la mise à jour.'),
+        h(
+          'div',
+          { class: 'bcf-actions' },
+          h('button', { type: 'button', class: 'btn', id: 'bcfBack', onclick: hideConfirm }, 'Plus tard'),
+          h('span', { class: 'spacer' }),
+          h('button', { type: 'button', class: 'btn btn-accent', id: 'bguGo', onclick: () => createWizSong(true, gp.retouched.filter((t) => pick.get(t.id) === 'keep').map((t) => t.band.col)) }, 'Mettre à jour la grille')
+        )
+      )
+    );
+    box.hidden = false;
+    requestAnimationFrame(() => $('#bguGo').focus());
   }
 
   function hideConfirm() {

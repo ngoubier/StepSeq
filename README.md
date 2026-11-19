@@ -33,7 +33,11 @@ puis ouvrir <http://localhost:8000>.
   (les pistes du projet) et revient à la même étape, sans rien créer ni effacer. Tant que la grille n'a pas la chanson de l'assistant
   (jamais créée, ou changée dans l'assistant depuis : accords, sons, tempo… ; changer d'étape ne compte pas), un point doré s'allume sur
   « Assistant » et un bandeau au-dessus des pistes propose **Mettre la chanson dans la grille** (= « Créer la chanson ») ou **Continuer l'assistant**.
-  L'assistant ne relit pas la grille : recréer la chanson remplace les pistes (Ctrl+Z pour revenir).
+  L'assistant ne relit pas la grille. Une fois la chanson créée, chaque piste de l'assistant garde l'empreinte de son contenu
+  (js/gridsync.js) : retouchée dans la grille (notes, son, volume, effets…), elle porte un petit **✎** après son nom. Remettre la
+  chanson dans la grille ouvre alors **Mettre la grille à jour ?** : chaque piste retouchée est gardée (par défaut) ou régénérée,
+  les pistes ajoutées à la main restent toujours, les autres sont régénérées ; les notes gardées suivent les scènes de même nom.
+  Une piste gardée ne suit plus l'assistant (une basse gardée garde ses notes si les accords changent). Ctrl+Z annule la mise à jour.
   À droite : annuler / rétablir, l'indicateur d'enregistrement automatique et **Aide**.
   Le bouton **+ Ajouter une piste** se trouve sous les pistes.
 - **Partie centrale** : les pistes, les unes sous les autres. Chaque piste a un en-tête

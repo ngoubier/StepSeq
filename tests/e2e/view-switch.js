@@ -2,7 +2,8 @@
  * Test de bout en bout de la bascule Assistant | Grille (barre du haut, js/main.js syncView) :
  *   node tests/e2e/view-switch.js [dossier-captures]
  * Grille puis Assistant : même étape, rien de créé ; bandeau « pas encore dans la grille » ; il disparaît après la création
- * et revient quand on change la chanson dans l’assistant (changer d’étape ne compte pas).
+ * et revient quand on change la chanson dans l’assistant (changer d’étape ne compte pas). Étape 2 : une piste retouchée
+ * dans la grille est marquée ✎ et gardée (mêmes pas, même id) quand on met la grille à jour ; les autres sont régénérées.
  */
 const { chromium } = require('playwright');
 const fs = require('fs');
@@ -76,6 +77,40 @@ const ok = (c, m) => {
   await page.waitForTimeout(600);
   ok(await page.isVisible('#wizBanner') && /changements/.test(await page.textContent('#wizBannerText')), 'tempo changé dans l’assistant : le bandeau le dit');
   await shot('bascule-grille-retard.png');
+
+  // étape 2 : pistes retouchées, mise à jour piste par piste
+  const P = () => page.evaluate(() => JSON.parse(localStorage.getItem('stepseq.autosave')));
+  await page.reload();
+  await page.waitForTimeout(1200);
+  ok((await page.locator('.th-retouch').count()) === 0, 'après rechargement : aucune piste marquée retouchée');
+  const kick = await page.evaluate(() => document.querySelector('#tracks .track').dataset.id);
+  await page.click(`.track[data-id="${kick}"] .cell[data-step="1"]`);
+  await page.waitForTimeout(800);
+  ok((await page.locator(`.track[data-id="${kick}"] .th-retouch`).count()) === 1, 'un pas ajouté sur la 1re piste : ✎ retouchée');
+  ok((await page.locator('.th-retouch').count()) === 1, 'les autres pistes ne sont pas marquées');
+  const kSteps = (await P()).tracks.find((t) => t.id === kick).steps.join(',');
+  await page.click('#viewWiz');
+  await page.waitForTimeout(500);
+  await page.evaluate(() => SS.band.setTempo(SS.band._state.wiz.tempo - 3));
+  await page.click('#viewGrid');
+  await page.waitForTimeout(500);
+  await page.click('#wizBannerPut');
+  await page.waitForTimeout(500);
+  ok(await page.isVisible('#bguGo'), 'la grille vient de l’assistant : fenêtre « Mettre la grille à jour »');
+  ok((await page.locator('.bgu-row[data-id]').count()) === 1, 'une seule piste retouchée proposée');
+  await shot('bascule-mise-a-jour.png');
+  const otherBefore = (await P()).tracks.filter((t) => t.id !== kick).map((t) => t.id);
+  await page.click('#bguGo');
+  await page.waitForTimeout(1500);
+  const pr = await P();
+  const k2 = pr.tracks.find((t) => t.id === kick);
+  ok(!!k2 && k2.steps.join(',') === kSteps, 'piste gardée : même id, mêmes pas');
+  ok(pr.tracks.filter((t) => t.id !== kick).every((t) => !otherBefore.includes(t.id)) && pr.tracks.length === otherBefore.length + 1, 'les autres pistes sont régénérées');
+  await page.waitForTimeout(800);
+  ok((await page.locator('.th-retouch').count()) === 1 && !(await page.isVisible('#wizBanner')), 'après la mise à jour : la piste gardée reste retouchée, plus de bandeau');
+  await page.keyboard.press('Control+z');
+  await page.waitForTimeout(800);
+  ok((await P()).tracks.some((t) => otherBefore.includes(t.id)), 'Ctrl+Z revient à la grille d’avant');
   ok(!errs.length, 'aucune erreur JS' + (errs.length ? ' : ' + errs.join(' | ') : ''));
   await b.close();
   server.close();
