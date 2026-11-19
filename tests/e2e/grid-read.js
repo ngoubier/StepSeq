@@ -105,6 +105,31 @@ const ok = (c, m) => {
   await page.waitForTimeout(400);
   ok((await page.locator('.band-mus.locked').count()) === 1, 'étape Instruments : un musicien 🔒');
   await shot('grille-relue-instruments.png');
+  // accords du Refrain changés dans l'assistant : alerte, puis déverrouillage pour le Refrain seulement
+  const chorus = await page.evaluate(() => {
+    const W = SS.band._state.wiz;
+    const id = W.form[1].id;
+    W.grids[id] = W.grids[id].map((c) => ({ ...c, degree: (c.degree + 1) % 7 }));
+    return id;
+  });
+  for (let i = 0; i < 3; i++) await page.dispatchEvent('#bwNext', 'click');
+  await page.waitForTimeout(500);
+  const warn = await page.evaluate(() => document.querySelector('#bwLockWarn') && document.querySelector('#bwLockWarn').textContent);
+  ok(!!warn && /Refrain/.test(warn) && /Lead/.test(warn) && !/Couplet/.test(warn), 'alerte : accords du Refrain changés sous le Lead 🔒');
+  await shot('verrou-alerte.png');
+  await page.click('.bw-lockfree');
+  await page.waitForTimeout(400);
+  ok(!(await page.isVisible('#bwLockWarn')), 'déverrouillée pour le Refrain : plus d’alerte');
+  const L2 = await page.evaluate(() => {
+    SS.band.togglePlay();
+    SS.band.stopListen();
+    const p = SS.band._listen();
+    const lk = p.tracks.find((x) => x.locked);
+    const gen = p.tracks.filter((x) => !x.locked && x.band && /lead|melody|vox/.test(x.band.key) && !x.lockMute);
+    const n = (t, sc) => (sc.data[t.id] && sc.data[t.id].events ? sc.data[t.id].events.length : 0);
+    return { lock: p.scenes.map((sc) => n(lk, sc)), gen: gen.map((t) => p.scenes.map((sc) => n(t, sc))) };
+  });
+  ok(L2.lock[0] === 4 && L2.lock[1] === 0 && L2.gen.length && L2.gen.every((g) => g[0] === 0 && g[1] > 0), 'écoute : Lead verrouillé au Couplet, l’assistant le joue au Refrain ' + JSON.stringify(L2));
   // création
   await page.evaluate(() => SS.band.create());
   await page.waitForTimeout(400);
@@ -113,7 +138,10 @@ const ok = (c, m) => {
   const pr = await P();
   const lead = pr.tracks.find((t) => t.id === ids[2]);
   const evs = (sc) => (sc.data[ids[2]] && sc.data[ids[2]].events) || [];
-  ok(!!lead && pr.scenes.every((sc) => evs(sc).map((e) => e.notes[0]).join() === LEAD.join()), 'chanson créée : le lead verrouillé, tel quel dans chaque scène');
+  ok(!!lead && evs(pr.scenes[0]).map((e) => e.notes[0]).join() === LEAD.join() && !evs(pr.scenes[1]).length, 'chanson créée : le lead verrouillé, tel quel au Couplet, vide au Refrain');
+  const part = pr.tracks.filter((t) => t.band && t.band.part);
+  const pe = (t, sc) => ((sc.data[t.id] && sc.data[t.id].events) || []).length;
+  ok(part.length >= 1 && part.every((t) => pe(t, pr.scenes[0]) === 0 && pe(t, pr.scenes[1]) > 0), 'chanson créée : le lead de l’assistant ne joue que le Refrain');
   ok(!pr.tracks.some((t) => t.id === ids[1]) && pr.tracks.some((t) => t.band && /bass/.test(t.band.key)), 'la basse de la grille est remplacée par celle de l’assistant');
   ok(pr.tempo === 104 && pr.scenes.map((sc) => sc.name).join() === 'Couplet,Refrain' && pr.song[1].repeat === 2, 'tempo, scènes et arrangement de la grille');
   await page.click('#viewWiz');
