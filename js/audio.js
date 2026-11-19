@@ -162,7 +162,12 @@ SS.audio = (() => {
 
   const encodePath = (p) => (p.includes('%') ? p : encodeURI(p));
   /** URL d'un fichier d'une banque (copie locale pour les fichiers VCSL que Chrome refuse, voir SS.vcslLocal). */
-  const sampleUrl = (json, p) => SS.vcslLocal(json._base, p) || json._base + encodePath(p);
+  // vcsl.json oublie « Membranophones/ » devant la banque tom_mallet : le fichier n'existe pas à cette adresse (404)
+  const fixPath = (json, p) => (/sgossner\/VCSL/.test(json._base) && /^Struck(%20| )Membranophones\//.test(p) ? 'Membranophones/' + p : p);
+  const sampleUrl = (json, p0) => {
+    const p = fixPath(json, p0);
+    return SS.vcslLocal(json._base, p) || json._base + encodePath(p);
+  };
 
   function loadBuffer(url) {
     ensureCtx();

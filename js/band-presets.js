@@ -71,12 +71,14 @@ window.SS = window.SS || {};
       source: 'dirt',
       map: { bd: 'clubkick', sd: 'sn', cp: 'realclaps', hh: 'hh', oh: 'ho', cr: 'cr', lt: 'lt', mt: 'mt', ht: 'ht', cb: 'cb', perc: 'perc', rim: 'rs', fx: 'noise' },
     },
+    // « banque#n » : l'échantillon n de la banque (charleston fermé / ouvert, coups de cymbale…) ; sans #, le premier
     vcsl: {
       label: 'Percussions acoustiques (VCSL)',
       source: 'vcsl',
       map: {
-        bd: 'bassdrum1', hh: 'hihat', cp: 'clap', cr: 'sus_cymbal', rd: 'sus_cymbal2', tb: 'tambourine', sh: 'cabasa',
-        cb: 'cowbell', perc: 'conga', misc: 'bongo', lt: 'tom_mallet', mt: 'tom2_mallet', ht: 'tom_stick', rim: 'clave',
+        bd: 'bassdrum1', sd: 'snare_modern#14', rim: 'snare_rim#0', hh: 'hihat#6', oh: 'hihat#13', cp: 'clap',
+        cr: 'sus_cymbal#12', rd: 'sus_cymbal#15', lt: 'tom2_stick', mt: 'tom_mallet', ht: 'tom_stick',
+        tb: 'tambourine', sh: 'cabasa', cb: 'cowbell', perc: 'conga', misc: 'bongo',
       },
     },
     // batterie General MIDI (bibliothèque « gm ») : seul kit proposé en mode General MIDI
@@ -994,10 +996,29 @@ window.SS = window.SS || {};
     }
     const kitDef = KITS[k];
     const base = { type: 'drum', sound, variant: 0 };
-    const opts = kitDef.source
-      ? { ...base, source: kitDef.source, bank: kitDef.map[sound], machine: SS.DEFAULT_MACHINE }
-      : { ...base, source: 'tdm', machine: k, bank: null };
+    let opts;
+    if (kitDef.source) {
+      const [bank, n] = kitDef.map[sound].split('#');
+      opts = { ...base, source: kitDef.source, bank, variant: +n || 0, machine: SS.DEFAULT_MACHINE };
+    } else opts = { ...base, source: 'tdm', machine: k, bank: null };
     return { opts, kit: k, borrowed: borrowed || (!!forced && forced !== kitId), label: drumLabel(sound) };
+  }
+
+  /**
+   * Kit d'une piste Drum. Une piste d'échantillons (VCSL, General MIDI, Dirt-Samples) garde `machine` = TR-808 par défaut :
+   * le kit se lit dans sa bibliothèque et sa banque, jamais dans `machine`.
+   */
+  function kitOfTrack(t) {
+    if (!t || !t.source || t.source === 'tdm') return KITS[t && t.machine] ? t.machine : null;
+    const hit = Object.keys(KITS).find((id) => KITS[id].source === t.source && Object.values(KITS[id].map).some((v) => v.split('#')[0] === String(t.bank)));
+    return hit || Object.keys(KITS).find((id) => KITS[id].source === t.source && (t.source === 'gm' || t.source === 'vcsl')) || null;
+  }
+  /** Nom du kit (ou de la bibliothèque) d'une piste Drum : « Batterie General MIDI », « Roland TR-909 », « jazz »… */
+  function kitLabelOf(t) {
+    const k = kitOfTrack(t);
+    if (k) return KITS[k].label;
+    const lib = (SS.DRUM_LIBS || []).find((l) => l.id === t.source);
+    return t.source && t.source !== 'tdm' ? `${lib ? lib.label + ' · ' : ''}${t.bank}` : t.machine || '';
   }
 
   /** Options de piste pour un choix d'instrument (« j:A48 » ou un id du catalogue). */
@@ -1032,5 +1053,5 @@ window.SS = window.SS || {};
     return { name: inst.label, kind: 'Instrument', detail: `${cat} · ${family.label}` };
   }
 
-  SS.Band = { ROLES, STAGE_ROWS, KITS, FALLBACK_KITS, EXTRA_PIECES, STYLES, pieceOpts, choiceOpts, describe, kitHas, drumLabel };
+  SS.Band = { ROLES, STAGE_ROWS, KITS, FALLBACK_KITS, EXTRA_PIECES, STYLES, pieceOpts, choiceOpts, describe, kitHas, drumLabel, kitOfTrack, kitLabelOf };
 })();
