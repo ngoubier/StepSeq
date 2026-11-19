@@ -30,7 +30,13 @@ const ok = (c, m) => {
   await page.waitForTimeout(600);
   ok((await page.locator('.track .th-more:visible').count()) === 0, 'mode Normal : pas de bouton ⋯');
   ok((await page.locator('.track').first().locator('.th-ctrls .th-play:visible').count()) === 1, 'mode Normal : commandes dans l’en-tête');
+  // le réglage est dans Options (menu principal) → onglet Affichage
+  await page.click('#appMenuBtn');
+  await page.click('#optionsBtn');
+  ok(await page.locator('#optionsDialog').evaluate((d) => d.open), 'menu → Options… ouvre la fenêtre Options');
+  ok((await page.locator('#optTabDisplay').getAttribute('aria-selected')) === 'true', 'onglet Affichage sélectionné');
   await page.selectOption('#trackHeight', 'compact');
+  await page.click('#optionsDialog .dlg-footer .btn-accent');
   await page.waitForTimeout(200);
   const track = page.locator('.track').last();
   await track.locator('.th-more').click();
