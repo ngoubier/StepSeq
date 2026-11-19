@@ -20,6 +20,12 @@
 }
 
 * { box-sizing: border-box; }
+
+/* Comportement d'application : les textes de l'interface ne se surlignent pas
+   au clic ou au glisser. Les champs de saisie et le code strudel restent sélectionnables. */
+body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+input, textarea, [contenteditable]:not([contenteditable="false"]), .sd-code, .selectable,
+.selectable * { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
 [hidden] { display: none !important; }
 
 html, body {
