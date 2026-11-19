@@ -29,7 +29,7 @@ const saved = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('ste
   const before = (await saved(page)) || { tracks: [] };
 
   // ---- fenêtre de piste : passer en General MIDI ----
-  await page.click('#emptyAdd, #empty button');
+  await page.evaluate(() => document.querySelector('#emptyAdd').click()); // le bouton de l'écran vide (la démo est chargée)
   await page.waitForSelector('#trackDialog[open]');
   ok(await page.$eval('#dlgGm button[data-v="all"]', (e) => e.classList.contains('active')), 'nouveau projet : sons « Tous »');
   await page.click('#dlgGm button[data-v="gm"]');
@@ -37,20 +37,17 @@ const saved = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('ste
   const drumLibs = await page.$$eval('#dlgDrumLib button', (bs) => bs.filter((x) => !x.hidden).map((x) => x.dataset.v));
   ok(drumLibs.join() === 'gm', `drums : seule la bibliothèque General MIDI (${drumLibs.join()})`);
   ok(/^36 · Kick/.test(await page.textContent('#dlgDrumList .pl-item.sel')), 'drum : Kick GM (36) choisi');
-  ok(await page.$eval('#dlgType button[data-v="synth"]', (e) => e.disabled), 'type Synthé désactivé');
-  await page.click('#dlgType button[data-v="instrument"]');
+  await page.click('#dlgRoles button[data-v="bass"]');
   await page.waitForTimeout(300);
-  ok(await page.$eval('#dlgFamilies', (e) => e.hidden) && !(await page.$eval('#dlgGmGroups', (e) => e.hidden)), '16 familles General MIDI à la place des familles StepSeq');
-  await page.click('#dlgGmGroups button[data-v="4"]');
+  const progs = await page.$$eval('#dlgSndList .pl-item', (xs) => xs.map((x) => x.dataset.v + '=' + x.querySelector('.pl-label').textContent));
+  ok(progs.length === 8 && progs[0] === 'p32=Acoustic Bass' && progs[6] === 'p38=Synth Bass 1', `rôle Basse : les 8 programmes GM des basses (${progs[0]} … ${progs[7]})`);
+  ok((await page.locator('#dlgSndList .pl-item[data-v^="j:"], #dlgSndList .pl-item[data-v^="i:"]').count()) === 0, 'ni patch Juno ni instrument hors General MIDI');
+  await page.click('#dlgSndList .pl-item[data-v="p38"]');
+  await page.fill('#dlgSearch', 'piano');
   await page.waitForTimeout(200);
-  const progs = await page.$$eval('#dlgInstList .pl-item .pl-label', (xs) => xs.map((x) => x.textContent));
-  ok(progs.length === 8 && progs[0] === '33 · Acoustic Bass' && progs[6] === '39 · Synth Bass 1', `famille Basses : ${progs[0]} … ${progs[7]}`);
-  await page.click('#dlgInstList .pl-item[data-v="p38"]');
-  await page.fill('#dlgInstFilter', 'piano');
-  await page.waitForTimeout(200);
-  const found = await page.$$eval('#dlgInstList .pl-item .pl-label', (xs) => xs.map((x) => x.textContent));
-  ok(found.includes('2 · Bright Acoustic Piano') && found.includes('4 · Honky-tonk Piano'), `recherche « piano » : ${found.length} programmes, dont 2 et 4`);
-  await page.fill('#dlgInstFilter', '');
+  const found = await page.$$eval('#dlgSndList .pl-item .pl-label', (xs) => xs.map((x) => x.textContent));
+  ok(found.includes('Bright Acoustic Piano') && found.includes('Honky-tonk Piano'), `recherche « piano » : ${found.length} programmes, dont 2 et 4`);
+  await page.fill('#dlgSearch', '');
   await page.waitForTimeout(100);
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'gm-track-dialog.png') });
   await page.click('#dlgOk');
@@ -109,7 +106,7 @@ const saved = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('ste
   const kit = await page.$$eval('#bandStage .bm-inst', (xs) => xs.map((x) => x.textContent).join(' | '));
   ok(!/General MIDI/.test(kit), 'Band sans General MIDI : kits habituels');
   await page.click('#bandClose');
-  await page.click('#emptyAdd, #empty button');
+  await page.evaluate(() => document.querySelector('#emptyAdd').click()); // le bouton de l'écran vide (la démo est chargée)
   await page.waitForSelector('#trackDialog[open]');
   ok(await page.$eval('#dlgGm button[data-v="all"]', (e) => e.classList.contains('active')), 'fenêtre de piste : retour à « Tous »');
   await page.click('#dlgCancel');

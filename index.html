@@ -391,8 +391,7 @@
     <form method="dialog" id="trackForm" class="nt">
       <header class="nt-top">
         <h2 id="dlgTitle">Nouvelle piste</h2>
-        <input id="dlgDrumFilter" class="br-search nt-search" type="search" placeholder="🔍 Filtrer…" autocomplete="off" aria-label="Filtrer la liste">
-        <input id="dlgInstFilter" class="br-search nt-search" type="search" placeholder="🔍 Rechercher un instrument dans toutes les familles (sitar, sax, organ…)" autocomplete="off" aria-label="Rechercher un instrument">
+        <input id="dlgSearch" class="br-search nt-search" type="search" placeholder="🔍 Chercher un son dans tous les rôles (cordes, rhodes, sax, A36…)" autocomplete="off" aria-label="Chercher un son">
         <div class="nt-gm" id="dlgGmRow">
           <div class="segmented pills-nav" id="dlgGm" role="radiogroup" aria-label="Sons proposés">
             <button type="button" data-v="all">Tous</button>
@@ -403,24 +402,18 @@
       </header>
 
       <div class="nt-body browser">
-        <div class="nt-types segmented pills-nav pills-vert" id="dlgType" role="radiogroup" aria-label="Type de piste">
-          <button type="button" data-v="drum" class="active"><i aria-hidden="true">◉</i>Drum</button>
-          <button type="button" data-v="instrument"><i aria-hidden="true">♪</i>Instrument</button>
-          <button type="button" data-v="synth"><i aria-hidden="true">≋</i>Synthé</button>
+        <div class="nt-roles-col">
+          <span class="dlg-label">Rôle</span>
+          <div class="nt-roles nt-src pills-nav pills-vert" id="dlgRoles" role="radiogroup" aria-label="Rôle du son"></div>
         </div>
 
         <section id="dlgDrum" class="nt-part">
-          <div class="nt-side">
-            <span class="dlg-label">Bibliothèque</span>
-            <div class="nt-src pills-nav pills-vert" id="dlgDrumLib" role="radiogroup" aria-label="Bibliothèque de batterie"></div>
-            <small id="dlgDrumLibHint" class="dlg-hint nt-side-hint"></small>
-          </div>
           <div class="nt-center br-col">
+            <div class="nt-filter"><span class="dlg-label">Source</span><div class="chips nt-chips pills-nav" id="dlgDrumLib" role="radiogroup" aria-label="Bibliothèque de batterie"></div></div>
+            <div id="dlgTdm" class="nt-filter nt-chips-row"><span class="dlg-label">Élément</span><div id="dlgDrumTypes" class="chips nt-chips pills-nav" role="radiogroup" aria-label="Type de drum"></div></div>
             <div class="br-head"><span class="dlg-label" id="dlgDrumListLabel">Boîte à rythmes</span><small id="dlgDrumCount" class="dlg-hint"></small></div>
-            <div id="dlgTdm" class="nt-chips-row">
-              <div id="dlgDrumTypes" class="chips nt-chips pills-nav" role="radiogroup" aria-label="Type de drum"></div>
-            </div>
-            <div id="dlgDrumList" class="pick-list" aria-labelledby="dlgDrumListLabel"></div>
+            <div id="dlgDrumList" class="pick-list nt-cards" aria-labelledby="dlgDrumListLabel"></div>
+            <small id="dlgDrumLibHint" class="dlg-hint nt-side-hint"></small>
           </div>
           <div class="nt-right br-col">
             <div class="br-head"><span class="dlg-label" id="dlgVariantLabel">Variation</span><small id="dlgVariantCount" class="dlg-hint"></small></div>
@@ -428,35 +421,18 @@
           </div>
         </section>
 
-        <section id="dlgInst" class="nt-part" hidden>
-          <div class="nt-side">
-            <span class="dlg-label">Famille</span>
-            <div id="dlgFamilies" class="nt-src pills-nav pills-vert" role="radiogroup" aria-label="Famille"></div>
-            <div id="dlgGmGroups" class="nt-src pills-nav pills-vert" role="radiogroup" aria-label="Famille General MIDI" hidden></div>
-          </div>
+        <section id="dlgSnd" class="nt-part" hidden>
           <div class="nt-center br-col">
-            <div class="br-head"><span class="dlg-label" id="dlgInstLabel">Instrument</span><small id="dlgInstCount" class="dlg-hint"></small></div>
-            <div id="dlgInstList" class="pick-list" aria-labelledby="dlgInstLabel"></div>
+            <div class="nt-filter"><span class="dlg-label">Source</span><div class="chips nt-chips pills-nav" id="dlgSrc" role="radiogroup" aria-label="Source du son"></div></div>
+            <div class="br-head"><span class="dlg-label" id="dlgSndLabel">Sons</span><small id="dlgSndCount" class="dlg-hint"></small></div>
+            <div id="dlgSndList" class="pick-list nt-cards" aria-labelledby="dlgSndLabel"></div>
           </div>
           <div class="nt-right br-col">
-            <div class="br-head"><span class="dlg-label" id="dlgSfvLabel">Variante</span></div>
+            <div class="nt-fiche" id="dlgFiche" aria-live="polite"></div>
+            <div class="br-head" id="dlgSfvHead"><span class="dlg-label" id="dlgSfvLabel">Variante</span></div>
             <div id="dlgSfvList" class="pick-list" aria-labelledby="dlgSfvLabel"></div>
-          </div>
-        </section>
-
-        <section id="dlgSynth" class="nt-part" hidden>
-          <div class="nt-side">
-            <span class="dlg-label" id="dlgSynthLabel">Synthé <small id="dlgSynthCount" class="dlg-hint"></small></span>
-            <div id="dlgSynthList" class="pick-list nt-src-list" aria-labelledby="dlgSynthLabel"></div>
-          </div>
-          <div class="nt-center br-col">
-            <div class="br-head"><span class="dlg-label" id="dlgPatchLabel">Patch</span><small id="dlgPatchCount" class="dlg-hint"></small></div>
-            <div id="dlgPatchList" class="pick-list" aria-labelledby="dlgPatchLabel"></div>
-          </div>
-          <div class="nt-right br-col">
-            <span class="dlg-label">Le synthé</span>
-            <div class="synth-card" id="dlgSynthCard" aria-live="polite"></div>
-            <small class="dlg-hint" data-helpify>Après validation, le bouton <b>Sound design</b> de la piste ouvre la façade du synthé : tous ses réglages sont modifiables.</small>
+            <div class="synth-card" id="dlgSynthCard" hidden></div>
+            <small class="dlg-hint" id="dlgSynthHint" hidden>Après validation, le bouton <b>Sound design</b> de la piste ouvre la façade du synthé : tous ses réglages sont modifiables.</small>
           </div>
         </section>
 
@@ -978,6 +954,7 @@
   <script src="js/master-dsp.js?v=watch-1"></script>
   <script src="js/juno-dsp.js?v=watch-1"></script>
   <script src="js/juno.js?v=watch-1"></script>
+  <script src="js/catalog.js"></script>
   <script src="js/expression.js"></script>
   <script src="js/arp.js"></script>
   <script src="js/beatauto.js"></script>
@@ -1026,7 +1003,7 @@
   <script src="js/render.js"></script>
   <script src="js/audioexport.js"></script>
   <script src="js/beatautoui.js"></script>
-  <script src="js/ui.js?v=xform-1"></script>
+  <script src="js/ui.js?v=roles-1"></script>
   <script src="js/audiowatch.js?v=diag-1"></script>
   <script src="js/systempanel.js?v=diag-1"></script>
   <script src="js/main.js?v=watch-1"></script>
