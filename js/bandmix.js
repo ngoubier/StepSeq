@@ -184,6 +184,7 @@ SS.bandMix = (() => {
       drive: 5,
     },
   };
+  STYLE.zero = STYLE.pop; // « Créer de zéro » : un mix pop, neutre (batterie acoustique, peu d'effets)
 
   // gestion du gain : le mix arrive au master vers −18 LUFS, crêtes vers −6 dBFS (marge pour la glue et le limiteur)
   const HEADROOM = -11;

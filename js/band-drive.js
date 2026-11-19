@@ -50,4 +50,5 @@ SS.BAND_DRIVE = {
   lk: 11.5,
   despacito: 9.9,
   lovely: 9,
+  zero: 10.2, // « Créer de zéro » : pas encore mesuré, celui de brightside (même mix pop)
 };
