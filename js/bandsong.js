@@ -2092,6 +2092,18 @@ SS.bandSong = (() => {
     bossa: [[0, 6, 0, 0.88], [6, 2, 7, 0.72], [8, 6, 7, 0.82], [14, 2, 0, 0.72]],
     afro: [[0, 3, 0, 0.9], [6, 2, 0, 0.72], [9, 1, 0, 0.38], [10, 2, 12, 0.76], [12, 3, 0, 0.84], [15, 1, 12, 0.4]],
     acid: [[0, 1, 0, 0.95], [1, 1, 0, 0.6], [2, 1, 12, 0.85], [3, 1, 0, 0.6], [5, 1, 0, 0.75], [6, 1, 's', 0.8], [7, 1, 12, 0.7], [8, 1, 0, 0.92], [10, 1, 0, 0.65], [11, 1, 7, 0.8], [12, 1, 12, 0.88], [13, 1, 0, 0.6], [14, 1, 0, 0.75], [15, 1, 't', 0.7]],
+    // nov. 2026 : basses techno / house de Nicolas (une mesure en doubles, 125 BPM) ; 13 = seconde mineure à l'octave, 10 = septième mineure ;
+    // nuances : le « et » appuyé, les autres doubles plus douces
+    oracle: [[1, 1, 0, 0.66], [2, 1, 12, 0.9], [3, 1, 0, 0.66], [5, 1, 0, 0.66], [6, 1, 12, 0.9], [7, 1, 0, 0.66], [9, 1, 0, 0.66], [10, 1, 13, 0.9], [11, 1, 10, 0.66], [13, 1, 0, 0.66], [14, 1, 13, 0.9], [15, 1, 0, 0.66]],
+    troy: [[1, 1, 0, 0.66], [2, 1, 12, 0.9], [3, 1, 12, 0.78], [5, 1, 12, 0.78], [6, 1, 0, 0.9], [7, 1, 12, 0.78], [9, 1, 0, 0.66], [10, 1, 12, 0.9], [11, 1, 0, 0.66], [13, 1, 12, 0.78], [14, 1, 0, 0.9], [15, 1, 12, 0.78]],
+    phalanx: [[1, 1, 12, 0.78], [2, 1, 0, 0.9], [3, 1, 12, 0.78], [5, 1, 12, 0.78], [6, 1, 0, 0.9], [7, 1, 12, 0.78], [9, 1, 12, 0.78], [10, 1, 0, 0.9], [11, 1, 12, 0.78], [13, 1, 0, 0.66], [14, 1, 13, 0.9], [15, 1, 0, 0.66]],
+    necropolis: [[3, 1, 0, 0.66], [6, 1, 0, 0.9], [11, 1, 0, 0.66], [14, 1, 0, 0.9]],
+    styx: [[1, 1, 0, 0.66], [3, 1, 0, 0.66], [6, 1, 0, 0.9], [9, 1, 0, 0.66], [11, 1, 0, 0.66], [13, 1, 0, 0.66], [14, 1, 0, 0.9]],
+    athens: [[1, 1, 12, 0.78], [2, 1, 12, 0.9], [3, 1, 0, 0.66], [5, 1, 12, 0.78], [6, 1, 0, 0.9], [7, 1, 12, 0.78], [9, 1, 12, 0.78], [10, 1, 0, 0.9], [11, 1, 12, 0.78], [13, 1, 12, 0.78], [14, 1, 0, 0.9], [15, 1, 13, 0.78]],
+    seismic: [[2, 1, 0, 0.9], [7, 1, 0, 0.66], [10, 1, 0, 0.9], [14, 1, 0, 0.9]],
+    hades: [[2, 1, 0, 0.9], [6, 1, 0, 0.9], [10, 1, 0, 0.9], [14, 1, 0, 0.9]],
+    mythos: [[1, 1, 0, 0.66], [2, 1, 0, 0.9], [5, 1, 0, 0.66], [6, 1, 12, 0.9], [7, 1, 0, 0.66], [9, 1, 0, 0.66], [10, 1, 12, 0.9], [13, 1, 0, 0.66], [14, 1, 12, 0.9], [15, 1, 0, 0.66]],
+    thebes: [[1, 1, 0, 0.66], [2, 1, 0, 0.9], [3, 1, 0, 0.66], [5, 1, 0, 0.66], [6, 1, 0, 0.9], [7, 1, 0, 0.66], [9, 1, 0, 0.66], [10, 1, 0, 0.9], [11, 1, 0, 0.66], [13, 1, 0, 0.66], [14, 1, 0, 0.9], [15, 1, 0, 0.66]],
   };
   /** Dessin d'une mesure type (niveau 0 = fondamentale, 1 = quinte, tierce, septième ou approche, 2 = octave). */
   const rhythmDraw = (id) => BASS_RHYTHMS[id].map(([o, l, n]) => [o, l, n === 0 ? 0 : n === 12 ? 2 : 1]);
@@ -2127,6 +2139,17 @@ SS.bandSong = (() => {
     ['bossa', 'Bossa nova', 'Fondamentale et quinte en noire pointée-croche', rhythmDraw('bossa')],
     ['afro', 'Afrobeats', 'Syncopes posées, fondamentale et octave', rhythmDraw('afro')],
     ['acid', 'Acide 303', 'Doubles accentuées, octaves, septième : acid techno', rhythmDraw('acid')],
+    // nov. 2026 : basses techno / house de Nicolas
+    ['oracle', 'Oracle', 'Doubles autour des kicks, octave et seconde mineure sur le « et », septième : techno', rhythmDraw('oracle')],
+    ['troy', 'Troy', 'Grave et octave qui se répondent en doubles : techno', rhythmDraw('troy')],
+    ['phalanx', 'Phalanx', 'Octave en doubles, la fondamentale sur le « et », seconde mineure à la fin : techno', rhythmDraw('phalanx')],
+    ['necropolis', 'Necropolis', 'Quatre notes sèches, syncopées : techno sombre', rhythmDraw('necropolis')],
+    ['styx', 'Styx', 'Fondamentale en doubles qui évitent le kick : techno roulante', rhythmDraw('styx')],
+    ['athens', 'Athens', 'Octave en doubles, grave sur le « et », seconde mineure en fin de mesure : techno', rhythmDraw('athens')],
+    ['seismic', 'Seismic', 'Contretemps, avec un « a » du 2 qui décale : house', rhythmDraw('seismic')],
+    ['hades', 'Hades', 'Une double sur chaque « et », piquée : la basse house (aussi Prometheus, Epoch)', rhythmDraw('hades')],
+    ['mythos', 'Mythos', 'Doubles grave, octave sur les « et » des temps 2 à 4 : tech house', rhythmDraw('mythos')],
+    ['thebes', 'Thebes', 'Trois doubles après chaque kick, le « et » appuyé : basse roulante', rhythmDraw('thebes')],
   ];
 
   return { build, bassEvents, tomOfStep, junctionDefaults, junctionEff, withSceneFx, PERC_LOOPS, PERC_STYLES, hpHz, hpAmt, HP_MEL, isExtra, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, sceneGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, BUILD_LEVELS, BUILD_PRESETS, buildLevels, progLevels, rollBar, rollerOf, hasGridLane, laneKey, _rng: rng };
