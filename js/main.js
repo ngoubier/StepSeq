@@ -339,6 +339,14 @@
       document.documentElement.classList.toggle('compact-tracks', trackHeight.value === 'compact');
       try { localStorage.setItem('stepseq.trackHeight', trackHeight.value); } catch (_) {}
     });
+    // contour pointillé de la case d'origine des notes décalées (affiché par défaut)
+    const shiftHome = $('#optShiftHome');
+    try { shiftHome.checked = localStorage.getItem('stepseq.shiftHome') !== '0'; } catch (_) {}
+    document.documentElement.classList.toggle('hide-shift-home', !shiftHome.checked);
+    shiftHome.addEventListener('change', () => {
+      document.documentElement.classList.toggle('hide-shift-home', !shiftHome.checked);
+      try { localStorage.setItem('stepseq.shiftHome', shiftHome.checked ? '1' : '0'); } catch (_) {}
+    });
     $('#undoBtn').addEventListener('click', undo);
     $('#redoBtn').addEventListener('click', redo);
     const num = $('#sigNum');

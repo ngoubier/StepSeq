@@ -80,6 +80,42 @@ SS.accentParams = (p, vel, amount, charge = 0) => {
   return { p: q, vel: Math.min(1, vel + 0.25 * A) };
 };
 
+/*
+ * Quantize (préférence de l'utilisateur, activée par défaut) : les notes jouées au clavier et celles d'un fichier MIDI
+ * importé arrivent alignées sur la grille, sans micro-décalage. Les notes posées à la souris le sont toujours.
+ */
+const QUANTIZE_KEY = 'stepseq.quantize';
+let quantizePref = null;
+SS.quantizeOn = () => {
+  if (quantizePref === null) {
+    try {
+      quantizePref = globalThis.localStorage?.getItem(QUANTIZE_KEY) !== '0';
+    } catch (e) {
+      quantizePref = true;
+    }
+  }
+  return quantizePref;
+};
+SS.setQuantize = (on) => {
+  quantizePref = !!on;
+  try {
+    globalThis.localStorage?.setItem(QUANTIZE_KEY, on ? '1' : '0');
+  } catch (e) {
+    /* stockage indisponible */
+  }
+};
+/** Aligne des notes sur leur pas (retire le micro-décalage) ; renvoie le nombre de notes qui étaient décalées. */
+SS.quantizeEvents = (evs) => {
+  let n = 0;
+  evs.forEach((ev) => {
+    if (ev && ev.shift) {
+      delete ev.shift;
+      n++;
+    }
+  });
+  return n;
+};
+
 SS.cleanShift = (ev) => {
   const v = Math.round(Math.max(-SS.SHIFT_MAX, Math.min(SS.SHIFT_MAX, Number(ev.shift) || 0)) * 100) / 100;
   if (v) ev.shift = v;

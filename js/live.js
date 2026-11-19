@@ -30,8 +30,8 @@ SS.live = (() => {
   };
   const NOTE_OF = new Map(KEYMAP);
   const CODE_OF = new Map(KEYMAP.map(([c, n]) => [n, c]));
+  // grille d'alignement quand Quantize est actif (Quantize coupé : double-croche la plus proche + décalage du jeu gardé)
   const QUANTS = [
-    { v: 0, label: 'Jeu gardé', title: 'Sur la double-croche la plus proche, avec le petit décalage du jeu (comme l’import MIDI)' },
     { v: 1, label: '1/16', title: 'Calé sur la double-croche' },
     { v: 2, label: '1/8', title: 'Calé sur la croche' },
     { v: 4, label: '1/4', title: 'Calé sur la noire' },
@@ -101,7 +101,7 @@ SS.live = (() => {
     oct: 3, // do le plus grave = C3
     vel: 96, // 1..127
     mode: 'merge', // 'merge' | 'replace'
-    quant: 0,
+    quant: 1, // grille si Quantize est actif (0 = ancien « jeu gardé », remplacé par Quantize coupé)
     countIn: true,
     metro: true,
     rec: false,
@@ -111,6 +111,7 @@ SS.live = (() => {
     try {
       const p = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}');
       ['oct', 'vel', 'mode', 'quant', 'countIn', 'metro'].forEach((k) => p[k] !== undefined && (st[k] = p[k]));
+      if (!(st.quant > 0)) st.quant = 1;
     } catch (e) {
       /* stockage indisponible */
     }
@@ -182,7 +183,8 @@ SS.live = (() => {
     const p = project();
     if (!p.tracks.includes(h.track)) return;
     const n = SS.trackLen(p, h.track);
-    const q = h.track.type === 'drum' ? Math.max(1, st.quant) : st.quant;
+    // Quantize actif : calée sur la grille choisie ; coupé : le décalage du jeu est gardé (sauf batterie, toujours au pas)
+    const q = SS.quantizeOn() ? st.quant : h.track.type === 'drum' ? 1 : 0;
     writeNote(h.track, { ...place(h.start, end, q, n), midi: h.midi, vel: h.vel });
     if (st.take) st.take.wrote = true;
     SS.ui.renderTrack(h.track);
@@ -438,7 +440,7 @@ SS.live = (() => {
           savePrefs();
           syncUi();
         }),
-        h('h3', { text: 'Quantification' }),
+        h('h3', { id: 'kbQuantTitle', text: 'Quantification' }),
         seg('kbQuant', QUANTS, st.quant, (v) => {
           st.quant = +v;
           savePrefs();
@@ -472,6 +474,9 @@ SS.live = (() => {
     $('#kbMetro').checked = st.metro;
     [['#kbMode', st.mode], ['#kbQuant', st.quant]].forEach(([id, v]) =>
       dock.querySelectorAll(`${id} button`).forEach((b) => b.classList.toggle('on', b.dataset.v === String(v))));
+    const qOn = SS.quantizeOn();
+    $('#kbQuant')?.classList.toggle('off', !qOn);
+    $('#kbQuantTitle').textContent = qOn ? 'Quantification' : 'Quantification (Quantize coupé : jeu gardé)';
     const t = armedTrack();
     $('#kbTarget').textContent = t ? `Joue sur « ${t.name} »${t.type === 'drum' ? ' (un coup par touche)' : ''}` : 'Aucune piste armée';
     if (!st.rec) $('#kbStatus').textContent = '';
@@ -517,5 +522,6 @@ SS.live = (() => {
     toggleRec,
     place,
     writeNote,
+    syncUi,
   };
 })();

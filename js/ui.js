@@ -2046,11 +2046,19 @@ SS.ui = (() => {
 
   /* ---------- Peinture des cases ---------- */
 
-  /** Note décalée hors de la grille : petit trait à l'endroit où elle part vraiment (en avance : à gauche du pas). */
-  function markShift(cell, ev) {
+  /**
+   * Note décalée hors de la grille : elle est dessinée là où elle sonne vraiment (toutes ses cases glissent du décalage),
+   * et un contour pointillé garde sa case d'origine visible (sur la case de départ).
+   */
+  function shiftCell(cell, ev) {
     if (!ev.shift) return;
     cell.classList.add('shifted');
-    cell.append(h('span', { class: 'shift-mark' + (ev.shift < 0 ? ' early' : ''), style: `--shift:${ev.shift}`, 'aria-hidden': 'true' }));
+    cell.style.setProperty('--shift', ev.shift);
+  }
+  function markShift(cell, ev) {
+    if (!ev.shift) return;
+    shiftCell(cell, ev);
+    cell.append(h('span', { class: 'shift-home', 'aria-hidden': 'true' }));
   }
   /** Ratchet : r petits traits en bas de la case (un par coup). */
   /** Accent : liseré doré en haut de la note. */
@@ -2107,7 +2115,7 @@ SS.ui = (() => {
       c.title = '';
     });
     ref.roll.forEach((cells) => cells.forEach((c) => c.classList.remove('on', 'start', 'root', 'sel', 'sel-hold', 'shifted')));
-    ref.el?.querySelectorAll('.shift-mark, .rat-mark, .cond-mark, .acc-mark, .art-mark').forEach((m) => m.remove());
+    ref.el?.querySelectorAll('.shift-home, .rat-mark, .cond-mark, .acc-mark, .art-mark').forEach((m) => m.remove());
 
     // piste qui suit la piste Accords : on montre les accords joués (en pointillés), pas ses notes
     const ghost = SS.followsGhost(track);
@@ -2133,6 +2141,7 @@ SS.ui = (() => {
         } else {
           c.classList.add('hold');
           if (s === ev.step + ev.len - 1) c.classList.add('end');
+          shiftCell(c, ev);
         }
         ev.notes.forEach((m, i) => {
           const rc = ref.roll.get(m);
@@ -2147,7 +2156,7 @@ SS.ui = (() => {
             markShift(cell, ev);
             markRatchet(cell, ev.rat);
             if (i === 0) markCond(cell, ev.cond, true);
-          }
+          } else shiftCell(cell, ev);
         });
       }
     });
@@ -2319,6 +2328,7 @@ SS.ui = (() => {
     const has = !!(s && s.items.size);
     ['#selCopy', '#selCut', '#selDup', '#selDel'].forEach((id) => $(id) && ($(id).disabled = !has));
     if ($('#selPaste')) $('#selPaste').disabled = !clip;
+    if ($('#selQuant')) $('#selQuant').disabled = !has || isDrum(s.track);
     fillXform(has ? s.track : null);
     if ($('#selClear')) $('#selClear').disabled = !s;
     const info = $('#selInfo');
@@ -2366,6 +2376,27 @@ SS.ui = (() => {
     }
     box.replaceChildren(...opts);
     box.value = '';
+  }
+
+  /** Quantifier : les notes sélectionnées reviennent pile sur leur pas (micro-décalage retiré). */
+  function quantizeSelection() {
+    if (!validSelection() || !sel.items.size || isDrum(sel.track)) return;
+    const t = sel.track;
+    const evs = [...sel.items];
+    const n = SS.quantizeEvents(evs);
+    if (!n) return toast('Ces notes sont déjà alignées sur la grille.');
+    app.changed();
+    setSelection(t, evs);
+    toast(`Quantifié : ${unitLabel(t, n)} alignée${n > 1 ? 's' : ''} sur la grille`, 2200);
+  }
+
+  /** Bouton Quantize (préférence globale, activée par défaut). */
+  function syncQuantizeBtn() {
+    const b = $('#quantizeBtn');
+    if (!b) return;
+    const on = SS.quantizeOn();
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', String(on));
   }
 
   function transformSelection(code) {
@@ -4690,6 +4721,14 @@ SS.ui = (() => {
     on('#selCut', () => copySelection({ cut: true }));
     on('#selPaste', () => paste());
     on('#selDup', duplicateSelection);
+    on('#selQuant', quantizeSelection);
+    on('#quantizeBtn', () => {
+      SS.setQuantize(!SS.quantizeOn());
+      syncQuantizeBtn();
+      SS.live?.syncUi?.();
+      toast(SS.quantizeOn() ? 'Quantize activé : les notes jouées ou importées arrivent alignées sur la grille' : 'Quantize coupé : le petit décalage du jeu est gardé', 2400);
+    });
+    syncQuantizeBtn();
     on('#selDel', deleteSelection);
     if ($('#selXform'))
       $('#selXform').addEventListener('change', (e) => {

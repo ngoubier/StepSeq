@@ -43,7 +43,7 @@ SS.midiPanel = (() => {
   function analyzeFile() {
     const title = file.name.replace(/\.(mid|midi|kar)$/i, '').replace(/[_]+/g, ' ').trim();
     try {
-      result = SS.midi.importFile(file.buf, { title, similar: split, machine: $('#miMachine').value });
+      result = SS.midi.importFile(file.buf, { title, similar: split, machine: $('#miMachine').value, quantize: SS.quantizeOn() });
     } catch (e) {
       console.error(e);
       result = { error: e.message || String(e) };

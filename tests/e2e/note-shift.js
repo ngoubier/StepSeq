@@ -60,16 +60,18 @@ const ok = (c, m) => {
   await page.keyboard.press('Escape');
   await page.waitForTimeout(700);
   ok(JSON.stringify(await saved()) === JSON.stringify([0, 0.25, -0.4, 0]), `enregistré : ${JSON.stringify(await saved())}`);
-  ok((await page.locator('.track .cell[data-step="4"] .shift-mark').count()) === 1, 'repère de décalage sur la note en retard');
-  ok((await page.locator('.track .cell[data-step="8"] .shift-mark.early').count()) === 1, 'repère « en avance » sur la note en avance');
-  ok((await page.locator('.track .cell[data-step="0"] .shift-mark').count()) === 0, 'pas de repère sur une note non décalée');
+  // la note est dessinée là où elle sonne (glissée), sa case d'origine reste en pointillé
+  const dx = (s) => page.locator(`.track .cell[data-step="${s}"]`).first().evaluate((c) => new DOMMatrix(getComputedStyle(c).transform).m41);
+  ok((await page.locator('.track .cell[data-step="4"] .shift-home').count()) === 1 && (await dx(4)) > 5, `note en retard glissée à droite (${await dx(4)} px), case d'origine en pointillé`);
+  ok((await dx(8)) < -8 && (await dx(9)) === (await dx(8)), `note en avance glissée à gauche avec sa tenue (${await dx(8)} px)`);
+  ok((await page.locator('.track .cell[data-step="0"] .shift-home').count()) === 0 && (await dx(0)) === 0, 'note non décalée : à sa place, sans pointillé');
   ok(/en avance de 40 %/.test(await page.locator('.track .cell[data-step="8"]').first().getAttribute('title')), 'infobulle de la note décalée');
   if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT, clip: { x: 0, y: 0, width: 900, height: 260 } });
 
   // rechargement : le décalage est gardé
   await page.reload();
   await page.waitForTimeout(500);
-  ok((await page.locator('.track .cell[data-step="8"] .shift-mark.early').count()) === 1, 'décalage conservé après rechargement');
+  ok((await page.locator('.track .cell[data-step="8"] .shift-home').count()) === 1 && (await dx(8)) < -8, 'décalage conservé après rechargement');
 
   // lecture : heure de départ de chaque note (oscillateurs du synthé)
   await page.evaluate(() => {
