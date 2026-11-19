@@ -192,6 +192,28 @@ function tracker() {
     });
     ok(replaced.kept.every((n) => n === 3), `contrôle : sans « dispose », les modules restent vivants (${replaced.kept})`);
     ok(replaced.freed.every((n) => n === 0), `Reverb Cosmos et Mastering remplacés : libérés après « dispose » (${replaced.freed})`);
+    // 2e méthode, indépendante des nœuds : rendu hors temps réel de la même boucle pendant RENDER_SECONDS.
+    // Tout coût qui grandit avec le temps (nœuds, réglages programmés qui s'empilent sur les bus, la Hall, le
+    // Master…) ralentit la fin du rendu par rapport au début.
+    const RENDER = +process.env.RENDER_SECONDS || 180;
+    await page.evaluate(() => SS.audio.stop());
+    const speed = await page.evaluate(async (seconds) => {
+      const p = SS.normalizeProject(JSON.parse(localStorage.getItem('stepseq.autosave')));
+      const scene = p.current || p.scenes[0].id;
+      p.song = [{ scene, repeat: Math.ceil(seconds / 1.5) }];
+      const marks = [];
+      const t0 = performance.now();
+      await SS.render.renderOnce(JSON.stringify(p), { seconds, sampleRate: 48000, seed: 1 }, { onProgress: (f) => marks.push([f * seconds, performance.now() - t0]) });
+      // millisecondes de calcul par seconde de son, sur une tranche [a, b] de la chanson
+      const rate = (a, b) => {
+        const x = marks.find((m) => m[0] >= a);
+        const y = marks.find((m) => m[0] >= b) || marks[marks.length - 1];
+        return (y[1] - x[1]) / (y[0] - x[0]);
+      };
+      return { start: rate(seconds * 0.1, seconds * 0.3), end: rate(seconds * 0.75, seconds * 0.95), total: performance.now() - t0 };
+    }, RENDER);
+    console.log(`rendu de ${RENDER} s : ${Math.round(speed.total)} ms ; calcul par seconde de son : début ${speed.start.toFixed(1)} ms, fin ${speed.end.toFixed(1)} ms`);
+    ok(speed.end < speed.start * 1.5 + 2, `la fin du rendu n'est pas plus lente que le début (×${(speed.end / speed.start).toFixed(2)})`);
     ok(!errors.length, 'aucune erreur de page' + (errors.length ? ' : ' + errors[0] : ''));
   } finally {
     await browser.close();
