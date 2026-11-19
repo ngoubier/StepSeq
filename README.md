@@ -1129,6 +1129,11 @@ avance comme sous les clics ; ses réglages restent un brouillon (enregistré to
 chanson dans la grille (une étape Ctrl+Z) ; si une fenêtre de choix s'ouvre (grille déjà remplie), c'est l'utilisateur qui choisit.
 Pendant que l'assistant est ouvert, les outils d'écriture de la grille sont refusés.
 
+Import MIDI : `await StepSeq.importerMidi({ url | base64 | octets, nom, decoupage, batterie, quantize })` suit le chemin du menu
+▸ Importer MIDI… (`js/midipanel.js`, mêmes options : découpage fidèle / équilibré / compact, batterie GM ou machine, Quantize).
+La chanson importée remplace celle en cours, qui reste dans « Mes chansons ». `apercu: true` rend le bilan sans importer ;
+`fenetre: true` ouvre la fenêtre d'import réglée ainsi, et l'utilisateur confirme. Un fichier de l'ordinateur se choisit à la main.
+
 ## Skills de composition (Claude Code)
 
 Le dossier `.claude/skills/` contient les skills qui guident la composition, et dont les règles sont reprises
