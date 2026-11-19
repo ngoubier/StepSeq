@@ -87,7 +87,9 @@ const saved = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('ste
   await page.waitForTimeout(200);
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'gm-band.png') });
   await page.click('#bandStage .band-mus');
-  for (let i = 0; i < 11; i++) await page.dispatchEvent('#bwNext', 'click'); await page.click('#bwCreate');
+  // jusqu'à la dernière étape, quel que soit le nombre d'étapes (une par instrument, Effets, Mix…)
+  for (let i = 0; i < 40 && !(await page.isVisible('#bwCreate')); i++) await page.dispatchEvent('#bwNext', 'click');
+  await page.click('#bwCreate');
   await page.waitForTimeout(400);
   if (await page.isVisible('#bcfSong')) await page.click('#bcfSong');
   await page.waitForTimeout(800);

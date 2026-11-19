@@ -57,7 +57,7 @@ const ok = (c, m) => {
   // étape Orchestration
   const n = await page.evaluate(() => SS.band.stepNum({ inst: SS.band.insSteps().find((T) => T.kind === 'orch').id }));
   while ((await W()).step < n) await next();
-  ok(/Orchestration/.test(await page.textContent('#bwStepHead')), `étape ${n} : Orchestration`);
+  ok((await page.getAttribute('#bwStepHead', 'data-kind')) === 'orch', `étape ${n} : Orchestration (étape de l’instrument Orchestre)`);
   await page.click('.bh-scene[data-sec="chorus"]');
   await page.waitForTimeout(250);
   ok((await page.locator('#bwOrchMap .bwor-row').count()) === 7 && (await page.locator('#bwOrchWho tbody tr').count()) === 7, 'carte des registres et « qui joue quoi » : un rang par pupitre');
