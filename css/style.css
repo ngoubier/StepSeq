@@ -5365,3 +5365,10 @@ body.wizard-mode .wiz-banner { display: none; }
 .cl-auto-btn { font: inherit; font-size: 13px; background: transparent; color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 12px; cursor: pointer; }
 .cl-auto-btn.main { background: var(--accent-2); border-color: var(--accent-2); color: #fff; }
 .cl-blk.prop { border: 1px dashed var(--accent-2); background: repeating-linear-gradient(135deg, rgba(43, 140, 255, .10) 0 6px, transparent 6px 12px), var(--panel-2); }
+
+/* ---- Claude : ligne d'aide pour les assistants IA (lisible par l'extension, invisible à l'écran) et badge (js/claude-tools.js) ---- */
+.ai-hint { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.claude-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #ffc7ae; border: 1px solid #7a4a38; border-radius: 12px; padding: 3px 10px; background: rgba(217, 119, 87, .10); white-space: nowrap; }
+.claude-badge[hidden] { display: none; }
+.claude-badge i { width: 7px; height: 7px; border-radius: 50%; background: #d97757; box-shadow: 0 0 6px #d97757; }
+.claude-badge b { font-weight: 600; }

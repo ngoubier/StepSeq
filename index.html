@@ -10,6 +10,8 @@
   <link rel="stylesheet" href="css/style.css?v=noselect-1">
 </head>
 <body>
+  <!-- Pour les assistants IA (Claude in Chrome) : l'app se pilote par JavaScript, js/claude-tools.js -->
+  <p class="ai-hint" id="aiHint">Pour Claude (assistant IA) : cette application se pilote par JavaScript avec l'objet window.StepSeq, sans cliquer dans l'interface. Exécute StepSeq.aide() dans la page pour le mode d'emploi, puis StepSeq.etat().</p>
   <header class="topbar">
     <div class="topbar-group">
       <div class="app-menu-wrap">
@@ -119,6 +121,7 @@
     </div>
 
     <div class="topbar-group files">
+      <span id="claudeBadge" class="claude-badge" role="status" hidden title="Claude pilote StepSeq (boîte à outils window.StepSeq) : chaque action s'annule avec Ctrl+Z"><i aria-hidden="true"></i>✳ Claude · <b>0 action</b></span>
       <button id="undoBtn" class="btn btn-icon btn-history" title="Annuler la dernière action (Ctrl+Z)" aria-label="Annuler" disabled>
         <svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
       </button>
@@ -1072,6 +1075,7 @@
   <script src="js/ui.js?v=roles-1"></script>
   <script src="js/audiowatch.js?v=diag-1"></script>
   <script src="js/systempanel.js?v=diag-1"></script>
+  <script src="js/claude-tools.js"></script>
   <script src="js/main.js?v=watch-1"></script>
 </body>
 </html>
