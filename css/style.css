@@ -1728,6 +1728,10 @@ dialog.juno-dialog { width: min(1320px, calc(100vw - 16px)); max-width: none; pa
 .sel-tools .btn:disabled { opacity: .4; cursor: default; background: var(--panel-3); }
 .sel-tools .sel-mode svg { width: 15px; height: 15px; }
 .sel-tools .sel-mode.active { background: var(--accent); color: #fff; }
+.quantize-btn { display: inline-flex; align-items: center; gap: 5px; }
+.quantize-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; }
+.quantize-btn.active { background: var(--accent); color: #fff; }
+.kb-dock .off { opacity: .45; }
 .sel-tools .btn-icon-small { width: 28px; padding: 0; justify-content: center; }
 .sel-tools .sel-xform { width: 118px; padding: 0 6px; cursor: pointer; }
 .sel-info {

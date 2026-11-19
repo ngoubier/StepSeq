@@ -2319,6 +2319,7 @@ SS.ui = (() => {
     const has = !!(s && s.items.size);
     ['#selCopy', '#selCut', '#selDup', '#selDel'].forEach((id) => $(id) && ($(id).disabled = !has));
     if ($('#selPaste')) $('#selPaste').disabled = !clip;
+    if ($('#selQuant')) $('#selQuant').disabled = !has || isDrum(s.track);
     fillXform(has ? s.track : null);
     if ($('#selClear')) $('#selClear').disabled = !s;
     const info = $('#selInfo');
@@ -2366,6 +2367,27 @@ SS.ui = (() => {
     }
     box.replaceChildren(...opts);
     box.value = '';
+  }
+
+  /** Quantifier : les notes sélectionnées reviennent pile sur leur pas (micro-décalage retiré). */
+  function quantizeSelection() {
+    if (!validSelection() || !sel.items.size || isDrum(sel.track)) return;
+    const t = sel.track;
+    const evs = [...sel.items];
+    const n = SS.quantizeEvents(evs);
+    if (!n) return toast('Ces notes sont déjà alignées sur la grille.');
+    app.changed();
+    setSelection(t, evs);
+    toast(`Quantifié : ${unitLabel(t, n)} alignée${n > 1 ? 's' : ''} sur la grille`, 2200);
+  }
+
+  /** Bouton Quantize (préférence globale, activée par défaut). */
+  function syncQuantizeBtn() {
+    const b = $('#quantizeBtn');
+    if (!b) return;
+    const on = SS.quantizeOn();
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', String(on));
   }
 
   function transformSelection(code) {
@@ -4690,6 +4712,14 @@ SS.ui = (() => {
     on('#selCut', () => copySelection({ cut: true }));
     on('#selPaste', () => paste());
     on('#selDup', duplicateSelection);
+    on('#selQuant', quantizeSelection);
+    on('#quantizeBtn', () => {
+      SS.setQuantize(!SS.quantizeOn());
+      syncQuantizeBtn();
+      SS.live?.syncUi?.();
+      toast(SS.quantizeOn() ? 'Quantize activé : les notes jouées ou importées arrivent alignées sur la grille' : 'Quantize coupé : le petit décalage du jeu est gardé', 2400);
+    });
+    syncQuantizeBtn();
     on('#selDel', deleteSelection);
     if ($('#selXform'))
       $('#selXform').addEventListener('change', (e) => {

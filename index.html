@@ -241,6 +241,10 @@
         <option value="compact">Compact</option>
       </select>
     </label>
+    <button type="button" id="quantizeBtn" class="btn btn-small quantize-btn active" aria-pressed="true" title="Quantize : les notes jouées au clavier ou importées d'un fichier MIDI arrivent alignées sur la grille. Coupé : leur petit décalage de jeu est gardé. Les notes posées à la souris sont toujours alignées.">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v16M10 4v16M16 4v16M22 4v16" /><rect x="5.5" y="9" width="3" height="6" rx="1" class="fill"/><rect x="11.5" y="9" width="3" height="6" rx="1" class="fill"/></svg>
+      Quantize
+    </button>
     <div class="sel-tools" role="toolbar" aria-label="Sélection">
       <button type="button" id="selMode" class="btn btn-small sel-mode" aria-pressed="false" title="Outil Sélection : glisser trace un rectangle de sélection au lieu de poser des notes (sans l'outil : Maj+glisser)">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h4M12 4h3M19 4v4M19 12v3M4 8v3M4 15v5h5M13 20h2" /><path d="M13 13l7 3-3 1-1 3z" class="fill"/></svg>
@@ -251,6 +255,7 @@
       <button type="button" id="selCut" class="btn btn-small" title="Couper la sélection (Ctrl+X)" disabled>Couper</button>
       <button type="button" id="selPaste" class="btn btn-small" title="Coller (Ctrl+V) : à la case survolée par la souris, sinon juste après la sélection" disabled>Coller</button>
       <button type="button" id="selDup" class="btn btn-small" title="Dupliquer la sélection juste après elle (Ctrl+D)" disabled>Dupliquer</button>
+      <button type="button" id="selQuant" class="btn btn-small" title="Quantifier : aligner les notes sélectionnées sur la grille (retire leur petit décalage de jeu)" disabled>Quantifier</button>
       <select id="selXform" class="btn btn-small sel-xform" aria-label="Transformer la sélection" title="Transformer les notes sélectionnées : inversion, rétrograde, durées ×2 ou ×½, autre mode (Ctrl+Z pour revenir)" disabled>
         <option value="">Transformer…</option>
       </select>

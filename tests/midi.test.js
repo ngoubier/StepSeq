@@ -133,6 +133,14 @@ test('import : quantification, sustain, mesures vides au début et bilan des per
   assert.ok(report.warnings.some((w) => /décalage d'attaque est gardé/.test(w) && /triolets/.test(w)));
   assert.ok(report.warnings.some((w) => /pitch bend/.test(w)));
 
+  // Quantize : mêmes notes, alignées sur la double-croche, sans micro-décalage
+  const q = SS.midi.importFile(bytes, { quantize: true });
+  const qk = q.project.tracks.find((t) => t.name === 'Accords');
+  const qevs = q.project.scenes.flatMap((s) => (s.data[qk.id] || {}).events || []);
+  assert.ok(qevs.some((e) => e.step === 18 && e.notes.includes(72)) && qevs.some((e) => e.step === 33 && e.notes.includes(74)));
+  assert.ok(qevs.every((e) => !e.shift), 'Quantize : aucune note décalée');
+  assert.ok(q.report.warnings.some((w) => /Quantize/.test(w)));
+
   // une mesure vide au début : supprimée
   const late = M.write({ ppq: 96, tracks: [[M.meta.tempo(0, 100)], [{ tick: 96 * 4, bytes: [0x90, 60, 90] }, { tick: 96 * 5, bytes: [0x80, 60, 0] }]] });
   const r2 = SS.midi.importFile(late);

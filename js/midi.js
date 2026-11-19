@@ -3,7 +3,7 @@
  *
  *   SS.midi.exportProject(project, { range: 'song'|'scene', loops, audibleOnly, swing })
  *       -> { bytes: Uint8Array, report: { tracks, notes, seconds, approx: [texte], ignored: [texte] } }
- *   SS.midi.importFile(ArrayBuffer | Uint8Array, { title, machine: 'gm' | boîte à rythmes, similar })
+ *   SS.midi.importFile(ArrayBuffer | Uint8Array, { title, machine: 'gm' | boîte à rythmes, similar, quantize })
  *       -> { project, report: { ... } }   (nouveau projet StepSeq, scènes et arrangement compris)
  *
  * Export : une piste MIDI par piste StepSeq (canal 10 pour la batterie), les arpèges sont rendus en notes
@@ -798,13 +798,15 @@
     // placement à la double-croche ; l'écart à la grille (jeu humain, triolets) reste en micro-décalage (ev.shift)
     const tps = midi.ppq / 4;
     let shifted = 0;
+    let aligned = 0; // notes hors grille alignées par Quantize
     let fine = 0;
     for (const n of notes) {
       const exact = n.start / tps;
       n.step = Math.round(exact);
       const off = exact - n.step;
-      n.shift = n.ch === 9 ? 0 : Math.round(Math.max(-SS.SHIFT_MAX, Math.min(SS.SHIFT_MAX, off)) * 100) / 100;
+      n.shift = n.ch === 9 || o.quantize ? 0 : Math.round(Math.max(-SS.SHIFT_MAX, Math.min(SS.SHIFT_MAX, off)) * 100) / 100;
       if (n.shift) shifted++;
+      else if (o.quantize && n.ch !== 9 && Math.abs(off) >= 0.005) aligned++;
       if (Math.abs(off) > 0.2 && Math.abs(exact * 3 - Math.round(exact * 3)) < 0.05) fine++;
       n.len = Math.max(1, Math.round((n.end - n.start) / tps));
     }
@@ -981,6 +983,7 @@
 
     // bilan
     const covered = A.blocks.reduce((a, b) => a + b.bars * b.repeat, 0);
+    if (aligned) warnings.push(`${aligned} note(s) jouée(s) à côté de la grille : alignées sur la double-croche (Quantize).`);
     if (shifted) warnings.push(`${shifted} note(s) jouée(s) à côté de la grille des doubles-croches : leur décalage d'attaque est gardé (micro-décalage)${fine ? `, dont ${fine} en triolets, rapprochés de la double-croche la plus proche` : ''}.`);
     if (exprTracks.size) warnings.push(`Expression (CC 11) reprise en courbe de volume dans les scènes, sur ${exprTracks.size} piste(s) : le jeu automatique de StepSeq leur laisse la nuance.`);
     const drumRolls = notes.filter((n) => n.ch === 9).length - list.filter((g) => g.drum).reduce((a, g) => a + new Set(g.notes.map((n) => n.step)).size, 0);
