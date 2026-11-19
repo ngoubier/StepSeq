@@ -23,9 +23,9 @@ const MEL = [
 const notesOf = (l) => l.events.flatMap((e) => e.notes);
 const inRange = (id, l) => notesOf(l).every((m) => m >= O.PART[id].lo && m <= O.PART[id].hi);
 
-test('effectifs : chaque pupitre existe, avec un son General MIDI et une zone confortable dans sa tessiture', () => {
+test('effectifs : chaque pupitre existe, avec un son du catalogue et une zone confortable dans sa tessiture', () => {
   for (const e of O.ENSEMBLES) for (const id of e.parts) assert.ok(O.PART[id], `${e.id} : ${id}`);
-  for (const p of O.PARTS) assert.ok(p.tok.startsWith('gm_') && p.lo <= p.clo && p.clo < p.chi && p.chi <= p.hi, p.id);
+  for (const p of O.PARTS) assert.ok(/^(gm|vsco)_/.test(p.tok) && p.lo <= p.clo && p.clo < p.chi && p.chi <= p.hi, p.id);
   assert.deepEqual(['light', 'mid', 'full'].map((x) => x), O.LEVELS.map((l) => l.id));
   assert.equal(O.levelOf(0.8), 'light');
   assert.equal(O.levelOf(0.88), 'mid');

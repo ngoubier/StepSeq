@@ -545,11 +545,11 @@ window.SS = window.SS || {};
           musicians: [
             kit('drums', 'bd hh', KAMB, opt),
             kit('perc', 'sh', KAMB, opt),
-            m('strings', 'gm_string_ensemble_1 gm_violin gm_cello gm_viola gm_tremolo_strings gm_string_ensemble_2', { note: 'Cordes tenues, archet doux' }),
+            m('strings', 'vsco_violins gm_string_ensemble_1 vsco_cellos gm_violin vsco_violins_trem gm_string_ensemble_2', { note: 'Cordes tenues, archet doux' }),
             m('keys', 'piano gm_piano vcsl_piano1 gm_epiano1 gm_music_box vcsl_fmpiano', { label: 'Piano intime' }),
             m('pad', 'gm_pad_warm gm_pad_halo syn_softpad gm_choir_aahs gm_pad_new_age syn_glasspad'),
             m('arp', 'gm_celesta vcsl_glockenspiel gm_music_box vcsl_handchimes gm_glockenspiel gm_kalimba'),
-            m('bass', 'gm_contrabass gm_cello syn_sub gm_acoustic_bass syn_techsub gm_fretless_bass', { optional: true }),
+            m('bass', 'vsco_contrabass gm_contrabass vsco_cellos syn_sub gm_acoustic_bass syn_techsub', { optional: true }),
           ],
         },
         {
@@ -579,9 +579,9 @@ window.SS = window.SS || {};
             kit('perc', 'sh', KAMB, opt),
             kit('drums', 'bd hh', KAMB, opt),
             m('pad', 'gm_pad_bowed gm_pad_halo syn_breathpad gm_choir_aahs syn_drone syn_superpad', { note: 'Drone large, évolue à peine' }),
-            m('strings', 'gm_string_ensemble_2 gm_cello gm_string_ensemble_1 gm_viola gm_violin gm_tremolo_strings', { note: 'Longues tenues d’archet' }),
+            m('strings', 'vsco_violins gm_string_ensemble_2 vsco_cellos gm_string_ensemble_1 vsco_violas gm_tremolo_strings', { note: 'Longues tenues d’archet' }),
             m('bass', 'syn_sub syn_techsub gm_contrabass gm_synth_bass_1 gm_fretless_bass syn_acidsub', { note: 'Pédale grave' }),
-            m('lead', 'gm_french_horn gm_english_horn gm_flute gm_oboe syn_sine gm_whistle', { note: 'Appel lointain, rare', optional: true }),
+            m('lead', 'vsco_horn gm_french_horn vsco_oboe vsco_flute gm_english_horn syn_sine', { note: 'Appel lointain, rare', optional: true }),
           ],
         },
         {
@@ -594,7 +594,7 @@ window.SS = window.SS || {};
           musicians: [
             kit('drums', 'bd hh sh rim', KAMB, opt),
             m('pad', 'gm_pad_new_age gm_string_ensemble_2 gm_synth_strings_2 gm_pad_halo syn_softpad gm_synth_choir', { note: 'Montée lente, sans à-coup' }),
-            m('strings', 'gm_string_ensemble_1 gm_violin gm_cello gm_viola gm_tremolo_strings gm_string_ensemble_2', { optional: true }),
+            m('strings', 'vsco_violins gm_string_ensemble_1 vsco_cellos gm_violin vsco_violins_trem gm_string_ensemble_2', { optional: true }),
             m('arp', 'vcsl_vibraphone_soft vcsl_vibraphone gm_celesta vcsl_handchimes gm_glockenspiel gm_music_box', { note: 'Quelques notes de vibraphone' }),
             m('lead', 'gm_flute gm_whistle syn_sine gm_ocarina syn_triangle gm_pan_flute', { note: 'Ligne qui s’élève doucement' }),
             m('bass', 'syn_sub gm_acoustic_bass syn_techsub gm_fretless_bass syn_acidsub gm_synth_bass_1', { optional: true }),

@@ -33,6 +33,12 @@ const CASES = [
   ['sax', 'vcsl_sax', 0, 62, 10],
   ['flute', 'vcsl_recorder_alto_sus', 0, 72, 10],
   ['bass', 'dirt_moog', 0, 48, 10],
+  // orchestre VSCO 2 (samples/vsco) : même convention Do3 = midi 60, octave mesurée par tools/vsco-local.py
+  ['strings', 'vsco_violins', 0, 67, 15],
+  ['strings', 'vsco_cellos', 0, 48, 15],
+  ['strings', 'vsco_contrabass', 0, 40, 15],
+  ['brass', 'vsco_horn', 0, 60, 15],
+  ['winds', 'vsco_flute', 0, 74, 15],
 ];
 
 (async () => {

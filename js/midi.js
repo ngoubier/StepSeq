@@ -103,6 +103,8 @@
       return { program: hit ? hit[1] : 81, exact: false };
     }
     if (track.instrument in SYNTH_PROGRAM) return { program: SYNTH_PROGRAM[track.instrument], exact: false };
+    const inst = SS.findInstrument && SS.findInstrument(track.family, track.instrument);
+    if (inst && inst.gmProgram != null) return { program: inst.gmProgram, exact: false }; // orchestre VSCO 2
     return { program: FAMILY_PROGRAM[track.family] ?? 0, exact: false };
   }
 

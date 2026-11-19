@@ -6,6 +6,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 globalThis.window = globalThis;
 require('../js/library.js');
+require('../js/vsco.js');
 require('../js/dirt.js');
 require('../js/sounds.js');
 require('../js/juno.js');
@@ -60,4 +61,19 @@ test('fichiers VCSL à virgule servis depuis samples/vcsl/ (Chrome refuse la ver
   assert.equal(url, 'samples/vcsl/Chordophones/Zithers/Grand_Piano_Steinway_B/Sus/JHPiano_Sus_Close_A_0_vl4_rr1.mp3');
   assert.ok(fs.existsSync(path.join(__dirname, '..', url)), 'la copie locale existe');
   assert.equal(SS.vcslLocal(base, 'Idiophones/Struck%20Idiophones/Glockenspiel/x.wav'), null, 'sans virgule : GitHub');
+});
+
+test('orchestre VSCO 2 : instruments rangés par rôle, fichiers présents, programme General MIDI', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const bank = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'samples', 'vsco', 'vsco.json'), 'utf8'));
+  assert.ok(SS.LIB.vsco.length >= 20);
+  for (const v of SS.LIB.vsco) {
+    const files = Object.values(bank[v.key] || {});
+    assert.ok(files.length >= 5, v.key);
+    files.forEach((f) => assert.ok(fs.existsSync(path.join(__dirname, '..', bank._base, f)), f));
+    assert.equal(SS.findInstrument(v.family, v.id).gmProgram, v.gm, v.id);
+  }
+  const strings = C.search('violoncelles').find((x) => x.role.id === 'strings');
+  assert.ok(strings && strings.entries.some((e) => e.v === 'i:strings:vsco_cellos' && e.name === 'Violoncelles' && e.detail === 'section'));
 });

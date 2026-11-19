@@ -3,6 +3,7 @@
  * Les échantillons proviennent des bibliothèques utilisées par strudel.cc :
  *  - tidal-drum-machines (via felixroos/dough-samples)
  *  - VCSL (Versilian Community Sample Library)
+ *  - l'orchestre VSCO 2 Community Edition (Versilian Studios), hébergé avec l'app (samples/vsco, js/vsco.js)
  *  - piano (dough-samples)
  *  - Dirt-Samples (tidalcycles), Mridangam (yaxu/mrid)
  *  - les 125 soundfonts General MIDI de strudel (felixroos/webaudiofontdata), avec leurs variantes
@@ -17,6 +18,7 @@ SS.SOURCES = {
   soundfont: 'https://raw.githubusercontent.com/felixroos/webaudiofontdata/master/sound/',
   dirt: 'https://raw.githubusercontent.com/tidalcycles/dirt-samples/main/strudel.json',
   mrid: 'https://raw.githubusercontent.com/felixroos/dough-samples/main/mridangam.json',
+  vsco: 'samples/vsco/vsco.json', // orchestre VSCO 2 (CC0), hébergé avec l'app : tools/vsco-local.py
 };
 
 /**
@@ -197,6 +199,7 @@ const FAMILY_DEFS = [
 ];
 
 const LIB = SS.LIB || { gm: [], vcsl: [] };
+const VSCO = LIB.vsco || [];
 
 /*
  * Programme General MIDI (0–127) d'un fichier soundfont gm_* : le nom commence par programme × 10 + variante
@@ -232,6 +235,8 @@ SS.FAMILIES = FAMILY_DEFS.map((f) => ({
     ...(SYNTHS[f.id] || []),
     ...(f.extra || []),
     ...DIRT.filter((d) => d.family === f.id).map(dirtInst),
+    // orchestre VSCO 2 avant VCSL : de vraies sections d'orchestre (gmProgram : programme GM le plus proche, pour l'export)
+    ...VSCO.filter((v) => v.family === f.id).map((v) => ({ id: v.id, label: v.label, kind: 'multi', bank: 'vsco', key: v.key, release: v.release, gmProgram: v.gm })),
     ...LIB.vcsl.filter((v) => v.family === f.id).map((v) => vcsl(v.key, v.label + ' (VCSL)', { release: v.release })),
     ...LIB.gm
       .filter((g) => g.family === f.id)

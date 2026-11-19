@@ -6,6 +6,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 globalThis.window = globalThis;
 require('../js/library.js');
+require('../js/vsco.js');
 require('../js/dirt.js');
 require('../js/sounds.js');
 require('../js/juno.js');
