@@ -40,7 +40,7 @@ const ok = (c, m) => {
   const shifts = () => page.evaluate(() => JSON.parse(localStorage.getItem('stepseq.autosave')).tracks[0].events.map((e) => e.shift || 0));
 
   ok((await page.getAttribute('#quantizeBtn', 'aria-pressed')) === 'true', 'Quantize activé par défaut');
-  ok((await page.locator('.track .shift-mark').count()) === 2, 'deux notes décalées affichées');
+  ok((await page.locator('.track .shift-home').count()) === 2, 'deux notes décalées affichées');
   ok(await page.locator('#selQuant').isDisabled(), 'Quantifier grisé sans sélection');
   await page.click('.track .cell[data-step="8"]');
   await page.keyboard.press('Control+a');
@@ -49,7 +49,7 @@ const ok = (c, m) => {
   await page.click('#selQuant');
   await page.waitForTimeout(500);
   ok(JSON.stringify(await shifts()) === '[0,0,0]', `Quantifier : notes alignées ${JSON.stringify(await shifts())}`);
-  ok((await page.locator('.track .shift-mark').count()) === 0, 'plus de barre blanche');
+  ok((await page.locator('.track .shift-home').count()) === 0, 'plus de note décalée');
   await page.keyboard.press('Control+z');
   await page.waitForTimeout(500);
   ok(JSON.stringify(await shifts()) === '[0.3,-0.2,0]', `Ctrl+Z rend les décalages ${JSON.stringify(await shifts())}`);
