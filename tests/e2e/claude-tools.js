@@ -84,6 +84,20 @@ const ok = (c, m) => {
   const after = await ev(() => StepSeq.etat());
   ok(after.tempo === before.tempo && after.pistes[0].volume === before.pistes[0].volume, 'groupe : un seul Ctrl+Z annule les deux changements');
 
+  // effets et automation
+  const fx = await ev((id) => StepSeq.effets({ piste: id, delay: 0.4, delayTemps: '3/16', envoiHall: 0.3, sidechainSource: 'Kick' }), bass.id);
+  ok(fx.ok && fx.effets.delay === 0.4 && fx.effets.delayTime === '3/16' && fx.effets.scSource === 'Kick 1', `effets : ${fx.message || fx.erreur}`);
+  const fxBad = await ev((id) => StepSeq.effets({ piste: id, reverb: 3 }), bass.id);
+  ok(!fxBad.ok && /reverb : entre 0 et 1/.test(fxBad.erreur), `effet hors bornes refusé : ${fxBad.erreur}`);
+  const aus = await ev((id) => StepSeq.automations({ piste: id }), bass.id);
+  ok(aus.ok && aus.parametres.some((x) => x.parametre === 'filter' && x.formes.length), 'automations : paramètres et formes de la piste');
+  const au = await ev((id) => StepSeq.automation({ piste: id, parametre: 'filter', forme: 'lp-open' }), bass.id);
+  ok(au.ok && (await ev((id) => StepSeq.piste({ piste: id }).automation.filter.length >= 2, bass.id)), `automation forme : ${au.message || au.erreur}`);
+  const au2 = await ev(() => StepSeq.automation({ piste: 'Pad 2', parametre: 'volume', points: [{ pas: 0, valeur: 0 }, { pas: 15, valeur: 1 }] }));
+  ok(au2.ok, `automation points : ${au2.message || au2.erreur}`);
+  await ev(() => StepSeq.annuler());
+  ok(await ev(() => !StepSeq.piste({ piste: 'Pad 2' }).automation), 'annuler retire l’automation');
+
   // erreurs lisibles
   const e1 = await ev(() => StepSeq.ecrireNotes({ piste: 'Guitare fantôme', notes: [] }));
   ok(!e1.ok && /piste inconnue/.test(e1.erreur), `erreur en clair : ${e1.erreur}`);

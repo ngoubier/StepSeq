@@ -1112,7 +1112,7 @@ outil « exécuter du JavaScript dans la page » (abonnement Claude, sans clé A
 Outils (paramètres en un objet, réponse `{ ok, message, … }` ou `{ ok: false, erreur }`) :
 lire : `aide`, `etat`, `piste`, `accords`, `sons` ; chanson : `titre`, `tempo`, `mesure`, `mesures`, `tonalite`, `ecrireAccords`,
 `proposerAccords` (✦ PROPOSER) ; pistes : `ajouterPiste`, `ecrireNotes`, `ecrireBatterie`, `son`, `mix`, `renommerPiste`,
-`supprimerPiste` ; scènes : `allerScene`, `ajouterScene`, `renommerScene`, `supprimerScene`, `structure` ; écoute : `jouer`,
+`supprimerPiste`, `effets` (chorus, delay, reverb, sidechain, envois), `automations` / `automation` (formes toutes prêtes ou points) ; scènes : `allerScene`, `ajouterScene`, `renommerScene`, `supprimerScene`, `structure` ; écoute : `jouer`,
 `stop`, `annuler`, `retablir`. Chaque écriture est une étape **Ctrl+Z** et affiche « ✳ Claude : … » avec un bouton Annuler ;
 `StepSeq.groupe("titre", () => { … })` en regroupe plusieurs. Le badge « ✳ Claude · N actions » apparaît dans la barre du haut.
 `StepSeq.outils` décrit chaque outil : la même liste servira au futur panneau intégré (API Claude). Test : `node tests/e2e/claude-tools.js`.
