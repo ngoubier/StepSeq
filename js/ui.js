@@ -1022,6 +1022,15 @@ SS.ui = (() => {
         'div',
         { class: 'th-ctrls' },
         h('button', { class: 'th-btn th-play', title: 'Écouter', html: ICONS.play, onclick: () => SS.audio.preview(track, previewNotes(track)) }),
+        // mode Jouer (js/live.js) : la piste armée reçoit le jeu au clavier et l'enregistrement
+        h('button', {
+          type: 'button',
+          class: 'th-btn box arm' + (SS.live && SS.live.armedId() === track.id ? ' on' : ''),
+          title: 'Armer : le clavier joue et enregistre sur cette piste',
+          'aria-label': `Armer la piste ${track.name}`,
+          'aria-pressed': String(!!(SS.live && SS.live.armedId() === track.id)),
+          onclick: () => SS.live.arm(track.id),
+        }, '●'),
         h('button', {
           class: 'th-btn box mute' + (track.mute ? ' on' : ''),
           title: 'Muet',
@@ -1208,7 +1217,8 @@ SS.ui = (() => {
     });
 
     const selected = sel && sel.track === track;
-    const el = h('div', { class: 'track' + (selected ? ' selected' : ''), style: `--c:${track.color}`, 'data-id': track.id }, h('div', { class: 'track-row' }, head, grid));
+    const armed = SS.live && SS.live.armedId() === track.id;
+    const el = h('div', { class: 'track' + (selected ? ' selected' : '') + (armed ? ' armed' : ''), style: `--c:${track.color}`, 'data-id': track.id }, h('div', { class: 'track-row' }, head, grid));
     if (autoOpen) el.append(buildAutoLane(track, ref));
     if (track.type === 'instrument' && isOpen) el.append(buildRoll(track, ref));
     // automation par temps (js/beatautoui.js) : sous les notes, seulement si elle est active

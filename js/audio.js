@@ -1694,11 +1694,112 @@ SS.audio = (() => {
     if (mod?.signal?.aborted) return;
     const t = Math.max(time, ctx.currentTime);
     const plan = glidePlan(track, p, midi, t, idx, count);
-    if (glideLegato(plan, p, idx, midi, t, Math.max(dur, 0.01))) return;
+    if (glideLegato(plan, p, idx, midi, t, Math.max(dur, 0.01))) return plan.legato;
     const voice = src
       ? sampleVoice(p, src.buffer, src.rate, time, dur, vel, out, src.loop, midi)
       : synthVoice(p, midi, time, dur, vel, out);
     glideStart(plan, p, voice, idx, midi, t);
+    return voice; // jeu en direct : la voix est prolongée tant que la touche est tenue
+  }
+
+  /*
+   * Jeu en direct (js/live.js : clavier de l'ordinateur, puis clavier MIDI) : la note tient tant que la touche est
+   * enfoncée, sur tous les sons. La voix part avec une courte durée (LIVE_LEASE) que l'on prolonge tant que la note
+   * est tenue (même mécanisme que le legato : chain.extend) ; au relâchement, l'enveloppe part en release tout de
+   * suite. Le Juno a ses propres notes tenues ; la batterie joue un coup.
+   */
+  const LIVE_LEASE = 0.6;
+  const liveHeld = new Set(); // { voice, off }
+  let liveTimer = null;
+  function liveRenew() {
+    const now = ctx.currentTime;
+    liveHeld.forEach((h) => {
+      const v = h.voice;
+      if (!v || !v.alive || v.chain.tOff > now + LIVE_LEASE / 2) return;
+      const end = v.chain.extend(now + LIVE_LEASE);
+      v.sources.forEach((src) => src.stop(end));
+    });
+    if (!liveHeld.size) {
+      clearInterval(liveTimer);
+      liveTimer = null;
+    }
+  }
+  function liveCut(h) {
+    liveHeld.delete(h);
+    const v = h.voice;
+    // glide legato : une autre touche encore tenue peut partager la voix
+    if (!v || !v.alive || [...liveHeld].some((o) => o.voice === v)) return;
+    const end = v.chain.extend(Math.max(ctx.currentTime, v.chain.t + 0.005));
+    v.sources.forEach((src) => src.stop(end));
+  }
+  /** Note tenue : renvoie un identifiant à passer à liveNoteOff (null pour la batterie ou un son pas encore chargé). */
+  function liveNoteOn(track, midi, vel = 0.8) {
+    ensureCtx();
+    const out = bus(track);
+    if (track.type === 'drum') {
+      playDrum(track, ctx.currentTime, vel, out);
+      return null;
+    }
+    if (instOf(track).kind === 'analog') {
+      const id = SS.juno.noteOn(ctx, track, midi, vel, out);
+      return id == null ? null : { juno: id };
+    }
+    const h = { voice: null, off: false };
+    liveHeld.add(h);
+    if (!liveTimer) liveTimer = setInterval(liveRenew, 100);
+    playNote(track, midi, ctx.currentTime, LIVE_LEASE, vel, out)
+      .then((v) => {
+        h.voice = v || null;
+        if (h.off) liveCut(h);
+      })
+      .catch(() => liveHeld.delete(h));
+    return h;
+  }
+  function liveNoteOff(track, h) {
+    if (!ctx || h == null) return;
+    if (h.juno != null) return SS.juno.noteOff(ctx, track, h.juno);
+    h.off = true;
+    if (h.voice) liveCut(h);
+  }
+
+  /*
+   * Métronome (enregistrement) : un clic par temps, plus aigu sur le premier temps de la mesure. Il sort directement
+   * (sans les effets ni le mastering) et ne passe pas dans l'export audio.
+   */
+  function click(time, accent) {
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.frequency.value = accent ? 1760 : 1175;
+    g.gain.setValueAtTime(0.0001, time);
+    g.gain.exponentialRampToValueAtTime(accent ? 0.35 : 0.22, time + 0.002);
+    g.gain.exponentialRampToValueAtTime(0.0001, time + 0.05);
+    o.connect(g).connect(ctx.destination);
+    o.start(time);
+    o.stop(time + 0.06);
+  }
+  function metroStep(project, tick, time) {
+    if (!seq.metro || tick % 4) return;
+    click(time, tick % SS.stepsPerBar(project) === 0);
+  }
+
+  /** Position jouée (en pas, depuis le début de la scène, sans revenir à 0) à l'instant audio `time`. */
+  function stepAt(time) {
+    const h = seq.hist;
+    if (!seq.playing || !h || !h.length || !seq.getProject) return null;
+    let e = h[0];
+    for (let i = h.length - 1; i >= 0; i--)
+      if (h[i].time <= time) {
+        e = h[i];
+        break;
+      }
+    return e.abs + (time - e.time) / stepDur(seq.getProject());
+  }
+  /** Instant audio que l'on entend en ce moment (la sortie a un peu de retard sur le calcul). */
+  const heardTime = () => (ctx ? ctx.currentTime - (ctx.outputLatency || ctx.baseLatency || 0) : 0);
+  function histPush(time) {
+    seq.hist.push({ abs: seq.abs, time });
+    if (seq.hist.length > 256) seq.hist.splice(0, 128);
+    seq.abs++;
   }
 
   /*
@@ -1762,6 +1863,9 @@ SS.audio = (() => {
     step: 0,
     nextTime: 0,
     queue: [],
+    hist: [], // derniers pas programmés { abs, time } : position jouée à un instant donné (stepAt)
+    abs: 0,
+    metro: false,
     raf: null,
     getProject: null,
     onStep: null,
@@ -2016,6 +2120,8 @@ SS.audio = (() => {
       clockAdvance(project, seq.nextTime);
       project.tracks.forEach((tr) => scheduleAuto(project, tr, seq.step, seq.nextTime, stepDur(project)));
       scheduleStep(project, seq.step, t);
+      metroStep(project, seq.step, seq.nextTime);
+      histPush(seq.nextTime);
       seq.queue.push({ step: seq.step, time: t, song: seq.song ? { index: seq.song.index, rep: seq.song.rep } : null });
       seq.nextTime += stepDur(project);
       seq.step++;
@@ -2067,6 +2173,8 @@ SS.audio = (() => {
       clockAdvance(project, seq.nextTime);
       project.tracks.forEach((tr) => scheduleAuto(project, tr, seq.step, seq.nextTime, stepDur(project)));
       scheduleStep(project, seq.step, t);
+      metroStep(project, seq.step, seq.nextTime);
+      histPush(seq.nextTime);
       seq.queue.push({ step: seq.step, time: t, song: seq.song ? { index: seq.song.index, rep: seq.song.rep } : null });
       seq.nextTime += stepDur(project);
       seq.step++;
@@ -2163,7 +2271,12 @@ SS.audio = (() => {
     seq.step = Math.max(0, Math.floor(opts.from || 0));
     seq.loops = 0;
     seq.queue = [];
-    seq.nextTime = ctx.currentTime + 0.08;
+    // décompte (enregistrement) : la lecture part `preroll` pas plus tard, avec un clic par temps
+    const pre = Math.max(0, Math.round(opts.preroll || 0));
+    seq.nextTime = ctx.currentTime + 0.08 + pre * stepDur(getProject());
+    for (let i = 0; i < pre; i += 4) click(seq.nextTime - (pre - i) * stepDur(getProject()), i === 0);
+    seq.abs = seq.step; // position continue (ne revient pas à 0) : sert à placer les notes jouées en direct
+    seq.hist = [];
     clockReset(getProject(), seq.nextTime, seq.step / 4); // LFO calés sur le tempo : phase alignée sur la grille
     if (seq.song) seq.queue.push({ step: -1, time: seq.nextTime, block: seq.song.index, rep: 0 });
     getProject().tracks.forEach(prepareTrack); // scène du premier bloc (mode chanson) : déjà en cache le plus souvent
@@ -2270,6 +2383,10 @@ SS.audio = (() => {
       seq.song.ended = false;
       if (changedBlock) seq.song.onBlock(seq.song.index);
     }
+    // la position continue (jeu en direct) saute d'autant, en restant alignée sur les boucles des pistes
+    const proj = seq.getProject();
+    const L = seq.cycle(proj, SS.totalSteps(proj));
+    seq.abs = (seq.abs || 0) + ((((step - seq.step) % L) + L) % L);
     seq.step = step;
     seq.nextTime = ctx.currentTime + 0.04;
     tick();
@@ -2653,12 +2770,14 @@ SS.audio = (() => {
     taps,
     applyMutes,
     ensureBus: (t) => bus(t),
-    /** Clavier de la façade du Juno : note tenue (renvoie un identifiant, ou null si le module se charge). */
-    liveNoteOn: (track, midi, vel) => {
-      ensureCtx();
-      return SS.juno.noteOn(ctx, track, midi, vel, bus(track));
-    },
-    liveNoteOff: (track, id) => ctx && SS.juno.noteOff(ctx, track, id),
+    /** Notes tenues (clavier de la façade du Juno, clavier de l'ordinateur, plus tard MIDI) : voir liveNoteOn. */
+    liveNoteOn,
+    liveNoteOff,
+    stepAt,
+    heardTime,
+    /** Métronome pendant la lecture (enregistrement au clavier). */
+    setMetronome: (on) => (seq.metro = !!on),
+    isSongPlaying: () => !!(seq.song || (seq.pending && seq.pending.opts.song)),
     applySynth: (t) => SS.juno && SS.juno.applyChorus(ctx, t),
     _bus: bus, // accès internes pour les tests
     _master: () => master,

@@ -5227,3 +5227,48 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 .nt-cards .pl-item.sel { background: var(--accent); border-color: var(--accent-2); color: #fff; }
 .nt-cards:not(:focus) .pl-item.sel { background: color-mix(in srgb, var(--accent) 55%, var(--panel-2)); }
 .nt-cards .pl-item:hover:not(.sel) { background: var(--panel-3); }
+
+/* ---------- Mode Jouer : clavier de l'ordinateur (js/live.js) ---------- */
+.btn-rec { color: #e5484d; }
+.btn-rec.on { background: #e5484d; color: #fff; box-shadow: 0 0 0 3px rgba(229, 72, 77, .25); animation: kb-rec 1s ease-in-out infinite alternate; }
+@keyframes kb-rec { to { box-shadow: 0 0 0 5px rgba(229, 72, 77, .1); } }
+@media (prefers-reduced-motion: reduce) { .btn-rec.on { animation: none; } }
+.kb-btn.on { background: var(--accent); color: #fff; }
+body.wizard-mode #recBtn, body.wizard-mode #kbBtn, body.wizard-mode #kbDock, body.mixer-open #kbDock { display: none; }
+
+/* bouton ● des pistes : visible seulement en mode Jouer, à la place d'Écouter */
+.th-btn.arm { display: none; color: #e5484d; font-size: 11px; }
+body.kb-on .th-btn.arm { display: inline-flex; align-items: center; justify-content: center; }
+body.kb-on .th-btn.th-play { display: none; } /* le bouton ● prend la place d'Écouter : l'en-tête garde sa largeur */
+.th-btn.arm.on { background: #e5484d; color: #fff; }
+body.kb-on .track.armed { box-shadow: inset 0 0 0 2px #e5484d; }
+
+.kb-dock { display: grid; grid-template-columns: 220px minmax(0, 1fr) 280px; gap: 16px; padding: 12px 16px; background: var(--panel-2); border-top: 1px solid var(--line); }
+.kb-dock.recording { border-top-color: #e5484d; }
+.kb-col { display: grid; gap: 6px; align-content: start; min-width: 0; }
+.kb-dock h3 { margin: 4px 0 0; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.kb-dock kbd { background: var(--panel-3); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; font: inherit; font-size: 10px; text-transform: none; letter-spacing: 0; }
+.kb-src { display: flex; gap: 8px; align-items: center; font-size: 13px; }
+.kb-src.soon { color: var(--muted); }
+.kb-src em { font-style: normal; font-size: 10px; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+.kb-oct { display: flex; align-items: center; gap: 6px; }
+.kb-oct output { min-width: 34px; text-align: center; font-weight: 600; font-variant-numeric: tabular-nums; }
+.kb-vel { display: flex; align-items: center; gap: 8px; }
+.kb-vel input { flex: 1; min-width: 0; }
+.kb-vel output { width: 28px; text-align: right; font-variant-numeric: tabular-nums; }
+.kb-head { display: flex; align-items: center; gap: 10px; }
+.kb-head h3 { margin: 0; }
+.kb-status { flex: 1; font-size: 12px; color: #e5484d; font-weight: 600; }
+.kb-keys { position: relative; display: flex; height: 110px; user-select: none; touch-action: none; }
+.kb-key.white { position: relative; flex: 1; margin-right: 2px; border-radius: 0 0 5px 5px; background: #e9e9ee; color: #55555c; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 6px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.kb-key.black { position: absolute; top: 0; z-index: 2; width: calc(100% / 15 * .62); height: 62%; border-radius: 0 0 4px 4px; background: #1d1d20; color: #aaa; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 5px; font-size: 11px; cursor: pointer; }
+.kb-key.down { background: #e5484d; color: #fff; }
+.kb-c { position: absolute; top: 6px; left: 0; right: 0; text-align: center; font-size: 10px; font-weight: 400; color: #888; }
+.kb-hint { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.45; }
+.kb-seg { display: flex; gap: 2px; padding: 2px; border-radius: 8px; background: var(--panel-3); }
+.kb-seg button { flex: 1; border: 0; border-radius: 6px; padding: 5px 6px; background: none; color: var(--muted); font: inherit; font-size: 12px; white-space: nowrap; cursor: pointer; }
+.kb-seg button.on { background: var(--accent); color: #fff; }
+.kb-check { display: flex; gap: 8px; align-items: center; font-size: 13px; }
+@media (max-width: 900px) {
+  .kb-dock { grid-template-columns: 1fr; }
+}

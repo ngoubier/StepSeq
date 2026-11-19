@@ -78,10 +78,17 @@
       <button id="stop" class="btn btn-icon" title="Stop : arrête et revient au début">
         <svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5" class="fill"/></svg>
       </button>
+      <button id="recBtn" class="btn btn-icon btn-rec" type="button" aria-pressed="false" title="Enregistrer ce que l'on joue au clavier sur la piste armée (Entrée en mode Jouer)" aria-label="Enregistrer">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6" class="fill"/></svg>
+      </button>
       <div class="lcd" aria-live="off">
         <div id="position">1 . 1 . 1</div>
         <div id="lcdTitle" class="lcd-sub"></div>
       </div>
+      <button id="kbBtn" class="btn kb-btn" type="button" aria-pressed="false" title="Jouer : le clavier de l'ordinateur joue la piste armée (touche ²)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>
+        Jouer
+      </button>
     </div>
 
     <div class="topbar-group studio" role="group" aria-label="Fenêtres">
@@ -208,6 +215,9 @@
       </div>
     </div>
   </section>
+
+  <!-- Mode Jouer (js/live.js) : clavier à l'écran, octave, vélocité, réglages d'enregistrement -->
+  <section id="kbDock" class="kb-dock" hidden aria-label="Jouer au clavier"></section>
 
   <footer class="bottombar">
     <label class="track-height-control">Hauteur des pistes
@@ -971,6 +981,7 @@
   <script src="js/audio.js?v=diag-1"></script>
   <script src="js/trackloop.js"></script>
   <script src="js/sounddesign.js?v=loop-1"></script>
+  <script src="js/live.js"></script>
   <script src="js/junopanel.js"></script>
   <script src="js/motifs.js"></script>
   <script src="js/arppanel.js"></script>

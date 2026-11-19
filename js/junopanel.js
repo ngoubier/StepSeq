@@ -424,18 +424,10 @@ SS.junoPanel = (() => {
 
   /* ---------- Clavier (2 octaves, 6 voix) ---------- */
   // touches physiques (event.code) : valables en AZERTY comme en QWERTY ; décalage en demi-tons
-  const KEYMAP = [
-    ['KeyZ', 0], ['KeyS', 1], ['KeyX', 2], ['KeyD', 3], ['KeyC', 4], ['KeyV', 5], ['KeyG', 6], ['KeyB', 7], ['KeyH', 8], ['KeyN', 9], ['KeyJ', 10], ['KeyM', 11],
-    ['KeyQ', 12], ['Digit2', 13], ['KeyW', 14], ['Digit3', 15], ['KeyE', 16], ['KeyR', 17], ['Digit5', 18], ['KeyT', 19], ['Digit6', 20], ['KeyY', 21], ['Digit7', 22], ['KeyU', 23],
-    ['KeyI', 24],
-  ];
+  const KEYMAP = SS.live.KEYMAP; // même disposition que le mode Jouer (js/live.js)
   const CODE_OF = new Map(KEYMAP.map(([c, n]) => [n, c]));
   const NOTE_OF = new Map(KEYMAP);
-  // lettres affichées par défaut (AZERTY) ; remplacées par la disposition réelle quand le navigateur la donne
-  const AZERTY = {
-    KeyZ: 'W', KeyS: 'S', KeyX: 'X', KeyD: 'D', KeyC: 'C', KeyV: 'V', KeyG: 'G', KeyB: 'B', KeyH: 'H', KeyN: 'N', KeyJ: 'J', KeyM: ',',
-    KeyQ: 'A', Digit2: 'É', KeyW: 'Z', Digit3: '"', KeyE: 'E', KeyR: 'R', Digit5: '(', KeyT: 'T', Digit6: '-', KeyY: 'Y', Digit7: 'È', KeyU: 'U', KeyI: 'I',
-  };
+  const AZERTY = SS.live.AZERTY; // lettres affichées par défaut, remplacées par la disposition réelle
   const POLY = 6;
   const KB_VEL = 0.85;
   let kbOct = 3; // do le plus grave = C3
