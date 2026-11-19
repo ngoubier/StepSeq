@@ -1100,6 +1100,23 @@ Les sons proviennent des bibliothèques utilisées par [strudel.cc](https://stru
   kits FluidR3, JCLive, Chaos, SBLive) pour la bibliothèque de batterie **General MIDI** ;
 - plus quelques synthés Web Audio intégrés (saw, square, acid, supersaw, pads…).
 
+## Piloter StepSeq avec Claude (`js/claude-tools.js`)
+
+L'application expose une boîte à outils JavaScript, `window.StepSeq`, que l'extension **Claude in Chrome** appelle avec son
+outil « exécuter du JavaScript dans la page » (abonnement Claude, sans clé API). Claude ne clique pas dans l'interface.
+
+1. Ouvrir StepSeq dans Chrome et autoriser l'extension sur le site (une fois).
+2. Dans le panneau Claude de Chrome : « Pilote StepSeq : appelle StepSeq.aide(), puis ajoute une basse funk au refrain ».
+   La page porte aussi une ligne invisible qui indique à Claude où trouver l'aide.
+
+Outils (paramètres en un objet, réponse `{ ok, message, … }` ou `{ ok: false, erreur }`) :
+lire : `aide`, `etat`, `piste`, `accords`, `sons` ; chanson : `titre`, `tempo`, `mesure`, `mesures`, `tonalite`, `ecrireAccords`,
+`proposerAccords` (✦ PROPOSER) ; pistes : `ajouterPiste`, `ecrireNotes`, `ecrireBatterie`, `son`, `mix`, `renommerPiste`,
+`supprimerPiste` ; scènes : `allerScene`, `ajouterScene`, `renommerScene`, `supprimerScene`, `structure` ; écoute : `jouer`,
+`stop`, `annuler`, `retablir`. Chaque écriture est une étape **Ctrl+Z** et affiche « ✳ Claude : … » avec un bouton Annuler ;
+`StepSeq.groupe("titre", () => { … })` en regroupe plusieurs. Le badge « ✳ Claude · N actions » apparaît dans la barre du haut.
+`StepSeq.outils` décrit chaque outil : la même liste servira au futur panneau intégré (API Claude). Test : `node tests/e2e/claude-tools.js`.
+
 ## Skills de composition (Claude Code)
 
 Le dossier `.claude/skills/` contient les skills qui guident la composition, et dont les règles sont reprises

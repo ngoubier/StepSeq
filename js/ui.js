@@ -593,7 +593,7 @@ SS.ui = (() => {
       e.preventDefault();
       addChordAt(+cell.dataset.step);
     });
-    box.replaceChildren(h('div', { class: 'track-row cl-row' + (peds.length ? ' has-ped' : '') }, head, grid), auto ? autoBar() : null);
+    box.replaceChildren(h('div', { class: 'track-row cl-row' + (peds.length ? ' has-ped' : '') }, head, grid), ...(auto ? [autoBar()] : [])); // replaceChildren(…, null) écrirait « null »
     box.querySelectorAll('.clcell.now').forEach((c) => c.classList.remove('now'));
   }
 
