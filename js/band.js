@@ -1165,6 +1165,15 @@ SS.band = (() => {
             { class: 'bg-lockbox' + (lk ? ' on' : '') },
             h('span', {}, lk ? `🔒 Verrouillé : ${gtr.length > 1 ? `ses ${gtr.length} pistes de la grille sont jouées telles quelles` : 'sa piste de la grille est jouée telle quelle'}, sans être réécrite${lk && locks()[gtr[0].id].key ? ' (transposée si la tonalité change)' : ''}.` : `Joue ${gtr.length > 1 ? `ses ${gtr.length} pistes` : 'sa piste'} de la grille : l’assistant réécrit les notes.`),
             h('button', { type: 'button', class: 'btn btn-small', id: 'bgLock', onclick: () => setLock(gtr.map((t) => t.id), !lk) }, lk ? 'Déverrouiller' : '🔒 Verrouiller ses notes'),
+            lk && (locks()[gtr[0].id].free || []).length
+              ? h('span', { class: 'bg-lockfree' }, `L’assistant joue : ${locks()[gtr[0].id].free.map((sec) => (specEff().sections[sec] ? secName(sec) : sec)).join(', ')} `, h('button', { type: 'button', class: 'btn btn-small', id: 'bgRelock', onclick: () => {
+                  const l = { ...locks() };
+                  gtr.forEach((t) => (l[t.id] = { ...l[t.id], free: [] }));
+                  S.wiz.locks = l;
+                  dropListen();
+                  refresh();
+                } }, 'Tout reverrouiller'))
+              : null,
             lk
               ? h('label', { class: 'bg-lockkey' }, h('input', { type: 'checkbox', id: 'bgLockKey', checked: !!locks()[gtr[0].id].key, onchange: (e) => {
                   const l = { ...locks() };
@@ -2653,7 +2662,8 @@ SS.band = (() => {
       h('div', { class: 'bw-htitle' }, h('h1', {}, h('em', {}, String(n).padStart(2, '0')), info.label, n === ST.inst ? countBadge() : null, n === ST.inst ? gridBadge() : null), h('div', { class: 'bw-hmix', id: 'bwHeadMix' }, ...(headBar ? [headBar] : []))),
       ...(info.sub ? [h('div', { class: 'bw-hsub', id: 'bwSound' }, info.sub)] : []),
       // instruments et effets : pas de ligne sous le titre (pastille du type et phrase retirées) ; le type reste en data-kind
-      ...(n === ST.fx || info.ins ? [] : [h('p', {}, info.line)])
+      ...(n === ST.fx || info.ins ? [] : [h('p', {}, info.line)]),
+      ...(n === ST.inst || n === ST.chords || info.ins ? [lockWarn()].filter(Boolean) : [])
     );
     if (info.ins) box.dataset.kind = info.ins.kind;
     else delete box.dataset.kind;
@@ -6857,7 +6867,7 @@ SS.band = (() => {
     // la grille a changé depuis le dernier passage : on la relit d'abord (la création suit la fenêtre)
     if ($('#brgGo') && !$('#bandConfirm').hidden) return void (S.afterRead = 'create');
     // musiciens verrouillés : leurs pistes de la grille restent telles quelles, ils ne jouent pas
-    const cols = wizCols().filter((c) => !S.wiz.off.has(c.id) && !lockedMu(c.musician));
+    const cols = wizCols().filter((c) => !S.wiz.off.has(c.id) && !(lockedMu(c.musician) && !muFree(c.musician).length));
     if (!cols.length) return;
     // projet déjà commencé (bouton Nouvelle de l'en-tête) : la chanson le remplace, on demande d'abord ; grille déjà
     // créée par l'assistant : mise à jour piste par piste (pistes retouchées gardées ou régénérées, js/gridsync.js)
@@ -6881,11 +6891,13 @@ SS.band = (() => {
       const t = soundT(c);
       return t ? { i, volume: t.volume, mix: clone(t.mix), fx: clone(t.fx) } : null;
     }).filter(Boolean);
-    const lock = lockedTracks().map((t) => ({ id: t.id, key: !!locks()[t.id].key }));
+    const lock = lockedTracks().map((t) => ({ id: t.id, key: !!locks()[t.id].key, free: locks()[t.id].free || [] }));
+    // musicien verrouillé, déverrouillé pour certaines scènes : ses pistes ne jouent que celles-là
+    const only = cols.filter((c) => lockedMu(c.musician)).map((c) => ({ col: c.id, secs: muFree(c.musician) }));
     // pistes ajoutées à la main que joue maintenant un musicien du groupe (instruments repris) : la chanson les remplace
     const drop = (S.gridInst || []).filter((i) => i.mu && muById(i.mu)).flatMap((i) => i.ids || []).filter((id) => !locks()[id]);
     const builtMus = musicians().map((mu) => mu.id);
-    const args = [cols.map((c) => ({ ...c.o, ...(soundT(c) ? soundOf(soundT(c)) : {}), band: { ...c.o.band, col: c.id } })), plan, tempo(), { keep: keep || null, lock, drop, restore: restore.length ? restore : null, melodySeed: seed, melody: melodyOpts(), harmony: harmonyOpts(), parts: S.wiz.parts, kinds: S.wiz.kinds, gains: cols.map((c) => volGain(c.id)), mix: S.wiz.mix, groove: grooveOf(), fx: fxOpts(), bauto: movePlan(wizSong().res, { trial: false }).map((e) => ({ ...e, col: cols.findIndex((c) => c.id === e.col) })) }];
+    const args = [cols.map((c) => ({ ...c.o, ...(soundT(c) ? soundOf(soundT(c)) : {}), band: { ...c.o.band, col: c.id } })), plan, tempo(), { keep: keep || null, lock, only, drop, restore: restore.length ? restore : null, melodySeed: seed, melody: melodyOpts(), harmony: harmonyOpts(), parts: S.wiz.parts, kinds: S.wiz.kinds, gains: cols.map((c) => volGain(c.id)), mix: S.wiz.mix, groove: grooveOf(), fx: fxOpts(), bauto: movePlan(wizSong().res, { trial: false }).map((e) => ({ ...e, col: cols.findIndex((c) => c.id === e.col) })) }];
     const draft = wizSnapshot(Date.now()); // le brouillon est gardé : rouvrir l'assistant permet de retoucher et de recréer
     draft.builtSig = SS.wizDraft.contentSig(draft.state); // la grille a maintenant cette chanson (bascule Assistant | Grille)
     leave({ keep: false });
@@ -8337,6 +8349,7 @@ SS.band = (() => {
       name: sc.name,
       bars: sc.bars,
       key: sc.key,
+      sec: sc.sec,
       data: Object.fromEntries(Object.entries(sc.data).map(([id, d]) => [LID(id), d])),
     }));
     proj.song = res.song.map((b) => ({ ...b }));
@@ -8348,7 +8361,14 @@ SS.band = (() => {
     SS.bandMix.mixMaster(proj, st, SS.bandMix.driveFor(p.id, st));
     if (S.wiz.mix) SS.wizMix.apply(proj, S.wiz.mix, res.scenes); // même application que « Créer la chanson » (volumes, effets, courbes de scène)
     // pistes verrouillées : jouées telles quelles ; le musicien qui les jouait se tait
-    proj.tracks.forEach((t) => (t.lockMute = lockedMu(t.band && t.band.musician)));
+    // (déverrouillé pour certaines scènes : il ne joue que celles-là)
+    proj.tracks.forEach((t) => {
+      const id = t.band && t.band.musician;
+      if (!lockedMu(id)) return;
+      const free = muFree(id);
+      if (!free.length) return void (t.lockMute = true);
+      proj.scenes.forEach((sc) => !free.includes(sc.sec) && sc.data[t.id] && (sc.data[t.id] = emptyData(sc.data[t.id], sc.bars)));
+    });
     listenLocked(proj);
     proj.tracks.forEach((t) => {
       t.mixMute = !!t.mute;
@@ -8793,7 +8813,7 @@ SS.band = (() => {
   /** Les pistes de la grille que joue un musicien : celles qu'il a créées (band.musician) ou les instruments repris. */
   function gridTracksOf(p, mu) {
     const ids = new Set((S.gridInst || []).filter((i) => i.mu === mu.id).flatMap((i) => i.ids || []));
-    return p.tracks.filter((t) => ids.has(t.id) || (t.band && t.band.musician === mu.id && t.band.preset === S.presetId));
+    return p.tracks.filter((t) => ids.has(t.id) || (t.band && !t.band.part && t.band.musician === mu.id && t.band.preset === S.presetId));
   }
   /** Pistes de la grille qu'aucun musicien du groupe ne joue (ajoutées à la main, ou d'une autre inspiration). */
   function orphanTracks(p) {
@@ -9047,10 +9067,92 @@ SS.band = (() => {
       proj.scenes.forEach((sc) => {
         const os = match.get(sc.id);
         const d = os && os.data && os.data[t0.id];
-        sc.data[t.id] = d ? (locks()[t0.id].key ? SS.gridSync.transposeData(d, os.key, sc.key) : JSON.parse(JSON.stringify(d))) : t0.type === 'drum' ? { steps: new Array(sc.bars * 16).fill(0) } : { events: [] };
+        const free = (locks()[t0.id].free || []).includes(sc.sec); // déverrouillée pour cette scène : l'assistant la joue
+        sc.data[t.id] = d && !free ? (locks()[t0.id].key ? SS.gridSync.transposeData(d, os.key, sc.key) : JSON.parse(JSON.stringify(d))) : t0.type === 'drum' ? { steps: new Array(sc.bars * 16).fill(0) } : { events: [] };
       });
       proj.tracks.push(t);
     });
+  }
+  /** Notes d'une scène vidées (même forme : pas à zéro, aucun événement). */
+  const emptyData = (d, bars) => ({ ...(Array.isArray(d.steps) ? { steps: new Array(bars * 16).fill(0) } : {}), ...(Array.isArray(d.events) ? { events: [] } : {}) });
+  /** Sections où un musicien verrouillé est déverrouillé (l'assistant y joue). */
+  function muFree(id) {
+    const mu = id && muById(id);
+    const tr = mu ? gridTracksOf(app.project(), mu) : [];
+    return tr.length && locks()[tr[0].id] ? locks()[tr[0].id].free || [] : [];
+  }
+  /** Change le verrou de pistes : free (sections déverrouillées) ou ok (alerte « Laisser ainsi ») += secs. */
+  function lockAdd(ids, field, secs) {
+    const l = { ...locks() };
+    ids.forEach((id) => l[id] && (l[id] = { ...l[id], [field]: [...new Set([...(l[id][field] || []), ...secs])] }));
+    S.wiz.locks = l;
+    dropListen();
+    refresh();
+    renderWiz();
+  }
+  /**
+   * Alertes : scènes où les accords de l'assistant ne sont plus ceux sur lesquels une piste verrouillée a été écrite
+   * (scène de la grille appariée par nom, sinon par position ; degrés si la piste suit la tonalité, sinon noms d'accords).
+   * [{ name, ids, secs: [{ sec, name }] }] : une par musicien verrouillé (ou piste que personne ne joue).
+   */
+  function lockAlerts() {
+    const tr = S.wiz ? lockedTracks() : [];
+    if (!tr.length) return [];
+    let res = null;
+    try {
+      res = wizSong().res;
+    } catch (e) {
+      return [];
+    }
+    if (!res) return [];
+    const p = app.project();
+    const match = SS.gridSync.matchScenes(p.scenes, res.scenes);
+    const sigOf = (chords, key, rel) =>
+      (chords || [])
+        .map((c) => (rel ? `${c.step}:${c.degree}:${c.type}:${c.acc || 0}:${c.bass || 0}` : `${c.step}:${HM().gridChord(key, c.degree, c.type, c.acc || 0, c.bass || 0).name}`))
+        .join(' ');
+    const groups = [];
+    musicians().forEach((mu) => muLocked(mu) && groups.push({ name: mu.name, ids: gridTracksOf(p, mu).map((t) => t.id) }));
+    const inGroup = new Set(groups.flatMap((g) => g.ids));
+    tr.filter((t) => !inGroup.has(t.id)).forEach((t) => groups.push({ name: t.name, ids: [t.id] }));
+    return groups
+      .map((g) => {
+        const l = locks()[g.ids[0]];
+        const secs = res.scenes
+          .filter((sc) => {
+            const os = match.get(sc.id);
+            if (!os || !os.grid || !os.grid.chords || !os.grid.chords.length || !os.key || !sc.key) return false;
+            if ((l.free || []).includes(sc.sec) || (l.ok || []).includes(sc.sec)) return false;
+            if (!g.ids.some((id) => os.data && os.data[id] && hasNotesIn(os.data[id]))) return false;
+            const rel = !!l.key;
+            return sigOf(os.grid.chords, os.key, rel) !== sigOf(sc.grid ? sc.grid.chords : [], sc.key, rel);
+          })
+          .map((sc) => ({ sec: sc.sec, name: sc.name }));
+        return { ...g, secs };
+      })
+      .filter((g) => g.secs.length);
+  }
+  const hasNotesIn = (d) => (Array.isArray(d.steps) && d.steps.some((v) => v > 0)) || (Array.isArray(d.events) && d.events.length > 0);
+  /** Bandeau d'alerte (étapes Instruments et Accords). */
+  function lockWarn() {
+    const al = lockAlerts();
+    if (!al.length) return null;
+    return h(
+      'div',
+      { class: 'bw-lockwarn', id: 'bwLockWarn', role: 'status' },
+      ...al.map((a) => {
+        const sn = a.secs.map((x) => x.name).join(', ');
+        const one = a.secs.length === 1;
+        return h(
+          'div',
+          { class: 'bw-lockwarn-row', 'data-ids': a.ids.join(',') },
+          h('span', { class: 'bw-lockwarn-ic', 'aria-hidden': 'true' }, '⚠'),
+          h('span', { class: 'bw-lockwarn-txt' }, 'Tu as changé les accords ', one ? 'de la scène ' : 'des scènes ', h('b', {}, sn), ' : ', h('b', {}, a.name), ' 🔒 y joue encore les anciens.'),
+          h('button', { type: 'button', class: 'btn btn-small bw-lockfree', onclick: () => lockAdd(a.ids, 'free', a.secs.map((x) => x.sec)) }, one ? `La déverrouiller pour ${sn}` : 'La déverrouiller pour ces scènes'),
+          h('button', { type: 'button', class: 'btn btn-small bw-lockok', onclick: () => lockAdd(a.ids, 'ok', a.secs.map((x) => x.sec)) }, 'Laisser ainsi')
+        );
+      })
+    );
   }
 
   /** « brouillon du 17/11 à 14:32 » ou « chanson créée le … » */

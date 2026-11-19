@@ -679,7 +679,7 @@
    * Band : « Créer toute la chanson ». Remplace les pistes, les scènes et l'arrangement du projet par la chanson
    * écrite d'après le plan de l'inspiration (js/band-songs.js, js/bandsong.js). Ctrl+Z revient en arrière.
    */
-  function addBandSong(list, preset, tempo, { melodySeed = 0, melody = null, harmony = null, parts = null, kinds = null, gains = null, mix = null, groove = null, fx = null, bauto = null, keep = null, lock = null, drop = null, restore = null } = {}) {
+  function addBandSong(list, preset, tempo, { melodySeed = 0, melody = null, harmony = null, parts = null, kinds = null, gains = null, mix = null, groove = null, fx = null, bauto = null, keep = null, lock = null, only = null, drop = null, restore = null } = {}) {
     // preset.spec : plan d'une reprise tapée dans l'assistant (porte « Reprendre »), jouée à la façon de l'inspiration
     const spec = preset.spec || (SS.BandSongs && SS.BandSongs[preset.id]);
     if (!spec) return addBandTracks(list, tempo, { replace: true });
@@ -699,7 +699,7 @@
       oldScenes = project.scenes;
       const cols = new Set(list.map((o) => o.band && o.band.col).filter(Boolean));
       project.tracks.forEach((t) => {
-        if (locks.has(t.id)) (t.band && t.band.col && cols.has(t.band.col) ? kept.set(t.band.col, t) : hand.push(t));
+        if (locks.has(t.id)) hand.push(t); // verrouillée : à côté des pistes régénérées (qui ne jouent que ses scènes déverrouillées)
         else if (!keep) return;
         else if (!t.band) !dropped.has(t.id) && hand.push(t);
         else if (t.band.col && keep.includes(t.band.col)) (cols.has(t.band.col) ? kept.set(t.band.col, t) : hand.push(t));
@@ -747,6 +747,14 @@
     else if (!project.title || project.title === 'Nouveau projet') project.title = `Dans l'esprit de ${preset.song}`;
     noteOrigin(project, 'assistant « Nouvelle chanson » : Créer la chanson', { style, inspiration: `${preset.id} (« ${preset.song} »${preset.artist ? ', ' + preset.artist : ''})`, reprise: preset.cover ? preset.cover.title : null, pistes: created.length, graineMelodie: melodySeed }, true);
     if (keep || locks.size) keepTracks(created, kept, hand, oldScenes, locks);
+    // pistes d'un musicien verrouillé qui ne jouent que ses scènes déverrouillées : marquées part (elles ne sont pas « ses » pistes)
+    (only || []).forEach((o) => created.forEach((t) => t.band && t.band.col === o.col && (t.band.part = true)));
+    // scènes déverrouillées (sc.sec) : la piste verrouillée s'y tait, le musicien de l'assistant n'y joue que là (only)
+    const empty = (d, bars) => ({ ...(Array.isArray(d.steps) ? { steps: new Array(bars * 16).fill(0) } : {}), ...(Array.isArray(d.events) ? { events: [] } : {}) });
+    project.scenes.forEach((sc) => {
+      locks.forEach((l, id) => (l.free || []).includes(sc.sec) && sc.data && sc.data[id] && (sc.data[id] = empty(sc.data[id], sc.bars)));
+      (only || []).forEach((o) => created.forEach((t) => t.band && t.band.col === o.col && !o.secs.includes(sc.sec) && sc.data && sc.data[t.id] && (sc.data[t.id] = empty(sc.data[t.id], sc.bars))));
+    });
     SS.loadScene(project, project.scenes[0].id, { commit: false });
     // empreinte de chaque piste créée : la grille saura lesquelles on retouche (js/gridsync.js) ; les pistes gardées gardent la leur
     if (SS.gridSync) project.tracks.forEach((t) => t.band && t.band.col && !stay.has(t) && SS.gridSync.stamp(project, t));

@@ -5342,6 +5342,12 @@ body.wizard-mode .wiz-banner { display: none; }
 #bandDialog .bg-lockbox.on { border-color: #5b4590; background: #25202f; color: #d7c2ff; }
 #bandDialog .bg-lockbox > span { flex: 1 1 260px; }
 #bandDialog .bg-lockkey { display: inline-flex; gap: 4px; align-items: center; }
+#bandDialog .bg-lockfree { flex-basis: 100%; font-size: 12px; }
+/* alerte : accords changés sous une piste verrouillée (js/band.js lockWarn) */
+#bandDialog .bw-lockwarn { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 0; }
+#bandDialog .bw-lockwarn-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 7px 12px; border: 1px solid #4a3e1d; border-radius: 8px; background: #2a2516; font-size: 13px; }
+#bandDialog .bw-lockwarn-ic { color: var(--gold, #c9a227); }
+#bandDialog .bw-lockwarn-txt { flex: 1 1 280px; }
 
 /* « ✦ Proposer » de la piste Accords : bandeau tonalité puis accords (js/ui.js, autoBar) */
 .th-mode.cl-auto { color: #ffd08a; border-color: #8a6a35; background: rgba(232, 163, 61, .12); }

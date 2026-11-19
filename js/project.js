@@ -739,6 +739,7 @@ SS.normalizeProject = (data) => {
       ['style', 'preset', 'musician', 'key'].forEach((k) => typeof t.band[k] === 'string' && t.band[k].length < 40 && (track.band[k] = t.band[k]));
       // colonne de l'assistant et empreinte du contenu créé : retouchée ou non (js/gridsync.js)
       ['col', 'sig', 'nsig', 'ssig'].forEach((k) => typeof t.band[k] === 'string' && t.band[k].length < 80 && (track.band[k] = t.band[k]));
+      if (t.band.part === true) track.band.part = true; // ne joue que les scènes déverrouillées d'un musicien verrouillé
     } else delete track.band;
     track.mute = !!t.mute;
     track.solo = !!t.solo;
