@@ -4748,6 +4748,8 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 #bandDialog { --bw-warn: #f5c400; --bw-hot: #ff5c5c; }
 #bandDialog .bg-count { margin-left: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--bw-line2); background: var(--bw-panel2); color: var(--bw-muted); font-size: 13px; font-weight: 600; vertical-align: middle; white-space: nowrap; }
 #bandDialog .bg-count.max { border-color: var(--bw-warn); color: var(--bw-warn); }
+#bandDialog button.bg-grid { cursor: pointer; font: inherit; font-size: 13px; font-weight: 600; color: var(--bw-accent, #8fbfff); }
+#bandDialog button.bg-grid:hover { border-color: currentColor; }
 #bandDialog .stage-row-add { margin-top: 2px; }
 #bandDialog .bm-ord { position: absolute; top: 6px; left: 9px; font-size: 11px; color: var(--bw-dim); font-variant-numeric: tabular-nums; }
 #bandDialog .band-mus.dragging { opacity: .4; }
@@ -5321,6 +5323,25 @@ body.wizard-mode .wiz-banner { display: none; }
 .bgu-row small { color: var(--muted); font-size: 12px; }
 .bgu-seg button { padding: 4px 10px; font-size: 12px; }
 .bgu-note { font-size: 12px; color: var(--muted); }
+/* pistes verrouillées 🔒 et fenêtre « Reprendre la grille dans l'assistant » (js/band.js showGridRead) */
+.trk-badge.lock { color: #b48cff; border-color: #5b4590; }
+.trk-badge.wiz { color: #8fbfff; border-color: #2e5a92; }
+.bgu-row.locked { border-color: #5b4590; background: #25202f; }
+.bgu-seg button[data-v="true"].active, .bgu-seg button[data-v="keep"].active { color: #d7c2ff; }
+.bgu-card { max-height: calc(100vh - 40px); overflow-y: auto; }
+.brg-card { max-width: 720px; }
+.brg-card h4 { margin: 12px 0 6px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.brg-items { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; font-size: 13px; }
+.brg-item { display: flex; gap: 8px; align-items: baseline; cursor: pointer; }
+.brg-item small { color: var(--muted); font-size: 11.5px; }
+.brg-row .bgu-name small { display: block; font-weight: 400; margin-top: 2px; }
+@media (max-width: 700px) { .brg-items { grid-template-columns: 1fr; } }
+#bandDialog .band-mus.locked { border-color: #5b4590; background: repeating-linear-gradient(135deg, #25202f 0 10px, #2a2436 10px 20px); }
+#bandDialog .bm-lock { position: absolute; right: 8px; top: 6px; font-size: 13px; }
+#bandDialog .bg-lockbox { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 10px; padding: 8px 10px; border: 1px solid var(--bw-line2, #3e3e44); border-radius: 8px; font-size: 13px; color: var(--bw-muted, #9a9aa3); }
+#bandDialog .bg-lockbox.on { border-color: #5b4590; background: #25202f; color: #d7c2ff; }
+#bandDialog .bg-lockbox > span { flex: 1 1 260px; }
+#bandDialog .bg-lockkey { display: inline-flex; gap: 4px; align-items: center; }
 
 /* « ✦ Proposer » de la piste Accords : bandeau tonalité puis accords (js/ui.js, autoBar) */
 .th-mode.cl-auto { color: #ffd08a; border-color: #8a6a35; background: rgba(232, 163, 61, .12); }

@@ -567,8 +567,10 @@ SS.newTrack = (opts, project) => {
     type: opts.type,
   };
   if (opts.length > 0) base.length = opts.length; // longueur propre de la piste (en pas), sinon celle du projet
+  // keep : réglages de son d'une piste reprise (instruments de la grille repris par l'assistant, js/band.js gridInstruments)
+  const keep = (t) => (opts.keep && typeof opts.keep === 'object' ? Object.assign(t, JSON.parse(JSON.stringify(opts.keep))) : t);
   if (opts.type === 'drum') {
-    return {
+    return keep({
       ...base,
       source: opts.source || 'tdm',
       sound: opts.sound,
@@ -576,7 +578,7 @@ SS.newTrack = (opts, project) => {
       bank: opts.bank,
       variant: opts.variant || 0,
       steps: new Array(n).fill(0),
-    };
+    });
   }
   if (opts.type === 'synth') {
     // piste Synthé : une piste instrument jouée par un synthé analogique émulé (js/juno.js)
@@ -602,7 +604,7 @@ SS.newTrack = (opts, project) => {
   if (track.arpOn || track.follow || opts.category === 'chord') track.octave = Math.max(3, fam.octave);
   // cordes, cuivres, bois, voix : jouées avec une expression naturelle (js/expression.js, onglet Jeu du Sound design)
   if (SS.applyExprDefault && !track.arpOn && !track.follow) SS.applyExprDefault(track);
-  return track;
+  return keep(track);
 };
 
 /* ================================================================== */
@@ -736,7 +738,7 @@ SS.normalizeProject = (data) => {
       track.band = {};
       ['style', 'preset', 'musician', 'key'].forEach((k) => typeof t.band[k] === 'string' && t.band[k].length < 40 && (track.band[k] = t.band[k]));
       // colonne de l'assistant et empreinte du contenu créé : retouchée ou non (js/gridsync.js)
-      ['col', 'sig'].forEach((k) => typeof t.band[k] === 'string' && t.band[k].length < 80 && (track.band[k] = t.band[k]));
+      ['col', 'sig', 'nsig', 'ssig'].forEach((k) => typeof t.band[k] === 'string' && t.band[k].length < 80 && (track.band[k] = t.band[k]));
     } else delete track.band;
     track.mute = !!t.mute;
     track.solo = !!t.solo;
@@ -1119,6 +1121,7 @@ SS.normalizeScenes = (p, data = {}) => {
         bars: Math.min(64, Math.max(1, Math.round(Number(sc.bars)) || p.bars)),
         data: sc.data && typeof sc.data === 'object' ? sc.data : {},
         ...(validKey(sc.key) ? { key: { tonic: sc.key.tonic, mode: sc.key.mode } } : {}),
+        ...(typeof sc.sec === 'string' && sc.sec.length < 40 ? { sec: sc.sec } : {}), // section de l'assistant dont vient la scène
         ...(validEmotion(sc.emotion) ? { emotion: sc.emotion } : {}),
         ...(SS.normalizeGrid(sc.grid) ? { grid: SS.normalizeGrid(sc.grid) } : {}),
       }));

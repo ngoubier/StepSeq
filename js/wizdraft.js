@@ -18,10 +18,10 @@ SS.wizDraft = (() => {
   const list = (x) => (Array.isArray(x) ? x : []);
 
   /** Champs de S.wiz rangés tels quels (objets), puis les ensembles et le Map. */
-  const OBJ = ['plans', 'pseeds', 'keys', 'grids', 'peds', 'emos', 'chars', 'parts', 'kinds', 'melPanel', 'secs', 'accView', 'groove', 'fx', 'arr'];
+  const OBJ = ['plans', 'pseeds', 'keys', 'grids', 'peds', 'emos', 'chars', 'parts', 'kinds', 'melPanel', 'secs', 'accView', 'groove', 'fx', 'arr', 'locks', 'gridRead'];
   const SETS = ['seen', 'off', 'mute', 'solo'];
 
-  /** src : { mode, styleId, presetId, cover, group, cache, hide: Set, mel, accOpen, tracksOpen, w: S.wiz } */
+  /** src : { mode, styleId, presetId, cover, group, gridInst (instruments repris de la grille), cache, hide: Set, mel, accOpen, tracksOpen, w: S.wiz } */
   function pack(src) {
     const w = src.w || {};
     const o = {
@@ -30,6 +30,7 @@ SS.wizDraft = (() => {
       presetId: src.presetId || null,
       cover: clone(src.cover || null),
       group: clone(src.group || null),
+      gridInst: clone(src.gridInst || null),
       cache: clone(src.cache || {}),
       hide: [...(src.hide || [])],
       mel: clone(src.mel || null),
@@ -72,6 +73,7 @@ SS.wizDraft = (() => {
       presetId: str(x.presetId),
       cover: objOrNull(x.cover),
       group: objOrNull(x.group),
+      gridInst: Array.isArray(x.gridInst) && x.gridInst.length ? clone(x.gridInst).filter(isObj) : null,
       cache: obj(x.cache),
       hide: new Set(list(x.hide).filter((v) => typeof v === 'string')),
       mel: objOrNull(x.mel),
@@ -115,6 +117,8 @@ SS.wizDraft = (() => {
     const o = { v, savedAt: num(d.savedAt, 0), state: clone(d.state) };
     if (typeof d.createdAt === 'number' && Number.isFinite(d.createdAt)) o.createdAt = d.createdAt;
     if (typeof d.builtSig === 'string' && d.builtSig.length < 40) o.builtSig = d.builtSig;
+    if (typeof d.gridSig === 'string' && d.gridSig.length < 40) o.gridSig = d.gridSig; // la grille au dernier passage de l'assistant
+    if (Array.isArray(d.builtMus)) o.builtMus = d.builtMus.filter((x) => typeof x === 'string' && x.length < 40); // musiciens de la dernière création
     return o;
   }
 

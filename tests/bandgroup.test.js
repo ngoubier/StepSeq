@@ -244,3 +244,30 @@ test('orchestre : type « orch », effectif rangé dans le brouillon (un effecti
   bad.list.find((x) => x.type === 'orch').ms.ens = 'fanfare';
   assert.equal(BG.clean(bad, SMALL).list.find((x) => x.type === 'orch').ms.ens, 'strings');
 });
+
+test('groupe repris de la grille : chaque instrument prend la place d’un musicien du même type, son gardé ; les autres sont ajoutés', () => {
+  const opts = (instrument) => ({ type: 'instrument', family: 'synth', instrument, sfv: 0, keep: { sd: { cutoff: 1234 } } });
+  const insts = [
+    { type: 'drums', name: 'Batterie', kit: 'RolandTR909', pieces: [{ piece: 'bd', opts: { type: 'drum', source: 'tdm', sound: 'bd', machine: 'RolandTR909' } }] },
+    { type: 'bass', name: 'Ma basse', opts: opts('b1') },
+    { type: 'melody', name: 'Lead 1', opts: opts('l1') },
+    { type: 'melody', name: 'Lead 2', opts: opts('l2') },
+    { type: 'melody', name: 'Lead 3', opts: opts('l3') },
+  ];
+  const { group, cache } = BG.fromGrid(SMALL, insts, 'synthwave');
+  assert.equal(group.list.length, insts.length);
+  assert.deepEqual(group.list.map((r) => r.name), ['Batterie', 'Ma basse', 'Lead 1', 'Lead 2', 'Lead 3']);
+  const drum = SMALL.musicians.find((m) => m.role === 'drums');
+  const bass = SMALL.musicians.find((m) => m.role === 'bass');
+  assert.equal(group.list[0].base, drum.id);
+  assert.deepEqual(cache[drum.id].pieces, [{ piece: 'bd', on: true, custom: insts[0].pieces[0].opts }]);
+  assert.equal(group.list[1].base, bass.id);
+  assert.equal(cache[bass.id].custom.keep.sd.cutoff, 1234);
+  // plus de musiciens « mélodie » que l'inspiration n'en a : musiciens ajoutés, avec leur son
+  const extra = group.list.filter((r) => !r.base);
+  assert.ok(extra.length >= 1 && extra.every((r) => r.type === 'melody' && r.ms.custom.instrument.startsWith('l')));
+  // le brouillon relit ce groupe
+  assert.equal(BG.clean(JSON.parse(JSON.stringify(group)), SMALL).list.length, insts.length);
+  // un seul instrument : le groupe est complété jusqu'à 2
+  assert.equal(BG.fromGrid(SMALL, insts.slice(1, 2), 'synthwave').group.list.length, 2);
+});
