@@ -370,6 +370,7 @@ test('modes de basse de nov. 2026 : rythme de la première mesure, approche et a
     motown: [0, 3, 4, 6, 7, 8, 11, 12, 14], walking: [0, 4, 8, 12], boombap: [0, 5, 7, 10, 14], sub808: [0, 14], trap808: [0, 3, 6, 8, 12, 14], reese: [0, 8, 14],
     dnbroll: [0, 3, 6, 7, 10, 13, 14, 15], dembow: [0, 3, 6, 8, 11, 14], tumbao: [6, 12], onedrop: [2, 4, 6, 8, 14], bossa: [0, 6, 8, 14], afro: [0, 6, 9, 10, 12, 15],
     acid: [0, 1, 2, 3, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15],
+    oracle: [1, 2, 3, 5, 6, 7, 9, 10, 11, 13, 14, 15], necropolis: [3, 6, 11, 14], styx: [1, 3, 6, 9, 11, 13, 14], seismic: [2, 7, 10, 14], hades: [2, 6, 10, 14],
   };
   const ids = SS.bandSong.BASS_NEW.map((c) => c[0]);
   for (const [mode, steps] of Object.entries(NEW)) {
@@ -384,6 +385,7 @@ test('modes de basse de nov. 2026 : rythme de la première mesure, approche et a
   assert.equal(pc('ballade', 12), 7);
   assert.equal(pc('tumbao', 12), 8);
   assert.equal(pc('walking', 4), 3, 'walking : tierce mineure de Do mineur');
+  assert.equal(pc('oracle', 10), 1, 'oracle : seconde mineure (Ré♭ sur Do)');
   // nuances : notes fantômes du slap bien plus douces que les temps
   const sl = scene(build({ a: { bass: { mode: 'slap' } } })).data.bass.events;
   assert.ok(sl.find((e) => e.step === 2).vel < sl.find((e) => e.step === 0).vel * 0.6, 'slap : note fantôme');
