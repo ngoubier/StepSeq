@@ -84,6 +84,21 @@ test('un élément absent du kit est emprunté à un kit de secours', () => {
   assert.deepEqual([d.opts.source, d.opts.bank, d.borrowed], ['dirt', '808bd', false]);
 });
 
+test('kits acoustiques (VCSL, General MIDI) : le kit de base est complet, rien n’est emprunté à la TR-808', () => {
+  ['vcsl', 'gm'].forEach((k) =>
+    ['bd', 'sd', 'rim', 'hh', 'oh', 'cp', 'cr', 'rd', 'lt', 'mt', 'ht'].forEach((pc) => {
+      const r = B.pieceOpts(k, pc);
+      assert.equal(r.borrowed, false, k + ' ' + pc);
+      assert.equal(r.opts.source, k, k + ' ' + pc);
+      assert.equal(B.kitLabelOf(r.opts), B.KITS[k].label, k + ' ' + pc + ' : nom du kit, pas « Roland TR-808 »');
+    })
+  );
+  // « banque#n » : l'échantillon choisi dans la banque (caisse claire timbre en place, charleston ouvert)
+  assert.deepEqual([B.pieceOpts('vcsl', 'sd').opts.bank, B.pieceOpts('vcsl', 'sd').opts.variant], ['snare_modern', 14]);
+  assert.deepEqual([B.pieceOpts('vcsl', 'oh').opts.bank, B.pieceOpts('vcsl', 'oh').opts.variant], ['hihat', 13]);
+  assert.equal(B.kitLabelOf({ source: 'tdm', machine: 'RolandTR909' }), 'Roland TR-909');
+});
+
 test('choix → options de piste compatibles avec SS.newTrack', () => {
   const j = B.choiceOpts('j:A48', 'mono');
   assert.deepEqual([j.type, j.analog, j.patch], ['synth', 'juno106', 'A48']);

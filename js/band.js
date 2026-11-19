@@ -1842,7 +1842,9 @@ SS.band = (() => {
     const res = await app.openTrackDialog(null, {
       state: gm()
         ? { type: 'drum', sound: 'perc', source: 'gm', bank: '63', machine: SS.DEFAULT_MACHINE, name: 'Élément' }
-        : { type: 'drum', sound: 'perc', source: 'tdm', machine: B().KITS[ms.kit].source ? SS.DEFAULT_MACHINE : ms.kit, name: 'Élément' },
+        : B().KITS[ms.kit].source // kit d'échantillons (VCSL…) : la fenêtre s'ouvre dans sa bibliothèque, pas sur la TR-808
+          ? { ...B().pieceOpts(ms.kit, 'perc').opts, name: 'Élément' }
+          : { type: 'drum', sound: 'perc', source: 'tdm', machine: ms.kit, name: 'Élément' },
       types: ['drum'],
       title: `Ajouter un élément — ${labelOf(mu)}`,
       okLabel: 'Ajouter',

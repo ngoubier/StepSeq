@@ -148,7 +148,7 @@ SS.claudeTools = (() => {
     return SS.Band.choiceOpts(hit.son, cat);
   }
   function soundText(t) {
-    if (t.type === 'drum') return `${SS.Band.drumLabel(t.sound)} · ${(SS.Band.KITS[t.machine] || { label: t.bank || t.machine || '' }).label}`;
+    if (t.type === 'drum') return `${SS.Band.drumLabel(t.sound)} · ${SS.Band.kitLabelOf(t)}`;
     if (t.family === 'analog') {
       const pt = (SS.JUNO_PATCHES || []).find((x) => x.id === t.junoPatch);
       return `Juno-106 · ${pt ? pt.id + ' ' + pt.name : t.junoPatch}`;
