@@ -42,6 +42,13 @@ const ok = (c, m) => {
   ok((await page.getAttribute('#quantizeBtn', 'aria-pressed')) === 'true', 'Quantize activé par défaut');
   ok((await page.locator('.track .shift-home').count()) === 2, 'deux notes décalées affichées');
   ok(await page.locator('#selQuant').isDisabled(), 'Quantifier grisé sans sélection');
+  // Options › Affichage : contour de la case d'origine, affiché par défaut, masquable
+  const homeShown = () => page.locator('.track .shift-home').first().evaluate((e) => getComputedStyle(e).display !== 'none');
+  ok((await page.isChecked('#optShiftHome')) && (await homeShown()), 'case d’origine en pointillé affichée par défaut');
+  await page.evaluate(() => document.getElementById('optionsDialog').showModal());
+  await page.click('#optShiftHome');
+  await page.click('#optionsDialog .dlg-footer .btn-accent');
+  ok(!(await homeShown()) && (await page.evaluate(() => localStorage.getItem('stepseq.shiftHome'))) === '0', 'option décochée : pointillé masqué et retenu');
   await page.click('.track .cell[data-step="8"]');
   await page.keyboard.press('Control+a');
   await page.waitForTimeout(200);
