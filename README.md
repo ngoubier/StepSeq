@@ -66,6 +66,12 @@ centre, les variantes à droite, les réglages de la piste en bas. Elle demande 
    piste Accords**, qui allument les interrupteurs **ARP** et **ACCORDS** de la piste (voir plus bas). Il n'y a plus de
    catégorie Mono / Arpège / Accord : toutes les pistes instrument se jouent pareil et se changent à tout moment.
 
+**✦ Proposer** (en-tête de la piste Accords) : StepSeq lit la basse et la mélodie de la scène (pistes Instrument / Synthé
+qui ne suivent pas déjà les accords ; une piste grave compte comme basse) et propose d'abord la **tonalité** (trois au
+choix, `SS.harmony.suggestKeys`, avec une petite ligne d'émotion), puis des **accords** posés en pointillé dans la piste
+Accords (`SS.harmony.harmonize`, la basse désigne la fondamentale) : **↻ Autre grille**, **Annuler** (la piste revient
+comme avant) ou **Garder** (accords normaux, tonalité de la scène réglée, Ctrl+Z). Test : `node tests/e2e/chord-auto.js`.
+
 Le bouton **Écouter** permet d'entendre le son avant de valider.
 
 ### Band : monter un groupe virtuel

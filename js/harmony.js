@@ -340,6 +340,39 @@ SS.harmony = (() => {
     return { ...cands[0], second: cands[1], chords: chordsIn };
   }
 
+  /**
+   * Tonalités probables d'une liste de notes ({ step, len, midi, bass? }) : basse et mélodie d'une scène (« ✦ Proposer »).
+   * Profil Krumhansl-Kessler pondéré par la durée (basse comptée double), affiné par la première note de basse et la
+   * dernière note (les phrases finissent souvent sur la tonique). → [{ key, score, pct, why }] (3 au plus, meilleure d'abord).
+   */
+  function suggestKeys(notes, max = 3) {
+    notes = (notes || []).filter((n) => n && n.len > 0);
+    if (!notes.length) return [];
+    const h = new Array(12).fill(0);
+    for (const n of notes) h[pcOf(n.midi)] += n.len * (n.bass ? 2 : 1);
+    const byStep = [...notes].sort((a, b) => a.step - b.step || a.midi - b.midi);
+    const bass = byStep.filter((n) => n.bass);
+    const firstBass = bass.length ? pcOf(bass[0].midi) : null;
+    const tune = byStep.filter((n) => !n.bass);
+    const end = (tune.length ? tune : byStep).reduce((a, b) => (b.step + b.len >= a.step + a.len ? b : a));
+    const lastPc = pcOf(end.midi);
+    const cands = [];
+    for (let t = 0; t < 12; t++)
+      for (const mode of ['major', 'minor']) {
+        const prof = PROFILE[mode].map((_, i) => PROFILE[mode][pcOf(i - t)]);
+        const key = { tonic: (mode === 'major' ? MAJOR_TONICS : MINOR_TONICS)[t], mode };
+        let score = corr(h, prof);
+        const why = [];
+        if (firstBass === t) (score += 0.1), why.push(`la basse part de ${french(spell(key, t))}`);
+        if (lastPc === t) (score += 0.08), why.push(`la fin revient sur ${french(spell(key, t))}`);
+        const out = [...new Set(notes.map((n) => pcOf(n.midi)))].filter((pc) => !scale(key).some((d) => d.pc === pc));
+        if (!why.length) why.push(out.length ? `${out.length} note${out.length > 1 ? 's' : ''} hors gamme` : 'toutes les notes jouées sont dans la gamme');
+        cands.push({ key, score, why: why.join(', ') });
+      }
+    cands.sort((a, b) => b.score - a.score);
+    return cands.slice(0, max).map((c) => ({ ...c, pct: Math.max(1, Math.min(99, Math.round(c.score * 100))) }));
+  }
+
   function label(key) {
     if (!valid(key)) return 'aucune tonalité';
     const m = { major: 'majeur', minor: 'mineur', harmonic: 'mineur harmonique', dorian: 'dorien', phrygian: 'phrygien', lydian: 'lydien', mixolydian: 'mixolydien', phrygdom: 'phrygien dominant', locrian: 'locrien' }[key.mode];
@@ -710,6 +743,13 @@ SS.harmony = (() => {
       const w = (ov / 4) * (starts ? hzAccent(n.step) : 0.8);
       const strong = starts && hzLeaned(n);
       const role = hzNoteRole(pcOf(n.midi), cand);
+      // note de basse (« ✦ Proposer » de la piste Accords) : elle désigne la fondamentale bien plus que la mélodie
+      if (n.bass) {
+        if (pcOf(n.midi) === cand.c.rootPc) s += 1.5 * w;
+        else if (role === 'chord') s += 0.4 * w;
+        else s -= (strong ? 1 : 0.4) * w;
+        continue;
+      }
       if (role === 'chord') s += w;
       else if (role === 'clash') s -= strong ? 1.2 * w : 0.3 * w;
       else if (role === 'tension') s -= strong ? 0.2 * w : 0;
@@ -941,5 +981,5 @@ SS.harmony = (() => {
     return notes;
   }
 
-  return { MODES, TONICS, TRANSFORMS, valid, scale, spell, french, chords, role, makeChord, progressions, gridChord, toGridChord, gridFill, gridPut, gridSetLen, gridPalette, identify, chordName, analyzeChord, detect, sceneChords, transformGrid, gridChecks, harmonize, noteRoles, label, voice, pcOf };
+  return { MODES, TONICS, TRANSFORMS, valid, scale, spell, french, chords, role, makeChord, progressions, gridChord, toGridChord, gridFill, gridPut, gridSetLen, gridPalette, identify, chordName, analyzeChord, detect, suggestKeys, sceneChords, transformGrid, gridChecks, harmonize, noteRoles, label, voice, pcOf };
 })();

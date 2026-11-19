@@ -518,7 +518,9 @@ SS.ui = (() => {
     const sc = SS.currentScene(p);
     const n = SS.totalSteps(p);
     const key = SS.sceneKey(p);
+    if (auto && auto.sc !== sc) cancelAuto(false); // autre scène (ou Annuler) pendant une proposition : on la retire
     const g = sc.grid;
+    const proposing = !!(auto && auto.stage === 'chords');
     const head = h(
       'div',
       { class: 'track-head cl-head' },
@@ -533,6 +535,7 @@ SS.ui = (() => {
         'div',
         { class: 'cl-tools' },
         h('button', { type: 'button', class: 'th-mode cl-add', title: 'Ajouter un accord après le dernier (1 mesure)', onclick: () => addChordAt(nextFreeStep()) }, '+ ACCORD'),
+        h('button', { type: 'button', class: 'th-mode cl-auto' + (auto ? ' on' : ''), title: 'Proposer la tonalité puis des accords d’après la basse et la mélodie de la scène', onclick: () => (auto ? cancelAuto() : startAuto()) }, '✦ PROPOSER'),
         h('button', { type: 'button', class: 'th-mode cl-key', title: 'Tonalité de la scène (proposée d’après les notes)', onclick: () => openKeyPicker() }, 'TONALITÉ ›')
       )
     );
@@ -546,7 +549,7 @@ SS.ui = (() => {
         const blk = h(
           'div',
           {
-            class: `cl-blk role-${info.role.id}${info.borrowed ? ' borrowed' : ''}${lanePick === c ? ' sel' : ''}`,
+            class: `cl-blk role-${info.role.id}${info.borrowed ? ' borrowed' : ''}${lanePick === c ? ' sel' : ''}${proposing ? ' prop' : ''}`,
             style: `grid-column:${c.step + 1} / span ${len}`,
             'data-ci': i,
             tabindex: 0,
@@ -590,11 +593,130 @@ SS.ui = (() => {
       e.preventDefault();
       addChordAt(+cell.dataset.step);
     });
-    box.replaceChildren(h('div', { class: 'track-row cl-row' + (peds.length ? ' has-ped' : '') }, head, grid));
+    box.replaceChildren(h('div', { class: 'track-row cl-row' + (peds.length ? ' has-ped' : '') }, head, grid), auto ? autoBar() : null);
     box.querySelectorAll('.clcell.now').forEach((c) => c.classList.remove('now'));
   }
 
   let lanePick = null; // accord réglé dans le panneau (surligné)
+
+  /* ---- « ✦ Proposer » : la tonalité, puis des accords d'après la basse et la mélodie (maquette-accords-auto.html) ---- */
+  // auto : { sc, saved: { key, chords }, notes, keys, ki, stage: 'key' | 'chords', props, gi }. Pendant la proposition, les
+  // accords sont posés pour de vrai dans la scène (on les entend, les pistes qui suivent les jouent) mais sans étape
+  // d'historique : « Garder » en fait une (Ctrl+Z revient à avant), « Annuler » remet la piste comme avant.
+  let auto = null;
+
+  /** Notes de la scène en cours qui servent à deviner : pistes Instrument / Synthé qui ne suivent pas déjà les accords. */
+  function autoNotes(p) {
+    const out = [];
+    for (const t of p.tracks) {
+      if (t.type !== 'instrument' || SS.follows(t) || !(t.events || []).length) continue;
+      const all = t.events.flatMap((e) => e.notes);
+      const isBass = all.reduce((a, m) => a + m, 0) / all.length < 50; // registre grave : la piste de basse
+      for (const e of t.events) {
+        const low = Math.min(...e.notes);
+        for (const midi of e.notes) out.push({ step: e.step, len: e.len, midi, bass: isBass && midi === low });
+      }
+    }
+    return out;
+  }
+
+  /** Une petite ligne d'émotion : mode, tempo, sens de la mélodie (des repères, pas une certitude). */
+  function autoMood(key, notes) {
+    const tune = notes.filter((n) => !n.bass).sort((a, b) => a.step - b.step);
+    const half = Math.floor(tune.length / 2);
+    const avg = (l) => (l.length ? l.reduce((a, n) => a + n.midi, 0) / l.length : 0);
+    const down = half >= 2 && avg(tune.slice(half)) < avg(tune.slice(0, half)) - 1;
+    const slow = (app.project().tempo || 120) < 100;
+    if (key.mode === 'minor') return slow ? (down ? 'plutôt triste' : 'plutôt nostalgique') : 'sombre et énergique';
+    return slow ? 'doux, apaisé' : down ? 'lumineux, un peu nostalgique' : 'lumineux, joyeux';
+  }
+
+  function startAuto() {
+    const p = app.project();
+    const notes = autoNotes(p);
+    if (notes.length < 2) return toast('Écrivez d’abord une basse ou une mélodie dans la scène : StepSeq en déduit la tonalité et les accords.');
+    const sc = SS.currentScene(p);
+    const keys = SS.harmony.suggestKeys(notes);
+    if (!keys.length) return;
+    const g = SS.sceneGrid(sc);
+    auto = { sc, saved: { key: sc.key ? { ...sc.key } : null, chords: g.chords.map((c) => ({ ...c })) }, notes, keys, ki: 0, stage: 'key', props: null, gi: 0 };
+    renderChordLane();
+  }
+
+  /** Calcule les grilles dans la tonalité choisie et pose la grille n° gi. */
+  function autoPropose(gi = 0) {
+    const p = app.project();
+    const key = auto.keys[auto.ki].key;
+    if (!auto.props || auto.props.key !== key) {
+      const props = SS.harmony.harmonize(key, auto.notes, SS.totalSteps(p), { slot: SS.stepsPerBar(p), loop: 4 });
+      if (!props || !props.length) return toast('Pas assez de notes pour proposer des accords.');
+      auto.props = { key, list: props };
+    }
+    auto.stage = 'chords';
+    auto.gi = gi % auto.props.list.length;
+    auto.sc.key = { ...key };
+    const g = SS.sceneGrid(auto.sc);
+    g.chords.splice(0, g.chords.length, ...auto.props.list[auto.gi].grid.map((c) => ({ step: c.step, len: c.len, degree: c.degree, type: c.type, acc: c.acc || 0 })));
+    lanePick = null;
+    autoRepaint();
+  }
+
+  function autoRepaint() {
+    renderChordLane();
+    app.project().tracks.forEach((t) => SS.follows(t) && paint(t));
+    updateKeyButton();
+  }
+
+  /** Annuler : la piste Accords et la tonalité reviennent comme avant. */
+  function cancelAuto(repaint = true) {
+    if (!auto) return;
+    const { sc, saved } = auto;
+    auto = null;
+    if (saved.key) sc.key = saved.key;
+    else delete sc.key;
+    const g = SS.sceneGrid(sc);
+    g.chords.splice(0, g.chords.length, ...saved.chords);
+    if (repaint) autoRepaint();
+  }
+
+  /** Garder : les accords proposés deviennent des accords normaux (une étape d'historique). */
+  function keepAuto() {
+    auto = null;
+    updateKeyButton();
+    chordsChanged();
+    toast('Accords posés dans la piste Accords (Ctrl+Z pour revenir).', 2200);
+  }
+
+  function autoBar() {
+    const H = SS.harmony;
+    const cur = auto.keys[auto.ki];
+    const chip = (k, i) =>
+      h('button', { type: 'button', class: 'cl-auto-key' + (i === auto.ki ? ' on' : ''), title: k.why, onclick: () => ((auto.ki = i), auto.stage === 'chords' ? autoPropose(0) : renderChordLane()) }, H.label(k.key), h('small', {}, ` ${k.pct} %`));
+    const mood = autoMood(cur.key, auto.notes);
+    if (auto.stage === 'key')
+      return h(
+        'div',
+        { class: 'cl-auto-bar' },
+        h('b', {}, 'Tonalité :'),
+        auto.keys.map(chip),
+        h('span', { class: 'cl-auto-why' }, `${cur.why} · ${mood}`),
+        h('span', { class: 'cl-auto-sp' }),
+        h('button', { type: 'button', class: 'cl-auto-btn', onclick: () => cancelAuto() }, 'Annuler'),
+        h('button', { type: 'button', class: 'cl-auto-btn main', onclick: () => autoPropose(0) }, 'Proposer les accords ›')
+      );
+    const pr = auto.props.list[auto.gi];
+    return h(
+      'div',
+      { class: 'cl-auto-bar' },
+      h('b', {}, H.label(cur.key)),
+      auto.keys.map((k, i) => (i === auto.ki ? null : chip(k, i))),
+      h('span', { class: 'cl-auto-why', title: pr.why.join('\n') }, `${pr.title.toLowerCase()} · ${pr.numerals} · ${mood}`),
+      h('span', { class: 'cl-auto-sp' }),
+      h('button', { type: 'button', class: 'cl-auto-btn', title: 'Une autre grille dans la même tonalité', onclick: () => autoPropose(auto.gi + 1) }, '↻ Autre grille'),
+      h('button', { type: 'button', class: 'cl-auto-btn', onclick: () => cancelAuto() }, 'Annuler'),
+      h('button', { type: 'button', class: 'cl-auto-btn main', onclick: () => keepAuto() }, 'Garder')
+    );
+  }
 
   function nextFreeStep() {
     const p = app.project();
