@@ -733,6 +733,72 @@ SS.claudeTools = (() => {
     return { message: 'Action rétablie' };
   }
 
+  /* ---------------- Import MIDI (même chemin que menu ▸ Importer MIDI…, js/midipanel.js) ---------------- */
+  const SPLIT_FR = { fidele: 0.95, equilibre: 0.85, compact: 0.7 };
+  function midiOpts({ decoupage = 'equilibre', batterie = 'gm', quantize } = {}) {
+    const similar = SPLIT_FR[fold(decoupage)];
+    if (!similar) fail(`découpage inconnu : « ${decoupage} » (fidele, equilibre, compact)`);
+    const m = fold(batterie);
+    const machine = m === 'gm' || m === 'general midi' ? SS.midi.GM_KIT : Object.keys(SS.midi.MACHINES).find((k) => fold(k) === m || fold(SS.midi.MACHINES[k].label) === m);
+    if (!machine) fail(`batterie inconnue : « ${batterie} » (gm, ${Object.keys(SS.midi.MACHINES).join(', ')})`);
+    return { similar, machine, quantize: quantize == null ? SS.quantizeOn() : !!quantize };
+  }
+  /** Les octets du fichier : Uint8Array, liste de nombres, base64 (« data:audio/midi;base64,… » accepté) ou une URL. */
+  async function midiBytes({ octets, base64, url }) {
+    if (octets) return octets instanceof Uint8Array ? octets : octets instanceof ArrayBuffer ? new Uint8Array(octets) : Uint8Array.from(octets);
+    if (base64) {
+      const bin = atob(String(base64).replace(/^data:[^,]*,/, '').replace(/\s+/g, ''));
+      return Uint8Array.from(bin, (c) => c.charCodeAt(0));
+    }
+    if (url) {
+      let r;
+      try {
+        r = await fetch(url);
+      } catch (e) {
+        fail(`fichier inaccessible depuis la page (${e.message}) : le site refuse peut-être (CORS). Télécharge-le et passe ses octets en base64`);
+      }
+      if (!r.ok) fail(`fichier introuvable : ${r.status} ${url}`);
+      return new Uint8Array(await r.arrayBuffer());
+    }
+    return fail('donne le fichier : url, base64 ou octets. Un fichier sur l’ordinateur de l’utilisateur : il le choisit lui-même (menu ▸ Importer MIDI…)');
+  }
+  const nameOfUrl = (u) => decodeURIComponent(String(u).split(/[?#]/)[0].split('/').pop() || '');
+  function midiReport(r) {
+    return {
+      mesures: r.bars,
+      tempo: Math.round(r.tempo * 100) / 100,
+      signature: `${r.timeSig[0]}/${r.timeSig[1]}`,
+      tonaliteEstimee: r.key ? H().label(r.key) : null,
+      pistes: r.tracks.map((t) => ({ nom: t.name, son: t.sound, notes: t.notes, batterie: t.kind === 'drum' })),
+      scenes: r.scenes.length,
+      structure: r.song.map((b) => b.name + (b.repeat > 1 ? ` ×${b.repeat}` : '')).join(' → '),
+      fidelite: `${Math.floor(r.fidelity.kept * 1000) / 10} % des notes rejouées à leur place`,
+      ...(r.warnings.length ? { pertes: r.warnings } : {}),
+    };
+  }
+  async function importerMidi({ url, base64, octets, nom, decoupage, batterie, quantize, apercu, fenetre } = {}) {
+    const o = midiOpts({ decoupage, batterie, quantize });
+    const buf = await midiBytes({ octets, base64, url });
+    const name = nom || (url ? nameOfUrl(url) : 'Import MIDI');
+    if (fenetre) {
+      SS.midiPanel.openWith(name, buf, o);
+      return { message: 'Fenêtre « Importer MIDI » ouverte : l’utilisateur relit le bilan et clique Importer', attente: true };
+    }
+    let res;
+    try {
+      res = SS.midiPanel.analyze(buf, { name, ...o });
+    } catch (e) {
+      fail(`import impossible : ${e.message}`);
+    }
+    const bilan = midiReport(res.report);
+    if (apercu) return { message: `Aperçu (rien n’est importé) : ${bilan.mesures} mesures, ${bilan.pistes.length} pistes, ${bilan.scenes} scènes`, bilan };
+    const avant = P().title;
+    await SS.midiPanel.loadImported(res.project, name, o.machine, 'Claude');
+    actions++;
+    badge();
+    return { message: `« ${res.project.title} » importé : nouvelle chanson de ${bilan.pistes.length} pistes, ${bilan.scenes} scènes. « ${avant} » reste dans « Mes chansons ».`, bilan };
+  }
+
   /* ---------------- Assistant « Nouvelle chanson » (pont SS.band.claude, js/band.js) ----------------
    * L'assistant s'affiche et avance comme sous les clics. Ses réglages sont un brouillon (enregistré tout seul, pas de
    * Ctrl+Z) ; seule assistantCreer() écrit dans la grille, en une étape Ctrl+Z. */
@@ -902,6 +968,7 @@ SS.claudeTools = (() => {
     { nom: 'accords', lecture: true, description: 'La grille d’accords d’une scène (accord, pas, durée).', params: { scene: SCENE }, faire: accords },
     { nom: 'sons', lecture: true, description: 'Les sons disponibles pour un rôle (ou les kits et éléments de batterie).', params: { role: S('texte', 'batterie, percu, basse, nappe, arpege, lead, piano, guitare, cordes, sax, voix, orchestre, effets'), recherche: S('texte', 'un bout de nom : "moog", "strings", "rhodes"…') }, faire: sons },
 
+    { nom: 'importerMidi', description: 'Importe un fichier MIDI comme menu ▸ Importer MIDI… : une nouvelle chanson (pistes, scènes, arrangement) remplace celle en cours, qui reste dans « Mes chansons ». Asynchrone : await.', params: { url: S('texte', 'adresse du fichier .mid (le site doit l’autoriser)'), base64: S('texte', 'ou le fichier en base64'), octets: S('liste', 'ou ses octets (Uint8Array ou liste de nombres)'), nom: S('texte', 'nom du fichier (titre de la chanson)'), decoupage: S('texte', 'scènes : fidele, equilibre (défaut), compact'), batterie: S('texte', 'gm (défaut, sons d’origine), RolandTR808, RolandTR909, LinnDrum, RolandTR707'), quantize: S('booléen', 'caler les notes sur la grille (défaut : réglage Quantize de l’app)'), apercu: S('booléen', 'seulement le bilan, sans importer'), fenetre: S('booléen', 'ouvrir la fenêtre d’import réglée ainsi : l’utilisateur relit et confirme') }, faire: importerMidi },
     { nom: 'titre', description: 'Change le titre de la chanson.', params: { titre: S('texte', 'le nouveau titre', true) }, faire: titre },
     { nom: 'tempo', description: 'Change le tempo.', params: { bpm: S('nombre', '20 à 300', true) }, faire: tempo },
     { nom: 'mesure', description: 'Change la signature rythmique (toute la chanson).', params: { temps: S('nombre', 'temps par mesure (1–12)', true), unite: S('nombre', '2, 4, 8 ou 16 (défaut 4)') }, faire: mesure },
@@ -957,6 +1024,7 @@ SS.claudeTools = (() => {
       'Notes : "C4" = do central (MIDI 60), "E2" basse, "F#3", "Sib2", ou un numéro MIDI. Vélocité 0–1 : 1 accent, 0.8 normal, 0.3 ghost note.',
       'La chanson = des scènes (Couplet, Refrain…) ; chaque scène a ses notes, sa tonalité et sa grille d’accords ; les sons et le mix sont communs.',
       'Écrire dans une scène l’affiche à l’écran. Claude n’entend pas le son : décris ce que tu fais et propose à l’utilisateur d’écouter.',
+      'Import MIDI : await StepSeq.importerMidi({ url | base64, decoupage, batterie }) ouvre une nouvelle chanson (apercu: true pour le bilan seul).',
       'Assistant « Nouvelle chanson » : outils assistant… (assistantOuvrir, assistantStyle, assistantMusicien, assistantAccords… puis assistantCreer). Ses réglages sont un brouillon sans Ctrl+Z ; assistantCreer écrit la chanson dans la grille (une étape Ctrl+Z).',
       '',
       'Outils :',
@@ -976,6 +1044,7 @@ SS.claudeTools = (() => {
       if (SS.band && SS.band.active() && !o.lecture && !o.assistant) return { ok: false, erreur: 'l’assistant « Nouvelle chanson » est ouvert : pilote-le avec les outils assistant…, ou reviens à la grille avec StepSeq.assistantFermer()' };
       try {
         const r = o.faire(args && typeof args === 'object' ? args : {}) || {};
+        if (r && typeof r.then === 'function') return r.then((x) => ({ ok: true, ...(x || {}) }), (e) => ({ ok: false, erreur: e.message }));
         return { ok: true, ...r };
       } catch (e) {
         return { ok: false, erreur: e.message };
@@ -1011,5 +1080,5 @@ SS.claudeTools = (() => {
   }
 
   window.StepSeq = api;
-  return { init, api, _midiOf: midiOf, _tonicOf: tonicOf };
+  return { init, api, _midiOf: midiOf, _tonicOf: tonicOf, _project: () => P() };
 })();

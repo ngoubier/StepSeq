@@ -134,6 +134,16 @@ const ok = (c, m) => {
   await page.waitForTimeout(800);
   const fin = await ev(() => StepSeq.etat());
   ok(!(await ev(() => SS.band.active())) && fin.tempo === 96 && fin.pistes.some((t) => t.nom === 'Saxo' || /Saxo/.test(t.nom)), `chanson créée : ${fin.tempo} BPM, ${fin.pistes.length} pistes`);
+
+  // import MIDI : la chanson exportée en MIDI, réimportée par Claude (aperçu, puis nouvelle chanson)
+  const b64 = await ev(() => btoa(String.fromCharCode(...SS.midi.exportProject(SS.claudeTools._project(), { range: 'song', loops: 1, audibleOnly: true, swing: false, expression: true }).bytes)));
+  const ap = await ev((x) => StepSeq.importerMidi({ base64: x, nom: 'essai_claude.mid', apercu: true, batterie: 'LinnDrum' }), b64);
+  ok(ap.ok && ap.bilan.pistes.length > 3 && ap.bilan.tempo === 96, `importerMidi aperçu : ${ap.message || ap.erreur}`);
+  const im = await ev((x) => StepSeq.importerMidi({ base64: x, nom: 'essai_claude.mid', decoupage: 'compact' }), b64);
+  const st2 = await ev(() => StepSeq.etat());
+  ok(im.ok && st2.titre === 'essai claude' && st2.pistes.length === im.bilan.pistes.length, `importerMidi : ${im.message || im.erreur}`);
+  const bad = await ev(() => StepSeq.importerMidi({ base64: btoa('pas un midi') }));
+  ok(!bad.ok && /import impossible/.test(bad.erreur), `fichier invalide refusé : ${bad.erreur}`);
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'claude-boite-a-outils.png') });
   ok(!errs.length, 'aucune erreur JavaScript' + (errs.length ? ' : ' + errs.join(' | ') : ''));
   await b.close();

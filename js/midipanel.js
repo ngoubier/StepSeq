@@ -96,14 +96,30 @@ SS.midiPanel = (() => {
 
   async function confirmImport() {
     if (!result || result.error) return;
-    const { project } = result;
     $('#midiImportDialog').close('ok');
-    await app.flush();
-    SS.files.reset();
-    await app.loadSong(project, { origin: { kind: 'import MIDI', detail: { fichier: file && file.name, machine: $('#miMachine').value } } });
-    SS.ui.toast(`« ${project.title} » importé : ${project.tracks.length} pistes, ${project.scenes.length} scènes. Lecture en mode Chanson.`, 6000);
+    await loadImported(result.project, file && file.name, $('#miMachine').value);
     result = null;
     file = null;
+  }
+  /** Ouvre le projet importé à la place du projet en cours (qui reste dans « Mes chansons »). */
+  async function loadImported(project, name, machine, by) {
+    await app.flush();
+    SS.files.reset();
+    await app.loadSong(project, { origin: { kind: by ? `import MIDI (${by})` : 'import MIDI', detail: { fichier: name, machine } } });
+    SS.ui.toast(`« ${project.title} » importé : ${project.tracks.length} pistes, ${project.scenes.length} scènes. Lecture en mode Chanson.`, 6000);
+  }
+
+  /* ---------------- Pour Claude (js/claude-tools.js, StepSeq.importerMidi) : mêmes options que la fenêtre ---------------- */
+  const titleOf = (name) => String(name || 'Import MIDI').replace(/\.(mid|midi|kar)$/i, '').replace(/[_]+/g, ' ').trim();
+  /** Analyse un fichier : { project, report } (lève une erreur lisible si le fichier n'est pas un MIDI valable). */
+  const analyze = (buf, { name, similar = 0.85, machine = SS.midi.GM_KIT, quantize = SS.quantizeOn() } = {}) =>
+    SS.midi.importFile(buf, { title: titleOf(name), similar, machine, quantize });
+  /** Ouvre la fenêtre « Importer MIDI » sur ce fichier, réglée comme demandé : l'utilisateur relit le bilan et confirme. */
+  function openWith(name, buf, { similar, machine } = {}) {
+    file = { name: name || 'import.mid', buf };
+    if (similar) split = similar;
+    if (machine) $('#miMachine').value = machine;
+    openImport();
   }
 
   /* ---------------- Export ---------------- */
@@ -220,5 +236,5 @@ SS.midiPanel = (() => {
     ['#midiImportDialog', '#midiExportDialog'].forEach((q) => $(q).addEventListener('keydown', (e) => e.stopPropagation()));
   }
 
-  return { init, openExport, pickFile };
+  return { init, openExport, pickFile, analyze, openWith, loadImported };
 })();
