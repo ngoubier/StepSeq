@@ -567,8 +567,10 @@ SS.newTrack = (opts, project) => {
     type: opts.type,
   };
   if (opts.length > 0) base.length = opts.length; // longueur propre de la piste (en pas), sinon celle du projet
+  // keep : réglages de son d'une piste reprise (instruments de la grille repris par l'assistant, js/band.js gridInstruments)
+  const keep = (t) => (opts.keep && typeof opts.keep === 'object' ? Object.assign(t, JSON.parse(JSON.stringify(opts.keep))) : t);
   if (opts.type === 'drum') {
-    return {
+    return keep({
       ...base,
       source: opts.source || 'tdm',
       sound: opts.sound,
@@ -576,7 +578,7 @@ SS.newTrack = (opts, project) => {
       bank: opts.bank,
       variant: opts.variant || 0,
       steps: new Array(n).fill(0),
-    };
+    });
   }
   if (opts.type === 'synth') {
     // piste Synthé : une piste instrument jouée par un synthé analogique émulé (js/juno.js)
@@ -602,7 +604,7 @@ SS.newTrack = (opts, project) => {
   if (track.arpOn || track.follow || opts.category === 'chord') track.octave = Math.max(3, fam.octave);
   // cordes, cuivres, bois, voix : jouées avec une expression naturelle (js/expression.js, onglet Jeu du Sound design)
   if (SS.applyExprDefault && !track.arpOn && !track.follow) SS.applyExprDefault(track);
-  return track;
+  return keep(track);
 };
 
 /* ================================================================== */

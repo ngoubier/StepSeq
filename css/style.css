@@ -4748,6 +4748,8 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 #bandDialog { --bw-warn: #f5c400; --bw-hot: #ff5c5c; }
 #bandDialog .bg-count { margin-left: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--bw-line2); background: var(--bw-panel2); color: var(--bw-muted); font-size: 13px; font-weight: 600; vertical-align: middle; white-space: nowrap; }
 #bandDialog .bg-count.max { border-color: var(--bw-warn); color: var(--bw-warn); }
+#bandDialog button.bg-grid { cursor: pointer; font: inherit; font-size: 13px; font-weight: 600; color: var(--bw-accent, #8fbfff); }
+#bandDialog button.bg-grid:hover { border-color: currentColor; }
 #bandDialog .stage-row-add { margin-top: 2px; }
 #bandDialog .bm-ord { position: absolute; top: 6px; left: 9px; font-size: 11px; color: var(--bw-dim); font-variant-numeric: tabular-nums; }
 #bandDialog .band-mus.dragging { opacity: .4; }

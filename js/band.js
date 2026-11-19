@@ -116,7 +116,14 @@ SS.band = (() => {
    * d'inspiration dans le même style repart du groupe de la nouvelle inspiration en gardant les musiciens ajoutés (à la fin). */
   function group() {
     const p = preset();
-    if (!S.group || S.group.style !== S.styleId) S.group = { ...BG().defaultGroup(p || { musicians: [] }), style: S.styleId };
+    if (!S.group || S.group.style !== S.styleId) {
+      if (S.gridInst && p) {
+        // instruments repris de la grille : ils remplacent les musiciens de l'inspiration (même type), leur son est gardé
+        const r = BG().fromGrid(p, S.gridInst, S.styleId);
+        S.cache[p.id] = { ...(S.cache[p.id] || {}), ...r.cache };
+        S.group = { ...r.group, style: S.styleId };
+      } else S.group = { ...BG().defaultGroup(p || { musicians: [] }), style: S.styleId };
+    }
     return S.group;
   }
   const recMemo = new Map();
@@ -1606,7 +1613,9 @@ SS.band = (() => {
     S.presetId = id;
     S.sel = null;
     resetAdd();
-    S.group = { ...BG().rebase(group(), preset(), true), style: S.styleId }; // même style : le groupe de la nouvelle inspiration, avec les musiciens ajoutés
+    // instruments de la grille : le groupe se refait sur la nouvelle inspiration ; sinon (même style) le groupe de la nouvelle
+    // inspiration, avec les musiciens ajoutés
+    S.group = S.gridInst ? null : { ...BG().rebase(group(), preset(), true), style: S.styleId };
     rebaseAdded();
     dropEdits(true);
     renderPresets();
@@ -2587,6 +2596,27 @@ SS.band = (() => {
     return h('span', { class: 'bg-count' + (n >= BG().MAX ? ' max' : ''), id: 'bgCount', 'aria-live': 'polite' }, `${n} musicien${n > 1 ? 's' : ''} · ${BG().MIN} à ${BG().MAX}`);
   }
 
+  /** Étape Instruments : le groupe vient des pistes de la grille ; un clic repart des musiciens de l'inspiration. */
+  function gridBadge() {
+    if (!S.gridInst) return null;
+    return h(
+      'button',
+      {
+        type: 'button',
+        class: 'bg-count bg-grid',
+        id: 'bgFromGrid',
+        title: 'Les instruments et leurs sons viennent des pistes de la grille. Clique pour prendre plutôt les musiciens de l’inspiration.',
+        onclick: () => {
+          S.gridInst = null;
+          S.group = null;
+          S.sel = null;
+          groupChanged();
+          renderWiz();
+        },
+      },
+      '▦ Repris de la grille · ↺ inspiration'
+    );
+  }
   /** Tête d'étape : le numéro en gris, le nom en grand, puis une phrase. */
   function renderStepHead() {
     const n = S.wiz.step;
@@ -2595,7 +2625,7 @@ SS.band = (() => {
     box.hidden = false;
     box.classList.toggle('bw-insHead', !!info.ins);
     box.replaceChildren(
-      h('div', { class: 'bw-htitle' }, h('h1', {}, h('em', {}, String(n).padStart(2, '0')), info.label, n === ST.inst ? countBadge() : null), h('div', { class: 'bw-hmix', id: 'bwHeadMix' }, ...(headBar ? [headBar] : []))),
+      h('div', { class: 'bw-htitle' }, h('h1', {}, h('em', {}, String(n).padStart(2, '0')), info.label, n === ST.inst ? countBadge() : null, n === ST.inst ? gridBadge() : null), h('div', { class: 'bw-hmix', id: 'bwHeadMix' }, ...(headBar ? [headBar] : []))),
       ...(info.sub ? [h('div', { class: 'bw-hsub', id: 'bwSound' }, info.sub)] : []),
       // instruments et effets : pas de ligne sous le titre (pastille du type et phrase retirées) ; le type reste en data-kind
       ...(n === ST.fx || info.ins ? [] : [h('p', {}, info.line)])
@@ -8538,8 +8568,66 @@ SS.band = (() => {
       if (!confirm(`Remplacer le brouillon de l’assistant ?\n\nCe projet garde déjà le travail d’un assistant (${draftWhen(app.project().wizard)}). OK l’efface pour en commencer un autre ; Annuler le garde (menu : « Reprendre l’assistant »).`)) return;
       app.setWizardDraft(null);
     }
-    noteWizard(`ouvert sur la chanson en cours « ${app.project().title} » [${app.project().id}]`);
-    openWizard({ fresh: false });
+    const grid = gridInstruments(app.project());
+    noteWizard(`ouvert sur la chanson en cours « ${app.project().title} » [${app.project().id}]${grid.length ? ` (${grid.length} instrument${grid.length > 1 ? 's' : ''} repris de la grille)` : ''}`);
+    openWizard({ fresh: false, grid });
+  }
+  /*
+   * Instruments de la grille, pour un assistant qui part d'une chanson vide sur ce projet : une entrée par instrument
+   * (une piste instrument, ou toutes les pistes de batterie d'un même kit), avec son son et ses réglages de son (keep :
+   * sound design, synthé, expression…, pas les notes, le volume, le mix ni les effets, que l'assistant recalcule).
+   * Le type vient de la marque de l'assistant (band.key) si la piste en a une, sinon il est deviné (piste Accords,
+   * arpégiateur, nom, famille, registre et accords dans les notes).
+   */
+  const KEEP_SKIP = new Set(['id', 'name', 'color', 'volume', 'mute', 'solo', 'type', 'steps', 'events', 'band', 'mix', 'fx', 'rat', 'cond', 'auto', 'autoLen', 'length', 'arp', 'arpOn', 'follow', 'chord', 'octave', 'nudge', 'bautoStep', 'col', 'mixMute']);
+  function soundOf(t) {
+    const keep = {};
+    Object.keys(t).forEach((k) => !KEEP_SKIP.has(k) && t[k] !== undefined && (keep[k] = JSON.parse(JSON.stringify(t[k]))));
+    if (t.type === 'drum') return { type: 'drum', source: t.source, sound: t.sound, machine: t.machine, bank: t.bank, variant: t.variant || 0, keep };
+    if (t.family === 'analog') return { type: 'synth', analog: t.instrument, patch: t.junoPatch, keep };
+    return { type: 'instrument', family: t.family, instrument: t.instrument, sfv: t.sfv || 0, keep };
+  }
+  function gridType(p, t) {
+    const role = t.band && typeof t.band.key === 'string' ? t.band.key.split(':')[0] : null;
+    if (role && B().ROLES[role]) return role === 'fx' ? null : role === 'perc' || role === 'drums' ? 'drums' : BG().typeOfRole(role);
+    if (t.type === 'drum') return 'drums';
+    if (t.type !== 'instrument') return null;
+    if (t.arpOn) return 'arp';
+    if (t.follow) return 'chords';
+    const txt = `${t.name || ''} ${t.instrument || ''}`;
+    if (/bass|basse/i.test(txt) || t.family === 'bass') return 'bass';
+    if (/arp/i.test(txt)) return 'arp';
+    // les notes de toutes les scènes : accords (plusieurs notes à la fois) et registre
+    const evs = [t.events || [], ...(p.scenes || []).filter((sc) => sc.id !== p.current).map((sc) => (sc.data && sc.data[t.id] && sc.data[t.id].events) || [])].flat();
+    const notes = evs.flatMap((e) => e.notes || []);
+    if (evs.length && evs.filter((e) => (e.notes || []).length > 1).length / evs.length > 0.3) return 'chords';
+    if (notes.length && notes.reduce((a, n) => a + n, 0) / notes.length < 48) return 'bass';
+    if (/pad|nappe|string|corde|chord|accord|piano|key|organ|orgue|guitar|guitare|choir|ch[oœ]ur/i.test(txt) || ['pads', 'strings', 'organ', 'piano', 'keys', 'guitar', 'voices'].includes(t.family)) return 'chords';
+    return 'melody';
+  }
+  function gridInstruments(p) {
+    const out = [];
+    const kits = new Map();
+    (p.tracks || []).forEach((t) => {
+      const type = gridType(p, t);
+      if (!type) return;
+      if (type === 'drums') {
+        // un kit = les pistes de batterie d'un même musicien de l'assistant (batterie, percussions), sinon toutes les autres
+        const k = (t.band && t.band.musician) || '*';
+        let inst = kits.get(k);
+        if (!inst) {
+          inst = { type: 'drums', name: t.band && t.band.label ? t.band.label : k === '*' || /^drums?$/.test(k) ? 'Batterie' : 'Percussions', kit: t.machine, pieces: [] };
+          kits.set(k, inst);
+          out.push(inst);
+        }
+        inst.pieces.push({ piece: t.sound || 'perc', opts: soundOf(t) });
+        return;
+      }
+      // orchestre de l'assistant : une piste par pupitre, un seul musicien
+      if (type === 'orch' && t.band && t.band.musician && out.some((i) => i.mu === t.band.musician)) return;
+      out.push({ type, name: t.name, opts: soundOf(t), ...(t.band && t.band.musician ? { mu: t.band.musician } : {}) });
+    });
+    return out.slice(0, BG().MAX);
   }
   /** « brouillon du 17/11 à 14:32 » ou « chanson créée le … » */
   function draftWhen(d) {
@@ -8548,9 +8636,10 @@ SS.band = (() => {
     return d.createdAt ? `chanson créée le ${fmt}` : `brouillon du ${fmt}`;
   }
   /** « Nouvelle chanson… » (menu de l'application) : l'assistant sur une chanson vide. */
-  function openWizard({ fresh = true } = {}) {
+  function openWizard({ fresh = true, grid = null } = {}) {
     if (S.wiz) leave(); // déjà ouvert : on repart de zéro
     S.group = null; // le groupe repart de celui de l'inspiration
+    S.gridInst = grid && grid.length ? grid : null; // ou des instruments de la grille (open)
     resetAdd();
     // keys / grids / emos : étape Accords (tonalité, grille, émotion par section) ; parts : réglages par scène (batterie,
     // basse, nappes, arpèges) ; form / secs / skey : arrangement, scènes et tonalité retouchés (specEff) ; chars : caractère et notes par phrase par section (réglages du moteur, sans écran) ; melPanel : état du panneau Mélodie par section ; snap : aimant de la grille ; gsel : accord sélectionné ; insp : fenêtre d'inspiration
@@ -8570,7 +8659,7 @@ SS.band = (() => {
   function draftSrc() {
     const w = { ...S.wiz };
     if (w.melSec != null) w.melPanel = { ...w.melPanel, [w.melSec]: SS.melodyPanel.getState() };
-    return { mode: S.mode, styleId: S.styleId, presetId: S.presetId, cover: S.cover, group: group(), cache: S.cache, hide: S.hide, mel: S.mel, accOpen: S.accOpen, tracksOpen: S.tracksOpen, w };
+    return { mode: S.mode, styleId: S.styleId, presetId: S.presetId, cover: S.cover, group: group(), gridInst: S.gridInst, cache: S.cache, hide: S.hide, mel: S.mel, accOpen: S.accOpen, tracksOpen: S.tracksOpen, w };
   }
   /** Le brouillon (enveloppe v, savedAt, createdAt, state) de l'assistant ouvert. */
   function wizSnapshot(createdAt) {
@@ -8596,7 +8685,7 @@ SS.band = (() => {
             o[mu.id] = {
               on: true,
               kit: mu.kits.includes(x.kit) ? x.kit : mu.kits[0],
-              pieces: pieces.filter((q) => q && typeof q.piece === 'string').map((q) => ({ piece: q.piece, on: q.on !== false })),
+              pieces: pieces.filter((q) => q && typeof q.piece === 'string').map((q) => ({ piece: q.piece, on: q.on !== false, ...(q.custom && typeof q.custom === 'object' ? { custom: q.custom } : {}) })),
             };
           } else {
             o[mu.id] = { on: true, pick: Number.isInteger(x.pick) && x.pick >= 0 && x.pick < mu.pick.length ? x.pick : 0, custom: x.custom && typeof x.custom === 'object' ? x.custom : null };
@@ -8625,6 +8714,7 @@ SS.band = (() => {
     S.group = { ...g, style: st.id };
     resetAdd();
     S.cache = cleanCache(x.cache);
+    S.gridInst = x.gridInst;
     S.hide = x.hide;
     S.mel = { ...MEL_DEFAULT, ...(x.mel || {}) };
     S.accOpen = x.accOpen;
