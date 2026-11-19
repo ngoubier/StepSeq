@@ -424,7 +424,7 @@ SS.junoPanel = (() => {
 
   /* ---------- Clavier (2 octaves, 6 voix) ---------- */
   // touches physiques (event.code) : valables en AZERTY comme en QWERTY ; décalage en demi-tons
-  const KEYMAP = SS.live.KEYMAP; // même disposition que le mode Jouer (js/live.js)
+  const KEYMAP = SS.live.KEYMAP.filter(([, n]) => n <= 24); // même disposition que le mode Jouer (js/live.js), sur 2 octaves
   const CODE_OF = new Map(KEYMAP.map(([c, n]) => [n, c]));
   const NOTE_OF = new Map(KEYMAP);
   const AZERTY = SS.live.AZERTY; // lettres affichées par défaut, remplacées par la disposition réelle

@@ -19,12 +19,14 @@ SS.live = (() => {
   const KEYMAP = [
     ['KeyZ', 0], ['KeyS', 1], ['KeyX', 2], ['KeyD', 3], ['KeyC', 4], ['KeyV', 5], ['KeyG', 6], ['KeyB', 7], ['KeyH', 8], ['KeyN', 9], ['KeyJ', 10], ['KeyM', 11],
     ['KeyQ', 12], ['Digit2', 13], ['KeyW', 14], ['Digit3', 15], ['KeyE', 16], ['KeyR', 17], ['Digit5', 18], ['KeyT', 19], ['Digit6', 20], ['KeyY', 21], ['Digit7', 22], ['KeyU', 23],
-    ['KeyI', 24],
+    ['KeyI', 24], ['Digit9', 25], ['KeyO', 26], ['Digit0', 27], ['KeyP', 28], ['BracketLeft', 29], ['Equal', 30], ['BracketRight', 31],
   ];
+  const TOP = 31; // la plus haute touche : sol, deux octaves et demie au-dessus du do le plus grave
   // lettres affichées par défaut (AZERTY) ; remplacées par la disposition réelle quand le navigateur la donne
   const AZERTY = {
     KeyZ: 'W', KeyS: 'S', KeyX: 'X', KeyD: 'D', KeyC: 'C', KeyV: 'V', KeyG: 'G', KeyB: 'B', KeyH: 'H', KeyN: 'N', KeyJ: 'J', KeyM: ',',
     KeyQ: 'A', Digit2: 'É', KeyW: 'Z', Digit3: '"', KeyE: 'E', KeyR: 'R', Digit5: '(', KeyT: 'T', Digit6: '-', KeyY: 'Y', Digit7: 'È', KeyU: 'U', KeyI: 'I',
+    Digit9: 'Ç', KeyO: 'O', Digit0: 'À', KeyP: 'P', BracketLeft: '^', Equal: '=', BracketRight: '$',
   };
   const NOTE_OF = new Map(KEYMAP);
   const CODE_OF = new Map(KEYMAP.map(([c, n]) => [n, c]));
@@ -272,7 +274,7 @@ SS.live = (() => {
     const t = armedTrack();
     if (!t) return;
     const lo = (st.oct + 1) * 12;
-    SS.audio.preparePreview(t, t.type === 'drum' ? null : Array.from({ length: 25 }, (_, i) => lo + i)).catch(() => {});
+    SS.audio.preparePreview(t, t.type === 'drum' ? null : Array.from({ length: TOP + 1 }, (_, i) => lo + i)).catch(() => {});
   }
 
   function setOn(on) {
@@ -372,20 +374,21 @@ SS.live = (() => {
     if (!dock) return;
     dock.textContent = '';
     const WHITE = [0, 2, 4, 5, 7, 9, 11];
-    const keys = h('div', { class: 'kb-keys', role: 'group', 'aria-label': 'Clavier (2 octaves)' });
+    const keys = h('div', { class: 'kb-keys', role: 'group', 'aria-label': 'Clavier (2 octaves et demie)' });
     let w = 0;
     keyEls.clear();
-    for (let n = 0; n <= 24; n++) {
+    for (let n = 0; n <= TOP; n++) {
       const black = !WHITE.includes(n % 12);
       const code = CODE_OF.get(n);
       const k = h('div', { class: 'kb-key ' + (black ? 'black' : 'white'), 'data-n': n, 'data-code': code },
         n % 12 === 0 ? h('span', { class: 'kb-c' }) : null,
         h('span', { class: 'kb-letter', text: AZERTY[code] || '' }));
-      if (black) k.style.left = `calc(${w} * (100% / 15) - (100% / 15) * .31)`;
+      if (black) k.style.left = `calc(${w} * (100% / var(--nw)) - (100% / var(--nw)) * .31)`;
       else w++;
       keyEls.set(n, k);
       keys.append(k);
     }
+    keys.style.setProperty('--nw', w); // nombre de touches blanches
     // souris / tactile
     keys.addEventListener('pointerdown', (e) => {
       const k = e.target.closest('.kb-key');
