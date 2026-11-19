@@ -55,3 +55,16 @@ test('rôle des notes : accord, tension, frottement, passage', () => {
 test('pas assez de notes : rien à proposer', () => {
   assert.equal(H.harmonize(AM, [N(0, 4, 69)], 64), null);
 });
+
+test('« ✦ Proposer » : basse + mélodie → La mineur d’abord, puis une grille qui suit la basse', () => {
+  const B = (step, len, midi) => ({ step, len, midi, bass: true });
+  // basse La | Fa | Do | Sol, mélodie MEL
+  const bass = [B(0, 16, 45), B(16, 16, 41), B(32, 16, 48), B(48, 16, 43)];
+  const keys = H.suggestKeys([...bass, ...MEL]);
+  assert.equal(keys.length, 3);
+  assert.deepEqual(keys[0].key, AM);
+  assert.ok(keys[0].pct > 0 && keys[0].why);
+  const r = H.harmonize(AM, [...bass, ...MEL], 64, { slot: 16 });
+  assert.deepEqual(r[0].chords.map((c) => c.rootPc), [9, 5, 0, 7], names(r[0]));
+  assert.deepEqual(H.suggestKeys([]), []);
+});
