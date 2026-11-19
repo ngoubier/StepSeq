@@ -1072,6 +1072,11 @@ Les sons proviennent des bibliothèques utilisées par [strudel.cc](https://stru
   les fichiers VCSL dont le dossier contient une virgule (pianos Steinway et Kawai, kalimbas, ocarinas, psaltérion,
   certaines caisses claires et shakers) sont copiés dans `samples/vcsl/` (MP3, 10 s max) par `tools/vcsl-local.py` :
   GitHub les sert avec un en-tête que Chrome refuse. VCSL est sous licence CC0 ;
+- l'orchestre [VSCO 2 Community Edition](https://github.com/sgossner/VSCO-2-CE) de Versilian Studios (CC0) :
+  28 instruments (cordes en section, en pizzicato, spiccato et trémolo, contrebasse, harpe, cor, trompette, trombone,
+  tuba, flûte, piccolo, hautbois, clarinette, basson, marimba, xylophone, glockenspiel), hébergés avec l'app dans
+  `samples/vsco/` (MP3, une nuance par note, 8 s max, 23 Mo). `tools/vsco-local.py` les prépare et mesure leur
+  accordage (`js/vsco.js`). Ils jouent les pupitres de l'étape Orchestration de l'assistant. Merci à Versilian Studios ;
 - le piano de dough-samples ;
 - [Dirt-Samples](https://github.com/tidalcycles/Dirt-Samples) : banques de batterie, et banques mélodiques jouées
   comme instruments (Mighty Moog, Pluck Bass, JV Bass, Jungle Bass, Juno, SID, Hoover, pads…) ;

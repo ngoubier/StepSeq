@@ -1,7 +1,8 @@
 /*
  * Orchestre de l'assistant Nouvelle chanson : effectifs, tessitures et répartition des voix (étape « Orchestration »).
  *
- *   PARTS / ENSEMBLES        pupitres (son General MIDI, tessiture, zone confortable) et effectifs proposés
+ *   PARTS / ENSEMBLES        pupitres (son de l'orchestre VSCO 2, sinon General MIDI ; tessiture, zone confortable) et
+ *                            effectifs proposés
  *   levelOf(energy)          densité par défaut d'une scène selon son énergie : light | mid | full
  *   orchestrate(opts)        écrit chaque pupitre pour une scène : { lines: { id: { role, events, lo, hi, why } }, items }
  *
@@ -24,16 +25,16 @@ SS.orchestra = (() => {
   // lo / hi : tessiture ; clo / chi : zone confortable (où l'instrument sonne sans forcer)
   const P = (id, label, short, tok, fam, lo, hi, clo, chi) => ({ id, label, short, tok, fam, lo, hi, clo, chi });
   const PARTS = [
-    P('fl', 'Flûte', 'Fl.', 'gm_flute', 'bois', 60, 96, 67, 91),
-    P('ob', 'Hautbois', 'Hb.', 'gm_oboe', 'bois', 58, 91, 62, 86),
-    P('cl', 'Clarinette', 'Cl.', 'gm_clarinet', 'bois', 50, 91, 55, 84),
-    P('hn', 'Cor', 'Cor', 'gm_french_horn', 'cuivres', 41, 77, 48, 72),
-    P('bn', 'Basson', 'Bn.', 'gm_bassoon', 'bois', 34, 75, 38, 67),
-    P('vl1', 'Violons I', 'Vl. I', 'gm_violin', 'cordes', 55, 100, 62, 91),
-    P('vl2', 'Violons II', 'Vl. II', 'gm_violin', 'cordes', 55, 93, 60, 84),
-    P('va', 'Altos', 'Altos', 'gm_viola', 'cordes', 48, 84, 53, 76),
-    P('vc', 'Violoncelles', 'Vc.', 'gm_cello', 'cordes', 36, 76, 41, 69),
-    P('cb', 'Contrebasses', 'Cb.', 'gm_contrabass', 'cordes', 28, 55, 31, 50),
+    P('fl', 'Flûte', 'Fl.', 'vsco_flute', 'bois', 60, 96, 67, 91),
+    P('ob', 'Hautbois', 'Hb.', 'vsco_oboe', 'bois', 58, 91, 62, 86),
+    P('cl', 'Clarinette', 'Cl.', 'vsco_clarinet', 'bois', 50, 91, 55, 84),
+    P('hn', 'Cor', 'Cor', 'vsco_horn', 'cuivres', 41, 77, 48, 72),
+    P('bn', 'Basson', 'Bn.', 'vsco_bassoon', 'bois', 34, 75, 38, 67),
+    P('vl1', 'Violons I', 'Vl. I', 'vsco_violins', 'cordes', 55, 100, 62, 91),
+    P('vl2', 'Violons II', 'Vl. II', 'vsco_violins', 'cordes', 55, 93, 60, 84),
+    P('va', 'Altos', 'Altos', 'vsco_violas', 'cordes', 48, 84, 53, 76),
+    P('vc', 'Violoncelles', 'Vc.', 'vsco_cellos', 'cordes', 36, 76, 41, 69),
+    P('cb', 'Contrebasses', 'Cb.', 'vsco_contrabass', 'cordes', 28, 55, 31, 50),
     P('syn', 'Cordes synthé', 'Synth', 'gm_synth_strings_1', 'synthé', 48, 84, 53, 79),
   ];
   const PART = Object.fromEntries(PARTS.map((p) => [p.id, p]));

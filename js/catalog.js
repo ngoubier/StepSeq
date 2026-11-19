@@ -83,7 +83,7 @@ window.SS = window.SS || {};
   function cleanName(label) {
     const m = /^(.*?)\s*\(([^)]*)\)\s*$/.exec(label || '');
     if (!m) return { name: label || '', detail: '' };
-    const detail = m[2].split(',').map((x) => x.trim()).filter((x) => x && !/^(synthé|VCSL|Dirt-Samples|strudel)$/i.test(x)).join(', ');
+    const detail = m[2].split(',').map((x) => x.trim()).filter((x) => x && !/^(synthé|VCSL|VSCO|Dirt-Samples|strudel)$/i.test(x)).join(', ');
     return { name: m[1], detail };
   }
 
