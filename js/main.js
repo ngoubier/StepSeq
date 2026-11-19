@@ -679,22 +679,29 @@
    * Band : « Créer toute la chanson ». Remplace les pistes, les scènes et l'arrangement du projet par la chanson
    * écrite d'après le plan de l'inspiration (js/band-songs.js, js/bandsong.js). Ctrl+Z revient en arrière.
    */
-  function addBandSong(list, preset, tempo, { melodySeed = 0, melody = null, harmony = null, parts = null, kinds = null, gains = null, mix = null, groove = null, fx = null, bauto = null, keep = null } = {}) {
+  function addBandSong(list, preset, tempo, { melodySeed = 0, melody = null, harmony = null, parts = null, kinds = null, gains = null, mix = null, groove = null, fx = null, bauto = null, keep = null, lock = null, drop = null, restore = null } = {}) {
     // preset.spec : plan d'une reprise tapée dans l'assistant (porte « Reprendre »), jouée à la façon de l'inspiration
     const spec = preset.spec || (SS.BandSongs && SS.BandSongs[preset.id]);
     if (!spec) return addBandTracks(list, tempo, { replace: true });
     stop();
     // mise à jour depuis l'assistant (keep : colonnes des pistes retouchées à garder) : ces pistes et celles ajoutées à
     // la main restent telles quelles, avec leurs notes ; les autres sont régénérées (js/gridsync.js)
+    // lock : pistes verrouillées dans l'assistant ([{ id, key }] : gardées telles quelles, transposées si key) ; drop : pistes
+    // ajoutées à la main que l'assistant joue maintenant (elles ne sont pas gardées) ; restore : volume, mix et effets d'une
+    // piste dont on garde le son (« Garder le son, refaire les notes »), par index dans list
     const kept = new Map();
     const hand = [];
+    const locks = new Map((lock || []).map((l) => [l.id, l]));
+    const dropped = new Set(drop || []);
     let oldScenes = [];
-    if (keep) {
+    if (keep || locks.size) {
       SS.commitScene(project);
       oldScenes = project.scenes;
       const cols = new Set(list.map((o) => o.band && o.band.col).filter(Boolean));
       project.tracks.forEach((t) => {
-        if (!t.band) hand.push(t);
+        if (locks.has(t.id)) (t.band && t.band.col && cols.has(t.band.col) ? kept.set(t.band.col, t) : hand.push(t));
+        else if (!keep) return;
+        else if (!t.band) !dropped.has(t.id) && hand.push(t);
         else if (t.band.col && keep.includes(t.band.col)) (cols.has(t.band.col) ? kept.set(t.band.col, t) : hand.push(t));
       });
     }
@@ -711,7 +718,7 @@
     });
     project.tracks = created;
     const res = SS.bandSong.build(spec, preset.id, created, { melodySeed, melody, harmony, parts, kinds, fx });
-    project.scenes = res.scenes.map(({ sec, spans, ...sc }) => sc); // eslint-disable-line no-unused-vars
+    project.scenes = res.scenes.map(({ spans, ...sc }) => sc); // eslint-disable-line no-unused-vars -- sec : la section de l'assistant (relue par l'assistant)
     project.song = res.song;
     // mouvements de son gardés à l'étape Arrangement : automation par temps (js/beatauto.js), colonne → piste créée
     if (bauto && SS.beatAuto) SS.beatAuto.applyPlan(project, bauto, (i) => created[i] && !kept.has(created[i].band && created[i].band.col) && created[i].id);
@@ -728,14 +735,21 @@
     SS.bandMix.mixMaster(project, style, SS.bandMix.driveFor(preset.id, style));
     // étape Mix de l'assistant (js/wizmix.js) : sans retouche (mix absent ou égal à sa base), rien ne change
     if (mix && SS.wizMix) SS.wizMix.apply(project, mix, res.scenes);
+    // « Garder le son, refaire les notes » : la piste régénérée reprend le volume, le mix et les effets de l'ancienne
+    if (restore)
+      restore.forEach((r) => {
+        const t = r && created[r.i];
+        if (!t) return;
+        ['volume', 'mix', 'fx'].forEach((k) => r[k] !== undefined && (t[k] = JSON.parse(JSON.stringify(r[k]))));
+      });
     project.groove = { ...(project.groove || { res: 0, swing: 0.5 }), ...(groove || { human: 0.15 }) }; // groove : swing et humanisation réglés à l'étape Batterie
     if (preset.cover) project.title = preset.cover.title;
     else if (!project.title || project.title === 'Nouveau projet') project.title = `Dans l'esprit de ${preset.song}`;
     noteOrigin(project, 'assistant « Nouvelle chanson » : Créer la chanson', { style, inspiration: `${preset.id} (« ${preset.song} »${preset.artist ? ', ' + preset.artist : ''})`, reprise: preset.cover ? preset.cover.title : null, pistes: created.length, graineMelodie: melodySeed }, true);
-    if (keep) keepTracks(created, kept, hand, oldScenes);
+    if (keep || locks.size) keepTracks(created, kept, hand, oldScenes, locks);
     SS.loadScene(project, project.scenes[0].id, { commit: false });
     // empreinte de chaque piste créée : la grille saura lesquelles on retouche (js/gridsync.js) ; les pistes gardées gardent la leur
-    if (SS.gridSync) project.tracks.forEach((t) => t.band && t.band.col && !stay.has(t) && (t.band.sig = SS.gridSync.trackSig(project, t)));
+    if (SS.gridSync) project.tracks.forEach((t) => t.band && t.band.col && !stay.has(t) && SS.gridSync.stamp(project, t));
     state.openRolls.clear();
     SS.audio.applyAllFx(project);
     syncHeader();
@@ -755,7 +769,7 @@
    * colonne), les pistes ajoutées à la main suivent ; leurs notes passent des anciennes scènes aux nouvelles (même nom,
    * sinon même position). Les sidechains qui visaient une piste remplacée visent la piste gardée.
    */
-  function keepTracks(created, kept, hand, oldScenes) {
+  function keepTracks(created, kept, hand, oldScenes, locks = new Map()) {
     const match = SS.gridSync.matchScenes(oldScenes, project.scenes);
     const moveData = (newId, old) =>
       project.scenes.forEach((sc) => {
@@ -763,7 +777,10 @@
         if (newId) delete sc.data[newId];
         const os = match.get(sc.id);
         const d = os && os.data && os.data[old.id];
-        if (d) sc.data[old.id] = JSON.parse(JSON.stringify(d));
+        if (!d) return;
+        const l = locks.get(old.id);
+        // piste verrouillée qui suit la tonalité : ses notes passent de la tonalité de l'ancienne scène à celle de la nouvelle
+        sc.data[old.id] = l && l.key ? SS.gridSync.transposeData(d, os.key, sc.key) : JSON.parse(JSON.stringify(d));
       });
     const swap = new Map();
     const tracks = created.map((t) => {
@@ -777,6 +794,8 @@
     hand.forEach((t) => moveData(null, t));
     project.tracks = [...tracks, ...hand];
     project.tracks.forEach((t) => t.fx && swap.has(t.fx.scSource) && (t.fx.scSource = swap.get(t.fx.scSource)));
+    const ids = new Set(project.tracks.map((t) => t.id));
+    project.tracks.forEach((t) => t.fx && t.fx.scSource && !ids.has(t.fx.scSource) && delete t.fx.scSource);
   }
 
   function addBandTracks(list, tempo, { replace = false } = {}) {

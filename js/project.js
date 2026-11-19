@@ -738,7 +738,7 @@ SS.normalizeProject = (data) => {
       track.band = {};
       ['style', 'preset', 'musician', 'key'].forEach((k) => typeof t.band[k] === 'string' && t.band[k].length < 40 && (track.band[k] = t.band[k]));
       // colonne de l'assistant et empreinte du contenu créé : retouchée ou non (js/gridsync.js)
-      ['col', 'sig'].forEach((k) => typeof t.band[k] === 'string' && t.band[k].length < 80 && (track.band[k] = t.band[k]));
+      ['col', 'sig', 'nsig', 'ssig'].forEach((k) => typeof t.band[k] === 'string' && t.band[k].length < 80 && (track.band[k] = t.band[k]));
     } else delete track.band;
     track.mute = !!t.mute;
     track.solo = !!t.solo;
@@ -1121,6 +1121,7 @@ SS.normalizeScenes = (p, data = {}) => {
         bars: Math.min(64, Math.max(1, Math.round(Number(sc.bars)) || p.bars)),
         data: sc.data && typeof sc.data === 'object' ? sc.data : {},
         ...(validKey(sc.key) ? { key: { tonic: sc.key.tonic, mode: sc.key.mode } } : {}),
+        ...(typeof sc.sec === 'string' && sc.sec.length < 40 ? { sec: sc.sec } : {}), // section de l'assistant dont vient la scène
         ...(validEmotion(sc.emotion) ? { emotion: sc.emotion } : {}),
         ...(SS.normalizeGrid(sc.grid) ? { grid: SS.normalizeGrid(sc.grid) } : {}),
       }));

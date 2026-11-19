@@ -208,33 +208,37 @@ SS.bandGroup = (() => {
    *   batterie : { type: 'drums', name, kit, pieces: [{ piece, opts }] } (une piste de la grille par élément).
    * Chaque instrument prend la place d'un musicien de l'inspiration du même type (pour jouer ses motifs), sinon devient un
    * musicien ajouté. Le groupe = les instruments de la grille (au plus 10) ; s'il n'en a qu'un, le premier musicien de
-   * l'inspiration d'un autre type complète. Renvoie { group: { nextId, list }, cache: { idMusicien: choix de son } }. */
+   * l'inspiration d'un autre type complète. Renvoie { group: { nextId, list }, cache: { idMusicien: choix de son },
+   * map: [id du musicien de chaque instrument (null au-delà de 10)] }. msFromGrid : le choix de son d'un instrument repris. */
+  function msFromGrid(inst, mu, styleId, presetId) {
+    if (inst.type === 'drums') {
+      const kits = (mu && mu.kits) || recommended('drums', styleId, presetId).kits;
+      return { on: true, kit: kits.includes(inst.kit) ? inst.kit : kits[0], pieces: inst.pieces.map((p) => ({ piece: p.piece, on: true, custom: clone(p.opts) })) };
+    }
+    if (inst.type === 'orch') return { on: true, ens: 'chamber' };
+    const o = { on: true, pick: 0, picked: true, custom: clone(inst.opts) };
+    if (!mu) o.tok = recommended(inst.type, styleId, presetId).pick[0];
+    return o;
+  }
   function fromGrid(preset, insts, styleId) {
     const list = [];
     const cache = {};
     const g = { nextId: 1, list };
     const used = new Set();
+    const map = insts.map(() => null);
     const typeOfMu = (mu) => (mu.kits ? 'drums' : mu.orch || mu.role === 'orch' ? 'orch' : typeOfRole(mu.role));
-    const msOf = (inst, mu) => {
-      if (inst.type === 'drums') {
-        const kits = (mu && mu.kits) || recommended('drums', styleId, preset.id).kits;
-        return { on: true, kit: kits.includes(inst.kit) ? inst.kit : kits[0], pieces: inst.pieces.map((p) => ({ piece: p.piece, on: true, custom: clone(p.opts) })) };
-      }
-      if (inst.type === 'orch') return { on: true, ens: 'chamber' };
-      return { on: true, pick: 0, picked: true, custom: clone(inst.opts) };
-    };
-    insts.slice(0, MAX).forEach((inst) => {
+    insts.slice(0, MAX).forEach((inst, i) => {
       // le batteur d'abord (rôle drums), puis les percussions ; les autres : premier musicien libre du même type
       const cands = preset.musicians.filter((m) => !used.has(m.id) && typeOfMu(m) === inst.type);
       const mu = cands.find((m) => m.role === 'drums') || cands[0];
       if (mu) {
         used.add(mu.id);
         list.push({ id: mu.id, base: mu.id, name: freeName(list, String(inst.name || labelOfMu(mu)).slice(0, 24)), custom: true });
-        cache[mu.id] = msOf(inst, mu);
+        cache[mu.id] = msFromGrid(inst, mu, styleId, preset.id);
+        map[i] = mu.id;
       } else {
-        const ms = msOf(inst, null);
-        if (inst.type !== 'drums' && inst.type !== 'orch') ms.tok = recommended(inst.type, styleId, preset.id).pick[0];
-        add(g, inst.type, { name: String(inst.name || '').slice(0, 24), ms });
+        const r = add(g, inst.type, { name: String(inst.name || '').slice(0, 24), ms: msFromGrid(inst, null, styleId, preset.id) });
+        map[i] = r ? r.id : null;
       }
     });
     if (list.length < MIN) {
@@ -242,7 +246,7 @@ SS.bandGroup = (() => {
       const mu = preset.musicians.find((m) => !used.has(m.id) && !have.has(typeOfMu(m)) && !m.optional) || preset.musicians.find((m) => !used.has(m.id));
       if (mu) list.push({ id: mu.id, base: mu.id, name: freeName(list, labelOfMu(mu)) });
     }
-    return { group: g, cache };
+    return { group: g, cache, map };
   }
 
   /* ---------- brouillon ---------- */
@@ -287,5 +291,5 @@ SS.bandGroup = (() => {
     return { nextId, list };
   }
 
-  return { MIN, MAX, TYPES, ROLE_OF_TYPE, BASE_NAME, CAT_OF_TYPE, typeOfRole, isExtraId, freeName, stripNum, copyName, defaultGroup, fromV1, fromGrid, recommended, find, canAdd, canRemove, add, remove, move, moveTo, rename, insertAfter, newId, rebase, purge, clean, clone };
+  return { MIN, MAX, TYPES, ROLE_OF_TYPE, BASE_NAME, CAT_OF_TYPE, typeOfRole, isExtraId, freeName, stripNum, copyName, defaultGroup, fromV1, fromGrid, msFromGrid, recommended, find, canAdd, canRemove, add, remove, move, moveTo, rename, insertAfter, newId, rebase, purge, clean, clone };
 })();

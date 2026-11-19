@@ -35,10 +35,16 @@ const ok = (c, m) => {
   const shot = (n) => SHOTS && page.screenshot({ path: path.join(SHOTS, n) });
   const step = () => page.evaluate(() => SS.band._state.wiz && SS.band._state.wiz.step);
   const tracks = () => page.evaluate(() => document.querySelectorAll('#tracks .track').length);
+  // la grille a changé depuis le dernier passage : « Reprendre la grille dans l’assistant » (testée dans grid-read.js), on passe
+  const skipRead = async () => {
+    await page.waitForTimeout(200);
+    if (await page.isVisible('#brgSkip')) await page.click('#brgSkip');
+  };
 
   ok(await page.isVisible('#viewSeg') && !(await page.isVisible('#wizBanner')), 'sélecteur visible, pas de bandeau sans assistant');
   const before = await tracks();
   await page.click('#viewWiz');
+  await skipRead();
   await page.waitForTimeout(500);
   ok(await page.evaluate(() => SS.band.active()), 'Assistant : l’assistant s’ouvre');
   ok((await page.getAttribute('#viewWiz', 'aria-checked')) === 'true', 'le sélecteur montre Assistant');
@@ -52,6 +58,7 @@ const ok = (c, m) => {
   ok(await page.isVisible('#wizBanner') && (await page.isVisible('#viewDot')), 'bandeau et point doré : la chanson n’est pas dans la grille');
   await shot('bascule-grille-bandeau.png');
   await page.click('#viewWiz');
+  await skipRead();
   await page.waitForTimeout(500);
   ok((await step()) === s, `Assistant : même étape (${s})`);
   await page.click('#viewGrid');
@@ -63,6 +70,7 @@ const ok = (c, m) => {
   ok(!(await page.evaluate(() => SS.band.active())) && (await tracks()) > 2, 'Mettre la chanson dans la grille : pistes créées, on est dans la grille');
   ok(!(await page.isVisible('#wizBanner')) && !(await page.isVisible('#viewDot')), 'grille à jour : plus de bandeau ni de point');
   await page.click('#viewWiz');
+  await skipRead();
   await page.waitForTimeout(500);
   await page.dispatchEvent('#bwNext', 'click');
   await page.waitForTimeout(300);
@@ -70,6 +78,7 @@ const ok = (c, m) => {
   await page.waitForTimeout(2200);
   ok(!(await page.isVisible('#wizBanner')), 'changer d’étape seulement : la grille reste à jour');
   await page.click('#viewWiz');
+  await skipRead();
   await page.waitForTimeout(500);
   await page.evaluate(() => SS.band.setTempo(SS.band._state.wiz.tempo ? SS.band._state.wiz.tempo + 7 : 133));
   await page.waitForTimeout(300);
@@ -90,6 +99,7 @@ const ok = (c, m) => {
   ok((await page.locator('.th-retouch').count()) === 1, 'les autres pistes ne sont pas marquées');
   const kSteps = (await P()).tracks.find((t) => t.id === kick).steps.join(',');
   await page.click('#viewWiz');
+  await skipRead();
   await page.waitForTimeout(500);
   await page.evaluate(() => SS.band.setTempo(SS.band._state.wiz.tempo - 3));
   await page.click('#viewGrid');

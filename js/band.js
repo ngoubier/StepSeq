@@ -120,6 +120,7 @@ SS.band = (() => {
       if (S.gridInst && p) {
         // instruments repris de la grille : ils remplacent les musiciens de l'inspiration (même type), leur son est gardé
         const r = BG().fromGrid(p, S.gridInst, S.styleId);
+        S.gridInst.forEach((inst, i) => (inst.mu = r.map[i])); // le musicien qui joue chaque instrument de la grille
         S.cache[p.id] = { ...(S.cache[p.id] || {}), ...r.cache };
         S.group = { ...r.group, style: S.styleId };
       } else S.group = { ...BG().defaultGroup(p || { musicians: [] }), style: S.styleId };
@@ -944,7 +945,7 @@ SS.band = (() => {
         'button',
         {
           type: 'button',
-          class: 'band-mus' + (sel ? ' sel' : '') + (S.fresh === mu.id ? ' fresh' : ''),
+          class: 'band-mus' + (sel ? ' sel' : '') + (S.fresh === mu.id ? ' fresh' : '') + (muLocked(mu) ? ' locked' : ''),
           style: `--c:${colorOf(mu)}`,
           'data-mu': mu.id,
           draggable: 'true',
@@ -975,8 +976,9 @@ SS.band = (() => {
         h('span', { class: 'bm-ord', 'aria-hidden': 'true' }, String(i + 1)),
         h('span', { class: 'bm-avatar', html: icon(mu.role) }),
         h('span', { class: 'bm-role' }, mu.name),
-        h('span', { class: 'bm-inst' }, stageLine(mu)),
-        mu.kits ? h('span', { class: 'bm-badge' }, String(ms.pieces.filter((pc) => pc.on).length)) : null
+        h('span', { class: 'bm-inst' }, muLocked(mu) ? `🔒 ${gridTracksOf(app.project(), mu).length > 1 ? 'tes pistes' : 'ta piste'}, telle${gridTracksOf(app.project(), mu).length > 1 ? 's' : ''} quelle${gridTracksOf(app.project(), mu).length > 1 ? 's' : ''}` : stageLine(mu)),
+        mu.kits && !muLocked(mu) ? h('span', { class: 'bm-badge' }, String(ms.pieces.filter((pc) => pc.on).length)) : null,
+        muLocked(mu) ? h('span', { class: 'bm-lock', 'aria-label': 'verrouillé' }, '🔒') : null
       );
     };
     const left = BG().MAX - list.length;
@@ -1152,9 +1154,27 @@ SS.band = (() => {
         h('div', {}, h('button', { type: 'button', class: 'btn', id: 'bgRmNo', onclick: () => ((S.confirmRm = null), refresh()) }, 'Annuler'), h('button', { type: 'button', class: 'btn bg-hot', id: 'bgRmYes', onclick: () => removeMember(mu.id) }, 'Retirer'))
       );
     }
+    const gtr = S.wiz ? gridTracksOf(app.project(), mu) : [];
+    const lk = gtr.length ? muLocked(mu) : false;
     return h(
       'div',
       { class: 'bg-edit' },
+      gtr.length
+        ? h(
+            'div',
+            { class: 'bg-lockbox' + (lk ? ' on' : '') },
+            h('span', {}, lk ? `🔒 Verrouillé : ${gtr.length > 1 ? `ses ${gtr.length} pistes de la grille sont jouées telles quelles` : 'sa piste de la grille est jouée telle quelle'}, sans être réécrite${lk && locks()[gtr[0].id].key ? ' (transposée si la tonalité change)' : ''}.` : `Joue ${gtr.length > 1 ? `ses ${gtr.length} pistes` : 'sa piste'} de la grille : l’assistant réécrit les notes.`),
+            h('button', { type: 'button', class: 'btn btn-small', id: 'bgLock', onclick: () => setLock(gtr.map((t) => t.id), !lk) }, lk ? 'Déverrouiller' : '🔒 Verrouiller ses notes'),
+            lk
+              ? h('label', { class: 'bg-lockkey' }, h('input', { type: 'checkbox', id: 'bgLockKey', checked: !!locks()[gtr[0].id].key, onchange: (e) => {
+                  const l = { ...locks() };
+                  gtr.forEach((t) => (l[t.id] = { key: e.target.checked }));
+                  S.wiz.locks = l;
+                  dropListen();
+                } }), ' Suivre la tonalité')
+              : null
+          )
+        : null,
       h(
         'div',
         { class: 'bg-order' },
@@ -1602,6 +1622,7 @@ SS.band = (() => {
     resetAdd();
     S.group = null; // autre style : le groupe repart de celui du nouveau style
     dropEdits(); // les réglages par scène, la tonalité et l'arrangement étaient ceux de l'autre inspiration
+    reapplyGridRead();
     renderStyles();
     renderPresets();
     renderSong();
@@ -1618,6 +1639,7 @@ SS.band = (() => {
     S.group = S.gridInst ? null : { ...BG().rebase(group(), preset(), true), style: S.styleId };
     rebaseAdded();
     dropEdits(true);
+    reapplyGridRead();
     renderPresets();
     renderSong();
     if (cover()) coverChanged(), coverInfo();
@@ -2598,6 +2620,9 @@ SS.band = (() => {
 
   /** Étape Instruments : le groupe vient des pistes de la grille ; un clic repart des musiciens de l'inspiration. */
   function gridBadge() {
+    const orph = S.wiz ? lockedTracks().filter((t) => orphanTracks(app.project()).includes(t)) : [];
+    if (orph.length && !S.gridInst)
+      return h('span', { class: 'bg-count bg-grid', id: 'bgLockedOrphans', title: 'Pistes de la grille jouées telles quelles dans la chanson (aucun musicien ne les joue)' }, `🔒 ${orph.map((t) => t.name).join(', ')}`);
     if (!S.gridInst) return null;
     return h(
       'button',
@@ -6828,8 +6853,11 @@ SS.band = (() => {
   }
 
   /** Crée la chanson avec les pistes cochées (même calcul que la vue session, même mélodie). */
-  function createWizSong(confirmed, keep) {
-    const cols = wizCols().filter((c) => !S.wiz.off.has(c.id));
+  function createWizSong(confirmed, keep, sound) {
+    // la grille a changé depuis le dernier passage : on la relit d'abord (la création suit la fenêtre)
+    if ($('#brgGo') && !$('#bandConfirm').hidden) return void (S.afterRead = 'create');
+    // musiciens verrouillés : leurs pistes de la grille restent telles quelles, ils ne jouent pas
+    const cols = wizCols().filter((c) => !S.wiz.off.has(c.id) && !lockedMu(c.musician));
     if (!cols.length) return;
     // projet déjà commencé (bouton Nouvelle de l'en-tête) : la chanson le remplace, on demande d'abord ; grille déjà
     // créée par l'assistant : mise à jour piste par piste (pistes retouchées gardées ou régénérées, js/gridsync.js)
@@ -6846,13 +6874,31 @@ SS.band = (() => {
     const eff = specEff();
     const plan = cover() ? { ...p, spec: eff, cover: { title: S.cover.title.trim() || 'Reprise' } } : eff !== spec() ? { ...p, spec: eff } : p;
     // tout est lu avant de quitter l'assistant (leave efface S.wiz), puis la fenêtre principale reprend la place
-    const args = [cols.map((c) => ({ ...c.o, band: { ...c.o.band, col: c.id } })), plan, tempo(), { keep: keep || null, melodySeed: seed, melody: melodyOpts(), harmony: harmonyOpts(), parts: S.wiz.parts, kinds: S.wiz.kinds, gains: cols.map((c) => volGain(c.id)), mix: S.wiz.mix, groove: grooveOf(), fx: fxOpts(), bauto: movePlan(wizSong().res, { trial: false }).map((e) => ({ ...e, col: cols.findIndex((c) => c.id === e.col) })) }];
+    // « Garder le son, refaire les notes » (sound : col → piste de la grille) : le son, le volume, le mix et les effets de la piste
+    const pr = app.project();
+    const soundT = (c) => sound && sound[c.id] && pr.tracks.find((t) => t.id === sound[c.id]);
+    const restore = cols.map((c, i) => {
+      const t = soundT(c);
+      return t ? { i, volume: t.volume, mix: clone(t.mix), fx: clone(t.fx) } : null;
+    }).filter(Boolean);
+    const lock = lockedTracks().map((t) => ({ id: t.id, key: !!locks()[t.id].key }));
+    // pistes ajoutées à la main que joue maintenant un musicien du groupe (instruments repris) : la chanson les remplace
+    const drop = (S.gridInst || []).filter((i) => i.mu && muById(i.mu)).flatMap((i) => i.ids || []).filter((id) => !locks()[id]);
+    const builtMus = musicians().map((mu) => mu.id);
+    const args = [cols.map((c) => ({ ...c.o, ...(soundT(c) ? soundOf(soundT(c)) : {}), band: { ...c.o.band, col: c.id } })), plan, tempo(), { keep: keep || null, lock, drop, restore: restore.length ? restore : null, melodySeed: seed, melody: melodyOpts(), harmony: harmonyOpts(), parts: S.wiz.parts, kinds: S.wiz.kinds, gains: cols.map((c) => volGain(c.id)), mix: S.wiz.mix, groove: grooveOf(), fx: fxOpts(), bauto: movePlan(wizSong().res, { trial: false }).map((e) => ({ ...e, col: cols.findIndex((c) => c.id === e.col) })) }];
     const draft = wizSnapshot(Date.now()); // le brouillon est gardé : rouvrir l'assistant permet de retoucher et de recréer
     draft.builtSig = SS.wizDraft.contentSig(draft.state); // la grille a maintenant cette chanson (bascule Assistant | Grille)
     leave({ keep: false });
     app.applySong(...args);
+    draft.gridSig = SS.gridSync.projectSig(app.project()); // la grille que l'assistant vient d'écrire : pas à relire
+    draft.builtMus = builtMus;
     app.setWizardDraft(draft);
   }
+  /** Un musicien dont toutes les pistes de la grille sont verrouillées. */
+  const lockedMu = (id) => {
+    const mu = id && muById(id);
+    return !!mu && muLocked(mu);
+  };
 
   /* ---------- Commande de l'écoute : la barre du haut de l'application ----------
    * Dans l'assistant (body.wizard-mode), Lecture / Stop, tempo et position de la barre du haut pilotent l'écoute
@@ -8301,6 +8347,9 @@ SS.band = (() => {
     SS.bandMix.mixTracks(proj.tracks, levelKeys, st);
     SS.bandMix.mixMaster(proj, st, SS.bandMix.driveFor(p.id, st));
     if (S.wiz.mix) SS.wizMix.apply(proj, S.wiz.mix, res.scenes); // même application que « Créer la chanson » (volumes, effets, courbes de scène)
+    // pistes verrouillées : jouées telles quelles ; le musicien qui les jouait se tait
+    proj.tracks.forEach((t) => (t.lockMute = lockedMu(t.band && t.band.musician)));
+    listenLocked(proj);
     proj.tracks.forEach((t) => {
       t.mixMute = !!t.mute;
       t.mixSolo = !!t.solo;
@@ -8342,7 +8391,7 @@ SS.band = (() => {
   function applyListenMutes() {
     if (!L.proj) return;
     L.proj.tracks.forEach((t) => {
-      t.mute = S.wiz.mute.has(t.col) || !!t.mixMute; // Muet / Solo de l'étape Mélodie et ceux de l'étape Mix
+      t.mute = S.wiz.mute.has(t.col) || !!t.mixMute || !!t.lockMute; // Muet / Solo de l'étape Mélodie et ceux de l'étape Mix ; musicien verrouillé
       t.solo = S.wiz.solo.has(t.col) || !!t.mixSolo;
       if (t.baseVol == null) t.baseVol = typeof t.volume === 'number' ? t.volume : 0.8;
       const v = t.baseVol * volGain(t.col);
@@ -8571,6 +8620,7 @@ SS.band = (() => {
     const grid = gridInstruments(app.project());
     noteWizard(`ouvert sur la chanson en cours « ${app.project().title} » [${app.project().id}]${grid.length ? ` (${grid.length} instrument${grid.length > 1 ? 's' : ''} repris de la grille)` : ''}`);
     openWizard({ fresh: false, grid });
+    maybeReadGrid();
   }
   /*
    * Instruments de la grille, pour un assistant qui part d'une chanson vide sur ce projet : une entrée par instrument
@@ -8616,19 +8666,393 @@ SS.band = (() => {
         const k = (t.band && t.band.musician) || '*';
         let inst = kits.get(k);
         if (!inst) {
-          inst = { type: 'drums', name: t.band && t.band.label ? t.band.label : k === '*' || /^drums?$/.test(k) ? 'Batterie' : 'Percussions', kit: t.machine, pieces: [] };
+          inst = { type: 'drums', name: t.band && t.band.label ? t.band.label : k === '*' || /^drums?$/.test(k) ? 'Batterie' : 'Percussions', kit: t.machine, pieces: [], ids: [] };
           kits.set(k, inst);
           out.push(inst);
         }
         inst.pieces.push({ piece: t.sound || 'perc', opts: soundOf(t) });
+        inst.ids.push(t.id);
         return;
       }
       // orchestre de l'assistant : une piste par pupitre, un seul musicien
-      if (type === 'orch' && t.band && t.band.musician && out.some((i) => i.mu === t.band.musician)) return;
-      out.push({ type, name: t.name, opts: soundOf(t), ...(t.band && t.band.musician ? { mu: t.band.musician } : {}) });
+      const same = type === 'orch' && t.band && t.band.musician && out.find((i) => i.bmu === t.band.musician);
+      if (same) return void same.ids.push(t.id);
+      out.push({ type, name: t.name, opts: soundOf(t), ids: [t.id], ...(t.band && t.band.musician ? { bmu: t.band.musician } : {}) });
     });
     return out.slice(0, BG().MAX);
   }
+  /* ---------- Relire la grille (bascule Grille → Assistant) ----------
+   * En revenant dans l'assistant, si la grille a changé depuis son dernier passage (empreinte gridSig, js/gridsync.js
+   * projectSig), la fenêtre « Reprendre la grille dans l'assistant » propose de reprendre tempo, tonalités, accords,
+   * émotions, scènes et arrangement, swing (cases à cocher), et, piste par piste, de laisser l'assistant la jouer ou de la
+   * verrouiller 🔒 : une piste verrouillée garde ses notes telles quelles (transposées si la tonalité change), s'entend dans
+   * l'écoute de l'assistant et reste dans la grille à la création ; le musicien qui la jouait se tait.
+   * Ce qui est repris est gardé (S.wiz.gridRead) et réappliqué si l'on change d'inspiration (les sections changent).
+   * S.wiz.locks : { idPiste: { key: suit la tonalité } } (pistes de la grille). */
+  const SEC_GUESS = [[/intro/i, 'intro'], [/pr[ée].?refrain|pre.?chorus/i, 'pre'], [/refrain|chorus|hook/i, 'chorus'], [/couplet|verse/i, 'verse'], [/pont|bridge/i, 'bridge'], [/break/i, 'break'], [/mont[ée]e|build/i, 'build'], [/drop/i, 'drop'], [/solo/i, 'solo'], [/outro|fin\b/i, 'outro']];
+  const READ_ITEMS = ['tempo', 'key', 'chords', 'emo', 'struct', 'groove'];
+  /** Ce que la grille dit de la chanson (sans les pistes). */
+  function readGrid(p) {
+    const scenes = (p.scenes || []).map((sc) => ({
+      id: sc.id,
+      name: sc.name,
+      bars: sc.bars,
+      key: sc.key ? { tonic: sc.key.tonic, mode: sc.key.mode } : null,
+      emotion: sc.emotion || null,
+      chords: sc.grid && sc.grid.initialized !== false && sc.grid.chords && sc.grid.chords.length ? clone(sc.grid.chords) : null,
+      pedals: sc.grid && sc.grid.pedals && sc.grid.pedals.length ? clone(sc.grid.pedals) : null,
+      sec: sc.sec || null,
+    }));
+    const song = (p.song || []).map((b) => ({ i: scenes.findIndex((x) => x.id === b.scene), repeat: b.repeat || 1 })).filter((b) => b.i >= 0);
+    const g = p.groove || {};
+    const swing = g.res ? Math.round(Math.max(0, Math.min(100, (((g.swing ?? 0.5) - 0.5) / 0.25) * 100))) : 0;
+    return { tempo: p.tempo, sig: (p.timeSig || [4, 4]).join('/'), scenes, song, groove: { swing, human: Math.round(Math.max(0, Math.min(100, (g.human ?? 0) * 100))) } };
+  }
+  /** Section de l'inspiration (ou nouvelle section) de chaque scène de la grille : [{ id, from?, isNew? }]. */
+  function mapSections(R) {
+    const sp = spec();
+    const ids = Object.keys(sp.sections);
+    const used = new Set();
+    const nameOf = (id) => sp.sections[id].name || BS().NAMES[id] || id;
+    const out = R.scenes.map((sc) => {
+      const id = (sc.sec && sp.sections[sc.sec] && !used.has(sc.sec) && sc.sec) || ids.find((x) => !used.has(x) && nameOf(x) === sc.name);
+      if (id) {
+        used.add(id);
+        return { id };
+      }
+      const g = SEC_GUESS.find(([re]) => re.test(sc.name || ''));
+      const from = (g && (ids.find((x) => x === g[1]) || ids.find((x) => x.startsWith(g[1])))) || parseForm(sp.form)[0].id || ids[0];
+      return { id: null, from, isNew: true };
+    });
+    const taken = (x) => x in sp.sections || out.some((o) => o.id === x);
+    out.forEach((o) => {
+      if (o.id) return;
+      let k = 0;
+      do o.id = `${o.from}_g${++k}`;
+      while (taken(o.id) && k < 99);
+    });
+    return out;
+  }
+  /** Reprend dans l'assistant ce qui est coché (on : { tempo, key, chords, emo, struct, groove }). */
+  function applyGridRead(R, on) {
+    const w = S.wiz;
+    const sp = spec();
+    if (!w || !sp) return;
+    const map = mapSections(R);
+    if (on.tempo && R.tempo) {
+      w.tempo = Math.round(Math.min(TEMPO_MAX, Math.max(TEMPO_MIN, R.tempo)));
+      w.tempoFor = tempoKey();
+    }
+    if (on.groove) w.groove = { ...R.groove };
+    if (on.struct && R.song.length) {
+      w.secs = {};
+      map.forEach((m, i) => {
+        const sc = R.scenes[i];
+        const bars = Math.max(1, Math.min(64, sc.bars));
+        if (m.isNew) return void (w.secs[m.id] = { from: m.from, bars, name: String(sc.name || 'Scène').slice(0, 40) });
+        const base = sp.sections[m.id];
+        const o = {};
+        if (base.bars !== bars) o.bars = bars;
+        if ((base.name || BS().NAMES[m.id] || m.id) !== sc.name && sc.name) o.name = sc.name;
+        if (Object.keys(o).length) w.secs[m.id] = o;
+      });
+      Object.keys(sp.sections).forEach((id) => {
+        if (map.some((m) => m.id === id)) return;
+        w.secs[id] = { del: true };
+        SEC_STATE.forEach((k) => delete w[k][id]);
+      });
+      w.form = R.song.slice(0, FORM_MAX).map((b) => ({ id: map[b.i].id, repeat: Math.max(1, Math.min(16, b.repeat)) }));
+    }
+    const eff = specEff();
+    map.forEach((m, i) => {
+      const sc = R.scenes[i];
+      const sec = eff.sections[m.id];
+      if (!sec || (m.isNew && !on.struct)) return;
+      if (on.key && sc.key) w.keys[m.id] = { ...sc.key };
+      if (on.chords && sc.chords) {
+        w.grids[m.id] = sc.bars === sec.bars ? fillGrid(clone(sc.chords), sec.bars * 16) : repeatFit(sc.chords, sc.bars, sec.bars);
+        if (sc.pedals) w.peds[m.id] = clone(sc.pedals).filter((x) => x.step < sec.bars * 16);
+        else delete w.peds[m.id];
+      }
+      if (on.emo && sc.emotion) w.emos[m.id] = sc.emotion;
+    });
+    if (on.key) {
+      const first = R.scenes[(R.song[0] || { i: 0 }).i];
+      if (first && first.key) w.skey = { ...first.key };
+    }
+    w.gsel = null;
+    w.gridRead = { R, on };
+  }
+  /** Autre inspiration : ses sections ne sont plus les mêmes, ce qui a été repris de la grille est réappliqué. */
+  function reapplyGridRead() {
+    const gr = S.wiz && S.wiz.gridRead;
+    if (gr && gr.R && gr.on) applyGridRead(gr.R, gr.on);
+  }
+
+  /* ----- pistes de la grille et musiciens ----- */
+  /** Les pistes de la grille que joue un musicien : celles qu'il a créées (band.musician) ou les instruments repris. */
+  function gridTracksOf(p, mu) {
+    const ids = new Set((S.gridInst || []).filter((i) => i.mu === mu.id).flatMap((i) => i.ids || []));
+    return p.tracks.filter((t) => ids.has(t.id) || (t.band && t.band.musician === mu.id && t.band.preset === S.presetId));
+  }
+  /** Pistes de la grille qu'aucun musicien du groupe ne joue (ajoutées à la main, ou d'une autre inspiration). */
+  function orphanTracks(p) {
+    const mine = new Set(musicians().flatMap((mu) => gridTracksOf(p, mu).map((t) => t.id)));
+    return p.tracks.filter((t) => !mine.has(t.id) && (t.type === 'drum' || t.type === 'instrument'));
+  }
+  const locks = () => (S.wiz && S.wiz.locks) || {};
+  /** Un musicien est verrouillé quand toutes ses pistes de la grille le sont. */
+  function muLocked(mu) {
+    if (!S.wiz || !Object.keys(locks()).length) return false;
+    const tr = gridTracksOf(app.project(), mu);
+    return tr.length > 0 && tr.every((t) => locks()[t.id]);
+  }
+  /** Les pistes verrouillées qui existent encore dans la grille. */
+  const lockedTracks = () => app.project().tracks.filter((t) => locks()[t.id]);
+  function setLock(ids, on) {
+    const l = { ...locks() };
+    ids.forEach((id) => (on ? (l[id] = { key: true }) : delete l[id]));
+    S.wiz.locks = l;
+    dropListen();
+    refresh();
+    renderWiz();
+  }
+  const hasNotes = (t) => app.hasNotes(t);
+  /** Comment une piste de la grille a été retouchée : 'hand' (ajoutée à la main), 'notes', 'sound' ou ''. */
+  function retouchOf(p, t) {
+    if (!t.band || t.band.preset !== S.presetId || !SS.gridSync.managed(t)) return hasNotes(t) ? 'hand' : '';
+    const r = SS.gridSync.retouch(p, t);
+    return r.notes ? 'notes' : r.sound ? 'sound' : '';
+  }
+
+  /* ----- la fenêtre ----- */
+  /** La grille a-t-elle changé depuis le dernier passage de l'assistant (ou n'a-t-il jamais lu ses pistes) ? */
+  function gridChanged() {
+    const p = app.project();
+    if (!S.wiz || !SS.gridSync || !(p.tracks || []).some((t) => t.type === 'drum' || t.type === 'instrument')) return false;
+    return SS.gridSync.projectSig(p) !== S.wiz.gridSig;
+  }
+  function maybeReadGrid() {
+    if (gridChanged()) showGridRead();
+  }
+  /** La grille vue par l'assistant : ce passage-ci est fait (on ne redemande pas tant qu'elle ne change pas). */
+  function gridSeen() {
+    S.wiz.gridSig = SS.gridSync.projectSig(app.project());
+    saveDraft();
+  }
+  /** Lignes « Repris » : ce qui diffère de l'assistant (cases cochées par défaut). */
+  function readItems(R) {
+    const eff = specEff();
+    const out = [];
+    const sk = songKey();
+    const first = R.scenes[(R.song[0] || { i: 0 }).i];
+    if (R.tempo && R.tempo !== tempo()) out.push({ k: 'tempo', label: `Tempo ${R.tempo}`, note: `l’assistant avait ${tempo()}` });
+    if (first && first.key && (first.key.tonic !== sk.tonic || first.key.mode !== sk.mode)) out.push({ k: 'key', label: `Tonalité ${keyLabel(first.key)}`, note: `l’assistant avait ${keyLabel(sk)}` });
+    else if (R.scenes.some((x) => x.key)) out.push({ k: 'key', label: 'Tonalité de chaque scène', note: keyLabel(first && first.key ? first.key : sk) });
+    const ch = R.scenes.filter((x) => x.chords);
+    if (ch.length) out.push({ k: 'chords', label: `Accords de ${ch.length > 1 ? `${ch.length} scènes` : `la scène « ${ch[0].name} »`}`, note: ch.length === 1 ? chordNames(ch[0]) : ch.map((x) => x.name).slice(0, 4).join(' · ') + (ch.length > 4 ? '…' : '') });
+    if (R.scenes.some((x) => x.emotion)) out.push({ k: 'emo', label: 'Émotion de chaque scène' });
+    const form = R.song.map((b) => R.scenes[b.i].name + (b.repeat > 1 ? ` ×${b.repeat}` : '')).join(' · ');
+    const names = new Set(Object.keys(eff.sections).map(secName));
+    const added = R.scenes.filter((x) => !names.has(x.name));
+    out.push({ k: 'struct', label: `${R.scenes.length} scène${R.scenes.length > 1 ? 's' : ''} et l’arrangement`, note: (added.length ? `nouvelle${added.length > 1 ? 's' : ''} : ${added.map((x) => x.name).join(', ')} · ` : '') + form });
+    if (R.groove.swing !== grooveVals().swing) out.push({ k: 'groove', label: `Swing ${R.groove.swing} %`, note: `l’assistant avait ${grooveVals().swing} %` });
+    return out;
+  }
+  const FR_TONIC = { C: 'Do', D: 'Ré', E: 'Mi', F: 'Fa', G: 'Sol', A: 'La', B: 'Si' };
+  const keyLabel = (k) => `${(FR_TONIC[k.tonic[0]] || k.tonic[0]) + k.tonic.slice(1)} ${k.mode === 'minor' ? 'mineur' : k.mode === 'major' ? 'majeur' : ((HM().MODES.find((m) => m.id === k.mode) || {}).label || k.mode).replace(/ \(mode\)$/, '').toLowerCase()}`;
+  function chordNames(sc) {
+    try {
+      return sc.chords.map((c) => HM().gridChord(sc.key || songKey(), c.degree, c.type, c.acc || 0, c.bass || 0).name).slice(0, 6).join(' · ');
+    } catch (e) {
+      return '';
+    }
+  }
+  /** Lignes « Pistes » : une par musicien qui a des pistes dans la grille, puis une par piste que personne ne joue. */
+  function readRows(p) {
+    const rows = [];
+    musicians().forEach((mu) => {
+      const tr = gridTracksOf(p, mu);
+      if (!tr.length) return;
+      const how = tr.map((t) => retouchOf(p, t));
+      const kind = how.includes('hand') ? 'hand' : how.includes('notes') ? 'notes' : how.includes('sound') ? 'sound' : '';
+      const fromGrid = (S.gridInst || []).some((i) => i.mu === mu.id);
+      rows.push({ mu, tracks: tr, kind, fromGrid, lock: muLocked(mu) || ((kind === 'hand' || kind === 'notes') && tr.some(hasNotes)) });
+    });
+    orphanTracks(p).forEach((t) => rows.push({ orphan: true, tracks: [t], kind: hasNotes(t) ? 'hand' : '', lock: !!locks()[t.id] || hasNotes(t) }));
+    return rows;
+  }
+  const WHY = {
+    hand: 'Tes notes, écrites dans la grille',
+    notes: 'Notes retouchées dans la grille',
+    sound: 'Son changé dans la grille : repris, notes de l’assistant',
+    '': 'Pas retouchée',
+  };
+  function showGridRead() {
+    const p = app.project();
+    const R = readGrid(p);
+    const items = readItems(R);
+    const on = Object.fromEntries(READ_ITEMS.map((k) => [k, items.some((x) => x.k === k)]));
+    const rows = readRows(p);
+    const box = $('#bandConfirm');
+    const seg = (r) => {
+      const opts = [[false, r.orphan ? 'Confier à un nouveau musicien' : 'L’assistant la joue'], [true, '🔒 Verrouiller']];
+      return h(
+        'span',
+        { class: 'segmented bgu-seg', role: 'radiogroup', 'aria-label': `Piste ${r.orphan ? r.tracks[0].name : r.mu.name}` },
+        ...opts.map(([v, label]) =>
+          h('button', { type: 'button', role: 'radio', 'data-v': String(v), class: r.lock === v ? 'active' : '', 'aria-checked': String(r.lock === v), onclick: (e) => {
+            r.lock = v;
+            e.currentTarget.closest('.bgu-row').classList.toggle('locked', v);
+            e.currentTarget.parentNode.querySelectorAll('button').forEach((b) => {
+              const a = b.dataset.v === String(v);
+              b.classList.toggle('active', a);
+              b.setAttribute('aria-checked', String(a));
+            });
+          } }, label)
+        )
+      );
+    };
+    const badge = (r) =>
+      r.kind === 'hand' || r.orphan ? h('span', { class: 'trk-badge hand' }, r.fromGrid ? 'de la grille' : 'ajoutée à la main') : r.kind === 'notes' ? h('span', { class: 'trk-badge retouch' }, '✎ notes retouchées') : r.kind === 'sound' ? h('span', { class: 'trk-badge retouch' }, '✎ son changé') : h('span', { class: 'trk-badge wiz' }, 'assistant');
+    const row = (r) =>
+      h(
+        'div',
+        { class: 'bgu-row brg-row' + (r.lock ? ' locked' : ''), 'data-mu': r.mu ? r.mu.id : '', 'data-id': r.tracks[0].id },
+        h('span', { class: 'bgu-name' }, h('b', {}, r.orphan ? r.tracks[0].name : r.mu.name), badge(r), h('small', {}, r.tracks.length > 1 ? `${r.tracks.length} pistes · ` : '', r.orphan && !r.lock ? 'un musicien de plus, avec ce son' : WHY[r.kind === 'hand' && !r.fromGrid ? 'hand' : r.kind] || WHY[''])),
+        seg(r)
+      );
+    const check = (it) =>
+      h('label', { class: 'brg-item' }, h('input', { type: 'checkbox', checked: true, 'data-k': it.k, onchange: (e) => (on[it.k] = e.target.checked) }), h('span', {}, it.label, it.note ? h('small', {}, ' ', it.note) : null));
+    box.replaceChildren(
+      h(
+        'div',
+        { class: 'bcf-card bgu-card brg-card', role: 'alertdialog', 'aria-modal': 'true', 'aria-labelledby': 'brgTitle' },
+        h('h3', { id: 'brgTitle' }, 'Reprendre la grille dans l’assistant'),
+        h('p', {}, S.wiz.gridSig ? 'La grille a changé depuis ton dernier passage. ' : '', 'L’assistant reprend tout ce qu’il peut ; pour chaque piste, choisis s’il la joue ou s’il la garde verrouillée.'),
+        R.sig !== '4/4' ? h('p', { class: 'bcf-warn' }, `⚠ La grille est en ${R.sig} : l’assistant écrit en 4/4. Verrouille les pistes à garder telles quelles.`) : null,
+        h('h4', {}, 'Repris'),
+        h('div', { class: 'brg-items' }, ...items.map(check)),
+        rows.length ? h('h4', {}, 'Pistes') : null,
+        h('div', { class: 'bgu-list' }, ...rows.map(row)),
+        h('p', { class: 'bgu-note' }, 'Une piste verrouillée garde ses notes, transposées si la tonalité change ; tu peux la déverrouiller à l’étape Instruments.'),
+        h(
+          'div',
+          { class: 'bcf-actions' },
+          h('button', { type: 'button', class: 'btn', id: 'brgSkip', onclick: () => doneRead(null) }, 'Ouvrir sans reprendre'),
+          h('span', { class: 'spacer' }),
+          h('button', { type: 'button', class: 'btn btn-accent', id: 'brgGo', onclick: () => doneRead({ R, on, rows }) }, 'Reprendre et ouvrir l’assistant')
+        )
+      )
+    );
+    box.hidden = false;
+    requestAnimationFrame(() => $('#brgGo') && $('#brgGo').focus());
+  }
+  /** Fin de la fenêtre : rien (null) ou reprendre. Puis la création demandée entre-temps (bandeau de la grille). */
+  function doneRead(x) {
+    hideConfirm();
+    if (x) takeGrid(x);
+    gridSeen();
+    const after = S.afterRead;
+    S.afterRead = null;
+    if (after === 'create') createWizSong();
+  }
+  /** Reprend la grille : ce qui est coché, les verrous, les sons changés, les pistes confiées à un nouveau musicien. */
+  function takeGrid({ R, on, rows }) {
+    const p = app.project();
+    applyGridRead(R, on);
+    const l = { ...locks() };
+    const g = group();
+    rows.forEach((r) => {
+      r.tracks.forEach((t) => (r.lock ? (l[t.id] = l[t.id] || { key: true }) : delete l[t.id]));
+      if (r.lock) return;
+      // une piste que personne ne joue : un musicien de plus, avec son son (s'il reste de la place)
+      if (r.orphan) {
+        const insts = gridInstruments({ ...p, tracks: r.tracks });
+        insts.forEach((inst) => {
+          if (!BG().canAdd(g)) return;
+          const rec = BG().add(g, inst.type, { name: String(inst.name || '').slice(0, 24), ms: BG().msFromGrid(inst, null, S.styleId, S.presetId) });
+          if (rec) {
+            inst.mu = rec.id;
+            S.gridInst = [...(S.gridInst || []), inst];
+          }
+        });
+        return;
+      }
+      // son changé dans la grille : il devient celui du musicien
+      if (r.kind === 'sound' && !r.fromGrid) takeSound(r.mu, r.tracks);
+    });
+    S.wiz.locks = l;
+    forgetGone(p);
+    dropListen();
+    refresh();
+    renderWiz();
+    noteWizard(`grille reprise : ${Object.entries(on).filter(([, v]) => v).map(([k]) => k).join(', ') || 'rien'} · ${Object.keys(l).length} piste(s) verrouillée(s)`);
+  }
+  /** Le son (et ses réglages) des pistes d'un musicien, retouché dans la grille, devient le sien. */
+  function takeSound(mu, tracks) {
+    const ms = musState()[mu.id];
+    if (!ms) return;
+    if (mu.kits) {
+      tracks.forEach((t) => {
+        const piece = ((t.band && t.band.key) || '').split(':')[1];
+        const pc = ms.pieces.find((x) => x.piece === piece || x.piece.split('@')[0] === piece);
+        if (pc && SS.gridSync.retouch(app.project(), t).sound) pc.custom = soundOf(t);
+      });
+    } else if (!mu.orch) {
+      ms.custom = soundOf(tracks[0]);
+      ms.picked = true;
+    }
+  }
+  /** Ce qui a été supprimé dans la grille depuis la création : musicien retiré du groupe, élément de kit éteint. */
+  function forgetGone(p) {
+    const built = new Set(S.wiz.builtMus || []);
+    if (!built.size) return;
+    musicians().forEach((mu) => {
+      if (!built.has(mu.id)) return;
+      const tr = gridTracksOf(p, mu);
+      if (!tr.length) {
+        if (BG().canRemove(group())) {
+          BG().remove(group(), mu.id);
+          BG().purge(S.wiz, [mu.id, ...wizCols().filter((c) => c.musician === mu.id).map((c) => c.id)]);
+        }
+        return;
+      }
+      if (mu.kits) {
+        const ms = musState()[mu.id];
+        const have = new Set(tr.map((t) => ((t.band && t.band.key) || '').split(':')[1]));
+        ms.pieces.forEach((pc) => pc.on && !have.has(pc.piece) && !have.has(pc.piece.split('@')[0]) && (pc.on = false));
+      }
+    });
+  }
+
+  /* ----- les pistes verrouillées dans l'écoute ----- */
+  /** Ajoute au projet d'écoute les pistes verrouillées (notes des scènes appariées par nom, sinon par position). */
+  function listenLocked(proj) {
+    const p = app.project();
+    const tr = lockedTracks();
+    if (!tr.length) return;
+    try {
+      SS.commitScene(p);
+    } catch (e) {
+      /* ignore */
+    }
+    const match = SS.gridSync.matchScenes(p.scenes, proj.scenes);
+    tr.forEach((t0) => {
+      const t = JSON.parse(JSON.stringify(t0));
+      delete t.band;
+      t.id = LID('lock:' + t0.id);
+      t.col = 'lock:' + t0.id;
+      t.locked = true;
+      proj.scenes.forEach((sc) => {
+        const os = match.get(sc.id);
+        const d = os && os.data && os.data[t0.id];
+        sc.data[t.id] = d ? (locks()[t0.id].key ? SS.gridSync.transposeData(d, os.key, sc.key) : JSON.parse(JSON.stringify(d))) : t0.type === 'drum' ? { steps: new Array(sc.bars * 16).fill(0) } : { events: [] };
+      });
+      proj.tracks.push(t);
+    });
+  }
+
   /** « brouillon du 17/11 à 14:32 » ou « chanson créée le … » */
   function draftWhen(d) {
     const t = new Date(d.createdAt || d.savedAt || 0);
@@ -8667,6 +9091,8 @@ SS.band = (() => {
     const c = createdAt || S.wiz.createdAt;
     if (c) d.createdAt = c;
     if (S.wiz.builtSig) d.builtSig = S.wiz.builtSig; // ce qui est dans la grille (SS.wizDraft.pending)
+    if (S.wiz.gridSig) d.gridSig = S.wiz.gridSig; // la grille lors du dernier passage de l'assistant (relue ou créée)
+    if (S.wiz.builtMus) d.builtMus = S.wiz.builtMus;
     return d;
   }
   /** Mélodie « Mix »… : les caches du catalogue (instruments choisis) ne gardent que ce qui existe encore. */
@@ -8722,7 +9148,7 @@ SS.band = (() => {
     S.wiz = {
       seed: 0, off: new Set(), mute: new Set(), solo: new Set(), sig: null, res: null, mel: S.mel, vol: new Map(), mix: null, mixScope: 'song', mixOpen: null, mixTab: 'eq', hscene: null, hsec: null, tempo: null, tempoFor: null,
       plans: {}, pseeds: {}, keys: {}, grids: {}, peds: {}, emos: {}, chars: {}, parts: {}, kinds: {}, melPanel: {}, form: null, secs: {}, skey: null, snap: 'beat', gsel: null, efilter: 0, fresh: false, fx: {},
-      ...x.w, step: 1, melSec: null, insp: null, createdAt: d.createdAt, builtSig: d.builtSig,
+      ...x.w, step: 1, melSec: null, insp: null, createdAt: d.createdAt, builtSig: d.builtSig, gridSig: d.gridSig, builtMus: d.builtMus,
     };
     // brouillon d'avant l'étape « Effets et transitions » (v < 3), puis d'avant l'étape « Arrangement » (v < 4) : les étapes
     // de Finaliser ont gagné un numéro à chaque fois (Mix était à ST.arr avant la v3)
@@ -8747,6 +9173,7 @@ SS.band = (() => {
     if (!d) return false;
     if (wizRestore(d)) {
       noteWizard(`repris depuis le brouillon de « ${app.project().title} » [${app.project().id}] (${draftWhen(d)}, étape ${S.wiz ? S.wiz.step : '?'})`);
+      maybeReadGrid();
       return true;
     }
     app.toast('Ce brouillon ne peut plus être rouvert (inspiration ou version inconnue).');
@@ -8849,20 +9276,27 @@ SS.band = (() => {
    * Les pistes retouchées dans la grille sont gardées par défaut (on peut les régénérer), les pistes ajoutées à la main
    * restent toujours, les autres sont régénérées. */
   function showGridUpdate(gp) {
-    const pick = new Map(gp.retouched.map((t) => [t.id, 'keep']));
+    const p = app.project();
+    const lk = (t) => !!locks()[t.id];
+    // choix par piste retouchée : tout garder, garder le son et refaire les notes, régénérer (notes retouchées : tout garder)
+    const choice = new Map(gp.retouched.filter((t) => !lk(t)).map((t) => [t.id, SS.gridSync.retouch(p, t).notes ? 'keep' : 'sound']));
     const names = (list) => list.map((t) => t.name).join(', ');
+    const locked = p.tracks.filter(lk);
     const box = $('#bandConfirm');
-    const row = (t) =>
-      h(
+    const CH = [['keep', '🔒 Tout garder'], ['sound', 'Garder le son, refaire les notes'], ['redo', 'Régénérer']];
+    const row = (t) => {
+      const r = SS.gridSync.retouch(p, t);
+      return h(
         'div',
-        { class: 'bgu-row', 'data-id': t.id },
-        h('span', { class: 'bgu-name' }, t.name, h('span', { class: 'trk-badge retouch' }, '✎ retouchée')),
+        { class: 'bgu-row' + (choice.get(t.id) === 'keep' ? ' locked' : ''), 'data-id': t.id },
+        h('span', { class: 'bgu-name' }, t.name, h('span', { class: 'trk-badge retouch' }, r.notes ? '✎ notes retouchées' : '✎ son changé')),
         h(
           'span',
           { class: 'segmented bgu-seg', role: 'radiogroup', 'aria-label': `Piste ${t.name}` },
-          ...[['keep', 'Garder mes retouches'], ['redo', 'Régénérer']].map(([v, label]) =>
-            h('button', { type: 'button', role: 'radio', 'data-v': v, class: pick.get(t.id) === v ? 'active' : '', 'aria-checked': String(pick.get(t.id) === v), onclick: (e) => {
-              pick.set(t.id, v);
+          ...CH.map(([v, label]) =>
+            h('button', { type: 'button', role: 'radio', 'data-v': v, class: choice.get(t.id) === v ? 'active' : '', 'aria-checked': String(choice.get(t.id) === v), onclick: (e) => {
+              choice.set(t.id, v);
+              e.currentTarget.closest('.bgu-row').classList.toggle('locked', v === 'keep');
               e.currentTarget.parentNode.querySelectorAll('button').forEach((b) => {
                 const on = b.dataset.v === v;
                 b.classList.toggle('active', on);
@@ -8872,27 +9306,35 @@ SS.band = (() => {
           )
         )
       );
+    };
+    const go = () => {
+      const keep = gp.retouched.filter((t) => choice.get(t.id) === 'keep').map((t) => t.band.col);
+      const sound = Object.fromEntries(gp.retouched.filter((t) => choice.get(t.id) === 'sound').map((t) => [t.band.col, t.id]));
+      createWizSong(true, keep, sound);
+    };
+    const choosable = gp.retouched.filter((t) => !lk(t));
     box.replaceChildren(
       h(
         'div',
         { class: 'bcf-card bgu-card', role: 'alertdialog', 'aria-modal': 'true', 'aria-labelledby': 'bguTitle' },
         h('h3', { id: 'bguTitle' }, 'Mettre la grille à jour ?'),
-        h('p', {}, gp.retouched.length ? `Les pistes de l’assistant vont être régénérées. ${gp.retouched.length > 1 ? `${gp.retouched.length} pistes ont été retouchées` : 'Une piste a été retouchée'} dans la grille :` : 'Les pistes de l’assistant vont être régénérées avec tes changements.'),
+        h('p', {}, 'L’assistant réécrit ses pistes avec tes changements.', S.wiz.gridRead ? ' Tempo, tonalité, accords et scènes repris de la grille sont gardés.' : '', choosable.length ? ` ${choosable.length > 1 ? `${choosable.length} pistes ont été retouchées` : 'Une piste a été retouchée'} dans la grille :` : ''),
         h(
           'div',
           { class: 'bgu-list' },
-          ...gp.retouched.map(row),
+          ...choosable.map(row),
+          locked.length ? h('div', { class: 'bgu-row locked' }, h('span', { class: 'bgu-name' }, names(locked), h('span', { class: 'trk-badge lock' }, '🔒 verrouillée' + (locked.length > 1 ? 's' : ''))), h('small', {}, 'gardée' + (locked.length > 1 ? 's' : '') + ' telle' + (locked.length > 1 ? 's' : '') + ' quelle' + (locked.length > 1 ? 's' : ''))) : null,
           gp.fresh.length ? h('div', { class: 'bgu-row' }, h('span', { class: 'bgu-name' }, names(gp.fresh)), h('small', {}, gp.fresh.length > 1 ? 'régénérées (pas retouchées)' : 'régénérée (pas retouchée)')) : null,
-          gp.hand.length ? h('div', { class: 'bgu-row' }, h('span', { class: 'bgu-name' }, names(gp.hand), h('span', { class: 'trk-badge hand' }, 'ajoutée à la main')), h('small', {}, 'toujours gardée' + (gp.hand.length > 1 ? 's' : ''))) : null
+          gp.hand.filter((t) => !lk(t)).length ? h('div', { class: 'bgu-row' }, h('span', { class: 'bgu-name' }, names(gp.hand.filter((t) => !lk(t))), h('span', { class: 'trk-badge hand' }, 'ajoutée à la main')), h('small', {}, 'toujours gardée' + (gp.hand.length > 1 ? 's' : ''))) : null
         ),
-        gp.retouched.length ? h('p', { class: 'bgu-note' }, 'Une piste gardée ne suit plus l’assistant : par exemple, une basse gardée garde ses notes même si les accords changent.') : null,
+        choosable.length ? h('p', { class: 'bgu-note' }, '« Garder le son, refaire les notes » : la piste garde son son, son volume, son mix et ses effets, et rejoue les accords de l’assistant. « Tout garder » : ses notes ne suivent plus l’assistant.') : null,
         h('p', { class: 'bgu-note' }, 'Ctrl+Z annule la mise à jour.'),
         h(
           'div',
           { class: 'bcf-actions' },
           h('button', { type: 'button', class: 'btn', id: 'bcfBack', onclick: hideConfirm }, 'Plus tard'),
           h('span', { class: 'spacer' }),
-          h('button', { type: 'button', class: 'btn btn-accent', id: 'bguGo', onclick: () => createWizSong(true, gp.retouched.filter((t) => pick.get(t.id) === 'keep').map((t) => t.band.col)) }, 'Mettre à jour la grille')
+          h('button', { type: 'button', class: 'btn btn-accent', id: 'bguGo', onclick: go }, 'Mettre à jour la grille')
         )
       )
     );

@@ -60,6 +60,8 @@ const ok = (c, m) => {
   ok(grid === 5, `grille à la main : 5 pistes (${grid})`);
   await page.click('#viewWiz');
   await page.waitForTimeout(600);
+  ok(await page.isVisible('#brgSkip'), 'la fenêtre « Reprendre la grille » s’ouvre (testée dans grid-read.js) : on l’ouvre sans reprendre');
+  await page.click('#brgSkip');
   const info = () =>
     page.evaluate(() => {
       const S = SS.band._state;
