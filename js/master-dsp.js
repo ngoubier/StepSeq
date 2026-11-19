@@ -111,7 +111,7 @@ function ssMasterModule(scope) {
           this.gated = [];
           this.sub = [];
           this.tp = 0;
-        }
+        } else if (e.data === 'dispose') this.dead = true; // remplacé (après un plantage) : on arrête le calcul
       };
     }
     crossover(f) {
@@ -124,6 +124,7 @@ function ssMasterModule(scope) {
     process(inputs, outputs, params) {
       const inp = inputs[0];
       const out = outputs[0];
+      if (this.dead) return false; // sinon le module remplacé resterait calculé pour toujours
       if (!out || !out.length) return true;
       const N = out[0].length;
       const inL = inp && inp[0] ? inp[0] : new Float32Array(N);

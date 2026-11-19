@@ -35,6 +35,10 @@ function ssSpaceModule(scope) {
     }
     constructor() {
       super();
+      // remplacée (après un plantage) : on arrête le calcul, sinon elle resterait calculée pour toujours
+      this.port.onmessage = (e) => {
+        if (e.data === 'dispose') this.dead = true;
+      };
       const k = sampleRate / 48000;
       this.lines = BASE.map(() => new Float32Array(SIZE));
       this.base = BASE.map((n) => n * k);
@@ -63,6 +67,7 @@ function ssSpaceModule(scope) {
       return y;
     }
     process(inputs, outputs, parameters) {
+      if (this.dead) return false;
       const input = inputs[0] || [];
       const out = outputs[0];
       const inL = input[0];

@@ -86,6 +86,7 @@ SS.audio = (() => {
     if (masterProc) {
       masterFader.disconnect(masterProc);
       masterProc.disconnect();
+      masterProc.port.postMessage('dispose'); // l'ancien module s'arrête (sinon calculé pour toujours)
     }
     masterProc = SS.mastering.create(ctx);
     watchNode(masterProc, { label: 'Mastering', area: 'master' }, (d) => {
@@ -2483,6 +2484,7 @@ SS.audio = (() => {
         const r = returns.space;
         r.pre.disconnect();
         r.node.disconnect();
+        r.node.port.postMessage('dispose'); // l'ancienne reverb s'arrête (sinon calculée pour toujours)
         r.node = watchNode(SS.space.create(ctx), { label: 'Reverb Cosmos', area: 'returns', ret: 'space' });
         r.pre.connect(r.node).connect(r.hp);
       }
