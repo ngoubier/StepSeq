@@ -90,8 +90,18 @@ window.SS = window.SS || {};
   const instEntry = (fam, inst) => {
     const { name, detail } = cleanName(inst.label);
     const src = sourceOf(inst);
-    return { v: `i:${fam.id}:${inst.id}`, name, src, detail: detail || (src === 'gm' && inst.midi != null ? `programme ${inst.midi + 1}` : ''), title: inst.strudel ? `strudel : s("${inst.strudel}")` : null };
+    const e = { v: `i:${fam.id}:${inst.id}`, name, src, detail: detail || (src === 'gm' && inst.midi != null ? `programme ${inst.midi + 1}` : ''), title: inst.strudel ? `strudel : s("${inst.strudel}")` : null };
+    if (inst.kind === 'synth') {
+      // presets du synthé intégré : sous-groupe (Leads / Arpèges / Plucks), description, son célèbre
+      if (fam.id === 'synth') e.sub = inst.sub || 'lead';
+      if (inst.desc) e.desc = inst.desc;
+      if (inst.styles) e.styles = inst.styles;
+      if (inst.song) Object.assign(e, { song: inst.song, artist: inst.artist, detail: `★ ${inst.song}` });
+    }
+    return e;
   };
+  /* Sous-groupes d'un rôle (seuls les synthés lead & plucks en ont) */
+  const SUBS = { synth: [{ id: 'lead', label: 'Leads' }, { id: 'arp', label: 'Arpèges' }, { id: 'pluck', label: 'Plucks' }] };
   const junoEntry = (p) => ({ v: `j:${p.id}`, name: p.name, src: 'juno', detail: `patch ${p.id}` });
   const gmEntry = (k) => ({ v: `p${k}`, name: SS.GM_PROGRAMS[k], src: 'gm', detail: `programme ${k + 1}` });
   /** Rôle d'un programme General MIDI : celui de la famille de son soundfont. */
@@ -128,7 +138,7 @@ window.SS = window.SS || {};
     return ROLES.filter((r) => r.id !== 'drums')
       .map((r) => ({
         role: r,
-        entries: soundsOf(r.id, opts).filter((e) => `${e.name} ${e.detail} ${e.v} ${(e.title || '')}`.toLowerCase().includes(s) || (opts.gm && e.v === `p${+s - 1}`)),
+        entries: soundsOf(r.id, opts).filter((e) => `${e.name} ${e.detail} ${e.v} ${e.title || ''} ${e.song || ''} ${e.artist || ''} ${e.desc || ''} ${e.styles || ''}`.toLowerCase().includes(s) || (opts.gm && e.v === `p${+s - 1}`)),
       }))
       .filter((g) => g.entries.length);
   }
@@ -166,5 +176,5 @@ window.SS = window.SS || {};
     return instEntry(family, inst);
   }
 
-  SS.catalog = { ROLES, ROLE, SOURCES, SOURCE_ORDER, JUNO_ROLE, roleOfFamily, roleOfJuno, roleOfProgram, sourceOf, cleanName, soundsOf, search, valueOf, stateOf, entryOf };
+  SS.catalog = { ROLES, ROLE, SUBS, SOURCES, SOURCE_ORDER, JUNO_ROLE, roleOfFamily, roleOfJuno, roleOfProgram, sourceOf, cleanName, soundsOf, search, valueOf, stateOf, entryOf };
 })();

@@ -77,3 +77,15 @@ test('orchestre VSCO 2 : instruments rangés par rôle, fichiers présents, prog
   const strings = C.search('violoncelles').find((x) => x.role.id === 'strings');
   assert.ok(strings && strings.entries.some((e) => e.v === 'i:strings:vsco_cellos' && e.name === 'Violoncelles' && e.detail === 'section'));
 });
+
+test('presets du synthé intégré : sous-groupes, sons célèbres et réglages du preset', () => {
+  const syn = C.soundsOf('synth').filter((e) => e.src === 'syn');
+  ['lead', 'arp', 'pluck'].forEach((g) => assert.ok(syn.filter((e) => e.sub === g).length >= 5, g));
+  const famous = C.ROLES.flatMap((r) => C.soundsOf(r.id)).filter((e) => e.song);
+  assert.equal(famous.length, 37);
+  famous.forEach((e) => assert.ok(e.artist && e.desc, e.v));
+  assert.ok(C.search('van halen').some((g) => g.entries.some((e) => e.song === 'Jump')));
+  const d = SS.soundDefaults({ type: 'instrument', family: 'pads', instrument: 'syn_synchoir' });
+  assert.equal(d.filter, 'bandpass');
+  assert.ok(SS.soundDefaults({ type: 'instrument', family: 'keys', instrument: 'syn_synorgan' }).gain < 1);
+});

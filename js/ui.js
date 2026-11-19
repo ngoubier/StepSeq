@@ -4224,8 +4224,10 @@ SS.ui = (() => {
     const src = e && SS.catalog.SOURCES[e.src];
     $('#dlgFiche').replaceChildren(
       h('b', { class: 'nt-fiche-name' }, e ? e.name : ''),
-      h('div', { class: 'nt-fiche-meta' }, src ? h('span', { class: 'pl-tag', style: `--sc:${src.color}` }, src.label) : null, e && e.detail ? h('span', {}, e.detail) : null),
-      h('small', { class: 'dlg-hint' }, (SS.catalog.ROLE[dlg.role] || {}).label || '')
+      h('div', { class: 'nt-fiche-meta' }, src ? h('span', { class: 'pl-tag', style: `--sc:${src.color}` }, src.label) : null, e && e.detail && !e.song ? h('span', {}, e.detail) : null),
+      e && e.song ? h('div', { class: 'nt-fiche-song' }, '★ Dans l’esprit de ', h('i', {}, e.song), h('small', {}, ` · ${e.artist}`)) : null,
+      e && e.desc ? h('p', { class: 'nt-fiche-desc' }, e.desc) : null,
+      h('small', { class: 'dlg-hint' }, [(SS.catalog.ROLE[dlg.role] || {}).label, e && e.sub && ((SS.catalog.SUBS[dlg.role] || []).find((g) => g.id === e.sub) || {}).label, e && e.styles].filter(Boolean).join(' › '))
     );
     const synth = s.type === 'synth';
     $('#dlgSfvHead').hidden = synth;
@@ -4345,11 +4347,25 @@ SS.ui = (() => {
       $('#dlgSndLabel').textContent = 'Recherche';
       $('#dlgSndCount').textContent = `${n} trouvé${n > 1 ? 's' : ''}`;
       $('#dlgSrc').replaceChildren();
+      $('#dlgSubRow').hidden = true;
     } else {
       const all = SS.catalog.soundsOf(dlg.role, { gm });
       const srcs = SS.catalog.SOURCE_ORDER.filter((k) => all.some((e) => e.src === k));
       if (dlg.src !== 'all' && !srcs.includes(dlg.src)) dlg.src = 'all';
-      const list = all.filter((e) => dlg.src === 'all' || e.src === dlg.src);
+      const bySrc = all.filter((e) => dlg.src === 'all' || e.src === dlg.src);
+      // sous-groupes (Leads / Arpèges / Plucks) et sons célèbres des presets du synthé intégré
+      const subs = (SS.catalog.SUBS[dlg.role] || []).filter((g) => bySrc.some((e) => e.sub === g.id));
+      if (dlg.sub && !subs.some((g) => g.id === dlg.sub)) dlg.sub = null;
+      const nFam = bySrc.filter((e) => e.song && (!dlg.sub || e.sub === dlg.sub)).length;
+      if (!nFam) dlg.famous = false;
+      const list = bySrc.filter((e) => (!dlg.sub || e.sub === dlg.sub) && (!dlg.famous || e.song));
+      const sub = (id, label, n) => h('button', { type: 'button', class: 'chip' + (dlg.sub === id ? ' active' : ''), 'data-v': id || 'all', onclick: () => ((dlg.sub = id), fillSounds(), syncDialog()) }, label, h('small', {}, ` ${n}`));
+      const subChips = subs.length > 1 ? [sub(null, 'Tous', bySrc.length), ...subs.map((g) => sub(g.id, g.label, bySrc.filter((e) => e.sub === g.id).length))] : [];
+      const famChip = nFam
+        ? [h('button', { type: 'button', class: 'chip nt-famous' + (dlg.famous ? ' active' : ''), 'aria-pressed': String(!!dlg.famous), title: 'Presets du synthé intégré dans l’esprit de chansons connues', onclick: () => ((dlg.famous = !dlg.famous), fillSounds(), syncDialog()) }, '★ Sons célèbres', h('small', {}, ` ${nFam}`))]
+        : [];
+      $('#dlgSub').replaceChildren(...subChips, ...famChip);
+      $('#dlgSubRow').hidden = !subChips.length && !famChip.length;
       entries = list.map(ent);
       $('#dlgSndLabel').textContent = (SS.catalog.ROLE[dlg.role] || {}).label || 'Sons';
       $('#dlgSndCount').textContent = list.length === all.length ? String(all.length) : `${list.length} / ${all.length}`;
@@ -4368,6 +4384,8 @@ SS.ui = (() => {
     $('#dlgSearch').value = '';
     dlg.role = id;
     dlg.src = 'all';
+    dlg.sub = null;
+    dlg.famous = false;
     if (id === 'drums') {
       dlg.s.type = 'drum';
       if (gmOn()) toGmState();
