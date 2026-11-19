@@ -205,6 +205,7 @@
     $('#grooveBtn').addEventListener('click', () => set(false));
   }
   function syncHeader() {
+    if (SS.live) SS.live.refresh(); // piste armée disparue (autre chanson, Annuler…) : oubliée
     $('#title').value = project.title;
     $('#lcdTitle').textContent = project.title;
     $('#tempo').value = project.tempo;
@@ -404,7 +405,7 @@
    */
   function wizardMode(on) {
     stop(); // le projet ne joue pas derrière l'assistant ; à la sortie, la barre repart de zéro
-    if (on) return;
+    if (on) return SS.live && SS.live.setOn(false); // pas de mode Jouer dans l'assistant (pas de piste à armer)
     const play = $('#play');
     play.removeAttribute('aria-pressed');
     $('#stop').disabled = false;
@@ -455,12 +456,13 @@
     SS.ui.setPlayhead(step);
   }
 
-  function play() {
+  /** extra (enregistrement au clavier, js/live.js) : { loop: scène en boucle même en mode Song, preroll: pas de décompte } */
+  function play(extra = {}) {
     if (SS.trackLoop && SS.trackLoop.active()) SS.trackLoop.stop(); // une piste écoutée seule en boucle laisse la place au morceau
     if (SS.audio.isPlaying()) return;
     if (SS.audio.isPaused()) SS.audio.stop(); // repartir du curseur
-    const opts = { from: Math.min(state.cue, SS.totalSteps(project) - 1) };
-    if (project.playMode === 'song' && project.song.length) {
+    const opts = { from: Math.min(state.cue, SS.totalSteps(project) - 1), preroll: extra.preroll || 0 };
+    if (!extra.loop && project.playMode === 'song' && project.song.length) {
       opts.song = {
         index: Math.min(state.songStart, project.song.length - 1),
         // charge la scène du bloc juste avant de programmer son premier pas
@@ -856,6 +858,7 @@
   SS.audio.setErrorHandler((msg) => SS.ui.toast(msg));
   SS.soundDesign.init({ project: () => project, changed, renderTrack: (t) => SS.ui.renderTrack(t) });
   SS.junoPanel.init({ changed, renderTrack: (t) => SS.ui.renderTrack(t) });
+  SS.live.init({ project: () => project, changed, play });
   SS.arpPanel.init({ project: () => project, changed, renderTrack: (t) => SS.ui.renderTrack(t) });
   SS.groove.init({ project: () => project, changed });
   initMeta();
