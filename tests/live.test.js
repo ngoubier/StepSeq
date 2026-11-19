@@ -29,3 +29,12 @@ test('écriture : accord regroupé, même note remplacée, batterie', () => {
   SS.live.writeNote(d, { step: 3, len: 1, midi: 60, vel: 0.5 });
   assert.equal(d.steps[3], 0.5);
 });
+
+test('clavier : deux octaves et demie, O et P compris, une note par touche', () => {
+  const map = new Map(SS.live.KEYMAP);
+  assert.equal(map.get('KeyO'), 26);
+  assert.equal(map.get('KeyP'), 28);
+  assert.equal(map.size, 32);
+  assert.equal(new Set(SS.live.KEYMAP.map(([, n]) => n)).size, 32); // de 0 à 31, sans doublon
+  SS.live.KEYMAP.forEach(([c]) => assert.ok(SS.live.AZERTY[c], 'lettre affichée pour ' + c));
+});
