@@ -1069,6 +1069,9 @@ Les sons proviennent des bibliothèques utilisées par [strudel.cc](https://stru
 - [tidal-drum-machines](https://github.com/ritchse/tidal-drum-machines) (boîtes à rythmes),
   via [dough-samples](https://github.com/felixroos/dough-samples) ;
 - [VCSL](https://github.com/sgossner/VCSL) (Versilian Community Sample Library) ;
+  les fichiers VCSL dont le dossier contient une virgule (pianos Steinway et Kawai, kalimbas, ocarinas, psaltérion,
+  certaines caisses claires et shakers) sont copiés dans `samples/vcsl/` (MP3, 10 s max) par `tools/vcsl-local.py` :
+  GitHub les sert avec un en-tête que Chrome refuse. VCSL est sous licence CC0 ;
 - le piano de dough-samples ;
 - [Dirt-Samples](https://github.com/tidalcycles/Dirt-Samples) : banques de batterie, et banques mélodiques jouées
   comme instruments (Mighty Moog, Pluck Bass, JV Bass, Jungle Bass, Juno, SID, Hoover, pads…) ;

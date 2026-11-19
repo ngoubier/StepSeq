@@ -19,6 +19,17 @@ SS.SOURCES = {
   mrid: 'https://raw.githubusercontent.com/felixroos/dough-samples/main/mridangam.json',
 };
 
+/**
+ * Fichiers VCSL dont le dossier contient une virgule (« Grand Piano, Steinway B », « Kalimba, Kenya »…) :
+ * GitHub les sert avec un en-tête Content-Disposition que Chrome refuse. Ils sont copiés (raccourcis, en MP3)
+ * dans samples/vcsl/ par tools/vcsl-local.py. Renvoie l'URL locale, ou null pour un fichier servi normalement.
+ */
+SS.vcslLocal = (base, file) => {
+  if (!/sgossner\/VCSL/.test(base) || !(file.includes(',') || file.includes('%2C'))) return null;
+  const p = decodeURIComponent(file).replace(/[^A-Za-z0-9._/-]+/g, '_').replace(/\.wav$/i, '.mp3');
+  return 'samples/vcsl/' + p;
+};
+
 /* Bibliothèques de batterie (comme sur strudel.cc) */
 SS.DRUM_LIBS = [
   { id: 'tdm', label: 'Boîtes à rythmes', hint: 'tidal-drum-machines : 70 machines (TR-808, TR-909, LinnDrum…)' },

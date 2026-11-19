@@ -160,6 +160,8 @@ SS.audio = (() => {
   }
 
   const encodePath = (p) => (p.includes('%') ? p : encodeURI(p));
+  /** URL d'un fichier d'une banque (copie locale pour les fichiers VCSL que Chrome refuse, voir SS.vcslLocal). */
+  const sampleUrl = (json, p) => SS.vcslLocal(json._base, p) || json._base + encodePath(p);
 
   function loadBuffer(url) {
     ensureCtx();
@@ -320,7 +322,6 @@ SS.audio = (() => {
 
   /* Autres bibliothèques de batterie : Dirt-Samples, percussions VCSL, Mridangam */
   const LIB_SOURCE = { dirt: () => SS.SOURCES.dirt, vcsl: () => SS.SOURCES.vcsl, mrid: () => SS.SOURCES.mrid };
-  const noComma = (p) => !p.includes(',') && !p.includes('%2C'); // Chrome refuse ces fichiers (en-tête invalide)
 
   /** Banques disponibles d'une bibliothèque : [{ id, count }] */
   async function drumBanks(lib) {
@@ -328,15 +329,15 @@ SS.audio = (() => {
     const json = await loadJSON(LIB_SOURCE[lib]());
     const keys = lib === 'vcsl' ? (SS.LIB && SS.LIB.vcslPerc) || [] : Object.keys(json).filter((k) => k !== '_base');
     return keys
-      .filter((k) => Array.isArray(json[k]) && json[k].some(noComma))
-      .map((k) => ({ id: k, count: json[k].filter(noComma).length }));
+      .filter((k) => Array.isArray(json[k]) && json[k].length)
+      .map((k) => ({ id: k, count: json[k].length }));
   }
 
   async function bankVariants(lib, bank) {
     if (lib === 'gm') return SS.gmDrumFiles(bank).map((f) => SS.SOURCES.soundfont + f + '.js');
     const json = await loadJSON(LIB_SOURCE[lib]());
-    const list = Array.isArray(json[bank]) ? json[bank].filter(noComma) : [];
-    return list.map((p) => json._base + encodePath(p));
+    const list = Array.isArray(json[bank]) ? json[bank] : [];
+    return list.map((p) => sampleUrl(json, p));
   }
 
   /** Liste des échantillons possibles d'une piste Drum, selon sa bibliothèque. */
@@ -375,7 +376,7 @@ SS.audio = (() => {
             // midi est la hauteur réelle à l'octave près : l'échantillon choisi est le plus proche de la note jouée
             const cents = (SS.MULTI_TUNING && SS.MULTI_TUNING[inst.bank + ':' + file]) || 0;
             const n = SS.parseNote(note);
-            return { midi: n === null ? null : n + oct, tune: cents / 100, url: json._base + encodePath(file) };
+            return { midi: n === null ? null : n + oct, tune: cents / 100, url: sampleUrl(json, file) };
           })
           .filter((e) => e.midi !== null)
           .sort((a, b) => a.midi - b.midi);

@@ -50,3 +50,14 @@ test('noms nettoyés, recherche dans tous les rôles', () => {
   assert.ok(g.find((x) => x.role.id === 'strings').entries.some((e) => e.v === 'j:A36'));
   assert.ok(C.search('steinway').some((x) => x.role.id === 'keys'), 'le piano Steinway est dans Piano & claviers');
 });
+
+test('fichiers VCSL à virgule servis depuis samples/vcsl/ (Chrome refuse la version GitHub)', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const base = 'https://raw.githubusercontent.com/sgossner/VCSL/master/';
+  const file = 'Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/Sus/JHPiano_Sus_Close_A%230_vl4_rr1.wav';
+  const url = SS.vcslLocal(base, file);
+  assert.equal(url, 'samples/vcsl/Chordophones/Zithers/Grand_Piano_Steinway_B/Sus/JHPiano_Sus_Close_A_0_vl4_rr1.mp3');
+  assert.ok(fs.existsSync(path.join(__dirname, '..', url)), 'la copie locale existe');
+  assert.equal(SS.vcslLocal(base, 'Idiophones/Struck%20Idiophones/Glockenspiel/x.wav'), null, 'sans virgule : GitHub');
+});
