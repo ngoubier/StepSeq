@@ -80,6 +80,9 @@ Le menu de l'icône de l'application (**Nouvelle chanson sur ce projet…**, l'a
 voir « Nouvelle chanson » plus bas), sur le projet en cours. Ses deux premières étapes, **Style** puis **Instruments**, montent le groupe :
 
 1. le **style musical** : **Synthwave**, **EDM mélodique** ou **Techno mélodique** ;
+   la première tuile, **Créer de zéro**, part sans inspiration : un départ neutre (batterie, basse, piano ; 100 BPM,
+   Do majeur, quatre accords, Intro · Couplet · Refrain · Pont · Outro) que l'on remplace étape par étape (style `zero`,
+   `blank: true` ; plan `SS.BandSongs.zero` ; test `node tests/e2e/blank-start.js`) ;
 2. le **type de chanson** : 10 inspirations par style (Smalltown Boy, Nightcall, Blinding Lights, Sweet Dreams…,
    Levels, Strobe, Opus, Faded…, Powers of Ten, Eternity, Return to Oz, Sky and Sand, Your Mind, Rej…), avec un
    tempo suggéré ;

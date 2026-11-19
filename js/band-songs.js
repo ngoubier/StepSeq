@@ -609,6 +609,19 @@ SS.BandSongs = {
 
   /* ================= Styles de nov. 2026 : une chanson de démo chacun ================= */
 
+  // « Créer de zéro » : un départ neutre, quatre accords en Do majeur, sans effet ni couleur de style
+  zero: {
+    key: 'C major', groove: 'softpop', emotion: 'joie',
+    sections: {
+      intro: { bars: 4, chords: 'I | V | vi | IV', drums: 'hats', keys: 'sustain' },
+      verse: { bars: 8, chords: 'I | V | vi | IV', drums: 'main', bass: '8', keys: 'block4', lead: 'verse' },
+      chorus: { bars: 8, chords: 'IV | I | V | vi', drums: 'full', bass: '8', keys: 'pulse8', pad: 'sustain', lead: 'hook' },
+      bridge: { bars: 8, chords: 'vi | IV | I | V', drums: 'break', bass: 'whole', keys: 'sustain', pad: 'swell', lead: 'long' },
+      outro: { bars: 4, chords: 'I | V | IV | I', drums: 'light', bass: 'whole', keys: 'sustain', fill: false },
+    },
+    form: 'intro verse chorus verse chorus bridge chorus outro',
+  },
+
   // Pop-rock nerveux : guitare en croches du début à la fin, pré-refrain qui monte, refrain sur le IV
   brightside: {
     key: 'D♭ major', groove: 'rock', emotion: 'euphorie',

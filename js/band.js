@@ -103,6 +103,8 @@ SS.band = (() => {
   const tplStyle = () => (S.tplStyle && !cover() ? TPL().find((s) => s.id === S.tplStyle) || null : null);
   const tpl = () => (tplStyle() ? tplStyle().templates.find((t) => t.id === S.tplId) || tplStyle().templates[0] : null);
   const preset = () => (style() || { presets: [] }).presets.find((p) => p.id === S.presetId);
+  /** Départ « Créer de zéro » (style blank de js/band-presets.js) : pas d'inspiration à montrer. */
+  const blank = () => !cover() && !tplStyle() && !!(style() && style().blank);
   const BG = () => SS.bandGroup;
   const roleOf = (mu) => B().ROLES[mu.role];
   const labelOf = (mu) => mu.name || mu.label || roleOf(mu).label;
@@ -442,6 +444,38 @@ SS.band = (() => {
         g.stroke();
       }
     },
+    zero(g, w, h) {
+      // une grille de pas encore vide, et un « + » au centre : tout reste à écrire
+      const cols = 16;
+      const cell = Math.min(26, (w - 40) / cols);
+      const x0 = (w - cell * cols) / 2;
+      g.strokeStyle = 'rgba(160, 175, 200, 0.16)';
+      g.lineWidth = 1;
+      for (let r = 0; r < 4; r++)
+        for (let c = 0; c < cols; c++) {
+          g.globalAlpha = c % 4 === 0 ? 1 : 0.6;
+          g.strokeRect(x0 + c * cell + 3, 38 + r * 40, cell - 6, 28);
+        }
+      g.globalAlpha = 1;
+      g.fillStyle = '#101216';
+      g.beginPath();
+      g.arc(w / 2, h / 2, 46, 0, Math.PI * 2);
+      g.fill();
+      g.setLineDash([7, 6]);
+      g.strokeStyle = '#8fa3c0';
+      g.lineWidth = 2.5;
+      g.stroke();
+      g.setLineDash([]);
+      g.lineCap = 'round';
+      g.lineWidth = 5;
+      g.strokeStyle = '#dbe4f3';
+      g.beginPath();
+      g.moveTo(w / 2 - 18, h / 2);
+      g.lineTo(w / 2 + 18, h / 2);
+      g.moveTo(w / 2, h / 2 - 18);
+      g.lineTo(w / 2, h / 2 + 18);
+      g.stroke();
+    },
   };
   // styles de nov. 2026 : dessins simples, une idée par style
   Object.assign(ART, {
@@ -559,7 +593,7 @@ SS.band = (() => {
   });
   const ART_BG = {
     synthwave: ['#1b0b2e', '#3a0d4a'], edm: ['#06121f', '#0a2a4a'], ambient: ['#0d1a1a', '#173a3a'], techno: ['#0b0c0f', '#232830'], cinematic: ['#07090f', '#1d1a14'],
-    pop: ['#1c0d0d', '#3a1717'], funk: ['#1d1406', '#3a2a08'], hiphop: ['#0f140a', '#232f16'], dnb: ['#170812', '#2e0f24'], latin: ['#1f1006', '#3d2010'], soul: ['#170f0a', '#33221a'],
+    zero: ['#101216', '#1a1e26'], pop: ['#1c0d0d', '#3a1717'], funk: ['#1d1406', '#3a2a08'], hiphop: ['#0f140a', '#232f16'], dnb: ['#170812', '#2e0f24'], latin: ['#1f1006', '#3d2010'], soul: ['#170f0a', '#33221a'],
   };
   function drawArt(cv) {
     const id = cv.dataset.art;
@@ -595,8 +629,11 @@ SS.band = (() => {
   function renderStyles() {
     const box = $('#bandStyles');
     if (artObserver) artObserver.disconnect();
+    // « Créer de zéro » en premier : c'est une porte d'entrée, pas un style parmi d'autres
+    const styles = [...B().STYLES.filter((s) => s.blank), ...B().STYLES.filter((s) => !s.blank)];
     box.replaceChildren(
-      ...B().STYLES.map((s) => {
+      ...styles.map((s) => {
+        if (s.blank) return blankCard(s);
         const [lo, hi] = styleTempo(s);
         const on = s.id === S.styleId && !tplStyle();
         const cv = h('canvas', { class: 'bsty-art', 'data-art': s.id, 'aria-hidden': 'true' });
@@ -626,7 +663,35 @@ SS.band = (() => {
     const st = tplStyle() || style();
     $('#bandStyleDesc').textContent = (st || {}).desc || '';
     el.classList.toggle('tpl', !!tplStyle());
+    el.classList.toggle('blank', blank());
+    if (!cover()) $('#bandPresetsLabel').textContent = blank() ? 'Départ' : 'Type de chanson';
     renderStyleCard();
+  }
+  /** Tuile « Créer de zéro » : pas d'inspiration, un départ neutre que l'on remplace étape par étape. */
+  function blankCard(s) {
+    const on = s.id === S.styleId && !tplStyle();
+    const p = s.presets[0];
+    const cv = h('canvas', { class: 'bsty-art', 'data-art': s.id, 'aria-hidden': 'true' });
+    watchArt(cv);
+    return h(
+      'button',
+      { type: 'button', class: 'bsty bsty-blank' + (on ? ' active' : ''), role: 'radio', 'aria-checked': String(on), 'data-v': s.id, title: 'Sans inspiration : tu choisis les instruments, le tempo, la tonalité, les scènes et les accords', onclick: () => setStyle(s.id) },
+      cv,
+      h(
+        'span',
+        { class: 'bsty-body' },
+        h('span', { class: 'bsty-name' }, s.label),
+        h('span', { class: 'bsty-desc' }, s.desc),
+        h(
+          'dl',
+          { class: 'bsty-list' },
+          h('dt', {}, 'Départ'), h('dd', {}, `${p.tempo} BPM · ${styleKeys(s)}`),
+          h('dt', {}, 'Groupe'), h('dd', {}, p.musicians.filter((m) => !m.optional).map(labelOf).join(', ')),
+          h('dt', {}, 'Structure'), h('dd', { class: 'clamp' }, styleForm(s)),
+          h('dt', {}, 'Ensuite'), h('dd', {}, 'Tout se change à chaque étape')
+        )
+      )
+    );
   }
   /** Durée et nombre de pistes d'un modèle. */
   function tplInfo(t) {
@@ -673,6 +738,7 @@ SS.band = (() => {
     const st = style();
     const box = $('#bandStyleCard');
     if (!st || !box) return;
+    if (blank()) return box.replaceChildren(h('span', { class: 'bsc-lbl' }, 'Sans inspiration · un départ neutre, à changer étape par étape'));
     const [lo, hi] = styleTempo(st);
     const pos = (t) => `${(100 * (t - TEMPO_MIN)) / (TEMPO_MAX - TEMPO_MIN)}%`;
     box.replaceChildren(
@@ -718,7 +784,7 @@ SS.band = (() => {
             onclick: () => setPreset(p.id),
           },
           h('span', { class: 'bp-song' }, p.song),
-          h('span', { class: 'bp-artist' }, `${p.artist} · ${p.year}`),
+          h('span', { class: 'bp-artist' }, p.year ? `${p.artist} · ${p.year}` : p.artist),
           h('span', { class: 'bp-meta' }, `${p.tempo} BPM · ${p.musicians.filter((m) => !m.optional).length} musiciens`)
         )
       )
@@ -747,6 +813,23 @@ SS.band = (() => {
       return;
     }
     const p = preset();
+    if (blank()) {
+      $('#bandSong').replaceChildren(
+        h('div', { class: 'bs-kind' }, 'Créer de zéro'),
+        h('div', { class: 'bs-title' }, h('b', {}, 'Ta chanson, sans modèle')),
+        h('div', { class: 'bs-artist' }, `${p.tempo} BPM · ${styleKeys(style())} · ${styleForm(style())}`),
+        h('div', { class: 'bs-desc' }, p.desc),
+        h(
+          'ol',
+          { class: 'bs-zero' },
+          h('li', {}, h('b', {}, 'Instruments'), ' : ajoute, retire ou change les musiciens (2 à 10).'),
+          h('li', {}, h('b', {}, 'Tempo et tonalité'), ' : règle-les à ton goût.'),
+          h('li', {}, h('b', {}, 'Scènes et accords'), ' : écris ta structure et ta grille, scène par scène.'),
+          h('li', {}, h('b', {}, 'Instruments, scène par scène'), ' : choisis comment chacun joue.')
+        )
+      );
+      return;
+    }
     $('#bandSong').replaceChildren(
       h('div', { class: 'bs-kind' }, 'Inspiration'),
       h('div', { class: 'bs-title' }, h('b', {}, p.song)),
@@ -5795,7 +5878,7 @@ SS.band = (() => {
   const NEXT_VEL = { '-': 'x', x: 'o', o: '.', '.': '-' }; // case : éteinte → fort → moyen → léger → éteinte
   const velChar = (v) => (v >= 0.85 ? 'x' : v >= 0.6 ? 'o' : v > 0 ? '.' : '-');
   /** Style de la bibliothèque de motifs (celui du modèle, sinon synthwave). */
-  const drumStyle = () => (SS.DRUM_PATTERNS[S.styleId] ? S.styleId : 'synthwave');
+  const drumStyle = () => (SS.DRUM_PATTERNS[S.styleId] ? S.styleId : style() && style().blank ? 'pop' : 'synthwave');
   /** Noms des bibliothèques de motifs qui n'ont pas (encore) de style Band. */
   const DRUM_LIB_NAMES = { pop: 'Pop-rock', funk: 'Funk & Disco', hiphop: 'Hip-hop & Lo-fi', dnb: 'Drum & bass', latin: 'Latin, Afro & Reggae', soul: 'Soul & Jazz' };
   const drumLibName = (id) => (B().STYLES.find((s) => s.id === id) || {}).label || DRUM_LIB_NAMES[id] || id;

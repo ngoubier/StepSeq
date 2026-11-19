@@ -922,6 +922,34 @@ window.SS = window.SS || {};
         },
       ],
     },
+    /* « Créer de zéro » : pas d'inspiration. Un point de départ neutre (batterie, basse, piano ; Do majeur, 100 BPM,
+     * quatre accords, une structure courte) que l'on remplace étape par étape : instruments, tempo, tonalité, scènes,
+     * accords. La tuile est affichée en premier ; le style reste le dernier de la liste (le premier style ordinaire
+     * reste celui par défaut). */
+    {
+      id: 'zero',
+      label: 'Créer de zéro',
+      blank: true,
+      desc: 'Aucune inspiration : un groupe de base et une structure courte, et tu choisis tout toi-même.',
+      swing: 0,
+      presets: [
+        {
+          id: 'zero',
+          song: 'Ma chanson',
+          artist: 'De zéro',
+          year: '',
+          tempo: 100,
+          desc: 'Un départ neutre : batterie, basse et piano sur quatre accords. Ajoute ou retire des musiciens, change le tempo, la tonalité, les scènes et les accords.',
+          musicians: [
+            kit('drums', 'bd sd hh oh cr', 'RolandR8 LinnDrum RolandTR808 RolandTR909 AkaiMPC60 dirt808'),
+            m('bass', 'gm_electric_bass_finger gm_acoustic_bass syn_sqbass gm_synth_bass_1 j:A48 dirt_jvbass'),
+            m('keys', 'piano gm_epiano1 gm_epiano2 vcsl_fmpiano j:A27 gm_drawbar_organ', { label: 'Piano' }),
+            m('pad', 'syn_softpad gm_pad_warm gm_string_ensemble_1 j:A15 gm_synth_strings_1 syn_superpad', opt),
+            m('lead', 'gm_lead_2_sawtooth gm_flute syn_saw gm_alto_sax gm_trumpet j:A53', { label: 'Mélodie', optional: true }),
+          ],
+        },
+      ],
+    },
   ];
 
   // Effets et Percussionniste : facultatifs dans toutes les inspirations (l'étape « Effets et transitions » de l'assistant
