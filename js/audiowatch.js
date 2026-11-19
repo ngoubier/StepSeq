@@ -482,6 +482,8 @@ SS.audioWatch = (() => {
       `décrochages ${c.underruns}`,
       `retards ${snap.scheduling ? snap.scheduling.lateSteps : 0} (max ${snap.scheduling ? Math.round(snap.scheduling.maxLateMs) : 0} ms, tick max ${snap.scheduling && snap.scheduling.maxTickMs != null ? Math.round(snap.scheduling.maxTickMs) : '?'} ms)`,
       `voix ${snap.voices} juno ${snap.juno}`,
+      // filtres ladder / SEM encore vivants : doit rester proche du nombre de voix (sinon : fuite de nœuds)
+      SS.filters && SS.filters.aliveCount ? `filtres ${SS.filters.aliveCount()}` : null,
       `sortie ${snap.out ? (snap.out.peak > 0 ? dB(snap.out.peak).toFixed(1) : '-inf') + ' dBFS' : '?'}`,
       snap.light ? 'ALLÉGÉ' : null,
       SS.juno && SS.juno.isEco && SS.juno.isEco() ? 'JUNO ÉCO' : null,
@@ -623,7 +625,7 @@ SS.audioWatch = (() => {
     else L.push('audio non démarré');
     const pv = state.prev;
     L.push(`mesures : renderCapacity ${state.counters.load ? 'oui' : 'non/pas encore'} · playbackStats ${pv && pv.stats && pv.stats.underrunEvents != null ? 'oui' : 'non/pas encore'} · repli horloge ${state.counters.clockRatio != null ? 'oui' : 'non'}`);
-    if (a) L.push(`moteur : voix ${a.scheduledVoices} · juno ${a.junoEngines} · bus ${a.buses} · mastering ${a.masteringReady ? 'chargé' : 'non'} · tick max ${Math.round(a.scheduling.maxTickMs || 0)} ms · retards ${a.scheduling.lateSteps}`);
+    if (a) L.push(`moteur : voix ${a.scheduledVoices} · filtres ladder/SEM ${a.filterNodes ?? '?'} · juno ${a.junoEngines} · bus ${a.buses} · mastering ${a.masteringReady ? 'chargé' : 'non'} · tick max ${Math.round(a.scheduling.maxTickMs || 0)} ms · retards ${a.scheduling.lateSteps}`);
     L.push(`modes : Diagnostic ${diagMode() ? 'ON' : 'OFF'} · allègement auto ${autoLight() ? 'ON' : 'OFF'} · allégé ${SS.audio && SS.audio.isLight && SS.audio.isLight() ? 'ACTIF' : 'non'} · Auto Mix ${SS.automixListen && SS.automixListen.listening() ? 'écoute' : 'arrêté'}`);
     const c = state.counters;
     L.push(`compteurs (depuis Lecture) : décrochages ${c.underruns} · écrêtage ${c.clipped} · retards ${c.late} (max ${Math.round(c.maxLateMs)} ms) · horloge ${c.clockRatio != null ? (c.clockRatio * 100).toFixed(1) + '%' : 'n/d'} · charge ${c.load ? Math.round(c.load.average * 100) + '/' + Math.round(c.load.peak * 100) + '%' : 'n/d'}`);

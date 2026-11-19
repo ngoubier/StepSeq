@@ -42,11 +42,18 @@ function ssFiltersModule(scope) {
       super();
       this.mode = modeOf(options);
       this.s = [];
+      this.seen = false; // a déjà reçu le son de sa voix
     }
     process(inputs, outputs, parameters) {
       const input = inputs[0];
       const output = outputs[0];
-      if (!input || !input.length) return true; // la voix est terminée : le nœud sera ramassé
+      /*
+       * Pas d'entrée : la voix n'a pas encore commencé (on attend) ou elle est terminée. Une fois la voix
+       * finie, il faut renvoyer false : avec true, le navigateur garde le nœud vivant et le calcule à chaque
+       * bloc, pour toujours. Chaque note laissait ainsi un filtre fantôme, jusqu'aux coupures de son.
+       */
+      if (!input || !input.length) return !this.seen;
+      this.seen = true;
       const fr = parameters.frequency;
       const dt = parameters.detune;
       // résonance : 0..30 -> k 0..~3.9 (4 = auto-oscillation)
@@ -104,11 +111,13 @@ function ssFiltersModule(scope) {
       super();
       this.mode = modeOf(options);
       this.s = [];
+      this.seen = false; // a déjà reçu le son de sa voix
     }
     process(inputs, outputs, parameters) {
       const input = inputs[0];
       const output = outputs[0];
-      if (!input || !input.length) return true;
+      if (!input || !input.length) return !this.seen; // voix terminée : nœud libéré (voir Ladder)
+      this.seen = true;
       const fr = parameters.frequency;
       const dt = parameters.detune;
       // amortissement : 0..30 -> R 1..0.02 (Q 0.5..25)
@@ -182,6 +191,8 @@ SS.filters = (() => {
   }
 
   const ready = (ctx) => !!(state && state.ctx === ctx && state.ready);
+  let alive = 0; // filtres ladder / SEM de voix pas encore libérés (mesure de fuite, mode Diagnostic)
+  const aliveCount = () => alive;
 
   /**
    * Filtre d'une voix. Renvoie { input, output, freqs, detunes } où `freqs` liste les AudioParam de fréquence
@@ -208,7 +219,20 @@ SS.filters = (() => {
       node.parameters.get('q').value = Math.max(0, p.q);
       node.parameters.get('drive').value = Math.max(0, Math.min(1, p.fdrive ?? 0.5));
       const qp = node.parameters.get('q');
-      return { input: node, output: node, freqs: [node.parameters.get('frequency')], detunes: [node.parameters.get('detune')], qs: [{ param: qp, base: qp.value, max: 40 }] };
+      alive++;
+      let done = false;
+      // fin de la voix : on débranche le filtre (son entrée devient vide, le processeur renvoie false et s'arrête)
+      const dispose = () => {
+        if (done) return;
+        done = true;
+        alive--;
+        try {
+          node.disconnect();
+        } catch (e) {
+          /* déjà débranché */
+        }
+      };
+      return { dispose, input: node, output: node, freqs: [node.parameters.get('frequency')], detunes: [node.parameters.get('detune')], qs: [{ param: qp, base: qp.value, max: 40 }] };
     }
     const bq = (q) => {
       const f = ctx.createBiquadFilter();
@@ -227,5 +251,5 @@ SS.filters = (() => {
     return { input: f1, output: f2, freqs: [f1.frequency, f2.frequency], detunes: [f1.detune, f2.detune], qs };
   }
 
-  return { load, ready, create };
+  return { load, ready, create, aliveCount };
 })();
