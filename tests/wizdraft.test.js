@@ -103,3 +103,14 @@ test('panneau « Accents » : son état ouvert / replié est rangé, les valeurs
   assert.deepEqual(D.unpack(bad).w.accView, { a: 'open' });
   assert.deepEqual(D.unpack(D.pack(live())).w.accView, {}, 'ancien brouillon : panneau fermé');
 });
+
+test('bascule Assistant | Grille : changer d’étape ne met pas la grille « en retard », changer la chanson oui', () => {
+  const st = D.pack(live());
+  const d = { v: D.VERSION, savedAt: 2, createdAt: 1, state: st, builtSig: D.contentSig(st) };
+  assert.equal(D.pending(d), false);
+  assert.equal(D.clean(d).builtSig, d.builtSig, 'l’empreinte suit le brouillon');
+  const nav = { ...st, accOpen: !st.accOpen, w: { ...st.w, step: 7, hscene: 'x', mute: ['a'] } };
+  assert.equal(D.pending({ ...d, state: nav }), false);
+  assert.equal(D.pending({ ...d, state: { ...st, w: { ...st.w, tempo: 131 } } }), true);
+  assert.equal(D.pending({ v: 1, savedAt: 1, state: st }), true, 'jamais créée : pas dans la grille');
+});

@@ -5276,3 +5276,25 @@ body.kb-on .track.armed { box-shadow: inset 0 0 0 2px #e5484d; }
 @media (max-width: 900px) {
   .kb-dock { grid-template-columns: 1fr; }
 }
+
+/* ---------- Bascule Assistant | Grille (barre du haut) et bandeau de la grille (js/main.js syncView) ---------- */
+.view-seg { margin-left: 4px; flex-shrink: 0; }
+.view-seg button { padding: 5px 12px; font-weight: 600; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.view-seg button.active { color: #fff; }
+.view-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 0 2px var(--panel-3); }
+.wiz-banner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 7px 14px; font-size: 13px;
+  background: #2a2516; border-bottom: 1px solid #4a3e1d; flex-shrink: 0; }
+.wiz-banner-ic { color: var(--gold); }
+body.wizard-mode .wiz-banner { display: none; }
+/* pistes retouchées dans la grille (js/main.js markRetouched) et fenêtre « Mettre la grille à jour » (js/band.js showGridUpdate) */
+.th-retouch { margin-left: 6px; color: var(--gold); font-weight: 400; font-size: 12px; }
+.trk-badge { margin-left: 8px; font-size: 10.5px; padding: 1px 6px; border-radius: 9px; border: 1px solid; white-space: nowrap; font-weight: 400; }
+.trk-badge.retouch { color: #e0a03a; border-color: #6b5222; }
+.trk-badge.hand { color: #3fcf5a; border-color: #2f6a3a; }
+.bgu-card { max-width: 580px; }
+.bgu-list { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 12px; }
+.bgu-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.bgu-name { flex: 1; min-width: 140px; font-weight: 600; }
+.bgu-row small { color: var(--muted); font-size: 12px; }
+.bgu-seg button { padding: 4px 10px; font-size: 12px; }
+.bgu-note { font-size: 12px; color: var(--muted); }

@@ -29,6 +29,12 @@
         </div>
       </div>
       <input id="title" class="title-input" type="text" spellcheck="false" aria-label="Titre du projet">
+      <!-- Bascule Assistant | Grille : passer à tout moment de l'assistant « Nouvelle chanson » à la grille et revenir
+           (js/main.js initViewSwitch) ; le point doré : la grille n'a pas encore la chanson de l'assistant -->
+      <div class="segmented view-seg" id="viewSeg" role="radiogroup" aria-label="Vue">
+        <button type="button" id="viewWiz" role="radio" aria-checked="false" title="L’assistant « Nouvelle chanson », à l’étape où tu l’as laissé">✦ Assistant<span class="view-dot" id="viewDot" hidden></span></button>
+        <button type="button" id="viewGrid" role="radio" aria-checked="true" title="La grille : les pistes du projet (l’assistant garde son étape)">▦ Grille</button>
+      </div>
     </div>
 
     <div class="topbar-group">
@@ -152,6 +158,15 @@
       <span id="songTotal" class="song-total"></span>
     </div>
   </section>
+  </div>
+
+  <!-- Dans la grille : la chanson de l'assistant n'y est pas encore (ou l'assistant a changé depuis) -->
+  <div id="wizBanner" class="wiz-banner" role="status" hidden>
+    <span class="wiz-banner-ic" aria-hidden="true">✦</span>
+    <span id="wizBannerText"></span>
+    <span class="spacer"></span>
+    <button type="button" class="btn btn-small btn-accent" id="wizBannerPut">Mettre la chanson dans la grille</button>
+    <button type="button" class="btn btn-small" id="wizBannerBack">Continuer l’assistant</button>
   </div>
 
   <main id="workspace">
@@ -327,7 +342,7 @@
         <span class="spacer"></span>
         <span class="band-draft" id="bandDraft" role="status" aria-live="polite" hidden></span>
         <button type="button" class="btn wiz-only" id="bwEmpty" hidden title="Fermer l'assistant et partir d'une chanson vide">Chanson vide</button>
-        <button type="button" class="btn" id="bandClose" title="Fermer l'assistant sans rien créer (Échap)">Fermer</button>
+        <button type="button" class="btn" id="bandClose" title="Voir la grille : l'assistant garde son étape, rien n'est créé (Échap)">▦ Voir la grille</button>
       </footer>
     </div>
   </section>
@@ -1017,6 +1032,7 @@
   <script src="js/develop.js"></script>
   <script src="js/orchestra.js?v=vsco-1"></script>
   <script src="js/wizdraft.js"></script>
+  <script src="js/gridsync.js"></script>
   <script src="js/band.js"></script>
   <script src="js/midipanel.js"></script>
   <script src="js/render.js"></script>

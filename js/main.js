@@ -96,6 +96,7 @@
   }
   function changed() {
     dirty = true;
+    markRetouched();
     syncStudio();
     syncMeta();
     scheduleHistory();
@@ -121,6 +122,7 @@
   function setWizardDraft(d) {
     if (d) project.wizard = d;
     else delete project.wizard;
+    syncView();
     dirty = true;
     SS.autosave.schedule();
     clearTimeout(autosaveTimer);
@@ -225,7 +227,75 @@
     SS.ui.updateKeyButton();
     syncStudio();
     syncMeta();
+    syncView();
     document.title = project.title + ' — StepSeq';
+  }
+
+  /* ---------- Bascule Assistant | Grille (barre du haut) ----------
+   * L'assistant est une « recette » rangée dans le projet (project.wizard) ; la grille, ce sont les pistes du projet.
+   * Passer de l'un à l'autre ne crée ni n'efface rien : seul « Créer la chanson » (ou le bandeau) écrit les pistes. */
+  function syncView() {
+    const on = !!(SS.band && SS.band.active());
+    const d = project && project.wizard;
+    const late = !!(d && SS.wizDraft && SS.wizDraft.pending(d));
+    $('#viewWiz').classList.toggle('active', on);
+    $('#viewGrid').classList.toggle('active', !on);
+    $('#viewWiz').setAttribute('aria-checked', String(on));
+    $('#viewGrid').setAttribute('aria-checked', String(!on));
+    $('#viewDot').hidden = !late;
+    $('#viewWiz').title = late
+      ? 'L’assistant « Nouvelle chanson » : il a des changements qui ne sont pas encore dans la grille'
+      : d ? 'L’assistant « Nouvelle chanson », à l’étape où tu l’as laissé' : 'L’assistant « Nouvelle chanson », sur ce projet';
+    const banner = $('#wizBanner');
+    banner.hidden = on || !late;
+    if (!banner.hidden)
+      $('#wizBannerText').textContent = d.createdAt
+        ? 'L’assistant a des changements qui ne sont pas encore dans la grille.'
+        : 'La chanson de l’assistant n’est pas encore dans la grille : tu vois le projet tel qu’il était.';
+  }
+  /** Pistes de la grille retouchées à la main depuis la création par l'assistant : petit ✎ après leur nom (js/gridsync.js). */
+  let markTimer = 0;
+  function markRetouched() {
+    clearTimeout(markTimer);
+    markTimer = setTimeout(() => {
+      if (!SS.gridSync) return;
+      project.tracks.forEach((t) => {
+        const b = document.querySelector(`.track[data-id="${t.id}"] .th-name b`);
+        if (!b) return;
+        const on = SS.gridSync.retouched(project, t);
+        let m = b.querySelector('.th-retouch');
+        if (on && !m) {
+          m = document.createElement('span');
+          m.className = 'th-retouch';
+          m.textContent = '✎';
+          m.title = 'Retouchée dans la grille : gardée si tu mets la grille à jour depuis l’assistant (tu pourras aussi la régénérer)';
+          b.append(m);
+        } else if (!on && m) m.remove();
+      });
+    }, 300);
+  }
+  function initViewSwitch() {
+    new MutationObserver(markRetouched).observe($('#tracks'), { childList: true });
+    const toWizard = () => {
+      if (SS.band.active()) return;
+      if (project.wizard) SS.band.resume();
+      else SS.band.open();
+    };
+    $('#viewWiz').addEventListener('click', toWizard);
+    $('#viewGrid').addEventListener('click', () => SS.band.active() && SS.band.close());
+    $('#wizBannerBack').addEventListener('click', toWizard);
+    // « Mettre la chanson dans la grille » = « Créer la chanson » de l'assistant (avec sa confirmation si le projet a des pistes)
+    $('#wizBannerPut').addEventListener('click', () => {
+      if (project.wizard && SS.band.resume()) SS.band.create();
+    });
+    // flèches gauche / droite dans le sélecteur (groupe radio)
+    $('#viewSeg').addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      e.preventDefault();
+      const b = e.key === 'ArrowLeft' ? $('#viewWiz') : $('#viewGrid');
+      b.click();
+      b.focus();
+    });
   }
 
   /**
@@ -326,6 +396,7 @@
     $('#songsBtn').addEventListener('click', () => SS.mySongs.open());
     $('#resumeWizard').addEventListener('click', () => SS.band.resume());
     initAppMenu();
+    initViewSwitch();
     $('#openProject').addEventListener('click', openProject);
     $('#saveProject').addEventListener('click', (e) => saveProject(e.shiftKey));
   }
@@ -405,6 +476,7 @@
    */
   function wizardMode(on) {
     stop(); // le projet ne joue pas derrière l'assistant ; à la sortie, la barre repart de zéro
+    syncView();
     if (on) return SS.live && SS.live.setOn(false); // pas de mode Jouer dans l'assistant (pas de piste à armer)
     const play = $('#play');
     play.removeAttribute('aria-pressed');
@@ -574,12 +646,27 @@
    * Band : « Créer toute la chanson ». Remplace les pistes, les scènes et l'arrangement du projet par la chanson
    * écrite d'après le plan de l'inspiration (js/band-songs.js, js/bandsong.js). Ctrl+Z revient en arrière.
    */
-  function addBandSong(list, preset, tempo, { melodySeed = 0, melody = null, harmony = null, parts = null, kinds = null, gains = null, mix = null, groove = null, fx = null, bauto = null } = {}) {
+  function addBandSong(list, preset, tempo, { melodySeed = 0, melody = null, harmony = null, parts = null, kinds = null, gains = null, mix = null, groove = null, fx = null, bauto = null, keep = null } = {}) {
     // preset.spec : plan d'une reprise tapée dans l'assistant (porte « Reprendre »), jouée à la façon de l'inspiration
     const spec = preset.spec || (SS.BandSongs && SS.BandSongs[preset.id]);
     if (!spec) return addBandTracks(list, tempo, { replace: true });
     stop();
-    removeTracks(project.tracks.slice());
+    // mise à jour depuis l'assistant (keep : colonnes des pistes retouchées à garder) : ces pistes et celles ajoutées à
+    // la main restent telles quelles, avec leurs notes ; les autres sont régénérées (js/gridsync.js)
+    const kept = new Map();
+    const hand = [];
+    let oldScenes = [];
+    if (keep) {
+      SS.commitScene(project);
+      oldScenes = project.scenes;
+      const cols = new Set(list.map((o) => o.band && o.band.col).filter(Boolean));
+      project.tracks.forEach((t) => {
+        if (!t.band) hand.push(t);
+        else if (t.band.col && keep.includes(t.band.col)) (cols.has(t.band.col) ? kept.set(t.band.col, t) : hand.push(t));
+      });
+    }
+    const stay = new Set([...kept.values(), ...hand]);
+    removeTracks(project.tracks.filter((t) => !stay.has(t)));
     if (tempo) project.tempo = tempo;
     project.timeSig = [4, 4];
     const levelKeys = new Map();
@@ -594,7 +681,7 @@
     project.scenes = res.scenes.map(({ sec, spans, ...sc }) => sc); // eslint-disable-line no-unused-vars
     project.song = res.song;
     // mouvements de son gardés à l'étape Arrangement : automation par temps (js/beatauto.js), colonne → piste créée
-    if (bauto && SS.beatAuto) SS.beatAuto.applyPlan(project, bauto, (i) => created[i] && created[i].id);
+    if (bauto && SS.beatAuto) SS.beatAuto.applyPlan(project, bauto, (i) => created[i] && !kept.has(created[i].band && created[i].band.col) && created[i].id);
     project.playMode = 'song';
     project.songLoop = false;
     state.songStart = 0;
@@ -612,19 +699,51 @@
     if (preset.cover) project.title = preset.cover.title;
     else if (!project.title || project.title === 'Nouveau projet') project.title = `Dans l'esprit de ${preset.song}`;
     noteOrigin(project, 'assistant « Nouvelle chanson » : Créer la chanson', { style, inspiration: `${preset.id} (« ${preset.song} »${preset.artist ? ', ' + preset.artist : ''})`, reprise: preset.cover ? preset.cover.title : null, pistes: created.length, graineMelodie: melodySeed }, true);
+    if (keep) keepTracks(created, kept, hand, oldScenes);
     SS.loadScene(project, project.scenes[0].id, { commit: false });
+    // empreinte de chaque piste créée : la grille saura lesquelles on retouche (js/gridsync.js) ; les pistes gardées gardent la leur
+    if (SS.gridSync) project.tracks.forEach((t) => t.band && t.band.col && !stay.has(t) && (t.band.sig = SS.gridSync.trackSig(project, t)));
     state.openRolls.clear();
     SS.audio.applyAllFx(project);
     syncHeader();
     SS.ui.clearSelection();
     SS.ui.renderAll();
     SS.song.render();
-    created.forEach((t) => SS.audio.prepareTrack(t));
+    project.tracks.forEach((t) => SS.audio.prepareTrack(t));
     changed();
     const len = SS.songLength(project);
     const time = `${Math.floor(len.seconds / 60)}:${String(Math.round(len.seconds % 60)).padStart(2, '0')}`;
     const what = preset.cover ? `reprise « ${preset.cover.title} » créée, jouée à la façon de « ${preset.song} »` : `chanson créée dans l'esprit de « ${preset.song} » (${preset.artist})`;
     SS.ui.toast(`Band : ${what} · ${project.scenes.length} scènes, ${len.bars} mesures, ${time} · ${created.length} pistes. Mode Chanson : appuie sur ▶.`, 7000);
+  }
+
+  /**
+   * Mise à jour de la grille depuis l'assistant : les pistes gardées prennent la place de leur version régénérée (même
+   * colonne), les pistes ajoutées à la main suivent ; leurs notes passent des anciennes scènes aux nouvelles (même nom,
+   * sinon même position). Les sidechains qui visaient une piste remplacée visent la piste gardée.
+   */
+  function keepTracks(created, kept, hand, oldScenes) {
+    const match = SS.gridSync.matchScenes(oldScenes, project.scenes);
+    const moveData = (newId, old) =>
+      project.scenes.forEach((sc) => {
+        sc.data = sc.data || {};
+        if (newId) delete sc.data[newId];
+        const os = match.get(sc.id);
+        const d = os && os.data && os.data[old.id];
+        if (d) sc.data[old.id] = JSON.parse(JSON.stringify(d));
+      });
+    const swap = new Map();
+    const tracks = created.map((t) => {
+      const old = kept.get(t.band && t.band.col);
+      if (!old) return t;
+      swap.set(t.id, old.id);
+      SS.audio.removeTrack(t.id);
+      moveData(t.id, old);
+      return old;
+    });
+    hand.forEach((t) => moveData(null, t));
+    project.tracks = [...tracks, ...hand];
+    project.tracks.forEach((t) => t.fx && swap.has(t.fx.scSource) && (t.fx.scSource = swap.get(t.fx.scSource)));
   }
 
   function addBandTracks(list, tempo, { replace = false } = {}) {
