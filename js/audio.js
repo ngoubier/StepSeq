@@ -1116,10 +1116,14 @@ SS.audio = (() => {
   /* ---------------- Voix ---------------- */
 
   const voices = new Set();
-  function register(sources, gain) {
+  /** `done` (facultatif) : appelé quand la voix est finie, pour libérer ses nœuds (filtre ladder / SEM). */
+  function register(sources, gain, done) {
     const v = { sources, gain };
     voices.add(v);
-    sources[0].onended = () => voices.delete(v);
+    sources[0].onended = () => {
+      voices.delete(v);
+      if (done) done();
+    };
   }
   function silenceAll() {
     if (!ctx) return;
@@ -1442,7 +1446,7 @@ SS.audio = (() => {
     src.start(t);
     src.stop(chain.end);
     const mods = applyLfos(p, chain, { pitch: src.detune ? [src.detune] : [], pw: [] });
-    register([src, ...mods], chain.amp);
+    register([src, ...mods], chain.amp, chain.flt.dispose);
     return trackVoice([src], chain, baseMidi, src.detune ? [{ param: src.detune, offset: 0 }] : []);
   }
 
@@ -1620,7 +1624,7 @@ SS.audio = (() => {
       detunes.push({ param: so.detune, offset: 0 });
     }
     const mods = applyLfos(p, chain, { pitch: oscs.map((o) => o.detune), pw: pws });
-    register([...oscs, ...sources, ...mods], chain.amp);
+    register([...oscs, ...sources, ...mods], chain.amp, chain.flt.dispose);
     const v = trackVoice([...oscs, ...sources], chain, midi, detunes);
     v.follow = pws.map(({ param, base }) => ({ param, base }));
     return v;
@@ -2720,7 +2724,7 @@ SS.audio = (() => {
       context: ctx ? { state: ctx.state, sampleRate: ctx.sampleRate, baseLatency: ctx.baseLatency, outputLatency: ctx.outputLatency } : null,
       bufferBytes, buffers: seen.size, loadingAssets: loading, failedAssets, largestAssets: assets.slice(0, 5),
       // Ces voix Web Audio peuvent être en cours ou anticipées ; les voix DSP Juno sont internes au worklet.
-      scheduledVoices: voices.size, junoEngines: SS.juno?.engineCount?.() || 0, buses: buses.size, masteringReady: !!masterProc,
+      scheduledVoices: voices.size, filterNodes: SS.filters?.aliveCount?.() || 0, junoEngines: SS.juno?.engineCount?.() || 0, buses: buses.size, masteringReady: !!masterProc,
       scheduling: { ...scheduling },
       output: ctx ? levels('__master') : null,
       playing: seq.playing, paused: !!seq.paused,
