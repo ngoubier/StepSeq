@@ -68,11 +68,16 @@ async function measure(browser, { style, preset }) {
   }, secs);
   await page.goto(`http://localhost:${server.address().port}/index.html`);
   await page.waitForTimeout(1500);
-  await page.click('#appMenuBtn'); await page.click('#bandBtn');
-  await page.waitForTimeout(400);
+  // même départ que tools/render-band-song.js : projet vide, assistant jusqu'à Intégration, Créer la chanson
+  await page.click('#appMenuBtn'); await page.click('#newProject');
+  await page.waitForTimeout(600);
   await page.click(`#bandStyles [data-v="${style.id}"]`);
-  await page.click(`#bandPresets .band-preset >> nth=${style.presets.indexOf(preset)}`);
-  await page.click('#bandSongBtn');
+  if (!style.blank) await page.click(`#bandPresets .band-preset >> nth=${style.presets.indexOf(preset)}`);
+  for (let i = 0; i < 30 && (await page.evaluate(() => SS.band._state.wiz.step < SS.band.stepNum('pick'))); i++) {
+    await page.dispatchEvent('#bwNext', 'click');
+    await page.waitForTimeout(300);
+  }
+  await page.click('#bwCreate');
   await page.waitForTimeout(300);
   if (await page.isVisible('#bcfSong')) await page.click('#bcfSong');
   await page.waitForTimeout(1500);
