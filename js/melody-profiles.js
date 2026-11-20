@@ -96,8 +96,6 @@ SS.MELODY_PROFILES = {
 /** Profil neutre, quand la scène n'a pas d'émotion. */
 SS.MELODY_NEUTRAL = { name: 'Neutre', axes: [50, 50, 50, 40, 45, 40], contour: 'arch', target: 'third', ending: 'closed', ornaments: [], repeat: 'varied', motif: 'auto', character: 'inspiration' };
 
-SS.melodyProfileOf = (emoId) => SS.MELODY_PROFILES[emoId] || null;
-
 /** Les axes d'un profil sous forme d'objet { energy, light, … }. */
 SS.melodyAxesOf = (p) => Object.fromEntries(SS.MELODY_AXES.map((a, i) => [a.id, p.axes[i]]));
 

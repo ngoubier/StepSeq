@@ -2718,9 +2718,6 @@ SS.ui = (() => {
 
   /* ---------- Sélection à la souris ---------- */
 
-  /** Le geste du pointeur doit-il sélectionner (plutôt que poser / effacer des notes) ? */
-  const wantsSelect = (e) => selectMode || e.shiftKey || e.ctrlKey || e.metaKey;
-
   /**
    * Sélection rectangle sur la ligne compacte (kind = 'line', seulement le temps)
    * ou dans le piano roll (kind = 'roll', temps × hauteur).

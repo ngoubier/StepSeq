@@ -185,31 +185,6 @@ SS.junoPanel = (() => {
     return wrap;
   }
 
-  /** Inverseur à 3 positions (RANGE 4' / 8' / 16'), de haut en bas. */
-  function toggle3(key, values, labels, aria) {
-    const lever = el('span', 'jt-lever');
-    const sw = el('button', 'jtoggle three', {
-      type: 'button',
-      'aria-label': aria,
-      onclick: (e) => {
-        // clic dans le tiers haut / milieu / bas = position correspondante
-        const r = sw.getBoundingClientRect();
-        const i = Math.max(0, Math.min(2, Math.floor(((e.clientY - r.top) / r.height) * 3)));
-        set(key, values[e.detail === 0 ? (values.indexOf(params()[key]) + 1) % 3 : i]);
-      },
-    }, lever);
-    const lab = el('div', 'jt3-labels', { 'aria-hidden': 'true' }, ...labels.map((l) => el('span', '', { text: l })));
-    const wrap = el('div', 'jt-wrap jt3', {}, el('div', 'jt3-body', {}, lab, sw));
-    controls.push({
-      sync() {
-        const i = values.indexOf(params()[key]);
-        sw.dataset.pos = String(i);
-        sw.title = `${aria} : ${labels[i]}`;
-      },
-    });
-    return wrap;
-  }
-
   /** Interrupteur à 2 positions (haut / bas). */
   function toggle(key, upVal, upLabel, downVal, downLabel, aria) {
     const lever = el('span', 'jt-lever');

@@ -34,8 +34,8 @@
  *    (voicing médium 57-76, tempo nominal 120 BPM, boucle 0 : déterministe), les notes sont placées sur la grille de pas.
  *    one l'emporte sur mode ; il faut que js/arp.js soit chargé, sinon mode / plan ;
  *  - off : rôles muets dans la scène (['arp', 'lead']) ;
- *  - lead { events: [{ step, len, notes: [midi], vel }] } : la mélodie de la scène (étape Mélodie de l'assistant, panneau
- *    d'Harmonie). Elle remplace celle du moteur sur la première piste chantante présente (lead, puis vox, puis sax) ;
+ *  - lead { events: [{ step, len, notes: [midi], vel }] } : la mélodie de la scène (étape Mélodie de l'assistant).
+ *    Elle remplace celle du moteur sur la première piste chantante présente (lead, puis vox, puis sax) ;
  *    [] = silence ; elle joue aussi dans une scène où l'inspiration ne chante pas (sauf rôle coupé par off).
  *    Les autres pistes chantantes gardent leur mélodie.
  *
@@ -407,7 +407,7 @@ SS.bandSong = (() => {
     return out;
   }
   /**
-   * Accords d'une grille de l'assistant (comme la grille d’Harmonie : { step, len, degree, type, acc, bass? }, degrés dans
+   * Accords d'une grille de l'assistant (grille d’accords : { step, len, degree, type, acc, bass? }, degrés dans
    * la tonalité de la scène) → spans. Les trous sont comblés par l'accord précédent (le premier commence au début).
    */
   /**
@@ -997,7 +997,6 @@ SS.bandSong = (() => {
    */
   const RECIPES = ['b03'];
   function recipeBass(spans, mode, keyPcs, pedalPc, shift, add) {
-    const bassPcOf = (sp) => pedalPc ?? sp.chord.bassPc ?? sp.chord.rootPc;
     const low = (pc) => bassMidi(pc) + shift;
     const nearest = (pc, near) => {
       let m = near - pcOf(near) + pcOf(pc);
@@ -1761,7 +1760,7 @@ SS.bandSong = (() => {
    *     plans: { section: [{ bars, mode: 'on'|'hold'|'off', letter }] }, seeds: { section: { A: n, B: n… } },
    *     scenes: { section: { character, notes } } (caractère et notes par phrase propres à une scène) }
    *   harmony : accords et tonalités choisis dans l'assistant (étape Accords), par section :
-   *     { keys: { section: { tonic, mode } }, chords: { section: [grille d’Harmonie] }, emotions: { section: id } }
+   *     { keys: { section: { tonic, mode } }, chords: { section: [grille d’accords] }, emotions: { section: id } }
    *   parts : réglages par scène (batterie, basse, nappe, arpège, rôles muets), voir l'en-tête du fichier ; null = le plan tel quel
    *   fx : transitions et percussions d'ambiance (étape « Effets et transitions »), voir junctionDefaults ; null = le plan tel quel
    * → { key, scenes: [{ id, name, bars, key, emotion, data, spans }], song: [{ scene, repeat }] }

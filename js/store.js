@@ -174,8 +174,6 @@ SS.autosave = (() => {
   let file = null;
   const memHandles = new Map(); // repli si le lien ne peut pas être rangé dans IndexedDB
 
-  const fsSupported = () => typeof window.showSaveFilePicker === 'function';
-
   /* ---------- Indicateur ---------- */
   function hhmm(t) {
     return new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
@@ -339,7 +337,6 @@ SS.autosave = (() => {
     saveNow,
     songChanged,
     linkFile,
-    fsSupported,
     libraryAvailable: () => libOk,
     fileName: () => (file ? file.handle.name : null),
   };

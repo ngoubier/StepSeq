@@ -28,7 +28,6 @@ SS.automixPilot = (() => {
   const A = () => SS.automix;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const round = (v, step = 0.5) => Math.round(v / step) * step;
-  const dB = (x) => 10 * Math.log10(x);
 
   const P = {
     tau: 20, // s : mémoire de l'écoute
@@ -110,11 +109,6 @@ SS.automixPilot = (() => {
       for (const [key, p] of Object.entries(tk.pairs)) if (p.a === id || p.b === id) delete tk.pairs[key];
     });
     tk.recent = [];
-  }
-
-  /** Niveau d'une piste par rapport au mix (dB), depuis son dernier geste ; null si pas encore entendue. */
-  function relOf(s) {
-    return s && s.mk > 0 && s.k > 0 ? dB(s.k / s.mk) : null;
   }
 
   /**
@@ -339,5 +333,5 @@ SS.automixPilot = (() => {
     return actions;
   }
 
-  return { P, newTracker, feed, forget, relOf, plan, planMaster, planTrack, panTargets, rampSecs, ease };
+  return { P, newTracker, feed, forget, plan, planMaster, planTrack, panTargets, rampSecs, ease };
 })();

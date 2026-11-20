@@ -415,7 +415,7 @@ SS.melodyPanel = (() => {
           class: 'btn mel-scene',
           id: 'melFromScene',
           onclick: fromScene,
-          title: 'Lire les accords de la scène en cours (grille Harmonie ou pistes d’accords)',
+          title: 'Lire les accords de la scène en cours (grille d’accords ou pistes d’accords)',
         },
         'Reprendre les accords de la scène',
       )),
@@ -569,7 +569,7 @@ SS.melodyPanel = (() => {
   }
 
   /* ---------- Grille de la mélodie : accords en haut, notes en bas ---------- */
-  // fonction des accords (mêmes couleurs que la fenêtre Harmonie) et type des notes
+  // fonction des accords (mêmes couleurs que la piste Accords) et type des notes
   const CHORD_FN = {
     repos: { label: 'Repos', color: '#3fcf8e' },
     prep: { label: 'Préparation', color: '#f5c400' },
