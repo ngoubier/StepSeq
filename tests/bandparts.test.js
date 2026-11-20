@@ -44,11 +44,11 @@ test('sans parts, ou avec parts vide, la chanson est identique pour les 30 plans
   }
 });
 
-test('bibliothèque : 10 styles (28 motifs pour les 4 styles Band, 16 pour les autres) bien formés', () => {
+test('bibliothèque : 10 styles (28 motifs pour les 4 styles Band, 16 pour les autres, 26 pour Latin) bien formés', () => {
   assert.deepEqual(Object.keys(SS.DRUM_PATTERNS).sort(), ['ambient', 'dnb', 'edm', 'funk', 'hiphop', 'latin', 'pop', 'soul', 'synthwave', 'techno']);
   const ids = new Set();
   for (const [style, list] of Object.entries(SS.DRUM_PATTERNS)) {
-    assert.equal(list.length, ['synthwave', 'edm', 'ambient', 'techno'].includes(style) ? 28 : 16, style);
+    assert.equal(list.length, ['synthwave', 'edm', 'ambient', 'techno'].includes(style) ? 28 : style === 'latin' ? 26 : 16, style);
     for (const p of list) {
       assert.match(p.id, /^[a-z0-9]+(-[a-z0-9]+)*$/, p.id);
       assert.ok(!ids.has(p.id), 'id en double : ' + p.id);

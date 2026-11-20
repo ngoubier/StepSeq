@@ -93,7 +93,7 @@ const ok = (c, m) => {
   // bibliothèque d'un autre style : un dembow dans une chanson synthwave, puis « Tous les styles »
   await page.selectOption('#bwpLib', 'latin');
   await page.waitForTimeout(250);
-  ok((await page.locator('.bwp-pat').count()) === 17, 'bibliothèque Latin, Afro & Reggae : 16 motifs');
+  ok((await page.locator('.bwp-pat').count()) === 27, 'bibliothèque Latin, Afro & Reggae : 26 motifs');
   await page.click('.bwp-pat[data-id="dembow"]');
   await page.waitForTimeout(500);
   const dv = await part('verse', 'drums');
