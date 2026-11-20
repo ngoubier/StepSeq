@@ -238,6 +238,18 @@ SS.DRUM_PATTERNS = {
       D('bossa-balais', 'Bossa : balais', 1, { H: '.o.o.o.o.o.o.o.o', R: 'x--x--x---x--x--' }, 'Sans kick, juste les balais et la clave'),
       D('afrobeat-70', 'Afrobeat 70s', 3, { K: 'x-----x---x--x--', S: '----x--o----x---', H: 'x-o-x-o-x-o-x-o-', P: 'x--.--o---o-x---' }, 'Batterie qui ne s’arrête jamais, clave aux congas'),
       D('dancehall', 'Dancehall', 2, { K: 'x-----x-x-------', S: '---x--x----x--x-', H: 'x-o-x-o-x-o-x-o-' }, 'Kick bondissant, caisse en 3-3-2'),
+      // Salsa (nov. 2026) : une mesure = un cycle de clave en croches ; bombo sur le « et » du 2, tumbao aux congas
+      D('salsa-cascara', 'Salsa : cascara', 2, { K: '---x-------x----', R: 'x.ox.o.xo.xo.x.o', H: '--o---o---o---o-', P: 'o.x.o.xxo.x.o.xx' }, 'Cascara sur le fût, bombo, tumbao aux congas'),
+      D('salsa-mambo', 'Salsa : mambo', 3, { K: '---x-------x----', S: '---.---o---.--xr', R: '--x-x---x--x--x-', O: 'x-oox-o-x-oox-o-', P: 'o.x.o.xxo.x.o.xx' }, 'Campana à la cloche de ride, clave 2-3, abanico en fin de mesure'),
+      D('salsa-romantica', 'Salsa romántica', 1, { K: '---o-------o----', R: 'o--o--o---o-o---', H: '..o...o...o...o.', P: '.-o-.-oo.-o-.-oo' }, 'Douce : clave 3-2 au rim, congas feutrées'),
+      D('songo', 'Songo', 3, { K: '---x---x---x--x-', S: '.o.x..o..ox..o.x', O: 'x-o-x-o-x-o-x-o-', P: 'o.x.o.xxo.x.o.xx' }, 'Salsa moderne : caisse pleine de ghost notes'),
+      D('cha-cha', 'Cha-cha-chá', 1, { K: 'x-------x-----o-', R: '----x-------x---', O: 'x---o---x---o---', P: 'x-o-x-o-x-o-xoxo' }, 'Güiro qui finit en « cha-cha-chá »'),
+      D('salsa-congas', 'Salsa : congas et clave', 1, { R: 'x--x--x---x-x---', P: 'o.x.o.xxo.x.o.xx' }, 'Pont : clave 3-2 et tumbao seuls'),
+      // Reggae (nov. 2026)
+      D('one-drop-ghost', 'One drop : ghost notes', 1, { K: '--------x-------', R: '--------x-------', S: '--.---.-----.-.-', H: 'x.o.x.o.x.oxx.o.', O: '-------------x--' }, 'One drop vivant : caisse fantôme, charleston qui respire'),
+      D('rocksteady', 'Rocksteady', 2, { K: '--------x-----o-', S: '----x--.----x---', H: 'x-o-x-o-x-o-x-o-' }, 'Plus lent que le ska : caisse sur 2 et 4, kick sur le 3'),
+      D('ska', 'Ska', 3, { K: 'x-------x-------', S: '----x--.----x-.-', H: 'o---o---o---o---', O: '--x---x---x---x-' }, 'Charleston ouvert à contretemps, ça sautille'),
+      D('nyabinghi', 'Nyabinghi', 1, { K: 'x-------o-------', R: '----o-------o---', P: 'x--ox--ox--ox--o' }, 'Tambours rasta en battement de cœur'),
     ],
     soul: [
       D('neo-soul', 'Neo-soul', 2, { K: 'x------x-x------', S: '----x--.--.-x--.', H: 'x-o.x-o-x-o.x-o-' }, 'En retard, très swingué'),
