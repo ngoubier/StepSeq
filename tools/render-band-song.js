@@ -71,10 +71,13 @@ const server = http.createServer((req, res) => {
   }, SECS);
   await page.goto(`http://localhost:${server.address().port}/index.html`);
   await page.waitForTimeout(1500);
-  await page.click('#appMenuBtn'); await page.click('#bandBtn');
-  await page.waitForTimeout(400);
+  // « Nouvelle chanson… » part d'un projet vide : « Nouvelle chanson sur ce projet » ouvrirait d'abord la fenêtre
+  // « Reprendre la grille dans l'assistant » (le projet de démonstration a des pistes), qui bloque les clics
+  await page.click('#appMenuBtn'); await page.click('#newProject');
+  await page.waitForTimeout(600);
   await page.click(`#bandStyles [data-v="${style.id}"]`);
-  await page.click(`#bandPresets .band-preset >> nth=${style.presets.indexOf(preset)}`);
+  // « Créer de zéro » (style blank) n'a pas de liste d'inspirations
+  if (!style.blank) await page.click(`#bandPresets .band-preset >> nth=${style.presets.indexOf(preset)}`);
   // assistant Nouvelle chanson : Suivant jusqu'à Intégration, puis Créer la chanson (toutes les pistes cochées)
   // jusqu'à l'étape Intégration, la dernière (son numéro dépend du nombre d'instruments : SS.band.stepNum('pick'))
   for (let i = 0; i < 30 && (await page.evaluate(() => SS.band._state.wiz.step < SS.band.stepNum('pick'))); i++) {
