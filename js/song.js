@@ -65,17 +65,18 @@ SS.song = (() => {
     $('#sceneList').replaceChildren(...chips);
 
     // arrangement
-    const maxW = 260;
+    const maxW = 200;
     const blocks = pr.song.map((b, i) => {
       const sc = sceneOf(b.scene);
       if (!sc) return null;
       const bars = barsOf(sc) * b.repeat;
       const letter = String.fromCharCode(65 + (pr.scenes.indexOf(sc) % 26));
+      const rep = i === playing ? `${playingRep + 1}/${b.repeat}` : `×${b.repeat}`;
       return h(
         'div',
         {
           class: 'song-block' + (i === app.state.songStart ? ' start' : '') + (i === playing ? ' playing' : '') + (sc.id === pr.current ? ' editing' : ''),
-          style: `width:${Math.min(maxW, 156 + bars * 4)}px`, // un peu plus large pour les blocs longs
+          style: `--w:${Math.min(maxW, 80 + bars * 4)}px`, // au moins la place du nom, plus large pour les blocs longs
           title: `${sc.name} : ${barsOf(sc)} mesure(s) × ${b.repeat}. Cliquer pour partir d'ici et éditer cette scène.`,
           onclick: (e) => {
             if (e.target.closest('button')) return;
@@ -83,12 +84,14 @@ SS.song = (() => {
             app.switchScene(sc.id);
           },
         },
-        h('div', { class: 'sb-name' }, h('b', {}, letter), ' ', sc.name),
+        h('b', { class: 'sb-letter' }, letter),
+        h('span', { class: 'sb-name' }, sc.name),
+        h('span', { class: 'sb-rep' }, rep),
         h(
-          'div',
+          'span',
           { class: 'sb-tools' },
           h('button', { type: 'button', title: 'Une répétition de moins', onclick: () => setRepeat(i, b.repeat - 1) }, '−'),
-          h('span', { class: 'sb-rep' }, i === playing ? `${playingRep + 1}/${b.repeat}` : `×${b.repeat}`),
+          h('span', { class: 'sb-rep' }, rep),
           h('button', { type: 'button', title: 'Une répétition de plus', onclick: () => setRepeat(i, b.repeat + 1) }, '+'),
           h('button', { type: 'button', title: 'Avancer plus tôt', onclick: () => moveBlock(i, -1), disabled: i === 0 }, '‹'),
           h('button', { type: 'button', title: 'Reculer plus tard', onclick: () => moveBlock(i, 1), disabled: i === pr.song.length - 1 }, '›'),
@@ -111,7 +114,9 @@ SS.song = (() => {
       h('option', { value: '' }, '+ Ajouter…'),
       pr.scenes.map((sc) => h('option', { value: sc.id }, sc.name))
     );
-    $('#songBlocks').replaceChildren(...blocks.filter(Boolean), add);
+    $('#songBlocks').replaceChildren(...blocks.filter(Boolean));
+    $('#songAddSlot').replaceChildren(add);
+    updateScrollers();
 
     const len = SS.songLength(pr);
     $('#songTotal').textContent = `${len.bars} mesures · ${fmtTime(len.seconds)}`;
@@ -221,6 +226,7 @@ SS.song = (() => {
   function applyPin() {
     $('#songDock').hidden = !pinned();
     $('#songPin').checked = pinned();
+    if (pinned()) requestAnimationFrame(updateScrollers);
   }
 
   /** Contenu d'une scène : pour la scène en cours, les pistes elles-mêmes ; sinon ce qui est rangé dans la scène. */
@@ -620,9 +626,44 @@ SS.song = (() => {
     applyPin();
   }
 
+  /* Panneau compact : chaque ligne défile (molette, flèches ‹ ›) au lieu de passer à la ligne. */
+  function updateScrollers() {
+    document.querySelectorAll('#songBar .songbar-scroll').forEach((wrap) => {
+      const list = wrap.firstElementChild;
+      const max = list.scrollWidth - list.clientWidth;
+      const row = wrap.parentElement;
+      row.classList.toggle('overflow', max > 1);
+      wrap.classList.toggle('more-l', list.scrollLeft > 2);
+      wrap.classList.toggle('more-r', list.scrollLeft < max - 2);
+      const [prev, next] = [wrap.previousElementSibling, wrap.nextElementSibling];
+      prev.disabled = list.scrollLeft <= 2;
+      next.disabled = list.scrollLeft >= max - 2;
+    });
+  }
+  function initScrollers() {
+    document.querySelectorAll('#songBar .songbar-scroll').forEach((wrap) => {
+      const list = wrap.firstElementChild;
+      list.addEventListener('scroll', updateScrollers, { passive: true });
+      list.addEventListener(
+        'wheel',
+        (e) => {
+          if (Math.abs(e.deltaY) <= Math.abs(e.deltaX) || list.scrollWidth <= list.clientWidth) return;
+          list.scrollLeft += e.deltaY;
+          e.preventDefault();
+        },
+        { passive: false }
+      );
+      [wrap.previousElementSibling, wrap.nextElementSibling].forEach((a) =>
+        a.addEventListener('click', () => list.scrollBy({ left: +a.dataset.dir * list.clientWidth * 0.7, behavior: 'smooth' }))
+      );
+    });
+    window.addEventListener('resize', updateScrollers);
+  }
+
   function init(appApi) {
     app = appApi;
     initWindow();
+    initScrollers();
     $('#songMode').addEventListener('click', (e) => {
       const b = e.target.closest('button');
       if (!b) return;
