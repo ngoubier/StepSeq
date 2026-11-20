@@ -206,7 +206,7 @@ SS.findEmotion = (id) => SS.EMOTIONS.find((e) => e.id === id) || null;
 
 /**
  * Les modes rangés du plus lumineux au plus sombre, avec les intentions qui leur correspondent le mieux
- * (fenêtre Harmonie, onglet Ambiance et assistant). Chaque intention apparaît une fois, sous le mode le plus
+ * (assistant Nouvelle chanson). Chaque intention apparaît une fois, sous le mode le plus
  * fréquent de ses grilles (ses trois pistes et ses grilles de référence) ; les modes caractéristiques
  * (lydien, mixolydien, mineur harmonique, phrygien) gardent l'intention qu'ils colorent le mieux.
  * Réévalué avec la bibliothèque complète (guide MusicEmotion et 42 fiches Piano Diary) : la nostalgie, la tendresse,

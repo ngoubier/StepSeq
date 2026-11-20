@@ -992,7 +992,7 @@ SS.melody = (() => {
   const keyLabel = (key) => H().label(key).replace(/^\S+/, key.tonic);
 
   /**
-   * Fonction d'un accord dans la tonalité (fenêtre Harmonie : repos, préparation, tension, couleur du mode),
+   * Fonction d'un accord dans la tonalité (repos, préparation, tension, couleur du mode),
    * ou « emprunt » quand sa fondamentale est hors de la gamme. → { id, label, text, borrowed }
    */
   function chordFunction(chord, key) {
@@ -1019,7 +1019,7 @@ SS.melody = (() => {
   }
 
   /* ================================================================== */
-  /* Vérification d'une mélodie déjà écrite (onglet Vérifier d’Harmonie)     */
+  /* Vérification d'une mélodie déjà écrite (onglet Vérifier de l’assistant) */
   /* ================================================================== */
   /**
    * Contrôles d'une ligne mélodique posée sur des accords.

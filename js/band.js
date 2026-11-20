@@ -19,13 +19,13 @@
  *     écouter) ; changer la tonalité transpose toutes les scènes ;
  *  4. Scènes : vue session (scènes × pistes) et arrangement : ordre des blocs (glisser-déposer, ‹ ›), répétitions,
  *     longueur, nom, duplication et suppression des scènes ; écoute de la chanson dans l'ordre choisi ;
- *  5. Accords : la grille de chaque scène (comme dans Harmonie) et la fenêtre « Trouver l'inspiration » ;
+ *  5. Accords : la grille de chaque scène et la fenêtre « Trouver l'inspiration » ;
  *  Instruments, scène par scène : une étape par instrument du groupe (6 à 5 + n ; le kit de batterie, toutes ses pièces, est
  *     un seul onglet ; « fx » n'en a pas). Tête « 07 Synth Bass », le type en lecture seule (le select de l’étape 2 appelle setKind), la barre de piste
  *     (Mix : Muet, Seule ; le son et le kit se choisissent à l'étape Instruments) et la colonne des scènes, puis l'éditeur du type — batterie (20 motifs, grille 5 pistes × 16 pas, fills,
  *     crash ; pour un instrument qui n'est pas un kit : motifs et « les deux / grosse caisse / caisse claire »), basse (mode de
  *     jeu, pédale, registre, approche), accords (mode de jeu, voicing), arpèges (Arp One), mélodie (l'onglet Mélodie
- *     d'Harmonie, js/melodypanel.js : intention, motif, structure, Générer / Une autre / Variante B). Les réglages sont ceux de
+ *     de js/melodypanel.js : intention, motif, structure, Générer / Une autre / Variante B). Les réglages sont ceux de
  *     l'instrument et de la scène : parts[section].inst[id] (instPartOf, putInstPart) ;
  *  Finaliser
  *  n+6. Effets et transitions : la frise des scènes et, à chaque jonction, montée de bruit, passe-haut global, cymbale inversée,
@@ -1868,7 +1868,7 @@ SS.band = (() => {
    *  3. Tempo et tonalité : tempo, tonalité de la chanson (transpose toutes les scènes), gamme à écouter ;
    *  4. Scènes : toute la chanson en vue « session » — une ligne par scène, une colonne par piste — et l'arrangement
    *     (ordre des blocs, répétitions, longueur, nom, duplication, suppression) ;
-   *  5. Accords : la grille de chaque scène (tonalité, accords au temps, palette Simple / Avancé, comme dans Harmonie) ;
+   *  5. Accords : la grille de chaque scène (tonalité, accords au temps, palette Simple / Avancé) ;
    *     « Trouver l'inspiration » ouvre une fenêtre mode → émotion → propositions, à écouter avant de « Choisir » ;
    *  6… : un onglet par instrument (voir l'en-tête du fichier) : son type, puis les réglages de ce type pour chaque scène ;
    *  Mix : volume, pan, effets et Master de chaque instrument, pour toute la chanson ou une scène (S.wiz.mix, js/wizmix.js) ;
@@ -2280,7 +2280,7 @@ SS.band = (() => {
     if (has(2)) return 'sus2';
     return '5';
   }
-  /** Accords d'une partie tapée : { spans, bars, errors } (grille d’Harmonie : « | » sépare les mesures, « . » prolonge, « % » répète). */
+  /** Accords d'une partie tapée : { spans, bars, errors } (grille d’accords : « | » sépare les mesures, « . » prolonge, « % » répète). */
   function coverParse(text) {
     if (!String(text || '').trim()) return { spans: [], bars: 0, errors: ['pas d’accords'] };
     try {
@@ -2437,36 +2437,6 @@ SS.band = (() => {
   function keptKinds() {
     const ids = new Set(wizCols().map((c) => c.id));
     return Object.fromEntries(Object.entries((S.wiz && S.wiz.kinds) || {}).filter(([id]) => ids.has(id)));
-  }
-  /**
-   * Convertit des parts par rôle en parts par instrument : chaque réglage de rôle (basse, nappe, arpège…) est copié sur
-   * les instruments de ce rôle (parts[sec].inst[id]), la batterie sur le kit (clé : id du musicien), et « off » devient
-   * inst[id].off. Les réglages déjà par instrument l'emportent. Ne modifie pas parts.
-   */
-  function partsToInst(parts, cols) {
-    const out = {};
-    for (const [sec, part] of Object.entries(parts || {})) {
-      const p = { ...part };
-      const inst = { ...(p.inst || {}) };
-      const put = (key, o) => (inst[key] = { ...o, ...(inst[key] || {}) });
-      for (const role of Object.keys(p)) {
-        if (['inst', 'off', 'lead'].includes(role)) continue;
-        const mine = cols.filter((c) => c.role === role);
-        if (!mine.length) continue;
-        if (role === 'drums') put(mine[0].musician, p[role]);
-        else mine.forEach((c) => put(c.id, p[role]));
-        delete p[role];
-      }
-      for (const role of p.off || []) {
-        const mine = cols.filter((c) => c.role === role);
-        (role === 'drums' ? mine.slice(0, 1).map((c) => c.musician) : mine.map((c) => c.id)).forEach((key) => put(key, { off: true }));
-      }
-      if (cols.some((c) => (p.off || []).includes(c.role))) p.off = (p.off || []).filter((r) => !cols.some((c) => c.role === r));
-      if (!(p.off && p.off.length)) delete p.off;
-      if (Object.keys(inst).length) p.inst = inst;
-      out[sec] = p;
-    }
-    return out;
   }
   /** Réglage d'un instrument dans une scène : le sien (parts[sec].inst[id]), sinon celui de son rôle. */
   function instPartOf(sec, c) {
@@ -3199,7 +3169,7 @@ SS.band = (() => {
 
   /* ---------- Étape Mélodie (accords, phrases de la mélodie, instruments) ----------
    * À gauche les scènes (dans l'ordre d'arrivée, avec leurs accords en résumé) ; à droite la scène choisie : la
-   * piste d'accords en haut, dessinée comme dans Harmonie (degré, nom, rôle : repos / préparation / tension), puis les
+   * piste d'accords en haut (degré, nom, rôle : repos / préparation / tension), puis les
    * instruments. Une note pleine appartient à l'accord du moment ; en creux, c'est une note de passage.
    * La batterie, sans hauteur de note, est masquée par défaut (interrupteur « Batterie »).
    */
@@ -3289,7 +3259,7 @@ SS.band = (() => {
 
   /**
    * Étape Mélodie, pour la scène choisie : titre, grille en lecture seule (accords et mélodie qui joue), puis l'onglet
-   * Mélodie d'Harmonie (js/melodypanel.js) ; l'accompagnement (Muet / Solo / volume, menu « Pistes ») est dessous.
+   * Mélodie (js/melodypanel.js) ; l'accompagnement (Muet / Solo / volume, menu « Pistes ») est dessous.
    * Renvoie les morceaux de la page : ils sont redessinés sans toucher au panneau (refreshMelFrame).
    */
   function melScene(cols, res, sc, T) {
@@ -3488,7 +3458,7 @@ SS.band = (() => {
     SS.melodyPanel.setState(w.melPanel[k] || null);
     w.melSec = k;
   }
-  /** On quitte l'étape (ou l'assistant) : l'état du panneau est rangé, Harmonie repart d'un panneau neuf. */
+  /** On quitte l'étape (ou l'assistant) : l'état du panneau Mélodie est rangé, le panneau repart à neuf. */
   function leaveMel() {
     const w = S.wiz;
     if (!w || w.melSec == null) return;
@@ -3769,8 +3739,8 @@ SS.band = (() => {
     }
   }
 
-  /* ---------- Étape Accords : la grille de chaque scène, comme dans Harmonie ----------
-   * La grille est celle d’Harmonie ({ step, len, degree, type, acc }, en pas de double-croche, degrés dans la tonalité
+  /* ---------- Étape Accords : la grille de chaque scène ----------
+   * La grille ({ step, len, degree, type, acc }, en pas de double-croche, degrés dans la tonalité
    * de la scène) : changer de tonalité garde les degrés. Tant qu'on n'y touche pas, c'est celle de l'inspiration.
    * Elle couvre toute la scène : un trou est tenu par l'accord d'avant (comme à l'écoute).
    */
@@ -3853,14 +3823,14 @@ SS.band = (() => {
       setTimeout(() => elx.classList.remove('sounding'), 450);
     }
   }
-  /** Tonalité d'une scène : la nouvelle garde les degrés de la grille (comme dans Harmonie). */
+  /** Tonalité d'une scène : la nouvelle garde les degrés de la grille. */
   function setSceneKey(sc, k) {
     if (!S.wiz.grids[sc.sec]) S.wiz.grids[sc.sec] = specGrid(sc); // les accords gardent leurs degrés
     S.wiz.keys[sc.sec] = k;
     renderWiz();
   }
 
-  /* ---------- Repris d'Harmonie : guide du mode, grilles de la tonalité, essais A/B ---------- */
+  /* ---------- Guide du mode, grilles de la tonalité, essais A/B ---------- */
   const AB_IDS = ['seventh', 'sus2', 'mode', 'avoid', 'pedal'];
   /** Une ligne : la note caractéristique du mode, ce qu'il faut faire entendre et une boucle d'essai (guide MusicEmotion). */
   function modeGuide(k) {
@@ -3892,7 +3862,7 @@ SS.band = (() => {
     const g = fitProposal({ grid: seq }, sc.bars);
     editGrid(sc, (gg) => void gg.splice(0, gg.length, ...g));
   }
-  /** Grilles de la tonalité (catalogue d'Harmonie, js/harmony.js PROGRESSIONS) : un accord par mesure. */
+  /** Grilles de la tonalité (catalogue js/harmony.js PROGRESSIONS) : un accord par mesure. */
   function progSelect(sc, k) {
     const list = HM().progressions(k);
     if (!list.length) return null;
@@ -3973,7 +3943,7 @@ SS.band = (() => {
   }
 
   /**
-   * Vérifier (ex-onglet d'Harmonie) : la grille de la scène (centre, cadences, fin, emprunts) et la mélodie de chaque
+   * Vérifier : la grille de la scène (centre, cadences, fin, emprunts) et la mélodie de chaque
    * instrument mélodique sur cette grille (notes exposées, tessiture, fin… : SS.melody.checkMelody).
    */
   const CK_ICON = { ok: '✓', warn: '!', tip: '•', info: 'i' };
@@ -6999,7 +6969,7 @@ SS.band = (() => {
 
   /* ---------- Commande de l'écoute : la barre du haut de l'application ----------
    * Dans l'assistant (body.wizard-mode), Lecture / Stop, tempo et position de la barre du haut pilotent l'écoute
-   * (js/main.js route vers togglePlay, stopListen et setTempo) ; la tonalité s'affiche à la place d'Harmonie et Song.
+   * (js/main.js route vers togglePlay, stopListen et setTempo) ; la tonalité s'affiche à la place des boutons Tonalité et Song.
    * Le tempo vaut pour l'écoute et pour « Créer la chanson » ; il revient à celui de l'inspiration si on en change.
    */
   const TEMPO_MIN = 40;
@@ -9828,5 +9798,5 @@ SS.band = (() => {
     });
   }
 
-  return { init, open, openWizard, resume, close: () => leave(), create: () => S.wiz && createWizSong(), hasDraft, wizSnapshot, wizRestore, draftWhen, active, togglePlay, stopListen, setTempo, plannedTracks, instKind, setKind, insSteps, stepRef, stepNum, partsToInst, instPartOf, putInstPart, melodyTrackOpts, claude, _state: S, _listen: () => L.proj };
+  return { init, open, openWizard, resume, close: () => leave(), create: () => S.wiz && createWizSong(), hasDraft, wizSnapshot, wizRestore, draftWhen, active, togglePlay, stopListen, setTempo, plannedTracks, instKind, setKind, insSteps, stepRef, stepNum, instPartOf, putInstPart, melodyTrackOpts, claude, _state: S, _listen: () => L.proj };
 })();

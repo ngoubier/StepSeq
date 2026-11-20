@@ -730,7 +730,7 @@
     // bus d'effets partagés, sidechain, caisse claire « posée » ; puis petite humanisation de tout le groupe
     const style = (created.find((t) => t.band) || { band: {} }).band.style || 'synthwave';
     SS.bandMix.mixTracks(created, levelKeys, style);
-    // volumes réglés dans l'assistant (étape Harmonie) : en plus ou en moins du mixage automatique
+    // volumes réglés dans l'assistant (étape Mélodie) : en plus ou en moins du mixage automatique
     if (gains) created.forEach((t, i) => gains[i] != null && gains[i] !== 1 && (t.volume = Math.round((typeof t.volume === 'number' ? t.volume : 0.8) * gains[i] * 1000) / 1000));
     SS.bandMix.mixMaster(project, style, SS.bandMix.driveFor(preset.id, style));
     // étape Mix de l'assistant (js/wizmix.js) : sans retouche (mix absent ou égal à sa base), rien ne change
