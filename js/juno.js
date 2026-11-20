@@ -257,6 +257,9 @@ SS.juno = (() => {
   const nodes = new Map(); // clé de piste -> { node, dest, sent }
   let nextId = 1;
   let eco = false; // mode éco (appareil trop lent) : voix sans suréchantillonnage, 4 voix au plus
+  // filtre allégé (Options › Son, à l'essai) : réglage de l'appareil, lu aussi par la page de rendu (export)
+  let lightVcf = false;
+  try { lightVcf = localStorage.getItem('stepseq.junoLight') === '1'; } catch (_) {}
 
   /** Charge le module (URL Blob : fonctionne aussi en ouvrant index.html directement). */
   function load(ctx) {
@@ -291,6 +294,7 @@ SS.juno = (() => {
       e = { ctx, node, dest: null, sent: '' };
       nodes.set(key, e);
       if (eco) node.port.postMessage({ type: 'eco', on: true });
+      if (lightVcf) node.port.postMessage({ type: 'lightVcf', on: true });
     }
     if (dest && e.dest !== dest) {
       e.node.disconnect();
@@ -362,5 +366,12 @@ SS.juno = (() => {
     return true;
   }
 
-  return { setEco, isEco: () => eco, engineCount: () => nodes.size, load, play, noteOn, noteOff, applyParams, applyChorus: applyParams, allOff, remove, POLY: 6 };
+  /** Filtre allégé de tous les synthés (Options › Son), gardé dans le navigateur. */
+  function setLightVcf(on) {
+    lightVcf = !!on;
+    try { localStorage.setItem('stepseq.junoLight', lightVcf ? '1' : '0'); } catch (_) {}
+    nodes.forEach((e) => e.node.port.postMessage({ type: 'lightVcf', on: lightVcf }));
+  }
+
+  return { setEco, isEco: () => eco, setLightVcf, isLightVcf: () => lightVcf, engineCount: () => nodes.size, load, play, noteOn, noteOff, applyParams, applyChorus: applyParams, allOff, remove, POLY: 6 };
 })();

@@ -711,6 +711,7 @@
       <h2 id="optTitle">Options</h2>
       <div class="opt-tabs" role="tablist" aria-label="Familles d'options">
         <button type="button" class="opt-tab" role="tab" id="optTabDisplay" data-tab="display" aria-controls="optPanelDisplay" aria-selected="true">Affichage</button>
+        <button type="button" class="opt-tab" role="tab" id="optTabSound" data-tab="sound" aria-controls="optPanelSound" aria-selected="false">Son</button>
       </div>
       <section class="opt-panel" role="tabpanel" id="optPanelDisplay" data-panel="display" aria-labelledby="optTabDisplay">
         <div class="opt-row">
@@ -727,6 +728,12 @@
           <small class="opt-help">Une note jouée un peu en avance ou en retard est dessinée là où elle sonne ; un contour pointillé montre la case de la grille à laquelle elle reste rattachée.</small>
         </div>
       </section>
+      <section class="opt-panel" role="tabpanel" id="optPanelSound" data-panel="sound" aria-labelledby="optTabSound" hidden>
+        <div class="opt-row">
+          <label class="opt-label" for="optJunoLight">Filtre Juno allégé (essai)</label>
+          <input type="checkbox" id="optJunoLight">
+          <small class="opt-help">Les synthés Juno calculent environ 30 % plus vite. Le son change un peu quand le filtre est poussé (résonance, notes fortes) : à écouter avant de le garder.</small>
+        </div>
       <div class="dlg-footer">
         <span class="spacer"></span>
         <button type="submit" class="btn btn-accent">Fermer</button>
@@ -1019,8 +1026,8 @@
   <script src="js/filters.js?v=watch-1"></script>
   <script src="js/space-dsp.js?v=watch-1"></script>
   <script src="js/master-dsp.js?v=watch-1"></script>
-  <script src="js/juno-dsp.js?v=watch-1"></script>
-  <script src="js/juno.js?v=watch-1"></script>
+  <script src="js/juno-dsp.js?v=light-1"></script>
+  <script src="js/juno.js?v=light-1"></script>
   <script src="js/catalog.js?v=vsco-1"></script>
   <script src="js/expression.js"></script>
   <script src="js/arp.js"></script>
@@ -1076,6 +1083,6 @@
   <script src="js/audiowatch.js?v=diag-1"></script>
   <script src="js/systempanel.js?v=diag-1"></script>
   <script src="js/claude-tools.js"></script>
-  <script src="js/main.js?v=watch-1"></script>
+  <script src="js/main.js?v=light-1"></script>
 </body>
 </html>

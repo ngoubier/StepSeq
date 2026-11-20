@@ -339,6 +339,10 @@
       document.documentElement.classList.toggle('compact-tracks', trackHeight.value === 'compact');
       try { localStorage.setItem('stepseq.trackHeight', trackHeight.value); } catch (_) {}
     });
+    // Son : filtre Juno allégé (à l'essai), réglage gardé par js/juno.js
+    const junoLight = $('#optJunoLight');
+    junoLight.checked = !!(SS.juno && SS.juno.isLightVcf && SS.juno.isLightVcf());
+    junoLight.addEventListener('change', () => SS.juno.setLightVcf(junoLight.checked));
     // contour pointillé de la case d'origine des notes décalées (affiché par défaut)
     const shiftHome = $('#optShiftHome');
     try { shiftHome.checked = localStorage.getItem('stepseq.shiftHome') !== '0'; } catch (_) {}
