@@ -328,6 +328,16 @@ function junoDspModule(scope) {
       const g1n = Math.min(g1 / df, 0.98);
       const gn = g1n / (1 - g1n);
       let x = u;
+      if (this.light) {
+        // filtre allégé (Options › Son) : étages linéaires, seule la saturation de la contre-réaction reste ;
+        // environ 30 % de calcul en moins par voix, son un peu moins « rond » quand le filtre est poussé
+        for (let i = 0; i < 4; i++) {
+          const y = s[i] + g1n * (x - s[i]);
+          s[i] = 2 * y - s[i];
+          x = y;
+        }
+        return x * 8.59;
+      }
       for (let i = 0; i < 4; i++) {
         let y = s[i] + g1n * (x - s[i]);
         const sd = (x - y) * 0.35;
@@ -341,6 +351,10 @@ function junoDspModule(scope) {
   }
 
   const ATTACK = 0, DECAY = 1, RELEASE = 2, FINISHED = 3;
+  // voix inaudible : enveloppe et VCA sous ce niveau (≈ −75 dB, table VCA_HW) et ne pouvant plus que descendre
+  // (déclin vers un maintien plus bas, ou relâchement) : la voix s'arrête au lieu de calculer une queue que
+  // personne n'entend (voir tests/e2e/perf-profile.js)
+  const QUIET = 0.004;
   const VCF_PHASE = [0, 0.2874, 0.5748, 0.8622, 1.1497, 1.4371].map((ms) => ms / LOOP_MS);
   const VCA_PHASE = [0.1253, 0.4127, 0.7002, 0.9876, 1.275, 1.8396].map((ms) => ms / LOOP_MS);
 
@@ -495,6 +509,11 @@ function junoDspModule(scope) {
       // VCA (enveloppe ou porte), réponse du BA662
       const vcaRaw = P.gate ? (gated ? 1 : 0) : env;
       this.vcaSlew += this.vcaSlewC * (vcaRaw - this.vcaSlew);
+      if (this.vcaSlew < QUIET && env < QUIET && this.state !== ATTACK && !P.gate) {
+        this.kill();
+        this.vcaSlew = 0;
+        return;
+      }
       const ei = clamp(this.vcaSlew, 0, 1) * 255;
       const i0 = Math.min(ei | 0, 254);
       const vca = (VCA_HW[i0] + (ei - i0) * (VCA_HW[i0 + 1] - VCA_HW[i0])) * this.vel * this.gainScale;
@@ -875,6 +894,10 @@ function junoDspModule(scope) {
         this.events.length = 0;
         this.voices.forEach((v) => v.kill());
       } else if (m.type === 'eco') this.setEco(!!m.on);
+      else if (m.type === 'lightVcf') {
+        this.lightVcf = !!m.on;
+        this.voices.forEach((v) => (v.vcf.light = this.lightVcf));
+      }
       else if (m.type === 'dispose') this.alive = false;
     }
     /** Mode éco : voix sans suréchantillonnage, 4 voix au plus (les notes en cours continuent). */
@@ -982,6 +1005,7 @@ function junoDspModule(scope) {
         o0.fill(0);
         o1.fill(0);
         this.voices = this.voices.map((v, k) => new Voice(k, this.sr));
+        this.voices.forEach((v) => (v.vcf.light = !!this.lightVcf));
         this.hpf = new HPF(this.sr);
         this.hpf.setMode(this.hpfMode);
         this.chorus = new Chorus(this.sr);
