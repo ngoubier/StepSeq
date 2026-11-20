@@ -119,3 +119,16 @@ test('la marque Band d’une piste est gardée à l’enregistrement / l’ouver
   assert.deepEqual(back.tracks[0].band, { style: 'synthwave', preset: 'nightcall', musician: 'bass', key: 'bass' });
   assert.equal(back.tracks[1].band, undefined);
 });
+
+test('kit « LinnDrum gated » : échantillons LinnDrum, reverb gated sur caisse claire, clap et toms ; Blinding Lights l’utilise', () => {
+  const sd = B.pieceOpts('LinnGated', 'sd');
+  assert.deepEqual([sd.opts.source, sd.opts.machine, sd.opts.variant, sd.borrowed], ['tdm', 'LinnDrum', 1, false]);
+  assert.ok(sd.opts.fx.gated > 0);
+  assert.ok(!B.pieceOpts('LinnGated', 'bd').opts.fx, 'pas de gated sur le kick');
+  ['cp', 'lt', 'mt', 'ht'].forEach((pc) => assert.ok(B.pieceOpts('LinnGated', pc).opts.fx.gated > 0, pc));
+  const bl = B.STYLES.flatMap((s) => s.presets).find((p) => p.id === 'blinding');
+  assert.equal(bl.musicians.find((m) => m.role === 'drums').kits[0], 'LinnGated');
+  ['bass', 'lead', 'pad', 'arp'].forEach((r) => assert.match(bl.musicians.find((m) => m.role === r).pick[0], /^syn_bl/, r));
+  assert.equal(SS.FX_DEFAULTS.gated, 0);
+  assert.ok(SS.fxActive({ fx: { gated: 0.5 } }), 'le bouton FX de la piste s’allume');
+});

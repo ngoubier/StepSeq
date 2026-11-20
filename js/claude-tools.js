@@ -461,7 +461,13 @@ SS.claudeTools = (() => {
     if (t.type === 'drum') {
       const k = Object.keys(SS.Band.KITS).find((id) => fold(id) === fold(s) || fold(SS.Band.KITS[id].label) === fold(s));
       if (!k) fail(`batterie : donne un kit (StepSeq.sons({ role: "batterie" }))`);
-      Object.assign(t, SS.Band.pieceOpts(k, t.sound).opts);
+      const { fx, ...o } = SS.Band.pieceOpts(k, t.sound).opts;
+      Object.assign(t, o);
+      // effets propres au kit (reverb gated…) : remplacés par ceux du nouveau kit, le reste des effets est gardé
+      const rest = { ...(t.fx || {}) };
+      delete rest.gated;
+      t.fx = { ...rest, ...(fx || {}) };
+      if (!Object.keys(t.fx).length) delete t.fx;
     } else {
       const fresh = SS.newTrack({ ...soundOpts(s, null), name: t.name, color: t.color }, p);
       for (const k of ['family', 'instrument', 'sfv', 'octave']) t[k] = fresh[k];
@@ -566,7 +572,7 @@ SS.claudeTools = (() => {
   const FX_KEYS = {
     chorus: ['chorus', 0, 1], chorusVitesse: ['chorusRate', 0.1, 6], chorusProfondeur: ['chorusDepth', 0, 1],
     delay: ['delay', 0, 1], delayRepetitions: ['delayFeedback', 0, 0.9],
-    reverb: ['room', 0, 1], reverbTaille: ['roomSize', 0.2, 10], reverbBrillance: ['roomLp', 500, 20000],
+    reverb: ['room', 0, 1], reverbGated: ['gated', 0, 1], reverbTaille: ['roomSize', 0.2, 10], reverbBrillance: ['roomLp', 500, 20000],
     sidechainProfondeur: ['scDepth', 0, 1], sidechainRelachement: ['scRelease', 0.03, 1],
     envoiPlate: ['sendPlate', 0, 1], envoiHall: ['sendHall', 0, 1], envoiEcho: ['sendEcho', 0, 1], envoiCosmos: ['sendSpace', 0, 1],
   };

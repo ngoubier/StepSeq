@@ -209,6 +209,78 @@ SS.audio = (() => {
     return bufferCache.get(url);
   }
 
+  /*
+   * Reverb « gated » des années 80 (caisse claire, clap, toms) : la queue de reverb est coupée net au bout de ~0,3 s.
+   * Elle est calculée UNE fois par échantillon (contexte hors temps réel) et mélangée au son : à la lecture, ça ne
+   * coûte pas plus qu'un échantillon ordinaire. `amount` : 0..1 (track.fx.gated, pistes Drum).
+   */
+  const gatedCache = new Map();
+  const GATE_LEN = 0.3; // s : durée de la queue avant la coupure
+  const gatedIRs = new Map();
+  function gatedIR(rate) {
+    if (gatedIRs.has(rate)) return gatedIRs.get(rate);
+    const len = Math.floor(rate * (GATE_LEN + 0.012));
+    const ir = new AudioBuffer({ numberOfChannels: 2, length: len, sampleRate: rate });
+    const a = Math.exp((-2 * Math.PI * 6500) / rate); // queue un peu sombre, comme une chambre de l'époque
+    for (let ch = 0; ch < 2; ch++) {
+      const d = ir.getChannelData(ch);
+      let y = 0;
+      let e2 = 0;
+      for (let i = 0; i < len; i++) {
+        const t = i / rate;
+        // montée en 4 ms, palier qui baisse à peine (−3 dB), puis porte qui se ferme en 12 ms
+        const env = Math.min(1, t / 0.004) * (1 - 0.3 * Math.min(1, t / GATE_LEN)) * (t > GATE_LEN ? Math.max(0, 1 - (t - GATE_LEN) / 0.012) : 1);
+        y = (1 - a) * (Math.random() * 2 - 1) + a * y;
+        d[i] = y * env;
+        e2 += d[i] * d[i];
+      }
+      const k = 1 / Math.sqrt(e2 || 1); // énergie de la queue ≈ énergie du coup sec
+      for (let i = 0; i < len; i++) d[i] *= k;
+    }
+    gatedIRs.set(rate, ir);
+    return ir;
+  }
+  /** Échantillon + sa reverb gated (promesse mise en cache). null si le calcul est impossible. */
+  function gatedEntry(url, entry, amount) {
+    const key = url + '|' + amount.toFixed(2);
+    if (gatedCache.has(key)) return gatedCache.get(key);
+    const g = { buffer: null, detune: entry.detune, promise: null };
+    g.promise = Promise.resolve(entry.promise)
+      .then(() => {
+        const src = entry.buffer;
+        if (!src || typeof OfflineAudioContext === 'undefined') return null;
+        const rate = src.sampleRate;
+        const off = new OfflineAudioContext(2, src.length + Math.ceil(rate * (GATE_LEN + 0.02)), rate);
+        const s = off.createBufferSource();
+        s.buffer = src;
+        const conv = off.createConvolver();
+        conv.normalize = false;
+        conv.buffer = gatedIR(rate);
+        const wet = off.createGain();
+        wet.gain.value = amount * 0.9;
+        s.connect(off.destination);
+        s.connect(conv).connect(wet).connect(off.destination);
+        s.start(0);
+        return off.startRendering();
+      })
+      .then((buf) => (g.buffer = buf))
+      .catch((e) => {
+        console.warn(e);
+        return null;
+      });
+    gatedCache.set(key, g);
+    if (gatedCache.size > 64) gatedCache.delete(gatedCache.keys().next().value);
+    return g;
+  }
+  /** Ce que joue une piste Drum : l'échantillon, ou sa version gated si la piste en demande une. */
+  function drumEntry(track, url) {
+    const entry = loadBuffer(url);
+    const amt = track.fx && track.fx.gated > 0 ? Math.min(1, track.fx.gated) : 0;
+    if (!amt) return entry;
+    const g = gatedEntry(url, entry, amt);
+    return g.buffer ? g : entry; // pas encore calculé : le son sec, le temps d'un coup
+  }
+
   /** URL d'un son de batterie General MIDI (bibliothèque « gm ») -> nom du fichier soundfont, avec sa note. */
   function gmDrumFileOf(url) {
     const base = SS.SOURCES.soundfont;
@@ -404,6 +476,7 @@ SS.audio = (() => {
       if (track.type === 'drum') {
         const url = await drumUrl(track);
         if (url) await loadBuffer(url).promise;
+        if (url && track.fx && track.fx.gated > 0) await gatedEntry(url, loadBuffer(url), Math.min(1, track.fx.gated)).promise;
         return;
       }
       const inst = instOf(track);
@@ -1158,7 +1231,7 @@ SS.audio = (() => {
   async function playDrum(track, time, vel, dest) {
     const url = await drumUrl(track);
     if (!url) return;
-    const entry = loadBuffer(url);
+    const entry = drumEntry(track, url);
     if (!entry.buffer) return; // pas encore chargé : on saute ce coup
     const src = ctx.createBufferSource();
     src.buffer = entry.buffer;
