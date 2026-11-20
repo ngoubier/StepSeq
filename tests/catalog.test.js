@@ -82,7 +82,7 @@ test('presets du synthé intégré : sous-groupes, sons célèbres et réglages 
   const syn = C.soundsOf('synth').filter((e) => e.src === 'syn');
   ['lead', 'arp', 'pluck'].forEach((g) => assert.ok(syn.filter((e) => e.sub === g).length >= 5, g));
   const famous = C.ROLES.flatMap((r) => C.soundsOf(r.id)).filter((e) => e.song);
-  assert.equal(famous.length, 37);
+  assert.equal(famous.length, 43);
   famous.forEach((e) => assert.ok(e.artist && e.desc, e.v));
   assert.ok(C.search('van halen').some((g) => g.entries.some((e) => e.song === 'Jump')));
   const d = SS.soundDefaults({ type: 'instrument', family: 'pads', instrument: 'syn_synchoir' });

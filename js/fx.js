@@ -32,6 +32,7 @@ SS.fx = (() => {
     sendHall: { label: 'Hall (instruments)', scale: lin(0, 1), fmt: pct, box: '#fxSendSliders' },
     sendEcho: { label: 'Écho (délai à bande)', scale: lin(0, 1), fmt: pct, box: '#fxSendSliders' },
     sendSpace: { label: 'Cosmos (reverb longue, ambient)', scale: lin(0, 1), fmt: pct, box: '#fxSendSliders' },
+    gated: { label: 'Reverb gated (années 80)', scale: lin(0, 1), fmt: pct, box: '#fxGatedSliders' },
     roomLp: { label: 'Brillance', scale: logf(500, 20000), fmt: (v) => (v < 1000 ? `${Math.round(v)} Hz` : `${(v / 1000).toFixed(1)} kHz`), box: '#fxRoomSliders' },
   };
 
@@ -386,6 +387,7 @@ SS.fx = (() => {
     inputs.get('delayFeedback').input.closest('.sd-row').classList.toggle('dim', !f.delay);
     $('#fxDelayTime').closest('.sd-row').classList.toggle('dim', !f.delay);
     ['roomSize', 'roomLp'].forEach((k) => inputs.get(k).input.closest('.sd-row').classList.toggle('dim', !f.room));
+    $('#fxGatedBox').hidden = track.type !== 'drum'; // calculée dans l'échantillon : pistes Drum seulement
     $('#fxCode').textContent = strudelCode(f);
   }
 

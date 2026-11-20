@@ -81,6 +81,18 @@ window.SS = window.SS || {};
         tb: 'tambourine', sh: 'cabasa', cb: 'cowbell', perc: 'conga', misc: 'bongo',
       },
     },
+    // kit composé de boîtes à rythmes : « Machine#n » = l'échantillon n de cette machine ; `fx` : effets posés sur la piste
+    // de l'élément. Reverb gated (fx.gated) : calculée une fois dans l'échantillon, rien de plus à la lecture.
+    LinnGated: {
+      label: 'LinnDrum gated (années 80)',
+      year: 1982,
+      source: 'tdm',
+      map: {
+        bd: 'LinnDrum', sd: 'LinnDrum#1', cp: 'LinnDrum', rim: 'LinnDrum', hh: 'LinnDrum#1', oh: 'LinnDrum',
+        lt: 'LinnDrum', mt: 'LinnDrum', ht: 'LinnDrum', cr: 'LinnDrum', rd: 'LinnDrum', cb: 'LinnDrum', tb: 'LinnDrum', sh: 'LinnDrum', perc: 'LinnDrum',
+      },
+      fx: { sd: { gated: 0.7 }, cp: { gated: 0.55 }, lt: { gated: 0.5 }, mt: { gated: 0.5 }, ht: { gated: 0.5 } },
+    },
     // batterie General MIDI (bibliothèque « gm ») : seul kit proposé en mode General MIDI
     gm: {
       label: 'Batterie General MIDI',
@@ -158,12 +170,12 @@ window.SS = window.SS || {};
           tempo: 171,
           desc: 'Synth-pop rétro et rapide : riff de synthé brillant, basse sautillante, batterie LinnDrum.',
           musicians: [
-            kit('drums', 'bd sd cp hh oh cr', 'LinnDrum OberheimDMX RolandTR707 EmuSP12 RolandTR808 dirt808'),
-            kit('perc', 'tb sh', KPERC, opt),
-            m('bass', 'syn_sqbass j:A48 syn_moogbass gm_synth_bass_2 syn_sawbass dirt_jvbass', { note: 'Basse en croches rebondissantes' }),
-            m('lead', 'syn_supersaw j:A52 gm_lead_2_sawtooth j:A53 syn_saw gm_synth_brass_1', { label: 'Clavier lead (riff)', note: 'Le riff principal' }),
-            m('pad', 'j:A15 syn_superpad gm_pad_poly j:B47 gm_synth_strings_1 syn_softpad'),
-            m('arp', 'j:B24 syn_pluck j:A46 dirt_arpy gm_lead_1_square j:B17'),
+            kit('drums', 'bd sd cp hh oh cr', 'LinnGated LinnDrum OberheimDMX RolandTR707 EmuSP12 RolandTR808'),
+            kit('perc', 'tb sh', 'LinnGated LinnDrum vcsl RolandTR707 RolandTR808 RolandR8', opt),
+            m('bass', 'syn_blbass syn_sqbass j:A48 syn_moogbass gm_synth_bass_2 syn_sawbass', { note: 'Basse en croches rebondissantes' }),
+            m('lead', 'syn_bllead syn_supersaw j:A52 gm_lead_2_sawtooth syn_saw gm_synth_brass_1', { label: 'Clavier lead (riff)', note: 'Le riff principal' }),
+            m('pad', 'syn_blpad j:A15 syn_superpad syn_blstab gm_pad_poly gm_synth_strings_1'),
+            m('arp', 'syn_blarp syn_pluck j:B24 dirt_arpy gm_lead_1_square syn_blpluck'),
           ],
         },
         {
@@ -997,10 +1009,14 @@ window.SS = window.SS || {};
     const kitDef = KITS[k];
     const base = { type: 'drum', sound, variant: 0 };
     let opts;
-    if (kitDef.source) {
+    if (kitDef.source === 'tdm') {
+      const [machine, n] = kitDef.map[sound].split('#');
+      opts = { ...base, source: 'tdm', machine, bank: null, variant: +n || 0 };
+    } else if (kitDef.source) {
       const [bank, n] = kitDef.map[sound].split('#');
       opts = { ...base, source: kitDef.source, bank, variant: +n || 0, machine: SS.DEFAULT_MACHINE };
     } else opts = { ...base, source: 'tdm', machine: k, bank: null };
+    if (kitDef.fx && kitDef.fx[sound]) opts.fx = { ...kitDef.fx[sound] };
     return { opts, kit: k, borrowed: borrowed || (!!forced && forced !== kitId), label: drumLabel(sound) };
   }
 

@@ -578,6 +578,7 @@ SS.newTrack = (opts, project) => {
       bank: opts.bank,
       variant: opts.variant || 0,
       steps: new Array(n).fill(0),
+      ...(opts.fx ? { fx: { ...opts.fx } } : {}), // effets proposés par le kit (reverb gated des années 80…)
     });
   }
   if (opts.type === 'synth') {
