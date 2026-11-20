@@ -27,11 +27,17 @@ const ok = (c, m) => {
   page.on('pageerror', (e) => errs.push(e.message));
   await page.goto(`http://localhost:${server.address().port}/index.html`);
   await page.waitForTimeout(1200);
-  await page.click('#appMenuBtn'); await page.click('#bandBtn');
-  await page.waitForTimeout(400);
+  // « Nouvelle chanson… » part d'un projet vide (sur le projet de démonstration, « Nouvelle chanson sur ce projet »
+  // ouvrirait d'abord « Reprendre la grille dans l'assistant »)
+  await page.click('#appMenuBtn'); await page.click('#newProject');
+  await page.waitForTimeout(600);
   await page.click('#bandStyles [data-v="edm"]');
   await page.click('#bandPresets .band-preset >> nth=0'); // Levels
-  for (let i = 0; i < 12; i++) await page.dispatchEvent('#bwNext', 'click'); await page.click('#bwCreate');
+  for (let i = 0; i < 30 && !(await page.isVisible('#bwCreate')); i++) {
+    await page.dispatchEvent('#bwNext', 'click');
+    await page.waitForTimeout(250);
+  }
+  await page.click('#bwCreate');
   await page.waitForTimeout(200);
   if (await page.isVisible('#bcfSong')) await page.click('#bcfSong');
   await page.waitForTimeout(1200);

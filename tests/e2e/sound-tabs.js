@@ -1,7 +1,7 @@
 /*
  * Fenêtre de sound design en onglets verticaux (js/sounddesign.js) :
  *   node tests/e2e/sound-tabs.js        (SHOTS=dossier pour des captures)
- * VCO, Filtre, Enveloppes, LFOs (sous-onglets LFO 1 | LFO 2), Glide, Sortie ; une section à la fois,
+ * Simple (ouvert par défaut), VCO, Filtre, Enveloppes, LFOs (sous-onglets LFO 1 | LFO 2), Glide, Jeu, Sortie ; une section à la fois,
  * résumé des réglages sur chaque onglet, dernier onglet retenu, clavier, taille fixe, téléphone.
  */
 const { chromium } = require('playwright');
@@ -56,11 +56,11 @@ const state = (p, id) => p.textContent(`#sdState_${id}`);
   const name = await openSd(p);
   ok(!!name, `fenêtre ouverte sur « ${name} »`);
   const tabs = await p.$$eval('#sdTabs .fx-tab', (bs) => bs.map((x) => x.querySelector('.sd-tab-txt > span').textContent));
-  ok(tabs.join() === 'VCO,Filtre,Enveloppes,LFOs,Glide,Sortie', `onglets : ${tabs.join(', ')}`);
-  ok((await visible(p)).join() === 'vco', 'à la première ouverture : VCO seul visible');
+  ok(tabs.join() === 'Simple,VCO,Filtre,Enveloppes,LFOs,Glide,Jeu,Sortie', `onglets : ${tabs.join(', ')}`);
+  ok((await visible(p)).join() === 'easy', 'à la première ouverture : Simple seul visible');
   const size = await p.$eval('#soundDialog', (d) => [d.offsetWidth, d.offsetHeight]);
   ok(size[0] === 880 && size[1] === 640, `taille fixe ${size.join(' × ')}`);
-  for (const t of ['vco', 'vcf', 'env', 'lfo', 'glide', 'out']) {
+  for (const t of ['easy', 'vco', 'vcf', 'env', 'lfo', 'glide', 'play', 'out']) {
     await p.click(`#sdTabs [data-tab="${t}"]`);
     const over = await p.$eval('#soundDialog .fx-panes', (e) => e.scrollHeight - e.clientHeight);
     ok((await visible(p)).join() === t && over <= 1, `onglet ${t} : seul visible, sans défilement (${over})`);
@@ -92,7 +92,7 @@ const state = (p, id) => p.textContent(`#sdState_${id}`);
   await p.keyboard.press('ArrowDown');
   ok((await visible(p)).join() === 'glide', 'flèche bas : Glide');
   await p.keyboard.press('Home');
-  ok((await visible(p)).join() === 'vco', 'Début : VCO');
+  ok((await visible(p)).join() === 'easy', 'Début : Simple');
   await p.keyboard.press('End');
   ok((await visible(p)).join() === 'out', 'Fin : Sortie');
 
