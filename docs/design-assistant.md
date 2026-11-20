@@ -4,6 +4,10 @@ Consigne de design de l'assistant (`js/band.js`, `#bandDlg`). Référence visuel
 (`docs/maquette-assistant.html`). Le but : que le vrai assistant ait la même clarté que la maquette,
 sans perdre aucune fonction.
 
+> Les maquettes HTML citées ici (`docs/maquette-*.html`) ont été retirées du dépôt le 2026-11-20 : elles restent
+> dans l'historique git (`git show 92c4d0c:docs/maquette-assistant.html`) et dans les fichiers du projet
+> (`maquettes/anciennes-docs/`).
+
 ## Constat (novembre 2026)
 
 Le vrai assistant marche, mais il est plus lourd à l'œil que la maquette :
