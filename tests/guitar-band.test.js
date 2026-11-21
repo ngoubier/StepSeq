@@ -23,3 +23,17 @@ test('Guitariste en mode « g:travis » : notes de guitare corde par corde, sur 
   assert.ok(ev.every((e) => e.notes.length === 1 && e.notes[0] >= 38 && e.notes[0] <= 90), 'une note par attaque, dans la tessiture de la guitare');
   assert.ok(ev.some((e) => e.len > 1), 'des cordes qui résonnent');
 });
+
+test('Guitariste « Avancé » : les réglages guitare de la scène (gtr : capodastre…) changent les notes', () => {
+  const presets = SS.Band.STYLES.flatMap((st) => st.presets);
+  const p = presets.find((x) => x.musicians.some((m) => m.role === 'guitar') && SS.BandSongs[x.id]);
+  const tr = p.musicians.filter((m) => !m.injected).flatMap((m) =>
+    m.kits ? m.pieces.map((pc) => ({ id: m.role + ':' + pc, type: 'drum', sound: pc, band: { key: m.role + ':' + pc } })) : [{ id: m.role, type: 'instrument', category: 'chord', band: { key: m.role } }]
+  );
+  const sec = SS.bandSong.build(SS.BandSongs[p.id], p.id, tr).scenes[0].sec;
+  const notes = (gtr) => SS.bandSong.build(SS.BandSongs[p.id], p.id, tr, { parts: { [sec]: { guitar: { mode: 'g:aller', ...(gtr ? { gtr } : {}) } } } }).scenes.find((sc) => sc.sec === sec).data.guitar.events.map((e) => e.notes[0]);
+  const plain = notes(null);
+  const capo = notes({ capo: 5 });
+  assert.equal(plain.length, capo.length, 'même motif');
+  assert.notDeepEqual(plain, capo, 'le capodastre déplace la forme sur le manche');
+});

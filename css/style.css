@@ -5689,6 +5689,16 @@ body.wizard-mode #bandDialog.band-dialog.tut-on { flex-direction: row; }
 .bwp-guitar { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
 .bwp-guitar .dlg-label { margin-top: 2px; }
 .bwp-guitar:first-of-type { margin-top: 0; padding-top: 0; border-top: 0; }
+.bwp-gtadv.on { border-color: #ff4d6d; color: #fff; background: color-mix(in srgb, #ff4d6d 22%, var(--panel-2)); }
+/* Guitare « Avancé » (assistant) : l'arpégiateur Guitare d'Arp One */
+.bwgt { display: flex; flex-direction: column; gap: 10px; padding: 10px; border: 1px dashed var(--line); border-radius: 10px; }
+.bwgt-brand { font-size: 10px; font-weight: 800; letter-spacing: .06em; border: 1px solid #a479ff; color: #c9b2ff; border-radius: 6px; padding: 1px 6px; }
+.bwgt-mods { display: grid; grid-template-columns: 1fr 1.3fr; gap: 12px; }
+.bwgt .gt-main { grid-template-columns: 150px 1fr; }
+.bwgt .gt-chord { align-items: center; }
+.bwgt-sl { display: flex; flex-direction: column; gap: 2px; }
+.bwgt-slh { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.bwgt-sl input { width: 100%; accent-color: var(--accent-2); }
 .bwp-chords-head { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
 
 /* Fenêtre Nouvelle piste : motif d'une nouvelle piste de basse (js/ui.js, syncMotifRow) */

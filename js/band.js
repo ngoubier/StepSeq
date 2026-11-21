@@ -7282,18 +7282,101 @@ SS.band = (() => {
     ];
   }
 
+  /* --- Guitare « Avancé » : l'arpégiateur Guitare d'Arp One (schéma, tablature, manche, jeu) sur le premier accord de la scène ---
+   * g : réglages guitare (SS.GuitarArp.normalize) ; apply(patch) les enregistre. S.wiz.gtAdv : panneau ouvert ou non. */
+  function sceneChordNotes(sc) {
+    const sec = specEff().sections[sc.sec];
+    const tok = sec && sec.chords ? sec.chords.split('|')[0].trim().split(/\s+/)[0] : 'i';
+    try {
+      const [main, bass] = tok.split('/');
+      const c = SS.bandSong.parseChord(main, sc.key);
+      return { notes: SS.chordNotes(48 + c.rootPc, c.type), bass: bass ? SS.bandSong.parseChord(bass, sc.key).rootPc : undefined };
+    } catch (e) {
+      return { notes: [57, 60, 64] };
+    }
+  }
+  const gtAdvBtn = (disabled) =>
+    h('button', { type: 'button', class: 'btn btn-small bwp-gtadv' + (S.wiz.gtAdv ? ' on' : ''), id: 'bwGtAdv', disabled: disabled || null, 'aria-expanded': String(!!S.wiz.gtAdv), title: 'L’arpégiateur Guitare d’Arp One : manche, capodastre, accordage, jeu, tablature', onclick: () => ((S.wiz.gtAdv = !S.wiz.gtAdv), renderWiz()) }, (S.wiz.gtAdv ? '▾ ' : '▸ ') + 'Avancé');
+  function guitarAdvanced(sc, g, apply) {
+    const GA = SS.GuitarArp;
+    const tools = SS.arpPanel && SS.arpPanel.guitarTools;
+    const ch = sceneChordNotes(sc);
+    const pv = GA.preview({ guitar: g }, ch.notes, tempo() || 100, ch.bass);
+    const sh = pv.shape;
+    const m = pv.motif;
+    const slider = (label, key, min, max, fmt, help) => {
+      const val = key === 'spread' ? g.spread : Math.round(g[key] * 100);
+      const out = h('span', {}, fmt(val));
+      return h(
+        'label',
+        { class: 'bwgt-sl' },
+        h('span', { class: 'bwgt-slh' }, h('b', {}, label), help ? SS.helpTip(help, label) : null, h('span', { class: 'spacer' }), out),
+        h('input', { type: 'range', min, max, step: 1, value: val, id: 'bwGt-' + key, 'aria-label': label, oninput: (e) => (out.textContent = fmt(+e.target.value)), onchange: (e) => apply({ [key]: key === 'spread' ? +e.target.value : +e.target.value / 100 }, '#bwGt-' + key) })
+      );
+    };
+    const pct = (v) => v + ' %';
+    return h(
+      'div',
+      { class: 'bwgt', id: 'bwGtAdvanced' },
+      h('div', { class: 'bwp-ch' }, h('span', { class: 'bwgt-brand' }, 'ARP ONE'), h('b', {}, 'Guitare'), h('span', { class: 'bh-info' }, `${m.name} · sur ${sh.name}`)),
+      h(
+        'div',
+        { class: 'gt-main' },
+        h('div', { class: 'gt-card gt-chord' }, h('div', { class: 'gt-chordname' }, sh.name), tools ? tools.diagram(sh) : null),
+        h('div', { class: 'gt-card' }, tools ? tools.tab(pv) : null, h('div', { class: 'gt-legend' }, h('span', { class: 'thumb' }, 'pouce p'), h('span', { class: 'finger' }, 'doigts i m a'), h('span', { class: 'pick' }, 'médiator ↓ ↑'), h('span', { class: 'strum' }, 'grattage (× étouffé)')))
+      ),
+      h(
+        'div',
+        { class: 'bwgt-mods' },
+        h(
+          'div',
+          { class: 'gt-card' },
+          h('h3', {}, 'Accord sur le manche'),
+          g.tuning === 'standard' ? partSeg('Position', 'bwGtPos', GA.POSITIONS.map((x) => [x.id, x.label, x.hint]), g.pos, (v) => apply({ pos: v }, `#bwGtPos [data-v="${v}"]`)) : null,
+          h('span', { class: 'dlg-label' }, 'Capodastre'),
+          h('select', { id: 'bwGtCapo', 'aria-label': 'Capodastre', onchange: (e) => apply({ capo: +e.target.value, pos: 'open' }, '#bwGtCapo') }, GA.CAPOS.map((c) => h('option', { value: c, selected: g.capo === c || null }, c ? `Case ${c}` : 'Sans'))),
+          h('span', { class: 'dlg-label' }, 'Accordage'),
+          h('select', { id: 'bwGtTuning', 'aria-label': 'Accordage', onchange: (e) => apply({ tuning: e.target.value }, '#bwGtTuning') }, GA.TUNINGS.map((t) => h('option', { value: t.id, selected: g.tuning === t.id || null, title: t.hint }, `${t.label} (${t.hint.split(' :')[0]})`)))
+        ),
+        h(
+          'div',
+          { class: 'gt-card' },
+          h('h3', {}, 'Jeu'),
+          slider('Résonance', 'ring', 0, 100, pct, 'Une corde rejouée coupe sa note ; au changement d’accord, tout s’arrête.'),
+          slider('Mélodie en avant', 'mel', 0, 100, pct, 'La note la plus aiguë du motif plus forte, les autres aigus plus légers.'),
+          slider('Pouce accentué', 'thumb', 0, 100, pct, 'Les basses plus fortes que les doigts.'),
+          slider('Main humaine', 'human', 0, 100, pct, 'Placement et force varient un peu ; les basses sur les temps ne bougent pas.'),
+          m.hand === 'gratte' ? slider('Étalement du grattage', 'spread', 0, 40, (v) => v + ' ms', 'Temps entre deux cordes d’un même coup.') : null
+        )
+      )
+    );
+  }
+  /** Réglages guitare d'une scène pour le type Accords (mode « g:<motif> ») : le motif du mode, le reste dans parts…gtr. */
+  const GTR_KEYS = ['pos', 'capo', 'tuning', 'ring', 'mel', 'thumb', 'human', 'spread'];
+  function gtrEdit(sc, T, patch, focus) {
+    const o = partOf(sc.sec, T) || {};
+    const g = { ...SS.GuitarArp.normalize({ ...(o.gtr || {}) }), ...patch };
+    const def = SS.GuitarArp.normalize({});
+    const gtr = Object.fromEntries(GTR_KEYS.filter((k) => g[k] !== def[k]).map((k) => [k, g[k]]));
+    putPart(sc.sec, T, { gtr: Object.keys(gtr).length ? gtr : undefined });
+    partChanged(focus);
+  }
   /* --- Guitare : les motifs du mode Guitare d'Arp One (doigts, médiator, grattage), en cartes de mode --- */
   function guitarModes(sc, T) {
     const GA = SS.GuitarArp;
+    const o = partOf(sc.sec, T) || {};
+    const cur = o.mode || planMode(sc, T);
+    const gmode = !mutedIn(sc.sec, T) && /^g:/.test(cur || '') ? cur.slice(2) : null;
     return h(
       'div',
       { class: 'bwp-guitar' },
-      h('div', { class: 'bwp-ch' }, h('b', {}, 'Jouer comme une guitare'), h('span', { class: 'bh-info' }, 'arpèges aux doigts, médiator, grattage')),
+      h('div', { class: 'bwp-ch' }, h('b', {}, 'Jouer comme une guitare'), h('span', { class: 'bh-info' }, 'arpèges aux doigts, médiator, grattage'), h('span', { class: 'spacer' }), gtAdvBtn(!gmode)),
       h('p', { class: 'dlg-hint' }, 'Formes d’accord sur le manche, cordes qui résonnent, coups de médiator : les motifs du mode Guitare d’Arp One.'),
       ...GA.HANDS.map((hd) => {
         const list = GUITAR_MODES.filter(([id]) => (GA.MOTIFS.find((m) => 'g:' + m.id === id) || {}).hand === hd.id);
         return [h('span', { class: 'dlg-label' }, hd.label), modeCards(sc, T, list, '#ff4d6d')];
-      }).flat()
+      }).flat(),
+      S.wiz.gtAdv && gmode ? guitarAdvanced(sc, GA.normalize({ ...(o.gtr || {}), on: true, motif: gmode }), (p, f) => gtrEdit(sc, T, p, f)) : null
     );
   }
   /* --- Nappes : mode de jeu, voicing --- */
@@ -7382,14 +7465,16 @@ SS.band = (() => {
         { class: 'bwp-ch' },
         h('b', {}, 'Jouer comme une guitare'),
         h('span', { class: 'spacer' }),
-        partSeg('Jeu', 'bwaGuitar', [['clavier', 'Clavier', 'Les motifs d’Arp One'], ['guitare', 'Guitare', 'Formes d’accord sur le manche, cordes qui résonnent']], on ? 'guitare' : 'clavier', (v) => arpEdit(sc, T, (a) => ({ ...a, guitar: { ...GA.normalize(a.guitar), on: v === 'guitare' } }), `#bwaGuitar [data-v="${v}"]`))
+        partSeg('Jeu', 'bwaGuitar', [['clavier', 'Clavier', 'Les motifs d’Arp One'], ['guitare', 'Guitare', 'Formes d’accord sur le manche, cordes qui résonnent']], on ? 'guitare' : 'clavier', (v) => arpEdit(sc, T, (a) => ({ ...a, guitar: { ...GA.normalize(a.guitar), on: v === 'guitare' } }), `#bwaGuitar [data-v="${v}"]`)),
+        on ? gtAdvBtn(false) : null
       ),
       on
         ? GA.HANDS.map((hd) => [
             h('span', { class: 'dlg-label' }, hd.label),
             h('div', { class: 'bwp-modes', role: 'radiogroup', 'aria-label': hd.label, style: '--c:#ff4d6d' }, GUITAR_MODES.filter(([id]) => (GA.MOTIFS.find((m) => 'g:' + m.id === id) || {}).hand === hd.id).map(card)),
           ]).flat()
-        : h('p', { class: 'dlg-hint' }, 'Son de guitare : « Guitare » joue les arpèges aux doigts, au médiator ou en grattage, avec de vraies formes d’accord.')
+        : h('p', { class: 'dlg-hint' }, 'Son de guitare : « Guitare » joue les arpèges aux doigts, au médiator ou en grattage, avec de vraies formes d’accord.'),
+      on && S.wiz.gtAdv ? guitarAdvanced(sc, g, (p, f) => arpEdit(sc, T, (a) => ({ ...a, guitar: { ...GA.normalize(a.guitar), ...p } }), f)) : null
     );
   }
   function arpEdit(sc, T, f, focus) {
