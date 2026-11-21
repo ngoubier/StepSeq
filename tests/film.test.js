@@ -18,8 +18,9 @@ test('BPM = 60 × noires ÷ secondes ; temps lisibles', () => {
   assert.equal(F.fmt(83), '01:23');
 });
 
-test('chaque émoticône mène à une émotion de l’application', () => {
-  for (const e of F.EMOS) assert.ok(SS.findEmotion(e.id), e.e + ' → ' + e.id);
+test('chaque émotion d’un passage a sa couleur et mène à une émotion de l’application', () => {
+  assert.equal(new Set(F.EMOS.map((e) => e.color)).size, F.EMOS.length, 'couleurs distinctes');
+  for (const e of F.EMOS) assert.ok(SS.findEmotion(e.id), e.k + ' → ' + e.id);
   assert.equal(F.energyOf(1), 0.78);
   assert.equal(F.energyOf(5), 1);
   assert.equal(SS.orchestra.levelOf(F.energyOf(5)), 'full');
@@ -39,7 +40,7 @@ test('« La lumière revient » : 80 BPM, synchro m. 13 pile à 00:42, 16 mesure
 });
 
 test('tempo calé : la synchro tombe au premier temps d’une mesure, à l’écart d’arrondi près', () => {
-  const film = { start: 0, end: 60, cues: [{ t: 0, emo: '😬' }, { t: 16.7, emo: '😱' }, { t: 43.3, emo: '🦸', sync: true }, { t: 53.3, emo: '😱' }] };
+  const film = { start: 0, end: 60, cues: [{ t: 0, emo: 'suspense' }, { t: 16.7, emo: 'peur' }, { t: 43.3, emo: 'heroisme', sync: true }, { t: 53.3, emo: 'peur' }] };
   const tm = F.timing(film);
   assert.ok(tm.options.length >= 1 && tm.options.length <= 3);
   const o = tm.options.find((x) => x.bpm === tm.bpm);

@@ -758,7 +758,7 @@ SS.band = (() => {
       h(
         'span',
         { class: 'bsty-body' },
-        h('span', { class: 'bsty-name' }, '🎬 ' + s.label),
+        h('span', { class: 'bsty-name' }, s.label),
         h('span', { class: 'bsty-desc' }, s.desc),
         h(
           'dl',
@@ -954,8 +954,9 @@ SS.band = (() => {
     setPreset('scene');
     filmChanged();
   }
-  const TEN_C = '#ff7a59';
-  const ENE_C = '#4fb3ff';
+  const TEN_C = '#d8d8e6'; // tension : blanc cassé, en pointillé
+  const ENE_C = '#e5382f'; // énergie : rouge
+  const emoC = (k) => FM().emoOf(k).color;
   /** Frise de la scène : passages, repères (émoticônes), synchro forte, mesures. */
   function filmStrip(tm) {
     const W = 640;
@@ -965,9 +966,9 @@ SS.band = (() => {
     tm.sections.forEach((s, i) => {
       const x0 = x(tm.start + s.startBar * barLen);
       const x1 = x(tm.start + (s.startBar + s.bars) * barLen);
-      const a = 0.18 + 0.14 * s.ene;
-      svg += `<rect x="${x0.toFixed(1)}" y="30" width="${Math.max(1, x1 - x0 - 1).toFixed(1)}" height="26" rx="3" fill="${ENE_C}" opacity="${a.toFixed(2)}"/>`;
-      svg += `<text x="${(x0 + 4).toFixed(1)}" y="47" font-size="11" fill="var(--bw-text)">${i + 1}</text>`;
+      const a = 0.35 + 0.12 * s.ene; // plus d'énergie, couleur plus franche
+      svg += `<rect x="${x0.toFixed(1)}" y="30" width="${Math.max(1, x1 - x0 - 1).toFixed(1)}" height="26" rx="3" fill="${s.color}" opacity="${a.toFixed(2)}"/>`;
+      svg += `<text x="${(x0 + 5).toFixed(1)}" y="47" font-size="12" font-weight="600" fill="#0d0d12">${i + 1}</text>`;
     });
     for (let b = 0; b <= tm.bars; b++) {
       const xb = x(tm.start + b * barLen);
@@ -977,7 +978,7 @@ SS.band = (() => {
     tm.marks.forEach((m) => {
       const xm = x(m.t);
       svg += `<line x1="${xm.toFixed(1)}" x2="${xm.toFixed(1)}" y1="22" y2="58" stroke="${m.sync ? '#ffd75e' : 'var(--bw-muted)'}" stroke-width="${m.sync ? 2.5 : 1}"/>`;
-      svg += `<text x="${xm.toFixed(1)}" y="16" font-size="15" text-anchor="middle">${m.emo || ''}</text>`;
+      svg += `<circle cx="${xm.toFixed(1)}" cy="13" r="7" fill="${emoC(m.emo)}" stroke="${m.sync ? '#ffd75e' : '#0d0d12'}" stroke-width="2"/>`;
     });
     svg += `<text x="8" y="78" font-size="11" fill="var(--bw-muted)">${FM().fmt(tm.start)}</text><text x="${W - 8}" y="78" font-size="11" text-anchor="end" fill="var(--bw-muted)">${FM().fmt(tm.end)}</text>`;
     return h('div', { class: 'bfm-strip', html: `<svg viewBox="0 0 ${W} 82" role="img" aria-label="Frise des repères">${svg}</svg>` });
@@ -991,8 +992,9 @@ SS.band = (() => {
     const path = (k) => tm.sections.map((s, i) => `${i ? 'L' : 'M'}${xb(s.startBar).toFixed(1)},${y(s[k]).toFixed(1)} L${xb(s.startBar + s.bars).toFixed(1)},${y(s[k]).toFixed(1)}`).join(' ');
     let svg = '';
     [1, 3, 5].forEach((v) => (svg += `<line x1="8" x2="${W - 8}" y1="${y(v)}" y2="${y(v)}" stroke="var(--bw-line)"/>`));
-    tm.sections.forEach((s) => (svg += `<text x="${(xb(s.startBar) + 3).toFixed(1)}" y="${H - 2}" font-size="12">${s.emo}</text>`));
-    svg += `<path d="${path('ten')}" fill="none" stroke="${TEN_C}" stroke-width="2.5"/><path d="${path('ene')}" fill="none" stroke="${ENE_C}" stroke-width="2.5" stroke-dasharray="6 4"/>`;
+    // bande des émotions, sous les courbes
+    tm.sections.forEach((s) => (svg += `<rect x="${(xb(s.startBar) + 1).toFixed(1)}" y="${H - 10}" width="${Math.max(1, xb(s.startBar + s.bars) - xb(s.startBar) - 2).toFixed(1)}" height="8" rx="2" fill="${s.color}"/>`));
+    svg += `<path d="${path('ene')}" fill="none" stroke="${ENE_C}" stroke-width="2.5"/><path d="${path('ten')}" fill="none" stroke="${TEN_C}" stroke-width="2" stroke-dasharray="6 4"/>`;
     return h('div', { class: 'bfm-curves', html: `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Courbes de tension et d’énergie">${svg}</svg>` });
   }
   const lvlSel = (v, label, on) => h('select', { 'aria-label': label, onchange: (e) => on(+e.target.value), disabled: filmTpl() }, ...[1, 2, 3, 4, 5].map((n) => h('option', { value: n, selected: n === v }, String(n))));
@@ -1009,7 +1011,7 @@ SS.band = (() => {
         'tr',
         { class: m.sync ? 'sync' : '' },
         h('td', {}, i === 0 ? h('span', { class: 'bfm-t' }, FM().fmt(m.t)) : h('input', { type: 'number', class: 'bfm-time', min: tm.start, max: tm.end, step: 0.1, value: m.t, disabled: tpl, 'aria-label': `Temps du repère ${i + 1} (secondes)`, onchange: (e) => set('t')(Math.max(tm.start, Math.min(tm.end - 0.1, +e.target.value || 0))) })),
-        h('td', {}, h('select', { class: 'bfm-emo', disabled: tpl, 'aria-label': `Émotion du repère ${i + 1}`, onchange: (e) => set('emo')(e.target.value) }, ...FM().EMOS.map((x) => h('option', { value: x.e, selected: x.e === m.emo }, `${x.e} ${x.label}`)))),
+        h('td', { class: 'bfm-emotd', style: `--c:${emoC(m.emo)}` }, h('i', { class: 'bfm-dot', 'aria-hidden': 'true' }), h('select', { class: 'bfm-emo', disabled: tpl, 'aria-label': `Émotion du repère ${i + 1}`, onchange: (e) => set('emo')(e.target.value) }, ...FM().EMOS.map((x) => h('option', { value: x.k, selected: x.k === FM().emoOf(m.emo).k }, x.label)))),
         h('td', {}, h('input', { type: 'text', class: 'bfm-name', value: m.name || '', disabled: tpl, maxlength: 40, 'aria-label': `Nom du passage ${i + 1}`, onchange: (e) => set('name')(e.target.value.trim()) })),
         h('td', {}, lvlSel(tm.sections[i].ten, `Tension du passage ${i + 1}`, set('ten'))),
         h('td', {}, lvlSel(tm.sections[i].ene, `Énergie du passage ${i + 1}`, set('ene'))),
@@ -1022,7 +1024,7 @@ SS.band = (() => {
       filmEdit((x) => {
         const last = tm.marks[tm.marks.length - 1];
         const t = Math.min(tm.end - 1, Math.round((last.t + (tm.end - last.t) / 2) * 10) / 10);
-        if (t > last.t) x.cues.push({ t, emo: '😬', name: '', ten: 3, ene: 3 });
+        if (t > last.t) x.cues.push({ t, emo: 'suspense', name: '', ten: 3, ene: 3 });
       });
     const head = (n, t) => h('div', { class: 'bfm-h' }, h('b', {}, n), ' ', t);
     const syncLine = sync
@@ -1033,7 +1035,7 @@ SS.band = (() => {
           h('button', { type: 'button', class: 'chip' + (o.bpm === tm.bpm ? ' active' : ''), role: 'radio', 'aria-checked': String(o.bpm === tm.bpm), 'data-bpm': o.bpm, title: Math.abs(o.drift) < 0.005 ? 'La synchro tombe pile' : `La synchro tombe ${Math.abs(o.drift * 1000).toFixed(0)} ms ${o.drift > 0 ? 'après' : 'avant'} l’image`, onclick: () => filmEdit((x) => (x.bpm = o.bpm)) }, `${o.bars} mesures · ${o.bpm} BPM`)))
       : null;
     const kids = [
-      h('div', { class: 'bs-kind' }, tpl ? '🎬 Modèle de musique de film' : '🎬 Ta scène'),
+      h('div', { class: 'bs-kind' }, tpl ? 'Modèle de musique de film' : 'Ta scène'),
       h('div', { class: 'bs-title' }, h('b', {}, f.title || preset().song)),
       h('div', { class: 'bs-artist' }, `${key} · ${tm.bpm} BPM · ${tm.bars} mesures · ${FM().fmt(tm.seconds)}`),
       h('div', { class: 'bs-desc' }, f.story || preset().desc),
@@ -1055,7 +1057,8 @@ SS.band = (() => {
       opts,
       head('03', 'Émotions et courbes'),
       filmCurves(tm),
-      h('p', { class: 'bfm-legend' }, h('i', { style: `background:${TEN_C}` }), ' Tension ', h('i', { style: `background:${ENE_C}` }), ' Énergie sonore · chaque passage devient une scène, avec son émotion ; l’énergie règle la densité de l’orchestre.')
+      h('p', { class: 'bfm-legend' }, h('i', { style: `background:${ENE_C}` }), ' Énergie sonore ', h('i', { class: 'dash', style: `color:${TEN_C}` }), ' Tension · la bande de couleur : l’émotion de chaque passage, qui devient une scène ; l’énergie règle la densité de l’orchestre.'),
+      h('p', { class: 'bfm-palette' }, ...FM().EMOS.map((x) => h('span', { style: `--c:${x.color}` }, h('i', { 'aria-hidden': 'true' }), x.label)))
     ];
     $('#bandSong').replaceChildren(...kids.filter(Boolean));
   }

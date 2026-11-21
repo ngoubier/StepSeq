@@ -3,7 +3,7 @@
  *
  * Une scène de film = { start, end, cues: [{ t, emo, name, ten, ene, sync }], bpm? } :
  *   start / end : entrée et fin de la musique (secondes de l'image) ; chaque repère (cue) ouvre un passage ;
- *   emo : émoticône (EMOS) ; ten / ene : tension et énergie sonore, de 1 à 5 ; sync : synchro forte (le tempo est calé
+ *   emo : émotion du passage (EMOS, une couleur chacune) ; ten / ene : tension et énergie sonore, de 1 à 5 ; sync : synchro forte (le tempo est calé
  *   pour qu'elle tombe sur le premier temps d'une mesure) ; bpm : tempo choisi (sinon le meilleur tempo calé).
  *   Un repère peut aussi porter grid (grille exacte, degrés de js/harmony.js), gridBars (sa longueur) et theme (notes
  *   imposées [mesure, temps, midi, durée en temps]) : c'est le cas du modèle « La lumière revient ».
@@ -17,20 +17,26 @@
 window.SS = window.SS || {};
 
 SS.film = (() => {
-  /** Émoticônes → émotion de l'application (js/emotions.js) et tempo typique d'un passage. */
+  /**
+   * Émotions d'un passage : couleur, émotion de l'application (js/emotions.js) et tempo typique.
+   * Couleurs (associations les plus constantes des études couleur-émotion, Plutchik, Jonauskaite et al. 2020) :
+   * tristesse bleu profond, nostalgie bleu-gris doux (sépia du souvenir, mais lisible sur fond sombre), suspense violet clair,
+   * peur violet sombre, colère rouge, espoir vert tendre, héroïsme orange doré, émerveillement turquoise,
+   * apaisement vert (paix, harmonie), joie jaune.
+   */
   const EMOS = [
-    { e: '😢', id: 'tristesse', label: 'Tristesse', bpm: 60 },
-    { e: '😔', id: 'nostalgie', label: 'Nostalgie', bpm: 72 },
-    { e: '😬', id: 'suspense', label: 'Suspense', bpm: 90 },
-    { e: '😱', id: 'angoisse', label: 'Peur', bpm: 140 },
-    { e: '😡', id: 'angoisse', label: 'Colère', bpm: 140 },
-    { e: '🥹', id: 'espoir', label: 'Espoir', bpm: 84 },
-    { e: '🦸', id: 'triomphe', label: 'Héroïsme', bpm: 120 },
-    { e: '😮', id: 'emerveillement', label: 'Émerveillement', bpm: 76 },
-    { e: '😌', id: 'serenite', label: 'Apaisement', bpm: 66 },
-    { e: '🙂', id: 'joie', label: 'Joie', bpm: 108 },
+    { k: 'tristesse', id: 'tristesse', label: 'Tristesse', color: '#3f6fe0', bpm: 60 },
+    { k: 'nostalgie', id: 'nostalgie', label: 'Nostalgie', color: '#8aa0d6', bpm: 72 },
+    { k: 'suspense', id: 'suspense', label: 'Suspense', color: '#a98bff', bpm: 90 },
+    { k: 'peur', id: 'angoisse', label: 'Peur', color: '#6b3cc9', bpm: 140 },
+    { k: 'colere', id: 'angoisse', label: 'Colère', color: '#e5382f', bpm: 140 },
+    { k: 'espoir', id: 'espoir', label: 'Espoir', color: '#9ad65a', bpm: 84 },
+    { k: 'heroisme', id: 'triomphe', label: 'Héroïsme', color: '#ff9326', bpm: 120 },
+    { k: 'emerveillement', id: 'emerveillement', label: 'Émerveillement', color: '#2fcfd6', bpm: 76 },
+    { k: 'apaisement', id: 'serenite', label: 'Apaisement', color: '#2fb36d', bpm: 66 },
+    { k: 'joie', id: 'joie', label: 'Joie', color: '#ffd23a', bpm: 108 },
   ];
-  const emoOf = (e) => EMOS.find((x) => x.e === e) || EMOS[1];
+  const emoOf = (k) => EMOS.find((x) => x.k === k) || EMOS[1];
   const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
   const lvl = (n) => clamp(Math.round(Number(n) || 3), 1, 5);
   /** Énergie sonore (1–5) → énergie du plan (0,78 calme … 1 sommet ; js/orchestra.js en tire la densité). */
@@ -57,7 +63,7 @@ SS.film = (() => {
       .map((c) => ({ ...c, t: Number(c.t) || 0 }))
       .filter((c) => c.t < end)
       .sort((a, b) => a.t - b.t);
-    if (!cs.length) cs.push({ t: start, emo: '😔', name: 'Passage', ten: 2, ene: 2 });
+    if (!cs.length) cs.push({ t: start, emo: 'nostalgie', name: 'Passage', ten: 2, ene: 2 });
     cs[0] = { ...cs[0], t: start };
     return { start, end, cues: cs.filter((c, i) => i === 0 || c.t > start) };
   }
@@ -102,6 +108,7 @@ SS.film = (() => {
       startBar: m.bar,
       bars: (i + 1 < marks.length ? marks[i + 1].bar : bars) - m.bar,
       emo: m.emo,
+      color: emoOf(m.emo).color,
       emotion: emoOf(m.emo).id,
       ten: lvl(m.ten),
       ene: lvl(m.ene),
@@ -189,11 +196,11 @@ SS.film = (() => {
     end: 54,
     bpm: 80,
     cues: [
-      { t: 6, emo: '😔', name: 'Doute', ten: 2, ene: 1, gridBars: 4, grid: [C(0, 16, 0, 'madd9'), C(16, 16, 5, 'maj7'), C(32, 16, 2, 'maj', 4), C(48, 16, 6, 'sus2')] },
-      { t: 18, emo: '😬', name: 'Réplique', ten: 3, ene: 1, gridBars: 4, grid: [C(0, 16, 0, 'madd9'), C(16, 16, 5, 'maj7'), C(32, 16, 3, 'madd9'), C(48, 16, 6, 'sus4')] },
-      { t: 30, emo: '🥹', name: 'Espoir', ten: 4, ene: 3, gridBars: 4, grid: [C(0, 16, 0, 'madd9'), C(16, 16, 5, 'maj7'), C(32, 16, 2, 'maj', 4), C(48, 8, 6, 'sus4'), C(56, 8, 6, 'maj')] },
-      { t: 42, emo: '😮', name: 'La lumière', ten: 1, ene: 5, sync: true, gridBars: 2, grid: [C(0, 16, 2, 'add9'), C(16, 16, 6, 'maj', 4)] },
-      { t: 48, emo: '😌', name: 'Apaisement', ten: 1, ene: 2, gridBars: 2, grid: [C(0, 16, 0, 'm7'), C(16, 16, 0, '5')] },
+      { t: 6, emo: 'nostalgie', name: 'Doute', ten: 2, ene: 1, gridBars: 4, grid: [C(0, 16, 0, 'madd9'), C(16, 16, 5, 'maj7'), C(32, 16, 2, 'maj', 4), C(48, 16, 6, 'sus2')] },
+      { t: 18, emo: 'suspense', name: 'Réplique', ten: 3, ene: 1, gridBars: 4, grid: [C(0, 16, 0, 'madd9'), C(16, 16, 5, 'maj7'), C(32, 16, 3, 'madd9'), C(48, 16, 6, 'sus4')] },
+      { t: 30, emo: 'espoir', name: 'Espoir', ten: 4, ene: 3, gridBars: 4, grid: [C(0, 16, 0, 'madd9'), C(16, 16, 5, 'maj7'), C(32, 16, 2, 'maj', 4), C(48, 8, 6, 'sus4'), C(56, 8, 6, 'maj')] },
+      { t: 42, emo: 'emerveillement', name: 'La lumière', ten: 1, ene: 5, sync: true, gridBars: 2, grid: [C(0, 16, 2, 'add9'), C(16, 16, 6, 'maj', 4)] },
+      { t: 48, emo: 'apaisement', name: 'Apaisement', ten: 1, ene: 2, gridBars: 2, grid: [C(0, 16, 0, 'm7'), C(16, 16, 0, '5')] },
     ],
     // le thème au piano : motif La–Fa–Mi (noire, noire, blanche), sommet La5 juste après la synchro
     theme: [[1, 1, 69, 1], [1, 2, 65, 1], [1, 3, 64, 2], [2, 2, 65, 1], [2, 3, 69, 2], [3, 1, 69, 2], [3, 3, 65, 1], [4, 2, 67, 1], [4, 3, 62, 2], [5, 1, 69, 1], [5, 2, 65, 1], [5, 3, 64, 2], [6, 1, 65, 2], [6, 3, 69, 1], [7, 1, 67, 1], [7, 2, 70, 1], [7, 3, 69, 0.5], [8, 3, 67, 2], [9, 1, 69, 1], [9, 2, 65, 1], [9, 3, 64, 1], [9, 4, 65, 1], [10, 1, 65, 1], [10, 2, 69, 1], [10, 3, 70, 2], [11, 1, 69, 1], [11, 2, 72, 1], [11, 3, 77, 2], [12, 1, 77, 2], [12, 3, 76, 1], [13, 1, 77, 2], [13, 3, 79, 1], [13, 4, 81, 1], [14, 1, 79, 2], [14, 3, 76, 2], [15, 1, 77, 1], [15, 2, 72, 1], [15, 3, 69, 2], [16, 1, 74, 3]],
@@ -208,10 +215,10 @@ SS.film = (() => {
     end: 40,
     bpm: null,
     cues: [
-      { t: 0, emo: '😬', name: 'Attente', ten: 3, ene: 1 },
-      { t: 10, emo: '😱', name: 'Le danger', ten: 5, ene: 3 },
-      { t: 24, emo: '🦸', name: 'Le sursaut', ten: 2, ene: 5, sync: true },
-      { t: 34, emo: '😌', name: 'Après', ten: 1, ene: 2 },
+      { t: 0, emo: 'suspense', name: 'Attente', ten: 3, ene: 1 },
+      { t: 10, emo: 'peur', name: 'Le danger', ten: 5, ene: 3 },
+      { t: 24, emo: 'heroisme', name: 'Le sursaut', ten: 2, ene: 5, sync: true },
+      { t: 34, emo: 'apaisement', name: 'Après', ten: 1, ene: 2 },
     ],
   });
 

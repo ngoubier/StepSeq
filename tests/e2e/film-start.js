@@ -71,7 +71,7 @@ const shot = async (page, name) => SHOTS && page.screenshot({ path: path.join(SH
   await page.click('#bfmAdd');
   await page.waitForTimeout(300);
   ok((await page.locator('.bfm-cues tbody tr').count()) === 6, 'un repère ajouté');
-  await page.locator('.bfm-cues tbody tr').nth(5).locator('.bfm-emo').selectOption('🦸');
+  await page.locator('.bfm-cues tbody tr').nth(5).locator('.bfm-emo').selectOption('heroisme');
   await page.waitForTimeout(300);
   const chips = page.locator('.bfm-opts .chip');
   ok((await chips.count()) >= 2, 'tempos calés proposés');
