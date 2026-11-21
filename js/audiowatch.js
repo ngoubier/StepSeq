@@ -25,7 +25,6 @@ SS.audioWatch = (() => {
     clockRatio: 0.95, // horloge audio plus lente que l'horloge réelle : le moteur décroche
     merge: 10000, // un incident identique dans les 10 s est cumulé (compteur) au lieu d'être répété
     keep: 40, // incidents conservés
-    lateRepeat: 3, // notes en retard signalées autant de fois (en 10 s) avant d'alléger
     settle: 4000, // mode Diagnostic : attente après un allègement avant d'en décider un autre (ms)
     maxSteps: 8, // mode Diagnostic : allègements ciblés au plus, ensuite mode allégé complet
     journal: 500, // lignes gardées dans le journal de débogage
@@ -290,9 +289,14 @@ SS.audioWatch = (() => {
     return { added, actions: [...actions] };
   }
 
-  /** Incident de ce relevé qui justifie le mode allégé : vrais décrochages ou retards à répétition (pas une simple pointe). */
+  /**
+   * Incident de ce relevé qui justifie un allègement : de vrais décrochages du moteur audio (pas une simple pointe).
+   * Les notes programmées en retard n'en déclenchent plus : elles viennent de la page bloquée, pas du processeur
+   * audio, et raccourcir une reverb recalcule sa réponse dans la page, ce qui créait de nouveaux retards, donc un
+   * nouvel allègement… (cascade observée sur Blinding Lights, 2026-11-20). Elles restent signalées comme incident.
+   */
   function overload(state, now) {
-    return state.incidents.find((x) => x.last === now && ((x.kind === 'underrun' && x.level === 'bad') || (x.kind === 'late' && x.count >= CFG.lateRepeat))) || null;
+    return state.incidents.find((x) => x.last === now && x.kind === 'underrun' && x.level === 'bad') || null;
   }
 
   /** Pire niveau des incidents récents : 'bad', 'warn' ou 'ok'. */
@@ -571,7 +575,7 @@ SS.audioWatch = (() => {
   }
   /** Surcharge en mode Diagnostic : une marche de plus, ou le mode allégé complet en dernier recours. */
   function diagOverload(slow, project, now) {
-    const reason = slow.kind === 'underrun' ? 'Processeur saturé' : 'Lecture qui prend du retard';
+    const reason = 'Processeur saturé';
     let steps = [];
     try {
       steps = project ? reliefSteps(project, SS.audio.reliefState ? SS.audio.reliefState() : {}) : [];
@@ -825,7 +829,7 @@ SS.audioWatch = (() => {
     const diagSlow = over && !diag.declined && !declined && diagMode() && !SS.audio.isLight() ? over : null;
     if (diagSlow) diagOverload(diagSlow, project, now);
     const slow = !diagMode() && !declined && autoLight() && !SS.audio.isLight() ? over : null;
-    if (slow && lighten(slow.kind === 'underrun' ? 'Processeur saturé' : 'Lecture qui prend du retard', true)) {
+    if (slow && lighten('Processeur saturé', true)) {
       if (SS.ui && SS.ui.toast) {
         lastToast = now;
         SS.ui.toast('Processeur saturé : effets, reverbs, compression et mastering coupés temporairement', 8000, { label: 'Rétablir', run: () => restore(true) });

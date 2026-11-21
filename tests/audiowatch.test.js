@@ -186,14 +186,13 @@ test('surcharge : les décrochages et les retards répétés déclenchent le mod
   assert.equal(W.overload(st5, 250), null, 'pointe de charge sans décrochage : on ne coupe rien');
   run(st5, [snap({ render: { average: 0.9, peak: 1, underrun: 0.03 } })]);
   assert.equal(W.overload(st5, 250).level, 'bad', 'la pointe devenue décrochage aggrave l\'incident');
-  // notes en retard : un retard isolé (ouverture d'une fenêtre) ne suffit pas, trois de suite oui
-  const st3 = W.newState();
-  const late = (n) => snap({ scheduling: { lateSteps: n, maxLateMs: 60 } });
-  run(st3, [late(0), late(1)]);
-  assert.equal(W.overload(st3, 500), null);
+  // notes en retard : la page a été bloquée, pas le moteur audio ; signalées, mais jamais d'allègement
+  // (raccourcir une reverb la recalcule dans la page et crée d'autres retards)
   const st4 = W.newState();
-  run(st4, [late(0), late(1), late(2), late(3)]);
-  assert.equal(W.overload(st4, 1000).kind, 'late');
+  const late = (n) => snap({ scheduling: { lateSteps: n, maxLateMs: 60 } });
+  run(st4, [late(0), late(1), late(2), late(3), late(4)]);
+  assert.ok(st4.incidents.some((x) => x.kind === 'late'), 'retards signalés');
+  assert.equal(W.overload(st4, 1000), null, 'retards seuls : rien n\'est allégé');
 });
 
 /* ---------------- Mode Diagnostic : allègement pas à pas ---------------- */
