@@ -5,6 +5,7 @@ Batteries enregistrées (bibliothèque « live ») : copie locale de kits Hydrog
 Kits (format Hydrogen .h2drumkit, téléchargés sur SourceForge, voir samples/live/LICENSE.txt) :
  - pop, rock, ballade : AVL Drumkits Black Pearl, Red Zeppelin, Blonde Bop (Glen MacArthur, CC BY-SA 4.0) ;
  - rods : Blonde Bop joué aux « hot rods » (fagots) (Glen MacArthur, CC BY-SA 4.0) ;
+ - reggae : Blonde Bop accordé haut pour le reggae roots (Glen MacArthur, CC BY-SA 4.0) ;
  - cajon : Buskman's Holiday, cajón et percussions (Glen MacArthur, CC BY-SA 4.0) ;
  - tama : Forzee Stereo Drumkit (V. Sadovnikov, A. Belokurov, GPL 2), stéréo ;
  - pacific : Pacific de Bransin James Anderson (CC BY-SA 3.0 US), stéréo.
@@ -13,7 +14,7 @@ plages de vélocité de drumkit.xml), retire le silence avant l'attaque, les rac
 les encode en MP3 dans samples/live/<kit>/ et écrit samples/live/live.json au format des banques de strudel :
 { "_base": "samples/live/", "<kit>_<élément>": [niveau 1, …, niveau n] }.
 js/audio.js joue le niveau qui correspond à la vélocité du coup (SS.LAYERED_DRUM_LIBS).
-Instrument « Nom+3 » : accordé 3 demi-tons plus haut (tom aigu des kits à deux toms) ; « =banque » : banque d'un autre kit.
+Instrument « Nom+3 » : accordé 3 demi-tons plus haut (tom aigu des kits à deux toms, kit reggae) ; « =banque » : banque d'un autre kit.
 
 Usage : python3 tools/live-drums.py [dossier de téléchargement]
 Nécessite ffmpeg et curl.
@@ -57,6 +58,13 @@ KITS = [
         'bd': 'CajonThump', 'sd': 'CajonSlapRH', 'rim': 'StickClick', 'cp': 'HandClap', 'hh': 'Shaker', 'oh': 'BumpTambourine',
         'lt': 'LargeCongaRH', 'mt': 'SmallCongaLH', 'ht': 'SmallCongaRH', 'cr': 'Cymbal', 'rd': 'CymbalBell', 'cb': 'Cowbell',
         'tb': 'Tambourine', 'sh': 'Shaker', 'perc': 'Claves', 'misc': 'FootStomp',
+    }),
+    # reggae roots : le petit kit jazz Blonde Bop accordé haut (caisse claire sèche et aiguë, cross-stick, toms en timbales)
+    ('reggae', 'AVLDrumkits-BlondeBop', False, {
+        'bd': 'TAMA-18-Kick+1', 'sd': 'TAMA-13-SnareCenter+4', 'rim': 'TAMA-13-SideStick+3', 'cp': 'HandClap',
+        'hh': 'Zildjian-13-HatClosed', 'oh': 'Zildjian-13-HatSemi', 'lt': 'TAMA-14-FlrTomCenter+5', 'mt': 'TAMA-10-TomCenter+3',
+        'ht': 'TAMA-10-TomCenter+7', 'cr': 'Paiste-16-Crash', 'rd': 'Sabian-20-RideTip', 'cb': 'LP-Cowbell',
+        'tb': 'GP-10-Tambourine', 'sh': 'GonBops-Shaker', 'perc': 'TAMA-13-SnareEdge+4', 'misc': '55-Zildjian-10-Splash-5',
     }),
     ('tama', 'ForzeeStereo', True, {
         'bd': 'Kick (Tama Superstar 22")', 'sd': 'Snare (Pearl Free Floating Maple 14x3.5)',

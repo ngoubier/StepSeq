@@ -38,7 +38,7 @@ SS.vcslLocal = (base, file) => {
 SS.DRUM_LIBS = [
   { id: 'tdm', label: 'Boîtes à rythmes', hint: 'tidal-drum-machines : 70 machines (TR-808, TR-909, LinnDrum…)' },
   { id: 'dirt', label: 'Dirt-Samples', hint: '218 banques de TidalCycles : kits, breaks, voix, bruitages…' },
-  { id: 'live', label: 'Batteries enregistrées', hint: '7 vraies batteries (pop, rock, ballade, fagots, cajón…), le niveau de frappe suit la vélocité' },
+  { id: 'live', label: 'Batteries enregistrées', hint: '8 vraies batteries (pop, rock, ballade, fagots, reggae, cajón…), le niveau de frappe suit la vélocité' },
   { id: 'vcsl', label: 'Percussions acoustiques', hint: 'VCSL : congas, bongos, cajón, gongs, cymbales…' },
   { id: 'mrid', label: 'Mridangam', hint: 'percussion d’Inde du Sud (syllabes ta, ki, dhin, thom…)' },
   { id: 'gm', label: 'General MIDI', hint: 'les 47 sons de la batterie General MIDI (notes 35 à 81), kits FluidR3, JCLive, Chaos et SBLive' },

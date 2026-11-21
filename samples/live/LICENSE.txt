@@ -1,7 +1,7 @@
 Batteries enregistrées de StepSeq (samples/live) — sources et licences
 
 1. AVL Drumkits : Black Pearl (2023), Red Zeppelin (2023), Blonde Bop, Blonde Bop HotRod, Buskman's Holiday
-   (dossiers pop, rock, ballade, rods, cajon)
+   (dossiers pop, rock, ballade, rods, cajon ; reggae = Blonde Bop accordé plus haut)
    Auteur : Glen MacArthur (AV Linux), https://www.bandshed.net/avldrumkits/
    Licence : Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)
    https://creativecommons.org/licenses/by-sa/4.0/
