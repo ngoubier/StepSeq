@@ -391,6 +391,39 @@ SS.film = (() => {
   /** Traitement du thème dans un passage : celui choisi, sinon celui de son émotion. */
   const treatOf = (film, s) => (film.leit && TREATMENTS[film.leit[s.id]] ? film.leit[s.id] : EMO_TREAT[s.emo] || 'enonce');
 
+  /**
+   * Percussions d'orchestre frappées sur les repères (kit « orchperc » : lt timbale, mt roulement de timbale,
+   * bd grosse caisse, cr cymbale suspendue, misc tam-tam) → { son: [[pas, vélocité]] }.
+   * Synchro forte : impact au premier temps (et tam-tam si l'énergie est haute) ; la mesure d'avant : roulement de timbale ;
+   * énergie 4–5 : la timbale marque les temps forts ; tension 5 au calme : un battement de cœur ; la fin : tam-tam pianissimo.
+   */
+  function percHits(tm, i) {
+    const s = tm.sections[i];
+    const next = tm.sections[i + 1] || null;
+    const n = s.bars * 16;
+    const hits = { lt: [], mt: [], bd: [], cr: [], misc: [] };
+    if (s.sync) {
+      hits.bd.push([0, 1]);
+      hits.cr.push([0, 0.9]);
+      hits.lt.push([0, 0.95]);
+      if (s.ene >= 4) hits.misc.push([0, 0.7]);
+    }
+    if (next && next.sync) hits.mt.push([Math.max(0, n - 16), 0.75]);
+    for (let b = 0; b < s.bars; b++) {
+      if (s.ene >= 4) {
+        if (!(s.sync && b === 0)) hits.lt.push([b * 16, 0.7]);
+        if (s.ene >= 5) hits.lt.push([b * 16 + 8, 0.55]);
+      } else if (s.ten >= 5) {
+        hits.lt.push([b * 16, 0.5]);
+        hits.lt.push([b * 16 + 3, 0.38]);
+      }
+    }
+    if (s.ten >= 4 && s.ene <= 3 && !s.sync) hits.cr.push([0, 0.35]); // un frisson de cymbale à l'entrée d'un passage tendu
+    if (!next && s.ene <= 2) hits.misc.push([0, 0.35]);
+    Object.values(hits).forEach((l) => l.sort((a, b) => a[0] - b[0]));
+    return hits;
+  }
+
   /** Plan de chanson d'une scène de film (js/band-songs.js) : une section par passage, dans l'ordre. */
   function spec(film) {
     const tm = timing(film);
@@ -416,6 +449,7 @@ SS.film = (() => {
         const ev = themeEvents(film.theme, s.startBar, s.bars);
         if (ev.length) sec.theme = ev;
       }
+      sec.hits = percHits(tm, tm.sections.indexOf(s));
       sections[s.id] = sec;
     });
     return { key, groove: 'slow', emotion: tm.sections[0].emotion, film: true, sections, form: tm.sections.map((s) => s.id).join(' ') };
@@ -465,9 +499,10 @@ SS.film = (() => {
    * Deux départs : le modèle « La lumière revient » (accords et thème écrits) et une scène libre. Pas de batterie :
    * un piano porte le thème, l'orchestre (js/orchestra.js) tient l'harmonie et la basse, plus dense quand l'énergie monte. */
   const THEME_PICK = 'piano vcsl_fmpiano gm_epiano1 vsco_flute gm_violin gm_cello';
-  const ORCH = ['chamber', 'strings', 'winds', 'hybrid'];
+  const ORCH = ['chamber', 'romantique', 'epique', 'intime', 'mystere', 'strings', 'winds', 'hybrid'];
+  const PERC = (kit, opt) => kit('perc', 'lt mt bd cr misc', 'orchperc', { label: 'Percussions d’orchestre', note: 'Timbales, grosse caisse, cymbale et tam-tam, frappés sur les repères', ...opt });
   const KEYS_PICK = 'piano gm_epiano1 vcsl_fmpiano gm_celesta gm_orchestral_harp';
-  const STYLE = (mu) => ({
+  const STYLE = (mu, kit) => ({
     id: 'film',
     label: 'Musique de film',
     film: true,
@@ -484,6 +519,7 @@ SS.film = (() => {
         musicians: [
           mu('lead', THEME_PICK, { label: 'Thème (piano)', note: 'Le motif La–Fa–Mi, puis le sommet La5 après la synchro' }),
           mu('orch', 'gm_violin', { label: 'Orchestre', orch: true, ens: ORCH.slice(), note: 'Harmonie et basse, plus dense quand l’énergie monte' }),
+          PERC(kit),
           mu('keys', KEYS_PICK, { label: 'Piano (accords)', optional: true }),
         ],
       },
@@ -496,7 +532,8 @@ SS.film = (() => {
         desc: 'Tes repères : ajoute des passages, donne-leur une émotion, une tension et une énergie, marque la synchro forte. Le tempo se cale tout seul.',
         musicians: [
           mu('lead', THEME_PICK, { label: 'Thème (piano)' }),
-          mu('orch', 'gm_violin', { label: 'Orchestre', orch: true, ens: ORCH.slice() }),
+          mu('orch', 'gm_violin', { label: 'Orchestre', orch: true, ens: ['romantique', ...ORCH.filter((e) => e !== 'romantique')] }),
+          PERC(kit),
           mu('keys', KEYS_PICK, { label: 'Piano (accords)', optional: true }),
         ],
       },
@@ -506,8 +543,8 @@ SS.film = (() => {
     SS.BandSongs.lumiere = spec(LUMIERE);
     SS.BandSongs.scene = spec(blankScene());
   }
-  if (SS.Band && SS.Band.addStyle) SS.Band.addStyle(STYLE(SS.Band.mu));
+  if (SS.Band && SS.Band.addStyle) SS.Band.addStyle(STYLE(SS.Band.mu, SS.Band.kit));
 
   return { EMOS, emoOf, energyOf, tempoOf, fmt, timing, spec, gridFor, themeEvents, LUMIERE, blankScene, editable, TEMPO_MIN, TEMPO_MAX,
-    CONT, INTV, RHY, EMO_MOTIF, motifFor, genMotif, proposals, TRANSFORMS, PHRASES, phrase, TREATMENTS, EMO_TREAT, treatOf, treatNotes, motifOf, chordAt, parseKey, scaleOf };
+    percHits, CONT, INTV, RHY, EMO_MOTIF, motifFor, genMotif, proposals, TRANSFORMS, PHRASES, phrase, TREATMENTS, EMO_TREAT, treatOf, treatNotes, motifOf, chordAt, parseKey, scaleOf };
 })();

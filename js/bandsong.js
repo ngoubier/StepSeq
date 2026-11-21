@@ -1850,6 +1850,12 @@ SS.bandSong = (() => {
           const mode = role === 'perc' ? sec.perc ?? sec.drums : sec.drums;
           const snd = sound || t.sound;
           if (muted.includes(role) || (ie && ie.off)) return void (data[t.id] = { steps: new Array(bars * SPB).fill(0) });
+          // percussions frappées sur les repères (musique de film, js/film.js) : sec.hits = { son: [[pas, vélocité]] }
+          if (role === 'perc' && sec.hits && !(dp && (dp.edits || dp.pattern))) {
+            const steps = new Array(bars * SPB).fill(0);
+            (sec.hits[snd] || []).forEach(([st, v]) => st >= 0 && st < steps.length && (steps[st] = v));
+            return void (data[t.id] = { steps });
+          }
           const pat = dp && dp.pattern && SS.drumPattern ? SS.drumPattern(dp.style, dp.pattern) : null;
           const lanes = dp && (dp.edits || (pat && pat.lanes));
           const fo = { fill: dp && dp.fill, fillType: (dp && dp.fillType) || 'roll', crash: !!(dp && dp.crash), energy };

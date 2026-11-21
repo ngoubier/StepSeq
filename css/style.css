@@ -4166,6 +4166,10 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 #bandDialog .bfm-leit td small { color: var(--bw-dim); }
 #bandDialog .bfm-leit .bfm-rollcell { width: 50%; }
 #bandDialog .bfm-leit .bfm-roll { height: 36px; }
+#bandDialog .bfm-orch { width: 100%; max-width: 1100px; border-collapse: collapse; font-size: 13px; }
+#bandDialog .bfm-orch th { text-align: left; font-size: 11px; font-weight: 600; color: var(--bw-dim); padding: 2px 8px 4px 0; }
+#bandDialog .bfm-orch td { padding: 5px 8px 5px 0; }
+#bandDialog .bfm-perc { color: var(--bw-muted); }
 #bandDialog .bs1-insp-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: -8px; }
 #bandDialog .band-stylecard { display: flex; flex-direction: row; align-items: center; flex-wrap: wrap; flex: 1 1 320px; gap: 4px 12px; min-width: 0; padding: 0; border: 0; border-radius: 0; background: none; }
 #bandDialog .bsc-lbl { color: var(--bw-dim); font-size: 12px; }

@@ -189,7 +189,7 @@ SS.band = (() => {
       const extra = B().EXTRA_PIECES[mu.role === 'perc' ? 'perc' : 'drums'].filter((x) => !mu.pieces.some((pc) => pc.split('@')[0] === x));
       return { on: true, kit: mu.kits[0], pieces: [...mu.pieces.map((pc) => ({ piece: pc, on: true })), ...extra.map((pc) => ({ piece: pc, on: false }))] };
     }
-    if (mu.orch) return { on: true, ens: 'chamber' };
+    if (mu.orch) return { on: true, ens: (mu.ens && mu.ens[0]) || 'chamber' }; // effectif de départ : le premier proposé par l'inspiration
     return { on: true, pick: 0, custom: null, ...(mu.added ? { tok: mu.pick[0] } : {}) };
   }
   /** Choix de son de chaque musicien du groupe, par id (état gardé par inspiration ; celui d'un musicien ajouté vit dans le groupe). */
@@ -1059,7 +1059,7 @@ SS.band = (() => {
       return [
         head,
         h('p', { class: 'bfm-why' }, filmTpl() || f.theme ? 'Le thème du modèle est écrit : La–Fa–Mi (noire, noire, blanche), le sommet La5 juste après la synchro.' : 'Pas encore de thème : l’assistant écrit une mélodie pour chaque scène.'),
-        h('button', { type: 'button', class: 'btn btn-small', id: 'bfmThemeNew', title: 'Un motif de 3 à 5 notes, réglé d’après l’émotion du premier passage', onclick: () => themeEdit((x) => (x.motif = FM().motifFor(firstEmo))) }, 'Inventer un thème'),
+        h('div', { class: 'bfm-row' }, h('button', { type: 'button', class: 'btn btn-small', id: 'bfmThemeNew', title: 'Un motif de 3 à 5 notes, réglé d’après l’émotion du premier passage', onclick: () => themeEdit((x) => (x.motif = FM().motifFor(firstEmo))) }, 'Inventer un thème')),
       ];
     }
     const p = f.motif;
@@ -1141,6 +1141,63 @@ SS.band = (() => {
     ];
   }
 
+  /* ---------- 05 Orchestre (musique de film) : l'effectif par couleur, qui porte le thème, les percussions sur les repères ---------- */
+  const PERC_FR = { lt: 'timbale', mt: 'roulement de timbale', bd: 'grosse caisse', cr: 'cymbale', misc: 'tam-tam' };
+  /** Résumé des percussions d'un passage : « impact : grosse caisse, cymbale, timbale · timbale sur les temps forts ». */
+  function percText(hits) {
+    if (!hits) return '';
+    const at0 = Object.entries(hits).filter(([, l]) => l.some(([st]) => st === 0)).map(([k]) => PERC_FR[k]);
+    const out = [];
+    if (hits.bd.some(([st]) => st === 0)) out.push('impact : ' + at0.join(', '));
+    else if (at0.length) out.push(at0.join(', ') + ' à l’entrée');
+    if (hits.mt.length) out.push('roulement avant la synchro');
+    const lt = hits.lt.filter(([st]) => st > 0);
+    if (lt.length) out.push(lt.some(([st]) => st % 16 === 3) ? 'battement de cœur à la timbale' : 'timbale sur les temps forts');
+    return out.join(' · ') || '—';
+  }
+  function filmOrchBlock(tm) {
+    const mu = musicians().find((m) => m.orch);
+    const head = h('div', { class: 'bfm-h' }, h('b', {}, '05'), ' Orchestre');
+    if (!mu) return [head, h('p', { class: 'bfm-why' }, 'Pas d’orchestre dans le groupe : ajoute-le à l’étape Instruments.')];
+    const ms = musState()[mu.id];
+    const cur = ensOf(ms);
+    const pick = (id) => {
+      ms.ens = id;
+      renderSong();
+      refresh();
+    };
+    const res = S.wiz ? wizSong().res : null;
+    const sp = spec();
+    const percMu = musicians().find((m) => m.kits && m.role === 'perc' && kitOf(musState()[m.id]) === 'orchperc');
+    const LV = { light: 'Léger', mid: 'Moyen', full: 'Tout l’effectif' };
+    const rows = tm.sections.map((s) => {
+      const sc = res && res.scenes.find((x) => x.sec === s.id);
+      const o = sc && sc.orch && sc.orch[mu.id];
+      const carriers = o ? Object.entries(o.lines).filter(([, L]) => L.role === 'melody').map(([id]) => SS.orchestra.PART[id].label) : [];
+      const sec = sp.sections[s.id] || {};
+      const theme = (sec.theme && sec.theme.length) || sec.lead ? ['Thème (piano)', ...carriers] : carriers;
+      return h(
+        'tr',
+        { 'data-sec': s.id },
+        h('td', { class: 'bfm-emotd', style: `--c:${s.color}` }, h('i', { class: 'bfm-dot', 'aria-hidden': 'true' }), s.name),
+        h('td', {}, o ? LV[o.level] : LV[SS.orchestra.levelOf(FM().energyOf(s.ene))]),
+        h('td', {}, theme.length ? theme.join(' + ') : 'personne (le thème se tait)'),
+        h('td', { class: 'bfm-perc' }, percMu ? percText(sec.hits) : '—')
+      );
+    });
+    return [
+      head,
+      h('div', { class: 'bfm-row' }, h('span', { class: 'bh-lbl' }, 'Couleur'), h('span', { class: 'bfm-chips', id: 'bfmEns', role: 'radiogroup', 'aria-label': 'Effectif de l’orchestre' },
+        ...SS.orchestra.ENSEMBLES.filter((e) => e.film || e.id === 'chamber').map((e) =>
+          h('button', { type: 'button', class: 'chip' + (e.id === cur.id ? ' active' : ''), role: 'radio', 'aria-checked': String(e.id === cur.id), 'data-ens': e.id, title: e.parts.map((id) => SS.orchestra.PART[id].label).join(', '), onclick: () => pick(e.id) }, e.id === 'chamber' ? 'Étude' : e.label)))),
+      h('p', { class: 'bfm-why' }, `${cur.text} Pupitres : ${cur.parts.map((id) => SS.orchestra.PART[id].label.toLowerCase()).join(', ')}. La densité suit l’énergie de chaque passage ; les cuivres (sauf le cor) attendent les scènes fortes.`),
+      h('table', { class: 'bfm-orch' },
+        h('thead', {}, h('tr', {}, ...['Passage', 'Densité', 'Le thème', 'Percussions d’orchestre'].map((t) => h('th', {}, t)))),
+        h('tbody', {}, ...rows)),
+      h('p', { class: 'bfm-why' }, 'L’étape Orchestration règle chaque scène en détail (densité, pupitres coupés) ; l’étape Instruments change les sons.'),
+    ];
+  }
+
   function renderFilm() {
     const f = filmOf();
     const tpl = filmTpl();
@@ -1202,7 +1259,8 @@ SS.band = (() => {
       filmCurves(tm),
       h('p', { class: 'bfm-legend' }, h('i', { style: `background:${ENE_C}` }), ' Énergie sonore ', h('i', { class: 'dash', style: `color:${TEN_C}` }), ' Tension · la bande de couleur : l’émotion de chaque passage, qui devient une scène ; l’énergie règle la densité de l’orchestre.'),
       h('p', { class: 'bfm-palette' }, ...FM().EMOS.map((x) => h('span', { style: `--c:${x.color}` }, h('i', { 'aria-hidden': 'true' }), x.label))),
-      ...filmThemeBlock(f, tm)
+      ...filmThemeBlock(f, tm),
+      ...filmOrchBlock(tm)
     ];
     $('#bandSong').replaceChildren(...kids.filter(Boolean));
   }
@@ -6143,7 +6201,7 @@ SS.band = (() => {
    * SS.bandSong.build écrit chaque pupitre avec SS.orchestra.orchestrate et laisse son rapport dans sc.orch[musicien] ;
    * réglages de la scène : parts[sec].inst[musicien].orch = { level: light | mid | full, off: [pupitres coupés] }. */
   const OR = () => SS.orchestra;
-  const ORCH_ROLE_C = { melody: '#9b5cff', counter: '#13c2a3', harmony: '#4f6bff', bass: '#3fcf3f', pad: '#c9a227', tacet: '#55555f' };
+  const ORCH_ROLE_C = { melody: '#9b5cff', counter: '#13c2a3', harmony: '#4f6bff', bass: '#3fcf3f', pad: '#c9a227', arp: '#ff8fc8', tacet: '#55555f' };
   const orchSet = (sc, T) => (partOf(sc.sec, T) || {}).orch || {};
   function orchSub(x, T) {
     if (mutedIn(x.sec, T)) return 'muet';

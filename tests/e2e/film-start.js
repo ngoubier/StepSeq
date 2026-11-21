@@ -49,14 +49,29 @@ const shot = async (page, name) => SHOTS && page.screenshot({ path: path.join(SH
   await page.locator('#bandSong').scrollIntoViewIfNeeded();
   await shot(page, 'film-modele.png');
 
+  // 05 Orchestre : une couleur, les percussions sur les repères
+  ok((await page.locator('#bfmEns .chip').count()) === 5, 'cinq couleurs d’orchestre');
+  await page.click('#bfmEns [data-ens="epique"]');
+  await page.waitForTimeout(400);
+  ok((await page.getAttribute('#bfmEns [data-ens="epique"]', 'aria-checked')) === 'true', 'effectif épique choisi');
+  const row4 = await page.textContent('.bfm-orch tr[data-sec="p4"]');
+  ok(/impact : timbale, grosse caisse, cymbale/.test(row4), 'impact de percussions sur la synchro : ' + row4);
+  ok(/Trompettes/.test(row4), 'les trompettes portent le thème au sommet');
+  await page.locator('.bfm-orch').scrollIntoViewIfNeeded();
+  await shot(page, 'film-orchestre.png');
+
   await page.click('#bwGo');
   await page.waitForTimeout(1500);
   await page.click('#stop').catch(() => {});
   const lis = await page.evaluate(() => {
     const r = SS.band._listen();
     const lead = r.tracks.find((t) => t.band && t.band.key === 'lead');
-    return { scenes: r.scenes.length, top: lead ? r.scenes[3].data[lead.id].events.map((e) => e.notes[0]) : [] };
+    const bd = r.tracks.find((t) => t.band && t.band.key === 'perc:bd');
+    const tp = r.tracks.filter((t) => t.band && t.band.key === 'orch:tp');
+    return { scenes: r.scenes.length, top: lead ? r.scenes[3].data[lead.id].events.map((e) => e.notes[0]) : [], bd: bd ? r.scenes.map((sc) => sc.data[bd.id].steps.filter((v) => v > 0).length) : [], tp: tp.length ? r.scenes.map((sc) => sc.data[tp[0].id].events.length) : [] };
   });
+  ok(lis.bd.join() === '0,0,0,1,0', `grosse caisse seulement à la synchro (${lis.bd.join(' ')})`);
+  ok(lis.tp.length === 5 && lis.tp[3] > 0 && lis.tp[0] === 0, `trompettes seulement au sommet (${lis.tp.join(' ')})`);
   ok(lis.scenes === 5, `aperçu : 5 scènes (${lis.scenes})`);
   ok(lis.top.join() === '77,79,81,79,76', `le thème du modèle, tel qu’écrit (m. 13–14 : ${lis.top.join(' ')})`);
 
