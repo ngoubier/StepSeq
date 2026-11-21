@@ -311,7 +311,7 @@ SS.bandSong = (() => {
   }
 
   /** Applique nuance, accents et phrasé aux notes d'une partie (vélocités déjà tirées autour de leur valeur de base). */
-  function shapeVel(events, role, { energy, bars, build }) {
+  function shapeVel(events, role, { energy, bars, build, own }) {
     const n = bars * SPB;
     const melodic = ['lead', 'vox', 'sax'].includes(role);
     // hauteur moyenne de chaque phrase de 2 mesures (les notes plus aiguës que la moyenne sont chantées plus fort)
@@ -325,7 +325,8 @@ SS.bandSong = (() => {
         mean.set(ph, m);
       });
     events.forEach((e, i) => {
-      let v = e.vel * (1 - (DEPTH[role] ?? 0.5) * (1 - ACCENT(e.step)));
+      // own : notes du moteur de guitare (Arp One), qui portent déjà leurs accents (pouce, doigts, mélodie) : pas d'accent en plus
+      let v = e.vel * (own ? 1 : 1 - (DEPTH[role] ?? 0.5) * (1 - ACCENT(e.step)));
       v *= build ? 0.76 + 0.3 * (e.step / n) : energy;
       v *= 0.96 + 0.06 * Math.sin((Math.PI * (e.step % (4 * SPB))) / (4 * SPB)); // respiration sur 4 mesures
       if (role === 'arp') v *= 0.92 + 0.1 * Math.sin((Math.PI * (e.step % (2 * SPB))) / (2 * SPB)); // vague sur 2 mesures
@@ -1917,17 +1918,18 @@ SS.bandSong = (() => {
           return m === 'rise' ? riseEvents(spans, r, k, bars) : melodyPart(spans, k, bars, mrole, im2 && Object.keys(im2).length ? { ...smel, ...im2 } : smel, (ie && ie.plan) || (mel.plans && mel.plans[id]), (ie && ie.seeds) || (mel.seeds && mel.seeds[id]), `${presetId}/${id}/${role}${dup}/${melodySeed}`, m);
         };
         let events = [];
+        let gtrEv = false; // notes du moteur de guitare (voir shapeVel)
         // mélodie imposée : même dans une scène où l'inspiration ne chante pas (sauf rôle coupé par « off »)
         if (ownL && kd === 'melody' && !off)
           events = ownL.filter((e) => e && e.step >= 0 && e.step < bars * SPB && e.notes && e.notes.length).map((e) => ({ step: e.step, len: Math.max(1, Math.min(e.len, bars * SPB - e.step)), notes: [...e.notes], vel: e.vel ?? 0.8 }));
-        else if (one) events = arpOneEvents(spans, one, bars);
+        else if (one) (events = arpOneEvents(spans, one, bars)), (gtrEv = !!(one.guitar && one.guitar.on));
         else if (mode && changed) {
           if (kd === 'bass') {
             const kp = H().scale(k).map((d) => d.pc);
             const ped = o && { tonic: kp[0], fifth: pcOf(kp[0] + 7) }[o.pedal];
             events = bassEvents(spans, mode, r, kp, { pedalPc: (o && ped) ?? null, approach: !o || o.approach !== false, shift: (o && o.register === 'mid' ? 12 : 0) + (spec.bassShift || 0) });
           } else if (kd === 'arp') events = arpEvents(spans, mode, r);
-          else if (kd === 'chords' && /^g:/.test(mode) && SS.GuitarArp) events = arpOneEvents(spans, { guitar: { ...((o && o.gtr) || {}), on: true, motif: mode.slice(2) } }, bars);
+          else if (kd === 'chords' && /^g:/.test(mode) && SS.GuitarArp) (events = arpOneEvents(spans, { guitar: { ...((o && o.gtr) || {}), on: true, motif: mode.slice(2) } }, bars)), (gtrEv = true);
           else if (kd === 'chords') events = chordEvents(spans, mode, r, { lo: 53, hi: 76, open: !!(o && o.voicing === 'open') });
           else if (kd === 'melody') events = sing(role === 'vox' ? 'vox' : 'lead', mode);
           else {
@@ -1958,7 +1960,7 @@ SS.bandSong = (() => {
             // nappe, cordes, piano, guitare : accords (ou arpège si le mode en est un)
             const range = role === 'keys' ? { lo: 57, hi: 79 } : role === 'guitar' ? { lo: 52, hi: 74 } : role === 'strings' ? { lo: 55, hi: 81 } : { lo: 53, hi: 76 };
             // guitare : motif du mode Guitare d'Arp One (« g:travis »…), joué par le vrai moteur (js/guitar-arp.js)
-            if (/^g:/.test(mode) && SS.GuitarArp) events = arpOneEvents(spans, { guitar: { ...((o && o.gtr) || {}), on: true, motif: mode.slice(2) } }, bars);
+            if (/^g:/.test(mode) && SS.GuitarArp) (events = arpOneEvents(spans, { guitar: { ...((o && o.gtr) || {}), on: true, motif: mode.slice(2) } }, bars)), (gtrEv = true);
             else if (/^g:/.test(mode)) events = chordEvents(spans, 'chop', r, range); // sans le moteur de guitare : petits accords hachés
             else events = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16', 'ost16', 'dotted'].includes(mode) ? arpEvents(spans, mode, r) : chordEvents(spans, mode, r, role === 'pad' && o && o.voicing === 'open' ? { ...range, open: true } : range);
           }
@@ -1969,7 +1971,7 @@ SS.bandSong = (() => {
           fxScene = fxSceneTrack(sec, k, bars, outE, inE, gapSteps, !!spec.tech);
           events = fxScene.events;
         }
-        data[t.id] = { events: role === 'fx' ? events : shapeVel(events, er, { energy, bars, build: sec.drums === 'build' }) };
+        data[t.id] = { events: role === 'fx' ? events : shapeVel(events, er, { energy, bars, build: sec.drums === 'build', own: gtrEv }) };
         if (ie && ie.double && kd === 'melody' && t !== primaryMel && !off) doubles.push([t, ie.double, o]);
         // techno : dans la montée, les mélodies restent en retrait pour que le drop frappe plus fort
         if (spec.tech && sec.drums === 'build' && ['lead', 'vox', 'arp', 'keys'].includes(er)) data[t.id].events.forEach((e) => (e.vel = clampV(e.vel * 0.6)));

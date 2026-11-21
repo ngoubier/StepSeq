@@ -322,7 +322,12 @@
    * Toutes les attaques d'un accord (événement ev) : positions en doubles-croches depuis ev.step.
    * [{ k, step16, str, midi, vel, bass, top, label, until16 (reprise de la corde ou fin de l'accord) }]
    */
-  function attacks(g, ev, sh) {
+  /*
+   * k0 : place du début de l'accord dans le cycle du motif (en pas du motif). Le motif continue au changement d'accord
+   * au lieu de repartir du début : un accord de deux temps joue la seconde moitié du motif quand il tombe au milieu
+   * de la mesure. Un accord qui arrive sur un pas sans basse la fait sonner (le pouce marque le changement).
+   */
+  function attacks(g, ev, sh, k0 = 0) {
     const m = motifOf(g);
     const n = m.steps.length;
     const len16 = 4 / m.div;
@@ -332,7 +337,7 @@
     const evVel = (ev.vel == null ? 0.8 : ev.vel) / 0.8;
     const playable = [0, 1, 2, 3, 4, 5].filter((x) => sh.frets[x] != null);
     for (let k = 0; k * len16 < ev.len - 1e-9; k++) {
-      const st = k % n;
+      const st = (k + k0) % n;
       if (m.hand === 'gratte') {
         const t = m.steps[st][0];
         const sk = t && STROKES[t];
@@ -343,7 +348,8 @@
         continue;
       }
       const seen = new Set();
-      m.steps[st].forEach((t) => {
+      const toks = k === 0 && k0 && !m.steps[st].some(isBassTok) ? ['B', ...m.steps[st]] : m.steps[st];
+      toks.forEach((t) => {
         const s = stringOf(t, sh);
         if (s == null || seen.has(s)) return;
         seen.add(s);
@@ -377,6 +383,8 @@
    * Notes du pas de séquenceur `step` (double-croche) pour l'accord ev ; même contrat que SS.Arp.renderStep :
    * [{ midi, at (s depuis le début du pas), dur, vel, cutoff, first, str, label }].
    */
+  /** Place (en pas du motif) d'un accord qui commence à la double-croche pos16, dans le cycle du motif calé sur la mesure. */
+  const phaseOf = (m, pos16, len16) => Math.round((((pos16 % (m.beats * 4)) + m.beats * 4) % (m.beats * 4)) / len16) % m.steps.length;
   function renderStep(arp, ev, step, info) {
     const g = normalize(arp.guitar);
     if (step < ev.step || step >= ev.step + ev.len) return [];
@@ -387,10 +395,12 @@
     const len16 = 4 / m.div;
     const sd = info.stepSec;
     const rel = step - ev.step;
+    const f16 = 4 / (info.stepsPerBeat || 4); // pas de la piste → doubles-croches
+    const k0 = phaseOf(m, ev.step * f16, len16);
     const seed = arp.seed | 0;
     const L = info.loop | 0;
     const out = [];
-    attacks(g, ev, sh).forEach((a) => {
+    attacks(g, ev, sh, k0).forEach((a) => {
       if (Math.floor(a.step16 + 1e-9) !== rel) return;
       // main humaine : les basses posées sur un temps restent sur la grille ; les autres bougent de quelques ms
       const onBeat = Math.abs(a.step16 / 4 - Math.round(a.step16 / 4)) < 1e-9;
