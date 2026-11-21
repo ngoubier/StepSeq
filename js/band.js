@@ -6232,21 +6232,8 @@ SS.band = (() => {
     // modes ajoutés au moteur : fondamentale-quinte, arpège, tresillo, trance, doubles, octaves en doubles, reprise, funk
     ...((SS.bandSong && SS.bandSong.BASS_NEW) || []),
   ];
-  /** Modes de la nappe (js/bandsong.js, chordEvents). */
-  const PAD_MODES = [
-    ['sustain', 'Tenue', 'L’accord tenu', [[0, 16, 1]]],
-    ['swell', 'Montée douce', 'Accord tenu, entrée en douceur', [[0, 16, 1]], true],
-    ['float', 'Planante', 'Accord ouvert, très doux', [[0, 16, 1]], true],
-    ['pulse8', 'Croches', 'L’accord en croches', every(2, 2, () => 1)],
-    ['block4', 'Blocs', 'Un accord par temps', every(4, 3, () => 1)],
-    ['stabs', 'Stabs', 'Accords courts, syncopés', [[0, 2, 1], [3, 2, 1], [6, 2, 1], [10, 2, 1], [12, 2, 1]]],
-    ['house', 'House', 'Accords de la house, sur les contretemps', [[0, 2, 1], [3, 2, 1], [6, 1, 1], [8, 2, 1], [11, 2, 1], [14, 2, 1]]],
-    ['chop', 'Hachée', 'Petits accords sur les contretemps', [2, 6, 10, 14].map((s) => [s, 1, 1])],
-    ['skank', 'Skank', 'Accord court sur 2 et 4 : piano reggae', [[4, 1, 1], [12, 1, 1]]],
-    ['xmas', 'Noël', 'Pop de Noël : l’accord répété en croches, court, poussé sur 2 et 4', [0, 2, 4, 6, 8, 10, 12, 14].map((s) => [s, 1, 1])],
-    ['bubble', 'Bubble', 'Orgue reggae : deux petits accords par temps, « et-a »', [2, 3, 6, 7, 10, 11, 14, 15].map((s) => [s, 1, 1])],
-    ['pluck', 'Pincée', 'Les notes de l’accord, en croches', every(2, 2, (i) => [0, 1, 2][i % 3])],
-  ];
+  /** Modes de la nappe (js/bandsong.js, chordEvents) : [id, nom, description], catalogue js/padmotifs.js. */
+  const PAD_MODES = (SS.padMotifs ? SS.padMotifs.MODES : [['sustain', 'Tenue', 'L’accord tenu']]).map(([id, n, d]) => [id, n, d]);
   /**
    * Modes du Guitariste : les motifs du mode Guitare d'Arp One (js/guitar-arp.js), « g:<motif> ». Dessin : une
    * mesure sur un accord de La mineur (bas = basse, milieu, haut = cordes aiguës).
@@ -7518,17 +7505,74 @@ SS.band = (() => {
       partHead(sc, T, 'nappe', false),
       rollBox(sc, T),
       autoCard(sc, T, { fit: true }),
-      h(
-        'section',
-        { class: 'bwp-card bw-card' },
-        h('div', { class: 'bwp-ch' }, h('b', {}, `Accords de « ${sc.name} »`), h('span', { class: 'spacer' }), playBox(sc, T, 'sustain')),
-        isGuitarist(T) ? guitarModes(sc, T) : null,
-        isGuitarist(T) ? h('div', { class: 'bwp-ch bwp-chords-head' }, h('b', {}, 'Ou jouer des accords plaqués'), h('span', { class: 'bh-info' }, 'tenus, en rythme')) : null,
-        modeCards(sc, T, PAD_MODES, '#4f6bff'),
-        !planMode(sc, T) && !o.mode ? h('p', { class: 'dlg-hint' }, 'L’inspiration ne joue pas de nappe dans cette scène : choisis un mode pour l’allumer.') : null,
-        h('div', { class: 'bwp-row' }, partSeg('Voicing', 'bwpVoicing', [['close', 'Serré', 'Accord au plus proche du précédent'], ['open', 'Ouvert', 'La note grave descend d’une octave']], o.voicing || 'close', (v) => (putPart(sc.sec, T, { voicing: v === 'close' ? undefined : v }), partChanged())))
-      ),
+      // guitare : ses motifs d'abord, puis les accords plaqués (motifs de nappe)
+      isGuitarist(T) ? h('section', { class: 'bwp-card bw-card' }, h('div', { class: 'bwp-ch' }, h('b', {}, `Guitare de « ${sc.name} »`), h('span', { class: 'spacer' }), playBox(sc, T, 'sustain')), guitarModes(sc, T)) : null,
+      padMotifCard(sc, T, o),
     ];
+  }
+  /**
+   * Nappe : l'écran de motifs de la basse (SS.bassMotifs.picker) avec la bibliothèque SS.padMotifs : puces de style
+   * (celle du style de la chanson présélectionnée), filtre Tout | Tenues | Rythmées | En mouvement, cartes, carte Aucune ;
+   * puis Scènes (cette scène | toutes celles où la nappe joue) et Voicing.
+   */
+  function padMotifCard(sc, T, o) {
+    const P = SS.padMotifs;
+    const insp = planMode(sc, T);
+    const muted = mutedIn(sc.sec, T);
+    const m = muted ? null : o.mode || insp;
+    const cur = m && !/^g:/.test(m) ? m : null;
+    if (!S.wiz.padGroup) S.wiz.padGroup = P.groupOfStyle(S.styleId);
+    const kind = S.wiz.padKind || 'all';
+    const all = !!S.wiz.motAll;
+    const plays = (x) => !mutedIn(x.sec, T) && !!((partOf(x.sec, T) || {}).mode || planMode(x, T));
+    const targets = () => (all ? S.wiz.res.scenes.filter((x) => x.sec === sc.sec || plays(x)) : [sc]);
+    const pick = (id) => {
+      targets().forEach((x) => (putOff(x.sec, T, false), putPart(x.sec, T, { mode: id === planMode(x, T) ? undefined : id })));
+      partChanged(`.bwp-mot .mot-card[data-id="${id}"]`);
+    };
+    const setVoicing = (v) => {
+      targets().forEach((x) => putPart(x.sec, T, { voicing: v === 'close' ? undefined : v }));
+      partChanged();
+    };
+    return h(
+      'section',
+      { class: 'bwp-card bw-card bwp-mot mot-pick mot-pad', id: 'bwPadMotif' },
+      h(
+        'div',
+        { class: 'bwp-ch' },
+        h('b', {}, `Motif de « ${sc.name} »`),
+        h('span', { class: 'mot-now' }, cur ? P.name(cur) : m ? nameOf(padModes(T), m) : 'aucune'),
+        SS.helpTip('Cliquez un motif : il s’entend dans la scène et la nappe le joue sur ses accords, avec le son de la piste. Le point bleu marque le style de la chanson ; survolez une carte pour sa description. Dans le dessin, chaque trait est une note de l’accord (grave en bas) ; la ligne claire montre le volume ou le filtre qui bouge.', 'Motif de nappe'),
+        h('span', { class: 'spacer' }),
+        playBox(sc, T, 'sustain')
+      ),
+      ...(() => {
+        const [chips, cards] = SS.bassMotifs.picker({
+          lib: P,
+          group: S.wiz.padGroup,
+          mark: P.groupOfStyle(S.styleId),
+          cur,
+          insp,
+          keep: (id) => kind === 'all' || P.kindOf(id) === kind,
+          none: { on: muted || !m, pick: () => (putOff(sc.sec, T, true), partChanged('.bwp-mot .mot-card[data-id="none"]')) },
+          onGroup: (g) => ((S.wiz.padGroup = g), renderWiz()),
+          onPick: pick,
+        });
+        const kinds = h('span', { class: 'segmented mot-kinds', role: 'radiogroup', 'aria-label': 'Façon de jouer', id: 'bwpPadKind' }, ...P.KINDS.map(([v, t]) => h('button', { type: 'button', role: 'radio', class: v === kind ? 'active' : '', 'aria-checked': String(v === kind), 'data-v': v, onclick: () => ((S.wiz.padKind = v), renderWiz()) }, t)));
+        return [h('div', { class: 'mot-bar' }, chips, kinds), cards];
+      })(),
+      h(
+        'div',
+        { class: 'bwp-row' },
+        h(
+          'div',
+          { class: 'bwp-field' },
+          h('span', { class: 'bh-lbl' }, 'Scènes', SS.helpTip('« Cette scène » : seule la scène en cours prend le motif et le voicing. « Toutes » : toutes les scènes où la nappe joue les prennent.', 'Scènes')),
+          h('span', { class: 'segmented', role: 'radiogroup', 'aria-label': 'Scènes', id: 'bwpPadScope' }, ...[[false, 'Cette scène'], [true, 'Toutes']].map(([v, t]) => h('button', { type: 'button', role: 'radio', class: v === all ? 'active' : '', 'aria-checked': String(v === all), 'data-v': v ? 'all' : 'one', onclick: () => ((S.wiz.motAll = v), renderWiz()) }, t)))
+        ),
+        partSeg('Voicing', 'bwpVoicing', [['close', 'Serré', 'Accord au plus proche du précédent'], ['open', 'Ouvert', 'La note grave descend d’une octave']], o.voicing || 'close', setVoicing)
+      )
+    );
   }
 
   /* --- Arpèges : Arp One, mode Intuitif (js/arp.js, js/motifs.js) ; l'arpège peut être allumé dans une scène où l'inspiration n'en avait pas ---

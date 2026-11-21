@@ -142,7 +142,7 @@ const ok = (c, m) => {
   await page.selectOption('#bandPanel .bpn-ksel', 'chords');
   await page.waitForTimeout(300);
   await tab('chords');
-  ok((await page.locator('#bwKindNote').count()) === 0 && (await page.evaluate(() => Object.keys(SS.band._state.wiz.kinds).length)) === 0 && (await page.locator('.bwp-mode').count()) === 9, 'retour à Accords : plus de note, éditeur d’accords');
+  ok((await page.locator('#bwKindNote').count()) === 0 && (await page.evaluate(() => Object.keys(SS.band._state.wiz.kinds).length)) === 0 && (await page.locator('#bwPadMotif .mot-card').count()) > 8, 'retour à Accords : plus de note, éditeur d’accords');
   await toStep2();
   await selectMu(padIdx);
   await page.selectOption('#bandPanel .bpn-ksel', 'arp');

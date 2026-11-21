@@ -184,8 +184,16 @@ const ok = (c, m) => {
 
   // Nappes : mode et voicing
   await tab('chords');
-  ok((await page.getAttribute('#bwParts', 'data-kind')) === 'chords' && (await page.locator('.bwp-mode').count()) === 9, 'onglet de la nappe : 9 modes');
-  await page.click('.bwp-mode[data-v="stabs"]');
+  ok((await page.getAttribute('#bwParts', 'data-kind')) === 'chords' && (await page.locator('#bwPadMotif .mot-chip.on.mark[data-g="synth"]').count()) === 1 && (await page.locator('#bwPadMotif .mot-card').count()) === 1 + (await page.evaluate(() => SS.padMotifs.inGroup('synth').length)), 'onglet de la nappe : puce Synthwave (style de la chanson), ses motifs et Aucune');
+  await page.click('#bwPadMotif .mot-chip[data-g="all"]');
+  ok((await page.locator('#bwPadMotif .mot-card').count()) === 1 + (await page.evaluate(() => SS.padMotifs.MODES.length)), 'nappe : tous les motifs');
+  await page.click('#bwpPadKind [data-v="mouv"]');
+  ok((await page.evaluate(() => [...document.querySelectorAll('#bwPadMotif .mot-card:not(.mot-none)')].every((c) => SS.padMotifs.kindOf(c.dataset.id) === 'mouv'))) && (await page.locator('#bwPadMotif .mot-card[data-id="cliche"]').count()) === 1, 'nappe : filtre En mouvement');
+  await page.click('#bwPadMotif .mot-card[data-id="cliche"]');
+  ok((await part('verse', 'pad')).mode === 'cliche' && /Ligne descendante/.test(await page.textContent('.bh-scene.on .bh-ssub')), 'nappe : Ligne descendante choisie, rappelée dans la colonne des scènes');
+  if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'parts-nappe.png') });
+  await page.click('#bwpPadKind [data-v="all"]');
+  await page.click('#bwPadMotif .mot-card[data-id="stabs"]');
   await page.click('#bwpVoicing [data-v="open"]');
   ok((await part('verse', 'pad')).mode === 'stabs' && (await part('verse', 'pad')).voicing === 'open', 'nappe : stabs, voicing ouvert');
 
@@ -287,7 +295,7 @@ const ok = (c, m) => {
   await next(5);
   ok((await page.locator('#bandWizSteps li[data-kind="arp"]').count()) === 0 && (await page.evaluate(() => SS.band.insSteps().every((t) => t.kind !== 'arp'))), 'groupe sans arpège : pas d’onglet d’arpège');
   await tab('chords');
-  ok((await page.locator('.bwp-mode').count()) === 9, 'groupe avec nappe : les réglages');
+  ok((await page.locator('#bwPadMotif .mot-card').count()) > 8, 'groupe avec nappe : les réglages');
 
   // autre inspiration du même style : les réglages des sections communes restent, la mélodie générée est oubliée
   await page.evaluate(() => (SS.band._state.wiz.parts = { verse: { bass: { pedal: 'tonic' }, drums: { style: 'synthwave', pattern: 'motorik' }, lead: { events: [] } }, nulle: { bass: { mode: '8' } } }));
