@@ -258,6 +258,78 @@ dialog.options-dialog { width: min(520px, calc(100vw - 32px)); }
 .lcd-sub { font-size: 12px; color: #a9c6e6; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .files { margin-left: auto; }
 
+/* ---------- Barre du haut compacte : une seule ligne de 48 px (maquette 2026-11-21) ----------
+   Logo 34 px, titre 16 px, tempo et mesure dans une case, transport 30-32 px, afficheur sur une ligne,
+   Jouer / Aide / Système en icônes, Tonalité / Song / Mix sans sous-titre (icône + valeur),
+   « Enregistré » réduit à sa coche (le texte revient s'il y a un problème).
+   Sous 1100 px : bpm, nom de scène et séparateurs s'effacent ; sous 1000 px, retour à la ligne permis ;
+   les règles téléphone (≤ 760 px) plus bas restent celles d'avant. */
+.meta-sig { display: none; } /* « 4/4 » : seulement dans la barre compacte (> 760 px) */
+@media (min-width: 761px) {
+  .topbar { flex-wrap: nowrap; gap: 8px; min-height: 48px; padding: 0 10px; }
+  .topbar-group { flex-wrap: nowrap; gap: 6px; }
+  .topbar .btn { height: 30px; border-radius: 7px; }
+  .topbar .btn-icon { width: 30px; }
+  .topbar .btn-icon svg { width: 16px; height: 16px; }
+  .topbar .topbar-group.transport { padding: 0 8px; border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
+  .topbar .brand { width: 36px; height: 36px; border-radius: 8px; flex: none; }
+  .topbar .brand svg { width: 30px; height: 30px; }
+  .topbar .topbar-group:first-child { flex: 0 1 auto; min-width: 0; }
+  .topbar .title-input { flex: 0 1 auto; width: 200px; min-width: 60px; font-size: 16px; padding: 3px 6px; text-overflow: ellipsis; }
+  .topbar .view-seg button { padding: 4px 9px; font-size: 12.5px; }
+  /* tempo + mesure : une seule case */
+  .topbar .tempo-box { flex: none; gap: 0; height: 30px; background: var(--panel); border: 1px solid var(--line); border-radius: 7px; overflow: visible; }
+  .topbar .tempo-box > .field { gap: 2px; padding-right: 6px; }
+  .topbar .tempo-box > .field > span { display: none; }
+  .topbar .tempo-box > .field input[type=number] { width: 40px; height: 28px; padding: 0 2px 0 6px; border: 0; background: transparent; text-align: right; font-variant-numeric: tabular-nums; }
+  .topbar .tempo-box > .field small { font-size: 10px; letter-spacing: .03em; text-transform: lowercase; }
+  .topbar .tempo-box .meta-btn { width: auto; height: 28px; padding: 0 8px; gap: 5px; border-radius: 0 6px 6px 0; border-left: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 12.5px; }
+  .topbar .tempo-box .meta-btn:hover { background: var(--panel-3); color: var(--text); }
+  .topbar .tempo-box .meta-btn svg { width: 14px; height: 14px; }
+  .topbar .meta-sig { display: inline; }
+  .topbar .tempo-box > .field input[type=number] { -moz-appearance: textfield; }
+  .topbar .tempo-box > .field input[type=number]::-webkit-inner-spin-button, .topbar .tempo-box > .field input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  .topbar .tempo-box .meta-btn.on { box-shadow: none; }
+  /* transport */
+  .topbar .btn-play { width: 48px; height: 32px; border-radius: 8px; }
+  .topbar .btn-play svg { width: 20px; height: 20px; }
+  .topbar .lcd { display: inline-flex; align-items: baseline; gap: 8px; height: 30px; min-width: 84px; padding: 0 10px; line-height: 30px; flex: 0 1 auto; overflow: hidden; white-space: nowrap; }
+  .topbar #position { font-size: 15px; }
+  .topbar .lcd-sub { max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+  .topbar .lcd-sub:not(:empty)::before { content: "· "; }
+  .topbar .kb-btn { width: 30px; padding: 0; justify-content: center; }
+  .topbar .kb-btn svg { width: 18px; height: 18px; }
+  .topbar .kb-txt { display: none; }
+  /* Tonalité / Song / Mix : une ligne, l'icône et la valeur */
+  .topbar .topbar-group.studio { flex: none; padding: 3px; gap: 3px; border-radius: 9px; grid-auto-columns: auto; }
+  .topbar .studio-btn { height: 30px; min-width: 0; padding: 0 10px; gap: 6px; border-radius: 7px; }
+  .topbar .studio-btn .sb-ico svg { width: 16px; height: 16px; }
+  .topbar .studio-btn .sb-txt b { display: none; }
+  .topbar .studio-btn .sb-txt small { font-size: 12.5px; max-width: 140px; }
+  .topbar .mixer-btn .sb-txt b { display: inline; font-size: 13px; font-weight: 500; }
+  .topbar .mixer-btn .mix-sub { display: none; }
+  body.wizard-mode .wiz-key { height: 30px; padding: 0 10px; }
+  .topbar .wiz-key .sb-txt { flex-direction: row; align-items: baseline; gap: 6px; }
+  /* à droite : Annuler, Rétablir, coche d'enregistrement, Aide, Système */
+  .topbar .files { gap: 4px; flex: none; }
+  .topbar .btn-history { background: transparent; }
+  .topbar .save-status { width: 30px; padding: 0; justify-content: center; }
+  .topbar .save-status .ss-text { display: none; }
+  .topbar .save-status.paused, .topbar .save-status.error { width: auto; padding: 0 8px; }
+  .topbar .save-status.paused .ss-text, .topbar .save-status.error .ss-text { display: inline; }
+  .topbar .help-btn svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .topbar .system-btn { width: 30px; padding: 0; justify-content: center; }
+  .topbar .system-btn svg { width: 17px; height: 17px; }
+}
+@media (min-width: 761px) and (max-width: 1100px) {
+  .topbar .topbar-group.transport { padding: 0; border: 0; }
+  .topbar .tempo-box > .field small, .topbar .lcd-sub { display: none; }
+  .topbar .title-input { width: 150px; }
+}
+@media (min-width: 761px) and (max-width: 1000px) {
+  .topbar { flex-wrap: wrap; padding: 6px 10px; }
+}
+
 /* ---------- Espace de travail ---------- */
 #workspace {
   flex: 1;

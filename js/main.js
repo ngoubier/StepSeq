@@ -182,6 +182,8 @@
     const btn = $('#metaBtn');
     if (!btn) return;
     const gl = ($('#grooveLabel') || {}).textContent || '';
+    const sig = $('#metaSig');
+    if (sig) sig.textContent = `${project.timeSig[0]}/${project.timeSig[1]}`;
     btn.title = `${project.timeSig[0]}/${project.timeSig[1]} · ${project.bars} mesure${project.bars > 1 ? 's' : ''} · ${gl}`;
   }
   SS.syncMeta = () => syncMeta();
@@ -209,7 +211,7 @@
   function syncHeader() {
     if (SS.live) SS.live.refresh(); // piste armée disparue (autre chanson, Annuler…) : oubliée
     $('#title').value = project.title;
-    $('#lcdTitle').textContent = project.title;
+    $('#lcdTitle').textContent = ''; // à l'arrêt, l'afficheur ne répète pas le titre (déjà à gauche)
     $('#tempo').value = project.tempo;
     $('#sigNum').value = project.timeSig[0];
     $('#sigDen').value = project.timeSig[1];
@@ -358,7 +360,6 @@
 
     $('#title').addEventListener('input', (e) => {
       project.title = e.target.value;
-      $('#lcdTitle').textContent = project.title;
       document.title = project.title + ' — StepSeq';
       changed();
     });
@@ -374,6 +375,7 @@
       project.bars = +$('#bars').value;
       SS.resizeProject(project);
       SS.ui.renderAll();
+      syncMeta(); // « 4/4 » de la barre du haut
       changed();
     };
     num.addEventListener('change', onSig);

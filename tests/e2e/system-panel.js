@@ -30,7 +30,7 @@ const ok = (c, m) => {
     const song = { format: 'stepseq', version: 1, title: 'Diagnostic', tempo: 120, bars: 1, tracks: [{ id: 'synth-test', type: 'instrument', name: 'Basse', family: 'bass', instrument: 'syn_sub', category: 'bass', volume: 0.5, events: [{ step: 0, len: 4, notes: [48], vel: 0.7 }] }], scenes: [], song: [] };
     await page.addInitScript(p => localStorage.setItem('stepseq.autosave', JSON.stringify(p)), song);
     await page.goto(origin + '/index.html');
-    ok(await page.locator('#systemBtn').evaluate(e => e.previousElementSibling.textContent === 'Aide'), 'Système est placé juste après Aide');
+    ok(await page.locator('#systemBtn').evaluate(e => e.previousElementSibling.getAttribute('aria-label') === 'Aide'), 'Système est placé juste après Aide');
     await page.click('#systemBtn');
     ok(await page.isVisible('#systemDialog[open]'), 'fenêtre Système accessible');
     ok(!await page.evaluate(() => SS.audio.isPlaying()), 'ouvrir le diagnostic ne lance pas la chanson');

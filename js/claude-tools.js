@@ -276,7 +276,6 @@ SS.claudeTools = (() => {
     if (!x) fail('titre manquant');
     P().title = String(x).slice(0, 80);
     document.getElementById('title').value = P().title;
-    document.getElementById('lcdTitle').textContent = P().title;
     changedNow(`titre « ${P().title} »`);
     return { message: `Titre : ${P().title}` };
   }
