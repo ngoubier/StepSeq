@@ -5490,3 +5490,6 @@ body.wizard-mode .wiz-banner { display: none; }
 /* piste muette dans la scène en cours : grisée dans la grille */
 .track.scene-muted .track-row { opacity: .45; }
 .track.scene-muted .track-head { background-image: repeating-linear-gradient(45deg, rgba(229,56,47,.12) 0 6px, transparent 6px 12px); }
+
+#bandDialog .bfm-cues .bfm-bpm { width: 58px; }
+#bandDialog .bfm-cues .bfm-bpm.own { color: var(--gold); font-weight: 600; }

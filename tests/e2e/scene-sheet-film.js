@@ -74,6 +74,31 @@ const ok = (c, m) => {
     return f && f.cues[3] && f.cues[3].emo;
   });
   ok(back === 'colere', 'l’assistant rouvert montre la colère sur le passage');
+  // tempo propre à un passage (assistant) : la scène de la grille le reçoit
+  await page.evaluate(() => SS.band.close && SS.band.close());
+  await page.click('#appMenuBtn');
+  await page.click('#newProject');
+  await page.waitForTimeout(600);
+  await page.locator('#bandStyles .bsty[data-v="film"]').click();
+  await page.waitForTimeout(300);
+  await page.locator('#bandPresets .band-preset', { hasText: 'La lumière revient' }).click();
+  await page.waitForTimeout(300);
+  await page.click('#bfmUnlock');
+  await page.waitForTimeout(300);
+  await page.fill('#bandSong .bfm-bpm >> nth=2', '120');
+  await page.press('#bandSong .bfm-bpm >> nth=2', 'Enter');
+  await page.waitForTimeout(400);
+  const bars = await page.$$eval('#bandSong .bfm-cues tbody tr', (rs) => rs.map((r) => r.querySelector('.bfm-bar').textContent));
+  ok(/m\. 9/.test(bars[2]) && /m\. 15/.test(bars[3]), `passage à 120 BPM : la lumière passe de la m. 13 à la m. 15 (${bars.join(' | ')})`);
+  if (process.argv[4]) {
+    await page.locator('#bandSong .bfm-cues').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: process.argv[4] });
+  }
+  await page.evaluate(() => SS.band.create());
+  await page.waitForTimeout(2500);
+  await page.click('#stop').catch(() => {});
+  const tempos = await page.evaluate(() => SS.claudeTools._project().scenes.map((s) => s.tempo || null));
+  ok(tempos[2] === 120 && tempos.filter(Boolean).length === 1, `la scène « Espoir » joue à 120 BPM, les autres au tempo de la chanson (${tempos.join(', ')})`);
   ok(!errs.length, 'aucune erreur JS' + (errs.length ? ' : ' + errs.join(' | ') : ''));
   await b.close();
   server.close();

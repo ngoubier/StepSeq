@@ -2121,6 +2121,7 @@ SS.bandSong = (() => {
       const emo = harmony && harmony.emotions && harmony.emotions[id];
       if (emo || spec.emotion) sc.emotion = emo || sec.emotion || spec.emotion;
       // musique de film : le passage (émotion du film, énergie, tension, repère, harmonie…) pour la fiche Scène
+      if (sec.tempo >= 20 && sec.tempo <= 300) sc.tempo = Math.round(sec.tempo); // tempo propre (passage de film)
       if (sec.film) {
         sc.film = JSON.parse(JSON.stringify(sec.film));
         sc.energy = sec.film.ene;
