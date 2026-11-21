@@ -899,7 +899,7 @@ window.SS = window.SS || {};
     {
       id: 'latin',
       label: 'Latin, Afro & Reggae',
-      desc: 'Dembow, afrobeats, bossa, clave et one drop : percussions, guitare nylon, basse ronde.',
+      desc: 'Dembow, afrobeats, bossa, clave et reggae roots : percussions, guitare skank ou nylon, basse ronde.',
       swing: 8,
       presets: [
         {
@@ -916,6 +916,24 @@ window.SS = window.SS || {};
             m('guitar', 'gm_acoustic_guitar_nylon gm_acoustic_guitar_steel vcsl_strumstick gm_electric_guitar_clean dirt_gtr gm_banjo', { note: 'Guitare pincée, puis grattée au refrain' }),
             m('pad', 'syn_softpad gm_pad_warm gm_string_ensemble_1 syn_glasspad gm_pad_poly j:A15', opt),
             m('lead', 'gm_lead_6_voice gm_voice_oohs gm_trumpet gm_flute syn_triangle gm_pan_flute', { label: 'Mélodie (voix)' }),
+          ],
+        },
+        {
+          id: 'kingston',
+          song: 'Soleil de Kingston',
+          artist: 'Bob Marley, Toots & the Maytals (esprit)',
+          year: '',
+          tempo: 76,
+          desc: 'Reggae roots ensoleillé, façon Marley ou Toots & the Maytals : one drop, nyabinghi, skank sur 2 et 4, orgue bubble, basse ronde, chœurs qui répondent.',
+          musicians: [
+            kit('drums', 'bd sd rim hh oh cr', 'RolandR8 LinnDrum vcsl AkaiMPC60 EmuSP12 RolandTR808'),
+            kit('perc', 'perc sh tb', KPERC, { note: 'Nyabinghi, shaker, tambourin' }),
+            m('bass', 'gm_electric_bass_finger syn_moogbass gm_fretless_bass gm_acoustic_bass syn_sub dirt_jvbass', { note: 'Ronde, devant, notes fantômes' }),
+            m('guitar', 'gm_electric_guitar_clean gm_electric_guitar_muted gm_electric_guitar_jazz gm_acoustic_guitar_steel dirt_gtr vcsl_strumstick', { label: 'Guitare skank', note: 'Contretemps sur 2 et 4' }),
+            m('keys', 'gm_drawbar_organ gm_percussive_organ gm_rock_organ piano gm_epiano1 j:A21', { label: 'Orgue bubble' }),
+            m('lead', 'gm_voice_oohs gm_lead_6_voice gm_harmonica gm_trumpet gm_alto_sax gm_flute', { label: 'Mélodie (voix)' }),
+            m('vox', 'gm_choir_aahs gm_voice_oohs gm_pad_choir gm_synth_choir j:A17 gm_lead_6_voice', { label: 'Chœurs', note: 'Réponses au refrain' }),
+            m('sax', 'gm_brass_section gm_trumpet gm_trombone gm_tenor_sax gm_alto_sax vcsl_sax', { label: 'Cuivres', optional: true }),
           ],
         },
       ],

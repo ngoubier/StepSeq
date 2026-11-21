@@ -15,12 +15,12 @@ require('../js/drum-patterns.js');
 const B = globalThis.SS.Band;
 const SS = globalThis.SS;
 
-test('10 styles + « Créer de zéro » : 10 inspirations pour les 4 premiers, une chanson de démo pour les autres ; identifiants uniques', () => {
+test('10 styles + « Créer de zéro » : 10 inspirations pour les 4 premiers, une ou deux chansons de démo pour les autres ; identifiants uniques', () => {
   assert.deepEqual(B.STYLES.map((s) => s.id), ['synthwave', 'edm', 'ambient', 'techno', 'pop', 'funk', 'hiphop', 'dnb', 'latin', 'soul', 'zero']);
   assert.ok(B.STYLES.at(-1).blank && !B.STYLES.slice(0, -1).some((s) => s.blank), 'seul « Créer de zéro » est un départ vierge');
-  assert.equal(new Set(B.STYLES.flatMap((s) => s.presets.map((p) => p.id))).size, 47);
+  assert.equal(new Set(B.STYLES.flatMap((s) => s.presets.map((p) => p.id))).size, 48);
   B.STYLES.forEach((s, i) => {
-    const n = i < 4 ? 10 : 1;
+    const n = i < 4 ? 10 : s.id === 'latin' ? 2 : 1; // latin : reggaeton + reggae roots
     assert.equal(s.presets.length, n, s.id);
     assert.equal(new Set(s.presets.map((p) => p.id)).size, n);
     if (i >= 4) {
