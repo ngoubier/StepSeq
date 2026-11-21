@@ -153,6 +153,14 @@ SS.arpPanel = (() => {
     return 96;
   }
   function loopInfo() {
+    if (guitarOn()) {
+      // mode Guitare : assez de mesures pour un nombre entier de cycles du motif (une valse 3/4 dans du 4/4…)
+      const spb = SS.stepsPerBar(app.project());
+      const c = GA().cycle16(track.arp);
+      let bars = 1;
+      while (bars < 4 && (bars * spb) % c) bars++;
+      return { bars, steps: bars * spb, ticks: bars * spb, period: c };
+    }
     const notes = sourceChord().notes;
     const spb = SS.stepsPerBar(app.project());
     const rate = track.arp.rate;
@@ -209,8 +217,9 @@ SS.arpPanel = (() => {
         SS.audio.playNote(track, n.midi, loop.next + n.at, n.dur, n.vel * (group.length > 1 ? 0.8 : 1), undefined, group.indexOf(n), group.length, { cutoff: n.cutoff });
       });
       // une entrée par pas d'arpège (et non par double-croche) : le curseur passe par chaque colonne
-      const rate = track.arp.rate;
-      for (let k = Math.ceil(s * rate - 1e-9); k < Math.ceil((s + 1) * rate - 1e-9); k++) loop.queue.push({ time: loop.next + (k / rate - s) * stepSec, tick: k });
+      const rate = guitarOn() ? 1 : track.arp.rate;
+      if (guitarOn()) loop.queue.push({ time: loop.next, tick: s % GA().cycle16(track.arp) });
+      else for (let k = Math.ceil(s * rate - 1e-9); k < Math.ceil((s + 1) * rate - 1e-9); k++) loop.queue.push({ time: loop.next + (k / rate - s) * stepSec, tick: k });
       loop.next += stepSec;
       loop.step++;
     }
@@ -1424,6 +1433,172 @@ SS.arpPanel = (() => {
     return sc && sc.name ? `${track.name} — ${sc.name}` : track.name;
   }
 
+  /* ------------------------------------------------------------------ */
+  /* Mode Guitare (js/guitar-arp.js) : schéma de l'accord, tablature, motifs en cordes, jeu     */
+  /* ------------------------------------------------------------------ */
+  const GA = () => SS.GuitarArp;
+  const guitarOn = () => !!(GA() && track && track.arp.guitar && track.arp.guitar.on);
+  function setGuitar(patch, opts) {
+    set({ guitar: { ...GA().normalize(track.arp.guitar), ...patch } }, opts);
+  }
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  const svg = (w, hgt, inner, cls) => {
+    const el = document.createElementNS(SVGNS, 'svg');
+    el.setAttribute('viewBox', `0 0 ${w} ${hgt}`);
+    el.setAttribute('class', cls);
+    el.innerHTML = inner;
+    return el;
+  };
+  const noteName = (m) => NOTES[m % 12] + (Math.floor(m / 12) - 1);
+
+  /** Schéma de l'accord sur le manche (cordes verticales, la fondamentale en orange). */
+  function guitarDiagram(sh) {
+    const played = sh.frets.filter((f) => f != null && f > 0);
+    const start = !played.length || Math.max(...played) <= 4 ? 1 : Math.min(...played);
+    const x0 = 22, dx = 22, y0 = 28, dy = 26;
+    let s = start === 1 ? `<rect x="${x0 - 1}" y="${y0 - 4}" width="${dx * 5 + 2}" height="4" class="gd-nut"/>` : `<text x="${x0 - 9}" y="${y0 + dy / 2 + 4}" class="gd-fret" text-anchor="end">${start}</text>`;
+    for (let i = 0; i < 6; i++) s += `<line x1="${x0 + i * dx}" y1="${y0}" x2="${x0 + i * dx}" y2="${y0 + dy * 5}" class="gd-str" stroke-width="${1 + (5 - i) * 0.25}"/>`;
+    for (let j = 0; j <= 5; j++) s += `<line x1="${x0}" y1="${y0 + j * dy}" x2="${x0 + dx * 5}" y2="${y0 + j * dy}" class="gd-wire"/>`;
+    const barre = sh.barre && sh.frets.filter((f) => f === sh.barre).length > 1;
+    if (barre) {
+      const first = sh.frets.findIndex((f) => f === sh.barre);
+      s += `<rect x="${x0 + first * dx - 7}" y="${y0 + (sh.barre - start) * dy + dy / 2 - 7}" width="${(5 - first) * dx + 14}" height="14" rx="7" class="${sh.capo ? 'gd-capo' : 'gd-barre'}"/>`;
+    }
+    sh.frets.forEach((f, i) => {
+      const x = x0 + i * dx, root = i === sh.rootStr ? ' root' : '';
+      if (f == null) s += `<text x="${x}" y="${y0 - 9}" class="gd-fret" text-anchor="middle">×</text>`;
+      else if (f === 0) s += `<circle cx="${x}" cy="${y0 - 12}" r="5" class="gd-open${root}"/>`;
+      else if (!(barre && f === sh.barre)) s += `<circle cx="${x}" cy="${y0 + (f - start) * dy + dy / 2}" r="8" class="gd-dot${root}"/>`;
+      else if (root) s += `<circle cx="${x}" cy="${y0 + (f - start) * dy + dy / 2}" r="5" class="gd-dot root"/>`;
+    });
+    ['E', 'A', 'D', 'G', 'B', 'E'].forEach((n, i) => (s += `<text x="${x0 + i * dx}" y="${y0 + dy * 5 + 16}" class="gd-fret" text-anchor="middle">${n}</text>`));
+    return svg(150, 182, s, 'gt-diagram');
+  }
+
+  /** Tablature d'un cycle du motif : une ligne par corde, la case dans chaque attaque, trait = la corde résonne. */
+  function guitarTab(pv) {
+    const W = 640, Lm = 26, top = 30, gap = 20, n16 = pv.len, cw = (W - Lm - 6) / n16, velTop = top + gap * 5 + 30, velH = 26;
+    const m = pv.motif;
+    let s = '';
+    for (let b = 0; b < m.beats; b++) s += `<rect x="${Lm + b * 4 * cw}" y="${top - 8}" width="${4 * cw}" height="${gap * 5 + 16}" class="${b % 2 ? 'gt-beat2' : 'gt-beat'}"/><text x="${Lm + b * 4 * cw + 4}" y="${top + gap * 5 + 20}" class="gt-num">${b + 1}</text>`;
+    ['e', 'B', 'G', 'D', 'A', 'E'].forEach((nm, r) => (s += `<line x1="${Lm}" y1="${top + r * gap}" x2="${W - 6}" y2="${top + r * gap}" class="gt-line"/><text x="${Lm - 12}" y="${top + r * gap + 4}" class="gt-num" text-anchor="middle">${nm}</text>`));
+    const cls = (a) => (m.dir && /[↓↑]/.test(a.label) ? 'pick' : a.bass ? 'thumb' : 'finger');
+    pv.attacks.forEach((a) => {
+      const y = top + (5 - a.str) * gap, x1 = Lm + (a.step16 + 0.5) * cw, x2 = Math.min(W - 6, x1 + a.ring16 * cw - 6);
+      if (x2 > x1 + 8) s += `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" class="gt-ring ${cls(a)}"/>`;
+    });
+    pv.attacks.forEach((a) => {
+      const x = Lm + (a.step16 + 0.5) * cw, y = top + (5 - a.str) * gap;
+      s += `<circle cx="${x}" cy="${y}" r="8" class="gt-note ${cls(a)}"><title>${noteName(a.midi)} · vélocité ${Math.round(a.vel * 127)}</title></circle><text x="${x}" y="${y + 3.5}" class="gt-fretnum" text-anchor="middle">${pv.shape.frets[a.str]}</text><text x="${x + 10}" y="${y - 6}" class="gt-finger ${cls(a)}">${a.label}</text>`;
+    });
+    const bySt = new Map();
+    pv.attacks.forEach((a) => bySt.set(a.step16, Math.max(bySt.get(a.step16) || 0, a.vel)));
+    bySt.forEach((v, st) => {
+      const hh = v * velH, x = Lm + (st + 0.5) * cw;
+      s += `<rect x="${x - Math.min(8, cw * 0.3)}" y="${velTop + velH - hh}" width="${Math.min(16, cw * 0.6)}" height="${hh}" rx="2" class="gt-vel"/>`;
+      if (cw > 30) s += `<text x="${x}" y="${velTop + velH - hh - 3}" class="gt-num" text-anchor="middle">${Math.round(v * 127)}</text>`;
+    });
+    s += `<text x="${Lm - 12}" y="${velTop + velH - 2}" class="gt-num" text-anchor="middle">vél.</text>`;
+    s += `<rect class="arp-head" x="-100" y="${top - 22}" width="${cw}" height="${velTop + velH - top + 22}" transform="translate(${Lm} 0)"/>`;
+    return svg(W, velTop + velH + 4, s, 'gt-tab');
+  }
+
+  function guitarView() {
+    const g = GA().normalize(track.arp.guitar);
+    const src = sourceChord();
+    const pv = GA().preview(track.arp, src.notes, app.project().tempo || 100);
+    const sh = pv.shape;
+    const m = pv.motif;
+    const cur = test || (() => {
+      const hyp = A().analyzeChord(src.notes)[0];
+      return hyp && SS.CHORDS.some((c) => c.id === hyp.type) ? { root: hyp.root, type: hyp.type } : { root: 9, type: 'min' };
+    })();
+    const pct = (v) => Math.round(v * 100) + ' %';
+    const gs = (label, key, help, scale) => slider(label, Math.round(g[key] * 100), 0, 100, 1, (v) => v + ' %', (v, first) => setGuitar({ [key]: v / 100 }, { push: first }), { help, scale });
+    const kind = sh.kind === 'open' ? (sh.capo ? `forme ouverte, capodastre case ${sh.capo}` : 'forme ouverte') : `barré case ${sh.barre}, fondamentale sur la ${sh.kind === 'barreE' ? '6e' : '5e'} corde`;
+    return h(
+      'div',
+      { class: 'gt-view' },
+      h(
+        'div',
+        { class: 'arp-player gt-player' },
+        h(
+          'div',
+          { class: 'arp-player-bar' },
+          loopButton('▶ Lire en boucle'),
+          h('span', { class: 'dlg-label' }, src.from === 'essai' ? 'Accord d’essai' : 'Accord de la piste'),
+          h('select', { 'aria-label': 'Note fondamentale', onchange: (e) => ((test = { root: +e.target.value, type: cur.type }), render()) }, NOTES_FR.map((nm, k) => h('option', { value: k, selected: cur.root === k }, `${nm} (${NOTES[k]})`))),
+          h('select', { 'aria-label': 'Type d’accord', onchange: (e) => ((test = { root: cur.root, type: e.target.value }), render()) }, SS.CHORDS.map((c) => h('option', { value: c.id, selected: cur.type === c.id }, c.label))),
+          test ? h('button', { type: 'button', class: 'btn', title: 'Revenir aux accords de la piste', onclick: () => ((test = null), render()) }, 'Accords de la piste') : null
+        ),
+        h(
+          'div',
+          { class: 'gt-main' },
+          h('div', { class: 'gt-card gt-chord' }, h('div', { class: 'gt-chordname' }, sh.name), guitarDiagram(sh), h('small', {}, kind), h('div', { class: 'gt-real' }, sh.notes.filter((x) => x != null).map(noteName).join(' · '))),
+          h(
+            'div',
+            { class: 'gt-card' },
+            h('div', { class: 'gt-tabhead' }, h('b', {}, m.name), h('span', {}, `${m.meter || '4/4'} · ${m.div === 3 && m.meter !== '6/8' ? 'triolets' : m.div === 4 ? 'doubles-croches' : 'croches'}`)),
+            guitarTab(pv),
+            h('div', { class: 'gt-legend' }, h('span', { class: 'thumb' }, 'pouce p'), h('span', { class: 'finger' }, 'doigts i m a'), h('span', { class: 'pick' }, 'médiator ↓ ↑'), h('span', {}, 'trait = la corde résonne · barres = vélocité'))
+          )
+        )
+      ),
+      h(
+        'div',
+        { class: 'gt-mods' },
+        h(
+          'div',
+          { class: 'gt-card' },
+          h('h3', {}, 'Motif guitare'),
+          GA().HANDS.map((hd) =>
+            h(
+              'div',
+              { class: 'gt-group' },
+              h('span', { class: 'dlg-label' }, hd.label),
+              h('div', { class: 'gt-chips' }, GA().MOTIFS.filter((x) => x.hand === hd.id).map((x) => h('button', { type: 'button', class: 'gt-chip ' + hd.id + (x.id === g.motif ? ' on' : ''), title: x.desc, onclick: () => setGuitar({ motif: x.id }) }, x.name)))
+            )
+          ),
+          h('p', { class: 'gt-desc' }, m.desc)
+        ),
+        h(
+          'div',
+          { class: 'gt-card' },
+          h('h3', {}, 'Accord sur le manche'),
+          h('span', { class: 'dlg-label' }, 'Position'),
+          segmented(GA().POSITIONS.map((x) => ({ id: x.id, label: x.label, hint: x.hint })), g.pos, (v) => setGuitar({ pos: v }), 'Position de l’accord'),
+          h('span', { class: 'dlg-label' }, 'Capodastre'),
+          h('select', { 'aria-label': 'Capodastre', onchange: (e) => setGuitar({ capo: +e.target.value, pos: 'open' }) }, GA().CAPOS.map((c) => h('option', { value: c, selected: g.capo === c }, c ? `Case ${c}` : 'Sans'))),
+          h('small', { class: 'arp-legend' }, 'Ouverte : la forme en bas du manche quand elle existe, sinon le barré le plus bas. Capodastre : les formes faciles, plus haut. Accordage standard (E2 A2 D3 G3 B3 E4).')
+        ),
+        h(
+          'div',
+          { class: 'gt-card' },
+          h('h3', {}, 'Jeu'),
+          gs('Résonance', 'ring', 'une corde rejouée coupe sa note ; au changement d’accord, tout s’arrête', ['détaché', 'basse ≈ 700 ms', 'tout sonne']),
+          gs('Mélodie en avant', 'mel', 'la note la plus aiguë du motif plus forte, les autres aigus plus légers'),
+          gs('Pouce accentué', 'thumb', 'les basses plus fortes que les doigts'),
+          gs('Main humaine', 'human', 'placement et force varient un peu ; les basses sur les temps ne bougent pas')
+        )
+      )
+    );
+  }
+
+  /** Bascule Clavier ↔ Guitare (en-tête). */
+  function modeSwitch() {
+    const el = segmented(
+      [
+        { id: 'clavier', label: 'Clavier', hint: 'l’arpégiateur habituel : les notes de l’accord, dans l’ordre du motif' },
+        { id: 'guitare', label: 'Guitare', hint: 'l’accord posé sur le manche, des motifs de picking joués corde par corde' },
+      ],
+      guitarOn() ? 'guitare' : 'clavier',
+      (v) => setGuitar({ on: v === 'guitare' }),
+      'Clavier ou guitare'
+    );
+    el.classList.add('arp-mode');
+    return el;
+  }
+
   function render() {
     if (!track || sliding) return;
     if (sel != null && sel >= P()) sel = null;
@@ -1431,11 +1606,15 @@ SS.arpPanel = (() => {
     const scroll = body.scrollTop;
     const old = body.querySelector('.arp-scroll');
     const gridScroll = old ? old.scrollLeft : 0;
-    body.replaceChildren(playerView(), level === 'intuitif' ? intuitiveView() : modulesView());
+    if (guitarOn()) body.replaceChildren(guitarView());
+    else body.replaceChildren(playerView(), level === 'intuitif' ? intuitiveView() : modulesView());
     const fill = dlg.querySelector('.arp-fill');
     fill.hidden = sourceChord().from !== 'essai';
     const lv = dlg.querySelector('.arp-level');
     lv.replaceWith(levelSwitch());
+    dlg.querySelector('.arp-level').hidden = guitarOn();
+    const ms = dlg.querySelector('.arp-mode');
+    if (ms) ms.replaceWith(GA() ? modeSwitch() : h('span', { class: 'arp-mode' }));
     body.scrollTop = scroll;
     const sc = body.querySelector('.arp-scroll');
     if (sc) sc.scrollLeft = gridScroll;
@@ -1454,7 +1633,7 @@ SS.arpPanel = (() => {
           'div',
           { class: 'sd-head' },
           h('h2', {}, h('span', { class: 'arp-brand' }, 'Arp One'), h('span', { class: 'arp-title' }, '')),
-          h('span', { class: 'arp-head-right' }, h('span', { class: 'arp-level' }), h('button', { type: 'button', class: 'arp-close', 'aria-label': 'Fermer', title: 'Fermer (les réglages sont gardés)', onclick: close, html: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>' }))
+          h('span', { class: 'arp-head-right' }, h('span', { class: 'arp-mode' }), h('span', { class: 'arp-level' }), h('button', { type: 'button', class: 'arp-close', 'aria-label': 'Fermer', title: 'Fermer (les réglages sont gardés)', onclick: close, html: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>' }))
         ),
         h('div', { class: 'arp-body' }),
         h(
@@ -1531,6 +1710,11 @@ SS.arpPanel = (() => {
     track = t;
     track.arp = A().normalize(track.arp);
     snapshot = clone(track.arp);
+    // piste de guitare ouverte pour la première fois : mode Guitare d'office (Annuler revient au mode Clavier)
+    if (GA() && !track.arp.guitar && track.family === 'guitar') {
+      track.arp = A().normalize({ ...track.arp, guitar: { on: true } });
+      app.changed();
+    }
     undo = [];
     test = null;
     sel = null;

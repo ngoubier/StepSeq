@@ -5208,3 +5208,61 @@ body.wizard-mode .wiz-banner { display: none; }
 .claude-badge[hidden] { display: none; }
 .claude-badge i { width: 7px; height: 7px; border-radius: 50%; background: #d97757; box-shadow: 0 0 6px #d97757; }
 .claude-badge b { font-weight: 600; }
+
+/* ---------- ARP ONE · mode Guitare (js/guitar-arp.js) ---------- */
+.arp-mode button { padding: 6px 12px; }
+.gt-view { display: flex; flex-direction: column; gap: 14px; }
+.gt-player .arp-player-bar select, .gt-card select { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px; font: inherit; }
+.gt-main { display: grid; grid-template-columns: 170px 1fr; gap: 12px; }
+.gt-card { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.gt-card h3 { margin: 0; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.gt-card small { color: var(--muted); font-size: 11px; line-height: 1.35; }
+.gt-chord { align-items: stretch; }
+.gt-chordname { font-size: 20px; font-weight: 700; text-align: center; }
+.gt-real { font-size: 11px; color: #cfe4ff; text-align: center; font-variant-numeric: tabular-nums; }
+.gt-diagram { width: 100%; height: auto; display: block; }
+.gt-diagram .gd-nut { fill: #ececf1; }
+.gt-diagram .gd-str { stroke: #77777f; }
+.gt-diagram .gd-wire { stroke: #55555c; }
+.gt-diagram .gd-fret { fill: var(--muted); font-size: 11px; }
+.gt-diagram .gd-dot { fill: #a479ff; }
+.gt-diagram .gd-open { fill: none; stroke: #ececf1; }
+.gt-diagram .root { fill: #ff9f43; }
+.gt-diagram .gd-open.root { fill: none; stroke: #ff9f43; }
+.gt-diagram .gd-barre { fill: #a479ff; opacity: .9; }
+.gt-diagram .gd-capo { fill: #666; }
+.gt-tabhead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.gt-tabhead span { color: var(--muted); font-size: 12px; }
+.gt-tab { width: 100%; height: auto; display: block; background: #121216; border-radius: 8px; }
+.gt-tab .gt-beat { fill: #1c1c22; }
+.gt-tab .gt-beat2 { fill: #24242c; }
+.gt-tab .gt-line { stroke: #4a4a52; }
+.gt-tab .gt-num { fill: var(--muted); font-size: 9px; }
+.gt-tab .gt-ring { stroke-width: 4; stroke-linecap: round; stroke-opacity: .38; }
+.gt-tab .gt-note.thumb, .gt-legend .thumb::before { fill: #ff9f43; background: #ff9f43; }
+.gt-tab .gt-note.finger, .gt-legend .finger::before { fill: #a479ff; background: #a479ff; }
+.gt-tab .gt-note.pick, .gt-legend .pick::before { fill: #5ab0ff; background: #5ab0ff; }
+.gt-tab .gt-ring.thumb { stroke: #ff9f43; }
+.gt-tab .gt-ring.finger { stroke: #a479ff; }
+.gt-tab .gt-ring.pick { stroke: #5ab0ff; }
+.gt-tab .gt-fretnum { fill: #141416; font-size: 10px; font-weight: 700; }
+.gt-tab .gt-finger { font-size: 9px; font-weight: 700; }
+.gt-tab .gt-finger.thumb { fill: #ff9f43; }
+.gt-tab .gt-finger.finger { fill: #a479ff; }
+.gt-tab .gt-finger.pick { fill: #5ab0ff; }
+.gt-tab .gt-vel { fill: #a479ff; opacity: .7; }
+.gt-tab .arp-head { fill: #fff; opacity: .1; }
+.gt-legend { display: flex; flex-wrap: wrap; gap: 12px; color: var(--muted); font-size: 11px; }
+.gt-legend span::before { content: ''; display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
+.gt-legend span:last-child::before { display: none; }
+.gt-mods { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 12px; }
+.gt-group { display: flex; flex-direction: column; gap: 4px; }
+.gt-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.gt-chip { background: var(--panel-2); border: 1px solid var(--line); color: var(--text); border-radius: 999px; padding: 4px 10px; font: inherit; font-size: 12px; cursor: pointer; }
+.gt-chip.doigts.on { background: #3a2a57; border-color: #a479ff; }
+.gt-chip.mediator.on { background: #1d3a57; border-color: #5ab0ff; }
+.gt-desc { color: var(--muted); font-size: 12px; line-height: 1.45; margin: 2px 0 0; }
+@media (max-width: 900px) { .gt-main, .gt-mods { grid-template-columns: 1fr; } }
+.gt-tab rect, .gt-diagram rect, .gt-tab circle, .gt-diagram .gd-dot { stroke: none; }
+.gt-tab text, .gt-diagram text { stroke: none; font-weight: 400; }
+.gt-tab .gt-fretnum, .gt-tab .gt-finger { font-weight: 700; }
