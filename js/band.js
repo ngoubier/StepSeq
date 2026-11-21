@@ -6354,7 +6354,7 @@ SS.band = (() => {
     syncAutoScroll(content);
   }
 
-  /* --- Orchestre (étape Orchestration) : densité et pupitres par scène, carte des registres, qui joue quoi et pourquoi ---
+  /* --- Orchestre (étape Orchestration) : densité par scène, puis une ligne par pupitre (joue / coupé, rôle, registre, pourquoi, Muet / Solo) ---
    * SS.bandSong.build écrit chaque pupitre avec SS.orchestra.orchestrate et laisse son rapport dans sc.orch[musicien] ;
    * réglages de la scène : parts[sec].inst[musicien].orch = { level: light | mid | full, off: [pupitres coupés] }. */
   const OR = () => SS.orchestra;
@@ -6384,66 +6384,88 @@ SS.band = (() => {
     if (muted || !r) return [head, h('div', { class: 'bwp-row' }, play), h('p', { class: 'dlg-hint', id: 'bwOrchMuted' }, 'L’orchestre se tait dans cette scène.')];
     const lvl = partSeg('Densité', 'bwOrchLevel', [['auto', `Auto · ${OR().LEVELS.find((l) => l.id === r.level).label}`, 'D’après l’énergie de la scène'], ...OR().LEVELS.map((l) => [l.id, l.label, l.text])], own.level || 'auto', (v) => orchEdit(sc, T, { level: v === 'auto' ? undefined : v }, `#bwOrchLevel [data-v="${v}"]`));
     const off = own.off || [];
-    const chips = h(
-      'div',
-      { class: 'bwp-field' },
-      h('span', { class: 'bh-lbl' }, 'Pupitres'),
-      h('span', { class: 'bwor-chips', id: 'bwOrchParts' }, ...ens.parts.map((id) => {
-        const on = !off.includes(id);
-        return h('button', { type: 'button', class: 'bwor-chip' + (on ? ' on' : ''), 'data-part': id, 'aria-pressed': String(on), title: on ? 'Couper ce pupitre dans la scène' : 'Faire jouer ce pupitre', onclick: () => orchEdit(sc, T, { off: on ? [...off, id] : off.filter((x) => x !== id) }, `#bwOrchParts [data-part="${id}"]`) }, OR().PART[id].short);
-      }))
+    const L0 = OR().LEVELS.find((l) => l.id === r.level);
+    const lvlHelp = SS.helpTip(`Auto suit l’énergie de la scène. ${L0.label} : ${L0.text}. Les cuivres (sauf le cor) attendent les scènes fortes.`, 'Densité');
+    // À voir : un badge (clic : les pupitres concernés s'allument) ; chaque ligne concernée porte son ⚠
+    const warns = r.items.filter((i) => i.kind === 'warn');
+    const warnOf = (id) => warns.filter((i) => (i.parts || []).includes(id));
+    const items = h(
+      'button',
+      { type: 'button', class: 'bwor-badge' + (warns.length ? ' warn' : ' ok'), id: 'bwOrchItems', title: r.items.map((i) => i.text).join('\n'), 'aria-pressed': 'false', onclick: (e) => {
+        const on = e.currentTarget.getAttribute('aria-pressed') !== 'true';
+        e.currentTarget.setAttribute('aria-pressed', String(on));
+        $('#bwOrchTable')?.classList.toggle('flash', on);
+      } },
+      warns.length ? `⚠ À voir · ${warns.length}` : '✓ Rien à voir'
     );
-    // carte des registres : tessiture, zone confortable, notes jouées dans la scène
+    // une ligne par pupitre, rangés par famille : interrupteur (enregistré), rôle, registre, pourquoi, ⚠, Muet / Solo (écoute)
     const LO = 26;
     const HI = 100;
-    const x = (m) => `${(((m - LO) / (HI - LO)) * 100).toFixed(2)}%`;
-    const w = (a, b) => `${(((b - a) / (HI - LO)) * 100).toFixed(2)}%`;
-    const axis = h('div', { class: 'bwor-axis' }, ...[36, 48, 60, 72, 84, 96].map((m) => h('span', { style: `left:${x(m)}` }, OR().midiName(m))));
-    const rows = ens.parts.map((id) => {
+    const cl = (m) => Math.max(LO, Math.min(HI, m));
+    const x = (m) => `${(((cl(m) - LO) / (HI - LO)) * 100).toFixed(2)}%`;
+    const w = (a, b) => `${(((cl(b) - cl(a)) / (HI - LO)) * 100).toFixed(2)}%`;
+    const colOf = (id) => T.cols.find((c) => ((c.o.band && c.o.band.key) || '').split(':')[1] === id);
+    const FAMS = [['bois', 'Bois'], ['cuivres', 'Cuivres'], ['cordes', 'Cordes'], ['synthé', 'Synthé'], ['cordes pincées', 'Harpe et claviers'], ['claviers', 'Harpe et claviers']];
+    const famLabel = (id) => (FAMS.find(([f]) => f === OR().PART[id].fam) || [0, 'Autres'])[1];
+    const order = [...new Set(FAMS.map((f) => f[1])), 'Autres'];
+    const groups = order.map((g) => [g, ens.parts.filter((id) => famLabel(id) === g)]).filter(([, ids]) => ids.length);
+    const row = (id) => {
       const p = OR().PART[id];
       const L = r.lines[id];
+      const on = !off.includes(id);
+      const c = colOf(id);
+      const ws = warnOf(id);
+      const role = on ? OR().ROLE_LABEL[L.role] : 'Coupé';
+      const color = on ? ORCH_ROLE_C[L.role] : ORCH_ROLE_C.tacet;
+      let wi = null;
+      if (ws.length) {
+        wi = SS.helpTip(ws.map((i) => `${i.text} ${i.hint || ''}`.trim()).join(' '), `À voir : ${p.label}`);
+        wi.classList.add('bwor-wi');
+        wi.textContent = '⚠';
+      }
+      const ms = (set, cls, label, tip) => h('button', { type: 'button', class: 'bwor-ms ' + cls + (c && set.has(c.id) ? ' on' : ''), 'aria-pressed': String(!!(c && set.has(c.id))), title: tip, disabled: !c || !on, onclick: () => c && toggleMS(set, [c.id]) }, label);
       return h(
         'div',
-        { class: 'bwor-row', 'data-part': id },
-        h('span', { class: 'bwor-name' }, p.short, h('small', { style: `color:${ORCH_ROLE_C[L.role]}` }, OR().ROLE_LABEL[L.role].toLowerCase())),
+        { class: 'bwor-row' + (on ? '' : ' off') + (L.role === 'tacet' ? ' tacet' : '') + (ws.length ? ' warn' : '') + (c && silenced(c.id) ? ' quiet' : ''), 'data-part': id },
+        h('button', { type: 'button', class: 'bwor-sw' + (on ? ' on' : ''), role: 'switch', 'aria-checked': String(on), 'aria-label': `${p.label} joue dans la scène`, title: on ? 'Couper ce pupitre dans la scène' : 'Faire jouer ce pupitre', onclick: () => orchEdit(sc, T, { off: on ? [...off, id] : off.filter((y) => y !== id) }, `#bwOrchTable [data-part="${id}"] .bwor-sw`) }),
+        h('span', { class: 'bwor-name' }, p.label),
+        h('span', { class: 'bwor-role', style: `color:${color}` }, role),
         h(
           'span',
-          { class: 'bwor-lane' },
-          h('i', { class: 'bwor-tess', style: `left:${x(p.lo)};width:${w(p.lo, p.hi)}` }),
-          h('i', { class: 'bwor-comf', style: `left:${x(p.clo)};width:${w(p.clo, p.chi)}` }),
-          L.lo !== null ? h('i', { class: 'bwor-part', style: `left:${x(L.lo)};width:max(4px, ${w(L.lo, L.hi)});background:${ORCH_ROLE_C[L.role]}` }) : null
-        )
+          { class: 'bwor-reg' },
+          h(
+            'span',
+            { class: 'bwor-lane' },
+            h('i', { class: 'bwor-tess', style: `left:${x(p.lo)};width:${w(p.lo, p.hi)}` }),
+            h('i', { class: 'bwor-comf', style: `left:${x(p.clo)};width:${w(p.clo, p.chi)}` }),
+            on && L.lo !== null ? h('i', { class: 'bwor-part', style: `left:${x(L.lo)};width:max(4px, ${w(L.lo, L.hi)});background:${ORCH_ROLE_C[L.role]}` }) : null
+          ),
+          h('span', { class: 'bwor-rng' }, on && L.lo !== null ? (L.lo === L.hi ? OR().midiName(L.lo) : `${OR().midiName(L.lo)} – ${OR().midiName(L.hi)}`) : '—')
+        ),
+        h('span', { class: 'bwor-why' }, on ? L.why : ''),
+        h('span', { class: 'bwor-wcell' }, wi),
+        h('span', { class: 'bwor-mss' }, ms(S.wiz.mute, 'm', 'M', 'Muet : écouter sans ce pupitre'), ms(S.wiz.solo, 's', 'S', 'Solo : écouter ce pupitre seul'))
       );
-    });
-    const map = h(
-      'div',
-      { class: 'bwar-card bwor-map', id: 'bwOrchMap' },
-      h('div', { class: 'bwar-head' }, h('b', {}, 'Carte des registres'), h('span', { class: 'bh-info' }, 'tessiture · zone confortable · notes jouées')),
-      axis,
-      ...rows,
-      h('div', { class: 'bwhz-legend' }, ...['melody', 'counter', 'harmony', 'bass', 'pad'].map((k) => h('span', {}, h('i', { class: 'bwhz-sw', style: `background:${ORCH_ROLE_C[k]}` }), OR().ROLE_LABEL[k])))
-    );
+    };
+    const axis = h('span', { class: 'bwor-axis' }, ...[36, 48, 60, 72, 84, 96].map((m) => h('span', { style: `left:${x(m)}` }, OR().midiName(m))));
     const table = h(
       'div',
-      { class: 'bwar-card bwor-who', id: 'bwOrchWho' },
-      h('div', { class: 'bwar-head' }, h('b', {}, 'Qui joue quoi'), h('span', { class: 'bh-info' }, OR().LEVELS.find((l) => l.id === r.level).text)),
+      { class: 'bwar-card bwor-table', id: 'bwOrchTable' },
       h(
-        'table',
-        { class: 'bwor-table' },
-        h('thead', {}, h('tr', {}, h('th', {}, 'Pupitre'), h('th', {}, 'Rôle'), h('th', {}, 'Registre'), h('th', {}, 'Pourquoi'))),
-        h('tbody', {}, ...ens.parts.map((id) => {
-          const L = r.lines[id];
-          return h('tr', { 'data-part': id, class: L.role === 'tacet' ? 'tacet' : '' }, h('td', {}, OR().PART[id].label), h('td', { style: `color:${ORCH_ROLE_C[L.role]}` }, OR().ROLE_LABEL[L.role]), h('td', {}, L.lo !== null ? `${OR().midiName(L.lo)} – ${OR().midiName(L.hi)}` : '—'), h('td', {}, L.why));
-        }))
-      )
+        'div',
+        { class: 'bwor-row bwor-thead' },
+        h('span', {}, SS.helpTip('L’interrupteur fait jouer ou coupe le pupitre dans cette scène. C’est enregistré : l’orchestration se réécrit et les autres pupitres reprennent son rôle.', 'Joue dans la scène')),
+        h('span', {}, 'Pupitre'),
+        h('span', {}, 'Rôle'),
+        h('span', { class: 'bwor-reg-h' }, h('span', {}, 'Registre', SS.helpTip('Gris foncé : tessiture de l’instrument. Gris clair : zone confortable, où il sonne sans forcer. En couleur : les notes qu’il joue dans cette scène.', 'Registre')), axis),
+        h('span', {}, 'Pourquoi'),
+        h('span', {}),
+        h('span', { class: 'bwor-mss' }, SS.helpTip('M (muet) et S (solo) servent seulement à écouter : rien n’est réécrit, les autres pupitres jouent pareil.', 'Muet et Solo'))
+      ),
+      ...groups.flatMap(([g, ids]) => [h('div', { class: 'bwor-fam' }, g), ...ids.map(row)]),
+      h('div', { class: 'bwhz-legend' }, ...[...new Set(Object.values(r.lines).map((l) => l.role))].filter((k) => k !== 'tacet').map((k) => h('span', {}, h('i', { class: 'bwhz-sw', style: `background:${ORCH_ROLE_C[k]}` }), OR().ROLE_LABEL[k])))
     );
-    const items = h(
-      'div',
-      { class: 'bwar-card', id: 'bwOrchItems' },
-      h('div', { class: 'bwar-head' }, h('b', {}, 'À voir'), h('span', { class: 'bh-info' }, `${r.items.filter((i) => i.kind === 'warn').length} point(s)`)),
-      h('ul', { class: 'hm-checks2' }, ...r.items.map((i) => h('li', { class: 'k-' + i.kind }, h('span', { class: 'ck' }, CK_ICON[i.kind] || '•'), h('div', {}, i.text, i.hint ? h('small', {}, i.hint) : null))))
-    );
-    return [head, h('div', { class: 'bwp-row bwor-ctl' }, play, lvl, chips), h('div', { class: 'bwor-cols' }, map, h('div', { class: 'bwor-side' }, items)), table];
+    return [head, h('div', { class: 'bwp-row bwor-ctl' }, play, lvl, lvlHelp, h('span', { class: 'spacer' }), items), table];
   }
 
   /* --- Batterie : bibliothèque de motifs, grille des éléments du kit (1, 2 ou 4 mesures), fills, crash, montée --- */
