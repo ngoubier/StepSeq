@@ -1349,14 +1349,14 @@ SS.ui = (() => {
           ? h('button', {
               class: 'th-btn th-roll' + (isOpen ? ' open' : ''),
               title: 'Afficher / masquer le piano roll',
-              html: ICONS.chevron,
+              html: ICONS.keys,
               onclick: () => {
                 if (isOpen) app.state.openRolls.delete(track.id);
                 else app.state.openRolls.add(track.id);
                 renderTrack(track);
               },
             })
-          : h('button', { class: 'th-btn th-roll', disabled: true, title: 'Piano roll : pas sur une piste de batterie (les pas se règlent dans la grille)', html: ICONS.chevron }),
+          : h('button', { class: 'th-btn th-roll', disabled: true, title: 'Piano roll : pas sur une piste de batterie (les pas se règlent dans la grille)', html: ICONS.keys }),
         instr
           ? h('button', {
               class: 'th-btn th-sd',
@@ -1434,10 +1434,11 @@ SS.ui = (() => {
         options.append(
           h('button', { type: 'button', role: 'menuitem', class: 'th-btn th-opt-mode', onclick: () => (options.hidePopover(), openArp(track)) },
             h('span', { class: 'th-option-ico th-option-fx' }, 'ARP'), h('span', { class: 'th-option-label' }, 'Arp One…')),
-          SS.arpOn(track)
-            ? h('button', { type: 'button', role: 'menuitem', class: 'th-btn th-opt-mode', onclick: () => setArp(track, false) },
-                h('span', { class: 'th-option-ico th-option-fx' }, 'ARP'), h('span', { class: 'th-option-label' }, 'Éteindre l’arpégiateur'))
-            : null,
+          // append() écrirait « null » : rien quand l'arpège est éteint
+          ...(SS.arpOn(track)
+            ? [h('button', { type: 'button', role: 'menuitem', class: 'th-btn th-opt-mode', onclick: () => setArp(track, false) },
+                h('span', { class: 'th-option-ico th-option-fx' }, 'ARP'), h('span', { class: 'th-option-label' }, 'Éteindre l’arpégiateur'))]
+            : []),
           h('button', { type: 'button', role: 'menuitemcheckbox', 'aria-checked': String(SS.follows(track)), class: 'th-btn th-opt-mode', onclick: () => setTrackFollow(track, !SS.follows(track)) },
             h('span', { class: 'th-option-ico th-option-fx' }, 'ACC'), h('span', { class: 'th-option-label' }, SS.follows(track) ? 'Ne plus suivre les accords' : 'Jouer la piste Accords'))
         );
@@ -1784,7 +1785,7 @@ SS.ui = (() => {
         {
           type: 'button',
           class: 'roll-close',
-          title: 'Fermer le piano roll (le chevron › de la piste le rouvre)',
+          title: 'Fermer le piano roll (le bouton clavier de la piste le rouvre)',
           'aria-label': 'Fermer le piano roll',
           onclick: () => {
             app.state.openRolls.delete(track.id);
