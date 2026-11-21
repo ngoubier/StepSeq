@@ -794,6 +794,16 @@ sur une piste de guitare) joue l'arpège comme sur une guitare :
 - **Jeu** : **Résonance** (détaché → basse ≈ 700 ms, aigus ≈ 500 ms → tout sonne ; une corde rejouée coupe sa note, le
   changement d'accord arrête tout), **Mélodie en avant**, **Pouce accentué**, **Main humaine** (les basses posées sur les
   temps ne bougent jamais).
+- **7 grattages** : Pop ↓ ↓↑ ↑↓↑, Folk 6/8, Rock croches, Palm mute, Reggae skank, Funk étouffé, Ballade lente ;
+  ↓ des graves vers les aiguës, ↑ sur les 4 aiguës, coups étouffés ×, **Étalement du grattage** (12 ms par corde) ;
+- **basse imposée** de la piste Accords (C/E : le mi grave sous la forme de do, G/B = x20003), la basse alternée
+  passe alors par la fondamentale ;
+- **accordages** : Standard, Drop D, DADGAD, Open G (hors standard, la forme est cherchée sur le manche :
+  fondamentale à la basse, notes principales présentes, 3 cases d'écart au plus, cordes à vide en priorité) ;
+- vue **Tablature** ou **Piano roll** du motif.
+
+Dans « Nouvelle chanson », le **Guitariste** propose les mêmes motifs (modes « g:travis »… de la nappe) : ses notes
+sont écrites par le mode Guitare (`arpOneEvents` de `js/bandsong.js`), avec le décalage fin des cordes du grattage.
 
 Le mode Guitare est déterministe comme le reste d'Arp One ; la lecture, le rendu et l'export MIDI passent par
 `SS.Arp.renderStep`. Réglages dans `track.arp.guitar` (gardés quand on revient au mode Clavier).

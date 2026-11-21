@@ -5635,6 +5635,31 @@ SS.band = (() => {
     ['chop', 'Hachée', 'Petits accords sur les contretemps', [2, 6, 10, 14].map((s) => [s, 1, 1])],
     ['pluck', 'Pincée', 'Les notes de l’accord, en croches', every(2, 2, (i) => [0, 1, 2][i % 3])],
   ];
+  /**
+   * Modes du Guitariste : les motifs du mode Guitare d'Arp One (js/guitar-arp.js), « g:<motif> ». Dessin : une
+   * mesure sur un accord de La mineur (bas = basse, milieu, haut = cordes aiguës).
+   */
+  const GUITAR_MODES = (() => {
+    const GA = SS.GuitarArp;
+    if (!GA) return [];
+    return GA.MOTIFS.map((m) => {
+      const pv = GA.preview({ guitar: { motif: m.id } }, [57, 60, 64]);
+      const seen = new Set();
+      const notes = [];
+      for (let rep = 0; rep * pv.len < 16; rep++)
+        pv.attacks.forEach((a) => {
+          const st = rep * pv.len + a.step16;
+          const lv = a.bass ? 0 : a.str >= 4 ? 2 : 1;
+          if (st >= 16 || seen.has(st + ':' + lv) || (a.strum && a.label === '')) return;
+          seen.add(st + ':' + lv);
+          notes.push([st, Math.max(0.6, (4 / m.div) * 0.8), m.hand === 'gratte' ? 1 : lv]);
+        });
+      const hand = GA.HANDS.find((x) => x.id === m.hand);
+      return ['g:' + m.id, m.name, `${hand ? hand.label.replace(/ \(.*/, '') : ''} · ${m.desc}`, notes];
+    });
+  })();
+  const isGuitarist = (T) => isT(T) && T.role === 'guitar';
+  const padModes = (T) => (isGuitarist(T) ? [...PAD_MODES, ...GUITAR_MODES] : PAD_MODES);
   /** Modes de l'arpège (js/bandsong.js, arpEvents). « rise » ne vient que de l'inspiration. */
   const ARP_MODES = [
     ['up16', 'Montée', 'Doubles-croches, en montant'],
@@ -6651,7 +6676,7 @@ SS.band = (() => {
   function padSub(x, T) {
     const o = partOf(x.sec, T) || {};
     const m = o.mode || planMode(x, T);
-    return mutedIn(x.sec, T) ? 'muette' : (m ? nameOf(PAD_MODES, m) : 'aucune') + (o.voicing === 'open' ? ' · ouvert' : '') + (o.mode ? '' : m && !typeChanged(T) ? ' · inspiration' : '');
+    return mutedIn(x.sec, T) ? 'muette' : (m ? nameOf(padModes(T), m) : 'aucune') + (o.voicing === 'open' ? ' · ouvert' : '') + (o.mode ? '' : m && !typeChanged(T) ? ' · inspiration' : '');
   }
   function padBody(sc, T) {
     const o = partOf(sc.sec, T) || {};
@@ -6663,7 +6688,8 @@ SS.band = (() => {
         'section',
         { class: 'bwp-card bw-card' },
         h('div', { class: 'bwp-ch' }, h('b', {}, `Accords de « ${sc.name} »`), h('span', { class: 'spacer' }), playBox(sc, T, 'sustain')),
-        modeCards(sc, T, PAD_MODES, '#4f6bff'),
+        modeCards(sc, T, padModes(T), '#4f6bff'),
+        isGuitarist(T) ? h('p', { class: 'dlg-hint' }, 'Les derniers modes sont joués comme une guitare (formes d’accord sur le manche, cordes qui résonnent, grattage) : les mêmes motifs que le mode Guitare d’Arp One.') : null,
         !planMode(sc, T) && !o.mode ? h('p', { class: 'dlg-hint' }, 'L’inspiration ne joue pas de nappe dans cette scène : choisis un mode pour l’allumer.') : null,
         h('div', { class: 'bwp-row' }, partSeg('Voicing', 'bwpVoicing', [['close', 'Serré', 'Accord au plus proche du précédent'], ['open', 'Ouvert', 'La note grave descend d’une octave']], o.voicing || 'close', (v) => (putPart(sc.sec, T, { voicing: v === 'close' ? undefined : v }), partChanged())))
       ),

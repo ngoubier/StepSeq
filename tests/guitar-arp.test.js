@@ -92,3 +92,43 @@ test('mode Guitare éteint : l’arpège clavier est inchangé ; réglages gard�
   assert.deepEqual(n.map((x) => x.midi), [60]);
   assert.equal(A.normalize({}).guitar, undefined);
 });
+
+test('basse imposée (piste Accords) : C/E = mi grave sous la forme de do, G/B = x20003, la basse alterne mi et do', () => {
+  const g = G.normalize({});
+  const ce = G.shapeFor(C, g, 4);
+  assert.deepEqual(ce.frets, [0, 3, 2, 0, 1, 0]);
+  assert.equal(ce.name, 'C/E');
+  assert.deepEqual(G.shapeFor([55, 59, 62], g, 11).frets, [null, 2, 0, 0, 0, 3]);
+  assert.deepEqual(G.shapeFor(Am, g, 7).frets, [3, 0, 2, 2, 1, 0]); // Am/G
+  const arp = A.normalize({ guitar: { on: true, motif: 'travis', human: 0 } });
+  const ev = { step: 0, len: 16, notes: C, vel: 0.8, bass: 4 };
+  const bass = [];
+  for (let s = 0; s < 16; s += 4) A.renderStep(arp, ev, s, { loop: 0, stepSec: 0.1, stepsPerBeat: 4 }).forEach((n) => n.at === 0 && bass.push(name(n.midi)));
+  assert.deepEqual(bass.filter((x) => x !== 'E4'), ['E2', 'C3', 'E2', 'C3']);
+});
+
+test('accordages : Drop D joue ré grave sur D, DADGAD et Open G trouvent une forme complète', () => {
+  const D = [62, 66, 69];
+  const real = (t, n) => G.shapeFor(n, G.normalize({ tuning: t })).notes.filter((x) => x != null);
+  assert.equal(name(real('dropD', D)[0]), 'D2');
+  for (const t of ['dropD', 'dadgad', 'openG'])
+    for (const n of [C, Am, D, [55, 59, 62], [52, 55, 59]]) {
+      const ns = real(t, n);
+      const pcs = new Set(ns.map((x) => x % 12));
+      assert.ok(ns.length >= 4, `${t} ${n} : au moins 4 cordes`);
+      assert.equal(ns[0] % 12, n[0] % 12, `${t} ${n} : fondamentale à la basse`);
+      n.forEach((x) => assert.ok(pcs.has(x % 12) || x % 12 === (n[0] + 7) % 12, `${t} ${n} : ${name(x)} présente`));
+    }
+});
+
+test('grattage : ↓ des graves vers les aiguës étalé de 12 ms, ↑ sur les 4 aiguës, étouffés courts', () => {
+  const all = bar({ motif: 'pop', spread: 12 }, Am);
+  const first = all.filter((n) => n.t < 0.05);
+  assert.deepEqual(first.map((n) => name(n.midi)), ['A2', 'E3', 'A3', 'C4', 'E4']);
+  first.forEach((n, i) => assert.ok(Math.abs(n.t - i * 0.012) < 1e-9));
+  const sd = 60 / 80 / 4;
+  const up = all.filter((n) => Math.abs(n.t - 6 * sd) < 0.05);
+  assert.deepEqual(up.map((n) => name(n.midi)), ['E4', 'C4', 'A3', 'E3']);
+  const palm = bar({ motif: 'palm' }, Am);
+  assert.ok(palm.every((n) => n.dur <= 0.12 + 1e-9 && n.midi <= 57));
+});

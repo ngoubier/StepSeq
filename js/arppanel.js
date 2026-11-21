@@ -93,6 +93,12 @@ SS.arpPanel = (() => {
   }
 
   // premier accord joué par la piste : la piste Accords de la scène (ACCORDS), sinon les notes tenues ensemble
+  /** Basse imposée du premier accord de la piste (C/E, piste Accords) : pour le mode Guitare. */
+  const trackBass = () => {
+    if (test) return undefined;
+    const ev = SS.playEvents(app.project(), track).find((e) => e.notes && e.notes.length);
+    return ev && Number.isFinite(ev.bass) ? ev.bass : undefined;
+  };
   const trackChord = () => {
     const ev = SS.playEvents(app.project(), track).find((e) => e.notes && e.notes.length);
     return ev ? ev.notes.slice() : null;
@@ -209,7 +215,7 @@ SS.arpPanel = (() => {
     while (loop.next < ctx.currentTime + 0.12) {
       const s = loop.step % total;
       const lp = Math.floor(loop.step / total); // passage de boucle : EVOLVE varie d'un passage à l'autre
-      const ev = { step: 0, len: total, notes, vel: 0.85 };
+      const ev = { step: 0, len: total, notes, vel: 0.85, bass: trackBass() };
       const arp = gesteCompare === 'regulier' ? { ...track.arp, geste: undefined } : track.arp; // « Écouter : Régulier »
       const out = A().renderStep(arp, ev, s, { loop: lp, stepSec, stepsPerBeat: SS.stepsPerBeat(project), trackLen: total });
       out.forEach((n) => {
@@ -1471,25 +1477,38 @@ SS.arpPanel = (() => {
       else if (!(barre && f === sh.barre)) s += `<circle cx="${x}" cy="${y0 + (f - start) * dy + dy / 2}" r="8" class="gd-dot${root}"/>`;
       else if (root) s += `<circle cx="${x}" cy="${y0 + (f - start) * dy + dy / 2}" r="5" class="gd-dot root"/>`;
     });
-    ['E', 'A', 'D', 'G', 'B', 'E'].forEach((n, i) => (s += `<text x="${x0 + i * dx}" y="${y0 + dy * 5 + 16}" class="gd-fret" text-anchor="middle">${n}</text>`));
+    const tun = (GA().TUNINGS.find((t) => t.id === sh.tuning) || GA().TUNINGS[0]).notes;
+    tun.map((m) => NOTES[m % 12]).forEach((n, i) => (s += `<text x="${x0 + i * dx}" y="${y0 + dy * 5 + 16}" class="gd-fret" text-anchor="middle">${n}</text>`));
     return svg(150, 182, s, 'gt-diagram');
   }
 
-  /** Tablature d'un cycle du motif : une ligne par corde, la case dans chaque attaque, trait = la corde résonne. */
+  /**
+   * Un cycle du motif : en tablature (une ligne par corde, la case dans chaque attaque) ou en piano roll (une
+   * ligne par hauteur) ; trait = la corde résonne ; barres du bas = vélocité de chaque pas.
+   */
+  let gtView = 'tab';
   function guitarTab(pv) {
-    const W = 640, Lm = 26, top = 30, gap = 20, n16 = pv.len, cw = (W - Lm - 6) / n16, velTop = top + gap * 5 + 30, velH = 26;
+    const W = 640, Lm = 30, top = 30, gap = 20, n16 = pv.len, cw = (W - Lm - 6) / n16, velTop = top + gap * 5 + 30, velH = 26;
     const m = pv.motif;
+    const roll = gtView === 'roll';
+    const pitches = [...new Set(pv.attacks.map((a) => a.midi))].sort((a, b) => a - b);
+    const lo = pitches[0], hi = pitches[pitches.length - 1];
+    const yOf = (a) => (roll ? top + gap * 5 - (hi === lo ? gap * 2.5 : ((a.midi - lo) / (hi - lo)) * gap * 5) : top + (5 - a.str) * gap);
     let s = '';
     for (let b = 0; b < m.beats; b++) s += `<rect x="${Lm + b * 4 * cw}" y="${top - 8}" width="${4 * cw}" height="${gap * 5 + 16}" class="${b % 2 ? 'gt-beat2' : 'gt-beat'}"/><text x="${Lm + b * 4 * cw + 4}" y="${top + gap * 5 + 20}" class="gt-num">${b + 1}</text>`;
-    ['e', 'B', 'G', 'D', 'A', 'E'].forEach((nm, r) => (s += `<line x1="${Lm}" y1="${top + r * gap}" x2="${W - 6}" y2="${top + r * gap}" class="gt-line"/><text x="${Lm - 12}" y="${top + r * gap + 4}" class="gt-num" text-anchor="middle">${nm}</text>`));
-    const cls = (a) => (m.dir && /[↓↑]/.test(a.label) ? 'pick' : a.bass ? 'thumb' : 'finger');
+    if (roll) pitches.forEach((p) => { const y = yOf({ midi: p }); s += `<line x1="${Lm}" y1="${y}" x2="${W - 6}" y2="${y}" class="gt-line dash"/><text x="${Lm - 4}" y="${y + 3}" class="gt-num" text-anchor="end">${noteName(p)}</text>`; });
+    else ['e', 'B', 'G', 'D', 'A', 'E'].forEach((nm, r) => (s += `<line x1="${Lm}" y1="${top + r * gap}" x2="${W - 6}" y2="${top + r * gap}" class="gt-line"/><text x="${Lm - 12}" y="${top + r * gap + 4}" class="gt-num" text-anchor="middle">${nm}</text>`));
+    const cls = (a) => (a.strum ? (a.mute ? 'mute' : 'strum') : m.dir && /[↓↑]/.test(a.label) ? 'pick' : a.bass ? 'thumb' : 'finger');
     pv.attacks.forEach((a) => {
-      const y = top + (5 - a.str) * gap, x1 = Lm + (a.step16 + 0.5) * cw, x2 = Math.min(W - 6, x1 + a.ring16 * cw - 6);
-      if (x2 > x1 + 8) s += `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" class="gt-ring ${cls(a)}"/>`;
+      if (a.mute) return;
+      const y = yOf(a), x1 = Lm + (a.step16 + 0.5) * cw, x2 = Math.min(W - 6, x1 + a.ring16 * cw - 6);
+      if (x2 > x1 + 8) s += `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" class="gt-ring ${cls(a)}${roll ? ' wide' : ''}"/>`;
     });
     pv.attacks.forEach((a) => {
-      const x = Lm + (a.step16 + 0.5) * cw, y = top + (5 - a.str) * gap;
-      s += `<circle cx="${x}" cy="${y}" r="8" class="gt-note ${cls(a)}"><title>${noteName(a.midi)} · vélocité ${Math.round(a.vel * 127)}</title></circle><text x="${x}" y="${y + 3.5}" class="gt-fretnum" text-anchor="middle">${pv.shape.frets[a.str]}</text><text x="${x + 10}" y="${y - 6}" class="gt-finger ${cls(a)}">${a.label}</text>`;
+      const x = Lm + (a.step16 + 0.5) * cw, y = yOf(a);
+      const txt = a.mute ? '×' : roll ? '' : pv.shape.frets[a.str];
+      s += `<circle cx="${x}" cy="${y}" r="8" class="gt-note ${cls(a)}"><title>${noteName(a.midi)} · vélocité ${Math.round(a.vel * 127)}</title></circle><text x="${x}" y="${y + 3.5}" class="gt-fretnum" text-anchor="middle">${txt}</text>`;
+      if (a.label) s += a.strum ? `<text x="${x}" y="${top - 12}" class="gt-stroke" text-anchor="middle">${a.label}</text>` : `<text x="${x + 10}" y="${y - 6}" class="gt-finger ${cls(a)}">${a.label}</text>`;
     });
     const bySt = new Map();
     pv.attacks.forEach((a) => bySt.set(a.step16, Math.max(bySt.get(a.step16) || 0, a.vel)));
@@ -1506,7 +1525,7 @@ SS.arpPanel = (() => {
   function guitarView() {
     const g = GA().normalize(track.arp.guitar);
     const src = sourceChord();
-    const pv = GA().preview(track.arp, src.notes, app.project().tempo || 100);
+    const pv = GA().preview(track.arp, src.notes, app.project().tempo || 100, trackBass());
     const sh = pv.shape;
     const m = pv.motif;
     const cur = test || (() => {
@@ -1515,7 +1534,7 @@ SS.arpPanel = (() => {
     })();
     const pct = (v) => Math.round(v * 100) + ' %';
     const gs = (label, key, help, scale) => slider(label, Math.round(g[key] * 100), 0, 100, 1, (v) => v + ' %', (v, first) => setGuitar({ [key]: v / 100 }, { push: first }), { help, scale });
-    const kind = sh.kind === 'open' ? (sh.capo ? `forme ouverte, capodastre case ${sh.capo}` : 'forme ouverte') : `barré case ${sh.barre}, fondamentale sur la ${sh.kind === 'barreE' ? '6e' : '5e'} corde`;
+    const kind = g.tuning !== 'standard' ? `forme cherchée sur le manche (${GA().TUNINGS.find((t) => t.id === g.tuning).label})${sh.capo ? `, capodastre case ${sh.capo}` : ''}` : sh.kind === 'open' ? (sh.capo ? `forme ouverte, capodastre case ${sh.capo}` : 'forme ouverte') : `barré case ${sh.barre}, fondamentale sur la ${sh.kind === 'barreE' ? '6e' : '5e'} corde`;
     return h(
       'div',
       { class: 'gt-view' },
@@ -1538,9 +1557,9 @@ SS.arpPanel = (() => {
           h(
             'div',
             { class: 'gt-card' },
-            h('div', { class: 'gt-tabhead' }, h('b', {}, m.name), h('span', {}, `${m.meter || '4/4'} · ${m.div === 3 && m.meter !== '6/8' ? 'triolets' : m.div === 4 ? 'doubles-croches' : 'croches'}`)),
+            h('div', { class: 'gt-tabhead' }, h('b', {}, m.name), h('span', {}, `${m.meter || '4/4'} · ${m.div === 3 && m.meter !== '6/8' ? 'triolets' : m.div === 4 ? 'doubles-croches' : 'croches'}`), h('span', { class: 'spacer' }), segmented([{ id: 'tab', label: 'Tablature', hint: 'une ligne par corde, la case jouée' }, { id: 'roll', label: 'Piano roll', hint: 'une ligne par hauteur de note' }], gtView, (v) => ((gtView = v), render()), 'Vue du motif')),
             guitarTab(pv),
-            h('div', { class: 'gt-legend' }, h('span', { class: 'thumb' }, 'pouce p'), h('span', { class: 'finger' }, 'doigts i m a'), h('span', { class: 'pick' }, 'médiator ↓ ↑'), h('span', {}, 'trait = la corde résonne · barres = vélocité'))
+            h('div', { class: 'gt-legend' }, h('span', { class: 'thumb' }, 'pouce p'), h('span', { class: 'finger' }, 'doigts i m a'), h('span', { class: 'pick' }, 'médiator ↓ ↑'), h('span', { class: 'strum' }, 'grattage (× étouffé)'), h('span', {}, 'trait = la corde résonne · barres = vélocité'))
           )
         )
       ),
@@ -1565,11 +1584,13 @@ SS.arpPanel = (() => {
           'div',
           { class: 'gt-card' },
           h('h3', {}, 'Accord sur le manche'),
-          h('span', { class: 'dlg-label' }, 'Position'),
-          segmented(GA().POSITIONS.map((x) => ({ id: x.id, label: x.label, hint: x.hint })), g.pos, (v) => setGuitar({ pos: v }), 'Position de l’accord'),
+          g.tuning === 'standard' ? h('span', { class: 'dlg-label' }, 'Position') : null,
+          g.tuning === 'standard' ? segmented(GA().POSITIONS.map((x) => ({ id: x.id, label: x.label, hint: x.hint })), g.pos, (v) => setGuitar({ pos: v }), 'Position de l’accord') : null,
           h('span', { class: 'dlg-label' }, 'Capodastre'),
           h('select', { 'aria-label': 'Capodastre', onchange: (e) => setGuitar({ capo: +e.target.value, pos: 'open' }) }, GA().CAPOS.map((c) => h('option', { value: c, selected: g.capo === c }, c ? `Case ${c}` : 'Sans'))),
-          h('small', { class: 'arp-legend' }, 'Ouverte : la forme en bas du manche quand elle existe, sinon le barré le plus bas. Capodastre : les formes faciles, plus haut. Accordage standard (E2 A2 D3 G3 B3 E4).')
+          h('span', { class: 'dlg-label' }, 'Accordage'),
+          h('select', { 'aria-label': 'Accordage', class: 'gt-tuning', onchange: (e) => setGuitar({ tuning: e.target.value }) }, GA().TUNINGS.map((t) => h('option', { value: t.id, selected: g.tuning === t.id, title: t.hint }, `${t.label} (${t.hint.split(' :')[0]})`))),
+          h('small', { class: 'arp-legend' }, g.tuning === 'standard' ? 'Ouverte : la forme en bas du manche quand elle existe, sinon le barré le plus bas. Capodastre : les formes faciles, plus haut. Une basse imposée de la piste Accords (C/E) est jouée sous la forme quand elle est à portée.' : 'Accordage ouvert : la forme est cherchée sur le manche (fondamentale à la basse, cordes à vide en priorité).')
         ),
         h(
           'div',
@@ -1578,7 +1599,8 @@ SS.arpPanel = (() => {
           gs('Résonance', 'ring', 'une corde rejouée coupe sa note ; au changement d’accord, tout s’arrête', ['détaché', 'basse ≈ 700 ms', 'tout sonne']),
           gs('Mélodie en avant', 'mel', 'la note la plus aiguë du motif plus forte, les autres aigus plus légers'),
           gs('Pouce accentué', 'thumb', 'les basses plus fortes que les doigts'),
-          gs('Main humaine', 'human', 'placement et force varient un peu ; les basses sur les temps ne bougent pas')
+          gs('Main humaine', 'human', 'placement et force varient un peu ; les basses sur les temps ne bougent pas'),
+          m.hand === 'gratte' ? slider('Étalement du grattage', g.spread, 0, 40, 1, (v) => v + ' ms', (v, first) => setGuitar({ spread: v }, { push: first }), { help: 'temps entre deux cordes d’un même coup (12 ms : 0, 12, 24, 36 ms)' }) : null
         )
       )
     );
