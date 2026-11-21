@@ -414,7 +414,7 @@ dialog.options-dialog { width: min(520px, calc(100vw - 32px)); }
 .th-btn.box { background: var(--panel-3); color: var(--text); }
 .th-btn.mute.on { background: #2b7de9; color: #fff; }
 .th-btn.solo.on { background: #e0b400; color: #000; }
-.th-btn.open svg { transform: rotate(90deg); }
+.th-btn.th-roll.open { background: var(--accent); color: #fff; }
 .th-icon {
   flex: none;
   width: 26px;
