@@ -41,7 +41,7 @@ const shot = async (page, name) => SHOTS && page.screenshot({ path: path.join(SH
   await shot(page, 'film-tuile.png');
   await tile.click();
   await page.waitForTimeout(400);
-  ok((await page.locator('#bandPresets .band-preset').count()) === 2, 'deux départs : le modèle et « Ma scène »');
+  ok((await page.locator('#bandPresets .band-preset').count()) === 3, 'trois départs : deux modèles et « Ma scène »');
   ok((await page.inputValue('#tempo')) === '80', 'modèle : 80 BPM');
   ok((await page.locator('.bfm-cues tbody tr').count()) === 5, '5 repères');
   ok(/m\. 13/.test(await page.textContent('.bfm-cues tr.sync')), 'synchro forte sur la mesure 13');
@@ -49,16 +49,68 @@ const shot = async (page, name) => SHOTS && page.screenshot({ path: path.join(SH
   await page.locator('#bandSong').scrollIntoViewIfNeeded();
   await shot(page, 'film-modele.png');
 
+  // 05 Orchestre : une couleur, les percussions sur les repères
+  ok((await page.locator('#bfmEns .chip').count()) === 5, 'cinq couleurs d’orchestre');
+  await page.click('#bfmEns [data-ens="epique"]');
+  await page.waitForTimeout(400);
+  ok((await page.getAttribute('#bfmEns [data-ens="epique"]', 'aria-checked')) === 'true', 'effectif épique choisi');
+  const row4 = await page.textContent('.bfm-orch tr[data-sec="p4"]');
+  ok(/impact : timbale, grosse caisse, cymbale/.test(row4), 'impact de percussions sur la synchro : ' + row4);
+  ok(/Trompettes/.test(row4), 'les trompettes portent le thème au sommet');
+  await page.locator('.bfm-orch').scrollIntoViewIfNeeded();
+  await shot(page, 'film-orchestre.png');
+
   await page.click('#bwGo');
   await page.waitForTimeout(1500);
   await page.click('#stop').catch(() => {});
   const lis = await page.evaluate(() => {
     const r = SS.band._listen();
     const lead = r.tracks.find((t) => t.band && t.band.key === 'lead');
-    return { scenes: r.scenes.length, top: lead ? r.scenes[3].data[lead.id].events.map((e) => e.notes[0]) : [] };
+    const bd = r.tracks.find((t) => t.band && t.band.key === 'perc:bd');
+    const tp = r.tracks.filter((t) => t.band && t.band.key === 'orch:tp');
+    return { scenes: r.scenes.length, top: lead ? r.scenes[3].data[lead.id].events.map((e) => e.notes[0]) : [], bd: bd ? r.scenes.map((sc) => sc.data[bd.id].steps.filter((v) => v > 0).length) : [], tp: tp.length ? r.scenes.map((sc) => sc.data[tp[0].id].events.length) : [] };
   });
+  ok(lis.bd.join() === '0,0,0,1,0', `grosse caisse seulement à la synchro (${lis.bd.join(' ')})`);
+  ok(lis.tp.length === 5 && lis.tp[3] > 0 && lis.tp[0] === 0, `trompettes seulement au sommet (${lis.tp.join(' ')})`);
   ok(lis.scenes === 5, `aperçu : 5 scènes (${lis.scenes})`);
   ok(lis.top.join() === '77,79,81,79,76', `le thème du modèle, tel qu’écrit (m. 13–14 : ${lis.top.join(' ')})`);
+
+  // le modèle « La poursuite » : 144 BPM, 7 passages, saut m. 27 ; ostinato à la basse, accents des trombones
+  const back = async () => {
+    for (let i = 0; i < 6 && !(await page.isVisible('#bfmUnlock')); i++) {
+      await page.dispatchEvent('#bwBack', 'click').catch(() => {});
+      await page.waitForTimeout(250);
+    }
+  };
+  await back();
+  await page.locator('#bandPresets .band-preset', { hasText: 'La poursuite' }).click();
+  await page.waitForTimeout(400);
+  ok((await page.inputValue('#tempo')) === '144', 'poursuite : 144 BPM');
+  ok((await page.locator('.bfm-cues tbody tr').count()) === 7, 'poursuite : 7 repères');
+  ok(/m\. 27/.test(await page.textContent('.bfm-cues tr.sync')), 'saut sur la mesure 27');
+  await page.locator('#bandSong').scrollIntoViewIfNeeded();
+  await shot(page, 'film-poursuite.png');
+  await page.locator('.bfm-orch').scrollIntoViewIfNeeded();
+  await shot(page, 'film-poursuite-orchestre.png');
+  await page.click('#bwGo');
+  await page.waitForTimeout(1500);
+  await page.click('#stop').catch(() => {});
+  const ch = await page.evaluate(() => {
+    const r = SS.band._listen();
+    const ev = (k) => {
+      const t = r.tracks.find((x) => x.band && x.band.key === k);
+      return t ? r.scenes.map((sc) => ((sc.data[t.id] || {}).events || []).length) : [];
+    };
+    const sd = r.tracks.find((t) => t.band && t.band.key === 'perc:sd');
+    return { scenes: r.scenes.length, cb: ev('orch:cb'), tb: ev('orch:tb'), sd: sd ? r.scenes.map((sc) => sc.data[sd.id].steps.filter((v) => v > 0).length) : [] };
+  });
+  ok(ch.scenes === 7, `poursuite : 7 scènes (${ch.scenes})`);
+  ok(ch.cb[1] >= 60 && ch.cb[0] < 10, `ostinato de croches à la basse dans le départ (${ch.cb.join(' ')})`);
+  ok(ch.tb[2] > 0 && ch.tb[0] === 0, `accents des trombones dans le marché (${ch.tb.join(' ')})`);
+  ok(ch.sd[4] > 20, `caisse claire qui monte vers le saut (${ch.sd.join(' ')})`);
+  await back();
+  await page.locator('#bandPresets .band-preset', { hasText: 'La lumière revient' }).click();
+  await page.waitForTimeout(400);
 
   // retour à l'étape 1 : la scène libre
   for (let i = 0; i < 6 && !(await page.isVisible('#bfmUnlock')); i++) {

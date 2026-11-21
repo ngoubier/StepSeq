@@ -163,3 +163,83 @@ test('phrase et leitmotiv : chaque passage reçoit le thème traité selon son �
   const s = SS.bandSong.build(sp, 'scene', [{ id: 'lead', type: 'instrument', category: 'mono', band: { key: 'lead' } }]);
   assert.deepEqual(s.scenes[0].data.lead.events.map((e) => e.notes[0]), sp.sections.p1.theme.map((e) => e.notes[0]));
 });
+
+test('orchestre étendu : effectifs de film, cuivres réservés au sommet, harpe en arpèges, tuba à la basse', () => {
+  const O = SS.orchestra;
+  for (const id of ['intime', 'romantique', 'epique', 'mystere']) {
+    assert.ok(O.ENS[id] && O.ENS[id].film, id);
+    O.ENS[id].parts.forEach((p) => assert.ok(O.PART[p] && SS.locateInstrument(null, O.PART[p].tok).inst.id === O.PART[p].tok, `${id} : ${p} (${O.PART[p] && O.PART[p].tok})`));
+  }
+  const spans = [{ step: 0, len: 16, pcs: [2, 5, 9], bassPc: 2 }, { step: 16, len: 16, pcs: [10, 2, 5], bassPc: 10 }];
+  const melody = [{ step: 0, len: 4, midi: 69 }, { step: 4, len: 4, midi: 65 }, { step: 8, len: 8, midi: 64 }, { step: 16, len: 16, midi: 65 }];
+  const ep = (level) => O.orchestrate({ parts: O.ENS.epique.parts, spans, melody, level }).lines;
+  ['tp', 'tb', 'tu', 'pic'].forEach((p) => assert.equal(ep('mid')[p].role, 'tacet', p + ' se tait hors du sommet'));
+  const full = ep('full');
+  assert.equal(full.tp.role, 'melody', 'trompettes sur le thème');
+  assert.ok(full.pic.lo > full.vl1.lo, 'piccolo au-dessus des violons');
+  assert.equal(full.tu.role, 'bass');
+  assert.ok(full.tu.lo <= full.cb.lo, 'tuba au grave');
+  const it = O.orchestrate({ parts: O.ENS.intime.parts, spans, melody, level: 'mid' }).lines;
+  assert.equal(it.vs.role, 'melody', 'violon solo sur le thème');
+  assert.equal(it.hp.role, 'arp');
+  assert.equal(it.hp.events.length, 16, 'harpe en croches');
+  assert.ok(it.hp.events.every((e) => [2, 5, 9, 10].includes(e.notes[0] % 12)), 'harpe dans les accords');
+});
+
+test('percussions d’orchestre sur les repères : impact à la synchro, roulement avant, battement de cœur', () => {
+  const sp = SS.BandSongs.lumiere;
+  assert.deepEqual(sp.sections.p3.hits.mt, [[48, 0.75]], 'roulement de timbale dans la mesure avant la lumière');
+  const h4 = sp.sections.p4.hits;
+  assert.ok(h4.bd.some(([s]) => s === 0) && h4.cr.some(([s]) => s === 0) && h4.lt.some(([s]) => s === 0), 'impact à la synchro');
+  assert.ok(!sp.sections.p1.hits.bd.length && !sp.sections.p1.hits.lt.length, 'rien dans le doute');
+  const film = { start: 0, end: 20, cues: [{ t: 0, emo: 'peur', ten: 5, ene: 2 }, { t: 10, emo: 'heroisme', ten: 2, ene: 5, sync: true }] };
+  const tm = F.timing(film);
+  const h0 = F.percHits(tm, 0);
+  assert.ok(h0.lt.some(([s]) => s % 16 === 3), 'battement de cœur');
+  // le kit et la construction : les pistes de percussion jouent exactement les frappes
+  const B = SS.Band;
+  assert.equal(B.KITS.orchperc.source, 'vcsl');
+  assert.equal(B.pieceOpts('orchperc', 'lt').label, 'Timbale');
+  const tracks = ['lt', 'mt', 'bd', 'cr', 'misc'].map((pc) => ({ id: 'perc:' + pc, type: 'drum', sound: pc, band: { key: 'perc:' + pc } }));
+  const s = SS.bandSong.build(sp, 'lumiere', tracks);
+  const sync = s.scenes.find((x) => x.sec === 'p4');
+  assert.ok(sync.data['perc:bd'].steps[0] > 0 && sync.data['perc:bd'].steps.slice(1).every((v) => !v), 'une seule grosse caisse, sur la synchro');
+  const film2 = SS.Band.STYLES.find((x) => x.id === 'film');
+  assert.ok(film2.presets.every((p) => p.musicians.some((m) => m.role === 'perc' && m.kits[0] === 'orchperc' && !m.optional)));
+});
+
+test('modèle « La poursuite » : 36 mesures à 144 BPM, saut à 00:43,3, ostinato 3+3+2, accents et vide avant le saut', () => {
+  const P = F.POURSUITE;
+  const tm = F.timing(P);
+  assert.equal(tm.bpm, 144);
+  assert.equal(tm.bars, 36);
+  assert.deepEqual(tm.sections.map((s) => s.startBar), [0, 2, 10, 18, 22, 26, 32]);
+  assert.equal(F.fmt(tm.sections[5].cue.land), '00:43,3', 'le saut tombe à 00:43,3');
+  const sp = SS.BandSongs.poursuite;
+  assert.ok(sp, 'plan enregistré');
+  const S = sp.sections;
+  assert.ok(S.p2.motor && S.p3.motor && S.p5.motor && !S.p1.motor && !S.p4.motor, 'moteur dans l’action, pas dans l’alarme ni la cachette');
+  assert.ok(S.p3.stabs && S.p5.stabs && !S.p2.stabs, 'accents des cuivres dès l’énergie 4');
+  assert.ok(S.p5.gap && !S.p3.gap, 'un temps de silence avant le saut');
+  assert.equal(S.p6.theme[0].notes[0], 62, 'thème héroïque au saut');
+  assert.ok(S.p5.theme.some((e) => e.notes[0] === 65 && e.step >= 48), 'la séquence monte d’un demi-ton par mesure');
+  assert.equal(S.p5.grid[1].acc, -1, 'Mi♭m dans la séquence');
+  assert.ok(S.p7.hits.bd.some(([s]) => s === 6) && S.p7.hits.bd.some(([s]) => s === 12), 'coups 3+3+2 de la fuite');
+  assert.ok(S.p5.hits.sd.length > 20, 'roulement de caisse claire vers le saut');
+  // l'orchestre : ostinato de croches à la basse, accents des trombones sur les croches 1, 4 et 7
+  const O = SS.orchestra;
+  const spans = [{ step: 0, len: 16, pcs: [2, 5, 9], bassPc: 2 }];
+  const L = O.orchestrate({ parts: O.ENS.epique.parts, spans, melody: [{ step: 0, len: 4, midi: 62 }], level: 'mid', motor: true, stabs: true }).lines;
+  assert.equal(L.cb.role, 'motor');
+  assert.equal(L.cb.events.length, 8, 'huit croches par mesure');
+  const acc = L.cb.events.filter((e) => e.vel > 0.7).map((e) => e.step);
+  assert.deepEqual(acc, [0, 6, 12], 'accents 3+3+2');
+  assert.deepEqual(L.tb.events.map((e) => e.step), [0, 6, 12]);
+  assert.equal(L.tb.role, 'stabs');
+  // le modèle est une inspiration du style, avec caisse claire et cymbales frappées
+  const st = SS.Band.STYLES.find((x) => x.id === 'film');
+  const pr = st.presets.find((p) => p.id === 'poursuite');
+  assert.ok(pr && pr.musicians.find((m) => m.role === 'perc').pieces.includes('sd'));
+  assert.equal(SS.Band.pieceOpts('orchperc', 'ht').label, 'Cymbales frappées');
+  assert.ok(F.TEMPLATES.poursuite === P && F.TEMPLATES.lumiere === F.LUMIERE);
+});

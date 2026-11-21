@@ -81,6 +81,13 @@ window.SS = window.SS || {};
         tb: 'tambourine', sh: 'cabasa', cb: 'cowbell', perc: 'conga', misc: 'bongo',
       },
     },
+    // percussions d'orchestre (VCSL) de l'assistant « Musique de film » (js/film.js) : frappées sur les repères
+    orchperc: {
+      label: 'Percussions d’orchestre (VCSL)',
+      source: 'vcsl',
+      labels: { lt: 'Timbale', mt: 'Timbale (roulement)', bd: 'Grosse caisse', sd: 'Caisse claire', cr: 'Cymbale suspendue', ht: 'Cymbales frappées', misc: 'Tam-tam' },
+      map: { lt: 'timpani', mt: 'timpani_roll', bd: 'bassdrum1', sd: 'snare_hi', cr: 'sus_cymbal#12', ht: 'clash', misc: 'gong' },
+    },
     // kit composé de boîtes à rythmes : « Machine#n » = l'échantillon n de cette machine ; `fx` : effets posés sur la piste
     // de l'élément. Reverb gated (fx.gated) : calculée une fois dans l'échantillon, rien de plus à la lecture.
     LinnGated: {
@@ -1017,7 +1024,7 @@ window.SS = window.SS || {};
       opts = { ...base, source: kitDef.source, bank, variant: +n || 0, machine: SS.DEFAULT_MACHINE };
     } else opts = { ...base, source: 'tdm', machine: k, bank: null };
     if (kitDef.fx && kitDef.fx[sound]) opts.fx = { ...kitDef.fx[sound] };
-    return { opts, kit: k, borrowed: borrowed || (!!forced && forced !== kitId), label: drumLabel(sound) };
+    return { opts, kit: k, borrowed: borrowed || (!!forced && forced !== kitId), label: (kitDef.labels && kitDef.labels[sound]) || drumLabel(sound) };
   }
 
   /**
@@ -1069,5 +1076,5 @@ window.SS = window.SS || {};
     return { name: inst.label, kind: 'Instrument', detail: `${cat} · ${family.label}` };
   }
 
-  SS.Band = { ROLES, STAGE_ROWS, KITS, FALLBACK_KITS, EXTRA_PIECES, STYLES, addStyle, mu: m, pieceOpts, choiceOpts, describe, kitHas, drumLabel, kitOfTrack, kitLabelOf };
+  SS.Band = { ROLES, STAGE_ROWS, KITS, FALLBACK_KITS, EXTRA_PIECES, STYLES, addStyle, mu: m, kit, pieceOpts, choiceOpts, describe, kitHas, drumLabel, kitOfTrack, kitLabelOf };
 })();
