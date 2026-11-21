@@ -5063,32 +5063,52 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 /* Assistant, étape Orchestration : carte des registres, qui joue quoi */
 .bg-ens { gap: 6px; }
 .bwor-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; }
-.bwor-chips { display: inline-flex; flex-wrap: wrap; gap: 6px; }
-.bwor-chip { border: 1px solid var(--line2); background: var(--panel); color: var(--muted); border-radius: 999px; padding: 3px 10px; font: inherit; font-size: 12.5px; cursor: pointer; }
-.bwor-chip.on { color: var(--text); border-color: #ff8a3d; background: color-mix(in srgb, #ff8a3d 14%, var(--panel)); }
-.bwor-cols { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 12px; align-items: start; }
-.bwor-side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-.bwor-axis { position: relative; height: 16px; margin-left: 110px; font-size: 11px; color: var(--muted); }
+.bwor-ctl .help-tip { margin-left: -10px; }
+.bwor-badge { border: 1px solid var(--line); border-radius: 999px; padding: 3px 11px; font: inherit; font-size: 12.5px; cursor: pointer; background: var(--panel); color: var(--muted); }
+.bwor-badge.warn { color: #ffb020; border-color: #5a4415; background: #2a2210; }
+.bwor-badge.warn[aria-pressed="true"] { background: #4a3812; }
+.bwor-badge.ok { color: #3fcf3f; cursor: default; }
+/* une ligne par pupitre : interrupteur | nom | rôle | registre | pourquoi | ⚠ | M S */
+.bwor-table { padding: 0; gap: 0; overflow-x: auto; font-size: 13px; }
+.bwor-row { display: grid; grid-template-columns: 44px 150px 96px minmax(240px, 1.15fr) minmax(220px, 1fr) 26px 62px; align-items: center; min-height: 36px; border-top: 1px solid #2a2a30; min-width: 880px; }
+.bwor-row > * { padding: 5px 8px; min-width: 0; }
+.bwor-row:not(.bwor-thead):hover { background: #222227; }
+.bwor-thead { border-top: 0; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; min-height: 0; }
+.bwor-thead > span { display: flex; align-items: center; }
+.bwor-thead > span:first-child { justify-content: center; }
+.bwor-thead .help-tip { margin-left: 6px; }
+.bwor-reg-h { flex-direction: column; align-items: stretch !important; gap: 2px; padding-right: 98px !important; }
+.bwor-reg-h > span:first-child { display: flex; align-items: center; }
+.bwor-axis { position: relative; height: 13px; font-size: 10.5px; font-weight: 500; letter-spacing: 0; text-transform: none; }
 .bwor-axis span { position: absolute; transform: translateX(-50%); }
-.bwor-row { display: grid; grid-template-columns: 102px minmax(0, 1fr); gap: 8px; align-items: center; }
-.bwor-name { display: flex; flex-direction: column; font-size: 13px; font-weight: 600; line-height: 1.15; }
-.bwor-name small { font-weight: 500; font-size: 11.5px; }
-.bwor-lane { position: relative; height: 16px; background: #17171c; border-radius: 4px; }
+.bwor-fam { padding: 7px 12px 3px; color: var(--muted); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; border-top: 1px solid var(--line); background: #1a1a1e; min-width: 880px; }
+.bwor-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bwor-role { font-weight: 500; white-space: nowrap; }
+.bwor-reg { display: flex; align-items: center; gap: 10px; }
+.bwor-lane { position: relative; flex: 1; height: 14px; background: #141417; border-radius: 4px; overflow: hidden; }
 .bwor-lane i { position: absolute; top: 0; bottom: 0; border-radius: 4px; }
 .bwor-tess { background: #26262e; }
-.bwor-comf { background: #33333d; top: 3px !important; bottom: 3px !important; }
-.bwor-part { top: 4px !important; bottom: 4px !important; opacity: .95; }
-.bwor-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.bwor-table th { text-align: left; color: var(--muted); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; padding: 4px 8px; border-bottom: 1px solid var(--line); }
-.bwor-table td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
-.bwor-table td:nth-child(1), .bwor-table td:nth-child(2), .bwor-table td:nth-child(3) { white-space: nowrap; }
-.bwor-table td:nth-child(4) { color: var(--muted); }
-.bwor-table tr.tacet td { opacity: .55; }
-@media (max-width: 760px) {
-  .bwor-cols { grid-template-columns: minmax(0, 1fr); }
-  .bwor-who { overflow-x: auto; }
-  .bwor-table td:nth-child(4) { min-width: 220px; }
-}
+.bwor-comf { background: #34343e; top: 3px !important; bottom: 3px !important; }
+.bwor-part { top: 3px !important; bottom: 3px !important; opacity: .95; }
+.bwor-rng { width: 80px; flex: none; color: var(--muted); font-size: 12.5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.bwor-why { color: var(--muted); font-size: 12.5px; line-height: 1.3; }
+.bwor-wcell { display: flex; justify-content: center; padding: 0 !important; }
+.help-tip.bwor-wi { margin: 0; border-color: #6a5015; color: #ffb020; font-size: 11px; }
+.bwor-row.warn { box-shadow: inset 3px 0 0 #ffb020; }
+.bwor-table.flash .bwor-row.warn { background: #2a2210; }
+.bwor-sw { display: block; margin: 0 auto; width: 30px; height: 17px; padding: 0; border: 0; border-radius: 999px; background: #3a3a42; position: relative; cursor: pointer; }
+.bwor-sw::after { content: ''; position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; border-radius: 50%; background: #8a8a92; transition: left .15s; }
+.bwor-sw.on { background: #ff8a3d; }
+.bwor-sw.on::after { left: 15px; background: #fff; }
+.bwor-mss { display: flex; gap: 4px; justify-content: flex-end; }
+.bwor-ms { width: 24px; height: 22px; padding: 0; border: 1px solid var(--line); border-radius: 5px; background: var(--panel-2); color: var(--muted); font: 600 11.5px system-ui, sans-serif; cursor: pointer; }
+.bwor-ms:disabled { opacity: .35; cursor: default; }
+.bwor-ms.m.on { background: #c0392b; border-color: #c0392b; color: #fff; }
+.bwor-ms.s.on { background: #e2b714; border-color: #e2b714; color: #111; }
+.bwor-row.off .bwor-name, .bwor-row.off .bwor-role, .bwor-row.off .bwor-reg { opacity: .38; }
+.bwor-row.tacet .bwor-name, .bwor-row.tacet .bwor-reg { opacity: .5; }
+.bwor-row.quiet .bwor-lane { opacity: .3; }
+.bwor-table .bwhz-legend { padding: 8px 12px; border-top: 1px solid var(--line); }
 
 /* ---------- Automation par temps (js/beatauto.js, js/beatautoui.js) ---------- */
 .ba-menu { position: fixed; z-index: 60; min-width: 250px; padding: 6px; background: #2a2a30; border: 1px solid #4a4a55; border-radius: 8px; box-shadow: 0 10px 28px rgba(0, 0, 0, .55); font-size: 13px; }

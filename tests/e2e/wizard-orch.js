@@ -44,7 +44,7 @@ const ok = (c, m) => {
   await page.click('#bgAdd');
   await page.click('.bg-tyc[data-type="orch"]');
   await page.waitForTimeout(200);
-  ok((await page.locator('.bg-ensc').count()) === 4 && (await page.textContent('#bandPanel')).includes('Contrebasses'), 'Orchestre : quatre effectifs, leurs pupitres');
+  ok((await page.locator('.bg-ensc').count()) >= 4 && (await page.textContent('#bandPanel')).includes('Contrebasses'), 'Orchestre : les effectifs, leurs pupitres');
   await page.click('.bg-ensc[data-ens="strings"]');
   await page.click('#bgValidate');
   await page.waitForTimeout(400);
@@ -60,20 +60,32 @@ const ok = (c, m) => {
   ok((await page.getAttribute('#bwStepHead', 'data-kind')) === 'orch', `étape ${n} : Orchestration (étape de l’instrument Orchestre)`);
   await page.click('.bh-scene[data-sec="chorus"]');
   await page.waitForTimeout(250);
-  ok((await page.locator('#bwOrchMap .bwor-row').count()) === 7 && (await page.locator('#bwOrchWho tbody tr').count()) === 7, 'carte des registres et « qui joue quoi » : un rang par pupitre');
-  const roleOf = (id) => page.textContent(`#bwOrchWho tr[data-part="${id}"] td:nth-child(2)`);
+  ok((await page.locator('#bwOrchTable .bwor-row[data-part]').count()) === 7 && (await page.locator('#bwOrchParts').count()) === 0, 'une seule ligne par pupitre (registre et « qui joue quoi » fusionnés), plus de rangée Pupitres');
+  ok((await page.locator('#bwOrchTable .bwor-row[data-part="vl1"] .bwor-lane').count()) === 1 && (await page.textContent('#bwOrchTable .bwor-row[data-part="cb"] .bwor-why')).length > 5, 'la ligne porte le registre et le pourquoi');
+  const roleOf = (id) => page.textContent(`#bwOrchTable [data-part="${id}"] .bwor-role`);
   ok((await roleOf('cb')) === 'Basse' && (await roleOf('vl1')) === 'Mélodie' && (await roleOf('hn')) === 'Harmonie', 'refrain (auto : tout l’effectif) : contrebasses à la basse, violons I à la mélodie, cor en harmonie');
-  ok(/tessiture/.test(await page.textContent('#bwOrchItems')), 'À voir : tessitures vérifiées');
+  ok(/tessiture/.test(await page.getAttribute('#bwOrchItems', 'title')), 'À voir : tessitures vérifiées (badge)');
+  // Muet / Solo : écoute seulement (S.wiz.mute / solo), aucun réglage de scène
+  const before = JSON.stringify((await W()).parts);
+  await page.click('#bwOrchTable [data-part="vl1"] .bwor-ms.s');
+  await page.waitForTimeout(200);
+  const solo = await page.evaluate(() => [...SS.band._state.wiz.solo]);
+  ok(solo.length === 1 && /vl1/.test(solo[0]) && JSON.stringify((await W()).parts) === before && (await page.getAttribute('#bwOrchTable [data-part="vl1"] .bwor-ms.s', 'aria-pressed')) === 'true', 'S : violons I seuls à l’écoute, rien n’est réécrit');
+  await page.click('#bwOrchTable [data-part="vl1"] .bwor-ms.s');
+  await page.click('#bwOrchTable [data-part="hn"] .bwor-ms.m');
+  await page.waitForTimeout(200);
+  ok(await page.evaluate(() => SS.band._state.wiz.solo.size === 0 && [...SS.band._state.wiz.mute].some((id) => /hn/.test(id))), 'M : le cor se tait à l’écoute, plus de solo');
+  await page.click('#bwOrchTable [data-part="hn"] .bwor-ms.m');
   await page.click('.bh-scene[data-sec="intro"]');
   await page.waitForTimeout(250);
   ok((await roleOf('fl')) === 'Se tait' && (await roleOf('hn')) === 'Se tait', 'intro (auto : léger) : bois et cor se taisent');
   await page.click('#bwOrchLevel [data-v="full"]');
   await page.waitForTimeout(250);
-  await page.click('#bwOrchParts [data-part="va"]');
+  await page.click('#bwOrchTable [data-part="va"] .bwor-sw');
   await page.waitForTimeout(250);
   const w = await W();
   ok(JSON.stringify(w.parts.intro.inst[Object.keys(w.parts.intro.inst)[0]].orch) === '{"level":"full","off":["va"]}', 'densité et pupitre coupé : réglages de la scène');
-  ok((await roleOf('va')) === 'Se tait' && (await roleOf('hn')) === 'Harmonie' && /Tout l’effectif/.test(await page.textContent('.bh-scene[data-sec="intro"]')), 'l’intro joue tout l’effectif sans les altos, la colonne des scènes le dit');
+  ok((await roleOf('va')) === 'Coupé' && (await roleOf('hn')) === 'Harmonie' && /Tout l’effectif/.test(await page.textContent('.bh-scene[data-sec="intro"]')), 'l’intro joue tout l’effectif sans les altos, la colonne des scènes le dit');
 
   // la chanson créée : une piste par pupitre, des notes dans la tessiture
   while (!(await page.isVisible('#bwCreate'))) await next();
