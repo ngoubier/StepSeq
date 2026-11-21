@@ -162,6 +162,16 @@ const shot = async (page, name) => SHOTS && page.screenshot({ path: path.join(SH
     return r.scenes.map((sc) => sc.data[lead.id].events.length);
   });
   ok(th[0] === 0 && th.slice(1).every((n) => n > 0), `le thème se tait dans le 1er passage, joue dans les autres (${th.join(' ')})`);
+  // mix à l'image : écoute de contrôle en mono, un passage sous les mots
+  await page.click('.bfm-mon [data-mon="mono"]');
+  ok(await page.evaluate(() => SS.audio.monitorState().mono), 'écoute de contrôle en mono');
+  await page.click('.bfm-mon [data-mon="mono"]');
+  ok(!(await page.evaluate(() => SS.audio.monitorState().mono)), 'retour en stéréo');
+  await page.locator('.bfm-cues tbody tr').nth(1).locator('.bfm-dlg').check();
+  await page.waitForTimeout(300);
+  ok(await page.evaluate(() => SS.band._spec().sections.p2.dialog === true), 'le 2e passage passe sous les mots');
+  await page.locator('.bfm-mon').scrollIntoViewIfNeeded();
+  await shot(page, 'film-mix-image.png');
   for (let i = 0; i < 25 && !(await page.isVisible('#bwCreate')); i++) {
     await page.dispatchEvent('#bwNext', 'click');
     await page.waitForTimeout(250);

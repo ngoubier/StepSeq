@@ -3,7 +3,7 @@
  *
  * Une scène de film = { start, end, cues: [{ t, emo, name, ten, ene, sync }], bpm? } :
  *   start / end : entrée et fin de la musique (secondes de l'image) ; chaque repère (cue) ouvre un passage ;
- *   emo : émotion du passage (EMOS, une couleur chacune) ; ten / ene : tension et énergie sonore, de 1 à 5 ; sync : synchro forte (le tempo est calé
+ *   emo : émotion du passage (EMOS, une couleur chacune) ; dlg : on y parle (la musique s'efface sous les mots) ; ten / ene : tension et énergie sonore, de 1 à 5 ; sync : synchro forte (le tempo est calé
  *   pour qu'elle tombe sur le premier temps d'une mesure) ; bpm : tempo choisi (sinon le meilleur tempo calé).
  *   Un repère peut aussi porter grid (grille exacte, degrés de js/harmony.js), gridBars (sa longueur) et theme (notes
  *   imposées [mesure, temps, midi, durée en temps]) : c'est le cas du modèle « La lumière revient ».
@@ -449,7 +449,12 @@ SS.film = (() => {
     const sections = {};
     tm.sections.forEach((s) => {
       const c = s.cue;
-      const sec = { bars: s.bars, name: s.name, emotion: s.emotion, energy: energyOf(s.ene), tension: s.ten, ...playOf(s) };
+      // sous les mots (repère « dialogue ») : un cran d'énergie en moins, la harpe et les percussions se taisent,
+      // l'orchestre joue plus doucement (mix à l'image : la musique laisse la place à la voix)
+      const dlg = !!c.dlg;
+      const ene = dlg ? Math.max(1, s.ene - 1) : s.ene;
+      const sec = { bars: s.bars, name: s.name, emotion: s.emotion, energy: energyOf(ene), tension: s.ten, ...playOf({ ...s, ene }) };
+      if (dlg) Object.assign(sec, { dialog: true, keys: 'sustain' }); // le piano tient ses accords, sans arpège
       if (c.grid && c.gridBars === s.bars) sec.grid = c.grid.map((x) => ({ acc: 0, ...x }));
       else {
         const g = gridFor(s.emotion, { tonic, mode: mode || 'minor' }, s.bars);
@@ -476,6 +481,7 @@ SS.film = (() => {
       if (c.gap ?? (next && next.sync && s.ene >= 4)) sec.gap = true;
       sec.hits = percHits(tm, i);
       if (film.hits && c.gridBars === s.bars) addHits(sec.hits, film.hits, s.startBar, s.bars);
+      if (dlg) Object.keys(sec.hits).forEach((k) => (sec.hits[k] = sec.hits[k].filter(([st]) => st === 0 && s.sync)));
       sections[s.id] = sec;
     });
     return { key, groove: 'slow', emotion: tm.sections[0].emotion, film: true, sections, form: tm.sections.map((s) => s.id).join(' ') };
@@ -493,7 +499,7 @@ SS.film = (() => {
     bpm: 80,
     cues: [
       { t: 6, emo: 'nostalgie', name: 'Doute', ten: 2, ene: 1, gridBars: 4, grid: [C(0, 16, 0, 'madd9'), C(16, 16, 5, 'maj7'), C(32, 16, 2, 'maj', 4), C(48, 16, 6, 'sus2')] },
-      { t: 18, emo: 'suspense', name: 'Réplique', ten: 3, ene: 1, gridBars: 4, grid: [C(0, 16, 0, 'madd9'), C(16, 16, 5, 'maj7'), C(32, 16, 3, 'madd9'), C(48, 16, 6, 'sus4')] },
+      { t: 18, emo: 'suspense', name: 'Réplique', ten: 3, ene: 1, dlg: true, gridBars: 4, grid: [C(0, 16, 0, 'madd9'), C(16, 16, 5, 'maj7'), C(32, 16, 3, 'madd9'), C(48, 16, 6, 'sus4')] },
       { t: 30, emo: 'espoir', name: 'Espoir', ten: 4, ene: 3, gridBars: 4, grid: [C(0, 16, 0, 'madd9'), C(16, 16, 5, 'maj7'), C(32, 16, 2, 'maj', 4), C(48, 8, 6, 'sus4'), C(56, 8, 6, 'maj')] },
       { t: 42, emo: 'emerveillement', name: 'La lumière', ten: 1, ene: 5, sync: true, gridBars: 2, grid: [C(0, 16, 2, 'add9'), C(16, 16, 6, 'maj', 4)] },
       { t: 48, emo: 'apaisement', name: 'Apaisement', ten: 1, ene: 2, gridBars: 2, grid: [C(0, 16, 0, 'm7'), C(16, 16, 0, '5')] },

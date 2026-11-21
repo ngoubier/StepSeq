@@ -1203,6 +1203,23 @@ SS.band = (() => {
     ];
   }
 
+  /* ---------- Écoutes de contrôle (mix à l'image) ----------
+   * Mono et faible volume : elles ne changent que ce qu'on entend, jamais le projet ni les exports. */
+  const monitorOn = (k) => (SS.audio.monitorState ? SS.audio.monitorState()[k] : false);
+  function filmMonitorBlock() {
+    const mon = (k, label, title) => {
+      const on = monitorOn(k);
+      return h('button', { type: 'button', class: 'chip' + (on ? ' active' : ''), 'aria-pressed': String(on), 'data-mon': k, title, onclick: () => {
+        SS.audio.setMonitor({ [k]: !monitorOn(k) });
+        renderSong();
+      } }, label);
+    };
+    return h('div', { class: 'bfm-row bfm-mon' }, h('span', { class: 'bh-lbl' }, 'Écoutes de contrôle'),
+      mon('mono', 'Mono', 'La sortie mélange gauche et droite : on vérifie que rien ne disparaît (télévision, téléphone)'),
+      mon('low', 'Faible volume', '−20 dB : ce qu’on entend encore sous les dialogues'),
+      h('span', { class: 'bfm-why' }, 'Coche « Dialogue » sur les passages où l’on parle : la musique s’efface sous les mots.'));
+  }
+
   function renderFilm() {
     const f = filmOf();
     const tpl = filmTpl();
@@ -1220,6 +1237,7 @@ SS.band = (() => {
         h('td', {}, h('input', { type: 'text', class: 'bfm-name', value: m.name || '', disabled: tpl, maxlength: 40, 'aria-label': `Nom du passage ${i + 1}`, onchange: (e) => set('name')(e.target.value.trim()) })),
         h('td', {}, lvlSel(tm.sections[i].ten, `Tension du passage ${i + 1}`, set('ten'))),
         h('td', {}, lvlSel(tm.sections[i].ene, `Énergie du passage ${i + 1}`, set('ene'))),
+        h('td', { class: 'bfm-c' }, h('input', { type: 'checkbox', class: 'bfm-dlg', checked: !!m.dlg, disabled: tpl, title: 'On parle dans ce passage : la musique s’efface sous les mots (un cran d’énergie en moins, sans harpe ni percussions, piano tenu)', 'aria-label': `Dialogue dans le passage ${i + 1}`, onchange: (e) => set('dlg')(e.target.checked) })),
         h('td', { class: 'bfm-c' }, h('input', { type: 'radio', name: 'bfmSync', checked: !!m.sync, disabled: tpl || i === 0, 'aria-label': `Synchro forte sur le repère ${i + 1}`, onchange: () => filmEdit((x) => x.cues.forEach((c, j) => (c.sync = j === i))) })),
         h('td', { class: 'bfm-bar' }, `m. ${m.bar + 1}${drift}`),
         h('td', {}, tpl || tm.marks.length <= 1 ? null : h('button', { type: 'button', class: 'btn btn-small btn-icon', title: 'Retirer ce repère', 'aria-label': `Retirer le repère ${i + 1}`, onclick: () => filmEdit((x) => x.cues.splice(i, 1)) }, '✕'))
@@ -1253,8 +1271,9 @@ SS.band = (() => {
           ? h('button', { type: 'button', class: 'btn btn-small', id: 'bfmUnlock', title: 'Copie les repères du modèle dans « Ma scène », pour les déplacer et en ajouter', onclick: filmUnlock }, 'Modifier les repères')
           : h('button', { type: 'button', class: 'btn btn-small', id: 'bfmAdd', disabled: tm.marks.length >= 12, onclick: addCue }, '+ Repère')
       ),
+      filmMonitorBlock(),
       h('table', { class: 'bfm-cues' },
-        h('thead', {}, h('tr', {}, ...['Temps', 'Émotion', 'Passage', 'Tension', 'Énergie', 'Synchro', 'Mesure', ''].map((t) => h('th', {}, t)))),
+        h('thead', {}, h('tr', {}, ...['Temps', 'Émotion', 'Passage', 'Tension', 'Énergie', 'Dialogue', 'Synchro', 'Mesure', ''].map((t) => h('th', {}, t)))),
         h('tbody', {}, ...rows)
       ),
       head('02', 'Tempo calé'),
@@ -10250,5 +10269,5 @@ SS.band = (() => {
     });
   }
 
-  return { init, open, openWizard, resume, close: () => leave(), create: () => S.wiz && createWizSong(), hasDraft, wizSnapshot, wizRestore, draftWhen, active, togglePlay, stopListen, setTempo, plannedTracks, instKind, setKind, insSteps, stepRef, stepNum, instPartOf, putInstPart, melodyTrackOpts, claude, _state: S, _listen: () => L.proj };
+  return { init, open, openWizard, resume, close: () => leave(), create: () => S.wiz && createWizSong(), hasDraft, wizSnapshot, wizRestore, draftWhen, active, togglePlay, stopListen, setTempo, plannedTracks, instKind, setKind, insSteps, stepRef, stepNum, instPartOf, putInstPart, melodyTrackOpts, claude, _state: S, _listen: () => L.proj, _spec: () => spec() };
 })();

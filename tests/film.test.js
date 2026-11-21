@@ -243,3 +243,31 @@ test('modèle « La poursuite » : 36 mesures à 144 BPM, saut à 00:43,3, ostin
   assert.equal(SS.Band.pieceOpts('orchperc', 'ht').label, 'Cymbales frappées');
   assert.ok(F.TEMPLATES.poursuite === P && F.TEMPLATES.lumiere === F.LUMIERE);
 });
+
+test('mix à l’image : sous les mots, stems par famille', () => {
+  const film = { start: 0, end: 30, cues: [{ t: 0, emo: 'heroisme', ten: 2, ene: 5 }, { t: 15, emo: 'heroisme', ten: 2, ene: 5, dlg: true }] };
+  const sp = F.spec(film);
+  const [a, b] = [sp.sections.p1, sp.sections.p2];
+  assert.ok(b.dialog && !a.dialog);
+  assert.ok(b.energy < a.energy, 'un cran d’énergie en moins sous le dialogue');
+  assert.equal(b.keys, 'sustain', 'le piano tient ses accords');
+  assert.ok(Object.values(b.hits).every((l) => !l.length), 'pas de percussions sous les mots');
+  const O = SS.orchestra;
+  const spans = [{ step: 0, len: 16, pcs: [2, 5, 9], bassPc: 2 }];
+  const args = { parts: O.ENS.intime.parts, spans, melody: [{ step: 0, len: 4, midi: 69 }], level: 'mid' };
+  const free = O.orchestrate(args).lines;
+  const under = O.orchestrate({ ...args, under: true }).lines;
+  assert.equal(free.hp.role, 'arp');
+  assert.equal(under.hp.role, 'tacet');
+  assert.equal(under.hp.events.length, 0);
+  assert.ok(under.vc.events[0].vel < free.vc.events[0].vel, 'l’orchestre joue plus doucement');
+  // stems par famille : cordes (avec la harpe), bois, cuivres, thème, percussions
+  require('../js/render.js');
+  const T = (id, key) => ({ id, name: id, type: 'instrument', volume: 0.8, band: { key } });
+  const p = SS.createProject ? SS.createProject() : { tracks: [], scenes: [] };
+  p.tracks = [T('a', 'lead'), T('b', 'orch:vl1'), T('c', 'orch:hp'), T('d', 'orch:fl'), T('e', 'orch:tp'), T('f', 'orch:tb'), { ...T('g', 'perc:bd'), type: 'drum' }];
+  const g = SS.render.stemGroups(p, 'family');
+  assert.deepEqual(g.map((x) => x.name), ['Thème', 'Cordes', 'Bois', 'Cuivres', 'Percussions']);
+  assert.deepEqual(g.find((x) => x.name === 'Cordes').tracks, ['b', 'c']);
+  assert.deepEqual(g.find((x) => x.name === 'Cuivres').tracks, ['e', 'f']);
+});
