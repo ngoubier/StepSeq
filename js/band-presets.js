@@ -81,6 +81,11 @@ window.SS = window.SS || {};
         tb: 'tambourine', sh: 'cabasa', cb: 'cowbell', perc: 'conga', misc: 'bongo',
       },
     },
+    // batteries enregistrées AVL Drumkits (CC BY-SA 4.0, samples/avl) : banque « <kit>_<élément> », 5 niveaux de frappe
+    // joués selon la vélocité (SS.LAYERED_DRUM_LIBS) ; tom aigu = tom médium accordé plus haut (tools/avl-local.py)
+    avlPop: { label: 'Batterie pop · Pearl (enregistrée)', source: 'avl', map: { bd: 'pop_bd', sd: 'pop_sd', rim: 'pop_rim', cp: 'pop_cp', hh: 'pop_hh', oh: 'pop_oh', lt: 'pop_lt', mt: 'pop_mt', ht: 'pop_ht', cr: 'pop_cr', rd: 'pop_rd', cb: 'pop_cb', tb: 'pop_tb', sh: 'pop_sh', perc: 'pop_perc', misc: 'pop_misc' } },
+    avlRock: { label: 'Batterie rock · Ludwig (enregistrée)', source: 'avl', map: { bd: 'rock_bd', sd: 'rock_sd', rim: 'rock_rim', cp: 'rock_cp', hh: 'rock_hh', oh: 'rock_oh', lt: 'rock_lt', mt: 'rock_mt', ht: 'rock_ht', cr: 'rock_cr', rd: 'rock_rd', cb: 'rock_cb', tb: 'rock_tb', sh: 'rock_sh', perc: 'rock_perc', misc: 'rock_misc' } },
+    avlBallade: { label: 'Batterie ballade · Tama jazz (enregistrée)', source: 'avl', map: { bd: 'ballade_bd', sd: 'ballade_sd', rim: 'ballade_rim', cp: 'ballade_cp', hh: 'ballade_hh', oh: 'ballade_oh', lt: 'ballade_lt', mt: 'ballade_mt', ht: 'ballade_ht', cr: 'ballade_cr', rd: 'ballade_rd', cb: 'ballade_cb', tb: 'ballade_tb', sh: 'ballade_sh', perc: 'ballade_perc', misc: 'ballade_misc' } },
     // percussions d'orchestre (VCSL) de l'assistant « Musique de film » (js/film.js) : frappées sur les repères
     orchperc: {
       label: 'Percussions d’orchestre (VCSL)',
@@ -815,7 +820,7 @@ window.SS = window.SS || {};
           tempo: 148,
           desc: 'Rock nerveux : guitare en croches qui ne s’arrête jamais, basse rock, refrain qui monte d’un cran.',
           musicians: [
-            kit('drums', 'bd sd hh oh cr lt ht', 'RolandR8 LinnDrum Linn9000 EmuSP12 AkaiMPC60 OberheimDMX'),
+            kit('drums', 'bd sd hh oh cr lt ht', 'avlRock avlPop RolandR8 LinnDrum Linn9000 EmuSP12'),
             m('bass', 'gm_electric_bass_pick gm_electric_bass_finger dirt_bass1 gm_fretless_bass syn_sqbass gm_synth_bass_1', { note: 'Croches rock, octave en fin de mesure' }),
             m('guitar', 'gm_overdriven_guitar gm_distortion_guitar gm_electric_guitar_clean gm_electric_guitar_muted dirt_gtr gm_acoustic_guitar_steel', { note: 'Les croches du riff' }),
             m('pad', 'syn_softpad gm_pad_warm gm_synth_strings_1 j:A15 gm_string_ensemble_1 syn_superpad', opt),
@@ -838,7 +843,7 @@ window.SS = window.SS || {};
           tempo: 116,
           desc: 'Disco-funk : boucle de quatre accords en dorien, guitare funk hachée, basse qui danse, voix robot.',
           musicians: [
-            kit('drums', 'bd sd hh oh cr', 'LinnDrum RolandR8 EmuSP12 AkaiMPC60 OberheimDMX Linn9000'),
+            kit('drums', 'bd sd hh oh cr', 'LinnDrum avlPop RolandR8 EmuSP12 AkaiMPC60 OberheimDMX'),
             kit('perc', 'tb sh perc', KPERC, opt),
             m('bass', 'gm_electric_bass_finger gm_slap_bass_1 gm_fretless_bass dirt_jvbass syn_moogbass gm_synth_bass_2', { note: 'Disco syncopée' }),
             m('guitar', 'gm_electric_guitar_muted gm_electric_guitar_clean gm_electric_guitar_jazz dirt_gtr gm_acoustic_guitar_steel gm_acoustic_guitar_nylon', { note: 'Accords hachés en doubles' }),
@@ -952,7 +957,7 @@ window.SS = window.SS || {};
           tempo: 119,
           desc: 'Soul joyeuse : boucle de quatre accords à 7e, Rhodes haché, basse Motown, harmonica en solo.',
           musicians: [
-            kit('drums', 'bd sd hh oh rd cr', 'RolandR8 LinnDrum Linn9000 AkaiMPC60 EmuSP12 OberheimDMX'),
+            kit('drums', 'bd sd hh oh rd cr', 'avlBallade avlPop RolandR8 LinnDrum Linn9000 AkaiMPC60'),
             kit('perc', 'tb sh', KPERC, opt),
             m('bass', 'gm_electric_bass_finger gm_fretless_bass gm_acoustic_bass gm_slap_bass_1 dirt_jvbass syn_moogbass', { note: 'Motown, walking au refrain' }),
             m('keys', 'gm_epiano1 gm_epiano2 piano vcsl_fmpiano gm_clavinet j:A27', { label: 'Rhodes' }),
@@ -980,7 +985,7 @@ window.SS = window.SS || {};
           tempo: 100,
           desc: 'Un départ neutre : batterie, basse et piano sur quatre accords. Ajoute ou retire des musiciens, change le tempo, la tonalité, les scènes et les accords.',
           musicians: [
-            kit('drums', 'bd sd hh oh cr', 'RolandR8 LinnDrum RolandTR808 RolandTR909 AkaiMPC60 dirt808'),
+            kit('drums', 'bd sd hh oh cr', 'RolandR8 avlPop avlRock avlBallade LinnDrum RolandTR808'),
             m('bass', 'gm_electric_bass_finger gm_acoustic_bass syn_sqbass gm_synth_bass_1 j:A48 dirt_jvbass'),
             m('keys', 'piano gm_epiano1 gm_epiano2 vcsl_fmpiano j:A27 gm_drawbar_organ', { label: 'Piano' }),
             m('pad', 'syn_softpad gm_pad_warm gm_string_ensemble_1 j:A15 gm_synth_strings_1 syn_superpad', opt),

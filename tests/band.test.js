@@ -132,3 +132,23 @@ test('kit « LinnDrum gated » : échantillons LinnDrum, reverb gated sur caisse
   assert.equal(SS.FX_DEFAULTS.gated, 0);
   assert.ok(SS.fxActive({ fx: { gated: 0.5 } }), 'le bouton FX de la piste s’allume');
 });
+
+test('batteries enregistrées AVL (pop, rock, ballade) : kits complets, chaque banque a ses 5 niveaux de frappe hébergés', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const root = path.join(__dirname, '..');
+  const avl = JSON.parse(fs.readFileSync(path.join(root, 'samples/avl/avl.json'), 'utf8'));
+  assert.ok(SS.LAYERED_DRUM_LIBS.has('avl') && SS.DRUM_LIBS.some((l) => l.id === 'avl'));
+  ['avlPop', 'avlRock', 'avlBallade'].forEach((k) =>
+    ['bd', 'sd', 'rim', 'cp', 'hh', 'oh', 'lt', 'mt', 'ht', 'cr', 'rd', 'cb', 'tb', 'sh', 'perc', 'misc'].forEach((pc) => {
+      const r = B.pieceOpts(k, pc);
+      assert.equal(r.borrowed, false, k + ' ' + pc);
+      assert.equal(r.opts.source, 'avl');
+      const files = avl[r.opts.bank];
+      assert.equal(files && files.length, 5, k + ' ' + pc);
+      files.forEach((f) => assert.ok(fs.existsSync(path.join(root, avl._base, f)), f));
+      assert.equal(B.kitOfTrack(r.opts), k);
+    })
+  );
+  assert.equal(B.STYLES.find((s) => s.id === 'pop').presets[0].musicians.find((m) => m.kits).kits[0], 'avlRock');
+});

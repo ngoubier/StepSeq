@@ -399,7 +399,7 @@ SS.audio = (() => {
   }
 
   /* Autres bibliothèques de batterie : Dirt-Samples, percussions VCSL, Mridangam */
-  const LIB_SOURCE = { dirt: () => SS.SOURCES.dirt, vcsl: () => SS.SOURCES.vcsl, mrid: () => SS.SOURCES.mrid };
+  const LIB_SOURCE = { dirt: () => SS.SOURCES.dirt, vcsl: () => SS.SOURCES.vcsl, mrid: () => SS.SOURCES.mrid, avl: () => SS.SOURCES.avl };
 
   /** Banques disponibles d'une bibliothèque : [{ id, count }] */
   async function drumBanks(lib) {
@@ -424,9 +424,15 @@ SS.audio = (() => {
     return drumVariants(track.machine, track.sound);
   }
 
-  async function drumUrl(track) {
+  /** Banque rangée par niveau de frappe (SS.LAYERED_DRUM_LIBS) : le niveau se choisit à la vélocité du coup. */
+  const layered = (track) => !!(SS.LAYERED_DRUM_LIBS && SS.LAYERED_DRUM_LIBS.has(track.source));
+  const layerOf = (vel, n) => Math.max(0, Math.min(n - 1, Math.floor(Math.max(0, Math.min(1, vel)) * n)));
+
+  /** Échantillon d'une piste Drum ; `vel` : vélocité du coup (choisit le niveau de frappe d'une banque par niveaux). */
+  async function drumUrl(track, vel = 0.8) {
     const list = await trackDrumVariants(track);
     if (!list.length) return null;
+    if (layered(track)) return list[layerOf(vel, list.length)];
     return list[Math.min(track.variant || 0, list.length - 1)];
   }
 
@@ -474,6 +480,11 @@ SS.audio = (() => {
     if (!ctx) return; // sera fait au premier geste de l'utilisateur (politique autoplay)
     try {
       if (track.type === 'drum') {
+        if (layered(track)) {
+          // tous les niveaux de frappe : le coup choisit le sien à la lecture
+          await Promise.all((await trackDrumVariants(track)).map((u) => loadBuffer(u).promise));
+          return;
+        }
         const url = await drumUrl(track);
         if (url) await loadBuffer(url).promise;
         if (url && track.fx && track.fx.gated > 0) await gatedEntry(url, loadBuffer(url), Math.min(1, track.fx.gated)).promise;
@@ -1254,7 +1265,7 @@ SS.audio = (() => {
   const velGain = (v) => Math.pow(Math.max(0, Math.min(1, v)), 1.4);
 
   async function playDrum(track, time, vel, dest) {
-    const url = await drumUrl(track);
+    const url = await drumUrl(track, vel);
     if (!url) return;
     const entry = drumEntry(track, url);
     if (!entry.buffer) return; // pas encore chargé : on saute ce coup
@@ -1262,7 +1273,8 @@ SS.audio = (() => {
     src.buffer = entry.buffer;
     if (entry.detune) src.detune.value = entry.detune;
     const g = ctx.createGain();
-    g.gain.value = velGain(vel);
+    // banque par niveaux : l'enregistrement porte déjà une partie de la nuance, le gain en fait moins
+    g.gain.value = layered(track) ? Math.pow(Math.max(0, Math.min(1, vel)), 0.8) : velGain(vel);
     src.connect(g).connect(dest || bus(track));
     src.start(Math.max(time, ctx.currentTime));
     register([src], g);

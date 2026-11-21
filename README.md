@@ -1122,6 +1122,11 @@ Les sons proviennent des bibliothèques utilisées par [strudel.cc](https://stru
   tuba, flûte, piccolo, hautbois, clarinette, basson, marimba, xylophone, glockenspiel), hébergés avec l'app dans
   `samples/vsco/` (MP3, une nuance par note, 8 s max, 23 Mo). `tools/vsco-local.py` les prépare et mesure leur
   accordage (`js/vsco.js`). Ils jouent les pupitres de l'étape Orchestration de l'assistant. Merci à Versilian Studios ;
+- trois vraies batteries enregistrées des [AVL Drumkits](https://www.bandshed.net/avldrumkits/) de Glen MacArthur
+  (licence [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), voir `samples/avl/LICENSE.txt`) :
+  Black Pearl (kit pop), Red Zeppelin (kit rock) et Blonde Bop (kit ballade), avec 5 niveaux de frappe par élément ;
+  le coup joue le niveau de sa vélocité, ce qui rend les ghost notes naturelles. Hébergées dans `samples/avl/`
+  (MP3, 4 s max, 7 Mo), préparées par `tools/avl-local.py` depuis les kits Hydrogen. Merci à Glen MacArthur ;
 - le piano de dough-samples ;
 - [Dirt-Samples](https://github.com/tidalcycles/Dirt-Samples) : banques de batterie, et banques mélodiques jouées
   comme instruments (Mighty Moog, Pluck Bass, JV Bass, Jungle Bass, Juno, SID, Hoover, pads…) ;
