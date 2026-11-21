@@ -399,7 +399,7 @@ SS.audio = (() => {
   }
 
   /* Autres bibliothèques de batterie : Dirt-Samples, percussions VCSL, Mridangam */
-  const LIB_SOURCE = { dirt: () => SS.SOURCES.dirt, vcsl: () => SS.SOURCES.vcsl, mrid: () => SS.SOURCES.mrid, avl: () => SS.SOURCES.avl };
+  const LIB_SOURCE = { dirt: () => SS.SOURCES.dirt, vcsl: () => SS.SOURCES.vcsl, mrid: () => SS.SOURCES.mrid, live: () => SS.SOURCES.live };
 
   /** Banques disponibles d'une bibliothèque : [{ id, count }] */
   async function drumBanks(lib) {

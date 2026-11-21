@@ -3,7 +3,7 @@
  * Les échantillons proviennent des bibliothèques utilisées par strudel.cc :
  *  - tidal-drum-machines (via felixroos/dough-samples)
  *  - VCSL (Versilian Community Sample Library)
- *  - les batteries enregistrées AVL Drumkits (Glen MacArthur, CC BY-SA 4.0), hébergées avec l'app (samples/avl)
+ *  - 7 batteries enregistrées (AVL Drumkits, Forzee, Pacific : kits Hydrogen libres), hébergées avec l'app (samples/live)
  *  - l'orchestre VSCO 2 Community Edition (Versilian Studios), hébergé avec l'app (samples/vsco, js/vsco.js)
  *  - piano (dough-samples)
  *  - Dirt-Samples (tidalcycles), Mridangam (yaxu/mrid)
@@ -20,7 +20,7 @@ SS.SOURCES = {
   dirt: 'https://raw.githubusercontent.com/tidalcycles/dirt-samples/main/strudel.json',
   mrid: 'https://raw.githubusercontent.com/felixroos/dough-samples/main/mridangam.json',
   vsco: 'samples/vsco/vsco.json', // orchestre VSCO 2 (CC0), hébergé avec l'app : tools/vsco-local.py
-  avl: 'samples/avl/avl.json', // batteries enregistrées AVL Drumkits (CC BY-SA 4.0), hébergées avec l'app : tools/avl-local.py
+  live: 'samples/live/live.json', // batteries enregistrées (licences libres, samples/live/LICENSE.txt), hébergées avec l'app : tools/live-drums.py
 };
 
 /**
@@ -38,7 +38,7 @@ SS.vcslLocal = (base, file) => {
 SS.DRUM_LIBS = [
   { id: 'tdm', label: 'Boîtes à rythmes', hint: 'tidal-drum-machines : 70 machines (TR-808, TR-909, LinnDrum…)' },
   { id: 'dirt', label: 'Dirt-Samples', hint: '218 banques de TidalCycles : kits, breaks, voix, bruitages…' },
-  { id: 'avl', label: 'Batteries enregistrées', hint: 'AVL Drumkits : 3 vraies batteries (pop, rock, ballade), 5 niveaux de frappe selon la vélocité' },
+  { id: 'live', label: 'Batteries enregistrées', hint: '7 vraies batteries (pop, rock, ballade, fagots, cajón…), le niveau de frappe suit la vélocité' },
   { id: 'vcsl', label: 'Percussions acoustiques', hint: 'VCSL : congas, bongos, cajón, gongs, cymbales…' },
   { id: 'mrid', label: 'Mridangam', hint: 'percussion d’Inde du Sud (syllabes ta, ki, dhin, thom…)' },
   { id: 'gm', label: 'General MIDI', hint: 'les 47 sons de la batterie General MIDI (notes 35 à 81), kits FluidR3, JCLive, Chaos et SBLive' },
@@ -68,7 +68,7 @@ SS.DRUM_TYPES = [
 SS.DEFAULT_MACHINE = 'RolandTR808';
 /* Bibliothèques dont chaque banque range ses échantillons par niveau de frappe, du plus doux au plus fort :
    le coup joue le niveau de sa vélocité (au lieu de la variante choisie). */
-SS.LAYERED_DRUM_LIBS = new Set(['avl']);
+SS.LAYERED_DRUM_LIBS = new Set(['live']);
 
 /*
  * Batterie General MIDI : les 47 sons standard (notes 35 à 81 du canal 10).

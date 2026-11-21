@@ -1892,7 +1892,7 @@ SS.band = (() => {
       return sndCard({
         name: def.label,
         src: kitSrc(def),
-        detail: def.source ? ({ vcsl: 'Percussions acoustiques', avl: 'Vraie batterie, 5 niveaux de frappe', gm: 'Les 47 sons de la norme, canal 10' }[def.source] || 'Échantillons') : `${def.year}`,
+        detail: def.source ? ({ vcsl: 'Percussions acoustiques', live: 'Vraie batterie, la frappe suit la vélocité', gm: 'Les 47 sons de la norme, canal 10' }[def.source] || 'Échantillons') : `${def.year}`,
         active: on,
         star: i === 0 && !gm(),
         onPick: () => onPick(k),
