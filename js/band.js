@@ -885,7 +885,7 @@ SS.band = (() => {
           'div',
           { class: 'bs-tpl-actions' },
           h('button', { type: 'button', class: 'btn btn-accent', id: 'bsTplOpen', title: 'Ouvre une copie du morceau complet (scènes, arrangement, mix et master), prête à jouer et à modifier', onclick: () => openTemplate() }, 'Ouvrir cette chanson'),
-          h('small', { class: 'dlg-hint' }, 'Une copie : le modèle reste intact.')
+          h('small', { class: 'dlg-hint', 'data-helpify': true }, 'Une copie : le modèle reste intact.')
         ),
         h('ul', { class: 'bs-mus' }, ...pr.tracks.map((tr) => h('li', { style: `--c:${tr.color || '#888'}` }, h('i', { 'aria-hidden': 'true' }), h('span', {}, String(tr.name).replace(/^\d+\s+/, '')))))
       );
@@ -1432,7 +1432,7 @@ SS.band = (() => {
         'div',
         { class: 'bcv-head' },
         h('b', {}, 'Parties et accords'),
-        h('small', { class: 'dlg-hint' }, '« | » sépare les mesures · « Am F » partage une mesure · « . » prolonge · « % » répète la mesure · Do, Ré… et C/E acceptés')
+        h('small', { class: 'dlg-hint', 'data-helpify': true }, '« | » sépare les mesures · « Am F » partage une mesure · « . » prolonge · « % » répète la mesure · Do, Ré… et C/E acceptés')
       ),
       h('div', { class: 'bcv-rows' }, ...rows),
       h(
@@ -1481,7 +1481,7 @@ SS.band = (() => {
     const t = tempo();
     const sec = Math.round((m.bars * 4 * 60) / t);
     const kn = H.french ? H.french(m.key.tonic) : m.key.tonic;
-    sum.textContent = `${m.spec.form.split(' ').reduce((n, f) => n + (+f.split('*')[1] || 1), 0)} blocs · ${m.bars} mesures · ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')} à ${t} BPM · ${kn} ${m.key.mode === 'minor' ? 'mineur' : 'majeur'}${S.cover.key === 'auto' ? ' (déduite)' : ''} · Suivant pour entendre le groupe`;
+    sum.textContent = `${m.spec.form.split(' ').reduce((n, f) => n + (+f.split('*')[1] || 1), 0)} blocs · ${m.bars} mesures · ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')} à ${t} BPM · ${kn} ${m.key.mode === 'minor' ? 'mineur' : 'majeur'}${S.cover.key === 'auto' ? ' (déduite)' : ''}`;
   }
   /** Tap tempo : la moyenne des derniers intervalles (on recommence après 2 s sans tape) ; null tant qu'il y a moins de 3 tapes. */
   let taps = [];
@@ -1619,7 +1619,7 @@ SS.band = (() => {
             { id: 'bpnKindSel-' + T.id.replace(/\W/g, '_'), class: 'bpn-ksel', 'data-ins': T.id, disabled: T.kit ? true : null, 'aria-label': `Type de ${T.name}`, onchange: (e) => changeKind(T, e.target.value, refresh) },
             ...SS.bandSong.KINDS.map((k) => h('option', { value: k, selected: k === T.kind ? true : null, disabled: T.kit && k !== 'drums' ? true : null }, KIND_LABEL[k]))
           ),
-          T.kit ? h('small', { class: 'bpn-kdesc' }, 'Un kit de batterie ne joue que des motifs de batterie.') : null
+          T.kit ? h('small', { class: 'bpn-kdesc', 'data-helpify': true }, 'Un kit de batterie ne joue que des motifs de batterie.') : null
         )
       )
     );
@@ -1815,7 +1815,7 @@ SS.band = (() => {
           })
         )
       ),
-      detBlock('orch', 'Comment joue l’orchestre', false, h('p', { class: 'dlg-hint' }, `${cur.text} Une piste par pupitre ; l’étape Orchestration répartit la mélodie, les accords et la basse de chaque scène.`)),
+      detBlock('orch', 'Comment joue l’orchestre', false, h('p', { class: 'dlg-hint', 'data-helpify': true }, `${cur.text} Une piste par pupitre ; l’étape Orchestration répartit la mélodie, les accords et la basse de chaque scène.`)),
     ];
   }
   /** Cartes des conseillés d'un musicien (en mode GM, deux choix peuvent donner le même son : on ne garde que le premier). */
@@ -1860,7 +1860,7 @@ SS.band = (() => {
         h('div', { class: 'bpn-sec' }, `Conseillés${(style() || {}).label ? ' · ' + style().label : ''}`),
         h('div', { class: 'bpn-grid', role: 'radiogroup', 'aria-label': 'Sons conseillés' }, ...cards),
         exploreBtn(gm() ? 'Tous les programmes General MIDI…' : 'Tous les instruments…', () => browseInstrument(mu, ms), 'bpnAllSounds'),
-        detBlock('inst', 'Jeu', false, h('p', { class: 'dlg-hint' }, gm()
+        detBlock('inst', 'Jeu', false, h('p', { class: 'dlg-hint', 'data-helpify': true }, gm()
           ? `Jeu : ${catLabel}. Mode General MIDI : les sons conseillés sont remplacés par le programme GM le plus proche ; « Tous les programmes… » propose les 128 programmes.`
           : `Jeu : ${catLabel}. ★ : l’instrument phare de l’inspiration. « Tous les instruments… » donne accès à toute la bibliothèque (instruments et synthés).`)),
         groupActions(mu)
@@ -1966,7 +1966,7 @@ SS.band = (() => {
             h('span', { html: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>' }),
             'Ajouter un élément…'
           ),
-          h('p', { class: 'dlg-hint' }, gm()
+          h('p', { class: 'dlg-hint', 'data-helpify': true }, gm()
             ? `Mode General MIDI : chaque élément est un son de la batterie General MIDI. « Ajouter un élément… » propose les 47 sons (bongos, congas, claves, triangles…).`
             : `Un kit n’a accès qu’aux drums et échantillons : boîtes à rythmes, Dirt-Samples, percussions acoustiques. Les éléments peuvent venir de kits différents.`)
         ),
@@ -2009,7 +2009,7 @@ SS.band = (() => {
     panel.style.setProperty('--c', 'var(--accent)');
     panel.replaceChildren(
       h('div', { class: 'bg-crumb' }, h('h2', {}, 'Nouveau musicien'), h('span', { class: 'bg-n' }, '1 / 2 · Type'), h('button', { type: 'button', class: 'btn btn-small', id: 'bgCancel', onclick: cancelAdd }, 'Annuler')),
-      h('p', { class: 'dlg-hint' }, 'Quel rôle ce musicien joue-t-il dans le groupe ?'),
+      
       h(
         'div',
         { class: 'bg-tycards', role: 'group', 'aria-label': 'Type du musicien' },
@@ -2069,7 +2069,7 @@ SS.band = (() => {
         h('div', { class: 'bpn-sec' }, `Conseillés · ${KIND_LABEL[a.type]}`),
         h('div', { class: 'bpn-grid band-kits', role: 'radiogroup', 'aria-label': 'Kit' }, ...kitCards(mu, ms, (k) => ((ms.kit = k), refresh()))),
         allKitsBtn(mu),
-        h('p', { class: 'dlg-hint' }, 'Ses éléments (une piste chacun) se règlent ensuite dans son panneau.')
+        h('p', { class: 'dlg-hint', 'data-helpify': true }, 'Ses éléments (une piste chacun) se règlent ensuite dans son panneau.')
       ].filter(Boolean);
     } else {
       const cards = instCards(mu, ms, (i) => (setPick(mu, ms, i), refresh(), preview(instOpts(mu, ms))));
@@ -3223,10 +3223,9 @@ SS.band = (() => {
     box.hidden = false;
     box.classList.toggle('bw-insHead', !!info.ins);
     box.replaceChildren(
-      h('div', { class: 'bw-htitle' }, h('h1', {}, h('em', {}, String(n).padStart(2, '0')), info.label, n === ST.inst ? countBadge() : null, n === ST.inst ? gridBadge() : null), h('div', { class: 'bw-hmix', id: 'bwHeadMix' }, ...(headBar ? [headBar] : []))),
+      h('div', { class: 'bw-htitle' }, h('h1', {}, h('em', {}, String(n).padStart(2, '0')), info.label, n === ST.fx || info.ins || !info.line ? null : SS.helpTip(info.line, info.label), n === ST.inst ? countBadge() : null, n === ST.inst ? gridBadge() : null), h('div', { class: 'bw-hmix', id: 'bwHeadMix' }, ...(headBar ? [headBar] : []))),
       ...(info.sub ? [h('div', { class: 'bw-hsub', id: 'bwSound' }, info.sub)] : []),
-      // instruments et effets : pas de ligne sous le titre (pastille du type et phrase retirées) ; le type reste en data-kind
-      ...(n === ST.fx || info.ins ? [] : [h('p', {}, info.line)]),
+      // pas de phrase sous le titre : elle est dans le « ? » du titre (instruments et effets : ni phrase ni « ? ») ; le type reste en data-kind
       ...(n === ST.inst || n === ST.chords || info.ins ? [lockWarn()].filter(Boolean) : [])
     );
     if (info.ins) box.dataset.kind = info.ins.kind;
@@ -3346,7 +3345,7 @@ SS.band = (() => {
       'section',
       { class: 'bwt-card bw-card', 'aria-labelledby': 'bwtKeyTitle' },
       h('h3', { id: 'bwtKeyTitle' }, 'Tonalité de la chanson'),
-      h('p', { class: 'dlg-hint' }, 'Changer la tonalité transpose toutes les scènes : les accords gardent leurs degrés. Une scène qui jouait dans un autre mode (un pont en majeur dans une chanson mineure) garde son mode.'),
+      h('p', { class: 'dlg-hint', 'data-helpify': true }, 'Changer la tonalité transpose toutes les scènes : les accords gardent leurs degrés. Une scène qui jouait dans un autre mode (un pont en majeur dans une chanson mineure) garde son mode.'),
       h(
         'div',
         { class: 'bwt-row', role: 'group', 'aria-label': 'Tonique' },
@@ -3473,7 +3472,7 @@ SS.band = (() => {
           return li;
         })
       ),
-      h('p', { class: 'dlg-hint' }, 'Glisse un bloc pour le déplacer (ou ‹ ›), − / + pour le répéter, × pour le retirer ; clique son nom pour écouter à partir de là.')
+      h('p', { class: 'dlg-hint', 'data-helpify': true }, 'Glisse un bloc pour le déplacer (ou ‹ ›), − / + pour le répéter, × pour le retirer ; clique son nom pour écouter à partir de là.')
     );
   }
 
@@ -3590,7 +3589,7 @@ SS.band = (() => {
         h('b', {}, `« ${p.song} »`),
         h('span', {}, ` ${p.artist} · ${SS.harmony.label(res.key)} · ${tempo()} BPM · ${res.scenes.length} scènes · ${len} mesures · ${time}`)
       ),
-      scenesStep ? null : h('p', { class: 'bw-hint' }, 'Clique une scène pour l’écouter en boucle.'),
+      scenesStep ? null : h('p', { class: 'bw-hint', 'data-helpify': true }, 'Clique une scène pour l’écouter en boucle.'),
       order,
       step === ST.pick
         ? h(
@@ -3919,7 +3918,7 @@ SS.band = (() => {
             'div',
             { class: 'bw-melsrc' + (own ? ' own' : ''), id: 'bwMelSrc', 'data-own': String(own) },
             h('b', {}, own ? 'Mélodie générée' : 'Mélodie de l’inspiration'),
-            h('small', {}, own ? `profil : ${melSub(sc, T)} · remplace celle de l’inspiration dans « ${sc.name} »` : '« Générer une mélodie » la remplace pour cette scène'),
+            own ? h('small', {}, `profil : ${melSub(sc, T)} · remplace celle de l’inspiration dans « ${sc.name} »`) : SS.helpTip('« Générer une mélodie » la remplace pour cette scène.', 'Mélodie'),
             playBox(sc, T, 'verse'),
             own ? h('button', { type: 'button', class: 'btn btn-small', id: 'bwMelBack', title: 'Revenir à la mélodie de l’inspiration pour cette scène', onclick: () => backToInspiration(sc.sec) }, '↺ Inspiration') : null
           )
@@ -4077,7 +4076,7 @@ SS.band = (() => {
   }
   function devAbBar(hint) {
     const t = S.wiz.devAb;
-    if (!t) return h('p', { class: 'dlg-hint', id: 'bwDevHint' }, hint);
+    if (!t) return h('p', { class: 'dlg-hint', id: 'bwDevHint', 'data-helpify': true }, hint);
     const T = insSteps().find((x) => x.key === t.key);
     const flip = (on) => ((t.on = on), wizSong(), relisten(), renderWiz());
     const name = (S.wiz.res.scenes.find((x) => x.sec === t.sec) || {}).name || t.sec;
@@ -4593,9 +4592,9 @@ SS.band = (() => {
       'div',
       { class: 'bwhz', id: 'bwHarm' },
       head,
-      h('div', { class: 'bwhz-mel' }, h('div', { class: 'bwhz-mhead' }, h('b', {}, `Mélodie · ${sc.name}`), h('span', { class: 'bh-info' }, 'chaque note colorée selon son rôle dans l’accord'), h('span', { class: 'spacer' }), viewSeg), roll, legend),
+      h('div', { class: 'bwhz-mel' }, h('div', { class: 'bwhz-mhead' }, h('b', {}, `Mélodie · ${sc.name}`), SS.helpTip('Chaque note est colorée selon son rôle dans l’accord.', 'Mélodie'), h('span', { class: 'spacer' }), viewSeg), roll, legend),
       props.length ? h('div', { class: 'bwhz-cards' }, ...cards) : h('p', { class: 'dlg-hint' }, 'Pas assez de notes pour proposer des accords.'),
-      ab ? abBar(sc) : h('p', { class: 'dlg-hint', id: 'bwHzHint' }, 'Lance l’essai d’une proposition : la scène tourne en boucle, tu passes de A (tes accords) à B (la proposition), puis tu gardes celle que tu préfères. La mélodie ne change pas.')
+      ab ? abBar(sc) : h('p', { class: 'dlg-hint', id: 'bwHzHint', 'data-helpify': true }, 'Lance l’essai d’une proposition : la scène tourne en boucle, tu passes de A (tes accords) à B (la proposition), puis tu gardes celle que tu préfères. La mélodie ne change pas.')
     );
   }
 
@@ -4671,7 +4670,7 @@ SS.band = (() => {
     const tl = h('div', { class: 'gr-tl bw-gtl', 'data-scene': sc.id, 'data-bars': sc.bars, style: `min-width:${sc.bars * 56}px` }, h('div', { class: 'gr-ruler' }, ...ruler), lane, pedRow, h('div', { class: 'gr-ph', id: 'bwGridPh', hidden: true }));
     // accord sélectionné : durée en temps, écouter, enlever
     const sel = g[S.wiz.gsel];
-    let selBar = h('p', { class: 'dlg-hint bwc-hint' }, 'Clic sur un accord : l’écouter et régler sa durée · glisser : le déplacer · tirer son bord droit : l’allonger (aimanté) · glisser un accord de la palette sur la grille pour le poser.');
+    let selBar = h('p', { class: 'dlg-hint bwc-hint', 'data-helpify': true }, 'Clic sur un accord : l’écouter et régler sa durée · glisser : le déplacer · tirer son bord droit : l’allonger (aimanté) · glisser un accord de la palette sur la grille pour le poser.');
     if (sel) {
       const c = chordOf(k, sel);
       const durs = [[4, '1 temps'], [8, '2'], [12, '3'], [16, '4 temps'], [32, '2 mesures']];
@@ -4754,7 +4753,7 @@ SS.band = (() => {
       h(
         'div',
         { class: 'gr-head' },
-        h('div', { class: 'hm-lbl' }, `Accords de ${H.label(k)}`, h('span', { class: 'gr-hint' }, 'clic : écouter · glisser : poser sur la grille')),
+        h('div', { class: 'hm-lbl' }, `Accords de ${H.label(k)}`, SS.helpTip('Clic : écouter · glisser : poser sur la grille.', `Accords de ${H.label(k)}`)),
         h(
           'span',
           { class: 'segmented gr-mode', role: 'radiogroup', 'aria-label': 'Palette' },
@@ -5029,7 +5028,7 @@ SS.band = (() => {
             renderWiz();
           } }),
         h('button', { type: 'button', class: 'btn bt-btn bt-stop', id: 'bwiStop', title: 'Stop', 'aria-label': 'Stop', html: STOP, disabled: !L.mode, onclick: () => (stopListen(), renderWiz()) }),
-        h('span', { class: 'bh-info' }, pr ? `Écoute : ${pr.chords.map((c) => c.name).join(' – ')}` : 'Choisis une proposition pour l’écouter dans la scène'),
+        pr ? h('span', { class: 'bh-info' }, `Écoute : ${pr.chords.map((c) => c.name).join(' – ')}`) : SS.helpTip('Choisis une proposition pour l’écouter dans la scène.', 'Propositions'),
         h('span', { class: 'bt-sep', 'aria-hidden': 'true' }),
         h(
           'div',
@@ -5075,7 +5074,7 @@ SS.band = (() => {
             h('button', { type: 'button', id: 'bwiProps', class: w.refs ? '' : 'active', onclick: () => ((w.refs = false), (w.pick = -1), (w.preview = null), renderWiz()) }, '3 pistes'),
             h('button', { type: 'button', id: 'bwiRefs', class: w.refs ? 'active' : '', disabled: !o.refs.length, onclick: () => ((w.refs = true), (w.pick = -1), (w.preview = null), renderWiz()) }, `Grilles de référence · ${o.refs.length}`)
           ),
-          h('span', { class: 'dlg-hint' }, 'Clic sur une proposition : elle remplace la scène à l’écoute.')
+          h('span', { class: 'dlg-hint', 'data-helpify': true }, 'Clic sur une proposition : elle remplace la scène à l’écoute.')
         ),
         h('div', { class: 'bwi-props', role: 'radiogroup', 'aria-label': 'Propositions d’accords' }, ...list.map(card))
       ),
@@ -5355,7 +5354,7 @@ SS.band = (() => {
       body.push(
         h('div', { class: 'bwau-xs', 'data-xs': '' }, h('div', { class: 'bwau-in' }, h('div', { class: 'bw-acells', role: 'group', 'aria-label': 'Accents, un point par note' }, ...dots))),
         h('div', { class: 'bwp-row' }, partSeg('Le motif d’accents', 'bwAccRep', reps, A.repeat, (v) => setAccRepeat(sc, T, v))),
-        h('p', { class: 'dlg-hint', id: 'bwAccHint' }, hint),
+        h('p', { class: 'dlg-hint', id: 'bwAccHint', 'data-helpify': true }, hint),
         accentsCard(sc, T)
       );
     }
@@ -5475,7 +5474,7 @@ SS.band = (() => {
     return h(
       'div',
       { class: 'bwa-card', id: 'bwAcc' },
-      h('div', { class: 'bwp-ch' }, h('b', {}, 'Motifs'), h('span', { class: 'bh-info' }, 'des notes plus fortes, pour faire respirer la basse'), h('span', { class: 'spacer' }),
+      h('div', { class: 'bwp-ch' }, h('b', {}, 'Motifs'), SS.helpTip('Des notes plus fortes, pour faire respirer la basse.', 'Motifs'), h('span', { class: 'spacer' }),
         h('button', { type: 'button', class: 'btn btn-small', id: 'bwAccClear', disabled: !A.steps.length, onclick: () => putAcc(sc, T, { steps: [] }, '#bwAccClear') }, 'Effacer')),
       h(
         'div',
@@ -5486,7 +5485,7 @@ SS.band = (() => {
           h('div', { class: 'bh-lbl' }, 'Motifs prêts'),
           h('div', { class: 'bwa-pats', role: 'radiogroup', 'aria-label': 'Motifs d’accents' },
             ...BS().ACC_PRESETS.map(([id, name, tip]) => h('button', { type: 'button', role: 'radio', class: 'bwa-pat' + (pat === id ? ' on' : ''), 'data-id': id, 'aria-checked': String(pat === id), onclick: () => applyAccPreset(sc, T, id) }, h('b', {}, name), h('span', { html: accPatSvg(id) }), h('small', {}, tip || ' ')))),
-          h('p', { class: 'dlg-hint', id: 'bwAccPatHint' }, hint)
+          h('p', { class: 'dlg-hint', id: 'bwAccPatHint', 'data-helpify': pat !== 'custom' && !(A.steps.length && !accCount(sc, T)) || null }, hint)
         ),
         h(
           'div',
@@ -5927,7 +5926,7 @@ SS.band = (() => {
         copy ? h('button', { type: 'button', class: 'btn btn-small', id: 'bwauCopy', title: 'Même automation pour les autres scènes du même type (couplet et couplet 2…)', onclick: () => copyAuto(sc, T) }, 'Copier l’automation vers les scènes du même type') : null),
       ruler,
       ...params.map((p) => autoLine(sc, T, p, JSON.parse(JSON.stringify(specs[p.id])), fit)),
-      h('p', { class: 'dlg-hint' }, 'Retouche : glisse un point (haut/bas et gauche/droite) · double-clic pour en ajouter · clic droit ou Alt+clic sur un point pour l’enlever.')
+      h('p', { class: 'dlg-hint', 'data-helpify': true }, 'Retouche : glisse un point (haut/bas et gauche/droite) · double-clic pour en ajouter · clic droit ou Alt+clic sur un point pour l’enlever.')
     );
   }
   /** Copie les courbes de la scène vers les scènes du même type (onglet Mélodie, sans bouton de copie général). */
@@ -6905,7 +6904,7 @@ SS.band = (() => {
         'div',
         { class: 'bwp-ch' },
         h('b', {}, 'Progression de la montée'),
-        h('span', { class: 'bh-info' }, 'Densité du roulement, mesure par mesure. Clic sur une colonne : plus dense (Maj + clic : moins).'),
+        SS.helpTip('Densité du roulement, mesure par mesure. Clic sur une colonne : plus dense (Maj + clic : moins).', 'Progression de la montée'),
         h('span', { class: 'spacer' }),
         bp ? h('button', { type: 'button', class: 'btn btn-small', id: 'bwbReset', title: 'Reprendre le roulement de l’inspiration', onclick: () => (putPart(sc.sec, T, { build: undefined }), partChanged()) }, '↺ Roulement de l’inspiration') : null
       ),
@@ -7023,7 +7022,7 @@ SS.band = (() => {
         h('b', {}, pat ? pat.name : d.edits ? 'Motif perso' : build ? 'Reste de la batterie' : 'Motif de la scène'),
         d.edits ? h('span', { class: 'bwp-mod' }, '· modifié') : null,
         d.edits ? h('button', { type: 'button', class: 'btn btn-small', id: 'bwpUnedit', onclick: () => (putPart(sc.sec, T, { edits: undefined }), partChanged()) }, pat ? 'Revenir au motif' : 'Revenir à l’inspiration') : null,
-        h('span', { class: 'bh-info' }, 'Clic : fort, moyen, léger, éteint · clic droit (appui long) : options de la case')
+        SS.helpTip('Clic : fort, moyen, léger, éteint · clic droit (appui long) : options de la case.', 'Motif')
       ),
       h(
         'div',
@@ -7121,7 +7120,7 @@ SS.band = (() => {
         'section',
         { class: 'bwp-card bw-card' },
         h('div', { class: 'bwp-ch' }, h('b', {}, `Drums de « ${sc.name} »`), h('span', { class: 'spacer' }), playBox(sc, T, 'both')),
-        h('p', { class: 'dlg-hint' }, 'Cet instrument joue la fondamentale de chaque accord, en notes courtes, sur les coups du motif de batterie.'),
+        h('p', { class: 'dlg-hint', 'data-helpify': true }, 'Cet instrument joue la fondamentale de chaque accord, en notes courtes, sur les coups du motif de batterie.'),
         partSeg('Joue sur', 'bwpDrumMode', DRUM_MODES.map(([v, t, tip]) => [v, t, tip]), d.mode || 'both', (v) => (putPart(sc.sec, T, { mode: v === 'both' ? undefined : v }), partChanged()))
       ),
       h(
@@ -7176,7 +7175,7 @@ SS.band = (() => {
           partSeg('Registre', 'bwpRegister', [['low', 'Grave'], ['mid', 'Médium', 'Une octave plus haut']], o.register || 'low', (v) => set({ register: v === 'low' ? undefined : v })),
           partCheck('bwpApproach', 'Note d’approche avant le changement d’accord', o.approach !== false && !o.pedal, (on) => set({ approach: on ? undefined : false }), !!o.pedal)
         ),
-        o.pedal ? h('p', { class: 'dlg-hint' }, `Pédale de ${o.pedal === 'tonic' ? 'tonique' : 'dominante'} : la basse reste sur cette note de la tonalité pendant que les accords changent au-dessus, sans note d’approche.`) : null
+        o.pedal ? h('p', { class: 'dlg-hint', 'data-helpify': true }, `Pédale de ${o.pedal === 'tonic' ? 'tonique' : 'dominante'} : la basse reste sur cette note de la tonalité pendant que les accords changent au-dessus, sans note d’approche.`) : null
       ),
     ];
   }
@@ -7198,7 +7197,7 @@ SS.band = (() => {
         { class: 'bwp-card bw-card' },
         h('div', { class: 'bwp-ch' }, h('b', {}, `Accords de « ${sc.name} »`), h('span', { class: 'spacer' }), playBox(sc, T, 'sustain')),
         modeCards(sc, T, padModes(T), '#4f6bff'),
-        isGuitarist(T) ? h('p', { class: 'dlg-hint' }, 'Les derniers modes sont joués comme une guitare (formes d’accord sur le manche, cordes qui résonnent, grattage) : les mêmes motifs que le mode Guitare d’Arp One.') : null,
+        isGuitarist(T) ? h('p', { class: 'dlg-hint', 'data-helpify': true }, 'Les derniers modes sont joués comme une guitare (formes d’accord sur le manche, cordes qui résonnent, grattage) : les mêmes motifs que le mode Guitare d’Arp One.') : null,
         !planMode(sc, T) && !o.mode ? h('p', { class: 'dlg-hint' }, 'L’inspiration ne joue pas de nappe dans cette scène : choisis un mode pour l’allumer.') : null,
         h('div', { class: 'bwp-row' }, partSeg('Voicing', 'bwpVoicing', [['close', 'Serré', 'Accord au plus proche du précédent'], ['open', 'Ouvert', 'La note grave descend d’une octave']], o.voicing || 'close', (v) => (putPart(sc.sec, T, { voicing: v === 'close' ? undefined : v }), partChanged())))
       ),
@@ -7743,7 +7742,7 @@ SS.band = (() => {
       'div',
       { class: 'mx-scope', style: `--c:${scene ? secColor(scene.sec) : 'var(--bw-text)'}` },
       h('div', { class: 'mx-who' }, h('i', {}), scene ? `${scene.name} seulement` : 'Toute la chanson'),
-      h('p', {}, scene
+      h('p', { 'data-helpify': true }, scene
         ? `Ce que tu touches ici ne vaut que pour « ${scene.name} » ; le trait gris sur le fader montre le réglage de la chanson.`
         : 'Chaque réglage vaut pour toutes les scènes, sauf celles qui ont leur propre réglage (point doré).'),
       scene ? h('button', { type: 'button', class: 'btn', id: 'mxCopy', disabled: !nOwn || !same.length, title: same.length ? `Copie ces réglages vers : ${same.map((x) => x.name).join(', ')}` : 'Aucune autre scène du même type', onclick: () => { M.copyToSameType(mix, scope, same.map((x) => x.sec)); mixAfter(); } }, 'Copier vers les scènes du même type') : null,
@@ -8081,13 +8080,13 @@ SS.band = (() => {
     pane.push(h('p', { class: 'hint' }, info[2] + (scene ? (onlyKeys ? ` · ce réglage ne vaudra que pour « ${scene.name} »` : ' · chanson seulement : le réglage de la chanson vaut dans toutes les scènes') : ' · pour toute la chanson') + '.'));
     if (k === 'eq') pane.push(mixEqSvg(x), h('div', { class: 'mx-knobs' }, knob('fx.eq.low', 'Graves (120 Hz)', x.low, -12, 12, 0.5, mixDb), knob('fx.eq.mid', 'Médiums (800 Hz)', x.mid, -12, 12, 0.5, mixDb), knob('fx.eq.high', 'Aigus (8 kHz)', x.high, -12, 12, 0.5, mixDb)));
     if (k === 'comp') pane.push(h('div', { class: 'mx-knobs' }, knob('fx.comp.amount', 'Quantité', x.amount, 0, 100, 1, pct)));
-    if (k === 'filter') pane.push(h('div', { class: 'mx-knobs' }, knob('fx.filter.cut', 'Ouverture', x.cut, 0, 100, 1, pct)), h('p', { class: 'hint' }, 'Astuce : filtre fermé dans l’intro, ouvert au refrain (réglage propre à la scène).'));
+    if (k === 'filter') pane.push(h('div', { class: 'mx-knobs' }, knob('fx.filter.cut', 'Ouverture', x.cut, 0, 100, 1, pct)), h('p', { class: 'hint', 'data-helpify': true }, 'Astuce : filtre fermé dans l’intro, ouvert au refrain (réglage propre à la scène).'));
     if (k === 'chorus' || k === 'reverb') pane.push(h('div', { class: 'mx-knobs' }, knob(`fx.${k}.mix`, 'Dosage', x.mix, 0, 100, 1, pct)));
     if (k === 'delay') {
       pane.push(h('div', { class: 'mx-knobs' }, knob('fx.delay.mix', 'Dosage', x.mix, 0, 100, 1, pct), h('div', { class: 'mx-k' }, h('label', {}, 'Temps', h('b', {}, (SS.DELAY_TIMES.find((d) => d.id === x.time) || { label: x.time }).label)), h('div', { class: 'mx-chips' }, ...SS.DELAY_TIMES.map((d) => h('button', { type: 'button', class: 'chip' + (x.time === d.id ? ' active' : ''), 'data-dtime': d.id, disabled: lock('fx.delay.time'), onclick: () => { mixSet(id, 'fx.delay.time', d.id); mixAfter(); } }, d.label))))));
     }
-    if (k === 'sends') pane.push(h('div', { class: 'mx-knobs' }, ...['plate', 'hall', 'echo', 'cosmos'].map((s) => knob(`fx.sends.${s}`, { plate: 'Plate', hall: 'Hall', echo: 'Écho à bande', cosmos: 'Cosmos' }[s] + (lock(`fx.sends.${s}`) ? ' · chanson seulement' : ''), x[s], 0, 100, 1, pct))), h('p', { class: 'hint' }, 'Les bus sont partagés par toutes les pistes : leurs réglages (durée, couleur) sont dans la fenêtre FX de la piste, une fois la chanson créée.'));
-    if (k === 'sidechain') pane.push(h('div', { class: 'mx-knobs' }, knob('fx.sidechain.amount', 'Profondeur', x.amount, 0, 100, 1, pct)), h('p', { class: 'hint' }, 'La piste baisse à chaque coup de kick : la « pompe » de l’EDM et de la synthwave.'));
+    if (k === 'sends') pane.push(h('div', { class: 'mx-knobs' }, ...['plate', 'hall', 'echo', 'cosmos'].map((s) => knob(`fx.sends.${s}`, { plate: 'Plate', hall: 'Hall', echo: 'Écho à bande', cosmos: 'Cosmos' }[s] + (lock(`fx.sends.${s}`) ? ' · chanson seulement' : ''), x[s], 0, 100, 1, pct))), h('p', { class: 'hint', 'data-helpify': true }, 'Les bus sont partagés par toutes les pistes : leurs réglages (durée, couleur) sont dans la fenêtre FX de la piste, une fois la chanson créée.'));
+    if (k === 'sidechain') pane.push(h('div', { class: 'mx-knobs' }, knob('fx.sidechain.amount', 'Profondeur', x.amount, 0, 100, 1, pct)), h('p', { class: 'hint', 'data-helpify': true }, 'La piste baisse à chaque coup de kick : la « pompe » de l’EDM et de la synthwave.'));
     const tab = ([key, name]) => {
       const t = f[key];
       const act = key === 'sends' ? ['plate', 'hall', 'echo', 'cosmos'].some((s) => t[s] > 0) : t.on;
@@ -8391,10 +8390,10 @@ SS.band = (() => {
     const t = S.wiz.arrMove;
     const rows = AR().MOVES.map((d) => {
       const x = list.find((m) => m.id === d.id);
-      if (!x) return h('li', { class: 'bwar-move na', 'data-move': d.id }, h('span', { class: 'bwar-move-ic', html: MOVE_ICON[d.id] || '' }), h('div', {}, h('b', {}, d.label), h('small', {}, `Pas proposé pour cette chanson. ${d.need}`)), h('span', {}));
+      if (!x) return h('li', { class: 'bwar-move na', 'data-move': d.id }, h('span', { class: 'bwar-move-ic', html: MOVE_ICON[d.id] || '' }), h('div', {}, h('b', {}, d.label, SS.helpTip(d.need, d.label)), h('small', {}, 'Pas proposé pour cette chanson.')), h('span', {}));
       return h('li', { class: 'bwar-move' + (kept.has(x.id) ? ' kept' : ''), 'data-move': x.id },
         h('span', { class: 'bwar-move-ic', html: MOVE_ICON[x.id] || '' }),
-        h('div', {}, h('b', {}, x.label), h('small', {}, x.why)),
+        h('div', {}, h('b', {}, x.label, SS.helpTip(x.why, x.label))),
         kept.has(x.id)
           ? h('span', { class: 'bwar-acts' }, h('span', { class: 'bwar-kept' }, '✓ Gardé'), h('button', { type: 'button', class: 'btn btn-small', 'data-unmove': x.id, title: 'Retirer ces courbes de la chanson', onclick: () => {
               arrState().moves = keptMoves().filter((id) => id !== x.id);
@@ -8404,7 +8403,7 @@ SS.band = (() => {
           : h('button', { type: 'button', class: 'btn btn-small', 'data-move-try': x.id, disabled: !!t, title: 'Écouter la chanson à partir de là, avec (B) et sans (A)', onclick: () => startMove(x) }, '▶ Essayer'));
     });
     return h('section', { class: 'bwar-card', id: 'bwArrMoves' },
-      h('div', { class: 'bwar-head' }, h('b', {}, 'Mouvements de son'), h('span', { class: 'bh-info' }, 'cutoff, vélocité, résonance par temps · retouchables ensuite sous les notes de chaque piste')),
+      h('div', { class: 'bwar-head' }, h('b', {}, 'Mouvements de son'), SS.helpTip('Cutoff, vélocité, résonance par temps, retouchables ensuite sous les notes de chaque piste.', 'Mouvements de son')),
       moveAbBar(),
       h('ul', { class: 'bwar-moves' }, ...rows));
   }
@@ -8417,7 +8416,7 @@ SS.band = (() => {
   }
   function arrAbBar() {
     const t = S.wiz.arrAb;
-    if (!t) return h('p', { class: 'dlg-hint', id: 'bwArrHint' }, 'Essaie une variation : la scène tourne en boucle, tu passes de A (la scène) à B (la variation), puis tu gardes celle que tu préfères.');
+    if (!t) return h('p', { class: 'dlg-hint', id: 'bwArrHint', 'data-helpify': true, 'data-help-for': 'bwArrEnergyTitle' }, 'Essaie une variation : la scène tourne en boucle, tu passes de A (la scène) à B (la variation), puis tu gardes celle que tu préfères.');
     const flip = (on) => ((t.on = on), renderWiz());
     const name = (S.wiz.res.scenes.find((x) => x.sec === t.sec) || {}).name || t.sec;
     return h(
@@ -8476,7 +8475,7 @@ SS.band = (() => {
     const strip = h('div', { class: 'bwar-strip' }, ...m.bl.list.map((b) => h('button', { type: 'button', class: 'bwar-blk' + (warnSecs.has(b.sec) ? ' warn' : ''), 'data-sec': b.sec, style: `flex:${b.bars} 1 0;--c:${secColor(b.sec)}`, title: `${b.name} · ${b.bars} mesures — clic : écouter la scène en boucle`, onclick: () => listenScene(b.sceneId) }, h('b', {}, b.name), h('small', {}, String(b.bars)))));
     const seg = h('span', { class: 'segmented', role: 'radiogroup', 'aria-label': 'Courbe voulue', id: 'bwArrCurve' }, ...AR().CURVES.map((c) => h('button', { type: 'button', role: 'radio', 'data-curve': c.id, title: c.text, class: c.id === curve ? 'active' : '', 'aria-checked': String(c.id === curve), onclick: () => ((arrState().curve = c.id), renderWiz()) }, c.label)));
     const energy = h('section', { class: 'bwar-card', id: 'bwArrEnergy' },
-      h('div', { class: 'bwar-head' }, h('b', {}, 'Énergie'), h('span', { class: 'bh-info' }, t && t.on ? 'voulue (pointillés) · mesurée avec la version B à l’écoute' : 'voulue (pointillés) · mesurée (trait plein) · scènes à voir soulignées en jaune'), h('span', { class: 'spacer' }), seg),
+      h('div', { class: 'bwar-head' }, h('b', { id: 'bwArrEnergyTitle' }, 'Énergie'), h('span', { class: 'bh-info' }, t && t.on ? 'voulue (pointillés) · mesurée avec la version B à l’écoute' : 'voulue (pointillés) · mesurée (trait plein) · scènes à voir soulignées en jaune'), h('span', { class: 'spacer' }), seg),
       h('div', { class: 'bwar-chart' }, svg), strip);
     // ---- qui joue où
     const maxOf = (id) => Math.max(1, ...m.scenes.map((x) => x.counts[id] || 0));
@@ -8611,11 +8610,11 @@ SS.band = (() => {
         const row = h(
           'div',
           { class: 'fx-row' + (on ? '' : ' off'), id: `fxrow-${k}`, 'data-k': k },
-          h('div', { class: 'fx-nm' }, switchBtn(k, on, set), h('div', {}, h('b', {}, name), h('small', {}, sub))),
+          h('div', { class: 'fx-nm' }, switchBtn(k, on, set), h('div', {}, h('b', {}, name, sub ? SS.helpTip(sub, name) : null))),
           h('div', { class: 'fx-opt' }, ...ctl)
         );
         // titre du groupe des procédés d'écriture, avant le premier
-        return k === FX_WRITE[0] ? [h('h4', { class: 'fx-group', id: 'fxWriteHead' }, 'Procédés d’écriture', h('small', {}, ' les parties elles-mêmes changent (formation, T01–T06)')), row] : row;
+        return k === FX_WRITE[0] ? [h('h4', { class: 'fx-group', id: 'fxWriteHead' }, 'Procédés d’écriture', SS.helpTip('Les parties elles-mêmes changent (formation, T01–T06).', 'Procédés d’écriture')), row] : row;
       });
       if (!withFx) {
         // les effets joués par la piste Effets : un message et un bouton qui l'ajoute au groupe
@@ -8623,7 +8622,7 @@ SS.band = (() => {
         const miss = h(
           'div',
           { class: 'fx-miss', id: 'fxMissFx' },
-          h('p', {}, h('b', {}, 'Pas de musicien Effets dans ce groupe.'), ' Sans lui, pas de montée de bruit, de cymbale inversée, d’impact ni de descente : il joue ces effets sur sa propre piste.'),
+          h('p', {}, h('b', {}, 'Pas de musicien Effets dans ce groupe.'), SS.helpTip('Sans lui, pas de montée de bruit, de cymbale inversée, d’impact ni de descente : il joue ces effets sur sa propre piste.', 'Effets')),
           h('button', { type: 'button', class: 'btn', id: 'fxAddFx', disabled: full || null, title: full ? 'Le groupe est complet (10 musiciens)' : 'Ajoute l’Effets au groupe, comme « + Ajouter un musicien » de l’étape Instruments', onclick: () => fxAddMember('fx') }, '+ Ajouter un musicien Effets')
         );
         rows.splice(0, 0, miss);
@@ -8660,7 +8659,7 @@ SS.band = (() => {
 
     // ---- carte « Percussions »
     const percEl = fxPercCard(cols, res);
-    const root = h('div', { class: 'bwc fx', id: 'bwFx' }, h('div', { class: 'bw-lbl' }, 'Frise de la chanson · cliquer une jonction'), frieze, fxSceneCard(res, withFx), h('div', { class: 'fx-cols' }, ...trans, percEl));
+    const root = h('div', { class: 'bwc fx', id: 'bwFx' }, h('div', { class: 'bw-lbl' }, 'Frise de la chanson', SS.helpTip('Clique une jonction entre deux scènes pour régler sa transition.', 'Frise de la chanson')), frieze, fxSceneCard(res, withFx), h('div', { class: 'fx-cols' }, ...trans, percEl));
     box.replaceChildren(root);
     root.scrollTop = top;
     frieze.scrollLeft = left;
@@ -8686,11 +8685,11 @@ SS.band = (() => {
   }
   function fxSceneCard(res, withFx) {
     const card = h('section', { class: 'bw-card fx-card fx-scn', id: 'fxScenes', style: '--c:#7a8a99' },
-      h('div', { class: 'fx-head' }, h('h3', { class: 'bw-ctitle' }, h('b', {}, 'Musicien Effets, scène par scène'), h('small', {}, ' ce qu’il joue dans la scène, en dehors des transitions'))));
+      h('div', { class: 'fx-head' }, h('h3', { class: 'bw-ctitle' }, h('b', {}, 'Musicien Effets, scène par scène'), SS.helpTip('Ce qu’il joue dans la scène, en dehors des transitions.', 'Musicien Effets'))));
     if (!withFx) {
       const full = !BG().canAdd(group());
       card.append(h('div', { class: 'fx-miss', id: 'fxMissScn' },
-        h('p', {}, h('b', {}, 'Pas de musicien Effets dans ce groupe.'), ' Il joue les ambiances, montées et descentes des scènes sur sa propre piste.'),
+        h('p', {}, h('b', {}, 'Pas de musicien Effets dans ce groupe.'), SS.helpTip('Il joue les ambiances, montées et descentes des scènes sur sa propre piste.', 'Effets')),
         h('button', { type: 'button', class: 'btn', id: 'fxAddFx2', disabled: full || null, onclick: () => fxAddMember('fx') }, '+ Ajouter un musicien Effets')));
       return card;
     }
@@ -8744,7 +8743,7 @@ SS.band = (() => {
       const full = !BG().canAdd(group());
       card.append(
         h('div', { class: 'fx-miss', id: 'fxMissPerc' },
-          h('p', {}, h('b', {}, 'Pas de Percussionniste dans ce groupe.'), ' Les boucles d’ambiance (shaker, conga, tom) sortent sur sa piste, dont le volume se règle dans Mix.'),
+          h('p', {}, h('b', {}, 'Pas de Percussionniste dans ce groupe.'), SS.helpTip('Les boucles d’ambiance (shaker, conga, tom) sortent sur sa piste, dont le volume se règle dans Mix.', 'Percussionniste')),
           h('button', { type: 'button', class: 'btn', id: 'fxAddPerc', disabled: full || null, title: full ? 'Le groupe est complet (10 musiciens)' : 'Ajoute le Percussionniste au groupe, comme « + Ajouter un musicien » de l’étape Instruments', onclick: () => fxAddMember('perc') }, '+ Ajouter un Percussionniste'))
       );
       return card;
@@ -8785,7 +8784,7 @@ SS.band = (() => {
     const playing = L.mode === 'scene' && first && L.scene === first.id;
     card.append(
       h('div', { class: 'fx-pscroll' }, h('table', { class: 'fx-ptab', 'aria-label': 'Boucles de percussion par scène' }, h('thead', {}, head), h('tbody', {}, ...rows))),
-      h('p', { class: 'dlg-hint' }, 'Les percussions sortent sur leur propre piste, volume réglé dans Mix.'),
+      h('p', { class: 'dlg-hint', 'data-helpify': true }, 'Les percussions sortent sur leur propre piste, volume réglé dans Mix.'),
       h('div', { class: 'fx-prow' }, h('span', { class: 'bw-lbl' }, 'Style'),
         h('select', { id: 'fxPercStyle', 'aria-label': 'Style des percussions', onchange: (ev) => { const P = (fxState().perc = fxState().perc || {}); P.style = ev.target.value; fxChanged(); } }, ...SS.bandSong.PERC_STYLES.map((s) => h('option', { value: s.id, selected: (perc.style || 'techno') === s.id }, s.name))),
         h('button', { type: 'button', class: 'btn btn-small', id: 'fxPercListen', 'data-scene': first ? first.id : null, disabled: !first || null, onclick: () => first && listenScene(first.id) }, playing ? '■ Arrêter' : '▶ Écouter')

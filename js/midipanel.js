@@ -73,7 +73,7 @@ SS.midiPanel = (() => {
         h('p', { class: 'dlg-hint' },
           `${pct(fid.kept)} des notes du fichier sont rejouées à leur place`,
           fid.added ? ` (${fid.added} note${fid.added > 1 ? 's' : ''} ajoutée${fid.added > 1 ? 's' : ''} par les répétitions)` : '',
-          '. Les scènes, leurs noms et l\'arrangement restent modifiables dans la fenêtre Song.')
+          '.', SS.helpTip('Les scènes, leurs noms et l’arrangement restent modifiables dans la fenêtre Song.', 'Structure'))
       )
     );
     const drums = r.tracks.filter((t) => t.kind === 'drum');

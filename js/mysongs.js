@@ -96,7 +96,7 @@ SS.mySongs = (() => {
                 )
               )
             : h('p', { class: 'dlg-hint' }, 'Pas encore de version : un instantané est gardé au plus toutes les 10 minutes de travail.'),
-          h('p', { class: 'dlg-hint' }, 'Restaurer ouvre la version choisie ; l’état actuel est gardé dans les versions.')
+          h('p', { class: 'dlg-hint', 'data-helpify': true }, 'Restaurer ouvre la version choisie ; l’état actuel est gardé dans les versions.')
         );
         return h('div', { class: 'song-group' }, row, vlist);
       })

@@ -3775,6 +3775,10 @@ dialog.arp-dialog { width: min(940px, calc(100vw - 32px)); }
 .help-tip { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 18px; height: 18px; margin: 0 0 0 6px; padding: 0; border: 1px solid #5d5d66; border-radius: 50%; background: transparent; color: #b4b4bd; font: 600 11px/1 system-ui, sans-serif; letter-spacing: 0; text-transform: none; cursor: help; vertical-align: middle; position: relative; }
 .help-tip::before { content: ''; position: absolute; inset: -9px; } /* zone tactile de 36 px */
 .help-tip:hover, .help-tip:focus-visible, .help-tip[aria-describedby] { border-color: #a479ff; color: #fff; background: #3b2f63; outline: none; }
+.help-tip[hidden] { display: none; }
+.sd-segrow { display: flex; align-items: center; gap: 4px; }
+.sd-segrow > .segmented { flex: 0 1 auto; min-width: 0; }
+.bottombar .hint { overflow: visible; }
 .help-bubble { position: fixed; z-index: 10000; max-width: 320px; padding: 8px 11px; border-radius: 8px; background: #111114; border: 1px solid #4a4a52; color: #ececf1; font: 400 13px/1.45 system-ui, sans-serif; text-transform: none; letter-spacing: 0; box-shadow: 0 6px 24px #0009; pointer-events: none; }
 .help-bubble b { display: block; margin-top: 4px; color: #cdb9ff; font-weight: 600; font-size: 12px; }
 dialog.help-dialog { width: min(480px, calc(100vw - 32px)); padding: 18px 20px 20px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); color: var(--text); }

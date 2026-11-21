@@ -24,6 +24,12 @@
     return b;
   }
   SS.helpTip = helpTip;
+  /** Aide qui change avec l'état (« ? » écrit dans la page) : nouveau texte, et le « ? » se cache s'il n'y a rien à dire. */
+  SS.setHelp = (el, text) => {
+    if (!el) return;
+    el.dataset.help = String(text || '');
+    el.hidden = !text;
+  };
   SS.HELP_LONG = LONG;
 
   if (typeof document === 'undefined') return;
@@ -33,17 +39,17 @@
    * le plus proche, et disparaissent de la page. Sont concernés : .fx-help, .mod-help (sauf messages d'état),
    * et tout élément marqué data-helpify (data-help-for="id" pour viser un libellé précis).
    * Libellé visé : l'élément précédent qui est un titre / libellé (h2, h3, h4, legend, summary, .dlg-label,
-   * label), ou un en-tête (classe « …head… ») qui en contient un ; à défaut, le parent.
+   * label, .help-anchor), ou un en-tête (classe « …head… ») : son titre s'il en contient un, sinon l'en-tête
+   * lui-même ; à défaut, le parent.
    */
   const HELP_SEL = '.fx-help, .mod-help:not(.mast-hint), [data-helpify]';
-  const HEAD = 'h1, h2, h3, h4, legend, summary, .dlg-label, label';
+  const HEAD = 'h1, h2, h3, h4, legend, summary, .dlg-label, label, .help-anchor';
   function labelFor(el) {
     if (el.dataset.helpFor) return document.getElementById(el.dataset.helpFor);
     for (let sib = el.previousElementSibling; sib; sib = sib.previousElementSibling) {
       if (sib.matches(HEAD)) return sib;
       if (/head/.test(sib.className || '')) {
-        const t = sib.querySelector(HEAD);
-        if (t) return t;
+        return sib.querySelector(HEAD) || sib;
       }
     }
     return el.parentElement;

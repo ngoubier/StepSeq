@@ -430,9 +430,9 @@ SS.live = (() => {
         h('div', { class: 'kb-head' },
           h('h3', { id: 'kbTarget' }),
           h('span', { id: 'kbStatus', class: 'kb-status', 'aria-live': 'polite' }),
+          SS.helpTip('Touches physiques : mêmes lettres en AZERTY et en QWERTY. Entrée enregistre, Espace lance la lecture, Ctrl + lettre garde ses raccourcis.', 'Jouer au clavier'),
           h('button', { type: 'button', class: 'btn btn-small kb-close', title: 'Quitter le mode Jouer (²)', onclick: () => setOn(false) }, 'Fermer')),
-        keys,
-        h('p', { class: 'kb-hint' }, 'Touches physiques : mêmes lettres en AZERTY et en QWERTY. ', kbd('Entrée'), ' enregistre, ', kbd('Espace'), ' lance la lecture, ', kbd('Ctrl'), ' + lettre garde ses raccourcis.')),
+        keys),
       h('div', { class: 'kb-col kb-rec' },
         h('h3', { text: 'Enregistrement' }),
         seg('kbMode', [{ v: 'replace', label: 'Remplacer', title: 'Chaque tour où l’on joue efface la piste' }, { v: 'merge', label: 'Fusionner', title: 'Chaque tour s’ajoute aux notes déjà là' }], st.mode, (v) => {

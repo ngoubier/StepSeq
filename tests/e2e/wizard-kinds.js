@@ -81,7 +81,7 @@ const ok = (c, m) => {
   for (let i = 0; i < mus.length; i++) ks.push(await kindOfMu(i));
   const kitIdx = ks.findIndex((k) => k[0] && k[0].dis);
   await selectMu(kitIdx);
-  ok(kitIdx >= 0 && (await page.locator('#bandPanel .bpn-ksel:disabled').count()) === 1 && (await page.inputValue('#bandPanel .bpn-ksel')) === 'drums' && /kit de batterie/i.test(await page.textContent('#bandPanel .bpn-kind')), 'kit : liste Type désactivée sur Drums, avec explication');
+  ok(kitIdx >= 0 && (await page.locator('#bandPanel .bpn-ksel:disabled').count()) === 1 && (await page.inputValue('#bandPanel .bpn-ksel')) === 'drums' && /kit de batterie/i.test(await page.getAttribute('#bandPanel .bpn-kind .help-tip', 'data-help')), 'kit : liste Type désactivée sur Drums, avec explication');
   ok(await page.evaluate(() => document.querySelector('#bandPanel .bpn-head').nextElementSibling.id === 'bpnKind'), 'la liste Type est juste sous le titre du panneau');
   const bassIdx = ks.findIndex((k) => k[0] && k[0].v === 'bass');
   await selectMu(bassIdx);

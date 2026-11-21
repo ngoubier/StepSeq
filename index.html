@@ -268,7 +268,7 @@
       <button type="button" id="selDel" class="btn btn-small btn-danger" title="Supprimer les notes sélectionnées (Suppr)" disabled>Supprimer</button>
       <button type="button" id="selClear" class="btn btn-small btn-icon-small" title="Tout désélectionner (Échap)" aria-label="Tout désélectionner" disabled>✕</button>
     </div>
-    <div class="hint">Espace : lecture · Maj+glisser : sélectionner · Ctrl+C / X / V : copier, couper, coller</div>
+    <span class="hint"><button type="button" class="help-tip" data-help="Espace : lecture · Maj+glisser : sélectionner · Ctrl+C / X / V : copier, couper, coller." data-help-title="Raccourcis clavier" aria-label="Aide : Raccourcis clavier">?</button></span>
     <div class="zoom-ctl" role="group" aria-label="Zoom horizontal">
       <button type="button" id="zoomOut" class="btn btn-small btn-icon-small" title="Dézoomer : voir plus de mesures (touche −, ou Ctrl+molette)" aria-label="Dézoomer">−</button>
       <input type="range" id="zoomRange" min="0" max="1000" step="1" title="Zoom horizontal (double-clic : 100 %)" aria-label="Zoom horizontal">
@@ -298,7 +298,6 @@
               <!-- Étape 1 : « Générer et écouter » lance toute la chanson (même écoute que l'étape Scènes, commandée par la barre du haut) -->
               <div class="bw-quick wiz-only" id="bwQuick" hidden>
                 <button type="button" class="btn-go" id="bwGo" aria-pressed="false" title="Crée l'aperçu complet (tous les instruments, toutes les scènes) et le joue ; on affine ensuite étape par étape"><span class="bw-go-ico" aria-hidden="true">▶</span><span id="bwGoText">Générer et écouter</span></button>
-                <small>puis affine étape par étape</small>
               </div>
               <!-- Étape 2 : General MIDI (même réglage que dans la fenêtre de piste) -->
               <button type="button" class="btn band-gm" id="bandGm" aria-pressed="false" aria-label="General MIDI" title="Mode General MIDI du projet : chaque musicien joue un son General MIDI, la batterie prend la batterie General MIDI. Même réglage que dans la fenêtre de piste.">
@@ -362,7 +361,7 @@
   <dialog id="songDialog" class="song-dialog" aria-labelledby="songDlgTitle">
     <div class="song-shell">
       <header class="song-head">
-        <h2 id="songDlgTitle">Song <small>scènes et arrangement de la chanson</small></h2>
+        <h2 id="songDlgTitle">Song <button type="button" class="help-tip" data-help="Les scènes et l’arrangement de la chanson." data-help-title="Song" aria-label="Aide : Song">?</button></h2>
         <span class="spacer"></span>
         <button type="button" class="btn btn-icon" id="songClose" title="Fermer (Échap)" aria-label="Fermer">
           <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
@@ -445,11 +444,10 @@
 
         <section id="dlgDrum" class="nt-part">
           <div class="nt-center br-col">
-            <div class="nt-filter"><span class="dlg-label">Source</span><div class="chips nt-chips pills-nav" id="dlgDrumLib" role="radiogroup" aria-label="Bibliothèque de batterie"></div></div>
+            <div class="nt-filter"><span class="dlg-label">Source <button type="button" class="help-tip" id="dlgDrumLibHint" data-help-title="Source" aria-label="Aide : Source">?</button></span><div class="chips nt-chips pills-nav" id="dlgDrumLib" role="radiogroup" aria-label="Bibliothèque de batterie"></div></div>
             <div id="dlgTdm" class="nt-filter nt-chips-row"><span class="dlg-label">Élément</span><div id="dlgDrumTypes" class="chips nt-chips pills-nav" role="radiogroup" aria-label="Type de drum"></div></div>
             <div class="br-head"><span class="dlg-label" id="dlgDrumListLabel">Boîte à rythmes</span><small id="dlgDrumCount" class="dlg-hint"></small></div>
             <div id="dlgDrumList" class="pick-list nt-cards" aria-labelledby="dlgDrumListLabel"></div>
-            <small id="dlgDrumLibHint" class="dlg-hint nt-side-hint"></small>
           </div>
           <div class="nt-right br-col">
             <div class="br-head"><span class="dlg-label" id="dlgVariantLabel">Variation</span><small id="dlgVariantCount" class="dlg-hint"></small></div>
@@ -469,11 +467,10 @@
             <div class="br-head" id="dlgSfvHead"><span class="dlg-label" id="dlgSfvLabel">Variante</span></div>
             <div id="dlgSfvList" class="pick-list" aria-labelledby="dlgSfvLabel"></div>
             <div class="synth-card" id="dlgSynthCard" hidden></div>
-            <small class="dlg-hint" id="dlgSynthHint" hidden>Après validation, le bouton <b>Sound design</b> de la piste ouvre la façade du synthé : tous ses réglages sont modifiables.</small>
           </div>
         </section>
 
-        <small id="dlgGmHint" class="dlg-hint nt-gm-hint"></small>
+        <button type="button" class="help-tip nt-gm-hint" id="dlgGmHint" hidden data-help="Mode General MIDI du projet : seuls les sons General MIDI sont proposés, ici et dans l’assistant." data-help-title="General MIDI" aria-label="Aide : General MIDI">?</button>
       </div>
 
       <footer class="nt-foot">
@@ -531,7 +528,7 @@
         <div class="fx-panes">
           <section class="fx-pane" data-pane="easy" aria-labelledby="sdEasyTitle">
             <div class="fx-pane-head"><h3 id="sdEasyTitle">Réglages simples <small>les six gestes du preset</small></h3></div>
-            <p class="sd-hint" id="sdEasyHint">Chaque curseur règle un paramètre du synthé (le même que dans les autres onglets). Double-clic : valeur du preset.</p>
+            <p class="sd-hint" id="sdEasyHint" data-helpify>Chaque curseur règle un paramètre du synthé (le même que dans les autres onglets). Double-clic : valeur du preset.</p>
             <div class="sd-sliders" id="sdEasySliders"></div>
           </section>
           <section class="fx-pane" data-pane="vco" aria-labelledby="sdVcoTitle">
@@ -542,10 +539,9 @@
               <div class="sd-sliders" id="sdVcoSliders"></div>
               <div class="sd-noise" aria-labelledby="sdNoiseTitle">
                 <div class="sd-panel-head">
-                  <h4 id="sdNoiseTitle">Bruit <small>mixeur</small></h4>
+                  <h4 id="sdNoiseTitle">Bruit <small>mixeur</small> <button type="button" class="help-tip" id="sdNoiseHint" data-help-title="Bruit" aria-label="Aide : Bruit">?</button></h4>
                   <div class="segmented sd-ftype" id="sdNoiseColor" role="radiogroup" aria-label="Couleur du bruit"></div>
                 </div>
-                <p id="sdNoiseHint" class="sd-hint"></p>
                 <div class="sd-sliders" id="sdNoiseSliders"></div>
               </div>
             </div>
@@ -556,8 +552,7 @@
             <div class="fx-pane-head"><h3 id="sdVcfTitle">Filtre <small>VCF</small></h3></div>
             <p class="fx-help">Sculpte le timbre en retirant des fréquences.</p>
             <div class="segmented sd-ftype" id="sdFilterType" role="radiogroup" aria-label="Type de filtre"></div>
-            <div class="segmented sd-ftype" id="sdFilterModel" role="radiogroup" aria-label="Modèle de filtre (ftype)"></div>
-            <p id="sdFilterHint" class="sd-hint"></p>
+            <div class="sd-segrow"><div class="segmented sd-ftype" id="sdFilterModel" role="radiogroup" aria-label="Modèle de filtre (ftype)"></div><button type="button" class="help-tip" id="sdFilterHint" data-help-title="Modèle de filtre" aria-label="Aide : Modèle de filtre">?</button></div>
             <div class="sd-sliders" id="sdVcfSliders"></div>
           </section>
 
@@ -599,22 +594,18 @@
           <section class="fx-pane" data-pane="glide" aria-labelledby="sdGlideTitle">
             <div class="fx-pane-head"><h3 id="sdGlideTitle">Glide <small>portamento</small></h3></div>
             <p class="fx-help">Glissement de hauteur d’une note à la suivante.</p>
-            <div class="segmented sd-ftype" id="sdGlideMode" role="radiogroup" aria-label="Mode de glide"></div>
-            <p id="sdGlideHint" class="sd-hint"></p>
+            <div class="sd-segrow"><div class="segmented sd-ftype" id="sdGlideMode" role="radiogroup" aria-label="Mode de glide"></div><button type="button" class="help-tip" id="sdGlideHint" data-help-title="Glide" aria-label="Aide : Glide">?</button></div>
             <div class="sd-sliders" id="sdGlideSliders"></div>
           </section>
 
           <section class="fx-pane" data-pane="play" aria-labelledby="sdPlayTitle">
             <div class="fx-pane-head"><h3 id="sdPlayTitle">Jeu <small>expression et phrasé</small></h3></div>
             <p class="fx-help">Comment le musicien joue les notes : nuances dans la phrase, timbre qui s’éclaircit dans le forte, notes liées ou détachées. Pour les cordes, les cuivres, les bois, les voix, le piano et la guitare.</p>
-            <span class="dlg-label">Expression</span>
+            <span class="dlg-label">Expression <button type="button" class="help-tip" id="sdExprHint" data-help-title="Expression" aria-label="Aide : Expression">?</button></span>
             <div class="segmented sd-ftype" id="sdExpr" role="radiogroup" aria-label="Expression"></div>
-            <p id="sdExprHint" class="sd-hint"></p>
-            <label class="sd-check"><input type="checkbox" id="sdPhrase"> <span id="sdPhraseText">Phrasé automatique : notes liées jouées legato, notes répétées détachées, doubles-croches isolées piquées</span></label>
-            <label class="sd-check" hidden><input type="checkbox" id="sdPedal"> Pédale automatique : chaque note tient jusqu’à la suivante, la pédale se relève sur le nouvel accord</label>
-            <p id="sdPedalHint" class="sd-hint" hidden>La piste a sa propre courbe de pédale (automation) : c’est elle qui joue.</p>
-            <p class="sd-hint">Une articulation écrite sur une note (clic droit sur la note : legato, staccato, détaché, tenuto, soufflet, étouffé) l’emporte toujours.</p>
-            <p id="sdExprFamily" class="sd-note"></p>
+            <label class="sd-check"><input type="checkbox" id="sdPhrase"> Phrasé automatique <button type="button" class="help-tip" id="sdPhraseText" data-help-title="Phrasé automatique" aria-label="Aide : Phrasé automatique">?</button></label>
+            <label class="sd-check" hidden><input type="checkbox" id="sdPedal"> Pédale automatique <button type="button" class="help-tip" data-help="Chaque note tient jusqu’à la suivante, la pédale se relève sur le nouvel accord." data-help-title="Pédale automatique" aria-label="Aide : Pédale automatique">?</button><button type="button" class="help-tip" id="sdPedalHint" hidden data-help="La piste a sa propre courbe de pédale (automation) : c’est elle qui joue." data-help-title="Pédale automatique" aria-label="Aide : Pédale de la piste">!</button></label>
+            <p class="sd-hint" data-helpify data-help-for="sdPlayTitle">Une articulation écrite sur une note (clic droit sur la note : legato, staccato, détaché, tenuto, soufflet, étouffé) l’emporte toujours.</p>
             <div><button type="button" id="sdPlayPhrase" class="btn">▶ Écouter une phrase</button></div>
           </section>
 
@@ -698,9 +689,9 @@
       <svg id="gvPreview" class="gv-preview" viewBox="0 0 320 44" aria-hidden="true"></svg>
 
       <div class="dlg-row">
-        <label class="dlg-label" for="gvHuman">Humanisation <output id="gvHumanOut"></output></label>
+        <label class="dlg-label" for="gvHuman" id="gvHumanLbl">Humanisation <output id="gvHumanOut"></output></label>
         <input id="gvHuman" type="range" min="0" max="100" step="1">
-        <small class="gv-help">Petites variations aléatoires de placement (jusqu'à ±15 ms) et de vélocité (jusqu'à ±25 %), comme un musicien.</small>
+        <small class="gv-help" data-helpify data-help-for="gvHumanLbl">Petites variations aléatoires de placement (jusqu'à ±15 ms) et de vélocité (jusqu'à ±25 %), comme un musicien.</small>
       </div>
 
       <div class="dlg-footer">
@@ -727,19 +718,19 @@
             <option value="normal">Normal</option>
             <option value="compact">Compact</option>
           </select>
-          <small class="opt-help">Compact : des pistes moins hautes, leurs commandes passent dans le menu ⋯.</small>
+          <small class="opt-help" data-helpify>Compact : des pistes moins hautes, leurs commandes passent dans le menu ⋯.</small>
         </div>
         <div class="opt-row">
           <label class="opt-label" for="optShiftHome">Case d'origine des notes décalées</label>
           <input type="checkbox" id="optShiftHome" checked>
-          <small class="opt-help">Une note jouée un peu en avance ou en retard est dessinée là où elle sonne ; un contour pointillé montre la case de la grille à laquelle elle reste rattachée.</small>
+          <small class="opt-help" data-helpify>Une note jouée un peu en avance ou en retard est dessinée là où elle sonne ; un contour pointillé montre la case de la grille à laquelle elle reste rattachée.</small>
         </div>
       </section>
       <section class="opt-panel" role="tabpanel" id="optPanelSound" data-panel="sound" aria-labelledby="optTabSound" hidden>
         <div class="opt-row">
           <label class="opt-label" for="optJunoLight">Filtre Juno allégé (essai)</label>
           <input type="checkbox" id="optJunoLight">
-          <small class="opt-help">Les synthés Juno calculent environ 30 % plus vite. Le son change un peu quand le filtre est poussé (résonance, notes fortes) : à écouter avant de le garder.</small>
+          <small class="opt-help" data-helpify>Les synthés Juno calculent environ 30 % plus vite. Le son change un peu quand le filtre est poussé (résonance, notes fortes) : à écouter avant de le garder.</small>
         </div>
       <div class="dlg-footer">
         <span class="spacer"></span>
@@ -808,7 +799,7 @@
   <dialog id="audioExportDialog" class="midi-dialog ax-dialog" aria-labelledby="axTitle">
     <form method="dialog" id="axForm">
       <h2 id="axTitle">Exporter l'audio</h2>
-      <p class="dlg-sub">La chanson est calculée hors temps réel, exactement comme on l'entend (mixage et mastering compris), sans décrochage possible. Le rendu se fait dans le navigateur : rien n'est envoyé.</p>
+      <p class="dlg-sub" data-helpify>La chanson est calculée hors temps réel, exactement comme on l'entend (mixage et mastering compris), sans décrochage possible. Le rendu se fait dans le navigateur : rien n'est envoyé.</p>
       <div id="axOptions" class="ax-options">
         <div class="dlg-row">
           <span class="dlg-label">Contenu</span>
@@ -819,7 +810,7 @@
           <label class="midi-check" id="axLoopsRow">Répéter la scène <input id="axLoops" type="number" min="1" max="64" value="4"> fois</label>
         </div>
         <div class="dlg-row">
-          <span class="dlg-label">Fichiers</span>
+          <span class="dlg-label" id="axFilesLbl">Fichiers</span>
           <label class="midi-check"><input id="axMaster" type="checkbox" checked> Master : la chanson mixée et masterisée</label>
           <div class="segmented" id="axStems" role="radiogroup" aria-label="Stems">
             <button type="button" data-v="none">Sans stems</button>
@@ -827,7 +818,7 @@
             <button type="button" data-v="track">Stems par piste</button>
             <button type="button" data-v="family" title="Musique de film : cordes, bois, cuivres, thème, piano, percussions">Stems par famille</button>
           </div>
-          <small class="ax-hint">Stems : un fichier par musicien (toute la batterie ensemble) ou par piste, avec sa part de reverb et d'écho, sans le traitement du Master. Ensemble, ils redonnent le mix avant mastering, au même départ et à la même longueur.</small>
+          <small class="ax-hint" data-helpify data-help-for="axFilesLbl">Stems : un fichier par musicien (toute la batterie ensemble) ou par piste, avec sa part de reverb et d'écho, sans le traitement du Master. Ensemble, ils redonnent le mix avant mastering, au même départ et à la même longueur.</small>
         </div>
         <div class="dlg-row ax-format">
           <span class="dlg-label">Format</span>
@@ -971,7 +962,7 @@
 
   <dialog id="systemDialog" class="system-dialog" aria-labelledby="systemTitle">
     <div class="system-head">
-      <div><h2 id="systemTitle">Système</h2><p>Santé du son, surveillée automatiquement pendant la lecture</p></div>
+      <div><h2 id="systemTitle">Système</h2><p data-helpify>Santé du son, surveillée automatiquement pendant la lecture</p></div>
       <button id="systemClose" type="button" class="btn btn-icon" aria-label="Fermer Système">✕</button>
     </div>
     <div class="system-body">

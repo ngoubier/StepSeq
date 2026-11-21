@@ -487,7 +487,7 @@ SS.automixPanel = (() => {
       h('div', { class: 'am-bar' }, h('i', { style: `width:${clamp((secs / Math.max(need * 3, 1)) * 100, 0, 100)}%` }))
     );
     if (p.playMode !== 'song' && p.song && p.song.length > 1 && !secs)
-      box.append(h('p', { class: 'am-hint' }, 'Astuce : passe en mode Song (fenêtre Song) pour que j\'écoute toute la chanson, pas seulement la scène en cours.'));
+      box.append(h('p', { class: 'am-hint', 'data-helpify': true }, 'Astuce : passe en mode Song (fenêtre Song) pour que j\'écoute toute la chanson, pas seulement la scène en cours.'));
   }
 
   function renderScore() {

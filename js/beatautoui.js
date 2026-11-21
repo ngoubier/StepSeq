@@ -390,7 +390,7 @@ SS.beatAutoUI = (() => {
           songView(host, tools, px, app);
         } }, x.label))),
       h('label', {}, 'Liaison'), linkSeg(),
-      h('small', { class: 'ba-hint' }, 'glisser sur les barres pour dessiner · Alt+clic : effacer'));
+      SS.helpTip('Glisser sur les barres pour dessiner · Alt+clic : effacer.', 'Automation par temps'));
     const k = songParam;
     const x = BA().P[k];
     // positions de la frise : un temps = (bloc, répétition, temps dans la scène)
