@@ -1334,7 +1334,9 @@ SS.band = (() => {
       : null;
     const kids = [
       h('div', { class: 'bs-kind' }, tpl ? 'Modèle de musique de film' : 'Ta scène'),
-      h('div', { class: 'bs-title' }, h('b', {}, f.title || preset().song)),
+      h('div', { class: 'bs-title' }, h('b', {}, f.title || preset().song),
+        // mode tutoriel (js/tutorial.js) : un coach à droite apprend à composer une musique de film
+        SS.tutorial ? h('button', { type: 'button', class: 'btn btn-small bfm-tuto', id: 'bfmTuto', 'aria-pressed': String(SS.tutorial.isOn()), title: 'Apprendre à composer une musique de film, pas à pas', onclick: () => SS.tutorial.toggle() }, '🎓 Tutoriel') : null),
       h('div', { class: 'bs-artist' }, `${key} · ${tm.bpm} BPM · ${tm.bars} mesures · ${FM().fmt(tm.seconds)}`),
       h('div', { class: 'bs-desc' }, f.story || preset().desc),
       head('01', 'Scène et repères'),
@@ -10302,6 +10304,7 @@ SS.band = (() => {
       const last = tm.sections.length - 1;
       return {
         modele: filmTpl() ? preset().id : null,
+        titre: f.title || '',
         entree: f.start || 0,
         fin: f.end,
         bpm: tm.bpm,
@@ -10379,8 +10382,17 @@ SS.band = (() => {
       return filmEtat();
     }
 
+    /** Remplace la scène libre par une scène donnée (scène d'exercice du tutoriel, js/tutorial.js). */
+    function filmScene(f) {
+      needFilm();
+      S.film = FM().editable(f);
+      setPreset('scene');
+      filmChanged();
+      return filmEtat();
+    }
+
     return {
-      film: filmEtat, repere: filmRepere,
+      film: filmEtat, repere: filmRepere, filmScene,
       etat, styles, sons, ouvrir, etape, sceneId: secId, sceneOf, chordName: (key, c) => chordOf(key, c).name,
       style: setStyleOf, ajouter: addMu, musicien: editMu, tonalite: setKey, scene, structure, accords, creer,
       tempo: (v) => (needPlan(), setTempo(v), draftSoon(), tempo()),
