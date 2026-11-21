@@ -630,6 +630,9 @@ SS.newTrack = (opts, project) => {
     { id: 'drop2', label: 'Drop 2' },
   ];
   const OCTAVES = [1, 2, 3, 4, 5];
+  // motif de basse : hauteur C1 / C2 (celle de Nouvelle chanson) / C3
+  const MOTIF_OCTAVES = [1, 2, 3];
+  const MOTIF_DEFAULT = '8';
 
   /** Réglages « suivre les accords » bornés, ou null (la piste joue ses notes). */
   function cleanFollow(f) {
@@ -637,6 +640,13 @@ SS.newTrack = (opts, project) => {
     if (f === true) return { ...FOLLOW_DEFAULTS };
     if (typeof f !== 'object') return null;
     const pick = (list, v, def) => (list.some((x) => x.id === v) ? v : def);
+    // motif de basse (js/chords.js, motifEvents) : la piste joue un motif de Nouvelle chanson sur la piste Accords
+    if (f.play === 'motif') {
+      const id = (v) => typeof v === 'string' && /^[\w-]{1,24}$/.test(v);
+      const scenes = {};
+      if (f.motifs && typeof f.motifs === 'object') Object.entries(f.motifs).forEach(([k, v]) => id(v) && (scenes[k] = v));
+      return { play: 'motif', motif: id(f.motif) ? f.motif : MOTIF_DEFAULT, ...(Object.keys(scenes).length ? { motifs: scenes } : {}), oct: MOTIF_OCTAVES.includes(f.oct) ? f.oct : 2 };
+    }
     return {
       play: pick(PLAYS, f.play, FOLLOW_DEFAULTS.play),
       notes: pick(NOTES, f.notes, FOLLOW_DEFAULTS.notes),
@@ -651,7 +661,9 @@ SS.newTrack = (opts, project) => {
   SS.arpOn = (t) => isInst(t) && !!t.arpOn;
   SS.follows = (t) => isInst(t) && !!t.follow;
   /** La piste montre les accords de la scène à la place de ses notes (lecture seule dans la grille). */
-  SS.followsGhost = (t) => SS.follows(t) && (SS.arpOn(t) || t.follow.play === 'hold');
+  SS.followsGhost = (t) => SS.follows(t) && (SS.arpOn(t) || t.follow.play === 'hold' || t.follow.play === 'motif');
+  /** La piste joue un motif de basse sur la piste Accords. */
+  SS.playsMotif = (t) => SS.follows(t) && t.follow.play === 'motif';
   /** Piste qui joue des accords : arpège, accords suivis, ou au moins une note empilée sur une autre. */
   SS.chordTrack = (t) => isInst(t) && (!!t.arpOn || !!t.follow || (t.events || []).some((e) => e.notes.length > 1));
 
@@ -675,7 +687,7 @@ SS.newTrack = (opts, project) => {
     return t;
   };
 
-  SS.FOLLOW = { DEFAULTS: FOLLOW_DEFAULTS, PLAYS, NOTES, VOICINGS, OCTAVES, clean: cleanFollow };
+  SS.FOLLOW = { DEFAULTS: FOLLOW_DEFAULTS, PLAYS, NOTES, VOICINGS, OCTAVES, MOTIF_OCTAVES, MOTIF_DEFAULT, clean: cleanFollow };
 })();
 
 /** Ajuste la longueur des pistes après un changement de mesure / nombre de mesures. */

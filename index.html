@@ -485,6 +485,11 @@
             <label class="nt-toggle"><input type="checkbox" id="dlgFollow"> Jouer la piste Accords</label>
           </div>
         </div>
+        <div class="nt-field nt-motif" id="dlgMotifRow" hidden>
+          <span class="dlg-label">Motif</span>
+          <div class="nt-motifs" id="dlgMotifs" role="radiogroup" aria-label="Motif de basse"></div>
+          <select id="dlgMotifAll" aria-label="Tous les motifs de basse"></select>
+        </div>
         <div class="nt-actions">
           <div class="nt-field nt-len" id="dlgLenRow" title="Une piste plus courte que le projet tourne en boucle sur sa propre longueur (polymétrie : par ex. 3 temps contre 4). Tu peux aussi glisser la barre de fin de boucle dans la grille.">
             <label class="dlg-label" for="dlgLen">Longueur</label>
@@ -1082,6 +1087,7 @@
   <script src="js/wizdraft.js"></script>
   <script src="js/gridsync.js"></script>
   <script src="js/band.js"></script>
+  <script src="js/bassmotifs.js"></script>
   <script src="js/midipanel.js"></script>
   <script src="js/render.js"></script>
   <script src="js/freeze.js"></script>
