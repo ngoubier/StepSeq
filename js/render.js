@@ -37,7 +37,10 @@ SS.render = (() => {
     if (range === 'scene' || !p.song || !p.song.length) song = [{ scene: p.current, repeat: Math.max(1, Math.min(64, Math.round(loops) || 1)) }];
     else song = p.song.filter((b) => p.scenes.some((sc) => sc.id === b.scene)).map((b) => ({ scene: b.scene, repeat: b.repeat }));
     const bars = song.reduce((a, b) => a + barsOf(b.scene) * b.repeat, 0);
-    return { song, bars, seconds: (bars * spb * 60) / p.tempo / 4 };
+    // chaque scène à son tempo (fiche Scène)
+    const tempoOf = (id) => SS.tempoOf(p, p.scenes.find((x) => x.id === id));
+    const seconds = song.reduce((a, b) => a + (barsOf(b.scene) * b.repeat * spb * 60) / tempoOf(b.scene) / 4, 0);
+    return { song, bars, seconds };
   }
 
   const audibleTracks = (p) => {
@@ -95,7 +98,8 @@ SS.render = (() => {
 
   /** Début du son dans le rendu (s) : le pré-roll du moteur, moins les notes jouées en avance et l'humanisation. */
   function leadIn(project) {
-    const sd = 60 / project.tempo / 4;
+    const first = project.song && project.song[0] && project.scenes.find((x) => x.id === project.song[0].scene);
+    const sd = 60 / SS.tempoOf(project, first) / 4;
     let early = 0;
     const scan = (d) => d && Array.isArray(d.events) && d.events.forEach((ev) => Number.isFinite(ev.shift) && ev.shift < early && (early = ev.shift));
     project.tracks.forEach((t) => scan(t));

@@ -879,7 +879,7 @@ SS.audio = (() => {
     }
     const e = returns.echo;
     const p = rp.echo;
-    const t = SS.delaySeconds({ delayTime: p.time }, project.tempo);
+    const t = SS.delaySeconds({ delayTime: p.time }, SS.tempoOf(project));
     ramp(e.dL.delayTime, t);
     ramp(e.dR.delayTime, t);
     ramp(e.fb.gain, Math.min(0.9, p.feedback));
@@ -1202,7 +1202,7 @@ SS.audio = (() => {
 
   /** Recalcule les effets de toutes les pistes (ex. temps du delay après un changement de tempo). */
   function applyAllFx(project) {
-    currentTempo = project.tempo;
+    currentTempo = SS.tempoOf(project); // tempo de la scène en cours (fiche Scène), sinon celui de la chanson
     applyMaster(project);
     if (!ctx) return;
     project.tracks.forEach((t) => {
@@ -1581,19 +1581,19 @@ SS.audio = (() => {
    */
   let lfoClock = null;
   function clockReset(project, time, quarter) {
-    lfoClock = SS.lfoClock ? SS.lfoClock(project.tempo, SS.stepsPerBar(project) / 4, time, quarter) : null;
+    lfoClock = SS.lfoClock ? SS.lfoClock(SS.tempoOf(project), SS.stepsPerBar(project) / 4, time, quarter) : null;
   }
   function clockAdvance(project, time) {
     if (!lfoClock) return clockReset(project, time, 0);
     lfoClock.quarter += ((time - lfoClock.time) * lfoClock.tempo) / 60;
     lfoClock.time = time;
-    lfoClock.tempo = project.tempo;
+    lfoClock.tempo = SS.tempoOf(project);
     lfoClock.quarterBar = SS.stepsPerBar(project) / 4;
   }
   function currentClock() {
     if (seq.playing && lfoClock) return lfoClock;
     const project = seq.getProject ? seq.getProject() : null;
-    return SS.lfoClock(project ? project.tempo : 120, project ? SS.stepsPerBar(project) / 4 : 4, 0, 0);
+    return SS.lfoClock(project ? SS.tempoOf(project) : 120, project ? SS.stepsPerBar(project) / 4 : 4, 0, 0);
   }
 
   /**
@@ -1987,7 +1987,8 @@ SS.audio = (() => {
     },
   };
 
-  const stepDur = (project) => 60 / project.tempo / 4; // une case = une double-croche
+  // une case = une double-croche, au tempo de la scène jouée (en mode chanson, la scène du bloc est chargée avant ses pas)
+  const stepDur = (project) => 60 / SS.tempoOf(project) / 4;
 
   function audibleTracks(project) {
     const soloed = project.tracks.some((t) => t.solo);
@@ -2271,6 +2272,7 @@ SS.audio = (() => {
             sg.index = 0;
           }
           sg.onBlock(sg.index);
+          if (SS.tempoOf(project) !== currentTempo) applyAllFx(project); // scène à un autre tempo : l'écho suit
           seq.aheadUntil = seq.nextTime + BLOCK_HOLD; // le bloc commence à seq.nextTime
         }
         seq.queue.push({ step: -1, time: seq.nextTime, block: sg.index, rep: sg.rep });

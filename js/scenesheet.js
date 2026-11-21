@@ -14,6 +14,7 @@ window.SS = window.SS || {};
 SS.sceneSheet = (() => {
   let app;
   let openId = null;
+  let emoOpen = false; // panneau des émotions ouvert
   const OPEN_KEY = 'stepseq.sceneSheet.closed'; // rubriques repliées (préférence de l'utilisateur)
 
   /* Couleurs des émotions (mêmes repères que l'assistant Musique de film : tristesse bleu, joie jaune, colère rouge…). */
@@ -25,7 +26,7 @@ SS.sceneSheet = (() => {
   SS.EMOTION_COLORS = EMO_COLORS;
 
   const HELP = {
-    tempo: 'La scène joue au tempo de la chanson.',
+    tempo: '= Chanson : la scène suit le tempo de la chanson (le changer la change aussi). Propre : la scène garde son tempo ; il change d’un coup au début de la scène.',
     emo: 'Ce que la scène doit faire ressentir. Sert à l’assistant (accords, sons) et colore la scène.',
     ene: 'Cases pleines : l’énergie voulue. Case en pointillé : l’énergie entendue dans ce qui joue (instruments actifs, densité de notes, vélocité). La tension monte avec les dissonances et l’attente.',
     chords: 'Une case par mesure : les accords de la piste Accords, ou ceux reconnus dans les notes (en gris).',
@@ -192,7 +193,7 @@ SS.sceneSheet = (() => {
     const sc = openId && sceneOf(openId);
     if (!sc) return close();
     const bars = barsOf(sc);
-    const seconds = (bars * SS.stepsPerBar(pr) * 60) / pr.tempo / 4;
+    const seconds = (bars * SS.stepsPerBar(pr) * 60) / SS.tempoOf(pr, sc) / 4;
     const blocks = pr.song.map((b, i) => ({ ...b, i })).filter((b) => b.scene === sc.id);
     const times = blocks.reduce((a, b) => a + b.repeat, 0);
     const idx = pr.scenes.indexOf(sc);
@@ -236,25 +237,65 @@ SS.sceneSheet = (() => {
       h('button', { type: 'button', class: 'ssh-nav', title: 'Fermer (Échap)', 'aria-label': 'Fermer la fiche', onclick: close }, '✕'));
 
     // --- tempo
-    const tempo = section('tempo', 'Tempo', tip('tempo', 'Tempo'), `= chanson · ${pr.tempo}`,
-      h('div', { class: 'ssh-row' }, h('span', { class: 'ssh-tag on' }, '= Chanson'), h('b', { class: 'ssh-bpm' }, String(pr.tempo)), h('span', { class: 'ssh-muted' }, 'BPM'), h('span', { class: 'ssh-tag' }, fmtTime(seconds))));
+    const own = !!sc.tempo;
+    const setTempo = (v) => {
+      if (v == null) delete sc.tempo;
+      else sc.tempo = Math.round(clamp(Number(v) || pr.tempo, 20, 300));
+      if (SS.audio && SS.audio.applyAllFx && sc.id === pr.current) SS.audio.applyAllFx(pr); // l'écho suit
+      if (app.syncTempo) app.syncTempo();
+      changed();
+    };
+    const bpm = h('input', {
+      type: 'number', class: 'ssh-bpm' + (own ? '' : ' off'), min: 20, max: 300, value: SS.tempoOf(pr, sc), readonly: own ? null : true,
+      'aria-label': 'Tempo de la scène',
+      onkeydown: (e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') e.currentTarget.blur();
+      },
+      onchange: (e) => own && setTempo(e.currentTarget.value),
+    });
+    const tempo = section('tempo', 'Tempo', tip('tempo', 'Tempo'), `${own ? 'propre' : '= chanson'} · ${SS.tempoOf(pr, sc)}`,
+      h('div', { class: 'ssh-row' },
+        h('span', { class: 'ssh-seg' },
+          h('button', { type: 'button', class: own ? '' : 'on', 'aria-pressed': String(!own), onclick: () => own && setTempo(null) }, '= Chanson'),
+          h('button', { type: 'button', class: own ? 'on' : '', 'aria-pressed': String(own), onclick: () => !own && setTempo(pr.tempo) }, 'Propre')),
+        bpm, h('span', { class: 'ssh-muted' }, 'BPM'), h('span', { class: 'ssh-tag' }, fmtTime(seconds))),
+      own && pr.tempo !== sc.tempo ? h('small', { class: 'ssh-muted' }, `chanson : ${pr.tempo}`) : null);
 
     // --- émotion, énergie, tension
     const emo = SS.findEmotion && sc.emotion ? SS.findEmotion(sc.emotion) : null;
     const measured = measureEnergy(pr, sc);
-    const emoChips = (SS.EMOTIONS || []).map((e) =>
+    // émotion : un bouton déroulant ouvre le panneau des émotions, on en pioche une
+    const color = (id) => EMO_COLORS[id] || '#9a9aa3';
+    const pick = (id) => {
+      if (id) sc.emotion = id;
+      else delete sc.emotion;
+      emoOpen = false;
+      changed();
+    };
+    const emoBox = h('div', { class: 'ssh-combo' },
       h('button', {
-        type: 'button', class: 'ssh-emo' + (sc.emotion === e.id ? ' on' : ''), style: `--c:${EMO_COLORS[e.id] || '#9a9aa3'}`, 'aria-pressed': String(sc.emotion === e.id),
-        onclick: () => {
-          if (sc.emotion === e.id) delete sc.emotion;
-          else sc.emotion = e.id;
-          changed();
+        type: 'button', class: 'ssh-combo-btn' + (emo ? '' : ' none'), 'aria-haspopup': 'listbox', 'aria-expanded': String(emoOpen),
+        style: emo ? `--c:${color(emo.id)}` : null,
+        onclick: (e) => {
+          e.stopPropagation();
+          emoOpen = !emoOpen;
+          render();
         },
-      }, h('i'), e.label));
+      }, emo ? h('i') : null, h('span', {}, emo ? emo.label : 'Choisir une émotion'), h('b', { 'aria-hidden': 'true' }, '▾')),
+      emoOpen
+        ? h('div', { class: 'ssh-emo-panel', role: 'listbox', 'aria-label': 'Émotions', onclick: (e) => e.stopPropagation() },
+            (SS.EMOTIONS || []).map((e) =>
+              h('button', {
+                type: 'button', role: 'option', class: 'ssh-emo' + (sc.emotion === e.id ? ' on' : ''), style: `--c:${color(e.id)}`, 'aria-selected': String(sc.emotion === e.id), 'data-emo': e.id,
+                onclick: () => pick(e.id),
+              }, h('i'), e.label)),
+            emo ? h('button', { type: 'button', role: 'option', class: 'ssh-emo ssh-emo-none', onclick: () => pick(null) }, 'Aucune') : null)
+        : null);
     const fmt1 = (x) => String(x).replace('.', ',');
     const feel = section('feel', 'Émotion et énergie', tip('ene', 'Émotion et énergie'),
       h('span', {}, emo ? h('i', { class: 'ssh-dot', style: `--c:${EMO_COLORS[emo.id] || '#9a9aa3'}` }) : null, `${emo ? emo.label : 'sans émotion'} · ${sc.energy || fmt1(measured)}/5`),
-      h('div', { class: 'ssh-emos' }, emoChips),
+      emoBox,
       h('div', { class: 'ssh-kv' },
         h('span', {}, 'Énergie'),
         h('span', { class: 'ssh-row' }, levels(5, sc.energy, (v) => { if (v) sc.energy = v; else delete sc.energy; changed(); }, { color: '#e5382f', measured }),
@@ -375,6 +416,7 @@ SS.sceneSheet = (() => {
   }
   function close() {
     openId = null;
+    emoOpen = false;
     const root = document.getElementById('sceneSheet');
     if (root) root.hidden = true;
     document.body.classList.remove('scene-sheet-open');
@@ -390,7 +432,16 @@ SS.sceneSheet = (() => {
   function init(a) {
     app = a;
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && openId && !document.querySelector('dialog[open]')) close();
+      if (e.key !== 'Escape' || !openId || document.querySelector('dialog[open]')) return;
+      if (emoOpen) {
+        emoOpen = false;
+        render();
+      } else close();
+    });
+    document.addEventListener('click', () => {
+      if (!emoOpen) return;
+      emoOpen = false;
+      if (openId) render();
     });
   }
 

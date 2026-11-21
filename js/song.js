@@ -55,7 +55,7 @@ SS.song = (() => {
           h('b', {}, String.fromCharCode(65 + (i % 26))),
           ' ',
           sc.name,
-          h('small', {}, ` ${barsOf(sc)} mes.`)
+          h('small', {}, ` ${barsOf(sc)} mes.${sc.tempo ? ` · ${sc.tempo}` : ''}`)
         ),
         pr.scenes.length > 1
           ? h('button', { type: 'button', class: 'scene-del', title: `Supprimer la scène « ${sc.name} »`, onclick: () => remove(sc) }, '×')

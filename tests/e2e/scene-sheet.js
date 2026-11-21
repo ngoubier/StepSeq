@@ -40,13 +40,16 @@ const ok = (c, m) => {
   await page.waitForTimeout(100);
   ok(/Refrain test/.test(await page.textContent('#sceneList')), 'renommage dans la fiche : la ligne Scènes suit');
 
-  await page.click('#sceneSheet .ssh-emo >> nth=3');
+  await page.click('#sceneSheet .ssh-combo-btn');
+  ok(await page.isVisible('#sceneSheet .ssh-emo-panel'), 'émotion : le bouton ouvre le panneau des émotions');
+  await page.click('#sceneSheet .ssh-emo-panel [data-emo="espoir"]');
+  ok(!(await page.isVisible('#sceneSheet .ssh-emo-panel')) && /Espoir/.test(await page.textContent('#sceneSheet .ssh-combo-btn')), 'une émotion piochée : le panneau se ferme, le bouton l\'affiche');
   await page.click('#sceneSheet .ssh-lvl >> nth=0 >> button >> nth=3');
   const meta = await page.evaluate(() => {
     const sc = SS.currentScene(SS.claudeTools._project());
     return { emotion: sc.emotion, energy: sc.energy };
   });
-  ok(meta.emotion && meta.energy === 4, `émotion et énergie voulue rangées (${JSON.stringify(meta)})`);
+  ok(meta.emotion === 'espoir' && meta.energy === 4, `émotion et énergie voulue rangées (${JSON.stringify(meta)})`);
 
   // piste qui joue : la nappe du projet de démo
   const rows = await page.$$eval('#sceneSheet .ssh-tr', (els) => els.map((e) => ({ id: e.dataset.track, name: e.querySelector('.ssh-tname').textContent, st: !!e.querySelector('.ssh-st3') })));
@@ -79,6 +82,42 @@ const ok = (c, m) => {
   ok(kept.notes > 0 && !kept.global, 'les notes restent, la piste n\'est pas muette ailleurs');
   ok(kept.saved, 'le muet de la scène survit à l\'enregistrement');
   await page.click('#stop');
+
+  // tempo propre à la scène : la lecture va deux fois plus vite, la barre du haut l'affiche en doré
+  const rate = async () => {
+    await page.evaluate(() => {
+      window.__steps = 0;
+      if (!window.__wrapped) {
+        const f = SS.ui.setPlayhead;
+        SS.ui.setPlayhead = (st) => { if (st >= 0) window.__steps++; return f(st); };
+        window.__wrapped = true;
+      }
+    });
+    await page.click('#play');
+    await page.waitForTimeout(700);
+    const a = await page.evaluate(() => window.__steps);
+    await page.waitForTimeout(2000);
+    const n = (await page.evaluate(() => window.__steps)) - a;
+    await page.click('#stop');
+    return n / 2;
+  };
+  const song = await page.evaluate(() => SS.claudeTools._project().tempo);
+  const r1 = await rate();
+  await page.click('#sceneSheet .ssh-seg button >> nth=1');
+  await page.fill('#sceneSheet input.ssh-bpm', String(song * 2));
+  await page.press('#sceneSheet input.ssh-bpm', 'Enter');
+  await page.waitForTimeout(100);
+  const st = await page.evaluate(() => {
+    const p = SS.claudeTools._project();
+    return { scene: SS.currentScene(p).tempo, song: p.tempo, bar: document.getElementById('tempo').value, gold: document.getElementById('tempo').classList.contains('scene-tempo'), chip: document.querySelector('#sceneList .scene-chip.active').textContent };
+  });
+  ok(st.scene === song * 2 && st.song === song, `Propre : la scène a son tempo, la chanson garde le sien (${JSON.stringify(st)})`);
+  ok(st.bar === String(song * 2) && st.gold, 'barre du haut : tempo de la scène, en doré');
+  ok(st.chip.includes(`· ${song * 2}`), 'la pastille de la scène montre son tempo');
+  const r2 = await rate();
+  ok(r1 > 0 && Math.abs(r2 / r1 - 2) < 0.3, `la lecture suit le tempo de la scène (${r1} → ${r2} pas/s)`);
+  await page.click('#sceneSheet .ssh-seg button >> nth=0');
+  ok(await page.evaluate(() => SS.currentScene(SS.claudeTools._project()).tempo === undefined), '= Chanson : la scène reprend le tempo de la chanson');
 
   if (SHOT) {
     await page.setViewportSize({ width: 1440, height: 900 });
