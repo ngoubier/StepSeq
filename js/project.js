@@ -744,6 +744,9 @@ SS.normalizeProject = (data) => {
     } else delete track.band;
     track.mute = !!t.mute;
     track.solo = !!t.solo;
+    // piste figée en audio (js/freeze.js) : { on: true }, ou { re: true } (dégelée pour une retouche)
+    if (t.type !== 'drum' && t.freeze && (t.freeze.on === true || t.freeze.re === true)) track.freeze = t.freeze.on ? { on: true } : { re: true };
+    else delete track.freeze;
     track.auto = t.auto;
     track.autoLen = t.autoLen;
     SS.cleanAuto(track);

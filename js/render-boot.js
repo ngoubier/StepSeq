@@ -66,5 +66,6 @@
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-  window.__ssRenderCfg = { seconds, sampleRate, length };
+  // tap : rendu « Figer » d'une piste (js/freeze.js) : seul le son de son instrument, avant sa tranche de console
+  window.__ssRenderCfg = { seconds, sampleRate, length, tap: typeof cfg.tap === 'string' ? cfg.tap : null };
 })();

@@ -189,6 +189,7 @@ SS.claudeTools = (() => {
       volume: Math.round(t.volume * 100) / 100,
       ...(t.mute ? { muet: true } : {}),
       ...(t.solo ? { solo: true } : {}),
+      ...(SS.freeze && SS.freeze.isOn(t) ? { figee: SS.freeze.state(t) === 'on' ? 'oui' : 'en cours d’enregistrement' } : {}),
       ...(SS.follows(t) ? { suitAccords: true } : {}),
       ...(SS.arpOn(t) ? { arpege: true } : {}),
       contenuSceneEnCours: t.type === 'drum' ? `${(d.steps || []).filter((v) => v > 0).length} coups` : `${(d.events || []).length} notes`,
@@ -501,6 +502,14 @@ SS.claudeTools = (() => {
     SS.audio.applyAllFx(P());
     changedNow(`${t.name} : ${what.join(', ')}`);
     return { message: `${t.name} : ${what.join(', ')}` };
+  }
+
+  /** Figer une piste en audio (js/freeze.js) : jouée depuis son enregistrement, presque plus de calcul. */
+  function figer({ piste: ref, figer: on = true } = {}) {
+    const t = findTrack(ref);
+    if (t.type !== 'instrument') fail('seules les pistes instrument se figent (la batterie coûte peu)');
+    SS.freeze.set(t, on !== false);
+    return { message: `${t.name} : ${on !== false ? 'figée (enregistrement en arrière-plan, quelques secondes)' : 'dégelée (joue en direct)'}` };
   }
 
   /** Notes [{ pas, note, dur, vel }] → événements de piste (notes de même pas et même durée = un accord). */
@@ -993,6 +1002,7 @@ SS.claudeTools = (() => {
     { nom: 'ecrireNotes', description: 'Écrit les notes d’une piste instrument dans une scène. Remplace toutes ses notes, sauf avec ajouter ou deMesure/aMesure.', params: { piste: PISTE, notes: S('liste', '[{ pas, note, dur, vel }] ; note "E2" ou ["C4","E4","G4"] (accord) ; dur en pas (défaut 1) ; vel 0–1 (défaut 0.8, ghost ≈ 0.3)', true), scene: SCENE, ajouter: S('booléen', 'ajouter sans effacer'), deMesure: S('nombre', 'ne remplacer que de cette mesure (1 = la première)…'), aMesure: S('nombre', '…à cette mesure incluse') }, faire: ecrireNotes },
     { nom: 'ecrireBatterie', description: 'Pose le motif d’une piste de batterie dans une scène (répété sur toute la scène).', params: { piste: PISTE, motif: S('texte', 'un caractère par pas : X accent, x coup, o ghost note, . silence ; ex. "x...x...x...x..."'), pas: S('liste', 'ou une liste de pas : [0, 4, 8, 12] ou [{ pas, vel }]'), vel: S('nombre', 'vélocité des pas donnés en liste (défaut 0.8)'), scene: SCENE }, faire: ecrireBatterie },
     { nom: 'son', description: 'Change le son d’une piste (batterie : le kit).', params: { piste: PISTE, son: S('texte', 'id ou bout de nom (voir sons()), "j:A48", ou un kit pour la batterie', true) }, faire: son },
+    { nom: 'figer', description: 'Fige une piste instrument en audio (bouton ❄) : elle est jouée depuis un enregistrement et ne fait presque plus calculer le moteur audio (son qui décroche avec plusieurs synthés). figer: false la dégèle.', params: { piste: PISTE, figer: S('booléen', 'false : dégeler') }, faire: figer },
     { nom: 'mix', description: 'Volume, muet, solo d’une piste.', params: { piste: PISTE, volume: S('nombre', '0 à 1'), muet: S('booléen', ''), solo: S('booléen', '') }, faire: mix },
     { nom: 'effets', description: 'Règle les effets d’une piste (comme la fenêtre Effets). Seuls les réglages donnés changent.', params: { piste: PISTE, chorus: S('nombre', 'mix 0–1'), chorusVitesse: S('nombre', 'Hz 0.1–6'), chorusProfondeur: S('nombre', '0–1'), delay: S('nombre', 'mix de l’écho 0–1'), delayTemps: S('texte', '"1/16", "1/8", "3/16" (croche pointée), "1/4"…'), delayRepetitions: S('nombre', 'feedback 0–0.9'), reverb: S('nombre', 'mix 0–1'), reverbTaille: S('nombre', 'secondes 0.2–10'), reverbBrillance: S('nombre', 'Hz 500–20000'), sidechainSource: S('texte', 'piste qui fait pomper celle-ci (souvent le kick) ; "" pour retirer'), sidechainProfondeur: S('nombre', '0–1'), sidechainRelachement: S('nombre', 'secondes 0.03–1'), envoiPlate: S('nombre', 'envoi vers la reverb Plate commune (batterie) 0–1'), envoiHall: S('nombre', 'envoi vers la reverb Hall commune (instruments) 0–1'), envoiEcho: S('nombre', 'envoi vers l’écho à bande commun 0–1'), envoiCosmos: S('nombre', 'envoi vers Cosmos, reverb longue ambient 0–1'), aucun: S('booléen', 'retirer tous les effets d’abord') }, faire: effets },
     { nom: 'automations', lecture: true, description: 'Les paramètres automatisables d’une piste et leurs formes toutes prêtes.', params: { piste: PISTE }, faire: automations },

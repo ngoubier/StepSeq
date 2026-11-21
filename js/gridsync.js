@@ -11,7 +11,7 @@
 window.SS = window.SS || {};
 SS.gridSync = (() => {
   /** Ce qui ne compte pas comme une retouche : la marque elle-même, l'écoute (Muet, Solo) et les notes (comptées par scène). */
-  const SKIP = new Set(['band', 'mute', 'solo', 'steps', 'events', 'rat', 'cond', 'auto', 'autoLen', 'length']);
+  const SKIP = new Set(['band', 'mute', 'solo', 'steps', 'events', 'rat', 'cond', 'auto', 'autoLen', 'length', 'freeze']);
   function hash(txt) {
     let a = 5381;
     let b = 52711;
