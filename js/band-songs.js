@@ -694,7 +694,7 @@ SS.BandSongs = {
   // Reggae roots ensoleillé (dans l'esprit de Marley, Toots & the Maytals ; grille et mélodies originales) : one drop,
   // nyabinghi, skank sur 2 et 4, orgue bubble, basse ronde qui chante ; refrain qui se pose sur le IV, chœurs qui répondent,
   // passage dub où il ne reste que basse, batterie et échos
-  birds: {
+  kingston: {
     key: 'A major', groove: 'onedrop', emotion: 'joie',
     sections: {
       intro: { bars: 8, chords: 'I | IVmaj7 | I | IVmaj7', drums: 'light', perc: 'hats', bass: 'whole', guitar: 'g:reggae', keys: 'bubble' },

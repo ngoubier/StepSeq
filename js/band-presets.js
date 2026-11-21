@@ -919,10 +919,10 @@ window.SS = window.SS || {};
           ],
         },
         {
-          id: 'birds',
-          song: 'Three Little Birds',
-          artist: 'Bob Marley & The Wailers',
-          year: 1977,
+          id: 'kingston',
+          song: 'Soleil de Kingston',
+          artist: 'Bob Marley, Toots & the Maytals (esprit)',
+          year: '',
           tempo: 76,
           desc: 'Reggae roots ensoleillé, façon Marley ou Toots & the Maytals : one drop, nyabinghi, skank sur 2 et 4, orgue bubble, basse ronde, chœurs qui répondent.',
           musicians: [
