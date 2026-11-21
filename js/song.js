@@ -187,7 +187,7 @@ SS.song = (() => {
     render();
     const block = i >= 0 && p().song[i];
     const sc = block && sceneOf(block.scene);
-    $('#lcdTitle').textContent = sc ? `${sc.name} ${rep + 1}/${block.repeat}` : p().title;
+    $('#lcdTitle').textContent = sc ? `${sc.name} ${rep + 1}/${block.repeat}` : '';
     if (i >= 0) {
       const el = $('#songBlocks').children[i];
       if (el) el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
