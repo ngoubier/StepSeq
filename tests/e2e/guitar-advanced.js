@@ -45,6 +45,9 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FAIL ') + m); if (!c) process
   if (process.env.GTADV_SHOT) await page.screenshot({ path: process.env.GTADV_SHOT.replace('.png', '-plaques.png') });
   await page.click('#bwpGtView [data-v="guitare"]'); await page.waitForTimeout(300);
   if (process.env.GTADV_SHOT) await page.screenshot({ path: process.env.GTADV_SHOT.replace('.png', '-guitare.png') });
+  // une guitare en Arpège : les notes du moteur ne repassent pas dans l'arpégiateur de la piste (sinon toujours la même note)
+  const arpMu = await page.evaluate(() => window.StepSeq.assistantMusicien({ ajouter: 'arpege', son: 'gm_acoustic_guitar_steel' }));
+  ok(arpMu.ok && (await page.evaluate(() => SS.band.plannedTracks().filter((o) => o.type !== 'drum').every((o) => o.arpOn === false))), 'pistes du groupe sans 2e arpégiateur');
   ok(!errs.length, 'pas d’erreur JS ' + errs.join(' | '));
   await b.close(); server.close();
 })();
