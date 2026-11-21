@@ -3792,7 +3792,7 @@ dialog.help-dialog::backdrop { background: #0008; }
 /* ------------------------------------------------------------------ */
 /* Interrupteurs ARP / ACCORDS d'une piste instrument (js/ui.js)        */
 /* ------------------------------------------------------------------ */
-:root { --arp: #9b5cff; --chordc: #e8a33d; }
+:root { --arp: #9b5cff; --chordc: #e8a33d; --motc: #3fcf3f; }
 .th-modes { display: flex; gap: 4px; margin-top: 1px; }
 .th-mode {
   height: 17px; padding: 0 6px; border-radius: 4px; border: 1px solid var(--line); background: transparent;
@@ -3802,6 +3802,24 @@ dialog.help-dialog::backdrop { background: #0008; }
 .th-mode.th-arp.on { background: var(--arp); border-color: var(--arp); color: #fff; }
 .th-mode.th-chd.on { background: var(--chordc); border-color: var(--chordc); color: #1b1305; }
 .th-mode:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 1px; }
+.th-mode.th-mot { color: #8fe08f; border-color: #2f6d2f; }
+.th-mode.th-mot.on { background: var(--motc); border-color: var(--motc); color: #062006; }
+/* panneau Motif de basse (js/ui.js, openMotifMenu) */
+.fol-menu.mot-menu { width: min(560px, calc(100vw - 16px)); }
+.mot-menu .ctx-head { display: flex; align-items: center; gap: 8px; }
+.mot-menu .ctx-head b { white-space: nowrap; flex: none; }
+.mot-menu .ctx-head .mot-now { flex: 1; }
+.mot-now { color: #8fe08f; font-weight: 600; }
+.mot-chips { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0 10px; }
+.ctx-menu .mot-chip { display: inline-block; width: auto; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); border-radius: 999px; padding: 3px 10px; font-size: 12px; cursor: pointer; }
+.ctx-menu .mot-chip.on { background: #1f4a1f; border-color: var(--motc); color: #c8f5c8; }
+.mot-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; max-height: 214px; overflow: auto; padding: 1px 2px 1px 1px; margin-bottom: 8px; }
+.ctx-menu .mot-card { display: block; width: auto; gap: 0; text-align: left; background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 6px 7px 5px; cursor: pointer; color: #8fe08f; font: inherit; min-width: 0; }
+.ctx-menu .mot-card:hover { border-color: #5a5a62; }
+.ctx-menu .mot-card.on { border-color: var(--motc); background: #1c321c; box-shadow: 0 0 0 1px var(--motc) inset; }
+.mot-name { display: block; color: var(--text); font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mot-draw svg { display: block; width: 100%; height: 22px; margin-top: 4px; }
+@media (max-width: 760px) { .mot-cards { grid-template-columns: repeat(2, 1fr); } }
 .th-opt-mode { display: none; }
 .compact-tracks .th-modes { display: none; }
 @media (max-width: 760px) { .th-mode { padding: 0 4px; font-size: 8.5px; } }
@@ -5655,3 +5673,12 @@ body.wizard-mode #bandDialog.band-dialog.tut-on { flex-direction: row; }
 .bwp-guitar .dlg-label { margin-top: 2px; }
 .bwp-guitar:first-of-type { margin-top: 0; padding-top: 0; border-top: 0; }
 .bwp-chords-head { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+
+/* Fenêtre Nouvelle piste : motif d'une nouvelle piste de basse (js/ui.js, syncMotifRow) */
+.nt-motif { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.nt-motif[hidden] { display: none; }
+.nt-motifs { display: flex; gap: 6px; align-items: center; }
+.nt-motif-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 4px 7px; width: 108px; min-height: 40px; text-align: left; color: #8fe08f; cursor: pointer; font: inherit; }
+.nt-motif-card.on { border-color: var(--motc); background: #1c321c; box-shadow: 0 0 0 1px var(--motc) inset; }
+.nt-motif-card .mot-draw svg { height: 16px; margin-top: 3px; }
+#dlgMotifAll { max-width: 160px; }

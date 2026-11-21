@@ -228,6 +228,7 @@ window.SS = window.SS || {};
     if (!track.follow) return arp ? SS.heldChords(events) : events;
     const chords = SS.sceneGridChords(p, opts.scene);
     const f = cleanFollow(track.follow);
+    if (f.play === 'motif') return motifCached(p, track, f, chords, opts.scene);
     const key = sig([arp, f, chords.map((c) => [c.step, c.len, c.info.name, c.info.rootPc, c.info.type, c.info.pedalPc]), f.play === 'steps' && !arp ? events.map((e) => [e.step, e.len, e.vel, e.acc, e.cond, e.rat, e.shift]) : 0]);
     const hit = cache.get(track);
     if (hit && hit.key === key) return hit.out;
@@ -241,8 +242,53 @@ window.SS = window.SS || {};
     return out;
   };
 
+  /* ---------------- Motif de basse ---------------- */
+
+  /** Motif de la piste dans la scène `sc` : celui de la scène s'il en a un, sinon celui de la piste. */
+  SS.bassMotifOf = (track, sc) => {
+    const f = track && (track.follow || track.lastFollow);
+    if (!f || f.play !== 'motif') return null;
+    return (sc && f.motifs && f.motifs[sc.id]) || f.motif;
+  };
+
+  /**
+   * Notes d'un motif de basse sur les accords de la scène : le moteur de Nouvelle chanson (js/bandsong.js,
+   * bassEvents : approches, notes fantômes, octaves, anticipations), joué sur la piste Accords de la Grille.
+   */
+  function motifEvents(p, track, f, chords, sc) {
+    const BS = SS.bandSong;
+    sc = sc || SS.currentScene(p);
+    if (!BS || !chords.length || !sc) return [];
+    const key = sc.key;
+    const total = SS.stepsPerBar(p) * (sc.id === p.current ? p.bars : sc.bars || p.bars);
+    // les accords couvrent toute la scène : le premier part du début, chacun dure jusqu'au suivant (comme spansFromGrid)
+    const spans = chords.map((c, i) => {
+      const step = i === 0 ? 0 : c.step;
+      const end = chords[i + 1] ? chords[i + 1].step : total;
+      const bassPc = c.info.pedalPc ?? c.info.bassPc;
+      return { step, len: end - step, bar: Math.floor(step / 16), chord: { rootPc: c.info.rootPc, type: c.info.type || c.type, tok: c.info.name, ...(bassPc != null ? { bassPc } : {}) } };
+    }).filter((x) => x.len > 0);
+    const keyPcs = SS.harmony.scale(key).map((d) => d.pc);
+    const mode = SS.bassMotifOf({ follow: f }, sc);
+    const r = BS._rng(`${track.id}|${sc.id}|${mode}`);
+    try {
+      return BS.bassEvents(spans, mode, r, keyPcs, { shift: (f.oct - 2) * 12 }).filter((e) => e.step < total);
+    } catch (e) {
+      return [];
+    }
+  }
+  function motifCached(p, track, f, chords, sc) {
+    sc = sc || SS.currentScene(p);
+    const key = sig(['motif', f, sc && sc.id, sc && sc.key, p.bars, chords.map((c) => [c.step, c.len, c.info.rootPc, c.info.type, c.info.bassPc, c.info.pedalPc])]);
+    const hit = cache.get(track);
+    if (hit && hit.key === key) return hit.out;
+    const out = motifEvents(p, track, f, chords, sc);
+    cache.set(track, { key, out });
+    return out;
+  }
+
   /** Accords suivis par la piste, pour l'affichage (un bloc par accord) : [{ step, len, notes, name }]. */
-  SS.followBlocks = (p, track) => (SS.follows(track) ? SS.voiceChords(SS.sceneGridChords(p), track.follow) : []);
+  SS.followBlocks = (p, track) => (!SS.follows(track) ? [] : SS.playsMotif(track) ? SS.playEvents(p, track) : SS.voiceChords(SS.sceneGridChords(p), track.follow));
 
   /** « Convertir en notes » : la piste reprend en notes ce qu'elle joue, et ne suit plus les accords. */
   SS.freezeFollow = (p, track) => {

@@ -10652,5 +10652,5 @@ SS.band = (() => {
     });
   }
 
-  return { init, open, openWizard, resume, close: () => leave(), create: () => S.wiz && createWizSong(), hasDraft, wizSnapshot, wizRestore, draftWhen, active, togglePlay, stopListen, setTempo, plannedTracks, instKind, setKind, insSteps, stepRef, stepNum, instPartOf, putInstPart, melodyTrackOpts, claude, _state: S, _listen: () => L.proj, _spec: () => spec() };
+  return { init, open, openWizard, resume, close: () => leave(), create: () => S.wiz && createWizSong(), hasDraft, wizSnapshot, wizRestore, draftWhen, active, togglePlay, stopListen, setTempo, plannedTracks, instKind, setKind, insSteps, stepRef, stepNum, instPartOf, putInstPart, melodyTrackOpts, BASS_MODES, claude, _state: S, _listen: () => L.proj, _spec: () => spec() };
 })();

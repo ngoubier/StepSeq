@@ -235,6 +235,7 @@ SS.ui = (() => {
   /** Mode de jeu affiché dans le sous-titre : « Arpège », « Accords », « Arpège des accords » ou rien. */
   function modeLabel(track) {
     if (track.type !== 'instrument') return '';
+    if (SS.playsMotif(track)) return 'Motif ' + SS.bassMotifs.name(SS.bassMotifOf(track, SS.currentScene(app.project())));
     if (SS.arpOn(track)) return SS.follows(track) ? 'Arpège des accords' : 'Arpège';
     if (SS.follows(track)) return track.follow.play === 'steps' ? 'Accords rythmés' : 'Accords tenus';
     return '';
@@ -406,9 +407,32 @@ SS.ui = (() => {
   function modeToggles(track) {
     const arp = SS.arpOn(track);
     const fol = SS.follows(track);
+    const bass = !!SS.bassMotifs && SS.bassMotifs.isBass(track);
     return h(
       'span',
       { class: 'th-modes' },
+      bass
+        ? h(
+            'button',
+            {
+              type: 'button',
+              class: 'th-mode th-mot' + (SS.playsMotif(track) ? ' on' : ''),
+              'aria-pressed': String(SS.playsMotif(track)),
+              title: SS.playsMotif(track) ? 'Motif de basse : clic pour en choisir un autre · clic droit : éteindre' : 'Jouer un motif de basse sur la piste Accords',
+              onclick: (e) => {
+                e.stopPropagation();
+                const r = e.currentTarget.getBoundingClientRect();
+                openMotifMenu(track, r.left, r.bottom + 4);
+              },
+              oncontextmenu: (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (SS.playsMotif(track)) setTrackFollow(track, false);
+              },
+            },
+            'MOTIF'
+          )
+        : null,
       h(
         'button',
         {
@@ -423,7 +447,7 @@ SS.ui = (() => {
         },
         'ARP'
       ),
-      h(
+      bass ? null : h(
         'button',
         {
           type: 'button',
@@ -445,6 +469,102 @@ SS.ui = (() => {
         'ACCORDS'
       )
     );
+  }
+
+  /**
+   * Motif de basse (bouton MOTIF des pistes de basse) : la piste joue un motif de Nouvelle chanson sur la piste
+   * Accords. Clic sur un motif = écoute + motif posé ; « Cette scène » : motif propre à la scène en cours.
+   */
+  let motifGroup = 'all';
+  let motifTimers = [];
+  function openMotifMenu(track, x, y) {
+    closeChordMenu();
+    if (frozenGuard(track)) return;
+    const M = SS.bassMotifs;
+    const p = app.project();
+    const sc = SS.currentScene(p);
+    let scope = track.follow && track.follow.motifs && track.follow.motifs[sc.id] ? 'one' : 'all';
+    const cur = () => SS.FOLLOW.clean(track.follow && track.follow.play === 'motif' ? track.follow : track.lastFollow && track.lastFollow.play === 'motif' ? track.lastFollow : { play: 'motif' });
+    const commit = (f) => {
+      track.follow = SS.FOLLOW.clean(f);
+      delete track.lastFollow;
+      renderTrack(track);
+      app.changed();
+      render();
+      if (!SS.sceneGridChords(p).length) toast(`Pas d'accords dans la scène « ${sc.name} » : la basse se tait. Cliquez dans la piste Accords pour en poser.`, 5000);
+    };
+    // écoute : les deux premières mesures du motif, au tempo de la scène (coupée par une nouvelle écoute)
+    const preview = () => {
+      motifTimers.forEach(clearTimeout);
+      motifTimers = [];
+      if (SS.audio.isPlaying()) return;
+      const sd = 60 / SS.tempoOf(p) / 4;
+      SS.playEvents(p, track)
+        .filter((e) => e.step < 2 * SS.stepsPerBar(p))
+        .forEach((e) => motifTimers.push(setTimeout(() => SS.audio.preview(track, e.notes[0], Math.max(0.08, e.len * sd * 0.9), { velocity: e.vel }), e.step * sd * 1000)));
+    };
+    const pick = (id) => {
+      const f = cur();
+      if (scope === 'one') f.motifs = { ...(f.motifs || {}), [sc.id]: id };
+      else {
+        f.motif = id;
+        if (f.motifs) delete f.motifs[sc.id];
+      }
+      commit(f);
+      preview();
+    };
+    const setScope = (v) => {
+      scope = v;
+      const f = cur();
+      const id = SS.bassMotifOf({ follow: f }, sc);
+      if (v === 'one') f.motifs = { ...(f.motifs || {}), [sc.id]: id };
+      else if (f.motifs) {
+        delete f.motifs[sc.id];
+        f.motif = id;
+      }
+      if (SS.playsMotif(track)) commit(f);
+      else render();
+    };
+    const seg = (label, list, val, set, help) =>
+      h(
+        'div',
+        { class: 'ctx-param fol-row' },
+        h('span', { class: 'ctx-param-label' }, label, help ? SS.helpTip(help, label) : null),
+        h('div', { class: 'segmented fol-seg', role: 'radiogroup', 'aria-label': label }, list.map(([id, l]) => h('button', { type: 'button', role: 'radio', 'aria-checked': String(val === id), class: val === id ? 'active' : null, onclick: () => set(id) }, l)))
+      );
+    menuEl = h('div', { class: 'ctx-menu fol-menu mot-menu', role: 'dialog', 'aria-label': 'Motif de basse' });
+    function render() {
+      const on = SS.playsMotif(track);
+      const f = cur();
+      const now = SS.bassMotifOf({ follow: f }, sc);
+      menuEl.replaceChildren(
+        h('div', { class: 'ctx-head' }, h('b', { class: 'ctx-current' }, 'Motif · ' + track.name), h('span', { class: 'ctx-desc mot-now' }, on ? M.name(now) : 'éteint'), SS.helpTip('Cliquez un motif : il s’entend et la basse le joue sur les accords de la piste Accords, scène par scène. Les notes suivent les accords quand vous les changez.', 'Motif de basse')),
+        h(
+          'div',
+          { class: 'mot-chips' },
+          [['all', 'Tous'], ...M.GROUPS.map((g) => [g[0], g[1]])].map(([id, l]) => h('button', { type: 'button', class: 'mot-chip' + (motifGroup === id ? ' on' : ''), onclick: () => ((motifGroup = id), render()) }, l))
+        ),
+        h(
+          'div',
+          { class: 'mot-cards' },
+          M.inGroup(motifGroup).map((id) =>
+            h('button', { type: 'button', class: 'mot-card' + (on && id === now ? ' on' : ''), 'data-id': id, title: M.desc(id), onclick: () => pick(id) }, h('span', { class: 'mot-name' }, M.name(id)), h('span', { class: 'mot-draw', html: M.svg(id) }))
+          )
+        ),
+        seg('Scènes', [['all', 'Toutes'], ['one', 'Cette scène']], scope, setScope, '« Cette scène » : seule la scène en cours prend le motif choisi ; les autres gardent le leur.'),
+        seg('Hauteur', SS.FOLLOW.MOTIF_OCTAVES.map((o) => [o, 'C' + o]), f.oct, (o) => (on ? (commit({ ...f, oct: o }), preview()) : ((track.lastFollow = SS.FOLLOW.clean({ ...f, oct: o })), render()))),
+        h(
+          'div',
+          { class: 'ctx-foot' },
+          on ? h('button', { type: 'button', onclick: () => (closeChordMenu(), freezeFollow(track)), title: 'La piste reprend en notes ce qu’elle joue dans cette scène, pour les retoucher à la main' }, 'Convertir en notes') : null,
+          on ? h('button', { type: 'button', class: 'danger', onclick: () => (closeChordMenu(), setTrackFollow(track, false)) }, 'Ne plus suivre') : null,
+          h('button', { type: 'button', class: 'ctx-close', onclick: () => closeChordMenu() }, 'Fermer')
+        )
+      );
+    }
+    render();
+    placeMenu(x, y);
+    menuEl.querySelector('.mot-card.on')?.scrollIntoView({ block: 'nearest' });
   }
 
   /** Réglages « suivre les accords » : jeu, notes, hauteur, voicing, enchaînement. */
@@ -1664,7 +1784,7 @@ SS.ui = (() => {
         ? [
             // même catalogue de motifs que la fenêtre de l'arpégiateur (mêmes noms, mêmes catégories)
             (() => {
-              const cur = SS.motifOf(track.arp);
+              const cur = SS.bassMotifOf(track.arp);
               return h(
                 'label',
                 {},
@@ -4325,6 +4445,8 @@ SS.ui = (() => {
       dlg.s.follow = e.target.checked;
       syncDialog();
     });
+    // motif de basse d'une nouvelle piste de basse (js/bassmotifs.js) : « À la main » ou un motif sur la piste Accords
+    $('#dlgMotifAll').addEventListener('change', (e) => setDlgMotif(e.target.value || null));
     $('#dlgGm').addEventListener('click', (e) => {
       const b = e.target.closest('button');
       if (!b) return;
@@ -4346,6 +4468,9 @@ SS.ui = (() => {
     dlg.el.addEventListener('close', () => {
       const ok = dlg.el.returnValue === 'ok';
       const res = ok ? { ...dlg.s, name: dlg.s.name.trim() } : null;
+      if (res && res.motif && !res.editingId && dlg.role === 'bass' && res.type !== 'drum') res.follow = { play: 'motif', motif: res.motif };
+      if (res) delete res.motif;
+      motifTimers.forEach(clearTimeout);
       dlg.resolve && dlg.resolve(res);
       dlg.resolve = null;
     });
@@ -4388,13 +4513,14 @@ SS.ui = (() => {
     const { v } = SS.catalog.valueOf(s, { gm: gmOn() });
     const e = SS.catalog.entryOf(v);
     const src = e && SS.catalog.SOURCES[e.src];
-    $('#dlgFiche').replaceChildren(
+    // replaceChildren écrirait « null » : les blocs absents sont retirés
+    $('#dlgFiche').replaceChildren(...[
       h('b', { class: 'nt-fiche-name' }, e ? e.name : ''),
       h('div', { class: 'nt-fiche-meta' }, src ? h('span', { class: 'pl-tag', style: `--sc:${src.color}` }, src.label) : null, e && e.detail && !e.song ? h('span', {}, e.detail) : null),
       e && e.song ? h('div', { class: 'nt-fiche-song' }, '★ Dans l’esprit de ', h('i', {}, e.song), h('small', {}, ` · ${e.artist}`)) : null,
       e && e.desc ? h('p', { class: 'nt-fiche-desc' }, e.desc) : null,
       h('small', { class: 'dlg-hint' }, [(SS.catalog.ROLE[dlg.role] || {}).label, e && e.sub && ((SS.catalog.SUBS[dlg.role] || []).find((g) => g.id === e.sub) || {}).label, e && e.styles].filter(Boolean).join(' › '))
-    );
+    ].filter((x) => x != null));
     const synth = s.type === 'synth';
     $('#dlgSfvHead').hidden = synth;
     $('#dlgSfvList').hidden = synth;
@@ -4646,6 +4772,37 @@ SS.ui = (() => {
     return true;
   }
 
+  function setDlgMotif(id) {
+    dlg.s.motif = id;
+    syncMotifRow();
+    if (id && !SS.audio.isPlaying()) {
+      // écoute du motif sur un accord de La mineur, au tempo du projet
+      const fake = dialogFake();
+      const sd = 60 / SS.tempoOf(app.project()) / 4;
+      const sp = [{ step: 0, len: 16, bar: 0, chord: { rootPc: 9, type: 'min', tok: 'Am' } }, { step: 16, len: 16, bar: 1, chord: { rootPc: 5, type: 'maj', tok: 'F' } }];
+      motifTimers.forEach(clearTimeout);
+      motifTimers = SS.bandSong.bassEvents(sp, id, () => 0.5, [9, 11, 0, 2, 4, 5, 7]).map((e) => setTimeout(() => SS.audio.preview(fake, e.notes[0], Math.max(0.08, e.len * sd * 0.9), { velocity: e.vel }), e.step * sd * 1000));
+    }
+  }
+  /** Ligne « Motif » de la fenêtre : nouvelle piste de basse seulement. */
+  function syncMotifRow() {
+    const M = SS.bassMotifs;
+    const show = !!M && !dlg.s.editingId && dlg.s.type !== 'drum' && dlg.role === 'bass';
+    $('#dlgMotifRow').hidden = !show;
+    if (!show) return;
+    const cur = dlg.s.motif || null;
+    $('#dlgMotifs').replaceChildren(
+      ...[null, ...M.PICKS].map((id) =>
+        h('button', { type: 'button', role: 'radio', 'aria-checked': String(cur === id), class: 'nt-motif-card' + (cur === id ? ' on' : ''), 'data-id': id || '', onclick: () => setDlgMotif(id) }, h('span', { class: 'mot-name' }, id ? M.name(id) : 'À la main'), id ? h('span', { class: 'mot-draw', html: M.svg(id) }) : null)
+      ),
+      SS.helpTip('La basse joue ce motif sur les accords de la piste Accords, scène par scène (bouton MOTIF de la piste pour en changer). « À la main » : vous écrivez les notes.', 'Motif')
+    );
+    const sel = $('#dlgMotifAll');
+    if (!sel.options.length)
+      sel.append(h('option', { value: '' }, 'Tous les motifs…'), ...M.GROUPS.map((g) => h('optgroup', { label: g[1] }, M.inGroup(g[0]).map((id) => h('option', { value: id }, M.name(id))))));
+    sel.value = cur && !M.PICKS.includes(cur) ? cur : '';
+  }
+
   function syncDialog() {
     const s = dlg.s;
     const isDrum = s.type === 'drum';
@@ -4677,15 +4834,24 @@ SS.ui = (() => {
     dlg.colorInput.value = s.color;
     $('#dlgDrumTypes').querySelectorAll('.chip').forEach((b) => b.classList.toggle('active', b.dataset.v === s.sound));
     dlg.form.querySelectorAll('.pills-nav').forEach(rovePills);
+    syncMotifRow();
+  }
+
+  /** Piste fictive du son choisi dans la fenêtre, pour les écoutes. */
+  function dialogFake() {
+    const s = dlg.s;
+    const synth = s.type === 'synth';
+    const family = synth ? 'analog' : s.family;
+    return synth
+      ? { ...s, type: 'instrument', id: null, family, instrument: s.analog, junoPatch: s.patch, octave: SS.findFamily(family).octave, chord: 'min' }
+      : { ...s, id: null, octave: SS.findFamily(s.family).octave, chord: 'min' };
   }
 
   function previewDialog() {
     const s = dlg.s;
     const synth = s.type === 'synth';
     const family = synth ? 'analog' : s.family;
-    const fake = synth
-      ? { ...s, type: 'instrument', id: null, family, instrument: s.analog, junoPatch: s.patch, octave: SS.findFamily(family).octave, chord: 'min' }
-      : { ...s, id: null, octave: SS.findFamily(s.family).octave, chord: 'min' };
+    const fake = dialogFake();
     if (s.type === 'drum') SS.audio.preview(fake);
     else {
       const root = (SS.findFamily(family).octave + 1) * 12;
