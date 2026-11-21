@@ -8,12 +8,13 @@ globalThis.window = globalThis;
 ['library.js', 'dirt.js', 'dirt-tuning.js', 'sounds.js', 'juno.js', 'expression.js', 'arp.js', 'project.js', 'harmony.js', 'chords.js', 'band-presets.js', 'band-templates.js'].forEach((f) => require('../js/' + f));
 const SS = globalThis.SS;
 
-test('style « Cinematic music » : une chanson, à part des styles générés', () => {
+test('« Cinematic music » : une chanson, rangée dans « Musique de film »', () => {
   const st = SS.BandTemplates.find((s) => s.id === 'cinematic');
   assert.ok(st);
   assert.equal(st.label, 'Cinematic music');
   assert.equal(st.templates.length, 1);
   assert.ok(!SS.Band.STYLES.some((s) => s.id === 'cinematic'), 'pas dans les styles générés (inspirations et musiciens)');
+  assert.equal(st.parent, 'film', 'rangé dans la tuile « Musique de film »');
   const ids = SS.BandTemplates.flatMap((s) => s.templates.map((t) => t.id));
   assert.equal(new Set(ids).size, ids.length);
 });

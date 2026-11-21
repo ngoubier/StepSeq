@@ -43,25 +43,30 @@ const SHOTS = process.env.SHOTS;
   await page.click('#appMenuBtn');
   await page.click('#newProject');
   await page.waitForTimeout(600);
-  const card = '#bandStyles [data-v="cinematic"]';
-  ok(await page.isVisible(card), 'carte « Cinematic music » parmi les styles');
-  ok(/Cinematic music/.test(await page.textContent(card)) && /Morceaux complets/.test(await page.textContent(card)), 'la carte dit ce qu’elle contient');
+  const film = '#bandStyles [data-v="film"]';
+  const card = '#bandPresets [data-tpl="reconstitution-cinematique"]';
+  ok(!(await page.isVisible('#bandStyles [data-v="cinematic"]')), 'plus de tuile « Cinematic music » à part');
+  await page.click(film);
+  ok(await page.isVisible(card) && /Reconstitution cinématique/.test(await page.textContent(card)) && /Morceau complet/.test(await page.textContent(card)), 'le morceau complet est un départ de « Musique de film »');
+  ok((await page.locator('#bandPresets .band-preset').count()) === 5, 'quatre départs de film + le morceau complet');
   await page.click(card);
-  ok((await page.getAttribute(card, 'aria-checked')) === 'true' && (await page.locator('#bandStyles .bsty.active').count()) === 1, 'style choisi (un seul actif)');
-  ok((await page.locator('#bandPresets .band-preset').count()) === 1 && /Reconstitution cinématique/.test(await page.textContent('#bandPresets')), 'une chanson : « Reconstitution cinématique »');
+  ok((await page.getAttribute(card, 'aria-checked')) === 'true' && (await page.getAttribute(film, 'aria-checked')) === 'true' && (await page.locator('#bandStyles .bsty.active').count()) === 1, 'morceau choisi, la tuile Musique de film reste active');
   ok(/Modèle/.test(await page.textContent('#bandSong .bs-kind')) && /72 mesures/.test(await page.textContent('#bandSong')) && (await page.locator('#bandSong .bs-mus li').count()) === 13, 'détail : 72 mesures, 13 pistes');
   ok(!(await page.isVisible('#bwQuick')) && (await page.isDisabled('#bwNext')), 'pas de « Générer et écouter » ni d’étapes : le modèle s’ouvre tel quel');
-  ok(await page.evaluate(() => { const c = document.querySelector('[data-v="cinematic"] canvas'); return c.width > 0 && c.getContext('2d').getImageData(c.width * 0.72 | 0, c.height * 0.42 | 0, 1, 1).data[0] > 120; }), 'image du style dessinée');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'template-style.png') });
   ok(await page.evaluate(() => { const r = document.querySelector('#bsTplOpen').getBoundingClientRect(); return r.bottom <= innerHeight && r.height > 0; }) || (await page.locator('#bsTplOpen').scrollIntoViewIfNeeded(), true), '« Ouvrir cette chanson » atteignable');
-  if (SHOTS) await page.locator('#bandSong').screenshot({ path: path.join(SHOTS, 'template-song.png') });
+  // retour à un départ de film
+  await page.click('#bandPresets .band-preset >> nth=0');
+  ok((await page.getAttribute(card, 'aria-checked')) === 'false' && (await page.isVisible('#bwQuick')) && (await page.locator('.bfm-cues').count()) === 1, 'retour à « La lumière revient » : la scène et « Générer et écouter » reviennent');
+  await page.click(card);
 
   // revenir à un style ordinaire, puis au modèle
   await page.click('#bandStyles [data-v="synthwave"]');
   ok((await page.locator('#bandPresets .band-preset').count()) === 10 && (await page.isVisible('#bwQuick')), 'Synthwave : ses 10 inspirations et « Générer et écouter » reviennent');
   await page.click('#bandMode [data-mode="cover"]');
-  ok(!(await page.isVisible(card)), 'Reprendre : pas de modèles');
+  ok(!(await page.isVisible(film)) && !(await page.isVisible(card)), 'Reprendre : pas de musique de film ni de modèles');
   await page.click('#bandMode [data-mode="create"]');
+  await page.click(film);
   await page.click(card);
 
   // ouvrir
@@ -79,6 +84,8 @@ const SHOTS = process.env.SHOTS;
   await page.click('#appMenuBtn');
   await page.click('#bandBtn');
   await page.waitForTimeout(500);
+  if (await page.isVisible('#brgSkip')) await page.click('#brgSkip'); // « Reprendre la grille » : on part de zéro
+  await page.click(film);
   await page.click(card);
   await page.click('#bsTplOpen');
   ok(await page.isVisible('#bandConfirm') && /Ouvrir le modèle/.test(await page.textContent('#bandConfirm')), 'projet commencé : confirmation');

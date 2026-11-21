@@ -4,7 +4,7 @@
  * une chanson à partir d'un groupe de musiciens (js/band-presets.js). Le projet est inclus ici (pas de fetch : l'application
  * marche aussi ouverte depuis le disque).
  *
- *   SS.BandTemplates = [{ id, label, desc, templates: [{ id, song, tempo, key, desc, project }] }]
+ *   SS.BandTemplates = [{ id, label, desc, parent?, templates: [{ id, song, tempo, key, desc, project }] }]
  *
  * « Reconstitution cinématique » : maquette d'après la grille, la forme et les rôles d'une musique de film (boucle de
  * 8 mesures Am · Em · G · D · Am · Cmaj7 · G · D, 72 mesures à 63,2 BPM) ; importée d'un fichier MIDI expressif, puis
@@ -15,6 +15,7 @@ SS.BandTemplates = [
   {
     id: 'cinematic',
     label: 'Cinematic music',
+    parent: 'film', // rangé dans la tuile « Musique de film » : ses morceaux s'ajoutent à ses départs, pas de tuile à part
     desc: 'Musique de film : piano, cordes, cors et percussions d’orchestre ; une boucle qui grandit couche après couche jusqu’au sommet, puis le retour au piano seul.',
     templates: [
       {

@@ -41,7 +41,7 @@ const shot = async (page, name) => SHOTS && page.screenshot({ path: path.join(SH
   await shot(page, 'film-tuile.png');
   await tile.click();
   await page.waitForTimeout(400);
-  ok((await page.locator('#bandPresets .band-preset').count()) === 4, 'quatre départs : trois modèles et « Ma scène »');
+  ok((await page.locator('#bandPresets .band-preset').count()) === 5, 'cinq départs : trois modèles, « Ma scène » et le morceau complet');
   ok((await page.inputValue('#tempo')) === '80', 'modèle : 80 BPM');
   ok((await page.locator('.bfm-cues tbody tr').count()) === 5, '5 repères');
   ok(/m\. 13/.test(await page.textContent('.bfm-cues tr.sync')), 'synchro forte sur la mesure 13');
