@@ -1122,10 +1122,10 @@ Les sons proviennent des bibliothèques utilisées par [strudel.cc](https://stru
   tuba, flûte, piccolo, hautbois, clarinette, basson, marimba, xylophone, glockenspiel), hébergés avec l'app dans
   `samples/vsco/` (MP3, une nuance par note, 8 s max, 23 Mo). `tools/vsco-local.py` les prépare et mesure leur
   accordage (`js/vsco.js`). Ils jouent les pupitres de l'étape Orchestration de l'assistant. Merci à Versilian Studios ;
-- sept vraies batteries enregistrées, tirées de kits [Hydrogen](https://sourceforge.net/projects/hydrogen/files/Sound%20Libraries/)
+- huit vraies batteries enregistrées, tirées de kits [Hydrogen](https://sourceforge.net/projects/hydrogen/files/Sound%20Libraries/)
   sous licence libre (détail et crédits dans `samples/live/LICENSE.txt`) : les [AVL Drumkits](https://www.bandshed.net/avldrumkits/)
   de Glen MacArthur (CC BY-SA 4.0 : Black Pearl pour la pop, Red Zeppelin pour le rock, Blonde Bop pour la ballade,
-  aux baguettes et aux fagots, Buskman's Holiday pour le cajón et les percussions), le Forzee Stereo Drumkit (Tama,
+  aux baguettes, aux fagots et accordé haut pour le reggae roots, Buskman's Holiday pour le cajón et les percussions), le Forzee Stereo Drumkit (Tama,
   GPL 2) et le kit Pacific de Bransin James Anderson (CC BY-SA 3.0). Chaque élément existe en plusieurs niveaux de
   frappe : le coup joue celui de sa vélocité, ce qui rend les ghost notes naturelles. Hébergées dans `samples/live/`
   (MP3, 4 s max, 21 Mo), préparées par `tools/live-drums.py` ;
