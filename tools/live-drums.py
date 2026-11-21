@@ -14,7 +14,8 @@ plages de vélocité de drumkit.xml), retire le silence avant l'attaque, les rac
 les encode en MP3 dans samples/live/<kit>/ et écrit samples/live/live.json au format des banques de strudel :
 { "_base": "samples/live/", "<kit>_<élément>": [niveau 1, …, niveau n] }.
 js/audio.js joue le niveau qui correspond à la vélocité du coup (SS.LAYERED_DRUM_LIBS).
-Instrument « Nom+3 » : accordé 3 demi-tons plus haut (tom aigu des kits à deux toms, kit reggae) ; « =banque » : banque d'un autre kit.
+Instrument « Nom+3 » : accordé 3 demi-tons plus haut (tom aigu des kits à deux toms, kit reggae) ; « Nom~0.3 » : son
+étouffé (raccourci à 0,3 s avec un long fondu, caisse claire sèche du reggae) ; « =banque » : banque d'un autre kit.
 
 Usage : python3 tools/live-drums.py [dossier de téléchargement]
 Nécessite ffmpeg et curl.
@@ -61,10 +62,10 @@ KITS = [
     }),
     # reggae roots : le petit kit jazz Blonde Bop accordé haut (caisse claire sèche et aiguë, cross-stick, toms en timbales)
     ('reggae', 'AVLDrumkits-BlondeBop', False, {
-        'bd': 'TAMA-18-Kick+1', 'sd': 'TAMA-13-SnareCenter+4', 'rim': 'TAMA-13-SideStick+3', 'cp': 'HandClap',
+        'bd': 'TAMA-18-Kick+1', 'sd': 'TAMA-13-SnareCenter+4~0.28', 'rim': 'TAMA-13-SideStick+3~0.22', 'cp': 'HandClap',
         'hh': 'Zildjian-13-HatClosed', 'oh': 'Zildjian-13-HatSemi', 'lt': 'TAMA-14-FlrTomCenter+5', 'mt': 'TAMA-10-TomCenter+3',
         'ht': 'TAMA-10-TomCenter+7', 'cr': 'Paiste-16-Crash', 'rd': 'Sabian-20-RideTip', 'cb': 'LP-Cowbell',
-        'tb': 'GP-10-Tambourine', 'sh': 'GonBops-Shaker', 'perc': 'TAMA-13-SnareEdge+4', 'misc': '55-Zildjian-10-Splash-5',
+        'tb': 'GP-10-Tambourine', 'sh': 'GonBops-Shaker', 'perc': 'TAMA-13-SnareEdge+4~0.28', 'misc': '55-Zildjian-10-Splash-5',
     }),
     ('tama', 'ForzeeStereo', True, {
         'bd': 'Kick (Tama Superstar 22")', 'sd': 'Snare (Pearl Free Floating Maple 14x3.5)',
@@ -106,13 +107,16 @@ def layers(xml):
     return out
 
 
-def encode(src, dst, semis, stereo):
+def encode(src, dst, semis, stereo, cut=0):
     os.makedirs(os.path.dirname(dst), exist_ok=True)
     # quelques prises commencent par 10 à 25 ms de silence : le coup tomberait en retard
     af = ['silenceremove=start_periods=1:start_threshold=0.004:start_silence=0.001']
     if semis:
         af.append(f'aresample=44100,asetrate={round(44100 * 2 ** (semis / 12))},aresample=44100')
-    af.append(f'atrim=0:{MAX_S},afade=t=out:st={MAX_S - FADE_S}:d={FADE_S}')
+    if cut:  # étouffé : la queue du son s'éteint vite
+        af.append(f'atrim=0:{cut},afade=t=out:st={cut * 0.25:.3f}:d={cut * 0.75:.3f}:curve=exp')
+    else:
+        af.append(f'atrim=0:{MAX_S},afade=t=out:st={MAX_S - FADE_S}:d={FADE_S}')
     ac = ['-ac', '2', '-b:a', '160k'] if stereo else ['-ac', '1', '-b:a', '128k']
     subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', src, '-af', ','.join(af), '-ar', '44100', *ac, dst], check=True)
 
@@ -126,11 +130,12 @@ def main():
             if inst.startswith('='):
                 bank[f'{key}_{piece}'] = bank[inst[1:]]
                 continue
+            inst, _, cut = inst.partition('~')
             inst, _, semis = inst.partition('+')
             files = []
             for n, src in enumerate(lay[inst], 1):
                 rel = f'{key}/{piece}-{n}.mp3'
-                jobs.append((src, os.path.join(OUT, rel), int(semis or 0), stereo))
+                jobs.append((src, os.path.join(OUT, rel), int(semis or 0), stereo, float(cut or 0)))
                 files.append(rel)
             bank[f'{key}_{piece}'] = files
     with ThreadPoolExecutor(8) as ex:
