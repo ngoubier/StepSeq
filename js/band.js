@@ -3265,11 +3265,14 @@ SS.band = (() => {
       S.wiz.hscene = sc.id;
       S.wiz.hsec = sc.sec;
       if (L.mode === 'scene' && L.scene !== sc.id) playScene(sc.id); // la lecture suit la scène ouverte
-    } else if (sceneStep(n) && L.mode && L.scene) S.wiz.hscene = L.scene; // Accords, Mélodie : la scène qu'on entend
+    } else if (sceneStep(n) && L.mode && L.scene) {
+      S.wiz.hscene = L.scene; // Accords, Mélodie : la scène qu'on entend
+      S.wiz.follow = true;
+    }
     if (n <= ST.inst) dropListen(); // style et instruments changent toute la chanson
     else if (L.junc && n !== ST.fx) dropListen(); // la transition ne s'écoute que dans son étape
     renderWiz();
-    if (sceneStep(n) && L.mode === 'song' && !L.paused) playScene(S.wiz.hscene); // ici, on écoute une scène
+    if (sceneStep(n) && L.mode === 'song' && !L.paused && playMode() === 'scene') playScene(S.wiz.hscene); // ici, on écoute une scène
   }
 
   function toggleCols(ids, on) {
@@ -3658,7 +3661,7 @@ SS.band = (() => {
           { scope: 'row', class: 'bw-scene', title: sceneChords(sc) },
           h(
             'button',
-            { type: 'button', class: 'bw-splay', 'aria-pressed': 'false', title: `Écouter « ${sc.name} » en boucle (re-clic : arrêt)`, onclick: () => listenScene(sc.id) },
+            { type: 'button', class: 'bw-splay', 'aria-pressed': 'false', title: `Écouter « ${sc.name} » en boucle (re-clic : arrêt)`, onclick: () => ((S.wiz.playMode = 'scene'), listenScene(sc.id)) },
             h('span', { class: 'bw-pico', html: PLAY + STOP }),
             h('span', { class: 'bw-sname' }, sc.name),
             h('small', {}, `${sc.bars} mes.` + (plays.get(sc.id) > 1 ? ` · ×${plays.get(sc.id)}` : '')),
@@ -3733,6 +3736,7 @@ SS.band = (() => {
     S.wiz.hscene = x.id;
     S.wiz.hsec = x.sec;
     S.wiz.gsel = null;
+    if (L.mode === 'song') S.wiz.follow = x.id === L.scene; // on regarde une autre scène : la vue ne suit plus la lecture
     renderWiz();
     if (L.mode === 'scene') playScene(x.id); // la lecture suit la scène choisie
   }
@@ -3755,15 +3759,64 @@ SS.band = (() => {
         const line = sub && sub(x);
         return h(
           'button',
-          { type: 'button', class: 'bh-scene' + (on ? ' on' : ''), style: `--c:${secColor(x.sec)}`, 'data-scene': x.id, 'data-sec': x.sec, 'aria-pressed': String(on), title: `Travailler « ${x.name} » (la lecture joue la scène choisie)`, onclick: () => pickScene(x) },
+          { type: 'button', class: 'bh-scene' + (on ? ' on' : ''), style: `--c:${secColor(x.sec)}`, 'data-scene': x.id, 'data-sec': x.sec, 'data-bars': x.bars, 'aria-pressed': String(on), title: `Travailler « ${x.name} »`, onclick: () => pickScene(x) },
           h('span', { class: 'bh-sname' }, h('b', {}, x.name), h('small', {}, `${x.bars} mes.` + (plays.get(x.id) > 1 ? ` · ×${plays.get(x.id)}` : ''))),
           h('span', { class: 'bh-mini' }, ...[...seen.values()].map((c) => h('span', { class: 'bh-mchip role-' + c.role.id, title: `${c.numeral} · ${c.role.label}` }, c.name))),
           line ? h('small', { class: 'bh-ssub' }, line) : null
         );
       }),
-      legend ? h('div', { class: 'bh-legend' }, h('span', {}, h('i', { class: 'bh-lg-in' }), 'Note de l’accord'), h('span', {}, h('i', { class: 'bh-lg-out' }), 'Note de passage')) : null
+      legend ? h('div', { class: 'bh-legend' }, h('span', {}, h('i', { class: 'bh-lg-in' }), 'Note de l’accord'), h('span', {}, h('i', { class: 'bh-lg-out' }), 'Note de passage')) : null,
+      playModeSeg()
     );
   }
+  /*
+   * Lecture des étapes à scènes (Accords, instruments, Mélodie) : Play joue toute la chanson ou la scène affichée en boucle.
+   * Le choix est retenu (S.wiz.playMode) ; en mode Chanson la vue suit la scène qu'on entend (S.wiz.follow), sauf si l'on
+   * en choisit une autre pendant la lecture (bouton « Suivre la lecture » pour revenir).
+   */
+  const playMode = () => (S.wiz && S.wiz.playMode === 'song' ? 'song' : 'scene');
+  const SONG_ICO = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12M2 8h12M2 13h8" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>';
+  const LOOP_ICO = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M12.5 5.5A5 5 0 1 0 13 9.5" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/><path d="M13.5 2.5v3.5H10" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  function playModeSeg() {
+    const cur = playMode();
+    return h(
+      'div',
+      { class: 'segmented bh-playmode', id: 'bwPlayMode', role: 'radiogroup', 'aria-label': 'Lecture' },
+      ...[['song', 'Chanson', 'Écouter toute la chanson (Espace)', SONG_ICO], ['scene', 'Scène', 'Écouter la scène affichée en boucle (Espace)', LOOP_ICO]].map(([v, t, tip, ico]) =>
+        h('button', { type: 'button', role: 'radio', 'data-v': v, class: v === cur ? 'active' : '', 'aria-checked': String(v === cur), title: tip, onclick: () => setPlayMode(v) }, h('i', { html: ico }), t)
+      )
+    );
+  }
+  /** Premier bloc de l'arrangement qui joue la scène `id` (0 si aucun). */
+  function blockOf(id) {
+    const res = S.wiz && S.wiz.res;
+    const i = res ? res.song.findIndex((b) => b.scene === id) : -1;
+    return i < 0 ? 0 : i;
+  }
+  /** Change le mode de lecture ; pendant l'écoute, la musique passe tout de suite dans le nouveau mode. */
+  function setPlayMode(v) {
+    if (!S.wiz) return;
+    S.wiz.playMode = v;
+    S.wiz.follow = true;
+    if (L.mode && !L.junc && sceneStep()) {
+      if (L.paused) stopListen();
+      else if (v === 'song' && L.mode === 'scene') listenSong(blockOf(L.scene));
+      else if (v === 'scene' && L.mode === 'song') playScene(S.wiz.hscene);
+    }
+    markListen();
+  }
+  /** « Suivre la lecture » : la vue revient sur la scène qu'on entend. */
+  function followNow() {
+    if (!S.wiz) return;
+    S.wiz.follow = true;
+    if (L.mode === 'song' && L.scene && L.scene !== S.wiz.hscene) {
+      S.wiz.hscene = L.scene;
+      renderWiz();
+    }
+    markListen();
+  }
+  const followBtn = () =>
+    h('button', { type: 'button', class: 'btn btn-small bh-follow', id: 'bwFollow', hidden: L.mode !== 'song', title: 'La vue suit la scène qu’on entend', onclick: followNow }, h('i', { html: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v9M4 7.5 8 11.5 12 7.5M3 14h10" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>' }), h('span', {}, 'Suit la lecture'));
   /** Mise en page des étapes Accords et Mélodie : colonne des scènes à gauche, bandeau de lecture et contenu à droite. */
   function splitView(nav, ...content) {
     const box = $('#bandWiz');
@@ -3895,7 +3948,7 @@ SS.band = (() => {
 
     const loop = h(
       'button',
-      { type: 'button', class: 'btn btn-small bh-loop', 'aria-pressed': 'false', title: `Écouter « ${sc.name} » en boucle (re-clic : arrêt)`, onclick: () => listenScene(sc.id) },
+      { type: 'button', class: 'btn btn-small bh-loop', 'aria-pressed': 'false', title: `Écouter « ${sc.name} » en boucle (re-clic : arrêt)`, onclick: () => ((S.wiz.playMode = 'scene'), listenScene(sc.id)) },
       h('span', { class: 'bw-pico', html: PLAY + STOP }),
       h('span', {}, 'Écouter la scène')
     );
@@ -3925,7 +3978,7 @@ SS.band = (() => {
       melIds,
       nav: sceneNav(res, sc, (x) => withAutoBadge(melSub(x, T), x, T), true),
       bar: trackbar(T),
-      top: h('div', { class: 'bh-top', id: 'bwMelHead' }, h('h3', {}, sc.name), h('span', { class: 'bh-info' }, `${sc.bars} mesures` + (plays > 1 ? ` · jouée ${plays} fois` : '') + ` · ${SS.harmony.label(sc.key)}`), h('span', { class: 'spacer' }), melIds.size ? autoButton(sc, T) : null, loop),
+      top: h('div', { class: 'bh-top', id: 'bwMelHead' }, h('h3', {}, sc.name), h('span', { class: 'bh-info' }, `${sc.bars} mesures` + (plays > 1 ? ` · jouée ${plays} fois` : '') + ` · ${SS.harmony.label(sc.key)}`), followBtn(), h('span', { class: 'spacer' }), melIds.size ? autoButton(sc, T) : null, loop),
       auto: h('div', { id: 'bwAuto', class: 'bwau-box' }, melIds.size ? autoCard(sc, T, { fit: true, copy: true, grid: true }) : null),
       board: h('div', { class: 'bh-scroll', id: 'bwMelBoard' }, board),
       src: melIds.size
@@ -5250,7 +5303,7 @@ SS.band = (() => {
     const isAcc = (e) => !!acc && acc.steps.includes(e.step % per);
     events.forEach((e) => {
       const appr = isAppr(e);
-      e.notes.forEach((n) => el('rect', { x: e.step + 0.08, y: hi - n + 0.1, width: Math.max(0.5, Math.min(e.len, total - e.step) - 0.16), height: 0.8, class: 'bw-rn' + (appr ? ' appr' : '') + (isAcc(e) ? ' ac' : '') }, svg));
+      e.notes.forEach((n) => el('rect', { 'data-s': e.step, 'data-e': e.step + e.len, x: e.step + 0.08, y: hi - n + 0.1, width: Math.max(0.5, Math.min(e.len, total - e.step) - 0.16), height: 0.8, class: 'bw-rn' + (appr ? ' appr' : '') + (isAcc(e) ? ' ac' : '') }, svg));
     });
     const pct = (x) => `${((100 * x) / total).toFixed(3)}%`;
     const chords = h(
@@ -5265,7 +5318,7 @@ SS.band = (() => {
       const on = isAcc(e);
       const n = e.notes[0];
       return h('button', {
-        type: 'button', class: 'bw-rnb' + (on ? ' ac' : ''), 'data-s': e.step, 'aria-pressed': String(on),
+        type: 'button', class: 'bw-rnb' + (on ? ' ac' : ''), 'data-s': e.step, 'data-e': e.step + e.len, 'aria-pressed': String(on),
         style: `left:${pct(e.step)};width:${pct(Math.min(e.len, total - e.step))};top:${((100 * (hi - n)) / rows).toFixed(3)}%;height:${(100 / rows).toFixed(3)}%`,
         'aria-label': `${names[((n % 12) + 12) % 12]}${Math.floor(n / 12) - 1}, pas ${e.step + 1}${on ? ', accentuée' : ''}`,
         title: on ? 'Note accentuée : clic pour la retirer' : 'Clic : accentuer cette note',
@@ -6201,7 +6254,7 @@ SS.band = (() => {
   const loopBtn = (sc) =>
     h(
       'button',
-      { type: 'button', class: 'btn btn-small bh-loop', id: 'bwpLoop', 'aria-pressed': 'false', title: `Écouter « ${sc.name} » en boucle (re-clic : arrêt)`, onclick: () => listenScene(sc.id) },
+      { type: 'button', class: 'btn btn-small bh-loop', id: 'bwpLoop', 'aria-pressed': 'false', title: `Écouter « ${sc.name} » en boucle (re-clic : arrêt)`, onclick: () => ((S.wiz.playMode = 'scene'), listenScene(sc.id)) },
       h('span', { class: 'bw-pico', html: PLAY + STOP }),
       h('span', {}, 'Écouter la scène')
     );
@@ -6215,6 +6268,7 @@ SS.band = (() => {
       { class: 'bw-top gr-head bwc-head' },
       h('h3', {}, sc.name),
       h('span', { class: 'bh-info' }, `${sc.bars} mesures · ${what}`),
+      followBtn(),
       h('span', { class: 'spacer' }),
       msg ? h('span', { class: 'bh-info bwp-msg', role: 'status' }, msg) : null,
       isT(role) ? autoButton(sc, role) : null,
@@ -7030,7 +7084,7 @@ SS.band = (() => {
     );
     const card1 = h(
       'section',
-      { class: 'bwp-card bw-card bwd-wrap' + (build ? ' bwd-sec' : '') },
+      { class: 'bwp-card bw-card bwd-wrap' + (build ? ' bwd-sec' : ''), 'data-scene': sc.id, 'data-bars': sc.bars, 'data-gbars': g.bars },
       h(
         'div',
         { class: 'bwp-ch' },
@@ -7589,8 +7643,11 @@ SS.band = (() => {
       L.paused = false;
       SS.audio.resume();
     } else if (mixStep()) mixPlay();
-    else if (sceneStep()) playScene(S.wiz.hscene);
-    else listenSong(0);
+    else if (sceneStep() && playMode() === 'scene') playScene(S.wiz.hscene);
+    else {
+      if (S.wiz) S.wiz.follow = true;
+      listenSong(0);
+    }
     markListen();
   }
 
@@ -7603,7 +7660,7 @@ SS.band = (() => {
     play.classList.toggle('playing', playing);
     play.classList.toggle('paused', !!L.mode && L.paused);
     play.setAttribute('aria-pressed', String(playing));
-    play.title = playing ? 'Pause (Espace)' : L.paused ? 'Reprendre (Espace)' : sceneStep() || (mixStep() && mixScope() !== 'song') ? 'Écouter la scène en boucle (Espace)' : 'Écouter la chanson (Espace)';
+    play.title = playing ? 'Pause (Espace)' : L.paused ? 'Reprendre (Espace)' : (sceneStep() && playMode() === 'scene') || (mixStep() && mixScope() !== 'song') ? 'Écouter la scène en boucle (Espace)' : 'Écouter la chanson (Espace)';
     play.setAttribute('aria-label', playing ? 'Pause' : 'Lecture');
     $('#stop').disabled = !L.mode;
     syncQuick();
@@ -8487,11 +8544,11 @@ SS.band = (() => {
     };
     add('polyline', { class: 'bwar-want', points: Array.from({ length: 51 }, (_, i) => `${i * 20},${y(AR().target(curve, i / 50))}`).join(' ') });
     add('polyline', { class: 'bwar-got', points: m.bl.list.flatMap((b) => { const e = bySec.get(b.sec).e; return [`${((1000 * b.start) / total).toFixed(1)},${y(e)}`, `${((1000 * (b.start + b.bars)) / total).toFixed(1)},${y(e)}`]; }).join(' ') });
-    const strip = h('div', { class: 'bwar-strip' }, ...m.bl.list.map((b) => h('button', { type: 'button', class: 'bwar-blk' + (warnSecs.has(b.sec) ? ' warn' : ''), 'data-sec': b.sec, style: `flex:${b.bars} 1 0;--c:${secColor(b.sec)}`, title: `${b.name} · ${b.bars} mesures — clic : écouter la scène en boucle`, onclick: () => listenScene(b.sceneId) }, h('b', {}, b.name), h('small', {}, String(b.bars)))));
+    const strip = h('div', { class: 'bwar-strip' }, ...m.bl.list.map((b) => h('button', { type: 'button', class: 'bwar-blk' + (warnSecs.has(b.sec) ? ' warn' : ''), 'data-sec': b.sec, 'data-start': b.start, 'data-bars': b.bars, style: `flex:${b.bars} 1 0;--c:${secColor(b.sec)}`, title: `${b.name} · ${b.bars} mesures — clic : écouter la scène en boucle`, onclick: () => listenScene(b.sceneId) }, h('b', {}, b.name), h('small', {}, String(b.bars)))));
     const seg = h('span', { class: 'segmented', role: 'radiogroup', 'aria-label': 'Courbe voulue', id: 'bwArrCurve' }, ...AR().CURVES.map((c) => h('button', { type: 'button', role: 'radio', 'data-curve': c.id, title: c.text, class: c.id === curve ? 'active' : '', 'aria-checked': String(c.id === curve), onclick: () => ((arrState().curve = c.id), renderWiz()) }, c.label)));
     const energy = h('section', { class: 'bwar-card', id: 'bwArrEnergy' },
       h('div', { class: 'bwar-head' }, h('b', { id: 'bwArrEnergyTitle' }, 'Énergie'), h('span', { class: 'bh-info' }, t && t.on ? 'voulue (pointillés) · mesurée avec la version B à l’écoute' : 'voulue (pointillés) · mesurée (trait plein) · scènes à voir soulignées en jaune'), h('span', { class: 'spacer' }), seg),
-      h('div', { class: 'bwar-chart' }, svg), strip);
+      h('div', { class: 'bwar-chart', id: 'bwArrChart', 'data-total': total }, svg, h('i', { class: 'bwar-ph', hidden: true })), strip);
     // ---- qui joue où
     const maxOf = (id) => Math.max(1, ...m.scenes.map((x) => x.counts[id] || 0));
     const grid = h('div', { class: 'bwar-grid', id: 'bwArrGrid', style: `grid-template-columns: minmax(96px, 140px) repeat(${m.scenes.length}, minmax(44px, 1fr))` },
@@ -9102,10 +9159,11 @@ SS.band = (() => {
           L.block = i;
           L.scene = proj.song[i].scene;
           L.step = -1;
-          // étape Mélodie : la vue suit la scène qu'on entend
-          if (S.wiz && melStep() && S.wiz.hscene !== L.scene) {
+          // étapes à scènes : la vue suit la scène qu'on entend (sauf si l'on en regarde une autre)
+          if (S.wiz && sceneStep() && S.wiz.follow !== false && S.wiz.hscene !== L.scene) {
             S.wiz.hscene = L.scene;
-            renderHarmony();
+            if (melStep()) renderHarmony();
+            else renderWiz();
           }
           markListen();
         },
@@ -9173,9 +9231,48 @@ SS.band = (() => {
       const total = Number(r.dataset.bars) * 16;
       const ph = $('.bw-roll-ph', r);
       const on = !!L.mode && L.scene === r.dataset.scene && L.step >= 0;
+      const pos = on ? L.step % total : -1;
       ph.hidden = !on;
-      if (on) ph.style.left = `${((L.step % total) / total) * 100}%`;
+      if (on) ph.style.left = `${(pos / total) * 100}%`;
+      // la note qui sonne s'allume
+      r.querySelectorAll('.bw-rn.now, .bw-rnb.now').forEach((n) => n.classList.remove('now'));
+      if (on) r.querySelectorAll('.bw-rn, .bw-rnb').forEach((n) => pos >= Number(n.dataset.s) && pos < Number(n.dataset.e) && n.classList.add('now'));
     });
+    // batterie : la colonne du pas qui joue, la mesure en cours
+    box.querySelectorAll('.bwd-wrap[data-gbars]').forEach((w) => {
+      const on = !!L.mode && L.scene === w.dataset.scene && L.step >= 0;
+      const bars = Number(w.dataset.bars);
+      const pos = on ? L.step % (Number(w.dataset.gbars) * 16) : -1;
+      w.querySelectorAll('.bwd-c.now').forEach((c) => c.classList.remove('now'));
+      if (on) w.querySelectorAll(`.bwd-c[data-s="${pos}"]`).forEach((c) => c.classList.add('now'));
+      const bar = on ? Math.floor(L.step / 16) % bars : -1;
+      w.querySelectorAll('.bwp-bars span').forEach((sp, i) => {
+        sp.classList.toggle('now', i === bar);
+        if (i === bar) sp.style.setProperty('--bp', ((L.step % 16) + 1) / 16);
+      });
+    });
+    // arrangement : position dans toute la chanson
+    const ach = $('#bwArrChart', box);
+    if (ach) {
+      const res = S.wiz.res;
+      const total = Number(ach.dataset.total) || 1;
+      let at = -1;
+      if (res && L.mode && L.scene && L.step >= 0) {
+        const sc = res.scenes.find((x) => x.id === L.scene);
+        const bi = L.mode === 'song' ? L.block : blockOf(L.scene);
+        if (sc && res.song[bi]) {
+          const start = res.song.slice(0, bi).reduce((a, b) => a + ((res.scenes.find((x) => x.id === b.scene) || {}).bars || 0) * (b.repeat || 1), 0);
+          at = start + (L.mode === 'song' ? L.step : L.step % (sc.bars * 16)) / 16;
+        }
+      }
+      const ph = $('.bwar-ph', ach);
+      ph.hidden = at < 0;
+      if (at >= 0) ph.style.left = `${Math.min(100, (100 * at) / total)}%`;
+      box.querySelectorAll('.bwar-blk').forEach((b) => {
+        const s0 = Number(b.dataset.start);
+        b.classList.toggle('playing', at >= s0 && at < s0 + Number(b.dataset.bars));
+      });
+    }
     // rouleaux de notes (Harmoniser la mélodie) : curseur de lecture et note qui sonne
     box.querySelectorAll('[data-phroll]').forEach((r) => {
       const total = Number(r.dataset.bars) * 16;
@@ -9195,7 +9292,27 @@ SS.band = (() => {
       gph.hidden = !on;
       if (on) gph.style.left = `${((L.step % (Number(gt.dataset.bars) * 16)) / (Number(gt.dataset.bars) * 16)) * 100}%`;
     }
-    box.querySelectorAll('.bh-scene').forEach((b) => b.classList.toggle('playing', !!L.mode && b.dataset.scene === L.scene));
+    box.querySelectorAll('.bh-scene').forEach((b) => {
+      const on = !!L.mode && b.dataset.scene === L.scene;
+      b.classList.toggle('playing', on);
+      b.classList.toggle('looping', on && L.mode === 'scene');
+      const bars = Number(b.dataset.bars);
+      if (on && bars && L.step >= 0) b.style.setProperty('--pp', ((L.step % (bars * 16)) + 1) / (bars * 16));
+      else b.style.removeProperty('--pp');
+    });
+    const pm = $('#bwPlayMode', box);
+    if (pm) pm.querySelectorAll('button').forEach((x) => {
+      const on = x.dataset.v === playMode();
+      x.classList.toggle('active', on);
+      x.setAttribute('aria-checked', String(on));
+    });
+    const fw = $('#bwFollow', box);
+    if (fw) {
+      const following = S.wiz.follow !== false && L.scene === S.wiz.hscene;
+      fw.hidden = L.mode !== 'song';
+      fw.classList.toggle('on', following);
+      $('span', fw).textContent = following ? 'Suit la lecture' : 'Suivre la lecture';
+    }
     if (S.wiz && S.wiz.insp) {
       const pl = $('#bwiPlay');
       const on = L.mode === 'scene' && L.sec === S.wiz.insp.sec && !L.paused;
