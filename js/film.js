@@ -424,6 +424,23 @@ SS.film = (() => {
     return hits;
   }
 
+  /** Frappes écrites d'un modèle ({ son: [[mesure, temps, vélocité]] }, mesures de la scène) ajoutées à celles d'un passage. */
+  function addHits(hits, extra, startBar, bars) {
+    Object.entries(extra).forEach(([snd, l]) => {
+      l.forEach(([bar, beat, v]) => {
+        const b = bar - 1 - startBar;
+        if (b < 0 || b >= bars) return;
+        const st = b * 16 + Math.round((beat - 1) * 4);
+        const lst = (hits[snd] = hits[snd] || []);
+        const old = lst.find((x) => x[0] === st);
+        if (old) old[1] = Math.max(old[1], v);
+        else lst.push([st, v]);
+      });
+      if (hits[snd]) hits[snd].sort((a, b) => a[0] - b[0]);
+    });
+    return hits;
+  }
+
   /** Plan de chanson d'une scène de film (js/band-songs.js) : une section par passage, dans l'ordre. */
   function spec(film) {
     const tm = timing(film);
@@ -449,7 +466,16 @@ SS.film = (() => {
         const ev = themeEvents(film.theme, s.startBar, s.bars);
         if (ev.length) sec.theme = ev;
       }
-      sec.hits = percHits(tm, tm.sections.indexOf(s));
+      const i = tm.sections.indexOf(s);
+      const next = tm.sections[i + 1];
+      // scène d'action (peur, colère au moins moyennement forte) : ostinato 3+3+2 à la basse ; accents des cuivres dès l'énergie 4
+      const action = ['peur', 'colere'].includes(s.emo) && s.ene >= 3;
+      sec.motor = c.motor ?? action;
+      sec.stabs = c.stabs ?? (s.ene >= 4 && (action || s.emo === 'heroisme'));
+      // le vide avant l'impact : un temps de silence à la fin d'un passage fort qui précède la synchro
+      if (c.gap ?? (next && next.sync && s.ene >= 4)) sec.gap = true;
+      sec.hits = percHits(tm, i);
+      if (film.hits && c.gridBars === s.bars) addHits(sec.hits, film.hits, s.startBar, s.bars);
       sections[s.id] = sec;
     });
     return { key, groove: 'slow', emotion: tm.sections[0].emotion, film: true, sections, form: tm.sections.map((s) => s.id).join(' ') };
@@ -472,9 +498,68 @@ SS.film = (() => {
       { t: 42, emo: 'emerveillement', name: 'La lumière', ten: 1, ene: 5, sync: true, gridBars: 2, grid: [C(0, 16, 2, 'add9'), C(16, 16, 6, 'maj', 4)] },
       { t: 48, emo: 'apaisement', name: 'Apaisement', ten: 1, ene: 2, gridBars: 2, grid: [C(0, 16, 0, 'm7'), C(16, 16, 0, '5')] },
     ],
+    themeNote: 'La–Fa–Mi (noire, noire, blanche), le sommet La5 juste après la synchro.',
     // le thème au piano : motif La–Fa–Mi (noire, noire, blanche), sommet La5 juste après la synchro
     theme: [[1, 1, 69, 1], [1, 2, 65, 1], [1, 3, 64, 2], [2, 2, 65, 1], [2, 3, 69, 2], [3, 1, 69, 2], [3, 3, 65, 1], [4, 2, 67, 1], [4, 3, 62, 2], [5, 1, 69, 1], [5, 2, 65, 1], [5, 3, 64, 2], [6, 1, 65, 2], [6, 3, 69, 1], [7, 1, 67, 1], [7, 2, 70, 1], [7, 3, 69, 0.5], [8, 3, 67, 2], [9, 1, 69, 1], [9, 2, 65, 1], [9, 3, 64, 1], [9, 4, 65, 1], [10, 1, 65, 1], [10, 2, 69, 1], [10, 3, 70, 2], [11, 1, 69, 1], [11, 2, 72, 1], [11, 3, 77, 2], [12, 1, 77, 2], [12, 3, 76, 1], [13, 1, 77, 2], [13, 3, 79, 1], [13, 4, 81, 1], [14, 1, 79, 2], [14, 3, 76, 2], [15, 1, 77, 1], [15, 2, 72, 1], [15, 3, 69, 2], [16, 1, 74, 3]],
   };
+
+  /* ---------- Modèle « La poursuite » : 36 mesures, 144 BPM, Ré mineur, synchro du saut m. 27 = 00:43,3 ----------
+   * Le motif de poursuite (2 mesures, M1 + M2, en demi-tons depuis Ré4) passe des cors aux trompettes, se resserre en
+   * séquence chromatique (repérée), devient héroïque en majeur au saut ; la fuite finit sur trois coups 3+3+2. */
+  const BAR144 = 240 / 144;
+  const M1 = [[1, 0, 0.5], [1.5, 1, 0.5], [2, 0, 1], [3, 7, 0.5], [3.5, 8, 0.5], [4, 7, 1]];
+  const M2 = [[1, 12, 1.5], [2.5, 10, 0.5], [3, 8, 0.5], [3.5, 7, 0.5], [4, 6, 0.5], [4.5, 7, 0.5]];
+  const HERO = { 27: [[1, 62, 1.5], [2.5, 65, 0.5], [3, 70, 2]], 28: [[1, 69, 1], [2, 70, 1], [3, 72, 2]], 29: [[1, 64, 1.5], [2.5, 67, 0.5], [3, 72, 2]], 30: [[1, 74, 1], [2, 72, 1], [3, 76, 2]], 31: [[1, 74, 1.5], [2.5, 73, 0.5], [3, 74, 1], [4, 78, 1]], 32: [[1, 74, 4]] };
+  function chaseTheme() {
+    const T = [];
+    const m1 = (bar, base) => M1.forEach(([b, st, d]) => T.push([bar, b, base + st, d]));
+    const mot = (bar, tr) => {
+      m1(bar, 62 + tr);
+      M2.forEach(([b, st, d]) => T.push([bar + 1, b, 62 + st + tr, d]));
+    };
+    mot(3, 0), mot(5, -4), mot(7, 0), m1(9, 60), T.push([10, 1, 69, 4]); // départ : les cors
+    mot(11, 0), mot(13, 3), mot(15, 0), m1(17, 58), T.push([18, 1, 69, 4]); // le marché : les trompettes, une tierce plus haut
+    T.push([19, 1, 50, 2], [19, 3, 51, 2], [21, 3, 50, 1], [21, 4, 51, 1], [22, 1, 56, 4]); // cachette : secondes mineures
+    for (let b = 23; b <= 26; b++) m1(b, 62 + b - 23); // repérée : le motif monte d'un demi-ton par mesure
+    Object.entries(HERO).forEach(([b, ns]) => ns.forEach(([bt, m, d]) => T.push([+b, bt, m, d]))); // le saut : héroïque, en Ré majeur
+    [33, 34].forEach((b) => [1, 2.5, 4].forEach((bt) => T.push([b, bt, 62, 0.5]))); // fuite : trois coups 3+3+2
+    T.push([36, 1, 62, 1]);
+    return T;
+  }
+  const barT = (bar) => +((bar - 1) * BAR144).toFixed(1);
+  const POURSUITE = {
+    id: 'poursuite',
+    title: 'La poursuite',
+    story: 'L’alarme, elle s’élance, traverse le marché, se cache, elle est repérée, saute d’un toit à l’autre et file.',
+    key: 'D minor',
+    start: 0,
+    end: 60,
+    bpm: 144,
+    cues: [
+      { t: barT(1), emo: 'suspense', name: 'Alarme', ten: 3, ene: 1, gridBars: 2, grid: [C(0, 32, 0, 'min')] },
+      { t: barT(3), emo: 'peur', name: 'Départ', ten: 4, ene: 3, gridBars: 8, grid: [C(0, 32, 0, 'min'), C(32, 32, 5, 'maj'), C(64, 32, 0, 'min'), C(96, 16, 6, 'maj'), C(112, 16, 4, 'maj')] },
+      { t: barT(11), emo: 'colere', name: 'Le marché', ten: 4, ene: 4, gridBars: 8, grid: [C(0, 32, 0, 'min'), C(32, 32, 2, 'min'), C(64, 32, 0, 'min'), { step: 96, len: 16, degree: 5, type: 'min', acc: 0 }, C(112, 16, 4, 'maj')] },
+      { t: barT(19), emo: 'suspense', name: 'Cachette', ten: 5, ene: 1, motor: false, gridBars: 4, grid: [C(0, 64, 0, 'min')] },
+      { t: barT(23), emo: 'peur', name: 'Repérée', ten: 5, ene: 4, gridBars: 4, grid: [C(0, 16, 0, 'min'), { step: 16, len: 16, degree: 1, type: 'min', acc: -1 }, C(16 * 2, 16, 1, 'min'), C(48, 16, 2, 'min')] },
+      { t: barT(27), emo: 'heroisme', name: 'Le saut', ten: 2, ene: 5, sync: true, motor: true, gridBars: 6, grid: [C(0, 32, 5, 'maj'), C(32, 32, 6, 'maj'), { step: 64, len: 32, degree: 0, type: 'maj', acc: 0 }] },
+      { t: barT(33), emo: 'colere', name: 'Fuite', ten: 3, ene: 5, motor: true, stabs: true, gridBars: 4, grid: [C(0, 64, 0, '5')] },
+    ],
+    themeNote: 'un motif de deux mesures aux cors (Ré–Mi♭–Ré, La–Si♭–La), repris une tierce plus haut au marché, qui monte d’un demi-ton par mesure quand elle est repérée, puis héroïque en Ré majeur au saut.',
+    theme: chaseTheme(),
+    // frappes écrites (en plus de celles des repères) : roulement d'alarme, caisse claire qui monte vers le saut,
+    // cymbales frappées à l'entrée du marché et au saut, trois coups 3+3+2 et le dernier coup de la fuite
+    hits: {
+      mt: [[1, 1, 0.6]],
+      sd: [[19, 1, 0.14], [19, 3, 0.14], [20, 1, 0.14], [20, 3, 0.14], [21, 1, 0.14], [21, 3, 0.14], [22, 1, 0.14], [22, 3, 0.14],
+        ...Array.from({ length: 31 }, (_, k) => [25 + Math.floor(k / 16), 1 + (k % 16) / 4, +(0.22 + (k / 32) * 0.55).toFixed(2)])],
+      ht: [[11, 1, 0.75], [27, 1, 0.9], [36, 1, 0.9]],
+      bd: [33, 34].flatMap((b) => [[b, 1, 0.85], [b, 2.5, 0.85], [b, 4, 0.85]]).concat([[36, 1, 1]]),
+      lt: [33, 34].flatMap((b) => [[b, 1, 0.8], [b, 2.5, 0.8], [b, 4, 0.8]]).concat([[36, 1, 0.95]]),
+      misc: [[36, 1, 0.8]],
+    },
+  };
+  /** Les modèles (scènes écrites, accords et thème) : une inspiration chacun dans le style. */
+  const TEMPLATES = { lumiere: LUMIERE, poursuite: POURSUITE };
 
   /** Scène libre de départ : quatre passages, une synchro forte. */
   const blankScene = () => ({
@@ -500,7 +585,7 @@ SS.film = (() => {
    * un piano porte le thème, l'orchestre (js/orchestra.js) tient l'harmonie et la basse, plus dense quand l'énergie monte. */
   const THEME_PICK = 'piano vcsl_fmpiano gm_epiano1 vsco_flute gm_violin gm_cello';
   const ORCH = ['chamber', 'romantique', 'epique', 'intime', 'mystere', 'strings', 'winds', 'hybrid'];
-  const PERC = (kit, opt) => kit('perc', 'lt mt bd cr misc', 'orchperc', { label: 'Percussions d’orchestre', note: 'Timbales, grosse caisse, cymbale et tam-tam, frappés sur les repères', ...opt });
+  const PERC = (kit, opt, pieces = 'lt mt bd cr misc') => kit('perc', pieces, 'orchperc', { label: 'Percussions d’orchestre', note: 'Timbales, grosse caisse, cymbale et tam-tam, frappés sur les repères', ...opt });
   const KEYS_PICK = 'piano gm_epiano1 vcsl_fmpiano gm_celesta gm_orchestral_harp';
   const STYLE = (mu, kit) => ({
     id: 'film',
@@ -524,6 +609,20 @@ SS.film = (() => {
         ],
       },
       {
+        id: 'poursuite',
+        song: 'La poursuite',
+        artist: 'Modèle',
+        year: '',
+        tempo: 144,
+        desc: 'Une poursuite sur les toits, saut à 00:43,3. 36 mesures en Ré mineur à 144 BPM : ostinato 3+3+2 aux cordes graves, motif aux cors puis aux trompettes, accents des trombones, thème héroïque au saut.',
+        musicians: [
+          mu('lead', 'vsco_horn vsco_trumpet ' + THEME_PICK, { label: 'Thème (cor)', note: 'Le motif de poursuite, puis le thème héroïque en majeur au saut' }),
+          mu('orch', 'gm_violin', { label: 'Orchestre', orch: true, ens: ['epique', ...ORCH.filter((e) => e !== 'epique')], note: 'Ostinato 3+3+2, accents des cuivres, plus dense quand l’énergie monte' }),
+          PERC(kit, { note: 'Timbales, caisse claire, cymbales, grosse caisse et tam-tam' }, 'lt mt bd sd cr ht misc'),
+          mu('keys', KEYS_PICK, { label: 'Piano (accords)', optional: true }),
+        ],
+      },
+      {
         id: 'scene',
         song: 'Ma scène',
         artist: 'Scène libre',
@@ -541,10 +640,11 @@ SS.film = (() => {
   });
   if (SS.BandSongs) {
     SS.BandSongs.lumiere = spec(LUMIERE);
+    SS.BandSongs.poursuite = spec(POURSUITE);
     SS.BandSongs.scene = spec(blankScene());
   }
   if (SS.Band && SS.Band.addStyle) SS.Band.addStyle(STYLE(SS.Band.mu, SS.Band.kit));
 
-  return { EMOS, emoOf, energyOf, tempoOf, fmt, timing, spec, gridFor, themeEvents, LUMIERE, blankScene, editable, TEMPO_MIN, TEMPO_MAX,
+  return { EMOS, emoOf, energyOf, tempoOf, fmt, timing, spec, gridFor, themeEvents, LUMIERE, POURSUITE, TEMPLATES, addHits, blankScene, editable, TEMPO_MIN, TEMPO_MAX,
     percHits, CONT, INTV, RHY, EMO_MOTIF, motifFor, genMotif, proposals, TRANSFORMS, PHRASES, phrase, TREATMENTS, EMO_TREAT, treatOf, treatNotes, motifOf, chordAt, parseKey, scaleOf };
 })();

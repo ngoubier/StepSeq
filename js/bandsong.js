@@ -1998,6 +1998,8 @@ SS.bandSong = (() => {
           melody: top.filter((e) => e.notes && e.notes.length).map((e) => ({ step: e.step, len: e.len, midi: Math.max(...e.notes) })),
           level,
           off: (ie && ie.orch && ie.orch.off) || [],
+          motor: !!sec.motor,
+          stabs: !!sec.stabs,
         });
         ts.forEach((t, i) => {
           const L = res.lines[ord[i]];

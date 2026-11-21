@@ -62,7 +62,7 @@ SS.orchestra = (() => {
     { id: 'mid', label: 'Moyen', text: 'tout l’effectif en harmonie, contrechant des bois' },
     { id: 'full', label: 'Tout l’effectif', text: 'les premiers violons doublent la mélodie' },
   ];
-  const ROLE_LABEL = { melody: 'Mélodie', counter: 'Contrechant', harmony: 'Harmonie', bass: 'Basse', pad: 'Nappe', arp: 'Arpège', tacet: 'Se tait' };
+  const ROLE_LABEL = { melody: 'Mélodie', counter: 'Contrechant', harmony: 'Harmonie', bass: 'Basse', pad: 'Nappe', arp: 'Arpège', motor: 'Ostinato', stabs: 'Accents', tacet: 'Se tait' };
   /** Densité par défaut d'une scène selon l'énergie du plan (0,78 calme … 1 refrain). */
   const levelOf = (energy) => (energy >= 0.97 ? 'full' : energy >= 0.85 ? 'mid' : 'light');
 
@@ -87,7 +87,13 @@ SS.orchestra = (() => {
    * opts : { parts: [id], spans: [{ step, len, pcs: [classes de l'accord, fondamentale d'abord], bassPc }],
    *          melody: [{ step, len, midi }], level: light | mid | full, off: [id], vel }
    */
-  function orchestrate({ parts, spans, melody = [], level = 'mid', off = [], vel = null }) {
+  /**
+   * motor : la basse (et les violoncelles) jouent un ostinato de croches groupées 3+3+2 (accents sur les croches 1, 4 et 7),
+   * le moteur des scènes d'action ; stabs : trombones et tuba frappent l'accord sur ces accents (hors densité légère).
+   */
+  const MOTOR = [0, 0, 12, 0, 0, 12, 0, 7];
+  const ACC = [0, 3, 6];
+  function orchestrate({ parts, spans, melody = [], level = 'mid', off = [], vel = null, motor = false, stabs = false }) {
     const defs = parts.map((id) => PART[id]).filter(Boolean);
     const lines = {};
     const items = [];
@@ -106,15 +112,21 @@ SS.orchestra = (() => {
     const padP = sounding.find((p) => p.id === 'syn') || null;
     const harpP = sounding.find((p) => p.id === 'hp') || null;
     // tuba : double la basse à l'octave grave, au sommet seulement
-    const tubaP = level === 'full' && bassP && bassP.id !== 'tu' ? sounding.find((p) => p.id === 'tu') || null : null;
+    const tubaP = level === 'full' && !stabs && bassP && bassP.id !== 'tu' ? sounding.find((p) => p.id === 'tu') || null : null;
     // cuivres (sauf le cor) : une couleur réservée aux scènes fortes ; trompettes, trombones et tuba se taisent ailleurs
-    const brassRest = (p) => ['tp', 'tb', 'tu', 'pic'].includes(p.id) && level !== 'full';
+    const stabP = stabs && level !== 'light' ? sounding.filter((p) => (p.id === 'tb' || p.id === 'tu') && p !== bassP) : [];
+    const brassRest = (p) => ['tp', 'tb', 'tu', 'pic'].includes(p.id) && level !== 'full' && !stabP.includes(p);
+    // ostinato : les violoncelles rejoignent la basse (une octave au-dessus) quand la contrebasse la tient
+    const motorVc = motor && bassP && bassP.id === 'cb' ? sounding.find((p) => p.id === 'vc' && p !== leadP && p !== counterP) || null : null;
     const harm = sounding
+      .filter((p) => !stabP.includes(p) && p !== motorVc)
       .filter((p) => p !== bassP && p !== leadP && p !== counterP && p !== padP && p !== harpP && p !== tubaP && !dbl.includes(p) && !brassRest(p))
       .filter((p) => level !== 'light' || p.fam === 'cordes' || p.fam === 'synthé')
       .sort((a, b) => center(b) - center(a));
     defs.forEach((p) => {
       if (isOff(p)) return set(p, 'tacet', 'Coupé dans cette scène.');
+      if (stabP.includes(p)) return set(p, 'stabs', 'Frappe l’accord sur les accents 3+3+2 : le coup de poing des cuivres.');
+      if (p === motorVc || (motor && p === bassP)) return set(p, 'motor', 'Croches groupées 3+3+2 sur la basse de l’accord : le moteur de la poursuite.');
       if (dbl.includes(p)) return set(p, 'melody', p.id === 'pic' ? 'Double le thème une octave au-dessus : l’éclat du sommet.' : 'Double le thème au sommet : les trompettes le rendent héroïque.');
       if (p === tubaP) return set(p, 'bass', 'Double la basse à l’octave grave : le poids des scènes fortes.');
       if (p === harpP) return set(p, 'arp', 'Arpège chaque accord en croches, du grave vers l’aigu : l’harmonie qui coule.');
@@ -159,13 +171,32 @@ SS.orchestra = (() => {
       // basse
       if (bassP) {
         const m = nearest(bassPc, prevBass ?? bassP.clo + 5, bassP.clo, Math.min(bassP.chi, bassP.clo + 14)) ?? nearest(bassPc, bassP.clo + 5, bassP.lo, bassP.hi);
-        if (m !== null) push(lines[bassP.id].events, sp.step, sp.len, [m], v0);
+        if (m !== null && motor) {
+          for (let st = 0; st < sp.len; st += 2) {
+            const k = Math.floor((sp.step + st) / 2) % 8;
+            const acc = ACC.includes(k);
+            const o = m + MOTOR[k] <= bassP.hi ? MOTOR[k] : 0;
+            lines[bassP.id].events.push({ step: sp.step + st, len: Math.min(2, sp.len - st), notes: [m + o], vel: acc ? v0 + 0.12 : v0 - 0.08 });
+            if (motorVc) lines[motorVc.id].events.push({ step: sp.step + st, len: Math.min(2, sp.len - st), notes: [m + 12 + o], vel: acc ? v0 + 0.08 : v0 - 0.1 });
+          }
+        } else if (m !== null) push(lines[bassP.id].events, sp.step, sp.len, [m], v0);
         prevBass = m;
         if (tubaP && m !== null) {
           const tm = nearest(bassPc, m - 12, tubaP.lo, tubaP.chi) ?? nearest(bassPc, m, tubaP.lo, tubaP.hi);
           if (tm !== null) push(lines[tubaP.id].events, sp.step, sp.len, [tm], v0 + 0.04);
         }
       }
+      // accents des cuivres : l'accord (fondamentale + tierce ou quinte) aux trombones, la fondamentale au tuba
+      stabP.forEach((p) => {
+        for (let st = 0; st < sp.len; st += 2) {
+          if (!ACC.includes(Math.floor((sp.step + st) / 2) % 8)) continue;
+          const r = nearest(root, p.id === 'tu' ? p.clo + 3 : Math.round(center(p)) - 4, p.lo, p.hi);
+          if (r === null) continue;
+          const q = pcs.find((pc) => [3, 4].includes(pcOf(pc - root))) ?? pcs.find((pc) => pcOf(pc - root) === 7);
+          const ns = p.id === 'tb' && q !== undefined ? [r, r + pcOf(q - root)] : [r];
+          lines[p.id].events.push({ step: sp.step + st, len: 2, notes: ns, vel: v0 + 0.08 });
+        }
+      });
       // harpe : l'accord arpégé en croches, de la basse vers l'aigu puis retour (deux octaves)
       if (harpP) {
         const base = nearest(bassPc, 43, harpP.lo, harpP.hi) ?? 43;
