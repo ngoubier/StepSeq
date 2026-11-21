@@ -358,3 +358,20 @@ test('nuances : une nuance par passage, arcs de phrase, crescendo et cymbale ver
   const k = ev.findIndex((e) => e.step >= 56);
   assert.ok(k >= 0 && ev[k].vel > evf[k].vel, 'crescendo appliqué au thème');
 });
+
+test('articulations choisies par l’émotion, et triangle', () => {
+  const film = F.blankScene();
+  const sp = F.spec(film);
+  const tm = F.timing(film);
+  tm.sections.forEach((s) => {
+    const a = sp.sections[s.id].art;
+    if (s.emo === 'emerveillement') assert.ok(a.glock);
+    if (s.sync && ['heroisme', 'emerveillement', 'espoir'].includes(s.emo)) assert.ok(a.bells, s.id);
+  });
+  film.cues[0].emo = 'emerveillement';
+  const s2 = F.spec(film).sections.p1;
+  assert.ok(s2.art.glock && s2.hits.rd.length, 'glockenspiel et triangle dans l’émerveillement');
+  assert.equal(SS.Band.pieceOpts('orchperc', 'rd').label, 'Triangle');
+  film.cues[0].art = { glock: false };
+  assert.equal(F.spec(film).sections.p1.art.glock, false, 'un réglage du repère l’emporte');
+});

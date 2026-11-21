@@ -1142,7 +1142,7 @@ SS.band = (() => {
   }
 
   /* ---------- 05 Orchestre (musique de film) : l'effectif par couleur, qui porte le thème, les percussions sur les repères ---------- */
-  const PERC_FR = { lt: 'timbale', mt: 'roulement de timbale', bd: 'grosse caisse', sd: 'caisse claire', cr: 'cymbale', oh: 'cymbale en crescendo', ht: 'cymbales frappées', misc: 'tam-tam' };
+  const PERC_FR = { lt: 'timbale', mt: 'roulement de timbale', bd: 'grosse caisse', sd: 'caisse claire', cr: 'cymbale', oh: 'cymbale en crescendo', ht: 'cymbales frappées', rd: 'triangle', misc: 'tam-tam' };
   /** Résumé des percussions d'un passage : « impact : grosse caisse, cymbale, timbale · timbale sur les temps forts ». */
   function percText(hits) {
     if (!hits) return '';
@@ -1242,12 +1242,12 @@ SS.band = (() => {
       return h(
         'tr',
         { 'data-sec': s.id },
-        h('td', { class: 'bfm-emotd', style: `--c:${s.color}` }, h('i', { class: 'bfm-dot', 'aria-hidden': 'true' }), s.name),
+        h('td', { class: 'bfm-emotd', style: `--c:${s.color}` }, h('i', { class: 'bfm-dot', 'aria-hidden': 'true' }), s.name, !tpl && T ? h('span', { class: 'bfm-why' }, `${T.label} : ${T.rule} (${T.effect}).`) : null),
         h('td', {}, tpl
-          ? h('span', { class: 'bfm-why' }, 'accords écrits du modèle')
+          ? null
           : h('span', { class: 'bfm-chips bfm-harm', role: 'radiogroup', 'aria-label': `Harmonie du passage ${s.name}` }, ...opts.map((x) =>
               h('button', { type: 'button', class: 'chip' + (x.k === cur ? ' active' : '') + (x.k === auto ? ' auto' : ''), role: 'radio', 'aria-checked': String(x.k === cur), 'data-harm': x.k, title: `${x.rule} : ${x.effect}${x.k === auto ? ' (choix automatique)' : ''}`, onclick: () => filmEdit((y) => (y.cues[i].harm = x.k === auto ? undefined : x.k)) }, x.label + (x.k === auto ? ' ✓' : ''))))),
-        h('td', { class: 'bfm-chords' }, names(sec).join(' · '), !tpl && T ? h('small', {}, `${T.rule} : ${T.effect}`) : null),
+        h('td', { class: 'bfm-chords' }, names(sec).join(' · ')),
         h('td', {}, sc ? h('button', { type: 'button', class: 'btn btn-small btn-icon', title: 'Écouter ce passage en boucle', 'aria-label': `Écouter ${s.name}`, onclick: () => listenScene(sc.id) }, L.mode === 'scene' && L.scene === sc.id ? '■' : '▶') : null)
       );
     });
@@ -1256,6 +1256,30 @@ SS.band = (() => {
       h('p', { class: 'bfm-why' }, tpl ? 'Les accords du modèle sont écrits pour ses repères. « Modifier les repères » ouvre ta scène, où chaque passage reçoit une technique de film.' : 'Une technique de film par passage, choisie d’après l’émotion, la tension et sa place dans la scène (✓). Clique pour en changer.'),
       h('table', { class: 'bfm-harmt' }, h('tbody', {}, ...rows)),
     ];
+  }
+
+  /**
+   * Pas de texte explicatif à l'écran : chaque explication (.bfm-why) devient un « ? » qui ouvre une bulle d'aide
+   * (js/help.js). Un paragraphe sous un titre de bloc rejoint le « ? » de ce titre ; une explication dans une ligne
+   * est remplacée par son « ? » sur place.
+   */
+  function filmHelpTips(box) {
+    const help = new Map();
+    box.querySelectorAll('.bfm-why').forEach((el) => {
+      const text = el.textContent.trim();
+      if (!text) return el.remove();
+      // un paragraphe sous un titre de bloc (.bfm-h) ou de sous-partie (.bfm-sub) rejoint le « ? » de ce titre
+      let head = null;
+      if (el.tagName === 'P') {
+        const cls = el.parentElement === box ? 'bfm-h' : 'bfm-sub';
+        for (let x = el.previousElementSibling; x; x = x.previousElementSibling) if (x.classList.contains(cls)) { head = x; break; }
+      }
+      if (head) {
+        help.set(head, [...(help.get(head) || []), text]);
+        el.remove();
+      } else el.replaceWith(SS.helpTip(text, ''));
+    });
+    help.forEach((texts, head) => head.append(SS.helpTip(texts.join(' '), head.textContent.replace(/^\d+\s*(·\s*)?/, '').trim())));
   }
 
   function renderFilm() {
@@ -1319,13 +1343,15 @@ SS.band = (() => {
       opts,
       head('03', 'Émotions et courbes'),
       filmCurves(tm),
-      h('p', { class: 'bfm-legend' }, h('i', { style: `background:${ENE_C}` }), ' Énergie sonore ', h('i', { class: 'dash', style: `color:${TEN_C}` }), ' Tension · la bande de couleur : l’émotion de chaque passage, qui devient une scène ; l’énergie règle la densité de l’orchestre.'),
+      h('p', { class: 'bfm-legend' }, h('i', { style: `background:${ENE_C}` }), ' Énergie sonore ', h('i', { class: 'dash', style: `color:${TEN_C}` }), ' Tension'),
+      h('p', { class: 'bfm-why' }, 'La bande de couleur : l’émotion de chaque passage, qui devient une scène ; l’énergie règle la densité de l’orchestre.'),
       h('p', { class: 'bfm-palette' }, ...FM().EMOS.map((x) => h('span', { style: `--c:${x.color}` }, h('i', { 'aria-hidden': 'true' }), x.label))),
       ...filmHarmBlock(f, tm, tpl),
       ...filmThemeBlock(f, tm),
       ...filmOrchBlock(tm)
     ];
     $('#bandSong').replaceChildren(...kids.filter(Boolean));
+    filmHelpTips($('#bandSong'));
   }
 
   /* ---------- Porte « Créer » ou « Reprendre » ---------- */
@@ -6264,7 +6290,7 @@ SS.band = (() => {
    * SS.bandSong.build écrit chaque pupitre avec SS.orchestra.orchestrate et laisse son rapport dans sc.orch[musicien] ;
    * réglages de la scène : parts[sec].inst[musicien].orch = { level: light | mid | full, off: [pupitres coupés] }. */
   const OR = () => SS.orchestra;
-  const ORCH_ROLE_C = { melody: '#9b5cff', counter: '#13c2a3', harmony: '#4f6bff', bass: '#3fcf3f', pad: '#c9a227', arp: '#ff8fc8', motor: '#ff6a3d', stabs: '#ffb020', tacet: '#55555f' };
+  const ORCH_ROLE_C = { melody: '#9b5cff', counter: '#13c2a3', harmony: '#4f6bff', bass: '#3fcf3f', pad: '#c9a227', arp: '#ff8fc8', motor: '#ff6a3d', stabs: '#ffb020', accent: '#e8d36a', tacet: '#55555f' };
   const orchSet = (sc, T) => (partOf(sc.sec, T) || {}).orch || {};
   function orchSub(x, T) {
     if (mutedIn(x.sec, T)) return 'muet';

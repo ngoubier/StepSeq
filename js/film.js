@@ -467,7 +467,7 @@ SS.film = (() => {
     const s = tm.sections[i];
     const next = tm.sections[i + 1] || null;
     const n = s.bars * 16;
-    const hits = { lt: [], mt: [], bd: [], cr: [], oh: [], misc: [] };
+    const hits = { lt: [], mt: [], bd: [], cr: [], oh: [], rd: [], misc: [] };
     if (s.sync) {
       hits.bd.push([0, 1]);
       hits.cr.push([0, 0.9]);
@@ -490,6 +490,9 @@ SS.film = (() => {
     }
     if (s.ten >= 4 && s.ene <= 3 && !s.sync) hits.cr.push([0, 0.35]); // un frisson de cymbale à l'entrée d'un passage tendu
     if (!next && s.ene <= 2) hits.misc.push([0, 0.35]);
+    // triangle : une touche de lumière, toutes les deux mesures (émerveillement) ou toutes les quatre (joie)
+    const tri = s.emo === 'emerveillement' ? 2 : s.emo === 'joie' ? 4 : 0;
+    if (tri) for (let b = 0; b < s.bars; b += tri) hits.rd.push([b * 16, 0.45]);
     Object.values(hits).forEach((l) => l.sort((a, b) => a[0] - b[0]));
     return hits;
   }
@@ -589,9 +592,18 @@ SS.film = (() => {
       const action = ['peur', 'colere'].includes(s.emo) && s.ene >= 3;
       sec.motor = c.motor ?? action;
       sec.stabs = c.stabs ?? (s.ene >= 4 && (action || s.emo === 'heroisme'));
+      // articulations et claviers d'orchestre, choisis par l'émotion (le pupitre doit exister dans l'effectif)
+      const art = {};
+      if ((s.emo === 'suspense' && ene <= 2 && s.ten >= 3) || (['peur', 'colere'].includes(s.emo) && s.ten >= 4)) art.trem = true;
+      if (s.emo === 'joie' && ene >= 2 && ene <= 3) art.pizz = true;
+      if (s.emo === 'emerveillement') art.glock = true;
+      if (s.emo === 'joie' || s.emo === 'apaisement') art.marimba = true;
+      if (s.sync && ['heroisme', 'emerveillement', 'espoir'].includes(s.emo)) art.bells = true;
+      if (c.art) Object.assign(art, c.art);
+      sec.art = art;
       // le vide avant l'impact : un temps de silence à la fin d'un passage fort qui précède la synchro
       if (c.gap ?? (next && next.sync && s.ene >= 4)) sec.gap = true;
-      sec.hits = film.percAuto === false ? { lt: [], mt: [], bd: [], cr: [], misc: [] } : percHits(tm, i);
+      sec.hits = film.percAuto === false ? { lt: [], mt: [], bd: [], cr: [], oh: [], rd: [], misc: [] } : percHits(tm, i);
       if (film.hits && c.gridBars === s.bars) addHits(sec.hits, film.hits, s.startBar, s.bars);
       if (dlg) Object.keys(sec.hits).forEach((k) => (sec.hits[k] = sec.hits[k].filter(([st]) => st === 0 && s.sync)));
       sections[s.id] = sec;
@@ -770,7 +782,7 @@ SS.film = (() => {
    * un piano porte le thème, l'orchestre (js/orchestra.js) tient l'harmonie et la basse, plus dense quand l'énergie monte. */
   const THEME_PICK = 'piano vcsl_fmpiano gm_epiano1 vsco_flute gm_violin gm_cello';
   const ORCH = ['chamber', 'romantique', 'epique', 'intime', 'mystere', 'strings', 'winds', 'hybrid'];
-  const PERC = (kit, opt, pieces = 'lt mt bd cr oh misc') => kit('perc', pieces, 'orchperc', { label: 'Percussions d’orchestre', note: 'Timbales, grosse caisse, cymbale et tam-tam, frappés sur les repères', ...opt });
+  const PERC = (kit, opt, pieces = 'lt mt bd cr oh rd misc') => kit('perc', pieces, 'orchperc', { label: 'Percussions d’orchestre', note: 'Timbales, grosse caisse, cymbale et tam-tam, frappés sur les repères', ...opt });
   const KEYS_PICK = 'piano gm_epiano1 vcsl_fmpiano gm_celesta gm_orchestral_harp';
   const STYLE = (mu, kit) => ({
     id: 'film',

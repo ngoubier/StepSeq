@@ -85,8 +85,8 @@ window.SS = window.SS || {};
     orchperc: {
       label: 'Percussions d’orchestre (VCSL)',
       source: 'vcsl',
-      labels: { lt: 'Timbale', mt: 'Timbale (roulement)', bd: 'Grosse caisse', sd: 'Caisse claire', cr: 'Cymbale suspendue', oh: 'Cymbale (crescendo)', ht: 'Cymbales frappées', misc: 'Tam-tam' },
-      map: { lt: 'timpani', mt: 'timpani_roll', bd: 'bassdrum1', sd: 'snare_hi', cr: 'sus_cymbal#12', oh: 'sus_cymbal#6', ht: 'clash', misc: 'gong' },
+      labels: { lt: 'Timbale', mt: 'Timbale (roulement)', bd: 'Grosse caisse', sd: 'Caisse claire', cr: 'Cymbale suspendue', oh: 'Cymbale (crescendo)', ht: 'Cymbales frappées', rd: 'Triangle', misc: 'Tam-tam' },
+      map: { lt: 'timpani', mt: 'timpani_roll', bd: 'bassdrum1', sd: 'snare_hi', cr: 'sus_cymbal#12', oh: 'sus_cymbal#6', ht: 'clash', rd: 'triangles#4', misc: 'gong' },
     },
     // kit composé de boîtes à rythmes : « Machine#n » = l'échantillon n de cette machine ; `fx` : effets posés sur la piste
     // de l'élément. Reverb gated (fx.gated) : calculée une fois dans l'échantillon, rien de plus à la lecture.

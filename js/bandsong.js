@@ -2002,6 +2002,7 @@ SS.bandSong = (() => {
           stabs: !!sec.stabs,
           under: !!sec.dialog,
           vel: sec.orchVel ?? null,
+          art: { ...(sec.art || {}), motor: !!sec.motor },
         });
         ts.forEach((t, i) => {
           const L = res.lines[ord[i]];
