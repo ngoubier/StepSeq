@@ -1220,6 +1220,43 @@ SS.band = (() => {
       h('span', { class: 'bfm-why' }, 'Coche « Dialogue » sur les passages où l’on parle : la musique s’efface sous les mots.'));
   }
 
+  /* Harmonie de chaque passage (scène libre) : une technique de film, choisie d'après l'émotion, la tension et la place
+   * du passage (✓ = choix automatique), que l'on change d'un clic. Les modèles gardent leurs accords écrits. */
+  function filmHarmBlock(f, tm, tpl) {
+    const head = h('div', { class: 'bfm-h' }, 'Harmonie de chaque passage');
+    const sp = spec();
+    const key = parseKeyStr(f.key || 'D minor');
+    const names = (sec) => (sec && sec.grid ? sec.grid.map((g) => SS.harmony.gridChord(sec.key ? parseKeyStr(sec.key) : key, g.degree, g.type, g.acc || 0, g.bass || 0).name) : []);
+    const rows = tm.sections.map((s, i) => {
+      const last = i === tm.sections.length - 1;
+      // un passage aux accords écrits (repris d'un modèle) : « Accords du modèle » est le choix par défaut
+      const written = !!(s.cue.grid && s.cue.gridBars === s.bars);
+      const auto = written ? 'written' : FM().autoHarm(s, last);
+      const cur = s.cue.harm && FM().HARM[s.cue.harm] ? s.cue.harm : auto;
+      const opts = written ? [{ k: 'written', label: 'Accords du modèle', rule: 'les accords écrits pour ce passage', effect: 'tels que dans le modèle' }, ...FM().HARMONY] : FM().HARMONY;
+      const sec = sp && sp.sections[s.id];
+      const T = FM().HARM[cur] || (written && cur === 'written' ? opts[0] : null);
+      const res = S.wiz ? wizSong().res : null;
+      const sc = res && res.scenes.find((x) => x.sec === s.id);
+      return h(
+        'tr',
+        { 'data-sec': s.id },
+        h('td', { class: 'bfm-emotd', style: `--c:${s.color}` }, h('i', { class: 'bfm-dot', 'aria-hidden': 'true' }), s.name),
+        h('td', {}, tpl
+          ? h('span', { class: 'bfm-why' }, 'accords écrits du modèle')
+          : h('span', { class: 'bfm-chips bfm-harm', role: 'radiogroup', 'aria-label': `Harmonie du passage ${s.name}` }, ...opts.map((x) =>
+              h('button', { type: 'button', class: 'chip' + (x.k === cur ? ' active' : '') + (x.k === auto ? ' auto' : ''), role: 'radio', 'aria-checked': String(x.k === cur), 'data-harm': x.k, title: `${x.rule} : ${x.effect}${x.k === auto ? ' (choix automatique)' : ''}`, onclick: () => filmEdit((y) => (y.cues[i].harm = x.k === auto ? undefined : x.k)) }, x.label + (x.k === auto ? ' ✓' : ''))))),
+        h('td', { class: 'bfm-chords' }, names(sec).join(' · '), !tpl && T ? h('small', {}, `${T.rule} : ${T.effect}`) : null),
+        h('td', {}, sc ? h('button', { type: 'button', class: 'btn btn-small btn-icon', title: 'Écouter ce passage en boucle', 'aria-label': `Écouter ${s.name}`, onclick: () => listenScene(sc.id) }, L.mode === 'scene' && L.scene === sc.id ? '■' : '▶') : null)
+      );
+    });
+    return [
+      head,
+      h('p', { class: 'bfm-why' }, tpl ? 'Les accords du modèle sont écrits pour ses repères. « Modifier les repères » ouvre ta scène, où chaque passage reçoit une technique de film.' : 'Une technique de film par passage, choisie d’après l’émotion, la tension et sa place dans la scène (✓). Clique pour en changer.'),
+      h('table', { class: 'bfm-harmt' }, h('tbody', {}, ...rows)),
+    ];
+  }
+
   function renderFilm() {
     const f = filmOf();
     const tpl = filmTpl();
@@ -1283,6 +1320,7 @@ SS.band = (() => {
       filmCurves(tm),
       h('p', { class: 'bfm-legend' }, h('i', { style: `background:${ENE_C}` }), ' Énergie sonore ', h('i', { class: 'dash', style: `color:${TEN_C}` }), ' Tension · la bande de couleur : l’émotion de chaque passage, qui devient une scène ; l’énergie règle la densité de l’orchestre.'),
       h('p', { class: 'bfm-palette' }, ...FM().EMOS.map((x) => h('span', { style: `--c:${x.color}` }, h('i', { 'aria-hidden': 'true' }), x.label))),
+      ...filmHarmBlock(f, tm, tpl),
       ...filmThemeBlock(f, tm),
       ...filmOrchBlock(tm)
     ];

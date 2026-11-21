@@ -148,6 +148,72 @@ SS.film = (() => {
     return { grid, key: k.tonic === key.tonic && k.mode === key.mode ? null : `${k.tonic} ${k.mode}` };
   }
 
+  /* ---------- Harmonie de film : une technique par passage (scène libre) ----------
+   * Chaque technique est une suite d'accords en degrés de la tonalité de la scène (format de js/harmony.js : degree,
+   * type, acc = emprunt −1, bass = basse imposée en demi-tons au-dessus de la fondamentale), une par mode.
+   * Un pas = une mesure ; [a, b] = deux accords dans la mesure (suspension puis résolution). */
+  const HC = (degree, type, acc = 0, bass = 0) => ({ degree, type, acc, ...(bass ? { bass } : {}) });
+  const HARMONY = [
+    { k: 'pedal', label: 'Pédale', rule: 'la basse reste sur la tonique, les accords changent au-dessus', effect: 'attente, menace qui ne bouge pas',
+      minor: [HC(0, 'min'), HC(5, 'maj', 0, 4), HC(3, 'min', 0, 7), HC(1, 'maj', -1, 11)], major: [HC(0, 'maj'), HC(3, 'maj', 0, 7), HC(6, 'maj', -1, 2), HC(3, 'min', 0, 7)] },
+    { k: 'common', label: 'Note commune', rule: 'd’un accord à l’autre, au moins une note reste', effect: 'la lumière change sans rupture',
+      minor: [HC(0, 'min'), HC(5, 'maj'), HC(3, 'min'), HC(1, 'maj', -1)], major: [HC(0, 'maj'), HC(2, 'min'), HC(5, 'min'), HC(3, 'maj')] },
+    { k: 'mediant', label: 'Médiantes', rule: 'accords à une tierce, souvent hors de la gamme', effect: 'mystère, merveilleux',
+      minor: [HC(0, 'min'), HC(2, 'min'), HC(0, 'min'), HC(5, 'min')], major: [HC(0, 'maj'), HC(2, 'maj'), HC(0, 'maj'), HC(5, 'maj', -1)] },
+    { k: 'chrom', label: 'Séquence chromatique', rule: 'le même accord monte d’un demi-ton par mesure', effect: 'le danger approche',
+      minor: [HC(0, 'min'), HC(1, 'min', -1), HC(1, 'min'), HC(2, 'min')], major: [HC(0, 'maj'), HC(1, 'maj', -1), HC(1, 'maj'), HC(2, 'maj', -1)] },
+    { k: 'hero', label: '♭VI – ♭VII – I', rule: 'on arrive en majeur sur la tonique', effect: 'héroïsme, victoire', hold: true,
+      minor: [HC(5, 'maj'), HC(6, 'maj'), HC(0, 'maj')], major: [HC(5, 'maj', -1), HC(6, 'maj', -1), HC(0, 'maj')] },
+    { k: 'susp', label: 'Suspensions', rule: 'chaque accord commence sur la quarte ou la seconde, puis se résout', effect: 'retenue, émotion qui se pose',
+      minor: [[HC(0, 'sus4'), HC(0, 'min')], [HC(5, 'sus2'), HC(5, 'maj')], [HC(3, 'sus4'), HC(3, 'min')], [HC(4, 'sus4'), HC(4, 'maj')]],
+      major: [[HC(0, 'sus4'), HC(0, 'maj')], [HC(3, 'sus2'), HC(3, 'maj')], [HC(5, 'sus4'), HC(5, 'min')], [HC(4, 'sus4'), HC(4, 'maj')]] },
+    { k: 'open', label: 'Fin ouverte', rule: 'accords enrichis, la dernière mesure en quinte à vide', effect: 'apaisement, une suite à venir', last: true,
+      minor: [HC(0, 'madd9'), HC(5, 'maj7'), HC(3, 'm6'), HC(0, '5')], major: [HC(0, 'add9'), HC(3, 'maj7'), HC(1, 'm7'), HC(0, '5')] },
+    { k: 'song', label: 'Comme une chanson', rule: 'les accords proposés pour l’émotion, comme dans une chanson', effect: 'simple et familier' },
+  ];
+  const HARM = Object.fromEntries(HARMONY.map((x) => [x.k, x]));
+  /** Technique choisie automatiquement pour un passage (s : passage de timing(), last : dernier passage). */
+  function autoHarm(s, last) {
+    if (last && s.ene <= 2) return 'open';
+    switch (s.emo) {
+      case 'suspense': return s.ene <= 2 ? 'pedal' : 'chrom';
+      case 'peur': case 'colere': return s.ten >= 4 ? 'chrom' : 'pedal';
+      case 'heroisme': return 'hero';
+      case 'espoir': return s.sync ? 'hero' : 'susp';
+      case 'emerveillement': return 'mediant';
+      case 'tristesse': return 'susp';
+      case 'nostalgie': return 'common';
+      case 'apaisement': return 'open';
+      default: return 'song';
+    }
+  }
+  const harmOf = (s, last) => (s.cue.harm && HARM[s.cue.harm] ? s.cue.harm : autoHarm(s, last));
+  /** Grille d'un passage avec une technique de film, dans la tonalité de la scène (null : « comme une chanson »). */
+  function techGrid(k, mode, bars) {
+    const T = HARM[k];
+    const seq = T && T[mode === 'major' ? 'major' : 'minor'];
+    if (!seq) return null;
+    const per = bars >= 8 ? 2 : 1; // passages longs : deux mesures par accord
+    const n = Math.ceil(bars / per);
+    const at = (i) => {
+      if (T.last && i === n - 1) return seq[seq.length - 1];
+      const body = T.last ? seq.slice(0, -1) : seq;
+      // passage plus court que la formule : on garde sa fin (♭VII – I sur deux mesures, I sur une)
+      if (T.hold && n < body.length) return body[body.length - n + i];
+      return T.hold && i >= body.length ? body[body.length - 1] : body[i % body.length];
+    };
+    const grid = [];
+    for (let i = 0; i < n; i++) {
+      const step = i * per * 16;
+      const len = Math.min(per, bars - i * per) * 16;
+      const c = at(i);
+      if (Array.isArray(c)) {
+        grid.push({ step, len: len / 2, ...c[0] }, { step: step + len / 2, len: len / 2, ...c[1] });
+      } else grid.push({ step, len, ...c });
+    }
+    return grid;
+  }
+
   /** Notes [mesure, temps, midi, durée en temps] → événements d'une section (pas de double croche, mesure 1 = startBar). */
   function themeEvents(notes, startBar, bars) {
     return notes
@@ -447,7 +513,7 @@ SS.film = (() => {
     const key = film.key || 'D minor';
     const [tonic, mode] = key.split(' ');
     const sections = {};
-    tm.sections.forEach((s) => {
+    tm.sections.forEach((s, i) => {
       const c = s.cue;
       // sous les mots (repère « dialogue ») : un cran d'énergie en moins, la harpe et les percussions se taisent,
       // l'orchestre joue plus doucement (mix à l'image : la musique laisse la place à la voix)
@@ -455,7 +521,11 @@ SS.film = (() => {
       const ene = dlg ? Math.max(1, s.ene - 1) : s.ene;
       const sec = { bars: s.bars, name: s.name, emotion: s.emotion, energy: energyOf(ene), tension: s.ten, ...playOf({ ...s, ene }) };
       if (dlg) Object.assign(sec, { dialog: true, keys: 'sustain' }); // le piano tient ses accords, sans arpège
-      if (c.grid && c.gridBars === s.bars) sec.grid = c.grid.map((x) => ({ acc: 0, ...x }));
+      // accords écrits (modèle, ou passage d'un modèle dont la longueur n'a pas changé), sauf technique choisie à la main
+      const written = c.grid && c.gridBars === s.bars && !(c.harm && HARM[c.harm]);
+      const tg = written ? null : techGrid(harmOf(s, i === tm.sections.length - 1), mode || 'minor', s.bars);
+      if (written) sec.grid = c.grid.map((x) => ({ acc: 0, ...x }));
+      else if (tg) sec.grid = tg; // une technique d'harmonie de film, dans la tonalité de la scène
       else {
         const g = gridFor(s.emotion, { tonic, mode: mode || 'minor' }, s.bars);
         sec.grid = g.grid;
@@ -471,7 +541,6 @@ SS.film = (() => {
         const ev = themeEvents(film.theme, s.startBar, s.bars);
         if (ev.length) sec.theme = ev;
       }
-      const i = tm.sections.indexOf(s);
       const next = tm.sections[i + 1];
       // scène d'action (peur, colère au moins moyennement forte) : ostinato 3+3+2 à la basse ; accents des cuivres dès l'énergie 4
       const action = ['peur', 'colere'].includes(s.emo) && s.ene >= 3;
@@ -734,5 +803,5 @@ SS.film = (() => {
   if (SS.Band && SS.Band.addStyle) SS.Band.addStyle(STYLE(SS.Band.mu, SS.Band.kit));
 
   return { EMOS, emoOf, energyOf, tempoOf, fmt, timing, spec, gridFor, themeEvents, LUMIERE, POURSUITE, ESPACES, TEMPLATES, barsGrid, addHits, blankScene, editable, TEMPO_MIN, TEMPO_MAX,
-    percHits, CONT, INTV, RHY, EMO_MOTIF, motifFor, genMotif, proposals, TRANSFORMS, PHRASES, phrase, TREATMENTS, EMO_TREAT, treatOf, treatNotes, motifOf, chordAt, parseKey, scaleOf };
+    percHits, HARMONY, HARM, autoHarm, harmOf, techGrid, CONT, INTV, RHY, EMO_MOTIF, motifFor, genMotif, proposals, TRANSFORMS, PHRASES, phrase, TREATMENTS, EMO_TREAT, treatOf, treatNotes, motifOf, chordAt, parseKey, scaleOf };
 })();
