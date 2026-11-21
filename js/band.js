@@ -7103,17 +7103,73 @@ SS.band = (() => {
     S.wiz.pmsg = 'Un motif suggéré pour chaque scène';
     partChanged();
   }
-  /** Chips du kit sous la grille : une ligne par élément coché ; les autres éléments du kit sont en pointillés. */
-  function kitChips(T) {
+  /** Sons qui jouent chaque ligne d'un motif (comme patLane) ; le premier est celui qu'on propose d'ajouter. */
+  const PAT_SNDS = { K: ['bd'], S: ['sd'], C: ['cp'], H: ['hh'], O: ['oh', 'rd'], R: ['rim'], P: ['sh', 'tb', 'cb', 'perc', 'misc'] };
+  const baseSnd = (x) => String(x || '').split('@')[0];
+  /** Éléments que le motif joue mais qui n'ont pas de ligne dans le kit du batteur (ces coups-là ne sonnent pas). */
+  function missingPieces(pat, T) {
+    if (!pat || !pat.lanes) return [];
+    const L = pat.lanes;
+    const have = new Set(kitLanes(T).map((l) => baseSnd(l.snd)));
+    const hits = (str) => /[xo.r]/.test(str || '');
+    const out = [];
+    const need = (snd, lane) => !out.some((m) => m.snd === snd) && out.push({ snd, lane });
+    ['K', 'C', 'H', 'O', 'R'].forEach((k) => hits(L[k]) && !PAT_SNDS[k].some((x) => have.has(x)) && need(PAT_SNDS[k][0], k));
+    // la caisse claire : jouée par la caisse claire, ou par le clap quand le motif n'a pas de ligne de clap
+    if (hits(L.S) && !have.has('sd') && !(have.has('cp') && !hits(L.C))) need('sd', 'S');
+    // les toms : le tom joué dépend du pas
+    if (L.T) ['ht', 'mt', 'lt'].forEach((t, ti) => [...norm(L.T, 16)].some((c, s) => hits(c) && SS.bandSong.tomOfStep(s) === ti) && !have.has(t) && need(t, 'T'));
+    // la percussion : le nom ou la description du motif dit laquelle ; sinon la première du kit, sinon le shaker
+    if (hits(L.P) && !PAT_SNDS.P.some((x) => have.has(x))) {
+      const txt = `${pat.name} ${pat.desc || ''}`.toLowerCase();
+      const mu = musState()[T.musician];
+      const kitP = PAT_SNDS.P.find((x) => mu && mu.pieces && mu.pieces.some((pc) => baseSnd(pc.piece) === x));
+      need(/tambourin/.test(txt) ? 'tb' : /shaker/.test(txt) ? 'sh' : /cowbell|cloche/.test(txt) ? 'cb' : /conga|bongo|djemb|timbal|percu/.test(txt) ? 'perc' : kitP || 'sh', 'P');
+    }
+    return out;
+  }
+  /** Coche (ou ajoute) un élément dans le kit du batteur : il a sa ligne et joue le motif. */
+  function addKitPiece(T, snd) {
     const mu = musState()[T.musician];
-    const on = new Set(T.cols.map((c) => c.o.band.key.split(':')[1]));
-    const off = mu && mu.pieces ? mu.pieces.filter((pc) => !pc.on) : [];
+    if (!mu || !mu.pieces) return;
+    const pc = mu.pieces.find((q) => baseSnd(q.piece) === snd);
+    if (pc) pc.on = true;
+    else mu.pieces.push({ piece: snd, on: true });
+    if (S.wiz.mix) mixSync();
+    dropListen();
+    renderWiz();
+    draftSoon();
+  }
+  /** Chips du kit sous la grille : une ligne par élément coché ; les autres éléments du kit sont en pointillés,
+   *  allumés quand le motif choisi en joue (clic : l'ajouter au kit). */
+  function kitChips(T, pat) {
+    const mu = musState()[T.musician];
+    const miss = missingPieces(pat, T);
+    const isMiss = (pc) => miss.some((m) => m.snd === baseSnd(pc.piece));
+    const off = mu && mu.pieces ? mu.pieces.filter((pc) => !pc.on && !isMiss(pc)) : [];
+    const label = (snd) => (B().drumLabel ? B().drumLabel(snd) : snd);
     return h(
       'div',
       { class: 'bwd-kit' },
       h('span', { class: 'bh-lbl' }, 'Kit : une ligne par élément coché'),
       ...kitLanes(T).map((l) => h('span', { class: 'bwd-chip', style: `--lc:${l.color}` }, h('i'), l.name)),
-      ...off.map((pc) => h('span', { class: 'bwd-chip off', title: 'Non coché dans l’étape Instruments : pas de ligne' }, (B().drumLabel ? B().drumLabel(String(pc.piece || '').split('@')[0]) : String(pc.piece || '')))),
+      ...miss.map((m) =>
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'bwd-chip miss',
+            'data-snd': m.snd,
+            style: `--lc:${LANE_COLOR[SS.bandSong.laneKey(m.snd)] || LANE_COLOR[m.lane] || LANE_COLOR.perc}`,
+            title: `Le motif « ${pat.name} » en joue, mais le batteur ne l’a pas : ces coups ne sonnent pas. Clic : l’ajouter au kit`,
+            onclick: () => addKitPiece(T, m.snd),
+          },
+          h('i'),
+          label(m.snd),
+          h('b', { class: 'bwd-add', 'aria-hidden': 'true' }, '+')
+        )
+      ),
+      ...off.map((pc) => h('span', { class: 'bwd-chip off', title: 'Non coché dans l’étape Instruments : pas de ligne' }, label(baseSnd(pc.piece)))),
       h('button', { type: 'button', class: 'link-btn bwd-edit', id: 'bwdKit', onclick: () => goStep(ST.inst) }, 'Modifier le kit…')
     );
   }
@@ -7179,7 +7235,7 @@ SS.band = (() => {
             ),
             partCheck('bwpCrash', 'Crash au début de la scène', !!d.crash, (on) => (putPart(sc.sec, T, { crash: on || undefined }), partChanged()))
           ),
-      kitChips(T)
+      kitChips(T, pat)
     );
     // carte d'un motif ; sans motif : celle de l'inspiration (le jeu du plan), choisie tant qu'on n'a rien réglé
     const card = (p) => {
