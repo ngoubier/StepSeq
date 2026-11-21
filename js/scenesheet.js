@@ -14,6 +14,7 @@ window.SS = window.SS || {};
 SS.sceneSheet = (() => {
   let app;
   let openId = null;
+  let emoOpen = false; // panneau des émotions ouvert
   const OPEN_KEY = 'stepseq.sceneSheet.closed'; // rubriques repliées (préférence de l'utilisateur)
 
   /* Couleurs des émotions (mêmes repères que l'assistant Musique de film : tristesse bleu, joie jaune, colère rouge…). */
@@ -264,19 +265,37 @@ SS.sceneSheet = (() => {
     // --- émotion, énergie, tension
     const emo = SS.findEmotion && sc.emotion ? SS.findEmotion(sc.emotion) : null;
     const measured = measureEnergy(pr, sc);
-    const emoChips = (SS.EMOTIONS || []).map((e) =>
+    // émotion : un bouton déroulant ouvre le panneau des émotions, on en pioche une
+    const color = (id) => EMO_COLORS[id] || '#9a9aa3';
+    const pick = (id) => {
+      if (id) sc.emotion = id;
+      else delete sc.emotion;
+      emoOpen = false;
+      changed();
+    };
+    const emoBox = h('div', { class: 'ssh-combo' },
       h('button', {
-        type: 'button', class: 'ssh-emo' + (sc.emotion === e.id ? ' on' : ''), style: `--c:${EMO_COLORS[e.id] || '#9a9aa3'}`, 'aria-pressed': String(sc.emotion === e.id),
-        onclick: () => {
-          if (sc.emotion === e.id) delete sc.emotion;
-          else sc.emotion = e.id;
-          changed();
+        type: 'button', class: 'ssh-combo-btn' + (emo ? '' : ' none'), 'aria-haspopup': 'listbox', 'aria-expanded': String(emoOpen),
+        style: emo ? `--c:${color(emo.id)}` : null,
+        onclick: (e) => {
+          e.stopPropagation();
+          emoOpen = !emoOpen;
+          render();
         },
-      }, h('i'), e.label));
+      }, emo ? h('i') : null, h('span', {}, emo ? emo.label : 'Choisir une émotion'), h('b', { 'aria-hidden': 'true' }, '▾')),
+      emoOpen
+        ? h('div', { class: 'ssh-emo-panel', role: 'listbox', 'aria-label': 'Émotions', onclick: (e) => e.stopPropagation() },
+            (SS.EMOTIONS || []).map((e) =>
+              h('button', {
+                type: 'button', role: 'option', class: 'ssh-emo' + (sc.emotion === e.id ? ' on' : ''), style: `--c:${color(e.id)}`, 'aria-selected': String(sc.emotion === e.id), 'data-emo': e.id,
+                onclick: () => pick(e.id),
+              }, h('i'), e.label)),
+            emo ? h('button', { type: 'button', role: 'option', class: 'ssh-emo ssh-emo-none', onclick: () => pick(null) }, 'Aucune') : null)
+        : null);
     const fmt1 = (x) => String(x).replace('.', ',');
     const feel = section('feel', 'Émotion et énergie', tip('ene', 'Émotion et énergie'),
       h('span', {}, emo ? h('i', { class: 'ssh-dot', style: `--c:${EMO_COLORS[emo.id] || '#9a9aa3'}` }) : null, `${emo ? emo.label : 'sans émotion'} · ${sc.energy || fmt1(measured)}/5`),
-      h('div', { class: 'ssh-emos' }, emoChips),
+      emoBox,
       h('div', { class: 'ssh-kv' },
         h('span', {}, 'Énergie'),
         h('span', { class: 'ssh-row' }, levels(5, sc.energy, (v) => { if (v) sc.energy = v; else delete sc.energy; changed(); }, { color: '#e5382f', measured }),
@@ -397,6 +416,7 @@ SS.sceneSheet = (() => {
   }
   function close() {
     openId = null;
+    emoOpen = false;
     const root = document.getElementById('sceneSheet');
     if (root) root.hidden = true;
     document.body.classList.remove('scene-sheet-open');
@@ -412,7 +432,16 @@ SS.sceneSheet = (() => {
   function init(a) {
     app = a;
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && openId && !document.querySelector('dialog[open]')) close();
+      if (e.key !== 'Escape' || !openId || document.querySelector('dialog[open]')) return;
+      if (emoOpen) {
+        emoOpen = false;
+        render();
+      } else close();
+    });
+    document.addEventListener('click', () => {
+      if (!emoOpen) return;
+      emoOpen = false;
+      if (openId) render();
     });
   }
 

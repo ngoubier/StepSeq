@@ -40,13 +40,16 @@ const ok = (c, m) => {
   await page.waitForTimeout(100);
   ok(/Refrain test/.test(await page.textContent('#sceneList')), 'renommage dans la fiche : la ligne Scènes suit');
 
-  await page.click('#sceneSheet .ssh-emo >> nth=3');
+  await page.click('#sceneSheet .ssh-combo-btn');
+  ok(await page.isVisible('#sceneSheet .ssh-emo-panel'), 'émotion : le bouton ouvre le panneau des émotions');
+  await page.click('#sceneSheet .ssh-emo-panel [data-emo="espoir"]');
+  ok(!(await page.isVisible('#sceneSheet .ssh-emo-panel')) && /Espoir/.test(await page.textContent('#sceneSheet .ssh-combo-btn')), 'une émotion piochée : le panneau se ferme, le bouton l\'affiche');
   await page.click('#sceneSheet .ssh-lvl >> nth=0 >> button >> nth=3');
   const meta = await page.evaluate(() => {
     const sc = SS.currentScene(SS.claudeTools._project());
     return { emotion: sc.emotion, energy: sc.energy };
   });
-  ok(meta.emotion && meta.energy === 4, `émotion et énergie voulue rangées (${JSON.stringify(meta)})`);
+  ok(meta.emotion === 'espoir' && meta.energy === 4, `émotion et énergie voulue rangées (${JSON.stringify(meta)})`);
 
   // piste qui joue : la nappe du projet de démo
   const rows = await page.$$eval('#sceneSheet .ssh-tr', (els) => els.map((e) => ({ id: e.dataset.track, name: e.querySelector('.ssh-tname').textContent, st: !!e.querySelector('.ssh-st3') })));
