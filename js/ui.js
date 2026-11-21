@@ -355,15 +355,32 @@ SS.ui = (() => {
 
   /* ---------- Interrupteurs ARP / ACCORDS d'une piste instrument ---------- */
 
-  /** Allume / éteint l'arpégiateur de la piste. */
-  function setArp(track, on) {
+  /**
+   * Allume / éteint l'arpégiateur de la piste. MOTIF et ARP s'excluent : allumer l'arpège éteint le motif de basse
+   * (ses réglages sont gardés dans lastFollow, comme « Ne plus suivre »).
+   */
+  function setArp(track, on, quiet) {
     if (frozenGuard(track)) return;
+    const hadMotif = on && SS.playsMotif(track);
+    if (hadMotif) {
+      track.lastFollow = track.follow;
+      delete track.follow;
+    }
     if (on) track.arpOn = true;
     else delete track.arpOn;
     if (on && track.octave < 3) track.octave = 3;
     renderTrack(track);
     app.changed();
-    toast(on ? `« ${track.name} » : arpégiateur allumé${SS.follows(track) ? ' sur les accords de la scène' : ' sur les notes de la piste'}. Réglages : bouton Arp One du piano roll.` : `« ${track.name} » : arpégiateur éteint.`, 3500);
+    if (hadMotif) toast(`« ${track.name} » : motif de basse éteint, la piste joue l’arpégiateur (MOTIF et ARP ne vont pas ensemble).`, 4500);
+    else if (!quiet) toast(on ? `« ${track.name} » : arpégiateur allumé${SS.follows(track) ? ' sur les accords de la scène' : ' sur les notes de la piste'}.` : `« ${track.name} » : arpégiateur éteint.`, 3500);
+  }
+
+  /** Bouton ARP : ouvre Arp One (l'arpège s'allume s'il était éteint ; « Annuler » dans Arp One le rééteint). */
+  function openArp(track) {
+    if (frozenGuard(track)) return;
+    const armed = !SS.arpOn(track);
+    if (armed) setArp(track, true, true);
+    if (SS.arpOn(track)) SS.arpPanel.open(track, { armed });
   }
 
   /** La piste joue (ou non) la piste Accords de la scène. */
@@ -439,10 +456,19 @@ SS.ui = (() => {
           type: 'button',
           class: 'th-mode th-arp' + (arp ? ' on' : ''),
           'aria-pressed': String(arp),
-          title: arp ? 'Arpégiateur allumé : clic pour l’éteindre (réglages : Arp One, dans le piano roll)' : 'Arpégiateur : clic pour arpéger les notes (ou les accords) de la piste',
+          title: arp
+            ? 'Arpégiateur allumé : clic pour ouvrir Arp One · clic droit : l’éteindre'
+            : SS.playsMotif(track)
+            ? 'Arpégiateur : clic pour ouvrir Arp One (le motif de basse s’éteint)'
+            : 'Arpégiateur : clic pour ouvrir Arp One et arpéger les notes (ou les accords) de la piste',
           onclick: (e) => {
             e.stopPropagation();
-            setArp(track, !arp);
+            openArp(track);
+          },
+          oncontextmenu: (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (arp) setArp(track, false);
           },
         },
         'ARP'
@@ -488,6 +514,11 @@ SS.ui = (() => {
     const commit = (f) => {
       track.follow = SS.FOLLOW.clean(f);
       delete track.lastFollow;
+      // MOTIF et ARP s'excluent : le motif éteint l'arpégiateur
+      if (track.arpOn) {
+        delete track.arpOn;
+        toast(`« ${track.name} » : arpégiateur éteint, la basse joue le motif (MOTIF et ARP ne vont pas ensemble).`, 4500);
+      }
       renderTrack(track);
       app.changed();
       render();
@@ -532,7 +563,7 @@ SS.ui = (() => {
         h('span', { class: 'ctx-param-label' }, label, help ? SS.helpTip(help, label) : null),
         h('div', { class: 'segmented fol-seg', role: 'radiogroup', 'aria-label': label }, list.map(([id, l]) => h('button', { type: 'button', role: 'radio', 'aria-checked': String(val === id), class: val === id ? 'active' : null, onclick: () => set(id) }, l)))
       );
-    menuEl = h('div', { class: 'ctx-menu fol-menu mot-menu', role: 'dialog', 'aria-label': 'Motif de basse' });
+    menuEl = h('div', { class: 'ctx-menu fol-menu mot-menu mot-modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Motif de basse' });
     function render() {
       const on = SS.playsMotif(track);
       const f = cur();
@@ -563,7 +594,7 @@ SS.ui = (() => {
       );
     }
     render();
-    placeMenu(x, y);
+    placeMenuCenter(); // fenêtre centrée, comme Arp One
     menuEl.querySelector('.mot-card.on')?.scrollIntoView({ block: 'nearest' });
   }
 
@@ -1401,8 +1432,12 @@ SS.ui = (() => {
       // mode compact : les interrupteurs ARP / ACCORDS passent aussi dans le menu
       if (i === 1 && instr)
         options.append(
-          h('button', { type: 'button', role: 'menuitemcheckbox', 'aria-checked': String(SS.arpOn(track)), class: 'th-btn th-opt-mode', onclick: () => setArp(track, !SS.arpOn(track)) },
-            h('span', { class: 'th-option-ico th-option-fx' }, 'ARP'), h('span', { class: 'th-option-label' }, SS.arpOn(track) ? 'Éteindre l’arpégiateur' : 'Arpégiateur')),
+          h('button', { type: 'button', role: 'menuitem', class: 'th-btn th-opt-mode', onclick: () => (options.hidePopover(), openArp(track)) },
+            h('span', { class: 'th-option-ico th-option-fx' }, 'ARP'), h('span', { class: 'th-option-label' }, 'Arp One…')),
+          SS.arpOn(track)
+            ? h('button', { type: 'button', role: 'menuitem', class: 'th-btn th-opt-mode', onclick: () => setArp(track, false) },
+                h('span', { class: 'th-option-ico th-option-fx' }, 'ARP'), h('span', { class: 'th-option-label' }, 'Éteindre l’arpégiateur'))
+            : null,
           h('button', { type: 'button', role: 'menuitemcheckbox', 'aria-checked': String(SS.follows(track)), class: 'th-btn th-opt-mode', onclick: () => setTrackFollow(track, !SS.follows(track)) },
             h('span', { class: 'th-option-ico th-option-fx' }, 'ACC'), h('span', { class: 'th-option-label' }, SS.follows(track) ? 'Ne plus suivre les accords' : 'Jouer la piste Accords'))
         );
@@ -1784,7 +1819,7 @@ SS.ui = (() => {
         ? [
             // même catalogue de motifs que la fenêtre de l'arpégiateur (mêmes noms, mêmes catégories)
             (() => {
-              const cur = SS.bassMotifOf(track.arp);
+              const cur = SS.motifOf(track.arp);
               return h(
                 'label',
                 {},
@@ -1812,17 +1847,6 @@ SS.ui = (() => {
               {},
               'Octaves',
               sel([1, 2, 3, 4].map((o) => ({ id: o, label: String(o) })), track.arp.octaves, (v) => ((track.arp = SS.Arp.normalize({ ...track.arp, octaves: +v, preset: '' })), app.changed()))
-            ),
-            h(
-              'button',
-              {
-                type: 'button',
-                class: 'roll-arp',
-                title: 'Arp One, l’arpégiateur : motif, vitesse, octaves, geste, réglage pas à pas, lecture en boucle',
-                onclick: () => SS.arpPanel.open(track),
-              },
-              h('span', { html: ICONS.arp }),
-              'Arp One'
             ),
           ]
         : null,
@@ -3794,6 +3818,13 @@ SS.ui = (() => {
   }
 
   /** Affiche menuEl près du pointeur, sans dépasser de la fenêtre ; Échap, un clic ailleurs ou un défilement le ferment. */
+  /** Menu affiché comme une fenêtre centrée (panneau des motifs de basse). */
+  function placeMenuCenter() {
+    document.body.append(menuEl);
+    const r = menuEl.getBoundingClientRect();
+    placeMenu((window.innerWidth - r.width) / 2, (window.innerHeight - r.height) / 2);
+  }
+
   function placeMenu(x, y) {
     document.body.append(menuEl);
     const r = menuEl.getBoundingClientRect();

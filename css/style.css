@@ -5699,3 +5699,15 @@ body.wizard-mode #bandDialog.band-dialog.tut-on { flex-direction: row; }
 .nt-motif-card.on { border-color: var(--motc); background: #1c321c; box-shadow: 0 0 0 1px var(--motc) inset; }
 .nt-motif-card .mot-draw svg { height: 16px; margin-top: 3px; }
 #dlgMotifAll { max-width: 160px; }
+
+/* Motif de basse : fenêtre centrée et plus grande, comme Arp One (js/ui.js openMotifMenu, placeMenuCenter) */
+.fol-menu.mot-menu.mot-modal { width: min(920px, calc(100vw - 32px)); padding: 14px 16px; border-radius: 12px; gap: 10px; box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .55), 0 20px 50px rgba(0, 0, 0, .6); z-index: 60; }
+.mot-modal .ctx-head b { font-size: 15px; }
+.mot-modal .ctx-head .mot-now { font-size: 14px; }
+.mot-modal .mot-chips { gap: 6px; margin: 4px 0 6px; }
+.ctx-menu.mot-modal .mot-chip { font-size: 13px; padding: 4px 12px; }
+.mot-modal .mot-cards { grid-template-columns: repeat(5, 1fr); gap: 8px; height: min(380px, calc(100vh - 290px)); max-height: none; align-content: start; }
+.ctx-menu.mot-modal .mot-card { padding: 8px 9px 7px; }
+.mot-modal .mot-name { font-size: 13px; }
+.mot-modal .mot-draw svg { height: 34px; margin-top: 6px; }
+@media (max-width: 900px) { .mot-modal .mot-cards { grid-template-columns: repeat(3, 1fr); } }

@@ -41,7 +41,7 @@ const CASES = [
     await page.goto(URL);
     await page.waitForTimeout(500);
     await page.click('.th-btn[title="Afficher / masquer le piano roll"]');
-    await page.click('.roll-arp');
+    await page.click('.th-arp');
     await page.waitForTimeout(150);
     const info = await page.evaluate(() => SS.arpPanel._info());
     ok(info.bars === want.bars && info.ticks === want.ticks, `${label} : boucle de ${info.bars} mesure(s), ${info.ticks} pas`);

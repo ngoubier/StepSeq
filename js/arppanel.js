@@ -22,6 +22,7 @@ SS.arpPanel = (() => {
   let app;
   let track = null;
   let snapshot = null;
+  let armed = false; // arpège allumé par l’ouverture (bouton ARP) : « Annuler » le rééteint
   let undo = [];
   let dlg;
   let sliding = false;
@@ -1695,11 +1696,26 @@ SS.arpPanel = (() => {
               title: 'Fermer en revenant aux réglages d’ouverture',
               onclick: () => {
                 track.arp = A().normalize(snapshot);
+                if (armed) delete track.arpOn;
                 app.changed();
                 close();
               },
             },
             'Annuler'
+          ),
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'btn arp-off',
+              title: 'La piste ne passe plus par l’arpégiateur (les réglages sont gardés)',
+              onclick: () => {
+                delete track.arpOn;
+                app.changed();
+                close();
+              },
+            },
+            'Éteindre l’arpège'
           ),
           h('button', { type: 'button', class: 'btn arp-fill', title: 'Remplace les accords de la piste par l’accord d’essai, sur toute la boucle', onclick: fillTrack }, 'Poser l’accord sur la piste')
         )
@@ -1727,9 +1743,11 @@ SS.arpPanel = (() => {
     app.renderTrack && t && app.renderTrack(t);
   }
 
-  function open(t) {
+  /** opts.armed : l'arpège vient d'être allumé par le bouton ARP de la piste ; « Annuler » le rééteint. */
+  function open(t, opts) {
     if (!dlg) build();
     track = t;
+    armed = !!(opts && opts.armed);
     track.arp = A().normalize(track.arp);
     snapshot = clone(track.arp);
     // piste de guitare ouverte pour la première fois : mode Guitare d'office (Annuler revient au mode Clavier)
