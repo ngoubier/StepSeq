@@ -73,7 +73,11 @@ const ok = (c, m) => {
   ok(g.planned.filter((o) => o.type === 'drum').map((o) => o.sound + '@' + o.machine).join(',') === 'bd@RolandTR909,sd@RolandTR909', 'batterie : les éléments et le kit de la grille');
   ok(['Ma basse', 'Nappe', 'Lead'].every((n, i) => g.planned.some((o) => o.instrument === want[i + 2])), 'basse, nappe, lead : le son de la grille');
   ok(g.planned.some((o) => o.sd && o.sd.cutoff === 777), 'le sound design de la nappe est gardé');
-  // changer d'inspiration : les instruments de la grille restent
+  // grille sans style (pistes faites à la main) : pas de style imposé, départ neutre « Créer de zéro »
+  ok((await page.evaluate(() => SS.band._state.styleId)) === 'zero', 'grille sans style : l’assistant part de « Créer de zéro »');
+  // changer de style puis d'inspiration : les instruments de la grille restent
+  await page.click('#bandStyles .bsty:not(.bsty-blank)');
+  await page.waitForTimeout(300);
   const p0 = await page.evaluate(() => SS.band._state.presetId);
   await page.click('#bandPresets .band-preset:not(.active)');
   await page.waitForTimeout(300);
