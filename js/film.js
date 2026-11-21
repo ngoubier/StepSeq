@@ -161,6 +161,236 @@ SS.film = (() => {
     return { drums: 'off', keys: s.ene >= 4 ? 'block4' : 'ballad', strings: s.ene <= 2 ? 'sustain' : 'swell', lead, fill: false };
   }
 
+  /* ---------- Thème et mélodie : motif, transformations, phrase, leitmotiv ----------
+   * Un motif = [{ t, d, m }] : départ et durée en temps (noires), hauteur MIDI. Tout se calcule en degrés de la gamme
+   * de la tonalité (SC : les notes de la gamme de Do1 à Do7), sauf le demi-ton chromatique.
+   * motif = { cont, intv, rhy, n, pick } (film.motif) ; leit = { idPassage: traitement } (film.leit, sinon selon l'émotion) ;
+   * phrase = structure de l'énoncé (film.motif.ph). */
+  const CONT = {
+    desc: { label: 'Descendant', dirs: [-1, -1, -1, -1], start: 4, why: 'retombe : le manque, le regret' },
+    asc: { label: 'Ascendant', dirs: [1, 1, 1, 1], start: 0, why: 's’élève : on croit à une issue' },
+    arch: { label: 'Arche', dirs: [1, 1, -1, -1], start: 2, why: 's’élance puis revient : un élan maîtrisé' },
+    vall: { label: 'Creux', dirs: [-1, -1, 1, 1], start: 7, why: 'plonge puis remonte : on se relève' },
+    rep: { label: 'Note répétée', dirs: [0, -1, 0, 1], start: 4, why: 'piétine : l’attente, l’obsession' },
+  };
+  const INTV = {
+    s2: { label: 'Seconde', step: 1, why: 'intime, presque parlé' },
+    s3: { label: 'Tierce', step: 2, why: 'chantant, doux' },
+    s4: { label: 'Quarte', step: 3, why: 'un appel, une affirmation' },
+    s6: { label: 'Sixte', step: 5, why: 'lyrique : le saut qui serre le cœur' },
+    ht: { label: 'Demi-ton', step: 0, why: 'chromatique, inquiétant' },
+  };
+  const RHY = {
+    nnb: { label: '♩ ♩ 𝅗𝅥', beats: [1, 1, 2], why: 'court-court-long : on pose' },
+    pt: { label: '♩. ♪ 𝅗𝅥', beats: [1.5, 0.5, 2], why: 'pointé : un élan' },
+    lev: { label: '♪ | ♩. 𝅗𝅥', beats: [0.5, 1.5, 2], why: 'levée : on hésite avant d’oser' },
+    sync: { label: '♪ ♩ ♪ 𝅗𝅥', beats: [0.5, 1, 0.5, 2], why: 'syncopé : instable' },
+    tri: { label: '³♪♪♪ 𝅗𝅥.', beats: [1 / 3, 1 / 3, 1 / 3, 3], why: 'triolet : une envolée' },
+  };
+  /** Réglages de départ du motif selon l'émotion (contour, intervalle-clé, rythme, nombre de notes). */
+  const EMO_MOTIF = {
+    tristesse: ['desc', 's2', 'lev', 3], nostalgie: ['desc', 's3', 'nnb', 3], suspense: ['rep', 'ht', 'sync', 4], peur: ['rep', 'ht', 'sync', 4],
+    colere: ['arch', 's4', 'pt', 4], espoir: ['asc', 's4', 'pt', 4], heroisme: ['arch', 's6', 'pt', 4], emerveillement: ['asc', 's6', 'tri', 5],
+    apaisement: ['desc', 's3', 'nnb', 3], joie: ['asc', 's3', 'pt', 4],
+  };
+  const motifFor = (emo) => {
+    const [cont, intv, rhy, n] = EMO_MOTIF[emo] || EMO_MOTIF.nostalgie;
+    return { cont, intv, rhy, n, pick: 0, ph: 'qr' };
+  };
+  const parseKey = (k) => {
+    const [tonic, mode] = String(k || 'D minor').split(' ');
+    return { tonic, mode: mode || 'minor' };
+  };
+  const pc = (m) => ((m % 12) + 12) % 12;
+  /** Notes de la gamme (MIDI 24 à 96) et tonique à l'octave 4. */
+  function scaleOf(key) {
+    const sc = SS.harmony.scale(key).map((d) => d.pc);
+    const SC = [];
+    for (let m = 24; m <= 96; m++) if (sc.includes(pc(m))) SC.push(m);
+    return { SC, tonic: 60 + sc[0], pcs: sc };
+  }
+  /** Degré (index dans SC) de la note de la gamme la plus proche. */
+  const degOf = (SC, m) => SC.reduce((b, x, i) => (Math.abs(x - m) < Math.abs(SC[b] - m) ? i : b), 0);
+  const at = (SC, i) => SC[Math.max(0, Math.min(SC.length - 1, i))];
+  /** Rythme de n notes sur une mesure de 4 temps : celui choisi, complété en croches, la dernière note tient la fin. */
+  function rhythmFor(rhy, n) {
+    const base = (RHY[rhy] || RHY.nnb).beats;
+    let r = base.slice(0, Math.max(1, n - 1));
+    while (r.length < n - 1) r.push(0.5);
+    let used = r.reduce((a, b) => a + b, 0);
+    if (used > 3.5) {
+      r = r.map((x) => (x * 3.5) / used);
+      used = 3.5;
+    }
+    r.push(4 - used);
+    return r;
+  }
+  /** Un motif d'une mesure. v : 0, 1, 2 (les trois propositions : la deuxième ouvre la 3e note, la troisième part plus haut). */
+  function genMotif(p, key, v = p.pick || 0) {
+    const { SC, tonic } = scaleOf(key);
+    const c = CONT[p.cont] || CONT.desc;
+    const n = Math.max(3, Math.min(5, p.n || 3));
+    const ki = (INTV[p.intv] || INTV.s3).step;
+    let d = degOf(SC, tonic) + c.start + (v === 2 ? 2 : 0);
+    const ms = [at(SC, d)];
+    for (let k = 1; k < n; k++) {
+      const dir = c.dirs[k - 1] ?? -1;
+      if (p.intv === 'ht' && k === 1) {
+        ms.push(ms[0] + (dir || 1)); // demi-ton chromatique, puis retour dans la gamme
+        continue;
+      }
+      const step = k === 1 ? ki : v === 1 && k === 2 ? 2 : 1;
+      d += dir * step;
+      ms.push(at(SC, d));
+    }
+    const rh = rhythmFor(p.rhy, n);
+    let t = 0;
+    return ms.map((m, i) => {
+      const o = { t, d: rh[i], m };
+      t += rh[i];
+      return o;
+    });
+  }
+  /** Les trois propositions du motif. */
+  const proposals = (p, key) => [0, 1, 2].map((v) => genMotif(p, key, v));
+  const shiftDeg = (SC, m, k) => at(SC, degOf(SC, m) + k);
+  /** Mode opposé : en mineur, la tierce, la sixte et la septième montent d'un demi-ton (et l'inverse en majeur). */
+  function otherMode(M, key) {
+    const t = pc(scaleOf(key).tonic);
+    const minor = key.mode !== 'major';
+    return M.map((n) => {
+      const iv = pc(n.m - t);
+      return { ...n, m: minor ? ([3, 8, 10].includes(iv) ? n.m + 1 : n.m) : [4, 9, 11].includes(iv) ? n.m - 1 : n.m };
+    });
+  }
+  /** Les 8 transformations : (motif, tonalité) → notes ; un seul changement à la fois. */
+  const TRANSFORMS = {
+    id: { label: 'Original', why: 'Le motif tel quel.', f: (M) => M },
+    inv: { label: 'Renversement', why: 'Les intervalles changent de sens : une chute devient un élan.', f: (M, key) => {
+      const { SC } = scaleOf(key);
+      const d0 = degOf(SC, M[0].m);
+      return M.map((n) => ({ ...n, m: at(SC, 2 * d0 - degOf(SC, n.m)) }));
+    } },
+    ret: { label: 'Rétrograde', why: 'Les notes à l’envers, même rythme : le souvenir rembobiné.', f: (M) => {
+      const ms = M.map((n) => n.m).reverse();
+      return M.map((n, i) => ({ ...n, m: ms[i] }));
+    } },
+    aug: { label: 'Augmentation', why: 'Deux fois plus lent : solennel, la révélation.', f: (M) => M.map((n) => ({ ...n, t: n.t * 2, d: n.d * 2 })) },
+    dim: { label: 'Diminution', why: 'Deux fois plus rapide, répété : urgence, poursuite.', f: (M) => [0, 2].flatMap((o) => M.map((n) => ({ ...n, t: n.t / 2 + o, d: n.d / 2 }))) },
+    mode: { label: 'Mode opposé', why: 'La même idée, éclairée (mineur → majeur) ou assombrie.', f: (M, key) => otherMode(M, key) },
+    seq: { label: 'Séquence', why: 'Répété en montant d’un degré : la tension grandit.', f: (M, key) => {
+      const { SC } = scaleOf(key);
+      return [0, 1, 2].flatMap((k) => M.map((n) => ({ ...n, t: n.t + 4 * k, m: shiftDeg(SC, n.m, k) })));
+    } },
+    frag: { label: 'Fragmentation', why: 'Seulement la tête du motif, morcelée : on doute, on hésite.', f: (M, key) => {
+      const { SC } = scaleOf(key);
+      return [0, 1, 2].flatMap((k) => M.slice(0, 2).map((n, i) => ({ t: k * 1.25 + i * 0.5, d: 0.5, m: shiftDeg(SC, n.m, -k) }))).concat([{ t: 4, d: 2, m: M[M.length - 1].m }]);
+    } },
+  };
+  /** Note de l'accord (classes pcs) la plus proche de m. */
+  function snap(m, pcs) {
+    if (!pcs || !pcs.length) return m;
+    for (let k = 0; k < 7; k++) for (const x of [m - k, m + k]) if (pcs.includes(pc(x))) return x;
+    return m;
+  }
+  /** Structures de phrase sur 8 mesures : [opération, décalage en degrés] par mesure. */
+  const PHRASES = {
+    qr: { label: 'Question → réponse', why: 'Quatre mesures qui restent en suspens (question), quatre qui finissent sur la tonique (réponse).', plan: [['m', 0], ['m', -1], ['inv', 1], ['long', 4], ['m', 0], ['m', -1], ['m', -3], ['long', 0]] },
+    sent: { label: 'Présentation puis développement', why: 'Le motif deux fois, puis seulement sa tête, de plus en plus serrée : l’élan qui pousse vers la fin.', plan: [['m', 0], ['m', -2], ['m', 0], ['m', -2], ['frag', 1], ['frag', 0], ['frag', -1], ['long', 0]] },
+    cue: { label: 'Vers le repère (sommet)', why: 'Chaque mesure un peu plus haut : le sommet tombe sur la mesure du repère suivant.', plan: [['m', 0], ['m', -1], ['m', 1], ['m', 2], ['m', 3], ['m', 4], ['m', 5], ['long', 7]] },
+  };
+  /** Une mesure de la phrase : le motif décalé de k degrés, sa tête morcelée, son renversement ou une note longue. */
+  function barOf(op, k, M, key) {
+    const { SC } = scaleOf(key);
+    if (op === 'long') return [{ t: 0, d: 4, m: shiftDeg(SC, M[0].m, k) }];
+    if (op === 'inv') return TRANSFORMS.inv.f(M, key).map((n) => ({ ...n, m: shiftDeg(SC, n.m, k) }));
+    if (op === 'frag') return M.slice(0, 2).map((n, i) => ({ t: i, d: 1, m: shiftDeg(SC, n.m, k) })).concat([{ t: 2, d: 2, m: shiftDeg(SC, M[1].m, k - 1) }]);
+    return M.map((n) => ({ ...n, m: shiftDeg(SC, n.m, k) }));
+  }
+  /** Phrase de `bars` mesures (la structure se répète au-delà de 8) ; la note finale de chaque mesure se pose sur l'accord. */
+  function phrase(M, ph, key, chordPcs, bars = 8) {
+    const plan = (PHRASES[ph] || PHRASES.qr).plan;
+    const out = [];
+    for (let b = 0; b < bars; b++) {
+      const [op, k] = plan[b % plan.length];
+      const ns = barOf(op, k, M, key);
+      const last = ns[ns.length - 1];
+      last.m = snap(last.m, chordPcs(b));
+      ns.forEach((n) => out.push({ ...n, t: n.t + b * 4 }));
+    }
+    return out;
+  }
+  /** Traitements du thème dans une scène (leitmotiv), et celui proposé selon l'émotion. */
+  const TREATMENTS = {
+    enonce: { label: 'Énoncé (phrase)', why: 'le motif tel que la phrase le présente' },
+    frag: { label: 'Fragmenté', why: 'seulement sa tête : le doute, l’attente' },
+    dim: { label: 'Diminué', why: 'deux fois plus vite : l’urgence' },
+    seq: { label: 'En séquence', why: 'il monte degré par degré : l’espoir grandit' },
+    aug: { label: 'Augmenté', why: 'deux fois plus lent, plus haut : la révélation' },
+    mode: { label: 'Mode opposé', why: 'éclairé (ou assombri) : la même idée a changé' },
+    retombe: { label: 'Qui retombe', why: 'le motif descend et se pose : la fin' },
+    tacet: { label: 'Silence', why: 'le thème se tait : place au dialogue, au bruitage' },
+  };
+  const EMO_TREAT = { tristesse: 'enonce', nostalgie: 'enonce', suspense: 'frag', peur: 'dim', colere: 'dim', espoir: 'seq', heroisme: 'mode', emerveillement: 'aug', apaisement: 'retombe', joie: 'mode' };
+  /** Classes de hauteur de l'accord joué à la mesure b d'une grille (pas de 16 par mesure). */
+  function chordAt(grid, key, b) {
+    const c = [...(grid || [])].reverse().find((x) => x.step <= b * 16) || (grid || [])[0];
+    if (!c || !SS.harmony || !SS.chordNotes) return null;
+    const g = SS.harmony.gridChord(key, c.degree, c.type, c.acc || 0, 0);
+    return SS.chordNotes(60 + g.rootPc, c.type).map(pc);
+  }
+  /** Ramène une ligne dans la zone chantante du piano (Sol3 à Do6) par octaves, sans casser les intervalles. */
+  function fitRange(ns, lo = 55, hi = 84) {
+    if (!ns.length) return ns;
+    const mn = Math.min(...ns.map((n) => n.m));
+    const mx = Math.max(...ns.map((n) => n.m));
+    let o = 0;
+    while (mx + o > hi && mn + o - 12 >= lo - 6) o -= 12;
+    while (mn + o < lo && mx + o + 12 <= hi + 6) o += 12;
+    return o ? ns.map((n) => ({ ...n, m: n.m + o })) : ns;
+  }
+  /** Notes d'un passage selon son traitement, sur ses accords (key : celle du passage). */
+  function treatNotes(tr, M, ph, key, grid, bars) {
+    const pcsAt = (b) => chordAt(grid, key, b);
+    const { SC } = scaleOf(key);
+    let ns = [];
+    if (tr === 'tacet') return [];
+    if (tr === 'enonce') ns = phrase(M, ph, key, pcsAt, bars);
+    else if (tr === 'retombe') {
+      for (let b = 0; b < bars; b++) {
+        const bar = b === bars - 1 ? [{ t: 0, d: 4, m: snap(shiftDeg(SC, M[0].m, -2 * b - 1), pcsAt(b)) }] : M.map((n) => ({ ...n, m: shiftDeg(SC, n.m, -2 * b) }));
+        bar[bar.length - 1].m = snap(bar[bar.length - 1].m, pcsAt(b));
+        bar.forEach((n) => ns.push({ ...n, t: n.t + 4 * b }));
+      }
+    } else {
+      const base = tr === 'mode' ? TRANSFORMS.mode.f(M, key) : M;
+      const unit = tr === 'aug' ? TRANSFORMS.aug.f(base, key).map((n) => ({ ...n, m: n.m + 12 })) : tr === 'dim' ? TRANSFORMS.dim.f(base, key) : tr === 'frag' ? TRANSFORMS.frag.f(base, key) : base;
+      const len = Math.max(4, Math.ceil(Math.max(...unit.map((n) => n.t + n.d)) / 4) * 4); // en temps, mesures entières
+      // chaque reprise du motif bouge un peu : la séquence monte d'un degré, la diminution monte toutes les deux
+      // reprises (l'urgence grandit), le fragment hésite autour de sa note, le mode opposé répond un ton plus bas
+      const SHIFT = { seq: (k) => k, dim: (k) => Math.floor(k / 2), frag: (k) => [0, -1, 0, 1][k % 4], mode: (k) => (k % 2 ? -1 : 0), aug: () => 0 };
+      for (let t0 = 0, k = 0; t0 < bars * 4; t0 += len, k++) {
+        const shift = (SHIFT[tr] || SHIFT.aug)(k);
+        const rep = [];
+        unit.forEach((n) => {
+          if (t0 + n.t >= bars * 4) return;
+          rep.push({ ...n, t: t0 + n.t, d: Math.min(n.d, bars * 4 - t0 - n.t), m: shift ? shiftDeg(SC, n.m, shift) : n.m });
+        });
+        // la note qui finit la reprise se pose sur l'accord du moment
+        const end = rep[rep.length - 1];
+        if (end) end.m = snap(end.m, pcsAt(Math.floor(end.t / 4)));
+        ns.push(...rep);
+      }
+    }
+    return fitRange(ns);
+  }
+  /** Notes → événements de section (pas de double croche). */
+  const toEvents = (ns, vel = 0.78) => ns.filter((n) => n.d > 0).map((n) => ({ step: Math.round(n.t * 4), len: Math.max(1, Math.round(n.d * 4)), notes: [n.m], vel }));
+  /** Le motif de la scène : celui choisi (film.motif), dans la tonalité de la scène. */
+  const motifOf = (film) => genMotif(film.motif, parseKey(film.key));
+  /** Traitement du thème dans un passage : celui choisi, sinon celui de son émotion. */
+  const treatOf = (film, s) => (film.leit && TREATMENTS[film.leit[s.id]] ? film.leit[s.id] : EMO_TREAT[s.emo] || 'enonce');
+
   /** Plan de chanson d'une scène de film (js/band-songs.js) : une section par passage, dans l'ordre. */
   function spec(film) {
     const tm = timing(film);
@@ -176,7 +406,13 @@ SS.film = (() => {
         sec.grid = g.grid;
         if (g.key) sec.key = g.key;
       }
-      if (film.theme && c.gridBars === s.bars) {
+      if (film.motif) {
+        // le thème inventé (bloc « 04 Thème ») : le motif, traité selon l'émotion du passage (leitmotiv)
+        const M = motifOf(film);
+        const ns = treatNotes(treatOf(film, s), M, film.motif.ph, parseKey(sec.key || key), sec.grid, s.bars);
+        sec.theme = toEvents(ns);
+        if (!ns.length) delete sec.lead; // « Silence » : le thème se tait dans ce passage
+      } else if (film.theme && c.gridBars === s.bars) {
         const ev = themeEvents(film.theme, s.startBar, s.bars);
         if (ev.length) sec.theme = ev;
       }
@@ -272,5 +508,6 @@ SS.film = (() => {
   }
   if (SS.Band && SS.Band.addStyle) SS.Band.addStyle(STYLE(SS.Band.mu));
 
-  return { EMOS, emoOf, energyOf, tempoOf, fmt, timing, spec, gridFor, themeEvents, LUMIERE, blankScene, editable, TEMPO_MIN, TEMPO_MAX };
+  return { EMOS, emoOf, energyOf, tempoOf, fmt, timing, spec, gridFor, themeEvents, LUMIERE, blankScene, editable, TEMPO_MIN, TEMPO_MAX,
+    CONT, INTV, RHY, EMO_MOTIF, motifFor, genMotif, proposals, TRANSFORMS, PHRASES, phrase, TREATMENTS, EMO_TREAT, treatOf, treatNotes, motifOf, chordAt, parseKey, scaleOf };
 })();

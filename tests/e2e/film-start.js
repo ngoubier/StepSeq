@@ -82,9 +82,34 @@ const shot = async (page, name) => SHOTS && page.screenshot({ path: path.join(SH
   await page.locator('#bandSong').scrollIntoViewIfNeeded();
   await shot(page, 'film-scene.png');
 
+  // 04 Thème et mélodie : un motif, ses trois propositions, le leitmotiv
+  await page.click('#bfmThemeNew');
+  await page.waitForTimeout(300);
+  ok((await page.locator('.bfm-prop').count()) === 3, 'trois propositions de motif');
+  await page.locator('#bfmCont [data-v="asc"]').click();
+  await page.waitForTimeout(250);
+  await page.locator('.bfm-prop').nth(1).locator('button', { hasText: 'Choisir' }).click();
+  await page.waitForTimeout(250);
+  ok((await page.locator('.bfm-prop.on').getAttribute('data-pick')) === '1', 'deuxième proposition choisie');
+  ok((await page.locator('.bfm-leit tr').count()) === 6, 'le thème dans chacun des 6 passages');
+  await page.locator('.bfm-leit tr').first().locator('.bfm-treat').selectOption('tacet');
+  await page.waitForTimeout(300);
+  await page.locator('#bfmTr .chip', { hasText: 'Renversement' }).click();
+  await page.waitForTimeout(300);
+  await page.locator('.bfm-theme').first().scrollIntoViewIfNeeded();
+  await shot(page, 'film-theme.png');
+  await page.locator('.bfm-leit').scrollIntoViewIfNeeded();
+  await shot(page, 'film-leit.png');
+
   await page.click('#bwGo').catch(() => {});
   await page.waitForTimeout(1200);
   await page.click('#stop').catch(() => {});
+  const th = await page.evaluate(() => {
+    const r = SS.band._listen();
+    const lead = r.tracks.find((t) => t.band && t.band.key === 'lead');
+    return r.scenes.map((sc) => sc.data[lead.id].events.length);
+  });
+  ok(th[0] === 0 && th.slice(1).every((n) => n > 0), `le thème se tait dans le 1er passage, joue dans les autres (${th.join(' ')})`);
   for (let i = 0; i < 25 && !(await page.isVisible('#bwCreate')); i++) {
     await page.dispatchEvent('#bwNext', 'click');
     await page.waitForTimeout(250);

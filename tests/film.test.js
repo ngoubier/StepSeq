@@ -100,3 +100,66 @@ test('scène libre : un passage par repère, accords de l’émotion, tonalité 
   const g = F.gridFor('espoir', { tonic: 'D', mode: 'minor' }, 4);
   assert.equal(g.grid.length, 4);
 });
+
+test('motif : contour, intervalle-clé, rythme, 3 à 5 notes, 3 propositions dans la gamme', () => {
+  const key = { tonic: 'D', mode: 'minor' };
+  const inKey = (m) => F.scaleOf(key).pcs.includes(((m % 12) + 12) % 12);
+  const p = F.motifFor('nostalgie');
+  const [a, b, c] = F.proposals(p, key);
+  assert.deepEqual(a.map((n) => n.m), [69, 65, 64], 'La–Fa–Mi : descendant, tierce, ♩ ♩ 𝅗𝅥');
+  assert.deepEqual(a.map((n) => n.d), [1, 1, 2]);
+  assert.notDeepEqual(a.map((n) => n.m), b.map((n) => n.m));
+  assert.notDeepEqual(a.map((n) => n.m), c.map((n) => n.m));
+  for (const cont of Object.keys(F.CONT))
+    for (const intv of Object.keys(F.INTV))
+      for (const rhy of Object.keys(F.RHY))
+        for (const n of [3, 4, 5]) {
+          const M = F.genMotif({ cont, intv, rhy, n }, key);
+          assert.equal(M.length, n);
+          assert.ok(Math.abs(M.reduce((x, y) => x + y.d, 0) - 4) < 1e-9, 'une mesure');
+          assert.ok(M.every((x, i) => (intv === 'ht' && i === 1) || inKey(x.m)), `${cont}/${intv} dans la gamme`);
+        }
+  const asc = F.genMotif({ cont: 'asc', intv: 's4', rhy: 'pt', n: 4 }, key);
+  assert.ok(asc.every((x, i) => !i || x.m > asc[i - 1].m), 'ascendant');
+});
+
+test('transformations : renversement, rétrograde, augmentation, diminution, mode, séquence, fragmentation', () => {
+  const key = { tonic: 'D', mode: 'minor' };
+  const M = F.genMotif(F.motifFor('nostalgie'), key);
+  const T = (id) => F.TRANSFORMS[id].f(M, key);
+  assert.equal(Object.keys(F.TRANSFORMS).length, 8);
+  assert.deepEqual(T('inv').map((n) => n.m), [69, 72, 74], 'La–Do–Ré : la chute devient un élan');
+  assert.deepEqual(T('ret').map((n) => n.m), [64, 65, 69]);
+  assert.deepEqual(T('aug').map((n) => n.d), [2, 2, 4]);
+  assert.equal(T('dim').length, 6);
+  assert.deepEqual(T('mode').map((n) => n.m), [69, 66, 64], 'Fa♯ : Ré majeur');
+  assert.equal(T('seq').length, 9);
+  assert.ok(T('frag').length >= 6);
+});
+
+test('phrase et leitmotiv : chaque passage reçoit le thème traité selon son émotion, posé sur ses accords', () => {
+  const film = { ...F.blankScene(), motif: F.motifFor('suspense') };
+  const sp = F.spec(film);
+  const tm = F.timing(film);
+  tm.sections.forEach((s) => {
+    const sec = sp.sections[s.id];
+    assert.ok(sec.theme && sec.theme.length, s.id + ' a son thème');
+    assert.ok(sec.theme.every((e) => e.step >= 0 && e.step + e.len <= s.bars * 16), s.id + ' dans la scène');
+    assert.ok(sec.theme.every((e) => e.notes[0] >= 48 && e.notes[0] <= 90), s.id + ' tessiture du piano');
+    // la dernière note se pose sur l'accord du moment
+    const last = sec.theme[sec.theme.length - 1];
+    const pcs = F.chordAt(sec.grid, F.parseKey(sec.key || sp.key), Math.floor(last.step / 16));
+    assert.ok(pcs.includes(last.notes[0] % 12), s.id + ' fin sur l’accord');
+  });
+  assert.equal(F.treatOf(film, tm.sections[0]), 'frag', 'suspense : fragmenté');
+  assert.equal(F.treatOf(film, tm.sections[2]), 'mode', 'héroïsme : mode opposé');
+  // choix de l'utilisateur, et silence
+  const f2 = { ...film, leit: { p1: 'tacet', p2: 'enonce' } };
+  const sp2 = F.spec(f2);
+  assert.ok(!sp2.sections.p1.theme.length && !sp2.sections.p1.lead, 'le thème se tait');
+  const ph = F.phrase(F.motifOf(film), 'qr', F.parseKey(film.key), () => null, 8);
+  assert.equal(Math.ceil(Math.max(...ph.map((n) => n.t + n.d)) / 4), 8, 'phrase de 8 mesures');
+  // le thème est joué tel quel par le piano
+  const s = SS.bandSong.build(sp, 'scene', [{ id: 'lead', type: 'instrument', category: 'mono', band: { key: 'lead' } }]);
+  assert.deepEqual(s.scenes[0].data.lead.events.map((e) => e.notes[0]), sp.sections.p1.theme.map((e) => e.notes[0]));
+});

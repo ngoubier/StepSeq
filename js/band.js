@@ -998,6 +998,149 @@ SS.band = (() => {
     return h('div', { class: 'bfm-curves', html: `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Courbes de tension et d’énergie">${svg}</svg>` });
   }
   const lvlSel = (v, label, on) => h('select', { 'aria-label': label, onchange: (e) => on(+e.target.value), disabled: filmTpl() }, ...[1, 2, 3, 4, 5].map((n) => h('option', { value: n, selected: n === v }, String(n))));
+  /* ---------- 04 Thème et mélodie (musique de film) ----------
+   * Le motif (contour, intervalle-clé, rythme, 3 à 5 notes, 3 propositions), ses transformations, la phrase qui l'énonce
+   * et ce qu'il devient dans chaque passage (leitmotiv). Le thème écrit est joué par le musicien « Thème » ; tout s'écoute
+   * au son de ce musicien. Choisir un thème sur le modèle en fait une scène libre (ses accords restent). */
+  const FT = { tr: 'id' }; // transformation affichée (aperçu, non enregistrée)
+  /** Le son du musicien qui porte le thème (sinon un piano), pour les écoutes du bloc Thème. */
+  function themeTrack() {
+    const mu = musicians().find((m) => m.role === 'lead');
+    const o = mu ? instOpts(mu) : { type: 'instrument', family: 'keys', instrument: 'piano', category: 'mono' };
+    const fam = o.type === 'synth' ? 'analog' : o.family;
+    return o.type === 'synth' ? { ...o, type: 'instrument', id: null, family: fam, instrument: o.analog, junoPatch: o.patch, octave: SS.findFamily(fam).octave } : { ...o, id: null, octave: SS.findFamily(fam).octave };
+  }
+  /** Joue des notes [{ t, d, m }] (temps en noires) au tempo de la scène, avec les accords en dessous si chords(b) est donné. */
+  function playTheme(ns, chords) {
+    try {
+      SS.audio.ensureCtx();
+      const sec = 60 / tempo();
+      const out = ns.map((n) => ({ midi: n.m, at: n.t * sec, dur: Math.max(0.12, n.d * sec * 0.95), vel: 0.8 }));
+      if (chords) {
+        const bars = Math.ceil(Math.max(...ns.map((n) => n.t + n.d)) / 4);
+        for (let b = 0; b < bars; b++) (chords(b) || []).forEach((p, i) => out.push({ midi: 48 + ((p - 48) % 12 + 12) % 12 + (i ? 0 : -12), at: b * 4 * sec, dur: 4 * sec * 0.98, vel: i ? 0.32 : 0.4 }));
+      }
+      SS.audio.playPhrase(themeTrack(), out);
+    } catch (e) {
+      console.warn(e);
+    }
+  }
+  /** Petit rouleau de notes (SVG). */
+  function themeRoll(ns, beats, cls = 'bfm-roll') {
+    const W = 360;
+    const H = 70;
+    if (!ns.length) return h('div', { class: cls + ' empty' }, 'Silence');
+    const ms = ns.map((n) => n.m);
+    const lo = Math.min(...ms) - 2;
+    const hi = Math.max(...ms) + 2;
+    const x = (b) => 4 + (b / beats) * (W - 8);
+    const y = (m) => 4 + ((hi - m) / Math.max(1, hi - lo)) * (H - 14);
+    let svg = '';
+    for (let b = 0; b <= beats; b += 4) svg += `<line x1="${x(b).toFixed(1)}" x2="${x(b).toFixed(1)}" y1="2" y2="${H - 2}" stroke="var(--bw-line)"/>`;
+    ns.forEach((n) => (svg += `<rect x="${(x(n.t) + 0.5).toFixed(1)}" y="${(y(n.m) - 3).toFixed(1)}" width="${Math.max(3, x(n.t + n.d) - x(n.t) - 1.5).toFixed(1)}" height="6" rx="2" fill="#ffd75e"/>`));
+    return h('div', { class: cls, html: `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">${svg}</svg>` });
+  }
+  const NOTE_FR = ['Do', 'Do♯', 'Ré', 'Mi♭', 'Mi', 'Fa', 'Fa♯', 'Sol', 'La♭', 'La', 'Si♭', 'Si'];
+  const noteName = (m) => NOTE_FR[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
+  /** Change le thème : sur le modèle, la scène devient libre d'abord (mêmes repères, mêmes accords). */
+  function themeEdit(fn) {
+    if (filmTpl()) {
+      S.film = FM().editable(FM().LUMIERE);
+      setPreset('scene');
+    }
+    fn(S.film);
+    filmChanged();
+  }
+  function filmThemeBlock(f, tm) {
+    const key = FM().parseKey(f.key);
+    const head = h('div', { class: 'bfm-h' }, h('b', {}, '04'), ' Thème et mélodie');
+    const firstEmo = tm.sections[0].emo;
+    if (!f.motif) {
+      return [
+        head,
+        h('p', { class: 'bfm-why' }, filmTpl() || f.theme ? 'Le thème du modèle est écrit : La–Fa–Mi (noire, noire, blanche), le sommet La5 juste après la synchro.' : 'Pas encore de thème : l’assistant écrit une mélodie pour chaque scène.'),
+        h('button', { type: 'button', class: 'btn btn-small', id: 'bfmThemeNew', title: 'Un motif de 3 à 5 notes, réglé d’après l’émotion du premier passage', onclick: () => themeEdit((x) => (x.motif = FM().motifFor(firstEmo))) }, 'Inventer un thème'),
+      ];
+    }
+    const p = f.motif;
+    const set = (k, v) => themeEdit((x) => Object.assign(x.motif, { [k]: k === 'n' ? +v : v, ...(k !== 'pick' && k !== 'ph' ? { pick: 0 } : {}) }));
+    const chips = (id, label, table, cur, k) =>
+      h('div', { class: 'bfm-row' }, h('span', { class: 'bh-lbl' }, label), h('span', { class: 'bfm-chips', id, role: 'radiogroup', 'aria-label': label }, ...Object.entries(table).map(([v, o]) =>
+        h('button', { type: 'button', class: 'chip' + (v === cur ? ' active' : ''), role: 'radio', 'aria-checked': String(v === cur), 'data-v': v, title: o.why || '', onclick: () => set(k, v) }, o.label))));
+    const M = FM().genMotif(p, key);
+    const props = FM().proposals(p, key);
+    const s0 = tm.sections[0];
+    const spec0 = filmSpec().sections[s0.id];
+    const k0 = FM().parseKey(spec0.key || f.key);
+    const chords0 = (b) => FM().chordAt(spec0.grid, k0, b % s0.bars);
+    const tr = FM().TRANSFORMS[FT.tr] || FM().TRANSFORMS.id;
+    const trNs = tr.f(M, key);
+    const trBeats = Math.max(4, Math.ceil(Math.max(...trNs.map((n) => n.t + n.d)) / 4) * 4);
+    const ph = FM().phrase(M, p.ph, key, chords0, 8);
+    const eff = filmSpec();
+    const leitRows = tm.sections.map((s) => {
+      const cur = FM().treatOf(f, s);
+      const ev = (eff.sections[s.id].theme || []).map((e) => ({ t: e.step / 4, d: e.len / 4, m: e.notes[0] }));
+      const spS = eff.sections[s.id];
+      const kS = FM().parseKey(spS.key || f.key);
+      return h(
+        'tr',
+        { 'data-sec': s.id },
+        h('td', { class: 'bfm-emotd', style: `--c:${s.color}` }, h('i', { class: 'bfm-dot', 'aria-hidden': 'true' }), `${s.name}`, h('small', {}, s.bars > 1 ? ` m. ${s.startBar + 1}–${s.startBar + s.bars}` : ` m. ${s.startBar + 1}`)),
+        h('td', {}, h('select', { class: 'bfm-treat', 'aria-label': `Le thème dans « ${s.name} »`, onchange: (e) => themeEdit((x) => (x.leit = { ...(x.leit || {}), [s.id]: e.target.value })) },
+          ...Object.entries(FM().TREATMENTS).map(([v, o]) => h('option', { value: v, selected: v === cur, title: o.why }, o.label + (v === FM().EMO_TREAT[s.emo] ? ' (émotion)' : ''))))),
+        h('td', { class: 'bfm-rollcell' }, themeRoll(ev, s.bars * 4, 'bfm-roll wide')),
+        h('td', {}, ev.length ? h('button', { type: 'button', class: 'btn btn-small btn-icon', title: 'Écouter le thème dans ce passage, avec ses accords', 'aria-label': `Écouter « ${s.name} »`, onclick: () => playTheme(ev, (b) => FM().chordAt(spS.grid, kS, b)) }, '▶') : null)
+      );
+    });
+    return [
+      head,
+      h('div', { class: 'bfm-theme' },
+        h('div', { class: 'bfm-tcol' },
+          h('div', { class: 'bfm-sub' }, '1 · Le motif (3 à 5 notes)'),
+          chips('bfmCont', 'Contour', FM().CONT, p.cont, 'cont'),
+          chips('bfmIntv', 'Intervalle-clé', FM().INTV, p.intv, 'intv'),
+          chips('bfmRhy', 'Rythme', FM().RHY, p.rhy, 'rhy'),
+          chips('bfmN', 'Notes', { 3: { label: '3' }, 4: { label: '4' }, 5: { label: '5' } }, String(p.n), 'n'),
+          h('p', { class: 'bfm-why' }, `${FM().CONT[p.cont].label} (${FM().CONT[p.cont].why}), ${FM().INTV[p.intv].label.toLowerCase()} (${FM().INTV[p.intv].why}), rythme ${FM().RHY[p.rhy].why}.`),
+          h('div', { class: 'bfm-row' },
+            h('button', { type: 'button', class: 'btn btn-small', title: 'Les réglages proposés pour l’émotion du premier passage', onclick: () => themeEdit((x) => (x.motif = { ...FM().motifFor(firstEmo), ph: x.motif.ph })) }, '↺ Selon l’émotion'),
+            h('button', { type: 'button', class: 'btn btn-small', id: 'bfmThemeOff', title: 'Revenir à la mélodie écrite par l’assistant (ou au thème du modèle)', onclick: () => themeEdit((x) => (delete x.motif, delete x.leit)) }, 'Retirer le thème'))
+        ),
+        h('div', { class: 'bfm-tcol' },
+          h('div', { class: 'bfm-sub' }, '3 propositions'),
+          ...props.map((pm, i) => h(
+            'div',
+            { class: 'bfm-prop' + (i === (p.pick || 0) ? ' on' : ''), 'data-pick': i },
+            h('button', { type: 'button', class: 'btn btn-small btn-icon', 'aria-label': `Écouter la proposition ${i + 1}`, onclick: () => playTheme(pm) }, '▶'),
+            themeRoll(pm, 4),
+            h('span', { class: 'bfm-notes' }, pm.map((n) => noteName(n.m)).join(' – ')),
+            h('button', { type: 'button', class: 'btn btn-small' + (i === (p.pick || 0) ? ' btn-accent' : ''), 'aria-pressed': String(i === (p.pick || 0)), onclick: () => set('pick', i) }, i === (p.pick || 0) ? 'Choisi' : 'Choisir')
+          ))
+        )
+      ),
+      h('div', { class: 'bfm-theme' },
+        h('div', { class: 'bfm-tcol' },
+          h('div', { class: 'bfm-sub' }, '2 · Le transformer (un seul changement à la fois)'),
+          h('span', { class: 'bfm-chips', id: 'bfmTr' }, ...Object.entries(FM().TRANSFORMS).map(([v, o]) =>
+            h('button', { type: 'button', class: 'chip' + (v === FT.tr ? ' active' : ''), 'aria-pressed': String(v === FT.tr), title: o.why, onclick: () => ((FT.tr = v), renderSong(), playTheme(tr === o ? trNs : o.f(M, key))) }, o.label))),
+          themeRoll(trNs, trBeats, 'bfm-roll wide'),
+          h('p', { class: 'bfm-why' }, tr.why)
+        ),
+        h('div', { class: 'bfm-tcol' },
+          h('div', { class: 'bfm-sub' }, '3 · La phrase (8 mesures sur les accords)'),
+          chips('bfmPh', 'Structure', FM().PHRASES, p.ph || 'qr', 'ph'),
+          themeRoll(ph, 32, 'bfm-roll wide'),
+          h('p', { class: 'bfm-why' }, (FM().PHRASES[p.ph] || FM().PHRASES.qr).why + ' Elle énonce le thème dans les passages « Énoncé ».'),
+          h('div', { class: 'bfm-row' }, h('button', { type: 'button', class: 'btn btn-small', onclick: () => playTheme(ph, chords0) }, '▶ La phrase avec les accords'))
+        )
+      ),
+      h('div', { class: 'bfm-sub' }, '4 · Le thème dans chaque passage (leitmotiv)'),
+      h('table', { class: 'bfm-leit' }, h('tbody', {}, ...leitRows)),
+      h('p', { class: 'bfm-why' }, 'Le motif revient dans chaque scène, transformé selon l’émotion du passage (ou ton choix). « Générer et écouter » joue le tout avec l’orchestre.'),
+    ];
+  }
+
   function renderFilm() {
     const f = filmOf();
     const tpl = filmTpl();
@@ -1058,7 +1201,8 @@ SS.band = (() => {
       head('03', 'Émotions et courbes'),
       filmCurves(tm),
       h('p', { class: 'bfm-legend' }, h('i', { style: `background:${ENE_C}` }), ' Énergie sonore ', h('i', { class: 'dash', style: `color:${TEN_C}` }), ' Tension · la bande de couleur : l’émotion de chaque passage, qui devient une scène ; l’énergie règle la densité de l’orchestre.'),
-      h('p', { class: 'bfm-palette' }, ...FM().EMOS.map((x) => h('span', { style: `--c:${x.color}` }, h('i', { 'aria-hidden': 'true' }), x.label)))
+      h('p', { class: 'bfm-palette' }, ...FM().EMOS.map((x) => h('span', { style: `--c:${x.color}` }, h('i', { 'aria-hidden': 'true' }), x.label))),
+      ...filmThemeBlock(f, tm)
     ];
     $('#bandSong').replaceChildren(...kids.filter(Boolean));
   }
