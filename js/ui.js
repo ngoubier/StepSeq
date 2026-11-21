@@ -563,25 +563,14 @@ SS.ui = (() => {
         h('span', { class: 'ctx-param-label' }, label, help ? SS.helpTip(help, label) : null),
         h('div', { class: 'segmented fol-seg', role: 'radiogroup', 'aria-label': label }, list.map(([id, l]) => h('button', { type: 'button', role: 'radio', 'aria-checked': String(val === id), class: val === id ? 'active' : null, onclick: () => set(id) }, l)))
       );
-    menuEl = h('div', { class: 'ctx-menu fol-menu mot-menu mot-modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Motif de basse' });
+    menuEl = h('div', { class: 'ctx-menu fol-menu mot-menu mot-modal mot-pick', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Motif de basse' });
     function render() {
       const on = SS.playsMotif(track);
       const f = cur();
       const now = SS.bassMotifOf({ follow: f }, sc);
       menuEl.replaceChildren(
         h('div', { class: 'ctx-head' }, h('b', { class: 'ctx-current' }, 'Motif · ' + track.name), h('span', { class: 'ctx-desc mot-now' }, on ? M.name(now) : 'éteint'), SS.helpTip('Cliquez un motif : il s’entend et la basse le joue sur les accords de la piste Accords, scène par scène. Les notes suivent les accords quand vous les changez.', 'Motif de basse'), h('button', { type: 'button', class: 'mot-x', 'aria-label': 'Fermer', title: 'Fermer', onclick: () => closeChordMenu(), html: ICONS.close })),
-        h(
-          'div',
-          { class: 'mot-chips' },
-          [['all', 'Tous'], ...M.GROUPS.map((g) => [g[0], g[1]])].map(([id, l]) => h('button', { type: 'button', class: 'mot-chip' + (motifGroup === id ? ' on' : ''), onclick: () => ((motifGroup = id), render()) }, l))
-        ),
-        h(
-          'div',
-          { class: 'mot-cards' },
-          M.inGroup(motifGroup).map((id) =>
-            h('button', { type: 'button', class: 'mot-card' + (on && id === now ? ' on' : ''), 'data-id': id, title: M.desc(id), onclick: () => pick(id) }, h('span', { class: 'mot-name' }, M.name(id)), h('span', { class: 'mot-draw', html: M.svg(id) }))
-          )
-        ),
+        ...M.picker({ group: motifGroup, cur: on ? now : null, onGroup: (g) => ((motifGroup = g), render()), onPick: pick }),
         seg('Scènes', [['all', 'Toutes'], ['one', 'Cette scène']], scope, setScope, '« Cette scène » : seule la scène en cours prend le motif choisi ; les autres gardent le leur.'),
         seg('Hauteur', SS.FOLLOW.MOTIF_OCTAVES.map((o) => [o, 'C' + o]), f.oct, (o) => (on ? (commit({ ...f, oct: o }), preview()) : ((track.lastFollow = SS.FOLLOW.clean({ ...f, oct: o })), render()))),
         h(

@@ -73,5 +73,52 @@ SS.bassMotifs = (() => {
     return draws[id];
   }
 
-  return { GROUPS, PICKS, all, inGroup, name, desc, isBass, svg };
+  /** Puce de départ selon le style de la chanson (Nouvelle chanson) : 'all' si aucun style ne correspond. */
+  const STYLE_GROUP = { synthwave: 'synth', ambient: 'synth', edm: 'techno', techno: 'techno', pop: 'pop', funk: 'funk', soul: 'soul', hiphop: 'hiphop', dnb: 'dnb', latin: 'latin' };
+  const groupOfStyle = (style) => STYLE_GROUP[style] || 'all';
+
+  /**
+   * Écran de choix partagé (fenêtre MOTIF de la Grille, étape Basse de Nouvelle chanson) : puces de style + cartes.
+   * o = { group, cur, insp?, mark?, none?: { on, pick }, onGroup(g), onPick(id) } ; mark : puce marquée d'un point (style de la chanson).
+   * Rend [puces, cartes].
+   */
+  function el(tag, attrs, ...kids) {
+    const n = document.createElement(tag);
+    Object.entries(attrs || {}).forEach(([k, v]) => {
+      if (v == null || v === false) return;
+      if (k === 'html') n.innerHTML = v;
+      else if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
+      else n.setAttribute(k, v);
+    });
+    kids.flat().forEach((c) => c != null && n.append(c.nodeType ? c : document.createTextNode(c)));
+    return n;
+  }
+  function picker(o) {
+    const chips = el(
+      'div',
+      { class: 'mot-chips', role: 'radiogroup', 'aria-label': 'Styles' },
+      [['all', 'Tous'], ...GROUPS.map((g) => [g[0], g[1]])].map(([id, l]) =>
+        el('button', { type: 'button', role: 'radio', 'aria-checked': String(o.group === id), class: 'mot-chip' + (o.group === id ? ' on' : '') + (o.mark === id ? ' mark' : ''), 'data-g': id, onclick: () => o.onGroup(id) }, l)
+      )
+    );
+    const card = (id) =>
+      el(
+        'button',
+        { type: 'button', role: 'radio', 'aria-checked': String(id === o.cur), class: 'mot-card' + (id === o.cur ? ' on' : ''), 'data-id': id, title: desc(id), onclick: () => o.onPick(id) },
+        el('span', { class: 'mot-name' }, el('span', {}, name(id)), id === o.insp ? el('em', { class: 'mot-insp' }, 'Inspiration') : null),
+        el('span', { class: 'mot-draw', html: svg(id) })
+      );
+    const none = o.none
+      ? el(
+          'button',
+          { type: 'button', role: 'radio', 'aria-checked': String(!!o.none.on), class: 'mot-card mot-none' + (o.none.on ? ' on' : ''), 'data-id': 'none', title: 'La basse se tait dans cette scène', onclick: () => o.none.pick() },
+          el('span', { class: 'mot-name' }, el('span', {}, 'Aucune')),
+          el('span', { class: 'mot-draw', html: '<svg viewBox="0 0 160 22" preserveAspectRatio="none" aria-hidden="true"><rect x="0" y="10.5" width="160" height="1" fill="currentColor" opacity=".35"/></svg>' })
+        )
+      : null;
+    const cards = el('div', { class: 'mot-cards', role: 'radiogroup', 'aria-label': 'Motifs de basse' }, none, inGroup(o.group).map(card));
+    return [chips, cards];
+  }
+
+  return { GROUPS, PICKS, all, inGroup, name, desc, isBass, svg, picker, groupOfStyle };
 })();

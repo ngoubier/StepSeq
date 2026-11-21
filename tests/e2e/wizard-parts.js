@@ -164,19 +164,20 @@ const ok = (c, m) => {
 
   // Accords, puis Basse : pédale
   await tab('bass');
-  ok((await page.getAttribute('#bwParts', 'data-kind')) === 'bass' && (await page.locator('.bwp-mode').count()) === 39, 'étape Basse : 39 modes de jeu (13 + 9 + 17 de nov. 2026)');
-  ok((await page.locator('.bwp-mode.on em').textContent()) === 'Inspiration', 'basse : le mode de l’inspiration est choisi et repéré');
+  ok((await page.getAttribute('#bwParts', 'data-kind')) === 'bass' && (await page.locator('#bwMotif .mot-chip').count()) === 10 && (await page.locator('#bwMotif .mot-card').count()) > 10, 'étape Basse : l’écran MOTIF (Tous, 8 styles, ★ Célèbres) et ses cartes');
+  ok((await page.locator('#bwMotif .mot-card.on .mot-insp').textContent()) === 'Inspiration', 'basse : le mode de l’inspiration est choisi et repéré');
   await scene('Couplet');
   await page.click('#bwpPedal [data-v="tonic"]');
   await page.click('#bwpRegister [data-v="mid"]');
-  ok((await part('verse', 'bass')).pedal === 'tonic' && (await part('verse', 'bass')).register === 'mid', 'pédale de tonique et registre médium réglés');
+  ok((await part('verse', 'bass')).pedal === 'tonic' && (await part('verse', 'bass')).register === 'mid', 'pédale de tonique et hauteur C2 réglées');
   const pcs = await page.evaluate(() => {
     const sc = SS.band._state.wiz.res.scenes.find((x) => x.name === 'Couplet');
     const id = Object.keys(sc.data).find((k) => /:bass/.test(k));
     return [...new Set(sc.data[id].events.flatMap((e) => e.notes.map((n) => n % 12)))];
   });
   ok(pcs.length === 1 && pcs[0] === 0, `la basse reste sur la tonique, Do (${pcs})`);
-  await page.click('.bwp-mode[data-v="gallop"]');
+  await page.click('#bwMotif .mot-chip[data-g="all"]');
+  await page.click('#bwMotif .mot-card[data-id="gallop"]');
   ok((await part('verse', 'bass')).mode === 'gallop' && /Galop/.test(await page.textContent('.bh-scene.on .bh-ssub')), 'mode Galop choisi, rappelé dans la colonne des scènes');
 
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'parts-basse.png') });

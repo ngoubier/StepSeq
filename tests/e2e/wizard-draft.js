@@ -91,8 +91,8 @@ const ok = (c, m) => {
   // un réglage de basse sur une scène
   await tab('bass');
   const modeBefore = await page.evaluate(() => Object.keys(SS.band._state.wiz.parts).length);
-  const target = page.locator('.bwp-mode:not(.on)').first();
-  const modeId = await target.getAttribute('data-v');
+  const target = page.locator('#bwMotif .mot-card:not(.on):not(.mot-none)').first();
+  const modeId = await target.getAttribute('data-id');
   await target.click();
   await page.waitForTimeout(300);
   ok(modeBefore === 0 && (await page.evaluate(() => Object.keys(SS.band._state.wiz.parts).length)) === 1, `réglage de basse (mode « ${modeId} ») écrit dans parts`);

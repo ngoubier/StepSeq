@@ -76,7 +76,8 @@ const ok = (c, m) => {
   await next(2);
   await kindTab('bass');
   await scene('Couplet');
-  await page.click('.bwp-mode[data-v="8"]');
+  await page.click('#bwMotif .mot-chip[data-g="all"]');
+  await page.click('#bwMotif .mot-card[data-id="8"]');
   const base = await bassNotes('Couplet');
 
   // rien par défaut

@@ -3882,14 +3882,29 @@ dialog.help-dialog::backdrop { background: #0008; }
 .mot-menu .ctx-head .mot-now { flex: 1; }
 .mot-now { color: var(--c-green-soft); font-weight: 600; }
 .mot-chips { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0 10px; }
-.ctx-menu .mot-chip { display: inline-block; width: auto; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); border-radius: 999px; padding: 3px 10px; font-size: var(--fs-sm); cursor: pointer; }
-.ctx-menu .mot-chip.on { background: var(--c-green-bg); border-color: var(--motc); color: var(--c-green-soft); }
+.mot-pick .mot-chip { display: inline-block; width: auto; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); border-radius: 999px; padding: 3px 10px; font-size: var(--fs-sm); cursor: pointer; }
+.mot-pick .mot-chip.on { background: var(--c-green-bg); border-color: var(--motc); color: var(--c-green-soft); }
 .mot-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; max-height: 214px; overflow: auto; padding: 1px 2px 1px 1px; margin-bottom: 8px; }
-.ctx-menu .mot-card { display: block; width: auto; gap: 0; text-align: left; background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 6px 7px 5px; cursor: pointer; color: var(--c-green-soft); font: inherit; min-width: 0; }
-.ctx-menu .mot-card:hover { border-color: var(--c-line-strong); }
-.ctx-menu .mot-card.on { border-color: var(--motc); background: var(--c-green-bg); box-shadow: 0 0 0 1px var(--motc) inset; }
-.mot-name { display: block; color: var(--text); font-size: var(--fs-sm); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mot-pick .mot-card { display: block; width: auto; gap: 0; text-align: left; background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 6px 7px 5px; cursor: pointer; color: var(--c-green-soft); font: inherit; min-width: 0; }
+.mot-pick .mot-card:hover { border-color: var(--c-line-strong); }
+.mot-pick .mot-card.on { border-color: var(--motc); background: var(--c-green-bg); box-shadow: 0 0 0 1px var(--motc) inset; }
+.mot-name { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--text); font-size: var(--fs-sm); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mot-draw svg { display: block; width: 100%; height: 22px; margin-top: 4px; }
+.mot-name > span { overflow: hidden; text-overflow: ellipsis; }
+.mot-insp { flex: none; font-style: normal; font-size: var(--fs-xs); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--c-violet-soft); }
+.mot-pick .mot-chip.mark::after { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--motc); margin-left: 6px; vertical-align: middle; }
+.mot-pick .mot-card.mot-none { color: var(--muted); }
+.mot-pick .mot-none .mot-name { color: var(--muted); }
+/* étape Basse de Nouvelle chanson : le même écran que la fenêtre MOTIF, dans la carte */
+.bwp-mot .bwp-ch .mot-now { font-size: var(--fs-md); }
+.bwp-mot .mot-chips { margin: 2px 0 10px; gap: 6px; }
+.bwp-mot .mot-chip { font-size: var(--fs-md); padding: 4px 12px; }
+.bwp-mot .mot-cards { grid-template-columns: repeat(5, 1fr); gap: 8px; max-height: 330px; margin: 0; }
+.bwp-mot .mot-card { padding: 8px 9px 7px; }
+.bwp-mot .mot-name { font-size: var(--fs-md); }
+.bwp-mot .mot-draw svg { height: 30px; margin-top: 6px; }
+.bwp-mot .bwp-row { margin-top: 12px; }
+@media (max-width: 1100px) { .bwp-mot .mot-cards { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 760px) { .mot-cards { grid-template-columns: repeat(2, 1fr); } }
 .th-opt-mode { display: none; }
 .compact-tracks .th-modes { display: none; }
