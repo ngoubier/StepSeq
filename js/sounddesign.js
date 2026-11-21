@@ -370,16 +370,16 @@ SS.soundDesign = (() => {
       b.setAttribute('aria-checked', String(b.dataset.v === cur));
     });
     const lvl = SS.EXPR_LEVELS.find((e) => e.id === cur) || SS.EXPR_LEVELS[0];
-    $('#sdExprHint').textContent = lvl.desc;
+    
     const ph = $('#sdPhrase');
     ph.checked = !(track.sd && track.sd.phrase === 0);
     ph.disabled = cur === 'off';
     ph.closest('label').classList.toggle('dim', cur === 'off');
     const fam = SS.exprFamily(track);
     const struck = SS.exprStruck(fam);
-    $('#sdPhraseText').textContent = struck
-      ? 'Phrasé automatique : notes répétées détachées, doubles-croches isolées piquées'
-      : 'Phrasé automatique : notes liées jouées legato, notes répétées détachées, doubles-croches isolées piquées';
+    SS.setHelp($('#sdPhraseText'), struck
+      ? 'Notes répétées détachées, doubles-croches isolées piquées.'
+      : 'Notes liées jouées legato, notes répétées détachées, doubles-croches isolées piquées.');
     const pd = $('#sdPedal');
     pd.closest('label').hidden = fam !== 'piano';
     pd.checked = !(track.sd && track.sd.pedal === 0);
@@ -397,7 +397,7 @@ SS.soundDesign = (() => {
       guitar: 'Guitare : les accords sont grattés (strum), vers le bas sur les temps et vers le haut, plus léger et sans la corde grave, sur les contretemps ; le premier temps est plus marqué. Articulation « Étouffé » (clic droit sur la note) pour la main posée sur les cordes.',
       pluck: 'Instrument pincé ou piqué : l’expression a peu d’effet sur un son qui s’éteint seul ; les articulations restent utiles.',
     };
-    $('#sdExprFamily').textContent = FAM[fam] || 'Pensé pour les cordes, les cuivres, les bois et les voix ; sur ce son, l’expression joue surtout sur les nuances.';
+    SS.setHelp($('#sdExprHint'), `${lvl.desc} ${FAM[fam] || 'Pensé pour les cordes, les cuivres, les bois et les voix ; sur ce son, l’expression joue surtout sur les nuances.'}`);
     $('#sdPlayPhrase').disabled = SS.arpOn(track) || SS.follows(track);
   }
 
@@ -651,10 +651,10 @@ SS.soundDesign = (() => {
       $(`#sdLfo${i}Rate`).value = p[`lfo${i}Rate`];
     }
     const model = SS.FILTER_MODELS.find((m) => m.id === p.ftype) || SS.FILTER_MODELS[0];
-    $('#sdFilterHint').textContent = model.hint + '.';
+    SS.setHelp($('#sdFilterHint'), model.hint + '.');
     const gm = SS.GLIDE_MODES.find((m) => m.id === p.glideMode) || SS.GLIDE_MODES[0];
-    $('#sdNoiseHint').textContent = p.noise > 0 ? noiseColor(p).hint + '.' : 'Ajoute du souffle au son de l’oscillateur ; coupe l’oscillateur pour n’entendre que le bruit.';
-    $('#sdGlideHint').textContent = p.glide ? gm.hint + '.' : 'Réglez un temps pour faire glisser la hauteur d’une note à la suivante.';
+    SS.setHelp($('#sdNoiseHint'), p.noise > 0 ? noiseColor(p).hint + '.' : 'Ajoute du souffle au son de l’oscillateur ; coupe l’oscillateur pour n’entendre que le bruit.');
+    SS.setHelp($('#sdGlideHint'), p.glide ? gm.hint + '.' : 'Règle un temps pour faire glisser la hauteur d’une note à la suivante.');
     refreshPlay(p);
     updateValues(true);
   }

@@ -476,7 +476,7 @@ SS.ui = (() => {
       const arp = SS.arpOn(track);
       menuEl.replaceChildren(
         h('div', { class: 'ctx-head' }, h('b', { class: 'ctx-current' }, 'Accords · ' + track.name), h('span', { class: 'ctx-desc' }, on ? (arp ? 'base de l’arpège' : 'joue la piste Accords') : 'éteint')),
-        arp ? h('p', { class: 'fol-note' }, 'En mode ARP, Arp One arpège les accords de la scène ; son module Accord règle la hauteur et les renversements.') : seg('Jeu', F.PLAYS, 'play'),
+        arp ? h('p', { class: 'fol-note', 'data-helpify': true }, 'En mode ARP, Arp One arpège les accords de la scène ; son module Accord règle la hauteur et les renversements.') : seg('Jeu', F.PLAYS, 'play'),
         arp ? null : seg('Notes', F.NOTES, 'notes'),
         seg('Hauteur', F.OCTAVES.map((o) => ({ id: o, label: 'C' + o })), 'oct'),
         seg('Voicing', F.VOICINGS, 'voicing'),
@@ -1064,7 +1064,8 @@ SS.ui = (() => {
       'div',
       { class: 'ctx-menu cl-menu', role: 'dialog', 'aria-label': 'Tonalité de la scène' },
       h('div', { class: 'ctx-head' }, h('b', { class: 'ctx-current' }, `Tonalité de « ${sc.name} »`)),
-      h('p', { class: 'fol-note' }, guess ? 'Les accords sont rangés par degré dans la tonalité. Proposée d’après les notes de la scène :' : 'Les accords sont rangés par degré dans la tonalité de la scène.'),
+      h('p', { class: 'fol-note', 'data-helpify': true }, 'Les accords sont rangés par degré dans la tonalité de la scène.'),
+      guess ? h('p', { class: 'fol-note' }, 'Proposée d’après les notes de la scène :') : null,
       h('div', { class: 'cl-keyrow' }, tonic, mode),
       h(
         'div',
@@ -1698,8 +1699,8 @@ SS.ui = (() => {
           : SS.follows(track)
           ? 'Accords rythmés : les notes posées ici donnent le rythme, la piste Accords donne les hauteurs.'
           : 'Cliquer pour poser une note (plusieurs notes au même pas font un accord), glisser vers la droite pour l’allonger. Maj+glisser : sélectionner.';
-        // l'aide se raccourcit (…) plutôt que de faire passer la barre sur deux lignes
-        return h('span', { class: 'roll-hint', title: hint }, hint);
+        // l'aide est dans le « ? » ; une piste qui joue les Accords le dit aussi en clair
+        return h('span', { class: 'roll-hint' }, SS.followsGhost(track) ? 'Joue la piste Accords' : null, SS.helpTip(hint, 'Notes'));
       })(),
       h(
         'button',
@@ -4383,11 +4384,10 @@ SS.ui = (() => {
     $('#dlgSfvHead').hidden = synth;
     $('#dlgSfvList').hidden = synth;
     $('#dlgSynthCard').hidden = !synth;
-    $('#dlgSynthHint').hidden = !synth;
     if (synth) {
       const syn = SS.findAnalog(s.analog);
       $('#dlgSynthCard').replaceChildren(
-        h('div', { class: 'synth-card-head' }, h('b', {}, syn.label), h('small', {}, `${syn.maker} · ${syn.year}`)),
+        h('div', { class: 'synth-card-head' }, h('b', {}, syn.label, SS.helpTip('Après validation, le bouton « Sound design » de la piste ouvre la façade du synthé : tous ses réglages sont modifiables.', syn.label)), h('small', {}, `${syn.maker} · ${syn.year}`)),
         h('dl', {}, ...syn.specs.flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, v)]))
       );
     } else fillSfv();
@@ -4643,7 +4643,7 @@ SS.ui = (() => {
       b.querySelector('.nt-role-n').textContent = n ? String(n) : '';
     });
     $('#dlgGm').querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.v === (gm ? 'gm' : 'all')));
-    $('#dlgGmHint').textContent = gm ? 'Mode General MIDI du projet : seuls les sons General MIDI sont proposés, ici et dans Band.' : '';
+    $('#dlgGmHint').hidden = !gm;
     $('#dlgDrumLib').querySelectorAll('button').forEach((b) => (b.hidden = gm && b.dataset.v !== 'gm' && b.dataset.v !== (s.source || 'tdm')));
     $('#dlgSearch').placeholder = isDrum
       ? ((s.source || 'tdm') === 'tdm' ? '🔍 Filtrer les boîtes à rythmes (808, linn, dmx…)' : '🔍 Filtrer les banques (808, jazz, conga…)')
@@ -4656,7 +4656,7 @@ SS.ui = (() => {
     $('#dlgFollow').checked = !!s.follow;
     const src = s.source || 'tdm';
     $('#dlgDrumLib').querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.v === src));
-    $('#dlgDrumLibHint').textContent = (SS.DRUM_LIBS.find((l) => l.id === src) || {}).hint || '';
+    SS.setHelp($('#dlgDrumLibHint'), (SS.DRUM_LIBS.find((l) => l.id === src) || {}).hint || '');
     $('#dlgTdm').hidden = src !== 'tdm';
     $('#dlgColors').querySelectorAll('.swatch').forEach((b) => b.classList.toggle('active', b.dataset.c === s.color));
     dlg.colorInput.value = s.color;

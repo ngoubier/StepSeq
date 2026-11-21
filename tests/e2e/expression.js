@@ -170,7 +170,7 @@ const ok = (c, m) => {
   ok(await page.isVisible('[data-pane="play"]'), 'onglet Jeu');
   ok(await page.isVisible('#sdExpr [data-v="natural"].active'), 'expression Naturelle choisie (piste de cordes)');
   ok(/phrasé/.test(await page.textContent('#sdState_play')), `résumé sous l’onglet : ${await page.textContent('#sdState_play')}`);
-  ok(/Cordes frottées/.test(await page.textContent('#sdExprFamily')), 'famille : cordes frottées');
+  ok(/Cordes frottées/.test(await page.getAttribute('#sdExprHint', 'data-help')), 'famille : cordes frottées');
   await page.click('#sdExpr [data-v="expressive"]');
   await page.uncheck('#sdPhrase');
   await page.waitForTimeout(200);
@@ -196,7 +196,7 @@ const ok = (c, m) => {
     SS.soundDesign.open(t);
     document.querySelector('#sdTabs [data-tab="play"]').click();
     const lab = document.querySelector('#sdPedal').closest('label');
-    const r = { shown: !lab.hidden, on: document.querySelector('#sdPedal').checked, fam: document.querySelector('#sdExprFamily').textContent };
+    const r = { shown: !lab.hidden, on: document.querySelector('#sdPedal').checked, fam: document.querySelector('#sdExprHint').dataset.help };
     document.querySelector('#sdPedal').click();
     r.after = t.sd && t.sd.pedal;
     document.querySelector('#sdCancel').click();
@@ -208,7 +208,7 @@ const ok = (c, m) => {
     const p = SS.newProject();
     const t = SS.newTrack({ type: 'instrument', family: 'guitar', instrument: 'gm_acoustic_guitar_nylon', name: 'G' }, p);
     SS.soundDesign.open(t);
-    const r = { pedal: document.querySelector('#sdPedal').closest('label').hidden, fam: document.querySelector('#sdExprFamily').textContent };
+    const r = { pedal: document.querySelector('#sdPedal').closest('label').hidden, fam: document.querySelector('#sdExprHint').dataset.help };
     document.querySelector('#sdCancel').click();
     return r;
   });

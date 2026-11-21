@@ -244,7 +244,7 @@ SS.melodyPanel = (() => {
     const p = profile(false);
     const head = h('div', { class: 'mel-intent-head' }, h('span', { class: 'dlg-label' }, 'Intention', SS.helpTip('Le profil de l’émotion règle le contour, la note visée sur les appuis, la fin, les ornements et la reprise du motif. Ce sont des points de départ : retouche-les et compare à l’écoute.', 'Intention')), emoSel);
     if (!p) {
-      return h('section', { class: 'mel-intent off', id: 'melIntent' }, head, h('p', { class: 'dlg-hint' }, sceneEmo || S.emo !== 'scene' ? 'Sans profil : la mélodie suit seulement la grille et la structure.' : 'Cette scène n’a pas d’émotion (onglet Ambiance) : choisis-en une ici pour guider la mélodie, ou garde le comportement simple.'));
+      return h('section', { class: 'mel-intent off', id: 'melIntent' }, head, h('p', { class: 'dlg-hint', 'data-helpify': true }, sceneEmo || S.emo !== 'scene' ? 'Sans profil : la mélodie suit seulement la grille et la structure.' : 'Cette scène n’a pas d’émotion (onglet Ambiance) : choisis-en une ici pour guider la mélodie, ou garde le comportement simple.'));
     }
     const emo = SS.findEmotion(p.id);
     const touched = Object.keys(S.over).length > 0;
@@ -328,7 +328,7 @@ SS.melodyPanel = (() => {
     return h(
       'div',
       { class: 'mel-motifrow', id: 'melMotifRow' },
-      h('div', { class: 'mel-motif' }, h('span', { class: 'dlg-label' }, 'Motif de départ'), h('div', { class: 'mel-segs', role: 'radiogroup', 'aria-label': 'Motif de départ' }, ...motifBtns), h('small', { class: 'dlg-hint' }, cur.text)),
+      h('div', { class: 'mel-motif' }, h('span', { class: 'dlg-label' }, 'Motif de départ'), h('div', { class: 'mel-segs', role: 'radiogroup', 'aria-label': 'Motif de départ' }, ...motifBtns), h('small', { class: 'dlg-hint', 'data-helpify': true }, cur.text)),
       h(
         'div',
         { class: 'mel-pivots' },
@@ -671,8 +671,8 @@ SS.melodyPanel = (() => {
         h(
           'div',
           { class: 'mel-empty' },
-          h('b', {}, 'Une mélodie sur ta grille'),
-          h('p', {}, ctx.sharedGrid ? 'La mélodie suit la grille commune ci-dessus. Choisis la structure, la piste et la complexité, puis « Générer une mélodie ».' : 'Écris les accords (ou reprends ceux de la scène), puis « Générer une mélodie ». La mélodie dure autant que la grille : 4 accords, 4 mesures.'),
+          h('b', { class: 'help-anchor' }, 'Une mélodie sur ta grille'),
+          h('p', { 'data-helpify': true }, ctx.sharedGrid ? 'La mélodie suit la grille commune ci-dessus. Choisis la structure, la piste et la complexité, puis « Générer une mélodie ».' : 'Écris les accords (ou reprends ceux de la scène), puis « Générer une mélodie ». La mélodie dure autant que la grille : 4 accords, 4 mesures.'),
         ),
       );
       return;
