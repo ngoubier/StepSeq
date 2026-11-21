@@ -1147,7 +1147,7 @@ SS.bandSong = (() => {
     spans.forEach((sp) => {
       const v = voiceChord(sp.chord, prev, 57, 76);
       prev = v;
-      chords.push({ step: sp.step, len: sp.len, notes: v, vel: 0.8 });
+      chords.push({ step: sp.step, len: sp.len, notes: v, vel: 0.8, ...(sp.chord.bassPc != null && sp.chord.bassPc !== sp.chord.rootPc ? { bass: sp.chord.bassPc } : {}) });
     });
     const arp = A.normalize(one);
     const seen = new Map();
@@ -1167,6 +1167,7 @@ SS.bandSong = (() => {
             return;
           }
           const e = { step: s, len, notes: [n.midi], vel: n.vel };
+          if (n.str != null && Math.abs(step + n.at / sd - s) > 0.02) e.shift = Math.round((step + n.at / sd - s) * 100) / 100; // guitare : grattage étalé, placement fin
           seen.set(key, e);
           ev.push(e);
         });
@@ -1713,7 +1714,7 @@ SS.bandSong = (() => {
   const ARP_MODES = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16', 'rise', 'ost16', 'dotted'];
   const MODES = () => ({
     bass: [...['whole', '8', 'pulse8', 'oct', 'gallop', 'offbeat', 'roll', 'off16', 'half', 'quarter', 'drone', 'sync', 'walk'], ...BASS_NEW.map((b) => b[0])],
-    chords: ['sustain', 'swell', 'float', 'ballad', 'pluck', ...Object.keys(RHYTHM)],
+    chords: ['sustain', 'swell', 'float', 'ballad', 'pluck', ...Object.keys(RHYTHM), ...(SS.GuitarArp ? SS.GuitarArp.MOTIFS.map((m) => 'g:' + m.id) : [])],
     arp: ARP_MODES,
     melody: Object.keys(CENTER),
     drums: ['both', 'kick', 'snare'],
@@ -1908,6 +1909,7 @@ SS.bandSong = (() => {
             const ped = o && { tonic: kp[0], fifth: pcOf(kp[0] + 7) }[o.pedal];
             events = bassEvents(spans, mode, r, kp, o ? { pedalPc: ped ?? null, approach: o.approach !== false, shift: o.register === 'mid' ? 12 : 0 } : undefined);
           } else if (kd === 'arp') events = arpEvents(spans, mode, r);
+          else if (kd === 'chords' && /^g:/.test(mode) && SS.GuitarArp) events = arpOneEvents(spans, { guitar: { on: true, motif: mode.slice(2) } }, bars);
           else if (kd === 'chords') events = chordEvents(spans, mode, r, { lo: 53, hi: 76, open: !!(o && o.voicing === 'open') });
           else if (kd === 'melody') events = sing(role === 'vox' ? 'vox' : 'lead', mode);
           else {
@@ -1937,7 +1939,9 @@ SS.bandSong = (() => {
           else {
             // nappe, cordes, piano, guitare : accords (ou arpège si le mode en est un)
             const range = role === 'keys' ? { lo: 57, hi: 79 } : role === 'guitar' ? { lo: 52, hi: 74 } : role === 'strings' ? { lo: 55, hi: 81 } : { lo: 53, hi: 76 };
-            events = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16', 'ost16', 'dotted'].includes(mode) ? arpEvents(spans, mode, r) : chordEvents(spans, mode, r, role === 'pad' && o && o.voicing === 'open' ? { ...range, open: true } : range);
+            // guitare : motif du mode Guitare d'Arp One (« g:travis »…), joué par le vrai moteur (js/guitar-arp.js)
+            if (/^g:/.test(mode) && SS.GuitarArp) events = arpOneEvents(spans, { guitar: { on: true, motif: mode.slice(2) } }, bars);
+            else events = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16', 'ost16', 'dotted'].includes(mode) ? arpEvents(spans, mode, r) : chordEvents(spans, mode, r, role === 'pad' && o && o.voicing === 'open' ? { ...range, open: true } : range);
           }
         }
         // piste Effets d'une scène dont une jonction est réglée : montée, cymbale inversée, impact, descente (voir fxSceneTrack)

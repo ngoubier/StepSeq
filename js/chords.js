@@ -134,7 +134,8 @@ window.SS = window.SS || {};
         notes = [below(info.bassPc), ...(rest.length >= 2 ? rest : notes)];
       }
       notes = notes.map((m) => Math.max(12, Math.min(119, m)));
-      return { step: c.step, len: c.len, notes: [...new Set(notes)].sort((a, b) => a - b), name: info.name };
+      // bassPc : basse imposée (C/E), pour le mode Guitare d'Arp One (js/guitar-arp.js)
+      return { step: c.step, len: c.len, notes: [...new Set(notes)].sort((a, b) => a - b), name: info.name, ...(info.bassPc != null && info.bassPc !== info.rootPc ? { bassPc: info.bassPc } : {}) };
     });
   };
 
@@ -231,7 +232,7 @@ window.SS = window.SS || {};
     const hit = cache.get(track);
     if (hit && hit.key === key) return hit.out;
     let out;
-    if (arp) out = SS.voiceChords(chords, { ...f, notes: f.notes === 'root' ? 'chord' : f.notes }).map((v) => ({ step: v.step, len: v.len, notes: v.notes, vel: 0.8 }));
+    if (arp) out = SS.voiceChords(chords, { ...f, notes: f.notes === 'root' ? 'chord' : f.notes }).map((v) => ({ step: v.step, len: v.len, notes: v.notes, vel: 0.8, ...(v.bassPc != null ? { bass: v.bassPc } : {}) }));
     else {
       const voiced = SS.voiceChords(chords, f);
       out = f.play === 'steps' ? stepEvents(voiced, events) : holdEvents(voiced, f.tie);

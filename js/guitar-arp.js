@@ -10,7 +10,12 @@
  *   3. chaque corde RÉSONNE jusqu'à ce qu'elle soit rejouée ou que l'accord change, bornée par le réglage
  *      Résonance (détaché → basse ≈ 700 ms, aigus ≈ 500 ms → tout sonne) ;
  *   4. jeu : pouce accentué, mélodie en avant (la corde la plus aiguë du motif), main humaine (placement
- *      et force, les basses posées sur les temps ne bougent jamais).
+ *      et force, les basses posées sur les temps ne bougent jamais) ;
+ *   5. grattage : D/U coups vers le bas / le haut (toutes les cordes, ou les 4 aiguës vers le haut), d/u plus légers,
+ *      x étouffé, c coup court sur les aiguës (skank), P palm mute sur les 3 cordes graves ; les cordes d'un coup
+ *      sont étalées (12 ms par défaut : 0, 12, 24, 36 ms) ;
+ *   6. basse imposée de la piste Accords (ev.bass, C/E) : le mi grave est ajouté sous la forme quand il est à portée ;
+ *   7. accordages : standard, Drop D, DADGAD, Open G (formes cherchées sur le manche hors accordage standard).
  *
  * Déterministe : même accord, mêmes réglages, même graine, même passage → mêmes notes (tests/guitar-arp.test.js).
  * Valeurs de départ (résonance, vélocités, décalages de +8 / −5 ms, motifs A, B, C) : document
@@ -24,6 +29,13 @@
 
   /** Cordes à vide, de la 6e (grave) à la 1re (aiguë) : index 0 … 5. */
   const OPEN = [40, 45, 50, 55, 59, 64];
+  const TUNINGS = [
+    { id: 'standard', label: 'Standard', notes: OPEN, hint: 'E2 A2 D3 G3 B3 E4' },
+    { id: 'dropD', label: 'Drop D', notes: [38, 45, 50, 55, 59, 64], hint: 'D2 A2 D3 G3 B3 E4 : la 6e corde descend d’un ton' },
+    { id: 'dadgad', label: 'DADGAD', notes: [38, 45, 50, 55, 57, 62], hint: 'D2 A2 D3 G3 A3 D4 : folk celtique, cordes à vide qui résonnent' },
+    { id: 'openG', label: 'Open G', notes: [38, 43, 50, 55, 59, 62], hint: 'D2 G2 D3 G3 B3 D4 : sol majeur à vide, blues et slide' },
+  ];
+  const openOf = (g) => (TUNINGS.find((t) => t.id === g.tuning) || TUNINGS[0]).notes;
   const NAMES = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
   const x = null; // corde non jouée
 
@@ -60,8 +72,8 @@
   ];
   const CAPOS = [0, 1, 2, 3, 4, 5, 7];
 
-  const rootString = (frets, root) => {
-    for (let s = 0; s < 6; s++) if (frets[s] != null && mod(OPEN[s] + frets[s], 12) === root) return s;
+  const rootString = (frets, root, open = OPEN) => {
+    for (let s = 0; s < 6; s++) if (frets[s] != null && mod(open[s] + frets[s], 12) === root) return s;
     return frets.findIndex((f) => f != null);
   };
   function movable(table, base, root, q, forced) {
@@ -73,22 +85,95 @@
   }
 
   /**
+   * Recherche d'une forme sur le manche (accordages autres que standard, ou accord absent de la bibliothèque) :
+   * chaque corde joue une note de l'accord ou se tait (seulement sous la basse), basse = `bassPc`, toutes les notes
+   * principales présentes, écart de 3 cases au plus ; on préfère le bas du manche et les cordes à vide.
+   */
+  function searchShape(open, pcs, need, bassPc, capo) {
+    let best = null;
+    for (let w = capo + 1; w <= capo + 10; w++) {
+      const opts = open.map((o) => {
+        const a = [];
+        for (const f of [capo, w, w + 1, w + 2, w + 3]) if (f >= capo && pcs.has(mod(o + f, 12)) && !a.includes(f)) a.push(f);
+        return a;
+      });
+      const frets = new Array(6).fill(null);
+      const walk = (s, started) => {
+        if (s === 6) {
+          const played = frets.map((f, i) => (f == null ? null : open[i] + f)).filter((n) => n != null);
+          if (played.length < 4) return;
+          const have = new Set(played.map((n) => mod(n, 12)));
+          if (!need.every((pc) => have.has(pc))) return;
+          const fr = frets.filter((f) => f != null && f > capo);
+          const span = fr.length ? Math.max(...fr) - Math.min(...fr) : 0;
+          if (span > 3) return;
+          const opens = frets.filter((f) => f === capo).length;
+          const cost = (fr.length ? Math.min(...fr) - capo : 0) * 1.2 + span + fr.length * 0.3 - opens * 0.4 + frets.filter((f) => f == null).length * 0.6;
+          if (!best || cost < best.cost - 1e-9) best = { cost, frets: frets.slice() };
+          return;
+        }
+        if (!started) {
+          frets[s] = null;
+          walk(s + 1, false); // corde grave muette, sous la basse
+          for (const f of opts[s]) if (mod(open[s] + f, 12) === bassPc) { frets[s] = f; walk(s + 1, true); }
+          frets[s] = null;
+          return;
+        }
+        for (const f of opts[s]) { frets[s] = f; walk(s + 1, true); }
+        frets[s] = null;
+      };
+      walk(0, false);
+      if (best && w > capo + 4 && best.cost < 4) break;
+    }
+    return best ? best.frets : null;
+  }
+
+  /**
+   * Basse imposée (C/E) : la note de basse sur une corde plus grave (ou sur la même), à portée de la main ;
+   * les cordes en dessous se taisent. Sans position possible, la forme reste telle quelle.
+   */
+  function withBass(sh, open, bassPc) {
+    const played = (fr) => fr.filter((f) => f != null && f > sh.capo);
+    for (let s = 0; s <= 3; s++) {
+      const f = sh.capo + mod(bassPc - open[s] - sh.capo, 12);
+      const rest = sh.frets.map((x, i) => (i > s ? x : null));
+      if (rest.filter((x) => x != null).length < 3) continue;
+      const fr = played([...rest, f]);
+      if (fr.length && Math.max(...fr) - Math.min(...fr) > 3) continue;
+      const frets = sh.frets.map((x, i) => (i < s ? null : i === s ? f : x));
+      return { ...sh, frets, slash: true, altStr: sh.rootStr > s ? sh.rootStr : null, rootStr: s };
+    }
+    return sh;
+  }
+
+  /**
    * Forme de guitare d'un accord (notes MIDI) : { frets, root, quality, rootStr, barre, capo, kind, name, notes }.
    * g : réglages guitare normalisés (pos, capo).
    */
   const shapeCache = new Map();
-  function shapeFor(notes, g) {
-    const key = notes.join(',') + '|' + g.pos + '|' + g.capo;
+  function shapeFor(notes, g, bassPc) {
+    const key = notes.join(',') + '|' + g.pos + '|' + g.capo + '|' + g.tuning + '|' + bassPc;
     if (shapeCache.has(key)) return shapeCache.get(key);
+    const open = openOf(g);
     const hyp = SS.Arp && SS.Arp.analyzeChord ? SS.Arp.analyzeChord(notes)[0] : null;
     const root = hyp ? hyp.root : mod(Math.min(...notes), 12);
     const type = hyp ? hyp.type : 'maj';
     const qs = QUALITY[type] || ['maj'];
     let sh = null;
-    for (const q of qs) {
+    if (g.tuning !== 'standard') {
+      // accordage ouvert : forme cherchée sur le manche avec les notes de l'accord
+      const pcs = new Set(notes.map((n) => mod(n, 12)));
+      const ivs = [...pcs].map((pc) => mod(pc - root, 12));
+      const need = [root, ...ivs.filter((iv) => [3, 4, 10, 11].includes(iv)).map((iv) => mod(root + iv, 12))];
+      const fr = searchShape(open, pcs, need, root, g.capo) || searchShape(open, pcs, [root], root, g.capo);
+      if (fr) {
+        const pl = fr.filter((f) => f != null && f > g.capo);
+        sh = { frets: fr, barre: 0, capo: g.capo, kind: g.capo ? 'open' : pl.length && Math.min(...pl) > 4 ? 'search' : 'open', q: type };
+      }
+    }
+    for (const q of g.tuning === 'standard' ? qs : []) {
       if (g.pos === 'open') {
-        const base = NAMES[mod(root - g.capo, 12)].replace('Eb', 'D#').replace('Ab', 'G#').replace('Bb', 'A#');
-        const s = OPEN_SHAPES[NAMES[mod(root - g.capo, 12)] + ':' + q] || OPEN_SHAPES[base + ':' + q];
+        const s = OPEN_SHAPES[NAMES[mod(root - g.capo, 12)] + ':' + q];
         if (s) sh = { frets: s.map((f) => (f == null ? null : f + g.capo)), barre: g.capo, capo: g.capo, kind: 'open', q };
         else {
           const e = movable(E_SHAPE, 4, root, q, false);
@@ -107,9 +192,11 @@
     if (!sh) sh = { ...movable(E_SHAPE, 4, root, 'maj', false), q: 'maj' };
     sh.root = root;
     sh.quality = type;
-    sh.rootStr = rootString(sh.frets, root);
-    sh.notes = sh.frets.map((f, s) => (f == null ? null : OPEN[s] + f));
-    sh.name = hyp ? hyp.name.replace(/\/.*/, '') : NAMES[root];
+    sh.rootStr = rootString(sh.frets, root, open);
+    if (bassPc != null && bassPc !== root) sh = withBass(sh, open, bassPc);
+    sh.notes = sh.frets.map((f, s) => (f == null ? null : open[s] + f));
+    sh.name = (hyp ? hyp.name.replace(/\/.*/, '') : NAMES[root]) + (sh.slash ? '/' + NAMES[bassPc] : '');
+    sh.tuning = g.tuning;
     if (shapeCache.size > 300) shapeCache.clear();
     shapeCache.set(key, sh);
     return sh;
@@ -119,6 +206,7 @@
   function stringOf(tok, sh) {
     const ok = (s) => (s >= 0 && s <= 5 && sh.frets[s] != null ? s : null);
     if (tok === 'B') return sh.rootStr;
+    if (tok === 'A' && sh.altStr != null) return sh.altStr; // C/E : la basse alterne mi grave et do
     if (tok === 'A') {
       // basse alternée : la corde de Ré (ou de Sol pour une forme posée sur la 4e), sinon la corde au-dessus
       const s = sh.rootStr === 2 ? 3 : 2;
@@ -168,12 +256,38 @@
       src: 1, dir: '↓ma↓ma↓m', desc: 'Le médiator prend la basse, le majeur la 3e corde, l’annulaire la 2e (sur C : C3 G3 C4), en groupes 3+3+2.',
     }),
   ];
+  // grattage : un coup par pas (D U d u x c P, « . » = rien)
+  const S = (id, name, beats, div, pat, desc, extra = {}) => M(id, 'gratte', name, beats, div, pat, { desc, ...extra });
+  MOTIFS.push(
+    S('pop', 'Pop ↓ ↓↑ ↑↓↑', 4, 4, 'D . . . D . U . . . U . D . U .', 'Le grattage le plus joué en pop et en folk : bas, bas-haut, haut-bas-haut.'),
+    S('folk68', 'Folk 6/8', 2, 3, 'D . U D . U', 'Un balancement ternaire, accent sur 1 et 4.', { meter: '6/8' }),
+    S('rock', 'Rock croches', 4, 4, 'D . d . D . d . D . d . D . d .', 'Que des coups vers le bas en croches, plus forts sur les temps.'),
+    S('palm', 'Palm mute', 4, 4, 'P . P . P . P . P . P . P . P .', 'Croches étouffées de la paume sur les cordes graves : le rock qui pousse sans prendre de place.'),
+    S('reggae', 'Reggae skank', 4, 4, '. . . . c . . . . . . . c . . .', 'Un coup court sur les cordes aiguës, sur 2 et 4, coupé tout de suite.'),
+    S('funk', 'Funk étouffé', 4, 4, 'x u D u x u x U d x D u x U x u', 'Doubles-croches continues, presque tout étouffé, quelques coups ouverts accentués.'),
+    S('ballade', 'Ballade lente', 4, 4, 'D . . . . . . . D . . . U . D .', 'Un grand coup qui sonne, quelques réponses : laisse respirer la voix.')
+  );
+  /*
+   * Coups de grattage : cordes jouées (dans l'ordre du geste), force, durée imposée (fix16 en pas du motif,
+   * fixSec en secondes ; sinon la résonance), étouffé.
+   */
+  const STROKES = {
+    D: { pick: (p) => p, vel: 0.8, label: '↓' },
+    d: { pick: (p) => p.slice(0, 4), vel: 0.55, label: '↓' },
+    U: { pick: (p) => p.slice(-4).reverse(), vel: 0.66, label: '↑' },
+    u: { pick: (p) => p.slice(-3).reverse(), vel: 0.42, fix16: 0.45, label: '↑' },
+    x: { pick: (p) => p.slice(-4), vel: 0.3, fixSec: 0.035, mute: true, label: '×' },
+    c: { pick: (p) => p.slice(-3), vel: 0.72, fix16: 0.5, label: '✂' },
+    P: { pick: (p) => p.slice(0, 3), vel: 0.72, fixSec: 0.12, mute: true, label: 'P' },
+  };
+
   const HANDS = [
     { id: 'doigts', label: 'Doigts (p i m a)' },
     { id: 'mediator', label: 'Médiator' },
+    { id: 'gratte', label: 'Grattage' },
   ];
 
-  const DEFAULTS = { on: false, motif: 'classA', pos: 'open', capo: 0, ring: 0.55, mel: 0.4, thumb: 0.4, human: 0.4 };
+  const DEFAULTS = { on: false, motif: 'classA', pos: 'open', capo: 0, tuning: 'standard', ring: 0.55, mel: 0.4, thumb: 0.4, human: 0.4, spread: 12 };
 
   function normalize(g) {
     g = g && typeof g === 'object' ? g : {};
@@ -183,6 +297,8 @@
     o.pos = POSITIONS.some((p) => p.id === g.pos) ? g.pos : 'open';
     o.capo = CAPOS.includes(+g.capo) ? +g.capo : 0;
     if (o.pos !== 'open') o.capo = 0;
+    o.tuning = TUNINGS.some((t) => t.id === g.tuning) ? g.tuning : 'standard';
+    o.spread = Math.round(clamp(num(+g.spread, DEFAULTS.spread), 0, 40));
     for (const k of ['ring', 'mel', 'thumb', 'human']) o[k] = clamp(num(+g[k], DEFAULTS[k]), 0, 1);
     return o;
   }
@@ -213,8 +329,18 @@
     m.steps.forEach((toks) => toks.forEach((t) => { const s = stringOf(t, sh); if (s != null && !isBassTok(t)) top = Math.max(top, s); }));
     const out = [];
     const evVel = (ev.vel == null ? 0.8 : ev.vel) / 0.8;
+    const playable = [0, 1, 2, 3, 4, 5].filter((x) => sh.frets[x] != null);
     for (let k = 0; k * len16 < ev.len - 1e-9; k++) {
       const st = k % n;
+      if (m.hand === 'gratte') {
+        const t = m.steps[st][0];
+        const sk = t && STROKES[t];
+        if (sk)
+          sk.pick(playable).forEach((s, i) =>
+            out.push({ k, st, step16: k * len16, str: s, midi: sh.notes[s], vel: clamp(sk.vel * (1 - i * 0.03) * evVel, 0.03, 1), bass: s === sh.rootStr, strum: true, delay: i, fix16: sk.fix16, fixSec: sk.fixSec, mute: !!sk.mute, label: i ? '' : sk.label })
+          );
+        continue;
+      }
       const seen = new Set();
       m.steps[st].forEach((t) => {
         const s = stringOf(t, sh);
@@ -237,6 +363,8 @@
 
   /** Durée (s) d'une attaque d'après la résonance : détaché (0) → basse 700 ms / aigus 500 ms (≈ 0,55) → tout sonne (1). */
   function ringDur(g, a, stepSec, len16) {
+    if (a.fixSec) return Math.min(a.fixSec, a.until16 * stepSec);
+    if (a.fix16) return Math.min(a.fix16 * len16, a.until16) * stepSec;
     const until = a.until16 * stepSec;
     const det = 0.9 * len16 * stepSec;
     if (g.ring >= 0.98) return until;
@@ -253,7 +381,7 @@
     if (step < ev.step || step >= ev.step + ev.len) return [];
     const notes = (ev.notes || []).filter(Number.isFinite);
     if (!notes.length) return [];
-    const sh = shapeFor(notes, g);
+    const sh = shapeFor(notes, g, Number.isFinite(ev.bass) ? mod(ev.bass, 12) : undefined);
     const m = motifOf(g);
     const len16 = 4 / m.div;
     const sd = info.stepSec;
@@ -267,21 +395,25 @@
       const onBeat = Math.abs(a.step16 / 4 - Math.round(a.step16 / 4)) < 1e-9;
       let at = (a.step16 - rel) * sd;
       let vel = a.vel;
-      if (g.human > 0 && !(a.bass && onBeat)) {
+      if (a.strum) {
+        // grattage : les cordes d'un coup s'étalent ; la main humaine bouge tout le coup à la fois
+        at += (a.delay * g.spread) / 1000;
+        if (g.human > 0 && !onBeat) at += (rnd(seed, ev.step, L, a.k, 0, 1) * 2 - 1) * 0.008 * g.human;
+      } else if (g.human > 0 && !(a.bass && onBeat)) {
         const shift = m.shift ? m.shift[a.st] / 1000 * Math.min(1, g.human * 2.5) : 0;
         at += shift + (rnd(seed, ev.step, L, a.k, a.str, 1) * 2 - 1) * 0.008 * g.human * (m.shift ? 0.4 : 1);
       }
       if (g.human > 0) vel = clamp(vel * (1 + (rnd(seed, ev.step, L, a.k, a.str, 2) * 2 - 1) * 0.12 * g.human), 0.03, 1);
-      out.push({ midi: a.midi, at: Math.max(at, -0.006), dur: ringDur(g, a, sd, len16), vel, cutoff: 1, first: a.k === 0, str: a.str, label: a.label });
+      out.push({ midi: a.midi, at: Math.max(at, -0.006), dur: ringDur(g, a, sd, len16), vel, cutoff: 1, first: a.k === 0, str: a.str, label: a.label, mute: a.mute || undefined });
     });
     return out;
   }
 
   /** Aperçu d'une mesure de motif pour l'affichage (tablature) : attaques avec leur durée en doubles-croches. */
-  function preview(arp, notes, bpm = 100) {
+  function preview(arp, notes, bpm = 100, bassPc) {
     const g = normalize(arp && arp.guitar);
     const m = motifOf(g);
-    const sh = shapeFor(notes, g);
+    const sh = shapeFor(notes, g, bassPc);
     const len = m.beats * 4;
     const sd = 60 / bpm / 4;
     const at = attacks(g, { step: 0, len, notes, vel: 0.8 }, sh);
@@ -291,5 +423,5 @@
   /** Longueur d'un cycle du motif, en doubles-croches. */
   const cycle16 = (arp) => motifOf(normalize(arp && arp.guitar)).beats * 4;
 
-  SS.GuitarArp = { OPEN, MOTIFS, HANDS, POSITIONS, CAPOS, DEFAULTS, normalize, shapeFor, stringOf, renderStep, preview, cycle16, motifOf };
+  SS.GuitarArp = { OPEN, TUNINGS, MOTIFS, HANDS, POSITIONS, CAPOS, DEFAULTS, STROKES, normalize, shapeFor, stringOf, renderStep, preview, cycle16, motifOf };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -5266,3 +5266,11 @@ body.wizard-mode .wiz-banner { display: none; }
 .gt-tab rect, .gt-diagram rect, .gt-tab circle, .gt-diagram .gd-dot { stroke: none; }
 .gt-tab text, .gt-diagram text { stroke: none; font-weight: 400; }
 .gt-tab .gt-fretnum, .gt-tab .gt-finger { font-weight: 700; }
+.gt-tabhead .spacer { flex: 1; }
+.gt-tab .gt-line.dash { stroke: #3a3a42; stroke-dasharray: 2 4; }
+.gt-tab .gt-ring.wide { stroke-width: 9; }
+.gt-tab .gt-note.strum, .gt-legend .strum::before { fill: #4fd1a5; background: #4fd1a5; }
+.gt-tab .gt-note.mute { fill: #3d6b5c; }
+.gt-tab .gt-ring.strum { stroke: #4fd1a5; }
+.gt-tab .gt-stroke { fill: #4fd1a5; font-size: 13px; font-weight: 700; }
+.gt-chip.gratte.on { background: #1f4a3c; border-color: #4fd1a5; }

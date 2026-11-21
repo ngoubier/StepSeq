@@ -55,6 +55,20 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FAIL ') + m); if (!c) process
   await page.locator('#arpDialog .gt-chip', { hasText: 'Aller-retour' }).click();
   await page.locator('#arpDialog .gt-mods .arp-seg button', { hasText: 'Barré (5e)' }).click();
   await page.waitForTimeout(400);
+  // grattage, accordage, vue piano roll
+  await page.locator('#arpDialog .gt-chip.gratte', { hasText: 'Pop' }).click();
+  ok((await page.locator('#arpDialog .gt-tab .gt-stroke').count()) >= 5, 'grattage : flèches ↓ ↑ au-dessus de la tablature');
+  ok((await page.locator('#arpDialog .arp-macro b', { hasText: 'Étalement du grattage' }).count()) === 1, 'réglage « Étalement du grattage »');
+  await page.selectOption('#arpDialog .gt-tuning', 'dropD');
+  await page.waitForTimeout(200);
+  const real = await page.locator('#arpDialog .gt-real').textContent();
+  ok(/^D2|^F2|^[A-G]#?\d/.test(real), `Drop D : notes réelles ${real}`);
+  await page.locator('#arpDialog .gt-tabhead button', { hasText: 'Piano roll' }).click();
+  ok((await page.locator('#arpDialog .gt-tab .gt-line.dash').count()) >= 3, 'vue piano roll : une ligne par hauteur');
+  await page.screenshot({ path: process.env.GUITAR_SHOT2 || '/tmp/guitar-arp-2.png' });
+  await page.locator('#arpDialog .gt-tabhead button', { hasText: 'Tablature' }).click();
+  await page.selectOption('#arpDialog .gt-tuning', 'standard');
+  await page.locator('#arpDialog .gt-chip', { hasText: 'Aller-retour' }).click();
   await page.screenshot({ path: process.env.GUITAR_SHOT || '/tmp/guitar-arp.png' });
   await page.click('#arpDialog .arp-loop');
 
