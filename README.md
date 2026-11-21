@@ -781,6 +781,23 @@ Le début de chaque groupe ne bouge jamais et chaque attaque est calculée depui
 dérive. Le moteur est déterministe : même accord, mêmes réglages, même prise et même position → mêmes notes.
 Les anciens projets se rechargent à l'identique ; l'ancien « jeu humain » est converti en geste.
 
+**Mode Guitare** (`js/guitar-arp.js`) — la bascule **Clavier / Guitare** de l'en-tête (Guitare d'office la première fois
+sur une piste de guitare) joue l'arpège comme sur une guitare :
+
+- l'accord devient une **forme sur le manche** (accordage standard E2 A2 D3 G3 B3 E4) : **Ouverte** (forme en bas du
+  manche, sinon le barré le plus bas), **Barré (6e)**, **Barré (5e)**, **capodastre** ; schéma de l'accord et notes réelles ;
+- les motifs sont écrits en **cordes** (B basse, A basse alternée, B1…B4 cordes au-dessus de la basse, 1…4 cordes aiguës),
+  avec le doigt (p i m a) ou le coup de médiator (↓ ↑) de chaque note, en **tablature** avec la vélocité de chaque pas ;
+- **11 motifs** : Arpège classique, Travis, p-i-m-a-m-i 6/8, Valse 3/4, Pop en doubles, Pincé, Bossa nova (doigts) ;
+  Crosspicking, Aller-retour, Sweep, Hybrid picking (médiator). Les grilles A, B et C, les vélocités et les décalages
+  viennent du document « Arpèges de guitare » ;
+- **Jeu** : **Résonance** (détaché → basse ≈ 700 ms, aigus ≈ 500 ms → tout sonne ; une corde rejouée coupe sa note, le
+  changement d'accord arrête tout), **Mélodie en avant**, **Pouce accentué**, **Main humaine** (les basses posées sur les
+  temps ne bougent jamais).
+
+Le mode Guitare est déterministe comme le reste d'Arp One ; la lecture, le rendu et l'export MIDI passent par
+`SS.Arp.renderStep`. Réglages dans `track.arp.guitar` (gardés quand on revient au mode Clavier).
+
 ### Tests
 
 ```bash

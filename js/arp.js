@@ -334,6 +334,9 @@
     o.human = clamp(num(+o.human, 0), 0, 1);
     o.noteLen = clamp(num(+o.noteLen, 0), 0, 64);
     o.steps = clamp(Math.round(num(+o.steps, 16)), 1, 64);
+    // mode Guitare (js/guitar-arp.js) : réglages gardés même éteint
+    if (a.guitar && typeof a.guitar === 'object') o.guitar = SS.GuitarArp ? SS.GuitarArp.normalize(a.guitar) : a.guitar;
+    else delete o.guitar;
     if (a.geste && typeof a.geste === 'object') o.geste = normGeste(a.geste);
     else {
       delete o.geste;
@@ -1205,6 +1208,8 @@
   function renderStep(arp, ev, step, info) {
     const o = arp && arp.__norm ? arp : normalize(arp);
     if (step < ev.step || step >= ev.step + ev.len) return [];
+    // mode Guitare : formes d'accord sur le manche, motifs en cordes, cordes qui résonnent
+    if (o.guitar && o.guitar.on && SS.GuitarArp) return SS.GuitarArp.renderStep(o, ev, step, info);
     const rate = o.rate;
     const sd = info.stepSec;
     const sub = sd / rate;
