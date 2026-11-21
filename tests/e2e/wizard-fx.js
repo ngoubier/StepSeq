@@ -77,7 +77,9 @@ const ok = (c, m) => {
   // ---------- 2. La frise, la jonction choisie, ce que fait déjà le plan
   const sceneNames = await page.$$eval('.fx-block b', (l) => l.map((x) => x.textContent));
   ok(sceneNames.join(',') === 'Intro,Groove,Montée,Drop,Break,Montée 2,Drop final,Outro' && (await page.locator('.fx-tm button').count()) === sceneNames.length - 1, `frise : ${sceneNames.length} blocs dans l’ordre de l’arrangement, une pastille entre deux blocs`);
-  ok((await page.locator('.fx-tm button.sel').getAttribute('data-j')) === '2' && (await page.textContent('#fxTrans h3')).includes('Transition avant « Drop »'), 'jonction choisie par défaut : avant le premier drop');
+  ok((await page.locator('.fx-tm button.sel').getAttribute('data-j')) === '2' && (await page.textContent('#fxTrans h3')).includes('Montée → Drop'), 'jonction choisie par défaut : avant le premier drop');
+  ok((await page.getAttribute('#fxRecipes [data-r="risecut"]', 'aria-pressed')) === 'true' && (await page.locator('#fxRecipes [data-r="risecut"] .fx-plan').count()) === 1, 'recette en vigueur : « Montée + coupure », marquée « plan »');
+  ok((await page.locator('.fx-lane').count()) === 3 && (await page.locator('.fx-lc.fx-m-riser[data-sec="build"]').count()) === 1, 'frise à trois lignes (Scènes, Effets, Percussions) ; la ligne Effets montre la montée');
   ok((await page.locator('.fx-tm button').nth(2).textContent()) === '4' && (await page.locator('.fx-tm button').nth(0).textContent()) === '+', 'la pastille compte les effets actifs (4 avant le drop, « + » quand il n’y en a pas)');
   ok((await on(page, 'riser')) === 'true' && (await on(page, 'hp')) === 'true' && (await on(page, 'gap')) === 'true' && (await on(page, 'impact')) === 'true' && (await on(page, 'rev')) === 'false' && (await on(page, 'down')) === 'false', 'état initial : ce que fait le plan (montée, passe-haut, coupure, impact), ni cymbale ni descente');
   // longueurs lues dans le plan : la montée dure toute la scène d'avant (8 ou 16 mesures), pas 8 en dur
@@ -189,6 +191,8 @@ const ok = (c, m) => {
   const NG = (await wiz(page, 'W.res.scenes.find((x) => x.name === "Groove").bars')) * 16;
   ok((await page.locator('#fxWriteHead').count()) === 1 && (await page.locator('#fxrow-retrait, #fxrow-frag, #fxrow-pedal, #fxrow-widen, #fxrow-susp').count()) === 5, 'procédés d’écriture : titre et cinq lignes (T01–T05), la coupure porte T06');
   ok((await on(page, 'retrait')) === 'false' && (await on(page, 'susp')) === 'false', 'procédés éteints dans le plan');
+  await page.click('#fxWriteHead'); // procédés repliés par défaut
+  await page.waitForTimeout(150);
   const pastille = async () => +(await page.locator('.fx-tm button.sel').textContent()) || 0;
   const p0 = await pastille();
   const bdBefore = await dataOf(page, 'Groove', ':bd');
@@ -209,6 +213,23 @@ const ok = (c, m) => {
   await page.waitForTimeout(250);
   ok((await pastille()) === p0 && JSON.stringify((await dataOf(page, 'Groove', ':bd')).steps) === JSON.stringify(bdBefore.steps), '« Comme le plan » : la batterie revient');
   await page.click('.fx-tm button >> nth=2');
+  await page.waitForTimeout(250);
+
+  // ---------- 5 ter. Recettes : un clic allume ou éteint les six effets ajoutés
+  await page.click('#fxRecipes [data-r="cut"]');
+  await page.waitForTimeout(250);
+  ok((await on(page, 'riser')) === 'false' && (await on(page, 'hp')) === 'false' && (await on(page, 'gap')) === 'true' && (await on(page, 'impact')) === 'true' && (await page.getAttribute('#fxRecipes [data-r="cut"]', 'aria-pressed')) === 'true', 'recette « Coupure sèche » : silence et impact seulement');
+  await page.click('#fxon-down');
+  await page.waitForTimeout(250);
+  ok((await page.getAttribute('#fxRecipes [data-r="custom"]', 'aria-pressed')) === 'true', 'un interrupteur touché à la main : « Sur mesure »');
+  await page.click('#fxRecipes [data-r="boom"]');
+  await page.waitForTimeout(250);
+  ok((await on(page, 'riser')) === 'true' && (await on(page, 'rev')) === 'true' && (await on(page, 'down')) === 'true' && (await page.locator('.fx-tm button.sel').textContent()) === '6', 'recette « Explosion » : les six effets, la pastille en compte 6');
+  await page.click('#fxReset');
+  await page.waitForTimeout(250);
+  await page.click('#fxlen-rev [data-v="4"]');
+  await page.click('#fxon-down');
+  await page.click('#fxlen-down [data-v="4"]');
   await page.waitForTimeout(250);
 
   // ---------- 6. Copier vers les autres drops
@@ -252,15 +273,27 @@ const ok = (c, m) => {
   await page.waitForTimeout(500);
   ok((await wiz(page, 'S.group.list.length')) === n0 + 1 && (await page.evaluate(() => SS.band.insSteps().some((t) => t.role === 'perc'))), 'le bouton ajoute le Percussionniste au groupe (une étape instrument de plus)');
   ok((await num(page, 'fx')) === f0 + 1 && (await wiz(page, 'W.step')) === f0 + 1 && (await page.locator('#fxMissPerc').count()) === 0, 'les numéros suivent, on reste sur l’étape Effets');
-  ok((await page.locator('.fx-ptab tbody tr').count()) === 3 && (await page.locator('.fx-ptab th').count()) === (await wiz(page, 'W.res.scenes.length')) + 1, 'matrice : trois boucles (shaker, conga, tom) × une colonne par scène (pas par bloc)');
-  // le plan joue déjà le shaker (et la conga) : l'affichage le montre
-  const shOn = await page.$$eval('.fx-cb[data-loop="sh"]', (l) => l.map((x) => x.getAttribute('aria-pressed') === 'true'));
+  ok((await page.locator('.fx-lperc').count()) === (await wiz(page, 'W.res.song.length')), 'frise : la ligne Percussions a une case par bloc');
+  // le plan joue déjà le shaker (et la conga) : la frise le montre
+  const shOn = await page.$$eval('.fx-lperc', (l) => l.map((x) => x.textContent.includes('Shaker')));
   ok(shOn.join() === 'true,true,true,true,false,true,true,true', `le shaker du plan : joué partout (intro DJ en « light » comprise) sauf dans le break (${shOn.join(' ')})`);
+  const pick = async (sec) => {
+    await page.click(`.fx-block[data-sec="${sec}"]`);
+    await page.waitForTimeout(150);
+  };
+  await pick('drop');
+  ok((await page.locator('#fxScene').count()) === 1 && (await page.locator('#fxTrans').count()) === 0 && (await page.locator('.fx-cb[data-sec="drop"]').count()) >= 2, 'clic sur une scène : son panneau (Effets + Percussionniste) remplace celui de la transition');
   // tout éteindre, puis allumer le shaker dans Groove et Drop seulement
-  for (const loop of ['sh', 'cg', 'tom'])
-    for (const sec of await page.$$eval(`.fx-cb[data-loop="${loop}"]`, (l) => l.map((x) => x.dataset.sec)))
-      if ((await page.getAttribute(`.fx-cb[data-loop="${loop}"][data-sec="${sec}"]`, 'aria-pressed')) === 'true') await page.click(`.fx-cb[data-loop="${loop}"][data-sec="${sec}"]`);
+  for (const sec of await page.$$eval('.fx-block', (l) => [...new Set(l.map((x) => x.dataset.sec))])) {
+    await pick(sec);
+    while (await page.locator('.fx-cb.on').count()) {
+      await page.click('.fx-cb.on >> nth=0');
+      await page.waitForTimeout(100);
+    }
+  }
+  await pick('groove');
   await page.click('.fx-cb[data-loop="sh"][data-sec="groove"]');
+  await pick('drop');
   await page.click('.fx-cb[data-loop="sh"][data-sec="drop"]');
   await page.waitForTimeout(400);
   const secs = await page.evaluate(() => SS.band._state.wiz.res.scenes.map((s) => s.name));
@@ -276,10 +309,10 @@ const ok = (c, m) => {
   const otherPerc = await page.evaluate(() => SS.band._state.wiz.res.scenes.every((sc) => Object.keys(sc.data).filter((k) => k.startsWith('perc:') && !k.endsWith(':sh')).every((k) => !sc.data[k].steps.some((v) => v > 0))));
   ok(otherPerc, 'les autres percussions (conga, tom) sont coupées partout');
   ok((await wiz(page, 'JSON.stringify(W.fx.perc.loops.groove)')) === '{"sh":true}' || (await wiz(page, 'W.fx.perc.loops.groove.sh')) === true, 'S.wiz.fx.perc.loops : réglages rangés par scène');
-  ok((await page.locator('.fx-cb[data-loop="tom"]').first().isDisabled()) && (await page.locator('.fx-addp[data-loop="tom"]').count()) === 1, 'le kit du Percussionniste n’a pas la pièce du tom : la ligne est grisée, « + ajouter la pièce »');
+  ok((await page.locator('.fx-cb[data-loop="tom"]').count()) === 0 && (await page.locator('.fx-addp[data-loop="tom"]').count()) === 1, 'le kit du Percussionniste n’a pas la pièce du tom : « + Tom » à la place');
   await page.click('.fx-addp[data-loop="tom"]');
   await page.waitForTimeout(400);
-  ok(!(await page.locator('.fx-cb[data-loop="tom"]').first().isDisabled()), 'la pièce ajoutée : la ligne du tom devient utilisable');
+  ok((await page.locator('.fx-cb[data-loop="tom"]').count()) === 1, 'la pièce ajoutée : le tom devient utilisable');
   // la pièce « misc » jouait déjà (comme un shaker) dans le plan : éteindre puis rallumer donne la boucle de tom du style
   if ((await page.getAttribute('.fx-cb[data-loop="tom"][data-sec="drop"]', 'aria-pressed')) === 'true') await page.click('.fx-cb[data-loop="tom"][data-sec="drop"]');
   await page.click('.fx-cb[data-loop="tom"][data-sec="drop"]');
@@ -296,10 +329,10 @@ const ok = (c, m) => {
   await page.selectOption('#fxPercStyle', 'latin');
   await page.waitForTimeout(300);
   ok((await stepsOf()) !== techno, 'le style des percussions change la boucle');
-  await page.click('#fxPercListen');
+  await page.click('#fxSceneListen');
   await page.waitForFunction(() => SS.audio.isPlaying(), null, { timeout: 8000 });
-  ok((await page.evaluate(() => SS.band._listen().scenes.length)) >= 5, '« Écouter » joue la scène avec les percussions');
-  await page.click('#fxPercListen');
+  ok((await page.evaluate(() => SS.band._listen().scenes.length)) >= 5, '« Écouter la scène » joue la scène avec les percussions');
+  await page.click('#fxSceneListen');
   await page.waitForTimeout(200);
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'fx-perc.png') });
   // la chanson créée porte les percussions choisies

@@ -54,9 +54,15 @@ const ok = (c, m) => {
 
   const page = await open('techno');
   await go(page, 'fx');
-  ok(await page.isVisible('#fxScenes'), 'carte « Musicien Effets, scène par scène » visible');
-  const rows = await page.$$eval('#fxScenes .fx-srow', (l) => l.map((x) => [x.dataset.sec, x.querySelector('.fx-roles [aria-pressed="true"]').textContent]));
-  ok(rows.length >= 5, `une ligne par scène (${rows.map((r) => r.join(':')).join(', ')})`);
+  const pick = async (sec) => {
+    await page.click(`.fx-block[data-sec="${sec}"]`);
+    await page.waitForTimeout(200);
+  };
+  const rows = await page.$$eval('.fx-l-fx .fx-lc', (l) => l.map((x) => [x.dataset.sec, x.title.split(' : ').pop()]));
+  ok(rows.length >= 5, `frise : la ligne Effets a une case par scène (${rows.map((r) => r.join(':')).join(', ')})`);
+  await pick('intro');
+  ok(await page.isVisible('#fxScenes'), 'clic sur une scène : bloc « Musicien Effets » visible');
+  ok((await page.textContent('#fxscn-intro [aria-pressed="true"]')) === 'Ambiance', 'le panneau montre le rôle de la scène');
   const intro = rows.find((r) => r[0] === 'intro');
   const build = rows.find((r) => r[0] === 'build');
   ok(intro && intro[1] === 'Ambiance' && build && build[1] === 'Montée', 'rôles du plan : Ambiance sur l’intro, Montée sur la montée');
@@ -68,7 +74,7 @@ const ok = (c, m) => {
   await page.waitForTimeout(400);
   ok((await dataOf(page, 'Intro', 'fx')).events.length === 0, 'Rien : la piste Effets se tait dans l’intro');
   ok((await wiz(page, 'JSON.stringify(W.parts.intro.fx)')) === '{"mode":"none"}', 'réglage gardé dans parts.intro.fx');
-  ok((await page.textContent('#fxScenes .fx-srow[data-sec="intro"] small')).includes('retouché'), 'la ligne dit « retouché »');
+  ok((await page.textContent('#fxScenes .fx-chg')).includes('retouché') && (await page.locator('.fx-lc.fx-m-none[data-sec="intro"]').count()) === 1, 'le panneau dit « retouché », la frise montre « — »');
 
   // Ambiance chaque mesure
   await page.click('#fxscn-intro [data-v="swell"]');
@@ -79,6 +85,7 @@ const ok = (c, m) => {
   const bars = (await wiz(page, 'W.res.scenes.find((s) => s.sec === "intro").bars'));
   ok((await dataOf(page, 'Intro', 'fx')).events.length === bars, `Ambiance chaque mesure : ${bars} notes`);
 
+  await pick('build');
   // Montée de 4 mesures : la note, et la jonction qui en sort suit
   await page.click('#fxscn-len-build [data-v="4"]');
   await page.waitForTimeout(400);
@@ -94,7 +101,7 @@ const ok = (c, m) => {
   ok(Math.abs(v1 - v0 * 0.5) < 0.02, `niveau 50 % : vélocité ${v0} → ${v1}`);
 
   // ↺ : retour au plan
-  await page.click('#fxScenes .fx-srow[data-sec="build"] .fx-undo');
+  await page.click('#fxScenes .fx-undo');
   await page.waitForTimeout(400);
   ok(!(await wiz(page, '!!(W.parts.build && W.parts.build.fx)')), '↺ : la montée revient au plan');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'fx-scenes.png'), fullPage: false });
