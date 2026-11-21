@@ -1991,7 +1991,8 @@ SS.audio = (() => {
 
   function audibleTracks(project) {
     const soloed = project.tracks.some((t) => t.solo);
-    return project.tracks.filter((t) => !t.mute && (!soloed || t.solo));
+    // muette dans la scène jouée (fiche Scène) : en mode chanson, la scène du bloc est chargée avant ses notes
+    return project.tracks.filter((t) => !t.mute && (!soloed || t.solo) && !(SS.sceneMuted && SS.sceneMuted(project, t)));
   }
 
   /**
