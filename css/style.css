@@ -5477,14 +5477,14 @@ body.wizard-mode .wiz-banner { display: none; }
 .arp-mode button { padding: 6px 12px; }
 .gt-view { display: flex; flex-direction: column; gap: 14px; }
 .gt-player .arp-player-bar select, .gt-card select { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px; font: inherit; }
-.gt-main { display: grid; grid-template-columns: 170px 1fr; gap: 12px; }
+.gt-main { display: grid; grid-template-columns: 110px 1fr; gap: 12px; align-items: start; }
 .gt-card { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .gt-card h3 { margin: 0; font-size: var(--fs-sm); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .gt-card small { color: var(--muted); font-size: var(--fs-xs); line-height: 1.35; }
 .gt-chord { align-items: stretch; }
 .gt-chordname { font-size: 20px; font-weight: 700; text-align: center; }
 .gt-real { font-size: var(--fs-xs); color: var(--c-blue-soft); text-align: center; font-variant-numeric: tabular-nums; }
-.gt-diagram { width: 100%; height: auto; display: block; }
+.gt-diagram { width: auto; height: 96px; display: block; margin: 0 auto; }
 .gt-diagram .gd-nut { fill: var(--c-text); }
 .gt-diagram .gd-str { stroke: var(--c-faint); }
 .gt-diagram .gd-wire { stroke: var(--c-line-strong); }
@@ -5537,6 +5537,10 @@ body.wizard-mode .wiz-banner { display: none; }
 .gt-tab .gt-note.mute { fill: var(--c-teal-deep); }
 .gt-tab .gt-ring.strum { stroke: var(--c-teal); }
 .gt-tab .gt-stroke { fill: var(--c-teal); font-size: var(--fs-md); font-weight: 700; }
+/* tablature compacte (≈ 100 px) : petits caractères */
+.gt-tab .gt-fretnum, .gt-tab .gt-finger, .gt-tab .gt-num { font-size: 9px; }
+.gt-tab .gt-stroke { font-size: 11px; }
+.gt-tab .gt-ring { stroke-width: 3; }
 .gt-chip.gratte.on { background: var(--c-teal-bg); border-color: var(--c-teal); }
 
 /* ---------- Fiche Scène (js/scenesheet.js) : tiroir à droite, la grille reste visible ---------- */
@@ -5765,7 +5769,7 @@ body.wizard-mode #bandDialog.band-dialog.tut-on { flex-direction: row; }
 .bwgt { display: flex; flex-direction: column; gap: 10px; padding: 10px; border: 1px dashed var(--line); border-radius: 10px; }
 .bwgt-brand { font-size: var(--fs-xs); font-weight: 800; letter-spacing: .06em; border: 1px solid var(--c-violet); color: var(--c-violet-soft); border-radius: 6px; padding: 1px 6px; }
 .bwgt-mods { display: grid; grid-template-columns: 1fr 1.3fr; gap: 12px; }
-.bwgt .gt-main { grid-template-columns: 150px 1fr; }
+.bwgt .gt-main { grid-template-columns: 110px 1fr; }
 .bwgt .gt-chord { align-items: center; }
 .bwgt-sl { display: flex; flex-direction: column; gap: 2px; }
 .bwgt-slh { display: flex; align-items: center; gap: 6px; font-size: var(--fs-sm); }
