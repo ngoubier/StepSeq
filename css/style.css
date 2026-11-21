@@ -5572,3 +5572,34 @@ body.wizard-mode #bandDialog.band-dialog.tut-on { flex-direction: row; }
 .tut-ev { left: 6px; }
 .tut-sub { position: absolute; left: 0; right: 0; bottom: 6px; text-align: center; font-size: 12px; color: #fff; text-shadow: 0 1px 3px #000; display: none; }
 .tut-screen.talk .tut-sub { display: block; }
+
+/* ---------- Jauge CALCUL (js/calcul.js) ---------- */
+:root { --load-ok: #3fcf7f; --load-warn: #ffb020; --load-bad: #e5484d; }
+.load-btn { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 9px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel-2); color: var(--muted); font: inherit; font-size: 11px; letter-spacing: .04em; cursor: pointer; white-space: nowrap; }
+.load-btn:hover { color: var(--text); border-color: #555; }
+.load-btn .ld-bar { position: relative; width: 56px; height: 6px; border-radius: 3px; background: #111; overflow: hidden; }
+.load-btn .ld-bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--load-ok); transition: width .3s; }
+.load-btn .ld-val { font-weight: 700; font-size: 12px; min-width: 34px; text-align: right; font-variant-numeric: tabular-nums; }
+.load-btn.busy .ld-bar i { width: 30% !important; background: #5a6b80 !important; animation: ld-busy 1.2s ease-in-out infinite alternate; }
+@keyframes ld-busy { from { left: 0; } to { left: 70%; } }
+.load-btn.over { border-color: var(--load-bad); box-shadow: 0 0 0 2px rgba(229, 72, 77, .25); }
+.load-btn.over .ld-lab { color: var(--load-bad); }
+.ld-pop { position: fixed; z-index: 60; width: 380px; max-width: calc(100vw - 16px); max-height: calc(100vh - 80px); overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 12px 32px rgba(0, 0, 0, .6); padding: 10px 12px; font-size: 12.5px; }
+.ld-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.ld-head b { font-size: 13px; }
+.ld-total { margin-left: auto; font-weight: 700; color: var(--text); }
+.ld-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.ld-name { width: 130px; flex: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ld-rbar { flex: 1; height: 7px; border-radius: 4px; background: #111; overflow: hidden; }
+.ld-rbar i { display: block; height: 100%; background: #6f8db0; }
+.ld-row.frozen .ld-rbar i { background: #7fd4ff; }
+.ld-row.frozen .ld-name { color: #a9e2ff; }
+.ld-row.base .ld-name { color: var(--muted); }
+.ld-ms { width: 44px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ld-slot, .ld-frz { width: 26px; height: 22px; flex: none; }
+.ld-frz { border-radius: 5px; border: 1px solid #2a5a72; background: var(--panel-2); color: #7fb8d4; cursor: pointer; font-size: 12px; padding: 0; }
+.ld-frz.on { background: #12303f; color: #7fd4ff; border-color: #7fd4ff; }
+.ld-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+.ld-foot button { font: inherit; font-size: 12.5px; padding: 5px 11px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel-3); color: var(--text); cursor: pointer; }
+.ld-foot .ld-go { background: #12303f; border-color: #7fd4ff; color: #7fd4ff; }
+.ld-foot button:disabled { opacity: .45; cursor: default; }
