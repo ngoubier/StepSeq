@@ -7336,9 +7336,36 @@ SS.band = (() => {
     const n = mutedIn(x.sec, T) ? 0 : accCount(x, T);
     return h('span', { class: 'bwa-ssub' }, h('span', {}, bassSub(x, T, true)), n ? h('em', { class: 'bwa-badge', title: `${n} accent${n > 1 ? 's' : ''}` }, h('i', { html: '<svg viewBox="0 0 8 8" aria-hidden="true"><path d="M1.5 1l4 3-4 3" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>' }), `${n} accent${n > 1 ? 's' : ''}`) : null);
   }
+  /**
+   * Basse : le même écran que la fenêtre MOTIF de la Grille (SS.bassMotifs.picker : puces de style, cartes, ★ Célèbres),
+   * puis Scènes (cette scène | toutes celles où la basse joue), Hauteur C1–C3 (register low | mid | high), pédale, note d'approche.
+   */
+  const REGISTERS = [['low', 'C1'], ['mid', 'C2'], ['high', 'C3']];
   function bassBody(sc, T) {
+    const M = SS.bassMotifs;
     const o = partOf(sc.sec, T) || {};
+    const insp = planMode(sc, T);
+    const muted = mutedIn(sc.sec, T);
+    const cur = muted ? null : o.mode || insp;
+    if (!S.wiz.motGroup) S.wiz.motGroup = M.groupOfStyle(S.styleId);
+    const all = !!S.wiz.motAll;
+    // « Toutes » : la scène en cours et les autres scènes où la basse joue
+    const plays = (x) => !mutedIn(x.sec, T) && !!((partOf(x.sec, T) || {}).mode || planMode(x, T));
+    const targets = () => (all ? S.wiz.res.scenes.filter((x) => x.sec === sc.sec || plays(x)) : [sc]);
+    const pick = (id) => {
+      targets().forEach((x) => {
+        putOff(x.sec, T, false);
+        putPart(x.sec, T, { mode: id === planMode(x, T) ? undefined : id });
+        pruneAccents(x, T);
+      });
+      partChanged(`.bwp-mot .mot-card[data-id="${id}"]`);
+    };
     const set = (patch) => (putPart(sc.sec, T, patch), pruneAccents(sc, T), partChanged());
+    const setReg = (v) => {
+      const seen = new Set();
+      targets().forEach((x) => !seen.has(x.sec) && (seen.add(x.sec), putPart(x.sec, T, { register: v === 'low' ? undefined : v })));
+      partChanged();
+    };
     return [
       partHead(sc, T, 'basse', false),
       rollBox(sc, T),
@@ -7346,22 +7373,38 @@ SS.band = (() => {
       accPanel(sc, T),
       h(
         'section',
-        { class: 'bwp-card bw-card' },
-        h('div', { class: 'bwp-ch' }, h('b', {}, `Mode de jeu de « ${sc.name} »`), h('span', { class: 'spacer' }), playBox(sc, T, '8')),
-        modeCards(sc, T, BASS_MODES, '#3fcf3f', () => pruneAccents(sc, T)),
-        !planMode(sc, T) && !o.mode ? h('p', { class: 'dlg-hint' }, 'L’inspiration ne joue pas de basse dans cette scène : choisis un mode pour l’allumer.') : null
-      ),
-      h(
-        'section',
-        { class: 'bwp-card bw-card' },
+        { class: 'bwp-card bw-card bwp-mot mot-pick', id: 'bwMotif' },
+        h(
+          'div',
+          { class: 'bwp-ch' },
+          h('b', {}, `Motif de « ${sc.name} »`),
+          h('span', { class: 'mot-now' }, cur ? nameOf(BASS_MODES, cur) : 'aucune'),
+          SS.helpTip('Cliquez un motif : il s’entend dans la scène et la basse le joue sur ses accords. Le point vert marque le style de la chanson ; survolez une carte pour sa description.', 'Motif de basse'),
+          h('span', { class: 'spacer' }),
+          playBox(sc, T, '8')
+        ),
+        ...M.picker({
+          group: S.wiz.motGroup,
+          mark: M.groupOfStyle(S.styleId),
+          cur,
+          insp,
+          none: { on: muted || !cur, pick: () => (putOff(sc.sec, T, true), partChanged('.bwp-mot .mot-card[data-id="none"]')) },
+          onGroup: (g) => ((S.wiz.motGroup = g), renderWiz()),
+          onPick: pick,
+        }),
         h(
           'div',
           { class: 'bwp-row' },
+          h(
+            'div',
+            { class: 'bwp-field' },
+            h('span', { class: 'bh-lbl' }, 'Scènes', SS.helpTip('« Cette scène » : seule la scène en cours prend le motif et la hauteur. « Toutes » : toutes les scènes où la basse joue les prennent.', 'Scènes')),
+            h('span', { class: 'segmented', role: 'radiogroup', 'aria-label': 'Scènes', id: 'bwpMotScope' }, ...[[false, 'Cette scène'], [true, 'Toutes']].map(([v, t]) => h('button', { type: 'button', role: 'radio', class: v === all ? 'active' : '', 'aria-checked': String(v === all), 'data-v': v ? 'all' : 'one', onclick: () => ((S.wiz.motAll = v), renderWiz()) }, t)))
+          ),
+          partSeg('Hauteur', 'bwpRegister', REGISTERS, o.register || 'low', setReg),
           partSeg('Pédale', 'bwpPedal', [['none', 'Aucune'], ['tonic', 'Tonique'], ['fifth', 'Dominante']], o.pedal || 'none', (v) => set({ pedal: v === 'none' ? undefined : v })),
-          partSeg('Registre', 'bwpRegister', [['low', 'Grave'], ['mid', 'Médium', 'Une octave plus haut']], o.register || 'low', (v) => set({ register: v === 'low' ? undefined : v })),
-          partCheck('bwpApproach', 'Note d’approche avant le changement d’accord', o.approach !== false && !o.pedal, (on) => set({ approach: on ? undefined : false }), !!o.pedal)
-        ),
-        o.pedal ? h('p', { class: 'dlg-hint', 'data-helpify': true }, `Pédale de ${o.pedal === 'tonic' ? 'tonique' : 'dominante'} : la basse reste sur cette note de la tonalité pendant que les accords changent au-dessus, sans note d’approche.`) : null
+          partCheck('bwpApproach', 'Note d’approche', o.approach !== false && !o.pedal, (on) => set({ approach: on ? undefined : false }), !!o.pedal)
+        )
       ),
     ];
   }

@@ -26,7 +26,7 @@
  *    crash : cymbale crash au premier pas. Sans motif, fill et crash s'ajoutent au jeu du plan (fill, même « off »,
  *    remplace alors le roulement automatique de fin de section) ; edits peut aussi être la grille de l'assistant (bars, une piste par
  *    pièce du kit, rat, cond : voir gridSteps) et build la progression d'une scène de montée (voir rollBar) ;
- *  - bass { mode, pedal: none | tonic | fifth, approach, register: low | mid } : mode remplace celui du plan (et peut
+ *  - bass { mode, pedal: none | tonic | fifth, approach, register: low | mid | high (C1, C2, C3) } : mode remplace celui du plan (et peut
  *    allumer la basse ; s'ajoutent half et quarter) ; pedal joue la tonique (ou la quinte) de la tonalité sous tous les
  *    accords, sans notes d'approche ; approach false les supprime ; mid = une octave plus haut ;
  *  - pad { mode, voicing: close | open } ; arp { mode } : remplacent ceux du plan (et peuvent les allumer) ;
@@ -1942,7 +1942,7 @@ SS.bandSong = (() => {
           if (kd === 'bass') {
             const kp = H().scale(k).map((d) => d.pc);
             const ped = o && { tonic: kp[0], fifth: pcOf(kp[0] + 7) }[o.pedal];
-            events = bassEvents(spans, mode, r, kp, { pedalPc: (o && ped) ?? null, approach: !o || o.approach !== false, shift: (o && o.register === 'mid' ? 12 : 0) + (spec.bassShift || 0) });
+            events = bassEvents(spans, mode, r, kp, { pedalPc: (o && ped) ?? null, approach: !o || o.approach !== false, shift: (o ? { mid: 12, high: 24 }[o.register] || 0 : 0) + (spec.bassShift || 0) });
           } else if (kd === 'arp') events = arpEvents(spans, mode, r);
           else if (kd === 'chords' && /^g:/.test(mode) && SS.GuitarArp) events = arpOneEvents(spans, { guitar: { ...((o && o.gtr) || {}), on: true, motif: mode.slice(2) } }, bars);
           else if (kd === 'chords') events = chordEvents(spans, mode, r, { lo: 53, hi: 76, open: !!(o && o.voicing === 'open') });
@@ -1965,7 +1965,7 @@ SS.bandSong = (() => {
           if (role === 'bass') {
             const kp = H().scale(k).map((d) => d.pc);
             const ped = o && { tonic: kp[0], fifth: pcOf(kp[0] + 7) }[o.pedal];
-            events = bassEvents(spans, mode, r, kp, { pedalPc: (o && ped) ?? null, approach: !o || o.approach !== false, shift: (o && o.register === 'mid' ? 12 : 0) + (spec.bassShift || 0) });
+            events = bassEvents(spans, mode, r, kp, { pedalPc: (o && ped) ?? null, approach: !o || o.approach !== false, shift: (o ? { mid: 12, high: 24 }[o.register] || 0 : 0) + (spec.bassShift || 0) });
           }
           else if (role === 'fx') events = fxEvents(spans, mode, k, bars);
           else if (role === 'arp') events = arpEvents(spans, mode, r);

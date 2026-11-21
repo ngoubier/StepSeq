@@ -59,7 +59,7 @@ const ok = (c, m) => {
   ok((await page.locator('.bw-kind, .bw-kinds, #bwKinds').count()) === 0 && (await page.getAttribute('#bwStepHead', 'data-kind')) === 'drums' && (await page.locator('#bwStepHead .bw-insline, #bwStepHead p').count()) === 0, 'kit : plus de cartes de type, étiquette « Drums » en lecture seule');
   ok((await page.locator('#bwKindNote').count()) === 0 && (await page.locator('.bwp-pat').count()) === 21, 'kit : pas de note, l’éditeur de motifs');
   await tab('bass');
-  ok((await page.getAttribute('#bwStepHead', 'data-kind')) === 'bass' && (await page.locator('.bwp-mode').count()) === 22 && (await page.locator('#bwKindNote').count()) === 0, 'basse : étiquette « Basse », éditeur de basse, pas de note');
+  ok((await page.getAttribute('#bwStepHead', 'data-kind')) === 'bass' && (await page.locator('#bwMotif .mot-card').count()) > 10 && (await page.locator('#bwKindNote').count()) === 0, 'basse : étiquette « Basse », éditeur de basse, pas de note');
 
   // étape 2 : le type est une liste dans le panneau de droite
   const toStep2 = async () => {
