@@ -1925,7 +1925,7 @@ SS.bandSong = (() => {
           if (kd === 'bass') {
             const kp = H().scale(k).map((d) => d.pc);
             const ped = o && { tonic: kp[0], fifth: pcOf(kp[0] + 7) }[o.pedal];
-            events = bassEvents(spans, mode, r, kp, o ? { pedalPc: ped ?? null, approach: o.approach !== false, shift: o.register === 'mid' ? 12 : 0 } : undefined);
+            events = bassEvents(spans, mode, r, kp, { pedalPc: (o && ped) ?? null, approach: !o || o.approach !== false, shift: (o && o.register === 'mid' ? 12 : 0) + (spec.bassShift || 0) });
           } else if (kd === 'arp') events = arpEvents(spans, mode, r);
           else if (kd === 'chords' && /^g:/.test(mode) && SS.GuitarArp) events = arpOneEvents(spans, { guitar: { on: true, motif: mode.slice(2) } }, bars);
           else if (kd === 'chords') events = chordEvents(spans, mode, r, { lo: 53, hi: 76, open: !!(o && o.voicing === 'open') });
@@ -1948,7 +1948,7 @@ SS.bandSong = (() => {
           if (role === 'bass') {
             const kp = H().scale(k).map((d) => d.pc);
             const ped = o && { tonic: kp[0], fifth: pcOf(kp[0] + 7) }[o.pedal];
-            events = bassEvents(spans, mode, r, kp, o ? { pedalPc: ped ?? null, approach: o.approach !== false, shift: o.register === 'mid' ? 12 : 0 } : undefined);
+            events = bassEvents(spans, mode, r, kp, { pedalPc: (o && ped) ?? null, approach: !o || o.approach !== false, shift: (o && o.register === 'mid' ? 12 : 0) + (spec.bassShift || 0) });
           }
           else if (role === 'fx') events = fxEvents(spans, mode, k, bars);
           else if (role === 'arp') events = arpEvents(spans, mode, r);

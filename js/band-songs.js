@@ -6,7 +6,7 @@
  * d'une chanson à l'autre. Les notes sont écrites par js/bandsong.js.
  *
  * Format :
- *   key : « C minor » ; groove : batterie (js/bandsong.js, G) ; emotion : js/emotions.js ; sc : sidechain basse/nappe sur le kick
+ *   key : « C minor » ; groove : batterie (js/bandsong.js, G) ; emotion : js/emotions.js ; sc : sidechain basse/nappe sur le kick ; bassShift : basse transposée (12 = une octave plus haut)
  *   sections : { id: { bars, chords, drums, perc?, bass?, pad?, strings?, keys?, guitar?, arp?, lead?, vox?, sax?, gap?, groove?, name? } }
  *     chords : degrés, une mesure par accord (« i/VII » = deux accords dans la mesure), répétés jusqu'à la fin de la section ;
  *       chiffres romains lus sur le majeur ou le mineur naturel de la tonique (« VI » en mineur = 6e degré abaissé),
@@ -695,7 +695,7 @@ SS.BandSongs = {
   // nyabinghi, skank de guitare et de piano sur 2 et 4, orgue bubble, basse ronde qui chante ; instrumental (mélodie en option),
   // passage dub où il ne reste que basse, batterie et orgue
   kingston: {
-    key: 'A major', groove: 'onedrop', emotion: 'joie',
+    key: 'A major', groove: 'onedrop', emotion: 'joie', bassShift: 12, // basse une octave plus haut (La2–Sol♯3) : ronde mais présente
     sections: {
       intro: { bars: 8, chords: 'I | IVmaj7 | I | IVmaj7', drums: 'light', perc: 'hats', bass: 'whole', guitar: 'g:reggae', pad: 'skank', keys: 'bubble' },
       verse: { bars: 16, chords: 'I | iii | IV | IV | I | iii | ii7 | V', drums: 'main', perc: 'main', bass: 'roots', guitar: 'g:reggae', pad: 'skank', keys: 'bubble', lead: 'verse' },
