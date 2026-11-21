@@ -328,3 +328,33 @@ test('harmonie de film : un passage court garde la fin de la formule', () => {
   assert.deepEqual(names(F.techGrid('hero', 'minor', 1)), ['D']);
   assert.deepEqual(names(F.techGrid('hero', 'minor', 2)), ['C', 'D']);
 });
+
+test('nuances : une nuance par passage, arcs de phrase, crescendo et cymbale vers la synchro', () => {
+  const sp = SS.BandSongs.lumiere;
+  const S = sp.sections;
+  assert.equal(S.p1.dyn, 'pp');
+  assert.equal(S.p4.dyn, 'ff');
+  assert.ok(S.p1.orchVel < S.p4.orchVel);
+  // arc : dans une phrase, la note la plus haute est la plus forte
+  const ph = S.p4.theme.filter((e) => e.step < 32);
+  const top = ph.reduce((a, e) => (e.notes[0] > a.notes[0] ? e : a));
+  assert.equal(Math.max(...ph.map((e) => e.vel)), top.vel);
+  assert.ok(Math.min(...S.p1.theme.map((e) => e.vel)) < Math.max(...S.p4.theme.map((e) => e.vel)), 'pp plus doux que ff');
+  // crescendo sur les deux mesures avant la synchro, respiration après
+  assert.deepEqual(S.p3.ramps, [{ a: 32, b: 64, from: 0.85, to: 1.2 }]);
+  assert.ok(S.p4.ramps && S.p4.ramps[0].to < 1);
+  // cymbale en crescendo de 4 s : à 80 BPM, 21 doubles croches avant la synchro
+  assert.deepEqual(S.p3.hits.oh, [[64 - 21, 0.8]]);
+  assert.equal(SS.Band.pieceOpts('orchperc', 'oh').label, 'Cymbale (crescendo)');
+  // la construction applique la rampe : les dernières notes du passage d'avant la synchro sont plus fortes
+  const O = SS.orchestra;
+  const tracks = [{ id: 'lead', type: 'instrument', band: { key: 'lead' } }];
+  const s = SS.bandSong.build(sp, 'lumiere', tracks);
+  const flat = JSON.parse(JSON.stringify(sp));
+  delete flat.sections.p3.ramps;
+  const f = SS.bandSong.build(flat, 'lumiere', [{ id: 'lead', type: 'instrument', band: { key: 'lead' } }]);
+  const ev = s.scenes.find((x) => x.sec === 'p3').data.lead.events;
+  const evf = f.scenes.find((x) => x.sec === 'p3').data.lead.events;
+  const k = ev.findIndex((e) => e.step >= 56);
+  assert.ok(k >= 0 && ev[k].vel > evf[k].vel, 'crescendo appliqué au thème');
+});

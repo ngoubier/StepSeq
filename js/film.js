@@ -467,14 +467,18 @@ SS.film = (() => {
     const s = tm.sections[i];
     const next = tm.sections[i + 1] || null;
     const n = s.bars * 16;
-    const hits = { lt: [], mt: [], bd: [], cr: [], misc: [] };
+    const hits = { lt: [], mt: [], bd: [], cr: [], oh: [], misc: [] };
     if (s.sync) {
       hits.bd.push([0, 1]);
       hits.cr.push([0, 0.9]);
       hits.lt.push([0, 0.95]);
       if (s.ene >= 4) hits.misc.push([0, 0.7]);
     }
-    if (next && next.sync) hits.mt.push([Math.max(0, n - 16), 0.75]);
+    if (next && next.sync) {
+      hits.mt.push([Math.max(0, n - 16), 0.75]);
+      // cymbale suspendue en crescendo (échantillon de 4 s) : elle culmine pile sur la synchro
+      hits.oh.push([Math.max(0, n - Math.round((tm.bpm * 4) / 15)), 0.8]);
+    }
     for (let b = 0; b < s.bars; b++) {
       if (s.ene >= 4) {
         if (!(s.sync && b === 0)) hits.lt.push([b * 16, 0.7]);
@@ -505,6 +509,31 @@ SS.film = (() => {
       if (hits[snd]) hits[snd].sort((a, b) => a[0] - b[0]);
     });
     return hits;
+  }
+
+  /* ---------- Nuances ---------- */
+  const DYN = [null, 'pp', 'p', 'mf', 'f', 'ff'];
+  /** Vélocité de base du thème et de l'orchestre selon l'énergie du passage (1–5). */
+  const THEME_VEL = [0, 0.5, 0.58, 0.68, 0.8, 0.92];
+  const ORCH_VEL = [0, 0.42, 0.5, 0.6, 0.7, 0.8];
+  /**
+   * Un arc par phrase de deux mesures : la vélocité monte jusqu'à la note la plus haute de la phrase (×1,1) puis
+   * retombe (×0,8 au plus bas) ; base = vélocité du passage.
+   */
+  function phraseArcs(events, base) {
+    const out = events.map((e) => ({ ...e }));
+    const groups = {};
+    out.forEach((e) => (groups[Math.floor(e.step / 32)] = groups[Math.floor(e.step / 32)] || []).push(e));
+    Object.values(groups).forEach((ph) => {
+      ph.sort((a, b) => a.step - b.step);
+      const top = ph.reduce((a, e) => (Math.max(...e.notes) > Math.max(...a.notes) ? e : a), ph[0]);
+      const it = ph.indexOf(top);
+      ph.forEach((e, i) => {
+        const k = i <= it ? (it ? i / it : 1) : 1 - (i - it) / Math.max(1, ph.length - 1 - it);
+        e.vel = +Math.min(1, base * (0.8 + 0.3 * k)).toFixed(3);
+      });
+    });
+    return out;
   }
 
   /** Plan de chanson d'une scène de film (js/band-songs.js) : une section par passage, dans l'ordre. */
@@ -542,6 +571,20 @@ SS.film = (() => {
         if (ev.length) sec.theme = ev;
       }
       const next = tm.sections[i + 1];
+      // nuances : une nuance par passage (énergie → pp … ff), un arc par phrase de deux mesures sur le thème,
+      // crescendo vers la synchro forte, respiration (decrescendo) après le sommet
+      if (film.nuance !== false) {
+        sec.dyn = DYN[ene];
+        sec.orchVel = ORCH_VEL[ene];
+        if (sec.theme) sec.theme = phraseArcs(sec.theme, THEME_VEL[ene]);
+        const ramps = [];
+        if (next && next.sync) {
+          const k = Math.min(2, s.bars);
+          ramps.push({ a: (s.bars - k) * 16, b: s.bars * 16, from: 0.85, to: 1.2 });
+        }
+        if (s.sync && next && next.ene < s.ene) ramps.push({ a: (s.bars - 1) * 16, b: s.bars * 16, from: 1, to: 0.8 });
+        if (ramps.length) sec.ramps = ramps;
+      }
       // scène d'action (peur, colère au moins moyennement forte) : ostinato 3+3+2 à la basse ; accents des cuivres dès l'énergie 4
       const action = ['peur', 'colere'].includes(s.emo) && s.ene >= 3;
       sec.motor = c.motor ?? action;
@@ -727,7 +770,7 @@ SS.film = (() => {
    * un piano porte le thème, l'orchestre (js/orchestra.js) tient l'harmonie et la basse, plus dense quand l'énergie monte. */
   const THEME_PICK = 'piano vcsl_fmpiano gm_epiano1 vsco_flute gm_violin gm_cello';
   const ORCH = ['chamber', 'romantique', 'epique', 'intime', 'mystere', 'strings', 'winds', 'hybrid'];
-  const PERC = (kit, opt, pieces = 'lt mt bd cr misc') => kit('perc', pieces, 'orchperc', { label: 'Percussions d’orchestre', note: 'Timbales, grosse caisse, cymbale et tam-tam, frappés sur les repères', ...opt });
+  const PERC = (kit, opt, pieces = 'lt mt bd cr oh misc') => kit('perc', pieces, 'orchperc', { label: 'Percussions d’orchestre', note: 'Timbales, grosse caisse, cymbale et tam-tam, frappés sur les repères', ...opt });
   const KEYS_PICK = 'piano gm_epiano1 vcsl_fmpiano gm_celesta gm_orchestral_harp';
   const STYLE = (mu, kit) => ({
     id: 'film',
@@ -760,7 +803,7 @@ SS.film = (() => {
         musicians: [
           mu('lead', 'vsco_horn vsco_trumpet ' + THEME_PICK, { label: 'Thème (cor)', note: 'Le motif de poursuite, puis le thème héroïque en majeur au saut' }),
           mu('orch', 'gm_violin', { label: 'Orchestre', orch: true, ens: ['epique', ...ORCH.filter((e) => e !== 'epique')], note: 'Ostinato 3+3+2, accents des cuivres, plus dense quand l’énergie monte' }),
-          PERC(kit, { note: 'Timbales, caisse claire, cymbales, grosse caisse et tam-tam' }, 'lt mt bd sd cr ht misc'),
+          PERC(kit, { note: 'Timbales, caisse claire, cymbales, grosse caisse et tam-tam' }, 'lt mt bd sd cr oh ht misc'),
           mu('keys', KEYS_PICK, { label: 'Piano (accords)', optional: true }),
         ],
       },
@@ -803,5 +846,5 @@ SS.film = (() => {
   if (SS.Band && SS.Band.addStyle) SS.Band.addStyle(STYLE(SS.Band.mu, SS.Band.kit));
 
   return { EMOS, emoOf, energyOf, tempoOf, fmt, timing, spec, gridFor, themeEvents, LUMIERE, POURSUITE, ESPACES, TEMPLATES, barsGrid, addHits, blankScene, editable, TEMPO_MIN, TEMPO_MAX,
-    percHits, HARMONY, HARM, autoHarm, harmOf, techGrid, CONT, INTV, RHY, EMO_MOTIF, motifFor, genMotif, proposals, TRANSFORMS, PHRASES, phrase, TREATMENTS, EMO_TREAT, treatOf, treatNotes, motifOf, chordAt, parseKey, scaleOf };
+    percHits, phraseArcs, DYN, HARMONY, HARM, autoHarm, harmOf, techGrid, CONT, INTV, RHY, EMO_MOTIF, motifFor, genMotif, proposals, TRANSFORMS, PHRASES, phrase, TREATMENTS, EMO_TREAT, treatOf, treatNotes, motifOf, chordAt, parseKey, scaleOf };
 })();

@@ -2001,6 +2001,7 @@ SS.bandSong = (() => {
           motor: !!sec.motor,
           stabs: !!sec.stabs,
           under: !!sec.dialog,
+          vel: sec.orchVel ?? null,
         });
         ts.forEach((t, i) => {
           const L = res.lines[ord[i]];
@@ -2010,6 +2011,16 @@ SS.bandSong = (() => {
         });
         orchOut[mid] = { level, auto: !(ie && ie.orch && ie.orch.level), lines: res.lines, items: res.items };
       });
+      // nuances de film (js/film.js) : crescendo vers la synchro, respiration après le sommet (sec.ramps = [{ a, b, from, to }])
+      if (Array.isArray(sec.ramps) && sec.ramps.length)
+        tracks.forEach((t) => {
+          const d = data[t.id];
+          if (!d || !Array.isArray(d.events)) return;
+          d.events.forEach((e) => {
+            const r = sec.ramps.find((x) => e.step >= x.a && e.step < x.b);
+            if (r) e.vel = clampV((e.vel ?? 0.7) * (r.from + ((r.to - r.from) * (e.step - r.a)) / Math.max(1, r.b - r.a)));
+          });
+        });
       // montée EDM / techno : la grosse caisse et le charleston reviennent en force (volume), la montée avance
       if (dynK === 'build' || dynK === 'groove' || dynK === 'outro' || dynK === 'intro')
         tracks.forEach((t) => {

@@ -1142,7 +1142,7 @@ SS.band = (() => {
   }
 
   /* ---------- 05 Orchestre (musique de film) : l'effectif par couleur, qui porte le thème, les percussions sur les repères ---------- */
-  const PERC_FR = { lt: 'timbale', mt: 'roulement de timbale', bd: 'grosse caisse', sd: 'caisse claire', cr: 'cymbale', ht: 'cymbales frappées', misc: 'tam-tam' };
+  const PERC_FR = { lt: 'timbale', mt: 'roulement de timbale', bd: 'grosse caisse', sd: 'caisse claire', cr: 'cymbale', oh: 'cymbale en crescendo', ht: 'cymbales frappées', misc: 'tam-tam' };
   /** Résumé des percussions d'un passage : « impact : grosse caisse, cymbale, timbale · timbale sur les temps forts ». */
   function percText(hits) {
     if (!hits) return '';
@@ -1151,6 +1151,7 @@ SS.band = (() => {
     if (hits.bd.some(([st]) => st === 0)) out.push('impact : ' + at0.join(', '));
     else if (at0.length) out.push(at0.join(', ') + ' à l’entrée');
     if (hits.mt.length) out.push('roulement avant la synchro');
+    if (hits.oh && hits.oh.length) out.push('cymbale qui culmine sur la synchro');
     if (hits.bd.some(([st]) => st % 16 === 6)) out.push('coups 3+3+2');
     const sd = hits.sd || [];
     if (sd.length > 12) out.push('roulement de caisse claire');
@@ -1185,7 +1186,7 @@ SS.band = (() => {
         'tr',
         { 'data-sec': s.id },
         h('td', { class: 'bfm-emotd', style: `--c:${s.color}` }, h('i', { class: 'bfm-dot', 'aria-hidden': 'true' }), s.name),
-        h('td', {}, (o ? LV[o.level] : LV[SS.orchestra.levelOf(FM().energyOf(s.ene))]) + (sec.motor ? ' · ostinato 3+3+2' : '') + (sec.stabs ? ' · accents cuivres' : '')),
+        h('td', {}, (o ? LV[o.level] : LV[SS.orchestra.levelOf(FM().energyOf(s.ene))]) + (sec.dyn ? ` · ${sec.dyn}` : '') + (sec.ramps && sec.ramps.some((r) => r.to > r.from) ? ' crescendo' : '') + (sec.motor ? ' · ostinato 3+3+2' : '') + (sec.stabs ? ' · accents cuivres' : '')),
         h('td', {}, theme.length ? theme.join(' + ') : 'personne (le thème se tait)'),
         h('td', { class: 'bfm-perc' }, percMu ? percText(sec.hits) : '—')
       );
