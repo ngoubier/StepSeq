@@ -1770,5 +1770,6 @@ SS.arpPanel = (() => {
 
   // _loop / _info : accès pour les tests de bout en bout
   // motifTools : dessin, exemple et récents des motifs, réutilisés par la fenêtre de choix de l'assistant (js/band.js)
-  return { init: (a) => (app = a), open, motifTools: { icon: styleIcon, example, remember, recents: () => RECENTS.slice() }, _loop: loop, _info: () => loopInfo() };
+  // guitarTools : schéma d'accord et tablature du mode Guitare, réutilisés par le réglage « Avancé » de l'assistant (js/band.js)
+  return { init: (a) => (app = a), open, motifTools: { icon: styleIcon, example, remember, recents: () => RECENTS.slice() }, guitarTools: { diagram: guitarDiagram, tab: guitarTab }, _loop: loop, _info: () => loopInfo() };
 })();
