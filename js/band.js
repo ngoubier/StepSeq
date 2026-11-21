@@ -342,32 +342,6 @@ SS.band = (() => {
   /* Image d'un style : dessinée en canvas à la résolution de l'écran (devicePixelRatio), repère de 220 px de haut. */
   const ART_H = 220;
   const ART = {
-    cinematic(g, w, h) {
-      // écran de cinéma dans la pénombre : faisceau du projecteur, portée qui monte vers la lumière, bandes noires
-      const cx = w * 0.72;
-      const beam = g.createRadialGradient(cx, h * 0.42, 4, cx, h * 0.42, h * 0.75);
-      beam.addColorStop(0, 'rgba(255, 214, 150, 0.85)');
-      beam.addColorStop(0.25, 'rgba(240, 170, 90, 0.35)');
-      beam.addColorStop(1, 'rgba(240, 170, 90, 0)');
-      g.fillStyle = beam;
-      g.fillRect(0, 0, w, h);
-      g.strokeStyle = '#e8c47a';
-      g.lineWidth = 1.4;
-      for (let i = 0; i < 5; i++) {
-        g.globalAlpha = 0.25 + i * 0.1;
-        g.beginPath();
-        for (let x = 0; x <= w; x += 6) {
-          const y = h * 0.78 - i * 9 - Math.pow(x / w, 2.2) * h * 0.38 + Math.sin(x / 23 + i) * 3;
-          if (x === 0) g.moveTo(x, y);
-          else g.lineTo(x, y);
-        }
-        g.stroke();
-      }
-      g.globalAlpha = 1;
-      g.fillStyle = '#000';
-      g.fillRect(0, 0, w, h * 0.09);
-      g.fillRect(0, h * 0.91, w, h * 0.09);
-    },
     synthwave(g, w, h) {
       // soleil couchant rayé et grille en perspective, violet et rose
       const hy = h * 0.55;
@@ -606,7 +580,7 @@ SS.band = (() => {
     },
   });
   const ART_BG = {
-    synthwave: ['#1b0b2e', '#3a0d4a'], edm: ['#06121f', '#0a2a4a'], ambient: ['#0d1a1a', '#173a3a'], techno: ['#0b0c0f', '#232830'], cinematic: ['#07090f', '#1d1a14'],
+    synthwave: ['#1b0b2e', '#3a0d4a'], edm: ['#06121f', '#0a2a4a'], ambient: ['#0d1a1a', '#173a3a'], techno: ['#0b0c0f', '#232830'],
     zero: ['#101216', '#1a1e26'], pop: ['#1c0d0d', '#3a1717'], funk: ['#1d1406', '#3a2a08'], hiphop: ['#0f140a', '#232f16'], dnb: ['#170812', '#2e0f24'], latin: ['#1f1006', '#3d2010'], soul: ['#170f0a', '#33221a'],
   };
   ART_BG.film = ['#0b0b10', '#1f1a12'];
@@ -710,14 +684,14 @@ SS.band = (() => {
           )
         );
       }),
-      ...(cover() ? [] : TPL().map(tplStyleCard))
+      ...(cover() ? [] : TPL().filter((t) => !t.parent).map(tplStyleCard)) // un style de modèles rangé dans un autre (parent) n'a pas de tuile
     );
-    const st = tplStyle() || style();
+    const st = (tplStyle() && !tplStyle().parent && tplStyle()) || style();
     $('#bandStyleDesc').textContent = (st || {}).desc || '';
     el.classList.toggle('tpl', !!tplStyle());
     el.classList.toggle('blank', blank());
     el.classList.toggle('film', film());
-    if (!cover()) $('#bandPresetsLabel').textContent = blank() || film() ? 'Départ' : 'Type de chanson';
+    if (!cover()) $('#bandPresetsLabel').textContent = blank() || film() || (tplStyle() && tplStyle().parent) ? 'Départ' : 'Type de chanson';
     renderStyleCard();
   }
   /** Tuile « Créer de zéro » : pas d'inspiration, un départ neutre que l'on remplace étape par étape. */
@@ -748,7 +722,7 @@ SS.band = (() => {
   }
   /** Tuile 🎬 « Musique de film » : la musique part des repères de l'image (js/film.js). */
   function filmCard(s) {
-    const on = s.id === S.styleId && !tplStyle();
+    const on = s.id === S.styleId && (!tplStyle() || tplStyle().parent === s.id);
     const cv = h('canvas', { class: 'bsty-art', 'data-art': 'film', 'aria-hidden': 'true' });
     watchArt(cv);
     return h(
@@ -766,7 +740,7 @@ SS.band = (() => {
           h('dt', {}, 'Départ'), h('dd', {}, 'Repères (spotting) et émotions'),
           h('dt', {}, 'Tempo'), h('dd', {}, 'Calé sur la synchro forte'),
           h('dt', {}, 'Groupe'), h('dd', {}, 'Thème, orchestre, percussions'),
-          h('dt', {}, 'Exemple'), h('dd', {}, '« La lumière revient », « La poursuite »')
+          h('dt', {}, 'Exemples'), h('dd', {}, '« La lumière revient », « La poursuite », « Reconstitution cinématique »')
         )
       )
     );
@@ -808,6 +782,7 @@ SS.band = (() => {
   /** Sous le choix du style : le tempo conseillé sur l'échelle des tempos, un trait par inspiration. */
   function renderStyleCard() {
     const ts = tplStyle();
+    if (ts && ts.parent && $('#bandStyleCard')) return $('#bandStyleCard').replaceChildren(h('span', { class: 'bsc-lbl' }, 'Un morceau complet, prêt à jouer · il s’ouvre tel quel'));
     if (ts && $('#bandStyleCard')) {
       const n = ts.templates.length;
       $('#bandStyleCard').replaceChildren(h('span', { class: 'bsc-lbl' }, `${n} chanson${n > 1 ? 's' : ''} ${ts.label} · morceau${n > 1 ? 'x' : ''} complet${n > 1 ? 's' : ''}, prêt${n > 1 ? 's' : ''} à jouer`));
@@ -832,8 +807,30 @@ SS.band = (() => {
     );
   }
 
+  /** Les morceaux complets d'un style de modèles rangé dans le style `id` (Cinematic music → Musique de film). */
+  const childTpls = (id) => TPL().filter((t) => t.parent === id);
+  function tplCards(ts) {
+    const cur = tpl();
+    return ts.templates.map((t) => {
+      const on = !!cur && t.id === cur.id;
+      const i = tplInfo(t);
+      return h(
+        'button',
+        { type: 'button', class: 'band-preset' + (on ? ' active' : ''), role: 'radio', 'aria-checked': String(on), 'data-tpl': t.id, onclick: () => (S.tplStyle === ts.id ? setTpl(t.id) : (setTplStyle(ts.id), setTpl(t.id))) },
+        h('span', { class: 'bp-song' }, t.song),
+        h('span', { class: 'bp-artist' }, `Morceau complet · ${t.key}`),
+        h('span', { class: 'bp-meta' }, `${Math.round(t.tempo)} BPM · ${i.tracks} pistes · ${mmss(i.seconds)}`)
+      );
+    });
+  }
   function renderPresets() {
     const ts = tplStyle();
+    if (ts && ts.parent) {
+      // modèle rangé dans un style (Musique de film) : les départs du style, puis ses morceaux complets
+      const st = B().STYLES.find((x) => x.id === ts.parent);
+      $('#bandPresets').replaceChildren(...st.presets.map((p) => presetCard(st, p, false)), ...childTpls(st.id).flatMap(tplCards));
+      return;
+    }
     if (ts) {
       $('#bandPresets').replaceChildren(
         ...ts.templates.map((t) => {
@@ -851,22 +848,15 @@ SS.band = (() => {
       return;
     }
     const st = style();
-    $('#bandPresets').replaceChildren(
-      ...st.presets.map((p) =>
-        h(
-          'button',
-          {
-            type: 'button',
-            class: 'band-preset' + (p.id === S.presetId ? ' active' : ''),
-            role: 'radio',
-            'aria-checked': p.id === S.presetId ? 'true' : 'false',
-            onclick: () => setPreset(p.id),
-          },
-          h('span', { class: 'bp-song' }, p.song),
-          h('span', { class: 'bp-artist' }, p.year ? `${p.artist} · ${p.year}` : p.artist),
-          h('span', { class: 'bp-meta' }, st.film ? filmMeta(p) : `${p.tempo} BPM · ${p.musicians.filter((m) => !m.optional).length} musiciens`)
-        )
-      )
+    $('#bandPresets').replaceChildren(...st.presets.map((p) => presetCard(st, p, p.id === S.presetId)), ...(cover() ? [] : childTpls(st.id).flatMap(tplCards)));
+  }
+  function presetCard(st, p, on) {
+    return h(
+      'button',
+      { type: 'button', class: 'band-preset' + (on ? ' active' : ''), role: 'radio', 'aria-checked': String(on), onclick: () => setPreset(p.id) },
+      h('span', { class: 'bp-song' }, p.song),
+      h('span', { class: 'bp-artist' }, p.year ? `${p.artist} · ${p.year}` : p.artist),
+      h('span', { class: 'bp-meta' }, st.film ? filmMeta(p) : `${p.tempo} BPM · ${p.musicians.filter((m) => !m.optional).length} musiciens`)
     );
   }
 
@@ -2247,6 +2237,13 @@ SS.band = (() => {
     if (S.wiz && wasTpl) renderWiz();
   }
   function setPreset(id) {
+    // un morceau complet était choisi (modèle rangé dans ce style) : on revient aux départs du style
+    const wasTpl = !!tplStyle();
+    if (wasTpl) {
+      if (S.wiz) dropListen();
+      S.tplStyle = null;
+      renderStyles();
+    }
     S.presetId = id;
     S.sel = null;
     resetAdd();
@@ -2260,6 +2257,7 @@ SS.band = (() => {
     renderSong();
     if (cover()) coverChanged(), coverInfo();
     refresh();
+    if (S.wiz && wasTpl) renderWiz();
   }
   function select(id) {
     S.sel = id;
@@ -3130,7 +3128,7 @@ SS.band = (() => {
   function stepSummary(n) {
     try {
       const p = preset();
-      if (tplStyle()) return n === ST.style ? `${tplStyle().label} · modèle` : ''; // un modèle s'ouvre tel quel : pas d'étapes
+      if (tplStyle()) return n === ST.style ? (tplStyle().parent ? `${style().label} · morceau complet` : `${tplStyle().label} · modèle`) : ''; // un modèle s'ouvre tel quel : pas d'étapes
       if (n === ST.style) return cover() ? 'Reprise' : (style() || {}).label || '';
       if (n === ST.inst) {
         const k = musicians().length;
