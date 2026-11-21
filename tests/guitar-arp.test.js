@@ -132,3 +132,11 @@ test('grattage : ↓ des graves vers les aiguës étalé de 12 ms, ↑ sur les 4
   const palm = bar({ motif: 'palm' }, Am);
   assert.ok(palm.every((n) => n.dur <= 0.12 + 1e-9 && n.midi <= 57));
 });
+
+test('le motif continue au changement d’accord (calé sur la mesure) et le pouce marque l’accord', () => {
+  const arp = { guitar: { on: true, motif: 'classA', human: 0 } };
+  const evs = [{ step: 0, len: 8, notes: [57, 60, 64] }, { step: 8, len: 8, notes: [53, 57, 60] }];
+  const at = (ev) => { const o = []; for (let s = ev.step; s < ev.step + ev.len; s++) o.push(...SS.GuitarArp.renderStep(arp, ev, s, { stepSec: 0.125, stepsPerBeat: 4 }).map((n) => n.label)); return o.join(' '); };
+  assert.equal(at(evs[0]), 'p i m a');
+  assert.equal(at(evs[1]), 'p m i m', 'la seconde moitié du motif sur le 2e accord');
+});

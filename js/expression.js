@@ -181,8 +181,8 @@ SS.expression = (() => {
           // frappé ou pincé : la nuance passe par la force de la frappe (et le timbre qui la suit), pas par la note
           o.shape = [[0, 1], [1, 1]];
           o.velK = 1 - k * (1 - arc) * (family === 'guitar' ? 0.6 : 1.3);
-          if (family === 'guitar') {
-            // accents du rythme : premier temps, temps, contretemps, doubles
+          if (family === 'guitar' && ev.notes.length > 1) {
+            // accents du rythme (accords grattés ; une note seule vient d'un arpège ou d'une ligne qui a déjà ses accents) : premier temps, temps, contretemps, doubles
             const pos = ev.step % stepsPerBar;
             const m = pos === 0 ? 1 : pos % stepsPerBeat === 0 ? 0.93 : pos % (stepsPerBeat / 2 || 1) === 0 ? 0.85 : 0.78;
             o.velK *= 1 - k * (1 - m) * 0.9;
