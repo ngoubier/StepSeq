@@ -954,6 +954,8 @@ SS.trackLen = (p, t) => {
  *                   emotion : "nostalgie", intention choisie dans la fenêtre Harmo One (facultatif, js/emotions.js)
  *                   mute    : { trackId: true } pistes muettes dans cette scène seulement (notes gardées ; fiche Scène, js/scenesheet.js)
  *                   energy, tension : 1 à 5, voulues pour la scène (facultatif, fiche Scène)
+ *                   film    : { emo, ene, ten, at, sync, dlg, hold, harm, dyn, art } passage de l'assistant Musique de film
+ *                             dont vient la scène (js/film.js spec, montré dans la fiche Scène)
  *                   tempo   : BPM propre à la scène (facultatif ; absent = tempo de la chanson, project.tempo). Le tempo
  *                             change net au début de la scène (SS.tempoOf, lu à chaque pas par js/audio.js)
  * project.current : id de la scène en cours d'édition (son contenu vit dans les pistes)
@@ -1002,6 +1004,16 @@ SS.tempoOf = (p, sc) => {
   return sc && sc.tempo ? sc.tempo : p.tempo;
 };
 const validTempo = (v) => Number.isFinite(Number(v)) && Number(v) >= 20 && Number(v) <= 300;
+/** Passage de film d'une scène (voir project.scenes) : champs connus seulement. */
+const cleanFilm = (f) => {
+  const lv = (v) => Math.max(1, Math.min(5, Math.round(Number(v)) || 3));
+  const o = { emo: String(f.emo).slice(0, 20), ene: lv(f.ene), ten: lv(f.ten), at: Number.isFinite(Number(f.at)) ? Number(f.at) : 0 };
+  ['sync', 'dlg', 'hold'].forEach((k) => f[k] && (o[k] = true));
+  if (typeof f.harm === 'string') o.harm = f.harm.slice(0, 20);
+  if (typeof f.dyn === 'string') o.dyn = f.dyn.slice(0, 4);
+  if (Array.isArray(f.art)) o.art = f.art.filter((x) => typeof x === 'string').slice(0, 8);
+  return o;
+};
 const level5 = (v) => (Number.isInteger(v) && v >= 1 && v <= 5 ? v : null);
 
 /** Tonalité de la scène en cours (ou de la scène `sc`), ou null. */
@@ -1154,6 +1166,7 @@ SS.normalizeScenes = (p, data = {}) => {
           ? { mute: Object.fromEntries(Object.keys(sc.mute).filter((k) => sc.mute[k] === true).map((k) => [k, true])) }
           : {}),
         ...(level5(sc.energy) ? { energy: sc.energy } : {}),
+        ...(sc.film && typeof sc.film === 'object' && typeof sc.film.emo === 'string' ? { film: cleanFilm(sc.film) } : {}),
         ...(sc.tempo != null && validTempo(sc.tempo) ? { tempo: Math.round(Number(sc.tempo)) } : {}),
         ...(level5(sc.tension) ? { tension: sc.tension } : {}),
         ...(SS.normalizeGrid(sc.grid) ? { grid: SS.normalizeGrid(sc.grid) } : {}),

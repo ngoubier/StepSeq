@@ -557,7 +557,8 @@ SS.film = (() => {
       if (c.hold && s.bars >= 2) sec.fermata = true;
       // accords écrits (modèle, ou passage d'un modèle dont la longueur n'a pas changé), sauf technique choisie à la main
       const written = c.grid && c.gridBars === s.bars && !(c.harm && HARM[c.harm]);
-      const tg = written ? null : techGrid(harmOf(s, i === tm.sections.length - 1), mode || 'minor', s.bars);
+      const harmK = written ? null : harmOf(s, i === tm.sections.length - 1);
+      const tg = written ? null : techGrid(harmK, mode || 'minor', s.bars);
       if (written) sec.grid = c.grid.map((x) => ({ acc: 0, ...x }));
       else if (tg) sec.grid = tg; // une technique d'harmonie de film, dans la tonalité de la scène
       else {
@@ -608,6 +609,11 @@ SS.film = (() => {
       sec.hits = film.percAuto === false ? { lt: [], mt: [], bd: [], cr: [], oh: [], rd: [], misc: [] } : percHits(tm, i);
       if (film.hits && c.gridBars === s.bars) addHits(sec.hits, film.hits, s.startBar, s.bars);
       if (dlg) Object.keys(sec.hits).forEach((k) => (sec.hits[k] = sec.hits[k].filter(([st]) => st === 0 && s.sync)));
+      // ce que la fiche Scène montre du passage (la scène de la grille le garde : sc.film, js/scenesheet.js)
+      sec.film = {
+        emo: s.emo, ene: s.ene, ten: s.ten, at: Math.round(s.cue.land * 10) / 10, sync: s.sync, dlg, hold: !!sec.fermata,
+        harm: written ? 'ecrit' : tg ? harmK : 'song', dyn: sec.dyn || null, art: Object.keys(art).filter((k) => art[k]),
+      };
       sections[s.id] = sec;
     });
     return { key, groove: 'slow', emotion: tm.sections[0].emotion, film: true, sections, form: tm.sections.map((s) => s.id).join(' ') };
@@ -776,6 +782,22 @@ SS.film = (() => {
     ],
   });
 
+  /**
+   * Repère (index dans film.cues) du passage `id` (« p1 », « p2 »… de timing()) : mêmes tri et filtre que timing(),
+   * -1 s'il n'existe plus. Sert à la fiche Scène pour renvoyer une émotion, une énergie ou une tension au passage.
+   */
+  function cueIndexOf(film, id) {
+    const start = film.start || 0;
+    const end = Math.max(start + 1, film.end || start + 30);
+    const cs = (film.cues || [])
+      .map((c, i) => ({ i, t: Number(c.t) || 0 }))
+      .filter((c) => c.t < end)
+      .sort((a, b) => a.t - b.t);
+    const kept = cs.filter((c, j) => j === 0 || c.t > start);
+    const n = parseInt(String(id).slice(1), 10) - 1;
+    return kept[n] ? kept[n].i : -1;
+  }
+
   /** Copie modifiable d'une scène (repères, sans tempo imposé) : « Modifier les repères » du modèle. */
   const editable = (film) => JSON.parse(JSON.stringify({ ...film, id: 'scene', bpm: null }));
 
@@ -859,6 +881,6 @@ SS.film = (() => {
   }
   if (SS.Band && SS.Band.addStyle) SS.Band.addStyle(STYLE(SS.Band.mu, SS.Band.kit));
 
-  return { EMOS, emoOf, energyOf, tempoOf, fmt, timing, spec, gridFor, themeEvents, LUMIERE, POURSUITE, ESPACES, TEMPLATES, barsGrid, addHits, blankScene, editable, TEMPO_MIN, TEMPO_MAX,
+  return { EMOS, emoOf, energyOf, tempoOf, fmt, timing, spec, cueIndexOf, gridFor, themeEvents, LUMIERE, POURSUITE, ESPACES, TEMPLATES, barsGrid, addHits, blankScene, editable, TEMPO_MIN, TEMPO_MAX,
     percHits, phraseArcs, DYN, HARMONY, HARM, autoHarm, harmOf, techGrid, CONT, INTV, RHY, EMO_MOTIF, motifFor, genMotif, proposals, TRANSFORMS, PHRASES, phrase, TREATMENTS, EMO_TREAT, treatOf, treatNotes, motifOf, chordAt, parseKey, scaleOf };
 })();
