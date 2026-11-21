@@ -952,6 +952,8 @@ SS.trackLen = (p, t) => {
  *                   key     : { tonic: "D", mode: "major"|"minor"|"harmonic"|"dorian"|"phrygian"|"lydian"|"mixolydian"|"phrygdom"|"locrian" }
  *                             tonalité ou mode de la scène (facultatif, js/harmony.js)
  *                   emotion : "nostalgie", intention choisie dans la fenêtre Harmo One (facultatif, js/emotions.js)
+ *                   mute    : { trackId: true } pistes muettes dans cette scène seulement (notes gardées ; fiche Scène, js/scenesheet.js)
+ *                   energy, tension : 1 à 5, voulues pour la scène (facultatif, fiche Scène)
  * project.current : id de la scène en cours d'édition (son contenu vit dans les pistes)
  * project.song    : [{ scene: id, repeat: n, bauto? }]  -- l'arrangement, joué dans l'ordre ;
  *                   bauto : automation par temps (cutoff, résonance, vélocité) de chaque répétition, voir js/beatauto.js
@@ -986,6 +988,13 @@ SS.currentScene = (p) => p.scenes.find((sc) => sc.id === p.current) || p.scenes[
 
 const validKey = (k) => !!(k && SS.harmony && SS.harmony.valid(k));
 const validEmotion = (e) => typeof e === 'string' && !!(SS.findEmotion && SS.findEmotion(e));
+
+/** La piste `t` est-elle muette dans la scène `sc` (scène en cours par défaut) ? Ses notes restent, elle se tait. */
+SS.sceneMuted = (p, t, sc) => {
+  sc = sc || (p.scenes && p.scenes.length ? SS.currentScene(p) : null);
+  return !!(sc && sc.mute && t && sc.mute[t.id]);
+};
+const level5 = (v) => (Number.isInteger(v) && v >= 1 && v <= 5 ? v : null);
 
 /** Tonalité de la scène en cours (ou de la scène `sc`), ou null. */
 SS.sceneKey = (p, sc) => {
@@ -1042,6 +1051,9 @@ SS.addScene = (p, { copy = true } = {}) => {
   if (copy && validKey(cur.key)) sc.key = { ...cur.key };
   if (copy && validEmotion(cur.emotion)) sc.emotion = cur.emotion;
   if (copy && cur.grid) sc.grid = JSON.parse(JSON.stringify(cur.grid));
+  if (copy && cur.mute) sc.mute = { ...cur.mute };
+  if (copy && cur.energy) sc.energy = cur.energy;
+  if (copy && cur.tension) sc.tension = cur.tension;
   const idx = p.scenes.findIndex((x) => x.id === p.current);
   p.scenes.splice(idx + 1, 0, sc);
   return sc.id;
@@ -1125,6 +1137,11 @@ SS.normalizeScenes = (p, data = {}) => {
         ...(validKey(sc.key) ? { key: { tonic: sc.key.tonic, mode: sc.key.mode } } : {}),
         ...(typeof sc.sec === 'string' && sc.sec.length < 40 ? { sec: sc.sec } : {}), // section de l'assistant dont vient la scène
         ...(validEmotion(sc.emotion) ? { emotion: sc.emotion } : {}),
+        ...(sc.mute && typeof sc.mute === 'object' && Object.keys(sc.mute).some((k) => sc.mute[k] === true)
+          ? { mute: Object.fromEntries(Object.keys(sc.mute).filter((k) => sc.mute[k] === true).map((k) => [k, true])) }
+          : {}),
+        ...(level5(sc.energy) ? { energy: sc.energy } : {}),
+        ...(level5(sc.tension) ? { tension: sc.tension } : {}),
         ...(SS.normalizeGrid(sc.grid) ? { grid: SS.normalizeGrid(sc.grid) } : {}),
       }));
   }

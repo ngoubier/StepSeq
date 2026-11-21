@@ -1,0 +1,398 @@
+/*
+ * Fiche « Scène » : tiroir à droite, ouvert par un double-clic sur une scène (ligne Scènes ou bloc de l'arrangement).
+ * Elle rassemble ce qui définit la scène : nom, longueur, tempo, émotion, énergie et tension, tonalité et accords
+ * par mesure, instruments (joue / muet dans cette scène / vide), mouvements (automations) et enchaînements.
+ * La grille reste visible et jouable à gauche : ‹ › passent d'une scène à l'autre (la grille suit).
+ *
+ *   SS.sceneSheet.init({ project, changed, switchScene })
+ *   SS.sceneSheet.open(id) / close() / isOpen() / refresh()
+ *   SS.sceneSheet.measureEnergy(p, sc) → énergie entendue, 1 à 5 (une décimale)
+ *   SS.sceneSheet.paintMutes()        → grise dans la grille les pistes muettes dans la scène en cours
+ */
+window.SS = window.SS || {};
+
+SS.sceneSheet = (() => {
+  let app;
+  let openId = null;
+  const OPEN_KEY = 'stepseq.sceneSheet.closed'; // rubriques repliées (préférence de l'utilisateur)
+
+  /* Couleurs des émotions (mêmes repères que l'assistant Musique de film : tristesse bleu, joie jaune, colère rouge…). */
+  const EMO_COLORS = {
+    joie: '#ffd23a', euphorie: '#ffb020', tristesse: '#3f6fe0', nostalgie: '#8aa0d6', melancolie: '#7f9cc0', espoir: '#9ad65a',
+    suspense: '#a98bff', angoisse: '#6b3cc9', mystere: '#5a6bb0', serenite: '#2fb36d', tendresse: '#f08fb0', triomphe: '#ff9326',
+    ambivalence: '#b3a37a', emerveillement: '#2fcfd6', beaute: '#9b6fb8',
+  };
+  SS.EMOTION_COLORS = EMO_COLORS;
+
+  const HELP = {
+    tempo: 'La scène joue au tempo de la chanson.',
+    emo: 'Ce que la scène doit faire ressentir. Sert à l’assistant (accords, sons) et colore la scène.',
+    ene: 'Cases pleines : l’énergie voulue. Case en pointillé : l’énergie entendue dans ce qui joue (instruments actifs, densité de notes, vélocité). La tension monte avec les dissonances et l’attente.',
+    chords: 'Une case par mesure : les accords de la piste Accords, ou ceux reconnus dans les notes (en gris).',
+    inst: 'Joue : la piste joue ses notes. Muet : ses notes restent, mais elle se tait dans cette scène seulement. Vide : aucune note dans cette scène.',
+    move: 'Les automations de la scène (par pas) et de l’arrangement (par temps).',
+    trans: 'Les scènes qui viennent avant et après celle-ci dans l’arrangement.',
+  };
+
+  const h = (tag, attrs = {}, ...children) => {
+    const el = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (v == null || v === false) continue;
+      if (k === 'class') el.className = v;
+      else if (k === 'style') el.style.cssText = v;
+      else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+      else el.setAttribute(k, v === true ? '' : v);
+    }
+    children.flat().forEach((c) => c != null && c !== false && el.append(c));
+    return el;
+  };
+  const tip = (k, title) => (SS.helpTip ? SS.helpTip(HELP[k], title) : null);
+  const p = () => app.project();
+  const sceneOf = (id) => p().scenes.find((sc) => sc.id === id);
+  const barsOf = (sc) => (sc.id === p().current ? p().bars : sc.bars);
+  const letterOf = (sc) => String.fromCharCode(65 + (p().scenes.indexOf(sc) % 26));
+  const fmtTime = (s) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
+  const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+
+  /** Contenu d'une piste dans une scène : la piste elle-même pour la scène en cours, sinon ce qui est rangé. */
+  function content(pr, sc, t) {
+    if (sc.id === pr.current) return t.type === 'drum' ? { steps: t.steps || [] } : { events: t.events || [] };
+    return (sc.data && sc.data[t.id]) || {};
+  }
+  /** Notes par mesure d'une piste dans la scène, et vélocité moyenne. */
+  function perBar(pr, sc, t) {
+    const spb = SS.stepsPerBar(pr);
+    const bars = sc.id === pr.current ? pr.bars : sc.bars;
+    const out = new Array(bars).fill(0);
+    let vel = 0;
+    let n = 0;
+    const d = content(pr, sc, t);
+    if (t.type === 'drum') {
+      (d.steps || []).forEach((v, i) => {
+        if (v > 0 && i < bars * spb) {
+          out[Math.floor(i / spb)]++;
+          vel += v;
+          n++;
+        }
+      });
+    } else {
+      (d.events || []).forEach((e) => {
+        if (e.step < bars * spb) {
+          out[Math.floor(e.step / spb)] += Math.max(1, (e.notes || []).length);
+          vel += e.vel == null ? 0.8 : e.vel;
+          n++;
+        }
+      });
+    }
+    const follows = SS.follows && SS.follows(t) && SS.sceneGridChords(pr, sc).length > 0; // la piste joue la piste Accords
+    return { bars: out, total: out.reduce((a, b) => a + b, 0), vel: n ? vel / n : 0, follows };
+  }
+
+  /**
+   * Énergie entendue (1–5) : part des pistes qui jouent, densité de notes par mesure et par piste, vélocité moyenne.
+   */
+  function measureEnergy(pr, sc) {
+    const tracks = pr.tracks;
+    if (!tracks.length) return 1;
+    let playing = 0;
+    let dens = 0;
+    let vel = 0;
+    tracks.forEach((t) => {
+      if (SS.sceneMuted(pr, t, sc)) return;
+      const b = perBar(pr, sc, t);
+      if (!b.total && !b.follows) return;
+      playing++;
+      dens += b.follows ? 3 : b.total / Math.max(1, b.bars.length);
+      vel += b.follows ? 0.8 : b.vel;
+    });
+    if (!playing) return 1;
+    const frac = playing / tracks.length;
+    const d = clamp(dens / playing / 8, 0, 1);
+    const v = clamp(vel / playing, 0, 1);
+    return Math.round((1 + 4 * clamp(0.45 * frac + 0.35 * d + 0.2 * v, 0, 1)) * 10) / 10;
+  }
+
+  /** Accords de la scène par mesure : [[noms], …] et s'ils viennent de la piste Accords ou des notes. */
+  function chordsByBar(pr, sc) {
+    const spb = SS.stepsPerBar(pr);
+    const bars = barsOf(sc);
+    const out = Array.from({ length: bars }, () => []);
+    const grid = SS.sceneGridChords ? SS.sceneGridChords(pr, sc) : [];
+    if (grid.length) {
+      grid.forEach((c) => {
+        const b = Math.floor(c.step / spb);
+        if (out[b] && c.info && c.info.name) out[b].push(c.info.name);
+      });
+      // un accord qui dure plusieurs mesures : rappelé en gris clair dans les suivantes
+      let last = null;
+      out.forEach((names, i) => {
+        if (names.length) last = names[names.length - 1];
+        else if (last) out[i] = [{ held: last }];
+      });
+      return { bars: out, from: 'grid' };
+    }
+    try {
+      const H = SS.harmony;
+      const key = H.valid(sc.key) ? sc.key : { tonic: 'C', mode: 'major' };
+      H.sceneChords(pr, sc.id).forEach((c) => {
+        const b = Math.floor((c.step || 0) / spb);
+        if (c.id && out[b] && !out[b].includes(H.chordName(key, c.id))) out[b].push(H.chordName(key, c.id));
+      });
+    } catch (e) {
+      /* pas d'accord reconnu */
+    }
+    return { bars: out, from: 'notes' };
+  }
+
+  /* ---------------- Rubriques ---------------- */
+
+  function closedSet() {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(OPEN_KEY) || '[]'));
+    } catch (e) {
+      return new Set();
+    }
+  }
+  function remember(id, open) {
+    const s = closedSet();
+    if (open) s.delete(id);
+    else s.add(id);
+    try {
+      localStorage.setItem(OPEN_KEY, JSON.stringify([...s]));
+    } catch (e) {
+      /* ignore */
+    }
+  }
+  function section(id, title, help, sum, ...body) {
+    const det = h('details', { class: 'ssh-sec', 'data-sec': id, open: !closedSet().has(id) },
+      h('summary', {}, h('span', { class: 'ssh-st' }, title), help, h('span', { class: 'ssh-sum' }, sum)),
+      h('div', { class: 'ssh-body' }, ...body));
+    det.addEventListener('toggle', () => remember(id, det.open));
+    return det;
+  }
+
+  function levels(n, value, onPick, { color, measured } = {}) {
+    const m = measured == null ? null : Math.round(measured);
+    return h('span', { class: 'ssh-lvl', style: color ? `--c:${color}` : null },
+      Array.from({ length: n }, (_, i) =>
+        h('button', {
+          type: 'button',
+          class: (value && i < value ? 'on' : '') + (m === i + 1 ? ' meas' : ''),
+          'aria-label': `${i + 1} sur ${n}`,
+          'aria-pressed': String(!!(value && i < value)),
+          onclick: () => onPick(value === i + 1 ? null : i + 1),
+        })
+      ));
+  }
+
+  function render() {
+    const root = document.getElementById('sceneSheet');
+    if (!root) return;
+    const pr = p();
+    const sc = openId && sceneOf(openId);
+    if (!sc) return close();
+    const bars = barsOf(sc);
+    const seconds = (bars * SS.stepsPerBar(pr) * 60) / pr.tempo / 4;
+    const blocks = pr.song.map((b, i) => ({ ...b, i })).filter((b) => b.scene === sc.id);
+    const times = blocks.reduce((a, b) => a + b.repeat, 0);
+    const idx = pr.scenes.indexOf(sc);
+    const go = (d) => {
+      const next = pr.scenes[(idx + d + pr.scenes.length) % pr.scenes.length];
+      openId = next.id;
+      app.switchScene(next.id); // la grille suit ; render() est rappelé par le panneau Chanson
+      render();
+    };
+    const changed = () => {
+      app.changed();
+      render();
+    };
+
+    // --- en-tête
+    const name = h('input', {
+      type: 'text', class: 'ssh-name', value: sc.name, maxlength: 40, 'aria-label': 'Nom de la scène',
+      onkeydown: (e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') e.currentTarget.blur();
+        if (e.key === 'Escape') {
+          e.currentTarget.value = sc.name;
+          e.currentTarget.blur();
+        }
+      },
+      onchange: (e) => {
+        const v = e.currentTarget.value.trim();
+        if (v && v !== sc.name) {
+          sc.name = v;
+          app.changed();
+        } else e.currentTarget.value = sc.name;
+      },
+    });
+    const head = h('header', { class: 'ssh-head' },
+      h('b', { class: 'ssh-letter' }, letterOf(sc)),
+      name,
+      h('span', { class: 'ssh-meta' }, `${bars} mes. · ${fmtTime(seconds)}${times ? ` · ×${times}` : ''}`),
+      h('span', { class: 'spacer' }),
+      pr.scenes.length > 1 ? h('button', { type: 'button', class: 'ssh-nav', title: 'Scène précédente', 'aria-label': 'Scène précédente', onclick: () => go(-1) }, '‹') : null,
+      pr.scenes.length > 1 ? h('button', { type: 'button', class: 'ssh-nav', title: 'Scène suivante', 'aria-label': 'Scène suivante', onclick: () => go(1) }, '›') : null,
+      h('button', { type: 'button', class: 'ssh-nav', title: 'Fermer (Échap)', 'aria-label': 'Fermer la fiche', onclick: close }, '✕'));
+
+    // --- tempo
+    const tempo = section('tempo', 'Tempo', tip('tempo', 'Tempo'), `= chanson · ${pr.tempo}`,
+      h('div', { class: 'ssh-row' }, h('span', { class: 'ssh-tag on' }, '= Chanson'), h('b', { class: 'ssh-bpm' }, String(pr.tempo)), h('span', { class: 'ssh-muted' }, 'BPM'), h('span', { class: 'ssh-tag' }, fmtTime(seconds))));
+
+    // --- émotion, énergie, tension
+    const emo = SS.findEmotion && sc.emotion ? SS.findEmotion(sc.emotion) : null;
+    const measured = measureEnergy(pr, sc);
+    const emoChips = (SS.EMOTIONS || []).map((e) =>
+      h('button', {
+        type: 'button', class: 'ssh-emo' + (sc.emotion === e.id ? ' on' : ''), style: `--c:${EMO_COLORS[e.id] || '#9a9aa3'}`, 'aria-pressed': String(sc.emotion === e.id),
+        onclick: () => {
+          if (sc.emotion === e.id) delete sc.emotion;
+          else sc.emotion = e.id;
+          changed();
+        },
+      }, h('i'), e.label));
+    const fmt1 = (x) => String(x).replace('.', ',');
+    const feel = section('feel', 'Émotion et énergie', tip('ene', 'Émotion et énergie'),
+      h('span', {}, emo ? h('i', { class: 'ssh-dot', style: `--c:${EMO_COLORS[emo.id] || '#9a9aa3'}` }) : null, `${emo ? emo.label : 'sans émotion'} · ${sc.energy || fmt1(measured)}/5`),
+      h('div', { class: 'ssh-emos' }, emoChips),
+      h('div', { class: 'ssh-kv' },
+        h('span', {}, 'Énergie'),
+        h('span', { class: 'ssh-row' }, levels(5, sc.energy, (v) => { if (v) sc.energy = v; else delete sc.energy; changed(); }, { color: '#e5382f', measured }),
+          h('small', { class: 'ssh-muted', 'data-energy': measured }, (sc.energy ? `voulue ${sc.energy} · ` : '') + `entendue ${fmt1(measured)}`)),
+        h('span', {}, 'Tension'),
+        h('span', { class: 'ssh-row' }, levels(5, sc.tension, (v) => { if (v) sc.tension = v; else delete sc.tension; changed(); }, { color: '#cfcfd6' }))));
+
+    // --- tonalité et accords
+    const ch = chordsByBar(pr, sc);
+    const keyLabel = SS.harmony && SS.harmony.valid(sc.key) ? SS.harmony.label(sc.key) : 'sans tonalité';
+    const chordCells = ch.bars.map((names, i) =>
+      h('div', { class: 'ssh-chord' + (ch.from === 'notes' ? ' rec' : '') + (names.length && names[0].held ? ' held' : '') },
+        h('small', {}, String(i + 1)),
+        names.length ? (names[0].held ? names[0].held : names.join(' ')) : '·'));
+    const harmony = section('chords', 'Accords', tip('chords', 'Accords'), keyLabel,
+      h('div', { class: 'ssh-chords' }, chordCells));
+
+    // --- instruments
+    let nPlay = 0;
+    const rows = pr.tracks.map((t) => {
+      const b = perBar(pr, sc, t);
+      const muted = SS.sceneMuted(pr, t, sc);
+      const empty = !b.total && !b.follows;
+      if (!empty && !muted) nPlay++;
+      const max = Math.max(1, ...b.bars);
+      const setMute = (on) => {
+        sc.mute = sc.mute || {};
+        if (on) sc.mute[t.id] = true;
+        else delete sc.mute[t.id];
+        if (!Object.keys(sc.mute).length) delete sc.mute;
+        if (SS.audio && SS.audio.applyMutes) SS.audio.applyMutes(pr);
+        paintMutes();
+        changed();
+      };
+      return h('div', { class: 'ssh-tr' + (muted ? ' mute' : '') + (empty ? ' empty' : ''), style: `--c:${t.color}`, 'data-track': t.id },
+        h('span', { class: 'ssh-cl' }),
+        h('div', { class: 'ssh-tn' },
+          h('span', { class: 'ssh-tname' }, t.name, t.mute ? h('small', { class: 'ssh-muted' }, ' · muet partout') : null),
+          h('div', { class: 'ssh-dens' }, b.follows && !b.total ? h('small', { class: 'ssh-muted' }, 'suit les accords') : b.bars.map((v) => h('span', { style: `height:${v ? 3 + Math.round((v / max) * 11) : 1}px` })))),
+        empty && !muted
+          ? h('span', { class: 'ssh-muted ssh-empty' }, 'vide')
+          : h('span', { class: 'ssh-st3' },
+              h('button', { type: 'button', class: muted ? '' : 'on play', 'aria-pressed': String(!muted), onclick: () => muted && setMute(false) }, 'Joue'),
+              h('button', { type: 'button', class: muted ? 'on mute' : '', 'aria-pressed': String(muted), onclick: () => !muted && setMute(true) }, 'Muet')));
+    });
+    const inst = section('inst', 'Instruments', tip('inst', 'Instruments'), `${nPlay}/${pr.tracks.length} jouent`, rows);
+
+    // --- mouvement : automations de la scène (par pas) et de l'arrangement (par temps)
+    const moves = [];
+    pr.tracks.forEach((t) => {
+      const d = sc.id === pr.current ? { auto: t.auto } : (sc.data && sc.data[t.id]) || {};
+      Object.keys(d.auto || {}).forEach((k) => {
+        const P = (SS.AUTO_PARAMS || []).find((x) => x.id === k);
+        moves.push(`${t.name} · ${P ? P.label.toLowerCase() : k}`);
+      });
+    });
+    const BA = { cut: 'cutoff', res: 'résonance', vel: 'vélocité' };
+    const seenBa = new Set();
+    blocks.forEach((b) => Object.entries(b.bauto || {}).forEach(([tid, params]) => {
+      const t = pr.tracks.find((x) => x.id === tid);
+      if (!t) return;
+      Object.keys(params || {}).forEach((k) => {
+        const label = `${t.name} · ${BA[k] || k} par temps`;
+        if (!seenBa.has(label)) {
+          seenBa.add(label);
+          moves.push(label);
+        }
+      });
+    }));
+    const move = section('move', 'Mouvement', tip('move', 'Mouvement'), moves.length ? `${moves.length} automation${moves.length > 1 ? 's' : ''}` : 'aucun',
+      moves.length ? h('div', { class: 'ssh-emos' }, moves.map((m) => h('span', { class: 'ssh-tag' }, m))) : h('span', { class: 'ssh-muted' }, 'Aucune automation dans cette scène.'));
+
+    // --- entrée et sortie
+    const nameAt = (i) => {
+      const b = pr.song[i];
+      const s = b && sceneOf(b.scene);
+      return s ? `${letterOf(s)} ${s.name}` : null;
+    };
+    const ins = [...new Set(blocks.map((b) => nameAt(b.i - 1) || 'début'))];
+    const outs = [...new Set(blocks.map((b) => nameAt(b.i + 1) || 'fin'))];
+    const trans = section('trans', 'Entrée et sortie', tip('trans', 'Entrée et sortie'), blocks.length ? `${ins[0]} → ${outs[0]}` : 'pas dans l’arrangement',
+      blocks.length
+        ? h('div', { class: 'ssh-kv' }, h('span', {}, 'Depuis'), h('span', { class: 'ssh-emos' }, ins.map((x) => h('span', { class: 'ssh-tag' }, x))),
+            h('span', {}, 'Vers'), h('span', { class: 'ssh-emos' }, outs.map((x) => h('span', { class: 'ssh-tag' }, x))))
+        : h('span', { class: 'ssh-muted' }, 'Cette scène n’est pas dans l’arrangement.'));
+
+    // les rubriques gardent le défilement
+    const scroll = root.scrollTop;
+    root.replaceChildren(head, tempo, feel, harmony, inst, move, trans);
+    root.scrollTop = scroll;
+    root.dataset.scene = sc.id;
+  }
+
+  /** Grise dans la grille les pistes muettes dans la scène en cours. */
+  function paintMutes() {
+    if (!app || !app.project()) return;
+    const pr = p();
+    document.querySelectorAll('.track[data-id]').forEach((el) => {
+      const t = pr.tracks.find((x) => x.id === el.dataset.id);
+      const m = !!t && SS.sceneMuted(pr, t);
+      el.classList.toggle('scene-muted', m);
+      const head = el.querySelector('.track-head');
+      if (head) head.title = m ? 'Muette dans cette scène (fiche Scène)' : '';
+    });
+  }
+
+  function open(id) {
+    if (!sceneOf(id)) return;
+    let root = document.getElementById('sceneSheet');
+    if (!root) {
+      root = h('aside', { id: 'sceneSheet', class: 'scene-sheet', 'aria-label': 'Fiche Scène' });
+      document.body.append(root);
+    }
+    openId = id;
+    root.hidden = false;
+    document.body.classList.add('scene-sheet-open');
+    render();
+  }
+  function close() {
+    openId = null;
+    const root = document.getElementById('sceneSheet');
+    if (root) root.hidden = true;
+    document.body.classList.remove('scene-sheet-open');
+  }
+  const isOpen = () => !!openId;
+  function refresh() {
+    paintMutes();
+    if (!openId) return;
+    if (document.activeElement && document.activeElement.classList.contains('ssh-name')) return; // renommage en cours
+    render();
+  }
+
+  function init(a) {
+    app = a;
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && openId && !document.querySelector('dialog[open]')) close();
+    });
+  }
+
+  return { init, open, close, isOpen, refresh, measureEnergy, paintMutes, chordsByBar };
+})();

@@ -48,9 +48,9 @@ SS.song = (() => {
           {
             type: 'button',
             class: 'scene-name',
-            title: 'Cliquer pour éditer cette scène · double-clic pour la renommer',
+            title: 'Cliquer pour éditer cette scène · double-clic : sa fiche',
             onclick: () => app.switchScene(sc.id),
-            ondblclick: (e) => rename(sc, e.currentTarget),
+            ondblclick: () => SS.sceneSheet.open(sc.id),
           },
           h('b', {}, String.fromCharCode(65 + (i % 26))),
           ' ',
@@ -77,7 +77,10 @@ SS.song = (() => {
         {
           class: 'song-block' + (i === app.state.songStart ? ' start' : '') + (i === playing ? ' playing' : '') + (sc.id === pr.current ? ' editing' : ''),
           style: `--w:${Math.min(maxW, 80 + bars * 4)}px`, // au moins la place du nom, plus large pour les blocs longs
-          title: `${sc.name} : ${barsOf(sc)} mesure(s) × ${b.repeat}. Cliquer pour partir d'ici et éditer cette scène.`,
+          title: `${sc.name} : ${barsOf(sc)} mesure(s) × ${b.repeat}. Cliquer pour partir d'ici et éditer cette scène · double-clic : sa fiche`,
+          ondblclick: (e) => {
+            if (!e.target.closest('button')) SS.sceneSheet.open(sc.id);
+          },
           onclick: (e) => {
             if (e.target.closest('button')) return;
             app.state.songStart = i;
@@ -122,6 +125,7 @@ SS.song = (() => {
     $('#songTotal').textContent = `${len.bars} mesures · ${fmtTime(len.seconds)}`;
     $('#songLoop').checked = !!pr.songLoop;
     renderWindow();
+    if (SS.sceneSheet) SS.sceneSheet.refresh();
   }
 
   function changedSong() {

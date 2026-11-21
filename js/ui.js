@@ -1341,7 +1341,7 @@ SS.ui = (() => {
 
     const selected = sel && sel.track === track;
     const armed = SS.live && SS.live.armedId() === track.id;
-    const el = h('div', { class: 'track' + (selected ? ' selected' : '') + (armed ? ' armed' : ''), style: `--c:${track.color}`, 'data-id': track.id }, h('div', { class: 'track-row' }, head, grid));
+    const el = h('div', { class: 'track' + (selected ? ' selected' : '') + (armed ? ' armed' : '') + (SS.sceneMuted && SS.sceneMuted(p, track) ? ' scene-muted' : ''), style: `--c:${track.color}`, 'data-id': track.id }, h('div', { class: 'track-row' }, head, grid));
     if (autoOpen) el.append(buildAutoLane(track, ref));
     if (track.type === 'instrument' && isOpen) el.append(buildRoll(track, ref));
     // automation par temps (js/beatautoui.js) : sous les notes, seulement si elle est active

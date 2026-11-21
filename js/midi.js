@@ -220,6 +220,7 @@
       const view = { ...p, bars: sc.bars };
       for (const out of outs) {
         const t = out.t;
+        if (o.audibleOnly && SS.sceneMuted(p, t, sc)) continue; // muette dans cette scène (fiche Scène)
         const d = (sc.data || {})[t.id] || {};
         const len = SS.trackLen(view, t);
         const nudge = ((t.nudge || 0) / 1000 / stepSec) * TPS;
