@@ -25,7 +25,7 @@ SS.sceneSheet = (() => {
   SS.EMOTION_COLORS = EMO_COLORS;
 
   const HELP = {
-    tempo: 'La scène joue au tempo de la chanson.',
+    tempo: '= Chanson : la scène suit le tempo de la chanson (le changer la change aussi). Propre : la scène garde son tempo ; il change d’un coup au début de la scène.',
     emo: 'Ce que la scène doit faire ressentir. Sert à l’assistant (accords, sons) et colore la scène.',
     ene: 'Cases pleines : l’énergie voulue. Case en pointillé : l’énergie entendue dans ce qui joue (instruments actifs, densité de notes, vélocité). La tension monte avec les dissonances et l’attente.',
     chords: 'Une case par mesure : les accords de la piste Accords, ou ceux reconnus dans les notes (en gris).',
@@ -192,7 +192,7 @@ SS.sceneSheet = (() => {
     const sc = openId && sceneOf(openId);
     if (!sc) return close();
     const bars = barsOf(sc);
-    const seconds = (bars * SS.stepsPerBar(pr) * 60) / pr.tempo / 4;
+    const seconds = (bars * SS.stepsPerBar(pr) * 60) / SS.tempoOf(pr, sc) / 4;
     const blocks = pr.song.map((b, i) => ({ ...b, i })).filter((b) => b.scene === sc.id);
     const times = blocks.reduce((a, b) => a + b.repeat, 0);
     const idx = pr.scenes.indexOf(sc);
@@ -236,8 +236,30 @@ SS.sceneSheet = (() => {
       h('button', { type: 'button', class: 'ssh-nav', title: 'Fermer (Échap)', 'aria-label': 'Fermer la fiche', onclick: close }, '✕'));
 
     // --- tempo
-    const tempo = section('tempo', 'Tempo', tip('tempo', 'Tempo'), `= chanson · ${pr.tempo}`,
-      h('div', { class: 'ssh-row' }, h('span', { class: 'ssh-tag on' }, '= Chanson'), h('b', { class: 'ssh-bpm' }, String(pr.tempo)), h('span', { class: 'ssh-muted' }, 'BPM'), h('span', { class: 'ssh-tag' }, fmtTime(seconds))));
+    const own = !!sc.tempo;
+    const setTempo = (v) => {
+      if (v == null) delete sc.tempo;
+      else sc.tempo = Math.round(clamp(Number(v) || pr.tempo, 20, 300));
+      if (SS.audio && SS.audio.applyAllFx && sc.id === pr.current) SS.audio.applyAllFx(pr); // l'écho suit
+      if (app.syncTempo) app.syncTempo();
+      changed();
+    };
+    const bpm = h('input', {
+      type: 'number', class: 'ssh-bpm' + (own ? '' : ' off'), min: 20, max: 300, value: SS.tempoOf(pr, sc), readonly: own ? null : true,
+      'aria-label': 'Tempo de la scène',
+      onkeydown: (e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') e.currentTarget.blur();
+      },
+      onchange: (e) => own && setTempo(e.currentTarget.value),
+    });
+    const tempo = section('tempo', 'Tempo', tip('tempo', 'Tempo'), `${own ? 'propre' : '= chanson'} · ${SS.tempoOf(pr, sc)}`,
+      h('div', { class: 'ssh-row' },
+        h('span', { class: 'ssh-seg' },
+          h('button', { type: 'button', class: own ? '' : 'on', 'aria-pressed': String(!own), onclick: () => own && setTempo(null) }, '= Chanson'),
+          h('button', { type: 'button', class: own ? 'on' : '', 'aria-pressed': String(own), onclick: () => !own && setTempo(pr.tempo) }, 'Propre')),
+        bpm, h('span', { class: 'ssh-muted' }, 'BPM'), h('span', { class: 'ssh-tag' }, fmtTime(seconds))),
+      own && pr.tempo !== sc.tempo ? h('small', { class: 'ssh-muted' }, `chanson : ${pr.tempo}`) : null);
 
     // --- émotion, énergie, tension
     const emo = SS.findEmotion && sc.emotion ? SS.findEmotion(sc.emotion) : null;

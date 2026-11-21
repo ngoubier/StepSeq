@@ -208,11 +208,20 @@
     document.addEventListener('pointerdown', (e) => !wrap.contains(e.target) && set(false));
     $('#grooveBtn').addEventListener('click', () => set(false));
   }
+  /** Barre du haut : le tempo de la scène en cours (doré quand la scène a son propre tempo, fiche Scène). */
+  function syncTempo() {
+    const sc = SS.currentScene(project);
+    const own = !!(sc && sc.tempo);
+    const el = $('#tempo');
+    el.value = SS.tempoOf(project);
+    el.classList.toggle('scene-tempo', own);
+    el.title = own ? `Tempo propre à la scène « ${sc.name} » (chanson : ${project.tempo})` : 'Tempo de la chanson';
+  }
   function syncHeader() {
     if (SS.live) SS.live.refresh(); // piste armée disparue (autre chanson, Annuler…) : oubliée
     $('#title').value = project.title;
     $('#lcdTitle').textContent = ''; // à l'arrêt, l'afficheur ne répète pas le titre (déjà à gauche)
-    $('#tempo').value = project.tempo;
+    syncTempo();
     $('#sigNum').value = project.timeSig[0];
     $('#sigDen').value = project.timeSig[1];
     const barsSel = $('#bars');
@@ -365,8 +374,11 @@
     });
     $('#tempo').addEventListener('change', (e) => {
       if (SS.band.active()) return SS.band.setTempo(e.target.value); // assistant : le tempo de la chanson en création
-      project.tempo = Math.max(20, Math.min(300, Math.round(+e.target.value || 120)));
-      e.target.value = project.tempo;
+      const v = Math.max(20, Math.min(300, Math.round(+e.target.value || 120)));
+      const sc = SS.currentScene(project);
+      if (sc && sc.tempo) sc.tempo = v; // la scène a son propre tempo : c'est lui qu'on règle
+      else project.tempo = v;
+      syncTempo();
       SS.audio.applyAllFx(project); // le delay suit le tempo
       changed();
     });
@@ -1074,7 +1086,7 @@
   });
   SS.audioWatch.start({ project: () => project }); // surveillance audio automatique (grésillements, coupures)
   SS.song.init({ project: () => project, changed, state, switchScene, afterSceneChange, play, stop, setBars });
-  SS.sceneSheet.init({ project: () => project, changed, switchScene });
+  SS.sceneSheet.init({ project: () => project, changed, switchScene, syncTempo });
   SS.fx.init({ project: () => project, changed, renderTrack: (t) => SS.ui.renderTrack(t) });
   SS.ui.init({
     project: () => project,

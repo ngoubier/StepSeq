@@ -176,7 +176,8 @@
     // copie complète (les notes en cours d'édition sont rangées dans leur scène)
     const p = SS.normalizeProject(JSON.parse(SS.serialize(project)));
     const spb = SS.stepsPerBar(p);
-    const stepSec = 60 / p.tempo / 4;
+    let stepSec = 60 / p.tempo / 4; // change avec le tempo de chaque scène (fiche Scène)
+    let seconds = 0;
     const soloed = p.tracks.some((t) => t.solo);
     const audible = (t) => (soloed ? t.solo : !t.mute);
     const tracks = p.tracks.filter((t) => !o.audibleOnly || audible(t));
@@ -199,6 +200,7 @@
 
     const conductor = [SS.midiFile.meta.name(0, p.title || 'StepSeq'), SS.midiFile.meta.tempo(0, p.tempo), SS.midiFile.meta.timeSig(0, p.timeSig[0], p.timeSig[1])];
     let lastKey = '';
+    let lastTempo = p.tempo;
     let pos = 0; // en pas, depuis le début
     const swingAt = (tick) => (o.swing ? SS.grooveOffset(p, tick, stepSec) / stepSec : 0);
 
@@ -206,6 +208,13 @@
       const sc = sceneOf(b.scene);
       if (!sc) continue;
       const total = spb * sc.bars;
+      const bpm = SS.tempoOf(p, sc);
+      stepSec = 60 / bpm / 4;
+      if (bpm !== lastTempo) {
+        conductor.push(SS.midiFile.meta.tempo(pos * TPS, bpm)); // changement de tempo net au début de la scène
+        lastTempo = bpm;
+      }
+      seconds += total * b.repeat * stepSec;
       conductor.push(SS.midiFile.meta.marker(pos * TPS, b.repeat > 1 ? `${sc.name} ×${b.repeat}` : sc.name));
       if (sc.key && SS.harmony && SS.harmony.valid(sc.key)) {
         const k = `${sc.key.tonic} ${sc.key.mode}`;
@@ -432,7 +441,7 @@
     if (p.tracks.some((t) => t.sd || t.fx || t.mix || t.juno)) ignored.push('Le sound design, les effets, le mixage et les réglages du Juno restent dans StepSeq (ce ne sont pas des données MIDI).');
 
     const bytes = SS.midiFile.write({ ppq: PPQ, tracks: midiTracks });
-    return { bytes, report: { tracks: outs.length, notes: count, seconds: pos * stepSec, approx, ignored } };
+    return { bytes, report: { tracks: outs.length, notes: count, seconds, approx, ignored } };
   }
 
   SS.midiFileName = (p) => (p.title || 'projet').replace(/[\\/:*?"<>|]+/g, '_').trim() + '.mid';

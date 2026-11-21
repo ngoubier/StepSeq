@@ -954,6 +954,8 @@ SS.trackLen = (p, t) => {
  *                   emotion : "nostalgie", intention choisie dans la fenêtre Harmo One (facultatif, js/emotions.js)
  *                   mute    : { trackId: true } pistes muettes dans cette scène seulement (notes gardées ; fiche Scène, js/scenesheet.js)
  *                   energy, tension : 1 à 5, voulues pour la scène (facultatif, fiche Scène)
+ *                   tempo   : BPM propre à la scène (facultatif ; absent = tempo de la chanson, project.tempo). Le tempo
+ *                             change net au début de la scène (SS.tempoOf, lu à chaque pas par js/audio.js)
  * project.current : id de la scène en cours d'édition (son contenu vit dans les pistes)
  * project.song    : [{ scene: id, repeat: n, bauto? }]  -- l'arrangement, joué dans l'ordre ;
  *                   bauto : automation par temps (cutoff, résonance, vélocité) de chaque répétition, voir js/beatauto.js
@@ -994,6 +996,12 @@ SS.sceneMuted = (p, t, sc) => {
   sc = sc || (p.scenes && p.scenes.length ? SS.currentScene(p) : null);
   return !!(sc && sc.mute && t && sc.mute[t.id]);
 };
+/** Tempo joué dans la scène `sc` (scène en cours par défaut) : le sien, sinon celui de la chanson. */
+SS.tempoOf = (p, sc) => {
+  sc = sc || (p.scenes && p.scenes.length ? SS.currentScene(p) : null);
+  return sc && sc.tempo ? sc.tempo : p.tempo;
+};
+const validTempo = (v) => Number.isFinite(Number(v)) && Number(v) >= 20 && Number(v) <= 300;
 const level5 = (v) => (Number.isInteger(v) && v >= 1 && v <= 5 ? v : null);
 
 /** Tonalité de la scène en cours (ou de la scène `sc`), ou null. */
@@ -1053,6 +1061,7 @@ SS.addScene = (p, { copy = true } = {}) => {
   if (copy && cur.grid) sc.grid = JSON.parse(JSON.stringify(cur.grid));
   if (copy && cur.mute) sc.mute = { ...cur.mute };
   if (copy && cur.energy) sc.energy = cur.energy;
+  if (copy && cur.tempo) sc.tempo = cur.tempo;
   if (copy && cur.tension) sc.tension = cur.tension;
   const idx = p.scenes.findIndex((x) => x.id === p.current);
   p.scenes.splice(idx + 1, 0, sc);
@@ -1076,11 +1085,15 @@ SS.deleteScene = (p, id) => {
 SS.songLength = (p) => {
   const spb = SS.stepsPerBar(p);
   let bars = 0;
+  let seconds = 0;
   p.song.forEach((b) => {
     const sc = p.scenes.find((x) => x.id === b.scene);
-    if (sc) bars += (sc.id === p.current ? p.bars : sc.bars) * b.repeat;
+    if (!sc) return;
+    const n = (sc.id === p.current ? p.bars : sc.bars) * b.repeat;
+    bars += n;
+    seconds += (n * spb * 60) / SS.tempoOf(p, sc) / 4; // chaque scène à son tempo
   });
-  return { bars, seconds: (bars * spb * 60) / p.tempo / 4 };
+  return { bars, seconds };
 };
 
 /**
@@ -1141,6 +1154,7 @@ SS.normalizeScenes = (p, data = {}) => {
           ? { mute: Object.fromEntries(Object.keys(sc.mute).filter((k) => sc.mute[k] === true).map((k) => [k, true])) }
           : {}),
         ...(level5(sc.energy) ? { energy: sc.energy } : {}),
+        ...(sc.tempo != null && validTempo(sc.tempo) ? { tempo: Math.round(Number(sc.tempo)) } : {}),
         ...(level5(sc.tension) ? { tension: sc.tension } : {}),
         ...(SS.normalizeGrid(sc.grid) ? { grid: SS.normalizeGrid(sc.grid) } : {}),
       }));

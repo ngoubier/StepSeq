@@ -376,3 +376,22 @@ test('mode General MIDI : chaque choix de Band et chaque élément de batterie a
   assert.equal(SS.normalizeProject(JSON.parse(SS.serialize(imp))).gm, true);
   assert.equal(SS.normalizeProject(JSON.parse(SS.serialize(SS.newProject()))).gm, undefined);
 });
+
+test('tempo par scène (fiche Scène) : changement de tempo au début de la scène, durée de la chanson', () => {
+  const p = project();
+  const pont = p.scenes.find((s) => s.name === 'Pont');
+  pont.tempo = 150;
+  assert.equal(SS.tempoOf(p, pont), 150);
+  assert.equal(SS.tempoOf(p, p.scenes[0]), 100);
+  const { bytes, report } = SS.midi.exportProject(p, { swing: false });
+  const conductor = M.parse(bytes).tracks[0];
+  const tempos = conductor.filter((e) => e.meta === 0x51).map((e) => [e.tick, Math.round(60000000 / e.usPerQuarter)]);
+  assert.deepEqual(tempos, [[0, 100], [2 * 16 * T, 150]]);
+  // 2 mesures à 100 (4,8 s) + 1 mesure à 150 (1,6 s)
+  assert.ok(Math.abs(report.seconds - 6.4) < 1e-6, String(report.seconds));
+  assert.ok(Math.abs(SS.songLength(p).seconds - 6.4) < 1e-6);
+  // enregistré et relu ; « = Chanson » (pas de tempo) reste absent
+  const q = SS.normalizeProject(JSON.parse(SS.serialize(p)));
+  assert.equal(q.scenes.find((s) => s.name === 'Pont').tempo, 150);
+  assert.equal(q.scenes[0].tempo, undefined);
+});
