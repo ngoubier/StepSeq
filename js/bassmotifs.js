@@ -16,6 +16,7 @@ SS.bassMotifs = (() => {
     ['dnb', 'Drum & bass', ['reese', 'dnbroll']],
     ['latin', 'Latin & Reggae', ['tresillo', 'dembow', 'tumbao', 'onedrop', 'roots', 'bossa', 'afro']],
     ['techno', 'Techno & House', ['hades', 'seismic', 'oracle', 'troy', 'phalanx', 'necropolis', 'styx', 'athens', 'mythos', 'thebes', 'acid', 'offbeat', 'off16', 'trance']],
+    ['famous', '★ Célèbres', ['cel_chic', 'cel_hitsville', 'cel_pfunk', 'cel_thumb', 'cel_fretless', 'cel_liverpool', 'cel_studio60', 'cel_gallop', 'cel_motorik', 'cel_coldwave', 'cel_staccato80', 'cel_steppers', 'cel_ska', 'cel_boogie', 'cel_rockabilly', 'cel_lagos', 'cel_surdo', 'cel_gfunk', 'cel_frenchtouch', 'cel_wobble', 'cel_neosoul']],
   ];
   /** Conseillés dans la fenêtre Nouvelle piste. */
   const PICKS = ['8', 'rock8', 'disco16'];
