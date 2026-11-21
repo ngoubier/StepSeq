@@ -947,6 +947,16 @@ SS.band = (() => {
   const TEN_C = '#d8d8e6'; // tension : blanc cassé, en pointillé
   const ENE_C = '#e5382f'; // énergie : rouge
   const emoC = (k) => FM().emoOf(k).color;
+  /** Encre lisible (noire ou blanche) pour un numéro posé sur une couleur rendue à l'opacité a sur le fond du panneau. */
+  function stripInk(hex, a) {
+    const c = /^#([0-9a-f]{6})$/i.exec(hex || '');
+    if (!c) return '#fff';
+    const bg = [0x23, 0x23, 0x29]; // --bw-panel2
+    const lin = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+    const ch = [0, 2, 4].map((k, j) => a * parseInt(c[1].slice(k, k + 2), 16) + (1 - a) * bg[j]);
+    const L = 0.2126 * lin(ch[0]) + 0.7152 * lin(ch[1]) + 0.0722 * lin(ch[2]);
+    return L > 0.18 ? '#0d0d12' : '#fff'; // contraste le plus fort des deux
+  }
   /** Frise de la scène : passages, repères (émoticônes), synchro forte, mesures. */
   function filmStrip(tm) {
     const W = 640;
@@ -960,7 +970,7 @@ SS.band = (() => {
       for (let b = 0; b < s.bars; b++) barTimes.push(s.cue.land + b * s.cue.barLen);
       const a = 0.35 + 0.12 * s.ene; // plus d'énergie, couleur plus franche
       svg += `<rect x="${x0.toFixed(1)}" y="30" width="${Math.max(1, x1 - x0 - 1).toFixed(1)}" height="26" rx="3" fill="${s.color}" opacity="${a.toFixed(2)}"/>`;
-      svg += `<text x="${(x0 + 5).toFixed(1)}" y="47" font-size="12" font-weight="600" fill="#0d0d12">${i + 1}</text>`;
+      svg += `<text x="${(x0 + 5).toFixed(1)}" y="47" font-size="12" font-weight="700" fill="${stripInk(s.color, a)}">${i + 1}</text>`;
     });
     barTimes.push(tm.start + tm.seconds);
     for (let b = 0; b < barTimes.length; b++) {
@@ -973,7 +983,7 @@ SS.band = (() => {
       svg += `<line x1="${xm.toFixed(1)}" x2="${xm.toFixed(1)}" y1="22" y2="58" stroke="${m.sync ? '#ffd75e' : 'var(--bw-muted)'}" stroke-width="${m.sync ? 2.5 : 1}"/>`;
       svg += `<circle cx="${xm.toFixed(1)}" cy="13" r="7" fill="${emoC(m.emo)}" stroke="${m.sync ? '#ffd75e' : '#0d0d12'}" stroke-width="2"/>`;
     });
-    svg += `<text x="8" y="78" font-size="11" fill="var(--bw-muted)">${FM().fmt(tm.start)}</text><text x="${W - 8}" y="78" font-size="11" text-anchor="end" fill="var(--bw-muted)">${FM().fmt(tm.end)}</text>`;
+    svg += `<text x="8" y="78" font-size="11" fill="var(--bw-text)">${FM().fmt(tm.start)}</text><text x="${W - 8}" y="78" font-size="11" text-anchor="end" fill="var(--bw-text)">${FM().fmt(tm.end)}</text>`;
     return h('div', { class: 'bfm-strip', html: `<svg viewBox="0 0 ${W} 82" role="img" aria-label="Frise des repères">${svg}</svg>` });
   }
   /** Courbes de tension et d'énergie, passage par passage (elles ne vont pas toujours ensemble). */

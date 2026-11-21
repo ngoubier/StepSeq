@@ -4201,7 +4201,7 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 #bandDialog.film .band-presets { grid-template-columns: repeat(auto-fill, minmax(220px, 280px)); }
 #bandDialog .bfm-h { margin: 10px 0 0; font-size: 13px; font-weight: 600; color: var(--bw-text); }
 #bandDialog .bfm-h b { color: #ffd75e; margin-right: 4px; }
-#bandDialog .bfm-strip svg, #bandDialog .bfm-curves svg { font-family: inherit; display: block; width: 100%; max-width: 760px; height: auto; }
+#bandDialog .bfm-strip svg, #bandDialog .bfm-curves svg { font-family: inherit; display: block; width: 100%; max-width: 760px; height: auto; stroke: none; stroke-width: 1; } /* pas le contour des icônes (svg global) : il épaississait et brouillait les chiffres */
 #bandDialog .bfm-io { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; font-size: 13px; color: var(--bw-muted); }
 #bandDialog .bfm-io input { width: 76px; }
 #bandDialog .bfm-cues { width: 100%; max-width: 760px; border-collapse: collapse; font-size: 13px; }
