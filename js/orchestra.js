@@ -43,7 +43,17 @@ SS.orchestra = (() => {
     P('tu', 'Tuba', 'Tuba', 'vsco_tuba', 'cuivres', 28, 58, 33, 52),
     P('hp', 'Harpe', 'Hp.', 'vsco_harp', 'cordes pincées', 24, 103, 43, 84),
     P('vs', 'Violon solo', 'Vl. solo', 'vsco_violin_solo', 'cordes', 55, 100, 62, 91),
+    // articulations (un pupitre = un son) et claviers d'orchestre : ils ne jouent que quand le passage les appelle (art)
+    P('vlt', 'Violons (trémolo)', 'Vl. trém.', 'vsco_violins_trem', 'cordes', 55, 100, 62, 93),
+    P('vlp', 'Violons (pizzicato)', 'Vl. pizz.', 'vsco_violins_pizz', 'cordes', 55, 96, 60, 88),
+    P('vcs', 'Violoncelles (spiccato)', 'Vc. spic.', 'vsco_cellos_spic', 'cordes', 36, 76, 41, 69),
+    P('cbp', 'Contrebasses (pizzicato)', 'Cb. pizz.', 'vsco_contrabass_pizz', 'cordes', 28, 55, 31, 50),
+    P('gl', 'Glockenspiel', 'Glock.', 'vsco_glockenspiel', 'claviers', 79, 108, 84, 103),
+    P('ma', 'Marimba', 'Mar.', 'vsco_marimba', 'claviers', 45, 96, 55, 84),
+    P('bl', 'Cloches tubulaires', 'Cloches', 'vcsl_tubularbells', 'claviers', 60, 77, 62, 74),
   ];
+  /** Pupitres d'articulation : la version legato qu'ils remplacent quand le passage les appelle. */
+  const ART_OF = { vlt: ['vl1', 'vl2'], vlp: ['vl1', 'vl2'], vcs: ['vc'], cbp: ['cb'] };
   const PART = Object.fromEntries(PARTS.map((p) => [p.id, p]));
   const ENSEMBLES = [
     { id: 'strings', label: 'Cordes', text: 'Le quintette à cordes : violons I et II, altos, violoncelles, contrebasses.', parts: ['vl1', 'vl2', 'va', 'vc', 'cb'] },
@@ -51,10 +61,10 @@ SS.orchestra = (() => {
     { id: 'winds', label: 'Cordes et bois', text: 'Les cordes avec flûte, clarinette et basson : plus de couleurs, plus de souffle.', parts: ['fl', 'cl', 'vl1', 'vl2', 'va', 'bn', 'vc', 'cb'] },
     { id: 'hybrid', label: 'Synthé et cordes', text: 'Une nappe de cordes synthé sous de vraies cordes : le son hybride des musiques de film.', parts: ['vl1', 'va', 'syn', 'vc', 'cb'] },
     // effectifs de musique de film (une couleur chacun)
-    { id: 'intime', label: 'Intime', film: true, text: 'Violon solo, violoncelles et harpe : une pièce de chambre, filmée de près.', parts: ['vs', 'hp', 'vc'] },
-    { id: 'romantique', label: 'Romantique', film: true, text: 'Bois, cor, harpe et cordes : le hautbois répond, la harpe fait couler l’harmonie, les violons chantent au sommet.', parts: ['fl', 'ob', 'cl', 'vl1', 'vl2', 'va', 'hn', 'hp', 'vc', 'cb'] },
-    { id: 'epique', label: 'Épique', film: true, text: 'Cuivres complets sur les cordes : trompettes sur le thème au sommet, trombones et tuba pour la basse, cuivres réservés aux scènes fortes.', parts: ['pic', 'fl', 'tp', 'vl1', 'vl2', 'va', 'hn', 'tb', 'vc', 'cb', 'tu'] },
-    { id: 'mystere', label: 'Mystère', film: true, text: 'Clarinette et basson dans le grave, altos, harpe : des couleurs sombres et feutrées.', parts: ['fl', 'cl', 'va', 'hp', 'bn', 'vc', 'cb'] },
+    { id: 'intime', label: 'Intime', film: true, text: 'Violon solo, violoncelles et harpe : une pièce de chambre, filmée de près.', parts: ['vs', 'hp', 'vc', 'gl'] },
+    { id: 'romantique', label: 'Romantique', film: true, text: 'Bois, cor, harpe et cordes : le hautbois répond, la harpe fait couler l’harmonie, les violons chantent au sommet.', parts: ['fl', 'ob', 'cl', 'vl1', 'vl2', 'va', 'hn', 'hp', 'vc', 'cb', 'vlt', 'vlp', 'gl', 'ma', 'bl'] },
+    { id: 'epique', label: 'Épique', film: true, text: 'Cuivres complets sur les cordes : trompettes sur le thème au sommet, trombones et tuba pour la basse, cuivres réservés aux scènes fortes.', parts: ['pic', 'fl', 'tp', 'vl1', 'vl2', 'va', 'hn', 'tb', 'vc', 'cb', 'tu', 'vlt', 'vcs', 'cbp', 'bl'] },
+    { id: 'mystere', label: 'Mystère', film: true, text: 'Clarinette et basson dans le grave, altos, harpe : des couleurs sombres et feutrées.', parts: ['fl', 'cl', 'va', 'hp', 'bn', 'vc', 'cb', 'vlt', 'gl'] },
   ];
   const ENS = Object.fromEntries(ENSEMBLES.map((e) => [e.id, e]));
   const LEVELS = [
@@ -62,7 +72,7 @@ SS.orchestra = (() => {
     { id: 'mid', label: 'Moyen', text: 'tout l’effectif en harmonie, contrechant des bois' },
     { id: 'full', label: 'Tout l’effectif', text: 'les premiers violons doublent la mélodie' },
   ];
-  const ROLE_LABEL = { melody: 'Mélodie', counter: 'Contrechant', harmony: 'Harmonie', bass: 'Basse', pad: 'Nappe', arp: 'Arpège', motor: 'Ostinato', stabs: 'Accents', tacet: 'Se tait' };
+  const ROLE_LABEL = { melody: 'Mélodie', counter: 'Contrechant', harmony: 'Harmonie', bass: 'Basse', pad: 'Nappe', arp: 'Arpège', motor: 'Ostinato', stabs: 'Accents', accent: 'Frappe', tacet: 'Se tait' };
   /** Densité par défaut d'une scène selon l'énergie du plan (0,78 calme … 1 refrain). */
   const levelOf = (energy) => (energy >= 0.97 ? 'full' : energy >= 0.85 ? 'mid' : 'light');
 
@@ -93,7 +103,14 @@ SS.orchestra = (() => {
    */
   const MOTOR = [0, 0, 12, 0, 0, 12, 0, 7];
   const ACC = [0, 3, 6];
-  function orchestrate({ parts, spans, melody = [], level = 'mid', off = [], vel = null, motor = false, stabs = false, under = false }) {
+  function orchestrate({ parts, spans, melody = [], level = 'mid', off = [], vel = null, motor = false, stabs = false, under = false, art = null }) {
+    // pupitres d'articulation et claviers d'orchestre : hors du calcul, puis ajoutés selon art (voir articulate)
+    const SPECIAL = Object.keys(ART_OF).concat(['gl', 'ma', 'bl']);
+    const special = parts.filter((id) => SPECIAL.includes(id));
+    if (special.length) {
+      const res = orchestrate({ parts: parts.filter((id) => !SPECIAL.includes(id)), spans, melody, level, off, vel, motor, stabs, under });
+      return articulate(res, special, { spans, melody, art: art || {}, off, vel: (vel ?? { light: 0.5, mid: 0.62, full: 0.74 }[level] ?? 0.62) - (under ? 0.12 : 0) });
+    }
     const defs = parts.map((id) => PART[id]).filter(Boolean);
     const lines = {};
     const items = [];
@@ -292,6 +309,92 @@ SS.orchestra = (() => {
     }
     for (const [id, set2] of maskBars) items.push({ kind: 'warn', parts: [id], text: `${PART[id].label} passent au-dessus de la mélodie (mes. ${bars(set2)}).`, hint: 'La mélodie est couverte : coupe ce pupitre dans la scène ou garde la densité légère.' });
     items.push(outside ? { kind: 'warn', text: `${outside} pupitre${outside > 1 ? 's' : ''} hors de sa tessiture.` } : { kind: 'ok', text: 'Toutes les parties sont dans la tessiture de leur instrument.' });
+    return { lines, items };
+  }
+
+  /**
+   * Articulations choisies par le passage (art, js/film.js) :
+   *  - trem : les violons passent en trémolo (le pupitre vlt reprend leurs notes, les violons legato se taisent) ;
+   *  - pizz : les violons passent en pizzicato, une attaque par temps ;
+   *  - motor : l'ostinato passe aux violoncelles spiccato et aux contrebasses pizzicato (accents seulement) ;
+   *  - glock : le glockenspiel double le sommet de la mélodie deux octaves au-dessus ;
+   *  - marimba : deux notes de l'accord par mesure, très douces ;
+   *  - bells : une cloche tubulaire sur la tonique au premier temps (l'impact d'une synchro forte).
+   * Les pupitres qui ne sont pas appelés se taisent.
+   */
+  function articulate(res, special, { spans, melody, art, off, vel }) {
+    const { lines, items } = res;
+    const set = (id, role, why, events = []) => (lines[id] = { role, events, lo: null, hi: null, why });
+    const take = (from, to, why, map = (e) => [e]) => {
+      const ev = [];
+      from.forEach((id) => {
+        const L = lines[id];
+        if (!L || !L.events.length) return;
+        L.events.forEach((e) => ev.push(...map(e)));
+        lines[id] = { ...L, role: 'tacet', events: [], lo: null, hi: null, why: `Remplacé par ${PART[to].label.toLowerCase()} dans ce passage.` };
+      });
+      set(to, ev.length ? lines[from.find((id) => lines[id])] ? 'harmony' : 'harmony' : 'tacet', why, ev);
+    };
+    const on = (id) => special.includes(id) && !off.includes(id);
+    const mel = melody.filter((n) => n.len > 0);
+    special.forEach((id) => set(id, 'tacet', 'N’intervient pas dans ce passage.'));
+    if (on('vlt') && art.trem) take(['vl1', 'vl2'], 'vlt', 'Trémolo : le frémissement de l’attente.');
+    else if (on('vlp') && art.pizz)
+      take(['vl1', 'vl2'], 'vlp', 'Pizzicato : léger, une attaque par temps.', (e) => {
+        const out = [];
+        for (let st = 0; st < e.len; st += 4) out.push({ step: e.step + st, len: Math.min(4, e.len - st), notes: [...e.notes], vel: e.vel });
+        return out;
+      });
+    if (art.motor) {
+      if (on('vcs') && lines.vc && lines.vc.role === 'motor') {
+        const ev = lines.vc.events;
+        lines.vc = { ...lines.vc, role: 'tacet', events: [], why: 'Remplacés par les violoncelles spiccato.' };
+        set('vcs', 'motor', 'Spiccato : l’ostinato court et nerveux.', ev);
+      }
+      if (on('cbp') && lines.cb && lines.cb.role === 'motor') {
+        const top = Math.max(...lines.cb.events.map((e) => e.vel));
+        const acc = lines.cb.events.filter((e) => e.vel >= top - 0.01);
+        set('cbp', 'motor', 'Pizzicato sur les accents 3+3+2.', acc.map((e) => ({ ...e })));
+      }
+    }
+    if (on('gl') && art.glock && mel.length) {
+      // le sommet de chaque phrase de deux mesures
+      const ph = {};
+      mel.forEach((n) => (ph[Math.floor(n.step / 32)] = !ph[Math.floor(n.step / 32)] || n.midi > ph[Math.floor(n.step / 32)].midi ? n : ph[Math.floor(n.step / 32)]));
+      const ev = Object.values(ph).map((n) => {
+        let m = n.midi + 24;
+        while (m > PART.gl.hi) m -= 12;
+        while (m < PART.gl.lo) m += 12;
+        return { step: n.step, len: Math.max(4, n.len), notes: [m], vel: vel - 0.1 };
+      });
+      set('gl', 'melody', 'Double le sommet de chaque phrase : le scintillement.', ev);
+    }
+    if (on('ma') && art.marimba) {
+      const ev = [];
+      spans.forEach((sp) => {
+        for (let st = 0; st < sp.len; st += 16) {
+          const pcs = [...new Set(sp.pcs)];
+          [pcs[0], pcs[2] ?? pcs[1]].forEach((pc, k) => {
+            if (pc === undefined) return;
+            const m = nearest(pc, 64 + k * 5, PART.ma.clo, PART.ma.chi);
+            if (m !== null) ev.push({ step: sp.step + st + 8 * k, len: 4, notes: [m], vel: vel - 0.2 });
+          });
+        }
+      });
+      set('ma', 'harmony', 'Deux notes de l’accord par mesure, très douces : une couleur boisée.', ev);
+    }
+    if (on('bl') && art.bells && spans.length) {
+      const m = nearest(spans[0].bassPc ?? spans[0].pcs[0], 67, PART.bl.lo, PART.bl.hi);
+      if (m !== null) set('bl', 'accent', 'Une cloche sur l’impact : elle signe l’arrivée.', [{ step: 0, len: 16, notes: [m], vel: Math.min(1, vel + 0.1) }]);
+    }
+    special.forEach((id) => {
+      const L = lines[id];
+      const ns = L.events.flatMap((e) => e.notes);
+      if (ns.length) {
+        L.lo = Math.min(...ns);
+        L.hi = Math.max(...ns);
+      } else L.role = 'tacet';
+    });
     return { lines, items };
   }
 

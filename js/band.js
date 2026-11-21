@@ -1142,7 +1142,7 @@ SS.band = (() => {
   }
 
   /* ---------- 05 Orchestre (musique de film) : l'effectif par couleur, qui porte le thème, les percussions sur les repères ---------- */
-  const PERC_FR = { lt: 'timbale', mt: 'roulement de timbale', bd: 'grosse caisse', sd: 'caisse claire', cr: 'cymbale', ht: 'cymbales frappées', misc: 'tam-tam' };
+  const PERC_FR = { lt: 'timbale', mt: 'roulement de timbale', bd: 'grosse caisse', sd: 'caisse claire', cr: 'cymbale', oh: 'cymbale en crescendo', ht: 'cymbales frappées', rd: 'triangle', misc: 'tam-tam' };
   /** Résumé des percussions d'un passage : « impact : grosse caisse, cymbale, timbale · timbale sur les temps forts ». */
   function percText(hits) {
     if (!hits) return '';
@@ -1151,6 +1151,7 @@ SS.band = (() => {
     if (hits.bd.some(([st]) => st === 0)) out.push('impact : ' + at0.join(', '));
     else if (at0.length) out.push(at0.join(', ') + ' à l’entrée');
     if (hits.mt.length) out.push('roulement avant la synchro');
+    if (hits.oh && hits.oh.length) out.push('cymbale qui culmine sur la synchro');
     if (hits.bd.some(([st]) => st % 16 === 6)) out.push('coups 3+3+2');
     const sd = hits.sd || [];
     if (sd.length > 12) out.push('roulement de caisse claire');
@@ -1185,7 +1186,7 @@ SS.band = (() => {
         'tr',
         { 'data-sec': s.id },
         h('td', { class: 'bfm-emotd', style: `--c:${s.color}` }, h('i', { class: 'bfm-dot', 'aria-hidden': 'true' }), s.name),
-        h('td', {}, (o ? LV[o.level] : LV[SS.orchestra.levelOf(FM().energyOf(s.ene))]) + (sec.motor ? ' · ostinato 3+3+2' : '') + (sec.stabs ? ' · accents cuivres' : '')),
+        h('td', {}, (o ? LV[o.level] : LV[SS.orchestra.levelOf(FM().energyOf(s.ene))]) + (sec.dyn ? ` · ${sec.dyn}` : '') + (sec.ramps && sec.ramps.some((r) => r.to > r.from) ? ' crescendo' : '') + (sec.motor ? ' · ostinato 3+3+2' : '') + (sec.stabs ? ' · accents cuivres' : '')),
         h('td', {}, theme.length ? theme.join(' + ') : 'personne (le thème se tait)'),
         h('td', { class: 'bfm-perc' }, percMu ? percText(sec.hits) : '—')
       );
@@ -1218,6 +1219,67 @@ SS.band = (() => {
       mon('mono', 'Mono', 'La sortie mélange gauche et droite : on vérifie que rien ne disparaît (télévision, téléphone)'),
       mon('low', 'Faible volume', '−20 dB : ce qu’on entend encore sous les dialogues'),
       h('span', { class: 'bfm-why' }, 'Coche « Dialogue » sur les passages où l’on parle : la musique s’efface sous les mots.'));
+  }
+
+  /* Harmonie de chaque passage (scène libre) : une technique de film, choisie d'après l'émotion, la tension et la place
+   * du passage (✓ = choix automatique), que l'on change d'un clic. Les modèles gardent leurs accords écrits. */
+  function filmHarmBlock(f, tm, tpl) {
+    const head = h('div', { class: 'bfm-h' }, 'Harmonie de chaque passage');
+    const sp = spec();
+    const key = parseKeyStr(f.key || 'D minor');
+    const names = (sec) => (sec && sec.grid ? sec.grid.map((g) => SS.harmony.gridChord(sec.key ? parseKeyStr(sec.key) : key, g.degree, g.type, g.acc || 0, g.bass || 0).name) : []);
+    const rows = tm.sections.map((s, i) => {
+      const last = i === tm.sections.length - 1;
+      // un passage aux accords écrits (repris d'un modèle) : « Accords du modèle » est le choix par défaut
+      const written = !!(s.cue.grid && s.cue.gridBars === s.bars);
+      const auto = written ? 'written' : FM().autoHarm(s, last);
+      const cur = s.cue.harm && FM().HARM[s.cue.harm] ? s.cue.harm : auto;
+      const opts = written ? [{ k: 'written', label: 'Accords du modèle', rule: 'les accords écrits pour ce passage', effect: 'tels que dans le modèle' }, ...FM().HARMONY] : FM().HARMONY;
+      const sec = sp && sp.sections[s.id];
+      const T = FM().HARM[cur] || (written && cur === 'written' ? opts[0] : null);
+      const res = S.wiz ? wizSong().res : null;
+      const sc = res && res.scenes.find((x) => x.sec === s.id);
+      return h(
+        'tr',
+        { 'data-sec': s.id },
+        h('td', { class: 'bfm-emotd', style: `--c:${s.color}` }, h('i', { class: 'bfm-dot', 'aria-hidden': 'true' }), s.name, !tpl && T ? h('span', { class: 'bfm-why' }, `${T.label} : ${T.rule} (${T.effect}).`) : null),
+        h('td', {}, tpl
+          ? null
+          : h('span', { class: 'bfm-chips bfm-harm', role: 'radiogroup', 'aria-label': `Harmonie du passage ${s.name}` }, ...opts.map((x) =>
+              h('button', { type: 'button', class: 'chip' + (x.k === cur ? ' active' : '') + (x.k === auto ? ' auto' : ''), role: 'radio', 'aria-checked': String(x.k === cur), 'data-harm': x.k, title: `${x.rule} : ${x.effect}${x.k === auto ? ' (choix automatique)' : ''}`, onclick: () => filmEdit((y) => (y.cues[i].harm = x.k === auto ? undefined : x.k)) }, x.label + (x.k === auto ? ' ✓' : ''))))),
+        h('td', { class: 'bfm-chords' }, names(sec).join(' · ')),
+        h('td', {}, sc ? h('button', { type: 'button', class: 'btn btn-small btn-icon', title: 'Écouter ce passage en boucle', 'aria-label': `Écouter ${s.name}`, onclick: () => listenScene(sc.id) }, L.mode === 'scene' && L.scene === sc.id ? '■' : '▶') : null)
+      );
+    });
+    return [
+      head,
+      h('p', { class: 'bfm-why' }, tpl ? 'Les accords du modèle sont écrits pour ses repères. « Modifier les repères » ouvre ta scène, où chaque passage reçoit une technique de film.' : 'Une technique de film par passage, choisie d’après l’émotion, la tension et sa place dans la scène (✓). Clique pour en changer.'),
+      h('table', { class: 'bfm-harmt' }, h('tbody', {}, ...rows)),
+    ];
+  }
+
+  /**
+   * Pas de texte explicatif à l'écran : chaque explication (.bfm-why) devient un « ? » qui ouvre une bulle d'aide
+   * (js/help.js). Un paragraphe sous un titre de bloc rejoint le « ? » de ce titre ; une explication dans une ligne
+   * est remplacée par son « ? » sur place.
+   */
+  function filmHelpTips(box) {
+    const help = new Map();
+    box.querySelectorAll('.bfm-why').forEach((el) => {
+      const text = el.textContent.trim();
+      if (!text) return el.remove();
+      // un paragraphe sous un titre de bloc (.bfm-h) ou de sous-partie (.bfm-sub) rejoint le « ? » de ce titre
+      let head = null;
+      if (el.tagName === 'P') {
+        const cls = el.parentElement === box ? 'bfm-h' : 'bfm-sub';
+        for (let x = el.previousElementSibling; x; x = x.previousElementSibling) if (x.classList.contains(cls)) { head = x; break; }
+      }
+      if (head) {
+        help.set(head, [...(help.get(head) || []), text]);
+        el.remove();
+      } else el.replaceWith(SS.helpTip(text, ''));
+    });
+    help.forEach((texts, head) => head.append(SS.helpTip(texts.join(' '), head.textContent.replace(/^\d+\s*(·\s*)?/, '').trim())));
   }
 
   function renderFilm() {
@@ -1281,12 +1343,15 @@ SS.band = (() => {
       opts,
       head('03', 'Émotions et courbes'),
       filmCurves(tm),
-      h('p', { class: 'bfm-legend' }, h('i', { style: `background:${ENE_C}` }), ' Énergie sonore ', h('i', { class: 'dash', style: `color:${TEN_C}` }), ' Tension · la bande de couleur : l’émotion de chaque passage, qui devient une scène ; l’énergie règle la densité de l’orchestre.'),
+      h('p', { class: 'bfm-legend' }, h('i', { style: `background:${ENE_C}` }), ' Énergie sonore ', h('i', { class: 'dash', style: `color:${TEN_C}` }), ' Tension'),
+      h('p', { class: 'bfm-why' }, 'La bande de couleur : l’émotion de chaque passage, qui devient une scène ; l’énergie règle la densité de l’orchestre.'),
       h('p', { class: 'bfm-palette' }, ...FM().EMOS.map((x) => h('span', { style: `--c:${x.color}` }, h('i', { 'aria-hidden': 'true' }), x.label))),
+      ...filmHarmBlock(f, tm, tpl),
       ...filmThemeBlock(f, tm),
       ...filmOrchBlock(tm)
     ];
     $('#bandSong').replaceChildren(...kids.filter(Boolean));
+    filmHelpTips($('#bandSong'));
   }
 
   /* ---------- Porte « Créer » ou « Reprendre » ---------- */
@@ -6225,7 +6290,7 @@ SS.band = (() => {
    * SS.bandSong.build écrit chaque pupitre avec SS.orchestra.orchestrate et laisse son rapport dans sc.orch[musicien] ;
    * réglages de la scène : parts[sec].inst[musicien].orch = { level: light | mid | full, off: [pupitres coupés] }. */
   const OR = () => SS.orchestra;
-  const ORCH_ROLE_C = { melody: '#9b5cff', counter: '#13c2a3', harmony: '#4f6bff', bass: '#3fcf3f', pad: '#c9a227', arp: '#ff8fc8', motor: '#ff6a3d', stabs: '#ffb020', tacet: '#55555f' };
+  const ORCH_ROLE_C = { melody: '#9b5cff', counter: '#13c2a3', harmony: '#4f6bff', bass: '#3fcf3f', pad: '#c9a227', arp: '#ff8fc8', motor: '#ff6a3d', stabs: '#ffb020', accent: '#e8d36a', tacet: '#55555f' };
   const orchSet = (sc, T) => (partOf(sc.sec, T) || {}).orch || {};
   function orchSub(x, T) {
     if (mutedIn(x.sec, T)) return 'muet';

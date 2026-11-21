@@ -291,3 +291,87 @@ test('modèle « Les grands espaces » : 55 mesures à 80 BPM, grille et effecti
   const pr = SS.Band.STYLES.find((x) => x.id === 'film').presets.find((p) => p.id === 'espaces');
   assert.ok(pr.musicians.some((m) => m.role === 'strings') && pr.musicians.find((m) => m.role === 'perc').pieces.join() === 'bd,misc');
 });
+
+test('harmonie de film : une technique par passage, choisie d’après l’émotion, dans la tonalité de la scène', () => {
+  const H = SS.harmony;
+  const key = { tonic: 'D', mode: 'minor' };
+  const names = (g) => g.map((c) => H.gridChord(key, c.degree, c.type, c.acc || 0, c.bass || 0).name);
+  assert.deepEqual(names(F.techGrid('chrom', 'minor', 4)), ['Dm', 'E♭m', 'Em', 'Fm']);
+  assert.deepEqual(names(F.techGrid('pedal', 'minor', 4)), ['Dm', 'B♭/D', 'Gm/D', 'E♭/D']);
+  assert.deepEqual(names(F.techGrid('hero', 'minor', 4)), ['B♭', 'C', 'D', 'D'], 'le sommet reste sur la tonique majeure');
+  assert.deepEqual(names(F.techGrid('open', 'minor', 3)), ['Dm(add9)', 'B♭maj7', 'D5'], 'la fin ouverte finit en quinte à vide');
+  assert.equal(F.techGrid('susp', 'minor', 2).length, 4, 'suspension puis résolution dans chaque mesure');
+  assert.equal(F.techGrid('song', 'minor', 4), null);
+  const g8 = F.techGrid('mediant', 'minor', 8);
+  assert.ok(g8.every((c) => c.len === 32), 'deux mesures par accord dans un long passage');
+  // choix automatique dans la scène libre de départ
+  const film = F.blankScene();
+  const tm = F.timing(film);
+  assert.deepEqual(tm.sections.map((s, i) => F.harmOf(s, i === tm.sections.length - 1)), ['pedal', 'chrom', 'hero', 'open']);
+  const sp = F.spec(film);
+  assert.deepEqual(names(sp.sections.p2.grid).slice(0, 4), ['Dm', 'E♭m', 'Em', 'Fm']);
+  // un choix à la main l'emporte ; « comme une chanson » revient aux propositions de l'émotion
+  film.cues[1].harm = 'mediant';
+  assert.deepEqual(names(F.spec(film).sections.p2.grid).slice(0, 4), ['Dm', 'Fm', 'Dm', 'B♭m']);
+  film.cues[1].harm = 'song';
+  assert.deepEqual(F.spec(film).sections.p2.grid, F.gridFor('angoisse', key, tm.sections[1].bars).grid);
+  // les modèles gardent leurs accords écrits
+  assert.equal(SS.BandSongs.lumiere.sections.p1.grid[0].type, 'madd9');
+  // tonalité majeure
+  const kM = { tonic: 'C', mode: 'major' };
+  assert.deepEqual(F.techGrid('hero', 'major', 3).map((c) => H.gridChord(kM, c.degree, c.type, c.acc || 0).name), ['A♭', 'B♭', 'C']);
+});
+
+test('harmonie de film : un passage court garde la fin de la formule', () => {
+  const key = { tonic: 'D', mode: 'minor' };
+  const names = (g) => g.map((c) => SS.harmony.gridChord(key, c.degree, c.type, c.acc || 0, c.bass || 0).name);
+  assert.deepEqual(names(F.techGrid('hero', 'minor', 1)), ['D']);
+  assert.deepEqual(names(F.techGrid('hero', 'minor', 2)), ['C', 'D']);
+});
+
+test('nuances : une nuance par passage, arcs de phrase, crescendo et cymbale vers la synchro', () => {
+  const sp = SS.BandSongs.lumiere;
+  const S = sp.sections;
+  assert.equal(S.p1.dyn, 'pp');
+  assert.equal(S.p4.dyn, 'ff');
+  assert.ok(S.p1.orchVel < S.p4.orchVel);
+  // arc : dans une phrase, la note la plus haute est la plus forte
+  const ph = S.p4.theme.filter((e) => e.step < 32);
+  const top = ph.reduce((a, e) => (e.notes[0] > a.notes[0] ? e : a));
+  assert.equal(Math.max(...ph.map((e) => e.vel)), top.vel);
+  assert.ok(Math.min(...S.p1.theme.map((e) => e.vel)) < Math.max(...S.p4.theme.map((e) => e.vel)), 'pp plus doux que ff');
+  // crescendo sur les deux mesures avant la synchro, respiration après
+  assert.deepEqual(S.p3.ramps, [{ a: 32, b: 64, from: 0.85, to: 1.2 }]);
+  assert.ok(S.p4.ramps && S.p4.ramps[0].to < 1);
+  // cymbale en crescendo de 4 s : à 80 BPM, 21 doubles croches avant la synchro
+  assert.deepEqual(S.p3.hits.oh, [[64 - 21, 0.8]]);
+  assert.equal(SS.Band.pieceOpts('orchperc', 'oh').label, 'Cymbale (crescendo)');
+  // la construction applique la rampe : les dernières notes du passage d'avant la synchro sont plus fortes
+  const O = SS.orchestra;
+  const tracks = [{ id: 'lead', type: 'instrument', band: { key: 'lead' } }];
+  const s = SS.bandSong.build(sp, 'lumiere', tracks);
+  const flat = JSON.parse(JSON.stringify(sp));
+  delete flat.sections.p3.ramps;
+  const f = SS.bandSong.build(flat, 'lumiere', [{ id: 'lead', type: 'instrument', band: { key: 'lead' } }]);
+  const ev = s.scenes.find((x) => x.sec === 'p3').data.lead.events;
+  const evf = f.scenes.find((x) => x.sec === 'p3').data.lead.events;
+  const k = ev.findIndex((e) => e.step >= 56);
+  assert.ok(k >= 0 && ev[k].vel > evf[k].vel, 'crescendo appliqué au thème');
+});
+
+test('articulations choisies par l’émotion, et triangle', () => {
+  const film = F.blankScene();
+  const sp = F.spec(film);
+  const tm = F.timing(film);
+  tm.sections.forEach((s) => {
+    const a = sp.sections[s.id].art;
+    if (s.emo === 'emerveillement') assert.ok(a.glock);
+    if (s.sync && ['heroisme', 'emerveillement', 'espoir'].includes(s.emo)) assert.ok(a.bells, s.id);
+  });
+  film.cues[0].emo = 'emerveillement';
+  const s2 = F.spec(film).sections.p1;
+  assert.ok(s2.art.glock && s2.hits.rd.length, 'glockenspiel et triangle dans l’émerveillement');
+  assert.equal(SS.Band.pieceOpts('orchperc', 'rd').label, 'Triangle');
+  film.cues[0].art = { glock: false };
+  assert.equal(F.spec(film).sections.p1.art.glock, false, 'un réglage du repère l’emporte');
+});

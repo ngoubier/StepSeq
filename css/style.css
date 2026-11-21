@@ -4224,6 +4224,15 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 #bandDialog .bfm-sub { margin-top: 6px; font-size: 12px; font-weight: 600; color: var(--bw-text); }
 #bandDialog .bfm-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 #bandDialog .bfm-row .bh-lbl { width: 100px; flex: none; }
+/* Harmonie de chaque passage */
+#bandDialog .bfm-harmt { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+#bandDialog .bfm-harmt td { padding: 6px 8px 6px 0; border-bottom: 1px solid var(--line, #3e3e44); vertical-align: top; }
+#bandDialog .bfm-harmt .bfm-emotd { white-space: nowrap; width: 1%; }
+#bandDialog .bfm-harm { display: flex; flex-wrap: wrap; gap: 4px; }
+#bandDialog .bfm-harm .chip { padding: 3px 8px; font-size: 12px; }
+#bandDialog .bfm-harm .chip.auto:not(.active) { border-color: #2f7a4f; }
+#bandDialog .bfm-chords { font-weight: 600; min-width: 170px; }
+#bandDialog .bfm-chords small { display: block; font-weight: 400; color: var(--bw-muted); margin-top: 2px; }
 /* Écoutes de contrôle (mix à l'image) */
 #bandDialog .bfm-mon .bfm-why { margin: 0; }
 #bandDialog .bfm-mon .bh-lbl { width: auto; margin-right: 4px; }

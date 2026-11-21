@@ -141,6 +141,18 @@ const shot = async (page, name) => SHOTS && page.screenshot({ path: path.join(SH
   await page.locator('#bandSong').scrollIntoViewIfNeeded();
   await shot(page, 'film-scene.png');
 
+  // harmonie de film : une technique par passage, choisie automatiquement, que l'on change
+  ok((await page.locator('.bfm-harmt tr').count()) === 6, 'une ligne d’harmonie par passage');
+  ok(/Accords du modèle ✓/.test(await page.textContent('.bfm-harmt tr[data-sec="p1"]')), 'passage repris du modèle : ses accords écrits');
+  ok(/♭VI – ♭VII – I ✓/.test(await page.textContent('.bfm-harmt tr[data-sec="p6"]')), 'nouveau passage héroïque : ♭VI–♭VII–I automatique');
+  await page.click('.bfm-harmt tr[data-sec="p2"] [data-harm="mediant"]');
+  await page.waitForTimeout(300);
+  const after = await page.textContent('.bfm-harmt tr[data-sec="p2"] .bfm-chords');
+  ok(/^Dm · Fm · Dm · B♭m/.test(after), `médiantes choisies pour la réplique : ${after.split('accords')[0]}`);
+  ok((await page.getAttribute('.bfm-harmt tr[data-sec="p2"] [data-harm="mediant"]', 'aria-checked')) === 'true', 'technique choisie retenue');
+  await page.locator('.bfm-harmt').scrollIntoViewIfNeeded();
+  await shot(page, 'film-harmonie.png');
+
   // 04 Thème et mélodie : un motif, ses trois propositions, le leitmotiv
   await page.click('#bfmThemeNew');
   await page.waitForTimeout(300);

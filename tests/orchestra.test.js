@@ -25,7 +25,7 @@ const inRange = (id, l) => notesOf(l).every((m) => m >= O.PART[id].lo && m <= O.
 
 test('effectifs : chaque pupitre existe, avec un son du catalogue et une zone confortable dans sa tessiture', () => {
   for (const e of O.ENSEMBLES) for (const id of e.parts) assert.ok(O.PART[id], `${e.id} : ${id}`);
-  for (const p of O.PARTS) assert.ok(/^(gm|vsco)_/.test(p.tok) && p.lo <= p.clo && p.clo < p.chi && p.chi <= p.hi, p.id);
+  for (const p of O.PARTS) assert.ok(/^(gm|vsco|vcsl)_/.test(p.tok) && p.lo <= p.clo && p.clo < p.chi && p.chi <= p.hi, p.id);
   assert.deepEqual(['light', 'mid', 'full'].map((x) => x), O.LEVELS.map((l) => l.id));
   assert.equal(O.levelOf(0.8), 'light');
   assert.equal(O.levelOf(0.88), 'mid');
@@ -75,4 +75,26 @@ test('hybride : la nappe joue l’accord entier ; sans contrebasses, le pupitre 
   assert.equal(lines.vc.role, 'bass');
   const same = O.orchestrate({ parts: ['vl1', 'cb'], spans: [{ step: 0, len: 16, pcs: [9, 0, 4] }, { step: 16, len: 16, pcs: [9, 0, 4] }], level: 'mid' });
   assert.deepEqual(same.lines.cb.events.map((e) => [e.step, e.len]), [[0, 32]], 'même accord : la note est tenue');
+});
+
+test('articulations : trémolo, pizzicato, spiccato au moteur, claviers d’orchestre, et silence sans demande', () => {
+  const parts = O.ENS.romantique.parts;
+  const plain = O.orchestrate({ parts, spans: SPANS, melody: MEL, level: 'mid' });
+  for (const id of ['vlt', 'vlp', 'gl', 'ma', 'bl']) assert.equal(plain.lines[id].role, 'tacet', id + ' se tait sans demande');
+  // trémolo : les violons passent au pupitre trémolo, les mêmes notes
+  const tr = O.orchestrate({ parts, spans: SPANS, melody: MEL, level: 'mid', art: { trem: true } });
+  assert.equal(tr.lines.vl1.role, 'tacet');
+  assert.deepEqual(notesOf(tr.lines.vlt).sort(), notesOf(plain.lines.vl1).concat(notesOf(plain.lines.vl2)).sort());
+  // pizzicato : une attaque par temps
+  const pz = O.orchestrate({ parts, spans: SPANS, melody: MEL, level: 'mid', art: { pizz: true } });
+  assert.ok(pz.lines.vlp.events.length && pz.lines.vlp.events.every((e) => e.step % 4 === 0 && e.len <= 4));
+  // claviers : glockenspiel deux octaves au-dessus du sommet, marimba, une cloche sur l'impact
+  const kb = O.orchestrate({ parts, spans: SPANS, melody: MEL, level: 'mid', art: { glock: true, marimba: true, bells: true } });
+  assert.ok(kb.lines.gl.events.length && inRange('gl', kb.lines.gl));
+  assert.ok(kb.lines.ma.events.length && inRange('ma', kb.lines.ma));
+  assert.deepEqual(kb.lines.bl.events.map((e) => e.step), [0]);
+  // moteur : spiccato aux violoncelles
+  const ep = O.orchestrate({ parts: O.ENS.epique.parts, spans: SPANS, melody: MEL, level: 'full', motor: true, art: { motor: true } });
+  assert.equal(ep.lines.vcs.role, 'motor');
+  assert.ok(ep.lines.vcs.events.length);
 });
