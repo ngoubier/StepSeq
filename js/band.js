@@ -6217,6 +6217,7 @@ SS.band = (() => {
     ['stabs', 'Stabs', 'Accords courts, syncopés', [[0, 2, 1], [3, 2, 1], [6, 2, 1], [10, 2, 1], [12, 2, 1]]],
     ['house', 'House', 'Accords de la house, sur les contretemps', [[0, 2, 1], [3, 2, 1], [6, 1, 1], [8, 2, 1], [11, 2, 1], [14, 2, 1]]],
     ['chop', 'Hachée', 'Petits accords sur les contretemps', [2, 6, 10, 14].map((s) => [s, 1, 1])],
+    ['skank', 'Skank', 'Accord court sur 2 et 4 : piano reggae', [[4, 1, 1], [12, 1, 1]]],
     ['bubble', 'Bubble', 'Orgue reggae : deux petits accords par temps, « et-a »', [2, 3, 6, 7, 10, 11, 14, 15].map((s) => [s, 1, 1])],
     ['pluck', 'Pincée', 'Les notes de l’accord, en croches', every(2, 2, (i) => [0, 1, 2][i % 3])],
   ];
@@ -6791,7 +6792,7 @@ SS.band = (() => {
   }
   /** Réglage du groove de la chanson : swing des doubles-croches et humanisation (project.groove, valable pour toute la chanson). */
   // swing par défaut : celui du style (styles de nov. 2026 : hip-hop, soul, funk…), sinon droit
-  const grooveVals = () => ({ swing: (style() && style().swing) || 0, human: 15, ...((S.wiz && S.wiz.groove) || {}) });
+  const grooveVals = () => ({ swing: (preset() && preset().swing != null ? preset().swing : style() && style().swing) || 0, human: 15, ...((S.wiz && S.wiz.groove) || {}) });
   function grooveOf() {
     const g = grooveVals();
     return { res: g.swing > 0 ? 16 : 0, swing: 0.5 + (0.25 * g.swing) / 100, human: g.human / 100 };

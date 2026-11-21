@@ -515,7 +515,8 @@ SS.bandSong = (() => {
     soul: { bd: 'x-----x-x-------', bk: '----x-------x---', hh: 'x-o-x-o-x-o-x-o-', oh: '------------o---', sh: '.o.o.o.o.o.o.o.o', tb: 'x---x---x---x---', rim: '----o-------o---', tom: '------------o-o-' },
     // reggae roots, one drop : rien sur le 1, grosse caisse et cross-stick ensemble sur le 3 ; charleston appuyé sur les temps,
     // doubles fantômes ; tambourin sur 2 et 4 avec le skank ; by : motif propre à un son (tambour nyabinghi en battement de cœur)
-    onedrop: { bd: '--------x-------', bk: '--------o-------', hh: 'x-o.x-o-x-o.x-o-', oh: '--------------o-', sh: '..o...o...o...o.', tb: '----x-------x---', rim: '--------x-------', tom: '----------o-oo-o', by: { perc: 'x--.---ox--.---o' } },
+    // (charleston : rien sur le 1 non plus, croches swinguées, une double fantôme ; charleston ouvert sur le dernier « et »)
+    onedrop: { bd: '--------x-------', bk: '--------o-------', hh: '--o-x-o.x-o-x-o-', oh: '--------------o-', sh: '..o...o...o...o.', tb: '----o-------o---', rim: '--------x-------', tom: '----------o-oo-o', by: { perc: 'x--.---ox--.---o' } },
   };
   const LEVEL = { x: 1, o: 0.72, '.': 0.45, r: 0.72 }; // r : roulement (trois coups dans le pas, motifs de js/drum-patterns.js)
   const kind = (sound) => {
@@ -1072,6 +1073,8 @@ SS.bandSong = (() => {
     chop: [[2, 1], [6, 1], [10, 1], [14, 1]],
     // orgue « bubble » du reggae : deux petits accords par temps, le « et » appuyé, le « a » qui rebondit plus doux
     bubble: [[2, 1, 0.7], [3, 1, 0.44], [6, 1, 0.7], [7, 1, 0.44], [10, 1, 0.7], [11, 1, 0.44], [14, 1, 0.7], [15, 1, 0.44]],
+    // piano du reggae : un accord court sur 2 et 4, avec la guitare
+    skank: [[4, 1, 0.72], [12, 1, 0.72]],
   };
   function chordEvents(spans, mode, r, { lo = 55, hi = 79, open = false } = {}) {
     const ev = [];
@@ -1922,7 +1925,7 @@ SS.bandSong = (() => {
           if (kd === 'bass') {
             const kp = H().scale(k).map((d) => d.pc);
             const ped = o && { tonic: kp[0], fifth: pcOf(kp[0] + 7) }[o.pedal];
-            events = bassEvents(spans, mode, r, kp, o ? { pedalPc: ped ?? null, approach: o.approach !== false, shift: o.register === 'mid' ? 12 : 0 } : undefined);
+            events = bassEvents(spans, mode, r, kp, { pedalPc: (o && ped) ?? null, approach: !o || o.approach !== false, shift: (o && o.register === 'mid' ? 12 : 0) + (spec.bassShift || 0) });
           } else if (kd === 'arp') events = arpEvents(spans, mode, r);
           else if (kd === 'chords' && /^g:/.test(mode) && SS.GuitarArp) events = arpOneEvents(spans, { guitar: { on: true, motif: mode.slice(2) } }, bars);
           else if (kd === 'chords') events = chordEvents(spans, mode, r, { lo: 53, hi: 76, open: !!(o && o.voicing === 'open') });
@@ -1945,7 +1948,7 @@ SS.bandSong = (() => {
           if (role === 'bass') {
             const kp = H().scale(k).map((d) => d.pc);
             const ped = o && { tonic: kp[0], fifth: pcOf(kp[0] + 7) }[o.pedal];
-            events = bassEvents(spans, mode, r, kp, o ? { pedalPc: ped ?? null, approach: o.approach !== false, shift: o.register === 'mid' ? 12 : 0 } : undefined);
+            events = bassEvents(spans, mode, r, kp, { pedalPc: (o && ped) ?? null, approach: !o || o.approach !== false, shift: (o && o.register === 'mid' ? 12 : 0) + (spec.bassShift || 0) });
           }
           else if (role === 'fx') events = fxEvents(spans, mode, k, bars);
           else if (role === 'arp') events = arpEvents(spans, mode, r);
@@ -2159,7 +2162,8 @@ SS.bandSong = (() => {
     tumbao: [[6, 6, 7, 0.86], [12, 4, 'n', 0.9]],
     onedrop: [[2, 2, 0, 0.82], [4, 2, 0, 0.76], [6, 2, 't', 0.74], [8, 4, 7, 0.86], [14, 2, 12, 0.72]],
     // reggae roots : fondamentale ronde et tenue, note fantôme, tierce et quinte qui chantent, approche de l'accord suivant
-    roots: [[0, 4, 0, 0.9], [5, 1, 0, 0.38], [6, 2, 't', 0.74], [8, 3, 7, 0.84], [11, 1, 7, 0.4], [12, 2, 12, 0.7], [14, 2, 'a', 0.78]],
+    // (posée sur le 1 et le 2, quinte sous la fondamentale, notes courtes comme étouffées de la paume, silences)
+    roots: [[0, 3, 0, 0.92], [3, 1, 0, 0.36], [4, 2, -5, 0.8], [6, 1, 0, 0.74], [8, 2, 't', 0.78], [10, 2, 7, 0.82], [13, 1, 7, 0.38], [14, 2, 'a', 0.76]],
     bossa: [[0, 6, 0, 0.88], [6, 2, 7, 0.72], [8, 6, 7, 0.82], [14, 2, 0, 0.72]],
     afro: [[0, 3, 0, 0.9], [6, 2, 0, 0.72], [9, 1, 0, 0.38], [10, 2, 12, 0.76], [12, 3, 0, 0.84], [15, 1, 12, 0.4]],
     acid: [[0, 1, 0, 0.95], [1, 1, 0, 0.6], [2, 1, 12, 0.85], [3, 1, 0, 0.6], [5, 1, 0, 0.75], [6, 1, 's', 0.8], [7, 1, 12, 0.7], [8, 1, 0, 0.92], [10, 1, 0, 0.65], [11, 1, 7, 0.8], [12, 1, 12, 0.88], [13, 1, 0, 0.6], [14, 1, 0, 0.75], [15, 1, 't', 0.7]],
