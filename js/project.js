@@ -204,8 +204,20 @@ SS.cleanDrumConds = (t) => {
   }
   if (Object.keys(out).length) t.cond = out;
   else delete t.cond;
+  // micro-décalages des pas (track.shf[pas], fraction de pas, comme ev.shift) : seulement sur un pas joué
+  const sh = {};
+  if (t.shf && typeof t.shf === 'object') {
+    for (const [k, v] of Object.entries(t.shf)) {
+      const s = +k, x = Math.round(Math.max(-SS.SHIFT_MAX, Math.min(SS.SHIFT_MAX, +v)) * 100) / 100;
+      if (Number.isInteger(s) && s >= 0 && t.steps[s] > 0 && x) sh[s] = x;
+    }
+  }
+  if (Object.keys(sh).length) t.shf = sh;
+  else delete t.shf;
   return t;
 };
+/** Micro-décalage d'un pas de batterie (fraction de pas, 0 = sur la grille) : batterie importée d'un MIDI swingué. */
+SS.drumShift = (t, s) => (t.steps[s] > 0 && t.shf && t.shf[s]) || 0;
 /** Condition d'un pas de batterie (null = toujours). */
 SS.drumCond = (t, s) => (t.steps[s] > 0 && t.cond && t.cond[s]) || null;
 /** Pose (ou enlève, c = null) la condition d'un pas de batterie. */
@@ -768,6 +780,7 @@ SS.normalizeProject = (data) => {
       track.steps = Array.isArray(t.steps) ? t.steps.map(Number) : [];
       track.rat = t.rat;
       track.cond = t.cond;
+      track.shf = t.shf;
       SS.cleanDrumConds(SS.cleanDrumRatchets(track));
       if (!SS.DRUM_LIBS.some((l) => l.id === t.source)) track.source = 'tdm';
     } else {
@@ -995,6 +1008,7 @@ SS.snapshotTracks = (p) => {
       data[t.id] = { steps: [...t.steps] };
       if (t.rat) data[t.id].rat = { ...t.rat };
       if (t.cond) data[t.id].cond = { ...t.cond };
+      if (t.shf) data[t.id].shf = { ...t.shf };
     } else data[t.id] = { events: t.events.map((e) => ({ ...e, notes: [...e.notes] })) };
     SS.cleanAuto(t);
     if (t.auto) data[t.id].auto = SS.copyAuto(t.auto);
@@ -1059,6 +1073,7 @@ SS.loadScene = (p, id, { commit = true } = {}) => {
       t.steps = d && d.steps ? [...d.steps] : new Array(n).fill(0);
       t.rat = d && d.rat ? { ...d.rat } : undefined;
       t.cond = d && d.cond ? { ...d.cond } : undefined;
+      t.shf = d && d.shf ? { ...d.shf } : undefined;
       SS.cleanDrumConds(SS.cleanDrumRatchets(t));
     }
     else t.events = d && d.events ? d.events.map((e) => ({ ...e, notes: [...e.notes] })) : [];

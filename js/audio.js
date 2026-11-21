@@ -2188,7 +2188,7 @@ SS.audio = (() => {
       if (track.type === 'drum') {
         const v = track.steps[step];
         if (v > 0 && SS.trigOk(SS.drumCond(track, step), { ...at, step })) {
-          const tt = time + jt();
+          const tt = time + jt() + SS.drumShift(track, step) * sd; // micro-décalage du pas (batterie importée swinguée)
           // ratchet : le coup est rejoué à intervalles égaux dans la durée du pas, un peu moins fort
           const r = SS.drumRatchet(track, step);
           const bv = baVel(sceneStep);
