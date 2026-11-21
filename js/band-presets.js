@@ -967,24 +967,24 @@ window.SS = window.SS || {};
   ];
 
   // Effets et Percussionniste : facultatifs dans toutes les inspirations (l'étape « Effets et transitions » de l'assistant
-  // peut les ajouter au groupe) ; jamais dans le groupe par défaut, donc sans effet sur les chansons existantes
-  STYLES.forEach((st) =>
-    st.presets.forEach((p) => {
-      if (!p.musicians.some((x) => x.role === 'fx')) p.musicians.push(m('fx', FX, { optional: true, injected: true, note: 'Montées, impacts et descentes entre les scènes' }));
-      if (!p.musicians.some((x) => x.role === 'perc')) p.musicians.push(kit('perc', 'sh perc misc', KPERC, { optional: true, injected: true }));
-    })
-  );
-
-  // identifiants des musiciens : rôle (+ numéro si le rôle revient)
-  STYLES.forEach((st) =>
-    st.presets.forEach((p) => {
-      const seen = {};
-      p.musicians.forEach((mu) => {
-        seen[mu.role] = (seen[mu.role] || 0) + 1;
-        mu.id = mu.role + (seen[mu.role] > 1 ? seen[mu.role] : '');
-      });
-    })
-  );
+  // peut les ajouter au groupe) ; jamais dans le groupe par défaut, donc sans effet sur les chansons existantes.
+  // Identifiants des musiciens : rôle (+ numéro si le rôle revient).
+  function prep(p) {
+    if (!p.musicians.some((x) => x.role === 'fx')) p.musicians.push(m('fx', FX, { optional: true, injected: true, note: 'Montées, impacts et descentes entre les scènes' }));
+    if (!p.musicians.some((x) => x.role === 'perc')) p.musicians.push(kit('perc', 'sh perc misc', KPERC, { optional: true, injected: true }));
+    const seen = {};
+    p.musicians.forEach((mu) => {
+      seen[mu.role] = (seen[mu.role] || 0) + 1;
+      mu.id = mu.role + (seen[mu.role] > 1 ? seen[mu.role] : '');
+    });
+  }
+  STYLES.forEach((st) => st.presets.forEach(prep));
+  /** Ajoute un style défini ailleurs (« Musique de film », js/film.js) : mêmes musiciens facultatifs, mêmes identifiants. */
+  function addStyle(st) {
+    if (STYLES.some((x) => x.id === st.id)) return;
+    st.presets.forEach(prep);
+    STYLES.push(st);
+  }
 
   /* ---------- Résolution ---------- */
   const drumLabel = (sound) => (SS.DRUM_TYPES.find((t) => t.id === sound) || { label: sound }).label;
@@ -1069,5 +1069,5 @@ window.SS = window.SS || {};
     return { name: inst.label, kind: 'Instrument', detail: `${cat} · ${family.label}` };
   }
 
-  SS.Band = { ROLES, STAGE_ROWS, KITS, FALLBACK_KITS, EXTRA_PIECES, STYLES, pieceOpts, choiceOpts, describe, kitHas, drumLabel, kitOfTrack, kitLabelOf };
+  SS.Band = { ROLES, STAGE_ROWS, KITS, FALLBACK_KITS, EXTRA_PIECES, STYLES, addStyle, mu: m, pieceOpts, choiceOpts, describe, kitHas, drumLabel, kitOfTrack, kitLabelOf };
 })();

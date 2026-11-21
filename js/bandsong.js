@@ -1831,8 +1831,9 @@ SS.bandSong = (() => {
       const pp = (parts && parts[id]) || null; // réglages de cette scène
       const muted = (pp && pp.off) || [];
       const dp0 = pp && pp.drums;
-      // mélodie imposée (parts[section].lead) : portée par la première piste chantante, dans l'ordre lead, vox, sax
-      const ownLead = pp && pp.lead && Array.isArray(pp.lead.events) ? pp.lead.events : null;
+      // mélodie imposée (parts[section].lead) : portée par la première piste chantante, dans l'ordre lead, vox, sax ;
+      // sinon le thème écrit dans le plan (sec.theme : modèle de musique de film, js/film.js)
+      const ownLead = pp && pp.lead && Array.isArray(pp.lead.events) ? pp.lead.events : Array.isArray(sec.theme) && sec.theme.length ? sec.theme : null;
       const leadTrack = ownLead ? primaryMel : null;
       const doubles = []; // instruments mélodiques qui doublent le premier (inst.double)
       // pièces du kit (hors percussionniste) : la caisse claire, sinon le clap, joue le roulement de la montée

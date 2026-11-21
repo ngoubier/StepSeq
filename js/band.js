@@ -105,6 +105,20 @@ SS.band = (() => {
   const preset = () => (style() || { presets: [] }).presets.find((p) => p.id === S.presetId);
   /** Départ « Créer de zéro » (style blank de js/band-presets.js) : pas d'inspiration à montrer. */
   const blank = () => !cover() && !tplStyle() && !!(style() && style().blank);
+  /* Musique de film (style film, js/film.js) : la chanson part des repères de l'image. Le modèle « La lumière revient »
+   * est figé (accords et thème écrits) ; la scène libre (S.film) se modifie repère par repère. */
+  const film = () => !cover() && !tplStyle() && !!(style() && style().film);
+  const FM = () => SS.film;
+  const filmTpl = () => !!preset() && preset().id === 'lumiere';
+  /** La scène de film de l'inspiration en cours : le modèle, ou la scène libre (créée au premier besoin). */
+  const filmOf = () => (filmTpl() ? FM().LUMIERE : (S.film = S.film || FM().blankScene()));
+  let filmMemo = { sig: null, val: null };
+  /** Plan de la scène libre (js/band-songs.js), recalculé quand un repère change. */
+  function filmSpec() {
+    const sig = JSON.stringify(filmOf());
+    if (filmMemo.sig !== sig) filmMemo = { sig, val: FM().spec(filmOf()) };
+    return filmMemo.val;
+  }
   const BG = () => SS.bandGroup;
   const roleOf = (mu) => B().ROLES[mu.role];
   const labelOf = (mu) => mu.name || mu.label || roleOf(mu).label;
@@ -595,6 +609,42 @@ SS.band = (() => {
     synthwave: ['#1b0b2e', '#3a0d4a'], edm: ['#06121f', '#0a2a4a'], ambient: ['#0d1a1a', '#173a3a'], techno: ['#0b0c0f', '#232830'], cinematic: ['#07090f', '#1d1a14'],
     zero: ['#101216', '#1a1e26'], pop: ['#1c0d0d', '#3a1717'], funk: ['#1d1406', '#3a2a08'], hiphop: ['#0f140a', '#232f16'], dnb: ['#170812', '#2e0f24'], latin: ['#1f1006', '#3d2010'], soul: ['#170f0a', '#33221a'],
   };
+  ART_BG.film = ['#0b0b10', '#1f1a12'];
+  /** Tuile 🎬 : une pellicule (perforations), des repères sur une frise et la courbe de tension qui monte vers la synchro. */
+  ART.film = (g, w, h) => {
+    g.fillStyle = 'rgba(0, 0, 0, 0.55)';
+    g.fillRect(0, 18, w, 22);
+    g.fillRect(0, h - 40, w, 22);
+    g.fillStyle = 'rgba(255, 236, 200, 0.22)';
+    for (let x = 6; x < w; x += 22) {
+      g.fillRect(x, 24, 11, 10);
+      g.fillRect(x, h - 34, 11, 10);
+    }
+    const y0 = h / 2 + 34;
+    g.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+    g.lineWidth = 1;
+    g.beginPath();
+    g.moveTo(16, y0);
+    g.lineTo(w - 16, y0);
+    g.stroke();
+    const cues = [0.08, 0.3, 0.52, 0.72, 0.88];
+    cues.forEach((c, i) => {
+      g.strokeStyle = i === 3 ? '#ffd75e' : 'rgba(255, 255, 255, 0.35)';
+      g.lineWidth = i === 3 ? 3 : 1.5;
+      g.beginPath();
+      g.moveTo(w * c, y0 - 70);
+      g.lineTo(w * c, y0 + 6);
+      g.stroke();
+    });
+    g.strokeStyle = '#ff7a59';
+    g.lineWidth = 3;
+    g.beginPath();
+    g.moveTo(w * 0.08, y0 - 18);
+    g.bezierCurveTo(w * 0.4, y0 - 24, w * 0.6, y0 - 66, w * 0.72, y0 - 70);
+    g.lineTo(w * 0.74, y0 - 12);
+    g.lineTo(w * 0.95, y0 - 8);
+    g.stroke();
+  };
   function drawArt(cv) {
     const id = cv.dataset.art;
     const cw = cv.clientWidth;
@@ -630,10 +680,12 @@ SS.band = (() => {
     const box = $('#bandStyles');
     if (artObserver) artObserver.disconnect();
     // « Créer de zéro » en premier : c'est une porte d'entrée, pas un style parmi d'autres
-    const styles = [...B().STYLES.filter((s) => s.blank), ...B().STYLES.filter((s) => !s.blank)];
+    // puis la tuile 🎬 « Musique de film », qui n'existe qu'en « Créer » (une reprise part d'une grille, pas d'une image)
+    const styles = [...B().STYLES.filter((s) => s.blank), ...(cover() ? [] : B().STYLES.filter((s) => s.film)), ...B().STYLES.filter((s) => !s.blank && !s.film)];
     box.replaceChildren(
       ...styles.map((s) => {
         if (s.blank) return blankCard(s);
+        if (s.film) return filmCard(s);
         const [lo, hi] = styleTempo(s);
         const on = s.id === S.styleId && !tplStyle();
         const cv = h('canvas', { class: 'bsty-art', 'data-art': s.id, 'aria-hidden': 'true' });
@@ -664,7 +716,8 @@ SS.band = (() => {
     $('#bandStyleDesc').textContent = (st || {}).desc || '';
     el.classList.toggle('tpl', !!tplStyle());
     el.classList.toggle('blank', blank());
-    if (!cover()) $('#bandPresetsLabel').textContent = blank() ? 'Départ' : 'Type de chanson';
+    el.classList.toggle('film', film());
+    if (!cover()) $('#bandPresetsLabel').textContent = blank() || film() ? 'Départ' : 'Type de chanson';
     renderStyleCard();
   }
   /** Tuile « Créer de zéro » : pas d'inspiration, un départ neutre que l'on remplace étape par étape. */
@@ -689,6 +742,31 @@ SS.band = (() => {
           h('dt', {}, 'Groupe'), h('dd', {}, p.musicians.filter((m) => !m.optional).map(labelOf).join(', ')),
           h('dt', {}, 'Structure'), h('dd', { class: 'clamp' }, styleForm(s)),
           h('dt', {}, 'Ensuite'), h('dd', {}, 'Tout se change à chaque étape')
+        )
+      )
+    );
+  }
+  /** Tuile 🎬 « Musique de film » : la musique part des repères de l'image (js/film.js). */
+  function filmCard(s) {
+    const on = s.id === S.styleId && !tplStyle();
+    const cv = h('canvas', { class: 'bsty-art', 'data-art': 'film', 'aria-hidden': 'true' });
+    watchArt(cv);
+    return h(
+      'button',
+      { type: 'button', class: 'bsty bsty-film' + (on ? ' active' : ''), role: 'radio', 'aria-checked': String(on), 'data-v': s.id, title: 'Repères de l’image, émotions, tempo calé sur la synchro forte', onclick: () => setStyle(s.id) },
+      cv,
+      h(
+        'span',
+        { class: 'bsty-body' },
+        h('span', { class: 'bsty-name' }, '🎬 ' + s.label),
+        h('span', { class: 'bsty-desc' }, s.desc),
+        h(
+          'dl',
+          { class: 'bsty-list' },
+          h('dt', {}, 'Départ'), h('dd', {}, 'Repères (spotting) et émotions'),
+          h('dt', {}, 'Tempo'), h('dd', {}, 'Calé sur la synchro forte'),
+          h('dt', {}, 'Groupe'), h('dd', {}, 'Thème au piano, orchestre'),
+          h('dt', {}, 'Exemple'), h('dd', {}, '« La lumière revient »')
         )
       )
     );
@@ -739,6 +817,7 @@ SS.band = (() => {
     const box = $('#bandStyleCard');
     if (!st || !box) return;
     if (blank()) return box.replaceChildren(h('span', { class: 'bsc-lbl' }, 'Sans inspiration · un départ neutre, à changer étape par étape'));
+    if (film()) return box.replaceChildren(h('span', { class: 'bsc-lbl' }, 'Un modèle à écouter, ou ta scène · le tempo se cale sur l’image'));
     const [lo, hi] = styleTempo(st);
     const pos = (t) => `${(100 * (t - TEMPO_MIN)) / (TEMPO_MAX - TEMPO_MIN)}%`;
     box.replaceChildren(
@@ -785,7 +864,7 @@ SS.band = (() => {
           },
           h('span', { class: 'bp-song' }, p.song),
           h('span', { class: 'bp-artist' }, p.year ? `${p.artist} · ${p.year}` : p.artist),
-          h('span', { class: 'bp-meta' }, `${p.tempo} BPM · ${p.musicians.filter((m) => !m.optional).length} musiciens`)
+          h('span', { class: 'bp-meta' }, st.film ? filmMeta(p) : `${p.tempo} BPM · ${p.musicians.filter((m) => !m.optional).length} musiciens`)
         )
       )
     );
@@ -813,6 +892,7 @@ SS.band = (() => {
       return;
     }
     const p = preset();
+    if (film()) return renderFilm();
     if (blank()) {
       $('#bandSong').replaceChildren(
         h('div', { class: 'bs-kind' }, 'Créer de zéro'),
@@ -843,6 +923,141 @@ SS.band = (() => {
         )
       )
     );
+  }
+
+  /* ---------- Musique de film : repères, tempo calé, émotions et courbes (étape 1, style film) ----------
+   * Le modèle « La lumière revient » se lit (ses repères sont figés : ses accords et son thème sont écrits pour eux) ;
+   * « Modifier les repères » en fait une scène libre. Dans la scène libre, chaque repère ouvre un passage (une scène de
+   * la chanson) : temps, émoticône, nom, tension et énergie (1 à 5), synchro forte. Le tempo se cale sur la synchro. */
+  /** Résumé d'un départ de musique de film (liste des départs). */
+  function filmMeta(p) {
+    const f = p.id === 'lumiere' ? FM().LUMIERE : S.film || FM().blankScene();
+    const tm = FM().timing(f);
+    return `${tm.bpm} BPM · ${tm.bars} mesures · ${f.cues.length} repères`;
+  }
+  /** Un repère de la scène libre a changé : les réglages par scène repartent du nouveau plan, le tempo suit la synchro. */
+  function filmChanged() {
+    dropEdits(true);
+    if (S.wiz) S.wiz.tempo = null;
+    renderSong();
+    renderPresets();
+    refresh();
+  }
+  function filmEdit(fn) {
+    if (filmTpl()) return;
+    fn(S.film);
+    filmChanged();
+  }
+  /** Le modèle devient une scène libre (mêmes repères, accords et thème gardés là où les passages ne changent pas de longueur). */
+  function filmUnlock() {
+    S.film = FM().editable(FM().LUMIERE);
+    setPreset('scene');
+    filmChanged();
+  }
+  const TEN_C = '#ff7a59';
+  const ENE_C = '#4fb3ff';
+  /** Frise de la scène : passages, repères (émoticônes), synchro forte, mesures. */
+  function filmStrip(tm) {
+    const W = 640;
+    const x = (t) => 8 + ((t - tm.start) / Math.max(1, tm.end - tm.start)) * (W - 16);
+    const barLen = (60 * tm.beats) / tm.bpm;
+    let svg = `<rect x="8" y="30" width="${W - 16}" height="26" rx="4" fill="var(--bw-panel2)"/>`;
+    tm.sections.forEach((s, i) => {
+      const x0 = x(tm.start + s.startBar * barLen);
+      const x1 = x(tm.start + (s.startBar + s.bars) * barLen);
+      const a = 0.18 + 0.14 * s.ene;
+      svg += `<rect x="${x0.toFixed(1)}" y="30" width="${Math.max(1, x1 - x0 - 1).toFixed(1)}" height="26" rx="3" fill="${ENE_C}" opacity="${a.toFixed(2)}"/>`;
+      svg += `<text x="${(x0 + 4).toFixed(1)}" y="47" font-size="11" fill="var(--bw-text)">${i + 1}</text>`;
+    });
+    for (let b = 0; b <= tm.bars; b++) {
+      const xb = x(tm.start + b * barLen);
+      if (xb > W - 8) break;
+      svg += `<line x1="${xb.toFixed(1)}" x2="${xb.toFixed(1)}" y1="56" y2="${b % 4 === 0 ? 64 : 60}" stroke="var(--bw-dim)"/>`;
+    }
+    tm.marks.forEach((m) => {
+      const xm = x(m.t);
+      svg += `<line x1="${xm.toFixed(1)}" x2="${xm.toFixed(1)}" y1="22" y2="58" stroke="${m.sync ? '#ffd75e' : 'var(--bw-muted)'}" stroke-width="${m.sync ? 2.5 : 1}"/>`;
+      svg += `<text x="${xm.toFixed(1)}" y="16" font-size="15" text-anchor="middle">${m.emo || ''}</text>`;
+    });
+    svg += `<text x="8" y="78" font-size="11" fill="var(--bw-muted)">${FM().fmt(tm.start)}</text><text x="${W - 8}" y="78" font-size="11" text-anchor="end" fill="var(--bw-muted)">${FM().fmt(tm.end)}</text>`;
+    return h('div', { class: 'bfm-strip', html: `<svg viewBox="0 0 ${W} 82" role="img" aria-label="Frise des repères">${svg}</svg>` });
+  }
+  /** Courbes de tension et d'énergie, passage par passage (elles ne vont pas toujours ensemble). */
+  function filmCurves(tm) {
+    const W = 640;
+    const H = 96;
+    const xb = (b) => 8 + (b / tm.bars) * (W - 16);
+    const y = (v) => 8 + ((5 - v) / 4) * (H - 24);
+    const path = (k) => tm.sections.map((s, i) => `${i ? 'L' : 'M'}${xb(s.startBar).toFixed(1)},${y(s[k]).toFixed(1)} L${xb(s.startBar + s.bars).toFixed(1)},${y(s[k]).toFixed(1)}`).join(' ');
+    let svg = '';
+    [1, 3, 5].forEach((v) => (svg += `<line x1="8" x2="${W - 8}" y1="${y(v)}" y2="${y(v)}" stroke="var(--bw-line)"/>`));
+    tm.sections.forEach((s) => (svg += `<text x="${(xb(s.startBar) + 3).toFixed(1)}" y="${H - 2}" font-size="12">${s.emo}</text>`));
+    svg += `<path d="${path('ten')}" fill="none" stroke="${TEN_C}" stroke-width="2.5"/><path d="${path('ene')}" fill="none" stroke="${ENE_C}" stroke-width="2.5" stroke-dasharray="6 4"/>`;
+    return h('div', { class: 'bfm-curves', html: `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Courbes de tension et d’énergie">${svg}</svg>` });
+  }
+  const lvlSel = (v, label, on) => h('select', { 'aria-label': label, onchange: (e) => on(+e.target.value), disabled: filmTpl() }, ...[1, 2, 3, 4, 5].map((n) => h('option', { value: n, selected: n === v }, String(n))));
+  function renderFilm() {
+    const f = filmOf();
+    const tpl = filmTpl();
+    const tm = FM().timing(f);
+    const key = SS.harmony.label(parseKeyStr(f.key || 'D minor'));
+    const sync = tm.marks.find((m) => m.sync);
+    const rows = tm.marks.map((m, i) => {
+      const set = (k) => (v) => filmEdit((x) => (x.cues[i][k] = v));
+      const drift = Math.abs(m.drift) >= 0.05 ? ` (${m.drift > 0 ? '+' : '−'}${Math.abs(m.drift).toFixed(2).replace('.', ',')} s)` : '';
+      return h(
+        'tr',
+        { class: m.sync ? 'sync' : '' },
+        h('td', {}, i === 0 ? h('span', { class: 'bfm-t' }, FM().fmt(m.t)) : h('input', { type: 'number', class: 'bfm-time', min: tm.start, max: tm.end, step: 0.1, value: m.t, disabled: tpl, 'aria-label': `Temps du repère ${i + 1} (secondes)`, onchange: (e) => set('t')(Math.max(tm.start, Math.min(tm.end - 0.1, +e.target.value || 0))) })),
+        h('td', {}, h('select', { class: 'bfm-emo', disabled: tpl, 'aria-label': `Émotion du repère ${i + 1}`, onchange: (e) => set('emo')(e.target.value) }, ...FM().EMOS.map((x) => h('option', { value: x.e, selected: x.e === m.emo }, `${x.e} ${x.label}`)))),
+        h('td', {}, h('input', { type: 'text', class: 'bfm-name', value: m.name || '', disabled: tpl, maxlength: 40, 'aria-label': `Nom du passage ${i + 1}`, onchange: (e) => set('name')(e.target.value.trim()) })),
+        h('td', {}, lvlSel(tm.sections[i].ten, `Tension du passage ${i + 1}`, set('ten'))),
+        h('td', {}, lvlSel(tm.sections[i].ene, `Énergie du passage ${i + 1}`, set('ene'))),
+        h('td', { class: 'bfm-c' }, h('input', { type: 'radio', name: 'bfmSync', checked: !!m.sync, disabled: tpl || i === 0, 'aria-label': `Synchro forte sur le repère ${i + 1}`, onchange: () => filmEdit((x) => x.cues.forEach((c, j) => (c.sync = j === i))) })),
+        h('td', { class: 'bfm-bar' }, `m. ${m.bar + 1}${drift}`),
+        h('td', {}, tpl || tm.marks.length <= 1 ? null : h('button', { type: 'button', class: 'btn btn-small btn-icon', title: 'Retirer ce repère', 'aria-label': `Retirer le repère ${i + 1}`, onclick: () => filmEdit((x) => x.cues.splice(i, 1)) }, '✕'))
+      );
+    });
+    const addCue = () =>
+      filmEdit((x) => {
+        const last = tm.marks[tm.marks.length - 1];
+        const t = Math.min(tm.end - 1, Math.round((last.t + (tm.end - last.t) / 2) * 10) / 10);
+        if (t > last.t) x.cues.push({ t, emo: '😬', name: '', ten: 3, ene: 3 });
+      });
+    const head = (n, t) => h('div', { class: 'bfm-h' }, h('b', {}, n), ' ', t);
+    const syncLine = sync
+      ? h('p', { class: 'bfm-why' }, `Entre l’entrée (${FM().fmt(tm.start)}) et la synchro forte (${FM().fmt(sync.t)}) : ${String(+(sync.t - tm.start).toFixed(1)).replace('.', ',')} s. BPM = 60 × noires ÷ secondes = 60 × (${sync.bar} mesures × ${tm.beats}) ÷ ${String(+(sync.t - tm.start).toFixed(1)).replace('.', ',')} = `, h('b', {}, `${(FM().tempoOf(sync.bar, sync.t - tm.start, tm.beats)).toFixed(1).replace('.', ',').replace(',0', '')} BPM`), '.')
+      : h('p', { class: 'bfm-why' }, `Pas de synchro forte : le tempo moyen des émotions (${Math.round(tm.target)} BPM). Marque un repère « synchro » pour caler la musique sur l’image.`);
+    const opts = !tpl && tm.options.length
+      ? h('div', { class: 'bfm-opts', role: 'radiogroup', 'aria-label': 'Tempo calé' }, ...tm.options.map((o) =>
+          h('button', { type: 'button', class: 'chip' + (o.bpm === tm.bpm ? ' active' : ''), role: 'radio', 'aria-checked': String(o.bpm === tm.bpm), 'data-bpm': o.bpm, title: Math.abs(o.drift) < 0.005 ? 'La synchro tombe pile' : `La synchro tombe ${Math.abs(o.drift * 1000).toFixed(0)} ms ${o.drift > 0 ? 'après' : 'avant'} l’image`, onclick: () => filmEdit((x) => (x.bpm = o.bpm)) }, `${o.bars} mesures · ${o.bpm} BPM`)))
+      : null;
+    const kids = [
+      h('div', { class: 'bs-kind' }, tpl ? '🎬 Modèle de musique de film' : '🎬 Ta scène'),
+      h('div', { class: 'bs-title' }, h('b', {}, f.title || preset().song)),
+      h('div', { class: 'bs-artist' }, `${key} · ${tm.bpm} BPM · ${tm.bars} mesures · ${FM().fmt(tm.seconds)}`),
+      h('div', { class: 'bs-desc' }, f.story || preset().desc),
+      head('01', 'Scène et repères'),
+      filmStrip(tm),
+      h('div', { class: 'bfm-io' },
+        h('label', {}, 'Entrée ', h('input', { type: 'number', id: 'bfmStart', min: 0, step: 0.1, value: tm.start, disabled: tpl, onchange: (e) => filmEdit((x) => { const v = Math.max(0, +e.target.value || 0); x.start = Math.min(v, (x.end || 30) - 1); }) }), ' s'),
+        h('label', {}, 'Fin ', h('input', { type: 'number', id: 'bfmEnd', min: 1, step: 0.1, value: tm.end, disabled: tpl, onchange: (e) => filmEdit((x) => (x.end = Math.max((x.start || 0) + 1, +e.target.value || 30))) }), ' s'),
+        tpl
+          ? h('button', { type: 'button', class: 'btn btn-small', id: 'bfmUnlock', title: 'Copie les repères du modèle dans « Ma scène », pour les déplacer et en ajouter', onclick: filmUnlock }, 'Modifier les repères')
+          : h('button', { type: 'button', class: 'btn btn-small', id: 'bfmAdd', disabled: tm.marks.length >= 12, onclick: addCue }, '+ Repère')
+      ),
+      h('table', { class: 'bfm-cues' },
+        h('thead', {}, h('tr', {}, ...['Temps', 'Émotion', 'Passage', 'Tension', 'Énergie', 'Synchro', 'Mesure', ''].map((t) => h('th', {}, t)))),
+        h('tbody', {}, ...rows)
+      ),
+      head('02', 'Tempo calé'),
+      syncLine,
+      opts,
+      head('03', 'Émotions et courbes'),
+      filmCurves(tm),
+      h('p', { class: 'bfm-legend' }, h('i', { style: `background:${TEN_C}` }), ' Tension ', h('i', { style: `background:${ENE_C}` }), ' Énergie sonore · chaque passage devient une scène, avec son émotion ; l’énergie règle la densité de l’orchestre.')
+    ];
+    $('#bandSong').replaceChildren(...kids.filter(Boolean));
   }
 
   /* ---------- Porte « Créer » ou « Reprendre » ---------- */
@@ -1978,7 +2193,7 @@ SS.band = (() => {
   const melStep = () => !!S.wiz && (insAt() || {}).kind === 'melody';
   const cover = () => S.mode === 'cover';
   /** Plan de la chanson : celui de l'inspiration, ou la reprise tapée (porte « Reprendre »), jouée à la façon de l'inspiration. */
-  const spec = () => (cover() ? coverModel().spec : preset() && SS.BandSongs && SS.BandSongs[preset().id]);
+  const spec = () => (cover() ? coverModel().spec : film() && !filmTpl() ? filmSpec() : preset() && SS.BandSongs && SS.BandSongs[preset().id]);
 
   /* ---------- Plan retouché : tonalité de la chanson, arrangement, scènes (étapes Tempo et tonalité, Scènes) ----------
    * Les retouches sont gardées à part, dans S.wiz, et le plan de l'inspiration n'est jamais modifié :
@@ -2475,7 +2690,7 @@ SS.band = (() => {
     const cols = wizCols();
     const harmony = harmonyOpts(true);
     const parts = partsEff();
-    const sig = JSON.stringify([p.id, cover() && S.cover, S.wiz.seed, melodyOpts(), harmony, JSON.stringify(parts, (k, v) => (k === 'hidden' ? undefined : v)), S.wiz.kinds, S.wiz.form, S.wiz.secs, S.wiz.skey, cols.map((c) => [c.id, c.o]), S.wiz.fx]);
+    const sig = JSON.stringify([p.id, cover() && S.cover, film() && !filmTpl() && S.film, S.wiz.seed, melodyOpts(), harmony, JSON.stringify(parts, (k, v) => (k === 'hidden' ? undefined : v)), S.wiz.kinds, S.wiz.form, S.wiz.secs, S.wiz.skey, cols.map((c) => [c.id, c.o]), S.wiz.fx]);
     if (S.wiz.sig !== sig) {
       const sp = specEff();
       const fake = cols.map((c) => ({ id: c.id, type: c.o.type, sound: c.o.sound, band: c.o.band }));
@@ -6963,7 +7178,7 @@ SS.band = (() => {
     // volumes réglés à l'étape Mélodie : appliqués au mixage automatique de la chanson créée
     // plan : celui de l'inspiration ou de la reprise, avec les retouches des étapes Tempo et tonalité et Scènes
     const eff = specEff();
-    const plan = cover() ? { ...p, spec: eff, cover: { title: S.cover.title.trim() || 'Reprise' } } : eff !== spec() ? { ...p, spec: eff } : p;
+    const plan = cover() ? { ...p, spec: eff, cover: { title: S.cover.title.trim() || 'Reprise' } } : eff !== spec() || film() ? { ...p, spec: eff } : p; // scène de film : son plan vient des repères (js/film.js)
     // tout est lu avant de quitter l'assistant (leave efface S.wiz), puis la fenêtre principale reprend la place
     // « Garder le son, refaire les notes » (sound : col → piste de la grille) : le son, le volume, le mix et les effets de la piste
     const pr = app.project();
@@ -7005,11 +7220,11 @@ SS.band = (() => {
   /** Tempo de la chanson : celui choisi dans le bandeau, sinon celui de l'inspiration (ou de la reprise). */
   function tempo() {
     const p = preset();
-    const base = cover() ? S.cover.tempo : p.tempo;
+    const base = cover() ? S.cover.tempo : film() ? FM().timing(filmOf()).bpm : p.tempo;
     return S.wiz && S.wiz.tempo && S.wiz.tempoFor === tempoKey() ? S.wiz.tempo : base;
   }
   /** Tempo de l'inspiration (ou de la reprise tapée) : celui où l'on revient. */
-  const origTempo = () => (cover() ? S.cover.tempo : preset().tempo);
+  const origTempo = () => (cover() ? S.cover.tempo : film() ? FM().timing(filmOf()).bpm : preset().tempo);
   /** soft : pendant qu'on glisse le curseur, on ne redessine pas l'étape (le curseur doit rester en main). */
   function setTempo(v, soft) {
     if (!S.wiz) return;
@@ -9266,7 +9481,7 @@ SS.band = (() => {
   function draftSrc() {
     const w = { ...S.wiz };
     if (w.melSec != null) w.melPanel = { ...w.melPanel, [w.melSec]: SS.melodyPanel.getState() };
-    return { mode: S.mode, styleId: S.styleId, presetId: S.presetId, cover: S.cover, group: group(), gridInst: S.gridInst, cache: S.cache, hide: S.hide, mel: S.mel, accOpen: S.accOpen, tracksOpen: S.tracksOpen, w };
+    return { mode: S.mode, styleId: S.styleId, presetId: S.presetId, cover: S.cover, film: S.film, group: group(), gridInst: S.gridInst, cache: S.cache, hide: S.hide, mel: S.mel, accOpen: S.accOpen, tracksOpen: S.tracksOpen, w };
   }
   /** Le brouillon (enveloppe v, savedAt, createdAt, state) de l'assistant ouvert. */
   function wizSnapshot(createdAt) {
@@ -9318,6 +9533,7 @@ SS.band = (() => {
     S.presetId = pr.id;
     S.mode = x.mode;
     S.cover = x.mode === 'cover' ? { ...COVER_DEFAULT(), ...(x.cover || {}) } : x.cover ? { ...COVER_DEFAULT(), ...x.cover } : null;
+    S.film = x.film && Array.isArray(x.film.cues) && x.film.cues.length ? x.film : null;
     // groupe : celui du brouillon ; un brouillon v1 (musiciens « dans le groupe » ou non, sans liste) est migré
     const g = BG().clean(x.group, pr) || BG().fromV1(pr, x.cache && x.cache[pr.id]);
     S.group = { ...g, style: st.id };
