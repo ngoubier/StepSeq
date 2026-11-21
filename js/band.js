@@ -9445,9 +9445,27 @@ SS.band = (() => {
       app.setWizardDraft(null);
     }
     const grid = gridInstruments(app.project());
+    if (grid.length) startStyle(app.project());
     noteWizard(`ouvert sur la chanson en cours « ${app.project().title} » [${app.project().id}]${grid.length ? ` (${grid.length} instrument${grid.length > 1 ? 's' : ''} repris de la grille)` : ''}`);
     openWizard({ fresh: false, grid });
     maybeReadGrid();
+  }
+  /**
+   * Style de départ d'un assistant ouvert sur une grille qui a des instruments : celui des pistes créées par l'assistant
+   * (band.style / band.preset), sinon aucun style imposé, le départ neutre « Créer de zéro » (style blank) ; les musiciens
+   * sont ensuite faits pour les instruments de la grille (group → BG.fromGrid).
+   */
+  function startStyle(p) {
+    const t = (p.tracks || []).find((x) => x.band && x.band.style && B().STYLES.some((s) => s.id === x.band.style));
+    const st = t ? B().STYLES.find((s) => s.id === t.band.style) : B().STYLES.find((s) => s.blank);
+    if (!st) return;
+    S.styleId = st.id;
+    S.presetId = (t && st.presets.find((x) => x.id === t.band.preset) ? t.band.preset : st.presets[0].id);
+    S.mode = 'create';
+    S.cover = null;
+    S.tplStyle = null;
+    S.film = null;
+    S.group = null;
   }
   /*
    * Instruments de la grille, pour un assistant qui part d'une chanson vide sur ce projet : une entrée par instrument
