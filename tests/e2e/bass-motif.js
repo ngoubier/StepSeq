@@ -73,7 +73,8 @@ const ok = (c, m) => {
   const box = await page.locator('.mot-menu').boundingBox();
   ok(box.width > 800 && Math.abs(box.x + box.width / 2 - 700) < 4, `panneau des motifs centré (${Math.round(box.x)} px, ${Math.round(box.width)} px de large)`);
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'motif-basse-popup.png') });
-  await page.click('.mot-menu .ctx-close');
+  await page.click('.mot-menu .mot-x');
+  ok(!(await page.$('.mot-menu')), 'la croix ferme la fenêtre des motifs');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'motif-basse-grille.png'), clip: { x: 0, y: 0, width: 1400, height: 500 } });
 
   // MOTIF et ARP s'excluent : ARP ouvre Arp One et éteint le motif ; un motif éteint l'arpège

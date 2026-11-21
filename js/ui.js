@@ -569,7 +569,7 @@ SS.ui = (() => {
       const f = cur();
       const now = SS.bassMotifOf({ follow: f }, sc);
       menuEl.replaceChildren(
-        h('div', { class: 'ctx-head' }, h('b', { class: 'ctx-current' }, 'Motif · ' + track.name), h('span', { class: 'ctx-desc mot-now' }, on ? M.name(now) : 'éteint'), SS.helpTip('Cliquez un motif : il s’entend et la basse le joue sur les accords de la piste Accords, scène par scène. Les notes suivent les accords quand vous les changez.', 'Motif de basse')),
+        h('div', { class: 'ctx-head' }, h('b', { class: 'ctx-current' }, 'Motif · ' + track.name), h('span', { class: 'ctx-desc mot-now' }, on ? M.name(now) : 'éteint'), SS.helpTip('Cliquez un motif : il s’entend et la basse le joue sur les accords de la piste Accords, scène par scène. Les notes suivent les accords quand vous les changez.', 'Motif de basse'), h('button', { type: 'button', class: 'mot-x', 'aria-label': 'Fermer', title: 'Fermer', onclick: () => closeChordMenu(), html: ICONS.close })),
         h(
           'div',
           { class: 'mot-chips' },
