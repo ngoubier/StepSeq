@@ -271,3 +271,23 @@ test('mix à l’image : sous les mots, stems par famille', () => {
   assert.deepEqual(g.find((x) => x.name === 'Cordes').tracks, ['b', 'c']);
   assert.deepEqual(g.find((x) => x.name === 'Cuivres').tracks, ['e', 'f']);
 });
+
+test('modèle « Les grands espaces » : 55 mesures à 80 BPM, grille et effectif dans l’esprit d’Out of Africa, sans timbales', () => {
+  const E = F.ESPACES;
+  const tm = F.timing(E);
+  assert.equal(tm.bpm, 80);
+  assert.equal(tm.bars, 55);
+  assert.deepEqual(tm.sections.map((s) => s.startBar + 1), [1, 9, 17, 21, 29, 37, 45, 51]);
+  const S = SS.BandSongs.espaces.sections;
+  assert.deepEqual(S.p1.grid.map((g) => [g.degree, g.type]), [[2, '5'], [5, 'madd9'], [2, '5'], [5, 'madd9']], 'pédales de mi et de la');
+  assert.deepEqual(S.p4.grid.map((g) => g.type), ['maj', 'min', 'min', 'maj', 'min', 'min', '7'], 'C Em Am F Dm Fm G7');
+  assert.equal(S.p4.grid[6].len, 32, 'deux mesures de dominante');
+  assert.equal(S.p5.grid[6].degree, 0, 'la reprise résout fa mineur directement sur do');
+  assert.ok(Object.values(S).every((s) => !s.hits.lt.length && !s.hits.mt.length), 'pas de timbales');
+  assert.ok(S.p2.hits.bd.some(([st]) => st === 64) && S.p2.hits.misc.some(([st]) => st === 64), 'tam-tam et grosse caisse sur l’élargissement');
+  // le geste du thème : une note longue qui passe la barre
+  const crosses = S.p4.theme.filter((e) => Math.floor(e.step / 16) !== Math.floor((e.step + e.len - 1) / 16));
+  assert.ok(crosses.length >= 3, 'notes liées par-dessus la barre');
+  const pr = SS.Band.STYLES.find((x) => x.id === 'film').presets.find((p) => p.id === 'espaces');
+  assert.ok(pr.musicians.some((m) => m.role === 'strings') && pr.musicians.find((m) => m.role === 'perc').pieces.join() === 'bd,misc');
+});

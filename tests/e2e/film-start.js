@@ -41,7 +41,7 @@ const shot = async (page, name) => SHOTS && page.screenshot({ path: path.join(SH
   await shot(page, 'film-tuile.png');
   await tile.click();
   await page.waitForTimeout(400);
-  ok((await page.locator('#bandPresets .band-preset').count()) === 3, 'trois départs : deux modèles et « Ma scène »');
+  ok((await page.locator('#bandPresets .band-preset').count()) === 4, 'quatre départs : trois modèles et « Ma scène »');
   ok((await page.inputValue('#tempo')) === '80', 'modèle : 80 BPM');
   ok((await page.locator('.bfm-cues tbody tr').count()) === 5, '5 repères');
   ok(/m\. 13/.test(await page.textContent('.bfm-cues tr.sync')), 'synchro forte sur la mesure 13');
@@ -109,6 +109,13 @@ const shot = async (page, name) => SHOTS && page.screenshot({ path: path.join(SH
   ok(ch.tb[2] > 0 && ch.tb[0] === 0, `accents des trombones dans le marché (${ch.tb.join(' ')})`);
   ok(ch.sd[4] > 20, `caisse claire qui monte vers le saut (${ch.sd.join(' ')})`);
   await back();
+  // le modèle « Les grands espaces » : 80 BPM, 55 mesures, 8 passages
+  await page.locator('#bandPresets .band-preset', { hasText: 'Les grands espaces' }).click();
+  await page.waitForTimeout(400);
+  ok((await page.locator('.bfm-cues tbody tr').count()) === 8, 'grands espaces : 8 repères');
+  ok(/55 mesures/.test(await page.textContent('#bandSong')), 'grands espaces : 55 mesures');
+  await page.locator('#bandSong').scrollIntoViewIfNeeded();
+  await shot(page, 'film-espaces.png');
   await page.locator('#bandPresets .band-preset', { hasText: 'La lumière revient' }).click();
   await page.waitForTimeout(400);
 
