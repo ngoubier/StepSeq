@@ -744,7 +744,10 @@ SS.audioWatch = (() => {
       // allègement automatique : il ne vaut que pour la lecture pendant laquelle le processeur a saturé
       if (lightInfo && lightInfo.auto) restore(false);
     }
-    if (playing) lastActive = now;
+    if (playing) {
+      lastActive = now;
+      if (SS.load) SS.load.playing(); // la mesure du calcul s'arrête pendant la lecture
+    }
     // à l'arrêt : un relevé par seconde pendant 10 s (fin des échos, emballement qui continue), puis plus rien
     if (!playing && (now - lastActive > 10000 || now - lastSample < 1000)) return;
     const snap = SS.audio.probe();
@@ -835,6 +838,10 @@ SS.audioWatch = (() => {
         SS.ui.toast('Processeur saturé : effets, reverbs, compression et mastering coupés temporairement', 8000, { label: 'Rétablir', run: () => restore(true) });
       }
     }
+    // le son décroche : proposer de figer les pistes les plus lourdes (js/calcul.js), une fois par lecture
+    let proposed = false;
+    if (over && project && SS.load) proposed = SS.load.overloaded(project, snap.run);
+    if (proposed) lastToast = now;
     const grave = r.added.find((x) => x.level === 'bad');
     if (grave && now - lastToast > 12000 && SS.ui && SS.ui.toast && !(SS.systemPanel && SS.systemPanel.isOpen && SS.systemPanel.isOpen())) {
       lastToast = now;

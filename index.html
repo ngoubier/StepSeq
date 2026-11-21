@@ -122,6 +122,8 @@
     </div>
 
     <div class="topbar-group files">
+      <button id="loadBtn" class="load-btn" type="button" aria-haspopup="dialog" title="Calcul du moteur audio"><span class="ld-lab">CALCUL</span><span class="ld-bar"><i></i></span><span class="ld-val">—</span></button>
+      <button type="button" class="help-tip" data-help="Charge du moteur audio pour jouer la chanson : 100 % = il calcule aussi vite que le son passe. Au-delà, le son décroche. Clic sur la jauge : le calcul piste par piste, et figer les plus lourdes." data-help-title="Calcul" aria-label="Aide : Calcul">?</button>
       <span id="claudeBadge" class="claude-badge" role="status" hidden title="Claude pilote StepSeq (boîte à outils window.StepSeq) : chaque action s'annule avec Ctrl+Z"><i aria-hidden="true"></i>✳ Claude · <b>0 action</b></span>
       <button id="undoBtn" class="btn btn-icon btn-history" title="Annuler la dernière action (Ctrl+Z)" aria-label="Annuler" disabled>
         <svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
@@ -1083,6 +1085,7 @@
   <script src="js/midipanel.js"></script>
   <script src="js/render.js"></script>
   <script src="js/freeze.js"></script>
+  <script src="js/calcul.js"></script>
   <script src="js/audioexport.js"></script>
   <script src="js/beatautoui.js"></script>
   <script src="js/scenesheet.js"></script>
