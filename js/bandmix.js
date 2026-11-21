@@ -203,10 +203,11 @@ SS.bandMix = (() => {
   };
   // clichés (pop de Noël) : le « mur de son » des années 60 revu en 90, grande salle claire, pas de sidechain
   STYLE.cliches = {
-    returns: { plate: { size: 1.6, predelay: 0.02, hp: 250, lp: 9000 }, hall: { size: 3.2, predelay: 0.03, hp: 280, lp: 7500 }, echo: { time: '1/8', feedback: 0.2, hp: 300, lp: 4500 } },
-    plate: 1.1,
-    hall: 1.1,
+    returns: { plate: { size: 1.8, predelay: 0.02, hp: 250, lp: 9000 }, hall: { size: 3.6, predelay: 0.035, hp: 280, lp: 7500 }, echo: { time: '1/8', feedback: 0.2, hp: 300, lp: 4500 } },
+    plate: 1.35,
+    hall: 1.5,
     sc: { bass: 0, pad: 0, strings: 0, keys: 0 },
+    lu: { keys: 6, lead: -1, strings: 1.5 }, // le piano en accords répétés est le moteur : devant ; la mélodie un peu en retrait
     loud: -10,
     drive: 6,
   };

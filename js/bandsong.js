@@ -524,7 +524,7 @@ SS.bandSong = (() => {
     // (preset.swingRes = 8) ; grosse caisse 1, « et » du 2, 3 ; caisse claire 2 et 4 ; grelots continus appuyés sur 2 et 4 ;
     // by : timbales sur le 1 toutes les deux mesures et en appel au 4 de la 4e ; cloches tubulaires au début de chaque
     // phrase de 4 mesures (motifs de plusieurs mesures)
-    shuffle: { bd: 'x-----o-x-------', bk: '----x-------x---', hh: 'x-o-x-o-x-o-x-o-', oh: '--------------o-', sh: 'o-.-x-.-o-.-x-.-', tb: '----o-------o---', rim: '----------------', tom: '--------o-o-o-oo', by: { perc: 'x---------------' + '-'.repeat(16) + 'x---------------' + '------------x-o-' } },
+    shuffle: { bd: 'x-------x-----o-', bk: '----x-------x---', hh: '.-.-.-.-.-.-.-.-', oh: '--------------o-', sh: 'o-o-x-o-o-o-x-o-', tb: '----o-------o---', rim: '----------------', tom: '--------o-o-o-oo', by: { perc: 'x---------------' + '-'.repeat(16) + 'x---------------' + '------------x-o-' } },
     onedrop: { bd: '--------x-------', bk: '--------o-------', hh: '--o-x-o.x-o-x-o-', oh: '--------------o-', sh: '..o...o...o...o.', tb: '----o-------o---', rim: '--------x-------', tom: '----------o-oo-o', by: { perc: 'x--.---ox--.---o' } },
   };
   const LEVEL = { x: 1, o: 0.72, '.': 0.45, r: 0.72 }; // r : roulement (trois coups dans le pas, motifs de js/drum-patterns.js)
@@ -1081,6 +1081,8 @@ SS.bandSong = (() => {
     house: [[0, 2], [3, 2], [6, 1], [8, 2], [11, 2], [14, 2]],
     strum: [[0, 3], [4, 2], [6, 2], [10, 2], [12, 2], [14, 2]],
     chop: [[2, 1], [6, 1], [10, 1], [14, 1]],
+    // piano de la pop de Noël : l'accord répété en croches (swinguées par le groove), court et rebondissant, poussé sur 2 et 4
+    xmas: [[0, 2, 0.74], [2, 1, 0.56], [4, 1, 0.88], [6, 1, 0.6], [8, 2, 0.74], [10, 1, 0.56], [12, 1, 0.9], [14, 1, 0.64]],
     // orgue « bubble » du reggae : deux petits accords par temps, le « et » appuyé, le « a » qui rebondit plus doux
     bubble: [[2, 1, 0.7], [3, 1, 0.44], [6, 1, 0.7], [7, 1, 0.44], [10, 1, 0.7], [11, 1, 0.44], [14, 1, 0.7], [15, 1, 0.44]],
     // piano du reggae : un accord court sur 2 et 4, avec la guitare

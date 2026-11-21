@@ -51,6 +51,6 @@ SS.BAND_DRIVE = {
   despacito: 9.9,
   kingston: 13.4,
   lovely: 9,
-  noel: 4.4,
+  noel: 4.5,
   zero: 11.9,
 };

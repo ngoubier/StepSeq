@@ -6243,6 +6243,7 @@ SS.band = (() => {
     ['house', 'House', 'Accords de la house, sur les contretemps', [[0, 2, 1], [3, 2, 1], [6, 1, 1], [8, 2, 1], [11, 2, 1], [14, 2, 1]]],
     ['chop', 'Hachée', 'Petits accords sur les contretemps', [2, 6, 10, 14].map((s) => [s, 1, 1])],
     ['skank', 'Skank', 'Accord court sur 2 et 4 : piano reggae', [[4, 1, 1], [12, 1, 1]]],
+    ['xmas', 'Noël', 'Pop de Noël : l’accord répété en croches, court, poussé sur 2 et 4', [0, 2, 4, 6, 8, 10, 12, 14].map((s) => [s, 1, 1])],
     ['bubble', 'Bubble', 'Orgue reggae : deux petits accords par temps, « et-a »', [2, 3, 6, 7, 10, 11, 14, 15].map((s) => [s, 1, 1])],
     ['pluck', 'Pincée', 'Les notes de l’accord, en croches', every(2, 2, (i) => [0, 1, 2][i % 3])],
   ];
