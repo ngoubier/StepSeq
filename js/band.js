@@ -6232,7 +6232,8 @@ SS.band = (() => {
       return ['g:' + m.id, m.name, `${hand ? hand.label.replace(/ \(.*/, '') : ''} · ${m.desc}`, notes];
     });
   })();
-  const isGuitarist = (T) => isT(T) && T.role === 'guitar';
+  /** Instrument joué comme une guitare : le Guitariste de l'inspiration, ou tout musicien (ajouté compris) qui a un son de guitare. */
+  const isGuitarist = (T) => isT(T) && (T.role === 'guitar' || (T.cols || [T.col]).some((c) => c && c.o && c.o.family === 'guitar'));
   const padModes = (T) => (isGuitarist(T) ? [...PAD_MODES, ...GUITAR_MODES] : PAD_MODES);
   /** Modes de l'arpège (js/bandsong.js, arpEvents). « rise » ne vient que de l'inspiration. */
   const ARP_MODES = [
@@ -7247,6 +7248,20 @@ SS.band = (() => {
     ];
   }
 
+  /* --- Guitare : les motifs du mode Guitare d'Arp One (doigts, médiator, grattage), en cartes de mode --- */
+  function guitarModes(sc, T) {
+    const GA = SS.GuitarArp;
+    return h(
+      'div',
+      { class: 'bwp-guitar' },
+      h('div', { class: 'bwp-ch' }, h('b', {}, 'Jouer comme une guitare'), h('span', { class: 'bh-info' }, 'arpèges aux doigts, médiator, grattage')),
+      h('p', { class: 'dlg-hint' }, 'Formes d’accord sur le manche, cordes qui résonnent, coups de médiator : les motifs du mode Guitare d’Arp One.'),
+      ...GA.HANDS.map((hd) => {
+        const list = GUITAR_MODES.filter(([id]) => (GA.MOTIFS.find((m) => 'g:' + m.id === id) || {}).hand === hd.id);
+        return [h('span', { class: 'dlg-label' }, hd.label), modeCards(sc, T, list, '#ff4d6d')];
+      }).flat()
+    );
+  }
   /* --- Nappes : mode de jeu, voicing --- */
   function padSub(x, T) {
     const o = partOf(x.sec, T) || {};
@@ -7263,8 +7278,9 @@ SS.band = (() => {
         'section',
         { class: 'bwp-card bw-card' },
         h('div', { class: 'bwp-ch' }, h('b', {}, `Accords de « ${sc.name} »`), h('span', { class: 'spacer' }), playBox(sc, T, 'sustain')),
-        modeCards(sc, T, padModes(T), '#4f6bff'),
-        isGuitarist(T) ? h('p', { class: 'dlg-hint', 'data-helpify': true }, 'Les derniers modes sont joués comme une guitare (formes d’accord sur le manche, cordes qui résonnent, grattage) : les mêmes motifs que le mode Guitare d’Arp One.') : null,
+        isGuitarist(T) ? guitarModes(sc, T) : null,
+        isGuitarist(T) ? h('div', { class: 'bwp-ch bwp-chords-head' }, h('b', {}, 'Ou jouer des accords plaqués'), h('span', { class: 'bh-info' }, 'tenus, en rythme')) : null,
+        modeCards(sc, T, PAD_MODES, '#4f6bff'),
         !planMode(sc, T) && !o.mode ? h('p', { class: 'dlg-hint' }, 'L’inspiration ne joue pas de nappe dans cette scène : choisis un mode pour l’allumer.') : null,
         h('div', { class: 'bwp-row' }, partSeg('Voicing', 'bwpVoicing', [['close', 'Serré', 'Accord au plus proche du précédent'], ['open', 'Ouvert', 'La note grave descend d’une octave']], o.voicing || 'close', (v) => (putPart(sc.sec, T, { voicing: v === 'close' ? undefined : v }), partChanged())))
       ),
@@ -7305,6 +7321,43 @@ SS.band = (() => {
     return (m ? nameOf(ARP_MODES, m) : 'aucun') + (o.mode ? '' : m && !typeChanged(T) ? ' · inspiration' : '');
   }
   /** Change les réglages Arp One de la scène (f reçoit les réglages actuels et rend les nouveaux) ; l'arpège s'allume. */
+  /**
+   * Musicien Arpège au son de guitare : jouer l'arpège comme une guitare (mode Guitare d'Arp One, js/guitar-arp.js)
+   * ou comme un clavier (motifs d'Arp One).
+   */
+  function arpGuitar(sc, T, one) {
+    const GA = SS.GuitarArp;
+    const g = GA.normalize(one.guitar);
+    const on = !!(one.guitar && one.guitar.on);
+    const card = ([id, name, desc, notes]) => {
+      const mid = id.slice(2);
+      const sel = on && g.motif === mid;
+      return h(
+        'button',
+        { type: 'button', role: 'radio', class: 'bwp-mode' + (sel ? ' on' : ''), 'data-v': id, 'aria-checked': String(sel), title: desc, onclick: () => arpEdit(sc, T, (a) => ({ ...a, guitar: { ...GA.normalize(a.guitar), on: true, motif: mid } }), `.bwp-mode[data-v="${id}"]`) },
+        h('b', {}, name),
+        h('span', { class: 'bwp-rhy', html: rhythmSvg(notes) }),
+        h('small', {}, desc)
+      );
+    };
+    return h(
+      'div',
+      { class: 'bwp-guitar' },
+      h(
+        'div',
+        { class: 'bwp-ch' },
+        h('b', {}, 'Jouer comme une guitare'),
+        h('span', { class: 'spacer' }),
+        partSeg('Jeu', 'bwaGuitar', [['clavier', 'Clavier', 'Les motifs d’Arp One'], ['guitare', 'Guitare', 'Formes d’accord sur le manche, cordes qui résonnent']], on ? 'guitare' : 'clavier', (v) => arpEdit(sc, T, (a) => ({ ...a, guitar: { ...GA.normalize(a.guitar), on: v === 'guitare' } }), `#bwaGuitar [data-v="${v}"]`))
+      ),
+      on
+        ? GA.HANDS.map((hd) => [
+            h('span', { class: 'dlg-label' }, hd.label),
+            h('div', { class: 'bwp-modes', role: 'radiogroup', 'aria-label': hd.label, style: '--c:#ff4d6d' }, GUITAR_MODES.filter(([id]) => (GA.MOTIFS.find((m) => 'g:' + m.id === id) || {}).hand === hd.id).map(card)),
+          ]).flat()
+        : h('p', { class: 'dlg-hint' }, 'Son de guitare : « Guitare » joue les arpèges aux doigts, au médiator ou en grattage, avec de vraies formes d’accord.')
+    );
+  }
   function arpEdit(sc, T, f, focus) {
     const next = A1().normalize(f(arpOne(sc, T)));
     putOff(sc.sec, T, false);
@@ -7458,8 +7511,9 @@ SS.band = (() => {
         'section',
         { class: 'bwp-card bwa' },
         h('div', { class: 'bwp-ch' }, h('b', {}, `Arpège de « ${sc.name} »`), h('span', { class: 'bh-info' }, 'Arp One · mode Intuitif'), h('span', { class: 'spacer' }), playBox(sc, T, 'up16')),
-        motifLine,
-        knobs,
+        isGuitarist(T) ? arpGuitar(sc, T, one) : null,
+        one.guitar && one.guitar.on ? null : motifLine,
+        one.guitar && one.guitar.on ? null : knobs,
         muted ? h('p', { class: 'dlg-hint' }, 'L’arpège est coupé dans cette scène : un réglage le rallume.') : null,
         !insp && !o.one && !o.mode ? h('p', { class: 'dlg-hint' }, 'L’inspiration ne joue pas d’arpège dans cette scène : un premier réglage (motif, bouton, vitesse) l’allume.') : null
       ),
