@@ -513,6 +513,9 @@ SS.bandSong = (() => {
     dnb: { bd: 'x---------x-----', bk: '----x-------x---', hh: 'x-o-x-o-x-o-x-o-', oh: '--o-----------o-', sh: '.o.o.o.o.o.o.o.o', tb: '----o-------o---', rim: '-------o------o-', tom: '-----------o-o-o' },
     dembow: { bd: 'x---x---x---x---', bk: '---x--x----x--x-', hh: 'x-x-x-x-x-x-x-x-', oh: '--------------o-', sh: 'xoxoxoxoxoxoxoxo', tb: '----o-------o---', rim: '---o--o----o--o-', tom: '-------------o-o' },
     soul: { bd: 'x-----x-x-------', bk: '----x-------x---', hh: 'x-o-x-o-x-o-x-o-', oh: '------------o---', sh: '.o.o.o.o.o.o.o.o', tb: 'x---x---x---x---', rim: '----o-------o---', tom: '------------o-o-' },
+    // reggae roots, one drop : rien sur le 1, grosse caisse et cross-stick ensemble sur le 3 ; charleston appuyé sur les temps,
+    // doubles fantômes ; tambourin sur 2 et 4 avec le skank ; by : motif propre à un son (tambour nyabinghi en battement de cœur)
+    onedrop: { bd: '--------x-------', bk: '--------o-------', hh: 'x-o.x-o-x-o.x-o-', oh: '--------------o-', sh: '..o...o...o...o.', tb: '----x-------x---', rim: '--------x-------', tom: '----------o-oo-o', by: { perc: 'x--.---ox--.---o' } },
   };
   const LEVEL = { x: 1, o: 0.72, '.': 0.45, r: 0.72 }; // r : roulement (trois coups dans le pas, motifs de js/drum-patterns.js)
   const kind = (sound) => {
@@ -572,13 +575,14 @@ SS.bandSong = (() => {
         if (k === 'hh' || k === 'sh') bar(b, g.hh.replace(/o/g, '.'), 0.8);
         continue;
       }
+      const own = g.by && g.by[sound]; // motif propre à ce son dans le groove
       if (mode === 'hats') {
-        bar(b, k === 'oh' ? null : k === 'sh' ? g.sh : g.hh, 0.75);
+        bar(b, k === 'oh' ? null : k === 'sh' ? own || g.sh : g.hh, 0.75);
         continue;
       }
       // dernière mesure d'une section pleine : roulement (caisse claire ou toms) sur le dernier temps
       const fill = last && b === bars - 1 && ['main', 'full', 'drop'].includes(mode);
-      let pat = k === 'bd' ? g.bd : k === 'bk' ? g.bk : k === 'hh' ? (mode === 'drop' ? '.o.o.o.o.o.o.o.o' : g.hh) : k === 'oh' ? g.oh : k === 'rim' ? g.rim : k === 'sh' ? g.sh : k === 'tb' ? g.tb : k === 'tom' ? (fill ? g.tom : null) : null;
+      let pat = own && ['sh', 'tb'].includes(k) ? own : k === 'bd' ? g.bd : k === 'bk' ? g.bk : k === 'hh' ? (mode === 'drop' ? '.o.o.o.o.o.o.o.o' : g.hh) : k === 'oh' ? g.oh : k === 'rim' ? g.rim : k === 'sh' ? g.sh : k === 'tb' ? g.tb : k === 'tom' ? (fill ? g.tom : null) : null;
       if (fill && k === 'bk') pat = pat.slice(0, 12) + '----';
       if (fill && k === 'hh') pat = pat.slice(0, 12) + '----';
       bar(b, pat, mode === 'light' ? 0.8 : 1);
@@ -1066,6 +1070,8 @@ SS.bandSong = (() => {
     house: [[0, 2], [3, 2], [6, 1], [8, 2], [11, 2], [14, 2]],
     strum: [[0, 3], [4, 2], [6, 2], [10, 2], [12, 2], [14, 2]],
     chop: [[2, 1], [6, 1], [10, 1], [14, 1]],
+    // orgue « bubble » du reggae : deux petits accords par temps, le « et » appuyé, le « a » qui rebondit plus doux
+    bubble: [[2, 1, 0.7], [3, 1, 0.44], [6, 1, 0.7], [7, 1, 0.44], [10, 1, 0.7], [11, 1, 0.44], [14, 1, 0.7], [15, 1, 0.44]],
   };
   function chordEvents(spans, mode, r, { lo = 55, hi = 79, open = false } = {}) {
     const ev = [];
@@ -1095,9 +1101,9 @@ SS.bandSong = (() => {
         for (let s = sp.step, i = 0; s < end; s += 2, i++) add(s, 2, [seq[i % seq.length]], i % 2 ? 0.55 : 0.68);
       } else if (RHYTHM[mode]) {
         for (let b = sp.step - (sp.step % SPB); b < end; b += SPB)
-          RHYTHM[mode].forEach(([o, l]) => {
+          RHYTHM[mode].forEach(([o, l, v]) => {
             const s = b + o;
-            if (s >= sp.step && s < end) add(s, Math.min(l, end - s), notes, (o % 4 === 0 ? 0.74 : 0.64) * (mode === 'chop' ? 0.9 : 1));
+            if (s >= sp.step && s < end) add(s, Math.min(l, end - s), notes, v ?? (o % 4 === 0 ? 0.74 : 0.64) * (mode === 'chop' ? 0.9 : 1));
           });
       }
     });
@@ -1950,6 +1956,7 @@ SS.bandSong = (() => {
             const range = role === 'keys' ? { lo: 57, hi: 79 } : role === 'guitar' ? { lo: 52, hi: 74 } : role === 'strings' ? { lo: 55, hi: 81 } : { lo: 53, hi: 76 };
             // guitare : motif du mode Guitare d'Arp One (« g:travis »…), joué par le vrai moteur (js/guitar-arp.js)
             if (/^g:/.test(mode) && SS.GuitarArp) events = arpOneEvents(spans, { guitar: { on: true, motif: mode.slice(2) } }, bars);
+            else if (/^g:/.test(mode)) events = chordEvents(spans, 'chop', r, range); // sans le moteur de guitare : petits accords hachés
             else events = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16', 'ost16', 'dotted'].includes(mode) ? arpEvents(spans, mode, r) : chordEvents(spans, mode, r, role === 'pad' && o && o.voicing === 'open' ? { ...range, open: true } : range);
           }
         }
@@ -2151,6 +2158,8 @@ SS.bandSong = (() => {
     dembow: [[0, 3, 0, 0.92], [3, 3, 0, 0.72], [6, 2, 7, 0.78], [8, 3, 0, 0.88], [11, 3, 0, 0.72], [14, 2, 12, 0.7]],
     tumbao: [[6, 6, 7, 0.86], [12, 4, 'n', 0.9]],
     onedrop: [[2, 2, 0, 0.82], [4, 2, 0, 0.76], [6, 2, 't', 0.74], [8, 4, 7, 0.86], [14, 2, 12, 0.72]],
+    // reggae roots : fondamentale ronde et tenue, note fantôme, tierce et quinte qui chantent, approche de l'accord suivant
+    roots: [[0, 4, 0, 0.9], [5, 1, 0, 0.38], [6, 2, 't', 0.74], [8, 3, 7, 0.84], [11, 1, 7, 0.4], [12, 2, 12, 0.7], [14, 2, 'a', 0.78]],
     bossa: [[0, 6, 0, 0.88], [6, 2, 7, 0.72], [8, 6, 7, 0.82], [14, 2, 0, 0.72]],
     afro: [[0, 3, 0, 0.9], [6, 2, 0, 0.72], [9, 1, 0, 0.38], [10, 2, 12, 0.76], [12, 3, 0, 0.84], [15, 1, 12, 0.4]],
     acid: [[0, 1, 0, 0.95], [1, 1, 0, 0.6], [2, 1, 12, 0.85], [3, 1, 0, 0.6], [5, 1, 0, 0.75], [6, 1, 's', 0.8], [7, 1, 12, 0.7], [8, 1, 0, 0.92], [10, 1, 0, 0.65], [11, 1, 7, 0.8], [12, 1, 12, 0.88], [13, 1, 0, 0.6], [14, 1, 0, 0.75], [15, 1, 't', 0.7]],
@@ -2198,6 +2207,7 @@ SS.bandSong = (() => {
     ['dembow', 'Dembow', 'Fondamentale en 3-3-2, quinte et octave : reggaeton', rhythmDraw('dembow')],
     ['tumbao', 'Tumbao', 'Le « et » du 2 et le 4 annoncent l’accord suivant : salsa', rhythmDraw('tumbao')],
     ['onedrop', 'One drop', 'Silence sur le 1, la ligne commence après : reggae', rhythmDraw('onedrop')],
+    ['roots', 'Roots', 'Fondamentale ronde, tierce, quinte et approche, notes fantômes : reggae roots', rhythmDraw('roots')],
     ['bossa', 'Bossa nova', 'Fondamentale et quinte en noire pointée-croche', rhythmDraw('bossa')],
     ['afro', 'Afrobeats', 'Syncopes posées, fondamentale et octave', rhythmDraw('afro')],
     ['acid', 'Acide 303', 'Doubles accentuées, octaves, septième : acid techno', rhythmDraw('acid')],

@@ -49,6 +49,7 @@ SS.BAND_DRIVE = {
   feather: 11.1,
   lk: 11.5,
   despacito: 9.9,
+  birds: 13.9,
   lovely: 9,
   zero: 11.9,
 };

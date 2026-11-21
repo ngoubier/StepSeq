@@ -691,6 +691,22 @@ SS.BandSongs = {
     form: 'intro verse pre chorus verse pre chorus bridge chorus outro',
   },
 
+  // Reggae roots ensoleillé (dans l'esprit de Marley, Toots & the Maytals ; grille et mélodies originales) : one drop,
+  // nyabinghi, skank sur 2 et 4, orgue bubble, basse ronde qui chante ; refrain qui se pose sur le IV, chœurs qui répondent,
+  // passage dub où il ne reste que basse, batterie et échos
+  birds: {
+    key: 'A major', groove: 'onedrop', emotion: 'joie',
+    sections: {
+      intro: { bars: 8, chords: 'I | IVmaj7 | I | IVmaj7', drums: 'light', perc: 'hats', bass: 'whole', guitar: 'g:reggae', keys: 'bubble' },
+      verse: { bars: 16, chords: 'I | iii | IV | IV | I | iii | ii7 | V', drums: 'main', perc: 'main', bass: 'roots', guitar: 'g:reggae', keys: 'bubble', lead: 'verse' },
+      chorus: { bars: 16, chords: 'IV | I | V | vi | IV | I | ii7 | V', drums: 'full', perc: 'full', bass: 'onedrop', guitar: 'g:roots', keys: 'bubble', lead: 'hook', vox: 'answer', sax: 'riff' },
+      dub: { bars: 8, chords: 'I | IVmaj7 | I | IVmaj7', drums: 'main', perc: 'hats', bass: 'roots', keys: 'chop', energy: 0.8, name: 'Dub' },
+      bridge: { bars: 8, chords: 'vi | iii | IV | I | vi | iii | IV | V', drums: 'main', perc: 'main', bass: 'roots', guitar: 'g:reggae', keys: 'sustain', lead: 'long', vox: 'long' },
+      outro: { bars: 8, chords: 'I | IVmaj7 | I | IVmaj7', drums: 'light', perc: 'main', bass: 'roots', guitar: 'g:reggae', keys: 'bubble', vox: 'answer', fill: false },
+    },
+    form: 'intro verse chorus verse chorus dub bridge chorus*2 outro',
+  },
+
   // Soul joyeuse : boucle à 7e, Rhodes haché, basse Motown, walking au refrain, solo d'harmonica
   lovely: {
     key: 'C♯ minor', groove: 'soul', emotion: 'joie',

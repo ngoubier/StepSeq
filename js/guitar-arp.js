@@ -264,6 +264,7 @@
     S('rock', 'Rock croches', 4, 4, 'D . d . D . d . D . d . D . d .', 'Que des coups vers le bas en croches, plus forts sur les temps.'),
     S('palm', 'Palm mute', 4, 4, 'P . P . P . P . P . P . P . P .', 'Croches étouffées de la paume sur les cordes graves : le rock qui pousse sans prendre de place.'),
     S('reggae', 'Reggae skank', 4, 4, '. . . . c . . . . . . . c . . .', 'Un coup court sur les cordes aiguës, sur 2 et 4, coupé tout de suite.'),
+    S('roots', 'Skank roots', 4, 4, '. . x . c . . . . . x . c . c .', 'Skank sur 2 et 4, un étouffé qui l’annonce, et un coup doublé à la fin du 4 : le skank qui respire.'),
     S('funk', 'Funk étouffé', 4, 4, 'x u D u x u x U d x D u x U x u', 'Doubles-croches continues, presque tout étouffé, quelques coups ouverts accentués.'),
     S('ballade', 'Ballade lente', 4, 4, 'D . . . . . . . D . . . U . D .', 'Un grand coup qui sonne, quelques réponses : laisse respirer la voix.')
   );
