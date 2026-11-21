@@ -56,6 +56,7 @@
     SS.song.render();
     SS.audio.applyAllFx(p);
     p.tracks.forEach((t) => SS.audio.prepareTrack(t));
+    if (SS.freeze) SS.freeze.refresh(p);
     dirty = true;
     saveLocal();
   }
@@ -99,6 +100,7 @@
     markRetouched();
     syncStudio();
     syncMeta();
+    if (SS.freeze) SS.freeze.refresh(project); // pistes figées : passages à réenregistrer
     scheduleHistory();
     updateUndoButtons();
     // la durée de la chanson dépend des mesures / du tempo : on rafraîchit le panneau (sauf pendant un renommage)
@@ -337,6 +339,7 @@
     SS.song.render();
     SS.audio.applyAllFx(p);
     p.tracks.forEach((t) => SS.audio.prepareTrack(t));
+    if (SS.freeze) SS.freeze.refresh(p);
     resetHistory(); // ouvrir ou créer un projet repart d'un historique vide
     if (SS.automixPanel) SS.automixPanel.songChanged();
   }
@@ -1095,6 +1098,7 @@
     editTrack,
     deleteTrack,
   });
+  SS.freeze.init({ project: () => project, changed, renderTrack: (t) => SS.ui.renderTrack(t), toast: (m, ms) => SS.ui.toast(m, ms) });
   // window.StepSeq : boîte à outils pour Claude (extension Claude in Chrome, plus tard le panneau intégré), js/claude-tools.js
   SS.claudeTools.init({ project: () => project, changed, commit: recordHistory, switchScene, afterSceneChange, setBars, play, stop, undo, redo });
   SS.band.init({ project: () => project, changed, setWizardDraft, toast: (m) => SS.ui.toast(m), wizardMode, openTrackDialog: (t, init) => SS.ui.openTrackDialog(t, init), apply: addBandTracks, applySong: addBandSong, bandTracks, hasNotes, writeMelody, loadSong });

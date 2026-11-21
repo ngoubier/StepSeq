@@ -5494,6 +5494,30 @@ body.wizard-mode .wiz-banner { display: none; }
 #bandDialog .bfm-cues .bfm-bpm { width: 58px; }
 #bandDialog .bfm-cues .bfm-bpm.own { color: var(--gold); font-weight: 600; }
 
+/* ---------- Figer une piste en audio (js/freeze.js) ---------- */
+/* ❄ en haut à droite de l'en-tête ; le volume cède une case (2 au lieu de 3) sur les pistes instrument */
+.th-ctrls .th-btn.th-frz { grid-row: 1; grid-column: 6; }
+.th-ctrls:has(.th-frz) .th-vol { grid-column: span 2; }
+.th-btn.th-frz { font-size: 13px; color: #7fb8d4; position: relative; }
+.th-btn.th-frz .th-option-ico { font-size: 13px; }
+.th-btn.th-frz.on, .th-btn.th-frz.partial, .th-btn.th-frz.busy { background: #12303f; color: #7fd4ff; box-shadow: inset 0 0 0 1px #7fd4ff; }
+.th-btn.th-frz.busy { background: conic-gradient(#2a6f8f var(--frz, 0%), #12303f 0); }
+.th-btn.th-frz.partial::after { content: ''; position: absolute; right: 2px; top: 2px; width: 6px; height: 6px; border-radius: 50%; background: #ffb020; }
+.th-btn.th-frz.retouch { color: #ffb020; box-shadow: inset 0 0 0 1px #ffb020; }
+.track.frozen .track-head { box-shadow: inset 3px 0 0 #7fd4ff; background: linear-gradient(90deg, #16303d, var(--panel-2) 70%); }
+.track.frozen .track-head .th-name b { color: #d8f1ff; }
+.track.frozen .track-head .th-sd, .track.frozen .track-head .th-edit { opacity: .45; }
+.track.frozen .track-row .cell { opacity: .3; }
+.frz-wave { position: absolute; left: 0; top: 0; height: 100%; pointer-events: none; z-index: 1; }
+.compact-tracks .th-ctrls .th-btn.th-frz { grid-row: auto; grid-column: auto; }
+dialog.frz-dialog { width: min(420px, calc(100vw - 32px)); padding: 16px 18px; }
+dialog.frz-dialog h3 { margin: 0 0 4px; font-size: 15px; display: flex; align-items: center; gap: 6px; }
+dialog.frz-dialog .frz-ico { color: #7fd4ff; }
+dialog.frz-dialog .frz-sub { margin: 0 0 14px; color: var(--muted); font-size: 12.5px; }
+dialog.frz-dialog .frz-foot { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+dialog.frz-dialog .frz-foot button { font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel-3); color: var(--text); cursor: pointer; }
+dialog.frz-dialog .frz-foot button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+
 /* ---------- Mode tutoriel « Musique de film » (js/tutorial.js) : le coach à droite de l'assistant ---------- */
 body.wizard-mode #bandDialog.band-dialog.tut-on { flex-direction: row; }
 #bandDialog .bs-title { display: flex; align-items: center; gap: 8px; }

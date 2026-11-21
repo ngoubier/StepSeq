@@ -49,6 +49,7 @@ SS.renderHost = (() => {
     const mods = [SS.juno && SS.juno.load(ctx), SS.filters && SS.filters.load(ctx), SS.space && SS.space.load(ctx), SS.mastering && SS.mastering.load(ctx)];
     await Promise.all(mods.map((m) => Promise.resolve(m).catch(() => {})));
     await preload(p);
+    if (cfg.tap) SS.audio.freezeTap(cfg.tap); // « Figer » : le son de l'instrument seul
     SS.audio.applyMaster(p);
     p.tracks.forEach((t) => SS.audio.applyMix(t));
     SS.audio.start(() => p, () => {}, {

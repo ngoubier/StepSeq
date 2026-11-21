@@ -654,6 +654,8 @@ SS.audio = (() => {
       b.duck.connect(master);
       b.duck.connect(b.meter.node);
       buses.set(track.id, b);
+      // rendu « Figer » (js/freeze.js, cadre de rendu) : on enregistre le son de l'instrument, avant la tranche
+      if (tapId && track.id === tapId) b.strip.entry.connect(ctx.destination);
       applyFx(track);
       applyMix(track);
       if (rerouted()) routeBus(b);
@@ -1216,6 +1218,7 @@ SS.audio = (() => {
   /* ---------------- Voix ---------------- */
 
   const voices = new Set();
+  let tapId = null; // rendu « Figer » : piste enregistrée avant sa tranche (le Master se tait)
   /** `done` (facultatif) : appelé quand la voix est finie, pour libérer ses nœuds (filtre ladder / SEM). */
   function register(sources, gain, done) {
     const v = { sources, gain };
@@ -1245,6 +1248,7 @@ SS.audio = (() => {
     });
     voices.clear();
     glides.clear();
+    frozenSrc.clear();
   }
 
   const velGain = (v) => Math.pow(Math.max(0, Math.min(1, v)), 1.4);
@@ -2060,6 +2064,69 @@ SS.audio = (() => {
     return { id: track.id, block: 0, pass: Math.floor(((seq.loops || 0) * seq.cycle(project, SS.totalSteps(project)) + tick) / len) };
   }
 
+  /*
+   * Pistes figées (js/freeze.js) : à la place des notes, l'enregistrement de la piste (son de l'instrument, avant la
+   * tranche de console) est joué dans l'entrée de sa tranche. Un enregistrement par « segment » : un bloc de
+   * l'arrangement (scène × répétitions), ou la boucle de la scène en mode Scène. Il commence PREROLL avant le premier
+   * pas (notes jouées en avance) et finit par la queue des dernières notes, qui déborde sur le segment suivant.
+   * Tout ce qui suit la tranche (égaliseur, fader, panoramique, effets, envois, sidechain, Muet / Solo) reste en direct.
+   */
+  const frozenSrc = new Map(); // trackId -> { key, start, len, src, g }
+  function stopFrozen(id, at) {
+    const st = frozenSrc.get(id);
+    if (!st) return;
+    frozenSrc.delete(id);
+    try {
+      st.g.gain.setTargetAtTime(0, Math.max(at, ctx.currentTime), 0.01);
+      st.src.stop(Math.max(at, ctx.currentTime) + 0.08);
+    } catch (e) {
+      /* déjà arrêtée */
+    }
+  }
+  /** Joue (ou continue) l'enregistrement de la piste figée pour ce pas ; false : la piste joue en direct. */
+  function frozenStep(project, track, tick, base, sd) {
+    const F = SS.freeze;
+    const seg = F && F.isOn(track) ? frozenSegment(project, track, tick, sd) : null;
+    const buf = seg && F.bufferFor(track.id, seg.lookup);
+    if (!buf) {
+      if (frozenSrc.has(track.id)) stopFrozen(track.id, base);
+      return false;
+    }
+    const start = base - seg.pos; // début du segment (premier pas)
+    const st = frozenSrc.get(track.id);
+    if (st && st.key === seg.lookup + '|' + buf.__key && Math.abs(st.start - start) < sd / 2) return true;
+    // segment interrompu (changement de scène, saut) : on coupe ; sinon sa queue continue sous le suivant
+    if (st && base < st.start + st.len - sd / 2) stopFrozen(track.id, base);
+    else frozenSrc.delete(track.id);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const g = ctx.createGain();
+    src.connect(g).connect(bus(track));
+    const t0 = start - F.PREROLL;
+    const now = ctx.currentTime;
+    if (t0 >= now) src.start(t0);
+    else if (now - t0 < buf.duration) src.start(now, now - t0);
+    else return true;
+    register([src], g);
+    frozenSrc.set(track.id, { key: seg.lookup + '|' + buf.__key, start, len: seg.len, src, g });
+    return true;
+  }
+  /** Segment joué : { lookup, pos (s depuis son début), len (s) }, ou null (la piste joue en direct). */
+  function frozenSegment(project, track, tick, sd) {
+    const total = SS.totalSteps(project);
+    if (seq.song) {
+      const b = project.song[seq.song.index];
+      if (!b) return null;
+      const bauto = b.bauto && b.bauto[track.id] ? JSON.stringify(b.bauto[track.id]) : '';
+      return { lookup: SS.freeze.lookup(b.scene, b.repeat, bauto), pos: (seq.song.rep * total + tick) * sd, len: b.repeat * total * sd };
+    }
+    // mode Scène : la boucle entière (pistes de longueurs différentes : jusqu'à leur réalignement)
+    const reps = seq.cycle(project, total) / total;
+    if (!Number.isInteger(reps) || reps > SS.freeze.MAX_REPS) return null;
+    if (SS.beatAuto && SS.beatAuto.forTrack(project, track, null)) return null; // automation par temps : en direct
+    return { lookup: SS.freeze.lookup(project.current, reps, ''), pos: tick * sd, len: reps * total * sd };
+  }
+
   function scheduleStep(project, tick, time) {
     const lateMs = (ctx.currentTime - time) * 1000;
     if (lateMs > 1) {
@@ -2071,8 +2138,11 @@ SS.audio = (() => {
     // une piste muette peut quand même déclencher un sidechain
     const audible = new Set(audibleTracks(project));
     applyMutes(project, audible);
+    const base = time - SS.grooveOffset(project, tick, sd); // heure du pas sur la grille (sans le swing)
     project.tracks.forEach((track) => {
-      if (!audible.has(track)) {
+      // piste figée (js/freeze.js) : on joue son enregistrement, le synthé ne calcule rien
+      const frozen = frozenStep(project, track, tick, base, sd);
+      if (!audible.has(track) || frozen) {
         const isSource = project.tracks.some((t) => t.fx && t.fx.scSource === track.id);
         if (!isSource) return;
         const st = tick % SS.trackLen(project, track);
@@ -2383,6 +2453,7 @@ SS.audio = (() => {
     const pre = Math.max(0, Math.round(opts.preroll || 0));
     seq.nextTime = ctx.currentTime + 0.08 + pre * stepDur(getProject());
     for (let i = 0; i < pre; i += 4) click(seq.nextTime - (pre - i) * stepDur(getProject()), i === 0);
+    seq.t0 = seq.nextTime; // heure du premier pas (tests)
     seq.abs = seq.step; // position continue (ne revient pas à 0) : sert à placer les notes jouées en direct
     seq.hist = [];
     clockReset(getProject(), seq.nextTime, seq.step / 4); // LFO calés sur le tempo : phase alignée sur la grille
@@ -2881,6 +2952,15 @@ SS.audio = (() => {
     taps,
     applyMutes,
     ensureBus: (t) => bus(t),
+    /** Rendu « Figer » (cadre de rendu) : la sortie est le son de l'instrument de la piste `id`, rien d'autre. */
+    freezeTap: (id) => {
+      ensureCtx();
+      tapId = id;
+      master.gain.value = 0;
+    },
+    stopFrozen: (id) => ctx && stopFrozen(id, ctx.currentTime),
+    _frozenPlaying: () => [...frozenSrc.keys()],
+    _startTime: () => seq.t0, // pistes jouées depuis leur enregistrement (tests)
     /** Notes tenues (clavier de la façade du Juno, clavier de l'ordinateur, plus tard MIDI) : voir liveNoteOn. */
     liveNoteOn,
     liveNoteOff,

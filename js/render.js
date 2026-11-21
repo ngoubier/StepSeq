@@ -479,11 +479,11 @@ SS.render = (() => {
   /* ================= Rendu dans le cadre invisible ================= */
 
   /** Un rendu : { left, right, sampleRate }. */
-  function renderOnce(json, { seconds, sampleRate, seed }, { onProgress, signal } = {}) {
+  function renderOnce(json, { seconds, sampleRate, seed, tap = null }, { onProgress, signal } = {}) {
     return new Promise((resolve, reject) => {
       if (signal && signal.aborted) return reject(new DOMException('Rendu annulé', 'AbortError'));
       const f = document.createElement('iframe');
-      f.name = JSON.stringify({ ssRender: 1, seconds, sampleRate, seed });
+      f.name = JSON.stringify({ ssRender: 1, seconds, sampleRate, seed, tap });
       f.title = 'Rendu audio';
       f.setAttribute('aria-hidden', 'true');
       f.tabIndex = -1;
@@ -581,5 +581,5 @@ SS.render = (() => {
     return { files, report };
   }
 
-  return { exportAudio, renderOnce, songPlan, stemGroups, prepare, leadIn, measure, truePeak, bounds, masterDelay, encodeWav, zip, crc32, kWeighting, PREROLL, TAIL };
+  return { exportAudio, renderOnce, songPlan, stemGroups, prepare, leadIn, measure, truePeak, bounds, masterDelay, encodeWav, zip, crc32, kWeighting, lastAudible, PREROLL, TAIL };
 })();

@@ -344,6 +344,7 @@ SS.ui = (() => {
     if (shape() !== renderedShape) return renderAll();
     renderChordLane();
     app.project().tracks.forEach((t) => {
+      if (SS.freeze && SS.freeze.isOn(t)) return renderTrack(t); // forme d'onde de la nouvelle scène
       paint(t);
       applyRollKey(t, refs.get(t.id) || {});
     });
@@ -355,6 +356,7 @@ SS.ui = (() => {
 
   /** Allume / éteint l'arpégiateur de la piste. */
   function setArp(track, on) {
+    if (frozenGuard(track)) return;
     if (on) track.arpOn = true;
     else delete track.arpOn;
     if (on && track.octave < 3) track.octave = 3;
@@ -365,6 +367,7 @@ SS.ui = (() => {
 
   /** La piste joue (ou non) la piste Accords de la scène. */
   function setTrackFollow(track, on) {
+    if (frozenGuard(track)) return;
     const p = app.project();
     if (on) {
       track.follow = SS.FOLLOW.clean(track.follow || track.lastFollow || true);
@@ -383,6 +386,9 @@ SS.ui = (() => {
   }
 
   /** Clic sur une piste qui suit les accords : ses notes ne s'éditent pas, on propose de les convertir. */
+  /** Piste figée (js/freeze.js) : ses notes et son son ne se modifient pas ; la fenêtre Dégeler s'ouvre. */
+  const frozenGuard = (track) => !!(SS.freeze && SS.freeze.guard(track));
+
   function followLocked(track) {
     toast(`« ${track.name} » joue la piste Accords : modifiez les accords en haut, ou convertissez en notes pour les éditer.`, 5000, {
       label: 'Convertir en notes',
@@ -1205,7 +1211,7 @@ SS.ui = (() => {
               class: 'th-btn th-sd',
               title: SS.isAnalog(track) ? `Sound design : façade du ${SS.findAnalog(track.instrument).label}` : 'Sound design',
               html: ICONS.sliders,
-              onclick: () => (SS.isAnalog(track) ? SS.junoPanel.open(track) : SS.soundDesign.open(track)),
+              onclick: () => frozenGuard(track) || (SS.isAnalog(track) ? SS.junoPanel.open(track) : SS.soundDesign.open(track)),
             })
           : h('button', { class: 'th-btn th-sd', disabled: true, title: 'Sound design : pas sur une piste de batterie (le son se choisit avec ⚙)', html: ICONS.sliders }),
         h('button', {
@@ -1231,7 +1237,9 @@ SS.ui = (() => {
           title: 'Effets : chorus, delay, reverb, sidechain, bus partagés',
           onclick: () => SS.fx.open(track),
         }, 'FX'),
-        h('button', { class: 'th-btn th-edit', title: 'Modifier la piste', html: ICONS.gear, onclick: () => app.editTrack(track) }),
+        // ❄ figer la piste en audio (js/freeze.js) : l'instrument ne calcule plus rien
+        instr && SS.freeze ? SS.freeze.button(track) : null,
+        h('button', { class: 'th-btn th-edit', title: 'Modifier la piste', html: ICONS.gear, onclick: () => frozenGuard(track) || app.editTrack(track) }),
         h('button', { class: 'th-btn th-del', title: 'Supprimer la piste', html: ICONS.close, onclick: () => app.deleteTrack(track) })
       )
     );
@@ -1239,8 +1247,8 @@ SS.ui = (() => {
     // Mode compact : les commandes de la piste (mêmes éléments, mêmes actions) passent dans un menu déroulant.
     const controls = head.querySelector('.th-ctrls');
     const options = h('div', { class: 'th-options', popover: 'auto', role: 'menu', 'aria-label': `Options de la piste ${track.name}` });
-    const labels = { 'th-play': 'Écouter', 'th-roll': 'Piano roll', 'th-sd': 'Sound design', 'th-auto': 'Automation', 'fx-btn': 'Effets', 'th-edit': 'Modifier la piste', 'th-del': 'Supprimer la piste' };
-    const groups = [['th-play'], ['th-roll', 'th-sd', 'th-auto', 'fx-btn'], ['th-edit'], ['th-del']];
+    const labels = { 'th-play': 'Écouter', 'th-roll': 'Piano roll', 'th-sd': 'Sound design', 'th-auto': 'Automation', 'fx-btn': 'Effets', 'th-frz': 'Figer en audio', 'th-edit': 'Modifier la piste', 'th-del': 'Supprimer la piste' };
+    const groups = [['th-play'], ['th-roll', 'th-sd', 'th-auto', 'fx-btn', 'th-frz'], ['th-edit'], ['th-del']];
     const byClass = {};
     let vol = null;
     for (const control of [...controls.children]) {
@@ -1320,6 +1328,7 @@ SS.ui = (() => {
       e.preventDefault();
       const s = +cell.dataset.step;
       if (s >= SS.trackLen(app.project(), track)) return; // au-delà de la boucle de la piste
+      if (frozenGuard(track)) return;
       if (SS.followsGhost(track)) return followLocked(track);
       cursor = { trackId: track.id, step: s };
       if (e.shiftKey || e.ctrlKey || e.metaKey) return marquee(track, 'line', cell, e);
@@ -1348,6 +1357,10 @@ SS.ui = (() => {
     const ba = SS.beatAutoUI.panel(track, app, () => renderTrack(track));
     if (ba) el.append(ba);
     ref.el = el;
+    if (SS.freeze && instr) {
+      SS.freeze.decorate(el, track); // piste figée : bouton ❄ et forme d'onde de la scène
+      SS.freeze.wave(track, grid);
+    }
     SS.audio.setTrackGain(track, track.volume);
     paint(track);
     return el;
@@ -1811,6 +1824,7 @@ SS.ui = (() => {
         if (!cell || e.button !== 0) return;
         e.preventDefault();
         if (+cell.dataset.step >= SS.trackLen(app.project(), track)) return;
+        if (frozenGuard(track)) return;
         if (SS.followsGhost(track)) return followLocked(track);
         cursor = { trackId: track.id, step: +cell.dataset.step };
         if (e.shiftKey || e.ctrlKey || e.metaKey) return marquee(track, 'roll', cell, e);
@@ -3264,6 +3278,7 @@ SS.ui = (() => {
 
   function noteGesture(track, s, midi, e) {
     const n = SS.trackLen(app.project(), track);
+    if (frozenGuard(track)) return;
     if (SS.followsGhost(track)) return followLocked(track);
     const existing = findEventAt(track, s, midi);
 
