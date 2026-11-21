@@ -1086,7 +1086,11 @@
   });
   SS.audioWatch.start({ project: () => project }); // surveillance audio automatique (grésillements, coupures)
   SS.song.init({ project: () => project, changed, state, switchScene, afterSceneChange, play, stop, setBars });
+<<<<<<< HEAD
   SS.sceneSheet.init({ project: () => project, changed, switchScene, syncTempo });
+=======
+  SS.sceneSheet.init({ project: () => project, changed, switchScene });
+>>>>>>> origin/claude/project-thread-gbr6pt
   SS.fx.init({ project: () => project, changed, renderTrack: (t) => SS.ui.renderTrack(t) });
   SS.ui.init({
     project: () => project,

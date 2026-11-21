@@ -5433,6 +5433,7 @@ body.wizard-mode .wiz-banner { display: none; }
 .ssh-body { padding-top: 8px; display: flex; flex-direction: column; gap: 8px; }
 .ssh-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .ssh-muted { color: var(--muted); }
+<<<<<<< HEAD
 .ssh-bpm { width: 64px; background: #1b1b1e; border: 1px solid var(--line); border-radius: 7px; color: var(--text); font: inherit; font-size: 15px; font-weight: 700; text-align: center; padding: 3px 4px; user-select: text; }
 .ssh-bpm.off { color: var(--muted); font-weight: 500; background: transparent; }
 .ssh-seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
@@ -5440,6 +5441,9 @@ body.wizard-mode .wiz-banner { display: none; }
 .ssh-seg button:last-child { border-right: 0; }
 .ssh-seg button.on { background: #1d3557; color: #cfe3ff; }
 #tempo.scene-tempo { color: var(--gold); }
+=======
+.ssh-bpm { font-size: 16px; }
+>>>>>>> origin/claude/project-thread-gbr6pt
 .ssh-tag { display: inline-block; background: var(--panel-3); color: var(--muted); border-radius: 5px; padding: 2px 7px; font-size: 11.5px; }
 .ssh-tag.on { background: #1d3557; color: #cfe3ff; }
 .ssh-dot { display: inline-block; margin-right: 3px; width: 9px; height: 9px; border-radius: 50%; background: var(--c); }
