@@ -375,3 +375,26 @@ test('articulations choisies par l’émotion, et triangle', () => {
   film.cues[0].art = { glock: false };
   assert.equal(F.spec(film).sections.p1.art.glock, false, 'un réglage du repère l’emporte');
 });
+
+test('point d’orgue, creux de −4 dB sous le dialogue, réverbe par famille', () => {
+  if (!SS.bandMix) require('../js/bandmix.js');
+  const film = F.blankScene();
+  film.cues[0].hold = true;
+  film.cues[1].dlg = true;
+  const sp = F.spec(film);
+  assert.ok(sp.sections.p1.fermata);
+  assert.ok(sp.sections.p2.dialog);
+  const tracks = [{ id: 'lead', type: 'instrument', band: { key: 'lead' } }];
+  const s = SS.bandSong.build(sp, 'scene', tracks);
+  const sc1 = s.scenes.find((x) => x.sec === 'p1');
+  const a = (sc1.bars - 1) * 16;
+  const ev = sc1.data.lead.events;
+  assert.ok(ev.every((e) => e.step <= a), 'rien ne commence pendant la tenue, sauf l’accord tenu');
+  assert.ok(ev.some((e) => e.step + e.len === sc1.bars * 16), 'une note tenue jusqu’au bout du passage');
+  const sc2 = s.scenes.find((x) => x.sec === 'p2');
+  assert.deepEqual(sc2.data.lead.auto.volume, { 0: 0.631 });
+  // orchestre : violons à gauche, contrebasses à droite, cordes plus loin que les cuivres
+  const R = (k) => SS.bandMix.ruleOf({ band: { key: 'orch:' + k } });
+  assert.ok(R('vl1').pan < 0 && R('cb').pan > 0);
+  assert.ok(R('vl1').hall > R('tp').hall);
+});

@@ -234,6 +234,8 @@ SS.bandSong = (() => {
     if (s.hidden) o.hidden = true;
     return o;
   }
+  /** Baisse de volume sous un dialogue : −4 dB (10^(−4/20)). */
+  const DIALOG_DIP = 0.631;
   /** `auto` propre d'un instrument : ne garde que les réglages connus aux courbes valides ; null si rien. */
   function normalizeAuto(a) {
     if (!a || typeof a !== 'object') return null;
@@ -2038,6 +2040,34 @@ SS.bandSong = (() => {
         if (A.vel && (t.type === 'drum' || doubles.some((x) => x[0] === t))) applyVelCurve(data[t.id], A.vel, bars);
         applyAutoLanes(data[t.id], A, bars);
       });
+      // point d'orgue (js/film.js, sec.fermata) : la dernière mesure tient l'accord atteint, tout le reste se tait
+      if (sec.fermata && bars >= 2) {
+        const a = (bars - 1) * SPB;
+        const end = bars * SPB;
+        tracks.forEach((t) => {
+          const d = data[t.id];
+          if (!d) return;
+          if (Array.isArray(d.steps)) {
+            // percussions : un seul coup au début de la tenue, s'il y en avait un ; puis silence
+            for (let st = a + 1; st < end; st++) d.steps[st] = 0;
+            return;
+          }
+          if (!Array.isArray(d.events) || !d.events.length) return;
+          const onA = d.events.filter((e) => e.step === a);
+          const held = onA.length ? onA : d.events.filter((e) => e.step < a && e.step + e.len > a);
+          d.events = d.events.filter((e) => e.step < a || onA.includes(e));
+          held.forEach((e) => (e.len = end - e.step));
+        });
+      }
+      // sous un dialogue (js/film.js, sec.dialog) : toute la musique baisse de 4 dB pendant la scène (courbe de volume),
+      // en plus des notes plus douces ; une courbe déjà posée est multipliée
+      if (sec.dialog)
+        tracks.forEach((t) => {
+          const d = data[t.id];
+          if (!d || !((d.events && d.events.length) || (d.steps && d.steps.some((v) => v > 0)))) return;
+          const old = d.auto && d.auto.volume;
+          d.auto = { ...(d.auto || {}), volume: old ? Object.fromEntries(Object.entries(old).map(([k, v]) => [k, Math.round(v * DIALOG_DIP * 1000) / 1000])) : { 0: DIALOG_DIP } };
+        });
       if (fx) {
         // passe-haut global (jonction sortante réglée) : toutes les pistes mélodiques et la basse, sur la 2e moitié de la scène
         if (oj && oj.key && fxJ[oj.key].hp) {

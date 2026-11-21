@@ -3,7 +3,7 @@
  *
  * Une scène de film = { start, end, cues: [{ t, emo, name, ten, ene, sync }], bpm? } :
  *   start / end : entrée et fin de la musique (secondes de l'image) ; chaque repère (cue) ouvre un passage ;
- *   emo : émotion du passage (EMOS, une couleur chacune) ; dlg : on y parle (la musique s'efface sous les mots) ; ten / ene : tension et énergie sonore, de 1 à 5 ; sync : synchro forte (le tempo est calé
+ *   emo : émotion du passage (EMOS, une couleur chacune) ; dlg : on y parle (la musique s'efface sous les mots) ; hold : point d'orgue (la dernière mesure tient l'accord) ; ten / ene : tension et énergie sonore, de 1 à 5 ; sync : synchro forte (le tempo est calé
  *   pour qu'elle tombe sur le premier temps d'une mesure) ; bpm : tempo choisi (sinon le meilleur tempo calé).
  *   Un repère peut aussi porter grid (grille exacte, degrés de js/harmony.js), gridBars (sa longueur) et theme (notes
  *   imposées [mesure, temps, midi, durée en temps]) : c'est le cas du modèle « La lumière revient ».
@@ -553,6 +553,8 @@ SS.film = (() => {
       const ene = dlg ? Math.max(1, s.ene - 1) : s.ene;
       const sec = { bars: s.bars, name: s.name, emotion: s.emotion, energy: energyOf(ene), tension: s.ten, ...playOf({ ...s, ene }) };
       if (dlg) Object.assign(sec, { dialog: true, keys: 'sustain' }); // le piano tient ses accords, sans arpège
+      // point d'orgue : la dernière mesure du passage tient l'accord atteint (dans la mesure : la synchro reste calée)
+      if (c.hold && s.bars >= 2) sec.fermata = true;
       // accords écrits (modèle, ou passage d'un modèle dont la longueur n'a pas changé), sauf technique choisie à la main
       const written = c.grid && c.gridBars === s.bars && !(c.harm && HARM[c.harm]);
       const tg = written ? null : techGrid(harmOf(s, i === tm.sections.length - 1), mode || 'minor', s.bars);
