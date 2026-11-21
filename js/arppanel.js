@@ -1488,39 +1488,48 @@ SS.arpPanel = (() => {
    * ligne par hauteur) ; trait = la corde résonne ; barres du bas = vélocité de chaque pas.
    */
   let gtView = 'tab';
-  function guitarTab(pv) {
-    const W = 640, Lm = 30, top = 30, gap = 20, n16 = pv.len, cw = (W - Lm - 6) / n16, velTop = top + gap * 5 + 30, velH = 26;
+  /**
+   * Hauteur fixe (≈ 100 px) : l'image est dessinée à la largeur réelle de sa place (Wpx) ; sans largeur connue, elle
+   * part à 640 et se redessine à sa vraie largeur dès qu'elle est affichée.
+   */
+  function guitarTab(pv, Wpx) {
+    const W = Math.max(320, Math.round(Wpx || 640)), Lm = 22, top = 14, gap = 12, R = 6.5, n16 = pv.len, cw = (W - Lm - 6) / n16, velTop = top + gap * 5 + 10, velH = 14;
     const m = pv.motif;
     const roll = gtView === 'roll';
     const pitches = [...new Set(pv.attacks.map((a) => a.midi))].sort((a, b) => a - b);
     const lo = pitches[0], hi = pitches[pitches.length - 1];
     const yOf = (a) => (roll ? top + gap * 5 - (hi === lo ? gap * 2.5 : ((a.midi - lo) / (hi - lo)) * gap * 5) : top + (5 - a.str) * gap);
     let s = '';
-    for (let b = 0; b < m.beats; b++) s += `<rect x="${Lm + b * 4 * cw}" y="${top - 8}" width="${4 * cw}" height="${gap * 5 + 16}" class="${b % 2 ? 'gt-beat2' : 'gt-beat'}"/><text x="${Lm + b * 4 * cw + 4}" y="${top + gap * 5 + 20}" class="gt-num">${b + 1}</text>`;
-    if (roll) pitches.forEach((p) => { const y = yOf({ midi: p }); s += `<line x1="${Lm}" y1="${y}" x2="${W - 6}" y2="${y}" class="gt-line dash"/><text x="${Lm - 4}" y="${y + 3}" class="gt-num" text-anchor="end">${noteName(p)}</text>`; });
-    else ['e', 'B', 'G', 'D', 'A', 'E'].forEach((nm, r) => (s += `<line x1="${Lm}" y1="${top + r * gap}" x2="${W - 6}" y2="${top + r * gap}" class="gt-line"/><text x="${Lm - 12}" y="${top + r * gap + 4}" class="gt-num" text-anchor="middle">${nm}</text>`));
+    for (let b = 0; b < m.beats; b++) s += `<rect x="${Lm + b * 4 * cw}" y="${top - 8}" width="${4 * cw}" height="${gap * 5 + 16}" class="${b % 2 ? 'gt-beat2' : 'gt-beat'}"/><text x="${Lm + b * 4 * cw + 3}" y="${top - 1}" class="gt-num">${b + 1}</text>`;
+    if (roll) pitches.forEach((p) => { const y = yOf({ midi: p }); s += `<line x1="${Lm}" y1="${y}" x2="${W - 6}" y2="${y}" class="gt-line dash"/>`; });
+    else ['e', 'B', 'G', 'D', 'A', 'E'].forEach((nm, r) => (s += `<line x1="${Lm}" y1="${top + r * gap}" x2="${W - 6}" y2="${top + r * gap}" class="gt-line"/><text x="${Lm - 10}" y="${top + r * gap + 3.5}" class="gt-num" text-anchor="middle">${nm}</text>`));
     const cls = (a) => (a.strum ? (a.mute ? 'mute' : 'strum') : m.dir && /[↓↑]/.test(a.label) ? 'pick' : a.bass ? 'thumb' : 'finger');
     pv.attacks.forEach((a) => {
       if (a.mute) return;
       const y = yOf(a), x1 = Lm + (a.step16 + 0.5) * cw, x2 = Math.min(W - 6, x1 + a.ring16 * cw - 6);
-      if (x2 > x1 + 8) s += `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" class="gt-ring ${cls(a)}${roll ? ' wide' : ''}"/>`;
+      if (x2 > x1 + 6) s += `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" class="gt-ring ${cls(a)}${roll ? ' wide' : ''}"/>`;
     });
     pv.attacks.forEach((a) => {
       const x = Lm + (a.step16 + 0.5) * cw, y = yOf(a);
       const txt = a.mute ? '×' : roll ? '' : pv.shape.frets[a.str];
-      s += `<circle cx="${x}" cy="${y}" r="8" class="gt-note ${cls(a)}"><title>${noteName(a.midi)} · vélocité ${Math.round(a.vel * 127)}</title></circle><text x="${x}" y="${y + 3.5}" class="gt-fretnum" text-anchor="middle">${txt}</text>`;
-      if (a.label) s += a.strum ? `<text x="${x}" y="${top - 12}" class="gt-stroke" text-anchor="middle">${a.label}</text>` : `<text x="${x + 10}" y="${y - 6}" class="gt-finger ${cls(a)}">${a.label}</text>`;
+      s += `<circle cx="${x}" cy="${y}" r="${R}" class="gt-note ${cls(a)}"><title>${noteName(a.midi)} · vélocité ${Math.round(a.vel * 127)}</title></circle><text x="${x}" y="${y + 3}" class="gt-fretnum" text-anchor="middle">${txt}</text>`;
+      if (a.label) s += a.strum ? `<text x="${x}" y="${top - 9}" class="gt-stroke" text-anchor="middle">${a.label}</text>` : `<text x="${x + R + 1}" y="${y - R + 1}" class="gt-finger ${cls(a)}">${a.label}</text>`;
     });
     const bySt = new Map();
     pv.attacks.forEach((a) => bySt.set(a.step16, Math.max(bySt.get(a.step16) || 0, a.vel)));
     bySt.forEach((v, st) => {
-      const hh = v * velH, x = Lm + (st + 0.5) * cw;
-      s += `<rect x="${x - Math.min(8, cw * 0.3)}" y="${velTop + velH - hh}" width="${Math.min(16, cw * 0.6)}" height="${hh}" rx="2" class="gt-vel"/>`;
-      if (cw > 30) s += `<text x="${x}" y="${velTop + velH - hh - 3}" class="gt-num" text-anchor="middle">${Math.round(v * 127)}</text>`;
+      const hh = Math.max(2, v * velH), x = Lm + (st + 0.5) * cw;
+      s += `<rect x="${x - Math.min(5, cw * 0.3)}" y="${velTop + velH - hh}" width="${Math.min(10, cw * 0.6)}" height="${hh}" rx="2" class="gt-vel"><title>vélocité ${Math.round(v * 127)}</title></rect>`;
     });
-    s += `<text x="${Lm - 12}" y="${velTop + velH - 2}" class="gt-num" text-anchor="middle">vél.</text>`;
-    s += `<rect class="arp-head" x="-100" y="${top - 22}" width="${cw}" height="${velTop + velH - top + 22}" transform="translate(${Lm} 0)"/>`;
-    return svg(W, velTop + velH + 4, s, 'gt-tab');
+    s += `<rect class="arp-head" x="-100" y="${top - 8}" width="${cw}" height="${velTop + velH - top + 8}" transform="translate(${Lm} 0)"/>`;
+    const el = svg(W, velTop + velH + 3, s, 'gt-tab');
+    el.style.maxWidth = W + 'px';
+    if (!Wpx)
+      requestAnimationFrame(() => {
+        const w = el.isConnected && el.parentElement ? el.parentElement.clientWidth : 0;
+        if (w && Math.abs(w - W) > 4) el.replaceWith(guitarTab(pv, w));
+      });
+    return el;
   }
 
   function guitarView() {

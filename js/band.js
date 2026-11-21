@@ -6328,12 +6328,12 @@ SS.band = (() => {
     });
   }
   /** Cartes de modes (basse, nappes) : celui de l'inspiration est choisi tant qu'on n'a rien réglé. */
-  function modeCards(sc, role, list, color, after) {
+  function modeCards(sc, role, list, color, after, compact) {
     const insp = planMode(sc, role);
     const cur = (partOf(sc.sec, role) || {}).mode || insp;
     return h(
       'div',
-      { class: 'bwp-modes', role: 'radiogroup', 'aria-label': 'Mode de jeu', style: `--c:${color}` },
+      { class: 'bwp-modes' + (compact ? ' compact' : ''), role: 'radiogroup', 'aria-label': 'Mode de jeu', style: `--c:${color}` },
       ...list.map(([id, name, desc, notes, soft]) => {
         const on = id === cur && !mutedIn(sc.sec, role);
         const pick = () => (putOff(sc.sec, role, false), putPart(sc.sec, role, { mode: id === insp ? undefined : id }), after && after(), partChanged(`.bwp-mode[data-v="${id}"]`));
@@ -6342,7 +6342,7 @@ SS.band = (() => {
           { type: 'button', role: 'radio', class: 'bwp-mode' + (on ? ' on' : ''), 'data-v': id, 'aria-checked': String(on), title: desc, onclick: pick },
           h('b', {}, name, id === insp ? h('em', {}, 'Inspiration') : null),
           h('span', { class: 'bwp-rhy', html: rhythmSvg(notes, soft) }),
-          h('small', {}, desc)
+          compact ? null : h('small', {}, desc)
         );
       })
     );
@@ -7397,7 +7397,7 @@ SS.band = (() => {
   }
 
   /* --- Guitare « Avancé » : l'arpégiateur Guitare d'Arp One (schéma, tablature, manche, jeu) sur le premier accord de la scène ---
-   * g : réglages guitare (SS.GuitarArp.normalize) ; apply(patch) les enregistre. S.wiz.gtAdv : panneau ouvert ou non. */
+   * g : réglages guitare (SS.GuitarArp.normalize) ; apply(patch) les enregistre. la fenêtre « Avancé… » (openGtDialog) le dessine. */
   function sceneChordNotes(sc) {
     const sec = specEff().sections[sc.sec];
     const tok = sec && sec.chords ? sec.chords.split('|')[0].trim().split(/\s+/)[0] : 'i';
@@ -7409,9 +7409,34 @@ SS.band = (() => {
       return { notes: [57, 60, 64] };
     }
   }
-  const gtAdvBtn = (disabled) =>
-    h('button', { type: 'button', class: 'btn btn-small bwp-gtadv' + (S.wiz.gtAdv ? ' on' : ''), id: 'bwGtAdv', disabled: disabled || null, 'aria-expanded': String(!!S.wiz.gtAdv), title: 'L’arpégiateur Guitare d’Arp One : manche, capodastre, accordage, jeu, tablature', onclick: () => ((S.wiz.gtAdv = !S.wiz.gtAdv), renderWiz()) }, (S.wiz.gtAdv ? '▾ ' : '▸ ') + 'Avancé');
-  function guitarAdvanced(sc, g, apply) {
+  /** Bouton « Avancé » : ouvre la fenêtre de l'arpégiateur Guitare d'Arp One (draw dessine son contenu). */
+  const gtAdvBtn = (disabled, draw) =>
+    h('button', { type: 'button', class: 'btn btn-small bwp-gtadv', id: 'bwGtAdv', disabled: disabled || null, 'aria-haspopup': 'dialog', title: 'L’arpégiateur Guitare d’Arp One : manche, capodastre, accordage, jeu, tablature', onclick: () => openGtDialog(draw) }, 'Avancé…');
+  let gtRedraw = null;
+  function openGtDialog(draw) {
+    let dlg = document.getElementById('bwGtDialog');
+    if (dlg) dlg.remove();
+    const body = h('div', { class: 'bwgt-body' });
+    const done = () => {
+      gtRedraw = null;
+      dlg.close();
+      dlg.remove();
+    };
+    dlg = h(
+      'dialog',
+      { id: 'bwGtDialog', class: 'sd-dialog bwgt-dlg' },
+      h('div', { class: 'bwgt-dhead' }, h('span', { class: 'bwgt-brand' }, 'ARP ONE'), h('b', {}, 'Guitare'), h('span', { class: 'spacer' }), h('button', { type: 'button', class: 'btn', id: 'bwGtClose', onclick: done }, 'Fermer')),
+      body
+    );
+    dlg.addEventListener('cancel', (e) => (e.preventDefault(), done()));
+    document.body.append(dlg);
+    gtRedraw = () => body.replaceChildren(draw());
+    gtRedraw();
+    dlg.showModal();
+  }
+  /** Après un réglage fait dans la fenêtre : l'étape se redessine (partChanged), puis la fenêtre. */
+  const gtApplied = () => gtRedraw && gtRedraw();
+  function guitarAdvanced(sc, g, apply, onMotif) {
     const GA = SS.GuitarArp;
     const tools = SS.arpPanel && SS.arpPanel.guitarTools;
     const ch = sceneChordNotes(sc);
@@ -7432,7 +7457,7 @@ SS.band = (() => {
     return h(
       'div',
       { class: 'bwgt', id: 'bwGtAdvanced' },
-      h('div', { class: 'bwp-ch' }, h('span', { class: 'bwgt-brand' }, 'ARP ONE'), h('b', {}, 'Guitare'), h('span', { class: 'bh-info' }, `${m.name} · sur ${sh.name}`)),
+      h('div', { class: 'bwp-ch' }, h('b', {}, m.name), h('span', { class: 'bh-info' }, `sur ${sh.name} · premier accord de « ${sc.name} »`)),
       h(
         'div',
         { class: 'gt-main' },
@@ -7442,6 +7467,14 @@ SS.band = (() => {
       h(
         'div',
         { class: 'bwgt-mods' },
+        onMotif
+          ? h(
+              'div',
+              { class: 'gt-card' },
+              h('h3', {}, 'Motif guitare'),
+              GA.HANDS.map((hd) => h('div', { class: 'gt-group' }, h('span', { class: 'dlg-label' }, hd.label), h('div', { class: 'gt-chips' }, GA.MOTIFS.filter((x) => x.hand === hd.id).map((x) => h('button', { type: 'button', class: 'gt-chip ' + hd.id + (x.id === g.motif ? ' on' : ''), 'data-m': x.id, title: x.desc, onclick: () => onMotif(x.id) }, x.name)))))
+            )
+          : null,
         h(
           'div',
           { class: 'gt-card' },
@@ -7474,40 +7507,63 @@ SS.band = (() => {
     const gtr = Object.fromEntries(GTR_KEYS.filter((k) => g[k] !== def[k]).map((k) => [k, g[k]]));
     putPart(sc.sec, T, { gtr: Object.keys(gtr).length ? gtr : undefined });
     partChanged(focus);
+    gtApplied();
   }
-  /* --- Guitare : les motifs du mode Guitare d'Arp One (doigts, médiator, grattage), en cartes de mode --- */
+  /* --- Guitare : les motifs du mode Guitare d'Arp One (doigts, médiator, grattage), une ligne par main, « Avancé… » en fenêtre --- */
   function guitarModes(sc, T) {
     const GA = SS.GuitarArp;
     const o = partOf(sc.sec, T) || {};
     const cur = o.mode || planMode(sc, T);
     const gmode = !mutedIn(sc.sec, T) && /^g:/.test(cur || '') ? cur.slice(2) : null;
+    const draw = () => {
+      const o2 = partOf(sc.sec, T) || {};
+      const c2 = o2.mode || planMode(sc, T);
+      const mo = /^g:/.test(c2 || '') ? c2.slice(2) : 'classA';
+      return guitarAdvanced(sc, GA.normalize({ ...(o2.gtr || {}), on: true, motif: mo }), (p) => gtrEdit(sc, T, p), (id) => {
+        putOff(sc.sec, T, false);
+        putPart(sc.sec, T, { mode: 'g:' + id === planMode(sc, T) ? undefined : 'g:' + id });
+        partChanged();
+        gtApplied();
+      });
+    };
     return h(
       'div',
       { class: 'bwp-guitar' },
-      h('div', { class: 'bwp-ch' }, h('b', {}, 'Jouer comme une guitare'), h('span', { class: 'bh-info' }, 'arpèges aux doigts, médiator, grattage'), h('span', { class: 'spacer' }), gtAdvBtn(!gmode)),
-      h('p', { class: 'dlg-hint' }, 'Formes d’accord sur le manche, cordes qui résonnent, coups de médiator : les motifs du mode Guitare d’Arp One.'),
       ...GA.HANDS.map((hd) => {
         const list = GUITAR_MODES.filter(([id]) => (GA.MOTIFS.find((m) => 'g:' + m.id === id) || {}).hand === hd.id);
-        return [h('span', { class: 'dlg-label' }, hd.label), modeCards(sc, T, list, '#ff4d6d')];
-      }).flat(),
-      S.wiz.gtAdv && gmode ? guitarAdvanced(sc, GA.normalize({ ...(o.gtr || {}), on: true, motif: gmode }), (p, f) => gtrEdit(sc, T, p, f)) : null
+        return h('div', { class: 'bwp-grp' }, h('span', { class: 'bwp-glbl' }, hd.label.replace(/ \(.*/, '')), modeCards(sc, T, list, '#ff4d6d', null, true));
+      }),
+      h('div', { class: 'bwp-row' }, gtAdvBtn(!gmode, draw))
     );
   }
-  /* --- Nappes : mode de jeu, voicing --- */
   function padSub(x, T) {
     const o = partOf(x.sec, T) || {};
     const m = o.mode || planMode(x, T);
     return mutedIn(x.sec, T) ? 'muette' : (m ? nameOf(padModes(T), m) : 'aucune') + (o.voicing === 'open' ? ' · ouvert' : '') + (o.mode ? '' : m && !typeChanged(T) ? ' · inspiration' : '');
   }
+  /** Guitariste : jeu affiché, « guitare » (motifs g:) ou « plaques » (modes de nappe), d'après le mode de la scène. */
+  const gtView = (sc, T) => (/^g:/.test((partOf(sc.sec, T) || {}).mode || planMode(sc, T) || '') ? 'guitare' : 'plaques');
+  function gtViewSeg(sc, T) {
+    return partSeg('Jeu', 'bwpGtView', [['guitare', 'Guitare', 'Arpèges aux doigts, médiator, grattage'], ['plaques', 'Accords plaqués', 'L’accord d’un bloc, tenu ou en rythme']], gtView(sc, T), (v) => {
+      if (v === gtView(sc, T)) return;
+      const insp = planMode(sc, T);
+      const inspG = /^g:/.test(insp || '');
+      putOff(sc.sec, T, false);
+      // Guitare : le motif de l'inspiration s'il en est un, sinon l'arpège classique ; Accords plaqués : le mode de l'inspiration, sinon Tenue
+      putPart(sc.sec, T, { mode: v === 'guitare' ? (inspG ? undefined : 'g:classA') : insp && !inspG ? undefined : 'sustain' });
+      partChanged(`#bwpGtView [data-v="${v}"]`);
+    });
+  }
   function padBody(sc, T) {
     const o = partOf(sc.sec, T) || {};
+    const gt = isGuitarist(T);
     return [
       partHead(sc, T, 'nappe', false),
       rollBox(sc, T),
       autoCard(sc, T, { fit: true }),
-      // guitare : ses motifs d'abord, puis les accords plaqués (motifs de nappe)
-      isGuitarist(T) ? h('section', { class: 'bwp-card bw-card' }, h('div', { class: 'bwp-ch' }, h('b', {}, `Guitare de « ${sc.name} »`), h('span', { class: 'spacer' }), playBox(sc, T, 'sustain')), guitarModes(sc, T)) : null,
-      padMotifCard(sc, T, o),
+      // guitare : Jeu Guitare (ses motifs) | Accords plaqués (les motifs de nappe)
+      gt ? h('section', { class: 'bwp-card bw-card' }, h('div', { class: 'bwp-ch' }, h('b', {}, `Guitare de « ${sc.name} »`), h('span', { class: 'spacer' }), gtViewSeg(sc, T), gtView(sc, T) === 'guitare' ? playBox(sc, T, 'sustain') : null), gtView(sc, T) === 'guitare' ? guitarModes(sc, T) : null) : null,
+      gt && gtView(sc, T) === 'guitare' ? null : padMotifCard(sc, T, o),
     ];
   }
   /**
@@ -7637,15 +7693,14 @@ SS.band = (() => {
         h('b', {}, 'Jouer comme une guitare'),
         h('span', { class: 'spacer' }),
         partSeg('Jeu', 'bwaGuitar', [['clavier', 'Clavier', 'Les motifs d’Arp One'], ['guitare', 'Guitare', 'Formes d’accord sur le manche, cordes qui résonnent']], on ? 'guitare' : 'clavier', (v) => arpEdit(sc, T, (a) => ({ ...a, guitar: { ...GA.normalize(a.guitar), on: v === 'guitare' } }), `#bwaGuitar [data-v="${v}"]`)),
-        on ? gtAdvBtn(false) : null
+        on ? gtAdvBtn(false, () => { const g2 = GA.normalize(arpOne(sc, T).guitar); return guitarAdvanced(sc, g2, (p) => (arpEdit(sc, T, (a) => ({ ...a, guitar: { ...GA.normalize(a.guitar), ...p } })), gtApplied()), (id) => (arpEdit(sc, T, (a) => ({ ...a, guitar: { ...GA.normalize(a.guitar), on: true, motif: id } })), gtApplied())); }) : null
       ),
       on
         ? GA.HANDS.map((hd) => [
             h('span', { class: 'dlg-label' }, hd.label),
             h('div', { class: 'bwp-modes', role: 'radiogroup', 'aria-label': hd.label, style: '--c:#ff4d6d' }, GUITAR_MODES.filter(([id]) => (GA.MOTIFS.find((m) => 'g:' + m.id === id) || {}).hand === hd.id).map(card)),
           ]).flat()
-        : h('p', { class: 'dlg-hint' }, 'Son de guitare : « Guitare » joue les arpèges aux doigts, au médiator ou en grattage, avec de vraies formes d’accord.'),
-      on && S.wiz.gtAdv ? guitarAdvanced(sc, g, (p, f) => arpEdit(sc, T, (a) => ({ ...a, guitar: { ...GA.normalize(a.guitar), ...p } }), f)) : null
+        : h('p', { class: 'dlg-hint' }, 'Son de guitare : « Guitare » joue les arpèges aux doigts, au médiator ou en grattage, avec de vraies formes d’accord.')
     );
   }
   function arpEdit(sc, T, f, focus) {
