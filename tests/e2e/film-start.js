@@ -189,6 +189,18 @@ const shot = async (page, name) => SHOTS && page.screenshot({ path: path.join(SH
   await page.locator('.bfm-cues tbody tr').nth(1).locator('.bfm-dlg').check();
   await page.waitForTimeout(300);
   ok(await page.evaluate(() => SS.band._spec().sections.p2.dialog === true), 'le 2e passage passe sous les mots');
+  // point d'orgue sur le 1er passage
+  await page.locator('.bfm-cues tbody tr').nth(0).locator('.bfm-hold').check();
+  await page.waitForTimeout(300);
+  ok(await page.evaluate(() => SS.band._spec().sections.p1.fermata === true), 'point d’orgue à la fin du 1er passage');
+  // outils Claude : lire la scène, changer un repère
+  const cl = await page.evaluate(() => {
+    const a = StepSeq.assistantFilm();
+    const b = StepSeq.assistantRepere({ index: 2, harmonie: 'mediant', articulations: { trem: true } });
+    const c = StepSeq.assistantRepere({ index: 2, harmonie: 'auto' });
+    return { n: a.reperes && a.reperes.length, ok: b.ok, h: b.reperes && b.reperes[2].harmonie, art: b.reperes && b.reperes[2].articulations.includes('trem'), back: c.reperes && c.reperes[2].harmonie === c.reperes[2].harmonieAuto };
+  });
+  ok(cl.n === 6 && cl.ok && cl.h === 'mediant' && cl.art && cl.back, `outils Claude : assistantFilm et assistantRepere (${JSON.stringify(cl)})`);
   await page.locator('.bfm-mon').scrollIntoViewIfNeeded();
   await shot(page, 'film-mix-image.png');
   for (let i = 0; i < 25 && !(await page.isVisible('#bwCreate')); i++) {
@@ -199,6 +211,10 @@ const shot = async (page, name) => SHOTS && page.screenshot({ path: path.join(SH
   await page.waitForTimeout(900);
   const p = await page.evaluate(() => JSON.parse(localStorage.getItem('stepseq.autosave')));
   if (process.env.STACK) console.log(p.scenes.map((s) => s.name + ':' + s.bars).join(' | '), JSON.stringify(p.song));
+  if (process.env.DUMP) console.log(p.tracks.map((t) => (t.band ? t.band.key : t.name) + ' v' + t.volume + ' ' + JSON.stringify(t.fx || {})).join('\n'));
+  const orch = p.tracks.filter((t) => t.band && /^orch:/.test(t.band.key));
+  ok(orch.length && orch.every((t) => t.fx && t.fx.sendHall > 0) && orch.find((t) => t.band.key === 'orch:vl1').mix.pan < 0, `orchestre placé et en salle (${orch.length} pupitres)`);
+  ok(p.scenes[1].data && Object.values(p.scenes[1].data).some((d) => d.auto && d.auto.volume), 'courbe de volume sous le dialogue');
   ok(p.tempo === +bpm && p.scenes.length === 6 && p.tracks.some((t) => t.band && t.band.key === 'lead'), `chanson créée : ${p.scenes.length} scènes, ${p.tracks.length} pistes, ${p.tempo} BPM`);
   ok(!errs.length, 'aucune erreur' + (errs.length ? ' : ' + errs.join(' | ') : ''));
   await b.close();

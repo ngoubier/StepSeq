@@ -70,6 +70,23 @@ SS.bandMix = (() => {
     // effets (montées de bruit, ambiances, impacts) : en fond, sans graves, très réverbérés
     fx: { lu: -25, eq: eq({ hp: 220, lm: [500, -2, 0.8], high: [9000, -1.5] }), hall: 0.5, echo: 0.1, pan: 0 },
   };
+  /**
+   * Orchestre (musique de film) : placement sur scène (violons à gauche, violoncelles et contrebasses à droite, bois au
+   * centre) et réverbe par famille : les cordes plus loin dans la salle, les bois puis les cuivres au milieu ; la harpe,
+   * les claviers et les cloches baignent dans la salle. Le piano (rôle keys) reste proche.
+   */
+  const ORCH_SEAT = {
+    vl1: [-0.45, 0.42], vlt: [-0.45, 0.42], vlp: [-0.45, 0.4], vs: [-0.2, 0.36], vl2: [-0.2, 0.42], va: [0.15, 0.42],
+    vc: [0.35, 0.4], vcs: [0.35, 0.36], cb: [0.5, 0.36], cbp: [0.5, 0.34],
+    fl: [-0.1, 0.36], pic: [-0.1, 0.36], ob: [0.1, 0.34], cl: [-0.15, 0.34], bn: [0.15, 0.34],
+    hn: [-0.3, 0.32], tp: [0.1, 0.3], tb: [0.3, 0.3], tu: [0.4, 0.28],
+    hp: [-0.35, 0.45], gl: [0.25, 0.5], ma: [0.2, 0.45], bl: [-0.2, 0.55], syn: [0, 0.4],
+  };
+  const ORCH_HP = { cb: 30, cbp: 30, tu: 30, vc: 45, vcs: 45, bn: 45, tb: 50, hn: 60, hp: 40 };
+  function orchRule(part) {
+    const [pan, hall] = ORCH_SEAT[part] || [0, 0.4];
+    return { lu: -24, eq: eq({ hp: ORCH_HP[part] || 90 }), hall, pan };
+  }
   // percussionniste : un peu plus loin et plus écarté que le batteur
   const PERC_SHIFT = { lu: -2, pan: 1.3 };
 
@@ -201,6 +218,7 @@ SS.bandMix = (() => {
       const r = DRUM[sound] || DRUM.perc;
       return role === 'perc' ? { ...r, lu: r.lu + PERC_SHIFT.lu, pan: clamp((r.pan || 0) * PERC_SHIFT.pan, -0.6, 0.6) } : r;
     }
+    if (role === 'orch') return orchRule(sound);
     return INST[role] || null;
   }
 

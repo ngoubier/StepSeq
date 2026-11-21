@@ -902,6 +902,14 @@ SS.claudeTools = (() => {
     draft(`musicien ${muText(m)}`);
     return { message: `Musicien : ${muText(m)}, type ${m.type}`, musicien: m };
   }
+  function assistantFilm() {
+    return W().film();
+  }
+  function assistantRepere(o = {}) {
+    const r = W().repere(o);
+    draft(o.ajouter != null ? 'repère ajouté' : o.supprimer ? 'repère retiré' : `repère ${o.index + 1} modifié`);
+    return { message: 'Scène de film mise à jour', ...r };
+  }
   function assistantTempo({ bpm } = {}) {
     if (!Number.isFinite(Number(bpm))) fail('bpm : un nombre (40 à 240)');
     const t = W().tempo(Number(bpm));
@@ -1016,6 +1024,8 @@ SS.claudeTools = (() => {
     { nom: 'assistantStructure', assistant: true, description: 'L’ordre des scènes de la chanson (remplace l’arrangement).', params: { blocs: S('liste', '["intro", { scene: "chorus", fois: 2 }, "outro"]', true) }, faire: assistantStructure },
     { nom: 'assistantAccords', assistant: true, description: 'La grille d’une scène, une mesure par élément ("C G" = deux accords), répétée pour couvrir la scène ; ou sa tonalité seule.', params: { scene: S('texte', 'id ou nom (défaut : la scène affichée)'), accords: S('liste', '["Am", "F", "C", "G"]'), tonalite: S('objet', '{ tonique, mode } : tonalité de la scène') }, faire: assistantAccords },
     { nom: 'assistantMelodie', assistant: true, description: 'Une autre mélodie pour toute la chanson (comme 🎲).', params: {}, faire: assistantMelodie },
+    { nom: 'assistantFilm', lecture: true, assistant: true, description: 'Assistant, style « Musique de film » : la scène (entrée, fin, tempo calé), ses repères (temps, émotion, tension, énergie, synchro, dialogue, point d’orgue, harmonie, accords, nuance, articulations).', params: {}, faire: assistantFilm },
+    { nom: 'assistantRepere', assistant: true, description: 'Assistant, musique de film : change un repère (un modèle devient une scène libre), en ajoute un (ajouter: temps en s) ou le retire.', params: { index: S('nombre', 'n° du repère (voir assistantFilm())'), ajouter: S('nombre', 'temps en secondes d’un nouveau repère'), supprimer: S('booléen', 'retire le repère'), temps: S('nombre', 'secondes'), emotion: S('texte', 'tristesse, nostalgie, suspense, peur, colere, espoir, heroisme, emerveillement, apaisement, joie'), nom: S('texte', 'nom du passage'), tension: S('nombre', '1 à 5'), energie: S('nombre', '1 à 5'), synchro: S('booléen', 'synchro forte (une seule par scène)'), dialogue: S('booléen', 'on parle : la musique s’efface (−4 dB)'), pointDOrgue: S('booléen', 'la dernière mesure tient l’accord'), harmonie: S('texte', 'pedal, common, mediant, chrom, hero, susp, open, song, ou auto'), articulations: S('objet', '{ trem, pizz, glock, marimba, bells } : true / false') }, faire: assistantRepere },
     { nom: 'assistantCreer', assistant: true, description: 'Crée la chanson dans la grille (une étape Ctrl+Z). Si la grille a déjà des pistes, la fenêtre de confirmation s’ouvre : l’utilisateur choisit.', params: {}, faire: assistantCreer },
   ];
 

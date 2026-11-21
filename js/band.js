@@ -1299,6 +1299,7 @@ SS.band = (() => {
         h('td', {}, h('input', { type: 'text', class: 'bfm-name', value: m.name || '', disabled: tpl, maxlength: 40, 'aria-label': `Nom du passage ${i + 1}`, onchange: (e) => set('name')(e.target.value.trim()) })),
         h('td', {}, lvlSel(tm.sections[i].ten, `Tension du passage ${i + 1}`, set('ten'))),
         h('td', {}, lvlSel(tm.sections[i].ene, `Énergie du passage ${i + 1}`, set('ene'))),
+        h('td', { class: 'bfm-c' }, h('input', { type: 'checkbox', class: 'bfm-hold', checked: !!m.hold, disabled: tpl, title: 'Point d’orgue : la dernière mesure du passage tient l’accord, la musique suspend son souffle (la synchro reste calée)', 'aria-label': `Point d’orgue à la fin du passage ${i + 1}`, onchange: (e) => set('hold')(e.target.checked) })),
         h('td', { class: 'bfm-c' }, h('input', { type: 'checkbox', class: 'bfm-dlg', checked: !!m.dlg, disabled: tpl, title: 'On parle dans ce passage : la musique s’efface sous les mots (un cran d’énergie en moins, sans harpe ni percussions, piano tenu)', 'aria-label': `Dialogue dans le passage ${i + 1}`, onchange: (e) => set('dlg')(e.target.checked) })),
         h('td', { class: 'bfm-c' }, h('input', { type: 'radio', name: 'bfmSync', checked: !!m.sync, disabled: tpl || i === 0, 'aria-label': `Synchro forte sur le repère ${i + 1}`, onchange: () => filmEdit((x) => x.cues.forEach((c, j) => (c.sync = j === i))) })),
         h('td', { class: 'bfm-bar' }, `m. ${m.bar + 1}${drift}`),
@@ -1335,7 +1336,7 @@ SS.band = (() => {
       ),
       filmMonitorBlock(),
       h('table', { class: 'bfm-cues' },
-        h('thead', {}, h('tr', {}, ...['Temps', 'Émotion', 'Passage', 'Tension', 'Énergie', 'Dialogue', 'Synchro', 'Mesure', ''].map((t) => h('th', {}, t)))),
+        h('thead', {}, h('tr', {}, ...['Temps', 'Émotion', 'Passage', 'Tension', 'Énergie', 'Tenue', 'Dialogue', 'Synchro', 'Mesure', ''].map((t) => h('th', {}, t)))),
         h('tbody', {}, ...rows)
       ),
       head('02', 'Tempo calé'),
@@ -10277,7 +10278,93 @@ SS.band = (() => {
       createWizSong();
       return S.wiz ? 'confirmation' : 'creee';
     }
+    /* ---------- Musique de film : repères, courbes, harmonie, articulations ---------- */
+    const needFilm = () => {
+      need();
+      if (!film()) err('le style n’est pas « Musique de film » : StepSeq.assistantStyle({ style: "film" })');
+    };
+    function filmEtat() {
+      needFilm();
+      const f = filmOf();
+      const tm = FM().timing(f);
+      const sp = spec();
+      const last = tm.sections.length - 1;
+      return {
+        modele: filmTpl() ? preset().id : null,
+        entree: f.start || 0,
+        fin: f.end,
+        bpm: tm.bpm,
+        mesures: tm.bars,
+        reperes: tm.marks.map((m, i) => {
+          const s = tm.sections[i];
+          const sec = sp && s && sp.sections[s.id];
+          const auto = s ? FM().autoHarm(s, i === last) : null;
+          return {
+            index: i, temps: m.t, mesure: m.bar + 1, emotion: FM().emoOf(m.emo).k, nom: m.name || '', tension: m.ten, energie: m.ene,
+            synchro: !!m.sync, dialogue: !!m.dlg, pointDOrgue: !!m.hold,
+            harmonie: m.harm && FM().HARM[m.harm] ? m.harm : auto, harmonieAuto: auto,
+            accords: sec && sec.grid ? sec.grid.map((g) => chordOf(sec.key ? parseKeyStr(sec.key) : parseKeyStr(f.key || 'D minor'), g).name) : [],
+            nuance: sec ? sec.dyn || null : null,
+            articulations: sec && sec.art ? Object.keys(sec.art).filter((k) => sec.art[k]) : [],
+          };
+        }),
+        emotions: FM().EMOS.map((x) => x.k),
+        harmonies: FM().HARMONY.map((x) => x.k),
+        articulations: ['trem', 'pizz', 'glock', 'marimba', 'bells'],
+      };
+    }
+    /** Change un repère (le modèle devient une scène libre au premier changement), en ajoute ou en retire un. */
+    function filmRepere({ index, ajouter, supprimer, temps, emotion, nom, tension, energie, synchro, dialogue, pointDOrgue, harmonie, articulations } = {}) {
+      needFilm();
+      if (filmTpl()) filmUnlock();
+      const f = S.film;
+      const n = f.cues.length;
+      const num = (v, lo, hi, what) => (Number.isFinite(+v) ? Math.max(lo, Math.min(hi, Math.round(+v))) : err(`${what} : un nombre de ${lo} à ${hi}`));
+      if (ajouter != null) {
+        if (n >= 12) err('12 repères au plus');
+        const t = +ajouter;
+        if (!Number.isFinite(t) || t <= (f.start || 0) || t >= f.end) err(`ajouter : un temps en secondes entre ${f.start || 0} et ${f.end}`);
+        f.cues.push({ t, emo: 'suspense', name: '', ten: 3, ene: 3 });
+        f.cues.sort((a, b) => a.t - b.t);
+        index = f.cues.findIndex((c) => c.t === t);
+      }
+      const i = index == null ? err('index : le n° du repère (voir assistantFilm())') : num(index, 0, f.cues.length - 1, 'index');
+      if (supprimer) {
+        if (f.cues.length <= 1) err('il faut garder au moins un repère');
+        f.cues.splice(i, 1);
+        filmChanged();
+        return filmEtat();
+      }
+      const c = f.cues[i];
+      if (temps != null) {
+        if (i === 0) err('le premier repère est l’entrée de la musique : change-la avec la scène');
+        c.t = Math.max((f.start || 0) + 0.1, Math.min(f.end - 0.1, +temps || 0));
+        f.cues.sort((a, b) => a.t - b.t);
+      }
+      if (emotion != null) {
+        const e = FM().EMOS.find((x) => fold(x.k) === fold(emotion) || fold(x.label) === fold(emotion));
+        c.emo = e ? e.k : err(`émotion inconnue : « ${emotion} » (${FM().EMOS.map((x) => x.k).join(', ')})`);
+      }
+      if (nom != null) c.name = String(nom);
+      if (tension != null) c.ten = num(tension, 1, 5, 'tension');
+      if (energie != null) c.ene = num(energie, 1, 5, 'energie');
+      if (synchro != null) f.cues.forEach((x) => (x.sync = synchro ? x === c : x === c ? false : x.sync));
+      if (dialogue != null) c.dlg = !!dialogue;
+      if (pointDOrgue != null) c.hold = !!pointDOrgue;
+      if (harmonie != null) {
+        if (harmonie === '' || fold(harmonie) === 'auto') delete c.harm;
+        else c.harm = FM().HARM[harmonie] ? harmonie : err(`harmonie inconnue : « ${harmonie} » (${FM().HARMONY.map((x) => x.k).join(', ')}, auto)`);
+      }
+      if (articulations != null) {
+        if (typeof articulations !== 'object') err('articulations : { trem, pizz, glock, marimba, bells } (true / false)');
+        c.art = { ...(c.art || {}), ...articulations };
+      }
+      filmChanged();
+      return filmEtat();
+    }
+
     return {
+      film: filmEtat, repere: filmRepere,
       etat, styles, sons, ouvrir, etape, sceneId: secId, sceneOf, chordName: (key, c) => chordOf(key, c).name,
       style: setStyleOf, ajouter: addMu, musicien: editMu, tonalite: setKey, scene, structure, accords, creer,
       tempo: (v) => (needPlan(), setTempo(v), draftSoon(), tempo()),
