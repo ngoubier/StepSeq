@@ -8,16 +8,20 @@ Kits (format Hydrogen .h2drumkit, téléchargés sur SourceForge, voir samples/l
  - reggae : Blonde Bop accordé haut pour le reggae roots (Glen MacArthur, CC BY-SA 4.0) ;
  - cajon : Buskman's Holiday, cajón et percussions (Glen MacArthur, CC BY-SA 4.0) ;
  - tama : Forzee Stereo Drumkit (V. Sadovnikov, A. Belokurov, GPL 2), stéréo ;
- - pacific : Pacific de Bransin James Anderson (CC BY-SA 3.0 US), stéréo.
+ - pacific : Pacific de Bransin James Anderson (CC BY-SA 3.0 US), stéréo ;
+ - christmas : batterie du kit pop (Black Pearl) + percussions de Noël de la Versilian Community Sample Library
+   (VCSL, Versilian Studios, CC0) : grelots, claps, tambourins, timbales d'orchestre, cymbale suspendue frappée à la mailloche.
 Chaque élément y existe en plusieurs niveaux de frappe : le script les garde tous (du plus doux au plus fort, d'après les
 plages de vélocité de drumkit.xml), retire le silence avant l'attaque, les raccourcit à MAX_S secondes avec un fondu,
 les encode en MP3 dans samples/live/<kit>/ et écrit samples/live/live.json au format des banques de strudel :
 { "_base": "samples/live/", "<kit>_<élément>": [niveau 1, …, niveau n] }.
 js/audio.js joue le niveau qui correspond à la vélocité du coup (SS.LAYERED_DRUM_LIBS).
 Instrument « Nom+3 » : accordé 3 demi-tons plus haut (tom aigu des kits à deux toms, kit reggae) ; « Nom~0.3 » : son
-étouffé (raccourci à 0,3 s avec un long fondu, caisse claire sèche du reggae) ; « =banque » : banque d'un autre kit.
+étouffé (raccourci à 0,3 s avec un long fondu, caisse claire sèche du reggae) ; « =banque » : banque d'un autre kit ;
+« vcsl:fichier|fichier… » : échantillons VCSL (chemins sous VCSL_URL), rangés ensuite du plus doux au plus fort.
 
-Usage : python3 tools/live-drums.py [dossier de téléchargement]
+Usage : python3 tools/live-drums.py [dossier de téléchargement] [--only kit,kit…]
+(--only refait seulement ces kits et garde les autres banques de live.json)
 Nécessite ffmpeg et curl.
 """
 import json, os, re, subprocess, sys, tarfile, tempfile, glob
@@ -26,6 +30,7 @@ from concurrent.futures import ThreadPoolExecutor
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'samples', 'live')
 URL = 'https://sourceforge.net/projects/hydrogen/files/Sound%20Libraries/Main%20sound%20libraries/{}.h2drumkit/download'
+VCSL_URL = 'https://raw.githubusercontent.com/sgossner/VCSL/master/'
 MAX_S = 4.0
 FADE_S = 0.6
 
@@ -81,6 +86,20 @@ KITS = [
         'lt': 'Floor Tom', 'mt': 'Tom', 'ht': 'Tom+3', 'cr': 'Crash Left', 'rd': 'Ride', 'cb': '=pop_cb', 'tb': '=pop_tb',
         'sh': '=pop_sh', 'perc': 'Ride Bell', 'misc': 'Crash Right',
     }),
+    # Noël : batterie pop, grelots, claps, tambourin et timbales d'orchestre enregistrés (VCSL) ; cloche de ride sur cb
+    ('christmas', None, False, {
+        'bd': '=pop_bd', 'sd': '=pop_sd', 'rim': '=pop_rim', 'hh': '=pop_hh', 'oh': '=pop_oh', 'lt': '=pop_lt',
+        'mt': '=pop_mt', 'ht': '=pop_ht', 'cr': '=pop_cr', 'rd': '=pop_rd', 'cb': '=pop_perc',
+        'sh': 'vcsl:' + '|'.join(f'Idiophones/Struck Idiophones/Sleigh Bells/{f}.wav' for f in (
+            'Sleighbells_Hit_rr1_Mid', 'Sleighbells_Hit_rr2_Mid', 'sleighbell2_hit_2', 'sleighbell2_hit_loud')),
+        'cp': 'vcsl:' + '|'.join(f'Idiophones/Struck Idiophones/Claps/Clap_rr{n}.wav' for n in range(1, 7)),
+        'tb': 'vcsl:' + '|'.join(f'Idiophones/Struck Idiophones/Tambourine {f}_Mid.wav' for f in (
+            '1/Tamb1_Hit_v1_rr1', '1/Tamb1_Hit_v2_rr1', '2/Tamb2_Hit_v1_rr1', '2/Tamb2_Hit_v2_rr2')),
+        'perc': 'vcsl:' + '|'.join(f'Membranophones/Struck Membranophones/Timpani 1/Hit/Timpani1_Hit_{v}_Sum.wav' for v in (
+            'v2_rr1', 'v3_rr3', 'v4_rr1')),
+        'misc': 'vcsl:' + '|'.join(f'Idiophones/Struck Idiophones/Suspended Cymbal 1/susCymb1_hit_{v}1.wav' for v in (
+            'pp', 'mp', 'f', 'fff')),
+    }),
 ]
 
 
@@ -96,6 +115,21 @@ def fetch(name, dl):
     return glob.glob(os.path.join(d, '**', 'drumkit.xml'), recursive=True)[0]
 
 
+def fetch_vcsl(paths, dl):
+    """Échantillons VCSL téléchargés, du plus doux au plus fort (crête mesurée par ffmpeg), et le gain (dB) qui amène
+    le plus fort à −1 dBFS : les niveaux de frappe gardent leurs écarts, l'élément sonne aussi fort qu'une batterie."""
+    out = []
+    for rel in paths:
+        dst = os.path.join(dl, 'vcsl', rel)
+        if not os.path.exists(dst):
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            subprocess.run(['curl', '-sfL', '--retry', '3', '-o', dst, VCSL_URL + rel.replace(' ', '%20').replace('#', '%23')], check=True)
+        r = subprocess.run(['ffmpeg', '-i', dst, '-af', 'volumedetect', '-f', 'null', '-'], capture_output=True, text=True)
+        out.append((float(re.search(r'max_volume: (-?[\d.]+)', r.stderr).group(1)), dst))
+    out.sort()
+    return [f for _, f in out], -1 - out[-1][0]
+
+
 def layers(xml):
     """Instrument -> fichiers de ses niveaux de frappe, du plus doux au plus fort."""
     s, d, out = open(xml, errors='ignore').read(), os.path.dirname(xml), {}
@@ -107,10 +141,12 @@ def layers(xml):
     return out
 
 
-def encode(src, dst, semis, stereo, cut=0):
+def encode(src, dst, semis, stereo, cut=0, gain=0):
     os.makedirs(os.path.dirname(dst), exist_ok=True)
     # quelques prises commencent par 10 à 25 ms de silence : le coup tomberait en retard
     af = ['silenceremove=start_periods=1:start_threshold=0.004:start_silence=0.001']
+    if gain:
+        af.append(f'volume={gain:.1f}dB')
     if semis:
         af.append(f'aresample=44100,asetrate={round(44100 * 2 ** (semis / 12))},aresample=44100')
     if cut:  # étouffé : la queue du son s'éteint vite
@@ -122,20 +158,34 @@ def encode(src, dst, semis, stereo, cut=0):
 
 
 def main():
-    dl = sys.argv[1] if len(sys.argv) > 1 else tempfile.mkdtemp(prefix='live-drums-')
+    args = sys.argv[1:]
+    only = None
+    if '--only' in args:
+        i = args.index('--only')
+        only = set(args[i + 1].split(','))
+        del args[i:i + 2]
+    dl = args[0] if args else tempfile.mkdtemp(prefix='live-drums-')
     bank, jobs = {'_base': 'samples/live/'}, []
+    if only:
+        bank = json.load(open(os.path.join(OUT, 'live.json')))
     for key, name, stereo, pieces in KITS:
-        lay = layers(fetch(name, dl))
+        if only and key not in only:
+            continue
+        lay = layers(fetch(name, dl)) if name else {}
         for piece, inst in pieces.items():
             if inst.startswith('='):
                 bank[f'{key}_{piece}'] = bank[inst[1:]]
                 continue
+            gain = 0
+            if inst.startswith('vcsl:'):
+                lay[inst], gain = fetch_vcsl(inst[5:].split('|'), dl)
+                inst += '+0'
             inst, _, cut = inst.partition('~')
             inst, _, semis = inst.partition('+')
             files = []
             for n, src in enumerate(lay[inst], 1):
                 rel = f'{key}/{piece}-{n}.mp3'
-                jobs.append((src, os.path.join(OUT, rel), int(semis or 0), stereo, float(cut or 0)))
+                jobs.append((src, os.path.join(OUT, rel), int(semis or 0), stereo, float(cut or 0), gain))
                 files.append(rel)
             bank[f'{key}_{piece}'] = files
     with ThreadPoolExecutor(8) as ex:

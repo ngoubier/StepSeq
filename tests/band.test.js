@@ -134,14 +134,14 @@ test('kit « LinnDrum gated » : échantillons LinnDrum, reverb gated sur caisse
   assert.ok(SS.fxActive({ fx: { gated: 0.5 } }), 'le bouton FX de la piste s’allume');
 });
 
-test('batteries enregistrées (pop, rock, ballade, fagots, cajón, Tama, Pacific) : kits complets, chaque banque a ses niveaux de frappe hébergés', () => {
+test('batteries enregistrées (pop, rock, ballade, fagots, cajón, Tama, Pacific, Christmas) : kits complets, chaque banque a ses niveaux de frappe hébergés', () => {
   const fs = require('node:fs');
   const path = require('node:path');
   const root = path.join(__dirname, '..');
   const live = JSON.parse(fs.readFileSync(path.join(root, 'samples/live/live.json'), 'utf8'));
   assert.ok(SS.LAYERED_DRUM_LIBS.has('live') && SS.DRUM_LIBS.some((l) => l.id === 'live'));
   const ids = Object.keys(B.KITS).filter((k) => B.KITS[k].source === 'live');
-  assert.equal(ids.length, 8);
+  assert.equal(ids.length, 9);
   ids.forEach((k) =>
     ['bd', 'sd', 'rim', 'cp', 'hh', 'oh', 'lt', 'mt', 'ht', 'cr', 'rd', 'cb', 'tb', 'sh', 'perc', 'misc'].forEach((pc) => {
       const r = B.pieceOpts(k, pc);
