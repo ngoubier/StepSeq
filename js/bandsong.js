@@ -2000,6 +2000,7 @@ SS.bandSong = (() => {
           off: (ie && ie.orch && ie.orch.off) || [],
           motor: !!sec.motor,
           stabs: !!sec.stabs,
+          under: !!sec.dialog,
         });
         ts.forEach((t, i) => {
           const L = res.lines[ord[i]];

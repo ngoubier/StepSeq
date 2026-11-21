@@ -52,16 +52,31 @@ SS.render = (() => {
    * « drums:bd » → « drums ») ; les autres pistes, une par stem. by 'track' : une piste par stem. Seules les pistes
    * qu'on entend (Muet / Solo) donnent un stem.
    */
+  /**
+   * Stems par famille (musique de film : livraison au mixeur de la scène) : les pupitres de l'orchestre par famille
+   * (Cordes avec la harpe, Bois, Cuivres), le thème, le piano et les percussions à part.
+   */
+  const FAMILY = { cordes: 'Cordes', 'cordes pincées': 'Cordes', bois: 'Bois', cuivres: 'Cuivres', 'synthé': 'Synthé' };
+  const ROLE_FAMILY = { lead: 'Thème', keys: 'Piano', perc: 'Percussions', drums: 'Percussions' };
+  function familyOf(key) {
+    const [role, part] = key.split(':');
+    if (role === 'orch') {
+      const P = SS.orchestra && SS.orchestra.PART[part];
+      return (P && FAMILY[P.fam]) || 'Orchestre';
+    }
+    return ROLE_FAMILY[role] || null;
+  }
   function stemGroups(project, by = 'musician') {
     const out = [];
     const byId = new Map();
     for (const t of audibleTracks(project)) {
       const key = t.band && t.band.key ? String(t.band.key) : '';
       const role = key.split(':')[0];
-      const gid = by === 'musician' && role ? 'band:' + role : 'track:' + t.id;
+      const fam = by === 'family' && role ? familyOf(key) : null;
+      const gid = fam ? 'fam:' + fam : (by === 'musician' || by === 'family') && role ? 'band:' + role : 'track:' + t.id;
       let g = byId.get(gid);
       if (!g) {
-        const name = by === 'musician' && role ? MUSICIANS[role] || (t.band && t.band.label) || t.name || role : t.name || 'Piste';
+        const name = fam || ((by === 'musician' || by === 'family') && role ? MUSICIANS[role] || (t.band && t.band.label) || t.name || role : t.name || 'Piste');
         g = { id: gid, name, tracks: [] };
         byId.set(gid, g);
         out.push(g);

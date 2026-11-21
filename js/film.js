@@ -3,7 +3,7 @@
  *
  * Une scène de film = { start, end, cues: [{ t, emo, name, ten, ene, sync }], bpm? } :
  *   start / end : entrée et fin de la musique (secondes de l'image) ; chaque repère (cue) ouvre un passage ;
- *   emo : émotion du passage (EMOS, une couleur chacune) ; ten / ene : tension et énergie sonore, de 1 à 5 ; sync : synchro forte (le tempo est calé
+ *   emo : émotion du passage (EMOS, une couleur chacune) ; dlg : on y parle (la musique s'efface sous les mots) ; ten / ene : tension et énergie sonore, de 1 à 5 ; sync : synchro forte (le tempo est calé
  *   pour qu'elle tombe sur le premier temps d'une mesure) ; bpm : tempo choisi (sinon le meilleur tempo calé).
  *   Un repère peut aussi porter grid (grille exacte, degrés de js/harmony.js), gridBars (sa longueur) et theme (notes
  *   imposées [mesure, temps, midi, durée en temps]) : c'est le cas du modèle « La lumière revient ».
@@ -449,7 +449,12 @@ SS.film = (() => {
     const sections = {};
     tm.sections.forEach((s) => {
       const c = s.cue;
-      const sec = { bars: s.bars, name: s.name, emotion: s.emotion, energy: energyOf(s.ene), tension: s.ten, ...playOf(s) };
+      // sous les mots (repère « dialogue ») : un cran d'énergie en moins, la harpe et les percussions se taisent,
+      // l'orchestre joue plus doucement (mix à l'image : la musique laisse la place à la voix)
+      const dlg = !!c.dlg;
+      const ene = dlg ? Math.max(1, s.ene - 1) : s.ene;
+      const sec = { bars: s.bars, name: s.name, emotion: s.emotion, energy: energyOf(ene), tension: s.ten, ...playOf({ ...s, ene }) };
+      if (dlg) Object.assign(sec, { dialog: true, keys: 'sustain' }); // le piano tient ses accords, sans arpège
       if (c.grid && c.gridBars === s.bars) sec.grid = c.grid.map((x) => ({ acc: 0, ...x }));
       else {
         const g = gridFor(s.emotion, { tonic, mode: mode || 'minor' }, s.bars);
@@ -474,8 +479,9 @@ SS.film = (() => {
       sec.stabs = c.stabs ?? (s.ene >= 4 && (action || s.emo === 'heroisme'));
       // le vide avant l'impact : un temps de silence à la fin d'un passage fort qui précède la synchro
       if (c.gap ?? (next && next.sync && s.ene >= 4)) sec.gap = true;
-      sec.hits = percHits(tm, i);
+      sec.hits = film.percAuto === false ? { lt: [], mt: [], bd: [], cr: [], misc: [] } : percHits(tm, i);
       if (film.hits && c.gridBars === s.bars) addHits(sec.hits, film.hits, s.startBar, s.bars);
+      if (dlg) Object.keys(sec.hits).forEach((k) => (sec.hits[k] = sec.hits[k].filter(([st]) => st === 0 && s.sync)));
       sections[s.id] = sec;
     });
     return { key, groove: 'slow', emotion: tm.sections[0].emotion, film: true, sections, form: tm.sections.map((s) => s.id).join(' ') };
@@ -493,7 +499,7 @@ SS.film = (() => {
     bpm: 80,
     cues: [
       { t: 6, emo: 'nostalgie', name: 'Doute', ten: 2, ene: 1, gridBars: 4, grid: [C(0, 16, 0, 'madd9'), C(16, 16, 5, 'maj7'), C(32, 16, 2, 'maj', 4), C(48, 16, 6, 'sus2')] },
-      { t: 18, emo: 'suspense', name: 'Réplique', ten: 3, ene: 1, gridBars: 4, grid: [C(0, 16, 0, 'madd9'), C(16, 16, 5, 'maj7'), C(32, 16, 3, 'madd9'), C(48, 16, 6, 'sus4')] },
+      { t: 18, emo: 'suspense', name: 'Réplique', ten: 3, ene: 1, dlg: true, gridBars: 4, grid: [C(0, 16, 0, 'madd9'), C(16, 16, 5, 'maj7'), C(32, 16, 3, 'madd9'), C(48, 16, 6, 'sus4')] },
       { t: 30, emo: 'espoir', name: 'Espoir', ten: 4, ene: 3, gridBars: 4, grid: [C(0, 16, 0, 'madd9'), C(16, 16, 5, 'maj7'), C(32, 16, 2, 'maj', 4), C(48, 8, 6, 'sus4'), C(56, 8, 6, 'maj')] },
       { t: 42, emo: 'emerveillement', name: 'La lumière', ten: 1, ene: 5, sync: true, gridBars: 2, grid: [C(0, 16, 2, 'add9'), C(16, 16, 6, 'maj', 4)] },
       { t: 48, emo: 'apaisement', name: 'Apaisement', ten: 1, ene: 2, gridBars: 2, grid: [C(0, 16, 0, 'm7'), C(16, 16, 0, '5')] },
@@ -558,8 +564,75 @@ SS.film = (() => {
       misc: [[36, 1, 0.8]],
     },
   };
+
+  /* ---------- Modèle « Les grands espaces » : dans l'esprit du Main Title d'Out of Africa (John Barry, 1985) ----------
+   * Reprend la forme (55 mesures), la grille, le tempo (noire = 80) et l'effectif : violons en trémolo, cors à l'unisson,
+   * harpe, flûtes, tam-tam et grosse caisse (pas de timbales). La mélodie est originale ; elle garde seulement le geste
+   * rythmique du genre : une note longue qui passe la barre, un silence, une relance en croches. */
+  /** Grille d'une suite de mesures : [degré, type, altération] par mesure ; deux mesures identiques de suite n'en font qu'une. */
+  const barsGrid = (list) => {
+    const g = [];
+    list.forEach(([degree, type, acc = 0], i) => {
+      const last = g[g.length - 1];
+      if (last && last.degree === degree && last.type === type && last.acc === acc) last.len += 16;
+      else g.push({ step: i * 16, len: 16, degree, type, acc });
+    });
+    return g;
+  };
+  const CM = { C: [0, 'maj'], Em: [2, 'min'], Am: [5, 'min'], F: [3, 'maj'], Dm: [1, 'min'], Fm: [3, 'min'], G7: [4, '7'], G: [4, 'maj'], Gm: [4, 'min'], D: [1, 'maj'], E5: [2, '5'], Am9: [5, 'madd9'] };
+  const seq = (str) => str.split(' ').map((k) => CM[k]);
+  // le geste du thème : note d'appui, longue note liée par-dessus la barre, silence, relance en croches
+  const THEME_A = (b0, o = 0) => [
+    [b0, 1, 64 + o, 1], [b0, 2, 67 + o, 3.5], [b0 + 1, 3, 69 + o, 0.5], [b0 + 1, 3.5, 71 + o, 0.5], [b0 + 1, 4, 72 + o, 0.5], [b0 + 1, 4.5, 71 + o, 0.5],
+    [b0 + 2, 1, 72 + o, 1], [b0 + 2, 2, 76 + o, 3.5], [b0 + 3, 3, 77 + o, 0.5], [b0 + 3, 3.5, 76 + o, 0.5], [b0 + 3, 4, 74 + o, 0.5], [b0 + 3, 4.5, 72 + o, 0.5],
+    [b0 + 4, 1, 74 + o, 1], [b0 + 4, 2, 77 + o, 3.5],
+  ];
+  const ESPACES_THEME = [
+    // appels des cors sur les pédales de mi et de la : le si tenu devient neuvième sur la
+    [1, 1, 64, 1], [1, 2, 71, 3], [2, 1, 69, 1], [2, 2, 67, 1], [2, 3, 64, 2], [3, 1, 71, 4], [4, 3, 72, 0.5], [4, 3.5, 71, 0.5], [4, 4, 69, 1],
+    [5, 1, 64, 1], [5, 2, 71, 3], [6, 1, 72, 1], [6, 2, 71, 1], [6, 3, 67, 2], [7, 1, 71, 4], [8, 1, 69, 4],
+    // élargissement sur sol mineur et ré : le mi aigu, sixte sur sol, seconde sur ré
+    [9, 1, 62, 1], [9, 2, 70, 1], [9, 3, 74, 2], [10, 1, 76, 4], [11, 1, 76, 2], [11, 3, 74, 2], [12, 1, 66, 2], [12, 3, 69, 2],
+    [13, 1, 67, 1], [13, 2, 70, 1], [13, 3, 74, 2], [14, 1, 79, 3], [14, 4, 76, 1], [15, 1, 74, 4], [16, 1, 69, 2], [16, 3, 66, 2],
+    // repli sur ré mineur : une petite cellule, le fa naturel après le fa dièse
+    [17, 2, 69, 0.5], [17, 2.5, 65, 0.5], [17, 3, 62, 2], [19, 2, 69, 0.5], [19, 2.5, 65, 0.5], [19, 3, 62, 2], [20, 3, 64, 1], [20, 4, 67, 1],
+    // première exposition (do majeur), fin par fa mineur et deux mesures de dominante
+    ...THEME_A(21), [26, 3, 72, 0.5], [26, 3.5, 68, 0.5], [26, 4, 67, 0.5], [26, 4.5, 65, 0.5], [27, 1, 67, 1], [27, 2, 71, 3], [28, 2, 72, 1], [28, 3, 74, 2],
+    // seconde exposition, résolue directement de fa mineur sur do (la♭ → sol, fa → mi)
+    ...THEME_A(29), [34, 3, 77, 0.5], [34, 3.5, 80, 0.5], [34, 4, 79, 0.5], [34, 4.5, 77, 0.5], [35, 1, 76, 2], [35, 3, 74, 1], [35, 4, 72, 1], [36, 1, 72, 4],
+    // interlude, piano : notes liées et réponses en croches
+    [37, 2, 69, 3.5], [38, 3, 72, 0.5], [38, 3.5, 74, 0.5], [38, 4, 72, 1], [39, 2, 69, 3.5], [40, 3, 72, 0.5], [40, 3.5, 74, 0.5], [40, 4, 77, 1],
+    [41, 1, 76, 2], [41, 3, 74, 1], [41, 4, 72, 1], [42, 1, 69, 2], [42, 3, 72, 1], [42, 4, 76, 1], [43, 1, 77, 3], [43, 4, 76, 1], [44, 1, 74, 4],
+    // dernière exposition, puis la coda : la ligne du dessus descend sur la pédale de do
+    ...THEME_A(45), [50, 3, 72, 0.5], [50, 3.5, 68, 0.5], [50, 4, 67, 0.5], [50, 4.5, 65, 0.5],
+    [51, 1, 76, 4], [52, 1, 74, 4], [53, 1, 72, 4], [54, 1, 71, 2], [54, 3, 74, 2], [55, 1, 72, 4],
+  ];
+  const ESPACES = {
+    id: 'espaces',
+    title: 'Les grands espaces',
+    story: 'Un survol des collines au lever du jour : des appels de cors au loin, l’horizon qui s’élargit, puis le grand thème, tendre et un peu amer.',
+    key: 'C major',
+    start: 0,
+    end: 165,
+    bpm: 80,
+    percAuto: false, // pas de timbales : seulement les frappes écrites (tam-tam et grosse caisse)
+    themeNote: 'une mélodie originale dans le geste du genre : une note longue qui passe la barre, un silence, une relance en croches. Appels des cors sur les pédales, puis trois expositions du thème ; la seconde se résout de fa mineur directement sur do.',
+    cues: [
+      { t: 0, emo: 'nostalgie', name: 'Appels', ten: 2, ene: 1, gridBars: 8, grid: barsGrid(seq('E5 E5 Am9 Am9 E5 E5 Am9 Am9')) },
+      { t: 24, emo: 'emerveillement', name: 'L’horizon', ten: 3, ene: 3, gridBars: 8, grid: barsGrid(seq('Gm Gm D D Gm Gm D D')) },
+      { t: 48, emo: 'nostalgie', name: 'Repli', ten: 2, ene: 1, gridBars: 4, grid: barsGrid(seq('Dm Dm Dm Dm')) },
+      { t: 60, emo: 'emerveillement', name: 'Le thème', ten: 2, ene: 3, sync: true, gridBars: 8, grid: barsGrid(seq('C Em Am F Dm Fm G7 G7')) },
+      { t: 84, emo: 'nostalgie', name: 'Reprise', ten: 2, ene: 4, gridBars: 8, grid: barsGrid(seq('C Em Am F Dm Fm C C')) },
+      { t: 108, emo: 'apaisement', name: 'Interlude', ten: 1, ene: 2, gridBars: 8, grid: barsGrid(seq('F Dm F Dm C Am F G')) },
+      { t: 132, emo: 'emerveillement', name: 'Dernier thème', ten: 2, ene: 4, gridBars: 6, grid: barsGrid(seq('C Em Am F Dm Fm')) },
+      { t: 150, emo: 'apaisement', name: 'Coda', ten: 1, ene: 1, gridBars: 5, grid: barsGrid(seq('C C C C C')) },
+    ],
+    theme: ESPACES_THEME,
+    // tam-tam et grosse caisse ponctuent l'élargissement ; un dernier tam-tam très doux sous l'accord final
+    hits: { bd: [[9, 1, 0.75], [13, 1, 0.75], [21, 1, 0.5], [45, 1, 0.6]], misc: [[9, 1, 0.6], [13, 1, 0.6], [45, 1, 0.45], [55, 1, 0.3]] },
+  };
   /** Les modèles (scènes écrites, accords et thème) : une inspiration chacun dans le style. */
-  const TEMPLATES = { lumiere: LUMIERE, poursuite: POURSUITE };
+  const TEMPLATES = { lumiere: LUMIERE, poursuite: POURSUITE, espaces: ESPACES };
 
   /** Scène libre de départ : quatre passages, une synchro forte. */
   const blankScene = () => ({
@@ -623,6 +696,20 @@ SS.film = (() => {
         ],
       },
       {
+        id: 'espaces',
+        song: 'Les grands espaces',
+        artist: 'Dans l’esprit de Out of Africa (John Barry, 1985)',
+        year: '',
+        tempo: 80,
+        desc: 'Un survol au lever du jour. 55 mesures à 80 BPM : appels des cors sur les pédales de mi et de la, l’horizon en sol mineur et ré, repli en ré mineur, puis trois expositions du thème en do majeur avec leur fa mineur doux-amer. Violons en trémolo, cors à l’unisson, harpe, flûtes, tam-tam et grosse caisse. Mélodie originale.',
+        musicians: [
+          mu('lead', 'vsco_horn ' + THEME_PICK, { label: 'Thème (cors)', note: 'Appels, puis le grand thème : note longue liée par-dessus la barre, relance en croches' }),
+          mu('orch', 'gm_violin', { label: 'Orchestre', orch: true, ens: ['romantique', ...ORCH.filter((e) => e !== 'romantique')], note: 'Bois, cor, harpe et cordes ; plus dense à chaque exposition' }),
+          mu('strings', 'vsco_violins_trem vsco_violins', { label: 'Violons (trémolo)', note: 'Le tapis de l’ouverture, en trémolo' }),
+          PERC(kit, { note: 'Tam-tam et grosse caisse sur l’élargissement, pas de timbales' }, 'bd misc'),
+        ],
+      },
+      {
         id: 'scene',
         song: 'Ma scène',
         artist: 'Scène libre',
@@ -641,10 +728,11 @@ SS.film = (() => {
   if (SS.BandSongs) {
     SS.BandSongs.lumiere = spec(LUMIERE);
     SS.BandSongs.poursuite = spec(POURSUITE);
+    SS.BandSongs.espaces = spec(ESPACES);
     SS.BandSongs.scene = spec(blankScene());
   }
   if (SS.Band && SS.Band.addStyle) SS.Band.addStyle(STYLE(SS.Band.mu, SS.Band.kit));
 
-  return { EMOS, emoOf, energyOf, tempoOf, fmt, timing, spec, gridFor, themeEvents, LUMIERE, POURSUITE, TEMPLATES, addHits, blankScene, editable, TEMPO_MIN, TEMPO_MAX,
+  return { EMOS, emoOf, energyOf, tempoOf, fmt, timing, spec, gridFor, themeEvents, LUMIERE, POURSUITE, ESPACES, TEMPLATES, barsGrid, addHits, blankScene, editable, TEMPO_MIN, TEMPO_MAX,
     percHits, CONT, INTV, RHY, EMO_MOTIF, motifFor, genMotif, proposals, TRANSFORMS, PHRASES, phrase, TREATMENTS, EMO_TREAT, treatOf, treatNotes, motifOf, chordAt, parseKey, scaleOf };
 })();

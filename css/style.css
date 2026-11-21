@@ -4224,6 +4224,9 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 #bandDialog .bfm-sub { margin-top: 6px; font-size: 12px; font-weight: 600; color: var(--bw-text); }
 #bandDialog .bfm-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 #bandDialog .bfm-row .bh-lbl { width: 100px; flex: none; }
+/* Écoutes de contrôle (mix à l'image) */
+#bandDialog .bfm-mon .bfm-why { margin: 0; }
+#bandDialog .bfm-mon .bh-lbl { width: auto; margin-right: 4px; }
 #bandDialog .bfm-chips { display: flex; flex-wrap: wrap; gap: 4px; }
 #bandDialog .bfm-chips .chip { height: 24px; padding: 0 10px; font-size: 12px; }
 #bandDialog .bfm-roll { height: 70px; border-radius: 6px; background: var(--bw-panel2); overflow: hidden; }

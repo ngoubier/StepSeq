@@ -93,11 +93,12 @@ SS.orchestra = (() => {
    */
   const MOTOR = [0, 0, 12, 0, 0, 12, 0, 7];
   const ACC = [0, 3, 6];
-  function orchestrate({ parts, spans, melody = [], level = 'mid', off = [], vel = null, motor = false, stabs = false }) {
+  function orchestrate({ parts, spans, melody = [], level = 'mid', off = [], vel = null, motor = false, stabs = false, under = false }) {
     const defs = parts.map((id) => PART[id]).filter(Boolean);
     const lines = {};
     const items = [];
-    const v0 = vel ?? { light: 0.5, mid: 0.62, full: 0.74 }[level] ?? 0.62;
+    // under : sous un dialogue, tout l'orchestre joue plus doucement et la harpe se tait
+    const v0 = (vel ?? { light: 0.5, mid: 0.62, full: 0.74 }[level] ?? 0.62) - (under ? 0.12 : 0);
     const set = (p, role, why) => (lines[p.id] = { role, events: [], lo: null, hi: null, why });
     const isOff = (p) => off.includes(p.id);
     const sounding = defs.filter((p) => !isOff(p));
@@ -110,7 +111,7 @@ SS.orchestra = (() => {
     const dbl = level === 'full' && mel.length ? sounding.filter((p) => (p.id === 'tp' || p.id === 'pic') && p !== leadP) : [];
     const counterP = level !== 'light' && mel.length ? ['ob', 'fl', 'cl', 'vc'].filter((id) => id !== 'vc' || sounding.some((p) => p.id === 'vs')).map((id) => sounding.find((p) => p.id === id && p !== leadP && !dbl.includes(p))).find(Boolean) || null : null;
     const padP = sounding.find((p) => p.id === 'syn') || null;
-    const harpP = sounding.find((p) => p.id === 'hp') || null;
+    const harpP = under ? null : sounding.find((p) => p.id === 'hp') || null;
     // tuba : double la basse à l'octave grave, au sommet seulement
     const tubaP = level === 'full' && !stabs && bassP && bassP.id !== 'tu' ? sounding.find((p) => p.id === 'tu') || null : null;
     // cuivres (sauf le cor) : une couleur réservée aux scènes fortes ; trompettes, trombones et tuba se taisent ailleurs
@@ -119,12 +120,13 @@ SS.orchestra = (() => {
     // ostinato : les violoncelles rejoignent la basse (une octave au-dessus) quand la contrebasse la tient
     const motorVc = motor && bassP && bassP.id === 'cb' ? sounding.find((p) => p.id === 'vc' && p !== leadP && p !== counterP) || null : null;
     const harm = sounding
-      .filter((p) => !stabP.includes(p) && p !== motorVc)
+      .filter((p) => !stabP.includes(p) && p !== motorVc && !(under && p.id === 'hp'))
       .filter((p) => p !== bassP && p !== leadP && p !== counterP && p !== padP && p !== harpP && p !== tubaP && !dbl.includes(p) && !brassRest(p))
       .filter((p) => level !== 'light' || p.fam === 'cordes' || p.fam === 'synthé')
       .sort((a, b) => center(b) - center(a));
     defs.forEach((p) => {
       if (isOff(p)) return set(p, 'tacet', 'Coupé dans cette scène.');
+      if (under && p.id === 'hp') return set(p, 'tacet', 'Se tait sous le dialogue : ses arpèges gêneraient la voix.');
       if (stabP.includes(p)) return set(p, 'stabs', 'Frappe l’accord sur les accents 3+3+2 : le coup de poing des cuivres.');
       if (p === motorVc || (motor && p === bassP)) return set(p, 'motor', 'Croches groupées 3+3+2 sur la basse de l’accord : le moteur de la poursuite.');
       if (dbl.includes(p)) return set(p, 'melody', p.id === 'pic' ? 'Double le thème une octave au-dessus : l’éclat du sommet.' : 'Double le thème au sommet : les trompettes le rendent héroïque.');

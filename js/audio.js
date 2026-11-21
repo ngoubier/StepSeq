@@ -922,6 +922,26 @@ SS.audio = (() => {
   }
 
   /** Tranche Master : fader + EQ / comp / limiteur, puis mastering. */
+  /**
+   * Écoutes de contrôle (musique de film, js/band.js) : mono (la sortie mélange gauche et droite) et faible volume
+   * (−20 dB au fader du Master). Elles ne touchent ni au projet ni aux exports.
+   */
+  const MONITOR_LOW = 0.1;
+  const monitor = { mono: false, low: false };
+  let masterVol = 0.8;
+  function setMonitor(o = {}) {
+    Object.assign(monitor, o);
+    if (!ctx) return { ...monitor };
+    try {
+      ctx.destination.channelCount = monitor.mono ? 1 : Math.min(2, ctx.destination.maxChannelCount || 2);
+      ctx.destination.channelCountMode = 'explicit';
+      ctx.destination.channelInterpretation = 'speakers';
+    } catch (e) {
+      /* sortie qui refuse le mono */
+    }
+    masterFader.gain.setTargetAtTime(masterVol * (monitor.low ? MONITOR_LOW : 1), ctx.currentTime, 0.015);
+    return { ...monitor };
+  }
   function applyMaster(project) {
     if (!ctx) {
       pendingMaster = project;
@@ -930,7 +950,8 @@ SS.audio = (() => {
     const mp = SS.masterParams(project);
     applyMasterEffects(mp.effects);
     applyStrip(masterStrip, mp.mix);
-    masterFader.gain.setTargetAtTime(mp.volume, ctx.currentTime, 0.015);
+    masterVol = mp.volume;
+    masterFader.gain.setTargetAtTime(mp.volume * (monitor.low ? MONITOR_LOW : 1), ctx.currentTime, 0.015);
     applyMastering(project);
     applyReturns(project);
   }
@@ -2812,6 +2833,8 @@ SS.audio = (() => {
   }
 
   return {
+    setMonitor,
+    monitorState: () => ({ ...monitor }),
     diagnostics,
     probe,
     repair,
