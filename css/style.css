@@ -4120,6 +4120,52 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 #bandDialog.blank .bs1-insp { grid-template-columns: minmax(0, 1fr); }
 #bandDialog .bs-zero { margin: 6px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--bw-muted); }
 #bandDialog .bs-zero b { color: var(--bw-text); font-weight: 600; }
+/* Tuile 🎬 « Musique de film » : repères, tempo calé, émotions et courbes (js/film.js) */
+#bandDialog.film .bs1-insp { grid-template-columns: minmax(0, 1fr); }
+#bandDialog.film .band-presets { grid-template-columns: repeat(auto-fill, minmax(220px, 280px)); }
+#bandDialog .bfm-h { margin: 10px 0 0; font-size: 13px; font-weight: 600; color: var(--bw-text); }
+#bandDialog .bfm-h b { color: #ffd75e; margin-right: 4px; }
+#bandDialog .bfm-strip svg, #bandDialog .bfm-curves svg { font-family: inherit; display: block; width: 100%; max-width: 760px; height: auto; }
+#bandDialog .bfm-io { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; font-size: 13px; color: var(--bw-muted); }
+#bandDialog .bfm-io input { width: 76px; }
+#bandDialog .bfm-cues { width: 100%; max-width: 760px; border-collapse: collapse; font-size: 13px; }
+#bandDialog .bfm-cues th { text-align: left; font-size: 11px; font-weight: 600; color: var(--bw-dim); padding: 2px 6px 4px 0; }
+#bandDialog .bfm-cues td { padding: 3px 6px 3px 0; }
+#bandDialog .bfm-cues tr.sync td { background: color-mix(in srgb, #ffd75e 10%, transparent); }
+#bandDialog .bfm-cues .bfm-time { width: 72px; }
+#bandDialog .bfm-cues .bfm-name { width: 100%; min-width: 90px; }
+#bandDialog .bfm-cues .bfm-c { text-align: center; }
+#bandDialog .bfm-bar { color: var(--bw-muted); white-space: nowrap; }
+#bandDialog .bfm-t { color: var(--bw-muted); }
+#bandDialog .bfm-why { margin: 0; font-size: 13px; color: var(--bw-muted); }
+#bandDialog .bfm-opts { display: flex; flex-wrap: wrap; gap: 6px; }
+#bandDialog .bfm-legend { margin: 0; font-size: 12px; color: var(--bw-muted); }
+#bandDialog .bfm-legend i { display: inline-block; width: 14px; height: 3px; vertical-align: middle; }
+#bandDialog .bfm-legend i.dash { background: none; border-top: 2px dashed currentColor; height: 0; }
+#bandDialog .bfm-emotd { display: flex; align-items: center; gap: 6px; }
+#bandDialog .bfm-dot, #bandDialog .bfm-palette i { flex: none; width: 12px; height: 12px; border-radius: 50%; background: var(--c); }
+#bandDialog .bfm-emo { border-left: 3px solid var(--c); }
+#bandDialog .bfm-palette { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--bw-muted); }
+#bandDialog .bfm-palette span { display: inline-flex; align-items: center; gap: 5px; }
+#bandDialog .bfm-theme { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 12px 24px; max-width: 1100px; }
+#bandDialog .bfm-tcol { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+#bandDialog .bfm-sub { margin-top: 6px; font-size: 12px; font-weight: 600; color: var(--bw-text); }
+#bandDialog .bfm-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+#bandDialog .bfm-row .bh-lbl { width: 100px; flex: none; }
+#bandDialog .bfm-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+#bandDialog .bfm-chips .chip { height: 24px; padding: 0 10px; font-size: 12px; }
+#bandDialog .bfm-roll { height: 70px; border-radius: 6px; background: var(--bw-panel2); overflow: hidden; }
+#bandDialog .bfm-roll svg { display: block; width: 100%; height: 100%; }
+#bandDialog .bfm-roll.empty { display: flex; align-items: center; justify-content: center; color: var(--bw-dim); font-size: 12px; }
+#bandDialog .bfm-prop { display: grid; grid-template-columns: auto 160px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 4px; border: 1px solid transparent; border-radius: 6px; }
+#bandDialog .bfm-prop .bfm-roll { height: 40px; }
+#bandDialog .bfm-prop.on { border-color: #ffd75e; }
+#bandDialog .bfm-notes { font-size: 12px; color: var(--bw-muted); }
+#bandDialog .bfm-leit { width: 100%; max-width: 1100px; border-collapse: collapse; font-size: 13px; }
+#bandDialog .bfm-leit td { padding: 3px 8px 3px 0; vertical-align: middle; }
+#bandDialog .bfm-leit td small { color: var(--bw-dim); }
+#bandDialog .bfm-leit .bfm-rollcell { width: 50%; }
+#bandDialog .bfm-leit .bfm-roll { height: 36px; }
 #bandDialog .bs1-insp-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: -8px; }
 #bandDialog .band-stylecard { display: flex; flex-direction: row; align-items: center; flex-wrap: wrap; flex: 1 1 320px; gap: 4px 12px; min-width: 0; padding: 0; border: 0; border-radius: 0; background: none; }
 #bandDialog .bsc-lbl { color: var(--bw-dim); font-size: 12px; }
