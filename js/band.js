@@ -961,17 +961,20 @@ SS.band = (() => {
   function filmStrip(tm) {
     const W = 640;
     const x = (t) => 8 + ((t - tm.start) / Math.max(1, tm.end - tm.start)) * (W - 16);
-    const barLen = (60 * tm.beats) / tm.bpm;
     let svg = `<rect x="8" y="30" width="${W - 16}" height="26" rx="4" fill="var(--bw-panel2)"/>`;
+    // chaque passage à son tempo (repère avec un tempo propre) : ses mesures ont leur propre longueur
+    const barTimes = [];
     tm.sections.forEach((s, i) => {
-      const x0 = x(tm.start + s.startBar * barLen);
-      const x1 = x(tm.start + (s.startBar + s.bars) * barLen);
+      const x0 = x(s.cue.land);
+      const x1 = x(s.cue.land + s.bars * s.cue.barLen);
+      for (let b = 0; b < s.bars; b++) barTimes.push(s.cue.land + b * s.cue.barLen);
       const a = 0.35 + 0.12 * s.ene; // plus d'énergie, couleur plus franche
       svg += `<rect x="${x0.toFixed(1)}" y="30" width="${Math.max(1, x1 - x0 - 1).toFixed(1)}" height="26" rx="3" fill="${s.color}" opacity="${a.toFixed(2)}"/>`;
       svg += `<text x="${(x0 + 5).toFixed(1)}" y="47" font-size="12" font-weight="600" fill="#0d0d12">${i + 1}</text>`;
     });
-    for (let b = 0; b <= tm.bars; b++) {
-      const xb = x(tm.start + b * barLen);
+    barTimes.push(tm.start + tm.seconds);
+    for (let b = 0; b < barTimes.length; b++) {
+      const xb = x(barTimes[b]);
       if (xb > W - 8) break;
       svg += `<line x1="${xb.toFixed(1)}" x2="${xb.toFixed(1)}" y1="56" y2="${b % 4 === 0 ? 64 : 60}" stroke="var(--bw-dim)"/>`;
     }
@@ -1299,6 +1302,15 @@ SS.band = (() => {
         h('td', {}, h('input', { type: 'text', class: 'bfm-name', value: m.name || '', disabled: tpl, maxlength: 40, 'aria-label': `Nom du passage ${i + 1}`, onchange: (e) => set('name')(e.target.value.trim()) })),
         h('td', {}, lvlSel(tm.sections[i].ten, `Tension du passage ${i + 1}`, set('ten'))),
         h('td', {}, lvlSel(tm.sections[i].ene, `Énergie du passage ${i + 1}`, set('ene'))),
+        h('td', {}, h('input', {
+          type: 'number', class: 'bfm-bpm' + (m.own ? ' own' : ''), min: FM().TEMPO_MIN, max: FM().TEMPO_MAX, step: 1, value: m.own ? m.bpm : '', placeholder: String(tm.bpm), disabled: tpl,
+          title: 'Tempo propre au passage (vide : celui de la scène)', 'aria-label': `Tempo du passage ${i + 1}`,
+          onchange: (e) => filmEdit((x) => {
+            const v = Math.round(+e.target.value);
+            if (v >= FM().TEMPO_MIN && v <= FM().TEMPO_MAX && v !== tm.bpm) x.cues[i].bpm = v;
+            else delete x.cues[i].bpm;
+          }),
+        })),
         h('td', { class: 'bfm-c' }, h('input', { type: 'checkbox', class: 'bfm-hold', checked: !!m.hold, disabled: tpl, title: 'Point d’orgue : la dernière mesure du passage tient l’accord, la musique suspend son souffle (la synchro reste calée)', 'aria-label': `Point d’orgue à la fin du passage ${i + 1}`, onchange: (e) => set('hold')(e.target.checked) })),
         h('td', { class: 'bfm-c' }, h('input', { type: 'checkbox', class: 'bfm-dlg', checked: !!m.dlg, disabled: tpl, title: 'On parle dans ce passage : la musique s’efface sous les mots (un cran d’énergie en moins, sans harpe ni percussions, piano tenu)', 'aria-label': `Dialogue dans le passage ${i + 1}`, onchange: (e) => set('dlg')(e.target.checked) })),
         h('td', { class: 'bfm-c' }, h('input', { type: 'radio', name: 'bfmSync', checked: !!m.sync, disabled: tpl || i === 0, 'aria-label': `Synchro forte sur le repère ${i + 1}`, onchange: () => filmEdit((x) => x.cues.forEach((c, j) => (c.sync = j === i))) })),
@@ -1336,7 +1348,7 @@ SS.band = (() => {
       ),
       filmMonitorBlock(),
       h('table', { class: 'bfm-cues' },
-        h('thead', {}, h('tr', {}, ...['Temps', 'Émotion', 'Passage', 'Tension', 'Énergie', 'Tenue', 'Dialogue', 'Synchro', 'Mesure', ''].map((t) => h('th', {}, t)))),
+        h('thead', {}, h('tr', {}, ...['Temps', 'Émotion', 'Passage', 'Tension', 'Énergie', 'Tempo', 'Tenue', 'Dialogue', 'Synchro', 'Mesure', ''].map((t) => h('th', {}, t)))),
         h('tbody', {}, ...rows)
       ),
       head('02', 'Tempo calé'),
@@ -10299,7 +10311,7 @@ SS.band = (() => {
           const sec = sp && s && sp.sections[s.id];
           const auto = s ? FM().autoHarm(s, i === last) : null;
           return {
-            index: i, temps: m.t, mesure: m.bar + 1, emotion: FM().emoOf(m.emo).k, nom: m.name || '', tension: m.ten, energie: m.ene,
+            index: i, temps: m.t, mesure: m.bar + 1, emotion: FM().emoOf(m.emo).k, nom: m.name || '', tension: m.ten, energie: m.ene, tempo: m.own ? m.bpm : null,
             synchro: !!m.sync, dialogue: !!m.dlg, pointDOrgue: !!m.hold,
             harmonie: m.harm && FM().HARM[m.harm] ? m.harm : auto, harmonieAuto: auto,
             accords: sec && sec.grid ? sec.grid.map((g) => chordOf(sec.key ? parseKeyStr(sec.key) : parseKeyStr(f.key || 'D minor'), g).name) : [],
@@ -10313,7 +10325,7 @@ SS.band = (() => {
       };
     }
     /** Change un repère (le modèle devient une scène libre au premier changement), en ajoute ou en retire un. */
-    function filmRepere({ index, ajouter, supprimer, temps, emotion, nom, tension, energie, synchro, dialogue, pointDOrgue, harmonie, articulations } = {}) {
+    function filmRepere({ index, ajouter, supprimer, temps, emotion, nom, tension, energie, tempo, synchro, dialogue, pointDOrgue, harmonie, articulations } = {}) {
       needFilm();
       if (filmTpl()) filmUnlock();
       const f = S.film;
@@ -10353,6 +10365,11 @@ SS.band = (() => {
       if (harmonie != null) {
         if (harmonie === '' || fold(harmonie) === 'auto') delete c.harm;
         else c.harm = FM().HARM[harmonie] ? harmonie : err(`harmonie inconnue : « ${harmonie} » (${FM().HARMONY.map((x) => x.k).join(', ')}, auto)`);
+      }
+      if (tempo != null) {
+        const c = f.cues[i];
+        if (!+tempo) delete c.bpm; // 0 : le tempo de la scène
+        else c.bpm = num(tempo, FM().TEMPO_MIN, FM().TEMPO_MAX, 'tempo');
       }
       if (articulations != null) {
         if (typeof articulations !== 'object') err('articulations : { trem, pizz, glock, marimba, bells } (true / false)');

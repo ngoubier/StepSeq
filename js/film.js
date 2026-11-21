@@ -5,6 +5,8 @@
  *   start / end : entrée et fin de la musique (secondes de l'image) ; chaque repère (cue) ouvre un passage ;
  *   emo : émotion du passage (EMOS, une couleur chacune) ; dlg : on y parle (la musique s'efface sous les mots) ; hold : point d'orgue (la dernière mesure tient l'accord) ; ten / ene : tension et énergie sonore, de 1 à 5 ; sync : synchro forte (le tempo est calé
  *   pour qu'elle tombe sur le premier temps d'une mesure) ; bpm : tempo choisi (sinon le meilleur tempo calé).
+ *   Un repère peut avoir son propre tempo (cue.bpm) : son passage joue à ce tempo, le changement est net au début du
+ *   passage (la scène de la grille reçoit ce tempo, fiche Scène) ; les mesures des repères suivants en tiennent compte.
  *   Un repère peut aussi porter grid (grille exacte, degrés de js/harmony.js), gridBars (sa longueur) et theme (notes
  *   imposées [mesure, temps, midi, durée en temps]) : c'est le cas du modèle « La lumière revient ».
  *
@@ -95,13 +97,21 @@ SS.film = (() => {
     const best = options.length ? options.reduce((a, o) => (Math.abs(o.exact - target) < Math.abs(a.exact - target) ? o : a)) : null;
     const bpm = clamp(Math.round(film.bpm || (best ? best.bpm : target)), TEMPO_MIN, TEMPO_MAX);
     const barLen = (60 * beats) / bpm;
-    // mesure de chaque repère : la plus proche, toujours après celle du repère d'avant
+    // tempo de chaque passage : le sien (cue.bpm), sinon celui de la scène
+    const bpmOf = (c) => (c.bpm ? clamp(Math.round(c.bpm), TEMPO_MIN, TEMPO_MAX) : bpm);
+    const lenOf = (c) => (60 * beats) / bpmOf(c);
+    // mesure de chaque repère : la plus proche, au moins une mesure après celle du repère d'avant (passage d'avant
+    // compté à son propre tempo). Sans tempo de passage, c'est la mesure la plus proche au tempo de la scène.
     const marks = [];
     cues.forEach((c, i) => {
-      const at = i === 0 ? 0 : Math.max(marks[i - 1].bar + 1, Math.round((c.t - start) / barLen));
-      marks.push({ ...c, bar: at, land: start + at * barLen, drift: start + at * barLen - c.t });
+      const p = marks[i - 1];
+      const at = i === 0 ? 0 : p.bar + Math.max(1, Math.round((c.t - p.land) / p.barLen));
+      const land = i === 0 ? start : p.land + (at - p.bar) * p.barLen;
+      marks.push({ ...c, bar: at, land, drift: land - c.t, bpm: bpmOf(c), own: !!c.bpm, barLen: lenOf(c) });
     });
-    const bars = Math.max(marks[marks.length - 1].bar + 1, Math.round((end - start) / barLen));
+    const lastM = marks[marks.length - 1];
+    const bars = lastM.bar + Math.max(1, Math.round((end - lastM.land) / lastM.barLen));
+    const seconds = lastM.land + (bars - lastM.bar) * lastM.barLen - start;
     const sections = marks.map((m, i) => ({
       id: 'p' + (i + 1),
       name: m.name || emoOf(m.emo).label,
@@ -113,9 +123,11 @@ SS.film = (() => {
       ten: lvl(m.ten),
       ene: lvl(m.ene),
       sync: !!m.sync,
+      bpm: m.bpm,
+      own: m.own,
       cue: m,
     }));
-    return { bpm, target, options, best, sync, marks, sections, bars, seconds: bars * barLen, start, end, beats };
+    return { bpm, target, options, best, sync, marks, sections, bars, seconds, start, end, beats };
   }
 
   /* ---------- Harmonie d'un passage libre : une proposition de l'émotion, dans la tonalité de la scène ---------- */
@@ -552,12 +564,14 @@ SS.film = (() => {
       const dlg = !!c.dlg;
       const ene = dlg ? Math.max(1, s.ene - 1) : s.ene;
       const sec = { bars: s.bars, name: s.name, emotion: s.emotion, energy: energyOf(ene), tension: s.ten, ...playOf({ ...s, ene }) };
+      if (s.own && s.bpm !== tm.bpm) sec.tempo = s.bpm; // tempo propre au passage : la scène le reçoit
       if (dlg) Object.assign(sec, { dialog: true, keys: 'sustain' }); // le piano tient ses accords, sans arpège
       // point d'orgue : la dernière mesure du passage tient l'accord atteint (dans la mesure : la synchro reste calée)
       if (c.hold && s.bars >= 2) sec.fermata = true;
       // accords écrits (modèle, ou passage d'un modèle dont la longueur n'a pas changé), sauf technique choisie à la main
       const written = c.grid && c.gridBars === s.bars && !(c.harm && HARM[c.harm]);
-      const tg = written ? null : techGrid(harmOf(s, i === tm.sections.length - 1), mode || 'minor', s.bars);
+      const harmK = written ? null : harmOf(s, i === tm.sections.length - 1);
+      const tg = written ? null : techGrid(harmK, mode || 'minor', s.bars);
       if (written) sec.grid = c.grid.map((x) => ({ acc: 0, ...x }));
       else if (tg) sec.grid = tg; // une technique d'harmonie de film, dans la tonalité de la scène
       else {
@@ -608,6 +622,11 @@ SS.film = (() => {
       sec.hits = film.percAuto === false ? { lt: [], mt: [], bd: [], cr: [], oh: [], rd: [], misc: [] } : percHits(tm, i);
       if (film.hits && c.gridBars === s.bars) addHits(sec.hits, film.hits, s.startBar, s.bars);
       if (dlg) Object.keys(sec.hits).forEach((k) => (sec.hits[k] = sec.hits[k].filter(([st]) => st === 0 && s.sync)));
+      // ce que la fiche Scène montre du passage (la scène de la grille le garde : sc.film, js/scenesheet.js)
+      sec.film = {
+        emo: s.emo, ene: s.ene, ten: s.ten, at: Math.round(s.cue.land * 10) / 10, sync: s.sync, dlg, hold: !!sec.fermata,
+        harm: written ? 'ecrit' : tg ? harmK : 'song', dyn: sec.dyn || null, art: Object.keys(art).filter((k) => art[k]),
+      };
       sections[s.id] = sec;
     });
     return { key, groove: 'slow', emotion: tm.sections[0].emotion, film: true, sections, form: tm.sections.map((s) => s.id).join(' ') };
@@ -776,6 +795,22 @@ SS.film = (() => {
     ],
   });
 
+  /**
+   * Repère (index dans film.cues) du passage `id` (« p1 », « p2 »… de timing()) : mêmes tri et filtre que timing(),
+   * -1 s'il n'existe plus. Sert à la fiche Scène pour renvoyer une émotion, une énergie ou une tension au passage.
+   */
+  function cueIndexOf(film, id) {
+    const start = film.start || 0;
+    const end = Math.max(start + 1, film.end || start + 30);
+    const cs = (film.cues || [])
+      .map((c, i) => ({ i, t: Number(c.t) || 0 }))
+      .filter((c) => c.t < end)
+      .sort((a, b) => a.t - b.t);
+    const kept = cs.filter((c, j) => j === 0 || c.t > start);
+    const n = parseInt(String(id).slice(1), 10) - 1;
+    return kept[n] ? kept[n].i : -1;
+  }
+
   /** Copie modifiable d'une scène (repères, sans tempo imposé) : « Modifier les repères » du modèle. */
   const editable = (film) => JSON.parse(JSON.stringify({ ...film, id: 'scene', bpm: null }));
 
@@ -859,6 +894,6 @@ SS.film = (() => {
   }
   if (SS.Band && SS.Band.addStyle) SS.Band.addStyle(STYLE(SS.Band.mu, SS.Band.kit));
 
-  return { EMOS, emoOf, energyOf, tempoOf, fmt, timing, spec, gridFor, themeEvents, LUMIERE, POURSUITE, ESPACES, TEMPLATES, barsGrid, addHits, blankScene, editable, TEMPO_MIN, TEMPO_MAX,
+  return { EMOS, emoOf, energyOf, tempoOf, fmt, timing, spec, cueIndexOf, gridFor, themeEvents, LUMIERE, POURSUITE, ESPACES, TEMPLATES, barsGrid, addHits, blankScene, editable, TEMPO_MIN, TEMPO_MAX,
     percHits, phraseArcs, DYN, HARMONY, HARM, autoHarm, harmOf, techGrid, CONT, INTV, RHY, EMO_MOTIF, motifFor, genMotif, proposals, TRANSFORMS, PHRASES, phrase, TREATMENTS, EMO_TREAT, treatOf, treatNotes, motifOf, chordAt, parseKey, scaleOf };
 })();

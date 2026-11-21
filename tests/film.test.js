@@ -398,3 +398,25 @@ test('point d’orgue, creux de −4 dB sous le dialogue, réverbe par famille',
   assert.ok(R('vl1').pan < 0 && R('cb').pan > 0);
   assert.ok(R('vl1').hall > R('tp').hall);
 });
+
+test('tempo propre à un passage : mesures des repères suivants, plan, scène de la grille', () => {
+  const f = F.editable(F.LUMIERE);
+  f.bpm = 80;
+  const before = F.timing(f);
+  f.cues[2].bpm = 120; // « Espoir » plus vite
+  const tm = F.timing(f);
+  assert.equal(tm.bpm, 80);
+  assert.equal(tm.sections[2].bpm, 120);
+  assert.ok(tm.sections[2].own && !tm.sections[1].own);
+  assert.equal(tm.marks[2].bar, before.marks[2].bar); // avant le passage rapide, rien ne bouge
+  // le passage à 120 BPM : ses mesures durent 2 s ; le repère suivant (42 s) tombe 6 mesures après 30 s
+  assert.equal(tm.marks[3].bar - tm.marks[2].bar, 6);
+  assert.ok(Math.abs(tm.marks[3].land - 42) < 0.01);
+  const sp = F.spec(f);
+  assert.equal(sp.sections.p3.tempo, 120);
+  assert.equal(sp.sections.p2.tempo, undefined);
+  const s = SS.bandSong.build(sp, 'scene', [{ id: 'lead', type: 'instrument', category: 'mono', band: { key: 'lead' } }]);
+  assert.equal(s.scenes[2].tempo, 120);
+  assert.equal(s.scenes[1].tempo, undefined);
+  assert.equal(s.scenes[3].film.at, 42);
+});

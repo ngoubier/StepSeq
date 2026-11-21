@@ -33,6 +33,8 @@ SS.sceneSheet = (() => {
     inst: 'Joue : la piste joue ses notes. Muet : ses notes restent, mais elle se tait dans cette scène seulement. Vide : aucune note dans cette scène.',
     move: 'Les automations de la scène (par pas) et de l’arrangement (par temps).',
     trans: 'Les scènes qui viennent avant et après celle-ci dans l’arrangement.',
+    eneFilm: 'Les émotions de l’assistant Musique de film. Émotion, énergie et tension changées ici sont renvoyées au passage de l’assistant : elles comptent quand tu recrées la chanson. Case en pointillé : l’énergie entendue dans ce qui joue.',
+    film: 'Le passage de l’assistant Musique de film dont vient cette scène : son repère dans l’image, l’harmonie, la nuance et les articulations choisies.',
   };
 
   const h = (tag, attrs = {}, ...children) => {
@@ -263,20 +265,39 @@ SS.sceneSheet = (() => {
       own && pr.tempo !== sc.tempo ? h('small', { class: 'ssh-muted' }, `chanson : ${pr.tempo}`) : null);
 
     // --- émotion, énergie, tension
-    const emo = SS.findEmotion && sc.emotion ? SS.findEmotion(sc.emotion) : null;
+    // émotions : celles de l'assistant Musique de film pour une scène qui vient d'un passage de film (mêmes noms,
+    // mêmes couleurs que l'assistant), sinon celles de l'application
+    const FM = SS.film;
+    const fromFilm = !!(sc.film && FM);
+    const list = fromFilm
+      ? FM.EMOS.map((e) => ({ k: e.k, label: e.label, color: e.color, id: e.id }))
+      : (SS.EMOTIONS || []).map((e) => ({ k: e.id, label: e.label, color: EMO_COLORS[e.id] || '#9a9aa3', id: e.id }));
+    const curK = fromFilm ? sc.film.emo : sc.emotion;
+    const emo = list.find((e) => e.k === curK) || null;
     const measured = measureEnergy(pr, sc);
-    // émotion : un bouton déroulant ouvre le panneau des émotions, on en pioche une
-    const color = (id) => EMO_COLORS[id] || '#9a9aa3';
-    const pick = (id) => {
-      if (id) sc.emotion = id;
+    const pick = (e) => {
+      if (e) sc.emotion = e.id;
       else delete sc.emotion;
+      if (fromFilm && e) {
+        sc.film.emo = e.k;
+        filmPush(pr, sc, { emo: e.k });
+      }
       emoOpen = false;
+      changed();
+    };
+    const setLevel = (k, fk, v) => {
+      if (v) sc[k] = v;
+      else delete sc[k];
+      if (fromFilm && v) {
+        sc.film[fk] = v;
+        filmPush(pr, sc, { [fk]: v });
+      }
       changed();
     };
     const emoBox = h('div', { class: 'ssh-combo' },
       h('button', {
         type: 'button', class: 'ssh-combo-btn' + (emo ? '' : ' none'), 'aria-haspopup': 'listbox', 'aria-expanded': String(emoOpen),
-        style: emo ? `--c:${color(emo.id)}` : null,
+        style: emo ? `--c:${emo.color}` : null,
         onclick: (e) => {
           e.stopPropagation();
           emoOpen = !emoOpen;
@@ -285,23 +306,42 @@ SS.sceneSheet = (() => {
       }, emo ? h('i') : null, h('span', {}, emo ? emo.label : 'Choisir une émotion'), h('b', { 'aria-hidden': 'true' }, '▾')),
       emoOpen
         ? h('div', { class: 'ssh-emo-panel', role: 'listbox', 'aria-label': 'Émotions', onclick: (e) => e.stopPropagation() },
-            (SS.EMOTIONS || []).map((e) =>
+            list.map((e) =>
               h('button', {
-                type: 'button', role: 'option', class: 'ssh-emo' + (sc.emotion === e.id ? ' on' : ''), style: `--c:${color(e.id)}`, 'aria-selected': String(sc.emotion === e.id), 'data-emo': e.id,
-                onclick: () => pick(e.id),
+                type: 'button', role: 'option', class: 'ssh-emo' + (curK === e.k ? ' on' : ''), style: `--c:${e.color}`, 'aria-selected': String(curK === e.k), 'data-emo': e.k,
+                onclick: () => pick(e),
               }, h('i'), e.label)),
-            emo ? h('button', { type: 'button', role: 'option', class: 'ssh-emo ssh-emo-none', onclick: () => pick(null) }, 'Aucune') : null)
+            emo && !fromFilm ? h('button', { type: 'button', role: 'option', class: 'ssh-emo ssh-emo-none', onclick: () => pick(null) }, 'Aucune') : null)
         : null);
     const fmt1 = (x) => String(x).replace('.', ',');
-    const feel = section('feel', 'Émotion et énergie', tip('ene', 'Émotion et énergie'),
-      h('span', {}, emo ? h('i', { class: 'ssh-dot', style: `--c:${EMO_COLORS[emo.id] || '#9a9aa3'}` }) : null, `${emo ? emo.label : 'sans émotion'} · ${sc.energy || fmt1(measured)}/5`),
+    const feel = section('feel', 'Émotion et énergie', tip(fromFilm ? 'eneFilm' : 'ene', 'Émotion et énergie'),
+      h('span', {}, emo ? h('i', { class: 'ssh-dot', style: `--c:${emo.color}` }) : null, `${emo ? emo.label : 'sans émotion'} · ${sc.energy || fmt1(measured)}/5`),
       emoBox,
       h('div', { class: 'ssh-kv' },
         h('span', {}, 'Énergie'),
-        h('span', { class: 'ssh-row' }, levels(5, sc.energy, (v) => { if (v) sc.energy = v; else delete sc.energy; changed(); }, { color: '#e5382f', measured }),
+        h('span', { class: 'ssh-row' }, levels(5, sc.energy, (v) => setLevel('energy', 'ene', v), { color: '#e5382f', measured }),
           h('small', { class: 'ssh-muted', 'data-energy': measured }, (sc.energy ? `voulue ${sc.energy} · ` : '') + `entendue ${fmt1(measured)}`)),
         h('span', {}, 'Tension'),
-        h('span', { class: 'ssh-row' }, levels(5, sc.tension, (v) => { if (v) sc.tension = v; else delete sc.tension; changed(); }, { color: '#cfcfd6' }))));
+        h('span', { class: 'ssh-row' }, levels(5, sc.tension, (v) => setLevel('tension', 'ten', v), { color: '#cfcfd6' }))));
+
+    // --- passage de film (assistant Musique de film)
+    const ART = { trem: 'Trémolo', pizz: 'Pizzicato', glock: 'Glockenspiel', marimba: 'Marimba', bells: 'Cloches' };
+    let filmSec = null;
+    if (fromFilm) {
+      const F = sc.film;
+      const harmLabel = F.harm === 'ecrit' ? 'écrite' : F.harm === 'song' ? 'comme une chanson' : (FM.HARM[F.harm] || {}).label || '—';
+      filmSec = section('film', 'Film', tip('film', 'Film'), `${FM.fmt ? FM.fmt(F.at) : F.at + ' s'}${F.sync ? ' · synchro' : ''}`,
+        h('div', { class: 'ssh-kv' },
+          h('span', {}, 'Repère'), h('span', { class: 'ssh-row' }, h('b', {}, FM.fmt ? FM.fmt(F.at) : `${F.at} s`), F.sync ? h('span', { class: 'ssh-tag sync' }, '▼ synchro forte') : null),
+          F.dlg || F.hold ? h('span', {}, 'Passage') : null,
+          F.dlg || F.hold ? h('span', { class: 'ssh-emos' }, F.dlg ? h('span', { class: 'ssh-tag' }, 'Dialogue') : null, F.hold ? h('span', { class: 'ssh-tag' }, 'Point d’orgue') : null) : null,
+          h('span', {}, 'Harmonie'), h('span', {}, harmLabel),
+          h('span', {}, 'Nuance'), h('span', {}, F.dyn || '—'),
+          h('span', {}, 'Articulations'), h('span', { class: 'ssh-emos' }, (F.art || []).length ? F.art.map((k) => h('span', { class: 'ssh-tag' }, ART[k] || k)) : h('span', { class: 'ssh-muted' }, '—'))),
+        h('div', { class: 'ssh-row' },
+          h('button', { type: 'button', class: 'ssh-btn', onclick: () => openAssistant() }, 'Modifier dans l’assistant'),
+          sc.filmDirty ? h('span', { class: 'ssh-muted ssh-small' }, 'changé ici : recréer la chanson dans l’assistant pour l’entendre') : null));
+    }
 
     // --- tonalité et accords
     const ch = chordsByBar(pr, sc);
@@ -384,9 +424,36 @@ SS.sceneSheet = (() => {
 
     // les rubriques gardent le défilement
     const scroll = root.scrollTop;
-    root.replaceChildren(head, tempo, feel, harmony, inst, move, trans);
+    root.replaceChildren(...[head, tempo, feel, filmSec, harmony, inst, move, trans].filter(Boolean));
     root.scrollTop = scroll;
     root.dataset.scene = sc.id;
+  }
+
+  /**
+   * Renvoie au passage de l'assistant Musique de film (brouillon project.wizard) une émotion, une énergie ou une
+   * tension changée dans la fiche. Un modèle figé (« La lumière revient »…) devient une scène libre, au même tempo.
+   */
+  function filmPush(pr, sc, patch) {
+    const d = pr.wizard && pr.wizard.state;
+    const FM = SS.film;
+    if (!d || !FM || !sc.sec) return false;
+    let f = d.film;
+    if (!f || !Array.isArray(f.cues) || !f.cues.length) {
+      const T = FM.TEMPLATES[d.presetId];
+      if (!T) return false;
+      f = d.film = { ...FM.editable(T), bpm: T.bpm || null };
+      d.presetId = 'scene';
+    }
+    const i = FM.cueIndexOf(f, sc.sec);
+    if (i < 0) return false;
+    Object.assign(f.cues[i], patch);
+    Object.defineProperty(sc, 'filmDirty', { value: true, enumerable: false, configurable: true });
+    return true;
+  }
+  function openAssistant() {
+    close();
+    if (app.project().wizard && SS.band.resume()) return;
+    SS.band.open();
   }
 
   /** Grise dans la grille les pistes muettes dans la scène en cours. */
@@ -445,5 +512,5 @@ SS.sceneSheet = (() => {
     });
   }
 
-  return { init, open, close, isOpen, refresh, measureEnergy, paintMutes, chordsByBar };
+  return { init, open, close, isOpen, refresh, measureEnergy, paintMutes, chordsByBar, filmPush };
 })();
