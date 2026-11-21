@@ -1089,7 +1089,112 @@ SS.bandSong = (() => {
     // piano du reggae : un accord court sur 2 et 4, avec la guitare
     skank: [[4, 1, 0.72], [12, 1, 0.72]],
   };
-  function chordEvents(spans, mode, r, { lo = 55, hi = 79, open = false } = {}) {
+  /*
+   * Motifs de nappe par degrés (étape Nappe de Nouvelle chanson, catalogue js/padmotifs.js) : une mesure de
+   * [pas, durée, degrés, vélocité?] rejouée à chaque mesure de l'accord. Degrés : b (fondamentale une octave plus bas),
+   * 1, 2 (seconde), 3 (tierce de l'accord), 4 (quarte), 5 (quinte de l'accord), 6 (sixte majeure), 7 (septième : celle de
+   * l'accord, sinon celle de la gamme), M7, m7, 8 (octave), 9 (neuvième de la gamme), 10 (tierce à l'octave), 12, 15.
+   * fx : mouvement de son écrit en automation de la scène (padFxLanes) : duck = pompe à chaque temps, open = filtre qui
+   * s'ouvre sur la mesure, rev = souffle inversé (monte sur la mesure et se coupe).
+   */
+  const PD = '1 3 5';
+  const pEvery = (st, len, n = PD) => Array.from({ length: 16 / st }, (_, i) => [i * st, len, n]);
+  const PAD_NEW = {
+    add9: { ev: [[0, 16, '1 3 5 9']] },
+    fifths: { ev: [[0, 16, 'b 1 5 8']] },
+    octs: { ev: [[0, 16, 'b 1 8 15', 0.55]] },
+    mist: { ev: [[0, 16, '5 8 9 10', 0.4]] },
+    breath: { ev: [[0, 12, PD]] },
+    pump: { ev: [[0, 16, '1 3 5 8']], fx: 'duck' },
+    filt: { ev: [[0, 16, 'b 1 3 5 8']], fx: 'open' },
+    rev: { ev: [[0, 16, '1 3 5 8']], fx: 'rev' },
+    sus: { ev: [[0, 8, '1 4 5'], [8, 8, PD]] },
+    inner: { ev: [[0, 16, 'b 1 5 8'], [0, 4, '3'], [4, 4, '4'], [8, 4, '3'], [12, 4, '2']] },
+    cliche: { ev: [[0, 16, 'b 3 5'], [0, 4, '8'], [4, 4, 'M7'], [8, 4, 'm7'], [12, 4, '6']] },
+    climb: { ev: [[0, 16, 'b 1'], [0, 4, '3'], [4, 4, '5'], [8, 4, '8'], [12, 4, '9']] },
+    choral: { ev: [[0, 4, 'b 1 3 5'], [4, 4, 'b 1 3 6'], [8, 4, 'b 1 4 6'], [12, 4, 'b 1 3 5']] },
+    rock2: { ev: [[0, 4, PD], [4, 4, '1 2 5'], [8, 4, PD], [12, 4, '1 2 5']] },
+    stagger: { ev: [[0, 16, 'b'], [2, 14, '1'], [4, 12, '5'], [6, 10, '3'], [8, 8, '8']] },
+    gallop: { ev: [0, 4, 8, 12].flatMap((b) => [[b, 2, PD], [b + 2, 1, PD, 0.55], [b + 3, 1, PD, 0.6]]) },
+    brass: { ev: [[0, 2, PD], [3, 2, PD], [6, 10, PD, 0.6]] },
+    relaunch: { ev: [[0, 10, PD], [10, 6, PD, 0.55]] },
+    p332: { ev: [[0, 3], [3, 3], [6, 2], [8, 3], [11, 3], [14, 2]].map(([s, l]) => [s, l, PD]) },
+    rock8: { ev: pEvery(2, 2, 'b 1 5').map((e, i) => [...e, i % 4 ? 0.52 : 0.8]) },
+    spicc: { ev: pEvery(2, 1).map((e, i) => [e[0], 1, i % 2 ? '3 8' : 'b 1 5', i % 4 ? 0.52 : 0.76]) },
+    trem: { ev: pEvery(1, 1).map((e) => [...e, 0.42]) },
+    gate: { ev: [0, 2, 3, 5, 6, 8, 10, 11, 13, 14].map((s) => [s, 1, '1 3 5 8']) },
+    deep: { ev: [[0, 3], [6, 1], [10, 2], [13, 3]].map(([s, l]) => [s, l, '1 3 5 7']) },
+    dub: { ev: [[3, 0.76], [6, 0.42], [9, 0.24], [11, 0.76], [14, 0.42]].map(([s, v]) => [s, 1, '1 3 5 7', v]) },
+    clav: { ev: [0, 3, 5, 7, 10, 11, 14].map((s) => [s, 1, PD]) },
+    disco: { ev: [2, 6, 10, 14].map((s) => [s, 2, '1 3 5 8']) },
+    rhodes: { ev: [[0, 2], [3, 1], [6, 3], [11, 1], [12, 2]].map(([s, l]) => [s, l, '1 3 7 9']) },
+    charl: { ev: [[0, 3, '3 7 9'], [6, 2, '3 7 9']] },
+    comp: { ev: [[2, 1], [7, 2], [12, 1], [14, 2]].map(([s, l]) => [s, l, '3 7 9']) },
+    gospel: { ev: [[0, 6, PD], [6, 2, PD, 0.55], [8, 6, PD], [14, 2, PD, 0.55]] },
+    bossa: { ev: [[0, 3], [3, 3], [6, 2], [10, 3], [13, 3]].map(([s, l]) => [s, l, '1 3 7 9']) },
+    montuno: { ev: [0, 2, 3, 5, 6, 8, 10, 11, 13, 14].map((s, i) => [s, 1, i % 2 ? '3 5' : '1 8', i % 2 ? 0.56 : 0.72]) },
+    skank2: { ev: [[4, 1, PD, 0.72], [6, 1, PD, 0.42], [12, 1, PD, 0.72], [14, 1, PD, 0.42]] },
+    lofi: { ev: [[0, 6, '1 3 5 7'], [7, 1, '1 3 5 7', 0.5], [10, 6, '1 3 5 7']] },
+    chops: { ev: [[0, 2], [3, 1], [8, 2], [10, 1], [11, 1]].map(([s, l]) => [s, l, PD]) },
+    dark: { ev: [[0, 16, 'b 1 3 8', 0.55]] },
+  };
+  /** Hauteurs des degrés d'un accord, fondamentale `root` (MIDI) ; kp : notes de la gamme (classes), pour 7, 9 et 6. */
+  function padDegrees(c, root, kp) {
+    const iv = SS.chordNotes(60 + c.rootPc, c.type).map((n) => n - 60 - c.rootPc);
+    const has = (x) => iv.some((i) => pcOf(i) === pcOf(x));
+    const inKey = (x) => !kp || kp.includes(pcOf(c.rootPc + x));
+    const third = has(3) ? 3 : has(4) ? 4 : has(2) ? 2 : has(5) ? 5 : 4;
+    const fifth = has(7) ? 7 : has(6) ? 6 : has(8) ? 8 : 7;
+    const minor = third === 3;
+    const sev = has(10) ? 10 : has(11) ? 11 : has(9) && fifth === 6 ? 9 : inKey(10) && !inKey(11) ? 10 : inKey(11) && !inKey(10) ? 11 : minor || fifth === 6 ? 10 : 11;
+    const ninth = inKey(2) || !inKey(1) ? 14 : 13;
+    return { b: root - 12, 1: root, 2: root + ninth - 12, 3: root + third, 4: root + 5, 5: root + fifth, 6: root + 9, 7: root + sev, M7: root + 11, m7: root + 10, 8: root + 12, 9: root + ninth, 10: root + 12 + third, 12: root + 12 + fifth, 15: root + 24 };
+  }
+  /** Notes d'un motif de PAD_NEW sur un accord : fondamentale au plus près de la précédente (prevRoot), dans lo − 5 … lo + 12. */
+  function padNewEvents(spans, p, r, { lo = 55, open = false, kp = null } = {}) {
+    const ev = [];
+    let prevRoot = lo + 5;
+    spans.forEach((sp) => {
+      let root = null;
+      for (let n = lo - 5; n <= lo + 12; n++) if (pcOf(n) === pcOf(sp.chord.rootPc) && (root === null || Math.abs(n - prevRoot) < Math.abs(root - prevRoot))) root = n;
+      prevRoot = root;
+      const deg = padDegrees(sp.chord, root, kp);
+      const end = sp.step + sp.len;
+      for (let b = sp.step - (sp.step % SPB); b < end; b += SPB)
+        p.ev.forEach(([o, l, d = PD, v]) => {
+          let s = b + o;
+          let e = Math.min(s + l, end);
+          if (s < sp.step) {
+            if (l < 4) return; // coup court d'avant l'accord : rien ; note tenue : elle repart avec l'accord
+            s = sp.step;
+          }
+          if (e <= s) return;
+          let notes = [...new Set(String(d).split(' ').map((x) => deg[x]).filter((n) => n != null))].sort((x, y) => x - y);
+          if (open && notes.length >= 3 && !/\bb\b/.test(d)) notes = [notes[0] - 12, ...notes.slice(1)];
+          ev.push({ step: s, len: e - s, notes, vel: vel(r, v ?? (l >= 8 ? 0.6 : o % 4 === 0 ? 0.74 : 0.64)) });
+        });
+    });
+    return ev;
+  }
+  /**
+   * Mouvement de son d'un motif de nappe : courbes { volume | filter: { pas: valeur } } pour track.auto de la scène
+   * (null sans mouvement). La pompe retombe à chaque temps ; le souffle inversé monte sur la mesure et se coupe.
+   */
+  function padFxLanes(mode, bars) {
+    const fx = PAD_NEW[mode] && PAD_NEW[mode].fx;
+    if (!fx) return null;
+    const lane = {};
+    for (let b = 0; b < bars; b++) {
+      const s0 = b * SPB;
+      if (fx === 'duck')
+        for (let q = 0; q < 4; q++) Object.assign(lane, { [s0 + q * 4]: 0.18, [s0 + q * 4 + 1]: 0.55, [s0 + q * 4 + 2]: 0.85, [s0 + q * 4 + 3]: 1 });
+      else if (fx === 'rev') for (let i = 0; i < SPB; i++) lane[s0 + i] = Math.round((0.04 + 0.96 * Math.pow(i / (SPB - 1), 2.2)) * 1000) / 1000;
+      else if (fx === 'open') Object.assign(lane, { [s0]: -0.75, [s0 + 8]: -0.45, [s0 + SPB - 1]: 0 });
+    }
+    return fx === 'open' ? { filter: lane } : { volume: lane };
+  }
+  function chordEvents(spans, mode, r, { lo = 55, hi = 79, open = false, kp = null } = {}) {
+    if (PAD_NEW[mode]) return padNewEvents(spans, PAD_NEW[mode], r, { lo, open, kp });
     const ev = [];
     let prev = null;
     const add = (s, len, notes, v) => len > 0 && ev.push({ step: s, len, notes: [...notes], vel: vel(r, v) });
@@ -1743,7 +1848,7 @@ SS.bandSong = (() => {
   const ARP_MODES = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16', 'rise', 'ost16', 'dotted', 'toll'];
   const MODES = () => ({
     bass: [...['whole', '8', 'pulse8', 'oct', 'gallop', 'offbeat', 'roll', 'off16', 'half', 'quarter', 'drone', 'sync', 'walk'], ...BASS_NEW.map((b) => b[0])],
-    chords: ['sustain', 'swell', 'float', 'ballad', 'pluck', ...Object.keys(RHYTHM), ...(SS.GuitarArp ? SS.GuitarArp.MOTIFS.map((m) => 'g:' + m.id) : [])],
+    chords: ['sustain', 'swell', 'float', 'ballad', 'pluck', ...Object.keys(RHYTHM), ...Object.keys(PAD_NEW), ...(SS.GuitarArp ? SS.GuitarArp.MOTIFS.map((m) => 'g:' + m.id) : [])],
     arp: ARP_MODES,
     melody: Object.keys(CENTER),
     drums: ['both', 'kick', 'snare'],
@@ -1947,7 +2052,7 @@ SS.bandSong = (() => {
             events = bassEvents(spans, mode, r, kp, { pedalPc: (o && ped) ?? null, approach: !o || o.approach !== false, shift: (o ? { mid: 12, high: 24 }[o.register] || 0 : 0) + (spec.bassShift || 0) });
           } else if (kd === 'arp') events = arpEvents(spans, mode, r);
           else if (kd === 'chords' && /^g:/.test(mode) && SS.GuitarArp) (events = arpOneEvents(spans, { guitar: { ...((o && o.gtr) || {}), on: true, motif: mode.slice(2) } }, bars)), (gtrEv = true);
-          else if (kd === 'chords') events = chordEvents(spans, mode, r, { lo: 53, hi: 76, open: !!(o && o.voicing === 'open') });
+          else if (kd === 'chords') events = chordEvents(spans, mode, r, { lo: 53, hi: 76, open: !!(o && o.voicing === 'open'), kp: H().scale(k).map((d) => d.pc) });
           else if (kd === 'melody') events = sing(role === 'vox' ? 'vox' : 'lead', mode);
           else {
             // notes percussives : fondamentale de l'accord sur la grosse caisse et la caisse claire du motif de la scène
@@ -1979,7 +2084,7 @@ SS.bandSong = (() => {
             // guitare : motif du mode Guitare d'Arp One (« g:travis »…), joué par le vrai moteur (js/guitar-arp.js)
             if (/^g:/.test(mode) && SS.GuitarArp) (events = arpOneEvents(spans, { guitar: { ...((o && o.gtr) || {}), on: true, motif: mode.slice(2) } }, bars)), (gtrEv = true);
             else if (/^g:/.test(mode)) events = chordEvents(spans, 'chop', r, range); // sans le moteur de guitare : petits accords hachés
-            else events = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16', 'ost16', 'dotted', 'toll'].includes(mode) ? arpEvents(spans, mode, r) : chordEvents(spans, mode, r, role === 'pad' && o && o.voicing === 'open' ? { ...range, open: true } : range);
+            else events = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16', 'ost16', 'dotted', 'toll'].includes(mode) ? arpEvents(spans, mode, r) : chordEvents(spans, mode, r, { ...range, open: role === 'pad' && !!o && o.voicing === 'open', kp: H().scale(k).map((d) => d.pc) });
           }
         }
         // piste Effets d'une scène dont une jonction est réglée : montée, cymbale inversée, impact, descente (voir fxSceneTrack)
@@ -2001,6 +2106,9 @@ SS.bandSong = (() => {
           const auto = fxScene ? fxScene.auto : sectionAuto(as, sec, er, bars, role === 'fx', dynK, !!spec.tech);
           if (auto && events.length) data[t.id].auto = auto;
         }
+        // motif de nappe à mouvement de son (pompe, filtre qui s'ouvre, souffle inversé) : sa courbe passe devant celle du plan
+        const pfx = events.length && mode && (kd === 'chords' || (!changed && !['bass', 'fx', 'arp', 'arpchord'].includes(role) && !singer)) ? padFxLanes(mode, bars) : null;
+        if (pfx) data[t.id].auto = { ...(data[t.id].auto || {}), ...pfx };
       });
       // doublure : la mélodie du premier instrument mélodique, une octave ou une tierce diatonique au-dessus
       const src = primaryMel && data[primaryMel.id];
@@ -2296,5 +2404,5 @@ SS.bandSong = (() => {
     ['cel_neosoul', 'Néo-soul', 'Dans l’esprit de Pino Palladino (D’Angelo) : en retard sur le temps, tierce, septième', rhythmDraw('cel_neosoul')],
   ];
 
-  return { build, bassEvents, tomOfStep, junctionDefaults, junctionEff, withSceneFx, PERC_LOOPS, PERC_STYLES, hpHz, hpAmt, HP_MEL, isExtra, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, sceneGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, BUILD_LEVELS, BUILD_PRESETS, buildLevels, progLevels, rollBar, rollerOf, hasGridLane, laneKey, _rng: rng };
+  return { build, bassEvents, chordEvents, PAD_NEW, padFxLanes, tomOfStep, junctionDefaults, junctionEff, withSceneFx, PERC_LOOPS, PERC_STYLES, hpHz, hpAmt, HP_MEL, isExtra, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, sceneGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, BUILD_LEVELS, BUILD_PRESETS, buildLevels, progLevels, rollBar, rollerOf, hasGridLane, laneKey, _rng: rng };
 })();

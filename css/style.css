@@ -3905,6 +3905,18 @@ dialog.help-dialog::backdrop { background: #0008; }
 .bwp-mot .mot-draw svg { height: 30px; margin-top: 6px; }
 .bwp-mot .bwp-row { margin-top: 12px; }
 @media (max-width: 1100px) { .bwp-mot .mot-cards { grid-template-columns: repeat(3, 1fr); } }
+/* étape Nappe : même écran, couleur de la nappe, filtre Tenues | Rythmées | En mouvement à droite des puces */
+.mot-pad { --motc: var(--c-blue); }
+.mot-pick.mot-pad .mot-card { color: var(--c-blue-soft); }
+.mot-pick.mot-pad .mot-card.on, .mot-pick.mot-pad .mot-chip.on { background: var(--c-blue-bg); color: var(--c-blue-soft); }
+.mot-pick.mot-pad .mot-card.on { color: var(--c-blue-soft); }
+.mot-pick.mot-pad .mot-card.mot-none { color: var(--muted); }
+.mot-pad .mot-now { color: var(--c-blue-soft); }
+.mot-pad .mot-draw svg { height: 34px; }
+.mot-bar { display: flex; align-items: flex-start; gap: 12px; }
+.mot-bar .mot-chips { flex: 1; min-width: 0; }
+.mot-bar .mot-kinds { flex: none; margin-top: 2px; }
+@media (max-width: 1100px) { .mot-bar { flex-direction: column; gap: 0; } .mot-bar .mot-kinds { margin-bottom: 10px; } }
 @media (max-width: 760px) { .mot-cards { grid-template-columns: repeat(2, 1fr); } }
 .th-opt-mode { display: none; }
 .compact-tracks .th-modes { display: none; }

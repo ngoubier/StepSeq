@@ -239,7 +239,7 @@ const SHOTS = process.env.SHOTS;
   ok((await page.locator('.bh-scene .bh-ssub').first().textContent()) === 'Inspiration' && (await page.evaluate(() => Object.keys(SS.band._state.wiz.parts).length)) === 0, 'batterie : une première visite ne change rien');
 
   // 7. Basse, 8. Nappes, 9. Arpèges : une scène à gauche, les réglages de la scène choisie
-  for (const [n, label, sel, kind] of [[7, 'Basse', '#bwMotif .mot-card', 'bass'], [8, 'Nappes', '.bwp-mode', 'chords'], [9, 'Arpèges', '.bwa-knob', 'arp']]) {
+  for (const [n, label, sel, kind] of [[7, 'Basse', '#bwMotif .mot-card', 'bass'], [8, 'Nappes', '#bwPadMotif .mot-card', 'chords'], [9, 'Arpèges', '.bwa-knob', 'arp']]) {
     await page.dispatchEvent('#bwNext', 'click');
     await page.waitForTimeout(200);
     ok((await page.locator('#bandWizSteps li.cur').getAttribute('data-kind')) === kind, `étape ${n} : ${label}`);
