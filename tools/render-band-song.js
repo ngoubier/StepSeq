@@ -28,7 +28,8 @@ function songSeconds() {
   const spec = SS.BandSongs[PRESET];
   const bars = spec.form.split(/\s+/).filter(Boolean).reduce((a, t) => {
     const [id, n] = t.split('*');
-    return a + spec.sections[id].bars * (+n || 1);
+    const sec = spec.sections[id];
+    return a + (sec.bars * (+n || 1) * preset.tempo) / (sec.tempo || preset.tempo); // section à tempo propre : en mesures « au tempo de la chanson »
   }, 0);
   return (bars * 4 * 60) / preset.tempo + 3; // + la queue des reverbs
 }

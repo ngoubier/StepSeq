@@ -381,7 +381,9 @@ SS.bandSong = (() => {
    * Majuscule : accord majeur ; minuscule : mineur. Suffixes : 7 (7 de dominante ou m7), maj7, 9, add9, sus2, sus4,
    * 7sus4, 6, dim (ou °), m7b5 (ou ø), 5.
    */
-  function parseChord(tok, key) {
+  function parseChord(tok0, key) {
+    // « I>4 » : basse imposée, n demi-tons au-dessus de la fondamentale (I>4 = Sol/Si en Sol, iv6>3 = Do m6/Mi♭)
+    const [tok, bassIv] = tok0.split('>');
     const m = tok.match(/^([b#♭♯]?)(VII|VI|IV|V|III|II|I|vii|vi|iv|v|iii|ii|i)(.*)$/);
     if (!m) throw new Error('accord inconnu : ' + tok);
     const deg = NUM.indexOf(m[2].toLowerCase());
@@ -395,7 +397,8 @@ SS.bandSong = (() => {
       '7no3': '7no3', '5add9': '5add9', add4: minor ? 'madd4' : 'add4',
     };
     if (!(s in T)) throw new Error('suffixe inconnu : ' + tok);
-    return { rootPc, type: T[s], tok };
+    if (bassIv != null && !/^\d+$/.test(bassIv)) throw new Error('basse inconnue : ' + tok0);
+    return { rootPc, type: T[s], tok: tok0, ...(bassIv ? { bassPc: pcOf(rootPc + +bassIv) } : {}) };
   }
   /** Accords d'une section, mesure par mesure (« i/VII » = deux accords dans la mesure), répétés jusqu'à la fin. */
   function spansOf(sec, key, bars) {
@@ -423,7 +426,8 @@ SS.bandSong = (() => {
       ? list.map((c) => ({ ...c }))
       : (spans || []).map((x) => {
           const g = H().toGridChord(key, x.chord);
-          return g && { step: x.step, len: x.len, ...g };
+          const bass = x.chord.bassPc != null ? pcOf(x.chord.bassPc - x.chord.rootPc) : 0;
+          return g && { step: x.step, len: x.len, ...g, ...(bass ? { bass } : {}) };
         }).filter(Boolean);
     return H().gridFill(src, total);
   }
@@ -516,6 +520,11 @@ SS.bandSong = (() => {
     // reggae roots, one drop : rien sur le 1, grosse caisse et cross-stick ensemble sur le 3 ; charleston appuyé sur les temps,
     // doubles fantômes ; tambourin sur 2 et 4 avec le skank ; by : motif propre à un son (tambour nyabinghi en battement de cœur)
     // (charleston : rien sur le 1 non plus, croches swinguées, une double fantôme ; charleston ouvert sur le dernier « et »)
+    // shuffle de Noël (pop des années 60 revue en 90) : tout en croches, swinguées en triolet par le groove de la chanson
+    // (preset.swingRes = 8) ; grosse caisse 1, « et » du 2, 3 ; caisse claire 2 et 4 ; grelots continus appuyés sur 2 et 4 ;
+    // by : timbales sur le 1 toutes les deux mesures et en appel au 4 de la 4e ; cloches tubulaires au début de chaque
+    // phrase de 4 mesures (motifs de plusieurs mesures)
+    shuffle: { bd: 'x-------x-----o-', bk: '----x-------x---', hh: '.-.-.-.-.-.-.-.-', oh: '--------------o-', sh: 'o-o-x-o-o-o-x-o-', tb: '----o-------o---', rim: '----------------', tom: '--------o-o-o-oo', by: { perc: 'x---------------' + '-'.repeat(16) + 'x---------------' + '------------x-o-' } },
     onedrop: { bd: '--------x-------', bk: '--------o-------', hh: '--o-x-o.x-o-x-o-', oh: '--------------o-', sh: '..o...o...o...o.', tb: '----o-------o---', rim: '--------x-------', tom: '----------o-oo-o', by: { perc: 'x--.---ox--.---o' } },
   };
   const LEVEL = { x: 1, o: 0.72, '.': 0.45, r: 0.72 }; // r : roulement (trois coups dans le pas, motifs de js/drum-patterns.js)
@@ -576,7 +585,8 @@ SS.bandSong = (() => {
         if (k === 'hh' || k === 'sh') bar(b, g.hh.replace(/o/g, '.'), 0.8);
         continue;
       }
-      const own = g.by && g.by[sound]; // motif propre à ce son dans le groove
+      const own0 = g.by && g.by[sound]; // motif propre à ce son dans le groove (16 pas, ou plusieurs mesures qui tournent)
+      const own = own0 && own0.length > SPB ? own0.substr((b % Math.floor(own0.length / SPB)) * SPB, SPB) : own0;
       if (mode === 'hats') {
         bar(b, k === 'oh' ? null : k === 'sh' ? own || g.sh : g.hh, 0.75);
         continue;
@@ -1071,6 +1081,8 @@ SS.bandSong = (() => {
     house: [[0, 2], [3, 2], [6, 1], [8, 2], [11, 2], [14, 2]],
     strum: [[0, 3], [4, 2], [6, 2], [10, 2], [12, 2], [14, 2]],
     chop: [[2, 1], [6, 1], [10, 1], [14, 1]],
+    // piano de la pop de Noël : l'accord répété en croches (swinguées par le groove), court et rebondissant, poussé sur 2 et 4
+    xmas: [[0, 2, 0.74], [2, 1, 0.56], [4, 1, 0.88], [6, 1, 0.6], [8, 2, 0.74], [10, 1, 0.56], [12, 1, 0.9], [14, 1, 0.64]],
     // orgue « bubble » du reggae : deux petits accords par temps, le « et » appuyé, le « a » qui rebondit plus doux
     bubble: [[2, 1, 0.7], [3, 1, 0.44], [6, 1, 0.7], [7, 1, 0.44], [10, 1, 0.7], [11, 1, 0.44], [14, 1, 0.7], [15, 1, 0.44]],
     // piano du reggae : un accord court sur 2 et 4, avec la guitare
@@ -1134,6 +1146,11 @@ SS.bandSong = (() => {
       else if (mode === 'rise') seq = si >= spans.length / 2 ? up.slice(2, 6) : up.slice(0, 4);
       else if (mode === 'ost16') seq = [up[0], up[3], up[1], up[3], up[2], up[3], up[1], up[4]];
       else if (mode === 'dotted') (seq = [up[0], up[2], up[1], up[3], up[2], up[4]]), (dt = 3);
+      else if (mode === 'toll') {
+        // volée de cloche : la note du dessus de l'accord, longue, au premier temps de chaque phrase de deux mesures
+        if (sp.step % (2 * SPB) === 0) add(sp.step, Math.min(2 * SPB, end - sp.step), v[v.length - 1], 0.82);
+        return;
+      }
       else return;
       for (let s = sp.step, i = 0; s < end; s += dt, i++) {
         if (mode === 'pluck16' && ![0, 3, 6, 8, 11, 14].includes(s % SPB)) continue;
@@ -1722,7 +1739,7 @@ SS.bandSong = (() => {
   const KINDS = ['drums', 'bass', 'chords', 'arp', 'melody'];
   const DEFAULT_KIND = { drums: 'drums', perc: 'drums', bass: 'bass', pad: 'chords', strings: 'chords', keys: 'chords', guitar: 'chords', arp: 'arp', arpchord: 'arp', lead: 'melody', vox: 'melody', sax: 'melody', orch: 'orch' };
   const DEFAULT_MODE = { bass: '8', chords: 'sustain', arp: 'up16', melody: 'verse', drums: 'both' };
-  const ARP_MODES = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16', 'rise', 'ost16', 'dotted'];
+  const ARP_MODES = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16', 'rise', 'ost16', 'dotted', 'toll'];
   const MODES = () => ({
     bass: [...['whole', '8', 'pulse8', 'oct', 'gallop', 'offbeat', 'roll', 'off16', 'half', 'quarter', 'drone', 'sync', 'walk'], ...BASS_NEW.map((b) => b[0])],
     chords: ['sustain', 'swell', 'float', 'ballad', 'pluck', ...Object.keys(RHYTHM), ...(SS.GuitarArp ? SS.GuitarArp.MOTIFS.map((m) => 'g:' + m.id) : [])],
@@ -1960,7 +1977,7 @@ SS.bandSong = (() => {
             // guitare : motif du mode Guitare d'Arp One (« g:travis »…), joué par le vrai moteur (js/guitar-arp.js)
             if (/^g:/.test(mode) && SS.GuitarArp) events = arpOneEvents(spans, { guitar: { ...((o && o.gtr) || {}), on: true, motif: mode.slice(2) } }, bars);
             else if (/^g:/.test(mode)) events = chordEvents(spans, 'chop', r, range); // sans le moteur de guitare : petits accords hachés
-            else events = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16', 'ost16', 'dotted'].includes(mode) ? arpEvents(spans, mode, r) : chordEvents(spans, mode, r, role === 'pad' && o && o.voicing === 'open' ? { ...range, open: true } : range);
+            else events = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16', 'ost16', 'dotted', 'toll'].includes(mode) ? arpEvents(spans, mode, r) : chordEvents(spans, mode, r, role === 'pad' && o && o.voicing === 'open' ? { ...range, open: true } : range);
           }
         }
         // piste Effets d'une scène dont une jonction est réglée : montée, cymbale inversée, impact, descente (voir fxSceneTrack)
@@ -2164,6 +2181,9 @@ SS.bandSong = (() => {
     // reggae roots : fondamentale ronde et tenue, note fantôme, tierce et quinte qui chantent, approche de l'accord suivant
     // (posée sur le 1 et le 2, quinte sous la fondamentale, notes courtes comme étouffées de la paume, silences)
     roots: [[0, 3, 0, 0.92], [3, 1, 0, 0.36], [4, 2, -5, 0.8], [6, 1, 0, 0.74], [8, 2, 't', 0.78], [10, 2, 7, 0.82], [13, 1, 7, 0.38], [14, 2, 'a', 0.76]],
+    // shuffle : fondamentale qui rebondit en croches (swinguées), appui sur 1 et 3, note d'approche de l'accord suivant sur le
+    // dernier « et » (la quinte si l'accord ne change pas) ; les renversements (Sol/Si, Do m6/Mi♭) gardent leur basse
+    shuffle: [[0, 3, 0, 0.9], [4, 2, 0, 0.66], [6, 2, 0, 0.58], [8, 3, 0, 0.86], [12, 2, 0, 0.66], [14, 2, 'a', 0.72]],
     bossa: [[0, 6, 0, 0.88], [6, 2, 7, 0.72], [8, 6, 7, 0.82], [14, 2, 0, 0.72]],
     afro: [[0, 3, 0, 0.9], [6, 2, 0, 0.72], [9, 1, 0, 0.38], [10, 2, 12, 0.76], [12, 3, 0, 0.84], [15, 1, 12, 0.4]],
     acid: [[0, 1, 0, 0.95], [1, 1, 0, 0.6], [2, 1, 12, 0.85], [3, 1, 0, 0.6], [5, 1, 0, 0.75], [6, 1, 's', 0.8], [7, 1, 12, 0.7], [8, 1, 0, 0.92], [10, 1, 0, 0.65], [11, 1, 7, 0.8], [12, 1, 12, 0.88], [13, 1, 0, 0.6], [14, 1, 0, 0.75], [15, 1, 't', 0.7]],
@@ -2234,6 +2254,7 @@ SS.bandSong = (() => {
     ['dembow', 'Dembow', 'Fondamentale en 3-3-2, quinte et octave : reggaeton', rhythmDraw('dembow')],
     ['tumbao', 'Tumbao', 'Le « et » du 2 et le 4 annoncent l’accord suivant : salsa', rhythmDraw('tumbao')],
     ['onedrop', 'One drop', 'Silence sur le 1, la ligne commence après : reggae', rhythmDraw('onedrop')],
+    ['shuffle', 'Shuffle', 'Fondamentale qui rebondit en croches, anticipe l’accord suivant : pop de Noël', rhythmDraw('shuffle')],
     ['roots', 'Roots', 'Fondamentale ronde, tierce, quinte et approche, notes fantômes : reggae roots', rhythmDraw('roots')],
     ['bossa', 'Bossa nova', 'Fondamentale et quinte en noire pointée-croche', rhythmDraw('bossa')],
     ['afro', 'Afrobeats', 'Syncopes posées, fondamentale et octave', rhythmDraw('afro')],

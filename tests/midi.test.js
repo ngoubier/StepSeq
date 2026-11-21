@@ -395,3 +395,26 @@ test('tempo par scène (fiche Scène) : changement de tempo au début de la scè
   assert.equal(q.scenes.find((s) => s.name === 'Pont').tempo, 150);
   assert.equal(q.scenes[0].tempo, undefined);
 });
+
+test('import : la batterie swinguée garde son décalage d’attaque (shuffle, triolets), joué et réexporté tel quel', () => {
+  // charleston en croches ternaires : le 2e coup de chaque temps au 2e tiers (pas 2,67 au lieu de 2)
+  const bytes = song('A', ({ drums }) => {
+    for (let b = 0; b < 4; b++) note(drums, 9, 16 * T * b + 4 * T + 320, T / 2, 54, 90);
+  });
+  const { project: p, report } = SS.midi.importFile(bytes);
+  const tb = p.tracks.find((t) => t.type === 'drum' && t.bank === '54');
+  const d = p.scenes[0].data[tb.id];
+  assert.ok(d.steps[7] > 0, 'le coup est sur la double-croche la plus proche (pas 7 = 4 + 2,67 arrondi)');
+  assert.equal(d.shf[7], Math.round((4 + 320 / T - 7) * 100) / 100, 'et garde son avance en micro-décalage');
+  assert.ok(report.warnings.some((w) => /décalage d'attaque est gardé/.test(w)));
+  SS.loadScene(p, p.scenes[0].id, { commit: false });
+  assert.equal(SS.drumShift(tb, 7), d.shf[7]);
+  assert.equal(SS.drumShift(tb, 0), 0);
+  // export : le coup revient à sa place exacte
+  const m = M.parse(SS.midi.exportProject(p, { range: 'scene', loops: 1, swing: false }).bytes);
+  const ticks = m.tracks.flatMap(notesOf).filter((e) => e.note === 54).map((e) => e.tick);
+  assert.ok(ticks.includes(4 * T + 320), `tambourin à 4×${T}+320 (reçu ${ticks.slice(0, 4)})`);
+  // Quantize : pas de décalage
+  const q = SS.midi.importFile(bytes, { quantize: true }).project;
+  assert.ok(q.scenes.every((sc) => Object.values(sc.data).every((x) => !x.shf)));
+});

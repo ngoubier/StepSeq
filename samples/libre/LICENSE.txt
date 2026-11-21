@@ -1,0 +1,18 @@
+Instruments libres de StepSeq (samples/libre) — sources et licences
+
+Tous ces échantillons sont sous Creative Commons Zero (CC0 1.0 Universal, domaine public) :
+https://creativecommons.org/publicdomain/zero/1.0/
+
+1. Célesta (celesta) : « A Sampled Celesta », Neil Bickford (echo~parallax),
+   https://gitlab.com/echoparallax/a-sampled-celesta (soundfont « Celesta Tuned Denoised Mix »)
+2. Basse électrique aux doigts (bass_finger) : FreePats, Finger Bass YR (Yamaha RBX),
+   https://freepats.zenvoid.org/ElectricGuitar/clean-electric-bass.html
+3. Guitare électrique jazz (guitar_jazz) : FreePats, FSBS Electric Guitar Clean, variante jazz (micro chevalet),
+   https://freepats.zenvoid.org/ElectricGuitar/clean-electric-guitar.html
+4. Chœur synthétique (choir_pad) : FreePats, Synth Pad Choir (ZynAddSubFX),
+   https://freepats.zenvoid.org/Synthesizer/synth-pad.html
+5. Crash inversée (reverse_crash) : Big Rusty Drums, Karoryfer Samples, crash 17",
+   https://github.com/sfzinstruments/karoryfer.big-rusty-drums
+
+Modifications pour StepSeq (tools/libre-local.py) : un échantillon par note de référence, durée limitée à 8 s avec un
+fondu, conversion en MP3 ; crash : micros de proximité et overheads mélangés, puis jouée à l'envers.

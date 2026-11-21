@@ -261,7 +261,8 @@
               if (!(v > 0) || !ok(d.cond && d.cond[tick % len], tick % len, tick)) continue;
               const r = SS.drumRatchet({ steps, rat: d.rat }, tick % len); // ratchet : coups répétés dans le pas
               const bv = bvel(tick);
-              for (let j = 0; j < r; j++) out.notes.push({ at: (base + tick + swingAt(tick) + j / r) * TPS + nudge, dur: TPS / 2 / r, note: drumNote, vel: Math.min(1, v * bv * (j ? 0.85 : 1)) });
+              const sh = (d.shf && d.shf[tick % len]) || 0; // micro-décalage du pas
+              for (let j = 0; j < r; j++) out.notes.push({ at: (base + tick + swingAt(tick) + sh + j / r) * TPS + nudge, dur: TPS / 2 / r, note: drumNote, vel: Math.min(1, v * bv * (j ? 0.85 : 1)) });
             }
             continue;
           }
@@ -814,7 +815,7 @@
       const exact = n.start / tps;
       n.step = Math.round(exact);
       const off = exact - n.step;
-      n.shift = n.ch === 9 || o.quantize ? 0 : Math.round(Math.max(-SS.SHIFT_MAX, Math.min(SS.SHIFT_MAX, off)) * 100) / 100;
+      n.shift = o.quantize ? 0 : Math.round(Math.max(-SS.SHIFT_MAX, Math.min(SS.SHIFT_MAX, off)) * 100) / 100;
       if (n.shift) shifted++;
       else if (o.quantize && n.ch !== 9 && Math.abs(off) >= 0.005) aligned++;
       if (Math.abs(off) > 0.2 && Math.abs(exact * 3 - Math.round(exact * 3)) < 0.05) fine++;
@@ -929,8 +930,17 @@
         const t = g.track;
         if (g.drum) {
           const steps = new Array(s.bars * spb).fill(0);
-          for (const n of g.notes) if (n.step >= from && n.step < to) steps[n.step - from] = Math.max(steps[n.step - from], Math.round((n.vel / 127) * 100) / 100);
-          data[t.id] = { steps };
+          const shf = {}; // décalage d'attaque de chaque coup (shuffle, triolets) : le coup le plus fort du pas donne le sien
+          for (const n of g.notes)
+            if (n.step >= from && n.step < to) {
+              const v = Math.round((n.vel / 127) * 100) / 100;
+              if (v > steps[n.step - from]) {
+                steps[n.step - from] = v;
+                if (n.shift) shf[n.step - from] = n.shift;
+                else delete shf[n.step - from];
+              }
+            }
+          data[t.id] = { steps, ...(Object.keys(shf).length ? { shf } : {}) };
         } else {
           const evs = new Map();
           for (const n of g.notes) {
@@ -979,7 +989,7 @@
     const data = { ...p, scenes, current: scenes[0].id, song, playMode: 'song', bars: scenes[0].bars };
     data.tracks = p.tracks.map((t) => {
       const d = scenes[0].data[t.id];
-      return t.type === 'drum' ? { ...t, steps: d.steps } : { ...t, events: d.events, ...(d.auto ? { auto: d.auto } : {}) };
+      return t.type === 'drum' ? { ...t, steps: d.steps, ...(d.shf ? { shf: d.shf } : {}) } : { ...t, events: d.events, ...(d.auto ? { auto: d.auto } : {}) };
     });
     const project = SS.normalizeProject(JSON.parse(JSON.stringify(data)));
 

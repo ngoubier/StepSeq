@@ -83,6 +83,10 @@ voir « Nouvelle chanson » plus bas), sur le projet en cours. Ses deux premièr
    la première tuile, **Créer de zéro**, part sans inspiration : un départ neutre (batterie, basse, piano ; 100 BPM,
    Do majeur, quatre accords, Intro · Couplet · Refrain · Pont · Outro) que l'on remplace étape par étape (style `zero`,
    `blank: true` ; plan `SS.BandSongs.zero` ; test `node tests/e2e/blank-start.js`) ;
+   la tuile **Clichés** réunit les recettes de tubes connus (forme, grille d'accords, instruments, groove) dans des
+   chansons originales (titre, mélodie et notes nouveaux) ; premier modèle « Grelots de minuit » (id `noel`), pop de Noël
+   en shuffle à 150 BPM (swing des croches : `preset.swingRes = 8`), grelots, claps et timbales VCSL (kit `noel`),
+   cloches tubulaires en volée (arpège `toll`), IV mineur sur basse imposée (accord de plan « iv6>3 ») ;
 2. le **type de chanson** : 10 inspirations par style (Smalltown Boy, Nightcall, Blinding Lights, Sweet Dreams…,
    Levels, Strobe, Opus, Faded…, Powers of Ten, Eternity, Return to Oz, Sky and Sand, Your Mind, Rej…), avec un
    tempo suggéré ;
