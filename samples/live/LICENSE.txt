@@ -1,0 +1,22 @@
+Batteries enregistrées de StepSeq (samples/live) — sources et licences
+
+1. AVL Drumkits : Black Pearl (2023), Red Zeppelin (2023), Blonde Bop, Blonde Bop HotRod, Buskman's Holiday
+   (dossiers pop, rock, ballade, rods, cajon)
+   Auteur : Glen MacArthur (AV Linux), https://www.bandshed.net/avldrumkits/
+   Licence : Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)
+   https://creativecommons.org/licenses/by-sa/4.0/
+
+2. Forzee Stereo Drumkit (dossier tama)
+   Auteurs : Vladimir Sadovnikov, Alexander Belokurov, http://forzee.org/
+   Licence : GNU General Public License, version 2 (voir licenses/ et https://www.gnu.org/licenses/old-licenses/gpl-2.0.html)
+
+3. Pacific (dossier pacific)
+   Échantillonné par Bransin James Anderson (http://www.bransinanderson.com/), kit Hydrogen de Luc Tanguay
+   Licence : Creative Commons Attribution-ShareAlike 3.0 United States (CC BY-SA 3.0 US)
+   https://creativecommons.org/licenses/by-sa/3.0/us/
+
+Source : kits Hydrogen (.h2drumkit) de https://sourceforge.net/projects/hydrogen/files/Sound%20Libraries/Main%20sound%20libraries/
+Modifications faites pour StepSeq (tools/live-drums.py) : sélection de 16 éléments par kit, silence avant l'attaque
+retiré, durée limitée à 4 s avec un fondu, conversion en MP3 (mono 128 kb/s, stéréo 160 kb/s pour tama et pacific),
+tom aigu des kits à deux toms obtenu en accordant le tom médium 3 demi-tons plus haut. Les fichiers modifiés restent
+sous la licence de leur kit d'origine.

@@ -81,6 +81,16 @@ window.SS = window.SS || {};
         tb: 'tambourine', sh: 'cabasa', cb: 'cowbell', perc: 'conga', misc: 'bongo',
       },
     },
+    // batteries enregistrées (bibliothèque « live », samples/live, tools/live-drums.py) : banque « <kit>_<élément> », rangée
+    // par niveaux de frappe joués selon la vélocité (SS.LAYERED_DRUM_LIBS). Kits à deux toms : tom aigu = tom médium accordé
+    // plus haut ; un élément absent du kit d'origine est pris au kit pop (banque pop_…).
+    livePop: { label: 'Batterie pop · Pearl (enregistrée)', source: 'live', map: { bd: 'pop_bd', sd: 'pop_sd', rim: 'pop_rim', cp: 'pop_cp', hh: 'pop_hh', oh: 'pop_oh', lt: 'pop_lt', mt: 'pop_mt', ht: 'pop_ht', cr: 'pop_cr', rd: 'pop_rd', cb: 'pop_cb', tb: 'pop_tb', sh: 'pop_sh', perc: 'pop_perc', misc: 'pop_misc' } },
+    liveRock: { label: 'Batterie rock · Ludwig (enregistrée)', source: 'live', map: { bd: 'rock_bd', sd: 'rock_sd', rim: 'rock_rim', cp: 'rock_cp', hh: 'rock_hh', oh: 'rock_oh', lt: 'rock_lt', mt: 'rock_mt', ht: 'rock_ht', cr: 'rock_cr', rd: 'rock_rd', cb: 'rock_cb', tb: 'rock_tb', sh: 'rock_sh', perc: 'rock_perc', misc: 'rock_misc' } },
+    liveBallade: { label: 'Batterie ballade · Tama jazz (enregistrée)', source: 'live', map: { bd: 'ballade_bd', sd: 'ballade_sd', rim: 'ballade_rim', cp: 'ballade_cp', hh: 'ballade_hh', oh: 'ballade_oh', lt: 'ballade_lt', mt: 'ballade_mt', ht: 'ballade_ht', cr: 'ballade_cr', rd: 'ballade_rd', cb: 'ballade_cb', tb: 'ballade_tb', sh: 'ballade_sh', perc: 'ballade_perc', misc: 'ballade_misc' } },
+    liveRods: { label: 'Ballade feutrée · fagots (enregistrée)', source: 'live', map: { bd: 'rods_bd', sd: 'rods_sd', rim: 'rods_rim', cp: 'rods_cp', hh: 'rods_hh', oh: 'rods_oh', lt: 'rods_lt', mt: 'rods_mt', ht: 'rods_ht', cr: 'rods_cr', rd: 'rods_rd', cb: 'rods_cb', tb: 'rods_tb', sh: 'rods_sh', perc: 'rods_perc', misc: 'rods_misc' } },
+    liveCajon: { label: 'Cajón et percussions (enregistrés)', source: 'live', map: { bd: 'cajon_bd', sd: 'cajon_sd', rim: 'cajon_rim', cp: 'cajon_cp', hh: 'cajon_hh', oh: 'cajon_oh', lt: 'cajon_lt', mt: 'cajon_mt', ht: 'cajon_ht', cr: 'cajon_cr', rd: 'cajon_rd', cb: 'cajon_cb', tb: 'cajon_tb', sh: 'cajon_sh', perc: 'cajon_perc', misc: 'cajon_misc' } },
+    liveTama: { label: 'Batterie studio · Tama stéréo (enregistrée)', source: 'live', map: { bd: 'tama_bd', sd: 'tama_sd', rim: 'tama_rim', cp: 'pop_cp', hh: 'tama_hh', oh: 'tama_oh', lt: 'tama_lt', mt: 'tama_mt', ht: 'tama_ht', cr: 'tama_cr', rd: 'tama_rd', cb: 'tama_cb', tb: 'tama_tb', sh: 'pop_sh', perc: 'tama_perc', misc: 'tama_misc' } },
+    livePacific: { label: 'Batterie Pacific (enregistrée)', source: 'live', map: { bd: 'pacific_bd', sd: 'pacific_sd', rim: 'pop_rim', cp: 'pop_cp', hh: 'pacific_hh', oh: 'pacific_oh', lt: 'pacific_lt', mt: 'pacific_mt', ht: 'pacific_ht', cr: 'pacific_cr', rd: 'pacific_rd', cb: 'pop_cb', tb: 'pop_tb', sh: 'pop_sh', perc: 'pacific_perc', misc: 'pacific_misc' } },
     // percussions d'orchestre (VCSL) de l'assistant « Musique de film » (js/film.js) : frappées sur les repères
     orchperc: {
       label: 'Percussions d’orchestre (VCSL)',
@@ -815,7 +825,7 @@ window.SS = window.SS || {};
           tempo: 148,
           desc: 'Rock nerveux : guitare en croches qui ne s’arrête jamais, basse rock, refrain qui monte d’un cran.',
           musicians: [
-            kit('drums', 'bd sd hh oh cr lt ht', 'RolandR8 LinnDrum Linn9000 EmuSP12 AkaiMPC60 OberheimDMX'),
+            kit('drums', 'bd sd hh oh cr lt ht', 'liveRock liveTama livePop livePacific RolandR8 LinnDrum'),
             m('bass', 'gm_electric_bass_pick gm_electric_bass_finger dirt_bass1 gm_fretless_bass syn_sqbass gm_synth_bass_1', { note: 'Croches rock, octave en fin de mesure' }),
             m('guitar', 'gm_overdriven_guitar gm_distortion_guitar gm_electric_guitar_clean gm_electric_guitar_muted dirt_gtr gm_acoustic_guitar_steel', { note: 'Les croches du riff' }),
             m('pad', 'syn_softpad gm_pad_warm gm_synth_strings_1 j:A15 gm_string_ensemble_1 syn_superpad', opt),
@@ -838,7 +848,7 @@ window.SS = window.SS || {};
           tempo: 116,
           desc: 'Disco-funk : boucle de quatre accords en dorien, guitare funk hachée, basse qui danse, voix robot.',
           musicians: [
-            kit('drums', 'bd sd hh oh cr', 'LinnDrum RolandR8 EmuSP12 AkaiMPC60 OberheimDMX Linn9000'),
+            kit('drums', 'bd sd hh oh cr', 'LinnDrum livePop liveTama RolandR8 EmuSP12 AkaiMPC60'),
             kit('perc', 'tb sh perc', KPERC, opt),
             m('bass', 'gm_electric_bass_finger gm_slap_bass_1 gm_fretless_bass dirt_jvbass syn_moogbass gm_synth_bass_2', { note: 'Disco syncopée' }),
             m('guitar', 'gm_electric_guitar_muted gm_electric_guitar_clean gm_electric_guitar_jazz dirt_gtr gm_acoustic_guitar_steel gm_acoustic_guitar_nylon', { note: 'Accords hachés en doubles' }),
@@ -952,7 +962,7 @@ window.SS = window.SS || {};
           tempo: 119,
           desc: 'Soul joyeuse : boucle de quatre accords à 7e, Rhodes haché, basse Motown, harmonica en solo.',
           musicians: [
-            kit('drums', 'bd sd hh oh rd cr', 'RolandR8 LinnDrum Linn9000 AkaiMPC60 EmuSP12 OberheimDMX'),
+            kit('drums', 'bd sd hh oh rd cr', 'liveBallade liveRods livePop RolandR8 LinnDrum Linn9000'),
             kit('perc', 'tb sh', KPERC, opt),
             m('bass', 'gm_electric_bass_finger gm_fretless_bass gm_acoustic_bass gm_slap_bass_1 dirt_jvbass syn_moogbass', { note: 'Motown, walking au refrain' }),
             m('keys', 'gm_epiano1 gm_epiano2 piano vcsl_fmpiano gm_clavinet j:A27', { label: 'Rhodes' }),
@@ -980,7 +990,7 @@ window.SS = window.SS || {};
           tempo: 100,
           desc: 'Un départ neutre : batterie, basse et piano sur quatre accords. Ajoute ou retire des musiciens, change le tempo, la tonalité, les scènes et les accords.',
           musicians: [
-            kit('drums', 'bd sd hh oh cr', 'RolandR8 LinnDrum RolandTR808 RolandTR909 AkaiMPC60 dirt808'),
+            kit('drums', 'bd sd hh oh cr', 'RolandR8 livePop liveRock liveBallade liveCajon RolandTR808'),
             m('bass', 'gm_electric_bass_finger gm_acoustic_bass syn_sqbass gm_synth_bass_1 j:A48 dirt_jvbass'),
             m('keys', 'piano gm_epiano1 gm_epiano2 vcsl_fmpiano j:A27 gm_drawbar_organ', { label: 'Piano' }),
             m('pad', 'syn_softpad gm_pad_warm gm_string_ensemble_1 j:A15 gm_synth_strings_1 syn_superpad', opt),

@@ -132,3 +132,25 @@ test('kit « LinnDrum gated » : échantillons LinnDrum, reverb gated sur caisse
   assert.equal(SS.FX_DEFAULTS.gated, 0);
   assert.ok(SS.fxActive({ fx: { gated: 0.5 } }), 'le bouton FX de la piste s’allume');
 });
+
+test('batteries enregistrées (pop, rock, ballade, fagots, cajón, Tama, Pacific) : kits complets, chaque banque a ses niveaux de frappe hébergés', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const root = path.join(__dirname, '..');
+  const live = JSON.parse(fs.readFileSync(path.join(root, 'samples/live/live.json'), 'utf8'));
+  assert.ok(SS.LAYERED_DRUM_LIBS.has('live') && SS.DRUM_LIBS.some((l) => l.id === 'live'));
+  const ids = Object.keys(B.KITS).filter((k) => B.KITS[k].source === 'live');
+  assert.equal(ids.length, 7);
+  ids.forEach((k) =>
+    ['bd', 'sd', 'rim', 'cp', 'hh', 'oh', 'lt', 'mt', 'ht', 'cr', 'rd', 'cb', 'tb', 'sh', 'perc', 'misc'].forEach((pc) => {
+      const r = B.pieceOpts(k, pc);
+      assert.equal(r.borrowed, false, k + ' ' + pc);
+      assert.equal(r.opts.source, 'live');
+      const files = live[r.opts.bank];
+      assert.ok(files && files.length >= 3, k + ' ' + pc);
+      files.forEach((f) => assert.ok(fs.existsSync(path.join(root, live._base, f)), f));
+    })
+  );
+  assert.equal(B.kitOfTrack(B.pieceOpts('liveRods', 'sd').opts), 'liveRods');
+  assert.equal(B.STYLES.find((s) => s.id === 'pop').presets[0].musicians.find((m) => m.kits).kits[0], 'liveRock');
+});
