@@ -16,9 +16,9 @@ const B = globalThis.SS.Band;
 const SS = globalThis.SS;
 
 test('10 styles + « Créer de zéro » : 10 inspirations pour les 4 premiers, une ou deux chansons de démo pour les autres ; identifiants uniques', () => {
-  assert.deepEqual(B.STYLES.map((s) => s.id), ['synthwave', 'edm', 'ambient', 'techno', 'pop', 'funk', 'hiphop', 'dnb', 'latin', 'soul', 'zero']);
+  assert.deepEqual(B.STYLES.map((s) => s.id), ['synthwave', 'edm', 'ambient', 'techno', 'pop', 'funk', 'hiphop', 'dnb', 'latin', 'soul', 'cliches', 'zero']);
   assert.ok(B.STYLES.at(-1).blank && !B.STYLES.slice(0, -1).some((s) => s.blank), 'seul « Créer de zéro » est un départ vierge');
-  assert.equal(new Set(B.STYLES.flatMap((s) => s.presets.map((p) => p.id))).size, 48);
+  assert.equal(new Set(B.STYLES.flatMap((s) => s.presets.map((p) => p.id))).size, 49);
   B.STYLES.forEach((s, i) => {
     const n = i < 4 ? 10 : s.id === 'latin' ? 2 : 1; // latin : reggaeton + reggae roots
     assert.equal(s.presets.length, n, s.id);
@@ -26,7 +26,8 @@ test('10 styles + « Créer de zéro » : 10 inspirations pour les 4 premiers, u
     if (i >= 4) {
       assert.ok(s.swing >= 0 && s.swing <= 100, s.id + ' : swing');
       // « Créer de zéro » n'a pas de bibliothèque de motifs à lui : l'assistant lui donne celle de la pop
-      if (!s.blank) assert.ok(SS.DRUM_PATTERNS[s.id] && SS.DRUM_PATTERNS[s.id].length, s.id + ' : bibliothèque de motifs');
+      // « Clichés » emprunte celle d'un autre style (s.patterns)
+      if (!s.blank) assert.ok(SS.DRUM_PATTERNS[s.patterns || s.id] && SS.DRUM_PATTERNS[s.patterns || s.id].length, s.id + ' : bibliothèque de motifs');
     }
     s.presets.forEach((p) => {
       assert.ok(p.tempo >= 60 && p.tempo <= 200, p.id);

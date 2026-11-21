@@ -707,6 +707,26 @@ SS.BandSongs = {
     form: 'intro verse chorus verse chorus dub bridge chorus*2 outro',
   },
 
+  /* ================= Clichés ================= */
+
+  // Pop de Noël (procédés d'un tube de Noël des années 90 ; grille, mélodie et titre originaux) : ouverture lente à la boîte
+  // à musique, mise en marche en shuffle, piano en croches répétées, grelots, claps, timbales, cordes et cloches ; IV qui
+  // passe en mineur sur sa tierce (« iv6>3 » : Do m6/Mi♭, basse mi–mi♭–ré avec « I>7 »), dominantes secondaires B7 → Em
+  // (III7 → vi) et E7 → Am7 → D7 (VI7 → ii7 → V7), cycle doo-wop I–vi–IV–V
+  noel: {
+    key: 'G major', groove: 'shuffle', emotion: 'joie',
+    sections: {
+      intro: { bars: 8, tempo: 76, chords: 'I | I>4 | IV | iv6>3 | I>7 | III7 | vi | V7', drums: 'off', keys: 'ballad', strings: 'swell', lead: 'long', fill: false },
+      launch: { bars: 4, chords: 'I | vi | IV | V7', drums: 'main', perc: 'main', bass: 'shuffle', keys: 'pulse8', lead: 'riff', name: 'Mise en marche' },
+      verse: { bars: 16, chords: 'I | I | IV | iv6>3 | I | vi | ii7 | V7', drums: 'main', perc: 'main', bass: 'shuffle', keys: 'pulse8', strings: 'sustain', lead: 'verse' },
+      pre: { bars: 8, chords: 'I | III7 | vi | iv6>3 | I>7 | VI7 | ii7 | V7', drums: 'main', perc: 'main', bass: 'shuffle', keys: 'pulse8', strings: 'sustain', lead: 'long' },
+      chorus: { bars: 8, chords: 'I | vi | IV | V7 | I | vi | ii7/V7 | I', drums: 'full', perc: 'full', bass: 'shuffle', keys: 'pulse8', strings: 'sustain', arp: 'toll', lead: 'hook' },
+      bridge: { bars: 8, chords: 'III7 | vi | III7 | vi | iv6>3 | I>7 | VI7/ii7 | V7', drums: 'main', perc: 'main', bass: 'shuffle', keys: 'pulse8', strings: 'sustain', lead: 'long', name: 'Pont' },
+      outro: { bars: 8, chords: 'I | vi | ii7 | V7', drums: 'full', perc: 'full', bass: 'shuffle', keys: 'pulse8', strings: 'sustain', arp: 'toll', lead: 'answer', name: 'Coda', fill: false },
+    },
+    form: 'intro launch verse pre chorus verse pre chorus bridge verse chorus*2 outro',
+  },
+
   // Soul joyeuse : boucle à 7e, Rhodes haché, basse Motown, walking au refrain, solo d'harmonica
   lovely: {
     key: 'C♯ minor', groove: 'soul', emotion: 'joie',

@@ -99,6 +99,13 @@ window.SS = window.SS || {};
       labels: { lt: 'Timbale', mt: 'Timbale (roulement)', bd: 'Grosse caisse', sd: 'Caisse claire', cr: 'Cymbale suspendue', oh: 'Cymbale (crescendo)', ht: 'Cymbales frappées', rd: 'Triangle', misc: 'Tam-tam' },
       map: { lt: 'timpani', mt: 'timpani_roll', bd: 'bassdrum1', sd: 'snare_hi', cr: 'sus_cymbal#12', oh: 'sus_cymbal#6', ht: 'clash', rd: 'triangles#4', misc: 'gong' },
     },
+    // percussions de Noël (VCSL) du modèle « Clichés » de pop de Noël : grelots, claps, timbales, tambourin
+    noel: {
+      label: 'Percussions de Noël (VCSL)',
+      source: 'vcsl',
+      labels: { sh: 'Grelots', cp: 'Claps', perc: 'Timbales', tb: 'Tambourin', misc: 'Woodblock' },
+      map: { sh: 'sleighbells#0', cp: 'clap', perc: 'timpani#4', tb: 'tambourine', misc: 'woodblock', cb: 'cowbell', rim: 'snare_rim#0' },
+    },
     // kit composé de boîtes à rythmes : « Machine#n » = l'échantillon n de cette machine ; `fx` : effets posés sur la piste
     // de l'élément. Reverb gated (fx.gated) : calculée une fois dans l'échantillon, rien de plus à la lecture.
     LinnGated: {
@@ -968,6 +975,36 @@ window.SS = window.SS || {};
             m('bass', 'gm_electric_bass_finger gm_fretless_bass gm_acoustic_bass gm_slap_bass_1 dirt_jvbass syn_moogbass', { note: 'Motown, walking au refrain' }),
             m('keys', 'gm_epiano1 gm_epiano2 piano vcsl_fmpiano gm_clavinet j:A27', { label: 'Rhodes' }),
             m('lead', 'gm_harmonica vcsl_harmonica vcsl_harmonica_vib gm_alto_sax gm_flute gm_trumpet', { label: 'Harmonica (mélodie, solo)' }),
+          ],
+        },
+      ],
+    },
+    /* « Clichés » : les procédés typiques d'un tube connu (forme, grille d'accords, instruments, groove), réunis dans une
+     * chanson ORIGINALE : on reprend la recette, jamais la mélodie ni les paroles. Titres de modèles originaux. */
+    {
+      id: 'cliches',
+      label: 'Clichés',
+      desc: 'Les recettes des grands tubes : la forme, la grille, les instruments et le groove qui font qu’on les reconnaît, dans une chanson originale.',
+      swing: 0,
+      patterns: 'soul', // motifs de batterie de l'étape Batterie : Soul & Jazz (shuffle, balais, Motown)
+      presets: [
+        {
+          id: 'noel',
+          song: 'Grelots de minuit',
+          artist: 'Pop de Noël, façon Mariah Carey (esprit)',
+          year: '',
+          tempo: 150,
+          swing: 66,
+          swingRes: 8, // shuffle : croches en triolet
+          desc: 'Le tube pop de Noël : intro lente à la boîte à musique, puis shuffle à 150 avec piano en croches répétées, grelots, claps et timbales, cordes, cloches tubulaires ; grille I–vi–IV–V, IV qui passe en mineur (basse mi–mi♭–ré), B7 vers Em, E7–Am7–D7. Instrumental, mélodie au glockenspiel (ou au célesta).',
+          musicians: [
+            kit('drums', 'bd sd hh oh cr lt mt ht', 'livePop liveBallade liveRock liveTama RolandR8 LinnDrum', { note: 'Shuffle, caisse claire sur 2 et 4, roulements aux transitions' }),
+            kit('perc', 'sh cp perc', 'noel vcsl orchperc LinnDrum RolandR8 KorgM1', { label: 'Grelots, claps, timbales', note: 'Grelots continus, claps sur 2 et 4, timbales aux appuis' }),
+            m('bass', 'syn_moogbass syn_boogie gm_synth_bass_1 gm_electric_bass_finger gm_acoustic_bass syn_sub', { label: 'Basse synthé', note: 'Rebondit en croches, descend mi–mi♭–ré' }),
+            m('keys', 'vcsl_steinway vcsl_piano1 vcsl_kawai piano gm_piano gm_epiano1', { label: 'Piano', note: 'Accords répétés en croches ternaires' }),
+            m('strings', 'vsco_violins vsco_violas gm_string_ensemble_1 syn_strings80 gm_synth_strings_1 j:A15', { label: 'Nappe de cordes' }),
+            m('lead', 'vsco_glockenspiel gm_celesta vcsl_vibraphone_soft gm_music_box vcsl_handchimes gm_glockenspiel', { label: 'Glockenspiel (mélodie)', note: 'Boîte à musique en intro, puis la mélodie ; célesta en 2e choix' }),
+            m('arp', 'vcsl_tubularbells gm_tubular_bells vcsl_handchimes vsco_glockenspiel vcsl_glockenspiel gm_celesta', { label: 'Cloches tubulaires', note: 'Une volée au début des phrases' }),
           ],
         },
       ],

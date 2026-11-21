@@ -579,11 +579,36 @@ SS.band = (() => {
       });
     },
   });
+  /** Clichés : une étiquette « recette » et trois petites étoiles, comme un tube qu'on reconnaît à ses ingrédients. */
+  ART.cliches = (g, w, h) => {
+    g.fillStyle = '#f2d27a';
+    g.globalAlpha = 0.9;
+    const star = (cx, cy, r) => {
+      g.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const a = -Math.PI / 2 + (i * Math.PI) / 5;
+        const rr = i % 2 ? r * 0.45 : r;
+        g.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+      }
+      g.closePath();
+      g.fill();
+    };
+    star(w * 0.22, h * 0.3, 20);
+    star(w * 0.5, h * 0.2, 28);
+    star(w * 0.78, h * 0.3, 20);
+    g.globalAlpha = 1;
+    g.strokeStyle = '#f2d27a';
+    g.lineWidth = 2;
+    g.strokeRect(w * 0.2, h * 0.52, w * 0.6, h * 0.3);
+    g.fillStyle = 'rgba(242, 210, 122, 0.35)';
+    [0.6, 0.67, 0.74].forEach((y, i) => g.fillRect(w * 0.26, h * y, w * (0.48 - i * 0.1), 4));
+  };
   const ART_BG = {
     synthwave: ['#1b0b2e', '#3a0d4a'], edm: ['#06121f', '#0a2a4a'], ambient: ['#0d1a1a', '#173a3a'], techno: ['#0b0c0f', '#232830'],
     zero: ['#101216', '#1a1e26'], pop: ['#1c0d0d', '#3a1717'], funk: ['#1d1406', '#3a2a08'], hiphop: ['#0f140a', '#232f16'], dnb: ['#170812', '#2e0f24'], latin: ['#1f1006', '#3d2010'], soul: ['#170f0a', '#33221a'],
   };
   ART_BG.film = ['#0b0b10', '#1f1a12'];
+  ART_BG.cliches = ['#1a0b0e', '#3a1219'];
   /** Tuile 🎬 : une pellicule (perforations), des repères sur une frise et la courbe de tension qui monte vers la synchro. */
   ART.film = (g, w, h) => {
     g.fillStyle = 'rgba(0, 0, 0, 0.55)';
@@ -6257,6 +6282,7 @@ SS.band = (() => {
     ['pluck16', 'Pincé', 'Doubles syncopées, très piquées'],
     ['ost16', 'Ostinato', 'Motif de huit doubles qui revient'],
     ['dotted', 'Pointé', 'Une note tous les trois pas'],
+    ['toll', 'Volée de cloche', 'Une note longue au début de chaque phrase de deux mesures'],
     ['rise', 'Montée de section', 'Monte vers l’aigu pendant la section'],
   ];
   const nameOf = (list, id) => (list.find((x) => x[0] === id) || [id, id])[1];
@@ -6485,7 +6511,7 @@ SS.band = (() => {
   const NEXT_VEL = { '-': 'x', x: 'o', o: '.', '.': '-' }; // case : éteinte → fort → moyen → léger → éteinte
   const velChar = (v) => (v >= 0.85 ? 'x' : v >= 0.6 ? 'o' : v > 0 ? '.' : '-');
   /** Style de la bibliothèque de motifs (celui du modèle, sinon synthwave). */
-  const drumStyle = () => (SS.DRUM_PATTERNS[S.styleId] ? S.styleId : style() && style().blank ? 'pop' : 'synthwave');
+  const drumStyle = () => (SS.DRUM_PATTERNS[S.styleId] ? S.styleId : style() && style().patterns ? style().patterns : style() && style().blank ? 'pop' : 'synthwave');
   /** Noms des bibliothèques de motifs qui n'ont pas (encore) de style Band. */
   const DRUM_LIB_NAMES = { pop: 'Pop-rock', funk: 'Funk & Disco', hiphop: 'Hip-hop & Lo-fi', dnb: 'Drum & bass', latin: 'Latin, Afro & Reggae', soul: 'Soul & Jazz' };
   const drumLibName = (id) => (B().STYLES.find((s) => s.id === id) || {}).label || DRUM_LIB_NAMES[id] || id;
@@ -6795,7 +6821,8 @@ SS.band = (() => {
   const grooveVals = () => ({ swing: (preset() && preset().swing != null ? preset().swing : style() && style().swing) || 0, human: 15, ...((S.wiz && S.wiz.groove) || {}) });
   function grooveOf() {
     const g = grooveVals();
-    return { res: g.swing > 0 ? 16 : 0, swing: 0.5 + (0.25 * g.swing) / 100, human: g.human / 100 };
+    // shuffle (preset.swingRes = 8) : les croches swinguées en triolet ; sinon les doubles-croches
+    return { res: g.swing > 0 ? (preset() && preset().swingRes) || 16 : 0, swing: 0.5 + (0.25 * g.swing) / 100, human: g.human / 100 };
   }
   function grooveSliders() {
     const g = grooveVals();

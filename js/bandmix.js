@@ -201,6 +201,15 @@ SS.bandMix = (() => {
       drive: 5,
     },
   };
+  // clichés (pop de Noël) : le « mur de son » des années 60 revu en 90, grande salle claire, pas de sidechain
+  STYLE.cliches = {
+    returns: { plate: { size: 1.6, predelay: 0.02, hp: 250, lp: 9000 }, hall: { size: 3.2, predelay: 0.03, hp: 280, lp: 7500 }, echo: { time: '1/8', feedback: 0.2, hp: 300, lp: 4500 } },
+    plate: 1.1,
+    hall: 1.1,
+    sc: { bass: 0, pad: 0, strings: 0, keys: 0 },
+    loud: -10,
+    drive: 6,
+  };
   STYLE.zero = STYLE.pop; // « Créer de zéro » : un mix pop, neutre (batterie acoustique, peu d'effets)
 
   // gestion du gain : le mix arrive au master vers −18 LUFS, crêtes vers −6 dBFS (marge pour la glue et le limiteur)
@@ -223,11 +232,18 @@ SS.bandMix = (() => {
   }
 
   /** Niveau mesuré du son de la piste (js/band-levels.js), ou null si inconnu (instrument choisi hors catalogue). */
+  /**
+   * Corrections d'écoute (dB ajoutés au volume mesuré) : sons très percussifs dont le LUFS intégré, mesuré sur des notes
+   * qui s'éteignent vite, sous-estime le volume perçu. Glockenspiel VSCO : mesuré −41 LUFS, mais 8 dB au-dessus du
+   * piano dans la chanson « Grelots de minuit » (rendu solo comparé) ; +8 le remet juste au-dessus du piano.
+   */
+  const LEVEL_TRIM = { vsco_glockenspiel: 8 };
   function measured(levelKey, isDrum, field = 0) {
     const L = SS.BAND_LEVELS;
     if (!L || !levelKey) return null;
     const v = (isDrum ? L.drum : L.inst)[levelKey];
-    return v ? v[field] : null;
+    if (!v) return null;
+    return v[field] + (field === 0 && !isDrum ? LEVEL_TRIM[levelKey.split('|')[1]] || 0 : 0);
   }
 
   /**
