@@ -9,8 +9,9 @@ Kits (format Hydrogen .h2drumkit, téléchargés sur SourceForge, voir samples/l
  - cajon : Buskman's Holiday, cajón et percussions (Glen MacArthur, CC BY-SA 4.0) ;
  - tama : Forzee Stereo Drumkit (V. Sadovnikov, A. Belokurov, GPL 2), stéréo ;
  - pacific : Pacific de Bransin James Anderson (CC BY-SA 3.0 US), stéréo ;
- - christmas : batterie du kit pop (Black Pearl) + percussions de Noël de la Versilian Community Sample Library
-   (VCSL, Versilian Studios, CC0) : grelots, claps, tambourins, timbales d'orchestre, cymbale suspendue frappée à la mailloche.
+ - christmas : Big Rusty Drums (Karoryfer Samples, CC0, micros de proximité et overheads mélangés, crash inversée),
+   claps de FreePats World and Rare Percussion (CC0), grelots, tambourins et timbales d'orchestre de la Versilian
+   Community Sample Library (VCSL, Versilian Studios, CC0).
 Chaque élément y existe en plusieurs niveaux de frappe : le script les garde tous (du plus doux au plus fort, d'après les
 plages de vélocité de drumkit.xml), retire le silence avant l'attaque, les raccourcit à MAX_S secondes avec un fondu,
 les encode en MP3 dans samples/live/<kit>/ et écrit samples/live/live.json au format des banques de strudel :
@@ -18,11 +19,13 @@ les encode en MP3 dans samples/live/<kit>/ et écrit samples/live/live.json au f
 js/audio.js joue le niveau qui correspond à la vélocité du coup (SS.LAYERED_DRUM_LIBS).
 Instrument « Nom+3 » : accordé 3 demi-tons plus haut (tom aigu des kits à deux toms, kit reggae) ; « Nom~0.3 » : son
 étouffé (raccourci à 0,3 s avec un long fondu, caisse claire sèche du reggae) ; « =banque » : banque d'un autre kit ;
-« vcsl:fichier|fichier… » : échantillons VCSL (chemins sous VCSL_URL), rangés ensuite du plus doux au plus fort.
+« vcsl:fichier|fichier… » : échantillons VCSL (chemins sous VCSL_URL), rangés ensuite du plus doux au plus fort ;
+« freepats:Dossier » : prises de FreePats World and Rare Percussion ; « rusty:dossier:micros » : Big Rusty Drums
+(« rusty-reverse: » joue la crash à l'envers).
 
 Usage : python3 tools/live-drums.py [dossier de téléchargement] [--only kit,kit…]
 (--only refait seulement ces kits et garde les autres banques de live.json)
-Nécessite ffmpeg et curl.
+Nécessite ffmpeg, curl et git (christmas : aussi 7z, paquet p7zip-full).
 """
 import json, os, re, subprocess, sys, tarfile, tempfile, glob
 from concurrent.futures import ThreadPoolExecutor
@@ -31,6 +34,9 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'samples', 'live')
 URL = 'https://sourceforge.net/projects/hydrogen/files/Sound%20Libraries/Main%20sound%20libraries/{}.h2drumkit/download'
 VCSL_URL = 'https://raw.githubusercontent.com/sgossner/VCSL/master/'
+RUSTY = 'https://github.com/sfzinstruments/karoryfer.big-rusty-drums'
+FREEPATS_PERC = 'https://github.com/freepats/world-percussion/releases/download/2020-09-05/WorldPercussion-SFZ+FLAC-20200905.7z'
+RUSTY_LAYERS = 5  # niveaux de frappe gardés, répartis du plus doux au plus fort
 MAX_S = 4.0
 FADE_S = 0.6
 
@@ -86,19 +92,20 @@ KITS = [
         'lt': 'Floor Tom', 'mt': 'Tom', 'ht': 'Tom+3', 'cr': 'Crash Left', 'rd': 'Ride', 'cb': '=pop_cb', 'tb': '=pop_tb',
         'sh': '=pop_sh', 'perc': 'Ride Bell', 'misc': 'Crash Right',
     }),
-    # Noël : batterie pop, grelots, claps, tambourin et timbales d'orchestre enregistrés (VCSL) ; cloche de ride sur cb
-    ('christmas', None, False, {
-        'bd': '=pop_bd', 'sd': '=pop_sd', 'rim': '=pop_rim', 'hh': '=pop_hh', 'oh': '=pop_oh', 'lt': '=pop_lt',
-        'mt': '=pop_mt', 'ht': '=pop_ht', 'cr': '=pop_cr', 'rd': '=pop_rd', 'cb': '=pop_perc',
+    # Noël : batterie Big Rusty Drums (Karoryfer, CC0 ; micro de proximité + overheads), claps FreePats (CC0),
+    # grelots, tambourin et timbales VCSL (CC0) ; cloche de ride sur cb, crash inversée sur misc
+    ('christmas', None, True, {
+        'bd': 'rusty:kick_24/kick:kick,oh', 'sd': 'rusty:snare_14/center:top,oh', 'rim': 'rusty:snare_14/sidestick:top,oh',
+        'hh': 'rusty:hihat_14/cl:cl,oh', 'oh': 'rusty:hihat_14/open:cl,oh', 'lt': 'rusty:tom_18/center:cl,oh',
+        'mt': 'rusty:tom_15/center:cl,oh', 'ht': 'rusty:tom_14/center:cl,oh', 'cr': 'rusty:crash_17/cr:cl,oh',
+        'rd': 'rusty:ride_22/rd:cl,oh', 'cb': 'rusty:ride_22/bl:cl,oh', 'misc': 'rusty-reverse:crash_17/cr:cl,oh',
+        'cp': 'freepats:HandClap',
         'sh': 'vcsl:' + '|'.join(f'Idiophones/Struck Idiophones/Sleigh Bells/{f}.wav' for f in (
             'Sleighbells_Hit_rr1_Mid', 'Sleighbells_Hit_rr2_Mid', 'sleighbell2_hit_2', 'sleighbell2_hit_loud')),
-        'cp': 'vcsl:' + '|'.join(f'Idiophones/Struck Idiophones/Claps/Clap_rr{n}.wav' for n in range(1, 7)),
         'tb': 'vcsl:' + '|'.join(f'Idiophones/Struck Idiophones/Tambourine {f}_Mid.wav' for f in (
             '1/Tamb1_Hit_v1_rr1', '1/Tamb1_Hit_v2_rr1', '2/Tamb2_Hit_v1_rr1', '2/Tamb2_Hit_v2_rr2')),
         'perc': 'vcsl:' + '|'.join(f'Membranophones/Struck Membranophones/Timpani 1/Hit/Timpani1_Hit_{v}_Sum.wav' for v in (
             'v2_rr1', 'v3_rr3', 'v4_rr1')),
-        'misc': 'vcsl:' + '|'.join(f'Idiophones/Struck Idiophones/Suspended Cymbal 1/susCymb1_hit_{v}1.wav' for v in (
-            'pp', 'mp', 'f', 'fff')),
     }),
 ]
 
@@ -124,8 +131,58 @@ def fetch_vcsl(paths, dl):
         if not os.path.exists(dst):
             os.makedirs(os.path.dirname(dst), exist_ok=True)
             subprocess.run(['curl', '-sfL', '--retry', '3', '-o', dst, VCSL_URL + rel.replace(' ', '%20').replace('#', '%23')], check=True)
-        r = subprocess.run(['ffmpeg', '-i', dst, '-af', 'volumedetect', '-f', 'null', '-'], capture_output=True, text=True)
-        out.append((float(re.search(r'max_volume: (-?[\d.]+)', r.stderr).group(1)), dst))
+        out.append(dst)
+    return peak_sorted(out)
+
+
+def fetch_rusty(spec, dl, reverse=False):
+    """Big Rusty Drums : « dossier:micro,micro » -> un fichier stéréo par niveau gardé (première prise), les micros
+    mélangés (proximité au centre + overheads) ; reverse : joué à l'envers (crash inversée, 3 s)."""
+    folder, mics = spec.split(':')
+    mics = mics.split(',')
+    repo = os.path.join(dl, 'big-rusty-drums')
+    if not os.path.isdir(repo):
+        subprocess.run(['git', 'clone', '-q', '--depth', '1', '--filter=blob:none', '--no-checkout', RUSTY, repo], check=True)
+    names = subprocess.run(['git', '-C', repo, 'ls-tree', '--name-only', 'HEAD', f'Samples/{folder}/{mics[0]}/'],
+                           capture_output=True, text=True, check=True).stdout.split()
+    vls = sorted({int(m[1]) for n in names for m in [re.search(r'_vl(\d+)_rr1\.flac$', n)] if m})
+    keep = sorted({vls[round(i * (len(vls) - 1) / (RUSTY_LAYERS - 1))] for i in range(RUSTY_LAYERS)})
+    if reverse:
+        keep = keep[-3:]
+    base = re.sub(r'_vl\d+_rr1\.flac$', '', os.path.basename(next(n for n in names if '_rr1.flac' in n)))
+    rel = [f'Samples/{folder}/{mic}/{base}_vl{v}_rr1.flac' for v in keep for mic in mics]
+    subprocess.run(['git', '-C', repo, 'checkout', 'HEAD', '--', *rel], check=True)
+    out = []
+    for v in keep:
+        dst = os.path.join(dl, 'rusty-mix', folder.replace('/', '_') + ('_rev' if reverse else '') + f'_vl{v}.wav')
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        ins = sum((['-i', os.path.join(repo, f'Samples/{folder}/{mic}/{base}_vl{v}_rr1.flac')] for mic in mics), [])
+        mix = ''.join(f'[{i}:a]aformat=channel_layouts=stereo[m{i}];' for i in range(len(mics)))
+        mix += ''.join(f'[m{i}]' for i in range(len(mics))) + f'amix=inputs={len(mics)}:normalize=0'
+        if reverse:
+            mix += ',atrim=0:3,areverse,afade=t=in:d=0.4'
+        subprocess.run(['ffmpeg', '-v', 'error', '-y', *ins, '-filter_complex', mix, dst], check=True)
+        out.append(dst)
+    return out
+
+
+def fetch_freepats(folder, dl):
+    """FreePats World and Rare Percussion : les prises d'un instrument, rangées comme fetch_vcsl."""
+    arc = os.path.join(dl, os.path.basename(FREEPATS_PERC))
+    if not os.path.exists(arc):
+        subprocess.run(['curl', '-sfL', '--retry', '3', '-o', arc, FREEPATS_PERC], check=True)
+    d = arc[:-3]
+    if not os.path.isdir(d):
+        subprocess.run(['7z', 'x', '-y', '-bso0', f'-o{d}', arc], check=True)
+    files = sorted(glob.glob(os.path.join(d, '**', 'samples', folder, '*.flac'), recursive=True))
+    return peak_sorted(files)
+
+
+def peak_sorted(files):
+    out = []
+    for f in files:
+        r = subprocess.run(['ffmpeg', '-i', f, '-af', 'volumedetect', '-f', 'null', '-'], capture_output=True, text=True)
+        out.append((float(re.search(r'max_volume: (-?[\d.]+)', r.stderr).group(1)), f))
     out.sort()
     return [f for _, f in out], -1 - out[-1][0]
 
@@ -179,6 +236,12 @@ def main():
             gain = 0
             if inst.startswith('vcsl:'):
                 lay[inst], gain = fetch_vcsl(inst[5:].split('|'), dl)
+                inst += '+0'
+            elif inst.startswith('freepats:'):
+                lay[inst], gain = fetch_freepats(inst[9:], dl)
+                inst += '+0'
+            elif inst.startswith('rusty'):
+                lay[inst] = fetch_rusty(inst.split(':', 1)[1], dl, reverse=inst.startswith('rusty-reverse'))
                 inst += '+0'
             inst, _, cut = inst.partition('~')
             inst, _, semis = inst.partition('+')

@@ -7,6 +7,7 @@ const assert = require('node:assert/strict');
 globalThis.window = globalThis;
 require('../js/library.js');
 require('../js/vsco.js');
+require('../js/libre.js');
 require('../js/dirt.js');
 require('../js/sounds.js');
 require('../js/juno.js');
@@ -76,6 +77,20 @@ test('orchestre VSCO 2 : instruments rangés par rôle, fichiers présents, prog
   }
   const strings = C.search('violoncelles').find((x) => x.role.id === 'strings');
   assert.ok(strings && strings.entries.some((e) => e.v === 'i:strings:vsco_cellos' && e.name === 'Violoncelles' && e.detail === 'section'));
+});
+
+test('instruments libres (célesta, FreePats, crash inversée) : fichiers présents, rangés par rôle', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const bank = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'samples', 'libre', 'libre.json'), 'utf8'));
+  ['celesta', 'bass_finger', 'guitar_jazz', 'choir_pad', 'reverse_crash'].forEach((k) => assert.ok(SS.LIB.libre.some((v) => v.key === k), k));
+  for (const v of SS.LIB.libre) {
+    const files = Object.values(bank[v.key] || {});
+    assert.ok(files.length >= (v.key === 'reverse_crash' ? 1 : 10), v.key);
+    files.forEach((f) => assert.ok(fs.existsSync(path.join(__dirname, '..', bank._base, f)), f));
+    assert.equal(SS.findInstrument(v.family, v.id).bank, 'libre', v.id);
+  }
+  assert.ok(C.search('célesta').some((r) => r.entries.some((e) => e.v === 'i:mallets:libre_celesta')));
 });
 
 test('presets du synthé intégré : sous-groupes, sons célèbres et réglages du preset', () => {

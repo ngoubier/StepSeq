@@ -21,7 +21,10 @@ retiré, durée limitée à 4 s avec un fondu, conversion en MP3 (mono 128 kb/s,
 tom aigu des kits à deux toms obtenu en accordant le tom médium 3 demi-tons plus haut. Les fichiers modifiés restent
 sous la licence de leur kit d'origine.
 
-4. Percussions du kit Christmas (dossier christmas : grelots, claps, tambourins, timbales, cymbale suspendue)
-   Versilian Community Sample Library (VCSL), Versilian Studios, https://github.com/sgossner/VCSL
-   Licence : Creative Commons Zero (CC0 1.0), domaine public
-   La batterie du kit Christmas (christmas_bd, christmas_sd…) réutilise les fichiers du kit pop (Black Pearl, ci-dessus).
+4. Kit Christmas (dossier christmas), tout en Creative Commons Zero (CC0 1.0, domaine public) :
+   - batterie, cloche de ride et crash inversée : Big Rusty Drums, Karoryfer Samples,
+     https://github.com/sfzinstruments/karoryfer.big-rusty-drums (micros de proximité et overheads mélangés,
+     5 niveaux de frappe, première prise) ;
+   - claps : FreePats World and Rare Percussion, https://freepats.zenvoid.org/Percussion/world-and-rare-percussion.html ;
+   - grelots, tambourins, timbales : Versilian Community Sample Library (VCSL), Versilian Studios,
+     https://github.com/sgossner/VCSL
