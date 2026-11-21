@@ -5517,3 +5517,58 @@ dialog.frz-dialog .frz-sub { margin: 0 0 14px; color: var(--muted); font-size: 1
 dialog.frz-dialog .frz-foot { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 dialog.frz-dialog .frz-foot button { font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel-3); color: var(--text); cursor: pointer; }
 dialog.frz-dialog .frz-foot button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* ---------- Mode tutoriel « Musique de film » (js/tutorial.js) : le coach à droite de l'assistant ---------- */
+body.wizard-mode #bandDialog.band-dialog.tut-on { flex-direction: row; }
+#bandDialog .bs-title { display: flex; align-items: center; gap: 8px; }
+#bandDialog .bfm-tuto { margin-left: auto; }
+#bandDialog .bfm-tuto[aria-pressed="true"] { border-color: #ff8a3d; background: color-mix(in srgb, #ff8a3d 20%, var(--bw-panel2)); }
+.tut-coach { flex: 0 0 340px; display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border-left: 1px solid var(--bw-line); background: var(--bw-panel); overflow-y: auto; }
+.tut-coach[hidden] { display: none; }
+.tut-head { display: flex; align-items: center; gap: 6px; }
+.tut-cap { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #ff8a3d; }
+.tut-sp { flex: 1; }
+.tut-title { margin: 0; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+.tut-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
+.tut-prog { display: flex; gap: 3px; }
+.tut-prog i { flex: 1; height: 4px; border-radius: 2px; background: var(--bw-line); }
+.tut-prog i.done { background: #3fcf7f; }
+.tut-prog i.cur { background: #ff8a3d; }
+.tut-say { padding: 10px 12px; border: 1px solid var(--bw-line); border-radius: var(--bw-r-card); background: var(--bw-panel2); line-height: 1.5; }
+.tut-say b { color: #ffd3b0; }
+.tut-listen, .tut-quiz { display: flex; flex-wrap: wrap; gap: 6px; }
+.tut-quiz .chip { text-align: left; white-space: normal; }
+.tut-quiz .chip.good { border-color: #3fcf7f; background: rgba(63, 207, 127, .16); color: #c9f5dc; }
+.tut-quiz .chip.bad { border-color: #ff5a5a; background: rgba(255, 90, 90, .14); color: #ffd0d0; }
+.tut-play { background: #2c6e3f; border-color: #2c6e3f; color: #fff; }
+.tut-play.on { background: #8a2c2c; border-color: #8a2c2c; }
+.tut-ask { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.tut-num { width: 72px; font: inherit; font-size: 15px; text-align: center; color: var(--bw-text); background: var(--bw-bg); border: 1px solid var(--bw-line); border-radius: var(--bw-r-ctl); padding: 5px; }
+.tut-fb { display: none; padding: 8px 10px; border-radius: 8px; line-height: 1.45; font-size: 13px; }
+.tut-fb.ok { display: block; background: rgba(63, 207, 127, .12); border: 1px solid #2c6e47; color: #c9f5dc; }
+.tut-fb.no { display: block; background: rgba(255, 90, 90, .1); border: 1px solid #7a3232; color: #ffd0d0; }
+.tut-nav { display: flex; gap: 6px; margin-top: auto; }
+.tut-nav .btn { flex: 1; }
+.tut-muted { font-size: 12px; color: var(--bw-muted); }
+.tut-gate { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px dashed #ff8a3d; border-radius: var(--bw-r-card); }
+.tut-gate p { margin: 0; line-height: 1.45; }
+.tut-bar { height: 6px; border-radius: 3px; background: var(--bw-line); overflow: hidden; }
+.tut-bar i { display: block; height: 100%; background: linear-gradient(90deg, #3fcf7f, #ffd75e); }
+.tut-list { display: flex; flex-direction: column; gap: 6px; }
+.tut-les { position: relative; display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 8px 10px 8px 12px; border: 1px solid var(--bw-line); border-left: 4px solid var(--c); border-radius: 8px; background: var(--bw-panel2); color: var(--bw-text); font: inherit; cursor: pointer; }
+.tut-les small, .tut-les span { color: var(--bw-muted); font-size: 12px; }
+.tut-les em { position: absolute; right: 10px; top: 8px; font-style: normal; font-size: 12px; color: var(--bw-muted); }
+.tut-les.done em { color: #3fcf7f; }
+.tut-spot { outline: 2px solid #ff8a3d !important; outline-offset: 3px; border-radius: 6px; animation: tut-pulse 1.4s ease-in-out infinite; }
+@keyframes tut-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 138, 61, .45); } 50% { box-shadow: 0 0 0 8px rgba(255, 138, 61, 0); } }
+@media (prefers-reduced-motion: reduce) { .tut-spot { animation: none; } }
+.tut-screen { position: relative; aspect-ratio: 16 / 8; border-radius: 8px; overflow: hidden; border: 1px solid #333; background: #07070a; }
+.tut-room { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 120%, #1b2030 0%, #090a10 60%); transition: background .35s; }
+.tut-screen.lit .tut-room { background: radial-gradient(ellipse at 50% 30%, #fff1c9 0%, #f2b860 30%, #5b3a1e 75%); }
+.tut-fig { position: absolute; bottom: 0; left: 38%; width: 26px; height: 68%; border-radius: 13px 13px 0 0; background: rgba(0, 0, 0, .65); }
+.tut-fig.b { left: 52%; height: 54%; }
+.tut-tc, .tut-ev { position: absolute; top: 6px; padding: 1px 6px; border-radius: 4px; background: rgba(0, 0, 0, .55); font-size: 11px; color: #ddd; }
+.tut-tc { right: 6px; font-family: ui-monospace, monospace; }
+.tut-ev { left: 6px; }
+.tut-sub { position: absolute; left: 0; right: 0; bottom: 6px; text-align: center; font-size: 12px; color: #fff; text-shadow: 0 1px 3px #000; display: none; }
+.tut-screen.talk .tut-sub { display: block; }
