@@ -2179,6 +2179,29 @@ SS.bandSong = (() => {
     hades: [[2, 1, 0, 0.9], [6, 1, 0, 0.9], [10, 1, 0, 0.9], [14, 1, 0, 0.9]],
     mythos: [[1, 1, 0, 0.66], [2, 1, 0, 0.9], [5, 1, 0, 0.66], [6, 1, 12, 0.9], [7, 1, 0, 0.66], [9, 1, 0, 0.66], [10, 1, 12, 0.9], [13, 1, 0, 0.66], [14, 1, 12, 0.9], [15, 1, 0, 0.66]],
     thebes: [[1, 1, 0, 0.66], [2, 1, 0, 0.9], [3, 1, 0, 0.66], [5, 1, 0, 0.66], [6, 1, 0, 0.9], [7, 1, 0, 0.66], [9, 1, 0, 0.66], [10, 1, 0, 0.9], [11, 1, 0, 0.66], [13, 1, 0, 0.66], [14, 1, 0, 0.9], [15, 1, 0, 0.66]],
+    // nov. 2026 : motifs « célèbres » = des procédés de bassistes et de genres connus, rejoués avec des notes originales
+    // (jamais la ligne d'un morceau) ; 14 = neuvième, 10 = septième mineure, 9 = sixte, -5 = quinte sous la fondamentale
+    cel_chic: [[0, 2, 0, 0.92], [3, 1, 0, 0.45], [4, 1, 12, 0.8], [6, 2, 0, 0.85], [8, 1, 0, 0.9], [10, 1, 12, 0.78], [11, 1, 0, 0.4], [12, 2, 7, 0.8], [14, 1, 12, 0.75], [15, 1, 'a', 0.7]],
+    cel_hitsville: [[0, 3, 0, 0.9], [3, 1, 't', 0.45], [4, 2, 7, 0.78], [6, 1, 12, 0.7], [7, 1, 10, 0.4], [8, 2, 7, 0.82], [10, 1, 0, 0.5], [11, 1, 't', 0.7], [12, 2, 7, 0.78], [14, 1, 9, 0.6], [15, 1, 'a', 0.72]],
+    cel_pfunk: [[0, 4, 0, 0.98], [6, 1, 12, 0.7], [7, 1, 10, 0.6], [10, 1, 0, 0.4], [11, 1, 7, 0.75], [13, 1, 12, 0.8], [14, 2, 's', 0.7]],
+    cel_thumb: [[0, 1, 0, 0.95], [1, 1, 0, 0.35], [2, 1, 12, 0.9], [4, 1, 0, 0.9], [5, 1, 0, 0.35], [6, 1, 12, 0.88], [7, 1, 10, 0.7], [8, 1, 0, 0.92], [10, 1, 12, 0.88], [11, 1, 0, 0.35], [12, 1, 7, 0.8], [13, 1, 12, 0.85], [14, 1, 0, 0.4], [15, 1, 10, 0.75]],
+    cel_fretless: [[0, 3, 0, 0.88], [3, 1, 7, 0.6], [4, 2, 12, 0.78], [6, 2, 14, 0.7], [8, 3, 't', 0.8], [11, 1, 7, 0.6], [12, 2, 12, 0.78], [14, 2, 'a', 0.72]],
+    cel_liverpool: [[0, 2, 0, 0.9], [2, 2, 7, 0.7], [4, 2, 12, 0.78], [6, 2, 7, 0.68], [8, 2, 't', 0.82], [10, 2, 7, 0.7], [12, 2, 0, 0.78], [14, 2, 'a', 0.74]],
+    cel_studio60: [[0, 3, 0, 0.9], [3, 1, 0, 0.55], [4, 4, 7, 0.8], [8, 3, 12, 0.85], [11, 1, 7, 0.55], [12, 4, 'a', 0.75]],
+    cel_gallop: [0, 4, 8, 12].flatMap((s) => [[s, 2, s === 12 ? 12 : 0, 0.92], [s + 2, 1, s === 12 ? 12 : 0, 0.72], [s + 3, 1, s === 12 ? 12 : 0, 0.72]]),
+    cel_motorik: [[0, 2, 0, 0.9], [2, 2, 0, 0.74], [4, 2, 12, 0.8], [6, 2, 0, 0.74], [8, 2, 0, 0.88], [10, 2, 0, 0.74], [12, 2, 12, 0.8], [14, 2, 0, 0.74]],
+    cel_coldwave: [[0, 4, 12, 0.85], [4, 2, 19, 0.78], [6, 2, 17, 0.68], [8, 6, 12, 0.82], [14, 2, 7, 0.72]],
+    cel_staccato80: [[0, 1, 0, 0.92], [2, 1, 7, 0.75], [4, 1, 12, 0.8], [6, 1, 7, 0.72], [8, 1, 0, 0.9], [10, 1, 7, 0.75], [12, 1, 10, 0.78], [14, 1, 12, 0.74]],
+    cel_steppers: [[0, 2, 0, 0.9], [3, 1, 0, 0.4], [4, 2, 0, 0.85], [7, 1, 7, 0.5], [8, 2, 0, 0.9], [11, 1, 0, 0.4], [12, 2, 0, 0.85], [14, 2, 'a', 0.7]],
+    cel_ska: [[0, 2, 0, 0.88], [2, 2, 't', 0.74], [4, 2, 7, 0.8], [6, 2, 9, 0.72], [8, 2, 12, 0.86], [10, 2, 9, 0.72], [12, 2, 7, 0.78], [14, 2, 'a', 0.74]],
+    cel_boogie: [[0, 2, 0, 0.9], [2, 2, 't', 0.72], [4, 2, 7, 0.8], [6, 2, 9, 0.72], [8, 2, 10, 0.84], [10, 2, 9, 0.72], [12, 2, 7, 0.78], [14, 2, 't', 0.7]],
+    cel_rockabilly: [[0, 2, 0, 0.9], [2, 1, 0, 0.35], [4, 2, 7, 0.85], [6, 1, 7, 0.35], [8, 2, 0, 0.9], [10, 1, 0, 0.35], [12, 2, 7, 0.85], [14, 1, 'a', 0.6]],
+    cel_lagos: [[0, 2, 0, 0.9], [3, 1, 0, 0.6], [4, 1, 12, 0.75], [6, 2, 10, 0.78], [9, 1, 7, 0.6], [10, 2, 0, 0.85], [13, 1, 10, 0.55], [14, 2, 12, 0.75]],
+    cel_surdo: [[0, 3, 0, 0.85], [3, 1, 0, 0.5], [4, 3, -5, 0.92], [7, 1, -5, 0.5], [8, 3, 0, 0.85], [11, 1, 0, 0.5], [12, 3, -5, 0.92], [15, 1, 'a', 0.55]],
+    cel_gfunk: [[0, 4, 0, 0.9], [6, 1, 0, 0.5], [7, 1, 12, 0.75], [8, 3, 10, 0.8], [11, 1, 7, 0.6], [12, 2, 0, 0.85], [14, 2, -2, 0.7]],
+    cel_frenchtouch: [[2, 2, 0, 0.9], [5, 1, 12, 0.6], [6, 2, 0, 0.88], [9, 1, 12, 0.6], [10, 2, 0, 0.9], [13, 1, 12, 0.6], [14, 2, 'a', 0.8]],
+    cel_wobble: [[0, 6, 0, 0.95], [6, 2, 12, 0.7], [8, 4, 0, 0.88], [12, 2, -2, 0.75], [14, 2, 0, 0.8]],
+    cel_neosoul: [[0, 4, 0, 0.85], [5, 1, 0, 0.4], [6, 2, 't', 0.7], [9, 3, 7, 0.78], [12, 1, 10, 0.55], [13, 3, 'a', 0.72]],
   };
   /** Dessin d'une mesure type (niveau 0 = fondamentale, 1 = quinte, tierce, septième ou approche, 2 = octave). */
   const rhythmDraw = (id) => BASS_RHYTHMS[id].map(([o, l, n]) => [o, l, n === 0 ? 0 : n === 12 ? 2 : 1]);
@@ -2226,6 +2249,28 @@ SS.bandSong = (() => {
     ['hades', 'Hades', 'Une double sur chaque « et », piquée : la basse house (aussi Prometheus, Epoch)', rhythmDraw('hades')],
     ['mythos', 'Mythos', 'Doubles grave, octave sur les « et » des temps 2 à 4 : tech house', rhythmDraw('mythos')],
     ['thebes', 'Thebes', 'Trois doubles après chaque kick, le « et » appuyé : basse roulante', rhythmDraw('thebes')],
+    // nov. 2026 : ★ Célèbres (procédés de bassistes connus, notes originales)
+    ['cel_chic', 'Octaves new-yorkaises', 'Dans l’esprit de la disco de Bernard Edwards : syncopes, octaves, notes fantômes', rhythmDraw('cel_chic')],
+    ['cel_hitsville', 'Hitsville', 'Dans l’esprit de James Jamerson (Motown) : un doigt, approches chromatiques, fantômes', rhythmDraw('cel_hitsville')],
+    ['cel_pfunk', 'Le « One »', 'Dans l’esprit de Bootsy Collins (P-Funk) : le 1 énorme, puis de l’espace', rhythmDraw('cel_pfunk')],
+    ['cel_thumb', 'Pouce et pop', 'Dans l’esprit de Larry Graham : slap pouce sur le grave, pop à l’octave', rhythmDraw('cel_thumb')],
+    ['cel_fretless', 'Fretless chantante', 'Dans l’esprit de Jaco Pastorius : ligne liée, neuvième, tierce aiguë', rhythmDraw('cel_fretless')],
+    ['cel_liverpool', 'Mélodique 60s', 'Dans l’esprit de Paul McCartney : une basse qui chante entre les notes de l’accord', rhythmDraw('cel_liverpool')],
+    ['cel_studio60', 'Studio 60s', 'Dans l’esprit de Carol Kaye (Wrecking Crew) : pointé, quinte, octave, approche', rhythmDraw('cel_studio60')],
+    ['cel_gallop', 'Galop heavy', 'Dans l’esprit de Steve Harris (heavy metal) : croche et deux doubles à chaque temps', rhythmDraw('cel_gallop')],
+    ['cel_motorik', 'Motorik', 'Dans l’esprit du krautrock (Neu!, Can) : croches implacables, octave en relance', rhythmDraw('cel_motorik')],
+    ['cel_coldwave', 'Cold wave', 'Dans l’esprit de Peter Hook : la mélodie jouée dans l’aigu de la basse', rhythmDraw('cel_coldwave')],
+    ['cel_staccato80', 'Pop 80s piquée', 'Dans l’esprit des basses synthé de la pop 80s : doubles courtes, quinte, octave, septième', rhythmDraw('cel_staccato80')],
+    ['cel_steppers', 'Steppers', 'Dans l’esprit du reggae steppers (Sly & Robbie) : la fondamentale sur chaque temps, fantômes', rhythmDraw('cel_steppers')],
+    ['cel_ska', 'Ska qui marche', 'Dans l’esprit du ska jamaïcain : croches qui montent et descendent l’accord', rhythmDraw('cel_ska')],
+    ['cel_boogie', 'Boogie blues', 'Le boogie-woogie : fondamentale, tierce, quinte, sixte, septième, et retour', rhythmDraw('cel_boogie')],
+    ['cel_rockabilly', 'Slap contrebasse', 'Dans l’esprit du rockabilly : fondamentale et quinte, clic de la corde sur les contretemps', rhythmDraw('cel_rockabilly')],
+    ['cel_lagos', 'Afrobeat 70s', 'Dans l’esprit des orchestres de Fela Kuti : boucle syncopée, septième et octave', rhythmDraw('cel_lagos')],
+    ['cel_surdo', 'Samba', 'La basse du surdo : fondamentale, quinte grave appuyée sur le 2 et le 4', rhythmDraw('cel_surdo')],
+    ['cel_gfunk', 'G-funk', 'Dans l’esprit du rap West Coast 90s : grave tenu, octave, septième qui glisse', rhythmDraw('cel_gfunk')],
+    ['cel_frenchtouch', 'French touch', 'Dans l’esprit de la house filtrée française : contretemps, octave fantôme', rhythmDraw('cel_frenchtouch')],
+    ['cel_wobble', 'Wobble', 'Dans l’esprit du dubstep : longue note grave, relances à l’octave et au ton en dessous', rhythmDraw('cel_wobble')],
+    ['cel_neosoul', 'Néo-soul', 'Dans l’esprit de Pino Palladino (D’Angelo) : en retard sur le temps, tierce, septième', rhythmDraw('cel_neosoul')],
   ];
 
   return { build, bassEvents, tomOfStep, junctionDefaults, junctionEff, withSceneFx, PERC_LOOPS, PERC_STYLES, hpHz, hpAmt, HP_MEL, isExtra, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, sceneGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, BUILD_LEVELS, BUILD_PRESETS, buildLevels, progLevels, rollBar, rollerOf, hasGridLane, laneKey, _rng: rng };

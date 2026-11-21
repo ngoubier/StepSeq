@@ -69,8 +69,32 @@ const ok = (c, m) => {
   p = await saved();
   bass = p.tracks.find((t) => t.name === 'Basse');
   ok(bass.follow.motif === 'disco16' && bass.follow.motifs && bass.follow.motifs[p.current] === 'motown', 'Cette scène : Motown pour la scène, Disco pour les autres');
-  await page.click('.mot-menu .ctx-close');
+  // fenêtre centrée et large, comme Arp One
+  const box = await page.locator('.mot-menu').boundingBox();
+  ok(box.width > 800 && Math.abs(box.x + box.width / 2 - 700) < 4, `panneau des motifs centré (${Math.round(box.x)} px, ${Math.round(box.width)} px de large)`);
+  if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'motif-basse-popup.png') });
+  await page.click('.mot-menu .mot-x');
+  ok(!(await page.$('.mot-menu')), 'la croix ferme la fenêtre des motifs');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'motif-basse-grille.png'), clip: { x: 0, y: 0, width: 1400, height: 500 } });
+
+  // MOTIF et ARP s'excluent : ARP ouvre Arp One et éteint le motif ; un motif éteint l'arpège
+  await page.click(`${bassSel} .th-arp`);
+  await page.waitForSelector('#arpDialog[open]');
+  p = await saved();
+  bass = p.tracks.find((t) => t.name === 'Basse');
+  ok(bass.arpOn && !(bass.follow && bass.follow.play === 'motif'), 'ARP : Arp One s’ouvre, l’arpège s’allume, le motif s’éteint');
+  await page.locator('#arpDialog .dlg-footer button', { hasText: 'Annuler' }).click();
+  p = await saved();
+  ok(!p.tracks.find((t) => t.name === 'Basse').arpOn, 'Annuler dans Arp One : l’arpège se rééteint');
+  await page.click(`${bassSel} .th-arp`);
+  await page.click('#arpDialog .arp-close');
+  await page.click(`${bassSel} .th-mot`);
+  await page.click('.mot-menu .mot-chip >> text=Tous');
+  await page.click('.mot-menu .mot-card[data-id="disco16"]');
+  await page.click('.mot-menu .ctx-close');
+  p = await saved();
+  bass = p.tracks.find((t) => t.name === 'Basse');
+  ok(!bass.arpOn && bass.follow.play === 'motif', 'un motif choisi éteint l’arpège');
 
   // fenêtre Nouvelle piste : rôle Basse → ligne Motif
   await page.click('#emptyAdd');

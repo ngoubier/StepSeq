@@ -33,8 +33,8 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FAIL ') + m); if (!c) process
 
   const btns = page.locator('.th-btn[title="Afficher / masquer le piano roll"]');
   const n = await btns.count();
-  for (let i = 0; i < n; i++) { await btns.nth(i).click(); if (await page.locator('.roll-arp').count()) break; await btns.nth(i).click(); }
-  await page.locator('.roll-arp').first().click();
+  for (let i = 0; i < n; i++) { await btns.nth(i).click(); if (await page.locator('.roll-tools label:has-text("Vitesse")').count()) break; await btns.nth(i).click(); }
+  await page.locator('.th-arp.on').first().click();
   ok(await page.locator('#arpDialog[open]').count() === 1, 'Arp One ouvert');
   const mode = page.locator('#arpDialog .arp-mode button');
   ok((await mode.count()) === 2, 'bascule Clavier / Guitare dans l’en-tête');

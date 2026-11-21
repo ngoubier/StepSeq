@@ -41,9 +41,9 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FAIL ') + m); if (!c) process
   // 2. ouvrir l'arpégiateur sur la piste arpège de la démo
   const idx = await page.evaluate(() => [...document.querySelectorAll('.th-btn[title="Afficher / masquer le piano roll"]')].length);
   const btns = page.locator('.th-btn[title="Afficher / masquer le piano roll"]');
-  for (let i = 0; i < idx; i++) { await btns.nth(i).click(); if (await page.locator('.roll-arp').count()) break; await btns.nth(i).click(); }
-  ok(await page.locator('.roll-arp').count() > 0 && (await page.locator('.roll-arp').first().textContent()).trim() === 'Arp One', 'bouton « Arp One » présent dans le piano roll');
-  await page.locator('.roll-arp').first().click();
+  for (let i = 0; i < idx; i++) { await btns.nth(i).click(); if (await page.locator('.roll-tools label:has-text("Vitesse")').count()) break; await btns.nth(i).click(); }
+  ok(await page.locator('.roll-arp').count() === 0, 'plus de bouton « Arp One » dans le piano roll (c’est le bouton ARP de la piste)');
+  await page.locator('.th-arp.on').first().click();
   ok(await page.locator('#arpDialog[open]').count() === 1, 'fenêtre de l’arpégiateur ouverte');
   // la sauvegarde automatique a lieu 400 ms après chaque changement
   const arpNow = async () => (await page.waitForTimeout(500), page.evaluate(() => JSON.stringify(SS.Arp.normalize(JSON.parse(localStorage.getItem('stepseq.autosave')).tracks.find((t) => t.arpOn).arp))));
@@ -295,7 +295,7 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FAIL ') + m); if (!c) process
   ok((await arpNow()) === before, 'Annuler la fenêtre restaure les réglages d’ouverture');
 
   // 3. réglages gardés avec OK, puis lecture du morceau
-  await page.locator('.roll-arp').first().click();
+  await page.locator('.th-arp.on').first().click();
   await page.click('.arp-motif-tile');
   await page.locator('.motif-cat', { hasText: 'Synthwave' }).click();
   await page.locator('.motif-list .arp-style', { hasText: 'Midnight Drive' }).click();
@@ -316,8 +316,8 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FAIL ') + m); if (!c) process
   });
   await page.reload();
   await page.waitForTimeout(800);
-  for (let i = 0; i < idx; i++) { await btns.nth(i).click(); if (await page.locator('.roll-arp').count()) break; await btns.nth(i).click(); }
-  await page.locator('.roll-arp').first().click();
+  for (let i = 0; i < idx; i++) { await btns.nth(i).click(); if (await page.locator('.roll-tools label:has-text("Vitesse")').count()) break; await btns.nth(i).click(); }
+  await page.locator('.th-arp.on').first().click();
   await page.selectOption('.arp-chordpick select[aria-label="Note fondamentale"]', '5');
   await page.selectOption('.arp-chordpick select[aria-label="Type d’accord"]', 'maj7');
   ok((await page.locator('.arp-chordname').textContent()) === 'Fmaj7', 'accord d’essai : Fmaj7');
@@ -338,7 +338,7 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FAIL ') + m); if (!c) process
   await page.click('#arpDialog .arp-close');
   const rollMotif = page.locator('.roll-tools label', { hasText: 'Motif' }).locator('select');
   await rollMotif.selectOption('down2');
-  await page.locator('.roll-arp').first().click();
+  await page.locator('.th-arp.on').first().click();
   ok((await page.locator('.arp-motif-text b').textContent()) === 'Double descente', 'motif choisi dans le piano roll → repris dans la fenêtre');
   const g2 = await page.locator('.arp-grid').boundingBox();
   const c2 = await page.evaluate(() => SS.arpPanel._info().ticks);
@@ -349,7 +349,7 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FAIL ') + m); if (!c) process
   await page.waitForTimeout(200);
   ok((await rollMotif.evaluate((x) => x.options[x.selectedIndex].text)) === 'Double descente', 'retour au piano roll : même motif');
   await rollMotif.selectOption('alberti');
-  await page.locator('.roll-arp').first().click();
+  await page.locator('.th-arp.on').first().click();
   const a5 = JSON.parse(await arpNow());
   ok((await page.locator('.arp-motif-text b').textContent()) === 'Alberti' && a5.lanes.rhythm[1] === 0, 'changer de motif dans le piano roll garde le silence du pas 2');
   await page.click('#arpDialog .arp-close');
