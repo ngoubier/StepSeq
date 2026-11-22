@@ -2281,6 +2281,7 @@ SS.audio = (() => {
       scheduling.lateSteps++;
       scheduling.maxLateMs = Math.max(scheduling.maxLateMs, lateMs);
       scheduling.lastLateAt = performance.now();
+      seq.safeAhead = LATE_AHEAD;
     }
     if (seq.backing) return; // écoute pré-calculée : le son est déjà dans l'enregistrement
     const sd = stepDur(project);
@@ -2419,8 +2420,14 @@ SS.audio = (() => {
       if (t.type === 'instrument' && !SS.arpOn(t))
         SS.playEvents(project, t).forEach((ev) => ev.shift < early && (early = ev.shift));
     });
-    return 0.12 - early * stepDur(project);
+    return 0.12 + (seq.safeAhead || 0) - early * stepDur(project);
   }
+  /*
+   * Avance de secours : dès qu'un pas part en retard (page occupée, machine chargée), on programme LATE_AHEAD s de plus
+   * jusqu'à la fin de la lecture. Une page bloquée 100 à 300 ms ne retarde plus les notes ; seuls Muet, Solo et les
+   * modifications faites pendant la lecture s'entendent un peu plus tard.
+   */
+  const LATE_AHEAD = 0.2;
 
   function tick() {
     const began = performance.now();
@@ -2584,6 +2591,7 @@ SS.audio = (() => {
     if (seq.playing) return;
     seq.run = (seq.run || 0) + 1; // numéro de lecture (la surveillance repère une nouvelle lecture)
     Object.assign(scheduling, { ticks: 0, lateSteps: 0, maxLateMs: 0, lastLateAt: null, maxTickMs: 0 });
+    seq.safeAhead = 0;
     seq.getProject = getProject;
     seq.onStep = onStep;
     seq.song = opts.song ? { ...opts.song, rep: 0, ended: false } : null;
