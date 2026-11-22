@@ -159,7 +159,7 @@ SS.systemPanel = (() => {
     const text = pending
       ? 'Changement enregistré : il s’applique au rechargement de la page (la chanson est enregistrée avant).'
       : pref === 'playback'
-        ? 'Lecture sûre : le navigateur garde plusieurs dizaines de ms d’avance, les pointes de calcul ne font plus sauter le son. Le clavier du Juno et le MIDI répondent un peu plus tard.'
+        ? 'Lecture sûre : le navigateur garde environ 0,1 s d’avance, les pointes de calcul ne font plus sauter le son. Le clavier du Juno et le MIDI répondent un peu plus tard.'
         : 'Réactive : délai minimal pour jouer au clavier, mais la moindre pointe de calcul fait sauter le son. En cas de grésillements, choisir « Lecture sûre ».';
     if ($('systemLatencyText').textContent !== text) $('systemLatencyText').textContent = text;
     return 'Latence : ' + (pref === 'playback' ? 'Lecture sûre' : 'Réactive') + (pending ? ' (au prochain chargement)' : '');

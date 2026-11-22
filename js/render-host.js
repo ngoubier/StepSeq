@@ -46,7 +46,7 @@ SS.renderHost = (() => {
     const ctx = SS.audio.ensureCtx();
     if (ctx !== window.__ssRenderCtx) throw new Error('contexte de rendu introuvable');
     // modules audio (Juno, filtres, espace, mastering) : chargés avant la première note
-    const mods = [SS.juno && SS.juno.load(ctx), SS.filters && SS.filters.load(ctx), SS.space && SS.space.load(ctx), SS.mastering && SS.mastering.load(ctx)];
+    const mods = [SS.juno && SS.juno.load(ctx), SS.filters && SS.filters.load(ctx), SS.space && SS.space.load(ctx), SS.mastering && SS.mastering.load(ctx), SS.audio.stripReady && SS.audio.stripReady()];
     await Promise.all(mods.map((m) => Promise.resolve(m).catch(() => {})));
     await preload(p);
     if (cfg.tap) SS.audio.freezeTap(cfg.tap); // « Figer » : le son de l'instrument seul

@@ -32,6 +32,7 @@ SS.audio = (() => {
    */
   const LATENCY_KEY = 'ss.latency';
   const LATENCIES = ['interactive', 'playback'];
+  const SAFE_LATENCY = 0.1; // secondes de tampon en « Lecture sûre »
   function latencyPref() {
     try {
       const v = localStorage.getItem(LATENCY_KEY);
@@ -47,9 +48,15 @@ SS.audio = (() => {
       const AC = window.AudioContext || window.webkitAudioContext;
       ctxLatency = latencyPref();
       try {
-        ctx = new AC({ latencyHint: ctxLatency });
+        // « Lecture sûre » : 0,1 s de tampon demandé en chiffres. Le mot « playback » ne donne que 1024 images
+        // (21 ms) sur Android et Linux, trop peu pour absorber les pointes de calcul (rapport du 2026-11-22).
+        ctx = new AC({ latencyHint: ctxLatency === 'playback' ? SAFE_LATENCY : ctxLatency });
       } catch (e) {
-        ctx = new AC();
+        try {
+          ctx = new AC({ latencyHint: ctxLatency });
+        } catch (e2) {
+          ctx = new AC();
+        }
       }
       // Master : somme -> tranche de console (EQ, comp, limiteur) -> fader -> vumètre -> sortie
       master = ctx.createGain();
@@ -72,6 +79,7 @@ SS.audio = (() => {
           insertMastering();
         }).catch(() => {});
       if (pendingMaster) applyMaster(pendingMaster);
+      measureStripLatency(); // quelques ms : les tranches sont réduites aux modules allumés avant la première note
       ctx.onstatechange = () => healthEvent('state', ctx.state);
       watchRender();
       if (SS.juno) SS.juno.load(ctx); // module audio du Juno-106 (pistes Synthé)
@@ -519,7 +527,12 @@ SS.audio = (() => {
 
   /* ---------------- Console : tranche (EQ 5 bandes, compresseur, limiteur) ---------------- */
 
-  /** entry -> passe-haut -> shelf grave -> cloche -> cloche -> shelf aigu -> compresseur -> gain de compensation -> limiteur -> out */
+  /**
+   * entry -> passe-haut -> shelf grave -> cloche -> cloche -> shelf aigu -> compresseur -> gain de compensation -> limiteur -> out
+   * Seuls les modules allumés sont branchés (voir wireStrip) : un module éteint ne calcule plus rien. Avant, chaque
+   * piste calculait toute sa tranche (9 filtres, 2 compresseurs, écrêteur suréchantillonné ×4) même éteinte : ≈ 25 %
+   * du calcul audio d'une chanson de 10 pistes, assez pour faire décrocher un téléphone (rapport du 2026-11-22).
+   */
   function makeStrip() {
     const st = {};
     st.entry = ctx.createGain();
@@ -543,11 +556,109 @@ SS.audio = (() => {
     st.clip.oversample = '4x';
     st.limOut = ctx.createGain();
     st.out = ctx.createGain();
-    st.entry.connect(st.hp).connect(st.low).connect(st.lm).connect(st.hm).connect(st.high);
-    st.high.connect(st.vcf[0]).connect(st.vcf[1]).connect(st.vcf[2]).connect(st.vcf[3]);
-    st.vcf[3].connect(st.comp).connect(st.makeup).connect(st.lim).connect(st.clip).connect(st.limOut).connect(st.out);
+    st.links = [];
+    st.bypass = false;
+    st.stages = null; // modules à brancher (null : tous, tant que la latence des modules n'est pas mesurée)
     applyStrip(st, SS.MIX_DEFAULTS);
     return st;
+  }
+
+  /*
+   * Latence des modules Web Audio : le compresseur (et donc le limiteur) retarde le son de quelques millisecondes
+   * (anticipation), l'écrêteur suréchantillonné aussi quand il a une courbe (limiteur allumé). Quand un module
+   * éteint est débranché, un délai fixe de la même durée le remplace : toutes les pistes restent calées entre
+   * elles, comme quand tout était branché.
+   * Mesurée une fois (rendu hors temps réel d'une impulsion), car elle dépend du navigateur.
+   */
+  let stripLat = null; // { comp, clip } en secondes
+  let stripLatReady = null;
+  function measureStripLatency() {
+    if (stripLatReady) return stripLatReady;
+    const sr = ctx.sampleRate;
+    const peakAt = (build) => {
+      const off = new OfflineAudioContext(1, 2048, sr);
+      const imp = off.createBuffer(1, 1, sr);
+      imp.getChannelData(0)[0] = 0.5;
+      const src = off.createBufferSource();
+      src.buffer = imp;
+      src.connect(build(off)).connect(off.destination);
+      src.start(0);
+      return off.startRendering().then((b) => {
+        const d = b.getChannelData(0);
+        let at = 0;
+        for (let i = 1; i < d.length; i++) if (Math.abs(d[i]) > Math.abs(d[at])) at = i;
+        return at / sr;
+      });
+    };
+    const comp = (off) => {
+      const c = off.createDynamicsCompressor();
+      c.threshold.value = 0;
+      c.ratio.value = 1;
+      return c;
+    };
+    const clip = (off) => {
+      const w = off.createWaveShaper();
+      w.curve = new Float32Array([-1, 1]);
+      w.oversample = '4x';
+      return w;
+    };
+    stripLatReady = Promise.all([peakAt(comp), peakAt(clip)])
+      .then(([c, w]) => {
+        stripLat = { comp: c, clip: w };
+        if (masterStrip) wireStrip(masterStrip);
+        buses.forEach((b) => wireStrip(b.strip));
+      })
+      .catch(() => {}); // mesure impossible : toute la tranche reste branchée, comme avant
+    return stripLatReady;
+  }
+
+  /** Branche les modules de la tranche selon st.stages et st.bypass ; court fondu si la lecture est en cours. */
+  function wireStrip(st) {
+    let chain;
+    let lat = 0;
+    if (st.bypass) chain = [st.entry, st.out];
+    else if (!st.stages || !stripLat) chain = [st.entry, st.hp, st.low, st.lm, st.hm, st.high, ...st.vcf, st.comp, st.makeup, st.lim, st.clip, st.limOut, st.out];
+    else {
+      const g = st.stages;
+      chain = [st.entry, ...g.nodes];
+      if (!g.comp) lat += stripLat.comp;
+      if (!g.lim) lat += stripLat.comp; // écrêteur sans courbe (limiteur éteint) : il ne retardait rien
+      if (lat > 0) {
+        if (!st.latency) st.latency = ctx.createDelay(0.1);
+        chain.push(st.latency);
+      }
+      chain.push(st.limOut, st.out);
+    }
+    const links = [];
+    for (let i = 1; i < chain.length; i++) links.push([chain[i - 1], chain[i]]);
+    const cur = st.wantLinks || st.links; // un fondu en cours branchera st.wantLinks
+    const same = links.length === cur.length && links.every(([a, b], i) => cur[i][0] === a && cur[i][1] === b);
+    st.wantLat = lat;
+    if (same && (!st.latency || lat === 0 || Math.abs(st.latency.delayTime.value - lat) < 1e-7)) return;
+    const apply = () => {
+      const want = st.wantLinks;
+      st.wantLinks = null;
+      if (st.latency && st.wantLat > 0) st.latency.delayTime.value = st.wantLat;
+      const has = (list, [a, b]) => list.some(([x, y]) => x === a && y === b);
+      st.links.forEach((l) => !has(want, l) && link(l[0], l[1], false));
+      want.forEach((l) => !has(st.links, l) && link(l[0], l[1], true));
+      st.links = want;
+    };
+    const pending = !!st.wantLinks;
+    st.wantLinks = links;
+    if (pending) return; // un fondu est déjà en cours : il branchera la dernière demande
+    // en pleine lecture, rebrancher coupe le son des étages retirés (anticipation du compresseur) : petit fondu
+    const live = seq.playing && st.links.length && !(typeof OfflineAudioContext !== 'undefined' && ctx instanceof OfflineAudioContext);
+    if (!live) return apply();
+    const g = st.limOut.gain;
+    const now = ctx.currentTime;
+    g.cancelScheduledValues(now);
+    g.setTargetAtTime(0, now, 0.004);
+    setTimeout(() => {
+      apply();
+      g.cancelScheduledValues(ctx.currentTime);
+      g.setTargetAtTime(1, ctx.currentTime, 0.004);
+    }, 30);
   }
 
   /** Règle une tranche ; un module coupé devient transparent (gain 0 dB, ratio 1:1). */
@@ -605,6 +716,20 @@ SS.audio = (() => {
       st.clip.curve = l.on ? clipCurve(l.ceil) : null;
       st.clipKey = clipKey;
     }
+    // modules à brancher : un réglage neutre (bande à 0 dB, filtre grand ouvert, module éteint) ne calcule rien
+    const nodes = [];
+    if (e.on) {
+      if (e.hp.on) nodes.push(st.hp);
+      if (e.low.g) nodes.push(st.low);
+      if (e.lm.g) nodes.push(st.lm);
+      if (e.hm.g) nodes.push(st.hm);
+      if (e.high.g) nodes.push(st.high);
+    }
+    if (vOn) nodes.push(...(two ? st.vcf : [st.vcf[1], st.vcf[3]]));
+    if (c.on) nodes.push(st.comp, st.makeup);
+    if (l.on) nodes.push(st.lim, st.clip);
+    st.stages = { nodes, comp: !!c.on, lim: !!l.on };
+    wireStrip(st);
   }
 
   /** Courbe d'écrêtage doux : linéaire jusqu'à 85 % du plafond, puis arrondie jusqu'au plafond exact. */
@@ -2707,9 +2832,8 @@ SS.audio = (() => {
   }
   /** Tranche contournée : entrée -> sortie directe ; la chaîne EQ / comp / limiteur n'est plus tirée. */
   function routeStrip(st, bypass) {
-    link(st.entry, st.hp, !bypass);
-    link(st.limOut, st.out, !bypass);
-    link(st.entry, st.out, bypass);
+    st.bypass = !!bypass;
+    wireStrip(st);
   }
   function routeBus(b) {
     const on = !light;
@@ -2925,6 +3049,7 @@ SS.audio = (() => {
     probe,
     repair,
     setLight,
+    stripReady: () => (ctx ? measureStripLatency() : Promise.resolve()),
     setRelief,
     clearRelief,
     reliefState,

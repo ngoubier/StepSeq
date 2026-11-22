@@ -251,7 +251,10 @@ SS.audioWatch = (() => {
       }
     }
     if (snap.state === 'running' && snap.playing && !env.hidden) {
-      const ck = snap.ts ? { ctx: snap.ts.context, wall: snap.ts.perf } : { ctx: snap.time, wall: now };
+      // heure du contexte (images réellement calculées) contre l'horloge réelle. Pas getOutputTimestamp() : il
+      // associe une heure du contexte à l'instant où elle sort, donc son rapport reste à 100 % même quand le son
+      // décroche (rapport Android du 2026-11-22 : 62 décrochages, « horloge 100 % »).
+      const ck = { ctx: snap.time, wall: now };
       const k = state.clock;
       if (!k || ck.wall < k.wall) state.clock = { ...ck, slow: 0 };
       else if (ck.wall - k.wall >= 1000) {

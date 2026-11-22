@@ -18,7 +18,7 @@ const names = new Map([['a', 'Basse'], ['b', 'Lead']]);
 /** Relevé d'une lecture saine, modifiable. */
 function snap(over = {}) {
   return {
-    state: 'running', time: 0, playing: true, voices: 4, juno: 0, mastering: true, clipped: 0,
+    state: 'running', playing: true, voices: 4, juno: 0, mastering: true, clipped: 0,
     tracks: [{ id: 'a', bus: m(0.4), delay: null, reverb: null }, { id: 'b', bus: m(0.3), delay: { ...m(0.1), feedback: 0.4 }, reverb: null }],
     returns: { plate: m(0), hall: m(0.05), echo: m(0), space: m(0) },
     masterIn: m(0.6), out: m(0.5), events: [], scheduling: { lateSteps: 0, maxLateMs: 0 }, stats: null, render: null, ts: null,
@@ -30,7 +30,7 @@ function run(st, snaps, env = {}) {
   const out = [];
   for (const s of snaps) {
     t += 250;
-    out.push(W.assess(st, { ...s, time: t / 1000 }, { now: t, names, ...env }));
+    out.push(W.assess(st, { time: t / 1000, ...s }, { now: t, names, ...env }));
   }
   return out;
 }
@@ -108,17 +108,18 @@ test('décrochages : statistiques du navigateur, charge mesurée, puis horloge a
   assert.equal(st.incidents[0].kind, 'underrun');
   assert.equal(st.counters.load.average, 0.7);
 
-  // sans API : horloge audio qui n'avance qu'à 90 % du temps réel pendant 2 s
+  // sans API : horloge audio qui n'avance qu'à 90 % du temps réel pendant 2 s. L'horodatage de sortie
+  // (getOutputTimestamp) reste à 100 % pendant les décrochages : il est ignoré.
   st = W.newState();
   const snaps = [];
-  for (let i = 0; i <= 16; i++) snaps.push(snap({ ts: { context: i * 0.25 * 0.9, perf: i * 250 } }));
+  for (let i = 1; i <= 17; i++) snaps.push(snap({ time: i * 0.25 * 0.9, ts: { context: i * 0.25, perf: i * 250 } }));
   run(st, snaps);
   assert.ok(st.incidents.some((x) => x.kind === 'underrun' && /90 %/.test(x.detail)));
   assert.ok(st.counters.clockRatio < 0.95);
 
   // horloge normale : rien
   st = W.newState();
-  run(st, Array.from({ length: 17 }, (_, i) => snap({ ts: { context: i * 0.25, perf: i * 250 } })));
+  run(st, Array.from({ length: 17 }, (_, i) => snap({ time: (i + 1) * 0.25, ts: { context: i * 0.25 * 0.9, perf: i * 250 } })));
   assert.equal(st.incidents.length, 0);
 });
 
