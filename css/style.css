@@ -2570,6 +2570,8 @@ svg.g-big { width: 100%; height: auto; background: var(--c-surface-1); border-ra
 .bwa-nav { flex: none; min-width: 40px; min-height: 40px; padding: 0 12px; font-size: var(--fs-xl); }
 .bwa-name { flex: 1 1 260px; display: flex; align-items: center; gap: 12px; min-width: 0; padding: 6px 12px 6px 10px; border: 1px solid var(--accent-2); border-radius: 10px; background: var(--panel); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
 .bwa-name:hover { background: var(--c-blue-bg); }
+.bwa-advchip { display: inline-flex; align-items: center; padding: 2px 10px; border: 1px solid var(--c-violet); border-radius: 999px; background: var(--c-violet-bg); color: var(--c-violet-soft); font: inherit; font-size: var(--fs-sm); cursor: pointer; }
+.bwa-advchip:hover { border-color: var(--c-violet-soft); }
 .bwa-icon svg { display: block; width: 64px; height: 28px; stroke: var(--c-violet-soft); stroke-width: 2; fill: none; }
 .bwa-icon svg circle, .bwa-icon svg rect { fill: var(--c-violet-soft); stroke: none; }
 .bwa-nt { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
@@ -3839,6 +3841,12 @@ dialog.arp-dialog { width: min(940px, calc(100vw - 32px)); }
 .arp-chordname:hover { color: var(--c-violet-soft); border-bottom-color: var(--c-violet); }
 .arp-chordgo { color: var(--muted); font-size: var(--fs-lg); }
 .arp-dialog .dlg-footer .arp-fill[hidden] { display: none; }
+.arp-dialog .dlg-footer .arp-off[hidden], .arp-hostfoot[hidden] { display: none; }
+/* Arp One ouvert par l'assistant (étape Arpège, bouton Avancé…) : accords de la scène, Scènes, OK */
+.arp-hchords { flex-wrap: wrap; }
+.arp-hchord { padding: 2px 8px; border: 1px solid var(--c-line); border-radius: 5px; font-size: var(--fs-sm); font-weight: 600; color: var(--c-text-2); }
+.arp-hchord.on { border-color: var(--c-teal); color: var(--c-teal); }
+.arp-hostfoot { display: inline-flex; align-items: center; gap: 8px; }
 .arp-chordpick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .arp-chordpick select { font: inherit; font-size: var(--fs-md); background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
 /* Surprends-moi sur une ligne */
