@@ -34,13 +34,13 @@ const saved = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('ste
   ok(await page.$eval('#dlgGm button[data-v="all"]', (e) => e.classList.contains('active')), 'nouveau projet : sons « Tous »');
   await page.click('#dlgGm button[data-v="gm"]');
   await page.waitForTimeout(800);
-  const drumLibs = await page.$$eval('#dlgDrumLib button', (bs) => bs.filter((x) => !x.hidden).map((x) => x.dataset.v));
-  ok(drumLibs.join() === 'gm', `drums : seule la bibliothèque General MIDI (${drumLibs.join()})`);
-  ok(/^36 · Kick/.test(await page.textContent('#dlgDrumList .pl-item.sel')), 'drum : Kick GM (36) choisi');
+  const drumSrcs = await page.$$eval('#dlgDrumList .pl-item', (xs) => [...new Set(xs.map((x) => x.dataset.v.split('|')[0]))]);
+  ok(drumSrcs.join() === 'gm', `drums : seulement des sons General MIDI (${drumSrcs.join()})`);
+  ok((await page.getAttribute('#dlgDrumList .pl-item.sel', 'data-v')) === 'gm|36', 'drum : Kick GM (36) choisi');
   await page.click('#dlgRoles button[data-v="bass"]');
   await page.waitForTimeout(300);
   const progs = await page.$$eval('#dlgSndList .pl-item', (xs) => xs.map((x) => x.dataset.v + '=' + x.querySelector('.pl-label').textContent));
-  ok(progs.length === 8 && progs[0] === 'p32=Acoustic Bass' && progs[6] === 'p38=Synth Bass 1', `rôle Basse : les 8 programmes GM des basses (${progs[0]} … ${progs[7]})`);
+  ok(progs.length === 8 && progs.includes('p32=Acoustic Bass') && progs.includes('p38=Synth Bass 1'), `rôle Basse : les 8 programmes GM des basses (${progs.join(', ')})`);
   ok((await page.locator('#dlgSndList .pl-item[data-v^="j:"], #dlgSndList .pl-item[data-v^="i:"]').count()) === 0, 'ni patch Juno ni instrument hors General MIDI');
   await page.click('#dlgSndList .pl-item[data-v="p38"]');
   await page.fill('#dlgSearch', 'piano');

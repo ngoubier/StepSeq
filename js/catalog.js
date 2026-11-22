@@ -90,7 +90,7 @@ window.SS = window.SS || {};
   const instEntry = (fam, inst) => {
     const { name, detail } = cleanName(inst.label);
     const src = sourceOf(inst);
-    const e = { v: `i:${fam.id}:${inst.id}`, name, src, detail: detail || (src === 'gm' && inst.midi != null ? `programme ${inst.midi + 1}` : ''), title: inst.strudel ? `strudel : s("${inst.strudel}")` : null };
+    const e = { v: `i:${fam.id}:${inst.id}`, name: frName(name), orig: name, src, detail: detail || (src === 'gm' && inst.midi != null ? `programme ${inst.midi + 1}` : ''), title: inst.strudel ? `strudel : s("${inst.strudel}")` : null };
     if (inst.kind === 'synth') {
       // presets du synthé intégré : sous-groupe (Leads / Arpèges / Plucks), description, son célèbre
       if (fam.id === 'synth') e.sub = inst.sub || 'lead';
@@ -102,7 +102,7 @@ window.SS = window.SS || {};
   };
   /* Sous-groupes d'un rôle (seuls les synthés lead & plucks en ont) */
   const SUBS = { synth: [{ id: 'lead', label: 'Leads' }, { id: 'arp', label: 'Arpèges' }, { id: 'pluck', label: 'Plucks' }] };
-  const junoEntry = (p) => ({ v: `j:${p.id}`, name: p.name, src: 'juno', detail: `patch ${p.id}` });
+  const junoEntry = (p) => ({ v: `j:${p.id}`, name: frName(p.name), orig: p.name, src: 'juno', detail: `patch ${p.id}` });
   const gmEntry = (k) => ({ v: `p${k}`, name: SS.GM_PROGRAMS[k], src: 'gm', detail: `programme ${k + 1}` });
   /** Rôle d'un programme General MIDI : celui de la famille de son soundfont. */
   const roleOfProgram = (k) => {
@@ -138,7 +138,7 @@ window.SS = window.SS || {};
     return ROLES.filter((r) => r.id !== 'drums')
       .map((r) => ({
         role: r,
-        entries: soundsOf(r.id, opts).filter((e) => `${e.name} ${e.detail} ${e.v} ${e.title || ''} ${e.song || ''} ${e.artist || ''} ${e.desc || ''} ${e.styles || ''}`.toLowerCase().includes(s) || (opts.gm && e.v === `p${+s - 1}`)),
+        entries: soundsOf(r.id, opts).filter((e) => `${e.name} ${e.orig || ''} ${e.detail} ${e.v} ${e.title || ''} ${e.song || ''} ${e.artist || ''} ${e.desc || ''} ${e.styles || ''}`.toLowerCase().includes(s) || (opts.gm && e.v === `p${+s - 1}`)),
       }))
       .filter((g) => g.entries.length);
   }
@@ -176,5 +176,227 @@ window.SS = window.SS || {};
     return instEntry(family, inst);
   }
 
-  SS.catalog = { ROLES, ROLE, SUBS, SOURCES, SOURCE_ORDER, JUNO_ROLE, roleOfFamily, roleOfJuno, roleOfProgram, sourceOf, cleanName, soundsOf, search, valueOf, stateOf, entryOf };
+
+  /* ---------- Noms lisibles en français (échantillons, General MIDI, Juno-106) ---------- */
+  /* Le nom d'origine reste cherchable (champ `orig`). */
+  const FR = {
+    // basses
+    'Bass Hits': 'Coups de basse', 'Bass 3': 'Basse 3', 'Bass': 'Basse', 'Bass 0': 'Basse 0', 'Hardcore Bass': 'Basse hardcore', 'Bass DM': 'Basse DM',
+    'Bass Foo': 'Basse Foo', 'Jungle Bass': 'Basse jungle', 'Pluck Bass': 'Basse pincée', 'JV Bass': 'Basse JV',
+    'Acoustic bass': 'Contrebasse jazz', 'Electric bass finger': 'Basse électrique aux doigts', 'Electric bass pick': 'Basse électrique au médiator',
+    'Fretless bass': 'Basse fretless', 'Slap bass 1': 'Basse slap 1', 'Slap bass 2': 'Basse slap 2', 'Synth bass 1': 'Basse synthé 1', 'Synth bass 2': 'Basse synthé 2',
+    'Synth Bass I': 'Basse synthé I', 'Synth Bass II': 'Basse synthé II', 'Bass Pluck': 'Basse pincée', 'OW Bass': 'Basse OW', 'Meow Bass': 'Basse miaou',
+    // claviers
+    'Piano1': 'Piano brillant', 'Fmpiano': 'Piano FM', 'Steinway grand piano': 'Piano à queue Steinway', 'Kawai grand piano': 'Piano à queue Kawai',
+    'Epiano1': 'Piano électrique 1', 'Epiano2': 'Piano électrique 2', 'Harpsichord': 'Clavecin', 'Elect. Piano I': 'Piano électrique I',
+    'Elect. Piano II': 'Piano électrique II', 'Clav.': 'Clavinet', 'Clav': 'Clavinet 2', 'Dark Synth Piano': 'Piano synthé sombre',
+    'Harpsichord I': 'Clavecin I', 'Harpsichord 2': 'Clavecin II', 'E. Piano with Tremolo': 'Piano électrique trémolo', 'Toy Rhodes': 'Rhodes jouet',
+    // orgues
+    'Organ full': 'Orgue plein', 'Organ 4inch': 'Orgue 4 pieds', 'Organ 8inch': 'Orgue 8 pieds', 'Pipeorgan loud': 'Orgue à tuyaux fort',
+    'Pipeorgan quiet': 'Orgue à tuyaux doux', 'Pipeorgan loud pedal': 'Pédalier d’orgue fort', 'Pipeorgan quiet pedal': 'Pédalier d’orgue doux',
+    'Harmonica soft': 'Harmonica doux', 'Harmonica vib': 'Harmonica vibrato', 'Super64': 'Harmonica chromatique', 'Super64 acc': 'Harmonica chromatique, accords',
+    'Super64 vib': 'Harmonica chromatique vibrato', 'Drawbar organ': 'Orgue à tirettes', 'Percussive organ': 'Orgue percussif', 'Rock organ': 'Orgue rock',
+    'Church organ': 'Orgue d’église', 'Reed organ': 'Harmonium', 'Accordion': 'Accordéon', 'Bandoneon': 'Bandonéon', 'Organ I': 'Orgue I', 'Organ II': 'Orgue II',
+    'Organ 2': 'Orgue 2', 'Combo Organ': 'Orgue combo', 'Calliope': 'Orgue à vapeur', 'Frontier Organ': 'Orgue western', 'Reedy Organ': 'Orgue anché',
+    'Brassy Organ': 'Orgue cuivré', 'Owgan': 'Orgue wah',
+    // guitares
+    'Acoustic guitar nylon': 'Guitare classique (nylon)', 'Acoustic guitar steel': 'Guitare folk (acier)', 'Electric guitar jazz': 'Guitare électrique jazz',
+    'Electric guitar clean': 'Guitare électrique claire', 'Electric guitar muted': 'Guitare électrique étouffée', 'Overdriven guitar': 'Guitare saturée',
+    'Distortion guitar': 'Guitare distorsion', 'Guitar harmonics': 'Harmoniques de guitare', 'Guitar': 'Guitare synthé', 'Nylon Guitar': 'Guitare nylon synthé',
+    // cordes
+    'Harp': 'Harpe', 'Folkharp': 'Harpe celtique', 'Strumstick': 'Strumstick (dulcimer)', 'Dantranh': 'Đàn tranh (cithare)', 'Dantranh tremolo': 'Đàn tranh trémolo',
+    'Dantranh vibrato': 'Đàn tranh vibrato', 'Psaltery pluck': 'Psaltérion pincé', 'Psaltery spiccato': 'Psaltérion spiccato', 'Psaltery bowed': 'Psaltérion à l’archet',
+    'Violin': 'Violon', 'Viola': 'Alto', 'Cello': 'Violoncelle', 'Contrabass': 'Contrebasse', 'Tremolo strings': 'Cordes en trémolo', 'Pizzicato strings': 'Cordes en pizzicato',
+    'Orchestral harp': 'Harpe d’orchestre', 'Timpani': 'Timbales', 'String ensemble 1': 'Ensemble de cordes 1', 'String ensemble 2': 'Ensemble de cordes 2',
+    'Synth strings 1': 'Cordes synthé 1', 'Synth strings 2': 'Cordes synthé 2', 'Moving Strings': 'Cordes synthé en mouvement', 'Strings III': 'Cordes synthé III',
+    'High Strings': 'Cordes synthé aiguës', 'Strings': 'Cordes synthé', 'Dark Ensemble': 'Ensemble synthé sombre', 'Phase Ensemble': 'Ensemble synthé phasé',
+    'Violin high': 'Violon synthé aigu', 'Low Dark Strings': 'Cordes synthé graves', 'Pizzicato': 'Pizzicato synthé',
+    // cuivres
+    'Trumpet': 'Trompette', 'Muted trumpet': 'Trompette bouchée', 'French horn': 'Cor d’harmonie', 'Brass section': 'Section de cuivres',
+    'Synth brass 1': 'Cuivres synthé 1', 'Synth brass 2': 'Cuivres synthé 2', 'Brass': 'Cuivres synthé', 'Brass Swell': 'Cuivres synthé qui enflent',
+    'Brass & Strings': 'Cuivres et cordes synthé', 'Brass III': 'Cuivres synthé III', 'Fanfare': 'Fanfare synthé', 'Brass Ensemble': 'Ensemble de cuivres synthé',
+    'Piccolo Trumpet': 'Trompette piccolo synthé',
+    // bois
+    'Sax stacc': 'Sax staccato', 'Sax vib': 'Sax vibrato', 'Saxello stacc': 'Saxello staccato', 'Saxello vib': 'Saxello vibrato',
+    'Recorder soprano sus': 'Flûte à bec soprano', 'Recorder soprano stacc': 'Flûte à bec soprano staccato', 'Recorder alto sus': 'Flûte à bec alto',
+    'Recorder alto stacc': 'Flûte à bec alto staccato', 'Recorder alto vib': 'Flûte à bec alto vibrato', 'Recorder tenor sus': 'Flûte à bec ténor',
+    'Recorder tenor stacc': 'Flûte à bec ténor staccato', 'Recorder tenor vib': 'Flûte à bec ténor vibrato', 'Recorder bass sus': 'Flûte à bec basse',
+    'Recorder bass stacc': 'Flûte à bec basse staccato', 'Recorder bass vib': 'Flûte à bec basse vibrato', 'Ocarina vib': 'Ocarina vibrato',
+    'Ocarina small': 'Petit ocarina', 'Ocarina small stacc': 'Petit ocarina staccato', 'Soprano sax': 'Sax soprano', 'Alto sax': 'Sax alto', 'Tenor sax': 'Sax ténor',
+    'Baritone sax': 'Sax baryton', 'Oboe': 'Hautbois', 'English horn': 'Cor anglais', 'Bassoon': 'Basson', 'Clarinet': 'Clarinette', 'Flute': 'Flûte',
+    'Recorder': 'Flûte à bec', 'Pan flute': 'Flûte de Pan', 'Blown bottle': 'Bouteille soufflée', 'Whistle': 'Sifflet', 'Flutes': 'Flûtes synthé',
+    'Bass Clarinet': 'Clarinette basse synthé', 'English Horn': 'Cor anglais synthé', 'Sharp Reed': 'Anche vive synthé', 'Flute - Horn': 'Flûte et cor synthé',
+    // voix
+    'Choir aahs': 'Chœur « aah »', 'Voice oohs': 'Voix « ooh »', 'Synth choir': 'Chœur synthé', 'Orchestra hit': 'Coup d’orchestre', 'Choir': 'Chœur synthé Juno',
+    // nappes
+    'Pads': 'Nappes', 'Pad long': 'Nappe longue', 'Pad new age': 'Nappe new age', 'Pad warm': 'Nappe chaude GM', 'Pad poly': 'Nappe polysynth',
+    'Pad choir': 'Nappe chœur', 'Pad bowed': 'Nappe à l’archet', 'Pad metallic': 'Nappe métallique', 'Pad halo': 'Nappe halo', 'Pad sweep': 'Nappe balayée',
+    'Synth Pad': 'Nappe synthé', 'Sweep I': 'Nappe balayée I', 'Sweep II': 'Nappe balayée II', 'Sustainer': 'Nappe tenue', 'Caverns': 'Cavernes',
+    'Orchestral Pad': 'Nappe orchestrale', 'Ethereal': 'Nappe éthérée',
+    // mallets
+    'Xylophone medium ff': 'Xylophone moyen fort', 'Xylophone medium pp': 'Xylophone moyen doux', 'Xylophone hard ff': 'Xylophone dur fort',
+    'Xylophone hard pp': 'Xylophone dur doux', 'Xylophone soft ff': 'Xylophone feutré fort', 'Xylophone soft pp': 'Xylophone feutré doux',
+    'Vibraphone soft': 'Vibraphone doux', 'Vibraphone bowed': 'Vibraphone à l’archet', 'Tubularbells': 'Cloches tubulaires', 'Tubularbells2': 'Cloches tubulaires 2',
+    'Handchimes': 'Cloches à main', 'Belltree': 'Arbre à cloches', 'Balafon hard': 'Balafon dur', 'Balafon soft': 'Balafon doux', 'Wineglass': 'Verres en cristal',
+    'Wineglass slow': 'Verres en cristal lents', 'Celesta': 'Célesta', 'Music box': 'Boîte à musique', 'Tubular bells': 'Cloches tubulaires',
+    'Dulcimer': 'Tympanon', 'Celeste': 'Célesta synthé', 'Clock Chimes': 'Carillon d’horloge', 'Pluck Bell': 'Cloche pincée', 'Chorus Vibes': 'Vibraphone chorus',
+    'Space Chimes': 'Carillon spatial', 'Organ Bell': 'Cloche d’orgue', 'Chorused Bell': 'Cloche chorus', 'Chorus Bell 2': 'Cloche chorus 2',
+    'Melodic Taps': 'Frappes mélodiques', 'High Bells': 'Cloches aiguës', 'Ping Bell': 'Cloche ping',
+    // percussions mélodiques
+    'Tinkle bell': 'Clochette', 'Steel drums': 'Steel drum', 'Woodblock': 'Wood-block', 'Taiko drum': 'Taiko', 'Melodic tom': 'Tom mélodique',
+    'Synth drum': 'Tambour synthé', 'Reverse cymbal': 'Cymbale inversée', 'Steel Drums': 'Steel drum synthé', 'Snare Drum': 'Caisse claire synthé',
+    'Tom Toms': 'Toms synthé', 'Shaker': 'Shaker synthé', 'Gong': 'Gong synthé', 'Drum Booms': 'Boums synthé', 'Hand Claps': 'Claps synthé',
+    // monde
+    'Bagpipe': 'Cornemuse', 'Fiddle': 'Violon folk', 'Shanai': 'Shehnai', 'Lute': 'Luth synthé',
+    // effets
+    'Fx rain': 'Pluie', 'Fx soundtrack': 'Bande originale', 'Fx crystal': 'Cristal', 'Fx atmosphere': 'Atmosphère', 'Fx brightness': 'Brillance',
+    'Fx goblins': 'Gobelins', 'Fx echoes': 'Échos', 'Fx sci fi': 'Science-fiction', 'Guitar fret noise': 'Bruit de frettes', 'Breath noise': 'Souffle',
+    'Seashore': 'Bord de mer', 'Bird tweet': 'Oiseaux', 'Telephone': 'Téléphone', 'Helicopter': 'Hélicoptère', 'Applause': 'Applaudissements',
+    'Gunshot': 'Coup de feu', 'Going Up': 'Montée', 'Dust Storm': 'Tempête de sable', 'Rocket Men': 'Fusée', 'FX Sweep': 'Balayage', 'Noise Sweep': 'Balayage de bruit',
+    'FX Rise 1': 'Montée 1', 'FX Rise 2': 'Montée 2', 'FX Sweep 1': 'Balayage 1', 'Resonant Rise': 'Montée résonante', 'Noise Sweep 2': 'Balayage de bruit 2',
+    'Auto Release Noise Sweep': 'Balayage de bruit auto', 'Thunder': 'Tonnerre', 'Forbidden Planet': 'Planète interdite',
+    'Wind': 'Vent', 'Rumble': 'Grondement', 'Noise Riser': 'Montée de bruit',
+  };
+  const frName = (n) => FR[n] || n;
+
+  /* ---------- Familles : 2e colonne de la fenêtre, pour s'y retrouver dans un rôle ---------- */
+  /* Chaque famille : { id, label, test(e, nom en minuscules) } ; la première qui répond l'emporte ; `rest` : famille des autres. */
+  const fam = (id, label, re, src) => ({ id, label, test: (e, n) => (src && src.includes(e.src)) || (re && re.test(n)) });
+  const FAMILIES = {
+    bass: { list: [fam('elec', 'Électriques & acoustiques', /électrique|fretless|slap|contrebasse|aux doigts|médiator|electric|acoustic/), fam('sub', 'Sub & 808', /\bsub\b|808/), fam('acid', 'Acid & 303', /acid|acide|303/)], rest: { id: 'syn', label: 'Basses synthé' } },
+    keys: { list: [fam('epiano', 'Pianos électriques', /électrique|rhodes|piano fm|electric piano/), fam('clavecin', 'Clavecins', /clavecin|harpsichord/), fam('clavinet', 'Clavinets', /clavinet|clavi\b/), fam('orgue', 'Orgues', /orgue|organ/), fam('synpiano', 'Pianos synthé', /clavisynth|synthé sombre/)], rest: { id: 'piano', label: 'Pianos acoustiques' } },
+    organ: { list: [fam('harmonica', 'Harmonicas', /harmonica/), fam('accordeon', 'Accordéons', /accordéon|bandonéon|accordion|bandoneon/), fam('eglise', 'Orgues d’église', /église|tuyaux|pédalier|harmonium|church|reed organ/)], rest: { id: 'orgue', label: 'Orgues' } },
+    guitar: { list: [fam('elec', 'Guitares électriques', /électrique|saturée|distorsion|electric|overdriven|distortion/), fam('syn', 'Guitares synthé', null, ['juno'])], rest: { id: 'acou', label: 'Guitares acoustiques' } },
+    strings: { list: [fam('syn', 'Cordes synthé', /synthé|synth/, ['juno']), fam('harpe', 'Harpes & cordes pincées', /harpe|psaltérion|strumstick|tranh|harp/), fam('pizz', 'Pizzicato & trémolo', /pizz|trémolo|tremolo/), fam('ens', 'Ensembles', /^violons|^altos|^violoncelles|ensemble/), fam('solo', 'Solistes', /violon|alto|violoncelle|contrebasse|violin|viola|cello|contrabass/)], rest: { id: 'autres', label: 'Autres' }, order: ['ens', 'solo', 'pizz', 'harpe', 'syn', 'autres'] },
+    brass: { list: [fam('syn', 'Cuivres synthé', /synthé|synth|stab|sem|\bob\b|80s|new wave|enflent|refrain|épique|funky/, ['syn', 'juno']), fam('trompette', 'Trompettes', /trompette|trumpet/), fam('cor', 'Cors', /\bcor\b|cor d|french horn/), fam('grave', 'Trombones & tubas', /trombone|tuba/)], rest: { id: 'section', label: 'Sections' }, order: ['trompette', 'cor', 'grave', 'section', 'syn'] },
+    winds: { list: [fam('sax', 'Saxophones', /sax/), fam('anches', 'Hautbois, clarinettes, bassons', /hautbois|clarinette|basson|cor anglais|anche|oboe|clarinet|bassoon|english horn/), fam('flutes', 'Flûtes & ocarinas', /flûte|piccolo|ocarina|bouteille|shakuhachi|sifflet|flute|recorder|bottle|whistle/)], rest: { id: 'autres', label: 'Autres' }, order: ['flutes', 'anches', 'sax', 'autres'] },
+    pads: { list: [fam('cordes', 'Cordes synthé', /cordes|strings/), fam('choeur', 'Chœurs', /chœur|choir/), fam('atmo', 'Atmosphères', /drone|caverne|éthéré|blizzard|balay|halo|métallique|respire|aérienne/)], rest: { id: 'nappes', label: 'Nappes' } },
+    synth: { list: [fam('arp', 'Arpèges & séquences', /arp|séquence|boucle|repeater/), fam('pluck', 'Plucks', /pluck|pincé|stab|kalimba|marimba|harpe|pizz|wah|funk/)], rest: { id: 'lead', label: 'Leads' } },
+    mallets: { list: [fam('kalimba', 'Kalimbas & mbiras', /kalimba|mbira|nyunga/), fam('cloches', 'Cloches & carillons', /cloche|carillon|verres|arbre|clochette|bell/), fam('lames', 'Claviers à lames', /marimba|xylophone|vibraphone|balafon|glockenspiel|célesta|boîte à musique|tympanon/)], rest: { id: 'autres', label: 'Autres' }, order: ['lames', 'cloches', 'kalimba', 'autres'] },
+    fx: { list: [fam('montee', 'Montées & balayages', /montée|balay|riser|fusée/), fam('ambiance', 'Ambiances', /vent|pluie|mer|tonnerre|tempête|atmosph|grondement|cavern|oiseaux|planète|bande originale|cristal|brillance|échos|science/)], rest: { id: 'bruit', label: 'Bruitages' } },
+  };
+  /** Famille (id) d'une entrée de son dans son rôle ; les presets du synthé intégré gardent leur sous-groupe. */
+  function familyOf(roleId, e) {
+    const F = FAMILIES[roleId];
+    if (!F) return null;
+    if (roleId === 'synth' && e.sub) return e.sub;
+    const n = `${e.name} ${e.orig || ''}`.toLowerCase();
+    const f = F.list.find((x) => x.test(e, n));
+    return f ? f.id : F.rest.id;
+  }
+  /** Familles d'un rôle qui ont des sons : [{ id, label, n }] dans l'ordre (la famille « reste » en tête quand c'est la principale). */
+  function familiesOf(roleId, entries) {
+    const F = FAMILIES[roleId];
+    if (!F) return [];
+    const all = [F.rest, ...F.list];
+    if (F.order) all.sort((a, b) => F.order.indexOf(a.id) - F.order.indexOf(b.id));
+    const out = all.map((f) => ({ id: f.id, label: f.label, n: entries.filter((e) => familyOf(roleId, e) === f.id).length })).filter((f) => f.n);
+    return out.length > 1 ? out : [];
+  }
+
+  /* ---------- Batterie : chaque son rangé par élément (kick, snare…), toutes bibliothèques confondues ---------- */
+  /* Caractère : ac = acoustique, el = électronique, mx = mélangé. */
+  const LIVE_KITS = {
+    pop: 'Pop · Pearl Black Pearl', rock: 'Rock · Ludwig Red Zeppelin', ballade: 'Ballade · Blonde Bop', rods: 'Fagots · Blonde Bop HotRod',
+    reggae: 'Reggae roots · Blonde Bop accordé', cajon: 'Cajón · Buskman’s Holiday', tama: 'Tama · Forzee', pacific: 'Pacific · BJA', christmas: 'Noël · Christmas',
+  };
+  const MACHINES = {
+    AJKPercusyn: 'AJK Percusyn', AkaiLinn: 'Akai Linn', AkaiMPC60: 'Akai MPC60', AkaiXR10: 'Akai XR10', AlesisHR16: 'Alesis HR-16', AlesisSR16: 'Alesis SR-16',
+    BossDR110: 'Boss DR-110', BossDR220: 'Boss DR-220', BossDR55: 'Boss DR-55', BossDR550: 'Boss DR-550', CasioRZ1: 'Casio RZ-1', CasioSK1: 'Casio SK-1',
+    CasioVL1: 'Casio VL-1', DoepferMS404: 'Doepfer MS-404', EmuDrumulator: 'E-mu Drumulator', EmuModular: 'E-mu Modular', EmuSP12: 'E-mu SP-12',
+    KorgDDM110: 'Korg DDM-110', KorgKPR77: 'Korg KPR-77', KorgKR55: 'Korg KR-55', KorgKRZ: 'Korg KR-Z', KorgM1: 'Korg M1', KorgMinipops: 'Korg Minipops',
+    KorgPoly800: 'Korg Poly-800', KorgT3: 'Korg T3', Linn9000: 'Linn 9000', LinnDrum: 'LinnDrum', LinnLM1: 'Linn LM-1', LinnLM2: 'Linn LM-2', MFB512: 'MFB 512',
+    MPC1000: 'Akai MPC1000', MoogConcertMateMG1: 'Moog Concertmate MG-1', OberheimDMX: 'Oberheim DMX', RhodesPolaris: 'Rhodes Polaris', RhythmAce: 'Ace Tone Rhythm Ace',
+    RolandCompurhythm1000: 'Roland CR-1000', RolandCompurhythm78: 'Roland CR-78', RolandCompurhythm8000: 'Roland CR-8000', RolandD110: 'Roland D-110',
+    RolandD70: 'Roland D-70', RolandDDR30: 'Roland DDR-30', RolandJD990: 'Roland JD-990', RolandMC202: 'Roland MC-202', RolandMC303: 'Roland MC-303',
+    RolandMT32: 'Roland MT-32', RolandR8: 'Roland R-8', RolandS50: 'Roland S-50', RolandSH09: 'Roland SH-09', RolandSystem100: 'Roland System-100',
+    RolandTR505: 'Roland TR-505', RolandTR606: 'Roland TR-606', RolandTR626: 'Roland TR-626', RolandTR707: 'Roland TR-707', RolandTR727: 'Roland TR-727',
+    RolandTR808: 'Roland TR-808', RolandTR909: 'Roland TR-909', SakataDPM48: 'Sakata DPM-48', SequentialCircuitsDrumtracks: 'Sequential Drumtraks',
+    SequentialCircuitsTom: 'Sequential Tom', SergeModular: 'Serge Modular', SimmonsSDS400: 'Simmons SDS-400', SimmonsSDS5: 'Simmons SDS-5',
+    SoundmastersR88: 'Soundmaster R-88', UnivoxMicroRhythmer12: 'Univox Micro-Rhythmer 12', ViscoSpaceDrum: 'Visco Space Drum', XdrumLM8953: 'Xdrum LM-8953',
+    YamahaRM50: 'Yamaha RM50', YamahaRX21: 'Yamaha RX21', YamahaRX5: 'Yamaha RX5', YamahaRY30: 'Yamaha RY30', YamahaTG33: 'Yamaha TG33',
+  };
+  const machineName = (id) => MACHINES[id] || String(id || '').replace(/([a-z])([A-Z])/g, '$1 $2');
+  /* Percussions VCSL : [éléments, nom] */
+  const VCSL_DRUMS = {
+    bassdrum1: ['bd', 'Grosse caisse 1'], bassdrum2: ['bd', 'Grosse caisse 2'], snare_modern: ['sd', 'Caisse claire moderne'], snare_hi: ['sd', 'Caisse claire aiguë'],
+    snare_low: ['sd', 'Caisse claire grave'], snare_rim: ['rim', 'Cercle de caisse claire'], clap: ['cp', 'Clap'], hihat: ['hh oh', 'Charleston'],
+    tom_stick: ['lt mt ht', 'Tom à la baguette'], tom_mallet: ['lt mt ht', 'Tom à la mailloche'], tom_rim: ['lt mt ht', 'Tom sur le cercle'],
+    tom2_stick: ['lt mt ht', 'Tom 2 à la baguette'], tom2_mallet: ['lt mt ht', 'Tom 2 à la mailloche'], tom2_rim: ['lt mt ht', 'Tom 2 sur le cercle'],
+    sus_cymbal: ['cr rd', 'Cymbale suspendue'], sus_cymbal2: ['cr rd', 'Cymbale suspendue 2'], clash: ['cr', 'Cymbales frappées'], clash2: ['cr', 'Cymbales frappées 2'],
+    fingercymbal: ['misc', 'Cymbalettes'], cowbell: ['cb', 'Cowbell'], agogo: ['cb perc', 'Agogo'], tambourine: ['tb', 'Tambourin'], tambourine2: ['tb', 'Tambourin 2'],
+    sleighbells: ['tb misc', 'Grelots'], shaker_large: ['sh', 'Gros shaker'], shaker_small: ['sh', 'Petit shaker'], cabasa: ['sh', 'Cabasa'],
+    conga: ['perc', 'Conga'], bongo: ['perc', 'Bongo'], cajon: ['perc', 'Cajón'], darbuka: ['perc', 'Darbouka'], framedrum: ['perc', 'Tambour sur cadre'],
+    clave: ['perc', 'Claves'], woodblock: ['perc', 'Wood-block'], guiro: ['perc', 'Guiro'], triangles: ['perc', 'Triangle'], vibraslap: ['perc', 'Vibraslap'],
+    slitdrum: ['perc', 'Tambour à fente'], timpani: ['perc', 'Timbales'], timpani2: ['perc', 'Timbales 2'], timpani_roll: ['perc', 'Roulement de timbales'],
+    gong: ['misc', 'Gong'], gong2: ['misc', 'Gong 2'], handbells: ['misc', 'Cloches à main'], marktrees: ['misc', 'Carillon (mark tree)'], anvil: ['misc', 'Enclume'],
+    brakedrum: ['misc', 'Tambour de frein'], slapstick: ['misc', 'Fouet'], ratchet: ['fx', 'Crécelle'], flexatone: ['fx', 'Flexatone'], oceandrum: ['fx', 'Ocean drum'],
+    siren: ['fx', 'Sirène'], trainwhistle: ['fx', 'Sifflet de train'], ballwhistle: ['fx', 'Sifflet à bille'], didgeridoo: ['fx', 'Didgeridoo'],
+  };
+  /* Banques Dirt-Samples rangées par élément : [éléments, caractère] ; les autres banques vont dans « Divers ». */
+  const DIRT_DRUMS = {
+    bd: ['bd', 'mx'], '808bd': ['bd', 'el'], clubkick: ['bd', 'el'], hardkick: ['bd', 'el'], kicklinn: ['bd', 'el'], popkick: ['bd', 'el'], reverbkick: ['bd', 'el'],
+    sd: ['sd', 'mx'], sn: ['sd', 'mx'], '808sd': ['sd', 'el'], rs: ['rim', 'mx'], cp: ['cp', 'mx'], realclaps: ['cp', 'ac'],
+    hh: ['hh', 'mx'], hh27: ['hh', 'el'], linnhats: ['hh', 'el'], ho: ['oh', 'mx'], '808oh': ['oh', 'el'],
+    lt: ['lt', 'mx'], '808lt': ['lt', 'el'], mt: ['mt', 'mx'], '808mt': ['mt', 'el'], ht: ['ht', 'mx'], '808ht': ['ht', 'el'],
+    cr: ['cr', 'mx'], '808cy': ['cr', 'el'], cb: ['cb', 'mx'], '808hc': ['perc', 'el'], '808mc': ['perc', 'el'], '808lc': ['perc', 'el'],
+    perc: ['perc', 'mx'], tabla: ['perc', 'ac'], tabla2: ['perc', 'ac'], tablex: ['perc', 'ac'], hand: ['perc', 'ac'],
+    gretsch: ['misc', 'ac'], jazz: ['misc', 'ac'], drum: ['misc', 'mx'], '808': ['misc', 'el'], '909': ['misc', 'el'], dr55: ['misc', 'el'], drumtraks: ['misc', 'el'],
+  };
+  /* Ordre des bibliothèques dans la liste */
+  const DRUM_SRC_ORDER = ['live', 'vcsl', 'gm', 'tdm', 'mrid', 'dirt'];
+
+  /**
+   * Sons de batterie d'un élément, toutes bibliothèques : [{ v: 'source|id', src, id, name, detail, char }].
+   * `libs` : { tdm: [machines qui ont cet élément], live, vcsl, dirt, mrid: [{ id, count }] } (banques chargées) ;
+   * `gm` : seulement les sons General MIDI.
+   */
+  function drumEntries(el, libs = {}, { gm = false } = {}) {
+    const out = [];
+    const add = (src, id, name, detail, char) => out.push({ v: `${src}|${id}`, src, id: String(id), name, detail: detail || '', char });
+    const D = SS.GM_DRUMS || [];
+    if (!gm) {
+      (libs.live || []).forEach((b) => {
+        const i = b.id.lastIndexOf('_');
+        if (b.id.slice(i + 1) === el) add('live', b.id, (LIVE_KITS[b.id.slice(0, i)] || b.id.slice(0, i)).split(' · ')[0], (LIVE_KITS[b.id.slice(0, i)] || '').split(' · ')[1], 'ac');
+      });
+      (libs.vcsl || []).forEach((b) => {
+        const m = VCSL_DRUMS[b.id];
+        if (m ? m[0].split(' ').includes(el) : el === 'misc') add('vcsl', b.id, m ? m[1] : b.id.replace(/_/g, ' '), '', 'ac');
+      });
+    }
+    D.filter((d) => d.type === el).forEach((d) => add('gm', d.midi, d.label, `note ${d.midi}`, 'ac'));
+    if (!gm) {
+      (libs.tdm || []).forEach((m) => add('tdm', m, machineName(m), '', 'el'));
+      if (el === 'perc') (libs.mrid || []).forEach((b) => add('mrid', b.id, `Mridangam ${b.id}`, '', 'ac'));
+      (libs.dirt || []).forEach((b) => {
+        const m = DIRT_DRUMS[b.id];
+        if (m ? m[0] === el : el === 'misc') add('dirt', b.id, b.id, `${b.count} son${b.count > 1 ? 's' : ''}`, m ? m[1] : 'mx');
+      });
+    }
+    return out.sort((a, b) => DRUM_SRC_ORDER.indexOf(a.src) - DRUM_SRC_ORDER.indexOf(b.src));
+  }
+
+  /** Élément (kick, snare…) d'un réglage de batterie { source, sound, bank }. */
+  function drumElementOf(s) {
+    const src = s.source || 'tdm';
+    if (src === 'tdm') return s.sound || 'bd';
+    const bank = String(s.bank || '');
+    if (src === 'live') return bank.slice(bank.lastIndexOf('_') + 1) || 'bd';
+    if (src === 'gm') return (SS.findGmDrum && (SS.findGmDrum(bank) || {}).type) || 'bd';
+    if (src === 'vcsl') return VCSL_DRUMS[bank] ? VCSL_DRUMS[bank][0].split(' ')[0] : 'misc';
+    if (src === 'mrid') return 'perc';
+    if (src === 'dirt') return DIRT_DRUMS[bank] ? DIRT_DRUMS[bank][0] : 'misc';
+    return s.sound || 'bd';
+  }
+  /** Nom court d'un son de batterie (kit, machine, banque), pour le nom de la piste. */
+  function drumSourceName(s) {
+    const src = s.source || 'tdm';
+    if (src === 'tdm') return machineName(s.machine).replace(/^(Roland|Akai|Boss|Korg|Yamaha|Casio|Alesis|E-mu|Linn|Oberheim|Sequential) /, '');
+    const e = drumEntries(drumElementOf(s), { [src]: [{ id: String(s.bank), count: 1 }] }).find((x) => x.src === src && x.id === String(s.bank));
+    return e ? e.name : String(s.bank || '').replace(/_/g, ' ');
+  }
+
+  SS.catalog = { ROLES, ROLE, SUBS, SOURCES, SOURCE_ORDER, JUNO_ROLE, roleOfFamily, roleOfJuno, roleOfProgram, sourceOf, cleanName, soundsOf, search, valueOf, stateOf, entryOf,
+    FR, frName, FAMILIES, familyOf, familiesOf, LIVE_KITS, MACHINES, machineName, VCSL_DRUMS, DIRT_DRUMS, DRUM_SRC_ORDER, drumEntries, drumElementOf, drumSourceName };
 })();
