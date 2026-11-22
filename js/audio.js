@@ -1601,6 +1601,7 @@ SS.audio = (() => {
    */
   const glides = new Map();
   const LEGATO_GAP = 0.035; // écart toléré entre deux notes « liées » (s)
+  const SLIDE_TIME = 0.09; // durée d'une note glissée (ev.slide) sur une piste sans glide (s)
 
   /** Fait glisser la voix vers `midi` à partir de `t` ; `from` : hauteur de départ d'une nouvelle voix. */
   function glideTo(voice, midi, t, time, from = null) {
@@ -1620,7 +1621,8 @@ SS.audio = (() => {
 
   /** Prépare une note : renvoie { from } (hauteur de départ) ou { legato: voix } si la voix précédente continue. */
   function glidePlan(track, p, midi, t, idx, count) {
-    if (!(p.glide > 0)) return null;
+    // sans glide, la mémoire n'est tenue que pour les pistes qui ont déjà joué une note glissée (ev.slide)
+    if (!(p.glide > 0) && !glides.has(track.id || '__preview')) return null;
     const key = track.id || '__preview';
     let g = glides.get(key);
     if (!g) glides.set(key, (g = { prev: { notes: [], voices: [] }, cur: { notes: [], voices: [] } }));
@@ -1628,6 +1630,7 @@ SS.audio = (() => {
       g.prev = g.cur;
       g.cur = { notes: [], voices: [] };
     }
+    if (!(p.glide > 0)) return { g, from: null }; // pas de glissement : on retient seulement la note
     const prev = g.prev;
     const j = Math.min(idx, prev.notes.length - 1);
     if (j < 0) return { g, from: null };
@@ -1903,6 +1906,14 @@ SS.audio = (() => {
     if (mod && mod.locks) p = SS.applyVoiceLocks(p, mod.locks); // automation du son (verrous par pas)
     if (mod && mod.bauto) p = { ...p, _bauto: mod.bauto }; // automation par temps : cutoff et résonance pendant la note
     if (mod && mod.cutoff && mod.cutoff !== 1) p = { ...p, cutoff: Math.max(30, Math.min(20000, p.cutoff * mod.cutoff)) };
+    // note glissée (ev.slide, motifs de basse drill / amapiano) : part de la note précédente encore tenue et glisse vers
+    // la sienne, sans nouvelle attaque ; le glide de la piste s'il y en a un, sinon SLIDE_TIME
+    // (ev.slideFrom : la note d'où part le glissement ; elle ouvre la mémoire des notes de la piste)
+    if (mod && (mod.slide || mod.slideFrom)) {
+      const key = track.id || '__preview';
+      if (!glides.has(key)) glides.set(key, { prev: { notes: [], voices: [] }, cur: { notes: [], voices: [] } });
+      if (mod.slide) p = { ...p, glide: p.glide > 0 ? p.glide : SLIDE_TIME, glideMode: 'legato' };
+    }
     // expression (js/expression.js) : forme de nuance dans la note, attaque adoucie (legato), relâchement court
     if (mod && mod.expr) {
       const x = mod.expr;
@@ -2380,7 +2391,7 @@ SS.audio = (() => {
           // automation du son (track.auto, réglages « voice ») : valeur au pas de la note
           const locks = SS.voiceLocks(track, tick % alen, alen);
           const bauto = baVoice(nst, tt);
-          const nmod = locks || ev.acc || ex || bauto ? { locks, acc: !!ev.acc, accAmt: ev.accAmt, expr: ex || null, bauto } : null;
+          const nmod = locks || ev.acc || ex || bauto || ev.slide || ev.slideFrom ? { locks, acc: !!ev.acc, accAmt: ev.accAmt, expr: ex || null, bauto, slide: !!ev.slide, slideFrom: !!ev.slideFrom } : null;
           for (let j = 0; j < r; j++) {
             const d = j < r - 1 ? sub * 0.9 : Math.max(sub * 0.9, dur - j * sub);
             const v = vv * (ev.notes.length > 1 ? 0.8 : 1) * (j ? 0.85 : 1);

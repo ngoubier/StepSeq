@@ -2707,7 +2707,7 @@ SS.ui = (() => {
       ? { kind: 'drum', items: items.map((s) => ({ off: s - from, vel: t.steps[s], rat: SS.drumRatchet(t, s), cond: SS.drumCond(t, s) })) }
       : {
           kind: 'notes',
-          items: items.map((ev) => ({ off: ev.step - from, len: ev.len, notes: [...ev.notes], vel: ev.vel, chord: ev.chord, shift: ev.shift, rat: ev.rat, cond: ev.cond, acc: ev.acc, art: ev.art })),
+          items: items.map((ev) => ({ off: ev.step - from, len: ev.len, notes: [...ev.notes], vel: ev.vel, chord: ev.chord, shift: ev.shift, rat: ev.rat, cond: ev.cond, acc: ev.acc, art: ev.art, slide: ev.slide, slideFrom: ev.slideFrom })),
         };
     Object.assign(clip, { span: to - from, trackId: t.id, from });
     const what = unitLabel(t, items.length);
@@ -2773,6 +2773,8 @@ SS.ui = (() => {
       });
       if (it.chord && it.notes.length > 1) ev.chord = it.chord;
       if (it.shift) ev.shift = it.shift;
+      if (it.slide) ev.slide = true;
+      if (it.slideFrom) ev.slideFrom = true;
       if (it.rat) ev.rat = it.rat;
       if (it.cond) ev.cond = it.cond;
       if (it.acc) ev.acc = true;

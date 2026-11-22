@@ -56,6 +56,13 @@ e2 = notesOf('montuno');
 assert.strictEqual(SS.bandSong.motifBars('montuno'), 2);
 assert.ok(!e2.some((e) => e.step === 3) && e2.some((e) => e.step === 19), 'son montuno : la relance seulement dans la 2e mesure');
 assert.strictEqual(SS.bandSong.motifBars('rock8'), 1);
+// glissé : la note glissée part de la précédente, tenue jusqu'à elle
+e2 = notesOf('drill');
+const sl = e2.find((e) => e.slide);
+const from = e2[e2.indexOf(sl) - 1];
+assert.ok(sl && from.slideFrom, 'drill : note glissée et note de départ marquées');
+assert.ok(from.step + from.len >= sl.step + (sl.shift || 0), 'drill : la note de départ tient jusqu’au glissé');
+assert.ok(!notesOf('rock8').some((e) => e.slide || e.slideFrom), 'sans glissé, rien de marqué');
 bass.follow = SS.FOLLOW.clean({ play: 'motif', motif: 'disco16', oct: 2 });
 
 // sans accords : silence

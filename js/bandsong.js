@@ -881,7 +881,7 @@ SS.bandSong = (() => {
           const lastBar = b + SPB >= end;
           const k = Math.floor(b / SPB) % mBars;
           motif.forEach((nt) => {
-            const [o0, l0, n, v] = nt;
+            const [o0, l0, n, v, fx] = nt; // fx 'g' : note glissée depuis la précédente
             if (Math.floor(o0 / SPB) !== k) return;
             // position en fraction de pas (triolets : 1,33 ; 2,67…) = pas entier + décalage (ev.shift, ±0,5 pas)
             const at = o0 - k * SPB;
@@ -912,8 +912,16 @@ SS.bandSong = (() => {
             }
             const len = Math.min(l, end - b - o);
             if (len > 0) {
+              const prev = ev[ev.length - 1];
               add(b + o, len, m, v);
-              if (sh) ev[ev.length - 1].shift = sh;
+              const e = ev[ev.length - 1];
+              if (sh) e.shift = sh;
+              // glissé : la note précédente tient jusqu'à celle-ci (legato), puis la voix glisse sans nouvelle attaque
+              if (fx === 'g' && prev && prev.notes[0] !== m && prev.step + prev.len >= b + o - 1) {
+                prev.len = Math.max(1, Math.ceil(b + o + sh - prev.step - (prev.shift || 0) - 0.01));
+                prev.slideFrom = true;
+                e.slide = true;
+              }
             }
             // anticipation : la dernière note du motif est déjà la fondamentale du suivant (liée par-dessus la barre)
             if (nt === tail && n === 'n' && lastBar && at + l0 >= SPB && b + SPB === end) pushedNow = true;
@@ -2311,7 +2319,8 @@ SS.bandSong = (() => {
      (0, 7, 12), « t » tierce de l'accord, « s » septième, « a » note voisine (dans la gamme) de l'accord suivant (dernière mesure de
      l'accord, sinon la quinte), « n » fondamentale de l'accord suivant jouée en avance (dernière mesure, sinon la fondamentale ;
      en fin de mesure, elle se prolonge sur le 1 suivant sans nouvelle attaque), « c » demi-ton sous l'accord suivant (approche
-     chromatique), « u3 » « u2 » « u1 » montée par la gamme vers l'accord suivant (sinon quinte, tierce, fondamentale). */
+     chromatique), « u3 » « u2 » « u1 » montée par la gamme vers l'accord suivant (sinon quinte, tierce, fondamentale).
+     5e valeur 'g' : la note glisse depuis la précédente (ev.slide ; la précédente, ev.slideFrom, tient jusqu'à elle). */
   /** « u3 », « u2 », « u1 » : montée vers l'accord suivant, à 3, 2 puis 1 note de la gamme de lui. */
   const UP = { u3: 3, u2: 2, u1: 1 };
   /** Nombre de mesures d'un motif BASS_RHYTHMS (1, ou 2 si une note tombe après le pas 15). */
@@ -2398,6 +2407,10 @@ SS.bandSong = (() => {
     ballade128: [[0, 6, 0, 0.88], [6.67, 1.33, 0, 0.55], [8, 4, 7, 0.8], [12, 2, 12, 0.7], [14.67, 1.33, 'a', 0.6]],
     // son montuno sur la clave 3-2 : tumbao en mesure « 3 », une relance sur le « a » du 1 en mesure « 2 »
     montuno: [[6, 6, 7, 0.86], [12, 4, 'n', 0.9], [19, 3, 0, 0.7], [22, 6, 7, 0.84], [28, 4, 'n', 0.9]],
+    // glissés : 808 drill (syncopes en triolets, glissés vers l'octave et la septième), log drum amapiano (notes courtes
+    // syncopées, glissées)
+    drill: [[0, 4, 0, 0.95], [4, 2.67, 0, 0.8], [6.67, 3.33, 12, 0.85, 'g'], [10, 2.67, 10, 0.8, 'g'], [12.67, 3.33, 0, 0.88, 'g']],
+    amapiano: [[0, 2, 0, 0.9], [3, 3, 0, 0.6], [6, 2, 7, 0.82, 'g'], [8, 1, 7, 0.5], [10, 2, 0, 0.86], [13, 1, 10, 0.7], [14, 2, 0, 0.8, 'g']],
   };
   /** Dessin d'une mesure type (niveau 0 = fondamentale, 1 = quinte, tierce, septième ou approche, 2 = octave). */
   const rhythmDraw = (id) => BASS_RHYTHMS[id].filter(([o]) => o < SPB).map(([o, l, n]) => [o, l, n === 0 ? 0 : n === 12 ? 2 : 1]); // première mesure, en pas (fractions possibles)
@@ -2480,6 +2493,8 @@ SS.bandSong = (() => {
     ['walkskip', 'Walking avec skip', 'Walking, triolet fantôme sur le 3, demi-ton vers l’accord suivant : jazz', rhythmDraw('walkskip')],
     ['ballade128', 'Ballade 12/8', 'Fondamentale qui berce, croches de triolet : soul lente, doo-wop', rhythmDraw('ballade128')],
     ['montuno', 'Son montuno', 'Tumbao sur deux mesures, calé sur la clave 3-2 : son, salsa', rhythmDraw('montuno')],
+    ['drill', 'Drill', '808 syncopée en triolets, glissée vers l’octave et la septième : drill', rhythmDraw('drill')],
+    ['amapiano', 'Log drum', 'Notes courtes syncopées, glissées vers la quinte : amapiano', rhythmDraw('amapiano')],
   ];
 
   return { build, voiceChord, bassEvents, chordEvents, PAD_NEW, padFxLanes, tomOfStep, junctionDefaults, junctionEff, withSceneFx, PERC_LOOPS, PERC_STYLES, hpHz, hpAmt, HP_MEL, isExtra, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, sceneGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, motifBars, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, BUILD_LEVELS, BUILD_PRESETS, buildLevels, progLevels, rollBar, rollerOf, hasGridLane, laneKey, _rng: rng };
