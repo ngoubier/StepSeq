@@ -52,6 +52,7 @@ const ok = (c, m) => {
     await page.waitForTimeout(300);
     const m = await page.evaluate(() => [SS.band._state.wiz.meter, SS.bandSong.meter().spb]);
     ok(m[0] === sig && m[1] === spb && (await lens()).every(Boolean), `${sig} : ${spb} pas par mesure dans toutes les scènes`);
+    ok((await page.textContent('#metaSig')).trim() === sig, `${sig} : la barre du haut affiche la mesure de l'assistant`);
   }
   await shot('1-tempo-mesure.png');
 
@@ -109,6 +110,23 @@ const ok = (c, m) => {
   await page.waitForTimeout(1500);
   const ts = await page.evaluate(() => SS.project && SS.project.current ? SS.project.current().timeSig : JSON.parse(localStorage.getItem('stepseq.autosave') || '{}').timeSig);
   ok(Array.isArray(ts) && ts.join('/') === '6/8', `chanson créée en ${ts && ts.join('/')}`);
+
+  // inspirations écrites en ternaire : la valse s'ouvre en 3/4, le slow en 12/8
+  for (const [style, id, sig, title] of [['pop', 'lampions', '3/4', 'La valse des lampions'], ['soul', 'samedisoir', '12/8', 'Slow du samedi soir']]) {
+    await page.click('#appMenuBtn');
+    await page.click('#newProject');
+    await page.waitForTimeout(600);
+    await page.click(`#bandStyles [data-v="${style}"]`);
+    await page.click(`#bandPresets .band-preset:has-text("${title}")`);
+    await next(2);
+    const m = await page.evaluate(() => [SS.band._state.wiz.meter, SS.bandSong.meter().sig]);
+    ok(m[0] == null && m[1] === sig && (await page.getAttribute('.bwt-meter.active', 'data-sig')) === sig && (await page.textContent('#metaSig')).trim() === sig, `${id} : l'assistant s'ouvre en ${sig} (${m.join(' ')})`);
+    ok((await lens()).every(Boolean), `${id} : toutes les scènes en ${sig}`);
+  }
+  await page.evaluate(() => SS.band.create());
+  await page.waitForTimeout(1500);
+  const ts2 = await page.evaluate(() => SS.project && SS.project.current ? SS.project.current().timeSig : JSON.parse(localStorage.getItem('stepseq.autosave') || '{}').timeSig);
+  ok(Array.isArray(ts2) && ts2.join('/') === '12/8', `slow créé en ${ts2 && ts2.join('/')}`);
   ok(!errs.length, 'aucune erreur JS' + (errs.length ? ' : ' + errs.slice(0, 3).join(' | ') : ''));
   await b.close();
   server.close();

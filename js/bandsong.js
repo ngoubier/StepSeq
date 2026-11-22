@@ -2080,8 +2080,8 @@ SS.bandSong = (() => {
    *   fx : transitions et percussions d'ambiance (étape « Effets et transitions »), voir junctionDefaults ; null = le plan tel quel
    * → { key, scenes: [{ id, name, bars, key, emotion, data, spans }], song: [{ scene, repeat }] }
    */
-  function build(spec, presetId, tracks, { melodySeed = 0, melody = null, harmony = null, parts = null, kinds = null, fx = null, sig = '4/4' } = {}) {
-    setMeter(sig); // mesure de la chanson (4/4, 3/4, 6/8, 12/8) : tout le moteur la suit
+  function build(spec, presetId, tracks, { melodySeed = 0, melody = null, harmony = null, parts = null, kinds = null, fx = null, sig = null } = {}) {
+    setMeter(sig || (spec && spec.meter) || '4/4'); // mesure de la chanson (4/4, 3/4, 6/8, 12/8) : tout le moteur la suit
     spec = withSceneFx(spec, parts); // jeu de la piste Effets réglé scène par scène
     const key = parseKey(spec.key);
     const ids = instIds(tracks);

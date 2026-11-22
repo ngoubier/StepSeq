@@ -576,7 +576,10 @@ SS.ui = (() => {
           const beat = SS.bandSong.beatOf(app.project().timeSig);
           if (spb !== 16 && !['all', 'ternary'].includes(motifGroup)) motifGroup = 'ternary';
           if (spb === 16 && motifGroup === 'ternary') motifGroup = 'all';
-          return M.picker({ group: motifGroup, cur: on ? now : null, spb, beat, onGroup: (g) => ((motifGroup = g), render()), onPick: pick });
+          const ts = app.project().timeSig || [4, 4];
+          const sig = `${ts[0]}/${ts[1]}`;
+          const keep = spb === 16 || !SS.bandSong.meterOK ? null : (id) => SS.bandSong.meterOK('bass', id, sig); // 3/4 et 6/8 : même nombre de pas, motifs différents
+          return M.picker({ group: motifGroup, cur: on ? now : null, spb, beat, keep, onGroup: (g) => ((motifGroup = g), render()), onPick: pick });
         })(),
         seg('Scènes', [['all', 'Toutes'], ['one', 'Cette scène']], scope, setScope, '« Cette scène » : seule la scène en cours prend le motif choisi ; les autres gardent le leur.'),
         seg('Hauteur', SS.FOLLOW.MOTIF_OCTAVES.map((o) => [o, 'C' + o]), f.oct, (o) => (on ? (commit({ ...f, oct: o }), preview()) : ((track.lastFollow = SS.FOLLOW.clean({ ...f, oct: o })), render()))),
@@ -4930,26 +4933,30 @@ SS.ui = (() => {
     $('#dlgMotifRow').hidden = !show;
     if (!show) return;
     const cur = dlg.s.motif || null;
+    const ts = app.project().timeSig || [4, 4];
+    const sig = `${ts[0]}/${ts[1]}`; // 3/4 et 6/8 ont tous deux 12 pas : la mesure choisit les motifs
+    const PICK = { '4/4': M.PICKS, '3/4': ['valse', 'valsepop', 'valsejazz'], '6/8': ['ballade68', 'galop68', 'tarentelle'], '12/8': ['slow128', 'shuffle128', 'boogie128'] };
+    const meterOK = (id) => !SS.bandSong || !SS.bandSong.meterOK || sig === '4/4' || SS.bandSong.meterOK('bass', id, sig);
     $('#dlgMotifs').replaceChildren(
-      ...[null, ...({ 16: M.PICKS, 12: ['valse', 'valsejazz', 'ballade68'], 24: ['slow128', 'boogie128', 'berce128'] }[SS.stepsPerBar(app.project())] || ['whole', 'quarter', '8'])].map((id) =>
+      ...[null, ...(PICK[sig] || ['whole', 'quarter', '8'])].map((id) =>
         h('button', { type: 'button', role: 'radio', 'aria-checked': String(cur === id), class: 'nt-motif-card' + (cur === id ? ' on' : ''), 'data-id': id || '', onclick: () => setDlgMotif(id) }, h('span', { class: 'mot-name' }, id ? M.name(id) : 'À la main'), id ? h('span', { class: 'mot-draw', html: M.svg(id) }) : null)
       ),
       SS.helpTip('La basse joue ce motif sur les accords de la piste Accords, scène par scène (bouton MOTIF de la piste pour en changer). « À la main » : vous écrivez les notes.', 'Motif')
     );
     const sel = $('#dlgMotifAll');
     const meter = String(SS.stepsPerBar(app.project()));
-    if (!sel.options.length || sel.dataset.spb !== meter) {
-      sel.dataset.spb = meter; // liste refaite quand la mesure du morceau change
+    if (!sel.options.length || sel.dataset.spb !== sig) {
+      sel.dataset.spb = sig; // liste refaite quand la mesure du morceau change
       sel.replaceChildren();
       sel.append(
         h('option', { value: '' }, 'Tous les motifs…'),
         ...M.GROUPS.filter((g) => (g[0] === 'ternary') === (meter !== '16'))
-          .map((g) => [g, M.inGroup(g[0]).filter((id) => M.fits(id, +meter))])
+          .map((g) => [g, M.inGroup(g[0]).filter((id) => M.fits(id, +meter) && meterOK(id))])
           .filter(([, ids]) => ids.length)
           .map(([g, ids]) => h('optgroup', { label: g[1] }, ids.map((id) => h('option', { value: id }, M.name(id)))))
       );
     }
-    sel.value = cur && !M.PICKS.includes(cur) ? cur : '';
+    sel.value = cur && !(PICK[sig] || M.PICKS).includes(cur) ? cur : '';
   }
 
   function syncDialog() {

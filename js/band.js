@@ -2751,7 +2751,7 @@ SS.band = (() => {
   /** Efface toutes les retouches du plan (autre style ou autre inspiration, autre reprise). */
   function dropEdits(sameStyle = false) {
     if (!S.wiz) return;
-    Object.assign(S.wiz, { form: null, secs: {}, skey: null, keys: {}, grids: {}, peds: {}, emos: {}, parts: keptParts(sameStyle), kinds: keptKinds(), melPanel: {}, fx: {} });
+    Object.assign(S.wiz, { form: null, secs: {}, skey: null, keys: {}, grids: {}, peds: {}, emos: {}, parts: keptParts(sameStyle), kinds: keptKinds(), melPanel: {}, fx: {}, meter: null }); // mesure : celle de la nouvelle inspiration
   }
   /**
    * Réglages par scène gardés quand on change d'inspiration : ceux des sections que la nouvelle inspiration a aussi
@@ -3162,7 +3162,10 @@ SS.band = (() => {
   const SPB = () => SS.bandSong.meter().spb;
   const BEAT = () => SS.bandSong.meter().beat;
   /** Mesure choisie à l'étape Tempo ('4/4' par défaut ; la musique de film reste en 4/4). */
-  const sigOf = () => (S.wiz && S.wiz.meter && !film() ? S.wiz.meter : '4/4');
+  /** Mesure écrite dans le plan de l'inspiration (une valse, un slow 12/8…), sinon 4/4. */
+  const planSig = () => { const sp = !film() && SS.BandSongs && preset() && !cover() ? SS.BandSongs[preset().id] : null; return (sp && sp.meter) || '4/4'; };
+  /** Mesure de la chanson : celle choisie (S.wiz.meter), sinon celle du plan. */
+  const sigOf = () => (!S.wiz || film() ? '4/4' : S.wiz.meter || planSig());
 
   /* Tête d'étape : une phrase courte et concrète par étape (78 caractères au plus) : voir stepInfo(n).line. */
 
@@ -3513,7 +3516,7 @@ SS.band = (() => {
       moveLead(pp.lead);
       Object.values(pp.inst || {}).forEach((ie) => ie && moveLead(ie.lead));
     });
-    S.wiz.meter = sig;
+    S.wiz.meter = sig === planSig() ? null : sig; // la mesure du plan reste implicite (brouillons inchangés)
     BS().setMeter(sigOf());
     S.wiz.dsel = null;
     noteWizard(`mesure ${sig}`);
@@ -8303,6 +8306,7 @@ SS.band = (() => {
   function renderWiz() {
     const step = S.wiz.step;
     BS().setMeter(sigOf()); // toutes les étapes comptent dans la mesure de la chanson
+    if (SS.syncMeta) SS.syncMeta(); // barre du haut : la mesure de l'assistant
     el.classList.add('wizard');
     el.querySelectorAll('.wiz-only').forEach((x) => (x.hidden = false));
     if (!melStep()) leaveMel();
@@ -11233,11 +11237,15 @@ SS.band = (() => {
     dropListen();
     leaveMel();
     S.wiz = null;
+    BS().setMeter('4/4');
+    if (SS.syncMeta) SS.syncMeta(); // barre du haut : de nouveau la mesure du projet
     el.removeAttribute('open');
     document.body.classList.remove('wizard-mode');
     app.wizardMode(false);
   }
   const active = () => !!S.wiz;
+  /** Mesure de la chanson de l'assistant ([3, 4]…), null hors assistant (barre du haut, js/main.js syncMeta). */
+  const wizSig = () => (S.wiz ? sigOf().split('/').map(Number) : null);
   /** Pas précédent / suivant (boutons cachés #bwBack / #bwNext, Alt + flèches). */
   const stepBy = (d) => S.wiz && goStep(S.wiz.step + d);
 
@@ -11634,5 +11642,5 @@ SS.band = (() => {
     });
   }
 
-  return { init, open, openWizard, resume, close: () => leave(), create: () => S.wiz && createWizSong(), hasDraft, wizSnapshot, wizRestore, draftWhen, active, togglePlay, stopListen, slowListen, setTempo, plannedTracks, instKind, setKind, insSteps, stepRef, stepNum, instPartOf, putInstPart, melodyTrackOpts, BASS_MODES, claude, _state: S, _listen: () => L.proj, _spec: () => spec() };
+  return { init, open, openWizard, resume, close: () => leave(), create: () => S.wiz && createWizSong(), hasDraft, wizSnapshot, wizRestore, draftWhen, active, wizSig, togglePlay, stopListen, slowListen, setTempo, plannedTracks, instKind, setKind, insSteps, stepRef, stepNum, instPartOf, putInstPart, melodyTrackOpts, BASS_MODES, claude, _state: S, _listen: () => L.proj, _spec: () => spec() };
 })();

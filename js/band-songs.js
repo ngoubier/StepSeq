@@ -739,4 +739,33 @@ SS.BandSongs = {
     },
     form: 'intro verse chorus verse chorus solo chorus*2 outro',
   },
+
+  /* ================= Mesures ternaires ================= */
+
+  // Valse pop (modèle original) : « oum-pa-pa » du piano, basse sur le 1, refrain où l'arpège de valse et les cordes s'ouvrent ;
+  // meter : mesure de la chanson (l'assistant s'ouvre dans cette mesure)
+  lampions: {
+    key: 'F major', groove: 'softpop', emotion: 'nostalgie', meter: '3/4',
+    sections: {
+      intro: { bars: 8, chords: 'I | vi | ii7 | V7', drums: 'off', keys: 'arpvalse', lead: 'long' },
+      verse: { bars: 16, chords: 'I | I | vi | vi | ii7 | V7 | I | V7', drums: 'main', bass: 'valsepop', keys: 'valse3', lead: 'verse' },
+      chorus: { bars: 16, chords: 'IV | V7 | iii | vi | ii7 | V7 | I | I', drums: 'full', bass: 'valsepop', keys: 'arpvalse', strings: 'sustain', lead: 'hook' },
+      bridge: { bars: 8, chords: 'vi | III7 | vi | II7 | ii7 | V7 | I | V7', drums: 'light', bass: 'valse', keys: 'valse3', strings: 'swell', lead: 'long', name: 'Pont' },
+      outro: { bars: 8, chords: 'I | vi | ii7 | V7 | I | IV | I | I', drums: 'off', bass: 'whole', keys: 'arpvalse', strings: 'sustain', lead: 'answer', fill: false },
+    },
+    form: 'intro verse chorus verse chorus bridge chorus outro',
+  },
+
+  // Slow doo-wop 12/8 (modèle original) : cycle I–vi–IV–V, piano en triolets plaqués, basse qui balance, sax ténor
+  samedisoir: {
+    key: 'E♭ major', groove: 'soul', emotion: 'tendresse', meter: '12/8',
+    sections: {
+      intro: { bars: 4, chords: 'I | vi | IV | V7', drums: 'light', keys: 'triolets128', lead: 'long' },
+      verse: { bars: 8, chords: 'I | vi | IV | V7', drums: 'main', bass: 'slow128', keys: 'triolets128', pad: 'sustain', lead: 'verse' },
+      chorus: { bars: 8, chords: 'IV | iv | I | I7 | ii7 | V7 | I | V7', drums: 'full', bass: 'shuffle128', keys: 'triolets128', pad: 'sustain', lead: 'hook' },
+      bridge: { bars: 8, chords: 'III7 | III7 | vi | vi | II7 | II7 | ii7 | V7', drums: 'main', bass: 'slow128', keys: 'berce128', pad: 'swell', lead: 'solo', name: 'Pont' },
+      outro: { bars: 4, chords: 'I | vi | IV | I', drums: 'light', bass: 'whole', keys: 'arp128', pad: 'sustain', lead: 'answer', fill: false },
+    },
+    form: 'intro verse verse chorus verse chorus bridge chorus outro',
+  },
 };
