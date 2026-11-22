@@ -120,6 +120,7 @@ SS.wizDraft = (() => {
     if (typeof d.createdAt === 'number' && Number.isFinite(d.createdAt)) o.createdAt = d.createdAt;
     if (typeof d.builtSig === 'string' && d.builtSig.length < 40) o.builtSig = d.builtSig;
     if (typeof d.gridSig === 'string' && d.gridSig.length < 40) o.gridSig = d.gridSig; // la grille au dernier passage de l'assistant
+    if (typeof d.stepLabel === 'string' && d.stepLabel.length < 80) o.stepLabel = d.stepLabel; // nom de l'étape en cours (liste « Mes chansons »)
     if (Array.isArray(d.builtMus)) o.builtMus = d.builtMus.filter((x) => typeof x === 'string' && x.length < 40); // musiciens de la dernière création
     return o;
   }

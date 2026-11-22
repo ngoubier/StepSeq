@@ -2719,6 +2719,37 @@ dialog.songs-dialog { width: min(760px, calc(100vw - 32px)); height: min(640px, 
 @keyframes sd-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .sd-loop.active svg { animation: none; } }
 .song-actions .btn-danger:disabled { opacity: .35; }
+.songs-shell { position: relative; }
+.songs-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.songs-tools .br-search { flex: 1 1 200px; min-width: 0; }
+.songs-kind button { font-size: var(--fs-sm); }
+.songs-cnt { color: var(--c-faint); margin-left: 2px; }
+.songs-kind button.active .songs-cnt { color: var(--c-text-2); }
+.songs-del-empty { color: var(--c-red-soft); border-color: var(--c-red-deep); }
+.songs-del-empty:hover { background: var(--c-red-bg); }
+.songs-del-fill { background: var(--c-red-deep); border-color: var(--c-red); color: var(--c-text); }
+.songs-del-fill:hover { background: var(--c-red); }
+.songs-selbar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--c-red-deep); border-radius: 8px; background: var(--c-red-bg); font-size: var(--fs-sm); }
+.songs-selbar .spacer { flex: 1; }
+.song-check { flex: none; width: 16px; height: 16px; margin: 0; accent-color: var(--c-red); cursor: pointer; }
+.song-check:disabled { visibility: hidden; }
+.song-row.selected { background: var(--c-red-bg); border-color: var(--c-red-deep); }
+.song-row.empty .song-title { color: var(--c-muted); font-weight: 500; }
+.song-tag { margin-left: 8px; padding: 1px 7px; border-radius: 8px; font-size: var(--fs-xs); font-weight: 600; vertical-align: 1px; }
+.song-tag.wiz { background: var(--c-violet-bg); color: var(--c-violet-soft); border: 1px solid var(--c-violet-deep); }
+.song-tag.empty { background: var(--c-panel-3); color: var(--c-muted); }
+.song-actions .btn-resume { background: var(--c-violet-bg); border-color: var(--c-violet-deep); color: var(--c-violet-soft); }
+.song-actions .btn-resume:hover { background: var(--c-violet-deep); color: var(--c-text); }
+.song-trash { width: 28px; padding: 0; display: inline-grid; place-items: center; color: var(--c-faint); }
+.song-trash:hover:not(:disabled) { color: var(--c-red-soft); background: var(--c-red-bg); }
+.song-trash svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.songs-veil { position: absolute; inset: 0; display: grid; place-items: center; background: color-mix(in srgb, var(--c-bg-deep) 70%, transparent); border-radius: inherit; z-index: 5; }
+.songs-veil[hidden] { display: none; }
+.songs-confirm { width: min(420px, 92%); padding: 16px 18px; border: 1px solid var(--c-line-strong); border-radius: 10px; background: var(--c-panel-2); box-shadow: 0 16px 50px var(--c-bg-deep); }
+.songs-confirm h3 { margin: 0 0 6px; font-size: var(--fs-lg); }
+.songs-confirm-sub { margin: 0 0 6px; color: var(--c-muted); font-size: var(--fs-sm); }
+.songs-confirm ul { margin: 6px 0 12px; padding-left: 18px; color: var(--c-text-2); font-size: var(--fs-sm); max-height: 140px; overflow: auto; }
+.songs-confirm-btns { display: flex; justify-content: flex-end; gap: 8px; }
 .song-versions { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px 10px 22px; background: var(--panel); border-top: 1px solid var(--line); }
 .song-versions .dlg-hint { margin: 2px 0 0; }
 .song-version { display: grid; grid-template-columns: 170px 1fr auto; align-items: center; gap: 8px; font-size: var(--fs-md); }

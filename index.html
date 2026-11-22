@@ -418,8 +418,33 @@
         </button>
       </header>
       <p class="dlg-hint songs-intro" data-helpify>Chaque chanson est enregistrée automatiquement dans ce navigateur, sans rien demander. Un instantané est gardé au plus toutes les 10 minutes de travail (bouton <b>Versions</b>). Sur Chrome et Edge, après un premier <b>Enregistrer</b>, le fichier choisi est aussi mis à jour à chaque modification (📄).</p>
-      <input id="songsFilter" class="br-search" type="search" placeholder="🔍 Chercher une chanson…" autocomplete="off" aria-label="Chercher une chanson">
+      <div class="songs-tools">
+        <input id="songsFilter" class="br-search" type="search" placeholder="🔍 Chercher une chanson…" autocomplete="off" aria-label="Chercher une chanson">
+        <div class="segmented songs-kind" id="songsKind" role="radiogroup" aria-label="Afficher">
+          <button type="button" role="radio" data-k="all" class="active" aria-checked="true">Toutes <span class="songs-cnt" data-c="all"></span></button>
+          <button type="button" role="radio" data-k="wiz" aria-checked="false">Assistant <span class="songs-cnt" data-c="wiz"></span></button>
+          <button type="button" role="radio" data-k="empty" aria-checked="false">Vides <span class="songs-cnt" data-c="empty"></span></button>
+        </div>
+        <button type="button" class="btn btn-small songs-del-empty" id="songsDelEmpty" hidden></button>
+      </div>
+      <div class="songs-selbar" id="songsSelbar" hidden>
+        <span id="songsSelCount"></span>
+        <span class="spacer"></span>
+        <button type="button" class="btn btn-small" id="songsSelNone">Tout désélectionner</button>
+        <button type="button" class="btn btn-small songs-del-fill" id="songsSelDel">Supprimer la sélection…</button>
+      </div>
       <div class="songs-list" id="songsList"></div>
+      <div class="songs-veil" id="songsConfirm" hidden>
+        <div class="songs-confirm" role="alertdialog" aria-labelledby="songsConfirmTitle">
+          <h3 id="songsConfirmTitle"></h3>
+          <p class="songs-confirm-sub" id="songsConfirmSub"></p>
+          <ul id="songsConfirmList"></ul>
+          <div class="songs-confirm-btns">
+            <button type="button" class="btn btn-small" id="songsConfirmNo">Annuler</button>
+            <button type="button" class="btn btn-small songs-del-fill" id="songsConfirmYes"></button>
+          </div>
+        </div>
+      </div>
     </div>
   </dialog>
 
@@ -1047,6 +1072,7 @@
   <script src="js/project.js?v=ctl-1"></script>
   <script src="js/store.js"></script>
   <script src="js/mysongs.js"></script>
+  <script src="js/songname.js"></script>
   <script src="js/harmony.js"></script>
   <script src="js/chords.js"></script>
   <script src="js/transform.js"></script>

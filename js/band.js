@@ -10399,6 +10399,12 @@ SS.band = (() => {
     if (S.wiz.builtSig) d.builtSig = S.wiz.builtSig; // ce qui est dans la grille (SS.wizDraft.pending)
     if (S.wiz.gridSig) d.gridSig = S.wiz.gridSig; // la grille lors du dernier passage de l'assistant (relue ou créée)
     if (S.wiz.builtMus) d.builtMus = S.wiz.builtMus;
+    try {
+      const lab = stepInfo(S.wiz.step).label;
+      if (lab) d.stepLabel = String(lab); // affiché dans « Mes chansons » (badge Assistant)
+    } catch (e) {
+      /* étape inconnue : pas de nom */
+    }
     return d;
   }
   /** Mélodie « Mix »… : les caches du catalogue (instruments choisis) ne gardent que ce qui existe encore. */

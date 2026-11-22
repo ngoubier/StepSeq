@@ -419,6 +419,8 @@
       SS.files.reset();
       const fresh = SS.newProject();
       fresh.bars = 4; // nouvelle chanson : 4 mesures par défaut
+      fresh.title = await inventTitle(); // un nom inventé (nom + adjectif) plutôt que « Nouveau projet »
+      autoNamed = { id: fresh.id, title: fresh.title };
       SS.commitScene(fresh);
       await loadSong(fresh, { changed: true, origin: { kind: 'nouvelle chanson vide', detail: { via: 'menu « Nouvelle chanson… » (assistant ouvert ensuite)' } } });
       // assistant : modèle d'instruments → la chanson en scènes × pistes → mélodie → pistes à importer
@@ -1016,12 +1018,39 @@
 
   /** Charge une chanson (Nouveau, Ouvrir, Mes chansons) et la range tout de suite dans la bibliothèque. */
   async function loadSong(p, { changed: mark = false, handle = null, origin = null } = {}) {
+    const prev = project;
+    // quittée vide et jamais renommée : elle ne reste pas dans « Mes chansons »
+    const untouched = prev && (prev.title === 'Nouveau projet' || (autoNamed && autoNamed.id === prev.id && autoNamed.title === prev.title));
+    const dropPrev = untouched && prev.id !== p.id && isEmptySong(prev) && !SS.autosave.fileName();
     setProject(p, origin || { kind: 'chargée (origine non précisée)' });
     if (mark) changed();
     else persist(); // c'est la chanson qu'on retrouvera au prochain démarrage
     dirty = false;
     if (handle) await SS.autosave.linkFile(handle);
     await SS.autosave.songChanged();
+    if (dropPrev && SS.autosave.libraryAvailable()) await SS.store.remove(prev.id).catch(() => {});
+    resumeWizardIfOnly();
+  }
+
+  let autoNamed = null; // { id, title } : le nom inventé de la dernière nouvelle chanson
+  /** Chanson vide : ni piste, ni travail de l'assistant (elle peut être supprimée sans rien perdre). */
+  function isEmptySong(p) {
+    return !(p.tracks || []).length && !p.wizard;
+  }
+  /** Chanson qui n'existe que dans l'assistant (pas de piste, un brouillon) : elle s'ouvre dans l'assistant. */
+  function resumeWizardIfOnly() {
+    if (project.tracks.length || !project.wizard || SS.band.active()) return;
+    SS.band.resume();
+  }
+  /** Nom inventé pour une nouvelle chanson, différent des titres déjà dans « Mes chansons ». */
+  async function inventTitle() {
+    let taken = [];
+    try {
+      if (SS.autosave.libraryAvailable()) taken = (await SS.store.list()).map((s) => s.title);
+    } catch (e) {
+      /* bibliothèque indisponible : un nom au hasard */
+    }
+    return SS.songName.invent(taken);
   }
 
   /* ---------- Raccourcis clavier ---------- */
@@ -1116,6 +1145,7 @@
     setProject(saved || demoProject(), saved ? { kind: 'démarrage : dernière chanson (sauvegarde locale)', detail: { titre: saved.title } } : { kind: 'démarrage : projet de démonstration (aucune sauvegarde locale)' });
   }
   SS.autosave.init({ project: () => project, openLibrary: () => SS.mySongs.open() }).then(() => SS.autosave.songChanged());
+  resumeWizardIfOnly(); // dernière chanson ouverte, seulement dans l'assistant : on la retrouve dans l'assistant
   // L'audio ne peut démarrer qu'après un geste de l'utilisateur : on précharge les sons à ce moment-là.
   const unlock = () => {
     SS.audio.ensureCtx();
