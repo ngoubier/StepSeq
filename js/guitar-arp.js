@@ -240,6 +240,12 @@
       src: 1, meter: '3/4', vel: [80, 62, 66, 70, 60, 56],
       desc: 'Six attaques régulières par mesure de 3/4 (sur C : C E G C G E), la note aiguë plus douce.',
     }),
+    // mesures ternaires (nov. 2026)
+    M('vpince', 'doigts', 'Valse pincée', 3, 2, 'B . 3+2+1 . 3+2+1 .', { meter: '3/4', vel: [84, 0, 66, 0, 62, 0], desc: 'Le pouce sur le 1, l’accord pincé sur le 2 et le 3.' }),
+    M('celtique', 'doigts', 'Celtique 6/8', 2, 3, 'B 1 2 3 1 2', { meter: '6/8', vel: [84, 72, 62, 60, 70, 60], desc: 'p-a-m-i-a-m : les cordes aiguës devant, comme une harpe ou un DADGAD.' }),
+    M('bpince', 'doigts', 'Ballade pincée 6/8', 2, 3, 'B 3+2+1 . A 3+2+1 .', { meter: '6/8', vel: [84, 64, 0, 78, 60, 0], desc: 'Pouce, puis l’accord pincé, sur chaque temps.' }),
+    M('slowpim', 'doigts', 'Slow p-i-m 12/8', 4, 3, 'B 3 2 B 3 2 A 3 2 B 3 2', { meter: '12/8', vel: [84, 60, 64, 76, 58, 62, 80, 60, 64, 76, 58, 62], desc: 'p-i-m sur chaque temps, basse alternée sur le 3 : le slow des années 50.' }),
+    M('arp128', 'doigts', 'Arpège 12/8', 4, 3, 'B 3 2 1 2 3 A 3 2 1 2 3', { meter: '12/8', vel: [84, 60, 64, 72, 62, 58, 80, 60, 64, 72, 62, 58], desc: 'p-i-m-a-m-i deux fois par mesure.' }),
     M('pop16', 'doigts', 'Pop en doubles', 4, 4, 'B 3 2 3 1 3 2 3 A 3 2 3 1 3 2 3', { desc: 'Doubles-croches régulières autour de la 3e corde : pop acoustique, intro qui avance.' }),
     M('pince', 'doigts', 'Pincé', 4, 2, 'B+1 3 2+3 1 A+1 3 2+3 2', { desc: 'Pouce et annulaire ensemble sur le temps : la basse et la note haute en même temps.' }),
     M('bossa', 'doigts', 'Bossa nova', 4, 4, 'B+3+2+1 . . 3+2+1 . . A+3+2+1 . B . 3+2+1 . 3+2+1 . A .', { desc: 'Le pouce marque une basse pointée, trois doigts pincent l’accord en syncope.' }),
@@ -261,6 +267,10 @@
   MOTIFS.push(
     S('pop', 'Pop ↓ ↓↑ ↑↓↑', 4, 4, 'D . . . D . U . . . U . D . U .', 'Le grattage le plus joué en pop et en folk : bas, bas-haut, haut-bas-haut.'),
     S('folk68', 'Folk 6/8', 2, 3, 'D . U D . U', 'Un balancement ternaire, accent sur 1 et 4.', { meter: '6/8' }),
+    S('gvalse', 'Grattage valse', 3, 2, 'D . D u D u', 'Un grand coup sur le 1, bas-haut sur le 2 et le 3.', { meter: '3/4' }),
+    S('rock68', 'Grattage rock 6/8', 2, 3, 'D u d D u d', 'Six coups par mesure, appuyés sur les deux temps.', { meter: '6/8' }),
+    S('gslow', 'Grattage slow 12/8', 4, 3, 'D d u D d u D d u D d u', 'Bas-bas-haut sur chaque temps : blues lent, doo-wop.', { meter: '12/8' }),
+    S('shuffle128', 'Shuffle blues 12/8', 4, 3, 'D . u d . u D . u d . u', 'Longue-courte sur chaque temps, le 1 et le 3 appuyés.', { meter: '12/8' }),
     S('rock', 'Rock croches', 4, 4, 'D . d . D . d . D . d . D . d .', 'Que des coups vers le bas en croches, plus forts sur les temps.'),
     S('palm', 'Palm mute', 4, 4, 'P . P . P . P . P . P . P . P .', 'Croches étouffées de la paume sur les cordes graves : le rock qui pousse sans prendre de place.'),
     S('reggae', 'Reggae skank', 4, 4, '. . . . c . . . . . . . c . . .', 'Un coup court sur les cordes aiguës, sur 2 et 4, coupé tout de suite.'),
@@ -301,6 +311,7 @@
     o.tuning = TUNINGS.some((t) => t.id === g.tuning) ? g.tuning : 'standard';
     o.spread = Math.round(clamp(num(+g.spread, DEFAULTS.spread), 0, 40));
     for (const k of ['ring', 'mel', 'thumb', 'human']) o[k] = clamp(num(+g[k], DEFAULTS[k]), 0, 1);
+    if (g.tern) o.tern = true; // chanson en 6/8 ou 12/8 (voir motifOf)
     return o;
   }
 
@@ -316,7 +327,14 @@
     return (h >>> 0) / 4294967296;
   }
 
-  const motifOf = (g) => MOTIFS.find((m) => m.id === g.motif) || MOTIFS[0];
+  /**
+   * Motif des réglages. tern (posé par le moteur de chanson en 6/8 et 12/8, où une croche = 2 doubles-croches) : un motif
+   * 6/8 ou 12/8 écrit en triolets de noire (div 3, pour la Grille en 4/4) est joué en vraies croches (div 2, 1,5 × plus de temps).
+   */
+  const motifOf = (g) => {
+    const m = MOTIFS.find((x) => x.id === g.motif) || MOTIFS[0];
+    return g.tern && m.div === 3 && (m.meter === '6/8' || m.meter === '12/8') ? { ...m, div: 2, beats: m.beats * 1.5 } : m;
+  };
 
   /**
    * Toutes les attaques d'un accord (événement ev) : positions en doubles-croches depuis ev.step.
