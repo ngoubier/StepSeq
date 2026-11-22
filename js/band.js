@@ -10457,6 +10457,14 @@ SS.band = (() => {
       if (same) return void same.ids.push(t.id);
       out.push({ type, name: t.name, opts: soundOf(t), ids: [t.id], ...(t.band && t.band.musician ? { bmu: t.band.musician } : {}) });
     });
+    // les pistes de batterie faites à la main rejoignent le kit du batteur de l'assistant (un seul batteur, pas deux)
+    const hand = kits.get('*');
+    const host = hand && ([...kits.entries()].find(([k]) => /^drums?$/.test(k)) || [...kits.entries()].find(([k]) => k !== '*'));
+    if (host) {
+      host[1].pieces.push(...hand.pieces);
+      host[1].ids.push(...hand.ids);
+      out.splice(out.indexOf(hand), 1);
+    }
     return out.slice(0, BG().MAX);
   }
   /* ---------- Relire la grille (bascule Grille → Assistant) ----------
@@ -10660,16 +10668,28 @@ SS.band = (() => {
     const rows = [];
     const built = new Set(S.wiz.builtMus || []);
     const absent = [];
+    const orph = orphanTracks(p);
+    // pistes de batterie que personne ne joue : elles vont au batteur du groupe s'il y en a un (pas un 2e batteur)
+    const host = orph.some((t) => t.type === 'drum') ? drumHost() : null;
     musicians().forEach((mu) => {
       const tr = gridTracksOf(p, mu);
-      if (!tr.length) return void (!built.has(mu.id) && absent.push({ mu, tracks: [], absent: true, mute: true }));
+      if (!tr.length) return void (!built.has(mu.id) && (!host || mu.id !== host.id) && absent.push({ mu, tracks: [], absent: true, mute: true }));
       const how = tr.map((t) => retouchOf(p, t));
       const kind = how.includes('hand') ? 'hand' : how.includes('notes') ? 'notes' : how.includes('sound') ? 'sound' : '';
       const fromGrid = (S.gridInst || []).some((i) => i.mu === mu.id);
       rows.push({ mu, tracks: tr, kind, fromGrid, lock: muLocked(mu) || ((kind === 'hand' || kind === 'notes') && tr.some(hasNotes)) });
     });
-    orphanTracks(p).forEach((t) => rows.push({ orphan: true, tracks: [t], kind: hasNotes(t) ? 'hand' : '', lock: !!locks()[t.id] || hasNotes(t) }));
+    orph.forEach((t) =>
+      host && t.type === 'drum'
+        ? rows.push({ orphan: true, host, tracks: [t], kind: hasNotes(t) ? 'hand' : '', lock: !!locks()[t.id] })
+        : rows.push({ orphan: true, tracks: [t], kind: hasNotes(t) ? 'hand' : '', lock: !!locks()[t.id] || hasNotes(t) })
+    );
     return [...rows, ...absent];
+  }
+  /** Le batteur du groupe qui reçoit les pistes de batterie de la grille que personne ne joue (pas verrouillé). */
+  function drumHost() {
+    const kits = musicians().filter((mu) => mu.kits && !muLocked(mu));
+    return kits.find((mu) => mu.role === 'drums') || kits[0] || null;
   }
   const WHY = {
     hand: 'Tes notes, écrites dans la grille',
@@ -10709,7 +10729,7 @@ SS.band = (() => {
       h(
         'div',
         { class: 'bgu-row brg-row' + (r.lock ? ' locked' : '') + (r.absent ? ' brg-absent' + (r.mute ? ' muted' : '') : ''), 'data-mu': r.mu ? r.mu.id : '', 'data-id': r.tracks.length ? r.tracks[0].id : '' },
-        h('span', { class: 'bgu-name' }, h('b', {}, r.orphan ? r.tracks[0].name : r.mu.name), badge(r), r.absent ? null : h('small', {}, r.tracks.length > 1 ? `${r.tracks.length} pistes · ` : '', r.orphan ? 'Un musicien de plus, avec ce son' : WHY[r.kind === 'hand' && !r.fromGrid ? 'hand' : r.kind] || WHY[''])),
+        h('span', { class: 'bgu-name' }, h('b', {}, r.orphan ? r.tracks[0].name : r.mu.name), badge(r), r.absent ? null : h('small', {}, r.tracks.length > 1 ? `${r.tracks.length} pistes · ` : '', r.host ? `Avec ${r.host.name}` : r.orphan ? 'Un musicien de plus, avec ce son' : WHY[r.kind === 'hand' && !r.fromGrid ? 'hand' : r.kind] || WHY[''])),
         seg(r)
       );
     const check = (it) =>
@@ -10764,7 +10784,18 @@ SS.band = (() => {
     });
     // les pistes que personne ne joue : un musicien de plus pour chaque instrument (les pistes de batterie d'un même kit
     // ensemble), avec son son, s'il reste de la place ; verrouillé ou non, il joue la piste de la grille
-    const orph = rows.filter((r) => r.orphan).flatMap((r) => r.tracks);
+    // batterie : les pistes jouées par l'assistant rejoignent le kit du batteur (verrouillées, elles restent telles quelles 🔒)
+    const host = rows.find((r) => r.host);
+    const toHost = rows.filter((r) => r.host && !r.lock).flatMap((r) => r.tracks);
+    if (host && toHost.length) {
+      const ms = musState()[host.host.id];
+      gridInstruments({ ...p, tracks: toHost }).forEach((inst) => {
+        inst.pieces.forEach((pc) => ms.pieces.push({ piece: pc.piece, on: true, custom: JSON.parse(JSON.stringify(pc.opts)) }));
+        inst.mu = host.host.id;
+        S.gridInst = [...(S.gridInst || []), inst];
+      });
+    }
+    const orph = rows.filter((r) => r.orphan && !r.host).flatMap((r) => r.tracks);
     gridInstruments({ ...p, tracks: orph }).forEach((inst) => {
       const rec = BG().canAdd(g) && BG().add(g, inst.type, { name: String(inst.name || '').slice(0, 24), ms: BG().msFromGrid(inst, null, S.styleId, S.presetId) });
       if (!rec) return void inst.ids.forEach((id) => (l[id] = l[id] || { key: true })); // groupe complet : la piste reste telle quelle 🔒
