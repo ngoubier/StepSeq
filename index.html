@@ -445,7 +445,7 @@
     </div>
   </dialog>
 
-  <!-- Dialogue d'ajout / modification de piste : taille fixe, type et source à gauche, sons au centre, variantes à droite -->
+  <!-- Dialogue d'ajout / modification de piste (retaillable) : rôle, élément ou famille, sons de toutes les sources, fiche et variantes -->
   <dialog id="trackDialog">
     <form method="dialog" id="trackForm" class="nt">
       <header class="nt-top">
@@ -465,15 +465,27 @@
           <span class="dlg-label">Rôle</span>
           <div class="nt-roles nt-src pills-nav pills-vert" id="dlgRoles" role="radiogroup" aria-label="Rôle du son"></div>
         </div>
+        <div class="nt-sub-col">
+          <span class="dlg-label" id="dlgSubLbl">Élément</span>
+          <div class="nt-roles nt-subs nt-src pills-nav pills-vert" id="dlgSubs" role="radiogroup" aria-labelledby="dlgSubLbl"></div>
+        </div>
 
         <section id="dlgDrum" class="nt-part">
           <div class="nt-center br-col">
-            <div class="nt-filter"><span class="dlg-label">Source <button type="button" class="help-tip" id="dlgDrumLibHint" data-help-title="Source" aria-label="Aide : Source">?</button></span><div class="chips nt-chips pills-nav" id="dlgDrumLib" role="radiogroup" aria-label="Bibliothèque de batterie"></div></div>
-            <div id="dlgTdm" class="nt-filter nt-chips-row"><span class="dlg-label">Élément</span><div id="dlgDrumTypes" class="chips nt-chips pills-nav" role="radiogroup" aria-label="Type de drum"></div></div>
-            <div class="br-head"><span class="dlg-label" id="dlgDrumListLabel">Boîte à rythmes</span><small id="dlgDrumCount" class="dlg-hint"></small></div>
-            <div id="dlgDrumList" class="pick-list nt-cards" aria-labelledby="dlgDrumListLabel"></div>
+            <div class="nt-filter nt-filter-row">
+              <div class="segmented pills-nav" id="dlgDrumChar" role="radiogroup" aria-label="Caractère du son">
+                <button type="button" data-v="all">Tous</button>
+                <button type="button" data-v="ac">Acoustique</button>
+                <button type="button" data-v="el">Électronique</button>
+              </div>
+              <select id="dlgDrumSrc" class="nt-src-sel" aria-label="Source"></select>
+              <button type="button" class="help-tip" id="dlgDrumSrcHint" data-help-title="Sources" data-help="Acoustique : batteries enregistrées, percussions acoustiques (VCSL), General MIDI, Mridangam. Électronique : boîtes à rythmes. Les banques Dirt-Samples mélangent les deux : elles n’apparaissent qu’avec « Tous », sauf celles dont le caractère est connu." aria-label="Aide : Sources">?</button>
+              <small id="dlgDrumCount" class="dlg-hint nt-count"></small>
+            </div>
+            <div id="dlgDrumList" class="pick-list nt-cards nt-rows" aria-label="Sons de batterie"></div>
           </div>
           <div class="nt-right br-col">
+            <div class="nt-fiche" id="dlgDrumFiche" aria-live="polite"></div>
             <div class="br-head"><span class="dlg-label" id="dlgVariantLabel">Variation</span><small id="dlgVariantCount" class="dlg-hint"></small></div>
             <div id="dlgVariantList" class="pick-list" aria-labelledby="dlgVariantLabel"></div>
           </div>
@@ -481,10 +493,12 @@
 
         <section id="dlgSnd" class="nt-part" hidden>
           <div class="nt-center br-col">
-            <div class="nt-filter"><span class="dlg-label">Source</span><div class="chips nt-chips pills-nav" id="dlgSrc" role="radiogroup" aria-label="Source du son"></div></div>
-            <div class="nt-filter" id="dlgSubRow" hidden><span class="dlg-label">Groupe</span><div class="chips nt-chips pills-nav" id="dlgSub" role="group" aria-label="Groupe de sons"></div></div>
-            <div class="br-head"><span class="dlg-label" id="dlgSndLabel">Sons</span><small id="dlgSndCount" class="dlg-hint"></small></div>
-            <div id="dlgSndList" class="pick-list nt-cards" aria-labelledby="dlgSndLabel"></div>
+            <div class="nt-filter nt-filter-row">
+              <select id="dlgSrc" class="nt-src-sel" aria-label="Source du son"></select>
+              <span class="dlg-label nt-snd-lbl" id="dlgSndLabel">Sons</span>
+              <small id="dlgSndCount" class="dlg-hint nt-count"></small>
+            </div>
+            <div id="dlgSndList" class="pick-list nt-cards nt-rows" aria-labelledby="dlgSndLabel"></div>
           </div>
           <div class="nt-right br-col">
             <div class="nt-fiche" id="dlgFiche" aria-live="polite"></div>

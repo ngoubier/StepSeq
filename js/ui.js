@@ -4391,38 +4391,27 @@ SS.ui = (() => {
         h('button', { type: 'button', 'data-v': r.id, style: `--rc:${r.color}`, onclick: () => setRole(r.id) }, h('i', { class: 'nt-dot', 'aria-hidden': 'true' }), h('span', { class: 'nt-src-l' }, r.label), h('small', { class: 'nt-role-n' }))
       )
     );
-    // Types de drum
-    SS.DRUM_TYPES.forEach((t) =>
-      $('#dlgDrumTypes').append(
-        h('button', { type: 'button', class: 'chip', 'data-v': t.id, onclick: () => dlg.s.sound !== t.id && setDrumSound(t.id, true) }, t.label)
-      )
-    );
-    // Bibliothèques de batterie (la « source » de la batterie)
-    SS.DRUM_LIBS.forEach((l) =>
-      $('#dlgDrumLib').append(
-        h('button', {
-          type: 'button',
-          class: 'chip',
-          'data-v': l.id,
-          title: l.hint,
-          onclick: () => {
-            if (dlg.s.source === l.id) return;
-            dlg.s.source = l.id;
-            dlg.s.variant = 0;
-            $('#dlgSearch').value = '';
-            syncDialog();
-            refreshDrum(true);
-          },
-        }, l.label)
-      )
-    );
-    setupList($('#dlgDrumList'), (v) => {
-      if ((dlg.s.source || 'tdm') === 'tdm') dlg.s.machine = v;
-      else dlg.s.bank = v;
-      dlg.s.variant = 0;
-      autoName();
-      refreshVariants(true);
+    // Batterie : caractère (Tous / Acoustique / Électronique) et source en liste déroulante ; l'élément est dans la 2e colonne
+    $('#dlgDrumChar').addEventListener('click', (e) => {
+      const b = e.target.closest('button');
+      if (!b || dlg.drumChar === b.dataset.v) return;
+      dlg.drumChar = b.dataset.v;
+      fillSubs();
+      fillDrumList(true);
+      syncDialog();
     });
+    $('#dlgDrumSrc').addEventListener('change', (e) => {
+      dlg.drumSrc = e.target.value;
+      fillSubs();
+      fillDrumList(true);
+    });
+    $('#dlgSrc').addEventListener('change', (e) => {
+      dlg.src = e.target.value;
+      fillSubs();
+      fillSounds();
+      syncDialog();
+    });
+    setupList($('#dlgDrumList'), (v) => pickDrum(v, true));
     setupList($('#dlgVariantList'), (v) => {
       dlg.s.variant = +v;
       previewSoon();
@@ -4435,7 +4424,7 @@ SS.ui = (() => {
     });
     // recherche : la batterie filtre ses machines, les autres rôles cherchent dans tous les sons ; ↓ ou Entrée descend dans la liste
     $('#dlgSearch').addEventListener('input', () => {
-      if (dlg.s.type === 'drum') fillDrumList();
+      if (dlg.s.type === 'drum') fillDrumList(true);
       else fillSounds();
       syncDialog();
     });
@@ -4495,6 +4484,7 @@ SS.ui = (() => {
       dlg.el.close('ok');
     });
     dlg.el.addEventListener('close', () => {
+      saveDialogSize();
       const ok = dlg.el.returnValue === 'ok';
       const res = ok ? { ...dlg.s, name: dlg.s.name.trim() } : null;
       if (res && res.motif && !res.editingId && dlg.role === 'bass' && res.type !== 'drum') res.follow = { play: 'motif', motif: res.motif };
@@ -4503,8 +4493,42 @@ SS.ui = (() => {
       dlg.resolve && dlg.resolve(res);
       dlg.resolve = null;
     });
+    // dernière taille de la fenêtre ouverte (la poignée de redimensionnement), gardée à la fermeture
+    if (window.ResizeObserver)
+      new ResizeObserver(() => {
+        if (dlg.el.open && dlg.el.offsetWidth) dlg.lastSize = { w: dlg.el.offsetWidth, h: dlg.el.offsetHeight };
+      }).observe(dlg.el);
     // Empêche la barre d'espace de lancer la lecture quand le dialogue est ouvert
     dlg.el.addEventListener('keydown', (e) => e.stopPropagation());
+  }
+
+  /* Taille de la fenêtre : retaillable à la souris (coin en bas à droite), gardée d'une ouverture à l'autre. */
+  const DLG_SIZE_KEY = 'stepseq.trackDialogSize';
+  function restoreDialogSize() {
+    let v = null;
+    try {
+      v = JSON.parse(localStorage.getItem(DLG_SIZE_KEY) || 'null');
+    } catch (e) {
+      v = null;
+    }
+    const el = dlg.el;
+    if (v && v.w > 0 && v.h > 0 && window.innerWidth > 760) {
+      el.style.width = Math.min(v.w, window.innerWidth - 24) + 'px';
+      el.style.height = Math.min(v.h, window.innerHeight - 24) + 'px';
+    } else {
+      el.style.width = '';
+      el.style.height = '';
+    }
+  }
+  function saveDialogSize() {
+    const o = dlg.openSize;
+    const l = dlg.lastSize;
+    if (!o || !l || (Math.abs(l.w - o.w) < 4 && Math.abs(l.h - o.h) < 4)) return; // pas retaillée
+    try {
+      localStorage.setItem(DLG_SIZE_KEY, JSON.stringify({ w: Math.round(l.w), h: Math.round(l.h) }));
+    } catch (e) {
+      /* stockage indisponible : la taille n'est pas gardée */
+    }
   }
 
   function setColor(c) {
@@ -4515,16 +4539,14 @@ SS.ui = (() => {
   function defaultName() {
     const s = dlg.s;
     if (s.type === 'drum') {
-      const others = app.project().tracks.filter((x) => x.type === 'drum' && x.id !== s.editingId);
-      if (s.source && s.source !== 'tdm') {
-        const gm = s.source === 'gm' && SS.findGmDrum(s.bank);
-        const name = gm ? gm.label : String(s.bank || 'Drum').replace(/_/g, ' ');
-        const count = others.filter((x) => x.source === s.source && x.bank === s.bank).length;
-        return `${name.charAt(0).toUpperCase() + name.slice(1)} ${count + 1}`;
-      }
+      // « Snare Pop », « Kick TR-808 » ; un numéro si le nom est déjà pris
       const t = SS.DRUM_TYPES.find((d) => d.id === s.sound);
-      const count = others.filter((x) => (x.source || 'tdm') === 'tdm' && x.sound === s.sound).length;
-      return `${t ? t.label : 'Drum'} ${count + 1}`;
+      const base = `${t ? t.label : 'Drum'} ${SS.catalog.drumSourceName(s)}`.trim();
+      const names = new Set(app.project().tracks.filter((x) => x.id !== s.editingId).map((x) => x.name));
+      if (!names.has(base)) return base;
+      let n = 2;
+      while (names.has(`${base} ${n}`)) n++;
+      return `${base} ${n}`;
     }
     if (s.type === 'synth') {
       const pt = (SS.JUNO_PATCHES || []).find((x) => x.id === s.patch);
@@ -4569,69 +4591,153 @@ SS.ui = (() => {
     $('#dlgName').value = dlg.s.name;
   }
 
-  async function setDrumSound(id, preview) {
-    dlg.s.sound = id;
-    autoName();
-    syncDialog();
-    await refreshMachines(preview);
-  }
-
-  async function refreshMachines(preview) {
-    let machines = [];
-    fillList($('#dlgDrumList'), [], null, 'Chargement…');
-    try {
-      machines = await SS.audio.drumMachines(dlg.s.sound);
-    } catch (e) {
-      toast('Impossible de charger la bibliothèque tidal-drum-machines (connexion internet requise).');
+  /* ---------- Batterie : élément (2e colonne) puis sons de toutes les bibliothèques (js/catalog.js drumEntries) ---------- */
+  const DRUM_SRC_LABEL = { live: 'Batteries enregistrées', vcsl: 'Percussions acoustiques', gm: 'General MIDI', tdm: 'Boîtes à rythmes', mrid: 'Mridangam', dirt: 'Dirt-Samples' };
+  const DRUM_CHAR = { ac: ['Acoustique', 'var(--c-green)'], el: ['Électronique', 'var(--c-violet)'], mx: ['Mixte', 'var(--c-amber)'] };
+  let drumLibsP = null;
+  /** Charge une fois les bibliothèques de batterie : banques de chacune, et boîtes à rythmes par élément. */
+  function loadDrumLibs() {
+    if (!drumLibsP) {
+      const banks = (lib) => SS.audio.drumBanks(lib).catch(() => []);
+      drumLibsP = Promise.all([
+        Promise.all(SS.DRUM_TYPES.map((t) => SS.audio.drumMachines(t.id).catch(() => []))),
+        banks('live'), banks('vcsl'), banks('dirt'), banks('mrid'),
+      ]).then(([tdm, live, vcsl, dirt, mrid]) => {
+        if (!tdm.some((x) => x.length) && !live.length) toast('Impossible de charger les bibliothèques de batterie (connexion internet requise).');
+        return { tdmByEl: Object.fromEntries(SS.DRUM_TYPES.map((t, i) => [t.id, tdm[i]])), live, vcsl, dirt, mrid };
+      });
+      drumLibsP.then((L) => (L.tdmByEl.bd.length ? null : (drumLibsP = null))); // échec réseau : on réessaiera
     }
-    if ((dlg.s.source || 'tdm') !== 'tdm') return;
-    if (!machines.includes(dlg.s.machine)) {
-      dlg.s.machine = machines.includes(SS.DEFAULT_MACHINE) ? SS.DEFAULT_MACHINE : machines[0];
-      dlg.s.variant = 0;
-    }
-    dlg.machines = machines;
-    fillDrumList();
-    await refreshVariants(preview);
+    return drumLibsP;
   }
+  /** Sons d'un élément, filtrés par caractère et source (sans la recherche). */
+  function drumList(el) {
+    const L = dlg.drumLibs;
+    if (!L) return [];
+    const all = SS.catalog.drumEntries(el, { ...L, tdm: L.tdmByEl[el] || [] }, { gm: gmOn() });
+    return all.filter((e) => (dlg.drumChar === 'all' || e.char === dlg.drumChar) && (dlg.drumSrc === 'all' || e.src === dlg.drumSrc));
+  }
+  const drumValue = (s) => `${s.source || 'tdm'}|${(s.source || 'tdm') === 'tdm' ? s.machine : s.bank}`;
 
-  /** Batterie : recharge les listes selon la bibliothèque choisie. */
+  /** Batterie : (re)charge les bibliothèques puis remplit l'élément et la liste des sons. */
   async function refreshDrum(preview) {
-    if ((dlg.s.source || 'tdm') === 'tdm') return refreshMachines(preview);
-    return refreshBanks(preview);
-  }
-
-  const DEFAULT_BANK = { dirt: 'jazz', vcsl: 'conga', mrid: 'ta', gm: '36' };
-  async function refreshBanks(preview) {
-    const source = dlg.s.source;
-    let banks = [];
-    fillList($('#dlgDrumList'), [], null, 'Chargement…');
-    try {
-      banks = await SS.audio.drumBanks(source);
-    } catch (e) {
-      toast('Impossible de charger cette bibliothèque (connexion internet requise).');
+    if (!dlg.drumLibs) {
+      fillList($('#dlgDrumList'), [], null, 'Chargement…');
+      dlg.drumLibs = await loadDrumLibs();
     }
-    if (dlg.s.source !== source) return; // l'utilisateur a changé de bibliothèque entre-temps
-    dlg.banks = banks;
-    if (!banks.some((b) => b.id === dlg.s.bank)) {
-      dlg.s.bank = banks.some((b) => b.id === DEFAULT_BANK[source]) ? DEFAULT_BANK[source] : banks[0] && banks[0].id;
-      dlg.s.variant = 0;
-    }
-    autoName();
-    fillDrumList();
+    if (dlg.s.type !== 'drum') return;
+    fillSubs();
+    fillDrumList(false);
     await refreshVariants(preview);
   }
 
-  /** Colonne de gauche des drums : boîtes à rythmes (tidal-drum-machines) ou banques (autres bibliothèques). */
-  function fillDrumList() {
-    const q = $('#dlgSearch').value.trim().toLowerCase();
-    const tdm = (dlg.s.source || 'tdm') === 'tdm';
-    const all = tdm ? (dlg.machines || []).map((m) => ({ v: m, label: m })) : (dlg.banks || []).map((b) => ({ v: b.id, label: b.label || b.id.replace(/_/g, ' '), meta: String(b.count) }));
-    const cur = tdm ? dlg.s.machine : dlg.s.bank;
-    const list = all.filter((x) => !q || x.label.toLowerCase().includes(q) || String(x.v).toLowerCase().includes(q));
-    $('#dlgDrumListLabel').textContent = tdm ? 'Boîte à rythmes' : 'Banque';
+  /** Choisit un élément (kick, snare…) : on garde la même source et le même kit quand ils l'ont. */
+  async function setDrumElement(el) {
+    const s = dlg.s;
+    const prev = { src: s.source || 'tdm', machine: s.machine, kit: String(s.bank || '').replace(/_[^_]+$/, '') };
+    s.sound = el;
+    const list = drumList(el);
+    const same = (e) => e.src === prev.src && (prev.src === 'tdm' ? e.id === prev.machine : prev.src === 'live' ? e.id === `${prev.kit}_${el}` : false);
+    const pick = list.find(same) || list.find((e) => e.src === prev.src) || list[0];
+    if (pick) pickDrum(pick.v, false);
+    fillSubs();
+    fillDrumList(false);
+    syncDialog();
+    await refreshVariants(true);
+  }
 
-    $('#dlgDrumCount').textContent = all.length ? (q ? `${list.length} / ${all.length}` : String(all.length)) : '';
-    fillList($('#dlgDrumList'), list, cur);
+  /** Règle la piste sur un son de batterie « source|id ». */
+  function pickDrum(v, user) {
+    const i = v.indexOf('|');
+    const src = v.slice(0, i);
+    const id = v.slice(i + 1);
+    const s = dlg.s;
+    s.source = src;
+    if (src === 'tdm') s.machine = id;
+    else s.bank = id;
+    s.variant = 0;
+    autoName();
+    fillDrumFiche();
+    if (user) refreshVariants(true);
+  }
+
+  /** Liste des sons de l'élément : regroupés par bibliothèque, avec le caractère de chaque son. */
+  function fillDrumList(keepSel) {
+    const s = dlg.s;
+    const el = s.sound || 'bd';
+    const q = $('#dlgSearch').value.trim().toLowerCase();
+    const all = drumList(el);
+    const list = all.filter((e) => !q || `${e.name} ${e.detail} ${e.id} ${DRUM_SRC_LABEL[e.src]}`.toLowerCase().includes(q));
+    let cur = drumValue(s);
+    // le son en cours n'est pas dans la liste (filtre, autre élément) : le premier de la liste est pris
+    if (keepSel && list.length && !list.some((e) => e.v === cur)) {
+      pickDrum(list[0].v, false);
+      cur = list[0].v;
+      refreshVariants(true);
+    }
+    const entries = [];
+    let last = null;
+    list.forEach((e) => {
+      if (e.src !== last) {
+        // le caractère de la bibliothèque dans son titre (Dirt-Samples le dit son par son)
+        const ch = e.src === 'dirt' || dlg.drumChar !== 'all' ? '' : ` · ${DRUM_CHAR[e.char][0]}`;
+        entries.push({ group: `${DRUM_SRC_LABEL[e.src]} · ${list.filter((x) => x.src === e.src).length}${ch}` });
+        last = e.src;
+      }
+      entries.push({ v: e.v, label: e.name, meta: e.detail || null, tag: dlg.drumChar === 'all' && e.src === 'dirt' ? { label: DRUM_CHAR[e.char][0], color: DRUM_CHAR[e.char][1] } : null });
+    });
+    $('#dlgDrumCount').textContent = list.length ? `${list.length} son${list.length > 1 ? 's' : ''}` : '';
+    fillList($('#dlgDrumList'), entries, cur, dlg.drumLibs ? 'Aucun son pour cet élément' : 'Chargement…');
+    fillDrumFiche();
+  }
+
+  /** Fiche du son de batterie choisi : élément, nom, bibliothèque, caractère. */
+  function fillDrumFiche() {
+    const s = dlg.s;
+    const el = SS.DRUM_TYPES.find((t) => t.id === s.sound) || SS.DRUM_TYPES[0];
+    const L = dlg.drumLibs;
+    const e = L && SS.catalog.drumEntries(el.id, { ...L, tdm: L.tdmByEl[el.id] || [] }).find((x) => x.v === drumValue(s));
+    const ch = e && DRUM_CHAR[e.char];
+    $('#dlgDrumFiche').replaceChildren(
+      ...[
+        h('b', { class: 'nt-fiche-name' }, `${el.label} · ${e ? e.name : drumValue(s).split('|')[1]}`),
+        h('div', { class: 'nt-fiche-meta' }, ch ? h('span', { class: 'pl-tag', style: `--sc:${ch[1]}` }, ch[0]) : null, h('span', {}, DRUM_SRC_LABEL[s.source || 'tdm'] || '')),
+        e && e.detail ? h('small', { class: 'dlg-hint' }, e.detail) : null,
+      ].filter((x) => x != null)
+    );
+  }
+
+  /** 2e colonne : les éléments de la batterie, ou les familles du rôle (Pianos électriques, Clavecins…). */
+  function fillSubs() {
+    const box = $('#dlgSubs');
+    const isDrum = dlg.s.type === 'drum';
+    $('#dlgSubLbl').textContent = isDrum ? 'Élément' : 'Famille';
+    let items;
+    let cur;
+    if (isDrum) {
+      cur = dlg.s.sound || 'bd';
+      items = SS.DRUM_TYPES.map((t) => ({ id: t.id, label: t.label, n: dlg.drumLibs ? drumList(t.id).length : '', pick: () => dlg.s.sound !== t.id && setDrumElement(t.id) }));
+    } else {
+      const gm = gmOn();
+      const all = SS.catalog.soundsOf(dlg.role, { gm }).filter((e) => dlg.src === 'all' || e.src === dlg.src);
+      const fams = SS.catalog.familiesOf(dlg.role, all);
+      const nFam = all.filter((e) => e.song).length;
+      if (dlg.fam === 'famous' ? !nFam : dlg.fam && !fams.some((f) => f.id === dlg.fam)) dlg.fam = null;
+      cur = dlg.fam || 'all';
+      const set = (id) => () => {
+        dlg.fam = id === 'all' ? null : id;
+        fillSubs();
+        fillSounds();
+        syncDialog();
+      };
+      items = [{ id: 'all', label: 'Tout', n: all.length }, ...fams, ...(nFam ? [{ id: 'famous', label: '★ Sons célèbres', n: nFam }] : [])].map((f) => ({ ...f, pick: set(f.id) }));
+    }
+    box.replaceChildren(
+      ...items.map((it) =>
+        h('button', { type: 'button', 'data-v': it.id, class: (it.id === cur ? 'active' : '') + (it.n === 0 ? ' nt-empty' : ''), onclick: it.pick }, h('span', { class: 'nt-src-l' }, it.label), h('small', { class: 'nt-role-n' }, String(it.n)))
+      )
+    );
+    rovePills(box);
   }
 
   async function refreshVariants(preview) {
@@ -4642,11 +4748,14 @@ SS.ui = (() => {
     if (dlg.s.variant >= list.length) dlg.s.variant = 0;
     fillList(
       $('#dlgVariantList'),
-      list.map((url, i) => ({ v: i, label: String(i + 1), meta: s.source === 'gm' ? SS.gmDrumKitLabel(url.split('/').pop()) : decodeURIComponent(url.split('/').pop()).replace(/\.(wav|mp3|ogg|flac|aiff?)$/i, '') })),
+      list.map((url, i) => ({ v: i, label: String(i + 1), meta: SS.LAYERED_DRUM_LIBS && SS.LAYERED_DRUM_LIBS.has(s.source) && list.length === 5 ? ['pp', 'p', 'mf', 'f', 'ff'][i] : s.source === 'gm' ? SS.gmDrumKitLabel(url.split('/').pop()) : decodeURIComponent(url.split('/').pop()).replace(/\.(wav|mp3|ogg|flac|aiff?)$/i, '') })),
       dlg.s.variant,
       'Aucun son'
     );
     $('#dlgVariantCount').textContent = list.length ? String(list.length) : '';
+    // batteries enregistrées : chaque coup joue le niveau de frappe de sa vélocité
+    const layered = SS.LAYERED_DRUM_LIBS && SS.LAYERED_DRUM_LIBS.has(s.source);
+    $('#dlgVariantLabel').replaceChildren(layered ? 'Frappe' : 'Variante', layered ? SS.helpTip('Le niveau de frappe suit la vélocité de chaque note : doux en haut de la liste, fort en bas.', 'Frappe') : '');
     if (preview) previewSoon();
   }
 
@@ -4654,8 +4763,9 @@ SS.ui = (() => {
   function fillSounds() {
     const q = $('#dlgSearch').value.trim().toLowerCase();
     const gm = gmOn();
-    const ent = (e) => ({ v: e.v, label: e.name, meta: e.detail || null, tag: SS.catalog.SOURCES[e.src], title: e.title });
+    const ent = (e) => ({ v: e.v, label: e.name, meta: e.detail || null, tag: SS.catalog.SOURCES[e.src], title: e.orig && e.orig !== e.name ? `${e.orig}${e.title ? ' · ' + e.title : ''}` : e.title });
     const { v: cur } = SS.catalog.valueOf(dlg.s, { gm });
+    const sel = $('#dlgSrc');
     let entries;
     if (q) {
       entries = [];
@@ -4666,33 +4776,27 @@ SS.ui = (() => {
       });
       $('#dlgSndLabel').textContent = 'Recherche';
       $('#dlgSndCount').textContent = `${n} trouvé${n > 1 ? 's' : ''}`;
-      $('#dlgSrc').replaceChildren();
-      $('#dlgSubRow').hidden = true;
+      sel.hidden = true;
     } else {
       const all = SS.catalog.soundsOf(dlg.role, { gm });
       const srcs = SS.catalog.SOURCE_ORDER.filter((k) => all.some((e) => e.src === k));
       if (dlg.src !== 'all' && !srcs.includes(dlg.src)) dlg.src = 'all';
       const bySrc = all.filter((e) => dlg.src === 'all' || e.src === dlg.src);
-      // sous-groupes (Leads / Arpèges / Plucks) et sons célèbres des presets du synthé intégré
-      const subs = (SS.catalog.SUBS[dlg.role] || []).filter((g) => bySrc.some((e) => e.sub === g.id));
-      if (dlg.sub && !subs.some((g) => g.id === dlg.sub)) dlg.sub = null;
-      const nFam = bySrc.filter((e) => e.song && (!dlg.sub || e.sub === dlg.sub)).length;
-      if (!nFam) dlg.famous = false;
-      const list = bySrc.filter((e) => (!dlg.sub || e.sub === dlg.sub) && (!dlg.famous || e.song));
-      const sub = (id, label, n) => h('button', { type: 'button', class: 'chip' + (dlg.sub === id ? ' active' : ''), 'data-v': id || 'all', onclick: () => ((dlg.sub = id), fillSounds(), syncDialog()) }, label, h('small', {}, ` ${n}`));
-      const subChips = subs.length > 1 ? [sub(null, 'Tous', bySrc.length), ...subs.map((g) => sub(g.id, g.label, bySrc.filter((e) => e.sub === g.id).length))] : [];
-      const famChip = nFam
-        ? [h('button', { type: 'button', class: 'chip nt-famous' + (dlg.famous ? ' active' : ''), 'aria-pressed': String(!!dlg.famous), title: 'Presets du synthé intégré dans l’esprit de chansons connues', onclick: () => ((dlg.famous = !dlg.famous), fillSounds(), syncDialog()) }, '★ Sons célèbres', h('small', {}, ` ${nFam}`))]
-        : [];
-      $('#dlgSub').replaceChildren(...subChips, ...famChip);
-      $('#dlgSubRow').hidden = !subChips.length && !famChip.length;
-      entries = list.map(ent);
-      $('#dlgSndLabel').textContent = (SS.catalog.ROLE[dlg.role] || {}).label || 'Sons';
-      $('#dlgSndCount').textContent = list.length === all.length ? String(all.length) : `${list.length} / ${all.length}`;
-      const chip = (k, label, n) => h('button', { type: 'button', class: 'chip' + (dlg.src === k ? ' active' : ''), 'data-v': k, onclick: () => ((dlg.src = k), fillSounds(), syncDialog()) }, label, h('small', {}, ` ${n}`));
-      $('#dlgSrc').replaceChildren(
-        ...(srcs.length > 1 ? [chip('all', 'Toutes', all.length), ...srcs.map((k) => chip(k, SS.catalog.SOURCES[k].label, all.filter((e) => e.src === k).length))] : [])
+      // famille choisie dans la 2e colonne (ou les sons célèbres du synthé intégré)
+      const famOf = (e) => SS.catalog.familyOf(dlg.role, e);
+      const list = bySrc.filter((e) => !dlg.fam || (dlg.fam === 'famous' ? e.song : famOf(e) === dlg.fam));
+      // « Tout » : regroupés par famille, dans l'ordre de la colonne
+      const fams = dlg.fam ? [] : SS.catalog.familiesOf(dlg.role, bySrc);
+      entries = fams.length ? fams.flatMap((f) => [{ group: f.label }, ...list.filter((e) => famOf(e) === f.id).map(ent)]) : list.map(ent);
+      const famLabel = dlg.fam === 'famous' ? '★ Sons célèbres' : dlg.fam && (SS.catalog.familiesOf(dlg.role, bySrc).find((f) => f.id === dlg.fam) || {}).label;
+      $('#dlgSndLabel').textContent = famLabel || (SS.catalog.ROLE[dlg.role] || {}).label || 'Sons';
+      $('#dlgSndCount').textContent = `${list.length} son${list.length > 1 ? 's' : ''}`;
+      sel.hidden = srcs.length < 2;
+      sel.replaceChildren(
+        h('option', { value: 'all' }, `Toutes les sources (${all.length})`),
+        ...srcs.map((k) => h('option', { value: k }, `${SS.catalog.SOURCES[k].label} (${all.filter((e) => e.src === k).length})`))
       );
+      sel.value = dlg.src;
     }
     fillList($('#dlgSndList'), entries, cur, 'Aucun son trouvé');
   }
@@ -4704,14 +4808,13 @@ SS.ui = (() => {
     $('#dlgSearch').value = '';
     dlg.role = id;
     dlg.src = 'all';
-    dlg.sub = null;
-    dlg.famous = false;
+    dlg.fam = null;
     if (id === 'drums') {
       dlg.s.type = 'drum';
       if (gmOn()) toGmState();
       autoName();
       syncDialog();
-      refreshDrum();
+      refreshDrum(true);
       return;
     }
     const gm = gmOn();
@@ -4721,6 +4824,7 @@ SS.ui = (() => {
       if (list.length) applySound(list[0].v);
     }
     autoName();
+    fillSubs();
     fillSounds();
     fillFiche();
     syncDialog();
@@ -4740,7 +4844,11 @@ SS.ui = (() => {
     applySound(v);
     const { role } = SS.catalog.valueOf(dlg.s, { gm: gmOn() });
     if (role !== dlg.role && !$('#dlgSearch').value.trim()) fillSounds();
-    dlg.role = role;
+    if (role !== dlg.role) {
+      dlg.role = role;
+      dlg.fam = null;
+      fillSubs();
+    }
     fillFiche();
     autoName();
     syncDialog();
@@ -4856,9 +4964,8 @@ SS.ui = (() => {
     });
     $('#dlgGm').querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.v === (gm ? 'gm' : 'all')));
     $('#dlgGmHint').hidden = !gm;
-    $('#dlgDrumLib').querySelectorAll('button').forEach((b) => (b.hidden = gm && b.dataset.v !== 'gm' && b.dataset.v !== (s.source || 'tdm')));
     $('#dlgSearch').placeholder = isDrum
-      ? ((s.source || 'tdm') === 'tdm' ? '🔍 Filtrer les boîtes à rythmes (808, linn, dmx…)' : '🔍 Filtrer les banques (808, jazz, conga…)')
+      ? '🔍 Filtrer les sons de l’élément (pop, 808, linn, conga…)'
       : gm ? '🔍 Chercher un programme General MIDI (nom ou numéro : piano, 81…)' : '🔍 Chercher un son dans tous les rôles (cordes, rhodes, sax, A36…)';
     $('#dlgDrum').hidden = !isDrum;
     $('#dlgSnd').hidden = isDrum;
@@ -4866,13 +4973,15 @@ SS.ui = (() => {
     $('#dlgCatRow').hidden = isDrum; // une piste de batterie joue des coups : ni arpège ni accords
     $('#dlgArp').checked = !!s.arpOn;
     $('#dlgFollow').checked = !!s.follow;
-    const src = s.source || 'tdm';
-    $('#dlgDrumLib').querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.v === src));
-    SS.setHelp($('#dlgDrumLibHint'), (SS.DRUM_LIBS.find((l) => l.id === src) || {}).hint || '');
-    $('#dlgTdm').hidden = src !== 'tdm';
+    $('#dlgDrumChar').querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.v === dlg.drumChar));
+    const dsel = $('#dlgDrumSrc');
+    if (!dsel.options.length) dsel.append(h('option', { value: 'all' }, 'Toutes les sources'), ...SS.catalog.DRUM_SRC_ORDER.map((k) => h('option', { value: k }, DRUM_SRC_LABEL[k])));
+    if (gm) dlg.drumSrc = 'all';
+    dsel.value = dlg.drumSrc;
+    dsel.disabled = gm;
+    $('#dlgDrumChar').hidden = gm;
     $('#dlgColors').querySelectorAll('.swatch').forEach((b) => b.classList.toggle('active', b.dataset.c === s.color));
     dlg.colorInput.value = s.color;
-    $('#dlgDrumTypes').querySelectorAll('.chip').forEach((b) => b.classList.toggle('active', b.dataset.v === s.sound));
     dlg.form.querySelectorAll('.pills-nav').forEach(rovePills);
     syncMotifRow();
   }
@@ -4926,8 +5035,10 @@ SS.ui = (() => {
     if (on) toGmState();
     if (dlg.s.type !== 'drum') dlg.role = SS.catalog.valueOf(dlg.s, { gm: on }).role;
     dlg.src = 'all';
+    dlg.fam = null;
     $('#dlgSearch').value = '';
     autoName();
+    fillSubs();
     fillSounds();
     fillFiche();
     syncDialog();
@@ -4997,13 +5108,19 @@ SS.ui = (() => {
       if (st.name) dlg.s.nameEdited = true;
     }
     if (gmOn() && !track) toGmState();
+    if (dlg.s.type === 'drum') dlg.s.sound = SS.catalog.drumElementOf(dlg.s);
     dlg.role = SS.catalog.valueOf(dlg.s, { gm: gmOn() }).role;
     dlg.src = 'all';
+    dlg.fam = null;
+    dlg.drumChar = 'all';
+    dlg.drumSrc = 'all';
+    restoreDialogSize();
     $('#dlgTitle').textContent = (init && init.title) || (track ? 'Modifier la piste' : 'Nouvelle piste');
     $('#dlgOk').textContent = (init && init.okLabel) || (track ? 'Appliquer' : 'Valider');
     $('#dlgName').value = dlg.s.name;
     $('#dlgSearch').value = '';
     autoName();
+    fillSubs();
     fillSounds();
     fillFiche();
     fillLen();
@@ -5011,6 +5128,8 @@ SS.ui = (() => {
     refreshDrum(false);
     dlg.el.returnValue = '';
     dlg.el.showModal();
+    dlg.openSize = { w: dlg.el.offsetWidth, h: dlg.el.offsetHeight };
+    dlg.lastSize = dlg.openSize;
     // le clavier part de la liste principale (le nom reste à un Maj+Tab)
     requestAnimationFrame(() => $(dlg.s.type === 'drum' ? '#dlgDrumList' : '#dlgSndList').focus());
     return new Promise((resolve) => (dlg.resolve = resolve));

@@ -104,3 +104,41 @@ test('presets du synthé intégré : sous-groupes, sons célèbres et réglages 
   assert.equal(d.filter, 'bandpass');
   assert.ok(SS.soundDefaults({ type: 'instrument', family: 'keys', instrument: 'syn_synorgan' }).gain < 1);
 });
+
+test('batterie : une caisse claire acoustique se trouve dans chaque bibliothèque acoustique', () => {
+  const libs = { live: [{ id: 'pop_sd' }, { id: 'pop_bd' }, { id: 'rock_sd' }], vcsl: [{ id: 'snare_modern' }, { id: 'conga' }], tdm: ['RolandTR808'], dirt: [{ id: 'sn', count: 52 }, { id: 'bd', count: 24 }, { id: 'birds', count: 10 }] };
+  const sd = C.drumEntries('sd', libs);
+  assert.deepEqual(sd.filter((e) => e.char === 'ac').map((e) => e.v), ['live|pop_sd', 'live|rock_sd', 'vcsl|snare_modern', 'gm|38', 'gm|40']);
+  assert.equal(sd.find((e) => e.v === 'live|pop_sd').name, 'Pop');
+  assert.equal(sd.find((e) => e.src === 'tdm').name, 'Roland TR-808');
+  assert.ok(sd.some((e) => e.v === 'dirt|sn' && e.char === 'mx'));
+  // les banques Dirt sans élément connu vont dans « Divers »
+  assert.ok(C.drumEntries('misc', libs).some((e) => e.v === 'dirt|birds'));
+  assert.ok(C.drumEntries('perc', libs).some((e) => e.v === 'vcsl|conga'));
+  // en mode General MIDI : seulement les sons General MIDI
+  assert.ok(C.drumEntries('sd', libs, { gm: true }).every((e) => e.src === 'gm'));
+});
+
+test('batterie : élément d’une piste existante, quelle que soit sa source', () => {
+  assert.equal(C.drumElementOf({ source: 'tdm', sound: 'hh' }), 'hh');
+  assert.equal(C.drumElementOf({ source: 'live', bank: 'reggae_sd' }), 'sd');
+  assert.equal(C.drumElementOf({ source: 'gm', bank: '42' }), 'hh');
+  assert.equal(C.drumElementOf({ source: 'vcsl', bank: 'snare_rim' }), 'rim');
+  assert.equal(C.drumElementOf({ source: 'dirt', bank: '808bd' }), 'bd');
+  assert.equal(C.drumSourceName({ source: 'live', bank: 'rock_sd' }), 'Rock');
+  assert.equal(C.drumSourceName({ source: 'tdm', machine: 'RolandTR808' }), 'TR-808');
+});
+
+test('familles : chaque son d’un rôle est dans une famille listée, les noms sont en français', () => {
+  C.ROLES.forEach((r) => {
+    const all = C.soundsOf(r.id);
+    const fams = C.familiesOf(r.id, all);
+    if (!fams.length) return;
+    const ids = new Set(fams.map((f) => f.id));
+    all.forEach((e) => assert.ok(ids.has(C.familyOf(r.id, e)), `${r.id} : ${e.name}`));
+    assert.equal(fams.reduce((n, f) => n + f.n, 0), all.length, r.id);
+  });
+  const keys = C.soundsOf('keys');
+  assert.ok(keys.some((e) => e.name === 'Piano FM' && e.orig === 'Fmpiano'));
+  assert.ok(C.search('fmpiano').length, 'le nom d’origine reste cherchable');
+});

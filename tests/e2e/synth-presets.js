@@ -35,13 +35,12 @@ const server = http.createServer((req, res) => {
     await page.waitForFunction(() => window.SS && SS.ui && SS.catalog);
     await page.click('#emptyAdd');
     await page.click('#dlgRoles button[data-v="synth"]');
-    const subs = await page.$$eval('#dlgSub .chip', (b) => b.map((x) => x.textContent));
-    check(!(await page.$eval('#dlgSubRow', (e) => e.hidden)) && subs.some((s) => s.startsWith('Arpèges')) && subs.some((s) => s.startsWith('★')), 'sous-groupes et « Sons célèbres » : ' + subs.join(' | '));
-    await page.click('#dlgSub .chip[data-v="arp"]');
+    const subs = await page.$$eval('#dlgSubs button', (b) => b.map((x) => x.textContent));
+    check(subs.some((s) => s.startsWith('Arpèges')) && subs.some((s) => s.startsWith('★')), 'familles et « Sons célèbres » : ' + subs.join(' | '));
+    await page.click('#dlgSubs button[data-v="arp"]');
     const nArp = await page.$$eval('#dlgSndList .pl-item', (l) => l.length);
-    check(nArp >= 5 && nArp < 20, `Arpèges : ${nArp} presets`);
-    await page.click('#dlgSub .chip[data-v="all"]');
-    await page.click('#dlgSub .nt-famous');
+    check(nArp >= 5 && nArp < 20, `Arpèges : ${nArp} sons`);
+    await page.click('#dlgSubs button[data-v="famous"]');
     const fam = await page.$$eval('#dlgSndList .pl-item', (l) => l.map((x) => x.textContent));
     check(fam.length === 16 && fam.every((t) => t.includes('★')), `Sons célèbres du rôle : ${fam.length}`);
     await page.click('#dlgSndList .pl-item:nth-child(1)');
