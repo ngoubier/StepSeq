@@ -81,8 +81,7 @@ const SHOTS = process.env.SHOTS;
   const id1 = p.id;
 
   // sur un projet commencé : on demande d'abord
-  await page.click('#appMenuBtn');
-  await page.click('#bandBtn');
+  await page.click('#viewWiz');
   await page.waitForTimeout(500);
   if (await page.isVisible('#brgSkip')) await page.click('#brgSkip'); // « Reprendre la grille » : on part de zéro
   await page.click(film);

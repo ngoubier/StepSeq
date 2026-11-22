@@ -53,15 +53,10 @@ const ok = (c, m) => {
       const W = SS.band._state.wiz;
       return JSON.parse(JSON.stringify({ step: W.step, kinds: W.kinds, parts: W.parts, mix: W.mix, hscene: W.hscene, hsec: W.hsec, mixScope: W.mixScope, tempo: W.tempo, melPanel: W.melPanel, styleId: SS.band._state.styleId, presetId: SS.band._state.presetId }));
     });
-  const menuResume = async () => {
-    await page.click('#appMenuBtn');
-    return page.isVisible('#resumeWizard');
-  };
+  // le brouillon se reprend par le bouton ✦ Assistant (plus d'entrée « Reprendre l'assistant » dans le menu)
+  const menuResume = async () => page.isVisible('#viewWiz') && !!((await P()) || {}).wizard;
 
-  // menu : sans brouillon, « Reprendre l'assistant » n'est pas là
-  ok(!(await menuResume()), 'sans brouillon : pas de « Reprendre l’assistant » dans le menu');
-  await page.keyboard.press('Escape');
-  await page.click('#appMenuBtn'); // referme
+  ok(!(await menuResume()), 'sans brouillon : rien à reprendre');
   await page.click('#appMenuBtn');
   await page.click('#newProject');
   await page.waitForTimeout(600);
@@ -131,10 +126,8 @@ const ok = (c, m) => {
   await page.reload();
   await page.waitForTimeout(1200);
   ok(!(await page.isVisible('#bandDialog')), 'ouvrir un projet qui a un brouillon ne lance pas l’assistant');
-  ok(await menuResume(), 'menu : « Reprendre l’assistant » visible');
-  ok(/brouillon du/.test(await page.textContent('#resumeWizardInfo')), 'le menu dit « brouillon du … »');
-  if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'draft-menu.png') });
-  await page.click('#resumeWizard');
+  ok(await menuResume(), '✦ Assistant : brouillon à reprendre');
+  await page.click('#viewWiz');
   await page.waitForTimeout(900);
   const B = await live();
   ok(await page.isVisible('#bandDialog'), 'Reprendre : l’assistant s’ouvre');
@@ -170,25 +163,20 @@ const ok = (c, m) => {
   await page.click('#redoBtn');
   await page.waitForTimeout(400);
   ok((await P()).tracks.length > 2 && !!(await P()).wizard, 'Rétablir : les pistes reviennent, le brouillon reste');
-  ok(await menuResume(), 'menu : « Reprendre l’assistant » toujours là');
-  ok(/chanson créée/.test(await page.textContent('#resumeWizardInfo')), 'le menu dit « chanson créée le … »');
-  await page.keyboard.press('Escape');
-  await page.click('#appMenuBtn');
+  ok(await menuResume(), '✦ Assistant : brouillon toujours là');
 
   // brouillon de projet : toujours là dans Mes chansons / export (sérialisation du projet)
   ok(await page.evaluate(() => { const j = JSON.parse(SS.serialize(JSON.parse(localStorage.getItem('stepseq.autosave')) && SS.normalizeProject(JSON.parse(localStorage.getItem('stepseq.autosave'))))); return !!j.wizard && j.wizard.state.w.step >= 11; }), 'le brouillon traverse normalizeProject / serialize (export, import, Mes chansons)');
 
-  // « Nouvelle chanson sur ce projet… » : confirmation avant de remplacer le brouillon
+  // SS.band.open() (assistant neuf sur ce projet, ex-menu « Nouvelle chanson sur ce projet… ») : confirmation avant de remplacer le brouillon
   answer = false;
   dialogs.length = 0;
-  await page.click('#appMenuBtn');
-  await page.click('#bandBtn');
+  await page.evaluate(() => SS.band.open());
   await page.waitForTimeout(500);
   ok(dialogs.length === 1 && /Remplacer le brouillon de l’assistant/.test(dialogs[0]), 'confirmation « Remplacer le brouillon de l’assistant ? »');
   ok(!(await page.isVisible('#bandDialog')) && !!(await P()).wizard, 'Annuler : l’assistant ne s’ouvre pas, le brouillon reste');
   answer = true;
-  await page.click('#appMenuBtn');
-  await page.click('#bandBtn');
+  await page.evaluate(() => SS.band.open());
   await page.waitForTimeout(700);
   ok((await page.isVisible('#bandDialog')) && !(await P()).wizard && (await live()).step === 1, 'OK : assistant neuf, ancien brouillon effacé');
   await page.click('#bandClose');
@@ -199,8 +187,7 @@ const ok = (c, m) => {
   await page.evaluate(() => { const p = SS.normalizeProject(JSON.parse(localStorage.getItem('stepseq.autosave'))); p.wizard = { v: 1, savedAt: Date.now(), state: { styleId: 'synthwave', presetId: 'preset-disparu', w: { step: 5 } } }; localStorage.setItem('stepseq.autosave', JSON.stringify(p)); });
   await page.reload();
   await page.waitForTimeout(1200);
-  await page.click('#appMenuBtn');
-  await page.click('#resumeWizard');
+  await page.click('#viewWiz');
   await page.waitForTimeout(500);
   ok(!(await page.isVisible('#bandDialog')) && !errs.length, 'inspiration disparue : l’assistant ne s’ouvre pas, aucune erreur');
   ok(errs.length === 0, 'aucune erreur JavaScript : ' + errs.join(' | '));

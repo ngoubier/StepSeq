@@ -20,7 +20,7 @@ puis ouvrir <http://localhost:8000>.
 
 ## Interface
 
-- **En-tête** : icône de l'application (menu **Chansons**, **Nouvelle chanson…** (assistant sur une chanson vide), **Nouvelle chanson sur ce projet…** (le même assistant, sur le projet en cours), **Ouvrir**, **Enregistrer**, **Importer MIDI**, **Exporter MIDI**, **Exporter l'audio**), titre du projet, tempo (BPM), un bouton ∿ à icône seule dont la bulle (au survol, au clic ou au clavier)
+- **En-tête** : icône de l'application (menu **Nouvelle chanson…** (assistant sur une chanson vide), **Mes chansons…**, **Ouvrir un fichier…** (projet .json ou MIDI .mid, Ctrl+O), **Enregistrer** (Ctrl+S), **Exporter…** (audio WAV ou MIDI, Ctrl+E), **Options…** ; l'assistant sur le projet en cours s'ouvre par le bouton **✦ Assistant**), titre du projet, tempo (BPM), un bouton ∿ à icône seule dont la bulle (au survol, au clic ou au clavier)
   regroupe le chiffrage de mesure (4/4 par défaut, x/4 ou x/8), le nombre de mesures et le groove (swing, humanisation), **Lecture** et **Stop**, puis les fenêtres regroupées
   **Tonalité** (la tonalité de la scène en sous-titre ; un clic ouvre un petit menu tonique / mode, proposé d'après les notes ;
   la composition à partir d'une émotion, les grilles de référence, les essais A/B et la vérification sont dans l'assistant « Nouvelle chanson »), **Song** (fenêtre Song : scènes et arrangement, avec une case pour garder le panneau
@@ -76,7 +76,7 @@ Le bouton **Écouter** permet d'entendre le son avant de valider.
 
 ### Band : monter un groupe virtuel
 
-Le menu de l'icône de l'application (**Nouvelle chanson sur ce projet…**, l'ancien bouton Band) ouvre l'assistant de création de chanson (`js/band.js`, catalogue `js/band-presets.js`,
+Le bouton **✦ Assistant** de la barre du haut (l'ancien bouton Band) ouvre l'assistant de création de chanson (`js/band.js`, catalogue `js/band-presets.js`,
 voir « Nouvelle chanson » plus bas), sur le projet en cours. Ses deux premières étapes, **Style** puis **Instruments**, montent le groupe :
 
 1. le **style musical** : **Synthwave**, **EDM mélodique** ou **Techno mélodique** ;
@@ -360,7 +360,7 @@ toutes les étapes. Les lignes d'accompagnement de l'étape Mélodie ne gardent 
 bande des accords (couleur = fonction) et les barres de mesure, avec une tête de lecture qui suit la boucle ; la note
 d'approche de la basse est plus claire. Test : `node tests/e2e/wizard-trackbar.js`.
 
-Le menu de l'icône (**Nouvelle chanson sur ce projet…**) ouvre le même assistant sur le projet en cours (l'ancien écran « Créer les pistes / Créer toute la
+Le bouton **✦ Assistant** ouvre le même assistant sur le projet en cours (l'ancien écran « Créer les pistes / Créer toute la
 chanson » n'existe plus). La mélodie par défaut de Band (celle de l'inspiration, tant qu'on n'a rien généré à l'étape
 Mélodie) est écrite par `SS.bandSong.build` (`melody` : caractère, réglages fins, `plans` et `seeds` par section) selon des règles de
 composition : notes de l'accord sur les temps forts, surtout des mouvements conjoints et retour par degré après un
@@ -1024,7 +1024,7 @@ premier enregistrement ; les autres navigateurs téléchargent le fichier.
 
 ### Import / export MIDI (`js/midi-file.js`, `js/midi.js`, `js/midipanel.js`)
 
-**Importer MIDI…** et **Exporter MIDI…** sont dans le menu de l'icône de l'application.
+Import : **Ouvrir un fichier…** sur un `.mid` ; export : **Exporter…**, format **MIDI** (menu de l'icône de l'application).
 
 **Import** (nouveau projet) :
 
@@ -1077,7 +1077,7 @@ sound design, effets, mixage, mastering, humanisation.
 
 ### Exporter l'audio : master et stems en WAV (`js/render.js`, `js/audioexport.js`, `render.html`)
 
-**Exporter l'audio…** (menu de l'icône de l'application) calcule la chanson en fichier WAV, **hors temps réel** :
+**Exporter…**, format **Audio (WAV)** (menu de l'icône de l'application) calcule la chanson en fichier WAV, **hors temps réel** :
 exactement ce qu'on entend avec Lecture (sons, mixage, effets, Master et mastering), mais plus vite que le temps réel
 et sans décrochage possible, puis le télécharge. Tout se fait dans le navigateur, rien n'est envoyé.
 

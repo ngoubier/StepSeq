@@ -407,7 +407,6 @@
     // Plus de mesures : les nouvelles reprennent le motif existant (avec possibilité de les vider)
     $('#bars').addEventListener('change', () => setBars(+$('#bars').value));
 
-    $('#bandBtn').addEventListener('click', () => SS.band.open());
     $('#emptyAdd').addEventListener('click', addTrack);
     // projet sans piste : le gros bouton « Nouvelle chanson » ouvre l'assistant sur ce projet (rien à perdre)
     $('#emptySong').addEventListener('click', () => SS.band.open());
@@ -434,9 +433,9 @@
       SS.band.openWizard();
     });
     $('#songsBtn').addEventListener('click', () => SS.mySongs.open());
-    $('#resumeWizard').addEventListener('click', () => SS.band.resume());
     initAppMenu();
     initOptions();
+    initExport();
     initViewSwitch();
     $('#openProject').addEventListener('click', openProject);
     $('#saveProject').addEventListener('click', (e) => saveProject(e.shiftKey));
@@ -465,12 +464,33 @@
     changed();
   }
 
-  /* ---------- Menu de l'icône de l'application (Chansons, Nouveau, Ouvrir, Enregistrer) ---------- */
-  /** « Reprendre l'assistant » : visible seulement si le projet garde un brouillon de l'assistant. */
-  function syncResumeItem() {
-    const d = project.wizard;
-    $('#resumeWizard').hidden = !d;
-    if (d) $('#resumeWizardInfo').textContent = SS.band.draftWhen(d);
+  /* ---------- Menu de l'icône de l'application (Nouvelle chanson, Mes chansons, Ouvrir, Enregistrer, Exporter, Options) ---------- */
+  /**
+   * « Exporter… » : une seule entrée pour l'audio (js/audioexport.js) et le MIDI (js/midipanel.js). Les deux fenêtres ont en haut
+   * le même choix Audio | MIDI : changer de format passe d'une fenêtre à l'autre. Le dernier format choisi est retenu.
+   */
+  let exportFormat = 'audio';
+  function openExport(fmt = exportFormat) {
+    exportFormat = fmt;
+    try { localStorage.setItem('stepseq.exportFormat', fmt); } catch (e) { /* stockage indisponible */ }
+    if (fmt === 'midi') SS.midiPanel.openExport();
+    else SS.audioExport.open();
+    // le focus sur le choix du format (pas sur le « ? », dont la bulle cacherait ce choix)
+    const dlg = $(fmt === 'midi' ? '#midiExportDialog' : '#audioExportDialog');
+    if (dlg.open) dlg.querySelector('.ex-fmt .active').focus();
+  }
+  function initExport() {
+    try { if (localStorage.getItem('stepseq.exportFormat') === 'midi') exportFormat = 'midi'; } catch (e) { /* stockage indisponible */ }
+    $('#exportBtn').addEventListener('click', () => openExport());
+    document.querySelectorAll('.ex-fmt').forEach((seg) =>
+      seg.addEventListener('click', (e) => {
+        const b = e.target.closest('button[data-f]');
+        const dlg = seg.closest('dialog');
+        if (!b || b.classList.contains('active')) return;
+        if (dlg.id === 'audioExportDialog' && $('#axGo').hidden) return; // calcul audio en cours : on reste
+        dlg.close();
+        openExport(b.dataset.f);
+      }));
   }
   /** Fenêtre Options (menu principal → Options…) : onglets en haut, un panneau par onglet. */
   function initOptions() {
@@ -501,7 +521,6 @@
     const menu = $('#appMenu');
     const items = () => [...menu.querySelectorAll('[role=menuitem]')].filter((b) => !b.hidden);
     const setOpen = (open, focusFirst) => {
-      if (open) syncResumeItem();
       menu.hidden = !open;
       btn.setAttribute('aria-expanded', String(open));
       if (open && focusFirst) items()[0].focus();
@@ -1011,6 +1030,7 @@
       await SS.autosave.saveNow();
       const p = await SS.files.open();
       if (!p) return;
+      if (p.midi) return SS.midiPanel.openWith(p.midi.name, p.midi.buf); // fichier MIDI : la fenêtre « Importer MIDI »
       const handle = SS.files.current();
       // la même chanson déjà dans la bibliothèque : son état actuel reste dans ses versions
       if (SS.autosave.libraryAvailable()) await SS.store.keepVersion(p.id).catch(() => {});
@@ -1081,6 +1101,11 @@
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {
         e.preventDefault();
         openProject();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'e' && !document.querySelector('dialog[open]')) {
+        e.preventDefault();
+        openExport();
         return;
       }
       // sélection : Ctrl+C / X / V / D / A, Suppr, Échap

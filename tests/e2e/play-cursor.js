@@ -18,7 +18,7 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FAIL ') + m); if (!c) process
   const page = await b.newPage({ viewport: { width: 1600, height: 1000 } });
   const errs = []; page.on('pageerror', (e) => errs.push(e.message));
   await page.goto(`http://localhost:${server.address().port}/index.html`); await page.waitForTimeout(1500);
-  await page.click('#appMenuBtn'); await page.click('#bandBtn'); await page.waitForTimeout(400); await page.click('#brgSkip').catch(()=>{}); await page.waitForTimeout(300);
+  await page.click('#viewWiz'); await page.waitForTimeout(400); await page.click('#brgSkip').catch(()=>{}); await page.waitForTimeout(300);
   await page.click('#bandStyles [data-v="synthwave"]'); await page.click('#bandPresets .band-preset >> nth=0');
   for (let i = 0; i < 5; i++) { await page.dispatchEvent('#bwNext', 'click'); await page.waitForTimeout(250); }
   ok(await page.isVisible('#bwPlayMode'), 'sélecteur Chanson | Scène sous les scènes');

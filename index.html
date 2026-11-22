@@ -15,21 +15,18 @@
   <header class="topbar">
     <div class="topbar-group">
       <div class="app-menu-wrap">
-        <button id="appMenuBtn" class="brand" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="appMenu" title="Menu : chansons, nouveau, ouvrir, enregistrer, MIDI">
+        <button id="appMenuBtn" class="brand" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="appMenu" title="Menu : chansons, fichiers, export, options">
           <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#1c1c20"/><rect x="10.0" y="10.0" width="9" height="9" rx="2.2" fill="#2b8cff"/><rect x="21.5" y="10.0" width="9" height="9" rx="2.2" fill="#3a3a42"/><rect x="33.0" y="10.0" width="9" height="9" rx="2.2" fill="#2b8cff"/><rect x="44.5" y="10.0" width="9" height="9" rx="2.2" fill="#3a3a42"/><rect x="10.0" y="21.5" width="9" height="9" rx="2.2" fill="#3a3a42"/><rect x="21.5" y="21.5" width="9" height="9" rx="2.2" fill="#2b8cff"/><rect x="33.0" y="21.5" width="9" height="9" rx="2.2" fill="#3a3a42"/><rect x="44.5" y="21.5" width="9" height="9" rx="2.2" fill="#3a3a42"/><rect x="10.0" y="33.0" width="9" height="9" rx="2.2" fill="#2b8cff"/><rect x="21.5" y="33.0" width="9" height="9" rx="2.2" fill="#3a3a42"/><rect x="33.0" y="33.0" width="9" height="9" rx="2.2" fill="#3a3a42"/><rect x="44.5" y="33.0" width="9" height="9" rx="2.2" fill="#3a3a42"/><rect x="10.0" y="44.5" width="9" height="9" rx="2.2" fill="#3a3a42"/><rect x="21.5" y="44.5" width="9" height="9" rx="2.2" fill="#2b8cff"/><rect x="33.0" y="44.5" width="9" height="9" rx="2.2" fill="#3a3a42"/><rect x="44.5" y="44.5" width="9" height="9" rx="2.2" fill="#3a3a42"/><ellipse cx="44" cy="47" rx="6.2" ry="4.8" transform="rotate(-20 44 47)" fill="#1c1c20" stroke="#1c1c20" stroke-width="5"/><path d="M49.2 46.0V27.0c1.5 4.0 8.0 5.0 7.0 12.0" fill="none" stroke="#1c1c20" stroke-width="7.6" stroke-linecap="round" stroke-linejoin="round"/><ellipse cx="44" cy="47" rx="6.2" ry="4.8" transform="rotate(-20 44 47)" fill="#3fcf5a"/><path d="M49.2 46.0V27.0c1.5 4.0 8.0 5.0 7.0 12.0" fill="none" stroke="#3fcf5a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
         <div id="appMenu" class="app-menu" role="menu" aria-label="Fichier" hidden>
-          <button id="songsBtn" type="button" role="menuitem" title="Mes chansons : toutes les chansons enregistrées automatiquement, et leurs versions">Chansons</button>
-          <button id="newProject" type="button" role="menuitem" title="Nouvelle chanson : un assistant choisit le groupe, montre la chanson scène par scène, génère la mélodie et importe les pistes choisies">Nouvelle chanson…</button>
-          <button id="bandBtn" type="button" role="menuitem" title="Nouvelle chanson sur le projet en cours : le même assistant, sans vider le projet (la chanson le remplace à la création, après confirmation)">Nouvelle chanson sur ce projet…</button>
-          <button id="resumeWizard" type="button" role="menuitem" hidden title="Rouvre l'assistant « Nouvelle chanson » de ce projet, à l'étape où tu l'as laissé">Reprendre l'assistant<small id="resumeWizardInfo"></small></button>
-          <button id="openProject" type="button" role="menuitem" title="Ouvrir un fichier projet">Ouvrir…<kbd>Ctrl+O</kbd></button>
-          <button id="saveProject" type="button" role="menuitem" title="Enregistrer (Ctrl+S ; Maj+clic : enregistrer sous)">Enregistrer<kbd>Ctrl+S</kbd></button>
-          <button id="importMidi" type="button" role="menuitem" title="Créer un projet à partir d'un fichier MIDI (.mid) : pistes, scènes et arrangement">Importer MIDI…</button>
-          <button id="exportMidi" type="button" role="menuitem" title="Exporter la chanson ou la scène en fichier MIDI (.mid) pour un logiciel de musique">Exporter MIDI…</button>
-          <button id="exportAudio" type="button" role="menuitem" title="Exporter la chanson en fichier audio WAV : le master (la chanson mixée et masterisée) et, si on veut, un fichier par musicien (stems)">Exporter l'audio…</button>
+          <button id="newProject" type="button" role="menuitem"><svg class="am-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="am-lab">Nouvelle chanson…</span></button>
+          <button id="songsBtn" type="button" role="menuitem"><svg class="am-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><span class="am-lab">Mes chansons…</span></button>
           <hr class="app-menu-sep" role="separator">
-          <button id="optionsBtn" type="button" role="menuitem" title="Options de l'application : affichage…">Options…</button>
+          <button id="openProject" type="button" role="menuitem" title="Un projet StepSeq (.json) ou un fichier MIDI (.mid)"><svg class="am-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="am-lab">Ouvrir un fichier…</span><kbd>Ctrl+O</kbd></button>
+          <button id="saveProject" type="button" role="menuitem" title="Maj+clic : enregistrer sous"><svg class="am-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M7 3v5h8V3M7 21v-7h10v7"/></svg><span class="am-lab">Enregistrer</span><kbd>Ctrl+S</kbd></button>
+          <button id="exportBtn" type="button" role="menuitem" title="Audio (WAV) ou MIDI"><svg class="am-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg><span class="am-lab">Exporter…</span><kbd>Ctrl+E</kbd></button>
+          <hr class="app-menu-sep" role="separator">
+          <button id="optionsBtn" type="button" role="menuitem"><svg class="am-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1L7 17M17 7l2.1-2.1"/></svg><span class="am-lab">Options…</span></button>
         </div>
       </div>
       <input id="title" class="title-input" type="text" spellcheck="false" aria-label="Titre du projet">
@@ -808,7 +805,11 @@
   <!-- Export MIDI (js/midipanel.js) -->
   <dialog id="midiExportDialog" class="midi-dialog" aria-labelledby="meTitle">
     <form method="dialog" id="meForm">
-      <h2 id="meTitle">Exporter en MIDI</h2>
+      <h2 id="meTitle">Exporter</h2>
+      <div class="segmented ex-fmt" role="radiogroup" aria-label="Format d’export">
+        <button type="button" role="radio" data-f="audio" aria-checked="false">🔊 Audio (WAV)</button>
+        <button type="button" role="radio" data-f="midi" aria-checked="true" class="active">🎹 MIDI</button>
+      </div>
       <p class="dlg-sub" data-helpify>Un fichier .mid (type 1) à ouvrir dans un logiciel de musique : une piste par piste, la batterie sur le canal 10.</p>
       <div class="dlg-row">
         <span class="dlg-label">Contenu</span>
@@ -835,7 +836,11 @@
   <!-- Exporter l'audio (js/audioexport.js, moteur js/render.js) : master et stems en WAV, rendus hors temps réel -->
   <dialog id="audioExportDialog" class="midi-dialog ax-dialog" aria-labelledby="axTitle">
     <form method="dialog" id="axForm">
-      <h2 id="axTitle">Exporter l'audio</h2>
+      <h2 id="axTitle">Exporter</h2>
+      <div class="segmented ex-fmt" role="radiogroup" aria-label="Format d’export">
+        <button type="button" role="radio" data-f="audio" aria-checked="true" class="active">🔊 Audio (WAV)</button>
+        <button type="button" role="radio" data-f="midi" aria-checked="false">🎹 MIDI</button>
+      </div>
       <p class="dlg-sub" data-helpify>La chanson est calculée hors temps réel, exactement comme on l'entend (mixage et mastering compris), sans décrochage possible. Le rendu se fait dans le navigateur : rien n'est envoyé.</p>
       <div id="axOptions" class="ax-options">
         <div class="dlg-row">

@@ -9934,9 +9934,9 @@ SS.band = (() => {
   /* ---------- Ouverture / fermeture ---------- */
   /** Bouton Nouvelle de l'en-tête : l'assistant, sur le projet en cours (remplacé à la création, après confirmation). */
   function open() {
-    // le projet garde son brouillon : en commencer un autre le remplace, on demande d'abord (Annuler : « Reprendre l'assistant » le rouvre)
+    // le projet garde son brouillon : en commencer un autre le remplace, on demande d'abord (Annuler : le bouton ✦ Assistant le rouvre)
     if (app.project().wizard && !S.wiz) {
-      if (!confirm(`Remplacer le brouillon de l’assistant ?\n\nCe projet garde déjà le travail d’un assistant (${draftWhen(app.project().wizard)}). OK l’efface pour en commencer un autre ; Annuler le garde (menu : « Reprendre l’assistant »).`)) return;
+      if (!confirm(`Remplacer le brouillon de l’assistant ?\n\nCe projet garde déjà le travail d’un assistant (${draftWhen(app.project().wizard)}). OK l’efface pour en commencer un autre ; Annuler le garde (bouton ✦ Assistant).`)) return;
       app.setWizardDraft(null);
     }
     const grid = gridInstruments(app.project());
@@ -10596,7 +10596,7 @@ SS.band = (() => {
     draftStart();
     return true;
   }
-  /** « Reprendre l'assistant » (menu) : rouvre l'assistant du projet, à l'étape et à la scène où il en était. */
+  /** Bouton ✦ Assistant (projet qui garde un brouillon) : rouvre l'assistant du projet, à l'étape et à la scène où il en était. */
   function resume() {
     const d = app.project().wizard;
     if (!d) return false;

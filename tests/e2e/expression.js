@@ -240,7 +240,8 @@ const ok = (c, m) => {
 
   // export MIDI : case « jeu des pistes » et bilan (la note liée allonge sa durée)
   await page.click('#appMenuBtn');
-  await page.click('#exportMidi');
+  await page.click('#exportBtn');
+  await page.click('#audioExportDialog[open] .ex-fmt [data-f="midi"]'); // « Exporter… » : format MIDI
   await page.waitForSelector('#midiExportDialog[open]');
   ok(await page.isChecked('#meExpr'), 'export MIDI : « Appliquer le jeu des pistes » coché');
   ok(/Jeu des pistes/.test(await page.textContent('#meReport')), 'export MIDI : le bilan cite le jeu exporté');

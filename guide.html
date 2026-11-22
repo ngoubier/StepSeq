@@ -114,7 +114,7 @@
       <p>Ouvre <a href="./">StepSeq</a> dans Chrome, Edge ou Firefox, puis clique sur ▶ : le projet démo se lance. Le navigateur n'autorise le son qu'après un premier clic, et la première boucle peut sauter quelques notes le temps que les sons se chargent.</p>
       <div class="table-wrap"><table>
         <tr><th>Élément de la barre du haut</th><th>Ce qu'il fait</th></tr>
-        <tr><td>Icône de l'application</td><td>Ouvre le menu : <b>Chansons</b>, <b>Nouvelle chanson…</b> (l'<a href="#nouvelle-chanson">assistant</a>), <b>Ouvrir</b>, <b>Enregistrer</b></td></tr>
+        <tr><td>Icône de l'application</td><td>Ouvre le menu : <b>Nouvelle chanson…</b> (l'<a href="#nouvelle-chanson">assistant</a>), <b>Mes chansons…</b>, <b>Ouvrir un fichier…</b> (projet ou MIDI), <b>Enregistrer</b>, <b>Exporter…</b> (audio ou MIDI), <b>Options…</b></td></tr>
         <tr><td>Titre</td><td>Nom du projet, utilisé aussi comme nom de fichier</td></tr>
         <tr><td>Tempo (BPM)</td><td>Vitesse en noires par minute, de 20 à 300</td></tr>
         <tr><td>∿ (bouton à côté du tempo)</td><td>Au survol (ou au clic, au toucher, avec Entrée), une bulle regroupe <b>Mesure</b>, <b>Mesures</b> et <b>Groove</b> ; l'infobulle du bouton résume l'état (par ex. « 4/4 · 4 mesures · Groove : droit »). Échap ou un clic ailleurs la ferme.</td></tr>
@@ -619,7 +619,7 @@
       <p class="note">L'assistant applique des règles de mixage mesurables : c'est une base solide, pas une oreille. Écoute toujours le résultat (A/B) et garde le dernier mot.</p>
 
       <h2 id="fichiers">Enregistrer et ouvrir</h2>
-      <p>Un projet s'enregistre dans un fichier <code>.stepseq.json</code>, qu'on rouvre avec <b>Ouvrir</b>.</p>
+      <p>Un projet s'enregistre dans un fichier <code>.stepseq.json</code>, qu'on rouvre avec <b>Ouvrir un fichier…</b>.</p>
       <ul>
         <li><b>Chrome et Edge</b> : le premier <b>Enregistrer</b> demande où placer le fichier. Les suivants réécrivent le même fichier. <kbd>Ctrl</kbd>+<kbd>Maj</kbd>+<kbd>S</kbd> enregistre sous un autre nom.</li>
         <li><b>Firefox et Safari</b> : chaque <b>Enregistrer</b> télécharge une nouvelle copie dans tes Téléchargements.</li>
@@ -627,7 +627,7 @@
       <h3 id="mes-chansons">Enregistrement automatique et « Mes chansons »</h3>
       <ul>
         <li><b>Rien à faire</b> : chaque chanson est enregistrée automatiquement dans le navigateur, une seconde environ après chaque modification, sans aucun message. L'indicateur à côté du bouton <b>Aide</b> affiche « ✓ Enregistré ».</li>
-        <li><b>Chansons</b> (menu de l'icône de l'application) ouvre la liste de toutes tes chansons : <b>Ouvrir</b>, <b>Dupliquer</b>, <b>Supprimer</b>. <b>Nouveau</b> et <b>Ouvrir</b> n'écrasent plus la chanson en cours : elle reste dans la liste.</li>
+        <li><b>Mes chansons…</b> (menu de l'icône de l'application) ouvre la liste de toutes tes chansons : <b>Ouvrir</b>, <b>Dupliquer</b>, <b>Supprimer</b>. <b>Nouveau</b> et <b>Ouvrir</b> n'écrasent plus la chanson en cours : elle reste dans la liste.</li>
         <li><b>Versions</b> : un instantané de chaque chanson est gardé au plus toutes les 10 minutes de travail (40 au maximum). <b>Restaurer</b> revient à l'un d'eux ; l'état actuel est d'abord rangé dans les versions.</li>
         <li><b>Fichier mis à jour tout seul (Chrome et Edge)</b> : après un premier <b>Enregistrer</b> ou un <b>Ouvrir</b>, chaque modification réécrit aussi ce fichier (l'indicateur affiche son nom). Après un redémarrage du navigateur, l'indicateur affiche « Reprendre <i>fichier</i> » : un clic redonne l'autorisation d'écrire. Astuce : enregistre le fichier dans un dossier Dropbox, OneDrive ou Google Drive pour avoir aussi une sauvegarde sur le web.</li>
         <li>La bibliothèque reste dans ce navigateur, sur cet appareil. Pour changer d'appareil, passe par le fichier.</li>
@@ -642,7 +642,7 @@
       </ul>
 
       <h3 id="midi">Importer et exporter des fichiers MIDI</h3>
-      <p><b>Importer MIDI…</b> et <b>Exporter MIDI…</b> sont dans le menu de l'icône de l'application.</p>
+      <p>Pour importer un MIDI : <b>Ouvrir un fichier…</b> et choisir un fichier <code>.mid</code>. Pour exporter : <b>Exporter…</b>, format <b>MIDI</b> (menu de l'icône de l'application).</p>
       <ul>
         <li><b>Importer</b> crée un nouveau projet à partir d'un fichier <code>.mid</code> (la chanson en cours reste dans <b>Chansons</b>). Chaque instrument devient une piste avec le son General MIDI du fichier. La batterie (canal 10) donne une piste Drum par son : avec <b>Batterie : General MIDI</b> (par défaut), chaque note garde son son d'origine (bibliothèque General MIDI) ; avec une boîte à rythmes, une piste par élément (kick, caisse claire, charleston…).</li>
         <li>Le morceau est <b>analysé pour retrouver ses parties</b> : phrases de 4 mesures, changements d'orchestration, boucles qui se répètent. Chaque partie devient une scène, l'arrangement les enchaîne, et la lecture passe en mode Chanson. <b>Fidèle</b> garde toutes les variations (scènes plus longues), <b>Compact</b> confond les boucles qui se ressemblent (arrangement plus court). La fenêtre indique la part des notes du fichier rejouées à leur place. Les noms (Intro, Couplet, Refrain…) sont une estimation : renomme les scènes dans la fenêtre Song.</li>
@@ -652,7 +652,7 @@
       </ul>
 
       <h3 id="audio">Exporter l'audio (WAV)</h3>
-      <p><b>Exporter l'audio…</b> (menu de l'icône de l'application) crée le fichier audio de ta chanson, tel que tu l'entends : sons, mixage, effets et mastering compris. Le calcul se fait hors temps réel, dans le navigateur : pas de décrochage, et rien n'est envoyé sur Internet.</p>
+      <p><b>Exporter…</b>, format <b>Audio (WAV)</b> (menu de l'icône de l'application, <kbd>Ctrl</kbd>+<kbd>E</kbd>), crée le fichier audio de ta chanson, tel que tu l'entends : sons, mixage, effets et mastering compris. Le calcul se fait hors temps réel, dans le navigateur : pas de décrochage, et rien n'est envoyé sur Internet.</p>
       <ul>
         <li><b>Contenu</b> : toute la chanson (l'arrangement) ou la scène en cours, répétée le nombre de fois voulu.</li>
         <li><b>Master</b> : la chanson finie, mixée et masterisée, prête à écouter ou à publier.</li>
@@ -668,7 +668,8 @@
         <tr><td><kbd>Espace</kbd></td><td>Lecture / pause</td></tr>
         <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd> (<kbd>Cmd</kbd>+<kbd>S</kbd> sur Mac)</td><td>Enregistrer</td></tr>
         <tr><td><kbd>Ctrl</kbd>+<kbd>Maj</kbd>+<kbd>S</kbd></td><td>Enregistrer sous</td></tr>
-        <tr><td><kbd>Ctrl</kbd>+<kbd>O</kbd></td><td>Ouvrir un projet</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>O</kbd></td><td>Ouvrir un fichier (projet ou MIDI)</td></tr>
+        <tr><td><kbd>Ctrl</kbd>+<kbd>E</kbd></td><td>Exporter (audio ou MIDI)</td></tr>
         <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td><td>Annuler la dernière action (bouton ↶ en haut)</td></tr>
         <tr><td><kbd>Ctrl</kbd>+<kbd>Y</kbd> ou <kbd>Ctrl</kbd>+<kbd>Maj</kbd>+<kbd>Z</kbd></td><td>Rétablir l'action annulée (bouton ↷)</td></tr>
         <tr><td><kbd>Maj</kbd> + glisser</td><td>Sélectionner des notes (rectangle)</td></tr>

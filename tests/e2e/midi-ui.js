@@ -57,8 +57,9 @@ function fixture() {
   await page.waitForTimeout(1000);
 
   // ---- import ----
+  await page.evaluate(() => { window.showOpenFilePicker = undefined; }); // sélecteur classique (événement filechooser)
   await page.click('#appMenuBtn');
-  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.click('#importMidi')]);
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.click('#openProject')]);
   await chooser.setFiles(input);
   await page.waitForSelector('#midiImportDialog[open] .midi-summary', { timeout: 20000 });
   const summary = await page.textContent('#miReport');
@@ -106,7 +107,8 @@ function fixture() {
 
   // ---- export ----
   await page.click('#appMenuBtn');
-  await page.click('#exportMidi');
+  await page.click('#exportBtn');
+  await page.click('#audioExportDialog[open] .ex-fmt [data-f="midi"]'); // « Exporter… » : format MIDI
   await page.waitForSelector('#midiExportDialog[open] .midi-summary');
   ok(/notes/.test(await page.textContent('#meReport')), 'bilan d\'export affiché');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'midi-export.png') });

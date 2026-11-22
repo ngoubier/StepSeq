@@ -248,7 +248,7 @@ const ok = (c, m) => {
 
   // la dernière scène ne peut pas être supprimée
   page.once('dialog', (d) => d.accept()); // « Remplacer le brouillon de l’assistant ? » : la chanson créée garde son brouillon
-  await page.click('#appMenuBtn'); await page.click('#bandBtn');
+  await page.click('#viewWiz'); 
   await page.waitForTimeout(400);
   await page.click('#bandStyles [data-v="synthwave"]');
   await next(3);

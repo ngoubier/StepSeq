@@ -217,7 +217,7 @@ a.btn { text-decoration: none; }
   z-index: 50;
   display: flex;
   flex-direction: column;
-  min-width: 200px;
+  min-width: 236px;
   padding: 6px;
   background: var(--panel);
   border: 1px solid var(--line);
@@ -227,8 +227,7 @@ a.btn { text-decoration: none; }
 .app-menu button {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  gap: 10px;
   padding: 8px 12px;
   border: 0;
   border-radius: 6px;
@@ -243,6 +242,11 @@ a.btn { text-decoration: none; }
 .app-menu button:hover small, .app-menu button:focus-visible small { color: rgba(255, 255, 255, .75); }
 .app-menu kbd { font: inherit; font-size: var(--fs-xs); color: var(--muted); }
 .app-menu button:hover kbd, .app-menu button:focus-visible kbd { color: rgba(255, 255, 255, .75); }
+.app-menu .am-lab { flex: 1; margin-right: 12px; }
+.app-menu .am-ico { width: 16px; height: 16px; flex: none; fill: none; stroke: var(--c-text-2); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.app-menu button:hover .am-ico, .app-menu button:focus-visible .am-ico { stroke: var(--c-text); }
+/* Fenêtre Exporter : Audio | MIDI en haut (les deux fenêtres d'export, js/main.js initExport) */
+.ex-fmt { width: fit-content; margin: 0 0 12px; }
 .app-menu-sep { width: 100%; margin: 4px 0; border: 0; border-top: 1px solid var(--line); }
 /* Fenêtre Options : onglets, puis une ligne par réglage (libellé, contrôle, aide) */
 dialog.options-dialog { width: min(520px, calc(100vw - 32px)); }
@@ -4863,7 +4867,6 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 #bandDialog .bwa-surprise { background: var(--c-teal-deep); border-color: var(--c-teal); color: #fff; font-weight: 600; }
 #bandDialog .bwa-surprise:hover { background: var(--c-teal-deep); border-color: var(--c-teal); }
 /* « Reprendre l'assistant » : le libellé, puis dessous la date du brouillon */
-.app-menu #resumeWizard { flex-direction: column; align-items: flex-start; gap: 1px; }
 
 /* ===== Étape 2 : le groupe éditable (ajouter, modifier, dupliquer, retirer, ordonner : 2 à 10 musiciens) ===== */
 #bandDialog { --bw-warn: var(--c-yellow); --bw-hot: var(--c-red); }
