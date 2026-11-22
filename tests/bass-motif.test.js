@@ -65,6 +65,26 @@ assert.ok(from.step + from.len >= sl.step + (sl.shift || 0), 'drill : la note de
 assert.ok(!notesOf('rock8').some((e) => e.slide || e.slideFrom), 'sans glissé, rien de marqué');
 bass.follow = SS.FOLLOW.clean({ play: 'motif', motif: 'disco16', oct: 2 });
 
+// 3/4 et 6/8 : mesure de 12 pas ; les motifs de 12 pas ne vont qu'en 3/4 et 6/8
+{
+  const q = SS.newProject();
+  q.bars = 4;
+  q.timeSig = [3, 4];
+  const qs = SS.currentScene(q);
+  qs.key = { tonic: 'A', mode: 'minor' };
+  qs.grid = SS.normalizeGrid({ chords: [0, 5, 2, 6].map((degree, i) => ({ step: i * 12, len: 12, degree, type: degree === 0 ? 'min' : 'maj' })), initialized: true });
+  const qb = SS.newTrack({ name: 'Basse', type: 'instrument', family: 'bass', instrument: SS.findFamily('bass').instruments[0].id, follow: { play: 'motif', motif: 'valsejazz' } }, q);
+  q.tracks.push(qb);
+  const qe = SS.playEvents(q, qb);
+  assert.deepStrictEqual(qe.slice(0, 4).map((e) => e.step), [0, 4, 8, 12], 'valse jazz : une noire par temps, 3 temps par mesure');
+  assert.strictEqual(qe[2].notes[0] % 12, 4, 'valse jazz : Mi, demi-ton sous Fa, sur le 3e temps');
+  qb.follow = SS.FOLLOW.clean({ play: 'motif', motif: 'valse', oct: 2 });
+  assert.deepStrictEqual(SS.playEvents(q, qb).map((e) => e.step), [0, 12, 24, 36], 'valse : une note par mesure de 12 pas');
+  qb.follow = SS.FOLLOW.clean({ play: 'motif', motif: 'rock8', oct: 2 });
+  assert.ok(SS.playEvents(q, qb).every((e) => e.step % 12 < 12) && SS.playEvents(q, qb).filter((e) => e.step < 12).length === 6, 'motif 4/4 en 3/4 : la fin de la mesure est coupée');
+  assert.strictEqual(SS.bandSong.motifBar('ballade68'), 12);
+}
+
 // sans accords : silence
 sc.grid.chords = [];
 assert.strictEqual(SS.playEvents(p, bass).length, 0, 'pas d’accords : la basse se tait');

@@ -266,13 +266,13 @@ window.SS = window.SS || {};
       const step = i === 0 ? 0 : c.step;
       const end = chords[i + 1] ? chords[i + 1].step : total;
       const bassPc = c.info.pedalPc ?? c.info.bassPc;
-      return { step, len: end - step, bar: Math.floor(step / 16), chord: { rootPc: c.info.rootPc, type: c.info.type || c.type, tok: c.info.name, ...(bassPc != null ? { bassPc } : {}) } };
+      return { step, len: end - step, bar: Math.floor(step / SS.stepsPerBar(p)), chord: { rootPc: c.info.rootPc, type: c.info.type || c.type, tok: c.info.name, ...(bassPc != null ? { bassPc } : {}) } };
     }).filter((x) => x.len > 0);
     const keyPcs = SS.harmony.scale(key).map((d) => d.pc);
     const mode = SS.bassMotifOf({ follow: f }, sc);
     const r = BS._rng(`${track.id}|${sc.id}|${mode}`);
     try {
-      return BS.bassEvents(spans, mode, r, keyPcs, { shift: (f.oct - 2) * 12 }).filter((e) => e.step < total);
+      return BS.bassEvents(spans, mode, r, keyPcs, { shift: (f.oct - 2) * 12, spb: SS.stepsPerBar(p) }).filter((e) => e.step < total);
     } catch (e) {
       return [];
     }

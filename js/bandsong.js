@@ -843,7 +843,7 @@ SS.bandSong = (() => {
 
   /* ---------- basse ---------- */
   const bassMidi = (pc) => 33 + pcOf(pc - 9); // de La1 à Sol♯2
-  function bassEvents(spans, mode, r, keyPcs, { pedalPc = null, approach = true, shift = 0 } = {}) {
+  function bassEvents(spans, mode, r, keyPcs, { pedalPc = null, approach = true, shift = 0, spb = SPB } = {}) {
     const ev = [];
     const add = (s, len, n, v) => len > 0 && ev.push({ step: s, len, notes: [n], vel: vel(r, v) });
     /** Note d'approche : la voisine de `target` dans la gamme, du côté `dir` (−1 dessous, +1 dessus). */
@@ -875,20 +875,21 @@ SS.bandSong = (() => {
         // motif d'une ou deux mesures : la mesure du motif suit la mesure du morceau (pas 0–15 puis 16–31)
         const motif = BASS_RHYTHMS[mode];
         const mBars = motifBars(mode);
+        const mbl = motifBar(mode); // pas par mesure du motif (16 en 4/4, 12 en 3/4 et 6/8)
         const tail = motif[motif.length - 1];
         let pushedNow = false;
-        for (let b = sp.step; b < end; b += SPB) {
-          const lastBar = b + SPB >= end;
-          const k = Math.floor(b / SPB) % mBars;
+        for (let b = sp.step; b < end; b += spb) {
+          const lastBar = b + spb >= end;
+          const k = Math.floor(b / spb) % mBars;
           motif.forEach((nt) => {
             const [o0, l0, n, v, fx] = nt; // fx 'g' : note glissée depuis la précédente
-            if (Math.floor(o0 / SPB) !== k) return;
+            if (Math.floor(o0 / mbl) !== k) return;
             // position en fraction de pas (triolets : 1,33 ; 2,67…) = pas entier + décalage (ev.shift, ±0,5 pas)
-            const at = o0 - k * SPB;
+            const at = o0 - k * mbl;
             const o = Math.round(at);
             const sh = Math.round((at - o) * 100) / 100;
             const l = Math.max(1, Math.round(l0));
-            if (b + o >= end) return;
+            if (b + o >= end || o >= spb) return; // un motif de 4/4 dans une mesure de 3/4 : la fin est coupée
             let m;
             if (n === 't') m = third;
             else if (n === 's') m = seventh;
@@ -924,7 +925,7 @@ SS.bandSong = (() => {
               }
             }
             // anticipation : la dernière note du motif est déjà la fondamentale du suivant (liée par-dessus la barre)
-            if (nt === tail && n === 'n' && lastBar && at + l0 >= SPB && b + SPB === end) pushedNow = true;
+            if (nt === tail && n === 'n' && lastBar && at + l0 >= mbl && b + spb === end) pushedNow = true;
           });
         }
         pushed = pushedNow && nextRoot != null ? nextRoot : null;
@@ -2323,8 +2324,12 @@ SS.bandSong = (() => {
      5e valeur 'g' : la note glisse depuis la précédente (ev.slide ; la précédente, ev.slideFrom, tient jusqu'à elle). */
   /** « u3 », « u2 », « u1 » : montée vers l'accord suivant, à 3, 2 puis 1 note de la gamme de lui. */
   const UP = { u3: 3, u2: 2, u1: 1 };
-  /** Nombre de mesures d'un motif BASS_RHYTHMS (1, ou 2 si une note tombe après le pas 15). */
-  const motifBars = (id) => (BASS_RHYTHMS[id] ? Math.max(1, Math.ceil(Math.max(...BASS_RHYTHMS[id].map((x) => x[0] + 0.01)) / SPB)) : 1);
+  /** Motifs écrits pour une mesure de 12 pas (3/4 et 6/8) ; les autres en 4/4 (16 pas). */
+  const METER = { valse: '3/4', valsejazz: '3/4', ballade68: '6/8' };
+  /** Pas par mesure du motif. */
+  const motifBar = (id) => (METER[id] ? 12 : SPB);
+  /** Nombre de mesures d'un motif BASS_RHYTHMS (1, ou 2 si une note tombe après la première mesure). */
+  const motifBars = (id) => (BASS_RHYTHMS[id] ? Math.max(1, Math.ceil(Math.max(...BASS_RHYTHMS[id].map((x) => x[0] + 0.01)) / motifBar(id))) : 1);
   const BASS_RHYTHMS = {
     rock8: [[0, 2, 0, 0.92], [2, 2, 0, 0.62], [4, 2, 0, 0.8], [6, 2, 0, 0.62], [8, 2, 0, 0.88], [10, 2, 0, 0.62], [12, 2, 0, 0.8], [14, 2, 12, 0.74]],
     ballade: [[0, 10, 0, 0.85], [10, 2, 7, 0.7], [12, 4, 'a', 0.72]],
@@ -2411,9 +2416,14 @@ SS.bandSong = (() => {
     // syncopées, glissées)
     drill: [[0, 4, 0, 0.95], [4, 2.67, 0, 0.8], [6.67, 3.33, 12, 0.85, 'g'], [10, 2.67, 10, 0.8, 'g'], [12.67, 3.33, 0, 0.88, 'g']],
     amapiano: [[0, 2, 0, 0.9], [3, 3, 0, 0.6], [6, 2, 7, 0.82, 'g'], [8, 1, 7, 0.5], [10, 2, 0, 0.86], [13, 1, 10, 0.7], [14, 2, 0, 0.8, 'g']],
+    // mesures de 12 pas (METER) : valse 3/4 (fondamentale, puis quinte grave la mesure suivante), valse jazz (une noire par
+    // temps, demi-ton vers l'accord suivant), ballade 6/8 (fondamentale sur le 1, quinte sur le 4, approche)
+    valse: [[0, 4, 0, 0.9], [12, 4, -5, 0.82]],
+    valsejazz: [[0, 4, 0, 0.88], [4, 4, 't', 0.72], [8, 4, 'c', 0.76]],
+    ballade68: [[0, 6, 0, 0.88], [6, 4, 7, 0.78], [10, 2, 'a', 0.62]],
   };
   /** Dessin d'une mesure type (niveau 0 = fondamentale, 1 = quinte, tierce, septième ou approche, 2 = octave). */
-  const rhythmDraw = (id) => BASS_RHYTHMS[id].filter(([o]) => o < SPB).map(([o, l, n]) => [o, l, n === 0 ? 0 : n === 12 ? 2 : 1]); // première mesure, en pas (fractions possibles)
+  const rhythmDraw = (id) => BASS_RHYTHMS[id].filter(([o]) => o < motifBar(id)).map(([o, l, n]) => [o, l, n === 0 ? 0 : n === 12 ? 2 : 1]); // première mesure, en pas (fractions possibles)
 
   /* catalogue des modes de basse ajoutés : [id, nom, description, dessin] ; dessin = [pas, longueur, niveau] pour une mesure
      (niveau 0 = fondamentale, 1 = quinte ou tierce, 2 = octave) */
@@ -2495,7 +2505,10 @@ SS.bandSong = (() => {
     ['montuno', 'Son montuno', 'Tumbao sur deux mesures, calé sur la clave 3-2 : son, salsa', rhythmDraw('montuno')],
     ['drill', 'Drill', '808 syncopée en triolets, glissée vers l’octave et la septième : drill', rhythmDraw('drill')],
     ['amapiano', 'Log drum', 'Notes courtes syncopées, glissées vers la quinte : amapiano', rhythmDraw('amapiano')],
+    ['valse', 'Valse', 'Mesure à 3 temps : la fondamentale sur le 1, la quinte grave à la mesure suivante (3/4)', rhythmDraw('valse')],
+    ['valsejazz', 'Valse jazz', 'Une noire par temps, le demi-ton vers l’accord suivant (3/4)', rhythmDraw('valsejazz')],
+    ['ballade68', 'Ballade 6/8', 'Fondamentale sur le 1, quinte sur le 4, la note voisine de l’accord suivant (6/8)', rhythmDraw('ballade68')],
   ];
 
-  return { build, voiceChord, bassEvents, chordEvents, PAD_NEW, padFxLanes, tomOfStep, junctionDefaults, junctionEff, withSceneFx, PERC_LOOPS, PERC_STYLES, hpHz, hpAmt, HP_MEL, isExtra, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, sceneGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, motifBars, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, BUILD_LEVELS, BUILD_PRESETS, buildLevels, progLevels, rollBar, rollerOf, hasGridLane, laneKey, _rng: rng };
+  return { build, voiceChord, bassEvents, chordEvents, PAD_NEW, padFxLanes, tomOfStep, junctionDefaults, junctionEff, withSceneFx, PERC_LOOPS, PERC_STYLES, hpHz, hpAmt, HP_MEL, isExtra, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, sceneGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, motifBars, motifBar, METER, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, BUILD_LEVELS, BUILD_PRESETS, buildLevels, progLevels, rollBar, rollerOf, hasGridLane, laneKey, _rng: rng };
 })();
