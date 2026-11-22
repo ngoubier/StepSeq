@@ -7820,6 +7820,68 @@ SS.band = (() => {
     draw();
     dlg.showModal();
   }
+  /*
+   * « Avancé… » : la fenêtre Arp One de la Grille (js/arppanel.js, tous les niveaux et modules) sur les réglages de la
+   * scène. Elle joue avec la piste d'écoute du musicien, en boucle sur les accords de la scène ; OK (ou fermer) les
+   * enregistre dans la scène, ou dans toutes celles où l'arpège joue ; la part garde adv (pastille « Réglages avancés »).
+   */
+  function arpHostChords(sc) {
+    const sec = specEff().sections[sc.sec];
+    if (!sec || !sec.chords) return { bars: 1, chords: [] };
+    let spans = [];
+    try {
+      spans = SS.bandSong.spansOf(sec, sc.key, sc.bars);
+    } catch (e) {
+      return { bars: 1, chords: [] };
+    }
+    // la boucle : la plus courte grille qui se répète dans la scène (8 mesures au plus)
+    const sig = (b) => spans.filter((x) => x.step >= b * 16 && x.step < (b + 1) * 16).map((x) => `${x.step % 16}:${x.chord.rootPc}${x.chord.type}`).join(',');
+    let bars = Math.min(sc.bars, 8);
+    for (let p = 1; p <= Math.min(sc.bars, 8); p++) {
+      if (sc.bars % p) continue;
+      let same = true;
+      for (let b = p; b < sc.bars && same; b++) same = sig(b) === sig(b % p);
+      if (same) {
+        bars = p;
+        break;
+      }
+    }
+    let prev = null;
+    const chords = spans.filter((x) => x.step < bars * 16).map((x) => {
+      const notes = SS.bandSong.voiceChord(x.chord, prev, 57, 76);
+      prev = notes;
+      return { step: x.step, len: Math.min(x.len, bars * 16 - x.step), notes, bass: x.chord.bassPc != null && x.chord.bassPc !== x.chord.rootPc ? x.chord.bassPc : undefined, name: SS.harmony.chordName(sc.key, { ...x.chord, bassPc: x.chord.bassPc ?? x.chord.rootPc }) };
+    });
+    return { bars, chords };
+  }
+  function openArpAdvanced(sc, T) {
+    const proj = listenProject();
+    const lt = proj && proj.tracks.find((t) => t.col === T.col.id);
+    if (!lt || !SS.arpPanel) return;
+    stopListen();
+    const { bars, chords } = arpHostChords(sc);
+    const proxy = { ...lt, arp: JSON.parse(JSON.stringify(arpOne(sc, T))), arpOn: true, events: [] };
+    delete proxy.follow;
+    const plays = (x) => !mutedIn(x.sec, T) && !!((partOf(x.sec, T) || {}).one || (partOf(x.sec, T) || {}).mode || planMode(x, T));
+    SS.arpPanel.open(proxy, {
+      host: {
+        project: () => proj,
+        changed: () => {},
+        title: `${lt.name} — ${sc.name}`,
+        level: 'avance',
+        bars,
+        chords,
+        apply: (arp, all) => {
+          const to = all ? S.wiz.res.scenes.filter((x) => x.sec === sc.sec || plays(x)) : [sc];
+          [...new Set(to.map((x) => x.sec))].forEach((sec) => {
+            putOff(sec, T, false);
+            putPart(sec, T, { one: arp, mode: undefined, adv: true });
+          });
+          partChanged('#bwaAdv');
+        },
+      },
+    });
+  }
   const ARP_RATES = [[0.5, '1/8'], [1, '1/16'], [1.5, '1/16 triolet'], [2, '1/32']];
   function arpBody(sc, T) {
     const A = A1();
@@ -7857,7 +7919,16 @@ SS.band = (() => {
       h(
         'section',
         { class: 'bwp-card bwa' },
-        h('div', { class: 'bwp-ch' }, h('b', {}, `Arpège de « ${sc.name} »`), h('span', { class: 'bh-info' }, 'Arp One · mode Intuitif'), h('span', { class: 'spacer' }), playBox(sc, T, 'up16')),
+        h(
+          'div',
+          { class: 'bwp-ch' },
+          h('b', {}, `Arpège de « ${sc.name} »`),
+          h('span', { class: 'bh-info' }, 'Arp One'),
+          o.adv && o.one ? h('button', { type: 'button', class: 'bwa-advchip', id: 'bwaAdvChip', title: 'Réglages faits dans la fenêtre Arp One : clic pour la rouvrir', onclick: () => openArpAdvanced(sc, T) }, '✎ Réglages avancés') : null,
+          h('span', { class: 'spacer' }),
+          one.guitar && one.guitar.on ? null : h('button', { type: 'button', class: 'btn btn-small', id: 'bwaAdv', 'aria-haspopup': 'dialog', title: 'Arp One complet : grille des pas, lignes, modules (Geste, Écho, Ratchet, Évolution…)', onclick: () => openArpAdvanced(sc, T) }, 'Avancé…'),
+          playBox(sc, T, 'up16')
+        ),
         isGuitarist(T) ? arpGuitar(sc, T, one) : null,
         one.guitar && one.guitar.on ? null : motifLine,
         one.guitar && one.guitar.on ? null : knobs,

@@ -28,6 +28,17 @@ SS.arpPanel = (() => {
   let sliding = false;
   let test = null;
   let sel = null;
+  /*
+   * host : Arp One ouvert par l'assistant « Nouvelle chanson » (bouton Avancé… de l'étape Arpège, js/band.js) sur une
+   * piste d'écoute ; il fournit project() (projet d'écoute), title, bars (mesures de la boucle) et chords (accords de
+   * la scène : { step, len, notes, bass, name }) ; apply(arp, toutes) reçoit les réglages à la fermeture.
+   * La boucle joue les accords de la scène ; pas d'accord à poser ni d'arpège à éteindre.
+   */
+  let host = null;
+  let hostAll = false; // « Toutes » : les réglages vont à toutes les scènes où l'arpège joue
+  let hostLevel = null; // niveau à rendre à la Grille quand la fenêtre de l'assistant se ferme
+  let hostAt = -1; // pas joué dans la boucle (accord en cours)
+  const ctl = () => host || app;
 
   const h = (tag, attrs = {}, ...children) => {
     const el = document.createElement(tag);
@@ -52,7 +63,7 @@ SS.arpPanel = (() => {
       if (undo.length > 60) undo.shift();
     }
     track.arp = A().normalize({ ...track.arp, ...patch, preset: '' });
-    app.changed();
+    ctl().changed();
     render();
   }
 
@@ -97,11 +108,13 @@ SS.arpPanel = (() => {
   /** Basse imposée du premier accord de la piste (C/E, piste Accords) : pour le mode Guitare. */
   const trackBass = () => {
     if (test) return undefined;
-    const ev = SS.playEvents(app.project(), track).find((e) => e.notes && e.notes.length);
+    if (host) return host.chords[0] && host.chords[0].bass;
+    const ev = SS.playEvents(ctl().project(), track).find((e) => e.notes && e.notes.length);
     return ev && Number.isFinite(ev.bass) ? ev.bass : undefined;
   };
   const trackChord = () => {
-    const ev = SS.playEvents(app.project(), track).find((e) => e.notes && e.notes.length);
+    if (host) return host.chords[0] ? host.chords[0].notes.slice() : null;
+    const ev = SS.playEvents(ctl().project(), track).find((e) => e.notes && e.notes.length);
     return ev ? ev.notes.slice() : null;
   };
   /** Source des accords arpégés : piste Accords de la scène, ou notes de la piste (bouton ACCORDS de la piste). */
@@ -114,8 +127,8 @@ SS.arpPanel = (() => {
       track.lastFollow = track.follow;
       delete track.follow;
     }
-    app.changed();
-    app.renderTrack && app.renderTrack(track);
+    ctl().changed();
+    ctl().renderTrack && ctl().renderTrack(track);
     render();
   }
   const rootMidi = (pc) => 12 * ((Number.isFinite(track.octave) ? track.octave : 3) + 1) + pc;
@@ -129,7 +142,7 @@ SS.arpPanel = (() => {
   /** Pose l'accord d'essai sur toute la boucle de la piste (accord à arpéger). */
   function fillTrack() {
     const notes = sourceChord().notes;
-    const len = SS.trackLen(app.project(), track);
+    const len = SS.trackLen(ctl().project(), track);
     if (track.events.length && !confirm('Remplacer les accords de la piste par cet accord sur toute la boucle ?')) return;
     track.events = [{ step: 0, len, notes, vel: 0.8 }];
     if (track.follow) {
@@ -138,8 +151,8 @@ SS.arpPanel = (() => {
       delete track.follow;
     }
     test = null;
-    app.changed();
-    app.renderTrack && app.renderTrack(track);
+    ctl().changed();
+    ctl().renderTrack && ctl().renderTrack(track);
     render();
   }
 
@@ -162,18 +175,20 @@ SS.arpPanel = (() => {
   function loopInfo() {
     if (guitarOn()) {
       // mode Guitare : assez de mesures pour un nombre entier de cycles du motif (une valse 3/4 dans du 4/4…)
-      const spb = SS.stepsPerBar(app.project());
+      const spb = SS.stepsPerBar(ctl().project());
       const c = GA().cycle16(track.arp);
       let bars = 1;
       while (bars < 4 && (bars * spb) % c) bars++;
+      if (host) while (bars < 16 && bars % host.bars) bars++;
       return { bars, steps: bars * spb, ticks: bars * spb, period: c };
     }
     const notes = sourceChord().notes;
-    const spb = SS.stepsPerBar(app.project());
+    const spb = SS.stepsPerBar(ctl().project());
     const rate = track.arp.rate;
     const period = motifPeriod(notes);
     let bars = 1;
     while (bars < 16 && Math.ceil(bars * spb * rate - 1e-9) < Math.max(16, period)) bars++;
+    if (host) while (bars < 16 && bars % host.bars) bars++; // la boucle joue toute la grille d'accords de la scène
     const steps = bars * spb;
     const ticks = Math.ceil(steps * rate - 1e-9);
     return { bars, steps, ticks, period };
@@ -203,20 +218,21 @@ SS.arpPanel = (() => {
     loop.queue = [];
     loop.tick = -1;
     if (dlg) dlg.querySelectorAll('.arp-head').forEach((el) => el.setAttribute('x', -100));
+    if (dlg) hostChordMark(-1);
   }
 
   /** Programme les notes un peu en avance (comme le séquenceur), avec les réglages du moment. */
   function loopTick() {
     if (!loop.on || !track) return stopLoop();
     const ctx = SS.audio.ensureCtx();
-    const project = app.project();
+    const project = ctl().project();
     const stepSec = 60 / project.tempo / 4;
     const total = LOOP_STEPS();
     const notes = sourceChord().notes;
     while (loop.next < ctx.currentTime + 0.12) {
       const s = loop.step % total;
       const lp = Math.floor(loop.step / total); // passage de boucle : EVOLVE varie d'un passage à l'autre
-      const ev = { step: 0, len: total, notes, vel: 0.85, bass: trackBass() };
+      const ev = hostEv(s) || { step: 0, len: total, notes, vel: 0.85, bass: trackBass() };
       const arp = gesteCompare === 'regulier' ? { ...track.arp, geste: undefined } : track.arp; // « Écouter : Régulier »
       const out = A().renderStep(arp, ev, s, { loop: lp, stepSec, stepsPerBeat: SS.stepsPerBeat(project), trackLen: total });
       out.forEach((n) => {
@@ -225,18 +241,39 @@ SS.arpPanel = (() => {
       });
       // une entrée par pas d'arpège (et non par double-croche) : le curseur passe par chaque colonne
       const rate = guitarOn() ? 1 : track.arp.rate;
-      if (guitarOn()) loop.queue.push({ time: loop.next, tick: s % GA().cycle16(track.arp) });
-      else for (let k = Math.ceil(s * rate - 1e-9); k < Math.ceil((s + 1) * rate - 1e-9); k++) loop.queue.push({ time: loop.next + (k / rate - s) * stepSec, tick: k });
+      if (guitarOn()) loop.queue.push({ time: loop.next, tick: s % GA().cycle16(track.arp), s });
+      else for (let k = Math.ceil(s * rate - 1e-9); k < Math.ceil((s + 1) * rate - 1e-9); k++) loop.queue.push({ time: loop.next + (k / rate - s) * stepSec, tick: k, s });
       loop.next += stepSec;
       loop.step++;
     }
+  }
+
+  /** Assistant : l'accord de la scène joué au pas s de la boucle (pas absolu : step décalé d'autant de tours). */
+  function hostEv(s) {
+    if (!host || test || !host.chords.length) return null;
+    const n = host.bars * SS.stepsPerBar(ctl().project());
+    const k = s % n;
+    const c = host.chords.find((x) => k >= x.step && k < x.step + x.len) || host.chords[0];
+    return { step: c.step + s - k, len: c.len, notes: c.notes, vel: 0.85, bass: c.bass };
+  }
+  /** Assistant : la puce de l'accord en cours s'allume pendant la lecture. */
+  function hostChordMark(s) {
+    if (!host || s === hostAt) return;
+    hostAt = s;
+    const n = host.bars * SS.stepsPerBar(ctl().project());
+    const k = s < 0 ? -1 : s % n;
+    dlg.querySelectorAll('.arp-hchord').forEach((b) => b.classList.toggle('on', k >= +b.dataset.a && k < +b.dataset.b));
   }
 
   /** Curseur de lecture sur la grille (toute la boucle). */
   function drawHead() {
     if (!loop.on) return;
     const now = SS.audio.ensureCtx().currentTime;
-    while (loop.queue.length && loop.queue[0].time <= now) loop.tick = loop.queue.shift().tick;
+    while (loop.queue.length && loop.queue[0].time <= now) {
+      const q = loop.queue.shift();
+      loop.tick = q.tick;
+      hostChordMark(q.s);
+    }
     const head = dlg && dlg.querySelector('.arp-head');
     if (head) {
       const cw = +head.getAttribute('width');
@@ -316,7 +353,7 @@ SS.arpPanel = (() => {
     const colPx = cw * L.scale; // largeur réelle d'une colonne, en pixels (au moins MIN_COL_PX)
     const gap = colPx > 24 ? 2 : 1;
     const rate = track.arp.rate;
-    const spb = SS.stepsPerBar(app.project());
+    const spb = SS.stepsPerBar(ctl().project());
     const at16 = (k) => k / rate; // position du pas en doubles-croches
     const isBeat = (k) => Math.abs(at16(k) / 4 - Math.round(at16(k) / 4)) < 1e-6;
     const isBar = (k) => Math.abs(at16(k) / spb - Math.round(at16(k) / spb)) < 1e-6;
@@ -454,7 +491,7 @@ SS.arpPanel = (() => {
       if (u.id === 'rhythm') patch.rhythm = { ...track.arp.rhythm, type: 'lane' };
       track.arp = A().normalize(patch);
       paint();
-      app.changed();
+      ctl().changed();
     };
     row.addEventListener('pointerdown', (e) => {
       e.preventDefault();
@@ -601,7 +638,9 @@ SS.arpPanel = (() => {
         'div',
         { class: 'arp-player-bar' },
         loopButton('▶ Lire en boucle'),
-        h(
+        host && !test
+          ? h('div', { class: 'arp-chordnow arp-hchords', id: 'arpHostChords' }, h('span', { class: 'dlg-label' }, 'Accords de la scène'), host.chords.map((c) => h('span', { class: 'arp-hchord', 'data-a': c.step, 'data-b': c.step + c.len }, c.name)))
+          : h(
           'div',
           { class: 'arp-chordnow' },
           h('span', { class: 'dlg-label' }, src.from === 'essai' ? 'Accord d’essai' : 'Accord'),
@@ -710,7 +749,7 @@ SS.arpPanel = (() => {
   function cancelPicker() {
     undo.pop();
     track.arp = A().normalize(pick.before);
-    app.changed();
+    ctl().changed();
     picker.close();
     render();
   }
@@ -760,11 +799,11 @@ SS.arpPanel = (() => {
   /** Change le geste sans reconstruire la fenêtre (pendant un glissé) ; on rafraîchit le zoom seulement. */
   function setGesteLive(patch) {
     track.arp = A().normalize({ ...track.arp, geste: { ...gesteOf(), ...patch }, preset: '' });
-    app.changed();
+    ctl().changed();
     const z = dlg.querySelector('.geste-zoom-svg');
     if (z) z.innerHTML = gesteSvg(gesteOf(), groupSize(), stepMs(), true);
   }
-  const stepMs = () => 60000 / app.project().tempo / 4 / track.arp.rate; // durée d'un pas d'arpège
+  const stepMs = () => 60000 / ctl().project().tempo / 4 / track.arp.rate; // durée d'un pas d'arpège
   const oddNotes = (n) => (n === 2 ? 'la note 2' : n === 3 ? 'la note 2' : 'les notes 2, 4' + (n > 4 ? '…' : ''));
 
   /** Dessin d'un groupe : grille en pointillés, attaques, durées, force (opacité), respiration en jaune. */
@@ -914,7 +953,7 @@ SS.arpPanel = (() => {
           h(
             'div',
             { class: 'geste-zoom-head' },
-            h('span', { class: 'dlg-label' }, `Zoom sur un groupe · ${app.project().tempo} BPM`),
+            h('span', { class: 'dlg-label' }, `Zoom sur un groupe · ${ctl().project().tempo} BPM`),
             h('span', { class: 'spacer' }),
             h('span', { class: 'dlg-label' }, 'Groupes de'),
             segmented([{ id: 0, label: `Auto (${groupAuto()})` }, ...A().GROUP_SIZES.map((k) => ({ id: k, label: String(k) }))], g.group || 0, (v) => setGeste({ group: +v }), 'Taille des groupes')
@@ -972,6 +1011,13 @@ SS.arpPanel = (() => {
     /* stockage indisponible */
   }
   function setLevel(v) {
+    if (host) {
+      // fenêtre de l'assistant : le niveau choisi ne change pas celui de la Grille
+      if (!hostLevel) hostLevel = level;
+      level = v;
+      if (v !== 'avance') laneSel = 'vel';
+      return render();
+    }
     level = v;
     if (v !== 'avance') laneSel = 'vel';
     try {
@@ -1011,7 +1057,7 @@ SS.arpPanel = (() => {
   function replaceArp(a) {
     undo.push(clone(track.arp));
     track.arp = A().normalize(clone(a));
-    app.changed();
+    ctl().changed();
     render();
   }
   function goTake(d) {
@@ -1092,7 +1138,7 @@ SS.arpPanel = (() => {
     const apply = (x) => {
       v = Math.max(0, Math.min(100, Math.round(x)));
       track.arp = A().normalize({ ...track.arp, ...A().macroPatch(track.arp, mc.id, v), macros: { ...track.arp.macros, [mc.id]: v }, preset: '' });
-      app.changed();
+      ctl().changed();
       paint();
     };
     let drag = null;
@@ -1435,7 +1481,8 @@ SS.arpPanel = (() => {
 
   /** Titre de la fenêtre : « Nom de la piste — Partie » (la partie = la scène en cours, s'il y en a plusieurs ou une nommée). */
   function panelTitle() {
-    const p = app.project();
+    if (host) return host.title;
+    const p = ctl().project();
     const sc = p.scenes && p.scenes.length ? SS.currentScene(p) : null;
     return sc && sc.name ? `${track.name} — ${sc.name}` : track.name;
   }
@@ -1535,7 +1582,7 @@ SS.arpPanel = (() => {
   function guitarView() {
     const g = GA().normalize(track.arp.guitar);
     const src = sourceChord();
-    const pv = GA().preview(track.arp, src.notes, app.project().tempo || 100, trackBass());
+    const pv = GA().preview(track.arp, src.notes, ctl().project().tempo || 100, trackBass());
     const sh = pv.shape;
     const m = pv.motif;
     const cur = test || (() => {
@@ -1641,7 +1688,14 @@ SS.arpPanel = (() => {
     if (guitarOn()) body.replaceChildren(guitarView());
     else body.replaceChildren(playerView(), level === 'intuitif' ? intuitiveView() : modulesView());
     const fill = dlg.querySelector('.arp-fill');
-    fill.hidden = sourceChord().from !== 'essai';
+    fill.hidden = !!host || sourceChord().from !== 'essai';
+    dlg.querySelector('.arp-off').hidden = !!host;
+    dlg.querySelector('.arp-hostfoot').hidden = !host;
+    dlg.querySelectorAll('.arp-hscope button').forEach((b) => {
+      const on = (b.dataset.v === 'all') === hostAll;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-checked', String(on));
+    });
     const lv = dlg.querySelector('.arp-level');
     lv.replaceWith(levelSwitch());
     dlg.querySelector('.arp-level').hidden = guitarOn();
@@ -1680,7 +1734,7 @@ SS.arpPanel = (() => {
               onclick: () => {
                 if (!undo.length) return;
                 track.arp = A().normalize(undo.pop());
-                app.changed();
+                ctl().changed();
                 render();
               },
             },
@@ -1706,8 +1760,8 @@ SS.arpPanel = (() => {
               onclick: () => {
                 track.arp = A().normalize(snapshot);
                 if (armed) delete track.arpOn;
-                app.changed();
-                close();
+                ctl().changed();
+                close({ discard: true });
               },
             },
             'Annuler'
@@ -1720,11 +1774,22 @@ SS.arpPanel = (() => {
               title: 'La piste ne passe plus par l’arpégiateur (les réglages sont gardés)',
               onclick: () => {
                 delete track.arpOn;
-                app.changed();
+                ctl().changed();
                 close();
               },
             },
             'Éteindre l’arpège'
+          ),
+          h(
+            'span',
+            { class: 'arp-hostfoot', hidden: true },
+            h('span', { class: 'dlg-label' }, 'Scènes'),
+            h(
+              'span',
+              { class: 'segmented arp-hscope', role: 'radiogroup', 'aria-label': 'Scènes', id: 'arpHostScope' },
+              [['one', 'Cette scène'], ['all', 'Toutes']].map(([v, t]) => h('button', { type: 'button', role: 'radio', 'data-v': v, onclick: () => ((hostAll = v === 'all'), render()) }, t))
+            ),
+            h('button', { type: 'button', class: 'btn btn-accent', id: 'arpHostOk', onclick: () => close() }, 'OK')
           ),
           h('button', { type: 'button', class: 'btn arp-fill', title: 'Remplace les accords de la piste par l’accord d’essai, sur toute la boucle', onclick: fillTrack }, 'Poser l’accord sur la piste')
         )
@@ -1743,26 +1808,44 @@ SS.arpPanel = (() => {
     document.body.append(dlg);
   }
 
-  function close() {
+  /** Fermer : les réglages sont gardés (assistant : ils vont à la scène, ou à toutes) ; discard : Annuler. */
+  function close(opts) {
     stopLoop();
     if (picker && picker.open) picker.close();
     dlg.close();
     const t = track;
     track = null;
+    if (host) {
+      const hs = host;
+      host = null;
+      if (hostLevel) level = hostLevel;
+      hostLevel = null;
+      if (!(opts && opts.discard) && t) hs.apply(A().normalize(t.arp), hostAll);
+      return;
+    }
     app.renderTrack && t && app.renderTrack(t);
   }
 
   /** opts.armed : l'arpège vient d'être allumé par le bouton ARP de la piste ; « Annuler » le rééteint. */
   function open(t, opts) {
     if (!dlg) build();
+    if (track) close({ discard: true });
+    host = (opts && opts.host) || null;
+    hostAll = !!(host && host.all);
+    hostAt = -1;
+    hostLevel = null;
+    if (host && host.level && host.level !== level) {
+      hostLevel = level; // l'assistant ouvre au niveau Avancé sans changer celui de la Grille
+      level = host.level;
+    }
     track = t;
     armed = !!(opts && opts.armed);
     track.arp = A().normalize(track.arp);
     snapshot = clone(track.arp);
     // piste de guitare ouverte pour la première fois : mode Guitare d'office (Annuler revient au mode Clavier)
-    if (GA() && !track.arp.guitar && track.family === 'guitar') {
+    if (GA() && !host && !track.arp.guitar && track.family === 'guitar') {
       track.arp = A().normalize({ ...track.arp, guitar: { on: true } });
-      app.changed();
+      ctl().changed();
     }
     undo = [];
     test = null;
