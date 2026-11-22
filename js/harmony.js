@@ -800,7 +800,7 @@ SS.harmony = (() => {
    * loop : longueur de la boucle en mesures (0 : grille libre).
    * → null (moins de deux notes) ou [{ id, title, grid, cycle, reps, chords, numerals, why: [phrases], tension, color, fit }]
    */
-  function harmonize(key, notes, total, { slot = 16, current = [], loop = 4 } = {}) {
+  function harmonize(key, notes, total, { slot = 16, current = [], loop = 4, bar = 16 } = {}) {
     notes = (notes || []).filter((x) => x && x.len > 0 && x.step < total);
     if (notes.length < 2 || !valid(key)) return null;
     const cands = hzCandidates(key);
@@ -808,7 +808,7 @@ SS.harmony = (() => {
     const fit = Array.from({ length: n }, (_, i) => cands.map((x) => hzFit(notes, i * slot, Math.min(total, (i + 1) * slot), x)));
     // boucle : une scène de 8 mesures ou plus est harmonisée comme une boucle de `loop` mesures répétée (la grille des styles de
     // l'assistant), chaque tranche de la boucle notée sur toutes ses répétitions ; loop = 0 : une grille libre sur toute la scène
-    const per = loop ? (loop * 16) / slot : 0;
+    const per = loop ? (loop * bar) / slot : 0; // bar : pas par mesure (16 en 4/4)
     const m = per >= 1 && Number.isInteger(per) && n >= 2 * per ? per : n;
     const fitM = m === n ? fit : Array.from({ length: m }, (_, p) => cands.map((_, j) => fit.reduce((s2, row, i) => s2 + (i % m === p ? row[j] : 0), 0)));
     const curAt = (i) => {

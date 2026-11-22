@@ -527,3 +527,23 @@ test('EDM et techno : l\'automation choisie par l\'utilisateur remplace celle de
   assert.ok(!sb.data[kick.id].auto, 'le kick de la montée réglée dans l\'assistant garde son jeu');
   assert.ok(SS.bandSong.build(spec, p.id, tr).scenes.find((sc) => sc.sec === 'build').data[kick.id].auto.volume, 'le plan, lui, a la courbe de la dynamique');
 });
+
+test('3/4, 6/8 et 12/8 : toutes les chansons se construisent à la bonne longueur, chaque musicien joue, le 4/4 revient ensuite', () => {
+  for (const sig of ['3/4', '6/8', '12/8']) {
+    const spb = SS.bandSong.METERS[sig][0];
+    for (const p of PRESETS) {
+      const s = SS.bandSong.build(SS.BandSongs[p.id], p.id, tracksOf(p), { sig });
+      for (const sc of s.scenes) {
+        const n = sc.bars * spb;
+        for (const [id, d] of Object.entries(sc.data)) {
+          if (d.steps) assert.equal(d.steps.length, n, `${sig} ${p.id} ${sc.sec} ${id} : pas`);
+          else for (const e of d.events) assert.ok(e.step >= 0 && e.step + e.len <= n + 0.01, `${sig} ${p.id} ${sc.sec} ${id} : note hors scène`);
+        }
+      }
+      for (const t of tracksOf(p)) assert.ok(s.scenes.some((sc) => sc.data[t.id] && plays(sc.data[t.id])), `${sig} ${p.id} : ${t.id} muet`);
+    }
+  }
+  const s = SS.bandSong.build(SS.BandSongs[PRESETS[0].id], PRESETS[0].id, tracksOf(PRESETS[0]));
+  assert.equal(SS.bandSong.meter().spb, 16);
+  assert.ok(Object.values(s.scenes[0].data).every((d) => !d.steps || d.steps.length === s.scenes[0].bars * 16));
+});

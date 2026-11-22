@@ -16,7 +16,7 @@ SS.bassMotifs = (() => {
     ['dnb', 'Drum & bass', ['reese', 'dnbroll']],
     ['latin', 'Latin & Reggae', ['tresillo', 'dembow', 'tumbao', 'onedrop', 'roots', 'bossa', 'afro', 'chacha', 'cumbia', 'baiao', 'montuno', 'amapiano']],
     ['techno', 'Techno & House', ['hades', 'seismic', 'oracle', 'troy', 'phalanx', 'necropolis', 'styx', 'athens', 'mythos', 'thebes', 'acid', 'offbeat', 'off16', 'trance', 'twostep']],
-    ['ternary', '3/4 et 6/8', ['valse', 'valsejazz', 'ballade68', 'whole', 'quarter', '8', 'pulse8', 'oct', 'drone']],
+    ['ternary', '3/4, 6/8, 12/8', ['valse', 'valsejazz', 'ballade68', 'galop68', 'slow128', 'boogie128', 'berce128', 'whole', 'quarter', '8', 'pulse8', 'oct', 'drone', 'walking', 'rootfifth', 'arp']],
     ['famous', '★ Célèbres', ['cel_chic', 'cel_hitsville', 'cel_pfunk', 'cel_thumb', 'cel_fretless', 'cel_liverpool', 'cel_studio60', 'cel_gallop', 'cel_motorik', 'cel_coldwave', 'cel_staccato80', 'cel_steppers', 'cel_ska', 'cel_boogie', 'cel_rockabilly', 'cel_lagos', 'cel_surdo', 'cel_gfunk', 'cel_frenchtouch', 'cel_wobble', 'cel_neosoul']],
   ];
   /** Conseillés dans la fenêtre Nouvelle piste. */
@@ -26,11 +26,11 @@ SS.bassMotifs = (() => {
   const entry = (id) => modes().find((m) => m[0] === id);
   const name = (id) => (entry(id) || [id, id])[1];
   const desc = (id) => (entry(id) || [])[2] || '';
-  /** Pas par mesure du motif : 12 (3/4, 6/8) ou 16 (4/4). */
+  /** Pas par mesure du motif : 12 (3/4, 6/8), 24 (12/8) ou 16 (4/4). */
   const barOf = (id) => (SS.bandSong && SS.bandSong.motifBar ? SS.bandSong.motifBar(id) : 16);
   /** Motifs sans mesure fixe (une note par temps, par croche, tenue) : jouables dans toutes les mesures. */
-  const ANY_METER = ['whole', 'quarter', '8', 'pulse8', 'oct', 'drone', 'half', 'sixteen', 'oct16'];
-  /** Le motif va-t-il dans une mesure de `spb` pas ? (16 = 4/4 ; 12 = 3/4 ou 6/8) */
+  const ANY_METER = ['whole', 'quarter', '8', 'pulse8', 'oct', 'drone', 'half', 'sixteen', 'oct16', 'walking', 'rootfifth', 'arp', 'b03'];
+  /** Le motif va-t-il dans une mesure de `spb` pas ? (16 = 4/4 ; 12 = 3/4 ou 6/8 ; 24 = 12/8) */
   const fits = (id, spb = 16) => barOf(id) === spb || (spb !== 16 && ANY_METER.includes(id));
   /** Tous les motifs, dans l'ordre des styles, puis ceux qu'aucun style ne range. */
   function all() {
@@ -56,23 +56,24 @@ SS.bassMotifs = (() => {
   // dessin : le motif (une ou deux mesures) sur Am puis F (le vrai moteur), hauteur 0 grave, 1 milieu, 2 octave ;
   // les notes décalées (triolets) sont dessinées à leur vraie place
   const draws = {};
-  function svg(id, spb) {
-    const ck = `${id}|${spb || ''}`;
+  function svg(id, spb, beat0) {
+    const ck = `${id}|${spb || ''}|${beat0 || ''}`;
     if (!draws[ck]) {
       const nb = (SS.bandSong.motifBars && SS.bandSong.motifBars(id)) || 1;
-      const bl = spb && barOf(id) === 16 ? spb : barOf(id); // pas par mesure (12 en 3/4 et 6/8 ; motif sans mesure : celle du morceau)
+      const bl = spb && barOf(id) === 16 ? spb : barOf(id); // pas par mesure (12 en 3/4 et 6/8, 24 en 12/8 ; motif sans mesure : celle du morceau)
+      const M = SS.bandSong.METER[id];
+      const beat = M ? SS.bandSong.METERS[M][1] : beat0 || 4; // temps : noire, ou noire pointée en 6/8 et 12/8
       let ev = [];
       try {
         const sp = [
           { step: 0, len: bl, bar: 0, chord: { rootPc: 9, type: 'min', tok: 'Am' } },
           { step: bl, len: bl, bar: 1, chord: { rootPc: 5, type: 'maj', tok: 'F' } },
         ];
-        ev = SS.bandSong.bassEvents(sp, id, () => 0.5, [9, 11, 0, 2, 4, 5, 7], { spb: bl }).filter((e) => e.step < bl * nb);
+        ev = SS.bandSong.bassEvents(sp, id, () => 0.5, [9, 11, 0, 2, 4, 5, 7], { spb: bl, beat }).filter((e) => e.step < bl * nb);
       } catch (e) {
         ev = [];
       }
       const w = 160 / (bl * nb); // largeur d'un pas
-      const beat = bl === 12 && SS.bandSong.METER[id] === '6/8' ? 6 : 4; // temps : noire, ou noire pointée en 6/8
       const per = bl / beat; // temps par mesure
       const bars = Array.from({ length: per * nb - 1 }, (_, i) => i + 1)
         .map((b) => `<rect x="${b * beat * w}" y="0" width="${b % per ? 0.6 : 1.2}" height="22" fill="currentColor" opacity="${b % per ? 0.25 : 0.5}"/>`)
@@ -97,8 +98,8 @@ SS.bassMotifs = (() => {
    * Écran de choix partagé (fenêtre MOTIF de la Grille, étape Basse de Nouvelle chanson) : puces de style + cartes.
    * o = { group, cur, insp?, mark?, none?: { on, pick }, onGroup(g), onPick(id), lib?, keep? } ; mark : puce marquée d'un point
    * (style de la chanson) ; lib : autre bibliothèque de motifs ({ GROUPS, inGroup, name, desc, svg, noneTitle, label }, par
-   * exemple SS.padMotifs) ; keep(id) : filtre en plus du style ; spb : pas par mesure du morceau (12 en 3/4 et 6/8 : seuls
-   * les motifs qui y vont). Rend [puces, cartes].
+   * exemple SS.padMotifs) ; keep(id) : filtre en plus du style ; spb : pas par mesure du morceau (12 en 3/4 et 6/8, 24 en
+   * 12/8 : seuls les motifs qui y vont) ; beat : pas par temps (6 en 6/8 et 12/8). Rend [puces, cartes].
    */
   function el(tag, attrs, ...kids) {
     const n = document.createElement(tag);
@@ -116,7 +117,7 @@ SS.bassMotifs = (() => {
     const chips = el(
       'div',
       { class: 'mot-chips', role: 'radiogroup', 'aria-label': 'Styles' },
-      [['all', 'Tous'], ...L.GROUPS.filter((g) => o.lib || (g[0] === 'ternary') === ((o.spb || 16) !== 16)).map((g) => [g[0], g[1]])].map(([id, l]) =>
+      [['all', 'Tous'], ...L.GROUPS.filter((g) => (o.lib ? g[0] !== 'ternary' || (o.spb || 16) !== 16 : (g[0] === 'ternary') === ((o.spb || 16) !== 16))).map((g) => [g[0], g[1]])].map(([id, l]) =>
         el('button', { type: 'button', role: 'radio', 'aria-checked': String(o.group === id), class: 'mot-chip' + (o.group === id ? ' on' : '') + (o.mark === id ? ' mark' : ''), 'data-g': id, onclick: () => o.onGroup(id) }, l)
       )
     );
@@ -125,7 +126,7 @@ SS.bassMotifs = (() => {
         'button',
         { type: 'button', role: 'radio', 'aria-checked': String(id === o.cur), class: 'mot-card' + (id === o.cur ? ' on' : ''), 'data-id': id, title: L.desc(id), onclick: () => o.onPick(id) },
         el('span', { class: 'mot-name' }, el('span', {}, L.name(id)), id === o.insp ? el('em', { class: 'mot-insp' }, 'Inspiration') : null),
-        el('span', { class: 'mot-draw', html: L.svg(id, o.lib ? undefined : o.spb) })
+        el('span', { class: 'mot-draw', html: L.svg(id, o.lib ? undefined : o.spb, o.beat) })
       );
     const none = o.none
       ? el(

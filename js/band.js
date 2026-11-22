@@ -2561,15 +2561,15 @@ SS.band = (() => {
   const formOf = () => (S.wiz.form ? S.wiz.form.map((b) => ({ ...b })) : parseForm(spec().form));
   /** Répète une grille d'accords (pas, durée) sur une scène plus longue, ou la coupe si elle est plus courte. */
   function repeatFit(grid, from, to) {
-    const old = from * 16;
-    const total = to * 16;
+    const old = from * SPB();
+    const total = to * SPB();
     const out = [];
     for (let k = 0; k * old < total; k++) grid.forEach((c) => c.step + k * old < total && out.push({ ...c, step: c.step + k * old, len: Math.min(c.len, total - (c.step + k * old)) }));
     return fillGrid(out, total);
   }
   /** Pédales d'une scène dont la longueur change : coupées à la fin de la scène. */
   function pedFit(id, bars) {
-    const total = bars * 16;
+    const total = bars * SPB();
     const out = (S.wiz.peds[id] || []).filter((x) => x.step < total).map((x) => ({ ...x, len: Math.min(x.len, total - x.step) }));
     if (out.length) S.wiz.peds[id] = out;
     else delete S.wiz.peds[id];
@@ -2843,7 +2843,7 @@ SS.band = (() => {
   function coverParse(text) {
     if (!String(text || '').trim()) return { spans: [], bars: 0, errors: ['pas d’accords'] };
     try {
-      return SS.melody.parseGrid(text, { spb: 16 });
+      return SS.melody.parseGrid(text, { spb: SPB() });
     } catch (e) {
       return { spans: [], bars: 0, errors: [e.message] };
     }
@@ -3034,11 +3034,11 @@ SS.band = (() => {
     const cols = wizCols();
     const harmony = harmonyOpts(true);
     const parts = partsEff();
-    const sig = JSON.stringify([p.id, cover() && S.cover, film() && !filmTpl() && S.film, S.wiz.seed, melodyOpts(), harmony, JSON.stringify(parts, (k, v) => (k === 'hidden' ? undefined : v)), S.wiz.kinds, S.wiz.form, S.wiz.secs, S.wiz.skey, cols.map((c) => [c.id, c.o]), S.wiz.fx]);
+    const sig = JSON.stringify([sigOf(), p.id, cover() && S.cover, film() && !filmTpl() && S.film, S.wiz.seed, melodyOpts(), harmony, JSON.stringify(parts, (k, v) => (k === 'hidden' ? undefined : v)), S.wiz.kinds, S.wiz.form, S.wiz.secs, S.wiz.skey, cols.map((c) => [c.id, c.o]), S.wiz.fx]);
     if (S.wiz.sig !== sig) {
       const sp = specEff();
       const fake = cols.map((c) => ({ id: c.id, type: c.o.type, sound: c.o.sound, band: c.o.band }));
-      S.wiz.res = sp ? SS.bandSong.build(sp, p.id, fake, { melodySeed: S.wiz.seed, melody: melodyOpts(), harmony, parts, kinds: S.wiz.kinds, fx: fxOpts() }) : null;
+      S.wiz.res = sp ? SS.bandSong.build(sp, p.id, fake, { melodySeed: S.wiz.seed, melody: melodyOpts(), harmony, parts, kinds: S.wiz.kinds, fx: fxOpts(), sig: sigOf() }) : null;
       S.wiz.sig = sig;
     }
     return { cols, res: S.wiz.res };
@@ -3093,7 +3093,7 @@ SS.band = (() => {
 
   /** Petit clip dessiné (comme une case de la vue session d'un DAW) : pas de batterie ou notes. */
   function clipSvg(d, bars, range) {
-    const W = bars * 16;
+    const W = bars * SPB();
     const NS = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(NS, 'svg');
     svg.setAttribute('viewBox', `0 0 ${W} 20`);
@@ -3110,8 +3110,8 @@ SS.band = (() => {
     };
     for (let b = 4; b < bars; b += 4) {
       const l = document.createElementNS(NS, 'line');
-      l.setAttribute('x1', b * 16);
-      l.setAttribute('x2', b * 16);
+      l.setAttribute('x1', b * SPB());
+      l.setAttribute('x2', b * SPB());
       l.setAttribute('y1', 0);
       l.setAttribute('y2', 20);
       l.setAttribute('class', 'bw-bar');
@@ -3158,6 +3158,11 @@ SS.band = (() => {
     return out;
   }
   const BS = () => SS.bandSong;
+  /** Mesure de la chanson : pas par mesure (16 en 4/4, 12 en 3/4 et 6/8, 24 en 12/8) et par temps (4, ou 6 en 6/8 et 12/8). */
+  const SPB = () => SS.bandSong.meter().spb;
+  const BEAT = () => SS.bandSong.meter().beat;
+  /** Mesure choisie à l'étape Tempo ('4/4' par défaut ; la musique de film reste en 4/4). */
+  const sigOf = () => (S.wiz && S.wiz.meter && !film() ? S.wiz.meter : '4/4');
 
   /* Tête d'étape : une phrase courte et concrète par étape (78 caractères au plus) : voir stepInfo(n).line. */
 
@@ -3389,7 +3394,7 @@ SS.band = (() => {
         'div',
         { class: 'bwt-meta' },
         st ? h('span', {}, `Conseillé pour ${st.label} : `, h('b', {}, `${lo}–${hi} BPM`), ' (zone dorée)') : null,
-        h('span', { id: 'bwtDur' }, `${len} mesures · ${mmss((len * 4 * 60) / t)}`),
+        h('span', { id: 'bwtDur' }, `${len} mesures · ${mmss((len * (SPB() / 4) * 60) / t)}`),
         h('button', { type: 'button', class: 'btn btn-small', id: 'bwtOrig', hidden: t === orig, title: 'Revenir au tempo de l’inspiration', onclick: () => setTempo(orig) }, `↺ Tempo de l’inspiration : ${orig}`)
       )
     );
@@ -3440,7 +3445,81 @@ SS.band = (() => {
       ),
       h('p', { class: 'dlg-hint' }, `${fam ? 'Mode à tierce majeure' : 'Mode à tierce mineure'} · ${keyInfo(key)}`)
     );
-    box.replaceChildren(h('div', { class: 'bwt' }, bpmCard, keyCard));
+    box.replaceChildren(h('div', { class: 'bwt' }, bpmCard, film() ? null : meterCard(t), keyCard));
+  }
+
+  /* ---------- Mesure de la chanson (étape Tempo) ----------
+   * 4/4, 3/4, 6/8 ou 12/8 (S.wiz.meter). Le moteur (js/bandsong.js setMeter) compte alors 16, 12 ou 24 doubles-croches par
+   * mesure ; les motifs de batterie, basse, nappe et arpège qui ne vont pas dans la mesure sont remplacés par ceux écrits pour
+   * elle. Les accords, pédales et mélodies imposées gardent leur place dans la mesure (ramenés au temps le plus proche).
+   */
+  const METER_CHOICES = [['4/4', 'Binaire'], ['3/4', 'Valse'], ['6/8', 'Bercé'], ['12/8', 'Blues lent']];
+  /** Points de la pulsation : un gros point par temps, un petit par croche ; le premier temps en couleur. */
+  function meterPulse(sig) {
+    const [spb, beat] = BS().METERS[sig];
+    return h('span', { class: 'bwt-pulse', 'aria-hidden': 'true' }, ...Array.from({ length: spb / beat }, (_, q) => h('span', {}, ...Array.from({ length: beat / 2 }, (_, i) => h('i', { class: (i ? '' : 'b') + (q || i ? '' : ' one') })))));
+  }
+  function meterCard(t) {
+    const cur = sigOf();
+    const [spb, beat] = BS().METERS[cur];
+    return h(
+      'section',
+      { class: 'bwt-card bw-card', 'aria-labelledby': 'bwtMeterTitle' },
+      h('h3', { id: 'bwtMeterTitle' }, 'Mesure', SS.helpTip('Le nombre de temps par mesure et leur découpage. En 6/8 et 12/8, chaque temps vaut trois croches (noire pointée). Batterie, basse, nappe et arpèges passent à des motifs écrits pour la mesure ; les accords restent à leur place.', 'Mesure')),
+      h(
+        'div',
+        { class: 'bwt-meters', role: 'radiogroup', 'aria-label': 'Mesure de la chanson' },
+        ...METER_CHOICES.map(([sig, name]) =>
+          h('button', { type: 'button', role: 'radio', class: 'bwt-meter' + (sig === cur ? ' active' : ''), 'data-sig': sig, 'aria-checked': String(sig === cur), onclick: () => setMeter(sig) }, h('b', {}, sig), h('small', {}, name), meterPulse(sig))
+        )
+      ),
+      h('div', { class: 'bwt-meta' }, beat === 6 ? h('span', {}, 'Pulsation : ', h('b', {}, `♩. = ${Math.round((t * 2) / 3)}`), ` · ${spb / beat} temps par mesure`) : h('span', {}, `${spb / beat} temps par mesure`))
+    );
+  }
+  /** Place d'un pas dans la nouvelle mesure : même mesure, même position relative, au temps (ou à la croche) le plus proche. */
+  function restep(st, o, n, snap) {
+    const bar = Math.floor(st / o);
+    const x = ((st - bar * o) * n) / o;
+    return bar * n + Math.min(n - snap, Math.round(x / snap) * snap);
+  }
+  /** Change la mesure de la chanson : accords, pédales et mélodies imposées suivent, puis la chanson est refaite. */
+  function setMeter(sig) {
+    if (!S.wiz || !BS().METERS[sig] || sig === sigOf()) return;
+    const o = SPB();
+    const n = BS().METERS[sig][0];
+    const nb = BS().METERS[sig][1];
+    const eff = specEff();
+    const barsOf = (id) => ((eff && eff.sections[id]) || {}).bars || 4;
+    Object.keys(S.wiz.grids).forEach((id) => {
+      const seen = new Set();
+      const g = S.wiz.grids[id].map((c) => ({ ...c, step: restep(c.step, o, n, nb) })).filter((c) => !seen.has(c.step) && seen.add(c.step));
+      S.wiz.grids[id] = HM().gridFill(g, barsOf(id) * n);
+    });
+    Object.keys(S.wiz.peds).forEach((id) => {
+      S.wiz.peds[id] = S.wiz.peds[id].map((x) => {
+        const a = restep(x.step, o, n, nb);
+        return { ...x, step: a, len: Math.max(nb, restep(x.step + x.len, o, n, nb) - a) };
+      });
+    });
+    const moveLead = (ld) => {
+      if (!ld || !Array.isArray(ld.events)) return;
+      ld.events = ld.events.map((e) => {
+        const a = restep(e.step, o, n, 1);
+        return { ...e, step: a, len: Math.max(1, restep(e.step + e.len, o, n, 1) - a) };
+      }).filter((e, i, a) => !i || e.step > a[i - 1].step || e.step !== a[i - 1].step);
+    };
+    Object.values(S.wiz.parts).forEach((pp) => {
+      if (!pp) return;
+      moveLead(pp.lead);
+      Object.values(pp.inst || {}).forEach((ie) => ie && moveLead(ie.lead));
+    });
+    S.wiz.meter = sig;
+    BS().setMeter(sigOf());
+    S.wiz.dsel = null;
+    noteWizard(`mesure ${sig}`);
+    markListen();
+    renderWiz();
+    draftSoon();
   }
 
   /* ---------- Étape Scènes : arrangement et scènes ----------
@@ -3605,7 +3684,7 @@ SS.band = (() => {
       return cb;
     };
     const len = res.song.reduce((a, b) => a + res.scenes.find((sc) => sc.id === b.scene).bars * b.repeat, 0);
-    const secs = (len * 4 * 60) / tempo();
+    const secs = (len * (SPB() / 4) * 60) / tempo();
     const time = `${Math.floor(secs / 60)}:${String(Math.round(secs % 60)).padStart(2, '0')}`;
     const kept = cols.filter((c) => !S.wiz.off.has(c.id)).length;
 
@@ -3946,7 +4025,7 @@ SS.band = (() => {
     const idx = res.scenes.indexOf(sc);
     const bpm = sc.tempo || tempo();
     const times = res.song.filter((b) => b.scene === sc.id).reduce((a, b) => a + b.repeat, 0);
-    const secs = (sc.bars * 4 * 60) / bpm;
+    const secs = (sc.bars * (SPB() / 4) * 60) / bpm;
     const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
     const go = (d) => {
       const next = res.scenes[(idx + d + res.scenes.length) % res.scenes.length];
@@ -4015,7 +4094,7 @@ SS.band = (() => {
     const spans = sceneSpans(sc);
     const bars = Array.from({ length: sc.bars }, () => []);
     spans.forEach((sp) => {
-      const b = Math.max(0, Math.min(sc.bars - 1, sp.bar != null ? sp.bar : Math.floor(sp.step / 16)));
+      const b = Math.max(0, Math.min(sc.bars - 1, sp.bar != null ? sp.bar : Math.floor(sp.step / SPB())));
       if (!bars[b].includes(sp.info.name)) bars[b].push(sp.info.name);
     });
     let last = null;
@@ -4121,7 +4200,7 @@ SS.band = (() => {
    * Renvoie les morceaux de la page : ils sont redessinés sans toucher au panneau (refreshMelFrame).
    */
   function melScene(cols, res, sc, T) {
-    const total = sc.bars * 16;
+    const total = sc.bars * SPB();
     const pct = (x) => `${((100 * x) / total).toFixed(3)}%`;
     const spans = sceneSpans(sc);
     const spanAt = (step) => spans.find((x) => step >= x.step && step < x.step + x.len);
@@ -4133,7 +4212,7 @@ SS.band = (() => {
     const ruler = row(
       'bh-ruler',
       head('', ''),
-      ...Array.from({ length: sc.bars }, (_, b) => h('span', { class: 'bh-num', style: `left:${pct(b * 16)}` }, String(b + 1)))
+      ...Array.from({ length: sc.bars }, (_, b) => h('span', { class: 'bh-num', style: `left:${pct(b * SPB())}` }, String(b + 1)))
     );
     const chords = row(
       'bh-chords',
@@ -4291,7 +4370,7 @@ SS.band = (() => {
 
   /** Grille d'une scène pour le panneau : des accords bout à bout sur toute sa durée (un trou est tenu par l'accord d'avant). */
   function melGrid(sc) {
-    const total = sc.bars * 16;
+    const total = sc.bars * SPB();
     const out = [];
     sceneSpans(sc)
       .filter((x) => x.step < total)
@@ -4401,7 +4480,7 @@ SS.band = (() => {
   }
   /** Petit rouleau : bandes d'accords, mesures, notes (classe par note). */
   function devRoll(sc, notes, { cls = () => '', mark = null, id = null, mini = false } = {}) {
-    const total = sc.bars * 16;
+    const total = sc.bars * SPB();
     const pct = (x) => `${((100 * x) / total).toFixed(3)}%`;
     const ms = notes.map((x) => x.midi);
     const lo = Math.min(...ms, 60) - 1;
@@ -4413,7 +4492,7 @@ SS.band = (() => {
       { class: 'bwhz-roll bwdv-roll' + (mini ? ' mini' : ''), id },
       mark ? h('i', { class: 'bwdv-mark', style: `left:${pct(mark[0])};width:${pct(mark[1] - mark[0])}` }) : null,
       ...(mini ? [] : gridOf(sc).map((x) => h('div', { class: 'bwhz-band role-' + chordOf(sc.key, x).role.id, style: `left:${pct(x.step)};width:${pct(x.len)}` }, chordOf(sc.key, x).name))),
-      ...Array.from({ length: sc.bars - 1 }, (_, b) => h('i', { class: 'bwhz-bl' + ((b + 1) % 2 ? ' odd' : ''), style: `left:${pct((b + 1) * 16)}` })),
+      ...Array.from({ length: sc.bars - 1 }, (_, b) => h('i', { class: 'bwhz-bl' + ((b + 1) % 2 ? ' odd' : ''), style: `left:${pct((b + 1) * SPB())}` })),
       ...notes.map((x, i) => h('span', { class: 'bwhz-n bwdv-n ' + cls(x, i), style: `left:${pct(x.step)};width:calc(${pct(x.len)} - 1px);top:${(top + ((hi - x.midi) / Math.max(1, hi - lo)) * H).toFixed(1)}px` }))
     );
   }
@@ -4475,7 +4554,7 @@ SS.band = (() => {
     const seg = (items, cur, set, label, id) =>
       h('span', { class: 'segmented', role: 'radiogroup', 'aria-label': label, id }, ...items.map(([v, l]) => h('button', { type: 'button', role: 'radio', 'data-v': String(v), class: v === cur ? 'active' : '', 'aria-checked': String(v === cur), disabled: t ? true : null, onclick: () => set(v) }, l)));
     const motifPick = h('span', { class: 'bwhz-grp' }, h('span', { class: 'bh-lbl' }, 'Motif'), seg(pairs.map((b) => [b, `mesures ${b + 1}-${b + 2}`]), st.bar, (v) => ((st.bar = v), renderWiz()), 'Motif choisi', 'bwDevBar'));
-    const mark = [st.bar * 16, st.bar * 16 + 32];
+    const mark = [st.bar * SPB(), st.bar * SPB() + 2 * SPB()];
     const inMotif = (x) => x.step >= mark[0] && x.step < mark[1];
     const pcs = scalePcs(sc.key);
     if (tab === 'dev') {
@@ -4495,17 +4574,17 @@ SS.band = (() => {
         'div',
         { class: 'bwhz-mel' },
         h('div', { class: 'bwhz-mhead' }, h('b', {}, `Ta phrase · ${sc.name}`), h('span', { class: 'bh-info' }, viewP && t.on ? `B : ${viewP.title.toLowerCase()} · motif en mesures 1-2` : `motif choisi : mesures ${st.bar + 1} et ${st.bar + 2} · l’assistant écrit la suite de la phrase de ${phraseBars} mesures` + (sc.bars > phraseBars ? `, répétée sur les ${sc.bars}` : ''))),
-        devRoll(sc, shown, { id: 'bwDevRoll', mark: viewP && t.on ? [0, 32] : mark, cls: (x) => (viewP && t.on ? (x.step < 32 ? 'mot' : 'new') : inMotif(x) ? 'mot' : '') }),
+        devRoll(sc, shown, { id: 'bwDevRoll', mark: viewP && t.on ? [0, 2 * SPB()] : mark, cls: (x) => (viewP && t.on ? (x.step < 2 * SPB() ? 'mot' : 'new') : inMotif(x) ? 'mot' : '') }),
         h('div', { class: 'bwhz-legend' }, h('span', {}, h('i', { class: 'bwhz-sw bwdv-sw mot' }), 'ton motif'), h('span', {}, h('i', { class: 'bwhz-sw bwdv-sw new' }), 'suite proposée (B)'), h('span', {}, h('i', { class: 'bwhz-sw' }), 'mélodie actuelle'), sc.bars >= 8 ? h('span', { class: 'bh-info' }, `forme : ${form.text}`) : null)
       );
       const cards = props.map((p) => {
         const trying = t && t.id === p.id;
-        const ns = p.events.filter((e) => e.step < phraseBars * 16).map((e) => ({ step: e.step, len: e.len, midi: e.notes[0] }));
+        const ns = p.events.filter((e) => e.step < phraseBars * SPB()).map((e) => ({ step: e.step, len: e.len, midi: e.notes[0] }));
         return h(
           'div',
           { class: 'bwhz-card bwdv-card' + (trying ? ' trying on' : ''), 'data-dev': p.id },
           h('header', {}, h('b', {}, p.title), p.form ? h('small', {}, p.parts.map((x) => DV_PART[x]).join(' · ')) : null),
-          devRoll({ ...sc, bars: phraseBars }, ns, { mini: true, cls: (x) => (x.step < 32 ? 'mot' : 'new') }),
+          devRoll({ ...sc, bars: phraseBars }, ns, { mini: true, cls: (x) => (x.step < 2 * SPB() ? 'mot' : 'new') }),
           h('p', { class: 'bwdv-why' }, p.why),
           h('div', { class: 'bwhz-foot' }, h('span', { class: 'spacer' }), h('button', { type: 'button', class: 'btn btn-small' + (trying ? ' btn-accent' : ''), 'data-devab': p.id, onclick: () => startDev('dev', sc, sc, T, p, notes) }, trying ? '▶ À l’essai' : '▶ Essai A/B'))
         );
@@ -4604,7 +4683,9 @@ SS.band = (() => {
    */
   const HM = () => SS.harmony;
   const SNAPS = [['bar', 'à la mesure', 16], ['half', 'à la demi-mesure', 8], ['beat', 'au temps', 4]];
-  const snapUnit = () => (SNAPS.find((x) => x[0] === S.wiz.snap) || SNAPS[2])[2];
+  /** Pas de l'aimant dans la mesure de la chanson (demi-mesure : la moitié des temps, sinon la mesure). */
+  const snapLen = (id) => (id === 'bar' ? SPB() : id === 'half' ? ((SPB() / BEAT()) % 2 ? SPB() : SPB() / 2) : BEAT());
+  const snapUnit = () => snapLen((SNAPS.find((x) => x[0] === S.wiz.snap) || SNAPS[2])[0]);
   const GFAMS = [
     { id: 'repos', title: 'Repos', sub: 'on s’y pose' },
     { id: 'prep', title: 'Préparation', sub: 'on s’éloigne' },
@@ -4644,7 +4725,7 @@ SS.band = (() => {
     if (S.wiz.ab && S.wiz.ab.sec === sc.sec) S.wiz.ab = null; // on retouche la version A : l'essai s'arrête
     const g = gridOf(sc).map((c) => ({ ...c }));
     const keep = fn(g);
-    const out = fillGrid(g, sc.bars * 16);
+    const out = fillGrid(g, sc.bars * SPB());
     S.wiz.grids[sc.sec] = out;
     if (keep) S.wiz.gsel = out.indexOf(out.find((c) => c.step === keep.step)) ;
     else if (S.wiz.gsel != null && !out[S.wiz.gsel]) S.wiz.gsel = null;
@@ -4653,7 +4734,7 @@ SS.band = (() => {
   const gridPut = (g, chord) => HM().gridPut(g, chord);
   /** Durée d'un accord : plus long, il prend sur les suivants ; plus court, le suivant commence plus tôt. */
   function setChordLen(sc, i, len) {
-    editGrid(sc, (g) => HM().gridSetLen(g, i, len, sc.bars * 16));
+    editGrid(sc, (g) => HM().gridSetLen(g, i, len, sc.bars * SPB()));
   }
   const chordOf = (key, c) => HM().gridChord(key, c.degree, c.type, c.acc || 0, c.bass || 0);
   /** Classe de hauteur d'une pédale ({ semi } : demi-tons au-dessus de la tonique de la scène, comme scene.grid.pedals). */
@@ -4741,7 +4822,7 @@ SS.band = (() => {
   function startAb(sc, id) {
     const k = sc.key;
     const base = S.wiz.grids[sc.sec] || specGrid(sc);
-    const r = HM().transformGrid(id, base, k, sc.bars * 16);
+    const r = HM().transformGrid(id, base, k, sc.bars * SPB());
     const tr = HM().TRANSFORMS.find((x) => x.id === id);
     if (!r.changed) return app.toast(`« ${tr.label} » ne change rien ici (aucun accord concerné).`);
     S.wiz.ab = { sec: sc.sec, id, grid: r.grid, peds: r.pedals || null, on: true };
@@ -4816,7 +4897,7 @@ SS.band = (() => {
     const list = (items) => h('ul', { class: 'hm-checks2' }, ...items.map((r) => h('li', { class: 'k-' + r.kind }, h('span', { class: 'ck' }, CK_ICON[r.kind] || '•'), h('div', {}, r.text, r.hint ? h('small', {}, r.hint) : null))));
     const mels = insSteps()
       .filter((T) => T.kind === 'melody' && !mutedIn(sc.sec, T))
-      .map((T) => ({ T, r: SS.melody.checkMelody({ events: ((sc.data[T.col.id] || {}).events) || [], chordAt, key: k, spb: 16, beat: 4 }) }));
+      .map((T) => ({ T, r: SS.melody.checkMelody({ events: ((sc.data[T.col.id] || {}).events) || [], chordAt, key: k, spb: SPB(), beat: BEAT() }) }));
     const gridItems = H.gridChecks(k, gch);
     const warns = gridItems.concat(...mels.map((m) => m.r.items)).filter((i) => i.kind === 'warn').length;
     const open = forceOpen || !!S.wiz.ckOpen;
@@ -4837,6 +4918,8 @@ SS.band = (() => {
    * Trois grilles contrastées pour la mélodie de la scène (SS.harmony.harmonize), chacune expliquée, à écouter en essai A/B.
    * Pendant l'essai, la mélodie est figée (partsEff) ; « Garder B » écrit la grille et garde cette mélodie pour la scène. */
   const HZ_SLOTS = [[16, '1 par mesure'], [8, '2 par mesure'], [32, '1 toutes les 2 mesures']];
+  /** Créneaux d'accords dans la mesure de la chanson (« 2 par mesure » seulement si la mesure se coupe en deux temps égaux). */
+  const hzSlots = () => HZ_SLOTS.map(([v, l]) => [v === 16 ? SPB() : v === 32 ? 2 * SPB() : (SPB() / BEAT()) % 2 ? null : SPB() / 2, l]).filter(([v]) => v);
   const HZ_ROLES = { chord: 'note de l’accord', pass: 'passage', tension: 'tension (9e, quarte, 7e…)', clash: 'frottement à vérifier' };
   /** Instruments Mélodie qui chantent dans la scène, avec leurs notes ({ step, len, midi : la plus haute }). */
   function harmMelodies(sc) {
@@ -4863,7 +4946,7 @@ SS.band = (() => {
   function harmTab(sc) {
     const H = HM();
     const k = sc.key;
-    const total = sc.bars * 16;
+    const total = sc.bars * SPB();
     const pct = (x) => `${((100 * x) / total).toFixed(3)}%`;
     const mels = harmMelodies(sc);
     const ab = S.wiz.ab && S.wiz.ab.sec === sc.sec && S.wiz.ab.lead ? S.wiz.ab : null;
@@ -4874,14 +4957,14 @@ SS.band = (() => {
         h('b', {}, 'Pas de mélodie dans cette scène.'),
         h('span', {}, 'Choisis une scène où la mélodie chante, ou écris-la dans l’onglet de l’instrument Mélodie : l’assistant proposera ensuite des accords pour elle.')
       );
-    if (!S.wiz.hz || S.wiz.hz.sec !== sc.sec) S.wiz.hz = { sec: sc.sec, key: null, slot: 16, loop: true, view: 0 };
+    if (!S.wiz.hz || S.wiz.hz.sec !== sc.sec) S.wiz.hz = { sec: sc.sec, key: null, slot: SPB(), loop: true, view: 0 };
     const st = S.wiz.hz;
     const m = mels.find((x) => x.T.key === (ab ? ab.lead.key : st.key)) || mels[0];
     st.key = m ? m.T.key : ab.lead.key;
     const notes = ab ? ab.lead.notes : m.notes; // pendant l'essai : la mélodie figée
     const base = S.wiz.grids[sc.sec] || specGrid(sc);
     const sig = JSON.stringify([k, total, st.slot, st.loop, notes, base]);
-    if (!st.memo || st.memo.sig !== sig) st.memo = { sig, props: H.harmonize(k, notes, total, { slot: st.slot, current: base, loop: st.loop ? 4 : 0 }) || [] };
+    if (!st.memo || st.memo.sig !== sig) st.memo = { sig, props: H.harmonize(k, notes, total, { slot: st.slot, current: base, loop: st.loop ? 4 : 0, bar: SPB() }) || [] };
     const props = st.memo.props;
     if (ab) st.view = ab.pi;
     const view = props[st.view] ? st.view : -1;
@@ -4895,7 +4978,7 @@ SS.band = (() => {
       'div',
       { class: 'bwhz-roll', id: 'bwHzRoll', 'data-phroll': '', 'data-scene': sc.id, 'data-bars': sc.bars },
       ...vg.map((x) => h('div', { class: 'bwhz-band role-' + chordOf(k, x).role.id, style: `left:${pct(x.step)};width:${pct(x.len)}` }, chordOf(k, x).name)),
-      ...Array.from({ length: sc.bars - 1 }, (_, b) => h('i', { class: 'bwhz-bl', style: `left:${pct((b + 1) * 16)}` })),
+      ...Array.from({ length: sc.bars - 1 }, (_, b) => h('i', { class: 'bwhz-bl', style: `left:${pct((b + 1) * SPB())}` })),
       ...notes.map((x, i) =>
         h('span', {
           class: 'bwhz-n ' + roles[i],
@@ -4916,7 +4999,7 @@ SS.band = (() => {
         mels.length > 1 && !ab ? seg(mels.map((x) => [x.T.key, x.T.name]), st.key, (v) => ((st.key = v), renderWiz()), 'Mélodie à harmoniser') : h('b', {}, (m || mels[0] || { T: { name: 'mélodie figée' } }).T.name)),
       h('span', { class: 'spacer' }),
       sc.bars >= 8 ? h('span', { class: 'bwhz-grp' }, h('span', { class: 'bh-lbl' }, 'Forme'), seg([[true, 'Boucle de 4 mesures'], [false, 'Toute la scène']], st.loop, (v) => ((st.loop = v), renderWiz()), 'Forme de la grille')) : null,
-      h('span', { class: 'bwhz-grp' }, h('span', { class: 'bh-lbl' }, 'Accords'), seg(HZ_SLOTS, st.slot, (v) => ((st.slot = v), renderWiz()), 'Rythme des accords'))
+      h('span', { class: 'bwhz-grp' }, h('span', { class: 'bh-lbl' }, 'Accords'), seg(hzSlots(), st.slot, (v) => ((st.slot = v), renderWiz()), 'Rythme des accords'))
     );
     const viewSeg = seg([[-1, 'Accords actuels'], ...props.map((p, i) => [i, `${i + 1} · ${p.title}`])], view, (v) => ((st.view = v), renderWiz()), 'Grille regardée');
     const legend = h('div', { class: 'bwhz-legend' }, ...Object.entries(HZ_ROLES).map(([id, l]) => h('span', {}, h('i', { class: 'bwhz-sw ' + id }), l)));
@@ -4955,7 +5038,7 @@ SS.band = (() => {
     const sc = curScene(res);
     if (S.wiz.ab && S.wiz.ab.sec !== sc.sec) S.wiz.ab = null; // un essai A/B ne suit pas d'une scène à l'autre
     const k = sc.key;
-    const total = sc.bars * 16;
+    const total = sc.bars * SPB();
     const g = gridOf(sc);
     const own = !!S.wiz.grids[sc.sec] || !!S.wiz.peds[sc.sec] || !!S.wiz.keys[sc.sec] || !!S.wiz.emos[sc.sec];
     const pct = (x) => `${((100 * x) / total).toFixed(3)}%`;
@@ -4984,10 +5067,10 @@ SS.band = (() => {
     const ruler = [];
     const lines = [];
     for (let b = 0; b < sc.bars; b++) {
-      ruler.push(h('span', { class: 'gr-bar', style: `left:${pct(b * 16)};width:${pct(16)}` }, String(b + 1)));
-      for (let q = 4; q < 16; q += 4) ruler.push(h('i', { style: `left:${pct(b * 16 + q)}` }));
-      if (b) lines.push(h('div', { class: 'gr-bl', style: `left:${pct(b * 16)}` }));
-      for (let q = 4; q < 16; q += 4) lines.push(h('div', { class: 'gr-bt', style: `left:${pct(b * 16 + q)}` }));
+      ruler.push(h('span', { class: 'gr-bar', style: `left:${pct(b * SPB())};width:${pct(SPB())}` }, String(b + 1)));
+      for (let q = BEAT(); q < SPB(); q += BEAT()) ruler.push(h('i', { style: `left:${pct(b * SPB() + q)}` }));
+      if (b) lines.push(h('div', { class: 'gr-bl', style: `left:${pct(b * SPB())}` }));
+      for (let q = BEAT(); q < SPB(); q += BEAT()) lines.push(h('div', { class: 'gr-bt', style: `left:${pct(b * SPB() + q)}` }));
     }
     const blocks = g.map((gc, i) => {
       const c = chordOf(k, gc);
@@ -5023,14 +5106,15 @@ SS.band = (() => {
     let selBar = h('p', { class: 'dlg-hint bwc-hint', 'data-helpify': true }, 'Clic sur un accord : l’écouter et régler sa durée · glisser : le déplacer · tirer son bord droit : l’allonger (aimanté) · glisser un accord de la palette sur la grille pour le poser.');
     if (sel) {
       const c = chordOf(k, sel);
-      const durs = [[4, '1 temps'], [8, '2'], [12, '3'], [16, '4 temps'], [32, '2 mesures']];
+      const nb = SPB() / BEAT(); // temps par mesure
+      const durs = [...Array.from({ length: nb }, (_, i) => [(i + 1) * BEAT(), i === 0 ? '1 temps' : i === nb - 1 ? `${nb} temps` : String(i + 1)]), [2 * SPB(), '2 mesures']];
       selBar = h(
         'div',
         { class: 'bwc-sel role-' + c.role.id, id: 'bwChordSel' },
         h('span', { class: 'bh-lbl' }, 'Accord'),
         h('b', {}, c.name),
         h('span', { class: 'bwc-role' }, `${c.numeral} · ${c.role.label}`),
-        h('span', { class: 'bh-info' }, `mes. ${Math.floor(sel.step / 16) + 1}, temps ${Math.floor((sel.step % 16) / 4) + 1}`),
+        h('span', { class: 'bh-info' }, `mes. ${Math.floor(sel.step / SPB()) + 1}, temps ${Math.floor((sel.step % SPB()) / BEAT()) + 1}`),
         h('span', { class: 'bt-sep', 'aria-hidden': 'true' }),
         h('span', { class: 'bh-lbl' }, 'Durée'),
         h(
@@ -5050,7 +5134,7 @@ SS.band = (() => {
     if (ped) {
       const tonicPc = pedPc(k, { semi: 0 });
       const under = g.filter((x) => x.step >= ped.step && x.step < ped.step + ped.len).map((x) => chordOf(k, x).name);
-      const lens = [[16, '1 mesure'], [32, '2'], [64, '4'], [128, '8 mesures'], [total - ped.step, 'jusqu’à la fin']];
+      const lens = [[SPB(), '1 mesure'], [2 * SPB(), '2'], [4 * SPB(), '4'], [8 * SPB(), '8 mesures'], [total - ped.step, 'jusqu’à la fin']];
       const set = (patch) => editPeds(sc, (l) => HM().gridPut(l, Object.assign(l[S.wiz.psel], patch)));
       selBar = h(
         'div',
@@ -5142,7 +5226,7 @@ SS.band = (() => {
     e.preventDefault();
     const k = sc.key;
     const g = gridOf(sc);
-    const total = sc.bars * 16;
+    const total = sc.bars * SPB();
     const unit = snapUnit();
     const lane = $('#bwLane');
     const stepAt = (x) => {
@@ -5266,11 +5350,11 @@ SS.band = (() => {
   }
   /** Une proposition répétée sur toute la scène (un accord par mesure, ou les mesures de la grille de référence). */
   function fitProposal(pr, bars) {
-    const total = bars * 16;
+    const total = bars * SPB();
     const out = [];
     for (let at = 0, i = 0; at < total && pr.grid.length; i++) {
       const { bars: b = 1, ...c } = pr.grid[i % pr.grid.length];
-      const len = Math.max(4, Math.round(b * 16));
+      const len = Math.max(BEAT(), Math.round(b * SPB()));
       out.push({ step: at, len: Math.min(len, total - at), degree: c.degree, type: c.type, acc: c.acc || 0, ...(c.bass ? { bass: c.bass } : {}) });
       at += len;
     }
@@ -5549,7 +5633,7 @@ SS.band = (() => {
   function rollBox(sc, T) {
     const kind = T.kind;
     const mine = [T.col];
-    const total = sc.bars * 16;
+    const total = sc.bars * SPB();
     const spans = sceneSpans(sc);
     const events = mine.flatMap((c) => ((sc.data[c.id] || {}).events || []).map((e) => ({ ...e, col: c })));
     const all = events.flatMap((e) => e.notes);
@@ -5570,7 +5654,7 @@ SS.band = (() => {
       const pc = ((m % 12) + 12) % 12;
       if (pc === tonic || BLACK_PC.includes(pc)) el('rect', { x: 0, y: hi - m, width: total, height: 1, class: pc === tonic ? 'bw-rt' : 'bw-rb' }, svg);
     }
-    for (let s = 0; s < total; s += 4) el('line', { x1: s, x2: s, y1: 0, y2: rows, class: s % 16 === 0 ? 'bw-rbar' : 'bw-rbeat' }, svg);
+    for (let s = 0; s < total; s += BEAT()) el('line', { x1: s, x2: s, y1: 0, y2: rows, class: s % SPB() === 0 ? 'bw-rbar' : 'bw-rbeat' }, svg);
     // note d'approche (basse) : dernière attaque d'un accord, hors de l'accord, juste avant le suivant
     const spanAt = (step) => spans.find((x) => step >= x.step && step < x.step + x.len);
     const isAppr = (e) => {
@@ -5678,7 +5762,7 @@ SS.band = (() => {
     const events = ((sc.data[T.col.id] || {}).events || []);
     const on = (e) => A.steps.includes(e.step % per);
     const k = events.filter(on).length;
-    const pct = (x) => `${((100 * x) / (sc.bars * 16)).toFixed(3)}%`;
+    const pct = (x) => `${((100 * x) / (sc.bars * SPB())).toFixed(3)}%`;
     const head = h(
       'div',
       { class: 'bwau-lh' },
@@ -5708,7 +5792,7 @@ SS.band = (() => {
         accentsCard(sc, T)
       );
     }
-    return h('section', { class: 'bwp-card bw-card bwau bwac' + (fold ? ' fold' : ''), id: 'bwAccPanel', style: `--n:${sc.bars * 16};--c:${KIND_COLOR.bass}`, 'aria-label': `Accents de « ${sc.name} »` }, head, ...body);
+    return h('section', { class: 'bwp-card bw-card bwau bwac' + (fold ? ' fold' : ''), id: 'bwAccPanel', style: `--n:${sc.bars * SPB()};--c:${KIND_COLOR.bass}`, 'aria-label': `Accents de « ${sc.name} »` }, head, ...body);
   }
   /** Change la répétition : en grandissant le motif est recopié (même rendu), en rétrécissant on garde le début. */
   function setAccRepeat(sc, T, repeat) {
@@ -5925,9 +6009,9 @@ SS.band = (() => {
   const yOfN = (n, hh = AU_H, pad = AU_PAD) => pad + (1 - n) * (hh - 2 * pad);
   /** SVG d'une courbe sur `len` pas (largeur = la scène, étirée) ; les points sont des éléments HTML par-dessus. */
   function autoSvg(pts, len, color, hh, pad, mini) {
-    const bars = Math.max(1, Math.round(len / 16));
+    const bars = Math.max(1, Math.round(len / SPB()));
     let grid = '';
-    for (let b = 0; b <= bars; b++) grid += `M${b * 16} 0V${hh}`;
+    for (let b = 0; b <= bars; b++) grid += `M${b * SPB()} 0V${hh}`;
     let beats = '';
     for (let b = 1; b < bars * 4; b++) if (b % 4) beats += `M${b * 4} 0V${hh}`;
     const xy = pts.map(([x, y]) => `${x} ${yOfN(y, hh, pad).toFixed(1)}`);
@@ -6116,7 +6200,7 @@ SS.band = (() => {
 
   /** Une courbe : tête (nom, valeur, réglages, ×), formes prêtes, courbe éditable ; repliée : une ligne et une mini-courbe. */
   function autoLine(sc, T, p, spec, fit) {
-    const len = sc.bars * 16;
+    const len = sc.bars * SPB();
     const fold = !!spec.hidden;
     const lane = h('div', { class: 'bwau-cv' + (fold ? ' mini' : ''), style: `height:${fold ? 30 : AU_H}px` });
     const pts = () => AU().autoPoints(spec, len);
@@ -6270,7 +6354,7 @@ SS.band = (() => {
     const ruler = h('div', { class: 'bwau-xs bwau-ruler', 'data-xs': '' }, h('div', { class: 'bwau-in' }, ...Array.from({ length: bars }, (_, b) => h('span', { style: `left:${((100 * b) / bars).toFixed(3)}%;width:${(100 / bars).toFixed(3)}%` }, String(b + 1)))));
     return h(
       'section',
-      { class: 'bwp-card bw-card bwau' + (fit ? ' fit' : '') + (grid ? ' grid' : ''), id: 'bwAuto', style: `--n:${sc.bars * 16};--bars:${sc.bars}` },
+      { class: 'bwp-card bw-card bwau' + (fit ? ' fit' : '') + (grid ? ' grid' : ''), id: 'bwAuto', style: `--n:${sc.bars * SPB()};--bars:${sc.bars}` },
       h('div', { class: 'bwp-ch' }, h('b', {}, `Automation de « ${sc.name} »`), h('span', { class: 'bh-info' }, `${bars} mesure${bars > 1 ? 's' : ''} · réglée pour cette scène seulement`),
         copy ? h('span', { class: 'spacer' }) : null,
         copy ? h('button', { type: 'button', class: 'btn btn-small', id: 'bwauCopy', title: 'Même automation pour les autres scènes du même type (couplet et couplet 2…)', onclick: () => copyAuto(sc, T) }, 'Copier l’automation vers les scènes du même type') : null),
@@ -6785,7 +6869,7 @@ SS.band = (() => {
     const out = {};
     LANES.forEach(([k]) => {
       const cs = cols.filter((c) => snd[k].includes(c.o.band.key.split(':')[1]));
-      out[k] = Array.from({ length: 16 }, (_, s) => velChar(Math.max(0, ...cs.map((c) => ((sc.data[c.id] || {}).steps || [])[s] || 0)))).join('');
+      out[k] = Array.from({ length: SPB() }, (_, s) => velChar(Math.max(0, ...cs.map((c) => ((sc.data[c.id] || {}).steps || [])[s] || 0)))).join('');
     });
     return out;
   }
@@ -6823,7 +6907,7 @@ SS.band = (() => {
     if (['ht', 'mt', 'lt'].includes(snd)) {
       if (!L.T) return null;
       const ti = { ht: 0, mt: 1, lt: 2 }[snd];
-      return [...norm(L.T, 16)].map((c, s) => (SS.bandSong.tomOfStep(s) === ti ? c : '-')).join('');
+      return [...norm(L.T, SPB())].map((c, s) => (SS.bandSong.tomOfStep(s) === ti ? c : '-')).join('');
     }
     if (['sh', 'tb', 'perc', 'misc', 'cb'].includes(snd)) return L.P ? L.P : null;
     return null;
@@ -6831,11 +6915,14 @@ SS.band = (() => {
   /** La grille de la scène : { bars, lanes, rat, cond, kit } (édition en cours, sinon le motif choisi, sinon le jeu de l'inspiration). */
   function drumGridOf(sc, T) {
     const d = partOf(sc.sec, T) || {};
-    const ed = d.edits && typeof d.edits === 'object' ? d.edits : null;
+    // grille ou motif écrits pour une autre mesure que celle de la chanson : on repart du jeu de l'inspiration
+    const ed = d.edits && typeof d.edits === 'object' ? BS().fitLanes(d.edits) : null;
     const grid = !!(ed && ed.bars);
     const bars = grid && [1, 2, 4].includes(ed.bars) ? ed.bars : 1;
-    const n = 16 * bars;
-    const pat = patOf(sc.sec, T);
+    const B = SPB();
+    const n = B * bars;
+    const pat0 = patOf(sc.sec, T);
+    const pat = pat0 && BS().fitLanes(pat0.lanes) ? pat0 : null;
     const kit = kitLanes(T);
     const lanes = {};
     const rat = {};
@@ -6855,25 +6942,25 @@ SS.band = (() => {
       const c1 = {};
       if (str == null) {
         const dd = sc.data[l.id] || {};
-        str = Array.from({ length: 16 }, (_, s) => velChar((dd.steps || [])[s] || 0)).join('');
-        for (let s = 0; s < 16; s++) {
+        str = Array.from({ length: B }, (_, s) => velChar((dd.steps || [])[s] || 0)).join('');
+        for (let s = 0; s < B; s++) {
           if (dd.rat && dd.rat[s] > 1) r1[s] = dd.rat[s];
           if (dd.cond && dd.cond[s]) c1[s] = dd.cond[s];
         }
       }
-      [...norm(str, 16)].forEach((c, s) => c === 'r' && (r1[s] = 3));
-      str = norm(str, 16).replace(/r/g, 'o');
+      [...norm(str, B)].forEach((c, s) => c === 'r' && (r1[s] = 3));
+      str = norm(str, B).replace(/r/g, 'o');
       lanes[l.key] = norm(str.repeat(bars), n);
       for (let q = 0; q < bars; q++) {
-        Object.keys(r1).forEach((s) => (rat[l.key][q * 16 + +s] = r1[s]));
-        Object.keys(c1).forEach((s) => (cond[l.key][q * 16 + +s] = c1[s]));
+        Object.keys(r1).forEach((s) => (rat[l.key][q * B + +s] = r1[s]));
+        Object.keys(c1).forEach((s) => (cond[l.key][q * B + +s] = c1[s]));
       }
     });
     return { bars, lanes, rat, cond, kit };
   }
   /** Écrit la grille dans parts[section].drums.edits (ratchets et conditions seulement sur les cases allumées). */
   function putDrumGrid(sc, T, g) {
-    const n = 16 * g.bars;
+    const n = SPB() * g.bars;
     const edits = { bars: g.bars };
     const rat = {};
     const cond = {};
@@ -6905,8 +6992,8 @@ SS.band = (() => {
   /** Longueur du motif : 1, 2 ou 4 mesures ; plus long, la grille est répétée ; plus court, elle est coupée. */
   function setLength(sc, T, bars) {
     editDrumGrid(sc, T, (g) => {
-      const n = 16 * bars;
-      const old = 16 * g.bars;
+      const n = SPB() * bars;
+      const old = SPB() * g.bars;
       g.kit.forEach((l) => {
         const base = g.lanes[l.key].slice(0, old);
         g.lanes[l.key] = norm(base.repeat(Math.ceil(n / old)), n);
@@ -6941,13 +7028,17 @@ SS.band = (() => {
    * cycle(key, s), pop(key, s), label(key) }. Les pas sont groupés par temps (4) et par mesure ; la ligne du haut numérote les temps.
    */
   function gridView(o) {
-    const n = o.bars * 16;
+    const B = SPB();
+    const Q = BEAT();
+    const n = o.bars * B;
+    const beats = Array.from({ length: B / Q }, (_, q) => q);
+    const inBeat = Array.from({ length: Q }, (_, i) => i);
     const row = (cls, head, cell) =>
       h(
         'div',
         { class: 'bwd-row ' + cls },
         head,
-        h('div', { class: 'bwd-cells' }, ...Array.from({ length: o.bars }, (_, b) => h('div', { class: 'bwd-bar' }, ...[0, 1, 2, 3].map((q) => h('div', { class: 'bwd-beat' }, ...[0, 1, 2, 3].map((i) => cell(b * 16 + q * 4 + i, b, q, i)))))))
+        h('div', { class: 'bwd-cells' }, ...Array.from({ length: o.bars }, (_, b) => h('div', { class: 'bwd-bar' }, ...beats.map((q) => h('div', { class: 'bwd-beat' }, ...inBeat.map((i) => cell(b * B + q * Q + i, b, q, i)))))))
       );
     const barRow = h('div', { class: 'bwd-row bwd-barh', 'aria-hidden': 'true' }, h('span', { class: 'bwd-ln' }), h('div', { class: 'bwd-cells' }, ...Array.from({ length: o.bars }, (_, b) => h('div', { class: 'bwd-bar' }, o.barName ? o.barName(b) : `Mesure ${b + 1}`))));
     const beatRow = row('bwd-beatrow', h('span', { class: 'bwd-ln' }), (s, b, q, i) => h('span', { class: 'bwd-bt' + (i === 0 ? ' one' : '') }, i === 0 ? String(q + 1) : ''));
@@ -7115,7 +7206,7 @@ SS.band = (() => {
     const alive = (gg) => gg.lanes[l.key][s] === '-' && setChar(gg, l.key, s, 'o'); // une option posée sur une case éteinte l'allume (moyen)
     return drumPop({
       name: l.name,
-      where: barWhere(Math.floor(s / 16), Math.floor((s % 16) / 4), s % 4),
+      where: barWhere(Math.floor(s / SPB()), Math.floor((s % SPB()) / BEAT()), s % BEAT()),
       vel: ch,
       rat: (g.rat[l.key] || {})[s],
       cond: (g.cond[l.key] || {})[s],
@@ -7138,7 +7229,9 @@ SS.band = (() => {
     const dd = (col && sc.data[col.id]) || { steps: [] };
     return Array.from({ length: sc.bars }, (_, b) => {
       let k = 0;
-      for (let s = 0; s < 16; s++) if ((dd.steps || [])[b * 16 + s] > 0) k += (dd.rat && dd.rat[b * 16 + s]) || 1;
+      const B = SPB();
+      for (let s = 0; s < B; s++) if ((dd.steps || [])[b * B + s] > 0) k += (dd.rat && dd.rat[b * B + s]) || 1;
+      k = (k * 16) / B; // ramené à une mesure de 16 pas
       return k <= 6 ? 1 : k <= 12 ? 2 : k <= 20 ? 3 : 4;
     });
   }
@@ -7166,12 +7259,13 @@ SS.band = (() => {
       const l = kit.find((x) => x.snd === snd);
       if (!l) return;
       const dd = sc.data[l.id] || {};
-      out.lanes[snd] = Array.from({ length: 16 }, (_, s) => velChar((dd.steps || [])[b * 16 + s] || 0)).join('');
+      const B = SPB();
+      out.lanes[snd] = Array.from({ length: B }, (_, s) => velChar((dd.steps || [])[b * B + s] || 0)).join('');
       out.rat[snd] = {};
       out.cond[snd] = {};
-      for (let s = 0; s < 16; s++) {
-        if (dd.rat && dd.rat[b * 16 + s] > 1) out.rat[snd][s] = dd.rat[b * 16 + s];
-        if (dd.cond && dd.cond[b * 16 + s]) out.cond[snd][s] = dd.cond[b * 16 + s];
+      for (let s = 0; s < B; s++) {
+        if (dd.rat && dd.rat[b * B + s] > 1) out.rat[snd][s] = dd.rat[b * B + s];
+        if (dd.cond && dd.cond[b * B + s]) out.cond[snd][s] = dd.cond[b * B + s];
       }
     });
     return out;
@@ -7237,8 +7331,8 @@ SS.band = (() => {
           type: 'button',
           class: 'bwb-col' + (i === b ? ' cur' : ''),
           'data-i': i,
-          'aria-label': `Mesure ${i + 1} : ${LV[lv - 1].name.toLowerCase()}, ${LV[lv - 1].per} coups par mesure. Clic ou Entrée : plus dense ; Maj + clic ou flèche bas : moins dense`,
-          title: `Mesure ${i + 1} : ${LV[lv - 1].name.toLowerCase()} (${LV[lv - 1].per}/mesure) · clic : plus dense · Maj + clic : moins dense`,
+          'aria-label': `Mesure ${i + 1} : ${LV[lv - 1].name.toLowerCase()}, ${BP().levelPer(LV[lv - 1])} coups par mesure. Clic ou Entrée : plus dense ; Maj + clic ou flèche bas : moins dense`,
+          title: `Mesure ${i + 1} : ${LV[lv - 1].name.toLowerCase()} (${BP().levelPer(LV[lv - 1])}/mesure) · clic : plus dense · Maj + clic : moins dense`,
           onclick: (e) => setLevel(i, e.shiftKey ? -1 : 1),
           oncontextmenu: (e) => (e.preventDefault(), setLevel(i, -1)),
           onkeydown: (e) => {
@@ -7256,7 +7350,7 @@ SS.band = (() => {
     const N = levels.length;
     const pts = levels.map((lv, i) => `${(((i + 0.5) / N) * 100).toFixed(2)},${(4 - lv) * 27 + 12}`).join(' ');
     const curve = h('div', { class: 'bwb-curve', style: `--n:${N}` }, ...cols, h('span', { class: 'bwb-line', 'aria-hidden': 'true', html: `<svg viewBox="0 0 100 105" preserveAspectRatio="none"><polyline points="${pts}" fill="none" vector-effect="non-scaling-stroke"/></svg>` }));
-    const lvLabels = h('div', { class: 'bwb-lvl', 'aria-hidden': 'true' }, ...[4, 3, 2, 1].map((r) => h('div', {}, LV[r - 1].name.split(' ')[0], h('em', {}, ` ${LV[r - 1].per}/m.`))));
+    const lvLabels = h('div', { class: 'bwb-lvl', 'aria-hidden': 'true' }, ...[4, 3, 2, 1].map((r) => h('div', {}, LV[r - 1].name.split(' ')[0], h('em', {}, ` ${BP().levelPer(LV[r - 1])}/m.`))));
     const cresc = Math.round(((bp && typeof bp.cresc === 'number' ? bp.cresc : 0.6)) * 100);
     const cout = h('output', { class: 'bwd-val', for: 'bwbCresc' }, `${cresc} %`);
     const cinp = h('input', { type: 'range', id: 'bwbCresc', min: 0, max: 100, step: 5, value: cresc, 'aria-label': 'Crescendo de volume du roulement', oninput: () => (cout.textContent = `${cinp.value} %`), onchange: () => putBuild(sc, T, { cresc: +cinp.value / 100 }, '#bwbCresc') });
@@ -7287,7 +7381,7 @@ SS.band = (() => {
         'p',
         { class: 'bwb-cap' },
         h('b', {}, `Mesure ${b + 1} sur ${sc.bars} : ${LV[levels[b] - 1].name}`),
-        ` · ${LV[levels[b] - 1].per} coups par mesure` + (rollerName ? ` · le roulement est joué par la ${rollerName}${roller === 'sd' && snds.has('cp') ? ' ; le clap marque les temps 2 et 4' : ''}${snds.has('hh') ? ', le charleston suit' : ''}` : ''),
+        ` · ${BP().levelPer(LV[levels[b] - 1])} coups par mesure` + (rollerName ? ` · le roulement est joué par la ${rollerName}${roller === 'sd' && snds.has('cp') ? ' ; le clap marque les temps 2 et 4' : ''}${snds.has('hh') ? ', le charleston suit' : ''}` : ''),
         bp ? '' : ' · roulement de l’inspiration : un réglage le remplace',
         lockedBars ? ` · ${lockedBars} mesure${lockedBars > 1 ? 's' : ''} libre${lockedBars > 1 ? 's' : ''}` : ''
       )
@@ -7300,7 +7394,7 @@ SS.band = (() => {
     const sel = S.wiz.dsel && S.wiz.dsel.sec === sc.sec && S.wiz.dsel.scope === 'bar' ? S.wiz.dsel : null;
     const locked = !!(bp && bp.lock && bp.lock[b] && bp.lock[b].lanes);
     const view = gridView({
-      scope: 'bar', bars: 1, lanes: kit, data: bar.lanes, rat: bar.rat, cond: bar.cond || {}, sel, aria: `Mesure ${b + 1} de la montée, 16 pas`,
+      scope: 'bar', bars: 1, lanes: kit, data: bar.lanes, rat: bar.rat, cond: bar.cond || {}, sel, aria: `Mesure ${b + 1} de la montée, ${SPB()} pas`,
       barName: () => `Mesure ${b + 1} / ${sc.bars}`,
       cycle: (k, s) => editBar(sc, T, b, (lanes) => (lanes[k] = lanes[k].slice(0, s) + (NEXT_VEL[lanes[k][s]] || 'x') + lanes[k].slice(s + 1)), `.bwd-sc-bar .bwp-cell[data-l="${k}"][data-s="${s}"]`),
       pop: (k, s) => openPop({ sec: sc.sec, scope: 'bar', key: k, s }),
@@ -7354,7 +7448,7 @@ SS.band = (() => {
     // la caisse claire : jouée par la caisse claire, ou par le clap quand le motif n'a pas de ligne de clap
     if (hits(L.S) && !have.has('sd') && !(have.has('cp') && !hits(L.C))) need('sd', 'S');
     // les toms : le tom joué dépend du pas
-    if (L.T) ['ht', 'mt', 'lt'].forEach((t, ti) => [...norm(L.T, 16)].some((c, s) => hits(c) && SS.bandSong.tomOfStep(s) === ti) && !have.has(t) && need(t, 'T'));
+    if (L.T) ['ht', 'mt', 'lt'].forEach((t, ti) => [...norm(L.T, SPB())].some((c, s) => hits(c) && SS.bandSong.tomOfStep(s) === ti) && !have.has(t) && need(t, 'T'));
     // la percussion : le nom ou la description du motif dit laquelle ; sinon la première du kit, sinon le shaker
     if (hits(L.P) && !PAT_SNDS.P.some((x) => have.has(x))) {
       const txt = `${pat.name} ${pat.desc || ''}`.toLowerCase();
@@ -7420,7 +7514,7 @@ SS.band = (() => {
     const g = drumGridOf(sc, T);
     const sel = S.wiz.dsel && S.wiz.dsel.sec === sc.sec && S.wiz.dsel.scope === 'main' ? S.wiz.dsel : null;
     const view = gridView({
-      scope: 'main', bars: g.bars, lanes: g.kit, data: g.lanes, rat: g.rat, cond: g.cond, sel, aria: `Motif de la scène, ${g.bars} mesure${g.bars > 1 ? 's' : ''} de 16 pas`,
+      scope: 'main', bars: g.bars, lanes: g.kit, data: g.lanes, rat: g.rat, cond: g.cond, sel, aria: `Motif de la scène, ${g.bars} mesure${g.bars > 1 ? 's' : ''} de ${SPB()} pas`,
       cycle: (k, s) => cycleCell(sc, T, k, s),
       pop: (k, s) => openPop({ sec: sc.sec, scope: 'main', key: k, s }),
     });
@@ -7508,7 +7602,7 @@ SS.band = (() => {
         placePop(w);
       });
     }, 0);
-    return [partHead(sc, T, 'batterie', false), autoCard(sc, T), ...(build ? [...buildCards(sc, T)] : []), card1, card2];
+    return [partHead(sc, T, 'batterie', false), autoCard(sc, T), ...(build ? [...buildCards(sc, T)] : []), card1, SPB() === 16 ? card2 : null]; // bibliothèque de motifs : 4/4 seulement (motifs ternaires : PR suivante)
   }
 
   /* --- Drums d'un instrument qui n'est pas un kit : notes courtes sur la fondamentale, jouées sur la grosse caisse et / ou la caisse claire du motif --- */
@@ -7545,7 +7639,7 @@ SS.band = (() => {
         h('p', { class: 'dlg-hint', 'data-helpify': true }, 'Cet instrument joue la fondamentale de chaque accord, en notes courtes, sur les coups du motif de batterie.'),
         partSeg('Joue sur', 'bwpDrumMode', DRUM_MODES.map(([v, t, tip]) => [v, t, tip]), d.mode || 'both', (v) => (putPart(sc.sec, T, { mode: v === 'both' ? undefined : v }), partChanged()))
       ),
-      h(
+      SPB() !== 16 ? null : h(
         'section',
         { class: 'bwp-card bw-card' },
         h(
@@ -7565,7 +7659,7 @@ SS.band = (() => {
     const o = partOf(x.sec, T) || {};
     const m = o.mode || planMode(x, T);
     const n = noAcc || mutedIn(x.sec, T) ? 0 : accCount(x, T);
-    return mutedIn(x.sec, T) ? 'muette' : (m ? nameOf(BASS_MODES, m) : 'aucune') + (o.pedal ? ' + pédale' : '') + (o.mode ? '' : m && !typeChanged(T) ? ' · inspiration' : '') + (n ? ` · ${n} accent${n > 1 ? 's' : ''}` : '');
+    return mutedIn(x.sec, T) ? 'muette' : (m ? SS.bassMotifs.name(m) : 'aucune') + (o.pedal ? ' + pédale' : '') + (o.mode ? '' : m && !typeChanged(T) ? ' · inspiration' : '') + (n ? ` · ${n} accent${n > 1 ? 's' : ''}` : '');
   }
   /** Colonne des scènes (basse) : le jeu de la scène, et à droite la pastille « n accents ». */
   function bassSceneSub(x, T) {
@@ -7614,18 +7708,21 @@ SS.band = (() => {
           'div',
           { class: 'bwp-ch' },
           h('b', {}, `Motif de « ${sc.name} »`),
-          h('span', { class: 'mot-now' }, cur ? nameOf(BASS_MODES, cur) : 'aucune'),
+          h('span', { class: 'mot-now' }, cur ? SS.bassMotifs.name(cur) : 'aucune'),
           SS.helpTip('Cliquez un motif : il s’entend dans la scène et la basse le joue sur ses accords. Le point vert marque le style de la chanson ; survolez une carte pour sa description.', 'Motif de basse'),
           h('span', { class: 'spacer' }),
           playBox(sc, T, '8')
         ),
         ...M.picker({
-          group: S.wiz.motGroup,
+          group: SPB() === 16 ? S.wiz.motGroup : S.wiz.motGroupT || 'ternary', // hors 4/4 : les motifs de la mesure d'abord
           mark: M.groupOfStyle(S.styleId),
           cur,
           insp,
+          spb: SPB(),
+          beat: BEAT(),
+          keep: (id) => SPB() === 16 || BS().meterOK('bass', id),
           none: { on: muted || !cur, pick: () => (putOff(sc.sec, T, true), partChanged('.bwp-mot .mot-card[data-id="none"]')) },
-          onGroup: (g) => ((S.wiz.motGroup = g), renderWiz()),
+          onGroup: (g) => (SPB() === 16 ? (S.wiz.motGroup = g) : (S.wiz.motGroupT = g), renderWiz()),
           onPick: pick,
         }),
         h(
@@ -7854,13 +7951,14 @@ SS.band = (() => {
       ...(() => {
         const [chips, cards] = SS.bassMotifs.picker({
           lib: P,
-          group: S.wiz.padGroup,
+          group: SPB() === 16 ? S.wiz.padGroup : S.wiz.padGroupT || 'ternary', // hors 4/4 : les motifs de la mesure d'abord
           mark: P.groupOfStyle(S.styleId),
           cur,
           insp,
-          keep: (id) => kind === 'all' || P.kindOf(id) === kind,
+          spb: SPB(),
+          keep: (id) => (kind === 'all' || P.kindOf(id) === kind) && BS().meterOK('chords', id),
           none: { on: muted || !m, pick: () => (putOff(sc.sec, T, true), partChanged('.bwp-mot .mot-card[data-id="none"]')) },
-          onGroup: (g) => ((S.wiz.padGroup = g), renderWiz()),
+          onGroup: (g) => (SPB() === 16 ? (S.wiz.padGroup = g) : (S.wiz.padGroupT = g), renderWiz()),
           onPick: pick,
         });
         const kinds = h('span', { class: 'segmented mot-kinds', role: 'radiogroup', 'aria-label': 'Façon de jouer', id: 'bwpPadKind' }, ...P.KINDS.map(([v, t]) => h('button', { type: 'button', role: 'radio', class: v === kind ? 'active' : '', 'aria-checked': String(v === kind), 'data-v': v, onclick: () => ((S.wiz.padKind = v), renderWiz()) }, t)));
@@ -8082,7 +8180,7 @@ SS.band = (() => {
       return { bars: 1, chords: [] };
     }
     // la boucle : la plus courte grille qui se répète dans la scène (8 mesures au plus)
-    const sig = (b) => spans.filter((x) => x.step >= b * 16 && x.step < (b + 1) * 16).map((x) => `${x.step % 16}:${x.chord.rootPc}${x.chord.type}`).join(',');
+    const sig = (b) => spans.filter((x) => x.step >= b * SPB() && x.step < (b + 1) * SPB()).map((x) => `${x.step % SPB()}:${x.chord.rootPc}${x.chord.type}`).join(',');
     let bars = Math.min(sc.bars, 8);
     for (let p = 1; p <= Math.min(sc.bars, 8); p++) {
       if (sc.bars % p) continue;
@@ -8094,10 +8192,10 @@ SS.band = (() => {
       }
     }
     let prev = null;
-    const chords = spans.filter((x) => x.step < bars * 16).map((x) => {
+    const chords = spans.filter((x) => x.step < bars * SPB()).map((x) => {
       const notes = SS.bandSong.voiceChord(x.chord, prev, 57, 76);
       prev = notes;
-      return { step: x.step, len: Math.min(x.len, bars * 16 - x.step), notes, bass: x.chord.bassPc != null && x.chord.bassPc !== x.chord.rootPc ? x.chord.bassPc : undefined, name: SS.harmony.chordName(sc.key, { ...x.chord, bassPc: x.chord.bassPc ?? x.chord.rootPc }) };
+      return { step: x.step, len: Math.min(x.len, bars * SPB() - x.step), notes, bass: x.chord.bassPc != null && x.chord.bassPc !== x.chord.rootPc ? x.chord.bassPc : undefined, name: SS.harmony.chordName(sc.key, { ...x.chord, bassPc: x.chord.bassPc ?? x.chord.rootPc }) };
     });
     return { bars, chords };
   }
@@ -8188,6 +8286,7 @@ SS.band = (() => {
   /** Affiche l'étape en cours de l'assistant. */
   function renderWiz() {
     const step = S.wiz.step;
+    BS().setMeter(sigOf()); // toutes les étapes comptent dans la mesure de la chanson
     el.classList.add('wizard');
     el.querySelectorAll('.wiz-only').forEach((x) => (x.hidden = false));
     if (!melStep()) leaveMel();
@@ -8273,7 +8372,7 @@ SS.band = (() => {
     // pistes ajoutées à la main que joue maintenant un musicien du groupe (instruments repris) : la chanson les remplace
     const drop = (S.gridInst || []).filter((i) => i.mu && muById(i.mu)).flatMap((i) => i.ids || []).filter((id) => !locks()[id]);
     const builtMus = musicians().map((mu) => mu.id);
-    const args = [cols.map((c) => ({ ...c.o, ...(soundT(c) ? soundOf(soundT(c)) : {}), band: { ...c.o.band, col: c.id } })), plan, tempo(), { keep: keep || null, lock, only, drop, restore: restore.length ? restore : null, melodySeed: seed, melody: melodyOpts(), harmony: harmonyOpts(), parts: S.wiz.parts, kinds: S.wiz.kinds, gains: cols.map((c) => volGain(c.id)), mix: S.wiz.mix, groove: grooveOf(), fx: fxOpts(), bauto: movePlan(wizSong().res, { trial: false }).map((e) => ({ ...e, col: cols.findIndex((c) => c.id === e.col) })) }];
+    const args = [cols.map((c) => ({ ...c.o, ...(soundT(c) ? soundOf(soundT(c)) : {}), band: { ...c.o.band, col: c.id } })), plan, tempo(), { keep: keep || null, lock, only, drop, restore: restore.length ? restore : null, melodySeed: seed, melody: melodyOpts(), harmony: harmonyOpts(), parts: S.wiz.parts, kinds: S.wiz.kinds, gains: cols.map((c) => volGain(c.id)), mix: S.wiz.mix, groove: grooveOf(), fx: fxOpts(), sig: sigOf(), bauto: movePlan(wizSong().res, { trial: false }).map((e) => ({ ...e, col: cols.findIndex((c) => c.id === e.col) })) }];
     const draft = wizSnapshot(Date.now()); // le brouillon est gardé : rouvrir l'assistant permet de retoucher et de recréer
     draft.builtSig = SS.wizDraft.contentSig(draft.state); // la grille a maintenant cette chanson (bascule Assistant | Grille)
     leave({ keep: false });
@@ -8387,8 +8486,8 @@ SS.band = (() => {
     const sc = res && L.scene ? res.scenes.find((x) => x.id === L.scene) : null;
     let pos = '1 . 1 . 1';
     if (sc && L.step >= 0) {
-      const st = L.step % (sc.bars * 16);
-      pos = `${Math.floor(st / 16) + 1} . ${Math.floor((st % 16) / 4) + 1} . ${(st % 4) + 1}`;
+      const st = L.step % (sc.bars * SPB());
+      pos = `${Math.floor(st / SPB()) + 1} . ${Math.floor((st % SPB()) / BEAT()) + 1} . ${(st % BEAT()) + 1}`;
     }
     $('#position').textContent = pos;
     $('#lcdTitle').textContent = L.calc != null ? `Calcul de l’écoute… ${L.calc} %` : sc ? `${sc.name}${L.mode === 'scene' ? ' · en boucle' : ''}${L.paused ? ' · en pause' : ''}` : 'À l’arrêt';
@@ -9048,15 +9147,15 @@ SS.band = (() => {
       axis,
       bar('riser', 'Bruit', -rl, 0, withFx && e.riser.on, e.riser.filter === 'none' ? 'background:#9aa7b3' : 'background:linear-gradient(90deg,#3a4651,#cfd8e0)'),
       bar('hp', 'Passe-haut', -prevBars / 2, 0, e.hp.on, 'background:repeating-linear-gradient(90deg,var(--fx) 0 6px,transparent 6px 9px);height:3px;top:8px;bottom:auto'),
-      bar('rev', 'Cymbale inversée', -e.rev.len / 16, 0, withFx && e.rev.on),
-      bar('gap', 'Coupure', -e.gap.len / 16, 0, e.gap.len > 0, 'background:repeating-linear-gradient(45deg,#e0523a 0 3px,transparent 3px 6px);border:1px solid #e0523a'),
+      bar('rev', 'Cymbale inversée', -e.rev.len / SPB(), 0, withFx && e.rev.on),
+      bar('gap', 'Coupure', -e.gap.len / SPB(), 0, e.gap.len > 0, 'background:repeating-linear-gradient(45deg,#e0523a 0 3px,transparent 3px 6px);border:1px solid #e0523a'),
       bar('impact', 'Impact', 0, 0.2, withFx && e.impact.on, 'background:#fff'),
       bar('down', 'Descente', 0.25, 0.25 + e.down.len, withFx && e.down.on),
       e.retrait.on ? bar('retrait', 'Retrait', -e.retrait.len, 0, e.retrait.on, 'background:repeating-linear-gradient(90deg,#c9a24a 0 4px,transparent 4px 8px)') : null,
       e.frag.on ? bar('frag', 'Fragmentation', -2, 0, e.frag.on, 'background:linear-gradient(90deg,#b07ad6 50%,#b07ad6aa 50% 75%,#b07ad666 75%)') : null,
       e.pedal.on ? bar('pedal', 'Pédale', -e.pedal.len, 0, e.pedal.on, 'background:#3fcf3f') : null,
       e.widen.on ? bar('widen', 'Élargissement', -e.widen.len, 0, e.widen.on, 'background:linear-gradient(90deg,#1ea7ff33,#1ea7ff)') : null,
-      e.susp.on ? bar('susp', 'Suspension', 0, e.susp.len / 16, e.susp.on, 'background:#1ea7ff') : null,
+      e.susp.on ? bar('susp', 'Suspension', 0, e.susp.len / SPB(), e.susp.on, 'background:#1ea7ff') : null,
       h('div', { class: 'fx-dropline', style: `left:calc(120px + (100% - 130px) * .8)` })
     );
   }
@@ -9452,10 +9551,10 @@ SS.band = (() => {
           out,
         ];
       } else if (k === 'rev') {
-        ctl = [lbl('Longueur'), seg('fxlen-rev', [[4, '1 temps'], [16, '1 mesure'], [32, '2 mesures', prevBars < 2]], e1.len, (v) => fxSet(sel.key, 'rev', { on: true, len: v }))];
+        ctl = [lbl('Longueur'), seg('fxlen-rev', [[BEAT(), '1 temps'], [SPB(), '1 mesure'], [2 * SPB(), '2 mesures', prevBars < 2]], e1.len, (v) => fxSet(sel.key, 'rev', { on: true, len: v }))];
       } else if (k === 'gap') {
         set = (v) => fxSet(sel.key, 'gap', { len: v ? 4 : 0 });
-        ctl = [seg('fxgap', [[0, 'Aucun'], [4, '1 temps'], [8, '2 temps'], [16, '1 mesure']], e1.len, (v) => fxSet(sel.key, 'gap', { len: v }))];
+        ctl = [seg('fxgap', [[0, 'Aucun'], [BEAT(), '1 temps'], ...(SPB() / BEAT() > 2 ? [[2 * BEAT(), '2 temps']] : []), [SPB(), '1 mesure']], e1.len, (v) => fxSet(sel.key, 'gap', { len: v }))];
       } else if (k === 'impact') {
         const out = h('b', { class: 'fx-num', id: 'fxlevel-out' }, `${Math.round(e1.level * 100)} %`);
         ctl = [
@@ -9480,7 +9579,7 @@ SS.band = (() => {
       } else if (k === 'widen') {
         ctl = [lbl('Longueur'), seg('fxlen-widen', [[2, '2 mes.', prevBars < 2], [4, '4 mes.', prevBars < 4]], e1.len, (v) => fxSet(sel.key, 'widen', { on: true, len: v }))];
       } else if (k === 'susp') {
-        ctl = [lbl('Retard'), seg('fxlen-susp', [[4, '1 temps'], [8, '2 temps']], e1.len, (v) => fxSet(sel.key, 'susp', { on: true, len: v }))];
+        ctl = [lbl('Retard'), seg('fxlen-susp', [[BEAT(), '1 temps'], [2 * BEAT(), '2 temps']], e1.len, (v) => fxSet(sel.key, 'susp', { on: true, len: v }))];
       }
       return h('div', { class: 'fx-row' + (on ? '' : ' off'), id: `fxrow-${k}`, 'data-k': k },
         h('div', { class: 'fx-nm' }, switchBtn(k, on, set), h('b', {}, name), sub ? SS.helpTip(sub, name) : null),
@@ -9651,14 +9750,14 @@ SS.band = (() => {
 
   /** Une partie de scène (données du projet d'écoute) réduite à `bars` mesures à partir de la mesure `from`. */
   function sliceListenScene(sc, from, bars, id) {
-    const a = from * 16;
-    const b = (from + bars) * 16;
+    const a = from * SPB();
+    const b = (from + bars) * SPB();
     const data = {};
     Object.entries(sc.data).forEach(([tid, d]) => {
       const o = {};
       if (d.steps) {
         o.steps = d.steps.slice(a, b);
-        while (o.steps.length < bars * 16) o.steps.push(0);
+        while (o.steps.length < bars * SPB()) o.steps.push(0);
         ['rat', 'cond'].forEach((f) => d[f] && (o[f] = Object.fromEntries(Object.entries(d[f]).filter(([s]) => +s >= a && +s < b).map(([s, v]) => [+s - a, v]))));
       }
       if (d.events)
@@ -9671,7 +9770,7 @@ SS.band = (() => {
           const pts = Object.entries(lane).map(([s, v]) => [+s, v]).sort((p, q) => p[0] - q[0]);
           const out = { 0: SS.bandSong.autoAt(pts, a) };
           pts.forEach(([s, v]) => s > a && s < b - 1 && (out[s - a] = v));
-          out[bars * 16 - 1] = SS.bandSong.autoAt(pts, b - 1);
+          out[bars * SPB() - 1] = SS.bandSong.autoAt(pts, b - 1);
           o.auto[param] = out;
         });
       }
@@ -9781,7 +9880,7 @@ SS.band = (() => {
     // projet temporaire (jamais enregistré) : un titre qui le distingue de la chanson dans le rapport Diagnostic
     proj.title = `Écoute de l'assistant${p && p.song ? ` (dans l'esprit de ${p.song})` : ''}`;
     proj.tempo = tempo();
-    proj.timeSig = [4, 4];
+    proj.timeSig = sigOf().split('/').map(Number);
     const levelKeys = new Map();
     proj.tracks = cols.map((c) => {
       const t = SS.newTrack(c.o, proj);
@@ -10117,7 +10216,7 @@ SS.band = (() => {
     box.querySelectorAll('.bh-board').forEach((b) => {
       const on = !!L.mode && L.scene === b.dataset.scene && L.step >= 0;
       b.classList.toggle('playing', on);
-      if (on) b.style.setProperty('--ph', (L.step % (Number(b.dataset.bars) * 16)) / (Number(b.dataset.bars) * 16));
+      if (on) b.style.setProperty('--ph', (L.step % (Number(b.dataset.bars) * SPB())) / (Number(b.dataset.bars) * SPB()));
     });
     const hb = $('.bh-board', box);
     if (hb) box.querySelectorAll('.bh-scene').forEach((b) => b.classList.toggle('playing', !!L.mode && b.dataset.scene === L.scene));
@@ -10128,7 +10227,7 @@ SS.band = (() => {
       lp.setAttribute('aria-pressed', loop);
     }
     box.querySelectorAll('.bw-roll').forEach((r) => {
-      const total = Number(r.dataset.bars) * 16;
+      const total = Number(r.dataset.bars) * SPB();
       const ph = $('.bw-roll-ph', r);
       const on = !!L.mode && L.scene === r.dataset.scene && L.step >= 0;
       const pos = on ? L.step % total : -1;
@@ -10142,13 +10241,13 @@ SS.band = (() => {
     box.querySelectorAll('.bwd-wrap[data-gbars]').forEach((w) => {
       const on = !!L.mode && L.scene === w.dataset.scene && L.step >= 0;
       const bars = Number(w.dataset.bars);
-      const pos = on ? L.step % (Number(w.dataset.gbars) * 16) : -1;
+      const pos = on ? L.step % (Number(w.dataset.gbars) * SPB()) : -1;
       w.querySelectorAll('.bwd-c.now').forEach((c) => c.classList.remove('now'));
       if (on) w.querySelectorAll(`.bwd-c[data-s="${pos}"]`).forEach((c) => c.classList.add('now'));
-      const bar = on ? Math.floor(L.step / 16) % bars : -1;
+      const bar = on ? Math.floor(L.step / SPB()) % bars : -1;
       w.querySelectorAll('.bwp-bars span').forEach((sp, i) => {
         sp.classList.toggle('now', i === bar);
-        if (i === bar) sp.style.setProperty('--bp', ((L.step % 16) + 1) / 16);
+        if (i === bar) sp.style.setProperty('--bp', ((L.step % SPB()) + 1) / SPB());
       });
     });
     // arrangement : position dans toute la chanson
@@ -10162,7 +10261,7 @@ SS.band = (() => {
         const bi = L.mode === 'song' ? L.block : blockOf(L.scene);
         if (sc && res.song[bi]) {
           const start = res.song.slice(0, bi).reduce((a, b) => a + ((res.scenes.find((x) => x.id === b.scene) || {}).bars || 0) * (b.repeat || 1), 0);
-          at = start + (L.mode === 'song' ? L.step : L.step % (sc.bars * 16)) / 16;
+          at = start + (L.mode === 'song' ? L.step : L.step % (sc.bars * SPB())) / SPB();
         }
       }
       const ph = $('.bwar-ph', ach);
@@ -10175,7 +10274,7 @@ SS.band = (() => {
     }
     // rouleaux de notes (Harmoniser la mélodie) : curseur de lecture et note qui sonne
     box.querySelectorAll('[data-phroll]').forEach((r) => {
-      const total = Number(r.dataset.bars) * 16;
+      const total = Number(r.dataset.bars) * SPB();
       const ph = $('.bwhz-ph', r);
       const on = !!L.mode && L.scene === r.dataset.scene && L.step >= 0;
       const pos = on ? L.step % total : -1;
@@ -10190,14 +10289,14 @@ SS.band = (() => {
     if (gt && gph) {
       const on = !!L.mode && L.scene === gt.dataset.scene && L.step >= 0;
       gph.hidden = !on;
-      if (on) gph.style.left = `${((L.step % (Number(gt.dataset.bars) * 16)) / (Number(gt.dataset.bars) * 16)) * 100}%`;
+      if (on) gph.style.left = `${((L.step % (Number(gt.dataset.bars) * SPB())) / (Number(gt.dataset.bars) * SPB())) * 100}%`;
     }
     box.querySelectorAll('.bh-scene').forEach((b) => {
       const on = !!L.mode && b.dataset.scene === L.scene;
       b.classList.toggle('playing', on);
       b.classList.toggle('looping', on && L.mode === 'scene');
       const bars = Number(b.dataset.bars);
-      if (on && bars && L.step >= 0) b.style.setProperty('--pp', ((L.step % (bars * 16)) + 1) / (bars * 16));
+      if (on && bars && L.step >= 0) b.style.setProperty('--pp', ((L.step % (bars * SPB())) + 1) / (bars * SPB()));
       else b.style.removeProperty('--pp');
     });
     const pm = $('#bwPlayMode', box);
@@ -10227,7 +10326,7 @@ SS.band = (() => {
       tr.classList.toggle('playing', on);
       const b = $('.bw-splay', tr);
       if (b) b.setAttribute('aria-pressed', L.mode === 'scene' && on);
-      if (on && L.step >= 0) tr.style.setProperty('--ph', L.step / (Number(tr.dataset.bars) * 16));
+      if (on && L.step >= 0) tr.style.setProperty('--ph', L.step / (Number(tr.dataset.bars) * SPB()));
       else tr.style.removeProperty('--ph');
     });
   }
@@ -10403,6 +10502,11 @@ SS.band = (() => {
       w.tempoFor = tempoKey();
     }
     if (on.groove) w.groove = { ...R.groove };
+    // mesure de la grille (3/4, 6/8, 12/8) : ses accords y sont écrits, l'assistant la reprend
+    if (BS().METERS[R.sig] && !film()) {
+      w.meter = R.sig;
+      BS().setMeter(R.sig);
+    }
     if (on.struct && R.song.length) {
       w.secs = {};
       map.forEach((m, i) => {
@@ -10429,8 +10533,8 @@ SS.band = (() => {
       if (!sec || (m.isNew && !on.struct)) return;
       if (on.key && sc.key) w.keys[m.id] = { ...sc.key };
       if (on.chords && sc.chords) {
-        w.grids[m.id] = sc.bars === sec.bars ? fillGrid(clone(sc.chords), sec.bars * 16) : repeatFit(sc.chords, sc.bars, sec.bars);
-        if (sc.pedals) w.peds[m.id] = clone(sc.pedals).filter((x) => x.step < sec.bars * 16);
+        w.grids[m.id] = sc.bars === sec.bars ? fillGrid(clone(sc.chords), sec.bars * SPB()) : repeatFit(sc.chords, sc.bars, sec.bars);
+        if (sc.pedals) w.peds[m.id] = clone(sc.pedals).filter((x) => x.step < sec.bars * SPB());
         else delete w.peds[m.id];
       }
       if (on.emo && sc.emotion) w.emos[m.id] = sc.emotion;
@@ -10714,13 +10818,13 @@ SS.band = (() => {
         const os = match.get(sc.id);
         const d = os && os.data && os.data[t0.id];
         const free = (locks()[t0.id].free || []).includes(sc.sec); // déverrouillée pour cette scène : l'assistant la joue
-        sc.data[t.id] = d && !free ? (locks()[t0.id].key ? SS.gridSync.transposeData(d, os.key, sc.key) : JSON.parse(JSON.stringify(d))) : t0.type === 'drum' ? { steps: new Array(sc.bars * 16).fill(0) } : { events: [] };
+        sc.data[t.id] = d && !free ? (locks()[t0.id].key ? SS.gridSync.transposeData(d, os.key, sc.key) : JSON.parse(JSON.stringify(d))) : t0.type === 'drum' ? { steps: new Array(sc.bars * SPB()).fill(0) } : { events: [] };
       });
       proj.tracks.push(t);
     });
   }
   /** Notes d'une scène vidées (même forme : pas à zéro, aucun événement). */
-  const emptyData = (d, bars) => ({ ...(Array.isArray(d.steps) ? { steps: new Array(bars * 16).fill(0) } : {}), ...(Array.isArray(d.events) ? { events: [] } : {}) });
+  const emptyData = (d, bars) => ({ ...(Array.isArray(d.steps) ? { steps: new Array(bars * SPB()).fill(0) } : {}), ...(Array.isArray(d.events) ? { events: [] } : {}) });
   /** Sections où un musicien verrouillé est déverrouillé (l'assistant y joue). */
   function muFree(id) {
     const mu = id && muById(id);
@@ -11326,8 +11430,8 @@ SS.band = (() => {
       const out = [];
       for (let b = 0; b < sc.bars; b++) {
         const list = bars[b % bars.length];
-        const len = Math.floor(16 / list.length);
-        list.forEach((c, i) => out.push({ step: b * 16 + i * len, len: i === list.length - 1 ? 16 - i * len : len, degree: c.degree, type: c.type, acc: c.acc || 0, ...(c.bass ? { bass: c.bass } : {}) }));
+        const len = Math.floor(SPB() / list.length);
+        list.forEach((c, i) => out.push({ step: b * SPB() + i * len, len: i === list.length - 1 ? SPB() - i * len : len, degree: c.degree, type: c.type, acc: c.acc || 0, ...(c.bass ? { bass: c.bass } : {}) }));
       }
       delete S.wiz.peds[id];
       S.wiz.psel = null;

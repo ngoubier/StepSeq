@@ -571,11 +571,12 @@ SS.ui = (() => {
       menuEl.replaceChildren(
         h('div', { class: 'ctx-head' }, h('b', { class: 'ctx-current' }, 'Motif · ' + track.name), h('span', { class: 'ctx-desc mot-now' }, on ? M.name(now) : 'éteint'), SS.helpTip('Cliquez un motif : il s’entend et la basse le joue sur les accords de la piste Accords, scène par scène. Les notes suivent les accords quand vous les changez.', 'Motif de basse'), h('button', { type: 'button', class: 'mot-x', 'aria-label': 'Fermer', title: 'Fermer', onclick: () => closeChordMenu(), html: ICONS.close })),
         ...(() => {
-          // mesure du morceau : en 3/4 et 6/8 (12 pas), seuls les motifs qui y vont
+          // mesure du morceau : en 3/4 et 6/8 (12 pas) ou 12/8 (24 pas), seuls les motifs qui y vont
           const spb = SS.stepsPerBar(app.project());
+          const beat = SS.bandSong.beatOf(app.project().timeSig);
           if (spb !== 16 && !['all', 'ternary'].includes(motifGroup)) motifGroup = 'ternary';
           if (spb === 16 && motifGroup === 'ternary') motifGroup = 'all';
-          return M.picker({ group: motifGroup, cur: on ? now : null, spb, onGroup: (g) => ((motifGroup = g), render()), onPick: pick });
+          return M.picker({ group: motifGroup, cur: on ? now : null, spb, beat, onGroup: (g) => ((motifGroup = g), render()), onPick: pick });
         })(),
         seg('Scènes', [['all', 'Toutes'], ['one', 'Cette scène']], scope, setScope, '« Cette scène » : seule la scène en cours prend le motif choisi ; les autres gardent le leur.'),
         seg('Hauteur', SS.FOLLOW.MOTIF_OCTAVES.map((o) => [o, 'C' + o]), f.oct, (o) => (on ? (commit({ ...f, oct: o }), preview()) : ((track.lastFollow = SS.FOLLOW.clean({ ...f, oct: o })), render()))),
@@ -4919,7 +4920,7 @@ SS.ui = (() => {
       const bl = SS.stepsPerBar(app.project()); // pas par mesure du morceau (12 en 3/4 et 6/8)
       const sp = [{ step: 0, len: bl, bar: 0, chord: { rootPc: 9, type: 'min', tok: 'Am' } }, { step: bl, len: bl, bar: 1, chord: { rootPc: 5, type: 'maj', tok: 'F' } }];
       motifTimers.forEach(clearTimeout);
-      motifTimers = SS.bandSong.bassEvents(sp, id, () => 0.5, [9, 11, 0, 2, 4, 5, 7], { spb: bl }).map((e) => setTimeout(() => SS.audio.preview(fake, e.notes[0], Math.max(0.08, e.len * sd * 0.9), { velocity: e.vel }), (e.step + (e.shift || 0)) * sd * 1000));
+      motifTimers = SS.bandSong.bassEvents(sp, id, () => 0.5, [9, 11, 0, 2, 4, 5, 7], { spb: bl, beat: SS.bandSong.beatOf(app.project().timeSig) }).map((e) => setTimeout(() => SS.audio.preview(fake, e.notes[0], Math.max(0.08, e.len * sd * 0.9), { velocity: e.vel }), (e.step + (e.shift || 0)) * sd * 1000));
     }
   }
   /** Ligne « Motif » de la fenêtre : nouvelle piste de basse seulement. */
@@ -4930,7 +4931,7 @@ SS.ui = (() => {
     if (!show) return;
     const cur = dlg.s.motif || null;
     $('#dlgMotifs').replaceChildren(
-      ...[null, ...(SS.stepsPerBar(app.project()) === 16 ? M.PICKS : ['valse', 'valsejazz', 'ballade68'])].map((id) =>
+      ...[null, ...({ 16: M.PICKS, 12: ['valse', 'valsejazz', 'ballade68'], 24: ['slow128', 'boogie128', 'berce128'] }[SS.stepsPerBar(app.project())] || ['whole', 'quarter', '8'])].map((id) =>
         h('button', { type: 'button', role: 'radio', 'aria-checked': String(cur === id), class: 'nt-motif-card' + (cur === id ? ' on' : ''), 'data-id': id || '', onclick: () => setDlgMotif(id) }, h('span', { class: 'mot-name' }, id ? M.name(id) : 'À la main'), id ? h('span', { class: 'mot-draw', html: M.svg(id) }) : null)
       ),
       SS.helpTip('La basse joue ce motif sur les accords de la piste Accords, scène par scène (bouton MOTIF de la piste pour en changer). « À la main » : vous écrivez les notes.', 'Motif')

@@ -1796,7 +1796,16 @@ SS.melody = (() => {
   // de chaque phrase. js/bandsong.js l'appelle pour la mélodie par défaut de chaque scène ; les mêmes graines donnent
   // les mêmes notes qu'avant le déplacement (tests/melody-section.test.js).
   const SEC = (() => {
-    const SPB = 16; // pas par mesure (4/4)
+    // mesure de la chanson (js/bandsong.js setMeter) : pas par mesure, pas par temps (4 : noire ; 6 : noire pointée)
+    let SPB = 16;
+    let BEAT = 4;
+    const setMeter = (spb, beat) => ((SPB = spb || 16), (BEAT = beat || 4));
+    /** Écart entre deux temps forts (le 1 et le 3 en 4/4, chaque temps en 6/8, le 1 et le 3 en 12/8, le 1 en 3/4). */
+    const strongEvery = () => (BEAT === 6 && SPB === 12 ? 6 : (SPB / BEAT) % 2 === 0 ? 2 * BEAT : SPB);
+    // cellules d'un temps de noire pointée (6/8, 12/8 : 6 pas) pour les mêmes noms que CELLS
+    const CELLS6 = {
+      q: [[0, 6]], ee: [[0, 4], [4, 2]], r: [], off: [[2, 4]], dot: [[0, 3], [3, 1], [4, 2]], es: [[0, 2], [2, 2], [4, 1], [5, 1]], se: [[0, 1], [1, 1], [2, 2], [4, 2]], ss: [[0, 2], [2, 2], [4, 2]], h: 'h', w: 'w',
+    };
     const pick = (r, list) => list[Math.floor(r() * list.length)];
     function weighted(r, table) {
       const tot = Object.values(table).reduce((a, b) => a + b, 0);
@@ -1892,29 +1901,31 @@ SS.melody = (() => {
     /** Rythme d'une phrase : [début, longueur] sur `L` pas ; la dernière note tient jusqu'au bout. */
     function phraseRhythm(r, table, L, { answer = false } = {}) {
       const out = [];
-      const beats = Math.floor(L / 4);
+      const B = BEAT;
+      const C = B === 6 ? CELLS6 : CELLS;
+      const beats = Math.floor(L / B);
       for (let beat = answer ? Math.floor(beats / 2) : 0; beat < beats; beat++) {
         const c = weighted(r, table);
         if (c === 'w' && beat % 4 === 0 && beat + 4 <= beats) {
-          out.push([beat * 4, 16]);
+          out.push([beat * B, 4 * B]);
           beat += 3;
           continue;
         }
         if ((c === 'h' || c === 'w') && beat % 2 === 0 && beat + 2 <= beats) {
-          out.push([beat * 4, 8]);
+          out.push([beat * B, 2 * B]);
           beat++;
           continue;
         }
-        (CELLS[c] === 'h' || CELLS[c] === 'w' ? CELLS.q : CELLS[c]).forEach(([o, l]) => out.push([beat * 4 + o, l]));
+        (C[c] === 'h' || C[c] === 'w' ? C.q : C[c]).forEach(([o, l]) => out.push([beat * B + o, l]));
       }
-      if (!out.length || out[0][0] > L / 2) out.unshift([answer ? Math.floor(beats / 2) * 4 : 0, 4]);
+      if (!out.length || out[0][0] > L / 2) out.unshift([answer ? Math.floor(beats / 2) * B : 0, B]);
       const last = out[out.length - 1];
       last[1] = L - last[0];
       return out;
     }
     /** Exactement n notes (réglage « Notes par phrase ») : on fusionne les notes faibles, ou on coupe les longues. */
     function fitCount(rhy, n) {
-      const weak = (s) => (s % 16 === 0 ? 0 : s % 8 === 0 ? 1 : s % 4 === 0 ? 2 : s % 2 === 0 ? 3 : 4);
+      const weak = (s) => (s % SPB === 0 ? 0 : s % strongEvery() === 0 ? 1 : s % BEAT === 0 ? 2 : s % 2 === 0 ? 3 : 4);
       while (rhy.length > n && rhy.length > 1) {
         let k = 1;
         for (let i = 2; i < rhy.length; i++) if (weak(rhy[i][0]) > weak(rhy[k][0])) k = i;
@@ -2079,7 +2090,7 @@ SS.melody = (() => {
           const c = spanAt(abs).chord;
           const ct = tones(c);
           const pcs = chordScale(c, keyPcs);
-          const strong = abs % 8 === 0 || len >= 6;
+          const strong = abs % strongEvery() === 0 || len >= 6;
           const end = i === rhy.length - 1;
           let n;
           if (prev === null || i === 0) {
@@ -2150,7 +2161,7 @@ SS.melody = (() => {
           const nx = spans[spans.indexOf(sp) + 1];
           if (p.mode !== 'hold' && nx && abs + l > nx.step && !chordScale(nx.chord, keyPcs).includes(pcOf(n))) l = Math.max(1, nx.step - abs);
           if (ch.stacc && !end) l = Math.min(l, 2);
-          ev.push({ step: abs, len: l, notes: [n], vel: vel(rv, l >= 8 ? 0.74 : abs % 8 === 0 ? 0.86 : 0.7) });
+          ev.push({ step: abs, len: l, notes: [n], vel: vel(rv, l >= 8 ? 0.74 : abs % strongEvery() === 0 ? 0.86 : 0.7) });
           prev = n;
         });
         // une phrase suivie d'un silence repart de zéro
@@ -2160,8 +2171,8 @@ SS.melody = (() => {
     }
 
     /** Montée (« rise ») : une note répétée, en croches puis en doubles-croches, une octave plus haut à mi-chemin. */
-    return { melodyPart, CHARACTERS, FORMS, LETTERS, RHYTHMS, CENTER, defaultPlan, fitPlan };
+    return { melodyPart, setMeter, CHARACTERS, FORMS, LETTERS, RHYTHMS, CENTER, defaultPlan, fitPlan };
   })();
 
-  return { section: SEC.melodyPart, CHARACTERS: SEC.CHARACTERS, FORMS: SEC.FORMS, LETTERS: SEC.LETTERS, RHYTHMS: SEC.RHYTHMS, CENTER: SEC.CENTER, defaultPlan: SEC.defaultPlan, fitPlan: SEC.fitPlan, compose, checkMelody, keyLabel, chordFunction, noteKind, parseGrid, parseChordSymbol, parseTimelineSpans, scanLine, scanLyrics, scanMeter, guessKeys, toMidi, toEvents, RANGES, metricWeight, valueName, quarters, posLabel, noteLabel, pivotNotes, describe, _rng: rng };
+  return { section: SEC.melodyPart, setMeter: SEC.setMeter, CHARACTERS: SEC.CHARACTERS, FORMS: SEC.FORMS, LETTERS: SEC.LETTERS, RHYTHMS: SEC.RHYTHMS, CENTER: SEC.CENTER, defaultPlan: SEC.defaultPlan, fitPlan: SEC.fitPlan, compose, checkMelody, keyLabel, chordFunction, noteKind, parseGrid, parseChordSymbol, parseTimelineSpans, scanLine, scanLyrics, scanMeter, guessKeys, toMidi, toEvents, RANGES, metricWeight, valueName, quarters, posLabel, noteLabel, pivotNotes, describe, _rng: rng };
 })();
