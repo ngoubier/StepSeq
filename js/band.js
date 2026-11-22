@@ -286,7 +286,9 @@ SS.band = (() => {
         });
       } else {
         const o = instOpts(mu);
-        out.push({ ...o, category: o.category || catOf(mu), name: nameOf0(mu) || roleOf(mu).short, color, band: tag(p, mu), levelKey: instLevelKey(mu, ms) });
+        // arpOn: false : les notes sont déjà jouées par le moteur (Arp One, guitare : js/bandsong.js) ;
+        // un 2e passage dans l'arpégiateur de la piste les rejouait au 1/8 (guitare : toujours la note la plus grave)
+        out.push({ ...o, category: o.category || catOf(mu), arpOn: false, name: nameOf0(mu) || roleOf(mu).short, color, band: tag(p, mu), levelKey: instLevelKey(mu, ms) });
       }
     });
     return out;
