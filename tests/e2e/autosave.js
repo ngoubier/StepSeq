@@ -147,6 +147,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await wait(400);
   ok((await songTitles()).includes('Chanson B (copie)'), 'Dupliquer : « Chanson B (copie) »');
   await page.locator('.song-row', { hasText: 'Chanson B (copie)' }).getByRole('button', { name: 'Supprimer' }).click();
+  await page.click('#songsConfirmYes'); // confirmation dans la fenêtre
   await wait(400);
   ok(!(await songTitles()).includes('Chanson B (copie)'), 'Supprimer (après confirmation)');
   ok(await page.locator('.song-row.current').getByRole('button', { name: 'Supprimer' }).isDisabled(), 'la chanson en cours ne peut pas être supprimée');

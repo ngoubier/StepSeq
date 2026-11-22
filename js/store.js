@@ -60,7 +60,16 @@ SS.store = (() => {
       tracks: (p.tracks || []).length,
       scenes: (p.scenes || []).length,
       size: json.length,
+      wiz: wizInfo(p),
     };
+  }
+
+  /** Travail de l'assistant « Nouvelle chanson » rangé dans la chanson (project.wizard) : étape où on l'a laissé. */
+  function wizInfo(p) {
+    const d = p && p.wizard;
+    if (!d || typeof d !== 'object') return null;
+    const w = (d.state && d.state.w) || {};
+    return { step: Number.isFinite(w.step) ? w.step : 1, label: typeof d.stepLabel === 'string' ? d.stepLabel : null };
   }
 
   async function versionsOf(d, songId) {
@@ -104,7 +113,19 @@ SS.store = (() => {
     const all = await req(d.transaction('songs').objectStore('songs').getAll());
     const files = await req(d.transaction('meta').objectStore('meta').getAll());
     const fileOf = new Map(files.filter((m) => m.key.startsWith('file:')).map((m) => [m.key.slice(5), m.handle && m.handle.name]));
-    return all.map(({ data, ...s }) => ({ ...s, file: fileOf.get(s.id) || null })).sort((a, b) => b.updated - a.updated);
+    return all
+      .map(({ data, ...s }) => {
+        if (!('wiz' in s)) {
+          // chanson enregistrée avant le résumé de l'assistant : on le lit dans son contenu
+          try {
+            s.wiz = wizInfo(JSON.parse(data));
+          } catch (e) {
+            s.wiz = null;
+          }
+        }
+        return { ...s, file: fileOf.get(s.id) || null };
+      })
+      .sort((a, b) => b.updated - a.updated);
   }
 
   async function get(id) {
@@ -134,6 +155,11 @@ SS.store = (() => {
     await done(tx);
   }
 
+  /** Supprime plusieurs chansons d'un coup (avec leurs versions). */
+  async function removeMany(ids) {
+    for (const id of ids) await remove(id);
+  }
+
   async function setMeta(key, value) {
     const d = await db();
     const tx = d.transaction('meta', 'readwrite');
@@ -155,7 +181,7 @@ SS.store = (() => {
     }
   }
 
-  return { available, put, keepVersion, list, get, versions, getVersion, remove, setMeta, getMeta, persist };
+  return { available, put, keepVersion, list, get, versions, getVersion, remove, removeMany, setMeta, getMeta, persist };
 })();
 
 /* ------------------------------------------------------------------ */

@@ -46,7 +46,7 @@ const ok = (c, m) => {
     ok(/ASSIST\s+ouvert sur une chanson vide/.test(log), 'ouverture de l’assistant notée');
     ok(/PROJET\s+joué : .*pistes d'écoute de l'assistant.*origine : écoute de l'assistant/.test(log), 'ligne « PROJET joué » : écoute de l’assistant');
     ok(/lecture chanson à partir du bloc 1/.test(log) && /style synthwave/.test(log) && /inspiration \S+/.test(log), 'mode d’écoute, style et inspiration');
-    ok(/## Origine des projets\n- chanson jouée : .*écoute de l'assistant[^\n]*\n- chanson de l'éditeur : « Nouveau projet » .*origine : nouvelle chanson vide/.test(log), 'section « Origine des projets » : jouée et éditeur');
+    ok(/## Origine des projets\n- chanson jouée : .*écoute de l'assistant[^\n]*\n- chanson de l'éditeur : « [^»]+ » .*origine : nouvelle chanson vide/.test(log), 'section « Origine des projets » : jouée et éditeur');
     ok(/## Chanson \(jouée en dernier : écoute de l'assistant/.test(log), 'section Chanson : l’écoute de l’assistant');
     console.log(log.split('\n').filter((l) => /PROJET|ASSIST|^- chanson/.test(l)).join('\n'));
     await page.click('#stop');
