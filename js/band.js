@@ -8029,7 +8029,7 @@ SS.band = (() => {
     b.classList.toggle('busy', on);
     b.setAttribute('aria-pressed', String(on));
     $('.bw-go-ico', b).textContent = on ? '■' : '▶';
-    $('#bwGoText').textContent = on ? `Lecture${sc ? ` · scène ${sc.name}` : ''}` : 'Générer et écouter';
+    $('#bwGoText').textContent = L.calc != null ? `Calcul de l’écoute… ${L.calc} %` : on ? `Lecture${sc ? ` · scène ${sc.name}` : ''}` : 'Générer et écouter';
     b.title = on ? 'Arrêter l’écoute' : 'Crée l’aperçu complet (tous les instruments, toutes les scènes) et le joue ; on affine ensuite étape par étape';
   }
 
@@ -8072,7 +8072,7 @@ SS.band = (() => {
       pos = `${Math.floor(st / 16) + 1} . ${Math.floor((st % 16) / 4) + 1} . ${(st % 4) + 1}`;
     }
     $('#position').textContent = pos;
-    $('#lcdTitle').textContent = sc ? `${sc.name}${L.mode === 'scene' ? ' · en boucle' : ''}${L.paused ? ' · en pause' : ''}` : 'À l’arrêt';
+    $('#lcdTitle').textContent = L.calc != null ? `Calcul de l’écoute… ${L.calc} %` : sc ? `${sc.name}${L.mode === 'scene' ? ' · en boucle' : ''}${L.paused ? ' · en pause' : ''}` : 'À l’arrêt';
     // tonalité : celle de la scène qu'on entend (ou qu'on regarde à l'étape Mélodie), sinon celle de la chanson
     const shown = sc || (res && sceneStep() ? res.scenes.find((x) => x.id === S.wiz.hscene) : null);
     const key = (shown && shown.key) || (res && res.key);
@@ -9552,6 +9552,9 @@ SS.band = (() => {
   }
 
   function stopListen() {
+    if (preJob) preJob.abort();
+    preJob = null;
+    L.calc = null;
     if (L.mode) SS.audio.stop();
     L.junc = null; // écoute d'une jonction (étape Effets et transitions)
     L.paused = false;
@@ -9602,7 +9605,7 @@ SS.band = (() => {
     markListen();
     const sc = proj.scenes.find((x) => x.id === id);
     noteListen(proj, `scène « ${(sc && sc.name) || id} » en boucle`);
-    SS.audio.start(() => proj, onListenStep, {});
+    startListen(proj, {}, { range: 'scene' });
   }
 
   /** L'arrangement à partir du bloc `index` (re-clic sur « Écouter la chanson » : arrêt). */
@@ -9615,7 +9618,7 @@ SS.band = (() => {
     L.scene = proj.song[index].scene;
     markListen();
     noteListen(proj, `chanson à partir du bloc ${index + 1} sur ${proj.song.length}`);
-    SS.audio.start(() => proj, onListenStep, {
+    startListen(proj, {
       song: {
         index,
         onBlock: (i) => {
@@ -9636,7 +9639,112 @@ SS.band = (() => {
         },
         onEnd: stopListen,
       },
-    });
+    }, { range: 'song', from: index });
+  }
+
+  /*
+   * Écoute pré-calculée : sur un appareil trop lent pour calculer le son en direct (téléphone), l'écoute est
+   * d'abord rendue hors temps réel (js/render.js), puis jouée telle quelle : plus aucune coupure, au prix d'une
+   * attente (« Calcul de l'écoute… » dans l'afficheur). Le séquenceur tourne quand même, sans jouer de notes,
+   * pour le curseur et les blocs. Réglage : Options › Son (ss.prerender : '1' oui, '0' non, absent = automatique,
+   * activé la première fois que le son décroche pendant une écoute).
+   */
+  const PRE_KEY = 'ss.prerender';
+  const prePref = () => {
+    try {
+      return localStorage.getItem(PRE_KEY);
+    } catch (e) {
+      return null;
+    }
+  };
+  const preCache = new Map(); // portée + projet -> AudioBuffer (les 3 derniers)
+  let preJob = null; // AbortController du calcul en cours
+  function startListen(proj, opts, { range, from = 0 }) {
+    if (prePref() !== '1' || !SS.render || !SS.render.renderOnce) return SS.audio.start(() => proj, onListenStep, opts);
+    const ctrl = new AbortController();
+    preJob = ctrl;
+    L.calc = 0;
+    markListen();
+    preRender(proj, range, from, ctrl.signal)
+      .then((backing) => {
+        if (ctrl.signal.aborted || preJob !== ctrl) return;
+        preJob = null;
+        L.calc = null;
+        SS.audio.start(() => proj, onListenStep, { ...opts, backing });
+        markListen();
+      })
+      .catch((e) => {
+        if (ctrl.signal.aborted || preJob !== ctrl) return;
+        preJob = null;
+        L.calc = null;
+        if (SS.ui && SS.ui.toast) SS.ui.toast('Calcul de l’écoute impossible : lecture en direct', 5000);
+        console.warn('écoute pré-calculée', e);
+        SS.audio.start(() => proj, onListenStep, opts);
+        markListen();
+      });
+  }
+  async function preRender(proj, range, from, signal) {
+    const ctx = SS.audio.ensureCtx();
+    const PRE = 0.08; // la première note part 0,08 s après le début du rendu (js/render.js, PREROLL)
+    const sub = range === 'song' ? { ...proj, song: proj.song.slice(from) } : proj;
+    const plan = SS.render.prepare(sub, { range, loops: 2 });
+    // chanson : 4 s de queue (reverbs) ; scène : deux passages, on boucle sur le second (il contient les queues du premier)
+    const half = plan.songSeconds / 2;
+    const seconds = range === 'song' ? PRE + plan.songSeconds + 4 : PRE + plan.songSeconds + 0.05;
+    const key = range + '|' + plan.json;
+    let buffer = preCache.get(key);
+    if (!buffer) {
+      const r = await SS.render.renderOnce(plan.json, { seconds, sampleRate: ctx.sampleRate, seed: 1 }, {
+        signal,
+        onProgress: (f) => {
+          L.calc = Math.min(99, Math.round(f * 100));
+          markListen();
+        },
+      });
+      buffer = ctx.createBuffer(2, r.left.length, r.sampleRate);
+      buffer.copyToChannel(r.left, 0);
+      buffer.copyToChannel(r.right, 1);
+      preCache.set(key, buffer);
+      while (preCache.size > 3) preCache.delete(preCache.keys().next().value);
+    }
+    const spb = SS.stepsPerBar(proj);
+    const sceneOf = (id) => proj.scenes.find((x) => x.id === id);
+    const stepSec = (sc) => 60 / SS.tempoOf(proj, sc) / 4;
+    if (range === 'scene') {
+      const sc = sceneOf(proj.current);
+      const total = Math.max(1, (sc ? sc.bars : proj.bars) * spb);
+      return { buffer, loop: { start: PRE + half, end: PRE + 2 * half }, timeOf: (b, rep, step) => PRE + (step % total) * stepSec(sc) };
+    }
+    const blockSec = (b) => {
+      const sc = sceneOf(b.scene);
+      return sc ? sc.bars * spb * stepSec(sc) : 0;
+    };
+    return {
+      buffer,
+      timeOf: (block, rep, step) => {
+        let t = PRE;
+        for (let i = from; i < block && i < proj.song.length; i++) t += blockSec(proj.song[i]) * proj.song[i].repeat;
+        const b = proj.song[block];
+        if (b) t += rep * blockSec(b) + step * stepSec(sceneOf(b.scene));
+        return t;
+      },
+    };
+  }
+  /** Le son décroche pendant une écoute (js/audiowatch.js) : passe à l'écoute pré-calculée et relance. */
+  function slowListen() {
+    if (!L.mode || L.junc || L.calc != null || prePref() !== null || !(L.mode === 'scene' || L.mode === 'song')) return false;
+    try {
+      localStorage.setItem(PRE_KEY, '1');
+    } catch (e) {
+      return false;
+    }
+    const cb = document.getElementById('optPrerender');
+    if (cb) cb.checked = true;
+    const { mode, scene, block } = L;
+    if (mode === 'scene') playScene(scene);
+    else listenSong(Math.max(0, block));
+    if (SS.ui && SS.ui.toast) SS.ui.toast('Le son décroche : sur cet appareil, l’écoute est maintenant calculée avant de jouer (Options › Son)', 9000);
+    return true;
   }
 
   /** La chanson a changé (autre mélodie…) pendant l'écoute : on reprend au même endroit avec les nouvelles notes. */
@@ -9668,6 +9776,12 @@ SS.band = (() => {
   /** Muet / Solo ont changé : l'écoute et l'écran suivent (à l'étape Mélodie, sans refaire le panneau). */
   function afterMS() {
     applyListenMutes();
+    // écoute pré-calculée : l'enregistrement ne suit pas Muet / Solo, on la recalcule au même endroit
+    if (L.mode && !L.junc && prePref() === '1') {
+      const { mode, scene, block } = L;
+      if (mode === 'scene') playScene(scene);
+      else listenSong(Math.max(0, block));
+    }
     if (melStep() && $('#bwMelBoard')) refreshMelFrame();
     else renderWiz();
   }
@@ -11057,5 +11171,5 @@ SS.band = (() => {
     });
   }
 
-  return { init, open, openWizard, resume, close: () => leave(), create: () => S.wiz && createWizSong(), hasDraft, wizSnapshot, wizRestore, draftWhen, active, togglePlay, stopListen, setTempo, plannedTracks, instKind, setKind, insSteps, stepRef, stepNum, instPartOf, putInstPart, melodyTrackOpts, BASS_MODES, claude, _state: S, _listen: () => L.proj, _spec: () => spec() };
+  return { init, open, openWizard, resume, close: () => leave(), create: () => S.wiz && createWizSong(), hasDraft, wizSnapshot, wizRestore, draftWhen, active, togglePlay, stopListen, slowListen, setTempo, plannedTracks, instKind, setKind, insSteps, stepRef, stepNum, instPartOf, putInstPart, melodyTrackOpts, BASS_MODES, claude, _state: S, _listen: () => L.proj, _spec: () => spec() };
 })();

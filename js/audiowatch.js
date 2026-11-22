@@ -832,6 +832,12 @@ SS.audioWatch = (() => {
     // pas d'allègement sur les à-coups du démarrage de la sortie, ni quand on sait que la charge n'y est pour rien
     const over = snap.playing && !external && now - runAt >= CFG.warmup ? overload(state, now) : null;
     if (over) diag.overloads++;
+    // écoute de l'assistant : sur un appareil trop lent, elle passe en pré-calculée (js/band.js) plutôt que d'alléger
+    if (over && SS.band && SS.band.slowListen && SS.band.slowListen()) {
+      log('ACTION', 'écoute de l’assistant pré-calculée (Options › Son) : le son décrochait', now);
+      listeners.forEach((fn) => fn(state, snap));
+      return;
+    }
     const diagSlow = over && !diag.declined && !declined && diagMode() && !SS.audio.isLight() ? over : null;
     if (diagSlow) diagOverload(diagSlow, project, now);
     const slow = !diagMode() && !declined && autoLight() && !SS.audio.isLight() ? over : null;

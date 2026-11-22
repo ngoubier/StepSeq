@@ -2271,6 +2271,7 @@ SS.audio = (() => {
       scheduling.maxLateMs = Math.max(scheduling.maxLateMs, lateMs);
       scheduling.lastLateAt = performance.now();
     }
+    if (seq.backing) return; // écoute pré-calculée : le son est déjà dans l'enregistrement
     const sd = stepDur(project);
     // une piste muette peut quand même déclencher un sidechain
     const audible = new Set(audibleTracks(project));
@@ -2591,6 +2592,8 @@ SS.audio = (() => {
     seq.nextTime = ctx.currentTime + 0.08 + pre * stepDur(getProject());
     for (let i = 0; i < pre; i += 4) click(seq.nextTime - (pre - i) * stepDur(getProject()), i === 0);
     seq.t0 = seq.nextTime; // heure du premier pas (tests)
+    seq.backing = opts.backing || null;
+    if (seq.backing) startBacking(seq.nextTime, seq.backing.timeOf(seq.song ? seq.song.index : 0, 0, seq.step));
     seq.abs = seq.step; // position continue (ne revient pas à 0) : sert à placer les notes jouées en direct
     seq.hist = [];
     clockReset(getProject(), seq.nextTime, seq.step / 4); // LFO calés sur le tempo : phase alignée sur la grille
@@ -2618,6 +2621,7 @@ SS.audio = (() => {
     clearInterval(seq.timer);
     cancelAnimationFrame(seq.raf);
     seq.queue = [];
+    stopBacking();
     silenceAll(); // coupe les voix en cours et celles déjà programmées
     resetAutos();
     if (seq.getProject) applyMutes(seq.getProject()); // à l'arrêt, les tranches muettes se rouvrent
@@ -2626,6 +2630,7 @@ SS.audio = (() => {
   function stop() {
     cancelPending();
     halt();
+    seq.backing = null;
     seq.paused = null;
     seq.shown = null;
     seq.onStep && seq.onStep(-1);
@@ -2665,6 +2670,7 @@ SS.audio = (() => {
       seq.song.onBlock(seq.song.index); // recharge la scène du bloc si on en avait changé entre-temps
       seq.queue.push({ step: -1, time: seq.nextTime, block: seq.song.index, rep: seq.song.rep });
     }
+    if (seq.backing) startBacking(seq.nextTime, seq.backing.timeOf(seq.song ? seq.song.index : 0, seq.song ? seq.song.rep : 0, seq.step));
     applyAllFx(seq.getProject());
     tick();
     seq.timer = setInterval(tick, 25);
@@ -2705,7 +2711,50 @@ SS.audio = (() => {
     seq.abs = (seq.abs || 0) + ((((step - seq.step) % L) + L) % L);
     seq.step = step;
     seq.nextTime = ctx.currentTime + 0.04;
+    if (seq.backing) startBacking(seq.nextTime, seq.backing.timeOf(seq.song ? seq.song.index : 0, seq.song ? seq.song.rep : 0, step));
     tick();
+  }
+
+  /*
+   * Écoute pré-calculée (appareil trop lent, js/band.js) : la chanson est d'abord rendue hors temps réel, puis
+   * l'enregistrement est joué pendant que le séquenceur tourne sans jouer de notes (curseur, blocs, affichage).
+   * backing = { buffer, timeOf(bloc, répétition, pas) -> seconde de l'enregistrement, loop: { start, end } }.
+   * L'enregistrement contient déjà le Master et le mastering : il va droit à la sortie.
+   */
+  function startBacking(when, offset) {
+    const b = seq.backing;
+    if (!b) return;
+    stopBacking();
+    const src = ctx.createBufferSource();
+    src.buffer = b.buffer;
+    if (b.loop) {
+      src.loop = true;
+      src.loopStart = b.loop.start;
+      src.loopEnd = b.loop.end;
+    }
+    const g = ctx.createGain();
+    src.connect(g);
+    g.connect(ctx.destination);
+    g.connect(masterMeter.node);
+    const start = Math.max(when, ctx.currentTime);
+    src.start(start, Math.max(0, Math.min(b.buffer.duration - 0.01, offset + (start - when))));
+    b.src = src;
+    b.gain = g;
+  }
+  function stopBacking() {
+    const b = seq.backing;
+    if (!b || !b.src) return;
+    const { src, gain } = b;
+    b.src = null;
+    b.gain = null;
+    const now = ctx.currentTime;
+    gain.gain.setTargetAtTime(0, now, 0.01);
+    try {
+      src.stop(now + 0.06);
+    } catch (e) {
+      /* déjà arrêté */
+    }
+    setTimeout(() => gain.disconnect(), 200);
   }
 
   /* ---------------- Surveillance et réparation (js/audiowatch.js) ---------------- */
