@@ -1153,7 +1153,10 @@ outil « exécuter du JavaScript dans la page » (abonnement Claude, sans clé A
 Outils (paramètres en un objet, réponse `{ ok, message, … }` ou `{ ok: false, erreur }`) :
 lire : `aide`, `etat`, `piste`, `accords`, `sons` ; chanson : `titre`, `tempo`, `mesure`, `mesures`, `tonalite`, `ecrireAccords`,
 `proposerAccords` (✦ PROPOSER) ; pistes : `ajouterPiste`, `ecrireNotes`, `ecrireBatterie`, `son`, `mix`, `renommerPiste`,
-`supprimerPiste`, `effets` (chorus, delay, reverb, sidechain, envois), `automations` / `automation` (formes toutes prêtes ou points) ; scènes : `allerScene`, `ajouterScene`, `renommerScene`, `supprimerScene`, `structure` ; écoute : `jouer`,
+`supprimerPiste`, `effets` (chorus, delay, reverb, sidechain, envois), `automations` / `automation` (par pas dans une scène : formes toutes prêtes ou points), `automationsChanson` /
+`automationChanson` (cutoff, résonance, vélocité par temps sur toute la chanson : une scène, un de ses passages ou des mesures de la
+chanson ; forme, valeur ou points ; lecture fluide ou paliers) ; console : `console` (pan, EQ, compresseur, limiteur d'une piste),
+`retours` (Plate, Hall, Écho, Cosmos), `master` (volume, EQ, filtre, compresseur, limiteur, effets du Master, mastering) ; scènes : `allerScene`, `ajouterScene`, `renommerScene`, `supprimerScene`, `structure` ; écoute : `jouer`,
 `stop`, `annuler`, `retablir`. Chaque écriture est une étape **Ctrl+Z** et affiche « ✳ Claude : … » avec un bouton Annuler ;
 `StepSeq.groupe("titre", () => { … })` en regroupe plusieurs. Le badge « ✳ Claude · N actions » apparaît dans la barre du haut.
 `StepSeq.outils` décrit chaque outil : la même liste servira au futur panneau intégré (API Claude). Test : `node tests/e2e/claude-tools.js`.
@@ -1162,7 +1165,9 @@ Assistant **Nouvelle chanson** (pont `SS.band.claude` dans `js/band.js`) : `assi
 `assistantOuvrir` (reprend le brouillon s'il existe), `assistantEtape`, `assistantEcouter` / `assistantStop`, `assistantFermer`,
 `assistantStyle` (style, inspiration), `assistantMusicien` (ajouter, son, type, nom, retirer), `assistantTempo`, `assistantTonalite`
 (toutes les scènes transposées), `assistantScene` (mesures, nom, copie, suppression), `assistantStructure`, `assistantAccords` (une
-mesure par élément, répétée sur la scène), `assistantMelodie` (une autre mélodie) et `assistantCreer`. L'assistant s'affiche et
+mesure par élément, répétée sur la scène), `assistantMelodie` (une autre mélodie), effets : `assistantEffets` (transitions, musicien Effets par scène, percussions,
+mouvements de son), `assistantTransition` (recette ou effet par effet), `assistantEffetsScene` (rôle du musicien Effets, boucles
+du Percussionniste, ajout de ces musiciens), `assistantMouvements` (mouvements de son de l'étape Arrangement), et `assistantCreer`. L'assistant s'affiche et
 avance comme sous les clics ; ses réglages restent un brouillon (enregistré tout seul, sans Ctrl+Z). `assistantCreer` écrit la
 chanson dans la grille (une étape Ctrl+Z) ; si une fenêtre de choix s'ouvre (grille déjà remplie), c'est l'utilisateur qui choisit.
 Pendant que l'assistant est ouvert, les outils d'écriture de la grille sont refusés.

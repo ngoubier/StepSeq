@@ -11568,7 +11568,240 @@ SS.band = (() => {
       return filmEtat();
     }
 
+    /* ---------- Effets et transitions, mouvements de son ----------
+     * Mêmes réglages que l'étape Effets et transitions (S.wiz.fx, parts[section].fx) et que la carte Mouvements de son de
+     * l'étape Arrangement (S.wiz.arr.moves). Noms français ↔ clés du moteur (junctionDefaults dans js/bandsong.js). */
+    const needRes = () => {
+      needPlan();
+      return wizSong().res || err('cette inspiration n’a pas de plan de chanson');
+    };
+    const ROLE_FR = { ambiance: 'swell', swell: 'swell', montee: 'riser', riser: 'riser', descente: 'down', down: 'down', rien: 'none', none: 'none' };
+    const ROLE_OUT = { swell: 'ambiance', riser: 'montee', down: 'descente', none: 'rien' };
+    const FILT_FR = { passebas: 'lp', lp: 'lp', passehaut: 'hp', hp: 'hp', aucun: 'none', sans: 'none', none: 'none' };
+    const FILT_OUT = { lp: 'passeBas', hp: 'passeHaut', none: 'aucun' };
+    const IMPACT_FR = { 'grave+crash': 'both', both: 'both', crash: 'crash', grave: 'impact', impact: 'impact' };
+    const IMPACT_OUT = { both: 'grave+crash', crash: 'crash', impact: 'grave' };
+    const LOOP_FR = { shaker: 'sh', sh: 'sh', conga: 'cg', cg: 'cg', tom: 'tom' };
+    const keyOf = (o, map, what) => {
+      const v = map[fold(o).replace(/[\s_-]/g, '')];
+      return v || err(`${what} : « ${o} » inconnu (${[...new Set(Object.keys(map))].join(', ')})`);
+    };
+    const num = (v, lo, hi, what) => {
+      const n = Number(v);
+      if (!(n >= lo && n <= hi)) err(`${what} : entre ${lo} et ${hi}`);
+      return n;
+    };
+    /** Réglages d'une jonction en noms français : false si l'effet est éteint. */
+    function fxOut(e, withFx) {
+      const b = BEAT();
+      const o = {
+        montee: e.riser.on && { mesures: e.riser.len, filtre: FILT_OUT[e.riser.filter] || e.riser.filter },
+        filtre: e.hp.on && { hz: e.hp.freq },
+        cymbaleInversee: e.rev.on && { temps: e.rev.len / b },
+        silence: e.gap.len > 0 && { temps: e.gap.len / b },
+        impact: e.impact.on && { type: IMPACT_OUT[e.impact.type] || e.impact.type, niveau: e.impact.level },
+        descente: e.down.on && { mesures: e.down.len },
+        retraitBatterie: e.retrait.on && { mesures: e.retrait.len },
+        fragmentation: !!e.frag.on,
+        pedale: e.pedal.on && { mesures: e.pedal.len, note: e.pedal.note === 'tonic' ? 'tonique' : 'dominante' },
+        elargissement: e.widen.on && { mesures: e.widen.len },
+        suspension: e.susp.on && { temps: e.susp.len / b },
+      };
+      if (!withFx) ['montee', 'cymbaleInversee', 'impact', 'descente'].forEach((k) => o[k] && (o[k] = { ...o[k], muet: 'pas de musicien Effets' }));
+      return o;
+    }
+    function effets() {
+      const res = needRes();
+      const { cols } = wizSong();
+      const withFx = hasRole('fx');
+      const withPerc = hasRole('perc');
+      const transitions = fxJoins(res).map((j) => {
+        const e = fxEff(j);
+        const r = fxRecipeOf(e, withFx);
+        return { n: j.i + 1, de: j.from.name, vers: j.to.name, mesure: j.at + 1, recette: r ? FX_RECIPES.find((x) => x[0] === r)[1] : fxCount(e, withFx) ? 'Sur mesure' : 'Aucune', retouchee: !!(S.wiz.fx && S.wiz.fx.junctions && S.wiz.fx.junctions[j.key]), effets: fxOut(e, withFx) };
+      });
+      const Pm = fxPercModel(cols);
+      const seen = new Set();
+      const scenes = res.scenes.filter((sc) => !seen.has(sc.sec) && seen.add(sc.sec)).map((sc) => {
+        const plan = (specEff().sections[sc.sec] || {}).fx || 'none';
+        const own = (S.wiz.parts[sc.sec] && S.wiz.parts[sc.sec].fx) || {};
+        const mode = own.mode || plan;
+        const fx = { role: ROLE_OUT[mode], plan: ROLE_OUT[plan], niveau: own.level == null ? 1 : own.level };
+        if (mode === 'swell') Object.assign(fx, { rythme: Math.min(own.every || 4, sc.bars), couleur: own.color === 'bright' ? 'claire' : 'sombre' });
+        if (mode === 'riser') Object.assign(fx, { longueur: Math.min(own.len || sc.bars, sc.bars), filtre: FILT_OUT[own.filter || 'lp'] });
+        if (mode === 'down') fx.dureeDescente = own.dlen || 2;
+        const out = { scene: sc.sec, nom: sc.name, mesures: sc.bars, ...(withFx ? { musicienEffets: fx } : {}) };
+        if (withPerc) out.percussions = Object.fromEntries(SS.bandSong.PERC_LOOPS.map((lp) => [lp.name.toLowerCase(), Pm.has(lp) ? Pm.on(sc, lp) : 'pas dans le kit']));
+        return out;
+      });
+      const kept = new Set(keptMoves());
+      const list = arrMoves(res);
+      const mouvements = AR().MOVES.map((d) => {
+        const x = list.find((m) => m.id === d.id);
+        return x ? { id: x.id, nom: x.label, pourquoi: x.why, garde: kept.has(x.id) } : { id: d.id, nom: d.label, propose: false };
+      });
+      return {
+        musicienEffets: withFx, percussionniste: withPerc,
+        ...(withPerc ? { stylePercussions: ((S.wiz.fx && S.wiz.fx.perc) || {}).style || 'techno' } : {}),
+        transitions, scenes, mouvements,
+      };
+    }
+    /** La jonction visée : n° (1 = entre le 1er et le 2e bloc), « Couplet > Refrain », ou le nom de la scène d'arrivée. */
+    function joinOf(res, ref) {
+      const joins = fxJoins(res);
+      if (!joins.length) err('la chanson n’a qu’un bloc : aucune transition');
+      if (typeof ref === 'number' || /^\d+$/.test(String(ref))) return joins[Number(ref) - 1] || err(`transition : de 1 à ${joins.length}`);
+      const parts = String(ref).split(/\s*(?:>|→|->)\s*/);
+      if (parts.length === 2) {
+        const [a, b] = parts.map((x) => secId(x));
+        return joins.find((j) => j.from.sec === a && j.to.sec === b) || err(`pas de transition ${secName(a)} → ${secName(b)} dans l’arrangement`);
+      }
+      const b = secId(ref);
+      return joins.find((j) => j.to.sec === b) || err(`aucune transition n’entre dans « ${secName(b)} »`);
+    }
+    function transition(ref, { recette, effets: fx, reset } = {}) {
+      const res = needRes();
+      if (ref == null) err('transition : son n° (voir assistantEffets()), « Couplet > Refrain » ou la scène d’arrivée');
+      const j = joinOf(res, ref);
+      const withFx = hasRole('fx');
+      if (reset) delete fxState().junctions?.[j.key];
+      if (recette != null) {
+        const r = FX_RECIPES.find((x) => x[0] === recette || fold(x[1]) === fold(recette)) || err(`recette inconnue : « ${recette} » (${FX_RECIPES.map((x) => x[1]).join(', ')})`);
+        fxApplyRecipe(j.key, fxEff(j), r[0], j.from.bars);
+      }
+      if (fx != null) {
+        if (typeof fx !== 'object') err('effets : un objet { montee, filtre, cymbaleInversee, silence, impact, descente, retraitBatterie, fragmentation, pedale, elargissement, suspension }');
+        const b = BEAT();
+        const bars = j.from.bars;
+        const on = (v) => v !== false && v != null;
+        const o = (v) => (v && typeof v === 'object' ? v : {});
+        const SET = {
+          montee: (v) => ['riser', { on: on(v), ...(o(v).mesures != null ? { len: Math.round(num(o(v).mesures, 1, bars, 'montee.mesures')) } : {}), ...(o(v).filtre != null ? { filter: keyOf(o(v).filtre, FILT_FR, 'montee.filtre') } : {}) }],
+          filtre: (v) => ['hp', { on: on(v), ...(o(v).hz != null ? { freq: Math.round(num(o(v).hz, 200, 4000, 'filtre.hz')) } : {}) }],
+          cymbaleInversee: (v) => ['rev', { on: on(v), ...(o(v).temps != null ? { len: Math.round(num(o(v).temps, 1, 2 * SPB() / b, 'cymbaleInversee.temps')) * b } : {}) }],
+          silence: (v) => ['gap', { len: !on(v) ? 0 : Math.round(num(o(v).temps ?? 1, 1, SPB() / b, 'silence.temps')) * b }],
+          impact: (v) => ['impact', { on: on(v), ...(o(v).type != null ? { type: keyOf(o(v).type, IMPACT_FR, 'impact.type') } : {}), ...(o(v).niveau != null ? { level: num(o(v).niveau, 0.2, 1, 'impact.niveau') } : {}) }],
+          descente: (v) => ['down', { on: on(v), ...(o(v).mesures != null ? { len: num(o(v).mesures, 2, 4, 'descente.mesures') >= 3 ? 4 : 2 } : {}) }],
+          retraitBatterie: (v) => ['retrait', { on: on(v), ...(o(v).mesures != null ? { len: Math.min(bars, num(o(v).mesures, 1, 2, 'retraitBatterie.mesures') >= 1.5 ? 2 : 1) } : {}) }],
+          fragmentation: (v) => ['frag', { on: on(v) }],
+          pedale: (v) => ['pedal', { on: on(v), ...(o(v).mesures != null ? { len: num(o(v).mesures, 2, 4, 'pedale.mesures') >= 3 ? 4 : 2 } : {}), ...(o(v).note != null ? { note: /^t/.test(fold(o(v).note)) ? 'tonic' : 'dom' } : {}) }],
+          elargissement: (v) => ['widen', { on: on(v), ...(o(v).mesures != null ? { len: num(o(v).mesures, 2, 4, 'elargissement.mesures') >= 3 ? 4 : 2 } : {}) }],
+          suspension: (v) => ['susp', { on: on(v), ...(o(v).temps != null ? { len: (num(o(v).temps, 1, 2, 'suspension.temps') >= 1.5 ? 2 : 1) * b } : {}) }],
+        };
+        const f = fxState();
+        const J = (f.junctions = f.junctions || {});
+        const cur = (J[j.key] = J[j.key] || {});
+        for (const [k, v] of Object.entries(fx)) {
+          if (v === undefined) continue;
+          const set = SET[k] || err(`effet inconnu : « ${k} » (${Object.keys(SET).join(', ')})`);
+          const [ik, patch] = set(v);
+          cur[ik] = { ...(cur[ik] || {}), ...patch };
+        }
+        fxChanged();
+      } else if (reset && recette == null) fxChanged();
+      const e = fxEff(j);
+      const r = fxRecipeOf(e, withFx);
+      const same = fxJoins(res).filter((x) => x.key === j.key).length;
+      return {
+        n: j.i + 1, de: j.from.name, vers: j.to.name,
+        recette: r ? FX_RECIPES.find((x) => x[0] === r)[1] : fxCount(e, withFx) ? 'Sur mesure' : 'Aucune',
+        effets: fxOut(e, withFx),
+        ...(same > 1 ? { aussi: `même réglage pour les ${same} transitions ${j.from.name} → ${j.to.name}` } : {}),
+        ...(!withFx && fx && ['montee', 'cymbaleInversee', 'impact', 'descente'].some((k) => fx[k]) ? { attention: 'pas de musicien Effets : montée, cymbale, impact et descente restent muets (assistantEffetsScene({ ajouter: "effets" }))' } : {}),
+      };
+    }
+    function effetsScene(ref, { role, niveau, rythme, couleur, longueur, filtre, dureeDescente, percussions, stylePercussions, ajouter } = {}) {
+      const res = needRes();
+      if (ajouter != null) {
+        const r = /^perc/.test(fold(ajouter)) ? 'perc' : /^(effet|fx)/.test(fold(ajouter)) ? 'fx' : err('ajouter : "effets" ou "percussionniste"');
+        if (!hasRole(r)) {
+          if (!BG().canAdd(group())) err('le groupe est complet (10 musiciens)');
+          if (!preset().musicians.some((x) => x.role === r)) err('cette inspiration n’a pas ce musicien');
+          fxAddMember(r);
+        }
+      }
+      const sec = ref == null && ajouter != null && role == null && percussions == null && stylePercussions == null ? null : secId(ref);
+      if (sec) {
+        const sc = res.scenes.find((x) => x.sec === sec) || err(`« ${secName(sec)} » n’est pas dans l’arrangement`);
+        const plan = (specEff().sections[sec] || {}).fx || 'none';
+        const patch = {};
+        if (role != null) {
+          const m = keyOf(role, ROLE_FR, 'role');
+          patch.mode = m === plan ? undefined : m;
+        }
+        if (niveau != null) {
+          const v = num(niveau, 0.2, 1.5, 'niveau');
+          patch.level = v === 1 ? undefined : v;
+        }
+        if (rythme != null) {
+          const v = fold(rythme) === 'tenue' ? sc.bars : Math.round(num(rythme, 1, sc.bars, 'rythme (mesures entre deux souffles)'));
+          patch.every = v === 4 ? undefined : v;
+        }
+        if (couleur != null) patch.color = /^cl|^bright/.test(fold(couleur)) ? 'bright' : undefined;
+        if (longueur != null) {
+          const v = Math.round(num(longueur, 1, sc.bars, 'longueur (mesures)'));
+          patch.len = v >= sc.bars ? undefined : v;
+        }
+        if (filtre != null) {
+          const v = keyOf(filtre, FILT_FR, 'filtre');
+          patch.filter = v === 'lp' ? undefined : v;
+        }
+        if (dureeDescente != null) {
+          const v = num(dureeDescente, 1, 4, 'dureeDescente');
+          patch.dlen = v >= 3 ? 4 : v >= 1.5 ? undefined : 1;
+        }
+        if (Object.keys(patch).length) {
+          if (!hasRole('fx')) err('pas de musicien Effets : assistantEffetsScene({ ajouter: "effets" })');
+          putPart(sec, 'fx', patch);
+        }
+        if (percussions != null) {
+          if (!hasRole('perc')) err('pas de Percussionniste : assistantEffetsScene({ ajouter: "percussionniste" })');
+          if (typeof percussions !== 'object') err('percussions : { shaker, conga, tom } : true / false');
+          const { cols } = wizSong();
+          const Pm = fxPercModel(cols);
+          const f = fxState();
+          const Lp = ((f.perc = f.perc || {}).loops = f.perc.loops || {});
+          for (const [k, v] of Object.entries(percussions)) {
+            const lp = SS.bandSong.PERC_LOOPS.find((x) => x.id === keyOf(k, LOOP_FR, 'percussions'));
+            if (v && !Pm.has(lp)) {
+              // la pièce manque au kit du Percussionniste : on l'ajoute, comme le bouton « + Shaker »
+              const mu = musicians().find((m) => m.role === 'perc');
+              const pc = musState()[mu.id].pieces.find((q) => q.piece.split('@')[0] === lp.piece);
+              if (pc) pc.on = true;
+              else musState()[mu.id].pieces.push({ piece: lp.piece, on: true });
+              if (S.wiz.mix) mixSync();
+              dropListen();
+            }
+            (Lp[sec] = Lp[sec] || {})[lp.id] = !!v;
+          }
+        }
+      }
+      if (stylePercussions != null) {
+        if (!hasRole('perc')) err('pas de Percussionniste : assistantEffetsScene({ ajouter: "percussionniste" })');
+        const s = SS.bandSong.PERC_STYLES.find((x) => x.id === fold(stylePercussions) || fold(x.name).startsWith(fold(stylePercussions))) || err(`stylePercussions : ${SS.bandSong.PERC_STYLES.map((x) => x.id).join(', ')}`);
+        (fxState().perc = fxState().perc || {}).style = s.id;
+      }
+      fxChanged();
+      return effets().scenes.find((x) => x.scene === sec) || effets();
+    }
+    function mouvements({ garder = [], retirer = [] } = {}) {
+      const res = needRes();
+      const list = arrMoves(res);
+      const idOf = (r) => {
+        const x = list.find((m) => m.id === r || fold(m.label) === fold(r) || fold(m.label).startsWith(fold(r)));
+        return x ? x.id : err(`mouvement inconnu ou pas proposé pour cette chanson : « ${r} » (${list.map((m) => `${m.id} : ${m.label}`).join(', ') || 'aucun proposé'})`);
+      };
+      const g = [].concat(garder).map(idOf);
+      const r = new Set([].concat(retirer).map(idOf));
+      arrState().moves = [...new Set([...keptMoves(), ...g])].filter((id) => !r.has(id));
+      S.wiz.arrMove = null;
+      syncMoves();
+      touched();
+      return effets().mouvements;
+    }
+
     return {
+      effets, transition, effetsScene, mouvements,
       film: filmEtat, repere: filmRepere, filmScene,
       etat, styles, sons, ouvrir, etape, sceneId: secId, sceneOf, chordName: (key, c) => chordOf(key, c).name,
       style: setStyleOf, ajouter: addMu, musicien: editMu, tonalite: setKey, scene, structure, accords, creer,
