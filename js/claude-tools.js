@@ -666,6 +666,278 @@ SS.claudeTools = (() => {
     return { message: `${t.name}, ${sc.name} : ${what} (les valeurs glissent d'un point à l'autre)` };
   }
 
+  /* ---------------- Console, retours, Master ----------------
+   * Noms français → réglages internes (SS.MIX_DEFAULTS, SS.RETURN_DEFAULTS, SS.MASTER_DEFAULTS dans js/project.js).
+   * Une carte : { nomFr: 'cléInterne' } pour un réglage, { nomFr: ['cléInterne', sous-carte] } pour un module.
+   * Donner un réglage d'un module (EQ, compresseur…) l'allume, sauf si `actif` est donné aussi. Les bornes sont celles
+   * de la console (SS.cleanMix…) : une valeur hors bornes est ramenée à la borne. */
+  const EQ_BAND = { f: 'f', gain: 'g', q: 'q' };
+  const MIX_FR = {
+    pan: 'pan',
+    eq: ['eq', { actif: 'on', passeHaut: ['hp', { actif: 'on', f: 'f' }], graves: ['low', { f: 'f', gain: 'g' }], basMedium: ['lm', EQ_BAND], hautMedium: ['hm', EQ_BAND], aigus: ['high', { f: 'f', gain: 'g' }] }],
+    compresseur: ['comp', { actif: 'on', seuil: 'th', ratio: 'ratio', attaque: 'att', relachement: 'rel', genou: 'knee', gain: 'makeup' }],
+    limiteur: ['lim', { actif: 'on', plafond: 'ceil', relachement: 'rel' }],
+  };
+  const MASTER_MIX_FR = { ...MIX_FR, filtre: ['vcf', { actif: 'on', pente: 'slope', passeHaut: ['hp', { f: 'f', resonance: 'res' }], passeBas: ['lp', { f: 'f', resonance: 'res' }] }] };
+  const MASTER_FX_FR = { actif: 'on', saturation: ['saturation', { actif: 'on', quantite: 'amount' }], chorus: ['chorus', { actif: 'on', mix: 'mix' }], reverb: ['reverb', { actif: 'on', mix: 'mix' }] };
+  const MASTERING_FR = { actif: 'on', drive: 'drive', plafond: 'ceiling', largeur: 'width', mono: 'mono', relachement: 'release', clip: 'clip' };
+  const RET_COMMON = { passeHaut: 'hp', passeBas: 'lp', niveau: 'level' };
+  const RET_FR = {
+    plate: ['plate', { taille: 'size', predelai: 'predelay', ...RET_COMMON }],
+    hall: ['hall', { taille: 'size', predelai: 'predelay', ...RET_COMMON }],
+    echo: ['echo', { temps: 'time', repetitions: 'feedback', pleurage: 'wow', saturation: 'drive', ...RET_COMMON }],
+    cosmos: ['space', { duree: 'decay', taille: 'size', predelai: 'predelay', amorti: 'damp', modulation: 'mod', shimmer: 'shimmer', gel: 'freeze', ...RET_COMMON }],
+  };
+  const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
+  /** Applique les réglages français `src` sur `cur` (réglages internes), d'après la carte `map`. */
+  function patchFr(cur, src, map, path = '') {
+    if (!isObj(src)) fail(`${path || 'réglages'} : donne un objet { ${Object.keys(map).join(', ')} }`);
+    for (const [k, v0] of Object.entries(src)) {
+      if (v0 === undefined) continue;
+      const spec = map[k];
+      if (!spec) fail(`${path}${k} : réglage inconnu. Réglages : ${Object.keys(map).join(', ')}`);
+      if (Array.isArray(spec)) {
+        const [ik, sub] = spec;
+        let v = v0;
+        const first = Object.keys(sub).find((x) => x !== 'actif');
+        if (sub.actif && typeof v === 'boolean') v = { actif: v };
+        else if (sub.actif && typeof v === 'number') v = { [first]: v }; // passeHaut: 80, saturation: 0.3
+        patchFr((cur[ik] = isObj(cur[ik]) ? cur[ik] : {}), v, sub, `${path}${k}.`);
+        if (sub.actif && v.actif === undefined) cur[ik].on = true;
+        continue;
+      }
+      if (spec === 'on' || spec === 'freeze') cur[spec] = !!v0;
+      else if (spec === 'time') {
+        const d = SS.DELAY_TIMES.find((x) => x.id === String(v0) || fold(x.label) === fold(v0));
+        if (!d) fail(`${path}${k} : ${SS.DELAY_TIMES.map((x) => `"${x.id}"`).join(', ')}`);
+        cur.time = d.id;
+      } else {
+        const n = Number(v0);
+        if (typeof v0 === 'boolean' || !Number.isFinite(n)) fail(`${path}${k} : un nombre`);
+        cur[spec] = spec === 'slope' ? (n >= 18 ? 24 : 12) : n;
+      }
+    }
+  }
+  /** Réglages internes → noms français (même carte). */
+  function toFr(cur, map) {
+    const out = {};
+    for (const [k, spec] of Object.entries(map)) {
+      if (Array.isArray(spec)) out[k] = toFr(cur[spec[0]] || {}, spec[1]);
+      else if (cur[spec] !== undefined) out[k] = spec === 'on' || spec === 'freeze' ? !!cur[spec] : cur[spec];
+    }
+    return out;
+  }
+  const r2 = (o) => JSON.parse(JSON.stringify(o, (k, v) => (typeof v === 'number' ? Math.round(v * 1000) / 1000 : v)));
+  const given = (o) => Object.keys(o).filter((k) => o[k] !== undefined);
+
+  /** Inserts de la tranche d'une piste : panoramique, EQ, compresseur, limiteur. Sans réglage : les lit. */
+  function consoleTool({ piste: ref, reinitialiser, ...vals } = {}) {
+    const t = findTrack(ref);
+    const ks = given(vals);
+    if (!ks.length && !reinitialiser) return { piste: t.name, console: r2(toFr(SS.mixParams(t), MIX_FR)) };
+    const m = reinitialiser ? JSON.parse(JSON.stringify(SS.MIX_DEFAULTS)) : SS.mixParams(t);
+    patchFr(m, vals, MIX_FR);
+    t.mix = SS.cleanMix(m);
+    SS.audio.applyMix(t);
+    SS.ui.renderTrack(t);
+    const what = [reinitialiser ? 'remise à zéro' : null, ...ks].filter(Boolean).join(', ');
+    changedNow(`console de « ${t.name} » : ${what}`);
+    return { message: `${t.name} : ${what}`, console: r2(toFr(SS.mixParams(t), MIX_FR)) };
+  }
+
+  /** Bus d'effets partagés (Plate, Hall, Écho, Cosmos). Sans réglage : les lit. */
+  function retours({ reinitialiser, ...vals } = {}) {
+    const p = P();
+    const ks = given(vals);
+    if (!ks.length && !reinitialiser) return { retours: r2(toFr(SS.returnParams(p), RET_FR)) };
+    const r = reinitialiser ? JSON.parse(JSON.stringify(SS.RETURN_DEFAULTS)) : SS.returnParams(p);
+    patchFr(r, vals, RET_FR);
+    p.returns = SS.cleanReturns(r);
+    SS.audio.applyMaster(p);
+    const what = [reinitialiser ? 'remise à zéro' : null, ...ks].filter(Boolean).join(', ');
+    changedNow(`retours : ${what}`);
+    return { message: `Retours : ${what}`, retours: r2(toFr(SS.returnParams(p), RET_FR)) };
+  }
+
+  /** Master : volume, console (EQ, filtre, compresseur, limiteur), effets du Master, mastering. Sans réglage : le lit. */
+  function master({ volume, effets: fx, mastering, reinitialiser, ...mixVals } = {}) {
+    const p = P();
+    const read = () => {
+      const mp = SS.masterParams(p);
+      return r2({ volume: mp.volume, ...toFr(mp.mix, MASTER_MIX_FR), effets: toFr(SS.cleanMasterEffects(mp.effects), MASTER_FX_FR), mastering: toFr(SS.cleanMastering(mp.mastering), MASTERING_FR) });
+    };
+    const ks = given({ volume, effets: fx, mastering, ...mixVals });
+    if (!ks.length && !reinitialiser) return { master: read() };
+    const mp = reinitialiser ? JSON.parse(JSON.stringify(SS.MASTER_DEFAULTS)) : SS.masterParams(p);
+    if (volume !== undefined) {
+      const v = Number(volume);
+      if (!(v >= 0 && v <= 2)) fail('volume : entre 0 et 2 (0.8 par défaut)');
+      mp.volume = v;
+    }
+    patchFr(mp.mix, mixVals, MASTER_MIX_FR);
+    if (fx !== undefined) {
+      const e = SS.cleanMasterEffects(mp.effects);
+      patchFr(e, typeof fx === 'boolean' ? { actif: fx } : fx, MASTER_FX_FR, 'effets.');
+      if (isObj(fx) && fx.actif === undefined) e.on = true;
+      mp.effects = e;
+    }
+    if (mastering !== undefined) {
+      const ms = SS.cleanMastering(mp.mastering);
+      patchFr(ms, typeof mastering === 'boolean' ? { actif: mastering } : mastering, MASTERING_FR, 'mastering.');
+      if (isObj(mastering) && mastering.actif === undefined) ms.on = true;
+      mp.mastering = ms;
+    }
+    p.master = { ...mp, mix: SS.cleanMix(mp.mix, SS.MASTER_DEFAULTS.mix), effects: SS.cleanMasterEffects(mp.effects), mastering: SS.cleanMastering(mp.mastering) };
+    SS.audio.applyMaster(p);
+    const what = [reinitialiser ? 'remise à zéro' : null, ...ks].filter(Boolean).join(', ');
+    changedNow(`Master : ${what}`);
+    return { message: `Master : ${what}`, master: read() };
+  }
+
+  /* ---------------- Automation par temps sur toute la chanson (js/beatauto.js) ---------------- */
+  const BA = () => SS.beatAuto;
+  const BAUTO_FR = { cutoff: 'cut', cut: 'cut', filtre: 'cut', resonance: 'res', res: 'res', velocite: 'vel', vel: 'vel' };
+  const BSHAPE_FR = { montee: 'rise', rise: 'rise', descente: 'fall', fall: 'fall', vague: 'swell', swell: 'swell', neutre: 'flat', flat: 'flat' };
+  function bautoParam(t, parametre) {
+    const k = BAUTO_FR[fold(parametre).replace(/[^a-z]/g, '')];
+    if (!k) fail(`paramètre inconnu : « ${parametre} » (cutoff, resonance, velocite)`);
+    const ok = BA().paramsFor(t);
+    if (!ok.some((x) => x.id === k)) fail(`« ${t.name} » : ${ok.map((x) => x.label.toLowerCase()).join(', ')} seulement (batterie et Juno-106 : la vélocité)`);
+    return BA().P[k];
+  }
+  /** Tous les passages de la chanson, dans l'ordre : { block, rep, bar (1re mesure, à partir de 0), bars, scene, n (n° du passage de la scène, à partir de 1) }. */
+  function allPasses(p) {
+    const out = [];
+    const seen = {};
+    let bar = 0;
+    p.song.forEach((b, i) => {
+      const sc = p.scenes.find((s) => s.id === b.scene);
+      if (!sc) return;
+      const bars = sc.id === p.current ? p.bars : sc.bars;
+      for (let r = 0; r < b.repeat; r++) {
+        seen[sc.id] = (seen[sc.id] || 0) + 1;
+        out.push({ block: i, rep: r, bar, bars, scene: sc, n: seen[sc.id] });
+        bar += bars;
+      }
+    });
+    return out;
+  }
+  /** Les temps visés, en groupes (une forme par groupe) : [[{ pass, beat }]]. */
+  function bautoTargets(p, { scene, passage, deMesure, aMesure }) {
+    const bpb = BA().beatsPerBar(p);
+    const all = allPasses(p);
+    const range = (from, n) => {
+      const a = deMesure == null ? 1 : Math.round(Number(deMesure));
+      const b = aMesure == null ? n : Math.round(Number(aMesure));
+      if (!(a >= 1 && b >= a && b <= n)) fail(`mesures : de 1 à ${n}${scene != null ? ' (dans la scène)' : ' (dans la chanson)'}`);
+      return [a - 1, b];
+    };
+    if (scene == null) {
+      const total = all.reduce((s, x) => s + x.bars, 0);
+      const [a, b] = range(0, total);
+      const g = [];
+      for (const ps of all) for (let bar = Math.max(a, ps.bar); bar < Math.min(b, ps.bar + ps.bars); bar++) for (let i = 0; i < bpb; i++) g.push({ pass: ps, beat: (bar - ps.bar) * bpb + i });
+      return [g];
+    }
+    const sc = findScene(scene);
+    let list = all.filter((x) => x.scene === sc);
+    if (!list.length) fail(`« ${sc.name} » n’est pas dans la structure de la chanson`);
+    if (passage != null && fold(passage) !== 'tous') {
+      const n = Math.round(Number(passage));
+      if (!(n >= 1 && n <= list.length)) fail(`passage : de 1 à ${list.length} (« ${sc.name} » est jouée ${list.length} fois), ou "tous"`);
+      list = [list[n - 1]];
+    }
+    const [a, b] = range(0, list[0].bars);
+    return list.map((ps) => Array.from({ length: (b - a) * bpb }, (_, i) => ({ pass: ps, beat: a * bpb + i })));
+  }
+  /** Courbes par temps d'une piste sur toute la chanson. */
+  function automationsChanson({ piste: ref } = {}) {
+    const p = P();
+    const t = findTrack(ref);
+    const params = BA().paramsFor(t);
+    const passages = [];
+    for (const ps of allPasses(p)) {
+      const courbes = {};
+      for (const x of params) {
+        const l = BA().layer(p, ps, t.id, x.id);
+        if (l && Object.keys(l).length) courbes[x.id] = Object.fromEntries(Object.entries(l).map(([b, v]) => [b, v]));
+      }
+      if (Object.keys(courbes).length) passages.push({ scene: ps.scene.name, passage: ps.n, mesure: ps.bar + 1, mesures: ps.bars, courbes });
+    }
+    return {
+      piste: t.name,
+      parametres: params.map((x) => ({ parametre: x.id, nom: x.label, min: x.min, max: x.max, neutre: x.def })),
+      lecture: t.bautoStep ? 'paliers' : 'fluide',
+      tempsParMesure: BA().beatsPerBar(p),
+      passages,
+      ...(passages.length ? {} : { conseil: 'aucune courbe : automationChanson({ piste, parametre: "cutoff", scene: "Refrain", forme: "montee" })' }),
+    };
+  }
+  /** Pose une courbe par temps (cutoff, résonance, vélocité) sur une scène, un de ses passages ou des mesures de la chanson. */
+  function automationChanson({ piste: ref, parametre, scene, passage, deMesure, aMesure, forme, de, a, valeur, points, effacer, lecture } = {}) {
+    const p = P();
+    const t = findTrack(ref);
+    let what = [];
+    if (lecture != null) {
+      const st = fold(lecture);
+      if (st !== 'fluide' && st !== 'paliers') fail('lecture : "fluide" ou "paliers"');
+      if (st === 'paliers') t.bautoStep = true;
+      else delete t.bautoStep;
+      what.push(`lecture ${st}`);
+    }
+    if (parametre != null || forme != null || valeur != null || points != null || effacer) {
+      if (parametre == null) fail('parametre manquant : cutoff, resonance ou velocite');
+      const X = bautoParam(t, parametre);
+      const groups = bautoTargets(p, { scene, passage, deMesure, aMesure });
+      const inRange = (v, name) => {
+        const n = Number(v);
+        if (!(n >= X.min && n <= X.max)) fail(`${name} : entre ${X.min} et ${X.max} pour ${X.label.toLowerCase()} (neutre ${X.def})`);
+        return n;
+      };
+      let valsOf;
+      if (effacer) valsOf = (n) => Array(n).fill(null);
+      else if (forme != null) {
+        const id = BSHAPE_FR[fold(forme)];
+        if (!id) fail(`forme inconnue : « ${forme} » (montee, descente, vague, neutre)`);
+        if (de == null && a == null) valsOf = (n) => BA().shape(X.id, id, n);
+        else {
+          if (id === 'flat') fail('neutre ne prend pas de valeurs de/a');
+          const lo = inRange(de ?? X.def, 'de');
+          const hi = inRange(a ?? X.def, 'a');
+          const tt = (i, n) => (n > 1 ? i / (n - 1) : 1);
+          valsOf = (n) => Array.from({ length: n }, (_, i) => (id === 'swell' ? lo + (hi - lo) * Math.sin(Math.PI * tt(i, n)) : lo + (hi - lo) * tt(i, n)));
+        }
+      } else if (valeur != null) {
+        const v = inRange(valeur, 'valeur');
+        valsOf = (n) => Array(n).fill(v);
+      } else if (Array.isArray(points) && points.length) {
+        const pts = points.map((pt) => ({ t: Math.round(Number(pt && pt.temps)), v: inRange(pt && pt.valeur, `point ${JSON.stringify(pt)}`) })).sort((x, y) => x.t - y.t);
+        if (pts.some((x) => !(x.t >= 0))) fail('points : [{ temps, valeur }], temps à partir de 0 (début de la plage visée)');
+        valsOf = (n) => Array.from({ length: n }, (_, i) => {
+          if (i <= pts[0].t) return pts[0].v;
+          const j = pts.findIndex((x) => x.t >= i);
+          if (j < 0) return pts[pts.length - 1].v;
+          const A = pts[j - 1], B = pts[j];
+          return A.v + ((B.v - A.v) * (i - A.t)) / (B.t - A.t || 1);
+        });
+      } else fail('donne une forme (montee, descente, vague, neutre), une valeur, des points [{ temps, valeur }] ou effacer: true');
+      let beats = 0;
+      for (const g of groups) {
+        const vs = valsOf(g.length);
+        g.forEach((x, i) => BA().set(p, x.pass, t.id, X.id, x.beat, vs[i]));
+        beats += g.length;
+      }
+      if (!beats) fail('aucun temps visé');
+      const where = scene != null ? `${findScene(scene).name}${passage != null && fold(passage) !== 'tous' ? ` (passage ${passage})` : groups.length > 1 ? ` (${groups.length} passages)` : ''}` : 'chanson';
+      const span = deMesure != null || aMesure != null ? `, mesures ${deMesure ?? 1}–${aMesure ?? '…'}` : '';
+      what.push(`${X.label.toLowerCase()} ${effacer ? 'effacé' : forme != null ? fold(forme) : valeur != null ? `à ${valeur}` : `${points.length} points`} — ${where}${span}`);
+    }
+    if (!what.length) fail('rien à changer : donne parametre + forme / valeur / points / effacer, ou lecture');
+    SS.ui.renderTrack(t);
+    changedNow(`${t.name} : ${what.join(' ; ')}`);
+    return { message: `${t.name} : ${what.join(' ; ')} (retouchable sous les notes de la piste, bouton ∿)` };
+  }
+
   /* ---------------- Scènes et structure ---------------- */
   function allerScene({ scene } = {}) {
     const sc = goScene(scene);
@@ -971,6 +1243,25 @@ SS.claudeTools = (() => {
     draft('une autre mélodie');
     return { message: 'Nouvelle mélodie pour toute la chanson (propose à l’utilisateur d’écouter)' };
   }
+  function assistantEffets() {
+    return W().effets();
+  }
+  function assistantTransition({ transition, recette, effets: fx, reset } = {}) {
+    const r = W().transition(transition, { recette, effets: fx, reset });
+    draft(`transition ${r.de} → ${r.vers} : ${r.recette}`);
+    return { message: `${r.de} → ${r.vers} : ${r.recette}`, ...r };
+  }
+  function assistantEffetsScene({ scene, ...o } = {}) {
+    const r = W().effetsScene(scene, o);
+    draft(r.nom ? `effets de ${r.nom}` : 'musicien ajouté');
+    return { message: r.nom ? `Effets de « ${r.nom} » réglés` : 'Musicien ajouté au groupe', ...r };
+  }
+  function assistantMouvements({ garder, retirer } = {}) {
+    if (garder == null && retirer == null) fail('donne garder et/ou retirer : ["open", "qa", "acid"] (voir assistantEffets().mouvements)');
+    const r = W().mouvements({ garder: garder ?? [], retirer: retirer ?? [] });
+    draft('mouvements de son');
+    return { message: `Mouvements gardés : ${r.filter((x) => x.garde).map((x) => x.nom).join(', ') || 'aucun'}`, mouvements: r };
+  }
   function assistantCreer() {
     const r = W().creer();
     if (r === 'confirmation') return { message: 'Une fenêtre de confirmation est ouverte (la grille a déjà des pistes) : c’est l’utilisateur qui choisit', attente: true };
@@ -1007,6 +1298,11 @@ SS.claudeTools = (() => {
     { nom: 'effets', description: 'Règle les effets d’une piste (comme la fenêtre Effets). Seuls les réglages donnés changent.', params: { piste: PISTE, chorus: S('nombre', 'mix 0–1'), chorusVitesse: S('nombre', 'Hz 0.1–6'), chorusProfondeur: S('nombre', '0–1'), delay: S('nombre', 'mix de l’écho 0–1'), delayTemps: S('texte', '"1/16", "1/8", "3/16" (croche pointée), "1/4"…'), delayRepetitions: S('nombre', 'feedback 0–0.9'), reverb: S('nombre', 'mix 0–1'), reverbTaille: S('nombre', 'secondes 0.2–10'), reverbBrillance: S('nombre', 'Hz 500–20000'), sidechainSource: S('texte', 'piste qui fait pomper celle-ci (souvent le kick) ; "" pour retirer'), sidechainProfondeur: S('nombre', '0–1'), sidechainRelachement: S('nombre', 'secondes 0.03–1'), envoiPlate: S('nombre', 'envoi vers la reverb Plate commune (batterie) 0–1'), envoiHall: S('nombre', 'envoi vers la reverb Hall commune (instruments) 0–1'), envoiEcho: S('nombre', 'envoi vers l’écho à bande commun 0–1'), envoiCosmos: S('nombre', 'envoi vers Cosmos, reverb longue ambient 0–1'), aucun: S('booléen', 'retirer tous les effets d’abord') }, faire: effets },
     { nom: 'automations', lecture: true, description: 'Les paramètres automatisables d’une piste et leurs formes toutes prêtes.', params: { piste: PISTE }, faire: automations },
     { nom: 'automation', description: 'Fait évoluer un réglage au fil d’une scène : une forme toute prête ou des points (les valeurs glissent d’un point à l’autre).', params: { piste: PISTE, parametre: S('texte', 'filter, res, volume, reverb, echo, space, vcf, pw, fdecay, lfoamt, sustain, mod, bend (voir automations())', true), forme: S('texte', 'ex. "lp-open", "hp-rise", "in", "pump" (voir automations())'), points: S('liste', '[{ pas, valeur }] ; filter : −1 passe-bas fermé … 0 ouvert … +1 passe-haut'), effacer: S('booléen', 'retirer cette automation'), scene: SCENE }, faire: automation },
+    { nom: 'automationsChanson', lecture: true, description: 'Les courbes par temps (cutoff, résonance, vélocité) d’une piste sur toute la chanson, passage par passage.', params: { piste: PISTE }, faire: automationsChanson },
+    { nom: 'automationChanson', description: 'Courbe par temps sur toute la chanson (suit l’arrangement : le 2e refrain peut être plus ouvert que le 1er). Vise une scène (tous ses passages, ou un seul), ou des mesures de la chanson sans scène. Retouchable sous les notes de la piste (bouton ∿).', params: { piste: PISTE, parametre: S('texte', 'cutoff (−4…+4 octaves autour du son, 0 = inchangé), resonance (×0…×3, 1 = inchangée), velocite (0.4…1.3, 1 = comme écrit) ; batterie et Juno-106 : velocite seulement'), scene: S('texte', 'scène visée (sinon : la chanson entière, ou deMesure/aMesure de la chanson)'), passage: S('nombre', 'n° du passage de la scène (1 = sa 1re fois dans la chanson) ; défaut : tous, chacun avec la même courbe'), deMesure: S('nombre', 'première mesure (1 = début de la scène, ou de la chanson sans scène)'), aMesure: S('nombre', 'dernière mesure incluse'), forme: S('texte', 'montee, descente, vague (monte puis redescend), neutre'), de: S('nombre', 'valeur de départ de la forme (vague : la base)'), a: S('nombre', 'valeur d’arrivée (vague : le sommet)'), valeur: S('nombre', 'une seule valeur sur toute la plage'), points: S('liste', '[{ temps, valeur }] ; temps à partir de 0 = début de la plage ; entre deux points la valeur glisse'), effacer: S('booléen', 'retirer la courbe sur la plage'), lecture: S('texte', 'fluide (la valeur glisse d’un temps à l’autre, défaut) ou paliers') }, faire: automationChanson },
+    { nom: 'console', description: 'Inserts de la tranche d’une piste dans la console : panoramique, EQ, compresseur, limiteur. Sans réglage : les lit. Donner un réglage d’un module l’allume (sauf actif: false).', params: { piste: PISTE, pan: S('nombre', '−1 gauche … 0 centre … 1 droite'), eq: S('objet', '{ actif, passeHaut: Hz (ou { actif, f }), graves: { f, gain }, basMedium: { f, gain, q }, hautMedium: { f, gain, q }, aigus: { f, gain } } ; gain en dB −18…+18'), compresseur: S('objet', '{ actif, seuil (dB −60…0), ratio (1–20), attaque (s), relachement (s), genou (dB), gain (dB) }'), limiteur: S('objet', '{ actif, plafond (dB), relachement (s) }'), reinitialiser: S('booléen', 'remettre la tranche à plat d’abord') }, faire: consoleTool },
+    { nom: 'retours', description: 'Bus d’effets partagés, où les pistes envoient (effets() : envoiPlate, envoiHall, envoiEcho, envoiCosmos). Sans réglage : les lit.', params: { plate: S('objet', 'reverb Plate (batterie) : { taille (s 0.2–10), predelai (s), passeHaut, passeBas (Hz), niveau (0–2) }'), hall: S('objet', 'reverb Hall (instruments) : mêmes réglages'), echo: S('objet', 'écho à bande : { temps ("1/8", "3/16"…), repetitions (0–1), pleurage (0–1), saturation (0–1), passeHaut, passeBas, niveau }'), cosmos: S('objet', 'reverb longue ambient : { duree (s 0.5–60), taille (0.1–1), predelai, amorti (Hz), modulation (0–1), shimmer (0–1), gel (booléen), passeHaut, passeBas, niveau }'), reinitialiser: S('booléen', 'revenir aux réglages d’origine d’abord') }, faire: retours },
+    { nom: 'master', description: 'Le Master : volume, console (EQ, filtre, compresseur, limiteur), effets du Master et mastering. Sans réglage : le lit.', params: { volume: S('nombre', '0 à 2 (0.8 par défaut)'), eq: S('objet', 'comme console()'), filtre: S('objet', '{ actif, pente (12 ou 24), passeHaut: { f, resonance }, passeBas: { f, resonance } } ; resonance en dB 0–18'), compresseur: S('objet', 'comme console()'), limiteur: S('objet', 'comme console()'), effets: S('objet', '{ actif, saturation: { actif, quantite 0–1 }, chorus: { actif, mix 0–0.5 }, reverb: { actif, mix 0–0.3 } }'), mastering: S('objet', '{ actif, drive (dB −24…24), plafond (dBTP −12…0), largeur (0–2), mono (Hz 0–300 : graves en mono), relachement (s), clip (0–1) }'), reinitialiser: S('booléen', 'revenir au Master d’origine d’abord') }, faire: master },
     { nom: 'renommerPiste', description: 'Renomme une piste.', params: { piste: PISTE, nom: S('texte', 'nouveau nom', true) }, faire: renommerPiste },
     { nom: 'supprimerPiste', description: 'Supprime une piste (Ctrl+Z la ramène).', params: { piste: PISTE }, faire: supprimerPiste },
     { nom: 'allerScene', description: 'Affiche une scène (sans rien modifier).', params: { scene: S('texte', 'nom ou id', true) }, faire: allerScene, lecture: true },
@@ -1036,6 +1332,10 @@ SS.claudeTools = (() => {
     { nom: 'assistantMelodie', assistant: true, description: 'Une autre mélodie pour toute la chanson (comme 🎲).', params: {}, faire: assistantMelodie },
     { nom: 'assistantFilm', lecture: true, assistant: true, description: 'Assistant, style « Musique de film » : la scène (entrée, fin, tempo calé), ses repères (temps, émotion, tension, énergie, synchro, dialogue, point d’orgue, harmonie, accords, nuance, articulations).', params: {}, faire: assistantFilm },
     { nom: 'assistantRepere', assistant: true, description: 'Assistant, musique de film : change un repère (un modèle devient une scène libre), en ajoute un (ajouter: temps en s) ou le retire.', params: { index: S('nombre', 'n° du repère (voir assistantFilm())'), ajouter: S('nombre', 'temps en secondes d’un nouveau repère'), supprimer: S('booléen', 'retire le repère'), temps: S('nombre', 'secondes'), emotion: S('texte', 'tristesse, nostalgie, suspense, peur, colere, espoir, heroisme, emerveillement, apaisement, joie'), nom: S('texte', 'nom du passage'), tension: S('nombre', '1 à 5'), energie: S('nombre', '1 à 5'), tempo: S('nombre', 'BPM propre au passage (0 : celui de la scène)'), synchro: S('booléen', 'synchro forte (une seule par scène)'), dialogue: S('booléen', 'on parle : la musique s’efface (−4 dB)'), pointDOrgue: S('booléen', 'la dernière mesure tient l’accord'), harmonie: S('texte', 'pedal, common, mediant, chrom, hero, susp, open, song, ou auto'), articulations: S('objet', '{ trem, pizz, glock, marimba, bells } : true / false') }, faire: assistantRepere },
+    { nom: 'assistantEffets', lecture: true, assistant: true, description: 'Assistant : les transitions (n°, recette, effets), ce que joue le musicien Effets dans chaque scène, les boucles du Percussionniste, les mouvements de son de l’étape Arrangement.', params: {}, faire: assistantEffets },
+    { nom: 'assistantTransition', assistant: true, description: 'Assistant : règle une transition entre deux scènes, par une recette ou effet par effet (les effets non donnés gardent leur réglage). Le réglage vaut pour toutes les transitions entre les mêmes scènes.', params: { transition: S('texte', 'n° (voir assistantEffets()), "Couplet > Refrain", ou la scène d’arrivée', true), recette: S('texte', 'Aucune, Douce, Montée, Montée + coupure, Coupure sèche, Explosion'), effets: S('objet', '{ montee: { mesures, filtre: passeBas|passeHaut|aucun }, filtre: { hz 200–4000 }, cymbaleInversee: { temps }, silence: { temps }, impact: { type: grave+crash|crash|grave, niveau 0.2–1 }, descente: { mesures 2|4 }, retraitBatterie: { mesures 1|2 }, fragmentation, pedale: { mesures 2|4, note: dominante|tonique }, elargissement: { mesures 2|4 }, suspension: { temps 1|2 } } ; true / false pour allumer / éteindre'), reset: S('booléen', 'revenir à ce que fait le plan') }, faire: assistantTransition },
+    { nom: 'assistantEffetsScene', assistant: true, description: 'Assistant : ce que joue le musicien Effets dans une scène (hors transitions) et les boucles du Percussionniste ; ou ajoute l’un de ces musiciens.', params: { scene: S('texte', 'id ou nom'), role: S('texte', 'ambiance, montee, descente, rien'), niveau: S('nombre', '0.2–1.5 (1 = normal)'), rythme: S('nombre', 'ambiance : mesures entre deux souffles (1, 2, 4) ou "tenue"'), couleur: S('texte', 'ambiance : sombre ou claire'), longueur: S('nombre', 'montée : en mesures (défaut : toute la scène)'), filtre: S('texte', 'montée : passeBas, passeHaut, aucun'), dureeDescente: S('nombre', 'descente : 1, 2 ou 4 mesures'), percussions: S('objet', '{ shaker, conga, tom } : true / false dans cette scène'), stylePercussions: S('texte', 'techno, latin, minimal (toute la chanson)'), ajouter: S('texte', '"effets" ou "percussionniste" : l’ajoute au groupe') }, faire: assistantEffetsScene },
+    { nom: 'assistantMouvements', assistant: true, description: 'Assistant : garde ou retire les mouvements de son proposés à l’étape Arrangement (courbes de cutoff, vélocité, résonance d’après l’énergie).', params: { garder: S('liste', 'ids ou noms : open, qa, acid (voir assistantEffets())'), retirer: S('liste', 'ids ou noms') }, faire: assistantMouvements },
     { nom: 'assistantCreer', assistant: true, description: 'Crée la chanson dans la grille (une étape Ctrl+Z). Si la grille a déjà des pistes, la fenêtre de confirmation s’ouvre : l’utilisateur choisit.', params: {}, faire: assistantCreer },
   ];
 
@@ -1049,6 +1349,8 @@ SS.claudeTools = (() => {
       'Notes : "C4" = do central (MIDI 60), "E2" basse, "F#3", "Sib2", ou un numéro MIDI. Vélocité 0–1 : 1 accent, 0.8 normal, 0.3 ghost note.',
       'La chanson = des scènes (Couplet, Refrain…) ; chaque scène a ses notes, sa tonalité et sa grille d’accords ; les sons et le mix sont communs.',
       'Écrire dans une scène l’affiche à l’écran. Claude n’entend pas le son : décris ce que tu fais et propose à l’utilisateur d’écouter.',
+      'Effets : effets() = chorus, écho, reverb, sidechain et envois d’une piste ; console() = ses inserts (EQ, compresseur, limiteur, pan) ; retours() = les bus partagés ; master() = Master et mastering.',
+      'Automation : automation() = par pas, propre à une scène, qui boucle avec elle ; automationChanson() = cutoff, résonance, vélocité par temps sur toute la chanson (chaque passage d’une scène peut être différent).',
       'Import MIDI : await StepSeq.importerMidi({ url | base64, decoupage, batterie }) ouvre une nouvelle chanson (apercu: true pour le bilan seul).',
       'Assistant « Nouvelle chanson » : outils assistant… (assistantOuvrir, assistantStyle, assistantMusicien, assistantAccords… puis assistantCreer). Ses réglages sont un brouillon sans Ctrl+Z ; assistantCreer écrit la chanson dans la grille (une étape Ctrl+Z).',
       '',

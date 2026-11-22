@@ -98,6 +98,22 @@ const ok = (c, m) => {
   await ev(() => StepSeq.annuler());
   ok(await ev(() => !StepSeq.piste({ piste: 'Pad 2' }).automation), 'annuler retire l’automation');
 
+  // console, retours, Master, automation par temps sur la chanson
+  const cs = await ev((id) => StepSeq.console({ piste: id, pan: -0.3, eq: { graves: { gain: 3 } }, compresseur: { seuil: -20, ratio: 4 } }), bass.id);
+  ok(cs.ok && cs.console.eq.actif && cs.console.eq.graves.gain === 3 && cs.console.compresseur.actif && cs.console.pan === -0.3, `console : ${cs.message || cs.erreur}`);
+  const rt = await ev(() => StepSeq.retours({ echo: { temps: '1/8', repetitions: 0.5 }, cosmos: { shimmer: 0.4 } }));
+  ok(rt.ok && rt.retours.echo.temps === '1/8' && rt.retours.cosmos.shimmer === 0.4, `retours : ${rt.message || rt.erreur}`);
+  const ms = await ev(() => StepSeq.master({ mastering: { plafond: -1 }, effets: { saturation: 0.3 } }));
+  ok(ms.ok && ms.master.mastering.actif && ms.master.effets.actif && ms.master.effets.saturation.quantite === 0.3, `master : ${ms.message || ms.erreur}`);
+  const ac = await ev((id) => StepSeq.automationChanson({ piste: id, parametre: 'cutoff', forme: 'montee', de: -2, a: 1 }), bass.id);
+  const acs = await ev((id) => StepSeq.automationsChanson({ piste: id }), bass.id);
+  const cut = acs.passages.map((x) => x.courbes.cut);
+  ok(ac.ok && acs.passages.length === 3 && cut[0][0] === -2 && Object.values(cut[2]).pop() === 1, `automationChanson montée sur ${acs.passages.length} passages : ${ac.message || ac.erreur}`);
+  const acBad = await ev(() => StepSeq.automationChanson({ piste: 'Kick', parametre: 'cutoff', valeur: 1 }));
+  ok(!acBad.ok && /vélocité/.test(acBad.erreur), `batterie : vélocité seulement (${acBad.erreur})`);
+  await ev(() => StepSeq.annuler());
+  ok(await ev((id) => !StepSeq.automationsChanson({ piste: id }).passages.length, bass.id), 'annuler retire la courbe par temps');
+
   // erreurs lisibles
   const e1 = await ev(() => StepSeq.ecrireNotes({ piste: 'Guitare fantôme', notes: [] }));
   ok(!e1.ok && /piste inconnue/.test(e1.erreur), `erreur en clair : ${e1.erreur}`);
@@ -121,6 +137,13 @@ const ok = (c, m) => {
   const sc8 = await ev((id) => StepSeq.assistantScene({ scene: id, mesures: 8 }), ch.id);
   const acc3 = await ev((id) => StepSeq.assistantAccords({ scene: id, accords: ['Am', 'F', 'C', 'G'] }), ch.id);
   ok(sc8.ok && acc3.ok && /Am – F – C – G – Am – F – C – G/.test(acc3.message), `assistantScene + Accords : ${acc3.message || acc3.erreur}`);
+  const fx0 = await ev(() => StepSeq.assistantEffets());
+  ok(fx0.ok && fx0.transitions.length > 0 && Array.isArray(fx0.mouvements), `assistantEffets : ${fx0.transitions.length} transitions (${fx0.erreur || fx0.transitions.map((t) => t.recette).join(', ')})`);
+  const tr = await ev(() => StepSeq.assistantTransition({ transition: 1, recette: 'Coupure sèche' }));
+  const tr2 = await ev(() => StepSeq.assistantTransition({ transition: 1, effets: { silence: { temps: 2 }, impact: false } }));
+  ok(tr.ok && tr.recette === 'Coupure sèche' && tr2.ok && tr2.effets.silence.temps === 2 && !tr2.effets.impact, `assistantTransition : ${tr2.message || tr2.erreur}`);
+  const es = await ev((id) => StepSeq.assistantEffetsScene({ scene: id, ajouter: 'effets', role: 'ambiance', couleur: 'claire', niveau: 0.8 }), ch.id);
+  ok(es.ok && es.musicienEffets && es.musicienEffets.role === 'ambiance' && es.musicienEffets.couleur === 'claire', `assistantEffetsScene : ${es.message || es.erreur}`);
   const so2 = await ev((id) => StepSeq.assistantStructure({ blocs: [{ scene: id, fois: 2 }] }), ch.id);
   ok(so2.ok && /×2/.test(so2.message), `assistantStructure : ${so2.message || so2.erreur}`);
   const stp = await ev(() => StepSeq.assistantEtape({ etape: 'accords' }));
