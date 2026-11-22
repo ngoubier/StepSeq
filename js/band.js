@@ -9459,6 +9459,8 @@ SS.band = (() => {
   function buildListen(cols, res) {
     const p = preset();
     const proj = SS.newProject();
+    // projet temporaire (jamais enregistré) : un titre qui le distingue de la chanson dans le rapport Diagnostic
+    proj.title = `Écoute de l'assistant${p && p.song ? ` (dans l'esprit de ${p.song})` : ''}`;
     proj.tempo = tempo();
     proj.timeSig = [4, 4];
     const levelKeys = new Map();
