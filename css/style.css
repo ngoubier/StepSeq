@@ -5490,6 +5490,9 @@ body.wizard-mode .wiz-banner { display: none; }
 /* pistes verrouillées 🔒 et fenêtre « Reprendre la grille dans l'assistant » (js/band.js showGridRead) */
 .trk-badge.lock { color: var(--c-violet); border-color: var(--c-violet-deep); }
 .trk-badge.wiz { color: var(--c-blue-soft); border-color: var(--c-blue-deep); }
+.trk-badge.absent { color: var(--c-muted); border-color: var(--c-line-strong); }
+.brg-row.brg-absent.muted .bgu-name { opacity: 0.6; }
+.bgu-seg.brg-mute button[data-v="true"].active { color: var(--c-amber-soft); }
 .bgu-row.locked { border-color: var(--c-violet-deep); background: var(--c-panel); }
 .bgu-seg button[data-v="true"].active, .bgu-seg button[data-v="keep"].active { color: var(--c-violet-soft); }
 .bgu-card { max-height: calc(100vh - 40px); overflow-y: auto; }
