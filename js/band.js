@@ -10208,19 +10208,25 @@ SS.band = (() => {
       return '';
     }
   }
-  /** Lignes « Pistes » : une par musicien qui a des pistes dans la grille, puis une par piste que personne ne joue. */
+  /**
+   * Lignes « Pistes » : une par musicien qui a des pistes dans la grille, puis une par piste que personne ne joue (elle aura
+   * son musicien, avec son son), puis une par musicien de l'assistant absent de la grille (muet par défaut). Un musicien
+   * supprimé dans la grille depuis la création n'a pas de ligne : il est retiré du groupe (forgetGone).
+   */
   function readRows(p) {
     const rows = [];
+    const built = new Set(S.wiz.builtMus || []);
+    const absent = [];
     musicians().forEach((mu) => {
       const tr = gridTracksOf(p, mu);
-      if (!tr.length) return;
+      if (!tr.length) return void (!built.has(mu.id) && absent.push({ mu, tracks: [], absent: true, mute: true }));
       const how = tr.map((t) => retouchOf(p, t));
       const kind = how.includes('hand') ? 'hand' : how.includes('notes') ? 'notes' : how.includes('sound') ? 'sound' : '';
       const fromGrid = (S.gridInst || []).some((i) => i.mu === mu.id);
       rows.push({ mu, tracks: tr, kind, fromGrid, lock: muLocked(mu) || ((kind === 'hand' || kind === 'notes') && tr.some(hasNotes)) });
     });
     orphanTracks(p).forEach((t) => rows.push({ orphan: true, tracks: [t], kind: hasNotes(t) ? 'hand' : '', lock: !!locks()[t.id] || hasNotes(t) }));
-    return rows;
+    return [...rows, ...absent];
   }
   const WHY = {
     hand: 'Tes notes, écrites dans la grille',
@@ -10236,14 +10242,15 @@ SS.band = (() => {
     const rows = readRows(p);
     const box = $('#bandConfirm');
     const seg = (r) => {
-      const opts = [[false, r.orphan ? 'Confier à un nouveau musicien' : 'L’assistant la joue'], [true, '🔒 Verrouiller']];
+      const field = r.absent ? 'mute' : 'lock';
+      const opts = r.absent ? [[true, 'Muet'], [false, 'Il joue']] : [[false, 'L’assistant la joue'], [true, '🔒 Verrouiller']];
       return h(
         'span',
-        { class: 'segmented bgu-seg', role: 'radiogroup', 'aria-label': `Piste ${r.orphan ? r.tracks[0].name : r.mu.name}` },
+        { class: 'segmented bgu-seg' + (r.absent ? ' brg-mute' : ''), role: 'radiogroup', 'aria-label': `Piste ${r.orphan ? r.tracks[0].name : r.mu.name}` },
         ...opts.map(([v, label]) =>
-          h('button', { type: 'button', role: 'radio', 'data-v': String(v), class: r.lock === v ? 'active' : '', 'aria-checked': String(r.lock === v), onclick: (e) => {
-            r.lock = v;
-            e.currentTarget.closest('.bgu-row').classList.toggle('locked', v);
+          h('button', { type: 'button', role: 'radio', 'data-v': String(v), class: r[field] === v ? 'active' : '', 'aria-checked': String(r[field] === v), onclick: (e) => {
+            r[field] = v;
+            e.currentTarget.closest('.bgu-row').classList.toggle(r.absent ? 'muted' : 'locked', v);
             e.currentTarget.parentNode.querySelectorAll('button').forEach((b) => {
               const a = b.dataset.v === String(v);
               b.classList.toggle('active', a);
@@ -10254,12 +10261,12 @@ SS.band = (() => {
       );
     };
     const badge = (r) =>
-      r.kind === 'hand' || r.orphan ? h('span', { class: 'trk-badge hand' }, r.fromGrid ? 'de la grille' : 'ajoutée à la main') : r.kind === 'notes' ? h('span', { class: 'trk-badge retouch' }, '✎ notes retouchées') : r.kind === 'sound' ? h('span', { class: 'trk-badge retouch' }, '✎ son changé') : h('span', { class: 'trk-badge wiz' }, 'assistant');
+      r.absent ? h('span', { class: 'trk-badge absent' }, 'pas dans la grille') : r.kind === 'hand' || r.orphan ? h('span', { class: 'trk-badge hand' }, r.fromGrid ? 'de la grille' : 'ajoutée à la main') : r.kind === 'notes' ? h('span', { class: 'trk-badge retouch' }, '✎ notes retouchées') : r.kind === 'sound' ? h('span', { class: 'trk-badge retouch' }, '✎ son changé') : h('span', { class: 'trk-badge wiz' }, 'assistant');
     const row = (r) =>
       h(
         'div',
-        { class: 'bgu-row brg-row' + (r.lock ? ' locked' : ''), 'data-mu': r.mu ? r.mu.id : '', 'data-id': r.tracks[0].id },
-        h('span', { class: 'bgu-name' }, h('b', {}, r.orphan ? r.tracks[0].name : r.mu.name), badge(r), h('small', {}, r.tracks.length > 1 ? `${r.tracks.length} pistes · ` : '', r.orphan && !r.lock ? 'un musicien de plus, avec ce son' : WHY[r.kind === 'hand' && !r.fromGrid ? 'hand' : r.kind] || WHY[''])),
+        { class: 'bgu-row brg-row' + (r.lock ? ' locked' : '') + (r.absent ? ' brg-absent' + (r.mute ? ' muted' : '') : ''), 'data-mu': r.mu ? r.mu.id : '', 'data-id': r.tracks.length ? r.tracks[0].id : '' },
+        h('span', { class: 'bgu-name' }, h('b', {}, r.orphan ? r.tracks[0].name : r.mu.name), badge(r), r.absent ? null : h('small', {}, r.tracks.length > 1 ? `${r.tracks.length} pistes · ` : '', r.orphan ? 'Un musicien de plus, avec ce son' : WHY[r.kind === 'hand' && !r.fromGrid ? 'hand' : r.kind] || WHY[''])),
         seg(r)
       );
     const check = (it) =>
@@ -10303,31 +10310,31 @@ SS.band = (() => {
     applyGridRead(R, on);
     const l = { ...locks() };
     const g = group();
+    const mute = [];
     rows.forEach((r) => {
+      // musicien de l'assistant absent de la grille : muet (ses colonnes, après la reprise : les musiciens ajoutés changent les colonnes)
+      if (r.absent) return void (r.mute && mute.push(r.mu.id));
       r.tracks.forEach((t) => (r.lock ? (l[t.id] = l[t.id] || { key: true }) : delete l[t.id]));
-      if (r.lock) return;
-      // une piste que personne ne joue : un musicien de plus, avec son son (s'il reste de la place)
-      if (r.orphan) {
-        const insts = gridInstruments({ ...p, tracks: r.tracks });
-        insts.forEach((inst) => {
-          if (!BG().canAdd(g)) return;
-          const rec = BG().add(g, inst.type, { name: String(inst.name || '').slice(0, 24), ms: BG().msFromGrid(inst, null, S.styleId, S.presetId) });
-          if (rec) {
-            inst.mu = rec.id;
-            S.gridInst = [...(S.gridInst || []), inst];
-          }
-        });
-        return;
-      }
+      if (r.orphan || r.lock) return;
       // son changé dans la grille : il devient celui du musicien
       if (r.kind === 'sound' && !r.fromGrid) takeSound(r.mu, r.tracks);
     });
+    // les pistes que personne ne joue : un musicien de plus pour chaque instrument (les pistes de batterie d'un même kit
+    // ensemble), avec son son, s'il reste de la place ; verrouillé ou non, il joue la piste de la grille
+    const orph = rows.filter((r) => r.orphan).flatMap((r) => r.tracks);
+    gridInstruments({ ...p, tracks: orph }).forEach((inst) => {
+      const rec = BG().canAdd(g) && BG().add(g, inst.type, { name: String(inst.name || '').slice(0, 24), ms: BG().msFromGrid(inst, null, S.styleId, S.presetId) });
+      if (!rec) return void inst.ids.forEach((id) => (l[id] = l[id] || { key: true })); // groupe complet : la piste reste telle quelle 🔒
+      inst.mu = rec.id;
+      S.gridInst = [...(S.gridInst || []), inst];
+    });
     S.wiz.locks = l;
     forgetGone(p);
+    if (mute.length) wizCols().forEach((c) => mute.includes(c.musician) && S.wiz.mute.add(c.id));
     dropListen();
     refresh();
     renderWiz();
-    noteWizard(`grille reprise : ${Object.entries(on).filter(([, v]) => v).map(([k]) => k).join(', ') || 'rien'} · ${Object.keys(l).length} piste(s) verrouillée(s)`);
+    noteWizard(`grille reprise : ${Object.entries(on).filter(([, v]) => v).map(([k]) => k).join(', ') || 'rien'} · ${Object.keys(l).length} piste(s) verrouillée(s)${mute.length ? ` · muets (pas dans la grille) : ${mute.join(', ')}` : ''}`);
   }
   /** Le son (et ses réglages) des pistes d'un musicien, retouché dans la grille, devient le sien. */
   function takeSound(mu, tracks) {
