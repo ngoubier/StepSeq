@@ -22,7 +22,7 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FAIL ') + m); if (!c) process
   const errs = [];
   page.on('pageerror', (e) => errs.push(e.message));
   await page.goto(`http://localhost:${server.address().port}/index.html`); await page.waitForTimeout(1500);
-  await page.click('#appMenuBtn'); await page.click('#bandBtn'); await page.waitForTimeout(400); await page.click('#brgSkip').catch(() => {}); await page.waitForTimeout(300);
+  await page.click('#viewWiz'); await page.waitForTimeout(400); await page.click('#brgSkip').catch(() => {}); await page.waitForTimeout(300);
   await page.click('#bandStyles [data-v="pop"]'); await page.click('#bandPresets .band-preset >> nth=0');
   for (let i = 0; i < 12 && !(await page.locator('#bwpGtView').count()); i++) { await page.dispatchEvent('#bwNext', 'click'); await page.waitForTimeout(250); }
   ok(await page.locator('#bwpGtView').count() === 1, 'étape du Guitariste');

@@ -869,11 +869,16 @@ SS.files = (() => {
     return a.download;
   }
 
+  // « Ouvrir un fichier… » : un projet, ou un fichier MIDI rendu tel quel ({ midi: { name, buf } }) pour la fenêtre d'import
+  const isMidi = (file) => /\.(mid|midi|kar)$/i.test(file.name);
+  const midiOf = async (file) => ({ midi: { name: file.name, buf: new Uint8Array(await file.arrayBuffer()) } });
+  const openTypes = [{ description: 'Projet StepSeq ou fichier MIDI', accept: { 'application/json': ['.json'], 'audio/midi': ['.mid', '.midi', '.kar'] } }];
   async function open() {
     if (window.showOpenFilePicker) {
       try {
-        const [h] = await window.showOpenFilePicker({ types });
+        const [h] = await window.showOpenFilePicker({ types: openTypes });
         const file = await h.getFile();
+        if (isMidi(file)) return midiOf(file);
         const project = SS.normalizeProject(JSON.parse(await file.text()));
         handle = h;
         return project;
@@ -885,11 +890,12 @@ SS.files = (() => {
     return new Promise((resolve, reject) => {
       const input = document.createElement('input');
       input.type = 'file';
-      input.accept = '.json,application/json';
+      input.accept = '.json,application/json,.mid,.midi,.kar,audio/midi,audio/x-midi';
       input.onchange = async () => {
         const file = input.files[0];
         if (!file) return resolve(null);
         try {
+          if (isMidi(file)) return resolve(await midiOf(file));
           handle = null;
           resolve(SS.normalizeProject(JSON.parse(await file.text())));
         } catch (e) {

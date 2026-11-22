@@ -37,28 +37,28 @@ const ok = (c, m) => {
   page.on('dialog',(d)=>d.accept());
   const P=()=>page.evaluate(()=>{const p=JSON.parse(localStorage.getItem('stepseq.autosave'));delete p.wizard;delete p.version;return JSON.stringify(p);});
   // le premier enregistrement normalise le projet du départ (identifiant, clés…) : on prend la référence après un premier aller-retour
-  await page.click('#appMenuBtn'); await page.click('#bandBtn');await page.click('#bandStyles [data-v="edm"]');await page.click('#bandClose');
+  await page.click('#viewWiz'); await page.click('#bandStyles [data-v="edm"]');await page.click('#bandClose');
   await page.waitForTimeout(900);
   const original=await P();
   for(let i=0;i<3;i++){
-    await page.click('#appMenuBtn'); await page.click('#bandBtn');
+    await page.click('#viewWiz'); 
     if(i){await page.click('#bandStyles [data-v="edm"]');await page.locator('#bandPresets .band-preset').nth(i).click();}
     await page.click('#bandClose');
     await page.waitForTimeout(600);
     ok(!(await page.isVisible('#bandDialog')) && await P()===original, `fermeture ${i+1} par la croix : projet intact`);
   }
-  await page.click('#appMenuBtn'); await page.click('#bandBtn');await page.keyboard.press('Escape');
+  await page.click('#viewWiz'); await page.keyboard.press('Escape');
   ok(!(await page.isVisible('#bandDialog')) && await P()===original,'Échap ferme sans créer de piste');
-  await page.click('#appMenuBtn'); await page.click('#bandBtn');await page.click('#bandClose');
+  await page.click('#viewWiz'); await page.click('#bandClose');
   ok(!(await page.isVisible('#bandDialog')) && await P()===original,'Fermer conserve le projet');
-  await page.click('#appMenuBtn'); await page.click('#bandBtn');for (let i = 0; i < 12; i++) await page.dispatchEvent('#bwNext', 'click'); await page.click('#bwCreate');
+  await page.click('#viewWiz'); for (let i = 0; i < 12; i++) await page.dispatchEvent('#bwNext', 'click'); await page.click('#bwCreate');
   ok(await page.isVisible('#bandConfirm'),'création de la chanson : confirmation avant de remplacer le projet');
   await page.keyboard.press('Escape');
   ok(await page.isVisible('#bandDialog') && !(await page.isVisible('#bandConfirm')),'Échap ferme d’abord la confirmation');
   await page.keyboard.press('Escape');
   await page.waitForTimeout(600);
   ok(!(await page.isVisible('#bandDialog')) && await P()===original,'annuler la création de chanson conserve le projet');
-  await page.click('#appMenuBtn'); await page.click('#bandBtn');for (let i = 0; i < 12; i++) await page.dispatchEvent('#bwNext', 'click'); await page.click('#bwCreate');await page.click('#bcfSong');
+  await page.click('#viewWiz'); for (let i = 0; i < 12; i++) await page.dispatchEvent('#bwNext', 'click'); await page.click('#bwCreate');await page.click('#bcfSong');
   await page.waitForTimeout(1200);
   const p=JSON.parse(await P());
   ok(p.tracks.length>2 && p.tracks.every((t)=>t.band) && p.playMode==='song','confirmer : la chanson remplace le projet');

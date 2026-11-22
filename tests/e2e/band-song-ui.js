@@ -31,7 +31,7 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FAIL ') + m); if (!c) process
     return { mode: p.playMode, tempo: p.tempo, tracks: p.tracks.length, scenes: p.scenes.map((s) => s.name), song: p.song.length, sc: p.tracks.filter((t) => t.fx && t.fx.scSource).length };
   });
   const before = await S();
-  await page.click('#appMenuBtn'); await page.click('#bandBtn'); await page.waitForTimeout(400);
+  await page.click('#viewWiz'); await page.waitForTimeout(400);
   await page.click('#bandStyles [data-v="edm"]');
   await page.click('#bandPresets .band-preset >> nth=1'); // Don't You Worry Child
   ok(await page.isVisible('#bandWizSteps') && !(await page.isVisible('#bwEmpty')), 'Band : l’assistant (sans « Chanson vide »)');

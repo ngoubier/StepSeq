@@ -44,9 +44,9 @@ const SHOTS = process.env.SHOTS;
   const P = () => page.evaluate(() => JSON.parse(localStorage.getItem('stepseq.autosave')));
 
   // bouton Nouvelle (en-tête, ancien Band) : le même assistant, sur le projet en cours ; l'ancien écran n'existe plus
-  await page.click('#appMenuBtn'); await page.click('#bandBtn');
+  await page.click('#viewWiz'); 
   ok((await page.locator('#bandModes, #bandMelody, #melGo, #bandSongBtn, #bandCreate, #bandTempo').count()) === 0, 'Band : plus d’ancien écran (Créer les pistes, Créer toute la chanson)');
-  ok((await page.isVisible('#bandWizSteps')) && /Nouvelle chanson/.test(await page.textContent('#bandBtn')) && !/Band/.test(await page.textContent('#bandBtn')) && !(await page.isVisible('#bandBtn')) && !(await page.$('#bandDialog .band-head')) && !(await page.isVisible('#bwEmpty')), 'menu « Nouvelle chanson sur ce projet… » (plus de bouton Nouvelle, plus de Band) : l’assistant dans la fenêtre principale');
+  ok((await page.isVisible('#bandWizSteps')) && !(await page.$('#bandBtn')) && !(await page.$('#bandDialog .band-head')) && !(await page.isVisible('#bwEmpty')), 'bouton ✦ Assistant (plus d’entrée de menu, plus de Band) : l’assistant dans la fenêtre principale');
   await page.keyboard.press('Escape');
 
   // 1. Modèle

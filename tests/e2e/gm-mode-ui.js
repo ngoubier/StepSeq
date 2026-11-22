@@ -76,7 +76,7 @@ const saved = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('ste
   }
 
   // ---- Band suit le même réglage ----
-  await page.click('#appMenuBtn'); await page.click('#bandBtn');
+  await page.click('#viewWiz'); 
   await page.waitForSelector('#bandDialog[open]');
   await page.waitForTimeout(300);
   await page.dispatchEvent('#bwNext', 'click'); // étape 2 : Instruments (musiciens et General MIDI)
@@ -100,7 +100,7 @@ const saved = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('ste
 
   // ---- couper le mode depuis Band : la fenêtre de piste revient à tous les sons ----
   page.once('dialog', (d) => d.accept()); // « Remplacer le brouillon de l’assistant ? » (la chanson créée garde son brouillon)
-  await page.click('#appMenuBtn'); await page.click('#bandBtn');
+  await page.click('#viewWiz'); 
   await page.waitForSelector('#bandDialog[open]');
   await page.dispatchEvent('#bwNext', 'click');
   await page.click('#bandGm');

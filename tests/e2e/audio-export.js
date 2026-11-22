@@ -64,7 +64,7 @@ function wav(b) {
 
   const openDlg = async () => {
     await page.click('#appMenuBtn');
-    await page.click('#exportAudio');
+    await page.click('#exportBtn');
     await page.waitForSelector('#audioExportDialog[open]');
   };
   await openDlg();

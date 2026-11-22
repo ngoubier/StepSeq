@@ -55,7 +55,7 @@ const SHOTS = process.argv[2];
     ok(await page.locator('#songDialog[open]').count() === 1, `${name} : la fenêtre Song s’ouvre`);
     await page.click('#songClose');
     // fenêtre Band : tout tient à l'écran, les trois boutons du pied sont visibles, le panneau du musicien aussi
-    await page.click('#appMenuBtn'); await page.click('#bandBtn');
+    await page.click('#viewWiz'); 
     await page.waitForTimeout(400);
     const band = await page.evaluate(() => {
       const d = document.querySelector('#bandDialog');

@@ -1,5 +1,5 @@
 /*
- * Fenêtres « Importer MIDI » et « Exporter MIDI » (menu de l'icône de l'application).
+ * Fenêtres « Importer MIDI » (menu → Ouvrir un fichier… sur un .mid) et « Exporter » au format MIDI (menu → Exporter…).
  * Le travail est fait par js/midi.js ; ici : choix du fichier, options, aperçu du bilan, téléchargement.
  */
 window.SS = window.SS || {};
@@ -189,8 +189,6 @@ SS.midiPanel = (() => {
     sel.append(h('option', { value: SS.midi.GM_KIT }, 'General MIDI (sons d’origine, une piste par son)'));
     Object.entries(SS.midi.MACHINES).forEach(([id, m]) => sel.append(h('option', { value: id }, m.label)));
     sel.value = SS.midi.GM_KIT;
-    $('#importMidi').addEventListener('click', pickFile);
-    $('#exportMidi').addEventListener('click', openExport);
     $('#miSplit').addEventListener('click', (e) => {
       const b = e.target.closest('button');
       if (!b) return;

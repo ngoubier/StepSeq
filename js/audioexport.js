@@ -1,5 +1,5 @@
 /*
- * Fenêtre « Exporter l'audio » (menu de l'icône de l'application) : options, progression, bilan, téléchargement.
+ * Fenêtre « Exporter », format Audio (menu de l'icône de l'application → Exporter…) : options, progression, bilan, téléchargement.
  * Le travail est fait par js/render.js (rendu hors temps réel, mesures, WAV, ZIP).
  */
 window.SS = window.SS || {};
@@ -205,7 +205,6 @@ SS.audioExport = (() => {
 
   function init(api) {
     app = api;
-    $('#exportAudio').addEventListener('click', open);
     const seg = (q, key, conv = (v) => v) =>
       $(q).addEventListener('click', (e) => {
         const b = e.target.closest('button');
