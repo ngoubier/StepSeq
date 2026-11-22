@@ -872,9 +872,22 @@ SS.bandSong = (() => {
         const ct = tones(sp.chord);
         const seventh = root + ([10, 11].find((iv) => ct.includes(pcOf(sp.chord.rootPc + iv))) ?? ([10, 11].find((iv) => keyPcs.includes(pcOf(root + iv))) || 10));
         const nextRoot = next && next.step === end ? bassMidi(pedalPc ?? next.chord.bassPc ?? next.chord.rootPc) + shift : null;
+        // motif d'une ou deux mesures : la mesure du motif suit la mesure du morceau (pas 0–15 puis 16–31)
+        const motif = BASS_RHYTHMS[mode];
+        const mBars = motifBars(mode);
+        const tail = motif[motif.length - 1];
+        let pushedNow = false;
         for (let b = sp.step; b < end; b += SPB) {
           const lastBar = b + SPB >= end;
-          BASS_RHYTHMS[mode].forEach(([o, l, n, v]) => {
+          const k = Math.floor(b / SPB) % mBars;
+          motif.forEach((nt) => {
+            const [o0, l0, n, v] = nt;
+            if (Math.floor(o0 / SPB) !== k) return;
+            // position en fraction de pas (triolets : 1,33 ; 2,67…) = pas entier + décalage (ev.shift, ±0,5 pas)
+            const at = o0 - k * SPB;
+            const o = Math.round(at);
+            const sh = Math.round((at - o) * 100) / 100;
+            const l = Math.max(1, Math.round(l0));
             if (b + o >= end) return;
             let m;
             if (n === 't') m = third;
@@ -890,19 +903,23 @@ SS.bandSong = (() => {
               // si l'accord ne change pas, fondamentale, tierce, quinte
               if (lastBar && nextRoot != null && nextRoot !== root) {
                 m = nextRoot;
-                for (let k = 0; k < UP[n]; k++) m = approachOf(m, nextRoot > root ? -1 : 1);
+                for (let j = 0; j < UP[n]; j++) m = approachOf(m, nextRoot > root ? -1 : 1);
               } else m = [fifth, third, root][UP[n] - 1];
             } else m = root + n;
-            if (pushed != null && b === sp.step && o === 0 && n === 0 && pushed === m && ev.length) {
+            if (pushed != null && b === sp.step && o === 0 && !sh && n === 0 && pushed === m && ev.length) {
               ev[ev.length - 1].len += Math.min(l, end - b); // l'accord est arrivé en avance : la note se prolonge, sans nouvelle attaque
               return;
             }
-            add(b + o, Math.min(l, end - b - o), m, v);
+            const len = Math.min(l, end - b - o);
+            if (len > 0) {
+              add(b + o, len, m, v);
+              if (sh) ev[ev.length - 1].shift = sh;
+            }
+            // anticipation : la dernière note du motif est déjà la fondamentale du suivant (liée par-dessus la barre)
+            if (nt === tail && n === 'n' && lastBar && at + l0 >= SPB && b + SPB === end) pushedNow = true;
           });
         }
-        // anticipation : la dernière note de l'accord est déjà la fondamentale du suivant (liée par-dessus la barre)
-        const tail = BASS_RHYTHMS[mode][BASS_RHYTHMS[mode].length - 1];
-        pushed = nextRoot != null && tail[2] === 'n' && tail[0] + tail[1] >= SPB && sp.len % SPB === 0 ? nextRoot : null;
+        pushed = pushedNow && nextRoot != null ? nextRoot : null;
         return;
       }
       if (mode === 'walking') {
@@ -2297,6 +2314,8 @@ SS.bandSong = (() => {
      chromatique), « u3 » « u2 » « u1 » montée par la gamme vers l'accord suivant (sinon quinte, tierce, fondamentale). */
   /** « u3 », « u2 », « u1 » : montée vers l'accord suivant, à 3, 2 puis 1 note de la gamme de lui. */
   const UP = { u3: 3, u2: 2, u1: 1 };
+  /** Nombre de mesures d'un motif BASS_RHYTHMS (1, ou 2 si une note tombe après le pas 15). */
+  const motifBars = (id) => (BASS_RHYTHMS[id] ? Math.max(1, Math.ceil(Math.max(...BASS_RHYTHMS[id].map((x) => x[0] + 0.01)) / SPB)) : 1);
   const BASS_RHYTHMS = {
     rock8: [[0, 2, 0, 0.92], [2, 2, 0, 0.62], [4, 2, 0, 0.8], [6, 2, 0, 0.62], [8, 2, 0, 0.88], [10, 2, 0, 0.62], [12, 2, 0, 0.8], [14, 2, 12, 0.74]],
     ballade: [[0, 10, 0, 0.85], [10, 2, 7, 0.7], [12, 4, 'a', 0.72]],
@@ -2372,9 +2391,16 @@ SS.bandSong = (() => {
     baiao: [[0, 3, 0, 0.9], [3, 5, 7, 0.78], [8, 3, 0, 0.88], [11, 5, 7, 0.76]],
     // 2-step (UK garage) : notes décalées, octave sur le « a » du 2, le 3 appuyé
     twostep: [[0, 2, 0, 0.9], [3, 2, 0, 0.64], [7, 1, 12, 0.7], [8, 3, 0, 0.84], [13, 1, 7, 0.6], [14, 2, 0, 0.74]],
+    // triolets (position en fraction de pas, jouée par le décalage de note) et motifs de deux mesures (pas 16–31)
+    // walking avec « skip » : la noire du 3 rebondit sur un triolet fantôme, puis le demi-ton vers l'accord suivant
+    walkskip: [[0, 4, 0, 0.88], [4, 4, 't', 0.74], [8, 2, 7, 0.78], [10.67, 1.33, 7, 0.36], [12, 4, 'c', 0.8]],
+    // ballade 12/8 jouée en 4/4 : la fondamentale qui berce, troisième croche de triolet du 2 et du 4
+    ballade128: [[0, 6, 0, 0.88], [6.67, 1.33, 0, 0.55], [8, 4, 7, 0.8], [12, 2, 12, 0.7], [14.67, 1.33, 'a', 0.6]],
+    // son montuno sur la clave 3-2 : tumbao en mesure « 3 », une relance sur le « a » du 1 en mesure « 2 »
+    montuno: [[6, 6, 7, 0.86], [12, 4, 'n', 0.9], [19, 3, 0, 0.7], [22, 6, 7, 0.84], [28, 4, 'n', 0.9]],
   };
   /** Dessin d'une mesure type (niveau 0 = fondamentale, 1 = quinte, tierce, septième ou approche, 2 = octave). */
-  const rhythmDraw = (id) => BASS_RHYTHMS[id].map(([o, l, n]) => [o, l, n === 0 ? 0 : n === 12 ? 2 : 1]);
+  const rhythmDraw = (id) => BASS_RHYTHMS[id].filter(([o]) => o < SPB).map(([o, l, n]) => [o, l, n === 0 ? 0 : n === 12 ? 2 : 1]); // première mesure, en pas (fractions possibles)
 
   /* catalogue des modes de basse ajoutés : [id, nom, description, dessin] ; dessin = [pas, longueur, niveau] pour une mesure
      (niveau 0 = fondamentale, 1 = quinte ou tierce, 2 = octave) */
@@ -2451,7 +2477,10 @@ SS.bandSong = (() => {
     ['cumbia', 'Cumbia', 'Fondamentale sur 1, quinte sur 3, reprise sur le « et » du 4', rhythmDraw('cumbia')],
     ['baiao', 'Baião', 'Fondamentale, quinte sur le « a » du 1 tenue : forró, deux fois par mesure', rhythmDraw('baiao')],
     ['twostep', '2-step', 'Notes décalées autour du 3, octave sur le « a » du 2 : UK garage', rhythmDraw('twostep')],
+    ['walkskip', 'Walking avec skip', 'Walking, triolet fantôme sur le 3, demi-ton vers l’accord suivant : jazz', rhythmDraw('walkskip')],
+    ['ballade128', 'Ballade 12/8', 'Fondamentale qui berce, croches de triolet : soul lente, doo-wop', rhythmDraw('ballade128')],
+    ['montuno', 'Son montuno', 'Tumbao sur deux mesures, calé sur la clave 3-2 : son, salsa', rhythmDraw('montuno')],
   ];
 
-  return { build, voiceChord, bassEvents, chordEvents, PAD_NEW, padFxLanes, tomOfStep, junctionDefaults, junctionEff, withSceneFx, PERC_LOOPS, PERC_STYLES, hpHz, hpAmt, HP_MEL, isExtra, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, sceneGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, BUILD_LEVELS, BUILD_PRESETS, buildLevels, progLevels, rollBar, rollerOf, hasGridLane, laneKey, _rng: rng };
+  return { build, voiceChord, bassEvents, chordEvents, PAD_NEW, padFxLanes, tomOfStep, junctionDefaults, junctionEff, withSceneFx, PERC_LOOPS, PERC_STYLES, hpHz, hpAmt, HP_MEL, isExtra, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, sceneGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, motifBars, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, BUILD_LEVELS, BUILD_PRESETS, buildLevels, progLevels, rollBar, rollerOf, hasGridLane, laneKey, _rng: rng };
 })();

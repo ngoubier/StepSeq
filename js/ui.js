@@ -4802,7 +4802,7 @@ SS.ui = (() => {
       const sd = 60 / SS.tempoOf(app.project()) / 4;
       const sp = [{ step: 0, len: 16, bar: 0, chord: { rootPc: 9, type: 'min', tok: 'Am' } }, { step: 16, len: 16, bar: 1, chord: { rootPc: 5, type: 'maj', tok: 'F' } }];
       motifTimers.forEach(clearTimeout);
-      motifTimers = SS.bandSong.bassEvents(sp, id, () => 0.5, [9, 11, 0, 2, 4, 5, 7]).map((e) => setTimeout(() => SS.audio.preview(fake, e.notes[0], Math.max(0.08, e.len * sd * 0.9), { velocity: e.vel }), e.step * sd * 1000));
+      motifTimers = SS.bandSong.bassEvents(sp, id, () => 0.5, [9, 11, 0, 2, 4, 5, 7]).map((e) => setTimeout(() => SS.audio.preview(fake, e.notes[0], Math.max(0.08, e.len * sd * 0.9), { velocity: e.vel }), (e.step + (e.shift || 0)) * sd * 1000));
     }
   }
   /** Ligne « Motif » de la fenêtre : nouvelle piste de basse seulement. */

@@ -48,6 +48,14 @@ e2 = notesOf('walkup');
 assert.deepStrictEqual(e2.filter((e) => e.step >= 8 && e.step < 16).map((e) => e.notes[0] % 12), [0, 2, 4], 'montée vers Fa : Do, Ré, Mi');
 ['boomchick', 'chacha', 'cumbia', 'baiao', 'twostep'].forEach((id) => assert.ok(notesOf(id).length >= 8, id));
 assert.ok(['anticip', 'walkup', 'chroma', 'boomchick', 'chacha', 'cumbia', 'baiao', 'twostep'].every((id) => SS.bandSong.BASS_NEW.some((c) => c[0] === id)));
+// triolets : position en fraction de pas = pas entier + décalage ; motif de deux mesures
+e2 = notesOf('walkskip');
+const skip = e2.find((e) => e.step === 11);
+assert.ok(skip && skip.shift === -0.33 && skip.vel < 0.5, 'walking avec skip : triolet fantôme à 10,67 pas');
+e2 = notesOf('montuno');
+assert.strictEqual(SS.bandSong.motifBars('montuno'), 2);
+assert.ok(!e2.some((e) => e.step === 3) && e2.some((e) => e.step === 19), 'son montuno : la relance seulement dans la 2e mesure');
+assert.strictEqual(SS.bandSong.motifBars('rock8'), 1);
 bass.follow = SS.FOLLOW.clean({ play: 'motif', motif: 'disco16', oct: 2 });
 
 // sans accords : silence

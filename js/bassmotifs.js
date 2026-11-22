@@ -11,10 +11,10 @@ SS.bassMotifs = (() => {
     ['synth', 'Synthwave & 80s', ['8', 'gallop', 'oct', 'pulse8', 'sync', 'roll', 'whole', 'half', 'quarter', 'walk', 'drone', 'rootfifth', 'arp', 'pickup', 'sixteen', 'oct16']],
     ['pop', 'Pop-rock', ['rock8', 'ballade', 'b03', 'quarter', 'rootfifth', 'anticip', 'walkup', 'boomchick']],
     ['funk', 'Funk & Disco', ['disco16', 'slap', 'funk', 'oct']],
-    ['soul', 'Soul & Jazz', ['motown', 'walking', 'ballade', 'chroma', 'walkup']],
+    ['soul', 'Soul & Jazz', ['motown', 'walking', 'walkskip', 'ballade', 'ballade128', 'chroma', 'walkup']],
     ['hiphop', 'Hip-hop & Trap', ['boombap', 'sub808', 'trap808']],
     ['dnb', 'Drum & bass', ['reese', 'dnbroll']],
-    ['latin', 'Latin & Reggae', ['tresillo', 'dembow', 'tumbao', 'onedrop', 'roots', 'bossa', 'afro', 'chacha', 'cumbia', 'baiao']],
+    ['latin', 'Latin & Reggae', ['tresillo', 'dembow', 'tumbao', 'onedrop', 'roots', 'bossa', 'afro', 'chacha', 'cumbia', 'baiao', 'montuno']],
     ['techno', 'Techno & House', ['hades', 'seismic', 'oracle', 'troy', 'phalanx', 'necropolis', 'styx', 'athens', 'mythos', 'thebes', 'acid', 'offbeat', 'off16', 'trance', 'twostep']],
     ['famous', '★ Célèbres', ['cel_chic', 'cel_hitsville', 'cel_pfunk', 'cel_thumb', 'cel_fretless', 'cel_liverpool', 'cel_studio60', 'cel_gallop', 'cel_motorik', 'cel_coldwave', 'cel_staccato80', 'cel_steppers', 'cel_ska', 'cel_boogie', 'cel_rockabilly', 'cel_lagos', 'cel_surdo', 'cel_gfunk', 'cel_frenchtouch', 'cel_wobble', 'cel_neosoul']],
   ];
@@ -46,26 +46,31 @@ SS.bassMotifs = (() => {
     }
   }
 
-  // dessin : la première mesure du motif sur Am puis F (le vrai moteur), hauteur 0 grave, 1 milieu, 2 octave
+  // dessin : le motif (une ou deux mesures) sur Am puis F (le vrai moteur), hauteur 0 grave, 1 milieu, 2 octave ;
+  // les notes décalées (triolets) sont dessinées à leur vraie place
   const draws = {};
   function svg(id) {
     if (!draws[id]) {
+      const nb = (SS.bandSong.motifBars && SS.bandSong.motifBars(id)) || 1;
       let ev = [];
       try {
         const sp = [
           { step: 0, len: 16, bar: 0, chord: { rootPc: 9, type: 'min', tok: 'Am' } },
           { step: 16, len: 16, bar: 1, chord: { rootPc: 5, type: 'maj', tok: 'F' } },
         ];
-        ev = SS.bandSong.bassEvents(sp, id, () => 0.5, [9, 11, 0, 2, 4, 5, 7]).filter((e) => e.step < 16);
+        ev = SS.bandSong.bassEvents(sp, id, () => 0.5, [9, 11, 0, 2, 4, 5, 7]).filter((e) => e.step < 16 * nb);
       } catch (e) {
         ev = [];
       }
-      const bars = [1, 2, 3].map((b) => `<rect x="${b * 40}" y="0" width=".6" height="22" fill="currentColor" opacity=".25"/>`).join('');
+      const w = 10 / nb; // largeur d'un pas
+      const bars = Array.from({ length: 4 * nb - 1 }, (_, i) => i + 1)
+        .map((b) => `<rect x="${b * 4 * w}" y="0" width="${b % 4 ? 0.6 : 1.2}" height="22" fill="currentColor" opacity="${b % 4 ? 0.25 : 0.5}"/>`)
+        .join('');
       const rects = ev
         .map((e) => {
-          const d = e.notes[0] - 33;
+          const d = e.notes[0] - (e.step < 16 ? 33 : 41);
           const lv = d === 0 ? 0 : d >= 12 ? 2 : 1;
-          return `<rect x="${e.step * 10 + 0.5}" y="${[14, 8, 2][lv]}" width="${Math.max(3, e.len * 10 - 1.5)}" height="6" rx="1.5" fill="currentColor"${e.vel < 0.5 ? ' opacity=".4"' : ''}/>`;
+          return `<rect x="${(e.step + (e.shift || 0)) * w + 0.5}" y="${[14, 8, 2][lv]}" width="${Math.max(2, e.len * w - 1.5)}" height="6" rx="1.5" fill="currentColor"${e.vel < 0.5 ? ' opacity=".4"' : ''}/>`;
         })
         .join('');
       draws[id] = `<svg viewBox="0 0 160 22" preserveAspectRatio="none" aria-hidden="true">${bars}${rects}</svg>`;
