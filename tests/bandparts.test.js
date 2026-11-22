@@ -390,3 +390,26 @@ test('modes de basse de nov. 2026 : rythme de la première mesure, approche et a
   const sl = scene(build({ a: { bass: { mode: 'slap' } } })).data.bass.events;
   assert.ok(sl.find((e) => e.step === 2).vel < sl.find((e) => e.step === 0).vel * 0.6, 'slap : note fantôme');
 });
+
+test('mesures ternaires : chaque motif de la mesure pilote la batterie, le fill ternaire tombe sur le dernier temps', () => {
+  for (const [sig, list] of Object.entries(SS.DRUM_PATTERNS_METER)) {
+    const n = SS.bandSong.METERS[sig][0];
+    const row = (steps, b) => steps.slice(b * n, b * n + n).map((v) => (v > 0 ? 1 : 0)).join('');
+    const want = (str) => Array.from(str || '-'.repeat(n)).map((c) => (c === '-' ? 0 : 1)).join('');
+    for (const p of list) {
+      Object.values(p.lanes).forEach((v) => assert.equal(v.length, n, `${sig} ${p.id} : ${n} pas`));
+      const d = scene(SS.bandSong.build(SPEC, 'test', TR, { sig, parts: { a: { drums: { style: sig, pattern: p.id } } } })).data;
+      for (const [lane, snd] of [['K', 'bd'], ['S', 'sd'], ['H', 'hh']]) if (p.lanes[lane]) assert.equal(row(d['drums:' + snd].steps, 2), want(p.lanes[lane]), `${sig} ${p.id} ${lane}`);
+      assert.equal(d['drums:bd'].steps.length, 8 * n);
+    }
+    // fill ternaire : la caisse claire roule sur le dernier temps de la dernière mesure
+    const p = list.find((x) => x.lanes.S) || list[0];
+    const d = scene(SS.bandSong.build(SPEC, 'test', TR, { sig, parts: { a: { drums: { style: sig, pattern: p.id, fill: 'end', fillType: 'roll' } } } })).data;
+    const last = row(d['drums:sd'].steps, 7);
+    assert.ok(last.slice(-SS.bandSong.METERS[sig][1]).split('').filter((c) => c === '1').length >= 3, `${sig} : roulement en fin de scène (${last})`);
+  }
+  // un motif 6/8 dans une chanson en 12/8 : le plan joue (pas de motif tronqué)
+  const d = scene(SS.bandSong.build(SPEC, 'test', TR, { sig: '12/8', parts: { a: { drums: { style: '6/8', pattern: 'rock-68' } } } })).data;
+  assert.equal(d['drums:bd'].steps.length, 8 * 24);
+  SS.bandSong.setMeter('4/4');
+});

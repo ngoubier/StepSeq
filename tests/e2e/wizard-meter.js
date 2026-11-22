@@ -1,7 +1,7 @@
 /*
  * Test de bout en bout de la mesure de la chanson dans l'assistant « Nouvelle chanson » (js/band.js, carte « Mesure ») :
  *   node tests/e2e/wizard-meter.js   (SHOTS=dossier pour les captures)
- * Étape Tempo : 4/4, 3/4, 6/8, 12/8 ; les scènes passent à 12 ou 24 pas par mesure ; batterie (grille sans bibliothèque 4/4),
+ * Étape Tempo : 4/4, 3/4, 6/8, 12/8 ; les scènes passent à 12 ou 24 pas par mesure ; batterie (motifs de la mesure),
  * basse et nappe ne proposent que les motifs qui vont dans la mesure ; la chanson créée porte la mesure (timeSig).
  */
 const { chromium } = require('playwright');
@@ -58,7 +58,20 @@ const ok = (c, m) => {
   // batterie : la grille en 6/8, sans la bibliothèque 4/4
   await page.click('#bandWizSteps li[data-kind="drums"] button');
   await page.waitForTimeout(400);
-  ok((await page.locator('.bwp-lib').count()) === 0, 'batterie en 6/8 : pas de bibliothèque de motifs 4/4');
+  const pats = await page.$$eval('.bwp-lib .bwp-pat', (els) => els.map((e) => e.dataset.st + ':' + e.dataset.id).filter((x) => x !== ':'));
+  ok(pats.length === 6 && pats.every((x) => x.startsWith('6/8:')) && (await page.textContent('#bwpLib')).includes('6/8'), `batterie en 6/8 : les ${pats.length} motifs de la mesure, pas ceux de 4/4`);
+  await page.click('.bwp-pat[data-id="rock-68"]');
+  await page.waitForTimeout(400);
+  const kick = await page.evaluate(() => {
+    const r = SS.band._state.wiz.res;
+    const sc = r.scenes[0];
+    const id = Object.keys(sc.data).find((k) => /:bd$/.test(k));
+    return sc.data[id].steps.slice(0, 12).map((v) => (v > 0 ? 'x' : '-')).join('');
+  });
+  ok(kick === 'x---x-------', `Rock 6/8 choisi : la grosse caisse le joue (${kick})`);
+  await page.click('#bwpMatch');
+  await page.waitForTimeout(400);
+  ok(await page.evaluate(() => Object.values(SS.band._state.wiz.parts).filter((p) => Object.values(p.inst || {}).some((x) => x && x.style === '6/8')).length >= 3), 'Assortir toutes les scènes : des motifs 6/8');
   await shot('2-batterie-68.png');
 
   // basse : seulement des motifs qui vont en 6/8

@@ -569,6 +569,8 @@ SS.bandSong = (() => {
   /** Fill de js/drum-patterns.js calé sur la fin de la mesure de la chanson (écrit pour 16 pas). */
   function fillOf(F) {
     if (!F || SPB === 16) return F;
+    const own = SS.DRUM_FILLS && SS.DRUM_FILLS_METER && SS.DRUM_FILLS_METER[SIG] && SS.DRUM_FILLS_METER[SIG][Object.keys(SS.DRUM_FILLS).find((k) => SS.DRUM_FILLS[k] === F)];
+    if (own) return { ...F, ...own }; // fill écrit pour la mesure (6/8, 12/8)
     const d = SPB - 16;
     return { ...F, from: Math.max(0, F.from + d), ev: F.ev.map(([st, ...x]) => [st + d, ...x]).filter(([st]) => st >= 0) };
   }

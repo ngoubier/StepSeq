@@ -287,10 +287,60 @@ SS.DRUM_FILL_EVERY = { off: 'Jamais', end: 'Fin de scène', 4: 'Toutes les 4 mes
 
 /** Motif d'un style (null s'il n'existe pas) ; sans style, cherche l'identifiant dans tous les styles. */
 SS.drumPattern = (styleId, id) => {
+  const M = SS.DRUM_PATTERNS_METER || {};
+  if (styleId && M[styleId]) return M[styleId].find((x) => x.id === id) || null; // motif d'une mesure ternaire (style = '6/8'…)
   const styles = styleId ? [styleId] : Object.keys(SS.DRUM_PATTERNS);
   for (const s of styles) {
     const p = (SS.DRUM_PATTERNS[s] || []).find((x) => x.id === id);
     if (p) return p;
   }
   return null;
+};
+
+/*
+ * Motifs par mesure ternaire (Nouvelle chanson en 3/4, 6/8 ou 12/8) : mêmes champs que SS.DRUM_PATTERNS, une mesure de
+ * 12 pas (3/4, 6/8) ou 24 pas (12/8) ; un pas = une double croche, un temps = 4 pas en 3/4, 6 pas (noire pointée) en 6/8 et 12/8.
+ * La clé de la mesure sert de « style » (d.style = '6/8').
+ */
+SS.DRUM_PATTERNS_METER = {
+  '3/4': [
+    { id: 'valse', name: 'Valse', energy: 1, desc: 'Grosse caisse sur le 1, caisse claire légère sur le 2 et le 3', lanes: { K: 'x-----------', S: '----o---o---', H: 'x-o-x-o-x-o-' } },
+    { id: 'valse-jazz', name: 'Valse jazz', energy: 1, desc: 'Ride swing, charleston au pied sur le 2', lanes: { K: 'x-----------', H: '----o-------', O: 'x---x--ox---' } },
+    { id: 'valse-musette', name: 'Valse musette', energy: 2, desc: 'Le « poum-tchak-tchak » appuyé du bal', lanes: { K: 'x-----------', S: '----x---x---', H: 'x.o.x.o.x.o.' } },
+    { id: 'pop-34', name: 'Pop 3/4', energy: 2, desc: 'Grosse caisse sur 1 et 3, caisse claire sur 2', lanes: { K: 'x-------o---', S: '----x-------', H: 'x-o-x-o-x-o-' } },
+    { id: 'valse-rock', name: 'Valse rock', energy: 3, desc: 'Caisse claire sur 2 et 3, charleston en doubles', lanes: { K: 'x-----x-x---', S: '----x---x---', C: '----x---x---', H: 'xoxoxoxoxoxo', O: '----------x-' } },
+    { id: 'charleston-34', name: 'Charleston seul', energy: 1, desc: 'Seulement le charleston, en croches', lanes: { H: 'x-o-x-o-x-o-' } },
+  ],
+  '6/8': [
+    { id: 'berceuse-68', name: 'Berceuse', energy: 1, desc: 'Charleston en croches, grosse caisse sur le 1', lanes: { K: 'x-----------', H: 'o-.-.-o-.-.-' } },
+    { id: 'ballade-68', name: 'Ballade 6/8', energy: 1, desc: 'Rimshot sur le 2e temps, croches au charleston', lanes: { K: 'x-----------', R: '------o-----', H: 'x-o-o-x-o-o-' } },
+    { id: 'rock-68', name: 'Rock 6/8', energy: 2, desc: 'Caisse claire sur le 2e temps, grosse caisse qui relance', lanes: { K: 'x---o-------', S: '------x-----', H: 'x-o-o-x-o-o-' } },
+    { id: 'afro-68', name: 'Afro 6/8', energy: 2, desc: 'Cloche africaine, grosse caisse sur chaque temps', lanes: { K: 'x-----x-----', R: '----o-----o-', P: 'x---x---o-x-', H: 'o-.-.-o-.-.-' } },
+    { id: 'galop-68', name: 'Galop 6/8', energy: 3, desc: 'Grosse caisse en galop, caisse claire sur le 2e temps', lanes: { K: 'x---x-x---x-', S: '------x-----', H: 'x-o-o-x-o-o-' } },
+    { id: 'rock-68-fort', name: 'Rock 6/8 intense', energy: 3, desc: 'Clap et caisse claire, charleston ouvert en fin de mesure', lanes: { K: 'x---x-x-----', S: '------x-----', C: '------x-----', H: 'x-o-o-x-o-o-', O: '----------x-' } },
+  ],
+  '12/8': [
+    { id: 'slow-128', name: 'Slow 12/8', energy: 1, desc: 'Le slow des années 50 : triolets au charleston, caisse claire sur 2 et 4', lanes: { K: 'x---------o-x-----------', S: '------x-----------x-----', H: 'x-o-o-x-o-o-x-o-o-x-o-o-' } },
+    { id: 'doo-wop', name: 'Doo-wop', energy: 1, desc: 'Grosse caisse sur 1 et 3, caisse claire douce sur 2 et 4', lanes: { K: 'x-----------x-----------', S: '------o-----------o-----', H: 'x-o-o-x-o-o-x-o-o-x-o-o-' } },
+    { id: 'shuffle-128', name: 'Shuffle', energy: 2, desc: 'Charleston long-court, le balancement du blues', lanes: { K: 'x-----------x-----------', S: '------x-----------x-----', H: 'x---o-x---o-x---o-x---o-' } },
+    { id: 'bembe', name: 'Bembé', energy: 2, desc: 'Cloche afro-cubaine en 12/8, grosse caisse sur 1 et 3', lanes: { K: 'x-----------x-----------', R: '------o-----------o-----', P: 'x---x---x-x---x---x---x-' } },
+    { id: 'blues-rock-128', name: 'Blues rock', energy: 3, desc: 'Caisse claire et clap sur 2 et 4, grosse caisse qui pousse', lanes: { K: 'x---o-x-----x---o-------', S: '------x-----------x-----', C: '------x-----------x-----', H: 'x-o-o-x-o-o-x-o-o-x-o-o-', O: '----------------------x-' } },
+    { id: 'boogie-128', name: 'Boogie', energy: 3, desc: 'Grosse caisse et charleston en shuffle sur chaque temps', lanes: { K: 'x---o-x---o-x---o-x---o-', S: '------x-----------x-----', H: 'x---o-x---o-x---o-x---o-', O: '----------------------x-' } },
+  ],
+};
+
+/** Fills des mesures ternaires (mêmes noms que SS.DRUM_FILLS, en croches de triolet sur le dernier temps) ; absent : celui de 4/4 calé sur la fin de la mesure. */
+SS.DRUM_FILLS_METER = {
+  '6/8': {
+    roll: { from: 6, ev: [6, 7, 8, 9, 10, 11].map((s, i) => [s, 'S', Math.round((0.45 + i * 0.11) * 100) / 100]) },
+    toms: { from: 6, ev: [[6, 'T', 0.9, 0], [8, 'T', 0.85, 1], [10, 'T', 0.9, 2], [11, 'S', 1]] },
+    clap4: { from: 6, ev: [[6, 'C', 0.65], [8, 'C', 0.8], [10, 'C', 1]] },
+    kick: { from: 6, ev: [[6, 'K', 0.8], [8, 'K', 0.85], [10, 'K', 0.9], [11, 'K', 1]] },
+  },
+  '12/8': {
+    roll: { from: 12, ev: [[12, 'S', 0.45], [14, 'S', 0.5], [16, 'S', 0.55], ...[18, 19, 20, 21, 22, 23].map((s, i) => [s, 'S', Math.round((0.6 + i * 0.08) * 100) / 100])] },
+    toms: { from: 12, ev: [[12, 'T', 0.9, 0], [14, 'T', 0.75, 0], [16, 'T', 0.85, 1], [18, 'T', 0.9, 1], [20, 'T', 0.9, 2], [22, 'T', 0.8, 2], [23, 'S', 1]] },
+    clap4: { from: 18, ev: [[18, 'C', 0.65], [20, 'C', 0.8], [22, 'C', 1]] },
+    kick: { from: 12, ev: [[12, 'K', 0.8], [16, 'K', 0.8], [18, 'K', 0.85], [20, 'K', 0.9], [22, 'K', 1]] },
+  },
 };

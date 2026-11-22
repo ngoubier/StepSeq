@@ -6839,12 +6839,16 @@ SS.band = (() => {
   /** Bibliothèque affichée (S.wiz.dlib) : celle du style de la chanson par défaut, une autre, ou « all ». */
   const drumLibId = () => (S.wiz.dlib === 'all' || SS.DRUM_PATTERNS[S.wiz.dlib] ? S.wiz.dlib : drumStyle());
   /** Motifs de la bibliothèque affichée, chacun avec son style (p.st). */
+  /** Motifs de la mesure de la chanson (3/4, 6/8, 12/8), chacun avec la mesure pour style ; null en 4/4. */
+  const meterLib = () => (SPB() === 16 ? null : ((SS.DRUM_PATTERNS_METER || {})[sigOf()] || []).map((p) => ({ ...p, st: sigOf() })));
   const drumLib = () => {
+    if (meterLib()) return meterLib();
     const id = drumLibId();
     return (id === 'all' ? Object.keys(SS.DRUM_PATTERNS) : [id]).flatMap((st) => SS.DRUM_PATTERNS[st].map((p) => ({ ...p, st })));
   };
   /** Choix de la bibliothèque : style de la chanson en premier, puis les autres, puis « Tous les styles ». */
   function drumLibPick() {
+    if (SPB() !== 16) return h('span', { class: 'bwp-libsel bwp-libmeter', id: 'bwpLib' }, `Mesure ${sigOf()}`);
     const cur = drumLibId();
     const ids = [drumStyle(), ...Object.keys(SS.DRUM_PATTERNS).filter((x) => x !== drumStyle())];
     return h(
@@ -6861,7 +6865,8 @@ SS.band = (() => {
   };
   const patOf = (sec, T) => {
     const d = partOf(sec, T);
-    return d && d.pattern ? SS.drumPattern(d.style || drumStyle(), d.pattern) : null;
+    const p = d && d.pattern ? SS.drumPattern(d.style || drumStyle(), d.pattern) : null;
+    return p && BS().fitLanes(p.lanes) ? p : null; // motif d'une autre mesure : le plan joue
   };
   /** Pistes K S C H O de la première mesure, comme le plan de l'inspiration les joue (aucun motif choisi). */
   function inspLanes(sc, cols) {
@@ -7185,8 +7190,8 @@ SS.band = (() => {
   // miniature : K S C H O toujours, R (rimshot), T (toms), P (percussion) seulement si le motif les joue ; « r » = roulement
   const MINI_EXTRA = ['R', 'T', 'P'];
   const miniLanes = (lanes) =>
-    `<span class="bwp-mini">${[...LANES.map(([k]) => k), ...MINI_EXTRA.filter((k) => /[xo.r]/.test(lanes[k] || ''))]
-      .map((k) => Array.from({ length: 16 }, (_, s) => { const c = (lanes[k] || E16)[s] || '-'; return `<i class="${k}${c !== '-' ? ' v' : ''}${c === 'r' ? ' r' : ''}"></i>`; }).join(''))
+    `<span class="bwp-mini" style="grid-template-columns:repeat(${SPB()},1fr)">${[...LANES.map(([k]) => k), ...MINI_EXTRA.filter((k) => /[xo.r]/.test(lanes[k] || ''))]
+      .map((k) => Array.from({ length: SPB() }, (_, s) => { const c = (lanes[k] || E16)[s] || '-'; return `<i class="${k}${c !== '-' ? ' v' : ''}${c === 'r' ? ' r' : ''}"></i>`; }).join(''))
       .join('')}</span>`;
   function pickPattern(sc, T, p) {
     putPart(sc.sec, T, p ? { style: p.st || drumStyle(), pattern: p.id, edits: undefined } : { style: undefined, pattern: undefined, edits: undefined });
@@ -7418,7 +7423,8 @@ SS.band = (() => {
 
   /** « Assortir toutes les scènes » : un motif de la nuance de chaque scène, le même pour les scènes du même type. */
   function matchAllDrums(T) {
-    const list = SS.DRUM_PATTERNS[drumStyle()];
+    const list = meterLib() || SS.DRUM_PATTERNS[drumStyle()];
+    const st = SPB() === 16 ? drumStyle() : sigOf();
     const byKind = new Map();
     const used = { 1: 0, 2: 0, 3: 0 };
     S.wiz.res.scenes.forEach((x) => {
@@ -7428,7 +7434,7 @@ SS.band = (() => {
         const cand = list.filter((p) => p.energy === e);
         byKind.set(kd, (cand.length ? cand : list)[used[e]++ % (cand.length || list.length)]);
       }
-      putPart(x.sec, T, { style: drumStyle(), pattern: byKind.get(kd).id, edits: undefined });
+      putPart(x.sec, T, { style: st, pattern: byKind.get(kd).id, edits: undefined });
     });
     S.wiz.pmsg = 'Un motif suggéré pour chaque scène';
     partChanged();
@@ -7602,7 +7608,7 @@ SS.band = (() => {
         placePop(w);
       });
     }, 0);
-    return [partHead(sc, T, 'batterie', false), autoCard(sc, T), ...(build ? [...buildCards(sc, T)] : []), card1, SPB() === 16 ? card2 : null]; // bibliothèque de motifs : 4/4 seulement (motifs ternaires : PR suivante)
+    return [partHead(sc, T, 'batterie', false), autoCard(sc, T), ...(build ? [...buildCards(sc, T)] : []), card1, card2];
   }
 
   /* --- Drums d'un instrument qui n'est pas un kit : notes courtes sur la fondamentale, jouées sur la grosse caisse et / ou la caisse claire du motif --- */
@@ -7639,7 +7645,7 @@ SS.band = (() => {
         h('p', { class: 'dlg-hint', 'data-helpify': true }, 'Cet instrument joue la fondamentale de chaque accord, en notes courtes, sur les coups du motif de batterie.'),
         partSeg('Joue sur', 'bwpDrumMode', DRUM_MODES.map(([v, t, tip]) => [v, t, tip]), d.mode || 'both', (v) => (putPart(sc.sec, T, { mode: v === 'both' ? undefined : v }), partChanged()))
       ),
-      SPB() !== 16 ? null : h(
+      h(
         'section',
         { class: 'bwp-card bw-card' },
         h(
