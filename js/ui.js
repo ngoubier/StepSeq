@@ -338,7 +338,7 @@ SS.ui = (() => {
   let renderedShape = '';
   function shape() {
     const p = app.project();
-    return JSON.stringify([SS.totalSteps(p), p.tracks.map((t) => t.id), [...app.state.openRolls].sort()]);
+    return JSON.stringify([SS.totalSteps(p), SS.stepsPerBar(p), p.tracks.map((t) => t.id), [...app.state.openRolls].sort()]);
   }
   /** Après un changement de scène : repeint les notes si la page a la même forme, sinon la reconstruit. */
   function refreshScene() {
@@ -1464,12 +1464,22 @@ SS.ui = (() => {
     options.addEventListener('toggle', (event) => more.setAttribute('aria-expanded', String(event.newState === 'open')));
     controls.append(more, options);
 
-    const grid = h('div', { class: 'grid track-grid' + (track.type === 'instrument' ? ' inst-grid' : '') });
+    const grid = h('div', { class: 'grid track-grid' + (track.type === 'instrument' ? ' inst-grid' : '') + (n > LONG_GRID * SS.stepsPerBar(p) ? ' long' : '') });
+    // cases regroupées par paquets de CHUNK_BARS mesures (voir chunkCols) : dans une longue scène, le navigateur
+    // saute les paquets hors de l'écran (content-visibility), au lieu de redessiner des milliers de cases à chaque pas
+    const spb = SS.stepsPerBar(p);
+    let chunk = null;
     for (let s = 0; s < n; s++) {
+      if (s % (CHUNK_BARS * spb) === 0) {
+        const bars = Math.min(CHUNK_BARS, Math.ceil((n - s) / spb));
+        chunk = h('div', { class: 'cell-chunk', style: chunkCols(s === 0, bars) });
+        grid.append(chunk);
+      }
       const c = h('div', { class: cellClass(p, s, 'cell'), 'data-step': s }, h('div', { class: 'fill' }));
       ref.cells.push(c);
-      grid.append(c);
+      chunk.append(c);
     }
+    grid._cells = ref.cells;
     // poignée de fin de boucle : on la glisse pour changer la longueur de la piste
     ref.lenHandle = h('div', {
       class: 'len-handle',
@@ -2041,7 +2051,8 @@ SS.ui = (() => {
       ref.lenHandle.classList.toggle('custom', len < total);
       // positionnée juste après la dernière case de la boucle (une fois la grille dans la page)
       requestAnimationFrame(() => {
-        if (last && last.isConnected) ref.lenHandle.style.left = last.offsetLeft + last.offsetWidth + 1 + 'px';
+        // position lue à l'écran : les cases sont dans des paquets (cell-chunk), pas directement dans la grille
+        if (last && last.isConnected) ref.lenHandle.style.left = last.getBoundingClientRect().right - ref.lenHandle.parentElement.getBoundingClientRect().left + 1 + 'px';
       });
     }
   }
@@ -3242,7 +3253,7 @@ SS.ui = (() => {
   }
 
   /** Dernière case d'une note dans une grille (pour dessiner la poignée). */
-  const endCellOf = (grid, ev) => grid.children[ev.step + ev.len - 1] || null;
+  const endCellOf = (grid, ev) => (grid._cells || grid.children)[ev.step + ev.len - 1] || null;
 
   /** Curseur « poignée » au survol du bord droit d'une note. */
   function hoverResize(track, grid, sel) {
@@ -4054,6 +4065,22 @@ SS.ui = (() => {
     return u === 1 ? '1 pas' : `${u} pas`;
   }
 
+  /*
+   * Paquets de cases d'une piste (cell-chunk) : CHUNK_BARS mesures chacun, avec les mêmes colonnes que la règle
+   * (--bar-cols-first pour la 1re mesure de la scène, --bar-cols pour les suivantes : la 1re case d'une mesure a la
+   * marge de mesure). Au-delà de LONG_GRID mesures, les paquets hors de l'écran ne sont ni mis en page ni dessinés :
+   * une scène de 64 mesures et 30 pistes compte 30 000 cases, et les redessiner toutes à chaque pas bloquait la page
+   * pendant la lecture (notes en retard).
+   */
+  const CHUNK_BARS = 4;
+  const LONG_GRID = 8;
+  function chunkCols(first, bars) {
+    const cols = first ? ['var(--bar-cols-first)'] : [];
+    const rest = bars - cols.length;
+    if (rest > 0) cols.push(`repeat(${rest}, var(--bar-cols))`);
+    return `grid-template-columns:${cols.join(' ')};--bars:${bars}`;
+  }
+
   function baseCols() {
     const p = app.project();
     const beat = SS.stepsPerBeat(p);
@@ -4069,6 +4096,17 @@ SS.ui = (() => {
   function applyZoomVars() {
     const root = document.documentElement.style;
     root.setProperty('--grid-cols', baseCols().map((w) => +(w * zoom).toFixed(2) + 'px').join(' '));
+    // colonnes d'une mesure, pour les paquets de cases des pistes (chunkCols)
+    {
+      const p = app.project();
+      const bar = SS.stepsPerBar(p);
+      const beat = SS.stepsPerBeat(p);
+      const col = (i, first) => (i === 0 ? (first ? BASE_COL.step : BASE_COL.bar) : i % beat === 0 ? BASE_COL.beat : BASE_COL.step) * zoom;
+      const one = (first) => Array.from({ length: bar }, (_, i) => +col(i, first).toFixed(2));
+      root.setProperty('--bar-cols-first', one(true).map((w) => w + 'px').join(' '));
+      root.setProperty('--bar-cols', one(false).map((w) => w + 'px').join(' '));
+      root.setProperty('--bar-w', one(false).reduce((a, w) => a + w, 0).toFixed(2) + 'px');
+    }
     root.setProperty('--zx', zoom);
     document.body.classList.toggle('zoom-compact', zoom < 0.65);
     document.body.classList.toggle('zoom-tiny', zoom < 0.4);

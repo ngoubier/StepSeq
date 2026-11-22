@@ -451,7 +451,9 @@ dialog.options-dialog { width: min(520px, calc(100vw - 32px)); }
 .ruler .grid { cursor: pointer; }
 .ruler .grid div { position: relative; }
 .ruler .grid div:hover { background: rgba(255, 255, 255, .06); }
-.ruler .grid div.now::after { content: ""; position: absolute; left: 50%; bottom: -1px; transform: translateX(-50%); border: 5px solid transparent; border-bottom-color: var(--c-green); }
+/* repère toujours présent, seulement montré : l'ajouter à chaque pas obligeait à remettre toute la règle en page */
+.ruler .grid div::after { content: ""; position: absolute; left: 50%; bottom: -1px; transform: translateX(-50%); border: 5px solid transparent; border-bottom-color: var(--c-green); opacity: 0; pointer-events: none; }
+.ruler .grid div.now::after { opacity: 1; }
 
 .track { border-bottom: 1px solid #000; }
 .track-row { height: var(--row-h); }
@@ -532,6 +534,10 @@ dialog.options-dialog { width: min(520px, calc(100vw - 32px)); }
 
 /* Cases */
 .track-row .grid { align-items: center; gap: 0; }
+/* cases d'une piste par paquets de 4 mesures (ui.js, chunkCols) ; scène longue : paquets hors écran sautés */
+.track-row .track-grid { display: flex; align-items: stretch; }
+.cell-chunk { display: grid; flex: none; align-items: center; justify-content: start; }
+.track-grid.long .cell-chunk { content-visibility: auto; contain-intrinsic-size: auto calc(var(--bar-w) * var(--bars)) auto var(--row-h); }
 .cell {
   position: relative;
   width: calc(var(--sq) * var(--zx));
@@ -599,7 +605,8 @@ dialog.options-dialog { width: min(520px, calc(100vw - 32px)); }
   pointer-events: none;
 }
 .hide-shift-home .shift-home { display: none; }
-.cell.on.now { filter: brightness(1.35); }
+/* note jouée plus claire : couleur du remplissage (un filtre remettait la case en page à chaque pas) */
+.cell.on.now .fill { background: color-mix(in srgb, var(--c) 72%, #fff); }
 /* accent : liseré doré en haut de la note */
 .acc-mark { position: absolute; left: 1px; right: 1px; top: 1px; height: 3px; border-radius: 2px; background: var(--gold); z-index: 2; pointer-events: none; }
 .ctx-acc { min-width: 92px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--text); font: inherit; font-size: var(--fs-sm); cursor: pointer; }
