@@ -98,3 +98,19 @@ test('articulations : trémolo, pizzicato, spiccato au moteur, claviers d’orch
   assert.equal(ep.lines.vcs.role, 'motor');
   assert.ok(ep.lines.vcs.events.length);
 });
+
+test('mesures ternaires : ostinato, accents des cuivres, harpe et marimba calés sur la mesure (3/4, 6/8, 12/8)', () => {
+  const O = SS.orchestra;
+  for (const [spb, beat] of [[12, 4], [12, 6], [24, 6]]) {
+    const spans = [0, 1, 2, 3].map((i) => ({ step: i * spb, len: spb, pcs: [[0, 3, 7], [8, 0, 3], [3, 7, 10], [10, 2, 5]][i], bassPc: [0, 8, 3, 10][i] }));
+    const r = O.orchestrate({ parts: Object.keys(O.PART), spans, melody: [{ step: 0, len: 4, midi: 72 }], level: 'full', motor: true, stabs: true, art: { marimba: 1, bells: 1, motor: true }, spb, beat });
+    const all = Object.values(r.lines).flatMap((L) => L.events);
+    assert.ok(all.every((e) => e.step >= 0 && e.step + e.len <= 4 * spb), `${spb}/${beat} : tout dans la scène`);
+    const acc = (id) => r.lines[id].events.filter((e) => e.step < spb).map((e) => e.step);
+    const group = beat === 6 ? beat : 6; // 3/4 : 3+3 croches ; 6/8, 12/8 : un groupe par temps
+    assert.deepEqual(acc('tb'), Array.from({ length: spb / group }, (_, i) => i * group), `${spb}/${beat} : accents des cuivres`);
+    const hp = r.lines.hp.events;
+    for (let b = 1; b < 4; b++) assert.equal(hp.find((e) => e.step === b * spb).notes[0] % 12, spans[b].bassPc, `${spb}/${beat} : la harpe repart de la basse à chaque mesure`);
+    assert.deepEqual(r.lines.ma.events.filter((e) => e.step < spb).map((e) => e.step), [0, beat === 6 ? spb / 2 : 4]);
+  }
+});
