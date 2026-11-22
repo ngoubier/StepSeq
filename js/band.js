@@ -3794,7 +3794,8 @@ SS.band = (() => {
         const line = sub && sub(x);
         return h(
           'button',
-          { type: 'button', class: 'bh-scene' + (on ? ' on' : ''), style: `--c:${secColor(x.sec)}`, 'data-scene': x.id, 'data-sec': x.sec, 'data-bars': x.bars, 'aria-pressed': String(on), title: `Travailler « ${x.name} »`, onclick: () => pickScene(x) },
+          { type: 'button', class: 'bh-scene' + (on ? ' on' : ''), style: `--c:${secColor(x.sec)}`, 'data-scene': x.id, 'data-sec': x.sec, 'data-bars': x.bars, 'aria-pressed': String(on), title: `Travailler « ${x.name} » (double-clic : sa fiche)`, onclick: (e) => (e.detail === 2 ? openWizSheet(x.id) : pickScene(x)) },
+          sheetBtn(x),
           h('span', { class: 'bh-sname' }, h('b', {}, x.name), h('small', {}, `${x.bars} mes.` + (plays.get(x.id) > 1 ? ` · ×${plays.get(x.id)}` : ''))),
           h('span', { class: 'bh-mini' }, ...[...seen.values()].map((c) => h('span', { class: 'bh-mchip role-' + c.role.id, title: `${c.numeral} · ${c.role.label}` }, c.name))),
           line ? h('small', { class: 'bh-ssub' }, line) : null
@@ -3852,6 +3853,252 @@ SS.band = (() => {
   }
   const followBtn = () =>
     h('button', { type: 'button', class: 'btn btn-small bh-follow', id: 'bwFollow', hidden: L.mode !== 'song', title: 'La vue suit la scène qu’on entend', onclick: followNow }, h('i', { html: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v9M4 7.5 8 11.5 12 7.5M3 14h10" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>' }), h('span', {}, 'Suit la lecture'));
+  /*
+   * Fiche « Scène » dans l'assistant : le même tiroir à droite que dans la Grille (classes .scene-sheet / .ssh-*), mais il lit
+   * et modifie le brouillon de l'assistant, pas la grille. Ouverte par un double-clic (ou ☰) sur une carte de la colonne
+   * « Scènes, dans l'ordre », ou par un double-clic sur un bloc de l'étape Arrangement. ‹ › changent aussi la scène affichée.
+   * Émotion → S.wiz.emos[section] ; Joue / Muet → putOff (même réglage que « Joue dans cette scène ») ; le reste mène aux étapes.
+   */
+  const WSH_HELP = {
+    tempo: 'Le tempo de la chanson (étape Tempo et tonalité). Un tempo propre à la scène se règle dans la Grille.',
+    emo: 'Ce que la scène doit faire ressentir : elle guide la mélodie. Énergie : celle qu’on entend (cases pleines) et celle que veut la courbe de l’étape Arrangement (case en pointillé).',
+    chords: 'Une case par mesure. Clic : l’étape Accords sur cette scène.',
+    inst: 'Joue / Muet : la case « Joue dans cette scène » de chaque instrument. Clic sur un nom : l’étape de cet instrument.',
+    move: 'Automations des instruments dans cette scène, mouvements de son gardés à l’étape Arrangement, transitions de l’étape Effets.',
+    trans: 'Les scènes qui viennent avant et après celle-ci dans l’arrangement.',
+  };
+  const WSH_CLOSED = 'stepseq.wizSheet.closed'; // rubriques repliées
+  let wshId = null; // scène ouverte dans la fiche (id d'une scène de S.wiz.res)
+  let wshEmo = false; // liste des émotions ouverte
+  function wshClosed() {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(WSH_CLOSED) || '[]'));
+    } catch (e) {
+      return new Set();
+    }
+  }
+  function wshSection(id, title, sum, ...body) {
+    const det = h('details', { class: 'ssh-sec', 'data-sec': id, open: !wshClosed().has(id) },
+      h('summary', {}, h('span', { class: 'ssh-st' }, title), SS.helpTip ? SS.helpTip(WSH_HELP[id], title) : null, h('span', { class: 'ssh-sum' }, sum)),
+      h('div', { class: 'ssh-body' }, ...body));
+    det.addEventListener('toggle', () => {
+      const s = wshClosed();
+      if (det.open) s.delete(id);
+      else s.add(id);
+      try {
+        localStorage.setItem(WSH_CLOSED, JSON.stringify([...s]));
+      } catch (e) {
+        /* ignore */
+      }
+    });
+    return det;
+  }
+  const wshLink = (label, n, sc) => h('button', { type: 'button', class: 'ssh-btn ssh-small wsh-go', onclick: () => wshGo(n, sc) }, `→ ${label}`);
+  /** Va à une étape, sur la scène de la fiche (la fiche reste ouverte). */
+  function wshGo(n, sc) {
+    if (!n) return;
+    if (n === S.wiz.step) {
+      if (sceneStep(n) && sc) pickScene(sc);
+      return;
+    }
+    goStep(n, sc);
+  }
+  function openWizSheet(id) {
+    if (!S.wiz || !S.wiz.res || !S.wiz.res.scenes.some((x) => x.id === id)) return;
+    if (SS.sceneSheet && SS.sceneSheet.isOpen()) SS.sceneSheet.close();
+    let root = document.getElementById('wizSceneSheet');
+    if (!root) {
+      root = h('aside', { id: 'wizSceneSheet', class: 'scene-sheet wiz-sheet', 'aria-label': 'Fiche Scène' });
+      root.addEventListener('click', () => wshEmo && ((wshEmo = false), renderWizSheet()));
+      document.body.append(root);
+    }
+    wshId = id;
+    wshEmo = false;
+    root.hidden = false;
+    document.body.classList.add('wiz-sheet-open');
+    renderWizSheet();
+  }
+  function closeWizSheet() {
+    wshId = null;
+    wshEmo = false;
+    const root = document.getElementById('wizSceneSheet');
+    if (root) root.hidden = true;
+    document.body.classList.remove('wiz-sheet-open');
+  }
+  /** Bouton ☰ d'une carte de scène (au survol) : ouvre la fiche sans changer de scène. */
+  const sheetBtn = (x) =>
+    h('span', { class: 'bh-sheet', role: 'button', tabindex: '0', title: 'Fiche de la scène (double-clic)', 'aria-label': `Fiche de « ${x.name} »`, 'data-sheet': x.id,
+      onclick: (e) => (e.stopPropagation(), openWizSheet(x.id)),
+      onkeydown: (e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), e.stopPropagation(), openWizSheet(x.id)) }, '☰');
+  function renderWizSheet() {
+    const root = document.getElementById('wizSceneSheet');
+    if (!root || !wshId) return;
+    const res = S.wiz && S.wiz.res;
+    if (!res) return closeWizSheet();
+    let sc = res.scenes.find((x) => x.id === wshId);
+    if (!sc) {
+      // la chanson a été recalculée : même section, nouvel id
+      const sec = root.dataset.sec;
+      sc = res.scenes.find((x) => x.sec === sec);
+      if (!sc) return closeWizSheet();
+      wshId = sc.id;
+    }
+    const idx = res.scenes.indexOf(sc);
+    const bpm = sc.tempo || tempo();
+    const times = res.song.filter((b) => b.scene === sc.id).reduce((a, b) => a + b.repeat, 0);
+    const secs = (sc.bars * 4 * 60) / bpm;
+    const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
+    const go = (d) => {
+      const next = res.scenes[(idx + d + res.scenes.length) % res.scenes.length];
+      wshId = next.id;
+      if (sceneStep()) pickScene(next); // la vue suit (renderWiz redessine la fiche)
+      renderWizSheet();
+    };
+    const head = h('header', { class: 'ssh-head' },
+      h('b', { class: 'ssh-letter', style: `color:${secColor(sc.sec)}` }, String.fromCharCode(65 + (idx % 26))),
+      h('b', { class: 'wsh-name' }, sc.name),
+      h('span', { class: 'ssh-meta' }, `${sc.bars} mes. · ${fmt(secs)}${times ? ` · ×${times}` : ''}`),
+      h('span', { class: 'spacer' }),
+      res.scenes.length > 1 ? h('button', { type: 'button', class: 'ssh-nav', id: 'wshPrev', title: 'Scène précédente', 'aria-label': 'Scène précédente', onclick: () => go(-1) }, '‹') : null,
+      res.scenes.length > 1 ? h('button', { type: 'button', class: 'ssh-nav', id: 'wshNext', title: 'Scène suivante', 'aria-label': 'Scène suivante', onclick: () => go(1) }, '›') : null,
+      h('button', { type: 'button', class: 'ssh-nav', id: 'wshClose', title: 'Fermer (Échap)', 'aria-label': 'Fermer la fiche', onclick: closeWizSheet }, '✕'));
+
+    // --- tempo (lecture seule)
+    const tempoSec = wshSection('tempo', 'Tempo', `${sc.tempo ? 'propre' : '= chanson'} · ${bpm}`,
+      h('div', { class: 'ssh-row' }, h('b', { class: 'wsh-bpm' }, String(bpm)), h('span', { class: 'ssh-muted' }, 'BPM'), h('span', { class: 'ssh-tag' }, fmt(secs)), h('span', { class: 'spacer' }), wshLink('Tempo', ST.tempo)));
+
+    // --- émotion et énergie
+    const film = !!sc.film;
+    const curId = S.wiz.emos[sc.sec] || sc.emotion || null;
+    const cur = curId && SS.findEmotion(curId);
+    const colorOf = (id) => (SS.EMOTION_COLORS && SS.EMOTION_COLORS[id]) || '#9a9aa3';
+    const pick = (id) => {
+      wshEmo = false;
+      if (id) S.wiz.emos[sc.sec] = id;
+      else delete S.wiz.emos[sc.sec];
+      renderWiz(); // la chanson se recalcule (profil de la mélodie) ; la fiche suit
+      renderWizSheet();
+    };
+    const emoBox = film
+      ? h('div', { class: 'ssh-row' }, cur ? h('i', { class: 'ssh-dot', style: `--c:${colorOf(cur.id)}` }) : null, h('span', {}, cur ? cur.label : 'sans émotion'))
+      : h('div', { class: 'ssh-combo' },
+          h('button', {
+            type: 'button', class: 'ssh-combo-btn' + (cur ? '' : ' none'), id: 'wshEmo', 'aria-haspopup': 'listbox', 'aria-expanded': String(wshEmo), style: cur ? `--c:${colorOf(cur.id)}` : null,
+            onclick: (e) => (e.stopPropagation(), (wshEmo = !wshEmo), renderWizSheet()),
+          }, cur ? h('i') : null, h('span', {}, cur ? cur.label : 'Choisir une émotion'), h('b', { 'aria-hidden': 'true' }, '▾')),
+          wshEmo
+            ? h('div', { class: 'ssh-emo-panel', role: 'listbox', 'aria-label': 'Émotions', onclick: (e) => e.stopPropagation() },
+                SS.EMOTIONS.map((e) => h('button', { type: 'button', role: 'option', class: 'ssh-emo' + (curId === e.id ? ' on' : ''), style: `--c:${colorOf(e.id)}`, 'aria-selected': String(curId === e.id), 'data-emo': e.id, onclick: () => pick(e.id) }, h('i'), e.label)),
+                S.wiz.emos[sc.sec] ? h('button', { type: 'button', role: 'option', class: 'ssh-emo ssh-emo-none', onclick: () => pick(null) }, 'Celle de l’inspiration') : null)
+            : null);
+    let heard = null;
+    let want = null;
+    try {
+      const m = arrModel(res);
+      const x = m.scenes.find((s) => s.sec === sc.sec);
+      if (x) heard = Math.round((1 + 4 * x.e) * 10) / 10;
+      const b = m.bl.list.find((s) => s.sec === sc.sec);
+      if (b && m.bl.bars) want = Math.round(1 + 4 * AR().target(arrCurve(), (b.start + b.bars / 2) / m.bl.bars));
+    } catch (e) {
+      /* pas de mesure */
+    }
+    const lvl = (n, val, mark, color) => h('span', { class: 'ssh-lvl wsh-lvl', style: `--c:${color}` },
+      Array.from({ length: n }, (_, i) => h('i', { class: (val && i < Math.round(val) ? 'on' : '') + (mark === i + 1 ? ' meas' : '') })));
+    const f1 = (x) => String(x).replace('.', ',');
+    const feel = wshSection('emo', 'Émotion et énergie', h('span', {}, cur ? h('i', { class: 'ssh-dot', style: `--c:${colorOf(cur.id)}` }) : null, `${cur ? cur.label : 'sans émotion'}${heard ? ` · ${f1(heard)}/5` : ''}`),
+      emoBox,
+      heard ? h('div', { class: 'ssh-kv' }, h('span', {}, 'Énergie'),
+        h('span', { class: 'ssh-row' }, lvl(5, heard, want, '#e5382f'), h('small', { class: 'ssh-muted', 'data-energy': heard }, `entendue ${f1(heard)}${want ? ` · voulue ${want}` : ''}`))) : null,
+      h('div', { class: 'ssh-row' }, wshLink('Arrangement', ST.arr)));
+
+    // --- accords
+    const spans = sceneSpans(sc);
+    const bars = Array.from({ length: sc.bars }, () => []);
+    spans.forEach((sp) => {
+      const b = Math.max(0, Math.min(sc.bars - 1, sp.bar != null ? sp.bar : Math.floor(sp.step / 16)));
+      if (!bars[b].includes(sp.info.name)) bars[b].push(sp.info.name);
+    });
+    let last = null;
+    const cells = bars.map((names, i) => {
+      const held = !names.length && last;
+      if (names.length) last = names[names.length - 1];
+      return h('button', { type: 'button', class: 'ssh-chord' + (held ? ' held' : ''), title: 'Étape Accords', onclick: () => wshGo(ST.chords, sc) }, h('small', {}, String(i + 1)), names.length ? names.join(' ') : held || '·');
+    });
+    const chords = wshSection('chords', 'Accords', sc.key ? SS.harmony.label(sc.key) : '', h('div', { class: 'ssh-chords' }, cells));
+
+    // --- instruments
+    let counts = {};
+    try {
+      counts = (arrModel(res).scenes.find((s) => s.sec === sc.sec) || {}).counts || {};
+    } catch (e) {
+      /* rien */
+    }
+    const ins = insSteps();
+    let nPlay = 0;
+    const rows = ins.map((T) => {
+      const muted = mutedIn(sc.sec, T);
+      const n = counts[T.id] || 0;
+      if (!muted && n) nPlay++;
+      const color = KIND_COLOR[T.kind];
+      const setOff = (off) => {
+        putOff(sc.sec, T, off);
+        partChanged(); // la chanson se recalcule ; on l'entend dans la scène
+        renderWizSheet();
+      };
+      return h('div', { class: 'ssh-tr' + (muted ? ' mute' : '') + (!muted && !n ? ' empty' : ''), style: `--c:${color}`, 'data-inst': T.id },
+        h('span', { class: 'ssh-cl' }),
+        h('button', { type: 'button', class: 'ssh-tn wsh-tn', title: `Étape ${T.name}`, onclick: () => wshGo(stepNum({ inst: T.id }), sc) },
+          h('span', { class: 'ssh-tname' }, T.name), h('small', { class: 'ssh-muted ssh-small' }, muted ? 'muet dans cette scène' : n ? `${n} notes ou coups` : 'ne joue pas ici')),
+        h('span', { class: 'ssh-st3' },
+          h('button', { type: 'button', class: muted ? '' : 'on play', 'aria-pressed': String(!muted), onclick: () => muted && setOff(false) }, 'Joue'),
+          h('button', { type: 'button', class: muted ? 'on mute' : '', 'aria-pressed': String(muted), onclick: () => !muted && setOff(true) }, 'Muet')));
+    });
+    const inst = wshSection('inst', 'Instruments', `${nPlay}/${ins.length} jouent`, rows);
+
+    // --- mouvement : automations par scène, mouvements de son gardés, transitions
+    const moves = [];
+    ins.forEach((T) => Object.keys(autoOf(sc.sec, T)).forEach((k) => !mutedIn(sc.sec, T) && moves.push(`${T.name} · ${(((SS.AUTO_PARAMS || []).find((x) => x.id === k)) || { label: k }).label.toLowerCase()}`)));
+    try {
+      const kept = new Set(keptMoves());
+      (arrMoves(res) || []).filter((mv) => kept.has(mv.id) && (mv.plan || []).some((x) => (res.song[x.block] || {}).scene === sc.id)).forEach((mv) => moves.push(mv.label));
+    } catch (e) {
+      /* pas de mouvement */
+    }
+    let joins = [];
+    try {
+      const withFx = hasRole('fx');
+      joins = fxJoins(res).filter((j) => (j.from.sec === sc.sec || j.to.sec === sc.sec) && fxCount(fxEff(j), withFx) > 0);
+    } catch (e) {
+      /* pas d'effet */
+    }
+    const seenJ = new Set();
+    joins.forEach((j) => !seenJ.has(j.key) && (seenJ.add(j.key), moves.push(`transition ${j.from.name} → ${j.to.name}`)));
+    const move = wshSection('move', 'Mouvement', moves.length ? `${moves.length} mouvement${moves.length > 1 ? 's' : ''}` : 'aucun',
+      moves.length ? h('div', { class: 'ssh-emos' }, moves.map((m) => h('span', { class: 'ssh-tag' }, m))) : h('span', { class: 'ssh-muted' }, 'Rien ne bouge dans cette scène.'),
+      h('div', { class: 'ssh-row' }, wshLink('Effets et transitions', ST.fx)));
+
+    // --- entrée et sortie
+    const nameAt = (i) => {
+      const b = res.song[i];
+      const s = b && res.scenes.find((x) => x.id === b.scene);
+      return s ? s.name : null;
+    };
+    const at = res.song.map((b, i) => (b.scene === sc.id ? i : -1)).filter((i) => i >= 0);
+    const froms = [...new Set(at.map((i) => nameAt(i - 1) || 'début'))];
+    const tos = [...new Set(at.map((i) => nameAt(i + 1) || 'fin'))];
+    const trans = wshSection('trans', 'Entrée et sortie', at.length ? `${froms[0]} → ${tos[0]}` : 'pas dans l’arrangement',
+      at.length
+        ? h('div', { class: 'ssh-kv' }, h('span', {}, 'Depuis'), h('span', { class: 'ssh-emos' }, froms.map((x) => h('span', { class: 'ssh-tag' }, x))),
+            h('span', {}, 'Vers'), h('span', { class: 'ssh-emos' }, tos.map((x) => h('span', { class: 'ssh-tag' }, x))))
+        : h('span', { class: 'ssh-muted' }, 'Cette scène n’est pas dans l’arrangement.'),
+      h('div', { class: 'ssh-row' }, wshLink('Scènes', ST.scenes)));
+
+    const scroll = root.scrollTop;
+    root.replaceChildren(head, tempoSec, feel, chords, inst, move, trans);
+    root.scrollTop = scroll;
+    root.dataset.scene = sc.id;
+    root.dataset.sec = sc.sec;
+  }
   /** Mise en page des étapes Accords et Mélodie : colonne des scènes à gauche, bandeau de lecture et contenu à droite. */
   function splitView(nav, ...content) {
     const box = $('#bandWiz');
@@ -7973,6 +8220,7 @@ SS.band = (() => {
       markListen();
     }
     renderInsp();
+    if (wshId) renderWizSheet();
   }
 
   /** Boutons du pied de la fenêtre selon l'étape. */
@@ -9051,7 +9299,7 @@ SS.band = (() => {
     };
     add('polyline', { class: 'bwar-want', points: Array.from({ length: 51 }, (_, i) => `${i * 20},${y(AR().target(curve, i / 50))}`).join(' ') });
     add('polyline', { class: 'bwar-got', points: m.bl.list.flatMap((b) => { const e = bySec.get(b.sec).e; return [`${((1000 * b.start) / total).toFixed(1)},${y(e)}`, `${((1000 * (b.start + b.bars)) / total).toFixed(1)},${y(e)}`]; }).join(' ') });
-    const strip = h('div', { class: 'bwar-strip' }, ...m.bl.list.map((b) => h('button', { type: 'button', class: 'bwar-blk' + (warnSecs.has(b.sec) ? ' warn' : ''), 'data-sec': b.sec, 'data-start': b.start, 'data-bars': b.bars, style: `flex:${b.bars} 1 0;--c:${secColor(b.sec)}`, title: `${b.name} · ${b.bars} mesures — clic : écouter la scène en boucle`, onclick: () => listenScene(b.sceneId) }, h('b', {}, b.name), h('small', {}, String(b.bars)))));
+    const strip = h('div', { class: 'bwar-strip' }, ...m.bl.list.map((b) => h('button', { type: 'button', class: 'bwar-blk' + (warnSecs.has(b.sec) ? ' warn' : ''), 'data-sec': b.sec, 'data-start': b.start, 'data-bars': b.bars, style: `flex:${b.bars} 1 0;--c:${secColor(b.sec)}`, title: `${b.name} · ${b.bars} mesures — clic : écouter la scène en boucle · double-clic : sa fiche`, onclick: (e) => (e.detail === 2 ? openWizSheet(b.sceneId) : listenScene(b.sceneId)) }, h('b', {}, b.name), h('small', {}, String(b.bars)))));
     const seg = h('span', { class: 'segmented', role: 'radiogroup', 'aria-label': 'Courbe voulue', id: 'bwArrCurve' }, ...AR().CURVES.map((c) => h('button', { type: 'button', role: 'radio', 'data-curve': c.id, title: c.text, class: c.id === curve ? 'active' : '', 'aria-checked': String(c.id === curve), onclick: () => ((arrState().curve = c.id), renderWiz()) }, c.label)));
     const energy = h('section', { class: 'bwar-card', id: 'bwArrEnergy' },
       h('div', { class: 'bwar-head' }, h('b', { id: 'bwArrEnergyTitle' }, 'Énergie'), h('span', { class: 'bh-info' }, t && t.on ? 'voulue (pointillés) · mesurée avec la version B à l’écoute' : 'voulue (pointillés) · mesurée (trait plein) · scènes à voir soulignées en jaune'), h('span', { class: 'spacer' }), seg),
@@ -10857,6 +11105,7 @@ SS.band = (() => {
   /** Quitte le mode assistant sans rien écrire : l'écoute s'arrête, la barre du haut redevient celle du projet. */
   function leave({ keep = true } = {}) {
     if (!S.wiz) return;
+    closeWizSheet();
     if (keep) saveDraft(); // fermer garde le brouillon (rien d'autre n'est écrit)
     clearTimeout(draftTimer);
     clearInterval(draftTick);
@@ -11209,6 +11458,22 @@ SS.band = (() => {
     el = $('#bandDialog');
     if (!el) return;
     $('#bandClose').addEventListener('click', () => leave());
+    // fiche Scène : Échap la ferme (ou referme la liste des émotions) avant tout autre usage de la touche
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape' || !wshId || document.querySelector('dialog[open]')) return;
+      e.stopPropagation();
+      if (wshEmo) {
+        wshEmo = false;
+        renderWizSheet();
+      } else closeWizSheet();
+    }, true);
+    // double-clic sur une carte de scène ou un bloc de l'arrangement (le premier clic a pu redessiner la carte)
+    el.addEventListener('dblclick', (e) => {
+      const b = e.target.closest('.bh-scene[data-scene], .bwar-blk');
+      if (!b || !S.wiz || !S.wiz.res) return;
+      const id = b.dataset.scene || (S.wiz.res.scenes.find((x) => x.sec === b.dataset.sec) || {}).id;
+      if (id) openWizSheet(id);
+    });
     // chaque geste dans l'assistant (clic, saisie, choix, glissement) programme l'enregistrement du brouillon, débouncé
     ['click', 'input', 'change', 'keyup', 'pointerup'].forEach((t) => el.addEventListener(t, draftSoon));
     $('#bandGm').addEventListener('click', () => setGm(!gm()));
