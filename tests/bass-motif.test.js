@@ -32,6 +32,24 @@ bass.follow = SS.FOLLOW.clean({ ...bass.follow, oct: 2, motifs: { [sc.id]: 'whol
 assert.strictEqual(SS.bassMotifOf(bass, sc), 'whole');
 assert.strictEqual(SS.playEvents(p, bass).length, 4, 'Tenue dans cette scène : une note par accord');
 
+// motifs courants ajoutés (nov. 2026) sur Am F C G : anticipation liée, approche chromatique, montée vers l'accord
+const notesOf = (id) => {
+  bass.follow = SS.FOLLOW.clean({ play: 'motif', motif: id, oct: 2 });
+  return SS.playEvents(p, bass);
+};
+let e2 = notesOf('anticip');
+const push = e2.find((e) => e.step === 14);
+assert.strictEqual(push.notes[0] % 12, 5, 'anticipation : Fa dès le « et » du 4 de la mesure de La m');
+assert.strictEqual(push.len, 4, 'anticipation : la note se lie au 1 suivant');
+assert.ok(!e2.some((e) => e.step === 16), 'anticipation : pas de nouvelle attaque sur le 1');
+e2 = notesOf('chroma');
+assert.strictEqual(e2.find((e) => e.step === 14).notes[0] % 12, 4, 'approche chromatique : Mi, demi-ton sous Fa');
+e2 = notesOf('walkup');
+assert.deepStrictEqual(e2.filter((e) => e.step >= 8 && e.step < 16).map((e) => e.notes[0] % 12), [0, 2, 4], 'montée vers Fa : Do, Ré, Mi');
+['boomchick', 'chacha', 'cumbia', 'baiao', 'twostep'].forEach((id) => assert.ok(notesOf(id).length >= 8, id));
+assert.ok(['anticip', 'walkup', 'chroma', 'boomchick', 'chacha', 'cumbia', 'baiao', 'twostep'].every((id) => SS.bandSong.BASS_NEW.some((c) => c[0] === id)));
+bass.follow = SS.FOLLOW.clean({ play: 'motif', motif: 'disco16', oct: 2 });
+
 // sans accords : silence
 sc.grid.chords = [];
 assert.strictEqual(SS.playEvents(p, bass).length, 0, 'pas d’accords : la basse se tait');

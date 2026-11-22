@@ -9,13 +9,13 @@ SS.bassMotifs = (() => {
   /** Styles : [id, nom, motifs]. Un motif peut être dans plusieurs styles ; « Tous » les montre une fois. */
   const GROUPS = [
     ['synth', 'Synthwave & 80s', ['8', 'gallop', 'oct', 'pulse8', 'sync', 'roll', 'whole', 'half', 'quarter', 'walk', 'drone', 'rootfifth', 'arp', 'pickup', 'sixteen', 'oct16']],
-    ['pop', 'Pop-rock', ['rock8', 'ballade', 'b03', 'quarter', 'rootfifth']],
+    ['pop', 'Pop-rock', ['rock8', 'ballade', 'b03', 'quarter', 'rootfifth', 'anticip', 'walkup', 'boomchick']],
     ['funk', 'Funk & Disco', ['disco16', 'slap', 'funk', 'oct']],
-    ['soul', 'Soul & Jazz', ['motown', 'walking', 'ballade']],
+    ['soul', 'Soul & Jazz', ['motown', 'walking', 'ballade', 'chroma', 'walkup']],
     ['hiphop', 'Hip-hop & Trap', ['boombap', 'sub808', 'trap808']],
     ['dnb', 'Drum & bass', ['reese', 'dnbroll']],
-    ['latin', 'Latin & Reggae', ['tresillo', 'dembow', 'tumbao', 'onedrop', 'roots', 'bossa', 'afro']],
-    ['techno', 'Techno & House', ['hades', 'seismic', 'oracle', 'troy', 'phalanx', 'necropolis', 'styx', 'athens', 'mythos', 'thebes', 'acid', 'offbeat', 'off16', 'trance']],
+    ['latin', 'Latin & Reggae', ['tresillo', 'dembow', 'tumbao', 'onedrop', 'roots', 'bossa', 'afro', 'chacha', 'cumbia', 'baiao']],
+    ['techno', 'Techno & House', ['hades', 'seismic', 'oracle', 'troy', 'phalanx', 'necropolis', 'styx', 'athens', 'mythos', 'thebes', 'acid', 'offbeat', 'off16', 'trance', 'twostep']],
     ['famous', '★ Célèbres', ['cel_chic', 'cel_hitsville', 'cel_pfunk', 'cel_thumb', 'cel_fretless', 'cel_liverpool', 'cel_studio60', 'cel_gallop', 'cel_motorik', 'cel_coldwave', 'cel_staccato80', 'cel_steppers', 'cel_ska', 'cel_boogie', 'cel_rockabilly', 'cel_lagos', 'cel_surdo', 'cel_gfunk', 'cel_frenchtouch', 'cel_wobble', 'cel_neosoul']],
   ];
   /** Conseillés dans la fenêtre Nouvelle piste. */
