@@ -187,8 +187,9 @@
     if (!btn) return;
     const gl = ($('#grooveLabel') || {}).textContent || '';
     const sig = $('#metaSig');
-    if (sig) sig.textContent = `${project.timeSig[0]}/${project.timeSig[1]}`;
-    btn.title = `${project.timeSig[0]}/${project.timeSig[1]} · ${project.bars} mesure${project.bars > 1 ? 's' : ''} · ${gl}`;
+    const ts = (SS.band && SS.band.wizSig && SS.band.wizSig()) || project.timeSig; // dans l'assistant : la mesure de sa chanson
+    if (sig) sig.textContent = `${ts[0]}/${ts[1]}`;
+    btn.title = `${ts[0]}/${ts[1]} · ${project.bars} mesure${project.bars > 1 ? 's' : ''} · ${gl}`;
   }
   SS.syncMeta = () => syncMeta();
   /** Bulle Mesure / Mesures / Groove : ouverte au survol (CSS), au clic (toucher) ou au clavier ; Échap ou clic ailleurs la ferme. */
@@ -730,7 +731,7 @@
    * Band : « Créer toute la chanson ». Remplace les pistes, les scènes et l'arrangement du projet par la chanson
    * écrite d'après le plan de l'inspiration (js/band-songs.js, js/bandsong.js). Ctrl+Z revient en arrière.
    */
-  function addBandSong(list, preset, tempo, { melodySeed = 0, melody = null, harmony = null, parts = null, kinds = null, gains = null, mix = null, groove = null, fx = null, bauto = null, keep = null, lock = null, only = null, drop = null, restore = null, sig = '4/4' } = {}) {
+  function addBandSong(list, preset, tempo, { melodySeed = 0, melody = null, harmony = null, parts = null, kinds = null, gains = null, mix = null, groove = null, fx = null, bauto = null, keep = null, lock = null, only = null, drop = null, restore = null, sig = null } = {}) {
     // preset.spec : plan d'une reprise tapée dans l'assistant (porte « Reprendre »), jouée à la façon de l'inspiration
     const spec = preset.spec || (SS.BandSongs && SS.BandSongs[preset.id]);
     if (!spec) return addBandTracks(list, tempo, { replace: true });
@@ -759,6 +760,7 @@
     const stay = new Set([...kept.values(), ...hand]);
     removeTracks(project.tracks.filter((t) => !stay.has(t)));
     if (tempo) project.tempo = tempo;
+    sig = sig || spec.meter || '4/4'; // sans choix : la mesure du plan de l'inspiration
     project.timeSig = (SS.bandSong.METERS[sig] ? sig : '4/4').split('/').map(Number); // mesure choisie à l'étape Tempo
     const levelKeys = new Map();
     const created = list.map((opts) => {

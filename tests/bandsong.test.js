@@ -20,7 +20,7 @@ const tracksOf = (p) =>
 const plays = (d) => (d.steps ? d.steps.some((v) => v > 0) : d.events.length > 0);
 
 test('chaque inspiration a un plan de chanson, et toutes les chansons se construisent', () => {
-  assert.equal(PRESETS.length, 49);
+  assert.equal(PRESETS.length, 51);
   for (const p of PRESETS) {
     assert.ok(SS.BandSongs[p.id], `plan manquant : ${p.id}`);
     const s = SS.bandSong.build(SS.BandSongs[p.id], p.id, tracksOf(p));
@@ -114,7 +114,7 @@ test('même inspiration, même chanson (déterministe) ; deux chansons différen
   assert.equal(strip(a), strip(b));
   // grilles : pas toutes identiques d'une chanson à l'autre
   const grids = new Set(PRESETS.map((x) => Object.values(SS.BandSongs[x.id].sections).map((sec) => sec.chords).join(';')));
-  assert.equal(grids.size, 49);
+  assert.equal(grids.size, 51);
 });
 
 /* ---------- Tonalité : toutes les pistes instrumentales sont dans la bonne tonalité ---------- */
@@ -352,9 +352,10 @@ test('mélodie par phrases : caractère, notes par phrase, tessiture, phrases te
     singers.forEach((t) => {
       const ev = sc.data[t.id].events;
       if (!spec.sections[sc.sec][t.band.key]) return;
-      assert.ok(ev.length > 0 && ev.every((e) => e.step + e.len <= 32), `${p.id}/${sc.sec} : rien après la phrase tenue`);
+      assert.ok(ev.length > 0 && ev.every((e) => e.step + e.len <= 2 * SS.bandSong.meter().spb), `${p.id}/${sc.sec} : rien après la phrase tenue`);
       const last = ev[ev.length - 1];
-      assert.ok(last.step + last.len === 32 && last.len >= 16, `${p.id}/${sc.sec} : la dernière note tient jusqu'au bout de la phrase`);
+      const bar = SS.bandSong.meter().spb; // 16 en 4/4, 12 en 3/4 (inspirations écrites dans une autre mesure)
+      assert.ok(last.step + last.len === 2 * bar && last.len >= bar, `${p.id}/${sc.sec} : la dernière note tient jusqu'au bout de la phrase`);
     });
   }
 });

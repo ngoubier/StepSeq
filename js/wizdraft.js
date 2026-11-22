@@ -49,7 +49,7 @@ SS.wizDraft = (() => {
         hsec: w.hsec || null,
         tempo: w.tempo || null,
         tempoFor: w.tempoFor || null,
-        ...(w.meter && w.meter !== '4/4' ? { meter: w.meter } : {}), // mesure de la chanson, seulement hors 4/4 (empreinte des anciens brouillons inchangée)
+        ...(w.meter ? { meter: w.meter } : {}), // mesure choisie (null : celle du plan ; empreinte des anciens brouillons inchangée)
         form: clone(w.form || null),
         skey: clone(w.skey || null),
         snap: w.snap,
@@ -94,7 +94,7 @@ SS.wizDraft = (() => {
         hsec: str(w.hsec),
         tempo: num(w.tempo, null),
         tempoFor: str(w.tempoFor),
-        meter: ['3/4', '6/8', '12/8'].includes(w.meter) ? w.meter : null, // mesure de la chanson (null : 4/4)
+        meter: ['4/4', '3/4', '6/8', '12/8'].includes(w.meter) ? w.meter : null, // mesure choisie (null : celle du plan, 4/4 en général)
         form: Array.isArray(w.form) ? clone(w.form) : null,
         skey: objOrNull(w.skey),
         snap: str(w.snap, 'beat'),
