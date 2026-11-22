@@ -6578,13 +6578,14 @@ SS.band = (() => {
       const pv = GA.preview({ guitar: { motif: m.id } }, [57, 60, 64]);
       const seen = new Set();
       const notes = [];
-      for (let rep = 0; rep * pv.len < 16; rep++)
+      const bar = m.meter && SS.bandSong.METERS[m.meter] ? SS.bandSong.METERS[m.meter][0] : 16; // dessin : une mesure du motif, ramenée à 16 cases
+      for (let rep = 0; rep * pv.len < bar; rep++)
         pv.attacks.forEach((a) => {
           const st = rep * pv.len + a.step16;
           const lv = a.bass ? 0 : a.str >= 4 ? 2 : 1;
-          if (st >= 16 || seen.has(st + ':' + lv) || (a.strum && a.label === '')) return;
+          if (st >= bar || seen.has(st + ':' + lv) || (a.strum && a.label === '')) return;
           seen.add(st + ':' + lv);
-          notes.push([st, Math.max(0.6, (4 / m.div) * 0.8), m.hand === 'gratte' ? 1 : lv]);
+          notes.push([(st * 16) / bar, Math.max(0.6, ((4 / m.div) * 0.8 * 16) / bar), m.hand === 'gratte' ? 1 : lv]);
         });
       const hand = GA.HANDS.find((x) => x.id === m.hand);
       return ['g:' + m.id, m.name, `${hand ? hand.label.replace(/ \(.*/, '') : ''} · ${m.desc}`, notes];
@@ -6592,6 +6593,11 @@ SS.band = (() => {
   })();
   /** Instrument joué comme une guitare : le Guitariste de l'inspiration, ou tout musicien (ajouté compris) qui a un son de guitare. */
   const isGuitarist = (T) => isT(T) && (T.role === 'guitar' || (T.cols || [T.col]).some((c) => c && c.o && c.o.family === 'guitar'));
+  /** Motif de guitare proposé dans la mesure de la chanson : en 4/4 ceux de 4/4, sinon ceux qui vont dans la mesure. */
+  const gtrFits = (id) => {
+    const m = SS.GuitarArp && SS.GuitarArp.MOTIFS.find((x) => 'g:' + x.id === id);
+    return !!m && (SPB() === 16 && sigOf() === '4/4' ? (m.meter || '4/4') === '4/4' : BS().meterOK('chords', id));
+  };
   const padModes = (T) => (isGuitarist(T) ? [...PAD_MODES, ...GUITAR_MODES] : PAD_MODES);
   /** Modes de l'arpège (js/bandsong.js, arpEvents). « rise » ne vient que de l'inspiration. */
   const ARP_MODES = [
@@ -6605,6 +6611,9 @@ SS.band = (() => {
     ['dotted', 'Pointé', 'Une note tous les trois pas'],
     ['toll', 'Volée de cloche', 'Une note longue au début de chaque phrase de deux mesures'],
     ['rise', 'Montée de section', 'Monte vers l’aigu pendant la section'],
+    ['alb3', 'Valse Alberti', 'Basse puis accord brisé en croches (3/4)'],
+    ['wave6', 'Montée-descente 6', 'Six croches qui montent et redescendent (6/8)'],
+    ['tri8', 'Triolets', 'Trois croches par temps (12/8)'],
   ];
   const nameOf = (list, id) => (list.find((x) => x[0] === id) || [id, id])[1];
 
@@ -7882,7 +7891,7 @@ SS.band = (() => {
       'div',
       { class: 'bwp-guitar' },
       ...GA.HANDS.map((hd) => {
-        const list = GUITAR_MODES.filter(([id]) => (GA.MOTIFS.find((m) => 'g:' + m.id === id) || {}).hand === hd.id);
+        const list = GUITAR_MODES.filter(([id]) => (GA.MOTIFS.find((m) => 'g:' + m.id === id) || {}).hand === hd.id && gtrFits(id));
         return h('div', { class: 'bwp-grp' }, h('span', { class: 'bwp-glbl' }, hd.label.replace(/ \(.*/, '')), modeCards(sc, T, list, '#ff4d6d', null, true));
       }),
       h('div', { class: 'bwp-row' }, gtAdvBtn(!gmode, draw))
@@ -7993,6 +8002,7 @@ SS.band = (() => {
   const ARP_START = {
     up16: ['up', 1], updown16: ['updown', 1], up8: ['up', 0.5], bells: ['pedalehaute', 0.5], strobe: ['pendule', 1],
     pluck16: ['alberti', 1], ost16: ['ostinato', 1], dotted: ['up', 1 / 3], rise: ['wave', 1],
+    alb3: ['valsealb', 0.5], wave6: ['vague6', 0.5], tri8: ['trislow', 0.5],
   };
   const motifById = (id) => SS.MOTIFS.find((m) => m.id === id);
   /** Réglages Arp One qui jouent comme le mode donné (ou, sans mode, le motif « Midnight Drive »). */
@@ -8004,7 +8014,7 @@ SS.band = (() => {
   /** Réglages Arp One affichés pour la scène : les siens, sinon le point de départ d'après l'inspiration. */
   const arpOne = (sc, T) => {
     const o = partOf(sc.sec, T) || {};
-    return o.one ? A1().normalize(o.one) : arpStart(o.mode || planMode(sc, T));
+    return o.one ? A1().normalize(o.one) : arpStart(BS().fitMode('arp', o.mode || planMode(sc, T))); // hors 4/4 : l'arpège ternaire qui remplace celui du plan
   };
   const motifLabel = (one) => {
     const m = SS.motifOf(one);
@@ -8014,7 +8024,7 @@ SS.band = (() => {
     const o = partOf(x.sec, T) || {};
     if (mutedIn(x.sec, T)) return 'muet';
     if (o.one) return motifLabel(o.one);
-    const m = o.mode || planMode(x, T);
+    const m = BS().fitMode('arp', o.mode || planMode(x, T)); // hors 4/4 : l'arpège ternaire joué à la place
     return (m ? nameOf(ARP_MODES, m) : 'aucun') + (o.mode ? '' : m && !typeChanged(T) ? ' · inspiration' : '');
   }
   /** Change les réglages Arp One de la scène (f reçoit les réglages actuels et rend les nouveaux) ; l'arpège s'allume. */
@@ -8051,7 +8061,7 @@ SS.band = (() => {
       on
         ? GA.HANDS.map((hd) => [
             h('span', { class: 'dlg-label' }, hd.label),
-            h('div', { class: 'bwp-modes', role: 'radiogroup', 'aria-label': hd.label, style: '--c:#ff4d6d' }, GUITAR_MODES.filter(([id]) => (GA.MOTIFS.find((m) => 'g:' + m.id === id) || {}).hand === hd.id).map(card)),
+            h('div', { class: 'bwp-modes', role: 'radiogroup', 'aria-label': hd.label, style: '--c:#ff4d6d' }, GUITAR_MODES.filter(([id]) => (GA.MOTIFS.find((m) => 'g:' + m.id === id) || {}).hand === hd.id && gtrFits(id)).map(card)),
           ]).flat()
         : h('p', { class: 'dlg-hint' }, 'Son de guitare : « Guitare » joue les arpèges aux doigts, au médiator ou en grattage, avec de vraies formes d’accord.')
     );

@@ -18,6 +18,7 @@ SS.MOTIF_CATS = [
   { id: 'synth', label: 'Synthwave et années 80' },
   { id: 'chords', label: 'Accords et rythmes' },
   { id: 'world', label: 'Rythmes du monde' },
+  { id: 'ternary', label: 'Ternaires (3/4, 6/8, 12/8)' },
   { id: 'gen', label: 'Formes génératives' },
   { id: 'random', label: 'Hasard' },
 ];
@@ -105,6 +106,19 @@ SS.MOTIF_CATS = [
     m('random', 'random', 'Aléatoire', { mode: 'random' }, 'hasard'),
     m('walk', 'random', 'Promenade', { mode: 'walk' }, 'marche hasard'),
     m('drunk', 'random', 'Marche ivre', { mode: 'drunk' }, 'marche hasard'),
+
+    // mesures ternaires : cycles de 3, 6 ou 12 notes calés sur la mesure ; rate 0.5 = croches (rate imposé par le motif)
+    m('valsealb', 'ternary', 'Valse Alberti', pat('d1- d5 d3+ d5 d3+ d5', { rate: 0.5 }), '3/4 valse basse accords brisés'),
+    m('boite', 'ternary', 'Boîte à musique', pat('d1+ d5 d3 d5 d1+ d3+', { rate: 0.5 }), '3/4 aigu descend remonte'),
+    m('menuet', 'ternary', 'Menuet', pat('d1- . d1+ d3+ d5 .', { rate: 0.5 }), '3/4 classique noire croches'),
+    m('vague6', 'ternary', 'Montée-descente 6', pat('d1 d3 d5 d1+ d5 d3', { rate: 0.5 }), '6/8 vague mesure'),
+    m('berce6', 'ternary', 'Berceuse', pat('d1 d5 d3 d1+ d5 d3', { rate: 0.5 }), '6/8 balancement'),
+    m('cascade6', 'ternary', 'Cascade 6/8', pat('d1+ d5 d3 d3+ d1+ d5', { rate: 0.5 }), '6/8 descend sur chaque temps'),
+    m('doubles68', 'ternary', 'Doubles 6/8', pat('d1 d3 d5 d1+ d5 d3 d3 d5 d1+ d3+ d1+ d5', { rate: 1 }), '6/8 doubles croches vague'),
+    m('trislow', 'ternary', 'Triolets slow', pat('d1 d3 d5', { rate: 0.5 }), '12/8 piano slow doo-wop triolets'),
+    m('vague12', 'ternary', 'Vague 12/8', pat('d1 d3 d5 d1+ d3+ d5+ d3+ d1+ d5 d3 d1 d3', { rate: 0.5 }), '12/8 monte redescend'),
+    m('cascade12', 'ternary', 'Cascade 12/8', pat('d1+ d5 d3 d3+ d1+ d5 d5+ d3+ d1+ d3+ d1+ d5', { rate: 0.5 }), '12/8 descend sur chaque temps'),
+    m('doowop', 'ternary', 'Doo-wop', pat('d1- d1+ d3+ d1- d1+ d3+ d1- d3+ d5+ d1- d1+ d3+', { rate: 0.5 }), '12/8 basse accord années 50'),
   ];
 })();
 
@@ -140,6 +154,7 @@ SS.motifPatch = (arp, m) => {
   const keepSteps = !m.arp.rhythm && (!prev || !prev.arp.rhythm) && a.rhythm.type === 'lane';
   const patch = { mode: m.arp.mode, pattern: m.arp.pattern || '', preset: '' };
   if (m.arp.octaves) patch.octaves = m.arp.octaves;
+  if (m.arp.rate) patch.rate = m.arp.rate; // motifs ternaires : leur vitesse (croches) fait le cycle de la mesure
   // cycle d'accents (3 contre 4…) : posé par le motif, retiré quand on quitte un motif d'accents
   const vel = m.arp.lanes && m.arp.lanes.vel;
   const prevVel = prev && prev.arp.lanes && prev.arp.lanes.vel;
@@ -176,7 +191,7 @@ SS.arpSurprise = (arp, locks = {}, rand = Math.random) => {
 
   if (!locks.motif) {
     const cur = SS.motifOf(a);
-    let pool = SS.MOTIFS.filter((m) => !cur || m.id !== cur.id);
+    let pool = SS.MOTIFS.filter((m) => (!cur || m.id !== cur.id) && m.cat !== 'ternary'); // motifs ternaires : choisis exprès (ils imposent leur vitesse)
     if (locks.rythme) pool = pool.filter((m) => !m.arp.rhythm); // un motif à rythme propre changerait le rythme
     const m = pickOf(pool);
     const p = SS.motifPatch(out, m);

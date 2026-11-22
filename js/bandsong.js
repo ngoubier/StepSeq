@@ -1375,6 +1375,10 @@ SS.bandSong = (() => {
       else if (mode === 'rise') seq = si >= spans.length / 2 ? up.slice(2, 6) : up.slice(0, 4);
       else if (mode === 'ost16') seq = [up[0], up[3], up[1], up[3], up[2], up[3], up[1], up[4]];
       else if (mode === 'dotted') (seq = [up[0], up[2], up[1], up[3], up[2], up[4]]), (dt = 3);
+      // mesures ternaires (croches) : Alberti de valse (3/4), vague de six croches (6/8), triolets du slow (12/8)
+      else if (mode === 'alb3') (seq = [v[0] - 12, up[2], up[4], up[2], up[4], up[2]]), (dt = 2);
+      else if (mode === 'wave6') (seq = [up[0], up[1], up[2], up[3], up[2], up[1]]), (dt = 2);
+      else if (mode === 'tri8') (seq = [up[0], up[1], up[2]]), (dt = 2);
       else if (mode === 'toll') {
         // volée de cloche : la note du dessus de l'accord, longue, au premier temps de chaque phrase de deux mesures
         if (sp.step % (2 * SPB) === 0) add(sp.step, Math.min(2 * SPB, end - sp.step), v[v.length - 1], 0.82);
@@ -1383,7 +1387,8 @@ SS.bandSong = (() => {
       else return;
       for (let s = sp.step, i = 0; s < end; s += dt, i++) {
         if (mode === 'pluck16' && ![0, 3, 6, 8, 11, 14].includes(s % SPB)) continue;
-        add(s, Math.min(dt === 1 ? 1 : dt === 3 ? 3 : 2, end - s), seq[i % seq.length], i % 4 === 0 ? 0.78 : 0.6);
+        const k = TRI_ARP.includes(mode) ? ((s - sp.step) / dt) | 0 : i; // ternaires : le cycle suit la place dans l'accord, accent sur chaque temps
+        add(s, Math.min(dt === 1 ? 1 : dt === 3 ? 3 : 2, end - s), seq[k % seq.length], TRI_ARP.includes(mode) ? ((s % SPB) % BEAT === 0 ? 0.76 : 0.58) : i % 4 === 0 ? 0.78 : 0.6);
       }
     });
     return ev;
@@ -1406,7 +1411,7 @@ SS.bandSong = (() => {
       prev = v;
       chords.push({ step: sp.step, len: sp.len, notes: v, vel: 0.8, ...(sp.chord.bassPc != null && sp.chord.bassPc !== sp.chord.rootPc ? { bass: sp.chord.bassPc } : {}) });
     });
-    const arp = A.normalize(one);
+    const arp = A.normalize(BEAT === 6 && one && one.guitar ? { ...one, guitar: { ...one.guitar, tern: true } } : one); // 6/8, 12/8 : guitare en vraies croches
     const seen = new Map();
     const ev = [];
     chords.forEach((c) => {
@@ -1971,7 +1976,7 @@ SS.bandSong = (() => {
   const KINDS = ['drums', 'bass', 'chords', 'arp', 'melody'];
   const DEFAULT_KIND = { drums: 'drums', perc: 'drums', bass: 'bass', pad: 'chords', strings: 'chords', keys: 'chords', guitar: 'chords', arp: 'arp', arpchord: 'arp', lead: 'melody', vox: 'melody', sax: 'melody', orch: 'orch' };
   const DEFAULT_MODE = { bass: '8', chords: 'sustain', arp: 'up16', melody: 'verse', drums: 'both' };
-  const ARP_MODES = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16', 'rise', 'ost16', 'dotted', 'toll'];
+  const ARP_MODES = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16', 'rise', 'ost16', 'dotted', 'toll', 'alb3', 'wave6', 'tri8'];
   const MODES = () => ({
     bass: [...['whole', '8', 'pulse8', 'oct', 'gallop', 'offbeat', 'roll', 'off16', 'half', 'quarter', 'drone', 'sync', 'walk'], ...BASS_NEW.map((b) => b[0])],
     chords: ['sustain', 'swell', 'float', 'ballad', 'pluck', ...Object.keys(RHYTHM), ...Object.keys(PAD_NEW), ...(SS.GuitarArp ? SS.GuitarArp.MOTIFS.map((m) => 'g:' + m.id) : [])],
@@ -1986,6 +1991,8 @@ SS.bandSong = (() => {
   const BASS_ANY = ['whole', 'quarter', '8', 'pulse8', 'oct', 'drone', 'half', 'sixteen', 'oct16', 'walking', 'rootfifth', 'arp', 'b03'];
   const CHORD_ANY = ['sustain', 'swell', 'float', 'ballad', 'pluck'];
   const ARP_ANY = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'rise', 'ost16', 'dotted', 'toll'];
+  /** Arpèges du moteur écrits en croches ternaires (dans toutes les mesures ternaires). */
+  const TRI_ARP = ['alb3', 'wave6', 'tri8'];
   const gtrMeterOK = (m) => !!m && (m.meter || '4/4') !== '4/4' && (m.meter === SIG || (SIG === '12/8' && m.meter === '6/8'));
   function meterOK(kind, id, sig = SIG) {
     if (sig !== SIG) {
@@ -2001,10 +2008,10 @@ SS.bandSong = (() => {
       return true;
     }
     if (kind === 'bass') return METER[id] === SIG || BASS_ANY.includes(id);
-    if (kind === 'arp') return ARP_ANY.includes(id);
+    if (kind === 'arp') return TRI_ARP.includes(id) || (BEAT === 6 ? ['toll'] : ['up16', 'dotted', 'toll', 'rise']).includes(id); // cycles calés sur le temps : 4 doubles en 3/4, croches ternaires en 6/8 et 12/8
     if (kind === 'chords') {
       if (/^g:/.test(id)) return !!SS.GuitarArp && gtrMeterOK(SS.GuitarArp.MOTIFS.find((m) => m.id === id.slice(2)));
-      if (ARP_ANY.includes(id)) return true;
+      if (ARP_ANY.includes(id) || TRI_ARP.includes(id)) return meterOK('arp', id);
       if (PAD_NEW[id]) return PAD_NEW[id].meter ? PAD_NEW[id].meter === SIG : padHeld(PAD_NEW[id]);
       return CHORD_ANY.includes(id);
     }
@@ -2012,9 +2019,9 @@ SS.bandSong = (() => {
   }
   /** Rythme de remplacement d'un mode qui ne va pas dans la mesure (le plan est écrit en 4/4). */
   const METER_FALLBACK = {
-    '3/4': { bass: 'valse', chords: 'valse3', held: 'sustain', arp: 'up8', guitar: 'valse' },
-    '6/8': { bass: 'ballade68', chords: 'berce68', held: 'sustain', arp: 'up8', guitar: 'pimami' },
-    '12/8': { bass: 'slow128', chords: 'triolets128', held: 'sustain', arp: 'up8', guitar: 'pimami' },
+    '3/4': { bass: 'valse', chords: 'valse3', held: 'sustain', arp: 'alb3', guitar: 'valse' },
+    '6/8': { bass: 'ballade68', chords: 'berce68', held: 'sustain', arp: 'wave6', guitar: 'pimami' },
+    '12/8': { bass: 'slow128', chords: 'triolets128', held: 'sustain', arp: 'tri8', guitar: 'pimami' },
   };
   /** Mode du plan ramené à la mesure de la chanson (inchangé en 4/4 ou s'il y va déjà). */
   function fitMode(kind, mode) {
@@ -2259,7 +2266,7 @@ SS.bandSong = (() => {
             // guitare : motif du mode Guitare d'Arp One (« g:travis »…), joué par le vrai moteur (js/guitar-arp.js)
             if (/^g:/.test(mode) && SS.GuitarArp) (events = arpOneEvents(spans, { guitar: { ...((o && o.gtr) || {}), on: true, motif: mode.slice(2) } }, bars)), (gtrEv = true);
             else if (/^g:/.test(mode)) events = chordEvents(spans, 'chop', r, range); // sans le moteur de guitare : petits accords hachés
-            else events = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16', 'ost16', 'dotted', 'toll'].includes(mode) ? arpEvents(spans, mode, r) : chordEvents(spans, mode, r, { ...range, open: role === 'pad' && !!o && o.voicing === 'open', kp: H().scale(k).map((d) => d.pc) });
+            else events = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16', 'ost16', 'dotted', 'toll', ...TRI_ARP].includes(mode) ? arpEvents(spans, mode, r) : chordEvents(spans, mode, r, { ...range, open: role === 'pad' && !!o && o.voicing === 'open', kp: H().scale(k).map((d) => d.pc) });
           }
         }
         // piste Effets d'une scène dont une jonction est réglée : montée, cymbale inversée, impact, descente (voir fxSceneTrack)
@@ -2455,7 +2462,7 @@ SS.bandSong = (() => {
   /** « u3 », « u2 », « u1 » : montée vers l'accord suivant, à 3, 2 puis 1 note de la gamme de lui. */
   const UP = { u3: 3, u2: 2, u1: 1 };
   /** Motifs écrits pour une autre mesure que 4/4 : 12 pas (3/4 et 6/8) ou 24 (12/8) ; les autres en 4/4 (16 pas). */
-  const METER = { valse: '3/4', valsejazz: '3/4', ballade68: '6/8', galop68: '6/8', slow128: '12/8', boogie128: '12/8', berce128: '12/8' };
+  const METER = { valse: '3/4', valsejazz: '3/4', ballade68: '6/8', galop68: '6/8', slow128: '12/8', boogie128: '12/8', berce128: '12/8', valsepop: '3/4', valseavance: '3/4', valse8: '3/4', valseped: '3/4', tarentelle: '6/8', oct68: '6/8', arp68b: '6/8', gigue: '6/8', shuffle128: '12/8', arp128b: '12/8', gospel128: '12/8', marche128: '12/8' };
   /** Pas par mesure du motif. */
   const motifBar = (id) => (METER[id] ? METERS[METER[id]][0] : 16);
   /** Nombre de mesures d'un motif BASS_RHYTHMS (1, ou 2 si une note tombe après la première mesure). */
@@ -2560,6 +2567,19 @@ SS.bandSong = (() => {
     slow128: [[0, 6, 0, 0.9], [6, 6, 7, 0.76], [12, 6, 0, 0.86], [18, 4, 7, 0.74], [22, 2, 'a', 0.66]],
     boogie128: [[0, 6, 0, 0.9], [6, 6, 't', 0.74], [12, 6, 7, 0.84], [18, 6, 9, 0.74]],
     berce128: [[0, 10, 0, 0.88], [10, 2, 0, 0.55], [12, 12, 7, 0.8]],
+    // motifs ternaires ajoutés (nov. 2026) : 3/4, 6/8, 12/8
+    valsepop: [[0, 6, 0, 0.9], [6, 2, 0, 0.6], [8, 4, 7, 0.78]],
+    valseavance: [[0, 4, 0, 0.9], [4, 4, 7, 0.74], [8, 4, 'a', 0.72]],
+    valse8: [[0, 2, 0, 0.9], [2, 2, 0, 0.58], [4, 2, 7, 0.78], [6, 2, 7, 0.58], [8, 2, 12, 0.76], [10, 2, 7, 0.6]],
+    valseped: [[0, 8, 0, 0.88], [8, 4, 12, 0.72]],
+    tarentelle: [[0, 2, 0, 0.92], [2, 2, 0, 0.6], [4, 2, 7, 0.7], [6, 2, 0, 0.86], [8, 2, 0, 0.6], [10, 2, 7, 0.7]],
+    oct68: [[0, 6, 0, 0.9], [6, 6, 12, 0.76]],
+    arp68b: [[0, 2, 0, 0.9], [2, 2, 7, 0.66], [4, 2, 12, 0.72], [6, 2, 't', 0.8], [8, 2, 12, 0.66], [10, 2, 7, 0.64]],
+    gigue: [[0, 4, 0, 0.9], [4, 2, 7, 0.62], [6, 4, 0, 0.84], [10, 2, 'a', 0.64]],
+    shuffle128: [[0, 4, 0, 0.9], [4, 2, 0, 0.58], [6, 4, 7, 0.82], [10, 2, 7, 0.58], [12, 4, 9, 0.84], [16, 2, 9, 0.58], [18, 4, 7, 0.8], [22, 2, 7, 0.58]],
+    arp128b: [0, 7, 12, 't', 12, 7, 0, 7, 12, 't', 12, 7].map((n, i) => [i * 2, 2, n, i % 3 ? 0.62 : 0.86]),
+    gospel128: [[0, 10, 0, 0.88], [10, 2, 7, 0.58], [12, 6, 9, 0.8], [18, 4, 7, 0.74], [22, 2, 'a', 0.66]],
+    marche128: [[0, 6, 0, 0.9], [6, 6, 7, 0.74], [12, 6, 12, 0.82], [18, 6, 7, 0.72]],
   };
   /** Dessin d'une mesure type (niveau 0 = fondamentale, 1 = quinte, tierce, septième ou approche, 2 = octave). */
   const rhythmDraw = (id) => BASS_RHYTHMS[id].filter(([o]) => o < motifBar(id)).map(([o, l, n]) => [o, l, n === 0 ? 0 : n === 12 ? 2 : 1]); // première mesure, en pas (fractions possibles)
@@ -2652,6 +2672,18 @@ SS.bandSong = (() => {
     ['slow128', 'Slow 12/8', 'Blues lent : fondamentale et quinte sur les temps, la note voisine de l’accord suivant (12/8)', rhythmDraw('slow128')],
     ['boogie128', 'Boogie 12/8', 'Une note de l’accord par temps : fondamentale, tierce, quinte, sixte (12/8)', rhythmDraw('boogie128')],
     ['berce128', 'Ballade 12/8 bercée', 'Fondamentale tenue, petite relance, quinte sur le 3 (12/8)', rhythmDraw('berce128')],
+    ['valsepop', 'Valse pop', 'Noire pointée, croche, noire sur la quinte (3/4)', rhythmDraw('valsepop')],
+    ['valseavance', 'Valse qui avance', 'Fondamentale, quinte, la note voisine de l’accord suivant (3/4)', rhythmDraw('valseavance')],
+    ['valse8', 'Valse en croches', 'Six croches : fondamentale, quinte, octave (3/4)', rhythmDraw('valse8')],
+    ['valseped', 'Pédale valse', 'Fondamentale tenue, rebond à l’octave sur le 3 (3/4)', rhythmDraw('valseped')],
+    ['tarentelle', 'Tarentelle', 'Six croches qui tournent : fondamentale, fondamentale, quinte (6/8)', rhythmDraw('tarentelle')],
+    ['oct68', 'Octave 6/8', 'Fondamentale puis octave, une par temps (6/8)', rhythmDraw('oct68')],
+    ['arp68b', 'Arpège 6/8', 'Croches : fondamentale, quinte, octave, tierce, octave, quinte (6/8)', rhythmDraw('arp68b')],
+    ['gigue', 'Gigue', 'Noire-croche, noire-croche, approche de l’accord suivant (6/8)', rhythmDraw('gigue')],
+    ['shuffle128', 'Shuffle 12/8', 'Longue-courte sur chaque temps : fondamentale, quinte, sixte, quinte (12/8)', rhythmDraw('shuffle128')],
+    ['arp128b', 'Arpège 12/8', 'Triolets de croches : fondamentale, quinte, octave, tierce… (12/8)', rhythmDraw('arp128b')],
+    ['gospel128', 'Gospel 12/8', 'Fondamentale tenue, sixte, quinte et approche (12/8)', rhythmDraw('gospel128')],
+    ['marche128', 'Marche lente', 'Une noire pointée par temps : fondamentale, quinte, octave, quinte (12/8)', rhythmDraw('marche128')],
   ];
 
   return { build, setMeter, meter, METERS, meterOK, fitMode, backbeats, halfBar, levelStep, levelPer, fitLanes, beatOf: (ts) => (ts && ts[1] === 8 && ts[0] % 3 === 0 && ts[0] > 3 ? 6 : Math.max(1, Math.round(16 / ((ts && ts[1]) || 4)))), voiceChord, bassEvents, chordEvents, PAD_NEW, padFxLanes, tomOfStep, junctionDefaults, junctionEff, withSceneFx, PERC_LOOPS, PERC_STYLES, hpHz, hpAmt, HP_MEL, isExtra, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, sceneGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, motifBars, motifBar, METER, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, BUILD_LEVELS, BUILD_PRESETS, buildLevels, progLevels, rollBar, rollerOf, hasGridLane, laneKey, _rng: rng };

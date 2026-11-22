@@ -94,6 +94,16 @@ const ok = (c, m) => {
     await shot('4-nappe-68.png');
   }
 
+  // arpège : départ ternaire, motifs ternaires dans le choix
+  const arpBtn = await page.$('#bandWizSteps li[data-kind="arp"] button');
+  if (arpBtn) {
+    await arpBtn.click();
+    await page.waitForTimeout(400);
+    const nm = (await page.textContent('#bwaName')).trim();
+    ok(/Montée-descente 6/.test(nm), `arpège en 6/8 : départ « Montée-descente 6 » (${nm.slice(0, 40)})`);
+    await shot('5-arpege-68.png');
+  }
+
   // la chanson créée porte la mesure
   await page.evaluate(() => SS.band.create());
   await page.waitForTimeout(1500);

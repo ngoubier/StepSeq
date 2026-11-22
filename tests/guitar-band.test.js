@@ -37,3 +37,23 @@ test('Guitariste « Avancé » : les réglages guitare de la scène (gtr : capod
   assert.equal(plain.length, capo.length, 'même motif');
   assert.notDeepEqual(plain, capo, 'le capodastre déplace la forme sur le manche');
 });
+
+test('mesures ternaires : les motifs de guitare de la mesure jouent en croches calées sur la mesure ; arpège du plan remplacé', () => {
+  const TR = [{ id: 'pad', type: 'instrument', category: 'chord', band: { key: 'pad' } }, { id: 'arp', type: 'instrument', category: 'chord', band: { key: 'arp' } }];
+  const SPEC = { key: 'C minor', groove: 'synthpop', form: 'a', sections: { a: { bars: 4, chords: 'i | VI | III | VII', pad: 'sustain', arp: 'updown16' } } };
+  const GA = SS.GuitarArp;
+  for (const [sig, n] of [['3/4', 12], ['6/8', 12], ['12/8', 24]]) {
+    const mine = GA.MOTIFS.filter((m) => SS.bandSong.meterOK('chords', 'g:' + m.id, sig));
+    assert.ok(mine.length >= 3, `${sig} : au moins trois motifs de guitare`);
+    for (const m of mine) {
+      const ev = SS.bandSong.build(SPEC, 't', TR, { sig, parts: { a: { pad: { mode: 'g:' + m.id } } } }).scenes[0].data.pad.events;
+      const bars = [0, 1, 2, 3].map((b) => ev.filter((e) => e.step >= b * n && e.step < (b + 1) * n).map((e) => e.step - b * n));
+      assert.ok(bars[0].length && bars[0].every((s) => s % 2 === 0), `${sig} ${m.id} : sur les croches (${bars[0]})`);
+      assert.ok(bars[0].includes(0) && bars[2].includes(0), `${sig} ${m.id} : chaque mesure commence sur le 1`);
+    }
+    const arp = SS.bandSong.build(SPEC, 't', TR, { sig }).scenes[0].data.arp.events;
+    if (sig !== '3/4') assert.ok(arp.every((e) => e.step % 2 === 0), `${sig} : arpège du plan en croches ternaires`);
+  }
+  assert.equal(SS.bandSong.meterOK('chords', 'g:pimami', '4/4'), true);
+  SS.bandSong.setMeter('4/4');
+});
