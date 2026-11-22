@@ -2333,6 +2333,8 @@ SS.bandSong = (() => {
   const BASS_RHYTHMS = {
     rock8: [[0, 2, 0, 0.92], [2, 2, 0, 0.62], [4, 2, 0, 0.8], [6, 2, 0, 0.62], [8, 2, 0, 0.88], [10, 2, 0, 0.62], [12, 2, 0, 0.8], [14, 2, 12, 0.74]],
     ballade: [[0, 10, 0, 0.85], [10, 2, 7, 0.7], [12, 4, 'a', 0.72]],
+    // noire pointée, croche (le « et » du 2, plus douce), blanche : toujours la fondamentale
+    pointee: [[0, 6, 0, 0.9], [6, 2, 0, 0.7], [8, 8, 0, 0.85]],
     disco16: [[0, 2, 0, 0.92], [2, 1, 12, 0.74], [3, 1, 0, 0.7], [4, 2, 0, 0.88], [6, 1, 12, 0.74], [7, 1, 0, 0.7], [8, 2, 0, 0.9], [10, 1, 12, 0.74], [11, 1, 0, 0.7], [12, 2, 0, 0.88], [14, 1, 12, 0.76], [15, 1, 'a', 0.7]],
     slap: [[0, 1, 0, 0.95], [2, 1, 0, 0.36], [3, 1, 0, 0.8], [4, 1, 12, 0.9], [6, 1, 0, 0.85], [7, 1, 12, 0.75], [9, 1, 0, 0.36], [10, 1, 0, 0.88], [11, 1, 7, 0.72], [12, 1, 12, 0.9], [13, 1, 0, 0.38], [14, 1, 0, 0.82], [15, 1, 's', 0.72]],
     motown: [[0, 3, 0, 0.9], [3, 1, 0, 0.55], [4, 2, 12, 0.78], [6, 1, 7, 0.7], [7, 1, 7, 0.38], [8, 3, 0, 0.88], [11, 1, 't', 0.6], [12, 2, 7, 0.76], [14, 2, 'a', 0.74]],
@@ -2441,6 +2443,7 @@ SS.bandSong = (() => {
     // nov. 2026 : rythmes de basse par style (BASS_RHYTHMS) et walking
     ['rock8', 'Croches rock', 'Fondamentale en croches, octave sur le dernier « et » : pop-rock', rhythmDraw('rock8')],
     ['ballade', 'Ballade', 'Fondamentale tenue, quinte, puis la note voisine de l’accord suivant', rhythmDraw('ballade')],
+    ['pointee', 'Noire pointée', 'Noire pointée, croche, blanche sur la fondamentale : posé, avec un petit élan vers le 3', rhythmDraw('pointee')],
     ['disco16', 'Disco syncopée', 'Octaves avec doubles en fin de temps : disco, nu-disco', rhythmDraw('disco16')],
     ['slap', 'Slap', 'Pouce sur la fondamentale, « pop » à l’octave : funk', rhythmDraw('slap')],
     ['motown', 'Motown', 'Fondamentale, octave, quinte et note d’approche : soul', rhythmDraw('motown')],

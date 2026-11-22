@@ -27,6 +27,13 @@ assert.deepStrictEqual(SS.playEvents(p, bass), ev, 'même motif, mêmes notes (v
 bass.follow = SS.FOLLOW.clean({ ...bass.follow, oct: 3 });
 assert.strictEqual(SS.playEvents(p, bass)[0].notes[0], 45, 'hauteur C3 : une octave au-dessus');
 
+// Noire pointée : noire pointée, croche, blanche, toujours la fondamentale de l'accord
+bass.follow = SS.FOLLOW.clean({ ...bass.follow, motif: 'pointee' });
+const pt = SS.playEvents(p, bass);
+assert.deepStrictEqual(pt.filter((e) => e.step < 16).map((e) => [e.step, e.len]), [[0, 6], [6, 2], [8, 8]], 'rythme d’une mesure');
+assert.ok(pt.every((e) => e.notes[0] % 12 === [9, 5, 0, 7][Math.floor(e.step / 16)]), 'même note : la fondamentale');
+bass.follow = SS.FOLLOW.clean({ ...bass.follow, motif: 'disco16' });
+
 // motif par scène
 bass.follow = SS.FOLLOW.clean({ ...bass.follow, oct: 2, motifs: { [sc.id]: 'whole' } });
 assert.strictEqual(SS.bassMotifOf(bass, sc), 'whole');

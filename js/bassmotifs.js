@@ -8,10 +8,10 @@ window.SS = window.SS || {};
 SS.bassMotifs = (() => {
   /** Styles : [id, nom, motifs]. Un motif peut être dans plusieurs styles ; « Tous » les montre une fois. */
   const GROUPS = [
-    ['synth', 'Synthwave & 80s', ['8', 'gallop', 'oct', 'pulse8', 'sync', 'roll', 'whole', 'half', 'quarter', 'walk', 'drone', 'rootfifth', 'arp', 'pickup', 'sixteen', 'oct16']],
-    ['pop', 'Pop-rock', ['rock8', 'ballade', 'b03', 'quarter', 'rootfifth', 'anticip', 'walkup', 'boomchick']],
+    ['synth', 'Synthwave & 80s', ['8', 'gallop', 'oct', 'pulse8', 'sync', 'roll', 'whole', 'half', 'quarter', 'walk', 'drone', 'rootfifth', 'arp', 'pickup', 'sixteen', 'oct16', 'pointee']],
+    ['pop', 'Pop-rock', ['rock8', 'ballade', 'b03', 'quarter', 'rootfifth', 'pointee', 'anticip', 'walkup', 'boomchick']],
     ['funk', 'Funk & Disco', ['disco16', 'slap', 'funk', 'oct']],
-    ['soul', 'Soul & Jazz', ['motown', 'walking', 'walkskip', 'ballade', 'ballade128', 'chroma', 'walkup']],
+    ['soul', 'Soul & Jazz', ['motown', 'walking', 'walkskip', 'ballade', 'ballade128', 'pointee', 'chroma', 'walkup']],
     ['hiphop', 'Hip-hop & Trap', ['boombap', 'sub808', 'trap808', 'drill']],
     ['dnb', 'Drum & bass', ['reese', 'dnbroll']],
     ['latin', 'Latin & Reggae', ['tresillo', 'dembow', 'tumbao', 'onedrop', 'roots', 'bossa', 'afro', 'chacha', 'cumbia', 'baiao', 'montuno', 'amapiano']],
