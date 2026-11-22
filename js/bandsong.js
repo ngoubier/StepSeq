@@ -2324,6 +2324,8 @@ SS.bandSong = (() => {
           under: !!sec.dialog,
           vel: sec.orchVel ?? null,
           art: { ...(sec.art || {}), motor: !!sec.motor },
+          spb: SPB,
+          beat: BEAT,
         });
         ts.forEach((t, i) => {
           const L = res.lines[ord[i]];

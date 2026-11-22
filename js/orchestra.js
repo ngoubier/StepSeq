@@ -90,7 +90,6 @@ SS.orchestra = (() => {
     if (last && last.step + last.len === step && last.notes.join() === notes.join()) last.len += len;
     else ev.push({ step, len, notes, vel });
   }
-  const barOf = (step) => Math.floor(step / 16) + 1;
   const bars = (set) => [...set].sort((a, b) => a - b).slice(0, 3).join(', ') + (set.size > 3 ? '…' : '');
 
   /**
@@ -103,13 +102,27 @@ SS.orchestra = (() => {
    */
   const MOTOR = [0, 0, 12, 0, 0, 12, 0, 7];
   const ACC = [0, 3, 6];
-  function orchestrate({ parts, spans, melody = [], level = 'mid', off = [], vel = null, motor = false, stabs = false, under = false, art = null }) {
+  /**
+   * Ostinato dans la mesure (spb pas par mesure, beat pas par temps) : en 4/4 le 3+3+2 ci-dessus ; en 3/4 deux groupes de trois
+   * croches (3+3, l'hémiole) ; en 6/8 et 12/8 un groupe de trois croches par temps. → { o: intervalle, acc: accent }
+   */
+  function motorAt(step, spb, beat) {
+    if (spb === 16 && beat === 4) {
+      const k = Math.floor(step / 2) % 8;
+      return { o: MOTOR[k], acc: ACC.includes(k) };
+    }
+    const k = Math.floor((step % spb) / 2) % 3;
+    const g = Math.floor((step % spb) / 6);
+    return { o: k === 2 ? (beat === 4 && g % 2 ? 7 : 12) : 0, acc: k === 0 };
+  }
+  function orchestrate({ parts, spans, melody = [], level = 'mid', off = [], vel = null, motor = false, stabs = false, under = false, art = null, spb = 16, beat = 4 }) {
+    const barOf = (step) => Math.floor(step / spb) + 1; // numéro de mesure (rapport)
     // pupitres d'articulation et claviers d'orchestre : hors du calcul, puis ajoutés selon art (voir articulate)
     const SPECIAL = Object.keys(ART_OF).concat(['gl', 'ma', 'bl']);
     const special = parts.filter((id) => SPECIAL.includes(id));
     if (special.length) {
-      const res = orchestrate({ parts: parts.filter((id) => !SPECIAL.includes(id)), spans, melody, level, off, vel, motor, stabs, under });
-      return articulate(res, special, { spans, melody, art: art || {}, off, vel: (vel ?? { light: 0.5, mid: 0.62, full: 0.74 }[level] ?? 0.62) - (under ? 0.12 : 0) });
+      const res = orchestrate({ parts: parts.filter((id) => !SPECIAL.includes(id)), spans, melody, level, off, vel, motor, stabs, under, spb, beat });
+      return articulate(res, special, { spans, melody, art: art || {}, off, vel: (vel ?? { light: 0.5, mid: 0.62, full: 0.74 }[level] ?? 0.62) - (under ? 0.12 : 0), spb, beat });
     }
     const defs = parts.map((id) => PART[id]).filter(Boolean);
     const lines = {};
@@ -144,8 +157,8 @@ SS.orchestra = (() => {
     defs.forEach((p) => {
       if (isOff(p)) return set(p, 'tacet', 'Coupé dans cette scène.');
       if (under && p.id === 'hp') return set(p, 'tacet', 'Se tait sous le dialogue : ses arpèges gêneraient la voix.');
-      if (stabP.includes(p)) return set(p, 'stabs', 'Frappe l’accord sur les accents 3+3+2 : le coup de poing des cuivres.');
-      if (p === motorVc || (motor && p === bassP)) return set(p, 'motor', 'Croches groupées 3+3+2 sur la basse de l’accord : le moteur de la poursuite.');
+      if (stabP.includes(p)) return set(p, 'stabs', `Frappe l’accord sur les accents ${spb === 16 ? '3+3+2' : 'de l’ostinato'} : le coup de poing des cuivres.`);
+      if (p === motorVc || (motor && p === bassP)) return set(p, 'motor', `Croches groupées ${spb === 16 ? '3+3+2' : beat === 6 ? 'par trois sur chaque temps' : '3+3'} sur la basse de l’accord : le moteur de la poursuite.`);
       if (dbl.includes(p)) return set(p, 'melody', p.id === 'pic' ? 'Double le thème une octave au-dessus : l’éclat du sommet.' : 'Double le thème au sommet : les trompettes le rendent héroïque.');
       if (p === tubaP) return set(p, 'bass', 'Double la basse à l’octave grave : le poids des scènes fortes.');
       if (p === harpP) return set(p, 'arp', 'Arpège chaque accord en croches, du grave vers l’aigu : l’harmonie qui coule.');
@@ -192,9 +205,8 @@ SS.orchestra = (() => {
         const m = nearest(bassPc, prevBass ?? bassP.clo + 5, bassP.clo, Math.min(bassP.chi, bassP.clo + 14)) ?? nearest(bassPc, bassP.clo + 5, bassP.lo, bassP.hi);
         if (m !== null && motor) {
           for (let st = 0; st < sp.len; st += 2) {
-            const k = Math.floor((sp.step + st) / 2) % 8;
-            const acc = ACC.includes(k);
-            const o = m + MOTOR[k] <= bassP.hi ? MOTOR[k] : 0;
+            const { o: mo, acc } = motorAt(sp.step + st, spb, beat);
+            const o = m + mo <= bassP.hi ? mo : 0;
             lines[bassP.id].events.push({ step: sp.step + st, len: Math.min(2, sp.len - st), notes: [m + o], vel: acc ? v0 + 0.12 : v0 - 0.08 });
             if (motorVc) lines[motorVc.id].events.push({ step: sp.step + st, len: Math.min(2, sp.len - st), notes: [m + 12 + o], vel: acc ? v0 + 0.08 : v0 - 0.1 });
           }
@@ -208,7 +220,7 @@ SS.orchestra = (() => {
       // accents des cuivres : l'accord (fondamentale + tierce ou quinte) aux trombones, la fondamentale au tuba
       stabP.forEach((p) => {
         for (let st = 0; st < sp.len; st += 2) {
-          if (!ACC.includes(Math.floor((sp.step + st) / 2) % 8)) continue;
+          if (!motorAt(sp.step + st, spb, beat).acc) continue;
           const r = nearest(root, p.id === 'tu' ? p.clo + 3 : Math.round(center(p)) - 4, p.lo, p.hi);
           if (r === null) continue;
           const q = pcs.find((pc) => [3, 4].includes(pcOf(pc - root))) ?? pcs.find((pc) => pcOf(pc - root) === 7);
@@ -221,8 +233,9 @@ SS.orchestra = (() => {
         const base = nearest(bassPc, 43, harpP.lo, harpP.hi) ?? 43;
         const up = [];
         for (let m = base; m <= base + 26 && up.length < 6; m++) if (pcs.includes(pcOf(m)) || pcOf(m) === pcOf(bassPc)) up.push(m);
-        const seq = [...up, ...up.slice(1, -1).reverse()];
-        for (let st = 0, i = 0; st < sp.len; st += 2, i++) lines[harpP.id].events.push({ step: sp.step + st, len: Math.min(4, sp.len - st), notes: [seq[i % seq.length]], vel: v0 - 0.1 });
+        // 4/4 : montée-descente de 10 croches ; ailleurs une vague par mesure (6 ou 12 croches), calée sur la mesure
+        const seq = spb === 16 ? [...up, ...up.slice(1, -1).reverse()] : spb / 2 === 6 ? [...up.slice(0, 4), up[2], up[1]].filter((x) => x !== undefined) : [...up, ...up.slice(0, 6).reverse()];
+        for (let st = 0, i = 0; st < sp.len; st += 2, i++) lines[harpP.id].events.push({ step: sp.step + st, len: Math.min(4, sp.len - st), notes: [seq[(spb === 16 ? i : Math.floor(((sp.step + st) % spb) / 2)) % seq.length]], vel: v0 - 0.1 });
       }
       // harmonie : du haut vers le bas, sous la mélodie et sous le pupitre du dessus
       const ms = melAt(sp.step, sp.step + sp.len).map((n) => n.midi);
@@ -284,7 +297,7 @@ SS.orchestra = (() => {
           if (m !== null) break;
         }
         if (m === null) continue;
-        const len = Math.min(b - a, 16, sp.step + sp.len - a);
+        const len = Math.min(b - a, spb, sp.step + sp.len - a);
         lines[counterP.id].events.push({ step: a, len, notes: [m], vel: v0 - 0.06 });
         last = m;
       }
@@ -322,7 +335,7 @@ SS.orchestra = (() => {
    *  - bells : une cloche tubulaire sur la tonique au premier temps (l'impact d'une synchro forte).
    * Les pupitres qui ne sont pas appelés se taisent.
    */
-  function articulate(res, special, { spans, melody, art, off, vel }) {
+  function articulate(res, special, { spans, melody, art, off, vel, spb = 16, beat = 4 }) {
     const { lines, items } = res;
     const set = (id, role, why, events = []) => (lines[id] = { role, events, lo: null, hi: null, why });
     const take = (from, to, why, map = (e) => [e]) => {
@@ -342,7 +355,7 @@ SS.orchestra = (() => {
     else if (on('vlp') && art.pizz)
       take(['vl1', 'vl2'], 'vlp', 'Pizzicato : léger, une attaque par temps.', (e) => {
         const out = [];
-        for (let st = 0; st < e.len; st += 4) out.push({ step: e.step + st, len: Math.min(4, e.len - st), notes: [...e.notes], vel: e.vel });
+        for (let st = 0; st < e.len; st += beat) out.push({ step: e.step + st, len: Math.min(beat, e.len - st), notes: [...e.notes], vel: e.vel });
         return out;
       });
     if (art.motor) {
@@ -354,13 +367,14 @@ SS.orchestra = (() => {
       if (on('cbp') && lines.cb && lines.cb.role === 'motor') {
         const top = Math.max(...lines.cb.events.map((e) => e.vel));
         const acc = lines.cb.events.filter((e) => e.vel >= top - 0.01);
-        set('cbp', 'motor', 'Pizzicato sur les accents 3+3+2.', acc.map((e) => ({ ...e })));
+        set('cbp', 'motor', spb === 16 ? 'Pizzicato sur les accents 3+3+2.' : 'Pizzicato sur les accents de l’ostinato.', acc.map((e) => ({ ...e })));
       }
     }
     if (on('gl') && art.glock && mel.length) {
       // le sommet de chaque phrase de deux mesures
       const ph = {};
-      mel.forEach((n) => (ph[Math.floor(n.step / 32)] = !ph[Math.floor(n.step / 32)] || n.midi > ph[Math.floor(n.step / 32)].midi ? n : ph[Math.floor(n.step / 32)]));
+      const P2 = 2 * spb; // phrase de deux mesures
+      mel.forEach((n) => (ph[Math.floor(n.step / P2)] = !ph[Math.floor(n.step / P2)] || n.midi > ph[Math.floor(n.step / P2)].midi ? n : ph[Math.floor(n.step / P2)]));
       const ev = Object.values(ph).map((n) => {
         let m = n.midi + 24;
         while (m > PART.gl.hi) m -= 12;
@@ -372,12 +386,13 @@ SS.orchestra = (() => {
     if (on('ma') && art.marimba) {
       const ev = [];
       spans.forEach((sp) => {
-        for (let st = 0; st < sp.len; st += 16) {
+        for (let st = 0; st < sp.len; st += spb) {
           const pcs = [...new Set(sp.pcs)];
           [pcs[0], pcs[2] ?? pcs[1]].forEach((pc, k) => {
             if (pc === undefined) return;
             const m = nearest(pc, 64 + k * 5, PART.ma.clo, PART.ma.chi);
-            if (m !== null) ev.push({ step: sp.step + st + 8 * k, len: 4, notes: [m], vel: vel - 0.2 });
+            const at = sp.step + st + k * (spb === 16 ? 8 : beat === 6 ? spb / 2 : 4); // deux notes par mesure : 1 et 3 (4/4), les deux temps (6/8)…
+            if (m !== null && (spb === 16 || at < sp.step + sp.len)) ev.push({ step: at, len: spb === 16 ? 4 : Math.min(beat, sp.step + sp.len - at), notes: [m], vel: vel - 0.2 });
           });
         }
       });
@@ -385,7 +400,7 @@ SS.orchestra = (() => {
     }
     if (on('bl') && art.bells && spans.length) {
       const m = nearest(spans[0].bassPc ?? spans[0].pcs[0], 67, PART.bl.lo, PART.bl.hi);
-      if (m !== null) set('bl', 'accent', 'Une cloche sur l’impact : elle signe l’arrivée.', [{ step: 0, len: 16, notes: [m], vel: Math.min(1, vel + 0.1) }]);
+      if (m !== null) set('bl', 'accent', 'Une cloche sur l’impact : elle signe l’arrivée.', [{ step: 0, len: spb, notes: [m], vel: Math.min(1, vel + 0.1) }]);
     }
     special.forEach((id) => {
       const L = lines[id];
