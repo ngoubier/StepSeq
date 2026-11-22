@@ -360,6 +360,12 @@
     const junoLight = $('#optJunoLight');
     junoLight.checked = !!(SS.juno && SS.juno.isLightVcf && SS.juno.isLightVcf());
     junoLight.addEventListener('change', () => SS.juno.setLightVcf(junoLight.checked));
+    // Son : écoute de l'assistant calculée à l'avance (js/band.js, ss.prerender : '1' oui, '0' non, absent = automatique)
+    const prerender = $('#optPrerender');
+    try { prerender.checked = localStorage.getItem('ss.prerender') === '1'; } catch (_) {}
+    prerender.addEventListener('change', () => {
+      try { localStorage.setItem('ss.prerender', prerender.checked ? '1' : '0'); } catch (_) {}
+    });
     // contour pointillé de la case d'origine des notes décalées (affiché par défaut)
     const shiftHome = $('#optShiftHome');
     try { shiftHome.checked = localStorage.getItem('stepseq.shiftHome') !== '0'; } catch (_) {}
