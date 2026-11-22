@@ -5905,3 +5905,18 @@ dialog.bwgt-dlg { width: min(980px, 94vw); max-height: 92vh; overflow: auto; pad
 /* le « ? » d'aide garde sa forme ronde dans les menus (.ctx-menu button l'étirait sur toute la largeur) */
 .ctx-menu .help-tip { display: inline-flex; width: 18px; height: 18px; justify-content: center; padding: 0; border: 1px solid var(--c-line-strong); border-radius: 50%; }
 .ctx-menu .help-tip:hover, .ctx-menu .help-tip:focus-visible { background: var(--c-violet-deep); }
+
+/* étape Tempo : mesure de la chanson (4/4, 3/4, 6/8, 12/8) */
+.bwt-card h3 { display: flex; align-items: center; gap: 6px; }
+.bwt-meters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.bwt-meter { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 10px; border-radius: 8px; text-align: left; }
+.bwt-meter b { font: 700 var(--fs-xl)/1.1 ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+.bwt-meter small { font-size: var(--fs-sm); color: var(--muted); }
+.bwt-meter.active { background: var(--accent); border-color: var(--accent-2); color: #fff; }
+.bwt-meter.active small { color: var(--c-blue-soft); }
+.bwt-pulse { display: flex; align-items: center; gap: 6px; height: 12px; margin-top: 4px; }
+.bwt-pulse > span { display: flex; align-items: center; gap: 3px; }
+.bwt-pulse i { display: block; width: 5px; height: 5px; border-radius: 50%; background: var(--muted); opacity: .6; }
+.bwt-pulse i.b { width: 9px; height: 9px; background: currentColor; opacity: 1; }
+.bwt-pulse i.one { background: var(--gold); }
+@media (max-width: 760px) { .bwt-meters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

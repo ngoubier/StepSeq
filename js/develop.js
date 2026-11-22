@@ -16,8 +16,10 @@
 window.SS = window.SS || {};
 
 SS.develop = (() => {
-  const SPB = 16;
-  const SEG = 2 * SPB; // un segment de phrase = 2 mesures
+  // mesure de la chanson (js/bandsong.js setMeter) : 16 pas en 4/4, 12 en 3/4 et 6/8, 24 en 12/8
+  let SPB = 16;
+  let SEG = 2 * SPB; // un segment de phrase = 2 mesures
+  const setMeter = (spb) => ((SPB = spb || 16), (SEG = 2 * SPB));
   const pcOf = (m) => ((m % 12) + 12) % 12;
   const clamp = (m) => Math.max(36, Math.min(96, m));
 
@@ -242,5 +244,5 @@ SS.develop = (() => {
     });
   }
 
-  return { FORMS, motif, motifBars, continuations, contrast, _t: { seq, invert, answer, syncopate, augment, diminish, close, fit, toDeg, fromDeg } };
+  return { setMeter, FORMS, motif, motifBars, continuations, contrast, _t: { seq, invert, answer, syncopate, augment, diminish, close, fit, toDeg, fromDeg } };
 })();

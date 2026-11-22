@@ -272,7 +272,7 @@ window.SS = window.SS || {};
     const mode = SS.bassMotifOf({ follow: f }, sc);
     const r = BS._rng(`${track.id}|${sc.id}|${mode}`);
     try {
-      return BS.bassEvents(spans, mode, r, keyPcs, { shift: (f.oct - 2) * 12, spb: SS.stepsPerBar(p) }).filter((e) => e.step < total);
+      return BS.bassEvents(spans, mode, r, keyPcs, { shift: (f.oct - 2) * 12, spb: SS.stepsPerBar(p), beat: BS.beatOf ? BS.beatOf(p.timeSig) : 4 }).filter((e) => e.step < total);
     } catch (e) {
       return [];
     }

@@ -69,7 +69,29 @@ window.SS = window.SS || {};
 SS.bandSong = (() => {
   const H = () => SS.harmony;
   const pcOf = (n) => ((n % 12) + 12) % 12;
-  const SPB = 16; // pas par mesure (4/4)
+  /* ---------- mesure de la chanson ----------
+   * Tout le moteur compte en doubles-croches. SPB = pas par mesure, BEAT = pas par temps : 4/4 (16, 4), 3/4 (12, 4),
+   * 6/8 (12, 6 : noire pointée) et 12/8 (24, 6). setMeter('6/8') change la mesure de tout le moteur (build la règle
+   * d'après son option sig) ; le tempo reste à la noire. Les motifs écrits pour une mesure (METER) ne sont proposés que
+   * dans celle-ci ; les motifs sans mesure suivent celle de la chanson.
+   */
+  const METERS = { '4/4': [16, 4], '3/4': [12, 4], '6/8': [12, 6], '12/8': [24, 6] };
+  let SPB = 16; // pas par mesure
+  let BEAT = 4; // pas par temps
+  let SIG = '4/4';
+  /** Change la mesure du moteur ('4/4', '3/4', '6/8', '12/8' ; autre : 4/4). Rend la mesure retenue. */
+  function setMeter(sig) {
+    SIG = METERS[sig] ? sig : '4/4';
+    [SPB, BEAT] = METERS[SIG];
+    if (SS.melody && SS.melody.setMeter) SS.melody.setMeter(SPB, BEAT);
+    if (SS.develop && SS.develop.setMeter) SS.develop.setMeter(SPB);
+    return SIG;
+  }
+  const meter = () => ({ sig: SIG, spb: SPB, beat: BEAT, beats: SPB / BEAT });
+  /** Temps forts secondaires : le 3 en 4/4, le 3 (7e croche) en 12/8 ; aucun en 3/4 et 6/8. */
+  const halfBar = () => (SPB / BEAT) % 2 === 0 && SPB / BEAT > 2 ? SPB / 2 : -1;
+  /** Contretemps de la caisse claire : 2 et 4 en 4/4, 2 et 3 en 3/4, le 2e temps en 6/8, 2 et 4 en 12/8. */
+  const backbeats = () => (SIG === '3/4' ? [4, 8] : SIG === '6/8' ? [6] : SIG === '12/8' ? [6, 18] : [4, 12]);
 
   const NAMES = {
     intro: 'Intro', verse: 'Couplet', verse2: 'Couplet 2', pre: 'Pré-refrain', chorus: 'Refrain', chorus2: 'Refrain final', post: 'Post-refrain',
@@ -91,7 +113,7 @@ SS.bandSong = (() => {
   };
   const ACCENT = (s) => {
     const p = s % SPB;
-    return p === 0 ? 1 : p === 8 ? 0.96 : p % 4 === 0 ? 0.92 : p % 2 === 0 ? 0.86 : 0.8;
+    return p === 0 ? 1 : p === halfBar() ? 0.96 : p % BEAT === 0 ? 0.92 : p % 2 === 0 ? 0.86 : 0.8;
   };
   const DEPTH = { bass: 0.6, arp: 1, lead: 0.5, vox: 0.5, sax: 0.5, pad: 0.3, strings: 0.4, keys: 0.7, guitar: 0.8 };
   const clampV = (v) => Math.round(Math.max(0.12, Math.min(1, v)) * 100) / 100;
@@ -132,11 +154,11 @@ SS.bandSong = (() => {
     const has = new Set((notesSteps || []).map((s) => ((s % period) + period) % period));
     const want = {
       none: () => false,
-      strong: (s) => s % 16 === 0 || s % 16 === 8,
-      beat: (s) => s % 4 === 0,
-      off: (s) => s % 4 === 2,
+      strong: (s) => s % SPB === 0 || s % SPB === halfBar() || (SIG === '6/8' && s % SPB === BEAT),
+      beat: (s) => s % BEAT === 0,
+      off: (s) => (BEAT === 4 ? s % 4 === 2 : s % 2 === 0 && s % BEAT !== 0),
       gallop: (s) => s % 6 === 0,
-      sync: (s) => [0, 6, 12].includes(s % 16),
+      sync: (s) => (SPB === 16 ? [0, 6, 12].includes(s % 16) : s % BEAT === 0),
     }[id];
     const out = [];
     if (id === 'rand') {
@@ -528,6 +550,28 @@ SS.bandSong = (() => {
     shuffle: { bd: 'x-------x-----o-', bk: '----x-------x---', hh: '.-.-.-.-.-.-.-.-', oh: '--------------o-', sh: 'o-o-x-o-o-o-x-o-', tb: '----o-------o---', rim: '----------------', tom: '--------o-o-o-oo', by: { perc: 'x---------------' + '-'.repeat(16) + 'x---------------' + '------------x-o-' } },
     onedrop: { bd: '--------x-------', bk: '--------o-------', hh: '--o-x-o.x-o-x-o-', oh: '--------------o-', sh: '..o...o...o...o.', tb: '----o-------o---', rim: '--------x-------', tom: '----------o-oo-o', by: { perc: 'x--.---ox--.---o' } },
   };
+  /*
+   * Jeu du plan dans les autres mesures (une mesure de SPB pas, mêmes lettres) : valse (3/4), ballade bercée (6/8),
+   * blues lent (12/8). Les grooves de G sont écrits en 4/4 : ailleurs, c'est ce jeu-là qui sert de plan.
+   */
+  const TG = {
+    '3/4': { bd: 'x-----------', bk: '----o---o---', hh: 'x-o-x-o-x-o-', oh: '----------o-', sh: '.o.o.o.o.o.o', tb: '----o---o---', rim: '----o---o---', tom: '--------oooo' },
+    '6/8': { bd: 'x-----------', bk: '------x-----', hh: 'x-o-o-x-o-o-', oh: '----------o-', sh: 'o-.-.-o-.-.-', tb: '------o-----', rim: '------o-----', tom: '------o-o-oo' },
+    '12/8': {
+      bd: 'x---------o-x-----------', bk: '------x-----------x-----', hh: 'x-o-o-x-o-o-x-o-o-x-o-o-', oh: '----------------------o-',
+      sh: 'o-.-.-o-.-.-o-.-.-o-.-.-', tb: '------o-----------o-----', rim: '------o-----------o-----', tom: '------------------o-o-oo',
+    },
+  };
+  /** Groove du plan dans la mesure de la chanson. */
+  const grooveOf = (id) => (SPB === 16 ? G[id] || G.synthpop : TG[SIG]);
+  /** Accent d'un charleston ou d'un shaker au pas i : temps > croches > doubles-croches. */
+  const hatAccent = (i) => (i % BEAT === 0 ? 1 : i % 2 === 0 ? (BEAT === 4 ? 0.88 : 0.82) : 0.74);
+  /** Fill de js/drum-patterns.js calé sur la fin de la mesure de la chanson (écrit pour 16 pas). */
+  function fillOf(F) {
+    if (!F || SPB === 16) return F;
+    const d = SPB - 16;
+    return { ...F, from: Math.max(0, F.from + d), ev: F.ev.map(([st, ...x]) => [st + d, ...x]).filter(([st]) => st >= 0) };
+  }
   const LEVEL = { x: 1, o: 0.72, '.': 0.45, r: 0.72 }; // r : roulement (trois coups dans le pas, motifs de js/drum-patterns.js)
   const kind = (sound) => {
     if (sound === 'bd') return 'bd';
@@ -547,12 +591,12 @@ SS.bandSong = (() => {
     const n = bars * SPB;
     const out = new Array(n).fill(0);
     if (!mode || mode === 'off') return out;
-    const g = G[grooveId] || G.synthpop;
+    const g = grooveOf(grooveId);
     const k = kind(sound);
     // la grosse caisse reste régulière ; charleston et percussions varient davantage
     const spread = k === 'bd' ? 0.05 : k === 'bk' ? 0.08 : 0.14;
     // charleston, shaker : temps > croches > doubles-croches
-    const hatAcc = (i) => (['hh', 'sh'].includes(k) ? [1, 0.74, 0.88, 0.74][i % 4] : 1);
+    const hatAcc = (i) => (['hh', 'sh'].includes(k) ? hatAccent(i) : 1);
     const put = (s, v) => s >= 0 && s < n && (out[s] = vel(r, v * hatAcc(s % SPB), spread));
     const bar = (b, pat, scale = 1) => {
       if (!pat) return;
@@ -563,11 +607,11 @@ SS.bandSong = (() => {
       // montée : grosse caisse en noires, puis caisse claire de plus en plus serrée, crescendo, dernière mesure coupée au 4e temps
       for (let b = 0; b < bars; b++) {
         const t = (b + 1) / bars;
-        const step = t <= 0.5 ? 4 : t <= 0.75 ? 2 : 1;
+        const step = t <= 0.5 ? BEAT : t <= 0.75 ? 2 : 1;
         for (let s = 0; s < SPB; s += step) {
           const v = 0.35 + 0.6 * ((b * SPB + s) / n);
-          if (k === 'bk' && !(b === bars - 1 && s >= 12)) put(b * SPB + s, v);
-          if (k === 'bd' && t <= 0.75 && s % 4 === 0) put(b * SPB + s, 0.9);
+          if (k === 'bk' && !(b === bars - 1 && s >= SPB - BEAT)) put(b * SPB + s, v);
+          if (k === 'bd' && t <= 0.75 && s % BEAT === 0) put(b * SPB + s, 0.9);
           if (k === 'sh' && s % 2 === 0) put(b * SPB + s, v * 0.6);
         }
       }
@@ -582,7 +626,7 @@ SS.bandSong = (() => {
       }
       if (mode === 'break') {
         // break : pas de grosse caisse, un coup de caisse claire toutes les deux mesures, charleston clairsemé
-        if (k === 'bk' && b % 2 === 1) put(b * SPB + 8, 0.6);
+        if (k === 'bk' && b % 2 === 1) put(b * SPB + (SPB === 16 ? 8 : backbeats()[0]), 0.6);
         if (k === 'hh' || k === 'sh') bar(b, g.hh.replace(/o/g, '.'), 0.8);
         continue;
       }
@@ -594,20 +638,21 @@ SS.bandSong = (() => {
       }
       // dernière mesure d'une section pleine : roulement (caisse claire ou toms) sur le dernier temps
       const fill = last && b === bars - 1 && ['main', 'full', 'drop'].includes(mode);
-      let pat = own && ['sh', 'tb'].includes(k) ? own : k === 'bd' ? g.bd : k === 'bk' ? g.bk : k === 'hh' ? (mode === 'drop' ? '.o.o.o.o.o.o.o.o' : g.hh) : k === 'oh' ? g.oh : k === 'rim' ? g.rim : k === 'sh' ? g.sh : k === 'tb' ? g.tb : k === 'tom' ? (fill ? g.tom : null) : null;
-      if (fill && k === 'bk') pat = pat.slice(0, 12) + '----';
-      if (fill && k === 'hh') pat = pat.slice(0, 12) + '----';
+      const lb = SPB - BEAT; // début du dernier temps
+      let pat = own && ['sh', 'tb'].includes(k) ? own : k === 'bd' ? g.bd : k === 'bk' ? g.bk : k === 'hh' ? (mode === 'drop' ? '.o'.repeat(SPB / 2) : g.hh) : k === 'oh' ? g.oh : k === 'rim' ? g.rim : k === 'sh' ? g.sh : k === 'tb' ? g.tb : k === 'tom' ? (fill ? g.tom : null) : null;
+      if (fill && k === 'bk') pat = pat.slice(0, lb) + '-'.repeat(BEAT);
+      if (fill && k === 'hh') pat = pat.slice(0, lb) + '-'.repeat(BEAT);
       bar(b, pat, mode === 'light' ? 0.8 : 1);
       const groove = ['main', 'full', 'drop'].includes(mode);
       // roulement de fin de section en crescendo
-      if (fill && k === 'bk') [0.5, 0.64, 0.8, 0.98].forEach((v, i) => put(b * SPB + 12 + i, v));
+      if (fill && k === 'bk') (BEAT === 4 ? [0.5, 0.64, 0.8, 0.98] : [0.5, 0.6, 0.7, 0.8, 0.9, 0.98]).forEach((v, i) => put(b * SPB + lb + i, v));
       // ghost notes de caisse claire (pas sur le clap) : une ou deux par mesure, très douces
       if (groove && sound === 'sd' && !fill)
-        [7, 10, 15].forEach((o) => !out[b * SPB + o] && r() < 0.3 && (out[b * SPB + o] = clampV(0.24 + r() * 0.08)));
+        (SPB === 16 ? [7, 10, 15] : [BEAT + 3, SPB - 1]).forEach((o) => !out[b * SPB + o] && r() < 0.3 && (out[b * SPB + o] = clampV(0.24 + r() * 0.08)));
       // fin de phrase de 8 mesures : grosse caisse d'appel et charleston ouvert
       if (groove && b % 8 === 7 && !fill) {
-        if (k === 'bd' && !out[b * SPB + 14]) put(b * SPB + 14, 0.62);
-        if (k === 'oh') put(b * SPB + 14, 0.8);
+        if (k === 'bd' && !out[b * SPB + SPB - 2]) put(b * SPB + SPB - 2, 0.62);
+        if (k === 'oh') put(b * SPB + SPB - 2, 0.8);
       }
     }
     // nuance de la section (atténuée sur la grosse caisse et la caisse claire, qui tiennent le tempo)
@@ -624,7 +669,10 @@ SS.bandSong = (() => {
    */
   const tomIndex = { ht: 0, mt: 1, lt: 2 };
   /** Ligne T des motifs : le tom joué dépend du pas (0–5 aigu, 6–10 médium, 11–15 grave). */
-  const tomOfStep = (s) => (s < 6 ? 0 : s < 11 ? 1 : 2);
+  const tomOfStep = (s0) => {
+    const s = SPB === 16 ? s0 : (s0 * 16) / SPB; // autres mesures : mêmes tiers de mesure
+    return s < 6 ? 0 : s < 11 ? 1 : 2;
+  };
   /** Ligne du motif qui pilote ce son (null : aucune). */
   function patternLane(sound, lanes) {
     const k = kind(sound);
@@ -642,7 +690,7 @@ SS.bandSong = (() => {
     if (!['bd', 'bk', 'hh', 'oh', 'tom', 'cr'].includes(k) && !(lanes && patternLane(sound, lanes))) return null;
     const n = bars * SPB;
     const out = base ? base.slice() : new Array(n).fill(0);
-    const F = (SS.DRUM_FILLS && SS.DRUM_FILLS[fillType]) || (SS.DRUM_FILLS && SS.DRUM_FILLS.roll);
+    const F = fillOf((SS.DRUM_FILLS && SS.DRUM_FILLS[fillType]) || (SS.DRUM_FILLS && SS.DRUM_FILLS.roll));
     const lane = patternLane(sound, lanes);
     const ti = tomIndex[sound] ?? 1;
     const spread = k === 'bd' ? 0.05 : k === 'bk' ? 0.08 : 0.14;
@@ -650,7 +698,7 @@ SS.bandSong = (() => {
     // nuance de la section : même règle que drumSteps (les notes très douces restent telles quelles)
     const put = (s, v) => {
       if (s < 0 || s >= n) return;
-      const x = vel(r, v * (k === 'hh' ? [1, 0.74, 0.88, 0.74][s % 4] : 1), spread);
+      const x = vel(r, v * (k === 'hh' ? hatAccent(s % SPB) : 1), spread);
       out[s] = x > 0.34 ? clampV(x * e) : x;
     };
     if (k === 'cr') {
@@ -688,6 +736,16 @@ SS.bandSong = (() => {
    *   Avec bars, une pièce qui a sa piste dans edits est jouée telle quelle (gridSteps, même vide) ; sinon c'est le jeu de
    *   l'ancien format (patternSteps) ou du plan.
    */
+  /**
+   * Pistes de batterie (motif ou grille de l'assistant) écrites pour la mesure de la chanson, sinon null : un motif de 4/4
+   * dans une chanson en 6/8 (ou une grille d'avant le changement de mesure) laisse jouer le plan.
+   */
+  function fitLanes(l) {
+    if (!l || typeof l !== 'object' || SPB === 16) return l;
+    const strs = Object.entries(l).filter(([k, v]) => k !== 'bars' && typeof v === 'string' && v.length);
+    const want = typeof l.bars === 'number' ? l.bars * SPB : SPB;
+    return strs.every(([, v]) => v.length === want) ? l : null;
+  }
   const LANE_KEY = { bd: 'K', sd: 'S', cp: 'C', hh: 'H', oh: 'O' };
   const laneKey = (sound) => LANE_KEY[sound] || sound;
   /** La pièce a-t-elle sa propre piste dans edits (grille de l'assistant) ? */
@@ -707,7 +765,7 @@ SS.bandSong = (() => {
     const cd = (ed.cond && ed.cond[key]) || {};
     const rat = {};
     const cond = {};
-    const F = (SS.DRUM_FILLS && SS.DRUM_FILLS[fillType]) || (SS.DRUM_FILLS && SS.DRUM_FILLS.roll);
+    const F = fillOf((SS.DRUM_FILLS && SS.DRUM_FILLS[fillType]) || (SS.DRUM_FILLS && SS.DRUM_FILLS.roll));
     const spread = k === 'bd' ? 0.05 : k === 'bk' ? 0.08 : 0.14;
     const e = ['bd', 'bk'].includes(k) ? Math.sqrt(energy) : energy;
     const put = (s, v) => {
@@ -746,6 +804,10 @@ SS.bandSong = (() => {
    * Un niveau est une densité de roulement par mesure : 1 noires (4 coups), 2 croches (8), 3 doubles-croches (16), 4 triples
    * (24 : une croche sur deux pas, jouée en ratchet ×3, soit six coups par temps). */
   const BUILD_LEVELS = [{ name: 'Noires', per: 4, step: 4, rat: 1 }, { name: 'Croches', per: 8, step: 2, rat: 1 }, { name: 'Doubles croches', per: 16, step: 1, rat: 1 }, { name: 'Triples', per: 24, step: 2, rat: 3 }];
+  /** Pas entre deux coups d'un niveau (les noires suivent le temps de la mesure : noire pointée en 6/8 et 12/8). */
+  const levelStep = (lv) => (lv.step === 4 ? BEAT : lv.step);
+  /** Coups par mesure d'un niveau, dans la mesure de la chanson. */
+  const levelPer = (lv) => (SPB / levelStep(lv)) * lv.rat;
   const BUILD_PRESETS = { lin: 'Linéaire', fast: 'Rapide', late: 'Tardive', custom: 'Perso' };
   /** Niveaux (1 à 4) de chaque mesure pour un préréglage : lin monte régulièrement, fast atteint le sommet à mi-scène puis tient, late reste en noires jusqu'aux deux dernières mesures. */
   function buildLevels(preset, bars) {
@@ -789,7 +851,7 @@ SS.bandSong = (() => {
     };
     if (roller && sounds.has(roller)) {
       const v = blank();
-      for (let s = 0; s < SPB; s += lv.step) {
+      for (let s = 0; s < SPB; s += levelStep(lv)) {
         v[s] = Math.max(0.12, rollVel(bp, bars, b, s) * (lv.rat === 3 ? 0.8 : 1));
         if (lv.rat > 1) (rat[roller] = rat[roller] || {})[s] = lv.rat;
       }
@@ -797,12 +859,12 @@ SS.bandSong = (() => {
     }
     if (roller === 'sd' && sounds.has('cp')) {
       const v = blank();
-      v[4] = v[12] = 0.7;
+      backbeats().forEach((s) => (v[s] = 0.7));
       lane('cp', v);
     }
     if (sounds.has('hh')) {
       const v = blank();
-      if (level >= 2) for (let s = level >= 3 ? 0 : 2; s < SPB; s += level >= 3 ? 2 : 4) v[s] = 0.45;
+      if (level >= 2) for (let s = level >= 3 ? 0 : 2; s < SPB; s += level >= 3 ? 2 : BEAT) v[s] = 0.45;
       lane('hh', v);
     }
     if (sounds.has('cr')) lane('cr', blank());
@@ -843,7 +905,7 @@ SS.bandSong = (() => {
 
   /* ---------- basse ---------- */
   const bassMidi = (pc) => 33 + pcOf(pc - 9); // de La1 à Sol♯2
-  function bassEvents(spans, mode, r, keyPcs, { pedalPc = null, approach = true, shift = 0, spb = SPB } = {}) {
+  function bassEvents(spans, mode, r, keyPcs, { pedalPc = null, approach = true, shift = 0, spb = SPB, beat = spb === SPB ? BEAT : 4 } = {}) {
     const ev = [];
     const add = (s, len, n, v) => len > 0 && ev.push({ step: s, len, notes: [n], vel: vel(r, v) });
     /** Note d'approche : la voisine de `target` dans la gamme, du côté `dir` (−1 dessous, +1 dessus). */
@@ -937,11 +999,11 @@ SS.bandSong = (() => {
         const line = [root, third, fifth, third];
         const nextRoot = next && next.step === end ? bassMidi(pedalPc ?? next.chord.bassPc ?? next.chord.rootPc) + shift : null;
         let prev = root;
-        each(4, (s, o) => {
-          const lastQ = s + 4 >= end;
-          let m = line[(o / 4) % 4];
+        each(beat, (s, o) => {
+          const lastQ = s + beat >= end;
+          let m = line[(o / beat) % 4];
           if (lastQ && o > 0 && nextRoot != null) m = approachOf(nextRoot, prev > nextRoot ? 1 : -1);
-          add(s, Math.min(4, end - s), m, o % 16 === 0 ? 0.88 : 0.74);
+          add(s, Math.min(beat, end - s), m, o % spb === 0 ? 0.88 : 0.74);
           prev = m;
         });
         return;
@@ -951,10 +1013,10 @@ SS.bandSong = (() => {
           add(sp.step, sp.len, root, 0.85);
           break;
         case '8':
-          each(2, (s, o) => add(s, 2, root, o % 4 === 0 ? 0.9 : 0.7));
+          each(2, (s, o) => add(s, 2, root, o % beat === 0 ? 0.9 : 0.7));
           break;
         case 'pulse8':
-          each(2, (s, o) => add(s, 1, root, o % 4 === 0 ? 0.85 : 0.68));
+          each(2, (s, o) => add(s, 1, root, o % beat === 0 ? 0.85 : 0.68));
           break;
         case 'oct':
           each(2, (s, o) => add(s, 2, (o / 2) % 2 ? root + 12 : root, (o / 2) % 2 ? 0.72 : 0.9));
@@ -983,7 +1045,7 @@ SS.bandSong = (() => {
           each(Math.max(1, sp.len / 2), (s, o) => add(s, Math.min(sp.len / 2, end - s), root, o === 0 ? 0.88 : 0.74));
           break;
         case 'quarter':
-          each(4, (s, o) => add(s, Math.min(3, end - s), root, o % 16 === 0 ? 0.9 : 0.74));
+          each(beat, (s, o) => add(s, Math.min(beat - 1, end - s), root, o % spb === 0 ? 0.9 : 0.74));
           break;
         case 'drone':
           // intro planante : une note tenue par accord, sans attaque marquée
@@ -992,7 +1054,7 @@ SS.bandSong = (() => {
         case 'sync': {
           // basse synthpop syncopée : 1, 1a, 2&, 3, 3a, 4& avec octave et quinte
           const pat = [[0, 3, root, 0.92], [3, 2, root + 12, 0.7], [6, 2, root, 0.8], [8, 3, fifth, 0.85], [11, 2, root + 12, 0.7], [14, 2, root, 0.78]];
-          for (let b = sp.step; b < end; b += SPB) pat.forEach(([o, l, n, v]) => b + o < end && add(b + o, Math.min(l, end - b - o), n, v));
+          for (let b = sp.step; b < end; b += spb) pat.forEach(([o, l, n, v]) => b + o < end && add(b + o, Math.min(l, end - b - o), n, v));
           break;
         }
         case 'walk':
@@ -1010,7 +1072,7 @@ SS.bandSong = (() => {
         }
         case 'tresillo':
           // trois, trois, deux (3+3+2), deux fois par mesure
-          for (let b = sp.step; b < end; b += SPB)
+          for (let b = sp.step; b < end; b += spb)
             [[0, 3, 0.9], [3, 3, 0.78], [6, 2, 0.82], [8, 3, 0.9], [11, 3, 0.78], [14, 2, 0.82]].forEach(([o, l, v]) => b + o < end && add(b + o, Math.min(l, end - b - o), root, v));
           break;
         case 'trance':
@@ -1018,19 +1080,19 @@ SS.bandSong = (() => {
           each(4, (s) => [1, 2, 3].forEach((d) => add(s + d, 1, root, d === 1 ? 0.66 : 0.8)));
           break;
         case 'sixteen':
-          each(1, (s, o) => add(s, 1, root, o % 4 === 0 ? 0.92 : 0.7));
+          each(1, (s, o) => add(s, 1, root, o % beat === 0 ? 0.92 : 0.7));
           break;
         case 'oct16':
           each(1, (s, o) => add(s, 1, o % 2 ? root + 12 : root, o % 2 ? 0.72 : 0.86));
           break;
         case 'pickup':
           // fondamentale tenue, reprise à l'octave au pas 14
-          for (let b = sp.step; b < end; b += SPB)
+          for (let b = sp.step; b < end; b += spb)
             [[0, 13, root, 0.88], [14, 2, root + 12, 0.8]].forEach(([o, l, n, v]) => b + o < end && add(b + o, Math.min(l, end - b - o), n, v));
           break;
         case 'funk':
           // syncopes en doubles ; notes fantômes aux pas 7 et 10
-          for (let b = sp.step; b < end; b += SPB)
+          for (let b = sp.step; b < end; b += spb)
             [[0, 2, root, 0.9], [3, 1, root, 0.8], [6, 1, root + 12, 0.84], [7, 1, root, 0.4], [10, 1, root, 0.4], [12, 2, root, 0.85], [14, 1, fifth, 0.8]].forEach(([o, l, n, v]) => b + o < end && add(b + o, Math.min(l, end - b - o), n, v));
           break;
         default:
@@ -1182,7 +1244,18 @@ SS.bandSong = (() => {
     lofi: { ev: [[0, 6, '1 3 5 7'], [7, 1, '1 3 5 7', 0.5], [10, 6, '1 3 5 7']] },
     chops: { ev: [[0, 2], [3, 1], [8, 2], [10, 1], [11, 1]].map(([s, l]) => [s, l, PD]) },
     dark: { ev: [[0, 16, 'b 1 3 8', 0.55]] },
+    // autres mesures (meter : la seule où le motif est proposé) : valse « oum-pa-pa » et arpège de valse (3/4), accord
+    // bercé et arpège (6/8), triolets plaqués du doo-wop, accord par temps et arpège (12/8)
+    valse3: { meter: '3/4', ev: [[0, 4, 'b', 0.72], [4, 3, PD, 0.6], [8, 3, PD, 0.56]] },
+    arpvalse: { meter: '3/4', ev: ['b', '5', '8', '5', '10', '5'].map((d, i) => [i * 2, 2, d, i ? 0.54 : 0.7]) },
+    berce68: { meter: '6/8', ev: [[0, 6, PD, 0.66], [6, 6, PD, 0.56]] },
+    arp68: { meter: '6/8', ev: ['b', '5', '8', '10', '8', '5'].map((d, i) => [i * 2, 2, d, i % 3 ? 0.52 : 0.68]) },
+    triolets128: { meter: '12/8', ev: Array.from({ length: 12 }, (_, i) => [i * 2, 2, PD, i % 3 ? 0.48 : 0.66]) },
+    berce128: { meter: '12/8', ev: [0, 6, 12, 18].map((o, i) => [o, 6, PD, i % 2 ? 0.56 : 0.66]) },
+    arp128: { meter: '12/8', ev: Array.from({ length: 12 }, (_, i) => [i * 2, 2, ['b', '5', '8', '10', '8', '5'][i % 6], i % 3 ? 0.52 : 0.68]) },
   };
+  /** Motif de nappe tenu (une seule tenue d'une mesure de 4/4) : il s'étire à la mesure de la chanson. */
+  const padHeld = (p) => p.ev.every(([o, l]) => o === 0 && l === 16);
   /** Hauteurs des degrés d'un accord, fondamentale `root` (MIDI) ; kp : notes de la gamme (classes), pour 7, 9 et 6. */
   function padDegrees(c, root, kp) {
     const iv = SS.chordNotes(60 + c.rootPc, c.type).map((n) => n - 60 - c.rootPc);
@@ -1205,8 +1278,11 @@ SS.bandSong = (() => {
       prevRoot = root;
       const deg = padDegrees(sp.chord, root, kp);
       const end = sp.step + sp.len;
+      const held = SPB !== 16 && !p.meter && padHeld(p);
       for (let b = sp.step - (sp.step % SPB); b < end; b += SPB)
-        p.ev.forEach(([o, l, d = PD, v]) => {
+        p.ev.forEach(([o, l0, d = PD, v]) => {
+          if (o >= SPB) return;
+          const l = held ? SPB : Math.min(l0, SPB - o);
           let s = b + o;
           let e = Math.min(s + l, end);
           if (s < sp.step) {
@@ -1232,9 +1308,9 @@ SS.bandSong = (() => {
     for (let b = 0; b < bars; b++) {
       const s0 = b * SPB;
       if (fx === 'duck')
-        for (let q = 0; q < 4; q++) Object.assign(lane, { [s0 + q * 4]: 0.18, [s0 + q * 4 + 1]: 0.55, [s0 + q * 4 + 2]: 0.85, [s0 + q * 4 + 3]: 1 });
+        for (let q = 0; q < SPB / BEAT; q++) Object.assign(lane, { [s0 + q * BEAT]: 0.18, [s0 + q * BEAT + 1]: 0.55, [s0 + q * BEAT + 2]: 0.85, [s0 + q * BEAT + 3]: 1 });
       else if (fx === 'rev') for (let i = 0; i < SPB; i++) lane[s0 + i] = Math.round((0.04 + 0.96 * Math.pow(i / (SPB - 1), 2.2)) * 1000) / 1000;
-      else if (fx === 'open') Object.assign(lane, { [s0]: -0.75, [s0 + 8]: -0.45, [s0 + SPB - 1]: 0 });
+      else if (fx === 'open') Object.assign(lane, { [s0]: -0.75, [s0 + SPB / 2]: -0.45, [s0 + SPB - 1]: 0 });
     }
     return fx === 'open' ? { filter: lane } : { volume: lane };
   }
@@ -1261,7 +1337,7 @@ SS.bandSong = (() => {
         const bass = 48 + pcOf(sp.chord.rootPc);
         add(sp.step, sp.len, [bass], 0.7);
         const seq = [notes[0], notes[1], notes[2] ?? notes[0] + 12, notes[1]];
-        for (let s = sp.step, i = 0; s < end; s += 2, i++) add(s, 2, [seq[i % seq.length]], i % 4 === 0 ? 0.66 : 0.52);
+        for (let s = sp.step, i = 0; s < end; s += 2, i++) add(s, 2, [seq[i % seq.length]], (SPB === 16 ? i % 4 === 0 : (s - sp.step) % BEAT === 0) ? 0.66 : 0.52);
       } else if (mode === 'pluck') {
         const seq = [notes[0], notes[2] ?? notes[1], notes[1], notes[2] ?? notes[0] + 12, notes[0] + 12, notes[1]];
         for (let s = sp.step, i = 0; s < end; s += 2, i++) add(s, 2, [seq[i % seq.length]], i % 2 ? 0.55 : 0.68);
@@ -1557,7 +1633,7 @@ SS.bandSong = (() => {
       for (let s = 0; s < n; s++) if (d.steps[s] > 0) d.steps[s] = clampV(d.steps[s] * 0.62);
       for (let s = Math.max(0, n - 2 * SPB); s < n; s++)
         if (d.steps[s] > 0) {
-          rat[s] = s >= n - SPB + 4 ? 3 : 2;
+          rat[s] = s >= n - SPB + BEAT ? 3 : 2;
           d.steps[s] = clampV(d.steps[s] * (rat[s] === 3 ? 0.65 : 0.78));
         }
     }
@@ -1565,8 +1641,8 @@ SS.bandSong = (() => {
       for (let b = 0; b < bars; b++) {
         const o = b * SPB;
         if (k === 'hh') {
-          if (b % 4 === 3 && d.steps[o + 14] > 0) rat[o + 14] = 3;
-          [3, 7, 11, 15].forEach((x) => {
+          if (b % 4 === 3 && d.steps[o + SPB - 2] > 0) rat[o + SPB - 2] = 3;
+          (SPB === 16 ? [3, 7, 11, 15] : Array.from({ length: SPB / BEAT }, (_, q) => q * BEAT + BEAT - 1)).forEach((x) => {
             if (!d.steps[o + x] && r() < 0.6) {
               d.steps[o + x] = clampV(0.3 + r() * 0.1);
               cond[o + x] = 'p50';
@@ -1577,7 +1653,7 @@ SS.bandSong = (() => {
         if (k === 'oh') for (let x = 0; x < SPB; x++) if (d.steps[o + x] > 0 && r() < 0.25) cond[o + x] = 'p75';
         if (k === 'hh' && mode === 'drop') for (let x = 1; x < SPB; x += 2) if (d.steps[o + x] > 0 && d.steps[o + x] < 0.5 && !cond[o + x] && r() < 0.2) cond[o + x] = 'p75';
         if (k === 'sh' || k === 'tb')
-          for (let x = 0; x < SPB; x++) if (d.steps[o + x] > 0 && x % 4 !== 0 && r() < 0.25) cond[o + x] = pick(r, ['p75', '1:2', '2:2']);
+          for (let x = 0; x < SPB; x++) if (d.steps[o + x] > 0 && x % BEAT !== 0 && r() < 0.25) cond[o + x] = pick(r, ['p75', '1:2', '2:2']);
         if (k === 'rim') for (let x = 0; x < SPB; x++) if (d.steps[o + x] > 0 && r() < 0.35) cond[o + x] = pick(r, ['p75', '!first']);
       }
     }
@@ -1628,14 +1704,14 @@ SS.bandSong = (() => {
       riser: { on: !!a && a.fx === 'riser', len: a ? Math.min(a.bars, ao.len || a.bars) : 8, filter: ao.filter || 'lp' },
       hp: { on: !!spec.tech && !!a && a.drums === 'build', freq: hpHz(HP_MEL) },
       rev: { on: false, len: SPB },
-      gap: { len: a && a.gap ? 4 : 0 },
+      gap: { len: a && a.gap ? BEAT : 0 },
       impact: { on: !!b && b.fx === 'down', type: 'both', level: 0.95 },
       down: { on: false, len: 2 },
       retrait: { on: false, len: 1 },
       frag: { on: false },
       pedal: { on: false, len: 2, note: 'dom' },
       widen: { on: false, len: 2 },
-      susp: { on: false, len: 4 },
+      susp: { on: false, len: BEAT },
     };
   }
 
@@ -1776,8 +1852,11 @@ SS.bandSong = (() => {
     const pat = (PERC_PAT[style] || PERC_PAT.techno)[loop];
     const out = new Array(bars * SPB).fill(0);
     for (let b = 0; b < bars; b++) {
-      for (let i = 0; i < SPB; i++) if (pat[i] !== '.') out[b * SPB + i] = vel(r, +pat[i] / 10, 0.06);
-      if (loop === 'tom' && style !== 'minimal' && b % 4 === 3) [12, 13, 14, 15].forEach((i, k) => (out[b * SPB + i] = vel(r, 0.5 + k * 0.1, 0.04)));
+      for (let i = 0; i < SPB; i++) {
+        const c = pat[SPB === 16 ? i : Math.floor((i * 16) / SPB)]; // autre mesure : la boucle s'étire sur la mesure
+        if (c !== '.') out[b * SPB + i] = vel(r, +c / 10, 0.06);
+      }
+      if (loop === 'tom' && style !== 'minimal' && b % 4 === 3) Array.from({ length: BEAT }, (_, k) => SPB - BEAT + k).forEach((i, k) => (out[b * SPB + i] = vel(r, 0.5 + (k * 0.4) / BEAT, 0.04)));
     }
     return out;
   }
@@ -1898,6 +1977,53 @@ SS.bandSong = (() => {
     melody: Object.keys(CENTER),
     drums: ['both', 'kick', 'snare'],
   });
+  /*
+   * Modes jouables dans la mesure de la chanson (en 4/4 : tous). Ailleurs : les motifs écrits pour cette mesure (METER,
+   * PAD_NEW.meter, motifs de guitare à meter), plus ceux qui n'ont pas de mesure (une note par temps, par croche, tenue).
+   */
+  const BASS_ANY = ['whole', 'quarter', '8', 'pulse8', 'oct', 'drone', 'half', 'sixteen', 'oct16', 'walking', 'rootfifth', 'arp', 'b03'];
+  const CHORD_ANY = ['sustain', 'swell', 'float', 'ballad', 'pluck'];
+  const ARP_ANY = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'rise', 'ost16', 'dotted', 'toll'];
+  const gtrMeterOK = (m) => !!m && (m.meter || '4/4') !== '4/4' && (m.meter === SIG || (SIG === '12/8' && m.meter === '6/8'));
+  function meterOK(kind, id, sig = SIG) {
+    if (sig !== SIG) {
+      const was = SIG;
+      setMeter(sig);
+      const ok = meterOK(kind, id);
+      setMeter(was);
+      return ok;
+    }
+    if (SPB === 16 && SIG === '4/4') {
+      if (kind === 'bass') return !METER[id];
+      if (kind === 'chords' && PAD_NEW[id]) return !PAD_NEW[id].meter;
+      return true;
+    }
+    if (kind === 'bass') return METER[id] === SIG || BASS_ANY.includes(id);
+    if (kind === 'arp') return ARP_ANY.includes(id);
+    if (kind === 'chords') {
+      if (/^g:/.test(id)) return !!SS.GuitarArp && gtrMeterOK(SS.GuitarArp.MOTIFS.find((m) => m.id === id.slice(2)));
+      if (ARP_ANY.includes(id)) return true;
+      if (PAD_NEW[id]) return PAD_NEW[id].meter ? PAD_NEW[id].meter === SIG : padHeld(PAD_NEW[id]);
+      return CHORD_ANY.includes(id);
+    }
+    return true;
+  }
+  /** Rythme de remplacement d'un mode qui ne va pas dans la mesure (le plan est écrit en 4/4). */
+  const METER_FALLBACK = {
+    '3/4': { bass: 'valse', chords: 'valse3', held: 'sustain', arp: 'up8', guitar: 'valse' },
+    '6/8': { bass: 'ballade68', chords: 'berce68', held: 'sustain', arp: 'up8', guitar: 'pimami' },
+    '12/8': { bass: 'slow128', chords: 'triolets128', held: 'sustain', arp: 'up8', guitar: 'pimami' },
+  };
+  /** Mode du plan ramené à la mesure de la chanson (inchangé en 4/4 ou s'il y va déjà). */
+  function fitMode(kind, mode) {
+    if (!mode || SIG === '4/4' || !['bass', 'chords', 'arp'].includes(kind) || meterOK(kind, mode)) return mode;
+    const f = METER_FALLBACK[SIG];
+    if (kind === 'chords') {
+      if (/^g:/.test(mode)) return 'g:' + f.guitar;
+      return RHYTHM[mode] || (PAD_NEW[mode] && !padHeld(PAD_NEW[mode])) ? f.chords : f.held;
+    }
+    return f[kind];
+  }
   const roleOfTrack = (t) => ((t.band && t.band.key) || '').split(':')[0];
   /** Musicien ajouté à l'assistant (id « x1 », « x2 »… : js/bandgroup.js) : il joue partout avec le générateur de son type et a sa propre graine. */
   const isExtra = (t) => !!(t.band && /^x\d+$/.test(t.band.musician || ''));
@@ -1945,7 +2071,8 @@ SS.bandSong = (() => {
    *   fx : transitions et percussions d'ambiance (étape « Effets et transitions »), voir junctionDefaults ; null = le plan tel quel
    * → { key, scenes: [{ id, name, bars, key, emotion, data, spans }], song: [{ scene, repeat }] }
    */
-  function build(spec, presetId, tracks, { melodySeed = 0, melody = null, harmony = null, parts = null, kinds = null, fx = null } = {}) {
+  function build(spec, presetId, tracks, { melodySeed = 0, melody = null, harmony = null, parts = null, kinds = null, fx = null, sig = '4/4' } = {}) {
+    setMeter(sig); // mesure de la chanson (4/4, 3/4, 6/8, 12/8) : tout le moteur la suit
     spec = withSceneFx(spec, parts); // jeu de la piste Effets réglé scène par scène
     const key = parseKey(spec.key);
     const ids = instIds(tracks);
@@ -1983,7 +2110,7 @@ SS.bandSong = (() => {
       const prevId = (joins.find((j) => j.to === id) || {}).from || null;
       const outE = oj ? junctionEff(spec, oj.from, oj.to, fx) : junctionDefaults(spec, id, nextId);
       const inE = ij ? junctionEff(spec, ij.from, ij.to, fx) : junctionDefaults(spec, prevId, id);
-      const gapSteps = oj ? outE.gap.len : sec.gap ? 4 : 0;
+      const gapSteps = oj ? outE.gap.len : sec.gap ? BEAT : 0;
       const hk = harmony && harmony.keys && harmony.keys[id];
       const k = hk ? { tonic: hk.tonic, mode: hk.mode } : sec.key ? parseKey(sec.key) : key;
       // grille : celle de l'étape Accords, sinon celle de la section (reprise tapée au clavier), sinon ses degrés
@@ -2036,7 +2163,7 @@ SS.bandSong = (() => {
             return void (data[t.id] = { steps });
           }
           const pat = dp && dp.pattern && SS.drumPattern ? SS.drumPattern(dp.style, dp.pattern) : null;
-          const lanes = dp && (dp.edits || (pat && pat.lanes));
+          const lanes = fitLanes(dp && (dp.edits || (pat && pat.lanes)));
           const fo = { fill: dp && dp.fill, fillType: (dp && dp.fillType) || 'roll', crash: !!(dp && dp.crash), energy };
           if (dp && dp.build) ownBuild.add(t.id); // progression réglée dans l'assistant : la dynamique n'y touche pas
           // montée avec progression réglée dans l'assistant : le roulement (caisse claire ou clap, charleston, crash) suit la courbe
@@ -2045,7 +2172,7 @@ SS.bandSong = (() => {
             if (rs) return void (data[t.id] = rs);
           }
           // grille de l'assistant : ce son a sa piste (toute longueur, ratchets, conditions)
-          if (hasGridLane(dp && dp.edits, snd)) return void (data[t.id] = gridSteps(snd, bars, r, dp.edits, fo));
+          if (hasGridLane(lanes, snd)) return void (data[t.id] = gridSteps(snd, bars, r, lanes, fo));
           if (lanes) {
             // motif de la bibliothèque : il pilote kick, caisse, clap, charleston, crash et toms
             const rat = {};
@@ -2076,6 +2203,7 @@ SS.bandSong = (() => {
           const plan = { bass: [sec.bass], chords: [sec.pad, sec.strings, sec.keys], arp: [sec.arp, sec.arpchord], melody: [sec.lead, sec.vox, sec.sax], drums: [] }[kd];
           mode = o && valid.includes(o.mode) ? o.mode : plan.find((m) => m && valid.includes(m)) || DEFAULT_MODE[kd];
         }
+        mode = fitMode(changed ? kd : kindOfRole(role), mode); // autre mesure que 4/4 : un rythme écrit pour elle
         const one = kd === 'arp' && (role === 'arp' || changed) && !off && o && o.one && SS.Arp ? o.one : null; // Arp One : l'emporte sur le mode
         const ownL = ie && ie.lead && Array.isArray(ie.lead.events) ? ie.lead.events : t === leadTrack ? ownLead : null; // mélodie imposée de cet instrument
         // mélodie du moteur : réglages de l'instrument par-dessus ceux de la scène ; la graine contient le rôle et le doublon
@@ -2103,7 +2231,7 @@ SS.bandSong = (() => {
             // notes percussives : fondamentale de l'accord sur la grosse caisse et la caisse claire du motif de la scène
             const dsrc = ie && (ie.pattern || ie.edits) ? ie : dp0;
             const dpat = dsrc && dsrc.pattern && SS.drumPattern ? SS.drumPattern(dsrc.style, dsrc.pattern) : null;
-            const lanes = dsrc && (dsrc.edits || (dpat && dpat.lanes));
+            const lanes = fitLanes(dsrc && (dsrc.edits || (dpat && dpat.lanes)));
             const hit = (snd) => (hasGridLane(lanes, snd) ? gridSteps(snd, bars, r, lanes).steps : lanes ? patternSteps(snd, bars, r, { lanes }) : drumSteps(snd, sec.drums, sec.groove || spec.groove, bars, r, {})) || [];
             const kick = mode === 'snare' ? [] : hit('bd');
             const snare = mode === 'kick' ? [] : hit('sd');
@@ -2324,10 +2452,10 @@ SS.bandSong = (() => {
      5e valeur 'g' : la note glisse depuis la précédente (ev.slide ; la précédente, ev.slideFrom, tient jusqu'à elle). */
   /** « u3 », « u2 », « u1 » : montée vers l'accord suivant, à 3, 2 puis 1 note de la gamme de lui. */
   const UP = { u3: 3, u2: 2, u1: 1 };
-  /** Motifs écrits pour une mesure de 12 pas (3/4 et 6/8) ; les autres en 4/4 (16 pas). */
-  const METER = { valse: '3/4', valsejazz: '3/4', ballade68: '6/8' };
+  /** Motifs écrits pour une autre mesure que 4/4 : 12 pas (3/4 et 6/8) ou 24 (12/8) ; les autres en 4/4 (16 pas). */
+  const METER = { valse: '3/4', valsejazz: '3/4', ballade68: '6/8', galop68: '6/8', slow128: '12/8', boogie128: '12/8', berce128: '12/8' };
   /** Pas par mesure du motif. */
-  const motifBar = (id) => (METER[id] ? 12 : SPB);
+  const motifBar = (id) => (METER[id] ? METERS[METER[id]][0] : 16);
   /** Nombre de mesures d'un motif BASS_RHYTHMS (1, ou 2 si une note tombe après la première mesure). */
   const motifBars = (id) => (BASS_RHYTHMS[id] ? Math.max(1, Math.ceil(Math.max(...BASS_RHYTHMS[id].map((x) => x[0] + 0.01)) / motifBar(id))) : 1);
   const BASS_RHYTHMS = {
@@ -2423,6 +2551,13 @@ SS.bandSong = (() => {
     valse: [[0, 4, 0, 0.9], [12, 4, -5, 0.82]],
     valsejazz: [[0, 4, 0, 0.88], [4, 4, 't', 0.72], [8, 4, 'c', 0.76]],
     ballade68: [[0, 6, 0, 0.88], [6, 4, 7, 0.78], [10, 2, 'a', 0.62]],
+    // 6/8 qui avance : noire-croche sur chaque temps (fondamentale, puis quinte)
+    galop68: [[0, 4, 0, 0.9], [4, 2, 0, 0.6], [6, 4, 7, 0.82], [10, 2, 0, 0.6]],
+    // 12/8 (24 pas, quatre temps de noire pointée) : blues lent (fondamentale, quinte, approche), boogie (une note de l'accord
+    // par temps : fondamentale, tierce, quinte, sixte), ballade bercée (fondamentale tenue, relance, quinte)
+    slow128: [[0, 6, 0, 0.9], [6, 6, 7, 0.76], [12, 6, 0, 0.86], [18, 4, 7, 0.74], [22, 2, 'a', 0.66]],
+    boogie128: [[0, 6, 0, 0.9], [6, 6, 't', 0.74], [12, 6, 7, 0.84], [18, 6, 9, 0.74]],
+    berce128: [[0, 10, 0, 0.88], [10, 2, 0, 0.55], [12, 12, 7, 0.8]],
   };
   /** Dessin d'une mesure type (niveau 0 = fondamentale, 1 = quinte, tierce, septième ou approche, 2 = octave). */
   const rhythmDraw = (id) => BASS_RHYTHMS[id].filter(([o]) => o < motifBar(id)).map(([o, l, n]) => [o, l, n === 0 ? 0 : n === 12 ? 2 : 1]); // première mesure, en pas (fractions possibles)
@@ -2511,7 +2646,11 @@ SS.bandSong = (() => {
     ['valse', 'Valse', 'Mesure à 3 temps : la fondamentale sur le 1, la quinte grave à la mesure suivante (3/4)', rhythmDraw('valse')],
     ['valsejazz', 'Valse jazz', 'Une noire par temps, le demi-ton vers l’accord suivant (3/4)', rhythmDraw('valsejazz')],
     ['ballade68', 'Ballade 6/8', 'Fondamentale sur le 1, quinte sur le 4, la note voisine de l’accord suivant (6/8)', rhythmDraw('ballade68')],
+    ['galop68', 'Galop 6/8', 'Noire-croche sur chaque temps, fondamentale puis quinte (6/8)', rhythmDraw('galop68')],
+    ['slow128', 'Slow 12/8', 'Blues lent : fondamentale et quinte sur les temps, la note voisine de l’accord suivant (12/8)', rhythmDraw('slow128')],
+    ['boogie128', 'Boogie 12/8', 'Une note de l’accord par temps : fondamentale, tierce, quinte, sixte (12/8)', rhythmDraw('boogie128')],
+    ['berce128', 'Ballade 12/8 bercée', 'Fondamentale tenue, petite relance, quinte sur le 3 (12/8)', rhythmDraw('berce128')],
   ];
 
-  return { build, voiceChord, bassEvents, chordEvents, PAD_NEW, padFxLanes, tomOfStep, junctionDefaults, junctionEff, withSceneFx, PERC_LOOPS, PERC_STYLES, hpHz, hpAmt, HP_MEL, isExtra, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, sceneGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, motifBars, motifBar, METER, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, BUILD_LEVELS, BUILD_PRESETS, buildLevels, progLevels, rollBar, rollerOf, hasGridLane, laneKey, _rng: rng };
+  return { build, setMeter, meter, METERS, meterOK, fitMode, backbeats, halfBar, levelStep, levelPer, fitLanes, beatOf: (ts) => (ts && ts[1] === 8 && ts[0] % 3 === 0 && ts[0] > 3 ? 6 : Math.max(1, Math.round(16 / ((ts && ts[1]) || 4)))), voiceChord, bassEvents, chordEvents, PAD_NEW, padFxLanes, tomOfStep, junctionDefaults, junctionEff, withSceneFx, PERC_LOOPS, PERC_STYLES, hpHz, hpAmt, HP_MEL, isExtra, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, sceneGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, motifBars, motifBar, METER, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, BUILD_LEVELS, BUILD_PRESETS, buildLevels, progLevels, rollBar, rollerOf, hasGridLane, laneKey, _rng: rng };
 })();

@@ -63,6 +63,14 @@ SS.padMotifs = (() => {
     ['lofi', 'Lo-fi', 'Septième tenue, relancée en retard', 'hiphop', 'rythme'],
     ['chops', 'Sample haché', 'Petits bouts d’accord, comme un sample découpé', 'hiphop', 'rythme'],
     ['dark', 'Chœur sombre', 'Accord grave tenu : trap, film', 'hiphop film', 'tenue'],
+    // mesures ternaires (6e champ : la mesure ; ailleurs, ils ne sont pas proposés)
+    ['valse3', 'Valse', 'Basse sur le 1, accord sur le 2 et le 3', 'ternary', 'rythme', '3/4'],
+    ['arpvalse', 'Valse brisée', 'L’accord brisé en croches, sur trois temps', 'ternary', 'mouv', '3/4'],
+    ['berce68', 'Berceuse 6/8', 'Un accord par temps : deux balancements par mesure', 'ternary', 'rythme', '6/8'],
+    ['arp68', 'Arpège 6/8', 'L’accord brisé en croches, trois par temps', 'ternary', 'mouv', '6/8'],
+    ['triolets128', 'Triolets 12/8', 'L’accord en croches, trois par temps : le slow des années 50', 'ternary', 'rythme', '12/8'],
+    ['berce128', 'Bercée 12/8', 'Un accord par temps, appuyé sur le 1 et le 3', 'ternary', 'rythme', '12/8'],
+    ['arp128', 'Arpège 12/8', 'L’accord brisé en triolets de croches', 'ternary', 'mouv', '12/8'],
   ];
   const GROUPS = [
     ['synth', 'Synthwave & 80s'],
@@ -73,6 +81,7 @@ SS.padMotifs = (() => {
     ['latin', 'Latin & Reggae'],
     ['elec', 'Techno & House'],
     ['film', 'Film & ambient'],
+    ['ternary', '3/4, 6/8, 12/8'],
   ].map(([id, l]) => [id, l, MODES.filter((m) => m[3].split(' ').includes(id)).map((m) => m[0])]);
   const KINDS = [['all', 'Tout'], ['tenue', 'Tenues'], ['rythme', 'Rythmées'], ['mouv', 'En mouvement']];
 
@@ -81,6 +90,8 @@ SS.padMotifs = (() => {
   const desc = (id) => (entry(id) || [])[2] || '';
   const kindOf = (id) => (entry(id) || [])[4] || 'tenue';
   const all = () => MODES.map((m) => m[0]);
+  /** Mesure propre du motif ('3/4', '6/8', '12/8'), ou null : il suit celle de la chanson. */
+  const meterOf = (id) => (entry(id) || [])[5] || null;
   const inGroup = (g) => (g === 'all' ? all() : (GROUPS.find((x) => x[0] === g) || [, , []])[2]);
   /** Puce de départ selon le style de la chanson. */
   const STYLE_GROUP = { synthwave: 'synth', ambient: 'film', edm: 'elec', techno: 'elec', dnb: 'elec', pop: 'pop', funk: 'funk', soul: 'soul', hiphop: 'hiphop', latin: 'latin' };
@@ -97,24 +108,33 @@ SS.padMotifs = (() => {
     mist: 'M0 31L120 4L160 4',
     dark: 'M0 31L50 4L160 4',
   };
+  /** Dessin d'une mesure : celle du motif s'il en a une, sinon celle de la chanson (SS.bandSong.meter()). */
   function svg(id) {
-    if (!draws[id]) {
+    const BS = SS.bandSong;
+    const was = BS && BS.meter ? BS.meter().sig : '4/4';
+    const sig = meterOf(id) || was;
+    const key = id + '@' + sig;
+    if (!draws[key]) {
       let ev = [];
+      if (sig !== was) BS.setMeter(sig);
+      const { spb, beat } = BS && BS.meter ? BS.meter() : { spb: 16, beat: 4 };
       try {
-        ev = SS.bandSong.chordEvents([{ step: 0, len: 16, chord: { rootPc: 0, type: 'min', tok: 'Cm' } }], id, () => 0.5, { lo: 53, hi: 76, kp: [0, 2, 3, 5, 7, 8, 10] });
+        ev = BS.chordEvents([{ step: 0, len: spb, chord: { rootPc: 0, type: 'min', tok: 'Cm' } }], id, () => 0.5, { lo: 53, hi: 76, kp: [0, 2, 3, 5, 7, 8, 10] });
       } catch (e) {
         ev = [];
       }
-      const bars = [1, 2, 3].map((b) => `<rect x="${b * 40}" y="0" width=".6" height="34" fill="currentColor" opacity=".2"/>`).join('');
+      if (sig !== was) BS.setMeter(was);
+      const u = 160 / spb;
+      const bars = Array.from({ length: spb / beat - 1 }, (_, i) => `<rect x="${((i + 1) * beat * u).toFixed(1)}" y="0" width=".6" height="34" fill="currentColor" opacity=".2"/>`).join('');
       const rects = ev
-        .filter((e) => e.step < 16)
-        .flatMap((e) => e.notes.map((n) => `<rect x="${e.step * 10 + 0.5}" y="${Math.max(1, Math.min(31, 31 - ((n - 38) / 44) * 30)).toFixed(1)}" width="${Math.max(3, e.len * 10 - 1.8)}" height="2.4" rx="1" fill="currentColor" opacity="${(0.45 + e.vel * 0.6).toFixed(2)}"/>`))
+        .filter((e) => e.step < spb)
+        .flatMap((e) => e.notes.map((n) => `<rect x="${(e.step * u + 0.5).toFixed(1)}" y="${Math.max(1, Math.min(31, 31 - ((n - 38) / 44) * 30)).toFixed(1)}" width="${Math.max(3, e.len * u - 1.8).toFixed(1)}" height="2.4" rx="1" fill="currentColor" opacity="${(0.45 + e.vel * 0.6).toFixed(2)}"/>`))
         .join('');
-      const fx = FX_PATH[id] ? `<path d="${FX_PATH[id]}" fill="none" stroke="var(--text)" stroke-width="1.2" opacity=".5" vector-effect="non-scaling-stroke"/>` : '';
-      draws[id] = `<svg viewBox="0 0 160 34" preserveAspectRatio="none" aria-hidden="true">${bars}${rects}${fx}</svg>`;
+      const fx = FX_PATH[id] && spb === 16 ? `<path d="${FX_PATH[id]}" fill="none" stroke="var(--text)" stroke-width="1.2" opacity=".5" vector-effect="non-scaling-stroke"/>` : '';
+      draws[key] = `<svg viewBox="0 0 160 34" preserveAspectRatio="none" aria-hidden="true">${bars}${rects}${fx}</svg>`;
     }
-    return draws[id];
+    return draws[key];
   }
 
-  return { MODES, GROUPS, KINDS, all, inGroup, name, desc, kindOf, svg, groupOfStyle, noneTitle: 'La nappe se tait dans cette scène', label: 'Motifs de nappe' };
+  return { MODES, GROUPS, KINDS, all, meterOf, inGroup, name, desc, kindOf, svg, groupOfStyle, noneTitle: 'La nappe se tait dans cette scène', label: 'Motifs de nappe' };
 })();

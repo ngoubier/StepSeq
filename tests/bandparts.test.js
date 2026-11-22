@@ -339,7 +339,7 @@ test('nouveaux modes de basse : pas de la premiÃ¨re mesure, bornes, registre, pÃ
   assert.deepEqual(cat.map((c) => c[0]).slice(0, Object.keys(NEW).length), Object.keys(NEW));
   for (const [id, nom, desc, dessin] of cat) {
     assert.ok(nom && desc, id);
-    assert.ok(dessin.length > 0 && dessin.every(([s, l, lv]) => s >= 0 && l > 0 && s + l <= 16 && [0, 1, 2].includes(lv)), id);
+    assert.ok(dessin.length > 0 && dessin.every(([s, l, lv]) => s >= 0 && l > 0 && s + l <= SS.bandSong.motifBar(id) && [0, 1, 2].includes(lv)), id); // une mesure du motif (24 pas en 12/8)
   }
 });
 
