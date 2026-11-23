@@ -12,7 +12,7 @@
  * Identifiants (idOf) : un par élément de batterie, d'après la voix réellement jouée par la piste (le projet a UNE PISTE PAR
  *   ÉLÉMENT, band.key « drums:bd ») : kick, snare, clap, rim, hh, oh, tomlo, tommid, tomhi, crash, ride, cowbell, shaker,
  *   tamb, perc, misc ; percussionniste : « perc:<voix> » ; autres musiciens : leur rôle (bass, pad, arp, lead, keys, guitar,
- *   strings, sax, vox, fx) ; « master » pour la tranche Master. Le volume et le pan de la batterie s'appliquent donc à la
+ *   strings, sax, brass, vox, fx) ; « master » pour la tranche Master. Le volume et le pan de la batterie s'appliquent donc à la
  *   piste de chaque élément, sans rien de plus.
  *
  * Scènes : une surcharge `own[scène][id]` se règle par id de scène du projet OU par id de section (« chorus »…) ; apply()
@@ -47,8 +47,8 @@ SS.wizMix = (() => {
   /* ---------- identifiants et noms ---------- */
   const DRUM_ID = { bd: 'kick', sd: 'snare', cp: 'clap', rim: 'rim', hh: 'hh', oh: 'oh', lt: 'tomlo', mt: 'tommid', ht: 'tomhi', cr: 'crash', rd: 'ride', cb: 'cowbell', sh: 'shaker', tb: 'tamb', perc: 'perc', misc: 'misc' };
   const DRUM_NAME = { bd: 'Kick', sd: 'Caisse claire', cp: 'Clap', rim: 'Rimshot', hh: 'Charleston', oh: 'Charl. ouvert', lt: 'Tom grave', mt: 'Tom médium', ht: 'Tom aigu', cr: 'Crash', rd: 'Ride', cb: 'Cowbell', sh: 'Shaker', tb: 'Tambourin', perc: 'Percussion', misc: 'Divers' };
-  const ROLE_NAME = { bass: 'Basse', pad: 'Nappe', arp: 'Arpège', lead: 'Lead', keys: 'Piano', guitar: 'Guitare', strings: 'Cordes', sax: 'Sax', vox: 'Voix', fx: 'Effets' };
-  const ROLE_ORDER = ['bass', 'pad', 'strings', 'keys', 'guitar', 'arp', 'lead', 'sax', 'vox', 'fx'];
+  const ROLE_NAME = { bass: 'Basse', pad: 'Nappe', arp: 'Arpège', lead: 'Lead', keys: 'Piano', guitar: 'Guitare', strings: 'Cordes', sax: 'Sax', brass: 'Cuivres', vox: 'Voix', fx: 'Effets' };
+  const ROLE_ORDER = ['bass', 'pad', 'strings', 'keys', 'guitar', 'arp', 'lead', 'sax', 'brass', 'vox', 'fx'];
   const DRUM_ORDER = Object.keys(DRUM_ID);
 
   /** Identifiant de mix d'une piste Band (ou d'une colonne de l'assistant : { band }), null si elle n'est pas de Band. */

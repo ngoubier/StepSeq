@@ -63,6 +63,12 @@ SS.padMotifs = (() => {
     ['montuno32', 'Montuno 3-2', 'Le même montuno, calé sur la clave 3-2', 'latin', 'rythme'],
     ['guajeo23', 'Guajeo en octaves', 'Les octaves seules, la ligne du montuno (clave 2-3)', 'latin', 'rythme'],
     ['mambo23', 'Montuno du mambo', 'Croches continues appuyées sur la clave 2-3 : plus serré', 'latin', 'rythme'],
+    // section de cuivres (musicien Cuivres : deux trompettes et un trombone), clave 2-3
+    ['brass-tenues', 'Cuivres : tenues', 'Accords longs et doux derrière le chanteur', 'latin soul brass', 'tenue'],
+    ['brass-clave', 'Cuivres : coups sur la clave', 'Accords courts sur les cinq coups de la clave 2-3', 'latin funk brass', 'rythme'],
+    ['brass-mona', 'Cuivres : moña', 'Petit riff qui revient au montuno, notes anticipées et liées', 'latin brass', 'rythme'],
+    ['brass-mambo', 'Cuivres : mambo', 'Riff serré des trompettes, contre-chant tenu du trombone', 'latin brass', 'mouv'],
+    ['brass-cierre', 'Cuivres : cierre', 'Trois coups ensemble dans la dernière mesure, le dernier tenu : pour finir', 'latin funk soul brass', 'rythme'],
     ['skank2', 'Skank double', 'Skank sur 2 et 4 avec un rebond', 'latin', 'rythme'],
     ['lofi', 'Lo-fi', 'Septième tenue, relancée en retard', 'hiphop', 'rythme'],
     ['chops', 'Sample haché', 'Petits bouts d’accord, comme un sample découpé', 'hiphop', 'rythme'],
@@ -85,6 +91,7 @@ SS.padMotifs = (() => {
     ['latin', 'Latin & Reggae'],
     ['elec', 'Techno & House'],
     ['film', 'Film & ambient'],
+    ['brass', 'Cuivres'],
     ['ternary', '3/4, 6/8, 12/8'],
   ].map(([id, l]) => [id, l, MODES.filter((m) => m[3].split(' ').includes(id)).map((m) => m[0])]);
   const KINDS = [['all', 'Tout'], ['tenue', 'Tenues'], ['rythme', 'Rythmées'], ['mouv', 'En mouvement']];

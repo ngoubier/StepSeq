@@ -25,7 +25,7 @@ SS.bandGroup = (() => {
   const BASE_NAME = { drums: 'Batteur', bass: 'Bassiste', chords: 'Clavier nappe', arp: 'Clavier arpège', melody: 'Clavier lead', orch: 'Orchestre' };
   const CAT_OF_TYPE = { bass: 'mono', chords: 'chord', arp: 'arp', melody: 'mono', orch: 'mono' };
   /** Type d'un rôle de l'inspiration (null : « fx », sans type). */
-  const TYPE_OF_ROLE = { drums: 'drums', perc: 'drums', bass: 'bass', pad: 'chords', strings: 'chords', keys: 'chords', guitar: 'chords', arp: 'arp', arpchord: 'arp', lead: 'melody', vox: 'melody', sax: 'melody', orch: 'orch' };
+  const TYPE_OF_ROLE = { drums: 'drums', perc: 'drums', bass: 'bass', pad: 'chords', strings: 'chords', keys: 'chords', guitar: 'chords', brass: 'chords', arp: 'arp', arpchord: 'arp', lead: 'melody', vox: 'melody', sax: 'melody', orch: 'orch' };
   const typeOfRole = (role) => (role === 'fx' ? null : TYPE_OF_ROLE[role] || 'chords');
   const isExtraId = (id) => /^x\d+$/.test(String(id || ''));
   const clone = (x) => (x === undefined ? undefined : JSON.parse(JSON.stringify(x)));
@@ -83,7 +83,7 @@ SS.bandGroup = (() => {
       return { role: 'perc', kits: (drumsHere || kit).kits.slice(), pieces: (perc || { pieces: ['tb', 'sh'] }).pieces.slice() };
     }
     if (kind === 'orch') return { role: 'orch', pick: ['gm_violin'], cat: 'mono', ens: SS.orchestra ? SS.orchestra.ENSEMBLES.map((e) => e.id) : ['strings'] };
-    const pref = { bass: ['bass'], chords: ['pad', 'keys', 'strings', 'guitar'], arp: ['arp'], melody: ['lead', 'vox', 'sax'] }[kind];
+    const pref = { bass: ['bass'], chords: ['pad', 'keys', 'strings', 'guitar', 'brass'], arp: ['arp'], melody: ['lead', 'vox', 'sax'] }[kind];
     let mu = null;
     outer: for (const strict of [true, false])
       for (const sc of scopes)

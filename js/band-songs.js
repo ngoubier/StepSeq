@@ -7,13 +7,14 @@
  *
  * Format :
  *   key : « C minor » ; groove : batterie (js/bandsong.js, G) ; emotion : js/emotions.js ; sc : sidechain basse/nappe sur le kick ; bassShift : basse transposée (12 = une octave plus haut)
- *   sections : { id: { bars, chords, drums, perc?, bass?, pad?, strings?, keys?, guitar?, arp?, lead?, vox?, sax?, gap?, groove?, name? } }
+ *   sections : { id: { bars, chords, drums, perc?, bass?, pad?, strings?, keys?, guitar?, brass?, arp?, lead?, vox?, sax?, gap?, groove?, name? } }
  *     chords : degrés, une mesure par accord (« i/VII » = deux accords dans la mesure), répétés jusqu'à la fin de la section ;
  *       chiffres romains lus sur le majeur ou le mineur naturel de la tonique (« VI » en mineur = 6e degré abaissé),
  *       altérations explicites pour les emprunts (« bVII » en majeur)
  *     drums : off | hats | light | main | full | drop | break | build ; gap : silence au dernier temps (avant un drop)
  *     bass : whole | 8 | pulse8 | oct | gallop | offbeat | roll | sync | walk
  *     pad, strings, keys, guitar : sustain | swell | pulse8 | block4 | stabs | house | strum | chop | ballad | pluck (ou un arpège)
+ *     brass (Cuivres) : un motif de nappe, le plus souvent brass-tenues | brass-clave | brass-mona | brass-mambo | brass-cierre
  *     arp : up16 | updown16 | up8 | bells | strobe | pluck16 | rise
  *     lead, vox, sax : verse | hook | long | solo | drop | riff | answer | rise
  *     fx (musicien « Effets ») : riser | swell | down
@@ -698,11 +699,12 @@ SS.BandSongs = {
   calle: {
     key: 'A minor', groove: 'salsa23', emotion: 'joie',
     sections: {
-      intro: { bars: 4, chords: 'i/iv/V7/iv', drums: 'main', perc: 'main', bass: 'tumbao23', keys: 'montuno23' },
-      verse: { bars: 8, chords: 'i/iv | VII7/III | i/iv | V7', drums: 'main', perc: 'main', bass: 'tumbao23', keys: 'montuno23', lead: 'verse' },
-      chorus: { bars: 8, chords: 'i/iv/V7/iv', groove: 'salsa23m', drums: 'full', perc: 'full', bass: 'tumbao23', keys: 'montuno23', lead: 'hook', name: 'Montuno' },
-      instr: { bars: 8, chords: 'i/iv/V7/iv', groove: 'salsa23x', drums: 'full', perc: 'full', bass: 'tumbao23', keys: 'mambo23', lead: 'answer', name: 'Mambo' },
-      outro: { bars: 2, chords: 'i/iv/V7/iv | i', groove: 'salsa23m', drums: 'full', perc: 'full', bass: 'tumbao23', keys: 'montuno23', name: 'Coda', fill: false },
+      intro: { bars: 4, chords: 'i/iv/V7/iv', drums: 'main', perc: 'main', bass: 'tumbao23', keys: 'montuno23', brass: 'brass-mona' },
+      verse: { bars: 8, chords: 'i/iv | VII7/III | i/iv | V7', drums: 'main', perc: 'main', bass: 'tumbao23', keys: 'montuno23', lead: 'verse', brass: 'brass-tenues' },
+      chorus: { bars: 8, chords: 'i/iv/V7/iv', groove: 'salsa23m', drums: 'full', perc: 'full', bass: 'tumbao23', keys: 'montuno23', lead: 'hook', brass: 'brass-clave', name: 'Montuno' },
+      // mambo : la section de cuivres prend la parole (riff et contre-chant de trombone), la mélodie se tait
+      instr: { bars: 8, chords: 'i/iv/V7/iv', groove: 'salsa23x', drums: 'full', perc: 'full', bass: 'tumbao23', keys: 'mambo23', brass: 'brass-mambo', name: 'Mambo' },
+      outro: { bars: 2, chords: 'i/iv/V7/iv | i', groove: 'salsa23m', drums: 'full', perc: 'full', bass: 'tumbao23', keys: 'montuno23', brass: 'brass-cierre', name: 'Coda', fill: false },
     },
     form: 'intro verse chorus verse chorus instr chorus outro',
   },

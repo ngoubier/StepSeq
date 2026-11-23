@@ -85,6 +85,7 @@ SS.band = (() => {
     arp: '<rect x="2" y="12" width="20" height="8" rx="1.5"/><path d="M6 12v4M10 12v4M14 12v4M18 12v4"/><path d="M4 9h3V7h3V5h3V3"/>',
     lead: '<rect x="2" y="12" width="20" height="8" rx="1.5"/><path d="M6 12v4M10 12v4M14 12v4M18 12v4"/><path d="M15 9V3l4 1.5"/><circle cx="13.5" cy="9" r="1.5"/>',
     strings: '<path d="M12 2v6"/><path d="M9 8h6c0 2-1.5 2.5-1.5 4s2.5 2 2.5 4.5S14 21 12 21s-4-1.5-4-4.5S10.5 13.5 10.5 12 9 10 9 8z"/><path d="M4 21L20 5"/>',
+    brass: '<path d="M3 10v4"/><path d="M3 12h9l6-5v10l-6-5"/><path d="M7 12v4h3"/><path d="M8 8h2"/>',
     sax: '<path d="M14 3h4M16 3v11a5 5 0 0 1-10 0v-1"/><path d="M4 13h4"/><circle cx="16" cy="7" r=".6"/><circle cx="16" cy="10" r=".6"/>',
     vox: '<rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8"/>',
     fx: '<path d="M3 19c3 0 4-2 5-5s2-8 4-8 3 5 4 8 2 5 5 5"/><path d="M17 3l1 2 2 1-2 1-1 2-1-2-2-1 2-1z"/>',
@@ -6481,7 +6482,7 @@ SS.band = (() => {
     if (!sec[r.role]) return null;
     const valid = { bass: BASS_MODES, chords: PAD_MODES, arp: ARP_MODES }[r.kind];
     const ids = valid ? valid.map((x) => x[0]) : [];
-    const plan = { bass: [sec.bass], chords: [sec.pad, sec.strings, sec.keys], arp: [sec.arp, sec.arpchord] }[r.kind] || [];
+    const plan = { bass: [sec.bass], chords: [sec.pad, sec.strings, sec.keys, sec.brass], arp: [sec.arp, sec.arpchord] }[r.kind] || [];
     return plan.find((m) => m && ids.includes(m)) || SS.bandSong.DEFAULT_MODE[r.kind] || null;
   }
   /** Genre d'une section (verse2 → verse) ; une reprise suit la section du modèle dont elle reprend le jeu. */
