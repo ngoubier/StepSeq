@@ -303,6 +303,17 @@ const FAMILY_DEFS = [
   { id: 'world', label: 'Instruments du monde', octave: 4 },
   { id: 'perc', label: 'Percussions mélodiques', octave: 3 },
   { id: 'fx', label: 'Effets sonores', octave: 4 },
+  // pistes Ambient (js/ambient.js) : un moteur génératif, un module par piste ; envoi vers Cosmos par défaut
+  {
+    id: 'ambient',
+    label: 'Ambient',
+    octave: 4,
+    extra: [
+      { id: 'jardin', label: 'Jardin (grains, boucles, drone, terrain)', kind: 'ambient', fx: { space: 0.5 } },
+      { id: 'paysage', label: 'Paysage (graines, vent qui chante)', kind: 'ambient', fx: { space: 0.5 } },
+      { id: 'fresque', label: 'Fresque (bande qui s’use, nappe spectrale, couches)', kind: 'ambient', fx: { space: 0.45 } },
+    ],
+  },
 ];
 
 const LIB = SS.LIB || { gm: [], vcsl: [] };
@@ -705,6 +716,7 @@ SS.presetFx = (family, instrument) => {
   if (f.cho) Object.assign(o, { chorus: f.cho, chorusRate: 0.6, chorusDepth: 0.5 });
   if (f.dly) Object.assign(o, { delay: f.dly, delayTime: '3/16', delayFeedback: 0.38 });
   if (f.rev) o.sendHall = f.rev;
+  if (f.space) o.sendSpace = f.space;
   return Object.keys(o).length ? o : null;
 };
 SS.fxParams = (track) => ({ ...SS.FX_DEFAULTS, ...(track.fx || {}) });

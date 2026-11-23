@@ -500,6 +500,7 @@ SS.audio = (() => {
       }
       const inst = instOf(track);
       if (inst.kind === 'analog') await SS.juno.load(ctx);
+      else if (inst.kind === 'ambient') await SS.ambient.prepare(ctx, track);
       else if (inst.kind === 'sf') await loadSoundfont(SS.sfFile(inst, track)).promise;
       else if (inst.kind === 'dirt') await loadBuffer(await dirtUrl(SS.sfFile(inst, track))).promise;
       else if (inst.kind === 'multi') {
@@ -1204,6 +1205,7 @@ SS.audio = (() => {
     buses.delete(id);
     glides.delete(id);
     if (SS.juno) SS.juno.remove(id);
+    if (SS.ambient) SS.ambient.remove(id);
   }
 
   /* ---- Chorus : deux lignes à retard modulées en opposition (gauche / droite) ---- */
@@ -1367,6 +1369,7 @@ SS.audio = (() => {
   function silenceAll() {
     if (!ctx) return;
     if (SS.juno) SS.juno.allOff();
+    if (SS.ambient) SS.ambient.stopAll();
     const now = ctx.currentTime;
     // les pistes « sidechainées » reviennent à plein volume
     buses.forEach((b) => {
@@ -1894,6 +1897,10 @@ SS.audio = (() => {
       SS.juno.play({ ctx, noise: noiseBuffer, register }, track, midi, Math.max(time, ctx.currentTime), dur, vel, out);
       return;
     }
+    if (inst.kind === 'ambient') {
+      SS.ambient.note(ctx, track, midi, Math.max(time, ctx.currentTime), dur, vel, out); // piste Ambient : une cloche
+      return;
+    }
     let p = SS.soundParams(track);
     p._track = track.id || 'preview';
     // accent (ev.acc) : réglages de la note poussés ; mémoire des accents rapprochés, par piste
@@ -2323,6 +2330,12 @@ SS.audio = (() => {
         const x = (t) => (st + (t - t0) / sd) / spbeat;
         return { cut: ba.cut && ((t) => ba.cut(x(t))), res: ba.res && ((t) => ba.res(x(t))) };
       };
+      // piste Ambient (js/ambient.js) : le moteur programme lui-même ce qui tombe dans ce pas (notes de l'accord de la
+      // scène, horloge en secondes) ; les notes de la grille ne sont pas jouées
+      if (SS.isAmbient && SS.isAmbient(track)) {
+        SS.ambient.step({ ctx, project, track, tick, time, sd, dest: bus(track), song: seq.song ? { index: seq.song.index, rep: seq.song.rep } : null });
+        return;
+      }
       if (track.type === 'drum') {
         const v = track.steps[step];
         if (v > 0 && SS.trigOk(SS.drumCond(track, step), { ...at, step })) {

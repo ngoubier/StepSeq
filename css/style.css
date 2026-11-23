@@ -5968,3 +5968,43 @@ dialog.bwgt-dlg { width: min(980px, 94vw); max-height: 92vh; overflow: auto; pad
 .bwt-pulse i.b { width: 9px; height: 9px; background: currentColor; opacity: 1; }
 .bwt-pulse i.one { background: var(--gold); }
 @media (max-width: 760px) { .bwt-meters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* ---------- Pistes Ambient : fenêtre de réglages (js/ambientpanel.js) ---------- */
+dialog.amb-dialog { width: min(1080px, calc(100vw - 32px)); --amb-color: var(--c-teal); border-top: 3px solid var(--amb-color); }
+.amb-dialog form { gap: 10px; }
+.amb-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.amb-head h2 { margin: 0; }
+.amb-sub, .amb-muted { color: var(--muted); font-size: var(--fs-sm); }
+.amb-lab { color: var(--muted); font-size: var(--fs-sm); }
+.amb-body { display: flex; flex-direction: column; gap: 10px; max-height: calc(100vh - 170px); overflow: auto; }
+.amb-common { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; background: var(--c-surface-1); border: 1px solid var(--line); border-radius: 10px; }
+.amb-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.amb-line input[type=range] { width: 120px; }
+.amb-chord { color: var(--c-yellow-soft); font-size: var(--fs-md); min-width: 90px; }
+.amb-dialog .btn.active { background: color-mix(in srgb, var(--amb-color) 25%, var(--panel-2)); border-color: var(--amb-color); }
+.amb-curves { display: block; width: 100%; border-radius: 6px; background: var(--c-bg); cursor: crosshair; touch-action: none; }
+.amb-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+.amb-box { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; }
+.amb-box h4 { margin: 0 0 2px; font-size: var(--fs-md); display: flex; align-items: center; gap: 6px; }
+.amb-row { display: grid; grid-template-columns: 104px 1fr 52px; align-items: center; gap: 6px; font-size: var(--fs-sm); }
+.amb-row label { color: var(--muted); display: flex; align-items: center; gap: 4px; }
+.amb-row input[type=range] { width: 100%; accent-color: var(--amb-color); }
+.amb-val { text-align: right; font-variant-numeric: tabular-nums; }
+.amb-wave, .amb-loops-cv { display: block; width: 100%; height: 64px; border-radius: 6px; background: var(--c-bg-deep); }
+.amb-loops-cv { height: 86px; }
+.amb-file { display: flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--muted); padding: 4px; border: 1px dashed var(--line); border-radius: 6px; }
+.amb-file.over { border-color: var(--amb-color); }
+.amb-file b { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.amb-loops { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.amb-loop { display: flex; flex-direction: column; align-items: center; background: var(--c-panel-3); border-radius: 6px; padding: 3px; font-size: var(--fs-xs); }
+.amb-loop b { color: var(--c-yellow-soft); font-size: var(--fs-sm); }
+.amb-loop input { width: 52px; font-size: var(--fs-xs); }
+.amb-paysage { display: grid; grid-template-columns: minmax(0, 2fr) minmax(240px, 1fr); gap: 10px; }
+@media (max-width: 760px) { .amb-paysage { grid-template-columns: 1fr; } }
+.amb-stage { min-height: 320px; }
+.amb-land { display: block; width: 100%; height: 100%; min-height: 320px; border-radius: 8px; cursor: crosshair; touch-action: none; }
+.amb-side { display: flex; flex-direction: column; gap: 10px; }
+.amb-seeds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+.amb-seed { display: flex; align-items: center; gap: 5px; padding: 5px; border-radius: 6px; border: 1px solid var(--line); background: var(--c-panel-3); color: var(--text); font: inherit; font-size: var(--fs-sm); cursor: pointer; }
+.amb-seed i { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.amb-seed.active { border-color: var(--amb-color); box-shadow: inset 0 0 0 1px var(--amb-color); }

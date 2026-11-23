@@ -421,6 +421,16 @@ SS.ui = (() => {
     toast(`« ${track.name} » : accords convertis en notes (scène en cours). Ctrl+Z pour annuler.`, 4000);
   }
 
+  /** Piste Ambient (js/ambient.js) : son module, à la place des interrupteurs ARP / ACCORDS ; clic : ses réglages. */
+  function ambientChip(track) {
+    const m = SS.ambient.MODULES[SS.ambient.moduleOf(track)];
+    return h(
+      'span',
+      { class: 'th-modes' },
+      h('button', { type: 'button', class: 'th-mode on', title: `Module Ambient « ${m.label} » : clic pour ouvrir ses réglages`, onclick: (e) => { e.stopPropagation(); if (!frozenGuard(track)) SS.ambientPanel.open(track); } }, `${m.icon} ${m.label.toUpperCase()}`)
+    );
+  }
+
   function modeToggles(track) {
     const arp = SS.arpOn(track);
     const fol = SS.follows(track);
@@ -1295,7 +1305,7 @@ SS.ui = (() => {
         { class: 'th-name', title: 'Double-clic pour renommer', ondblclick: (e) => rename(track, e.currentTarget) },
         h('b', {}, track.name),
         h('small', {}, gmBadge(track), trackSubtitle(track)),
-        instr ? modeToggles(track) : null
+        SS.isAmbient(track) ? ambientChip(track) : instr ? modeToggles(track) : null
       ),
       h(
         'div',
@@ -1361,7 +1371,7 @@ SS.ui = (() => {
               class: 'th-btn th-sd',
               title: SS.isAnalog(track) ? `Sound design : façade du ${SS.findAnalog(track.instrument).label}` : 'Sound design',
               html: ICONS.sliders,
-              onclick: () => frozenGuard(track) || (SS.isAnalog(track) ? SS.junoPanel.open(track) : SS.soundDesign.open(track)),
+              onclick: () => frozenGuard(track) || (SS.isAnalog(track) ? SS.junoPanel.open(track) : SS.isAmbient(track) ? SS.ambientPanel.open(track) : SS.soundDesign.open(track)),
             })
           : h('button', { class: 'th-btn th-sd', disabled: true, title: 'Sound design : pas sur une piste de batterie (le son se choisit avec ⚙)', html: ICONS.sliders }),
         h('button', {
@@ -1890,7 +1900,7 @@ SS.ui = (() => {
           type: 'button',
           class: 'roll-sd',
           title: SS.isAnalog(track) ? `Sound design : façade du ${SS.findAnalog(track.instrument).label}` : 'Sound design : oscillateur, filtre, enveloppe',
-          onclick: () => (SS.isAnalog(track) ? SS.junoPanel.open(track) : SS.soundDesign.open(track)),
+          onclick: () => (SS.isAnalog(track) ? SS.junoPanel.open(track) : SS.isAmbient(track) ? SS.ambientPanel.open(track) : SS.soundDesign.open(track)),
         },
         h('span', { html: ICONS.sliders }),
         'Sound design'
