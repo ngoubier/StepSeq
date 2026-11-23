@@ -52,13 +52,14 @@ const tracksOf = (p) =>
 test('chaque scène créée reçoit la grille de ses accords (piste Accords, Harmonie)', () => {
   for (const p of PRESETS) {
     const s = SS.bandSong.build(SS.BandSongs[p.id], p.id, tracksOf(p));
+    const spb = SS.bandSong.meter().spb; // pas par mesure : 16 en 4/4, 12 en 3/4 (valse), 24 en 12/8
     for (const sc of s.scenes) {
       assert.ok(sc.grid && sc.grid.chords.length, `${p.id}/${sc.sec} : grille`);
       const g = SS.normalizeGrid(sc.grid);
       assert.equal(g.chords.length, sc.grid.chords.length, `${p.id}/${sc.sec} : accords valides`);
       assert.equal(g.chords[0].step, 0);
       const end = g.chords[g.chords.length - 1];
-      assert.equal(end.step + end.len, sc.bars * 16, `${p.id}/${sc.sec} : couvre la scène`);
+      assert.equal(end.step + end.len, sc.bars * spb, `${p.id}/${sc.sec} : couvre la scène`);
       // mêmes fondamentales que les accords joués
       for (const sp of sc.spans) {
         const c = g.chords.find((x) => sp.step >= x.step && sp.step < x.step + x.len);
