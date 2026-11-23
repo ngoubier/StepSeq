@@ -245,6 +245,13 @@ SS.DRUM_PATTERNS = {
       D('songo', 'Songo', 3, { K: '---x---x---x--x-', S: '.o.x..o..ox..o.x', O: 'x-o-x-o-x-o-x-o-', P: 'o.x.o.xxo.x.o.xx' }, 'Salsa moderne : caisse pleine de ghost notes'),
       D('cha-cha', 'Cha-cha-chá', 1, { K: 'x-------x-----o-', R: '----x-------x---', O: 'x---o---x---o---', P: 'x-o-x-o-x-o-xoxo' }, 'Güiro qui finit en « cha-cha-chá »'),
       D('salsa-congas', 'Salsa : congas et clave', 1, { R: 'x--x--x---x-x---', P: 'o.x.o.xxo.x.o.xx' }, 'Pont : clave 3-2 et tumbao seuls'),
+      // Salsa en clave 2-3 (kit « Percussions salsa ») : le batteur fait le timbalero (cáscara au rim, campana à la cloche
+      // de ride, paila et abanico aux timbales), la clave au clap, le bombo à la tumba ; congas, bongos et güiro sont au
+      // Percussionniste (style « Salsa »)
+      D('salsa23-cascara', 'Salsa 2-3 : cáscara', 2, { K: '-----------o----', R: 'o.x.xo.ox.ox.o.o', C: '--o-o---o--o--o-' }, 'Couplet : cáscara sur la coque, clave 2-3, bombo'),
+      D('salsa23-campana', 'Salsa 2-3 : campana', 3, { K: '-----------o----', O: 'x-o-x-o-x-o-x-o-', C: '--o-o---o--o--o-' }, 'Montuno : la cloche sur les temps, clave 2-3'),
+      D('salsa23-mambo', 'Salsa 2-3 : mambo', 3, { K: '---o-------o----', S: '--.-.---.--.--xr', O: 'x-o-x-o-x-o-x-o-', C: '--o-o---o--o--o-' }, 'Mambo : campana, coups de timbales sur la clave, abanico'),
+      D('salsa23-clave', 'Salsa 2-3 : clave seule', 1, { C: '--x-x---x--x--x-' }, 'Intro ou pont : la clave 2-3 toute seule'),
       // Reggae (nov. 2026)
       D('one-drop-ghost', 'One drop : ghost notes', 1, { K: '--------x-------', R: '--------x-------', S: '--.---.-----.-.-', H: 'x.o.x.o.x.oxx.o.', O: '-------------x--' }, 'One drop vivant : caisse fantôme, charleston qui respire'),
       D('rocksteady', 'Rocksteady', 2, { K: '--------x-----o-', S: '----x--.----x---', H: 'x-o-x-o-x-o-x-o-' }, 'Plus lent que le ska : caisse sur 2 et 4, kick sur le 3'),

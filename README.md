@@ -108,6 +108,13 @@ voir « Nouvelle chanson » plus bas), sur le projet en cours. Ses deux premièr
    chansons originales (titre, mélodie et notes nouveaux) ; premier modèle « Grelots de minuit » (id `noel`), pop de Noël
    en shuffle à 150 BPM (swing des croches : `preset.swingRes = 8`), grelots, claps et timbales VCSL (kit `noel`),
    cloches tubulaires en volée (arpège `toll`), IV mineur sur basse imposée (accord de plan « iv6>3 ») ;
+   le style **Latin** a un modèle de salsa, « Calle de la Luna » (id `calle`, esprit salsa dura new-yorkaise, titre et
+   mélodie originaux) en **clave de son 2-3** : une mesure = un cycle de clave en croches (95 = 190 à la noire), kit
+   **Percussions salsa** (`liveSalsa` : congas, bongos, güiro, campana, clave, cáscara, timbales ; la frappe choisit la
+   manière de jouer : talon-pointe, slap ou ouverte pour les congas), grooves `salsa23` (couplet : cáscara, martillo),
+   `salsa23m` (montuno : campana, cloche du bongo) et `salsa23x` (mambo), piano en **montuno** (motifs Montuno 2-3,
+   Montuno 3-2, Guajeo en octaves, Montuno du mambo : octaves anticipées sur le « et » et liées à l'accord qui arrive,
+   main gauche qui double la ligne) et basse en **tumbao** (`tumbao23`) ;
 2. le **type de chanson** : des inspirations par style (Smalltown Boy, Nightcall, Blinding Lights, Sweet Dreams…,
    Levels, Strobe, Opus, Faded…, Powers of Ten, Eternity, Return to Oz, Sky and Sand, Your Mind, Rej…), avec un
    tempo suggéré ;
@@ -362,7 +369,7 @@ caractère…), et **▶ joue la scène choisie en boucle** (pas toute la chanso
    prend les réglages de la première jonction retouchée) ; la **cymbale inversée** n'est pas un échantillon lu à l'envers (le moteur n'en
    sait pas) mais une courte **montée de bruit à enveloppe montante** sur la piste Effets, qui finit sur le premier temps. La carte
    **Percussions** est une matrice **scènes × boucles** (Shaker 16es, Conga / tumbao, Tom roulant grave) sur les pistes du Percussionniste
-   (pièces `sh`, `perc`, `misc` de son kit) : une case allumée joue la boucle du **style** (Techno, Latin, Minimal ; **▶ Écouter** joue la
+   (pièces `sh`, `perc`, `misc` de son kit) : une case allumée joue la boucle du **style** (Techno, Latin, Minimal, Salsa ; **▶ Écouter** joue la
    première scène qui en a), éteinte elle coupe la boucle ; sans réglage, la case montre ce que le plan joue déjà. Une pièce absente du kit
    est grisée, avec « + ajouter la pièce ». **Sans musicien Effets** (ou sans Percussionniste), un message et un bouton **+ Ajouter** à la
    place des réglages (l'Effets et le Percussionniste sont des musiciens facultatifs de chaque inspiration : `optional` dans
@@ -1203,13 +1210,14 @@ Les sons proviennent des bibliothèques utilisées par [strudel.cc](https://stru
   tuba, flûte, piccolo, hautbois, clarinette, basson, marimba, xylophone, glockenspiel), hébergés avec l'app dans
   `samples/vsco/` (MP3, une nuance par note, 8 s max, 23 Mo). `tools/vsco-local.py` les prépare et mesure leur
   accordage (`js/vsco.js`). Ils jouent les pupitres de l'étape Orchestration de l'assistant. Merci à Versilian Studios ;
-- huit vraies batteries enregistrées, tirées de kits [Hydrogen](https://sourceforge.net/projects/hydrogen/files/Sound%20Libraries/)
+- neuf vraies batteries enregistrées, tirées de kits [Hydrogen](https://sourceforge.net/projects/hydrogen/files/Sound%20Libraries/)
   sous licence libre (détail et crédits dans `samples/live/LICENSE.txt`) : les [AVL Drumkits](https://www.bandshed.net/avldrumkits/)
   de Glen MacArthur (CC BY-SA 4.0 : Black Pearl pour la pop, Red Zeppelin pour le rock, Blonde Bop pour la ballade,
   aux baguettes, aux fagots et accordé haut pour le reggae roots, Buskman's Holiday pour le cajón et les percussions), le Forzee Stereo Drumkit (Tama,
   GPL 2) et le kit Pacific de Bransin James Anderson (CC BY-SA 3.0). Chaque élément existe en plusieurs niveaux de
   frappe : le coup joue celui de sa vélocité, ce qui rend les ghost notes naturelles. Hébergées dans `samples/live/`
-  (MP3, 4 s max, 21 Mo), préparées par `tools/live-drums.py` ;
+  (MP3, 4 s max, 21 Mo), préparées par `tools/live-drums.py`. S'y ajoutent les **percussions salsa** (dossier `salsa` :
+  congas, bongos, cloches, claves, güiro et maracas de la VCSL, timbales de la banque General MIDI FluidR3) ;
 - le piano de dough-samples ;
 - [Dirt-Samples](https://github.com/tidalcycles/Dirt-Samples) : banques de batterie, et banques mélodiques jouées
   comme instruments (Mighty Moog, Pluck Bass, JV Bass, Jungle Bass, Juno, SID, Hoover, pads…) ;

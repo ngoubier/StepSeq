@@ -93,6 +93,14 @@ window.SS = window.SS || {};
     liveTama: { label: 'Batterie studio · Tama stéréo (enregistrée)', source: 'live', map: { bd: 'tama_bd', sd: 'tama_sd', rim: 'tama_rim', cp: 'pop_cp', hh: 'tama_hh', oh: 'tama_oh', lt: 'tama_lt', mt: 'tama_mt', ht: 'tama_ht', cr: 'tama_cr', rd: 'tama_rd', cb: 'tama_cb', tb: 'tama_tb', sh: 'pop_sh', perc: 'tama_perc', misc: 'tama_misc' } },
     liveChristmas: { label: 'Kit Christmas · Big Rusty Drums, grelots, claps, timbales (enregistrés)', source: 'live', labels: { sh: 'Grelots', cp: 'Claps', perc: 'Timbales', tb: 'Tambourin', cb: 'Cloche de ride', misc: 'Crash inversée' }, map: { bd: 'christmas_bd', sd: 'christmas_sd', rim: 'christmas_rim', cp: 'christmas_cp', hh: 'christmas_hh', oh: 'christmas_oh', lt: 'christmas_lt', mt: 'christmas_mt', ht: 'christmas_ht', cr: 'christmas_cr', rd: 'christmas_rd', cb: 'christmas_cb', tb: 'christmas_tb', sh: 'christmas_sh', perc: 'christmas_perc', misc: 'christmas_misc' } },
     livePacific: { label: 'Batterie Pacific (enregistrée)', source: 'live', map: { bd: 'pacific_bd', sd: 'pacific_sd', rim: 'pop_rim', cp: 'pop_cp', hh: 'pacific_hh', oh: 'pacific_oh', lt: 'pacific_lt', mt: 'pacific_mt', ht: 'pacific_ht', cr: 'pacific_cr', rd: 'pacific_rd', cb: 'pop_cb', tb: 'pop_tb', sh: 'pop_sh', perc: 'pacific_perc', misc: 'pacific_misc' } },
+    // salsa : percussions latines enregistrées (VCSL) et timbales (General MIDI FluidR3) ; congas, bongos, campana et güiro
+    // changent de manière de jouer avec la frappe (léger : talon-pointe / martillo étouffé / col de la cloche / coup de
+    // güiro ; moyen : slap / bongo ouvert ; fort : conga ouverte / bongo grave / bouche de la cloche / long grattage)
+    liveSalsa: {
+      label: 'Percussions salsa · congas, bongos, timbales, clave, güiro (enregistrées)', source: 'live',
+      labels: { bd: 'Tumba (bombo)', sd: 'Timbales', rim: 'Cáscara (coque)', cp: 'Clave', hh: 'Güiro (coup)', oh: 'Campana', cb: 'Cloche du bongo', perc: 'Congas', misc: 'Bongos', lt: 'Tumba', mt: 'Conga', ht: 'Quinto', sh: 'Güiro', tb: 'Maracas' },
+      map: { bd: 'salsa_bd', sd: 'salsa_sd', rim: 'salsa_rim', cp: 'salsa_cp', hh: 'salsa_hh', oh: 'salsa_oh', lt: 'salsa_lt', mt: 'salsa_mt', ht: 'salsa_ht', cr: 'salsa_cr', rd: 'salsa_rd', cb: 'salsa_cb', tb: 'salsa_tb', sh: 'salsa_sh', perc: 'salsa_perc', misc: 'salsa_misc' },
+    },
     // percussions d'orchestre (VCSL) de l'assistant « Musique de film » (js/film.js) : frappées sur les repères
     orchperc: {
       label: 'Percussions d’orchestre (VCSL)',
@@ -144,6 +152,7 @@ window.SS = window.SS || {};
   const K80 = 'LinnDrum RolandTR707 OberheimDMX RolandTR808 EmuDrumulator dirt808';
   const KEDM = 'RolandTR909 dirtclub RolandTR808 AkaiMPC60 EmuSP12 KorgM1';
   const KPERC = 'vcsl LinnDrum RolandTR707 RolandTR808 RolandR8 dirtclub';
+  const KSALSA = 'liveSalsa vcsl LinnDrum RolandR8 RolandTR707 dirtclub';
   const KAMB = 'vcsl RolandCompurhythm78 RolandTR606 KorgMinipops LinnDrum dirt808';
   const KTECH = 'RolandTR909 dirtclub RolandTR808 KorgM1 AkaiMPC60 EmuSP12';
   /* Effets : bruit blanc filtré (montées), vent, cymbale inversée, ambiances */
@@ -951,6 +960,22 @@ window.SS = window.SS || {};
             m('guitar', 'gm_acoustic_guitar_nylon gm_acoustic_guitar_steel vcsl_strumstick gm_electric_guitar_clean dirt_gtr gm_banjo', { note: 'Guitare pincée, puis grattée au refrain' }),
             m('pad', 'syn_softpad gm_pad_warm gm_string_ensemble_1 syn_glasspad gm_pad_poly j:A15', opt),
             m('lead', 'gm_lead_6_voice gm_voice_oohs gm_trumpet gm_flute syn_triangle gm_pan_flute', { label: 'Mélodie (voix)' }),
+          ],
+        },
+        {
+          id: 'calle',
+          song: 'Calle de la Luna',
+          artist: 'Salsa dura new-yorkaise des années 70 (esprit)',
+          year: '',
+          tempo: 95,
+          swing: 0,
+          desc: 'Salsa en clave de son 2-3 (une mesure = un cycle de clave) : piano en montuno, tumbao à la basse, congas, bongos, güiro, cáscara puis campana, clave ; instrumental, mélodie à la trompette.',
+          musicians: [
+            kit('drums', 'bd sd cp rim oh', KSALSA, { label: 'Timbalero', note: 'Cáscara au couplet, campana au montuno, clave, bombo' }),
+            kit('perc', 'perc misc sh cb', KSALSA, { label: 'Congas, bongos, güiro', note: 'Tumbao, martillo, güiro ; cloche du bongo au montuno' }),
+            m('bass', 'vsco_contrabass_pizz gm_acoustic_bass gm_electric_bass_finger gm_fretless_bass syn_sub dirt_jvbass', { label: 'Basse (tumbao)', note: 'Le « et » du 2 et le 4 annoncent l’accord qui arrive' }),
+            m('keys', 'vcsl_steinway vcsl_piano1 vcsl_kawai piano gm_piano gm_epiano1', { label: 'Piano montuno', note: 'Octaves anticipées sur la clave 2-3, main gauche qui double' }),
+            m('lead', 'vsco_trumpet gm_trumpet vcsl_sax gm_muted_trumpet gm_alto_sax vsco_flute', { label: 'Mélodie (trompette)' }),
           ],
         },
         {

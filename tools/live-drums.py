@@ -11,7 +11,11 @@ Kits (format Hydrogen .h2drumkit, téléchargés sur SourceForge, voir samples/l
  - pacific : Pacific de Bransin James Anderson (CC BY-SA 3.0 US), stéréo ;
  - christmas : Big Rusty Drums (Karoryfer Samples, CC0, micros de proximité et overheads mélangés, crash inversée),
    claps de FreePats World and Rare Percussion (CC0), grelots, tambourins et timbales d'orchestre de la Versilian
-   Community Sample Library (VCSL, Versilian Studios, CC0).
+   Community Sample Library (VCSL, Versilian Studios, CC0) ;
+ - salsa : congas, tumba, quinto, bongos, cloches, claves, güiro et maracas de la VCSL (CC0), timbales de la banque
+   General MIDI FluidR3 (Frank Wen, MIT ; via webaudiofontdata) ; cáscara (coque des timbales) au woodblock VCSL. Un seul élément y change de frappe avec la vélocité :
+   congas (talon et pointe, slap, ouverte), bongos (martillo étouffé, ouvert, grave), campana (col, bouche), güiro
+   (coup court, long grattage).
 Chaque élément y existe en plusieurs niveaux de frappe : le script les garde tous (du plus doux au plus fort, d'après les
 plages de vélocité de drumkit.xml), retire le silence avant l'attaque, les raccourcit à MAX_S secondes avec un fondu,
 les encode en MP3 dans samples/live/<kit>/ et écrit samples/live/live.json au format des banques de strudel :
@@ -20,6 +24,8 @@ js/audio.js joue le niveau qui correspond à la vélocité du coup (SS.LAYERED_D
 Instrument « Nom+3 » : accordé 3 demi-tons plus haut (tom aigu des kits à deux toms, kit reggae) ; « Nom~0.3 » : son
 étouffé (raccourci à 0,3 s avec un long fondu, caisse claire sèche du reggae) ; « =banque » : banque d'un autre kit ;
 « vcsl:fichier|fichier… » : échantillons VCSL (chemins sous VCSL_URL), rangés ensuite du plus doux au plus fort ;
+« vcsl-ordre:fichier|… » : idem, gardés dans l'ordre donné (une manière de jouer par niveau de vélocité) ;
+« gm:note|note… » : sons de la batterie General MIDI FluidR3 (numéro de note), dans l'ordre donné ;
 « freepats:Dossier » : prises de FreePats World and Rare Percussion ; « rusty:dossier:micros » : Big Rusty Drums
 (« rusty-reverse: » joue la crash à l'envers).
 
@@ -35,6 +41,10 @@ OUT = os.path.join(ROOT, 'samples', 'live')
 URL = 'https://sourceforge.net/projects/hydrogen/files/Sound%20Libraries/Main%20sound%20libraries/{}.h2drumkit/download'
 VCSL_URL = 'https://raw.githubusercontent.com/sgossner/VCSL/master/'
 RUSTY = 'https://github.com/sfzinstruments/karoryfer.big-rusty-drums'
+CONGA = 'Membranophones/Struck Membranophones/Conga/'  # dossiers VCSL du kit salsa
+BONGO = 'Membranophones/Struck Membranophones/Bongos/'
+IDIO = 'Idiophones/Struck Idiophones/'
+GM_URL = 'https://raw.githubusercontent.com/felixroos/webaudiofontdata/master/sound/128{}_0_FluidR3_GM_sf2_file.js'
 FREEPATS_PERC = 'https://github.com/freepats/world-percussion/releases/download/2020-09-05/WorldPercussion-SFZ+FLAC-20200905.7z'
 RUSTY_LAYERS = 5  # niveaux de frappe gardés, répartis du plus doux au plus fort
 MAX_S = 4.0
@@ -107,7 +117,31 @@ KITS = [
         'perc': 'vcsl:' + '|'.join(f'Membranophones/Struck Membranophones/Timpani 1/Hit/Timpani1_Hit_{v}_Sum.wav' for v in (
             'v2_rr1', 'v3_rr3', 'v4_rr1')),
     }),
+    # salsa : percussions latines enregistrées (VCSL) et timbales General MIDI ; les congas, bongos, la campana et le
+    # güiro changent de manière de jouer avec la vélocité (motifs « Salsa 2-3 » de js/drum-patterns.js, Percussionniste
+    # « Salsa » de js/bandsong.js) ; cymbales empruntées au kit pop
+    ('salsa', None, False, {
+        'bd': 'vcsl:' + '|'.join(f'{CONGA}Tumba_HitN_{v}_rr1_Sum.wav' for v in ('v1', 'v2', 'v3', 'v4')),
+        'sd': 'gm:66|66|65',
+        'rim': 'vcsl:' + '|'.join(f'{IDIO}Woodblock/wood_click_{v}.wav' for v in ('pp_rr1', 'mp', 'f_rr1')),
+        'cp': 'vcsl:' + '|'.join(f'{IDIO}Claves/Claves1_Hit_{v}_rr1_Mid.wav' for v in ('v1', 'v2', 'v3')),
+        'hh': 'vcsl-ordre:' + '|'.join(f'{IDIO}Guiro/Guiro_Hit_{r}_Mid.wav' for r in ('rr1', 'rr2', 'rr1')),
+        'oh': 'vcsl-ordre:' + '|'.join(f'{IDIO}Cowbells/Cowbell1_{f}_Mid.wav' for f in (
+            'Muted_v2_rr1', 'Muted_v2_rr1', 'Muted_v3_rr1', 'Muted_v3_rr1', 'Hit_v4_rr1')),
+        'cb': 'vcsl-ordre:' + '|'.join(f'{IDIO}Cowbells/Cowbell2_Normal_{v}_rr1_Mid.wav' for v in ('v2', 'v2', 'v3')),
+        'perc': 'vcsl-ordre:' + '|'.join(f'{CONGA}{f}_Sum.wav' for f in (
+            'Conga_HitFM_v1_rr1', 'Conga_HitFM_v1_rr2', 'Conga_HitFM_v2_rr1', 'Quinto_HitFM1_v2_rr1', 'Conga_HitN_v3_rr1')),
+        'misc': 'vcsl-ordre:' + '|'.join(f'{BONGO}{f}_Mid.wav' for f in (
+            'BongoH_HitMuted1_v1_rr1', 'BongoH_HitMuted1_v2_rr1', 'BongoH_HitMuted1_v3_rr1', 'BongoH_Hit1_v2_rr1', 'BongoL_Hit1_v3_rr1')),
+        'lt': 'vcsl:' + '|'.join(f'{CONGA}Tumba_HitN_{v}_rr2_Sum.wav' for v in ('v2', 'v3', 'v4')),
+        'mt': 'vcsl:' + '|'.join(f'{CONGA}Conga_HitN_{v}_rr2_Sum.wav' for v in ('v1', 'v2', 'v3')),
+        'ht': 'vcsl:' + '|'.join(f'{CONGA}Quinto_HitN_{v}_rr2_Sum.wav' for v in ('v1', 'v2', 'v3')),
+        'sh': 'vcsl-ordre:' + '|'.join(f'{IDIO}Guiro/Guiro_{f}_Mid.wav' for f in ('Hit_rr1', 'Hit_rr2', 'Hit_rr1', 'Hit_rr2', 'Med_rr1')),
+        'tb': 'vcsl-ordre:' + '|'.join(f'{IDIO}Shaker, Small/Mid_Shaker_Slap_{r}.wav' for r in ('rr1', 'rr2', 'rr1')),
+        'cr': '=pop_cr', 'rd': '=pop_rd',
+    }),
 ]
+
 
 
 def fetch(name, dl):
@@ -122,7 +156,7 @@ def fetch(name, dl):
     return glob.glob(os.path.join(d, '**', 'drumkit.xml'), recursive=True)[0]
 
 
-def fetch_vcsl(paths, dl):
+def fetch_vcsl(paths, dl, ordered=False):
     """Échantillons VCSL téléchargés, du plus doux au plus fort (crête mesurée par ffmpeg), et le gain (dB) qui amène
     le plus fort à −1 dBFS : les niveaux de frappe gardent leurs écarts, l'élément sonne aussi fort qu'une batterie."""
     out = []
@@ -132,7 +166,21 @@ def fetch_vcsl(paths, dl):
             os.makedirs(os.path.dirname(dst), exist_ok=True)
             subprocess.run(['curl', '-sfL', '--retry', '3', '-o', dst, VCSL_URL + rel.replace(' ', '%20').replace('#', '%23')], check=True)
         out.append(dst)
-    return peak_sorted(out)
+    return peak_sorted(out, ordered)
+
+
+def fetch_gm(notes, dl):
+    """Sons de la batterie General MIDI FluidR3 (webaudiofontdata : MP3 en base64 dans un fichier JS), dans l'ordre donné."""
+    import base64
+    out = []
+    for n in notes:
+        dst = os.path.join(dl, 'gm', f'{n}.mp3')
+        if not os.path.exists(dst):
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            js = subprocess.run(['curl', '-sfL', '--retry', '3', GM_URL.format(n)], capture_output=True, text=True, check=True).stdout
+            open(dst, 'wb').write(base64.b64decode(re.search(r"file:'([^']+)'", js).group(1)))
+        out.append(dst)
+    return peak_sorted(out, True)
 
 
 def fetch_rusty(spec, dl, reverse=False):
@@ -178,13 +226,16 @@ def fetch_freepats(folder, dl):
     return peak_sorted(files)
 
 
-def peak_sorted(files):
+def peak_sorted(files, ordered=False):
+    """(fichiers du plus doux au plus fort, ou dans l'ordre donné si ordered ; gain qui amène le plus fort à −1 dBFS)."""
     out = []
     for f in files:
         r = subprocess.run(['ffmpeg', '-i', f, '-af', 'volumedetect', '-f', 'null', '-'], capture_output=True, text=True)
         out.append((float(re.search(r'max_volume: (-?[\d.]+)', r.stderr).group(1)), f))
-    out.sort()
-    return [f for _, f in out], -1 - out[-1][0]
+    top = max(p for p, _ in out)
+    if not ordered:
+        out.sort()
+    return [f for _, f in out], -1 - top
 
 
 def layers(xml):
@@ -200,10 +251,10 @@ def layers(xml):
 
 def encode(src, dst, semis, stereo, cut=0, gain=0):
     os.makedirs(os.path.dirname(dst), exist_ok=True)
-    # quelques prises commencent par 10 à 25 ms de silence : le coup tomberait en retard
-    af = ['silenceremove=start_periods=1:start_threshold=0.004:start_silence=0.001']
-    if gain:
-        af.append(f'volume={gain:.1f}dB')
+    # gain d'abord (prises très douces, comme le güiro de la VCSL : sinon tout passerait pour du silence) ; quelques prises
+    # commencent par 10 à 25 ms de silence : le coup tomberait en retard
+    af = [f'volume={gain:.1f}dB'] if gain else []
+    af.append('silenceremove=start_periods=1:start_threshold=0.004:start_silence=0.001')
     if semis:
         af.append(f'aresample=44100,asetrate={round(44100 * 2 ** (semis / 12))},aresample=44100')
     if cut:  # étouffé : la queue du son s'éteint vite
@@ -234,7 +285,13 @@ def main():
                 bank[f'{key}_{piece}'] = bank[inst[1:]]
                 continue
             gain = 0
-            if inst.startswith('vcsl:'):
+            if inst.startswith('vcsl-ordre:'):
+                lay[inst], gain = fetch_vcsl(inst[11:].split('|'), dl, ordered=True)
+                inst += '+0'
+            elif inst.startswith('gm:'):
+                lay[inst], gain = fetch_gm(inst[3:].split('|'), dl)
+                inst += '+0'
+            elif inst.startswith('vcsl:'):
                 lay[inst], gain = fetch_vcsl(inst[5:].split('|'), dl)
                 inst += '+0'
             elif inst.startswith('freepats:'):

@@ -548,6 +548,27 @@ SS.bandSong = (() => {
     // by : timbales sur le 1 toutes les deux mesures et en appel au 4 de la 4e ; cloches tubulaires au début de chaque
     // phrase de 4 mesures (motifs de plusieurs mesures)
     shuffle: { bd: 'x-------x-----o-', bk: '----x-------x---', hh: '.-.-.-.-.-.-.-.-', oh: '--------------o-', sh: 'o-o-x-o-o-o-x-o-', tb: '----o-------o---', rim: '----------------', tom: '--------o-o-o-oo', by: { perc: 'x---------------' + '-'.repeat(16) + 'x---------------' + '------------x-o-' } },
+    // salsa en clave 2-3 (une mesure = un cycle de clave en croches ; kit « Percussions salsa ») ; byAny : chaque son a son
+    // motif (le clap = la clave, la caisse claire = les timbales) ; fixed : la frappe choisit la manière de jouer
+    // (congas : . talon-pointe, o slap, x ouverte ; bongos : . étouffé, o ouvert, x grave ; güiro : o coup, x long
+    // grattage ; campana : o col, x bouche). Couplet : cáscara sur la coque, bongos en martillo, güiro, tumbao
+    salsa23: {
+      bd: '-----------o----', bk: '----------------', hh: '----------------', oh: '----------------', sh: '----------------', tb: '----------------',
+      rim: 'o.x.xo.ox.ox.o.o', tom: '------------o-oo', byAny: true, fixed: ['cp', 'perc', 'misc', 'sh', 'oh', 'cb'],
+      by: { cp: '--o-o---x--o--o-', sd: '---------------.', perc: '..o...xx..o...xx', misc: 'o..oo..xo..oo..x', sh: 'x.oox.oox.oox.oo' },
+    },
+    // montuno : le timbalero passe à la campana (bouche sur les temps), le bongocero à la cloche du bongo
+    salsa23m: {
+      bd: '-----------o----', bk: '----------------', hh: '----------------', oh: 'x-o-x-o-x-o-x-o-', sh: '----------------', tb: '----------------',
+      rim: '----------------', tom: '------------o-oo', byAny: true, fixed: ['cp', 'perc', 'misc', 'sh', 'oh', 'cb'],
+      by: { cp: '--o-o---x--o--o-', sd: '---------------.', perc: '..o...xx..o...xx', cb: 'x-o-x-o-x-o-x-o-', sh: 'x.oox.oox.oox.oo' },
+    },
+    // mambo : campana, coups de timbales avec les cuivres sur la clave, bombo sur les deux « et » du 2
+    salsa23x: {
+      bd: '---o-------o----', bk: '----------------', hh: '----------------', oh: 'x-o-x-o-x-o-x-o-', sh: '----------------', tb: '----------------',
+      rim: '----------------', tom: '------------o-oo', byAny: true, fixed: ['cp', 'perc', 'misc', 'sh', 'oh', 'cb'],
+      by: { cp: '--o-o---x--o--o-', sd: '--.-o---o--o--x-', perc: '..o...xx..o...xx', cb: 'x-o-x-o-x-o-x-o-', sh: '----------------' },
+    },
     onedrop: { bd: '--------x-------', bk: '--------o-------', hh: '--o-x-o.x-o-x-o-', oh: '--------------o-', sh: '..o...o...o...o.', tb: '----o-------o---', rim: '--------x-------', tom: '----------o-oo-o', by: { perc: 'x--.---ox--.---o' } },
   };
   /*
@@ -595,10 +616,13 @@ SS.bandSong = (() => {
     if (!mode || mode === 'off') return out;
     const g = grooveOf(grooveId);
     const k = kind(sound);
+    // pièce « fixe » du groove (g.fixed) : sa frappe choisit la manière de jouer (kit salsa : talon, slap, ouverte…),
+    // elle garde donc les vélocités du motif (ni accent de charleston, ni nuance de section, ni roulement de fin)
+    const fixed = !!(g.fixed && g.fixed.includes(sound));
     // la grosse caisse reste régulière ; charleston et percussions varient davantage
-    const spread = k === 'bd' ? 0.05 : k === 'bk' ? 0.08 : 0.14;
+    const spread = fixed ? 0.06 : k === 'bd' ? 0.05 : k === 'bk' ? 0.08 : 0.14;
     // charleston, shaker : temps > croches > doubles-croches
-    const hatAcc = (i) => (['hh', 'sh'].includes(k) ? hatAccent(i) : 1);
+    const hatAcc = (i) => (!fixed && ['hh', 'sh'].includes(k) ? hatAccent(i) : 1);
     const put = (s, v) => s >= 0 && s < n && (out[s] = vel(r, v * hatAcc(s % SPB), spread));
     const bar = (b, pat, scale = 1) => {
       if (!pat) return;
@@ -641,13 +665,13 @@ SS.bandSong = (() => {
       // dernière mesure d'une section pleine : roulement (caisse claire ou toms) sur le dernier temps
       const fill = last && b === bars - 1 && ['main', 'full', 'drop'].includes(mode);
       const lb = SPB - BEAT; // début du dernier temps
-      let pat = own && ['sh', 'tb'].includes(k) ? own : k === 'bd' ? g.bd : k === 'bk' ? g.bk : k === 'hh' ? (mode === 'drop' ? '.o'.repeat(SPB / 2) : g.hh) : k === 'oh' ? g.oh : k === 'rim' ? g.rim : k === 'sh' ? g.sh : k === 'tb' ? g.tb : k === 'tom' ? (fill ? g.tom : null) : null;
-      if (fill && k === 'bk') pat = pat.slice(0, lb) + '-'.repeat(BEAT);
+      let pat = own && (['sh', 'tb'].includes(k) || g.byAny) ? own : k === 'bd' ? g.bd : k === 'bk' ? g.bk : k === 'hh' ? (mode === 'drop' ? '.o'.repeat(SPB / 2) : g.hh) : k === 'oh' ? g.oh : k === 'rim' ? g.rim : k === 'sh' ? g.sh : k === 'tb' ? g.tb : k === 'tom' ? (fill ? g.tom : null) : null;
+      if (fill && k === 'bk' && !fixed) pat = pat.slice(0, lb) + '-'.repeat(BEAT);
       if (fill && k === 'hh') pat = pat.slice(0, lb) + '-'.repeat(BEAT);
       bar(b, pat, mode === 'light' ? 0.8 : 1);
       const groove = ['main', 'full', 'drop'].includes(mode);
       // roulement de fin de section en crescendo
-      if (fill && k === 'bk') (BEAT === 4 ? [0.5, 0.64, 0.8, 0.98] : [0.5, 0.6, 0.7, 0.8, 0.9, 0.98]).forEach((v, i) => put(b * SPB + lb + i, v));
+      if (fill && k === 'bk' && !fixed) (BEAT === 4 ? [0.5, 0.64, 0.8, 0.98] : [0.5, 0.6, 0.7, 0.8, 0.9, 0.98]).forEach((v, i) => put(b * SPB + lb + i, v));
       // ghost notes de caisse claire (pas sur le clap) : une ou deux par mesure, très douces
       if (groove && sound === 'sd' && !fill)
         (SPB === 16 ? [7, 10, 15] : [BEAT + 3, SPB - 1]).forEach((o) => !out[b * SPB + o] && r() < 0.3 && (out[b * SPB + o] = clampV(0.24 + r() * 0.08)));
@@ -659,7 +683,7 @@ SS.bandSong = (() => {
     }
     // nuance de la section (atténuée sur la grosse caisse et la caisse claire, qui tiennent le tempo)
     const e = ['bd', 'bk'].includes(k) ? Math.sqrt(energy) : energy;
-    for (let s = 0; s < n; s++) if (out[s] > 0.34) out[s] = clampV(out[s] * e); // les ghost notes restent telles quelles
+    if (!fixed) for (let s = 0; s < n; s++) if (out[s] > 0.34) out[s] = clampV(out[s] * e); // les ghost notes restent telles quelles
     return out;
   }
 
@@ -918,6 +942,26 @@ SS.bandSong = (() => {
     };
     if (RECIPES.includes(mode)) {
       recipeBass(spans, mode, keyPcs, pedalPc, shift, add);
+      return ev;
+    }
+    if (mode === 'tumbao23') {
+      // tumbao de salsa en croches (une mesure = un cycle de clave, deux accords par mesure de partition) : le « et » du 2
+      // et le 4 de chaque mesure de partition jouent la fondamentale de l'accord qui arrive, liée par-dessus la barre ;
+      // la fondamentale de l'accord au début de la scène
+      const rootAt = (st) => {
+        const sp = spans.find((x) => st >= x.step && st < x.step + x.len) || spans[spans.length - 1];
+        return bassMidi(pedalPc ?? sp.chord.bassPc ?? sp.chord.rootPc) + shift;
+      };
+      const first = spans.length ? spans[0].step : 0;
+      const last = spans.length ? spans[spans.length - 1].step + spans[spans.length - 1].len : 0;
+      for (let st = first; st < last; st++) {
+        const pos = (st - first) % 8;
+        if (st === first) add(st, 3, rootAt(st), 0.88);
+        // à la fin de la scène, l'accord qui arrive est celui de son début (scène répétée)
+        const ahead = (k) => rootAt(st + k < last ? st + k : first + ((st + k - last) % (last - first)));
+        if (pos === 3) add(st, Math.min(3, last - st), ahead(1), 0.8);
+        if (pos === 6) add(st, Math.min(5, last - st), ahead(2), 0.9);
+      }
       return ev;
     }
     let pushed = null; // fondamentale de l'accord jouée en avance à la fin du précédent (BASS_RHYTHMS terminé par « n »)
@@ -1242,6 +1286,16 @@ SS.bandSong = (() => {
     gospel: { ev: [[0, 6, PD], [6, 2, PD, 0.55], [8, 6, PD], [14, 2, PD, 0.55]] },
     bossa: { ev: [[0, 3], [3, 3], [6, 2], [10, 3], [13, 3]].map(([s, l]) => [s, l, '1 3 7 9']) },
     montuno: { ev: [0, 2, 3, 5, 6, 8, 10, 11, 13, 14].map((s, i) => [s, 1, i % 2 ? '3 5' : '1 8', i % 2 ? 0.56 : 0.72]) },
+    // montunos de salsa (une mesure = un cycle de clave en croches, deux accords par mesure de partition) : octave de la
+    // tierce anticipée sur le « et » et liée à l'accord qui arrive (>), notes du milieu (quinte et octave), octave de la
+    // fondamentale ; en 2-3 la mesure « 2 » est pleine, la « 3 » respire sur son 2e temps ; chaque coup de clave tombe
+    // sur une attaque ou une note liée
+    montuno23: { ev: montunoEv([[0, 'O'], [1, 'C'], [2, 'P'], [3, 'A'], [5, 'C'], [6, 'P'], [7, 'A'], [9, 'C'], [11, 'A'], [13, 'C'], [14, 'P'], [15, 'A']]) },
+    montuno32: { ev: montunoEv([[0, 'O'], [1, 'C'], [3, 'A'], [5, 'C'], [6, 'P'], [7, 'A'], [9, 'C'], [10, 'P'], [11, 'A'], [13, 'C'], [14, 'P'], [15, 'A']]) },
+    // guajeo en octaves : la ligne seule (tierce, quinte, fondamentale), sans les notes du milieu
+    guajeo23: { ev: montunoEv([[0, 'O'], [1, 'Q'], [2, 'P'], [3, 'A'], [5, 'Q'], [6, 'P'], [7, 'A'], [9, 'Q'], [11, 'A'], [13, 'Q'], [14, 'P'], [15, 'A']]) },
+    // montuno du mambo : croches continues, appuyées sur les coups de la clave 2-3
+    mambo23: { ev: montunoEv([[0, 'O'], [1, 'C'], [2, 'P'], [3, 'A'], [5, 'C'], [6, 'P'], [7, 'A'], [9, 'C'], [10, 'P'], [11, 'A'], [13, 'C'], [14, 'P'], [15, 'A']], [2, 4, 8, 11, 14]) },
     skank2: { ev: [[4, 1, PD, 0.72], [6, 1, PD, 0.42], [12, 1, PD, 0.72], [14, 1, PD, 0.42]] },
     lofi: { ev: [[0, 6, '1 3 5 7'], [7, 1, '1 3 5 7', 0.5], [10, 6, '1 3 5 7']] },
     chops: { ev: [[0, 2], [3, 1], [8, 2], [10, 1], [11, 1]].map(([s, l]) => [s, l, PD]) },
@@ -1256,6 +1310,16 @@ SS.bandSong = (() => {
     berce128: { meter: '12/8', ev: [0, 6, 12, 18].map((o, i) => [o, 6, PD, i % 2 ? 0.56 : 0.66]) },
     arp128: { meter: '12/8', ev: Array.from({ length: 12 }, (_, i) => [i * 2, 2, ['b', '5', '8', '10', '8', '5'][i % 6], i % 3 ? 0.52 : 0.68]) },
   };
+  /**
+   * Événements d'un montuno (main droite en octaves, main gauche qui double la ligne une octave plus bas) : [pas, rôle] ;
+   * O : octave de la tierce (début de scène), A : la même, anticipée et liée,
+   * C : quinte et octave (milieu), P : octave de la fondamentale, Q : octave de la quinte ; acc : pas appuyés (clave).
+   */
+  function montunoEv(list, acc = []) {
+    // main gauche : elle double la ligne d'octaves une octave plus bas (b3, b, b5), pas les notes du milieu
+    const D = { O: ['^b3 3 10', 3, 0.74], A: ['>b3 3 10', 3, 0.8], C: ['5 8', 1, 0.5], P: ['b 1 8', 1, 0.66], Q: ['b5 5 12', 1, 0.6] };
+    return list.map(([s, k]) => [s, D[k][1], D[k][0], Math.min(0.9, D[k][2] + (acc.includes(s) ? 0.1 : 0))]);
+  }
   /** Motif de nappe tenu (une seule tenue d'une mesure de 4/4) : il s'étire à la mesure de la chanson. */
   const padHeld = (p) => p.ev.every(([o, l]) => o === 0 && l === 16);
   /** Hauteurs des degrés d'un accord, fondamentale `root` (MIDI) ; kp : notes de la gamme (classes), pour 7, 9 et 6. */
@@ -1268,25 +1332,35 @@ SS.bandSong = (() => {
     const minor = third === 3;
     const sev = has(10) ? 10 : has(11) ? 11 : has(9) && fifth === 6 ? 9 : inKey(10) && !inKey(11) ? 10 : inKey(11) && !inKey(10) ? 11 : minor || fifth === 6 ? 10 : 11;
     const ninth = inKey(2) || !inKey(1) ? 14 : 13;
-    return { b: root - 12, 1: root, 2: root + ninth - 12, 3: root + third, 4: root + 5, 5: root + fifth, 6: root + 9, 7: root + sev, M7: root + 11, m7: root + 10, 8: root + 12, 9: root + ninth, 10: root + 12 + third, 12: root + 12 + fifth, 15: root + 24 };
+    return { b: root - 12, b3: root - 12 + third, b5: root - 12 + fifth, 1: root, 2: root + ninth - 12, 3: root + third, 4: root + 5, 5: root + fifth, 6: root + 9, 7: root + sev, M7: root + 11, m7: root + 10, 8: root + 12, 9: root + ninth, 10: root + 12 + third, 12: root + 12 + fifth, 15: root + 24 };
   }
   /** Notes d'un motif de PAD_NEW sur un accord : fondamentale au plus près de la précédente (prevRoot), dans lo − 5 … lo + 12. */
   function padNewEvents(spans, p, r, { lo = 55, open = false, kp = null } = {}) {
     const ev = [];
     let prevRoot = lo + 5;
-    spans.forEach((sp) => {
+    const degs = spans.map((sp) => {
       let root = null;
       for (let n = lo - 5; n <= lo + 12; n++) if (pcOf(n) === pcOf(sp.chord.rootPc) && (root === null || Math.abs(n - prevRoot) < Math.abs(root - prevRoot))) root = n;
       prevRoot = root;
-      const deg = padDegrees(sp.chord, root, kp);
+      return padDegrees(sp.chord, root, kp);
+    });
+    const start = spans.length ? spans[0].step : 0;
+    spans.forEach((sp, si) => {
       const end = sp.step + sp.len;
       const held = SPB !== 16 && !p.meter && padHeld(p);
       for (let b = sp.step - (sp.step % SPB); b < end; b += SPB)
-        p.ev.forEach(([o, l0, d = PD, v]) => {
+        p.ev.forEach(([o, l0, d0 = PD, v]) => {
           if (o >= SPB) return;
+          // « ^ » : seulement au début de la scène (ailleurs, la note anticipée juste avant est liée) ;
+          // « > » : anticipation, la note prend l'accord qui arrive au pas suivant et se lie à lui (montuno de salsa)
+          const flag = /^[>^]/.test(String(d0)) ? String(d0)[0] : '';
+          const d = flag ? String(d0).slice(1) : d0;
           const l = held ? SPB : Math.min(l0, SPB - o);
           let s = b + o;
-          let e = Math.min(s + l, end);
+          if (flag === '^' && s !== start) return;
+          const nx = flag === '>' && spans[si + 1] && spans[si + 1].step === s + 1 ? si + 1 : -1;
+          const deg = degs[nx >= 0 ? nx : si];
+          let e = nx >= 0 ? Math.min(s + l0, spans[nx].step + spans[nx].len) : Math.min(s + l, end);
           if (s < sp.step) {
             if (l < 4) return; // coup court d'avant l'accord : rien ; note tenue : elle repart avec l'accord
             s = sp.step;
@@ -1847,12 +1921,17 @@ SS.bandSong = (() => {
     { id: 'techno', name: 'Techno : shaker 16es' },
     { id: 'latin', name: 'Latin : tumbao' },
     { id: 'minimal', name: 'Minimal : contretemps' },
+    { id: 'salsa', name: 'Salsa : güiro, tumbao, martillo' },
   ];
   // une mesure de 16 pas : un chiffre = vélocité (en dixièmes), « . » = silence
   const PERC_PAT = {
     techno: { sh: '6354636463546364', cg: '..5..6..5.6..5.6', tom: '....5.......5...' },
     latin: { sh: '6.4.6.4.6.4.6.4.', cg: '..6.76..6.76.67.', tom: '.5..5.5.5..5..5.' },
     minimal: { sh: '..5...5...5...5.', cg: '......5.......5.', tom: '..............5.' },
+    // salsa (une mesure = deux mesures de croches, kit « Percussions salsa » : la frappe choisit la manière de jouer) :
+    // güiro long sur 1 et 3 puis deux coups ; congas en tumbao (talon-pointe, slap sur le 2, deux ouvertes sur le 4) ;
+    // bongos en martillo (ouvert sur 1 et 4, étouffé entre, grave sur le dernier « et »)
+    salsa: { sh: '9.449.449.449.44', cg: '4474449944744499', tom: '7447744974477449' },
   };
   /** Pas d'une boucle de percussion sur `bars` mesures (le tom roule sur la dernière mesure de chaque phrase de 4). */
   function percLoopSteps(loop, style, bars, r) {
@@ -1863,7 +1942,7 @@ SS.bandSong = (() => {
         const c = pat[SPB === 16 ? i : Math.floor((i * 16) / SPB)]; // autre mesure : la boucle s'étire sur la mesure
         if (c !== '.') out[b * SPB + i] = vel(r, +c / 10, 0.06);
       }
-      if (loop === 'tom' && style !== 'minimal' && b % 4 === 3) Array.from({ length: BEAT }, (_, k) => SPB - BEAT + k).forEach((i, k) => (out[b * SPB + i] = vel(r, 0.5 + (k * 0.4) / BEAT, 0.04)));
+      if (loop === 'tom' && style !== 'minimal' && style !== 'salsa' && b % 4 === 3) Array.from({ length: BEAT }, (_, k) => SPB - BEAT + k).forEach((i, k) => (out[b * SPB + i] = vel(r, 0.5 + (k * 0.4) / BEAT, 0.04)));
     }
     return out;
   }
@@ -2614,6 +2693,7 @@ SS.bandSong = (() => {
     ['dnbroll', 'Roller', 'Doubles sur les contretemps du break : drum & bass', rhythmDraw('dnbroll')],
     ['dembow', 'Dembow', 'Fondamentale en 3-3-2, quinte et octave : reggaeton', rhythmDraw('dembow')],
     ['tumbao', 'Tumbao', 'Le « et » du 2 et le 4 annoncent l’accord suivant : salsa', rhythmDraw('tumbao')],
+    ['tumbao23', 'Tumbao salsa', 'Mesure = cycle de clave en croches : le « et » du 2 et le 4 jouent l’accord qui arrive, lié', [[0, 3, 0], [3, 3, 1], [6, 5, 0], [11, 3, 1], [14, 2, 0]]],
     ['onedrop', 'One drop', 'Silence sur le 1, la ligne commence après : reggae', rhythmDraw('onedrop')],
     ['shuffle', 'Shuffle', 'Fondamentale qui rebondit en croches, anticipe l’accord suivant : pop de Noël', rhythmDraw('shuffle')],
     ['roots', 'Roots', 'Fondamentale ronde, tierce, quinte et approche, notes fantômes : reggae roots', rhythmDraw('roots')],
