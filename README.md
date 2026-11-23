@@ -3,6 +3,23 @@
 Séquenceur pas-à-pas (step sequencer) dans le navigateur, pour faire de la musique avec des
 boîtes à rythmes et des instruments, et enregistrer ses projets dans des fichiers.
 
+## En un coup d'œil
+
+StepSeq a deux façons de travailler, sur le même projet :
+
+- **l'Assistant « Nouvelle chanson »** (`js/band.js`) : on part d'un style (ou de 🎬 Musique de film, de Clichés, de
+  Créer de zéro, ou d'une reprise tapée) et on avance étape par étape : groupe, scènes, batterie, accords, basse,
+  nappes, arpèges, mélodie, orchestration, effets, mix. C'est l'écran de référence pour créer ;
+- **la Grille** (les pistes du projet, `js/ui.js`) : chaque piste, ses pas et son piano roll, la piste Accords,
+  Arp One, la console de mixage avec Auto Mix, la fenêtre Song (scènes et arrangement).
+
+Le sélecteur **✦ Assistant | Grille** passe de l'un à l'autre sans rien perdre (voir « Bascule Assistant | Grille »).
+Autour : **Mes chansons** (enregistrement automatique), **Ouvrir un fichier** (projet, MIDI, partition),
+**Lire une partition**, **Exporter** (WAV, stems, MIDI), la fenêtre **Système** (santé du son), la jauge **CALCUL**
+et la boîte à outils **window.StepSeq** que Claude pilote depuis Chrome.
+
+Pour contribuer (humain ou agent) : lire [`AGENTS.md`](AGENTS.md) avant de toucher au code.
+
 ## Lancer l'application
 
 **En ligne : <https://ngoubier.github.io/StepSeq/>** (GitHub Pages)
@@ -33,7 +50,8 @@ puis ouvrir <http://localhost:8000>.
   (les pistes du projet) et revient à la même étape, sans rien créer ni effacer. Tant que la grille n'a pas la chanson de l'assistant
   (jamais créée, ou changée dans l'assistant depuis : accords, sons, tempo… ; changer d'étape ne compte pas), un point doré s'allume sur
   « Assistant » et un bandeau au-dessus des pistes propose **Mettre la chanson dans la grille** (= « Créer la chanson ») ou **Continuer l'assistant**.
-  L'assistant ne relit pas la grille. Une fois la chanson créée, chaque piste de l'assistant garde l'empreinte de son contenu
+  Ouvrir l'assistant sur une grille déjà remplie propose **Reprendre la grille dans l'assistant** (tempo, tonalités, accords,
+  instruments ; une piste sans musicien reçoit le sien, les pistes à garder telles quelles sont verrouillées 🔒). Une fois la chanson créée, chaque piste de l'assistant garde l'empreinte de son contenu
   (js/gridsync.js) : retouchée dans la grille (notes, son, volume, effets…), elle porte un petit **✎** après son nom. Remettre la
   chanson dans la grille ouvre alors **Mettre la grille à jour ?** : chaque piste retouchée est gardée (par défaut) ou régénérée,
   les pistes ajoutées à la main restent toujours, les autres sont régénérées ; les notes gardées suivent les scènes de même nom.
@@ -74,12 +92,15 @@ comme avant) ou **Garder** (accords normaux, tonalité de la scène réglée, Ct
 
 Le bouton **Écouter** permet d'entendre le son avant de valider.
 
-### Band : monter un groupe virtuel
+### Styles et groupe de l'assistant
 
-Le bouton **✦ Assistant** de la barre du haut (l'ancien bouton Band) ouvre l'assistant de création de chanson (`js/band.js`, catalogue `js/band-presets.js`,
+« Band » est le nom de l'assistant dans le code (`SS.band`, `js/band*.js`) ; à l'écran, on dit **Assistant** ou
+**Nouvelle chanson**. Le bouton **✦ Assistant** de la barre du haut ouvre l'assistant de création de chanson (`js/band.js`, catalogue `js/band-presets.js`,
 voir « Nouvelle chanson » plus bas), sur le projet en cours. Ses deux premières étapes, **Style** puis **Instruments**, montent le groupe :
 
-1. le **style musical** : **Synthwave**, **EDM mélodique** ou **Techno mélodique** ;
+1. le **style musical** : Synthwave, EDM mélodique, Ambient, Techno mélodique, Pop, Funk, Hip-hop, Drum & bass,
+   Latin, Soul, puis **Clichés**, **🎬 Musique de film** (`js/film.js`, voir plus bas) et **Créer de zéro**
+   (liste à jour : `SS.Band.STYLES` dans `js/band-presets.js`) ;
    la première tuile, **Créer de zéro**, part sans inspiration : un départ neutre (batterie, basse, piano ; 100 BPM,
    Do majeur, quatre accords, Intro · Couplet · Refrain · Pont · Outro) que l'on remplace étape par étape (style `zero`,
    `blank: true` ; plan `SS.BandSongs.zero` ; test `node tests/e2e/blank-start.js`) ;
@@ -87,7 +108,7 @@ voir « Nouvelle chanson » plus bas), sur le projet en cours. Ses deux premièr
    chansons originales (titre, mélodie et notes nouveaux) ; premier modèle « Grelots de minuit » (id `noel`), pop de Noël
    en shuffle à 150 BPM (swing des croches : `preset.swingRes = 8`), grelots, claps et timbales VCSL (kit `noel`),
    cloches tubulaires en volée (arpège `toll`), IV mineur sur basse imposée (accord de plan « iv6>3 ») ;
-2. le **type de chanson** : 10 inspirations par style (Smalltown Boy, Nightcall, Blinding Lights, Sweet Dreams…,
+2. le **type de chanson** : des inspirations par style (Smalltown Boy, Nightcall, Blinding Lights, Sweet Dreams…,
    Levels, Strobe, Opus, Faded…, Powers of Ten, Eternity, Return to Oz, Sky and Sand, Your Mind, Rej…), avec un
    tempo suggéré ;
 3. les **musiciens**, sur une scène. Un clic ouvre le panneau du musicien : son rôle, son instrument phare ★,
@@ -97,7 +118,7 @@ voir « Nouvelle chanson » plus bas), sur le projet en cours. Ses deux premièr
 
 **Créer la chanson** (dernière étape de l'assistant) écrit une chanson complète dans l'esprit de l'inspiration : scènes (intro,
 couplet, refrain… ou break, montée et drop en EDM), parties de chaque musicien et arrangement, en mode Chanson.
-Les plans des 30 chansons sont dans `js/band-songs.js` (tonalité, forme, grilles originales, ce que joue chaque
+Les plans des chansons sont dans `js/band-songs.js` (tonalité, forme, grilles originales, ce que joue chaque
 musicien par section) et les notes sont écrites par `js/bandsong.js` (déterministe). Le bouton **Fermer** et **Échap** quittent l'assistant sans rien créer ;
 si le projet a déjà des pistes, une confirmation précède le remplacement (Ctrl+Z revient en arrière).
 
@@ -445,6 +466,49 @@ respirations, cellule rythmique reprise). **Variante B** recompose avec la même
 de chaque émotion ; dans Band, l'émotion de chaque scène (étape Accords) guide aussi la mélodie (contour, note
 visée sur les temps forts, registre, fin) ; à l'étape Mélodie de l'assistant, c'est ce même panneau qui compose la
 mélodie de chaque scène.
+
+### 🎬 Musique de film (`js/film.js`)
+
+Tuile **🎬 Musique de film** de l'étape Style. On décrit la scène à l'image : entrée et fin de la musique (en secondes),
+puis des **repères** qui ouvrent chacun un passage avec son émotion (10, une couleur chacune), sa tension et son
+énergie (1 à 5), une synchro forte (le tempo est calé pour qu'elle tombe sur un premier temps), un dialogue (la musique
+baisse de 4 dB) ou un point d'orgue. Un passage peut avoir son propre tempo. `SS.film.spec` en tire un plan de chanson
+au format de `js/band-songs.js` ; l'orchestre étendu (`js/orchestra.js`) joue le thème, transformé selon l'émotion du
+passage. Le mix est fait pour l'image (réverbe par famille d'instruments, stems par famille à l'export).
+Modèles : « La lumière revient », « La poursuite », « Les grands espaces » et « Ma scène » (libre). Les mélodies
+« dans l'esprit de » restent toujours originales. Tests : `node --test tests/film.test.js`.
+
+### 🎓 Tutoriel musique de film (`js/tutorial.js`)
+
+Le bouton **🎓 Tutoriel** de la carte de scène du film ouvre un coach à droite de l'assistant : chaque leçon donne une
+consigne courte, éclaire le contrôle à utiliser, fait écouter, puis vérifie le geste toute seule. Les leçons travaillent
+sur une scène d'exercice et n'écrivent rien dans la chanson. La progression est gardée dans le navigateur. Aujourd'hui
+3 leçons (L'intention, Repérer et synchroniser, Le tempo calé) ; les suivantes s'ajoutent dans `SS.tutorial.LESSONS`.
+
+### Pistes Ambient (`js/ambient.js`, `js/ambientpanel.js`)
+
+Une piste Ambient est une piste instrument de la famille « ambient » qui joue **un** module génératif, choisi à la
+création dans la fenêtre Nouvelle piste : 🌿 **Jardin** (grains, boucles de longueurs différentes, drone, pluie),
+🏔 **Paysage** (graines placées du grave à l'aigu et du loin au proche, vent dans des résonateurs) ou 🎞 **Fresque**
+(5 couches dont on dessine la présence sur toute la chanson). Les notes suivent les accords de la scène (ou sa gamme).
+L'étiquette du module, dans l'en-tête de la piste, ouvre ses réglages. À ne pas confondre avec le **style** Ambient de
+l'assistant, qui écrit des nappes et un piano épars sans ces modules. Tests : `node --test tests/ambient.test.js`,
+diagnostic du son : `node tests/e2e/ambient-diag.js`.
+
+### Fiche Scène (`js/scenesheet.js`)
+
+Un double-clic sur une scène (ligne Scènes ou bloc de l'arrangement, dans la Grille comme dans l'assistant) ouvre un
+tiroir à droite : nom, longueur, **tempo de la scène**, émotion, énergie et tension, tonalité et accords par mesure,
+instruments qui jouent ou se taisent, mouvements et enchaînements. La grille reste jouable à gauche ; ‹ › passent
+d'une scène à l'autre.
+
+### Figer une piste et jauge CALCUL (`js/freeze.js`, `js/calcul.js`)
+
+Tout le son est calculé sur un seul fil audio : avec plusieurs Juno, il décroche. Le bouton **❄** d'une piste
+l'enregistre une fois (rendu hors temps réel, comme l'export) puis la joue depuis cet enregistrement ; la console, les
+effets et les envois restent en direct. Notes et son sont verrouillés jusqu'à **Dégeler**. La jauge **CALCUL** de la
+barre du haut montre la charge du moteur (100 % = une seconde de calcul par seconde de son) ; sa fenêtre détaille le
+calcul par piste et propose **❄ Figer les plus lourdes**.
 
 ### Auto Mix : l'assistant de mixage et de mastering
 
@@ -818,7 +882,9 @@ Le mode Guitare est déterministe comme le reste d'Arp One ; la lecture, le rend
 node --test
 ```
 
-(Node 18 ou plus récent ; les tests du moteur d'arpège n'ont besoin ni de navigateur ni de carte son.)
+(Node 18 ou plus récent ; une dizaine de secondes, sans navigateur ni carte son.) Ils doivent tous passer avant
+d'ouvrir une PR. Quand un modèle de chanson est ajouté, mesurer aussi ses sons et son mastering (sinon
+`tests/bandmix.test.js` échoue) : `MISSING=1 node tools/measure-levels.js` puis `node tools/band-drive.js <id>`.
 
 Tests de bout en bout des fenêtres (arpégiateur, assistant…) dans Chromium (nécessite le paquet `playwright`) :
 
@@ -1159,7 +1225,8 @@ chanson ; forme, valeur ou points ; lecture fluide ou paliers) ; console : `cons
 `retours` (Plate, Hall, Écho, Cosmos), `master` (volume, EQ, filtre, compresseur, limiteur, effets du Master, mastering) ; scènes : `allerScene`, `ajouterScene`, `renommerScene`, `supprimerScene`, `structure` ; écoute : `jouer`,
 `stop`, `annuler`, `retablir`. Chaque écriture est une étape **Ctrl+Z** et affiche « ✳ Claude : … » avec un bouton Annuler ;
 `StepSeq.groupe("titre", () => { … })` en regroupe plusieurs. Le badge « ✳ Claude · N actions » apparaît dans la barre du haut.
-`StepSeq.outils` décrit chaque outil : la même liste servira au futur panneau intégré (API Claude). Test : `node tests/e2e/claude-tools.js`.
+`StepSeq.outils` décrit chaque outil (nom, description, paramètres, écriture ou lecture). Pas de panneau Claude
+intégré à l'application : le pilotage passe par Claude in Chrome. Test : `node tests/e2e/claude-tools.js`.
 
 Assistant **Nouvelle chanson** (pont `SS.band.claude` dans `js/band.js`) : `assistantStyles`, `assistantEtat`, `assistantSons`,
 `assistantOuvrir` (reprend le brouillon s'il existe), `assistantEtape`, `assistantEcouter` / `assistantStop`, `assistantFermer`,
@@ -1287,55 +1354,27 @@ Les accords par mode et par émotion (`js/emotions.js`) s'appuient sur trois doc
 
 ## Structure du code
 
-| Fichier          | Rôle |
-|------------------|------|
-| `index.html`     | Structure de la page et dialogue d'ajout de piste |
-| `css/style.css`  | Thème et mise en page |
-| `icons/`        | Icône du projet : `stepseq.svg` (grille de pas + note, aussi logo de la barre du haut), `note-16.svg` (note seule pour le 16 px), PNG favicon 16 / 32 et icône d'écran d'accueil 180 |
-| `js/help.js`     | Aides de l'interface : « ? » à droite d'un libellé, info-bulle au survol, fenêtre pour une aide longue |
-| `js/library.js`  | Catalogue généré depuis strudel.cc (125 soundfonts gm_*, VCSL) |
-| `js/dirt.js`     | Catalogue généré des banques mélodiques de Dirt-Samples |
-| `js/sounds.js`   | Catalogue des sons (batterie, familles d'instruments, accords) |
-| `js/space-dsp.js` | Reverb longue « Cosmos » (AudioWorklet) : réseau de 8 lignes à retard, Freeze, Shimmer |
-| `js/filters.js`  | Filtres Ladder et SEM (AudioWorklet) du sound design |
-| `js/project.js`  | Modèle de projet, enregistrement / ouverture de fichiers |
-| `js/audio.js`    | Moteur audio : chargement des échantillons, voix, séquenceur |
-| `js/modulation.js` | LFO du synthé intégré (formes, vitesses calées sur le tempo, phase, courbes) et réglages PWM |
-| `js/sounddesign.js` | Fenêtre de sound design (VCO, filtre, ADSR, glide, sortie) |
-| `js/juno.js`     | Synthés analogiques : catalogue, 128 patches d'usine du Juno-106, un AudioWorklet par piste |
-| `js/juno-dsp.js` | Moteur du Juno-106 (AudioWorklet), porté de l'Ultramaster KR-106 — GPL v3 |
-| `js/junopanel.js` | Façade du Juno-106 (sound design des pistes Synthé) |
-| `js/groove.js`   | Fenêtre Groove (swing, humanisation) |
-| `js/harmony.js`  | Aide à la composition : gammes, accords diatoniques, identification des accords, estimation de la tonalité, vérificateur d'harmonie |
-| `js/emotions.js` | Intentions émotionnelles (skill MusicEmotion) : matrice et trois propositions par intention, modes de l'onglet Ambiance et guide des modes (couleur, boucle d'essai), bibliothèque de 94 grilles de référence (accords, durées, mode, émotions, source, tempo de travail, émotion annoncée ou interprétée) |
-| `js/fx.js`       | Fenêtre Effets par piste (chorus, delay, reverb, sidechain, envois vers les bus partagés) |
-| `js/master-dsp.js` | Mastering du Master (AudioWorklet) : graves en mono, largeur, écrêtage doux, limiteur à anticipation, mesure LUFS / true peak |
-| `js/mixer.js`    | Console de mixage : tranches, EQ, compresseur, limiteur, vumètres |
-| `js/automix.js`  | Auto Mix : mesures (bandes d'octave, LUFS, LRA, corrélation), critères, cibles et conseils (fonctions pures) |
-| `js/automix-listen.js` | Auto Mix : écoute pendant la lecture (analyseurs sur les pistes et le Master) |
-| `js/automix-pilot.js` | Auto Mix : pilote auto des faders (mesure entre pistes, petits gestes, gain staging) |
-| `js/automixpanel.js` | Auto Mix : panneau de la console, A/B, préférences, pilote auto |
-| `js/band-templates.js` | Assistant : styles de modèles (morceaux complets prêts à jouer, projet inclus) — « Cinematic music » |
-| `js/band-songs.js` | Band : plans des 20 chansons complètes (tonalité, sections, grilles, parties) |
-| `js/drum-patterns.js` | Bibliothèque de motifs de batterie (20 par style : synthwave, edm, ambient, techno), fills et fréquences de fill ; `SS.drumPattern` |
-| `js/bandsong.js` | Band : écrit les scènes, les notes de chaque musicien et l'arrangement d'après un plan |
-| `js/melody-profiles.js` | Profils mélodiques des 15 émotions : six axes d'intention, contour, note visée, fin, ornements, reprise du motif, motif de départ ; `SS.resolveMelodyProfile`, variante B |
-| `js/melody.js` | Mélodie : grille d'accords, syllabes du français, rythme, hauteurs (pilotées par le profil de l'émotion : contour, note visée, ornements, reprise), notes pivots, mesures descriptives, contrôles, export MIDI ; vérification d'une mélodie écrite (`checkMelody`) — fonctions pures |
-| `js/melodypanel.js` | Panneau Mélodie, affiché dans l'étape Mélodie de l'assistant Band (options d'hôte : `sceneKey`, `sceneEmotion`, `hideTrack`, `noListen`, `onResult`, `getState` / `setState`) : formulaire, proposition (grille, écoute avec la nappe, contrôles), écriture sur la piste |
-| `js/bandmix.js`, `js/band-levels.js`, `js/band-drive.js` | Band : règles de mixage et de mastering, niveaux mesurés, gain de mastering par chanson |
-| `js/dirt-tuning.js` | Hauteur mesurée des échantillons Dirt-Samples |
-| `tools/`         | Outils de mesure : hauteur des échantillons, niveaux des instruments, rendu et mastering des chansons Band, calibrage de l'Auto Mix |
-| `js/song.js`     | Mode chanson : scènes et arrangement, fenêtre Song |
-| `js/midi-file.js` | Lecture / écriture de fichiers MIDI standard (type 0 et 1), sans dépendance |
-| `js/midi.js`     | Import MIDI (placement sur la grille et micro-décalages, CC 11 en courbe de volume, pistes, analyse de la structure en scènes) et export MIDI (arrangement, arpèges rendus, correspondances General MIDI) |
-| `js/midipanel.js` | Fenêtres Importer MIDI / Exporter MIDI (options, bilan, téléchargement) |
-| `js/render.js`, `js/audioexport.js` | Exporter l'audio : rendu hors temps réel (master, stems), mesures EBU R128, WAV 16 / 24 / 32 bits, archive ZIP ; fenêtre (options, progression, bilan) |
-| `js/expression.js` | Jeu des cordes, cuivres, bois, voix, piano et guitare : phrases, arc, soufflet, frappe, accords (mélodie, doigts, strum), pédale automatique, phrasé automatique, articulations des notes — fonctions pures |
-| `render.html`, `js/render-boot.js`, `js/render-host.js` | Page de rendu chargée dans un cadre invisible : moteur audio seul sur un `OfflineAudioContext` |
-| `js/transform.js` | Transformations d'une sélection de notes : inversion, rétrograde, durées ×2 / ×½, autre mode |
-| `js/ui.js`       | Rendu des pistes, grille, piano roll, dialogue |
-| `js/main.js`     | Démarrage, barre d'outils, raccourcis |
-| `guide.html`     | Guide d'utilisation (bouton « Aide » de l'app) |
+Application statique, sans compilation ni modules : chaque fichier `js/*.js` ajoute son objet à l'espace global
+`window.SS` et `index.html` les charge dans l'ordre (un fichier doit venir après ceux qu'il utilise au chargement ;
+`js/melody.js` avant `js/bandsong.js`). Les fonctions pures sont testées sous Node (`tests/*.test.js`), les fenêtres
+avec Playwright (`tests/e2e/*.js`). Le moteur audio est aussi chargé seul par `render.html` pour le rendu hors temps
+réel (export, figer, bilan).
+
+| Domaine | Fichiers |
+|---------|----------|
+| Page et démarrage | `index.html`, `icons/`, `fonts/`, `css/style.css` (palette `--c-*`, tailles `--fs-*`), `js/main.js` (démarrage, barre du haut, raccourcis), `js/ui.js` (pistes, grille, piano roll, fenêtre Nouvelle piste), `js/help.js` (« ? » et bulles d'aide), `guide.html` (bouton Aide) |
+| Projet et fichiers | `js/project.js` (modèle, ouverture / enregistrement), `js/store.js` (enregistrement automatique), `js/mysongs.js` (Mes chansons), `js/songname.js` (nom inventé), `js/midi-file.js`, `js/midi.js`, `js/midipanel.js` (MIDI), `js/score-read.js`, `js/scorepanel.js` (Lire une partition), `js/render.js`, `js/audioexport.js`, `render.html`, `js/render-boot.js`, `js/render-host.js` (export audio) |
+| Sons | `js/library.js`, `js/dirt.js`, `js/dirt-tuning.js`, `js/sounds.js`, `js/catalog.js` (sons par rôle), `js/sample-tuning.js`, `js/vsco.js`, `js/libre.js` (orchestre et instruments libres), `samples/` |
+| Moteur audio | `js/audio.js` (voix, séquenceur), `js/filters.js`, `js/modulation.js`, `js/juno.js`, `js/juno-dsp.js`, `js/space-dsp.js` (Cosmos), `js/master-dsp.js`, `js/freeze.js` (❄), `js/calcul.js` (jauge CALCUL), `js/audiowatch.js`, `js/systempanel.js` (fenêtre Système), `js/trackloop.js` |
+| Édition dans la Grille | `js/song.js` (scènes, arrangement), `js/scenesheet.js` (Fiche Scène), `js/chords.js` (piste Accords), `js/harmony.js` (gammes, accords, tonalité), `js/transform.js`, `js/groove.js`, `js/live.js` (jouer au clavier), `js/expression.js` (jeu des instruments), `js/beatauto.js`, `js/beatautoui.js` (automation par temps), `js/bassmotifs.js` (bouton MOTIF) |
+| Son d'une piste | `js/sounddesign.js`, `js/junopanel.js`, `js/fx.js`, `js/ambient.js`, `js/ambientpanel.js` |
+| Arpèges | `js/arp.js` (moteur Arp One), `js/arppanel.js` (fenêtre), `js/motifs.js` (motifs), `js/guitar-arp.js` (mode Guitare) |
+| Assistant Nouvelle chanson | `js/band.js` (interface, toutes les étapes, pont `SS.band.claude`), `js/band-presets.js` (styles, inspirations, musiciens), `js/band-songs.js` (plans des chansons), `js/band-templates.js` (morceaux complets), `js/bandsong.js` (écrit les notes d'après un plan), `js/bandgroup.js` (groupe), `js/wizdraft.js` (brouillon), `js/gridsync.js` (Assistant ↔ Grille), `js/drum-patterns.js`, `js/padmotifs.js`, `js/arrange.js`, `js/orchestra.js`, `js/develop.js`, `js/film.js`, `js/tutorial.js` |
+| Mélodie et émotions | `js/melody.js` (moteur unique de mélodie), `js/melody-profiles.js`, `js/melodypanel.js` (atelier Mélodie, dans l'étape Mélodie), `js/emotions.js` |
+| Mixage | `js/mixer.js` (console), `js/bandmix.js`, `js/band-levels.js`, `js/band-drive.js` (mix et mastering automatiques des chansons de l'assistant), `js/wizmix.js` (étape Mix), `js/automix.js`, `js/automix-listen.js`, `js/automix-pilot.js`, `js/automixpanel.js` (Auto Mix), `js/bilan.js` (bilan d'écoute pour Claude) |
+| Claude | `js/claude-tools.js` (boîte à outils `window.StepSeq`) |
+| Outils | `tools/` : hauteur des échantillons, niveaux des instruments (`measure-levels.js`), mastering des chansons (`band-drive.js`), rendu d'une chanson, calibrage de l'Auto Mix et du bilan, copie locale des banques de sons |
+| Documents | `docs/design-assistant.md`, `docs/comparaison-cubase.md`, `docs/reference/` (composition, émotions) |
 
 ## Licences
 
