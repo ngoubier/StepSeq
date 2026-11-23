@@ -1391,7 +1391,7 @@ SS.claudeTools = (() => {
     try {
       const r = await SS.bilan.run(p, { range, loops: 2, pistes: pistes !== false }, { onStage: (nom, i, n) => SS.ui.toast(`✳ Claude : bilan du son… ${nom} (${i + 1}/${n})`, 60000) });
       SS.ui.toast('✳ Claude : bilan du son terminé', 3000);
-      return { message: `Bilan de ${scene ? 'la scène ' + SS.currentScene(p).name : 'la chanson'} : ${r.master.lufs} LUFS, crête ${r.master.crete} dBTP${r.conseils.length ? ` ; ${r.conseils.length} conseil(s)` : ''}`, ...r, lecture: 'lufs = volume perçu (streaming : −14 ; pop forte : −9) ; crete en dBTP ; equilibre = parts grave (<250 Hz) / médium / aigu (>4 kHz) ; passages = volume de chaque passage (la courbe d’énergie) ; basseSurKick = part des coups de grosse caisse couverts par la basse' };
+      return { message: `Bilan de ${scene ? 'la scène ' + SS.currentScene(p).name : 'la chanson'} : ${r.master.lufs} LUFS, crête ${r.master.crete} dBTP${r.conseils.length ? ` ; ${r.conseils.length} conseil(s)` : ''}`, ...r, lecture: 'lufs = volume perçu (streaming : −14 ; pop forte : −9) ; crete en dBTP ; equilibre = parts grave (<250 Hz) / médium / aigu (>4 kHz) ; passages = volume de chaque passage (la courbe d’énergie) ; basseSurKick = part des coups de grosse caisse couverts par la basse ; reperes = valeurs habituelles des chansons de l’assistant' };
     } finally {
       bilanRun = null;
     }

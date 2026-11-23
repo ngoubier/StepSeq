@@ -119,19 +119,27 @@ SS.bilan = (() => {
     return out;
   }
 
+  /**
+   * Repères : les chansons des 9 styles de l'assistant, créées sans retouche et mixées par le mixage automatique
+   * (tools/bilan-calibrate.js, 2026-11-23) : −14,3 à −12,5 LUFS, crête −1,7 à −0,4 dBTP, grave 51 à 89 % de l'énergie
+   * (94 % sur un refrain latin), aigu 1 à 7 %, écart entre passages 3 à 15 LU, basse sur le kick 0 à 49 %
+   * (synthwave : basse au galop sous le kick). L'énergie brute est surtout grave : un mix équilibré a souvent 70 % de grave.
+   */
+  const REPERES = { lufs: [-14.5, -12.5], grave: [0.5, 0.9], aigu: [0.01, 0.07], ecart: [3, 15], basseSurKick: [0, 0.5] };
+
   /** Conseils en clair d'après un bilan. */
   function conseils(b) {
     const out = [];
     const m = b.master || {};
     if (m.lufs != null && m.lufs > -8) out.push(`Master très fort (${m.lufs} LUFS) : le son s’écrase. Vise −14 à −10 LUFS (master({ … }) ou mastering plus doux).`);
     else if (m.lufs != null && m.lufs < -18) out.push(`Master faible (${m.lufs} LUFS) : monte le volume ou le mastering (vise −14 à −10 LUFS).`);
-    if (m.crete != null && m.crete > -0.5) out.push(`Crête à ${m.crete} dBTP : risque de saturation à l’écoute en ligne (vise −1 dBTP, limiteur du Master).`);
+    if (m.crete != null && m.crete > -0.3) out.push(`Crête à ${m.crete} dBTP : risque de saturation à l’écoute en ligne (vise −1 dBTP, limiteur du Master).`);
     if (m.equilibre) {
-      if (m.equilibre.grave > 0.85) out.push(`Beaucoup de grave (${Math.round(m.equilibre.grave * 100)} %) : le mix peut sonner sourd. Allège la basse ou les nappes sous 250 Hz.`);
-      if (m.equilibre.aigu < 0.01) out.push('Très peu d’aigu : le mix peut manquer d’air (charleston, brillance des nappes, EQ aigu).');
-      if (m.equilibre.aigu > 0.25) out.push(`Beaucoup d’aigu (${Math.round(m.equilibre.aigu * 100)} %) : le mix peut être agressif.`);
+      if (m.equilibre.grave > REPERES.grave[1] + 0.04) out.push(`Beaucoup de grave (${Math.round(m.equilibre.grave * 100)} %) : le mix peut sonner sourd. Allège la basse ou les nappes sous 250 Hz.`);
+      if (m.equilibre.aigu < REPERES.aigu[0]) out.push('Très peu d’aigu : le mix peut manquer d’air (charleston, brillance des nappes, EQ aigu).');
+      if (m.equilibre.aigu > 0.15) out.push(`Beaucoup d’aigu (${Math.round(m.equilibre.aigu * 100)} %) : le mix peut être agressif.`);
     }
-    if (b.basseSurKick != null && b.basseSurKick > 0.5) out.push(`La basse couvre la grosse caisse sur ${Math.round(b.basseSurKick * 100)} % des coups : sidechain sur la basse (effets({ sidechain })) ou EQ grave de la basse un peu plus bas.`);
+    if (b.basseSurKick != null && b.basseSurKick > 0.6) out.push(`La basse couvre la grosse caisse sur ${Math.round(b.basseSurKick * 100)} % des coups : sidechain sur la basse (effets({ sidechain })) ou EQ grave de la basse un peu plus bas.`);
     const ps = b.passages || [];
     if (ps.length > 2) {
       const vals = ps.map((p) => p.lufs).filter((x) => x != null);
@@ -190,8 +198,9 @@ SS.bilan = (() => {
     const ov = envs.drums && envs.bass ? kickBassOverlap(envs.drums, envs.bass) : null;
     out.basseSurKick = ov == null ? null : r2(ov);
     out.conseils = conseils(out);
+    out.reperes = 'chansons de l’assistant, mixage automatique : ' + `${REPERES.lufs[0]} à ${REPERES.lufs[1]} LUFS, grave ${REPERES.grave[0] * 100}–${REPERES.grave[1] * 100} %, aigu ${REPERES.aigu[0] * 100}–${REPERES.aigu[1] * 100} %, écart entre passages ${REPERES.ecart[0]}–${REPERES.ecart[1]} LU, basse sur le kick ${REPERES.basseSurKick[1] * 100} % au plus`;
     return out;
   }
 
-  return { run, bands, lowEnv, kickBassOverlap, passages, conseils, biquad };
+  return { REPERES, run, bands, lowEnv, kickBassOverlap, passages, conseils, biquad };
 })();

@@ -48,3 +48,11 @@ test('conseils : trop fort, basse sur le kick, chanson plate', () => {
   assert.ok(c.some((x) => /plate/.test(x)));
   assert.deepEqual(B.conseils({ master: { lufs: -12, crete: -1.5, equilibre: { grave: 0.6, medium: 0.35, aigu: 0.05 } }, basseSurKick: 0.2, passages: [{ lufs: -16 }, { lufs: -12 }, { lufs: -10 }], musiciens: [] }), []);
 });
+
+test('conseils : les chansons de l’assistant (repères mesurés) ne déclenchent aucun conseil', () => {
+  const measured = [[-13.2, -1.3, 0.67, 0.02, 0.49, 10.1], [-12.5, -0.4, 0.75, 0.06, 0, 12.2], [-14.3, -0.7, 0.73, 0.05, 0, 11.7], [-12.6, -1.7, 0.89, 0.02, 0, 3.2], [-13.2, -0.7, 0.89, 0.01, 0, 14.9]];
+  for (const [lufs, crete, grave, aigu, kick, ecart] of measured) {
+    const c = B.conseils({ master: { lufs, crete, equilibre: { grave, medium: 1 - grave - aigu, aigu } }, basseSurKick: kick, passages: [{ lufs: -20 }, { lufs: -20 + ecart / 2 }, { lufs: -20 + ecart }], musiciens: [{ nom: 'Batterie', crete: -5.5 }] });
+    assert.deepEqual(c, [], JSON.stringify({ lufs, grave, aigu, c }));
+  }
+});
