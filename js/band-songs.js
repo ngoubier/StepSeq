@@ -691,6 +691,22 @@ SS.BandSongs = {
     form: 'intro verse pre chorus verse pre chorus bridge chorus outro',
   },
 
+  // Salsa dura (dans l'esprit de la salsa new-yorkaise des années 70 ; titre, grille et mélodies originaux) en clave de son
+  // 2-3 : une mesure = un cycle de clave en croches (95 = 190 à la noire), deux accords par mesure de partition au montuno
+  // (i–iv–V7–iv, anticipés par le piano et la basse) ; couplet à la cáscara et aux bongos, montuno à la campana, mambo
+  // plus serré ; grooves salsa23 / salsa23m / salsa23x de js/bandsong.js (kit « Percussions salsa »)
+  calle: {
+    key: 'A minor', groove: 'salsa23', emotion: 'joie',
+    sections: {
+      intro: { bars: 4, chords: 'i/iv/V7/iv', drums: 'main', perc: 'main', bass: 'tumbao23', keys: 'montuno23' },
+      verse: { bars: 8, chords: 'i/iv | VII7/III | i/iv | V7', drums: 'main', perc: 'main', bass: 'tumbao23', keys: 'montuno23', lead: 'verse' },
+      chorus: { bars: 8, chords: 'i/iv/V7/iv', groove: 'salsa23m', drums: 'full', perc: 'full', bass: 'tumbao23', keys: 'montuno23', lead: 'hook', name: 'Montuno' },
+      instr: { bars: 8, chords: 'i/iv/V7/iv', groove: 'salsa23x', drums: 'full', perc: 'full', bass: 'tumbao23', keys: 'mambo23', lead: 'answer', name: 'Mambo' },
+      outro: { bars: 2, chords: 'i/iv/V7/iv | i', groove: 'salsa23m', drums: 'full', perc: 'full', bass: 'tumbao23', keys: 'montuno23', name: 'Coda', fill: false },
+    },
+    form: 'intro verse chorus verse chorus instr chorus outro',
+  },
+
   // Reggae roots ensoleillé (dans l'esprit de Marley, Toots & the Maytals ; grille et mélodies originales) : one drop,
   // nyabinghi, skank de guitare et de piano sur 2 et 4, orgue bubble, basse ronde qui chante ; instrumental (mélodie en option),
   // passage dub où il ne reste que basse, batterie et orgue

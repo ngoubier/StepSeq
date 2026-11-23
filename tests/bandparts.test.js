@@ -44,11 +44,11 @@ test('sans parts, ou avec parts vide, la chanson est identique pour les 30 plans
   }
 });
 
-test('bibliothèque : 10 styles (28 motifs pour les 4 styles Band, 16 pour les autres, 26 pour Latin) bien formés', () => {
+test('bibliothèque : 10 styles (28 motifs pour les 4 styles Band, 16 pour les autres, 30 pour Latin) bien formés', () => {
   assert.deepEqual(Object.keys(SS.DRUM_PATTERNS).sort(), ['ambient', 'dnb', 'edm', 'funk', 'hiphop', 'latin', 'pop', 'soul', 'synthwave', 'techno']);
   const ids = new Set();
   for (const [style, list] of Object.entries(SS.DRUM_PATTERNS)) {
-    assert.equal(list.length, ['synthwave', 'edm', 'ambient', 'techno'].includes(style) ? 28 : style === 'latin' ? 26 : 16, style);
+    assert.equal(list.length, ['synthwave', 'edm', 'ambient', 'techno'].includes(style) ? 28 : style === 'latin' ? 30 : 16, style);
     for (const p of list) {
       assert.match(p.id, /^[a-z0-9]+(-[a-z0-9]+)*$/, p.id);
       assert.ok(!ids.has(p.id), 'id en double : ' + p.id);
@@ -412,4 +412,36 @@ test('mesures ternaires : chaque motif de la mesure pilote la batterie, le fill 
   const d = scene(SS.bandSong.build(SPEC, 'test', TR, { sig: '12/8', parts: { a: { drums: { style: '6/8', pattern: 'rock-68' } } } })).data;
   assert.equal(d['drums:bd'].steps.length, 8 * 24);
   SS.bandSong.setMeter('4/4');
+});
+
+test('salsa 2-3 : montuno de piano anticipé et lié, tumbao en croches, percussions selon la frappe', () => {
+  const BS = SS.bandSong;
+  const key = { tonic: 'A', mode: 'minor' };
+  // un cycle de clave (16 croches) à deux accords par mesure de partition : Am Dm E7 Dm
+  const spans = BS.spansOf({ chords: 'i/iv/V7/iv' }, key, 1);
+  assert.deepEqual(spans.map((s) => [s.step, s.len]), [[0, 4], [4, 4], [8, 4], [12, 4]]);
+  const ev = BS.chordEvents(spans, 'montuno23', () => 0.5, { lo: 55 });
+  const at = (s) => ev.find((e) => e.step === s);
+  // le « et » du 2 (pas 3) joue déjà l'octave de la tierce de Ré mineur (Fa) et se lie par-dessus le changement
+  assert.deepEqual(at(3).notes.map((n) => n % 12), [5, 5, 5], 'main gauche + octave de la main droite');
+  assert.equal(at(3).notes[2] - at(3).notes[0], 24);
+  assert.ok(at(3).step + at(3).len > 4, 'anticipation liée');
+  assert.ok(!ev.some((e) => e.step === 4 || e.step === 8 || e.step === 12), 'pas de nouvelle attaque sur l’accord anticipé');
+  assert.deepEqual(at(7).notes.map((n) => n % 12), [8, 8, 8], 'Sol♯ de Mi7 anticipé');
+  // 2-3 : la mesure « 2 » est pleine (pas 2), la « 3 » respire (pas 10) ; 3-2 : l'inverse
+  assert.ok(at(2) && !at(10));
+  const ev32 = BS.chordEvents(spans, 'montuno32', () => 0.5, { lo: 55 });
+  assert.ok(!ev32.some((e) => e.step === 2) && ev32.some((e) => e.step === 10));
+  // le début de la scène seulement : l'octave du 1 n'est pas rejouée quand la note anticipée la tient
+  const two = BS.spansOf({ chords: 'i/iv/V7/iv' }, key, 2);
+  assert.deepEqual(BS.chordEvents(two, 'montuno23', () => 0.5).filter((e) => e.step % 16 === 0).map((e) => e.step), [0]);
+  // tumbao : fondamentale au départ, puis le « et » du 2 et le 4 de chaque mesure de partition annoncent l'accord qui arrive
+  const b = BS.bassEvents(spans, 'tumbao23', () => 0.5, [9, 11, 0, 2, 4, 5, 7]);
+  assert.deepEqual(b.map((e) => [e.step, e.notes[0] % 12]), [[0, 9], [3, 2], [6, 4], [11, 2], [14, 9]]);
+  // percussions salsa : conga talon-pointe doux, slap moyen, ouvertes fortes (le kit choisit la manière de jouer)
+  assert.ok(BS.PERC_STYLES.some((s) => s.id === 'salsa'));
+  // motifs « Salsa 2-3 » : la clave au clap, coups sur 2, 3 | 1, « et » du 2, 4 (en croches)
+  const sal = SS.DRUM_PATTERNS.latin.filter((p) => p.id.startsWith('salsa23-'));
+  assert.equal(sal.length, 4);
+  sal.forEach((p) => assert.deepEqual([...p.lanes.C].map((c, i) => (c === '-' ? -1 : i)).filter((i) => i >= 0), [2, 4, 8, 11, 14], p.id));
 });

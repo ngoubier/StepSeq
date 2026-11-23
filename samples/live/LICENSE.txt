@@ -28,3 +28,10 @@ sous la licence de leur kit d'origine.
    - claps : FreePats World and Rare Percussion, https://freepats.zenvoid.org/Percussion/world-and-rare-percussion.html ;
    - grelots, tambourins, timbales : Versilian Community Sample Library (VCSL), Versilian Studios,
      https://github.com/sgossner/VCSL
+
+5. Kit Salsa (dossier salsa) :
+   - congas, tumba, quinto, bongos, cloches, claves, güiro et maracas : Versilian Community Sample Library (VCSL),
+     Versilian Studios, https://github.com/sgossner/VCSL, Creative Commons Zero (CC0 1.0, domaine public) ;
+   - timbales (sd) : banque General MIDI FluidR3 de Frank Wen, licence MIT, via
+     https://github.com/felixroos/webaudiofontdata ;
+   - cymbales (cr, rd) : celles du kit pop (voir 1).

@@ -14,7 +14,7 @@ SS.bassMotifs = (() => {
     ['soul', 'Soul & Jazz', ['motown', 'walking', 'walkskip', 'ballade', 'ballade128', 'pointee', 'chroma', 'walkup']],
     ['hiphop', 'Hip-hop & Trap', ['boombap', 'sub808', 'trap808', 'drill']],
     ['dnb', 'Drum & bass', ['reese', 'dnbroll']],
-    ['latin', 'Latin & Reggae', ['tresillo', 'dembow', 'tumbao', 'onedrop', 'roots', 'bossa', 'afro', 'chacha', 'cumbia', 'baiao', 'montuno', 'amapiano']],
+    ['latin', 'Latin & Reggae', ['tresillo', 'dembow', 'tumbao', 'onedrop', 'roots', 'bossa', 'afro', 'chacha', 'cumbia', 'baiao', 'montuno', 'tumbao23', 'amapiano']],
     ['techno', 'Techno & House', ['hades', 'seismic', 'oracle', 'troy', 'phalanx', 'necropolis', 'styx', 'athens', 'mythos', 'thebes', 'acid', 'offbeat', 'off16', 'trance', 'twostep']],
     ['ternary', '3/4, 6/8, 12/8', ['valse', 'valsejazz', 'ballade68', 'galop68', 'slow128', 'boogie128', 'berce128', 'valsepop', 'valseavance', 'valse8', 'valseped', 'tarentelle', 'oct68', 'arp68b', 'gigue', 'shuffle128', 'arp128b', 'gospel128', 'marche128', 'whole', 'quarter', '8', 'pulse8', 'oct', 'drone', 'walking', 'rootfifth', 'arp']],
     ['famous', '★ Célèbres', ['cel_chic', 'cel_hitsville', 'cel_pfunk', 'cel_thumb', 'cel_fretless', 'cel_liverpool', 'cel_studio60', 'cel_gallop', 'cel_motorik', 'cel_coldwave', 'cel_staccato80', 'cel_steppers', 'cel_ska', 'cel_boogie', 'cel_rockabilly', 'cel_lagos', 'cel_surdo', 'cel_gfunk', 'cel_frenchtouch', 'cel_wobble', 'cel_neosoul']],

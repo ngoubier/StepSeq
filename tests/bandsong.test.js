@@ -20,7 +20,7 @@ const tracksOf = (p) =>
 const plays = (d) => (d.steps ? d.steps.some((v) => v > 0) : d.events.length > 0);
 
 test('chaque inspiration a un plan de chanson, et toutes les chansons se construisent', () => {
-  assert.equal(PRESETS.length, 51);
+  assert.equal(PRESETS.length, 52);
   for (const p of PRESETS) {
     assert.ok(SS.BandSongs[p.id], `plan manquant : ${p.id}`);
     const s = SS.bandSong.build(SS.BandSongs[p.id], p.id, tracksOf(p));
@@ -48,7 +48,7 @@ test('les accords joués sont complets et reconnus (renversements compris)', () 
     s.scenes.forEach((sc) => {
       for (const t of tr)
         for (const e of sc.data[t.id].events) {
-          if (e.notes.length < 2) continue;
+          if (e.notes.length < 2 || new Set(e.notes.map((n) => n % 12)).size < 2) continue; // une note seule, ou en octaves (ligne de montuno)
           assert.ok(H.identify(e.notes), `${p.id} / ${sc.name} : accord non reconnu ${e.notes}`);
         }
     });
@@ -114,7 +114,7 @@ test('même inspiration, même chanson (déterministe) ; deux chansons différen
   assert.equal(strip(a), strip(b));
   // grilles : pas toutes identiques d'une chanson à l'autre
   const grids = new Set(PRESETS.map((x) => Object.values(SS.BandSongs[x.id].sections).map((sec) => sec.chords).join(';')));
-  assert.equal(grids.size, 51);
+  assert.equal(grids.size, 52);
 });
 
 /* ---------- Tonalité : toutes les pistes instrumentales sont dans la bonne tonalité ---------- */
@@ -132,8 +132,11 @@ function eachNote(p, fn) {
     tr.forEach((t) =>
       sc.data[t.id].events.forEach((e) => {
         const sp = spans.find((x) => e.step >= x.step && e.step < x.step + x.len);
+        // note anticipée (montuno, tumbao de salsa) : elle appartient à l'accord qui arrive un ou deux pas plus loin
+        const nx = spans.find((x) => x.step > e.step && x.step <= e.step + 2) || sp;
         const ct = SS.chordNotes(60 + sp.chord.rootPc, sp.chord.type).map(pcOf);
-        e.notes.forEach((n) => fn({ role: t.id, note: n, e, ct, keyPcs, sc }));
+        const ctn = SS.chordNotes(60 + nx.chord.rootPc, nx.chord.type).map(pcOf);
+        e.notes.forEach((n) => fn({ role: t.id, note: n, e, ct, ctn, keyPcs, sc }));
       })
     );
   });
@@ -141,8 +144,8 @@ function eachNote(p, fn) {
 
 test('tonalité : chaque note est dans la tonalité ou dans l\'accord du moment (emprunts compris), aucune note étrangère', () => {
   for (const p of PRESETS)
-    eachNote(p, ({ role, note, ct, keyPcs, sc }) =>
-      assert.ok(keyPcs.includes(pcOf(note)) || ct.includes(pcOf(note)), `${p.id} / ${sc.name} / ${role} : ${note} hors tonalité et hors accord`)
+    eachNote(p, ({ role, note, ct, ctn, keyPcs, sc }) =>
+      assert.ok(keyPcs.includes(pcOf(note)) || ct.includes(pcOf(note)) || ctn.includes(pcOf(note)), `${p.id} / ${sc.name} / ${role} : ${note} hors tonalité et hors accord`)
     );
 });
 
@@ -180,7 +183,7 @@ test('nuances : refrain / drop plus forts que l\'intro, accents et ghost notes',
     const s = SS.bandSong.build(SS.BandSongs[p.id], p.id, tr);
     const vels = (sc) => tr.flatMap((t) => (sc.data[t.id].steps ? sc.data[t.id].steps.filter((v) => v > 0) : sc.data[t.id].events.map((e) => e.vel)));
     const intro = s.scenes.find((sc) => sc.name === 'Intro');
-    const peak = s.scenes.find((sc) => ['Refrain', 'Drop', 'Sommet'].includes(sc.name));
+    const peak = s.scenes.find((sc) => ['Refrain', 'Drop', 'Sommet', 'Montuno'].includes(sc.name));
     assert.ok(avg(vels(peak)) > avg(vels(intro)) + 0.02, `${p.id} : le ${peak.name} n'est pas plus fort que l'intro`);
     // une partie n'est jamais jouée à vélocité constante : au moins 6 niveaux différents
     for (const t of tr) {

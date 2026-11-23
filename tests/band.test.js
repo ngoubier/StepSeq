@@ -19,9 +19,9 @@ const SS = globalThis.SS;
 test('10 styles + « Créer de zéro » : 10 inspirations pour les 4 premiers, une ou deux chansons de démo pour les autres ; identifiants uniques', () => {
   assert.deepEqual(B.STYLES.map((s) => s.id), ['synthwave', 'edm', 'ambient', 'techno', 'pop', 'funk', 'hiphop', 'dnb', 'latin', 'soul', 'cliches', 'zero']);
   assert.ok(B.STYLES.at(-1).blank && !B.STYLES.slice(0, -1).some((s) => s.blank), 'seul « Créer de zéro » est un départ vierge');
-  assert.equal(new Set(B.STYLES.flatMap((s) => s.presets.map((p) => p.id))).size, 51);
+  assert.equal(new Set(B.STYLES.flatMap((s) => s.presets.map((p) => p.id))).size, 52);
   B.STYLES.forEach((s, i) => {
-    const n = i < 4 ? 10 : ['latin', 'pop', 'soul'].includes(s.id) ? 2 : 1; // latin : reggaeton + reggae roots ; pop et soul : + une valse, un slow 12/8
+    const n = i < 4 ? 10 : s.id === 'latin' ? 3 : ['pop', 'soul'].includes(s.id) ? 2 : 1; // latin : reggaeton, salsa, reggae roots ; pop et soul : + une valse, un slow 12/8
     assert.equal(s.presets.length, n, s.id);
     assert.equal(new Set(s.presets.map((p) => p.id)).size, n);
     if (i >= 4) {
@@ -135,14 +135,14 @@ test('kit « LinnDrum gated » : échantillons LinnDrum, reverb gated sur caisse
   assert.ok(SS.fxActive({ fx: { gated: 0.5 } }), 'le bouton FX de la piste s’allume');
 });
 
-test('batteries enregistrées (pop, rock, ballade, fagots, cajón, Tama, Pacific, Christmas) : kits complets, chaque banque a ses niveaux de frappe hébergés', () => {
+test('batteries enregistrées (pop, rock, ballade, fagots, cajón, Tama, Pacific, Christmas, salsa) : kits complets, chaque banque a ses niveaux de frappe hébergés', () => {
   const fs = require('node:fs');
   const path = require('node:path');
   const root = path.join(__dirname, '..');
   const live = JSON.parse(fs.readFileSync(path.join(root, 'samples/live/live.json'), 'utf8'));
   assert.ok(SS.LAYERED_DRUM_LIBS.has('live') && SS.DRUM_LIBS.some((l) => l.id === 'live'));
   const ids = Object.keys(B.KITS).filter((k) => B.KITS[k].source === 'live');
-  assert.equal(ids.length, 9);
+  assert.equal(ids.length, 10);
   ids.forEach((k) =>
     ['bd', 'sd', 'rim', 'cp', 'hh', 'oh', 'lt', 'mt', 'ht', 'cr', 'rd', 'cb', 'tb', 'sh', 'perc', 'misc'].forEach((pc) => {
       const r = B.pieceOpts(k, pc);
@@ -154,6 +154,9 @@ test('batteries enregistrées (pop, rock, ballade, fagots, cajón, Tama, Pacific
     })
   );
   assert.equal(B.kitOfTrack(B.pieceOpts('liveRods', 'sd').opts), 'liveRods');
+  // kit salsa : la frappe choisit la manière de jouer (5 niveaux : congas, bongos, campana, güiro long)
+  ['perc', 'misc', 'oh', 'sh'].forEach((pc) => assert.equal(live[B.pieceOpts('liveSalsa', pc).opts.bank].length, 5, pc));
+  assert.equal(B.pieceOpts('liveSalsa', 'perc').label, 'Congas');
   assert.equal(B.STYLES.find((s) => s.id === 'latin').presets.find((p) => p.id === 'kingston').musicians.find((m) => m.kits).kits[0], 'liveReggae');
   assert.equal(B.STYLES.find((s) => s.id === 'pop').presets[0].musicians.find((m) => m.kits).kits[0], 'liveRock');
 });
