@@ -32,7 +32,7 @@ window.SS = window.SS || {};
     { id: 'perc', label: 'Percussions mélodiques', color: '#f08a00', families: ['perc'] },
     { id: 'world', label: 'Instruments du monde', color: '#a0784a', families: ['world'] },
     { id: 'fx', label: 'Effets & ambiances', color: '#7a8a99', families: ['fx'] },
-    { id: 'ambient', label: 'Ambient', color: '#6fe3c8', families: ['ambient'] },
+    { id: 'ambient', label: 'Génératif', color: '#6fe3c8', families: ['ambient'] },
   ];
   const ROLE = Object.fromEntries(ROLES.map((r) => [r.id, r]));
   const FAMILY_ROLE = {};
@@ -65,7 +65,7 @@ window.SS = window.SS || {};
     dirt: { label: 'Dirt-Samples', color: '#b08a5a' },
     gm: { label: 'General MIDI', color: '#6fa8c9' },
     juno: { label: 'Juno-106', color: '#13c2a3' },
-    amb: { label: 'Moteur Ambient', color: '#6fe3c8' },
+    amb: { label: 'Moteur génératif', color: '#6fe3c8' },
   };
   const SOURCE_ORDER = ['syn', 'smp', 'dirt', 'gm', 'juno', 'amb'];
 

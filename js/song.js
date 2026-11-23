@@ -176,7 +176,7 @@ SS.song = (() => {
       e.stopPropagation();
       if (e.key === 'Enter') done(true);
       if (e.key === 'Escape') {
-        e.preventDefault(); // n'abandonne que le renommage, sans fermer la fenêtre Song
+        e.preventDefault(); // n'abandonne que le renommage, sans fermer la fenêtre Arrangement
         done(false);
       }
     });

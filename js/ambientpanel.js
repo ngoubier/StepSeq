@@ -29,8 +29,7 @@ SS.ambientPanel = (() => {
   const AM = () => SS.ambient;
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
   const cssVar = (name) => (name && name.startsWith('--') ? getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '#888' : name);
-  const NOTE = ['Do', 'Do♯', 'Ré', 'Mi♭', 'Mi', 'Fa', 'Fa♯', 'Sol', 'La♭', 'La', 'Si♭', 'Si'];
-  const noteName = (m) => NOTE[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
+  const noteName = (m) => SS.noteNameFr(m);
   const pct = (v) => `${Math.round(v * 100)} %`;
   const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
 
@@ -244,7 +243,7 @@ SS.ambientPanel = (() => {
     const chord = el('b', 'amb-chord', { text: '—' });
     draws.push(() => {
       const lv = AM().live(track.id);
-      chord.textContent = lv && lv.env && SS.audio.isPlaying() ? lv.env.pcs.map((pc) => NOTE[pc]).join(' · ') : '—';
+      chord.textContent = lv && lv.env && SS.audio.isPlaying() ? lv.env.pcs.map((pc) => SS.NOTE_NAMES_FR[pc]).join(' · ') : '—';
     });
     const always = el('button', 'btn btn-small', { type: 'button', text: 'Toujours présente', title: 'Effacer la courbe : la piste joue à plein sur toute la chanson' });
     always.addEventListener('click', () => {
@@ -616,7 +615,7 @@ SS.ambientPanel = (() => {
     dlg.querySelector('#ambTitle').textContent = `${M.icon} ${M.label}`;
     dlg.querySelector('#ambSub').textContent = M.sub;
     dlg.querySelector('#ambModule').value = M.id;
-    dlg.querySelector('#ambTrack').textContent = `Piste « ${track.name} » · moteur Ambient`;
+    dlg.querySelector('#ambTrack').textContent = `Piste « ${track.name} » · piste générative`;
     const part = M.id === 'paysage' ? paysagePart() : M.id === 'fresque' ? fresquePart() : jardinPart();
     dlg.querySelector('#ambBody').replaceChildren(commonPart(), part);
   }

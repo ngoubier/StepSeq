@@ -64,7 +64,7 @@ SS.ui = (() => {
   function eventLabel(track, ev) {
     // mélodie écrite par l’atelier Mélodie : la syllabe chantée suit le nom de la note
     if (ev.name) return ev.name; // accord de la piste Accords (piste qui suit les accords)
-    if (ev.notes.length === 1) return SS.noteName(ev.notes[0]) + (ev.lyric ? ' ' + ev.lyric.replace(/\(.*?\)/g, '').replace('‿', '') : '');
+    if (ev.notes.length === 1) return SS.noteNameFr(ev.notes[0]) + (ev.lyric ? ' ' + ev.lyric.replace(/\(.*?\)/g, '').replace('‿', '') : '');
     // accord renversé (la basse n'est pas la fondamentale) ou tonalité choisie : nom calculé d'après les notes
     const key = SS.sceneKey(app.project());
     const plain = ev.chord && SS.chordNotes(ev.notes[0], ev.chord).join() === ev.notes.join();
@@ -427,7 +427,7 @@ SS.ui = (() => {
     return h(
       'span',
       { class: 'th-modes' },
-      h('button', { type: 'button', class: 'th-mode on', title: `Module Ambient « ${m.label} » : clic pour ouvrir ses réglages`, onclick: (e) => { e.stopPropagation(); if (!frozenGuard(track)) SS.ambientPanel.open(track); } }, `${m.icon} ${m.label.toUpperCase()}`)
+      h('button', { type: 'button', class: 'th-mode on', title: `Module génératif « ${m.label} » : clic pour ouvrir ses réglages`, onclick: (e) => { e.stopPropagation(); if (!frozenGuard(track)) SS.ambientPanel.open(track); } }, `${m.icon} ${m.label.toUpperCase()}`)
     );
   }
 
@@ -2017,7 +2017,7 @@ SS.ui = (() => {
               onpointerdown: (e) =>
                 scroller.dragFrom(e, () => SS.audio.preview(track, midi)),
             },
-            isC || !black ? SS.noteName(midi) : ''
+            isC || !black ? SS.noteNameFr(midi) : ''
           ))
         ),
         grid
@@ -2228,7 +2228,7 @@ SS.ui = (() => {
       thumb.style.top = (maxOff ? Math.round((off / maxOff) * (viewH - thumbH)) : 0) + 'px';
       const top = ROLL_HIGH - Math.round(off / rowH);
       const bottom = Math.max(ROLL_LOW, top - rollRows() + 1);
-      rangeLabel.textContent = `${SS.noteName(bottom)} – ${SS.noteName(top)}`;
+      rangeLabel.textContent = `${SS.noteNameFr(bottom)} – ${SS.noteNameFr(top)}`;
       track.rollTop = top;
       // l'octave « de travail » (note posée par défaut sur la ligne compacte) suit la vue
       track.octave = Math.max(0, Math.min(7, Math.ceil(bottom / 12) - 1));
@@ -3759,7 +3759,7 @@ SS.ui = (() => {
     function render() {
       const root = ev.notes[0];
       const pc = ((root % 12) + 12) % 12;
-      const label = mono ? SS.noteName(root) : SS.NOTE_NAMES[pc] + (CHORD_SUFFIX[ev.chord] ?? '');
+      const label = mono ? SS.noteNameFr(root) : SS.NOTE_NAMES[pc] + (CHORD_SUFFIX[ev.chord] ?? '');
       const noteCol = h(
         'div',
         { class: 'ctx-col', role: 'radiogroup', 'aria-label': mono ? 'Note' : 'Fondamentale' },

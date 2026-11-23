@@ -822,7 +822,7 @@
     const len = SS.songLength(project);
     const time = `${Math.floor(len.seconds / 60)}:${String(Math.round(len.seconds % 60)).padStart(2, '0')}`;
     const what = preset.cover ? `reprise « ${preset.cover.title} » créée, jouée à la façon de « ${preset.song} »` : `chanson créée dans l'esprit de « ${preset.song} » (${preset.artist})`;
-    SS.ui.toast(`Band : ${what} · ${project.scenes.length} scènes, ${len.bars} mesures, ${time} · ${created.length} pistes. Mode Chanson : appuie sur ▶.`, 7000);
+    SS.ui.toast(`Assistant : ${what} · ${project.scenes.length} scènes, ${len.bars} mesures, ${time} · ${created.length} pistes. Mode Chanson : appuie sur ▶.`, 7000);
   }
 
   /**
@@ -898,8 +898,8 @@
     changed();
     const pl = (n, w) => `${n} ${w}${n > 1 ? 's' : ''}`;
     SS.ui.toast(
-      `Band : ${pl(created.length, 'piste')} ${created.length > 1 ? 'créées' : 'créée'}` +
-        (removed.length ? `, ${pl(removed.length, 'ancienne piste')} Band ${removed.length > 1 ? 'remplacées' : 'remplacée'}` : '') +
+      `Assistant : ${pl(created.length, 'piste')} ${created.length > 1 ? 'créées' : 'créée'}` +
+        (removed.length ? `, ${pl(removed.length, 'ancienne piste')} de l’assistant ${removed.length > 1 ? 'remplacées' : 'remplacée'}` : '') +
         (tempo ? ` · tempo ${tempo} BPM` : '') +
         '.'
     );

@@ -11,7 +11,7 @@ StepSeq a deux façons de travailler, sur le même projet :
   Créer de zéro, ou d'une reprise tapée) et on avance étape par étape : groupe, scènes, batterie, accords, basse,
   nappes, arpèges, mélodie, orchestration, effets, mix. C'est l'écran de référence pour créer ;
 - **la Grille** (les pistes du projet, `js/ui.js`) : chaque piste, ses pas et son piano roll, la piste Accords,
-  Arp One, la console de mixage avec Auto Mix, la fenêtre Song (scènes et arrangement).
+  Arp One, la console de mixage avec Auto Mix, la fenêtre Arrangement (scènes et arrangement).
 
 Le sélecteur **✦ Assistant | Grille** passe de l'un à l'autre sans rien perdre (voir « Bascule Assistant | Grille »).
 Autour : **Mes chansons** (enregistrement automatique), **Ouvrir un fichier** (projet, MIDI, partition),
@@ -40,10 +40,10 @@ puis ouvrir <http://localhost:8000>.
 - **En-tête** : icône de l'application (menu **Nouvelle chanson…** (assistant sur une chanson vide), **Mes chansons…**, **Ouvrir un fichier…** (projet .json, MIDI .mid ou partition, Ctrl+O), **Lire une partition…** (image, PDF ou MusicXML → pistes MIDI : lecture par Claude dans Chrome, par Audiveris ou MusicXML exact ; mesures à vérifier en orange ; Enregistrer le .mid ou Importer dans StepSeq), **Enregistrer** (Ctrl+S), **Exporter…** (audio WAV ou MIDI, Ctrl+E), **Options…** ; l'assistant sur le projet en cours s'ouvre par le bouton **✦ Assistant**), titre du projet, tempo (BPM), un bouton ∿ à icône seule dont la bulle (au survol, au clic ou au clavier)
   regroupe le chiffrage de mesure (4/4 par défaut, x/4 ou x/8), le nombre de mesures et le groove (swing, humanisation), **Lecture** et **Stop**, puis les fenêtres regroupées
   **Tonalité** (la tonalité de la scène en sous-titre ; un clic ouvre un petit menu tonique / mode, proposé d'après les notes ;
-  la composition à partir d'une émotion, les grilles de référence, les essais A/B et la vérification sont dans l'assistant « Nouvelle chanson »), **Song** (fenêtre Song : scènes et arrangement, avec une case pour garder le panneau
-  d'arrangement affiché sous l'en-tête) et **Mix** (console de mixage, avec l'assistant **Auto Mix**).
+  la composition à partir d'une émotion, les grilles de référence, les essais A/B et la vérification sont dans l'assistant « Nouvelle chanson »), **Arrangement** (fenêtre Arrangement : scènes et arrangement, avec une case pour garder le panneau
+  d'arrangement affiché sous l'en-tête) et **Mix** (console de mixage, avec **Auto Mix**).
   **Mode assistant** : quand l'assistant « Nouvelle chanson » est ouvert (`body.wizard-mode`), il prend la place de la zone des pistes, sous cette
-  barre qui reste visible ; la barre du bas, Tonalité, Song et Mix s'effacent et la **tonalité** de la chanson en création (« Do mineur », avec son armure)
+  barre qui reste visible ; la barre du bas, Tonalité, Arrangement et Mix s'effacent et la **tonalité** de la chanson en création (« Do mineur », avec son armure)
   prend leur place. **Lecture / Stop**, **tempo** et **position** de la barre pilotent alors l'écoute de l'assistant (scène choisie en boucle ou chanson) ;
   à la fermeture, la barre redevient celle du projet.
   **Bascule Assistant | Grille** : à côté du titre, un sélecteur passe à tout moment de l'assistant « Nouvelle chanson » à la grille
@@ -485,15 +485,15 @@ consigne courte, éclaire le contrôle à utiliser, fait écouter, puis vérifie
 sur une scène d'exercice et n'écrivent rien dans la chanson. La progression est gardée dans le navigateur. Aujourd'hui
 3 leçons (L'intention, Repérer et synchroniser, Le tempo calé) ; les suivantes s'ajoutent dans `SS.tutorial.LESSONS`.
 
-### Pistes Ambient (`js/ambient.js`, `js/ambientpanel.js`)
+### Pistes génératives (`js/ambient.js`, `js/ambientpanel.js`)
 
-Une piste Ambient est une piste instrument de la famille « ambient » qui joue **un** module génératif, choisi à la
-création dans la fenêtre Nouvelle piste : 🌿 **Jardin** (grains, boucles de longueurs différentes, drone, pluie),
+Une piste générative (famille « Génératif » de la fenêtre Nouvelle piste ; `ambient` dans le code) joue **un** module
+génératif, choisi à la création : 🌿 **Jardin** (grains, boucles de longueurs différentes, drone, pluie),
 🏔 **Paysage** (graines placées du grave à l'aigu et du loin au proche, vent dans des résonateurs) ou 🎞 **Fresque**
 (5 couches dont on dessine la présence sur toute la chanson). Les notes suivent les accords de la scène (ou sa gamme).
-L'étiquette du module, dans l'en-tête de la piste, ouvre ses réglages. À ne pas confondre avec le **style** Ambient de
-l'assistant, qui écrit des nappes et un piano épars sans ces modules. Tests : `node --test tests/ambient.test.js`,
-diagnostic du son : `node tests/e2e/ambient-diag.js`.
+L'étiquette du module, dans l'en-tête de la piste, ouvre ses réglages. « Ambient » désigne seulement le **style**
+de l'assistant (nappes, piano épars). Tests : `node --test tests/ambient.test.js`, diagnostic du son :
+`node tests/e2e/ambient-diag.js`.
 
 ### Fiche Scène (`js/scenesheet.js`)
 
@@ -510,7 +510,7 @@ effets et les envois restent en direct. Notes et son sont verrouillés jusqu'à 
 barre du haut montre la charge du moteur (100 % = une seconde de calcul par seconde de son) ; sa fenêtre détaille le
 calcul par piste et propose **❄ Figer les plus lourdes**.
 
-### Auto Mix : l'assistant de mixage et de mastering
+### Auto Mix : mixage et mastering guidés
 
 Dans la console **Mix** :
 
@@ -521,8 +521,8 @@ Dans la console **Mix** :
 **Ctrl+Z** annule cette réinitialisation en une fois.
 
 Le panneau **Auto Mix** s'ouvre automatiquement à droite des tranches avec la console **Mix**. Deux grands
-boutons lancent les traitements : **Pilote Auto** démarre le cycle automatique et masque les conseils manuels ;
-**Assistant** arrête le pilote, affiche les onglets **Mixage** et **Mastering** et lance la lecture pour analyser
+boutons lancent les traitements : **Pilote auto** démarre le cycle automatique et masque les conseils manuels ;
+**Conseils** arrête le pilote, affiche les onglets **Mixage** et **Mastering** et lance la lecture pour analyser
 le morceau. Les commandes **A/B**, **Réécouter** et **Tout accepter** restent disponibles dans ce mode.
 L'objectif et les textes d'aide sont masqués dans le panneau ; l'objectif reste réglable dans les préférences.
 Pendant la lecture, l'assistant
@@ -1002,7 +1002,7 @@ boucle (`SS.autoValue(…, hold)`). Les courbes MIDI seules ne créent pas de n�
 
 Le menu du bouton **∿** active aussi des courbes **par temps** qui suivent l'arrangement (pas la boucle d'une scène) :
 un panneau sous les notes de la piste (histogramme, une barre par temps, courbe lissée par-dessus), affiché
-seulement quand une de ces courbes est active, et les mêmes courbes sous la frise de la fenêtre Song.
+seulement quand une de ces courbes est active, et les mêmes courbes sous la frise de la fenêtre Arrangement.
 Données : `project.song[i].bauto[trackId][réglage][répétition] = { temps: valeur }` ; moteur `SS.beatAuto`
 (`js/beatauto.js` : passages, spline monotone, liaison des voisines), interface `SS.beatAutoUI` (`js/beatautoui.js`).
 Cutoff (−4…+4 octaves) et résonance (×0…×3) pilotent le filtre de la voix pendant la note (`beatAutoVoice` dans

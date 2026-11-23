@@ -135,7 +135,7 @@ const ok = (c, m) => {
   ok(!(await hasNullText()), 'pilote arrêté : aucun texte « null » résiduel');
   ok(!(await page.isVisible('#amCards')) && !(await page.isVisible('#amFoot')), 'arrêt du pilote : mode conservé jusqu’au choix Assistant');
   ok(await page.locator('.pilot-working, .pilot-control').count() === 0, 'arrêt : aucun réglage ne reste illuminé');
-  ok(/Pilote Auto/.test(await page.textContent('#amPilotBtn')), 'bouton revenu à « Pilote auto »');
+  ok(/Pilote auto/.test(await page.textContent('#amPilotBtn')), 'bouton revenu à « Pilote auto »');
   await page.click('#amClose');
   await page.click('#amBtn');
   ok(await page.locator('#automix').evaluate((el) => el.getBoundingClientRect().width) === 340, 'largeur conservée à la réouverture');
