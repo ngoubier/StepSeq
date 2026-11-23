@@ -1177,6 +1177,15 @@ Import MIDI : `await StepSeq.importerMidi({ url | base64 | octets, nom, decoupag
 La chanson importée remplace celle en cours, qui reste dans « Mes chansons ». `apercu: true` rend le bilan sans importer ;
 `fenetre: true` ouvre la fenêtre d'import réglée ainsi, et l'utilisateur confirme. Un fichier de l'ordinateur se choisit à la main.
 
+**Chanson guidée par Claude** : « Crée une chanson avec moi » dans le panneau Claude de Chrome. `StepSeq.methode()` (annoncée par
+`aide()`) donne la méthode : trois questions, puis 8 étapes (cadre, plan, accords, groupe, mélodie, arrangement, créer et mixer),
+chacune suivie d'un point d'écoute où Claude attend l'avis. Outils : `assistantMotifs` / `assistantJeu` (motif d'un musicien dans
+une scène, ou silence), `assistantEcrireMelodie` (mélodie note par note ; renvoie les notes qui frottent avec les accords),
+`assistantVersions` (photos A/B du brouillon : garder, essayer), `pointEcoute` (pastille « ✳ Claude : … ▶ Écouter » en bas à
+droite : le clic de l'utilisateur lance l'écoute) et `await StepSeq.bilan()` (`js/bilan.js` : rendu hors temps réel comme l'export
+audio ; LUFS et crête du Master, équilibre grave / médium / aigu, volume de chaque passage et de chaque musicien seul, basse qui couvre
+la grosse caisse, conseils). Tests : `node --test tests/bilan.test.js`, `node tests/e2e/claude-tools.js`.
+
 ## Skills de composition (Claude Code)
 
 Le dossier `.claude/skills/` contient les skills qui guident la composition, et dont les règles sont reprises

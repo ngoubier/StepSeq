@@ -1270,6 +1270,132 @@ SS.claudeTools = (() => {
     return { message: `Chanson créée dans la grille (Ctrl+Z revient en arrière)`, etat: etat() };
   }
 
+  /* ---------------- Chanson guidée par Claude : méthode, jeu par scène, mélodie écrite, versions, point d'écoute, bilan ---------------- */
+  const METHODE = [
+    'Méthode « chanson guidée » : tu crées une chanson AVEC l’utilisateur, dans l’assistant « Nouvelle chanson ». Une étape à la fois.',
+    '',
+    'Règles :',
+    '- Après chaque étape : résume en deux lignes ce que tu as fait, appelle pointEcoute({ message }) puis ARRÊTE-TOI et attends son avis (« on garde », « plus sombre »…). Ne fais pas deux étapes d’affilée, sauf s’il dit « fais le reste ».',
+    '- Propose souvent deux idées (A et B) : assistantVersions({ garder: "A" }), autre réglage, assistantVersions({ garder: "B" }) ; il écoute, puis assistantVersions({ essayer: "A" }) remet la A.',
+    '- Tu n’entends pas le son. Dis ce que tu as voulu faire, vérifie ce qui se mesure (frottements de la mélodie, bilan() une fois la chanson créée), et fais-le écouter.',
+    '- Mélodies et grilles originales : « dans l’esprit de » un morceau, jamais une copie.',
+    '- Parle en français simple, sans jargon technique ni noms d’outils.',
+    '',
+    'Étapes :',
+    '1. Intention : trois questions courtes : ce que la chanson raconte ou fait ressentir ; un style ou un morceau en tête ; courte (2 min) ou complète (3–4 min). Puis assistantStyles() et etat().',
+    '2. Cadre : assistantOuvrir(), assistantStyle({ style, inspiration }), assistantTempo({ bpm }), assistantTonalite({ tonique, mode }). Explique ton choix d’après l’émotion (mineur sombre, tempo lent pour la mélancolie…). 🎧',
+    '3. Plan : assistantEtat() puis assistantScene (longueur, noms) et assistantStructure. Décris la courbe d’énergie (où ça monte, où ça respire). 🎧',
+    '4. Accords : pour le refrain puis le couplet, propose deux grilles (A/B) avec assistantAccords et assistantVersions, explique la couleur de chacune. 🎧',
+    '5. Groupe : assistantMusicien (sons, assistantSons), puis qui joue où : assistantMotifs({ musicien }) et assistantJeu({ musicien, scene, motif | joue: false }). Une intro dépouillée, un refrain plein, un pont qui respire. 🎧',
+    '6. Mélodie : assistantEcrireMelodie({ scene, notes }) pour une mélodie précise (corrige les frottements renvoyés), ou assistantMelodie() pour en tirer une au hasard. L’utilisateur peut te dicter la sienne en noms de notes. 🎧',
+    '7. Arrangement : assistantEffets(), assistantTransition (montées, coupures avant les refrains), assistantMouvements. 🎧',
+    '8. Créer et mixer : assistantCreer(), puis await bilan() : corrige ce qu’il signale (console, effets, master), redis ce que tu as changé. 🎧 Ensuite, retouches libres (automationChanson, effets…).',
+  ];
+  function methode() {
+    return { methode: METHODE.join('\n') };
+  }
+  function assistantMotifs({ musicien, tous } = {}) {
+    if (!musicien) fail('musicien manquant (voir assistantEtat().musiciens)');
+    return W().motifs(musicien, !!tous);
+  }
+  function assistantJeu({ musicien, scene, scenes, motif, joue } = {}) {
+    if (!musicien) fail('musicien manquant (voir assistantEtat().musiciens)');
+    const r = W().jeu(musicien, scenes != null ? scenes : scene, { motif, joue: joue == null ? undefined : !!joue });
+    const txt = r.scenes.map((x) => `${x.scene} : ${x.joue}`).join(', ');
+    draft(`${r.musicien} · ${txt}`);
+    return { message: `${r.musicien} — ${txt} (propose à l’utilisateur d’écouter)`, ...r };
+  }
+  function assistantEcrireMelodie({ musicien, scene, notes, effacer } = {}) {
+    if (!effacer && !Array.isArray(notes)) fail('notes manquantes : [{ pas, note, dur, vel }] (ou effacer: true pour revenir à la mélodie de l’inspiration)');
+    const list = effacer ? null : notes.map((n, i) => {
+      if (!n || n.note == null) fail(`note ${i + 1} : « note » manquante`);
+      const pas = Number(n.pas);
+      if (!Number.isFinite(pas)) fail(`note ${i + 1} : « pas » manquant`);
+      return { pas, midi: midiOf(n.note), dur: n.dur == null ? 2 : Number(n.dur), vel: clamp(n.vel == null ? 0.8 : Number(n.vel), 0.05, 1) };
+    });
+    const r = W().ecrireMelodie(musicien, scene, list);
+    draft(effacer ? `mélodie de « ${r.scene} » : celle de l’inspiration` : `mélodie de « ${r.scene} » (${r.notes} notes)`);
+    return { message: effacer ? r.message : `${r.notes} notes écrites pour ${r.musicien} dans « ${r.scene} »${r.frottements.length ? ` ; ${r.frottements.length} frottement(s) à vérifier` : ', aucune note ne frotte'}`, ...r };
+  }
+  function assistantVersions({ garder, essayer, oublier } = {}) {
+    const list = W().versions({ garder, essayer, oublier });
+    if (garder != null) draft(`version « ${garder} » gardée`);
+    if (essayer != null) draft(`version « ${essayer} » remise`);
+    return { message: essayer != null ? `Version « ${essayer} » remise dans l’assistant` : garder != null ? `Version « ${garder} » gardée` : 'Versions gardées', versions: list };
+  }
+  /** Pastille d'écoute : « ✳ Claude : … ▶ Écouter » en bas à droite, jusqu'au clic (le son exige un clic de l'utilisateur). */
+  function earEl() {
+    let e = document.getElementById('claudeEar');
+    if (e) return e;
+    e = document.createElement('div');
+    e.id = 'claudeEar';
+    e.className = 'claude-ear';
+    e.setAttribute('role', 'status');
+    if ('popover' in HTMLElement.prototype) e.popover = 'manual'; // au-dessus des fenêtres ouvertes (assistant…)
+    document.body.append(e);
+    return e;
+  }
+  function hideEar() {
+    const e = document.getElementById('claudeEar');
+    if (!e) return;
+    e.classList.remove('show');
+    try {
+      if (e.matches(':popover-open')) e.hidePopover();
+    } catch (x) {
+      /* sans popover */
+    }
+  }
+  function pointEcoute({ message, quoi } = {}) {
+    const what = quoi ? fold(quoi) : SS.band && SS.band.active() ? 'assistant' : 'chanson';
+    if (!['assistant', 'chanson', 'scene'].includes(what)) fail('quoi : "chanson", "scene" ou "assistant"');
+    const e = earEl();
+    const msg = String(message || 'à écouter').slice(0, 120);
+    const play = () => {
+      hideEar();
+      if (SS.band && SS.band.active()) return W().ecouter();
+      jouer({ chanson: what !== 'scene' });
+    };
+    const b1 = document.createElement('button');
+    b1.type = 'button';
+    b1.className = 'claude-ear-play';
+    b1.textContent = '▶ Écouter';
+    b1.onclick = play;
+    const b2 = document.createElement('button');
+    b2.type = 'button';
+    b2.className = 'claude-ear-close';
+    b2.setAttribute('aria-label', 'Fermer');
+    b2.textContent = '×';
+    b2.onclick = hideEar;
+    const t = document.createElement('span');
+    t.textContent = `✳ Claude : ${msg}`;
+    e.replaceChildren(t, b1, b2);
+    try {
+      if (e.popover && e.matches(':popover-open')) e.hidePopover();
+      if (e.popover) e.showPopover();
+    } catch (x) {
+      /* sans popover */
+    }
+    e.classList.add('show');
+    return { message: `Pastille « ▶ Écouter » affichée : l’utilisateur clique pour entendre ${what === 'scene' ? 'la scène' : what === 'assistant' ? 'l’assistant' : 'la chanson'}` };
+  }
+  let bilanRun = null;
+  async function bilan({ scene, pistes = true } = {}) {
+    if (SS.band && SS.band.active()) fail('l’assistant est ouvert : crée la chanson (assistantCreer) ou reviens à la grille (assistantFermer) avant le bilan');
+    if (bilanRun) fail('un bilan est déjà en cours');
+    const p = P();
+    if (!p.tracks.length) fail('la grille est vide : rien à mesurer');
+    if (scene) goScene(scene);
+    const range = scene ? 'scene' : 'song';
+    bilanRun = true;
+    try {
+      const r = await SS.bilan.run(p, { range, loops: 2, pistes: pistes !== false }, { onStage: (nom, i, n) => SS.ui.toast(`✳ Claude : bilan du son… ${nom} (${i + 1}/${n})`, 60000) });
+      SS.ui.toast('✳ Claude : bilan du son terminé', 3000);
+      return { message: `Bilan de ${scene ? 'la scène ' + SS.currentScene(p).name : 'la chanson'} : ${r.master.lufs} LUFS, crête ${r.master.crete} dBTP${r.conseils.length ? ` ; ${r.conseils.length} conseil(s)` : ''}`, ...r, lecture: 'lufs = volume perçu (streaming : −14 ; pop forte : −9) ; crete en dBTP ; equilibre = parts grave (<250 Hz) / médium / aigu (>4 kHz) ; passages = volume de chaque passage (la courbe d’énergie) ; basseSurKick = part des coups de grosse caisse couverts par la basse' };
+    } finally {
+      bilanRun = null;
+    }
+  }
+
   /* ---------------- Liste des outils (aussi pour le futur panneau intégré, API Claude) ---------------- */
   const S = (type, description, requis) => ({ type, description, ...(requis ? { requis: true } : {}) });
   const SCENE = S('texte', 'nom ou id de la scène (par défaut : la scène en cours)');
@@ -1337,6 +1463,13 @@ SS.claudeTools = (() => {
     { nom: 'assistantEffetsScene', assistant: true, description: 'Assistant : ce que joue le musicien Effets dans une scène (hors transitions) et les boucles du Percussionniste ; ou ajoute l’un de ces musiciens.', params: { scene: S('texte', 'id ou nom'), role: S('texte', 'ambiance, montee, descente, rien'), niveau: S('nombre', '0.2–1.5 (1 = normal)'), rythme: S('nombre', 'ambiance : mesures entre deux souffles (1, 2, 4) ou "tenue"'), couleur: S('texte', 'ambiance : sombre ou claire'), longueur: S('nombre', 'montée : en mesures (défaut : toute la scène)'), filtre: S('texte', 'montée : passeBas, passeHaut, aucun'), dureeDescente: S('nombre', 'descente : 1, 2 ou 4 mesures'), percussions: S('objet', '{ shaker, conga, tom } : true / false dans cette scène'), stylePercussions: S('texte', 'techno, latin, minimal (toute la chanson)'), ajouter: S('texte', '"effets" ou "percussionniste" : l’ajoute au groupe') }, faire: assistantEffetsScene },
     { nom: 'assistantMouvements', assistant: true, description: 'Assistant : garde ou retire les mouvements de son proposés à l’étape Arrangement (courbes de cutoff, vélocité, résonance d’après l’énergie).', params: { garder: S('liste', 'ids ou noms : open, qa, acid (voir assistantEffets())'), retirer: S('liste', 'ids ou noms') }, faire: assistantMouvements },
     { nom: 'assistantCreer', assistant: true, description: 'Crée la chanson dans la grille (une étape Ctrl+Z). Si la grille a déjà des pistes, la fenêtre de confirmation s’ouvre : l’utilisateur choisit.', params: {}, faire: assistantCreer },
+    { nom: 'assistantMotifs', lecture: true, assistant: true, description: 'Assistant : les motifs possibles d’un musicien (batterie, basse, nappe ou guitare, arpège) dans la mesure de la chanson, et ce qu’il joue dans chaque scène.', params: { musicien: S('texte', 'id ou nom (voir assistantEtat().musiciens)', true), tous: S('booléen', 'batterie : les motifs de tous les styles (sinon ceux du style)') }, faire: assistantMotifs },
+    { nom: 'assistantJeu', assistant: true, description: 'Assistant : ce que joue un musicien dans une ou plusieurs scènes : un motif (assistantMotifs), ou joue: false pour qu’il se taise, joue: true pour qu’il revienne.', params: { musicien: S('texte', 'id ou nom', true), scene: SCENE, scenes: S('liste', 'plusieurs scènes, ou "toutes"'), motif: S('texte', 'id ou nom d’un motif (assistantMotifs)'), joue: S('booléen', 'false : muet dans ces scènes ; true : il rejoue') }, faire: assistantJeu },
+    { nom: 'assistantEcrireMelodie', assistant: true, description: 'Assistant : écrit la mélodie d’une scène note par note (remplace celle de l’inspiration ou du 🎲). Renvoie les notes qui frottent avec les accords.', params: { musicien: S('texte', 'musicien de type mélodie (par défaut : le premier)'), scene: SCENE, notes: S('liste', '[{ pas (0 = début de la scène), note ("E4", "Do5", 64), dur (pas, défaut 2), vel (0–1) }]'), effacer: S('booléen', 'revenir à la mélodie de l’inspiration') }, faire: assistantEcrireMelodie },
+    { nom: 'assistantVersions', assistant: true, description: 'Assistant : photos du brouillon pour comparer deux idées (A/B). garder prend la photo, essayer la remet (le brouillon de l’assistant n’a pas de Ctrl+Z). Gardées jusqu’à ce que la page se ferme.', params: { garder: S('texte', 'nom de la version à photographier ("A")'), essayer: S('texte', 'nom de la version à remettre'), oublier: S('texte', 'nom de la version à oublier') }, faire: assistantVersions },
+    { nom: 'pointEcoute', lecture: true, assistant: true, description: 'Affiche dans la page une pastille « ✳ Claude : … ▶ Écouter » : un clic de l’utilisateur lance l’écoute (le navigateur exige ce clic). À appeler à la fin de chaque étape.', params: { message: S('texte', 'ce qu’il y a à écouter, court', true), quoi: S('texte', '"chanson", "scene" (grille) ; dans l’assistant : son écoute') }, faire: pointEcoute },
+    { nom: 'bilan', lecture: true, assistant: true, description: 'Mesure le son de la chanson de la grille (rendu hors temps réel, 10 s à 1 min) : volume perçu (LUFS) et crête du Master, équilibre grave/médium/aigu, volume de chaque passage, volume de chaque musicien seul, basse qui couvre la grosse caisse, conseils. À attendre : await StepSeq.bilan().', params: { scene: S('texte', 'mesurer seulement cette scène (deux tours), plus rapide'), pistes: S('booléen', 'false : le Master seul, sans les musiciens un par un (plus rapide)') }, faire: bilan },
+    { nom: 'methode', lecture: true, assistant: true, description: 'La méthode pour créer une chanson avec l’utilisateur, étape par étape (à lire quand il demande de créer une chanson).', params: {}, faire: methode },
   ];
 
 
@@ -1352,6 +1485,7 @@ SS.claudeTools = (() => {
       'Effets : effets() = chorus, écho, reverb, sidechain et envois d’une piste ; console() = ses inserts (EQ, compresseur, limiteur, pan) ; retours() = les bus partagés ; master() = Master et mastering.',
       'Automation : automation() = par pas, propre à une scène, qui boucle avec elle ; automationChanson() = cutoff, résonance, vélocité par temps sur toute la chanson (chaque passage d’une scène peut être différent).',
       'Import MIDI : await StepSeq.importerMidi({ url | base64, decoupage, batterie }) ouvre une nouvelle chanson (apercu: true pour le bilan seul).',
+      'Créer une chanson AVEC l’utilisateur (« crée une chanson avec moi ») : lis d’abord StepSeq.methode() et suis-la, étape par étape.',
       'Assistant « Nouvelle chanson » : outils assistant… (assistantOuvrir, assistantStyle, assistantMusicien, assistantAccords… puis assistantCreer). Ses réglages sont un brouillon sans Ctrl+Z ; assistantCreer écrit la chanson dans la grille (une étape Ctrl+Z).',
       '',
       'Outils :',
@@ -1401,6 +1535,7 @@ SS.claudeTools = (() => {
   const api = { version: 1, outils: OUTILS.map(({ nom, description, params, lecture }) => ({ nom, description, params, ecriture: !lecture })), groupe };
   for (const o of OUTILS) api[o.nom] = wrap(o);
   api.aide = () => aideTexte(); // texte brut : plus lisible dans le panneau de l'extension
+  api.methode = () => METHODE.join('\n');
 
   function init(a) {
     app = a;
