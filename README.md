@@ -20,7 +20,7 @@ puis ouvrir <http://localhost:8000>.
 
 ## Interface
 
-- **En-tête** : icône de l'application (menu **Nouvelle chanson…** (assistant sur une chanson vide), **Mes chansons…**, **Ouvrir un fichier…** (projet .json ou MIDI .mid, Ctrl+O), **Enregistrer** (Ctrl+S), **Exporter…** (audio WAV ou MIDI, Ctrl+E), **Options…** ; l'assistant sur le projet en cours s'ouvre par le bouton **✦ Assistant**), titre du projet, tempo (BPM), un bouton ∿ à icône seule dont la bulle (au survol, au clic ou au clavier)
+- **En-tête** : icône de l'application (menu **Nouvelle chanson…** (assistant sur une chanson vide), **Mes chansons…**, **Ouvrir un fichier…** (projet .json, MIDI .mid ou partition, Ctrl+O), **Lire une partition…** (image, PDF ou MusicXML → pistes MIDI : lecture par Claude dans Chrome, par Audiveris ou MusicXML exact ; mesures à vérifier en orange ; Enregistrer le .mid ou Importer dans StepSeq), **Enregistrer** (Ctrl+S), **Exporter…** (audio WAV ou MIDI, Ctrl+E), **Options…** ; l'assistant sur le projet en cours s'ouvre par le bouton **✦ Assistant**), titre du projet, tempo (BPM), un bouton ∿ à icône seule dont la bulle (au survol, au clic ou au clavier)
   regroupe le chiffrage de mesure (4/4 par défaut, x/4 ou x/8), le nombre de mesures et le groove (swing, humanisation), **Lecture** et **Stop**, puis les fenêtres regroupées
   **Tonalité** (la tonalité de la scène en sous-titre ; un clic ouvre un petit menu tonique / mode, proposé d'après les notes ;
   la composition à partir d'une émotion, les grilles de référence, les essais A/B et la vérification sont dans l'assistant « Nouvelle chanson »), **Song** (fenêtre Song : scènes et arrangement, avec une case pour garder le panneau

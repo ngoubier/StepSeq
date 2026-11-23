@@ -1085,6 +1085,42 @@ SS.claudeTools = (() => {
     return { message: `« ${res.project.title} » importé : nouvelle chanson de ${bilan.pistes.length} pistes, ${bilan.scenes} scènes. « ${avant} » reste dans « Mes chansons ».`, bilan };
   }
 
+  /* ---------------- Lire une partition (fenêtre js/scorepanel.js) ----------------
+   * L'utilisateur dépose l'image ou le PDF ; Claude regarde chaque page (partitionPage) et écrit les notes (lirePartition). */
+  const FORMAT_PARTITION = 'portees: [{ nom, instrument, mesures: ["C5:1 D5:0.5 E5:0.5 r:2", "C4+E4+G4:4", …] }] : une chaîne par mesure ; note:durée en noires (1 noire, 0.5 croche, 1.5 noire pointée, 1/3 croche de triolet), r = silence, + = notes ensemble, ~ après la durée = liée à la suivante, !mf = nuance ; accords: ["Dm7", "G7 C", …] une chaîne par mesure';
+  function partition() {
+    return { message: 'Fenêtre « Lire une partition »', ...SS.scorePanel.claude.etat(), format: FORMAT_PARTITION };
+  }
+  function partitionPage({ page } = {}) {
+    const r = SS.scorePanel.claude.page(page);
+    return { message: `Page ${r.page} sur ${r.pages} affichée en grand dans la fenêtre : regarde-la (capture d’écran, zoom si besoin)`, ...r };
+  }
+  function lirePartition({ titre, tempo, mesure, tonalite, portees, accords, anacrouse, musicxml } = {}) {
+    let score;
+    try {
+      score = musicxml ? SS.scoreRead.fromMusicXML(musicxml) : SS.scoreRead.fromNotes({ titre, tempo, mesure, tonalite, portees, accords, anacrouse });
+    } catch (e) {
+      fail(`${e.message} — format : ${FORMAT_PARTITION}`);
+    }
+    if (titre) score.title = titre;
+    const r = SS.scorePanel.claude.lire(score, 'Claude');
+    const bad = score.bars.filter((b) => b.suspect).map((b) => `${b.n} (${b.parts && b.parts.length ? b.parts.join(', ') : 'durée'})`);
+    return {
+      message: `Partition lue : ${r.mesures} mesures, ${r.notes} notes, ${score.parts.length} portée(s). L’utilisateur vérifie, puis Enregistrer le .mid ou Importer dans StepSeq.`,
+      ...r,
+      ...(bad.length ? { aVerifier: bad, conseil: `ces mesures n’ont pas ${score.timeSig[0]}/${score.timeSig[1]} : relis-les et rappelle lirePartition corrigé` } : {}),
+      ...(score.errors && score.errors.length ? { erreurs: score.errors } : {}),
+    };
+  }
+  function partitionSortie({ importer } = {}) {
+    if (!SS.scorePanel.claude.etat().resultat) fail('aucune partition lue : appelle d’abord lirePartition');
+    if (importer) {
+      SS.scorePanel.claude.importer();
+      return { message: 'Fenêtre « Importer MIDI » ouverte : l’utilisateur relit et clique Importer', attente: true };
+    }
+    return { message: `« ${SS.scorePanel.claude.enregistrer()} » téléchargé` };
+  }
+
   /* ---------------- Assistant « Nouvelle chanson » (pont SS.band.claude, js/band.js) ----------------
    * L'assistant s'affiche et avance comme sous les clics. Ses réglages sont un brouillon (enregistré tout seul, pas de
    * Ctrl+Z) ; seule assistantCreer() écrit dans la grille, en une étape Ctrl+Z. */
@@ -1282,6 +1318,10 @@ SS.claudeTools = (() => {
     { nom: 'sons', lecture: true, description: 'Les sons disponibles pour un rôle (ou les kits et éléments de batterie).', params: { role: S('texte', 'batterie, percu, basse, nappe, arpege, lead, piano, guitare, cordes, sax, voix, orchestre, effets'), recherche: S('texte', 'un bout de nom : "moog", "strings", "rhodes"…') }, faire: sons },
 
     { nom: 'importerMidi', description: 'Importe un fichier MIDI comme menu ▸ Importer MIDI… : une nouvelle chanson (pistes, scènes, arrangement) remplace celle en cours, qui reste dans « Mes chansons ». Asynchrone : await.', params: { url: S('texte', 'adresse du fichier .mid (le site doit l’autoriser)'), base64: S('texte', 'ou le fichier en base64'), octets: S('liste', 'ou ses octets (Uint8Array ou liste de nombres)'), nom: S('texte', 'nom du fichier (titre de la chanson)'), decoupage: S('texte', 'scènes : fidele, equilibre (défaut), compact'), batterie: S('texte', 'gm (défaut, sons d’origine), RolandTR808, RolandTR909, LinnDrum, RolandTR707'), quantize: S('booléen', 'caler les notes sur la grille (défaut : réglage Quantize de l’app)'), apercu: S('booléen', 'seulement le bilan, sans importer'), fenetre: S('booléen', 'ouvrir la fenêtre d’import réglée ainsi : l’utilisateur relit et confirme') }, faire: importerMidi },
+    { nom: 'partition', lecture: true, description: 'État de la fenêtre « Lire une partition » (menu ▸ Lire une partition…) : fichier déposé, pages, contenu (auto, melodie, piano, ensemble), résultat ; et le format attendu par lirePartition.', params: {}, faire: partition },
+    { nom: 'partitionPage', lecture: true, description: 'Affiche en grand une page de la partition déposée par l’utilisateur, pour la lire à l’écran.', params: { page: S('nombre', 'n° de page (1 = la première)') }, faire: partitionPage },
+    { nom: 'lirePartition', lecture: true, description: 'Donne à la fenêtre « Lire une partition » les notes lues sur la partition (ne touche pas à la chanson) : l’utilisateur vérifie les mesures signalées, puis enregistre le .mid ou importe. Rappelle-le corrigé si des mesures sont à vérifier.', params: { titre: S('texte', ''), tempo: S('texte', 'BPM (80) ou mot écrit (Andante)'), mesure: S('texte', '"4/4" (défaut), "3/4", "6/8"…'), tonalite: S('texte', '"Fa majeur", "Ré mineur"…'), portees: S('liste', '[{ nom, instrument, mesures: ["C5:1 D5:0.5 E5:0.5 r:2", …] }] (voir partition().format)', true), accords: S('liste', 'accords chiffrés, une chaîne par mesure : ["Dm7", "G7 C"]'), anacrouse: S('nombre', 'durée de la mesure d’anacrouse en noires (sinon déduite)'), musicxml: S('texte', 'ou une partition MusicXML complète (remplace le reste)') }, faire: lirePartition },
+    { nom: 'partitionSortie', lecture: true, description: 'Après lirePartition : télécharge le .mid, ou (importer: true) ouvre la fenêtre Importer MIDI.', params: { importer: S('booléen', 'true : importer dans StepSeq ; sinon enregistrer le .mid') }, faire: partitionSortie },
     { nom: 'titre', description: 'Change le titre de la chanson.', params: { titre: S('texte', 'le nouveau titre', true) }, faire: titre },
     { nom: 'tempo', description: 'Change le tempo.', params: { bpm: S('nombre', '20 à 300', true) }, faire: tempo },
     { nom: 'mesure', description: 'Change la signature rythmique (toute la chanson).', params: { temps: S('nombre', 'temps par mesure (1–12)', true), unite: S('nombre', '2, 4, 8 ou 16 (défaut 4)') }, faire: mesure },
