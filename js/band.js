@@ -11342,7 +11342,7 @@ SS.band = (() => {
       const sp = specEff();
       out.scenes = Object.keys(sp.sections).map((id) => {
         const sc = sceneOf(id);
-        return { id, nom: secName(id), mesures: sc.bars, tonalite: sc.key, grille: gridOf(sc).map((c) => ({ pas: c.step, duree: c.len, accord: chordOf(sc.key, c).name })) };
+        return { id, nom: secName(id), mesures: sc.bars, tonalite: sc.key, grille: gridOf(sc).map((c) => ({ pas: c.step, duree: c.len, accord: chordOf(sc.key, c).name })), jeu: jeuScene(id) };
       });
       out.structure = formOf().map((b) => ({ scene: b.id, fois: b.repeat }));
       return out;
@@ -11831,6 +11831,140 @@ SS.band = (() => {
       return effets().mouvements;
     }
 
+    /* ---------- Jeu par scène, mélodie écrite, versions A/B (chanson guidée par Claude) ---------- */
+    /** L'instrument d'un musicien (sa cible de réglages par scène, voir insSteps). */
+    function insOf(ref) {
+      const mu = muId(ref);
+      return insSteps().find((t) => t.musician === mu.id) || err(`« ${labelOf(mu)} » n’a pas de réglages par scène (musicien Effets : assistantEffetsScene)`);
+    }
+    /** La scène jouée (vue des étapes instrument) : celle de l'arrangement, sinon la section seule. */
+    const sceneRef = (sec) => ((wizSong().res || { scenes: [] }).scenes.find((x) => x.sec === sec) || sceneOf(sec));
+    const kindFr = { drums: 'batterie', bass: 'basse', chords: 'nappe', arp: 'arpège', melody: 'mélodie', orch: 'orchestre' };
+    /** Motifs d'un instrument : [{ id, nom, … }] dans la mesure de la chanson. */
+    function motifList(T, tous) {
+      if (T.kind === 'drums') {
+        const lib = meterLib() || (tous ? Object.keys(SS.DRUM_PATTERNS) : [drumStyle()]).flatMap((st) => SS.DRUM_PATTERNS[st].map((p) => ({ ...p, st })));
+        return lib.filter((p) => BS().fitLanes(p.lanes)).map((p) => ({ id: p.id, nom: p.name, style: p.st, energie: p.energy || null }));
+      }
+      if (T.kind === 'bass') {
+        const M = SS.bassMotifs;
+        return M.all().filter((id) => SPB() === 16 || BS().meterOK('bass', id)).map((id) => ({ id, nom: M.name(id), description: M.desc(id), groupe: (M.GROUPS.find((g) => g[2].includes(id)) || [null, null])[1] }));
+      }
+      if (T.kind === 'chords') return padModes(T).filter(([id]) => (/^g:/.test(id) ? gtrFits(id) : BS().meterOK('chords', id))).map(([id, nom, description]) => ({ id, nom, description }));
+      if (T.kind === 'arp') return SS.MOTIFS.map((m) => ({ id: m.id, nom: m.name, categorie: ((SS.MOTIF_CATS.find((c) => c.id === m.cat) || {}).label || m.cat) }));
+      return [];
+    }
+    function findIn(list, ref, what) {
+      const f = fold(ref);
+      return list.find((x) => x.id === ref) || list.find((x) => fold(x.nom) === f) || list.find((x) => fold(x.nom).startsWith(f)) || err(`${what} inconnu : « ${ref} » (assistantMotifs pour la liste)`);
+    }
+    /** Ce que joue chaque musicien dans une scène : { nom du musicien: « Croches » | « muette »… }. */
+    function jeuScene(sec) {
+      const sc = sceneRef(sec);
+      return Object.fromEntries(insSteps().map((T) => [T.title, String(instSub(T, sc))]));
+    }
+    function motifs(ref, tous) {
+      needPlan();
+      const T = insOf(ref);
+      const out = { musicien: T.title, type: kindFr[T.kind] || T.kind, mesure: sigOf(), motifs: motifList(T, tous) };
+      if (T.kind === 'melody') out.conseil = 'pas de motifs : assistantEcrireMelodie({ scene, notes }) ou assistantMelodie() (🎲)';
+      if (T.kind === 'orch') out.conseil = 'l’orchestre suit l’étape Orchestre : joue ou se tait par scène (assistantJeu({ joue }))';
+      out.scenes = Object.keys(specEff().sections).map((sec) => ({ scene: secName(sec), joue: String(instSub(T, sceneRef(sec))) }));
+      return out;
+    }
+    function jeu(ref, scenes, { motif, joue } = {}) {
+      needPlan();
+      const T = insOf(ref);
+      const secs = (scenes === '*' || fold(scenes) === 'toutes' ? Object.keys(specEff().sections) : [].concat(scenes == null ? [null] : scenes)).map(secId);
+      if (motif == null && joue == null) err('donne un motif, ou joue: true / false');
+      let m = null;
+      if (motif != null && joue !== false) {
+        if (T.kind === 'melody' || T.kind === 'orch') err(`« ${T.title} » (${kindFr[T.kind]}) n’a pas de motifs : seulement joue: true / false`);
+        m = findIn(motifList(T, true), String(motif), 'motif');
+      }
+      secs.forEach((sec) => {
+        const sc = sceneRef(sec);
+        if (joue === false) return void putOff(sec, T, true);
+        putOff(sec, T, false);
+        if (m && T.kind === 'drums') putPart(sec, T, { style: m.style, pattern: m.id, edits: undefined });
+        else if (m && T.kind === 'arp') {
+          const cur = arpOne(sc, T);
+          putPart(sec, T, { one: A1().normalize({ ...cur, ...SS.motifPatch(cur, SS.MOTIFS.find((x) => x.id === m.id)) }), mode: undefined });
+        } else if (m) {
+          putPart(sec, T, { mode: m.id === planMode(sc, T) ? undefined : m.id });
+          if (T.kind === 'bass') pruneAccents(sc, T);
+        } else {
+          const o = partOf(sec, T) || {};
+          if (!(o.mode || o.one || o.lead || o.pattern || o.edits || planMode(sc, T)) && SS.bandSong.DEFAULT_MODE[T.kind]) putPart(sec, T, { mode: SS.bandSong.DEFAULT_MODE[T.kind] });
+        }
+      });
+      touched();
+      return { musicien: T.title, scenes: secs.map((sec) => ({ scene: secName(sec), joue: String(instSub(T, sceneRef(sec))) })) };
+    }
+    /** Mélodie imposée d'une scène (notes MIDI absolues, pas depuis le début de la scène). */
+    function ecrireMelodie(ref, scene, notes, how) {
+      needPlan();
+      const T = ref != null ? insOf(ref) : insSteps().find((t) => t.kind === 'melody') || err('aucun musicien Mélodie : assistantMusicien({ ajouter: "melodie" })');
+      if (T.kind !== 'melody') err(`« ${T.title} » est de type ${kindFr[T.kind]} : la mélodie va à un musicien de type mélodie`);
+      const sec = secId(scene);
+      const sc = sceneRef(sec);
+      const max = sc.bars * SPB();
+      if (notes == null || (Array.isArray(notes) && !notes.length)) {
+        putPart(sec, T, { lead: undefined });
+        touched();
+        return { musicien: T.title, scene: secName(sec), notes: 0, message: 'mélodie de l’inspiration rétablie' };
+      }
+      const events = notes.map((n, i) => {
+        if (!(n.pas >= 0 && n.pas < max)) err(`note ${i + 1} : pas ${n.pas} hors de la scène (0 à ${max - 1})`);
+        return { step: Math.round(n.pas), len: Math.max(1, Math.min(Math.round(n.dur || 1), max - Math.round(n.pas))), notes: [n.midi], vel: n.vel };
+      });
+      putOff(sec, T, false);
+      putPart(sec, T, { lead: { events, how: how || 'écrite par Claude' } });
+      touched();
+      return { musicien: T.title, scene: secName(sec), notes: events.length, mesures: sc.bars, frottements: rubs(sc, events) };
+    }
+    /** Notes qui frottent avec l'accord joué : hors de la gamme, ou hors de l'accord et tenues sur un temps fort. */
+    function rubs(sc, events) {
+      const grid = gridOf(sc);
+      if (!grid.length) return [];
+      const glen = Math.max(1, ...grid.map((c) => c.step + c.len));
+      const inKey = new Set(HM().scale(sc.key).map((d) => d.pc));
+      const out = [];
+      events.forEach((e, i) => {
+        const pos = e.step % glen;
+        const c = grid.find((g) => pos >= g.step && pos < g.step + g.len);
+        if (!c) return;
+        const ch = chordOf(sc.key, c);
+        const iv = (SS.CHORDS.find((x) => x.id === ch.type) || SS.CHORDS[0]).iv;
+        const pc = ((e.notes[0] % 12) + 12) % 12;
+        if (iv.some((v) => (ch.rootPc + v) % 12 === pc)) return;
+        const where = `note ${i + 1} (${noteName(e.notes[0])}, pas ${e.step}) sur ${ch.name}`;
+        if (!inKey.has(pc)) out.push(`${where} : hors de la gamme`);
+        else if (e.step % BEAT() === 0 && e.len >= BEAT()) out.push(`${where} : hors de l’accord, tenue sur un temps`);
+      });
+      return out;
+    }
+    /** Versions A/B : photos du brouillon (gardées pendant la séance), pour comparer deux idées. */
+    const shots = new Map();
+    function versions({ garder, essayer, oublier } = {}) {
+      if (garder != null) {
+        needPlan();
+        const k = String(garder).trim() || err('nom de version vide');
+        shots.set(k, { snap: wizSnapshot(), step: stepRef(S.wiz.step), at: Date.now() });
+      }
+      if (essayer != null) {
+        const v = shots.get(String(essayer).trim()) || err(`version inconnue : « ${essayer} » (${[...shots.keys()].join(', ') || 'aucune'})`);
+        const was = L.mode;
+        if (was) stopListen();
+        if (!wizRestore(v.snap)) err('cette version ne peut plus être rouverte');
+        const n = stepNum(v.step);
+        if (n && canGo(n)) goStep(n);
+        draftSoon();
+      }
+      if (oublier != null) shots.delete(String(oublier).trim());
+      return [...shots.entries()].map(([nom, v]) => ({ nom, heure: new Date(v.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) }));
+    }
+
     return {
       effets, transition, effetsScene, mouvements,
       film: filmEtat, repere: filmRepere, filmScene,
@@ -11842,6 +11976,7 @@ SS.band = (() => {
       stop: () => (need(), stopListen()),
       fermer: () => leave(),
       label: labelOf, soundOf: (mu) => soundName(mu),
+      motifs, jeu, jeuScene, ecrireMelodie, versions,
     };
   })();
 

@@ -151,12 +151,46 @@ const ok = (c, m) => {
   const blocked = await ev(() => StepSeq.tempo({ bpm: 120 }));
   ok(!blocked.ok && /assistantFermer/.test(blocked.erreur), 'outils de la grille refusés pendant l’assistant');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'claude-assistant.png') });
+  // chanson guidée : méthode, motifs et jeu par scène, mélodie écrite, versions A/B, pastille d'écoute
+  const me = await ev(() => StepSeq.methode());
+  ok(typeof me === 'string' && /pointEcoute/.test(me) && /assistantJeu/.test(me) && (await ev(() => StepSeq.aide())).includes('StepSeq.methode()'), 'methode() : la méthode, annoncée par aide()');
+  const mus = await ev(() => StepSeq.assistantEtat().musiciens);
+  const bas = mus.find((m) => m.type === 'bass');
+  const mo = await ev((id) => StepSeq.assistantMotifs({ musicien: id }), bas.id);
+  ok(mo.ok && mo.motifs.length > 10 && mo.scenes.length > 1, `assistantMotifs basse : ${mo.motifs.length} motifs (${mo.erreur || mo.scenes.map((x) => x.scene + ' = ' + x.joue).join(', ')})`);
+  const j1 = await ev(([id, sc]) => StepSeq.assistantJeu({ musicien: id, scene: sc, motif: 'Galop' }), [bas.id, ch.id]);
+  const j2 = await ev(([id, sc]) => StepSeq.assistantJeu({ musicien: id, scene: sc, joue: false }), [bas.id, scs[0].id]);
+  const jeuEtat = await ev(() => StepSeq.assistantEtat().scenes);
+  const bn = mus.find((m) => m.type === 'bass').nom;
+  ok(j1.ok && /Galop/.test(j1.scenes[0].joue) && j2.ok && /muet/.test(j2.scenes[0].joue) && Object.values(jeuEtat.find((x) => x.id === ch.id).jeu).some((v) => /Galop/.test(v)), `assistantJeu : ${j1.message || j1.erreur} / ${j2.message || j2.erreur} (${bn})`);
+  const drm = mus.find((m) => m.type === 'drums');
+  const dm = drm && (await ev((id) => StepSeq.assistantMotifs({ musicien: id }), drm.id));
+  const j3 = drm && (await ev(([id, sc, m]) => StepSeq.assistantJeu({ musicien: id, scene: sc, motif: m }), [drm.id, ch.id, dm.motifs[1].id]));
+  ok(!drm || (j3.ok && j3.scenes[0].joue.includes(dm.motifs[1].nom)), `assistantJeu batterie : ${drm ? j3.message || j3.erreur : 'pas de batteur'}`);
+  const mel = await ev((sc) => StepSeq.assistantEcrireMelodie({ musicien: 'Saxo', scene: sc, notes: [{ pas: 0, note: 'A4', dur: 4 }, { pas: 4, note: 'C5', dur: 4 }, { pas: 8, note: 'D#5', dur: 8 }, { pas: 16, note: 'E5', dur: 8 }] }), ch.id);
+  ok(mel.ok && mel.notes === 4 && mel.frottements.some((f) => /hors de la gamme/.test(f)), `assistantEcrireMelodie : ${mel.message || mel.erreur} (${(mel.frottements || []).join(' ; ')})`);
+  const va = await ev(() => StepSeq.assistantVersions({ garder: 'A' }));
+  await ev((sc) => StepSeq.assistantAccords({ scene: sc, accords: ['Am', 'F', 'Dm', 'E'] }), ch.id);
+  const vb = await ev(() => StepSeq.assistantVersions({ garder: 'B' }));
+  const ra = await ev(() => StepSeq.assistantVersions({ essayer: 'A' }));
+  const grA = await ev((sc) => StepSeq.assistantEtat().scenes.find((x) => x.id === sc).grille.map((c) => c.accord).join(' '), ch.id);
+  const rb = await ev(() => StepSeq.assistantVersions({ essayer: 'B' }));
+  const grB = await ev((sc) => StepSeq.assistantEtat().scenes.find((x) => x.id === sc).grille.map((c) => c.accord).join(' '), ch.id);
+  ok(va.ok && vb.ok && ra.ok && rb.ok && /C G/.test(grA) && /Dm E/.test(grB) && (await ev(() => SS.band.active())), `assistantVersions : A = ${grA} · B = ${grB}`);
+  const pe = await ev(() => StepSeq.pointEcoute({ message: 'Le refrain avec la basse au galop' }));
+  ok(pe.ok && (await ev(() => document.getElementById('claudeEar').classList.contains('show') && /galop/.test(document.getElementById('claudeEar').textContent))), `pointEcoute : ${pe.message || pe.erreur}`);
+  if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'claude-chanson-guidee.png') });
+  await ev(() => document.querySelector('#claudeEar .claude-ear-close').click());
   const cr = await ev(() => StepSeq.assistantCreer());
   ok(cr.ok && cr.attente && (await ev(() => !document.getElementById('bandConfirm').hidden)), `assistantCreer : grille non vide, confirmation affichée`);
   await page.click('#bcfSong');
   await page.waitForTimeout(800);
   const fin = await ev(() => StepSeq.etat());
   ok(!(await ev(() => SS.band.active())) && fin.tempo === 96 && fin.pistes.some((t) => t.nom === 'Saxo' || /Saxo/.test(t.nom)), `chanson créée : ${fin.tempo} BPM, ${fin.pistes.length} pistes`);
+
+  // bilan du son : rendu hors temps réel d'une scène, Master seul puis par musicien
+  const bl = await ev(() => StepSeq.bilan({ pistes: true, scene: StepSeq.etat().scenes[0].nom }));
+  ok(bl.ok && Number.isFinite(bl.master.lufs) && bl.musiciens.length > 2 && bl.passages.length >= 1 && Array.isArray(bl.conseils), `bilan : ${bl.message || bl.erreur} · ${(bl.musiciens || []).map((m) => `${m.nom} ${m.lufs}`).join(', ')} · basse/kick ${bl.basseSurKick} · ${(bl.conseils || []).join(' | ')}`);
 
   // import MIDI : la chanson exportée en MIDI, réimportée par Claude (aperçu, puis nouvelle chanson)
   const b64 = await ev(() => btoa(String.fromCharCode(...SS.midi.exportProject(SS.claudeTools._project(), { range: 'song', loops: 1, audibleOnly: true, swing: false, expression: true }).bytes)));
