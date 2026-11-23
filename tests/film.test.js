@@ -377,7 +377,7 @@ test('articulations choisies par l’émotion, et triangle', () => {
 });
 
 test('point d’orgue, creux de −4 dB sous le dialogue, réverbe par famille', () => {
-  if (!SS.bandMix) require('../js/bandmix.js');
+  if (!SS.bandMix) require('../js/mixref.js'), require('../js/bandmix.js');
   const film = F.blankScene();
   film.cues[0].hold = true;
   film.cues[1].dlg = true;

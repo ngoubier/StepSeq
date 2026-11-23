@@ -195,8 +195,19 @@ enregistrés avant cette correction sont transposés à l'ouverture pour sonner 
 - **mastering** : EQ et compresseur « glue » léger sur le Master, puis module de mastering (`js/master-dsp.js`) :
   graves en mono, aigus élargis, écrêtage doux des pointes, limiteur à anticipation à −1 dBTP. Le gain d'entrée
   de chaque chanson (`js/band-drive.js`, calculé par `tools/band-drive.js` sur deux rendus complets) est réglé
-  sur la partie la plus forte du morceau, comme en studio : refrains et drops vers −10 à −11,5 LUFS (court terme),
-  environ −12 à −13 LUFS intégrés, la dynamique des breaks est gardée. Les attaques de la batterie passent par
+  sur la partie la plus forte du morceau, comme en studio, d'après la **référence de mixage commune** (`js/mixref.js`,
+  une cible par groupe de styles, la même pour Auto Mix, le bilan du son et les boutons « Viser » du Mastering) :
+
+  | Styles | Passage le plus fort (court terme) | Chanson entière (intégré) |
+  |---|---|---|
+  | Pop, funk, latin, synthwave, Créer de zéro | −9,5 LUFS | −12,5 LUFS |
+  | EDM, techno, drum & bass | −8,5 | −12 |
+  | Clichés | −10 | −13 |
+  | Hip-hop, soul | −11 | −14 |
+  | Ambient | −13 | −16 |
+  | Musique de film | −14 | −18 |
+
+  Crête au plus −1 dBTP ; la dynamique des breaks est gardée. Les attaques de la batterie passent par
   un limiteur-écrêteur léger pour que le mastering n'écrase pas tout le morceau à cause d'elles.
 
 ### Nouvelle chanson : l'assistant
@@ -532,7 +543,7 @@ testées) que l'on **accepte**, **ajuste** (25 à 150 %) ou **refuse** (`js/auto
 
 | Critère | Mesure | Cible |
 |---|---|---|
-| Volume perçu | LUFS intégré, true peak (EBU R128) | Streaming −14, Synthwave −12, EDM mélodique −11, Club −8 LUFS ; ≤ −1 dBTP |
+| Volume perçu | LUFS intégré, true peak (EBU R128) | Celle du style de la chanson (`js/mixref.js`, ex. Pop / synthwave −12,5, Électro −12, Musique de film −18), ou Streaming −14, Club −8 LUFS ; ≤ −1 dBTP |
 | Dynamique | PLR (crête − LUFS), réduction de gain des compresseurs | PLR 8–13 dB (synthwave) ; ≤ 6 dB par piste |
 | Balance tonale | Énergie par bande d'octave comparée à la courbe du style | ±2,5 dB en moyenne par bande |
 | Équilibre des pistes | Écart de niveau entre les pistes qui jouent ensemble, comparé aux écarts entre rôles | ±3,5 dB autour de la place du rôle |

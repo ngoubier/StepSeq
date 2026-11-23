@@ -131,8 +131,11 @@ SS.bilan = (() => {
   function conseils(b) {
     const out = [];
     const m = b.master || {};
-    if (m.lufs != null && m.lufs > -8) out.push(`Master très fort (${m.lufs} LUFS) : le son s’écrase. Vise −14 à −10 LUFS (master({ … }) ou mastering plus doux).`);
-    else if (m.lufs != null && m.lufs < -18) out.push(`Master faible (${m.lufs} LUFS) : monte le volume ou le mastering (vise −14 à −10 LUFS).`);
+    // cible : la référence commune du style de la chanson (js/mixref.js) ; sans style connu, le milieu des repères
+    const c = b.cible || { nom: 'chansons de l’assistant', lufs: -13 };
+    const vise = `vise environ ${String(c.lufs).replace('-', '−').replace('.', ',')} LUFS, la référence ${c.nom}`;
+    if (m.lufs != null && m.lufs > c.lufs + 4.5) out.push(`Master très fort (${m.lufs} LUFS) : le son s’écrase. ${vise[0].toUpperCase() + vise.slice(1)} (master({ … }) ou mastering plus doux).`);
+    else if (m.lufs != null && m.lufs < c.lufs - 5) out.push(`Master faible (${m.lufs} LUFS) : monte le volume ou le mastering (${vise}).`);
     if (m.crete != null && m.crete > -0.3) out.push(`Crête à ${m.crete} dBTP : risque de saturation à l’écoute en ligne (vise −1 dBTP, limiteur du Master).`);
     if (m.equilibre) {
       if (m.equilibre.grave > REPERES.grave[1] + 0.04) out.push(`Beaucoup de grave (${Math.round(m.equilibre.grave * 100)} %) : le mix peut sonner sourd. Allège la basse ou les nappes sous 250 Hz.`);
@@ -197,8 +200,10 @@ SS.bilan = (() => {
     }
     const ov = envs.drums && envs.bass ? kickBassOverlap(envs.drums, envs.bass) : null;
     out.basseSurKick = ov == null ? null : r2(ov);
+    const ref = SS.mixRef && SS.mixRef.of(SS.mixRef.styleOf(project.tracks));
+    if (ref) out.cible = { nom: ref.name, lufs: ref.lufs, passageFort: ref.loud };
     out.conseils = conseils(out);
-    out.reperes = 'chansons de l’assistant, mixage automatique : ' + `${REPERES.lufs[0]} à ${REPERES.lufs[1]} LUFS, grave ${REPERES.grave[0] * 100}–${REPERES.grave[1] * 100} %, aigu ${REPERES.aigu[0] * 100}–${REPERES.aigu[1] * 100} %, écart entre passages ${REPERES.ecart[0]}–${REPERES.ecart[1]} LU, basse sur le kick ${REPERES.basseSurKick[1] * 100} % au plus`;
+    out.reperes = 'chansons de l’assistant, mixage automatique : ' + (ref ? `cible ${ref.name} ${ref.lufs} LUFS (passage le plus fort ${ref.loud} LUFS court terme), ` : `${REPERES.lufs[0]} à ${REPERES.lufs[1]} LUFS, `) + `grave ${REPERES.grave[0] * 100}–${REPERES.grave[1] * 100} %, aigu ${Math.round(REPERES.aigu[0] * 100)}–${Math.round(REPERES.aigu[1] * 100)} %, écart entre passages ${REPERES.ecart[0]}–${REPERES.ecart[1]} LU, basse sur le kick ${REPERES.basseSurKick[1] * 100} % au plus`;
     return out;
   }
 

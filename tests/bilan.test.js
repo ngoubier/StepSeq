@@ -6,7 +6,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 globalThis.window = globalThis;
-['dirt.js', 'sounds.js', 'harmony.js', 'project.js', 'render.js', 'bilan.js'].forEach((f) => require('../js/' + f));
+['dirt.js', 'sounds.js', 'harmony.js', 'project.js', 'render.js', 'mixref.js', 'bilan.js'].forEach((f) => require('../js/' + f));
 const SS = globalThis.SS;
 const B = SS.bilan;
 const sr = 44100;
@@ -55,4 +55,14 @@ test('conseils : les chansons de l’assistant (repères mesurés) ne déclenche
     const c = B.conseils({ master: { lufs, crete, equilibre: { grave, medium: 1 - grave - aigu, aigu } }, basseSurKick: kick, passages: [{ lufs: -20 }, { lufs: -20 + ecart / 2 }, { lufs: -20 + ecart }], musiciens: [{ nom: 'Batterie', crete: -5.5 }] });
     assert.deepEqual(c, [], JSON.stringify({ lufs, grave, aigu, c }));
   }
+});
+
+test('conseils : la cible de volume vient de la référence commune du style (js/mixref.js)', () => {
+  const eq = { grave: 0.6, medium: 0.35, aigu: 0.05 };
+  const film = { nom: SS.mixRef.of('film').name, lufs: SS.mixRef.of('film').lufs };
+  // −12 LUFS : normal pour une chanson pop, beaucoup trop fort pour une musique de film (−18)
+  const at = (cible) => B.conseils({ master: { lufs: -12, crete: -1.5, equilibre: eq }, cible, passages: [], musiciens: [] });
+  assert.deepEqual(at({ nom: 'Pop / synthwave', lufs: SS.mixRef.of('pop').lufs }), []);
+  const c = at(film);
+  assert.ok(c.some((x) => /très fort/.test(x) && /−18 LUFS/.test(x) && /Musique de film/.test(x)), JSON.stringify(c));
 });

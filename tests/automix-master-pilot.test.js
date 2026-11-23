@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 globalThis.window = globalThis;
 require('../js/project.js');
 require('../js/sounds.js');
+require('../js/mixref.js');
 require('../js/automix.js');
 require('../js/automix-pilot.js');
 const A = SS.automix, P = SS.automixPilot;
