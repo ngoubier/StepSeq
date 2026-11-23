@@ -69,6 +69,8 @@ SS.bandMix = (() => {
     sax: { lu: -21, below: 7, eq: eq({ hp: 140, lm: [500, -1.5, 1], hm: [2500, 1.5, 1] }), comp: comp(-18, 2.5, 0.01, 0.15, 1), hall: 0.3, pan: 0.08 },
     // effets (montées de bruit, ambiances, impacts) : en fond, sans graves, très réverbérés
     fx: { lu: -25, eq: eq({ hp: 220, lm: [500, -2, 0.8], high: [9000, -1.5] }), hall: 0.5, echo: 0.1, pan: 0 },
+    // musicien Ambient (piste générative) : niveau réglé par son module, envoi Cosmos choisi dans l'assistant (t.fx.sendSpace)
+    ambient: { eq: eq({ hp: 40 }), pan: 0 },
   };
   /**
    * Orchestre (musique de film) : placement sur scène (violons à gauche, violoncelles et contrebasses à droite, bois au

@@ -44,6 +44,7 @@ test('chaque instrumentiste a 1 instrument phare + 5 conseillés, tous existants
       p.musicians.filter((m) => !m.kits).forEach((m) => {
         const where = `${p.id}/${m.id}`;
         assert.ok(B.ROLES[m.role], where + ' rôle inconnu');
+        if (m.amb) return assert.ok(['jardin', 'paysage', 'fresque'].includes(m.pick[0]), where + ' module Ambient'); // musicien Ambient : un module, pas de sons
         assert.equal(m.pick.length, 6, where);
         assert.equal(new Set(m.pick).size, 6, where + ' doublon');
         m.pick.forEach((tok) => {

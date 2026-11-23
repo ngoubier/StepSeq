@@ -771,6 +771,8 @@
     });
     project.tracks = created;
     const res = SS.bandSong.build(spec, preset.id, created, { melodySeed, melody, harmony, parts, kinds, fx, sig });
+    // musiciens Ambient : présence par scène ; band.pres la retient (une courbe redessinée dans la grille sera reprise telle quelle)
+    if (res.ambient) created.forEach((t) => res.ambient[t.id] && SS.bandSong.ambientApply(t, res.ambient[t.id]) && t.band && (t.band.pres = t.ambient.presence.join(',')));
     project.scenes = res.scenes.map(({ spans, ...sc }) => sc); // eslint-disable-line no-unused-vars -- sec : la section de l'assistant (relue par l'assistant)
     project.song = res.song;
     // mouvements de son gardés à l'étape Arrangement : automation par temps (js/beatauto.js), colonne → piste créée

@@ -6093,3 +6093,32 @@ dialog.score-dialog.sc-dragging { border-color: var(--c-blue); box-shadow: 0 0 0
 .sc-play { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .sc-playbtn { width: 36px; height: 36px; padding: 0; justify-content: center; border-radius: 50%; }
 .sc-over { width: 100%; height: auto; aspect-ratio: 1200 / 420; background: var(--c-bg); border: 1px solid var(--c-line); border-radius: 8px; }
+
+/* Musicien Ambient de l'assistant (js/band.js, ambBody) : frise de présence, réglages de la scène, module */
+.bwam-card { padding: 12px 14px; margin-top: 10px; display: flex; flex-direction: column; gap: 10px; }
+.bwam-h { margin: 0; font-size: var(--fs-md); display: flex; align-items: center; gap: 8px; }
+.bwam-drawn { display: inline-flex; align-items: center; gap: 6px; font-weight: 400; font-size: var(--fs-sm); color: var(--c-amber); }
+.bwam-fr { display: flex; flex-direction: column; gap: 3px; }
+.bwam-blocks { display: flex; gap: 2px; }
+.bwam-blk { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: var(--fs-xs); padding: 1px 6px; border-radius: 3px; color: var(--c-text); background: color-mix(in srgb, var(--bc) 35%, transparent); }
+.bwam-blk.on { background: var(--bc); }
+.bwam-frise { display: block; width: 100%; height: 100px; cursor: crosshair; touch-action: none; background: var(--c-surface-1); border-radius: 6px; }
+.bwam-frise .bwam-cur { fill: var(--c-teal-bg); }
+.bwam-frise .bwam-area { fill: color-mix(in srgb, var(--c-teal) 18%, transparent); }
+.bwam-frise .bwam-line { fill: none; stroke: var(--c-teal-soft); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.bwam-frise .bwam-line.drawn { stroke: var(--c-amber); }
+.bwam-mv button { display: inline-flex; align-items: center; gap: 6px; }
+.bwam-mv svg { width: 24px; height: 11px; fill: none; stroke: currentColor; stroke-width: 2; }
+.bwam-range input { width: 140px; accent-color: var(--c-teal); }
+.bwam-range output { min-width: 40px; font-variant-numeric: tabular-nums; color: var(--c-text-2); font-size: var(--fs-sm); }
+.bwam-modhead { display: flex; align-items: center; gap: 12px; }
+.bwam-modhead b { display: block; font-size: var(--fs-lg); }
+.bwam-modhead small { color: var(--muted); font-size: var(--fs-sm); }
+.bwam-ico { width: 42px; height: 42px; border-radius: 50%; flex: none; display: inline-flex; align-items: center; justify-content: center; font-size: var(--fs-xl); background: color-mix(in srgb, var(--mc, var(--c-teal)) 30%, var(--panel-2)); border: 2px solid var(--mc, var(--c-teal)); }
+dialog.bwam-dlg { width: min(560px, calc(100vw - 32px)); }
+.bwam-dlg h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; }
+.bwam-mods { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.bwam-mod { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 8px; border-radius: 8px; border: 1px solid var(--line); border-top: 3px solid var(--mc); background: var(--panel-2); color: var(--text); font: inherit; cursor: pointer; text-align: center; }
+.bwam-mod small { color: var(--muted); font-size: var(--fs-xs); }
+.bwam-mod.on { box-shadow: 0 0 0 1.5px var(--mc) inset; }
+.amb-dialog.amb-wizard #ambModule, .amb-dialog.amb-wizard label[for="ambModule"] { display: none; }

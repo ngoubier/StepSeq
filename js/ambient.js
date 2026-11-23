@@ -14,7 +14,8 @@
  * la scène ; la courbe de présence (sur toute la chanson) règle le volume de la piste. Les modules gardent leur
  * propre horloge en secondes : les boucles et les mouvements lents ne sont pas calés sur la grille.
  *
- * Réglages : track.ambient = { follow, rand, presence: [PN valeurs] | null, jardin: {…}, paysage: {…}, fresque: {…} }
+ * Réglages : track.ambient = { follow, rand, presence: [PN valeurs] | null, rands: [PN valeurs] | null, jardin: {…}, paysage: {…},
+ * fresque: {…} } (rands : le hasard au fil de la chanson, posé par le musicien Ambient de l'assistant ; sinon rand partout)
  * (un bloc par module : changer de module garde les réglages de l'autre). Les fichiers audio importés sont rangés
  * dans le navigateur (IndexedDB « stepseq-sounds ») ; le projet ne garde que leur clé et leur nom.
  *
@@ -107,7 +108,7 @@ SS.ambient = (() => {
     const own = a[mod] || {};
     const p = { ...def, ...own };
     if (mod === 'fresque') p.curves = { ...def.curves, ...(own.curves || {}) };
-    return { mod, follow: a.follow !== false, rand: typeof a.rand === 'number' ? clamp(a.rand, 0, 1) : 0.5, presence: Array.isArray(a.presence) ? a.presence : null, p };
+    return { mod, follow: a.follow !== false, rand: typeof a.rand === 'number' ? clamp(a.rand, 0, 1) : 0.5, presence: Array.isArray(a.presence) ? a.presence : null, rands: Array.isArray(a.rands) && a.rands.length ? a.rands : null, p };
   }
   /** Valeur d'une courbe (PN points sur 0..1) en x ; pas de courbe = 1. */
   function curveAt(arr, x) {
@@ -894,7 +895,7 @@ SS.ambient = (() => {
     const H = harmonyAt(c.project, c.tick);
     const pcs = A.follow ? H.pcs : H.scale;
     const frac = songFrac(c.project, c.song, c.tick);
-    const env = { pcs, root: H.root, key: (A.follow ? 'c' : 's') + H.key, notes: (lo, hi) => pool(pcs, lo, hi), rand: A.rand, frac };
+    const env = { pcs, root: H.root, key: (A.follow ? 'c' : 's') + H.key, notes: (lo, hi) => pool(pcs, lo, hi), rand: A.rands ? clamp(curveAt(A.rands, frac), 0, 1) : A.rand, frac };
     st.out.gain.setTargetAtTime(curveAt(A.presence, frac) * GAIN[A.mod], c.time, 0.5);
     st.frac = frac;
     st.env = env;

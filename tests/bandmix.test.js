@@ -39,6 +39,7 @@ test('calibrage : chaque instrument et chaque élément de batterie proposés on
   for (const p of PRESETS)
     p.musicians.forEach((mu) => {
       if (mu.kits) return mu.kits.forEach((k) => mu.pieces.forEach((pc) => assert.ok(SS.BAND_LEVELS.drum[`${k}|${pc}`], `${p.id} : ${k}|${pc} non mesuré`)));
+      if (mu.amb) return; // musicien Ambient : le niveau est réglé par son module (js/ambient.js)
       const cat = mu.cat || B.ROLES[mu.role].cat;
       mu.pick.forEach((tok) => assert.ok(SS.BAND_LEVELS.inst[`${mu.role}|${tok}|${cat}`], `${p.id} : ${mu.role}|${tok} non mesuré`));
     });
@@ -47,7 +48,7 @@ test('calibrage : chaque instrument et chaque élément de batterie proposés on
 test('calibrage : aucun instrument proposé n\'est trop faible pour être mixé (volume ≤ +6 dB)', () => {
   for (const p of PRESETS)
     p.musicians.forEach((mu) => {
-      if (mu.kits) return;
+      if (mu.kits || mu.amb) return;
       const cat = mu.cat || B.ROLES[mu.role].cat;
       mu.pick.forEach((tok) => {
         const { tracks, keys } = bandTracks({ ...p, musicians: [{ ...mu, optional: false, pick: [tok] }] });
@@ -65,7 +66,7 @@ test('mixage : volumes calibrés, kick / caisse claire / basse / lead au centre,
       const role = t.band.key.split(':')[0];
       const m = t.mix;
       assert.ok(m && m.eq.on, `${p.id} : ${t.id} sans égaliseur`);
-      if (!['bass', 'drums:bd'].includes(t.band.key) && !(t.type === 'drum' && ['lt', 'mt'].includes(t.sound))) assert.ok(m.eq.hp.on && m.eq.hp.f >= 80, `${p.id} : ${t.id} sans passe-haut`);
+      if (!['bass', 'drums:bd', 'ambient'].includes(t.band.key) && !(t.type === 'drum' && ['lt', 'mt'].includes(t.sound))) assert.ok(m.eq.hp.on && m.eq.hp.f >= 80, `${p.id} : ${t.id} sans passe-haut`);
       if (['drums:bd', 'drums:sd', 'bass', 'lead'].includes(t.band.key)) assert.equal(m.pan, 0, `${p.id} : ${t.id} pas au centre`);
       if (['drums:bd', 'drums:sd', 'bass', 'lead'].includes(t.band.key)) assert.ok(m.comp.on, `${p.id} : ${t.id} sans compresseur`);
       // niveau visé atteint : mesure + volume = cible du rôle (± arrondi), sauf volume plafonné
@@ -84,7 +85,7 @@ test('effets : de la reverb partout sauf sur le kick et la basse ; écho sur le 
       const f = SS.fxParams(t);
       const wet = f.sendPlate + f.sendHall + f.sendEcho;
       if (t.band.key === 'drums:bd' || t.band.key === 'bass') assert.equal(wet, 0, `${p.id} : ${t.id} doit rester sec`);
-      else if (t.type !== 'drum') assert.ok(f.sendHall > 0 || f.sendEcho > 0, `${p.id} : ${t.id} sans reverb`);
+      else if (t.type !== 'drum' && t.band.key !== 'ambient') assert.ok(f.sendHall > 0 || f.sendEcho > 0, `${p.id} : ${t.id} sans reverb`); // Ambient : envoi Cosmos
       if (t.band.key === 'drums:sd' || t.band.key === 'drums:cp') assert.ok(f.sendPlate > 0, `${p.id} : ${t.id} sans plate`);
       if (t.band.key === 'lead') assert.ok(f.sendEcho > 0 && f.sendHall > 0, `${p.id} : lead sans écho ni hall`);
     }

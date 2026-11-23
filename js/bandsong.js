@@ -63,6 +63,9 @@
  * Musicien ajouté à l'assistant (id « x1 », « x2 »… : js/bandgroup.js, isExtra) : il joue dans toutes les scènes avec le générateur de son type
  *    (jamais muet d'office : mode du plan pour ce type, sinon mode par défaut) et sa graine contient son id (autre mélodie, autre motif de kit).
  * Automation par scène : inst[id].auto (voir « automation par scène » plus bas). Sans kinds ni inst, la chanson est exactement celle d'avant.
+ * Musicien Ambient (rôle ambient, piste générative de js/ambient.js) : pas de notes ; inst[id].amb = { p, mv, r } règle sa présence
+ * dans la scène (p : far | soft | mid | front), son mouvement (mv : stable | up | down | breathe) et son hasard (r, 0–1) ; build
+ * en tire la courbe de présence sur toute la chanson (res.ambient[idPiste] = { presence, rands }, voir ambientCurves).
  */
 window.SS = window.SS || {};
 
@@ -2053,7 +2056,7 @@ SS.bandSong = (() => {
 
   /* ---------- types d'instrument ---------- */
   const KINDS = ['drums', 'bass', 'chords', 'arp', 'melody'];
-  const DEFAULT_KIND = { drums: 'drums', perc: 'drums', bass: 'bass', pad: 'chords', strings: 'chords', keys: 'chords', guitar: 'chords', arp: 'arp', arpchord: 'arp', lead: 'melody', vox: 'melody', sax: 'melody', orch: 'orch' };
+  const DEFAULT_KIND = { drums: 'drums', perc: 'drums', bass: 'bass', pad: 'chords', strings: 'chords', keys: 'chords', guitar: 'chords', arp: 'arp', arpchord: 'arp', lead: 'melody', vox: 'melody', sax: 'melody', orch: 'orch', ambient: 'ambient' };
   const DEFAULT_MODE = { bass: '8', chords: 'sustain', arp: 'up16', melody: 'verse', drums: 'both' };
   const ARP_MODES = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16', 'rise', 'ost16', 'dotted', 'toll', 'alb3', 'wave6', 'tri8'];
   const MODES = () => ({
@@ -2159,6 +2162,79 @@ SS.bandSong = (() => {
    *   fx : transitions et percussions d'ambiance (étape « Effets et transitions »), voir junctionDefaults ; null = le plan tel quel
    * → { key, scenes: [{ id, name, bars, key, emotion, data, spans }], song: [{ scene, repeat }] }
    */
+  /* ---------- musicien Ambient : présence par scène → courbe sur toute la chanson ---------- */
+  const AMB_LEVELS = { far: 0.25, soft: 0.5, mid: 0.8, front: 1 };
+  const AMB_MOVES = ['stable', 'up', 'down', 'breathe'];
+  /** Réglage Ambient d'une scène, complété : { on, p, mv, r (null : celui du module) }. */
+  function ambientOf(parts, sec, id) {
+    const pp = parts && parts[sec];
+    const ie = (pp && pp.inst && pp.inst[id]) || {};
+    const a = ie.amb || {};
+    return {
+      on: !ie.off && !((pp && pp.off) || []).includes('ambient'),
+      p: AMB_LEVELS[a.p] !== undefined ? a.p : 'mid',
+      mv: AMB_MOVES.includes(a.mv) ? a.mv : 'stable',
+      r: typeof a.r === 'number' ? Math.max(0, Math.min(1, a.r)) : null,
+    };
+  }
+  /** Présence dans une scène, à la position u (0..1) de la scène. */
+  function ambientLevel(s, u) {
+    if (!s.on) return 0;
+    const lv = AMB_LEVELS[s.p];
+    if (s.mv === 'up') return lv * (0.15 + 0.85 * u);
+    if (s.mv === 'down') return lv * (1 - 0.9 * u);
+    if (s.mv === 'breathe') return lv * (0.55 + 0.45 * Math.sin(Math.PI * u));
+    return lv;
+  }
+  /**
+   * Courbes d'un musicien Ambient sur toute la chanson (n points, comme track.ambient.presence de js/ambient.js) : presence
+   * d'après la présence et le mouvement de chaque scène (0 où il se tait), rands (hasard) seulement si une scène règle le sien.
+   * `id` : son id d'instrument (parts[sec].inst[id]). Dans rands, null : le hasard du module (voir ambientApply).
+   */
+  function ambientCurves(spec, parts, id, { n = 48 } = {}) {
+    const blocks = [];
+    spec.form.split(/\s+/).filter(Boolean).forEach((t) => {
+      const [sid, k] = t.split('*');
+      const sec = spec.sections[sid];
+      if (sec) for (let i = 0; i < (+k || 1); i++) blocks.push({ sec: sid, bars: sec.bars || 1, s: ambientOf(parts, sid, id) });
+    });
+    const total = blocks.reduce((a, b) => a + b.bars, 0) || 1;
+    const r3 = (v) => Math.round(v * 1000) / 1000;
+    const presence = [];
+    const rands = [];
+    for (let i = 0; i < n; i++) {
+      let x = (i / Math.max(1, n - 1)) * total;
+      let b = blocks[blocks.length - 1];
+      for (const bl of blocks) {
+        if (x <= bl.bars) {
+          b = bl;
+          break;
+        }
+        x -= bl.bars;
+      }
+      if (!b) return { presence: null, rands: null };
+      presence.push(r3(ambientLevel(b.s, Math.min(1, x / b.bars))));
+      rands.push(b.s.r === null ? null : r3(b.s.r));
+    }
+    return { presence, rands: blocks.some((b) => b.s.r !== null) ? rands : null };
+  }
+
+  /**
+   * Pose les courbes de build (res.ambient[id]) sur une piste Ambient créée : la présence, sauf si la piste en a déjà une
+   * (dessinée à la main dans l'assistant) ; le hasard par scène (les scènes sans réglage prennent celui du module).
+   * Renvoie vrai si la présence posée est celle des scènes.
+   */
+  function ambientApply(t, c) {
+    if (!t || !c) return false;
+    const a = (t.ambient = t.ambient || {});
+    const own = !Array.isArray(a.presence) && !!c.presence;
+    if (own) a.presence = c.presence.slice();
+    const base = typeof a.rand === 'number' ? a.rand : 0.5;
+    if (c.rands) a.rands = c.rands.map((v) => (v === null ? base : v));
+    else delete a.rands;
+    return own;
+  }
+
   function build(spec, presetId, tracks, { melodySeed = 0, melody = null, harmony = null, parts = null, kinds = null, fx = null, sig = null } = {}) {
     setMeter(sig || (spec && spec.meter) || '4/4'); // mesure de la chanson (4/4, 3/4, 6/8, 12/8) : tout le moteur la suit
     spec = withSceneFx(spec, parts); // jeu de la piste Effets réglé scène par scène
@@ -2276,6 +2352,7 @@ SS.bandSong = (() => {
           return;
         }
         if (role === 'orch') return; // orchestre : écrit après les autres (il part de la mélodie de la scène), voir plus bas
+        if (role === 'ambient') return void (data[t.id] = { events: [] }); // musicien Ambient : le moteur génératif joue seul (courbe de présence, plus bas)
         const kd = kindOfT.get(t); // type de l'instrument (null : fx)
         const extra = isExtra(t); // musicien ajouté : jamais muet d'office, réglages de l'instrument seulement
         const changed = !!kd && (extra || kd !== kindOfRole(role)); // type différent de celui du rôle : pas de réglages du rôle
@@ -2530,7 +2607,10 @@ SS.bandSong = (() => {
       return sc;
     });
     const song = form.map((f) => ({ scene: scenes[order.indexOf(f.id)].id, repeat: f.repeat }));
-    return { key, scenes, song };
+    // musiciens Ambient : leur présence (et leur hasard) scène par scène, en courbes sur toute la chanson
+    const ambient = {};
+    tracks.forEach((t, i) => roleOfTrack(t) === 'ambient' && (ambient[t.id] = ambientCurves(spec, parts, ids[i].id, { n: (SS.ambient && SS.ambient.PN) || 48 })));
+    return { key, scenes, song, ...(Object.keys(ambient).length ? { ambient } : {}) };
   }
 
   /* Modes de basse de nov. 2026 : une mesure type [pas, longueur, note, vélocité] ; les vélocités font les nuances (temps
@@ -2768,5 +2848,5 @@ SS.bandSong = (() => {
     ['marche128', 'Marche lente', 'Une noire pointée par temps : fondamentale, quinte, octave, quinte (12/8)', rhythmDraw('marche128')],
   ];
 
-  return { build, setMeter, meter, METERS, meterOK, fitMode, backbeats, halfBar, levelStep, levelPer, fitLanes, beatOf: (ts) => (ts && ts[1] === 8 && ts[0] % 3 === 0 && ts[0] > 3 ? 6 : Math.max(1, Math.round(16 / ((ts && ts[1]) || 4)))), voiceChord, bassEvents, chordEvents, PAD_NEW, padFxLanes, tomOfStep, junctionDefaults, junctionEff, withSceneFx, PERC_LOOPS, PERC_STYLES, hpHz, hpAmt, HP_MEL, isExtra, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, sceneGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, motifBars, motifBar, METER, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, BUILD_LEVELS, BUILD_PRESETS, buildLevels, progLevels, rollBar, rollerOf, hasGridLane, laneKey, _rng: rng };
+  return { build, ambientCurves, ambientApply, ambientOf, AMB_LEVELS, AMB_MOVES, setMeter, meter, METERS, meterOK, fitMode, backbeats, halfBar, levelStep, levelPer, fitLanes, beatOf: (ts) => (ts && ts[1] === 8 && ts[0] % 3 === 0 && ts[0] > 3 ? 6 : Math.max(1, Math.round(16 / ((ts && ts[1]) || 4)))), voiceChord, bassEvents, chordEvents, PAD_NEW, padFxLanes, tomOfStep, junctionDefaults, junctionEff, withSceneFx, PERC_LOOPS, PERC_STYLES, hpHz, hpAmt, HP_MEL, isExtra, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, sceneGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, motifBars, motifBar, METER, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, BUILD_LEVELS, BUILD_PRESETS, buildLevels, progLevels, rollBar, rollerOf, hasGridLane, laneKey, _rng: rng };
 })();

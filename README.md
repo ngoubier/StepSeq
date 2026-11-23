@@ -513,6 +513,17 @@ L'étiquette du module, dans l'en-tête de la piste, ouvre ses réglages. « Amb
 de l'assistant (nappes, piano épars). Tests : `node --test tests/ambient.test.js`, diagnostic du son :
 `node tests/e2e/ambient-diag.js`.
 
+**Musicien Ambient de l'assistant.** Dans Nouvelle chanson, « + Musicien » propose aussi le type **Ambient** : on choisit
+son module (Jardin, Paysage ou Fresque), un module par musicien. Son étape règle, scène par scène, s'il joue, sa
+**présence** (Lointain, Discret, Présent, Premier plan), son **mouvement** dans la scène (Stable, Monte, Descend,
+Respire) et son **hasard**. La frise « Présence sur toute la chanson » est calculée des scènes et se redessine à la
+souris (↺ pour revenir au calcul). Réglages… ouvre la fenêtre du module ; Suit les accords et l'envoi Cosmos sont sur la
+carte. Les dix modèles du style Ambient ont un musicien Ambient d'office. À la création, il devient une piste
+générative ; dans l'autre sens, une piste générative de la Grille redevient un musicien Ambient (une courbe dessinée
+dans la Grille est gardée). Outils Claude : `assistantMusicien({ ajouter: 'ambient', module })`,
+`assistantJeu({ presence, mouvement, hasard })`. Tests : `node --test tests/ambient-musician.test.js`,
+`node tests/e2e/ambient-musician.js`.
+
 ### Fiche Scène (`js/scenesheet.js`)
 
 Un double-clic sur une scène (ligne Scènes ou bloc de l'arrangement, dans la Grille comme dans l'assistant) ouvre un

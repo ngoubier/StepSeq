@@ -31,12 +31,14 @@ window.SS = window.SS || {};
     vox: { label: 'Voix / vocoder', short: 'Voix', cat: 'mono', color: '#c0c0c0', icon: 'vox', families: ['voices', 'synth'] },
     orch: { label: 'Orchestre', short: 'Orchestre', cat: 'mono', color: '#ff8a3d', icon: 'strings', families: ['strings', 'winds', 'brass'] },
     fx: { label: 'Effets (montées, impacts)', short: 'Effets', cat: 'mono', color: '#7a8a99', icon: 'fx', families: ['fx', 'pads'] },
+    // musicien génératif (js/ambient.js) : une piste générative, un module (Jardin, Paysage, Fresque)
+    ambient: { label: 'Ambient', short: 'Ambient', cat: 'mono', color: '#6fe3c8', icon: 'ambient', families: ['ambient'] },
   };
 
   /* Ordre de placement sur la scène : fond (rythmique), milieu (claviers), devant (solistes). */
   const STAGE_ROWS = [
     ['perc', 'drums', 'fx'],
-    ['pad', 'keys', 'strings', 'orch', 'arp'],
+    ['pad', 'keys', 'strings', 'orch', 'ambient', 'arp'],
     ['bass', 'lead', 'vox', 'sax', 'guitar'],
   ];
 
@@ -504,6 +506,7 @@ window.SS = window.SS || {};
             m('keys', 'piano vcsl_piano1 gm_piano gm_epiano2 gm_music_box vcsl_fmpiano', { label: 'Piano épars', note: 'Quelques notes seules, très espacées' }),
             m('arp', 'gm_celesta gm_music_box vcsl_glockenspiel gm_glockenspiel vcsl_handchimes gm_kalimba', { note: 'Petites notes de cloche dans le silence' }),
             m('bass', 'syn_sub gm_fretless_bass syn_techsub gm_acoustic_bass syn_acidsub gm_synth_bass_1', { note: 'Fondamentale tenue', optional: true }),
+            m('ambient', 'jardin', { amb: true, label: 'Jardin' }), // musicien Ambient : piste générative (js/ambient.js)
           ],
         },
         {
@@ -520,6 +523,7 @@ window.SS = window.SS || {};
             m('pad', 'gm_pad_warm gm_pad_halo syn_glasspad gm_string_ensemble_2 syn_softpad gm_pad_bowed'),
             m('lead', 'gm_flute syn_sine gm_ocarina gm_pan_flute syn_triangle gm_whistle', { note: 'Une phrase lointaine, comme un souffle' }),
             m('bass', 'syn_sub gm_acoustic_bass syn_techsub gm_fretless_bass syn_acidsub gm_synth_bass_1', { optional: true }),
+            m('ambient', 'paysage', { amb: true, label: 'Paysage' }), // musicien Ambient : piste générative (js/ambient.js)
           ],
         },
         {
@@ -535,6 +539,7 @@ window.SS = window.SS || {};
             m('pad', 'gm_pad_poly gm_pad_warm syn_softpad gm_synth_strings_2 syn_pwmpad gm_string_ensemble_2', { note: 'Claviers vieillis, légèrement flottants' }),
             m('arp', 'gm_music_box gm_kalimba vcsl_vibraphone_soft gm_celesta gm_glockenspiel dirt_arpy', { note: 'Petit motif de boîte à musique' }),
             m('lead', 'gm_ocarina gm_flute syn_triangle gm_recorder gm_whistle syn_sine', { note: 'Mélodie naïve, un peu voilée' }),
+            m('ambient', 'fresque', { amb: true, label: 'Fresque' }), // musicien Ambient : piste générative (js/ambient.js)
           ],
         },
         {
@@ -551,6 +556,7 @@ window.SS = window.SS || {};
             m('arp', 'vcsl_vibraphone_soft syn_pluck vcsl_vibraphone gm_celesta dirt_arpy gm_marimba', { note: 'Arpège doux, comme un pas régulier' }),
             m('lead', 'gm_electric_guitar_clean syn_triangle gm_flute gm_lead_3_calliope gm_ocarina syn_sine', { note: 'Ligne claire, reverb longue' }),
             m('guitar', 'gm_electric_guitar_clean gm_acoustic_guitar_nylon gm_guitar_harmonics gm_electric_guitar_jazz dirt_gtr gm_acoustic_guitar_steel', { cat: 'mono', optional: true }),
+            m('ambient', 'paysage', { amb: true, label: 'Paysage' }), // musicien Ambient : piste générative (js/ambient.js)
           ],
         },
         {
@@ -567,6 +573,7 @@ window.SS = window.SS || {};
             m('keys', 'gm_epiano2 gm_epiano1 vcsl_fmpiano vcsl_clavisynth gm_piano piano', { label: 'Clavier électrique', note: 'Accords égrenés' }),
             m('arp', 'vcsl_tubularbells vcsl_wineglass gm_tubular_bells gm_celesta vcsl_handchimes gm_glockenspiel', { note: 'Cloches lointaines' }),
             m('bass', 'syn_sub syn_techsub gm_synth_bass_1 gm_fretless_bass syn_acidsub gm_acoustic_bass', { optional: true }),
+            m('ambient', 'fresque', { amb: true, label: 'Fresque' }), // musicien Ambient : piste générative (js/ambient.js)
           ],
         },
         {
@@ -582,6 +589,7 @@ window.SS = window.SS || {};
             m('pad', 'syn_pwmpad gm_pad_warm gm_pad_bowed syn_softpad gm_synth_strings_2 syn_glasspad'),
             m('arp', 'syn_pluck gm_music_box vcsl_vibraphone_soft gm_celesta dirt_arpy gm_kalimba', { note: 'Notes cristallines espacées' }),
             m('bass', 'syn_sub syn_techsub syn_reese gm_synth_bass_1 syn_acidsub syn_pwmbass', { note: 'Sub profond' }),
+            m('ambient', 'jardin', { amb: true, label: 'Jardin' }), // musicien Ambient : piste générative (js/ambient.js)
           ],
         },
         {
@@ -599,6 +607,7 @@ window.SS = window.SS || {};
             m('pad', 'gm_pad_warm gm_pad_halo syn_softpad gm_choir_aahs gm_pad_new_age syn_glasspad'),
             m('arp', 'gm_celesta vcsl_glockenspiel gm_music_box vcsl_handchimes gm_glockenspiel gm_kalimba'),
             m('bass', 'vsco_contrabass gm_contrabass vsco_cellos syn_sub gm_acoustic_bass syn_techsub', { optional: true }),
+            m('ambient', 'paysage', { amb: true, label: 'Paysage' }), // musicien Ambient : piste générative (js/ambient.js)
           ],
         },
         {
@@ -615,6 +624,7 @@ window.SS = window.SS || {};
             m('pad', 'gm_string_ensemble_2 gm_synth_strings_1 gm_pad_warm syn_softpad gm_pad_choir syn_glasspad', { note: 'Cordes planantes' }),
             m('lead', 'gm_flute syn_triangle gm_ocarina gm_oboe gm_pan_flute syn_sine', { note: 'Une plainte douce' }),
             m('arp', 'gm_celesta gm_music_box gm_glockenspiel vcsl_vibraphone_soft gm_kalimba dirt_arpy', { optional: true }),
+            m('ambient', 'jardin', { amb: true, label: 'Jardin' }), // musicien Ambient : piste générative (js/ambient.js)
           ],
         },
         {
@@ -631,6 +641,7 @@ window.SS = window.SS || {};
             m('strings', 'vsco_violins gm_string_ensemble_2 vsco_cellos gm_string_ensemble_1 vsco_violas gm_tremolo_strings', { note: 'Longues tenues d’archet' }),
             m('bass', 'syn_sub syn_techsub gm_contrabass gm_synth_bass_1 gm_fretless_bass syn_acidsub', { note: 'Pédale grave' }),
             m('lead', 'vsco_horn gm_french_horn vsco_oboe vsco_flute gm_english_horn syn_sine', { note: 'Appel lointain, rare', optional: true }),
+            m('ambient', 'fresque', { amb: true, label: 'Fresque' }), // musicien Ambient : piste générative (js/ambient.js)
           ],
         },
         {
@@ -647,6 +658,7 @@ window.SS = window.SS || {};
             m('arp', 'vcsl_vibraphone_soft vcsl_vibraphone gm_celesta vcsl_handchimes gm_glockenspiel gm_music_box', { note: 'Quelques notes de vibraphone' }),
             m('lead', 'gm_flute gm_whistle syn_sine gm_ocarina syn_triangle gm_pan_flute', { note: 'Ligne qui s’élève doucement' }),
             m('bass', 'syn_sub gm_acoustic_bass syn_techsub gm_fretless_bass syn_acidsub gm_synth_bass_1', { optional: true }),
+            m('ambient', 'paysage', { amb: true, label: 'Paysage' }), // musicien Ambient : piste générative (js/ambient.js)
           ],
         },
       ],

@@ -88,6 +88,7 @@ SS.band = (() => {
     sax: '<path d="M14 3h4M16 3v11a5 5 0 0 1-10 0v-1"/><path d="M4 13h4"/><circle cx="16" cy="7" r=".6"/><circle cx="16" cy="10" r=".6"/>',
     vox: '<rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8"/>',
     fx: '<path d="M3 19c3 0 4-2 5-5s2-8 4-8 3 5 4 8 2 5 5 5"/><path d="M17 3l1 2 2 1-2 1-1 2-1-2-2-1 2-1z"/>',
+    ambient: '<circle cx="12" cy="12" r="2.5"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>',
   };
   const icon = (role) => `<svg viewBox="0 0 24 24">${ICON[(B().ROLES[role] || {}).icon] || ICON.keys}</svg>`;
   const PLAY = '<svg viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z" class="fill"/></svg>';
@@ -160,6 +161,7 @@ SS.band = (() => {
     const mu = { id: rec.id, role: rc.role, added: true, type: rec.type, name: rec.name, custom: true, label: rec.name };
     if (rec.type === 'drums') Object.assign(mu, { kits: rc.kits, pieces: rc.pieces });
     else if (rec.type === 'orch') Object.assign(mu, { orch: true, pick: rc.pick, cat: rc.cat });
+    else if (rec.type === 'ambient') Object.assign(mu, { amb: true, pick: rc.pick, cat: rc.cat });
     else Object.assign(mu, { pick: rc.pick, cat: rc.cat });
     return mu;
   }
@@ -174,6 +176,7 @@ SS.band = (() => {
   function kindNow(mu) {
     if (mu.kits) return 'drums';
     if (mu.orch) return 'orch';
+    if (mu.amb) return 'ambient';
     const def = BG().typeOfRole(mu.role);
     const k = S.wiz && S.wiz.kinds && S.wiz.kinds[`${mu.id}:${mu.role}`];
     return def && k && BG().TYPES.includes(k) ? k : def;
@@ -190,6 +193,7 @@ SS.band = (() => {
       return { on: true, kit: mu.kits[0], pieces: [...mu.pieces.map((pc) => ({ piece: pc, on: true })), ...extra.map((pc) => ({ piece: pc, on: false }))] };
     }
     if (mu.orch) return { on: true, ens: (mu.ens && mu.ens[0]) || 'chamber' }; // effectif de départ : le premier proposé par l'inspiration
+    if (mu.amb) return { on: true, mod: BG().ambMod(mu.pick && mu.pick[0]), amb: {} }; // module de départ : Jardin
     return { on: true, pick: 0, custom: null, ...(mu.added ? { tok: mu.pick[0] } : {}) };
   }
   /** Choix de son de chaque musicien du groupe, par id (état gardé par inspiration ; celui d'un musicien ajouté vit dans le groupe). */
@@ -257,6 +261,10 @@ SS.band = (() => {
     return info;
   }
 
+  /** Module d'un musicien Ambient (js/ambient.js) : { id, label, icon, color, sub }. */
+  const ambMod = (ms) => BG().ambMod(ms && ms.mod);
+  const ambInfo = (ms) => SS.ambient.MODULES[ambMod(ms)];
+  const AMB_SPACE = 0.5; // envoi Cosmos de départ (celui des pistes génératives de la grille)
   /** Effectif d'un orchestre (js/orchestra.js). */
   const ensOf = (ms) => SS.orchestra.ENS[(ms && ms.ens) || 'chamber'] || SS.orchestra.ENSEMBLES[0];
   /** Marque d'une piste créée par Band (gardée dans le projet) : sert à la retrouver pour la remplacer. */
@@ -278,6 +286,12 @@ SS.band = (() => {
           // levelKey : clé de la mesure de niveau (js/band-levels.js) qui sert au mixage automatique (js/bandmix.js)
           out.push({ ...info.opts, name, color, band: tag(p, mu, info.opts.sound), levelKey: pc.custom ? null : `${kitOf(ms)}|${pc.piece}` });
         });
+      } else if (mu.amb) {
+        // musicien Ambient : une piste générative (js/ambient.js), son module et ses réglages ; la présence vient des scènes
+        // (SS.bandSong.build, res.ambient), sauf une courbe dessinée à la main (ms.drawn)
+        const ambient = { ...BG().clone(ms.amb || {}), ...(ms.drawn ? { presence: ms.drawn.slice() } : {}) };
+        const space = typeof ms.space === 'number' ? ms.space : AMB_SPACE;
+        out.push({ type: 'instrument', family: 'ambient', instrument: ambMod(ms), category: 'mono', name: nameOf0(mu) || roleOf(mu).short, color, band: tag(p, mu), levelKey: null, keep: { ambient, fx: { sendSpace: space } } });
       } else if (mu.orch) {
         // orchestre : une piste par pupitre de l'effectif choisi (js/orchestra.js)
         ensOf(ms).parts.forEach((id) => {
@@ -1553,6 +1567,7 @@ SS.band = (() => {
       return `${(B().KITS[kitOf(ms)] || {}).label} · ${n} piste${n > 1 ? 's' : ''}`;
     }
     if (mu.orch) return `${ensOf(ms).label} · ${ensOf(ms).parts.length} pistes`;
+    if (mu.amb) return `${ambInfo(ms).icon} ${ambInfo(ms).label}`;
     return B().describe(instOpts(mu)).name;
   }
 
@@ -1677,6 +1692,7 @@ SS.band = (() => {
     dirt: ['Dirt-Samples', '#b08a5a'],
     tdm: ['Boîte à rythmes', '#e3179c'],
     ens: ['Orchestre', '#ff8a3d'],
+    amb: ['Génératif', '#6fe3c8'],
   };
   /** Source et détail d'un son d'instrument : { src, detail }. */
   function soundInfo(opts) {
@@ -1740,7 +1756,7 @@ SS.band = (() => {
 
   /** Nom par défaut d'un musicien (celui du rôle ou du type) : celui qu'on retrouve en vidant le nom. */
   const baseNameOf = (mu) => (mu.added ? BG().BASE_NAME[mu.type] : (preset().musicians.find((m) => m.id === mu.id) || mu).label || roleOf(mu).label);
-  const soundName = (mu, ms = musState()[mu.id]) => (mu.kits ? (B().KITS[kitOf(ms)] || {}).label || '' : mu.orch ? ensOf(ms).label : B().describe(instOpts(mu, ms)).name);
+  const soundName = (mu, ms = musState()[mu.id]) => (mu.kits ? (B().KITS[kitOf(ms)] || {}).label || '' : mu.orch ? ensOf(ms).label : mu.amb ? ambInfo(ms).label : B().describe(instOpts(mu, ms)).name);
   const kindName = (mu) => (kindNow(mu) ? KIND_LABEL[kindNow(mu)] : 'Effets');
 
   /** Renommer : le musicien, sa tuile et son onglet suivent (sans refaire le panneau, pour garder la saisie). */
@@ -1836,6 +1852,40 @@ SS.band = (() => {
     );
   }
 
+  /** Modules d'un musicien Ambient (étape Instruments) : le module retenu, puis les trois cartes. after(nomAvant) : un module est choisi. */
+  function modCards(ms, after) {
+    const cur = ambInfo(ms);
+    return [
+      nowCard({ name: `${cur.icon} ${cur.label}`, src: 'amb', detail: cur.sub }),
+      h('div', { class: 'bpn-sec' }, 'Modules'),
+      h(
+        'div',
+        { class: 'bpn-grid bg-mods', role: 'radiogroup', 'aria-label': 'Module du musicien Ambient' },
+        ...BG().AMB_MODS.map((id) => {
+          const m = SS.ambient.MODULES[id];
+          return sndCard({
+            name: `${m.icon} ${m.label}`,
+            src: null,
+            detail: m.sub,
+            active: cur.id === id,
+            onPick: () => {
+              const prev = cur.label;
+              ms.mod = id;
+              after(prev);
+            },
+            mainAttrs: { class: 'bc-main bg-modc', 'data-mod': id, title: m.desc },
+          });
+        })
+      ),
+      detBlock('amb', 'Comment joue le musicien Ambient', false, h('p', { class: 'dlg-hint', 'data-helpify': true }, `${cur.desc} Un module par musicien : pour en entendre deux, ajoute un 2e musicien Ambient. Son étape règle sa présence scène par scène.`)),
+    ];
+  }
+  /** Module changé dans le panneau d'un musicien du groupe : s'il portait le nom de l'ancien module, il prend celui du nouveau. */
+  function ambRenamed(mu, prev) {
+    const ms = musState()[mu.id];
+    if (BG().stripNum(mu.name) === prev) BG().rename(group(), mu.id, BG().freeName(group().list, ambInfo(ms).label, mu.id), baseNameOf(mu));
+    groupChanged();
+  }
   /** Effectifs d'un orchestre (étape Instruments) : le même panneau que les autres types (effectif retenu, cartes, détails). */
   function ensCards(ms, after) {
     const cur = ensOf(ms);
@@ -2024,6 +2074,7 @@ SS.band = (() => {
     arp: 'Égrène les notes des accords en motif répété.',
     melody: 'La ligne chantante par-dessus : thème et motifs.',
     orch: 'Un effectif (cordes, cor, bois) qui se partage mélodie, accords et basse : une piste par pupitre.',
+    ambient: 'Un module génératif qui joue seul, sur les accords de chaque scène : Jardin, Paysage ou Fresque.',
   };
   const kindIcon = (k) => `<svg viewBox="0 0 30 30" aria-hidden="true">${KIND_ICON[k]}</svg>`;
   function startAdd() {
@@ -2064,6 +2115,7 @@ SS.band = (() => {
                 const g = group();
                 S.add = { type: k, name: BG().freeName(g.list, BG().BASE_NAME[k]), custom: false };
                 S.add.ms = newMs(resolveMu({ id: 'x0', base: null, type: k, name: S.add.name }));
+                if (k === 'ambient') S.add.name = BG().freeName(g.list, ambInfo(S.add.ms).label); // il porte le nom de son module
                 S.addMode = 'son';
                 refresh();
                 const i = $('#bgAddName');
@@ -2103,6 +2155,12 @@ SS.band = (() => {
     });
     let body;
     if (mu.orch) body = ensCards(ms, refresh);
+    else if (mu.amb)
+      body = modCards(ms, (prev) => {
+        // tant qu'on ne l'a pas renommé, il porte le nom de son module
+        if (!a.custom || a.name === prev) a.name = BG().freeName(group().list, ambInfo(ms).label);
+        refresh();
+      });
     else if (mu.kits) {
       const def = B().KITS[kitOf(ms)] || { label: kitOf(ms) };
       body = [
@@ -2132,7 +2190,7 @@ SS.band = (() => {
     const a = S.add;
     if (!a) return;
     const ms = a.ms;
-    const rec = BG().add(group(), a.type, { name: a.custom ? a.name : undefined, ms });
+    const rec = BG().add(group(), a.type, { name: a.custom || a.type === 'ambient' ? a.name : undefined, ms }); // Ambient : le nom de son module
     if (!rec) return cancelAdd();
     S.addMode = null;
     S.add = null;
@@ -2157,6 +2215,7 @@ SS.band = (() => {
     const ms = musState()[mu.id];
     if (mu.kits) renderKitPanel(mu, ms);
     else if (mu.orch) $('#bandPanel').replaceChildren(panelHead(mu, ms), ...ensCards(ms, () => groupChanged()), groupActions(mu));
+    else if (mu.amb) $('#bandPanel').replaceChildren(panelHead(mu, ms), ...modCards(ms, (prev) => ambRenamed(mu, prev)), groupActions(mu));
     else renderInstPanel(mu, ms);
   }
 
@@ -2347,7 +2406,7 @@ SS.band = (() => {
     if (!mu || !kind || !BG().canAdd(g)) return;
     const src = musState()[id];
     let ms;
-    if (mu.kits || mu.orch) ms = { ...BG().clone(src), on: true };
+    if (mu.kits || mu.orch || mu.amb) ms = { ...BG().clone(src), on: true };
     else {
       const rc = recFor(kind);
       const tok = picksOf(mu)[effPick(mu, src)];
@@ -2460,13 +2519,13 @@ SS.band = (() => {
     get pick() { return 9 + insSteps().length; },
   };
   /** Types d'instrument : nom, résumé du fil des étapes, couleur de rôle (batterie rose, basse verte, nappe bleue, arpège turquoise, mélodie violette). */
-  const KIND_LABEL = { drums: 'Drums', bass: 'Basse', chords: 'Accords', arp: 'Arpèges', melody: 'Mélodie', orch: 'Orchestre' };
-  const KIND_SUM = { drums: 'Drums', bass: 'Basse', chords: 'Nappe', arp: 'Arpège', melody: 'Mélodie', orch: 'Orchestre' };
+  const KIND_LABEL = { drums: 'Drums', bass: 'Basse', chords: 'Accords', arp: 'Arpèges', melody: 'Mélodie', orch: 'Orchestre', ambient: 'Ambient' };
+  const KIND_SUM = { drums: 'Drums', bass: 'Basse', chords: 'Nappe', arp: 'Arpège', melody: 'Mélodie', orch: 'Orchestre', ambient: 'Ambient' };
   /** Étiquette du type dans la tête d'étape instrument : « Nappe » et non « Accords », qui est l'étape 5. */
   const KIND_STEP = { ...KIND_LABEL, chords: 'Nappe', orch: 'Orchestration' };
-  const KIND_COLOR = { drums: '#e3179c', bass: '#3fcf3f', chords: '#4f6bff', arp: '#13c2a3', melody: '#9b5cff', orch: '#ff8a3d' };
-  const KIND_DESC = { drums: 'Motifs rythmiques et fills', bass: 'Mode de jeu sur la fondamentale', chords: 'Joue la grille en nappe ou plaqué', arp: 'Arpège les accords (Arp One)', melody: 'Ligne mélodique générée', orch: 'Répartit mélodie, accords et basse entre les pupitres' };
-  const KIND_SLOT = { drums: 'drums', bass: 'bass', chords: 'pad', arp: 'arp', melody: 'lead', orch: 'orch' }; // suffixe des identifiants de test (#bwp-on-bass…)
+  const KIND_COLOR = { drums: '#e3179c', bass: '#3fcf3f', chords: '#4f6bff', arp: '#13c2a3', melody: '#9b5cff', orch: '#ff8a3d', ambient: '#6fe3c8' };
+  const KIND_DESC = { drums: 'Motifs rythmiques et fills', bass: 'Mode de jeu sur la fondamentale', chords: 'Joue la grille en nappe ou plaqué', arp: 'Arpège les accords (Arp One)', melody: 'Ligne mélodique générée', orch: 'Répartit mélodie, accords et basse entre les pupitres', ambient: 'Présence du module génératif, scène par scène' };
+  const KIND_SLOT = { drums: 'drums', bass: 'bass', chords: 'pad', arp: 'arp', melody: 'lead', orch: 'orch', ambient: 'amb' }; // suffixe des identifiants de test (#bwp-on-bass…)
   const KIND_ICON = {
     drums: '<ellipse cx="15" cy="17" rx="9" ry="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 17v5c0 2 4 4 9 4s9-2 9-4v-5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 4l7 9M23 4l-7 9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
     bass: '<path d="M3 15h4l3-9 4 18 3-12 2 3h8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>',
@@ -2474,6 +2533,7 @@ SS.band = (() => {
     arp: '<path d="M3 24h5v-5h5v-5h5v-5h5V4h4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><circle cx="7" cy="14" r="1.6" fill="currentColor"/><circle cx="17" cy="22" r="1.6" fill="currentColor"/>',
     melody: '<path d="M3 20c4-12 7-12 10-3s6 8 9-4c1-4 3-5 5-4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="25" cy="9" r="2" fill="currentColor"/>',
     orch: '<path d="M15 3v7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M11 10h8c0 2.5-2 3-2 5s3 2.5 3 5.5S18 26 15 26s-5-2-5-5.5 3-3.5 3-5.5-2-2.5-2-5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M5 27L25 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+    ambient: '<circle cx="15" cy="15" r="3.5" fill="currentColor"/><path d="M15 3v5M15 22v5M3 15h5M22 15h5M6.5 6.5l3.5 3.5M20 20l3.5 3.5M6.5 23.5l3.5-3.5M20 10l3.5-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
   };
   /**
    * Instruments du groupe, un par étape : [{ id, key, kit, col, cols, role, musician, kind, def, name, sound }].
@@ -2498,7 +2558,7 @@ SS.band = (() => {
       const mu = muById(c.musician);
       out.push({
         id, key: id, kit, orch, col: c, cols: [c], role: c.role, musician: c.musician, kind: instKind(c), def: defaultKind(c),
-        title: nameOf0(mu) || roleOf(mu).short, name: nameOf0(mu) || (kit ? roleOf(mu).short : B().describe(c.o).name.replace(/^[A-Z]\d+\s*[–-]\s*/, '')), sound: kit ? (B().KITS[kitOf(musState()[mu.id])] || {}).label || labelOf(mu) : orch ? ensOf(musState()[mu.id]).label : B().describe(c.o).name,
+        title: nameOf0(mu) || roleOf(mu).short, name: nameOf0(mu) || (kit ? roleOf(mu).short : B().describe(c.o).name.replace(/^[A-Z]\d+\s*[–-]\s*/, '')), sound: kit ? (B().KITS[kitOf(musState()[mu.id])] || {}).label || labelOf(mu) : c.role === 'ambient' ? ambInfo(musState()[mu.id]).label : orch ? ensOf(musState()[mu.id]).label : B().describe(c.o).name,
       });
     });
     insMemo = { sig, wiz: S.wiz, val: out };
@@ -6704,7 +6764,7 @@ SS.band = (() => {
   /** Réglage d'un instrument dans une scène, en une ligne pour la colonne des scènes et le fil des étapes. */
   function instSub(T, x) {
     if (mutedIn(x.sec, T)) return 'muette';
-    const k = T.kind === 'drums' ? (T.kit ? drumsSub : drumsLiteSub) : { bass: bassSub, chords: padSub, arp: arpSub, melody: melSub, orch: orchSub }[T.kind];
+    const k = T.kind === 'drums' ? (T.kit ? drumsSub : drumsLiteSub) : { bass: bassSub, chords: padSub, arp: arpSub, melody: melSub, orch: orchSub, ambient: ambSub }[T.kind];
     return k(x, T);
   }
   /** Étape d'un instrument : types, barre de piste, scènes à gauche, éditeur du type choisi (réglages de cet instrument). */
@@ -6714,13 +6774,254 @@ SS.band = (() => {
     const box = $('#bandWiz');
     if (!res) return box.replaceChildren(h('p', { class: 'dlg-hint' }, 'Cette inspiration n’a pas de plan de chanson.'));
     const sc = curScene(res);
-    const body = { drums: () => (T.kit ? drumsBody(sc, T) : drumsLiteBody(sc, T)), bass: () => bassBody(sc, T), chords: () => padBody(sc, T), arp: () => arpBody(sc, T), orch: () => orchBody(sc, T) }[T.kind]();
+    const body = { drums: () => (T.kit ? drumsBody(sc, T) : drumsLiteBody(sc, T)), bass: () => bassBody(sc, T), chords: () => padBody(sc, T), arp: () => arpBody(sc, T), orch: () => orchBody(sc, T), ambient: () => ambBody(sc, T) }[T.kind]();
     const prev = $('#bwParts');
     const top = prev && prev.dataset.ins === T.id && prev.dataset.kind === T.kind ? prev.scrollTop : 0; // un clic bas dans la liste ne la remonte pas
     const content = h('div', { class: 'bwc bwp', id: 'bwParts', 'data-kind': T.kind, 'data-ins': T.id, style: `--c:${KIND_COLOR[T.kind]}` }, ...body);
     splitView(sceneNav(res, sc, (x) => withAutoBadge(T.kind === 'bass' ? bassSceneSub(x, T) : instSub(T, x), x, T)), trackbar(T), content);
     content.scrollTop = top;
     syncAutoScroll(content);
+  }
+
+  /* --- Musicien Ambient (piste générative, js/ambient.js) : présence, mouvement et hasard par scène, courbe sur toute la chanson ---
+   * Réglages de la scène : parts[sec].inst[id].amb = { p, mv, r } (voir js/bandsong.js, ambientCurves) ; off : il se tait.
+   * Réglages du module pour toute la chanson : dans le groupe (ms.mod, ms.amb, ms.space ; ms.drawn : courbe de présence dessinée). */
+  const AMB_P = [['far', 'Lointain', 'Un fond à peine audible'], ['soft', 'Discret', 'Derrière les autres'], ['mid', 'Présent', 'Bien là, à sa place'], ['front', 'Premier plan', 'Il porte la scène']];
+  const AMB_MV = [
+    ['stable', 'Stable', 'M1 6H25', 'La même présence toute la scène'],
+    ['up', 'Monte', 'M1 11L25 1', 'Entre en fondu'],
+    ['down', 'Descend', 'M1 1L25 11', 'Sort en fondu'],
+    ['breathe', 'Respire', 'M1 11Q13 -5 25 11', 'Gonfle puis se retire lentement'],
+  ];
+  const ambSet = (sc, T) => (partOf(sc.sec, T) || {}).amb || {};
+  function ambSub(x, T) {
+    if (mutedIn(x.sec, T)) return 'se tait';
+    const a = SS.bandSong.ambientOf(S.wiz.parts, x.sec, T.key);
+    return `${nameOf(AMB_P, a.p)} · ${nameOf(AMB_MV, a.mv).toLowerCase()}`;
+  }
+  function ambEdit(sc, T, patch, focus) {
+    const o = { ...ambSet(sc, T), ...patch };
+    Object.keys(o).forEach((k) => o[k] === undefined && delete o[k]);
+    putPart(sc.sec, T, { amb: Object.keys(o).length ? o : undefined });
+    partChanged(focus);
+  }
+  /** Le module d'un musicien Ambient a changé (son, réglages, courbe dessinée) : la chanson est refaite. */
+  function ambChanged(focus) {
+    if (S.wiz) S.wiz.sig = null;
+    partChanged(focus);
+  }
+  /** Frise « Présence sur toute la chanson » : les blocs de l'arrangement, la courbe (celle des scènes, ou dessinée à la souris). */
+  function ambFrise(sc, T, ms) {
+    const { res } = wizSong();
+    const NS = 'http://www.w3.org/2000/svg';
+    const W = 1000;
+    const HT = 100;
+    const TOP = 0;
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', `0 0 ${W} ${HT}`);
+    svg.setAttribute('preserveAspectRatio', 'none');
+    svg.setAttribute('class', 'bwam-frise');
+    svg.id = 'bwAmbFrise';
+    const blocks = [];
+    res.song.forEach((b) => {
+      const x = res.scenes.find((y) => y.id === b.scene);
+      if (x) for (let i = 0; i < Math.max(1, b.repeat || 1); i++) blocks.push(x);
+    });
+    const total = blocks.reduce((a, b) => a + b.bars, 0) || 1;
+    let x0 = 0;
+    const add = (name, attrs, text) => {
+      const n = document.createElementNS(NS, name);
+      Object.entries(attrs).forEach(([k, v]) => n.setAttribute(k, v));
+      if (text) n.textContent = text;
+      svg.append(n);
+      return n;
+    };
+    // les blocs de l'arrangement (en HTML : le texte ne s'étire pas avec la frise)
+    const row = h('div', { class: 'bwam-blocks' }, ...blocks.map((b) => h('span', { class: 'bwam-blk' + (b.sec === sc.sec ? ' on' : ''), style: `flex:${b.bars};--bc:${secColor(b.sec)}`, title: `${b.name} · ${b.bars} mesures` }, b.name)));
+    blocks.forEach((b) => {
+      const w = (b.bars / total) * W;
+      if (b.sec === sc.sec) add('rect', { x: x0, y: TOP, width: w, height: HT - TOP, class: 'bwam-cur' });
+      x0 += w;
+    });
+    const PN = SS.ambient.PN;
+    const auto = (res.ambient && res.ambient[T.col.id] && res.ambient[T.col.id].presence) || new Array(PN).fill(0.8);
+    let cur = (ms.drawn || auto).slice();
+    const yOf = (v) => HT - 2 - v * (HT - TOP - 6);
+    const pts = () => cur.map((v, i) => `${(i / (PN - 1)) * W},${yOf(v)}`).join(' ');
+    const area = add('polygon', { class: 'bwam-area', points: `0,${HT} ${pts()} ${W},${HT}` });
+    const line = add('polyline', { class: 'bwam-line' + (ms.drawn ? ' drawn' : ''), points: pts() });
+    let down = false;
+    const at = (e) => {
+      const r = svg.getBoundingClientRect();
+      const x = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+      const y = Math.max(0, Math.min(1, (HT - 2 - ((e.clientY - r.top) / r.height) * HT) / (HT - TOP - 6)));
+      const i = Math.round(x * (PN - 1));
+      for (let k = -1; k <= 1; k++) if (cur[i + k] !== undefined) cur[i + k] = Math.round(y * 1000) / 1000;
+      area.setAttribute('points', `0,${HT} ${pts()} ${W},${HT}`);
+      line.setAttribute('points', pts());
+      line.classList.add('drawn');
+    };
+    svg.addEventListener('pointerdown', (e) => {
+      down = true;
+      svg.setPointerCapture(e.pointerId);
+      at(e);
+    });
+    svg.addEventListener('pointermove', (e) => down && at(e));
+    svg.addEventListener('pointerup', () => {
+      if (!down) return;
+      down = false;
+      ms.drawn = cur.slice();
+      ambChanged();
+    });
+    return h('div', { class: 'bwam-fr' }, row, svg);
+  }
+  /** Fenêtre « Changer de module » (le musicien garde les réglages de chaque module). */
+  function ambModDialog(T, ms) {
+    const dlg = h('dialog', { class: 'dlg bwam-dlg', id: 'bwAmbModDlg' });
+    const close = () => (dlg.close(), dlg.remove());
+    dlg.append(
+      h('h3', {}, 'Changer de module', SS.helpTip('Changer de module garde les réglages de l’autre : tu peux revenir en arrière sans rien perdre.', 'Changer de module')),
+      h(
+        'div',
+        { class: 'bwam-mods', role: 'radiogroup', 'aria-label': 'Module' },
+        ...BG().AMB_MODS.map((id) => {
+          const m = SS.ambient.MODULES[id];
+          const on = ambMod(ms) === id;
+          return h(
+            'button',
+            {
+              type: 'button', role: 'radio', class: 'bwam-mod' + (on ? ' on' : ''), 'aria-checked': String(on), 'data-mod': id, style: `--mc:var(${m.color})`, title: m.desc,
+              onclick: () => {
+                const mu = muById(T.musician);
+                const prev = ambInfo(ms).label;
+                ms.mod = id;
+                close();
+                if (mu && BG().stripNum(mu.name) === prev) BG().rename(group(), mu.id, BG().freeName(group().list, ambInfo(ms).label, mu.id), baseNameOf(mu));
+                ambChanged();
+              },
+            },
+            h('span', { class: 'bwam-ico' }, m.icon),
+            h('b', {}, m.label),
+            h('small', {}, m.sub)
+          );
+        })
+      ),
+      h('div', { class: 'dlg-footer' }, h('span', { class: 'spacer' }), h('button', { type: 'button', class: 'btn', id: 'bwAmbModClose', onclick: close }, 'Fermer'))
+    );
+    document.body.append(dlg);
+    dlg.addEventListener('cancel', () => dlg.remove());
+    dlg.showModal();
+  }
+  /** « Réglages du module… » : la fenêtre de la grille, sur la piste d'écoute (tout s'entend aussitôt) ; à la fermeture, le musicien garde les réglages. */
+  function ambSettings(T, ms) {
+    const proj = listenProject();
+    const t = proj && proj.tracks.find((x) => x.col === T.col.id);
+    if (!t) return;
+    SS.ambientPanel.open(t, {
+      project: () => proj,
+      changed: () => {},
+      wizard: true,
+      onClose: (ok) => {
+        if (!ok) return;
+        ms.amb = BG().ambOwn(t.ambient);
+        ambChanged();
+      },
+    });
+  }
+  function ambBody(sc, T) {
+    const ms = musState()[T.musician];
+    const M = ambInfo(ms);
+    const muted = mutedIn(sc.sec, T);
+    const a = SS.bandSong.ambientOf(S.wiz.parts, sc.sec, T.key);
+    const own = ambSet(sc, T);
+    const head = partHead(sc, T, `ambient · ${M.label.toLowerCase()}`, true);
+    const friseCard = h(
+      'section',
+      { class: 'bw-card bwam-card' },
+      h(
+        'h4',
+        { class: 'bwam-h' },
+        'Présence sur toute la chanson',
+        SS.helpTip('La courbe suit la présence et le mouvement choisis scène par scène. Tu peux aussi la dessiner à la souris : elle devient « retouchée », et ↺ revient à celle des scènes. Dans la grille, c’est la courbe de présence de la piste générative.', 'Présence'),
+        ms.drawn
+          ? h('span', { class: 'bwam-drawn' }, 'retouchée', h('button', { type: 'button', class: 'btn btn-small', id: 'bwAmbUndraw', title: 'Revenir à la courbe des scènes', onclick: () => (delete ms.drawn, ambChanged()) }, '↺'))
+          : null
+      ),
+      ambFrise(sc, T, ms)
+    );
+    const play = partCheck('bwp-on-amb', 'Joue dans cette scène', !muted, (on) => (putOff(sc.sec, T, !on), partChanged()));
+    const sceneRows = muted
+      ? [h('p', { class: 'dlg-hint', id: 'bwAmbMuted' }, `${T.title} se tait dans cette scène.`)]
+      : [
+          h('div', { class: 'bwp-row' }, partSeg('Présence', 'bwAmbPres', AMB_P, a.p, (v) => ambEdit(sc, T, { p: v === 'mid' ? undefined : v }, `#bwAmbPres [data-v="${v}"]`)), SS.helpTip('Le volume du module dans la scène : Lointain, un fond à peine audible ; Premier plan, il porte la scène.', 'Présence')),
+          h(
+            'div',
+            { class: 'bwp-row' },
+            h(
+              'div',
+              { class: 'bwp-field' },
+              h('span', { class: 'bh-lbl' }, 'Mouvement'),
+              h(
+                'span',
+                { class: 'segmented bwam-mv', role: 'radiogroup', 'aria-label': 'Mouvement', id: 'bwAmbMove' },
+                ...AMB_MV.map(([v, t, d, tip]) =>
+                  h('button', { type: 'button', role: 'radio', class: v === a.mv ? 'active' : '', 'aria-checked': String(v === a.mv), 'data-v': v, title: tip, onclick: () => ambEdit(sc, T, { mv: v === 'stable' ? undefined : v }, `#bwAmbMove [data-v="${v}"]`) }, h('span', { html: `<svg viewBox="0 0 26 12" aria-hidden="true"><path d="${d}"/></svg>` }), t)
+                )
+              )
+            ),
+            SS.helpTip('Comment la présence évolue pendant la scène : Monte et Descend font des entrées et sorties en fondu ; Respire gonfle et se retire lentement.', 'Mouvement')
+          ),
+          h(
+            'div',
+            { class: 'bwp-row' },
+            h(
+              'label',
+              { class: 'bwp-field bwam-range' },
+              h('span', { class: 'bh-lbl' }, 'Hasard'),
+              h('input', { type: 'range', id: 'bwAmbRand', min: 0, max: 100, value: Math.round((a.r ?? (ms.amb && typeof ms.amb.rand === 'number' ? ms.amb.rand : 0.5)) * 100), oninput: (e) => (e.target.nextSibling.textContent = `${e.target.value} %`), onchange: (e) => ambEdit(sc, T, { r: +e.target.value / 100 }, '#bwAmbRand') }),
+              h('output', {}, `${Math.round((a.r ?? (ms.amb && typeof ms.amb.rand === 'number' ? ms.amb.rand : 0.5)) * 100)} %`)
+            ),
+            own.r !== undefined ? h('button', { type: 'button', class: 'btn btn-small', id: 'bwAmbRandBack', title: 'Revenir au hasard du module', onclick: () => ambEdit(sc, T, { r: undefined }) }, '↺') : null,
+            SS.helpTip('Peu : le module répète ses figures. Beaucoup : il improvise davantage (notes, moments, variations). Réglable par scène : calme dans l’intro, plus libre au sommet.', 'Hasard')
+          ),
+        ];
+    const sceneCard = h('section', { class: 'bw-card bwam-card' }, h('h4', { class: 'bwam-h' }, `Dans « ${sc.name} »`), h('div', { class: 'bwp-row' }, play), ...sceneRows);
+    const follow = !ms.amb || ms.amb.follow !== false;
+    const space = typeof ms.space === 'number' ? ms.space : AMB_SPACE;
+    const modCard = h(
+      'section',
+      { class: 'bw-card bwam-card' },
+      h('h4', { class: 'bwam-h' }, 'Le module, pour toute la chanson', SS.helpTip('Un musicien Ambient = un module, comme une piste générative de la grille. Pour en entendre deux, ajoute un 2e musicien Ambient à l’étape Instruments.', 'Module')),
+      h(
+        'div',
+        { class: 'bwam-modhead', style: `--mc:var(${M.color})` },
+        h('span', { class: 'bwam-ico' }, M.icon),
+        h('div', {}, h('b', {}, M.label), h('small', {}, M.sub)),
+        h('span', { class: 'spacer' }),
+        h('button', { type: 'button', class: 'btn btn-small', id: 'bwAmbSettings', onclick: () => ambSettings(T, ms) }, `Réglages du ${M.label}…`),
+        h('button', { type: 'button', class: 'btn btn-small', id: 'bwAmbChange', onclick: () => ambModDialog(T, ms) }, 'Changer de module…')
+      ),
+      h(
+        'div',
+        { class: 'bwp-row' },
+        partCheck('bwAmbFollow', 'Suit les accords', follow, (on) => {
+          ms.amb = { ...(ms.amb || {}) };
+          if (on) delete ms.amb.follow;
+          else ms.amb.follow = false;
+          ambChanged('#bwAmbFollow');
+        }),
+        SS.helpTip('Coché : il joue les notes de l’accord de chaque scène (étape Accords). Décoché : toutes les notes de la gamme, plus flottant.', 'Suit les accords'),
+        h(
+          'label',
+          { class: 'bwp-field bwam-range' },
+          h('span', { class: 'bh-lbl' }, 'Cosmos'),
+          h('input', { type: 'range', id: 'bwAmbSpace', min: 0, max: 100, value: Math.round(space * 100), oninput: (e) => (e.target.nextSibling.textContent = `${e.target.value} %`), onchange: (e) => ((ms.space = +e.target.value / 100), ambChanged('#bwAmbSpace')) }),
+          h('output', {}, `${Math.round(space * 100)} %`)
+        ),
+        SS.helpTip('L’envoi vers la grande réverbe Cosmos, commune à toute la chanson (shimmer, gel). Réglable aussi à l’étape Mix.', 'Cosmos')
+      )
+    );
+    return [head, friseCard, sceneCard, modCard];
   }
 
   /* --- Orchestre (étape Orchestration) : densité par scène, puis une ligne par pupitre (joue / coupé, rôle, registre, pourquoi, Muet / Solo) ---
@@ -9907,6 +10208,7 @@ SS.band = (() => {
       t.col = c.id;
       if (c.o.band) t.band = { ...c.o.band };
       levelKeys.set(t.id, c.o.levelKey);
+      if (res.ambient && res.ambient[c.id]) SS.bandSong.ambientApply(t, res.ambient[c.id]); // musicien Ambient : présence par scène
       return t;
     });
     proj.scenes = res.scenes.map((sc) => ({
@@ -10415,6 +10717,7 @@ SS.band = (() => {
     return { type: 'instrument', family: t.family, instrument: t.instrument, sfv: t.sfv || 0, keep };
   }
   function gridType(p, t) {
+    if (SS.isAmbient(t)) return 'ambient'; // piste générative (Jardin, Paysage, Fresque) : un musicien Ambient
     const role = t.band && typeof t.band.key === 'string' ? t.band.key.split(':')[0] : null;
     if (role && B().ROLES[role]) return role === 'fx' ? null : role === 'perc' || role === 'drums' ? 'drums' : BG().typeOfRole(role);
     if (t.type === 'drum') return 'drums';
@@ -10454,7 +10757,7 @@ SS.band = (() => {
       // orchestre de l'assistant : une piste par pupitre, un seul musicien
       const same = type === 'orch' && t.band && t.band.musician && out.find((i) => i.bmu === t.band.musician);
       if (same) return void same.ids.push(t.id);
-      out.push({ type, name: t.name, opts: soundOf(t), ids: [t.id], ...(t.band && t.band.musician ? { bmu: t.band.musician } : {}) });
+      out.push({ type, name: t.name, opts: soundOf(t), ids: [t.id], ...(t.band && t.band.musician ? { bmu: t.band.musician } : {}), ...(type === 'ambient' ? ambGrid(t) : {}) });
     });
     // les pistes de batterie faites à la main rejoignent le kit du batteur de l'assistant (un seul batteur, pas deux)
     const hand = kits.get('*');
@@ -10809,6 +11112,16 @@ SS.band = (() => {
     renderWiz();
     noteWizard(`grille reprise : ${Object.entries(on).filter(([, v]) => v).map(([k]) => k).join(', ') || 'rien'} · ${Object.keys(l).length} piste(s) verrouillée(s)${mute.length ? ` · muets (pas dans la grille) : ${mute.join(', ')}` : ''}`);
   }
+  /**
+   * Piste générative de la grille : sa courbe de présence est « dessinée » si elle n'est pas celle que l'assistant avait posée
+   * (band.pres, js/main.js) ; son envoi Cosmos.
+   */
+  function ambGrid(t) {
+    const pr = t.ambient && Array.isArray(t.ambient.presence) ? t.ambient.presence : null;
+    const o = { drawn: !!pr && (!t.band || t.band.pres !== pr.join(',')) };
+    if (t.fx && typeof t.fx.sendSpace === 'number') o.space = t.fx.sendSpace;
+    return o;
+  }
   /** Le son (et ses réglages) des pistes d'un musicien, retouché dans la grille, devient le sien. */
   function takeSound(mu, tracks) {
     const ms = musState()[mu.id];
@@ -10819,6 +11132,15 @@ SS.band = (() => {
         const pc = ms.pieces.find((x) => x.piece === piece || x.piece.split('@')[0] === piece);
         if (pc && SS.gridSync.retouch(app.project(), t).sound) pc.custom = soundOf(t);
       });
+    } else if (mu.amb) {
+      // musicien Ambient : module, réglages, envoi Cosmos et courbe dessinée de la piste générative
+      const t = tracks[0];
+      const g = ambGrid(t);
+      ms.mod = BG().ambMod(t.instrument);
+      ms.amb = BG().ambOwn(t.ambient);
+      if (typeof g.space === 'number') ms.space = g.space;
+      if (g.drawn) ms.drawn = t.ambient.presence.slice();
+      else delete ms.drawn;
     } else if (!mu.orch) {
       ms.custom = soundOf(tracks[0]);
       ms.picked = true;
@@ -11354,6 +11676,7 @@ SS.band = (() => {
       const rc = recFor(type);
       if (type === 'drums') return rc.kits.map((k) => ({ son: k, nom: (B().KITS[k] || { label: k }).label }));
       if (type === 'orch') return SS.orchestra.ENSEMBLES.map((e) => ({ son: e.id, nom: e.label }));
+      if (type === 'ambient') return BG().AMB_MODS.map((id) => ({ son: id, nom: `${SS.ambient.MODULES[id].label} (${SS.ambient.MODULES[id].sub})` }));
       return rc.pick.map((tok) => ({ son: tok, nom: B().describe(B().choiceOpts(tok, rc.cat)).name }));
     }
     function ouvrir() {
@@ -11391,6 +11714,11 @@ SS.band = (() => {
       } else if (mu.orch) {
         if (!SS.orchestra.ENS[tok]) err(`effectif inconnu : « ${tok} » (${SS.orchestra.ENSEMBLES.map((e) => e.id).join(', ')})`);
         ms.ens = tok;
+      } else if (mu.amb) {
+        if (!BG().AMB_MODS.includes(tok)) err(`module inconnu : « ${tok} » (${BG().AMB_MODS.join(', ')})`);
+        const prev = ambInfo(ms).label;
+        ms.mod = tok;
+        if (BG().stripNum(mu.name) === prev) BG().rename(group(), mu.id, BG().freeName(group().list, ambInfo(ms).label, mu.id), baseNameOf(mu)); // il porte le nom de son module
       } else {
         const i = picksOf(mu).indexOf(tok);
         if (i >= 0) setPick(mu, ms, i);
@@ -11404,7 +11732,9 @@ SS.band = (() => {
       needPlan();
       if (!BG().TYPES.includes(type)) err(`type inconnu : « ${type} » (${BG().TYPES.join(', ')})`);
       if (!BG().canAdd(group())) err('le groupe est complet (10 musiciens)');
-      const rec = BG().add(group(), type, { name });
+      // musicien Ambient : il porte le nom de son module (Jardin par défaut)
+      const amb = type === 'ambient' && !name ? SS.ambient.MODULES[BG().ambMod(tok)].label : null;
+      const rec = BG().add(group(), type, { name: name || (amb && BG().freeName(group().list, amb)) });
       if (tok) {
         try {
           setSound(muById(rec.id), tok);
@@ -11838,7 +12168,7 @@ SS.band = (() => {
     }
     /** La scène jouée (vue des étapes instrument) : celle de l'arrangement, sinon la section seule. */
     const sceneRef = (sec) => ((wizSong().res || { scenes: [] }).scenes.find((x) => x.sec === sec) || sceneOf(sec));
-    const kindFr = { drums: 'batterie', bass: 'basse', chords: 'nappe', arp: 'arpège', melody: 'mélodie', orch: 'orchestre' };
+    const kindFr = { drums: 'batterie', bass: 'basse', chords: 'nappe', arp: 'arpège', melody: 'mélodie', orch: 'orchestre', ambient: 'ambient' };
     /** Motifs d'un instrument : [{ id, nom, … }] dans la mesure de la chanson. */
     function motifList(T, tous) {
       if (T.kind === 'drums') {
@@ -11868,24 +12198,41 @@ SS.band = (() => {
       const out = { musicien: T.title, type: kindFr[T.kind] || T.kind, mesure: sigOf(), motifs: motifList(T, tous) };
       if (T.kind === 'melody') out.conseil = 'pas de motifs : assistantEcrireMelodie({ scene, notes }) ou assistantMelodie() (🎲)';
       if (T.kind === 'orch') out.conseil = 'l’orchestre suit l’étape Orchestre : joue ou se tait par scène (assistantJeu({ joue }))';
+      if (T.kind === 'ambient') out.conseil = 'pas de motifs : par scène, assistantJeu({ presence, mouvement, hasard, joue })';
       out.scenes = Object.keys(specEff().sections).map((sec) => ({ scene: secName(sec), joue: String(instSub(T, sceneRef(sec))) }));
       return out;
     }
-    function jeu(ref, scenes, { motif, joue } = {}) {
+    function jeu(ref, scenes, { motif, joue, presence, mouvement, hasard } = {}) {
       needPlan();
       const T = insOf(ref);
       const secs = (scenes === '*' || fold(scenes) === 'toutes' ? Object.keys(specEff().sections) : [].concat(scenes == null ? [null] : scenes)).map(secId);
-      if (motif == null && joue == null) err('donne un motif, ou joue: true / false');
+      // musicien Ambient : présence, mouvement et hasard de la scène (parts[sec].inst[id].amb)
+      const ambArgs = presence != null || mouvement != null || hasard != null;
+      if (ambArgs && T.kind !== 'ambient') err(`« ${T.title} » n’est pas un musicien Ambient : presence, mouvement et hasard sont pour lui`);
+      if (motif == null && joue == null && !ambArgs) err(T.kind === 'ambient' ? 'donne presence, mouvement, hasard, ou joue: true / false' : 'donne un motif, ou joue: true / false');
+      let amb = null;
+      if (ambArgs) {
+        const pick = (v, list, what) => (v == null ? undefined : (list.find((x) => fold(x[0]) === fold(v) || fold(x[1]) === fold(v)) || err(`${what} : ${list.map((x) => fold(x[1])).join(', ')}`))[0]);
+        const h0 = hasard == null ? undefined : Number(hasard);
+        if (h0 !== undefined && !(h0 >= 0 && h0 <= 1)) err('hasard : de 0 à 1');
+        amb = { p: pick(presence, AMB_P, 'presence'), mv: pick(mouvement, AMB_MV, 'mouvement'), r: h0 };
+      }
       let m = null;
       if (motif != null && joue !== false) {
-        if (T.kind === 'melody' || T.kind === 'orch') err(`« ${T.title} » (${kindFr[T.kind]}) n’a pas de motifs : seulement joue: true / false`);
+        if (T.kind === 'melody' || T.kind === 'orch' || T.kind === 'ambient') err(`« ${T.title} » (${kindFr[T.kind]}) n’a pas de motifs : seulement joue: true / false`);
         m = findIn(motifList(T, true), String(motif), 'motif');
       }
       secs.forEach((sec) => {
         const sc = sceneRef(sec);
         if (joue === false) return void putOff(sec, T, true);
         putOff(sec, T, false);
-        if (m && T.kind === 'drums') putPart(sec, T, { style: m.style, pattern: m.id, edits: undefined });
+        if (amb) {
+          const cur = { ...((partOf(sec, T) || {}).amb || {}) };
+          Object.entries(amb).forEach(([k, v]) => v !== undefined && (cur[k] = v));
+          if (cur.p === 'mid') delete cur.p;
+          if (cur.mv === 'stable') delete cur.mv;
+          putPart(sec, T, { amb: Object.keys(cur).length ? cur : undefined });
+        } else if (m && T.kind === 'drums') putPart(sec, T, { style: m.style, pattern: m.id, edits: undefined });
         else if (m && T.kind === 'arp') {
           const cur = arpOne(sc, T);
           putPart(sec, T, { one: A1().normalize({ ...cur, ...SS.motifPatch(cur, SS.MOTIFS.find((x) => x.id === m.id)) }), mode: undefined });
