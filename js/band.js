@@ -1070,8 +1070,7 @@ SS.band = (() => {
     ns.forEach((n) => (svg += `<rect x="${(x(n.t) + 0.5).toFixed(1)}" y="${(y(n.m) - 3).toFixed(1)}" width="${Math.max(3, x(n.t + n.d) - x(n.t) - 1.5).toFixed(1)}" height="6" rx="2" fill="#ffd75e"/>`));
     return h('div', { class: cls, html: `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">${svg}</svg>` });
   }
-  const NOTE_FR = ['Do', 'Do♯', 'Ré', 'Mi♭', 'Mi', 'Fa', 'Fa♯', 'Sol', 'La♭', 'La', 'Si♭', 'Si'];
-  const noteName = (m) => NOTE_FR[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
+  const noteName = (m) => SS.noteNameFr(m);
   /** Change le thème : sur le modèle, la scène devient libre d'abord (mêmes repères, mêmes accords). */
   function themeEdit(fn) {
     if (filmTpl()) {

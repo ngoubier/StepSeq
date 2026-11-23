@@ -55,7 +55,7 @@ SS.arpPanel = (() => {
   };
   const clone = (o) => JSON.parse(JSON.stringify(o));
   const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-  const NOTES_FR = ['Do', 'Do#', 'Ré', 'Ré#', 'Mi', 'Fa', 'Fa#', 'Sol', 'Sol#', 'La', 'La#', 'Si'];
+  const NOTES_FR = SS.NOTE_NAMES_FR;
 
   function set(patch, { push = true } = {}) {
     if (push) {
@@ -385,7 +385,7 @@ SS.arpPanel = (() => {
           const op = (0.3 + 0.7 * t.vel).toFixed(2);
           svg += `<rect class="note" x="${(sx + gap / 2).toFixed(2)}" y="${(y(n) - nh / 2).toFixed(1)}" width="${Math.max(2.5, w).toFixed(2)}" height="${nh}" rx="${nh / 4}" style="opacity:${op}"/>`;
         });
-        svg += `<text style="font-size:${fs.toFixed(2)}px" x="${(i * cw + cw / 2).toFixed(1)}" y="12">${t.notes.map((n) => A().noteName(n).replace(/-?\d+$/, '')).join('+')}</text>`;
+        svg += `<text style="font-size:${fs.toFixed(2)}px" x="${(i * cw + cw / 2).toFixed(1)}" y="12">${t.notes.map((n) => SS.NOTE_NAMES_FR[n % 12]).join('+')}</text>`;
       });
     }
     const wrap = h('div', { class: 'arp-grid-wrap', html: `<svg class="arp-grid" viewBox="0 0 ${W.toFixed(2)} ${H}" role="img" aria-label="Toute la boucle de l’arpège, ${C} pas"${L.scroll ? ` style="width:${L.px.toFixed(0)}px"` : ''}>${svg}</svg>` });
@@ -670,7 +670,7 @@ SS.arpPanel = (() => {
     const base = 57;
     const name = (n) => {
       const o = Math.floor((n - base) / 12);
-      return A().noteName(n).replace(/-?\d+$/, '') + (o > 0 ? '′'.repeat(o) : o < 0 ? '↓'.repeat(-o) : '');
+      return SS.NOTE_NAMES_FR[n % 12] + (o > 0 ? '′'.repeat(o) : o < 0 ? '↓'.repeat(-o) : '');
     };
     const g = GROUP[mode];
     return ticks.map((t, i) => (g && i && i % g === 0 ? '· ' : '') + (t ? t.notes.map(name).join('+') : '–')).join(' ');
@@ -1503,7 +1503,7 @@ SS.arpPanel = (() => {
     el.innerHTML = inner;
     return el;
   };
-  const noteName = (m) => NOTES[m % 12] + (Math.floor(m / 12) - 1);
+  const noteName = (m) => SS.noteNameFr(m);
 
   /** Schéma de l'accord sur le manche (cordes verticales, la fondamentale en orange). */
   function guitarDiagram(sh) {
@@ -1526,7 +1526,7 @@ SS.arpPanel = (() => {
       else if (root) s += `<circle cx="${x}" cy="${y0 + (f - start) * dy + dy / 2}" r="5" class="gd-dot root"/>`;
     });
     const tun = (GA().TUNINGS.find((t) => t.id === sh.tuning) || GA().TUNINGS[0]).notes;
-    tun.map((m) => NOTES[m % 12]).forEach((n, i) => (s += `<text x="${x0 + i * dx}" y="${y0 + dy * 5 + 16}" class="gd-fret" text-anchor="middle">${n}</text>`));
+    tun.map((m) => NOTES_FR[m % 12]).forEach((n, i) => (s += `<text x="${x0 + i * dx}" y="${y0 + dy * 5 + 16}" class="gd-fret" text-anchor="middle">${n}</text>`));
     return svg(150, 182, s, 'gt-diagram');
   }
 

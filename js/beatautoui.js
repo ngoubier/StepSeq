@@ -298,7 +298,7 @@ SS.beatAutoUI = (() => {
           rerender();
         } }, label)));
     head.append(h('label', {}, 'Passage'), passSeg, h('label', {}, 'Liaison'), linkSeg(), h('label', {}, 'Lecture'), modeSeg,
-      h('button', { type: 'button', class: 'ba-btn', title: 'Voir et dessiner ces courbes sur toute la chanson (fenêtre Song)', onclick: () => {
+      h('button', { type: 'button', class: 'ba-btn', title: 'Voir et dessiner ces courbes sur toute la chanson (fenêtre Arrangement)', onclick: () => {
         songParam = lanes[0].id;
         SS.song.open();
       } }, 'Toute la chanson…'));

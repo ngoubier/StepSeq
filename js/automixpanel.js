@@ -487,7 +487,7 @@ SS.automixPanel = (() => {
       h('div', { class: 'am-bar' }, h('i', { style: `width:${clamp((secs / Math.max(need * 3, 1)) * 100, 0, 100)}%` }))
     );
     if (p.playMode !== 'song' && p.song && p.song.length > 1 && !secs)
-      box.append(h('p', { class: 'am-hint', 'data-helpify': true }, 'Astuce : passe en mode Song (fenêtre Song) pour que j\'écoute toute la chanson, pas seulement la scène en cours.'));
+      box.append(h('p', { class: 'am-hint', 'data-helpify': true }, 'Astuce : passe en lecture Chanson pour que j\'écoute toute la chanson, pas seulement la scène en cours.'));
   }
 
   function renderScore() {
@@ -1129,7 +1129,7 @@ SS.automixPanel = (() => {
     dlg.replaceChildren(
       h('div', { class: 'am-prefs-head' }, h('h3', { id: 'amPrefsTitle' }, 'Préférences Auto Mix'), h('button', { type: 'button', class: 'mx-close', onclick: () => dlg.close() }, 'Fermer')),
       h('div', { class: 'am-prefs-body' },
-        h('section', {}, h('h4', {}, 'Ce que l\'assistant peut modifier'), h('p', { class: 'am-hint', 'data-helpify': true }, 'Les conseils qui touchent un réglage décoché ne sont pas proposés.'), ...scopes),
+        h('section', {}, h('h4', {}, 'Ce qu\'Auto Mix peut modifier'), h('p', { class: 'am-hint', 'data-helpify': true }, 'Les conseils qui touchent un réglage décoché ne sont pas proposés.'), ...scopes),
         h('section', {}, h('h4', {}, 'Objectif par défaut'), ...targets),
         h('section', {}, h('h4', {}, 'Conseils affichés'), ...detail,
           h('label', { class: 'am-pref-row', for: 'amMinSecs' }, h('span', {}, h('b', {}, 'Écoute avant le premier diagnostic'), h('small', {}, 'Plus long = plus fiable')), secs))

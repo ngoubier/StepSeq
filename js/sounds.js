@@ -306,7 +306,7 @@ const FAMILY_DEFS = [
   // pistes Ambient (js/ambient.js) : un moteur génératif, un module par piste ; envoi vers Cosmos par défaut
   {
     id: 'ambient',
-    label: 'Ambient',
+    label: 'Génératif',
     octave: 4,
     extra: [
       { id: 'jardin', label: 'Jardin (grains, boucles, drone, terrain)', kind: 'ambient', fx: { space: 0.5 } },
@@ -555,6 +555,9 @@ SS.chordNotes = (root, chordId) => {
 /* ---------- Notes ---------- */
 SS.NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 SS.noteName = (midi) => SS.NOTE_NAMES[((midi % 12) + 12) % 12] + (Math.floor(midi / 12) - 1);
+/** Noms de notes affichés à l'écran : en français, avec ♯ et ♭ (SS.noteName reste en lettres pour les fichiers, les tests et Claude). */
+SS.NOTE_NAMES_FR = ['Do', 'Do♯', 'Ré', 'Mi♭', 'Mi', 'Fa', 'Fa♯', 'Sol', 'La♭', 'La', 'Si♭', 'Si'];
+SS.noteNameFr = (midi) => SS.NOTE_NAMES_FR[((midi % 12) + 12) % 12] + (Math.floor(midi / 12) - 1);
 SS.isBlackKey = (midi) => [1, 3, 6, 8, 10].includes(((midi % 12) + 12) % 12);
 /** "C4", "Ds1", "A#3", "Bb2" -> midi */
 SS.parseNote = (str) => {

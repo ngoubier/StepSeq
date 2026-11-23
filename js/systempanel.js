@@ -260,7 +260,7 @@ SS.systemPanel = (() => {
     set('masterEffects', ['eq', 'comp', 'lim', 'vcf'].filter(k => mix.mix[k]?.on).length + ' inserts · ' + creative + ' effets · ' + (mix.mastering.on ? 'mastering actif' : 'mastering coupé'));
     set('juno', a.junoEngines + ' moteurs instanciés (6 voix chacun)');
     const mode = SS.automixPanel?._state().mode;
-    set('automix', SS.automixListen?.listening() ? (mode === 'pilot' ? 'Pilote Auto' : 'Assistant') + ' · analyse active' : 'Arrêté');
+    set('automix', SS.automixListen?.listening() ? (mode === 'pilot' ? 'Pilote auto' : 'Conseils') + ' · analyse active' : 'Arrêté');
     set('visibility', document.hidden ? 'En arrière-plan' : 'Au premier plan');
     const list = warnings(a, { hidden: document.hidden, lag, maxBlock, heapRatio });
     const verdict = renderVerdict(a, now);

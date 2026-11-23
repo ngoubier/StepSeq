@@ -201,7 +201,7 @@ SS.live = (() => {
     if (!st.on) setOn(true);
     if (!st.on) return;
     if (SS.audio.isSongPlaying()) {
-      SS.ui.toast('L’enregistrement se fait sur la scène en boucle : arrête la lecture du morceau (mode Song) et relance.', 5000);
+      SS.ui.toast('L’enregistrement se fait sur la scène en boucle : arrête la lecture du morceau (lecture Chanson) et relance.', 5000);
       return;
     }
     const track = armedTrack();

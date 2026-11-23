@@ -54,8 +54,17 @@ commentaires du code, les messages de commit et les descriptions de PR sont en f
   `var(--c-…)`.
 - **Texte non sélectionnable** (`body { user-select: none }`). Les champs de saisie, `.sd-code` et la classe
   `.selectable` restent sélectionnables : ajouter `.selectable` à tout texte que l'on doit pouvoir copier.
-- **Mots de l'interface.** « Assistant » ou « Nouvelle chanson » à l'écran (jamais « Band », nom interne) ;
-  « Grille » pour les pistes ; « scène » pour une partie de chanson. Notes en français à l'écran (Do, Ré, Mi♭).
+- **Lexique de l'interface** (validé le 2026-11-23) :
+  - **Assistant** ou **Nouvelle chanson** : l'assistant de création, et lui seul (« Band » est son nom dans le code,
+    jamais à l'écran). Les modes d'Auto Mix sont **Pilote auto** et **Conseils** ; le parcours film est **Musique de film**.
+  - **Arrangement** : la fenêtre des scènes et de l'arrangement (bouton de la barre du haut). **Chanson** : la
+    chanson elle-même (Nouvelle chanson, Mes chansons, lecture **Chanson | Scène**). Jamais « Song ».
+  - **Grille** : les pistes du projet. **Scène** : une partie de la chanson ; **passage** seulement dans Musique de
+    film (le morceau d'image entre deux repères).
+  - **Ambient** : seulement le style de l'assistant. Les pistes à modules (Jardin, Paysage, Fresque) sont des
+    **pistes génératives** (famille « Génératif »).
+  - **Notes** en français avec ♯ et ♭ (`SS.noteNameFr`, `SS.NOTE_NAMES_FR`) : Do♯4, Mi♭. **Accords** en symboles
+    internationaux, comme on les tape (Am, F, C/E). `SS.noteName` (C#4) reste pour les fichiers, les tests et Claude.
 - Les réglages d'application vont dans la fenêtre **Options** (onglets), pas dans un nouveau menu.
 - Les modèles « dans l'esprit de » ont des titres et des mélodies originaux (droits d'auteur). Pour les styles
   acoustiques, proposer d'abord les sons VCSL, VSCO ou le synthé intégré, pas General MIDI.

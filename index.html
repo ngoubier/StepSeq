@@ -101,7 +101,7 @@
     </div>
 
     <div class="topbar-group studio" role="group" aria-label="Fenêtres">
-      <!-- Mode assistant (body.wizard-mode) : la tonalité de la chanson en cours de création remplace Tonalité et Song (js/band.js, updateTransport) -->
+      <!-- Mode assistant (body.wizard-mode) : la tonalité de la chanson en cours de création remplace Tonalité et Arrangement (js/band.js, updateTransport) -->
       <div id="wizKey" class="wiz-key" role="status" aria-label="Tonalité de la chanson" title="Tonalité de la chanson">
         <span class="sb-txt"><small>Tonalité</small><b id="wizKeyName">—</b><small id="wizKeyInfo"></small></span>
       </div>
@@ -109,9 +109,9 @@
         <span class="sb-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span>
         <span class="sb-txt"><b>Tonalité</b><small id="keyLabel">Pas de tonalité</small></span>
       </button>
-      <button id="songBtn" class="btn studio-btn song-btn" type="button" aria-pressed="false" title="Song : scènes et arrangement de la chanson">
+      <button id="songBtn" class="btn studio-btn song-btn" type="button" aria-pressed="false" title="Arrangement : scènes et arrangement de la chanson">
         <span class="sb-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="6" height="10" rx="1.5"/><rect x="9" y="7" width="6" height="10" rx="1.5"/><rect x="16" y="7" width="6" height="10" rx="1.5"/></svg></span>
-        <span class="sb-txt"><b>Song</b><small id="songSub">—</small></span>
+        <span class="sb-txt"><b>Arrangement</b><small id="songSub">—</small></span>
       </button>
       <button id="mixerBtn" class="btn studio-btn mixer-btn" type="button" aria-pressed="false" title="Mix : console de mixage (EQ, compresseur, limiteur, faders)">
         <span class="sb-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg></span>
@@ -142,10 +142,10 @@
   </header>
 
   <!-- Panneau d'arrangement compact : affiché sous la barre du haut si la case « Garder le panneau affiché »
-       de la fenêtre Song est cochée (js/song.js). -->
+       de la fenêtre Arrangement est cochée (js/song.js). -->
   <div id="songDock" class="song-dock">
   <section id="songBar" class="songbar" aria-label="Arrangement">
-    <button type="button" class="songbar-close" id="songBarClose" title="Fermer le panneau d'arrangement (le rouvrir : fenêtre Song, case « Garder le panneau affiché »)" aria-label="Fermer le panneau d'arrangement">
+    <button type="button" class="songbar-close" id="songBarClose" title="Fermer le panneau d'arrangement (le rouvrir : fenêtre Arrangement, case « Garder le panneau affiché »)" aria-label="Fermer le panneau d'arrangement">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
     </button>
     <div class="songbar-row">
@@ -219,7 +219,7 @@
           <div class="am-head">
             <h3 id="amTitle">Auto Mix</h3>
             <span class="spacer"></span>
-            <button type="button" id="amPrefsBtn" class="am-icon" title="Préférences Auto Mix : ce que l'assistant peut modifier, objectif par défaut" aria-label="Préférences Auto Mix">
+            <button type="button" id="amPrefsBtn" class="am-icon" title="Préférences Auto Mix : ce qu'Auto Mix peut modifier, objectif par défaut" aria-label="Préférences Auto Mix">
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
             </button>
             <button type="button" id="amClose" class="am-icon" title="Fermer Auto Mix" aria-label="Fermer Auto Mix">
@@ -227,8 +227,8 @@
             </button>
           </div>
           <div class="am-modes" role="group" aria-label="Mode Auto Mix">
-            <button type="button" id="amPilotBtn" class="am-mode" aria-pressed="false">Pilote Auto</button>
-            <button type="button" id="amAssistantBtn" class="am-mode" aria-pressed="false">Assistant</button>
+            <button type="button" id="amPilotBtn" class="am-mode" aria-pressed="false">Pilote auto</button>
+            <button type="button" id="amAssistantBtn" class="am-mode" aria-pressed="false">Conseils</button>
           </div>
           <div class="am-body">
             <div id="amStatus" class="am-status"></div>
@@ -361,7 +361,7 @@
   <dialog id="songDialog" class="song-dialog" aria-labelledby="songDlgTitle">
     <div class="song-shell">
       <header class="song-head">
-        <h2 id="songDlgTitle">Song <button type="button" class="help-tip" data-help="Les scènes et l’arrangement de la chanson." data-help-title="Song" aria-label="Aide : Song">?</button></h2>
+        <h2 id="songDlgTitle">Arrangement <button type="button" class="help-tip" data-help="Les scènes et l’arrangement de la chanson." data-help-title="Arrangement" aria-label="Aide : Arrangement">?</button></h2>
         <span class="spacer"></span>
         <button type="button" class="btn btn-icon" id="songClose" title="Fermer (Échap)" aria-label="Fermer">
           <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
@@ -455,7 +455,7 @@
         <div class="nt-gm" id="dlgGmRow">
           <div class="segmented pills-nav" id="dlgGm" role="radiogroup" aria-label="Sons proposés">
             <button type="button" data-v="all">Tous</button>
-            <button type="button" data-v="gm" title="Mode General MIDI du projet : seuls les sons General MIDI sont proposés, ici et dans Band">General MIDI</button>
+            <button type="button" data-v="gm" title="Mode General MIDI du projet : seuls les sons General MIDI sont proposés, ici et dans l’assistant">General MIDI</button>
           </div>
         </div>
         <span class="nt-keys" tabindex="0" role="note" aria-label="Raccourcis clavier" title="← → : colonnes et pastilles · ↑ ↓ : liste (écoute) · lettres : aller à · Espace : écouter · Entrée : valider · Échap : annuler">⌨</span>
