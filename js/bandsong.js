@@ -41,7 +41,7 @@
  *
  * Type d'instrument (option kinds de build) : chaque instrument a un type parmi KINDS = drums, bass, chords, arp, melody.
  * Le type choisit le générateur qui joue ses notes. Par défaut c'est celui de son rôle (DEFAULT_KIND : drums et perc →
- * drums, bass → bass, pad, strings, keys, guitar → chords, arp, arpchord → arp, lead, vox, sax → melody ; fx n'a pas
+ * drums, bass → bass, pad, strings, keys, guitar, brass → chords, arp, arpchord → arp, lead, vox, sax → melody ; fx n'a pas
  * de type). Identifiant d'instrument : « musicien:clé » de t.band (la clé de colonne de l'assistant), suivi de « #n »
  * pour le n-ième doublon ; sans t.band.musician, la clé seule. kinds = { [idInstrument]: type } (repli : t.id, puis t.kind).
  *  - Un kit de batterie (piste drum) ne peut être que drums (checkKind) : tout autre type est ignoré.
@@ -115,7 +115,7 @@ SS.bandSong = (() => {
     const p = s % SPB;
     return p === 0 ? 1 : p === halfBar() ? 0.96 : p % BEAT === 0 ? 0.92 : p % 2 === 0 ? 0.86 : 0.8;
   };
-  const DEPTH = { bass: 0.6, arp: 1, lead: 0.5, vox: 0.5, sax: 0.5, pad: 0.3, strings: 0.4, keys: 0.7, guitar: 0.8 };
+  const DEPTH = { bass: 0.6, arp: 1, lead: 0.5, vox: 0.5, sax: 0.5, brass: 0.5, pad: 0.3, strings: 0.4, keys: 0.7, guitar: 0.8 };
   const clampV = (v) => Math.round(Math.max(0.12, Math.min(1, v)) * 100) / 100;
 
   /* ---------- accents de la basse ----------
@@ -1296,6 +1296,15 @@ SS.bandSong = (() => {
     guajeo23: { ev: montunoEv([[0, 'O'], [1, 'Q'], [2, 'P'], [3, 'A'], [5, 'Q'], [6, 'P'], [7, 'A'], [9, 'Q'], [11, 'A'], [13, 'Q'], [14, 'P'], [15, 'A']]) },
     // montuno du mambo : croches continues, appuyées sur les coups de la clave 2-3
     mambo23: { ev: montunoEv([[0, 'O'], [1, 'C'], [2, 'P'], [3, 'A'], [5, 'C'], [6, 'P'], [7, 'A'], [9, 'C'], [10, 'P'], [11, 'A'], [13, 'C'], [14, 'P'], [15, 'A']], [2, 4, 8, 11, 14]) },
+    // section de cuivres (rôle brass) : deux trompettes et un trombone en accords serrés, écrits en clave 2-3 comme les
+    // montunos ; voix : trompette 1 en haut, trompette 2 une tierce (ou une quarte) dessous, trombone une octave sous la 1
+    'brass-tenues': { ev: [[0, 16, '3 8 10', 0.5]] },
+    'brass-clave': { ev: [2, 4, 8, 11, 14].map((s) => [s, 1, '3 8 10', 0.8]) },
+    'brass-mona': { ev: brassRiff([[2, 2, 1], [4, 1, 3], [8, 2, 2], [11, 1, 2, '>'], [14, 2, 1], [15, 3, 2, '>']], true) },
+    // mambo : riff serré des trompettes et contre-chant tenu du trombone sur la fondamentale
+    'brass-mambo': { ev: [...brassRiff([[0, 3, 1], [1, 2, 1], [2, 1, 1], [3, 0, 2, '>'], [6, 1, 2], [8, 3, 1], [9, 2, 1], [10, 3, 1], [12, 2, 1], [14, 1, 2]]), [0, 6, '1', 0.62], [8, 6, '1', 0.62]] },
+    // cierre : trois coups ensemble dans la dernière mesure de la scène, le dernier tenu
+    'brass-cierre': { ev: [[0, 1, '$1 8 10 12', 0.9], [3, 1, '$1 8 10 12', 0.9], [6, 10, '$1 8 10 12', 0.95]] },
     skank2: { ev: [[4, 1, PD, 0.72], [6, 1, PD, 0.42], [12, 1, PD, 0.72], [14, 1, PD, 0.42]] },
     lofi: { ev: [[0, 6, '1 3 5 7'], [7, 1, '1 3 5 7', 0.5], [10, 6, '1 3 5 7']] },
     chops: { ev: [[0, 2], [3, 1], [8, 2], [10, 1], [11, 1]].map(([s, l]) => [s, l, PD]) },
@@ -1320,6 +1329,15 @@ SS.bandSong = (() => {
     const D = { O: ['^b3 3 10', 3, 0.74], A: ['>b3 3 10', 3, 0.8], C: ['5 8', 1, 0.5], P: ['b 1 8', 1, 0.66], Q: ['b5 5 12', 1, 0.6] };
     return list.map(([s, k]) => [s, D[k][1], D[k][0], Math.min(0.9, D[k][2] + (acc.includes(s) ? 0.1 : 0))]);
   }
+  /**
+   * Riff de cuivres : [pas, rang de la note du dessus dans l'accord (0 : fondamentale, 1 : tierce, 2 : quinte, 3 :
+   * fondamentale à l'octave), durée, '>' pour une anticipation liée] ; trio : avec le trombone une octave sous la note
+   * du dessus, sinon les deux trompettes seules.
+   */
+  function brassRiff(list, trio = false) {
+    const TOP = [['8', '5', '1'], ['10', '8', '3'], ['12', '10', '5'], ['15', '12', '8']];
+    return list.map(([s, k, l, f = '']) => [s, l, f + TOP[k].slice(0, trio ? 3 : 2).join(' '), l >= 2 ? 0.8 : 0.72]);
+  }
   /** Motif de nappe tenu (une seule tenue d'une mesure de 4/4) : il s'étire à la mesure de la chanson. */
   const padHeld = (p) => p.ev.every(([o, l]) => o === 0 && l === 16);
   /** Hauteurs des degrés d'un accord, fondamentale `root` (MIDI) ; kp : notes de la gamme (classes), pour 7, 9 et 6. */
@@ -1335,7 +1353,7 @@ SS.bandSong = (() => {
     return { b: root - 12, b3: root - 12 + third, b5: root - 12 + fifth, 1: root, 2: root + ninth - 12, 3: root + third, 4: root + 5, 5: root + fifth, 6: root + 9, 7: root + sev, M7: root + 11, m7: root + 10, 8: root + 12, 9: root + ninth, 10: root + 12 + third, 12: root + 12 + fifth, 15: root + 24 };
   }
   /** Notes d'un motif de PAD_NEW sur un accord : fondamentale au plus près de la précédente (prevRoot), dans lo − 5 … lo + 12. */
-  function padNewEvents(spans, p, r, { lo = 55, open = false, kp = null } = {}) {
+  function padNewEvents(spans, p, r, { lo = 55, open = false, kp = null, top = null } = {}) {
     const ev = [];
     let prevRoot = lo + 5;
     const degs = spans.map((sp) => {
@@ -1345,6 +1363,7 @@ SS.bandSong = (() => {
       return padDegrees(sp.chord, root, kp);
     });
     const start = spans.length ? spans[0].step : 0;
+    const lastBar = spans.length ? Math.floor((spans[spans.length - 1].step + spans[spans.length - 1].len - 1) / SPB) * SPB : 0;
     spans.forEach((sp, si) => {
       const end = sp.step + sp.len;
       const held = SPB !== 16 && !p.meter && padHeld(p);
@@ -1353,11 +1372,13 @@ SS.bandSong = (() => {
           if (o >= SPB) return;
           // « ^ » : seulement au début de la scène (ailleurs, la note anticipée juste avant est liée) ;
           // « > » : anticipation, la note prend l'accord qui arrive au pas suivant et se lie à lui (montuno de salsa)
-          const flag = /^[>^]/.test(String(d0)) ? String(d0)[0] : '';
+          // « $ » : seulement dans la dernière mesure de la scène (cierre des cuivres)
+          const flag = /^[>^$]/.test(String(d0)) ? String(d0)[0] : '';
           const d = flag ? String(d0).slice(1) : d0;
           const l = held ? SPB : Math.min(l0, SPB - o);
           let s = b + o;
           if (flag === '^' && s !== start) return;
+          if (flag === '$' && b !== lastBar) return;
           const nx = flag === '>' && spans[si + 1] && spans[si + 1].step === s + 1 ? si + 1 : -1;
           const deg = degs[nx >= 0 ? nx : si];
           let e = nx >= 0 ? Math.min(s + l0, spans[nx].step + spans[nx].len) : Math.min(s + l, end);
@@ -1368,6 +1389,7 @@ SS.bandSong = (() => {
           if (e <= s) return;
           let notes = [...new Set(String(d).split(' ').map((x) => deg[x]).filter((n) => n != null))].sort((x, y) => x - y);
           if (open && notes.length >= 3 && !/\bb\b/.test(d)) notes = [notes[0] - 12, ...notes.slice(1)];
+          if (top && notes[notes.length - 1] > top) notes = notes.map((n) => n - 12); // trop aigu pour l'instrument : une octave plus bas
           ev.push({ step: s, len: e - s, notes, vel: vel(r, v ?? (l >= 8 ? 0.6 : o % 4 === 0 ? 0.74 : 0.64)) });
         });
     });
@@ -1390,8 +1412,8 @@ SS.bandSong = (() => {
     }
     return fx === 'open' ? { filter: lane } : { volume: lane };
   }
-  function chordEvents(spans, mode, r, { lo = 55, hi = 79, open = false, kp = null } = {}) {
-    if (PAD_NEW[mode]) return padNewEvents(spans, PAD_NEW[mode], r, { lo, open, kp });
+  function chordEvents(spans, mode, r, { lo = 55, hi = 79, open = false, kp = null, top = null } = {}) {
+    if (PAD_NEW[mode]) return padNewEvents(spans, PAD_NEW[mode], r, { lo, open, kp, top });
     const ev = [];
     let prev = null;
     const add = (s, len, notes, v) => len > 0 && ev.push({ step: s, len, notes: [...notes], vel: vel(r, v) });
@@ -1572,7 +1594,7 @@ SS.bandSong = (() => {
     return s0 > 0 ? { 0: a, [s0]: a, [n - 1]: b } : { 0: a, [n - 1]: b };
   };
   const RISER_TOP = 0.8; // volume de la montée de bruit à la fin de la montée (elle fait avancer la montée quand le kick se retire)
-  const MELODIC = ['pad', 'arp', 'keys', 'strings', 'guitar', 'lead', 'vox', 'sax'];
+  const MELODIC = ['pad', 'arp', 'keys', 'strings', 'guitar', 'brass', 'lead', 'vox', 'sax'];
 
   /* ---------- dynamique des chansons EDM et techno ----------
    * Un producteur retient le groove pour que le drop frappe : nappes et claviers plus bas et plus sombres, charleston
@@ -1581,7 +1603,7 @@ SS.bandSong = (() => {
    * ceux de l'utilisateur les remplacent. Sans drop dans le plan (deep house), rien ne change.
    *   dyn : 'intro' | 'groove' | 'build' | 'first' (drop suivi d'un autre) | 'drop' | 'outro'
    */
-  const HOLD = { pad: [0.5, -0.2], strings: [0.55, -0.2], keys: [0.6, 0], guitar: [0.65, 0], arp: [0.62, -0.25], lead: [0.7, -0.15], vox: [0.72, 0], sax: [0.72, 0] };
+  const HOLD = { pad: [0.5, -0.2], strings: [0.55, -0.2], keys: [0.6, 0], guitar: [0.65, 0], brass: [0.7, 0], arp: [0.62, -0.25], lead: [0.7, -0.15], vox: [0.72, 0], sax: [0.72, 0] };
   /** Nature de la scène pour la dynamique : null (inchangée) ou groove / build / first (drop suivi d'un autre) / drop / outro. */
   function dynKind(spec, id, form) {
     if (!spec.sc) return null;
@@ -2053,7 +2075,7 @@ SS.bandSong = (() => {
 
   /* ---------- types d'instrument ---------- */
   const KINDS = ['drums', 'bass', 'chords', 'arp', 'melody'];
-  const DEFAULT_KIND = { drums: 'drums', perc: 'drums', bass: 'bass', pad: 'chords', strings: 'chords', keys: 'chords', guitar: 'chords', arp: 'arp', arpchord: 'arp', lead: 'melody', vox: 'melody', sax: 'melody', orch: 'orch' };
+  const DEFAULT_KIND = { drums: 'drums', perc: 'drums', bass: 'bass', pad: 'chords', strings: 'chords', keys: 'chords', guitar: 'chords', brass: 'chords', arp: 'arp', arpchord: 'arp', lead: 'melody', vox: 'melody', sax: 'melody', orch: 'orch' };
   const DEFAULT_MODE = { bass: '8', chords: 'sustain', arp: 'up16', melody: 'verse', drums: 'both' };
   const ARP_MODES = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16', 'rise', 'ost16', 'dotted', 'toll', 'alb3', 'wave6', 'tri8'];
   const MODES = () => ({
@@ -2288,7 +2310,7 @@ SS.bandSong = (() => {
         else if (!extra && !((o && (o.mode || o.one)) || sec[role])) mode = null; // muet dans le plan, rien ne l'allume
         else {
           const valid = MODES()[kd];
-          const plan = { bass: [sec.bass], chords: [sec.pad, sec.strings, sec.keys], arp: [sec.arp, sec.arpchord], melody: [sec.lead, sec.vox, sec.sax], drums: [] }[kd];
+          const plan = { bass: [sec.bass], chords: [sec.pad, sec.strings, sec.keys, sec.brass], arp: [sec.arp, sec.arpchord], melody: [sec.lead, sec.vox, sec.sax], drums: [] }[kd];
           mode = o && valid.includes(o.mode) ? o.mode : plan.find((m) => m && valid.includes(m)) || DEFAULT_MODE[kd];
         }
         mode = fitMode(changed ? kd : kindOfRole(role), mode); // autre mesure que 4/4 : un rythme écrit pour elle
@@ -2341,7 +2363,7 @@ SS.bandSong = (() => {
           else if (role === 'arpchord') events = arpEvents(spans, mode, r);
           else {
             // nappe, cordes, piano, guitare : accords (ou arpège si le mode en est un)
-            const range = role === 'keys' ? { lo: 57, hi: 79 } : role === 'guitar' ? { lo: 52, hi: 74 } : role === 'strings' ? { lo: 55, hi: 81 } : { lo: 53, hi: 76 };
+            const range = role === 'keys' ? { lo: 57, hi: 79 } : role === 'guitar' ? { lo: 52, hi: 74 } : role === 'strings' ? { lo: 55, hi: 81 } : role === 'brass' ? { lo: 53, hi: 84, top: 84 } : { lo: 53, hi: 76 };
             // guitare : motif du mode Guitare d'Arp One (« g:travis »…), joué par le vrai moteur (js/guitar-arp.js)
             if (/^g:/.test(mode) && SS.GuitarArp) (events = arpOneEvents(spans, { guitar: { ...((o && o.gtr) || {}), on: true, motif: mode.slice(2) } }, bars)), (gtrEv = true);
             else if (/^g:/.test(mode)) events = chordEvents(spans, 'chop', r, range); // sans le moteur de guitare : petits accords hachés

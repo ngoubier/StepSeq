@@ -48,7 +48,7 @@ SS.render = (() => {
     return p.tracks.filter((t) => !t.mute && (!soloed || t.solo));
   };
 
-  const MUSICIANS = { drums: 'Batterie', perc: 'Percussions', bass: 'Basse', pad: 'Nappe', arp: 'Arpège', lead: 'Lead', keys: 'Clavier', guitar: 'Guitare', strings: 'Cordes', sax: 'Sax', vox: 'Voix', fx: 'Effets', chords: 'Accords' };
+  const MUSICIANS = { drums: 'Batterie', perc: 'Percussions', bass: 'Basse', pad: 'Nappe', arp: 'Arpège', lead: 'Lead', keys: 'Clavier', guitar: 'Guitare', strings: 'Cordes', sax: 'Sax', brass: 'Cuivres', vox: 'Voix', fx: 'Effets', chords: 'Accords' };
 
   /**
    * Stems : [{ id, name, tracks: [id] }]. by 'musician' : les pistes Band d'un même musicien ensemble (band.key

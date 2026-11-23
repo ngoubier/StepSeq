@@ -114,7 +114,9 @@ voir « Nouvelle chanson » plus bas), sur le projet en cours. Ses deux premièr
    manière de jouer : talon-pointe, slap ou ouverte pour les congas), grooves `salsa23` (couplet : cáscara, martillo),
    `salsa23m` (montuno : campana, cloche du bongo) et `salsa23x` (mambo), piano en **montuno** (motifs Montuno 2-3,
    Montuno 3-2, Guajeo en octaves, Montuno du mambo : octaves anticipées sur le « et » et liées à l'accord qui arrive,
-   main gauche qui double la ligne) et basse en **tumbao** (`tumbao23`) ;
+   main gauche qui double la ligne), basse en **tumbao** (`tumbao23`) et musicien **Cuivres** (rôle `brass` : deux
+   trompettes et un trombone en accords serrés ; jeux Tenues, Coups sur la clave, Moña, Mambo avec contre-chant de
+   trombone, Cierre de trois coups dans la dernière mesure ; motifs `brass-*` de la famille Cuivres des motifs de nappe) ;
 2. le **type de chanson** : des inspirations par style (Smalltown Boy, Nightcall, Blinding Lights, Sweet Dreams…,
    Levels, Strobe, Opus, Faded…, Powers of Ten, Eternity, Return to Oz, Sky and Sand, Your Mind, Rej…), avec un
    tempo suggéré ;

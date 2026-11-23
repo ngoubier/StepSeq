@@ -445,3 +445,36 @@ test('salsa 2-3 : montuno de piano anticipé et lié, tumbao en croches, percuss
   assert.equal(sal.length, 4);
   sal.forEach((p) => assert.deepEqual([...p.lanes.C].map((c, i) => (c === '-' ? -1 : i)).filter((i) => i >= 0), [2, 4, 8, 11, 14], p.id));
 });
+
+test('cuivres : section serrée, coups sur la clave 2-3, moña anticipée, cierre dans la dernière mesure', () => {
+  const BS = SS.bandSong;
+  const B = SS.Band;
+  assert.equal(B.ROLES.brass.cat, 'chord');
+  assert.equal(BS.DEFAULT_KIND.brass, 'chords');
+  const key = { tonic: 'A', mode: 'minor' };
+  const spans = BS.spansOf({ chords: 'i/iv/V7/iv | i' }, key, 2);
+  const run = (m) => BS.chordEvents(spans, m, () => 0.5, { lo: 53, hi: 84, top: 84 });
+  // coups : les cinq coups de la clave 2-3, trois voix (trompettes à la tierce, trombone une octave sous la 1re)
+  const hits = run('brass-clave').filter((e) => e.step < 16);
+  assert.deepEqual(hits.map((e) => e.step), [2, 4, 8, 11, 14]);
+  hits.forEach((e) => {
+    assert.equal(e.notes.length, 3);
+    assert.equal(e.notes[2] - e.notes[0], 12);
+  });
+  // moña : le « et » avant le changement (pas 11) prend déjà l'accord qui arrive (Ré mineur) et se lie
+  const mona = run('brass-mona');
+  const a11 = mona.find((e) => e.step === 11);
+  assert.ok(a11.notes.every((n) => [2, 5, 9].includes(n % 12)) && a11.step + a11.len > 12);
+  // tout reste jouable à la trompette
+  ['brass-tenues', 'brass-clave', 'brass-mona', 'brass-mambo', 'brass-cierre'].forEach((m) => run(m).forEach((e) => assert.ok(Math.max(...e.notes) <= 84, m)));
+  // cierre : trois coups dans la dernière mesure seulement, le dernier tenu
+  const cierre = run('brass-cierre');
+  assert.deepEqual(cierre.map((e) => e.step), [16, 19, 22]);
+  assert.ok(cierre[2].len >= 8);
+  // mambo : contre-chant du trombone sous le riff
+  assert.ok(run('brass-mambo').some((e) => e.notes.length === 1 && e.len >= 4));
+  // le modèle salsa a sa section de cuivres
+  const calle = B.STYLES.flatMap((s) => s.presets).find((p) => p.id === 'calle');
+  assert.ok(calle.musicians.some((m) => m.role === 'brass'));
+  assert.equal(SS.BandSongs.calle.sections.outro.brass, 'brass-cierre');
+});

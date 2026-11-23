@@ -50,7 +50,7 @@ SS.BAND_DRIVE = {
   feather: 11.1,
   lk: 11.5,
   despacito: 9.9,
-  calle: 7.7,
+  calle: 7.1,
   kingston: 13.4,
   lovely: 9,
   samedisoir: 8.6,
