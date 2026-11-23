@@ -358,22 +358,18 @@ SS.automix = (() => {
 
   /* ------------------------------------------------------------------ cibles */
   /*
-   * Objectifs de volume par style (LUFS intégrés, plafond true peak, PLR = crête − LUFS, LRA).
-   * Les chansons du Band, mixées par js/bandmix.js, mesurent −11,5 à −13 LUFS intégrés en synthwave (médiane −12,4),
+   * Objectifs de volume (LUFS intégrés, plafond true peak, PLR = crête − LUFS, LRA) : la référence commune de
+   * js/mixref.js, un objectif par groupe de styles de l'assistant (le même que vise son mastering), plus le
+   * streaming et le club. Les chansons de l'assistant mesurent −11,5 à −13 LUFS intégrés en synthwave (médiane −12,4),
    * −11,5 à −14,8 en EDM (médiane −13,1), PLR 9,6 à 12,9 dB (tools/automix-calibrate.js).
    */
-  const TARGETS = {
-    streaming: { name: 'Streaming', lufs: -14, tp: -1, plr: [9, 15], lra: [4, 10], desc: 'Spotify, Apple Music, YouTube : −14 LUFS, plafond −1 dBTP' },
-    synthwave: { name: 'Synthwave', lufs: -12, tp: -1, plr: [8, 13], lra: [3, 9], desc: 'dense mais dynamique : −12 LUFS, plafond −1 dBTP' },
-    edm: { name: 'EDM mélodique', lufs: -11, tp: -1, plr: [7, 12], lra: [3, 9], desc: 'fort et serré : −11 LUFS, plafond −1 dBTP' },
-    club: { name: 'Club', lufs: -8, tp: -1, plr: [6, 9], lra: [2, 7], desc: 'pour les sonos de club : −8 LUFS, plafond −1 dBTP' },
-  };
-  /** Objectif proposé d'après le style des pistes du Band (sinon le streaming, valable partout). */
+  const fr0 = (x) => String(x).replace('-', '−').replace('.', ',');
+  const TARGETS = {};
+  for (const [id, g] of Object.entries(SS.mixRef.GROUPS)) TARGETS[id] = { name: g.name, lufs: g.lufs, tp: g.tp, plr: g.plr, lra: g.lra, desc: `${g.desc} : ${fr0(g.lufs)} LUFS, plafond ${fr0(g.tp)} dBTP` };
+  for (const [id, g] of Object.entries(SS.mixRef.DIFFUSION)) TARGETS[id] = { name: g.name, lufs: g.lufs, tp: g.tp, plr: g.plr, lra: g.lra, desc: `${g.desc} : ${fr0(g.lufs)} LUFS, plafond ${fr0(g.tp)} dBTP` };
+  /** Objectif proposé : celui du style de l'assistant (le plus fréquent parmi les pistes), sinon le streaming. */
   function proposeTarget(tracks) {
-    const styles = (tracks || []).map((t) => t.band && t.band.style).filter(Boolean);
-    if (styles.includes('edm') || styles.includes('techno') || styles.includes('dnb')) return 'edm';
-    if (styles.includes('synthwave')) return 'synthwave';
-    return 'streaming';
+    return SS.mixRef.groupOf(SS.mixRef.styleOf(tracks)) || 'streaming';
   }
 
   /*
@@ -404,6 +400,8 @@ SS.automix = (() => {
     edm: [-13, 0, -1.5, -3.5, -5, -5.5, -8, -11, -12.5, -19.5],
     club: [-9, 0, -1.5, -4, -5.5, -6, -8.5, -11.5, -13, -20],
   };
+  // groupes sans courbe mesurée (clichés, hip-hop / soul, ambient, film) : la courbe streaming, entre les deux
+  for (const id in TARGETS) if (!CURVES[id]) CURVES[id] = CURVES.streaming;
 
   /** Écart du spectre du mix à la courbe du style, par bande (dB, après alignement). */
   function toneDeviation(mixBands, curve) {

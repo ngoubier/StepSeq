@@ -17,7 +17,7 @@
  *     Chorus sur les nappes, la guitare et la voix.
  *  5. Master : légère inclinaison d'EQ, compresseur « glue » 2:1 lent, puis mastering (js/master-dsp.js) : graves
  *     en mono, aigus un peu élargis, écrêtage doux des pointes, limiteur à anticipation à −1 dBTP ; gain d'entrée
- *     réglé sur la partie la plus forte du morceau (visée court terme −9,5 LUFS en synthwave, −8,5 en EDM,
+ *     réglé sur la partie la plus forte du morceau (visée court terme : référence commune js/mixref.js, −9,5 LUFS en synthwave, −8,5 en EDM,
  *     js/band-drive.js) ; mesuré après limiteur : refrains et drops vers −10 à −11,5 LUFS, −12 à −13 LUFS intégrés.
  */
 window.SS = window.SS || {};
@@ -212,6 +212,10 @@ SS.bandMix = (() => {
     drive: 6,
   };
   STYLE.zero = STYLE.pop; // « Créer de zéro » : un mix pop, neutre (batterie acoustique, peu d'effets)
+  // musique de film : orchestre sans batterie, pas de sidechain ; mastering doux (de la place pour le dialogue)
+  STYLE.film = { ...STYLE.synthwave, sc: { bass: 0, pad: 0, strings: 0, keys: 0 }, drive: 1 };
+  // volume visé : la référence commune (js/mixref.js), partagée avec Auto Mix, le bilan et le Mastering
+  for (const id in STYLE) if (SS.mixRef.of(id)) STYLE[id].loud = SS.mixRef.of(id).loud;
 
   // gestion du gain : le mix arrive au master vers −18 LUFS, crêtes vers −6 dBFS (marge pour la glue et le limiteur)
   const HEADROOM = -11;

@@ -8,6 +8,7 @@ globalThis.window = globalThis;
 require('../js/project.js');
 require('../js/sounds.js');
 require('../js/band-presets.js');
+require('../js/mixref.js');
 require('../js/bandmix.js');
 require('../js/automix.js');
 const A = SS.automix;
@@ -226,7 +227,7 @@ test('chaîne de mastering : Master à plat → EQ, glue 2:1, mastering réglé 
   assert.deepEqual(mc.modules.map((m) => m.k), ['EQ', 'COMP', 'MAST']);
   const mast = mc.modules[2].changes;
   assert.ok(mast.some((c) => c.path === 'mastering.on' && c.to === true));
-  assert.ok(Math.abs(mast.find((c) => c.path === 'mastering.drive').to - 6) < 0.15, 'gain d\'entrée pour −12 LUFS');
+  assert.ok(Math.abs(mast.find((c) => c.path === 'mastering.drive').to - 5.5) < 0.15, 'gain d\'entrée pour −12,5 LUFS (référence commune)');
   assert.equal(mast.find((c) => c.path === 'mastering.ceiling').to, -1);
   assert.equal(mc.modules[1].changes.find((c) => c.path === 'mix.comp.ratio').to, 2);
   assert.ok(!d.suggestions.some((x) => x.id === 'loud'), 'le conseil de volume est inclus dans la chaîne');

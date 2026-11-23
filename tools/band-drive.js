@@ -14,7 +14,7 @@ const os = require('os');
 const path = require('path');
 const ROOT = path.join(__dirname, '..');
 globalThis.window = globalThis;
-['dirt.js', 'sounds.js', 'harmony.js', 'arp.js', 'project.js', 'band-presets.js', 'band-levels.js', 'bandmix.js'].forEach((f) => require(path.join(ROOT, 'js', f)));
+['dirt.js', 'sounds.js', 'harmony.js', 'arp.js', 'project.js', 'band-presets.js', 'band-levels.js', 'mixref.js', 'bandmix.js'].forEach((f) => require(path.join(ROOT, 'js', f)));
 const OUT = path.join(ROOT, 'js', 'band-drive.js');
 const table = fs.existsSync(OUT) ? (require(OUT), { ...SS.BAND_DRIVE }) : {};
 const presets = SS.Band.STYLES.flatMap((s) => s.presets.map((p) => ({ id: p.id, style: s.id })));

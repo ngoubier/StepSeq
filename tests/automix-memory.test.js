@@ -11,7 +11,7 @@ function load(file, SS = {}, extra = {}) {
 }
 
 test('Auto Mix : longue écoute à mémoire constante, quantiles et crêtes conservés', () => {
-  const A = load('js/automix.js').automix;
+  const A = load('js/automix.js', load('js/mixref.js')).automix;
   const acc = A.newAccumulator();
   const bands = new Float64Array(A.BANDS.length).fill(0.001);
   const levels = Array.from({ length: 1000 }, (_, i) => -45 + ((i * 37) % 1000) / 30);

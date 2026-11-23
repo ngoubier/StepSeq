@@ -1070,8 +1070,14 @@ SS.mixer = (() => {
           'div',
           { class: 'mast-aim' },
           h('small', {}, 'Viser :'),
-          ...[[-14, 'streaming'], [-11, 'synthwave'], [-9, 'club']].map(([t, n]) =>
-            h('button', { type: 'button', class: 'chip', title: `Règle le gain d'entrée d'après le volume intégré mesuré`, onclick: () => aim(t) }, `${t} LUFS · ${n}`)
+          // la cible du style de la chanson (référence commune, js/mixref.js), puis les objectifs de diffusion
+          ...(() => {
+            const R = SS.mixRef;
+            const ref = R && R.of(R.styleOf(p.tracks));
+            const D = R ? R.DIFFUSION : { streaming: { lufs: -14 }, club: { lufs: -8 } };
+            return [...(ref ? [[ref.lufs, 'style', `Référence du style ${ref.name}`]] : []), [D.streaming.lufs, 'streaming'], [D.club.lufs, 'club']];
+          })().map(([t, n, why]) =>
+            h('button', { type: 'button', class: 'chip', title: `${why ? why + ' : r' : 'R'}ègle le gain d'entrée d'après le volume intégré mesuré`, onclick: () => aim(t) }, `${String(t).replace('-', '−').replace('.', ',')} LUFS · ${n}`)
           )
         ),
         hint,

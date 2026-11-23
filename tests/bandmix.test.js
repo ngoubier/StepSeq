@@ -6,7 +6,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 globalThis.window = globalThis;
-['library.js', 'dirt.js', 'sounds.js', 'harmony.js', 'arp.js', 'project.js', 'band-presets.js', 'band-songs.js', 'band-levels.js', 'bandmix.js'].forEach((f) => require('../js/' + f));
+['library.js', 'dirt.js', 'sounds.js', 'harmony.js', 'arp.js', 'project.js', 'band-presets.js', 'band-songs.js', 'band-levels.js', 'mixref.js', 'bandmix.js'].forEach((f) => require('../js/' + f));
 if (fs.existsSync(__dirname + '/../js/band-drive.js')) require('../js/band-drive.js');
 const SS = globalThis.SS;
 const B = SS.Band;
@@ -129,4 +129,15 @@ test('la page charge les niveaux mesurés et les gains de mastering avant les r�
   const at = (f) => html.search(new RegExp(`<script src="js/${f.replace('.', '\\.')}(\\?v=[\\w-]+)?"></script>`));
   for (const f of ['band-levels.js', 'band-drive.js', 'master-dsp.js', 'dirt-tuning.js']) assert.ok(at(f) > 0, `${f} non chargé`);
   assert.ok(at('band-levels.js') < at('bandmix.js') && at('band-drive.js') < at('bandmix.js'));
+});
+
+test('référence de mixage commune : le mastering de l’assistant vise la table de js/mixref.js, sans changer les styles existants', () => {
+  const S = SS.bandMix.STYLE;
+  // valeurs d'avant la table commune : les chansons créées sonnent comme avant
+  const avant = { synthwave: -9.5, edm: -8.5, techno: -8.5, ambient: -13, pop: -9.5, funk: -9.5, hiphop: -11, dnb: -8.5, latin: -9.5, soul: -11, cliches: -10, zero: -9.5 };
+  for (const [id, loud] of Object.entries(avant)) assert.equal(S[id].loud, loud, id);
+  for (const id in S) assert.equal(S[id].loud, SS.mixRef.of(id).loud, id + ' absent de la référence');
+  // Musique de film : son propre réglage (elle retombait sur la synthwave), plus doux
+  assert.ok(S.film && S.film.loud === -14 && S.film.drive < S.synthwave.drive);
+  assert.equal(SS.mixRef.styleOf([{ band: { style: 'film' } }, { band: { style: 'film' } }, {}]), 'film');
 });

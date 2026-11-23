@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 globalThis.window = globalThis;
 require('../js/project.js');
 require('../js/sounds.js');
+require('../js/mixref.js');
 require('../js/automix.js');
 test('Auto Mix reconnaît les rôles sans dépendre des anciens profils', () => {
   const cases = [
