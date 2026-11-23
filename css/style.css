@@ -6008,3 +6008,81 @@ dialog.amb-dialog { width: min(1080px, calc(100vw - 32px)); --amb-color: var(--c
 .amb-seed { display: flex; align-items: center; gap: 5px; padding: 5px; border-radius: 6px; border: 1px solid var(--line); background: var(--c-panel-3); color: var(--text); font: inherit; font-size: var(--fs-sm); cursor: pointer; }
 .amb-seed i { width: 10px; height: 10px; border-radius: 50%; flex: none; }
 .amb-seed.active { border-color: var(--amb-color); box-shadow: inset 0 0 0 1px var(--amb-color); }
+
+/* ---------- Lire une partition (js/scorepanel.js) ---------- */
+dialog.score-dialog { width: min(1000px, calc(100vw - 32px)); max-width: none; height: min(720px, calc(100vh - 32px)); display: none; flex-direction: column; overflow: hidden; }
+dialog.score-dialog[open] { display: flex; }
+dialog.score-dialog.sc-dragging { border-color: var(--c-blue); box-shadow: 0 0 0 3px var(--c-blue-bg), 0 20px 60px rgba(0, 0, 0, .6); }
+.sc-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--c-line); }
+.sc-head h2 { flex: 1; margin: 0; display: flex; align-items: center; }
+.sc-x { border: 0; background: transparent; color: var(--c-muted); font-size: 22px; line-height: 1; cursor: pointer; padding: 2px 6px; border-radius: 6px; }
+.sc-x:hover { background: var(--c-panel-3); color: var(--c-text); }
+.sc-body { flex: 1; min-height: 0; overflow: auto; padding: 16px; }
+.sc-foot { margin: 0; padding: 12px 16px; border-top: 1px solid var(--c-line); }
+.sc-foot [hidden] { display: none; }
+.sc-pane { display: flex; flex-direction: column; gap: 14px; }
+.sc-drop { border: 2px dashed var(--c-line-strong); border-radius: 12px; padding: 28px 16px; text-align: center; color: var(--c-muted); display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.sc-drop-small { padding: 16px; }
+.sc-dragging .sc-drop { border-color: var(--c-blue); background: var(--c-blue-bg); }
+.sc-drop svg { width: 40px; height: 40px; stroke: var(--c-muted); fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.sc-drop b { color: var(--c-text); font-size: var(--fs-lg); }
+.sc-fmts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.sc-fmt { font-size: var(--fs-xs); padding: 2px 8px; border-radius: 99px; background: var(--c-panel-2); color: var(--c-text-2); font-weight: 600; }
+.sc-thumbs { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.sc-th { width: 96px; padding: 0; border: 0; background: transparent; color: var(--c-muted); font: inherit; font-size: var(--fs-sm); cursor: pointer; display: flex; flex-direction: column; gap: 4px; align-items: center; }
+.sc-th img { width: 96px; height: 124px; object-fit: cover; object-position: top; border-radius: 4px; border: 3px solid transparent; background: var(--c-text); }
+.sc-th.on img { border-color: var(--c-blue); }
+.sc-th:not(.on) img { opacity: .35; }
+.sc-count { color: var(--c-muted); font-size: var(--fs-sm); display: flex; align-items: center; }
+.sc-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding-top: 12px; border-top: 1px solid var(--c-line); }
+.sc-l { width: 90px; color: var(--c-muted); font-weight: 600; display: flex; align-items: center; }
+.sc-eng { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; flex: 1; min-width: 260px; }
+@media (max-width: 720px) { .sc-eng { grid-template-columns: 1fr; } }
+.sc-card { border: 1px solid var(--c-line); border-radius: 10px; padding: 10px 12px; cursor: pointer; background: var(--c-bg); color: var(--c-text); font: inherit; text-align: left; display: flex; flex-direction: column; gap: 4px; }
+.sc-card:hover { border-color: var(--c-line-strong); }
+.sc-card.on { border-color: var(--c-blue); background: var(--c-blue-bg); }
+.sc-card b { display: flex; align-items: center; gap: 6px; }
+.sc-card small { color: var(--c-muted); font-size: var(--fs-sm); }
+.sc-stars { color: var(--c-amber); font-size: var(--fs-sm); letter-spacing: 1px; }
+.sc-badge { font-size: var(--fs-xs); padding: 1px 7px; border-radius: 99px; background: var(--c-violet-bg); color: var(--c-violet); font-weight: 700; }
+.sc-nav { display: flex; align-items: center; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.sc-page { background: var(--c-text); border-radius: 6px; overflow: auto; }
+.sc-page img { display: block; width: 100%; height: auto; }
+.sc-page-small { max-height: 360px; }
+.sc-page-small img + img { border-top: 2px solid var(--c-line); }
+.sc-wait { display: flex; align-items: center; gap: 10px; justify-content: center; color: var(--c-text-2); }
+.sc-busy { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 60px 0; color: var(--c-text-2); }
+.sc-spin { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--c-panel-3); border-top-color: var(--c-blue); animation: sc-spin 0.9s linear infinite; }
+@keyframes sc-spin { to { transform: rotate(360deg); } }
+.sc-split { display: grid; grid-template-columns: 1.2fr 1fr; gap: 14px; align-items: start; }
+@media (max-width: 860px) { .sc-split { grid-template-columns: 1fr; } }
+.sc-left { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.sc-legend { display: flex; gap: 14px; color: var(--c-muted); font-size: var(--fs-sm); align-items: center; flex-wrap: wrap; }
+.sc-legend span { display: flex; gap: 6px; align-items: center; }
+.sc-sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; border: 1px solid; }
+.sc-sw.now { background: var(--c-blue-bg); border-color: var(--c-blue); }
+.sc-sw.bad { background: var(--c-amber-bg); border-color: var(--c-amber); }
+.sc-bars { display: flex; flex-wrap: wrap; gap: 4px; }
+.sc-bar { min-width: 34px; height: 26px; padding: 0 6px; border: 1px solid var(--c-line); border-radius: 5px; background: var(--c-bg); color: var(--c-text-2); font: inherit; font-size: var(--fs-xs); cursor: pointer; }
+.sc-bar:hover { border-color: var(--c-line-strong); color: var(--c-text); }
+.sc-bar.bad { background: var(--c-amber-bg); border-color: var(--c-amber); color: var(--c-amber-soft); font-weight: 700; }
+.sc-bar.now { background: var(--c-blue-bg); border-color: var(--c-blue); color: var(--c-text); }
+.sc-side { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.sc-by { color: var(--c-muted); font-size: var(--fs-sm); }
+.sc-meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.sc-f { background: var(--c-bg); border: 1px solid var(--c-line); border-radius: 8px; padding: 6px 9px; display: flex; flex-direction: column; min-width: 0; }
+.sc-f > span { display: flex; align-items: center; font-size: var(--fs-xs); color: var(--c-muted); text-transform: uppercase; letter-spacing: .04em; }
+.sc-f input, .sc-f select { width: 100%; background: transparent; border: 0; color: var(--c-text); font: inherit; font-size: var(--fs-lg); font-weight: 600; padding: 2px 0; outline: none; }
+.sc-f select option { background: var(--c-panel); }
+.sc-tracks { display: flex; flex-direction: column; gap: 6px; }
+.sc-tr { display: flex; align-items: center; gap: 8px; background: var(--c-bg); border: 1px solid var(--c-line); border-radius: 8px; padding: 7px 9px; }
+.sc-tr input[type=checkbox] { accent-color: var(--c-blue); }
+.sc-nm { font-weight: 600; width: 120px; flex: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-tr select { flex: 1; min-width: 0; background: var(--c-panel-2); border: 1px solid var(--c-line); border-radius: 6px; color: var(--c-text); font: inherit; padding: 4px 6px; }
+.sc-roll { width: 120px; height: 30px; flex: none; background: var(--c-panel-2); border-radius: 4px; }
+.sc-warn { display: flex; gap: 8px; align-items: center; background: var(--c-amber-bg); border: 1px solid var(--c-amber); border-radius: 8px; padding: 7px 10px; color: var(--c-amber-soft); font-size: var(--fs-sm); }
+.sc-warn b { color: var(--c-text); }
+.sc-warn .btn { margin-left: auto; }
+.sc-play { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.sc-playbtn { width: 36px; height: 36px; padding: 0; justify-content: center; border-radius: 50%; }
+.sc-over { width: 100%; height: auto; aspect-ratio: 1200 / 420; background: var(--c-bg); border: 1px solid var(--c-line); border-radius: 8px; }

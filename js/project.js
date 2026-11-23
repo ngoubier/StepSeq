@@ -871,14 +871,17 @@ SS.files = (() => {
 
   // « Ouvrir un fichier… » : un projet, ou un fichier MIDI rendu tel quel ({ midi: { name, buf } }) pour la fenêtre d'import
   const isMidi = (file) => /\.(mid|midi|kar)$/i.test(file.name);
+  // une partition (image, PDF, MusicXML) : { score: File } pour la fenêtre « Lire une partition » (js/scorepanel.js)
+  const isScore = (file) => /\.(pdf|png|jpe?g|gif|webp|bmp|musicxml|xml|mxl)$/i.test(file.name);
   const midiOf = async (file) => ({ midi: { name: file.name, buf: new Uint8Array(await file.arrayBuffer()) } });
-  const openTypes = [{ description: 'Projet StepSeq ou fichier MIDI', accept: { 'application/json': ['.json'], 'audio/midi': ['.mid', '.midi', '.kar'] } }];
+  const openTypes = [{ description: 'Projet StepSeq, fichier MIDI ou partition', accept: { 'application/json': ['.json'], 'audio/midi': ['.mid', '.midi', '.kar'], 'application/pdf': ['.pdf'], 'image/*': ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp'], 'application/vnd.recordare.musicxml': ['.musicxml', '.xml', '.mxl'] } }];
   async function open() {
     if (window.showOpenFilePicker) {
       try {
         const [h] = await window.showOpenFilePicker({ types: openTypes });
         const file = await h.getFile();
         if (isMidi(file)) return midiOf(file);
+        if (isScore(file)) return { score: file };
         const project = SS.normalizeProject(JSON.parse(await file.text()));
         handle = h;
         return project;
@@ -890,12 +893,13 @@ SS.files = (() => {
     return new Promise((resolve, reject) => {
       const input = document.createElement('input');
       input.type = 'file';
-      input.accept = '.json,application/json,.mid,.midi,.kar,audio/midi,audio/x-midi';
+      input.accept = '.json,application/json,.mid,.midi,.kar,audio/midi,audio/x-midi,.pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.musicxml,.xml,.mxl,image/*,application/pdf';
       input.onchange = async () => {
         const file = input.files[0];
         if (!file) return resolve(null);
         try {
           if (isMidi(file)) return resolve(await midiOf(file));
+          if (isScore(file)) return resolve({ score: file });
           handle = null;
           resolve(SS.normalizeProject(JSON.parse(await file.text())));
         } catch (e) {

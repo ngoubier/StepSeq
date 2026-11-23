@@ -22,7 +22,8 @@
           <button id="newProject" type="button" role="menuitem"><svg class="am-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="am-lab">Nouvelle chanson…</span></button>
           <button id="songsBtn" type="button" role="menuitem"><svg class="am-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><span class="am-lab">Mes chansons…</span></button>
           <hr class="app-menu-sep" role="separator">
-          <button id="openProject" type="button" role="menuitem" title="Un projet StepSeq (.json) ou un fichier MIDI (.mid)"><svg class="am-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="am-lab">Ouvrir un fichier…</span><kbd>Ctrl+O</kbd></button>
+          <button id="openProject" type="button" role="menuitem" title="Un projet StepSeq (.json), un fichier MIDI (.mid), ou une partition (image, PDF, MusicXML)"><svg class="am-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="am-lab">Ouvrir un fichier…</span><kbd>Ctrl+O</kbd></button>
+          <button id="scoreBtn" type="button" role="menuitem" title="Image, PDF ou MusicXML → pistes MIDI"><svg class="am-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 10h18M3 14h18M3 18h18"/><circle cx="9" cy="16" r="2.2"/><path d="M11.2 16V5l5 2"/></svg><span class="am-lab">Lire une partition…</span></button>
           <button id="saveProject" type="button" role="menuitem" title="Maj+clic : enregistrer sous"><svg class="am-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M7 3v5h8V3M7 21v-7h10v7"/></svg><span class="am-lab">Enregistrer</span><kbd>Ctrl+S</kbd></button>
           <button id="exportBtn" type="button" role="menuitem" title="Audio (WAV) ou MIDI"><svg class="am-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg><span class="am-lab">Exporter…</span><kbd>Ctrl+E</kbd></button>
           <hr class="app-menu-sep" role="separator">
@@ -816,6 +817,21 @@
     </form>
   </dialog>
 
+  <!-- Lire une partition (js/scorepanel.js, js/score-read.js) : image, PDF ou MusicXML → pistes MIDI -->
+  <dialog id="scoreDialog" class="score-dialog" aria-labelledby="scTitle">
+    <div class="sc-head">
+      <h2 id="scTitle">🎼 Lire une partition<button type="button" class="help-tip" data-help="StepSeq lit les notes de la partition et en fait des pistes MIDI, à enregistrer (.mid) ou à importer. Une partition imprimée et nette donne le meilleur résultat ; une partition manuscrite ou une photo de travers donne beaucoup d’erreurs." data-help-title="Lire une partition" aria-label="Aide : Lire une partition">?</button></h2>
+      <button type="button" id="scClose" class="sc-x" aria-label="Fermer">×</button>
+    </div>
+    <div id="scBody" class="sc-body"></div>
+    <div class="dlg-footer sc-foot">
+      <button type="button" id="scBack" class="btn">← Retour</button>
+      <span class="spacer"></span>
+      <button type="button" id="scSave" class="btn">⤓ Enregistrer le .mid</button>
+      <button type="button" id="scNext" class="btn btn-accent">Lire la partition</button>
+    </div>
+  </dialog>
+
   <!-- Export MIDI (js/midipanel.js) -->
   <dialog id="midiExportDialog" class="midi-dialog" aria-labelledby="meTitle">
     <form method="dialog" id="meForm">
@@ -1143,6 +1159,8 @@
   <script src="js/band.js"></script>
   <script src="js/bassmotifs.js"></script>
   <script src="js/midipanel.js"></script>
+  <script src="js/score-read.js"></script>
+  <script src="js/scorepanel.js"></script>
   <script src="js/render.js"></script>
   <script src="js/freeze.js"></script>
   <script src="js/calcul.js"></script>
