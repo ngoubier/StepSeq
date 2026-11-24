@@ -20,6 +20,9 @@ SS.emotionSongPanel = (() => {
     arc: { preset: 'lumiere', e: null, links: {}, lift: true, picks: {}, open: null },
   };
   const A = () => SS.emotionArcPanel;
+  /** Style « Musique de film » : une émotion par passage de l'image (js/filmemotionpanel.js). */
+  const FP = () => SS.filmEmotionPanel;
+  const isFilm = () => st.style === 'film';
   let dlg = null;
   let cur = null; // dernière déduction
 
@@ -106,20 +109,22 @@ SS.emotionSongPanel = (() => {
   }
   function close() {
     A().stop();
+    FP().stop();
     if (dlg && dlg.open) dlg.close();
   }
   function build() {
     dlg = $('#emotionSongDialog');
     $('#esClose').addEventListener('click', close);
     $('#esCancel').addEventListener('click', close);
-    dlg.addEventListener('close', () => A().stop());
+    dlg.addEventListener('close', () => (A().stop(), FP().stop()));
     $('#esMode').addEventListener('click', (ev) => {
       const b = ev.target.closest('button[data-mode]');
       if (b) setMode(b.dataset.mode);
     });
     $('#esCreate').addEventListener('click', () => {
       try {
-        apply(cur);
+        if (isFilm()) FP().apply(cur);
+        else apply(cur);
         close();
       } catch (e) {
         $('#esMsg').textContent = e.message;
@@ -130,10 +135,23 @@ SS.emotionSongPanel = (() => {
   function setMode(m) {
     st.mode = m === 'arc' ? 'arc' : 'mix';
     A().stop();
+    FP().stop();
     render();
   }
   const styleSelect = () =>
-    h('select', { id: 'esStyle', onchange: (ev) => ((st.style = ev.target.value), changed()) }, ...E().styles({ film: false }).map((s) => h('option', { value: s.id, selected: s.id === st.style }, s.label)));
+    h(
+      'select',
+      {
+        id: 'esStyle',
+        onchange: (ev) => {
+          // la musique de film s'ouvre sur « Par passage » (une émotion par passage de l'image)
+          if (ev.target.value === 'film' && !isFilm()) st.mode = 'arc';
+          st.style = ev.target.value;
+          changed();
+        },
+      },
+      ...E().styles().map((s) => h('option', { value: s.id, selected: s.id === st.style }, s.id === 'film' ? `🎬 ${s.label}` : s.label))
+    );
   /** La déduction « Par scène » de l'état de la fenêtre. */
   function deduceArc() {
     const a = st.arc;
@@ -142,9 +160,24 @@ SS.emotionSongPanel = (() => {
   }
 
   function render() {
-    if (!E().TEMPO[st.style] || st.style === 'film') st.style = 'synthwave';
-    $('#esMode').querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.mode === st.mode));
-    $('#esBody').classList.toggle('es-arc', st.mode === 'arc');
+    if (!E().TEMPO[st.style]) st.style = 'synthwave';
+    const LABELS = isFilm() ? { mix: 'Toute la scène', arc: 'Par passage' } : { mix: 'Toute la chanson', arc: 'Par scène' };
+    $('#esMode').querySelectorAll('button').forEach((b) => {
+      b.classList.toggle('on', b.dataset.mode === st.mode);
+      b.textContent = LABELS[b.dataset.mode];
+    });
+    $('#esCreate').textContent = isFilm() ? 'Créer cette scène' : 'Créer cette chanson';
+    $('#esBody').classList.toggle('es-arc', st.mode === 'arc' || isFilm());
+    $('#esBody').classList.toggle('fe-body', isFilm());
+    if (isFilm()) {
+      A().stop();
+      FP().stop();
+      cur = FP().deduce(st);
+      $('#esMsg').textContent = '';
+      $('#esBody').replaceChildren(...FP().columns(st, cur, { changed: render, styleSelect }));
+      $('#esCreate').disabled = !cur;
+      return;
+    }
     if (st.mode === 'arc') {
       A().stop();
       cur = deduceArc();
