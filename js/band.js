@@ -2109,6 +2109,7 @@ SS.band = (() => {
     bass: 'La fondation grave : suit la fondamentale de chaque accord.',
     chords: 'Joue la grille en nappe, plaqué ou en stabs.',
     arp: 'Égrène les notes des accords en motif répété.',
+    keys: 'Un pianiste ou un claviériste (piano, piano électrique, orgue, synthé) : accords à deux mains, rythmes, arpèges.',
     guitar: 'Une guitare : arpèges aux doigts ou au médiator, accords grattés ou étouffés, avec de vraies formes d’accord.',
     melody: 'La ligne chantante par-dessus : thème et motifs.',
     orch: 'Un effectif (cordes, cor, bois) qui se partage mélodie, accords et basse : une piste par pupitre.',
@@ -2560,18 +2561,19 @@ SS.band = (() => {
     get pick() { return 9 + insSteps().length; },
   };
   /** Types d'instrument : nom, résumé du fil des étapes, couleur de rôle (batterie rose, basse verte, nappe bleue, arpège turquoise, mélodie violette). */
-  const KIND_LABEL = { drums: 'Drums', bass: 'Basse', chords: 'Accords', arp: 'Arpèges', guitar: 'Guitariste', melody: 'Mélodie', orch: 'Orchestre', horns: 'Cuivres', ambient: 'Ambient' };
-  const KIND_SUM = { drums: 'Drums', bass: 'Basse', chords: 'Nappe', arp: 'Arpège', guitar: 'Guitare', melody: 'Mélodie', orch: 'Orchestre', horns: 'Cuivres', ambient: 'Ambient' };
+  const KIND_LABEL = { drums: 'Drums', bass: 'Basse', keys: 'Clavier', chords: 'Accords', arp: 'Arpèges', guitar: 'Guitariste', melody: 'Mélodie', orch: 'Orchestre', horns: 'Cuivres', ambient: 'Ambient' };
+  const KIND_SUM = { drums: 'Drums', bass: 'Basse', keys: 'Clavier', chords: 'Nappe', arp: 'Arpège', guitar: 'Guitare', melody: 'Mélodie', orch: 'Orchestre', horns: 'Cuivres', ambient: 'Ambient' };
   /** Étiquette du type dans la tête d'étape instrument : « Nappe » et non « Accords », qui est l'étape 5. */
   const KIND_STEP = { ...KIND_LABEL, chords: 'Nappe', orch: 'Orchestration' };
-  const KIND_COLOR = { drums: '#e3179c', bass: '#3fcf3f', chords: '#4f6bff', arp: '#13c2a3', guitar: '#ff4d6d', melody: '#9b5cff', orch: '#ff8a3d', horns: '#e8b23a', ambient: '#6fe3c8' };
-  const KIND_DESC = { drums: 'Motifs rythmiques et fills', bass: 'Mode de jeu sur la fondamentale', chords: 'Joue la grille en nappe ou plaqué', arp: 'Arpège les accords (Arp One)', guitar: 'Arpèges et accords de guitare (Arp One Guitare)', melody: 'Ligne mélodique générée', orch: 'Répartit mélodie, accords et basse entre les pupitres', horns: 'Le jeu de la section, scène par scène', ambient: 'Présence du module génératif, scène par scène' };
-  const KIND_SLOT = { drums: 'drums', bass: 'bass', chords: 'pad', arp: 'arp', guitar: 'gtr', melody: 'lead', orch: 'orch', horns: 'horns', ambient: 'amb' }; // suffixe des identifiants de test (#bwp-on-bass…)
+  const KIND_COLOR = { drums: '#e3179c', bass: '#3fcf3f', keys: '#f5c400', chords: '#4f6bff', arp: '#13c2a3', guitar: '#ff4d6d', melody: '#9b5cff', orch: '#ff8a3d', horns: '#e8b23a', ambient: '#6fe3c8' };
+  const KIND_DESC = { drums: 'Motifs rythmiques et fills', bass: 'Mode de jeu sur la fondamentale', keys: 'Accords à deux mains et arpèges de piano', chords: 'Joue la grille en nappe ou plaqué', arp: 'Arpège les accords (Arp One)', guitar: 'Arpèges et accords de guitare (Arp One Guitare)', melody: 'Ligne mélodique générée', orch: 'Répartit mélodie, accords et basse entre les pupitres', horns: 'Le jeu de la section, scène par scène', ambient: 'Présence du module génératif, scène par scène' };
+  const KIND_SLOT = { drums: 'drums', bass: 'bass', keys: 'keys', chords: 'pad', arp: 'arp', guitar: 'gtr', melody: 'lead', orch: 'orch', horns: 'horns', ambient: 'amb' }; // suffixe des identifiants de test (#bwp-on-bass…)
   const KIND_ICON = {
     drums: '<ellipse cx="15" cy="17" rx="9" ry="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 17v5c0 2 4 4 9 4s9-2 9-4v-5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 4l7 9M23 4l-7 9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
     bass: '<path d="M3 15h4l3-9 4 18 3-12 2 3h8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>',
     chords: '<rect x="4" y="5" width="22" height="5" rx="2" fill="currentColor" opacity=".5"/><rect x="4" y="12.5" width="22" height="5" rx="2" fill="currentColor" opacity=".75"/><rect x="4" y="20" width="22" height="5" rx="2" fill="currentColor"/>',
     arp: '<path d="M3 24h5v-5h5v-5h5v-5h5V4h4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><circle cx="7" cy="14" r="1.6" fill="currentColor"/><circle cx="17" cy="22" r="1.6" fill="currentColor"/>',
+    keys: '<rect x="3" y="6" width="24" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9 6v18M15 6v18M21 6v18" stroke="currentColor" stroke-width="1.6"/><rect x="7.6" y="6" width="2.8" height="10" fill="currentColor"/><rect x="19.6" y="6" width="2.8" height="10" fill="currentColor"/>',
     guitar: '<path d="M19 3l8 8M23 7l-7.5 7.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M15.5 14.5c-2-2-5.5-1.5-6.5.5-.7 1.4-2.3 1.6-3.5 2.6-2.6 2.2-1.8 6.4 1 8.6 2.4 1.9 6 1.6 7.6-1 .8-1.3 1-2.8 2.4-3.6 2.2-1.2 1.4-4.9-1-7.1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="11.5" cy="19.5" r="1.8" fill="currentColor"/>',
     melody: '<path d="M3 20c4-12 7-12 10-3s6 8 9-4c1-4 3-5 5-4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="25" cy="9" r="2" fill="currentColor"/>',
     orch: '<path d="M15 3v7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M11 10h8c0 2.5-2 3-2 5s3 2.5 3 5.5S18 26 15 26s-5-2-5-5.5 3-3.5 3-5.5-2-2.5-2-5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M5 27L25 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
@@ -6585,6 +6587,11 @@ SS.band = (() => {
       if (!BG().isExtraId(r.musician) && !sec[r.role]) return null;
       return BS().fitMode('guitar', SS.guitarist.modesOf('arp').concat(SS.guitarist.modesOf('acc')).includes(sec.guitar) ? sec.guitar : SS.bandSong.DEFAULT_MODE.guitar);
     }
+    if (r.kind === 'keys' && (typeChanged(r) || BG().isExtraId(r.musician))) {
+      // Clavier ajouté (ou musicien devenu Clavier) : le jeu du pianiste du plan, sinon « block4 » (js/bandsong.js)
+      if (!BG().isExtraId(r.musician) && !sec[r.role]) return null;
+      return BS().fitMode('keys', sec.keys || SS.bandSong.DEFAULT_MODE.keys);
+    }
     if (!typeChanged(r)) return (r.role === 'perc' ? sec.perc ?? sec.drums : sec[r.role]) || null;
     if (!sec[r.role]) return null;
     const valid = { bass: BASS_MODES, chords: PAD_MODES, arp: ARP_MODES }[r.kind];
@@ -6812,7 +6819,7 @@ SS.band = (() => {
   /** Réglage d'un instrument dans une scène, en une ligne pour la colonne des scènes et le fil des étapes. */
   function instSub(T, x) {
     if (mutedIn(x.sec, T)) return 'muette';
-    const k = T.kind === 'drums' ? (T.kit ? drumsSub : drumsLiteSub) : { bass: bassSub, chords: padSub, arp: arpSub, guitar: gtrSub, melody: melSub, orch: orchSub, horns: hornsSub, ambient: ambSub }[T.kind];
+    const k = T.kind === 'drums' ? (T.kit ? drumsSub : drumsLiteSub) : { bass: bassSub, chords: padSub, keys: keysSub, arp: arpSub, guitar: gtrSub, melody: melSub, orch: orchSub, horns: hornsSub, ambient: ambSub }[T.kind];
     return k(x, T);
   }
   /** Étape d'un instrument : types, barre de piste, scènes à gauche, éditeur du type choisi (réglages de cet instrument). */
@@ -6822,7 +6829,7 @@ SS.band = (() => {
     const box = $('#bandWiz');
     if (!res) return box.replaceChildren(h('p', { class: 'dlg-hint' }, 'Cette inspiration n’a pas de plan de chanson.'));
     const sc = curScene(res);
-    const body = { drums: () => (T.kit ? drumsBody(sc, T) : drumsLiteBody(sc, T)), bass: () => bassBody(sc, T), chords: () => padBody(sc, T), arp: () => arpBody(sc, T), guitar: () => guitarBody(sc, T), orch: () => orchBody(sc, T), horns: () => hornsBody(sc, T), ambient: () => ambBody(sc, T) }[T.kind]();
+    const body = { drums: () => (T.kit ? drumsBody(sc, T) : drumsLiteBody(sc, T)), bass: () => bassBody(sc, T), chords: () => padBody(sc, T), arp: () => arpBody(sc, T), keys: () => keysBody(sc, T), guitar: () => guitarBody(sc, T), orch: () => orchBody(sc, T), horns: () => hornsBody(sc, T), ambient: () => ambBody(sc, T) }[T.kind]();
     const prev = $('#bwParts');
     const top = prev && prev.dataset.ins === T.id && prev.dataset.kind === T.kind ? prev.scrollTop : 0; // un clic bas dans la liste ne la remonte pas
     const content = h('div', { class: 'bwc bwp', id: 'bwParts', 'data-kind': T.kind, 'data-ins': T.id, style: `--c:${KIND_COLOR[T.kind]}` }, ...body);
@@ -8767,6 +8774,111 @@ SS.band = (() => {
               ...G.KNOBS[jeu].map(([k, label, help, text]) => dialKnob({ id: 'bwgK-' + k, label, help, value: G.knobValue(kv, k), text, commit: (v) => knobEdit(G.knobPatch(k, v), '#bwgK-' + k) }))
             )
           : null
+      ),
+    ];
+  }
+
+  /* --- Clavier (type « keys », js/keyboardist.js) : Jeu Accords | Arpèges, puces de style, cartes par famille, main gauche,
+   * quatre potentiomètres (maquette validée le 2026-11-24). Le jeu de la scène est un motif « k:<id> » du Clavier ou un mode
+   * du moteur de nappe (block4, montuno23, ballad… : ceux des pianistes des inspirations) ; ses réglages vont dans parts…keys
+   * et s'appliquent à tous les modes. Le son se choisit à l'étape Instruments. */
+  const KB = () => SS.keyboardist;
+  const kbFits = (id) => BS().meterOK('keys', id);
+  const kbStyle = () => (S.wiz.kbStyle === undefined ? KB().styleOfSong(S.styleId) : S.wiz.kbStyle);
+  function keysSub(x, T) {
+    if (mutedIn(x.sec, T)) return 'muette';
+    const o = partOf(x.sec, T) || {};
+    const m = o.mode || planMode(x, T);
+    return (m ? KB().name(m) : 'aucune') + (KB().touched(o.keys) ? ' ✎' : '') + (o.mode || !m || typeChanged(T) || BG().isExtraId(T.musician) ? '' : ' · inspiration');
+  }
+  /** Réglages du Clavier dans la scène (parts…keys) : seules les valeurs différentes du départ sont gardées. */
+  function keysEdit(sc, T, patch, focus) {
+    const o = partOf(sc.sec, T) || {};
+    const k = { ...KB().normalize(o.keys), ...patch };
+    const keep = Object.fromEntries(Object.keys(KB().DEF).filter((key) => k[key] !== KB().DEF[key]).map((key) => [key, k[key]]));
+    putPart(sc.sec, T, { keys: Object.keys(keep).length ? keep : undefined });
+    partChanged(focus);
+  }
+  function keysSetMode(sc, T, id, focus) {
+    putOff(sc.sec, T, false);
+    putPart(sc.sec, T, { mode: id === planMode(sc, T) ? undefined : id });
+    partChanged(focus);
+  }
+  function keysBody(sc, T) {
+    const K = KB();
+    const o = partOf(sc.sec, T) || {};
+    const insp = planMode(sc, T);
+    const muted = mutedIn(sc.sec, T);
+    const cur = o.mode || insp;
+    const jeu = cur ? K.jeuOf(cur) : S.wiz.kbJeu || 'acc';
+    const style = kbStyle();
+    const songSt = K.styleOfSong(S.styleId);
+    const ks = K.normalize(o.keys);
+    const pickJeu = (v) => {
+      if (v === jeu) return;
+      S.wiz.kbJeu = v;
+      const id = K.firstOf(v, style, kbFits);
+      if (id) keysSetMode(sc, T, id, `#bwkJeu [data-v="${v}"]`);
+      else renderWiz();
+    };
+    const card = (id) => {
+      const on = id === cur && !muted;
+      const pic = /^k:/.test(id) ? K.svg(id) : SS.padMotifs ? SS.padMotifs.svg(id) : '';
+      return h(
+        'button',
+        { type: 'button', role: 'radio', class: 'bwp-mode' + (on ? ' on' : ''), 'data-v': id, 'aria-checked': String(on), title: K.desc(id) + ' · ' + K.stylesOf(id).map((s) => (K.STYLES.find((x) => x[0] === s) || [, s])[1]).join(', '), onclick: () => keysSetMode(sc, T, id, `.bwp-mode[data-v="${id}"]`) },
+        h('b', {}, K.name(id), id === insp ? h('em', {}, 'Inspiration') : null),
+        h('span', { class: 'bwp-rhy', html: pic })
+      );
+    };
+    const surprise = () => {
+      const id = K.surprise(jeu, style, cur, Math.random(), kbFits);
+      if (!id) return;
+      putOff(sc.sec, T, false);
+      putPart(sc.sec, T, { mode: id === insp ? undefined : id });
+      keysEdit(sc, T, Object.assign({}, ...K.KNOBS[jeu].map(([k]) => K.knobPatch(k, 20 + Math.round(Math.random() * 60)))), '#bwkSurprise');
+    };
+    const all = K.modesOf(jeu);
+    const extra = cur && !all.includes(cur) && K.jeuOf(cur) === jeu ? [cur] : []; // mode d'une inspiration hors du catalogue
+    return [
+      partHead(sc, T, 'clavier', true),
+      rollBox(sc, T),
+      autoCard(sc, T, { fit: true }),
+      h(
+        'section',
+        { class: 'bwp-card bw-card bwg bwk', id: 'bwKeys', 'data-jeu': jeu },
+        h(
+          'div',
+          { class: 'bwp-ch' },
+          h('b', {}, `Clavier de « ${sc.name} »`),
+          partSeg('Jeu', 'bwkJeu', K.JEUX, jeu, pickJeu),
+          SS.helpTip('Accords : les deux mains jouent l’accord (blocs, ballade, stabs, montuno, skank…). Arpèges : les notes de l’accord une à une, au piano (brisés à deux mains) ou à l’arpégiateur. Le son du clavier se choisit à l’étape Instruments.', 'Jeu du clavier'),
+          h('span', { class: 'spacer' }),
+          playBox(sc, T, SS.bandSong.DEFAULT_MODE.keys)
+        ),
+        h(
+          'div',
+          { class: 'mot-chips bwg-styles', role: 'radiogroup', 'aria-label': 'Style', id: 'bwkStyle' },
+          ...[['all', 'Tous'], ...K.STYLES].map(([v, t]) => h('button', { type: 'button', role: 'radio', class: 'mot-chip' + (v === style ? ' on' : '') + (v === songSt ? ' mark' : ''), 'aria-checked': String(v === style), 'data-v': v, title: v === songSt ? 'Le style de la chanson' : null, onclick: () => ((S.wiz.kbStyle = v), renderWiz()) }, t)),
+          SS.helpTip('Les motifs qui sonnent juste dans chaque style ; le point marque celui de la chanson. « Tous » : le catalogue complet.', 'Style'),
+          h('span', { class: 'spacer' }),
+          h('button', { type: 'button', class: 'btn btn-small', id: 'bwkSurprise', title: 'Un motif du style au hasard, et des réglages de jeu au hasard', onclick: surprise }, 'Surprends-moi')
+        ),
+        ...K.FAMILIES[jeu].map(([f, label]) => {
+          const list = [...all, ...extra].filter((id) => K.familyOf(id) === f && (id === cur || (kbFits(id) && K.inStyle(id, style))));
+          return list.length ? h('div', { class: 'bwp-grp', 'data-fam': f }, h('span', { class: 'bwp-glbl' }, label), h('div', { class: 'bwp-modes compact', role: 'radiogroup', 'aria-label': label }, ...list.map(card))) : null;
+        }),
+        muted || !cur
+          ? null
+          : h(
+              'div',
+              { class: 'bwk-hands' },
+              partSeg('Main gauche', 'bwkLh', K.LH, ks.lh, (v) => keysEdit(sc, T, { lh: v }, `#bwkLh [data-v="${v}"]`)),
+              SS.helpTip('Basse : la main gauche joue comme écrit dans le motif. Octaves : la basse doublée à l’octave, plus de poids. Aucune : la main droite seule, pour laisser la place au bassiste.', 'Main gauche')
+            ),
+        muted || !cur
+          ? null
+          : h('div', { class: 'arp-knobs bwg-knobs' }, ...K.KNOBS[jeu].map(([k, label, help, text]) => dialKnob({ id: 'bwkK-' + k, label, help, value: K.knobValue(ks, k), text, commit: (v) => keysEdit(sc, T, K.knobPatch(k, v), '#bwkK-' + k) })))
       ),
     ];
   }
@@ -12735,7 +12847,7 @@ SS.band = (() => {
     }
     /** La scène jouée (vue des étapes instrument) : celle de l'arrangement, sinon la section seule. */
     const sceneRef = (sec) => ((wizSong().res || { scenes: [] }).scenes.find((x) => x.sec === sec) || sceneOf(sec));
-    const kindFr = { drums: 'batterie', bass: 'basse', chords: 'nappe', arp: 'arpège', guitar: 'guitariste', melody: 'mélodie', orch: 'orchestre', horns: 'cuivres', ambient: 'ambient' };
+    const kindFr = { drums: 'batterie', bass: 'basse', keys: 'clavier', chords: 'nappe', arp: 'arpège', guitar: 'guitariste', melody: 'mélodie', orch: 'orchestre', horns: 'cuivres', ambient: 'ambient' };
     /** Motifs d'un instrument : [{ id, nom, … }] dans la mesure de la chanson. */
     function motifList(T, tous) {
       if (T.kind === 'drums') {
@@ -12749,6 +12861,11 @@ SS.band = (() => {
       if (T.kind === 'chords') return padModes(T).filter(([id]) => (/^g:/.test(id) ? gtrFits(id) : BS().meterOK('chords', id))).map(([id, nom, description]) => ({ id, nom, description }));
       if (T.kind === 'arp') return SS.MOTIFS.map((m) => ({ id: m.id, nom: m.name, categorie: ((SS.MOTIF_CATS.find((c) => c.id === m.cat) || {}).label || m.cat) }));
       if (T.kind === 'horns') return SS.horns.jeux(hformOf(musState()[T.musician]).id).map((j) => ({ id: j.id, nom: j.label, description: j.text }));
+      if (T.kind === 'keys') {
+        const K = SS.keyboardist;
+        const fam = Object.fromEntries(Object.values(K.FAMILIES).flat());
+        return ['acc', 'arp'].flatMap((j) => K.modesOf(j).filter(kbFits).map((id) => ({ id, nom: K.name(id), jeu: j === 'arp' ? 'arpèges' : 'accords', famille: fam[K.familyOf(id)], styles: K.stylesOf(id) })));
+      }
       if (T.kind === 'guitar') {
         const G = SS.guitarist;
         const fam = Object.fromEntries(Object.values(G.FAMILIES).flat());
@@ -12775,14 +12892,19 @@ SS.band = (() => {
       out.scenes = Object.keys(specEff().sections).map((sec) => ({ scene: secName(sec), joue: String(instSub(T, sceneRef(sec))) }));
       return out;
     }
-    function jeu(ref, scenes, { motif, joue, presence, mouvement, hasard } = {}) {
+    function jeu(ref, scenes, { motif, joue, presence, mouvement, hasard, mainGauche } = {}) {
       needPlan();
       const T = insOf(ref);
       const secs = (scenes === '*' || fold(scenes) === 'toutes' ? Object.keys(specEff().sections) : [].concat(scenes == null ? [null] : scenes)).map(secId);
       // musicien Ambient : présence, mouvement et hasard de la scène (parts[sec].inst[id].amb)
       const ambArgs = presence != null || mouvement != null || hasard != null;
       if (ambArgs && T.kind !== 'ambient') err(`« ${T.title} » n’est pas un musicien Ambient : presence, mouvement et hasard sont pour lui`);
-      if (motif == null && joue == null && !ambArgs) err(T.kind === 'ambient' ? 'donne presence, mouvement, hasard, ou joue: true / false' : 'donne un motif, ou joue: true / false');
+      let lh = null;
+      if (mainGauche != null) {
+        if (T.kind !== 'keys') err(`« ${T.title} » n’est pas un Clavier : mainGauche est pour lui`);
+        lh = { basse: 'basse', octave: 'oct', octaves: 'oct', oct: 'oct', aucune: 'aucune', rien: 'aucune' }[fold(mainGauche)] || err('mainGauche : basse, octaves ou aucune');
+      }
+      if (motif == null && joue == null && !ambArgs && !lh) err(T.kind === 'ambient' ? 'donne presence, mouvement, hasard, ou joue: true / false' : 'donne un motif, ou joue: true / false');
       let amb = null;
       if (ambArgs) {
         const pick = (v, list, what) => (v == null ? undefined : (list.find((x) => fold(x[0]) === fold(v) || fold(x[1]) === fold(v)) || err(`${what} : ${list.map((x) => fold(x[1])).join(', ')}`))[0]);
@@ -12799,6 +12921,12 @@ SS.band = (() => {
         const sc = sceneRef(sec);
         if (joue === false) return void putOff(sec, T, true);
         putOff(sec, T, false);
+        if (lh) {
+          const ks = { ...((partOf(sec, T) || {}).keys || {}), lh };
+          if (lh === 'basse') delete ks.lh;
+          putPart(sec, T, { keys: Object.keys(ks).length ? ks : undefined });
+          if (!m) return;
+        }
         if (amb) {
           const cur = { ...((partOf(sec, T) || {}).amb || {}) };
           Object.entries(amb).forEach(([k, v]) => v !== undefined && (cur[k] = v));

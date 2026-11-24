@@ -1010,6 +1010,17 @@ riff laisse place à un motif de guitare de la mesure. Les notes sont écrites p
 part du jeu de guitare du plan, sinon de « Pop ↓ ↓↑ ↑↓↑ ». Outils Claude : `assistantMusicien({ ajouter: 'guitariste' })`,
 `assistantMotifs` (jeu, famille, styles de chaque motif), `assistantJeu({ motif: 'g:travis' })`.
 
+Le **Clavier** (pianos, orgues, synthés) est un autre type de musicien à part (Nouveau musicien › Clavier ; le pianiste
+d'une inspiration en est un, et garde son jeu). Son étape (`js/keyboardist.js` pour le catalogue et les notes,
+`keysBody` de `js/band.js`) suit le même principe : par scène, un **Jeu** *Accords* (familles Deux mains, Rythmés,
+Tenus) ou *Arpèges* (Piano brisé, Arpégiateur), des puces de **style** (11 styles, celle de la chanson marquée d'un
+point), **Surprends-moi**, une **Main gauche** *Basse | Octaves | Aucune* et quatre potentiomètres (Voicing, Énergie,
+Pédale, Main humaine ; en Arpèges : Registre, Pédale, Accent, Main humaine). Les motifs « k: » sont écrits pour les
+deux mains (en 4/4 ; hors du 4/4, un rythme de la mesure les remplace) ; les autres sont les modes du moteur de nappe
+que jouent les pianistes des inspirations. Réglages dans `parts…keys`, appliqués à tous les motifs. Le son se choisit à
+l'étape Instruments. Outils Claude : `assistantMusicien({ ajouter: 'clavier' })`, `assistantMotifs`,
+`assistantJeu({ motif: 'k:stride', mainGauche: 'octaves' })`.
+
 Le mode Guitare est déterministe comme le reste d'Arp One ; la lecture, le rendu et l'export MIDI passent par
 `SS.Arp.renderStep`. Réglages dans `track.arp.guitar` (gardés quand on revient au mode Clavier).
 

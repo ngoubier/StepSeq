@@ -6452,3 +6452,6 @@ body.wiz-am-open .wiz-sheet { right: 360px; }
 .bwhn-table { overflow-x: auto; }
 .bwhn-table .bwhz-legend { padding: 8px 12px; border-top: 1px solid var(--c-line); }
 .bwhn-add { background: var(--c-panel); color: var(--c-text); border: 1px solid var(--c-line); border-radius: 6px; padding: 4px 8px; font-size: var(--fs-sm); }
+/* Clavier (étape du type « keys ») : même carte que le Guitariste, plus la main gauche */
+.bwk-hands { display: flex; align-items: center; gap: 8px; }
+.bwk-hands .bwp-field { margin: 0; }
