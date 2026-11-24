@@ -60,11 +60,47 @@ const parts = (page) => page.evaluate(() => JSON.stringify(SS.band._state.wiz.pa
   await page.click('#bwKeys .bwp-mode[data-v="k:alberti"]'); await page.waitForTimeout(300);
   ok(await page.locator('#bwkK-reg').count() === 1 && (await page.locator('#bwkK-accent').count()) === 1, 'Arpèges : Registre et Accent');
   if (SHOT) { await page.evaluate(() => document.querySelector('#bwParts').scrollIntoView()); await page.waitForTimeout(200); await page.screenshot({ path: SHOT.replace('.png', '-arpeges.png') }); }
+  // fenêtre Avancé (Arpèges, piano brisé : Alberti)
+  await page.click('#bwkAdv'); await page.waitForTimeout(300);
+  ok(await page.locator('#bwGtDialog[open] #bwKeysAdvanced[data-jeu="arp"]').count() === 1 && (await page.locator('#bwkEdR [data-k="15"]').count()) === 16, 'Avancé : éditeur des Arpèges (degrés)');
+  await page.click('#bwkOct [data-v="2"]'); await page.waitForTimeout(300);
+  ok(/"oct":2/.test(await parts(page)), 'Avancé : octaves de l’arpège');
+  await page.click('#bwGtClose'); await page.waitForTimeout(200);
+  // Accords, deux mains : éditeur, couleurs, étalement
+  await page.click('#bwkJeu [data-v="acc"]'); await page.waitForTimeout(300);
+  await page.click('#bwkStyle [data-v="all"]'); await page.waitForTimeout(200);
+  await page.click('#bwKeys .bwp-mode[data-v="k:pop8"]'); await page.waitForTimeout(300);
+  await page.click('#bwkAdv'); await page.waitForTimeout(300);
+  ok(await page.locator('#bwKeysAdvanced[data-jeu="acc"] #bwkEdR .bwg-cell.on').count() >= 4 && (await page.locator('#bwkEdL .bwg-cell.on').count()) >= 2, 'Avancé : le motif Pop croches dans l’éditeur deux mains');
+  ok(await page.locator('#bwkKb .bwk-rh').count() >= 3, 'clavier : notes de la main droite (main gauche coupée)');
+  await page.click('#bwkEdR [data-k="T"][data-s="5"]'); await page.waitForTimeout(300);
+  ok(/"pat":"[^"]*"/.test(await parts(page)) && (await page.locator('#bwkEdR [data-k="T"][data-s="5"].on').count()) === 1 && (await page.locator('#bwGtDialog[open]').count()) === 1, 'pas ajouté : motif personnel, la fenêtre reste ouverte');
+  await page.click('#bwkColors [data-v="col7"]'); await page.waitForTimeout(300);
+  ok(/"col7":true/.test(await parts(page)), 'couleur 7e');
+  await page.fill('#bwkA-roll', '40'); await page.dispatchEvent('#bwkA-roll', 'change'); await page.waitForTimeout(300);
+  ok(/"roll":40/.test(await parts(page)), 'étalement');
+  if (SHOT) await page.screenshot({ path: SHOT.replace('.png', '-avance.png') });
+  await page.click('#bwkEdReset'); await page.waitForTimeout(300);
+  ok(!/"pat":/.test(await parts(page)), '↺ Motif d’origine');
+  await page.click('#bwGtClose'); await page.waitForTimeout(200);
+  ok(await page.locator('#bwkAdvChip').count() === 1, 'pastille « Réglages avancés »');
+  // arpégiateur : la fenêtre Arp One
+  await page.click('#bwkJeu [data-v="arp"]'); await page.waitForTimeout(300);
+  await page.click('#bwkStyle [data-v="all"]'); await page.waitForTimeout(200);
+  await page.click('#bwKeys .bwp-mode[data-v="k:up16"]'); await page.waitForTimeout(300);
+  await page.click('#bwkAdv'); await page.waitForTimeout(500);
+  ok(await page.locator('#arpDialog[open]').count() === 1, 'arpégiateur : fenêtre Arp One');
+  await page.click('#arpDialog .arp-led[aria-label="Allumer : Écho"]').catch(() => {}); await page.waitForTimeout(200);
+  await page.click('#arpHostOk'); await page.waitForTimeout(400);
+  ok(/"one":\{/.test(await parts(page)) && /"mode":"k:up16"/.test(await parts(page)), 'réglages Arp One gardés pour la scène');
+  ok(await page.locator('#bwKeys .bwp-mode.on[data-v="k:up16"] b').textContent().then((t) => /✎/.test(t)), 'carte marquée ✎');
   // outils de Claude
   const mot = await page.evaluate(() => window.StepSeq.assistantMotifs({ musicien: 'Clavier' }));
   ok(mot.type === 'clavier' && mot.motifs.some((m) => m.id === 'k:stride'), 'assistantMotifs : motifs du Clavier');
   const j = await page.evaluate(() => window.StepSeq.assistantJeu({ musicien: 'Clavier', scenes: 'toutes', motif: 'k:stride', mainGauche: 'octaves' }));
   ok(j.ok !== false && /"lh":"oct"/.test(await parts(page)), 'assistantJeu : motif et main gauche ' + JSON.stringify(j).slice(0, 160));
+  const j2 = await page.evaluate(() => window.StepSeq.assistantJeu({ musicien: 'Clavier', scene: 'Refrain', clavier: { septieme: true, swing: 0.5, pas: 'B+C . . . c . . . O+C . . . c . . .' } }));
+  ok(j2.ok !== false && /"col7":true/.test(await parts(page)) && /"pat":"B\+C/.test(await parts(page)), 'assistantJeu : réglages avancés du Clavier ' + JSON.stringify(j2).slice(0, 160));
   ok(!errs.length, 'pas d’erreur de page ' + errs.join(' | '));
   await b.close();
   server.close();

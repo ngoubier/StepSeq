@@ -8798,11 +8798,222 @@ SS.band = (() => {
     const keep = Object.fromEntries(Object.keys(KB().DEF).filter((key) => k[key] !== KB().DEF[key]).map((key) => [key, k[key]]));
     putPart(sc.sec, T, { keys: Object.keys(keep).length ? keep : undefined });
     partChanged(focus);
+    gtApplied();
   }
+  /** Change le jeu de la scène : un autre motif oublie le motif réécrit (keys.pat) et l'arpège Arp One de l'ancien. */
   function keysSetMode(sc, T, id, focus) {
+    const o = partOf(sc.sec, T) || {};
     putOff(sc.sec, T, false);
-    putPart(sc.sec, T, { mode: id === planMode(sc, T) ? undefined : id });
+    const patch = { mode: id === planMode(sc, T) ? undefined : id };
+    if (id !== (o.mode || planMode(sc, T))) {
+      if (o.keys && o.keys.pat) {
+        const { pat, ...rest } = o.keys;
+        patch.keys = Object.keys(rest).length ? rest : undefined;
+      }
+      if (o.one) (patch.one = undefined), (patch.adv = undefined);
+    }
+    putPart(sc.sec, T, patch);
     partChanged(focus);
+    gtApplied();
+  }
+  /* --- Clavier « Avancé… » : éditeur pas à pas des deux mains, clavier, voicing, couleurs, jeu ; l'arpégiateur ouvre Arp One --- */
+  const KB_ROWS = {
+    acc: [
+      [['C', 'Accord tenu'], ['c', 'Accord court'], ['k', 'Accord doux'], ['T', 'Note haute'], ['M', 'Octaves']],
+      [['O', 'Octave'], ['F', 'Quinte'], ['B', 'Basse']],
+    ],
+    arp: [
+      [['15', '15 · 2 octaves'], ['12', '12 · quinte +8'], ['10', '10 · tierce +8'], ['8', '8 · octave'], ['7', '7 · septième'], ['5', '5 · quinte'], ['3', '3 · tierce'], ['1', '1 · fondamentale']],
+      [['L8', 'Octave'], ['L5', 'Quinte'], ['L1', 'Basse']],
+    ],
+  };
+  const kbRowHit = (r, it) => (r === 'C' ? it === 'C' || it === 'C9' : r === 'B' ? it === 'B' || it === 'b' : r === 'M' ? /^M\d+$/.test(it) : it === r);
+  /** Motif d'arpégiateur (famille Arpégiateur, ou arpège de synthé venu d'une inspiration) : « Avancé… » ouvre Arp One. */
+  const kbArpOne = (mode) => !!mode && (KB().familyOf(mode) === 'arpeg' || !!ARP_START[mode]) && BS().meter().sig === '4/4';
+  /** Pas du motif affiché dans l'éditeur : le motif réécrit, le motif « k: », sinon les jetons approchés du mode du moteur. */
+  function keysSteps(mode, ks) {
+    const K = KB();
+    if (ks.pat || /^k:/.test(mode)) return K.stepsOf(mode, ks.pat);
+    let evs = [];
+    try {
+      evs = BS().chordEvents([{ step: 0, len: 16, bar: 0, chord: { rootPc: 0, type: 'maj' } }], mode, () => 0.5, { lo: 57, hi: 79 });
+    } catch (e) {}
+    return K.stepsOf(null, K.patFromEvents(evs));
+  }
+  let kbChord = null; // accord affiché sur le clavier de la fenêtre (nom)
+  function keysAdvanced(sc, T) {
+    const K = KB();
+    const o = partOf(sc.sec, T) || {};
+    const mode = o.mode || planMode(sc, T);
+    const jeu = K.jeuOf(mode);
+    const ks = K.normalize(o.keys);
+    const steps = keysSteps(mode, ks);
+    const set = (patch, focus) => keysEdit(sc, T, patch, focus);
+    const write = (st, focus) => set({ pat: K.patText(st) }, focus);
+    const cell = (r, i) => {
+      const its = steps[i] ? steps[i].split('+') : [];
+      const hit = its.find((x) => kbRowHit(r, x));
+      return hit ? (hit === 'b' || hit === 'k' ? 'soft' : 'on') + (/^(O|F|B|b|L\d)$/.test(r) ? ' bass' : '') + (r === 'M' ? ' m' + hit.slice(1) : '') : null;
+    };
+    const click = (r, i) => {
+      const st = steps.slice();
+      let its = st[i] ? st[i].split('+') : [];
+      const hit = its.find((x) => kbRowHit(r, x));
+      if (r === 'M') {
+        const ORD = ['M1', 'M3', 'M5', 'M8'];
+        const n = ORD.indexOf(hit);
+        its = its.filter((x) => !kbRowHit('M', x));
+        if (n < ORD.length - 1) its.push(ORD[n + 1]);
+      } else if (hit) its = its.filter((x) => x !== hit);
+      else {
+        if (['C', 'c', 'k'].includes(r)) its = its.filter((x) => !/^(C|C9|c|k)$/.test(x));
+        if (['B', 'O', 'F'].includes(r)) its = its.filter((x) => !/^(B|b|O|F)$/.test(x));
+        its.push(r);
+      }
+      st[i] = its.join('+');
+      write(st, `.bwk-ed [data-k="${r}"][data-s="${i}"]`);
+    };
+    // clic droit : la note courte (basse brève, accord doux)
+    const ctx = (r, i) => {
+      if (!['B', 'C'].includes(r)) return;
+      const st = steps.slice();
+      const its = st[i] ? st[i].split('+') : [];
+      const soft = r === 'B' ? 'b' : 'k';
+      const rest = its.filter((x) => !kbRowHit(r, x) && x !== soft && !(r === 'C' && /^(c|k)$/.test(x)));
+      st[i] = [...rest, its.includes(soft) ? r : soft].join('+');
+      write(st);
+    };
+    const [rhRows, lhRows] = KB_ROWS[jeu];
+    // clavier : les notes jouées sur un accord de la scène (main gauche, main droite)
+    const spans = sceneSpans(sc);
+    const names = [...new Set(spans.map((x) => x.info.name))];
+    if (!names.includes(kbChord)) kbChord = names[0] || null;
+    const sp = spans.find((x) => x.info.name === kbChord);
+    const evs = ((sc.data[T.col.id] || {}).events || []).filter((e) => sp && e.step >= sp.step && e.step < sp.step + Math.min(sp.len, SPB()));
+    const lit = new Map();
+    evs.forEach((e) => e.notes.forEach((n) => lit.set(n, n < 55 ? 'lh' : 'rh')));
+    const NS = 'http://www.w3.org/2000/svg';
+    const el = (name, attrs, parent) => {
+      const n = document.createElementNS(NS, name);
+      Object.entries(attrs).forEach(([k, v]) => n.setAttribute(k, v));
+      if (parent) parent.append(n);
+      return n;
+    };
+    const kb = el('svg', { viewBox: '0 0 980 74', preserveAspectRatio: 'none', class: 'bwk-kb', id: 'bwkKb', 'aria-hidden': 'true' });
+    const whites = [];
+    for (let m = 28; m <= 100; m++) if (!BLACK_PC.includes(m % 12)) whites.push(m);
+    const W = 980 / whites.length;
+    const fill = (m, black) => (lit.get(m) === 'lh' ? 'bwk-lh' : lit.get(m) === 'rh' ? 'bwk-rh' : black ? 'bwk-black' : 'bwk-white');
+    whites.forEach((m, i) => {
+      el('rect', { x: i * W + 0.5, y: 0, width: W - 1, height: 74, rx: 2, class: fill(m, false), 'data-n': m }, kb);
+      if (m % 12 === 0) el('text', { x: i * W + 2, y: 70, 'font-size': 9, class: 'bwk-kbt' }, kb).textContent = SS.noteNameFr(m);
+    });
+    for (let m = 28; m <= 100; m++) if (BLACK_PC.includes(m % 12)) el('rect', { x: (whites.indexOf(m - 1) + 1) * W - W * 0.32, y: 0, width: W * 0.64, height: 44, rx: 2, class: fill(m, true), 'data-n': m }, kb);
+    const seg = (label, id, opts, cur, pick) => partSeg(label, id, opts, cur, (v) => pick(v, `#${id} [data-v="${v}"]`));
+    const togs = h('div', { class: 'gt-chips', id: 'bwkColors' }, ...[['col7', '7e', 'La septième de l’accord ajoutée'], ['col9', '9e', 'La neuvième ajoutée'], ['sus', 'sus4', 'La tierce remplacée par la quarte']].map(([k, t, tip]) => h('button', { type: 'button', class: 'gt-chip bwk-col' + (ks[k] ? ' on' : ''), 'data-v': k, 'aria-pressed': String(ks[k]), title: tip, onclick: () => set({ [k]: !ks[k] }, `#bwkColors [data-v="${k}"]`) }, t)));
+    const slider = (label, key, max, val, fmt, toVal, help) => {
+      const out = h('span', {}, fmt(val));
+      return h(
+        'label',
+        { class: 'bwgt-sl' },
+        h('span', { class: 'bwgt-slh' }, h('b', {}, label), help ? SS.helpTip(help, label) : null, h('span', { class: 'spacer' }), out),
+        h('input', { type: 'range', min: 0, max, step: 1, value: val, id: 'bwkA-' + key, 'aria-label': label, oninput: (e) => (out.textContent = fmt(+e.target.value)), onchange: (e) => set({ [key]: toVal(+e.target.value) }, '#bwkA-' + key) })
+      );
+    };
+    const pc = (v) => Math.round(v * 100);
+    const PED = (v) => (v < 15 ? 'sec' : v < 60 ? 'pédale légère' : 'pédale tenue');
+    const HUM = (v) => (v < 15 ? 'machine' : v < 60 ? 'naturel' : 'relâché');
+    const own = K.OWN.filter((m) => m.jeu === jeu && m.fam !== 'arpeg');
+    return h(
+      'div',
+      { class: 'bwgt bwk-adv', id: 'bwKeysAdvanced', 'data-jeu': jeu },
+      h(
+        'div',
+        { class: 'bwp-ch' },
+        h('b', {}, (ks.pat ? '✎ ' : '') + (ks.pat ? 'Motif personnel' : K.name(mode))),
+        h('span', { class: 'bh-info' }, `« ${sc.name} » · ${sc.bars} mesures`),
+        SS.helpTip('Chaque ligne est une façon de jouer, chaque colonne un pas (double-croche). En haut la main droite, en bas la main gauche ; les notes suivent les accords de la scène. Clic : allumer ou éteindre ; ligne Octaves : chaque clic change de degré ; clic droit sur Basse ou Accord tenu : la version courte.', 'Éditeur deux mains'),
+        h('span', { class: 'spacer' }),
+        ks.pat ? h('button', { type: 'button', class: 'btn btn-small', id: 'bwkEdReset', onclick: () => set({ pat: undefined }) }, '↺ Motif d’origine') : null
+      ),
+      h(
+        'div',
+        { class: 'gt-card bwk-kbcard' },
+        h('div', { class: 'gt-chips', id: 'bwkChords' }, ...names.map((n) => h('button', { type: 'button', class: 'gt-chip' + (n === kbChord ? ' on' : ''), 'data-v': n, onclick: () => ((kbChord = n), gtApplied()) }, n))),
+        kb,
+        h('div', { class: 'bwk-legend' }, h('span', { class: 'rh' }, 'main droite'), h('span', { class: 'lh' }, 'main gauche')),
+        h('span', { class: 'dlg-label' }, 'Main droite'),
+        h('div', { class: 'bwk-ed' }, stepGrid('bwkEdR', rhRows, SPB(), cell, click, ctx)),
+        h('span', { class: 'dlg-label' }, 'Main gauche'),
+        h('div', { class: 'bwk-ed' }, stepGrid('bwkEdL', lhRows, SPB(), cell, click, ctx))
+      ),
+      h(
+        'div',
+        { class: 'bwgt-mods' },
+        h('div', { class: 'gt-card' }, h('h3', {}, 'Motif'), ...K.FAMILIES[jeu].filter(([f]) => own.some((m) => m.fam === f)).map(([f, label]) => h('div', { class: 'gt-group' }, h('span', { class: 'dlg-label' }, label), h('div', { class: 'gt-chips' }, ...own.filter((m) => m.fam === f).map((m) => h('button', { type: 'button', class: 'gt-chip bwk-mot' + ('k:' + m.id === mode && !ks.pat ? ' on' : ''), 'data-m': 'k:' + m.id, title: m.desc, onclick: () => keysSetMode(sc, T, 'k:' + m.id) }, m.name)))))),
+        h(
+          'div',
+          { class: 'gt-card' },
+          h('h3', {}, jeu === 'acc' ? 'Voicing' : 'Arpège'),
+          jeu === 'acc'
+            ? seg('Position', 'bwkPos', [['20', 'Serrée'], ['50', 'Drop 2'], ['85', 'Large']], ks.voice < 0.35 ? '20' : ks.voice < 0.7 ? '50' : '85', (v, f) => set({ voice: +v / 100 }, f))
+            : seg('Octaves', 'bwkOct', [['1', '1'], ['2', '2'], ['3', '3']], String(ks.oct), (v, f) => set({ oct: +v }, f)),
+          seg('Registre', 'bwkReg', [['15', 'Grave'], ['50', 'Médium'], ['85', 'Aigu']], ks.reg < 0.33 ? '15' : ks.reg < 0.67 ? '50' : '85', (v, f) => set({ reg: +v / 100 }, f)),
+          h('span', { class: 'dlg-label' }, 'Couleurs'),
+          togs
+        ),
+        h(
+          'div',
+          { class: 'gt-card' },
+          h('h3', {}, 'Jeu'),
+          jeu === 'acc' ? slider('Étalement', 'roll', 60, ks.roll, (v) => (v < 5 ? 'plaqué' : v < 30 ? v + ' ms · roulé léger' : v + ' ms · harpe'), (v) => v, 'Les notes de l’accord l’une après l’autre, de la plus grave à la plus aiguë.') : null,
+          slider('Swing', 'swing', 100, pc(ks.swing), (v) => (v < 10 ? 'droit' : v < 45 ? 'léger' : 'shuffle'), (v) => v / 100),
+          slider('Main gauche ↔ main droite', 'bal', 100, pc(ks.bal), (v) => (v < 40 ? 'gauche devant' : v > 60 ? 'droite devant' : 'équilibré'), (v) => v / 100),
+          slider('Pédale', 'pedal', 100, pc(ks.pedal), PED, (v) => v / 100),
+          slider('Main humaine', 'human', 100, pc(ks.human), HUM, (v) => v / 100)
+        )
+      )
+    );
+  }
+  /** Arpégiateur du Clavier : la fenêtre Arp One de la scène, comme l'étape Arpège ; ses réglages vont dans parts…one. */
+  function openKeysArpOne(sc, T, mode) {
+    const proj = listenProject();
+    const lt = proj && proj.tracks.find((t) => t.col === T.col.id);
+    if (!lt || !SS.arpPanel) return;
+    stopListen();
+    const o = partOf(sc.sec, T) || {};
+    const { bars, chords } = arpHostChords(sc);
+    const id = /^k:/.test(mode) ? mode.slice(2) : mode;
+    const start = o.one ? A1().normalize(o.one) : arpStart(id);
+    const proxy = { ...lt, arp: JSON.parse(JSON.stringify(start)), arpOn: true, events: [] };
+    delete proxy.follow;
+    const plays = (x) => !mutedIn(x.sec, T) && kbArpOne((partOf(x.sec, T) || {}).mode || planMode(x, T));
+    SS.arpPanel.open(proxy, {
+      host: {
+        project: () => proj,
+        changed: () => {},
+        title: `${lt.name} — ${sc.name}`,
+        level: 'avance',
+        bars,
+        chords,
+        apply: (arp, all) => {
+          const to = all ? S.wiz.res.scenes.filter((x) => x.sec === sc.sec || plays(x)) : [sc];
+          [...new Set(to.map((x) => x.sec))].forEach((sec) => {
+            putOff(sec, T, false);
+            putPart(sec, T, { one: arp, adv: true, ...(sec === sc.sec && !o.mode && mode !== planMode(sc, T) ? { mode } : {}) });
+          });
+          partChanged('#bwkAdv');
+        },
+      },
+    });
+  }
+  const freshScene = (sc) => (S.wiz.res && S.wiz.res.scenes.find((x) => x.id === sc.id)) || sc;
+  function openKeysAdvanced(sc, T) {
+    const o = partOf(sc.sec, T) || {};
+    const mode = o.mode || planMode(sc, T);
+    if (!mode) return;
+    if (kbArpOne(mode)) return openKeysArpOne(sc, T, mode);
+    openGtDialog(() => keysAdvanced(freshScene(sc), T), 'CLAVIER', KB().jeuOf(mode) === 'acc' ? 'Accords · deux mains' : 'Arpèges · piano brisé');
   }
   function keysBody(sc, T) {
     const K = KB();
@@ -8827,7 +9038,7 @@ SS.band = (() => {
       return h(
         'button',
         { type: 'button', role: 'radio', class: 'bwp-mode' + (on ? ' on' : ''), 'data-v': id, 'aria-checked': String(on), title: K.desc(id) + ' · ' + K.stylesOf(id).map((s) => (K.STYLES.find((x) => x[0] === s) || [, s])[1]).join(', '), onclick: () => keysSetMode(sc, T, id, `.bwp-mode[data-v="${id}"]`) },
-        h('b', {}, K.name(id), id === insp ? h('em', {}, 'Inspiration') : null),
+        h('b', {}, (on && ((o.keys && o.keys.pat) || o.one) ? '✎ ' : '') + K.name(id), id === insp ? h('em', {}, 'Inspiration') : null),
         h('span', { class: 'bwp-rhy', html: pic })
       );
     };
@@ -8851,9 +9062,11 @@ SS.band = (() => {
           'div',
           { class: 'bwp-ch' },
           h('b', {}, `Clavier de « ${sc.name} »`),
+          !muted && cur && (K.advanced(o.keys) || o.one) ? h('button', { type: 'button', class: 'bwa-advchip', id: 'bwkAdvChip', title: 'Réglages faits dans la fenêtre Avancé : clic pour la rouvrir', onclick: () => openKeysAdvanced(sc, T) }, '✎ Réglages avancés') : null,
           partSeg('Jeu', 'bwkJeu', K.JEUX, jeu, pickJeu),
           SS.helpTip('Accords : les deux mains jouent l’accord (blocs, ballade, stabs, montuno, skank…). Arpèges : les notes de l’accord une à une, au piano (brisés à deux mains) ou à l’arpégiateur. Le son du clavier se choisit à l’étape Instruments.', 'Jeu du clavier'),
           h('span', { class: 'spacer' }),
+          h('button', { type: 'button', class: 'btn btn-small bwp-gtadv', id: 'bwkAdv', disabled: muted || !cur ? true : null, 'aria-haspopup': 'dialog', title: cur && kbArpOne(cur) ? 'La fenêtre Arp One de l’arpégiateur' : 'Éditeur pas à pas des deux mains, voicing, couleurs, étalement, swing', onclick: () => openKeysAdvanced(sc, T) }, 'Avancé…'),
           playBox(sc, T, SS.bandSong.DEFAULT_MODE.keys)
         ),
         h(
@@ -12892,7 +13105,7 @@ SS.band = (() => {
       out.scenes = Object.keys(specEff().sections).map((sec) => ({ scene: secName(sec), joue: String(instSub(T, sceneRef(sec))) }));
       return out;
     }
-    function jeu(ref, scenes, { motif, joue, presence, mouvement, hasard, mainGauche } = {}) {
+    function jeu(ref, scenes, { motif, joue, presence, mouvement, hasard, mainGauche, clavier } = {}) {
       needPlan();
       const T = insOf(ref);
       const secs = (scenes === '*' || fold(scenes) === 'toutes' ? Object.keys(specEff().sections) : [].concat(scenes == null ? [null] : scenes)).map(secId);
@@ -12904,7 +13117,20 @@ SS.band = (() => {
         if (T.kind !== 'keys') err(`« ${T.title} » n’est pas un Clavier : mainGauche est pour lui`);
         lh = { basse: 'basse', octave: 'oct', octaves: 'oct', oct: 'oct', aucune: 'aucune', rien: 'aucune' }[fold(mainGauche)] || err('mainGauche : basse, octaves ou aucune');
       }
-      if (motif == null && joue == null && !ambArgs && !lh) err(T.kind === 'ambient' ? 'donne presence, mouvement, hasard, ou joue: true / false' : 'donne un motif, ou joue: true / false');
+      // réglages du Clavier (boutons et fenêtre Avancé) : { voicing, energie, pedale, mainHumaine, registre, accent, septieme, neuvieme, sus4, etalement, swing, equilibre, octaves, pas }
+      let kset = null;
+      if (clavier != null) {
+        if (T.kind !== 'keys') err(`« ${T.title} » n’est pas un Clavier : clavier est pour lui`);
+        if (typeof clavier !== 'object') err('clavier : un objet { voicing, energie, pedale, … }');
+        const MAP = { voicing: 'voice', energie: 'energy', pedale: 'pedal', mainhumaine: 'human', registre: 'reg', accent: 'accent', septieme: 'col7', neuvieme: 'col9', sus4: 'sus', etalement: 'roll', swing: 'swing', equilibre: 'bal', octaves: 'oct', pas: 'pat' };
+        kset = {};
+        Object.entries(clavier).forEach(([k, v]) => {
+          const key = MAP[fold(k).replace(/[^a-z0-9]/g, '')] || err(`clavier : ${k} inconnu (${Object.keys(MAP).join(', ')})`);
+          if (key === 'pat' && v != null && !KB().parsePat(String(v))) err('clavier.pas : 16 pas séparés par des espaces (« . » = rien), jetons B b O F L1 L5 L8 C C9 c k T M1 M3 M5 M8 1 3 5 7 8 9 10 12 15, plusieurs par pas avec +');
+          kset[key] = v == null ? undefined : key === 'pat' ? String(v) : v;
+        });
+      }
+      if (motif == null && joue == null && !ambArgs && !lh && !kset) err(T.kind === 'ambient' ? 'donne presence, mouvement, hasard, ou joue: true / false' : 'donne un motif, ou joue: true / false');
       let amb = null;
       if (ambArgs) {
         const pick = (v, list, what) => (v == null ? undefined : (list.find((x) => fold(x[0]) === fold(v) || fold(x[1]) === fold(v)) || err(`${what} : ${list.map((x) => fold(x[1])).join(', ')}`))[0]);
@@ -12921,10 +13147,12 @@ SS.band = (() => {
         const sc = sceneRef(sec);
         if (joue === false) return void putOff(sec, T, true);
         putOff(sec, T, false);
-        if (lh) {
-          const ks = { ...((partOf(sec, T) || {}).keys || {}), lh };
-          if (lh === 'basse') delete ks.lh;
-          putPart(sec, T, { keys: Object.keys(ks).length ? ks : undefined });
+        if (lh || kset) {
+          const K = KB();
+          const k = { ...K.normalize((partOf(sec, T) || {}).keys), ...(lh ? { lh } : {}), ...(kset || {}) };
+          const n = K.normalize(Object.fromEntries(Object.entries(k).filter(([, v]) => v !== undefined)));
+          const keep = Object.fromEntries(Object.keys(K.DEF).filter((key) => n[key] !== K.DEF[key]).map((key) => [key, n[key]]));
+          putPart(sec, T, { keys: Object.keys(keep).length ? keep : undefined });
           if (!m) return;
         }
         if (amb) {
