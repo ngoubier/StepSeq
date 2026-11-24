@@ -162,6 +162,7 @@ SS.band = (() => {
     const mu = { id: rec.id, role: rc.role, added: true, type: rec.type, name: rec.name, custom: true, label: rec.name };
     if (rec.type === 'drums') Object.assign(mu, { kits: rc.kits, pieces: rc.pieces });
     else if (rec.type === 'orch') Object.assign(mu, { orch: true, pick: rc.pick, cat: rc.cat });
+    else if (rec.type === 'horns') Object.assign(mu, { horns: true, pick: rc.pick, cat: rc.cat, form: rc.form });
     else if (rec.type === 'ambient') Object.assign(mu, { amb: true, pick: rc.pick, cat: rc.cat });
     else Object.assign(mu, { pick: rc.pick, cat: rc.cat });
     return mu;
@@ -177,6 +178,7 @@ SS.band = (() => {
   function kindNow(mu) {
     if (mu.kits) return 'drums';
     if (mu.orch) return 'orch';
+    if (mu.horns) return 'horns';
     if (mu.amb) return 'ambient';
     const def = BG().typeOfRole(mu.role);
     const k = S.wiz && S.wiz.kinds && S.wiz.kinds[`${mu.id}:${mu.role}`];
@@ -195,6 +197,7 @@ SS.band = (() => {
     }
     if (mu.orch) return { on: true, ens: (mu.ens && mu.ens[0]) || 'chamber' }; // effectif de départ : le premier proposé par l'inspiration
     if (mu.amb) return { on: true, mod: BG().ambMod(mu.pick && mu.pick[0]), amb: {} }; // module de départ : Jardin
+    if (mu.horns) return { on: true, form: mu.form || SS.horns.formFor(S.styleId) }; // formation de départ : celle du style
     return { on: true, pick: 0, custom: null, ...(mu.added ? { tok: mu.pick[0] } : {}) };
   }
   /** Choix de son de chaque musicien du groupe, par id (état gardé par inspiration ; celui d'un musicien ajouté vit dans le groupe). */
@@ -268,6 +271,9 @@ SS.band = (() => {
   const AMB_SPACE = 0.5; // envoi Cosmos de départ (celui des pistes génératives de la grille)
   /** Effectif d'un orchestre (js/orchestra.js). */
   const ensOf = (ms) => SS.orchestra.ENS[(ms && ms.ens) || 'chamber'] || SS.orchestra.ENSEMBLES[0];
+  /** Formation d'une section de cuivres (js/horns.js) et ses musiciens (avec ceux ajoutés). */
+  const hformOf = (ms) => SS.horns.formOf(ms && ms.form);
+  const hplayersOf = (ms) => SS.horns.players(hformOf(ms).id, (ms && ms.add) || []);
   /** Marque d'une piste créée par Band (gardée dans le projet) : sert à la retrouver pour la remplacer. */
   const tag = (p, mu, sound) => ({ style: S.styleId, preset: p.id, musician: mu.id, key: mu.role + (sound ? ':' + sound : ''), ...(mu.added ? { label: mu.name } : {}) });
 
@@ -293,6 +299,9 @@ SS.band = (() => {
         const ambient = { ...BG().clone(ms.amb || {}), ...(ms.drawn ? { presence: ms.drawn.slice() } : {}) };
         const space = typeof ms.space === 'number' ? ms.space : AMB_SPACE;
         out.push({ type: 'instrument', family: 'ambient', instrument: ambMod(ms), category: 'mono', name: nameOf0(mu) || roleOf(mu).short, color, band: tag(p, mu), levelKey: null, keep: { ambient, fx: { sendSpace: space } } });
+      } else if (mu.horns) {
+        // section de cuivres : une piste par musicien de la formation (js/horns.js), clé « formation-musicien »
+        hplayersOf(ms).forEach((x) => out.push({ ...toGm(B().choiceOpts(x.tok, 'mono')), category: 'mono', name: `${mu.name} · ${x.label}`, color, band: tag(p, mu, x.key), levelKey: null }));
       } else if (mu.orch) {
         // orchestre : une piste par pupitre de l'effectif choisi (js/orchestra.js)
         ensOf(ms).parts.forEach((id) => {
@@ -1569,6 +1578,7 @@ SS.band = (() => {
       return `${(B().KITS[kitOf(ms)] || {}).label} · ${n} piste${n > 1 ? 's' : ''}`;
     }
     if (mu.orch) return `${ensOf(ms).label} · ${ensOf(ms).parts.length} pistes`;
+    if (mu.horns) return `${hformOf(ms).label} · ${hplayersOf(ms).length} pistes`;
     if (mu.amb) return `${ambInfo(ms).icon} ${ambInfo(ms).label}`;
     return B().describe(instOpts(mu)).name;
   }
@@ -1694,6 +1704,7 @@ SS.band = (() => {
     dirt: ['Dirt-Samples', '#b08a5a'],
     tdm: ['Boîte à rythmes', '#e3179c'],
     ens: ['Orchestre', '#ff8a3d'],
+    cuivres: ['Section de cuivres', '#e8b23a'],
     amb: ['Génératif', '#6fe3c8'],
   };
   /** Source et détail d'un son d'instrument : { src, detail }. */
@@ -1758,7 +1769,7 @@ SS.band = (() => {
 
   /** Nom par défaut d'un musicien (celui du rôle ou du type) : celui qu'on retrouve en vidant le nom. */
   const baseNameOf = (mu) => (mu.added ? BG().BASE_NAME[mu.type] : (preset().musicians.find((m) => m.id === mu.id) || mu).label || roleOf(mu).label);
-  const soundName = (mu, ms = musState()[mu.id]) => (mu.kits ? (B().KITS[kitOf(ms)] || {}).label || '' : mu.orch ? ensOf(ms).label : mu.amb ? ambInfo(ms).label : B().describe(instOpts(mu, ms)).name);
+  const soundName = (mu, ms = musState()[mu.id]) => (mu.kits ? (B().KITS[kitOf(ms)] || {}).label || '' : mu.orch ? ensOf(ms).label : mu.horns ? hformOf(ms).label : mu.amb ? ambInfo(ms).label : B().describe(instOpts(mu, ms)).name);
   const kindName = (mu) => (kindNow(mu) ? KIND_LABEL[kindNow(mu)] : 'Effets');
 
   /** Renommer : le musicien, sa tuile et son onglet suivent (sans refaire le panneau, pour garder la saisie). */
@@ -1909,6 +1920,30 @@ SS.band = (() => {
         )
       ),
       detBlock('orch', 'Comment joue l’orchestre', false, h('p', { class: 'dlg-hint', 'data-helpify': true }, `${cur.text} Une piste par pupitre ; l’étape Orchestration répartit la mélodie, les accords et la basse de chaque scène.`)),
+    ];
+  }
+  /** Formations d'une section de cuivres (étape Instruments) : la formation retenue, puis une carte par style (★ : celle du style). */
+  function hornCards(ms, after) {
+    const cur = hformOf(ms);
+    const star = SS.horns.formFor(S.styleId);
+    return [
+      nowCard({ name: cur.label, src: 'cuivres', detail: `${hplayersOf(ms).length} musiciens` }),
+      h('div', { class: 'bpn-sec' }, 'Formations'),
+      h(
+        'div',
+        { class: 'bpn-grid bg-ens', role: 'radiogroup', 'aria-label': 'Formation de la section' },
+        ...SS.horns.FORMS.map((f) =>
+          sndCard({
+            name: f.label + (f.id === star ? ' ★' : ''),
+            src: null,
+            detail: SS.horns.players(f.id).map((x) => x.label).join(', '),
+            active: cur.id === f.id,
+            onPick: () => ((ms.form = f.id), delete ms.add, after()),
+            mainAttrs: { class: 'bc-main bg-ensc', 'data-form': f.id, title: SS.horns.players(f.id).map((x) => x.label).join(', ') },
+          })
+        )
+      ),
+      detBlock('horns', 'Comment joue la section', false, h('p', { class: 'dlg-hint', 'data-helpify': true }, 'Une piste par musicien. L’étape Cuivres choisit le jeu de la section scène par scène (le jeu du style, Unisson, Coups, Tenues) ; chaque musicien suit les accords dans son registre.')),
     ];
   }
   /** Cartes des conseillés d'un musicien (en mode GM, deux choix peuvent donner le même son : on ne garde que le premier). */
@@ -2077,6 +2112,7 @@ SS.band = (() => {
     guitar: 'Une guitare : arpèges aux doigts ou au médiator, accords grattés ou étouffés, avec de vraies formes d’accord.',
     melody: 'La ligne chantante par-dessus : thème et motifs.',
     orch: 'Un effectif (cordes, cor, bois) qui se partage mélodie, accords et basse : une piste par pupitre.',
+    horns: 'Une section (trompettes, trombones, saxes…) qui joue ensemble, chacun sa partie : une piste par musicien.',
     ambient: 'Un module génératif qui joue seul, sur les accords de chaque scène : Jardin, Paysage ou Fresque.',
   };
   const kindIcon = (k) => `<svg viewBox="0 0 30 30" aria-hidden="true">${KIND_ICON[k]}</svg>`;
@@ -2158,6 +2194,7 @@ SS.band = (() => {
     });
     let body;
     if (mu.orch) body = ensCards(ms, refresh);
+    else if (mu.horns) body = hornCards(ms, refresh);
     else if (mu.amb)
       body = modCards(ms, (prev) => {
         // tant qu'on ne l'a pas renommé, il porte le nom de son module
@@ -2218,6 +2255,7 @@ SS.band = (() => {
     const ms = musState()[mu.id];
     if (mu.kits) renderKitPanel(mu, ms);
     else if (mu.orch) $('#bandPanel').replaceChildren(panelHead(mu, ms), ...ensCards(ms, () => groupChanged()), groupActions(mu));
+    else if (mu.horns) $('#bandPanel').replaceChildren(panelHead(mu, ms), ...hornCards(ms, () => groupChanged()), groupActions(mu));
     else if (mu.amb) $('#bandPanel').replaceChildren(panelHead(mu, ms), ...modCards(ms, (prev) => ambRenamed(mu, prev)), groupActions(mu));
     else renderInstPanel(mu, ms);
   }
@@ -2409,7 +2447,7 @@ SS.band = (() => {
     if (!mu || !kind || !BG().canAdd(g)) return;
     const src = musState()[id];
     let ms;
-    if (mu.kits || mu.orch || mu.amb) ms = { ...BG().clone(src), on: true };
+    if (mu.kits || mu.orch || mu.horns || mu.amb) ms = { ...BG().clone(src), on: true };
     else {
       const rc = recFor(kind);
       const tok = picksOf(mu)[effPick(mu, src)];
@@ -2522,13 +2560,13 @@ SS.band = (() => {
     get pick() { return 9 + insSteps().length; },
   };
   /** Types d'instrument : nom, résumé du fil des étapes, couleur de rôle (batterie rose, basse verte, nappe bleue, arpège turquoise, mélodie violette). */
-  const KIND_LABEL = { drums: 'Drums', bass: 'Basse', chords: 'Accords', arp: 'Arpèges', guitar: 'Guitariste', melody: 'Mélodie', orch: 'Orchestre', ambient: 'Ambient' };
-  const KIND_SUM = { drums: 'Drums', bass: 'Basse', chords: 'Nappe', arp: 'Arpège', guitar: 'Guitare', melody: 'Mélodie', orch: 'Orchestre', ambient: 'Ambient' };
+  const KIND_LABEL = { drums: 'Drums', bass: 'Basse', chords: 'Accords', arp: 'Arpèges', guitar: 'Guitariste', melody: 'Mélodie', orch: 'Orchestre', horns: 'Cuivres', ambient: 'Ambient' };
+  const KIND_SUM = { drums: 'Drums', bass: 'Basse', chords: 'Nappe', arp: 'Arpège', guitar: 'Guitare', melody: 'Mélodie', orch: 'Orchestre', horns: 'Cuivres', ambient: 'Ambient' };
   /** Étiquette du type dans la tête d'étape instrument : « Nappe » et non « Accords », qui est l'étape 5. */
   const KIND_STEP = { ...KIND_LABEL, chords: 'Nappe', orch: 'Orchestration' };
-  const KIND_COLOR = { drums: '#e3179c', bass: '#3fcf3f', chords: '#4f6bff', arp: '#13c2a3', guitar: '#ff4d6d', melody: '#9b5cff', orch: '#ff8a3d', ambient: '#6fe3c8' };
-  const KIND_DESC = { drums: 'Motifs rythmiques et fills', bass: 'Mode de jeu sur la fondamentale', chords: 'Joue la grille en nappe ou plaqué', arp: 'Arpège les accords (Arp One)', guitar: 'Arpèges et accords de guitare (Arp One Guitare)', melody: 'Ligne mélodique générée', orch: 'Répartit mélodie, accords et basse entre les pupitres', ambient: 'Présence du module génératif, scène par scène' };
-  const KIND_SLOT = { drums: 'drums', bass: 'bass', chords: 'pad', arp: 'arp', guitar: 'gtr', melody: 'lead', orch: 'orch', ambient: 'amb' }; // suffixe des identifiants de test (#bwp-on-bass…)
+  const KIND_COLOR = { drums: '#e3179c', bass: '#3fcf3f', chords: '#4f6bff', arp: '#13c2a3', guitar: '#ff4d6d', melody: '#9b5cff', orch: '#ff8a3d', horns: '#e8b23a', ambient: '#6fe3c8' };
+  const KIND_DESC = { drums: 'Motifs rythmiques et fills', bass: 'Mode de jeu sur la fondamentale', chords: 'Joue la grille en nappe ou plaqué', arp: 'Arpège les accords (Arp One)', guitar: 'Arpèges et accords de guitare (Arp One Guitare)', melody: 'Ligne mélodique générée', orch: 'Répartit mélodie, accords et basse entre les pupitres', horns: 'Le jeu de la section, scène par scène', ambient: 'Présence du module génératif, scène par scène' };
+  const KIND_SLOT = { drums: 'drums', bass: 'bass', chords: 'pad', arp: 'arp', guitar: 'gtr', melody: 'lead', orch: 'orch', horns: 'horns', ambient: 'amb' }; // suffixe des identifiants de test (#bwp-on-bass…)
   const KIND_ICON = {
     drums: '<ellipse cx="15" cy="17" rx="9" ry="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 17v5c0 2 4 4 9 4s9-2 9-4v-5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 4l7 9M23 4l-7 9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
     bass: '<path d="M3 15h4l3-9 4 18 3-12 2 3h8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>',
@@ -2537,6 +2575,7 @@ SS.band = (() => {
     guitar: '<path d="M19 3l8 8M23 7l-7.5 7.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M15.5 14.5c-2-2-5.5-1.5-6.5.5-.7 1.4-2.3 1.6-3.5 2.6-2.6 2.2-1.8 6.4 1 8.6 2.4 1.9 6 1.6 7.6-1 .8-1.3 1-2.8 2.4-3.6 2.2-1.2 1.4-4.9-1-7.1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="11.5" cy="19.5" r="1.8" fill="currentColor"/>',
     melody: '<path d="M3 20c4-12 7-12 10-3s6 8 9-4c1-4 3-5 5-4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="25" cy="9" r="2" fill="currentColor"/>',
     orch: '<path d="M15 3v7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M11 10h8c0 2.5-2 3-2 5s3 2.5 3 5.5S18 26 15 26s-5-2-5-5.5 3-3.5 3-5.5-2-2.5-2-5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M5 27L25 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+    horns: '<path d="M4 11v8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4 15h12l9-7v14l-9-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 15v6h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M10 10h3M14 10h0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
     ambient: '<circle cx="15" cy="15" r="3.5" fill="currentColor"/><path d="M15 3v5M15 22v5M3 15h5M22 15h5M6.5 6.5l3.5 3.5M20 20l3.5 3.5M6.5 23.5l3.5-3.5M20 10l3.5-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
   };
   /**
@@ -2554,7 +2593,7 @@ SS.band = (() => {
     const out = [];
     cols.forEach((c) => {
       const kit = c.o.type === 'drum';
-      const orch = c.role === 'orch'; // un orchestre (tous ses pupitres) est un seul instrument, comme un kit
+      const orch = c.role === 'orch' || c.role === 'horns'; // un orchestre (tous ses pupitres), une section de cuivres : un seul instrument, comme un kit
       const id = kit || orch ? c.musician : c.id;
       const t = out.find((x) => x.id === id);
       if (t) return void t.cols.push(c);
@@ -2562,7 +2601,7 @@ SS.band = (() => {
       const mu = muById(c.musician);
       out.push({
         id, key: id, kit, orch, col: c, cols: [c], role: c.role, musician: c.musician, kind: instKind(c), def: defaultKind(c),
-        title: nameOf0(mu) || roleOf(mu).short, name: nameOf0(mu) || (kit ? roleOf(mu).short : B().describe(c.o).name.replace(/^[A-Z]\d+\s*[–-]\s*/, '')), sound: kit ? (B().KITS[kitOf(musState()[mu.id])] || {}).label || labelOf(mu) : c.role === 'ambient' ? ambInfo(musState()[mu.id]).label : orch ? ensOf(musState()[mu.id]).label : B().describe(c.o).name,
+        title: nameOf0(mu) || roleOf(mu).short, name: nameOf0(mu) || (kit ? roleOf(mu).short : B().describe(c.o).name.replace(/^[A-Z]\d+\s*[–-]\s*/, '')), sound: kit ? (B().KITS[kitOf(musState()[mu.id])] || {}).label || labelOf(mu) : c.role === 'ambient' ? ambInfo(musState()[mu.id]).label : c.role === 'horns' ? hformOf(musState()[mu.id]).label : orch ? ensOf(musState()[mu.id]).label : B().describe(c.o).name,
       });
     });
     insMemo = { sig, wiz: S.wiz, val: out };
@@ -6773,7 +6812,7 @@ SS.band = (() => {
   /** Réglage d'un instrument dans une scène, en une ligne pour la colonne des scènes et le fil des étapes. */
   function instSub(T, x) {
     if (mutedIn(x.sec, T)) return 'muette';
-    const k = T.kind === 'drums' ? (T.kit ? drumsSub : drumsLiteSub) : { bass: bassSub, chords: padSub, arp: arpSub, guitar: gtrSub, melody: melSub, orch: orchSub, ambient: ambSub }[T.kind];
+    const k = T.kind === 'drums' ? (T.kit ? drumsSub : drumsLiteSub) : { bass: bassSub, chords: padSub, arp: arpSub, guitar: gtrSub, melody: melSub, orch: orchSub, horns: hornsSub, ambient: ambSub }[T.kind];
     return k(x, T);
   }
   /** Étape d'un instrument : types, barre de piste, scènes à gauche, éditeur du type choisi (réglages de cet instrument). */
@@ -6783,7 +6822,7 @@ SS.band = (() => {
     const box = $('#bandWiz');
     if (!res) return box.replaceChildren(h('p', { class: 'dlg-hint' }, 'Cette inspiration n’a pas de plan de chanson.'));
     const sc = curScene(res);
-    const body = { drums: () => (T.kit ? drumsBody(sc, T) : drumsLiteBody(sc, T)), bass: () => bassBody(sc, T), chords: () => padBody(sc, T), arp: () => arpBody(sc, T), guitar: () => guitarBody(sc, T), orch: () => orchBody(sc, T), ambient: () => ambBody(sc, T) }[T.kind]();
+    const body = { drums: () => (T.kit ? drumsBody(sc, T) : drumsLiteBody(sc, T)), bass: () => bassBody(sc, T), chords: () => padBody(sc, T), arp: () => arpBody(sc, T), guitar: () => guitarBody(sc, T), orch: () => orchBody(sc, T), horns: () => hornsBody(sc, T), ambient: () => ambBody(sc, T) }[T.kind]();
     const prev = $('#bwParts');
     const top = prev && prev.dataset.ins === T.id && prev.dataset.kind === T.kind ? prev.scrollTop : 0; // un clic bas dans la liste ne la remonte pas
     const content = h('div', { class: 'bwc bwp', id: 'bwParts', 'data-kind': T.kind, 'data-ins': T.id, style: `--c:${KIND_COLOR[T.kind]}` }, ...body);
@@ -7145,6 +7184,136 @@ SS.band = (() => {
       h('div', { class: 'bwhz-legend' }, ...[...new Set(Object.values(r.lines).map((l) => l.role))].filter((k) => k !== 'tacet').map((k) => h('span', {}, h('i', { class: 'bwhz-sw', style: `background:${ORCH_ROLE_C[k]}` }), OR().ROLE_LABEL[k])))
     );
     return [head, h('div', { class: 'bwp-row bwor-ctl' }, play, lvl, lvlHelp, h('span', { class: 'spacer' }), items), table];
+  }
+
+  /* --- Section de cuivres (étape Cuivres) : le jeu de la section par scène, puis une ligne par musicien ---
+   * SS.bandSong.build écrit chaque musicien avec SS.horns.write (js/horns.js) et laisse son rapport dans sc.horns[musicien] ;
+   * réglages de la scène : parts[sec].inst[musicien].horns = { jeu, nu: p | mf | f, off: [musiciens coupés] }.
+   * La formation et les musiciens ajoutés (doublures) valent pour toute la chanson : ms.form, ms.add (une piste chacun). */
+  const HN = () => SS.horns;
+  const HN_ROLE_C = { lead: 'var(--c-amber)', harm: 'var(--c-blue)', bass: 'var(--c-green)', dbl: 'var(--c-teal)' };
+  const hornsSet = (sc, T) => (partOf(sc.sec, T) || {}).horns || {};
+  function hornsSub(x, T) {
+    if (mutedIn(x.sec, T)) return 'se tait';
+    const r = x.horns && x.horns[T.musician];
+    const j = r && HN().jeux(r.form).find((y) => y.id === r.jeu);
+    return j ? j.label : '';
+  }
+  function hornsEdit(sc, T, patch, focus) {
+    const o = { ...hornsSet(sc, T), ...patch };
+    Object.keys(o).forEach((k) => o[k] === undefined && delete o[k]);
+    putPart(sc.sec, T, { horns: Object.keys(o).length ? o : undefined });
+    partChanged(focus);
+  }
+  /** Ajoute (instrument) ou retire (index) un musicien de la section : une piste de plus ou de moins, pour toute la chanson. */
+  function hornsMember(T, inst, rm) {
+    const ms = musState()[T.musician];
+    const add = (ms.add || []).slice();
+    if (inst && add.length < 4) add.push(inst);
+    if (rm != null) add.splice(rm, 1);
+    if (add.length) ms.add = add;
+    else delete ms.add;
+    groupChanged();
+    if (S.wiz) renderWiz();
+  }
+  function hornsBody(sc, T) {
+    const r = sc.horns && sc.horns[T.musician];
+    const muted = mutedIn(sc.sec, T);
+    const own = hornsSet(sc, T);
+    const ms = musState()[T.musician];
+    const F = hformOf(ms);
+    const head = partHead(sc, T, `cuivres · ${F.label.toLowerCase()}`, true);
+    const play = partCheck('bwp-on-horns', 'Joue dans cette scène', !muted, (on) => (putOff(sc.sec, T, !on), partChanged()));
+    if (muted || !r) return [head, h('div', { class: 'bwp-row' }, play), h('p', { class: 'dlg-hint', id: 'bwHornsMuted' }, 'La section se tait dans cette scène.')];
+    const spb = SPB();
+    const total = sc.bars * spb;
+    const players = hplayersOf(ms);
+    const off = Array.isArray(own.off) ? own.off : HN().offByDefault(F.id);
+    // jeux : une carte par jeu, avec les attaques de la section sur une mesure
+    const cells = (jeu) => {
+      const res = HN().write({ form: F.id, add: ms.add || [], jeu, off, model: true, bars: 1, spb: 16, beat: 4 });
+      const c = Array(16).fill('');
+      Object.values(res.lines).forEach((L) => L.events.forEach((e) => {
+        if (e.step >= 16) return;
+        c[e.step] = 'x';
+        for (let k = 1; k < e.len && e.step + k < 16; k++) if (!c[e.step + k]) c[e.step + k] = 'h';
+      }));
+      return c;
+    };
+    const jeuxRow = h(
+      'div',
+      { class: 'bwhn-jeux', id: 'bwHornsJeu', role: 'radiogroup', 'aria-label': 'Jeu de la section' },
+      ...HN().jeux(F.id).map((j) =>
+        h(
+          'button',
+          { type: 'button', role: 'radio', class: 'bwhn-jeu' + (j.id === r.jeu ? ' active' : ''), 'aria-checked': String(j.id === r.jeu), 'data-v': j.id, onclick: () => hornsEdit(sc, T, { jeu: j.id === HN().defaultJeu(sc.sec) ? undefined : j.id }, `#bwHornsJeu [data-v="${j.id}"]`) },
+          h('b', {}, j.label + (r.auto && j.id === r.jeu ? ' · auto' : '')),
+          h('span', { class: 'bwhn-hits' }, ...cells(j.id).map((x) => h('i', { class: x })))
+        )
+      ),
+      SS.helpTip(`Le jeu de la section dans cette scène. ${HN().jeux(F.id).map((j) => `${j.label} : ${j.text}.`).join(' ')} Chaque jeu est recalculé sur les accords de la scène, degré par degré : chaque musicien garde son registre.`, 'Jeu de la section')
+    );
+    const nu = partSeg('Nuance', 'bwHornsNu', [['p', 'p', 'Doux'], ['mf', 'mf', 'Moyen'], ['f', 'f', 'Fort']], own.nu || 'mf', (v) => hornsEdit(sc, T, { nu: v === 'mf' ? undefined : v }, `#bwHornsNu [data-v="${v}"]`));
+    // une ligne par musicien : interrupteur (enregistré), nom, rôle, partie de la scène (accords au-dessus), registre, Muet / Solo
+    const colOf = (key) => T.cols.find((c) => ((c.o.band && c.o.band.key) || '').split(':')[1] === key);
+    const chords = gridOf(sc).filter((c) => c.step < total).map((c) => {
+      let name = '';
+      try {
+        name = chordOf(sc.key, c).name;
+      } catch (e) {}
+      return h('span', { style: `left:${((c.step / total) * 100).toFixed(2)}%;width:${((Math.min(c.len, total - c.step) / total) * 100).toFixed(2)}%` }, name);
+    });
+    const bars = Array.from({ length: sc.bars }, (_, b) => h('i', { class: 'bwhn-bar', style: `left:${((b / sc.bars) * 100).toFixed(2)}%` }));
+    let dbl = -1;
+    const row = (p) => {
+      const L = r.lines[p.id] || { events: [], lo: null, hi: null };
+      const on = !off.includes(p.id);
+      const c = colOf(p.key);
+      const di = p.role === 'dbl' ? ++dbl : -1;
+      const color = HN_ROLE_C[p.role];
+      const lo = p.lo - 2;
+      const hi = p.hi + 2;
+      const ms2 = (set, cls, label, tip) => h('button', { type: 'button', class: 'bwor-ms ' + cls + (c && set.has(c.id) ? ' on' : ''), 'aria-pressed': String(!!(c && set.has(c.id))), title: tip, disabled: !c || !on, onclick: () => c && toggleMS(set, [c.id]) }, label);
+      return h(
+        'div',
+        { class: 'bwhn-row' + (on ? '' : ' off') + (c && silenced(c.id) ? ' quiet' : ''), 'data-player': p.id },
+        h('button', { type: 'button', class: 'bwor-sw bwhn-sw' + (on ? ' on' : ''), role: 'switch', 'aria-checked': String(on), 'aria-label': `${p.label} joue dans la scène`, title: on ? 'Couper ce musicien dans la scène' : 'Faire jouer ce musicien', onclick: () => hornsEdit(sc, T, { off: on ? [...off, p.id] : off.filter((y) => y !== p.id) }, `#bwHornsTable [data-player="${p.id}"] .bwor-sw`) }),
+        h('span', { class: 'bwhn-name' }, p.label, di >= 0 ? h('button', { type: 'button', class: 'bwhn-x', title: 'Retirer ce musicien de la section', 'aria-label': `Retirer ${p.label}`, onclick: () => hornsMember(T, null, di) }, '✕') : null),
+        h('span', { class: 'bwhn-role', style: `color:${on ? color : 'var(--c-faint)'}` }, on ? HN().ROLE_LABEL[p.role] : 'Coupé'),
+        h('span', { class: 'bwhn-lane' }, ...bars, ...(on ? L.events : []).map((e) => h('i', { class: 'bwhn-nt', style: `left:${(((e.step + (e.shift || 0)) / total) * 100).toFixed(2)}%;width:calc(${((e.len / total) * 100).toFixed(2)}% - 1px);top:${((1 - (e.notes[0] - lo) / (hi - lo)) * 28 + 2).toFixed(1)}px;background:${color}` }))),
+        h('span', { class: 'bwhn-rng' }, on && L.lo !== null ? (L.lo === L.hi ? HN().midiName(L.lo) : `${HN().midiName(L.lo)} – ${HN().midiName(L.hi)}`) : '—'),
+        h('span', { class: 'bwor-mss' }, ms2(S.wiz.mute, 'm', 'M', 'Muet : écouter sans ce musicien'), ms2(S.wiz.solo, 's', 'S', 'Solo : écouter ce musicien seul'))
+      );
+    };
+    const addSel = h(
+      'select',
+      { class: 'bwhn-add', id: 'bwHornsAdd', 'aria-label': 'Ajouter un musicien à la section', onchange: (e) => e.target.value && hornsMember(T, e.target.value) },
+      h('option', { value: '' }, '+ Musicien'),
+      ...Object.entries(HN().INST).map(([k, x]) => h('option', { value: k }, x.label))
+    );
+    if ((ms.add || []).length >= 4) addSel.disabled = true;
+    const table = h(
+      'div',
+      { class: 'bwar-card bwhn-table', id: 'bwHornsTable' },
+      h(
+        'div',
+        { class: 'bwhn-row bwhn-thead' },
+        h('span', {}, SS.helpTip('L’interrupteur fait jouer ou coupe le musicien dans cette scène (c’est enregistré) ; les autres gardent leur partie.', 'Joue dans la scène')),
+        h('span', {}, F.label),
+        h('span', {}, 'Rôle'),
+        h('span', { class: 'bwhn-chs' }, ...chords),
+        h('span', {}, 'Registre'),
+        h('span', { class: 'bwor-mss' }, SS.helpTip('M (muet) et S (solo) servent seulement à écouter : rien n’est réécrit.', 'Muet et Solo'))
+      ),
+      ...players.map(row),
+      h('div', { class: 'bwhz-legend' }, ...['lead', 'harm', 'bass', 'dbl'].filter((k) => players.some((p) => p.role === k)).map((k) => h('span', {}, h('i', { class: 'bwhz-sw', style: `background:${HN_ROLE_C[k]}` }), HN().ROLE_LABEL[k])))
+    );
+    return [
+      head,
+      h('div', { class: 'bwp-row' }, play, nu, h('span', { class: 'spacer' }), addSel, SS.helpTip('Ajoute un musicien à la section (4 au plus), pour toute la chanson : il double la voix la plus proche de son registre, sur sa propre piste. La formation se change à l’étape Instruments.', 'Ajouter un musicien')),
+      jeuxRow,
+      table,
+    ];
   }
 
   /* --- Batterie : bibliothèque de motifs, grille des éléments du kit (1, 2 ou 4 mesures), fills, crash, montée --- */
@@ -11108,9 +11277,14 @@ SS.band = (() => {
         return;
       }
       // orchestre de l'assistant : une piste par pupitre, un seul musicien
-      const same = type === 'orch' && t.band && t.band.musician && out.find((i) => i.bmu === t.band.musician);
-      if (same) return void same.ids.push(t.id);
-      out.push({ type, name: t.name, opts: soundOf(t), ids: [t.id], ...(t.band && t.band.musician ? { bmu: t.band.musician } : {}), ...(type === 'ambient' ? ambGrid(t) : {}) });
+      // section de cuivres : une piste par musicien, un seul musicien de l'assistant (formation et doublures d'après les clés)
+      const same = (type === 'orch' || type === 'horns') && t.band && t.band.musician && out.find((i) => i.bmu === t.band.musician);
+      const hk = type === 'horns' && t.band ? SS.horns.fromKeys([String(t.band.key).split(':')[1] || '']) : null;
+      if (same) {
+        if (hk) same.add.push(...hk.add);
+        return void same.ids.push(t.id);
+      }
+      out.push({ type, name: t.name, opts: soundOf(t), ids: [t.id], ...(t.band && t.band.musician ? { bmu: t.band.musician } : {}), ...(type === 'ambient' ? ambGrid(t) : {}), ...(hk ? { form: hk.form, add: hk.add.slice() } : {}) });
     });
     // les pistes de batterie faites à la main rejoignent le kit du batteur de l'assistant (un seul batteur, pas deux)
     const hand = kits.get('*');
@@ -11494,7 +11668,7 @@ SS.band = (() => {
       if (typeof g.space === 'number') ms.space = g.space;
       if (g.drawn) ms.drawn = t.ambient.presence.slice();
       else delete ms.drawn;
-    } else if (!mu.orch) {
+    } else if (!mu.orch && !mu.horns) {
       ms.custom = soundOf(tracks[0]);
       ms.picked = true;
     }
@@ -12054,6 +12228,7 @@ SS.band = (() => {
       const rc = recFor(type);
       if (type === 'drums') return rc.kits.map((k) => ({ son: k, nom: (B().KITS[k] || { label: k }).label }));
       if (type === 'orch') return SS.orchestra.ENSEMBLES.map((e) => ({ son: e.id, nom: e.label }));
+      if (type === 'horns') return SS.horns.FORMS.map((f) => ({ son: f.id, nom: `${f.label} (${SS.horns.players(f.id).map((x) => x.label).join(', ')})` }));
       if (type === 'ambient') return BG().AMB_MODS.map((id) => ({ son: id, nom: `${SS.ambient.MODULES[id].label} (${SS.ambient.MODULES[id].sub})` }));
       return rc.pick.map((tok) => ({ son: tok, nom: B().describe(B().choiceOpts(tok, rc.cat)).name }));
     }
@@ -12089,6 +12264,10 @@ SS.band = (() => {
       if (mu.kits) {
         if (!B().KITS[tok]) err(`kit inconnu : « ${tok} » (${Object.keys(B().KITS).join(', ')})`);
         ms.kit = tok;
+      } else if (mu.horns) {
+        if (!SS.horns.FORM[tok]) err(`formation inconnue : « ${tok} » (${SS.horns.FORMS.map((f) => f.id).join(', ')})`);
+        ms.form = tok;
+        delete ms.add;
       } else if (mu.orch) {
         if (!SS.orchestra.ENS[tok]) err(`effectif inconnu : « ${tok} » (${SS.orchestra.ENSEMBLES.map((e) => e.id).join(', ')})`);
         ms.ens = tok;
@@ -12546,7 +12725,7 @@ SS.band = (() => {
     }
     /** La scène jouée (vue des étapes instrument) : celle de l'arrangement, sinon la section seule. */
     const sceneRef = (sec) => ((wizSong().res || { scenes: [] }).scenes.find((x) => x.sec === sec) || sceneOf(sec));
-    const kindFr = { drums: 'batterie', bass: 'basse', chords: 'nappe', arp: 'arpège', guitar: 'guitariste', melody: 'mélodie', orch: 'orchestre', ambient: 'ambient' };
+    const kindFr = { drums: 'batterie', bass: 'basse', chords: 'nappe', arp: 'arpège', guitar: 'guitariste', melody: 'mélodie', orch: 'orchestre', horns: 'cuivres', ambient: 'ambient' };
     /** Motifs d'un instrument : [{ id, nom, … }] dans la mesure de la chanson. */
     function motifList(T, tous) {
       if (T.kind === 'drums') {
@@ -12559,6 +12738,7 @@ SS.band = (() => {
       }
       if (T.kind === 'chords') return padModes(T).filter(([id]) => (/^g:/.test(id) ? gtrFits(id) : BS().meterOK('chords', id))).map(([id, nom, description]) => ({ id, nom, description }));
       if (T.kind === 'arp') return SS.MOTIFS.map((m) => ({ id: m.id, nom: m.name, categorie: ((SS.MOTIF_CATS.find((c) => c.id === m.cat) || {}).label || m.cat) }));
+      if (T.kind === 'horns') return SS.horns.jeux(hformOf(musState()[T.musician]).id).map((j) => ({ id: j.id, nom: j.label, description: j.text }));
       if (T.kind === 'guitar') {
         const G = SS.guitarist;
         const fam = Object.fromEntries(Object.values(G.FAMILIES).flat());
@@ -12615,7 +12795,8 @@ SS.band = (() => {
           if (cur.p === 'mid') delete cur.p;
           if (cur.mv === 'stable') delete cur.mv;
           putPart(sec, T, { amb: Object.keys(cur).length ? cur : undefined });
-        } else if (m && T.kind === 'drums') putPart(sec, T, { style: m.style, pattern: m.id, edits: undefined });
+        } else if (m && T.kind === 'horns') putPart(sec, T, { horns: { ...((partOf(sec, T) || {}).horns || {}), jeu: m.id } });
+        else if (m && T.kind === 'drums') putPart(sec, T, { style: m.style, pattern: m.id, edits: undefined });
         else if (m && T.kind === 'arp') {
           const cur = arpOne(sc, T);
           putPart(sec, T, { one: A1().normalize({ ...cur, ...SS.motifPatch(cur, SS.MOTIFS.find((x) => x.id === m.id)) }), mode: undefined });

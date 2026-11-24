@@ -94,6 +94,16 @@ SS.bandMix = (() => {
     const [pan, hall] = ORCH_SEAT[part] || [0, 0.4];
     return { lu: -24, eq: eq({ hp: ORCH_HP[part] || 90 }), hall, pan };
   }
+  /**
+   * Section de cuivres (js/horns.js) : chaque membre à sa place dans la section (pan de la formation, resserré), un passe-haut
+   * selon son registre, un peu de salle ; un peu plus bas qu'un musicien Cuivres seul (ils jouent à plusieurs).
+   */
+  function hornsRule(key) {
+    const H = SS.horns;
+    const fk = H ? H.fromKeys([key]) : null;
+    const p = fk ? H.players(fk.form, fk.add).find((x) => x.id === fk.ids[0]) : null;
+    return { lu: -22, eq: eq({ hp: p ? H.INST[p.i].hp : 120, lm: [450, -2, 1], hm: [2200, 1.5, 1] }), comp: comp(-18, 2.5, 0.006, 0.12, 1), hall: 0.28, pan: p ? +(p.pan * 0.8).toFixed(2) : 0 };
+  }
   // percussionniste : un peu plus loin et plus écarté que le batteur
   const PERC_SHIFT = { lu: -2, pan: 1.3 };
 
@@ -240,6 +250,7 @@ SS.bandMix = (() => {
       return role === 'perc' ? { ...r, lu: r.lu + PERC_SHIFT.lu, pan: clamp((r.pan || 0) * PERC_SHIFT.pan, -0.6, 0.6) } : r;
     }
     if (role === 'orch') return orchRule(sound);
+    if (role === 'horns') return hornsRule(sound);
     return INST[role] || null;
   }
 
