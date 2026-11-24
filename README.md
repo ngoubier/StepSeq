@@ -505,13 +505,16 @@ consigne courte, éclaire le contrôle à utiliser, fait écouter, puis vérifie
 sur une scène d'exercice et n'écrivent rien dans la chanson. La progression est gardée dans le navigateur. Aujourd'hui
 3 leçons (L'intention, Repérer et synchroniser, Le tempo calé) ; les suivantes s'ajoutent dans `SS.tutorial.LESSONS`.
 
-### Pistes génératives (`js/ambient.js`, `js/ambientpanel.js`)
+### Pistes génératives (`js/ambient.js`, `js/ambientpanel.js`, `js/ambientlane.js`)
 
 Une piste générative (famille « Génératif » de la fenêtre Nouvelle piste ; `ambient` dans le code) joue **un** module
 génératif, choisi à la création : 🌿 **Jardin** (grains, boucles de longueurs différentes, drone, pluie),
 🏔 **Paysage** (graines placées du grave à l'aigu et du loin au proche, vent dans des résonateurs) ou 🎞 **Fresque**
 (5 couches dont on dessine la présence sur toute la chanson). Les notes suivent les accords de la scène (ou sa gamme).
-L'étiquette du module, dans l'en-tête de la piste, ouvre ses réglages. « Ambient » désigne seulement le **style**
+L'étiquette du module, dans l'en-tête de la piste, ouvre ses réglages. Dans la Grille, la piste n'a ni cases de
+notes ni piano roll (le module choisit ses notes) : une **bande** montre sa présence dans la scène (la part de sa courbe
+sur toute la chanson, à retoucher en glissant dessus), les accords suivis (ou la gamme) et, pendant la lecture, un
+point par note jouée (`js/ambientlane.js` ; outil Claude `presence`). « Ambient » désigne seulement le **style**
 de l'assistant (nappes, piano épars). Tests : `node --test tests/ambient.test.js`, diagnostic du son :
 `node tests/e2e/ambient-diag.js`.
 
