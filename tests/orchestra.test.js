@@ -5,6 +5,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 globalThis.window = globalThis;
+require('../js/sounds.js');
 require('../js/orchestra.js');
 const O = globalThis.SS.orchestra;
 

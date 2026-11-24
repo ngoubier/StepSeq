@@ -17,13 +17,6 @@ SS.sceneSheet = (() => {
   let emoOpen = false; // panneau des émotions ouvert
   const OPEN_KEY = 'stepseq.sceneSheet.closed'; // rubriques repliées (préférence de l'utilisateur)
 
-  /* Couleurs des émotions (mêmes repères que l'assistant Musique de film : tristesse bleu, joie jaune, colère rouge…). */
-  const EMO_COLORS = {
-    joie: '#ffd23a', euphorie: '#ffb020', tristesse: '#3f6fe0', nostalgie: '#8aa0d6', melancolie: '#7f9cc0', espoir: '#9ad65a',
-    suspense: '#a98bff', angoisse: '#6b3cc9', mystere: '#5a6bb0', serenite: '#2fb36d', tendresse: '#f08fb0', triomphe: '#ff9326',
-    ambivalence: '#b3a37a', emerveillement: '#2fcfd6', beaute: '#9b6fb8',
-  };
-  SS.EMOTION_COLORS = EMO_COLORS;
 
   const HELP = {
     tempo: '= Chanson : la scène suit le tempo de la chanson (le changer la change aussi). Propre : la scène garde son tempo ; il change d’un coup au début de la scène.',
@@ -271,7 +264,7 @@ SS.sceneSheet = (() => {
     const fromFilm = !!(sc.film && FM);
     const list = fromFilm
       ? FM.EMOS.map((e) => ({ k: e.k, label: e.label, color: e.color, id: e.id }))
-      : (SS.EMOTIONS || []).map((e) => ({ k: e.id, label: e.label, color: EMO_COLORS[e.id] || '#9a9aa3', id: e.id }));
+      : (SS.EMOTIONS || []).map((e) => ({ k: e.id, label: e.label, color: SS.emotionColor(e.id), id: e.id }));
     const curK = fromFilm ? sc.film.emo : sc.emotion;
     const emo = list.find((e) => e.k === curK) || null;
     const measured = measureEnergy(pr, sc);

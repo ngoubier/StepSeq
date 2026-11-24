@@ -128,7 +128,7 @@ SS.gridSync = (() => {
     return out;
   }
   /** Demi-tons de la tonalité a à la tonalité b (−6 à +5) ; 0 si l'une manque. */
-  const NAT = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+  const NAT = SS.LETTER_PC;
   const pc = (t) => (NAT[t[0]] + [...t.slice(1)].reduce((x, c) => x + (c === '♯' || c === '#' ? 1 : c === '♭' || c === 'b' ? -1 : 0), 0) + 12) % 12;
   function semis(a, b) {
     if (!a || !b || !a.tonic || !b.tonic) return 0;

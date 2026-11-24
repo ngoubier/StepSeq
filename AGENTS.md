@@ -34,8 +34,10 @@ commentaires du code, les messages de commit et les descriptions de PR sont en f
 - Écrire la logique en **fonctions pures, sans DOM**, testables sous Node (`globalThis.window = globalThis` puis
   `require` des fichiers), et garder l'interface à part (ex. `js/wizmix.js` / étape Mix de `js/band.js`).
 - `js/band.js` fait plus de 12 000 lignes : y ajouter le moins possible, préférer un nouveau fichier pour un nouveau sujet.
-- Réutiliser ce qui existe avant d'écrire une nouvelle table ou fonction : noms de notes (`SS.NOTE_NAMES`,
-  `SS.noteName` dans `js/sounds.js`), émotions (`SS.EMOTIONS`, `js/emotions.js`), grilles d'accords (`js/harmony.js`).
+- Réutiliser ce qui existe avant d'écrire une nouvelle table ou fonction : noms de notes (table unique en tête de la
+  partie « Notes » de `js/sounds.js` : `SS.NOTE_NAMES`, `SS.NOTE_NAMES_FR`, `SS.CHORD_ROOTS`, `SS.TONIC_NAMES`,
+  `SS.LETTER_PC`…), émotions (`SS.EMOTIONS` avec leur couleur, `SS.emotionColor`, `SS.FILM_EMOTIONS`, dans
+  `js/emotions.js`), grilles d'accords (`js/harmony.js`). Ne jamais recopier une de ces listes dans un autre fichier.
 - Le moteur audio tourne sur un seul fil : un module éteint doit être débranché, pas seulement mis à zéro
   (voir `tests/e2e/node-leak.js` pour les fuites de nœuds).
 - Les tables générées (`js/band-levels.js`, `js/band-drive.js`, `js/library.js`, `js/dirt.js`, `js/vsco.js`,

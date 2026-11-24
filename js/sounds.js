@@ -552,7 +552,25 @@ SS.chordNotes = (root, chordId) => {
 
 // modes et vitesses de l'arpégiateur : voir js/arp.js (SS.Arp.MODES, SS.Arp.RATES)
 
-/* ---------- Notes ---------- */
+/* ---------- Notes : la table unique des noms de notes (ne pas en recopier ailleurs) ----------
+ * Toutes les listes sont indexées par classe de hauteur (0 = Do … 11 = Si).
+ *   SS.NOTE_NAMES      C, C#, D, D#…      lettres et dièses ASCII : fichiers, tests, Claude (SS.noteName)
+ *   SS.NOTE_NAMES_FR   Do, Do♯, Ré, Mi♭…  affichage à l'écran (SS.noteNameFr)
+ *   SS.CHORD_ROOTS     C, C♯, D, E♭…      orthographe usuelle des accords (A♭, B♭ ; C♯, F♯)
+ *   SS.CHORD_ROOTS_ASCII  C, C#, D, Eb…   la même en ASCII (noms d'accords d'Arp One, formes de guitare)
+ *   SS.TONIC_NAMES     { major, minor }   tonique écrite d'une tonalité (D♭ majeur, C♯ mineur, G♯ mineur)
+ *   SS.LETTER_PC       { C: 0, D: 2… }    lettre → classe de hauteur
+ *   SS.LETTER_FR       { C: 'Do'… }       lettre → nom français ; SS.FR_LETTER : l'inverse (do, ré, re → C, D)
+ */
+SS.LETTER_PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+SS.LETTER_FR = { C: 'Do', D: 'Ré', E: 'Mi', F: 'Fa', G: 'Sol', A: 'La', B: 'Si' };
+SS.FR_LETTER = { do: 'C', re: 'D', ré: 'D', mi: 'E', fa: 'F', sol: 'G', la: 'A', si: 'B' };
+SS.CHORD_ROOTS = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
+SS.CHORD_ROOTS_ASCII = SS.CHORD_ROOTS.map((n) => n.replace('♯', '#').replace('♭', 'b'));
+SS.TONIC_NAMES = {
+  major: ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'],
+  minor: ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'B♭', 'B'],
+};
 SS.NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 SS.noteName = (midi) => SS.NOTE_NAMES[((midi % 12) + 12) % 12] + (Math.floor(midi / 12) - 1);
 /** Noms de notes affichés à l'écran : en français, avec ♯ et ♭ (SS.noteName reste en lettres pour les fichiers, les tests et Claude). */
@@ -563,7 +581,7 @@ SS.isBlackKey = (midi) => [1, 3, 6, 8, 10].includes(((midi % 12) + 12) % 12);
 SS.parseNote = (str) => {
   const m = /^([A-Ga-g])(#|s|b)?(-?\d+)$/.exec(String(str).trim());
   if (!m) return null;
-  const base = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 }[m[1].toLowerCase()];
+  const base = SS.LETTER_PC[m[1].toUpperCase()];
   const acc = m[2] === '#' || m[2] === 's' ? 1 : m[2] === 'b' ? -1 : 0;
   return base + acc + (parseInt(m[3], 10) + 1) * 12;
 };

@@ -60,7 +60,7 @@
     if (hit) return { sf: hit.sf, minor: hit.minor };
     const m = /^([a-g])([#b♯♭]?)\s*(m|min|mineur|minor)?\b/i.exec(String(s || '').trim());
     if (m) {
-      const pc = (({ c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 })[m[1].toLowerCase()] + (/[#♯]/.test(m[2]) ? 1 : /[b♭]/.test(m[2]) ? -1 : 0) + 12) % 12;
+      const pc = (SS.LETTER_PC[m[1].toUpperCase()] + (/[#♯]/.test(m[2]) ? 1 : /[b♭]/.test(m[2]) ? -1 : 0) + 12) % 12;
       const minor = !!m[3];
       for (let sf = -7; sf <= 7; sf++) if (((sf * 7) % 12 + 12 + (minor ? 9 : 0)) % 12 === pc) return { sf, minor };
     }
@@ -68,8 +68,8 @@
   }
 
   /* ---------------- Notes écrites ---------------- */
-  const STEP = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
-  const FR = { do: 'C', re: 'D', ré: 'D', mi: 'E', fa: 'F', sol: 'G', la: 'A', si: 'B' };
+  const STEP = SS.LETTER_PC;
+  const FR = SS.FR_LETTER;
   /** « C4 », « F#5 », « Bb3 », « Sib3 », « Do4 » → numéro MIDI (C4 = 60). */
   function noteOf(tok) {
     let s = String(tok).trim().replace(/♯/g, '#').replace(/♭/g, 'b');

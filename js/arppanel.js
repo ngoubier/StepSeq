@@ -54,7 +54,7 @@ SS.arpPanel = (() => {
     return el;
   };
   const clone = (o) => JSON.parse(JSON.stringify(o));
-  const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  const NOTES = SS.NOTE_NAMES;
   const NOTES_FR = SS.NOTE_NAMES_FR;
 
   function set(patch, { push = true } = {}) {

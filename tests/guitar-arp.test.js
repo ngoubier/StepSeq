@@ -3,6 +3,8 @@
  */
 const test = require('node:test');
 const assert = require('node:assert/strict');
+globalThis.window = globalThis.window || globalThis;
+require('../js/sounds.js');
 require('../js/arp.js');
 require('../js/guitar-arp.js');
 const A = globalThis.SS.Arp;

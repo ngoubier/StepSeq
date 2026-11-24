@@ -76,7 +76,7 @@ SS.orchestra = (() => {
   /** Densité par défaut d'une scène selon l'énergie du plan (0,78 calme … 1 refrain). */
   const levelOf = (energy) => (energy >= 0.97 ? 'full' : energy >= 0.85 ? 'mid' : 'light');
 
-  const midiName = (m) => ['Do', 'Do♯', 'Ré', 'Mi♭', 'Mi', 'Fa', 'Fa♯', 'Sol', 'La♭', 'La', 'Si♭', 'Si'][pcOf(m)] + (Math.floor(m / 12) - 1);
+  const midiName = (m) => SS.noteNameFr(m);
   const center = (p) => (p.clo + p.chi) / 2;
   /** La note de classe pc la plus proche de `near`, dans [lo, hi] (null si aucune). */
   function nearest(pc, near, lo, hi) {

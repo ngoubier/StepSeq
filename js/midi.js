@@ -152,7 +152,7 @@
   }
 
   /* ---------- Tonalités ---------- */
-  const PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+  const PC = SS.LETTER_PC;
   const pcOfName = (name) => (PC[name[0]] + (name.includes('♯') ? 1 : name.includes('♭') ? -1 : 0) + 12) % 12;
   const MAJOR_SF = { 0: 0, 7: 1, 2: 2, 9: 3, 4: 4, 11: 5, 6: 6, 1: -5, 8: -4, 3: -3, 10: -2, 5: -1 };
   const MINOR_MODES = ['minor', 'harmonic', 'dorian', 'phrygian', 'locrian'];

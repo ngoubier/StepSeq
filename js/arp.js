@@ -377,7 +377,7 @@
   /* Reconnaissance d'accords (§5.5 « Recognize »)                       */
   /* ------------------------------------------------------------------ */
 
-  const NOTE = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+  const NOTE = SS.CHORD_ROOTS_ASCII;
   const CHORD_TYPES = [
     { id: 'maj', sym: '', iv: [0, 4, 7] },
     { id: 'min', sym: 'm', iv: [0, 3, 7] },
@@ -1293,7 +1293,7 @@
   function parseChordSymbol(sym, octave = 4) {
     const m = /^([A-G])([#b]?)(.*)$/.exec(String(sym).trim());
     if (!m) return null;
-    let pc = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[m[1]] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0);
+    let pc = SS.LETTER_PC[m[1]] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0);
     const rest = m[3];
     const t = CHORD_TYPES.find((x) => x.sym === rest) || (rest === 'M7' ? CHORD_TYPES.find((x) => x.id === 'maj7') : null);
     if (!t) return null;
