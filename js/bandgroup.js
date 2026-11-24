@@ -7,9 +7,10 @@
  *    ajouté reçoit « x1 », « x2 »… (jamais réutilisé dans un même groupe) ;
  *  - base : l'id du musicien de l'inspiration dont il vient (null pour un musicien ajouté ou dupliqué) ;
  *  - name : son nom (« Bassiste », « Bassiste 2 »…), custom : renommé à la main ;
- *  - type : (musicien ajouté) son type d'origine : drums | bass | chords | arp | melody | orch | ambient ;
+ *  - type : (musicien ajouté) son type d'origine : drums | bass | chords | arp | melody | orch | horns | ambient ;
  *  - ms : (musicien ajouté) son choix de son : { pick, picked, custom, tok } ; pour un kit, { kit, pieces } ; pour un
- *    orchestre, { ens } (effectif de js/orchestra.js : une piste par pupitre) ; pour un musicien Ambient, { mod, amb, drawn?,
+ *    orchestre, { ens } (effectif de js/orchestra.js : une piste par pupitre) ; pour une section de cuivres, { form, add? }
+ *    (formation de js/horns.js et musiciens ajoutés : une piste par musicien) ; pour un musicien Ambient, { mod, amb, drawn?,
  *    space? } (module de js/ambient.js, ses réglages track.ambient sans la présence, courbe de présence dessinée, envoi Cosmos).
  * L'ordre de la liste est l'ordre des onglets d'instrument de l'assistant.
  *
@@ -21,10 +22,10 @@ window.SS = window.SS || {};
 SS.bandGroup = (() => {
   const MIN = 2;
   const MAX = 10;
-  const TYPES = ['drums', 'bass', 'chords', 'arp', 'melody', 'orch', 'ambient'];
-  const ROLE_OF_TYPE = { drums: 'perc', bass: 'bass', chords: 'pad', arp: 'arp', melody: 'lead', orch: 'orch', ambient: 'ambient' };
-  const BASE_NAME = { drums: 'Batteur', bass: 'Bassiste', chords: 'Clavier nappe', arp: 'Clavier arpège', melody: 'Clavier lead', orch: 'Orchestre', ambient: 'Ambient' };
-  const CAT_OF_TYPE = { bass: 'mono', chords: 'chord', arp: 'arp', melody: 'mono', orch: 'mono', ambient: 'mono' };
+  const TYPES = ['drums', 'bass', 'chords', 'arp', 'melody', 'orch', 'horns', 'ambient'];
+  const ROLE_OF_TYPE = { drums: 'perc', bass: 'bass', chords: 'pad', arp: 'arp', melody: 'lead', orch: 'orch', horns: 'horns', ambient: 'ambient' };
+  const BASE_NAME = { drums: 'Batteur', bass: 'Bassiste', chords: 'Clavier nappe', arp: 'Clavier arpège', melody: 'Clavier lead', orch: 'Orchestre', horns: 'Cuivres', ambient: 'Ambient' };
+  const CAT_OF_TYPE = { bass: 'mono', chords: 'chord', arp: 'arp', melody: 'mono', orch: 'mono', horns: 'mono', ambient: 'mono' };
   /** Modules d'un musicien Ambient (js/ambient.js) : une piste générative, un module. */
   const AMB_MODS = ['jardin', 'paysage', 'fresque'];
   const ambMod = (m) => (AMB_MODS.includes(m) ? m : AMB_MODS[0]);
@@ -36,7 +37,7 @@ SS.bandGroup = (() => {
     return o;
   };
   /** Type d'un rôle de l'inspiration (null : « fx », sans type). */
-  const TYPE_OF_ROLE = { drums: 'drums', perc: 'drums', bass: 'bass', pad: 'chords', strings: 'chords', keys: 'chords', guitar: 'chords', brass: 'chords', arp: 'arp', arpchord: 'arp', lead: 'melody', vox: 'melody', sax: 'melody', orch: 'orch', ambient: 'ambient' };
+  const TYPE_OF_ROLE = { drums: 'drums', perc: 'drums', bass: 'bass', pad: 'chords', strings: 'chords', keys: 'chords', guitar: 'chords', brass: 'chords', arp: 'arp', arpchord: 'arp', lead: 'melody', vox: 'melody', sax: 'melody', orch: 'orch', horns: 'horns', ambient: 'ambient' };
   const typeOfRole = (role) => (role === 'fx' ? null : TYPE_OF_ROLE[role] || 'chords');
   const isExtraId = (id) => /^x\d+$/.test(String(id || ''));
   const clone = (x) => (x === undefined ? undefined : JSON.parse(JSON.stringify(x)));
@@ -95,6 +96,7 @@ SS.bandGroup = (() => {
     }
     if (kind === 'orch') return { role: 'orch', pick: ['gm_violin'], cat: 'mono', ens: SS.orchestra ? SS.orchestra.ENSEMBLES.map((e) => e.id) : ['strings'] };
     if (kind === 'ambient') return { role: 'ambient', pick: AMB_MODS.slice(), cat: 'mono' };
+    if (kind === 'horns') return { role: 'horns', pick: ['vsco_trumpet'], cat: 'mono', form: SS.horns ? SS.horns.formFor(styleId) : 'funk' };
     const pref = { bass: ['bass'], chords: ['pad', 'keys', 'strings', 'guitar', 'brass'], arp: ['arp'], melody: ['lead', 'vox', 'sax'] }[kind];
     let mu = null;
     outer: for (const strict of [true, false])
@@ -228,6 +230,7 @@ SS.bandGroup = (() => {
       return { on: true, kit: kits.includes(inst.kit) ? inst.kit : kits[0], pieces: inst.pieces.map((p) => ({ piece: p.piece, on: true, custom: clone(p.opts) })) };
     }
     if (inst.type === 'orch') return { on: true, ens: 'chamber' };
+    if (inst.type === 'horns') return cleanMs({ form: inst.form, add: inst.add }, 'horns');
     if (inst.type === 'ambient') {
       // piste générative : son module et ses réglages ; une courbe de présence dessinée à la main reste (« retouchée »)
       const a = (inst.opts && inst.opts.keep && inst.opts.keep.ambient) || {};
@@ -246,7 +249,7 @@ SS.bandGroup = (() => {
     const g = { nextId: 1, list };
     const used = new Set();
     const map = insts.map(() => null);
-    const typeOfMu = (mu) => (mu.kits ? 'drums' : mu.orch || mu.role === 'orch' ? 'orch' : mu.role === 'ambient' ? 'ambient' : typeOfRole(mu.role));
+    const typeOfMu = (mu) => (mu.kits ? 'drums' : mu.orch || mu.role === 'orch' ? 'orch' : mu.horns || mu.role === 'horns' ? 'horns' : mu.role === 'ambient' ? 'ambient' : typeOfRole(mu.role));
     insts.slice(0, MAX).forEach((inst, i) => {
       // le batteur d'abord (rôle drums), puis les percussions ; les autres : premier musicien libre du même type
       const cands = preset.musicians.filter((m) => !used.has(m.id) && typeOfMu(m) === inst.type);
@@ -282,6 +285,13 @@ SS.bandGroup = (() => {
     if (type === 'orch') {
       const ids = SS.orchestra ? SS.orchestra.ENSEMBLES.map((e) => e.id) : ['strings'];
       return { on: true, ens: ids.includes(x.ens) ? x.ens : ids[0] };
+    }
+    if (type === 'horns') {
+      // section de cuivres (js/horns.js) : sa formation et les musiciens ajoutés (doublures, 4 au plus)
+      const H = SS.horns;
+      const form = H && H.FORM[x.form] ? x.form : H ? H.FORMS[2].id : 'funk';
+      const add = (Array.isArray(x.add) ? x.add : []).filter((i) => !H || H.INST[i]).slice(0, 4);
+      return { on: true, form, ...(add.length ? { add } : {}) };
     }
     if (type === 'ambient') {
       const o = { on: true, mod: ambMod(x.mod), amb: ambOwn(x.amb) };
