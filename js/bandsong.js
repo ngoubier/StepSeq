@@ -2582,6 +2582,8 @@ SS.bandSong = (() => {
         ts.forEach((t, i) => {
           const L = res.lines[fk.ids[i]];
           data[t.id] = { events: L ? L.events.map((e) => ({ ...e, notes: [...e.notes] })) : [] };
+          // jeux qui enflent (Tenues qui enflent, Montée) : courbe de volume, que l'automation de la scène remplace
+          if (L && L.vol && L.events.length) data[t.id].auto = { volume: { ...L.vol } };
           const A = ie && ie.auto ? normalizeAuto(ie.auto) : null;
           if (A) applyAutoLanes(data[t.id], A, bars);
         });

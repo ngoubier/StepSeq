@@ -10,13 +10,15 @@ const H = SS.horns;
 // Fa, Sol, La mineur, La mineur : une mesure de 4/4 chacun
 const SPANS = [[0, 5, [5, 9, 0]], [16, 7, [7, 11, 2]], [32, 9, [9, 0, 4]], [48, 9, [9, 0, 4]]].map(([step, rootPc, pcs]) => ({ step, len: 16, rootPc, pcs }));
 
-test('dix formations, quatre jeux chacune, des musiciens dans leur tessiture', () => {
+test('dix formations, treize jeux chacune, des musiciens dans leur tessiture', () => {
   assert.strictEqual(H.FORMS.length, 10);
   H.FORMS.forEach((f) => {
-    assert.strictEqual(H.jeux(f.id).length, 4);
+    assert.strictEqual(H.jeux(f.id).length, 13);
+    assert.ok(H.jeux(f.id).every((j) => j.label && j.text && H.FAMS.some(([id]) => id === j.fam)));
     f.players.forEach((p) => assert.ok(H.INST[p.i], `${f.id} ${p.id}`));
     H.JEUX.forEach((j) => [true, false].forEach((model) => {
       const r = H.write({ form: f.id, jeu: j, spans: SPANS, bars: 4, model });
+      assert.ok(Object.values(r.lines).some((L) => L.events.length), `${f.id} ${j} : des notes`);
       Object.entries(r.lines).forEach(([id, L]) => {
         const p = H.players(f.id).find((x) => x.id === id);
         L.events.forEach((e) => {
@@ -65,10 +67,47 @@ test('doublures et clés de piste', () => {
 });
 
 test('jeu proposé selon la scène, formation selon le style', () => {
-  assert.deepStrictEqual(['intro', 'verse', 'chorus', 'bridge', 'outro'].map(H.defaultJeu), ['ten', 'coups', 'sig', 'uni', 'coups']);
+  assert.deepStrictEqual(['intro', 'verse', 'pre', 'chorus', 'bridge', 'outro'].map(H.defaultJeu), ['swell', 'antic', 'montee', 'sig', 'uni', 'fin']);
+  assert.deepStrictEqual(H.sceneStars('chorus2'), ['sig', 'rep', 'coups']);
+  assert.ok(['intro', 'verse', 'pre', 'chorus', 'bridge', 'outro'].every((s) => H.sceneStars(s).every((j) => H.JEUX.includes(j))));
   // jeu écrit par le modèle de chanson, sinon celui du nom de la scène
   assert.equal(H.sceneJeu('chorus', 'coups'), 'coups');
   assert.equal(H.sceneJeu('chorus', 'brass-clave'), 'sig');
   assert.strictEqual(H.formFor('latin'), 'salsa');
   assert.strictEqual(H.formFor('synthwave'), 'funk');
+});
+
+test('noms du style : Moña et Cierre en salsa, Shout final en big band', () => {
+  const lab = (f, id) => H.jeux(f).find((j) => j.id === id).label;
+  assert.deepStrictEqual([lab('salsa', 'rep'), lab('salsa', 'fin'), lab('bigband', 'fin'), lab('funk', 'rep')], ['Moña', 'Cierre', 'Shout final', 'Question-réponse']);
+});
+
+test('transitions et fins : écrites sur toute la scène', () => {
+  const end = (j, f = 'funk') => H.write({ form: f, jeu: j, spans: SPANS, bars: 4 }).lines;
+  // coup d'arrêt : un seul coup, sur le 1
+  assert.deepStrictEqual(end('break').tp.events.map((e) => e.step), [0]);
+  // fin : le jeu du style trois mesures, puis trois coups dans la dernière, le dernier tenu
+  const fin = end('fin').tp.events.filter((e) => e.step >= 48);
+  assert.deepStrictEqual(fin.map((e) => e.step), [48, 54, 60]);
+  assert.ok(fin[2].len >= 4);
+  // montée : tenues qui enflent (courbe de volume), puis huit croches qui montent
+  const m = end('montee').tp;
+  const up = m.events.filter((e) => e.step >= 48).map((e) => e.notes[0]);
+  assert.strictEqual(up.length, 8);
+  assert.ok(up.every((n, i) => !i || n > up[i - 1]), up.join(' '));
+  assert.ok(m.vol && Object.keys(m.vol).length >= 4);
+});
+
+test('question-réponse, coups anticipés, nappe douce', () => {
+  const r = H.write({ form: 'funk', jeu: 'rep', spans: SPANS, bars: 4 }).lines;
+  // le dessus lance (mesures 1 et 3), la section répond (mesures 2 et 4)
+  assert.deepStrictEqual([...new Set(r.tp.events.map((e) => Math.floor(e.step / 16)))], [0, 2]);
+  assert.deepStrictEqual([...new Set(r.ts.events.map((e) => Math.floor(e.step / 16)))], [1, 3]);
+  // big band : les saxes lancent, les cuivres répondent
+  const bb = H.write({ form: 'bigband', jeu: 'rep', bars: 2, model: true }).lines;
+  assert.ok(bb.as.events.every((e) => e.step < 16) && bb.t1.events.every((e) => e.step >= 16));
+  // anticipé : le coup du 4& de la mesure 1 prend déjà l'accord de la mesure 2 (Sol : si, ré ou sol…)
+  const a = H.write({ form: 'funk', jeu: 'antic', spans: SPANS, bars: 4 }).lines.tp.events.find((e) => e.step === 14);
+  assert.ok([7, 11, 2, 5, 9, 0, 4].includes(a.notes[0] % 12) && a.len > 2);
+  assert.strictEqual(H.write({ form: 'funk', jeu: 'pad', spans: SPANS, bars: 4 }).lines.tp.events.length, 0);
 });

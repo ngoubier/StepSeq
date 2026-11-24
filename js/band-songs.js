@@ -15,7 +15,8 @@
  *     bass : whole | 8 | pulse8 | oct | gallop | offbeat | roll | sync | walk
  *     pad, strings, keys, guitar : sustain | swell | pulse8 | block4 | stabs | house | strum | chop | ballad | pluck (ou un arpège)
  *     brass (rôle Cuivres plaqués) : un motif de nappe : brass-tenues | brass-clave | brass-mona | brass-mambo | brass-cierre
- *     horns (musicien Cuivres, section de js/horns.js) : le jeu de la scène : sig | uni | coups | ten
+ *     horns (musicien Cuivres, section de js/horns.js) : le jeu de la scène : un des 13 jeux de SS.horns.JEUX (sig, rep, uni, contre, coups, temps, antic, ten, swell, pad,
+ *       montee, fin, break) ; absent : le premier jeu conseillé (★) pour le nom de la scène
  *   eighths : true si la grille est écrite en croches (une mesure = deux mesures jouées, comme la salsa à 95 = 190) ;
  *     la section de cuivres lit alors ses jeux en croches
  *     arp : up16 | updown16 | up8 | bells | strobe | pluck16 | rise
@@ -752,7 +753,7 @@ SS.BandSongs = {
       chorus: { bars: 8, chords: 'i/iv/V7/iv', groove: 'salsa23m', drums: 'full', perc: 'full', bass: 'tumbao23', keys: 'montuno23', lead: 'hook', horns: 'coups', name: 'Montuno' },
       // mambo : la section de cuivres prend la parole (jeu « Mambo 2-3 » de la formation Salsa), la mélodie se tait
       instr: { bars: 8, chords: 'i/iv/V7/iv', groove: 'salsa23x', drums: 'full', perc: 'full', bass: 'tumbao23', keys: 'mambo23', horns: 'sig', name: 'Mambo' },
-      outro: { bars: 2, chords: 'i/iv/V7/iv | i', groove: 'salsa23m', drums: 'full', perc: 'full', bass: 'tumbao23', keys: 'montuno23', horns: 'coups', name: 'Coda', fill: false },
+      outro: { bars: 2, chords: 'i/iv/V7/iv | i', groove: 'salsa23m', drums: 'full', perc: 'full', bass: 'tumbao23', keys: 'montuno23', horns: 'fin', name: 'Coda', fill: false },
     },
     form: 'intro verse chorus verse chorus instr chorus outro',
   },
