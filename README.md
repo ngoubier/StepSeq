@@ -117,6 +117,11 @@ voir « Nouvelle chanson » plus bas), sur le projet en cours. Ses deux premièr
    main gauche qui double la ligne), basse en **tumbao** (`tumbao23`) et musicien **Cuivres** (rôle `brass` : deux
    trompettes et un trombone en accords serrés ; jeux Tenues, Coups sur la clave, Moña, Mambo avec contre-chant de
    trombone, Cierre de trois coups dans la dernière mesure ; motifs `brass-*` de la famille Cuivres des motifs de nappe) ;
+   le style **Pop-rock** a, en plus de Mr. Brightside et de la valse, trois modèles calmes aux titres originaux :
+   « Lettre jamais envoyée » (`lettre`, ballade piano triste, La majeur 70 BPM, Steinway VCSL, cordes VSCO, balais),
+   « Les phares s'allument » (`phares`, ballade qui monte, Mi♭ 72 BPM, orgue VCSL, guitare arpégée puis refrain final
+   tout ouvert) et « Pluie sur la rocade » (`pluie`, mid-tempo mélancolique en mi dorien, 88 BPM, guitare acoustique
+   grattée, violoncelles, harmonica) ; la tuile **✦ D'après une émotion** part de l'un d'eux pour une émotion calme ;
 2. le **type de chanson** : des inspirations par style (Smalltown Boy, Nightcall, Blinding Lights, Sweet Dreams…,
    Levels, Strobe, Opus, Faded…, Powers of Ten, Eternity, Return to Oz, Sky and Sand, Your Mind, Rej…), avec un
    tempo suggéré ;

@@ -637,6 +637,51 @@ SS.BandSongs = {
     form: 'intro verse pre chorus verse pre chorus bridge chorus*2 outro',
   },
 
+  // Ballade piano triste (modèle original) : piano seul, cordes et balais au pré-refrain, refrain plaqué, pont sans batterie,
+  // fin sur l'accord mineur emprunté (IV–iv–I)
+  lettre: {
+    key: 'A major', groove: 'softpop', emotion: 'tristesse',
+    sections: {
+      intro: { bars: 4, chords: 'I | iii | vi | IV', drums: 'off', keys: 'ballad' },
+      verse: { bars: 16, chords: 'I | iii | vi | IV | I | iii | ii | V', drums: 'off', keys: 'ballad', lead: 'verse' },
+      pre: { bars: 8, chords: 'ii | IV | vi | V', drums: 'light', bass: 'whole', keys: 'ballad', strings: 'swell', lead: 'verse' },
+      chorus: { bars: 8, chords: 'IV | V | vi | I | IV | V | iii | vi', drums: 'main', bass: 'whole', keys: 'block4', strings: 'sustain', lead: 'hook' },
+      bridge: { bars: 8, chords: 'vi | IV | I | V', drums: 'off', bass: 'whole', keys: 'ballad', strings: 'swell', lead: 'long' },
+      outro: { bars: 4, chords: 'IV | iv | I | I', drums: 'off', keys: 'ballad', fill: false },
+    },
+    form: 'intro verse pre chorus verse pre chorus bridge chorus*2 outro',
+  },
+
+  // Ballade qui monte (modèle original) : orgue et piano, guitare claire arpégée au refrain, montée où la batterie se lance,
+  // refrain final tout ouvert
+  phares: {
+    key: 'E♭ major', groove: 'slow', emotion: 'espoir',
+    sections: {
+      intro: { bars: 8, chords: 'I | iii | vi | V', drums: 'off', pad: 'swell' },
+      verse: { bars: 16, chords: 'I | iii | vi | V | IV | I | ii | V', drums: 'off', pad: 'sustain', keys: 'ballad', lead: 'verse' },
+      chorus: { bars: 8, chords: 'IV | I | V | vi | IV | I | V | V', drums: 'light', bass: 'whole', pad: 'sustain', keys: 'block4', guitar: 'g:classA', strings: 'swell', lead: 'hook' },
+      build: { bars: 8, chords: 'vi | V | IV | I | vi | V | IV | V', drums: 'build', bass: '8', pad: 'sustain', keys: 'block4', guitar: 'g:pop', strings: 'sustain', lead: 'long', name: 'Montée' },
+      chorus2: { bars: 8, chords: 'IV | I | V | vi | IV | I | V | V', drums: 'full', bass: 'rock8', pad: 'sustain', keys: 'block4', guitar: 'g:pop', strings: 'sustain', lead: 'hook', name: 'Refrain final' },
+      outro: { bars: 8, chords: 'I | iii | IV | I', drums: 'off', pad: 'swell', keys: 'ballad', fill: false },
+    },
+    form: 'intro verse chorus verse chorus build chorus2*2 outro',
+  },
+
+  // Mid-tempo mélancolique en dorien (modèle original) : guitare acoustique grattée du début à la fin, IV majeur qui garde
+  // une lumière, violoncelles au refrain, harmonica
+  pluie: {
+    key: 'E dorian', groove: 'rock', emotion: 'melancolie',
+    sections: {
+      intro: { bars: 4, chords: 'i | III | VII | IV', drums: 'off', guitar: 'g:pop' },
+      verse: { bars: 16, chords: 'i | III | VII | IV', drums: 'main', bass: '8', guitar: 'g:pop', lead: 'verse' },
+      pre: { bars: 8, chords: 'ii | III | IV | IV', drums: 'main', bass: 'walkup', guitar: 'g:pop', strings: 'swell', lead: 'verse' },
+      chorus: { bars: 8, chords: 'III | VII | i | IV | III | VII | IV | IV', drums: 'full', bass: 'rock8', guitar: 'g:pop', strings: 'sustain', lead: 'hook' },
+      bridge: { bars: 8, chords: 'v | ii | III | IV', drums: 'break', bass: 'whole', guitar: 'g:ballade', strings: 'swell', lead: 'long' },
+      outro: { bars: 4, chords: 'i | III | VII | IV', drums: 'light', bass: 'whole', guitar: 'g:pop', fill: false },
+    },
+    form: 'intro verse pre chorus verse pre chorus bridge chorus*2 outro',
+  },
+
   // Disco-funk en dorien : une seule boucle de quatre accords, l'énergie vient de l'arrangement
   getlucky: {
     key: 'B dorian', groove: 'disco', emotion: 'joie',
