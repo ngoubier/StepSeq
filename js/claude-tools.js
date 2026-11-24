@@ -1206,6 +1206,36 @@ SS.claudeTools = (() => {
     W().stop();
     return { message: 'Écoute arrêtée' };
   }
+  /** Panneau Mix auto de l'assistant (js/wizautomix.js) : ouvrir, mode, familles, accepter, annuler, A/B ; renvoie l'état. */
+  function assistantMixAuto({ ouvrir, mode, toucher, accepter, refuser, annuler, annulerSession } = {}) {
+    const M = SS.wizAutoMix;
+    if (!M || !SS.band.mixAuto) return { erreur: 'Mix auto indisponible' };
+    if (ouvrir === true) M.open();
+    if (ouvrir === false) M.close();
+    if (!M.isOpen()) return { ouvert: false, conseil: 'assistantMixAuto({ ouvrir: true }) à partir de l’étape 3, puis assistantEcouter()' };
+    const st = () => M._state();
+    if (mode != null) M.setMode(mode === 'auto');
+    if (toucher && typeof toucher === 'object') M.setScopes(toucher);
+    const find = (id) => (st().diag && st().diag.ready ? st().diag.suggestions.find((x) => x.id === id || x.title === id) : null);
+    if (accepter) {
+      const s = find(accepter);
+      if (!s) return { erreur: `Conseil introuvable : ${accepter}` };
+      M.accept(s);
+    }
+    if (refuser) M.refuse(refuser);
+    if (annuler) M.undoAt(0);
+    if (annulerSession) M.undoSession();
+    const s = st();
+    return {
+      ouvert: true,
+      mode: s.prefs.auto ? 'auto' : 'main',
+      toucher: s.prefs.scopes,
+      ecoute: Math.round(SS.automixListen.secs()),
+      note: s.diag && s.diag.ready ? s.diag.total : null,
+      conseils: s.diag && s.diag.ready ? s.diag.suggestions.filter((x) => !s.decisions.has(x.id)).map((x) => ({ id: x.id, titre: x.title, onglet: x.tab === 'master' ? 'Master' : 'Instruments', famille: x.scope })) : [],
+      faits: s.log.map((x) => ({ titre: x.title, par: x.by === 'auto' ? 'pilote' : 'main' })),
+    };
+  }
   function assistantFermer() {
     W().fermer();
     return { message: 'Retour à la grille, le brouillon de l’assistant est gardé' };
@@ -1622,6 +1652,7 @@ SS.claudeTools = (() => {
     { nom: 'assistantEtape', assistant: true, description: 'Affiche une étape de l’assistant.', params: { etape: S('texte', 'style, instruments, tempo, scenes, accords, arrangement, effets, mix, integration', true) }, faire: assistantEtape },
     { nom: 'assistantEcouter', lecture: true, assistant: true, description: 'Écoute la chanson en cours de création (ou la scène, aux étapes Accords et instruments).', params: {}, faire: assistantEcouter },
     { nom: 'assistantStop', lecture: true, assistant: true, description: 'Arrête l’écoute de l’assistant.', params: {}, faire: assistantStop },
+    { nom: 'assistantMixAuto', assistant: true, description: 'Panneau Mix auto de l’assistant (à droite, étapes 3 à 12) : écoute pendant la lecture et propose des conseils de mix et de mastering (volumes, égaliseur, compresseur, limiteur, envois, mastering) rangés dans le mix de l’assistant. Mode main (accepter un par un) ou auto (le pilote applique, un geste à la fois, les familles permises). Sans paramètre : l’état (conseils, faits).', params: { ouvrir: S('booléen', 'true ouvre, false ferme'), mode: S('texte', 'main ou auto'), toucher: S('objet', 'familles permises au mode auto : { fader, eq, comp, pan, sidechain, sends, mastereq, mastering } → true/false'), accepter: S('texte', 'id ou titre d’un conseil'), refuser: S('texte', 'id d’un conseil'), annuler: S('booléen', 'défait le dernier réglage (comme Ctrl+Z)'), annulerSession: S('booléen', 'revient au mix d’avant la session') }, faire: assistantMixAuto },
     { nom: 'assistantFermer', assistant: true, description: 'Revient à la grille ; le brouillon de l’assistant est gardé.', params: {}, faire: assistantFermer },
     { nom: 'assistantEmotion', assistant: true, description: 'Assistant « Nouvelle chanson » › « D’après une émotion » : déduit tempo, tonalité, groupe, scènes et accords d’un style et d’une à trois émotions pondérées (chansons de référence). appliquer: true règle l’assistant (inspiration la plus proche, scènes, accords, émotion de chaque scène). Par scène (parScene ou trajectoire) : l’émotion évolue au fil des scènes, chaque scène a sa tonalité (relative ou homonyme), sa charnière V7, son énergie et ses musiciens. Style film (Musique de film) : une émotion par passage de l’image (passages ou histoire) ou un mélange (emotions + duree) → repères, tempo calé ou par passage, tonalité, effectif, thème ; appliquer ouvre « Ma scène » réglée.', params: { style: S('texte', 'id du style (synthwave, edm, ambient, techno, pop, funk, hiphop, dnb, latin, soul, cliches, film)', true), passages: S('liste', 'film : [{ emotion (' + SS.FILM_EMOTIONS.map((e) => e.k).join(', ') + '), secondes, nom, synchro, dialogue }]'), histoire: S('texte', 'film, histoire toute faite : danger, adieux, decouverte, traque, retour'), duree: S('nombre', 'film avec emotions : durée de la scène en secondes (défaut 50)'), tempo: S('texte', 'film : cale (un tempo calé sur la synchro) ou passage (un tempo par passage) ; défaut : le conseil'), orchestre: S('texte', 'film : intime, romantique, epique, mystere (défaut : déduit)'), emotions: S('texte', 'toute la chanson : émotions et poids, ex. "nostalgie:60 espoir:40" ou [{ emotion, poids }]'), parScene: S('objet', 'par scène : { couplet, montee, refrain, pont, fin } → émotion, ex. { couplet: "melancolie", refrain: "euphorie" }'), trajectoire: S('texte', 'par scène, trajectoire toute faite : lumiere, puissance, brise, tempete, reve (parScene la complète)'), relatives: S('objet', 'par scène : { refrain: "homonyme" } pour garder la tonique au lieu de la tonalité relative'), dernierRefrain: S('booléen', 'par scène : dernier refrain un ton plus haut quand il est proposé (true par défaut)'), appliquer: S('booléen', 'true : régler l’assistant (sinon : seulement la proposition)') }, faire: assistantEmotion },
     { nom: 'assistantStyle', assistant: true, description: 'Choisit le style et l’inspiration (le groupe, le tempo et le plan de la chanson suivent).', params: { style: S('texte', 'synthwave, edm, ambient, techno, pop, funk, hiphop, dnb, latin, soul, cliches (Clichés : recettes de tubes connus), zero (Créer de zéro : départ neutre sans inspiration)', true), inspiration: S('texte', 'id, titre ou artiste d’une inspiration (voir assistantStyles())') }, faire: assistantStyle },

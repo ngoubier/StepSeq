@@ -383,6 +383,17 @@ caractère…), et **▶ joue la scène choisie en boucle** (pas toute la chanso
    est grisée, avec « + ajouter la pièce ». **Sans musicien Effets** (ou sans Percussionniste), un message et un bouton **+ Ajouter** à la
    place des réglages (l'Effets et le Percussionniste sont des musiciens facultatifs de chaque inspiration : `optional` dans
    `js/band-presets.js`, jamais dans le groupe par défaut) ; le passe-haut et la coupure restent. Sans retouche de percussions les pistes jouent le plan. Test : `node tests/e2e/wizard-fx.js` ;
+   **Mix auto** (bouton de la tête d'étape, étapes 3 à 12 ; `js/wizautomix.js`) : un panneau à droite, qui pousse l'assistant,
+   mêle les modes Conseils et Pilote auto d'**Auto Mix** sur l'écoute de l'assistant (écoute toujours en direct tant qu'il est
+   ouvert : il mesure chaque piste). Objectif = le style (référence commune `js/mixref.js`), Streaming ou Club ; volume perçu et
+   crête face à la cible, notes par critère ; onglets **Instruments**, **Master** et **Fait**. **À la main** : chaque conseil
+   s'accepte (avec un dosage) ou se refuse ; **Auto** : le pilote applique lui-même, un geste toutes les quelques secondes d'écoute,
+   les conseils des familles permises (**Peut toucher** : volumes, égaliseur, compresseur · limiteur, pan, sidechain, envois,
+   EQ Master, mastering). Les réglages vont dans le mix de l'assistant (`js/wizmix.js` : fader de la tranche, ou réglages fins de
+   console dans `mix.auto` : passe-haut, cloches, compresseur, limiteur de piste, sidechain, gain / plafond / graves mono / largeur
+   du mastering…) : ils restent d'une étape à l'autre et passent dans la Grille à « Créer la chanson ». **Ctrl+Z** (ou ↶) défait le
+   dernier réglage, l'onglet **Fait** un réglage précis ou **toute la session de mix** ; **A / B** compare le mix d'avant la session et
+   le mix actuel. Outil Claude : `assistantMixAuto`. Test : `node tests/e2e/wiz-automix.js` ;
 12. **Intégration** : cases à cocher par musicien (batterie, basse, nappes, arpèges, lead…) et par élément de batterie ;
    **Créer la chanson** (bouton dans l'étape, en haut à droite, avec le compte des pistes) écrit les pistes cochées, les scènes et l'arrangement (tempo de la barre du haut, mixage
    automatique de Band). Ce qui est créé est exactement l'aperçu ; Ctrl+Z revient à la chanson vide.
@@ -1462,7 +1473,7 @@ réel (export, figer, bilan).
 | Arpèges | `js/arp.js` (moteur Arp One), `js/arppanel.js` (fenêtre), `js/motifs.js` (motifs), `js/guitar-arp.js` (mode Guitare) |
 | Assistant Nouvelle chanson | `js/band.js` (interface, toutes les étapes, pont `SS.band.claude`), `js/band-presets.js` (styles, inspirations, musiciens), `js/band-songs.js` (plans des chansons), `js/band-templates.js` (morceaux complets), `js/bandsong.js` (écrit les notes d'après un plan), `js/bandgroup.js` (groupe), `js/wizdraft.js` (brouillon), `js/gridsync.js` (Assistant ↔ Grille), `js/drum-patterns.js`, `js/padmotifs.js`, `js/arrange.js`, `js/orchestra.js`, `js/develop.js`, `js/film.js`, `js/tutorial.js` |
 | Mélodie et émotions | `js/melody.js` (moteur unique de mélodie), `js/melody-profiles.js`, `js/melodypanel.js` (atelier Mélodie, dans l'étape Mélodie), `js/emotions.js` |
-| Mixage | `js/mixer.js` (console), `js/bandmix.js`, `js/band-levels.js`, `js/band-drive.js` (mix et mastering automatiques des chansons de l'assistant), `js/wizmix.js` (étape Mix), `js/automix.js`, `js/automix-listen.js`, `js/automix-pilot.js`, `js/automixpanel.js` (Auto Mix), `js/bilan.js` (bilan d'écoute pour Claude) |
+| Mixage | `js/mixer.js` (console), `js/bandmix.js`, `js/band-levels.js`, `js/band-drive.js` (mix et mastering automatiques des chansons de l'assistant), `js/wizmix.js` (étape Mix), `js/wizautomix.js` (Mix auto de l'assistant), `js/automix.js`, `js/automix-listen.js`, `js/automix-pilot.js`, `js/automixpanel.js` (Auto Mix), `js/bilan.js` (bilan d'écoute pour Claude) |
 | Claude | `js/claude-tools.js` (boîte à outils `window.StepSeq`) |
 | Outils | `tools/` : hauteur des échantillons, niveaux des instruments (`measure-levels.js`), mastering des chansons (`band-drive.js`), rendu d'une chanson, calibrage de l'Auto Mix et du bilan, copie locale des banques de sons |
 | Documents | `docs/design-assistant.md`, `docs/comparaison-cubase.md`, `docs/reference/` (composition, émotions) |

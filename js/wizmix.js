@@ -27,6 +27,13 @@
  *     courbe du plan).
  *   Non automatisable (la valeur de la CHANSON vaut partout, les surcharges de scène sont listées dans report.ignored) :
  *   pan, EQ, compresseur, chorus, delay, reverb propre à la piste, envoi plate, sidechain, et tout le Master.
+ *
+ * Mix auto (panneau de l'assistant, js/wizautomix.js) : les conseils d'Auto Mix (js/automix.js) parlent la langue de la
+ *   console (« mix.eq.hp.f », « mix.lim.ceil », « mastering.drive », « fx.sendHall »…), plus fine que le modèle ci-dessus.
+ *   change() les range dans `mix.auto` : { [id]: { [chemin]: valeur } } (id « master » pour le Master), écrits par apply()
+ *   APRÈS le reste (valeur de la chanson) ; le volume (« volumeDb ») va, lui, dans le fader de la tranche (vol). Chaque
+ *   change() rend de quoi l'annuler (revert) ; une retouche à la main de l'EQ ou du compresseur d'une tranche efface les
+ *   réglages fins correspondants du Mix auto.
  */
 window.SS = window.SS || {};
 
@@ -150,6 +157,7 @@ SS.wizMix = (() => {
     const next = { style, tracks: {}, master: mix ? mix.master : d.master, own: {}, base: d.base };
     for (const id of Object.keys(d.tracks)) next.tracks[id] = mix && mix.tracks[id] ? mix.tracks[id] : d.tracks[id];
     if (mix) for (const sc of Object.keys(mix.own || {})) for (const id of Object.keys(mix.own[sc])) if (next.tracks[id] || id === 'master') (next.own[sc] = next.own[sc] || {})[id] = mix.own[sc][id];
+    if (mix && mix.auto) for (const id of Object.keys(mix.auto)) if (next.tracks[id] || id === 'master') (next.auto = next.auto || {})[id] = mix.auto[id];
     return next;
   }
 
@@ -176,7 +184,99 @@ SS.wizMix = (() => {
     if (!o) return false;
     for (let i = 0; i < p.length - 1; i++) o = o[p[i]] = isObj(o[p[i]]) ? o[p[i]] : {};
     o[p[p.length - 1]] = value;
+    // retouche à la main de l'EQ ou du compresseur : les réglages fins du Mix auto sur ce module s'effacent
+    const own = { eq: ['mix.eq.on', 'mix.eq.low.', 'mix.eq.lm.', 'mix.eq.high.'], comp: ['mix.comp.on', 'mix.comp.ratio'] }[p[0] === 'fx' ? p[1] : ''];
+    const a = mix.auto && mix.auto[id];
+    if (own && a && (!scope || scope === 'song')) {
+      for (const k of Object.keys(a)) if (own.some((x) => k === x || (x.endsWith('.') && k.startsWith(x)))) delete a[k];
+      if (!Object.keys(a).length) delete mix.auto[id];
+    }
     return true;
+  }
+
+  /* ---------- Mix auto : réglages fins venus des conseils ---------- */
+  const getIn = (o, path) => path.split('.').reduce((x, k) => (x == null ? x : x[k]), o);
+  const setIn = (o, path, v) => {
+    const ks = path.split('.');
+    const last = ks.pop();
+    ks.reduce((x, k) => (x[k] = isObj(x[k]) ? x[k] : {}), o)[last] = v;
+  };
+  /**
+   * Range un changement de conseil ({ path, from, to, ref? : id de mix de la piste désignée par `to`, ex. le kick du sidechain }) dans le mix de la tranche `id` (« master » pour le Master).
+   * Renvoie l'entrée d'annulation { id, path, kind: 'vol' | 'auto', before, after }.
+   */
+  function change(mix, id, c) {
+    const st = strip(mix, id);
+    if (!st) return null;
+    if (c.path === 'volumeDb') {
+      const before = st.vol;
+      const after = r2(clamp(before + (c.to - c.from), -60, 12));
+      st.vol = after;
+      return { id, path: 'volumeDb', kind: 'vol', before, after };
+    }
+    mix.auto = mix.auto || {};
+    const a = (mix.auto[id] = mix.auto[id] || {});
+    const before = c.path in a ? a[c.path] : undefined;
+    const to = c.ref ? '@' + c.ref : c.to; // piste source (sidechain) : son id de mix, retrouvé dans chaque projet
+    a[c.path] = to;
+    return { id, path: c.path, kind: 'auto', before, after: to };
+  }
+  /**
+   * Range un conseil d'Auto Mix (entendu sur le projet d'écoute `proj`) dans le mix : changes = ses changements effectifs
+   * [{ path, from, to, track? }] (track : piste du projet ou '__master', sinon `track` du conseil), k = dosage (0,25 à 1,5).
+   * Renvoie les entrées d'annulation (pour revert).
+   */
+  function fromSuggestion(mix, proj, track, changes, k = 1) {
+    const idOfTrack = (tid) => (tid === '__master' ? 'master' : idOf(proj.tracks.find((t) => t.id === tid)));
+    const out = [];
+    for (const c of changes) {
+      const id = idOfTrack(c.track || track);
+      if (!id) continue;
+      const to = SS.automix && SS.automix.valueAt ? SS.automix.valueAt(c, k) : c.to;
+      const ref = c.path === 'fx.scSource' && to ? idOfTrack(to) : null;
+      const e = change(mix, id, { path: c.path, from: c.from, to, ref });
+      if (e) out.push(e);
+    }
+    return out;
+  }
+  /** Défait des entrées de change() (dans l'ordre inverse) ; une valeur retouchée depuis n'est pas écrasée. Renvoie le nombre défait. */
+  function revert(mix, entries) {
+    let n = 0;
+    for (const e of [...entries].reverse()) {
+      if (!e) continue;
+      if (e.kind === 'vol') {
+        const st = strip(mix, e.id);
+        if (st && Math.abs(st.vol - e.after) < 1e-6) (st.vol = e.before), n++;
+        continue;
+      }
+      const a = mix.auto && mix.auto[e.id];
+      if (!a || a[e.path] !== e.after) continue;
+      if (e.before === undefined) delete a[e.path];
+      else a[e.path] = e.before;
+      if (!Object.keys(a).length) delete mix.auto[e.id];
+      n++;
+    }
+    return n;
+  }
+  /** Nombre de réglages fins du Mix auto (toutes tranches, ou la tranche id). */
+  const autoCount = (mix, id) => (id ? Object.keys((mix.auto && mix.auto[id]) || {}).length : Object.values(mix.auto || {}).reduce((n, a) => n + Object.keys(a).length, 0));
+  /** Écrit un réglage de console sur une piste du projet (mix.*, fx.*). */
+  function writeTrack(t, path, v) {
+    if (path.startsWith('mix.')) {
+      const m = SS.mixParams(t);
+      setIn(m, path.slice(4), v);
+      t.mix = SS.cleanMix(m);
+    } else if (path.startsWith('fx.')) t.fx = { ...(t.fx || {}), [path.slice(3)]: v };
+  }
+  /** Écrit un réglage de console sur le Master du projet (mix.*, mastering.*). */
+  function writeMaster(project, path, v) {
+    const mp = SS.masterParams(project);
+    if (path.startsWith('mastering.')) mp.mastering = SS.cleanMastering({ ...mp.mastering, [path.slice(10)]: v });
+    else if (path.startsWith('mix.')) {
+      setIn(mp.mix, path.slice(4), v);
+      mp.mix = SS.cleanMix(mp.mix, SS.MASTER_DEFAULTS.mix);
+    } else return;
+    project.master = mp;
   }
   const leaves = (o) => (isObj(o) ? Object.values(o).reduce((n, v) => n + leaves(v), 0) : 1);
   /** Efface la surcharge d'une tranche dans la scène (« ↺ chanson »), ou de toute la scène si id est omis. */
@@ -371,8 +471,23 @@ SS.wizMix = (() => {
         if (o && scenes.some((s) => s.key === sid)) rep.ignored.push({ scene: sid, track: 'master', param: 'master' });
       }
     }
+    // Mix auto : réglages fins de console, par-dessus tout le reste
+    for (const [id, a] of Object.entries(mix.auto || {})) {
+      if (id === 'master') {
+        for (const [path, v] of Object.entries(a)) writeMaster(project, path, v), rep.changed++;
+        continue;
+      }
+      project.tracks.forEach((t) => {
+        if (idOf(t) !== id) return;
+        for (const [path, v] of Object.entries(a)) {
+          const ref = typeof v === 'string' && v[0] === '@' ? project.tracks.find((x) => idOf(x) === v.slice(1)) : null;
+          writeTrack(t, path, ref ? ref.id : v);
+          rep.changed++;
+        }
+      });
+    }
     return rep;
   }
 
-  return { idOf, strips, defaults, sync, eff, set, reset, ownCount, copyToSameType, preview, apply };
+  return { idOf, strips, defaults, sync, eff, set, reset, ownCount, copyToSameType, preview, apply, change, fromSuggestion, revert, autoCount, getIn };
 })();
