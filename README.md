@@ -514,7 +514,7 @@ de référence les plus proches et en déduit la chanson, affichée avant d'êtr
 
 **Créer cette chanson** règle l'assistant par son pont (`SS.band.claude`) : inspiration, tempo, tonalité, scènes
 (nom, 8 mesures), arrangement, accords et émotion de chaque scène, musiciens ajoutés ; l'étape Scènes s'ouvre et tout
-se retouche comme d'habitude. Musique de film n'y est pas encore (son parcours part des repères de l'image).
+se retouche comme d'habitude.
 Fenêtre : `js/emotionsongpanel.js` ; outil Claude `assistantEmotion` ; tests `node --test tests/emotionsong.test.js`,
 `node tests/e2e/emotion-song.js`.
 
@@ -527,6 +527,19 @@ bouton ⇄). Avant un changement de tonalité, la dernière mesure joue la domin
 énergie (type de scène + émotion) décide qui joue et si la batterie est pleine, en demi-temps ou absente. Quand le refrain
 porte une émotion qui monte et revient, le **dernier refrain** peut monter d'un ton (scène à part). La trajectoire
 s'affiche en courbe (hauteur = énergie, couleur = émotion, pointillé = lumière) et s'écoute en aperçu au synthé.
+
+**Musique de film** (style 🎬 dans la liste, `js/filmemotion.js`, `js/filmemotionpanel.js`) : la fenêtre passe en
+**Par passage** (une émotion par passage de l'image : nom, émotion, durée en secondes, ⚡ synchro forte, 💬 dialogue, ou
+une histoire toute faite : Le danger approche, Les adieux, La découverte, La traque, Le retour à la vie) ou **Toute la
+scène** (jusqu'à trois émotions et une durée : thème, sommet avec la synchro, fin calme). Elle en déduit l'énergie et la
+tension de chaque passage, la tonalité (l'entrée quand elle tranche, sinon le mélange et les musiques de film proches),
+l'effectif de l'orchestre (Intime, Romantique, Épique, Mystère), le motif du thème (passage de la synchro, sinon le plus
+long ; il se tait sous le dialogue) et le tempo : **un tempo calé** sur la synchro, ou **par passage** (conseillé quand les
+émotions sont très éloignées). Le vrai moteur de la musique de film (`SS.film`) donne mesures, harmonie, nuances,
+articulations et percussions, montrées sur une frise en secondes et une carte par passage, avec un aperçu au synthé.
+**Créer cette scène** ouvre l'assistant Musique de film sur « Ma scène », réglée (repères, tonalité, thème, effectif).
+Outil Claude : `assistantEmotion({ style: 'film', histoire | passages | emotions + duree, tempo, orchestre })` ; tests
+`node --test tests/filmemotion.test.js`, `node tests/e2e/emotion-song.js`.
 
 ### 🎬 Musique de film (`js/film.js`)
 

@@ -133,7 +133,7 @@ SS.emotionSong = (() => {
   const styleOf = (id) => (SS.Band.STYLES || []).find((s) => s.id === id) || null;
   const appStyle = (id) => (id === 'film' ? null : styleOf(id));
   /** Styles proposés : ceux de l'assistant qui ont des chansons de référence (dans l'ordre de l'assistant), puis Musique de film
-   * (film : false pour l'écarter ; une chanson de film déduite n'a pas encore d'inspiration où se poser). */
+   * (film : false pour l'écarter ; la musique de film a sa propre déduction, par passage : js/filmemotion.js). */
   function styles({ film = true } = {}) {
     const has = new Set(refs().map((r) => r.style));
     const out = SS.Band.STYLES.filter((s) => has.has(s.id) && !s.film).map((s) => ({ id: s.id, label: s.label }));
