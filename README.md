@@ -518,6 +518,16 @@ se retouche comme d'habitude. Musique de film n'y est pas encore (son parcours p
 Fenêtre : `js/emotionsongpanel.js` ; outil Claude `assistantEmotion` ; tests `node --test tests/emotionsong.test.js`,
 `node tests/e2e/emotion-song.js`.
 
+**Par scène** (bouton en haut de la fenêtre, `js/emotionarcpanel.js`, `SS.emotionSong.deduceArc`) : l'émotion évolue au
+fil de la chanson. Une émotion par moment (Couplet, Montée, Refrain, Pont, Fin) ou une trajectoire toute faite (De
+l'ombre à la lumière, Montée en puissance, Le refrain se brise, Après la tempête, Rêve éveillé). Le mélange des moments
+donne la forme, le tempo (le même partout) et le groupe ; la tonalité de départ suit l'émotion du couplet. Chaque scène
+prend le mode de son émotion : même famille → même tonique ; famille opposée → tonalité **relative** (ou **homonyme**,
+bouton ⇄). Avant un changement de tonalité, la dernière mesure joue la dominante (V7) de la suivante (**charnière**). Son
+énergie (type de scène + émotion) décide qui joue et si la batterie est pleine, en demi-temps ou absente. Quand le refrain
+porte une émotion qui monte et revient, le **dernier refrain** peut monter d'un ton (scène à part). La trajectoire
+s'affiche en courbe (hauteur = énergie, couleur = émotion, pointillé = lumière) et s'écoute en aperçu au synthé.
+
 ### 🎬 Musique de film (`js/film.js`)
 
 Tuile **🎬 Musique de film** de l'étape Style. On décrit la scène à l'image : entrée et fin de la musique (en secondes),

@@ -102,3 +102,48 @@ test('pop-rock : une émotion calme part d\'une ballade, pas du rock nerveux', (
   assert.equal(pick('tendresse'), 'phares');
   assert.equal(pick('euphorie'), 'brightside');
 });
+
+test('émotions par scène : chaque scène a son émotion, sa tonalité, une grille dans son mode et son ressenti', () => {
+  const keyPc = (k) => H.scale(k)[0].pc;
+  E.styles({ film: false }).forEach(({ id: style }) =>
+    E.ARCS.forEach((a) => {
+      const t = `${style} / ${a.name}`;
+      const d = E.deduceArc({ style, moments: a.e });
+      assert.ok(d && d.arc, t);
+      assert.equal(d.blocks.length, d.form.length, `${t} : un bloc par passage`);
+      d.sections.forEach((s) => {
+        assert.equal(s.emotion, a.e[s.moment], `${t} : ${s.name} garde l'émotion de son moment`);
+        assert.ok(H.TONICS.includes(s.key.tonic), `${t} : ${s.name} tonique ${s.key.tonic}`);
+        const g = s.grids[s.pick];
+        assert.ok(g, `${t} : ${s.name} sans grille`);
+        assert.ok(E.fitIn(g.chords, s.key.mode) >= 0.8, `${t} : ${s.name} hors du mode`);
+        assert.ok(E.chordsIn(s.key, g.chords).every((c) => c.grid), `${t} : ${s.name} accords hors grille`);
+        assert.ok(['plein', 'demi', 'sans'].includes(s.feel), `${t} : ${s.name} ressenti`);
+        if (s.pivot) assert.equal((s.pivot.rootPc - keyPc(s.pivot.to) + 12) % 12, 7, `${t} : ${s.name} charnière = dominante`);
+      });
+      d.blocks.forEach((b) => assert.ok(d.sections.some((s) => s.sid === b.sid), `${t} : bloc ${b.sid}`));
+    })
+  );
+});
+
+test('émotions par scène : de l\'ombre à la lumière', () => {
+  const d = E.deduceArc({ style: 'synthwave', moments: E.ARCS[0].e });
+  const sec = (sid) => d.sections.find((s) => s.sid === sid);
+  const pc = (k) => H.scale(k)[0].pc;
+  // couplet sombre, refrain clair dans la tonalité relative (une tierce mineure au-dessus)
+  assert.ok(['minor', 'dorian'].includes(sec('verse').key.mode));
+  assert.equal(sec('chorus').key.mode, 'major');
+  assert.equal((pc(sec('chorus').key) - pc(sec('verse').key) + 12) % 12, 3);
+  // homonyme sur demande : même tonique
+  const p = E.deduceArc({ style: 'synthwave', moments: E.ARCS[0].e, links: { sommet: 'parallel' } });
+  assert.equal(pc(p.sections.find((s) => s.sid === 'chorus').key), pc(sec('verse').key));
+  // le couplet annonce le refrain par sa dominante
+  assert.ok(sec('verse').pivot && sec('verse').pivot.to.mode === 'major');
+  // l'euphorie revient : dernier refrain un ton plus haut, et sans l'option il disparaît
+  assert.ok(d.canLift && sec('chorus+'));
+  assert.equal((pc(sec('chorus+').key) - pc(sec('chorus').key) + 12) % 12, 2);
+  assert.ok(!E.deduceArc({ style: 'synthwave', moments: E.ARCS[0].e, lift: false }).sections.some((s) => s.lift));
+  // le refrain joue plus fort que l'intro
+  assert.ok(sec('chorus').energy > sec('intro').energy);
+  assert.ok(E.playsIn(sec('chorus'), 'drums') && !E.playsIn(sec('intro'), 'drums'));
+});
