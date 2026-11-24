@@ -8,7 +8,7 @@
  *   MISSING=1 node tools/measure-levels.js   (seulement les sons pas encore mesurés)
  *
  * Matériau joué (vélocités proches de celles des chansons Band) :
- *   basse : 8 croches (Do2, Sol2…) ; accords : triade Do4–Mi4–Sol4 tenue ; mélodie : 4 noires autour de Sol4 ;
+ *   basse : 8 croches (Do2, Sol2…) ; accords : triade Do4–Mi4–Sol4 tenue ; mélodie : 4 noires autour de Sol4 ; cuivres de la section : 4 noires au milieu du registre ;
  *   arpège : doubles-croches Do4–Mi4–Sol4–Do5 ; batterie : un coup à vélocité 0,9 (fenêtre de 400 ms).
  */
 const { chromium } = require('playwright');
@@ -22,7 +22,7 @@ const HIT = 0.7; // s par coup de batterie
 const CHUNK = 60;
 
 globalThis.window = globalThis;
-['dirt.js', 'sounds.js', 'band-presets.js'].forEach((f) => require(path.join(ROOT, 'js', f)));
+['dirt.js', 'sounds.js', 'band-presets.js', 'horns.js'].forEach((f) => require(path.join(ROOT, 'js', f)));
 const B = SS.Band;
 const inst = new Map();
 const drums = new Map();
@@ -33,13 +33,18 @@ B.STYLES.forEach((st) =>
       if (mu.kits) {
         const pieces = [...mu.pieces, ...B.EXTRA_PIECES[mu.role]];
         mu.kits.forEach((k) => pieces.forEach((pc) => drums.set(`${k}|${pc}`, { kit: k, piece: pc })));
-      } else {
+      } else if (!mu.horns && !mu.amb) {
+        // (Ambient : niveau réglé par son module ; section de cuivres : mesurée plus bas, son par son)
         const cat = mu.cat || role.cat;
         mu.pick.forEach((tok) => inst.set(`${mu.role}|${tok}|${cat}`, { role: mu.role, tok, cat }));
       }
     })
   )
 );
+// section de cuivres (js/horns.js) : chaque son de musicien, joué au milieu de son registre (clé horns|son|mono)
+const hornMid = {};
+Object.values(SS.horns.INST).forEach((x) => (hornMid[x.tok] = hornMid[x.tok] || []).push((x.lo + x.hi) / 2));
+Object.entries(hornMid).forEach(([tok, m]) => inst.set(`horns|${tok}|mono`, { role: 'horns', tok, cat: 'mono', mid: Math.round(m.reduce((a, b) => a + b, 0) / m.length) }));
 const allJobs = [...[...inst.entries()].map(([k, v]) => ({ key: k, ...v, kind: 'inst' })), ...[...drums.entries()].map(([k, v]) => ({ key: k, ...v, kind: 'drum' }))];
 // MISSING=1 : ne mesure que les sons absents de js/band-levels.js (nouvelles inspirations) et garde les autres mesures
 const OLD = process.env.MISSING ? (require(path.join(ROOT, 'js', 'band-levels.js')), SS.BAND_LEVELS) : null;
@@ -87,6 +92,7 @@ async function measure(browser, port, list) {
       const material = (j) => {
         if (j.role === 'bass') return BASS.map((m, i) => ({ midi: m, at: i * 0.25, dur: 0.22, vel: 0.85 }));
         if (j.role === 'arp') return Array.from({ length: 16 }, (_, i) => ({ midi: [60, 64, 67, 72][i % 4], at: i * 0.125, dur: 0.11, vel: 0.7 }));
+        if (j.role === 'horns') return MEL.slice(0, 4).map((m, i) => ({ midi: m - 67 + j.mid, at: i * 0.5, dur: 0.47, vel: 0.75 }));
         if (j.cat === 'chord') return [60, 64, 67].map((m) => ({ midi: m, at: 0, dur: 1.8, vel: 0.65 * 0.8 }));
         // mélodie en noires : les sons à attaque lente (flûtes, voix, cordes) atteignent leur niveau
         return MEL.slice(0, 4).map((m, i) => ({ midi: m, at: i * 0.5, dur: 0.47, vel: 0.75 }));

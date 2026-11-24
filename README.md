@@ -116,9 +116,9 @@ voir « Nouvelle chanson » plus bas), sur le projet en cours. Ses deux premièr
    manière de jouer : talon-pointe, slap ou ouverte pour les congas), grooves `salsa23` (couplet : cáscara, martillo),
    `salsa23m` (montuno : campana, cloche du bongo) et `salsa23x` (mambo), piano en **montuno** (motifs Montuno 2-3,
    Montuno 3-2, Guajeo en octaves, Montuno du mambo : octaves anticipées sur le « et » et liées à l'accord qui arrive,
-   main gauche qui double la ligne), basse en **tumbao** (`tumbao23`) et musicien **Cuivres** (rôle `brass` : deux
-   trompettes et un trombone en accords serrés ; jeux Tenues, Coups sur la clave, Moña, Mambo avec contre-chant de
-   trombone, Cierre de trois coups dans la dernière mesure ; motifs `brass-*` de la famille Cuivres des motifs de nappe) ;
+   main gauche qui double la ligne), basse en **tumbao** (`tumbao23`) et musicien **Cuivres** en formation **Salsa**
+   (deux trompettes, deux trombones, une piste chacun : Unisson en intro, Tenues au couplet, Coups sur la clave au
+   montuno et à la coda, Mambo 2-3 au mambo ; le modèle écrit le jeu de chaque scène, `sections[…].horns`) ;
    le style **Pop-rock** a, en plus de Mr. Brightside et de la valse, trois modèles calmes aux titres originaux :
    « Lettre jamais envoyée » (`lettre`, ballade piano triste, La majeur 70 BPM, Steinway VCSL, cordes VSCO, balais),
    « Les phares s'allument » (`phares`, ballade qui monte, Mi♭ 72 BPM, orgue VCSL, guitare arpégée puis refrain final
@@ -610,6 +610,8 @@ le big band. Une ligne par musicien : interrupteur (joue ou non dans la scène),
 partie, son registre, M / S. « + Musicien » ajoute une doublure (4 au plus). Sons : trompette, trombone, cor, tuba
 VSCO 2, saxophones VCSL ; cornet, bugle, saxhorns, euphonium et sousaphone empruntent le son le plus proche. Outils
 Claude : `assistantMusicien({ ajouter: 'cuivres', son: 'funk' })`, `assistantMotifs` (les 4 jeux), `assistantJeu({ motif })`.
+Un modèle de chanson peut avoir sa section d'office (musicien `m('horns', …, { horns: true, form })`) et écrire le jeu de
+chaque scène (`horns: 'sig' | 'uni' | 'coups' | 'ten'` dans ses sections) : c'est le cas de « Calle de la Luna ».
 Tests : `node --test tests/horns.test.js`, `node tests/e2e/wizard-horns.js`.
 
 ### Fiche Scène (`js/scenesheet.js`)

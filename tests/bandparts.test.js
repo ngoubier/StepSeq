@@ -473,8 +473,9 @@ test('cuivres : section serrée, coups sur la clave 2-3, moña anticipée, cierr
   assert.ok(cierre[2].len >= 8);
   // mambo : contre-chant du trombone sous le riff
   assert.ok(run('brass-mambo').some((e) => e.notes.length === 1 && e.len >= 4));
-  // le modèle salsa a sa section de cuivres
+  // le modèle salsa a sa section de cuivres : le musicien Cuivres en formation Salsa, un jeu par scène
   const calle = B.STYLES.flatMap((s) => s.presets).find((p) => p.id === 'calle');
-  assert.ok(calle.musicians.some((m) => m.role === 'brass'));
-  assert.equal(SS.BandSongs.calle.sections.outro.brass, 'brass-cierre');
+  assert.ok(calle.musicians.some((m) => m.role === 'horns' && m.horns && m.form === 'salsa'));
+  assert.equal(SS.BandSongs.calle.sections.instr.horns, 'sig');
+  assert.equal(SS.BandSongs.calle.sections.verse.horns, 'ten');
 });

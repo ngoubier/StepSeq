@@ -14,7 +14,8 @@
  *     drums : off | hats | light | main | full | drop | break | build ; gap : silence au dernier temps (avant un drop)
  *     bass : whole | 8 | pulse8 | oct | gallop | offbeat | roll | sync | walk
  *     pad, strings, keys, guitar : sustain | swell | pulse8 | block4 | stabs | house | strum | chop | ballad | pluck (ou un arpège)
- *     brass (Cuivres) : un motif de nappe, le plus souvent brass-tenues | brass-clave | brass-mona | brass-mambo | brass-cierre
+ *     brass (rôle Cuivres plaqués) : un motif de nappe : brass-tenues | brass-clave | brass-mona | brass-mambo | brass-cierre
+ *     horns (musicien Cuivres, section de js/horns.js) : le jeu de la scène : sig | uni | coups | ten
  *     arp : up16 | updown16 | up8 | bells | strobe | pluck16 | rise
  *     lead, vox, sax : verse | hook | long | solo | drop | riff | answer | rise
  *     fx (musicien « Effets ») : riser | swell | down
@@ -744,12 +745,12 @@ SS.BandSongs = {
   calle: {
     key: 'A minor', groove: 'salsa23', emotion: 'joie',
     sections: {
-      intro: { bars: 4, chords: 'i/iv/V7/iv', drums: 'main', perc: 'main', bass: 'tumbao23', keys: 'montuno23', brass: 'brass-mona' },
-      verse: { bars: 8, chords: 'i/iv | VII7/III | i/iv | V7', drums: 'main', perc: 'main', bass: 'tumbao23', keys: 'montuno23', lead: 'verse', brass: 'brass-tenues' },
-      chorus: { bars: 8, chords: 'i/iv/V7/iv', groove: 'salsa23m', drums: 'full', perc: 'full', bass: 'tumbao23', keys: 'montuno23', lead: 'hook', brass: 'brass-clave', name: 'Montuno' },
-      // mambo : la section de cuivres prend la parole (riff et contre-chant de trombone), la mélodie se tait
-      instr: { bars: 8, chords: 'i/iv/V7/iv', groove: 'salsa23x', drums: 'full', perc: 'full', bass: 'tumbao23', keys: 'mambo23', brass: 'brass-mambo', name: 'Mambo' },
-      outro: { bars: 2, chords: 'i/iv/V7/iv | i', groove: 'salsa23m', drums: 'full', perc: 'full', bass: 'tumbao23', keys: 'montuno23', brass: 'brass-cierre', name: 'Coda', fill: false },
+      intro: { bars: 4, chords: 'i/iv/V7/iv', drums: 'main', perc: 'main', bass: 'tumbao23', keys: 'montuno23', horns: 'uni' },
+      verse: { bars: 8, chords: 'i/iv | VII7/III | i/iv | V7', drums: 'main', perc: 'main', bass: 'tumbao23', keys: 'montuno23', lead: 'verse', horns: 'ten' },
+      chorus: { bars: 8, chords: 'i/iv/V7/iv', groove: 'salsa23m', drums: 'full', perc: 'full', bass: 'tumbao23', keys: 'montuno23', lead: 'hook', horns: 'coups', name: 'Montuno' },
+      // mambo : la section de cuivres prend la parole (jeu « Mambo 2-3 » de la formation Salsa), la mélodie se tait
+      instr: { bars: 8, chords: 'i/iv/V7/iv', groove: 'salsa23x', drums: 'full', perc: 'full', bass: 'tumbao23', keys: 'mambo23', horns: 'sig', name: 'Mambo' },
+      outro: { bars: 2, chords: 'i/iv/V7/iv | i', groove: 'salsa23m', drums: 'full', perc: 'full', bass: 'tumbao23', keys: 'montuno23', horns: 'coups', name: 'Coda', fill: false },
     },
     form: 'intro verse chorus verse chorus instr chorus outro',
   },

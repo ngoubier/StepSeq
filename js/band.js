@@ -301,7 +301,7 @@ SS.band = (() => {
         out.push({ type: 'instrument', family: 'ambient', instrument: ambMod(ms), category: 'mono', name: nameOf0(mu) || roleOf(mu).short, color, band: tag(p, mu), levelKey: null, keep: { ambient, fx: { sendSpace: space } } });
       } else if (mu.horns) {
         // section de cuivres : une piste par musicien de la formation (js/horns.js), clé « formation-musicien »
-        hplayersOf(ms).forEach((x) => out.push({ ...toGm(B().choiceOpts(x.tok, 'mono')), category: 'mono', name: `${mu.name} · ${x.label}`, color, band: tag(p, mu, x.key), levelKey: null }));
+        hplayersOf(ms).forEach((x) => out.push({ ...toGm(B().choiceOpts(x.tok, 'mono')), category: 'mono', name: `${mu.name} · ${x.label}`, color, band: tag(p, mu, x.key), levelKey: `horns|${x.tok}|mono` }));
       } else if (mu.orch) {
         // orchestre : une piste par pupitre de l'effectif choisi (js/orchestra.js)
         ensOf(ms).parts.forEach((id) => {
@@ -7246,7 +7246,7 @@ SS.band = (() => {
       ...HN().jeux(F.id).map((j) =>
         h(
           'button',
-          { type: 'button', role: 'radio', class: 'bwhn-jeu' + (j.id === r.jeu ? ' active' : ''), 'aria-checked': String(j.id === r.jeu), 'data-v': j.id, onclick: () => hornsEdit(sc, T, { jeu: j.id === HN().defaultJeu(sc.sec) ? undefined : j.id }, `#bwHornsJeu [data-v="${j.id}"]`) },
+          { type: 'button', role: 'radio', class: 'bwhn-jeu' + (j.id === r.jeu ? ' active' : ''), 'aria-checked': String(j.id === r.jeu), 'data-v': j.id, onclick: () => hornsEdit(sc, T, { jeu: j.id === (r.autoJeu || HN().defaultJeu(sc.sec)) ? undefined : j.id }, `#bwHornsJeu [data-v="${j.id}"]`) },
           h('b', {}, j.label + (r.auto && j.id === r.jeu ? ' · auto' : '')),
           h('span', { class: 'bwhn-hits' }, ...cells(j.id).map((x) => h('i', { class: x })))
         )
