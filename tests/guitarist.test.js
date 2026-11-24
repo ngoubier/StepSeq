@@ -4,7 +4,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 globalThis.window = globalThis;
-['guitar-arp.js', 'guitarist.js'].forEach((f) => require('../js/' + f));
+['guitar-arp.js', 'guitar-riffs.js', 'guitarist.js'].forEach((f) => require('../js/' + f));
 const G = globalThis.SS.guitarist;
 const GA = globalThis.SS.GuitarArp;
 
@@ -45,4 +45,13 @@ test('potentiomètres : 0..100 ↔ réglages guitare (étalement en ms)', () => 
   }
   assert.deepEqual(G.knobPatch('spread', 100), { spread: 40 });
   assert.deepEqual(G.knobPatch('ring', 50), { ring: 0.5 });
+});
+
+test('jeu Riffs : modes « r: », familles, potentiomètres rangés dans parts…riff', () => {
+  const riffs = G.modesOf('riff');
+  assert.ok(riffs.length >= 8 && riffs.every((id) => /^r:/.test(id) && G.jeuOf(id) === 'riff'));
+  assert.equal(G.familyOf('r:power'), 'quintes');
+  assert.equal(G.firstOf('riff', 'reggae'), 'r:dub');
+  assert.equal(G.knobStore('riff'), 'riff');
+  assert.equal(G.knobStore('arp'), 'gtr');
 });

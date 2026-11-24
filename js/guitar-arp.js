@@ -217,6 +217,8 @@
     return null;
   }
   const isBassTok = (t) => t === 'B' || t === 'A';
+  /** Jeton d'un pas de motif valide pour la main : grattage = un coup (D U d u x c P), sinon des cordes reliées par « + ». */
+  const patTokOK = (t, hand) => t === '.' || (hand === 'gratte' ? /^[DUduxcP]$/.test(t) : t.split('+').every((x) => /^(B|A|B[1-4]|[1-6])$/.test(x)));
 
   /*
    * Motifs. beats × div = nombre de pas (div = pas par temps : 2 croches, 3 triolets, 4 doubles-croches).
@@ -312,6 +314,12 @@
     o.spread = Math.round(clamp(num(+g.spread, DEFAULTS.spread), 0, 40));
     for (const k of ['ring', 'mel', 'thumb', 'human']) o[k] = clamp(num(+g[k], DEFAULTS[k]), 0, 1);
     if (g.tern) o.tern = true; // chanson en 6/8 ou 12/8 (voir motifOf)
+    // motif réécrit pas à pas (fenêtre Avancé du Guitariste) : autant de pas que le motif, jetons de sa main
+    if (typeof g.pat === 'string') {
+      const m = MOTIFS.find((x) => x.id === o.motif);
+      const t = g.pat.trim().split(/\s+/);
+      if (t.length === m.steps.length && t.every((x) => patTokOK(x, m.hand)) && t.join(' ') !== m.pat) o.pat = t.join(' ');
+    }
     return o;
   }
 
@@ -332,7 +340,8 @@
    * 6/8 ou 12/8 écrit en triolets de noire (div 3, pour la Grille en 4/4) est joué en vraies croches (div 2, 1,5 × plus de temps).
    */
   const motifOf = (g) => {
-    const m = MOTIFS.find((x) => x.id === g.motif) || MOTIFS[0];
+    let m = MOTIFS.find((x) => x.id === g.motif) || MOTIFS[0];
+    if (g.pat) m = { ...m, pat: g.pat, steps: g.pat.split(' ').map((t) => (t === '.' ? [] : t.split('+'))) };
     return g.tern && m.div === 3 && (m.meter === '6/8' || m.meter === '12/8') ? { ...m, div: 2, beats: m.beats * 1.5 } : m;
   };
 

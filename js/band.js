@@ -8255,7 +8255,7 @@ SS.band = (() => {
   const gtAdvBtn = (disabled, draw) =>
     h('button', { type: 'button', class: 'btn btn-small bwp-gtadv', id: 'bwGtAdv', disabled: disabled || null, 'aria-haspopup': 'dialog', title: 'L’arpégiateur Guitare d’Arp One : manche, capodastre, accordage, jeu, tablature', onclick: () => openGtDialog(draw) }, 'Avancé…');
   let gtRedraw = null;
-  function openGtDialog(draw) {
+  function openGtDialog(draw, brand = 'ARP ONE', title = 'Guitare') {
     let dlg = document.getElementById('bwGtDialog');
     if (dlg) dlg.remove();
     const body = h('div', { class: 'bwgt-body' });
@@ -8267,7 +8267,7 @@ SS.band = (() => {
     dlg = h(
       'dialog',
       { id: 'bwGtDialog', class: 'sd-dialog bwgt-dlg' },
-      h('div', { class: 'bwgt-dhead' }, h('span', { class: 'bwgt-brand' }, 'ARP ONE'), h('b', {}, 'Guitare'), h('span', { class: 'spacer' }), h('button', { type: 'button', class: 'btn', id: 'bwGtClose', onclick: done }, 'Fermer')),
+      h('div', { class: 'bwgt-dhead' }, h('span', { class: 'bwgt-brand' }, brand), h('b', {}, title), h('span', { class: 'spacer' }), h('button', { type: 'button', class: 'btn', id: 'bwGtClose', onclick: done }, 'Fermer')),
       body
     );
     dlg.addEventListener('cancel', (e) => (e.preventDefault(), done()));
@@ -8341,7 +8341,7 @@ SS.band = (() => {
     );
   }
   /** Réglages guitare d'une scène pour le type Accords (mode « g:<motif> ») : le motif du mode, le reste dans parts…gtr. */
-  const GTR_KEYS = ['pos', 'capo', 'tuning', 'ring', 'mel', 'thumb', 'human', 'spread'];
+  const GTR_KEYS = ['pos', 'capo', 'tuning', 'ring', 'mel', 'thumb', 'human', 'spread', 'pat'];
   function gtrEdit(sc, T, patch, focus) {
     const o = partOf(sc.sec, T) || {};
     const g = { ...SS.GuitarArp.normalize({ ...(o.gtr || {}) }), ...patch };
@@ -8479,11 +8479,11 @@ SS.band = (() => {
    * « g:<motif> » (moteur de guitare) ou un accord plaqué (strum, pluck…) ; les réglages guitare vont dans parts…gtr. */
   const GT = () => SS.guitarist;
   const gtFits = (id) => (/^g:/.test(id) ? gtrFits(id) : BS().meterOK('chords', id));
-  const gtName = (id) => (/^g:/.test(id || '') ? nameOf(GUITAR_MODES, id) : SS.padMotifs ? SS.padMotifs.name(id) : id);
+  const gtName = (id) => (/^g:/.test(id || '') ? nameOf(GUITAR_MODES, id) : /^r:/.test(id || '') && SS.GuitarRiffs ? (SS.GuitarRiffs.byId(id.slice(2)) || { name: id }).name : SS.padMotifs ? SS.padMotifs.name(id) : id);
   /** Puce de style affichée (celle du style de la chanson au départ). */
   const gtStyle = () => (S.wiz.gtStyle === undefined ? GT().styleOfSong(S.styleId) : S.wiz.gtStyle);
   /** Réglages faits dans la fenêtre Avancé (manche) : la pastille ✎ les signale. */
-  const gtAdvSet = (o) => !!(o && o.gtr && ['pos', 'capo', 'tuning'].some((k) => o.gtr[k] !== undefined));
+  const gtAdvSet = (o) => !!(o && ((o.gtr && ['pos', 'capo', 'tuning', 'pat'].some((k) => o.gtr[k] !== undefined)) || (o.riff && ['pat', 'fixed', 'oct'].some((k) => o.riff[k] !== undefined))));
   function gtrSub(x, T) {
     if (mutedIn(x.sec, T)) return 'muette';
     const o = partOf(x.sec, T) || {};
@@ -8542,6 +8542,142 @@ SS.band = (() => {
     live(v);
     return h('div', { class: 'arp-knob bwa-knob', 'data-k': id }, dial, h('b', { class: 'arp-knob-name' }, label, help ? SS.helpTip(help, label) : null), now);
   }
+  /* --- Riffs du Guitariste (js/guitar-riffs.js) : réglages de la scène dans parts…riff --- */
+  const RF = () => SS.GuitarRiffs;
+  const RIFF_KEYS = ['mute', 'swing', 'energy', 'human', 'fixed', 'oct', 'pat'];
+  function riffEdit(sc, T, patch, focus) {
+    const o = partOf(sc.sec, T) || {};
+    const r = { ...RF().normalize(o.riff), ...patch };
+    const def = RF().DEFAULTS;
+    const riff = Object.fromEntries(RIFF_KEYS.filter((k) => r[k] !== undefined && r[k] !== def[k]).map((k) => [k, r[k]]));
+    putPart(sc.sec, T, { riff: Object.keys(riff).length ? riff : undefined });
+    partChanged(focus);
+    gtApplied();
+  }
+  /** Dessin d'un riff (une mesure) : fondamentale en bas, tierces à sixtes au milieu, septième et octave en haut. */
+  const riffDraw = (steps) =>
+    steps.flatMap((t, i) => {
+      const p = RF().parts(t);
+      if (!p.length) return [];
+      const lv = p.includes('8') || p.includes('b7') ? 2 : p.some((d) => d !== 'R' && d !== 'x') ? 1 : 0;
+      let n = 1;
+      while (n < 4 && i + n < 16 && (!steps[i + n] || steps[i + n] === '.')) n++;
+      return [[i, p[0] === 'x' || t.endsWith('_') ? 0.6 : n * 0.9, lv]];
+    });
+  /** Grille pas à pas : lignes [clé, nom], n pas ; on(clé, pas) → 'on' | 'soft' | null ; clic, clic droit. */
+  function stepGrid(id, rows, n, on, click, ctx) {
+    return h(
+      'div',
+      { class: 'bwg-ed', id, style: `grid-template-columns: 110px repeat(${n}, minmax(0, 1fr))` },
+      ...rows.flatMap(([k, label]) => [
+        h('span', { class: 'bwg-edl' }, label),
+        ...Array.from({ length: n }, (_, i) => {
+          const st = on(k, i);
+          return h('button', {
+            type: 'button', class: 'bwg-cell' + (i % (n % 3 === 0 ? 3 : 4) === 0 ? ' beat' : '') + (st ? ' ' + st : ''), 'data-k': k, 'data-s': i, 'aria-pressed': String(!!st), 'aria-label': `${label}, pas ${i + 1}`,
+            onclick: () => click(k, i),
+            oncontextmenu: ctx ? (e) => (e.preventDefault(), ctx(k, i)) : null,
+          }, st && k === 'coup' ? st.split(' ')[1] : '');
+        }),
+      ])
+    );
+  }
+  /** Éditeur pas à pas d'un motif de guitare (cordes ou coups), écrit dans parts…gtr.pat. */
+  function gtMotifEditor(sc, T, g) {
+    const GA = SS.GuitarArp;
+    const m = GA.MOTIFS.find((x) => x.id === g.motif);
+    const steps = (g.pat || m.pat).split(' ');
+    const write = (st, focus) => gtrEdit(sc, T, { pat: st.join(' ') }, focus);
+    let grid;
+    if (m.hand === 'gratte') {
+      const CYC = ['.', 'D', 'U', 'd', 'u', 'x', 'P', 'c'];
+      grid = stepGrid('bwgEd', [['coup', 'Coups']], steps.length,
+        (k, i) => (steps[i] === '.' ? null : ('du'.includes(steps[i]) ? 'soft ' : 'on ') + (GA.STROKES[steps[i]] || {}).label),
+        (k, i) => { const st = steps.slice(); st[i] = CYC[(CYC.indexOf(st[i]) + 1) % CYC.length]; write(st, `#bwgEd [data-s="${i}"]`); },
+        (k, i) => { const st = steps.slice(); st[i] = '.'; write(st); });
+    } else {
+      const ROWS = [['1', 'mi aigu (a)'], ['2', 'si (m)'], ['3', 'sol (i)'], ['4', 'ré'], ['A', 'basse alt. (p)'], ['B', 'basse (p)']];
+      const has = (i) => (steps[i] === '.' ? [] : steps[i].split('+'));
+      grid = stepGrid('bwgEd', ROWS, steps.length, (k, i) => (has(i).includes(k) ? (k === 'A' || k === 'B' ? 'on bass' : 'on') : null), (k, i) => {
+        const a = has(i);
+        const b = a.includes(k) ? a.filter((x) => x !== k) : [...a, k];
+        const st = steps.slice();
+        st[i] = b.length ? b.join('+') : '.';
+        write(st, `#bwgEd [data-k="${k}"][data-s="${i}"]`);
+      });
+    }
+    return h(
+      'div',
+      { class: 'gt-card bwg-edcard' },
+      h('div', { class: 'bwp-ch' }, h('h3', {}, m.hand === 'gratte' ? 'Coups pas à pas' : 'Cordes pas à pas'), SS.helpTip(m.hand === 'gratte' ? 'Clic : coup suivant (↓ ↑, plus léger, × étouffé, P palm mute, ✂ coup court) ; clic droit : silence.' : 'Clic : la corde joue (ou se tait) sur ce pas. Basse et basse alternée suivent la forme de l’accord.', 'Éditeur'), h('span', { class: 'spacer' }), g.pat ? h('button', { type: 'button', class: 'btn btn-small', id: 'bwgEdReset', onclick: () => gtrEdit(sc, T, { pat: undefined }) }, '↺ Motif d’origine') : null),
+      grid
+    );
+  }
+  /** Fenêtre Avancé d'un riff : éditeur des degrés, riffs, notes du riff. */
+  function riffAdvanced(sc, T) {
+    const o = partOf(sc.sec, T) || {};
+    const mode = o.mode || planMode(sc, T);
+    const id = /^r:/.test(mode || '') ? mode.slice(2) : 'power';
+    const r = RF().normalize(o.riff);
+    const steps = RF().stepsOf(id, r).slice();
+    const write = (st, focus) => riffEdit(sc, T, { pat: st.join(' ') }, focus);
+    const rows = [...RF().DEGREES, ['x', 'note morte ×']];
+    const grid = stepGrid('bwgRiffEd', rows, 16, (k, i) => {
+      const p = RF().parts(steps[i]);
+      return p.includes(k) ? (steps[i].endsWith('_') ? 'soft' : 'on') : null;
+    }, (k, i) => {
+      const t = steps[i];
+      let p = RF().parts(t).filter((x) => x !== 'x');
+      const was = RF().parts(t).includes(k);
+      if (k === 'x') p = was ? [] : ['x'];
+      else if (was) p = p.filter((x) => x !== k);
+      else p = p.length === 1 && ((p[0] === 'R' && ['5', '6', '8'].includes(k)) || (k === 'R' && ['5', '6', '8'].includes(p[0]))) ? ['R', p[0] === 'R' ? k : p[0]] : [k];
+      steps[i] = p.length ? p.join('') + (t.endsWith('_') && p[0] !== 'x' ? '_' : '') : '.';
+      write(steps, `#bwgRiffEd [data-k="${k}"][data-s="${i}"]`);
+    }, (k, i) => {
+      const t = steps[i];
+      if (!t || t === '.' || t === 'x') return;
+      steps[i] = t.endsWith('_') ? t.slice(0, -1) : t + '_';
+      write(steps);
+    });
+    const rf = RF().byId(id);
+    return h(
+      'div',
+      { class: 'bwgt', id: 'bwRiffAdvanced' },
+      h('div', { class: 'bwp-ch' }, h('b', {}, (r.pat ? '✎ ' : '') + rf.name), h('span', { class: 'bh-info' }, `« ${sc.name} » · ${r.fixed ? 'notes fixes, sur le premier accord' : 'suit les accords'}`), h('span', { class: 'spacer' }), r.pat ? h('button', { type: 'button', class: 'btn btn-small', id: 'bwgEdReset', onclick: () => riffEdit(sc, T, { pat: undefined }) }, '↺ Riff d’origine') : null),
+      h('div', { class: 'gt-card bwg-edcard' }, h('div', { class: 'bwp-ch' }, h('h3', {}, 'Notes du riff, pas à pas'), SS.helpTip('Chaque ligne est un degré de l’accord : le riff suit les accords de la scène. Clic : la note joue ; R + 5 (ou 6, 8) = power chord. Clic droit : palm mute sur ce pas (case pâle).', 'Éditeur de riff')), grid),
+      h(
+        'div',
+        { class: 'bwgt-mods' },
+        h('div', { class: 'gt-card' }, h('h3', {}, 'Riff'), RF().FAMILIES.map(([f, label]) => h('div', { class: 'gt-group' }, h('span', { class: 'dlg-label' }, label), h('div', { class: 'gt-chips' }, RF().RIFFS.filter((x) => x.fam === f).map((x) => h('button', { type: 'button', class: 'gt-chip gratte' + (x.id === id && !r.pat ? ' on' : ''), 'data-m': x.id, title: x.desc, onclick: () => gtSetMode(sc, T, 'r:' + x.id) }, x.name)))))),
+        h(
+          'div',
+          { class: 'gt-card' },
+          h('h3', {}, 'Notes du riff'),
+          partSeg('Sur les accords', 'bwgRiffFixed', [['follow', 'Suivent les accords', 'Le riff se transpose sur chaque accord'], ['fixed', 'Fixes 🔒', 'Les mêmes notes sur toute la scène (celles du premier accord)']], r.fixed ? 'fixed' : 'follow', (v) => riffEdit(sc, T, { fixed: v === 'fixed' }, `#bwgRiffFixed [data-v="${v}"]`)),
+          partSeg('Hauteur', 'bwgRiffOct', [['0', 'Grave', 'Fondamentale entre Mi 2 et Ré♯ 3'], ['12', 'Octave au-dessus', 'Une octave plus haut']], String(r.oct), (v) => riffEdit(sc, T, { oct: +v }, `#bwgRiffOct [data-v="${v}"]`))
+        )
+      )
+    );
+  }
+  /** Change le jeu de la scène : un autre motif oublie le motif réécrit (pat) de l'ancien. */
+  function gtSetMode(sc, T, id, focus) {
+    const o = partOf(sc.sec, T) || {};
+    const insp = planMode(sc, T);
+    putOff(sc.sec, T, false);
+    const patch = { mode: id === insp ? undefined : id };
+    if (o.gtr && o.gtr.pat && id !== (o.mode || insp)) {
+      const { pat, ...rest } = o.gtr;
+      patch.gtr = Object.keys(rest).length ? rest : undefined;
+    }
+    if (o.riff && o.riff.pat && id !== (o.mode || insp)) {
+      const { pat, ...rest } = o.riff;
+      patch.riff = Object.keys(rest).length ? rest : undefined;
+    }
+    putPart(sc.sec, T, patch);
+    partChanged(focus);
+    gtApplied();
+  }
   function guitarBody(sc, T) {
     const G = GT();
     const GA = SS.GuitarArp;
@@ -8553,11 +8689,8 @@ SS.band = (() => {
     const style = gtStyle();
     const songSt = G.styleOfSong(S.styleId);
     const isG = /^g:/.test(cur || '') && !muted;
-    const setMode = (id, focus) => {
-      putOff(sc.sec, T, false);
-      putPart(sc.sec, T, { mode: id === insp ? undefined : id });
-      partChanged(focus);
-    };
+    const isR = /^r:/.test(cur || '') && !muted;
+    const setMode = (id, focus) => gtSetMode(sc, T, id, focus);
     const pickJeu = (v) => {
       if (v === jeu) return;
       S.wiz.gtJeu = v;
@@ -8568,45 +8701,51 @@ SS.band = (() => {
     const draw = () => {
       const o2 = partOf(sc.sec, T) || {};
       const c2 = o2.mode || planMode(sc, T);
+      if (/^r:/.test(c2 || '')) return riffAdvanced(sc, T);
       const mo = /^g:/.test(c2 || '') ? c2.slice(2) : 'classA';
-      return guitarAdvanced(sc, GA.normalize({ ...(o2.gtr || {}), on: true, motif: mo }), (p) => gtrEdit(sc, T, p), (id) => (setMode('g:' + id), gtApplied()));
+      const g2 = GA.normalize({ ...(o2.gtr || {}), on: true, motif: mo });
+      return h('div', {}, guitarAdvanced(sc, g2, (p) => gtrEdit(sc, T, p), (id) => setMode('g:' + id)), gtMotifEditor(sc, T, g2));
     };
+    const openAdv = () => (isR ? openGtDialog(draw, 'RIFF', 'Guitare · Riff') : openGtDialog(draw));
     const card = (id) => {
       const on = id === cur && !muted;
       const gm = GUITAR_MODES.find((x) => x[0] === id);
-      const draw = gm ? rhythmSvg(gm[3]) : SS.padMotifs ? SS.padMotifs.svg(id) : '';
+      const rf = /^r:/.test(id) ? RF().byId(id.slice(2)) : null;
+      const pic = gm ? rhythmSvg(gm[3]) : rf ? rhythmSvg(riffDraw(rf.steps)) : SS.padMotifs ? SS.padMotifs.svg(id) : '';
+      const desc = gm ? gm[2] : rf ? rf.desc : SS.padMotifs ? SS.padMotifs.desc(id) : '';
       return h(
         'button',
-        { type: 'button', role: 'radio', class: 'bwp-mode' + (on ? ' on' : ''), 'data-v': id, 'aria-checked': String(on), title: (gm ? gm[2] : SS.padMotifs ? SS.padMotifs.desc(id) : '') + ' · ' + G.stylesOf(id).map((s) => (G.STYLES.find((x) => x[0] === s) || [, s])[1]).join(', '), onclick: () => setMode(id, `.bwp-mode[data-v="${id}"]`) },
-        h('b', {}, gtName(id), id === insp ? h('em', {}, 'Inspiration') : null),
-        h('span', { class: 'bwp-rhy', html: draw })
+        { type: 'button', role: 'radio', class: 'bwp-mode' + (on ? ' on' : ''), 'data-v': id, 'aria-checked': String(on), title: desc + ' · ' + G.stylesOf(id).map((s) => (G.STYLES.find((x) => x[0] === s) || [, s])[1]).join(', '), onclick: () => setMode(id, `.bwp-mode[data-v="${id}"]`) },
+        h('b', {}, (on && ((isG && o.gtr && o.gtr.pat) || (isR && o.riff && o.riff.pat)) ? '✎ ' : '') + gtName(id), id === insp ? h('em', {}, 'Inspiration') : null),
+        h('span', { class: 'bwp-rhy', html: pic })
       );
     };
-    const g = GA.normalize({ ...(o.gtr || {}) });
+    const store = G.knobStore(jeu);
+    const kv = store === 'riff' ? RF().normalize(o.riff) : GA.normalize({ ...(o.gtr || {}) });
+    const knobEdit = (patch, focus) => (store === 'riff' ? riffEdit(sc, T, patch, focus) : gtrEdit(sc, T, patch, focus));
     const surprise = () => {
       const id = G.surprise(jeu, style, cur, Math.random(), gtFits);
       if (!id) return;
-      putOff(sc.sec, T, false);
-      putPart(sc.sec, T, { mode: id === insp ? undefined : id });
-      if (/^g:/.test(id)) gtrEdit(sc, T, Object.assign({}, ...G.KNOBS[jeu].map(([k]) => G.knobPatch(k, 20 + Math.round(Math.random() * 60)))), '#bwgSurprise');
-      else partChanged('#bwgSurprise');
+      gtSetMode(sc, T, id);
+      if (/^[gr]:/.test(id)) knobEdit(Object.assign({}, ...G.KNOBS[jeu].map(([k]) => G.knobPatch(k, 20 + Math.round(Math.random() * 60)))), '#bwgSurprise');
     };
+    const adv = gtAdvSet(o);
     return [
       partHead(sc, T, 'guitare', true),
       rollBox(sc, T),
       autoCard(sc, T, { fit: true }),
       h(
         'section',
-        { class: 'bwp-card bw-card bwg', id: 'bwGuitarist' },
+        { class: 'bwp-card bw-card bwg', id: 'bwGuitarist', 'data-jeu': jeu },
         h(
           'div',
           { class: 'bwp-ch' },
           h('b', {}, `Guitare de « ${sc.name} »`),
-          partSeg('Jeu', 'bwgJeu', G.JEUX, jeu, pickJeu),
-          SS.helpTip('Arpèges : les cordes une à une, aux doigts ou au médiator. Accords : l’accord en entier, gratté, étouffé ou plaqué. Le son de la guitare se choisit à l’étape Instruments ; « Avancé… » ouvre la guitare d’Arp One (manche, capodastre, accordage, tablature).', 'Jeu du guitariste'),
+          partSeg('Jeu', 'bwgJeu', G.JEUX.filter(([v]) => v !== 'riff' || G.modesOf('riff').some(gtFits)), jeu, pickJeu),
+          SS.helpTip('Arpèges : les cordes une à une, aux doigts ou au médiator. Accords : l’accord en entier, gratté, étouffé ou plaqué. Riffs : des notes écrites en degrés, qui suivent les accords (en 4/4). Le son de la guitare se choisit à l’étape Instruments ; « Avancé… » ouvre l’éditeur pas à pas, le manche et les réglages fins.', 'Jeu du guitariste'),
           h('span', { class: 'spacer' }),
-          gtAdvSet(o) ? h('button', { type: 'button', class: 'bwa-advchip', id: 'bwgAdvChip', title: 'Réglages du manche faits dans la fenêtre Avancé : clic pour la rouvrir', onclick: () => openGtDialog(draw) }, '✎ Réglages avancés') : null,
-          gtAdvBtn(!isG, draw),
+          adv ? h('button', { type: 'button', class: 'bwa-advchip', id: 'bwgAdvChip', title: 'Réglages faits dans la fenêtre Avancé : clic pour la rouvrir', onclick: openAdv }, '✎ Réglages avancés') : null,
+          h('button', { type: 'button', class: 'btn btn-small bwp-gtadv', id: 'bwGtAdv', disabled: isG || isR ? null : true, 'aria-haspopup': 'dialog', title: 'Éditeur pas à pas, manche, capodastre, accordage, tablature', onclick: openAdv }, 'Avancé…'),
           playBox(sc, T, SS.bandSong.DEFAULT_MODE.guitar)
         ),
         h(
@@ -8621,11 +8760,11 @@ SS.band = (() => {
           const list = G.modesOf(jeu).filter((id) => G.familyOf(id) === f && gtFits(id) && (G.inStyle(id, style) || id === cur));
           return list.length ? h('div', { class: 'bwp-grp', 'data-fam': f }, h('span', { class: 'bwp-glbl' }, label), h('div', { class: 'bwp-modes compact', role: 'radiogroup', 'aria-label': label }, ...list.map(card))) : null;
         }),
-        isG
+        isG || isR
           ? h(
               'div',
               { class: 'arp-knobs bwg-knobs' },
-              ...G.KNOBS[jeu].map(([k, label, help, text]) => dialKnob({ id: 'bwgK-' + k, label, help, value: G.knobValue(g, k), text, commit: (v) => gtrEdit(sc, T, G.knobPatch(k, v), '#bwgK-' + k) }))
+              ...G.KNOBS[jeu].map(([k, label, help, text]) => dialKnob({ id: 'bwgK-' + k, label, help, value: G.knobValue(kv, k), text, commit: (v) => knobEdit(G.knobPatch(k, v), '#bwgK-' + k) }))
             )
           : null
       ),
@@ -12613,7 +12752,7 @@ SS.band = (() => {
       if (T.kind === 'guitar') {
         const G = SS.guitarist;
         const fam = Object.fromEntries(Object.values(G.FAMILIES).flat());
-        return ['arp', 'acc'].flatMap((j) => G.modesOf(j).filter(gtFits).map((id) => ({ id, nom: gtName(id), jeu: j === 'arp' ? 'arpèges' : 'accords', famille: fam[G.familyOf(id)], styles: G.stylesOf(id) })));
+        return ['arp', 'acc', 'riff'].flatMap((j) => G.modesOf(j).filter(gtFits).map((id) => ({ id, nom: gtName(id), jeu: { arp: 'arpèges', acc: 'accords', riff: 'riffs' }[j], famille: fam[G.familyOf(id)], styles: G.stylesOf(id) })));
       }
       return [];
     }

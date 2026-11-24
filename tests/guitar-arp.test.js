@@ -142,3 +142,12 @@ test('le motif continue au changement d’accord (calé sur la mesure) et le pou
   assert.equal(at(evs[0]), 'p i m a');
   assert.equal(at(evs[1]), 'p m i m', 'la seconde moitié du motif sur le 2e accord');
 });
+
+test('motif réécrit pas à pas (pat) : gardé s’il a le bon nombre de pas et les jetons de sa main', () => {
+  const GA = globalThis.SS.GuitarArp;
+  assert.equal(GA.normalize({ motif: 'classA', pat: 'B 3 2 1 B 2 3 1' }).pat, 'B 3 2 1 B 2 3 1');
+  assert.equal(GA.normalize({ motif: 'classA', pat: 'B 3 2' }).pat, undefined, 'mauvaise longueur');
+  assert.equal(GA.normalize({ motif: 'pop', pat: 'D . . . D . U . . . U . D . U B' }).pat, undefined, 'corde dans un grattage');
+  const pv = GA.preview({ guitar: { motif: 'classA', pat: 'B . . . . . . .' } }, [57, 60, 64]);
+  assert.equal(pv.attacks.length, 1, 'une seule attaque');
+});

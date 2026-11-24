@@ -57,8 +57,28 @@ const SHOT = process.env.GTADV_SHOT;
   await page.click('#bwGtDialog .gt-chip[data-m="rock"]'); await page.waitForTimeout(300);
   ok(await page.locator('#bwGuitarist .bwp-mode.on[data-v="g:rock"]').count() === 1 && (await page.locator('#bwGtDialog[open]').count()) === 1, 'motif choisi dans la fenêtre, qui reste ouverte');
   if (SHOT) await page.screenshot({ path: SHOT.replace('.png', '-avance.png') });
+  // éditeur pas à pas des coups (grattage) : un clic change le coup, le motif devient « ✎ »
+  ok(await page.locator('#bwGtDialog #bwgEd .bwg-cell').count() === 16, 'éditeur des coups : 16 pas');
+  await page.click('#bwGtDialog #bwgEd [data-s="1"]'); await page.waitForTimeout(300);
+  ok(/"pat":"D D /.test(await page.evaluate(() => JSON.stringify(SS.band._state.wiz.parts))), 'coup ajouté au pas 2 (motif réécrit)');
   await page.click('#bwGtClose'); await page.waitForTimeout(200);
   ok(await page.locator('#bwgAdvChip').count() === 1, 'pastille ✎ Réglages avancés');
+  // Riffs : jeu, cartes, potentiomètres, fenêtre RIFF avec l'éditeur des degrés
+  await page.click('#bwgJeu [data-v="riff"]'); await page.waitForTimeout(300);
+  await page.click('#bwgStyle [data-v="all"]'); await page.waitForTimeout(200);
+  ok(await page.locator('#bwGuitarist[data-jeu="riff"] .bwp-grp[data-fam="quintes"]').count() === 1 && (await page.locator('#bwGuitarist .bwp-grp[data-fam="lignes"]').count()) === 1, 'Riffs : Quintes et octaves, Lignes');
+  await page.click('#bwGuitarist .bwp-mode[data-v="r:boogie"]'); await page.waitForTimeout(300);
+  ok(await page.locator('#bwGuitarist .bwp-mode.on[data-v="r:boogie"]').count() === 1 && (await page.locator('#bwgK-swing').count()) === 1, 'riff Boogie, potentiomètre Swing');
+  await page.focus('#bwgK-swing'); await page.keyboard.press('End'); await page.waitForTimeout(300);
+  ok(/"riff":\{"swing":1\}/.test(await page.evaluate(() => JSON.stringify(SS.band._state.wiz.parts))), 'swing enregistré pour la scène');
+  if (SHOT) await page.screenshot({ path: SHOT.replace('.png', '-riffs.png') });
+  await page.click('#bwGtAdv'); await page.waitForTimeout(300);
+  ok(await page.locator('#bwGtDialog[open] #bwRiffAdvanced').count() === 1 && (await page.locator('#bwGtDialog .bwgt-brand').textContent()) === 'RIFF', 'fenêtre RIFF');
+  await page.click('#bwGtDialog #bwgRiffEd [data-k="b7"][data-s="2"]'); await page.waitForTimeout(300);
+  await page.click('#bwgRiffFixed [data-v="fixed"]'); await page.waitForTimeout(300);
+  ok(/"riff":\{[^}]*"fixed":true[^}]*"pat":"R5 \. b7 /.test(await page.evaluate(() => JSON.stringify(SS.band._state.wiz.parts))), 'riff réécrit + notes fixes ' + (await page.evaluate(() => JSON.stringify(SS.band._state.wiz.parts))).slice(0, 300));
+  if (SHOT) await page.screenshot({ path: SHOT.replace('.png', '-riff-avance.png') });
+  await page.click('#bwGtClose'); await page.waitForTimeout(200);
   await page.click('#bwgSurprise'); await page.waitForTimeout(300);
   ok(await page.locator('#bwGuitarist .bwp-mode.on').count() === 1, 'Surprends-moi : un motif choisi');
   // Guitariste ajouté par les outils Claude : le moteur de guitare d'office, motifs listés

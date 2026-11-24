@@ -5,7 +5,8 @@
  * Il joue, scène par scène, un des « jeux » :
  *  - Arpèges : motifs aux doigts ou au médiator du mode Guitare d'Arp One (js/guitar-arp.js), mode « g:<motif> » ;
  *  - Accords : grattages et coups étouffés du même moteur (« g:<motif> »), ou un accord plaqué du moteur de nappe
- *    (strum, pluck, chop, pulse8, sustain : les jeux des guitaristes des inspirations).
+ *    (strum, pluck, chop, pulse8, sustain : les jeux des guitaristes des inspirations) ;
+ *  - Riffs : une mesure en degrés de l'accord (js/guitar-riffs.js), mode « r:<riff> », réglages dans parts…riff.
  * Chaque motif a sa famille (Doigts, Médiator, Grattage, Étouffés, Plaqués) et les styles où il sonne juste (puces de
  * style de l'étape ; celle du style de la chanson est marquée). Les potentiomètres règlent les réglages guitare de la
  * scène (parts[section].inst[id].gtr : ring, mel, thumb, human en 0..1, spread en ms, voir SS.GuitarArp.normalize).
@@ -15,11 +16,15 @@ SS.guitarist = (() => {
   const JEUX = [
     ['arp', 'Arpèges', 'Les cordes une à une : aux doigts ou au médiator'],
     ['acc', 'Accords', 'L’accord en entier : grattages, coups étouffés, accords plaqués'],
+    ['riff', 'Riffs', 'Des notes en degrés de l’accord : quintes, octaves, lignes'],
   ];
   const FAMILIES = {
     arp: [['doigts', 'Doigts'], ['mediator', 'Médiator']],
     acc: [['gratte', 'Grattage'], ['etouffe', 'Étouffés'], ['plaque', 'Plaqués']],
+    riff: [['quintes', 'Quintes et octaves'], ['lignes', 'Lignes']],
   };
+  const RF = () => SS.GuitarRiffs;
+  const riffOf = (mode) => (/^r:/.test(mode || '') && RF() ? RF().byId(mode.slice(2)) : null);
   /** Grattages joués étouffés (main droite sur les cordes, skank). */
   const MUTED = ['palm', 'funk', 'reggae', 'roots'];
   /** Accords plaqués (modes du moteur de nappe, js/bandsong.js chordEvents) : ceux que jouent les guitaristes des inspirations. */
@@ -71,19 +76,22 @@ SS.guitarist = (() => {
   const motifOf = (mode) => (/^g:/.test(mode || '') && SS.GuitarArp ? SS.GuitarArp.MOTIFS.find((m) => m.id === mode.slice(2)) || null : null);
   /** Famille d'un mode : doigts | mediator | gratte | etouffe | plaque. */
   function familyOf(mode) {
+    const rf = riffOf(mode);
+    if (rf) return rf.fam;
     const m = motifOf(mode);
     if (!m) return 'plaque';
     if (m.hand === 'gratte') return MUTED.includes(m.id) ? 'etouffe' : 'gratte';
     return m.hand;
   }
   /** Jeu d'un mode : arp (doigts, médiator) ou acc (le reste, accords plaqués compris). */
-  const jeuOf = (mode) => (['doigts', 'mediator'].includes(familyOf(mode)) ? 'arp' : 'acc');
-  const idOf = (mode) => String(mode || '').replace(/^g:/, '');
-  const stylesOf = (mode) => MOTIF_STYLES[idOf(mode)] || [];
+  const jeuOf = (mode) => (riffOf(mode) ? 'riff' : ['doigts', 'mediator'].includes(familyOf(mode)) ? 'arp' : 'acc');
+  const idOf = (mode) => String(mode || '').replace(/^[gr]:/, '');
+  const stylesOf = (mode) => (riffOf(mode) ? RF().STYLES[idOf(mode)] || [] : MOTIF_STYLES[idOf(mode)] || []);
   /** Le mode convient-il à la puce de style (« all » : tous) ? */
   const inStyle = (mode, style) => !style || style === 'all' || stylesOf(mode).includes(style);
   /** Tous les modes d'un jeu, dans l'ordre des familles : « g:<motif> » puis les accords plaqués. */
   function modesOf(jeu) {
+    if (jeu === 'riff') return RF() ? FAMILIES.riff.flatMap(([f]) => RF().RIFFS.filter((x) => x.fam === f).map((x) => 'r:' + x.id)) : [];
     const g = SS.GuitarArp ? SS.GuitarArp.MOTIFS.map((m) => 'g:' + m.id) : [];
     return FAMILIES[jeu].flatMap(([f]) => (f === 'plaque' ? PLAQUES : g.filter((id) => familyOf(id) === f)));
   }
@@ -113,11 +121,19 @@ SS.guitarist = (() => {
       ['thumb', 'Basse appuyée', 'La corde grave de chaque coup plus forte.', (v) => (v < 20 ? 'légère' : 'appuyée')],
       ['human', 'Main humaine', 'Placement et force varient un peu.', HUM],
     ],
+    riff: [
+      ['mute', 'Étouffé', 'Palm mute : la paume étouffe les cordes, de léger à complet.', (v) => (v < 20 ? 'ouvert' : v < 70 ? 'palm mute léger' : 'tout étouffé')],
+      ['swing', 'Swing', 'Retarde les contretemps : droit, léger, shuffle.', (v) => (v < 10 ? 'droit' : v < 45 ? 'léger' : 'shuffle')],
+      ['energy', 'Énergie', 'La force des notes.', (v) => (v < 35 ? 'doux' : v < 70 ? 'franc' : 'appuyé')],
+      ['human', 'Main humaine', 'Placement et force varient un peu ; les temps ne bougent pas.', HUM],
+    ],
   };
+  /** Où vont les réglages des potentiomètres : parts…gtr (moteur de guitare) ou parts…riff. */
+  const knobStore = (jeu) => (jeu === 'riff' ? 'riff' : 'gtr');
   /** Valeur 0..100 d'un potentiomètre à partir des réglages guitare normalisés. */
   const knobValue = (g, key) => Math.round(key === 'spread' ? (g.spread / 40) * 100 : (g[key] || 0) * 100);
   /** Réglage guitare d'un potentiomètre (v 0..100). */
   const knobPatch = (key, v) => ({ [key]: key === 'spread' ? Math.round((Math.max(0, Math.min(100, v)) / 100) * 40) : Math.max(0, Math.min(100, v)) / 100 });
 
-  return { JEUX, FAMILIES, MUTED, PLAQUES, STYLES, STYLE_OF, styleOfSong, MOTIF_STYLES, familyOf, jeuOf, stylesOf, inStyle, modesOf, firstOf, surprise, KNOBS, knobValue, knobPatch };
+  return { JEUX, FAMILIES, MUTED, PLAQUES, STYLES, STYLE_OF, styleOfSong, MOTIF_STYLES, familyOf, jeuOf, stylesOf, inStyle, modesOf, firstOf, surprise, KNOBS, knobStore, knobValue, knobPatch };
 })();
