@@ -117,7 +117,7 @@ SS.wizMix = (() => {
 
   /**
    * Mix de la chanson au départ : exactement le réglage automatique du style (js/bandmix.js, js/band-levels.js).
-   * `tracks` : pistes de l'assistant ou du projet { id?, type, band: { key }, levelKey? } (levelKey : clé de mesure de
+   * `tracks` : pistes de l'assistant ou du projet { id?, type, instrument?, band: { key }, levelKey? } (levelKey : clé de mesure de
    * band-levels, c.o.levelKey dans l'assistant). `style` : 'synthwave' | 'edm' | 'techno' | 'ambient'.
    */
   function defaults(style, tracks) {
@@ -125,7 +125,7 @@ SS.wizMix = (() => {
     const levelKeys = new Map();
     tracks.forEach((t, i) => {
       if (!idOf(t)) return;
-      const f = { id: 'wm' + i, type: t.type, sound: t.sound, band: { ...t.band }, volume: 0.8 };
+      const f = { id: 'wm' + i, type: t.type, sound: t.sound, instrument: t.instrument, band: { ...t.band }, volume: 0.8 }; // instrument : module du musicien Ambient (volume par module)
       levelKeys.set(f.id, t.levelKey);
       fakes.push(f);
     });
