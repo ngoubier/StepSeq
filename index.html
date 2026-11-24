@@ -836,6 +836,7 @@
   <dialog id="emotionSongDialog" class="es-dialog" aria-labelledby="esTitle">
     <div class="sc-head">
       <h2 id="esTitle">✦ D’après une émotion<button type="button" class="help-tip" data-help="Choisis un style et jusqu’à trois émotions. StepSeq cherche les chansons de référence les plus proches et en déduit le tempo, la tonalité, le groupe, les scènes et les accords. On ne reprend que des données de ces chansons, jamais leur mélodie. Tout se change ensuite dans l’assistant." data-help-title="D’après une émotion" aria-label="Aide : D’après une émotion">?</button></h2>
+      <div class="es-mode" id="esMode" role="group" aria-label="Émotions"><button type="button" data-mode="mix" class="on">Toute la chanson</button><button type="button" data-mode="arc">Par scène</button></div>
       <button type="button" id="esClose" class="sc-x" aria-label="Fermer">×</button>
     </div>
     <div id="esBody" class="es-body"></div>
@@ -1176,6 +1177,7 @@
   <script src="js/gridsync.js"></script>
   <script src="js/padmotifs.js"></script>
   <script src="js/band.js"></script>
+  <script src="js/emotionarcpanel.js"></script>
   <script src="js/emotionsongpanel.js"></script>
   <script src="js/bassmotifs.js"></script>
   <script src="js/midipanel.js"></script>

@@ -13,7 +13,13 @@ window.SS = window.SS || {};
 SS.emotionSongPanel = (() => {
   const $ = (q) => document.querySelector(q);
   const E = () => SS.emotionSong;
-  const st = { style: 'synthwave', emotions: [{ id: 'nostalgie', w: 60 }, { id: 'espoir', w: 40 }], picks: {}, open: -1 };
+  const st = {
+    style: 'synthwave', emotions: [{ id: 'nostalgie', w: 60 }, { id: 'espoir', w: 40 }], picks: {}, open: -1,
+    // « Toute la chanson » (mix) ou « Par scène » (arc : une émotion par moment, js/emotionarcpanel.js)
+    mode: 'mix',
+    arc: { preset: 'lumiere', e: null, links: {}, lift: true, picks: {}, open: null },
+  };
+  const A = () => SS.emotionArcPanel;
   let dlg = null;
   let cur = null; // dernière déduction
 
@@ -99,12 +105,18 @@ SS.emotionSongPanel = (() => {
     if (!dlg.open) dlg.showModal();
   }
   function close() {
+    A().stop();
     if (dlg && dlg.open) dlg.close();
   }
   function build() {
     dlg = $('#emotionSongDialog');
     $('#esClose').addEventListener('click', close);
     $('#esCancel').addEventListener('click', close);
+    dlg.addEventListener('close', () => A().stop());
+    $('#esMode').addEventListener('click', (ev) => {
+      const b = ev.target.closest('button[data-mode]');
+      if (b) setMode(b.dataset.mode);
+    });
     $('#esCreate').addEventListener('click', () => {
       try {
         apply(cur);
@@ -114,10 +126,39 @@ SS.emotionSongPanel = (() => {
       }
     });
   }
-  const changed = () => ((st.picks = {}), (st.open = -1), render());
+  const changed = () => ((st.picks = {}), (st.open = -1), (st.arc.picks = {}), (st.arc.open = null), render());
+  function setMode(m) {
+    st.mode = m === 'arc' ? 'arc' : 'mix';
+    A().stop();
+    render();
+  }
+  const styleSelect = () =>
+    h('select', { id: 'esStyle', onchange: (ev) => ((st.style = ev.target.value), changed()) }, ...E().styles({ film: false }).map((s) => h('option', { value: s.id, selected: s.id === st.style }, s.label)));
+  /** La déduction « Par scène » de l'état de la fenêtre. */
+  function deduceArc() {
+    const a = st.arc;
+    if (!a.e) a.e = { ...E().ARCS[0].e };
+    return E().deduceArc({ style: st.style, moments: a.e, links: a.links, lift: a.lift, picks: a.picks });
+  }
 
   function render() {
     if (!E().TEMPO[st.style] || st.style === 'film') st.style = 'synthwave';
+    $('#esMode').querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.mode === st.mode));
+    $('#esBody').classList.toggle('es-arc', st.mode === 'arc');
+    if (st.mode === 'arc') {
+      A().stop();
+      cur = deduceArc();
+      $('#esMsg').textContent = '';
+      $('#esBody').replaceChildren(
+        ...A().columns(st, cur, {
+          changed: (keepPicks) => (keepPicks || (st.arc.picks = {}), render()),
+          rerender: render,
+          styleSelect,
+        })
+      );
+      $('#esCreate').disabled = !cur || !cur.model;
+      return;
+    }
     cur = E().deduce({ style: st.style, emotions: st.emotions });
     $('#esMsg').textContent = '';
     if (cur) cur.sections.forEach((s, i) => st.picks[i] != null && s.grids[st.picks[i]] && (s.pick = st.picks[i]));
@@ -147,7 +188,7 @@ SS.emotionSongPanel = (() => {
       'div',
       { class: 'es-col es-in' },
       h('label', { class: 'es-lbl', for: 'esStyle' }, 'Style'),
-      h('select', { id: 'esStyle', onchange: (ev) => ((st.style = ev.target.value), changed()) }, ...E().styles({ film: false }).map((s) => h('option', { value: s.id, selected: s.id === st.style }, s.label))),
+      styleSelect(),
       h('div', { class: 'es-lbl' }, 'Émotions', SS.helpTip('Jusqu’à trois émotions et leur poids. La chanson garde ce mélange ; chaque scène penche vers l’émotion la plus calme, la plus énergique ou la plus tendue selon son rôle.', 'Émotions')),
       bar,
       ...rows,
@@ -268,14 +309,29 @@ SS.emotionSongPanel = (() => {
     return null;
   }
 
+  /** Motif de batterie en demi-temps du style du batteur (« Half-time », « Ballade half-time »…), s'il en a un. */
+  function halfTimeMotif(W, mu) {
+    try {
+      const m = W.motifs(mu).motifs.find((x) => /half/i.test(x.id) || /half-time|demi-temps/i.test(x.nom));
+      return m ? m.id : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /**
+   * Règle l'assistant d'après une déduction : « Toute la chanson » (deduce) ou « Par scène » (deduceArc : tonalité, accord
+   * charnière, émotion, musiciens et ressenti de batterie propres à chaque scène, dernier refrain à part s'il monte d'un ton).
+   */
   function apply(d) {
     const W = SS.band.claude;
     if (!d || !d.model) throw new Error('Pas d’inspiration pour ce style');
     W.porte('create');
     W.style(d.model.style, d.model.preset);
     W.tempo(d.tempo.bpm);
-    W.tonalite(d.key);
-    // scènes : chaque type de scène prend une section de l'inspiration (copiée si elle sert déjà), renommée
+    W.tonalite(d.arc ? d.home : d.key);
+    // scènes : chaque scène de la déduction prend une section de l'inspiration (copiée si elle sert déjà), renommée
+    const sid = (s) => s.sid || s.type;
     const base = W.etat().scenes.map((s) => s.id);
     const used = new Set();
     const map = {};
@@ -285,26 +341,30 @@ SS.emotionSongPanel = (() => {
       const src = cands.find((id) => base.includes(id));
       const id = free || W.scene(src, { dupliquer: true });
       used.add(id);
-      map[s.type] = id;
+      map[sid(s)] = id;
     });
     base.filter((id) => !used.has(id)).forEach((id) => W.scene(id, { supprimer: true }));
-    d.sections.forEach((s) => W.scene(map[s.type], { nom: s.name, mesures: s.bars }));
+    d.sections.forEach((s) => W.scene(map[sid(s)], { nom: s.name, mesures: s.bars }));
     // arrangement : la forme du modèle (deux passages de suite = ×2)
     const blocs = [];
-    d.form.forEach((type) => {
+    (d.blocks || d.form.map((type) => ({ sid: type }))).forEach((b) => {
       const last = blocs[blocs.length - 1];
-      if (last && last.scene === map[type]) last.fois++;
-      else blocs.push({ scene: map[type], fois: 1 });
+      if (last && last.scene === map[b.sid]) last.fois++;
+      else blocs.push({ scene: map[b.sid], fois: 1 });
     });
     W.structure(blocs);
-    // accords (une mesure par accord, la grille répétée sur la scène) et émotion principale de chaque scène
+    // accords (une mesure par accord) et émotion de chaque scène ; par scène : sa tonalité et sa charnière en dernière mesure
     d.sections.forEach((s) => {
-      const g = s.grids[s.pick];
-      if (g) {
-        const bars = E().chordsIn(d.key, g.chords).map((c) => c.grid).filter(Boolean).map((c) => [c]);
-        if (bars.length) W.accords(map[s.type], bars);
+      const id = map[sid(s)];
+      if (d.arc) {
+        const bars = A().barsOf(s).map((c) => c.grid).filter(Boolean).map((c) => [c]);
+        if (bars.length) W.accords(id, bars, s.key);
+      } else {
+        const g = s.grids[s.pick];
+        const bars = g ? E().chordsIn(d.key, g.chords).map((c) => c.grid).filter(Boolean).map((c) => [c]) : [];
+        if (bars.length) W.accords(id, bars);
       }
-      W.emotion(map[s.type], s.emotion);
+      W.emotion(id, s.emotion);
     });
     // musiciens ajoutés par les émotions
     d.roles.filter((r) => r.added).forEach((r) => {
@@ -315,6 +375,21 @@ SS.emotionSongPanel = (() => {
         /* groupe complet ou son introuvable : on garde le groupe de l'inspiration */
       }
     });
+    // par scène : qui joue selon l'énergie, batterie en demi-temps dans les scènes calmes
+    if (d.arc) {
+      const mus = (W.etat().musiciens || []).filter((m) => m.type !== 'effets');
+      mus.forEach((m) => {
+        const half = m.type === 'drums' ? halfTimeMotif(W, m.id) : null;
+        d.sections.forEach((s) => {
+          try {
+            if (!E().playsIn(s, m.type)) W.jeu(m.id, map[sid(s)], { joue: false });
+            else if (half && s.feel === 'demi') W.jeu(m.id, map[sid(s)], { motif: half });
+          } catch (e) {
+            /* musicien sans réglage par scène : il garde son jeu */
+          }
+        });
+      });
+    }
     try {
       W.etape('scenes');
     } catch (e) {
@@ -325,9 +400,9 @@ SS.emotionSongPanel = (() => {
 
   /** Pour Claude (StepSeq.assistantEmotion) : déduire, et appliquer si demandé. */
   const claude = {
-    deduire: (o) => E().deduce(o),
+    deduire: (o) => (o && o.moments ? E().deduceArc(o) : E().deduce(o)),
     appliquer: (o) => {
-      const d = E().deduce(o);
+      const d = o && o.moments ? E().deduceArc(o) : E().deduce(o);
       if (!d) throw new Error('style inconnu ou aucune émotion');
       apply(d);
       return d;

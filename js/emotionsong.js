@@ -240,6 +240,146 @@ SS.emotionSong = (() => {
     };
   }
 
+  /* ---------- émotions par scène (maquette validée : maquettes/maquette-emotions-par-scene.html, 2026-11-24) ---------- */
+  /** Moments de la chanson : chaque type de scène appartient à un moment, qui porte une émotion. */
+  const MOMENTS = [
+    { id: 'debut', name: 'Couplet', sub: 'intro, couplet, thème', types: ['intro', 'verse', 'theme', 'groove'] },
+    { id: 'montee', name: 'Montée', sub: 'pré-refrain, montée', types: ['pre', 'build'] },
+    { id: 'sommet', name: 'Refrain', sub: 'refrain, drop, sommet, solo', types: ['chorus', 'drop', 'peak', 'solo'] },
+    { id: 'rupture', name: 'Pont', sub: 'pont, break', types: ['bridge', 'break'] },
+    { id: 'fin', name: 'Fin', sub: 'outro', types: ['outro'] },
+  ];
+  const momentOf = (type) => MOMENTS.find((m) => m.types.includes(type)) || MOMENTS[0];
+  /** Poids de chaque moment dans le mélange de toute la chanson (forme, tempo, groupe). */
+  const MOMENT_W = { debut: 40, montee: 10, sommet: 35, rupture: 10, fin: 5 };
+  /** Trajectoires toutes faites. */
+  const ARCS = [
+    { id: 'lumiere', name: 'De l’ombre à la lumière', e: { debut: 'melancolie', montee: 'espoir', sommet: 'euphorie', rupture: 'nostalgie', fin: 'serenite' } },
+    { id: 'puissance', name: 'Montée en puissance', e: { debut: 'mystere', montee: 'suspense', sommet: 'triomphe', rupture: 'mystere', fin: 'triomphe' } },
+    { id: 'brise', name: 'Le refrain se brise', e: { debut: 'joie', montee: 'ambivalence', sommet: 'nostalgie', rupture: 'tristesse', fin: 'tendresse' } },
+    { id: 'tempete', name: 'Après la tempête', e: { debut: 'angoisse', montee: 'suspense', sommet: 'espoir', rupture: 'beaute', fin: 'serenite' } },
+    { id: 'reve', name: 'Rêve éveillé', e: { debut: 'serenite', montee: 'emerveillement', sommet: 'joie', rupture: 'mystere', fin: 'emerveillement' } },
+  ];
+  /** Émotions de refrain qui appellent un dernier refrain un ton plus haut. */
+  const LIFT_EMOTIONS = ['euphorie', 'triomphe', 'joie', 'espoir'];
+  /** Énergie à partir de laquelle un type de musicien joue dans la scène (la mélodie, la nappe et l'Ambient jouent toujours). */
+  const PLAY_AT = { drums: 0.42, bass: 0.36, arp: 0.5, orch: 0.55 };
+  const SOFT_ARP = ['emerveillement', 'mystere', 'serenite'];
+
+  function tonicFor(pc, mode) {
+    const fam = DARK.includes(mode) ? 'minor' : 'major';
+    let t = SS.TONIC_NAMES[fam][pcOf(pc)];
+    if (!H().TONICS.includes(t)) t = SS.TONIC_NAMES[fam === 'minor' ? 'major' : 'minor'][pcOf(pc)];
+    return t;
+  }
+  const keyPc = (k) => H().scale(k)[0].pc;
+  /** Moments complets : une émotion connue pour chacun (les manquants prennent celle du couplet, sinon la Nostalgie). */
+  function normMoments(m) {
+    const o = {};
+    const first = (m && emo(m.debut) && m.debut) || 'nostalgie';
+    MOMENTS.forEach((x) => (o[x.id] = m && emo(m[x.id]) ? m[x.id] : first));
+    return o;
+  }
+  /** Ressenti de la batterie d'une scène : « plein », « demi » (demi-temps) ou « sans ». */
+  function feelOf(type, energy, e) {
+    if (type === 'intro' || type === 'outro') return energy < 0.45 ? 'sans' : 'demi';
+    return e.dims[1] <= 35 || energy < 0.42 ? 'demi' : 'plein';
+  }
+  /** Un type de musicien (drums, bass, chords, arp, melody, orch, ambient) joue-t-il dans cette scène ? */
+  function playsIn(s, kind) {
+    if (kind === 'drums') return s.feel !== 'sans';
+    if (kind === 'arp' && SOFT_ARP.includes(s.emotion)) return true;
+    return PLAY_AT[kind] == null || s.energy >= PLAY_AT[kind];
+  }
+
+  /**
+   * Chanson dont l'émotion évolue au fil des scènes.
+   * @param {{ style: string, moments: {debut, montee, sommet, rupture, fin}, links?: object, lift?: boolean, picks?: object }} o
+   *   links : moment → 'relative' (défaut) ou 'parallel' quand la scène change de famille de mode ; lift : dernier refrain un ton plus haut
+   *   (s'il est proposé) ; picks : scène → n° de grille choisie.
+   * @returns {object|null} la déduction de toute la chanson (deduce), plus arc: true, moments, home, blocks, canLift ;
+   *   ses sections ont chacune leur émotion, tonalité, grilles, énergie, ressenti et accord charnière.
+   */
+  function deduceArc({ style, moments, links = {}, lift = true, picks = {} } = {}) {
+    const mo = normMoments(moments);
+    const acc = {};
+    MOMENTS.forEach((m) => (acc[mo[m.id]] = (acc[mo[m.id]] || 0) + MOMENT_W[m.id]));
+    const mix = Object.entries(acc).sort((a, b) => b[1] - a[1]).slice(0, MAX_EMOTIONS).map(([id, w]) => ({ id, w }));
+    const all = deduce({ style, emotions: mix });
+    if (!all) return null;
+    const solo = {};
+    const single = (id) => solo[id] || (solo[id] = deduce({ style, emotions: [{ id, w: 1 }] }));
+    // tonalité de départ : le mode de l'émotion du couplet, la tonique des chansons modèles
+    const home = { tonic: tonicFor(keyPc(all.key), single(mo.debut).key.mode), mode: single(mo.debut).key.mode };
+    const byType = {};
+    const used = new Set();
+    [...new Set(all.form)]
+      .sort((a, b) => PICK_ORDER.indexOf(a) - PICK_ORDER.indexOf(b))
+      .forEach((type) => {
+        const m = momentOf(type);
+        const id = mo[m.id];
+        const e = emo(id);
+        const sd = single(id);
+        const mode = sd.key.mode;
+        // même famille que le départ : même tonique ; famille opposée : tonalité relative (mêmes notes) ou homonyme (même tonique)
+        let key;
+        let rel = 'same';
+        if (DARK.includes(mode) === DARK.includes(home.mode)) key = { tonic: home.tonic, mode };
+        else {
+          rel = links[m.id] === 'parallel' ? 'parallel' : 'relative';
+          const hp = keyPc(home);
+          key = { tonic: tonicFor(rel === 'parallel' ? hp : DARK.includes(home.mode) ? hp + 3 : hp + 9, mode), mode };
+        }
+        // grilles : celles de l'émotion seule (ce type de scène d'abord), puis ses propositions, si elles tiennent dans le mode
+        const grids = [];
+        const seen = new Set();
+        const push = (chords, from) => {
+          const k = chords.map((c) => c.tok).join(' ');
+          if (!chords.length || seen.has(k) || fitIn(chords, mode) < 0.8) return;
+          seen.add(k);
+          grids.push({ chords, from, key: k });
+        };
+        const same = sd.sections.find((s) => s.type === type);
+        [same, ...sd.sections.filter((s) => s !== same)].filter(Boolean).forEach((s) => s.grids.forEach((g) => push(g.chords, g.from)));
+        e.proposals.forEach((p) => push(propChords(p), { emotion: id, kind: p.kind }));
+        let pick = type === 'intro' || type === 'outro' ? 0 : grids.findIndex((g) => !used.has(g.key));
+        if (pick < 0) pick = 0;
+        if (picks[type] != null && grids[picks[type]]) pick = picks[type];
+        if (grids[pick]) used.add(grids[pick].key);
+        const [name, typeEnergy] = SCENES[type] || [type, 0.5];
+        const energy = Math.round(Math.min(1, 0.55 * typeEnergy + (0.45 * e.dims[1]) / 100) * 100) / 100;
+        byType[type] = { type, sid: type, name, moment: m.id, emotion: id, mix: [{ id, w: 1 }], key, rel, grids, pick, energy, feel: feelOf(type, energy, e), bars: SCENE_BARS };
+      });
+    // dernier refrain un ton plus haut : une scène à part
+    const top = all.form.filter((t) => momentOf(t).id === 'sommet');
+    const canLift = LIFT_EMOTIONS.includes(mo.sommet) && top.length >= 2;
+    const lastTop = all.form.lastIndexOf(top[top.length - 1]);
+    const sections = [...Object.values(byType)];
+    let lifted = null;
+    if (canLift && lift) {
+      const s = byType[all.form[lastTop]];
+      lifted = { ...s, sid: s.type + '+', name: `Dernier ${s.name.toLowerCase()}`, lift: true, key: { tonic: tonicFor(keyPc(s.key) + 2, s.key.mode), mode: s.key.mode } };
+      sections.push(lifted);
+    }
+    const blocks = all.form.map((type, i) => {
+      const s = lifted && i === lastTop ? lifted : byType[type];
+      return { i, type, sid: s.sid, key: s.key };
+    });
+    // accord charnière : la dominante (V7) de la tonalité qui suit, sur la dernière mesure, quand chaque passage de la scène mène à la même tonalité nouvelle
+    // sections dans l'ordre de la chanson (première apparition)
+    sections.sort((x, y) => blocks.findIndex((k) => k.sid === x.sid) - blocks.findIndex((k) => k.sid === y.sid));
+    const sameKey = (a, b) => keyPc(a) === keyPc(b) && DARK.includes(a.mode) === DARK.includes(b.mode);
+    sections.forEach((s) => {
+      const next = blocks.filter((b, i) => b.sid === s.sid && blocks[i + 1]).map((b) => blocks[b.i + 1].key);
+      const ends = blocks.some((b, i) => b.sid === s.sid && !blocks[i + 1]);
+      if (!next.length || ends || next.some((k) => !sameKey(k, next[0])) || sameKey(next[0], s.key)) return;
+      const k = next[0];
+      const rootPc = pcOf(keyPc(k) + 7);
+      s.pivot = { rootPc, type: '7', to: k, name: H().chordName(s.key, { rootPc, type: '7', bassPc: rootPc }) };
+    });
+    return { ...all, arc: true, moments: mo, home, sections, blocks, canLift, lift: !!lifted };
+  }
+
   /** Inspiration du style dont l'émotion (js/band-songs.js) est la plus proche du mélange (en 4/4 d'abord : les grilles sont en 4/4). */
   function nearestPreset(st, D) {
     let best = st.presets[0].id;
@@ -330,5 +470,5 @@ SS.emotionSong = (() => {
     return g.from.type === type ? g.from.ref : `${g.from.ref}, grille du ${(SCENES[g.from.type] || [g.from.type])[0].toLowerCase()}`;
   }
 
-  return { MAX_EMOTIONS, NEAR, TEMPO, SCENES, refs, styles, deduce, parseRoman, parseGrid, propChords, fitIn, chordsIn, fromText, normMix, dimsOf };
+  return { MAX_EMOTIONS, NEAR, TEMPO, SCENES, MOMENTS, ARCS, refs, styles, deduce, deduceArc, momentOf, playsIn, parseRoman, parseGrid, propChords, fitIn, chordsIn, fromText, normMix, dimsOf };
 })();
