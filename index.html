@@ -285,6 +285,8 @@
        principale (body.wizard-mode). La barre du haut reste là : Lecture / Stop, tempo, position et tonalité pilotent l'écoute. -->
   <section id="bandDialog" class="band-dialog" aria-label="Nouvelle chanson">
     <div class="band-shell">
+      <!-- Frise de lecture : les scènes de la chanson et le curseur (js/wizplaybar.js) -->
+      <div class="bw-playbar" id="bwPlayBar" hidden></div>
       <div class="bw-frame">
         <!-- Assistant : trois groupes (Fondations 1 à 5, Instruments scène par scène : une étape par instrument, Finaliser : Mix et Intégration), un résumé par étape -->
         <nav class="bw-stepper" aria-label="Étapes de l'assistant">
@@ -1177,6 +1179,7 @@
   <script src="js/wizdraft.js"></script>
   <script src="js/gridsync.js"></script>
   <script src="js/padmotifs.js"></script>
+  <script src="js/wizplaybar.js"></script>
   <script src="js/band.js"></script>
   <script src="js/emotionarcpanel.js"></script>
   <script src="js/filmemotionpanel.js"></script>

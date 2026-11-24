@@ -8625,6 +8625,7 @@ SS.band = (() => {
     $('#bandGm').hidden = step !== ST.inst; // General MIDI : en tête de l'étape Instruments
     $('#bwCreate').hidden = step !== ST.pick;
     $('#bwQuick').hidden = step !== ST.style || (cover() && !spec()) || !!tplStyle(); // étape 1 : « Générer et écouter »
+    $('#bwPlayBar').hidden = band;
     if (band) {
       refresh();
       updateTransport(); // la barre du haut montre déjà tempo et tonalité aux étapes 1 et 2
@@ -8638,10 +8639,32 @@ SS.band = (() => {
       else renderWizGrid();
       wizFoot();
       relisten();
+      renderPlayBar();
       markListen();
     }
     renderInsp();
     if (wshId) renderWizSheet();
+  }
+
+  /** Frise de lecture sous la barre du haut (js/wizplaybar.js) : redessinée quand la chanson change. */
+  let playBarSig = null;
+  function renderPlayBar() {
+    const bar = $('#bwPlayBar');
+    const res = S.wiz && S.wiz.res;
+    bar.hidden = !res || !res.song || !res.song.length;
+    if (bar.hidden) return;
+    const sig = `${S.wiz.sig}|${tempo()}|${SPB()}|${film()}`;
+    if (sig === playBarSig && bar._pb) return;
+    playBarSig = sig;
+    const m = SS.wizPlayBar.model(res, { spb: SPB(), tempo: tempo() });
+    SS.wizPlayBar.render(bar, m, { color: secColor, word: film() ? 'Passage' : 'Scène', onSeek: (i) => listenSong(i) });
+  }
+  /** Curseur de la frise : même position que la lecture (mode Chanson ou scène en boucle). */
+  function markPlayBar() {
+    const bar = $('#bwPlayBar');
+    if (!bar || bar.hidden || !bar._pb) return;
+    const block = L.mode === 'song' ? L.block : blockOf(L.scene);
+    SS.wizPlayBar.update(bar, L.junc ? -1 : SS.wizPlayBar.at(bar._pb.m, { mode: L.mode, block, scene: L.scene, step: L.step, spb: SPB() }));
   }
 
   /** Boutons du pied de la fenêtre selon l'étape. */
@@ -10532,6 +10555,7 @@ SS.band = (() => {
     const box = $('#bandWiz');
     if (!box || !S.wiz) return;
     updateTransport();
+    markPlayBar();
     const jb = $('#fxJListen', box);
     if (jb) jb.textContent = L.junc === jb.dataset.key && L.mode ? '■ Arrêter' : '▶ Écouter le passage';
     const pb = $('#fxSceneListen', box);

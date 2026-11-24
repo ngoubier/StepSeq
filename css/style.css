@@ -6287,3 +6287,21 @@ dialog.es-dialog[open] { display: flex; }
 .fe-lv button.on { background: var(--c); }
 .fe-lv button:disabled { cursor: default; }
 @media (max-width: 980px) { .es-body, .es-body.es-arc, .es-body.fe-body { grid-template-columns: 1fr; } }
+
+/* Assistant : frise de lecture sous la barre du haut (js/wizplaybar.js) */
+#bandDialog .bw-playbar { flex: none; height: 30px; display: flex; align-items: center; gap: 10px; padding: 0 14px; background: var(--c-surface-1); border-bottom: 1px solid var(--c-line); }
+#bandDialog .bw-playbar[hidden] { display: none; }
+#bandDialog .wpb-now { flex: none; width: 170px; font-size: var(--fs-sm); color: var(--c-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#bandDialog .wpb-now b { color: var(--c-text); }
+#bandDialog .wpb-track { flex: 1; min-width: 0; display: flex; gap: 2px; height: 18px; position: relative; }
+#bandDialog .wpb-sc { position: relative; min-width: 0; padding: 0 0 0 6px; display: flex; align-items: center; overflow: hidden; border: 0; border-top: 2px solid var(--c); border-radius: 4px; background: var(--c-panel-2); color: var(--c-muted); font: inherit; font-size: var(--fs-xs); white-space: nowrap; cursor: pointer; }
+#bandDialog .wpb-sc:hover { background: var(--c-panel-3); color: var(--c-text-2); }
+#bandDialog .wpb-sc span { position: relative; overflow: hidden; text-overflow: ellipsis; }
+#bandDialog .wpb-fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--c); opacity: .25; pointer-events: none; }
+#bandDialog .wpb-sc.past .wpb-fill { width: 100%; opacity: .1; }
+#bandDialog .wpb-sc.on { background: var(--c-panel-3); color: var(--c-text); }
+#bandDialog .wpb-head { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: var(--c-text); border-radius: 1px; pointer-events: none; box-shadow: 0 0 4px var(--c-text); }
+#bandDialog .wpb-head[hidden] { display: none; }
+#bandDialog .wpb-time { flex: none; width: 92px; text-align: right; font-size: var(--fs-sm); color: var(--c-muted); font-variant-numeric: tabular-nums; }
+@media (max-width: 760px) { #bandDialog .wpb-now { width: auto; max-width: 110px; } #bandDialog .wpb-time { width: auto; } }
+#bandDialog .band-shell:has(> .bw-playbar:not([hidden])) { grid-template-rows: auto minmax(0, 1fr) auto; }
