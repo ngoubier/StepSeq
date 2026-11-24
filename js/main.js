@@ -249,7 +249,8 @@
 
   /* ---------- Bascule Assistant | Grille (barre du haut) ----------
    * L'assistant est une « recette » rangée dans le projet (project.wizard) ; la grille, ce sont les pistes du projet.
-   * Passer de l'un à l'autre ne crée ni n'efface rien : seul « Créer la chanson » (ou le bandeau) écrit les pistes. */
+   * Passer à la Grille met à jour la chanson déjà créée (instrument ajouté, accords…) ; une chanson jamais créée n'y
+   * arrive que par « Créer la chanson » (ou le bandeau). */
   function syncView() {
     const on = !!(SS.band && SS.band.active());
     const d = project && project.wizard;
@@ -298,7 +299,8 @@
       else SS.band.open();
     };
     $('#viewWiz').addEventListener('click', toWizard);
-    $('#viewGrid').addEventListener('click', () => SS.band.active() && SS.band.close());
+    // Grille : la chanson déjà créée y est mise à jour avec les changements de l'assistant (js/band.js toGrid)
+    $('#viewGrid').addEventListener('click', () => SS.band.active() && SS.band.toGrid());
     $('#wizBannerBack').addEventListener('click', toWizard);
     // « Mettre la chanson dans la grille » = « Créer la chanson » de l'assistant (avec sa confirmation si le projet a des pistes)
     $('#wizBannerPut').addEventListener('click', () => {

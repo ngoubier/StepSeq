@@ -11570,6 +11570,9 @@ SS.band = (() => {
       createWizSong(true, keep, sound);
     };
     const choosable = gp.retouched.filter((t) => !lk(t));
+    // musiciens ajoutés dans l'assistant depuis la dernière création : leurs pistes arrivent dans la grille
+    const inGrid = new Set(p.tracks.filter((t) => t.band && t.band.col).map((t) => t.band.col));
+    const added = [...new Set(wizCols().filter((c) => !S.wiz.off.has(c.id) && !inGrid.has(c.id)).map((c) => c.musician))].map(muById).filter((mu) => mu && !muLocked(mu));
     box.replaceChildren(
       h(
         'div',
@@ -11581,6 +11584,7 @@ SS.band = (() => {
           { class: 'bgu-list' },
           ...choosable.map(row),
           locked.length ? h('div', { class: 'bgu-row locked' }, h('span', { class: 'bgu-name' }, names(locked), h('span', { class: 'trk-badge lock' }, '🔒 verrouillée' + (locked.length > 1 ? 's' : ''))), h('small', {}, 'gardée' + (locked.length > 1 ? 's' : '') + ' telle' + (locked.length > 1 ? 's' : '') + ' quelle' + (locked.length > 1 ? 's' : ''))) : null,
+          added.length ? h('div', { class: 'bgu-row' }, h('span', { class: 'bgu-name' }, names(added), h('span', { class: 'trk-badge wiz' }, added.length > 1 ? 'nouveaux' : 'nouveau')), h('small', {}, added.length > 1 ? 'ajoutés à la grille' : 'ajouté à la grille')) : null,
           gp.fresh.length ? h('div', { class: 'bgu-row' }, h('span', { class: 'bgu-name' }, names(gp.fresh)), h('small', {}, gp.fresh.length > 1 ? 'régénérées (pas retouchées)' : 'régénérée (pas retouchée)')) : null,
           gp.hand.filter((t) => !lk(t)).length ? h('div', { class: 'bgu-row' }, h('span', { class: 'bgu-name' }, names(gp.hand.filter((t) => !lk(t))), h('span', { class: 'trk-badge hand' }, 'ajoutée à la main')), h('small', {}, 'toujours gardée' + (gp.hand.length > 1 ? 's' : ''))) : null
         ),
@@ -11589,7 +11593,8 @@ SS.band = (() => {
         h(
           'div',
           { class: 'bcf-actions' },
-          h('button', { type: 'button', class: 'btn', id: 'bcfBack', onclick: hideConfirm }, 'Plus tard'),
+          // ouverte en passant à la Grille : « Plus tard » y va quand même, sans mettre à jour (le bandeau le rappelle)
+          h('button', { type: 'button', class: 'btn', id: 'bcfBack', onclick: () => (S.toGrid ? leave() : hideConfirm()) }, 'Plus tard'),
           h('span', { class: 'spacer' }),
           h('button', { type: 'button', class: 'btn btn-accent', id: 'bguGo', onclick: go }, 'Mettre à jour la grille')
         )
@@ -11599,6 +11604,24 @@ SS.band = (() => {
     requestAnimationFrame(() => $('#bguGo').focus());
   }
 
+  /**
+   * Bouton Grille (barre du haut) et « Voir la grille » : la chanson déjà créée dans la grille y est mise à jour avec les
+   * changements de l'assistant (instrument ajouté, accords…), en une étape Ctrl+Z. Des pistes retouchées à la main : la
+   * fenêtre « Mettre la grille à jour ? » demande d'abord. Chanson jamais créée : on regarde la grille sans rien écrire.
+   */
+  function toGrid() {
+    if (!S.wiz) return;
+    if (!$('#bandConfirm').hidden) return; // une fenêtre attend un choix
+    const pr = app.project();
+    const d = wizSnapshot();
+    const gp = d.createdAt && SS.wizDraft.pending(d) && pr.tracks.length && SS.gridSync && SS.gridSync.plan(pr);
+    if (!gp) return leave();
+    S.toGrid = true;
+    if (gp.retouched.some((t) => !locks()[t.id])) createWizSong(); // fenêtre de choix (Plus tard : grille sans mise à jour)
+    else createWizSong(true);
+    if (S.wiz && $('#bandConfirm').hidden) leave(); // rien à écrire (aucune piste cochée) : on va quand même à la grille
+  }
+
   function hideConfirm() {
     const box = $('#bandConfirm');
     if (box) box.hidden = true;
@@ -11606,6 +11629,7 @@ SS.band = (() => {
 
   /** Quitte le mode assistant sans rien écrire : l'écoute s'arrête, la barre du haut redevient celle du projet. */
   function leave({ keep = true } = {}) {
+    S.toGrid = false;
     if (!S.wiz) return;
     closeWizSheet();
     if (keep) saveDraft(); // fermer garde le brouillon (rien d'autre n'est écrit)
@@ -12366,7 +12390,7 @@ SS.band = (() => {
     app = appApi;
     el = $('#bandDialog');
     if (!el) return;
-    $('#bandClose').addEventListener('click', () => leave());
+    $('#bandClose').addEventListener('click', toGrid);
     // fiche Scène : Échap la ferme (ou referme la liste des émotions) avant tout autre usage de la touche
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape' || !wshId || document.querySelector('dialog[open]')) return;
@@ -12423,5 +12447,5 @@ SS.band = (() => {
     });
   }
 
-  return { init, open, openWizard, resume, close: () => leave(), create: () => S.wiz && createWizSong(), hasDraft, wizSnapshot, wizRestore, draftWhen, active, wizSig, togglePlay, stopListen, slowListen, setTempo, plannedTracks, instKind, setKind, insSteps, stepRef, stepNum, instPartOf, putInstPart, melodyTrackOpts, BASS_MODES, claude, _state: S, _listen: () => L.proj, _spec: () => spec() };
+  return { init, open, openWizard, resume, close: () => leave(), toGrid, create: () => S.wiz && createWizSong(), hasDraft, wizSnapshot, wizRestore, draftWhen, active, wizSig, togglePlay, stopListen, slowListen, setTempo, plannedTracks, instKind, setKind, insSteps, stepRef, stepNum, instPartOf, putInstPart, melodyTrackOpts, BASS_MODES, claude, _state: S, _listen: () => L.proj, _spec: () => spec() };
 })();

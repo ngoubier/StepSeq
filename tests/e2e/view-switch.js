@@ -1,8 +1,9 @@
 /*
  * Test de bout en bout de la bascule Assistant | Grille (barre du haut, js/main.js syncView) :
  *   node tests/e2e/view-switch.js [dossier-captures]
- * Grille puis Assistant : même étape, rien de créé ; bandeau « pas encore dans la grille » ; il disparaît après la création
- * et revient quand on change la chanson dans l’assistant (changer d’étape ne compte pas). Étape 2 : une piste retouchée
+ * Grille puis Assistant : même étape, rien de créé ; bandeau « pas encore dans la grille » ; il disparaît après la création.
+ * Chanson déjà créée : un instrument ajouté dans l’assistant arrive dans la grille en cliquant Grille (changer d’étape ne
+ * compte pas) ; avec une piste retouchée, la fenêtre de mise à jour demande d’abord (Plus tard : grille + bandeau). Étape 2 : une piste retouchée
  * dans la grille est marquée ✎ et gardée (mêmes pas, même id) quand on met la grille à jour ; les autres sont régénérées.
  */
 const { chromium } = require('playwright');
@@ -80,12 +81,15 @@ const ok = (c, m) => {
   await page.click('#viewWiz');
   await skipRead();
   await page.waitForTimeout(500);
+  const nTracks = await tracks();
   await page.evaluate(() => SS.band.setTempo(SS.band._state.wiz.tempo ? SS.band._state.wiz.tempo + 7 : 133));
+  await page.evaluate(() => StepSeq.assistantMusicien({ ajouter: 'arpege', nom: 'Arpège ajouté' }));
   await page.waitForTimeout(300);
   await page.click('#viewGrid');
-  await page.waitForTimeout(600);
-  ok(await page.isVisible('#wizBanner') && /changements/.test(await page.textContent('#wizBannerText')), 'tempo changé dans l’assistant : le bandeau le dit');
-  await shot('bascule-grille-retard.png');
+  await page.waitForTimeout(1500);
+  const names = await page.evaluate(() => [...document.querySelectorAll('#tracks .th-name b')].map((b) => b.textContent));
+  ok(!(await page.evaluate(() => SS.band.active())) && names.some((n) => /Arpège ajouté/.test(n)) && (await tracks()) === nTracks + 1, 'instrument ajouté dans l’assistant : Grille le met dans la grille');
+  ok(!(await page.isVisible('#wizBanner')), 'Grille a mis la grille à jour : plus de bandeau');
 
   // étape 2 : pistes retouchées, mise à jour piste par piste
   const P = () => page.evaluate(() => JSON.parse(localStorage.getItem('stepseq.autosave')));
@@ -104,6 +108,11 @@ const ok = (c, m) => {
   await page.evaluate(() => SS.band.setTempo(SS.band._state.wiz.tempo - 3));
   await page.click('#viewGrid');
   await page.waitForTimeout(500);
+  ok(await page.isVisible('#bguGo'), 'piste retouchée : Grille ouvre d’abord « Mettre la grille à jour »');
+  await page.click('#bcfBack');
+  await page.waitForTimeout(600);
+  ok(!(await page.evaluate(() => SS.band.active())) && (await page.isVisible('#wizBanner')), 'Plus tard : on est dans la grille, le bandeau rappelle les changements');
+  await shot('bascule-grille-retard.png');
   await page.click('#wizBannerPut');
   await page.waitForTimeout(500);
   ok(await page.isVisible('#bguGo'), 'la grille vient de l’assistant : fenêtre « Mettre la grille à jour »');
