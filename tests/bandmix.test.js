@@ -147,6 +147,6 @@ test('musicien Ambient : volume réglé par son module, en fond (plus à 0,8 qui
   for (const mod of ['jardin', 'paysage', 'fresque']) {
     const t = { id: 'amb', type: 'instrument', family: 'ambient', instrument: mod, band: { style: 'ambient', key: 'ambient' }, volume: 0.8 };
     SS.bandMix.mixTracks([t], new Map(), 'ambient');
-    assert.ok(t.volume > 0.1 && t.volume < 0.35, `${mod} : ${t.volume}`);
+    assert.ok(t.volume > 0.08 && t.volume < 0.25, `${mod} : ${t.volume}`);
   }
 });

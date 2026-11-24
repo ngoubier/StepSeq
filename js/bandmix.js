@@ -74,8 +74,8 @@ SS.bandMix = (() => {
     // musicien Ambient (piste générative) : envoi Cosmos choisi dans l'assistant (t.fx.sendSpace). Pas de mesure dans
     // js/band-levels.js (pas de notes à jouer) : volume de la piste (dB) par module, mesuré par rendu complet des 10
     // modèles Ambient (tools/render-band-song.js, SOLO=ambient, présence « Présent ») pour que le musicien reste un fond
-    // environ 4 LU sous les autres musiciens (à 0,8, il les couvrait de 4 à 16 dB)
-    ambient: { eq: eq({ hp: 40 }), pan: 0, vol: { jardin: -13, paysage: -15, fresque: -11.5 } },
+    // environ 7 LU sous les autres musiciens (à 0,8, il les couvrait de 4 à 16 dB ; 4 LU dessous, encore un peu fort à l'écoute)
+    ambient: { eq: eq({ hp: 40 }), pan: 0, vol: { jardin: -16, paysage: -18, fresque: -14.5 } },
   };
   /**
    * Orchestre (musique de film) : placement sur scène (violons à gauche, violoncelles et contrebasses à droite, bois au
