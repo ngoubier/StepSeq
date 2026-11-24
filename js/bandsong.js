@@ -2084,13 +2084,15 @@ SS.bandSong = (() => {
   }
 
   /* ---------- types d'instrument ---------- */
-  const KINDS = ['drums', 'bass', 'chords', 'arp', 'guitar', 'melody'];
-  const DEFAULT_KIND = { drums: 'drums', perc: 'drums', bass: 'bass', pad: 'chords', strings: 'chords', keys: 'chords', guitar: 'guitar', brass: 'chords', arp: 'arp', arpchord: 'arp', lead: 'melody', vox: 'melody', sax: 'melody', orch: 'orch', horns: 'horns', ambient: 'ambient' };
-  const DEFAULT_MODE = { bass: '8', chords: 'sustain', arp: 'up16', guitar: 'g:pop', melody: 'verse', drums: 'both' };
+  const KINDS = ['drums', 'bass', 'chords', 'keys', 'arp', 'guitar', 'melody'];
+  const DEFAULT_KIND = { drums: 'drums', perc: 'drums', bass: 'bass', pad: 'chords', strings: 'chords', keys: 'keys', guitar: 'guitar', brass: 'chords', arp: 'arp', arpchord: 'arp', lead: 'melody', vox: 'melody', sax: 'melody', orch: 'orch', horns: 'horns', ambient: 'ambient' };
+  const DEFAULT_MODE = { bass: '8', chords: 'sustain', keys: 'block4', arp: 'up16', guitar: 'g:pop', melody: 'verse', drums: 'both' };
   const ARP_MODES = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16', 'rise', 'ost16', 'dotted', 'toll', 'alb3', 'wave6', 'tri8'];
   const MODES = () => ({
     bass: [...['whole', '8', 'pulse8', 'oct', 'gallop', 'offbeat', 'roll', 'off16', 'half', 'quarter', 'drone', 'sync', 'walk'], ...BASS_NEW.map((b) => b[0])],
     chords: ['sustain', 'swell', 'float', 'ballad', 'pluck', ...Object.keys(RHYTHM), ...Object.keys(PAD_NEW), ...(SS.GuitarArp ? SS.GuitarArp.MOTIFS.map((m) => 'g:' + m.id) : [])],
+    // Clavier : ses motifs (« k: », js/keyboardist.js), plus tous les modes du moteur de nappe (ceux des pianistes des inspirations)
+    keys: [...(SS.keyboardist ? SS.keyboardist.OWN.map((m) => 'k:' + m.id) : []), 'sustain', 'swell', 'float', 'ballad', 'pluck', ...Object.keys(RHYTHM), ...Object.keys(PAD_NEW)],
     // Guitariste : motifs guitare, plus les accords plaqués (jeu « Accords », voir js/guitarist.js)
     guitar: [...(SS.GuitarArp ? SS.GuitarArp.MOTIFS.map((m) => 'g:' + m.id) : []), ...(SS.GuitarRiffs ? SS.GuitarRiffs.RIFFS.map((x) => 'r:' + x.id) : []), 'strum', 'pluck', 'chop', 'pulse8', 'sustain'],
     arp: ARP_MODES,
@@ -2109,6 +2111,10 @@ SS.bandSong = (() => {
   const gtrMeterOK = (m) => !!m && (m.meter || '4/4') !== '4/4' && (m.meter === SIG || (SIG === '12/8' && m.meter === '6/8'));
   function meterOK(kind, id, sig = SIG) {
     if (kind === 'guitar') kind = 'chords';
+    if (kind === 'keys') {
+      if (/^k:/.test(id || '')) return (sig === SIG ? SPB === 16 : true) && sig === '4/4'; // motifs du Clavier : une mesure de 16 doubles-croches
+      kind = 'chords';
+    }
     if (sig !== SIG) {
       const was = SIG;
       setMeter(sig);
@@ -2141,6 +2147,11 @@ SS.bandSong = (() => {
   /** Mode du plan ramené à la mesure de la chanson (inchangé en 4/4 ou s'il y va déjà). */
   function fitMode(kind, mode) {
     if (kind === 'guitar') kind = 'chords'; // le Guitariste joue avec le générateur des accords (motifs « g: » compris)
+    if (kind === 'keys') {
+      // Clavier : un motif « k: » hors du 4/4 devient le rythme de la mesure (accords) ou son arpège brisé
+      if (!/^k:/.test(mode || '') || SIG === '4/4') kind = 'chords';
+      else return SS.keyboardist && SS.keyboardist.jeuOf(mode) === 'arp' ? { '3/4': 'arpvalse', '6/8': 'arp68', '12/8': 'arp128' }[SIG] || 'sustain' : (METER_FALLBACK[SIG] || {}).chords || 'sustain';
+    }
     if (!mode || SIG === '4/4' || !['bass', 'chords', 'arp'].includes(kind) || meterOK(kind, mode)) return mode;
     const f = METER_FALLBACK[SIG];
     if (kind === 'chords') {
@@ -2392,16 +2403,17 @@ SS.bandSong = (() => {
         const extra = isExtra(t); // musicien ajouté : jamais muet d'office, réglages de l'instrument seulement
         const changed = !!kd && (extra || kd !== kindOfRole(role)); // type différent de celui du rôle : pas de réglages du rôle
         const gk = kd === 'guitar'; // Guitariste : générateur des accords, motifs de guitare (« g: ») d'abord
+        const kk = kd === 'keys'; // Clavier : ses motifs (« k: ») ou le moteur de nappe, puis ses réglages (js/keyboardist.js)
         const o = changed ? ie : ie ? { ...((pp && pp[role]) || {}), ...ie } : (pp && pp[role]) || null; // réglages de l'instrument, du rôle (basse, nappe, arpège)
         const off = muted.includes(role) || !!(ie && ie.off);
-        const er = !changed ? role : kd === 'bass' || kd === 'drums' ? 'bass' : kd === 'arp' ? 'arp' : kd === 'melody' ? 'lead' : gk ? 'guitar' : 'pad'; // rôle dont l'instrument prend la nuance et les effets
+        const er = !changed ? role : kd === 'bass' || kd === 'drums' ? 'bass' : kd === 'arp' ? 'arp' : kd === 'melody' ? 'lead' : gk ? 'guitar' : kk ? 'keys' : 'pad'; // rôle dont l'instrument prend la nuance et les effets
         let mode;
         if (off) mode = null;
         else if (!changed) mode = (o && o.mode) || sec[role];
         else if (!extra && !((o && (o.mode || o.one)) || sec[role])) mode = null; // muet dans le plan, rien ne l'allume
         else {
           const valid = MODES()[kd];
-          const plan = { bass: [sec.bass], chords: [sec.pad, sec.strings, sec.keys, sec.brass], guitar: [sec.guitar], arp: [sec.arp, sec.arpchord], melody: [sec.lead, sec.vox, sec.sax], drums: [] }[kd];
+          const plan = { bass: [sec.bass], chords: [sec.pad, sec.strings, sec.keys, sec.brass], keys: [sec.keys], guitar: [sec.guitar], arp: [sec.arp, sec.arpchord], melody: [sec.lead, sec.vox, sec.sax], drums: [] }[kd];
           mode = o && valid.includes(o.mode) ? o.mode : plan.find((m) => m && valid.includes(m)) || DEFAULT_MODE[kd];
         }
         mode = fitMode(changed ? kd : kindOfRole(role), mode); // autre mesure que 4/4 : un rythme écrit pour elle
@@ -2413,6 +2425,13 @@ SS.bandSong = (() => {
           const dup = (ids[ti].dup ? `#${ids[ti].dup}` : '') + (extra ? `@${t.band.musician}` : '');
           return m === 'rise' ? riseEvents(spans, r, k, bars) : melodyPart(spans, k, bars, mrole, im2 && Object.keys(im2).length ? { ...smel, ...im2 } : smel, (ie && ie.plan) || (mel.plans && mel.plans[id]), (ie && ie.seeds) || (mel.seeds && mel.seeds[id]), `${presetId}/${id}/${role}${dup}/${melodySeed}`, m);
         };
+        // Clavier : motif « k: » (js/keyboardist.js), sinon le moteur de nappe (arpège ou accords, registre du piano)
+        const keysEv = (m, range = { lo: 57, hi: 79 }) =>
+          /^k:/.test(m) && SS.keyboardist
+            ? SS.keyboardist.events(spans, m, { voice: voiceChord, tones, vel: (v) => vel(r, v) })
+            : ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16', 'ost16', 'dotted', 'toll', ...TRI_ARP].includes(m)
+              ? arpEvents(spans, m, r)
+              : chordEvents(spans, m, r, { ...range, kp: H().scale(k).map((d) => d.pc) });
         let events = [];
         let gtrEv = false; // notes du moteur de guitare (voir shapeVel)
         // mélodie imposée : même dans une scène où l'inspiration ne chante pas (sauf rôle coupé par « off »)
@@ -2428,6 +2447,7 @@ SS.bandSong = (() => {
           else if (gk && /^r:/.test(mode) && SS.GuitarRiffs) (events = riffEvents(spans, mode, o && o.riff, bars, `${presetId}/${id}/${ids[ti].id}`)), (gtrEv = true);
           else if ((kd === 'chords' || gk) && /^g:/.test(mode) && SS.GuitarArp) (events = arpOneEvents(spans, { guitar: { ...((o && o.gtr) || {}), on: true, motif: mode.slice(2) } }, bars)), (gtrEv = true);
           else if (gk) events = chordEvents(spans, /^[gr]:/.test(mode) ? 'chop' : mode, r, { lo: 52, hi: 74, kp: H().scale(k).map((d) => d.pc) }); // sans le moteur de guitare : petits accords hachés
+          else if (kk) events = keysEv(mode);
           else if (kd === 'chords') events = chordEvents(spans, mode, r, { lo: 53, hi: 76, open: !!(o && o.voicing === 'open'), kp: H().scale(k).map((d) => d.pc) });
           else if (kd === 'melody') events = sing(role === 'vox' ? 'vox' : 'lead', mode);
           else {
@@ -2458,12 +2478,14 @@ SS.bandSong = (() => {
             // nappe, cordes, piano, guitare : accords (ou arpège si le mode en est un)
             const range = role === 'keys' ? { lo: 57, hi: 79 } : role === 'guitar' ? { lo: 52, hi: 74 } : role === 'strings' ? { lo: 55, hi: 81 } : role === 'brass' ? { lo: 53, hi: 84, top: 84 } : { lo: 53, hi: 76 };
             // guitare : motif du mode Guitare d'Arp One (« g:travis »…), joué par le vrai moteur (js/guitar-arp.js)
-            if (/^r:/.test(mode) && SS.GuitarRiffs) (events = riffEvents(spans, mode, o && o.riff, bars, `${presetId}/${id}/${ids[ti].id}`)), (gtrEv = true);
+            if (kk) events = keysEv(mode, range);
+            else if (/^r:/.test(mode) && SS.GuitarRiffs) (events = riffEvents(spans, mode, o && o.riff, bars, `${presetId}/${id}/${ids[ti].id}`)), (gtrEv = true);
             else if (/^g:/.test(mode) && SS.GuitarArp) (events = arpOneEvents(spans, { guitar: { ...((o && o.gtr) || {}), on: true, motif: mode.slice(2) } }, bars)), (gtrEv = true);
             else if (/^[gr]:/.test(mode)) events = chordEvents(spans, 'chop', r, range); // sans le moteur de guitare : petits accords hachés
             else events = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16', 'ost16', 'dotted', 'toll', ...TRI_ARP].includes(mode) ? arpEvents(spans, mode, r) : chordEvents(spans, mode, r, { ...range, open: role === 'pad' && !!o && o.voicing === 'open', kp: H().scale(k).map((d) => d.pc) });
           }
         }
+        if (kk) events = SS.keyboardist ? SS.keyboardist.shape(events, spans, o && o.keys, r) : events; // réglages du Clavier (voicing, main gauche, pédale…)
         // piste Effets d'une scène dont une jonction est réglée : montée, cymbale inversée, impact, descente (voir fxSceneTrack)
         let fxScene = null;
         if (role === 'fx' && !changed && !off && (oj || ij || sec.fxo)) {
@@ -2484,7 +2506,7 @@ SS.bandSong = (() => {
           if (auto && events.length) data[t.id].auto = auto;
         }
         // motif de nappe à mouvement de son (pompe, filtre qui s'ouvre, souffle inversé) : sa courbe passe devant celle du plan
-        const pfx = events.length && mode && (kd === 'chords' || gk || (!changed && !['bass', 'fx', 'arp', 'arpchord'].includes(role) && !singer)) ? padFxLanes(mode, bars) : null;
+        const pfx = events.length && mode && (kd === 'chords' || gk || kk || (!changed && !['bass', 'fx', 'arp', 'arpchord'].includes(role) && !singer)) ? padFxLanes(mode, bars) : null;
         if (pfx) data[t.id].auto = { ...(data[t.id].auto || {}), ...pfx };
       });
       // doublure : la mélodie du premier instrument mélodique, une octave ou une tierce diatonique au-dessus
@@ -2661,7 +2683,7 @@ SS.bandSong = (() => {
       }
       // procédés d'écriture T01–T05 (réglés dans une jonction : éteints dans le plan)
       if (fx && (oj || ij))
-        writeTransitions(data, tracks, (t) => (t.type === 'drum' ? 'drums' : kindOfT.get(t) === 'guitar' ? 'chords' : kindOfT.get(t) || null), { bars, key: k, spans, out: oj ? outE : null, inn: ij ? inE : null });
+        writeTransitions(data, tracks, (t) => (t.type === 'drum' ? 'drums' : ['guitar', 'keys'].includes(kindOfT.get(t)) ? 'chords' : kindOfT.get(t) || null), { bars, key: k, spans, out: oj ? outE : null, inn: ij ? inE : null });
       if (gapSteps) gapEnd(data, bars, gapSteps, oj ? new Set(tracks.filter((t) => roleOfTrack(t) === 'fx').map((t) => t.id)) : null);
       const sc = { id: SS.uid(), sec: id, name: sec.name || NAMES[id] || id, bars, key: k, data, spans };
       if (orchMus.length) Object.defineProperty(sc, 'orch', { value: orchOut, enumerable: false }); // rapport de l'étape Orchestration (pas dans le projet)
