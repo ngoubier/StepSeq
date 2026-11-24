@@ -251,6 +251,14 @@
     M('pop16', 'doigts', 'Pop en doubles', 4, 4, 'B 3 2 3 1 3 2 3 A 3 2 3 1 3 2 3', { desc: 'Doubles-croches régulières autour de la 3e corde : pop acoustique, intro qui avance.' }),
     M('pince', 'doigts', 'Pincé', 4, 2, 'B+1 3 2+3 1 A+1 3 2+3 2', { desc: 'Pouce et annulaire ensemble sur le temps : la basse et la note haute en même temps.' }),
     M('bossa', 'doigts', 'Bossa nova', 4, 4, 'B+3+2+1 . . 3+2+1 . . A+3+2+1 . B . 3+2+1 . 3+2+1 . A .', { desc: 'Le pouce marque une basse pointée, trois doigts pincent l’accord en syncope.' }),
+    // motifs par style (nov. 2026, PR 3 du Guitariste)
+    M('roll', 'doigts', 'Roulé folk', 4, 4, 'B 2 1 3 2 1 3 1 A 2 1 3 2 1 3 1', { desc: 'Pouce puis trois doigts qui roulent en doubles-croches : folk, country, pop acoustique.' }),
+    M('douce', 'doigts', 'Ballade douce', 4, 4, 'B . 3 . 2 . 3 . A . 3 . 2 . 3 .', { desc: 'Croches lentes, basse sur 1 et 3 : laisse toute la place à la voix.' }),
+    M('baspince', 'doigts', 'Basse et accord', 4, 2, 'B 3+2 A 3+2 B 3+2 A 3+2', { desc: 'Le pouce sur les temps, l’accord pincé sur les contretemps : blues acoustique, folk.' }),
+    M('partido', 'doigts', 'Bossa syncopée', 4, 4, 'B 3+2 . 3+2 B . 3+2 . A 3+2 . 3+2 A . 3+2 .', { desc: 'Basse sur les temps, l’accord pincé en syncope : bossa nova, samba lente.' }),
+    M('funk16', 'mediator', 'Funk une corde', 4, 4, '3 . 2 3 . 2 . 3 2 . 3 . 2 3 . 2', { dir: '↓↑↓↑↓↑↓↑↓↑↓↑↓↑↓↑', desc: 'Doubles-croches piquées sur deux cordes aiguës, la main qui ne s’arrête jamais : funk, disco.' }),
+    M('bubble', 'mediator', 'Bulles reggae', 4, 4, '. . 3 2 . . 3 2 . . 3 2 . . 3 2', { dir: '..↓↑..↓↑..↓↑..↓↑', desc: 'Deux notes sur chaque contretemps : l’arpège qui sautille du reggae et du ska.' }),
+    M('pedale', 'mediator', 'Pédale aiguë', 4, 4, '1 2 1 3 1 2 1 3 1 2 1 3 1 2 1 3', { dir: '↓↑↓↑↓↑↓↑↓↑↓↑↓↑↓↑', desc: 'La corde de mi aigu revient à chaque double : guitare à écho synthwave, pop des années 80.' }),
     M('cross', 'mediator', 'Crosspicking', 4, 2, '3 2 1 3 2 1 3 2', {
       src: 1, dir: '↓↑↓↑↓↑↓↑', desc: 'Le médiator roule sur les cordes 3, 2, 1 ; un motif de trois en croches donne 3+3+2 sur la mesure (sur C : G3 C4 E4).',
     }),
@@ -278,7 +286,19 @@
     S('reggae', 'Reggae skank', 4, 4, '. . . . c . . . . . . . c . . .', 'Un coup court sur les cordes aiguës, sur 2 et 4, coupé tout de suite.'),
     S('roots', 'Skank roots', 4, 4, '. . x . c . . . . . x . c . c .', 'Skank sur 2 et 4, un étouffé qui l’annonce, et un coup doublé à la fin du 4 : le skank qui respire.'),
     S('funk', 'Funk étouffé', 4, 4, 'x u D u x u x U d x D u x U x u', 'Doubles-croches continues, presque tout étouffé, quelques coups ouverts accentués.'),
-    S('ballade', 'Ballade lente', 4, 4, 'D . . . . . . . D . . . U . D .', 'Un grand coup qui sonne, quelques réponses : laisse respirer la voix.')
+    S('ballade', 'Ballade lente', 4, 4, 'D . . . . . . . D . . . U . D .', 'Un grand coup qui sonne, quelques réponses : laisse respirer la voix.'),
+    // grattages par style (nov. 2026, PR 3 du Guitariste)
+    S('folk16', 'Folk en doubles', 4, 4, 'D . D U . U D U D . D U . U D U', 'Bas, bas-haut, haut-bas-haut deux fois par mesure : le folk qui avance.'),
+    S('boomchick', 'Boom-chick', 4, 4, 'P . d . P . d . P . d . P . d .', 'La basse étouffée sur les temps, l’accord léger entre : country, folk.'),
+    S('shuf', 'Shuffle', 4, 4, 'D . . u D . . u D . . u D . . u', 'Longue-courte sur chaque temps : le shuffle du blues et du rock’n’roll.'),
+    S('deuxquatre', 'Coups sur 2 et 4', 4, 4, '. . . . D . . . . . . . D . . .', 'Un seul coup franc sur 2 et 4, rien d’autre : blues lent, soul.'),
+    S('ballade2', 'Ballade en réponse', 4, 4, 'D . . . . . U . D . . . U . . .', 'Un grand coup, une réponse vers le haut : ballade, folk.'),
+    S('disco', 'Disco contretemps', 4, 4, 'x . U . x . U . x . U . x . U .', 'Un étouffé sur le temps, l’accord vers le haut sur le contretemps : disco, funk.'),
+    S('funkcourt', 'Funk coups courts', 4, 4, 'x . c x . c x . c . x c . x c .', 'Coups courts en syncope entre des étouffés : funk, R&B.'),
+    S('skank2', 'Skank doublé', 4, 4, '. . . . c . c . . . . . c . c .', 'Le skank sur 2 et 4, doublé : reggae one drop, ska.'),
+    S('batida', 'Batida bossa', 4, 4, 'c . . c . . c . . c . c . c . .', 'Les accords courts de la bossa nova, en 3-3-2 puis syncopés.'),
+    S('bossalente', 'Bossa lente', 4, 4, 'D . . . c . . c . . c . c . . .', 'Un accord qui sonne, puis des coups courts en syncope : bossa, jazz léger.'),
+    S('pmdoubles', 'Palm mute doubles', 4, 4, 'P P P P P P P P P P P P P P P P', 'Doubles-croches étouffées de la paume : synthwave, rock qui roule.')
   );
   /*
    * Coups de grattage : cordes jouées (dans l'ordre du geste), force, durée imposée (fix16 en pas du motif,

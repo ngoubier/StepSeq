@@ -55,3 +55,11 @@ test('jeu Riffs : modes « r: », familles, potentiomètres rangés dans parts�
   assert.equal(G.knobStore('riff'), 'riff');
   assert.equal(G.knobStore('arp'), 'gtr');
 });
+
+test('chaque style a au moins deux motifs en 4/4 dans chaque jeu (arpèges, accords, riffs)', () => {
+  for (const [st] of G.STYLES)
+    for (const j of ['arp', 'acc', 'riff']) {
+      const n = G.modesOf(j).filter((id) => G.inStyle(id, st) && !(GA.MOTIFS.find((m) => 'g:' + m.id === id) || {}).meter).length;
+      assert.ok(n >= 2, `${st} ${j} : ${n}`);
+    }
+});

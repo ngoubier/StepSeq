@@ -991,7 +991,7 @@ Dans « Nouvelle chanson », le **Guitariste** est un type de musicien à part (
 guitariste d'une inspiration en est un aussi). Son étape (`js/guitarist.js` pour les tables, `guitarBody` de `js/band.js`)
 reprend les principes de l'étape Arpège : par scène, un **Jeu** *Arpèges* (familles Doigts, Médiator), *Accords*
 (Grattage, Étouffés, et Plaqués : les accords du moteur de nappe que jouent les guitaristes des inspirations) ou *Riffs*
-(Quintes et octaves, Lignes ; en 4/4), des puces
+(Quintes et octaves, Lignes ; en 4/4) : 46 motifs de guitare et 14 riffs, au moins deux par jeu pour chacun des 9 styles, des puces
 de **style** (celle de la chanson marquée d'un point), **Surprends-moi**, quatre potentiomètres de la main droite
 (Résonance, Mélodie en avant, Pouce, Main humaine ; en Accords : Étalement, Résonance, Basse appuyée, Main humaine) et
 **Avancé…**, la fenêtre Guitare d'Arp One (schéma, tablature, position, capodastre, accordage), signalée par la pastille
