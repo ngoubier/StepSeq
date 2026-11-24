@@ -15,12 +15,16 @@
  * appui  : « appui à essayer » du répertoire d'intentions du guide MusicEmotion (docs/reference/musicemotion-guide.md,
  *          chap. 8) ; les notes citées sont celles de l'exemple du guide.
  * Émerveillement et Beauté inquiétante viennent de ce même répertoire (15 intentions).
+ * color : couleur de l'émotion à l'écran (fiche Scène, assistant, Musique de film) ; associations les plus constantes
+ *        des études couleur-émotion (Plutchik, Jonauskaite et al. 2020) : tristesse bleu, joie jaune, sérénité vert…
+ *
+ * C'est la table unique des émotions : SS.FILM_EMOTIONS (les 10 émotions de Musique de film) en dérive.
  */
 window.SS = window.SS || {};
 
 SS.EMOTIONS = [
   {
-    id: 'joie', label: 'Joie simple', dims: [85, 60, 20],
+    id: 'joie', label: 'Joie simple', color: '#ffd23a', dims: [85, 60, 20],
     harmony: 'Majeur, I–IV–V–I, add9', melody: 'Ascendante, répétitive', texture: 'Pulsation claire, timbres lumineux',
     risk: 'Majeur ne garantit pas la joie : le tempo, le rythme et la mélodie comptent autant.',
     appui: 'Note finale sur la tonique et rebond rythmique.',
@@ -32,7 +36,7 @@ SS.EMOTIONS = [
     ],
   },
   {
-    id: 'euphorie', label: 'Euphorie', dims: [90, 90, 40],
+    id: 'euphorie', label: 'Euphorie', color: '#ffb020', dims: [90, 90, 40],
     harmony: 'I–V–vi–IV, mixolydien selon le style', melody: 'Registre haut, séquences ascendantes', texture: 'Densité et accents croissants',
     risk: 'Trop d’intensité sans contraste fatigue : prévoir des respirations.',
     appui: 'Mélodie en séquence ascendante, batterie plus dense au dernier passage.',
@@ -44,7 +48,7 @@ SS.EMOTIONS = [
     ],
   },
   {
-    id: 'tristesse', label: 'Tristesse', dims: [20, 25, 40],
+    id: 'tristesse', label: 'Tristesse', color: '#3f6fe0', dims: [20, 25, 40],
     harmony: 'Mineur naturel, i–VI–III–VII', melody: 'Descente, silences, ambitus réduit', texture: 'Douce, tempo souvent lent',
     risk: 'Le mineur n’est pas toujours triste : un tempo vif le rend énergique.',
     appui: 'Descente lente de la quinte vers la tonique (E5 → A4 en La), respirations entre les groupes.',
@@ -56,7 +60,7 @@ SS.EMOTIONS = [
     ],
   },
   {
-    id: 'nostalgie', label: 'Nostalgie', dims: [45, 45, 30],
+    id: 'nostalgie', label: 'Nostalgie', color: '#8aa0d6', dims: [45, 45, 30],
     harmony: 'Maj7, m7, add9, emprunts modaux', melody: 'Phrases récurrentes légèrement variées', texture: 'Chorus, pad chaud, arpège discret',
     risk: 'Les extensions ne suffisent pas seules : la répétition variée du motif fait beaucoup.',
     appui: 'Garder la tonique en haut ; dans une autre voix, faire alterner la tierce de IV puis sa version abaissée (A puis A♭ en Do).',
@@ -68,7 +72,7 @@ SS.EMOTIONS = [
     ],
   },
   {
-    id: 'melancolie', label: 'Mélancolie lumineuse', dims: [45, 40, 30],
+    id: 'melancolie', label: 'Mélancolie lumineuse', color: '#7f9cc0', dims: [45, 40, 30],
     harmony: 'Dorien, m7, IV majeur en mineur dorien', melody: 'Appuyer la note caractéristique du mode (sixte majeure)', texture: 'Groove souple',
     risk: 'Le dorien n’implique aucune émotion fixe : c’est une couleur à faire entendre.',
     appui: 'Mettre en évidence la sixte majeure sur le IV (B sur G en Ré dorien) et la tonique aux fins de phrase.',
@@ -80,7 +84,7 @@ SS.EMOTIONS = [
     ],
   },
   {
-    id: 'espoir', label: 'Espoir', dims: [65, 55, 35],
+    id: 'espoir', label: 'Espoir', color: '#9ad65a', dims: [65, 55, 35],
     harmony: 'Départ mineur → zone majeure, IV–V–vi', melody: 'Montée de registre, ouverture', texture: 'Crescendo, ajout de couches',
     risk: 'La seule montée ne suffit pas : préparer un point de départ plus sombre ou plus calme.',
     appui: 'Faire apparaître la sixte majeure (F♯ sur D en La) seulement au moment de la montée ; orienter la mélodie vers la tonique.',
@@ -92,7 +96,7 @@ SS.EMOTIONS = [
     ],
   },
   {
-    id: 'suspense', label: 'Suspense', dims: [40, 50, 85],
+    id: 'suspense', label: 'Suspense', color: '#a98bff', dims: [40, 50, 85],
     harmony: 'Dominante prolongée, sus4, pédale', melody: 'Notes tenues instables, peu de résolution', texture: 'Ostinato, silences',
     risk: 'Épuiser la tension trop tôt : garder une réserve pour la montée.',
     appui: 'Conserver le dernier accord jusqu’au début de la boucle suivante.',
@@ -104,7 +108,7 @@ SS.EMOTIONS = [
     ],
   },
   {
-    id: 'angoisse', label: 'Angoisse', dims: [15, 70, 90],
+    id: 'angoisse', label: 'Angoisse', color: '#6b3cc9', dims: [15, 70, 90],
     harmony: 'Chromatisme, ♭II, accords diminués, clusters mesurés', melody: 'Seconde mineure, fragments courts', texture: 'Pulsation irrégulière ou drone',
     risk: 'Une dissonance excessive et uniforme lasse : doser et faire respirer.',
     appui: 'Seconde mineure au-dessus de la tonique (B♭ sur A) dans le dessus, grave peu mobile.',
@@ -116,7 +120,7 @@ SS.EMOTIONS = [
     ],
   },
   {
-    id: 'mystere', label: 'Mystère', dims: [45, 30, 60],
+    id: 'mystere', label: 'Mystère', color: '#5a6bb0', dims: [45, 30, 60],
     harmony: 'Sus2 / sus4, modalité, voicings ouverts', melody: 'Phrases incomplètes', texture: 'Réverbération, espace spectral',
     risk: 'Trop de réverbération brouille l’harmonie.',
     appui: 'Répéter une même note dans l’aigu (A en La) et écouter son rôle changer d’un accord à l’autre.',
@@ -128,7 +132,7 @@ SS.EMOTIONS = [
     ],
   },
   {
-    id: 'serenite', label: 'Sérénité', dims: [70, 15, 10],
+    id: 'serenite', label: 'Sérénité', color: '#2fb36d', dims: [70, 15, 10],
     harmony: 'Harmonie stable, faible vitesse harmonique', melody: 'Mouvement conjoint, longues tenues', texture: 'Peu de couches, attaques douces',
     risk: 'Uniformité sans direction : prévoir une évolution lente (filtre, densité).',
     appui: 'Basse stable sur la tonique, quelques notes seulement dans l’aigu.',
@@ -140,7 +144,7 @@ SS.EMOTIONS = [
     ],
   },
   {
-    id: 'tendresse', label: 'Tendresse', dims: [75, 25, 20],
+    id: 'tendresse', label: 'Tendresse', color: '#f08fb0', dims: [75, 25, 20],
     harmony: 'Maj7, add9, m9, conduite conjointe', melody: 'Petits intervalles, résolutions douces', texture: 'Dynamique subtile',
     risk: 'Une harmonie trop dense étouffe la douceur.',
     appui: 'Longues tenues, attaque arrondie, une note commune tenue d’un accord à l’autre (E sur Dm9 en Do).',
@@ -152,7 +156,7 @@ SS.EMOTIONS = [
     ],
   },
   {
-    id: 'triomphe', label: 'Triomphe', dims: [85, 85, 45],
+    id: 'triomphe', label: 'Triomphe', color: '#ff9326', dims: [85, 85, 45],
     harmony: 'Retour affirmé à la tonique, contraste modal éventuel', melody: 'Ambitus large, sommet clair', texture: 'Batterie, basse ferme, couches',
     risk: 'Le volume seul ne fait pas le triomphe : préparer le sommet.',
     appui: 'Préparer un sommet mélodique sur la tonique et élargir la disposition au retour.',
@@ -164,7 +168,7 @@ SS.EMOTIONS = [
     ],
   },
   {
-    id: 'ambivalence', label: 'Ambivalence', dims: [50, 45, 55],
+    id: 'ambivalence', label: 'Ambivalence', color: '#b3a37a', dims: [50, 45, 55],
     harmony: 'Alternance majeur / mineur, accords communs', melody: 'Cible mélodique ambiguë', texture: 'Timbres contrastés',
     risk: 'Une explication émotionnelle trop catégorique.',
     appui: 'Même motif autour de la quinte, alternance tierce majeure / mineure à l’intérieur (E / E♭ en Do).',
@@ -176,7 +180,7 @@ SS.EMOTIONS = [
     ],
   },
   {
-    id: 'emerveillement', label: 'Émerveillement', dims: [80, 30, 35],
+    id: 'emerveillement', label: 'Émerveillement', color: '#2fcfd6', dims: [80, 30, 35],
     harmony: 'Lydien : maj7(♯11), II majeur sur basse de tonique, médiantes chromatiques', melody: 'Quarte augmentée isolée dans l’aigu, attaques espacées', texture: 'Basse stable, nappes claires, réverbération maîtrisée',
     risk: 'Le lydien bascule vers la dominante si la basse quitte la tonique : garder la pédale.',
     appui: 'Basse stable sur la tonique, quarte augmentée isolée dans l’aigu (F♯ en Do), attaques espacées.',
@@ -188,7 +192,7 @@ SS.EMOTIONS = [
     ],
   },
   {
-    id: 'beaute', label: 'Beauté inquiétante', dims: [50, 35, 60],
+    id: 'beaute', label: 'Beauté inquiétante', color: '#9b6fb8', dims: [50, 35, 60],
     harmony: 'Mineur harmonique : V majeur ↔ i, sixte ajoutée, emprunts chromatiques', melody: 'Sensible → tonique soignée, sixte majeure à la dernière arrivée', texture: 'Piano ou cordes, tempo modéré, rubato possible',
     risk: 'Trop de sensible rend la phrase scolaire : laisser une arrivée ouverte.',
     appui: 'Soigner la sensible → tonique (G♯ → A en La) et laisser apparaître la sixte majeure (F♯) à la dernière arrivée.',
@@ -203,6 +207,28 @@ SS.EMOTIONS = [
 
 SS.EMOTION_KINDS = { evidence: 'Évidence', nuance: 'Nuance', surprise: 'Surprise' };
 SS.findEmotion = (id) => SS.EMOTIONS.find((e) => e.id === id) || null;
+/** Couleur d'une émotion (gris neutre si inconnue) ; SS.EMOTION_COLORS : id → couleur. */
+SS.EMOTION_COLOR_NONE = '#9a9aa3';
+SS.EMOTION_COLORS = Object.fromEntries(SS.EMOTIONS.map((e) => [e.id, e.color]));
+SS.emotionColor = (id) => SS.EMOTION_COLORS[id] || SS.EMOTION_COLOR_NONE;
+
+/**
+ * Émotions d'un passage de Musique de film : k (clé enregistrée dans le passage), id (l'émotion de la table
+ * ci-dessus qui donne accords et mélodie), libellé, tempo typique. La couleur est celle de l'émotion de la table,
+ * sauf Colère (rouge), qui partage les accords d'Angoisse avec Peur mais doit s'en distinguer à l'écran.
+ */
+SS.FILM_EMOTIONS = [
+  { k: 'tristesse', id: 'tristesse', label: 'Tristesse', bpm: 60 },
+  { k: 'nostalgie', id: 'nostalgie', label: 'Nostalgie', bpm: 72 },
+  { k: 'suspense', id: 'suspense', label: 'Suspense', bpm: 90 },
+  { k: 'peur', id: 'angoisse', label: 'Peur', bpm: 140 },
+  { k: 'colere', id: 'angoisse', label: 'Colère', color: '#e5382f', bpm: 140 },
+  { k: 'espoir', id: 'espoir', label: 'Espoir', bpm: 84 },
+  { k: 'heroisme', id: 'triomphe', label: 'Héroïsme', bpm: 120 },
+  { k: 'emerveillement', id: 'emerveillement', label: 'Émerveillement', bpm: 76 },
+  { k: 'apaisement', id: 'serenite', label: 'Apaisement', bpm: 66 },
+  { k: 'joie', id: 'joie', label: 'Joie', bpm: 108 },
+].map((e) => ({ k: e.k, id: e.id, label: e.label, color: e.color || SS.emotionColor(e.id), bpm: e.bpm }));
 
 /**
  * Les modes rangés du plus lumineux au plus sombre, avec les intentions qui leur correspondent le mieux
@@ -420,7 +446,7 @@ const EMO_SUFFIX = {
   'm(add9)': 'madd9', madd9: 'madd9', 'm(add11)': 'madd11', madd11: 'madd11', 'm(maj7)': 'mmaj7', mM7: 'mmaj7', mmaj7: 'mmaj7',
   'maj7(♯11)': 'maj7s11', 'maj7♯11': 'maj7s11', 'maj7#11': 'maj7s11', '6sus2': '6sus2', add4: 'add4', 'm(add4)': 'madd4',
 };
-const EMO_LETTER = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+const EMO_LETTER = SS.LETTER_PC;
 const emoPc = (s) => (EMO_LETTER[s[0]] + (s[1] === '♯' || s[1] === '#' ? 1 : s[1] === '♭' || s[1] === 'b' ? -1 : 0) + 12) % 12;
 
 /**

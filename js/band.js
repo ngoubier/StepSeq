@@ -2664,12 +2664,12 @@ SS.band = (() => {
 
   /** Tonalité de la chanson : la retouchée, sinon celle du plan. */
   const songKey = () => (S.wiz && S.wiz.skey) || parseKeyStr(spec().key);
-  const NATURAL_PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+  const NATURAL_PC = SS.LETTER_PC;
   const tonicPc = (t) => (NATURAL_PC[t[0]] + [...t.slice(1)].reduce((a, c) => a + (c === '♯' || c === '#' ? 1 : c === '♭' || c === 'b' ? -1 : 0), 0) + 12) % 12;
   const FAM_MAJOR = (mode) => (SS.harmony.MODES.find((m) => m.id === mode) || {}).fam === 'major';
   // noms des 12 toniques (tous valides dans SS.harmony.TONICS) ; en mineur on préfère les dièses usuels
-  const TONIC_MAJ = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
-  const TONIC_MIN = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
+  const TONIC_MAJ = SS.TONIC_NAMES.major;
+  const TONIC_MIN = SS.CHORD_ROOTS;
   const tonicName = (pc, mode) => (FAM_MAJOR(mode) ? TONIC_MAJ : TONIC_MIN)[((pc % 12) + 12) % 12];
   /**
    * Change la tonalité de la chanson : chaque scène est transposée de l'intervalle entre l'ancienne et la nouvelle
@@ -2864,8 +2864,8 @@ SS.band = (() => {
     [/^(outro|fin|coda)/, ['outro']],
   ];
   const normName = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-  const MAJOR_TONICS = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
-  const MINOR_TONICS = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'B♭', 'B'];
+  const MAJOR_TONICS = SS.TONIC_NAMES.major;
+  const MINOR_TONICS = SS.TONIC_NAMES.minor;
   const COVER_DEFAULT = () => ({
     title: '',
     tempo: 110,
@@ -4113,7 +4113,7 @@ SS.band = (() => {
     const film = !!sc.film;
     const curId = S.wiz.emos[sc.sec] || sc.emotion || null;
     const cur = curId && SS.findEmotion(curId);
-    const colorOf = (id) => (SS.EMOTION_COLORS && SS.EMOTION_COLORS[id]) || '#9a9aa3';
+    const colorOf = (id) => SS.emotionColor(id);
     const pick = (id) => {
       wshEmo = false;
       if (id) S.wiz.emos[sc.sec] = id;
@@ -5742,7 +5742,7 @@ SS.band = (() => {
     );
     const empty = all.length ? null : h('p', { class: 'bw-rempty' }, 'Pas de notes dans cette scène.');
     if (!acc) return h('div', { class: 'bw-roll', id: 'bwRoll', 'data-scene': sc.id, 'data-bars': sc.bars, style: `--c:${color}`, role: 'img', 'aria-label': `Notes de la scène ${sc.name}` }, chords, h('div', { class: 'bw-rbody' }, svg, h('i', { class: 'bw-roll-ph', hidden: true })), empty);
-    const names = ['Do', 'Do♯', 'Ré', 'Mi♭', 'Mi', 'Fa', 'Fa♯', 'Sol', 'La♭', 'La', 'Si♭', 'Si'];
+    const names = SS.NOTE_NAMES_FR;
     const nb = events.map((e) => {
       const on = isAcc(e);
       const n = e.notes[0];

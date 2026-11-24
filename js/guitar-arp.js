@@ -36,7 +36,7 @@
     { id: 'openG', label: 'Open G', notes: [38, 43, 50, 55, 59, 62], hint: 'D2 G2 D3 G3 B3 D4 : sol majeur à vide, blues et slide' },
   ];
   const openOf = (g) => (TUNINGS.find((t) => t.id === g.tuning) || TUNINGS[0]).notes;
-  const NAMES = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+  const NAMES = SS.CHORD_ROOTS_ASCII;
   const x = null; // corde non jouée
 
   // formes ouvertes : frettes de la 6e à la 1re corde

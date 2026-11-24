@@ -64,7 +64,7 @@ SS.melody = (() => {
     '7b9': [0, 4, 7, 10, 13], '7#9': [0, 4, 7, 10, 15], '7#11': [0, 4, 7, 10, 18], '7b13': [0, 4, 7, 10, 20], '7b5': [0, 4, 6, 10],
     'maj7#11': [0, 4, 7, 11, 18], 'm7b9': [0, 3, 7, 10, 13],
   };
-  const LETTER_PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+  const LETTER_PC = SS.LETTER_PC;
   const FR_LETTER = { do: 'C', ré: 'D', re: 'D', mi: 'E', fa: 'F', sol: 'G', la: 'A', si: 'B' };
 
   /** Nom de la fonction d'un intervalle dans l'accord (pour le tableau). */
@@ -205,8 +205,8 @@ SS.melody = (() => {
    */
   function guessKeys(spans) {
     if (!spans.length) return [];
-    const tonics = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
-    const minorTonics = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'B♭', 'B'];
+    const tonics = SS.TONIC_NAMES.major;
+    const minorTonics = SS.TONIC_NAMES.minor;
     const out = [];
     for (const mode of ['major', 'minor']) {
       (mode === 'major' ? tonics : minorTonics).forEach((tonic) => {
@@ -981,7 +981,7 @@ SS.melody = (() => {
     const frac = stepInBar % 4;
     return frac ? `${whole + 1} ${quarters(frac)}` : String(whole + 1);
   }
-  const EN_NOTES = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
+  const EN_NOTES = SS.CHORD_ROOTS;
   /** Nom anglo-saxon d'une note (A, B♭, F♯…), orthographié selon la tonalité, avec l'octave (C4 = do central, MIDI 60). */
   function noteLabel(midi, key) {
     const oct = Math.floor(midi / 12) - 1;

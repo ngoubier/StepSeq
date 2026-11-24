@@ -13,7 +13,7 @@ window.SS = window.SS || {};
 SS.harmony = (() => {
   const LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
   const NATURAL = [0, 2, 4, 5, 7, 9, 11];
-  const FR = { C: 'Do', D: 'Ré', E: 'Mi', F: 'Fa', G: 'Sol', A: 'La', B: 'Si' };
+  const FR = SS.LETTER_FR;
 
   // fam : couleur générale (tierce majeure ou mineure) ; tonal : tonalité classique (sinon mode) ;
   // color : degré caractéristique du mode (la note qui le distingue du majeur ou du mineur naturel)
@@ -250,8 +250,8 @@ SS.harmony = (() => {
     major: [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88],
     minor: [6.33, 2.68, 3.52, 5.38, 2.6, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17],
   };
-  const MAJOR_TONICS = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
-  const MINOR_TONICS = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'B♭', 'B'];
+  const MAJOR_TONICS = SS.TONIC_NAMES.major;
+  const MINOR_TONICS = SS.TONIC_NAMES.minor;
 
   function corr(a, b) {
     const ma = a.reduce((x, y) => x + y, 0) / 12;

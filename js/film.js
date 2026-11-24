@@ -19,25 +19,8 @@
 window.SS = window.SS || {};
 
 SS.film = (() => {
-  /**
-   * Émotions d'un passage : couleur, émotion de l'application (js/emotions.js) et tempo typique.
-   * Couleurs (associations les plus constantes des études couleur-émotion, Plutchik, Jonauskaite et al. 2020) :
-   * tristesse bleu profond, nostalgie bleu-gris doux (sépia du souvenir, mais lisible sur fond sombre), suspense violet clair,
-   * peur violet sombre, colère rouge, espoir vert tendre, héroïsme orange doré, émerveillement turquoise,
-   * apaisement vert (paix, harmonie), joie jaune.
-   */
-  const EMOS = [
-    { k: 'tristesse', id: 'tristesse', label: 'Tristesse', color: '#3f6fe0', bpm: 60 },
-    { k: 'nostalgie', id: 'nostalgie', label: 'Nostalgie', color: '#8aa0d6', bpm: 72 },
-    { k: 'suspense', id: 'suspense', label: 'Suspense', color: '#a98bff', bpm: 90 },
-    { k: 'peur', id: 'angoisse', label: 'Peur', color: '#6b3cc9', bpm: 140 },
-    { k: 'colere', id: 'angoisse', label: 'Colère', color: '#e5382f', bpm: 140 },
-    { k: 'espoir', id: 'espoir', label: 'Espoir', color: '#9ad65a', bpm: 84 },
-    { k: 'heroisme', id: 'triomphe', label: 'Héroïsme', color: '#ff9326', bpm: 120 },
-    { k: 'emerveillement', id: 'emerveillement', label: 'Émerveillement', color: '#2fcfd6', bpm: 76 },
-    { k: 'apaisement', id: 'serenite', label: 'Apaisement', color: '#2fb36d', bpm: 66 },
-    { k: 'joie', id: 'joie', label: 'Joie', color: '#ffd23a', bpm: 108 },
-  ];
+  /** Émotions d'un passage (k, id, libellé, couleur, tempo typique) : la table unique de js/emotions.js. */
+  const EMOS = SS.FILM_EMOTIONS;
   const emoOf = (k) => EMOS.find((x) => x.k === k) || EMOS[1];
   const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
   const lvl = (n) => clamp(Math.round(Number(n) || 3), 1, 5);
@@ -131,9 +114,9 @@ SS.film = (() => {
   }
 
   /* ---------- Harmonie d'un passage libre : une proposition de l'émotion, dans la tonalité de la scène ---------- */
-  const TONICS = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
-  const TONICS_MAJ = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
-  const PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+  const TONICS = SS.CHORD_ROOTS;
+  const TONICS_MAJ = SS.TONIC_NAMES.major;
+  const PC = SS.LETTER_PC;
   const pcOfName = (t) => (PC[t[0]] + (t.includes('♯') ? 1 : t.includes('♭') ? -1 : 0) + 12) % 12;
   /** Grille d'un passage : les accords d'une proposition de l'émotion, un par mesure, répétés ; key : celle du passage. */
   function gridFor(emotion, key, bars) {
