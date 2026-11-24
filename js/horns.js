@@ -22,22 +22,23 @@ window.SS = window.SS || {};
 SS.horns = (() => {
   const pcOf = (m) => ((m % 12) + 12) % 12;
   const I = (label, tok, lo, hi, hp) => ({ label, tok, lo, hi, hp });
-  // pas d'échantillons dédiés pour cornet, bugle, saxhorns, euphonium et sousaphone : le son le plus proche
+  // échantillons libres (samples/libre : saxophones MTG, trombones Iowa, tuba War Tuba ; VSCO : trompette, cor) ;
+  // pas d'échantillons libres pour cornet, bugle, saxhorns, euphonium et sousaphone : le son le plus proche
   const INST = {
     tp: I('Trompette', 'vsco_trumpet', 52, 82, 160),
     cn: I('Cornet', 'vsco_trumpet', 52, 82, 160),
     fl: I('Bugle', 'vsco_horn', 52, 79, 140),
-    sa: I('Sax alto', 'vcsl_sax', 49, 80, 150),
-    st: I('Sax ténor', 'vcsl_sax', 44, 75, 110),
-    sb: I('Sax baryton', 'vcsl_sax', 36, 68, 60),
-    tb: I('Trombone', 'vsco_trombone', 40, 72, 80),
-    bt: I('Trombone basse', 'vsco_trombone', 34, 65, 50),
+    sa: I('Sax alto', 'libre_sax_alto', 49, 80, 150),
+    st: I('Sax ténor', 'libre_sax_tenor', 44, 75, 110),
+    sb: I('Sax baryton', 'libre_sax_bari', 36, 68, 60),
+    tb: I('Trombone', 'libre_trombone', 40, 72, 80),
+    bt: I('Trombone basse', 'libre_bass_trombone', 34, 65, 50),
     hn: I('Cor', 'vsco_horn', 34, 77, 60),
     ha: I('Saxhorn alto', 'vsco_horn', 45, 74, 100),
-    hb: I('Saxhorn baryton', 'vsco_trombone', 40, 70, 70),
-    eu: I('Euphonium', 'vsco_tuba', 34, 70, 50),
-    tu: I('Tuba', 'vsco_tuba', 28, 58, 30),
-    so: I('Sousaphone', 'vsco_tuba', 28, 58, 30),
+    hb: I('Saxhorn baryton', 'libre_trombone', 40, 70, 70),
+    eu: I('Euphonium', 'libre_tuba', 34, 70, 50),
+    tu: I('Tuba', 'libre_tuba', 28, 58, 30),
+    so: I('Sousaphone', 'libre_tuba', 28, 58, 30),
   };
   const ROLE_LABEL = { lead: 'Dessus', harm: 'Harmonie', bass: 'Basse', dbl: 'Doublure' };
   // gammes des accords : la note du modèle garde son rang dans la gamme de l'accord

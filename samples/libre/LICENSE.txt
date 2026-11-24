@@ -1,7 +1,9 @@
 Instruments libres de StepSeq (samples/libre) — sources et licences
 
-Tous ces échantillons sont sous Creative Commons Zero (CC0 1.0 Universal, domaine public) :
+Les instruments 1 à 6 sont sous Creative Commons Zero (CC0 1.0 Universal, domaine public) :
 https://creativecommons.org/publicdomain/zero/1.0/
+Les saxophones (7 à 9) sont sous Creative Commons Attribution 4.0 (à citer), les trombones (10 et 11) sont
+libres d'usage (University of Iowa).
 
 1. Célesta (celesta) : « A Sampled Celesta », Neil Bickford (echo~parallax),
    https://gitlab.com/echoparallax/a-sampled-celesta (soundfont « Celesta Tuned Denoised Mix »)
@@ -13,6 +15,18 @@ https://creativecommons.org/publicdomain/zero/1.0/
    https://freepats.zenvoid.org/Synthesizer/synth-pad.html
 5. Crash inversée (reverse_crash) : Big Rusty Drums, Karoryfer Samples, crash 17",
    https://github.com/sfzinstruments/karoryfer.big-rusty-drums
+
+6. Tuba (tuba) : War Tuba, Karoryfer Samples (CC0), tenues, micro statique,
+   https://github.com/sfzinstruments/karoryfer.war-tuba
+7. Sax alto (sax_alto), 8. Sax ténor (sax_tenor), 9. Sax baryton (sax_bari) : « MTG Solo Saxophones »,
+   Music Technology Group, Universitat Pompeu Fabra (enregistrements publiés sur freesound.org), programmés en SFZ
+   par kinwie ; licence Creative Commons Attribution 4.0 International (CC BY 4.0),
+   https://creativecommons.org/licenses/by/4.0/ ; https://github.com/sfzinstruments/MTG.SoloSax
+   Modifications : nuance forte, première prise, une note sur trois, volume de chaque note égalisé (SFZ), MP3.
+10. Trombone (trombone), 11. Trombone basse (bass_trombone) : University of Iowa Electronic Music Studios,
+   Musical Instrument Samples, https://theremin.music.uiowa.edu/MIS.html (« may be downloaded and used for any
+   projects, without restrictions ») ; notes isolées fortissimo ; le trombone basse est complété au-dessus du Mi♭2
+   par le trombone ténor.
 
 Modifications pour StepSeq (tools/libre-local.py) : un échantillon par note de référence, durée limitée à 8 s avec un
 fondu, conversion en MP3 ; crash : micros de proximité et overheads mélangés, puis jouée à l'envers.

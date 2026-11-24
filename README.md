@@ -607,8 +607,9 @@ L'étape Cuivres choisit, scène par scène, le **jeu** de la section : le jeu d
 syncopés, Mambo 2-3, Thème aux cors…), **Unisson**, **Coups** (au rythme du style) ou **Tenues**, et sa **nuance**.
 Chaque jeu est recalculé sur les accords de la scène, degré par degré, chaque musicien dans son registre ; swing 2/3 pour
 le big band. Une ligne par musicien : interrupteur (joue ou non dans la scène), rôle (Dessus, Harmonie, Basse), sa
-partie, son registre, M / S. « + Musicien » ajoute une doublure (4 au plus). Sons : trompette, trombone, cor, tuba
-VSCO 2, saxophones VCSL ; cornet, bugle, saxhorns, euphonium et sousaphone empruntent le son le plus proche. Outils
+partie, son registre, M / S. « + Musicien » ajoute une doublure (4 au plus). Sons : trompette et cor VSCO 2 ;
+saxophones alto, ténor et baryton MTG, trombone et trombone basse de l'Iowa, tuba War Tuba (bibliothèque libre,
+voir Sons) ; cornet, bugle, saxhorns, euphonium et sousaphone empruntent le son le plus proche. Outils
 Claude : `assistantMusicien({ ajouter: 'cuivres', son: 'funk' })`, `assistantMotifs` (les 4 jeux), `assistantJeu({ motif })`.
 Un modèle de chanson peut avoir sa section d'office (musicien `m('horns', …, { horns: true, form })`) et écrire le jeu de
 chaque scène (`horns: 'sig' | 'uni' | 'coups' | 'ten'` dans ses sections) : c'est le cas de « Calle de la Luna ».
@@ -1336,6 +1337,13 @@ Les sons proviennent des bibliothèques utilisées par [strudel.cc](https://stru
   frappe : le coup joue celui de sa vélocité, ce qui rend les ghost notes naturelles. Hébergées dans `samples/live/`
   (MP3, 4 s max, 21 Mo), préparées par `tools/live-drums.py`. S'y ajoutent les **percussions salsa** (dossier `salsa` :
   congas, bongos, cloches, claves, güiro et maracas de la VCSL, timbales de la banque General MIDI FluidR3) ;
+- la bibliothèque **libre** (`samples/libre/`, préparée par `tools/libre-local.py`, crédits dans
+  `samples/libre/LICENSE.txt`) : célesta d'echo~parallax, basse, guitare jazz et chœur de FreePats, crash inversée de
+  Big Rusty Drums, tuba [War Tuba](https://github.com/sfzinstruments/karoryfer.war-tuba) de Karoryfer (CC0),
+  saxophones alto, ténor et baryton [MTG Solo Saxophones](https://github.com/sfzinstruments/MTG.SoloSax) du Music
+  Technology Group de l'Universitat Pompeu Fabra (CC BY 4.0, programmés par kinwie), trombone et trombone basse des
+  [Musical Instrument Samples](https://theremin.music.uiowa.edu/MIS.html) de l'Université de l'Iowa (libres d'usage).
+  Les notes courtes des saxophones et des trombones sont prolongées à 6 s (partie tenue bouclée en fondu enchaîné) ;
 - le piano de dough-samples ;
 - [Dirt-Samples](https://github.com/tidalcycles/Dirt-Samples) : banques de batterie, et banques mélodiques jouées
   comme instruments (Mighty Moog, Pluck Bass, JV Bass, Jungle Bass, Juno, SID, Hoover, pads…) ;
