@@ -393,7 +393,11 @@ caractère…), et **▶ joue la scène choisie en boucle** (pas toute la chanso
    console dans `mix.auto` : passe-haut, cloches, compresseur, limiteur de piste, sidechain, gain / plafond / graves mono / largeur
    du mastering…) : ils restent d'une étape à l'autre et passent dans la Grille à « Créer la chanson ». **Ctrl+Z** (ou ↶) défait le
    dernier réglage, l'onglet **Fait** un réglage précis ou **toute la session de mix** ; **A / B** compare le mix d'avant la session et
-   le mix actuel. Outil Claude : `assistantMixAuto`. Test : `node tests/e2e/wiz-automix.js` ;
+   le mix actuel. **Régler pour** : **Toute la chanson** ou **Chaque scène** (l'écoute repart à chaque scène ; volumes et envoi
+   hall se rangent dans la scène entendue, comme les réglages propres de l'étape Mix ; égaliseur, compresseur, pan et Master restent
+   communs ; chaque conseil porte sa scène). À l'étape Mix, la tranche écoutée s'allume en bleu (le pilote l'annonce avant d'agir,
+   ou au survol d'un conseil), la tranche réglée en vert avec le réglage touché (fader, pan, effet de la liste, bouton du tiroir FX).
+   Outil Claude : `assistantMixAuto` (`parScene`). Test : `node tests/e2e/wiz-automix.js` ;
 12. **Intégration** : cases à cocher par musicien (batterie, basse, nappes, arpèges, lead…) et par élément de batterie ;
    **Créer la chanson** (bouton dans l'étape, en haut à droite, avec le compte des pistes) écrit les pistes cochées, les scènes et l'arrangement (tempo de la barre du haut, mixage
    automatique de Band). Ce qui est créé est exactement l'aperçu ; Ctrl+Z revient à la chanson vide.
