@@ -5,7 +5,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 globalThis.window = globalThis;
-['dirt.js', 'dirt-tuning.js', 'sounds.js', 'harmony.js', 'project.js', 'band-presets.js', 'band-songs.js', 'melody.js', 'bandsong.js'].forEach((f) => require('../js/' + f));
+['dirt.js', 'dirt-tuning.js', 'sounds.js', 'harmony.js', 'project.js', 'band-presets.js', 'band-songs.js', 'melody.js', 'horns.js', 'bandsong.js'].forEach((f) => require('../js/' + f));
 const H = globalThis.SS.harmony;
 const SS = globalThis.SS;
 
@@ -15,6 +15,8 @@ const tracksOf = (p) =>
   p.musicians.filter((m) => !m.injected).flatMap((m) =>
     m.kits
       ? m.pieces.map((pc) => ({ id: m.role + ':' + pc, type: 'drum', sound: pc, band: { key: m.role + ':' + pc } }))
+      : m.horns // section de cuivres : une piste par musicien de la formation
+      ? SS.horns.players(m.form).map((x) => ({ id: 'horns:' + x.key, type: 'instrument', category: 'mono', band: { key: 'horns:' + x.key, musician: m.role } }))
       : [{ id: m.role, type: 'instrument', category: m.role === 'bass' || m.role === 'lead' ? 'mono' : 'chord', band: { key: m.role } }]
   );
 const plays = (d) => (d.steps ? d.steps.some((v) => v > 0) : d.events.length > 0);

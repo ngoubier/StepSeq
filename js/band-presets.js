@@ -1041,7 +1041,7 @@ window.SS = window.SS || {};
             m('bass', 'vsco_contrabass_pizz gm_acoustic_bass gm_electric_bass_finger gm_fretless_bass syn_sub dirt_jvbass', { label: 'Basse (tumbao)', note: 'Le « et » du 2 et le 4 annoncent l’accord qui arrive' }),
             m('keys', 'vcsl_steinway vcsl_piano1 vcsl_kawai piano gm_piano gm_epiano1', { label: 'Piano montuno', note: 'Octaves anticipées sur la clave 2-3, main gauche qui double' }),
             m('lead', 'vsco_trumpet gm_trumpet vcsl_sax gm_muted_trumpet gm_alto_sax vsco_flute', { label: 'Mélodie (trompette)' }),
-            m('brass', 'vsco_trumpet gm_brass_section gm_trumpet gm_trombone vsco_horn gm_synth_brass_1', { label: 'Cuivres', note: 'Deux trompettes et un trombone : tenues, coups sur la clave, moña, mambo, cierre' }),
+            m('horns', 'vsco_trumpet', { label: 'Cuivres', horns: true, cat: 'mono', form: 'salsa', note: 'Formation Salsa (deux trompettes, deux trombones) : unisson, tenues, coups sur la clave, mambo' }),
           ],
         },
         {

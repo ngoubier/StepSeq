@@ -6,7 +6,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 globalThis.window = globalThis;
-['library.js', 'dirt.js', 'sounds.js', 'harmony.js', 'arp.js', 'project.js', 'band-presets.js', 'band-songs.js', 'band-levels.js', 'mixref.js', 'bandmix.js'].forEach((f) => require('../js/' + f));
+['library.js', 'dirt.js', 'sounds.js', 'harmony.js', 'arp.js', 'project.js', 'band-presets.js', 'band-songs.js', 'band-levels.js', 'mixref.js', 'horns.js', 'bandmix.js'].forEach((f) => require('../js/' + f));
 if (fs.existsSync(__dirname + '/../js/band-drive.js')) require('../js/band-drive.js');
 const SS = globalThis.SS;
 const B = SS.Band;
@@ -39,16 +39,20 @@ test('calibrage : chaque instrument et chaque élément de batterie proposés on
   for (const p of PRESETS)
     p.musicians.forEach((mu) => {
       if (mu.kits) return mu.kits.forEach((k) => mu.pieces.forEach((pc) => assert.ok(SS.BAND_LEVELS.drum[`${k}|${pc}`], `${p.id} : ${k}|${pc} non mesuré`)));
-      if (mu.amb) return; // musicien Ambient : le niveau est réglé par son module (js/ambient.js)
+      if (mu.amb || mu.horns) return; // musicien Ambient : niveau réglé par son module (js/ambient.js) ; Cuivres : par musicien (hornsRule)
       const cat = mu.cat || B.ROLES[mu.role].cat;
       mu.pick.forEach((tok) => assert.ok(SS.BAND_LEVELS.inst[`${mu.role}|${tok}|${cat}`], `${p.id} : ${mu.role}|${tok} non mesuré`));
     });
 });
 
+test('calibrage : chaque son de la section de cuivres a un niveau mesuré (piste par musicien)', () => {
+  new Set(Object.values(SS.horns.INST).map((x) => x.tok)).forEach((tok) => assert.ok(SS.BAND_LEVELS.inst[`horns|${tok}|mono`], `horns|${tok} non mesuré`));
+});
+
 test('calibrage : aucun instrument proposé n\'est trop faible pour être mixé (volume ≤ +6 dB)', () => {
   for (const p of PRESETS)
     p.musicians.forEach((mu) => {
-      if (mu.kits || mu.amb) return;
+      if (mu.kits || mu.amb || mu.horns) return;
       const cat = mu.cat || B.ROLES[mu.role].cat;
       mu.pick.forEach((tok) => {
         const { tracks, keys } = bandTracks({ ...p, musicians: [{ ...mu, optional: false, pick: [tok] }] });

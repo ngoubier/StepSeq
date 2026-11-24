@@ -66,6 +66,9 @@ test('doublures et clés de piste', () => {
 
 test('jeu proposé selon la scène, formation selon le style', () => {
   assert.deepStrictEqual(['intro', 'verse', 'chorus', 'bridge', 'outro'].map(H.defaultJeu), ['ten', 'coups', 'sig', 'uni', 'coups']);
+  // jeu écrit par le modèle de chanson, sinon celui du nom de la scène
+  assert.equal(H.sceneJeu('chorus', 'coups'), 'coups');
+  assert.equal(H.sceneJeu('chorus', 'brass-clave'), 'sig');
   assert.strictEqual(H.formFor('latin'), 'salsa');
   assert.strictEqual(H.formFor('synthwave'), 'funk');
 });

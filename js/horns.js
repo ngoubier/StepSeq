@@ -7,6 +7,7 @@
  *                           du modèle, jeu du style (notes MIDI, placements, durées, vélocités) et rythme des coups
  *   JEUX, jeux(form)        les quatre jeux : sig (le jeu du style), uni (unisson), coups, ten (tenues)
  *   defaultJeu(sec)         jeu proposé pour une scène d'après son nom (intro, couplet, refrain…)
+ *   sceneJeu(sec, model)    le jeu écrit par le modèle de chanson pour la scène, sinon defaultJeu
  *   players(form, add)      musiciens d'une formation, plus ceux ajoutés (doublures) : { id, key, i, role, pan, label, tok, lo, hi }
  *   fromKeys(keys)          formation et musiciens ajoutés d'après les clés des pistes (« funk-tp », « funk-a1_tb »)
  *   write(opts)             notes de chaque musicien pour une scène : { lines: { id: { role, events, lo, hi } } }
@@ -161,6 +162,9 @@ SS.horns = (() => {
     if (/^(outro|fin)/.test(s)) return 'coups';
     return 'sig';
   }
+
+  /** Jeu d'une scène : celui que le modèle de chanson écrit (sections[…].horns), sinon celui de son nom. */
+  const sceneJeu = (sec, model) => (JEUX.includes(model) ? model : defaultJeu(sec));
 
   /* ---------- musiciens ---------- */
   const chordAt = (F, beat) => {
@@ -360,5 +364,5 @@ SS.horns = (() => {
   const NOTES_FR = () => (SS.NOTE_NAMES_FR || ['Do', 'Do♯', 'Ré', 'Mi♭', 'Mi', 'Fa', 'Fa♯', 'Sol', 'La♭', 'La', 'Si♭', 'Si']);
   const midiName = (m) => NOTES_FR()[pcOf(m)] + (Math.floor(m / 12) - 1);
 
-  return { INST, FORMS, FORM, formOf, fromKeys, formFor, STYLE_FORM, JEUX, jeux, defaultJeu, players, write, realize, scaleOf, SCALES, offByDefault, ROLE_LABEL, midiName, NUANCE };
+  return { INST, FORMS, FORM, formOf, fromKeys, formFor, STYLE_FORM, JEUX, jeux, defaultJeu, sceneJeu, players, write, realize, scaleOf, SCALES, offByDefault, ROLE_LABEL, midiName, NUANCE };
 })();
