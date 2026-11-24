@@ -18,8 +18,8 @@ SS.emotionArcPanel = (() => {
   const FEEL = { plein: 'batterie pleine', demi: 'batterie en demi-temps', sans: 'sans batterie' };
   const REL = { relative: 'relative', parallel: 'homonyme' };
   /** Types de musicien montrés par scène (rôle de l'assistant le plus proche, pour la couleur et le nom). */
-  const KIND_ROLE = { drums: 'drums', bass: 'bass', chords: 'pad', arp: 'arp', melody: 'lead', orch: 'orch', ambient: 'ambient' };
-  const KIND_ORDER = ['drums', 'bass', 'chords', 'arp', 'melody', 'orch', 'ambient'];
+  const KIND_ROLE = { drums: 'drums', bass: 'bass', chords: 'pad', arp: 'arp', guitar: 'guitar', melody: 'lead', orch: 'orch', ambient: 'ambient' };
+  const KIND_ORDER = ['drums', 'bass', 'chords', 'arp', 'guitar', 'melody', 'orch', 'ambient'];
 
   function h(tag, attrs = {}, ...kids) {
     const e = document.createElement(tag);

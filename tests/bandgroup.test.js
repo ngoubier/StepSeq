@@ -5,7 +5,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 globalThis.window = globalThis;
-['dirt.js', 'dirt-tuning.js', 'sounds.js', 'harmony.js', 'project.js', 'band-presets.js', 'bandgroup.js', 'band-songs.js', 'band-levels.js', 'mixref.js', 'bandmix.js', 'wizmix.js', 'drum-patterns.js', 'arp.js', 'motifs.js', 'melody.js', 'bandsong.js', 'wizdraft.js'].forEach((f) => require('../js/' + f));
+['dirt.js', 'dirt-tuning.js', 'sounds.js', 'harmony.js', 'project.js', 'band-presets.js', 'bandgroup.js', 'band-songs.js', 'band-levels.js', 'mixref.js', 'bandmix.js', 'wizmix.js', 'drum-patterns.js', 'arp.js', 'guitar-arp.js', 'motifs.js', 'melody.js', 'bandsong.js', 'wizdraft.js'].forEach((f) => require('../js/' + f));
 const SS = globalThis.SS;
 const BG = SS.bandGroup;
 const BS = SS.bandSong;
@@ -58,7 +58,7 @@ test('sans retouche, la chanson est identique : le groupe par défaut ne change 
 test('un musicien ajouté de chaque type joue avec le générateur de son type', () => {
   const g = BG.defaultGroup(SMALL);
   const rec = {};
-  for (const t of BG.TYPES) rec[t] = BG.add(g, t);
+  for (const t of ['drums', 'bass', 'chords', 'arp', 'melody']) rec[t] = BG.add(g, t);
   assert.equal(g.list.length, 5 + 5);
   const res = build(SMALL, tracksOf(SMALL, g.list));
   const sc = res.scenes.find((x) => x.sec === 'chorus');
@@ -78,6 +78,22 @@ test('un musicien ajouté de chaque type joue avec le générateur de son type',
   assert.ok(kit.every((s) => s.some((v) => v > 0)), 'kit : des coups');
   // chaque scène a des notes pour chaque musicien ajouté (jamais muet d'office)
   res.scenes.forEach((s) => ['bass', 'chords', 'arp', 'melody'].forEach((t) => assert.ok(s.data[rec[t].id].events.length > 0, `${s.name} ${t}`)));
+});
+
+test('un Guitariste ajouté joue le moteur de guitare partout (« g:pop » sans jeu de guitare dans le plan)', () => {
+  const g = BG.defaultGroup(SMALL);
+  const r = BG.add(g, 'guitar');
+  assert.equal(r.name, 'Guitariste');
+  const tr = tracksOf(SMALL, g.list);
+  const res = build(SMALL, tr);
+  res.scenes.forEach((s) => assert.ok(s.data[r.id].events.length > 4, `${s.name} : le guitariste joue`));
+  // même chose que le moteur de guitare d'Arp One sur le motif « pop » (une note par corde, pas un accord plaqué)
+  const ch = res.scenes.find((x) => x.sec === 'chorus');
+  assert.ok(ch.data[r.id].events.every((e) => e.notes.length === 1), 'cordes une à une');
+  // jeu choisi pour la scène : un accord plaqué du moteur de nappe (« strum ») ou un arpège aux doigts
+  const id = BS.instIds(tr).find((x) => x.id.startsWith(r.id + ':')).id;
+  const strum = build(SMALL, tr, { parts: { chorus: { inst: { [id]: { mode: 'strum' } } } } }).scenes.find((x) => x.sec === 'chorus').data[r.id].events;
+  assert.ok(strum.length && strum.every((e) => e.notes.length >= 3 && Math.min(...e.notes) >= 52 && Math.max(...e.notes) <= 74), 'accords plaqués dans la tessiture de la guitare');
 });
 
 test('un musicien ajouté peut changer de type (kinds) : le générateur du nouveau type joue', () => {

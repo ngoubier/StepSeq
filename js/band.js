@@ -2074,6 +2074,7 @@ SS.band = (() => {
     bass: 'La fondation grave : suit la fondamentale de chaque accord.',
     chords: 'Joue la grille en nappe, plaqué ou en stabs.',
     arp: 'Égrène les notes des accords en motif répété.',
+    guitar: 'Une guitare : arpèges aux doigts ou au médiator, accords grattés ou étouffés, avec de vraies formes d’accord.',
     melody: 'La ligne chantante par-dessus : thème et motifs.',
     orch: 'Un effectif (cordes, cor, bois) qui se partage mélodie, accords et basse : une piste par pupitre.',
     ambient: 'Un module génératif qui joue seul, sur les accords de chaque scène : Jardin, Paysage ou Fresque.',
@@ -2521,18 +2522,19 @@ SS.band = (() => {
     get pick() { return 9 + insSteps().length; },
   };
   /** Types d'instrument : nom, résumé du fil des étapes, couleur de rôle (batterie rose, basse verte, nappe bleue, arpège turquoise, mélodie violette). */
-  const KIND_LABEL = { drums: 'Drums', bass: 'Basse', chords: 'Accords', arp: 'Arpèges', melody: 'Mélodie', orch: 'Orchestre', ambient: 'Ambient' };
-  const KIND_SUM = { drums: 'Drums', bass: 'Basse', chords: 'Nappe', arp: 'Arpège', melody: 'Mélodie', orch: 'Orchestre', ambient: 'Ambient' };
+  const KIND_LABEL = { drums: 'Drums', bass: 'Basse', chords: 'Accords', arp: 'Arpèges', guitar: 'Guitariste', melody: 'Mélodie', orch: 'Orchestre', ambient: 'Ambient' };
+  const KIND_SUM = { drums: 'Drums', bass: 'Basse', chords: 'Nappe', arp: 'Arpège', guitar: 'Guitare', melody: 'Mélodie', orch: 'Orchestre', ambient: 'Ambient' };
   /** Étiquette du type dans la tête d'étape instrument : « Nappe » et non « Accords », qui est l'étape 5. */
   const KIND_STEP = { ...KIND_LABEL, chords: 'Nappe', orch: 'Orchestration' };
-  const KIND_COLOR = { drums: '#e3179c', bass: '#3fcf3f', chords: '#4f6bff', arp: '#13c2a3', melody: '#9b5cff', orch: '#ff8a3d', ambient: '#6fe3c8' };
-  const KIND_DESC = { drums: 'Motifs rythmiques et fills', bass: 'Mode de jeu sur la fondamentale', chords: 'Joue la grille en nappe ou plaqué', arp: 'Arpège les accords (Arp One)', melody: 'Ligne mélodique générée', orch: 'Répartit mélodie, accords et basse entre les pupitres', ambient: 'Présence du module génératif, scène par scène' };
-  const KIND_SLOT = { drums: 'drums', bass: 'bass', chords: 'pad', arp: 'arp', melody: 'lead', orch: 'orch', ambient: 'amb' }; // suffixe des identifiants de test (#bwp-on-bass…)
+  const KIND_COLOR = { drums: '#e3179c', bass: '#3fcf3f', chords: '#4f6bff', arp: '#13c2a3', guitar: '#ff4d6d', melody: '#9b5cff', orch: '#ff8a3d', ambient: '#6fe3c8' };
+  const KIND_DESC = { drums: 'Motifs rythmiques et fills', bass: 'Mode de jeu sur la fondamentale', chords: 'Joue la grille en nappe ou plaqué', arp: 'Arpège les accords (Arp One)', guitar: 'Arpèges et accords de guitare (Arp One Guitare)', melody: 'Ligne mélodique générée', orch: 'Répartit mélodie, accords et basse entre les pupitres', ambient: 'Présence du module génératif, scène par scène' };
+  const KIND_SLOT = { drums: 'drums', bass: 'bass', chords: 'pad', arp: 'arp', guitar: 'gtr', melody: 'lead', orch: 'orch', ambient: 'amb' }; // suffixe des identifiants de test (#bwp-on-bass…)
   const KIND_ICON = {
     drums: '<ellipse cx="15" cy="17" rx="9" ry="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 17v5c0 2 4 4 9 4s9-2 9-4v-5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 4l7 9M23 4l-7 9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
     bass: '<path d="M3 15h4l3-9 4 18 3-12 2 3h8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>',
     chords: '<rect x="4" y="5" width="22" height="5" rx="2" fill="currentColor" opacity=".5"/><rect x="4" y="12.5" width="22" height="5" rx="2" fill="currentColor" opacity=".75"/><rect x="4" y="20" width="22" height="5" rx="2" fill="currentColor"/>',
     arp: '<path d="M3 24h5v-5h5v-5h5v-5h5V4h4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><circle cx="7" cy="14" r="1.6" fill="currentColor"/><circle cx="17" cy="22" r="1.6" fill="currentColor"/>',
+    guitar: '<path d="M19 3l8 8M23 7l-7.5 7.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M15.5 14.5c-2-2-5.5-1.5-6.5.5-.7 1.4-2.3 1.6-3.5 2.6-2.6 2.2-1.8 6.4 1 8.6 2.4 1.9 6 1.6 7.6-1 .8-1.3 1-2.8 2.4-3.6 2.2-1.2 1.4-4.9-1-7.1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="11.5" cy="19.5" r="1.8" fill="currentColor"/>',
     melody: '<path d="M3 20c4-12 7-12 10-3s6 8 9-4c1-4 3-5 5-4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="25" cy="9" r="2" fill="currentColor"/>',
     orch: '<path d="M15 3v7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M11 10h8c0 2.5-2 3-2 5s3 2.5 3 5.5S18 26 15 26s-5-2-5-5.5 3-3.5 3-5.5-2-2.5-2-5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M5 27L25 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
     ambient: '<circle cx="15" cy="15" r="3.5" fill="currentColor"/><path d="M15 3v5M15 22v5M3 15h5M22 15h5M6.5 6.5l3.5 3.5M20 20l3.5 3.5M6.5 23.5l3.5-3.5M20 10l3.5-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
@@ -6539,6 +6541,11 @@ SS.band = (() => {
   function planMode(sc, r) {
     const sec = secOf(sc);
     if (!isT(r)) return sec[r] || null;
+    if (r.kind === 'guitar' && (typeChanged(r) || BG().isExtraId(r.musician))) {
+      // Guitariste ajouté (ou musicien devenu Guitariste) : le jeu de guitare du plan, sinon « g:pop » (js/bandsong.js)
+      if (!BG().isExtraId(r.musician) && !sec[r.role]) return null;
+      return BS().fitMode('guitar', SS.guitarist.modesOf('arp').concat(SS.guitarist.modesOf('acc')).includes(sec.guitar) ? sec.guitar : SS.bandSong.DEFAULT_MODE.guitar);
+    }
     if (!typeChanged(r)) return (r.role === 'perc' ? sec.perc ?? sec.drums : sec[r.role]) || null;
     if (!sec[r.role]) return null;
     const valid = { bass: BASS_MODES, chords: PAD_MODES, arp: ARP_MODES }[r.kind];
@@ -6766,7 +6773,7 @@ SS.band = (() => {
   /** Réglage d'un instrument dans une scène, en une ligne pour la colonne des scènes et le fil des étapes. */
   function instSub(T, x) {
     if (mutedIn(x.sec, T)) return 'muette';
-    const k = T.kind === 'drums' ? (T.kit ? drumsSub : drumsLiteSub) : { bass: bassSub, chords: padSub, arp: arpSub, melody: melSub, orch: orchSub, ambient: ambSub }[T.kind];
+    const k = T.kind === 'drums' ? (T.kit ? drumsSub : drumsLiteSub) : { bass: bassSub, chords: padSub, arp: arpSub, guitar: gtrSub, melody: melSub, orch: orchSub, ambient: ambSub }[T.kind];
     return k(x, T);
   }
   /** Étape d'un instrument : types, barre de piste, scènes à gauche, éditeur du type choisi (réglages de cet instrument). */
@@ -6776,7 +6783,7 @@ SS.band = (() => {
     const box = $('#bandWiz');
     if (!res) return box.replaceChildren(h('p', { class: 'dlg-hint' }, 'Cette inspiration n’a pas de plan de chanson.'));
     const sc = curScene(res);
-    const body = { drums: () => (T.kit ? drumsBody(sc, T) : drumsLiteBody(sc, T)), bass: () => bassBody(sc, T), chords: () => padBody(sc, T), arp: () => arpBody(sc, T), orch: () => orchBody(sc, T), ambient: () => ambBody(sc, T) }[T.kind]();
+    const body = { drums: () => (T.kit ? drumsBody(sc, T) : drumsLiteBody(sc, T)), bass: () => bassBody(sc, T), chords: () => padBody(sc, T), arp: () => arpBody(sc, T), guitar: () => guitarBody(sc, T), orch: () => orchBody(sc, T), ambient: () => ambBody(sc, T) }[T.kind]();
     const prev = $('#bwParts');
     const top = prev && prev.dataset.ins === T.id && prev.dataset.kind === T.kind ? prev.scrollTop : 0; // un clic bas dans la liste ne la remonte pas
     const content = h('div', { class: 'bwc bwp', id: 'bwParts', 'data-kind': T.kind, 'data-ins': T.id, style: `--c:${KIND_COLOR[T.kind]}` }, ...body);
@@ -8296,6 +8303,164 @@ SS.band = (() => {
         partSeg('Voicing', 'bwpVoicing', [['close', 'Serré', 'Accord au plus proche du précédent'], ['open', 'Ouvert', 'La note grave descend d’une octave']], o.voicing || 'close', setVoicing)
       )
     );
+  }
+
+  /* --- Guitariste (type « guitar », js/guitarist.js) : Jeu Arpèges | Accords, puces de style, cartes par famille,
+   * potentiomètres de la main droite, « Avancé… » = la fenêtre Guitare d'Arp One. Le jeu de la scène est un mode
+   * « g:<motif> » (moteur de guitare) ou un accord plaqué (strum, pluck…) ; les réglages guitare vont dans parts…gtr. */
+  const GT = () => SS.guitarist;
+  const gtFits = (id) => (/^g:/.test(id) ? gtrFits(id) : BS().meterOK('chords', id));
+  const gtName = (id) => (/^g:/.test(id || '') ? nameOf(GUITAR_MODES, id) : SS.padMotifs ? SS.padMotifs.name(id) : id);
+  /** Puce de style affichée (celle du style de la chanson au départ). */
+  const gtStyle = () => (S.wiz.gtStyle === undefined ? GT().styleOfSong(S.styleId) : S.wiz.gtStyle);
+  /** Réglages faits dans la fenêtre Avancé (manche) : la pastille ✎ les signale. */
+  const gtAdvSet = (o) => !!(o && o.gtr && ['pos', 'capo', 'tuning'].some((k) => o.gtr[k] !== undefined));
+  function gtrSub(x, T) {
+    if (mutedIn(x.sec, T)) return 'muette';
+    const o = partOf(x.sec, T) || {};
+    const m = o.mode || planMode(x, T);
+    return (m ? gtName(m) : 'aucune') + (gtAdvSet(o) ? ' ✎' : '') + (o.mode || !m || typeChanged(T) || BG().isExtraId(T.musician) ? '' : ' · inspiration');
+  }
+  /** Potentiomètre rotatif (rendu d'Arp One) : glisser, molette, flèches ; commit(v) au lâcher. */
+  function dialKnob({ id, label, value, text, help, commit }) {
+    let v = value;
+    const num = h('b', {}, String(v));
+    const ring = h('div', { class: 'arp-knob-ring' }, h('div', { class: 'arp-knob-cap' }, num));
+    const now = h('span', { class: 'arp-knob-now' }, text(v));
+    const dial = h('div', { class: 'arp-knob-dial', id, role: 'slider', tabindex: '0', 'aria-label': label, 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(v), 'aria-valuetext': now.textContent }, ring);
+    const live = (x) => {
+      v = Math.max(0, Math.min(100, Math.round(x)));
+      ring.style.setProperty('--p', v + '%');
+      num.textContent = String(v);
+      now.textContent = text(v);
+      dial.setAttribute('aria-valuenow', String(v));
+      dial.setAttribute('aria-valuetext', now.textContent);
+    };
+    let drag = null;
+    dial.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      dial.setPointerCapture(e.pointerId);
+      drag = { y: e.clientY, v, moved: false };
+    });
+    dial.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      drag.moved = true;
+      live(drag.v + (drag.y - e.clientY) * 0.6);
+    });
+    const end = () => {
+      if (!drag) return;
+      const moved = drag.moved;
+      drag = null;
+      if (moved) commit(v);
+    };
+    dial.addEventListener('pointerup', end);
+    dial.addEventListener('pointercancel', end);
+    let wt = 0;
+    dial.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      live(v + (e.deltaY < 0 ? 2 : -2));
+      clearTimeout(wt);
+      wt = setTimeout(() => commit(v), 350);
+    }, { passive: false });
+    dial.addEventListener('keydown', (e) => {
+      const d = { ArrowUp: 5, ArrowRight: 5, ArrowDown: -5, ArrowLeft: -5, PageUp: 20, PageDown: -20 }[e.key];
+      const to = e.key === 'Home' ? 0 : e.key === 'End' ? 100 : d != null ? v + d : null;
+      if (to == null) return;
+      e.preventDefault();
+      live(to);
+      commit(v);
+    });
+    live(v);
+    return h('div', { class: 'arp-knob bwa-knob', 'data-k': id }, dial, h('b', { class: 'arp-knob-name' }, label, help ? SS.helpTip(help, label) : null), now);
+  }
+  function guitarBody(sc, T) {
+    const G = GT();
+    const GA = SS.GuitarArp;
+    const o = partOf(sc.sec, T) || {};
+    const insp = planMode(sc, T);
+    const muted = mutedIn(sc.sec, T);
+    const cur = o.mode || insp;
+    const jeu = cur ? G.jeuOf(cur) : S.wiz.gtJeu || 'acc';
+    const style = gtStyle();
+    const songSt = G.styleOfSong(S.styleId);
+    const isG = /^g:/.test(cur || '') && !muted;
+    const setMode = (id, focus) => {
+      putOff(sc.sec, T, false);
+      putPart(sc.sec, T, { mode: id === insp ? undefined : id });
+      partChanged(focus);
+    };
+    const pickJeu = (v) => {
+      if (v === jeu) return;
+      S.wiz.gtJeu = v;
+      const id = G.firstOf(v, style, gtFits);
+      if (id) setMode(id, `#bwgJeu [data-v="${v}"]`);
+      else renderWiz();
+    };
+    const draw = () => {
+      const o2 = partOf(sc.sec, T) || {};
+      const c2 = o2.mode || planMode(sc, T);
+      const mo = /^g:/.test(c2 || '') ? c2.slice(2) : 'classA';
+      return guitarAdvanced(sc, GA.normalize({ ...(o2.gtr || {}), on: true, motif: mo }), (p) => gtrEdit(sc, T, p), (id) => (setMode('g:' + id), gtApplied()));
+    };
+    const card = (id) => {
+      const on = id === cur && !muted;
+      const gm = GUITAR_MODES.find((x) => x[0] === id);
+      const draw = gm ? rhythmSvg(gm[3]) : SS.padMotifs ? SS.padMotifs.svg(id) : '';
+      return h(
+        'button',
+        { type: 'button', role: 'radio', class: 'bwp-mode' + (on ? ' on' : ''), 'data-v': id, 'aria-checked': String(on), title: (gm ? gm[2] : SS.padMotifs ? SS.padMotifs.desc(id) : '') + ' · ' + G.stylesOf(id).map((s) => (G.STYLES.find((x) => x[0] === s) || [, s])[1]).join(', '), onclick: () => setMode(id, `.bwp-mode[data-v="${id}"]`) },
+        h('b', {}, gtName(id), id === insp ? h('em', {}, 'Inspiration') : null),
+        h('span', { class: 'bwp-rhy', html: draw })
+      );
+    };
+    const g = GA.normalize({ ...(o.gtr || {}) });
+    const surprise = () => {
+      const id = G.surprise(jeu, style, cur, Math.random(), gtFits);
+      if (!id) return;
+      putOff(sc.sec, T, false);
+      putPart(sc.sec, T, { mode: id === insp ? undefined : id });
+      if (/^g:/.test(id)) gtrEdit(sc, T, Object.assign({}, ...G.KNOBS[jeu].map(([k]) => G.knobPatch(k, 20 + Math.round(Math.random() * 60)))), '#bwgSurprise');
+      else partChanged('#bwgSurprise');
+    };
+    return [
+      partHead(sc, T, 'guitare', true),
+      rollBox(sc, T),
+      autoCard(sc, T, { fit: true }),
+      h(
+        'section',
+        { class: 'bwp-card bw-card bwg', id: 'bwGuitarist' },
+        h(
+          'div',
+          { class: 'bwp-ch' },
+          h('b', {}, `Guitare de « ${sc.name} »`),
+          partSeg('Jeu', 'bwgJeu', G.JEUX, jeu, pickJeu),
+          SS.helpTip('Arpèges : les cordes une à une, aux doigts ou au médiator. Accords : l’accord en entier, gratté, étouffé ou plaqué. Le son de la guitare se choisit à l’étape Instruments ; « Avancé… » ouvre la guitare d’Arp One (manche, capodastre, accordage, tablature).', 'Jeu du guitariste'),
+          h('span', { class: 'spacer' }),
+          gtAdvSet(o) ? h('button', { type: 'button', class: 'bwa-advchip', id: 'bwgAdvChip', title: 'Réglages du manche faits dans la fenêtre Avancé : clic pour la rouvrir', onclick: () => openGtDialog(draw) }, '✎ Réglages avancés') : null,
+          gtAdvBtn(!isG, draw),
+          playBox(sc, T, SS.bandSong.DEFAULT_MODE.guitar)
+        ),
+        h(
+          'div',
+          { class: 'mot-chips bwg-styles', role: 'radiogroup', 'aria-label': 'Style', id: 'bwgStyle' },
+          ...[['all', 'Tous'], ...G.STYLES].map(([v, t]) => h('button', { type: 'button', role: 'radio', class: 'mot-chip' + (v === style ? ' on' : '') + (v === songSt ? ' mark' : ''), 'aria-checked': String(v === style), 'data-v': v, title: v === songSt ? 'Le style de la chanson' : null, onclick: () => ((S.wiz.gtStyle = v), renderWiz()) }, t)),
+          SS.helpTip('Les motifs qui sonnent juste dans chaque style ; le point marque celui de la chanson. « Tous » : le catalogue complet.', 'Style'),
+          h('span', { class: 'spacer' }),
+          h('button', { type: 'button', class: 'btn btn-small', id: 'bwgSurprise', title: 'Un motif du style au hasard, et des réglages de jeu au hasard', onclick: surprise }, 'Surprends-moi')
+        ),
+        ...G.FAMILIES[jeu].map(([f, label]) => {
+          const list = G.modesOf(jeu).filter((id) => G.familyOf(id) === f && gtFits(id) && (G.inStyle(id, style) || id === cur));
+          return list.length ? h('div', { class: 'bwp-grp', 'data-fam': f }, h('span', { class: 'bwp-glbl' }, label), h('div', { class: 'bwp-modes compact', role: 'radiogroup', 'aria-label': label }, ...list.map(card))) : null;
+        }),
+        isG
+          ? h(
+              'div',
+              { class: 'arp-knobs bwg-knobs' },
+              ...G.KNOBS[jeu].map(([k, label, help, text]) => dialKnob({ id: 'bwgK-' + k, label, help, value: G.knobValue(g, k), text, commit: (v) => gtrEdit(sc, T, G.knobPatch(k, v), '#bwgK-' + k) }))
+            )
+          : null
+      ),
+    ];
   }
 
   /* --- Arpèges : Arp One, mode Intuitif (js/arp.js, js/motifs.js) ; l'arpège peut être allumé dans une scène où l'inspiration n'en avait pas ---
@@ -10775,6 +10940,7 @@ SS.band = (() => {
     const txt = `${t.name || ''} ${t.instrument || ''}`;
     if (/bass|basse/i.test(txt) || t.family === 'bass') return 'bass';
     if (/arp/i.test(txt)) return 'arp';
+    if (/guitar|guitare/i.test(txt) || t.family === 'guitar') return 'guitar';
     // les notes de toutes les scènes : accords (plusieurs notes à la fois) et registre
     const evs = [t.events || [], ...(p.scenes || []).filter((sc) => sc.id !== p.current).map((sc) => (sc.data && sc.data[t.id] && sc.data[t.id].events) || [])].flat();
     const notes = evs.flatMap((e) => e.notes || []);
@@ -12241,7 +12407,7 @@ SS.band = (() => {
     }
     /** La scène jouée (vue des étapes instrument) : celle de l'arrangement, sinon la section seule. */
     const sceneRef = (sec) => ((wizSong().res || { scenes: [] }).scenes.find((x) => x.sec === sec) || sceneOf(sec));
-    const kindFr = { drums: 'batterie', bass: 'basse', chords: 'nappe', arp: 'arpège', melody: 'mélodie', orch: 'orchestre', ambient: 'ambient' };
+    const kindFr = { drums: 'batterie', bass: 'basse', chords: 'nappe', arp: 'arpège', guitar: 'guitariste', melody: 'mélodie', orch: 'orchestre', ambient: 'ambient' };
     /** Motifs d'un instrument : [{ id, nom, … }] dans la mesure de la chanson. */
     function motifList(T, tous) {
       if (T.kind === 'drums') {
@@ -12254,6 +12420,11 @@ SS.band = (() => {
       }
       if (T.kind === 'chords') return padModes(T).filter(([id]) => (/^g:/.test(id) ? gtrFits(id) : BS().meterOK('chords', id))).map(([id, nom, description]) => ({ id, nom, description }));
       if (T.kind === 'arp') return SS.MOTIFS.map((m) => ({ id: m.id, nom: m.name, categorie: ((SS.MOTIF_CATS.find((c) => c.id === m.cat) || {}).label || m.cat) }));
+      if (T.kind === 'guitar') {
+        const G = SS.guitarist;
+        const fam = Object.fromEntries(Object.values(G.FAMILIES).flat());
+        return ['arp', 'acc'].flatMap((j) => G.modesOf(j).filter(gtFits).map((id) => ({ id, nom: gtName(id), jeu: j === 'arp' ? 'arpèges' : 'accords', famille: fam[G.familyOf(id)], styles: G.stylesOf(id) })));
+      }
       return [];
     }
     function findIn(list, ref, what) {
