@@ -79,11 +79,11 @@ test('orchestre VSCO 2 : instruments rangés par rôle, fichiers présents, prog
   assert.ok(strings && strings.entries.some((e) => e.v === 'i:strings:vsco_cellos' && e.name === 'Violoncelles' && e.detail === 'section'));
 });
 
-test('instruments libres (célesta, FreePats, crash inversée) : fichiers présents, rangés par rôle', () => {
+test('instruments libres (célesta, FreePats, crash inversée, cuivres et saxophones) : fichiers présents, rangés par rôle', () => {
   const fs = require('node:fs');
   const path = require('node:path');
   const bank = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'samples', 'libre', 'libre.json'), 'utf8'));
-  ['celesta', 'bass_finger', 'guitar_jazz', 'choir_pad', 'reverse_crash'].forEach((k) => assert.ok(SS.LIB.libre.some((v) => v.key === k), k));
+  ['celesta', 'bass_finger', 'guitar_jazz', 'choir_pad', 'reverse_crash', 'tuba', 'sax_alto', 'sax_tenor', 'sax_bari', 'trombone', 'bass_trombone'].forEach((k) => assert.ok(SS.LIB.libre.some((v) => v.key === k), k));
   for (const v of SS.LIB.libre) {
     const files = Object.values(bank[v.key] || {});
     assert.ok(files.length >= (v.key === 'reverse_crash' ? 1 : 10), v.key);
