@@ -6445,6 +6445,9 @@ body.wiz-am-open .wiz-sheet { right: 360px; }
 .bwhn-lane { position: relative; height: 34px; margin: 3px 8px; padding: 0 !important; background: var(--c-bg); border-radius: 5px; overflow: hidden; }
 .bwhn-bar { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--c-panel-2); }
 .bwhn-nt { position: absolute; height: 4px; min-width: 3px; border-radius: 2px; }
+.bwhn-nt.now { height: 6px; margin-top: -1px; filter: brightness(1.35); box-shadow: 0 0 6px var(--c-text); z-index: 1; }
+.bwhn-ph { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1.5px; background: var(--c-text); box-shadow: 0 0 8px 1px var(--accent-2); pointer-events: none; z-index: 2; }
+.bwhn-ph[hidden] { display: none; }
 .bwhn-rng { color: var(--c-muted); font-size: var(--fs-sm); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .bwhn-row.off .bwhn-name, .bwhn-row.off .bwhn-role, .bwhn-row.off .bwhn-lane, .bwhn-row.off .bwhn-rng { opacity: .38; }
 .bwhn-row.quiet .bwhn-lane { opacity: .3; }

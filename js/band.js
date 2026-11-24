@@ -7287,7 +7287,7 @@ SS.band = (() => {
         h('button', { type: 'button', class: 'bwor-sw bwhn-sw' + (on ? ' on' : ''), role: 'switch', 'aria-checked': String(on), 'aria-label': `${p.label} joue dans la scène`, title: on ? 'Couper ce musicien dans la scène' : 'Faire jouer ce musicien', onclick: () => hornsEdit(sc, T, { off: on ? [...off, p.id] : off.filter((y) => y !== p.id) }, `#bwHornsTable [data-player="${p.id}"] .bwor-sw`) }),
         h('span', { class: 'bwhn-name' }, p.label, di >= 0 ? h('button', { type: 'button', class: 'bwhn-x', title: 'Retirer ce musicien de la section', 'aria-label': `Retirer ${p.label}`, onclick: () => hornsMember(T, null, di) }, '✕') : null),
         h('span', { class: 'bwhn-role', style: `color:${on ? color : 'var(--c-faint)'}` }, on ? HN().ROLE_LABEL[p.role] : 'Coupé'),
-        h('span', { class: 'bwhn-lane' }, ...bars, ...(on ? L.events : []).map((e) => h('i', { class: 'bwhn-nt', style: `left:${(((e.step + (e.shift || 0)) / total) * 100).toFixed(2)}%;width:calc(${((e.len / total) * 100).toFixed(2)}% - 1px);top:${((1 - (e.notes[0] - lo) / (hi - lo)) * 28 + 2).toFixed(1)}px;background:${color}` }))),
+        h('span', { class: 'bwhn-lane' }, ...bars, h('i', { class: 'bwhn-ph', hidden: true }), ...(on ? L.events : []).map((e) => h('i', { class: 'bwhn-nt', 'data-s': e.step + (e.shift || 0), 'data-e': e.step + (e.shift || 0) + e.len, style: `left:${(((e.step + (e.shift || 0)) / total) * 100).toFixed(2)}%;width:calc(${((e.len / total) * 100).toFixed(2)}% - 1px);top:${((1 - (e.notes[0] - lo) / (hi - lo)) * 28 + 2).toFixed(1)}px;background:${color}` }))),
         h('span', { class: 'bwhn-rng' }, on && L.lo !== null ? (L.lo === L.hi ? HN().midiName(L.lo) : `${HN().midiName(L.lo)} – ${HN().midiName(L.hi)}`) : '—'),
         h('span', { class: 'bwor-mss' }, ms2(S.wiz.mute, 'm', 'M', 'Muet : écouter sans ce musicien'), ms2(S.wiz.solo, 's', 'S', 'Solo : écouter ce musicien seul'))
       );
@@ -7301,7 +7301,7 @@ SS.band = (() => {
     if ((ms.add || []).length >= 4) addSel.disabled = true;
     const table = h(
       'div',
-      { class: 'bwar-card bwhn-table', id: 'bwHornsTable' },
+      { class: 'bwar-card bwhn-table', id: 'bwHornsTable', 'data-scene': sc.id, 'data-bars': sc.bars },
       h(
         'div',
         { class: 'bwhn-row bwhn-thead' },
@@ -11235,6 +11235,18 @@ SS.band = (() => {
         const s0 = Number(b.dataset.start);
         b.classList.toggle('playing', at >= s0 && at < s0 + Number(b.dataset.bars));
       });
+    }
+    // cuivres : curseur sur chaque ligne de musicien, note qui sonne allumée
+    const hnt = $('#bwHornsTable', box);
+    if (hnt) {
+      const total = Number(hnt.dataset.bars) * SPB();
+      const on = !!L.mode && L.scene === hnt.dataset.scene && L.step >= 0;
+      const pos = on ? L.step % total : -1;
+      hnt.querySelectorAll('.bwhn-ph').forEach((ph) => {
+        ph.hidden = !on;
+        if (on) ph.style.left = `${(pos / total) * 100}%`;
+      });
+      hnt.querySelectorAll('.bwhn-nt').forEach((n) => n.classList.toggle('now', on && pos >= Number(n.dataset.s) && pos < Number(n.dataset.e)));
     }
     // rouleaux de notes (Harmoniser la mélodie) : curseur de lecture et note qui sonne
     box.querySelectorAll('[data-phroll]').forEach((r) => {
