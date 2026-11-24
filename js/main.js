@@ -62,6 +62,7 @@
     saveLocal();
   }
   function undo() {
+    if (SS.wizAutoMix && SS.wizAutoMix.undo()) return; // assistant : le dernier réglage du Mix auto
     if (history.timer) recordHistory(); // une modification encore en attente compte comme une étape
     if (!history.past.length) return;
     history.future.push(history.present);

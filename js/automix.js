@@ -500,6 +500,26 @@ SS.automix = (() => {
   }
 
   /* ------------------------------------------------------------------ valeurs et correctifs */
+  /** Nom d'un réglage de console, pour l'affichage (« Passe-haut », « Mastering · gain d'entrée »…). */
+  const PATH_NAMES = {
+    volumeDb: 'Fader', 'mix.eq.on': 'Égaliseur', 'mix.eq.hp.on': 'Passe-haut', 'mix.eq.hp.f': 'Passe-haut',
+    'mix.eq.low.g': 'EQ shelf grave', 'mix.eq.low.f': 'EQ shelf grave · fréquence', 'mix.eq.high.g': 'EQ shelf aigu',
+    'mix.eq.high.f': 'EQ shelf aigu · fréquence', 'mix.comp.on': 'Compresseur', 'mix.comp.ratio': 'Compresseur · ratio', 'mix.comp.th': 'Compresseur · seuil',
+    'mix.comp.att': 'Compresseur · attaque', 'mix.comp.rel': 'Compresseur · relâchement', 'mix.comp.knee': 'Compresseur · genou', 'mix.comp.makeup': 'Compresseur · gain',
+    'mix.lim.on': 'Limiteur', 'mix.lim.ceil': 'Limiteur · plafond', 'mix.lim.rel': 'Limiteur · relâchement',
+    'mix.pan': 'Panoramique', 'fx.scSource': 'Sidechain déclenché par', 'fx.scDepth': 'Sidechain · profondeur',
+    'fx.scRelease': 'Sidechain · relâchement', 'fx.sendHall': 'Envoi reverb hall', 'fx.sendPlate': 'Envoi reverb plate',
+    'fx.room': 'Reverb de la piste', 'mastering.on': 'Mastering', 'mastering.drive': 'Mastering · gain d\'entrée',
+    'mastering.ceiling': 'Mastering · plafond', 'mastering.mono': 'Mastering · graves en mono sous',
+    'mastering.width': 'Mastering · largeur stéréo', 'mastering.clip': 'Mastering · écrêtage doux',
+  };
+  function pathName(path) {
+    if (PATH_NAMES[path]) return PATH_NAMES[path];
+    const m = /^mix\.eq\.(lm|hm)\.(f|q|g)$/.exec(path);
+    if (m) return m[2] === 'g' ? 'EQ cloche' : m[2] === 'f' ? 'EQ cloche · fréquence' : 'EQ cloche · largeur (Q)';
+    return path;
+  }
+
   /** Unité et pas d'arrondi d'un chemin de réglage. */
   function unitOf(path) {
     if (path === 'volumeDb' || /\.g$|\.th$|\.makeup$|ceil$|drive$|ceiling$/.test(path)) return { u: 'dB', step: 0.5 };
@@ -1205,7 +1225,7 @@ SS.automix = (() => {
     ROLE_LABELS, BANDS, BAND_LABEL, ZONES, TARGETS, CURVES, ROLE_LEVEL, ROLE_HP, CRITERIA, SCOPES, DEFAULT_PREFS,
     bandPowers, kPower, stereoSums, correlation, integrated, loudnessRange,
     newAccumulator, accumulate, summarize, diagnose, toneDeviation, proposeTarget, cleanPrefs, roleOf,
-    unitOf, formatValue, valueAt, grade, moduleDesc, ruleFor, balancePlan, roleTarget, heard, coPlay, solvePairs,
+    unitOf, formatValue, valueAt, pathName, PATH_NAMES, grade, moduleDesc, ruleFor, balancePlan, roleTarget, heard, coPlay, solvePairs,
     ROLE_TOL, DRIVE_MAX, BELL_MIN, SHELF_MAX,
   };
 })();

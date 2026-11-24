@@ -304,17 +304,7 @@ SS.automixPanel = (() => {
       const f = fc ? fc.to : getValue(c.track || s.track, `mix.eq.${k}.f`);
       return `EQ cloche ${A().formatValue('x.f', f)}`;
     };
-    const L = {
-      volumeDb: 'Fader', 'mix.eq.on': 'Égaliseur', 'mix.eq.hp.on': 'Passe-haut', 'mix.eq.hp.f': 'Passe-haut',
-      'mix.eq.low.g': 'EQ shelf grave', 'mix.eq.low.f': 'EQ shelf grave · fréquence', 'mix.eq.high.g': 'EQ shelf aigu',
-      'mix.eq.high.f': 'EQ shelf aigu · fréquence', 'mix.comp.ratio': 'Compresseur · ratio', 'mix.comp.th': 'Compresseur · seuil',
-      'mix.pan': 'Panoramique', 'fx.scSource': 'Sidechain déclenché par', 'fx.scDepth': 'Sidechain · profondeur',
-      'fx.scRelease': 'Sidechain · relâchement', 'fx.sendHall': 'Envoi reverb hall', 'fx.sendPlate': 'Envoi reverb plate',
-      'fx.room': 'Reverb de la piste', 'mastering.on': 'Mastering', 'mastering.drive': 'Mastering · gain d\'entrée',
-      'mastering.ceiling': 'Mastering · plafond', 'mastering.mono': 'Mastering · graves en mono sous',
-      'mastering.width': 'Mastering · largeur stéréo', 'mastering.clip': 'Mastering · écrêtage doux',
-    };
-    let txt = L[p];
+    let txt = A().PATH_NAMES[p];
     const m = /^mix\.eq\.(lm|hm)\.(f|q|g)$/.exec(p);
     if (m) txt = m[2] === 'g' ? bell(m[1]) : m[2] === 'f' ? 'EQ cloche · fréquence' : 'EQ cloche · largeur (Q)';
     const who = c.track && c.track !== s.track ? nameOf(c.track) + ' · ' : '';

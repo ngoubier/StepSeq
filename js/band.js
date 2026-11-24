@@ -8642,6 +8642,7 @@ SS.band = (() => {
       renderPlayBar();
       markListen();
     }
+    if (SS.wizAutoMix) SS.wizAutoMix.place(!band);
     renderInsp();
     if (wshId) renderWizSheet();
   }
@@ -8888,6 +8889,25 @@ SS.band = (() => {
     return S.wiz.mix;
   }
   const mixSig = () => JSON.stringify(S.wiz.mix);
+  /** Mix auto (js/wizautomix.js) : il lit et écrit le mix de l'assistant, l'écoute suit tout de suite. */
+  const mixAuto = {
+    mix: () => (S.wiz ? S.wiz.mix || mixSync() : null),
+    setMix(m) {
+      if (!S.wiz) return;
+      S.wiz.mix = m;
+      mixAuto.changed();
+    },
+    changed() {
+      if (!S.wiz) return;
+      if (mixStep()) renderWiz(); // la console de l'étape Mix montre les nouveaux faders
+      if (L.proj && L.mode) liveMix();
+    },
+    project: () => L.proj,
+    /** Noms des tranches : { id de mix: nom } (Kick, Basse…). */
+    names: () => Object.fromEntries(SS.wizMix.strips(wizCols().map((c) => ({ band: c.o.band }))).map((x) => [x.id, x.name])),
+    ready: () => !!(S.wiz && S.wiz.step > ST.inst && S.wiz.res),
+    playing: () => !!L.mode && !L.paused && !L.junc,
+  };
   /** Un réglage a changé : l'écoute en cours le prend sans tout reconstruire. */
   let mixTimer = 0;
   function mixTouched() {
@@ -10424,7 +10444,9 @@ SS.band = (() => {
   const preCache = new Map(); // portée + projet -> AudioBuffer (les 3 derniers)
   let preJob = null; // AbortController du calcul en cours
   function startListen(proj, opts, { range, from = 0 }) {
-    if (prePref() !== '1' || !SS.render || !SS.render.renderOnce) return SS.audio.start(() => proj, onListenStep, opts);
+    // Mix auto ouvert : il écoute chaque piste, l'écoute reste en direct (l'écoute pré-calculée n'a qu'un mélange)
+    const live = SS.wizAutoMix && SS.wizAutoMix.isOpen();
+    if (live || prePref() !== '1' || !SS.render || !SS.render.renderOnce) return SS.audio.start(() => proj, onListenStep, opts);
     const ctrl = new AbortController();
     preJob = ctrl;
     L.calc = 0;
@@ -10496,7 +10518,7 @@ SS.band = (() => {
   }
   /** Le son décroche pendant une écoute (js/audiowatch.js) : passe à l'écoute pré-calculée et relance. */
   function slowListen() {
-    if (!L.mode || L.junc || L.calc != null || prePref() !== null || !(L.mode === 'scene' || L.mode === 'song')) return false;
+    if (!L.mode || L.junc || L.calc != null || prePref() !== null || !(L.mode === 'scene' || L.mode === 'song') || (SS.wizAutoMix && SS.wizAutoMix.isOpen())) return false;
     try {
       localStorage.setItem(PRE_KEY, '1');
     } catch (e) {
@@ -11632,6 +11654,7 @@ SS.band = (() => {
     S.toGrid = false;
     if (!S.wiz) return;
     closeWizSheet();
+    if (SS.wizAutoMix) SS.wizAutoMix.close();
     if (keep) saveDraft(); // fermer garde le brouillon (rien d'autre n'est écrit)
     clearTimeout(draftTimer);
     clearInterval(draftTick);
@@ -12447,5 +12470,5 @@ SS.band = (() => {
     });
   }
 
-  return { init, open, openWizard, resume, close: () => leave(), toGrid, create: () => S.wiz && createWizSong(), hasDraft, wizSnapshot, wizRestore, draftWhen, active, wizSig, togglePlay, stopListen, slowListen, setTempo, plannedTracks, instKind, setKind, insSteps, stepRef, stepNum, instPartOf, putInstPart, melodyTrackOpts, BASS_MODES, claude, _state: S, _listen: () => L.proj, _spec: () => spec() };
+  return { init, open, openWizard, resume, close: () => leave(), toGrid, create: () => S.wiz && createWizSong(), hasDraft, wizSnapshot, wizRestore, draftWhen, active, wizSig, togglePlay, stopListen, slowListen, setTempo, plannedTracks, instKind, setKind, insSteps, stepRef, stepNum, instPartOf, putInstPart, melodyTrackOpts, BASS_MODES, claude, _state: S, _listen: () => L.proj, _spec: () => spec(), mixAuto };
 })();
