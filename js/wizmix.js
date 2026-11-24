@@ -224,9 +224,10 @@ SS.wizMix = (() => {
   /**
    * Range un conseil d'Auto Mix (entendu sur le projet d'écoute `proj`) dans le mix : changes = ses changements effectifs
    * [{ path, from, to, track? }] (track : piste du projet ou '__master', sinon `track` du conseil), k = dosage (0,25 à 1,5).
+   * scene : clé de scène (mix.own) pour ranger volume et envoi hall dans cette scène seule ; le reste vaut pour la chanson.
    * Renvoie les entrées d'annulation (pour revert).
    */
-  function fromSuggestion(mix, proj, track, changes, k = 1) {
+  function fromSuggestion(mix, proj, track, changes, k = 1, scene = null) {
     const idOfTrack = (tid) => (tid === '__master' ? 'master' : idOf(proj.tracks.find((t) => t.id === tid)));
     const out = [];
     for (const c of changes) {
@@ -234,16 +235,52 @@ SS.wizMix = (() => {
       if (!id) continue;
       const to = SS.automix && SS.automix.valueAt ? SS.automix.valueAt(c, k) : c.to;
       const ref = c.path === 'fx.scSource' && to ? idOfTrack(to) : null;
-      const e = change(mix, id, { path: c.path, from: c.from, to, ref });
+      const e = (scene && id !== 'master' && sceneChange(mix, scene, id, { path: c.path, from: c.from, to })) || change(mix, id, { path: c.path, from: c.from, to, ref });
       if (e) out.push(e);
     }
     return out;
+  }
+  /** Ce qu'un changement de conseil peut régler pour une scène seule : le volume et l'envoi hall (les autres restent pour toute la chanson). */
+  const sceneable = (path) => path === 'volumeDb' || path === 'fx.sendHall';
+  /**
+   * Range un changement de conseil dans la surcharge de la scène `scene` (clé de mix.own) : volume (écart en dB ajouté au
+   * volume effectif de la scène) ou envoi hall (valeur absolue, 0 à 1). Renvoie l'entrée d'annulation (kind 'own') ou null.
+   */
+  function sceneChange(mix, scene, id, c) {
+    if (!scene || scene === 'song' || !sceneable(c.path) || !strip(mix, id)) return null;
+    const e = eff(mix, scene, id);
+    const key = c.path === 'volumeDb' ? 'vol' : 'fx.sends.hall';
+    const o = mix.own && mix.own[scene] && mix.own[scene][id];
+    const prev = o ? getIn(o, key) : undefined;
+    const after = c.path === 'volumeDb' ? r2(clamp(e.vol + (c.to - c.from), -60, 12)) : Math.round(clamp(c.to, 0, 1) * 100);
+    set(mix, scene, id, key, after);
+    return { id, path: key, kind: 'own', scene, before: prev, after };
+  }
+  /** Retire une valeur d'une surcharge de scène (et les objets restés vides). */
+  function unsetOwn(mix, scene, id, path) {
+    const o = mix.own && mix.own[scene] && mix.own[scene][id];
+    if (!o) return;
+    const ks = path.split('.');
+    const chain = [o];
+    for (const k of ks.slice(0, -1)) chain.push(chain[chain.length - 1] && chain[chain.length - 1][k]);
+    const last = chain[chain.length - 1];
+    if (last) delete last[ks[ks.length - 1]];
+    for (let i = chain.length - 1; i > 0; i--) if (isObj(chain[i]) && !Object.keys(chain[i]).length) delete chain[i - 1][ks[i - 1]];
+    if (!Object.keys(o).length) reset(mix, scene, id);
   }
   /** Défait des entrées de change() (dans l'ordre inverse) ; une valeur retouchée depuis n'est pas écrasée. Renvoie le nombre défait. */
   function revert(mix, entries) {
     let n = 0;
     for (const e of [...entries].reverse()) {
       if (!e) continue;
+      if (e.kind === 'own') {
+        const o = mix.own && mix.own[e.scene] && mix.own[e.scene][e.id];
+        if (!o || getIn(o, e.path) !== e.after) continue;
+        if (e.before === undefined) unsetOwn(mix, e.scene, e.id, e.path);
+        else set(mix, e.scene, e.id, e.path, e.before);
+        n++;
+        continue;
+      }
       if (e.kind === 'vol') {
         const st = strip(mix, e.id);
         if (st && Math.abs(st.vol - e.after) < 1e-6) (st.vol = e.before), n++;
@@ -489,5 +526,5 @@ SS.wizMix = (() => {
     return rep;
   }
 
-  return { idOf, strips, defaults, sync, eff, set, reset, ownCount, copyToSameType, preview, apply, change, fromSuggestion, revert, autoCount, getIn };
+  return { idOf, strips, defaults, sync, eff, set, reset, ownCount, copyToSameType, preview, apply, change, sceneChange, sceneable, fromSuggestion, revert, autoCount, getIn };
 })();
