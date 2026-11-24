@@ -10,6 +10,9 @@
  * restent quand on change d'étape et passent dans la Grille à l'intégration.
  * Annuler : Ctrl+Z (ou ↶) défait le dernier réglage ; l'onglet Fait défait un réglage précis ou toute la session de mix
  * (retour au mix d'avant le premier réglage). A / B : écouter le mix d'avant la session et le mix actuel.
+ * « Régler pour : Chaque scène » : l'écoute repart à chaque scène ; les volumes et l'envoi hall se rangent dans la scène
+ * entendue (mix.own, comme à l'étape Mix), le reste (égaliseur, compresseur, pan, Master) vaut pour toute la chanson.
+ * Illumination (étape Mix) : la tranche écoutée s'allume en bleu, la tranche réglée en vert avec le réglage touché.
  */
 window.SS = window.SS || {};
 
@@ -62,6 +65,11 @@ SS.wizAutoMix = (() => {
   let log = []; // réglages appliqués, du plus récent au plus ancien : { sid, title, track, by, entries }
   let lastAuto = 0; // secondes d'écoute au dernier geste du mode Auto
   let status = '';
+  const scDiags = new Map(); // « Chaque scène » : clé de scène -> dernier diagnostic de cette scène
+  let curScene = null; // clé de la scène entendue
+  let announced = null; // mode Auto : conseil annoncé (tranche écoutée) avant d'être appliqué
+  const glow = { listen: null, hover: null, tune: [], until: 0 }; // tranches illuminées
+  const TUNE_MS = 2500;
 
   /* ------------------------------------------------------------------ préférences */
   function loadPrefs() {
@@ -71,9 +79,10 @@ SS.wizAutoMix = (() => {
     } catch (e) {
       p = null;
     }
-    const o = { auto: false, target: 'auto', scopes: { ...AUTO_DEFAULT } };
+    const o = { auto: false, target: 'auto', scopes: { ...AUTO_DEFAULT }, perScene: false };
     if (p && typeof p === 'object') {
       o.auto = !!p.auto;
+      o.perScene = !!p.perScene;
       if (p.target && (p.target === 'auto' || A().TARGETS[p.target])) o.target = p.target;
       if (p.scopes) for (const [k] of FAMILIES) if (typeof p.scopes[k] === 'boolean') o.scopes[k] = p.scopes[k];
     }
@@ -111,14 +120,35 @@ SS.wizAutoMix = (() => {
       })),
       master: { ...mp, volumeDb: SS.gainToDb(mp.volume) },
       target: targetId(p),
-      prefs: A().cleanPrefs({ detail: 'all', minSecs: 15 }),
+      prefs: { ...A().cleanPrefs({ detail: 'all', minSecs: 15 }), minSecs: minSecs() },
     };
   }
+  /** Durée d'écoute avant les conseils : une scène est courte, on l'écoute moins longtemps. */
+  const minSecs = () => (prefs && prefs.perScene ? 8 : 15);
   /** Changements effectifs d'un conseil (une chaîne : tous ses modules). */
   const changesOf = (s) => (s.kind === 'chain' ? s.modules.flatMap((m) => m.changes) : s.changes);
   /** Famille d'un conseil (pour le mode Auto). */
   const familyOf = (s) => s.scope;
-  const pending = () => (diag && diag.ready ? diag.suggestions.filter((s) => !decisions.has(s.id)) : []);
+  /** Conseil qui peut se régler pour une scène seule (volume, envoi hall d'un instrument). */
+  const sceneable = (s) => s.tab === 'mix' && s.track !== '__master' && changesOf(s).some((c) => W().sceneable(c.path));
+  /** Conseil rangé avec sa scène (_scene : clé, ou null = toute la chanson) et sa clé de décision (_key). */
+  const tagged = (s, key) => {
+    const sc = key && sceneable(s) ? key : null;
+    return { ...s, _scene: sc, _key: (sc ? sc + '|' : '') + s.id };
+  };
+  /** Conseils en attente. « Chaque scène » : tous ceux de la scène entendue, plus les volumes / envois des autres scènes. */
+  function pending() {
+    const out = [];
+    const seen = new Set();
+    const add = (s) => !decisions.has(s._key) && !seen.has(s._key) && (seen.add(s._key), out.push(s));
+    if (!prefs || !prefs.perScene) {
+      if (diag && diag.ready) diag.suggestions.forEach((s) => add(tagged(s, null)));
+      return out;
+    }
+    if (diag && diag.ready) diag.suggestions.forEach((s) => add(tagged(s, curScene)));
+    for (const [k, d] of scDiags) if (k !== curScene && d.ready) d.suggestions.filter(sceneable).forEach((s) => add(tagged(s, k)));
+    return out;
+  }
 
   /* ------------------------------------------------------------------ appliquer / annuler */
   function accept(s, by = 'main') {
@@ -127,12 +157,16 @@ SS.wizAutoMix = (() => {
     if (!hp || !p || ab === 'A') return false;
     const mix = hp.mix();
     if (!start) start = clone(mix);
-    const k = doses.get(s.id) || 1;
-    const entries = W().fromSuggestion(mix, p, s.track, changesOf(s), k);
+    const k = doses.get(s._key || s.id) || 1;
+    const entries = W().fromSuggestion(mix, p, s.track, changesOf(s), k, s._scene || null);
     if (!entries.length) return false;
-    decisions.set(s.id, 'accepted');
-    log.unshift({ sid: s.id, title: s.title, track: s.track, by, entries });
+    decisions.set(s._key || s.id, 'accepted');
+    log.unshift({ sid: s._key || s.id, title: s.title, track: s.track, by, entries, scene: s._scene || null });
     hp.changed();
+    glow.listen = null;
+    glow.tune = entries.map((e) => ({ id: e.id, part: partOf(e.path) }));
+    glow.until = performance.now() + TUNE_MS;
+    paint();
     return true;
   }
   /** Défait le réglage n° i du journal (0 = le plus récent). */
@@ -191,31 +225,104 @@ SS.wizAutoMix = (() => {
       proj = p;
       LS().reset();
       diag = null;
+      scDiags.clear();
+      curScene = null;
       lastAuto = 0;
       if (p) LS().start(() => listenProj());
+    }
+    // « Chaque scène » : une nouvelle scène s'écoute à part
+    const sc = prefs.perScene && hp.scene ? hp.scene() : null;
+    const key = sc ? sc.key : null;
+    if (prefs.perScene && key && key !== curScene) {
+      curScene = key;
+      LS().reset();
+      diag = scDiags.get(key) || null;
+      lastAuto = 0;
+      announced = null;
     }
     const sum = LS().summary();
     const now = performance.now();
     if (p && sum && sum.mix.n && ab === 'B' && now - lastDiag > 1500) {
       diag = A().diagnose(sum, context(p));
       lastDiag = now;
+      if (prefs.perScene && curScene && diag.ready) scDiags.set(curScene, diag);
       if (prefs.auto && hp.playing() && diag.ready) autoStep(sum.secs);
     }
     render();
+    paint();
   }
   /** Mode Auto : un geste (le conseil le plus important d'une famille permise), puis on réécoute. */
   function autoStep(secs) {
-    if (secs - lastAuto < AUTO_GAP && lastAuto) return;
-    const s = pending().find((x) => prefs.scopes[familyOf(x)]);
+    if (lastAuto && secs - lastAuto < AUTO_GAP - 2) return;
+    const L = pending().filter((x) => !x._scene || x._scene === curScene);
+    const s = L.find((x) => prefs.scopes[familyOf(x)]);
     if (!s) {
-      status = pending().length ? 'Le reste attend ton accord' : 'Le mix est en place';
+      status = L.length ? 'Le reste attend ton accord' : 'Le mix est en place';
+      glow.listen = null;
       return;
     }
+    // d'abord on écoute la tranche visée (elle s'allume en bleu), le geste vient au diagnostic suivant
+    if (announced !== s._key) {
+      announced = s._key;
+      glow.listen = stripOf(s);
+      status = `Pilote : écoute ${trackName(s)}…`;
+      return;
+    }
+    if (lastAuto && secs - lastAuto < AUTO_GAP) return;
+    announced = null;
     if (accept(s, 'auto')) {
       status = `Pilote : ${s.title}`;
       LS().reset(); // la suite se juge sur le mix réglé
       lastAuto = 0.001;
       diag = null;
+    }
+  }
+
+  /* ------------------------------------------------------------------ illumination (étape Mix) */
+  /** Tranche (id de mix) visée par un conseil. */
+  function stripOf(s) {
+    const p = listenProj();
+    if (s.track === '__master') return 'master';
+    const t = p && p.tracks.find((x) => x.id === s.track);
+    return t ? W().idOf(t) : null;
+  }
+  function trackName(s) {
+    const id = stripOf(s);
+    return id === 'master' ? 'le Master' : (id && names()[id]) || 'la tranche';
+  }
+  /** Partie de la tranche touchée par un réglage : fader, pan ou un effet de la liste (eq, comp, sends…). */
+  function partOf(path) {
+    if (path === 'volumeDb' || path === 'vol' || path.startsWith('mastering.')) return 'fader';
+    if (path === 'mix.pan') return 'pan';
+    if (path.startsWith('mix.eq.')) return 'eq';
+    if (path.startsWith('mix.comp.') || path.startsWith('mix.lim.')) return 'comp';
+    if (path === 'fx.room') return 'reverb';
+    if (path.startsWith('fx.sc')) return 'sidechain';
+    if (path.startsWith('fx.send')) return 'sends';
+    return null;
+  }
+  /** Allume les tranches de la console de l'étape Mix (si elle est à l'écran) : bleu = écoute, vert = réglage. */
+  function paint() {
+    const box = document.getElementById('bwMix');
+    const off = (el) => el.classList.remove('wam-glow', 'wam-listen', 'wam-tune');
+    document.querySelectorAll('.wam-glow, .wam-listen, .wam-tune').forEach(off);
+    if (!box || !isOpen) return;
+    const find = (id) => box.querySelector(`.mx-strip[data-id="${CSS.escape(id)}"]`);
+    const tuning = performance.now() < glow.until ? glow.tune : [];
+    const listen = glow.hover || glow.listen;
+    if (listen && !tuning.some((x) => x.id === listen)) {
+      const el = find(listen);
+      if (el) el.classList.add('wam-listen');
+    }
+    for (const { id, part } of tuning) {
+      const el = find(id);
+      if (!el) continue;
+      el.classList.add('wam-tune');
+      const target = part === 'fader' ? el.querySelector('.mx-fwrap') : part === 'pan' ? el.querySelector('.mx-pan') : part ? el.querySelector(`.mx-fxlist [data-k="${part}"]`) : null;
+      if (target) target.classList.add('wam-glow');
+      // tiroir des effets ouvert sur cette tranche : ses réglages s'allument aussi
+      if (part && part !== 'fader' && part !== 'pan')
+        box.querySelectorAll(`#mxFx input[data-id="${CSS.escape(id)}"][data-mx^="fx.${part}"]`).forEach((i) => i.closest('.mx-k') && i.closest('.mx-k').classList.add('wam-glow'));
     }
   }
 
@@ -230,8 +337,11 @@ SS.wizAutoMix = (() => {
     const sw = h('div', { class: 'wam-sw', role: 'radiogroup', 'aria-label': 'Accepter les conseils' },
       ...[[false, 'À la main'], [true, 'Auto']].map(([v, t]) => h('button', { type: 'button', role: 'radio', 'aria-checked': String(prefs.auto === v), class: prefs.auto === v ? 'on' + (v ? ' auto' : '') : '', 'data-auto': String(v), onclick: () => ((prefs.auto = v), savePrefs(), (status = ''), render()) }, t)));
     const fams = h('div', { class: 'wam-fams' }, ...FAMILIES.map(([id, n]) => h('button', { type: 'button', class: 'wam-fam' + (prefs.scopes[id] ? ' on' : ''), 'data-fam': id, 'aria-pressed': String(!!prefs.scopes[id]), onclick: () => ((prefs.scopes[id] = !prefs.scopes[id]), savePrefs(), render()) }, n)));
+    const per = h('div', { class: 'wam-sw', role: 'radiogroup', 'aria-label': 'Régler pour' },
+      ...[[false, 'Toute la chanson', 'wamSong'], [true, 'Chaque scène', 'wamScene']].map(([v, t, id]) => h('button', { type: 'button', role: 'radio', id, 'aria-checked': String(prefs.perScene === v), class: prefs.perScene === v ? 'on' : '', onclick: () => setPerScene(v) }, t)));
     return [
       h('div', { class: 'wam-row' }, h('span', { class: 'wam-lbl' }, 'Objectif'), tgt),
+      h('div', { class: 'wam-row' }, h('span', { class: 'wam-lbl' }, 'Régler pour', help('« Chaque scène » : le Mix auto écoute chaque scène à part et règle les volumes et l’envoi de reverb pour cette scène seule (comme les réglages propres de l’étape Mix). Égaliseur, compresseur, pan et Master restent communs à toute la chanson.', 'Régler pour')), per),
       h('div', { class: 'wam-row' }, h('span', { class: 'wam-lbl' }, 'Accepter'), sw),
       h('div', { class: 'wam-row wam-top' }, h('span', { class: 'wam-lbl' }, 'Peut toucher', help('Ce que le mode Auto a le droit de régler tout seul. Les autres conseils restent à accepter à la main.', 'Peut toucher')), fams),
       prefs.auto ? h('div', { class: 'wam-autoline' }, h('i'), h('span', {}, status || (host() && host().playing() ? 'Pilote : écoute…' : 'Pilote : en attente de la lecture'))) : null,
@@ -243,7 +353,6 @@ SS.wizAutoMix = (() => {
     const i = sum && Number.isFinite(sum.master.i) ? sum.master.i : null;
     const tp = sum && Number.isFinite(sum.master.tp) ? sum.master.tp : null;
     const pos = (v) => Math.max(0, Math.min(100, ((v + 24) / 20) * 100));
-    const minSecs = 15;
     const secs = LS().secs();
     const crits = diag && diag.ready ? A().CRITERIA.map((c) => h('div', { class: 'wam-crit ' + scoreClass(diag.scores[c.id]) }, h('b', {}, String(diag.scores[c.id])), CRIT_SHORT[c.id] || c.name)) : [];
     return h('div', { class: 'wam-listen' },
@@ -251,26 +360,27 @@ SS.wizAutoMix = (() => {
       h('div', { class: 'wam-bar' }, t ? h('i', { class: 'wam-tgt', style: `left:${pos(t.lufs - 1)}%;width:${pos(t.lufs + 1) - pos(t.lufs - 1)}%` }) : null, i == null ? null : h('i', { class: 'wam-cur', style: `left:${pos(i)}%` })),
       h('div', { class: 'wam-scale' }, h('span', {}, '−24'), h('span', {}, '−18'), h('span', {}, '−12'), h('span', {}, '−6')),
       crits.length ? h('div', { class: 'wam-crits' }, ...crits, h('div', { class: 'wam-crit ' + scoreClass(diag.total) }, h('b', {}, String(diag.total)), 'Note')) : null,
-      h('div', { class: 'wam-prog' }, h('i', { style: `width:${Math.min(100, (secs / minSecs) * 100)}%` })));
+      h('div', { class: 'wam-prog' }, h('i', { style: `width:${Math.min(100, (secs / minSecs()) * 100)}%` })));
   }
   function card(s) {
     const p = listenProj();
     const tname = (tid) => (tid === '__master' ? 'Master' : p ? nameOfTrack(p, p.tracks.find((t) => t.id === tid) || { name: '?' }) : '?');
-    const k = doses.get(s.id) || 1;
+    const k = doses.get(s._key) || 1;
     const chg = changesOf(s).slice(0, 6).map((c) => {
       const v = A().valueAt(c, k);
       const val = (x) => (c.path === 'fx.scSource' ? (x ? tname(x) : 'aucune') : A().formatValue(c.path, x));
       return h('span', { class: 'wam-chg' }, h('span', {}, `${tname(c.track || s.track)} · ${A().pathName(c.path)}`), h('span', {}, `${val(c.from)} → `, h('em', {}, val(v))));
     });
     const sev = { crit: 'var(--c-red)', warn: 'var(--c-amber)', info: 'var(--c-blue)' }[s.sev] || 'var(--c-blue)';
-    return h('div', { class: 'wam-card', 'data-id': s.id, style: `--sev:${sev}` },
-      h('div', { class: 'wam-ct' }, h('span', {}, s.title), s.why ? help(s.why, s.title) : null),
+    const sc = prefs.perScene ? (s._scene ? (host().sceneInfo && host().sceneInfo(s._scene)) || { name: s._scene, color: 'var(--c-amber)' } : { name: 'toute la chanson' }) : null;
+    return h('div', { class: 'wam-card', 'data-id': s.id, 'data-key': s._key, style: `--sev:${sev}`, onmouseenter: () => ((glow.hover = stripOf(s)), paint()), onmouseleave: () => ((glow.hover = null), paint()) },
+      h('div', { class: 'wam-ct' }, h('span', {}, s.title), s.why ? help(s.why, s.title) : null, sc ? h('span', { class: 'wam-sc' + (s._scene ? ' own' : ''), style: s._scene ? `--c:${sc.color}` : null }, sc.name) : null),
       s.meas && s.meas.length ? h('div', { class: 'wam-meas' }, ...s.meas.map(([a, b], i) => h('span', {}, (i ? ' · ' : '') + a + ' ', h('b', {}, b)))) : null,
       h('div', { class: 'wam-chgs' }, ...chg),
       h('div', { class: 'wam-acts' },
-        h('button', { type: 'button', class: 'btn btn-small btn-accent wam-ok', disabled: ab === 'A', onclick: () => (accept(s), render()) }, 'Accepter'),
-        h('button', { type: 'button', class: 'btn btn-small wam-no', title: 'Refuser', onclick: () => (decisions.set(s.id, 'refused'), render()) }, '✕'),
-        h('label', { class: 'wam-dose', title: 'Dosage' }, 'Dosage', h('input', { type: 'range', min: 25, max: 150, step: 25, value: Math.round(k * 100), oninput: (e) => doses.set(s.id, Number(e.target.value) / 100), onchange: () => render() }))));
+        h('button', { type: 'button', class: 'btn btn-small btn-accent wam-ok', disabled: ab === 'A', onclick: () => ((glow.hover = null), accept(s), render()) }, 'Accepter'),
+        h('button', { type: 'button', class: 'btn btn-small wam-no', title: 'Refuser', onclick: () => ((glow.hover = null), decisions.set(s._key, 'refused'), render(), paint()) }, '✕'),
+        h('label', { class: 'wam-dose', title: 'Dosage' }, 'Dosage', h('input', { type: 'range', min: 25, max: 150, step: 25, value: Math.round(k * 100), oninput: (e) => doses.set(s._key, Number(e.target.value) / 100), onchange: () => render() }))));
   }
   function list() {
     const L = pending();
@@ -283,7 +393,7 @@ SS.wizAutoMix = (() => {
         ? [h('button', { type: 'button', class: 'btn btn-small wam-undo-all', onclick: undoSession }, '↶ Annuler toute la session de mix'),
           ...log.map((it, i) => h('div', { class: 'wam-card done' },
             h('div', { class: 'wam-ct' }, h('span', {}, it.title)),
-            h('div', { class: 'wam-meas' }, it.by === 'auto' ? 'appliqué par le pilote' : 'accepté à la main'),
+            h('div', { class: 'wam-meas' }, (it.by === 'auto' ? 'appliqué par le pilote' : 'accepté à la main') + (it.scene ? ` · ${((host().sceneInfo && host().sceneInfo(it.scene)) || { name: it.scene }).name}` : '')),
             h('div', { class: 'wam-acts' }, h('button', { type: 'button', class: 'btn btn-small wam-undo', onclick: () => undoAt(i) }, '↶ Annuler ce réglage'))))]
         : [h('p', { class: 'wam-hint' }, 'Rien d’appliqué pour l’instant.')];
     } else if (!diag || !diag.ready) {
@@ -348,8 +458,14 @@ SS.wizAutoMix = (() => {
     LS().reset();
     proj = null;
     diag = null;
+    scDiags.clear();
+    curScene = null;
+    announced = null;
+    glow.listen = glow.hover = null;
+    glow.tune = [];
     if (root) root.hidden = true;
     document.body.classList.remove('wiz-am-open');
+    paint();
     // la session se termine : ses réglages restent dans le mix (Ctrl+Z ne les défait plus)
     log = [];
     start = null;
@@ -384,13 +500,29 @@ SS.wizAutoMix = (() => {
     render();
   }
   function refuse(id) {
-    decisions.set(id, 'refused');
+    const s = pending().find((x) => x._key === id || x.id === id);
+    decisions.set(s ? s._key : id, 'refused');
+    render();
+  }
+  /** Régler pour toute la chanson (false) ou pour chaque scène (true) : l'écoute repart de zéro. */
+  function setPerScene(v) {
+    prefs = prefs || loadPrefs();
+    if (prefs.perScene === !!v) return render();
+    prefs.perScene = !!v;
+    savePrefs();
+    LS().reset();
+    diag = null;
+    scDiags.clear();
+    curScene = null;
+    announced = null;
+    lastAuto = 0;
+    status = '';
     render();
   }
 
   return {
-    open, close, place, undo, undoAt, undoSession, setAB, accept, setMode, setScopes, refuse,
+    open, close, place, undo, undoAt, undoSession, setAB, accept, setMode, setScopes, refuse, setPerScene, pending,
     isOpen: () => isOpen,
-    _state: () => ({ prefs, diag, log, start, ab, decisions, tab }),
+    _state: () => ({ prefs, diag, log, start, ab, decisions, tab, scene: curScene, glow }),
   };
 })();

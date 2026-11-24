@@ -8907,6 +8907,16 @@ SS.band = (() => {
     names: () => Object.fromEntries(SS.wizMix.strips(wizCols().map((c) => ({ band: c.o.band }))).map((x) => [x.id, x.name])),
     ready: () => !!(S.wiz && S.wiz.step > ST.inst && S.wiz.res),
     playing: () => !!L.mode && !L.paused && !L.junc,
+    /** Scène entendue : { key (clé de mix par scène), name, color } ou null. */
+    scene() {
+      const x = S.wiz && S.wiz.res && L.mode && L.scene ? S.wiz.res.scenes.find((sc) => sc.id === L.scene) : null;
+      return x ? { key: x.sec, name: x.name, color: secColor(x.sec) } : null;
+    },
+    /** Nom et couleur d'une clé de scène du mix. */
+    sceneInfo(key) {
+      const x = S.wiz && S.wiz.res ? S.wiz.res.scenes.find((sc) => sc.sec === key) : null;
+      return x ? { key, name: x.name, color: secColor(x.sec) } : null;
+    },
   };
   /** Un réglage a changé : l'écoute en cours le prend sans tout reconstruire. */
   let mixTimer = 0;
@@ -9026,7 +9036,7 @@ SS.band = (() => {
         { class: 'mx-strip' + (s.group ? ' drum' : '') + (master ? ' master' : '') + (open ? ' sel' : '') + (isOwn ? ' own' : ''), style: `--c:${color}`, 'data-id': id },
         h('div', { class: 'mx-name' }, s.name, h('small', {}, inst)),
         h('button', { type: 'button', class: 'mx-fxb' + (open ? ' open' : ''), 'data-fx': id, 'aria-expanded': String(open), title: lockedAll ? 'Le Master se règle pour toute la chanson' : `Effets de ${s.name}`, disabled: lockedAll, onclick: () => mixFxToggle(id) }, 'FX ', h('span', { class: 'n' }, String(on.length))),
-        h('div', { class: 'mx-fxlist' }, ...(on.length ? on.slice(0, 4).map(([k, name]) => h('span', { class: ownFx.includes(k) ? 'own' : '' }, name)) : [h('span', {}, 'aucun effet')])),
+        h('div', { class: 'mx-fxlist' }, ...(on.length ? on.slice(0, 4).map(([k, name]) => h('span', { class: ownFx.includes(k) ? 'own' : '', 'data-k': k }, name)) : [h('span', {}, 'aucun effet')])),
         master
           ? h('div', { class: 'mx-pan' }, h('div', {}, h('span', {}, 'Stéréo'), h('b', {}, '—')), h('input', { type: 'range', disabled: true, value: 60, 'aria-label': 'Largeur du Master' }), scene ? h('small', { class: 'mx-only' }, 'chanson seulement') : null)
           : h('div', { class: 'mx-pan' }, h('div', {}, h('span', {}, 'Pan'), h('b', {}, mixPan(e.pan))), h('input', { type: 'range', min: -1, max: 1, step: 0.05, value: e.pan, ...ctl('pan', { 'aria-label': `Panoramique ${s.name}`, disabled: only('pan'), title: only('pan') ? 'chanson seulement' : null }) }), only('pan') ? h('small', { class: 'mx-only' }, 'chanson seulement') : null),

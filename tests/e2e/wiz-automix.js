@@ -2,7 +2,8 @@
  * Test de bout en bout du panneau Mix auto de l'assistant (js/wizautomix.js, js/wizmix.js) :
  *   node tests/e2e/wiz-automix.js
  * Bouton « Mix auto » (étapes 3 à 12), écoute en direct, conseils, Accepter (le fader de l'assistant bouge),
- * Ctrl+Z, mode Auto (le pilote applique seul), onglet Fait, « Annuler toute la session de mix », frise de lecture.
+ * Ctrl+Z, mode Auto (le pilote applique seul), onglet Fait, « Annuler toute la session de mix », frise de lecture,
+ * tranches illuminées (réglage, survol), « Régler pour : Chaque scène ».
  */
 const { chromium } = require('playwright');
 const fs = require('fs');
@@ -63,6 +64,8 @@ const ok = (c, m) => {
   await page.waitForTimeout(300);
   const after = await page.evaluate(() => JSON.stringify(SS.band._state.wiz.mix));
   ok(after !== before && (await page.evaluate(() => SS.wizAutoMix._state().log.length)) === 1, 'Accepter : le mix de l’assistant change, un réglage dans Fait');
+  ok((await page.locator('#bwMix .mx-strip.wam-tune').count()) > 0, 'la tranche réglée s’illumine (vert)');
+  if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'mix-auto-reglage.png') });
   await page.keyboard.press('Control+z');
   await page.waitForTimeout(300);
   const back = await page.evaluate(() => JSON.stringify(SS.band._state.wiz.mix));
@@ -81,6 +84,33 @@ const ok = (c, m) => {
   await page.click('#wizAutoMix .wam-undo-all');
   await page.waitForTimeout(300);
   ok((await page.evaluate(() => JSON.stringify(SS.band._state.wiz.mix))) === before, 'Annuler toute la session : le mix d’avant revient');
+
+  // survol d'une carte : sa tranche s'allume en bleu
+  await page.click('#wizAutoMix .wam-tabs button[data-tab="mix"]');
+  await page.waitForTimeout(1600);
+  if (await page.locator('#wizAutoMix .wam-card').count()) {
+    await page.hover('#wizAutoMix .wam-card >> nth=0');
+    await page.waitForTimeout(100);
+    ok((await page.locator('#bwMix .mx-strip.wam-listen').count()) === 1, 'survol d’un conseil : sa tranche s’allume (bleu)');
+    await page.mouse.move(10, 10);
+  }
+
+  // « Chaque scène » : l'écoute repart par scène, volume et envoi hall rangés dans la scène
+  await page.click('#wamScene');
+  await page.waitForFunction(() => { const s = SS.wizAutoMix._state(); return s.scene && SS.wizAutoMix.pending().some((x) => x._scene); }, null, { timeout: 90000 }).catch(() => {});
+  const sc = await page.evaluate(() => {
+    const s = SS.wizAutoMix.pending().find((x) => x._scene);
+    if (!s) return null;
+    SS.wizAutoMix.accept(s);
+    const own = SS.band._state.wiz.mix.own || {};
+    return { key: s._scene, own: !!own[s._scene], tags: document.querySelectorAll('#wizAutoMix .wam-sc').length };
+  });
+  ok(sc && sc.own, 'Chaque scène : le conseil se range dans la scène ' + (sc ? sc.key : '(aucun conseil de scène)'));
+  await page.keyboard.press('Control+z');
+  await page.waitForTimeout(300);
+  ok(sc && !(await page.evaluate((k) => !!(SS.band._state.wiz.mix.own || {})[k], sc.key)), 'Ctrl+Z défait le réglage de la scène');
+  if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'mix-auto-scene.png') });
+  await page.click('#wamSong');
 
   // Claude : l'outil répond
   const tool = await page.evaluate(() => window.StepSeq.assistantMixAuto());

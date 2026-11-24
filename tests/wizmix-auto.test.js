@@ -83,3 +83,31 @@ test('revert ne défait pas une valeur retouchée depuis ; sync garde le Mix aut
   const next = W.sync(mix, 'synthwave', p.tracks.map((t) => ({ type: t.type, sound: t.sound, band: t.band })));
   assert.equal(next.auto.bass['mix.comp.th'], -10);
 });
+
+test('« Chaque scène » : volume et envoi hall rangés dans la scène, le reste pour la chanson ; annulation', () => {
+  const { p, mix } = song();
+  const pad = p.tracks[2];
+  const v0 = mix.tracks.pad.vol;
+  const entries = W.fromSuggestion(mix, p, pad.id, [
+    { path: 'volumeDb', from: -6, to: -4 },
+    { path: 'fx.sendHall', from: 0, to: 0.3 },
+    { path: 'mix.eq.hp.on', from: false, to: true, fixed: true },
+  ], 1, 'chorus');
+  assert.deepEqual(entries.map((e) => e.kind), ['own', 'own', 'auto']);
+  assert.equal(mix.tracks.pad.vol, v0, 'le fader de la chanson ne bouge pas');
+  assert.equal(mix.own.chorus.pad.vol, Math.round((v0 + 2) * 100) / 100);
+  assert.equal(mix.own.chorus.pad.fx.sends.hall, 30);
+  assert.equal(W.eff(mix, 'verse', 'pad').vol, v0, 'les autres scènes gardent le réglage de la chanson');
+  assert.equal(mix.auto.pad['mix.eq.hp.on'], true);
+  // une 2e retouche de la même scène part de son volume propre
+  const e2 = W.fromSuggestion(mix, p, pad.id, [{ path: 'volumeDb', from: -6, to: -7 }], 1, 'chorus');
+  assert.equal(mix.own.chorus.pad.vol, Math.round((v0 + 1) * 100) / 100);
+  assert.equal(W.revert(mix, e2), 1);
+  assert.equal(mix.own.chorus.pad.vol, Math.round((v0 + 2) * 100) / 100);
+  assert.equal(W.revert(mix, entries), 3);
+  assert.ok(!mix.own.chorus, 'la scène redevient comme la chanson');
+  assert.ok(!mix.auto || !mix.auto.pad);
+  // le Master ne se règle pas par scène
+  const m = W.fromSuggestion(mix, p, '__master', [{ path: 'volumeDb', from: 0, to: -1 }], 1, 'chorus');
+  assert.equal(m[0].kind, 'vol');
+});
