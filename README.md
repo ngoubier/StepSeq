@@ -608,7 +608,7 @@ L'étape Cuivres choisit, scène par scène, le **jeu** de la section : le jeu d
 syncopés, Mambo 2-3, Thème aux cors…), **Unisson**, **Coups** (au rythme du style) ou **Tenues**, et sa **nuance**.
 Chaque jeu est recalculé sur les accords de la scène, degré par degré, chaque musicien dans son registre ; swing 2/3 pour
 le big band. Une ligne par musicien : interrupteur (joue ou non dans la scène), rôle (Dessus, Harmonie, Basse), sa
-partie, son registre, M / S. « + Musicien » ajoute une doublure (4 au plus). Sons : trompette et cor VSCO 2 ;
+partie, son registre, M / S ; à la lecture, un curseur défile sur chaque ligne et la note qui sonne s'allume. « + Musicien » ajoute une doublure (4 au plus). Sons : trompette et cor VSCO 2 ;
 saxophones alto, ténor et baryton MTG, trombone et trombone basse de l'Iowa, tuba War Tuba (bibliothèque libre,
 voir Sons) ; cornet, bugle, saxhorns, euphonium et sousaphone empruntent le son le plus proche. Outils
 Claude : `assistantMusicien({ ajouter: 'cuivres', son: 'funk' })`, `assistantMotifs` (les 4 jeux), `assistantJeu({ motif })`.
