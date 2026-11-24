@@ -832,6 +832,21 @@
     </div>
   </dialog>
 
+  <!-- Nouvelle chanson › « D'après une émotion » (js/emotionsongpanel.js) -->
+  <dialog id="emotionSongDialog" class="es-dialog" aria-labelledby="esTitle">
+    <div class="sc-head">
+      <h2 id="esTitle">✦ D’après une émotion<button type="button" class="help-tip" data-help="Choisis un style et jusqu’à trois émotions. StepSeq cherche les chansons de référence les plus proches et en déduit le tempo, la tonalité, le groupe, les scènes et les accords. On ne reprend que des données de ces chansons, jamais leur mélodie. Tout se change ensuite dans l’assistant." data-help-title="D’après une émotion" aria-label="Aide : D’après une émotion">?</button></h2>
+      <button type="button" id="esClose" class="sc-x" aria-label="Fermer">×</button>
+    </div>
+    <div id="esBody" class="es-body"></div>
+    <div class="dlg-footer sc-foot">
+      <span class="es-msg" id="esMsg" aria-live="polite"></span>
+      <span class="spacer"></span>
+      <button type="button" id="esCancel" class="btn">Annuler</button>
+      <button type="button" id="esCreate" class="btn btn-accent">Créer cette chanson</button>
+    </div>
+  </dialog>
+
   <!-- Export MIDI (js/midipanel.js) -->
   <dialog id="midiExportDialog" class="midi-dialog" aria-labelledby="meTitle">
     <form method="dialog" id="meForm">
@@ -1142,6 +1157,8 @@
   <script src="js/band-presets.js?v=vsco-1"></script>
   <script src="js/bandgroup.js"></script>
   <script src="js/band-songs.js"></script>
+  <script src="js/songrefs.js"></script>
+  <script src="js/emotionsong.js"></script>
   <script src="js/film.js"></script>
   <script src="js/band-templates.js"></script>
   <script src="js/band-levels.js"></script>
@@ -1159,6 +1176,7 @@
   <script src="js/gridsync.js"></script>
   <script src="js/padmotifs.js"></script>
   <script src="js/band.js"></script>
+  <script src="js/emotionsongpanel.js"></script>
   <script src="js/bassmotifs.js"></script>
   <script src="js/midipanel.js"></script>
   <script src="js/score-read.js"></script>

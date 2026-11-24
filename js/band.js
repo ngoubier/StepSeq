@@ -726,7 +726,8 @@ SS.band = (() => {
           )
         );
       }),
-      ...(cover() ? [] : TPL().filter((t) => !t.parent).map(tplStyleCard)) // un style de modèles rangé dans un autre (parent) n'a pas de tuile
+      ...(cover() ? [] : TPL().filter((t) => !t.parent).map(tplStyleCard)), // un style de modèles rangé dans un autre (parent) n'a pas de tuile
+      ...(cover() || !SS.emotionSongPanel ? [] : [SS.emotionSongPanel.card()]) // « ✦ D'après une émotion » : ouvre sa fenêtre (js/emotionsongpanel.js)
     );
     const st = (tplStyle() && !tplStyle().parent && tplStyle()) || style();
     $('#bandStyleDesc').textContent = (st || {}).desc || '';
@@ -12324,6 +12325,16 @@ SS.band = (() => {
       fermer: () => leave(),
       label: labelOf, soundOf: (mu) => soundName(mu),
       motifs, jeu, jeuScene, ecrireMelodie, versions,
+      // porte « Créer » ou « Reprendre » ; émotion d'une scène (comme la fiche Scène) : « D'après une émotion » (js/emotionsongpanel.js)
+      porte: (m) => (need(), setMode(m === 'cover' ? 'cover' : 'create')),
+      emotion: (ref, id) => {
+        needPlan();
+        const sec = secId(ref);
+        if (id && !SS.findEmotion(id)) err(`émotion inconnue : « ${id} »`);
+        if (id) S.wiz.emos[sec] = id;
+        else delete S.wiz.emos[sec];
+        touched();
+      },
     };
   })();
 
