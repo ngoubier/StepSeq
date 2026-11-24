@@ -16,6 +16,8 @@
  *     pad, strings, keys, guitar : sustain | swell | pulse8 | block4 | stabs | house | strum | chop | ballad | pluck (ou un arpège)
  *     brass (rôle Cuivres plaqués) : un motif de nappe : brass-tenues | brass-clave | brass-mona | brass-mambo | brass-cierre
  *     horns (musicien Cuivres, section de js/horns.js) : le jeu de la scène : sig | uni | coups | ten
+ *   eighths : true si la grille est écrite en croches (une mesure = deux mesures jouées, comme la salsa à 95 = 190) ;
+ *     la section de cuivres lit alors ses jeux en croches
  *     arp : up16 | updown16 | up8 | bells | strobe | pluck16 | rise
  *     lead, vox, sax : verse | hook | long | solo | drop | riff | answer | rise
  *     fx (musicien « Effets ») : riser | swell | down
@@ -743,7 +745,7 @@ SS.BandSongs = {
   // (i–iv–V7–iv, anticipés par le piano et la basse) ; couplet à la cáscara et aux bongos, montuno à la campana, mambo
   // plus serré ; grooves salsa23 / salsa23m / salsa23x de js/bandsong.js (kit « Percussions salsa »)
   calle: {
-    key: 'A minor', groove: 'salsa23', emotion: 'joie',
+    key: 'A minor', groove: 'salsa23', emotion: 'joie', eighths: true,
     sections: {
       intro: { bars: 4, chords: 'i/iv/V7/iv', drums: 'main', perc: 'main', bass: 'tumbao23', keys: 'montuno23', horns: 'uni' },
       verse: { bars: 8, chords: 'i/iv | VII7/III | i/iv | V7', drums: 'main', perc: 'main', bass: 'tumbao23', keys: 'montuno23', lead: 'verse', horns: 'ten' },
