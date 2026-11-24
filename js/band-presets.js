@@ -28,6 +28,8 @@ window.SS = window.SS || {};
     guitar: { label: 'Guitariste', short: 'Guitare', cat: 'chord', color: '#ff4d6d', icon: 'guitar', families: ['guitar'] },
     strings: { label: 'Cordes', short: 'Cordes', cat: 'chord', color: '#1ea7ff', icon: 'strings', families: ['strings'] },
     sax: { label: 'Saxophoniste', short: 'Sax', cat: 'mono', color: '#c9a227', icon: 'sax', families: ['winds'] },
+    // section de cuivres (salsa, soul, funk) : deux trompettes et un trombone en accords serrés, jeu choisi par scène
+    brass: { label: 'Cuivres', short: 'Cuivres', cat: 'chord', color: '#e8b04a', icon: 'brass', families: ['brass'] },
     vox: { label: 'Voix / vocoder', short: 'Voix', cat: 'mono', color: '#c0c0c0', icon: 'vox', families: ['voices', 'synth'] },
     orch: { label: 'Orchestre', short: 'Orchestre', cat: 'mono', color: '#ff8a3d', icon: 'strings', families: ['strings', 'winds', 'brass'] },
     fx: { label: 'Effets (montées, impacts)', short: 'Effets', cat: 'mono', color: '#7a8a99', icon: 'fx', families: ['fx', 'pads'] },
@@ -39,7 +41,7 @@ window.SS = window.SS || {};
   const STAGE_ROWS = [
     ['perc', 'drums', 'fx'],
     ['pad', 'keys', 'strings', 'orch', 'ambient', 'arp'],
-    ['bass', 'lead', 'vox', 'sax', 'guitar'],
+    ['bass', 'lead', 'vox', 'sax', 'brass', 'guitar'],
   ];
 
   /* ---------- Kits de batterie ----------
@@ -981,13 +983,14 @@ window.SS = window.SS || {};
           year: '',
           tempo: 95,
           swing: 0,
-          desc: 'Salsa en clave de son 2-3 (une mesure = un cycle de clave) : piano en montuno, tumbao à la basse, congas, bongos, güiro, cáscara puis campana, clave ; instrumental, mélodie à la trompette.',
+          desc: 'Salsa en clave de son 2-3 (une mesure = un cycle de clave) : piano en montuno, tumbao à la basse, congas, bongos, güiro, cáscara puis campana, clave ; instrumental, mélodie à la trompette, section de cuivres (moña, mambo, cierre).',
           musicians: [
             kit('drums', 'bd sd cp rim oh', KSALSA, { label: 'Timbalero', note: 'Cáscara au couplet, campana au montuno, clave, bombo' }),
             kit('perc', 'perc misc sh cb', KSALSA, { label: 'Congas, bongos, güiro', note: 'Tumbao, martillo, güiro ; cloche du bongo au montuno' }),
             m('bass', 'vsco_contrabass_pizz gm_acoustic_bass gm_electric_bass_finger gm_fretless_bass syn_sub dirt_jvbass', { label: 'Basse (tumbao)', note: 'Le « et » du 2 et le 4 annoncent l’accord qui arrive' }),
             m('keys', 'vcsl_steinway vcsl_piano1 vcsl_kawai piano gm_piano gm_epiano1', { label: 'Piano montuno', note: 'Octaves anticipées sur la clave 2-3, main gauche qui double' }),
             m('lead', 'vsco_trumpet gm_trumpet vcsl_sax gm_muted_trumpet gm_alto_sax vsco_flute', { label: 'Mélodie (trompette)' }),
+            m('brass', 'vsco_trumpet gm_brass_section gm_trumpet gm_trombone vsco_horn gm_synth_brass_1', { label: 'Cuivres', note: 'Deux trompettes et un trombone : tenues, coups sur la clave, moña, mambo, cierre' }),
           ],
         },
         {

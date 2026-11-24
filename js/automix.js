@@ -441,7 +441,7 @@ SS.automix = (() => {
     return 'keys';
   }
 
-  const BAND_ROLE = { bass: 'bass', pad: 'pad', strings: 'pad', keys: 'keys', guitar: 'keys', arp: 'arp', lead: 'lead', vox: 'lead', sax: 'lead' };
+  const BAND_ROLE = { bass: 'bass', pad: 'pad', strings: 'pad', keys: 'keys', guitar: 'keys', brass: 'keys', arp: 'arp', lead: 'lead', vox: 'lead', sax: 'lead' };
   const BAND_DRUM = { bd: 'kick', sd: 'snare', cp: 'clap', rim: 'perc', hh: 'hat', oh: 'ohat', rd: 'cymbal', cr: 'cymbal', lt: 'tom', mt: 'tom', ht: 'tom' };
   function roleOf(t) {
     const key = t && t.band && t.band.key;

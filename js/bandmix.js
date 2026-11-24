@@ -67,6 +67,8 @@ SS.bandMix = (() => {
     lead: { lu: -21, below: 7, eq: eq({ hp: 220, lm: [380, -5.5, 0.7], hm: [3000, 1.5, 0.9], high: [11000, 3] }), comp: comp(-18, 2.5, 0.01, 0.15, 1.5), hall: 0.25, echo: 0.18 },
     vox: { lu: -22, below: 8, eq: eq({ hp: 170, lm: [350, -3.5, 0.9], hm: [2500, 2, 1], high: [11000, 2] }), comp: comp(-20, 3, 0.008, 0.15, 1.5), hall: 0.3, echo: 0.12, chorus: [0.2, 0.6, 0.3] },
     sax: { lu: -21, below: 7, eq: eq({ hp: 140, lm: [500, -1.5, 1], hm: [2500, 1.5, 1] }), comp: comp(-18, 2.5, 0.01, 0.15, 1), hall: 0.3, pan: 0.08 },
+    // cuivres : brillants, devant, un peu de salle (section de salsa, soul)
+    brass: { lu: -18, below: 5, eq: eq({ hp: 160, lm: [450, -2, 1], hm: [2200, 1.5, 1] }), comp: comp(-18, 2.5, 0.006, 0.12, 1), hall: 0.28, pan: -0.12 },
     // effets (montées de bruit, ambiances, impacts) : en fond, sans graves, très réverbérés
     fx: { lu: -25, eq: eq({ hp: 220, lm: [500, -2, 0.8], high: [9000, -1.5] }), hall: 0.5, echo: 0.1, pan: 0 },
     // musicien Ambient (piste générative) : niveau réglé par son module, envoi Cosmos choisi dans l'assistant (t.fx.sendSpace)
