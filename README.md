@@ -47,9 +47,11 @@ puis ouvrir <http://localhost:8000>.
   prend leur place. **Lecture / Stop**, **tempo** et **position** de la barre pilotent alors l'écoute de l'assistant (scène choisie en boucle ou chanson) ;
   à la fermeture, la barre redevient celle du projet.
   **Bascule Assistant | Grille** : à côté du titre, un sélecteur passe à tout moment de l'assistant « Nouvelle chanson » à la grille
-  (les pistes du projet) et revient à la même étape, sans rien créer ni effacer. Tant que la grille n'a pas la chanson de l'assistant
-  (jamais créée, ou changée dans l'assistant depuis : accords, sons, tempo… ; changer d'étape ne compte pas), un point doré s'allume sur
-  « Assistant » et un bandeau au-dessus des pistes propose **Mettre la chanson dans la grille** (= « Créer la chanson ») ou **Continuer l'assistant**.
+  (les pistes du projet) et revient à la même étape. Une chanson déjà créée est mise à jour en passant à la Grille (instrument ajouté,
+  accords, sons, tempo… ; une étape Ctrl+Z ; s'il y a des pistes retouchées, la fenêtre **Mettre la grille à jour ?** demande d'abord,
+  et ses nouveaux instruments y sont nommés). Tant que la grille n'a pas la chanson de l'assistant (jamais créée, ou « Plus tard » dans
+  cette fenêtre ; changer d'étape ne compte pas), un point doré s'allume sur « Assistant » et un bandeau au-dessus des pistes propose
+  **Mettre la chanson dans la grille** (= « Créer la chanson ») ou **Continuer l'assistant**.
   Ouvrir l'assistant sur une grille déjà remplie propose **Reprendre la grille dans l'assistant** (tempo, tonalités, accords,
   instruments ; une piste sans musicien reçoit le sien, les pistes à garder telles quelles sont verrouillées 🔒). Une fois la chanson créée, chaque piste de l'assistant garde l'empreinte de son contenu
   (js/gridsync.js) : retouchée dans la grille (notes, son, volume, effets…), elle porte un petit **✎** après son nom. Remettre la
