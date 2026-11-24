@@ -15,7 +15,7 @@ const SS = globalThis.SS;
 
 const SIG = '1cf7163caf5ebcfd867b3eaf716a0ca9ec7e3e9a';
 // les 40 inspirations d'origine (les modèles ajoutés ensuite, de brightside à samedisoir, ont leurs propres chansons)
-const NEW_STYLES = ['brightside', 'getlucky', 'feather', 'lk', 'despacito', 'lovely', 'zero', 'kingston', 'noel', 'lampions', 'samedisoir', 'calle'];
+const NEW_STYLES = ['brightside', 'getlucky', 'feather', 'lk', 'despacito', 'lovely', 'zero', 'kingston', 'noel', 'lampions', 'samedisoir', 'calle', 'lettre', 'phares', 'pluie'];
 const PRESETS = SS.Band.STYLES.flatMap((st) => st.presets).filter((p) => !NEW_STYLES.includes(p.id));
 const tracksOf = (p) =>
   p.musicians.filter((m) => !m.injected && m.role !== 'ambient').flatMap((m) =>

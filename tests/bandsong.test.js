@@ -20,7 +20,7 @@ const tracksOf = (p) =>
 const plays = (d) => (d.steps ? d.steps.some((v) => v > 0) : d.events.length > 0);
 
 test('chaque inspiration a un plan de chanson, et toutes les chansons se construisent', () => {
-  assert.equal(PRESETS.length, 52);
+  assert.equal(PRESETS.length, 55);
   for (const p of PRESETS) {
     assert.ok(SS.BandSongs[p.id], `plan manquant : ${p.id}`);
     const s = SS.bandSong.build(SS.BandSongs[p.id], p.id, tracksOf(p));
@@ -114,7 +114,7 @@ test('même inspiration, même chanson (déterministe) ; deux chansons différen
   assert.equal(strip(a), strip(b));
   // grilles : pas toutes identiques d'une chanson à l'autre
   const grids = new Set(PRESETS.map((x) => Object.values(SS.BandSongs[x.id].sections).map((sec) => sec.chords).join(';')));
-  assert.equal(grids.size, 52);
+  assert.equal(grids.size, 55);
 });
 
 /* ---------- Tonalité : toutes les pistes instrumentales sont dans la bonne tonalité ---------- */

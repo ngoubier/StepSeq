@@ -10,7 +10,7 @@
  *   types de scène : intro verse pre build chorus drop break bridge solo theme groove peak outro ;
  *   degrés lus sur la gamme MAJEURE de la tonique (bIII, bVI, bVII écrits) ; minuscule = accord mineur ;
  *     suffixes : 7 (7 ou m7), maj7, dim, sus2, sus4, add9 ;
- *   modèle : id d'une inspiration de l'assistant (js/band-presets.js) qui reprend déjà ce morceau, sinon ''.
+ *   modèle : id d'une inspiration de l'assistant (js/band-presets.js) qui reprend ce morceau ou s'en inspire (modèle original « dans l'esprit de »), sinon ''.
  *
  * Vérification du 2026-11-24 : tempo, tonalité, mode et grilles recoupés avec Hooktheory (analyses à la main), SongBPM
  * et les mesures Spotify (jeux TidyTuesday 2020-01-21 et 2021-09-14) ; 98 lignes corrigées. Une tonalité relative
@@ -35,7 +35,7 @@ window.SS = window.SS || {};
     ['Nightcall','Kavinsky',2010,'synthwave','darksynth',91,'A','minor','mystere:60 suspense:40','drums bass pad vox lead','intro verse chorus verse chorus outro',{verse:'i bVII bVI v',chorus:'bVI bIII bVII i'},'nightcall'],
     ['Midnight City','M83',2011,'synthwave','synth-pop épique',105,'B','minor','euphorie:50 nostalgie:50','drums bass lead pad sax','intro verse chorus verse chorus bridge chorus',{verse:'i bVI bIII bVII',chorus:'bVI bVII i i'},'midnightcity'],
     ['A Real Hero','College',2011,'synthwave','dream synth',112,'C','major','tendresse:50 espoir:50','drums bass pad arp lead','intro verse chorus verse chorus bridge chorus outro',{verse:'I V vi IV',chorus:'IV V vi I'},'realhero'],
-    ['Someone Like You','Adele',2011,'pop','ballade piano',67,'A','major','tristesse:55 nostalgie:45','keys lead','intro verse pre chorus verse pre chorus bridge chorus outro',{verse:'I iii vi IV',pre:'IV V IV V',chorus:'I V vi IV'},''],
+    ['Someone Like You','Adele',2011,'pop','ballade piano',67,'A','major','tristesse:55 nostalgie:45','keys lead','intro verse pre chorus verse pre chorus bridge chorus outro',{verse:'I iii vi IV',pre:'IV V IV V',chorus:'I V vi IV'},'lettre'],
     ['Viva la Vida','Coldplay',2008,'pop','pop orchestrale',138,'Ab','major','triomphe:55 nostalgie:45','drums bass strings keys lead','intro verse chorus verse chorus bridge chorus outro',{verse:'IV V I vi',chorus:'IV V I vi'},''],
     ['Let It Be','The Beatles',1970,'pop','ballade piano',72,'C','major','espoir:55 serenite:45','drums bass keys lead','intro verse chorus verse chorus solo verse chorus outro',{verse:'I V vi IV',chorus:'vi V IV I'},''],
     ["Don't Stop Believin'",'Journey',1981,'pop','rock FM',119,'E','major','espoir:60 euphorie:40','drums bass keys guitar lead','intro verse verse pre chorus outro',{verse:'I V vi IV',pre:'IV I IV V',chorus:'I V vi IV'},''],
@@ -124,9 +124,9 @@ window.SS = window.SS || {};
     ['Singularity','Stephan Bodzin',2015,'techno','techno mélodique',123,'D','minor','suspense:50 triomphe:50','drums bass arp pad lead',FM.tech,{groove:'i bVI bVII i',drop:'i bVI bIII bVII'},''],
     /* ---- Pop-rock ---- */
     ['Billie Jean','Michael Jackson',1982,'pop','pop funk',117,'F#','dorian','suspense:60 mystere:40','drums bass keys strings lead',FM.pop,{verse:'i ii7 i ii7',pre:'bVI i bVI i',chorus:'bVI i bVI i'},''],
-    ['Wonderwall','Oasis',1995,'pop','britpop',87,'F#','dorian','nostalgie:50 melancolie:50','drums bass guitar strings lead',FM.pop,{verse:'i bIII bVII IV',pre:'bVI bVII i i',chorus:'bVI i bIII i'},''],
-    ['Yellow','Coldplay',2000,'pop','pop-rock',87,'B','major','tendresse:60 nostalgie:40','drums bass guitar lead',FM.vc,{verse:'I V IV I',chorus:'IV vi V IV'},''],
-    ['Fix You','Coldplay',2005,'pop','ballade crescendo',138,'Eb','major','espoir:50 tristesse:50','drums bass keys guitar lead',FM.vc,{verse:'I iii vi V',chorus:'IV I V vi',bridge:'I V vi IV'},''],
+    ['Wonderwall','Oasis',1995,'pop','britpop',87,'F#','dorian','nostalgie:50 melancolie:50','drums bass guitar strings lead',FM.pop,{verse:'i bIII bVII IV',pre:'bVI bVII i i',chorus:'bVI i bIII i'},'pluie'],
+    ['Yellow','Coldplay',2000,'pop','pop-rock',87,'B','major','tendresse:60 nostalgie:40','drums bass guitar lead',FM.vc,{verse:'I V IV I',chorus:'IV vi V IV'},'phares'],
+    ['Fix You','Coldplay',2005,'pop','ballade crescendo',138,'Eb','major','espoir:50 tristesse:50','drums bass keys guitar lead',FM.vc,{verse:'I iii vi V',chorus:'IV I V vi',bridge:'I V vi IV'},'phares'],
     ['Rolling in the Deep','Adele',2010,'pop','pop soul',105,'C','minor','triomphe:60 suspense:40','drums bass keys lead',FM.pop,{verse:'i v bVII bVII',pre:'bVI bVII bVI bVII',chorus:'i bVII bVI bVII'},''],
     ['Shape of You','Ed Sheeran',2017,'pop','pop tropicale',96,'C#','minor','joie:50 tendresse:50','drums perc bass keys lead',FM.pop,{verse:'i iv bVI bVII',chorus:'i iv bVI bVII'},''],
     ['bad guy','Billie Eilish',2019,'pop','électro-pop sombre',135,'G','minor','mystere:50 ambivalence:50','drums bass lead',FM.pop,{verse:'i i iv V',chorus:'i i iv V'},''],
@@ -136,7 +136,7 @@ window.SS = window.SS || {};
     ['Hey Jude','The Beatles',1968,'pop','ballade piano',74,'F','major','espoir:60 tendresse:40','drums bass keys lead','intro verse verse bridge verse outro',{verse:'I V V I IV I V I',bridge:'IV iii ii V',outro:'I bVII IV I'},''],
     ['Imagine','John Lennon',1971,'pop','ballade piano',76,'C','major','serenite:60 espoir:40','drums bass keys strings lead',FM.vc,{verse:'I Imaj7 IV IV',chorus:'IV V I III',bridge:'IV V I III'},''],
     ['Bitter Sweet Symphony','The Verve',1997,'pop','rock orchestral',86,'E','mixolydian','ambivalence:60 melancolie:40','drums bass strings guitar lead',FM.vc,{verse:'I v7 bVII IV',chorus:'I v7 bVII IV'},''],
-    ['Someone You Loved','Lewis Capaldi',2019,'pop','ballade piano',110,'Db','major','tristesse:70 tendresse:30','keys strings lead',FM.pop,{verse:'I V vi IV',chorus:'I V vi IV'},''],
+    ['Someone You Loved','Lewis Capaldi',2019,'pop','ballade piano',110,'Db','major','tristesse:70 tendresse:30','keys strings lead',FM.pop,{verse:'I V vi IV',chorus:'I V vi IV'},'lettre'],
     ['Perfect','Ed Sheeran',2017,'pop','ballade 6/8',63,'Ab','major','tendresse:80 serenite:20','drums bass guitar strings lead',FM.vc,{verse:'I vi IV V',chorus:'vi IV I V'},''],
     /* ---- Funk & Disco ---- */
     ['Le Freak','Chic',1978,'funk','disco',120,'A','dorian','joie:70 euphorie:30','drums bass guitar strings vox',FM.vc,{verse:'i7 IV7 i7 IV7',chorus:'i7 IV7 i7 IV7'},''],
@@ -317,7 +317,7 @@ window.SS = window.SS || {};
     /* ---- Pop-rock et chanson ---- */
     ['Hotel California','Eagles',1976,'pop','rock FM',74,'B','harmonic','mystere:60 nostalgie:40','drums bass guitar lead',FM.vc,{verse:'i V bVII IV bVI bIII iv V',chorus:'bVI bIII V i'},''],
     ["Sweet Child o' Mine","Guns N' Roses",1987,'pop','hard rock',125,'Db','mixolydian','joie:50 nostalgie:50','drums bass guitar lead',FM.vc,{verse:'I bVII IV I',chorus:'V bVII I I'},''],
-    ['Losing My Religion','R.E.M.',1991,'pop','rock alternatif',125,'A','minor','ambivalence:60 melancolie:40','drums bass guitar strings lead',FM.vc,{verse:'i v i v',chorus:'bVI bVII i v'},''],
+    ['Losing My Religion','R.E.M.',1991,'pop','rock alternatif',125,'A','minor','ambivalence:60 melancolie:40','drums bass guitar strings lead',FM.vc,{verse:'i v i v',chorus:'bVI bVII i v'},'pluie'],
     ['Zombie','The Cranberries',1993,'pop','rock alternatif',84,'E','minor','angoisse:50 tristesse:50','drums bass guitar lead',FM.vc,{verse:'i bVI bIII bVII',chorus:'i bVI bIII bVII'},''],
     ['Chandelier','Sia',2014,'pop','pop puissante',117,'Bb','minor','ambivalence:50 euphorie:50','drums bass keys pad lead',FM.pop,{verse:'i bVI bIII bVII',chorus:'i bVI bIII bVII'},''],
     ['Somebody That I Used to Know','Gotye',2011,'pop','indie pop',129,'D','dorian','melancolie:60 ambivalence:40','drums bass guitar keys lead',FM.vc,{verse:'i IV i IV',chorus:'bIII bVII i bVII'},''],

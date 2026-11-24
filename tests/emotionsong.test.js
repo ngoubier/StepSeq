@@ -93,3 +93,12 @@ test('les déductions vont dans le bon sens', () => {
   const w = (s, id) => s.mix.find((e) => e.id === id).w;
   assert.ok(w(sec('chorus'), 'euphorie') > w(sec('intro'), 'euphorie'));
 });
+
+test('pop-rock : une émotion calme part d\'une ballade, pas du rock nerveux', () => {
+  const pick = (id) => E.deduce({ style: 'pop', emotions: [{ id, w: 1 }] }).model.preset;
+  assert.equal(pick('tristesse'), 'lettre');
+  assert.equal(pick('melancolie'), 'pluie');
+  assert.equal(pick('espoir'), 'phares');
+  assert.equal(pick('tendresse'), 'phares');
+  assert.equal(pick('euphorie'), 'brightside');
+});

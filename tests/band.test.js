@@ -19,9 +19,9 @@ const SS = globalThis.SS;
 test('10 styles + « Créer de zéro » : 10 inspirations pour les 4 premiers, une ou deux chansons de démo pour les autres ; identifiants uniques', () => {
   assert.deepEqual(B.STYLES.map((s) => s.id), ['synthwave', 'edm', 'ambient', 'techno', 'pop', 'funk', 'hiphop', 'dnb', 'latin', 'soul', 'cliches', 'zero']);
   assert.ok(B.STYLES.at(-1).blank && !B.STYLES.slice(0, -1).some((s) => s.blank), 'seul « Créer de zéro » est un départ vierge');
-  assert.equal(new Set(B.STYLES.flatMap((s) => s.presets.map((p) => p.id))).size, 52);
+  assert.equal(new Set(B.STYLES.flatMap((s) => s.presets.map((p) => p.id))).size, 55);
   B.STYLES.forEach((s, i) => {
-    const n = i < 4 ? 10 : s.id === 'latin' ? 3 : ['pop', 'soul'].includes(s.id) ? 2 : 1; // latin : reggaeton, salsa, reggae roots ; pop et soul : + une valse, un slow 12/8
+    const n = i < 4 ? 10 : s.id === 'latin' ? 3 : s.id === 'pop' ? 5 : s.id === 'soul' ? 2 : 1; // latin : reggaeton, salsa, reggae roots ; pop : + une valse et trois ballades ; soul : + un slow 12/8
     assert.equal(s.presets.length, n, s.id);
     assert.equal(new Set(s.presets.map((p) => p.id)).size, n);
     if (i >= 4) {
