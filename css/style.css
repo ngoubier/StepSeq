@@ -5929,6 +5929,21 @@ body.wizard-mode #bandDialog.band-dialog.tut-on { flex-direction: row; }
 .bwp-grp { display: flex; gap: 10px; align-items: flex-start; }
 .bwp-grp .bwp-modes { flex: 1; }
 .bwp-glbl { width: 72px; flex: none; padding-top: 8px; font-size: 10px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+/* Guitariste (étape du type « guitar ») : puces de style, familles de motifs, potentiomètres de la main droite */
+.bwg { display: flex; flex-direction: column; gap: 10px; }
+.bwg .bwp-ch { flex-wrap: wrap; gap: 8px 12px; }
+.bwg .bwp-ch .bwp-field { margin: 0; }
+.bwg-styles { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; --motc: var(--c); }
+.bwg-styles .mot-chip { display: inline-block; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); border-radius: 999px; padding: 3px 10px; font: inherit; font-size: var(--fs-sm); cursor: pointer; }
+.bwg-styles .mot-chip.on { border-color: var(--c); background: color-mix(in srgb, var(--c) 18%, var(--panel-2)); }
+.bwg-styles .mot-chip.mark::after { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--c); margin-left: 6px; vertical-align: middle; }
+.bwg .bwp-grp { padding-top: 2px; }
+.bwg-knobs { margin-top: 4px; }
+.bwg-knobs .arp-knob-ring { width: 72px; height: 72px; background: conic-gradient(var(--c) 0 var(--p), var(--c-line) var(--p) 100%); }
+.bwg-knobs .arp-knob-cap { width: 54px; height: 54px; }
+.bwg-knobs .arp-knob-cap b { font-size: var(--fs-xl); }
+.bwg-knobs .arp-knob { padding: 10px 8px; }
+.bwg-knobs .arp-knob-name { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-md); }
 dialog.bwgt-dlg { width: min(980px, 94vw); max-height: 92vh; overflow: auto; padding: 14px 16px; }
 .bwgt-dhead { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 .bwgt-dlg .bwgt { border: 0; padding: 0; }

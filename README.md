@@ -971,8 +971,17 @@ sur une piste de guitare) joue l'arpège comme sur une guitare :
   fondamentale à la basse, notes principales présentes, 3 cases d'écart au plus, cordes à vide en priorité) ;
 - vue **Tablature** ou **Piano roll** du motif.
 
-Dans « Nouvelle chanson », le **Guitariste** propose les mêmes motifs (modes « g:travis »… de la nappe) : ses notes
-sont écrites par le mode Guitare (`arpOneEvents` de `js/bandsong.js`), avec le décalage fin des cordes du grattage.
+Dans « Nouvelle chanson », le **Guitariste** est un type de musicien à part (Nouveau musicien › Guitariste ; le
+guitariste d'une inspiration en est un aussi). Son étape (`js/guitarist.js` pour les tables, `guitarBody` de `js/band.js`)
+reprend les principes de l'étape Arpège : par scène, un **Jeu** *Arpèges* (familles Doigts, Médiator) ou *Accords*
+(Grattage, Étouffés, et Plaqués : les accords du moteur de nappe que jouent les guitaristes des inspirations), des puces
+de **style** (celle de la chanson marquée d'un point), **Surprends-moi**, quatre potentiomètres de la main droite
+(Résonance, Mélodie en avant, Pouce, Main humaine ; en Accords : Étalement, Résonance, Basse appuyée, Main humaine) et
+**Avancé…**, la fenêtre Guitare d'Arp One (schéma, tablature, position, capodastre, accordage), signalée par la pastille
+« ✎ Réglages avancés ». Le son se choisit à l'étape Instruments. Les notes sont écrites par le mode Guitare
+(`arpOneEvents` de `js/bandsong.js`, type `guitar`), avec le décalage fin des cordes du grattage ; un Guitariste ajouté
+part du jeu de guitare du plan, sinon de « Pop ↓ ↓↑ ↑↓↑ ». Outils Claude : `assistantMusicien({ ajouter: 'guitariste' })`,
+`assistantMotifs` (jeu, famille, styles de chaque motif), `assistantJeu({ motif: 'g:travis' })`.
 
 Le mode Guitare est déterministe comme le reste d'Arp One ; la lecture, le rendu et l'export MIDI passent par
 `SS.Arp.renderStep`. Réglages dans `track.arp.guitar` (gardés quand on revient au mode Clavier).

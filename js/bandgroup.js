@@ -7,7 +7,7 @@
  *    ajouté reçoit « x1 », « x2 »… (jamais réutilisé dans un même groupe) ;
  *  - base : l'id du musicien de l'inspiration dont il vient (null pour un musicien ajouté ou dupliqué) ;
  *  - name : son nom (« Bassiste », « Bassiste 2 »…), custom : renommé à la main ;
- *  - type : (musicien ajouté) son type d'origine : drums | bass | chords | arp | melody | orch | ambient ;
+ *  - type : (musicien ajouté) son type d'origine : drums | bass | chords | arp | guitar | melody | orch | ambient ;
  *  - ms : (musicien ajouté) son choix de son : { pick, picked, custom, tok } ; pour un kit, { kit, pieces } ; pour un
  *    orchestre, { ens } (effectif de js/orchestra.js : une piste par pupitre) ; pour un musicien Ambient, { mod, amb, drawn?,
  *    space? } (module de js/ambient.js, ses réglages track.ambient sans la présence, courbe de présence dessinée, envoi Cosmos).
@@ -21,10 +21,10 @@ window.SS = window.SS || {};
 SS.bandGroup = (() => {
   const MIN = 2;
   const MAX = 10;
-  const TYPES = ['drums', 'bass', 'chords', 'arp', 'melody', 'orch', 'ambient'];
-  const ROLE_OF_TYPE = { drums: 'perc', bass: 'bass', chords: 'pad', arp: 'arp', melody: 'lead', orch: 'orch', ambient: 'ambient' };
-  const BASE_NAME = { drums: 'Batteur', bass: 'Bassiste', chords: 'Clavier nappe', arp: 'Clavier arpège', melody: 'Clavier lead', orch: 'Orchestre', ambient: 'Ambient' };
-  const CAT_OF_TYPE = { bass: 'mono', chords: 'chord', arp: 'arp', melody: 'mono', orch: 'mono', ambient: 'mono' };
+  const TYPES = ['drums', 'bass', 'chords', 'arp', 'guitar', 'melody', 'orch', 'ambient'];
+  const ROLE_OF_TYPE = { drums: 'perc', bass: 'bass', chords: 'pad', arp: 'arp', guitar: 'guitar', melody: 'lead', orch: 'orch', ambient: 'ambient' };
+  const BASE_NAME = { drums: 'Batteur', bass: 'Bassiste', chords: 'Clavier nappe', arp: 'Clavier arpège', guitar: 'Guitariste', melody: 'Clavier lead', orch: 'Orchestre', ambient: 'Ambient' };
+  const CAT_OF_TYPE = { bass: 'mono', chords: 'chord', arp: 'arp', guitar: 'chord', melody: 'mono', orch: 'mono', ambient: 'mono' };
   /** Modules d'un musicien Ambient (js/ambient.js) : une piste générative, un module. */
   const AMB_MODS = ['jardin', 'paysage', 'fresque'];
   const ambMod = (m) => (AMB_MODS.includes(m) ? m : AMB_MODS[0]);
@@ -36,7 +36,7 @@ SS.bandGroup = (() => {
     return o;
   };
   /** Type d'un rôle de l'inspiration (null : « fx », sans type). */
-  const TYPE_OF_ROLE = { drums: 'drums', perc: 'drums', bass: 'bass', pad: 'chords', strings: 'chords', keys: 'chords', guitar: 'chords', brass: 'chords', arp: 'arp', arpchord: 'arp', lead: 'melody', vox: 'melody', sax: 'melody', orch: 'orch', ambient: 'ambient' };
+  const TYPE_OF_ROLE = { drums: 'drums', perc: 'drums', bass: 'bass', pad: 'chords', strings: 'chords', keys: 'chords', guitar: 'guitar', brass: 'chords', arp: 'arp', arpchord: 'arp', lead: 'melody', vox: 'melody', sax: 'melody', orch: 'orch', ambient: 'ambient' };
   const typeOfRole = (role) => (role === 'fx' ? null : TYPE_OF_ROLE[role] || 'chords');
   const isExtraId = (id) => /^x\d+$/.test(String(id || ''));
   const clone = (x) => (x === undefined ? undefined : JSON.parse(JSON.stringify(x)));
@@ -95,7 +95,7 @@ SS.bandGroup = (() => {
     }
     if (kind === 'orch') return { role: 'orch', pick: ['gm_violin'], cat: 'mono', ens: SS.orchestra ? SS.orchestra.ENSEMBLES.map((e) => e.id) : ['strings'] };
     if (kind === 'ambient') return { role: 'ambient', pick: AMB_MODS.slice(), cat: 'mono' };
-    const pref = { bass: ['bass'], chords: ['pad', 'keys', 'strings', 'guitar', 'brass'], arp: ['arp'], melody: ['lead', 'vox', 'sax'] }[kind];
+    const pref = { bass: ['bass'], chords: ['pad', 'keys', 'strings', 'brass'], arp: ['arp'], guitar: ['guitar'], melody: ['lead', 'vox', 'sax'] }[kind];
     let mu = null;
     outer: for (const strict of [true, false])
       for (const sc of scopes)
