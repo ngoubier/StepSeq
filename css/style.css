@@ -5786,6 +5786,17 @@ body.wizard-mode.wiz-sheet-open #bandDialog.band-dialog { margin-right: 380px; }
 .track.frozen .track-head .th-sd, .track.frozen .track-head .th-edit { opacity: .45; }
 .track.frozen .track-row .cell { opacity: .3; }
 .frz-wave { position: absolute; left: 0; top: 0; height: 100%; pointer-events: none; z-index: 1; }
+/* piste générative (js/ambientlane.js) : la bande de présence remplace les cases, gardées pour la mise en page */
+.amb-grid .cell-chunk, .amb-grid .len-handle { visibility: hidden; }
+.amb-lane { position: absolute; top: 0; height: 100%; z-index: 2; cursor: crosshair; overflow: hidden; touch-action: none;
+  background: color-mix(in srgb, var(--c) 8%, transparent); border-radius: 4px; }
+.amb-lane canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
+.amb-chords { position: absolute; left: 0; right: 0; top: 3px; height: 16px; pointer-events: none; }
+.amb-chords span { position: absolute; top: 0; padding-left: 6px; font-size: var(--fs-xs); color: var(--c-text-2); opacity: .8; white-space: nowrap; border-left: 1px dashed currentColor; }
+.amb-chords span:first-child { border-left: 0; }
+.amb-tag { position: absolute; right: 8px; bottom: 4px; font-size: var(--fs-xs); opacity: .6; pointer-events: none; }
+.th-btn.th-void { visibility: hidden; }
+.compact-tracks .th-options .th-btn.th-void { display: none; }
 .compact-tracks .th-ctrls .th-btn.th-frz { grid-row: auto; grid-column: auto; }
 dialog.frz-dialog { width: min(420px, calc(100vw - 32px)); padding: 16px 18px; }
 dialog.frz-dialog h3 { margin: 0 0 4px; font-size: var(--fs-lg); display: flex; align-items: center; gap: 6px; }

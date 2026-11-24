@@ -61,6 +61,16 @@ test('position dans la chanson : bloc, répétition, pas', () => {
   assert.equal(A.songFrac({ ...p, song: [] }, null, 16), 0.5);
 });
 
+test('part de la chanson occupée par la scène en cours (première apparition, un tour)', () => {
+  const p = { timeSig: [4, 4], bars: 4, current: 'a', scenes: [{ id: 'a', bars: 4 }, { id: 'b', bars: 2 }], song: [{ scene: 'a', repeat: 2 }, { scene: 'b', repeat: 1 }] };
+  assert.deepEqual(A.sceneSpan(p), [0, 64 / 160]);
+  p.current = 'b';
+  p.bars = 2;
+  assert.deepEqual(A.sceneSpan(p), [128 / 160, 1]);
+  assert.deepEqual(A.sceneSpan({ ...p, song: [] }), [0, 1]);
+  assert.deepEqual(A.sceneSpan({ ...p, current: 'x' }), [0, 1]);
+});
+
 test('harmonie : accord de la grille au pas, sinon la gamme de la scène', () => {
   const key = { tonic: 'D', mode: 'major' };
   const p = { timeSig: [4, 4], bars: 4, current: 's', scenes: [{ id: 's', bars: 4, key, grid: { chords: [{ step: 0, len: 32, degree: 0, type: 'maj' }, { step: 32, len: 32, degree: 5, type: 'min' }] } }] };

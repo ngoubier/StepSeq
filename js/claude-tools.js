@@ -534,6 +534,7 @@ SS.claudeTools = (() => {
     const p = P();
     const t = findTrack(ref);
     if (t.type !== 'instrument') fail(`« ${t.name} » est une piste de batterie : utilise ecrireBatterie`);
+    if (SS.isAmbient(t)) fail(`« ${t.name} » est une piste générative : son module choisit ses notes ; règle sa présence avec presence()`);
     const sc = goScene(scene);
     const total = SS.trackLen(p, t);
     const evs = toEvents(notes, total);
@@ -623,6 +624,32 @@ SS.claudeTools = (() => {
     SS.ui.renderTrack(t);
     changedNow(`effets de « ${t.name} » : ${what.join(', ')}`);
     return { message: `${t.name} : ${what.join(', ')}`, effets: { ...SS.fxParams(t), ...(SS.fxParams(t).scSource ? { scSource: (p.tracks.find((x) => x.id === SS.fxParams(t).scSource) || {}).name } : {}) } };
+  }
+
+  /**
+   * Présence d'une piste générative dans une scène (la bande de la Grille) : la part de sa courbe « présence sur toute
+   * la chanson » qui tombe dans la scène. valeur : constante ; debut / fin : une rampe. Sans réglage : la lit.
+   */
+  function presence({ piste: ref, scene, valeur, debut, fin } = {}) {
+    const t = findTrack(ref);
+    if (!SS.isAmbient(t)) fail(`« ${t.name} » n’est pas une piste générative (Jardin, Paysage, Fresque)`);
+    const sc = goScene(scene);
+    const A = SS.ambient;
+    const [a, b] = A.sceneSpan(P());
+    const PN = A.PN;
+    const i0 = Math.round(a * (PN - 1)), i1 = Math.round(b * (PN - 1));
+    const cur = (t.ambient && Array.isArray(t.ambient.presence) ? t.ambient.presence : null);
+    const read = () => [0, 0.25, 0.5, 0.75, 1].map((x) => Math.round(A.curveAt(cur, a + (b - a) * x) * 100) / 100);
+    if (valeur == null && debut == null && fin == null) return { piste: t.name, scene: sc.name, presence: read(), lecture: 'début, 1/4, milieu, 3/4, fin de la scène (0–1)' };
+    const v0 = Number(valeur != null ? valeur : debut != null ? debut : fin);
+    const v1 = Number(valeur != null ? valeur : fin != null ? fin : debut);
+    if (![v0, v1].every((v) => v >= 0 && v <= 1)) fail('présence entre 0 et 1');
+    const arr = (cur || new Array(PN).fill(1)).slice();
+    for (let k = i0; k <= i1; k++) arr[k] = Math.round((i1 === i0 ? v1 : v0 + ((v1 - v0) * (k - i0)) / (i1 - i0)) * 1000) / 1000;
+    t.ambient = { ...(t.ambient || {}), presence: arr };
+    SS.ui.renderTrack(t);
+    changedNow(`présence de « ${t.name} » dans ${sc.name} : ${v0 === v1 ? v0 : `${v0} → ${v1}`}`);
+    return { message: `${t.name}, ${sc.name} : présence ${v0 === v1 ? v0 : `${v0} → ${v1}`}` };
   }
 
   /** Paramètres et formes d'automation proposés pour une piste. */
@@ -1462,6 +1489,7 @@ SS.claudeTools = (() => {
     { nom: 'son', description: 'Change le son d’une piste (batterie : le kit).', params: { piste: PISTE, son: S('texte', 'id ou bout de nom (voir sons()), "j:A48", ou un kit pour la batterie', true) }, faire: son },
     { nom: 'figer', description: 'Fige une piste instrument en audio (bouton ❄) : elle est jouée depuis un enregistrement et ne fait presque plus calculer le moteur audio (son qui décroche avec plusieurs synthés). figer: false la dégèle.', params: { piste: PISTE, figer: S('booléen', 'false : dégeler') }, faire: figer },
     { nom: 'mix', description: 'Volume, muet, solo d’une piste.', params: { piste: PISTE, volume: S('nombre', '0 à 1'), muet: S('booléen', ''), solo: S('booléen', '') }, faire: mix },
+    { nom: 'presence', description: 'Piste générative (Jardin, Paysage, Fresque) : sa présence dans une scène, comme la bande de la Grille (ses notes viennent du module, pas de la grille). Sans valeur : la lit.', params: { piste: PISTE, scene: SCENE, valeur: S('nombre', 'présence constante 0–1'), debut: S('nombre', 'rampe : présence au début de la scène 0–1'), fin: S('nombre', 'rampe : présence à la fin de la scène 0–1') }, faire: presence },
     { nom: 'effets', description: 'Règle les effets d’une piste (comme la fenêtre Effets). Seuls les réglages donnés changent.', params: { piste: PISTE, chorus: S('nombre', 'mix 0–1'), chorusVitesse: S('nombre', 'Hz 0.1–6'), chorusProfondeur: S('nombre', '0–1'), delay: S('nombre', 'mix de l’écho 0–1'), delayTemps: S('texte', '"1/16", "1/8", "3/16" (croche pointée), "1/4"…'), delayRepetitions: S('nombre', 'feedback 0–0.9'), reverb: S('nombre', 'mix 0–1'), reverbTaille: S('nombre', 'secondes 0.2–10'), reverbBrillance: S('nombre', 'Hz 500–20000'), sidechainSource: S('texte', 'piste qui fait pomper celle-ci (souvent le kick) ; "" pour retirer'), sidechainProfondeur: S('nombre', '0–1'), sidechainRelachement: S('nombre', 'secondes 0.03–1'), envoiPlate: S('nombre', 'envoi vers la reverb Plate commune (batterie) 0–1'), envoiHall: S('nombre', 'envoi vers la reverb Hall commune (instruments) 0–1'), envoiEcho: S('nombre', 'envoi vers l’écho à bande commun 0–1'), envoiCosmos: S('nombre', 'envoi vers Cosmos, reverb longue ambient 0–1'), aucun: S('booléen', 'retirer tous les effets d’abord') }, faire: effets },
     { nom: 'automations', lecture: true, description: 'Les paramètres automatisables d’une piste et leurs formes toutes prêtes.', params: { piste: PISTE }, faire: automations },
     { nom: 'automation', description: 'Fait évoluer un réglage au fil d’une scène : une forme toute prête ou des points (les valeurs glissent d’un point à l’autre).', params: { piste: PISTE, parametre: S('texte', 'filter, res, volume, reverb, echo, space, vcf, pw, fdecay, lfoamt, sustain, mod, bend (voir automations())', true), forme: S('texte', 'ex. "lp-open", "hp-rise", "in", "pump" (voir automations())'), points: S('liste', '[{ pas, valeur }] ; filter : −1 passe-bas fermé … 0 ouvert … +1 passe-haut'), effacer: S('booléen', 'retirer cette automation'), scene: SCENE }, faire: automation },

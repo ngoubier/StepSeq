@@ -1267,7 +1267,8 @@ SS.ui = (() => {
     const ref = { el: null, cells: [], roll: new Map() };
     refs.set(track.id, ref);
 
-    const isOpen = app.state.openRolls.has(track.id);
+    const amb = SS.isAmbient(track); // piste générative : pas de notes à écrire, une bande de présence (js/ambientlane.js)
+    const isOpen = !amb && app.state.openRolls.has(track.id);
     const autoOpen = openAutos().has(track.id);
     const instr = track.type === 'instrument';
     const head = h(
@@ -1354,7 +1355,9 @@ SS.ui = (() => {
             app.changed();
           },
         }),
-        instr
+        amb
+          ? h('button', { class: 'th-btn th-roll th-void', disabled: true, 'aria-hidden': 'true', tabindex: -1, html: ICONS.keys })
+          : instr
           ? h('button', {
               class: 'th-btn th-roll' + (isOpen ? ' open' : ''),
               title: 'Afficher / masquer le piano roll',
@@ -1536,6 +1539,8 @@ SS.ui = (() => {
       SS.freeze.decorate(el, track); // piste figée : bouton ❄ et forme d'onde de la scène
       SS.freeze.wave(track, grid);
     }
+    // piste générative : la présence dans la scène, les accords suivis et les notes jouées, à la place des cases
+    if (amb && !(SS.freeze && SS.freeze.isOn(track))) SS.ambientLane.build(track, grid, app);
     SS.audio.setTrackGain(track, track.volume);
     paint(track);
     return el;
@@ -2396,6 +2401,7 @@ SS.ui = (() => {
     const ref = refs.get(track.id);
     if (!ref) return;
     applyLen(track, ref);
+    if (SS.isAmbient(track)) SS.ambientLane.refresh(track);
     if (track.type === 'drum') {
       ref.cells.forEach((c, s) => {
         const v = track.steps[s] || 0;
@@ -3971,6 +3977,7 @@ SS.ui = (() => {
   function setPlayhead(step, noLayout = false) {
     nowStep = step;
     const p = app.project();
+    SS.ambientLane.at(step);
     if (step < 0) {
       litCells.forEach((el) => el.classList.remove('now'));
       litCells = [];

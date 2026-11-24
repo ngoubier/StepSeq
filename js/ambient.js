@@ -21,7 +21,7 @@
  *
  * Couleurs : noms de variables CSS de la palette (css/style.css), lues par la fenêtre de réglages.
  *
- * Fonctions pures testées sous Node (tests/ambient.test.js) : settings, curveAt, pool, songFrac, harmonyAt.
+ * Fonctions pures testées sous Node (tests/ambient.test.js) : settings, curveAt, pool, songFrac, sceneSpan, harmonyAt.
  */
 window.SS = window.SS || {};
 SS.isAmbient = (t) => !!t && t.type === 'instrument' && t.family === 'ambient';
@@ -146,6 +146,21 @@ SS.ambient = (() => {
     for (let k = 0; k < i; k++) before += len(blocks[k]);
     const rep = song ? song.rep || 0 : 0;
     return clamp((before + rep * total + (tick % total)) / all, 0, 1);
+  }
+  /**
+   * Part de la chanson (0..1) occupée par la scène en cours : [début, fin] de sa première apparition dans
+   * l'arrangement (comme songFrac hors mode chanson) ; [0, 1] sans arrangement ou si la scène n'y est pas.
+   */
+  function sceneSpan(p) {
+    const spb = SS.stepsPerBar(p);
+    const blocks = (p.song || []).filter((b) => (p.scenes || []).some((sc) => sc.id === b.scene));
+    const len = (b) => barsOf(p, b.scene) * spb * Math.max(1, b.repeat || 1);
+    const all = blocks.reduce((s, b) => s + len(b), 0);
+    const i = blocks.findIndex((b) => b.scene === p.current);
+    if (!all || i < 0) return [0, 1];
+    let before = 0;
+    for (let k = 0; k < i; k++) before += len(blocks[k]);
+    return [before / all, clamp((before + SS.totalSteps(p)) / all, 0, 1)];
   }
   /**
    * Harmonie au pas `tick` de la scène en cours : { pcs (accord), scale (gamme), root (classe), key (texte qui change
@@ -333,10 +348,25 @@ SS.ambient = (() => {
     } else noiseBuf(ctx, 'noise');
   }
 
+  /*
+   * Notes jouées par le moteur, pour les dessiner dans la Grille (js/ambientlane.js) : pendant un pas, `cur` est
+   * l'état de la piste ; chaque voix note sa hauteur, son heure et sa place dans la scène (0..1). Les grains, trop
+   * nombreux, ne sont pas notés.
+   */
+  let cur = null;
+  const MARKS = 80;
+  function mark(f, t) {
+    if (!cur) return;
+    const m = cur.marks;
+    m.push({ m: 69 + 12 * Math.log2(f / 440), t, x: cur.pos });
+    if (m.length > MARKS) m.splice(0, m.length - MARKS);
+  }
+
   /* ================================================================== */
   /* Voix                                                                */
   /* ================================================================== */
   function partials(ctx, dest, f, t, list, atk, amp, spread = 0.7) {
+    mark(f, t);
     list.forEach(([h, a, dec]) => {
       const o = ctx.createOscillator();
       o.frequency.value = f * h;
@@ -634,6 +664,7 @@ SS.ambient = (() => {
       else if (s.k === 'string') {
         const src = c.createBufferSource();
         src.buffer = karplus(c, f);
+        mark(f, t);
         const g = c.createGain();
         g.gain.value = 0.35;
         src.connect(g).connect(this.chain(st, s, t, 5));
@@ -859,7 +890,7 @@ SS.ambient = (() => {
     const out = ctx.createGain();
     out.gain.setValueAtTime(0, t);
     out.connect(dest);
-    const st = { ctx, mod, out, dest, t0: t, stoppers: [], lastNotes: [], lastSeed: new Map(), id: track.id };
+    const st = { ctx, mod, out, dest, t0: t, stoppers: [], lastNotes: [], lastSeed: new Map(), marks: [], pos: 0, id: track.id };
     ENGINES[mod].start(st);
     return st;
   }
@@ -899,11 +930,14 @@ SS.ambient = (() => {
     st.out.gain.setTargetAtTime(curveAt(A.presence, frac) * GAIN[A.mod], c.time, 0.5);
     st.frac = frac;
     st.env = env;
+    st.pos = (c.tick % SS.totalSteps(c.project)) / SS.totalSteps(c.project);
+    cur = st;
     try {
       ENGINES[A.mod].step(st, A.p, env, c.time, c.time + c.sd);
     } catch (e) {
       console.warn('Ambient', e);
     }
+    cur = null;
   }
   /** Arrêt de la lecture (js/audio.js silenceAll) : tout s'éteint en quelques dizaines de ms. */
   function stopAll() {
@@ -919,6 +953,11 @@ SS.ambient = (() => {
   function note(ctx, track, midi, time, dur, vel, out) {
     partials(ctx, out, mtof(midi), time, BELL, 0.01, 0.2 * vel, 0.3);
   }
+  /** Notes jouées récemment par la piste : [{ m (midi, décimal), t (heure du contexte), x (place dans la scène 0..1) }]. */
+  function marks(id) {
+    const st = states.get(id);
+    return st ? { list: st.marks, now: st.ctx.currentTime } : null;
+  }
   /** Ce que la fenêtre de réglages affiche pendant la lecture. */
   function live(id) {
     const st = states.get(id);
@@ -933,5 +972,5 @@ SS.ambient = (() => {
     return { buf: own || pianoBuf(ctx), own: !!own };
   }
 
-  return { grainBuffer, PN, MODULES, LAYERS, SEEDS, settings, curveAt, pool, songFrac, harmonyAt, shape, step, stopAll, remove, note, prepare, importFile, loadFile, live, moduleOf };
+  return { grainBuffer, PN, sceneSpan, marks, MODULES, LAYERS, SEEDS, settings, curveAt, pool, songFrac, harmonyAt, shape, step, stopAll, remove, note, prepare, importFile, loadFile, live, moduleOf };
 })();
