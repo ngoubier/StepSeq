@@ -118,7 +118,8 @@ voir « Nouvelle chanson » plus bas), sur le projet en cours. Ses deux premièr
    Montuno 3-2, Guajeo en octaves, Montuno du mambo : octaves anticipées sur le « et » et liées à l'accord qui arrive,
    main gauche qui double la ligne), basse en **tumbao** (`tumbao23`) et musicien **Cuivres** en formation **Salsa**
    (deux trompettes, deux trombones, une piste chacun : Unisson en intro, Tenues au couplet, Coups sur la clave au
-   montuno et à la coda, Mambo 2-3 au mambo ; le modèle écrit le jeu de chaque scène, `sections[…].horns`) ;
+   montuno et à la coda, Mambo 2-3 au mambo ; le modèle écrit le jeu de chaque scène, `sections[…].horns`, et
+   `eighths: true` fait lire les jeux en croches, comme la grille) ;
    le style **Pop-rock** a, en plus de Mr. Brightside et de la valse, trois modèles calmes aux titres originaux :
    « Lettre jamais envoyée » (`lettre`, ballade piano triste, La majeur 70 BPM, Steinway VCSL, cordes VSCO, balais),
    « Les phares s'allument » (`phares`, ballade qui monte, Mi♭ 72 BPM, orgue VCSL, guitare arpégée puis refrain final

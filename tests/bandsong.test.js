@@ -553,3 +553,12 @@ test('3/4, 6/8 et 12/8 : toutes les chansons se construisent à la bonne longueu
   assert.equal(SS.bandSong.meter().spb, 16);
   assert.ok(Object.values(s.scenes[0].data).every((d) => !d.steps || d.steps.length === s.scenes[0].bars * 16));
 });
+
+test('salsa écrite en croches (eighths) : la section de cuivres joue ses jeux à la bonne vitesse', () => {
+  const p = PRESETS.find((x) => x.id === 'calle');
+  assert.ok(SS.BandSongs.calle.eighths);
+  const s = SS.bandSong.build(SS.BandSongs.calle, 'calle', tracksOf(p));
+  const mambo = s.scenes.find((sc) => sc.sec === 'instr').data['horns:salsa-t1'].events;
+  // Mambo 2-3 : 7 attaques sur deux mesures jouées, soit une mesure de la grille (16 croches)
+  assert.equal(mambo.filter((e) => e.step < 16).length, 7);
+});
