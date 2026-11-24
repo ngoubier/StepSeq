@@ -8858,7 +8858,7 @@ SS.band = (() => {
 
   /** Met le mix en phase avec les pistes de l'assistant (première visite : le réglage automatique du style). */
   function mixSync() {
-    const tr = wizCols().map((c) => ({ type: c.o.type, sound: c.o.sound, band: c.o.band, levelKey: c.o.levelKey }));
+    const tr = wizCols().map((c) => ({ type: c.o.type, sound: c.o.sound, band: c.o.band, levelKey: c.o.levelKey, instrument: c.o.instrument }));
     const style = (tr.find((t) => t.band) || { band: {} }).band.style || 'synthwave';
     S.wiz.mix = SS.wizMix.sync(S.wiz.mix, style, tr);
     return S.wiz.mix;
