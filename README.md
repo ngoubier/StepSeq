@@ -8,7 +8,7 @@ boîtes à rythmes et des instruments, et enregistrer ses projets dans des fichi
 StepSeq a deux façons de travailler, sur le même projet :
 
 - **l'Assistant « Nouvelle chanson »** (`js/band.js`) : on part d'un style (ou de 🎬 Musique de film, de Clichés, de
-  Créer de zéro, ou d'une reprise tapée) et on avance étape par étape : groupe, scènes, batterie, accords, basse,
+  Créer de zéro, d'un style et d'émotions avec ✦ D'après une émotion, ou d'une reprise tapée) et on avance étape par étape : groupe, scènes, batterie, accords, basse,
   nappes, arpèges, mélodie, orchestration, effets, mix. C'est l'écran de référence pour créer ;
 - **la Grille** (les pistes du projet, `js/ui.js`) : chaque piste, ses pas et son piano roll, la piste Accords,
   Arp One, la console de mixage avec Auto Mix, la fenêtre Arrangement (scènes et arrangement).
@@ -486,6 +486,32 @@ respirations, cellule rythmique reprise). **Variante B** recompose avec la même
 de chaque émotion ; dans Band, l'émotion de chaque scène (étape Accords) guide aussi la mélodie (contour, note
 visée sur les temps forts, registre, fin) ; à l'étape Mélodie de l'assistant, c'est ce même panneau qui compose la
 mélodie de chaque scène.
+
+### ✦ D'après une émotion (`js/emotionsong.js`, `js/songrefs.js`)
+
+Dernière tuile de l'étape Style. On choisit un style et une à trois émotions pondérées ; StepSeq cherche les chansons
+de référence les plus proches et en déduit la chanson, affichée avant d'être appliquée :
+
+- **la table de référence** (`js/songrefs.js`) : 287 chansons connues (16 à 36 par style, plus 30 musiques de film)
+  réduites à leurs données : style et orientation, tempo, tonique et mode, émotions pondérées, grilles en degrés par
+  type de scène, forme, instruments, et l'inspiration de l'assistant qui reprend déjà le morceau. Jamais de mélodie ni
+  de paroles. Les valeurs sont à vérifier (Hooktheory, Tunebat, PMEmo) : une correction = une ligne ;
+- **les chansons modèles** : proximité = émotions en commun et distance valence / énergie / tension (`SS.EMOTIONS`),
+  × style (même style 1, style voisin 0,55, autre 0,2) ;
+- **tempo** : moyenne des modèles du style (poids = proximité²), poussée ou freinée par l'énergie du mélange, dans la
+  plage du style ; **mode** : vote moitié émotions (leurs propositions), moitié modèles, côté clair ou sombre d'abord ;
+  **tonique** : la plus fréquente chez les modèles du même côté ; **orientation et forme** : le modèle le plus proche ;
+- **groupe** : celui de l'inspiration la plus proche, plus des musiciens appelés par les émotions (arpège pour
+  l'émerveillement, cordes pour le triomphe ou l'espoir, piano pour une émotion intime) ;
+- **scènes et accords** : chaque scène garde le mélange (pastille) en penchant vers l'émotion la plus calme, la plus
+  énergique ou la plus tendue selon son rôle ; sa grille vient des modèles ou des propositions des émotions, si 80 %
+  de ses notes tiennent dans le mode ; un clic sur une scène montre les autres grilles.
+
+**Créer cette chanson** règle l'assistant par son pont (`SS.band.claude`) : inspiration, tempo, tonalité, scènes
+(nom, 8 mesures), arrangement, accords et émotion de chaque scène, musiciens ajoutés ; l'étape Scènes s'ouvre et tout
+se retouche comme d'habitude. Musique de film n'y est pas encore (son parcours part des repères de l'image).
+Fenêtre : `js/emotionsongpanel.js` ; outil Claude `assistantEmotion` ; tests `node --test tests/emotionsong.test.js`,
+`node tests/e2e/emotion-song.js`.
 
 ### 🎬 Musique de film (`js/film.js`)
 
@@ -1265,7 +1291,7 @@ intégré à l'application : le pilotage passe par Claude in Chrome. Test : `nod
 
 Assistant **Nouvelle chanson** (pont `SS.band.claude` dans `js/band.js`) : `assistantStyles`, `assistantEtat`, `assistantSons`,
 `assistantOuvrir` (reprend le brouillon s'il existe), `assistantEtape`, `assistantEcouter` / `assistantStop`, `assistantFermer`,
-`assistantStyle` (style, inspiration), `assistantMusicien` (ajouter, son, type, nom, retirer), `assistantTempo`, `assistantTonalite`
+`assistantStyle` (style, inspiration), `assistantEmotion` (style et émotions → chanson déduite, `appliquer`), `assistantMusicien` (ajouter, son, type, nom, retirer), `assistantTempo`, `assistantTonalite`
 (toutes les scènes transposées), `assistantScene` (mesures, nom, copie, suppression), `assistantStructure`, `assistantAccords` (une
 mesure par élément, répétée sur la scène), `assistantMelodie` (une autre mélodie), effets : `assistantEffets` (transitions, musicien Effets par scène, percussions,
 mouvements de son), `assistantTransition` (recette ou effet par effet), `assistantEffetsScene` (rôle du musicien Effets, boucles

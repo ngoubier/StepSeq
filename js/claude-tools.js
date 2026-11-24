@@ -1210,6 +1210,30 @@ SS.claudeTools = (() => {
     W().fermer();
     return { message: 'Retour à la grille, le brouillon de l’assistant est gardé' };
   }
+  /** « D'après une émotion » : la chanson déduite d'un style et d'émotions pondérées (js/emotionsong.js), appliquée si demandé. */
+  function assistantEmotion({ style, emotions, appliquer = false } = {}) {
+    const list = (Array.isArray(emotions) ? emotions : String(emotions || '').split(/[\s,;]+/).filter(Boolean)).map((x) => {
+      const [name, w] = typeof x === 'object' ? [x.emotion || x.id, x.poids ?? x.w ?? 1] : String(x).split(':');
+      const e = SS.EMOTIONS.find((m) => fold(m.id) === fold(name) || fold(m.label) === fold(name) || fold(m.label).startsWith(fold(name)));
+      if (!e) fail(`émotion inconnue : « ${name} » (${SS.EMOTIONS.map((m) => m.id).join(', ')})`);
+      return { id: e.id, w: Number(w) || 1 };
+    });
+    const st = SS.emotionSong.styles({ film: false }).find((x) => fold(x.id) === fold(style) || fold(x.label) === fold(style));
+    if (!st) fail(`style inconnu : « ${style} » (${SS.emotionSong.styles({ film: false }).map((x) => x.id).join(', ')})`);
+    if (!list.length) fail('emotions : au moins une, ex. "nostalgie:60 espoir:40"');
+    const d = appliquer ? SS.emotionSongPanel.claude.appliquer({ style: st.id, emotions: list }) : SS.emotionSong.deduce({ style: st.id, emotions: list });
+    if (appliquer) draft(`chanson d’après ${d.mix.map((e) => SS.findEmotion(e.id).label).join(' + ')}`);
+    const E = SS.emotionSong;
+    return {
+      message: appliquer ? 'Assistant réglé d’après les émotions (étape Scènes)' : 'Chanson déduite (rien n’est encore changé : appliquer: true pour régler l’assistant)',
+      melange: d.mix.map((e) => `${SS.findEmotion(e.id).label} ${Math.round(e.w * 100)} %`),
+      tempo: d.tempo.bpm, tonalite: keyText(d.key), orientation: `${d.orientation.label} (comme ${d.orientation.ref})`,
+      inspiration: d.model && d.model.preset, groupe: d.roles.map((r) => SS.Band.ROLES[r.role].short + (r.added ? ' (ajouté)' : '')),
+      scenes: d.sections.map((s) => { const g = s.grids[s.pick]; return { scene: s.name, emotion: SS.findEmotion(s.emotion).label, accords: g ? E.chordsIn(d.key, g.chords).map((c) => c.name).join(' ') : null, source: g ? E.fromText(g, s.type) : null }; }),
+      forme: d.form.map((t) => E.SCENES[t][0]).join(' → '),
+      modeles: d.refs.slice(0, 5).map((r) => `${r.title} (${r.artist}, ${r.bpm} BPM, ${Math.round(r.score * 100)} %)`),
+    };
+  }
   function assistantStyle({ style, inspiration } = {}) {
     const st = W().styles().find((s) => fold(s.style) === fold(style) || fold(s.nom) === fold(style));
     if (!st) fail(`style inconnu : « ${style} » (${W().styles().map((s) => s.style).join(', ')})`);
@@ -1517,6 +1541,7 @@ SS.claudeTools = (() => {
     { nom: 'assistantEcouter', lecture: true, assistant: true, description: 'Écoute la chanson en cours de création (ou la scène, aux étapes Accords et instruments).', params: {}, faire: assistantEcouter },
     { nom: 'assistantStop', lecture: true, assistant: true, description: 'Arrête l’écoute de l’assistant.', params: {}, faire: assistantStop },
     { nom: 'assistantFermer', assistant: true, description: 'Revient à la grille ; le brouillon de l’assistant est gardé.', params: {}, faire: assistantFermer },
+    { nom: 'assistantEmotion', assistant: true, description: 'Assistant « Nouvelle chanson » › « D’après une émotion » : déduit tempo, tonalité, groupe, scènes et accords d’un style et d’une à trois émotions pondérées (chansons de référence). appliquer: true règle l’assistant (inspiration la plus proche, scènes, accords, émotion de chaque scène).', params: { style: S('texte', 'id du style (synthwave, edm, ambient, techno, pop, funk, hiphop, dnb, latin, soul, cliches)', true), emotions: S('texte', 'émotions et poids, ex. "nostalgie:60 espoir:40" ou [{ emotion, poids }]', true), appliquer: S('booléen', 'true : régler l’assistant (sinon : seulement la proposition)') }, faire: assistantEmotion },
     { nom: 'assistantStyle', assistant: true, description: 'Choisit le style et l’inspiration (le groupe, le tempo et le plan de la chanson suivent).', params: { style: S('texte', 'synthwave, edm, ambient, techno, pop, funk, hiphop, dnb, latin, soul, cliches (Clichés : recettes de tubes connus), zero (Créer de zéro : départ neutre sans inspiration)', true), inspiration: S('texte', 'id, titre ou artiste d’une inspiration (voir assistantStyles())') }, faire: assistantStyle },
     { nom: 'assistantMusicien', assistant: true, description: 'Ajoute un musicien, ou change le son, le type ou le nom d’un musicien, ou le retire.', params: { ajouter: S('texte', 'type du musicien à ajouter : batterie, basse, nappe, arpege, melodie, orchestre, ambient (piste générative)'), musicien: S('texte', 'id ou nom d’un musicien (voir assistantEtat())'), son: S('texte', 'id ou nom d’un son conseillé (assistantSons), ou tout son du catalogue (sons()), "j:A48"… ; ambient : le module jardin, paysage ou fresque'), type: S('texte', 'nouveau type'), nom: S('texte', 'nouveau nom'), retirer: S('booléen', 'retirer ce musicien') }, faire: assistantMusicien },
     { nom: 'assistantTempo', assistant: true, description: 'Tempo de la chanson à créer.', params: { bpm: S('nombre', '40 à 240', true) }, faire: assistantTempo },
