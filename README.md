@@ -973,12 +973,20 @@ sur une piste de guitare) joue l'arpège comme sur une guitare :
 
 Dans « Nouvelle chanson », le **Guitariste** est un type de musicien à part (Nouveau musicien › Guitariste ; le
 guitariste d'une inspiration en est un aussi). Son étape (`js/guitarist.js` pour les tables, `guitarBody` de `js/band.js`)
-reprend les principes de l'étape Arpège : par scène, un **Jeu** *Arpèges* (familles Doigts, Médiator) ou *Accords*
-(Grattage, Étouffés, et Plaqués : les accords du moteur de nappe que jouent les guitaristes des inspirations), des puces
+reprend les principes de l'étape Arpège : par scène, un **Jeu** *Arpèges* (familles Doigts, Médiator), *Accords*
+(Grattage, Étouffés, et Plaqués : les accords du moteur de nappe que jouent les guitaristes des inspirations) ou *Riffs*
+(Quintes et octaves, Lignes ; en 4/4), des puces
 de **style** (celle de la chanson marquée d'un point), **Surprends-moi**, quatre potentiomètres de la main droite
 (Résonance, Mélodie en avant, Pouce, Main humaine ; en Accords : Étalement, Résonance, Basse appuyée, Main humaine) et
 **Avancé…**, la fenêtre Guitare d'Arp One (schéma, tablature, position, capodastre, accordage), signalée par la pastille
-« ✎ Réglages avancés ». Le son se choisit à l'étape Instruments. Les notes sont écrites par le mode Guitare
+« ✎ Réglages avancés ». La fenêtre a aussi un **éditeur pas à pas** : cordes (doigts, médiator) ou coups (grattage) du
+motif, gardés pour la scène (`gtr.pat`). Le son se choisit à l'étape Instruments.
+
+Les **riffs** (`js/guitar-riffs.js`, modes « r:power »…) sont écrits en degrés de l'accord (R, b3, 3, 4, 5, 6, b7, 8 ;
+R5 = power chord, x = note morte, « _ » = palm mute) : ils suivent les accords de la scène, fondamentale entre Mi 2 et
+Ré♯ 3. Potentiomètres : Étouffé, Swing, Énergie, Main humaine ; fenêtre **RIFF** : éditeur des degrés (clic droit =
+palm mute), notes *Suivent les accords* ou *Fixes 🔒*, Grave ou Octave au-dessus (réglages dans `riff`). Hors 4/4, un
+riff laisse place à un motif de guitare de la mesure. Les notes sont écrites par le mode Guitare
 (`arpOneEvents` de `js/bandsong.js`, type `guitar`), avec le décalage fin des cordes du grattage ; un Guitariste ajouté
 part du jeu de guitare du plan, sinon de « Pop ↓ ↓↑ ↑↓↑ ». Outils Claude : `assistantMusicien({ ajouter: 'guitariste' })`,
 `assistantMotifs` (jeu, famille, styles de chaque motif), `assistantJeu({ motif: 'g:travis' })`.
