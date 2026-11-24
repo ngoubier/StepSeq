@@ -36,7 +36,7 @@ test('chaque musicien joue au moins une fois dans la chanson', () => {
   for (const p of PRESETS) {
     const tr = tracksOf(p);
     const s = SS.bandSong.build(SS.BandSongs[p.id], p.id, tr);
-    for (const t of tr) assert.ok(s.scenes.some((sc) => plays(sc.data[t.id])), `${p.id} : ${t.id} ne joue jamais`);
+    for (const t of tr) if (t.id !== 'ambient') assert.ok(s.scenes.some((sc) => plays(sc.data[t.id])), `${p.id} : ${t.id} ne joue jamais`); // Ambient : le moteur génératif joue seul
   }
 });
 
@@ -544,7 +544,7 @@ test('3/4, 6/8 et 12/8 : toutes les chansons se construisent à la bonne longueu
           else for (const e of d.events) assert.ok(e.step >= 0 && e.step + e.len <= n + 0.01, `${sig} ${p.id} ${sc.sec} ${id} : note hors scène`);
         }
       }
-      for (const t of tracksOf(p)) assert.ok(s.scenes.some((sc) => sc.data[t.id] && plays(sc.data[t.id])), `${sig} ${p.id} : ${t.id} muet`);
+      for (const t of tracksOf(p).filter((x) => x.id !== 'ambient')) assert.ok(s.scenes.some((sc) => sc.data[t.id] && plays(sc.data[t.id])), `${sig} ${p.id} : ${t.id} muet`);
     }
   }
   const s = SS.bandSong.build(SS.BandSongs[PRESETS[0].id], PRESETS[0].id, tracksOf(PRESETS[0]));

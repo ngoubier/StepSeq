@@ -3,11 +3,15 @@
  * Paysage ou Fresque), les réglages communs du moteur (Suit les accords, Hasard, courbe de présence sur toute la
  * chanson) et ceux du module. Tout s'entend aussitôt pendant la lecture : le moteur (js/ambient.js) relit les
  * réglages à chaque pas. Annuler rétablit les réglages d'avant l'ouverture.
+ * Ouverte depuis l'assistant (musicien Ambient, js/band.js) : open(piste d'écoute, { project, changed, wizard, onClose }) ;
+ * seuls les réglages du module s'y montrent (module, présence, hasard et accords se règlent dans l'étape du musicien).
  */
 window.SS = window.SS || {};
 
 SS.ambientPanel = (() => {
   let app = null;
+  let base = null; // l'application (init) ; app peut être un hôte le temps d'une ouverture (assistant)
+  let host = null;
   let track = null;
   let snap = null;
   let dlg = null;
@@ -238,6 +242,7 @@ SS.ambientPanel = (() => {
     rand.value = AM().settings(track).rand;
     rand.addEventListener('input', () => {
       data().rand = +rand.value;
+      delete data().rands; // hasard par scène de l'assistant : remplacé par celui-ci, partout
       changed();
     });
     const chord = el('b', 'amb-chord', { text: '—' });
@@ -575,7 +580,7 @@ SS.ambientPanel = (() => {
   /* ---------- fenêtre ---------- */
   function build() {
     dlg = el('dialog', 'amb-dialog', { 'aria-labelledby': 'ambTitle' });
-    dlg.innerHTML = `<form method="dialog"><div class="amb-head"><h2 id="ambTitle"></h2><span class="amb-sub" id="ambSub"></span><span class="spacer"></span><label class="amb-lab" for="ambModule">Module</label><select id="ambModule"></select></div><div id="ambBody" class="amb-body"></div><div class="dlg-footer"><span class="amb-muted" id="ambTrack"></span><span class="spacer"></span><button type="button" class="btn" id="ambCancel">Annuler</button><button type="submit" class="btn btn-accent">OK</button></div></form>`;
+    dlg.innerHTML = `<form method="dialog"><div class="amb-head"><h2 id="ambTitle"></h2><span class="amb-sub" id="ambSub"></span><span class="spacer"></span><label class="amb-lab" for="ambModule">Module</label><select id="ambModule"></select></div><div id="ambBody" class="amb-body"></div><div class="dlg-footer"><span class="amb-muted" id="ambTrack"></span><span class="spacer"></span><button type="button" class="btn" id="ambCancel">Annuler</button><button type="submit" class="btn btn-accent" value="ok">OK</button></div></form>`;
     document.body.append(dlg);
     const sel = dlg.querySelector('#ambModule');
     Object.values(AM().MODULES).forEach((m) => sel.append(el('option', null, { value: m.id, text: `${m.icon} ${m.label}` })));
@@ -597,6 +602,10 @@ SS.ambientPanel = (() => {
       cancelAnimationFrame(raf);
       raf = 0;
       draws.length = 0;
+      const h = host;
+      host = null;
+      app = base;
+      if (h && h.onClose) h.onClose(dlg.returnValue === 'ok');
     });
   }
   function restore() {
@@ -617,7 +626,8 @@ SS.ambientPanel = (() => {
     dlg.querySelector('#ambModule').value = M.id;
     dlg.querySelector('#ambTrack').textContent = `Piste « ${track.name} » · piste générative`;
     const part = M.id === 'paysage' ? paysagePart() : M.id === 'fresque' ? fresquePart() : jardinPart();
-    dlg.querySelector('#ambBody').replaceChildren(commonPart(), part);
+    dlg.classList.toggle('amb-wizard', !!(host && host.wizard));
+    dlg.querySelector('#ambBody').replaceChildren(...(host && host.wizard ? [part] : [commonPart(), part]));
   }
   function loop() {
     draws.forEach((f) => {
@@ -629,9 +639,11 @@ SS.ambientPanel = (() => {
     });
     raf = requestAnimationFrame(loop);
   }
-  function open(t) {
+  function open(t, h = null) {
     if (!SS.isAmbient(t)) return;
     SS.audio.ensureCtx();
+    host = h;
+    app = h || base;
     track = t;
     snap = { ambient: t.ambient ? JSON.stringify(t.ambient) : null, instrument: t.instrument, name: t.name };
     if (!dlg) build();
@@ -643,6 +655,7 @@ SS.ambientPanel = (() => {
     SS.audio.prepareTrack(t); // fichiers importés
   }
   function init(appApi) {
+    base = appApi;
     app = appApi;
   }
   return { init, open };

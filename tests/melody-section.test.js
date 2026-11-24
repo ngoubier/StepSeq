@@ -18,7 +18,7 @@ const SIG = '1cf7163caf5ebcfd867b3eaf716a0ca9ec7e3e9a';
 const NEW_STYLES = ['brightside', 'getlucky', 'feather', 'lk', 'despacito', 'lovely', 'zero', 'kingston', 'noel', 'lampions', 'samedisoir', 'calle'];
 const PRESETS = SS.Band.STYLES.flatMap((st) => st.presets).filter((p) => !NEW_STYLES.includes(p.id));
 const tracksOf = (p) =>
-  p.musicians.filter((m) => !m.injected).flatMap((m) =>
+  p.musicians.filter((m) => !m.injected && m.role !== 'ambient').flatMap((m) =>
     m.kits ? m.pieces.map((pc) => ({ id: m.role + ':' + pc, type: 'drum', sound: pc, band: { key: m.role + ':' + pc } })) : [{ id: m.role, type: 'instrument', band: { key: m.role } }]
   );
 

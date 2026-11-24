@@ -1125,10 +1125,10 @@ SS.claudeTools = (() => {
    * L'assistant s'affiche et avance comme sous les clics. Ses réglages sont un brouillon (enregistré tout seul, pas de
    * Ctrl+Z) ; seule assistantCreer() écrit dans la grille, en une étape Ctrl+Z. */
   const W = () => SS.band.claude;
-  const TYPE_FR = { batterie: 'drums', drums: 'drums', percu: 'drums', basse: 'bass', bass: 'bass', nappe: 'chords', accords: 'chords', chords: 'chords', pad: 'chords', clavier: 'chords', piano: 'chords', arpege: 'arp', arp: 'arp', melodie: 'melody', melody: 'melody', lead: 'melody', orchestre: 'orch', orch: 'orch' };
+  const TYPE_FR = { batterie: 'drums', drums: 'drums', percu: 'drums', basse: 'bass', bass: 'bass', nappe: 'chords', accords: 'chords', chords: 'chords', pad: 'chords', clavier: 'chords', piano: 'chords', arpege: 'arp', arp: 'arp', melodie: 'melody', melody: 'melody', lead: 'melody', orchestre: 'orch', orch: 'orch', ambient: 'ambient', generatif: 'ambient' };
   function typeOf(t) {
     const id = TYPE_FR[fold(t)];
-    if (!id) fail(`type de musicien inconnu : « ${t} » (batterie, basse, nappe, arpege, melodie, orchestre)`);
+    if (!id) fail(`type de musicien inconnu : « ${t} » (batterie, basse, nappe, arpege, melodie, orchestre, ambient)`);
     return id;
   }
   const STEP_FR = { style: 'style', instruments: 'inst', inst: 'inst', tempo: 'tempo', tonalite: 'tempo', scenes: 'scenes', accords: 'chords', chords: 'chords', arrangement: 'arr', arr: 'arr', effets: 'fx', transitions: 'fx', fx: 'fx', mix: 'mix', integration: 'pick', pick: 'pick', creer: 'pick' };
@@ -1138,7 +1138,7 @@ SS.claudeTools = (() => {
     const q = fold(son);
     const hit = list.find((x) => fold(x.son) === q) || list.find((x) => fold(x.nom) === q) || list.find((x) => fold(x.nom).includes(q) || fold(x.son).includes(q));
     if (hit) return hit.son;
-    if (type === 'drums' || type === 'orch') fail(`« ${son} » : choisis parmi ${list.map((x) => `${x.son} (${x.nom})`).join(', ')}`);
+    if (type === 'drums' || type === 'orch' || type === 'ambient') fail(`« ${son} » : choisis parmi ${list.map((x) => `${x.son} (${x.nom})`).join(', ')}`);
     if (/^j:/i.test(son)) return 'j:' + soundOpts(son).patch;
     return soundOpts(son).instrument;
   }
@@ -1335,9 +1335,9 @@ SS.claudeTools = (() => {
     if (!musicien) fail('musicien manquant (voir assistantEtat().musiciens)');
     return W().motifs(musicien, !!tous);
   }
-  function assistantJeu({ musicien, scene, scenes, motif, joue } = {}) {
+  function assistantJeu({ musicien, scene, scenes, motif, joue, presence, mouvement, hasard } = {}) {
     if (!musicien) fail('musicien manquant (voir assistantEtat().musiciens)');
-    const r = W().jeu(musicien, scenes != null ? scenes : scene, { motif, joue: joue == null ? undefined : !!joue });
+    const r = W().jeu(musicien, scenes != null ? scenes : scene, { motif, joue: joue == null ? undefined : !!joue, presence, mouvement, hasard });
     const txt = r.scenes.map((x) => `${x.scene} : ${x.joue}`).join(', ');
     draft(`${r.musicien} · ${txt}`);
     return { message: `${r.musicien} — ${txt} (propose à l’utilisateur d’écouter)`, ...r };
@@ -1483,14 +1483,14 @@ SS.claudeTools = (() => {
     { nom: 'retablir', lecture: true, description: 'Rétablit l’action annulée (comme Ctrl+Y).', params: {}, faire: retablir },
     { nom: 'assistantStyles', lecture: true, assistant: true, description: 'Assistant « Nouvelle chanson » : les styles et leurs inspirations (chanson, artiste, tempo).', params: {}, faire: assistantStyles },
     { nom: 'assistantEtat', lecture: true, assistant: true, description: 'Assistant : ouvert ou non, étape, style, inspiration, musiciens (id, type, son), tempo, tonalité, scènes (id, mesures, tonalité, grille), structure.', params: {}, faire: assistantEtat },
-    { nom: 'assistantSons', lecture: true, assistant: true, description: 'Assistant : les sons conseillés pour un type de musicien (batterie : les kits ; orchestre : les effectifs).', params: { type: S('texte', 'batterie, basse, nappe, arpege, melodie, orchestre', true) }, faire: assistantSons },
+    { nom: 'assistantSons', lecture: true, assistant: true, description: 'Assistant : les sons conseillés pour un type de musicien (batterie : les kits ; orchestre : les effectifs ; ambient : les modules Jardin, Paysage, Fresque).', params: { type: S('texte', 'batterie, basse, nappe, arpege, melodie, orchestre, ambient', true) }, faire: assistantSons },
     { nom: 'assistantOuvrir', assistant: true, description: 'Ouvre l’assistant « Nouvelle chanson » sur la chanson (reprend son brouillon s’il y en a un).', params: {}, faire: assistantOuvrir },
     { nom: 'assistantEtape', assistant: true, description: 'Affiche une étape de l’assistant.', params: { etape: S('texte', 'style, instruments, tempo, scenes, accords, arrangement, effets, mix, integration', true) }, faire: assistantEtape },
     { nom: 'assistantEcouter', lecture: true, assistant: true, description: 'Écoute la chanson en cours de création (ou la scène, aux étapes Accords et instruments).', params: {}, faire: assistantEcouter },
     { nom: 'assistantStop', lecture: true, assistant: true, description: 'Arrête l’écoute de l’assistant.', params: {}, faire: assistantStop },
     { nom: 'assistantFermer', assistant: true, description: 'Revient à la grille ; le brouillon de l’assistant est gardé.', params: {}, faire: assistantFermer },
     { nom: 'assistantStyle', assistant: true, description: 'Choisit le style et l’inspiration (le groupe, le tempo et le plan de la chanson suivent).', params: { style: S('texte', 'synthwave, edm, ambient, techno, pop, funk, hiphop, dnb, latin, soul, cliches (Clichés : recettes de tubes connus), zero (Créer de zéro : départ neutre sans inspiration)', true), inspiration: S('texte', 'id, titre ou artiste d’une inspiration (voir assistantStyles())') }, faire: assistantStyle },
-    { nom: 'assistantMusicien', assistant: true, description: 'Ajoute un musicien, ou change le son, le type ou le nom d’un musicien, ou le retire.', params: { ajouter: S('texte', 'type du musicien à ajouter : batterie, basse, nappe, arpege, melodie, orchestre'), musicien: S('texte', 'id ou nom d’un musicien (voir assistantEtat())'), son: S('texte', 'id ou nom d’un son conseillé (assistantSons), ou tout son du catalogue (sons()), "j:A48"…'), type: S('texte', 'nouveau type'), nom: S('texte', 'nouveau nom'), retirer: S('booléen', 'retirer ce musicien') }, faire: assistantMusicien },
+    { nom: 'assistantMusicien', assistant: true, description: 'Ajoute un musicien, ou change le son, le type ou le nom d’un musicien, ou le retire.', params: { ajouter: S('texte', 'type du musicien à ajouter : batterie, basse, nappe, arpege, melodie, orchestre, ambient (piste générative)'), musicien: S('texte', 'id ou nom d’un musicien (voir assistantEtat())'), son: S('texte', 'id ou nom d’un son conseillé (assistantSons), ou tout son du catalogue (sons()), "j:A48"… ; ambient : le module jardin, paysage ou fresque'), type: S('texte', 'nouveau type'), nom: S('texte', 'nouveau nom'), retirer: S('booléen', 'retirer ce musicien') }, faire: assistantMusicien },
     { nom: 'assistantTempo', assistant: true, description: 'Tempo de la chanson à créer.', params: { bpm: S('nombre', '40 à 240', true) }, faire: assistantTempo },
     { nom: 'assistantTonalite', assistant: true, description: 'Tonalité de la chanson : toutes les scènes sont transposées.', params: { tonique: S('texte', '"D", "Ré", "F#"…', true), mode: S('texte', 'majeur (défaut), mineur, dorien…') }, faire: assistantTonalite },
     { nom: 'assistantScene', assistant: true, description: 'Longueur, nom, copie ou suppression d’une scène de l’assistant.', params: { scene: S('texte', 'id ou nom (voir assistantEtat())', true), mesures: S('nombre', '1 à 64'), nom: S('texte', 'nouveau nom'), dupliquer: S('booléen', 'faire une copie (les autres réglages s’appliquent à la copie)'), supprimer: S('booléen', 'supprimer la scène') }, faire: assistantScene },
@@ -1505,7 +1505,7 @@ SS.claudeTools = (() => {
     { nom: 'assistantMouvements', assistant: true, description: 'Assistant : garde ou retire les mouvements de son proposés à l’étape Arrangement (courbes de cutoff, vélocité, résonance d’après l’énergie).', params: { garder: S('liste', 'ids ou noms : open, qa, acid (voir assistantEffets())'), retirer: S('liste', 'ids ou noms') }, faire: assistantMouvements },
     { nom: 'assistantCreer', assistant: true, description: 'Crée la chanson dans la grille (une étape Ctrl+Z). Si la grille a déjà des pistes, la fenêtre de confirmation s’ouvre : l’utilisateur choisit.', params: {}, faire: assistantCreer },
     { nom: 'assistantMotifs', lecture: true, assistant: true, description: 'Assistant : les motifs possibles d’un musicien (batterie, basse, nappe ou guitare, arpège) dans la mesure de la chanson, et ce qu’il joue dans chaque scène.', params: { musicien: S('texte', 'id ou nom (voir assistantEtat().musiciens)', true), tous: S('booléen', 'batterie : les motifs de tous les styles (sinon ceux du style)') }, faire: assistantMotifs },
-    { nom: 'assistantJeu', assistant: true, description: 'Assistant : ce que joue un musicien dans une ou plusieurs scènes : un motif (assistantMotifs), ou joue: false pour qu’il se taise, joue: true pour qu’il revienne.', params: { musicien: S('texte', 'id ou nom', true), scene: SCENE, scenes: S('liste', 'plusieurs scènes, ou "toutes"'), motif: S('texte', 'id ou nom d’un motif (assistantMotifs)'), joue: S('booléen', 'false : muet dans ces scènes ; true : il rejoue') }, faire: assistantJeu },
+    { nom: 'assistantJeu', assistant: true, description: 'Assistant : ce que joue un musicien dans une ou plusieurs scènes : un motif (assistantMotifs), ou joue: false pour qu’il se taise, joue: true pour qu’il revienne. Musicien Ambient : sa présence, son mouvement et son hasard dans la scène.', params: { musicien: S('texte', 'id ou nom', true), scene: SCENE, scenes: S('liste', 'plusieurs scènes, ou "toutes"'), motif: S('texte', 'id ou nom d’un motif (assistantMotifs)'), joue: S('booléen', 'false : muet dans ces scènes ; true : il rejoue'), presence: S('texte', 'ambient : lointain, discret, present, premier plan'), mouvement: S('texte', 'ambient : stable, monte, descend, respire'), hasard: S('nombre', 'ambient : 0–1 (part d’improvisation dans la scène)') }, faire: assistantJeu },
     { nom: 'assistantEcrireMelodie', assistant: true, description: 'Assistant : écrit la mélodie d’une scène note par note (remplace celle de l’inspiration ou du 🎲). Renvoie les notes qui frottent avec les accords.', params: { musicien: S('texte', 'musicien de type mélodie (par défaut : le premier)'), scene: SCENE, notes: S('liste', '[{ pas (0 = début de la scène), note ("E4", "Do5", 64), dur (pas, défaut 2), vel (0–1) }]'), effacer: S('booléen', 'revenir à la mélodie de l’inspiration') }, faire: assistantEcrireMelodie },
     { nom: 'assistantVersions', assistant: true, description: 'Assistant : photos du brouillon pour comparer deux idées (A/B). garder prend la photo, essayer la remet (le brouillon de l’assistant n’a pas de Ctrl+Z). Gardées jusqu’à ce que la page se ferme.', params: { garder: S('texte', 'nom de la version à photographier ("A")'), essayer: S('texte', 'nom de la version à remettre'), oublier: S('texte', 'nom de la version à oublier') }, faire: assistantVersions },
     { nom: 'pointEcoute', lecture: true, assistant: true, description: 'Affiche dans la page une pastille « ✳ Claude : … ▶ Écouter » : un clic de l’utilisateur lance l’écoute (le navigateur exige ce clic). À appeler à la fin de chaque étape.', params: { message: S('texte', 'ce qu’il y a à écouter, court', true), quoi: S('texte', '"chanson", "scene" (grille) ; dans l’assistant : son écoute') }, faire: pointEcoute },
