@@ -596,6 +596,18 @@ dans la Grille est gardée). Outils Claude : `assistantMusicien({ ajouter: 'ambi
 `assistantJeu({ presence, mouvement, hasard })`. Tests : `node --test tests/ambient-musician.test.js`,
 `node tests/e2e/ambient-musician.js`.
 
+**Section de cuivres de l'assistant (`js/horns.js`).** « + Musicien » propose le type **Cuivres** : une section où
+chaque musicien a sa partie et sa piste, mais où tous jouent ensemble. On choisit une formation parmi dix (big band,
+soul, funk, disco-funk, salsa, ska, rock à cuivres, musique de film, Nouvelle-Orléans, brass band ; ★ celle du style).
+L'étape Cuivres choisit, scène par scène, le **jeu** de la section : le jeu du style (Réponses entre pupitres, Accents
+syncopés, Mambo 2-3, Thème aux cors…), **Unisson**, **Coups** (au rythme du style) ou **Tenues**, et sa **nuance**.
+Chaque jeu est recalculé sur les accords de la scène, degré par degré, chaque musicien dans son registre ; swing 2/3 pour
+le big band. Une ligne par musicien : interrupteur (joue ou non dans la scène), rôle (Dessus, Harmonie, Basse), sa
+partie, son registre, M / S. « + Musicien » ajoute une doublure (4 au plus). Sons : trompette, trombone, cor, tuba
+VSCO 2, saxophones VCSL ; cornet, bugle, saxhorns, euphonium et sousaphone empruntent le son le plus proche. Outils
+Claude : `assistantMusicien({ ajouter: 'cuivres', son: 'funk' })`, `assistantMotifs` (les 4 jeux), `assistantJeu({ motif })`.
+Tests : `node --test tests/horns.test.js`, `node tests/e2e/wizard-horns.js`.
+
 ### Fiche Scène (`js/scenesheet.js`)
 
 Un double-clic sur une scène (ligne Scènes ou bloc de l'arrangement, dans la Grille comme dans l'assistant) ouvre un
@@ -1480,7 +1492,7 @@ réel (export, figer, bilan).
 | Édition dans la Grille | `js/song.js` (scènes, arrangement), `js/scenesheet.js` (Fiche Scène), `js/chords.js` (piste Accords), `js/harmony.js` (gammes, accords, tonalité), `js/transform.js`, `js/groove.js`, `js/live.js` (jouer au clavier), `js/expression.js` (jeu des instruments), `js/beatauto.js`, `js/beatautoui.js` (automation par temps), `js/bassmotifs.js` (bouton MOTIF) |
 | Son d'une piste | `js/sounddesign.js`, `js/junopanel.js`, `js/fx.js`, `js/ambient.js`, `js/ambientpanel.js` |
 | Arpèges | `js/arp.js` (moteur Arp One), `js/arppanel.js` (fenêtre), `js/motifs.js` (motifs), `js/guitar-arp.js` (mode Guitare) |
-| Assistant Nouvelle chanson | `js/band.js` (interface, toutes les étapes, pont `SS.band.claude`), `js/band-presets.js` (styles, inspirations, musiciens), `js/band-songs.js` (plans des chansons), `js/band-templates.js` (morceaux complets), `js/bandsong.js` (écrit les notes d'après un plan), `js/bandgroup.js` (groupe), `js/wizdraft.js` (brouillon), `js/gridsync.js` (Assistant ↔ Grille), `js/drum-patterns.js`, `js/padmotifs.js`, `js/arrange.js`, `js/orchestra.js`, `js/develop.js`, `js/film.js`, `js/tutorial.js` |
+| Assistant Nouvelle chanson | `js/band.js` (interface, toutes les étapes, pont `SS.band.claude`), `js/band-presets.js` (styles, inspirations, musiciens), `js/band-songs.js` (plans des chansons), `js/band-templates.js` (morceaux complets), `js/bandsong.js` (écrit les notes d'après un plan), `js/bandgroup.js` (groupe), `js/wizdraft.js` (brouillon), `js/gridsync.js` (Assistant ↔ Grille), `js/drum-patterns.js`, `js/padmotifs.js`, `js/arrange.js`, `js/orchestra.js`, `js/horns.js`, `js/develop.js`, `js/film.js`, `js/tutorial.js` |
 | Mélodie et émotions | `js/melody.js` (moteur unique de mélodie), `js/melody-profiles.js`, `js/melodypanel.js` (atelier Mélodie, dans l'étape Mélodie), `js/emotions.js` |
 | Mixage | `js/mixer.js` (console), `js/bandmix.js`, `js/band-levels.js`, `js/band-drive.js` (mix et mastering automatiques des chansons de l'assistant), `js/wizmix.js` (étape Mix), `js/wizautomix.js` (Mix auto de l'assistant), `js/automix.js`, `js/automix-listen.js`, `js/automix-pilot.js`, `js/automixpanel.js` (Auto Mix), `js/bilan.js` (bilan d'écoute pour Claude) |
 | Claude | `js/claude-tools.js` (boîte à outils `window.StepSeq`) |

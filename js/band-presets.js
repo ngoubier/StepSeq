@@ -32,6 +32,8 @@ window.SS = window.SS || {};
     brass: { label: 'Cuivres', short: 'Cuivres', cat: 'chord', color: '#e8b04a', icon: 'brass', families: ['brass'] },
     vox: { label: 'Voix / vocoder', short: 'Voix', cat: 'mono', color: '#c0c0c0', icon: 'vox', families: ['voices', 'synth'] },
     orch: { label: 'Orchestre', short: 'Orchestre', cat: 'mono', color: '#ff8a3d', icon: 'strings', families: ['strings', 'winds', 'brass'] },
+    // section de cuivres (js/horns.js) : une formation par style, une piste par musicien, jeu choisi par scène
+    horns: { label: 'Section de cuivres', short: 'Cuivres', cat: 'mono', color: '#e8b23a', icon: 'brass', families: ['brass', 'winds'] },
     fx: { label: 'Effets (montées, impacts)', short: 'Effets', cat: 'mono', color: '#7a8a99', icon: 'fx', families: ['fx', 'pads'] },
     // musicien génératif (js/ambient.js) : une piste générative, un module (Jardin, Paysage, Fresque)
     ambient: { label: 'Ambient', short: 'Ambient', cat: 'mono', color: '#6fe3c8', icon: 'ambient', families: ['ambient'] },
@@ -41,7 +43,7 @@ window.SS = window.SS || {};
   const STAGE_ROWS = [
     ['perc', 'drums', 'fx'],
     ['pad', 'keys', 'strings', 'orch', 'ambient', 'arp'],
-    ['bass', 'lead', 'vox', 'sax', 'brass', 'guitar'],
+    ['bass', 'lead', 'vox', 'sax', 'brass', 'horns', 'guitar'],
   ];
 
   /* ---------- Kits de batterie ----------
