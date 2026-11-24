@@ -71,8 +71,11 @@ SS.bandMix = (() => {
     brass: { lu: -18, below: 5, eq: eq({ hp: 160, lm: [450, -2, 1], hm: [2200, 1.5, 1] }), comp: comp(-18, 2.5, 0.006, 0.12, 1), hall: 0.28, pan: -0.12 },
     // effets (montées de bruit, ambiances, impacts) : en fond, sans graves, très réverbérés
     fx: { lu: -25, eq: eq({ hp: 220, lm: [500, -2, 0.8], high: [9000, -1.5] }), hall: 0.5, echo: 0.1, pan: 0 },
-    // musicien Ambient (piste générative) : niveau réglé par son module, envoi Cosmos choisi dans l'assistant (t.fx.sendSpace)
-    ambient: { eq: eq({ hp: 40 }), pan: 0 },
+    // musicien Ambient (piste générative) : envoi Cosmos choisi dans l'assistant (t.fx.sendSpace). Pas de mesure dans
+    // js/band-levels.js (pas de notes à jouer) : volume de la piste (dB) par module, mesuré par rendu complet des 10
+    // modèles Ambient (tools/render-band-song.js, SOLO=ambient, présence « Présent ») pour que le musicien reste un fond
+    // environ 4 LU sous les autres musiciens (à 0,8, il les couvrait de 4 à 16 dB)
+    ambient: { eq: eq({ hp: 40 }), pan: 0, vol: { jardin: -13, paysage: -15, fresque: -11.5 } },
   };
   /**
    * Orchestre (musique de film) : placement sur scène (violons à gauche, violoncelles et contrebasses à droite, bois au
@@ -269,6 +272,7 @@ SS.bandMix = (() => {
       const role = t.band.key.split(':')[0];
       const m = measured(levelKeys.get(t.id), t.type === 'drum');
       if (m != null) t.volume = round(clamp(dbToGain(r.lu + ((S.lu && S.lu[role]) || 0) + HEADROOM - m), 0.01, 2));
+      else if (r.vol && r.vol[t.instrument] != null) t.volume = round(dbToGain(r.vol[t.instrument] + ((S.lu && S.lu[role]) || 0)));
       // piano et guitare de part et d'autre ; sans guitare, le piano reste plus près du centre
       let pan = (S.pan && S.pan[t.band.key]) ?? (r.pan || 0);
       if (role === 'keys' && !roles.has('guitar')) pan = 0.12;

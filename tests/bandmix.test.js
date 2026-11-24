@@ -142,3 +142,11 @@ test('référence de mixage commune : le mastering de l’assistant vise la tabl
   assert.ok(S.film && S.film.loud === -14 && S.film.drive < S.synthwave.drive);
   assert.equal(SS.mixRef.styleOf([{ band: { style: 'film' } }, { band: { style: 'film' } }, {}]), 'film');
 });
+
+test('musicien Ambient : volume réglé par son module, en fond (plus à 0,8 qui couvrait les autres musiciens)', () => {
+  for (const mod of ['jardin', 'paysage', 'fresque']) {
+    const t = { id: 'amb', type: 'instrument', family: 'ambient', instrument: mod, band: { style: 'ambient', key: 'ambient' }, volume: 0.8 };
+    SS.bandMix.mixTracks([t], new Map(), 'ambient');
+    assert.ok(t.volume > 0.1 && t.volume < 0.35, `${mod} : ${t.volume}`);
+  }
+});
