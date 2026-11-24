@@ -26,7 +26,7 @@ SS.guitarist = (() => {
   const RF = () => SS.GuitarRiffs;
   const riffOf = (mode) => (/^r:/.test(mode || '') && RF() ? RF().byId(mode.slice(2)) : null);
   /** Grattages joués étouffés (main droite sur les cordes, skank). */
-  const MUTED = ['palm', 'funk', 'reggae', 'roots'];
+  const MUTED = ['palm', 'funk', 'reggae', 'roots', 'boomchick', 'disco', 'funkcourt', 'skank2', 'pmdoubles'];
   /** Accords plaqués (modes du moteur de nappe, js/bandsong.js chordEvents) : ceux que jouent les guitaristes des inspirations. */
   const PLAQUES = ['strum', 'pluck', 'chop', 'pulse8', 'sustain'];
   /** Styles des puces (maquette validée le 2026-11-24). */
@@ -51,7 +51,7 @@ SS.guitarist = (() => {
     bpince: ['ballade', 'folk'],
     slowpim: ['ballade', 'blues'],
     arp128: ['ballade', 'blues'],
-    cross: ['synth', 'pop', 'rock'],
+    cross: ['synth', 'pop', 'rock', 'funk'],
     aller: ['rock', 'pop', 'synth'],
     sweep: ['rock', 'synth'],
     hybrid: ['pop', 'folk', 'blues'],
@@ -68,10 +68,28 @@ SS.guitarist = (() => {
     reggae: ['reggae'],
     roots: ['reggae'],
     strum: ['pop', 'folk', 'rock'],
-    pluck: ['pop', 'ballade', 'synth'],
+    pluck: ['pop', 'ballade', 'synth', 'bossa'],
     chop: ['funk', 'synth', 'reggae'],
     pulse8: ['synth', 'rock', 'pop'],
     sustain: ['ballade', 'synth', 'rock'],
+    roll: ['folk', 'pop'],
+    douce: ['ballade', 'pop'],
+    baspince: ['blues', 'folk', 'ballade'],
+    partido: ['bossa'],
+    funk16: ['funk', 'reggae'],
+    bubble: ['reggae', 'funk'],
+    pedale: ['synth', 'pop', 'rock'],
+    folk16: ['folk', 'pop'],
+    boomchick: ['folk', 'blues'],
+    shuf: ['blues', 'rock'],
+    deuxquatre: ['blues', 'ballade'],
+    ballade2: ['ballade', 'folk'],
+    disco: ['funk', 'pop'],
+    funkcourt: ['funk'],
+    skank2: ['reggae'],
+    batida: ['bossa'],
+    bossalente: ['bossa', 'ballade'],
+    pmdoubles: ['synth', 'rock'],
   };
   const motifOf = (mode) => (/^g:/.test(mode || '') && SS.GuitarArp ? SS.GuitarArp.MOTIFS.find((m) => m.id === mode.slice(2)) || null : null);
   /** Famille d'un mode : doigts | mediator | gratte | etouffe | plaque. */

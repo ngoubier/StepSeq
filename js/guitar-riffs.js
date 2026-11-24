@@ -39,9 +39,16 @@
     R('penta', 'lignes', 'Penta mineure', 'R . . b3 . R . 4 . . 5 . b7 . 5 .', 'Une phrase sur la gamme pentatonique mineure : rock, blues.'),
     R('funk1', 'lignes', 'Une corde funk', 'R . x R . . b7 . 8 . x . 5 . b7 R', 'Notes courtes et notes mortes sur une corde : la guitare funk.'),
     R('dub', 'lignes', 'Doublure de basse', 'R_ . . . . . R_ . 5_ . . . 3_ . R_ .', 'La guitare double la basse, étouffée : reggae, dub.'),
+    // riffs par style (nov. 2026, PR 3 du Guitariste)
+    R('funkoct', 'quintes', 'Octaves funk', 'R . x 8 . x R . x 8 x . R 8 x .', 'Fondamentale et octave hachées de notes mortes : funk.'),
+    R('tenues', 'quintes', 'Notes tenues', 'R . . . 5 . . . 8 . . . 5 . . .', 'Une note par temps qui sonne : ballade, synthwave, intro.'),
+    R('poprock', 'quintes', 'Pop-rock syncopé', 'R5 . . R5 . . R5 . R5 . . R5 . . R6 .', 'Power chords en 3-3-2 : le riff de couplet pop-rock.'),
+    R('folkline', 'lignes', 'Basse folk', 'R . 5 . 8 . 5 . 3 . 5 . 8 . 5 .', 'Une ligne qui monte et redescend dans l’accord : folk, ballade.'),
+    R('bossaline', 'lignes', 'Ligne bossa', 'R . . 5 . . R . . 5 . 8 . 5 . .', 'Fondamentale et quinte en rythme de bossa : bossa nova, samba.'),
+    R('ska', 'lignes', 'Marche ska', 'R_ . 3_ . 5_ . 3_ . R_ . 3_ . 5_ . 6_ .', 'Croches étouffées qui marchent dans l’accord : ska, reggae.'),
   ];
   const FAMILIES = [['quintes', 'Quintes et octaves'], ['lignes', 'Lignes']];
-  const STYLES = { power: ['rock', 'pop', 'synth'], octaves: ['funk', 'pop', 'synth'], tremolo: ['synth', 'rock'], boogie: ['blues', 'rock'], marche: ['blues', 'rock'], penta: ['rock', 'blues'], funk1: ['funk'], dub: ['reggae'] };
+  const STYLES = { power: ['rock', 'pop', 'synth'], octaves: ['funk', 'pop', 'synth'], tremolo: ['synth', 'rock'], boogie: ['blues', 'rock'], marche: ['blues', 'rock'], penta: ['rock', 'blues'], funk1: ['funk'], dub: ['reggae'], funkoct: ['funk'], tenues: ['ballade', 'synth', 'folk', 'bossa'], poprock: ['pop', 'rock'], folkline: ['folk', 'ballade'], bossaline: ['bossa'], ska: ['reggae'] };
   const DEFAULTS = { mute: 0, swing: 0, energy: 0.55, human: 0.4, fixed: false, oct: 0 };
   const byId = (id) => RIFFS.find((r) => r.id === id) || null;
 
