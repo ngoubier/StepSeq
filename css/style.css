@@ -6463,6 +6463,13 @@ body.wiz-am-open .wiz-sheet { right: 360px; }
 .bwhn-sw.on { background: var(--c-amber); }
 .bwhn-table { overflow-x: auto; }
 .bwhn-table .bwhz-legend { padding: 8px 12px; border-top: 1px solid var(--c-line); }
+/* jeux de cordes de l'étape Orchestre (js/band.js orchJeuxRow, orchJeuTable) */
+.bwor-arts { display: flex; flex-wrap: wrap; gap: 4px; }
+.bwor-art { font-size: var(--fs-xs); border: 1px solid var(--c-line); border-radius: 4px; padding: 0 5px; background: var(--c-panel-3); color: var(--c-muted); white-space: nowrap; }
+.bwor-jeu.active { border-color: var(--c-orange); box-shadow: inset 0 0 0 1px var(--c-orange); }
+.bwor-jrole { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+#bwOrchJeuTable .bwhn-row { grid-template-columns: 44px 140px 110px minmax(260px, 1fr) 104px 62px; }
+.bwhn-nt.bwor-trem { background-image: repeating-linear-gradient(90deg, transparent 0 2px, var(--c-bg) 2px 3px); }
 .bwhn-add { background: var(--c-panel); color: var(--c-text); border: 1px solid var(--c-line); border-radius: 6px; padding: 4px 8px; font-size: var(--fs-sm); }
 /* Clavier (étape du type « keys ») : même carte que le Guitariste, plus la main gauche */
 .bwk-hands { display: flex; align-items: center; gap: 8px; }
