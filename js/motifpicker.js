@@ -65,7 +65,8 @@ SS.motifPicker = (() => {
   /**
    * Rendu : [puces de style, puces de famille, cartes].
    * o = {
-   *   styles: [[id, nom]] (les styles communs puis les puces propres), group, mark (style de la chanson), onGroup(id),
+   *   styles: [[id, nom]] (les styles communs puis les puces propres ; null : pas de ligne de styles, Cuivres et Orchestre),
+   *   group, mark (style de la chanson), onGroup(id),
    *   count(id) : nombre de motifs d'un style (0 : puce grisée),
    *   fams?: [[id, nom]], fam, onFam(id), familyOf(id), stars?: [ids] (★ Pour cette scène),
    *   ids : motifs du style choisi, cur, insp?, auto?, name(id), desc(id), svg(id), onPick(id), label,
@@ -73,7 +74,7 @@ SS.motifPicker = (() => {
    * }
    */
   function render(o) {
-    const styles = el(
+    const styles = !o.styles ? null : el(
       'div',
       { class: 'mot-chips', role: 'radiogroup', 'aria-label': 'Styles' },
       [['all', 'Tous'], ...o.styles].map(([id, l]) => {

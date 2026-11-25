@@ -54,27 +54,28 @@ const ok = (c, m) => {
   while ((await W()).step < n) await next();
   await page.click('.bh-scene[data-sec="chorus"]');
   await page.waitForTimeout(300);
-  const stars = await page.$$eval('#bwOrchJeu .bwhn-jeu', (els) => els.map((e) => e.dataset.v));
+  const stars = await page.$$eval('#bwOrchJeu .mot-card', (els) => els.map((e) => e.dataset.id));
   ok(stars.join() === 'aigues,contre', `refrain : ★ Tenues hautes, Contrechant (${stars})`);
-  ok(/auto/.test(await page.textContent('#bwOrchJeu .bwhn-jeu.active')) && (await page.getAttribute('#bwOrchJeu .bwhn-jeu.active', 'data-v')) === 'aigues', 'le premier ★ est joué d’office');
+  ok(/Orchestre de « /.test(await page.textContent('#bwOrchMot .bwp-ch')) && /Effectif : /.test(await page.textContent('#bwOrchMot .mot-fixed')) && (await page.locator('#bwOrchJeu .mot-card .bwhn-hits i.x').count()) > 4, 'carte Motif commune : titre, effectif fixe, vignettes des attaques');
+  ok(/auto/.test(await page.textContent('#bwOrchJeu .mot-card.on')) && (await page.getAttribute('#bwOrchJeu .mot-card.on', 'data-id')) === 'aigues', 'le premier ★ est joué d’office');
   ok((await page.locator('#bwOrchJeuTable .bwhn-row[data-part]').count()) === 4, 'une ligne par pupitre (les pistes d’articulation sont rangées sous le leur)');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'jeux-refrain.png') });
 
   // couplet : Pizzicato (auto) → notes pincées sur les pistes vlp / vcp
   await page.click('.bh-scene[data-sec="verse"]');
   await page.waitForTimeout(300);
-  ok((await page.getAttribute('#bwOrchJeu .bwhn-jeu.active', 'data-v')) === 'pizz' && /pizz/.test(await page.textContent('#bwOrchJeuTable [data-part="vl1"] .bwor-jrole')), 'couplet : Pizzicato, les violons I jouent pincé');
+  ok((await page.getAttribute('#bwOrchJeu .mot-card.on', 'data-id')) === 'pizz' && /pizz/.test(await page.textContent('#bwOrchJeuTable [data-part="vl1"] .bwor-jrole')), 'couplet : Pizzicato, les violons I jouent pincé');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'jeux-couplet-pizz.png') });
 
   // choisir un jeu (famille Rythmes → Trémolo) : réglage de la scène
   await page.click('#bwOrchFam [data-f="rythmes"]');
-  await page.click('#bwOrchJeu [data-v="trem"]');
+  await page.click('#bwOrchJeu [data-id="trem"]');
   await page.waitForTimeout(300);
   let w = await W();
   const mid = Object.keys(w.parts.verse.inst).find((k) => w.parts.verse.inst[k].orch);
   ok(mid && w.parts.verse.inst[mid].orch.jeu === 'trem', 'Trémolo choisi : enregistré dans la scène');
   ok((await page.textContent('#bwOrchJeuTable [data-part="vl1"] .bwhn-role')) === 'Trémolo', 'les violons passent en trémolo');
-  await page.click('#bwOrchJeu [data-v="pizz"]');
+  await page.click('#bwOrchJeu [data-id="pizz"]');
   await page.waitForTimeout(300);
   w = await W();
   ok(!((((w.parts.verse || {}).inst || {})[mid] || {}).orch || {}).jeu, 'reprendre le jeu conseillé : plus de réglage, retour au jeu d’office');

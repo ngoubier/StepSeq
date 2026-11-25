@@ -7108,11 +7108,11 @@ SS.band = (() => {
     const ens = ensOf(musState()[T.musician]);
     const head = partHead(sc, T, `orchestre · ${ens.label.toLowerCase()}`, true);
     const play = partCheck('bwp-on-orch', 'Joue dans cette scène', !muted, (on) => (putOff(sc.sec, T, !on), partChanged()));
-    if (muted || !r) return [head, h('div', { class: 'bwp-row' }, play), h('p', { class: 'dlg-hint', id: 'bwOrchMuted' }, 'L’orchestre se tait dans cette scène.')];
+    if (muted || !r) return [head, SS.orchJeux ? orchMotifCard(sc, T, r, ens, play, []) : h('div', { class: 'bwp-row' }, play), h('p', { class: 'dlg-hint', id: 'bwOrchMuted' }, 'L’orchestre se tait dans cette scène.')];
     const lvl = partSeg('Densité', 'bwOrchLevel', [['auto', `Auto · ${OR().LEVELS.find((l) => l.id === r.level).label}`, 'D’après l’énergie de la scène'], ...OR().LEVELS.map((l) => [l.id, l.label, l.text])], own.level || 'auto', (v) => orchEdit(sc, T, { level: v === 'auto' ? undefined : v }, `#bwOrchLevel [data-v="${v}"]`));
     const off = own.off || [];
-    const jeux = orchJeuxRow(sc, T, r, ens);
-    if (r.view) return [head, h('div', { class: 'bwp-row bwor-ctl' }, play, lvl, SS.helpTip('Auto suit l’énergie de la scène. La densité dit combien l’orchestre pèse : légère, sans contrebasses ; pleine, contrebasses doublées à l’octave grave. Le jeu dit comment les cordes jouent.', 'Densité')), ...jeux, orchJeuTable(sc, T, r, ens, off)];
+    const lvlHelp0 = SS.helpTip('Auto suit l’énergie de la scène. La densité dit combien l’orchestre pèse : légère, sans contrebasses ; pleine, contrebasses doublées à l’octave grave. Le motif dit comment les cordes jouent.', 'Densité');
+    if (r.view) return [head, SS.orchJeux ? orchMotifCard(sc, T, r, ens, play, [h('span', { class: 'spacer' }), lvl, lvlHelp0]) : h('div', { class: 'bwp-row bwor-ctl' }, play, lvl, lvlHelp0), orchJeuTable(sc, T, r, ens, off)];
     const L0 = OR().LEVELS.find((l) => l.id === r.level);
     const lvlHelp = SS.helpTip(`Auto suit l’énergie de la scène. ${L0.label} : ${L0.text}. Les cuivres (sauf le cor) attendent les scènes fortes.`, 'Densité');
     // À voir : un badge (clic : les pupitres concernés s'allument) ; chaque ligne concernée porte son ⚠
@@ -7194,42 +7194,122 @@ SS.band = (() => {
       ...groups.flatMap(([g, ids]) => [h('div', { class: 'bwor-fam' }, g), ...ids.map(row)]),
       h('div', { class: 'bwhz-legend' }, ...[...new Set(Object.values(r.lines).map((l) => l.role))].filter((k) => k !== 'tacet').map((k) => h('span', {}, h('i', { class: 'bwhz-sw', style: `background:${ORCH_ROLE_C[k]}` }), OR().ROLE_LABEL[k])))
     );
-    return [head, h('div', { class: 'bwp-row bwor-ctl' }, play, lvl, lvlHelp, h('span', { class: 'spacer' }), items), ...jeux, table];
+    return [head, SS.orchJeux ? orchMotifCard(sc, T, r, ens, play, [h('span', { class: 'spacer' }), items, lvl, lvlHelp]) : h('div', { class: 'bwp-row bwor-ctl' }, play, lvl, lvlHelp, h('span', { class: 'spacer' }), items), table];
   }
   /**
-   * Jeux de cordes de l'orchestre (js/orchjeux.js) : familles (★ = conseillés pour la scène et l'effectif), une carte par
-   * jeu avec ses façons de jouer ; le jeu de la scène est enregistré dans parts[sec].inst[musicien].orch.jeu.
+   * Carte Motif commune des Cuivres et de l'Orchestre (js/motifpicker.js, sans ligne de styles : la formation ou
+   * l'effectif se choisit à l'étape Instruments) : en-tête « Cuivres de « Scène » » et motif joué, « Joue dans cette
+   * scène » à droite, ligne fixe (formation, réglages), familles avec « ★ Pour cette scène », cartes au dessin des
+   * attaques, pied « Scènes ». o = { k: 'hn' | 'or' (S.wiz.hnFam / orFam), ids: { card, fam, cards }, title, cur, muted,
+   *   play, fixed: [éléments de la ligne fixe], all: [{ id, fam, label, text, n? }], fams, stars, auto, svg(id), onPick(id), help }
    */
-  function orchJeuxRow(sc, T, r, ens) {
+  function sectionMotifCard(sc, o) {
+    const MP = SS.motifPicker;
+    const J = Object.fromEntries(o.all.map((j) => [j.id, j]));
+    const curJ = !o.muted && J[o.cur];
+    const ch = h('div', { class: 'bwp-ch' }, h('b', {}, `${o.title} de « ${sc.name} »`), h('span', { class: 'mot-now' }, curJ ? curJ.label : 'ne joue pas'), o.help, h('span', { class: 'spacer' }), o.play);
+    if (o.muted) return h('section', { class: 'bwp-card bw-card bwp-mot mot-pick mot-sec', id: o.ids.card }, ch);
+    const ids = o.all.map((j) => j.id);
+    let fam = S.wiz[o.k + 'Fam'];
+    if (fam && fam !== 'star' && fam !== 'all' && !o.fams.some((f) => f[0] === fam)) fam = undefined;
+    const familyOf = (id) => J[id] && J[id].fam;
+    const stars = o.stars.filter((id) => J[id]);
+    const [fm, cards] = MP.render({
+      styles: null,
+      fams: o.fams,
+      fam,
+      onFam: (f) => ((S.wiz[o.k + 'Fam'] = f), renderWiz(), $(`#${o.ids.fam} [data-f="${f}"]`) && $(`#${o.ids.fam} [data-f="${f}"]`).focus()),
+      familyOf,
+      stars,
+      ids,
+      cur: o.cur,
+      auto: o.auto,
+      name: (id) => J[id].label,
+      desc: (id) => J[id].text + (J[id].n ? ` · motif ${J[id].n} du fichier` : ''),
+      svg: o.svg,
+      onPick: o.onPick,
+      label: 'Motifs',
+      surprise: () => {
+        const pool = MP.visible(ids, { fam, stars, familyOf }).filter((id) => id !== o.cur);
+        if (pool.length) o.onPick(pool[Math.floor(Math.random() * pool.length)]);
+      },
+    });
+    fm.id = o.ids.fam;
+    cards.id = o.ids.cards;
+    const sb = fm.querySelector('.mot-surprise');
+    if (sb) sb.id = o.ids.fam + 'Surprise';
+    return h(
+      'section',
+      { class: 'bwp-card bw-card bwp-mot mot-pick mot-sec', id: o.ids.card },
+      ch,
+      h('div', { class: 'bwp-row mot-fixed' }, ...o.fixed),
+      fm,
+      cards,
+      h('div', { class: 'bwp-row mot-foot' }, motifScope())
+    );
+  }
+  /** Vignette d'un motif : les attaques en croches (x : attaque, h : tenue ; p, s, t : pincé, sautillé, tremblé). */
+  const hitsHtml = (cells) => `<span class="bwhn-hits" style="grid-template-columns:repeat(${cells.length}, 1fr)">${cells.map((x, i) => `<i class="${x}${i % 8 === 0 && i ? ' bar' : ''}"></i>`).join('')}</span>`;
+  /** Cellules d'une vignette : events [{ step, len, art? }] en doubles-croches, n croches. */
+  function hitCells(events, n) {
+    const c = Array(n).fill('');
+    const ART = { pizz: ' p', spic: ' s', trem: ' t' };
+    events.forEach((e) => {
+      const i = Math.floor(e.step / 2);
+      if (i >= n) return;
+      c[i] = 'x' + (ART[e.art] || '');
+      for (let k = 1; k < Math.ceil(e.len / 2) && i + k < n; k++) if (!c[i + k]) c[i + k] = 'h' + (ART[e.art] || '');
+    });
+    return c;
+  }
+  // vignettes des motifs de cordes : chaque motif écrit sur Do | Lam | Fa | Sol (4 mesures), une fois pour toutes
+  const ORCH_SVG = {};
+  function orchSvg(id) {
     const OJ = SS.orchJeux;
-    if (!OJ) return [];
-    const stars = OJ.stars(sc.sec, ens.id);
-    const cur = r.jeu || 'orch';
-    const auto = r.autoJeu || stars[0];
-    const fam = [...OJ.FAMS.map(([id]) => id), 'all'].includes(S.wiz.orFam) ? S.wiz.orFam : 'star';
-    const shown = fam === 'all' ? OJ.JEUX : fam === 'star' ? [...new Set([...stars, cur])].map((id) => OJ.JEU[id]).filter(Boolean) : OJ.JEUX.filter((j) => j.fam === fam);
-    const famRow = h(
-      'div',
-      { class: 'bwhn-fams', id: 'bwOrchFam', role: 'tablist', 'aria-label': 'Familles de jeux' },
-      ...[['star', '★ Pour cette scène'], ...OJ.FAMS, ['all', 'Tous']].map(([id, label]) =>
-        h('button', { type: 'button', role: 'tab', class: fam === id ? 'on' : '', 'aria-selected': String(fam === id), 'data-f': id, onclick: () => ((S.wiz.orFam = id), renderWiz(), $(`#bwOrchFam [data-f="${id}"]`) && $(`#bwOrchFam [data-f="${id}"]`).focus()) }, label, id === 'star' ? null : h('small', {}, String(id === 'all' ? OJ.JEUX.length : OJ.JEUX.filter((j) => j.fam === id).length)))
-      )
-    );
-    const cards = h(
-      'div',
-      { class: 'bwhn-jeux', id: 'bwOrchJeu', role: 'radiogroup', 'aria-label': 'Jeu des cordes' },
-      ...shown.map((j) =>
-        h(
-          'button',
-          { type: 'button', role: 'radio', class: 'bwhn-jeu bwor-jeu' + (j.id === cur ? ' active' : ''), 'aria-checked': String(j.id === cur), 'data-v': j.id, title: j.text, onclick: () => orchEdit(sc, T, { jeu: j.id === auto ? undefined : j.id }, `#bwOrchJeu [data-v="${j.id}"]`) },
-          h('b', {}, stars.includes(j.id) ? h('span', { class: 'bwhn-star' }, '★ ') : null, j.label, r.jeuAuto && j.id === cur ? h('span', { class: 'bwhn-au' }, ' auto') : null),
-          h('span', { class: 'bwhn-txt' }, j.text),
-          h('span', { class: 'bwor-arts' }, ...j.arts.map((a) => h('span', { class: 'bwor-art' }, OJ.ART_LABEL[a])))
-        )
-      )
-    );
-    const help = SS.helpTip('Le jeu des cordes dans cette scène. Les jeux marqués ★ conviennent à ce type de scène et à cet effectif ; le premier est joué d’office (auto). « Orchestration » : une note de l’accord par pupitre, sans jeu. Bois, cuivres et harpe gardent leur rôle quel que soit le jeu.', 'Jeux de cordes');
-    return [h('div', { class: 'bwhn-famrow' }, famRow, help), cards];
+    if (!(id in ORCH_SVG)) {
+      const pcs = (r, q) => q.map((i) => (r + i) % 12);
+      const spans = [[0, [0, 4, 7]], [9, [0, 3, 7]], [5, [0, 4, 7]], [7, [0, 4, 7]]].map(([r, q], i) => ({ step: i * 16, len: 16, rootPc: r, pcs: pcs(r, q) }));
+      const W = OJ.writeStrings({ jeu: id === 'orch' ? 'tenues' : id, parts: OJ.STR, spans });
+      ORCH_SVG[id] = hitsHtml(hitCells(Object.values(W).flatMap((L) => L.events), 32));
+    }
+    return ORCH_SVG[id];
+  }
+  /**
+   * Motifs de cordes de l'orchestre (js/orchjeux.js) sur la carte Motif commune : familles (★ = conseillés pour la scène
+   * et l'effectif), une carte par motif ; le motif de la scène est enregistré dans parts[sec].inst[musicien].orch.jeu.
+   */
+  function orchMotifCard(sc, T, r, ens, play, fixed) {
+    const OJ = SS.orchJeux;
+    const muted = mutedIn(sc.sec, T) || !r;
+    const cur = (r && r.jeu) || 'orch';
+    const pick = (id) => {
+      const scenes = motifTargets(sc, T, (x) => !!(x.orch && x.orch[T.musician]));
+      scenes.forEach((x) => {
+        const rx = x.orch && x.orch[T.musician];
+        const a = (rx && rx.autoJeu) || OJ.stars(x.sec, ens.id)[0];
+        putOff(x.sec, T, false);
+        const o = { ...orchSet(x, T), jeu: id === a ? undefined : id };
+        Object.keys(o).forEach((k) => (o[k] === undefined || (Array.isArray(o[k]) && !o[k].length)) && delete o[k]);
+        putPart(x.sec, T, { orch: Object.keys(o).length ? o : undefined });
+      });
+      partChanged(`#bwOrchJeu [data-id="${id}"]`);
+    };
+    return sectionMotifCard(sc, {
+      k: 'or',
+      ids: { card: 'bwOrchMot', fam: 'bwOrchFam', cards: 'bwOrchJeu' },
+      title: 'Orchestre',
+      cur,
+      muted,
+      play,
+      fixed: [h('span', { class: 'bh-info mot-form' }, `Effectif : ${ens.label}`), ...fixed],
+      all: OJ.JEUX,
+      fams: OJ.FAMS,
+      stars: OJ.stars(sc.sec, ens.id),
+      auto: r && r.jeuAuto ? cur : null,
+      svg: orchSvg,
+      onPick: pick,
+      help: SS.helpTip('Le motif des cordes dans cette scène. Les motifs marqués ★ conviennent à ce type de scène et à cet effectif ; le premier est joué d’office (auto). « Orchestration » : une note de l’accord par pupitre, sans motif. Bois, cuivres et harpe gardent leur rôle quel que soit le motif. L’effectif se change à l’étape Instruments. Survolez une carte pour sa description.', 'Motif des cordes'),
+    });
   }
   /** Étape Orchestre avec un jeu : une ligne par pupitre (les pupitres d'articulation sont rangés sous le leur). */
   function orchJeuTable(sc, T, r, ens, off) {
@@ -7328,49 +7408,43 @@ SS.band = (() => {
     const F = hformOf(ms);
     const head = partHead(sc, T, `cuivres · ${F.label.toLowerCase()}`, true);
     const play = partCheck('bwp-on-horns', 'Joue dans cette scène', !muted, (on) => (putOff(sc.sec, T, !on), partChanged()));
-    if (muted || !r) return [head, h('div', { class: 'bwp-row' }, play), h('p', { class: 'dlg-hint', id: 'bwHornsMuted' }, 'La section se tait dans cette scène.')];
+    const motifCard = (fixed) =>
+      sectionMotifCard(sc, {
+        k: 'hn',
+        ids: { card: 'bwHornsMot', fam: 'bwHornsFam', cards: 'bwHornsJeu' },
+        title: 'Cuivres',
+        cur: r && r.jeu,
+        muted: muted || !r,
+        play,
+        fixed: [h('span', { class: 'bh-info mot-form' }, `Formation : ${F.label} (${hplayersOf(ms).map((p) => p.label.toLowerCase()).join(', ')})`), ...fixed],
+        all: HN().jeux(F.id),
+        fams: HN().FAMS,
+        stars: HN().sceneStars(sc.sec, F.id),
+        auto: r && r.auto ? r.jeu : null,
+        svg: (id) => hornSvg(id),
+        onPick: (id) => hornsPick(id),
+        help: SS.helpTip('Le motif de la section dans cette scène. Les motifs marqués ★ conviennent à ce type de scène ; le premier est joué d’office (auto). Les Transitions et fins s’écrivent sur toute la scène : la dernière mesure change. Chaque motif est recalculé sur les accords de la scène, degré par degré : chaque musicien garde son registre. La formation se change à l’étape Instruments. Survolez une carte pour sa description.', 'Motif de la section'),
+      });
+    if (muted || !r) return [head, motifCard([]), h('p', { class: 'dlg-hint', id: 'bwHornsMuted' }, 'La section se tait dans cette scène.')];
     const spb = SPB();
     const total = sc.bars * spb;
     const players = hplayersOf(ms);
     const off = Array.isArray(own.off) ? own.off : HN().offByDefault(F.id);
-    // jeux : familles (★ = conseillés pour la scène), une carte par jeu avec les attaques de la section sur la scène
-    const vb = Math.max(1, Math.min(4, sc.bars)); // la vignette montre la scène (4 mesures au plus), en croches
-    const cells = (jeu) => {
-      const res = HN().write({ form: F.id, add: ms.add || [], jeu, off, model: true, bars: vb, spb: 16, beat: 4 });
-      const c = Array(vb * 8).fill('');
-      Object.values(res.lines).forEach((L) => L.events.forEach((e) => {
-        const i = Math.floor(e.step / 2);
-        if (i >= c.length) return;
-        c[i] = 'x';
-        for (let k = 1; k < Math.ceil(e.len / 2) && i + k < c.length; k++) if (!c[i + k]) c[i + k] = 'h';
-      }));
-      return c;
+    // motifs : la carte Motif commune, chaque carte montre les attaques de la section sur la scène (4 mesures au plus)
+    const vb = Math.max(1, Math.min(4, sc.bars));
+    const hornSvg = (jeu) => hitsHtml(hitCells(Object.values(HN().write({ form: F.id, add: ms.add || [], jeu, off, model: true, bars: vb, spb: 16, beat: 4 }).lines).flatMap((L) => L.events), vb * 8));
+    const hornsPick = (id) => {
+      const scenes = motifTargets(sc, T, (x) => !!(x.horns && x.horns[T.musician]));
+      scenes.forEach((x) => {
+        const rx = x.horns && x.horns[T.musician];
+        const a = (rx && rx.autoJeu) || HN().sceneStars(x.sec, F.id)[0];
+        putOff(x.sec, T, false);
+        const o = { ...hornsSet(x, T), jeu: id === a ? undefined : id };
+        Object.keys(o).forEach((k) => o[k] === undefined && delete o[k]);
+        putPart(x.sec, T, { horns: Object.keys(o).length ? o : undefined });
+      });
+      partChanged(`#bwHornsJeu [data-id="${id}"]`);
     };
-    const stars = HN().sceneStars(sc.sec, F.id);
-    const autoJ = r.autoJeu || stars[0];
-    const all = HN().jeux(F.id);
-    const fam = [...HN().FAMS.map(([id]) => id), 'all'].includes(S.wiz.hnFam) ? S.wiz.hnFam : 'star';
-    const shown = fam === 'all' ? all : fam === 'star' ? [...new Set([...stars, ...(r.jeu !== autoJ || !stars.includes(r.jeu) ? [r.jeu] : [])])].map((id) => all.find((j) => j.id === id)).filter(Boolean) : all.filter((j) => j.fam === fam);
-    const famRow = h(
-      'div',
-      { class: 'bwhn-fams', id: 'bwHornsFam', role: 'tablist', 'aria-label': 'Familles de jeux' },
-      ...[['star', '★ Pour cette scène'], ...HN().FAMS, ['all', 'Tous']].map(([id, label]) =>
-        h('button', { type: 'button', role: 'tab', class: fam === id ? 'on' : '', 'aria-selected': String(fam === id), 'data-f': id, onclick: () => ((S.wiz.hnFam = id), renderWiz(), $(`#bwHornsFam [data-f="${id}"]`) && $(`#bwHornsFam [data-f="${id}"]`).focus()) }, label, id === 'star' || id === 'all' ? null : h('small', {}, String(all.filter((j) => j.fam === id).length))))
-    );
-    const jeuxRow = h(
-      'div',
-      { class: 'bwhn-jeux', id: 'bwHornsJeu', role: 'radiogroup', 'aria-label': 'Jeu de la section' },
-      ...shown.map((j) =>
-        h(
-          'button',
-          { type: 'button', role: 'radio', class: 'bwhn-jeu' + (j.id === r.jeu ? ' active' : ''), 'aria-checked': String(j.id === r.jeu), 'data-v': j.id, title: j.text, onclick: () => hornsEdit(sc, T, { jeu: j.id === autoJ ? undefined : j.id }, `#bwHornsJeu [data-v="${j.id}"]`) },
-          h('b', {}, stars.includes(j.id) ? h('span', { class: 'bwhn-star' }, '★ ') : null, j.n ? h('span', { class: 'bwhn-no', title: `Motif ${j.n} du fichier des 50 motifs` }, String(j.n).padStart(2, '0')) : null, j.label, r.auto && j.id === r.jeu ? h('span', { class: 'bwhn-au' }, ' auto') : null),
-          h('span', { class: 'bwhn-txt' }, j.text),
-          h('span', { class: 'bwhn-hits', style: `grid-template-columns:repeat(${vb * 8}, 1fr)` }, ...cells(j.id).map((x, i) => h('i', { class: x + (i % 8 === 0 && i ? ' bar' : '') })))
-        )
-      )
-    );
-    const jeuxHelp = SS.helpTip(`Le jeu de la section dans cette scène. Les jeux marqués ★ conviennent à ce type de scène ; le premier est joué d’office (auto). Les Transitions et fins s’écrivent sur toute la scène : la dernière mesure change. Chaque jeu est recalculé sur les accords de la scène, degré par degré : chaque musicien garde son registre.`, 'Jeu de la section');
     const nu = partSeg('Nuance', 'bwHornsNu', [['p', 'p', 'Doux'], ['mf', 'mf', 'Moyen'], ['f', 'f', 'Fort']], own.nu || 'mf', (v) => hornsEdit(sc, T, { nu: v === 'mf' ? undefined : v }, `#bwHornsNu [data-v="${v}"]`));
     // une ligne par musicien : interrupteur (enregistré), nom, rôle, partie de la scène (accords au-dessus), registre, Muet / Solo
     const colOf = (key) => T.cols.find((c) => ((c.o.band && c.o.band.key) || '').split(':')[1] === key);
@@ -7428,9 +7502,7 @@ SS.band = (() => {
     );
     return [
       head,
-      h('div', { class: 'bwp-row' }, play, nu, h('span', { class: 'spacer' }), addSel, SS.helpTip('Ajoute un musicien à la section (4 au plus), pour toute la chanson : il double la voix la plus proche de son registre, sur sa propre piste. La formation se change à l’étape Instruments.', 'Ajouter un musicien')),
-      h('div', { class: 'bwhn-famrow' }, famRow, jeuxHelp),
-      jeuxRow,
+      motifCard([h('span', { class: 'spacer' }), nu, addSel, SS.helpTip('Ajoute un musicien à la section (4 au plus), pour toute la chanson : il double la voix la plus proche de son registre, sur sa propre piste. La formation se change à l’étape Instruments.', 'Ajouter un musicien')]),
       table,
     ];
   }
@@ -8290,10 +8362,10 @@ SS.band = (() => {
    * Scènes visées par un choix de motif (pied « Scènes » de la carte Motif commune, S.wiz.motScope) : la scène,
    * celles du même type (couplets, refrains…) où l'instrument joue, ou toutes celles où il joue.
    */
-  function motifTargets(sc, T) {
+  function motifTargets(sc, T, has = (x) => !!((partOf(x.sec, T) || {}).mode || planMode(x, T))) {
     const scope = S.wiz.motScope || 'one';
     if (scope === 'one') return [sc];
-    const plays = (x) => !mutedIn(x.sec, T) && !!((partOf(x.sec, T) || {}).mode || planMode(x, T));
+    const plays = (x) => !mutedIn(x.sec, T) && has(x);
     return S.wiz.res.scenes.filter((x) => x.sec === sc.sec || (plays(x) && (scope === 'all' || kindOf(x.sec) === kindOf(sc.sec))));
   }
   const motifScope = () =>
