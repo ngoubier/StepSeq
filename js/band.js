@@ -7908,33 +7908,32 @@ SS.band = (() => {
   /** Noms des bibliothèques de motifs qui n'ont pas (encore) de style Band. */
   const DRUM_LIB_NAMES = { pop: 'Pop-rock', funk: 'Funk & Disco', hiphop: 'Hip-hop & Lo-fi', dnb: 'Drum & bass', latin: 'Latin, Afro & Reggae', soul: 'Soul & Jazz' };
   const drumLibName = (id) => (B().STYLES.find((s) => s.id === id) || {}).label || DRUM_LIB_NAMES[id] || id;
-  /** Bibliothèque affichée (S.wiz.dlib) : celle du style de la chanson par défaut, une autre, ou « all ». */
-  const drumLibId = () => (S.wiz.dlib === 'all' || SS.DRUM_PATTERNS[S.wiz.dlib] ? S.wiz.dlib : drumStyle());
-  /** Motifs de la bibliothèque affichée, chacun avec son style (p.st). */
+  /** Style commun de la carte Motif (S.wiz.dStyle, js/motifpicker.js) : celui de la chanson par défaut, ou « all ». */
+  const drumStyleOf = (lib) => SS.motifPicker.styleOfSong(lib);
+  const drumGroup = () => {
+    const MP = SS.motifPicker;
+    const g = S.wiz.dStyle;
+    return g === 'all' || MP.STYLE_IDS.includes(g) ? g : drumStyleOf(drumStyle());
+  };
+  /** Bibliothèques d'un style commun (Électro : EDM et techno). */
+  const drumLibsOf = (g) => Object.keys(SS.DRUM_PATTERNS).filter((st) => g === 'all' || drumStyleOf(st) === g);
   /** Motifs de la mesure de la chanson (3/4, 6/8, 12/8), chacun avec la mesure pour style ; null en 4/4. */
   const meterLib = () => (SPB() === 16 ? null : ((SS.DRUM_PATTERNS_METER || {})[sigOf()] || []).map((p) => ({ ...p, st: sigOf() })));
-  const drumLib = () => {
+  /** Motifs d'un style commun, chacun avec sa bibliothèque (p.st) ; ceux de la bibliothèque de la chanson d'abord. */
+  const drumLib = (g = drumGroup()) => {
     if (meterLib()) return meterLib();
-    const id = drumLibId();
-    return (id === 'all' ? Object.keys(SS.DRUM_PATTERNS) : [id]).flatMap((st) => SS.DRUM_PATTERNS[st].map((p) => ({ ...p, st })));
+    const libs = drumLibsOf(g).sort((x, y) => (y === drumStyle()) - (x === drumStyle()));
+    return libs.flatMap((st) => SS.DRUM_PATTERNS[st].map((p) => ({ ...p, st })));
   };
-  /** Choix de la bibliothèque : style de la chanson en premier, puis les autres, puis « Tous les styles ». */
-  function drumLibPick() {
-    if (SPB() !== 16) return h('span', { class: 'bwp-libsel bwp-libmeter', id: 'bwpLib' }, `Mesure ${sigOf()}`);
-    const cur = drumLibId();
-    const ids = [drumStyle(), ...Object.keys(SS.DRUM_PATTERNS).filter((x) => x !== drumStyle())];
-    return h(
-      'select',
-      { id: 'bwpLib', class: 'bwp-libsel', 'aria-label': 'Bibliothèque de motifs', onchange: (e) => ((S.wiz.dlib = e.target.value === drumStyle() ? null : e.target.value), renderWiz()) },
-      ...ids.map((x) => h('option', { value: x, selected: cur === x }, drumLibName(x) + (x === drumStyle() ? ' (style de la chanson)' : ''))),
-      h('option', { value: 'all', selected: cur === 'all' }, 'Tous les styles')
-    );
-  }
+  /** Familles de la Batterie : la nuance des motifs. */
+  const DRUM_FAMS = [['1', 'Calme'], ['2', 'Moyen'], ['3', 'Intense']];
   /** Nuance de la scène : 1 calme (intro, outro, break), 3 intense (refrain, drop, sommet), 2 sinon. */
   const secEnergy = (sec) => {
     const k = kindOf(sec);
     return /^(intro|outro|break)/.test(k) ? 1 : /^(build|pre|bridge)/.test(k) ? 2 : /^(chorus|drop|peak)/.test(k) ? 3 : 2;
   };
+  /** ★ de la scène : les quatre premiers motifs de sa nuance (intro calme, couplet moyen, refrain intense…). */
+  const drumStars = (list, sec) => list.filter((p) => p.energy === secEnergy(sec)).slice(0, 4).map((p) => p.id);
   const patOf = (sec, T) => {
     const d = partOf(sec, T);
     const p = d && d.pattern ? SS.drumPattern(d.style || drumStyle(), d.pattern) : null;
@@ -8265,9 +8264,92 @@ SS.band = (() => {
     `<span class="bwp-mini" style="grid-template-columns:repeat(${SPB()},1fr)">${[...LANES.map(([k]) => k), ...MINI_EXTRA.filter((k) => /[xo.r]/.test(lanes[k] || ''))]
       .map((k) => Array.from({ length: SPB() }, (_, s) => { const c = (lanes[k] || E16)[s] || '-'; return `<i class="${k}${c !== '-' ? ' v' : ''}${c === 'r' ? ' r' : ''}"></i>`; }).join(''))
       .join('')}</span>`;
-  function pickPattern(sc, T, p) {
-    putPart(sc.sec, T, p ? { style: p.st || drumStyle(), pattern: p.id, edits: undefined } : { style: undefined, pattern: undefined, edits: undefined });
-    partChanged(`.bwp-pat[data-id="${p ? p.id : ''}"]`);
+  function pickPattern(sc, T, p, scenes = [sc]) {
+    scenes.forEach((x) => {
+      putOff(x.sec, T, false);
+      putPart(x.sec, T, p ? { style: p.st || drumStyle(), pattern: p.id, edits: undefined } : { style: undefined, pattern: undefined, edits: undefined });
+    });
+    partChanged(`#bwDrumMot .mot-card[data-id="${p ? p.id : ''}"]`);
+  }
+  /**
+   * Carte Motif commune de la Batterie (et des Drums d'un instrument) : « Batterie de « Scène » » et le motif joué,
+   * « Joue dans cette scène » à droite, styles communs (en 3/4, 6/8, 12/8 : la mesure), familles Calme | Moyen | Intense
+   * avec « ★ Pour cette scène » (les motifs de la nuance de la scène), la carte de l'inspiration en tête, pied « Scènes ».
+   */
+  function drumMotifCard(sc, T, title, play = true) {
+    const MP = SS.motifPicker;
+    const d = partOf(sc.sec, T) || {};
+    const pat = patOf(sc.sec, T);
+    const muted = mutedIn(sc.sec, T);
+    const meter = !!meterLib();
+    const g = drumGroup();
+    const list = drumLib(g);
+    const P = Object.fromEntries(list.map((p) => [p.id, p]));
+    const stars = drumStars(list, sc.sec);
+    const cur = muted ? null : pat && P[pat.id] && (d.style || drumStyle()) === P[pat.id].st ? pat.id : null;
+    const many = !meter && drumLibsOf(g).length > 1;
+    let fam = S.wiz.dFam;
+    if (fam && fam !== 'star' && fam !== 'all' && !DRUM_FAMS.some((f) => f[0] === fam)) fam = undefined;
+    const familyOf = (id) => String(P[id].energy);
+    const pick = (id) => pickPattern(sc, T, id ? P[id] : null, motifTargets(sc, T, () => true));
+    const out = MP.render({
+      styles: meter ? null : MP.STYLES,
+      group: g,
+      mark: drumStyleOf(drumStyle()),
+      onGroup: (v) => ((S.wiz.dStyle = v), renderWiz()),
+      count: (v) => drumLib(v).length,
+      fams: DRUM_FAMS,
+      fam,
+      onFam: (f) => ((S.wiz.dFam = f), renderWiz()),
+      familyOf,
+      stars,
+      ids: list.map((p) => p.id),
+      cur,
+      name: (id) => P[id].name,
+      desc: (id) => [P[id].desc, many ? drumLibName(P[id].st) : null].filter(Boolean).join(' · ') || null,
+      svg: (id) => miniLanes(P[id].lanes),
+      onPick: pick,
+      label: 'Motifs de batterie',
+      surprise: () => {
+        const pool = MP.visible(list.map((p) => p.id), { fam, stars, familyOf }).filter((id) => id !== cur);
+        if (pool.length) pick(pool[Math.floor(Math.random() * pool.length)]);
+      },
+      help: SS.helpTip('Les motifs de chaque style ; le point marque celui de la chanson. Calme, Moyen, Intense : la nuance du motif. ★ : la nuance de cette scène (intro calme, couplet moyen, refrain intense). Survolez une carte pour sa description.', 'Style'),
+    });
+    const [st, fm, cards] = meter ? [null, ...out] : out;
+    // les cartes gardent leur bibliothèque (data-st) ; la carte de l'inspiration vient en tête
+    cards.querySelectorAll('.mot-card').forEach((c) => c.setAttribute('data-st', P[c.dataset.id].st));
+    const inspOn = !muted && !d.pattern && !d.edits;
+    cards.prepend(
+      h(
+        'button',
+        { type: 'button', role: 'radio', class: 'mot-card has-badge' + (inspOn ? ' on' : ''), 'data-id': '', 'data-st': '', 'aria-checked': String(inspOn), title: 'Le jeu du plan de l’inspiration, sans rien changer', onclick: () => pick(null) },
+        h('em', { class: 'mot-badge insp' }, 'Inspiration'),
+        h('span', { class: 'mot-name' }, 'Motif de l’inspiration'),
+        h('span', { class: 'mot-draw', html: miniLanes(inspLanes(sc, T.cols)) })
+      )
+    );
+    if (st) st.id = 'bwpStyle';
+    fm.id = 'bwpFam';
+    const sb = fm.querySelector('.mot-surprise');
+    if (sb) sb.id = 'bwpSurprise';
+    const now = muted ? 'ne joue pas' : pat ? pat.name + (d.edits ? ' · modifié' : '') : d.edits ? 'Motif perso' : 'inspiration';
+    return h(
+      'section',
+      { class: 'bwp-card bw-card bwp-mot mot-pick mot-drum', id: 'bwDrumMot' },
+      h(
+        'div',
+        { class: 'bwp-ch' },
+        h('b', {}, `${title} de « ${sc.name} »`),
+        h('span', { class: 'mot-now' }, now),
+        h('span', { class: 'spacer' }),
+        play ? partCheck('bwp-on-drums', 'Joue dans cette scène', !muted, (on) => (putOff(sc.sec, T, !on), partChanged())) : null
+      ),
+      meter ? h('div', { class: 'bwp-row mot-fixed' }, h('span', { class: 'bh-info bwp-libmeter', id: 'bwpLib' }, `Mesure ${sigOf()}`)) : st,
+      fm,
+      cards,
+      h('div', { class: 'bwp-row mot-foot' }, motifScope())
+    );
   }
   /** Clic sur une case de la grille : fort, moyen, léger, éteint. */
   function cycleCell(sc, T, k, s) {
@@ -8493,24 +8575,6 @@ SS.band = (() => {
     return [card1, card2];
   }
 
-  /** « Assortir toutes les scènes » : un motif de la nuance de chaque scène, le même pour les scènes du même type. */
-  function matchAllDrums(T) {
-    const list = meterLib() || SS.DRUM_PATTERNS[drumStyle()];
-    const st = SPB() === 16 ? drumStyle() : sigOf();
-    const byKind = new Map();
-    const used = { 1: 0, 2: 0, 3: 0 };
-    S.wiz.res.scenes.forEach((x) => {
-      const kd = kindOf(x.sec);
-      if (!byKind.has(kd)) {
-        const e = secEnergy(x.sec);
-        const cand = list.filter((p) => p.energy === e);
-        byKind.set(kd, (cand.length ? cand : list)[used[e]++ % (cand.length || list.length)]);
-      }
-      putPart(x.sec, T, { style: st, pattern: byKind.get(kd).id, edits: undefined });
-    });
-    S.wiz.pmsg = 'Un motif suggéré pour chaque scène';
-    partChanged();
-  }
   /** Sons qui jouent chaque ligne d'un motif (comme patLane) ; le premier est celui qu'on propose d'ajouter. */
   const PAT_SNDS = { K: ['bd'], S: ['sd'], C: ['cp'], H: ['hh'], O: ['oh', 'rd'], R: ['rim'], P: ['sh', 'tb', 'cb', 'perc', 'misc'] };
   const baseSnd = (x) => String(x || '').split('@')[0];
@@ -8584,9 +8648,6 @@ SS.band = (() => {
   function drumsBody(sc, T) {
     const d = partOf(sc.sec, T) || {};
     const pat = patOf(sc.sec, T);
-    const list = drumLib();
-    const en = secEnergy(sc.sec);
-    const flt = S.wiz.efilter || 0;
     const fill = d.fill != null ? d.fill : d.pattern || d.edits ? 'off' : fillBar(sc, sc.bars - 1, T) ? 'end' : 'off';
     const build = isBuild(sc);
     const g = drumGridOf(sc, T);
@@ -8645,32 +8706,7 @@ SS.band = (() => {
           ),
       kitChips(T, pat)
     );
-    // carte d'un motif ; sans motif : celle de l'inspiration (le jeu du plan), choisie tant qu'on n'a rien réglé
-    const card = (p) => {
-      const on = p ? !!pat && pat.id === p.id && (d.style || drumStyle()) === p.st : !d.pattern && !d.edits;
-      return h(
-        'button',
-        { type: 'button', role: 'radio', class: 'bwp-pat' + (on ? ' on' : ''), 'data-id': p ? p.id : '', 'data-st': p ? p.st : '', title: p && p.desc ? p.desc : null, 'aria-checked': String(on), onclick: () => pickPattern(sc, T, p) },
-        h('b', {}, p ? p.name : 'Motif de l’inspiration', p ? h('span', { class: 'bwp-en', title: ['calme', 'moyen', 'intense'][p.energy - 1] }, '●'.repeat(p.energy) + '○'.repeat(3 - p.energy)) : null),
-        p && drumLibId() === 'all' ? h('small', { class: 'bwp-from' }, drumLibName(p.st)) : null,
-        h('span', { html: miniLanes(p ? p.lanes : inspLanes(sc, T.cols)) }),
-        p ? (p.energy === en ? h('span', { class: 'bwp-sug' }, 'Suggéré') : null) : h('small', {}, 'Le jeu du plan, sans rien changer')
-      );
-    };
-    const card2 = h(
-      'section',
-      { class: 'bwp-card bw-card' },
-      h(
-        'div',
-        { class: 'bwp-ch' },
-        h('b', {}, `${list.length} motifs`),
-        drumLibPick(),
-        h('span', { class: 'segmented', id: 'bwpFilter', role: 'radiogroup', 'aria-label': 'Filtrer par énergie' }, ...['Tous', 'Calme', 'Moyen', 'Intense'].map((t, i) => h('button', { type: 'button', role: 'radio', class: flt === i ? 'active' : '', 'aria-checked': String(flt === i), 'data-v': i, onclick: () => ((S.wiz.efilter = i), renderWiz()) }, t))),
-        h('span', { class: 'spacer' }),
-        h('button', { type: 'button', class: 'btn btn-small', id: 'bwpMatch', title: 'Un motif suggéré pour chaque scène, selon sa nuance', onclick: () => matchAllDrums(T) }, 'Assortir toutes les scènes')
-      ),
-      h('div', { class: 'bwp-lib', role: 'radiogroup', 'aria-label': 'Motifs de batterie' }, card(null), ...list.filter((p) => !flt || p.energy === flt).map(card))
-    );
+    const card2 = drumMotifCard(sc, T, 'Batterie');
     // la fenêtre d'options se place sous sa case une fois la carte dans la page ; le défilement de la grille est rendu
     setTimeout(() => {
       const wraps = document.querySelectorAll('.bwd-wrap');
@@ -8692,21 +8728,6 @@ SS.band = (() => {
   }
   function drumsLiteBody(sc, T) {
     const d = partOf(sc.sec, T) || {};
-    const pat = patOf(sc.sec, T);
-    const list = drumLib();
-    const en = secEnergy(sc.sec);
-    const flt = S.wiz.efilter || 0;
-    const card = (p) => {
-      const on = p ? !!pat && pat.id === p.id && (d.style || drumStyle()) === p.st : !d.pattern && !d.edits;
-      return h(
-        'button',
-        { type: 'button', role: 'radio', class: 'bwp-pat' + (on ? ' on' : ''), 'data-id': p ? p.id : '', 'data-st': p ? p.st : '', title: p && p.desc ? p.desc : null, 'aria-checked': String(on), onclick: () => pickPattern(sc, T, p) },
-        h('b', {}, p ? p.name : 'Motif du plan', p ? h('span', { class: 'bwp-en', title: ['calme', 'moyen', 'intense'][p.energy - 1] }, '●'.repeat(p.energy) + '○'.repeat(3 - p.energy)) : null),
-        p && drumLibId() === 'all' ? h('small', { class: 'bwp-from' }, drumLibName(p.st)) : null,
-        p ? h('span', { html: miniLanes(p.lanes) }) : h('small', {}, 'Le jeu du plan, sans rien changer'),
-        p && p.energy === en ? h('span', { class: 'bwp-sug' }, 'Suggéré') : null
-      );
-    };
     return [
       partHead(sc, T, 'drums', true),
       autoCard(sc, T),
@@ -8717,18 +8738,7 @@ SS.band = (() => {
         h('p', { class: 'dlg-hint', 'data-helpify': true }, 'Cet instrument joue la fondamentale de chaque accord, en notes courtes, sur les coups du motif de batterie.'),
         partSeg('Joue sur', 'bwpDrumMode', DRUM_MODES.map(([v, t, tip]) => [v, t, tip]), d.mode || 'both', (v) => (putPart(sc.sec, T, { mode: v === 'both' ? undefined : v }), partChanged()))
       ),
-      h(
-        'section',
-        { class: 'bwp-card bw-card' },
-        h(
-          'div',
-          { class: 'bwp-ch' },
-          h('b', {}, `${list.length} motifs`),
-        drumLibPick(),
-          h('span', { class: 'segmented', id: 'bwpFilter', role: 'radiogroup', 'aria-label': 'Filtrer par énergie' }, ...['Tous', 'Calme', 'Moyen', 'Intense'].map((t, i) => h('button', { type: 'button', role: 'radio', class: flt === i ? 'active' : '', 'aria-checked': String(flt === i), 'data-v': i, onclick: () => ((S.wiz.efilter = i), renderWiz()) }, t)))
-        ),
-        h('div', { class: 'bwp-lib', role: 'radiogroup', 'aria-label': 'Motifs de batterie' }, card(null), ...list.filter((p) => !flt || p.energy === flt).map(card))
-      ),
+      drumMotifCard(sc, T, 'Motif', false),
     ];
   }
 

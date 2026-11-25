@@ -235,7 +235,9 @@ const SHOTS = process.env.SHOTS;
   await page.dispatchEvent('#bwNext', 'click');
   await page.waitForTimeout(200);
   ok((await page.locator('#bandWizSteps li.cur').getAttribute('data-kind')) === 'drums' && (await page.locator('#bandWizSteps li.cur').textContent()).includes('Batterie'), 'étape 6 : Batterie (onglet du kit)');
-  ok((await page.locator('.bwp-pat').count()) === 21 && (await page.locator('.bwp-pat.on').getAttribute('data-id')) === '', 'batterie : 20 motifs et celui de l’inspiration, choisi');
+  ok((await page.locator('#bwDrumMot .mot-card').count()) >= 2 && (await page.locator('#bwDrumMot .mot-card.on').getAttribute('data-id')) === '' && (await page.locator('#bwpFam .mot-chip.star.on').count()) === 1, 'batterie : la carte Motif s’ouvre sur les ★ de la scène, celui de l’inspiration choisi');
+  await page.click('#bwpFam [data-f="all"]');
+  ok((await page.locator('#bwDrumMot .mot-card').count()) === 29, 'batterie : Tous, les 28 motifs synthwave et celui de l’inspiration');
   ok((await page.locator('.bh-scene .bh-ssub').first().textContent()) === 'Inspiration' && (await page.evaluate(() => Object.keys(SS.band._state.wiz.parts).length)) === 0, 'batterie : une première visite ne change rien');
 
   // 7. Basse, 8. Nappes, 9. Arpèges : une scène à gauche, les réglages de la scène choisie

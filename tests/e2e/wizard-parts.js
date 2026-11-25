@@ -78,50 +78,52 @@ const ok = (c, m) => {
 
   // Batterie : l'inspiration d'abord, rien n'est réglé
   ok((await page.getAttribute('#bwParts', 'data-kind')) === 'drums' && (await page.locator('.bh-scene').count()) === 5 && (await page.locator('.bw-kind').count()) === 0 && (await page.getAttribute('#bwStepHead', 'data-kind')) === 'drums', 'onglet de la batterie : les cinq scènes à gauche');
-  ok((await page.locator('.bwp-pat').count()) === 29 && (await page.locator('.bwp-pat.on').getAttribute('data-id')) === '', '28 motifs synthwave, et « Motif de l’inspiration » choisi par défaut');
+  await page.click('#bwpFam [data-f="all"]');
+  ok((await page.locator('#bwDrumMot .mot-card').count()) === 29 && (await page.locator('#bwDrumMot .mot-card.on').getAttribute('data-id')) === '', '28 motifs synthwave, et « Motif de l’inspiration » choisi par défaut');
   ok(Object.keys(await parts()).length === 0 && !(await page.evaluate(() => SS.audio.isPlaying())), 'première visite : rien n’est réglé, rien ne joue');
 
-  // filtre par énergie et motifs suggérés (Couplet : moyen)
+  // familles par nuance et ★ de la scène (Couplet : moyen)
   await scene('Couplet');
-  await page.click('#bwpFilter [data-v="1"]');
+  await page.click('#bwpFam [data-f="1"]');
   const calm = await page.evaluate(() => SS.DRUM_PATTERNS.synthwave.filter((p) => p.energy === 1).length);
-  ok((await page.locator('.bwp-pat:not([data-id=""])').count()) === calm && (await page.locator('.bwp-sug').count()) === 0, `filtre Calme : ${calm} motifs, aucun suggéré pour un couplet`);
-  await page.click('#bwpFilter [data-v="2"]');
-  ok((await page.locator('.bwp-sug').count()) === (await page.locator('.bwp-pat:not([data-id=""])').count()), 'filtre Moyen : tous « Suggéré » pour un couplet');
-  await page.click('#bwpFilter [data-v="0"]');
+  ok((await page.locator('#bwDrumMot .mot-card:not([data-id=""])').count()) === calm && (await page.locator('#bwDrumMot .mot-star').count()) === 0, `famille Calme : ${calm} motifs, aucun ★ pour un couplet`);
+  await page.click('#bwpFam [data-f="star"]');
+  const stars = await page.$$eval('#bwDrumMot .mot-card:not([data-id=""])', (els) => els.map((e) => e.dataset.id));
+  ok(stars.length === 4 && (await page.evaluate((ids) => ids.every((id) => SS.DRUM_PATTERNS.synthwave.find((p) => p.id === id).energy === 2), stars)), `★ Pour cette scène : quatre motifs moyens pour un couplet (${stars})`);
+  await page.click('#bwpFam [data-f="all"]');
 
-  // bibliothèque d'un autre style : un dembow dans une chanson synthwave, puis « Tous les styles »
-  await page.selectOption('#bwpLib', 'latin');
+  // un autre style : un dembow dans une chanson synthwave, puis « Tous »
+  await page.click('#bwpStyle [data-g="latin"]');
   await page.waitForTimeout(250);
-  ok((await page.locator('.bwp-pat').count()) === 27, 'bibliothèque Latin, Afro & Reggae : 26 motifs');
-  await page.click('.bwp-pat[data-id="dembow"]');
+  ok((await page.locator('#bwDrumMot .mot-card').count()) === 31, 'style Latin & Reggae : 30 motifs');
+  await page.click('#bwDrumMot .mot-card[data-id="dembow"]');
   await page.waitForTimeout(500);
   const dv = await part('verse', 'drums');
   const dembow = await page.evaluate(() => SS.drumPattern('latin', 'dembow'));
-  ok(dv.pattern === 'dembow' && dv.style === 'latin' && (await page.locator('.bwp-pat.on').getAttribute('data-st')) === 'latin', 'Dembow (Latin) choisi pour le couplet');
+  ok(dv.pattern === 'dembow' && dv.style === 'latin' && (await page.locator('#bwDrumMot .mot-card.on').getAttribute('data-st')) === 'latin', 'Dembow (Latin) choisi pour le couplet');
   ok(rowsOf(await kick('Couplet'), 1)[0] === lane(dembow.lanes.K), 'le kick suit le dembow');
-  await page.selectOption('#bwpLib', 'all');
+  await page.click('#bwpStyle [data-g="all"]');
   await page.waitForTimeout(250);
   const total = await page.evaluate(() => Object.values(SS.DRUM_PATTERNS).reduce((a, l) => a + l.length, 0));
-  ok((await page.locator('.bwp-pat').count()) === total + 1 && (await page.locator('.bwp-from').count()) === total, `Tous les styles : ${total} motifs, chacun avec son style`);
+  ok((await page.locator('#bwDrumMot .mot-card').count()) === total + 1, `Tous les styles : ${total} motifs`);
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'bibliotheque-tous-styles.png') });
-  await page.selectOption('#bwpLib', 'synthwave');
+  await page.click('#bwpStyle [data-g="synth"]');
   await page.waitForTimeout(250);
 
-  // Assortir toutes les scènes : un motif par scène, de la nuance de la scène
-  await page.click('#bwpMatch');
+  // pied « Scènes : Toutes » : le motif choisi va à toutes les scènes
+  await page.click('#bwpMotScope [data-v="all"]');
+  await page.click('#bwDrumMot .mot-card[data-id="motorik"]');
+  await page.waitForTimeout(300);
   const all = await parts();
-  const drumsOf = (sec) => part(sec, 'drums');
-  const en = await page.evaluate(() => Object.fromEntries(SS.DRUM_PATTERNS.synthwave.map((p) => [p.id, p.energy])));
-  ok(['intro', 'verse', 'chorus', 'bridge', 'outro'].every((k) => all[k] && all[k].inst && Object.values(all[k].inst).some((x) => x.pattern)), 'Assortir : un motif dans chaque scène');
-  ok([['intro', 1], ['verse', 2], ['chorus', 3], ['outro', 1]].every(([k, e]) => en[Object.values(all[k].inst).find((x) => x.pattern).pattern] === e), 'Assortir : nuance de chaque scène (intro 1, couplet 2, refrain 3, outro 1)');
+  ok(['intro', 'verse', 'chorus', 'bridge', 'outro'].every((k) => all[k] && all[k].inst && Object.values(all[k].inst).some((x) => x.pattern === 'motorik')), 'Scènes : Toutes : Motorik dans chaque scène');
+  await page.click('#bwpMotScope [data-v="one"]');
 
   // un motif : le kick de la scène le suit, et on l'entend (la scène joue en boucle)
-  await page.click('.bwp-pat[data-id="darksynth"]');
+  await page.click('#bwDrumMot .mot-card[data-id="darksynth"]');
   await page.waitForFunction(() => SS.audio.isPlaying(), null, { timeout: 8000 });
   const pat = await page.evaluate(() => SS.drumPattern('synthwave', 'darksynth'));
   const bars = await page.evaluate(() => SS.band._state.wiz.res.scenes.find((x) => x.name === 'Couplet').bars);
-  ok((await part('verse', 'drums')).pattern === 'darksynth' && (await page.locator('.bwp-pat.on').getAttribute('data-id')) === 'darksynth', 'Darksynth choisi pour le couplet');
+  ok((await part('verse', 'drums')).pattern === 'darksynth' && (await page.locator('#bwDrumMot .mot-card.on').getAttribute('data-id')) === 'darksynth', 'Darksynth choisi pour le couplet');
   ok(rowsOf(await kick('Couplet'), bars).every((r) => r === lane(pat.lanes.K)), 'le kick de l’aperçu suit le motif, sur toutes les mesures');
   const heard = await page.evaluate(() => {
     const sc = SS.band._listen().scenes.find((x) => x.name === 'Couplet');

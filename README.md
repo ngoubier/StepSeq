@@ -272,10 +272,12 @@ caractère…), et **▶ joue la scène choisie en boucle** (pas toute la chanso
    Arpèges restent pour les sections que la nouvelle inspiration a aussi : couplet, refrain… ; les motifs de batterie
    seulement dans le même style ; la mélodie générée est oubliée, elle suivait les autres accords). On écoute la chanson (ou à partir d'un bloc) et
    chaque scène en boucle, sur un projet temporaire (même mixage que la chanson créée) ;
-5. **Batterie** : pour la scène choisie, une **bibliothèque de 20 motifs** du style (`SS.DRUM_PATTERNS`, carte avec nom,
-   énergie ●●○ et aperçu des cinq pistes ; filtre Tous / Calme / Moyen / Intense ; **Suggéré** pour la nuance de la
-   scène : intro, outro, break calmes, montée et pont moyens, refrain, drop et sommet intenses). **Motif de l'inspiration**
-   est choisi par défaut : tant qu'on ne touche à rien, c'est le groove du plan. Dessous, la **grille** : **une ligne par
+5. **Batterie** : pour la scène choisie, la **carte Motif commune** (`SS.DRUM_PATTERNS`) : « Batterie de « Scène » » et
+   le motif joué, « Joue dans cette scène » à droite, styles communs (Électro réunit EDM et techno ; en 3/4, 6/8, 12/8 :
+   la mesure, fixe), familles **Calme / Moyen / Intense** avec **« ★ Pour cette scène »** (les quatre premiers motifs de la
+   nuance de la scène : intro, outro, break calmes, montée et pont moyens, refrain, drop et sommet intenses), Surprends-moi,
+   cartes avec l'aperçu des pistes (description au survol), pied « Scènes : Cette scène | Même type | Toutes ».
+   **Motif de l'inspiration** (en tête) est choisi par défaut : tant qu'on ne touche à rien, c'est le groove du plan. Dessous, la **grille** : **une ligne par
    élément coché du kit** (grosse caisse, caisse claire, clap, charleston fermé et ouvert, rimshot, crash, ride, percussions, toms… ce que
    le batteur a coché à l'étape Instruments ; décocher un élément retire sa ligne), couleur de rôle, en **1, 2 ou 4 mesures**
    (16, 32 ou 64 pas, temps groupés par quatre et mesures séparées ; passer à un motif plus long répète le motif, plus court le coupe).
@@ -289,7 +291,7 @@ caractère…), et **▶ joue la scène choisie en boucle** (pas toute la chanso
    100 % de 50 à 75 %) et **Humanisation** sont des réglages **de toute la chanson** (`project.groove`, `S.wiz.groove` ; le moteur n'a pas de swing par
    scène, la mention « pour toute la chanson » est sur les curseurs) : ils s'entendent tout de suite et la chanson créée les garde
    (humanisation 15 % et pas de swing tant qu'on n'y touche pas). Puis **Revenir au motif**, les mesures de la scène (fills en rose), le
-   **fill** (jamais, fin de scène, toutes les 4 ou 8 mesures), son type et le **crash** ; **Assortir toutes les scènes** pose un motif suggéré par scène ;
+   **fill** (jamais, fin de scène, toutes les 4 ou 8 mesures), son type et le **crash** ;
    **Copier vers les scènes du même type** copie aussi la grille et la progression de montée. L'aperçu, l'écoute en boucle et « Créer la chanson » jouent exactement la grille (vélocité fort / moyen / léger, ratchets, conditions).
    **Scène de montée** (`drums: 'build'`) : au-dessus de la grille, la carte **Progression de la montée**. Le roulement est joué par la caisse claire
    (le clap si le kit n'en a pas) et se règle **mesure par mesure** : **Noires** (4 coups par mesure), **Croches** (8), **Doubles croches** (16),

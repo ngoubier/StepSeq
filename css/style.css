@@ -2540,19 +2540,11 @@ svg.g-big { width: 100%; height: auto; background: var(--c-surface-1); border-ra
 .bwp-cell.v1 { background: var(--lc); border-color: var(--lc); }
 .bwp-cell.v2 { background: color-mix(in srgb, var(--lc) 65%, var(--c-panel)); border-color: var(--lc); }
 .bwp-cell.v3 { background: color-mix(in srgb, var(--lc) 35%, var(--c-panel)); border-color: color-mix(in srgb, var(--lc) 60%, var(--c-panel)); }
-.bwp-cell:focus-visible, .bwp-pat:focus-visible, .bwp-mode:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.bwp-cell:focus-visible, .bwp-mode:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
 .bwp-bars { display: flex; flex-wrap: wrap; gap: 3px; }
 .bwp-bars span { flex: 1 1 26px; min-width: 22px; max-width: 64px; height: 24px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 4px; background: var(--c-panel); font-size: var(--fs-xs); color: var(--muted); font-variant-numeric: tabular-nums; }
 .bwp-bars span.fill { background: color-mix(in srgb, var(--K) 30%, var(--c-panel)); border-color: var(--K); color: var(--text); }
 /* bibliothèque de motifs */
-.bwp-lib { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
-.bwp-pat { display: flex; flex-direction: column; gap: 5px; min-width: 0; padding: 7px 8px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
-.bwp-pat:hover { border-color: var(--c-line-strong); }
-.bwp-pat.on { border-color: var(--accent-2); box-shadow: inset 0 0 0 1px var(--accent-2); background: color-mix(in srgb, var(--accent) 16%, var(--panel-2)); }
-.bwp-pat b { display: flex; justify-content: space-between; gap: 4px; font-size: var(--fs-sm); }
-.bwp-pat small { font-size: var(--fs-xs); color: var(--muted); }
-.bwp-en { flex: none; font-size: var(--fs-xs); letter-spacing: 1px; color: var(--K); }
-.bwp-sug { font-size: var(--fs-xs); font-weight: 600; color: var(--c-yellow-soft); }
 .bwp-mini { display: grid; grid-template-columns: repeat(16, 1fr); gap: 1px; }
 .bwp-mini i { height: 4px; border-radius: 1px; background: var(--c-panel-3); }
 .bwp-mini i.v { background: var(--lc); }
@@ -2560,8 +2552,6 @@ svg.g-big { width: 100%; height: auto; background: var(--c-surface-1); border-ra
 .bwp-mini i.T { --lc: var(--T); }
 .bwp-mini i.P { --lc: var(--P); }
 .bwp-mini i.v.r { background: repeating-linear-gradient(90deg, var(--lc) 0 2px, transparent 2px 3px); }
-.bwp-from { margin-top: -3px; }
-.bwp-libsel { max-width: 220px; font-size: var(--fs-sm); }
 /* modes de jeu (basse, nappes) et arpèges */
 .bwp-modes { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
 .bwp-mode { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
@@ -2590,7 +2580,7 @@ svg.g-big { width: 100%; height: auto; background: var(--c-surface-1); border-ra
 .bwa-knobs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .bwa-knob { padding: 12px 8px; }
 @media (max-width: 760px) {
-  .bwp-lib, .bwp-modes { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); }
+  .bwp-modes { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); }
   .bwa-knobs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 /* fenêtre « Trouver l'inspiration » */
@@ -4628,9 +4618,8 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 }
 @media (prefers-reduced-motion: reduce) { #bandDialog .bwau-pt::after { transition: none; } }
 /* motifs, modes et réglages : objets cliquables sans cadre au repos ; la couleur du rôle dit le choix */
-#bandDialog .bwp-pat, #bandDialog .bwp-mode, #bandDialog .bwa-knob { border: 1px solid transparent; border-radius: var(--bw-r-ctl); background: var(--bw-panel2); }
-#bandDialog .bwp-pat:hover, #bandDialog .bwp-mode:hover { border-color: var(--bw-line2); background: var(--bw-raise); }
-#bandDialog .bwp-pat.on { border-color: var(--c, var(--c-pink)); box-shadow: inset 0 0 0 1px var(--c, var(--c-pink)); background: color-mix(in srgb, var(--c, var(--c-pink)) 16%, var(--bw-panel2)); }
+#bandDialog .bwp-mode, #bandDialog .bwa-knob { border: 1px solid transparent; border-radius: var(--bw-r-ctl); background: var(--bw-panel2); }
+#bandDialog .bwp-mode:hover { border-color: var(--bw-line2); background: var(--bw-raise); }
 #bandDialog .bwp-mode.on { background: color-mix(in srgb, var(--c) 18%, var(--bw-panel2)); }
 #bandDialog .bwp-cell { border-radius: 4px; }
 #bandDialog .bwp-bars span { border-radius: 4px; }
@@ -4874,7 +4863,7 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 #bandDialog .band-wiz-steps .bw-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--c); }
 #bandDialog .band-wiz-steps li:not(.bw-ins) .bw-dot { display: none; }
 /* l'éditeur suit la couleur du type */
-#bandDialog .bwp .bwp-mode.on, #bandDialog .bwp .bwp-pat.on { border-color: var(--c); }
+#bandDialog .bwp .bwp-mode.on { border-color: var(--c); }
 #bandDialog .bw-trackbar .tb-chip.cur { box-shadow: 0 0 0 1px var(--c); }
 /* tête d'un onglet d'instrument : type en lecture seule */
 /* étape 2, panneau de droite : liste « Type » sous le titre */
@@ -6447,6 +6436,14 @@ body.wiz-am-open .wiz-sheet { right: 360px; }
 .bwhn-hits i.bar { margin-left: 2px; }
 /* Cuivres et Orchestre : la carte Motif commune (js/band.js sectionMotifCard), vignettes des attaques */
 .mot-sec { --motc: var(--c-amber); }
+/* Batterie : la carte Motif commune à la couleur du batteur, miniatures des pistes K S C H O */
+.mot-drum { --motc: var(--c, var(--c-pink)); }
+.mot-drum .mot-chip.on:not(.star) { background: color-mix(in srgb, var(--motc) 18%, var(--panel-2)); color: var(--text); }
+.mot-drum .mot-card, .mot-drum .mot-card.on { color: var(--motc); }
+.mot-drum .mot-card.on { background: color-mix(in srgb, var(--motc) 14%, var(--panel-2)); }
+.mot-drum .mot-now { color: var(--motc); }
+.mot-drum .mot-fixed { margin: 0 0 10px; }
+.mot-draw .bwp-mini { margin-top: 8px; }
 #bwOrchMot { --motc: var(--c-orange); }
 .mot-sec .mot-chip.on:not(.star) { background: color-mix(in srgb, var(--motc) 18%, var(--panel-2)); color: var(--text); }
 .mot-sec .mot-card, .mot-sec .mot-card.on { color: var(--motc); }
