@@ -941,6 +941,8 @@
         <nav class="fx-tabs" id="fxTabs" aria-label="Sections des effets">
           <span class="fx-tabs-group">Cette piste</span>
           <button type="button" class="fx-tab" data-tab="chorus"><span>Chorus</span><small id="fxChorusState" class="fx-state"></small></button>
+          <button type="button" class="fx-tab" data-tab="phaser"><span>Phaser</span><small id="fxPhaserState" class="fx-state"></small></button>
+          <button type="button" class="fx-tab" data-tab="flanger"><span>Flanger</span><small id="fxFlangerState" class="fx-state"></small></button>
           <button type="button" class="fx-tab" data-tab="delay"><span>Delay</span><small id="fxDelayState" class="fx-state"></small></button>
           <button type="button" class="fx-tab" data-tab="room"><span>Reverb</span><small id="fxRoomState" class="fx-state"></small></button>
           <button type="button" class="fx-tab" data-tab="sc"><span>Sidechain</span><small id="fxScState" class="fx-state"></small></button>
@@ -961,6 +963,23 @@
             <p class="fx-help">Élargit et épaissit le son avec deux copies légèrement désaccordées.</p>
             <div class="gv-presets" data-presets="chorus"></div>
             <div class="sd-sliders" id="fxChorusSliders"></div>
+          </section>
+          <section class="fx-pane" data-pane="phaser" aria-labelledby="fxPhaserTitle">
+            <div class="fx-pane-head"><h3 id="fxPhaserTitle">Phaser</h3></div>
+            <p class="fx-help">Des filtres passe-tout balaient le spectre : des creux se déplacent dans le son, comme une nappe qui tourne. Lent et profond sur une nappe, plus rapide sur un piano électrique ou une guitare. La vitesse peut suivre le tempo (une période de 1 temps à 8 mesures). Dans la console Live, le bouton Mouvement joue sa profondeur.</p>
+            <div class="gv-presets" data-presets="phaser"></div>
+            <div class="sd-row fx-wide"><label>Vitesse</label><output id="fxPhaserSyncOut"></output><div class="segmented fx-seg" id="fxPhaserSync" role="group" aria-label="Vitesse du phaser"></div></div>
+            <div class="sd-sliders" id="fxPhaserSliders"></div>
+            <div class="sd-row fx-wide"><label>Étages</label><output></output><div class="segmented fx-seg" id="fxPhaserStages" role="group" aria-label="Étages du phaser"></div></div>
+            <svg class="fx-modcurve" id="fxPhaserCurve" viewBox="0 0 300 50" preserveAspectRatio="none" aria-hidden="true"><path class="line"/></svg>
+          </section>
+          <section class="fx-pane" data-pane="flanger" aria-labelledby="fxFlangerTitle">
+            <div class="fx-pane-head"><h3 id="fxFlangerTitle">Flanger</h3></div>
+            <p class="fx-help">Le son mélangé à une copie très légèrement retardée (0,5 à 10 ms) dont le retard bouge : un balayage métallique, « avion à réaction ». Avec la résonance il siffle, en négatif il se creuse. La vitesse peut suivre le tempo. Dans la console Live, le bouton Mouvement joue sa profondeur.</p>
+            <div class="gv-presets" data-presets="flanger"></div>
+            <div class="sd-row fx-wide"><label>Vitesse</label><output id="fxFlangerSyncOut"></output><div class="segmented fx-seg" id="fxFlangerSync" role="group" aria-label="Vitesse du flanger"></div></div>
+            <div class="sd-sliders" id="fxFlangerSliders"></div>
+            <svg class="fx-modcurve" id="fxFlangerCurve" viewBox="0 0 300 50" preserveAspectRatio="none" aria-hidden="true"><path class="line"/></svg>
           </section>
           <section class="fx-pane" data-pane="delay" aria-labelledby="fxDelayTitle">
             <div class="fx-pane-head"><h3 id="fxDelayTitle">Delay <small>delay</small></h3></div>

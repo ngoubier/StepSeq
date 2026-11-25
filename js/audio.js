@@ -857,6 +857,12 @@ SS.audio = (() => {
     // seules les courbes de la tranche passent par ces nœuds (pas celles du son, ni les contrôleurs MIDI)
     const lanes = track.auto && SS.AUTO_PARAMS.some((P) => !P.voice && !P.midi && track.auto[P.id]) ? track.auto : null;
     let b = buses.get(track.id);
+    // « Mouvement » : profondeur du phaser et du flanger (courbe par temps, console Live)
+    if (b && (b.phaser || b.flanger)) {
+      const mv = bs && bs.mov ? bs.mov((tick % SS.totalSteps(project)) / SS.stepsPerBeat(project)) : null;
+      if (mv != null) applyMov(b, mv, time);
+      else if (b.movNow != null && b.movNow !== 1) applyMov(b, 1, time);
+    }
     if (!lanes && !bs) {
       if (b && b.auto && b.auto.active) autoNeutral(b.auto, time);
       return;
@@ -1219,6 +1225,9 @@ SS.audio = (() => {
       b.input.disconnect();
       b.pre.disconnect();
       if (b.chorus) b.chorus.lfo.stop();
+      disposeMod(b.phaser);
+      disposeMod(b.flanger);
+      b.pan.disconnect();
       if (b.delay) b.delay.tone.disconnect(); // coupe la boucle de feedback
       if (b.reverb) b.reverb.out.disconnect();
       if (b.sends) Object.values(b.sends).forEach((g) => g.disconnect());
@@ -1252,6 +1261,84 @@ SS.audio = (() => {
     b.input.connect(c.dR).connect(c.merge, 0, 1);
     c.merge.connect(c.wet).connect(b.pre);
     b.chorus = c;
+  }
+
+  /*
+   * ---- Phaser et flanger : insérés entre le panoramique et le fader, seulement s'ils sont allumés ----
+   * Phaser : N passe-tout en série dont la fréquence balaie autour du centre (LFO), réinjection par un retard d'un
+   * bloc (une boucle sans retard est muette en Web Audio), mélange au son direct : des creux qui se déplacent.
+   * Flanger : une copie retardée de 0,5 à 10 ms dont le retard bouge (LFO triangle), avec réinjection ±.
+   * Éteint, l'étage est arrêté et débranché (un module éteint ne calcule rien).
+   */
+  function buildPhaser(stages) {
+    const p = { stages, in: ctx.createGain(), out: ctx.createGain(), dry: ctx.createGain(), wet: ctx.createGain(), fb: ctx.createGain(), fbd: ctx.createDelay(0.01), lfo: ctx.createOscillator(), amt: ctx.createGain(), base: ctx.createConstantSource(), aps: [], depth: 0 };
+    for (let i = 0; i < stages; i++) {
+      const a = ctx.createBiquadFilter();
+      a.type = 'allpass';
+      a.Q.value = 0.5;
+      a.frequency.value = 0;
+      p.base.connect(a.frequency);
+      p.amt.connect(a.frequency);
+      if (i) p.aps[i - 1].connect(a);
+      p.aps.push(a);
+    }
+    p.wet.gain.value = 0;
+    p.amt.gain.value = 0;
+    p.base.offset.value = 700;
+    p.fbd.delayTime.value = 128 / ctx.sampleRate;
+    p.in.connect(p.dry).connect(p.out);
+    p.in.connect(p.aps[0]);
+    p.aps[stages - 1].connect(p.wet).connect(p.out);
+    p.aps[stages - 1].connect(p.fb).connect(p.fbd).connect(p.aps[0]);
+    p.lfo.connect(p.amt);
+    p.lfo.start();
+    p.base.start();
+    return p;
+  }
+  function buildFlanger() {
+    const l = { in: ctx.createGain(), out: ctx.createGain(), dry: ctx.createGain(), wet: ctx.createGain(), d: ctx.createDelay(0.05), fb: ctx.createGain(), lfo: ctx.createOscillator(), amt: ctx.createGain(), depth: 0 };
+    l.lfo.type = 'triangle';
+    l.wet.gain.value = 0;
+    l.fb.gain.value = 0;
+    l.amt.gain.value = 0;
+    l.d.delayTime.value = 0.0035;
+    l.in.connect(l.dry).connect(l.out);
+    l.in.connect(l.d).connect(l.wet).connect(l.out);
+    l.d.connect(l.fb).connect(l.d);
+    l.lfo.connect(l.amt).connect(l.d.delayTime);
+    l.lfo.start();
+    return l;
+  }
+  function disposeMod(m) {
+    if (!m) return;
+    try {
+      m.lfo.stop();
+      if (m.base) m.base.stop();
+    } catch (e) {
+      /* déjà arrêté */
+    }
+    [m.in, m.out, m.fb, m.lfo].forEach((n) => n.disconnect());
+  }
+  /** panoramique -> [phaser] -> [flanger] -> fader */
+  function wireMod(b) {
+    b.pan.disconnect();
+    let prev = b.pan;
+    for (const m of [b.phaser, b.flanger]) {
+      if (!m) continue;
+      m.out.disconnect();
+      prev.connect(m.in);
+      prev = m.out;
+    }
+    prev.connect(b.input);
+  }
+  const barBeats = () => {
+    const ts = lastMasterProject && lastMasterProject.timeSig;
+    return ts ? ts[0] * (4 / ts[1]) : 4;
+  };
+  /** Profondeur du balayage × `factor` (automation par temps « Mouvement », console Live). */
+  function applyMov(b, factor, at) {
+    b.movNow = factor;
+    for (const m of [b.phaser, b.flanger]) if (m) m.amt.gain.setTargetAtTime(Math.min(m.max, m.depth * factor), at, 0.03);
   }
 
   /* ---- Delay : écho synchronisé au tempo, feedback adouci par un filtre ---- */
@@ -1331,6 +1418,52 @@ SS.audio = (() => {
       const depth = 0.0005 + f.chorusDepth * 0.0075; // jusqu'à ±8 ms
       ramp(c.modL.gain, depth);
       ramp(c.modR.gain, -depth);
+    }
+    // phaser et flanger : créés à l'allumage, arrêtés et débranchés à l'extinction
+    let rewire = false;
+    const stages = SS.PHASER_STAGES.includes(f.phaserStages) ? f.phaserStages : 6;
+    if (f.phaser > 0 && (!b.phaser || b.phaser.stages !== stages)) {
+      disposeMod(b.phaser);
+      b.phaser = buildPhaser(stages);
+      rewire = true;
+    } else if (!(f.phaser > 0) && b.phaser) {
+      disposeMod(b.phaser);
+      b.phaser = null;
+      rewire = true;
+    }
+    if (f.flanger > 0 && !b.flanger) {
+      b.flanger = buildFlanger();
+      rewire = true;
+    } else if (!(f.flanger > 0) && b.flanger) {
+      disposeMod(b.flanger);
+      b.flanger = null;
+      rewire = true;
+    }
+    if (rewire) wireMod(b);
+    const mov = b.movNow == null ? 1 : b.movNow;
+    if (b.phaser) {
+      const p = b.phaser;
+      const c = Math.max(100, Math.min(8000, f.phaserCenter));
+      ramp(p.wet.gain, f.phaser);
+      ramp(p.dry.gain, 1 - f.phaser * 0.5);
+      ramp(p.base.offset, c);
+      ramp(p.lfo.frequency, SS.modRate(f.phaserRate, f.phaserSync, currentTempo, barBeats()));
+      ramp(p.fb.gain, Math.min(0.9, f.phaserFb) * 0.9);
+      p.depth = c * 0.9 * Math.max(0, Math.min(1, f.phaserDepth));
+      p.max = c * 0.95; // la fréquence des passe-tout reste positive, même avec « Mouvement » ×2
+      ramp(p.amt.gain, Math.min(p.max, p.depth * mov));
+    }
+    if (b.flanger) {
+      const l = b.flanger;
+      const d = Math.max(0.5, Math.min(10, f.flangerDelay)) / 1000;
+      ramp(l.wet.gain, f.flanger);
+      ramp(l.dry.gain, 1 - f.flanger * 0.3);
+      ramp(l.d.delayTime, d);
+      ramp(l.lfo.frequency, SS.modRate(f.flangerRate, f.flangerSync, currentTempo, barBeats()));
+      ramp(l.fb.gain, Math.max(-0.9, Math.min(0.9, f.flangerFb)));
+      l.depth = d * 0.95 * Math.max(0, Math.min(1, f.flangerDepth));
+      l.max = d * 0.98; // le retard reste positif
+      ramp(l.amt.gain, Math.min(l.max, l.depth * mov));
     }
     if (f.delay > 0 || b.delay) {
       if (!b.delay) buildDelay(b);
@@ -2973,7 +3106,7 @@ SS.audio = (() => {
    * (EQ, VCF, compresseur, limiteur, écrêteur), effets créatifs du Master et mastering. Les réglages du projet
    * ne changent pas : tout revient à l'identique en quittant le mode allégé.
    */
-  const LIGHT_FX = { chorus: 0, delay: 0, room: 0, sendPlate: 0, sendHall: 0, sendEcho: 0, sendSpace: 0 };
+  const LIGHT_FX = { chorus: 0, phaser: 0, flanger: 0, delay: 0, room: 0, sendPlate: 0, sendHall: 0, sendEcho: 0, sendSpace: 0 };
   /** Branche (on) ou débranche une connexion, sans erreur si elle existe déjà ou n'existe plus. */
   function link(src, dst, on) {
     if (!src || !dst) return;
@@ -3268,6 +3401,12 @@ SS.audio = (() => {
     _out: () => masterFader, // sortie finale (après la tranche Master), pour enregistrer
     _duckValue: (id) => (buses.get(id) ? buses.get(id).duck.gain.value : null),
     _autoState: autoState,
+    /** Tests : phaser et flanger d'une piste ({ phaser: étages | null, flanger, amt }), ou null sans bus. */
+    _modState: (id) => {
+      const b = buses.get(id);
+      if (!b) return null;
+      return { phaser: b.phaser ? b.phaser.stages : null, flanger: !!b.flanger, phaserAmt: b.phaser ? b.phaser.amt.gain.value : null, phaserDepth: b.phaser ? b.phaser.depth : null, mov: b.movNow == null ? 1 : b.movNow };
+    },
     /** Tests : écart appliqué par la console Live aux voix tenues d'une piste (cents du cutoff), ou null. */
     _liveOffsets: (id) => [...(heldVoices.get(id) || [])].filter((v) => v.src.cut).map((v) => v.src.cut.offset.value),
     start,

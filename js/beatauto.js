@@ -16,7 +16,8 @@
  *   dec : decay de l'enveloppe du filtre, ×0,25 … ×4 ;
  *   vel : vélocité des notes (et des coups de batterie), 40 % … 130 % ;
  *   dj, echo, hall, vol (strip) : réglages de la tranche, comme l'automation de scène (track.auto) qu'ils complètent :
- *     filtre DJ −1 (passe-bas) … +1 (passe-haut), envois vers l'écho et la reverb, volume ×0 … ×1,5.
+ *     filtre DJ −1 (passe-bas) … +1 (passe-haut), envois vers l'écho et la reverb, volume ×0 … ×1,5 ;
+ *   mov (Mouvement) : profondeur du phaser et du flanger de la piste, ×0 … ×2 (seulement si l'un des deux est allumé).
  * Le cutoff et la résonance évoluent pendant la note (une nappe tenue s'ouvre) ; la vélocité, l'enveloppe et le decay
  * sont lus au début de la note ; les réglages de tranche suivent la courbe pas à pas.
  *
@@ -38,6 +39,7 @@ SS.BEAT_AUTO = [
   { id: 'echo', label: 'Écho', sub: 'envoi', min: 0, max: 1, def: 0, color: 'var(--c-blue-soft)', strip: true },
   { id: 'hall', label: 'Reverb', sub: 'envoi', min: 0, max: 1, def: 0, color: 'var(--c-violet-soft)', strip: true },
   { id: 'vol', label: 'Volume', sub: 'de la tranche', min: 0, max: 1.5, def: 1, color: 'var(--c-yellow)', strip: true },
+  { id: 'mov', label: 'Mouvement', sub: 'phaser, flanger', min: 0, max: 2, def: 1, color: 'var(--c-pink)', strip: true, mod: true },
 ];
 
 SS.beatAuto = (() => {
@@ -50,11 +52,13 @@ SS.beatAuto = (() => {
    * decay) sur les sons à filtre (pas batterie, pas Juno, pas piste générative).
    */
   const STRIP = SS.BEAT_AUTO.filter((x) => x.strip);
+  const hasMod = (track) => !!(track && track.fx && (track.fx.phaser > 0 || track.fx.flanger > 0));
   function paramsFor(track) {
-    if (!track || track.type !== 'instrument') return [P.vel, ...STRIP];
+    const keep = (list) => (hasMod(track) ? list : list.filter((x) => !x.mod));
+    if (!track || track.type !== 'instrument') return keep([P.vel, ...STRIP]);
     const inst = SS.findInstrument ? SS.findInstrument(track.family, track.instrument) : null;
-    if (inst && (inst.kind === 'analog' || inst.kind === 'ambient')) return [P.vel, ...STRIP];
-    return SS.BEAT_AUTO;
+    if (inst && (inst.kind === 'analog' || inst.kind === 'ambient')) return keep([P.vel, ...STRIP]);
+    return keep(SS.BEAT_AUTO);
   }
   /** Le son de la piste a-t-il un filtre réglable par temps ? */
   const hasFilter = (track) => paramsFor(track).some((x) => x.id === 'cut');
@@ -311,7 +315,7 @@ SS.beatAuto = (() => {
     return Array(n).fill(null);
   }
   // bornes des formes prêtes (Montée, Descente, Vague) : un geste utile, pas les extrêmes
-  const SHAPE_RANGE = { cut: [-2.5, 0.5], res: [0.5, 2.5], env: [-1, 2], dec: [0.5, 2], vel: [0.6, 1.15], dj: [-0.8, 0], echo: [0, 0.6], hall: [0, 0.6], vol: [0.2, 1] };
+  const SHAPE_RANGE = { cut: [-2.5, 0.5], res: [0.5, 2.5], env: [-1, 2], dec: [0.5, 2], vel: [0.6, 1.15], dj: [-0.8, 0], echo: [0, 0.6], hall: [0, 0.6], vol: [0.2, 1], mov: [0.2, 1.8] };
   const SHAPES = [
     { id: 'rise', label: 'Montée' },
     { id: 'fall', label: 'Descente' },
@@ -334,7 +338,7 @@ SS.beatAuto = (() => {
   const fmt = (k, v) => {
     if (v == null) return 'comme écrit';
     if (k === 'cut') return (v > 0.05 ? '+' : v < -0.05 ? '−' : '') + Math.abs(v).toFixed(1).replace('.', ',') + ' oct';
-    if (k === 'res' || k === 'dec') return '×' + v.toFixed(2).replace('.', ',');
+    if (k === 'res' || k === 'dec' || k === 'mov') return '×' + v.toFixed(2).replace('.', ',');
     if (k === 'env') return (v > 0.05 ? '+' : v < -0.05 ? '−' : '') + Math.abs(v).toFixed(1).replace('.', ',') + ' oct';
     if (k === 'dj') return Math.abs(v) < 0.02 ? 'ouvert' : (v < 0 ? 'passe-bas ' : 'passe-haut ') + Math.round(Math.abs(v) * 100) + ' %';
     return Math.round(v * 100) + ' %';

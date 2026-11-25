@@ -6543,3 +6543,10 @@ body.wizard-mode #liveBtn, body.wizard-mode #liveDock, body.mixer-open #liveDock
   .lv-xy { width: 150px; }
 }
 .live-btn.active { background: var(--accent); }
+
+/* Phaser et flanger (fenêtre Effets) */
+.fx-seg { grid-column: 1 / -1; width: max-content; max-width: 100%; flex-wrap: wrap; }
+.fx-wide > output { white-space: nowrap; }
+.fx-modcurve { width: 100%; height: 50px; margin-top: 10px; background: var(--c-bg-deep); border: 1px solid var(--c-line); border-radius: 8px; }
+.fx-modcurve .line { fill: none; stroke: var(--c-violet); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.fx-modcurve.dim { opacity: .35; }

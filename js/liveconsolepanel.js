@@ -40,9 +40,11 @@ SS.liveConsolePanel = (() => {
 
   /** Réglages d'une tranche, dans l'ordre ; le premier est le gros bouton. */
   function knobsFor(track) {
-    if (BA().hasFilter(track)) return ['cut', 'res', 'env', 'dec', 'echo', 'hall', 'vol'];
-    return ['dj', 'echo', 'hall', 'vol'];
+    const ok = new Set(BA().paramsFor(track).map((x) => x.id));
+    const list = BA().hasFilter(track) ? ['cut', 'res', 'env', 'dec', 'mov', 'echo', 'hall', 'vol'] : ['dj', 'mov', 'echo', 'hall', 'vol'];
+    return list.filter((k) => ok.has(k)); // Mouvement : seulement avec un phaser ou un flanger
   }
+  const stripSig = (list) => list.map((t) => t.id + ':' + knobsFor(t).join('.')).join(',');
   const tracksOf = (p) => p.tracks.filter((t) => t.type === 'instrument' || t.type === 'drum');
   const norm = (k, v) => (v - BA().P[k].min) / (BA().P[k].max - BA().P[k].min);
   const denorm = (k, n) => BA().P[k].min + Math.max(0, Math.min(1, n)) * (BA().P[k].max - BA().P[k].min);
@@ -154,7 +156,7 @@ SS.liveConsolePanel = (() => {
     knobs.clear();
     stripsEl.textContent = '';
     const list = tracksOf(p);
-    sig = list.map((t) => t.id + ':' + (BA().hasFilter(t) ? 1 : 0)).join(',');
+    sig = stripSig(list);
     if (!list.length) {
       stripsEl.append(h('div', { class: 'lv-empty' }, 'Aucune piste'));
       sel = null;
@@ -330,7 +332,7 @@ SS.liveConsolePanel = (() => {
       if (SS.ui && SS.ui.renderAll) SS.ui.renderAll();
     }
     wasPlaying = playing;
-    const s = tracksOf(p).map((t) => t.id + ':' + (BA().hasFilter(t) ? 1 : 0)).join(',');
+    const s = stripSig(tracksOf(p));
     if (s !== sig) return render();
     const pos = SS.audio.heardPos();
     for (const id of knobs.keys()) paintKnob(id, pos);
