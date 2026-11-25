@@ -6405,15 +6405,15 @@ body.wiz-am-open .wiz-sheet { right: 360px; }
 /* Mix auto : scène d'un conseil, tranches illuminées à l'étape Mix (bleu = écoute, vert = réglage) */
 .wam-sc { margin-left: auto; flex: none; padding: 1px 7px; border: 1px solid var(--c-line); border-radius: 9px; color: var(--c-muted); font-size: var(--fs-xs); font-weight: 500; white-space: nowrap; }
 .wam-sc.own { border-color: var(--c); color: var(--c-text); background: color-mix(in srgb, var(--c) 18%, transparent); }
-#bandDialog .mx-strip.wam-listen { border-color: var(--c-blue); box-shadow: 0 0 0 1px var(--c-blue), 0 0 18px color-mix(in srgb, var(--c-blue) 55%, transparent); animation: wam-listen 1.2s ease-in-out infinite; }
+#bandDialog .mx-strip.wam-hear { border-color: var(--c-blue); box-shadow: 0 0 0 1px var(--c-blue), 0 0 18px color-mix(in srgb, var(--c-blue) 55%, transparent); animation: wam-hear 1.2s ease-in-out infinite; }
 #bandDialog .mx-strip.wam-tune { border-color: var(--c-green); box-shadow: 0 0 0 1px var(--c-green), 0 0 20px color-mix(in srgb, var(--c-green) 55%, transparent); }
-#bandDialog .mx-strip.wam-listen::before, #bandDialog .mx-strip.wam-tune::before { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); padding: 0 7px; border-radius: 8px; font-size: var(--fs-xs); font-weight: 700; color: var(--c-bg); z-index: 2; }
-#bandDialog .mx-strip.wam-listen::before { content: 'écoute'; background: var(--c-blue); }
+#bandDialog .mx-strip.wam-hear::before, #bandDialog .mx-strip.wam-tune::before { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); padding: 0 7px; border-radius: 8px; font-size: var(--fs-xs); font-weight: 700; color: var(--c-bg); z-index: 2; }
+#bandDialog .mx-strip.wam-hear::before { content: 'écoute'; background: var(--c-blue); }
 #bandDialog .mx-strip.wam-tune::before { content: 'réglage'; background: var(--c-green); }
 #bandDialog .mx-strip .wam-glow { border-radius: 6px; box-shadow: 0 0 0 1px var(--c-green), 0 0 12px color-mix(in srgb, var(--c-green) 60%, transparent); }
 #bandDialog .mx-fxlist span.wam-glow { color: var(--c-text); background: color-mix(in srgb, var(--c-green) 35%, transparent); }
 #bandDialog .mx-k.wam-glow { box-shadow: 0 0 0 1px var(--c-green); border-radius: 6px; }
-@keyframes wam-listen { 50% { box-shadow: 0 0 0 1px var(--c-blue), 0 0 6px color-mix(in srgb, var(--c-blue) 30%, transparent); } }
+@keyframes wam-hear { 50% { box-shadow: 0 0 0 1px var(--c-blue), 0 0 6px color-mix(in srgb, var(--c-blue) 30%, transparent); } }
 .wam-meas { margin: 2px 0 6px; color: var(--c-muted); font-size: var(--fs-xs); }
 .wam-meas b { color: var(--c-text-2); font-weight: 600; }
 .wam-chgs { display: flex; flex-direction: column; gap: 3px; }

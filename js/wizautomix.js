@@ -304,15 +304,15 @@ SS.wizAutoMix = (() => {
   /** Allume les tranches de la console de l'étape Mix (si elle est à l'écran) : bleu = écoute, vert = réglage. */
   function paint() {
     const box = document.getElementById('bwMix');
-    const off = (el) => el.classList.remove('wam-glow', 'wam-listen', 'wam-tune');
-    document.querySelectorAll('.wam-glow, .wam-listen, .wam-tune').forEach(off);
+    const off = (el) => el.classList.remove('wam-glow', 'wam-hear', 'wam-tune');
+    document.querySelectorAll('.wam-glow, .wam-hear, .wam-tune').forEach(off);
     if (!box || !isOpen) return;
     const find = (id) => box.querySelector(`.mx-strip[data-id="${CSS.escape(id)}"]`);
     const tuning = performance.now() < glow.until ? glow.tune : [];
     const listen = glow.hover || glow.listen;
     if (listen && !tuning.some((x) => x.id === listen)) {
       const el = find(listen);
-      if (el) el.classList.add('wam-listen');
+      if (el) el.classList.add('wam-hear');
     }
     for (const { id, part } of tuning) {
       const el = find(id);
