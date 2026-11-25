@@ -4,7 +4,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 globalThis.window = globalThis;
-['dirt.js', 'dirt-tuning.js', 'sounds.js', 'harmony.js', 'project.js', 'band-presets.js', 'band-songs.js', 'melody.js', 'horns-motifs.js', 'horns.js', 'padmotifs.js', 'keyboardist.js', 'bandsong.js'].forEach((f) => require('../js/' + f));
+['dirt.js', 'dirt-tuning.js', 'sounds.js', 'harmony.js', 'project.js', 'band-presets.js', 'band-songs.js', 'melody.js', 'horns-motifs.js', 'horns.js', 'padmotifs.js', 'keys-motifs.js', 'keyboardist.js', 'bandsong.js'].forEach((f) => require('../js/' + f));
 const SS = globalThis.SS;
 const K = SS.keyboardist;
 const B = SS.bandSong;
@@ -20,7 +20,7 @@ test('chaque mode du Clavier a un jeu, une famille, un nom et au moins un style 
       assert.ok(fams.includes(K.familyOf(id)), id);
       assert.ok(K.name(id) && K.name(id) !== id, `${id} : un nom`);
       assert.ok(K.stylesOf(id).length && K.stylesOf(id).every((s) => K.STYLES.some((x) => x[0] === s)), `${id} : styles connus`);
-      if (!/^k:/.test(id)) assert.ok(B.PAD_NEW[id] || SS.padMotifs.MODES.some((m) => m[0] === id), `${id} : mode du moteur de nappe`);
+      if (!/^kf?:/.test(id)) assert.ok(B.PAD_NEW[id] || SS.padMotifs.MODES.some((m) => m[0] === id), `${id} : mode du moteur de nappe`);
     }
   }
   // en 4/4, chaque style a au moins trois motifs par jeu
@@ -162,4 +162,61 @@ test('dans la chanson : le motif réécrit du Clavier', () => {
   const pat = 'B+C . . . . . . . . . . . . . . .';
   const mine = B.build(spec, p.id, tr, { parts: { [sec]: { keys: { mode: 'k:pop8', keys: { pat } } } } }).scenes.find((x) => x.sec === sec).data.keys.events;
   assert.ok(mine.length && mine.every((e) => e.step % 16 === 0), 'une attaque par mesure');
+});
+
+test('les 150 motifs du fichier : lus, rangés, joués sur les accords de la scène', () => {
+  assert.equal(K.FILE.length, 150);
+  assert.deepEqual(K.FILE.map((m) => m.n), Array.from({ length: 150 }, (_, i) => i + 1));
+  for (const m of K.FILE) {
+    const id = 'kf:' + m.id;
+    assert.ok(K.modesOf(m.jeu).includes(id), `${m.n} : dans son jeu`);
+    assert.ok(m.styles.length && m.styles.every((s) => K.STYLES.some((x) => x[0] === s)), `${m.n} : styles`);
+    assert.ok(m.scenes.length, `${m.n} : types de scène`);
+    assert.ok(B.meterOK('keys', id, m.meter) && (m.meter === '4/4' || !B.meterOK('keys', id, '4/4')), `${m.n} : sa mesure seulement`);
+    assert.ok(Object.values(m.parts).flat().every(([st, n, len, v]) => st >= 0 && st < m.bars * m.spb && n >= 21 && n <= 108 && len > 0 && v >= 1 && v <= 127), `${m.n} : notes lisibles`);
+  }
+  // sur sa propre grille, le motif rend les notes du fichier
+  const m1 = K.FILE[0];
+  const own = m1.chords.map(([st, root, , sym], i) => ({ step: st, len: (m1.chords[i + 1] ? m1.chords[i + 1][0] : m1.bars * m1.spb) - st, chord: { rootPc: root, type: /m7/.test(sym) ? 'm7' : 'maj' } }));
+  const same = K.events(own, 'kf:' + m1.id, ctx);
+  const written = Object.values(m1.parts).flat().map((x) => x[1]).sort((a, b) => a - b);
+  assert.deepEqual(same.flatMap((e) => e.notes).sort((a, b) => a - b), written);
+  // sur une autre grille : chaque note reste près de l'originale et dans la gamme de l'accord, la main gauche marquée
+  const sp = spans(['i', 'VI', 'III', 'VII']);
+  for (const m of K.FILE.filter((x) => x.meter === '4/4')) {
+    const ev = K.events(sp, 'kf:' + m.id, ctx);
+    assert.ok(ev.length, `${m.n} : des notes`);
+    for (const e of ev) {
+      assert.ok(e.step >= 0 && e.step < 64 && e.len >= 1 && e.step + e.len <= 64, `${m.n} : durée`);
+      assert.ok(e.notes.every((n) => n >= 20 && n <= 110), `${m.n} : registre`);
+    }
+    if (m.parts.MG) assert.ok(ev.some((e) => e.lh), `${m.n} : main gauche`);
+  }
+  // ★ : trois au plus par scène, jeu et style
+  for (const sec of ['intro', 'verse', 'chorus', 'bridge', 'outro', 'pre']) for (const j of ['acc', 'arp']) assert.ok(K.stars(sec, j, 'all').length <= 3 && K.stars(sec, j, 'all').every((id) => K.jeuOf(id) === j));
+  assert.ok(K.stars('chorus', 'acc', 'pop').length >= 1);
+  // dans la chanson : un motif du fichier joue, la main gauche peut se couper
+  const p = SS.Band.STYLES.flatMap((s) => s.presets).find((x) => x.musicians.some((mm) => mm.role === 'keys') && SS.BandSongs[x.id].sections && !SS.BandSongs[x.id].meter);
+  const spec = SS.BandSongs[p.id];
+  const tr = p.musicians.filter((mm) => !mm.injected && !mm.kits && !mm.horns).map((mm) => ({ id: mm.role, type: 'instrument', category: 'chord', band: { key: mm.role } }));
+  const sec = Object.keys(spec.sections)[0];
+  const mine = B.build(spec, p.id, tr, { parts: { [sec]: { keys: { mode: 'kf:f026', keys: { lh: 'aucune' } } } } }).scenes.find((x) => x.sec === sec).data.keys.events;
+  assert.ok(mine.length && mine.every((e) => !('lh' in e)));
+  // Clavier ajouté : il joue d'office le motif ★ de chaque scène (dans le style de la chanson)
+  const xt = { id: 'xk', type: 'instrument', category: 'chord', kind: 'keys', band: { key: 'keys', musician: 'x1' } };
+  const star = K.sceneDefault(sec, spec.sections[sec].keys, p.id, (m) => B.meterOK('keys', m));
+  assert.ok(/^kf:/.test(star) && K.stars(sec, K.jeuOf(star), K.styleOfPreset(p.id), (m) => B.meterOK('keys', m))[0] === star, star);
+  const ev = (parts) => B.build(spec, p.id, [...tr, xt], { parts }).scenes.find((x) => x.sec === sec).data.xk.events;
+  const auto = ev(null);
+  assert.ok(auto.length);
+  assert.deepStrictEqual(auto, ev({ [sec]: { inst: { 'x1:keys': { mode: star } } } }));
+  assert.notDeepStrictEqual(auto, ev({ [sec]: { inst: { 'x1:keys': { mode: 'block4' } } } }));
+  // hors de sa mesure : un motif du fichier de la mesure (ou le rythme de la mesure)
+  B.setMeter('6/8');
+  try {
+    const f = B.fitMode('keys', 'kf:f001');
+    assert.ok(B.meterOK('keys', f), f);
+  } finally {
+    B.setMeter('4/4');
+  }
 });

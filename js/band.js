@@ -6588,9 +6588,10 @@ SS.band = (() => {
       return BS().fitMode('guitar', SS.guitarist.modesOf('arp').concat(SS.guitarist.modesOf('acc')).includes(sec.guitar) ? sec.guitar : SS.bandSong.DEFAULT_MODE.guitar);
     }
     if (r.kind === 'keys' && (typeChanged(r) || BG().isExtraId(r.musician))) {
-      // Clavier ajouté (ou musicien devenu Clavier) : le jeu du pianiste du plan, sinon « block4 » (js/bandsong.js)
+      // Clavier ajouté (ou musicien devenu Clavier) : le motif ★ de la scène, sinon le jeu du pianiste du plan, sinon « block4 » (js/bandsong.js)
       if (!BG().isExtraId(r.musician) && !sec[r.role]) return null;
-      return BS().fitMode('keys', sec.keys || SS.bandSong.DEFAULT_MODE.keys);
+      const star = KB().sceneDefault(sc.sec, sec.keys, S.presetId, (m) => BS().meterOK('keys', m));
+      return BS().fitMode('keys', star || sec.keys || SS.bandSong.DEFAULT_MODE.keys);
     }
     if (!typeChanged(r)) return (r.role === 'perc' ? sec.perc ?? sec.drums : sec[r.role]) || null;
     if (!sec[r.role]) return null;
@@ -8940,11 +8941,12 @@ SS.band = (() => {
   };
   const kbRowHit = (r, it) => (r === 'C' ? it === 'C' || it === 'C9' : r === 'B' ? it === 'B' || it === 'b' : r === 'M' ? /^M\d+$/.test(it) : it === r);
   /** Motif d'arpégiateur (famille Arpégiateur, ou arpège de synthé venu d'une inspiration) : « Avancé… » ouvre Arp One. */
-  const kbArpOne = (mode) => !!mode && (KB().familyOf(mode) === 'arpeg' || !!ARP_START[mode]) && BS().meter().sig === '4/4';
+  const kbArpOne = (mode) => !!mode && !/^kf:/.test(mode) && (KB().familyOf(mode) === 'arpeg' || !!ARP_START[mode]) && BS().meter().sig === '4/4';
   /** Pas du motif affiché dans l'éditeur : le motif réécrit, le motif « k: », sinon les jetons approchés du mode du moteur. */
   function keysSteps(mode, ks) {
     const K = KB();
     if (ks.pat || /^k:/.test(mode)) return K.stepsOf(mode, ks.pat);
+    if (/^kf:/.test(mode)) return K.stepsOf(null, K.patFromEvents(K.events([{ step: 0, len: 16, bar: 0, chord: { rootPc: 0, type: 'maj' } }], mode, { voice: BS().voiceChord, tones: () => [0, 4, 7], vel: (v) => v }).filter((e) => e.step < 16).map((e) => ({ ...e, notes: e.lh ? e.notes.map((n) => Math.min(n, 54)) : e.notes.map((n) => Math.max(n, 55)) }))));
     let evs = [];
     try {
       evs = BS().chordEvents([{ step: 0, len: 16, bar: 0, chord: { rootPc: 0, type: 'maj' } }], mode, () => 0.5, { lo: 57, hi: 79 });
@@ -9145,14 +9147,16 @@ SS.band = (() => {
     };
     const card = (id) => {
       const on = id === cur && !muted;
-      const pic = /^k:/.test(id) ? K.svg(id) : SS.padMotifs ? SS.padMotifs.svg(id) : '';
+      const pic = /^kf?:/.test(id) ? K.svg(id) : SS.padMotifs ? SS.padMotifs.svg(id) : '';
+      const f = K.fileOf(id);
       return h(
         'button',
         { type: 'button', role: 'radio', class: 'bwp-mode' + (on ? ' on' : ''), 'data-v': id, 'aria-checked': String(on), title: K.desc(id) + ' · ' + K.stylesOf(id).map((s) => (K.STYLES.find((x) => x[0] === s) || [, s])[1]).join(', '), onclick: () => keysSetMode(sc, T, id, `.bwp-mode[data-v="${id}"]`) },
-        h('b', {}, (on && ((o.keys && o.keys.pat) || o.one) ? '✎ ' : '') + K.name(id), id === insp ? h('em', {}, 'Inspiration') : null),
+        h('b', {}, starSet.has(id) ? h('span', { class: 'bwk-star', title: 'Conseillé pour ce type de scène' }, '★ ') : null, (on && ((o.keys && o.keys.pat) || o.one) ? '✎ ' : '') + K.name(id), f && (f.meter !== '4/4' || f.feel) ? h('span', { class: 'bwk-meta' }, `${f.meter}${f.feel ? ' ' + f.feel : ''}`) : null, id === insp ? h('em', {}, 'Inspiration') : null),
         h('span', { class: 'bwp-rhy', html: pic })
       );
     };
+    const starSet = new Set(K.stars(sc.sec, jeu, style, kbFits));
     const surprise = () => {
       const id = K.surprise(jeu, style, cur, Math.random(), kbFits);
       if (!id) return;
@@ -9184,12 +9188,13 @@ SS.band = (() => {
           'div',
           { class: 'mot-chips bwg-styles', role: 'radiogroup', 'aria-label': 'Style', id: 'bwkStyle' },
           ...[['all', 'Tous'], ...K.STYLES].map(([v, t]) => h('button', { type: 'button', role: 'radio', class: 'mot-chip' + (v === style ? ' on' : '') + (v === songSt ? ' mark' : ''), 'aria-checked': String(v === style), 'data-v': v, title: v === songSt ? 'Le style de la chanson' : null, onclick: () => ((S.wiz.kbStyle = v), renderWiz()) }, t)),
-          SS.helpTip('Les motifs qui sonnent juste dans chaque style ; le point marque celui de la chanson. « Tous » : le catalogue complet.', 'Style'),
+          SS.helpTip('Les motifs qui sonnent juste dans chaque style ; le point marque celui de la chanson. « Tous » : le catalogue complet. Les motifs numérotés viennent du fichier des 150 motifs de piano et claviers : leurs notes sont recalculées sur les accords de la scène. ★ : conseillé pour ce type de scène (intro, couplet, refrain…), en tête de sa famille.', 'Style'),
           h('span', { class: 'spacer' }),
           h('button', { type: 'button', class: 'btn btn-small', id: 'bwkSurprise', title: 'Un motif du style au hasard, et des réglages de jeu au hasard', onclick: surprise }, 'Surprends-moi')
         ),
         ...K.FAMILIES[jeu].map(([f, label]) => {
-          const list = [...all, ...extra].filter((id) => K.familyOf(id) === f && (id === cur || (kbFits(id) && K.inStyle(id, style))));
+          const fl = [...all, ...extra].filter((id) => K.familyOf(id) === f && (id === cur || (kbFits(id) && K.inStyle(id, style))));
+          const list = [...fl.filter((id) => starSet.has(id)), ...fl.filter((id) => !starSet.has(id))]; // ★ en tête
           return list.length ? h('div', { class: 'bwp-grp', 'data-fam': f }, h('span', { class: 'bwp-glbl' }, label), h('div', { class: 'bwp-modes compact', role: 'radiogroup', 'aria-label': label }, ...list.map(card))) : null;
         }),
         muted || !cur
