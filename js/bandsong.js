@@ -2621,6 +2621,7 @@ SS.bandSong = (() => {
           off: Array.isArray(own.off) ? own.off : SS.horns.offByDefault(fk.form),
           nuance: own.nu || 'mf',
           spans: spans.map((sp) => ({ step: sp.step, len: sp.len, rootPc: sp.chord.rootPc, pcs: [...new Set(tones(sp.chord))] })),
+          key: H().scale(k).map((d) => d.pc), // la tonalité de la scène : les notes des jeux restent dans la gamme de chaque accord
           // chanson écrite en croches (spec.eighths, salsa : une mesure de la grille = deux mesures jouées) : la section
           // lit ses jeux en croches, sinon elle jouerait deux fois trop lentement
           ...(eighths ? { bars: bars * 2, spb: SPB / 2, beat: BEAT / 2 } : { bars, spb: SPB, beat: BEAT }),

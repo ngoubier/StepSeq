@@ -371,7 +371,17 @@ SS.horns = (() => {
     }
     if (jeu === 'contre') {
       if (role === 'lead') return [];
-      return bars.flatMap((b) => [[b, on(b), 1.9, 70 * k + 6], [b + 2, on(b + 2, role === 'bass' ? -2 : 2), 1.9, 64 * k + 6]]);
+      // la seconde note : le degré voisin (au-dessus, au-dessous pour la basse) dans la gamme de l'accord du modèle
+      const step = (o, dir) => {
+        const c = chordAt(F, o);
+        const sc = SCALES[c[2]] || SCALES.ion;
+        const n = on(o);
+        const i = sc.indexOf(pcOf(n - c[1]));
+        if (i < 0) return n + dir * 2;
+        const j = (i + dir + 7) % 7;
+        return n + pcOf(sc[j] - sc[i]) - (dir < 0 ? 12 : 0) * (pcOf(sc[j] - sc[i]) ? 1 : 0);
+      };
+      return bars.flatMap((b) => [[b, on(b), 1.9, 70 * k + 6], [b + 2, step(b + 2, role === 'bass' ? -1 : 1), 1.9, 64 * k + 6]]);
     }
     if (jeu === 'coups') return F.coups.h.map(([o, d, v]) => [o, on(o), d, v * k]);
     if (jeu === 'temps') return bars.flatMap((b) => [1, 3].map((o) => [b + o, on(b + o), 0.35, 96 * k]));
@@ -385,8 +395,8 @@ SS.horns = (() => {
   /** Une note du modèle (accord sRoot, gamme sSc) recalculée sur un autre accord : même rang dans la gamme, au plus près. */
   function realize(n, sRoot, sSc, dRoot, dSc) {
     if (sRoot === dRoot && sSc === dSc) return n;
-    const sa = SCALES[sSc] || SCALES.ion;
-    const sb = SCALES[dSc] || SCALES.ion;
+    const sa = Array.isArray(sSc) ? sSc : SCALES[sSc] || SCALES.ion;
+    const sb = Array.isArray(dSc) ? dSc : SCALES[dSc] || SCALES.ion;
     const rel = pcOf(n - sRoot);
     let s = 0;
     for (let i = 0; i < 7; i++) if (sa[i] <= rel) s = i;
@@ -396,6 +406,24 @@ SS.horns = (() => {
     let best = null;
     for (let m = tgt - 6; m <= tgt + 6; m++) if (pcOf(m) === pc && (best === null || Math.abs(m - tgt) < Math.abs(best - tgt))) best = m;
     return best;
+  }
+  const semi = (a, b) => pcOf(a - b) === 1 || pcOf(b - a) === 1;
+  /**
+   * Gamme d'un accord dans la tonalité de la chanson (keyPcs : ses 7 notes) : la gamme de la tonalité depuis la
+   * fondamentale, où chaque note de l'accord étrangère à la tonalité remplace sa voisine à un demi-ton (Mi7 en la mineur :
+   * Mi Fa Sol♯ La Si Do Ré). Intervalles depuis la fondamentale, ou null si l'accord ne s'y prête pas.
+   */
+  function keyScale(rootPc, pcs, keyPcs) {
+    const set = new Set(keyPcs);
+    (pcs || []).forEach((t) => {
+      if (set.has(t)) return;
+      const nb = [...set].filter((x) => semi(x, t) && !(pcs || []).includes(x));
+      if (!nb.length) return;
+      set.delete(nb[0]);
+      set.add(t);
+    });
+    const iv = [...set].map((x) => pcOf(x - rootPc)).sort((a, b) => a - b);
+    return iv.length === 7 && iv[0] === 0 ? iv : null;
   }
   const inRange = (m, p) => {
     while (m > p.hi) m -= 12;
@@ -412,7 +440,7 @@ SS.horns = (() => {
    * → { lines: { id: { role, events: [{ step, len, notes, vel, shift? }], lo, hi, vol? } } }
    *   vol : courbe de volume { pas: 0..1 } des jeux qui enflent (Tenues qui enflent, Montée)
    */
-  function write({ form, add = [], jeu = 'sig', off = [], nuance = 'mf', spans = [], bars = 4, spb = 16, beat = 4, model = false }) {
+  function write({ form, add = [], jeu = 'sig', off = [], nuance = 'mf', spans = [], bars = 4, spb = 16, beat = 4, model = false, key = null }) {
     const F = formOf(form);
     const MO = motifOf(jeu, F.id);
     const J = MO ? jeu : JEU_IDS.includes(jeu) ? jeu : 'sig';
@@ -428,7 +456,21 @@ SS.horns = (() => {
         return realize(m, s[1], s[2], t[1], t[2]);
       }
       const sp = spanAt(Math.min(total - 1, at));
-      return sp ? realize(m, s[1], s[2], sp.rootPc, scaleOf(sp.rootPc, sp.pcs, s[2])) : m;
+      if (!sp) return m;
+      const ks = key && keyScale(sp.rootPc, sp.pcs, key);
+      const n = realize(m, s[1], s[2], sp.rootPc, ks || scaleOf(sp.rootPc, sp.pcs, s[2]));
+      if (!ks) return n;
+      // une note chromatique du modèle (altération) qui tombe hors de la gamme de l'accord : la note de la gamme la plus proche
+      const ok = (x) => ks.includes(pcOf(x - sp.rootPc));
+      return ok(n) ? n : ok(n - 1) ? n - 1 : ok(n + 1) ? n + 1 : n;
+    };
+    /** Une note tenue (un temps ou plus) qui frotte à un demi-ton d'une note de l'accord glisse sur la note de l'accord. */
+    const settle = (m, step, len) => {
+      if (!key || model || !spans.length || len < beat) return m;
+      const sp = spanAt(Math.min(total - 1, step));
+      if (!sp || !sp.pcs || sp.pcs.includes(pcOf(m)) || !sp.pcs.some((t) => semi(pcOf(m), t))) return m;
+      for (const d of [-1, 1, -2, 2]) if (sp.pcs.includes(pcOf(m + d))) return m + d;
+      return m;
     };
     const lines = {};
     players(F.id, add).forEach((p) => {
@@ -438,7 +480,8 @@ SS.horns = (() => {
         if (x >= total) return null;
         const st = Math.round(x);
         const shift = +(x - st).toFixed(3);
-        const e = { step: st, len: Math.max(1, Math.min(total - st, Math.round(len))), notes: [inRange(m, p)], vel: +Math.max(0.15, Math.min(1, (v / 127) * nu)).toFixed(3) };
+        const ln = Math.max(1, Math.min(total - st, Math.round(len)));
+        const e = { step: st, len: ln, notes: [inRange(settle(m, st, ln), p)], vel: +Math.max(0.15, Math.min(1, (v / 127) * nu)).toFixed(3) };
         if (shift) e.shift = shift;
         events.push(e);
         return e;
