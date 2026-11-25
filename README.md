@@ -1019,7 +1019,8 @@ part du jeu de guitare du plan, sinon de « Pop ↓ ↓↑ ↑↓↑ ». Outils 
 Le **Clavier** (pianos, orgues, synthés) est un autre type de musicien à part (Nouveau musicien › Clavier ; le pianiste
 d'une inspiration en est un, et garde son jeu). Son étape (`js/keyboardist.js` pour le catalogue et les notes,
 `keysBody` de `js/band.js`) suit le même principe : par scène, un **Jeu** *Accords* (familles Deux mains, Rythmés,
-Tenus) ou *Arpèges* (Piano brisé, Arpégiateur), des puces de **style** (11 styles, celle de la chanson marquée d'un
+Tenus) ou *Arpèges* (Piano brisé, Arpégiateur) : 45 motifs d'accords et 33 d'arpèges, au moins trois par jeu pour
+chaque style en 4/4, des puces de **style** (11 styles, celle de la chanson marquée d'un
 point), **Surprends-moi**, une **Main gauche** *Basse | Octaves | Aucune* et quatre potentiomètres (Voicing, Énergie,
 Pédale, Main humaine ; en Arpèges : Registre, Pédale, Accent, Main humaine). Les motifs « k: » sont écrits pour les
 deux mains (en 4/4 ; hors du 4/4, un rythme de la mesure les remplace) ; les autres sont les modes du moteur de nappe

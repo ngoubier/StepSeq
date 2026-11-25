@@ -23,8 +23,13 @@ test('chaque mode du Clavier a un jeu, une famille, un nom et au moins un style 
       if (!/^k:/.test(id)) assert.ok(B.PAD_NEW[id] || SS.padMotifs.MODES.some((m) => m[0] === id), `${id} : mode du moteur de nappe`);
     }
   }
-  // en 4/4, chaque style a au moins un motif par jeu
-  for (const [st] of K.STYLES) for (const j of ['acc', 'arp']) assert.ok(K.modesOf(j).some((id) => K.inStyle(id, st) && B.meterOK('keys', id, '4/4')), `${st} : rien en ${j}`);
+  // en 4/4, chaque style a au moins trois motifs par jeu
+  for (const [st] of K.STYLES) for (const j of ['acc', 'arp']) assert.ok(K.modesOf(j).filter((id) => K.inStyle(id, st) && B.meterOK('keys', id, '4/4')).length >= 3, `${st} : moins de trois motifs en ${j}`);
+  // noms uniques dans chaque jeu
+  for (const j of ['acc', 'arp']) {
+    const names = K.modesOf(j).map(K.name);
+    assert.equal(new Set(names).size, names.length, `${j} : deux motifs du même nom`);
+  }
   assert.equal(K.styleOfSong('latin'), 'salsa');
   assert.equal(K.styleOfSong('zero'), 'all');
   assert.equal(K.jeuOf('ballad'), 'arp');
