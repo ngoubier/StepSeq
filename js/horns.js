@@ -162,7 +162,74 @@ SS.horns = (() => {
     { id: 'fin', fam: 'trans', label: 'Fin', text: 'Le jeu du style, puis trois coups dans la dernière mesure, le dernier tenu' },
     { id: 'break', fam: 'trans', label: 'Coup d’arrêt', text: 'Un coup sur le 1, puis silence' },
   ];
-  const JEUX = JEU_DEFS.map((j) => j.id);
+  const JEU_IDS = JEU_DEFS.map((j) => j.id);
+
+  /*
+   * Les 50 motifs du fichier de Nicolas (js/horns-motifs.js, généré), cinq par formation, rangés dans les familles ;
+   * MOTIF_TAGS : [famille, types de scène où le motif est conseillé (★)]. Une Transition se joue sur les dernières mesures.
+   */
+  const MOTIFS = (SS.HORN_MOTIFS || []).map((m) => ({ ...m, id: 'm' + String(m.n).padStart(2, '0') }));
+  const MOTIF_TAGS = {
+    1: ['riff', 'chorus'], 2: ['coups', 'bridge'], 3: ['trans', 'pre'], 4: ['riff', 'verse'], 5: ['trans', 'outro'],
+    6: ['riff', 'verse'], 7: ['riff', 'verse'], 8: ['riff', 'bridge'], 9: ['coups', 'chorus'], 10: ['riff', 'chorus'],
+    11: ['coups', 'chorus'], 12: ['riff', 'intro'], 13: ['coups', 'verse'], 14: ['coups', 'bridge'], 15: ['riff', 'chorus'],
+    16: ['coups', 'verse'], 17: ['trans', 'pre'], 18: ['riff', 'chorus'], 19: ['coups', 'intro'], 20: ['coups', 'chorus'],
+    21: ['riff', 'chorus'], 22: ['riff', 'chorus'], 23: ['coups', 'verse'], 24: ['trans', 'pre'], 25: ['trans', 'outro'],
+    26: ['riff', 'chorus'], 27: ['riff', 'verse'], 28: ['riff', 'bridge'], 29: ['coups', 'verse'], 30: ['riff', 'outro'],
+    31: ['riff', 'verse'], 32: ['ten', 'intro'], 33: ['riff', 'bridge'], 34: ['trans', 'pre'], 35: ['riff', 'chorus'],
+    36: ['ten', 'intro'], 37: ['coups', 'chorus'], 38: ['ten', 'pre'], 39: ['riff', 'verse'], 40: ['riff', 'outro'],
+    41: ['riff', 'intro'], 42: ['riff', 'chorus'], 43: ['riff', 'bridge'], 44: ['riff', 'verse'], 45: ['coups', 'chorus'],
+    46: ['riff', 'chorus'], 47: ['riff', 'verse'], 48: ['ten', 'intro'], 49: ['trans', 'outro'], 50: ['riff', 'bridge'],
+  };
+  MOTIFS.forEach((m) => {
+    const t = MOTIF_TAGS[m.n] || ['riff'];
+    m.fam = t[0];
+    m.scenes = t.slice(1);
+  });
+  const JEUX = [...JEU_IDS, ...MOTIFS.map((m) => m.id)];
+  /** Motif du fichier d'après son id (« m21 »), s'il appartient à la formation. */
+  const motifOf = (id, formId) => MOTIFS.find((m) => m.id === id && m.form === formId) || null;
+  // instruments du fichier → instruments de js/horns.js
+  const DOC_INST = { Trompette: 'tp', 'Trompette 1': 'tp', 'Trompette 2': 'tp', 'Sax alto': 'sa', 'Sax ténor': 'st', 'Sax baryton': 'sb', Trombone: 'tb', 'Trombone 1': 'tb', 'Trombone 2': 'tb', 'Trombone basse': 'bt', Cor: 'hn', Tuba: 'tu', Sousaphone: 'so', Cornet: 'cn', Bugle: 'fl', Euphonium: 'eu' };
+  const motifCache = new Map();
+  /**
+   * Formation qui joue un motif du fichier : mêmes musiciens, grille et mesures du motif. Chaque partie du fichier va au
+   * musicien du même instrument (dans l'ordre : Trompette 1 puis 2) ; un musicien sans partie double la partie la plus
+   * proche de son registre (la basse : la partie la plus grave), à l'octave qui lui convient.
+   */
+  function motifForm(F, n) {
+    const key = F.id + ':' + n;
+    if (motifCache.has(key)) return motifCache.get(key);
+    const M = MOTIFS.find((m) => m.n === n);
+    const parts = Object.entries(M.parts).map(([name, ev]) => ({ name, i: DOC_INST[name], ev, first: ev[0][1], avg: ev.reduce((a, e) => a + e[1], 0) / ev.length }));
+    const used = new Set();
+    const p = {};
+    F.players.forEach((pl) => {
+      const x = parts.find((q) => !used.has(q) && q.i === pl.i);
+      if (x) {
+        used.add(x);
+        p[pl.id] = x.ev.map(([o, m, d, v]) => [o, m, d, v]);
+      }
+    });
+    F.players.forEach((pl) => {
+      if (p[pl.id]) return;
+      const I = INST[pl.i];
+      const mid = (I.lo + I.hi) / 2;
+      let best = null;
+      const cands = pl.role === 'bass' ? [parts.reduce((a, b) => (b.avg < a.avg ? b : a))] : parts;
+      cands.forEach((q) => {
+        let sh = 0;
+        while (q.avg + sh - mid > 6) sh -= 12;
+        while (mid - (q.avg + sh) > 6) sh += 12;
+        const d = Math.abs(sh) * 10 + Math.abs(q.avg + sh - mid);
+        if (!best || d < best.d) best = { q, sh, d };
+      });
+      p[pl.id] = best.q.ev.map(([o, m, d, v]) => [o, m + best.sh, d, v * 0.9]);
+    });
+    const Fm = { ...F, bars: M.bars, chords: M.chords, sig: { label: M.title, text: M.text, p } };
+    motifCache.set(key, Fm);
+    return Fm;
+  }
   const SCENE_WIDE = ['montee', 'fin', 'break'];
   const ALIAS = {
     salsa: { rep: 'Moña', fin: 'Cierre' },
@@ -174,26 +241,39 @@ SS.horns = (() => {
   const jeux = (formId) => {
     const F = formOf(formId);
     const al = ALIAS[F.id] || {};
-    return JEU_DEFS.map((j) => {
-      if (j.id === 'sig') return { id: 'sig', fam: j.fam, label: F.sig.label, text: F.sig.text };
-      if (j.id === 'coups') return { id: 'coups', fam: j.fam, label: F.coups.label, text: 'Des attaques ensemble, sur le rythme du style' };
-      return { id: j.id, fam: j.fam, label: al[j.id] || j.label, text: j.text };
-    });
+    return [
+      ...JEU_DEFS.map((j) => {
+        if (j.id === 'sig') return { id: 'sig', fam: j.fam, label: F.sig.label, text: F.sig.text };
+        if (j.id === 'coups') return { id: 'coups', fam: j.fam, label: F.coups.label, text: 'Des attaques ensemble, sur le rythme du style' };
+        return { id: j.id, fam: j.fam, label: al[j.id] || j.label, text: j.text };
+      }),
+      ...MOTIFS.filter((m) => m.form === F.id).map((m) => ({ id: m.id, fam: m.fam, label: m.title, text: m.text, n: m.n, bars: m.bars })),
+    ];
   };
-  /** Jeux conseillés (★) pour une scène d'après son nom ; le premier est joué d'office. */
-  function sceneStars(sec) {
+  /** Type d'une scène d'après son nom : intro, verse, pre, chorus, bridge, outro. */
+  function sceneKind(sec) {
     const s = String(sec || '').toLowerCase();
-    if (/^(pre|build|mont)/.test(s)) return ['montee', 'swell'];
-    if (/^intro/.test(s)) return ['swell', 'ten', 'uni'];
-    if (/^(verse|couplet)/.test(s)) return ['antic', 'contre', 'temps'];
-    if (/^(bridge|break|solo|pont)/.test(s)) return ['uni', 'contre', 'pad'];
-    if (/^(outro|fin|coda)/.test(s)) return ['fin', 'break'];
-    return ['sig', 'rep', 'coups'];
+    if (/^(pre|build|mont)/.test(s)) return 'pre';
+    if (/^intro/.test(s)) return 'intro';
+    if (/^(verse|couplet)/.test(s)) return 'verse';
+    if (/^(bridge|break|solo|pont)/.test(s)) return 'bridge';
+    if (/^(outro|fin|coda)/.test(s)) return 'outro';
+    return 'chorus';
+  }
+  const STARS = { pre: ['montee', 'swell'], intro: ['swell', 'ten', 'uni'], verse: ['antic', 'contre', 'temps'], bridge: ['uni', 'contre', 'pad'], outro: ['fin', 'break'], chorus: ['sig', 'rep', 'coups'] };
+  /**
+   * Jeux conseillés (★) pour une scène d'après son nom ; le premier est joué d'office. Les motifs du fichier conseillés
+   * pour ce type de scène passent en tête (au refrain : après le jeu du style, qui vient aussi du fichier).
+   */
+  function sceneStars(sec, formId) {
+    const k = sceneKind(sec);
+    const doc = formId ? MOTIFS.filter((m) => m.form === formOf(formId).id && m.scenes.includes(k)).map((m) => m.id) : [];
+    return k === 'chorus' ? ['sig', ...doc, 'rep', 'coups'] : [...doc, ...STARS[k]];
   }
   /** Jeu proposé d'après le nom de la scène (le premier ★). */
-  const defaultJeu = (sec) => sceneStars(sec)[0];
+  const defaultJeu = (sec, formId) => sceneStars(sec, formId)[0];
   /** Jeu d'une scène : celui que le modèle de chanson écrit (sections[…].horns), sinon le premier ★ de son nom. */
-  const sceneJeu = (sec, model) => (JEUX.includes(model) ? model : defaultJeu(sec));
+  const sceneJeu = (sec, model, formId) => (JEUX.includes(model) && (!/^m\d/.test(model) || !formId || motifOf(model, formOf(formId).id)) ? model : defaultJeu(sec, formId));
 
   /* ---------- musiciens ---------- */
   const chordAt = (F, beat) => {
@@ -334,17 +414,17 @@ SS.horns = (() => {
    */
   function write({ form, add = [], jeu = 'sig', off = [], nuance = 'mf', spans = [], bars = 4, spb = 16, beat = 4, model = false }) {
     const F = formOf(form);
-    const J = JEUX.includes(jeu) ? jeu : 'sig';
+    const MO = motifOf(jeu, F.id);
+    const J = MO ? jeu : JEU_IDS.includes(jeu) ? jeu : 'sig';
     const nu = NUANCE[nuance] || NUANCE.mf;
     const perBar = spb / beat; // temps par mesure (4 en 4/4, 3 en 3/4)
     const total = bars * spb;
-    const cyc = F.bars * 4;
     const spanAt = (step) => spans.find((sp) => step >= sp.step && step < sp.step + sp.len) || spans[spans.length - 1] || null;
     /** Note du modèle (sur l'accord du modèle au temps o de la boucle) posée sur l'accord de la scène au pas `at`. */
-    const place = (m, o, at) => {
-      const s = chordAt(F, o % cyc);
+    const place = (m, o, at, Fx = F) => {
+      const s = chordAt(Fx, o % (Fx.bars * 4));
       if (model || !spans.length) {
-        const t = chordAt(F, (Math.floor(at / spb) % F.bars) * 4 + Math.min(3.99, (at % spb) / beat));
+        const t = chordAt(Fx, (Math.floor(at / spb) % Fx.bars) * 4 + Math.min(3.99, (at % spb) / beat));
         return realize(m, s[1], s[2], t[1], t[2]);
       }
       const sp = spanAt(Math.min(total - 1, at));
@@ -389,19 +469,19 @@ SS.horns = (() => {
           }
         });
       };
-      /** Les boucles du jeu sur les mesures [0, upto). */
-      const loops = (J2, upto) => {
-        for (let b = 0, n = 0; b < upto; b += F.bars, n++)
-          loopOf(F, p, J2, n).forEach(([o, m, d, v, pushed]) => {
+      /** Les boucles du jeu sur les mesures [from, upto) (Fx : la formation, ou un motif du fichier). */
+      const loops = (J2, upto, from = 0, Fx = F) => {
+        for (let b = from, n = 0; b < upto; b += Fx.bars, n++)
+          loopOf(Fx, p, J2, n).forEach(([o, m, d, v, pushed]) => {
             const mb = Math.floor(o / 4); // mesure dans la boucle
             const ib = o - mb * 4; // temps dans la mesure
             if (ib >= perBar - 1e-6) return; // mesure plus courte que 4 temps : on coupe
             const bar = b + mb;
             if (bar >= upto) return;
-            const pos = F.swing && Math.abs((ib % 1) - 0.5) < 1e-6 ? ib + 1 / 6 : ib;
+            const pos = Fx.swing && Math.abs((ib % 1) - 0.5) < 1e-6 ? ib + 1 / 6 : ib;
             const x = bar * spb + pos * beat;
             // une note poussée prend l'accord du temps qui suit (elle est écrite sur l'accord du modèle à o + ½)
-            const note = pushed ? place(m, o + 0.5, Math.round(x + beat / 2)) : place(m, o, Math.round(x));
+            const note = pushed ? place(m, o + 0.5, Math.round(x + beat / 2), Fx) : place(m, o, Math.round(x), Fx);
             push(x, note, pushed ? d * beat : Math.min(d, perBar - ib) * beat, v);
           });
       };
@@ -435,6 +515,12 @@ SS.horns = (() => {
             const x = last * spb + o * beat;
             push(x, place(m0, o0, Math.round(x)), d * beat, v * k);
           });
+        } else if (MO) {
+          // motif du fichier : en boucle ; une transition ou une fin se joue sur les dernières mesures, après le jeu du style
+          const Fm = motifForm(F, MO.n);
+          const from = MO.fam === 'trans' ? Math.max(0, bars - Fm.bars) : 0;
+          if (from) loops('sig', from);
+          loops('sig', bars, from, Fm);
         } else loops(J, bars);
       }
       events.sort((a, b) => a.step - b.step);
@@ -464,5 +550,5 @@ SS.horns = (() => {
   const NOTES_FR = () => (SS.NOTE_NAMES_FR || ['Do', 'Do♯', 'Ré', 'Mi♭', 'Mi', 'Fa', 'Fa♯', 'Sol', 'La♭', 'La', 'Si♭', 'Si']);
   const midiName = (m) => NOTES_FR()[pcOf(m)] + (Math.floor(m / 12) - 1);
 
-  return { INST, FORMS, FORM, formOf, fromKeys, formFor, STYLE_FORM, JEUX, FAMS, SCENE_WIDE, ALIAS, jeux, sceneStars, defaultJeu, sceneJeu, players, write, realize, scaleOf, SCALES, offByDefault, ROLE_LABEL, midiName, NUANCE };
+  return { INST, FORMS, FORM, formOf, fromKeys, formFor, STYLE_FORM, JEUX, FAMS, SCENE_WIDE, ALIAS, MOTIFS, motifOf, motifForm, jeux, sceneKind, sceneStars, defaultJeu, sceneJeu, players, write, realize, scaleOf, SCALES, offByDefault, ROLE_LABEL, midiName, NUANCE };
 })();

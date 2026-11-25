@@ -2567,8 +2567,10 @@ SS.bandSong = (() => {
           return;
         }
         const own = (ie && ie.horns) || {};
-        const autoJeu = SS.horns.sceneJeu(id, sec.horns); // jeu écrit par le modèle pour cette scène, sinon d'après son nom
-        const jeu = SS.horns.JEUX.includes(own.jeu) ? own.jeu : autoJeu;
+        const autoJeu = SS.horns.sceneJeu(id, sec.horns, fk.form); // jeu écrit par le modèle pour cette scène, sinon d'après son nom
+        // jeu choisi : un jeu commun, ou un motif du fichier de cette formation (un motif d'une autre formation ne vaut plus)
+        const ownOK = SS.horns.JEUX.includes(own.jeu) && (!/^m\d/.test(own.jeu) || !!SS.horns.motifOf(own.jeu, fk.form));
+        const jeu = ownOK ? own.jeu : autoJeu;
         const res = SS.horns.write({
           form: fk.form,
           add: fk.add,
@@ -2588,7 +2590,7 @@ SS.bandSong = (() => {
           const A = ie && ie.auto ? normalizeAuto(ie.auto) : null;
           if (A) applyAutoLanes(data[t.id], A, bars);
         });
-        hornsOut[mid] = { form: fk.form, jeu, autoJeu, auto: !SS.horns.JEUX.includes(own.jeu), lines: res.lines };
+        hornsOut[mid] = { form: fk.form, jeu, autoJeu, auto: !ownOK, lines: res.lines };
       });
       // nuances de film (js/film.js) : crescendo vers la synchro, respiration après le sommet (sec.ramps = [{ a, b, from, to }])
       if (Array.isArray(sec.ramps) && sec.ramps.length)

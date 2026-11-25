@@ -6,7 +6,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 globalThis.window = globalThis;
-['library.js', 'dirt.js', 'sounds.js', 'harmony.js', 'arp.js', 'project.js', 'band-presets.js', 'band-songs.js', 'band-levels.js', 'mixref.js', 'horns.js', 'bandmix.js'].forEach((f) => require('../js/' + f));
+['library.js', 'dirt.js', 'sounds.js', 'harmony.js', 'arp.js', 'project.js', 'band-presets.js', 'band-songs.js', 'band-levels.js', 'mixref.js', 'horns-motifs.js', 'horns.js', 'bandmix.js'].forEach((f) => require('../js/' + f));
 if (fs.existsSync(__dirname + '/../js/band-drive.js')) require('../js/band-drive.js');
 const SS = globalThis.SS;
 const B = SS.Band;

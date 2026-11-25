@@ -4,19 +4,20 @@
 const test = require('node:test');
 const assert = require('node:assert');
 globalThis.window = globalThis;
+require('../js/horns-motifs.js');
 require('../js/horns.js');
 const H = SS.horns;
 
 // Fa, Sol, La mineur, La mineur : une mesure de 4/4 chacun
 const SPANS = [[0, 5, [5, 9, 0]], [16, 7, [7, 11, 2]], [32, 9, [9, 0, 4]], [48, 9, [9, 0, 4]]].map(([step, rootPc, pcs]) => ({ step, len: 16, rootPc, pcs }));
 
-test('dix formations, treize jeux chacune, des musiciens dans leur tessiture', () => {
+test('dix formations, treize jeux et cinq motifs du fichier chacune, des musiciens dans leur tessiture', () => {
   assert.strictEqual(H.FORMS.length, 10);
   H.FORMS.forEach((f) => {
-    assert.strictEqual(H.jeux(f.id).length, 13);
+    assert.strictEqual(H.jeux(f.id).length, 18);
     assert.ok(H.jeux(f.id).every((j) => j.label && j.text && H.FAMS.some(([id]) => id === j.fam)));
     f.players.forEach((p) => assert.ok(H.INST[p.i], `${f.id} ${p.id}`));
-    H.JEUX.forEach((j) => [true, false].forEach((model) => {
+    H.jeux(f.id).map((x) => x.id).forEach((j) => [true, false].forEach((model) => {
       const r = H.write({ form: f.id, jeu: j, spans: SPANS, bars: 4, model });
       assert.ok(Object.values(r.lines).some((L) => L.events.length), `${f.id} ${j} : des notes`);
       Object.entries(r.lines).forEach(([id, L]) => {
@@ -67,7 +68,7 @@ test('doublures et clés de piste', () => {
 });
 
 test('jeu proposé selon la scène, formation selon le style', () => {
-  assert.deepStrictEqual(['intro', 'verse', 'pre', 'chorus', 'bridge', 'outro'].map(H.defaultJeu), ['swell', 'antic', 'montee', 'sig', 'uni', 'fin']);
+  assert.deepStrictEqual(['intro', 'verse', 'pre', 'chorus', 'bridge', 'outro'].map((s) => H.defaultJeu(s)), ['swell', 'antic', 'montee', 'sig', 'uni', 'fin']);
   assert.deepStrictEqual(H.sceneStars('chorus2'), ['sig', 'rep', 'coups']);
   assert.ok(['intro', 'verse', 'pre', 'chorus', 'bridge', 'outro'].every((s) => H.sceneStars(s).every((j) => H.JEUX.includes(j))));
   // jeu écrit par le modèle de chanson, sinon celui du nom de la scène
@@ -110,4 +111,30 @@ test('question-réponse, coups anticipés, nappe douce', () => {
   const a = H.write({ form: 'funk', jeu: 'antic', spans: SPANS, bars: 4 }).lines.tp.events.find((e) => e.step === 14);
   assert.ok([7, 11, 2, 5, 9, 0, 4].includes(a.notes[0] % 12) && a.len > 2);
   assert.strictEqual(H.write({ form: 'funk', jeu: 'pad', spans: SPANS, bars: 4 }).lines.tp.events.length, 0);
+});
+
+test('les 50 motifs du fichier : cinq par formation, joués par chaque musicien', () => {
+  assert.strictEqual(H.MOTIFS.length, 50);
+  H.FORMS.forEach((f) => assert.strictEqual(H.MOTIFS.filter((m) => m.form === f.id).length, 5, f.id));
+  // motif 11 (funk) dans la grille du modèle : les notes du fichier, trompette et baryton
+  const r = H.write({ form: 'funk', jeu: 'm11', bars: 1, model: true }).lines;
+  assert.deepStrictEqual(r.tp.events.map((e) => [e.step, e.notes[0]]), [[1, 72], [7, 67], [10, 75], [13, 72]]);
+  assert.deepStrictEqual(r.bs.events.map((e) => e.notes[0]), [53, 53, 48, 53]);
+  // disco : la formation n'a pas d'alto, son ténor double la partie la plus proche ; tout le monde joue
+  const d = H.write({ form: 'disco', jeu: 'm16', spans: SPANS, bars: 4 }).lines;
+  assert.ok(Object.values(d).every((L) => L.events.length === 12));
+  // une fin du fichier (25, salsa) : le jeu du style, puis le motif sur les deux dernières mesures
+  const s = H.write({ form: 'salsa', jeu: 'm25', bars: 4, model: true }).lines.t1.events;
+  assert.deepStrictEqual(s.filter((e) => e.step >= 32).map((e) => e.notes[0]), [70, 72, 71]);
+  assert.ok(s.some((e) => e.step < 32));
+  // un motif d'une autre formation : le jeu du style
+  assert.deepStrictEqual(H.write({ form: 'funk', jeu: 'm21', bars: 1, model: true }).lines.tp.events.map((e) => e.notes[0]), [72, 67, 75, 72]);
+});
+
+test('★ : les motifs du fichier conseillés pour la scène passent en tête', () => {
+  assert.deepStrictEqual(H.sceneStars('verse', 'funk'), ['m13', 'antic', 'contre', 'temps']);
+  assert.deepStrictEqual(H.sceneStars('chorus', 'salsa'), ['sig', 'm21', 'm22', 'rep', 'coups']);
+  assert.equal(H.defaultJeu('outro', 'salsa'), 'm25');
+  assert.equal(H.sceneJeu('outro', 'fin', 'salsa'), 'fin');
+  assert.equal(H.sceneJeu('verse', 'm21', 'funk'), 'm13');
 });
