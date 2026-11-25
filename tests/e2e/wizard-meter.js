@@ -59,9 +59,10 @@ const ok = (c, m) => {
   // batterie : la grille en 6/8, sans la bibliothèque 4/4
   await page.click('#bandWizSteps li[data-kind="drums"] button');
   await page.waitForTimeout(400);
-  const pats = await page.$$eval('.bwp-lib .bwp-pat', (els) => els.map((e) => e.dataset.st + ':' + e.dataset.id).filter((x) => x !== ':'));
+  await page.click('#bwpFam [data-f="all"]');
+  const pats = await page.$$eval('#bwDrumMot .mot-card', (els) => els.map((e) => e.dataset.st + ':' + e.dataset.id).filter((x) => x !== ':'));
   ok(pats.length === 6 && pats.every((x) => x.startsWith('6/8:')) && (await page.textContent('#bwpLib')).includes('6/8'), `batterie en 6/8 : les ${pats.length} motifs de la mesure, pas ceux de 4/4`);
-  await page.click('.bwp-pat[data-id="rock-68"]');
+  await page.click('#bwDrumMot .mot-card[data-id="rock-68"]');
   await page.waitForTimeout(400);
   const kick = await page.evaluate(() => {
     const r = SS.band._state.wiz.res;
@@ -70,9 +71,11 @@ const ok = (c, m) => {
     return sc.data[id].steps.slice(0, 12).map((v) => (v > 0 ? 'x' : '-')).join('');
   });
   ok(kick === 'x---x-------', `Rock 6/8 choisi : la grosse caisse le joue (${kick})`);
-  await page.click('#bwpMatch');
+  await page.click('#bwpMotScope [data-v="all"]');
+  await page.click('#bwDrumMot .mot-card[data-id="rock-68"]');
   await page.waitForTimeout(400);
-  ok(await page.evaluate(() => Object.values(SS.band._state.wiz.parts).filter((p) => Object.values(p.inst || {}).some((x) => x && x.style === '6/8')).length >= 3), 'Assortir toutes les scènes : des motifs 6/8');
+  ok(await page.evaluate(() => Object.values(SS.band._state.wiz.parts).filter((p) => Object.values(p.inst || {}).some((x) => x && x.style === '6/8')).length >= 3), 'Scènes : Toutes : le motif 6/8 dans toutes les scènes');
+  await page.click('#bwpMotScope [data-v="one"]');
   await shot('2-batterie-68.png');
 
   // basse : seulement des motifs qui vont en 6/8

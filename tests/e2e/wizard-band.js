@@ -208,7 +208,7 @@ const ok = (c, m) => {
   ok(kits.filter((x) => x.kit).length === 2, 'deux onglets de kit');
     await page.click(`#bandWizSteps li[data-kind="drums"] >> nth=1 >> button`);
   await page.waitForTimeout(500);
-  ok((await page.locator('.bwp-pat').count()) > 0 && (await page.locator('#bwParts[data-kind="drums"]').count()) === 1, 'l\'éditeur de motifs du 2e kit s\'ouvre');
+  ok((await page.locator('#bwDrumMot .mot-card').count()) > 0 && (await page.locator('#bwParts[data-kind="drums"]').count()) === 1, 'l\'éditeur de motifs du 2e kit s\'ouvre');
   const k2 = await page.evaluate(() => { const r = SS.band._state.wiz.res; const sc = r.scenes[1]; const ids = Object.keys(sc.data).filter((k) => k.startsWith('x') && k.includes(':perc:')); return ids.map((k) => (sc.data[k].steps || []).some((v) => v > 0)); });
   ok(k2.length >= 1 && k2.every(Boolean), 'le 2e kit joue (ses pièces ont des coups)');
 
