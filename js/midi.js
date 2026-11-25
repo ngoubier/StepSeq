@@ -9,8 +9,10 @@
  * Export : une piste MIDI par piste StepSeq (canal 10 pour la batterie), les arpèges sont rendus en notes
  *   (ARP ONE est déterministe : on obtient exactement ce qu'on entend), l'arrangement est déplié, chaque bloc
  *   est marqué par le nom de sa scène, la tonalité des scènes devient une armure.
- * Import : notes placées sur la double-croche, avec leur décalage d'attaque gardé (ev.shift) ; l'expression (CC 11)
- *   devient une courbe de volume par scène (auto.volume) ; la batterie (canal 10) donne une piste Drum par son
+ * Import : notes placées sur la double-croche, avec leur décalage d'attaque gardé (ev.shift) ; le volume (CC 7) et
+ *   l'expression (CC 11) deviennent une courbe de volume par scène (auto.volume), le volume de la piste étant le plus fort
+ *   du fichier ; le cutoff (CC 74) et la résonance (CC 71) deviennent l'automation par temps (js/beatauto.js), passage
+ *   par passage ; la batterie (canal 10) donne une piste Drum par son
  *   (bibliothèque General MIDI : chaque note GM garde son son d'origine ; ou par élément sur une boîte à rythmes) ;
  *   le morceau est analysé pour retrouver ses parties (scènes) et l'arrangement qui les enchaîne (analyze()).
  */
@@ -466,7 +468,7 @@
       let name = '';
       const chInfo = (ch) => {
         const k = src + ':' + ch;
-        if (!info.has(k)) info.set(k, { name, program: null, volume: null, pan: null, programs: 0, expr: [] });
+        if (!info.has(k)) info.set(k, { name, program: null, volume: null, pan: null, programs: 0, expr: [], vol: [], cut: [], res: [] });
         return info.get(k);
       };
       const release = (n, tick) => {
@@ -489,7 +491,11 @@
         }
         if (e.type === 'cc') {
           const ci = chInfo(e.ch);
-          if (e.cc === 7 && ci.volume == null) ci.volume = e.value;
+          if (e.cc === 7) {
+            if (ci.volume == null) ci.volume = e.value;
+            ci.vol.push({ tick: e.tick, value: e.value });
+          } else if (e.cc === 74) ci.cut.push({ tick: e.tick, value: e.value });
+          else if (e.cc === 71) ci.res.push({ tick: e.tick, value: e.value });
           else if (e.cc === 10 && ci.pan == null) ci.pan = e.value;
           else if (e.cc === 11) ci.expr.push({ tick: e.tick, value: e.value });
           else if (e.cc === 64) {
@@ -566,6 +572,43 @@
     const lane = {};
     keep.forEach((s) => (lane[s] = vals[s]));
     return lane;
+  }
+
+  /**
+   * Volume (CC 7) et expression (CC 11) d'une piste en une seule suite de points { tick, value 0..127 } :
+   * le volume est rapporté au plus fort du fichier (qui devient le volume de la piste), puis multiplié par l'expression.
+   */
+  function volumePoints(vol, expr, max) {
+    if (!vol.length || max <= 0) return expr;
+    const ticks = [...new Set([...vol, ...expr].map((x) => x.tick))].sort((a, b) => a - b);
+    const at = (pts, tick, def) => {
+      let v = def;
+      for (const x of pts) {
+        if (x.tick > tick) break;
+        v = x.value;
+      }
+      return v;
+    };
+    return ticks.map((tick) => ({ tick, value: Math.round(((at(vol, tick, max) / max) * at(expr, tick, 127)) * 100) / 100 }));
+  }
+
+  /** CC 74 / CC 71 (0..127) → valeur de l'automation par temps (l'inverse de SS.beatAuto.ccValue). */
+  function ccToBeat(k, val) {
+    if (k === 'cut') return Math.round(((val - 64) / 63) * 4 * 1000) / 1000;
+    return Math.round((val <= 64 ? val / 64 : 1 + ((val - 64) / 63) * 2) * 1000) / 1000;
+  }
+
+  /** Courbe résumée d'une suite de points sur tout le morceau, pour le bilan : n valeurs 0..1. */
+  function sketch(pts, lastTick, n = 48, def = 127) {
+    const out = [];
+    let i = 0;
+    let v = pts.length ? pts[0].value : def;
+    for (let s = 0; s < n; s++) {
+      const tick = (s / (n - 1)) * lastTick;
+      while (i < pts.length && pts[i].tick <= tick) v = pts[i++].value;
+      out.push(Math.round((v / 127) * 100) / 100);
+    }
+    return out;
   }
 
   /** Tempo qui dure le plus longtemps. */
@@ -827,7 +870,7 @@
     if (firstBar > 0) {
       notes.forEach((n) => (n.step -= firstBar * spb));
       metas.markers.forEach((m) => (m.tick -= firstBar * spb * tps));
-      for (const ci of info.values()) ci.expr.forEach((x) => (x.tick -= firstBar * spb * tps));
+      for (const ci of info.values()) for (const k of ['expr', 'vol', 'cut', 'res']) ci[k].forEach((x) => (x.tick -= firstBar * spb * tps));
     }
     const totalBars = Math.ceil((Math.max(...notes.map((n) => n.step)) + 1) / spb);
 
@@ -896,11 +939,23 @@
       const t = SS.newTrack({ type: 'instrument', family: fam, instrument: gm ? gm.id : undefined, name: name.slice(0, 40), color: color(i) }, p);
       t.sfv = gmVariantFor(gm, prog);
       t.octave = clamp(Math.floor(median / 12) - 1, 0, 8);
-      if (ci.volume != null) t.volume = Math.round(clamp(ci.volume / 127, 0.05, 1) * 100) / 100;
+      // volume de la piste : le plus fort du fichier ; ses variations (montées, fondus) vont dans la courbe de volume
+      const vol = (ci.vol || []).slice().sort((a, b) => a.tick - b.tick);
+      const rides = new Set(vol.map((x) => x.value)).size > 1;
+      const top = vol.length ? Math.max(...vol.map((x) => x.value)) : ci.volume;
+      if (top != null) t.volume = Math.round(clamp(top / 127, 0.05, 1) * 100) / 100;
       if (ci.pan != null && ci.pan !== 64) t.mix = { pan: Math.round(clamp((ci.pan - 64) / 63, -1, 1) * 100) / 100 };
       g.track = t;
       g.program = prog;
-      g.expr = (ci.expr || []).slice().sort((a, b) => a.tick - b.tick);
+      const expr = (ci.expr || []).slice().sort((a, b) => a.tick - b.tick);
+      g.expr = rides ? volumePoints(vol, expr, top) : expr;
+      g.rides = rides ? vol : null;
+      g.hadExpr = expr.length > 0;
+      g.filter = {};
+      for (const k of ['cut', 'res']) {
+        const pts = (ci[k] || []).slice().sort((a, b) => a.tick - b.tick);
+        if (pts.some((x) => Math.abs(x.value - 64) > 1)) g.filter[k] = pts; // tout à 64 = le réglage du son : rien à reprendre
+      }
       return t;
     });
     p.tracks = tracks;
@@ -965,6 +1020,37 @@
     });
     const byKey = new Map(scenes.map((s) => [s.key, s]));
     const song = A.blocks.map((b) => ({ scene: byKey.get(b.sceneKey).id, repeat: b.repeat }));
+
+    // cutoff (CC 74) et résonance (CC 71) : automation par temps, passage par passage (les blocs se suivent dans le fichier)
+    const bpb = timeSig[0];
+    const stepsPerBeat = spb / bpb;
+    const filterTracks = { cut: new Set(), res: new Set() };
+    list.forEach((g) => {
+      if (g.drum || !g.filter) return;
+      for (const [k, pts] of Object.entries(g.filter)) {
+        A.blocks.forEach((b, bi) => {
+          for (let r = 0; r < b.repeat; r++) {
+            const lane = {};
+            for (let j = 0; j < b.bars * bpb; j++) {
+              // valeur reçue au milieu du temps (la dernière avant)
+              const tick = ((b.start + r * b.bars) * spb + (j + 0.5) * stepsPerBeat) * tps;
+              let v = null;
+              for (const x of pts) {
+                if (x.tick > tick) break;
+                v = x.value;
+              }
+              if (v != null) lane[j] = ccToBeat(k, v);
+            }
+            if (!Object.keys(lane).length) continue;
+            const blk = song[bi];
+            const reps = (((blk.bauto = blk.bauto || {})[g.track.id] = blk.bauto[g.track.id] || {})[k] = blk.bauto[g.track.id][k] || []);
+            while (reps.length < r) reps.push(null);
+            reps[r] = lane;
+            filterTracks[k].add(g.track.id);
+          }
+        });
+      }
+    });
     // fidélité : notes du fichier (quantifiées) retrouvées à leur place quand on joue l'arrangement
     const ref = new Set();
     bars.forEach((m, b) => m.forEach((items, ti) => items.forEach((it) => ref.add(`${ti}|${b * spb + it.pos}|${it.id}`))));
@@ -1005,11 +1091,14 @@
     const covered = A.blocks.reduce((a, b) => a + b.bars * b.repeat, 0);
     if (aligned) warnings.push(`${aligned} note(s) jouée(s) à côté de la grille : alignées sur la double-croche (Quantize).`);
     if (shifted) warnings.push(`${shifted} note(s) jouée(s) à côté de la grille des doubles-croches : leur décalage d'attaque est gardé (micro-décalage)${fine ? `, dont ${fine} en triolets, rapprochés de la double-croche la plus proche` : ''}.`);
-    if (exprTracks.size) warnings.push(`Expression (CC 11) reprise en courbe de volume dans les scènes, sur ${exprTracks.size} piste(s) : le jeu automatique de StepSeq leur laisse la nuance.`);
+    const rideTracks = list.filter((g) => g.rides && exprTracks.has(g.track.id)).length;
+    const exprOnly = list.filter((g) => g.hadExpr && exprTracks.has(g.track.id)).length;
+    if (exprOnly) warnings.push(`Expression (CC 11) reprise en courbe de volume dans les scènes, sur ${exprOnly} piste(s) : le jeu automatique de StepSeq leur laisse la nuance.`);
+    if (rideTracks) warnings.push(`Volume (CC 7) : les montées et fondus de ${rideTracks} piste(s) sont repris en courbe de volume, scène par scène (une scène qui revient garde ceux de son premier passage).`);
     const drumRolls = notes.filter((n) => n.ch === 9).length - list.filter((g) => g.drum).reduce((a, g) => a + new Set(g.notes.map((n) => n.step)).size, 0);
     if (drumRolls > 0) warnings.push(`${drumRolls} coup(s) de batterie plus rapides que la double-croche (roulements, doublages) ont été fusionnés.`);
     if (pitchBends) warnings.push(`${pitchBends} message(s) de pitch bend ignorés.`);
-    if (otherCC) warnings.push(`${otherCC} contrôleur(s) (modulation, expression, effets…) ignorés : seuls le volume et le panoramique de départ sont repris.`);
+    if (otherCC) warnings.push(`${otherCC} contrôleur(s) (modulation, effets…) ignorés : le volume, l'expression, le cutoff, la résonance et le panoramique de départ sont repris.`);
     if (programChanges) warnings.push(`${programChanges} changement(s) d'instrument en cours de morceau ignorés.`);
     if (firstBar > 0) warnings.push(`${firstBar} mesure(s) vide(s) au début supprimée(s).`);
     const report = {
@@ -1032,6 +1121,17 @@
       scenes: project.scenes.map((s) => ({ name: s.name, bars: s.bars, times: song.filter((b) => b.scene === s.id).reduce((a, b) => a + b.repeat, 0) })),
       song: song.map((b) => ({ name: project.scenes.find((s) => s.id === b.scene).name, repeat: b.repeat })),
       sections: A.sections,
+      // mouvements de son repris : une ligne par piste et par réglage, avec une courbe résumée pour la fenêtre
+      moves: list.flatMap((g) => {
+        if (g.drum) return [];
+        const out = [];
+        if (g.rides && exprTracks.has(g.track.id)) out.push({ track: g.track.name, what: 'Volume (CC 7)', count: g.rides.length, to: 'Volume (courbe par scène)', curve: sketch(g.rides, lastTick - firstBar * spb * tps) });
+        else if (g.hadExpr && exprTracks.has(g.track.id)) out.push({ track: g.track.name, what: 'Expression (CC 11)', count: g.expr.length, to: 'Volume (courbe par scène)', curve: sketch(g.expr, lastTick - firstBar * spb * tps) });
+        for (const k of ['cut', 'res'])
+          if (filterTracks[k].has(g.track.id))
+            out.push({ track: g.track.name, what: k === 'cut' ? 'Cutoff (CC 74)' : 'Résonance (CC 71)', count: g.filter[k].length, to: `${k === 'cut' ? 'Cutoff' : 'Résonance'} (automation par temps)`, curve: sketch(g.filter[k], lastTick - firstBar * spb * tps, 48, 64) });
+        return out;
+      }),
       warnings,
     };
     return { project, report };

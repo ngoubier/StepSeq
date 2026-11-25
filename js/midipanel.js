@@ -81,7 +81,29 @@ SS.midiPanel = (() => {
     const rows = (list) => h('ul', { class: 'midi-tracks' }, list.map((t) => h('li', {}, h('b', {}, t.name), h('span', {}, t.sound), h('small', {}, `${t.notes} notes`))));
     if (insts.length) box.append(section(`Instruments (${insts.length})`, rows(insts)));
     if (drums.length) box.append(section(`Batterie (${drums.length})`, rows(drums)));
+    if (r.moves && r.moves.length) box.append(section('Mouvements de son', moveRows(r.moves)));
     if (r.warnings.length) box.append(section('Pertes et approximations', h('ul', { class: 'midi-warn' }, r.warnings.map((w) => h('li', {}, w)))));
+  }
+
+  /** Mouvements de son repris (volume, cutoff, résonance) : piste, courbe sur tout le morceau, destination. */
+  const MOVE_COLOR = { 'Volume (CC 7)': 'var(--c-green)', 'Expression (CC 11)': 'var(--c-green)', 'Cutoff (CC 74)': 'var(--c-amber)', 'Résonance (CC 71)': 'var(--c-pink)' };
+  function moveRows(moves) {
+    const NS = 'http://www.w3.org/2000/svg';
+    const box = h('div', { class: 'midi-moves' });
+    for (const m of moves) {
+      const svg = document.createElementNS(NS, 'svg');
+      svg.setAttribute('viewBox', `0 0 ${m.curve.length - 1} 22`);
+      svg.setAttribute('preserveAspectRatio', 'none');
+      const path = document.createElementNS(NS, 'path');
+      path.setAttribute('d', m.curve.map((v, i) => `${i ? 'L' : 'M'}${i},${(20 - v * 18).toFixed(1)}`).join(' '));
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', MOVE_COLOR[m.what] || 'var(--c-blue)');
+      path.setAttribute('stroke-width', '2');
+      path.setAttribute('vector-effect', 'non-scaling-stroke');
+      svg.append(path);
+      box.append(h('div', { class: 'mv-src' }, m.track, h('small', {}, `${m.what} · ${m.count}`)), svg, h('b', {}, m.to), h('span', { class: 'mv-ok' }, '✓'));
+    }
+    return box;
   }
 
   function openImport() {

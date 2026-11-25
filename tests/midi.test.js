@@ -5,7 +5,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 globalThis.window = globalThis;
-['library.js', 'dirt.js', 'dirt-tuning.js', 'sounds.js', 'juno.js', 'arp.js', 'project.js', 'harmony.js', 'chords.js', 'midi-file.js', 'midi.js'].forEach((f) => require('../js/' + f));
+['library.js', 'dirt.js', 'dirt-tuning.js', 'sounds.js', 'juno.js', 'arp.js', 'project.js', 'harmony.js', 'chords.js', 'beatauto.js', 'midi-file.js', 'midi.js'].forEach((f) => require('../js/' + f));
 const SS = globalThis.SS;
 const M = SS.midiFile;
 const T = 120; // ticks par double-croche (ppq 480)
@@ -175,6 +175,29 @@ test('import : l’expression (CC 11) devient une courbe de volume par scène', 
   assert.ok(report.warnings.some((w) => /CC 11/.test(w) && /1 piste/.test(w)));
   assert.ok(!report.warnings.some((w) => /contrôleur\(s\)/.test(w)), 'le CC 11 n’est plus compté comme ignoré');
 
+});
+
+test('import : volume (CC 7) en courbe, cutoff (CC 74) et résonance (CC 71) en automation par temps', () => {
+  // 8 mesures identiques (une scène jouée 2 fois) ; le volume monte pendant la 1re, le filtre s'ouvre au 2e passage
+  const bass = [M.meta.name(0, 'Basse'), { tick: 0, bytes: [0xc0, 38] }];
+  for (let bar = 0; bar < 8; bar++) for (let s = 0; s < 16; s += 2) note(bass, 0, (bar * 16 + s) * T, T, 38, 100);
+  for (let s = 0; s <= 16; s += 4) bass.push({ tick: s * T, bytes: [0xb0, 7, 40 + (s / 16) * 60] }); // 40 → 100 dans la 1re mesure
+  bass.push({ tick: 0, bytes: [0xb0, 74, 64] }, { tick: 0, bytes: [0xb0, 71, 64] });
+  bass.push({ tick: 4 * 16 * T, bytes: [0xb0, 74, 127] }, { tick: 4 * 16 * T, bytes: [0xb0, 71, 127] });
+  const { project: p, report } = SS.midi.importFile(M.write({ ppq: 480, tracks: [[M.meta.tempo(0, 120)], bass] }));
+  const t = p.tracks.find((x) => x.name === 'Basse');
+  assert.equal(t.volume, Math.round((100 / 127) * 100) / 100, 'volume de la piste = le plus fort du fichier');
+  assert.equal(p.song.length, 1);
+  assert.equal(p.song[0].repeat, 2);
+  const lane = p.scenes[0].data[t.id].auto.volume;
+  assert.ok(Math.abs(SS.autoValue(lane, 0) - 0.4) < 0.02, `début du fondu : ${SS.autoValue(lane, 0)}`);
+  assert.ok(Math.abs(SS.autoValue(lane, 20) - 1) < 0.02, 'puis plein volume');
+  const cut = p.song[0].bauto[t.id].cut;
+  assert.equal(cut[0][0], 0, '1er passage : réglage du son');
+  assert.equal(cut[1][0], 4, '2e passage : ouvert à fond (+4 octaves)');
+  assert.equal(p.song[0].bauto[t.id].res[1][15], 3, 'résonance ×3');
+  assert.deepEqual(report.moves.map((m) => m.what), ['Volume (CC 7)', 'Cutoff (CC 74)', 'Résonance (CC 71)']);
+  assert.ok(!report.warnings.some((w) => /contrôleur\(s\)/.test(w)), 'plus aucun contrôleur ignoré');
 });
 
 test('import : un morceau long est découpé en scènes de 64 mesures au plus', () => {

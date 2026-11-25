@@ -1336,9 +1336,15 @@ Import : **Ouvrir un fichier…** sur un `.mid` ; export : **Exporter…**, form
   notes (sauf un soufflet posé à la main) : il garde l'articulation, le phrasé et la force de frappe, et le **timbre suit
   la courbe** (plus sombre quand elle est basse, il s'ouvre quand elle monte, pendant la note aussi) ; à l'export, la
   courbe repart en CC 11 ;
+- **volume (CC 7)** : le volume de la piste est le plus fort du fichier ; les montées et fondus deviennent la même
+  courbe de **Volume** par scène (multipliée par l'expression s'il y en a). Une scène qui revient garde ceux de son
+  premier passage ;
+- **cutoff (CC 74)** et **résonance (CC 71)** : deviennent l'**automation par temps** de la piste (bouton ∿), passage
+  par passage (le filtre peut s'ouvrir au 2ᵉ couplet seulement), avec la même échelle qu'à l'export (64 = réglage du son) ;
+- la fenêtre d'import montre ces **mouvements de son** : piste, courbe sur tout le morceau, destination ;
 - une piste par
-  instrument (piste MIDI × canal), avec le soundfont `gm_*` du programme GM, le nom de piste, le volume (CC 7)
-  et le panoramique (CC 10) de départ ;
+  instrument (piste MIDI × canal), avec le soundfont `gm_*` du programme GM, le nom de piste et le panoramique
+  (CC 10) de départ ;
 - batterie (canal 10), au choix : **General MIDI** (par défaut) — une piste Drum par note GM (35–81), jouée par
   la bibliothèque `gm` avec son son d'origine ; ou une **boîte à rythmes** — une piste par élément (table GM →
   kick, caisse claire, charleston, toms…, repli sur la LinnDrum ou la TR-808 pour un son absent), jusqu'à
