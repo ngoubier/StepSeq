@@ -12853,6 +12853,9 @@ SS.band = (() => {
     if (S.wiz) leave(); // déjà ouvert : on repart de zéro
     S.group = null; // le groupe repart de celui de l'inspiration
     S.gridInst = grid && grid.length ? grid : null; // ou des instruments de la grille (open)
+    // les sons choisis pour la chanson précédente (ou repris de sa grille) ne passent pas à celle-ci :
+    // sinon une Basse « Saw Bass » reprise d'une grille remplaçait la contrebasse de Calle de la Luna
+    S.cache = {};
     resetAdd();
     // keys / grids / emos : étape Accords (tonalité, grille, émotion par section) ; parts : réglages par scène (batterie,
     // basse, nappes, arpèges) ; form / secs / skey : arrangement, scènes et tonalité retouchés (specEff) ; chars : caractère et notes par phrase par section (réglages du moteur, sans écran) ; melPanel : état du panneau Mélodie par section ; snap : aimant de la grille ; gsel : accord sélectionné ; insp : fenêtre d'inspiration
