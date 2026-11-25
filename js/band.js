@@ -3253,6 +3253,11 @@ SS.band = (() => {
       if (ab.peds) out.pedals[ab.sec] = ab.peds;
       else if (ab.lead) delete out.pedals[ab.sec]; // harmonisation : pas de pédale sous les accords proposés
     }
+    const kp = preview && w.kc && w.kc.preview; // fenêtre « Changement » : le geste choisi, le temps de l'écouter
+    if (kp) {
+      Object.assign(out.keys, kp.keys);
+      Object.assign(out.chords, kp.chords);
+    }
     const pv = preview && w.insp && w.insp.preview;
     if (pv) {
       out.keys[pv.sec] = pv.key;
@@ -3407,6 +3412,7 @@ SS.band = (() => {
     S.wiz.step = n;
     S.sel = null;
     S.wiz.insp = null;
+    S.wiz.kc = null;
     S.wiz.gsel = null;
     if (sc && sceneStep(n)) {
       S.wiz.hscene = sc.id;
@@ -3983,6 +3989,7 @@ SS.band = (() => {
           { type: 'button', class: 'bh-scene' + (on ? ' on' : ''), style: `--c:${secColor(x.sec)}`, 'data-scene': x.id, 'data-sec': x.sec, 'data-bars': x.bars, 'aria-pressed': String(on), title: `Travailler « ${x.name} » (double-clic : sa fiche)`, onclick: (e) => (e.detail === 2 ? openWizSheet(x.id) : pickScene(x)) },
           sheetBtn(x),
           h('span', { class: 'bh-sname' }, h('b', {}, x.name), h('small', {}, `${x.bars} mes.` + (plays.get(x.id) > 1 ? ` · ×${plays.get(x.id)}` : ''))),
+          kcBadge(res, x) ? h('span', { class: 'bh-kchg', title: `Tonalité : ${SS.harmony.label(x.key)}` }, `${SS.harmony.label(x.key)} · ${kcBadge(res, x)}`) : null,
           h('span', { class: 'bh-mini' }, ...[...seen.values()].map((c) => h('span', { class: 'bh-mchip role-' + c.role.id, title: `${c.numeral} · ${c.role.label}` }, c.name))),
           line ? h('small', { class: 'bh-ssub' }, line) : null
         );
@@ -5168,6 +5175,7 @@ SS.band = (() => {
       own
         ? h('button', { type: 'button', class: 'btn btn-small', id: 'bwGridBack', title: 'Revenir aux accords et à la tonalité de l’inspiration', onclick: () => (delete S.wiz.grids[sc.sec], delete S.wiz.peds[sc.sec], delete S.wiz.keys[sc.sec], delete S.wiz.emos[sc.sec], (S.wiz.gsel = null), (S.wiz.psel = null), renderWiz()) }, '↺ Inspiration')
         : null,
+      h('button', { type: 'button', class: 'btn', id: 'bwKcBtn', title: 'Changer de tonalité ou de mode par rapport à la scène d’avant : monter d’un demi-ton, relatif, mode dorien…', onclick: () => openKc(sc) }, '⇅ Changement…'),
       h('button', { type: 'button', class: 'btn btn-accent', id: 'bwInspBtn', title: 'Choisir un mode et une émotion, écouter des propositions d’accords', onclick: () => openInsp(sc) }, '✦ Trouver l’inspiration')
     );
     // la grille : règle (mesures, temps), accords en blocs
@@ -5635,6 +5643,232 @@ SS.band = (() => {
     $('.bwi-body', box).scrollTop = top;
     const f = focus && ($('#' + CSS.escape(focus), box) || $(`[data-pick="${focus}"]`, box));
     (f || $('#bwiClose', box)).focus();
+  }
+
+  /* ---------- Fenêtre « Changement » : changer de tonalité ou de mode d'une scène à l'autre (js/keychange.js) ----------
+   * Elle part de la scène jouée juste avant dans l'arrangement (sinon de la tonalité de la chanson) et propose les gestes
+   * qui ont un sens depuis son mode. Clic sur un geste : la chanson s'écoute à partir de la scène d'avant, avec le
+   * changement (S.wiz.kc.preview, lu par harmonyOpts). « Appliquer » écrit la tonalité et les accords dans le brouillon.
+   */
+  /** Scène jouée juste avant la première fois que `sc` joue : { sc, block } (null si elle ouvre la chanson ou ne joue pas). */
+  function kcPrev(res, sc) {
+    const i = res.song.findIndex((b) => b.scene === sc.id);
+    for (let j = i - 1; j >= 0; j--) {
+      const p = res.scenes.find((x) => x.id === res.song[j].scene);
+      if (p && p.sec !== sc.sec) return { sc: p, block: j };
+    }
+    return null;
+  }
+  /** Pastille d'une scène qui change de tonalité par rapport à celle d'avant (« ↗ ½ ton », « relatif »), sinon null. */
+  function kcBadge(res, sc) {
+    const p = kcPrev(res, sc);
+    return p ? SS.keyChange.describe(p.sc.key, sc.key) : null;
+  }
+  function openKc(sc) {
+    const res = S.wiz.res;
+    if (!res) return;
+    S.wiz.ab = null; // un essai A/B en cours ne se mélange pas au changement
+    const prev = kcPrev(res, sc);
+    const first = res.song.findIndex((b) => b.scene === sc.id);
+    const at = (id) => res.song.map((b, i) => (b.scene === id ? i : -1)).filter((i) => i >= 0);
+    // « Les scènes d'après suivent » : celles qui ne jouent qu'après, dans la même tonalité que la scène
+    const after = first < 0 ? [] : res.scenes.filter((x) => x.sec !== sc.sec && at(x.id).length && at(x.id).every((i) => i > first) && SS.keyChange.same(x.key, sc.key));
+    S.wiz.kc = {
+      sec: sc.sec,
+      name: sc.name,
+      from: prev ? prev.sc.key : songKey(),
+      prev: prev ? { sec: prev.sc.sec, name: prev.sc.name, bars: prev.sc.bars, grid: gridOf(prev.sc).map((c) => ({ ...c })), block: prev.block } : null,
+      base: { key: sc.key, bars: sc.bars, grid: gridOf(sc).map((c) => ({ ...c })) },
+      after: after.map((x) => ({ sec: x.sec, name: x.name, key: x.key, grid: gridOf(x).map((c) => ({ ...c })) })),
+      block: prev ? prev.block : Math.max(0, first),
+      g: null, pass: false, own: true, follow: false, fam: 'all', preview: null,
+    };
+    renderWiz();
+  }
+  /** Tonalités et grilles que le geste choisi écrit : { keys, chords, to, g } (null sans geste). */
+  function kcPatch(w) {
+    const K = SS.keyChange;
+    const g = w.g && K.find(w.from, w.g);
+    if (!g) return null;
+    const to = g.to;
+    const keys = { [w.sec]: to };
+    const chords = { [w.sec]: !w.own && g.grid ? K.fitGrid(g.grid, w.base.bars, SPB()) : K.adaptGrid(w.base.grid, w.base.key, to) };
+    if (w.pass && w.prev) chords[w.prev.sec] = K.withPrep(w.prev.grid, w.from, to, w.prev.bars * SPB(), BEAT());
+    if (w.follow) {
+      const iv = K.tonicPc(to.tonic) - K.tonicPc(w.base.key.tonic);
+      w.after.forEach((x) => {
+        const mode = x.key.mode === w.base.key.mode ? to.mode : x.key.mode;
+        const nk = K.target(x.key, { iv: (iv + 12) % 12, mode });
+        keys[x.sec] = nk;
+        if (mode !== x.key.mode) chords[x.sec] = K.adaptGrid(x.grid, x.key, nk);
+      });
+    }
+    return { keys, chords, to, g };
+  }
+  /** Le réglage a changé : l'écoute (si elle tourne, ou si `play`) repart de la scène d'avant avec le changement. */
+  function kcHear(play) {
+    const w = S.wiz.kc;
+    const p = kcPatch(w);
+    w.preview = p ? { keys: p.keys, chords: p.chords } : null;
+    const go = p && (play || (L.mode && !L.paused));
+    renderWiz();
+    if (go) listenSong(Math.min(w.block, (S.wiz.res.song.length || 1) - 1));
+  }
+  function kcPick(id) {
+    const w = S.wiz.kc;
+    const g = SS.keyChange.find(w.from, id);
+    if (!g) return;
+    w.g = id;
+    w.pass = !!g.prep;
+    w.own = !g.grid; // un geste qui a sa grille la propose (pivot, modes…) ; sinon la scène garde ses accords
+    kcHear(true);
+  }
+  function kcSet(k, v) {
+    S.wiz.kc[k] = v;
+    kcHear(false);
+  }
+  function closeKc() {
+    if (!S.wiz.kc) return;
+    const heard = !!S.wiz.kc.preview;
+    S.wiz.kc = null;
+    if (heard && L.mode) stopListen();
+    renderWiz();
+  }
+  function applyKc() {
+    const w = S.wiz.kc;
+    const p = w && kcPatch(w);
+    if (!p) return;
+    Object.assign(S.wiz.keys, p.keys);
+    Object.assign(S.wiz.grids, p.chords);
+    if (!w.own && p.g.grid) delete S.wiz.peds[w.sec]; // les pédales allaient avec les anciens accords
+    S.wiz.gsel = null;
+    closeKc();
+  }
+
+  function renderKc() {
+    let box = $('#bwKc');
+    const w = S.wiz && S.wiz.step === ST.chords && S.wiz.kc;
+    if (!w) {
+      if (box) box.remove();
+      return;
+    }
+    if (!box) {
+      box = h('div', { class: 'bw-insp bw-kc', id: 'bwKc' });
+      box.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          closeKc();
+        }
+      });
+      el.querySelector('.band-shell').append(box);
+    }
+    const K = SS.keyChange;
+    const H = HM();
+    const all = K.gestures(w.from);
+    const fams = K.FAMS.filter((f) => all.some((g) => g.fam === f.id));
+    const list = all.filter((g) => w.fam === 'all' || g.fam === w.fam);
+    const p = kcPatch(w);
+    const playing = !!w.preview && !!L.mode && !L.paused;
+    const chip = (key, c) => {
+      const x = H.gridChord(key, c.degree, c.type, c.acc || 0, c.bass || 0);
+      return h('span', { class: `hm-step role-${x.role.id}${x.borrowed ? ' borrowed' : ''}`, title: x.notes.join('–') }, h('b', {}, x.numeral), x.name);
+    };
+    // accords d'une carte : la grille du geste (4 mesures), sinon ceux de la scène dans la nouvelle tonalité
+    const cardChords = (g) => {
+      const grid = g.grid ? K.fitGrid(g.grid, g.grid.length, SPB()) : K.adaptGrid(w.base.grid, w.base.key, g.to);
+      const seen = [];
+      grid.forEach((c) => (seen.length < 6 && !(seen.length && JSON.stringify(seen[seen.length - 1]) === JSON.stringify([c.degree, c.type, c.acc || 0, c.bass || 0])) ? seen.push([c.degree, c.type, c.acc || 0, c.bass || 0]) : null));
+      return seen.map(([degree, type, acc, bass]) => chip(g.to, { degree, type, acc, bass }));
+    };
+    const card = (g) =>
+      h(
+        'div',
+        {
+          class: 'hm-ex pick bwk-card' + (g.id === w.g ? ' on' : ''), role: 'radio', tabindex: 0, 'aria-checked': String(g.id === w.g), 'data-g': g.id,
+          onclick: () => kcPick(g.id),
+          onkeydown: (e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), kcPick(g.id)),
+        },
+        h(
+          'div',
+          { class: 'hm-ex-top' },
+          h('b', { class: 'hm-ref-l' }, g.label),
+          SS.helpTip(g.tip, g.label),
+          h('span', { class: 'spacer' }),
+          h('span', { class: 'bwi-state' }, g.id === w.g ? (playing ? '♪ en écoute' : 'choisi') : '▶ écouter')
+        ),
+        h('div', { class: 'bwk-to' }, 'vers ', h('b', {}, H.label(g.to))),
+        h('div', { class: 'hm-progchords' }, ...cardChords(g)),
+        h('div', { class: 'bwk-tags' }, ...g.tags.map((t) => h('span', { class: 'bwk-tag', style: `--tc:var(--c-${K.TAGS[t].color})` }, K.TAGS[t].label)))
+      );
+    const seg = (id, label, cur, opts, tip) =>
+      h(
+        'div',
+        { class: 'bwi-row' },
+        h('span', { class: 'bh-lbl' }, label),
+        h('span', { class: 'segmented', role: 'radiogroup', 'aria-label': label, id }, ...opts.map(([v, t, dis]) => h('button', { type: 'button', role: 'radio', 'data-v': String(v), class: v === cur ? 'active' : '', 'aria-checked': String(v === cur), disabled: dis ? true : null, onclick: () => kcSet(id.slice(3).toLowerCase(), v) }, t))),
+        tip ? SS.helpTip(tip, label) : null
+      );
+    const g = p && p.g;
+    const card0 = h(
+      'div',
+      { class: 'bwi-card', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'bwkTitle' },
+      h(
+        'header',
+        { class: 'bwi-head' },
+        h('h3', { id: 'bwkTitle' }, '⇅ Changement de tonalité'),
+        SS.helpTip('Une modulation change le point de repos de la musique ; un changement de mode garde la même tonique et change la couleur. Choisis un geste : la chanson s’écoute à partir de la scène d’avant, avec le changement. Rien ne change tant que tu n’appliques pas.', 'Changement de tonalité'),
+        h('span', { class: 'spacer' }),
+        h('button', { type: 'button', class: 'btn btn-icon', id: 'bwkClose', 'aria-label': 'Fermer sans rien changer', title: 'Fermer sans rien changer', onclick: closeKc, html: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>' })
+      ),
+      h(
+        'div',
+        { class: 'bwi-bar bwk-fromto' },
+        h('button', { type: 'button', class: 'btn bt-btn bt-play' + (playing ? ' on' : ''), id: 'bwkPlay', disabled: !p, title: playing ? 'Pause' : 'Écouter à partir de la scène d’avant', 'aria-label': playing ? 'Pause' : 'Écouter', html: playing ? PAUSE : PLAY, onclick: () => {
+            if (playing) {
+              SS.audio.pause();
+              L.paused = true;
+            } else if (L.mode && L.paused) {
+              L.paused = false;
+              SS.audio.resume();
+            } else kcHear(true);
+            renderWiz();
+          } }),
+        h('button', { type: 'button', class: 'btn bt-btn bt-stop', id: 'bwkStop', title: 'Stop', 'aria-label': 'Stop', html: STOP, disabled: !L.mode, onclick: () => (stopListen(), renderWiz()) }),
+        h('span', { class: 'bh-info' }, w.prev ? w.prev.name : 'Tonalité de la chanson'),
+        h('span', { class: 'bwk-key' }, H.label(w.from)),
+        h('span', { 'aria-hidden': 'true' }, '→'),
+        h('span', { class: 'bh-info' }, w.name),
+        h('span', { class: 'bwk-key to', id: 'bwkTo' }, g ? H.label(g.to) : '?')
+      ),
+      h(
+        'div',
+        { class: 'bwi-body' },
+        h(
+          'div',
+          { class: 'bwi-row' },
+          ...[{ id: 'all', label: 'Tous' }, ...fams].map((f) => h('button', { type: 'button', class: 'chip' + (f.id === w.fam ? ' active' : ''), 'data-fam': f.id, 'aria-pressed': String(f.id === w.fam), onclick: () => ((w.fam = f.id), renderWiz()) }, f.label))
+        ),
+        h('div', { class: 'bwi-props bwk-cards', role: 'radiogroup', 'aria-label': 'Gestes' }, ...list.map(card)),
+        seg('bwkPass', 'Passage', w.pass, [[false, 'Direct'], [true, 'Préparé', !w.prev || !g || !g.iv]], 'Direct : la nouvelle tonalité arrive au premier temps, plus surprenant. Préparé : le dernier temps de la scène d’avant devient l’accord de dominante de la nouvelle tonalité (La7 avant Ré) ; plus d’attraction, puis un soulagement à l’arrivée.'),
+        seg('bwkOwn', 'Accords', w.own, [[true, 'Les miens'], [false, 'Ceux du geste', !g || !g.grid]], 'Les miens : la scène garde ses accords, sur les mêmes degrés de la nouvelle tonalité (dans un autre mode, ils en prennent la couleur). Ceux du geste : la grille de la carte, répétée sur toute la scène.'),
+        w.after.length ? seg('bwkFollow', 'Scènes d’après', w.follow, [[false, 'Gardent leur tonalité'], [true, 'Suivent']], `Scènes qui ne jouent qu’après « ${w.name} » : ${w.after.map((x) => x.name).join(', ')}. Suivent : elles passent dans la nouvelle tonalité elles aussi.`) : null
+      ),
+      h(
+        'footer',
+        { class: 'bwi-foot' },
+        h('span', { class: 'spacer' }),
+        h('button', { type: 'button', class: 'btn', id: 'bwkCancel', onclick: closeKc }, 'Annuler'),
+        h('button', { type: 'button', class: 'btn btn-accent', id: 'bwkApply', disabled: !p, onclick: applyKc }, g ? `Appliquer : ${g.label}` : 'Appliquer')
+      )
+    );
+    const scroll = $('.bwi-body', box);
+    const top = scroll ? scroll.scrollTop : 0;
+    const focus = document.activeElement && box.contains(document.activeElement) ? document.activeElement.id || document.activeElement.dataset.g : null;
+    box.replaceChildren(card0);
+    $('.bwi-body', box).scrollTop = top;
+    const f = focus && ($('#' + CSS.escape(focus), box) || $(`[data-g="${focus}"]`, box));
+    (f || $('#bwkClose', box)).focus();
   }
 
   /** Menu « Pistes » : une case par piste (la batterie en une seule) ; la mélodie reste affichée. */
@@ -9561,6 +9795,7 @@ SS.band = (() => {
     }
     if (SS.wizAutoMix) SS.wizAutoMix.place(!band);
     renderInsp();
+    renderKc();
     if (wshId) renderWizSheet();
   }
 
@@ -9575,7 +9810,9 @@ SS.band = (() => {
     if (sig === playBarSig && bar._pb) return;
     playBarSig = sig;
     const m = SS.wizPlayBar.model(res, { spb: SPB(), tempo: tempo() });
-    SS.wizPlayBar.render(bar, m, { color: secColor, word: film() ? 'Passage' : 'Scène', onSeek: (i) => listenSong(i) });
+    const keyOf = (b) => (res.scenes.find((x) => x.id === b.sceneId) || {}).key;
+    const badge = (b, i) => (i ? SS.keyChange.describe(keyOf(m.blocks[i - 1]), keyOf(b)) : null);
+    SS.wizPlayBar.render(bar, m, { color: secColor, word: film() ? 'Passage' : 'Scène', onSeek: (i) => listenSong(i), badge });
   }
   /** Curseur de la frise : même position que la lecture (mode Chanson ou scène en boucle). */
   function markPlayBar() {
@@ -12845,6 +13082,39 @@ SS.band = (() => {
       draftSoon();
       return sceneOf(id);
     }
+    /**
+     * Changement de tonalité ou de mode d'une scène par rapport à celle d'avant (fenêtre « Changement »). Sans geste :
+     * la liste des gestes possibles. o : { geste, passage: 'direct' | 'prepare', accords: 'miens' | 'geste', suivent }.
+     */
+    function changement(ref, o = {}) {
+      needPlan();
+      const res = wizSong().res;
+      const sec = secId(ref);
+      const sc = res && res.scenes.find((x) => x.sec === sec);
+      if (!sc || !res.song.some((b) => b.scene === sc.id)) err(`« ${secName(sec)} » ne joue pas dans l’arrangement`);
+      openKc(sc);
+      const w = S.wiz.kc;
+      const list = SS.keyChange.gestures(w.from);
+      const info = (g) => ({ geste: g.id, nom: g.label, vers: SS.harmony.label(g.to), prepare: !!g.prep, grille: !!g.grid });
+      if (!o.geste) {
+        const out = { depuis: { scene: w.prev ? w.prev.name : null, tonalite: SS.harmony.label(w.from) }, gestes: list.map(info) };
+        closeKc();
+        return out;
+      }
+      const g = list.find((x) => x.id === o.geste);
+      if (!g) {
+        closeKc();
+        err(`geste inconnu : « ${o.geste} » (${list.map((x) => x.id).join(', ')})`);
+      }
+      w.g = g.id;
+      w.pass = !!w.prev && !!g.iv && (o.passage ? o.passage === 'prepare' : !!g.prep);
+      w.own = o.accords ? o.accords !== 'geste' || !g.grid : !g.grid;
+      w.follow = !!o.suivent && w.after.length > 0;
+      const r = { scene: sc.name, depuis: SS.harmony.label(w.from), vers: SS.harmony.label(g.to), passage: w.pass ? 'préparé' : 'direct', accords: w.own ? 'les siens' : 'ceux du geste', suivent: w.follow ? w.after.map((x) => x.name) : [] };
+      applyKc();
+      draftSoon();
+      return r;
+    }
     function creer() {
       needPlan();
       createWizSong();
@@ -13387,7 +13657,7 @@ SS.band = (() => {
       effets, transition, effetsScene, mouvements,
       film: filmEtat, repere: filmRepere, filmScene,
       etat, styles, sons, ouvrir, etape, sceneId: secId, sceneOf, chordName: (key, c) => chordOf(key, c).name,
-      style: setStyleOf, ajouter: addMu, musicien: editMu, tonalite: setKey, scene, structure, accords, creer,
+      style: setStyleOf, ajouter: addMu, musicien: editMu, tonalite: setKey, scene, structure, accords, changement, creer,
       tempo: (v) => (needPlan(), setTempo(v), draftSoon(), tempo()),
       melodie: () => (needPlan(), S.wiz.seed++, touched(), S.wiz.seed),
       ecouter: () => (needPlan(), L.mode && !L.paused ? null : togglePlay()),
