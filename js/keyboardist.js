@@ -8,7 +8,9 @@
  *  - Arpèges : Piano brisé (ballade, Alberti, vagues…) et Arpégiateur (motifs de synthé en doubles-croches).
  * Un mode est soit un motif propre au Clavier, « k:<id> » (une mesure de 16 doubles-croches, 4/4 seulement, écrite en
  * jetons, voir TOKENS), soit un mode du moteur de nappe de js/bandsong.js (block4, montuno23, ballad… : ceux que jouent
- * les pianistes des inspirations, et ceux des autres mesures).
+ * les pianistes des inspirations, et ceux des autres mesures), soit un des 150 motifs du fichier de Nicolas, « kf:NN »
+ * (js/keys-motifs.js, généré) : ses notes sont écrites sur sa propre grille et recalculées sur les accords de la scène
+ * (chaque note garde son degré dans la gamme de l'accord, comme les cuivres : SS.horns.realize), dans sa mesure.
  *
  * Réglages de la scène (parts[section].inst[id].keys, de 0 à 1 sauf lh) : voice (voicing serré → large), energy,
  * pedal, human, reg (registre de la main droite), accent ; lh = main gauche : 'basse' (comme écrit), 'oct' (octaves),
@@ -91,6 +93,88 @@ SS.keyboardist = (() => {
     ['pluck16', 'Pincé', 'Doubles syncopées, très piquées', 'arp', 'arpeg', 'electro funk', P({ 0: '1', 2: '8', 3: '5', 6: '10', 7: '8', 10: '5', 11: '12', 14: '8' })],
   ].map(([id, name, desc, jeu, fam, st, pat]) => ({ id, name, desc, jeu, fam, styles: st.split(' '), pat }));
   const OWN_BY = new Map(OWN.map((m) => [m.id, m]));
+
+  /* ---------- les 150 motifs du fichier (« kf:NN ») ---------- */
+  /** Style de la puce d'après le style du motif dans le fichier (mots-clés, dans l'ordre). */
+  const FILE_STYLE = [
+    [/ballade|power ballad/, 'ballade pop'], [/couleur gospel/, 'pop soul'], [/vari[ée]t[ée]/, 'pop ballade'], [/pop-rock/, 'pop rock'],
+    [/rock à synth/, 'electro rock'], [/synth-pop/, 'electro pop'], [/synthwave/, 'electro'], [/house|techno|trance/, 'electro'], [/hip-hop/, 'soul electro'],
+    [/rhythm and blues|blues/, 'rock soul'], [/boogie|rock’n’roll|rock'n'roll|country/, 'rock'], [/^rock/, 'rock'],
+    [/fusion/, 'funk jazz'], [/soul-funk/, 'funk soul'], [/disco/, 'funk electro'], [/funk/, 'funk'],
+    [/bossa jazz/, 'bossa jazz'], [/bossa/, 'bossa'], [/salsa|son cubain/, 'salsa'], [/reggae|ska|rocksteady|dub/, 'reggae'],
+    [/gospel/, 'soul'], [/ternaire/, 'soul ballade'], [/soul|r&b|néo-soul/, 'soul'],
+    [/swing|jazz|stride|ragtime/, 'jazz'],
+    [/romantique|lied|nocturne|valse/, 'film ballade'], [/classique|cinématique|ambient/, 'film'],
+  ];
+  const fileStyleLabel = (m) => (m.style || m.title.split(' — ')[0]).toLowerCase();
+  const fileStyles = (m) => {
+    const l = fileStyleLabel(m);
+    const hit = FILE_STYLE.find(([re]) => re.test(l));
+    return hit ? hit[1].split(' ') : ['pop'];
+  };
+  /** Jeu et famille d'un motif du fichier, d'après ses notes : arpège si la main droite joue surtout des notes seules. */
+  function fileShape(m) {
+    const rh = Object.entries(m.parts).filter(([p]) => !/^MG|Pad/.test(p)).flatMap(([, v]) => v);
+    const at = new Map();
+    rh.forEach(([st, , len]) => at.set(st, [(at.get(st) || [0])[0] + 1, len]));
+    const hits = [...at.values()];
+    const single = hits.filter(([k]) => k === 1).length / Math.max(1, hits.length);
+    const perBar = hits.length / m.bars;
+    const avgLen = hits.reduce((a, [, l]) => a + l, 0) / Math.max(1, hits.length);
+    const synth = /synth|pluck|pad/i.test(m.son);
+    if (single >= 0.6 && perBar >= 3) return { jeu: 'arp', fam: synth && !/piano/i.test(m.son) ? 'arpeg' : 'brise', perBar, avgLen };
+    const fam = avgLen >= 6 && perBar <= 4 ? 'tenu' : m.parts.MG && avgLen > 2.2 ? 'deux' : 'rythme';
+    return { jeu: 'acc', fam, perBar, avgLen };
+  }
+  /** Types de scène où le motif est conseillé (★) : d'après son conseil de jeu, son émotion et sa densité. */
+  function fileScenes(m, sh) {
+    const t = (m.text + ' ' + m.emo + ' ' + m.title).toLowerCase();
+    const vels = Object.values(m.parts).flat().map((x) => x[3]);
+    const v = vels.reduce((a, x) => a + x, 0) / Math.max(1, vels.length);
+    const out = new Set();
+    if (/intro/.test(t)) out.add('intro');
+    if (/couplet/.test(t)) out.add('verse');
+    if (/refrain/.test(t)) out.add('chorus');
+    if (/relance|montée|élan|tension|crescendo/.test(t)) out.add('pre');
+    if (/\bfin\b|cadence|résolution|conclu|dernière/.test(t)) out.add('outro');
+    if (/suspension|retenue|attente|contraste/.test(t)) out.add('bridge');
+    const explicit = out.size > 0;
+    if (!out.size) {
+      if (sh.fam === 'tenu' || (sh.perBar <= 3 && v < 70)) out.add('intro').add('outro');
+      else if (v < 72 && sh.perBar <= 8) out.add('verse');
+      else if (v >= 82 || sh.perBar >= 10) out.add('chorus');
+      else out.add('verse').add('bridge');
+    }
+    return { scenes: [...out], explicit };
+  }
+  const FILE = (SS.KEYS_MOTIFS || []).map((m) => {
+    const sh = fileShape(m);
+    const short = m.n <= 50 && m.title.includes(' — ') ? m.title.split(' — ').slice(1).join(' — ') : m.title;
+    const sc = fileScenes(m, sh);
+    return { ...m, id: 'f' + String(m.n).padStart(3, '0'), name: `${m.n}. ${short.charAt(0).toUpperCase() + short.slice(1)}`, jeu: sh.jeu, fam: sh.fam, styles: fileStyles(m), scenes: sc.scenes, explicit: sc.explicit };
+  });
+  const FILE_BY = new Map(FILE.map((m) => [m.id, m]));
+  /** Mode « kf:f001 » : un motif du fichier. */
+  const fileOf = (mode) => (/^kf:/.test(mode || '') ? FILE_BY.get(mode.slice(3)) || null : null);
+  /** Type de scène d'après son nom (comme les cuivres) : intro, verse, pre, chorus, bridge, outro. */
+  function sceneKind(sec) {
+    const s = String(sec || '').toLowerCase();
+    if (/^(pre|build|mont)/.test(s)) return 'pre';
+    if (/^intro/.test(s)) return 'intro';
+    if (/^(verse|couplet)/.test(s)) return 'verse';
+    if (/^(bridge|break|solo|pont)/.test(s)) return 'bridge';
+    if (/^(outro|fin|coda)/.test(s)) return 'outro';
+    return 'chorus';
+  }
+  /**
+   * Motifs du fichier conseillés (★) pour une scène (d'après son nom), un jeu et un style, dans la mesure ok : trois au
+   * plus, ceux dont le conseil du fichier nomme ce type de scène d'abord.
+   */
+  function stars(sec, jeu, style, ok = () => true) {
+    const k = sceneKind(sec);
+    const l = FILE.filter((m) => m.jeu === jeu && m.scenes.includes(k) && (!style || style === 'all' || m.styles.includes(style)) && ok('kf:' + m.id));
+    return [...l.filter((m) => m.explicit), ...l.filter((m) => !m.explicit)].slice(0, 3).map((m) => 'kf:' + m.id);
+  }
   /** Modes du moteur de nappe (js/bandsong.js) joués par le Clavier : [id, jeu, famille, styles]. Noms et descriptions : SS.padMotifs. */
   const ENGINE = [
     ['block4', 'acc', 'deux', 'pop ballade soul rock'],
@@ -133,7 +217,7 @@ SS.keyboardist = (() => {
   const ENGINE_BY = new Map(ENGINE.map((m) => [m.id, m]));
   /** Mode « k:<id> » : un motif propre au Clavier. */
   const ownOf = (mode) => (/^k:/.test(mode || '') ? OWN_BY.get(mode.slice(2)) || null : null);
-  const entryOf = (mode) => ownOf(mode) || ENGINE_BY.get(mode) || null;
+  const entryOf = (mode) => ownOf(mode) || fileOf(mode) || ENGINE_BY.get(mode) || null;
   /** Arpèges du moteur de nappe (un mode d'arpège venu d'une inspiration). */
   const ARP_LIKE = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16', 'ost16', 'dotted', 'toll', 'alb3', 'wave6', 'tri8', 'arp68', 'arp128', 'arpvalse', 'ballad', 'pluck'];
   /** Jeu d'un mode (un mode inconnu, venu d'une inspiration, est rangé avec les accords). */
@@ -141,11 +225,17 @@ SS.keyboardist = (() => {
   const familyOf = (mode) => (entryOf(mode) ? entryOf(mode).fam : jeuOf(mode) === 'arp' ? 'brise' : 'tenu');
   const stylesOf = (mode) => (entryOf(mode) ? entryOf(mode).styles : []);
   const inStyle = (mode, style) => !style || style === 'all' || stylesOf(mode).includes(style);
-  const name = (mode) => (ownOf(mode) ? ownOf(mode).name : SS.padMotifs ? SS.padMotifs.name(mode) : mode);
-  const desc = (mode) => (ownOf(mode) ? ownOf(mode).desc : SS.padMotifs ? SS.padMotifs.desc(mode) : '');
+  const name = (mode) => (ownOf(mode) ? ownOf(mode).name : fileOf(mode) ? fileOf(mode).name : SS.padMotifs ? SS.padMotifs.name(mode) : mode);
+  const desc = (mode) => {
+    const f = fileOf(mode);
+    if (f) return `${f.emo}. ${f.text} (${f.son}${f.work ? ' ; d’après ' + f.work : ''})`;
+    return ownOf(mode) ? ownOf(mode).desc : SS.padMotifs ? SS.padMotifs.desc(mode) : '';
+  };
+  /** Mesure d'un mode : celle d'un motif du fichier, '4/4' pour un motif « k: », null pour le moteur (toutes). */
+  const meterOf = (mode) => (fileOf(mode) ? fileOf(mode).meter : ownOf(mode) ? '4/4' : null);
   /** Tous les modes d'un jeu, famille par famille : les motifs du Clavier, puis ceux du moteur de nappe. */
   function modesOf(jeu) {
-    return (FAMILIES[jeu] || []).flatMap(([f]) => [...OWN.filter((m) => m.jeu === jeu && m.fam === f).map((m) => 'k:' + m.id), ...ENGINE.filter((m) => m.jeu === jeu && m.fam === f).map((m) => m.id)]);
+    return (FAMILIES[jeu] || []).flatMap(([f]) => [...OWN.filter((m) => m.jeu === jeu && m.fam === f).map((m) => 'k:' + m.id), ...ENGINE.filter((m) => m.jeu === jeu && m.fam === f).map((m) => m.id), ...FILE.filter((m) => m.jeu === jeu && m.fam === f).map((m) => 'kf:' + m.id)]);
   }
   const ALL = () => [...modesOf('acc'), ...modesOf('arp')];
   /** Premier mode d'un jeu pour un style (parmi ceux qu'accepte ok, la mesure de la chanson). */
@@ -264,6 +354,7 @@ SS.keyboardist = (() => {
    * Renvoie des notes { step, len, notes, vel, lh? } (lh : main gauche, retiré par shape).
    */
   function events(spans, mode, ctx, pat) {
+    if (fileOf(mode) && !parsePat(pat)) return fileEvents(spans, fileOf(mode), ctx);
     const m = ownOf(mode);
     const P = parsePat(pat) || (m && m.pat);
     if (!P || !spans.length) return [];
@@ -334,6 +425,59 @@ SS.keyboardist = (() => {
       }
     }
     return out;
+  }
+
+  /**
+   * Notes d'un motif du fichier sur les accords d'une scène : le motif (une ou deux mesures) se répète ; chaque note
+   * garde son degré dans la gamme de son accord, recalculée sur l'accord de la scène au même endroit (SS.horns.realize),
+   * la basse de la main gauche suit la basse de l'accord (C/E : Mi). Une note s'arrête au changement d'accord de la scène.
+   */
+  function fileEvents(spans, m, ctx) {
+    const H = SS.horns;
+    if (!spans.length) return [];
+    const end = spans.reduce((a, sp) => Math.max(a, sp.step + sp.len), 0);
+    const L = m.bars * m.spb;
+    const chordAt = (st) => {
+      let c = m.chords[0];
+      for (const x of m.chords) if (x[0] <= st + 1e-6) c = x;
+      return c;
+    };
+    const spanAt = (s) => spans.find((sp) => s >= sp.step && s < sp.step + sp.len);
+    const groups = new Map();
+    for (let t = 0; t < end; t += L) {
+      for (const [part, notes] of Object.entries(m.parts)) {
+        const lh = /^MG/.test(part);
+        // l'attaque la plus grave de la main gauche à chaque pas : la basse
+        const lowAt = new Map();
+        if (lh) notes.forEach(([st, n]) => lowAt.set(st, Math.min(lowAt.get(st) ?? 999, n)));
+        for (const [st, n, len, vel] of notes) {
+          const abs = t + st;
+          if (abs >= end) continue;
+          let step = Math.floor(abs + 1e-6);
+          let shift = Math.round((abs - step) * 100) / 100;
+          if (shift > 0.5) (step += 1), (shift = Math.round((shift - 1) * 100) / 100);
+          const sp = spanAt(Math.min(end - 1, step));
+          if (!sp) continue;
+          const [, sRoot, sSc, , sBass] = chordAt(st);
+          const c = sp.chord;
+          const dSc = H ? H.scaleOf(c.rootPc, ctx.tones(c), sSc) : sSc;
+          let note = H ? H.realize(n, sRoot, sSc, c.rootPc, dSc) : n + (pcOf(c.rootPc - sRoot + 6) - 6);
+          if (lh && n === lowAt.get(st) && pcOf(n) === sBass) {
+            const bp = c.bassPc != null ? c.bassPc : c.rootPc;
+            const tgt = n + (pcOf(bp - sBass + 6) - 6);
+            note = tgt;
+          }
+          while (note < 24) note += 12; // pas plus grave que Do1, pas plus aigu que Do8
+          while (note > 108) note -= 12;
+          const room = sp.step + sp.len - step;
+          const ln = Math.max(1, Math.min(Math.round(len), room));
+          const key = `${step}|${shift}|${ln}|${vel}|${lh ? 1 : 0}`;
+          if (!groups.has(key)) groups.set(key, { step, len: ln, notes: [], vel: ctx.vel(vel / 127), ...(shift ? { shift } : {}), ...(lh ? { lh: true } : {}) });
+          groups.get(key).notes.push(note);
+        }
+      }
+    }
+    return [...groups.values()].map((e) => ({ ...e, notes: [...new Set(e.notes)].sort((a, b) => a - b) })).sort((a, b) => a.step - b.step || (a.shift || 0) - (b.shift || 0));
   }
 
   /**
@@ -452,15 +596,21 @@ SS.keyboardist = (() => {
   function svg(mode) {
     if (draws[mode]) return draws[mode];
     const C = { rootPc: 0, type: 'maj' };
-    const ev = events([{ step: 0, len: 16, chord: C }], mode, { voice: () => [60, 64, 67], tones: () => [0, 4, 7], vel: (v) => v });
+    const f = fileOf(mode);
+    const L = f ? f.bars * f.spb : 16;
+    const ev = f
+      ? fileEvents([{ step: 0, len: L, chord: C }], { ...f, chords: f.chords.map((c) => [c[0], 0, 'ion', 'C', 0]) }, { tones: () => [0, 4, 7], vel: (v) => v })
+      : events([{ step: 0, len: 16, chord: C }], mode, { voice: () => [60, 64, 67], tones: () => [0, 4, 7], vel: (v) => v });
     const ns = ev.flatMap((e) => e.notes);
     const lo = Math.min(...ns, 60);
     const hi = Math.max(...ns, 72);
     const y = (n) => 30 - ((n - lo) / Math.max(12, hi - lo)) * 26;
-    const bars = [1, 2, 3].map((b) => `<rect x="${b * 40}" y="0" width=".6" height="34" fill="currentColor" opacity=".25"/>`).join('');
-    const rects = ev.flatMap((e) => e.notes.map((n) => `<rect x="${e.step * 10 + 0.5}" y="${y(n).toFixed(1)}" width="${Math.max(3, Math.min(e.len, 4) * 10 - 1.5)}" height="3.5" rx="1" fill="currentColor" opacity="${e.lh ? 0.45 : 0.95}"/>`)).join('');
+    const X = 160 / L;
+    const beat = f ? (f.meter === '6/8' || f.meter === '12/8' ? 6 : 4) : 4;
+    const bars = Array.from({ length: Math.floor((L - 1) / beat) }, (_, i) => (i + 1) * beat).map((b) => `<rect x="${(b * X).toFixed(1)}" y="0" width=".6" height="34" fill="currentColor" opacity="${b % (f ? f.spb : 16) ? 0.25 : 0.5}"/>`).join('');
+    const rects = ev.flatMap((e) => e.notes.map((n) => `<rect x="${((e.step + (e.shift || 0)) * X + 0.3).toFixed(1)}" y="${y(n).toFixed(1)}" width="${Math.max(2, Math.min(e.len, 4) * X - 1).toFixed(1)}" height="3.5" rx="1" fill="currentColor" opacity="${e.lh ? 0.45 : 0.95}"/>`)).join('');
     return (draws[mode] = `<svg viewBox="0 0 160 34" preserveAspectRatio="none" aria-hidden="true">${bars}${rects}</svg>`);
   }
 
-  return { svg, JEUX, FAMILIES, STYLES, STYLE_OF, styleOfSong, OWN, ENGINE, ownOf, entryOf, jeuOf, familyOf, stylesOf, inStyle, name, desc, modesOf, ALL, firstOf, surprise, DEF, LH, normalize, KNOBS, knobValue, knobPatch, touched, ADV, advanced, TOKEN, parsePat, stepsOf, patText, patFromEvents, intervals, events, shape };
+  return { svg, JEUX, FAMILIES, STYLES, STYLE_OF, styleOfSong, OWN, ENGINE, ownOf, entryOf, jeuOf, familyOf, stylesOf, inStyle, name, desc, modesOf, ALL, firstOf, surprise, FILE, fileOf, fileEvents, meterOf, sceneKind, stars, DEF, LH, normalize, KNOBS, knobValue, knobPatch, touched, ADV, advanced, TOKEN, parsePat, stepsOf, patText, patFromEvents, intervals, events, shape };
 })();

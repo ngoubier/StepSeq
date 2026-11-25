@@ -1029,7 +1029,14 @@ chaque style en 4/4, des puces de **style** (11 styles, celle de la chanson marq
 point), **Surprends-moi**, une **Main gauche** *Basse | Octaves | Aucune* et quatre potentiomètres (Voicing, Énergie,
 Pédale, Main humaine ; en Arpèges : Registre, Pédale, Accent, Main humaine). Les motifs « k: » sont écrits pour les
 deux mains (en 4/4 ; hors du 4/4, un rythme de la mesure les remplace) ; les autres sont les modes du moteur de nappe
-que jouent les pianistes des inspirations. Réglages dans `parts…keys`, appliqués à tous les motifs. Le son se choisit à
+que jouent les pianistes des inspirations. S'y ajoutent les **150 motifs du fichier de Nicolas** « Piano et claviers
+d'accompagnement par style » (`docs/reference/clavier-150-motifs.md`, modes « kf:f001 » à « kf:f150 », numérotés comme
+dans le fichier) : chaque motif garde ses notes, ses deux mains (MG, MD, Pad, Pluck…), sa mesure (4/4, swing, triolets,
+3/4, 6/8, 12/8) et n'est proposé que dans sa mesure ; ses notes sont transposées sur les accords de la scène (la basse
+de la main gauche suit la basse de l'accord). Ils sont rangés par jeu et famille d'après leur écriture, et par style
+d'après leur famille du fichier ; un **★** marque, en tête de famille, jusqu'à trois motifs conseillés pour le type de
+scène (intro, couplet, refrain, pont, fin), d'après le titre et le conseil de jeu. Table générée par
+`node tools/keys-motifs.js` (`js/keys-motifs.js`, ne pas l'éditer). Réglages dans `parts…keys`, appliqués à tous les motifs. Le son se choisit à
 l'étape Instruments. **Avancé…** ouvre la fenêtre du Clavier : un **éditeur pas à pas des deux mains** (main droite :
 accord tenu, court, doux, note haute, octaves ; main gauche : octave, quinte, basse ; en Arpèges, les degrés 1 à 15),
 gardé pour la scène (`keys.pat`, « Motif personnel ») ; un **clavier** qui montre les notes jouées sur chaque accord de

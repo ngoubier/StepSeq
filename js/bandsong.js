@@ -2092,7 +2092,7 @@ SS.bandSong = (() => {
     bass: [...['whole', '8', 'pulse8', 'oct', 'gallop', 'offbeat', 'roll', 'off16', 'half', 'quarter', 'drone', 'sync', 'walk'], ...BASS_NEW.map((b) => b[0])],
     chords: ['sustain', 'swell', 'float', 'ballad', 'pluck', ...Object.keys(RHYTHM), ...Object.keys(PAD_NEW), ...(SS.GuitarArp ? SS.GuitarArp.MOTIFS.map((m) => 'g:' + m.id) : [])],
     // Clavier : ses motifs (« k: », js/keyboardist.js), plus tous les modes du moteur de nappe (ceux des pianistes des inspirations)
-    keys: [...(SS.keyboardist ? SS.keyboardist.OWN.map((m) => 'k:' + m.id) : []), 'sustain', 'swell', 'float', 'ballad', 'pluck', ...Object.keys(RHYTHM), ...Object.keys(PAD_NEW)],
+    keys: [...(SS.keyboardist ? [...SS.keyboardist.OWN.map((m) => 'k:' + m.id), ...SS.keyboardist.FILE.map((m) => 'kf:' + m.id)] : []), 'sustain', 'swell', 'float', 'ballad', 'pluck', ...Object.keys(RHYTHM), ...Object.keys(PAD_NEW)],
     // Guitariste : motifs guitare, plus les accords plaqués (jeu « Accords », voir js/guitarist.js)
     guitar: [...(SS.GuitarArp ? SS.GuitarArp.MOTIFS.map((m) => 'g:' + m.id) : []), ...(SS.GuitarRiffs ? SS.GuitarRiffs.RIFFS.map((x) => 'r:' + x.id) : []), 'strum', 'pluck', 'chop', 'pulse8', 'sustain'],
     arp: ARP_MODES,
@@ -2113,6 +2113,7 @@ SS.bandSong = (() => {
     if (kind === 'guitar') kind = 'chords';
     if (kind === 'keys') {
       if (/^k:/.test(id || '')) return (sig === SIG ? SPB === 16 : true) && sig === '4/4'; // motifs du Clavier : une mesure de 16 doubles-croches
+      if (/^kf:/.test(id || '')) return !!SS.keyboardist && SS.keyboardist.meterOf(id) === sig; // motifs du fichier : dans leur mesure
       kind = 'chords';
     }
     if (sig !== SIG) {
@@ -2149,6 +2150,15 @@ SS.bandSong = (() => {
     if (kind === 'guitar') kind = 'chords'; // le Guitariste joue avec le générateur des accords (motifs « g: » compris)
     if (kind === 'keys') {
       // Clavier : un motif « k: » hors du 4/4 devient le rythme de la mesure (accords) ou son arpège brisé
+      if (/^kf:/.test(mode || '') && SS.keyboardist) {
+        if (SS.keyboardist.meterOf(mode) === SIG) return mode;
+        // motif du fichier d'une autre mesure : un motif du fichier de la même famille dans la mesure, sinon le rythme de la mesure
+        const st = SS.keyboardist.fileOf(mode);
+        const alt = st && SS.keyboardist.FILE.find((x) => x.meter === SIG && x.jeu === st.jeu && x.fam === st.fam && x.styles.some((y) => st.styles.includes(y)));
+        if (alt) return 'kf:' + alt.id;
+        if (SS.keyboardist.jeuOf(mode) === 'arp') return { '4/4': 'ballad', '3/4': 'arpvalse', '6/8': 'arp68', '12/8': 'arp128' }[SIG] || 'sustain';
+        return SIG === '4/4' ? 'block4' : (METER_FALLBACK[SIG] || {}).chords || 'sustain';
+      }
       if (!/^k:/.test(mode || '') || SIG === '4/4') kind = 'chords';
       else return SS.keyboardist && SS.keyboardist.jeuOf(mode) === 'arp' ? { '3/4': 'arpvalse', '6/8': 'arp68', '12/8': 'arp128' }[SIG] || 'sustain' : (METER_FALLBACK[SIG] || {}).chords || 'sustain';
     }
@@ -2428,7 +2438,7 @@ SS.bandSong = (() => {
         // Clavier : motif « k: » (js/keyboardist.js), sinon le moteur de nappe (arpège ou accords, registre du piano)
         const kpat = kk && SIG === '4/4' && o && o.keys && SS.keyboardist && SS.keyboardist.parsePat(o.keys.pat) ? o.keys.pat : null; // motif réécrit dans la fenêtre Avancé
         const keysEv = (m, range = { lo: 57, hi: 79 }) =>
-          (/^k:/.test(m) || kpat) && SS.keyboardist
+          (/^kf?:/.test(m) || kpat) && SS.keyboardist
             ? SS.keyboardist.events(spans, m, { voice: voiceChord, tones, vel: (v) => vel(r, v) }, kpat)
             : ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16', 'ost16', 'dotted', 'toll', ...TRI_ARP].includes(m)
               ? arpEvents(spans, m, r)
