@@ -636,6 +636,8 @@ SS.harmony = (() => {
     { id: 'avoid', label: 'Dernier accord → VI (cadence évitée)', text: 'la résolution attendue est différée' },
     { id: 'open', label: 'Voicing serré → ouvert', text: 'la voix du milieu monte d’une octave : plus d’espace' },
     { id: 'pedal', label: 'Basse en pédale de tonique', text: 'la basse garde son rythme mais reste sur la tonique : suspension, tension' },
+    { id: 'borrow', label: 'Fin de phrase IV → iv → I', text: 'emprunt modal : les trois derniers accords deviennent IV, iv (emprunté au mineur) et I ; la sixte descend d’un demi-ton vers la quinte, couleur nostalgique (tonalités majeures)' },
+    { id: 'secdom', label: 'Mettre en valeur le V (II7 → V)', text: 'tonicisation : l’accord qui précède le V devient sa propre dominante, II7 (D7 → G en Do) ; sur un accord long, seule sa seconde moitié change' },
   ];
 
   /**
@@ -685,6 +687,37 @@ SS.harmony = (() => {
       // septième prise dans la gamme : Cmaj7 et Fmaj7 en Do majeur, mais G7 ; B♭7 (et non B♭maj7) en Do mineur
       else if (id === 'seventh') set(c, { maj: inKey.has(pcOf(sc[c.degree].pc + (c.acc || 0) + 11)) ? 'maj7' : '7', min: 'm7', dim: inKey.has(pcOf(sc[c.degree].pc + (c.acc || 0) + 9)) ? 'dim7' : 'm7b5' }[c.type]);
       else if (id === 'mode' && c.degree === 0 && !c.acc && plain) set(c, c.type === 'maj' ? 'min' : 'maj');
+    }
+    // emprunt modal de fin de phrase (tonalités de couleur majeure) : … IV – iv – I
+    if (id === 'borrow' && fam(key) === 'major' && grid.length >= 2) {
+      const want = [[3, 'maj'], [3, 'min'], [0, 'maj']].slice(grid.length >= 3 ? 0 : 1);
+      grid.slice(-want.length).forEach((c, i) => {
+        const [d, t] = want[i];
+        if (c.degree !== d || (c.acc || 0) || c.type !== t || c.bass) changed++;
+        Object.assign(c, { degree: d, type: t, acc: 0 });
+        delete c.bass;
+      });
+      return { grid, changed };
+    }
+    // tonicisation : II7 avant chaque V majeur (sur un accord d'au moins une demi-mesure, seule sa seconde moitié change)
+    if (id === 'secdom') {
+      const out = [];
+      grid.forEach((c, i) => {
+        const nx = grid[i + 1];
+        const isV = nx && nx.degree === 4 && !(nx.acc || 0) && ['maj', '7'].includes(nx.type);
+        if (!isV || c.degree === 4 || (c.degree === 1 && c.type === '7' && !(c.acc || 0))) return void out.push(c);
+        const two = { degree: 1, type: '7', acc: 0 };
+        const half = Math.floor(c.len / 4) * 2;
+        if (c.len >= 8 && half >= 2) {
+          out.push({ ...c, len: half }, { step: c.step + half, len: c.len - half, ...two });
+        } else {
+          const r = { ...c, ...two };
+          delete r.bass;
+          out.push(r);
+        }
+        changed++;
+      });
+      return { grid: out, changed };
     }
     if (id === 'avoid' && grid.length) {
       const last = grid[grid.length - 1];

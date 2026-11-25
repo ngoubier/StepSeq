@@ -78,3 +78,39 @@ test('pastilles des changements', () => {
   assert.equal(K.describe(C, { tonic: 'A♭', mode: 'major' }), '→ La♭ majeur');
   assert.equal(K.describe(C, { tonic: 'C', mode: 'major' }), null);
 });
+
+test('essai A/B : fin de phrase IV → iv → I (emprunt modal)', () => {
+  const grid = K.fitGrid([[[0, 'maj']], [[5, 'min']], [[3, 'maj']], [[4, '7']]], 4, 16);
+  const r = H.transformGrid('borrow', grid, C, 64);
+  assert.equal(names(C, r.grid).join(' '), 'C F Fm C');
+  assert.ok(r.changed > 0);
+  // en mineur : rien (l'emprunt vient du mineur)
+  assert.equal(H.transformGrid('borrow', grid, AM, 64).changed, 0);
+});
+
+test('essai A/B : II7 avant le V (tonicisation)', () => {
+  const grid = K.fitGrid([[[0, 'maj']], [[3, 'maj']], [[4, 'maj']], [[0, 'maj']]], 4, 16);
+  const r = H.transformGrid('secdom', grid, C, 64);
+  assert.equal(names(C, r.grid).join(' '), 'C F D7 G C');
+  assert.deepEqual(r.grid.slice(1, 3).map((c) => [c.step, c.len]), [[16, 8], [24, 8]]);
+  // accord court (2 temps) : remplacé en entier
+  const short = [{ step: 0, len: 8, degree: 0, type: 'maj', acc: 0 }, { step: 8, len: 4, degree: 3, type: 'maj', acc: 0 }, { step: 12, len: 4, degree: 4, type: '7', acc: 0 }];
+  assert.equal(names(C, H.transformGrid('secdom', short, C, 16).grid).join(' '), 'C D7 G7');
+});
+
+test('Vérifier : la nouvelle tonalité est-elle confirmée ?', () => {
+  const D = { tonic: 'D', mode: 'major' };
+  const prev = K.withPrep(K.fitGrid([[[0, 'maj']], [[5, 'min']], [[3, 'maj']], [[4, 'maj']]], 4, 16), C, D, 64, 4);
+  const grid = K.fitGrid([[[0, 'maj']], [[4, 'maj']], [[5, 'min']], [[3, 'maj']]], 4, 16);
+  const ok = K.confirmChecks({ prevKey: C, key: D, grid, prevGrid: prev });
+  assert.equal(ok[0].kind, 'info');
+  assert.ok(ok.slice(1).every((x) => x.kind === 'ok'), JSON.stringify(ok));
+  // sans préparation ni cadence, et pas sur la tonique : deux conseils
+  const bad = K.confirmChecks({ prevKey: C, key: D, grid: K.fitGrid([[[5, 'min']], [[3, 'maj']]], 2, 16), prevGrid: [] });
+  assert.equal(bad.filter((x) => x.kind === 'tip').length, 2);
+  // mode : la note caractéristique (Fa♯ en Do lydien, portée par D/C)
+  const LYD = { tonic: 'C', mode: 'lydian' };
+  const lyd = K.confirmChecks({ prevKey: C, key: LYD, grid: K.fitGrid(K.find(C, 'lyd').grid, 4, 16) });
+  assert.ok(lyd.some((x) => x.kind === 'ok' && /Fa♯/.test(x.text)), JSON.stringify(lyd));
+  assert.deepEqual(K.confirmChecks({ prevKey: C, key: C, grid }), []);
+});

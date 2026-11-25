@@ -327,13 +327,14 @@ caractère…), et **▶ joue la scène choisie en boucle** (pas toute la chanso
    copie « Refrain final » (`S.wiz.secs[id].same` : même mélodie que la scène d'origine, transposée par `SS.bandSong.build`
    quand les accords ont les mêmes degrés dans le même mode) ; avec un passage préparé dans « Refrain ×2 », la reprise
    d'avant devient aussi une copie qui porte la dominante. L'étape **Arrangement** a le raccourci **Dernier refrain** :
-   Même tonalité, +½ ton, +1 ton préparé. Une scène qui
+   Même tonalité, +½ ton, +1 ton préparé. **Vérifier la scène** dit si une scène qui change de tonalité la confirme : départ
+   sur la nouvelle tonique, cadence V → I ou passage préparé, note caractéristique d'un mode (`SS.keyChange.confirmChecks`). Une scène qui
    change de tonalité porte une pastille violette (« ↗ 1 ton », « relatif », « dorien ») dans la colonne des scènes et
    dans la frise de lecture. Claude : `StepSeq.assistantChangement({ scene, geste, passage, accords, suivent, ou })` (`ou: 'dernier'`). Repris de l'ancienne fenêtre Harmonie (l'assistant
    devient l'écran de référence) : la ligne du **guide du mode** (note caractéristique, ce qu'il faut faire entendre, **boucle
    d'essai** à poser), le menu **Grilles de la tonalité** (catalogue `SS.harmony.progressions`), les **essais A/B**
    (`SS.harmony.transformGrid` : septièmes prises dans la gamme, sus2, tonique majeur / mineur, cadence évitée, pédale de
-   tonique ; **A · avant** / **B · essai** à l'écoute en boucle, **Garder A** ou **Garder B**), les **pédales** (bouton
+   tonique, fin de phrase IV → iv → I (emprunt modal), II7 → V (tonicisation) ; **A · avant** / **B · essai** à l'écoute en boucle, **Garder A** ou **Garder B**), les **pédales** (bouton
    **Pédale** d'un accord, puis note et durée ; `S.wiz.peds`, même format que `scene.grid.pedals` : la note tenue passe à
    la basse des accords qu'elle couvre) et **Vérifier la scène** (`SS.harmony.gridChecks` et `SS.melody.checkMelody` sur
    la mélodie de chaque instrument mélodique). Le tout passe à `SS.bandSong.build` par l'option `harmony` (`keys`, `chords`,
