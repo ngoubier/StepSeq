@@ -3952,6 +3952,7 @@ dialog.help-dialog::backdrop { background: #0008; }
 .mot-pick .mot-chip.star.on { background: var(--c-amber-bg); border-color: var(--c-amber); color: var(--text); }
 .mot-pick .mot-card { position: relative; }
 .mot-pick .mot-card.has-badge .mot-name { padding-right: 76px; }
+.mot-pick .mot-card.has-auto .mot-name { padding-right: 30px; }
 .mot-star { color: var(--c-amber); }
 .mot-badge { position: absolute; top: 6px; right: 8px; font-style: normal; font-size: var(--fs-xs); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--c-violet-soft); }
 .mot-badge.auto { color: var(--c-amber); text-transform: none; letter-spacing: 0; }
@@ -5944,6 +5945,12 @@ body.wizard-mode #bandDialog.band-dialog.tut-on { flex-direction: row; }
 .bwg-styles .mot-chip.on { border-color: var(--c); background: color-mix(in srgb, var(--c) 18%, var(--panel-2)); }
 .bwg-styles .mot-chip.mark::after { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--c); margin-left: 6px; vertical-align: middle; }
 .bwg .bwp-grp { padding-top: 2px; }
+/* Guitariste et Clavier : la carte Motif commune, à la couleur du musicien */
+.bwg.mot-pick { --motc: var(--c); }
+.bwg.mot-pick .mot-chips { margin: 0; }
+.bwg.mot-pick .mot-chip.on:not(.star) { background: color-mix(in srgb, var(--c) 18%, var(--panel-2)); color: var(--text); }
+.bwg.mot-pick .mot-card { color: var(--c); }
+.bwg.mot-pick .mot-card.on { background: color-mix(in srgb, var(--c) 14%, var(--panel-2)); }
 .bwg-knobs { margin-top: 4px; }
 .bwg-knobs .arp-knob-ring { width: 72px; height: 72px; background: conic-gradient(var(--c) 0 var(--p), var(--c-line) var(--p) 100%); }
 .bwg-knobs .arp-knob-cap { width: 54px; height: 54px; }

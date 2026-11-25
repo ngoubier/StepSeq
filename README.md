@@ -1030,6 +1030,13 @@ de **style** (celle de la chanson marquée d'un point), **Surprends-moi**, quatr
 « ✎ Réglages avancés ». La fenêtre a aussi un **éditeur pas à pas** : cordes (doigts, médiator) ou coups (grattage) du
 motif, gardés pour la scène (`gtr.pat`). Le son se choisit à l'étape Instruments.
 
+Le Guitariste et le Clavier ont la **carte Motif commune** (`js/motifpicker.js`, comme la Basse et la Nappe) : sous le
+Jeu, les styles communs plus leurs puces propres (Guitariste : Folk, Blues, Bossa ; Clavier : Jazz, Bossa ; les
+anciennes étiquettes Rock, Ballade, Reggae, Salsa… mènent aux styles communs par `TAG_STYLE`), puis les familles du jeu
+en puces (« ★ Pour cette scène » en tête quand la scène a des conseillés, ce qui est le cas du Clavier), Tous et
+Surprends-moi ; au pied, **Scènes : Cette scène | Même type | Toutes**. Les motifs du fichier ne portent plus leur
+numéro dans leur nom (il est dans la bulle de la carte).
+
 Les **riffs** (`js/guitar-riffs.js`, modes « r:power »…) sont écrits en degrés de l'accord (R, b3, 3, 4, 5, 6, b7, 8 ;
 R5 = power chord, x = note morte, « _ » = palm mute) : ils suivent les accords de la scène, fondamentale entre Mi 2 et
 Ré♯ 3. Potentiomètres : Étouffé, Swing, Énergie, Main humaine ; fenêtre **RIFF** : éditeur des degrés (clic droit =
@@ -1043,13 +1050,13 @@ Le **Clavier** (pianos, orgues, synthés) est un autre type de musicien à part 
 d'une inspiration en est un, et garde son jeu). Son étape (`js/keyboardist.js` pour le catalogue et les notes,
 `keysBody` de `js/band.js`) suit le même principe : par scène, un **Jeu** *Accords* (familles Deux mains, Rythmés,
 Tenus) ou *Arpèges* (Piano brisé, Arpégiateur) : 45 motifs d'accords et 33 d'arpèges, au moins trois par jeu pour
-chaque style en 4/4, des puces de **style** (11 styles, celle de la chanson marquée d'un
+chaque style en 4/4, des puces de **style** (celle de la chanson marquée d'un
 point), **Surprends-moi**, une **Main gauche** *Basse | Octaves | Aucune* et quatre potentiomètres (Voicing, Énergie,
 Pédale, Main humaine ; en Arpèges : Registre, Pédale, Accent, Main humaine). Les motifs « k: » sont écrits pour les
 deux mains (en 4/4 ; hors du 4/4, un rythme de la mesure les remplace) ; les autres sont les modes du moteur de nappe
 que jouent les pianistes des inspirations. S'y ajoutent les **150 motifs du fichier de Nicolas** « Piano et claviers
-d'accompagnement par style » (`docs/reference/clavier-150-motifs.md`, modes « kf:f001 » à « kf:f150 », numérotés comme
-dans le fichier) : chaque motif garde ses notes, ses deux mains (MG, MD, Pad, Pluck…), sa mesure (4/4, swing, triolets,
+d'accompagnement par style » (`docs/reference/clavier-150-motifs.md`, modes « kf:f001 » à « kf:f150 », du numéro du
+fichier) : chaque motif garde ses notes, ses deux mains (MG, MD, Pad, Pluck…), sa mesure (4/4, swing, triolets,
 3/4, 6/8, 12/8) et n'est proposé que dans sa mesure ; ses notes sont transposées sur les accords de la scène (la basse
 de la main gauche suit la basse de l'accord). Ils sont rangés par jeu et famille d'après leur écriture, et par style
 d'après leur famille du fichier ; un **★** marque, en tête de famille, jusqu'à trois motifs conseillés pour le type de

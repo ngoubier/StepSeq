@@ -36,13 +36,13 @@ const parts = (page) => page.evaluate(() => JSON.stringify(SS.band._state.wiz.pa
   ok(await page.locator('#bwKeys').count() === 1 && (await page.locator('#bwParts[data-kind="keys"]').count()) === 1, 'étape du Clavier');
   await page.click('#bandWiz .bh-scene >> nth=1'); await page.waitForTimeout(300);
   ok(await page.locator('#bwkJeu [data-v="acc"]').count() === 1 && (await page.locator('#bwkJeu [data-v="arp"]').count()) === 1, 'Jeu Accords | Arpèges');
-  ok(await page.locator('#bwkStyle .mot-chip.mark[data-v="pop"]').count() === 1, 'puce Pop marquée (style de la chanson)');
+  ok(await page.locator('#bwkStyle .mot-chip.mark[data-g="pop"]').count() === 1, 'puce Pop marquée (style de la chanson)');
   await page.click('#bwkJeu [data-v="acc"]'); await page.waitForTimeout(300);
   ok(/"mode":"/.test(await parts(page)), 'Accords : un motif choisi pour la scène');
-  await page.click('#bwkStyle [data-v="all"]'); await page.waitForTimeout(200);
-  for (const f of ['deux', 'rythme', 'tenu']) ok(await page.locator(`#bwKeys .bwp-grp[data-fam="${f}"]`).count() === 1, 'Accords : famille ' + f);
-  await page.click('#bwKeys .bwp-mode[data-v="k:pop8"]'); await page.waitForTimeout(300);
-  ok(await page.locator('#bwKeys .bwp-mode.on[data-v="k:pop8"]').count() === 1 && /"mode":"k:pop8"/.test(await parts(page)), 'motif Pop croches choisi');
+  await page.click('#bwkStyle [data-g="all"]'); await page.click('#bwkFam [data-f="all"]'); await page.waitForTimeout(200);
+  for (const f of ['deux', 'rythme', 'tenu']) ok(await page.locator(`#bwKeys .mot-fam[data-f="${f}"]`).count() === 1, 'Accords : famille ' + f);
+  await page.click('#bwKeys .mot-card[data-id="k:pop8"]'); await page.waitForTimeout(300);
+  ok(await page.locator('#bwKeys .mot-card.on[data-id="k:pop8"]').count() === 1 && /"mode":"k:pop8"/.test(await parts(page)), 'motif Pop croches choisi');
   ok(await page.locator('#bwKeys .bwg-knobs .arp-knob').count() === 4, '4 potentiomètres');
   await page.click('#bwkLh [data-v="aucune"]'); await page.waitForTimeout(300);
   ok(/"keys":\{"lh":"aucune"\}/.test(await parts(page)), 'main gauche : aucune');
@@ -55,9 +55,9 @@ const parts = (page) => page.evaluate(() => JSON.stringify(SS.band._state.wiz.pa
   ok(notes > 0, 'la chanson se refait');
   if (SHOT) { await page.evaluate(() => document.querySelector('#bwParts').scrollIntoView()); await page.waitForTimeout(200); await page.screenshot({ path: SHOT }); }
   await page.click('#bwkJeu [data-v="arp"]'); await page.waitForTimeout(300);
-  await page.click('#bwkStyle [data-v="all"]'); await page.waitForTimeout(200);
-  ok(await page.locator('#bwKeys[data-jeu="arp"] .bwp-grp[data-fam="brise"]').count() === 1 && (await page.locator('#bwKeys .bwp-grp[data-fam="arpeg"]').count()) === 1, 'Arpèges : Piano brisé, Arpégiateur');
-  await page.click('#bwKeys .bwp-mode[data-v="k:alberti"]'); await page.waitForTimeout(300);
+  await page.click('#bwkStyle [data-g="all"]'); await page.click('#bwkFam [data-f="all"]'); await page.waitForTimeout(200);
+  ok(await page.locator('#bwKeys[data-jeu="arp"] .mot-fam[data-f="brise"]').count() === 1 && (await page.locator('#bwKeys .mot-fam[data-f="arpeg"]').count()) === 1, 'Arpèges : Piano brisé, Arpégiateur');
+  await page.click('#bwKeys .mot-card[data-id="k:alberti"]'); await page.waitForTimeout(300);
   ok(await page.locator('#bwkK-reg').count() === 1 && (await page.locator('#bwkK-accent').count()) === 1, 'Arpèges : Registre et Accent');
   if (SHOT) { await page.evaluate(() => document.querySelector('#bwParts').scrollIntoView()); await page.waitForTimeout(200); await page.screenshot({ path: SHOT.replace('.png', '-arpeges.png') }); }
   // fenêtre Avancé (Arpèges, piano brisé : Alberti)
@@ -68,8 +68,8 @@ const parts = (page) => page.evaluate(() => JSON.stringify(SS.band._state.wiz.pa
   await page.click('#bwGtClose'); await page.waitForTimeout(200);
   // Accords, deux mains : éditeur, couleurs, étalement
   await page.click('#bwkJeu [data-v="acc"]'); await page.waitForTimeout(300);
-  await page.click('#bwkStyle [data-v="all"]'); await page.waitForTimeout(200);
-  await page.click('#bwKeys .bwp-mode[data-v="k:pop8"]'); await page.waitForTimeout(300);
+  await page.click('#bwkStyle [data-g="all"]'); await page.click('#bwkFam [data-f="all"]'); await page.waitForTimeout(200);
+  await page.click('#bwKeys .mot-card[data-id="k:pop8"]'); await page.waitForTimeout(300);
   await page.click('#bwkAdv'); await page.waitForTimeout(300);
   ok(await page.locator('#bwKeysAdvanced[data-jeu="acc"] #bwkEdR .bwg-cell.on').count() >= 4 && (await page.locator('#bwkEdL .bwg-cell.on').count()) >= 2, 'Avancé : le motif Pop croches dans l’éditeur deux mains');
   ok(await page.locator('#bwkKb .bwk-rh').count() >= 3, 'clavier : notes de la main droite (main gauche coupée)');
@@ -86,14 +86,14 @@ const parts = (page) => page.evaluate(() => JSON.stringify(SS.band._state.wiz.pa
   ok(await page.locator('#bwkAdvChip').count() === 1, 'pastille « Réglages avancés »');
   // arpégiateur : la fenêtre Arp One
   await page.click('#bwkJeu [data-v="arp"]'); await page.waitForTimeout(300);
-  await page.click('#bwkStyle [data-v="all"]'); await page.waitForTimeout(200);
-  await page.click('#bwKeys .bwp-mode[data-v="k:up16"]'); await page.waitForTimeout(300);
+  await page.click('#bwkStyle [data-g="all"]'); await page.click('#bwkFam [data-f="all"]'); await page.waitForTimeout(200);
+  await page.click('#bwKeys .mot-card[data-id="k:up16"]'); await page.waitForTimeout(300);
   await page.click('#bwkAdv'); await page.waitForTimeout(500);
   ok(await page.locator('#arpDialog[open]').count() === 1, 'arpégiateur : fenêtre Arp One');
   await page.click('#arpDialog .arp-led[aria-label="Allumer : Écho"]').catch(() => {}); await page.waitForTimeout(200);
   await page.click('#arpHostOk'); await page.waitForTimeout(400);
   ok(/"one":\{/.test(await parts(page)) && /"mode":"k:up16"/.test(await parts(page)), 'réglages Arp One gardés pour la scène');
-  ok(await page.locator('#bwKeys .bwp-mode.on[data-v="k:up16"] b').textContent().then((t) => /✎/.test(t)), 'carte marquée ✎');
+  ok(await page.locator('#bwKeys .mot-card.on[data-id="k:up16"] .mot-name').textContent().then((t) => /✎/.test(t)), 'carte marquée ✎');
   // outils de Claude
   const mot = await page.evaluate(() => window.StepSeq.assistantMotifs({ musicien: 'Clavier' }));
   ok(mot.type === 'clavier' && mot.motifs.some((m) => m.id === 'k:stride'), 'assistantMotifs : motifs du Clavier');

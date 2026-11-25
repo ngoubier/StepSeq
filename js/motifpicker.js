@@ -27,6 +27,16 @@ SS.motifPicker = (() => {
   const SONG_STYLE = { synthwave: 'synth', edm: 'electro', techno: 'electro', ambient: 'film', film: 'film', pop: 'pop', cliches: 'pop', funk: 'funk', soul: 'soul', hiphop: 'hiphop', dnb: 'dnb', latin: 'latin' };
   const styleOfSong = (songStyle) => SONG_STYLE[songStyle] || 'all';
   const styleName = (id) => (STYLES.find((s) => s[0] === id) || [, id])[1];
+  /**
+   * Un motif rangé sous les étiquettes `tags` (styles propres à un catalogue : rock, folk, salsa…) va-t-il dans la puce
+   * `style` ? Puce commune : une étiquette qui y mène (tagStyle : étiquette → style commun, sinon elle-même) ; puce
+   * propre (Folk, Jazz…) : l'étiquette elle-même ; « all » : toujours.
+   */
+  function matches(tags, style, tagStyle = {}) {
+    if (!style || style === 'all') return true;
+    if (STYLE_IDS.includes(style)) return tags.some((t) => (tagStyle[t] || t) === style);
+    return tags.includes(style);
+  }
   /** Portée d'un choix : la scène, les scènes du même type (couplets, refrains…), toutes. */
   const SCOPES = [['one', 'Cette scène'], ['type', 'Même type'], ['all', 'Toutes']];
   /** Famille affichée : « ★ » seulement si la scène a des conseillés, sinon Tous. */
@@ -92,7 +102,7 @@ SS.motifPicker = (() => {
       const badge = on && id === o.auto ? el('em', { class: 'mot-badge auto', title: 'Joué d’office : le premier motif conseillé pour ce type de scène' }, 'auto') : id === o.insp ? el('em', { class: 'mot-badge insp' }, 'Inspiration') : null;
       return el(
         'button',
-        { type: 'button', role: 'radio', 'aria-checked': String(on), class: 'mot-card' + (on ? ' on' : '') + (badge ? ' has-badge' : ''), 'data-id': id, title: o.desc(id) || null, onclick: () => o.onPick(id) },
+        { type: 'button', role: 'radio', 'aria-checked': String(on), class: 'mot-card' + (on ? ' on' : '') + (badge ? (on && id === o.auto ? ' has-auto' : ' has-badge') : ''), 'data-id': id, title: o.desc(id) || null, onclick: () => o.onPick(id) },
         badge,
         el('span', { class: 'mot-name' }, stars.includes(id) ? el('span', { class: 'mot-star', 'aria-label': 'conseillé pour cette scène' }, '★ ') : null, o.name(id)),
         el('span', { class: 'mot-draw', html: o.svg(id) })
@@ -113,5 +123,5 @@ SS.motifPicker = (() => {
     );
   }
 
-  return { STYLES, STYLE_IDS, SCOPES, styleOfSong, styleName, famShown, visible, render, scopeSeg, el };
+  return { STYLES, STYLE_IDS, SCOPES, styleOfSong, styleName, matches, famShown, visible, render, scopeSeg, el };
 })();
