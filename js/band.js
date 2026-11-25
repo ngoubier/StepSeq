@@ -7236,30 +7236,44 @@ SS.band = (() => {
     const total = sc.bars * spb;
     const players = hplayersOf(ms);
     const off = Array.isArray(own.off) ? own.off : HN().offByDefault(F.id);
-    // jeux : une carte par jeu, avec les attaques de la section sur une mesure
+    // jeux : familles (★ = conseillés pour la scène), une carte par jeu avec les attaques de la section sur la scène
+    const vb = Math.max(1, Math.min(4, sc.bars)); // la vignette montre la scène (4 mesures au plus), en croches
     const cells = (jeu) => {
-      const res = HN().write({ form: F.id, add: ms.add || [], jeu, off, model: true, bars: 1, spb: 16, beat: 4 });
-      const c = Array(16).fill('');
+      const res = HN().write({ form: F.id, add: ms.add || [], jeu, off, model: true, bars: vb, spb: 16, beat: 4 });
+      const c = Array(vb * 8).fill('');
       Object.values(res.lines).forEach((L) => L.events.forEach((e) => {
-        if (e.step >= 16) return;
-        c[e.step] = 'x';
-        for (let k = 1; k < e.len && e.step + k < 16; k++) if (!c[e.step + k]) c[e.step + k] = 'h';
+        const i = Math.floor(e.step / 2);
+        if (i >= c.length) return;
+        c[i] = 'x';
+        for (let k = 1; k < Math.ceil(e.len / 2) && i + k < c.length; k++) if (!c[i + k]) c[i + k] = 'h';
       }));
       return c;
     };
+    const stars = HN().sceneStars(sc.sec);
+    const autoJ = r.autoJeu || stars[0];
+    const all = HN().jeux(F.id);
+    const fam = [...HN().FAMS.map(([id]) => id), 'all'].includes(S.wiz.hnFam) ? S.wiz.hnFam : 'star';
+    const shown = fam === 'all' ? all : fam === 'star' ? [...new Set([...stars, ...(r.jeu !== autoJ || !stars.includes(r.jeu) ? [r.jeu] : [])])].map((id) => all.find((j) => j.id === id)).filter(Boolean) : all.filter((j) => j.fam === fam);
+    const famRow = h(
+      'div',
+      { class: 'bwhn-fams', id: 'bwHornsFam', role: 'tablist', 'aria-label': 'Familles de jeux' },
+      ...[['star', '★ Pour cette scène'], ...HN().FAMS, ['all', 'Tous']].map(([id, label]) =>
+        h('button', { type: 'button', role: 'tab', class: fam === id ? 'on' : '', 'aria-selected': String(fam === id), 'data-f': id, onclick: () => ((S.wiz.hnFam = id), renderWiz(), $(`#bwHornsFam [data-f="${id}"]`) && $(`#bwHornsFam [data-f="${id}"]`).focus()) }, label, id === 'star' || id === 'all' ? null : h('small', {}, String(all.filter((j) => j.fam === id).length))))
+    );
     const jeuxRow = h(
       'div',
       { class: 'bwhn-jeux', id: 'bwHornsJeu', role: 'radiogroup', 'aria-label': 'Jeu de la section' },
-      ...HN().jeux(F.id).map((j) =>
+      ...shown.map((j) =>
         h(
           'button',
-          { type: 'button', role: 'radio', class: 'bwhn-jeu' + (j.id === r.jeu ? ' active' : ''), 'aria-checked': String(j.id === r.jeu), 'data-v': j.id, onclick: () => hornsEdit(sc, T, { jeu: j.id === (r.autoJeu || HN().defaultJeu(sc.sec)) ? undefined : j.id }, `#bwHornsJeu [data-v="${j.id}"]`) },
-          h('b', {}, j.label + (r.auto && j.id === r.jeu ? ' · auto' : '')),
-          h('span', { class: 'bwhn-hits' }, ...cells(j.id).map((x) => h('i', { class: x })))
+          { type: 'button', role: 'radio', class: 'bwhn-jeu' + (j.id === r.jeu ? ' active' : ''), 'aria-checked': String(j.id === r.jeu), 'data-v': j.id, title: j.text, onclick: () => hornsEdit(sc, T, { jeu: j.id === autoJ ? undefined : j.id }, `#bwHornsJeu [data-v="${j.id}"]`) },
+          h('b', {}, stars.includes(j.id) ? h('span', { class: 'bwhn-star' }, '★ ') : null, j.label, r.auto && j.id === r.jeu ? h('span', { class: 'bwhn-au' }, ' auto') : null),
+          h('span', { class: 'bwhn-txt' }, j.text),
+          h('span', { class: 'bwhn-hits', style: `grid-template-columns:repeat(${vb * 8}, 1fr)` }, ...cells(j.id).map((x, i) => h('i', { class: x + (i % 8 === 0 && i ? ' bar' : '') })))
         )
-      ),
-      SS.helpTip(`Le jeu de la section dans cette scène. ${HN().jeux(F.id).map((j) => `${j.label} : ${j.text}.`).join(' ')} Chaque jeu est recalculé sur les accords de la scène, degré par degré : chaque musicien garde son registre.`, 'Jeu de la section')
+      )
     );
+    const jeuxHelp = SS.helpTip(`Le jeu de la section dans cette scène. Les jeux marqués ★ conviennent à ce type de scène ; le premier est joué d’office (auto). Les Transitions et fins s’écrivent sur toute la scène : la dernière mesure change. Chaque jeu est recalculé sur les accords de la scène, degré par degré : chaque musicien garde son registre.`, 'Jeu de la section');
     const nu = partSeg('Nuance', 'bwHornsNu', [['p', 'p', 'Doux'], ['mf', 'mf', 'Moyen'], ['f', 'f', 'Fort']], own.nu || 'mf', (v) => hornsEdit(sc, T, { nu: v === 'mf' ? undefined : v }, `#bwHornsNu [data-v="${v}"]`));
     // une ligne par musicien : interrupteur (enregistré), nom, rôle, partie de la scène (accords au-dessus), registre, Muet / Solo
     const colOf = (key) => T.cols.find((c) => ((c.o.band && c.o.band.key) || '').split(':')[1] === key);
@@ -7318,6 +7332,7 @@ SS.band = (() => {
     return [
       head,
       h('div', { class: 'bwp-row' }, play, nu, h('span', { class: 'spacer' }), addSel, SS.helpTip('Ajoute un musicien à la section (4 au plus), pour toute la chanson : il double la voix la plus proche de son registre, sur sa propre piste. La formation se change à l’étape Instruments.', 'Ajouter un musicien')),
+      h('div', { class: 'bwhn-famrow' }, famRow, jeuxHelp),
       jeuxRow,
       table,
     ];
@@ -12872,7 +12887,11 @@ SS.band = (() => {
       }
       if (T.kind === 'chords') return padModes(T).filter(([id]) => (/^g:/.test(id) ? gtrFits(id) : BS().meterOK('chords', id))).map(([id, nom, description]) => ({ id, nom, description }));
       if (T.kind === 'arp') return SS.MOTIFS.map((m) => ({ id: m.id, nom: m.name, categorie: ((SS.MOTIF_CATS.find((c) => c.id === m.cat) || {}).label || m.cat) }));
-      if (T.kind === 'horns') return SS.horns.jeux(hformOf(musState()[T.musician]).id).map((j) => ({ id: j.id, nom: j.label, description: j.text }));
+      if (T.kind === 'horns') {
+        const stars = SS.horns.sceneStars(S.wiz.hscene ? (S.wiz.res.scenes.find((x) => x.id === S.wiz.hscene) || {}).sec : '');
+        const FAM = Object.fromEntries(SS.horns.FAMS);
+        return SS.horns.jeux(hformOf(musState()[T.musician]).id).map((j) => ({ id: j.id, nom: j.label, description: j.text, famille: FAM[j.fam], conseille: stars.includes(j.id) }));
+      }
       if (T.kind === 'keys') {
         const K = SS.keyboardist;
         const fam = Object.fromEntries(Object.values(K.FAMILIES).flat());

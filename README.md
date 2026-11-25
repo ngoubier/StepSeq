@@ -604,16 +604,21 @@ dans la Grille est gardée). Outils Claude : `assistantMusicien({ ajouter: 'ambi
 **Section de cuivres de l'assistant (`js/horns.js`).** « + Musicien » propose le type **Cuivres** : une section où
 chaque musicien a sa partie et sa piste, mais où tous jouent ensemble. On choisit une formation parmi dix (big band,
 soul, funk, disco-funk, salsa, ska, rock à cuivres, musique de film, Nouvelle-Orléans, brass band ; ★ celle du style).
-L'étape Cuivres choisit, scène par scène, le **jeu** de la section : le jeu du style (Réponses entre pupitres, Accents
-syncopés, Mambo 2-3, Thème aux cors…), **Unisson**, **Coups** (au rythme du style) ou **Tenues**, et sa **nuance**.
+L'étape Cuivres choisit, scène par scène, le **jeu** de la section parmi **13**, rangés en familles : **Riffs** (le jeu
+du style : Réponses entre pupitres, Accents syncopés, Mambo 2-3, Thème aux cors… ; Question-réponse ; Unisson ;
+Contre-chant), **Coups** (ceux du style, sur 2 et 4, anticipés), **Tenues** (Tenues, Tenues qui enflent, Nappe douce) et
+**Transitions et fins** (Montée, Fin, Coup d'arrêt), écrites sur toute la scène. Certains prennent le nom du style
+(salsa : Moña, Cierre ; big band : Shout final). Les jeux marqués ★ conviennent au type de scène (intro : Tenues qui
+enflent, couplet : Coups anticipés, montée : Montée, refrain : le jeu du style, pont : Unisson, fin : Fin) ; le premier
+est joué d'office (« auto »). On règle aussi la **nuance**.
 Chaque jeu est recalculé sur les accords de la scène, degré par degré, chaque musicien dans son registre ; swing 2/3 pour
 le big band. Une ligne par musicien : interrupteur (joue ou non dans la scène), rôle (Dessus, Harmonie, Basse), sa
 partie, son registre, M / S ; à la lecture, un curseur défile sur chaque ligne et la note qui sonne s'allume. « + Musicien » ajoute une doublure (4 au plus). Sons : trompette et cor VSCO 2 ;
 saxophones alto, ténor et baryton MTG, trombone et trombone basse de l'Iowa, tuba War Tuba (bibliothèque libre,
 voir Sons) ; cornet, bugle, saxhorns, euphonium et sousaphone empruntent le son le plus proche. Outils
-Claude : `assistantMusicien({ ajouter: 'cuivres', son: 'funk' })`, `assistantMotifs` (les 4 jeux), `assistantJeu({ motif })`.
+Claude : `assistantMusicien({ ajouter: 'cuivres', son: 'funk' })`, `assistantMotifs` (les 13 jeux, leur famille, les ★), `assistantJeu({ motif })`.
 Un modèle de chanson peut avoir sa section d'office (musicien `m('horns', …, { horns: true, form })`) et écrire le jeu de
-chaque scène (`horns: 'sig' | 'uni' | 'coups' | 'ten'` dans ses sections) : c'est le cas de « Calle de la Luna ».
+chaque scène (`horns: 'sig' | 'fin' | …` dans ses sections) : c'est le cas de « Calle de la Luna ».
 Tests : `node --test tests/horns.test.js`, `node tests/e2e/wizard-horns.js`.
 
 ### Fiche Scène (`js/scenesheet.js`)

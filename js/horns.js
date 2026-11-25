@@ -5,8 +5,8 @@
  *   INST                    instruments (son, tessiture réelle en MIDI)
  *   FORMS / FORM            formations : musiciens (rôle Dessus / Harmonie / Basse, place sur scène), grille d'accords
  *                           du modèle, jeu du style (notes MIDI, placements, durées, vélocités) et rythme des coups
- *   JEUX, jeux(form)        les quatre jeux : sig (le jeu du style), uni (unisson), coups, ten (tenues)
- *   defaultJeu(sec)         jeu proposé pour une scène d'après son nom (intro, couplet, refrain…)
+ *   JEUX, jeux(form), FAMS  les treize jeux en quatre familles (Riffs, Coups, Tenues, Transitions et fins), noms du style
+ *   sceneStars(sec)         jeux conseillés (★) pour une scène d'après son nom ; defaultJeu(sec) : le premier
  *   sceneJeu(sec, model)    le jeu écrit par le modèle de chanson pour la scène, sinon defaultJeu
  *   players(form, add)      musiciens d'une formation, plus ceux ajoutés (doublures) : { id, key, i, role, pan, label, tok, lo, hi }
  *   fromKeys(keys)          formation et musiciens ajoutés d'après les clés des pistes (« funk-tp », « funk-a1_tb »)
@@ -142,29 +142,57 @@ SS.horns = (() => {
   const STYLE_FORM = { soul: 'soul', funk: 'funk', hiphop: 'funk', pop: 'rock', disco: 'disco', latin: 'salsa', salsa: 'salsa', reggae: 'ska', ska: 'ska', rock: 'rock', poprock: 'rock', film: 'film', cinematic: 'film', jazz: 'bigband', swing: 'bigband', cliches: 'brit' };
   const formFor = (styleId) => STYLE_FORM[styleId] || 'funk';
 
-  const JEUX = ['sig', 'uni', 'coups', 'ten'];
-  /** Les quatre jeux d'une formation : { id, label, text }. */
+  /*
+   * Treize jeux en quatre familles. Les jeux de « Transitions et fins » s'écrivent sur toute la scène (la dernière mesure
+   * change), les autres sont une boucle de la formation répétée. Certains prennent le nom du style (ALIAS).
+   */
+  const FAMS = [['riff', 'Riffs'], ['coups', 'Coups'], ['ten', 'Tenues'], ['trans', 'Transitions et fins']];
+  const JEU_DEFS = [
+    { id: 'sig', fam: 'riff' },
+    { id: 'rep', fam: 'riff', label: 'Question-réponse', text: 'Le dessus lance une mesure, la section répond la suivante' },
+    { id: 'uni', fam: 'riff', label: 'Unisson', text: 'Toute la section sur la ligne du dessus, en octaves ; la basse garde sa ligne' },
+    { id: 'contre', fam: 'riff', label: 'Contre-chant', text: 'Harmonie et basse : une ligne lente sous le chant, le dessus se tait' },
+    { id: 'coups', fam: 'coups' },
+    { id: 'temps', fam: 'coups', label: 'Coups sur 2 et 4', text: 'Courts, sur les temps faibles' },
+    { id: 'antic', fam: 'coups', label: 'Coups anticipés', text: 'Un coup sur le 2&, un autre poussé sur le 4&, qui prend déjà l’accord suivant' },
+    { id: 'ten', fam: 'ten', label: 'Tenues', text: 'Un accord tenu à chaque changement d’accord' },
+    { id: 'swell', fam: 'ten', label: 'Tenues qui enflent', text: 'Chaque accord part piano et enfle' },
+    { id: 'pad', fam: 'ten', label: 'Nappe douce', text: 'L’harmonie seule, piano, le dessus se tait' },
+    { id: 'montee', fam: 'trans', label: 'Montée', text: 'Des tenues qui enflent, puis la section grimpe ensemble sur la dernière mesure' },
+    { id: 'fin', fam: 'trans', label: 'Fin', text: 'Le jeu du style, puis trois coups dans la dernière mesure, le dernier tenu' },
+    { id: 'break', fam: 'trans', label: 'Coup d’arrêt', text: 'Un coup sur le 1, puis silence' },
+  ];
+  const JEUX = JEU_DEFS.map((j) => j.id);
+  const SCENE_WIDE = ['montee', 'fin', 'break'];
+  const ALIAS = {
+    salsa: { rep: 'Moña', fin: 'Cierre' },
+    bigband: { rep: 'Questions-réponses sax / cuivres', fin: 'Shout final' },
+    nola: { contre: 'Contre-chant du trombone' },
+    film: { swell: 'Crescendo des cors' },
+  };
+  /** Les treize jeux d'une formation : { id, label, text, fam }. */
   const jeux = (formId) => {
     const F = formOf(formId);
-    return [
-      { id: 'sig', label: F.sig.label, text: F.sig.text },
-      { id: 'uni', label: 'Unisson', text: 'Toute la section sur la ligne du dessus, en octaves ; la basse garde sa ligne' },
-      { id: 'coups', label: F.coups.label, text: 'Des attaques ensemble, sur le rythme du style' },
-      { id: 'ten', label: 'Tenues', text: 'Un accord tenu à chaque changement d’accord' },
-    ];
+    const al = ALIAS[F.id] || {};
+    return JEU_DEFS.map((j) => {
+      if (j.id === 'sig') return { id: 'sig', fam: j.fam, label: F.sig.label, text: F.sig.text };
+      if (j.id === 'coups') return { id: 'coups', fam: j.fam, label: F.coups.label, text: 'Des attaques ensemble, sur le rythme du style' };
+      return { id: j.id, fam: j.fam, label: al[j.id] || j.label, text: j.text };
+    });
   };
-  /** Jeu proposé d'après le nom de la scène. */
-  function defaultJeu(sec) {
+  /** Jeux conseillés (★) pour une scène d'après son nom ; le premier est joué d'office. */
+  function sceneStars(sec) {
     const s = String(sec || '').toLowerCase();
-    if (/^(pre|build)/.test(s)) return 'ten';
-    if (/^intro/.test(s)) return 'ten';
-    if (/^(verse|couplet)/.test(s)) return 'coups';
-    if (/^(bridge|break|solo|pont)/.test(s)) return 'uni';
-    if (/^(outro|fin)/.test(s)) return 'coups';
-    return 'sig';
+    if (/^(pre|build|mont)/.test(s)) return ['montee', 'swell'];
+    if (/^intro/.test(s)) return ['swell', 'ten', 'uni'];
+    if (/^(verse|couplet)/.test(s)) return ['antic', 'contre', 'temps'];
+    if (/^(bridge|break|solo|pont)/.test(s)) return ['uni', 'contre', 'pad'];
+    if (/^(outro|fin|coda)/.test(s)) return ['fin', 'break'];
+    return ['sig', 'rep', 'coups'];
   }
-
-  /** Jeu d'une scène : celui que le modèle de chanson écrit (sections[…].horns), sinon celui de son nom. */
+  /** Jeu proposé d'après le nom de la scène (le premier ★). */
+  const defaultJeu = (sec) => sceneStars(sec)[0];
+  /** Jeu d'une scène : celui que le modèle de chanson écrit (sections[…].horns), sinon le premier ★ de son nom. */
   const sceneJeu = (sec, model) => (JEUX.includes(model) ? model : defaultJeu(sec));
 
   /* ---------- musiciens ---------- */
@@ -223,24 +251,53 @@ SS.horns = (() => {
     const s = sigPart(F, p);
     return s.length ? s.reduce((a, x) => a + x[3], 0) / s.length : 85;
   };
-  /** Une boucle du jeu pour un musicien, sur la grille du modèle : [[position, MIDI, durée, vélocité]]. */
-  function loopOf(F, p, jeu) {
-    if (jeu === 'uni') {
-      if (p.role === 'bass') return sigPart(F, p);
-      const v = voiceOf(F, p)[1];
-      const k = avgVel(F, p) / 100;
-      return topLine(F).map(([o, m, d, vel]) => {
-        let x = m;
-        while (x - v > 6) x -= 12;
-        while (v - x > 6) x += 12;
-        return [o, x, d, vel * k];
-      });
+  const SAX = ['sa', 'st', 'sb'];
+  /** Rôle d'un musicien (une doublure : celui de la voix qu'elle double). */
+  const roleOf = (F, p) => (p.dbl ? (F.players.find((x) => x.id === p.dbl[0]) || p).role : p.role);
+  /**
+   * Question-réponse : qui lance ? Les saxes en big band (les cuivres répondent), sinon le dessus.
+   */
+  function callsFirst(F, p) {
+    const src = p.dbl ? F.players.find((x) => x.id === p.dbl[0]) || p : p;
+    return F.id === 'bigband' ? SAX.includes(src.i) : src.role === 'lead';
+  }
+  /** Ligne du dessus dans le registre d'un musicien (jeu Unisson). */
+  function uniLine(F, p) {
+    const v = voiceOf(F, p)[1];
+    const k = avgVel(F, p) / 100;
+    return topLine(F).map(([o, m, d, vel]) => {
+      let x = m;
+      while (x - v > 6) x -= 12;
+      while (v - x > 6) x += 12;
+      return [o, x, d, vel * k];
+    });
+  }
+  /**
+   * Une boucle du jeu pour un musicien, sur la grille du modèle : [[position, MIDI, durée, vélocité, poussé?]]
+   * (n : rang de la boucle dans la scène, pour la Question-réponse ; poussé : la note prend l'accord du temps suivant).
+   */
+  function loopOf(F, p, jeu, n = 0) {
+    const role = roleOf(F, p);
+    const [o0, m0] = voiceOf(F, p);
+    const src = chordAt(F, o0);
+    const k = avgVel(F, p) / 100;
+    const on = (o, dm = 0) => realize(m0 + dm, src[1], src[2], chordAt(F, o)[1], chordAt(F, o)[2]);
+    const bars = Array.from({ length: F.bars }, (_, b) => b * 4);
+    if (jeu === 'uni') return role === 'bass' ? sigPart(F, p) : uniLine(F, p);
+    if (jeu === 'rep') {
+      const call = callsFirst(F, p);
+      if (n % 2 === 0) return call ? uniLine(F, p) : [];
+      return call ? [] : sigPart(F, p);
     }
-    if (jeu === 'coups') {
-      const [o0, m0] = voiceOf(F, p);
-      const src = chordAt(F, o0);
-      const k = avgVel(F, p) / 100;
-      return F.coups.h.map(([o, d, v]) => [o, realize(m0, src[1], src[2], chordAt(F, o)[1], chordAt(F, o)[2]), d, v * k]);
+    if (jeu === 'contre') {
+      if (role === 'lead') return [];
+      return bars.flatMap((b) => [[b, on(b), 1.9, 70 * k + 6], [b + 2, on(b + 2, role === 'bass' ? -2 : 2), 1.9, 64 * k + 6]]);
+    }
+    if (jeu === 'coups') return F.coups.h.map(([o, d, v]) => [o, on(o), d, v * k]);
+    if (jeu === 'temps') return bars.flatMap((b) => [1, 3].map((o) => [b + o, on(b + o), 0.35, 96 * k]));
+    if (jeu === 'antic') {
+      const cyc = F.bars * 4;
+      return bars.flatMap((b) => [[b + 1.5, on(b + 1.5), 0.4, 92 * k], [b + 3.5, on((b + 4) % cyc), 1.3, 106 * k, true]]);
     }
     return sigPart(F, p);
   }
@@ -269,10 +326,11 @@ SS.horns = (() => {
 
   /**
    * Écrit la section pour une scène.
-   *   form, add : formation et musiciens ajoutés ; jeu : sig | uni | coups | ten ; off : [ids coupés] ; nuance : p | mf | f
+   *   form, add : formation et musiciens ajoutés ; jeu : un des JEUX ; off : [ids coupés] ; nuance : p | mf | f
    *   spans : [{ step, len, rootPc, pcs }] (accords de la scène, en pas) ; bars, spb (pas par mesure), beat (pas par temps)
    *   model : true = les notes du modèle telles quelles (sa tonalité, sa grille), sans recalcul
-   * → { lines: { id: { role, events: [{ step, len, notes, vel, shift? }], lo, hi } } }
+   * → { lines: { id: { role, events: [{ step, len, notes, vel, shift? }], lo, hi, vol? } } }
+   *   vol : courbe de volume { pas: 0..1 } des jeux qui enflent (Tenues qui enflent, Montée)
    */
   function write({ form, add = [], jeu = 'sig', off = [], nuance = 'mf', spans = [], bars = 4, spb = 16, beat = 4, model = false }) {
     const F = formOf(form);
@@ -280,69 +338,110 @@ SS.horns = (() => {
     const nu = NUANCE[nuance] || NUANCE.mf;
     const perBar = spb / beat; // temps par mesure (4 en 4/4, 3 en 3/4)
     const total = bars * spb;
+    const cyc = F.bars * 4;
     const spanAt = (step) => spans.find((sp) => step >= sp.step && step < sp.step + sp.len) || spans[spans.length - 1] || null;
-    const target = (step, like) => {
-      const sp = spanAt(step);
-      return sp ? [sp.rootPc, scaleOf(sp.rootPc, sp.pcs, like)] : null;
+    /** Note du modèle (sur l'accord du modèle au temps o de la boucle) posée sur l'accord de la scène au pas `at`. */
+    const place = (m, o, at) => {
+      const s = chordAt(F, o % cyc);
+      if (model || !spans.length) {
+        const t = chordAt(F, (Math.floor(at / spb) % F.bars) * 4 + Math.min(3.99, (at % spb) / beat));
+        return realize(m, s[1], s[2], t[1], t[2]);
+      }
+      const sp = spanAt(Math.min(total - 1, at));
+      return sp ? realize(m, s[1], s[2], sp.rootPc, scaleOf(sp.rootPc, sp.pcs, s[2])) : m;
     };
     const lines = {};
     players(F.id, add).forEach((p) => {
       const events = [];
+      const vol = {};
+      const push = (x, m, len, v) => {
+        if (x >= total) return null;
+        const st = Math.round(x);
+        const shift = +(x - st).toFixed(3);
+        const e = { step: st, len: Math.max(1, Math.min(total - st, Math.round(len))), notes: [inRange(m, p)], vel: +Math.max(0.15, Math.min(1, (v / 127) * nu)).toFixed(3) };
+        if (shift) e.shift = shift;
+        events.push(e);
+        return e;
+      };
+      const [o0, m0] = voiceOf(F, p);
+      const k = avgVel(F, p) / 100;
+      /** Un accord tenu par accord de la scène (dans le modèle : par accord du modèle), sur les mesures [0, upto). */
+      const tenues = (vel, upto, swell) => {
+        const end = upto * spb;
+        const out = [];
+        if (model || !spans.length) {
+          for (let b = 0; b < upto; b++) {
+            const mb = b % F.bars;
+            const segs = F.chords.filter((c) => Math.floor(c[0] / 4) === mb);
+            const list = segs.length && segs[0][0] === mb * 4 ? segs : [chordAt(F, mb * 4), ...segs];
+            list.forEach((c, i) => {
+              const a = Math.max(0, c[0] - mb * 4);
+              const e = Math.min(perBar, list[i + 1] ? list[i + 1][0] - mb * 4 : 4);
+              if (a < e) out.push([b * spb + a * beat, (e - a) * beat - 1]);
+            });
+          }
+        } else spans.forEach((sp) => sp.step < end && out.push([sp.step, Math.max(1, Math.min(sp.len, end - sp.step) - Math.max(1, Math.round(beat / 4)))]));
+        out.forEach(([x, len]) => {
+          const e = push(x, place(m0, o0, x), len, typeof vel === 'function' ? vel(x) : vel);
+          if (e && swell) {
+            vol[e.step] = 0.35;
+            vol[Math.min(total - 1, e.step + e.len - 1)] = 1;
+          }
+        });
+      };
+      /** Les boucles du jeu sur les mesures [0, upto). */
+      const loops = (J2, upto) => {
+        for (let b = 0, n = 0; b < upto; b += F.bars, n++)
+          loopOf(F, p, J2, n).forEach(([o, m, d, v, pushed]) => {
+            const mb = Math.floor(o / 4); // mesure dans la boucle
+            const ib = o - mb * 4; // temps dans la mesure
+            if (ib >= perBar - 1e-6) return; // mesure plus courte que 4 temps : on coupe
+            const bar = b + mb;
+            if (bar >= upto) return;
+            const pos = F.swing && Math.abs((ib % 1) - 0.5) < 1e-6 ? ib + 1 / 6 : ib;
+            const x = bar * spb + pos * beat;
+            // une note poussée prend l'accord du temps qui suit (elle est écrite sur l'accord du modèle à o + ½)
+            const note = pushed ? place(m, o + 0.5, Math.round(x + beat / 2)) : place(m, o, Math.round(x));
+            push(x, note, pushed ? d * beat : Math.min(d, perBar - ib) * beat, v);
+          });
+      };
       if (!off.includes(p.id)) {
-        const push = (x, m, len, v) => {
-          if (x >= total) return;
-          const st = Math.round(x);
-          const shift = +(x - st).toFixed(3);
-          const e = { step: st, len: Math.max(1, Math.min(total - st, Math.round(len))), notes: [inRange(m, p)], vel: +Math.max(0.15, Math.min(1, (v / 127) * nu)).toFixed(3) };
-          if (shift) e.shift = shift;
-          events.push(e);
-        };
-        if (J === 'ten') {
-          // une tenue par accord de la scène (dans le modèle : par accord du modèle)
-          const [o0, m0] = voiceOf(F, p);
-          const src = chordAt(F, o0);
-          const vel = 66 + (p.role === 'lead' ? 4 : 0);
-          if (model || !spans.length) {
-            for (let b = 0; b < bars; b++) {
-              const mb = b % F.bars;
-              const segs = F.chords.filter((c) => Math.floor(c[0] / 4) === mb);
-              const list = segs.length && segs[0][0] === mb * 4 ? segs : [chordAt(F, mb * 4), ...segs];
-              list.forEach((c, i) => {
-                const a = Math.max(0, c[0] - mb * 4);
-                const end = Math.min(perBar, list[i + 1] ? list[i + 1][0] - mb * 4 : 4);
-                if (a < end) push(b * spb + a * beat, realize(m0, src[1], src[2], c[1], c[2]), (end - a) * beat - 1, vel);
-              });
-            }
-          } else
-            spans.forEach((sp) => {
-              if (sp.step >= total) return;
-              push(sp.step, realize(m0, src[1], src[2], sp.rootPc, scaleOf(sp.rootPc, sp.pcs, src[2])), Math.max(1, sp.len - Math.max(1, Math.round(beat / 4))), vel);
-            });
-        } else {
-          const loop = loopOf(F, p, J);
-          const cyc = F.bars * 4;
-          for (let b = 0; b < bars; b += F.bars)
-            loop.forEach(([o, m, d, v]) => {
-              const mb = Math.floor(o / 4); // mesure dans la boucle
-              const ib = o - mb * 4; // temps dans la mesure
-              if (ib >= perBar - 1e-6) return; // mesure plus courte que 4 temps : on coupe
-              const bar = b + mb;
-              if (bar >= bars) return;
-              const pos = F.swing && Math.abs((ib % 1) - 0.5) < 1e-6 ? ib + 1 / 6 : ib;
-              const x = bar * spb + pos * beat;
-              let note = m;
-              if (!model && spans.length) {
-                const s = chordAt(F, o % cyc);
-                const t = target(Math.min(total - 1, Math.round(x)), s[2]);
-                if (t) note = realize(m, s[1], s[2], t[0], t[1]);
-              }
-              push(x, note, Math.min(d, perBar - ib) * beat, v);
-            });
-        }
+        const last = bars - 1;
+        const lead = roleOf(F, p) === 'lead';
+        if (J === 'ten') tenues(66 + (lead ? 4 : 0), bars);
+        else if (J === 'swell') tenues(62 + (lead ? 4 : 0), bars, true);
+        else if (J === 'pad') {
+          if (!lead) tenues(50, bars);
+        } else if (J === 'break') push(0, place(m0, o0, 0), beat, 112 * k);
+        else if (J === 'montee') {
+          // des tenues qui enflent, de plus en plus fort, puis la section grimpe ensemble (croches) sur la dernière mesure
+          tenues((x) => 56 + (12 * x) / Math.max(1, last * spb), last, true);
+          const sc = SCALES[chordAt(F, o0)[2]] || SCALES.ion;
+          const root = chordAt(F, o0)[1];
+          const start = m0 - 12 >= p.lo ? m0 - 12 : m0;
+          let deg = sc.indexOf(pcOf(start - root));
+          let base = start - (deg >= 0 ? sc[deg] : 0);
+          if (deg < 0) deg = 0;
+          const nn = Math.round(perBar * 2);
+          for (let i = 0; i < nn; i++) {
+            const d = deg + i;
+            const m = base + sc[d % 7] + 12 * Math.floor(d / 7);
+            const x = last * spb + i * (beat / 2);
+            push(x, place(m, o0, Math.round(x)), beat / 2 - 0.5, 74 + (36 * i) / nn);
+          }
+        } else if (J === 'fin') {
+          loops('sig', last);
+          [[0, 0.5, 104], [1.5, 0.5, 106], [perBar - 1, 1, 118]].forEach(([o, d, v]) => {
+            const x = last * spb + o * beat;
+            push(x, place(m0, o0, Math.round(x)), d * beat, v * k);
+          });
+        } else loops(J, bars);
       }
       events.sort((a, b) => a.step - b.step);
       const ns = events.map((e) => e.notes[0]);
-      lines[p.id] = { role: p.role, events, lo: ns.length ? Math.min(...ns) : null, hi: ns.length ? Math.max(...ns) : null };
+      const L = { role: p.role, events, lo: ns.length ? Math.min(...ns) : null, hi: ns.length ? Math.max(...ns) : null };
+      if (Object.keys(vol).length) L.vol = vol;
+      lines[p.id] = L;
     });
     return { lines };
   }
@@ -365,5 +464,5 @@ SS.horns = (() => {
   const NOTES_FR = () => (SS.NOTE_NAMES_FR || ['Do', 'Do♯', 'Ré', 'Mi♭', 'Mi', 'Fa', 'Fa♯', 'Sol', 'La♭', 'La', 'Si♭', 'Si']);
   const midiName = (m) => NOTES_FR()[pcOf(m)] + (Math.floor(m / 12) - 1);
 
-  return { INST, FORMS, FORM, formOf, fromKeys, formFor, STYLE_FORM, JEUX, jeux, defaultJeu, sceneJeu, players, write, realize, scaleOf, SCALES, offByDefault, ROLE_LABEL, midiName, NUANCE };
+  return { INST, FORMS, FORM, formOf, fromKeys, formFor, STYLE_FORM, JEUX, FAMS, SCENE_WIDE, ALIAS, jeux, sceneStars, defaultJeu, sceneJeu, players, write, realize, scaleOf, SCALES, offByDefault, ROLE_LABEL, midiName, NUANCE };
 })();
