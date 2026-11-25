@@ -37,11 +37,15 @@ puis ouvrir <http://localhost:8000>.
 
 ## Interface
 
+- **Frise de la chanson** (sous l'en-tête, `js/song.js` + `js/wizplaybar.js`, la même que dans l'assistant) : une case par
+  bloc joué, large comme sa durée, de la couleur de sa partie ; la scène éditée est cerclée, le départ de la lecture marqué
+  d'un triangle vert, le curseur et la case jouée avancent avec la lecture (« Scène : Refrain · 3/16 », temps / durée).
+  Clic : éditer la scène et partir d'ici ; double-clic : sa fiche ; clic droit : répétition de plus ou de moins, nouvelle
+  scène (copie ou vide), ouvrir l'Arrangement, retirer le bloc. Au bout, la lecture **Chanson | Scène**.
 - **En-tête** : icône de l'application (menu **Nouvelle chanson…** (assistant sur une chanson vide), **Mes chansons…**, **Ouvrir un fichier…** (projet .json, MIDI .mid ou partition, Ctrl+O), **Lire une partition…** (image, PDF ou MusicXML → pistes MIDI : lecture par Claude dans Chrome, par Audiveris ou MusicXML exact ; mesures à vérifier en orange ; Enregistrer le .mid ou Importer dans StepSeq), **Enregistrer** (Ctrl+S), **Exporter…** (audio WAV ou MIDI, Ctrl+E), **Options…** ; l'assistant sur le projet en cours s'ouvre par le bouton **✦ Assistant**), titre du projet, tempo (BPM), un bouton ∿ à icône seule dont la bulle (au survol, au clic ou au clavier)
   regroupe le chiffrage de mesure (4/4 par défaut, x/4 ou x/8), le nombre de mesures et le groove (swing, humanisation), **Lecture** et **Stop**, puis les fenêtres regroupées
   **Tonalité** (la tonalité de la scène en sous-titre ; un clic ouvre un petit menu tonique / mode, proposé d'après les notes ;
-  la composition à partir d'une émotion, les grilles de référence, les essais A/B et la vérification sont dans l'assistant « Nouvelle chanson »), **Arrangement** (fenêtre Arrangement : scènes et arrangement, avec une case pour garder le panneau
-  d'arrangement affiché sous l'en-tête) et **Mix** (console de mixage, avec **Auto Mix**).
+  la composition à partir d'une émotion, les grilles de référence, les essais A/B et la vérification sont dans l'assistant « Nouvelle chanson »), **Arrangement** (fenêtre Arrangement : scènes et arrangement) et **Mix** (console de mixage, avec **Auto Mix**).
   **Mode assistant** : quand l'assistant « Nouvelle chanson » est ouvert (`body.wizard-mode`), il prend la place de la zone des pistes, sous cette
   barre qui reste visible ; la barre du bas, Tonalité, Arrangement et Mix s'effacent et la **tonalité** de la chanson en création (« Do mineur », avec son armure)
   prend leur place. **Lecture / Stop**, **tempo** et **position** de la barre pilotent alors l'écoute de l'assistant (scène choisie en boucle ou chanson) ;
@@ -675,7 +679,7 @@ Tests : `node --test tests/horns.test.js`, `node tests/e2e/wizard-horns.js`.
 
 ### Fiche Scène (`js/scenesheet.js`)
 
-Un double-clic sur une scène (ligne Scènes ou bloc de l'arrangement, dans la Grille comme dans l'assistant) ouvre un
+Un double-clic sur une scène (case de la frise ou bloc de l'arrangement, dans la Grille comme dans l'assistant) ouvre un
 tiroir à droite : nom, longueur, **tempo de la scène**, émotion, énergie et tension, tonalité et accords par mesure,
 instruments qui jouent ou se taisent, mouvements et enchaînements. La grille reste jouable à gauche ; ‹ › passent
 d'une scène à l'autre.

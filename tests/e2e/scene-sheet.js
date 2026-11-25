@@ -31,14 +31,14 @@ const ok = (c, m) => {
   await page.goto(`http://localhost:${server.address().port}/index.html`);
   await page.waitForTimeout(1500);
 
-  await page.dblclick('#sceneList .scene-chip.active .scene-name');
+  await page.dblclick('#gridPlayBar .wpb-sc.edit >> nth=0');
   ok(await page.isVisible('#sceneSheet'), 'double-clic sur la scène : la fiche s\'ouvre');
   ok((await page.$$('#sceneSheet .ssh-sec')).length >= 6, 'rubriques Tempo, Émotion, Accords, Instruments, Mouvement, Entrée/sortie');
 
   await page.fill('#sceneSheet .ssh-name', 'Refrain test');
   await page.press('#sceneSheet .ssh-name', 'Enter');
   await page.waitForTimeout(100);
-  ok(/Refrain test/.test(await page.textContent('#sceneList')), 'renommage dans la fiche : la ligne Scènes suit');
+  ok(/Refrain test/.test(await page.textContent('#gridPlayBar')), 'renommage dans la fiche : la frise suit');
 
   await page.click('#sceneSheet .ssh-combo-btn');
   ok(await page.isVisible('#sceneSheet .ssh-emo-panel'), 'émotion : le bouton ouvre le panneau des émotions');
@@ -109,11 +109,11 @@ const ok = (c, m) => {
   await page.waitForTimeout(100);
   const st = await page.evaluate(() => {
     const p = SS.claudeTools._project();
-    return { scene: SS.currentScene(p).tempo, song: p.tempo, bar: document.getElementById('tempo').value, gold: document.getElementById('tempo').classList.contains('scene-tempo'), chip: document.querySelector('#sceneList .scene-chip.active').textContent };
+    return { scene: SS.currentScene(p).tempo, song: p.tempo, bar: document.getElementById('tempo').value, gold: document.getElementById('tempo').classList.contains('scene-tempo'), chip: document.querySelector('#gridPlayBar .wpb-now').textContent };
   });
   ok(st.scene === song * 2 && st.song === song, `Propre : la scène a son tempo, la chanson garde le sien (${JSON.stringify(st)})`);
   ok(st.bar === String(song * 2) && st.gold, 'barre du haut : tempo de la scène, en doré');
-  ok(st.chip.includes(`· ${song * 2}`), 'la pastille de la scène montre son tempo');
+  ok(st.chip.includes(`· ${song * 2}`), 'la frise montre le tempo de la scène');
   const r2 = await rate();
   ok(r1 > 0 && Math.abs(r2 / r1 - 2) < 0.3, `la lecture suit le tempo de la scène (${r1} → ${r2} pas/s)`);
   await page.click('#sceneSheet .ssh-seg button >> nth=0');

@@ -38,3 +38,11 @@ test('temps écoulé et format', () => {
   assert.strictEqual(P.fmt(48), '0:48');
   assert.strictEqual(P.fmt(125.4), '2:05');
 });
+
+test('couleur d’une partie : id de l’assistant ou nom de scène', () => {
+  assert.strictEqual(P.colorOf('chorus'), P.colorOf('Refrain'));
+  assert.strictEqual(P.colorOf('verse'), P.colorOf('couplet'));
+  assert.strictEqual(P.colorOf('bridge'), P.colorOf('Pont'));
+  assert.strictEqual(P.colorOf('Pré-refrain'), P.colorOf('pre'));
+  assert.strictEqual(P.colorOf('Scène 4'), P.colorOf(''));
+});

@@ -3650,11 +3650,7 @@ SS.band = (() => {
    * ou ‹ › pour l'ordre, − / + pour les répétitions, × pour retirer. Dessous, une ligne par scène : nom, longueur,
    * « + Ajouter à la fin », « Dupliquer », suppression. Tout passe par specEff : la chanson écoutée est celle-là.
    */
-  const SEC_COLORS = [
-    [/^intro/, '#4aa3c9'], [/^(verse|groove|theme)/, '#4f6bff'], [/^(pre|build)/, '#f08a00'], [/^(chorus|drop|peak|post)/, '#e3179c'],
-    [/^(bridge|break)/, '#9b5cff'], [/^(solo|instr|riff)/, '#13c2a3'], [/^outro/, '#7a8a99'],
-  ];
-  const secColor = (id) => (SEC_COLORS.find(([re]) => re.test(kindOf(id))) || [0, '#8a8a96'])[1];
+  const secColor = (id) => SS.wizPlayBar.colorOf(kindOf(id));
   const BAR_CHOICES = [4, 8, 16, 32];
   let dragFrom = -1;
   const ctl = (cls, label, text, onclick, disabled = false) => h('button', { type: 'button', class: 'bw-bc ' + cls, 'aria-label': label, title: label, disabled, onclick }, text);

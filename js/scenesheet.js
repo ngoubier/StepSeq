@@ -1,5 +1,5 @@
 /*
- * Fiche « Scène » : tiroir à droite, ouvert par un double-clic sur une scène (ligne Scènes ou bloc de l'arrangement).
+ * Fiche « Scène » : tiroir à droite, ouvert par un double-clic sur une scène (case de la frise ou bloc de l'arrangement).
  * Elle rassemble ce qui définit la scène : nom, longueur, tempo, émotion, énergie et tension, tonalité et accords
  * par mesure, instruments (joue / muet dans cette scène / vide), mouvements (automations) et enchaînements.
  * La grille reste visible et jouable à gauche : ‹ › passent d'une scène à l'autre (la grille suit).

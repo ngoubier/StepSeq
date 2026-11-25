@@ -141,33 +141,14 @@
     </div>
   </header>
 
-  <!-- Panneau d'arrangement compact : affiché sous la barre du haut si la case « Garder le panneau affiché »
-       de la fenêtre Arrangement est cochée (js/song.js). -->
+  <!-- Frise de la chanson sous la barre du haut (js/song.js, dessin js/wizplaybar.js) : une case par bloc joué,
+       clic = éditer la scène et partir d'ici, double-clic = sa fiche, clic droit = menu ; lecture Chanson | Scène. -->
   <div id="songDock" class="song-dock">
-  <section id="songBar" class="songbar" aria-label="Arrangement">
-    <button type="button" class="songbar-close" id="songBarClose" title="Fermer le panneau d'arrangement (le rouvrir : fenêtre Arrangement, case « Garder le panneau affiché »)" aria-label="Fermer le panneau d'arrangement">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
-    </button>
-    <div class="songbar-row">
-      <span class="songbar-label">Scènes</span>
-      <button type="button" class="songbar-arrow" data-dir="-1" aria-label="Faire défiler les scènes vers la gauche" tabindex="-1">‹</button>
-      <div class="songbar-scroll"><div id="sceneList" class="scene-list"></div></div>
-      <button type="button" class="songbar-arrow" data-dir="1" aria-label="Faire défiler les scènes vers la droite" tabindex="-1">›</button>
-      <button type="button" id="sceneCopy" class="btn btn-small" title="Nouvelle scène qui reprend le contenu de la scène en cours">+ Copie</button>
-      <button type="button" id="sceneEmpty" class="btn btn-small" title="Nouvelle scène vide (mêmes pistes, sans notes)">+ Vide</button>
-    </div>
-    <div class="songbar-row">
-      <span class="songbar-label">Arrangement</span>
-      <button type="button" class="songbar-arrow" data-dir="-1" aria-label="Faire défiler l'arrangement vers la gauche" tabindex="-1">‹</button>
-      <div class="songbar-scroll"><div id="songBlocks" class="song-blocks"></div></div>
-      <button type="button" class="songbar-arrow" data-dir="1" aria-label="Faire défiler l'arrangement vers la droite" tabindex="-1">›</button>
-      <span id="songAddSlot" class="song-add-slot"></span>
-      <div class="segmented" id="songMode" role="radiogroup" aria-label="Mode de lecture">
-        <button type="button" data-mode="loop" title="La lecture boucle la scène en cours">Boucle</button>
-        <button type="button" data-mode="song" title="La lecture joue l'arrangement, du bloc choisi jusqu'à la fin">Chanson</button>
-      </div>
-      <label class="song-loop"><input type="checkbox" id="songLoop"> Boucler</label>
-      <span id="songTotal" class="song-total"></span>
+  <section id="songBar" class="songbar" aria-label="Chanson">
+    <div id="gridPlayBar" class="wpb-bar"></div>
+    <div class="segmented" id="songMode" role="radiogroup" aria-label="Lecture">
+      <button type="button" data-mode="song" title="La lecture joue la chanson, de la case choisie jusqu'à la fin">Chanson</button>
+      <button type="button" data-mode="loop" title="La lecture boucle la scène en cours">Scène</button>
     </div>
   </section>
   </div>
@@ -400,7 +381,6 @@
         </section>
       </div>
       <footer class="song-foot">
-        <label class="song-pin"><input type="checkbox" id="songPin"> Garder le panneau d'arrangement affiché sous la barre du haut</label>
         <span class="spacer"></span>
         <button type="button" class="btn btn-accent" id="songOk">Fermer</button>
       </footer>
