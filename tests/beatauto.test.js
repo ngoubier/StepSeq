@@ -79,7 +79,8 @@ test('lecture : passage joué en chanson, passage choisi en boucle, réglages se
   BA.setLoopPass(a, 'all');
   assert.equal(BA.forTrack(p, kick, { index: 0, rep: 0 }), null);
   assert.equal(BA.forTrack(p, t, { index: 1, rep: 0 }), null, 'autre scène : rien');
-  assert.deepEqual(BA.paramsFor(kick).map((x) => x.id), ['vel']);
+  assert.deepEqual(BA.paramsFor(kick).map((x) => x.id), ['vel', 'dj', 'echo', 'hall', 'vol'], 'batterie : vélocité et tranche');
+  assert.deepEqual(BA.paramsFor(t).map((x) => x.id), ['cut', 'res', 'env', 'dec', 'vel', 'dj', 'echo', 'hall', 'vol']);
   // la courbe continue d'une répétition à l'autre du bloc
   BA.set(p, { block: 0, rep: 0 }, t.id, 'cut', 7, 2);
   BA.set(p, { block: 0, rep: 1 }, t.id, 'cut', 0, 0);

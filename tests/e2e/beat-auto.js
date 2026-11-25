@@ -47,7 +47,7 @@ const ok = (c, m) => {
   ok((await page.locator('.ba-panel').count()) === 0, 'aucun panneau par temps au départ');
   await bass.locator('.th-auto').click();
   const items = page.locator('.ba-menu button');
-  ok((await items.count()) === 4, `menu de la basse : cutoff, résonance, vélocité + ligne par pas (${await items.count()})`);
+  ok((await items.count()) === 10, `menu de la basse : 9 réglages par temps + ligne par pas (${await items.count()})`);
   await items.nth(0).click();
   ok((await bass.locator('.ba-panel').count()) === 1, 'Cutoff coché : le panneau s’ouvre sous les notes');
   ok((await bass.locator('.ba-cell').count()) === 8, 'une barre par temps : 8 pour 2 mesures');

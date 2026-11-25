@@ -232,7 +232,6 @@ SS.beatAutoUI = (() => {
           closeMenu();
           o.rerender();
         }, x.color)),
-      BA().paramsFor(track).length < 3 ? h('div', { class: 'ba-note' }, track.type === 'drum' ? 'Batterie : la vélocité seulement' : 'Juno-106 : la vélocité seulement') : null,
       h('div', { class: 'ba-mt' }, 'Par pas · dans la scène'),
       item(o.stepOpen, 'Filtre DJ, volume, envois, son…', track.auto ? 'courbe' : '', () => {
         closeMenu();
