@@ -43,6 +43,11 @@ SS.keyboardist = (() => {
   /** Style de la chanson (SS.Band.STYLES) → puce de départ ; les autres partent sur « Tous ». */
   const STYLE_OF = { synthwave: 'electro', edm: 'electro', techno: 'electro', dnb: 'electro', pop: 'pop', funk: 'funk', latin: 'salsa', soul: 'soul', hiphop: 'soul', ambient: 'film', film: 'film', cliches: 'pop' };
   const styleOfSong = (styleId) => STYLE_OF[styleId] || 'all';
+  /** Carte Motif commune (js/motifpicker.js) : étiquette → style commun, et les puces propres au Clavier. */
+  const TAG_STYLE = { rock: 'pop', ballade: 'pop', jazz: 'soul', reggae: 'latin', salsa: 'latin', bossa: 'latin' };
+  const CHIPS = [['jazz', 'Jazz'], ['bossa', 'Bossa']];
+  /** Des étiquettes vont-elles dans la puce (commune, propre ou une étiquette) ? */
+  const fitsStyle = (tags, style) => (SS.motifPicker ? SS.motifPicker.matches(tags, style, TAG_STYLE) : !style || style === 'all' || tags.includes(style));
 
   /** Motifs propres au Clavier : [id, nom, description, jeu, famille, styles, { pas: jetons }]. */
   const P = (o) => o;
@@ -151,7 +156,7 @@ SS.keyboardist = (() => {
     const sh = fileShape(m);
     const short = m.n <= 50 && m.title.includes(' — ') ? m.title.split(' — ').slice(1).join(' — ') : m.title;
     const sc = fileScenes(m, sh);
-    return { ...m, id: 'f' + String(m.n).padStart(3, '0'), name: `${m.n}. ${short.charAt(0).toUpperCase() + short.slice(1)}`, jeu: sh.jeu, fam: sh.fam, styles: fileStyles(m), scenes: sc.scenes, explicit: sc.explicit };
+    return { ...m, id: 'f' + String(m.n).padStart(3, '0'), name: short.charAt(0).toUpperCase() + short.slice(1), jeu: sh.jeu, fam: sh.fam, styles: fileStyles(m), scenes: sc.scenes, explicit: sc.explicit };
   });
   const FILE_BY = new Map(FILE.map((m) => [m.id, m]));
   /** Mode « kf:f001 » : un motif du fichier. */
@@ -172,7 +177,7 @@ SS.keyboardist = (() => {
    */
   function stars(sec, jeu, style, ok = () => true) {
     const k = sceneKind(sec);
-    const l = FILE.filter((m) => m.jeu === jeu && m.scenes.includes(k) && (!style || style === 'all' || m.styles.includes(style)) && ok('kf:' + m.id));
+    const l = FILE.filter((m) => m.jeu === jeu && m.scenes.includes(k) && fitsStyle(m.styles, style) && ok('kf:' + m.id));
     return [...l.filter((m) => m.explicit), ...l.filter((m) => !m.explicit)].slice(0, 3).map((m) => 'kf:' + m.id);
   }
   /** Style des motifs d'après le modèle de chanson (son style dans SS.Band.STYLES) : celui que joue un Clavier ajouté. */
@@ -238,11 +243,11 @@ SS.keyboardist = (() => {
   const jeuOf = (mode) => (entryOf(mode) ? entryOf(mode).jeu : ARP_LIKE.includes(mode) ? 'arp' : 'acc');
   const familyOf = (mode) => (entryOf(mode) ? entryOf(mode).fam : jeuOf(mode) === 'arp' ? 'brise' : 'tenu');
   const stylesOf = (mode) => (entryOf(mode) ? entryOf(mode).styles : []);
-  const inStyle = (mode, style) => !style || style === 'all' || stylesOf(mode).includes(style);
+  const inStyle = (mode, style) => fitsStyle(stylesOf(mode), style);
   const name = (mode) => (ownOf(mode) ? ownOf(mode).name : fileOf(mode) ? fileOf(mode).name : SS.padMotifs ? SS.padMotifs.name(mode) : mode);
   const desc = (mode) => {
     const f = fileOf(mode);
-    if (f) return `${f.emo}. ${f.text} (${f.son}${f.work ? ' ; d’après ' + f.work : ''})`;
+    if (f) return `${f.emo}. ${f.text} (${f.son}${f.work ? ' ; d’après ' + f.work : ''} ; motif ${f.n} du fichier)`;
     return ownOf(mode) ? ownOf(mode).desc : SS.padMotifs ? SS.padMotifs.desc(mode) : '';
   };
   /** Mesure d'un mode : celle d'un motif du fichier, '4/4' pour un motif « k: », null pour le moteur (toutes). */
@@ -626,5 +631,5 @@ SS.keyboardist = (() => {
     return (draws[mode] = `<svg viewBox="0 0 160 34" preserveAspectRatio="none" aria-hidden="true">${bars}${rects}</svg>`);
   }
 
-  return { svg, JEUX, FAMILIES, STYLES, STYLE_OF, styleOfSong, OWN, ENGINE, ownOf, entryOf, jeuOf, familyOf, stylesOf, inStyle, name, desc, modesOf, ALL, firstOf, surprise, FILE, fileOf, fileEvents, meterOf, sceneKind, stars, styleOfPreset, sceneDefault, DEF, LH, normalize, KNOBS, knobValue, knobPatch, touched, ADV, advanced, TOKEN, parsePat, stepsOf, patText, patFromEvents, intervals, events, shape };
+  return { svg, JEUX, FAMILIES, STYLES, STYLE_OF, styleOfSong, TAG_STYLE, CHIPS, OWN, ENGINE, ownOf, entryOf, jeuOf, familyOf, stylesOf, inStyle, name, desc, modesOf, ALL, firstOf, surprise, FILE, fileOf, fileEvents, meterOf, sceneKind, stars, styleOfPreset, sceneDefault, DEF, LH, normalize, KNOBS, knobValue, knobPatch, touched, ADV, advanced, TOKEN, parsePat, stepsOf, patText, patFromEvents, intervals, events, shape };
 })();

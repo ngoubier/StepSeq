@@ -37,6 +37,9 @@ SS.guitarist = (() => {
   /** Style de la chanson (SS.Band.STYLES) → puce de départ ; les autres partent sur « Tous ». */
   const STYLE_OF = { synthwave: 'synth', edm: 'synth', techno: 'synth', dnb: 'synth', pop: 'pop', funk: 'funk', latin: 'reggae', soul: 'blues', ambient: 'ballade', hiphop: 'ballade' };
   const styleOfSong = (styleId) => STYLE_OF[styleId] || 'all';
+  /** Carte Motif commune (js/motifpicker.js) : étiquette → style commun, et les puces propres au Guitariste. */
+  const TAG_STYLE = { rock: 'pop', ballade: 'pop', folk: 'pop', blues: 'soul', reggae: 'latin', bossa: 'latin' };
+  const CHIPS = [['folk', 'Folk'], ['blues', 'Blues'], ['bossa', 'Bossa']];
   /** Styles de chaque motif (id du motif guitare ou du mode plaqué). */
   const MOTIF_STYLES = {
     classA: ['pop', 'ballade', 'folk'],
@@ -106,7 +109,7 @@ SS.guitarist = (() => {
   const idOf = (mode) => String(mode || '').replace(/^[gr]:/, '');
   const stylesOf = (mode) => (riffOf(mode) ? RF().STYLES[idOf(mode)] || [] : MOTIF_STYLES[idOf(mode)] || []);
   /** Le mode convient-il à la puce de style (« all » : tous) ? */
-  const inStyle = (mode, style) => !style || style === 'all' || stylesOf(mode).includes(style);
+  const inStyle = (mode, style) => (SS.motifPicker ? SS.motifPicker.matches(stylesOf(mode), style, TAG_STYLE) : !style || style === 'all' || stylesOf(mode).includes(style));
   /** Tous les modes d'un jeu, dans l'ordre des familles : « g:<motif> » puis les accords plaqués. */
   function modesOf(jeu) {
     if (jeu === 'riff') return RF() ? FAMILIES.riff.flatMap(([f]) => RF().RIFFS.filter((x) => x.fam === f).map((x) => 'r:' + x.id)) : [];
@@ -153,5 +156,5 @@ SS.guitarist = (() => {
   /** Réglage guitare d'un potentiomètre (v 0..100). */
   const knobPatch = (key, v) => ({ [key]: key === 'spread' ? Math.round((Math.max(0, Math.min(100, v)) / 100) * 40) : Math.max(0, Math.min(100, v)) / 100 });
 
-  return { JEUX, FAMILIES, MUTED, PLAQUES, STYLES, STYLE_OF, styleOfSong, MOTIF_STYLES, familyOf, jeuOf, stylesOf, inStyle, modesOf, firstOf, surprise, KNOBS, knobStore, knobValue, knobPatch };
+  return { JEUX, FAMILIES, MUTED, PLAQUES, STYLES, STYLE_OF, styleOfSong, TAG_STYLE, CHIPS, MOTIF_STYLES, familyOf, jeuOf, stylesOf, inStyle, modesOf, firstOf, surprise, KNOBS, knobStore, knobValue, knobPatch };
 })();

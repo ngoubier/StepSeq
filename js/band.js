@@ -8602,8 +8602,6 @@ SS.band = (() => {
   const GT = () => SS.guitarist;
   const gtFits = (id) => (/^g:/.test(id) ? gtrFits(id) : BS().meterOK('chords', id));
   const gtName = (id) => (/^g:/.test(id || '') ? nameOf(GUITAR_MODES, id) : /^r:/.test(id || '') && SS.GuitarRiffs ? (SS.GuitarRiffs.byId(id.slice(2)) || { name: id }).name : SS.padMotifs ? SS.padMotifs.name(id) : id);
-  /** Puce de style affichée (celle du style de la chanson au départ). */
-  const gtStyle = () => (S.wiz.gtStyle === undefined ? GT().styleOfSong(S.styleId) : S.wiz.gtStyle);
   /** Réglages faits dans la fenêtre Avancé (manche) : la pastille ✎ les signale. */
   const gtAdvSet = (o) => !!(o && ((o.gtr && ['pos', 'capo', 'tuning', 'pat'].some((k) => o.gtr[k] !== undefined)) || (o.riff && ['pat', 'fixed', 'oct'].some((k) => o.riff[k] !== undefined))));
   function gtrSub(x, T) {
@@ -8783,22 +8781,72 @@ SS.band = (() => {
     );
   }
   /** Change le jeu de la scène : un autre motif oublie le motif réécrit (pat) de l'ancien. */
-  function gtSetMode(sc, T, id, focus) {
-    const o = partOf(sc.sec, T) || {};
-    const insp = planMode(sc, T);
-    putOff(sc.sec, T, false);
-    const patch = { mode: id === insp ? undefined : id };
-    if (o.gtr && o.gtr.pat && id !== (o.mode || insp)) {
-      const { pat, ...rest } = o.gtr;
-      patch.gtr = Object.keys(rest).length ? rest : undefined;
-    }
-    if (o.riff && o.riff.pat && id !== (o.mode || insp)) {
-      const { pat, ...rest } = o.riff;
-      patch.riff = Object.keys(rest).length ? rest : undefined;
-    }
-    putPart(sc.sec, T, patch);
+  function gtSetMode(sc, T, id, focus, scenes = [sc]) {
+    scenes.forEach((x) => {
+      const o = partOf(x.sec, T) || {};
+      const insp = planMode(x, T);
+      putOff(x.sec, T, false);
+      const patch = { mode: id === insp ? undefined : id };
+      if (o.gtr && o.gtr.pat && id !== (o.mode || insp)) {
+        const { pat, ...rest } = o.gtr;
+        patch.gtr = Object.keys(rest).length ? rest : undefined;
+      }
+      if (o.riff && o.riff.pat && id !== (o.mode || insp)) {
+        const { pat, ...rest } = o.riff;
+        patch.riff = Object.keys(rest).length ? rest : undefined;
+      }
+      putPart(x.sec, T, patch);
+    });
     partChanged(focus);
     gtApplied();
+  }
+  /**
+   * Carte Motif commune du Guitariste et du Clavier (js/motifpicker.js) : styles communs et puces propres (L.CHIPS), familles
+   * du jeu (« ★ Pour cette scène » en tête quand la scène en a), cartes. L : SS.guitarist ou SS.keyboardist ; k : 'gt' ou
+   * 'kb' (S.wiz.gtStyle / gtFam…). jeuStyle donne la puce de style affichée, jeuPicker rend [styles, familles, cartes].
+   */
+  function jeuStyle(L, k, all) {
+    const MP = SS.motifPicker;
+    let st = S.wiz[k + 'Style'];
+    if (st !== undefined && st !== 'all' && !MP.STYLE_IDS.includes(st) && !L.CHIPS.some((c) => c[0] === st)) st = L.TAG_STYLE[st] || (MP.STYLE_IDS.includes(st) ? st : 'all'); // ancienne puce (Rock, Ballade…)
+    if (st === undefined) st = MP.styleOfSong(S.styleId);
+    return st !== 'all' && !all.some((id) => L.inStyle(id, st)) ? 'all' : st;
+  }
+  function jeuPicker(sc, T, { L, k, jeu, all, style, cur, muted, stars = [], name, desc, svg, onPick, surprise }) {
+    const MP = SS.motifPicker;
+    const o = partOf(sc.sec, T) || {};
+    const own = typeChanged(T) || BG().isExtraId(T.musician);
+    const ids = all.filter((id) => id === cur || L.inStyle(id, style));
+    let fam = S.wiz[k + 'Fam'];
+    if (fam && fam !== 'star' && fam !== 'all' && !L.FAMILIES[jeu].some((f) => f[0] === fam)) fam = undefined; // famille d'un autre jeu
+    const [st, fm, cards] = MP.render({
+      styles: [...MP.STYLES, ...L.CHIPS],
+      group: style,
+      mark: MP.styleOfSong(S.styleId),
+      onGroup: (v) => ((S.wiz[k + 'Style'] = v), renderWiz()),
+      count: (v) => all.filter((id) => L.inStyle(id, v)).length,
+      fams: L.FAMILIES[jeu],
+      fam,
+      onFam: (f) => ((S.wiz[k + 'Fam'] = f), renderWiz()),
+      familyOf: L.familyOf,
+      stars: stars.filter((id) => ids.includes(id)),
+      ids,
+      cur: muted ? null : cur,
+      insp: own ? null : planMode(sc, T),
+      auto: own && !o.mode ? cur : null,
+      name,
+      desc,
+      svg,
+      onPick,
+      label: 'Motifs',
+      surprise,
+      help: SS.helpTip('Les motifs qui sonnent juste dans chaque style ; le point marque celui de la chanson, une puce grise n’a pas de motif pour ce jeu. ★ : conseillé pour ce type de scène (intro, couplet, refrain…). Survolez une carte pour sa description.', 'Style'),
+    });
+    st.id = k === 'gt' ? 'bwgStyle' : 'bwkStyle';
+    fm.id = k === 'gt' ? 'bwgFam' : 'bwkFam';
+    const sb = fm.querySelector('.mot-surprise');
+    if (sb) (sb.id = k === 'gt' ? 'bwgSurprise' : 'bwkSurprise'), (sb.title = 'Un motif du style au hasard, et des réglages de jeu au hasard');
+    return [st, fm, cards];
   }
   function guitarBody(sc, T) {
     const G = GT();
@@ -8808,8 +8856,6 @@ SS.band = (() => {
     const muted = mutedIn(sc.sec, T);
     const cur = o.mode || insp;
     const jeu = cur ? G.jeuOf(cur) : S.wiz.gtJeu || 'acc';
-    const style = gtStyle();
-    const songSt = G.styleOfSong(S.styleId);
     const isG = /^g:/.test(cur || '') && !muted;
     const isR = /^r:/.test(cur || '') && !muted;
     const setMode = (id, focus) => gtSetMode(sc, T, id, focus);
@@ -8829,36 +8875,43 @@ SS.band = (() => {
       return h('div', {}, guitarAdvanced(sc, g2, (p) => gtrEdit(sc, T, p), (id) => setMode('g:' + id)), gtMotifEditor(sc, T, g2));
     };
     const openAdv = () => (isR ? openGtDialog(draw, 'RIFF', 'Guitare · Riff') : openGtDialog(draw));
-    const card = (id) => {
-      const on = id === cur && !muted;
+    const gtPic = (id) => {
       const gm = GUITAR_MODES.find((x) => x[0] === id);
       const rf = /^r:/.test(id) ? RF().byId(id.slice(2)) : null;
-      const pic = gm ? rhythmSvg(gm[3]) : rf ? rhythmSvg(riffDraw(rf.steps)) : SS.padMotifs ? SS.padMotifs.svg(id) : '';
-      const desc = gm ? gm[2] : rf ? rf.desc : SS.padMotifs ? SS.padMotifs.desc(id) : '';
-      return h(
-        'button',
-        { type: 'button', role: 'radio', class: 'bwp-mode' + (on ? ' on' : ''), 'data-v': id, 'aria-checked': String(on), title: desc + ' · ' + G.stylesOf(id).map((s) => (G.STYLES.find((x) => x[0] === s) || [, s])[1]).join(', '), onclick: () => setMode(id, `.bwp-mode[data-v="${id}"]`) },
-        h('b', {}, (on && ((isG && o.gtr && o.gtr.pat) || (isR && o.riff && o.riff.pat)) ? '✎ ' : '') + gtName(id), id === insp ? h('em', {}, 'Inspiration') : null),
-        h('span', { class: 'bwp-rhy', html: pic })
-      );
+      return gm ? rhythmSvg(gm[3]) : rf ? rhythmSvg(riffDraw(rf.steps)) : SS.padMotifs ? SS.padMotifs.svg(id) : '';
     };
+    const gtDesc = (id) => {
+      const gm = GUITAR_MODES.find((x) => x[0] === id);
+      const rf = /^r:/.test(id) ? RF().byId(id.slice(2)) : null;
+      return gm ? gm[2] : rf ? rf.desc : SS.padMotifs ? SS.padMotifs.desc(id) : '';
+    };
+    const allIds = [...G.modesOf(jeu).filter(gtFits), ...(cur && !G.modesOf(jeu).includes(cur) && G.jeuOf(cur) === jeu ? [cur] : [])];
     const store = G.knobStore(jeu);
     const kv = store === 'riff' ? RF().normalize(o.riff) : GA.normalize({ ...(o.gtr || {}) });
     const knobEdit = (patch, focus) => (store === 'riff' ? riffEdit(sc, T, patch, focus) : gtrEdit(sc, T, patch, focus));
     const surprise = () => {
       const id = G.surprise(jeu, style, cur, Math.random(), gtFits);
       if (!id) return;
-      gtSetMode(sc, T, id);
+      gtSetMode(sc, T, id, null, motifTargets(sc, T));
       if (/^[gr]:/.test(id)) knobEdit(Object.assign({}, ...G.KNOBS[jeu].map(([k]) => G.knobPatch(k, 20 + Math.round(Math.random() * 60)))), '#bwgSurprise');
     };
     const adv = gtAdvSet(o);
+    const style = jeuStyle(G, 'gt', allIds);
+    const picked = jeuPicker(sc, T, {
+      L: G, k: 'gt', jeu, all: allIds, style, cur, muted,
+      name: (id) => (id === cur && !muted && ((isG && o.gtr && o.gtr.pat) || (isR && o.riff && o.riff.pat)) ? '✎ ' : '') + gtName(id),
+      desc: (id) => gtDesc(id) + ' · ' + G.stylesOf(id).map((s) => (G.STYLES.find((x) => x[0] === s) || [, s])[1]).join(', '),
+      svg: gtPic,
+      onPick: (id) => gtSetMode(sc, T, id, `#bwGuitarist .mot-card[data-id="${id}"]`, motifTargets(sc, T)),
+      surprise,
+    });
     return [
       partHead(sc, T, 'guitare', true),
       rollBox(sc, T),
       autoCard(sc, T, { fit: true }),
       h(
         'section',
-        { class: 'bwp-card bw-card bwg', id: 'bwGuitarist', 'data-jeu': jeu },
+        { class: 'bwp-card bw-card bwg bwp-mot mot-pick', id: 'bwGuitarist', 'data-jeu': jeu },
         h(
           'div',
           { class: 'bwp-ch' },
@@ -8870,25 +8923,15 @@ SS.band = (() => {
           h('button', { type: 'button', class: 'btn btn-small bwp-gtadv', id: 'bwGtAdv', disabled: isG || isR ? null : true, 'aria-haspopup': 'dialog', title: 'Éditeur pas à pas, manche, capodastre, accordage, tablature', onclick: openAdv }, 'Avancé…'),
           playBox(sc, T, SS.bandSong.DEFAULT_MODE.guitar)
         ),
-        h(
-          'div',
-          { class: 'mot-chips bwg-styles', role: 'radiogroup', 'aria-label': 'Style', id: 'bwgStyle' },
-          ...[['all', 'Tous'], ...G.STYLES].map(([v, t]) => h('button', { type: 'button', role: 'radio', class: 'mot-chip' + (v === style ? ' on' : '') + (v === songSt ? ' mark' : ''), 'aria-checked': String(v === style), 'data-v': v, title: v === songSt ? 'Le style de la chanson' : null, onclick: () => ((S.wiz.gtStyle = v), renderWiz()) }, t)),
-          SS.helpTip('Les motifs qui sonnent juste dans chaque style ; le point marque celui de la chanson. « Tous » : le catalogue complet.', 'Style'),
-          h('span', { class: 'spacer' }),
-          h('button', { type: 'button', class: 'btn btn-small', id: 'bwgSurprise', title: 'Un motif du style au hasard, et des réglages de jeu au hasard', onclick: surprise }, 'Surprends-moi')
-        ),
-        ...G.FAMILIES[jeu].map(([f, label]) => {
-          const list = G.modesOf(jeu).filter((id) => G.familyOf(id) === f && gtFits(id) && (G.inStyle(id, style) || id === cur));
-          return list.length ? h('div', { class: 'bwp-grp', 'data-fam': f }, h('span', { class: 'bwp-glbl' }, label), h('div', { class: 'bwp-modes compact', role: 'radiogroup', 'aria-label': label }, ...list.map(card))) : null;
-        }),
+        ...picked,
         isG || isR
           ? h(
               'div',
               { class: 'arp-knobs bwg-knobs' },
               ...G.KNOBS[jeu].map(([k, label, help, text]) => dialKnob({ id: 'bwgK-' + k, label, help, value: G.knobValue(kv, k), text, commit: (v) => knobEdit(G.knobPatch(k, v), '#bwgK-' + k) }))
             )
-          : null
+          : null,
+        h('div', { class: 'bwp-row mot-foot' }, motifScope())
       ),
     ];
   }
@@ -8899,7 +8942,6 @@ SS.band = (() => {
    * et s'appliquent à tous les modes. Le son se choisit à l'étape Instruments. */
   const KB = () => SS.keyboardist;
   const kbFits = (id) => BS().meterOK('keys', id);
-  const kbStyle = () => (S.wiz.kbStyle === undefined ? KB().styleOfSong(S.styleId) : S.wiz.kbStyle);
   function keysSub(x, T) {
     if (mutedIn(x.sec, T)) return 'muette';
     const o = partOf(x.sec, T) || {};
@@ -8916,18 +8958,20 @@ SS.band = (() => {
     gtApplied();
   }
   /** Change le jeu de la scène : un autre motif oublie le motif réécrit (keys.pat) et l'arpège Arp One de l'ancien. */
-  function keysSetMode(sc, T, id, focus) {
-    const o = partOf(sc.sec, T) || {};
-    putOff(sc.sec, T, false);
-    const patch = { mode: id === planMode(sc, T) ? undefined : id };
-    if (id !== (o.mode || planMode(sc, T))) {
-      if (o.keys && o.keys.pat) {
-        const { pat, ...rest } = o.keys;
-        patch.keys = Object.keys(rest).length ? rest : undefined;
+  function keysSetMode(sc, T, id, focus, scenes = [sc]) {
+    scenes.forEach((x) => {
+      const o = partOf(x.sec, T) || {};
+      putOff(x.sec, T, false);
+      const patch = { mode: id === planMode(x, T) ? undefined : id };
+      if (id !== (o.mode || planMode(x, T))) {
+        if (o.keys && o.keys.pat) {
+          const { pat, ...rest } = o.keys;
+          patch.keys = Object.keys(rest).length ? rest : undefined;
+        }
+        if (o.one) (patch.one = undefined), (patch.adv = undefined);
       }
-      if (o.one) (patch.one = undefined), (patch.adv = undefined);
-    }
-    putPart(sc.sec, T, patch);
+      putPart(x.sec, T, patch);
+    });
     partChanged(focus);
     gtApplied();
   }
@@ -9138,8 +9182,6 @@ SS.band = (() => {
     const muted = mutedIn(sc.sec, T);
     const cur = o.mode || insp;
     const jeu = cur ? K.jeuOf(cur) : S.wiz.kbJeu || 'acc';
-    const style = kbStyle();
-    const songSt = K.styleOfSong(S.styleId);
     const ks = K.normalize(o.keys);
     const pickJeu = (v) => {
       if (v === jeu) return;
@@ -9148,18 +9190,10 @@ SS.band = (() => {
       if (id) keysSetMode(sc, T, id, `#bwkJeu [data-v="${v}"]`);
       else renderWiz();
     };
-    const card = (id) => {
-      const on = id === cur && !muted;
-      const pic = /^kf?:/.test(id) ? K.svg(id) : SS.padMotifs ? SS.padMotifs.svg(id) : '';
-      const f = K.fileOf(id);
-      return h(
-        'button',
-        { type: 'button', role: 'radio', class: 'bwp-mode' + (on ? ' on' : ''), 'data-v': id, 'aria-checked': String(on), title: K.desc(id) + ' · ' + K.stylesOf(id).map((s) => (K.STYLES.find((x) => x[0] === s) || [, s])[1]).join(', '), onclick: () => keysSetMode(sc, T, id, `.bwp-mode[data-v="${id}"]`) },
-        h('b', {}, starSet.has(id) ? h('span', { class: 'bwk-star', title: 'Conseillé pour ce type de scène' }, '★ ') : null, (on && ((o.keys && o.keys.pat) || o.one) ? '✎ ' : '') + K.name(id), f && (f.meter !== '4/4' || f.feel) ? h('span', { class: 'bwk-meta' }, `${f.meter}${f.feel ? ' ' + f.feel : ''}`) : null, id === insp ? h('em', {}, 'Inspiration') : null),
-        h('span', { class: 'bwp-rhy', html: pic })
-      );
-    };
-    const starSet = new Set(K.stars(sc.sec, jeu, style, kbFits));
+    const all = K.modesOf(jeu);
+    const extra = cur && !all.includes(cur) && K.jeuOf(cur) === jeu ? [cur] : []; // mode d'une inspiration hors du catalogue
+    const allIds = [...all.filter(kbFits), ...extra];
+    const style = jeuStyle(K, 'kb', allIds);
     const surprise = () => {
       const id = K.surprise(jeu, style, cur, Math.random(), kbFits);
       if (!id) return;
@@ -9167,15 +9201,25 @@ SS.band = (() => {
       putPart(sc.sec, T, { mode: id === insp ? undefined : id });
       keysEdit(sc, T, Object.assign({}, ...K.KNOBS[jeu].map(([k]) => K.knobPatch(k, 20 + Math.round(Math.random() * 60)))), '#bwkSurprise');
     };
-    const all = K.modesOf(jeu);
-    const extra = cur && !all.includes(cur) && K.jeuOf(cur) === jeu ? [cur] : []; // mode d'une inspiration hors du catalogue
+    const picked = jeuPicker(sc, T, {
+      L: K, k: 'kb', jeu, all: allIds, style, cur, muted,
+      stars: K.stars(sc.sec, jeu, style, kbFits),
+      name: (id) => {
+        const f = K.fileOf(id);
+        return (id === cur && !muted && ((o.keys && o.keys.pat) || o.one) ? '✎ ' : '') + K.name(id) + (f && (f.meter !== '4/4' || f.feel) ? ` · ${f.meter}${f.feel ? ' ' + f.feel : ''}` : '');
+      },
+      desc: (id) => K.desc(id) + ' · ' + K.stylesOf(id).map((s) => (K.STYLES.find((x) => x[0] === s) || [, s])[1]).join(', '),
+      svg: (id) => (/^kf?:/.test(id) ? K.svg(id) : SS.padMotifs ? SS.padMotifs.svg(id) : ''),
+      onPick: (id) => keysSetMode(sc, T, id, `#bwKeys .mot-card[data-id="${id}"]`, motifTargets(sc, T)),
+      surprise,
+    });
     return [
       partHead(sc, T, 'clavier', true),
       rollBox(sc, T),
       autoCard(sc, T, { fit: true }),
       h(
         'section',
-        { class: 'bwp-card bw-card bwg bwk', id: 'bwKeys', 'data-jeu': jeu },
+        { class: 'bwp-card bw-card bwg bwk bwp-mot mot-pick', id: 'bwKeys', 'data-jeu': jeu },
         h(
           'div',
           { class: 'bwp-ch' },
@@ -9187,19 +9231,7 @@ SS.band = (() => {
           h('button', { type: 'button', class: 'btn btn-small bwp-gtadv', id: 'bwkAdv', disabled: muted || !cur ? true : null, 'aria-haspopup': 'dialog', title: cur && kbArpOne(cur) ? 'La fenêtre Arp One de l’arpégiateur' : 'Éditeur pas à pas des deux mains, voicing, couleurs, étalement, swing', onclick: () => openKeysAdvanced(sc, T) }, 'Avancé…'),
           playBox(sc, T, SS.bandSong.DEFAULT_MODE.keys)
         ),
-        h(
-          'div',
-          { class: 'mot-chips bwg-styles', role: 'radiogroup', 'aria-label': 'Style', id: 'bwkStyle' },
-          ...[['all', 'Tous'], ...K.STYLES].map(([v, t]) => h('button', { type: 'button', role: 'radio', class: 'mot-chip' + (v === style ? ' on' : '') + (v === songSt ? ' mark' : ''), 'aria-checked': String(v === style), 'data-v': v, title: v === songSt ? 'Le style de la chanson' : null, onclick: () => ((S.wiz.kbStyle = v), renderWiz()) }, t)),
-          SS.helpTip('Les motifs qui sonnent juste dans chaque style ; le point marque celui de la chanson. « Tous » : le catalogue complet. Les motifs numérotés viennent du fichier des 150 motifs de piano et claviers : leurs notes sont recalculées sur les accords de la scène. ★ : conseillé pour ce type de scène (intro, couplet, refrain…), en tête de sa famille.', 'Style'),
-          h('span', { class: 'spacer' }),
-          h('button', { type: 'button', class: 'btn btn-small', id: 'bwkSurprise', title: 'Un motif du style au hasard, et des réglages de jeu au hasard', onclick: surprise }, 'Surprends-moi')
-        ),
-        ...K.FAMILIES[jeu].map(([f, label]) => {
-          const fl = [...all, ...extra].filter((id) => K.familyOf(id) === f && (id === cur || (kbFits(id) && K.inStyle(id, style))));
-          const list = [...fl.filter((id) => starSet.has(id)), ...fl.filter((id) => !starSet.has(id))]; // ★ en tête
-          return list.length ? h('div', { class: 'bwp-grp', 'data-fam': f }, h('span', { class: 'bwp-glbl' }, label), h('div', { class: 'bwp-modes compact', role: 'radiogroup', 'aria-label': label }, ...list.map(card))) : null;
-        }),
+        ...picked,
         muted || !cur
           ? null
           : h(
@@ -9210,7 +9242,8 @@ SS.band = (() => {
             ),
         muted || !cur
           ? null
-          : h('div', { class: 'arp-knobs bwg-knobs' }, ...K.KNOBS[jeu].map(([k, label, help, text]) => dialKnob({ id: 'bwkK-' + k, label, help, value: K.knobValue(ks, k), text, commit: (v) => keysEdit(sc, T, K.knobPatch(k, v), '#bwkK-' + k) })))
+          : h('div', { class: 'arp-knobs bwg-knobs' }, ...K.KNOBS[jeu].map(([k, label, help, text]) => dialKnob({ id: 'bwkK-' + k, label, help, value: K.knobValue(ks, k), text, commit: (v) => keysEdit(sc, T, K.knobPatch(k, v), '#bwkK-' + k) }))),
+        h('div', { class: 'bwp-row mot-foot' }, motifScope())
       ),
     ];
   }
