@@ -138,3 +138,26 @@ test('★ : les motifs du fichier conseillés pour la scène passent en tête', 
   assert.equal(H.sceneJeu('outro', 'fin', 'salsa'), 'fin');
   assert.equal(H.sceneJeu('verse', 'm21', 'funk'), 'm13');
 });
+
+test('dans la tonalité : aucune note hors de la gamme de l’accord, pas de tenue qui frotte', () => {
+  const pc = (m) => ((m % 12) + 12) % 12;
+  const semi = (a, b) => pc(a - b) === 1 || pc(b - a) === 1;
+  // la mineur : Am F C G, puis i iv V7 iv deux accords par mesure (Mi7 : sol dièse)
+  const T = { m: [0, 3, 7], M: [0, 4, 7], 7: [0, 4, 7, 10] };
+  const grids = [[[9, 'm'], [5, 'M'], [0, 'M'], [7, 'M']], [[9, 'm'], [2, 'm'], [4, '7'], [2, 'm']]];
+  const KEY = [9, 11, 0, 2, 4, 5, 7];
+  grids.forEach((g, gi) => {
+    const len = gi ? 8 : 16;
+    const spans = Array.from({ length: 64 / len }, (_, i) => ({ step: i * len, len, rootPc: g[i % 4][0], pcs: T[g[i % 4][1]].map((x) => pc(g[i % 4][0] + x)) }));
+    H.FORMS.forEach((f) => H.jeux(f.id).forEach((j) => {
+      const r = H.write({ form: f.id, jeu: j.id, spans, bars: 4, key: KEY });
+      Object.entries(r.lines).forEach(([id, L]) => L.events.forEach((e) => {
+        const sp = spans.find((s) => e.step >= s.step && e.step < s.step + s.len);
+        const n = pc(e.notes[0]);
+        if (sp.pcs.includes(n)) return;
+        assert.ok(KEY.includes(n), `${f.id} ${j.id} ${id} pas ${e.step} : ${n} hors tonalité`);
+        assert.ok(e.len < 4 || !sp.pcs.some((t) => semi(n, t)), `${f.id} ${j.id} ${id} pas ${e.step} : ${n} tenu frotte`);
+      }));
+    }));
+  });
+});
