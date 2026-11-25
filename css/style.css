@@ -2606,6 +2606,15 @@ svg.g-big { width: 100%; height: auto; background: var(--c-surface-1); border-ra
 .bwi-row .chip small { margin-left: 6px; color: var(--muted); font-size: var(--fs-xs); }
 .bwi-row .chip.active small { color: var(--c-blue-soft); }
 .bwi-props { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px; }
+/* Fenêtre « Changement » (changement de tonalité ou de mode, js/band.js renderKc) */
+.bwk-fromto .bwk-key { padding: 2px 10px; border: 1px solid var(--c-line-strong); border-radius: 8px; font-weight: 600; white-space: nowrap; }
+.bwk-fromto .bwk-key.to { border-color: var(--c-violet); color: var(--c-violet-soft); }
+.bwk-card .hm-ex-top { display: flex; align-items: center; gap: 8px; }
+.bwk-to { font-size: var(--fs-sm); color: var(--c-muted); }
+.bwk-to b { color: var(--c-violet-soft); }
+.bwk-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.bwk-tag { font-size: var(--fs-xs); border: 1px solid var(--tc); color: var(--tc); border-radius: 999px; padding: 0 8px; }
+.bh-kchg { align-self: flex-start; font-size: var(--fs-xs); color: var(--c-violet-soft); background: color-mix(in srgb, var(--c-violet) 18%, transparent); border-radius: 4px; padding: 0 6px; white-space: nowrap; }
 .bwi-state { font-size: var(--fs-sm); color: var(--muted); }
 .hm-ex.on .bwi-state { color: var(--accent-2); }
 .bwi-foot { border-top: 1px solid var(--line); }
@@ -6337,6 +6346,7 @@ dialog.es-dialog[open] { display: flex; }
 #bandDialog .wpb-sc { position: relative; min-width: 0; padding: 0 0 0 6px; display: flex; align-items: center; overflow: hidden; border: 0; border-top: 2px solid var(--c); border-radius: 4px; background: var(--c-panel-2); color: var(--c-muted); font: inherit; font-size: var(--fs-xs); white-space: nowrap; cursor: pointer; }
 #bandDialog .wpb-sc:hover { background: var(--c-panel-3); color: var(--c-text-2); }
 #bandDialog .wpb-sc span { position: relative; overflow: hidden; text-overflow: ellipsis; }
+#bandDialog .wpb-key { position: relative; margin-left: 4px; font-style: normal; color: var(--c-violet-soft); white-space: nowrap; }
 #bandDialog .wpb-fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--c); opacity: .25; pointer-events: none; }
 #bandDialog .wpb-sc.past .wpb-fill { width: 100%; opacity: .1; }
 #bandDialog .wpb-sc.on { background: var(--c-panel-3); color: var(--c-text); }

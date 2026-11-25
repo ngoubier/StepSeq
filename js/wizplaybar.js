@@ -75,7 +75,8 @@ SS.wizPlayBar = (() => {
   };
 
   /**
-   * Dessine la frise. opts : { color(sec) → couleur CSS, word ('Scène' ou 'Passage'), onSeek(songIndex) }.
+   * Dessine la frise. opts : { color(sec) → couleur CSS, word ('Scène' ou 'Passage'), onSeek(songIndex),
+   * badge(block, i) → pastille de changement de tonalité (« ↗ ½ ton ») ou rien }.
    * La frise garde son modèle (el._pb) pour update().
    */
   function render(el, m, opts = {}) {
@@ -92,6 +93,11 @@ SS.wizPlayBar = (() => {
       c.style.setProperty('--c', opts.color ? opts.color(b.sec) : 'var(--c-faint)');
       c.title = `${b.name} · ${b.bars} mes. · ${fmt(b.t0)} — clic : écouter la chanson à partir d'ici`;
       c.append(mk('i', 'wpb-fill'), mk('span', '', b.name));
+      const badge = opts.badge && opts.badge(b, i);
+      if (badge) {
+        c.append(mk('em', 'wpb-key', badge));
+        c.title += ` · ${badge}`;
+      }
       if (opts.onSeek) c.addEventListener('click', () => opts.onSeek(b.song));
       track.append(c);
     });

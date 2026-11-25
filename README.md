@@ -312,7 +312,17 @@ caractère…), et **▶ joue la scène choisie en boucle** (pas toute la chanso
    les **propositions** (trois pistes et grilles de référence, transposées sur la tonique de la scène) ; un clic sur
    une proposition la fait jouer dans la scène, en boucle, avec le groupe (lecture, stop, tempo et tempo conseillé
    dans la fenêtre) ; **Choisir** la pose dans la grille (tonalité et émotion comprises, tempo conseillé si coché),
-   **Annuler** (de cette fenêtre d'inspiration) ou <kbd>Échap</kbd> laisse la scène intacte. Repris de l'ancienne fenêtre Harmonie (l'assistant
+   **Annuler** (de cette fenêtre d'inspiration) ou <kbd>Échap</kbd> laisse la scène intacte.
+   **⇅ Changement…** ouvre la fenêtre des **changements de tonalité et de mode** (`js/keychange.js`, d'après le document
+   « Changements de tonalité et de mode dans une chanson ») : elle part de la scène jouée juste avant dans l'arrangement
+   et propose les gestes qui ont un sens depuis son mode (**Monter** d'un demi-ton ou d'un ton, **Glisser** par un accord
+   pivot ou vers le relatif, **Changer de couleur** : parallèle, mixolydien, lydien, dorien, phrygien, **Surprendre** :
+   bascule lointaine avec note commune). Un clic sur un geste fait écouter la chanson à partir de la scène d'avant, avec
+   le changement ; **Passage** Direct ou **Préparé** (la dominante de la nouvelle tonalité au dernier temps de la scène
+   d'avant : La7 avant Ré), **Accords** « Les miens » (mêmes degrés ; dans un autre mode, ils en prennent la couleur) ou
+   « Ceux du geste », **Scènes d'après** (celles qui ne jouent qu'après) gardent leur tonalité ou suivent. Une scène qui
+   change de tonalité porte une pastille violette (« ↗ 1 ton », « relatif », « dorien ») dans la colonne des scènes et
+   dans la frise de lecture. Claude : `StepSeq.assistantChangement({ scene, geste, passage, accords, suivent })`. Repris de l'ancienne fenêtre Harmonie (l'assistant
    devient l'écran de référence) : la ligne du **guide du mode** (note caractéristique, ce qu'il faut faire entendre, **boucle
    d'essai** à poser), le menu **Grilles de la tonalité** (catalogue `SS.harmony.progressions`), les **essais A/B**
    (`SS.harmony.transformGrid` : septièmes prises dans la gamme, sus2, tonique majeur / mineur, cadence évitée, pédale de
