@@ -117,6 +117,10 @@
         <span class="sb-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg></span>
         <span class="sb-txt"><b>Mix</b><small class="mix-sub">Console</small></span>
       </button>
+      <button id="liveBtn" class="btn studio-btn live-btn" type="button" aria-pressed="false" title="Live : jouer les réglages pendant la lecture (filtres, envois, volumes) et enregistrer les gestes">
+        <span class="sb-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 13l4-5"/><path d="M5 5l1.5 1.5M19 5l-1.5 1.5"/></svg></span>
+        <span class="sb-txt"><b>Live</b><small>Gestes</small></span>
+      </button>
     </div>
 
     <div class="topbar-group files">
@@ -226,6 +230,7 @@
 
   <!-- Mode Jouer (js/live.js) : clavier à l'écran, octave, vélocité, réglages d'enregistrement -->
   <section id="kbDock" class="kb-dock" hidden aria-label="Jouer au clavier"></section>
+  <section id="liveDock" class="lv-dock" hidden aria-label="Console Live"></section>
 
   <footer class="bottombar">
     <button type="button" id="quantizeBtn" class="btn btn-small quantize-btn active" aria-pressed="true" title="Quantize : les notes jouées au clavier ou importées d'un fichier MIDI arrivent alignées sur la grille. Coupé : leur petit décalage de jeu est gardé. Les notes posées à la souris sont toujours alignées.">
@@ -1189,6 +1194,8 @@
   <script src="js/calcul.js"></script>
   <script src="js/audioexport.js"></script>
   <script src="js/beatautoui.js"></script>
+  <script src="js/liveconsole.js"></script>
+  <script src="js/liveconsolepanel.js"></script>
   <script src="js/scenesheet.js"></script>
   <script src="js/tutorial.js"></script>
   <script src="js/ui.js?v=chunks-1"></script>

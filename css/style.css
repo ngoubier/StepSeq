@@ -6488,3 +6488,54 @@ body.wiz-am-open .wiz-sheet { right: 360px; }
 .bwk-adv .gt-chip.on { background: var(--c-yellow-bg); border-color: var(--c-yellow); }
 .bwk-star { color: var(--c-yellow); }
 .bwk-meta { margin-left: 6px; font-weight: 400; font-size: var(--fs-xs); color: var(--muted); }
+
+/* ---------- Console Live (js/liveconsolepanel.js) ---------- */
+.lv-dock { display: flex; flex-direction: column; gap: 8px; padding: 10px 16px 12px; background: var(--c-surface-1); border-top: 1px solid var(--c-line); }
+.lv-dock.recording { border-top-color: var(--c-red); }
+body.wizard-mode #liveBtn, body.wizard-mode #liveDock, body.mixer-open #liveDock { display: none; }
+.lv-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.lv-title { font-size: var(--fs-lg); }
+.lv-sp { flex: 1; }
+.lv-rec { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; }
+.lv-rec-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--c-red-deep); }
+.lv-rec.on { background: var(--c-red-bg); border-color: var(--c-red); color: var(--c-text); }
+.lv-rec.on .lv-rec-dot { background: var(--c-red); box-shadow: 0 0 8px var(--c-red); }
+.lv-take { display: inline-flex; align-items: center; gap: 8px; font-size: var(--fs-sm); color: var(--c-text-2); background: var(--c-panel); border: 1px solid var(--c-line); border-radius: 7px; padding: 3px 4px 3px 10px; }
+.lv-take[hidden], .lv-take button[hidden] { display: none; }
+.lv-xy-wrap { display: flex; align-items: center; gap: 8px; }
+.lv-xy-name { font-size: var(--fs-xs); color: var(--c-muted); max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lv-xy { position: relative; width: 200px; height: 64px; background: var(--c-bg-deep); border: 1px solid var(--c-line); border-radius: 8px; cursor: crosshair; touch-action: none; }
+.lv-xy.off { opacity: .35; pointer-events: none; }
+.lv-xy-dot { position: absolute; width: 14px; height: 14px; border-radius: 50%; background: var(--c-amber); box-shadow: 0 0 10px var(--c-amber); transform: translate(-50%, -50%); pointer-events: none; }
+.lv-xy-ax { position: absolute; font-size: var(--fs-xs); color: var(--c-faint); pointer-events: none; }
+.lv-xy-ax.x { left: 6px; bottom: 2px; }
+.lv-xy-ax.y { left: 6px; top: 2px; }
+.lv-strips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+.lv-empty { color: var(--c-muted); font-size: var(--fs-sm); padding: 8px 0; }
+.lv-strip { flex: none; background: var(--c-panel); border: 1px solid var(--c-line); border-left: 3px solid var(--c); border-radius: 9px; padding: 6px 8px 6px; }
+.lv-sh { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.lv-sh b { font-size: var(--fs-sm); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lv-sw { width: 8px; height: 8px; border-radius: 2px; background: var(--c); }
+.lv-knobs { display: flex; gap: 2px; align-items: flex-start; }
+.lv-knob { display: flex; flex-direction: column; align-items: center; width: 62px; cursor: ns-resize; touch-action: none; border-radius: 6px; outline: none; }
+.lv-knob.big { width: 68px; }
+.lv-knob:focus-visible { box-shadow: 0 0 0 2px var(--c-blue); }
+.lv-knob svg { display: block; flex: none; }
+.lv-body { fill: var(--c-panel-3); stroke: var(--c-line-strong); }
+.lv-arc { fill: none; stroke: var(--c); stroke-width: 3.5; stroke-linecap: round; }
+.lv-ind { stroke: var(--c-text); stroke-width: 2.2; stroke-linecap: round; }
+.lv-lab { font-size: var(--fs-xs); color: var(--c-text-2); white-space: nowrap; }
+.lv-val { font-size: var(--fs-xs); color: var(--c-muted); font-variant-numeric: tabular-nums; white-space: nowrap; min-height: 15px; }
+.lv-knob.sel .lv-lab { color: var(--c-text); font-weight: 600; }
+.lv-dot { width: 6px; height: 6px; border-radius: 50%; }
+.lv-knob.auto .lv-dot { background: var(--c-green); }
+.lv-knob.held .lv-dot { background: var(--c-amber); }
+.lv-knob.writing .lv-dot { background: var(--c-red); box-shadow: 0 0 6px var(--c-red); }
+.lv-lane { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 8px; align-items: center; }
+.lv-lane-name { font-size: var(--fs-sm); color: var(--c-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lv-lane-cv { width: 100%; height: 34px; background: var(--c-bg); border-radius: 5px; display: block; }
+@media (max-width: 760px) {
+  .lv-lane { grid-template-columns: 1fr; }
+  .lv-xy { width: 150px; }
+}
+.live-btn.active { background: var(--accent); }

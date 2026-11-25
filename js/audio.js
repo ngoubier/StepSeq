@@ -847,11 +847,17 @@ SS.audio = (() => {
    * Programme l'automation d'une piste pour un pas : valeur au début du pas, puis rampe jusqu'à la valeur
    * du pas suivant (fréquences : rampe exponentielle, à l'oreille). `time` = instant nominal du pas (sans swing).
    */
-  function scheduleAuto(project, track, tick, time, sd) {
+  function scheduleAuto(project, track, tick, time, sd, song = null) {
+    // console Live (js/liveconsole.js) : les gestes tenus s'écrivent dans l'automation par temps du passage joué
+    if (SS.liveConsole && SS.liveConsole.active()) SS.liveConsole.onStep(project, track, tick, song);
+    // automation par temps de la tranche (filtre DJ, envois, volume ; js/beatauto.js), qui s'ajoute à celle de la scène
+    const ba = SS.beatAuto ? SS.beatAuto.forTrack(project, track, song) : null;
+    const bs = ba && SS.beatAuto.STRIP.some((x) => ba[x.id]) ? ba : null;
+    if (heldVoices.has(track.id)) liveVoices(track, time);
     // seules les courbes de la tranche passent par ces nœuds (pas celles du son, ni les contrôleurs MIDI)
     const lanes = track.auto && SS.AUTO_PARAMS.some((P) => !P.voice && !P.midi && track.auto[P.id]) ? track.auto : null;
     let b = buses.get(track.id);
-    if (!lanes) {
+    if (!lanes && !bs) {
       if (b && b.auto && b.auto.active) autoNeutral(b.auto, time);
       return;
     }
@@ -860,11 +866,27 @@ SS.audio = (() => {
       b = buses.get(track.id);
     }
     const a = autoNodes(b);
-    const len = SS.autoLen(project, track); // l'automation boucle sur sa propre longueur
+    const len = lanes ? SS.autoLen(project, track) : SS.totalSteps(project); // l'automation boucle sur sa propre longueur
     const step = tick % len;
-    const at = (s) => Object.fromEntries(SS.AUTO_PARAMS.map((P) => [P.id, SS.autoValue(lanes[P.id], s, len) ?? P.def]));
-    const x0 = autoTargets(at(step));
-    const x1 = step + 1 < len ? autoTargets(at(step + 1)) : x0; // fin de boucle : la valeur repart du début au tour suivant
+    const spbeat = SS.stepsPerBeat(project);
+    const sceneSteps = SS.totalSteps(project);
+    const at = (s, ss) => {
+      const v = Object.fromEntries(SS.AUTO_PARAMS.map((P) => [P.id, lanes ? SS.autoValue(lanes[P.id], s, len) ?? P.def : P.def]));
+      if (bs) {
+        const x = ss / spbeat;
+        const g = (k) => (bs[k] ? bs[k](x) : null);
+        const dj = g('dj'), vol = g('vol'), echo = g('echo'), hall = g('hall');
+        if (dj != null) v.filter = Math.max(-1, Math.min(1, v.filter + dj));
+        if (vol != null) v.volume *= vol;
+        if (echo != null) v.echo = Math.min(1, v.echo + echo);
+        if (hall != null) v.reverb = Math.min(1, v.reverb + hall);
+      }
+      return v;
+    };
+    const ss0 = tick % sceneSteps;
+    const x0 = autoTargets(at(step, ss0));
+    // fin de boucle : la valeur repart du début au tour suivant
+    const x1 = step + 1 < len && ss0 + 1 < sceneSteps ? autoTargets(at(step + 1, ss0 + 1)) : x0;
     const t1 = time + sd;
     const lin = (param, v0, v1) => {
       param.setValueAtTime(v0, time);
@@ -1544,16 +1566,60 @@ SS.audio = (() => {
         return chain.end;
       },
     };
-    if (p._bauto) beatAutoVoice(p._bauto, chain);
+    if (p._bauto) beatAutoVoice(p._bauto, chain, p._track);
     return chain;
+  }
+
+  /*
+   * Console Live : une note tenue (drone, nappe) suit aussi le geste en cours, pas seulement les notes suivantes.
+   * Chaque voix jouée avec l'automation par temps est gardée jusqu'à sa fin ; pendant un geste, une source ajoute
+   * à ses filtres l'écart entre la valeur tenue et la courbe de la voix (cents pour le cutoff, Q pour la résonance).
+   */
+  const heldVoices = new Map(); // trackId → Set de { chain, ba, flt, src: { cut, res } }
+  function liveVoices(track, time) {
+    const set = heldVoices.get(track.id);
+    if (!set || !set.size) return;
+    const lv = SS.beatAuto.live.get(track.id) || {};
+    for (const v of set) {
+      if (v.chain.end < ctx.currentTime) {
+        set.delete(v);
+        continue;
+      }
+      if (v.chain.t > time) continue; // la note commence plus tard : elle a déjà la valeur tenue
+      for (const k of ['cut', 'res']) {
+        const want = lv[k];
+        if (want == null && !v.src[k]) continue;
+        const cur = v.ba[k] ? v.ba[k](time) : null;
+        let off = 0;
+        if (want != null) {
+          if (k === 'cut') off = (want - (cur == null ? 0 : cur)) * 1200;
+          else off = v.flt.qs ? v.flt.qs.reduce((a, q) => a + Math.min(q.max, SS.beatAuto.resQ(q.base, want)) - Math.min(q.max, SS.beatAuto.resQ(q.base, cur == null ? 1 : cur)), 0) / v.flt.qs.length : 0;
+        }
+        if (!v.src[k]) {
+          const params = k === 'cut' ? v.flt.detunes || [] : (v.flt.qs || []).map((q) => q.param);
+          if (!params.length) continue;
+          const src = ctx.createConstantSource();
+          src.offset.value = 0;
+          params.forEach((pr) => src.connect(pr));
+          src.start(Math.max(time, ctx.currentTime));
+          src.stop(v.chain.end + 0.05);
+          v.src[k] = src;
+        }
+        v.src[k].offset.setTargetAtTime(off, Math.max(time, ctx.currentTime), 0.02);
+      }
+    }
   }
 
   /*
    * Automation par temps (js/beatauto.js) pendant la note : le cutoff (décalage en cents des filtres) et la résonance
    * suivent la courbe de la chanson, même sur une note tenue. `ba` : { cut(t), res(t) } (temps audio → valeur ou null).
    */
-  function beatAutoVoice(ba, chain) {
+  function beatAutoVoice(ba, chain, trackId) {
     const flt = chain.flt;
+    if (trackId && (flt.detunes || flt.qs)) {
+      if (!heldVoices.has(trackId)) heldVoices.set(trackId, new Set());
+      heldVoices.get(trackId).add({ chain, ba, flt, src: {} });
+    }
     const curve = (fn, a, b, map) => {
       const n = Math.max(2, Math.min(2000, Math.ceil((b - a) * 100)));
       const c = new Float32Array(n);
@@ -1911,7 +1977,12 @@ SS.audio = (() => {
       vel = r.vel;
     }
     if (mod && mod.locks) p = SS.applyVoiceLocks(p, mod.locks); // automation du son (verrous par pas)
-    if (mod && mod.bauto) p = { ...p, _bauto: mod.bauto }; // automation par temps : cutoff et résonance pendant la note
+    if (mod && mod.bauto) {
+      // automation par temps : cutoff et résonance pendant la note, enveloppe et decay du filtre au début
+      p = { ...p, _bauto: mod.bauto };
+      if (mod.bauto.env != null) p.env = Math.max(0, (p.env || 0) + mod.bauto.env);
+      if (mod.bauto.dec != null) p.fdecay = Math.max(0.005, (p.fdecay ?? p.decay) * mod.bauto.dec);
+    }
     if (mod && mod.cutoff && mod.cutoff !== 1) p = { ...p, cutoff: Math.max(30, Math.min(20000, p.cutoff * mod.cutoff)) };
     // note glissée (ev.slide, motifs de basse drill / amapiano) : part de la note précédente encore tenue et glisse vers
     // la sienne, sans nouvelle attaque ; le glide de la piste s'il y en a un, sinon SLIDE_TIME
@@ -2326,9 +2397,11 @@ SS.audio = (() => {
       const spbeat = SS.stepsPerBeat(project);
       const baVel = (st) => (ba && ba.vel ? ba.vel(st / spbeat) ?? 1 : 1);
       const baVoice = (st, t0) => {
-        if (!ba || !(ba.cut || ba.res)) return null;
+        // console Live ouverte : chaque voix est suivie (une note tenue doit pouvoir bouger avec le geste)
+        if (!ba || !(ba.cut || ba.res || ba.env || ba.dec)) return SS.liveConsole && SS.liveConsole.isOpen() ? {} : null;
         const x = (t) => (st + (t - t0) / sd) / spbeat;
-        return { cut: ba.cut && ((t) => ba.cut(x(t))), res: ba.res && ((t) => ba.res(x(t))) };
+        // enveloppe et decay du filtre : lus au début de la note
+        return { cut: ba.cut && ((t) => ba.cut(x(t))), res: ba.res && ((t) => ba.res(x(t))), env: ba.env ? ba.env(st / spbeat) : null, dec: ba.dec ? ba.dec(st / spbeat) : null };
       };
       // piste Ambient (js/ambient.js) : le moteur programme lui-même ce qui tombe dans ce pas (notes de l'accord de la
       // scène, horloge en secondes) ; les notes de la grille ne sont pas jouées
@@ -2464,7 +2537,7 @@ SS.audio = (() => {
       }
       const t = seq.nextTime + SS.grooveOffset(project, seq.step, stepDur(project));
       clockAdvance(project, seq.nextTime);
-      project.tracks.forEach((tr) => scheduleAuto(project, tr, seq.step, seq.nextTime, stepDur(project)));
+      project.tracks.forEach((tr) => scheduleAuto(project, tr, seq.step, seq.nextTime, stepDur(project), seq.song ? { index: seq.song.index, rep: seq.song.rep } : null));
       scheduleStep(project, seq.step, t);
       metroStep(project, seq.step, seq.nextTime);
       histPush(seq.nextTime);
@@ -2518,7 +2591,7 @@ SS.audio = (() => {
       }
       const t = seq.nextTime + SS.grooveOffset(project, seq.step, stepDur(project));
       clockAdvance(project, seq.nextTime);
-      project.tracks.forEach((tr) => scheduleAuto(project, tr, seq.step, seq.nextTime, stepDur(project)));
+      project.tracks.forEach((tr) => scheduleAuto(project, tr, seq.step, seq.nextTime, stepDur(project), seq.song ? { index: seq.song.index, rep: seq.song.rep } : null));
       scheduleStep(project, seq.step, t);
       metroStep(project, seq.step, seq.nextTime);
       histPush(seq.nextTime);
@@ -3184,6 +3257,8 @@ SS.audio = (() => {
     liveNoteOff,
     stepAt,
     heardTime,
+    /** Dernière position entendue pendant la lecture : { step, song: { index, rep } | null }, ou null. */
+    heardPos: () => (seq.playing && seq.shown ? seq.shown : null),
     /** Métronome pendant la lecture (enregistrement au clavier). */
     setMetronome: (on) => (seq.metro = !!on),
     isSongPlaying: () => !!(seq.song || (seq.pending && seq.pending.opts.song)),
@@ -3193,6 +3268,8 @@ SS.audio = (() => {
     _out: () => masterFader, // sortie finale (après la tranche Master), pour enregistrer
     _duckValue: (id) => (buses.get(id) ? buses.get(id).duck.gain.value : null),
     _autoState: autoState,
+    /** Tests : écart appliqué par la console Live aux voix tenues d'une piste (cents du cutoff), ou null. */
+    _liveOffsets: (id) => [...(heldVoices.get(id) || [])].filter((v) => v.src.cut).map((v) => v.src.cut.offset.value),
     start,
     stop,
     isPlaying: () => seq.playing || !!seq.pending, // en attente des sons : compte comme en lecture

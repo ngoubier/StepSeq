@@ -12,8 +12,15 @@
  * Réglages (SS.BEAT_AUTO) :
  *   cut : cutoff du filtre du son, −4 … +4 octaves autour du réglage du sound design (0 = inchangé) ;
  *   res : résonance du filtre du son, ×0 … ×3 ;
- *   vel : vélocité des notes (et des coups de batterie), 40 % … 130 %.
- * Le cutoff et la résonance évoluent pendant la note (une nappe tenue s'ouvre), la vélocité est lue au début de la note.
+ *   env : profondeur de l'enveloppe du filtre, −3 … +4 octaves ajoutées à celle du son ;
+ *   dec : decay de l'enveloppe du filtre, ×0,25 … ×4 ;
+ *   vel : vélocité des notes (et des coups de batterie), 40 % … 130 % ;
+ *   dj, echo, hall, vol (strip) : réglages de la tranche, comme l'automation de scène (track.auto) qu'ils complètent :
+ *     filtre DJ −1 (passe-bas) … +1 (passe-haut), envois vers l'écho et la reverb, volume ×0 … ×1,5.
+ * Le cutoff et la résonance évoluent pendant la note (une nappe tenue s'ouvre) ; la vélocité, l'enveloppe et le decay
+ * sont lus au début de la note ; les réglages de tranche suivent la courbe pas à pas.
+ *
+ * Console Live (js/liveconsole.js) : un réglage tenu à la main (live) remplace la courbe tant qu'il est tenu.
  *
  * Lecture : « fluide » (par défaut) — la valeur passe d'un temps à l'autre par une courbe lisse (spline cubique
  * monotone par le centre de chaque temps) ; « paliers » (track.bautoStep) — chaque temps garde sa valeur.
@@ -24,7 +31,13 @@ window.SS = window.SS || {};
 SS.BEAT_AUTO = [
   { id: 'cut', label: 'Cutoff', sub: 'autour du son', min: -4, max: 4, def: 0, color: '#f5a623', cc: 74 },
   { id: 'res', label: 'Résonance', sub: 'du son', min: 0, max: 3, def: 1, color: '#ff5c8a', cc: 71 },
+  { id: 'env', label: 'Enveloppe', sub: 'du filtre', min: -3, max: 4, def: 0, color: 'var(--c-cyan)' },
+  { id: 'dec', label: 'Decay', sub: 'du filtre', min: 0.25, max: 4, def: 1, color: 'var(--c-teal)' },
   { id: 'vel', label: 'Vélocité', sub: 'des notes', min: 0.4, max: 1.3, def: 1, color: '#3fcf3f' },
+  { id: 'dj', label: 'Filtre DJ', sub: 'de la tranche', min: -1, max: 1, def: 0, color: 'var(--c-violet)', strip: true },
+  { id: 'echo', label: 'Écho', sub: 'envoi', min: 0, max: 1, def: 0, color: 'var(--c-blue-soft)', strip: true },
+  { id: 'hall', label: 'Reverb', sub: 'envoi', min: 0, max: 1, def: 0, color: 'var(--c-violet-soft)', strip: true },
+  { id: 'vol', label: 'Volume', sub: 'de la tranche', min: 0, max: 1.5, def: 1, color: 'var(--c-yellow)', strip: true },
 ];
 
 SS.beatAuto = (() => {
@@ -32,13 +45,43 @@ SS.beatAuto = (() => {
   const clamp = (k, v) => Math.max(P[k].min, Math.min(P[k].max, v));
   const round = (v) => Math.round(v * 1000) / 1000;
 
-  /** Réglages proposés pour une piste : la vélocité partout ; cutoff et résonance sur les sons à filtre (pas batterie, pas Juno). */
+  /**
+   * Réglages proposés pour une piste : vélocité et tranche partout ; le filtre du son (cutoff, résonance, enveloppe,
+   * decay) sur les sons à filtre (pas batterie, pas Juno, pas piste générative).
+   */
+  const STRIP = SS.BEAT_AUTO.filter((x) => x.strip);
   function paramsFor(track) {
-    if (!track || track.type !== 'instrument') return [P.vel];
+    if (!track || track.type !== 'instrument') return [P.vel, ...STRIP];
     const inst = SS.findInstrument ? SS.findInstrument(track.family, track.instrument) : null;
-    if (inst && inst.kind === 'analog') return [P.vel];
+    if (inst && (inst.kind === 'analog' || inst.kind === 'ambient')) return [P.vel, ...STRIP];
     return SS.BEAT_AUTO;
   }
+  /** Le son de la piste a-t-il un filtre réglable par temps ? */
+  const hasFilter = (track) => paramsFor(track).some((x) => x.id === 'cut');
+
+  /*
+   * Console Live : valeurs tenues à la main, par piste. Elles remplacent la courbe (ou le neutre) à la lecture, le temps
+   * du geste. live.get(trackId) = { réglage: valeur }.
+   */
+  const live = new Map();
+  function setLive(trackId, k, v) {
+    if (v == null) {
+      const o = live.get(trackId);
+      if (o) {
+        delete o[k];
+        if (!Object.keys(o).length) live.delete(trackId);
+      }
+      return;
+    }
+    const o = live.get(trackId) || {};
+    o[k] = clamp(k, v);
+    live.set(trackId, o);
+  }
+  const liveOf = (trackId, k) => {
+    const o = live.get(trackId);
+    return o && o[k] != null ? o[k] : null;
+  };
+  const clearLive = () => live.clear();
 
   const beatsPerBar = (p) => p.timeSig[0];
   const sceneOf = (p, id) => p.scenes.find((sc) => sc.id === id);
@@ -199,19 +242,22 @@ SS.beatAuto = (() => {
    * Ce que la lecture doit appliquer à une piste : { vel(x), cut(x), res(x) } (fonctions du temps dans la scène,
    * valeur ou null) pour le passage joué, ou null s'il n'y a rien. song : { index, rep } en mode Chanson, sinon null.
    */
+  /** Passage joué : celui de la chanson (song : { index, rep }), ou en boucle celui choisi pour la scène en cours. */
+  function playedPass(p, song) {
+    if (song) return { block: song.index, rep: song.rep };
+    const all = passages(p, p.current);
+    if (!all.length) return null;
+    const c = loopPass(p.current);
+    return all[c === 'all' ? 0 : c] || all[0];
+  }
   function forTrack(p, track, song) {
-    let pass;
-    if (song) pass = { block: song.index, rep: song.rep };
-    else {
-      const all = passages(p, p.current);
-      if (!all.length) return null;
-      const c = loopPass(p.current);
-      pass = all[c === 'all' ? 0 : c] || all[0];
-    }
+    const pass = playedPass(p, song);
+    if (!pass) return live.has(track.id) ? Object.fromEntries(Object.entries(live.get(track.id)).map(([k, v]) => [k, () => v])) : null;
     const out = {};
     let any = false;
+    const lv = live.get(track.id);
     for (const x of paramsFor(track)) {
-      const f = reader(p, pass, track, x.id);
+      const f = lv && lv[x.id] != null ? ((v) => () => v)(lv[x.id]) : reader(p, pass, track, x.id);
       if (f) {
         out[x.id] = f;
         any = true;
@@ -256,8 +302,7 @@ SS.beatAuto = (() => {
   /** Formes prêtes sur n temps : valeurs (ou null pour effacer). */
   function shape(k, id, n) {
     const x = P[k];
-    const lo = k === 'vel' ? 0.6 : k === 'res' ? 0.5 : -2.5;
-    const hi = k === 'vel' ? 1.15 : k === 'res' ? 2.5 : 0.5;
+    const [lo, hi] = SHAPE_RANGE[k] || [x.min, x.max];
     const t = (i) => (n > 1 ? i / (n - 1) : 1);
     if (id === 'rise') return Array.from({ length: n }, (_, i) => lo + (hi - lo) * t(i));
     if (id === 'fall') return Array.from({ length: n }, (_, i) => hi - (hi - lo) * t(i));
@@ -265,6 +310,8 @@ SS.beatAuto = (() => {
     if (id === 'flat') return Array(n).fill(x.def);
     return Array(n).fill(null);
   }
+  // bornes des formes prêtes (Montée, Descente, Vague) : un geste utile, pas les extrêmes
+  const SHAPE_RANGE = { cut: [-2.5, 0.5], res: [0.5, 2.5], env: [-1, 2], dec: [0.5, 2], vel: [0.6, 1.15], dj: [-0.8, 0], echo: [0, 0.6], hall: [0, 0.6], vol: [0.2, 1] };
   const SHAPES = [
     { id: 'rise', label: 'Montée' },
     { id: 'fall', label: 'Descente' },
@@ -287,7 +334,9 @@ SS.beatAuto = (() => {
   const fmt = (k, v) => {
     if (v == null) return 'comme écrit';
     if (k === 'cut') return (v > 0.05 ? '+' : v < -0.05 ? '−' : '') + Math.abs(v).toFixed(1).replace('.', ',') + ' oct';
-    if (k === 'res') return '×' + v.toFixed(2).replace('.', ',');
+    if (k === 'res' || k === 'dec') return '×' + v.toFixed(2).replace('.', ',');
+    if (k === 'env') return (v > 0.05 ? '+' : v < -0.05 ? '−' : '') + Math.abs(v).toFixed(1).replace('.', ',') + ' oct';
+    if (k === 'dj') return Math.abs(v) < 0.02 ? 'ouvert' : (v < 0 ? 'passe-bas ' : 'passe-haut ') + Math.round(Math.abs(v) * 100) + ' %';
     return Math.round(v * 100) + ' %';
   };
 
@@ -300,5 +349,5 @@ SS.beatAuto = (() => {
     }
   }
 
-  return { P, ccValue, applyPlan, paramsFor, passages, sceneBeats, beatsPerBar, layer, get, set, prune, clean, has, hasIn, curveAt, reader, forTrack, setLoopPass, loopPass, resQ, brush, shape, SHAPES, fmt };
+  return { P, STRIP, ccValue, applyPlan, paramsFor, hasFilter, setLive, liveOf, clearLive, live, playedPass, passages, sceneBeats, beatsPerBar, layer, get, set, prune, clean, has, hasIn, curveAt, reader, forTrack, setLoopPass, loopPass, resQ, brush, shape, SHAPES, fmt };
 })();

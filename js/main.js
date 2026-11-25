@@ -1139,6 +1139,8 @@
   SS.junoPanel.init({ changed, renderTrack: (t) => SS.ui.renderTrack(t) });
   SS.ambientPanel.init({ project: () => project, changed, renderTrack: (t) => SS.ui.renderTrack(t) });
   SS.live.init({ project: () => project, changed, play });
+  SS.liveConsole.init({ project: () => project, changed });
+  SS.liveConsolePanel.init({ project: () => project, changed, play });
   SS.arpPanel.init({ project: () => project, changed, renderTrack: (t) => SS.ui.renderTrack(t) });
   SS.groove.init({ project: () => project, changed });
   initMeta();

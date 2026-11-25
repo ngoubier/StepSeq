@@ -47,7 +47,7 @@ puis ouvrir <http://localhost:8000>.
   **Tonalité** (la tonalité de la scène en sous-titre ; un clic ouvre un petit menu tonique / mode, proposé d'après les notes ;
   la composition à partir d'une émotion, les grilles de référence, les essais A/B et la vérification sont dans l'assistant « Nouvelle chanson »), **Arrangement** (fenêtre Arrangement : scènes en colonne avec ▶ et ⋯ ; chanson en blocs larges comme leur durée, à glisser
   (Alt : copier) et à étirer par le bord droit pour les répétitions ; une ligne par piste dessous, clic = couper la piste dans
-  la scène ; automation par temps repliée) et **Mix** (console de mixage, avec **Auto Mix**).
+  la scène ; automation par temps repliée), **Mix** (console de mixage, avec **Auto Mix**) et **Live** (console Live : jouer les réglages pendant la lecture et enregistrer les gestes).
   **Mode assistant** : quand l'assistant « Nouvelle chanson » est ouvert (`body.wizard-mode`), il prend la place de la zone des pistes, sous cette
   barre qui reste visible ; la barre du bas, Tonalité, Arrangement et Mix s'effacent et la **tonalité** de la chanson en création (« Do mineur », avec son armure)
   prend leur place. **Lecture / Stop**, **tempo** et **position** de la barre pilotent alors l'écoute de l'assistant (scène choisie en boucle ou chanson) ;
@@ -1233,7 +1233,7 @@ boucle (`SS.autoValue(…, hold)`). Les courbes MIDI seules ne créent pas de n�
 - Sur téléphone, le bouton ∿ est masqué ; les courbes posées restent jouées.
 
 
-### Automation par temps : cutoff, résonance, vélocité sur toute la chanson
+### Automation par temps : filtre, enveloppe, vélocité, envois et volume sur toute la chanson
 
 Le menu du bouton **∿** active aussi des courbes **par temps** qui suivent l'arrangement (pas la boucle d'une scène) :
 un panneau sous les notes de la piste (histogramme, une barre par temps, courbe lissée par-dessus), affiché
@@ -1241,7 +1241,24 @@ seulement quand une de ces courbes est active, et les mêmes courbes sous la cha
 Données : `project.song[i].bauto[trackId][réglage][répétition] = { temps: valeur }` ; moteur `SS.beatAuto`
 (`js/beatauto.js` : passages, spline monotone, liaison des voisines), interface `SS.beatAutoUI` (`js/beatautoui.js`).
 Cutoff (−4…+4 octaves) et résonance (×0…×3) pilotent le filtre de la voix pendant la note (`beatAutoVoice` dans
-`js/audio.js`) ; la vélocité (40…130 %) multiplie celle des notes et des coups de batterie.
+`js/audio.js`) ; l'enveloppe du filtre (−3…+4 octaves ajoutées) et son decay (×0,25…×4) sont lus au début de la note ;
+la vélocité (40…130 %) multiplie celle des notes et des coups de batterie. Sur toutes les pistes, batterie comprise, la
+tranche suit aussi ses courbes : **Filtre DJ** (passe-bas … passe-haut), envois **Écho** et **Reverb**, **Volume** (×0…×1,5),
+ajoutés à l'automation de la scène (`scheduleAuto` dans `js/audio.js`).
+
+### Console Live : jouer les réglages pendant la lecture
+
+Le bouton **Live** de la barre du haut (écran des pistes) ouvre un bandeau en bas de l'écran : une tranche par piste,
+avec un bouton rotatif par réglage (cutoff, résonance, enveloppe, decay, écho, reverb, volume ; batterie et Juno-106 :
+filtre DJ, écho, reverb, volume). On tourne en glissant vers le haut ou le bas (Maj : réglage fin), double-clic = retour
+à la courbe. Un pavé **Cutoff × Résonance** joue les deux à la fois sur la piste choisie, et la courbe du réglage choisi
+s'affiche sur toute la chanson sous les tranches. Le geste s'entend aussitôt, y compris sur une note tenue (drone, nappe).
+- Sans enregistrement, le réglage reste où on le laisse jusqu'à l'arrêt.
+- **Enregistrer les gestes** : ce qu'on joue s'écrit dans l'automation par temps du passage joué (chanson ou scène en
+  boucle). **Au toucher** : le geste s'écrit tant qu'on tient le bouton, puis la courbe reprend ; **Verrou** : la
+  dernière valeur continue de s'écrire jusqu'à l'arrêt. Une prise = une étape Ctrl+Z, ou **Annuler la prise**.
+- Code : `js/liveconsole.js` (gestes, écriture, prise ; sans DOM), `js/liveconsolepanel.js` (bandeau), valeurs tenues
+  dans `SS.beatAuto.setLive`. Tests : `tests/liveconsole.test.js`, `tests/e2e/live-console.js`. Outil Claude : `consoleLive`.
 ### Conditions de déclenchement
 
 Inspirées des « trig conditions » des machines Elektron (et de la probabilité des notes d'Ableton Live) : une note
@@ -1463,7 +1480,7 @@ Outils (paramètres en un objet, réponse `{ ok, message, … }` ou `{ ok: false
 lire : `aide`, `etat`, `piste`, `accords`, `sons` ; chanson : `titre`, `tempo`, `mesure`, `mesures`, `tonalite`, `ecrireAccords`,
 `proposerAccords` (✦ PROPOSER) ; pistes : `ajouterPiste`, `ecrireNotes`, `ecrireBatterie`, `son`, `mix`, `renommerPiste`,
 `supprimerPiste`, `effets` (chorus, delay, reverb, sidechain, envois), `automations` / `automation` (par pas dans une scène : formes toutes prêtes ou points), `automationsChanson` /
-`automationChanson` (cutoff, résonance, vélocité par temps sur toute la chanson : une scène, un de ses passages ou des mesures de la
+`automationChanson` (cutoff, résonance, enveloppe, decay, vélocité, filtre DJ, écho, reverb, volume par temps sur toute la chanson : une scène, un de ses passages ou des mesures de la
 chanson ; forme, valeur ou points ; lecture fluide ou paliers) ; console : `console` (pan, EQ, compresseur, limiteur d'une piste),
 `retours` (Plate, Hall, Écho, Cosmos), `master` (volume, EQ, filtre, compresseur, limiteur, effets du Master, mastering) ; scènes : `allerScene`, `ajouterScene`, `renommerScene`, `supprimerScene`, `structure` ; écoute : `jouer`,
 `stop`, `annuler`, `retablir`. Chaque écriture est une étape **Ctrl+Z** et affiche « ✳ Claude : … » avec un bouton Annuler ;
@@ -1609,7 +1626,7 @@ réel (export, figer, bilan).
 | Projet et fichiers | `js/project.js` (modèle, ouverture / enregistrement), `js/store.js` (enregistrement automatique), `js/mysongs.js` (Mes chansons), `js/songname.js` (nom inventé), `js/midi-file.js`, `js/midi.js`, `js/midipanel.js` (MIDI), `js/score-read.js`, `js/scorepanel.js` (Lire une partition), `js/render.js`, `js/audioexport.js`, `render.html`, `js/render-boot.js`, `js/render-host.js` (export audio) |
 | Sons | `js/library.js`, `js/dirt.js`, `js/dirt-tuning.js`, `js/sounds.js`, `js/catalog.js` (sons par rôle), `js/sample-tuning.js`, `js/vsco.js`, `js/libre.js` (orchestre et instruments libres), `samples/` |
 | Moteur audio | `js/audio.js` (voix, séquenceur), `js/filters.js`, `js/modulation.js`, `js/juno.js`, `js/juno-dsp.js`, `js/space-dsp.js` (Cosmos), `js/master-dsp.js`, `js/freeze.js` (❄), `js/calcul.js` (jauge CALCUL), `js/audiowatch.js`, `js/systempanel.js` (fenêtre Système), `js/trackloop.js` |
-| Édition dans la Grille | `js/song.js` (scènes, arrangement), `js/scenesheet.js` (Fiche Scène), `js/chords.js` (piste Accords), `js/harmony.js` (gammes, accords, tonalité), `js/transform.js`, `js/groove.js`, `js/live.js` (jouer au clavier), `js/expression.js` (jeu des instruments), `js/beatauto.js`, `js/beatautoui.js` (automation par temps), `js/bassmotifs.js` (bouton MOTIF) |
+| Édition dans la Grille | `js/song.js` (scènes, arrangement), `js/scenesheet.js` (Fiche Scène), `js/chords.js` (piste Accords), `js/harmony.js` (gammes, accords, tonalité), `js/transform.js`, `js/groove.js`, `js/live.js` (jouer au clavier), `js/expression.js` (jeu des instruments), `js/beatauto.js`, `js/beatautoui.js` (automation par temps), `js/liveconsole.js`, `js/liveconsolepanel.js` (console Live), `js/bassmotifs.js` (bouton MOTIF) |
 | Son d'une piste | `js/sounddesign.js`, `js/junopanel.js`, `js/fx.js`, `js/ambient.js`, `js/ambientpanel.js` |
 | Arpèges | `js/arp.js` (moteur Arp One), `js/arppanel.js` (fenêtre), `js/motifs.js` (motifs), `js/guitar-arp.js` (mode Guitare) |
 | Assistant Nouvelle chanson | `js/band.js` (interface, toutes les étapes, pont `SS.band.claude`), `js/band-presets.js` (styles, inspirations, musiciens), `js/band-songs.js` (plans des chansons), `js/band-templates.js` (morceaux complets), `js/bandsong.js` (écrit les notes d'après un plan), `js/bandgroup.js` (groupe), `js/wizdraft.js` (brouillon), `js/gridsync.js` (Assistant ↔ Grille), `js/drum-patterns.js`, `js/padmotifs.js`, `js/arrange.js`, `js/orchestra.js`, `js/orchjeux.js`, `js/horns.js`, `js/develop.js`, `js/film.js`, `js/tutorial.js` |
