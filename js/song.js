@@ -1,7 +1,8 @@
 /*
- * Panneau « Chanson » : scènes (Intro, Couplet, Refrain…) et arrangement.
- * La fenêtre Song (bouton de la barre du haut) affiche ce panneau ; une case permet de le garder
- * aussi affiché sous la barre du haut (#songDock) ou de le masquer quand la fenêtre est fermée.
+ * Chanson : scènes (Intro, Couplet, Refrain…) et arrangement.
+ * Sous la barre du haut, la frise de la chanson (#gridPlayBar, même dessin que celle de l'Assistant, js/wizplaybar.js) :
+ * une case par bloc joué ; clic = éditer la scène et partir d'ici, double-clic = sa fiche, clic droit = menu.
+ * La fenêtre Arrangement (bouton de la barre du haut) sert à tout le reste.
  * Une scène = le contenu de toutes les pistes (pas / notes) + son nombre de mesures.
  * L'arrangement enchaîne des blocs « scène × répétitions ».
  */
@@ -38,92 +39,7 @@ SS.song = (() => {
     $('#songMode').querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.mode === pr.playMode));
     document.body.classList.toggle('song-mode', pr.playMode === 'song');
 
-    // scènes
-    const chips = pr.scenes.map((sc, i) =>
-      h(
-        'div',
-        { class: 'scene-chip' + (sc.id === pr.current ? ' active' : ''), 'data-id': sc.id },
-        h(
-          'button',
-          {
-            type: 'button',
-            class: 'scene-name',
-            title: 'Cliquer pour éditer cette scène · double-clic : sa fiche',
-            onclick: () => app.switchScene(sc.id),
-            ondblclick: () => SS.sceneSheet.open(sc.id),
-          },
-          h('b', {}, String.fromCharCode(65 + (i % 26))),
-          ' ',
-          sc.name,
-          h('small', {}, ` ${barsOf(sc)} mes.${sc.tempo ? ` · ${sc.tempo}` : ''}`)
-        ),
-        pr.scenes.length > 1
-          ? h('button', { type: 'button', class: 'scene-del', title: `Supprimer la scène « ${sc.name} »`, onclick: () => remove(sc) }, '×')
-          : null
-      )
-    );
-    $('#sceneList').replaceChildren(...chips);
-
-    // arrangement
-    const maxW = 200;
-    const blocks = pr.song.map((b, i) => {
-      const sc = sceneOf(b.scene);
-      if (!sc) return null;
-      const bars = barsOf(sc) * b.repeat;
-      const letter = String.fromCharCode(65 + (pr.scenes.indexOf(sc) % 26));
-      const rep = i === playing ? `${playingRep + 1}/${b.repeat}` : `×${b.repeat}`;
-      return h(
-        'div',
-        {
-          class: 'song-block' + (i === app.state.songStart ? ' start' : '') + (i === playing ? ' playing' : '') + (sc.id === pr.current ? ' editing' : ''),
-          style: `--w:${Math.min(maxW, 80 + bars * 4)}px`, // au moins la place du nom, plus large pour les blocs longs
-          title: `${sc.name} : ${barsOf(sc)} mesure(s) × ${b.repeat}. Cliquer pour partir d'ici et éditer cette scène · double-clic : sa fiche`,
-          ondblclick: (e) => {
-            if (!e.target.closest('button')) SS.sceneSheet.open(sc.id);
-          },
-          onclick: (e) => {
-            if (e.target.closest('button')) return;
-            app.state.songStart = i;
-            app.switchScene(sc.id);
-          },
-        },
-        h('b', { class: 'sb-letter' }, letter),
-        h('span', { class: 'sb-name' }, sc.name),
-        h('span', { class: 'sb-rep' }, rep),
-        h(
-          'span',
-          { class: 'sb-tools' },
-          h('button', { type: 'button', title: 'Une répétition de moins', onclick: () => setRepeat(i, b.repeat - 1) }, '−'),
-          h('span', { class: 'sb-rep' }, rep),
-          h('button', { type: 'button', title: 'Une répétition de plus', onclick: () => setRepeat(i, b.repeat + 1) }, '+'),
-          h('button', { type: 'button', title: 'Avancer plus tôt', onclick: () => moveBlock(i, -1), disabled: i === 0 }, '‹'),
-          h('button', { type: 'button', title: 'Reculer plus tard', onclick: () => moveBlock(i, 1), disabled: i === pr.song.length - 1 }, '›'),
-          pr.song.length > 1 ? h('button', { type: 'button', title: 'Retirer ce bloc', onclick: () => removeBlock(i) }, '×') : null
-        )
-      );
-    });
-    const add = h(
-      'select',
-      {
-        class: 'song-add',
-        'aria-label': 'Ajouter une scène à la chanson',
-        onchange: (e) => {
-          if (!e.target.value) return;
-          pr.song.push({ scene: e.target.value, repeat: 1 });
-          e.target.value = '';
-          changedSong();
-        },
-      },
-      h('option', { value: '' }, '+ Ajouter…'),
-      pr.scenes.map((sc) => h('option', { value: sc.id }, sc.name))
-    );
-    $('#songBlocks').replaceChildren(...blocks.filter(Boolean));
-    $('#songAddSlot').replaceChildren(add);
-    updateScrollers();
-
-    const len = SS.songLength(pr);
-    $('#songTotal').textContent = `${len.bars} mesures · ${fmtTime(len.seconds)}`;
-    $('#songLoop').checked = !!pr.songLoop;
+    renderBar();
     renderWindow();
     if (SS.sceneSheet) SS.sceneSheet.refresh();
   }
@@ -187,14 +103,13 @@ SS.song = (() => {
   function setPlaying(i, rep = 0) {
     playing = i;
     playingRep = rep;
+    lastStep = i < 0 ? -1 : 0; // nouveau bloc (ou arrêt) : le curseur part de son début
     if (!app || !app.project()) return;
     render();
     const block = i >= 0 && p().song[i];
     const sc = block && sceneOf(block.scene);
     $('#lcdTitle').textContent = sc ? `${sc.name} ${rep + 1}/${block.repeat}` : '';
     if (i >= 0) {
-      const el = $('#songBlocks').children[i];
-      if (el) el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
       const blk = winOpen() && $('#sgBlocks').children[i];
       if (blk) blk.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     }
@@ -207,31 +122,9 @@ SS.song = (() => {
    * Glisser (souris ou doigt) : une carte se range parmi les scènes ou se dépose sur la frise ;
    * un bloc de l'arrangement se déplace. Le panneau compact sous la barre du haut reste disponible (case en bas).
    */
-  const PIN_KEY = 'stepseq.songPanel';
   const BAR_CHOICES = [1, 2, 4, 8, 16, 32, 64];
   const winOpen = () => $('#songDialog').open;
   const letterOf = (sc) => String.fromCharCode(65 + (p().scenes.indexOf(sc) % 26));
-
-  function pinned() {
-    try {
-      return localStorage.getItem(PIN_KEY) !== 'hidden';
-    } catch (e) {
-      return true;
-    }
-  }
-  function setPinned(on) {
-    try {
-      localStorage.setItem(PIN_KEY, on ? 'shown' : 'hidden');
-    } catch (e) {
-      /* ignore */
-    }
-    applyPin();
-  }
-  function applyPin() {
-    $('#songDock').hidden = !pinned();
-    $('#songPin').checked = pinned();
-    if (pinned()) requestAnimationFrame(updateScrollers);
-  }
 
   /** Contenu d'une scène : pour la scène en cours, les pistes elles-mêmes ; sinon ce qui est rangé dans la scène. */
   function sceneContent(sc, t) {
@@ -408,6 +301,8 @@ SS.song = (() => {
 
   /** Tête de lecture de la frise (appelée à chaque pas pendant la lecture). */
   function setStep(step) {
+    lastStep = step;
+    updateBar();
     const head = $('#sgHead');
     if (!head || !winOpen() || playing < 0 || step < 0) {
       if (head) head.hidden = true;
@@ -582,7 +477,6 @@ SS.song = (() => {
   function openWindow() {
     const dlg = $('#songDialog');
     if (dlg.open) return;
-    applyPin();
     dlg.showModal();
     renderWindow();
     $('#songBtn').classList.add('active');
@@ -593,8 +487,6 @@ SS.song = (() => {
     $('#songBtn').addEventListener('click', openWindow);
     $('#songClose').addEventListener('click', () => dlg.close());
     $('#songOk').addEventListener('click', () => dlg.close());
-    $('#songPin').addEventListener('change', (e) => setPinned(e.target.checked));
-    $('#songBarClose').addEventListener('click', () => setPinned(false));
     $('#sgNewScene').addEventListener('click', () => {
       const id = SS.addScene(p(), { copy: false });
       app.switchScene(id);
@@ -623,51 +515,168 @@ SS.song = (() => {
       if (e.target === dlg && !justDragged) dlg.close();
     });
     dlg.addEventListener('close', () => {
-      applyPin();
       $('#songBtn').classList.remove('active');
       $('#songBtn').setAttribute('aria-pressed', 'false');
     });
-    applyPin();
   }
 
-  /* Panneau compact : chaque ligne défile (molette, flèches ‹ ›) au lieu de passer à la ligne. */
-  function updateScrollers() {
-    document.querySelectorAll('#songBar .songbar-scroll').forEach((wrap) => {
-      const list = wrap.firstElementChild;
-      const max = list.scrollWidth - list.clientWidth;
-      const row = wrap.parentElement;
-      row.classList.toggle('overflow', max > 1);
-      wrap.classList.toggle('more-l', list.scrollLeft > 2);
-      wrap.classList.toggle('more-r', list.scrollLeft < max - 2);
-      const [prev, next] = [wrap.previousElementSibling, wrap.nextElementSibling];
-      prev.disabled = list.scrollLeft <= 2;
-      next.disabled = list.scrollLeft >= max - 2;
-    });
+  /* ---------- Frise de la chanson sous la barre du haut ---------- */
+  let lastStep = -1; // pas joué dans la scène (-1 à l'arrêt)
+  let menu = null;
+
+  /** Modèle de la frise (js/wizplaybar.js) : les scènes de la Grille, dans l'ordre de l'arrangement. */
+  function barModel() {
+    const pr = p();
+    const res = {
+      // la couleur vient de la partie de l'assistant (sc.sec) ou, à défaut, du nom de la scène (« Refrain 2 »)
+      scenes: pr.scenes.map((sc) => ({ id: sc.id, sec: String(sc.sec || sc.name || '').replace(/\s*\d+$/, ''), name: sc.name, bars: barsOf(sc), tempo: sc.tempo })),
+      song: pr.song,
+    };
+    return SS.wizPlayBar.model(res, { spb: SS.stepsPerBar(pr), tempo: pr.tempo });
   }
-  function initScrollers() {
-    document.querySelectorAll('#songBar .songbar-scroll').forEach((wrap) => {
-      const list = wrap.firstElementChild;
-      list.addEventListener('scroll', updateScrollers, { passive: true });
-      list.addEventListener(
-        'wheel',
-        (e) => {
-          if (Math.abs(e.deltaY) <= Math.abs(e.deltaX) || list.scrollWidth <= list.clientWidth) return;
-          list.scrollLeft += e.deltaY;
-          e.preventDefault();
-        },
-        { passive: false }
-      );
-      [wrap.previousElementSibling, wrap.nextElementSibling].forEach((a) =>
-        a.addEventListener('click', () => list.scrollBy({ left: +a.dataset.dir * list.clientWidth * 0.7, behavior: 'smooth' }))
-      );
+
+  function renderBar() {
+    const bar = $('#gridPlayBar');
+    if (!bar || !SS.wizPlayBar) return;
+    const pr = p();
+    const m = barModel();
+    const keyOf = (b) => (sceneOf(b.sceneId) || {}).key;
+    const badge = (b, i) => (i && SS.keyChange ? SS.keyChange.describe(keyOf(m.blocks[i - 1]), keyOf(b)) : null);
+    // les cases ne sont redessinées que si la chanson change (sinon un double-clic perdrait sa case entre ses deux clics)
+    const sig = JSON.stringify([m.blocks.map((b, i) => [b.song, b.sceneId, b.name, b.sec, b.bars, b.dur, badge(b, i)])]);
+    if (sig !== bar._sig) {
+      SS.wizPlayBar.render(bar, m, { color: SS.wizPlayBar.colorOf, onSeek: seekBlock, badge });
+      bar._sig = sig;
+    }
+    bar.querySelectorAll('.wpb-sc').forEach((c) => {
+      const b = m.blocks[Number(c.dataset.i)];
+      c.classList.toggle('edit', b.sceneId === pr.current);
+      c.classList.toggle('start', pr.playMode === 'song' && b.song === app.state.songStart && b.rep === 0);
+      const key = c.querySelector('.wpb-key');
+      const sc = sceneOf(b.sceneId);
+      c.title = `${b.name} · ${b.bars} mes.${sc && sc.tempo ? ` · ${sc.tempo} bpm` : ''} · ${SS.wizPlayBar.fmt(b.t0)}${key ? ' · ' + key.textContent : ''} — clic : éditer cette scène et partir d'ici · double-clic : sa fiche · clic droit : plus`;
     });
-    window.addEventListener('resize', updateScrollers);
+    updateBar();
+  }
+
+  /** Position de lecture dans la frise (en mesures), -1 à l'arrêt. */
+  function barPos(m) {
+    if (lastStep < 0) return -1;
+    const spb = SS.stepsPerBar(p());
+    if (playing >= 0) {
+      const b = m.blocks.find((x) => x.song === playing && x.rep === playingRep);
+      return b ? Math.min(b.start + lastStep / spb, b.start + b.bars) : -1;
+    }
+    const b = m.blocks.find((x) => x.sceneId === p().current); // scène en boucle : montrée à sa première place
+    return b ? b.start + (lastStep % (b.bars * spb)) / spb : -1;
+  }
+
+  function updateBar() {
+    const bar = $('#gridPlayBar');
+    if (!bar || !bar._pb || !app || !app.project()) return;
+    const pos = barPos(bar._pb.m);
+    SS.wizPlayBar.update(bar, pos);
+    if (pos < 0) {
+      // à l'arrêt : la scène qu'on édite
+      const sc = sceneOf(p().current);
+      if (sc) bar.querySelector('.wpb-now').replaceChildren('Scène : ', h('b', {}, sc.name), ` · ${barsOf(sc)} mes.${sc.tempo ? ` · ${sc.tempo}` : ''}`);
+    }
+  }
+
+  /** Clic sur une case : éditer sa scène, la lecture Chanson partira de ce bloc (et y saute si elle joue). */
+  function seekBlock(i) {
+    const b = p().song[i];
+    if (!b) return;
+    const restart = SS.audio.isPlaying() && p().playMode === 'song';
+    if (restart) app.stop();
+    app.state.songStart = i;
+    if (b.scene !== p().current) app.switchScene(b.scene);
+    else render();
+    if (restart) app.play();
+  }
+
+  function closeMenu() {
+    if (menu) menu.remove();
+    menu = null;
+  }
+  /** Menu du clic droit sur une case de la frise. */
+  function openMenu(blk, x, y) {
+    closeMenu();
+    const pr = p();
+    const i = blk.song;
+    const sc = sceneOf(blk.sceneId);
+    const r = pr.song[i] ? pr.song[i].repeat : 1;
+    if (!sc) return;
+    const item = (label, fn, opts = {}) =>
+      h('button', { type: 'button', role: 'menuitem', class: opts.cls, disabled: !!opts.off, onclick: () => (closeMenu(), fn()) }, label);
+    menu = h(
+      'div',
+      { class: 'pbm-menu', role: 'menu', 'aria-label': `Bloc « ${sc.name} »` },
+      h('div', { class: 'pbm-head' }, `${sc.name} · ${barsOf(sc)} mes. × ${r}`),
+      item('Fiche de la scène…', () => SS.sceneSheet && SS.sceneSheet.open(sc.id)),
+      h('hr'),
+      item(`Une répétition de plus (×${r + 1})`, () => setRepeat(i, r + 1), { off: r >= 64 }),
+      item('Une répétition de moins', () => setRepeat(i, r - 1), { off: r <= 1 }),
+      h('hr'),
+      item(`Nouvelle scène : copie de « ${sc.name} »`, () => duplicate(sc)),
+      item('Nouvelle scène vide', () => {
+        const id = SS.addScene(p(), { copy: false });
+        app.switchScene(id);
+        app.changed();
+      }),
+      h('hr'),
+      item('Ouvrir l’Arrangement…', openWindow),
+      pr.song.length > 1 ? item('Retirer ce bloc de la chanson', () => removeBlock(i), { cls: 'pbm-del' }) : null
+    );
+    document.body.append(menu);
+    const w = menu.offsetWidth;
+    const hgt = menu.offsetHeight;
+    menu.style.left = Math.max(4, Math.min(x, innerWidth - w - 4)) + 'px';
+    menu.style.top = Math.max(4, Math.min(y, innerHeight - hgt - 4)) + 'px';
+    const first = menu.querySelector('button:not(:disabled)');
+    if (first) first.focus({ preventScroll: true });
+  }
+
+  function initBar() {
+    const bar = $('#gridPlayBar');
+    const blockOf = (e) => {
+      const c = e.target.closest('.wpb-sc');
+      return c && bar._pb ? bar._pb.m.blocks[Number(c.dataset.i)] : null;
+    };
+    bar.addEventListener('dblclick', (e) => {
+      const b = blockOf(e);
+      if (b && SS.sceneSheet) SS.sceneSheet.open(b.sceneId);
+    });
+    bar.addEventListener('contextmenu', (e) => {
+      const b = blockOf(e);
+      if (!b) return;
+      e.preventDefault();
+      const r = e.target.closest('.wpb-sc').getBoundingClientRect();
+      // clavier (touche Menu) : sous la case ; souris : au pointeur
+      openMenu(b, e.clientX || r.left, e.clientY ? e.clientY + 4 : r.bottom + 4);
+    });
+    document.addEventListener('pointerdown', (e) => menu && !menu.contains(e.target) && closeMenu(), true);
+    document.addEventListener('keydown', (e) => {
+      if (!menu) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        closeMenu();
+      } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const items = [...menu.querySelectorAll('button:not(:disabled)')];
+        const k = items.indexOf(document.activeElement);
+        const n = items[(k + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length];
+        if (n) n.focus();
+      }
+    }, true);
+    window.addEventListener('resize', closeMenu);
   }
 
   function init(appApi) {
     app = appApi;
     initWindow();
-    initScrollers();
+    initBar();
     $('#songMode').addEventListener('click', (e) => {
       const b = e.target.closest('button');
       if (!b) return;
@@ -676,20 +685,6 @@ SS.song = (() => {
       p().playMode = b.dataset.mode;
       changedSong();
       if (wasPlaying) app.play();
-    });
-    $('#sceneCopy').addEventListener('click', () => {
-      const id = SS.addScene(p(), { copy: true });
-      app.switchScene(id);
-      app.changed();
-    });
-    $('#sceneEmpty').addEventListener('click', () => {
-      const id = SS.addScene(p(), { copy: false });
-      app.switchScene(id);
-      app.changed();
-    });
-    $('#songLoop').addEventListener('change', (e) => {
-      p().songLoop = e.target.checked;
-      app.changed();
     });
   }
 

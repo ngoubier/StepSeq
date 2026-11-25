@@ -1202,75 +1202,25 @@ dialog.fx-dialog .fx-pane[hidden] { display: none; }
 }
 
 /* ---------- Mode chanson ---------- */
-/* Panneau compact : une ligne pour les scènes, une pour l'arrangement ; chaque ligne défile au lieu de passer à la ligne. */
-.songbar { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 5px 40px 5px 16px; background: var(--c-surface-1); border-bottom: 1px solid #000; }
-.songbar-row { display: flex; align-items: center; gap: 8px; min-width: 0; height: 28px; }
-.songbar-close { position: absolute; top: 6px; right: 8px; width: 24px; height: 24px; display: grid; place-items: center; padding: 0; border: 1px solid transparent; border-radius: 6px; background: none; color: var(--muted); cursor: pointer; }
-.songbar-close:hover { color: var(--text); background: var(--c-panel); border-color: var(--c-panel-3); }
-.songbar-close svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
-.songbar-label { flex: none; width: 92px; color: var(--muted); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .05em; }
-.songbar-scroll { position: relative; flex: 0 1 auto; min-width: 0; display: flex; align-items: center; height: 100%; }
-.songbar-scroll > * { overflow-x: auto; scrollbar-width: none; height: 100%; align-items: center; }
-.songbar-scroll > *::-webkit-scrollbar { display: none; }
-.songbar-scroll.more-l::before, .songbar-scroll.more-r::after { content: ""; position: absolute; top: 0; bottom: 0; width: 30px; pointer-events: none; z-index: 3; }
-.songbar-scroll.more-l::before { left: 0; background: linear-gradient(270deg, transparent, var(--c-surface-1)); }
-.songbar-scroll.more-r::after { right: 0; background: linear-gradient(90deg, transparent, var(--c-surface-1)); }
-.songbar-arrow { display: none; flex: none; width: 22px; height: 24px; padding: 0; border: 0; border-radius: 5px; background: var(--panel-2); color: var(--muted); font-size: var(--fs-md); cursor: pointer; }
-.songbar-arrow:hover:not(:disabled) { color: var(--text); background: var(--panel-3); }
-.songbar-arrow:disabled { opacity: .3; cursor: default; }
-.songbar-row.overflow .songbar-arrow { display: block; }
-.songbar-row > .btn-small { flex: none; height: 24px; padding: 0 9px; }
-#songMode { flex: none; margin-left: auto; }
-#songMode button { padding: 3px 10px; font-size: var(--fs-sm); }
+.songbar { display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 14px; background: var(--c-surface-1); border-bottom: 1px solid #000; }
+.wpb-bar { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; }
+#songMode { flex: none; }
+#songMode button { padding: 2px 10px; font-size: var(--fs-xs); }
+/* Grille : la scène qu'on édite est cerclée, le départ de la lecture Chanson marqué d'un triangle vert */
+.wpb-sc.edit { box-shadow: inset 0 0 0 1px var(--c-text-2); color: var(--c-text); }
+.wpb-sc.start { padding-left: 10px; }
+.wpb-sc.start::before { content: ""; position: absolute; left: 2px; top: 50%; margin-top: -5px; border-left: 5px solid var(--c-green); border-top: 5px solid transparent; border-bottom: 5px solid transparent; }
+.pbm-menu { position: fixed; z-index: 1000; min-width: 230px; padding: 4px; background: var(--c-panel-2); border: 1px solid var(--c-line-strong); border-radius: 8px; box-shadow: 0 8px 24px var(--c-bg-deep); }
+.pbm-menu .pbm-head { padding: 4px 10px 6px; margin-bottom: 4px; border-bottom: 1px solid var(--c-line); color: var(--c-muted); font-size: var(--fs-xs); }
+.pbm-menu button { display: block; width: 100%; padding: 5px 10px; border: 0; border-radius: 5px; background: none; color: var(--c-text); font: inherit; font-size: var(--fs-sm); text-align: left; cursor: pointer; }
+.pbm-menu button:hover:not(:disabled), .pbm-menu button:focus-visible { background: var(--c-panel-3); outline: none; }
+.pbm-menu button:disabled { color: var(--c-faint); cursor: default; }
+.pbm-menu button.pbm-del { color: var(--c-red); }
+.pbm-menu hr { margin: 4px 0; border: 0; border-top: 1px solid var(--c-line); }
 .btn-small { height: 28px; padding: 0 10px; font-size: var(--fs-sm); }
-.scene-list { display: flex; gap: 5px; flex-wrap: nowrap; }
-.scene-chip { flex: none; display: flex; align-items: stretch; height: 24px; border-radius: 6px; background: var(--panel-3); overflow: hidden; }
-.scene-chip.active { background: var(--accent); }
-.scene-name { display: flex; align-items: center; gap: 5px; border: 0; background: transparent; color: var(--text); font: inherit; font-size: var(--fs-sm); padding: 0 8px; cursor: pointer; white-space: nowrap; }
-.scene-name b { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 4px; background: rgba(0,0,0,.3); font-size: var(--fs-xs); }
-.scene-name small { color: rgba(255,255,255,.55); font-size: var(--fs-xs); }
-.scene-del { border: 0; background: transparent; color: rgba(255,255,255,.55); width: 0; padding: 0; overflow: hidden; cursor: pointer; font-size: var(--fs-md); }
-.scene-chip:hover .scene-del, .scene-chip.active .scene-del, .scene-del:focus-visible { width: 20px; }
-.scene-del:hover { color: #fff; background: rgba(0,0,0,.25); }
 .scene-rename { width: 140px; height: 24px; background: var(--panel); color: var(--text); border: 1px solid var(--accent-2); border-radius: 6px; padding: 2px 6px; font: inherit; font-size: var(--fs-sm); }
-.song-blocks { display: flex; gap: 4px; }
-.song-block {
-  flex: none;
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  min-width: var(--w, 96px);
-  height: 24px;
-  padding: 0 7px;
-  border-radius: 6px;
-  background: var(--c-blue-bg);
-  border: 1px solid var(--c-blue-bg);
-  cursor: pointer;
-  font-size: var(--fs-sm);
-  white-space: nowrap;
-  overflow: hidden;
-}
-.song-block.editing { background: var(--c-blue-bg); border-color: var(--accent-2); }
-.song-block.start { box-shadow: inset 3px 0 0 var(--c-green); }
-.song-block.playing { background: var(--c-green-deep); border-color: var(--c-green); }
-.song-block .sb-letter { flex: none; display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 4px; background: rgba(0,0,0,.3); font-size: var(--fs-xs); }
-.song-block .sb-name { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.song-block .sb-rep { flex: none; min-width: 22px; text-align: right; color: var(--c-blue-soft); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
-.song-block .sb-tools { display: none; flex: none; align-items: center; gap: 2px; }
-.song-block .sb-tools .sb-rep { text-align: center; }
-.song-block .sb-tools button { border: 0; background: rgba(0,0,0,.3); color: var(--text); border-radius: 4px; width: 17px; height: 17px; padding: 0; font-size: var(--fs-xs); line-height: 1; cursor: pointer; }
-.song-block .sb-tools button:hover:not(:disabled) { background: rgba(255,255,255,.18); }
-.song-block .sb-tools button:disabled { opacity: .3; cursor: default; }
-/* au survol (ou au clavier), ×2 laisse la place à − ×2 + ‹ › × */
-.song-block:hover, .song-block:focus-within { min-width: max(var(--w, 96px), 215px); }
-.song-block:hover > .sb-rep, .song-block:focus-within > .sb-rep { display: none; }
-.song-block:hover .sb-tools, .song-block:focus-within .sb-tools { display: flex; }
-.song-add-slot { flex: none; display: flex; }
-.song-add { height: 24px; background: var(--panel-2); color: var(--muted); border: 1px dashed var(--c-line-strong); border-radius: 6px; padding: 0 6px; font: inherit; font-size: var(--fs-sm); }
 .song-loop { flex: none; color: var(--muted); font-size: var(--fs-sm); display: flex; align-items: center; gap: 4px; white-space: nowrap; }
 .song-total { flex: none; color: var(--muted); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; white-space: nowrap; }
-body:not(.song-mode) .song-blocks { opacity: .75; }
 
 /* ---------- Suivre la lecture ---------- */
 .follow-toggle { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: var(--fs-sm); white-space: nowrap; cursor: pointer; }
@@ -2864,8 +2814,7 @@ dialog.song-dialog { width: min(1400px, calc(100vw - 32px)); height: fit-content
 .song-head h2 { margin: 0; font-size: 20px; letter-spacing: .02em; }
 .song-head h2 small { font-size: var(--fs-md); font-weight: 400; color: var(--muted); margin-left: 8px; }
 .song-foot { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-top: 1px solid var(--line); flex: none; }
-.song-pin { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: var(--fs-md); cursor: pointer; }
-.song-pin input, .sg-arr .song-loop input { accent-color: var(--accent-2); }
+.sg-arr .song-loop input { accent-color: var(--accent-2); }
 .sg-body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; }
 .sg-scenes { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 14px 16px; border-bottom: 1px solid var(--line); background: var(--c-surface-1); }
 .sg-scene-row { display: flex; gap: 8px; min-width: 0; }
@@ -3007,9 +2956,6 @@ body[data-grid="half"] .rcell.half:not(.on) { border-left-color: var(--c-panel-3
   .sb-txt b { font-size: var(--fs-md); }
   .sb-txt small { font-size: var(--fs-xs); max-width: 100%; }
   .sb-txt { flex: 1 1 auto; overflow: hidden; }
-  /* panneau d'arrangement compact : sans les étiquettes Scènes / Arrangement */
-  .songbar { padding: 5px 38px 5px 10px; }
-  .songbar-label { display: none; }
   /* en-têtes de piste : muet, solo, nom, piano roll, réglages */
   .th-grip, .th-play, .th-icon, .th-vol, .th-sd, .th-del, .th-btn.fx-btn, .th-auto, .th-name small { display: none; }
   :root { --row-h: 56px; }
@@ -6330,20 +6276,20 @@ dialog.es-dialog[open] { display: flex; }
 /* Assistant : frise de lecture sous la barre du haut (js/wizplaybar.js) */
 #bandDialog .bw-playbar { flex: none; height: 30px; display: flex; align-items: center; gap: 10px; padding: 0 14px; background: var(--c-surface-1); border-bottom: 1px solid var(--c-line); }
 #bandDialog .bw-playbar[hidden] { display: none; }
-#bandDialog .wpb-now { flex: none; width: 170px; font-size: var(--fs-sm); color: var(--c-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#bandDialog .wpb-now b { color: var(--c-text); }
-#bandDialog .wpb-track { flex: 1; min-width: 0; display: flex; gap: 2px; height: 18px; position: relative; }
-#bandDialog .wpb-sc { position: relative; min-width: 0; padding: 0 0 0 6px; display: flex; align-items: center; overflow: hidden; border: 0; border-top: 2px solid var(--c); border-radius: 4px; background: var(--c-panel-2); color: var(--c-muted); font: inherit; font-size: var(--fs-xs); white-space: nowrap; cursor: pointer; }
-#bandDialog .wpb-sc:hover { background: var(--c-panel-3); color: var(--c-text-2); }
-#bandDialog .wpb-sc span { position: relative; overflow: hidden; text-overflow: ellipsis; }
-#bandDialog .wpb-key { position: relative; margin-left: 4px; font-style: normal; color: var(--c-violet-soft); white-space: nowrap; }
-#bandDialog .wpb-fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--c); opacity: .25; pointer-events: none; }
-#bandDialog .wpb-sc.past .wpb-fill { width: 100%; opacity: .1; }
-#bandDialog .wpb-sc.on { background: var(--c-panel-3); color: var(--c-text); }
-#bandDialog .wpb-head { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: var(--c-text); border-radius: 1px; pointer-events: none; box-shadow: 0 0 4px var(--c-text); }
-#bandDialog .wpb-head[hidden] { display: none; }
-#bandDialog .wpb-time { flex: none; width: 92px; text-align: right; font-size: var(--fs-sm); color: var(--c-muted); font-variant-numeric: tabular-nums; }
-@media (max-width: 760px) { #bandDialog .wpb-now { width: auto; max-width: 110px; } #bandDialog .wpb-time { width: auto; } }
+.wpb-now { flex: none; width: 170px; font-size: var(--fs-sm); color: var(--c-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wpb-now b { color: var(--c-text); }
+.wpb-track { flex: 1; min-width: 0; display: flex; gap: 2px; height: 18px; position: relative; }
+.wpb-sc { position: relative; min-width: 0; padding: 0 0 0 6px; display: flex; align-items: center; overflow: hidden; border: 0; border-top: 2px solid var(--c); border-radius: 4px; background: var(--c-panel-2); color: var(--c-muted); font: inherit; font-size: var(--fs-xs); white-space: nowrap; cursor: pointer; }
+.wpb-sc:hover { background: var(--c-panel-3); color: var(--c-text-2); }
+.wpb-sc span { position: relative; overflow: hidden; text-overflow: ellipsis; }
+.wpb-key { position: relative; margin-left: 4px; font-style: normal; color: var(--c-violet-soft); white-space: nowrap; }
+.wpb-fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--c); opacity: .25; pointer-events: none; }
+.wpb-sc.past .wpb-fill { width: 100%; opacity: .1; }
+.wpb-sc.on { background: var(--c-panel-3); color: var(--c-text); }
+.wpb-head { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: var(--c-text); border-radius: 1px; pointer-events: none; box-shadow: 0 0 4px var(--c-text); }
+.wpb-head[hidden] { display: none; }
+.wpb-time { flex: none; width: 92px; text-align: right; font-size: var(--fs-sm); color: var(--c-muted); font-variant-numeric: tabular-nums; }
+@media (max-width: 760px) { .wpb-now { width: auto; max-width: 110px; } .wpb-time { width: auto; } }
 #bandDialog .band-shell:has(> .bw-playbar:not([hidden])) { grid-template-rows: auto minmax(0, 1fr) auto; }
 
 /* Assistant : panneau Mix auto à droite (js/wizautomix.js) — il pousse l'assistant au lieu de le couvrir */

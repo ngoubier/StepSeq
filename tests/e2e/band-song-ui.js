@@ -42,7 +42,7 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FAIL ') + m); if (!c) process
   ok(st.mode === 'song' && st.tempo === 129, `mode Chanson, tempo de l'inspiration (${st.tempo})`);
   ok(st.scenes.join() === 'Intro,Couplet,Montée,Drop,Break,Outro' && st.song === 8, `scènes : ${st.scenes.join(', ')} ; ${st.song} blocs`);
   ok(st.sc >= 2, `sidechain sur la basse et les nappes (${st.sc} pistes)`);
-  ok(await page.locator('#songBlocks .song-block').count() === 8, "l'arrangement s'affiche");
+  ok(await page.evaluate(() => new Set(document.querySelector('#gridPlayBar')._pb.m.blocks.map((b) => b.song)).size) === 8, "la frise montre l'arrangement");
   ok(/Montée|Intro/.test(await page.textContent('#songSub')), 'le bouton Song montre la scène en cours');
   // Ctrl+Z : retour au projet d'avant
   await page.keyboard.press('Control+z'); await page.waitForTimeout(700);

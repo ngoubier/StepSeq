@@ -46,7 +46,7 @@ const ok = (c, m) => {
   ok(scenes[3].film.sync && scenes[3].film.at === 42 && scenes[3].energy === 5, 'la lumière : synchro forte à 00:42, énergie 5');
 
   // fiche de la 4e scène (la synchro)
-  await page.dblclick('#sceneList .scene-chip >> nth=3 >> .scene-name');
+  await page.locator('#gridPlayBar .wpb-sc', { hasText: scenes[3].name }).first().dblclick();
   await page.waitForTimeout(300);
   ok(await page.isVisible('#sceneSheet .ssh-sec[data-sec="film"]'), 'rubrique « Film » dans la fiche');
   ok(/00:42/.test(await page.textContent('#sceneSheet .ssh-sec[data-sec="film"]')) && /synchro/.test(await page.textContent('#sceneSheet .ssh-sec[data-sec="film"]')), 'repère 00:42 et synchro forte');

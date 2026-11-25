@@ -66,6 +66,19 @@ SS.wizPlayBar = (() => {
     return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`;
   };
 
+  /**
+   * Couleur d'une partie de la chanson (intro, couplet, refrain…), la même dans l'Assistant et dans la Grille.
+   * kind : id de section de l'assistant (« chorus », « verse2 ») ou nom de scène (« Refrain », « Pont 2 »).
+   */
+  const SEC_COLORS = [
+    [/^intro/, '#4aa3c9'], [/^(verse|groove|theme|couplet)/, '#4f6bff'], [/^(pre|pré|build|montée)/, '#f08a00'],
+    [/^(chorus|drop|peak|post|refrain)/, '#e3179c'], [/^(bridge|break|pont)/, '#9b5cff'], [/^(solo|instr|riff)/, '#13c2a3'], [/^(outro|fin)/, '#7a8a99'],
+  ];
+  const colorOf = (kind) => {
+    const k = String(kind || '').trim().toLowerCase();
+    return (SEC_COLORS.find(([re]) => re.test(k)) || [0, '#8a8a96'])[1];
+  };
+
   /* ---------------------------------------------------------------- dessin */
   const mk = (tag, cls, text) => {
     const e = document.createElement(tag);
@@ -131,5 +144,5 @@ SS.wizPlayBar = (() => {
     el.querySelector('.wpb-time').textContent = `${fmt(pos < 0 ? 0 : timeAt(m, pos))} / ${fmt(m.secs)}`;
   }
 
-  return { model, at, blockAt, timeAt, fmt, render, update };
+  return { model, at, blockAt, timeAt, fmt, colorOf, render, update };
 })();
