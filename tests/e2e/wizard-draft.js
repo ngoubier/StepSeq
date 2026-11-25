@@ -86,7 +86,7 @@ const ok = (c, m) => {
   // un réglage de basse sur une scène
   await tab('bass');
   const modeBefore = await page.evaluate(() => Object.keys(SS.band._state.wiz.parts).length);
-  const target = page.locator('#bwMotif .mot-card:not(.on):not(.mot-none)').first();
+  const target = page.locator('#bwMotif .mot-card:not(.on)').first();
   const modeId = await target.getAttribute('data-id');
   await target.click();
   await page.waitForTimeout(300);

@@ -325,11 +325,15 @@ caractère…), et **▶ joue la scène choisie en boucle** (pas toute la chanso
    `gridSetLen`) sont communes à la piste Accords, à l'assistant et à `js/bandsong.js` (`js/harmony.js`) ;
    tests : `node --test tests/chordgrid.test.js` ;
 7. **Basse**, 8. **Nappes**, 9. **Arpèges** : même disposition (scènes à gauche, lecture de la scène en boucle, chaque
-   choix s'entend aussitôt). Basse : 13 **modes de jeu** (tenue, blanches, noires, croches, galop, contretemps, octaves,
-   roulement, syncopée, marche, drone, croches piquées, après le kick) en cartes avec leur rythme dessiné, **pédale**
-   (aucune, tonique, dominante), **registre** (grave, médium), note d'approche. Nappes : 9 modes (tenue, montée douce,
-   planante, croches, blocs, stabs, house, hachée, pincée) et **voicing** serré / ouvert ; seule la nappe se règle
-   (cordes et clavier gardent le plan). Arpèges : le **mode Intuitif d'Arp One** (voir plus bas), par scène : nom et catégorie du motif,
+   choix s'entend aussitôt). Basse et Nappe ont la **carte Motif commune** (`js/motifpicker.js`, maquette validée le
+   2026-11-25) : en-tête « Basse de « Refrain » » avec le motif en cours et **Joue dans cette scène** ; une seule liste de
+   **styles** pour tous les musiciens (Synthwave & 80s, Pop-rock, Funk & Disco, Soul & Jazz, Hip-hop & Lo-fi, Électro,
+   Drum & bass, Latin & Reggae, Film & ambient, plus Célèbres pour la basse et 3/4 · 6/8 hors 4/4 ; le point marque le
+   style de la chanson, une puce sans motif est grisée) ; les **familles** (basse : Tenues, Régulières, Syncopées, Lignes ;
+   nappe : Tenues, Rythmées, En mouvement) avec leur nombre, Tous et **Surprends-moi** ; des cartes au même gabarit
+   (dessin, badge « Inspiration ») ; au pied **Scènes : Cette scène | Même type | Toutes**. Basse : **hauteur** C1 à C3,
+   **pédale** (aucune, tonique, dominante), note d'approche. Nappe : **voicing** serré / ouvert. La fenêtre MOTIF de la
+   Grille montre la même carte. Arpèges : le **mode Intuitif d'Arp One** (voir plus bas), par scène : nom et catégorie du motif,
    ‹ › et sélecteur de motifs rangés par catégorie (`SS.MOTIFS`), **🎲 Surprends-moi**, quatre boutons Densité / Ampleur /
    Mouvement / Écho (`SS.Arp.macroPatch` / `macroValue`) et **Vitesse** (1/8, 1/16, 1/16 triolet, 1/32) ; l'arpège peut être
    **allumé** dans une scène où l'inspiration n'en avait pas. Tant qu'on n'a rien touché, c'est l'arpège de l'inspiration

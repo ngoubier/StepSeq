@@ -8286,6 +8286,18 @@ SS.band = (() => {
    * puis Scènes (cette scène | toutes celles où la basse joue), Hauteur C1–C3 (register low | mid | high), pédale, note d'approche.
    */
   const REGISTERS = [['low', 'C1'], ['mid', 'C2'], ['high', 'C3']];
+  /**
+   * Scènes visées par un choix de motif (pied « Scènes » de la carte Motif commune, S.wiz.motScope) : la scène,
+   * celles du même type (couplets, refrains…) où l'instrument joue, ou toutes celles où il joue.
+   */
+  function motifTargets(sc, T) {
+    const scope = S.wiz.motScope || 'one';
+    if (scope === 'one') return [sc];
+    const plays = (x) => !mutedIn(x.sec, T) && !!((partOf(x.sec, T) || {}).mode || planMode(x, T));
+    return S.wiz.res.scenes.filter((x) => x.sec === sc.sec || (plays(x) && (scope === 'all' || kindOf(x.sec) === kindOf(sc.sec))));
+  }
+  const motifScope = () =>
+    SS.motifPicker.scopeSeg('bwpMotScope', S.wiz.motScope || 'one', (v) => ((S.wiz.motScope = v), renderWiz()), SS.helpTip('« Cette scène » : seule la scène en cours prend le motif. « Même type » : aussi les autres scènes du même type (les autres couplets, les autres refrains…) où l’instrument joue. « Toutes » : toutes les scènes où il joue.', 'Scènes'));
   function bassBody(sc, T) {
     const M = SS.bassMotifs;
     const o = partOf(sc.sec, T) || {};
@@ -8293,10 +8305,7 @@ SS.band = (() => {
     const muted = mutedIn(sc.sec, T);
     const cur = muted ? null : o.mode || insp;
     if (!S.wiz.motGroup) S.wiz.motGroup = M.groupOfStyle(S.styleId);
-    const all = !!S.wiz.motAll;
-    // « Toutes » : la scène en cours et les autres scènes où la basse joue
-    const plays = (x) => !mutedIn(x.sec, T) && !!((partOf(x.sec, T) || {}).mode || planMode(x, T));
-    const targets = () => (all ? S.wiz.res.scenes.filter((x) => x.sec === sc.sec || plays(x)) : [sc]);
+    const targets = () => motifTargets(sc, T);
     const pick = (id) => {
       targets().forEach((x) => {
         putOff(x.sec, T, false);
@@ -8311,6 +8320,23 @@ SS.band = (() => {
       targets().forEach((x) => !seen.has(x.sec) && (seen.add(x.sec), putPart(x.sec, T, { register: v === 'low' ? undefined : v })));
       partChanged();
     };
+    const picked = M.picker({
+      group: SPB() === 16 ? S.wiz.motGroup : S.wiz.motGroupT || 'ternary', // hors 4/4 : les motifs de la mesure d'abord
+      mark: M.groupOfStyle(S.styleId),
+      cur,
+      insp,
+      spb: SPB(),
+      beat: BEAT(),
+      keep: (id) => SPB() === 16 || BS().meterOK('bass', id),
+      onGroup: (g) => (SPB() === 16 ? (S.wiz.motGroup = g) : (S.wiz.motGroupT = g), renderWiz()),
+      fam: S.wiz.motFam,
+      onFam: (f) => ((S.wiz.motFam = f), renderWiz()),
+      onPick: pick,
+      surprise: () => {
+        const ids = [...document.querySelectorAll('#bwMotif .mot-card')].map((c) => c.dataset.id).filter((id) => id !== cur);
+        if (ids.length) pick(ids[Math.floor(Math.random() * ids.length)]);
+      },
+    });
     return [
       partHead(sc, T, 'basse', false),
       rollBox(sc, T),
@@ -8322,33 +8348,17 @@ SS.band = (() => {
         h(
           'div',
           { class: 'bwp-ch' },
-          h('b', {}, `Motif de « ${sc.name} »`),
-          h('span', { class: 'mot-now' }, cur ? SS.bassMotifs.name(cur) : 'aucune'),
-          SS.helpTip('Cliquez un motif : il s’entend dans la scène et la basse le joue sur ses accords. Le point vert marque le style de la chanson ; survolez une carte pour sa description.', 'Motif de basse'),
+          h('b', {}, `Basse de « ${sc.name} »`),
+          h('span', { class: 'mot-now' }, cur ? SS.bassMotifs.name(cur) : 'ne joue pas'),
+          SS.helpTip('Cliquez un motif : il s’entend dans la scène et la basse le joue sur ses accords. Le point marque le style de la chanson ; survolez une carte pour sa description.', 'Motif de basse'),
           h('span', { class: 'spacer' }),
           playBox(sc, T, '8')
         ),
-        ...M.picker({
-          group: SPB() === 16 ? S.wiz.motGroup : S.wiz.motGroupT || 'ternary', // hors 4/4 : les motifs de la mesure d'abord
-          mark: M.groupOfStyle(S.styleId),
-          cur,
-          insp,
-          spb: SPB(),
-          beat: BEAT(),
-          keep: (id) => SPB() === 16 || BS().meterOK('bass', id),
-          none: { on: muted || !cur, pick: () => (putOff(sc.sec, T, true), partChanged('.bwp-mot .mot-card[data-id="none"]')) },
-          onGroup: (g) => (SPB() === 16 ? (S.wiz.motGroup = g) : (S.wiz.motGroupT = g), renderWiz()),
-          onPick: pick,
-        }),
+        ...picked,
         h(
           'div',
-          { class: 'bwp-row' },
-          h(
-            'div',
-            { class: 'bwp-field' },
-            h('span', { class: 'bh-lbl' }, 'Scènes', SS.helpTip('« Cette scène » : seule la scène en cours prend le motif et la hauteur. « Toutes » : toutes les scènes où la basse joue les prennent.', 'Scènes')),
-            h('span', { class: 'segmented', role: 'radiogroup', 'aria-label': 'Scènes', id: 'bwpMotScope' }, ...[[false, 'Cette scène'], [true, 'Toutes']].map(([v, t]) => h('button', { type: 'button', role: 'radio', class: v === all ? 'active' : '', 'aria-checked': String(v === all), 'data-v': v ? 'all' : 'one', onclick: () => ((S.wiz.motAll = v), renderWiz()) }, t)))
-          ),
+          { class: 'bwp-row mot-foot' },
+          motifScope(),
           partSeg('Hauteur', 'bwpRegister', REGISTERS, o.register || 'low', setReg),
           partSeg('Pédale', 'bwpPedal', [['none', 'Aucune'], ['tonic', 'Tonique'], ['fifth', 'Dominante']], o.pedal || 'none', (v) => set({ pedal: v === 'none' ? undefined : v })),
           partCheck('bwpApproach', 'Note d’approche', o.approach !== false && !o.pedal, (on) => set({ approach: on ? undefined : false }), !!o.pedal)
@@ -8528,9 +8538,8 @@ SS.band = (() => {
     ];
   }
   /**
-   * Nappe : l'écran de motifs de la basse (SS.bassMotifs.picker) avec la bibliothèque SS.padMotifs : puces de style
-   * (celle du style de la chanson présélectionnée), filtre Tout | Tenues | Rythmées | En mouvement, cartes, carte Aucune ;
-   * puis Scènes (cette scène | toutes celles où la nappe joue) et Voicing.
+   * Nappe : la carte Motif commune (SS.bassMotifs.picker avec la bibliothèque SS.padMotifs) : puces de style (celle du
+   * style de la chanson présélectionnée), familles Tenues | Rythmées | En mouvement, cartes ; puis Scènes et Voicing.
    */
   function padMotifCard(sc, T, o) {
     const P = SS.padMotifs;
@@ -8539,10 +8548,7 @@ SS.band = (() => {
     const m = muted ? null : o.mode || insp;
     const cur = m && !/^g:/.test(m) ? m : null;
     if (!S.wiz.padGroup) S.wiz.padGroup = P.groupOfStyle(S.styleId);
-    const kind = S.wiz.padKind || 'all';
-    const all = !!S.wiz.motAll;
-    const plays = (x) => !mutedIn(x.sec, T) && !!((partOf(x.sec, T) || {}).mode || planMode(x, T));
-    const targets = () => (all ? S.wiz.res.scenes.filter((x) => x.sec === sc.sec || plays(x)) : [sc]);
+    const targets = () => motifTargets(sc, T);
     const pick = (id) => {
       targets().forEach((x) => (putOff(x.sec, T, false), putPart(x.sec, T, { mode: id === planMode(x, T) ? undefined : id })));
       partChanged(`.bwp-mot .mot-card[data-id="${id}"]`);
@@ -8551,43 +8557,40 @@ SS.band = (() => {
       targets().forEach((x) => putPart(x.sec, T, { voicing: v === 'close' ? undefined : v }));
       partChanged();
     };
+    const picked = SS.bassMotifs.picker({
+      lib: P,
+      group: SPB() === 16 ? S.wiz.padGroup : S.wiz.padGroupT || 'ternary', // hors 4/4 : les motifs de la mesure d'abord
+      mark: P.groupOfStyle(S.styleId),
+      cur,
+      insp,
+      spb: SPB(),
+      keep: (id) => BS().meterOK('chords', id),
+      onGroup: (g) => (SPB() === 16 ? (S.wiz.padGroup = g) : (S.wiz.padGroupT = g), renderWiz()),
+      fam: S.wiz.padFam,
+      onFam: (f) => ((S.wiz.padFam = f), renderWiz()),
+      onPick: pick,
+      surprise: () => {
+        const ids = [...document.querySelectorAll('#bwPadMotif .mot-card')].map((c) => c.dataset.id).filter((id) => id !== cur);
+        if (ids.length) pick(ids[Math.floor(Math.random() * ids.length)]);
+      },
+    });
     return h(
       'section',
       { class: 'bwp-card bw-card bwp-mot mot-pick mot-pad', id: 'bwPadMotif' },
       h(
         'div',
         { class: 'bwp-ch' },
-        h('b', {}, `Motif de « ${sc.name} »`),
-        h('span', { class: 'mot-now' }, cur ? P.name(cur) : m ? nameOf(padModes(T), m) : 'aucune'),
-        SS.helpTip('Cliquez un motif : il s’entend dans la scène et la nappe le joue sur ses accords, avec le son de la piste. Le point bleu marque le style de la chanson ; survolez une carte pour sa description. Dans le dessin, chaque trait est une note de l’accord (grave en bas) ; la ligne claire montre le volume ou le filtre qui bouge.', 'Motif de nappe'),
+        h('b', {}, `${isGuitarist(T) ? 'Guitare' : 'Nappe'} de « ${sc.name} »`),
+        h('span', { class: 'mot-now' }, cur ? P.name(cur) : m ? nameOf(padModes(T), m) : 'ne joue pas'),
+        SS.helpTip('Cliquez un motif : il s’entend dans la scène et la nappe le joue sur ses accords, avec le son de la piste. Le point marque le style de la chanson ; survolez une carte pour sa description. Dans le dessin, chaque trait est une note de l’accord (grave en bas) ; la ligne claire montre le volume ou le filtre qui bouge.', 'Motif de nappe'),
         h('span', { class: 'spacer' }),
         playBox(sc, T, 'sustain')
       ),
-      ...(() => {
-        const [chips, cards] = SS.bassMotifs.picker({
-          lib: P,
-          group: SPB() === 16 ? S.wiz.padGroup : S.wiz.padGroupT || 'ternary', // hors 4/4 : les motifs de la mesure d'abord
-          mark: P.groupOfStyle(S.styleId),
-          cur,
-          insp,
-          spb: SPB(),
-          keep: (id) => (kind === 'all' || P.kindOf(id) === kind) && BS().meterOK('chords', id),
-          none: { on: muted || !m, pick: () => (putOff(sc.sec, T, true), partChanged('.bwp-mot .mot-card[data-id="none"]')) },
-          onGroup: (g) => (SPB() === 16 ? (S.wiz.padGroup = g) : (S.wiz.padGroupT = g), renderWiz()),
-          onPick: pick,
-        });
-        const kinds = h('span', { class: 'segmented mot-kinds', role: 'radiogroup', 'aria-label': 'Façon de jouer', id: 'bwpPadKind' }, ...P.KINDS.map(([v, t]) => h('button', { type: 'button', role: 'radio', class: v === kind ? 'active' : '', 'aria-checked': String(v === kind), 'data-v': v, onclick: () => ((S.wiz.padKind = v), renderWiz()) }, t)));
-        return [h('div', { class: 'mot-bar' }, chips, kinds), cards];
-      })(),
+      ...picked,
       h(
         'div',
-        { class: 'bwp-row' },
-        h(
-          'div',
-          { class: 'bwp-field' },
-          h('span', { class: 'bh-lbl' }, 'Scènes', SS.helpTip('« Cette scène » : seule la scène en cours prend le motif et le voicing. « Toutes » : toutes les scènes où la nappe joue les prennent.', 'Scènes')),
-          h('span', { class: 'segmented', role: 'radiogroup', 'aria-label': 'Scènes', id: 'bwpPadScope' }, ...[[false, 'Cette scène'], [true, 'Toutes']].map(([v, t]) => h('button', { type: 'button', role: 'radio', class: v === all ? 'active' : '', 'aria-checked': String(v === all), 'data-v': v ? 'all' : 'one', onclick: () => ((S.wiz.motAll = v), renderWiz()) }, t)))
-        ),
+        { class: 'bwp-row mot-foot' },
+        motifScope(),
         partSeg('Voicing', 'bwpVoicing', [['close', 'Serré', 'Accord au plus proche du précédent'], ['open', 'Ouvert', 'La note grave descend d’une octave']], o.voicing || 'close', setVoicing)
       )
     );
@@ -13196,9 +13199,9 @@ SS.band = (() => {
       }
       if (T.kind === 'bass') {
         const M = SS.bassMotifs;
-        return M.all().filter((id) => SPB() === 16 || BS().meterOK('bass', id)).map((id) => ({ id, nom: M.name(id), description: M.desc(id), groupe: (M.GROUPS.find((g) => g[2].includes(id)) || [null, null])[1] }));
+        return M.all().filter((id) => SPB() === 16 || BS().meterOK('bass', id)).map((id) => ({ id, nom: M.name(id), description: M.desc(id), groupe: (M.GROUPS.find((g) => g[2].includes(id)) || [null, null])[1], famille: (M.FAMS.find((f) => f[0] === M.familyOf(id)) || [])[1] }));
       }
-      if (T.kind === 'chords') return padModes(T).filter(([id]) => (/^g:/.test(id) ? gtrFits(id) : BS().meterOK('chords', id))).map(([id, nom, description]) => ({ id, nom, description }));
+      if (T.kind === 'chords') return padModes(T).filter(([id]) => (/^g:/.test(id) ? gtrFits(id) : BS().meterOK('chords', id))).map(([id, nom, description]) => ({ id, nom, description, ...(/^g:/.test(id) ? {} : { famille: (SS.padMotifs.FAMS.find((f) => f[0] === SS.padMotifs.familyOf(id)) || [])[1] }) }));
       if (T.kind === 'arp') return SS.MOTIFS.map((m) => ({ id: m.id, nom: m.name, categorie: ((SS.MOTIF_CATS.find((c) => c.id === m.cat) || {}).label || m.cat) }));
       if (T.kind === 'horns') {
         const stars = SS.horns.sceneStars(S.wiz.hscene ? (S.wiz.res.scenes.find((x) => x.id === S.wiz.hscene) || {}).sec : '', hformOf(musState()[T.musician]).id);

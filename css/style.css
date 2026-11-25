@@ -3939,13 +3939,23 @@ dialog.help-dialog::backdrop { background: #0008; }
 .mot-pick .mot-card { display: block; width: auto; gap: 0; text-align: left; background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 6px 7px 5px; cursor: pointer; color: var(--c-green-soft); font: inherit; min-width: 0; }
 .mot-pick .mot-card:hover { border-color: var(--c-line-strong); }
 .mot-pick .mot-card.on { border-color: var(--motc); background: var(--c-green-bg); box-shadow: 0 0 0 1px var(--motc) inset; }
-.mot-name { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--text); font-size: var(--fs-sm); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mot-name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; min-width: 0; color: var(--text); font-size: var(--fs-sm); font-weight: 600; line-height: 1.25; overflow: hidden; }
 .mot-draw svg { display: block; width: 100%; height: 22px; margin-top: 4px; }
-.mot-name > span { overflow: hidden; text-overflow: ellipsis; }
-.mot-insp { flex: none; font-style: normal; font-size: var(--fs-xs); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--c-violet-soft); }
 .mot-pick .mot-chip.mark::after { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--motc); margin-left: 6px; vertical-align: middle; }
-.mot-pick .mot-card.mot-none { color: var(--muted); }
-.mot-pick .mot-none .mot-name { color: var(--muted); }
+/* carte Motif commune (js/motifpicker.js) : familles, ★ conseillés, badge auto / Inspiration, puces sans motif */
+.mot-pick .mot-chip.off { opacity: .35; cursor: default; }
+.mot-fams { align-items: center; }
+.bwp-mot .mot-chips.mot-fams { margin-top: -4px; }
+.mot-fams .spacer { flex: 1; }
+.mot-pick .mot-fam .mot-n { margin-left: 5px; color: var(--c-faint); font-size: var(--fs-xs); }
+.mot-pick .mot-chip.star { color: var(--c-amber); }
+.mot-pick .mot-chip.star.on { background: var(--c-amber-bg); border-color: var(--c-amber); color: var(--text); }
+.mot-pick .mot-card { position: relative; }
+.mot-pick .mot-card.has-badge .mot-name { padding-right: 76px; }
+.mot-star { color: var(--c-amber); }
+.mot-badge { position: absolute; top: 6px; right: 8px; font-style: normal; font-size: var(--fs-xs); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--c-violet-soft); }
+.mot-badge.auto { color: var(--c-amber); text-transform: none; letter-spacing: 0; }
+.bwp-mot .mot-foot { border-top: 1px solid var(--line); padding-top: 12px; }
 /* étape Basse de Nouvelle chanson : le même écran que la fenêtre MOTIF, dans la carte */
 .bwp-mot .bwp-ch .mot-now { font-size: var(--fs-md); }
 .bwp-mot .mot-chips { margin: 2px 0 10px; gap: 6px; }
@@ -3956,18 +3966,13 @@ dialog.help-dialog::backdrop { background: #0008; }
 .bwp-mot .mot-draw svg { height: 30px; margin-top: 6px; }
 .bwp-mot .bwp-row { margin-top: 12px; }
 @media (max-width: 1100px) { .bwp-mot .mot-cards { grid-template-columns: repeat(3, 1fr); } }
-/* étape Nappe : même écran, couleur de la nappe, filtre Tenues | Rythmées | En mouvement à droite des puces */
+/* étape Nappe : même écran, couleur de la nappe */
 .mot-pad { --motc: var(--c-blue); }
 .mot-pick.mot-pad .mot-card { color: var(--c-blue-soft); }
 .mot-pick.mot-pad .mot-card.on, .mot-pick.mot-pad .mot-chip.on { background: var(--c-blue-bg); color: var(--c-blue-soft); }
 .mot-pick.mot-pad .mot-card.on { color: var(--c-blue-soft); }
-.mot-pick.mot-pad .mot-card.mot-none { color: var(--muted); }
 .mot-pad .mot-now { color: var(--c-blue-soft); }
 .mot-pad .mot-draw svg { height: 34px; }
-.mot-bar { display: flex; align-items: flex-start; gap: 12px; }
-.mot-bar .mot-chips { flex: 1; min-width: 0; }
-.mot-bar .mot-kinds { flex: none; margin-top: 2px; }
-@media (max-width: 1100px) { .mot-bar { flex-direction: column; gap: 0; } .mot-bar .mot-kinds { margin-bottom: 10px; } }
 @media (max-width: 760px) { .mot-cards { grid-template-columns: repeat(2, 1fr); } }
 .th-opt-mode { display: none; }
 .compact-tracks .th-modes { display: none; }

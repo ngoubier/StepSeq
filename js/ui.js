@@ -512,6 +512,7 @@ SS.ui = (() => {
    * Accords. Clic sur un motif = écoute + motif posé ; « Cette scène » : motif propre à la scène en cours.
    */
   let motifGroup = 'all';
+  let motifFam = 'all';
   let motifTimers = [];
   function openMotifMenu(track, x, y) {
     closeChordMenu();
@@ -589,9 +590,9 @@ SS.ui = (() => {
           const ts = app.project().timeSig || [4, 4];
           const sig = `${ts[0]}/${ts[1]}`;
           const keep = spb === 16 || !SS.bandSong.meterOK ? null : (id) => SS.bandSong.meterOK('bass', id, sig); // 3/4 et 6/8 : même nombre de pas, motifs différents
-          return M.picker({ group: motifGroup, cur: on ? now : null, spb, beat, keep, onGroup: (g) => ((motifGroup = g), render()), onPick: pick });
+          return M.picker({ group: motifGroup, cur: on ? now : null, spb, beat, keep, onGroup: (g) => ((motifGroup = g), render()), fam: motifFam, onFam: (x) => ((motifFam = x), render()), onPick: pick });
         })(),
-        seg('Scènes', [['all', 'Toutes'], ['one', 'Cette scène']], scope, setScope, '« Cette scène » : seule la scène en cours prend le motif choisi ; les autres gardent le leur.'),
+        seg('Scènes', [['one', 'Cette scène'], ['all', 'Toutes']], scope, setScope, '« Cette scène » : seule la scène en cours prend le motif choisi ; les autres gardent le leur.'),
         seg('Hauteur', SS.FOLLOW.MOTIF_OCTAVES.map((o) => [o, 'C' + o]), f.oct, (o) => (on ? (commit({ ...f, oct: o }), preview()) : ((track.lastFollow = SS.FOLLOW.clean({ ...f, oct: o })), render()))),
         h(
           'div',
