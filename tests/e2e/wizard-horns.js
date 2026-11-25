@@ -59,23 +59,24 @@ const ok = (c, m) => {
   ok((await page.getAttribute('#bwStepHead', 'data-kind')) === 'horns', `étape ${n} : Cuivres`);
   await page.click('.bh-scene[data-sec="chorus"]');
   await page.waitForTimeout(300);
-  ok((await page.locator('#bwHornsTable .bwhn-row[data-player]').count()) === 4 && (await page.locator('#bwHornsJeu .bwhn-jeu').count()) === 5 && (await page.locator('#bwHornsJeu .bwhn-no').count()) === 2, 'une ligne par musicien, cinq jeux ★ pour le refrain, dont deux motifs du fichier');
+  ok((await page.locator('#bwHornsTable .bwhn-row[data-player]').count()) === 4 && (await page.locator('#bwHornsJeu .mot-card').count()) === 5 && (await page.locator('#bwHornsJeu .mot-card[title*="du fichier"]').count()) === 2, 'une ligne par musicien, cinq motifs ★ pour le refrain, dont deux motifs du fichier (dit au survol)');
+  ok(/Cuivres de « /.test(await page.textContent('#bwHornsMot .bwp-ch')) && /Formation : Salsa/.test(await page.textContent('#bwHornsMot .mot-fixed')) && (await page.locator('#bwHornsMot .bwhn-hits').count()) === 5 && (await page.locator('#bwHornsMot .mot-foot #bwpMotScope').count()) === 1, 'carte Motif commune : titre, formation fixe, vignettes, pied Scènes');
   await page.click('#bwHornsFam [data-f="all"]');
   await page.waitForTimeout(200);
-  ok((await page.locator('#bwHornsJeu .bwhn-jeu').count()) === 18 && /Moña/.test(await page.textContent('#bwHornsJeu')) && /Cierre/.test(await page.textContent('#bwHornsJeu')), 'Tous : treize jeux et les cinq motifs salsa du fichier, Moña et Cierre');
+  ok((await page.locator('#bwHornsJeu .mot-card').count()) === 18 && /Moña/.test(await page.textContent('#bwHornsJeu')) && /Cierre/.test(await page.textContent('#bwHornsJeu')), 'Tous : treize jeux et les cinq motifs salsa du fichier, Moña et Cierre');
   await page.click('#bwHornsFam [data-f="trans"]');
   await page.waitForTimeout(200);
-  ok((await page.locator('#bwHornsJeu .bwhn-jeu').count()) === 5, 'Transitions et fins : trois jeux et deux motifs du fichier');
+  ok((await page.locator('#bwHornsJeu .mot-card').count()) === 5, 'Transitions et fins : trois jeux et deux motifs du fichier');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'cuivres-jeux-trans.png') });
   await page.click('#bwHornsFam [data-f="star"]');
   await page.click('.bh-scene[data-sec="verse"]');
   await page.waitForTimeout(300);
-  ok((await page.locator('#bwHornsJeu .bwhn-jeu.active').getAttribute('data-v')) === 'm23' && /auto/.test(await page.textContent('#bwHornsJeu .bwhn-jeu.active')), 'couplet : le motif 23 du fichier (Mambo avec silences) joué d’office (auto)');
+  ok((await page.locator('#bwHornsJeu .mot-card.on').getAttribute('data-id')) === 'm23' && /auto/.test(await page.textContent('#bwHornsJeu .mot-card.on')), 'couplet : le motif 23 du fichier (Mambo avec silences) joué d’office (auto)');
   await page.click('.bh-scene[data-sec="chorus"]');
   await page.waitForTimeout(300);
-  ok((await page.locator('#bwHornsJeu .bwhn-jeu.active').getAttribute('data-v')) === 'sig' && (await page.locator('#bwHornsTable [data-player="t1"] .bwhn-nt').count()) > 4, 'refrain : le jeu du style (Mambo 2-3), des notes sur la ligne');
+  ok((await page.locator('#bwHornsJeu .mot-card.on').getAttribute('data-id')) === 'sig' && (await page.locator('#bwHornsTable [data-player="t1"] .bwhn-nt').count()) > 4, 'refrain : le jeu du style (Mambo 2-3), des notes sur la ligne');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'cuivres-app-etape.png') });
-  await page.click('#bwHornsJeu [data-v="coups"]');
+  await page.click('#bwHornsJeu [data-id="coups"]');
   await page.waitForTimeout(250);
   await page.click('#bwHornsTable [data-player="t2"] .bwor-sw');
   await page.waitForTimeout(250);
@@ -102,6 +103,15 @@ const ok = (c, m) => {
   await page.waitForTimeout(200);
   ok(await page.evaluate(() => [...SS.band._state.wiz.solo].some((id) => /salsa-b1/.test(id))) && JSON.stringify((await W()).parts) === before, 'S : le trombone 1 seul à l’écoute, rien n’est réécrit');
   await page.click('#bwHornsTable [data-player="b1"] .bwor-ms.s');
+  // pied « Scènes : Toutes » : le motif choisi va à toutes les scènes où la section joue
+  await page.click('#bwpMotScope [data-v="all"]');
+  await page.click('#bwHornsFam [data-f="all"]');
+  await page.click('#bwHornsJeu [data-id="uni"]');
+  await page.waitForTimeout(300);
+  const wa = await W();
+  const jeuxAll = Object.values(wa.parts).map((p) => Object.values(p.inst || {}).find((x) => x.horns && x.horns.jeu)).filter(Boolean).map((x) => x.horns.jeu);
+  ok(jeuxAll.length >= 3 && jeuxAll.every((j) => j === 'uni'), `Scènes : Toutes : Unisson dans ${jeuxAll.length} scènes`);
+  await page.click('#bwpMotScope [data-v="one"]');
   // + Musicien : une doublure, une piste de plus
   await page.selectOption('#bwHornsAdd', 'sb');
   await page.waitForTimeout(400);

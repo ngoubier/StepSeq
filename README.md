@@ -615,13 +615,16 @@ dans la Grille est gardée). Outils Claude : `assistantMusicien({ ajouter: 'ambi
 `assistantJeu({ presence, mouvement, hasard })`. Tests : `node --test tests/ambient-musician.test.js`,
 `node tests/e2e/ambient-musician.js`.
 
-**Jeux de cordes de l'Orchestre (`js/orchjeux.js`).** L'étape Orchestre choisit, scène par scène, le **jeu** des cordes
-parmi **13**, rangés en familles : **Tenues** (Tenues, Tenues qui enflent, Tenues hautes), **Rythmes** (Pizzicato,
+**Motifs de cordes de l'Orchestre (`js/orchjeux.js`).** L'étape Orchestre choisit, scène par scène, le **motif** des cordes
+parmi **13** (dans le code : « jeux »), rangés en familles : **Tenues** (Tenues, Tenues qui enflent, Tenues hautes), **Rythmes** (Pizzicato,
 Ostinato spiccato, Coups, Trémolo), **Lignes** (Contrechant dans les silences de la mélodie, Unisson, Arpège des altos) et
 **Transitions et fins** (Montée, Trait disco, Accord final) ; « Orchestration » garde l'écriture d'orchestre sans jeu.
 Cinq effectifs de cordes s'ajoutent : **Cordes pop**, **Quatuor**, **Cordes disco**, **Cordes épiques**, **Pizzicato** ; leurs
 jeux ★ dépendent du type de scène et le premier est joué d'office (« auto »). Les autres effectifs gardent
-l'orchestration d'office, et un jeu choisi n'y touche que les cordes (bois, cuivres, harpe gardent leur rôle). Le jeu
+l'orchestration d'office, et un motif choisi n'y touche que les cordes (bois, cuivres, harpe gardent leur rôle). Le choix
+se fait sur la carte Motif commune (« Orchestre de « Scène » », motif joué, « Joue dans cette scène » à droite, l'effectif
+en ligne fixe avec la densité, familles avec « ★ Pour cette scène », Surprends-moi, description au survol, vignette des
+attaques : archet, pincé, sautillé, tremblé ; pied « Scènes : Cette scène | Même type | Toutes »). Le motif
 choisit le son : les notes pincées, sautillées ou tremblées partent sur les pistes « pizzicato », « spiccato » ou
 « trémolo » de l'effectif (sons VSCO 2), sinon elles restent à l'archet, courtes. Une ligne par pupitre : rôle et façons de
 jouer, ses notes sur la scène, registre, M / S (le pupitre avec ses pistes d'articulation). La densité reste : légère sans
@@ -632,7 +635,7 @@ contrebasses, pleine avec les contrebasses doublées à l'octave. La Nappe garde
 **Section de cuivres de l'assistant (`js/horns.js`).** « + Musicien » propose le type **Cuivres** : une section où
 chaque musicien a sa partie et sa piste, mais où tous jouent ensemble. On choisit une formation parmi dix (big band,
 soul, funk, disco-funk, salsa, ska, rock à cuivres, musique de film, Nouvelle-Orléans, brass band ; ★ celle du style).
-L'étape Cuivres choisit, scène par scène, le **jeu** de la section parmi **13**, rangés en familles : **Riffs** (le jeu
+L'étape Cuivres choisit, scène par scène, le **motif** de la section parmi **13** (dans le code : « jeux »), rangés en familles : **Riffs** (le jeu
 du style : Réponses entre pupitres, Accents syncopés, Mambo 2-3, Thème aux cors… ; Question-réponse ; Unisson ;
 Contre-chant), **Coups** (ceux du style, sur 2 et 4, anticipés), **Tenues** (Tenues, Tenues qui enflent, Nappe douce) et
 **Transitions et fins** (Montée, Fin, Coup d'arrêt), écrites sur toute la scène. Certains prennent le nom du style
@@ -643,7 +646,10 @@ saxophones » (`docs/reference/cuivres-50-motifs.md`, converti par `node tools/h
 cinq par formation, chacun avec son numéro : chaque partie va au musicien du même instrument, un musicien sans partie
 double la plus proche de son registre, et le motif est recalculé sur les accords de la scène. Les motifs conseillés pour
 un type de scène passent en tête des ★ ; ceux qui finissent ou relancent se jouent sur les dernières mesures. On règle
-aussi la **nuance**.
+aussi la **nuance**. Le choix se fait sur la carte Motif commune, comme pour la Basse : « Cuivres de « Scène » » et le
+motif joué, « Joue dans cette scène » à droite, la formation en ligne fixe (avec la nuance et « + Musicien »), familles avec
+« ★ Pour cette scène » et leurs compteurs, Surprends-moi, cartes avec la vignette des attaques sur la scène (la
+description et le numéro du fichier au survol), pied « Scènes : Cette scène | Même type | Toutes ».
 Chaque jeu est recalculé sur les accords de la scène, degré par degré, chaque musicien dans son registre ; swing 2/3 pour
 le big band. Une ligne par musicien : interrupteur (joue ou non dans la scène), rôle (Dessus, Harmonie, Basse), sa
 partie, son registre, M / S ; à la lecture, un curseur défile sur chaque ligne et la note qui sonne s'allume. « + Musicien » ajoute une doublure (4 au plus). Sons : trompette et cor VSCO 2 ;
