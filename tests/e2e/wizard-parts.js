@@ -166,7 +166,9 @@ const ok = (c, m) => {
 
   // Accords, puis Basse : pédale
   await tab('bass');
-  ok((await page.getAttribute('#bwParts', 'data-kind')) === 'bass' && (await page.locator('#bwMotif .mot-chip[data-g]').count()) === 11 && (await page.locator('#bwMotif .mot-fam').count()) === 5 && (await page.locator('#bwMotif .mot-card').count()) > 10, 'étape Basse : la carte Motif commune (Tous, 9 styles communs, Célèbres ; 4 familles et Tous) et ses cartes');
+  ok((await page.locator('#bwMotif .mot-fam.star').count()) === 1 && (await page.locator('#bwMotif .mot-star').count()) >= 1, 'Basse : « ★ Pour cette scène » et ses motifs');
+  await page.click('#bwMotif .mot-fam[data-f="all"]');
+  ok((await page.getAttribute('#bwParts', 'data-kind')) === 'bass' && (await page.locator('#bwMotif .mot-chip[data-g]').count()) === 11 && (await page.locator('#bwMotif .mot-fam:not(.star)').count()) === 5 && (await page.locator('#bwMotif .mot-card').count()) > 10, 'étape Basse : la carte Motif commune (Tous, 9 styles communs, Célèbres ; 4 familles et Tous) et ses cartes');
   ok((await page.locator('#bwMotif .mot-card.on .mot-badge.insp').textContent()) === 'Inspiration', 'basse : le mode de l’inspiration est choisi et repéré');
   ok((await page.locator('#bwMotif .mot-card[data-id="none"]').count()) === 0 && (await page.locator('#bwMotif .mot-chip[data-g="film"].off').count()) === 1, 'basse : plus de carte Aucune (la case suffit), puce sans motif grisée');
   await scene('Couplet');
@@ -187,6 +189,7 @@ const ok = (c, m) => {
 
   // Nappes : mode et voicing
   await tab('chords');
+  if (await page.locator('#bwPadMotif .mot-fam[data-f="all"]:not(.on)').count()) await page.click('#bwPadMotif .mot-fam[data-f="all"]');
   ok((await page.getAttribute('#bwParts', 'data-kind')) === 'chords' && (await page.locator('#bwPadMotif .mot-chip.on.mark[data-g="synth"]').count()) === 1 && (await page.locator('#bwPadMotif .mot-card').count()) === (await page.evaluate(() => SS.padMotifs.inGroup('synth').length)), 'onglet de la nappe : puce Synthwave (style de la chanson) et ses motifs');
   await page.click('#bwPadMotif .mot-chip[data-g="all"]');
   ok((await page.locator('#bwPadMotif .mot-card').count()) === (await page.evaluate(() => SS.padMotifs.all().filter((id) => SS.bandSong.meterOK('chords', id)).length)), 'nappe : tous les motifs de la mesure');

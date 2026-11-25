@@ -2423,6 +2423,9 @@ SS.bandSong = (() => {
         const o = changed ? ie : ie ? { ...((pp && pp[role]) || {}), ...ie } : (pp && pp[role]) || null; // réglages de l'instrument, du rôle (basse, nappe, arpège)
         const off = muted.includes(role) || !!(ie && ie.off);
         const er = !changed ? role : kd === 'bass' || kd === 'drums' ? 'bass' : kd === 'arp' ? 'arp' : kd === 'melody' ? 'lead' : gk ? 'guitar' : kk ? 'keys' : 'pad'; // rôle dont l'instrument prend la nuance et les effets
+        // musicien ajouté (Basse, Nappe, Guitariste, Arpège) : le premier ★ de la scène, dans le style de la chanson (js/scenestars.js)
+        const extraStar = (k, secId, sc0) =>
+          SS.sceneStars.sceneDefault(k, secId, SS.sceneStars.styleOfPreset(presetId), { ok: (m) => MODES()[k].includes(m) && meterOK(k, m), spb: SPB, jeu: k === 'guitar' && SS.guitarist && sc0.guitar ? SS.guitarist.jeuOf(sc0.guitar) || 'acc' : 'acc' });
         let mode;
         if (off) mode = null;
         else if (!changed) mode = (o && o.mode) || sec[role];
@@ -2430,7 +2433,7 @@ SS.bandSong = (() => {
         else {
           const valid = MODES()[kd];
           const plan = { bass: [sec.bass], chords: [sec.pad, sec.strings, sec.keys, sec.brass], keys: [sec.keys], guitar: [sec.guitar], arp: [sec.arp, sec.arpchord], melody: [sec.lead, sec.vox, sec.sax], drums: [] }[kd];
-          const star = kk && !(o && valid.includes(o.mode)) && SS.keyboardist ? SS.keyboardist.sceneDefault(id, sec.keys, presetId, (m) => meterOK('keys', m)) : null; // Clavier ajouté : le motif ★ de la scène
+          const star = o && valid.includes(o.mode) ? null : kk && SS.keyboardist ? SS.keyboardist.sceneDefault(id, sec.keys, presetId, (m) => meterOK('keys', m)) : extra && SS.sceneStars && ['bass', 'chords', 'guitar', 'arp'].includes(kd) ? extraStar(kd, id, sec) : null; // Clavier ou musicien ajouté : le motif ★ de la scène
           mode = o && valid.includes(o.mode) ? o.mode : star || plan.find((m) => m && valid.includes(m)) || DEFAULT_MODE[kd];
         }
         mode = fitMode(changed ? kd : kindOfRole(role), mode); // autre mesure que 4/4 : un rythme écrit pour elle
@@ -2990,5 +2993,5 @@ SS.bandSong = (() => {
     ['marche128', 'Marche lente', 'Une noire pointée par temps : fondamentale, quinte, octave, quinte (12/8)', rhythmDraw('marche128')],
   ];
 
-  return { build, ambientCurves, ambientApply, ambientOf, AMB_LEVELS, AMB_MOVES, setMeter, meter, METERS, meterOK, fitMode, backbeats, halfBar, levelStep, levelPer, fitLanes, beatOf: (ts) => (ts && ts[1] === 8 && ts[0] % 3 === 0 && ts[0] > 3 ? 6 : Math.max(1, Math.round(16 / ((ts && ts[1]) || 4)))), voiceChord, bassEvents, chordEvents, PAD_NEW, padFxLanes, tomOfStep, junctionDefaults, junctionEff, withSceneFx, PERC_LOOPS, PERC_STYLES, hpHz, hpAmt, HP_MEL, isExtra, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, sceneGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, motifBars, motifBar, METER, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, BUILD_LEVELS, BUILD_PRESETS, buildLevels, progLevels, rollBar, rollerOf, hasGridLane, laneKey, _rng: rng };
+  return { build, MODES, ambientCurves, ambientApply, ambientOf, AMB_LEVELS, AMB_MOVES, setMeter, meter, METERS, meterOK, fitMode, backbeats, halfBar, levelStep, levelPer, fitLanes, beatOf: (ts) => (ts && ts[1] === 8 && ts[0] % 3 === 0 && ts[0] > 3 ? 6 : Math.max(1, Math.round(16 / ((ts && ts[1]) || 4)))), voiceChord, bassEvents, chordEvents, PAD_NEW, padFxLanes, tomOfStep, junctionDefaults, junctionEff, withSceneFx, PERC_LOOPS, PERC_STYLES, hpHz, hpAmt, HP_MEL, isExtra, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, sceneGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, motifBars, motifBar, METER, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, BUILD_LEVELS, BUILD_PRESETS, buildLevels, progLevels, rollBar, rollerOf, hasGridLane, laneKey, _rng: rng };
 })();

@@ -350,7 +350,12 @@ caractère…), et **▶ joue la scène choisie en boucle** (pas toute la chanso
    nappe : Tenues, Rythmées, En mouvement) avec leur nombre, Tous et **Surprends-moi** ; des cartes au même gabarit
    (dessin, badge « Inspiration ») ; au pied **Scènes : Cette scène | Même type | Toutes**. Basse : **hauteur** C1 à C3,
    **pédale** (aucune, tonique, dominante), note d'approche. Nappe : **voicing** serré / ouvert. La fenêtre MOTIF de la
-   Grille montre la même carte. Arpèges : le **mode Intuitif d'Arp One** (voir plus bas), par scène : nom et catégorie du motif,
+   Grille montre la même carte. **★ Pour cette scène** (`js/scenestars.js`) : Basse, Nappe, Guitariste et Arpège
+   reçoivent leurs ★ selon le type de scène (intro et fin tenues, couplet régulier, montée qui pousse, refrain syncopé ou
+   gratté, pont qui respire), dans le style de la chanson et la mesure ; la carte s'ouvre sur eux quand le motif joué en
+   est. Un musicien **ajouté** joue d'office le premier ★ de chaque scène (badge « auto », même règle dans
+   `SS.bandSong.build`) ; un musicien de l'inspiration garde son jeu. L'Arpège montre ses ★ en puces au-dessus du
+   navigateur d'Arp One, avec le pied « Scènes ». Arpèges : le **mode Intuitif d'Arp One** (voir plus bas), par scène : nom et catégorie du motif,
    ‹ › et sélecteur de motifs rangés par catégorie (`SS.MOTIFS`), **🎲 Surprends-moi**, quatre boutons Densité / Ampleur /
    Mouvement / Écho (`SS.Arp.macroPatch` / `macroValue`) et **Vitesse** (1/8, 1/16, 1/16 triolet, 1/32) ; l'arpège peut être
    **allumé** dans une scène où l'inspiration n'en avait pas. Tant qu'on n'a rien touché, c'est l'arpège de l'inspiration
