@@ -3584,6 +3584,10 @@ dialog.midi-dialog { width: min(720px, calc(100vw - 32px)); }
 .midi-tracks b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45%; }
 .midi-tracks span { color: var(--muted); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .midi-tracks small { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.midi-moves { display: grid; grid-template-columns: minmax(110px, auto) minmax(80px, 1fr) auto auto; gap: 4px 10px; align-items: center; font-size: var(--fs-md); }
+.midi-moves .mv-src small { display: block; color: var(--muted); font-size: var(--fs-xs); }
+.midi-moves svg { width: 100%; height: 22px; display: block; background: var(--c-bg); border: 1px solid var(--c-panel-2); border-radius: 4px; }
+.midi-moves .mv-ok { color: var(--c-green); font-weight: 700; }
 .midi-warn { margin: 0; padding-left: 18px; font-size: var(--fs-md); color: var(--muted); display: flex; flex-direction: column; gap: 3px; }
 .midi-error { color: var(--c-red-soft); margin: 0; }
 .midi-check { display: flex; align-items: center; gap: 8px; font-size: var(--fs-md); }
