@@ -10144,7 +10144,26 @@ SS.band = (() => {
     const m = SS.wizPlayBar.model(res, { spb: SPB(), tempo: tempo() });
     const keyOf = (b) => (res.scenes.find((x) => x.id === b.sceneId) || {}).key;
     const badge = (b, i) => (i ? SS.keyChange.describe(keyOf(m.blocks[i - 1]), keyOf(b)) : null);
-    SS.wizPlayBar.render(bar, m, { color: secColor, word: film() ? 'Passage' : 'Scène', onSeek: (i) => listenSong(i), badge });
+    const scOf = (id) => res.scenes.find((x) => x.id === id);
+    // accords de la scène (piste Accords de l'assistant), pour l'accord en cours et la bulle
+    const chords = (id) => {
+      const sc = scOf(id);
+      if (!sc || !sc.grid || !sc.grid.chords || !SS.harmony.valid(sc.key)) return [];
+      return sc.grid.chords.map((c) => ({ bar: c.step / SPB(), name: (SS.chordInfoAt(sc.key, sc.grid, c) || {}).name })).filter((c) => c.name);
+    };
+    // bulle : tonalité, émotion, instruments qui jouent dans la scène
+    const playsIn = (sc, colIds) => Object.entries(sc.data || {}).some(([k, d]) => colIds.includes(k) && d && ((d.steps || []).some((v) => v > 0) || (d.events || []).length));
+    const info = (b) => {
+      const sc = scOf(b.sceneId);
+      if (!sc) return {};
+      const emo = sc.emotion ? SS.EMOTIONS.find((e) => e.id === sc.emotion) : null;
+      return {
+        key: SS.harmony.valid(sc.key) ? SS.harmony.label(sc.key) : null,
+        emotion: emo ? emo.label.toLowerCase() : null,
+        tracks: insSteps().map((t) => ({ name: t.title, color: KIND_COLOR[t.kind], on: playsIn(sc, t.cols.map((c) => c.id)) })),
+      };
+    };
+    SS.wizPlayBar.render(bar, m, { color: secColor, word: film() ? 'Passage' : 'Scène', onSeek: (i) => listenSong(i), badge, chords, info, hint: 'Clic : écouter la chanson à partir d’ici' });
   }
   /** Curseur de la frise : même position que la lecture (mode Chanson ou scène en boucle). */
   function markPlayBar() {
