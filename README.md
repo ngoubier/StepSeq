@@ -45,7 +45,9 @@ puis ouvrir <http://localhost:8000>.
 - **En-tête** : icône de l'application (menu **Nouvelle chanson…** (assistant sur une chanson vide), **Mes chansons…**, **Ouvrir un fichier…** (projet .json, MIDI .mid ou partition, Ctrl+O), **Lire une partition…** (image, PDF ou MusicXML → pistes MIDI : lecture par Claude dans Chrome, par Audiveris ou MusicXML exact ; mesures à vérifier en orange ; Enregistrer le .mid ou Importer dans StepSeq), **Enregistrer** (Ctrl+S), **Exporter…** (audio WAV ou MIDI, Ctrl+E), **Options…** ; l'assistant sur le projet en cours s'ouvre par le bouton **✦ Assistant**), titre du projet, tempo (BPM), un bouton ∿ à icône seule dont la bulle (au survol, au clic ou au clavier)
   regroupe le chiffrage de mesure (4/4 par défaut, x/4 ou x/8), le nombre de mesures et le groove (swing, humanisation), **Lecture** et **Stop**, puis les fenêtres regroupées
   **Tonalité** (la tonalité de la scène en sous-titre ; un clic ouvre un petit menu tonique / mode, proposé d'après les notes ;
-  la composition à partir d'une émotion, les grilles de référence, les essais A/B et la vérification sont dans l'assistant « Nouvelle chanson »), **Arrangement** (fenêtre Arrangement : scènes et arrangement) et **Mix** (console de mixage, avec **Auto Mix**).
+  la composition à partir d'une émotion, les grilles de référence, les essais A/B et la vérification sont dans l'assistant « Nouvelle chanson »), **Arrangement** (fenêtre Arrangement : scènes en colonne avec ▶ et ⋯ ; chanson en blocs larges comme leur durée, à glisser
+  (Alt : copier) et à étirer par le bord droit pour les répétitions ; une ligne par piste dessous, clic = couper la piste dans
+  la scène ; automation par temps repliée) et **Mix** (console de mixage, avec **Auto Mix**).
   **Mode assistant** : quand l'assistant « Nouvelle chanson » est ouvert (`body.wizard-mode`), il prend la place de la zone des pistes, sous cette
   barre qui reste visible ; la barre du bas, Tonalité, Arrangement et Mix s'effacent et la **tonalité** de la chanson en création (« Do mineur », avec son armure)
   prend leur place. **Lecture / Stop**, **tempo** et **position** de la barre pilotent alors l'écoute de l'assistant (scène choisie en boucle ou chanson) ;
@@ -1235,7 +1237,7 @@ boucle (`SS.autoValue(…, hold)`). Les courbes MIDI seules ne créent pas de n�
 
 Le menu du bouton **∿** active aussi des courbes **par temps** qui suivent l'arrangement (pas la boucle d'une scène) :
 un panneau sous les notes de la piste (histogramme, une barre par temps, courbe lissée par-dessus), affiché
-seulement quand une de ces courbes est active, et les mêmes courbes sous la frise de la fenêtre Arrangement.
+seulement quand une de ces courbes est active, et les mêmes courbes sous la chanson de la fenêtre Arrangement (partie repliable « Automation par temps »).
 Données : `project.song[i].bauto[trackId][réglage][répétition] = { temps: valeur }` ; moteur `SS.beatAuto`
 (`js/beatauto.js` : passages, spline monotone, liaison des voisines), interface `SS.beatAutoUI` (`js/beatautoui.js`).
 Cutoff (−4…+4 octaves) et résonance (×0…×3) pilotent le filtre de la voix pendant la note (`beatAutoVoice` dans

@@ -115,150 +115,178 @@ SS.song = (() => {
     }
   }
 
-  /* ---------- Fenêtre Song ---------- */
+  /* ---------- Fenêtre Arrangement ---------- */
   /*
-   * En haut, les scènes en cartes sur une ligne (sélection, renommage, copie, longueur, résumé) ; en dessous
-   * l'arrangement en frise horizontale, de gauche à droite, chaque bloc large comme sa durée.
-   * Glisser (souris ou doigt) : une carte se range parmi les scènes ou se dépose sur la frise ;
-   * un bloc de l'arrangement se déplace. Le panneau compact sous la barre du haut reste disponible (case en bas).
+   * À gauche, les scènes en colonne (toutes visibles) : clic = éditer, ▶ = l'écouter en boucle, ⋯ = renommer, dupliquer,
+   * fiche, supprimer ; glisser une ligne pour ranger, ou sur la chanson pour l'y ajouter.
+   * À droite, la chanson : un bloc par élément de l'arrangement, large comme sa durée (la chanson tient dans la largeur) ;
+   * glisser = déplacer (Alt : copier), tirer le bord droit = répétitions. Dessous, une ligne par piste : qui joue où
+   * (clic = couper / remettre la piste dans cette scène, même réglage que la fiche Scène). Automation par temps repliée.
    */
   const BAR_CHOICES = [1, 2, 4, 8, 16, 32, 64];
+  const LAB = 96; // largeur des noms de lignes à gauche de la chanson
+  const AUTO_KEY = 'stepseq.songAuto';
   const winOpen = () => $('#songDialog').open;
   const letterOf = (sc) => String.fromCharCode(65 + (p().scenes.indexOf(sc) % 26));
-
-  /** Contenu d'une scène : pour la scène en cours, les pistes elles-mêmes ; sinon ce qui est rangé dans la scène. */
-  function sceneContent(sc, t) {
-    if (sc.id === p().current) return t.type === 'drum' ? { steps: t.steps } : { events: t.events };
-    return (sc.data && sc.data[t.id]) || {};
-  }
-  /** Résumé d'une scène : tonalité, accords reconnus, pistes qui jouent. */
-  function summary(sc) {
-    const pr = p();
-    const H = SS.harmony;
-    const key = H && H.valid(sc.key) ? sc.key : null;
-    let chords = [];
-    try {
-      const spellKey = key || { tonic: 'C', mode: 'major' };
-      chords = H ? H.sceneChords(pr, sc.id).filter((c) => c.id).map((c) => H.chordName(spellKey, c.id)) : [];
-    } catch (e) {
-      chords = [];
-    }
-    let notes = 0;
-    const playing = pr.tracks.filter((t) => {
-      const d = sceneContent(sc, t);
-      const n = t.type === 'drum' ? (d.steps || []).filter(Boolean).length : (d.events || []).length;
-      notes += n;
-      return n > 0;
-    });
-    return { key, chords, playing, notes };
+  const colorOfScene = (sc) => SS.wizPlayBar.colorOf(String(sc.sec || sc.name || '').replace(/\s*\d+$/, ''));
+  const density = (sc, t) => (SS.sceneSheet && SS.sceneSheet.perBar ? SS.sceneSheet.perBar(p(), sc, t) : { bars: [], total: 0 });
+  /** Une piste dans une scène : 'on' (elle joue), 'mute' (coupée dans cette scène), 'empty' (pas de notes). */
+  function trackState(sc, t) {
+    const d = density(sc, t);
+    if (!d.total && !d.follows) return { st: 'empty', d };
+    return { st: SS.sceneMuted(p(), t, sc) ? 'mute' : 'on', d };
   }
 
-  function sceneTile(sc) {
+  function sceneRow(sc) {
     const pr = p();
-    const sm = summary(sc);
     const cur = sc.id === pr.current;
-    // une grille répétée (Am – F – Am – F…) s'affiche une seule fois, avec le nombre de tours
-    const c = sm.chords;
-    let per = c.length;
-    for (let n = 1; n < c.length; n++) if (c.length % n === 0 && c.every((x, i) => x === c[i % n])) { per = n; break; }
-    const turns = c.length / per;
-    const cyc = c.slice(0, per);
-    const chordsTxt = cyc.length ? cyc.slice(0, 8).join(' – ') + (cyc.length > 8 ? ' …' : '') + (turns > 1 ? ` (×${turns})` : '') : '';
-    const tile = h(
+    const looping = SS.audio.isPlaying() && pr.playMode === 'loop' && cur;
+    const row = h(
       'div',
       {
-        class: 'sg-tile' + (cur ? ' active' : ''),
+        class: 'sg-srow' + (cur ? ' active' : ''),
         role: 'listitem',
         'data-id': sc.id,
         tabindex: '0',
         'aria-current': cur ? 'true' : null,
-        title: 'Cliquer : éditer cette scène · glisser : ranger, ou déposer dans l\'arrangement',
+        style: `--c:${colorOfScene(sc)}`,
+        title: `${sc.name} — clic : éditer · glisser : ranger, ou déposer dans la chanson · double-clic sur le nom : renommer`,
         onkeydown: (e) => {
           if (e.target !== e.currentTarget) return;
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             app.switchScene(sc.id);
-          } else if (e.altKey && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+          } else if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
             e.preventDefault();
             const i = pr.scenes.indexOf(sc);
-            moveScene(i, i + (e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? -1 : 1));
+            moveScene(i, i + (e.key === 'ArrowUp' ? -1 : 1));
           }
         },
       },
-      h('span', { class: 'sg-grip', 'aria-hidden': 'true' }, '⠿'),
+      h('b', { class: 'sg-letter' }, letterOf(sc)),
+      h('span', { class: 'sg-name' }, sc.name),
+      h('span', { class: 'sg-dots', 'aria-hidden': 'true' }, pr.tracks.map((t) => h('i', { class: trackState(sc, t).st === 'on' ? 'on' : '', style: `--tc:${t.color}` }))),
       h(
-        'div',
-        { class: 'sg-tile-main' },
-        h(
-          'div',
-          { class: 'sg-tile-head' },
-          h('b', { class: 'sg-letter' }, letterOf(sc)),
-          h('span', { class: 'sg-name', title: 'Double-clic pour renommer', ondblclick: (e) => rename(sc, e.currentTarget) }, sc.name),
-          h('span', { class: 'spacer' }),
-          h('button', { type: 'button', class: 'sg-ico', title: `Renommer « ${sc.name} »`, 'aria-label': 'Renommer', onclick: (e) => rename(sc, e.currentTarget.closest('.sg-tile').querySelector('.sg-name')) }, '✎'),
-          h('button', { type: 'button', class: 'sg-ico', title: `Dupliquer « ${sc.name} »`, 'aria-label': 'Dupliquer', onclick: () => duplicate(sc) }, '⧉'),
-          h('button', { type: 'button', class: 'sg-ico', title: 'Ajouter à la fin de l\'arrangement', 'aria-label': 'Ajouter à l\'arrangement', onclick: () => insertBlock(sc.id, pr.song.length) }, '→'),
-          pr.scenes.length > 1 ? h('button', { type: 'button', class: 'sg-ico sg-del', title: `Supprimer « ${sc.name} »`, 'aria-label': 'Supprimer', onclick: () => remove(sc) }, '×') : null
-        ),
-        h(
-          'div',
-          { class: 'sg-tile-meta' },
-          h(
-            'select',
-            { class: 'sg-bars', 'aria-label': `Longueur de « ${sc.name} »`, title: 'Longueur de la scène', onchange: (e) => setSceneBars(sc, +e.target.value) },
-            BAR_CHOICES.concat(BAR_CHOICES.includes(barsOf(sc)) ? [] : [barsOf(sc)]).sort((a, b) => a - b).map((n) => h('option', { value: n, selected: n === barsOf(sc) }, `${n} mes.`))
-          ),
-          h('span', { class: 'sg-key' + (sm.key ? '' : ' none') }, sm.key ? SS.harmony.label(sm.key) : 'sans tonalité')
-        ),
-        h('div', { class: 'sg-chords' + (chordsTxt ? '' : ' none') }, chordsTxt || (sm.notes ? 'pas d\'accord' : 'scène vide')),
-        h(
-          'div',
-          { class: 'sg-tracks', title: sm.playing.length ? 'Pistes qui jouent : ' + sm.playing.map((t) => t.name).join(', ') : 'Aucune piste ne joue' },
-          pr.tracks.map((t) => h('i', { class: sm.playing.includes(t) ? 'on' : '', style: `--c:${t.color}` })),
-          h('small', {}, sm.playing.length ? `${sm.playing.length}/${pr.tracks.length} pistes · ${sm.notes} notes` : '')
-        )
-      )
+        'select',
+        { class: 'sg-bars', 'aria-label': `Longueur de « ${sc.name} »`, title: 'Longueur de la scène (mesures)', onchange: (e) => setSceneBars(sc, +e.target.value) },
+        BAR_CHOICES.concat(BAR_CHOICES.includes(barsOf(sc)) ? [] : [barsOf(sc)]).sort((a, b) => a - b).map((n) => h('option', { value: n, selected: n === barsOf(sc) }, String(n)))
+      ),
+      h('button', { type: 'button', class: 'sg-ico sg-loop' + (looping ? ' on' : ''), title: looping ? 'Arrêter' : `Écouter « ${sc.name} » en boucle`, 'aria-label': looping ? 'Arrêter' : 'Écouter en boucle', onclick: () => playScene(sc) }, looping ? '■' : '▶'),
+      h('button', { type: 'button', class: 'sg-ico sg-more', title: 'Plus…', 'aria-label': `Plus pour « ${sc.name} »`, 'aria-haspopup': 'menu', onclick: (e) => sceneMenu(sc, e.currentTarget) }, '⋯')
     );
-    tile.addEventListener('pointerdown', (e) => startDrag(e, { kind: 'scene', id: sc.id, el: tile }));
-    return tile;
+    row.addEventListener('pointerdown', (e) => startDrag(e, { kind: 'scene', id: sc.id, el: row }));
+    return row;
   }
 
-  function blockTile(b, i) {
+  function sceneMenu(sc, btn) {
+    const r = btn.getBoundingClientRect();
+    popMenu(`${sc.name} · ${barsOf(sc)} mes.`, [
+      { label: 'Renommer', fn: () => rename(sc, document.querySelector(`#sgSceneList [data-id="${sc.id}"] .sg-name`)) },
+      { label: 'Dupliquer', fn: () => duplicate(sc) },
+      { label: 'Fiche de la scène…', fn: () => SS.sceneSheet && SS.sceneSheet.open(sc.id) },
+      { label: 'Ajouter à la fin de la chanson', fn: () => insertBlock(sc.id, p().song.length) },
+      null,
+      p().scenes.length > 1 ? { label: 'Supprimer la scène', fn: () => remove(sc), cls: 'pbm-del' } : null,
+    ], r.left, r.bottom + 4);
+  }
+
+  /** ▶ d'une scène : l'écouter en boucle (lecture Scène) ; un second clic arrête. */
+  function playScene(sc) {
+    const pr = p();
+    const same = SS.audio.isPlaying() && pr.playMode === 'loop' && pr.current === sc.id;
+    if (SS.audio.isPlaying() || SS.audio.isPaused()) app.stop();
+    if (same) return render();
+    if (pr.playMode !== 'loop') {
+      pr.playMode = 'loop';
+      app.changed();
+    }
+    if (sc.id !== pr.current) app.switchScene(sc.id);
+    app.play();
+    render();
+  }
+
+  function blockTile(b, i, start, px) {
     const pr = p();
     const sc = sceneOf(b.scene);
     if (!sc) return null;
-    const bars = barsOf(sc) * b.repeat;
+    const bars = barsOf(sc);
+    const rep = i === playing ? `${playingRep + 1}/${b.repeat}` : `× ${b.repeat}`;
     const el = h(
       'div',
       {
         class: 'sg-block' + (i === app.state.songStart ? ' start' : '') + (i === playing ? ' playing' : '') + (sc.id === pr.current ? ' editing' : ''),
         role: 'listitem',
+        tabindex: '0',
         'data-i': i,
-        style: `--bars:${bars}`,
-        title: `${sc.name} : ${barsOf(sc)} mesure(s) × ${b.repeat}. Clic : partir d'ici et éditer cette scène · glisser : déplacer`,
+        style: `left:${start * px}px;width:${bars * b.repeat * px}px;--c:${colorOfScene(sc)};--rw:${bars * px}px`,
+        title: `${sc.name} : ${bars} mesure(s) × ${b.repeat} — clic : éditer et partir d'ici · glisser : déplacer (Alt : copier) · bord droit : répétitions · double-clic : fiche · clic droit : plus`,
+        oncontextmenu: (e) => {
+          e.preventDefault();
+          openMenu({ song: i, sceneId: sc.id }, e.clientX || el.getBoundingClientRect().left, (e.clientY || el.getBoundingClientRect().bottom) + 4);
+        },
+        onkeydown: (e) => {
+          if (e.target !== e.currentTarget) return;
+          if (e.key === 'Enter' || e.key === ' ') (e.preventDefault(), clickOn({ kind: 'block', i }));
+          else if (e.key === '+' || e.key === '=') setRepeat(i, b.repeat + 1);
+          else if (e.key === '-') setRepeat(i, b.repeat - 1);
+          else if ((e.key === 'Delete' || e.key === 'Backspace') && pr.song.length > 1) (e.preventDefault(), removeBlock(i));
+          else if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) (e.preventDefault(), moveBlock(i, e.key === 'ArrowLeft' ? -1 : 1));
+        },
       },
-      h('div', { class: 'sb-name' }, h('b', {}, letterOf(sc)), ' ', sc.name),
-      h('small', { class: 'sg-block-bars' }, `${bars} mes.` + (b.repeat > 1 ? ` · ${barsOf(sc)} × ${b.repeat}` : '')),
-      h(
-        'div',
-        { class: 'sb-tools' },
-        h('button', { type: 'button', title: 'Une répétition de moins', onclick: () => setRepeat(i, b.repeat - 1) }, '−'),
-        h('span', { class: 'sb-rep' }, i === playing ? `${playingRep + 1}/${b.repeat}` : `×${b.repeat}`),
-        h('button', { type: 'button', title: 'Une répétition de plus', onclick: () => setRepeat(i, b.repeat + 1) }, '+')
-      ),
-      pr.song.length > 1 ? h('button', { type: 'button', class: 'sg-block-del', title: 'Retirer ce bloc', 'aria-label': `Retirer le bloc « ${sc.name} »`, onclick: () => removeBlock(i) }, '×') : null
+      b.repeat > 1 ? h('i', { class: 'sg-reps', 'aria-hidden': 'true' }) : null,
+      h('span', { class: 'sb-name' }, h('b', {}, letterOf(sc)), ' ', sc.name),
+      h('small', { class: 'sg-block-bars' }, `${bars} mes.`, b.repeat > 1 || i === playing ? ` ${rep}` : ''),
+      h('span', { class: 'sg-grow', title: 'Tirer : plus ou moins de répétitions', 'aria-hidden': 'true' })
     );
-    el.addEventListener('pointerdown', (e) => startDrag(e, { kind: 'block', i, el }));
+    el.addEventListener('pointerdown', (e) => (e.target.closest('.sg-grow') ? startGrow(e, i, el, bars * px) : startDrag(e, { kind: 'block', i, el })));
     return el;
   }
 
-  /*
-   * Frise : chaque bloc est large comme sa durée (--px par mesure, au moins MIN_PX pour rester lisible ;
-   * une chanson longue défile alors horizontalement), la règle compte les mesures, la tête de lecture avance.
-   */
-  const MIN_PX = 20;
-  const HINT_W = 120; // place gardée au bout de la frise pour déposer une scène
-  let px = MIN_PX;
+  /** Une ligne par piste : qui joue dans chaque bloc (petites barres = notes par mesure). */
+  function trackLanes(starts, px) {
+    const pr = p();
+    return pr.tracks.map((t) => {
+      const cells = pr.song.map((b, i) => {
+        const sc = sceneOf(b.scene);
+        if (!sc) return null;
+        const { st, d } = trackState(sc, t);
+        const bars = barsOf(sc);
+        const max = Math.max(1, ...d.bars);
+        const ticks = st === 'on' ? Array.from({ length: bars * b.repeat }, (_, k) => {
+          const v = d.follows && !d.total ? max : d.bars[k % bars] || 0;
+          return h('i', { style: `height:${v ? 25 + Math.round((v / max) * 65) : 0}%` });
+        }) : [];
+        const word = st === 'on' ? 'joue (clic : la couper dans cette scène)' : st === 'mute' ? 'coupée dans cette scène (clic : la remettre)' : 'pas de notes';
+        return h(
+          'button',
+          {
+            type: 'button',
+            class: 'sg-cell ' + st,
+            style: `left:${starts[i] * px}px;width:${bars * b.repeat * px}px`,
+            title: `${t.name} · ${sc.name} : ${word}`,
+            'aria-label': `${t.name}, ${sc.name} : ${word}`,
+            disabled: st === 'empty',
+            onclick: () => setSceneMute(sc, t, st === 'on'),
+          },
+          ticks
+        );
+      });
+      return h('div', { class: 'sg-lane', style: `--tc:${t.color}` }, h('span', { class: 'sg-lane-name', title: t.name }, h('i'), t.name), cells);
+    });
+  }
+
+  function setSceneMute(sc, t, on) {
+    sc.mute = sc.mute || {};
+    if (on) sc.mute[t.id] = true;
+    else delete sc.mute[t.id];
+    if (!Object.keys(sc.mute).length) delete sc.mute;
+    if (SS.audio && SS.audio.applyMutes) SS.audio.applyMutes(p());
+    if (SS.sceneSheet && SS.sceneSheet.paintMutes) SS.sceneSheet.paintMutes();
+    changedSong();
+  }
+
+  /* Chanson : chaque bloc est large comme sa durée, la chanson tient dans la largeur de la fenêtre. */
+  let px = 20;
   function blockStarts() {
     const out = [];
     let at = 0;
@@ -269,51 +297,45 @@ SS.song = (() => {
     });
     return { starts: out, total: at };
   }
-  function layoutTimeline() {
-    const tl = $('#sgTimeline');
-    const { total } = blockStarts();
-    px = Math.max(MIN_PX, (tl.clientWidth - 24 - HINT_W) / Math.max(1, total));
-    tl.style.setProperty('--px', px + 'px');
-    // une graduation au moins tous les 40 px
-    const every = [1, 2, 4, 8, 16, 32].find((n) => n * px >= 40) || 64;
-    const marks = [];
-    for (let m = 0; m <= total; m += every) marks.push(h('span', { style: `left:${m * px}px` }, String(m + 1)));
-    $('#sgRuler').replaceChildren(...marks);
-    $('#sgRuler').style.width = total * px + 'px';
-  }
   function renderWindow() {
     if (!winOpen() || drag) return;
     const pr = p();
-    $('#sgSceneList').replaceChildren(...pr.scenes.map(sceneTile));
-    const blocks = pr.song.map(blockTile).filter(Boolean);
-    $('#sgBlocks').replaceChildren(...blocks, h('div', { class: 'sg-drop-hint' }, blocks.length ? 'Déposer une scène ici' : 'Glisser une scène ici'));
-    layoutTimeline();
-    if (SS.beatAutoUI) SS.beatAutoUI.songView($('#sgAuto'), $('#sgAutoTools'), px, app);
+    $('#sgSceneList').replaceChildren(...pr.scenes.map(sceneRow));
+    const tl = $('#sgTimeline');
+    const { starts, total } = blockStarts();
+    px = Math.max(1, (tl.clientWidth - LAB - 4) / Math.max(1, total));
+    tl.style.setProperty('--lab', LAB + 'px');
+    // règle : mesures en haut, minutes en dessous
+    const every = [1, 2, 4, 8, 16, 32].find((n) => n * px >= 34) || 64;
+    const marks = [];
+    for (let m = 0; m < total; m += every) marks.push(h('span', { style: `left:${m * px}px` }, String(m + 1)));
     const len = SS.songLength(pr);
-    $('#sgTotal').textContent = `${len.bars} mesures · ${fmtTime(len.seconds)}`;
+    const secPerBar = total ? len.seconds / total : 0;
+    for (let s = 30; secPerBar && s < len.seconds; s += 30) marks.push(h('span', { class: 'sg-min', style: `left:${(s / secPerBar) * px}px` }, fmtTime(s)));
+    $('#sgRuler').replaceChildren(...marks);
+    $('#sgBlocks').replaceChildren(...pr.song.map((b, i) => blockTile(b, i, starts[i], px)).filter(Boolean), h('i', { class: 'sg-drop-line', hidden: true }));
+    $('#sgLanes').replaceChildren(...trackLanes(starts, px));
+    if ($('#sgAutoBox').open && SS.beatAutoUI) SS.beatAutoUI.songView($('#sgAuto'), $('#sgAutoTools'), px, app);
+    $('#sgTotal').textContent = `${len.bars} mes. · ${fmtTime(len.seconds)}`;
     $('#sgLoop').checked = !!pr.songLoop;
-    const on = SS.audio.isPlaying() && pr.playMode === 'song';
+    $('#sgMode').querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.mode === pr.playMode));
+    const on = SS.audio.isPlaying();
     $('#sgPlay').classList.toggle('on', on);
     $('#sgPlay').querySelector('.sg-play-ic').textContent = on ? '■' : '▶';
     $('#sgPlay').querySelector('.sg-play-txt').textContent = on ? 'Arrêter' : 'Écouter';
-    if (playing < 0) $('#sgHead').hidden = true;
+    setStep(lastStep);
   }
 
-  /** Tête de lecture de la frise (appelée à chaque pas pendant la lecture). */
+  /** Tête de lecture de la fenêtre : même position que la frise du haut. */
   function setStep(step) {
     lastStep = step;
     updateBar();
     const head = $('#sgHead');
-    if (!head || !winOpen() || playing < 0 || step < 0) {
-      if (head) head.hidden = true;
-      return;
-    }
-    const b = p().song[playing];
-    const sc = b && sceneOf(b.scene);
-    if (!sc) return;
-    const bar = blockStarts().starts[playing] + playingRep * barsOf(sc) + step / SS.stepsPerBar(p());
-    head.hidden = false;
-    head.style.left = bar * px + 'px';
+    if (!head || !winOpen()) return;
+    const bar = $('#gridPlayBar');
+    const pos = bar && bar._pb ? barPos(bar._pb.m) : -1;
+    head.hidden = pos < 0;
+    if (pos >= 0) head.style.left = LAB + pos * px + 'px';
   }
 
   /* ----- actions ----- */
@@ -328,10 +350,10 @@ SS.song = (() => {
       el && el.focus();
     });
   }
-  function insertBlock(sceneId, at) {
+  function insertBlock(sceneId, at, repeat = 1) {
     const s = p().song;
     at = Math.max(0, Math.min(s.length, at));
-    s.splice(at, 0, { scene: sceneId, repeat: 1 });
+    s.splice(at, 0, { scene: sceneId, repeat });
     if (at <= app.state.songStart && s.length > 1) app.state.songStart++;
     changedSong();
   }
@@ -358,10 +380,51 @@ SS.song = (() => {
     app.switchScene(id);
     app.changed();
   }
+  function newEmptyScene() {
+    const id = SS.addScene(p(), { copy: false });
+    app.switchScene(id);
+    app.changed();
+  }
   function setSceneBars(sc, n) {
     if (sc.id !== p().current) app.switchScene(sc.id);
     app.setBars(n);
     render();
+  }
+
+  /* ----- tirer le bord droit d'un bloc : ses répétitions ----- */
+  function startGrow(e, i, el, unit) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const x0 = e.clientX;
+    const r0 = p().song[i].repeat;
+    let n = r0;
+    drag = { grow: true };
+    document.body.classList.add('sg-grow-on');
+    try {
+      el.setPointerCapture(e.pointerId);
+    } catch (err) {
+      /* ignore */
+    }
+    const move = (ev) => {
+      n = Math.max(1, Math.min(64, Math.round(r0 + (ev.clientX - x0) / unit)));
+      el.style.width = n * unit + 'px';
+      el.querySelector('.sg-block-bars').textContent = `${Math.round(unit / px)} mes. × ${n}`;
+    };
+    const end = () => {
+      el.removeEventListener('pointermove', move);
+      el.removeEventListener('pointerup', end);
+      el.removeEventListener('pointercancel', end);
+      document.body.classList.remove('sg-grow-on');
+      drag = null;
+      justDragged = true;
+      setTimeout(() => (justDragged = false), 0);
+      if (n !== r0) setRepeat(i, n);
+      else renderWindow();
+    };
+    el.addEventListener('pointermove', move);
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
   }
 
   /* ----- glisser-déposer (pointeur : souris, stylet et doigt) ----- */
@@ -382,6 +445,7 @@ SS.song = (() => {
         d.ghost = src.el.cloneNode(true);
         d.ghost.classList.add('sg-ghost');
         d.ghost.style.width = r.width + 'px';
+        d.ghost.style.height = r.height + 'px';
         $('#songDialog').append(d.ghost); // dans la fenêtre (couche supérieure), au-dessus de tout
         src.el.classList.add('sg-dragging');
         document.body.classList.add('sg-drag-on');
@@ -389,6 +453,7 @@ SS.song = (() => {
       ev.preventDefault();
       d.ghost.style.left = ev.clientX - d.dx + 'px';
       d.ghost.style.top = ev.clientY - d.dy + 'px';
+      d.copy = ev.altKey;
       showTarget(d, (d.target = findTarget(d, ev.clientX, ev.clientY)));
     };
     const end = (ev) => {
@@ -396,7 +461,7 @@ SS.song = (() => {
       src.el.removeEventListener('pointerup', end);
       src.el.removeEventListener('pointercancel', end);
       if (!d.started) {
-        if (ev.type === 'pointerup') clickOn(src);
+        if (ev.type === 'pointerup') (isDouble(src, ev) || clickOn(src));
         return;
       }
       drag = null;
@@ -411,8 +476,10 @@ SS.song = (() => {
         const from = p().scenes.findIndex((x) => x.id === src.id);
         moveScene(from, t.index > from ? t.index - 1 : t.index);
       } else if (src.kind === 'scene' && t.zone === 'arr') insertBlock(src.id, t.index);
-      else if (src.kind === 'block' && t.zone === 'arr') moveBlockTo(src.i, t.index);
-      else renderWindow();
+      else if (src.kind === 'block' && t.zone === 'arr') {
+        if (ev.altKey) insertBlock(p().song[src.i].scene, t.index, p().song[src.i].repeat); // Alt : copier le bloc
+        else moveBlockTo(src.i, t.index);
+      } else renderWindow();
     };
     try {
       src.el.setPointerCapture(e.pointerId);
@@ -422,6 +489,27 @@ SS.song = (() => {
     src.el.addEventListener('pointermove', move);
     src.el.addEventListener('pointerup', end);
     src.el.addEventListener('pointercancel', end);
+  }
+  /*
+   * Double-clic fait à la main : le premier clic redessine la fenêtre (la ligne ou le bloc est remplacé), le navigateur
+   * n'enverrait donc pas de dblclick. Sur le nom d'une scène : renommer ; ailleurs : fiche Scène.
+   */
+  let lastClick = null;
+  function isDouble(src, ev) {
+    const key = src.kind + ':' + (src.kind === 'scene' ? src.id : src.i);
+    const dbl = lastClick && lastClick.key === key && ev.timeStamp - lastClick.t < 450;
+    lastClick = dbl ? null : { key, t: ev.timeStamp };
+    if (!dbl) return false;
+    const under = document.elementFromPoint(ev.clientX, ev.clientY);
+    if (src.kind === 'scene' && under && under.closest('.sg-name')) {
+      const el = document.querySelector(`#sgSceneList [data-id="${src.id}"] .sg-name`);
+      const sc = sceneOf(src.id);
+      if (el && sc) rename(sc, el);
+    } else {
+      const b = src.kind === 'block' ? p().song[src.i] : null;
+      if (SS.sceneSheet) SS.sceneSheet.open(b ? b.scene : src.id);
+    }
+    return true;
   }
   function clickOn(src) {
     if (src.kind === 'scene') app.switchScene(src.id);
@@ -439,11 +527,11 @@ SS.song = (() => {
   /** Où le pointeur déposerait l'élément : { zone: 'scenes' | 'arr', index (indice d'insertion) } ou null. */
   function findTarget(d, x, y) {
     if (d.src.kind === 'scene' && inside($('.sg-scenes'), x, y)) {
-      const tiles = [...document.querySelectorAll('#sgSceneList .sg-tile')];
-      let index = tiles.length;
-      for (let i = 0; i < tiles.length; i++) {
-        const r = tiles[i].getBoundingClientRect();
-        if (x < r.left + r.width / 2) {
+      const rows = [...document.querySelectorAll('#sgSceneList .sg-srow')];
+      let index = rows.length;
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i].getBoundingClientRect();
+        if (y < r.top + r.height / 2) {
           index = i;
           break;
         }
@@ -455,8 +543,7 @@ SS.song = (() => {
       let index = blocks.length;
       for (let i = 0; i < blocks.length; i++) {
         const r = blocks[i].getBoundingClientRect();
-        // blocs sur plusieurs lignes : avant ce bloc si on est au-dessus de sa ligne, ou sur sa ligne à gauche de son milieu
-        if (y < r.top || (y <= r.bottom && x < r.left + r.width / 2)) {
+        if (x < r.left + r.width / 2) {
           index = i;
           break;
         }
@@ -467,11 +554,19 @@ SS.song = (() => {
   }
   function showTarget(d, t) {
     document.querySelectorAll('.sg-drop-before, .sg-drop-after, .sg-zone-on').forEach((el) => el.classList.remove('sg-drop-before', 'sg-drop-after', 'sg-zone-on'));
+    const line = document.querySelector('#sgBlocks .sg-drop-line');
+    if (line) line.hidden = true;
     if (!t) return;
-    const list = t.zone === 'scenes' ? [...document.querySelectorAll('#sgSceneList .sg-tile')] : [...document.querySelectorAll('#sgBlocks .sg-block')];
     (t.zone === 'scenes' ? $('.sg-scenes') : $('.sg-arr')).classList.add('sg-zone-on');
-    if (list[t.index]) list[t.index].classList.add('sg-drop-before');
-    else if (list.length) list[list.length - 1].classList.add('sg-drop-after');
+    if (t.zone === 'scenes') {
+      const list = [...document.querySelectorAll('#sgSceneList .sg-srow')];
+      if (list[t.index]) list[t.index].classList.add('sg-drop-before');
+      else if (list.length) list[list.length - 1].classList.add('sg-drop-after');
+    } else if (line) {
+      const { starts, total } = blockStarts();
+      line.hidden = false;
+      line.style.left = (t.index < starts.length ? starts[t.index] : total) * px + 'px';
+    }
   }
 
   function openWindow() {
@@ -486,26 +581,34 @@ SS.song = (() => {
     const dlg = $('#songDialog');
     $('#songBtn').addEventListener('click', openWindow);
     $('#songClose').addEventListener('click', () => dlg.close());
-    $('#songOk').addEventListener('click', () => dlg.close());
     $('#sgNewScene').addEventListener('click', () => {
-      const id = SS.addScene(p(), { copy: false });
-      app.switchScene(id);
-      app.changed();
+      newEmptyScene();
       requestAnimationFrame(() => {
-        const el = document.querySelector(`#sgSceneList [data-id="${id}"]`);
+        const el = document.querySelector(`#sgSceneList [data-id="${p().current}"]`);
         el && el.scrollIntoView({ block: 'nearest' });
       });
     });
+    $('#sgCopyScene').addEventListener('click', () => duplicate(sceneOf(p().current)));
     $('#sgPlay').addEventListener('click', () => {
-      if (SS.audio.isPlaying() || SS.audio.isPaused()) return app.stop(), renderWindow();
-      if (p().playMode !== 'song') {
-        p().playMode = 'song';
-        changedSong();
+      if (SS.audio.isPlaying() || SS.audio.isPaused()) app.stop();
+      else app.play();
+      render();
+    });
+    $('#sgMode').addEventListener('click', (e) => setPlayMode(e));
+    try {
+      $('#sgAutoBox').open = localStorage.getItem(AUTO_KEY) === 'open';
+    } catch (e) {
+      /* ignore */
+    }
+    $('#sgAutoBox').addEventListener('toggle', () => {
+      try {
+        localStorage.setItem(AUTO_KEY, $('#sgAutoBox').open ? 'open' : 'closed');
+      } catch (e) {
+        /* ignore */
       }
-      app.play();
       renderWindow();
     });
-    window.addEventListener('resize', () => winOpen() && layoutTimeline());
+    window.addEventListener('resize', () => winOpen() && renderWindow());
     $('#sgLoop').addEventListener('change', (e) => {
       p().songLoop = e.target.checked;
       changedSong();
@@ -515,9 +618,22 @@ SS.song = (() => {
       if (e.target === dlg && !justDragged) dlg.close();
     });
     dlg.addEventListener('close', () => {
+      closeMenu();
       $('#songBtn').classList.remove('active');
       $('#songBtn').setAttribute('aria-pressed', 'false');
     });
+  }
+
+  /** Chanson | Scène (frise du haut et fenêtre) : la lecture en cours reprend dans le nouveau mode. */
+  function setPlayMode(e) {
+    const b = e.target.closest('button');
+    if (!b || b.dataset.mode === p().playMode) return;
+    const wasPlaying = SS.audio.isPlaying();
+    if (wasPlaying || SS.audio.isPaused()) app.stop();
+    p().playMode = b.dataset.mode;
+    changedSong();
+    if (wasPlaying) app.play();
+    render();
   }
 
   /* ---------- Frise de la chanson sous la barre du haut ---------- */
@@ -599,42 +715,42 @@ SS.song = (() => {
     if (menu) menu.remove();
     menu = null;
   }
-  /** Menu du clic droit sur une case de la frise. */
-  function openMenu(blk, x, y) {
+  /**
+   * Petit menu (clic droit sur la frise ou un bloc, ⋯ d'une scène). items : [{ label, fn, off, cls }] ou null (trait).
+   * Dans la fenêtre Arrangement ouverte, il va dans la fenêtre (couche supérieure) pour rester au-dessus.
+   */
+  function popMenu(title, items, x, y) {
     closeMenu();
-    const pr = p();
-    const i = blk.song;
-    const sc = sceneOf(blk.sceneId);
-    const r = pr.song[i] ? pr.song[i].repeat : 1;
-    if (!sc) return;
-    const item = (label, fn, opts = {}) =>
-      h('button', { type: 'button', role: 'menuitem', class: opts.cls, disabled: !!opts.off, onclick: () => (closeMenu(), fn()) }, label);
-    menu = h(
-      'div',
-      { class: 'pbm-menu', role: 'menu', 'aria-label': `Bloc « ${sc.name} »` },
-      h('div', { class: 'pbm-head' }, `${sc.name} · ${barsOf(sc)} mes. × ${r}`),
-      item('Fiche de la scène…', () => SS.sceneSheet && SS.sceneSheet.open(sc.id)),
-      h('hr'),
-      item(`Une répétition de plus (×${r + 1})`, () => setRepeat(i, r + 1), { off: r >= 64 }),
-      item('Une répétition de moins', () => setRepeat(i, r - 1), { off: r <= 1 }),
-      h('hr'),
-      item(`Nouvelle scène : copie de « ${sc.name} »`, () => duplicate(sc)),
-      item('Nouvelle scène vide', () => {
-        const id = SS.addScene(p(), { copy: false });
-        app.switchScene(id);
-        app.changed();
-      }),
-      h('hr'),
-      item('Ouvrir l’Arrangement…', openWindow),
-      pr.song.length > 1 ? item('Retirer ce bloc de la chanson', () => removeBlock(i), { cls: 'pbm-del' }) : null
-    );
-    document.body.append(menu);
+    const item = (it) =>
+      it ? h('button', { type: 'button', role: 'menuitem', class: it.cls, disabled: !!it.off, onclick: () => (closeMenu(), it.fn()) }, it.label) : h('hr');
+    menu = h('div', { class: 'pbm-menu', role: 'menu', 'aria-label': title }, h('div', { class: 'pbm-head' }, title), items.filter((it, i) => it || (i && items[i - 1])).map(item));
+    (winOpen() ? $('#songDialog') : document.body).append(menu);
     const w = menu.offsetWidth;
     const hgt = menu.offsetHeight;
     menu.style.left = Math.max(4, Math.min(x, innerWidth - w - 4)) + 'px';
     menu.style.top = Math.max(4, Math.min(y, innerHeight - hgt - 4)) + 'px';
     const first = menu.querySelector('button:not(:disabled)');
     if (first) first.focus({ preventScroll: true });
+  }
+  /** Menu d'un bloc de la chanson (frise du haut ou fenêtre Arrangement). */
+  function openMenu(blk, x, y) {
+    const pr = p();
+    const i = blk.song;
+    const sc = sceneOf(blk.sceneId);
+    if (!sc || !pr.song[i]) return;
+    const r = pr.song[i].repeat;
+    popMenu(`${sc.name} · ${barsOf(sc)} mes. × ${r}`, [
+      { label: 'Fiche de la scène…', fn: () => SS.sceneSheet && SS.sceneSheet.open(sc.id) },
+      null,
+      { label: `Une répétition de plus (×${r + 1})`, fn: () => setRepeat(i, r + 1), off: r >= 64 },
+      { label: 'Une répétition de moins', fn: () => setRepeat(i, r - 1), off: r <= 1 },
+      null,
+      { label: `Nouvelle scène : copie de « ${sc.name} »`, fn: () => duplicate(sc) },
+      { label: 'Nouvelle scène vide', fn: newEmptyScene },
+      null,
+      winOpen() ? null : { label: 'Ouvrir l’Arrangement…', fn: openWindow },
+      pr.song.length > 1 ? { label: 'Retirer ce bloc de la chanson', fn: () => removeBlock(i), cls: 'pbm-del' } : null,
+    ], x, y);
   }
 
   function initBar() {
@@ -677,15 +793,7 @@ SS.song = (() => {
     app = appApi;
     initWindow();
     initBar();
-    $('#songMode').addEventListener('click', (e) => {
-      const b = e.target.closest('button');
-      if (!b) return;
-      const wasPlaying = SS.audio.isPlaying();
-      if (wasPlaying || SS.audio.isPaused()) app.stop();
-      p().playMode = b.dataset.mode;
-      changedSong();
-      if (wasPlaying) app.play();
-    });
+    $('#songMode').addEventListener('click', setPlayMode);
   }
 
   return { init, render, setPlaying, setStep, open: openWindow };
