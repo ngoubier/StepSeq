@@ -601,6 +601,20 @@ dans la Grille est gardée). Outils Claude : `assistantMusicien({ ajouter: 'ambi
 `assistantJeu({ presence, mouvement, hasard })`. Tests : `node --test tests/ambient-musician.test.js`,
 `node tests/e2e/ambient-musician.js`.
 
+**Jeux de cordes de l'Orchestre (`js/orchjeux.js`).** L'étape Orchestre choisit, scène par scène, le **jeu** des cordes
+parmi **13**, rangés en familles : **Tenues** (Tenues, Tenues qui enflent, Tenues hautes), **Rythmes** (Pizzicato,
+Ostinato spiccato, Coups, Trémolo), **Lignes** (Contrechant dans les silences de la mélodie, Unisson, Arpège des altos) et
+**Transitions et fins** (Montée, Trait disco, Accord final) ; « Orchestration » garde l'écriture d'orchestre sans jeu.
+Cinq effectifs de cordes s'ajoutent : **Cordes pop**, **Quatuor**, **Cordes disco**, **Cordes épiques**, **Pizzicato** ; leurs
+jeux ★ dépendent du type de scène et le premier est joué d'office (« auto »). Les autres effectifs gardent
+l'orchestration d'office, et un jeu choisi n'y touche que les cordes (bois, cuivres, harpe gardent leur rôle). Le jeu
+choisit le son : les notes pincées, sautillées ou tremblées partent sur les pistes « pizzicato », « spiccato » ou
+« trémolo » de l'effectif (sons VSCO 2), sinon elles restent à l'archet, courtes. Une ligne par pupitre : rôle et façons de
+jouer, ses notes sur la scène, registre, M / S (le pupitre avec ses pistes d'articulation). La densité reste : légère sans
+contrebasses, pleine avec les contrebasses doublées à l'octave. La Nappe garde les cordes synthé. Outils Claude :
+`assistantMotifs` (les jeux, leur famille, les ★), `assistantJeu({ motif: 'pizz' })`. Tests :
+`node --test tests/orchjeux.test.js`, `node tests/e2e/wizard-orch-jeux.js`.
+
 **Section de cuivres de l'assistant (`js/horns.js`).** « + Musicien » propose le type **Cuivres** : une section où
 chaque musicien a sa partie et sa piste, mais où tous jouent ensemble. On choisit une formation parmi dix (big band,
 soul, funk, disco-funk, salsa, ska, rock à cuivres, musique de film, Nouvelle-Orléans, brass band ; ★ celle du style).
@@ -1552,7 +1566,7 @@ réel (export, figer, bilan).
 | Édition dans la Grille | `js/song.js` (scènes, arrangement), `js/scenesheet.js` (Fiche Scène), `js/chords.js` (piste Accords), `js/harmony.js` (gammes, accords, tonalité), `js/transform.js`, `js/groove.js`, `js/live.js` (jouer au clavier), `js/expression.js` (jeu des instruments), `js/beatauto.js`, `js/beatautoui.js` (automation par temps), `js/bassmotifs.js` (bouton MOTIF) |
 | Son d'une piste | `js/sounddesign.js`, `js/junopanel.js`, `js/fx.js`, `js/ambient.js`, `js/ambientpanel.js` |
 | Arpèges | `js/arp.js` (moteur Arp One), `js/arppanel.js` (fenêtre), `js/motifs.js` (motifs), `js/guitar-arp.js` (mode Guitare) |
-| Assistant Nouvelle chanson | `js/band.js` (interface, toutes les étapes, pont `SS.band.claude`), `js/band-presets.js` (styles, inspirations, musiciens), `js/band-songs.js` (plans des chansons), `js/band-templates.js` (morceaux complets), `js/bandsong.js` (écrit les notes d'après un plan), `js/bandgroup.js` (groupe), `js/wizdraft.js` (brouillon), `js/gridsync.js` (Assistant ↔ Grille), `js/drum-patterns.js`, `js/padmotifs.js`, `js/arrange.js`, `js/orchestra.js`, `js/horns.js`, `js/develop.js`, `js/film.js`, `js/tutorial.js` |
+| Assistant Nouvelle chanson | `js/band.js` (interface, toutes les étapes, pont `SS.band.claude`), `js/band-presets.js` (styles, inspirations, musiciens), `js/band-songs.js` (plans des chansons), `js/band-templates.js` (morceaux complets), `js/bandsong.js` (écrit les notes d'après un plan), `js/bandgroup.js` (groupe), `js/wizdraft.js` (brouillon), `js/gridsync.js` (Assistant ↔ Grille), `js/drum-patterns.js`, `js/padmotifs.js`, `js/arrange.js`, `js/orchestra.js`, `js/orchjeux.js`, `js/horns.js`, `js/develop.js`, `js/film.js`, `js/tutorial.js` |
 | Mélodie et émotions | `js/melody.js` (moteur unique de mélodie), `js/melody-profiles.js`, `js/melodypanel.js` (atelier Mélodie, dans l'étape Mélodie), `js/emotions.js` |
 | Mixage | `js/mixer.js` (console), `js/bandmix.js`, `js/band-levels.js`, `js/band-drive.js` (mix et mastering automatiques des chansons de l'assistant), `js/wizmix.js` (étape Mix), `js/wizautomix.js` (Mix auto de l'assistant), `js/automix.js`, `js/automix-listen.js`, `js/automix-pilot.js`, `js/automixpanel.js` (Auto Mix), `js/bilan.js` (bilan d'écoute pour Claude) |
 | Claude | `js/claude-tools.js` (boîte à outils `window.StepSeq`) |

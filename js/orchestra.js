@@ -48,17 +48,28 @@ SS.orchestra = (() => {
     P('vlp', 'Violons (pizzicato)', 'Vl. pizz.', 'vsco_violins_pizz', 'cordes', 55, 96, 60, 88),
     P('vcs', 'Violoncelles (spiccato)', 'Vc. spic.', 'vsco_cellos_spic', 'cordes', 36, 76, 41, 69),
     P('cbp', 'Contrebasses (pizzicato)', 'Cb. pizz.', 'vsco_contrabass_pizz', 'cordes', 28, 55, 31, 50),
+    // articulations des jeux de cordes (js/orchjeux.js)
+    P('vls', 'Violons (spiccato)', 'Vl. spic.', 'vsco_violins_spic', 'cordes', 55, 100, 60, 91),
+    P('vap', 'Altos (pizzicato)', 'Altos pizz.', 'vsco_violas_pizz', 'cordes', 48, 84, 53, 76),
+    P('vcp', 'Violoncelles (pizzicato)', 'Vc. pizz.', 'vsco_cellos_pizz', 'cordes', 36, 76, 41, 69),
     P('gl', 'Glockenspiel', 'Glock.', 'vsco_glockenspiel', 'claviers', 79, 108, 84, 103),
     P('ma', 'Marimba', 'Mar.', 'vsco_marimba', 'claviers', 45, 96, 55, 84),
     P('bl', 'Cloches tubulaires', 'Cloches', 'vcsl_tubularbells', 'claviers', 60, 77, 62, 74),
   ];
   /** Pupitres d'articulation : la version legato qu'ils remplacent quand le passage les appelle. */
-  const ART_OF = { vlt: ['vl1', 'vl2'], vlp: ['vl1', 'vl2'], vcs: ['vc'], cbp: ['cb'] };
+  const ART_OF = { vlt: ['vl1', 'vl2'], vlp: ['vl1', 'vl2'], vcs: ['vc'], cbp: ['cb'], vls: ['vl1', 'vl2'], vap: ['va'], vcp: ['vc'] };
   const PART = Object.fromEntries(PARTS.map((p) => [p.id, p]));
   const ENSEMBLES = [
     { id: 'strings', label: 'Cordes', text: 'Le quintette à cordes : violons I et II, altos, violoncelles, contrebasses.', parts: ['vl1', 'vl2', 'va', 'vc', 'cb'] },
     { id: 'chamber', label: 'Cordes, cor et flûte', text: 'Les cordes, un cor pour la chaleur au centre, une flûte pour le contrechant.', parts: ['fl', 'vl1', 'vl2', 'va', 'hn', 'vc', 'cb'] },
     { id: 'winds', label: 'Cordes et bois', text: 'Les cordes avec flûte, clarinette et basson : plus de couleurs, plus de souffle.', parts: ['fl', 'cl', 'vl1', 'vl2', 'va', 'bn', 'vc', 'cb'] },
+    // effectifs de cordes : ils ont leurs jeux (js/orchjeux.js) ; les pupitres d'articulation reçoivent les notes
+    // pincées, sautillées ou tremblées des jeux
+    { id: 'cpop', label: 'Cordes pop', strings: true, text: 'Soul, ballade pop, variété : des cordes qui portent le refrain.', parts: ['vl1', 'vl2', 'va', 'vc', 'vlp', 'vlt', 'vcp'] },
+    { id: 'quatuor', label: 'Quatuor', strings: true, text: 'Deux violons, un alto, un violoncelle : intime, chaque ligne s’entend.', parts: ['vl1', 'vl2', 'va', 'vc', 'vlp', 'vlt', 'vcp'] },
+    { id: 'disco', label: 'Cordes disco', strings: true, text: 'Coups, traits qui montent, unissons : la section de cordes du disco et de la soul de Philadelphie.', parts: ['vl1', 'vl2', 'va', 'vc', 'vls', 'vcs'] },
+    { id: 'cepique', label: 'Cordes épiques', strings: true, text: 'Ostinatos en spiccato, trémolos, montées : la tension des films d’action.', parts: ['vl1', 'vl2', 'va', 'vc', 'cb', 'vls', 'vlt', 'vcs', 'cbp'] },
+    { id: 'pizz', label: 'Pizzicato', strings: true, text: 'Toute la section pincée : léger, malicieux, comédie.', parts: ['vl1', 'vl2', 'va', 'vc', 'cb', 'vlp', 'vap', 'vcp', 'cbp'] },
     { id: 'hybrid', label: 'Synthé et cordes', text: 'Une nappe de cordes synthé sous de vraies cordes : le son hybride des musiques de film.', parts: ['vl1', 'va', 'syn', 'vc', 'cb'] },
     // effectifs de musique de film (une couleur chacun)
     { id: 'intime', label: 'Intime', film: true, text: 'Violon solo, violoncelles et harpe : une pièce de chambre, filmée de près.', parts: ['vs', 'hp', 'vc', 'gl'] },
@@ -72,7 +83,7 @@ SS.orchestra = (() => {
     { id: 'mid', label: 'Moyen', text: 'tout l’effectif en harmonie, contrechant des bois' },
     { id: 'full', label: 'Tout l’effectif', text: 'les premiers violons doublent la mélodie' },
   ];
-  const ROLE_LABEL = { melody: 'Mélodie', counter: 'Contrechant', harmony: 'Harmonie', bass: 'Basse', pad: 'Nappe', arp: 'Arpège', motor: 'Ostinato', stabs: 'Accents', accent: 'Frappe', tacet: 'Se tait' };
+  const ROLE_LABEL = { melody: 'Mélodie', counter: 'Contrechant', harmony: 'Harmonie', bass: 'Basse', pad: 'Nappe', arp: 'Arpège', motor: 'Ostinato', stabs: 'Accents', accent: 'Frappe', tacet: 'Se tait', tenue: 'Tenue', offbeat: 'Contretemps', riff: 'Riff', rise: 'Montée', run: 'Trait', trem: 'Trémolo', hits: 'Coups' };
   /** Densité par défaut d'une scène selon l'énergie du plan (0,78 calme … 1 refrain). */
   const levelOf = (energy) => (energy >= 0.97 ? 'full' : energy >= 0.85 ? 'mid' : 'light');
 

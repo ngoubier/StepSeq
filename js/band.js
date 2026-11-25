@@ -7084,13 +7084,14 @@ SS.band = (() => {
    * SS.bandSong.build écrit chaque pupitre avec SS.orchestra.orchestrate et laisse son rapport dans sc.orch[musicien] ;
    * réglages de la scène : parts[sec].inst[musicien].orch = { level: light | mid | full, off: [pupitres coupés] }. */
   const OR = () => SS.orchestra;
-  const ORCH_ROLE_C = { melody: '#9b5cff', counter: '#13c2a3', harmony: '#4f6bff', bass: '#3fcf3f', pad: '#c9a227', arp: '#ff8fc8', motor: '#ff6a3d', stabs: '#ffb020', accent: '#e8d36a', tacet: '#55555f' };
+  const ORCH_ROLE_C = { melody: '#9b5cff', counter: '#13c2a3', harmony: '#4f6bff', bass: '#3fcf3f', pad: '#c9a227', arp: '#ff8fc8', motor: '#ff6a3d', stabs: '#ffb020', accent: '#e8d36a', tacet: '#55555f', tenue: 'var(--c-blue)', offbeat: 'var(--c-teal)', hits: 'var(--c-teal)', riff: 'var(--c-amber)', rise: 'var(--c-amber)', run: 'var(--c-amber)', trem: 'var(--c-pink)' };
   const orchSet = (sc, T) => (partOf(sc.sec, T) || {}).orch || {};
   function orchSub(x, T) {
     if (mutedIn(x.sec, T)) return 'muet';
     const r = x.orch && x.orch[T.musician];
     if (!r) return '';
     const L = OR().LEVELS.find((l) => l.id === r.level);
+    if (r.view && SS.orchJeux.JEU[r.jeu]) return `${L ? L.label : r.level} · ${SS.orchJeux.JEU[r.jeu].label}`;
     const n = Object.values(r.lines).filter((l) => l.role !== 'tacet').length;
     return `${L ? L.label : r.level} · ${n} pupitre${n > 1 ? 's' : ''}`;
   }
@@ -7110,6 +7111,8 @@ SS.band = (() => {
     if (muted || !r) return [head, h('div', { class: 'bwp-row' }, play), h('p', { class: 'dlg-hint', id: 'bwOrchMuted' }, 'L’orchestre se tait dans cette scène.')];
     const lvl = partSeg('Densité', 'bwOrchLevel', [['auto', `Auto · ${OR().LEVELS.find((l) => l.id === r.level).label}`, 'D’après l’énergie de la scène'], ...OR().LEVELS.map((l) => [l.id, l.label, l.text])], own.level || 'auto', (v) => orchEdit(sc, T, { level: v === 'auto' ? undefined : v }, `#bwOrchLevel [data-v="${v}"]`));
     const off = own.off || [];
+    const jeux = orchJeuxRow(sc, T, r, ens);
+    if (r.view) return [head, h('div', { class: 'bwp-row bwor-ctl' }, play, lvl, SS.helpTip('Auto suit l’énergie de la scène. La densité dit combien l’orchestre pèse : légère, sans contrebasses ; pleine, contrebasses doublées à l’octave grave. Le jeu dit comment les cordes jouent.', 'Densité')), ...jeux, orchJeuTable(sc, T, r, ens, off)];
     const L0 = OR().LEVELS.find((l) => l.id === r.level);
     const lvlHelp = SS.helpTip(`Auto suit l’énergie de la scène. ${L0.label} : ${L0.text}. Les cuivres (sauf le cor) attendent les scènes fortes.`, 'Densité');
     // À voir : un badge (clic : les pupitres concernés s'allument) ; chaque ligne concernée porte son ⚠
@@ -7191,7 +7194,100 @@ SS.band = (() => {
       ...groups.flatMap(([g, ids]) => [h('div', { class: 'bwor-fam' }, g), ...ids.map(row)]),
       h('div', { class: 'bwhz-legend' }, ...[...new Set(Object.values(r.lines).map((l) => l.role))].filter((k) => k !== 'tacet').map((k) => h('span', {}, h('i', { class: 'bwhz-sw', style: `background:${ORCH_ROLE_C[k]}` }), OR().ROLE_LABEL[k])))
     );
-    return [head, h('div', { class: 'bwp-row bwor-ctl' }, play, lvl, lvlHelp, h('span', { class: 'spacer' }), items), table];
+    return [head, h('div', { class: 'bwp-row bwor-ctl' }, play, lvl, lvlHelp, h('span', { class: 'spacer' }), items), ...jeux, table];
+  }
+  /**
+   * Jeux de cordes de l'orchestre (js/orchjeux.js) : familles (★ = conseillés pour la scène et l'effectif), une carte par
+   * jeu avec ses façons de jouer ; le jeu de la scène est enregistré dans parts[sec].inst[musicien].orch.jeu.
+   */
+  function orchJeuxRow(sc, T, r, ens) {
+    const OJ = SS.orchJeux;
+    if (!OJ) return [];
+    const stars = OJ.stars(sc.sec, ens.id);
+    const cur = r.jeu || 'orch';
+    const auto = r.autoJeu || stars[0];
+    const fam = [...OJ.FAMS.map(([id]) => id), 'all'].includes(S.wiz.orFam) ? S.wiz.orFam : 'star';
+    const shown = fam === 'all' ? OJ.JEUX : fam === 'star' ? [...new Set([...stars, cur])].map((id) => OJ.JEU[id]).filter(Boolean) : OJ.JEUX.filter((j) => j.fam === fam);
+    const famRow = h(
+      'div',
+      { class: 'bwhn-fams', id: 'bwOrchFam', role: 'tablist', 'aria-label': 'Familles de jeux' },
+      ...[['star', '★ Pour cette scène'], ...OJ.FAMS, ['all', 'Tous']].map(([id, label]) =>
+        h('button', { type: 'button', role: 'tab', class: fam === id ? 'on' : '', 'aria-selected': String(fam === id), 'data-f': id, onclick: () => ((S.wiz.orFam = id), renderWiz(), $(`#bwOrchFam [data-f="${id}"]`) && $(`#bwOrchFam [data-f="${id}"]`).focus()) }, label, id === 'star' ? null : h('small', {}, String(id === 'all' ? OJ.JEUX.length : OJ.JEUX.filter((j) => j.fam === id).length)))
+      )
+    );
+    const cards = h(
+      'div',
+      { class: 'bwhn-jeux', id: 'bwOrchJeu', role: 'radiogroup', 'aria-label': 'Jeu des cordes' },
+      ...shown.map((j) =>
+        h(
+          'button',
+          { type: 'button', role: 'radio', class: 'bwhn-jeu bwor-jeu' + (j.id === cur ? ' active' : ''), 'aria-checked': String(j.id === cur), 'data-v': j.id, title: j.text, onclick: () => orchEdit(sc, T, { jeu: j.id === auto ? undefined : j.id }, `#bwOrchJeu [data-v="${j.id}"]`) },
+          h('b', {}, stars.includes(j.id) ? h('span', { class: 'bwhn-star' }, '★ ') : null, j.label, r.jeuAuto && j.id === cur ? h('span', { class: 'bwhn-au' }, ' auto') : null),
+          h('span', { class: 'bwhn-txt' }, j.text),
+          h('span', { class: 'bwor-arts' }, ...j.arts.map((a) => h('span', { class: 'bwor-art' }, OJ.ART_LABEL[a])))
+        )
+      )
+    );
+    const help = SS.helpTip('Le jeu des cordes dans cette scène. Les jeux marqués ★ conviennent à ce type de scène et à cet effectif ; le premier est joué d’office (auto). « Orchestration » : une note de l’accord par pupitre, sans jeu. Bois, cuivres et harpe gardent leur rôle quel que soit le jeu.', 'Jeux de cordes');
+    return [h('div', { class: 'bwhn-famrow' }, famRow, help), cards];
+  }
+  /** Étape Orchestre avec un jeu : une ligne par pupitre (les pupitres d'articulation sont rangés sous le leur). */
+  function orchJeuTable(sc, T, r, ens, off) {
+    const OJ = SS.orchJeux;
+    const spb = SPB();
+    const total = sc.bars * spb;
+    const colOf = (id) => T.cols.find((c) => ((c.o.band && c.o.band.key) || '').split(':')[1] === id);
+    const chords = gridOf(sc).filter((c) => c.step < total).map((c) => {
+      let name = '';
+      try {
+        name = chordOf(sc.key, c).name;
+      } catch (e) {}
+      return h('span', { style: `left:${((c.step / total) * 100).toFixed(2)}%;width:${((Math.min(c.len, total - c.step) / total) * 100).toFixed(2)}%` }, name);
+    });
+    const bars = Array.from({ length: sc.bars }, (_, b) => h('i', { class: 'bwhn-bar', style: `left:${((b / sc.bars) * 100).toFixed(2)}%` }));
+    const row = (id) => {
+      const p = OR().PART[id];
+      const strg = OJ.STR.includes(id);
+      const V = strg ? r.view[id] || { role: 'tacet', arts: [], events: [] } : { ...r.lines[id], arts: [] };
+      const on = !off.includes(id);
+      const role = on ? V.role : 'tacet';
+      const color = ORCH_ROLE_C[role] || ORCH_ROLE_C.tacet;
+      const ns = V.events.flatMap((e) => e.notes);
+      const lo = Math.min(p.lo, ...ns) - 2;
+      const hi = Math.max(p.hi, ...ns) + 2;
+      const ids = [id, ...Object.values(OJ.ROUTE[id] || {})].map(colOf).filter(Boolean).map((c) => c.id);
+      const cids = [...new Set(ids)];
+      const has = (set) => cids.length > 0 && cids.every((x) => set.has(x));
+      const ms = (set, cls, label, tip) => h('button', { type: 'button', class: 'bwor-ms ' + cls + (has(set) ? ' on' : ''), 'aria-pressed': String(has(set)), title: tip, disabled: !cids.length || !on, onclick: () => cids.length && toggleMS(set, cids) }, label);
+      return h(
+        'div',
+        { class: 'bwhn-row' + (on ? '' : ' off') + (cids.length && cids.every((x) => silenced(x)) ? ' quiet' : ''), 'data-part': id },
+        h('button', { type: 'button', class: 'bwor-sw' + (on ? ' on' : ''), role: 'switch', 'aria-checked': String(on), 'aria-label': `${p.label} joue dans la scène`, title: on ? 'Couper ce pupitre dans la scène' : 'Faire jouer ce pupitre', onclick: () => orchEdit(sc, T, { off: on ? [...off, id] : off.filter((y) => y !== id) }, `#bwOrchJeuTable [data-part="${id}"] .bwor-sw`) }),
+        h('span', { class: 'bwhn-name' }, p.label),
+        h('span', { class: 'bwor-jrole' }, h('span', { class: 'bwhn-role', style: `color:${on ? color : 'var(--c-faint)'}` }, on ? OR().ROLE_LABEL[role] || role : 'Coupé'), on && V.arts.length ? h('span', { class: 'bwor-arts' }, ...V.arts.map((a) => h('span', { class: 'bwor-art' }, OJ.ART_LABEL[a]))) : null),
+        h('span', { class: 'bwhn-lane' }, ...bars, h('i', { class: 'bwhn-ph', hidden: true }), ...(on ? V.events : []).map((e) => h('i', { class: 'bwhn-nt' + (e.art === 'trem' ? ' bwor-trem' : ''), 'data-s': e.step, 'data-e': e.step + e.len, style: `left:${((e.step / total) * 100).toFixed(2)}%;width:calc(${((e.len / total) * 100).toFixed(2)}% - 1px);top:${((1 - (e.notes[0] - lo) / (hi - lo)) * 28 + 2).toFixed(1)}px;background-color:${color}` }))),
+        h('span', { class: 'bwhn-rng' }, on && ns.length ? (Math.min(...ns) === Math.max(...ns) ? OR().midiName(ns[0]) : `${OR().midiName(Math.min(...ns))} – ${OR().midiName(Math.max(...ns))}`) : '—'),
+        h('span', { class: 'bwor-mss' }, ms(S.wiz.mute, 'm', 'M', 'Muet : écouter sans ce pupitre'), ms(S.wiz.solo, 's', 'S', 'Solo : écouter ce pupitre seul'))
+      );
+    };
+    const shownIds = ens.parts.filter((id) => !OJ.ARTS.includes(id));
+    const roles = [...new Set(shownIds.filter((id) => !off.includes(id)).map((id) => (OJ.STR.includes(id) ? (r.view[id] || {}).role : r.lines[id].role)).filter((k) => k && k !== 'tacet'))];
+    return h(
+      'div',
+      { class: 'bwar-card bwhn-table', id: 'bwOrchJeuTable', 'data-scene': sc.id, 'data-bars': sc.bars },
+      h(
+        'div',
+        { class: 'bwhn-row bwhn-thead' },
+        h('span', {}, SS.helpTip('L’interrupteur fait jouer ou coupe le pupitre dans cette scène (c’est enregistré) ; les autres gardent leur partie.', 'Joue dans la scène')),
+        h('span', {}, 'Pupitre'),
+        h('span', {}, 'Rôle · jeu', SS.helpTip('Le jeu donne à chaque pupitre un rôle et une façon de jouer : archet, pizzicato (pincé), spiccato (archet sautillé, très court) ou trémolo (archet tremblé). Les notes pincées, sautillées ou tremblées partent sur les pistes « pizzicato », « spiccato » ou « trémolo » de l’effectif quand il les a.', 'Rôle et jeu')),
+        h('span', { class: 'bwhn-chs' }, ...chords),
+        h('span', {}, 'Registre'),
+        h('span', { class: 'bwor-mss' }, SS.helpTip('M (muet) et S (solo) servent seulement à écouter : rien n’est réécrit.', 'Muet et Solo'))
+      ),
+      ...shownIds.map(row),
+      h('div', { class: 'bwhz-legend' }, ...roles.map((k) => h('span', {}, h('i', { class: 'bwhz-sw', style: `background:${ORCH_ROLE_C[k]}` }), OR().ROLE_LABEL[k])))
+    );
   }
 
   /* --- Section de cuivres (étape Cuivres) : le jeu de la section par scène, puis une ligne par musicien ---
@@ -11470,8 +11566,7 @@ SS.band = (() => {
       });
     }
     // cuivres : curseur sur chaque ligne de musicien, note qui sonne allumée
-    const hnt = $('#bwHornsTable', box);
-    if (hnt) {
+    box.querySelectorAll('#bwHornsTable, #bwOrchJeuTable').forEach((hnt) => {
       const total = Number(hnt.dataset.bars) * SPB();
       const on = !!L.mode && L.scene === hnt.dataset.scene && L.step >= 0;
       const pos = on ? L.step % total : -1;
@@ -11480,7 +11575,7 @@ SS.band = (() => {
         if (on) ph.style.left = `${(pos / total) * 100}%`;
       });
       hnt.querySelectorAll('.bwhn-nt').forEach((n) => n.classList.toggle('now', on && pos >= Number(n.dataset.s) && pos < Number(n.dataset.e)));
-    }
+    });
     // rouleaux de notes (Harmoniser la mélodie) : curseur de lecture et note qui sonne
     box.querySelectorAll('[data-phroll]').forEach((r) => {
       const total = Number(r.dataset.bars) * SPB();
@@ -13110,6 +13205,13 @@ SS.band = (() => {
         const FAM = Object.fromEntries(SS.horns.FAMS);
         return SS.horns.jeux(hformOf(musState()[T.musician]).id).map((j) => ({ id: j.id, nom: j.label, description: j.text, famille: FAM[j.fam], conseille: stars.includes(j.id), ...(j.n ? { fichier: j.n } : {}) }));
       }
+      if (T.kind === 'orch') {
+        // orchestre : les jeux de cordes (js/orchjeux.js), ★ = conseillés pour la scène affichée et l'effectif
+        const ens = ensOf(musState()[T.musician]).id;
+        const stars = SS.orchJeux.stars(S.wiz.hscene ? (S.wiz.res.scenes.find((x) => x.id === S.wiz.hscene) || {}).sec : '', ens);
+        const FAM = Object.fromEntries(SS.orchJeux.FAMS);
+        return SS.orchJeux.JEUX.map((j) => ({ id: j.id, nom: j.label, description: j.text, famille: FAM[j.fam], jeux: j.arts.map((a) => SS.orchJeux.ART_LABEL[a]), conseille: stars.includes(j.id) }));
+      }
       if (T.kind === 'keys') {
         const K = SS.keyboardist;
         const fam = Object.fromEntries(Object.values(K.FAMILIES).flat());
@@ -13136,7 +13238,7 @@ SS.band = (() => {
       const T = insOf(ref);
       const out = { musicien: T.title, type: kindFr[T.kind] || T.kind, mesure: sigOf(), motifs: motifList(T, tous) };
       if (T.kind === 'melody') out.conseil = 'pas de motifs : assistantEcrireMelodie({ scene, notes }) ou assistantMelodie() (🎲)';
-      if (T.kind === 'orch') out.conseil = 'l’orchestre suit l’étape Orchestre : joue ou se tait par scène (assistantJeu({ joue }))';
+      if (T.kind === 'orch') out.conseil = 'le jeu des cordes par scène : assistantJeu({ motif: id du jeu }) ; « orch » = orchestration sans jeu ; joue: false pour qu’il se taise';
       if (T.kind === 'ambient') out.conseil = 'pas de motifs : par scène, assistantJeu({ presence, mouvement, hasard, joue })';
       out.scenes = Object.keys(specEff().sections).map((sec) => ({ scene: secName(sec), joue: String(instSub(T, sceneRef(sec))) }));
       return out;
@@ -13176,7 +13278,7 @@ SS.band = (() => {
       }
       let m = null;
       if (motif != null && joue !== false) {
-        if (T.kind === 'melody' || T.kind === 'orch' || T.kind === 'ambient') err(`« ${T.title} » (${kindFr[T.kind]}) n’a pas de motifs : seulement joue: true / false`);
+        if (T.kind === 'melody' || T.kind === 'ambient') err(`« ${T.title} » (${kindFr[T.kind]}) n’a pas de motifs : seulement joue: true / false`);
         m = findIn(motifList(T, true), String(motif), 'motif');
       }
       secs.forEach((sec) => {
@@ -13198,6 +13300,7 @@ SS.band = (() => {
           if (cur.mv === 'stable') delete cur.mv;
           putPart(sec, T, { amb: Object.keys(cur).length ? cur : undefined });
         } else if (m && T.kind === 'horns') putPart(sec, T, { horns: { ...((partOf(sec, T) || {}).horns || {}), jeu: m.id } });
+        else if (m && T.kind === 'orch') putPart(sec, T, { orch: { ...((partOf(sec, T) || {}).orch || {}), jeu: m.id } });
         else if (m && T.kind === 'drums') putPart(sec, T, { style: m.style, pattern: m.id, edits: undefined });
         else if (m && T.kind === 'arp') {
           const cur = arpOne(sc, T);

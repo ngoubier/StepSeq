@@ -2542,12 +2542,15 @@ SS.bandSong = (() => {
         }
         const top = (primaryMel && data[primaryMel.id] && data[primaryMel.id].events) || [];
         const level = (ie && ie.orch && ie.orch.level) || SS.orchestra.levelOf(energy);
-        const res = SS.orchestra.orchestrate({
+        const ospans = spans.map((sp) => ({ step: sp.step, len: sp.len, pcs: [...new Set(tones(sp.chord))], bassPc: sp.chord.bassPc ?? sp.chord.rootPc }));
+        const omel = top.filter((e) => e.notes && e.notes.length).map((e) => ({ step: e.step, len: e.len, midi: Math.max(...e.notes) }));
+        const ooff = (ie && ie.orch && ie.orch.off) || [];
+        let res = SS.orchestra.orchestrate({
           parts: ord,
-          spans: spans.map((sp) => ({ step: sp.step, len: sp.len, pcs: [...new Set(tones(sp.chord))], bassPc: sp.chord.bassPc ?? sp.chord.rootPc })),
-          melody: top.filter((e) => e.notes && e.notes.length).map((e) => ({ step: e.step, len: e.len, midi: Math.max(...e.notes) })),
+          spans: ospans,
+          melody: omel,
           level,
-          off: (ie && ie.orch && ie.orch.off) || [],
+          off: ooff,
           motor: !!sec.motor,
           stabs: !!sec.stabs,
           under: !!sec.dialog,
@@ -2556,13 +2559,22 @@ SS.bandSong = (() => {
           spb: SPB,
           beat: BEAT,
         });
+        // jeu de cordes de la scène (js/orchjeux.js) : parts[sec].inst[musicien].orch.jeu, sinon le premier ★ de l'effectif
+        const ensId = (SS.orchestra.ENSEMBLES.find((e) => e.parts.length === ord.length && e.parts.every((p, i) => p === ord[i])) || {}).id || '';
+        const OJ = SS.orchJeux;
+        const autoJeu = OJ ? OJ.autoJeu(id, ensId) : 'orch';
+        const ownJeu = ie && ie.orch && ie.orch.jeu;
+        const jeu = OJ && OJ.JEU[ownJeu] ? ownJeu : autoJeu;
+        if (OJ && jeu !== 'orch') res = OJ.apply(res, { parts: ord, jeu, spans: ospans, melody: omel, level, off: ooff, vel: sec.orchVel ?? null, spb: SPB, beat: BEAT, scale: H().scale(k).map((d) => d.pc) });
         ts.forEach((t, i) => {
           const L = res.lines[ord[i]];
           data[t.id] = { events: L ? L.events.map((e) => ({ ...e, notes: [...e.notes] })) : [] };
+          // jeux qui enflent ou s'éteignent : courbe de volume, que l'automation de la scène remplace
+          if (L && L.vol && L.events.length) data[t.id].auto = { volume: { ...L.vol } };
           const A = ie && ie.auto ? normalizeAuto(ie.auto) : null;
           if (A) applyAutoLanes(data[t.id], A, bars);
         });
-        orchOut[mid] = { level, auto: !(ie && ie.orch && ie.orch.level), lines: res.lines, items: res.items };
+        orchOut[mid] = { level, auto: !(ie && ie.orch && ie.orch.level), lines: res.lines, items: res.items, ens: ensId, jeu, autoJeu, jeuAuto: !(OJ && OJ.JEU[ownJeu]), view: res.view || null };
       });
       // section de cuivres (js/horns.js) : un musicien, une piste par membre de la section ; jeu, nuance et membres coupés
       // par scène : parts[sec].inst[musicien].horns = { jeu, nu, off } (off absent : ceux que la formation coupe d'office)
