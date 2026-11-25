@@ -1035,7 +1035,8 @@ dans le fichier) : chaque motif garde ses notes, ses deux mains (MG, MD, Pad, Pl
 3/4, 6/8, 12/8) et n'est proposé que dans sa mesure ; ses notes sont transposées sur les accords de la scène (la basse
 de la main gauche suit la basse de l'accord). Ils sont rangés par jeu et famille d'après leur écriture, et par style
 d'après leur famille du fichier ; un **★** marque, en tête de famille, jusqu'à trois motifs conseillés pour le type de
-scène (intro, couplet, refrain, pont, fin), d'après le titre et le conseil de jeu. Table générée par
+scène (intro, couplet, refrain, pont, fin), d'après le titre et le conseil de jeu ; un Clavier ajouté joue d'office le premier ★ de chaque scène (dans le style de la
+chanson ; sinon le jeu du pianiste du plan). Table générée par
 `node tools/keys-motifs.js` (`js/keys-motifs.js`, ne pas l'éditer). Réglages dans `parts…keys`, appliqués à tous les motifs. Le son se choisit à
 l'étape Instruments. **Avancé…** ouvre la fenêtre du Clavier : un **éditeur pas à pas des deux mains** (main droite :
 accord tenu, court, doux, note haute, octaves ; main gauche : octave, quinte, basse ; en Arpèges, les degrés 1 à 15),

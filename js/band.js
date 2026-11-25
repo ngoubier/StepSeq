@@ -6588,9 +6588,10 @@ SS.band = (() => {
       return BS().fitMode('guitar', SS.guitarist.modesOf('arp').concat(SS.guitarist.modesOf('acc')).includes(sec.guitar) ? sec.guitar : SS.bandSong.DEFAULT_MODE.guitar);
     }
     if (r.kind === 'keys' && (typeChanged(r) || BG().isExtraId(r.musician))) {
-      // Clavier ajouté (ou musicien devenu Clavier) : le jeu du pianiste du plan, sinon « block4 » (js/bandsong.js)
+      // Clavier ajouté (ou musicien devenu Clavier) : le motif ★ de la scène, sinon le jeu du pianiste du plan, sinon « block4 » (js/bandsong.js)
       if (!BG().isExtraId(r.musician) && !sec[r.role]) return null;
-      return BS().fitMode('keys', sec.keys || SS.bandSong.DEFAULT_MODE.keys);
+      const star = KB().sceneDefault(sc.sec, sec.keys, S.presetId, (m) => BS().meterOK('keys', m));
+      return BS().fitMode('keys', star || sec.keys || SS.bandSong.DEFAULT_MODE.keys);
     }
     if (!typeChanged(r)) return (r.role === 'perc' ? sec.perc ?? sec.drums : sec[r.role]) || null;
     if (!sec[r.role]) return null;

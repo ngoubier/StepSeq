@@ -202,6 +202,15 @@ test('les 150 motifs du fichier : lus, rangés, joués sur les accords de la sc�
   const sec = Object.keys(spec.sections)[0];
   const mine = B.build(spec, p.id, tr, { parts: { [sec]: { keys: { mode: 'kf:f026', keys: { lh: 'aucune' } } } } }).scenes.find((x) => x.sec === sec).data.keys.events;
   assert.ok(mine.length && mine.every((e) => !('lh' in e)));
+  // Clavier ajouté : il joue d'office le motif ★ de chaque scène (dans le style de la chanson)
+  const xt = { id: 'xk', type: 'instrument', category: 'chord', kind: 'keys', band: { key: 'keys', musician: 'x1' } };
+  const star = K.sceneDefault(sec, spec.sections[sec].keys, p.id, (m) => B.meterOK('keys', m));
+  assert.ok(/^kf:/.test(star) && K.stars(sec, K.jeuOf(star), K.styleOfPreset(p.id), (m) => B.meterOK('keys', m))[0] === star, star);
+  const ev = (parts) => B.build(spec, p.id, [...tr, xt], { parts }).scenes.find((x) => x.sec === sec).data.xk.events;
+  const auto = ev(null);
+  assert.ok(auto.length);
+  assert.deepStrictEqual(auto, ev({ [sec]: { inst: { 'x1:keys': { mode: star } } } }));
+  assert.notDeepStrictEqual(auto, ev({ [sec]: { inst: { 'x1:keys': { mode: 'block4' } } } }));
   // hors de sa mesure : un motif du fichier de la mesure (ou le rythme de la mesure)
   B.setMeter('6/8');
   try {

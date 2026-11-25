@@ -175,6 +175,20 @@ SS.keyboardist = (() => {
     const l = FILE.filter((m) => m.jeu === jeu && m.scenes.includes(k) && (!style || style === 'all' || m.styles.includes(style)) && ok('kf:' + m.id));
     return [...l.filter((m) => m.explicit), ...l.filter((m) => !m.explicit)].slice(0, 3).map((m) => 'kf:' + m.id);
   }
+  /** Style des motifs d'après le modèle de chanson (son style dans SS.Band.STYLES) : celui que joue un Clavier ajouté. */
+  function styleOfPreset(presetId) {
+    const B = window.SS && SS.Band;
+    const st = B && B.STYLES && B.STYLES.find((x) => (x.presets || []).some((p) => p.id === presetId));
+    return styleOfSong(st && st.id);
+  }
+  /**
+   * Motif joué d'office par un Clavier ajouté dans une scène : le premier ★ (jeu du pianiste du plan, sinon Accords),
+   * dans le style de la chanson et la mesure (ok) ; null s'il n'y en a pas (le plan ou « block4 » joue alors).
+   */
+  function sceneDefault(sec, planMode, presetId, ok) {
+    const jeu = planMode ? jeuOf(planMode) : 'acc';
+    return stars(sec, jeu, styleOfPreset(presetId), ok)[0] || null;
+  }
   /** Modes du moteur de nappe (js/bandsong.js) joués par le Clavier : [id, jeu, famille, styles]. Noms et descriptions : SS.padMotifs. */
   const ENGINE = [
     ['block4', 'acc', 'deux', 'pop ballade soul rock'],
@@ -612,5 +626,5 @@ SS.keyboardist = (() => {
     return (draws[mode] = `<svg viewBox="0 0 160 34" preserveAspectRatio="none" aria-hidden="true">${bars}${rects}</svg>`);
   }
 
-  return { svg, JEUX, FAMILIES, STYLES, STYLE_OF, styleOfSong, OWN, ENGINE, ownOf, entryOf, jeuOf, familyOf, stylesOf, inStyle, name, desc, modesOf, ALL, firstOf, surprise, FILE, fileOf, fileEvents, meterOf, sceneKind, stars, DEF, LH, normalize, KNOBS, knobValue, knobPatch, touched, ADV, advanced, TOKEN, parsePat, stepsOf, patText, patFromEvents, intervals, events, shape };
+  return { svg, JEUX, FAMILIES, STYLES, STYLE_OF, styleOfSong, OWN, ENGINE, ownOf, entryOf, jeuOf, familyOf, stylesOf, inStyle, name, desc, modesOf, ALL, firstOf, surprise, FILE, fileOf, fileEvents, meterOf, sceneKind, stars, styleOfPreset, sceneDefault, DEF, LH, normalize, KNOBS, knobValue, knobPatch, touched, ADV, advanced, TOKEN, parsePat, stepsOf, patText, patFromEvents, intervals, events, shape };
 })();

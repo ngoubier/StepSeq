@@ -2424,7 +2424,8 @@ SS.bandSong = (() => {
         else {
           const valid = MODES()[kd];
           const plan = { bass: [sec.bass], chords: [sec.pad, sec.strings, sec.keys, sec.brass], keys: [sec.keys], guitar: [sec.guitar], arp: [sec.arp, sec.arpchord], melody: [sec.lead, sec.vox, sec.sax], drums: [] }[kd];
-          mode = o && valid.includes(o.mode) ? o.mode : plan.find((m) => m && valid.includes(m)) || DEFAULT_MODE[kd];
+          const star = kk && !(o && valid.includes(o.mode)) && SS.keyboardist ? SS.keyboardist.sceneDefault(id, sec.keys, presetId, (m) => meterOK('keys', m)) : null; // Clavier ajouté : le motif ★ de la scène
+          mode = o && valid.includes(o.mode) ? o.mode : star || plan.find((m) => m && valid.includes(m)) || DEFAULT_MODE[kd];
         }
         mode = fitMode(changed ? kd : kindOfRole(role), mode); // autre mesure que 4/4 : un rythme écrit pour elle
         const one = ((kd === 'arp' && (role === 'arp' || changed)) || kd === 'keys') && !off && o && o.one && SS.Arp ? o.one : null; // Arp One : l'emporte sur le mode (Arpège, arpégiateur du Clavier)
