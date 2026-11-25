@@ -2,7 +2,7 @@
  * Motifs de nappe de Nouvelle chanson (étape Nappe) : nom, description, styles et façon de bouger de chaque mode du
  * moteur (js/bandsong.js chordEvents : modes d'origine, RHYTHM et PAD_NEW). Le choix se fait avec l'écran partagé de
  * la basse (SS.bassMotifs.picker, lib = cette bibliothèque) : puces de style + cartes, et un filtre Tenues | Rythmées |
- * En mouvement (KINDS).
+ * En mouvement (FAMS).
  */
 window.SS = window.SS || {};
 
@@ -82,19 +82,21 @@ SS.padMotifs = (() => {
     ['berce128', 'Bercée 12/8', 'Un accord par temps, appuyé sur le 1 et le 3', 'ternary', 'rythme', '12/8'],
     ['arp128', 'Arpège 12/8', 'L’accord brisé en triolets de croches', 'ternary', 'mouv', '12/8'],
   ];
+  // styles communs (js/motifpicker.js) ; l'étiquette « elec » des motifs range sous Électro ; les motifs de cuivres
+  // (brass-…) sont aussi rangés sous leurs styles (latin, funk, soul)
   const GROUPS = [
-    ['synth', 'Synthwave & 80s'],
-    ['pop', 'Pop-rock'],
-    ['funk', 'Funk & Disco'],
-    ['soul', 'Soul & Jazz'],
-    ['hiphop', 'Hip-hop & Lo-fi'],
-    ['latin', 'Latin & Reggae'],
-    ['elec', 'Techno & House'],
-    ['film', 'Film & ambient'],
-    ['brass', 'Cuivres'],
-    ['ternary', '3/4, 6/8, 12/8'],
-  ].map(([id, l]) => [id, l, MODES.filter((m) => m[3].split(' ').includes(id)).map((m) => m[0])]);
-  const KINDS = [['all', 'Tout'], ['tenue', 'Tenues'], ['rythme', 'Rythmées'], ['mouv', 'En mouvement']];
+    ['synth', 'Synthwave & 80s', 'synth'],
+    ['pop', 'Pop-rock', 'pop'],
+    ['funk', 'Funk & Disco', 'funk'],
+    ['soul', 'Soul & Jazz', 'soul'],
+    ['hiphop', 'Hip-hop & Lo-fi', 'hiphop'],
+    ['electro', 'Électro', 'elec'],
+    ['latin', 'Latin & Reggae', 'latin'],
+    ['film', 'Film & ambient', 'film'],
+    ['ternary', '3/4, 6/8, 12/8', 'ternary'],
+  ].map(([id, l, tag]) => [id, l, MODES.filter((m) => m[3].split(' ').includes(tag)).map((m) => m[0])]);
+  /** Familles (carte Motif commune) : [id, nom]. */
+  const FAMS = [['tenue', 'Tenues'], ['rythme', 'Rythmées'], ['mouv', 'En mouvement']];
 
   const entry = (id) => MODES.find((m) => m[0] === id);
   const name = (id) => (entry(id) || [id, id])[1];
@@ -105,8 +107,8 @@ SS.padMotifs = (() => {
   const meterOf = (id) => (entry(id) || [])[5] || null;
   const inGroup = (g) => (g === 'all' ? all() : (GROUPS.find((x) => x[0] === g) || [, , []])[2]);
   /** Puce de départ selon le style de la chanson. */
-  const STYLE_GROUP = { synthwave: 'synth', ambient: 'film', edm: 'elec', techno: 'elec', dnb: 'elec', pop: 'pop', funk: 'funk', soul: 'soul', hiphop: 'hiphop', latin: 'latin' };
-  const groupOfStyle = (style) => STYLE_GROUP[style] || 'all';
+  // pas de nappes Drum & bass : une chanson drum & bass part sur Électro
+  const groupOfStyle = (style) => (style === 'dnb' ? 'electro' : SS.motifPicker.styleOfSong(style));
 
   // dessin : une mesure sur Do mineur (le vrai moteur), chaque note de l'accord est un trait (grave en bas) ;
   // la ligne claire montre le volume ou le filtre qui bouge
@@ -147,5 +149,5 @@ SS.padMotifs = (() => {
     return draws[key];
   }
 
-  return { MODES, GROUPS, KINDS, all, meterOf, inGroup, name, desc, kindOf, svg, groupOfStyle, noneTitle: 'La nappe se tait dans cette scène', label: 'Motifs de nappe' };
+  return { MODES, GROUPS, FAMS, all, meterOf, inGroup, name, desc, kindOf, familyOf: kindOf, svg, groupOfStyle, label: 'Motifs de nappe' };
 })();

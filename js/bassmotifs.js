@@ -12,13 +12,25 @@ SS.bassMotifs = (() => {
     ['pop', 'Pop-rock', ['rock8', 'ballade', 'b03', 'quarter', 'rootfifth', 'pointee', 'anticip', 'walkup', 'boomchick']],
     ['funk', 'Funk & Disco', ['disco16', 'slap', 'funk', 'oct']],
     ['soul', 'Soul & Jazz', ['motown', 'walking', 'walkskip', 'ballade', 'ballade128', 'pointee', 'chroma', 'walkup']],
-    ['hiphop', 'Hip-hop & Trap', ['boombap', 'sub808', 'trap808', 'drill']],
+    ['hiphop', 'Hip-hop & Lo-fi', ['boombap', 'sub808', 'trap808', 'drill']],
     ['dnb', 'Drum & bass', ['reese', 'dnbroll']],
     ['latin', 'Latin & Reggae', ['tresillo', 'dembow', 'tumbao', 'onedrop', 'roots', 'bossa', 'afro', 'chacha', 'cumbia', 'baiao', 'montuno', 'tumbao23', 'amapiano']],
-    ['techno', 'Techno & House', ['hades', 'seismic', 'oracle', 'troy', 'phalanx', 'necropolis', 'styx', 'athens', 'mythos', 'thebes', 'acid', 'offbeat', 'off16', 'trance', 'twostep']],
+    ['electro', 'Électro', ['hades', 'seismic', 'oracle', 'troy', 'phalanx', 'necropolis', 'styx', 'athens', 'mythos', 'thebes', 'acid', 'offbeat', 'off16', 'trance', 'twostep']],
     ['ternary', '3/4, 6/8, 12/8', ['valse', 'valsejazz', 'ballade68', 'galop68', 'slow128', 'boogie128', 'berce128', 'valsepop', 'valseavance', 'valse8', 'valseped', 'tarentelle', 'oct68', 'arp68b', 'gigue', 'shuffle128', 'arp128b', 'gospel128', 'marche128', 'whole', 'quarter', '8', 'pulse8', 'oct', 'drone', 'walking', 'rootfifth', 'arp']],
-    ['famous', '★ Célèbres', ['cel_chic', 'cel_hitsville', 'cel_pfunk', 'cel_thumb', 'cel_fretless', 'cel_liverpool', 'cel_studio60', 'cel_gallop', 'cel_motorik', 'cel_coldwave', 'cel_staccato80', 'cel_steppers', 'cel_ska', 'cel_boogie', 'cel_rockabilly', 'cel_lagos', 'cel_surdo', 'cel_gfunk', 'cel_frenchtouch', 'cel_wobble', 'cel_neosoul']],
+    ['famous', 'Célèbres', ['cel_chic', 'cel_hitsville', 'cel_pfunk', 'cel_thumb', 'cel_fretless', 'cel_liverpool', 'cel_studio60', 'cel_gallop', 'cel_motorik', 'cel_coldwave', 'cel_staccato80', 'cel_steppers', 'cel_ska', 'cel_boogie', 'cel_rockabilly', 'cel_lagos', 'cel_surdo', 'cel_gfunk', 'cel_frenchtouch', 'cel_wobble', 'cel_neosoul']],
   ];
+  /**
+   * Familles (carte Motif commune, js/motifpicker.js) : [id, nom, motifs]. Tenues : notes longues ; Régulières : une
+   * pulsation égale (croches, noires, doubles, valse) ; Syncopées : des coups hors des temps ; Lignes : la basse se
+   * promène sur plusieurs notes (walking, arpège, approche). Un motif absent d'ici est rangé dans Syncopées.
+   */
+  const FAMS = [
+    ['tenue', 'Tenues', ['whole', 'half', 'walk', 'drone', 'pickup', 'ballade', 'sub808', 'reese', 'valseped']],
+    ['regul', 'Régulières', ['8', 'oct', 'pulse8', 'quarter', 'rootfifth', 'sixteen', 'oct16', 'rock8', 'boomchick', 'hades', 'offbeat', 'off16', 'trance', 'valse', 'valsepop', 'valseavance', 'valse8', 'oct68', 'tarentelle', 'marche128', 'shuffle', 'cel_motorik', 'cel_rockabilly', 'cel_wobble']],
+    ['synco', 'Syncopées', ['gallop', 'sync', 'roll', 'pointee', 'anticip', 'disco16', 'slap', 'funk', 'boombap', 'trap808', 'drill', 'dnbroll', 'tresillo', 'dembow', 'tumbao', 'onedrop', 'roots', 'bossa', 'afro', 'chacha', 'cumbia', 'baiao', 'montuno', 'tumbao23', 'amapiano', 'seismic', 'oracle', 'troy', 'phalanx', 'necropolis', 'styx', 'athens', 'mythos', 'thebes', 'twostep', 'ballade128', 'ballade68', 'galop68', 'slow128', 'berce128', 'gigue', 'cel_chic', 'cel_pfunk', 'cel_thumb', 'cel_studio60', 'cel_gallop', 'cel_steppers', 'cel_lagos', 'cel_surdo', 'cel_gfunk', 'cel_frenchtouch']],
+    ['ligne', 'Lignes', ['arp', 'b03', 'walkup', 'motown', 'walking', 'walkskip', 'chroma', 'acid', 'valsejazz', 'boogie128', 'arp68b', 'arp128b', 'shuffle128', 'gospel128', 'cel_hitsville', 'cel_fretless', 'cel_liverpool', 'cel_coldwave', 'cel_staccato80', 'cel_ska', 'cel_boogie', 'cel_neosoul']],
+  ];
+  const familyOf = (id) => (FAMS.find((f) => f[2].includes(id)) || ['synco'])[0];
   /** Conseillés dans la fenêtre Nouvelle piste. */
   const PICKS = ['8', 'rock8', 'disco16'];
 
@@ -91,54 +103,47 @@ SS.bassMotifs = (() => {
   }
 
   /** Puce de départ selon le style de la chanson (Nouvelle chanson) : 'all' si aucun style ne correspond. */
-  const STYLE_GROUP = { synthwave: 'synth', ambient: 'synth', edm: 'techno', techno: 'techno', pop: 'pop', funk: 'funk', soul: 'soul', hiphop: 'hiphop', dnb: 'dnb', latin: 'latin' };
-  const groupOfStyle = (style) => STYLE_GROUP[style] || 'all';
+  // la basse n'a pas de motifs « Film & ambient » : une chanson ambient part sur Synthwave
+  const groupOfStyle = (style) => (style === 'ambient' ? 'synth' : SS.motifPicker.styleOfSong(style));
 
   /**
-   * Écran de choix partagé (fenêtre MOTIF de la Grille, étape Basse de Nouvelle chanson) : puces de style + cartes.
-   * o = { group, cur, insp?, mark?, none?: { on, pick }, onGroup(g), onPick(id), lib?, keep? } ; mark : puce marquée d'un point
-   * (style de la chanson) ; lib : autre bibliothèque de motifs ({ GROUPS, inGroup, name, desc, svg, noneTitle, label }, par
-   * exemple SS.padMotifs) ; keep(id) : filtre en plus du style ; spb : pas par mesure du morceau (12 en 3/4 et 6/8, 24 en
-   * 12/8 : seuls les motifs qui y vont) ; beat : pas par temps (6 en 6/8 et 12/8). Rend [puces, cartes].
+   * Écran de choix partagé (fenêtre MOTIF de la Grille, étapes Basse et Nappe de Nouvelle chanson) : la carte Motif
+   * commune (SS.motifPicker.render). o = { group, cur, insp?, auto?, mark?, onGroup(g), onPick(id), lib?, keep?, spb?,
+   * beat?, fam?, onFam?(f), stars?, surprise? } ; mark : puce marquée d'un point (style de la chanson) ; lib : autre
+   * bibliothèque ({ GROUPS, inGroup, name, desc, svg, FAMS, familyOf, label }, par exemple SS.padMotifs) ; keep(id) :
+   * filtre en plus du style ; spb : pas par mesure du morceau (12 en 3/4 et 6/8, 24 en 12/8 : seuls les motifs qui y
+   * vont) ; beat : pas par temps (6 en 6/8 et 12/8) ; sans onFam, pas de ligne de familles. Rend [puces, familles, cartes].
    */
-  function el(tag, attrs, ...kids) {
-    const n = document.createElement(tag);
-    Object.entries(attrs || {}).forEach(([k, v]) => {
-      if (v == null || v === false) return;
-      if (k === 'html') n.innerHTML = v;
-      else if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
-      else n.setAttribute(k, v);
-    });
-    kids.flat().forEach((c) => c != null && n.append(c.nodeType ? c : document.createTextNode(c)));
-    return n;
-  }
   function picker(o) {
-    const L = o.lib || { GROUPS, inGroup, name, desc, svg, noneTitle: 'La basse se tait dans cette scène', label: 'Motifs de basse' };
-    const chips = el(
-      'div',
-      { class: 'mot-chips', role: 'radiogroup', 'aria-label': 'Styles' },
-      [['all', 'Tous'], ...L.GROUPS.filter((g) => (o.lib ? g[0] !== 'ternary' || (o.spb || 16) !== 16 : (g[0] === 'ternary') === ((o.spb || 16) !== 16))).map((g) => [g[0], g[1]])].map(([id, l]) =>
-        el('button', { type: 'button', role: 'radio', 'aria-checked': String(o.group === id), class: 'mot-chip' + (o.group === id ? ' on' : '') + (o.mark === id ? ' mark' : ''), 'data-g': id, onclick: () => o.onGroup(id) }, l)
-      )
-    );
-    const card = (id) =>
-      el(
-        'button',
-        { type: 'button', role: 'radio', 'aria-checked': String(id === o.cur), class: 'mot-card' + (id === o.cur ? ' on' : ''), 'data-id': id, title: L.desc(id), onclick: () => o.onPick(id) },
-        el('span', { class: 'mot-name' }, el('span', {}, L.name(id)), id === o.insp ? el('em', { class: 'mot-insp' }, 'Inspiration') : null),
-        el('span', { class: 'mot-draw', html: L.svg(id, o.lib ? undefined : o.spb, o.beat) })
-      );
-    const none = o.none
-      ? el(
-          'button',
-          { type: 'button', role: 'radio', 'aria-checked': String(!!o.none.on), class: 'mot-card mot-none' + (o.none.on ? ' on' : ''), 'data-id': 'none', title: L.noneTitle, onclick: () => o.none.pick() },
-          el('span', { class: 'mot-name' }, el('span', {}, 'Aucune')),
-          el('span', { class: 'mot-draw', html: '<svg viewBox="0 0 160 22" preserveAspectRatio="none" aria-hidden="true"><rect x="0" y="10.5" width="160" height="1" fill="currentColor" opacity=".35"/></svg>' })
-        )
-      : null;
-    const cards = el('div', { class: 'mot-cards', role: 'radiogroup', 'aria-label': L.label }, none, L.inGroup(o.group).filter((id) => (!o.keep || o.keep(id)) && (o.lib || fits(id, o.spb || 16))).map(card));
-    return [chips, cards];
+    const MP = SS.motifPicker;
+    const L = o.lib || { GROUPS, FAMS, familyOf, inGroup, name, desc, svg, label: 'Motifs de basse' };
+    const spb = o.spb || 16;
+    const ok = (id) => (!o.keep || o.keep(id)) && (o.lib || fits(id, spb));
+    const ids = (g) => L.inGroup(g).filter(ok);
+    const own = L.GROUPS.filter((g) => !MP.STYLE_IDS.includes(g[0]) && (g[0] !== 'ternary' || spb !== 16)).map((g) => [g[0], g[1]]);
+    return MP.render({
+      styles: [...MP.STYLES, ...own],
+      group: o.group,
+      mark: o.mark,
+      onGroup: o.onGroup,
+      count: (g) => ids(g).length,
+      fams: o.onFam ? L.FAMS.map((f) => [f[0], f[1]]) : null,
+      fam: o.fam,
+      onFam: o.onFam,
+      familyOf: L.familyOf,
+      stars: (o.stars || []).filter(ok),
+      ids: ids(o.group),
+      cur: o.cur,
+      insp: o.insp,
+      auto: o.auto,
+      name: L.name,
+      desc: L.desc,
+      svg: (id) => L.svg(id, o.lib ? undefined : o.spb, o.beat),
+      onPick: o.onPick,
+      label: L.label,
+      surprise: o.surprise,
+    });
   }
 
-  return { GROUPS, PICKS, all, inGroup, name, desc, isBass, svg, picker, groupOfStyle, fits, barOf };
+  return { GROUPS, FAMS, familyOf, PICKS, all, inGroup, name, desc, isBass, svg, picker, groupOfStyle, fits, barOf };
 })();

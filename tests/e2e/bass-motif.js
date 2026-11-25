@@ -54,6 +54,9 @@ const ok = (c, m) => {
   await page.waitForSelector('.mot-menu');
   const nCards = (await page.$$('.mot-menu .mot-card')).length;
   ok(nCards >= 40, `panneau : ${nCards} motifs`);
+  const unsorted = await page.evaluate(() => SS.bassMotifs.all().filter((id) => !SS.bassMotifs.FAMS.some((f) => f[2].includes(id))));
+  ok(!unsorted.length, `chaque motif de basse a sa famille (Tenues, Régulières, Syncopées, Lignes)${unsorted.length ? ' : manquent ' + unsorted.join(', ') : ''}`);
+  ok((await page.$$('.mot-menu .mot-fam')).length === 5, 'carte Motif commune : quatre familles et Tous');
   await page.click('.mot-menu .mot-chip >> text=Funk & Disco');
   await page.click('.mot-menu .mot-card[data-id="disco16"]');
   let p = await saved();
