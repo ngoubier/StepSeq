@@ -610,7 +610,12 @@ Contre-chant), **Coups** (ceux du style, sur 2 et 4, anticipés), **Tenues** (Te
 **Transitions et fins** (Montée, Fin, Coup d'arrêt), écrites sur toute la scène. Certains prennent le nom du style
 (salsa : Moña, Cierre ; big band : Shout final). Les jeux marqués ★ conviennent au type de scène (intro : Tenues qui
 enflent, couplet : Coups anticipés, montée : Montée, refrain : le jeu du style, pont : Unisson, fin : Fin) ; le premier
-est joué d'office (« auto »). On règle aussi la **nuance**.
+est joué d'office (« auto »). S'y ajoutent les **50 motifs** du fichier « 50 motifs pour sections de cuivres et
+saxophones » (`docs/reference/cuivres-50-motifs.md`, converti par `node tools/horns-motifs.js` en `js/horns-motifs.js`),
+cinq par formation, chacun avec son numéro : chaque partie va au musicien du même instrument, un musicien sans partie
+double la plus proche de son registre, et le motif est recalculé sur les accords de la scène. Les motifs conseillés pour
+un type de scène passent en tête des ★ ; ceux qui finissent ou relancent se jouent sur les dernières mesures. On règle
+aussi la **nuance**.
 Chaque jeu est recalculé sur les accords de la scène, degré par degré, chaque musicien dans son registre ; swing 2/3 pour
 le big band. Une ligne par musicien : interrupteur (joue ou non dans la scène), rôle (Dessus, Harmonie, Basse), sa
 partie, son registre, M / S ; à la lecture, un curseur défile sur chaque ligne et la note qui sonne s'allume. « + Musicien » ajoute une doublure (4 au plus). Sons : trompette et cor VSCO 2 ;

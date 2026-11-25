@@ -7249,7 +7249,7 @@ SS.band = (() => {
       }));
       return c;
     };
-    const stars = HN().sceneStars(sc.sec);
+    const stars = HN().sceneStars(sc.sec, F.id);
     const autoJ = r.autoJeu || stars[0];
     const all = HN().jeux(F.id);
     const fam = [...HN().FAMS.map(([id]) => id), 'all'].includes(S.wiz.hnFam) ? S.wiz.hnFam : 'star';
@@ -7267,7 +7267,7 @@ SS.band = (() => {
         h(
           'button',
           { type: 'button', role: 'radio', class: 'bwhn-jeu' + (j.id === r.jeu ? ' active' : ''), 'aria-checked': String(j.id === r.jeu), 'data-v': j.id, title: j.text, onclick: () => hornsEdit(sc, T, { jeu: j.id === autoJ ? undefined : j.id }, `#bwHornsJeu [data-v="${j.id}"]`) },
-          h('b', {}, stars.includes(j.id) ? h('span', { class: 'bwhn-star' }, '★ ') : null, j.label, r.auto && j.id === r.jeu ? h('span', { class: 'bwhn-au' }, ' auto') : null),
+          h('b', {}, stars.includes(j.id) ? h('span', { class: 'bwhn-star' }, '★ ') : null, j.n ? h('span', { class: 'bwhn-no', title: `Motif ${j.n} du fichier des 50 motifs` }, String(j.n).padStart(2, '0')) : null, j.label, r.auto && j.id === r.jeu ? h('span', { class: 'bwhn-au' }, ' auto') : null),
           h('span', { class: 'bwhn-txt' }, j.text),
           h('span', { class: 'bwhn-hits', style: `grid-template-columns:repeat(${vb * 8}, 1fr)` }, ...cells(j.id).map((x, i) => h('i', { class: x + (i % 8 === 0 && i ? ' bar' : '') })))
         )
@@ -13101,9 +13101,9 @@ SS.band = (() => {
       if (T.kind === 'chords') return padModes(T).filter(([id]) => (/^g:/.test(id) ? gtrFits(id) : BS().meterOK('chords', id))).map(([id, nom, description]) => ({ id, nom, description }));
       if (T.kind === 'arp') return SS.MOTIFS.map((m) => ({ id: m.id, nom: m.name, categorie: ((SS.MOTIF_CATS.find((c) => c.id === m.cat) || {}).label || m.cat) }));
       if (T.kind === 'horns') {
-        const stars = SS.horns.sceneStars(S.wiz.hscene ? (S.wiz.res.scenes.find((x) => x.id === S.wiz.hscene) || {}).sec : '');
+        const stars = SS.horns.sceneStars(S.wiz.hscene ? (S.wiz.res.scenes.find((x) => x.id === S.wiz.hscene) || {}).sec : '', hformOf(musState()[T.musician]).id);
         const FAM = Object.fromEntries(SS.horns.FAMS);
-        return SS.horns.jeux(hformOf(musState()[T.musician]).id).map((j) => ({ id: j.id, nom: j.label, description: j.text, famille: FAM[j.fam], conseille: stars.includes(j.id) }));
+        return SS.horns.jeux(hformOf(musState()[T.musician]).id).map((j) => ({ id: j.id, nom: j.label, description: j.text, famille: FAM[j.fam], conseille: stars.includes(j.id), ...(j.n ? { fichier: j.n } : {}) }));
       }
       if (T.kind === 'keys') {
         const K = SS.keyboardist;
