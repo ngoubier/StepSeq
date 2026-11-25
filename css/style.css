@@ -6280,7 +6280,7 @@ dialog.es-dialog[open] { display: flex; }
 /* Assistant : frise de lecture sous la barre du haut (js/wizplaybar.js) */
 #bandDialog .bw-playbar { flex: none; height: 30px; display: flex; align-items: center; gap: 10px; padding: 0 14px; background: var(--c-surface-1); border-bottom: 1px solid var(--c-line); }
 #bandDialog .bw-playbar[hidden] { display: none; }
-.wpb-now { flex: none; width: 170px; font-size: var(--fs-sm); color: var(--c-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wpb-now { flex: none; width: 240px; font-size: var(--fs-sm); color: var(--c-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wpb-now b { color: var(--c-text); }
 .wpb-track { flex: 1; min-width: 0; display: flex; gap: 2px; height: 18px; position: relative; }
 .wpb-sc { position: relative; min-width: 0; padding: 0 0 0 6px; display: flex; align-items: center; overflow: hidden; border: 0; border-top: 2px solid var(--c); border-radius: 4px; background: var(--c-panel-2); color: var(--c-muted); font: inherit; font-size: var(--fs-xs); white-space: nowrap; cursor: pointer; }
@@ -6293,7 +6293,23 @@ dialog.es-dialog[open] { display: flex; }
 .wpb-head { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: var(--c-text); border-radius: 1px; pointer-events: none; box-shadow: 0 0 4px var(--c-text); }
 .wpb-head[hidden] { display: none; }
 .wpb-time { flex: none; width: 92px; text-align: right; font-size: var(--fs-sm); color: var(--c-muted); font-variant-numeric: tabular-nums; }
-@media (max-width: 760px) { .wpb-now { width: auto; max-width: 110px; } .wpb-time { width: auto; } }
+.wpb-rep { position: relative; flex: none; margin-left: 3px; color: var(--c-faint); font-size: var(--fs-xs); }
+.wpb-chord { display: inline-block; min-width: 30px; margin-left: 6px; padding: 0 6px; border-radius: 4px; background: var(--c-panel-3); color: var(--c-text); font-weight: 700; text-align: center; }
+.wpb-next { margin-left: 4px; color: var(--c-faint); }
+.wpb-tip { position: fixed; z-index: 1000; width: 290px; padding: 9px 12px; border-radius: 9px; background: var(--c-panel-2); border: 1px solid var(--c-line-strong); box-shadow: 0 10px 28px var(--c-bg-deep); color: var(--c-muted); font-size: var(--fs-sm); line-height: 1.5; pointer-events: none; }
+.wpb-tip-title { display: flex; align-items: center; gap: 7px; margin-bottom: 3px; color: var(--c-text); font-size: var(--fs-md); font-weight: 700; }
+.wpb-tip-title i { width: 10px; height: 10px; border-radius: 3px; background: var(--c); }
+.wpb-tip-title small { color: var(--c-muted); font-weight: 400; }
+.wpb-tip-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.wpb-tip-row b { color: var(--c-text); font-weight: 500; }
+.wpb-tip .wpb-key { margin: 0; }
+.wpb-tip-chords { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; margin: 6px 0; }
+.wpb-tip-chords span { padding: 0 6px; border-radius: 4px; background: var(--c-panel-3); color: var(--c-text); font-weight: 600; }
+.wpb-tip-dots { display: flex; gap: 3px; }
+.wpb-tip-dots i { width: 7px; height: 12px; border-radius: 2px; background: var(--c-panel-3); }
+.wpb-tip-dots i.on { background: var(--tc); }
+.wpb-tip-hint { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--c-line); color: var(--c-faint); font-size: var(--fs-xs); }
+@media (max-width: 760px) { .wpb-now { width: auto; max-width: 110px; } .wpb-time { width: auto; } .wpb-next { display: none; } }
 #bandDialog .band-shell:has(> .bw-playbar:not([hidden])) { grid-template-rows: auto minmax(0, 1fr) auto; }
 
 /* Assistant : panneau Mix auto à droite (js/wizautomix.js) — il pousse l'assistant au lieu de le couvrir */

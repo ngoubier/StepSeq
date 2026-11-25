@@ -46,3 +46,18 @@ test('couleur d’une partie : id de l’assistant ou nom de scène', () => {
   assert.strictEqual(P.colorOf('Pré-refrain'), P.colorOf('pre'));
   assert.strictEqual(P.colorOf('Scène 4'), P.colorOf(''));
 });
+
+test('accord en cours et suivant', () => {
+  const ch = [{ bar: 0, name: 'Am' }, { bar: 2, name: 'F' }, { bar: 4, name: 'F' }, { bar: 6, name: 'G' }];
+  assert.deepStrictEqual(P.chordAt(ch, 0.5), { now: 'Am', next: 'F' });
+  assert.deepStrictEqual(P.chordAt(ch, 4), { now: 'F', next: 'G' });
+  assert.deepStrictEqual(P.chordAt(ch, 7), { now: 'G', next: 'Am' }); // la grille boucle
+  assert.deepStrictEqual(P.chordAt([{ bar: 0, name: 'C' }], 3), { now: 'C', next: null });
+  assert.strictEqual(P.chordAt([], 1), null);
+});
+
+test('grille compacte : un tour et le nombre de tours', () => {
+  assert.deepStrictEqual(P.cycle(['Am', 'F', 'Am', 'F', 'Am', 'F']), { chords: ['Am', 'F'], turns: 3 });
+  assert.deepStrictEqual(P.cycle(['C', 'C', 'G', 'Am']), { chords: ['C', 'G', 'Am'], turns: 1 });
+  assert.deepStrictEqual(P.cycle([]), { chords: [], turns: 0 });
+});

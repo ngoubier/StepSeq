@@ -658,21 +658,48 @@ SS.song = (() => {
     const m = barModel();
     const keyOf = (b) => (sceneOf(b.sceneId) || {}).key;
     const badge = (b, i) => (i && SS.keyChange ? SS.keyChange.describe(keyOf(m.blocks[i - 1]), keyOf(b)) : null);
-    // les cases ne sont redessinées que si la chanson change (sinon un double-clic perdrait sa case entre ses deux clics)
-    const sig = JSON.stringify([m.blocks.map((b, i) => [b.song, b.sceneId, b.name, b.sec, b.bars, b.dur, badge(b, i)])]);
+    const opts = { color: SS.wizPlayBar.colorOf, onSeek: seekBlock, badge, chords: (id) => sceneChordList(sceneOf(id)), info: barInfo, hint: 'Clic : éditer et partir d’ici · double-clic : fiche · clic droit : plus' };
+    // les cases ne sont redessinées que si la chanson change (sinon un double-clic perdrait sa case entre ses deux clics) ;
+    // accords, tonalité et pistes sont relus à chaque fois (bulle, accord en cours)
+    const sig = JSON.stringify([m.blocks.map((b, i) => [b.song, b.sceneId, b.name, b.sec, b.bars, b.dur, b.reps, badge(b, i)])]);
     if (sig !== bar._sig) {
-      SS.wizPlayBar.render(bar, m, { color: SS.wizPlayBar.colorOf, onSeek: seekBlock, badge });
+      SS.wizPlayBar.render(bar, m, opts);
       bar._sig = sig;
-    }
+    } else Object.assign(bar._pb, { opts, chords: new Map() });
     bar.querySelectorAll('.wpb-sc').forEach((c) => {
       const b = m.blocks[Number(c.dataset.i)];
       c.classList.toggle('edit', b.sceneId === pr.current);
       c.classList.toggle('start', pr.playMode === 'song' && b.song === app.state.songStart && b.rep === 0);
-      const key = c.querySelector('.wpb-key');
-      const sc = sceneOf(b.sceneId);
-      c.title = `${b.name} · ${b.bars} mes.${sc && sc.tempo ? ` · ${sc.tempo} bpm` : ''} · ${SS.wizPlayBar.fmt(b.t0)}${key ? ' · ' + key.textContent : ''} — clic : éditer cette scène et partir d'ici · double-clic : sa fiche · clic droit : plus`;
     });
     updateBar();
+  }
+
+  /** Accords d'une scène pour la frise : [{ bar (mesures depuis le début de la scène), name }]. */
+  function sceneChordList(sc) {
+    if (!sc) return [];
+    const pr = p();
+    const spb = SS.stepsPerBar(pr);
+    const grid = SS.sceneGridChords ? SS.sceneGridChords(pr, sc) : [];
+    if (grid.length) return grid.filter((c) => c.info && c.info.name).map((c) => ({ bar: c.step / spb, name: c.info.name }));
+    try {
+      // sans piste Accords : les accords reconnus dans les notes
+      const H = SS.harmony;
+      const key = H.valid(sc.key) ? sc.key : { tonic: 'C', mode: 'major' };
+      return H.sceneChords(pr, sc.id).filter((c) => c.id).map((c) => ({ bar: (c.step || 0) / spb, name: H.chordName(key, c.id) }));
+    } catch (e) {
+      return [];
+    }
+  }
+  /** Bulle d'une case : tonalité, émotion, pistes qui jouent. */
+  function barInfo(b) {
+    const sc = sceneOf(b.sceneId);
+    if (!sc) return {};
+    const emo = sc.emotion && SS.EMOTIONS ? SS.EMOTIONS.find((e) => e.id === sc.emotion) : null;
+    return {
+      key: SS.harmony && SS.harmony.valid(sc.key) ? SS.harmony.label(sc.key) + (sc.tempo ? ` · ${sc.tempo} bpm` : '') : sc.tempo ? `${sc.tempo} bpm` : null,
+      emotion: emo ? emo.label.toLowerCase() : null,
+      tracks: p().tracks.map((t) => ({ name: t.name, color: t.color, on: trackState(sc, t).st === 'on' })),
+    };
   }
 
   /** Position de lecture dans la frise (en mesures), -1 à l'arrêt. */
