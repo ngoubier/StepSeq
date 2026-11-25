@@ -870,11 +870,11 @@ SS.files = (() => {
   }
 
   // « Ouvrir un fichier… » : un projet, ou un fichier MIDI rendu tel quel ({ midi: { name, buf } }) pour la fenêtre d'import
-  const isMidi = (file) => /\.(mid|midi|kar)$/i.test(file.name);
+  const isMidi = (file) => /\.(mid|midi|kar|als)$/i.test(file.name); // un projet Ableton passe par la même fenêtre d'import
   // une partition (image, PDF, MusicXML) : { score: File } pour la fenêtre « Lire une partition » (js/scorepanel.js)
   const isScore = (file) => /\.(pdf|png|jpe?g|gif|webp|bmp|musicxml|xml|mxl)$/i.test(file.name);
   const midiOf = async (file) => ({ midi: { name: file.name, buf: new Uint8Array(await file.arrayBuffer()) } });
-  const openTypes = [{ description: 'Projet StepSeq, fichier MIDI ou partition', accept: { 'application/json': ['.json'], 'audio/midi': ['.mid', '.midi', '.kar'], 'application/pdf': ['.pdf'], 'image/*': ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp'], 'application/vnd.recordare.musicxml': ['.musicxml', '.xml', '.mxl'] } }];
+  const openTypes = [{ description: 'Projet StepSeq, fichier MIDI, projet Ableton ou partition', accept: { 'application/json': ['.json'], 'audio/midi': ['.mid', '.midi', '.kar'], 'application/octet-stream': ['.als'], 'application/pdf': ['.pdf'], 'image/*': ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp'], 'application/vnd.recordare.musicxml': ['.musicxml', '.xml', '.mxl'] } }];
   async function open() {
     if (window.showOpenFilePicker) {
       try {
@@ -893,7 +893,7 @@ SS.files = (() => {
     return new Promise((resolve, reject) => {
       const input = document.createElement('input');
       input.type = 'file';
-      input.accept = '.json,application/json,.mid,.midi,.kar,audio/midi,audio/x-midi,.pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.musicxml,.xml,.mxl,image/*,application/pdf';
+      input.accept = '.json,application/json,.mid,.midi,.kar,audio/midi,audio/x-midi,.als,.pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.musicxml,.xml,.mxl,image/*,application/pdf';
       input.onchange = async () => {
         const file = input.files[0];
         if (!file) return resolve(null);

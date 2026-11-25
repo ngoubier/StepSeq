@@ -1,14 +1,17 @@
 /*
- * Fenêtres « Importer MIDI » (menu → Ouvrir un fichier… sur un .mid) et « Exporter » au format MIDI (menu → Exporter…).
- * Le travail est fait par js/midi.js ; ici : choix du fichier, options, aperçu du bilan, téléchargement.
+ * Fenêtres « Importer un morceau » (menu → Ouvrir un fichier… sur un .mid ou un projet Ableton .als) et « Exporter » au
+ * format MIDI (menu → Exporter…).
+ * Le travail est fait par js/midi.js (et js/ableton.js, qui fait d'un .als un fichier MIDI) ; ici : choix du fichier,
+ * options, aperçu du bilan, téléchargement.
  */
 window.SS = window.SS || {};
 SS.midiPanel = (() => {
   const $ = (q) => document.querySelector(q);
   let app = null;
-  let file = null; // { name, buf } fichier MIDI en cours d'import
+  let file = null; // { name, buf, als? } fichier en cours d'import (als : projet Ableton converti, voir js/ableton.js)
   let result = null; // dernier résultat d'import (projet + bilan)
-  let split = 0.85;
+  let split = 0.85; // ressemblance des scènes, ou 'clips' : d'après les clips d'un projet Ableton
+  const isAls = (name) => /\.als$/i.test(name || '');
 
   function h(tag, attrs = {}, ...kids) {
     const e = document.createElement(tag);
@@ -30,20 +33,28 @@ SS.midiPanel = (() => {
   function pickFile() {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.mid,.midi,.kar,audio/midi,audio/x-midi';
+    input.accept = '.mid,.midi,.kar,audio/midi,audio/x-midi,.als';
     input.onchange = async () => {
       const f = input.files[0];
       if (!f) return;
-      file = { name: f.name, buf: new Uint8Array(await f.arrayBuffer()) };
-      openImport();
+      openWith(f.name, new Uint8Array(await f.arrayBuffer()));
     };
     input.click();
   }
 
-  function analyzeFile() {
-    const title = file.name.replace(/\.(mid|midi|kar)$/i, '').replace(/[_]+/g, ' ').trim();
+  async function analyzeFile() {
+    const title = titleOf(file.name);
     try {
-      result = SS.midi.importFile(file.buf, { title, similar: split, machine: $('#miMachine').value, quantize: SS.quantizeOn() });
+      if (isAls(file.name) && !file.als) file.als = SS.ableton.toMidi(await SS.ableton.unpack(file.buf));
+      const clips = split === 'clips' && file.als;
+      result = SS.midi.importFile(file.als ? file.als.bytes : file.buf, {
+        title,
+        similar: clips ? 0.85 : +split || 0.85,
+        cuts: clips ? file.als.cuts : null,
+        machine: $('#miMachine').value,
+        quantize: SS.quantizeOn(),
+      });
+      if (file.als) result.report.warnings.unshift(...file.als.info.warnings, ...file.als.info.ignored);
     } catch (e) {
       console.error(e);
       result = { error: e.message || String(e) };
@@ -64,7 +75,7 @@ SS.midiPanel = (() => {
     box.append(
       h('p', { class: 'midi-summary' },
         h('b', {}, `${r.bars} mesures`), ` · ${Math.round(r.tempo * 100) / 100} BPM · ${r.timeSig[0]}/${r.timeSig[1]}`,
-        key ? ` · ${key} (estimée)` : '', ` · ${r.tracks.length} pistes`)
+        key ? ` · ${key} (estimée)` : '', ` · ${r.tracks.length} pistes`, file.als ? ` · ${file.als.info.version}` : '')
     );
     const fid = r.fidelity;
     box.append(
@@ -78,7 +89,11 @@ SS.midiPanel = (() => {
     );
     const drums = r.tracks.filter((t) => t.kind === 'drum');
     const insts = r.tracks.filter((t) => t.kind !== 'drum');
-    const rows = (list) => h('ul', { class: 'midi-tracks' }, list.map((t) => h('li', {}, h('b', {}, t.name), h('span', {}, t.sound), h('small', {}, `${t.notes} notes`))));
+    const clipsOf = (name) => {
+      const t = file.als && file.als.info.tracks.find((x) => x.name === name);
+      return t ? ` · ${t.clips} clip${t.clips > 1 ? 's' : ''}` : '';
+    };
+    const rows = (list) => h('ul', { class: 'midi-tracks' }, list.map((t) => h('li', {}, h('b', {}, t.name), h('span', {}, t.sound), h('small', {}, `${t.notes} notes${clipsOf(t.name)}`))));
     if (insts.length) box.append(section(`Instruments (${insts.length})`, rows(insts)));
     if (drums.length) box.append(section(`Batterie (${drums.length})`, rows(drums)));
     if (r.moves && r.moves.length) box.append(section('Mouvements de son', moveRows(r.moves)));
@@ -108,6 +123,11 @@ SS.midiPanel = (() => {
 
   function openImport() {
     $('#miFile').textContent = file.name;
+    const als = isAls(file.name);
+    $('#miTitle').firstChild.textContent = als ? 'Importer un projet Ableton Live' : 'Importer un fichier MIDI';
+    $('#miSplit').querySelector('[data-v="clips"]').hidden = !als;
+    if (als && split !== 'clips') split = 'clips';
+    if (!als && split === 'clips') split = 0.85;
     segment($('#miSplit'), split);
     $('#miReport').textContent = 'Analyse…';
     const dlg = $('#midiImportDialog');
@@ -119,27 +139,36 @@ SS.midiPanel = (() => {
   async function confirmImport() {
     if (!result || result.error) return;
     $('#midiImportDialog').close('ok');
-    await loadImported(result.project, file && file.name, $('#miMachine').value);
+    await loadImported(result.project, file && file.name, $('#miMachine').value, null, file && file.als ? 'import Ableton' : null);
     result = null;
     file = null;
   }
   /** Ouvre le projet importé à la place du projet en cours (qui reste dans « Mes chansons »). */
-  async function loadImported(project, name, machine, by) {
+  async function loadImported(project, name, machine, by, kind = 'import MIDI') {
     await app.flush();
     SS.files.reset();
-    await app.loadSong(project, { origin: { kind: by ? `import MIDI (${by})` : 'import MIDI', detail: { fichier: name, machine } } });
+    kind = kind || 'import MIDI';
+    await app.loadSong(project, { origin: { kind: by ? `${kind} (${by})` : kind, detail: { fichier: name, machine } } });
     SS.ui.toast(`« ${project.title} » importé : ${project.tracks.length} pistes, ${project.scenes.length} scènes. Lecture en mode Chanson.`, 6000);
   }
 
   /* ---------------- Pour Claude (js/claude-tools.js, StepSeq.importerMidi) : mêmes options que la fenêtre ---------------- */
-  const titleOf = (name) => String(name || 'Import MIDI').replace(/\.(mid|midi|kar)$/i, '').replace(/[_]+/g, ' ').trim();
-  /** Analyse un fichier : { project, report } (lève une erreur lisible si le fichier n'est pas un MIDI valable). */
-  const analyze = (buf, { name, similar = 0.85, machine = SS.midi.GM_KIT, quantize = SS.quantizeOn() } = {}) =>
-    SS.midi.importFile(buf, { title: titleOf(name), similar, machine, quantize });
+  const titleOf = (name) => String(name || 'Import MIDI').replace(/\.(mid|midi|kar|als)$/i, '').replace(/[_]+/g, ' ').trim();
+  /**
+   * Analyse un fichier : { project, report } (lève une erreur lisible si le fichier n'est pas un MIDI valable).
+   * Un projet Ableton (.als) : asynchrone (décompression), similar 'clips' = scènes d'après les clips.
+   */
+  async function analyze(buf, { name, similar = 0.85, machine = SS.midi.GM_KIT, quantize = SS.quantizeOn() } = {}) {
+    if (!isAls(name)) return SS.midi.importFile(buf, { title: titleOf(name), similar: +similar || 0.85, machine, quantize });
+    const als = SS.ableton.toMidi(await SS.ableton.unpack(buf));
+    const res = SS.midi.importFile(als.bytes, { title: titleOf(name), similar: similar === 'clips' ? 0.85 : similar, cuts: similar === 'clips' ? als.cuts : null, machine, quantize });
+    res.report.warnings.unshift(...als.info.warnings, ...als.info.ignored);
+    return res;
+  }
   /** Ouvre la fenêtre « Importer MIDI » sur ce fichier, réglée comme demandé : l'utilisateur relit le bilan et confirme. */
   function openWith(name, buf, { similar, machine } = {}) {
     file = { name: name || 'import.mid', buf };
-    if (similar) split = similar;
+    if (similar) split = similar === 'clips' ? 'clips' : +similar;
     if (machine) $('#miMachine').value = machine;
     openImport();
   }
@@ -214,7 +243,7 @@ SS.midiPanel = (() => {
     $('#miSplit').addEventListener('click', (e) => {
       const b = e.target.closest('button');
       if (!b) return;
-      split = +b.dataset.v;
+      split = b.dataset.v === 'clips' ? 'clips' : +b.dataset.v;
       segment($('#miSplit'), split);
       analyzeFile();
     });
