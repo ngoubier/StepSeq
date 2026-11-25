@@ -320,9 +320,14 @@ caractère…), et **▶ joue la scène choisie en boucle** (pas toute la chanso
    bascule lointaine avec note commune). Un clic sur un geste fait écouter la chanson à partir de la scène d'avant, avec
    le changement ; **Passage** Direct ou **Préparé** (la dominante de la nouvelle tonalité au dernier temps de la scène
    d'avant : La7 avant Ré), **Accords** « Les miens » (mêmes degrés ; dans un autre mode, ils en prennent la couleur) ou
-   « Ceux du geste », **Scènes d'après** (celles qui ne jouent qu'après) gardent leur tonalité ou suivent. Une scène qui
+   « Ceux du geste », **Scènes d'après** (celles qui ne jouent qu'après) gardent leur tonalité ou suivent. Pour une scène
+   qui joue plusieurs fois, **Où** : chaque fois, ou **seulement la dernière fois** ; la dernière reprise devient alors une
+   copie « Refrain final » (`S.wiz.secs[id].same` : même mélodie que la scène d'origine, transposée par `SS.bandSong.build`
+   quand les accords ont les mêmes degrés dans le même mode) ; avec un passage préparé dans « Refrain ×2 », la reprise
+   d'avant devient aussi une copie qui porte la dominante. L'étape **Arrangement** a le raccourci **Dernier refrain** :
+   Même tonalité, +½ ton, +1 ton préparé. Une scène qui
    change de tonalité porte une pastille violette (« ↗ 1 ton », « relatif », « dorien ») dans la colonne des scènes et
-   dans la frise de lecture. Claude : `StepSeq.assistantChangement({ scene, geste, passage, accords, suivent })`. Repris de l'ancienne fenêtre Harmonie (l'assistant
+   dans la frise de lecture. Claude : `StepSeq.assistantChangement({ scene, geste, passage, accords, suivent, ou })` (`ou: 'dernier'`). Repris de l'ancienne fenêtre Harmonie (l'assistant
    devient l'écran de référence) : la ligne du **guide du mode** (note caractéristique, ce qu'il faut faire entendre, **boucle
    d'essai** à poser), le menu **Grilles de la tonalité** (catalogue `SS.harmony.progressions`), les **essais A/B**
    (`SS.harmony.transformGrid` : septièmes prises dans la gamme, sus2, tonique majeur / mineur, cadence évitée, pédale de

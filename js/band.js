@@ -2690,6 +2690,7 @@ SS.band = (() => {
       if (o.from && base.sections[o.from]) {
         out.sections[id] = clone(base.sections[o.from]);
         out.sections[id].as = base.sections[o.from].as || o.from;
+        if (o.same) out.sections[id].mel = base.sections[o.from].mel || o.from; // même mélodie que la scène d'origine (refrain final transposé)
       }
       const sec = out.sections[id];
       if (!sec) return;
@@ -2799,22 +2800,31 @@ SS.band = (() => {
     renderWiz();
   }
   /** Copie d'une scène : une section de plus (« chorus_b », « Refrain 2 »), indépendante, avec les mêmes réglages au départ. */
-  function dupScene(id) {
+  /**
+   * Copie d'une section (sans toucher à l'arrangement) : son id (null si plus de place). `name` : sinon « Refrain 2 » ;
+   * `extra` : drapeaux de la copie (same : même mélodie que la scène d'origine, voir specEff).
+   */
+  function copySec(id, name, extra = {}) {
     const sp = specEff();
     const src = sp.sections[id];
-    if (!src) return;
+    if (!src) return null;
     const w = S.wiz;
     const root = (w.secs[id] && w.secs[id].from) || id;
     const taken = (x) => x in sp.sections || x in w.secs;
     let nid;
     for (let k = 98; k < 98 + 26 && (!nid || taken(nid)); k++) nid = `${root}_${String.fromCharCode(k)}`;
-    if (taken(nid)) return;
-    const stem = secName(id).replace(/\s+\d+$/, '');
+    if (taken(nid)) return null;
+    const stem = secName(id).replace(/\s+(\d+|final)$/, '');
     const names = new Set(Object.keys(sp.sections).map(secName));
     let n = 2;
     while (names.has(`${stem} ${n}`)) n++;
-    w.secs[nid] = { from: root, bars: src.bars, name: `${stem} ${n}` };
+    w.secs[nid] = { from: root, bars: src.bars, name: name ? name(stem) : `${stem} ${n}`, ...extra };
     SEC_STATE.forEach((k) => w[k][id] !== undefined && (w[k][nid] = clone(w[k][id])));
+    return nid;
+  }
+  function dupScene(id) {
+    const nid = copySec(id);
+    if (!nid) return;
     // son bloc suit le dernier bloc de la scène copiée
     const f = formOf();
     let at = f.length - 1;
@@ -5664,16 +5674,38 @@ SS.band = (() => {
     const p = kcPrev(res, sc);
     return p ? SS.keyChange.describe(p.sc.key, sc.key) : null;
   }
+  /** Nombre de fois qu'une scène joue dans l'arrangement. */
+  const kcPlays = (res, id) => res.song.reduce((a, b) => a + (b.scene === id ? b.repeat : 0), 0);
   function openKc(sc) {
     const res = S.wiz.res;
     if (!res) return;
     S.wiz.ab = null; // un essai A/B en cours ne se mélange pas au changement
-    const prev = kcPrev(res, sc);
-    const first = res.song.findIndex((b) => b.scene === sc.id);
+    S.wiz.kc = {
+      sec: sc.sec,
+      multi: kcPlays(res, sc.id) > 1,
+      // l'arrangement avant la fenêtre : « Seulement la dernière fois » le découpe le temps de l'écoute, Annuler le remet
+      snap: { form: clone(S.wiz.form || null), secs: clone(S.wiz.secs) },
+      snapGrids: clone(S.wiz.grids),
+      made: [],
+      g: null, pass: false, own: true, follow: false, where: 'all', fam: 'all', preview: null, ctx: null,
+    };
+    S.wiz.kc.ctx = kcCtx(S.wiz.kc);
+    renderWiz();
+  }
+  /**
+   * Ce que le changement touche, d'après l'arrangement en cours (sans l'aperçu) : la scène (`sec` : la copie
+   * « … final » si l'on ne change que la dernière fois), la scène d'avant, la tonalité de départ, les scènes d'après.
+   */
+  function kcCtx(w, sec = w.made[0] || w.sec) {
+    w.preview = null;
+    const res = wizSong().res;
+    const sc = res.scenes.find((x) => x.sec === sec);
     const at = (id) => res.song.map((b, i) => (b.scene === id ? i : -1)).filter((i) => i >= 0);
+    const first = at(sc.id)[0] ?? -1;
+    const prev = kcPrev(res, sc);
     // « Les scènes d'après suivent » : celles qui ne jouent qu'après, dans la même tonalité que la scène
     const after = first < 0 ? [] : res.scenes.filter((x) => x.sec !== sc.sec && at(x.id).length && at(x.id).every((i) => i > first) && SS.keyChange.same(x.key, sc.key));
-    S.wiz.kc = {
+    return {
       sec: sc.sec,
       name: sc.name,
       from: prev ? prev.sc.key : songKey(),
@@ -5681,23 +5713,61 @@ SS.band = (() => {
       base: { key: sc.key, bars: sc.bars, grid: gridOf(sc).map((c) => ({ ...c })) },
       after: after.map((x) => ({ sec: x.sec, name: x.name, key: x.key, grid: gridOf(x).map((c) => ({ ...c })) })),
       block: prev ? prev.block : Math.max(0, first),
-      g: null, pass: false, own: true, follow: false, fam: 'all', preview: null,
     };
-    renderWiz();
+  }
+  /** Remet l'arrangement d'avant la fenêtre (copies faites pour « Seulement la dernière fois » retirées). */
+  function kcRestore(w) {
+    S.wiz.form = clone(w.snap.form);
+    S.wiz.secs = clone(w.snap.secs);
+    w.made.forEach((id) => SEC_STATE.forEach((k) => delete S.wiz[k][id]));
+    w.made = [];
+  }
+  /**
+   * « Seulement la dernière fois » : la dernière reprise de la scène devient une copie « … final » (même mélodie) ; avec
+   * un passage préparé dont la scène d'avant est la même scène (Refrain ×4), la reprise d'avant devient aussi une copie,
+   * qui portera la dominante sans toucher aux autres refrains. → [copie finale, copie d'avant ?]
+   */
+  function kcSplit(sec, prepToo) {
+    const flat = [];
+    formOf().forEach((b, i) => { for (let r = 0; r < b.repeat; r++) flat.push({ id: b.id, blk: i }); });
+    const last = flat.map((x) => x.id).lastIndexOf(sec);
+    if (last < 0) return [];
+    const made = [];
+    const fin = copySec(sec, (stem) => `${stem} final`, { same: true });
+    if (!fin) return [];
+    flat[last] = { id: fin, blk: -1 };
+    made.push(fin);
+    if (prepToo && last > 0 && flat[last - 1].id === sec) {
+      const pre = copySec(sec, null, { same: true });
+      if (pre) {
+        flat[last - 1] = { id: pre, blk: -2 };
+        made.push(pre);
+      }
+    }
+    // l'arrangement, bloc par bloc (les reprises qui se suivent dans un même bloc restent groupées)
+    const f = [];
+    flat.forEach((x) => {
+      const b = f[f.length - 1];
+      if (b && b.id === x.id && b.blk === x.blk) b.repeat++;
+      else f.push({ id: x.id, repeat: 1, blk: x.blk });
+    });
+    S.wiz.form = f.map((b) => ({ id: b.id, repeat: b.repeat }));
+    return made;
   }
   /** Tonalités et grilles que le geste choisi écrit : { keys, chords, to, g } (null sans geste). */
   function kcPatch(w) {
     const K = SS.keyChange;
-    const g = w.g && K.find(w.from, w.g);
+    const c = w.ctx;
+    const g = w.g && K.find(c.from, w.g);
     if (!g) return null;
     const to = g.to;
-    const keys = { [w.sec]: to };
-    const chords = { [w.sec]: !w.own && g.grid ? K.fitGrid(g.grid, w.base.bars, SPB()) : K.adaptGrid(w.base.grid, w.base.key, to) };
-    if (w.pass && w.prev) chords[w.prev.sec] = K.withPrep(w.prev.grid, w.from, to, w.prev.bars * SPB(), BEAT());
+    const keys = { [c.sec]: to };
+    const chords = { [c.sec]: !w.own && g.grid ? K.fitGrid(g.grid, c.base.bars, SPB()) : K.adaptGrid(c.base.grid, c.base.key, to) };
+    if (w.pass && c.prev && g.iv) chords[c.prev.sec] = K.withPrep(c.prev.grid, c.from, to, c.prev.bars * SPB(), BEAT());
     if (w.follow) {
-      const iv = K.tonicPc(to.tonic) - K.tonicPc(w.base.key.tonic);
-      w.after.forEach((x) => {
-        const mode = x.key.mode === w.base.key.mode ? to.mode : x.key.mode;
+      const iv = K.tonicPc(to.tonic) - K.tonicPc(c.base.key.tonic);
+      c.after.forEach((x) => {
+        const mode = x.key.mode === c.base.key.mode ? to.mode : x.key.mode;
         const nk = K.target(x.key, { iv: (iv + 12) % 12, mode });
         keys[x.sec] = nk;
         if (mode !== x.key.mode) chords[x.sec] = K.adaptGrid(x.grid, x.key, nk);
@@ -5705,18 +5775,26 @@ SS.band = (() => {
     }
     return { keys, chords, to, g };
   }
+  /** Refait l'arrangement (découpe éventuelle) et le contexte du changement, sans l'aperçu. */
+  function kcBuild(w) {
+    kcRestore(w);
+    if (w.where === 'last' && w.multi) w.made = kcSplit(w.sec, w.pass);
+    w.ctx = kcCtx(w);
+  }
   /** Le réglage a changé : l'écoute (si elle tourne, ou si `play`) repart de la scène d'avant avec le changement. */
   function kcHear(play) {
     const w = S.wiz.kc;
+    const was = !!L.mode && !L.paused;
+    kcBuild(w);
     const p = kcPatch(w);
     w.preview = p ? { keys: p.keys, chords: p.chords } : null;
-    const go = p && (play || (L.mode && !L.paused));
+    const go = p && (play || was);
     renderWiz();
-    if (go) listenSong(Math.min(w.block, (S.wiz.res.song.length || 1) - 1));
+    if (go) listenSong(Math.min(w.ctx.block, (S.wiz.res.song.length || 1) - 1));
   }
   function kcPick(id) {
     const w = S.wiz.kc;
-    const g = SS.keyChange.find(w.from, id);
+    const g = SS.keyChange.find(w.ctx.from, id);
     if (!g) return;
     w.g = id;
     w.pass = !!g.prep;
@@ -5728,21 +5806,99 @@ SS.band = (() => {
     kcHear(false);
   }
   function closeKc() {
-    if (!S.wiz.kc) return;
-    const heard = !!S.wiz.kc.preview;
+    const w = S.wiz.kc;
+    if (!w) return;
+    const heard = !!w.preview;
+    kcRestore(w);
     S.wiz.kc = null;
     if (heard && L.mode) stopListen();
     renderWiz();
   }
   function applyKc() {
     const w = S.wiz.kc;
-    const p = w && kcPatch(w);
+    if (!w) return;
+    kcBuild(w); // l'arrangement tel qu'à l'écoute (copies comprises)
+    const p = kcPatch(w);
     if (!p) return;
     Object.assign(S.wiz.keys, p.keys);
     Object.assign(S.wiz.grids, p.chords);
-    if (!w.own && p.g.grid) delete S.wiz.peds[w.sec]; // les pédales allaient avec les anciens accords
+    if (!w.own && p.g.grid) delete S.wiz.peds[w.ctx.sec]; // les pédales allaient avec les anciens accords
+    // une mélodie écrite à la main (étape Mélodie) suit la copie finale : transposée comme la scène
+    const fin = w.made[0] && S.wiz.parts[w.made[0]];
+    if (fin && fin.inst && p.to.mode === w.ctx.base.key.mode) {
+      const K = SS.keyChange;
+      const sh = ((K.tonicPc(p.to.tonic) - K.tonicPc(w.ctx.base.key.tonic) + 18) % 12) - 6;
+      Object.values(fin.inst).forEach((o) => o.lead && Array.isArray(o.lead.events) && (o.lead.events = o.lead.events.map((e) => ({ ...e, notes: (e.notes || []).map((n) => n + sh) }))));
+    }
+    // la copie finale garde de quoi revenir en arrière (raccourci « Dernier refrain » de l'étape Arrangement)
+    const prepSec = w.pass && w.ctx.prev && p.g.iv ? w.ctx.prev.sec : null;
+    if (w.made.length && S.wiz.secs[w.made[0]]) S.wiz.secs[w.made[0]].kc = { g: p.g.id, pre: w.made[1] || null, prep: prepSec && !w.made.includes(prepSec) ? { sec: prepSec, grid: w.snapGrids[prepSec] ?? null } : null };
     S.wiz.gsel = null;
-    closeKc();
+    if (L.mode) stopListen();
+    S.wiz.kc = null;
+    if (w.made.length) S.wiz.hscene = S.wiz.hsec = w.ctx.sec; // on regarde la scène changée (la copie finale)
+    renderWiz();
+  }
+
+  /*
+   * Raccourci « Dernier refrain » de l'étape Arrangement : le refrain qui joue plusieurs fois, sa dernière reprise
+   * montée d'un demi-ton ou d'un ton préparé (même chemin que la fenêtre « Changement », Seulement la dernière fois).
+   */
+  function lastChorus(res) {
+    const fin = Object.entries(S.wiz.secs).find(([id, o]) => o.kc && o.same && res.scenes.some((x) => x.sec === id));
+    if (fin) return { root: fin[1].from, fin: fin[0], g: fin[1].kc.g };
+    const isChorus = (sec) => /^chorus/.test(sec) || /^refrain/i.test(secName(sec));
+    const lastAt = (x) => res.song.map((b) => b.scene).lastIndexOf(x.id);
+    const sc = res.scenes.filter((x) => isChorus(x.sec) && kcPlays(res, x.id) > 1).sort((a, b) => lastAt(b) - lastAt(a))[0];
+    return sc ? { root: sc.sec, fin: null, g: null } : null;
+  }
+  /** Retire une copie finale (et la copie d'avant) : ses reprises redeviennent la scène d'origine, la préparation est enlevée. */
+  function undoFinal(fin) {
+    const o = S.wiz.secs[fin];
+    if (!o) return;
+    const ids = [fin, o.kc && o.kc.pre].filter(Boolean);
+    S.wiz.form = formOf().map((b) => (ids.includes(b.id) ? { ...b, id: o.from } : b));
+    ids.forEach((id) => {
+      delete S.wiz.secs[id];
+      SEC_STATE.forEach((k) => delete S.wiz[k][id]);
+    });
+    const pr = o.kc && o.kc.prep;
+    if (pr) {
+      if (pr.grid) S.wiz.grids[pr.sec] = pr.grid;
+      else delete S.wiz.grids[pr.sec];
+    }
+  }
+  /** v : 0 (même tonalité), 'demi' ou 'ton'. */
+  function setLastChorus(v) {
+    const lc = lastChorus(wizSong().res);
+    if (!lc) return;
+    if (lc.fin) undoFinal(lc.fin);
+    if (!v) return renderWiz();
+    const sc = wizSong().res.scenes.find((x) => x.sec === lc.root);
+    openKc(sc);
+    const w = S.wiz.kc;
+    w.where = 'last';
+    w.pass = v === 'ton';
+    kcBuild(w);
+    if (!SS.keyChange.find(w.ctx.from, v)) return closeKc();
+    w.g = v;
+    w.own = true;
+    if (!w.ctx.prev) w.pass = false;
+    const step = S.wiz.step;
+    applyKc();
+    S.wiz.step = step;
+  }
+  function lastChorusSeg(res) {
+    const lc = lastChorus(res);
+    if (!lc) return null;
+    const cur = lc.fin ? lc.g : 0;
+    return h(
+      'span',
+      { class: 'bwar-lastk' },
+      h('span', { class: 'bh-lbl' }, `Dernier ${secName(lc.root).toLowerCase()}`),
+      h('span', { class: 'segmented', role: 'radiogroup', 'aria-label': 'Dernier refrain', id: 'bwArrLast' }, ...[[0, 'Même tonalité'], ['demi', '+½ ton'], ['ton', '+1 ton préparé']].map(([v, t]) => h('button', { type: 'button', role: 'radio', 'data-v': String(v), class: v === cur ? 'active' : '', 'aria-checked': String(v === cur), onclick: () => setLastChorus(v) }, t))),
+      SS.helpTip(`La dernière reprise de « ${secName(lc.root)} » monte d’un demi-ton, ou d’un ton préparé par la dominante de la nouvelle tonalité : elle devient une scène « ${secName(lc.root)} final », même mélodie, transposée. D’autres changements : étape Accords, bouton ⇅ Changement…`, 'Dernier refrain')
+    );
   }
 
   function renderKc() {
@@ -5765,7 +5921,7 @@ SS.band = (() => {
     }
     const K = SS.keyChange;
     const H = HM();
-    const all = K.gestures(w.from);
+    const all = K.gestures(w.ctx.from);
     const fams = K.FAMS.filter((f) => all.some((g) => g.fam === f.id));
     const list = all.filter((g) => w.fam === 'all' || g.fam === w.fam);
     const p = kcPatch(w);
@@ -5776,7 +5932,7 @@ SS.band = (() => {
     };
     // accords d'une carte : la grille du geste (4 mesures), sinon ceux de la scène dans la nouvelle tonalité
     const cardChords = (g) => {
-      const grid = g.grid ? K.fitGrid(g.grid, g.grid.length, SPB()) : K.adaptGrid(w.base.grid, w.base.key, g.to);
+      const grid = g.grid ? K.fitGrid(g.grid, g.grid.length, SPB()) : K.adaptGrid(w.ctx.base.grid, w.ctx.base.key, g.to);
       const seen = [];
       grid.forEach((c) => (seen.length < 6 && !(seen.length && JSON.stringify(seen[seen.length - 1]) === JSON.stringify([c.degree, c.type, c.acc || 0, c.bass || 0])) ? seen.push([c.degree, c.type, c.acc || 0, c.bass || 0]) : null));
       return seen.map(([degree, type, acc, bass]) => chip(g.to, { degree, type, acc, bass }));
@@ -5835,10 +5991,10 @@ SS.band = (() => {
             renderWiz();
           } }),
         h('button', { type: 'button', class: 'btn bt-btn bt-stop', id: 'bwkStop', title: 'Stop', 'aria-label': 'Stop', html: STOP, disabled: !L.mode, onclick: () => (stopListen(), renderWiz()) }),
-        h('span', { class: 'bh-info' }, w.prev ? w.prev.name : 'Tonalité de la chanson'),
-        h('span', { class: 'bwk-key' }, H.label(w.from)),
+        h('span', { class: 'bh-info' }, w.ctx.prev ? w.ctx.prev.name : 'Tonalité de la chanson'),
+        h('span', { class: 'bwk-key' }, H.label(w.ctx.from)),
         h('span', { 'aria-hidden': 'true' }, '→'),
-        h('span', { class: 'bh-info' }, w.name),
+        h('span', { class: 'bh-info' }, w.ctx.name),
         h('span', { class: 'bwk-key to', id: 'bwkTo' }, g ? H.label(g.to) : '?')
       ),
       h(
@@ -5850,9 +6006,10 @@ SS.band = (() => {
           ...[{ id: 'all', label: 'Tous' }, ...fams].map((f) => h('button', { type: 'button', class: 'chip' + (f.id === w.fam ? ' active' : ''), 'data-fam': f.id, 'aria-pressed': String(f.id === w.fam), onclick: () => ((w.fam = f.id), renderWiz()) }, f.label))
         ),
         h('div', { class: 'bwi-props bwk-cards', role: 'radiogroup', 'aria-label': 'Gestes' }, ...list.map(card)),
-        seg('bwkPass', 'Passage', w.pass, [[false, 'Direct'], [true, 'Préparé', !w.prev || !g || !g.iv]], 'Direct : la nouvelle tonalité arrive au premier temps, plus surprenant. Préparé : le dernier temps de la scène d’avant devient l’accord de dominante de la nouvelle tonalité (La7 avant Ré) ; plus d’attraction, puis un soulagement à l’arrivée.'),
+        seg('bwkPass', 'Passage', w.pass, [[false, 'Direct'], [true, 'Préparé', !w.ctx.prev || !g || !g.iv]], 'Direct : la nouvelle tonalité arrive au premier temps, plus surprenant. Préparé : le dernier temps de la scène d’avant devient l’accord de dominante de la nouvelle tonalité (La7 avant Ré) ; plus d’attraction, puis un soulagement à l’arrivée.'),
         seg('bwkOwn', 'Accords', w.own, [[true, 'Les miens'], [false, 'Ceux du geste', !g || !g.grid]], 'Les miens : la scène garde ses accords, sur les mêmes degrés de la nouvelle tonalité (dans un autre mode, ils en prennent la couleur). Ceux du geste : la grille de la carte, répétée sur toute la scène.'),
-        w.after.length ? seg('bwkFollow', 'Scènes d’après', w.follow, [[false, 'Gardent leur tonalité'], [true, 'Suivent']], `Scènes qui ne jouent qu’après « ${w.name} » : ${w.after.map((x) => x.name).join(', ')}. Suivent : elles passent dans la nouvelle tonalité elles aussi.`) : null
+        w.multi ? seg('bwkWhere', 'Où', w.where, [['all', `Chaque fois que ${secName(w.sec)} joue`], ['last', `Seulement la dernière fois`]], `Seulement la dernière fois : la dernière reprise de « ${secName(w.sec)} » devient une scène « ${secName(w.sec)} final », avec les mêmes réglages et la même mélodie, transposée. Avec un passage préparé, la reprise d’avant devient aussi une copie, qui porte l’accord de préparation sans toucher aux autres.`) : null,
+        w.ctx.after.length ? seg('bwkFollow', 'Scènes d’après', w.follow, [[false, 'Gardent leur tonalité'], [true, 'Suivent']], `Scènes qui ne jouent qu’après « ${w.ctx.name} » : ${w.ctx.after.map((x) => x.name).join(', ')}. Suivent : elles passent dans la nouvelle tonalité elles aussi.`) : null
       ),
       h(
         'footer',
@@ -10963,7 +11120,7 @@ SS.band = (() => {
     const strip = h('div', { class: 'bwar-strip' }, ...m.bl.list.map((b) => h('button', { type: 'button', class: 'bwar-blk' + (warnSecs.has(b.sec) ? ' warn' : ''), 'data-sec': b.sec, 'data-start': b.start, 'data-bars': b.bars, style: `flex:${b.bars} 1 0;--c:${secColor(b.sec)}`, title: `${b.name} · ${b.bars} mesures — clic : écouter la scène en boucle · double-clic : sa fiche`, onclick: (e) => (e.detail === 2 ? openWizSheet(b.sceneId) : listenScene(b.sceneId)) }, h('b', {}, b.name), h('small', {}, String(b.bars)))));
     const seg = h('span', { class: 'segmented', role: 'radiogroup', 'aria-label': 'Courbe voulue', id: 'bwArrCurve' }, ...AR().CURVES.map((c) => h('button', { type: 'button', role: 'radio', 'data-curve': c.id, title: c.text, class: c.id === curve ? 'active' : '', 'aria-checked': String(c.id === curve), onclick: () => ((arrState().curve = c.id), renderWiz()) }, c.label)));
     const energy = h('section', { class: 'bwar-card', id: 'bwArrEnergy' },
-      h('div', { class: 'bwar-head' }, h('b', { id: 'bwArrEnergyTitle' }, 'Énergie'), h('span', { class: 'bh-info' }, t && t.on ? 'voulue (pointillés) · mesurée avec la version B à l’écoute' : 'voulue (pointillés) · mesurée (trait plein) · scènes à voir soulignées en jaune'), h('span', { class: 'spacer' }), seg),
+      h('div', { class: 'bwar-head' }, h('b', { id: 'bwArrEnergyTitle' }, 'Énergie'), h('span', { class: 'bh-info' }, t && t.on ? 'voulue (pointillés) · mesurée avec la version B à l’écoute' : 'voulue (pointillés) · mesurée (trait plein) · scènes à voir soulignées en jaune'), h('span', { class: 'spacer' }), lastChorusSeg(res), seg),
       h('div', { class: 'bwar-chart', id: 'bwArrChart', 'data-total': total }, svg, h('i', { class: 'bwar-ph', hidden: true })), strip);
     // ---- qui joue où
     const maxOf = (id) => Math.max(1, ...m.scenes.map((x) => x.counts[id] || 0));
@@ -13127,10 +13284,17 @@ SS.band = (() => {
       if (!sc || !res.song.some((b) => b.scene === sc.id)) err(`« ${secName(sec)} » ne joue pas dans l’arrangement`);
       openKc(sc);
       const w = S.wiz.kc;
-      const list = SS.keyChange.gestures(w.from);
+      if (o.ou === 'dernier' && !w.multi) {
+        closeKc();
+        err(`« ${secName(sec)} » ne joue qu’une fois : ou: "dernier" ne s’applique pas`);
+      }
+      w.where = o.ou === 'dernier' ? 'last' : 'all';
+      w.pass = o.passage === 'prepare';
+      kcBuild(w);
+      const list = SS.keyChange.gestures(w.ctx.from);
       const info = (g) => ({ geste: g.id, nom: g.label, vers: SS.harmony.label(g.to), prepare: !!g.prep, grille: !!g.grid });
       if (!o.geste) {
-        const out = { depuis: { scene: w.prev ? w.prev.name : null, tonalite: SS.harmony.label(w.from) }, gestes: list.map(info) };
+        const out = { depuis: { scene: w.ctx.prev ? w.ctx.prev.name : null, tonalite: SS.harmony.label(w.ctx.from) }, joue: kcPlays(res, sc.id), gestes: list.map(info) };
         closeKc();
         return out;
       }
@@ -13140,10 +13304,14 @@ SS.band = (() => {
         err(`geste inconnu : « ${o.geste} » (${list.map((x) => x.id).join(', ')})`);
       }
       w.g = g.id;
-      w.pass = !!w.prev && !!g.iv && (o.passage ? o.passage === 'prepare' : !!g.prep);
+      w.pass = !!g.iv && (o.passage ? o.passage === 'prepare' : !!g.prep);
       w.own = o.accords ? o.accords !== 'geste' || !g.grid : !g.grid;
-      w.follow = !!o.suivent && w.after.length > 0;
-      const r = { scene: sc.name, depuis: SS.harmony.label(w.from), vers: SS.harmony.label(g.to), passage: w.pass ? 'préparé' : 'direct', accords: w.own ? 'les siens' : 'ceux du geste', suivent: w.follow ? w.after.map((x) => x.name) : [] };
+      w.follow = !!o.suivent;
+      kcBuild(w);
+      if (!w.ctx.prev) w.pass = false;
+      if (!w.ctx.after.length) w.follow = false;
+      const c = w.ctx;
+      const r = { scene: c.name, depuis: SS.harmony.label(c.from), vers: SS.harmony.label(g.to), passage: w.pass ? 'préparé' : 'direct', accords: w.own ? 'les siens' : 'ceux du geste', suivent: w.follow ? c.after.map((x) => x.name) : [] };
       applyKc();
       draftSoon();
       return r;

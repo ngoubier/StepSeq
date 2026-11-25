@@ -1,7 +1,8 @@
 /*
  * Nouvelle chanson, étape Accords : fenêtre « ⇅ Changement… » (changement de tonalité ou de mode, js/keychange.js).
  * Geste « Montée d'un ton préparée » sur le Refrain : écoute, Appliquer, tonalité + dominante au dernier temps de la
- * scène d'avant, pastille ; puis l'outil Claude assistantChangement.
+ * scène d'avant, pastille ; « Seulement la dernière fois » (aperçu puis Annuler), raccourci « Dernier refrain » de l'étape
+ * Arrangement ; l'outil Claude assistantChangement (même mélodie, transposée, pour un refrain final).
  *   node tests/e2e/key-change.js
  */
 const { chromium } = require('playwright');
@@ -54,6 +55,39 @@ const SHOT = process.env.SHOT;
   ok(/mineur/.test(r.vers), `pont au relatif : ${r.depuis} → ${r.vers}`);
   const br = await sc('Pont');
   ok(br.grille.some((c) => /7$/.test(c.accord)), 'grille du geste posée (dominante V7)');
+  // « Seulement la dernière fois » : la dernière reprise devient « Refrain final » le temps de l'écoute ; Annuler la retire
+  const form0 = JSON.stringify((await page.evaluate(() => StepSeq.assistantEtat())).structure);
+  await page.click('#bandWiz .bh-scene[data-sec="chorus"]'); await page.waitForTimeout(300);
+  await page.click('#bwKcBtn'); await page.waitForTimeout(300);
+  ok(await page.isVisible('#bwkWhere'), 'Refrain joue plusieurs fois : réglage « Où »');
+  await page.click('#bwkWhere [data-v="last"]'); await page.click('#bwKc [data-g="demi"]'); await page.waitForTimeout(1200);
+  ok(/final/.test(await page.textContent('#bwKc .bwk-fromto')), 'aperçu : « Refrain final »');
+  if (SHOT) await page.screenshot({ path: SHOT + '-dernier.png' });
+  await page.click('#bwkCancel'); await page.waitForTimeout(400);
+  ok(JSON.stringify((await page.evaluate(() => StepSeq.assistantEtat())).structure) === form0, 'Annuler : l’arrangement est remis');
+  // raccourci de l'étape Arrangement
+  await page.evaluate(() => StepSeq.assistantEtape({ etape: 'arrangement' })); await page.waitForTimeout(500);
+  ok(await page.isVisible('#bwArrLast'), 'étape Arrangement : « Dernier refrain »');
+  await page.click('#bwArrLast [data-v="demi"]'); await page.waitForTimeout(600);
+  let e = await page.evaluate(() => StepSeq.assistantEtat());
+  const fin = e.scenes.find((x) => /final/.test(x.nom));
+  ok(fin && fin.tonalite.tonic === 'E' && e.structure[e.structure.length - 2].scene === fin.id, `dernier refrain +½ ton : ${fin && fin.nom} en ${fin && fin.tonalite.tonic}`);
+  ok((await page.getAttribute('#bwArrLast .active', 'data-v')) === 'demi', 'le raccourci montre +½ ton');
+  if (SHOT) await page.screenshot({ path: SHOT + '-arrangement.png' });
+  await page.click('#bwArrLast [data-v="0"]'); await page.waitForTimeout(600);
+  e = await page.evaluate(() => StepSeq.assistantEtat());
+  ok(!e.scenes.some((x) => /final/.test(x.nom)), 'Même tonalité : la copie finale est retirée');
+  // Claude : refrain final un ton plus haut, avec la même mélodie (un musicien Mélodie)
+  await page.evaluate(() => StepSeq.assistantMusicien({ ajouter: 'melody' })); await page.waitForTimeout(300);
+  const r2 = await page.evaluate(() => StepSeq.assistantChangement({ scene: 'chorus', geste: 'ton', ou: 'dernier' }));
+  ok(r2.passage === 'préparé' && /final/.test(r2.scene), `assistantChangement ou: "dernier" : ${r2.message}`);
+  const mel = await page.evaluate(() => {
+    const res = SS.band._state.wiz.res;
+    const notes = (sec) => { const s = res.scenes.find((x) => x.sec === sec); const d = Object.entries(s.data).find(([k, v]) => /lead/.test(k) && v && v.events && v.events.length); return d ? d[1].events.map((x) => x.notes[0]) : []; };
+    const fin = Object.keys(SS.band._state.wiz.secs).find((id) => SS.band._state.wiz.secs[id].kc);
+    return { a: notes('chorus'), b: notes(fin) };
+  });
+  ok(mel.a.length > 4 && mel.a.length === mel.b.length && mel.b.every((n, i) => n - mel.a[i] === 2), 'refrain final : même mélodie, un ton plus haut');
   ok(!errs.length, 'aucune erreur : ' + errs.join(' | '));
   await b.close(); server.close();
 })();
