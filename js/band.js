@@ -6973,6 +6973,8 @@ SS.band = (() => {
   function planMode(sc, r) {
     const sec = secOf(sc);
     if (!isT(r)) return sec[r] || null;
+    const star = extraStar(sc, r);
+    if (star) return star;
     if (r.kind === 'guitar' && (typeChanged(r) || BG().isExtraId(r.musician))) {
       // Guitariste ajouté (ou musicien devenu Guitariste) : le jeu de guitare du plan, sinon « g:pop » (js/bandsong.js)
       if (!BG().isExtraId(r.musician) && !sec[r.role]) return null;
@@ -6991,6 +6993,20 @@ SS.band = (() => {
     const plan = { bass: [sec.bass], chords: [sec.pad, sec.strings, sec.keys, sec.brass], arp: [sec.arp, sec.arpchord] }[r.kind] || [];
     return plan.find((m) => m && ids.includes(m)) || SS.bandSong.DEFAULT_MODE[r.kind] || null;
   }
+  /**
+   * Motif joué d'office par un musicien ajouté (Basse, Nappe, Guitariste, Arpège) : le premier ★ de la scène dans le
+   * style de la chanson (js/scenestars.js), comme SS.bandSong.build ; null pour les autres.
+   */
+  function extraStar(sc, r) {
+    const k = r.kind;
+    if (!SS.sceneStars || !['bass', 'chords', 'guitar', 'arp'].includes(k) || !BG().isExtraId(r.musician)) return null;
+    const sec = secOf(sc);
+    const jeu = k === 'guitar' && sec.guitar && SS.guitarist ? SS.guitarist.jeuOf(sec.guitar) || 'acc' : 'acc';
+    return SS.sceneStars.sceneDefault(k, sc.sec, SS.sceneStars.styleOfPreset(S.presetId), { ok: (m) => BS().MODES()[k].includes(m) && BS().meterOK(k, m), spb: SPB(), jeu });
+  }
+  /** ★ d'une scène pour la carte Motif (Basse, Nappe, Guitariste, Arpège), dans le style de la chanson. */
+  const sceneStarsOf = (sc, r, jeu) =>
+    SS.sceneStars ? SS.sceneStars.sceneStars(r.kind, sc.sec, SS.sceneStars.styleOfPreset(S.presetId), { ok: (m) => BS().MODES()[r.kind].includes(m) && BS().meterOK(r.kind, m), spb: SPB(), jeu: jeu || 'acc' }) : [];
   /** Genre d'une section (verse2 → verse) ; une reprise suit la section du modèle dont elle reprend le jeu. */
   const kindOf = (sec) => String(((specEff().sections[sec] || {}).as) || sec).replace(/\d+$/, '');
   const tidy = (sec) => !Object.keys(S.wiz.parts[sec]).length && delete S.wiz.parts[sec];
@@ -8793,11 +8809,14 @@ SS.band = (() => {
       targets().forEach((x) => !seen.has(x.sec) && (seen.add(x.sec), putPart(x.sec, T, { register: v === 'low' ? undefined : v })));
       partChanged();
     };
+    const extra = BG().isExtraId(T.musician);
     const picked = M.picker({
       group: SPB() === 16 ? S.wiz.motGroup : S.wiz.motGroupT || 'ternary', // hors 4/4 : les motifs de la mesure d'abord
       mark: M.groupOfStyle(S.styleId),
       cur,
-      insp,
+      insp: extra ? null : insp,
+      auto: extra && !o.mode ? cur : null, // basse ajoutée : le premier ★ de la scène, joué d'office
+      stars: sceneStarsOf(sc, T),
       spb: SPB(),
       beat: BEAT(),
       keep: (id) => SPB() === 16 || BS().meterOK('bass', id),
@@ -9030,12 +9049,15 @@ SS.band = (() => {
       targets().forEach((x) => putPart(x.sec, T, { voicing: v === 'close' ? undefined : v }));
       partChanged();
     };
+    const extra = BG().isExtraId(T.musician) && T.kind === 'chords';
     const picked = SS.bassMotifs.picker({
       lib: P,
       group: SPB() === 16 ? S.wiz.padGroup : S.wiz.padGroupT || 'ternary', // hors 4/4 : les motifs de la mesure d'abord
       mark: P.groupOfStyle(S.styleId),
       cur,
-      insp,
+      insp: extra ? null : insp,
+      auto: extra && !o.mode ? cur : null, // nappe ajoutée : le premier ★ de la scène, joué d'office
+      stars: sceneStarsOf(sc, { kind: 'chords' }),
       spb: SPB(),
       keep: (id) => BS().meterOK('chords', id),
       onGroup: (g) => (SPB() === 16 ? (S.wiz.padGroup = g) : (S.wiz.padGroupT = g), renderWiz()),
@@ -9371,7 +9393,7 @@ SS.band = (() => {
     const adv = gtAdvSet(o);
     const style = jeuStyle(G, 'gt', allIds);
     const picked = jeuPicker(sc, T, {
-      L: G, k: 'gt', jeu, all: allIds, style, cur, muted,
+      L: G, k: 'gt', jeu, all: allIds, style, cur, muted, stars: sceneStarsOf(sc, T, jeu),
       name: (id) => (id === cur && !muted && ((isG && o.gtr && o.gtr.pat) || (isR && o.riff && o.riff.pat)) ? '✎ ' : '') + gtName(id),
       desc: (id) => gtDesc(id) + ' · ' + G.stylesOf(id).map((s) => (G.STYLES.find((x) => x[0] === s) || [, s])[1]).join(', '),
       svg: gtPic,
@@ -9980,7 +10002,15 @@ SS.band = (() => {
     const muted = mutedIn(sc.sec, T);
     const cur = SS.motifOf(one);
     const cat = cur && SS.MOTIF_CATS.find((c) => c.id === cur.cat);
-    const applyMotif = (m, focus) => arpEdit(sc, T, (a) => ({ ...a, ...SS.motifPatch(a, m) }), focus);
+    // un motif d'Arp One va aux scènes choisies au pied (Scènes : Cette scène | Même type | Toutes) ; les boutons, à la scène
+    const applyMotif = (m, focus) => {
+      motifTargets(sc, T, (x) => !!((partOf(x.sec, T) || {}).one || (partOf(x.sec, T) || {}).mode || planMode(x, T))).forEach((x) => {
+        const a = arpOne(x, T);
+        putOff(x.sec, T, false);
+        putPart(x.sec, T, { one: A.normalize({ ...a, ...SS.motifPatch(a, m) }), mode: undefined });
+      });
+      partChanged(focus);
+    };
     const rateKey = (r) => String(ARP_RATES.find(([x]) => Math.abs(x - r) < 1e-6)?.[0] ?? r);
     const rates = ARP_RATES.map(([r, t]) => [String(r), t]);
     if (!ARP_RATES.some(([r]) => rateKey(one.rate) === String(r))) rates.push([String(one.rate), A.rateLabel(one.rate)]);
@@ -10001,13 +10031,40 @@ SS.band = (() => {
       partSeg('Vitesse', 'bwaRate', rates, rateKey(one.rate), (v) => arpEdit(sc, T, (a) => ({ ...a, rate: +v }), `#bwaRate [data-v="${v}"]`))
     );
     const knobs = h('div', { class: 'bwa-knobs' }, ...A.MACROS.map((mc) => arpKnob(sc, T, one, mc)));
+    // ★ Pour cette scène : les arpèges conseillés pour ce type de scène (js/scenestars.js) ; un arpège ajouté joue le premier
+    const extra = BG().isExtraId(T.musician);
+    const playing = muted || o.one ? null : BS().fitMode('arp', o.mode || insp);
+    const pickArp = (id) => {
+      motifTargets(sc, T, (x) => !!((partOf(x.sec, T) || {}).one || (partOf(x.sec, T) || {}).mode || planMode(x, T))).forEach((x) => {
+        putOff(x.sec, T, false);
+        putPart(x.sec, T, { mode: id === planMode(x, T) ? undefined : id, one: undefined, adv: undefined });
+      });
+      partChanged(`#bwaStars [data-id="${id}"]`);
+    };
+    const stars = sceneStarsOf(sc, T);
+    const starRow = stars.length
+      ? h(
+          'div',
+          { class: 'mot-chips bwa-stars', id: 'bwaStars', role: 'radiogroup', 'aria-label': 'Arpèges conseillés pour cette scène' },
+          h('span', { class: 'bh-lbl' }, '★ Pour cette scène'),
+          ...stars.map((id) =>
+            h(
+              'button',
+              { type: 'button', role: 'radio', class: 'mot-chip star' + (id === playing ? ' on' : ''), 'aria-checked': String(id === playing), 'data-id': id, title: nameOf(ARP_MODES, id) + ' : ' + (ARP_MODES.find((x) => x[0] === id) || [])[2], onclick: () => pickArp(id) },
+              '★ ' + nameOf(ARP_MODES, id),
+              extra && !o.mode && !o.one && id === playing ? h('em', { class: 'mot-n' }, 'auto') : null
+            )
+          ),
+          SS.helpTip('Les arpèges qui conviennent à ce type de scène (intro, couplet, refrain…). Un arpège ajouté joue d’office le premier (auto). Un clic le pose sur la scène (ou sur les scènes choisies au pied) et remet ses réglages au départ ; ‹ › et Surprends-moi parcourent tous les motifs d’Arp One.', '★ Pour cette scène')
+        )
+      : null;
     return [
       partHead(sc, T, 'arpège', true),
       rollBox(sc, T),
       autoCard(sc, T, { fit: true }),
       h(
         'section',
-        { class: 'bwp-card bwa' },
+        { class: 'bwp-card bwa mot-pick' },
         h(
           'div',
           { class: 'bwp-ch' },
@@ -10019,10 +10076,12 @@ SS.band = (() => {
           playBox(sc, T, 'up16')
         ),
         isGuitarist(T) ? arpGuitar(sc, T, one) : null,
+        one.guitar && one.guitar.on ? null : starRow,
         one.guitar && one.guitar.on ? null : motifLine,
         one.guitar && one.guitar.on ? null : knobs,
         muted ? h('p', { class: 'dlg-hint' }, 'L’arpège est coupé dans cette scène : un réglage le rallume.') : null,
-        !insp && !o.one && !o.mode ? h('p', { class: 'dlg-hint' }, 'L’inspiration ne joue pas d’arpège dans cette scène : un premier réglage (motif, bouton, vitesse) l’allume.') : null
+        !insp && !o.one && !o.mode ? h('p', { class: 'dlg-hint' }, 'L’inspiration ne joue pas d’arpège dans cette scène : un premier réglage (motif, bouton, vitesse) l’allume.') : null,
+        one.guitar && one.guitar.on ? null : h('div', { class: 'bwp-row mot-foot' }, motifScope())
       ),
     ];
   }
@@ -13746,15 +13805,18 @@ SS.band = (() => {
     const kindFr = { drums: 'batterie', bass: 'basse', keys: 'clavier', chords: 'nappe', arp: 'arpège', guitar: 'guitariste', melody: 'mélodie', orch: 'orchestre', horns: 'cuivres', ambient: 'ambient' };
     /** Motifs d'un instrument : [{ id, nom, … }] dans la mesure de la chanson. */
     function motifList(T, tous) {
+      // ★ de la scène affichée (Basse, Nappe, Guitariste : js/scenestars.js)
+      const shown = S.wiz.hscene ? S.wiz.res.scenes.find((x) => x.id === S.wiz.hscene) : null;
+      const starIds = (kind, jeu) => (shown ? sceneStarsOf(shown, { kind }, jeu) : []);
       if (T.kind === 'drums') {
         const lib = meterLib() || (tous ? Object.keys(SS.DRUM_PATTERNS) : [drumStyle()]).flatMap((st) => SS.DRUM_PATTERNS[st].map((p) => ({ ...p, st })));
         return lib.filter((p) => BS().fitLanes(p.lanes)).map((p) => ({ id: p.id, nom: p.name, style: p.st, energie: p.energy || null }));
       }
       if (T.kind === 'bass') {
         const M = SS.bassMotifs;
-        return M.all().filter((id) => SPB() === 16 || BS().meterOK('bass', id)).map((id) => ({ id, nom: M.name(id), description: M.desc(id), groupe: (M.GROUPS.find((g) => g[2].includes(id)) || [null, null])[1], famille: (M.FAMS.find((f) => f[0] === M.familyOf(id)) || [])[1] }));
+        return M.all().filter((id) => SPB() === 16 || BS().meterOK('bass', id)).map((id) => ({ id, nom: M.name(id), description: M.desc(id), groupe: (M.GROUPS.find((g) => g[2].includes(id)) || [null, null])[1], famille: (M.FAMS.find((f) => f[0] === M.familyOf(id)) || [])[1], conseille: starIds('bass').includes(id) }));
       }
-      if (T.kind === 'chords') return padModes(T).filter(([id]) => (/^g:/.test(id) ? gtrFits(id) : BS().meterOK('chords', id))).map(([id, nom, description]) => ({ id, nom, description, ...(/^g:/.test(id) ? {} : { famille: (SS.padMotifs.FAMS.find((f) => f[0] === SS.padMotifs.familyOf(id)) || [])[1] }) }));
+      if (T.kind === 'chords') return padModes(T).filter(([id]) => (/^g:/.test(id) ? gtrFits(id) : BS().meterOK('chords', id))).map(([id, nom, description]) => ({ id, nom, description, ...(/^g:/.test(id) ? {} : { famille: (SS.padMotifs.FAMS.find((f) => f[0] === SS.padMotifs.familyOf(id)) || [])[1], conseille: starIds('chords').includes(id) }) }));
       if (T.kind === 'arp') return SS.MOTIFS.map((m) => ({ id: m.id, nom: m.name, categorie: ((SS.MOTIF_CATS.find((c) => c.id === m.cat) || {}).label || m.cat) }));
       if (T.kind === 'horns') {
         const stars = SS.horns.sceneStars(S.wiz.hscene ? (S.wiz.res.scenes.find((x) => x.id === S.wiz.hscene) || {}).sec : '', hformOf(musState()[T.musician]).id);
@@ -13776,7 +13838,7 @@ SS.band = (() => {
       if (T.kind === 'guitar') {
         const G = SS.guitarist;
         const fam = Object.fromEntries(Object.values(G.FAMILIES).flat());
-        return ['arp', 'acc', 'riff'].flatMap((j) => G.modesOf(j).filter(gtFits).map((id) => ({ id, nom: gtName(id), jeu: { arp: 'arpèges', acc: 'accords', riff: 'riffs' }[j], famille: fam[G.familyOf(id)], styles: G.stylesOf(id) })));
+        return ['arp', 'acc', 'riff'].flatMap((j) => G.modesOf(j).filter(gtFits).map((id) => ({ id, nom: gtName(id), jeu: { arp: 'arpèges', acc: 'accords', riff: 'riffs' }[j], famille: fam[G.familyOf(id)], styles: G.stylesOf(id), conseille: starIds('guitar', j).includes(id) })));
       }
       return [];
     }

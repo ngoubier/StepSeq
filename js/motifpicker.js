@@ -84,7 +84,8 @@ SS.motifPicker = (() => {
       o.help || null
     );
     const stars = o.stars || [];
-    const f = famShown(o.fam, stars);
+    // sans famille choisie : « ★ Pour cette scène », sauf si le motif joué n'en est pas (on le voit dans Tous)
+    const f = famShown(o.fam === undefined && o.cur && stars.length && !stars.includes(o.cur) && o.ids.includes(o.cur) ? 'all' : o.fam, stars);
     const nOf = (fid) => (fid === 'all' ? o.ids.length : fid === 'star' ? stars.length : o.ids.filter((id) => o.familyOf(id) === fid).length);
     const famChip = (id, label, extra = '') => chip('mot-chip mot-fam' + extra, id, f === id, [label, el('span', { class: 'mot-n' }, String(nOf(id)))], () => o.onFam(id), { 'data-f': id });
     const fams = o.fams || o.surprise

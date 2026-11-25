@@ -6438,6 +6438,13 @@ body.wiz-am-open .wiz-sheet { right: 360px; }
 .mot-sec { --motc: var(--c-amber); }
 /* Batterie : la carte Motif commune à la couleur du batteur, miniatures des pistes K S C H O */
 .mot-drum { --motc: var(--c, var(--c-pink)); }
+/* Arpège : les ★ de la scène au-dessus du navigateur d'Arp One, pied « Scènes » */
+.bwa.mot-pick { --motc: var(--c, var(--c-green)); }
+.bwa-stars { align-items: center; margin: 0 0 10px; }
+.bwa-stars .bh-lbl { margin-right: 4px; }
+.bwa-stars .mot-n { margin-left: 6px; font-style: normal; font-size: var(--fs-xs); color: var(--c-amber); }
+.bwa-stars .mot-chip.star.on { background: var(--c-amber-bg); border-color: var(--c-amber); color: var(--text); }
+.bwa .mot-foot { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px; }
 .mot-drum .mot-chip.on:not(.star) { background: color-mix(in srgb, var(--motc) 18%, var(--panel-2)); color: var(--text); }
 .mot-drum .mot-card, .mot-drum .mot-card.on { color: var(--motc); }
 .mot-drum .mot-card.on { background: color-mix(in srgb, var(--motc) 14%, var(--panel-2)); }
