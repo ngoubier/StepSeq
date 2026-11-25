@@ -2556,6 +2556,7 @@ SS.bandSong = (() => {
       // section de cuivres (js/horns.js) : un musicien, une piste par membre de la section ; jeu, nuance et membres coupés
       // par scène : parts[sec].inst[musicien].horns = { jeu, nu, off } (off absent : ceux que la formation coupe d'office)
       const hornsOut = {};
+      const eighths = !!spec.eighths && SPB === 16 && BEAT === 4;
       const hornsMus = [...new Set(tracks.filter((t) => roleOfTrack(t) === 'horns').map((t) => t.band.musician))];
       hornsMus.forEach((mid) => {
         const ts = tracks.filter((t) => roleOfTrack(t) === 'horns' && t.band.musician === mid);
@@ -2575,13 +2576,15 @@ SS.bandSong = (() => {
           off: Array.isArray(own.off) ? own.off : SS.horns.offByDefault(fk.form),
           nuance: own.nu || 'mf',
           spans: spans.map((sp) => ({ step: sp.step, len: sp.len, rootPc: sp.chord.rootPc, pcs: [...new Set(tones(sp.chord))] })),
-          bars,
-          spb: SPB,
-          beat: BEAT,
+          // chanson écrite en croches (spec.eighths, salsa : une mesure de la grille = deux mesures jouées) : la section
+          // lit ses jeux en croches, sinon elle jouerait deux fois trop lentement
+          ...(eighths ? { bars: bars * 2, spb: SPB / 2, beat: BEAT / 2 } : { bars, spb: SPB, beat: BEAT }),
         });
         ts.forEach((t, i) => {
           const L = res.lines[fk.ids[i]];
           data[t.id] = { events: L ? L.events.map((e) => ({ ...e, notes: [...e.notes] })) : [] };
+          // jeux qui enflent (Tenues qui enflent, Montée) : courbe de volume, que l'automation de la scène remplace
+          if (L && L.vol && L.events.length) data[t.id].auto = { volume: { ...L.vol } };
           const A = ie && ie.auto ? normalizeAuto(ie.auto) : null;
           if (A) applyAutoLanes(data[t.id], A, bars);
         });

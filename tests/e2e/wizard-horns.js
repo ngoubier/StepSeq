@@ -59,7 +59,20 @@ const ok = (c, m) => {
   ok((await page.getAttribute('#bwStepHead', 'data-kind')) === 'horns', `étape ${n} : Cuivres`);
   await page.click('.bh-scene[data-sec="chorus"]');
   await page.waitForTimeout(300);
-  ok((await page.locator('#bwHornsTable .bwhn-row[data-player]').count()) === 4 && (await page.locator('#bwHornsJeu .bwhn-jeu').count()) === 4, 'une ligne par musicien, quatre jeux');
+  ok((await page.locator('#bwHornsTable .bwhn-row[data-player]').count()) === 4 && (await page.locator('#bwHornsJeu .bwhn-jeu').count()) === 3, 'une ligne par musicien, trois jeux ★ pour le refrain');
+  await page.click('#bwHornsFam [data-f="all"]');
+  await page.waitForTimeout(200);
+  ok((await page.locator('#bwHornsJeu .bwhn-jeu').count()) === 13 && /Moña/.test(await page.textContent('#bwHornsJeu')) && /Cierre/.test(await page.textContent('#bwHornsJeu')), 'Tous : treize jeux, Moña et Cierre en salsa');
+  await page.click('#bwHornsFam [data-f="trans"]');
+  await page.waitForTimeout(200);
+  ok((await page.locator('#bwHornsJeu .bwhn-jeu').count()) === 3, 'Transitions et fins : trois jeux');
+  if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'cuivres-jeux-trans.png') });
+  await page.click('#bwHornsFam [data-f="star"]');
+  await page.click('.bh-scene[data-sec="verse"]');
+  await page.waitForTimeout(300);
+  ok((await page.locator('#bwHornsJeu .bwhn-jeu.active').getAttribute('data-v')) === 'antic' && /auto/.test(await page.textContent('#bwHornsJeu .bwhn-jeu.active')), 'couplet : Coups anticipés joués d’office (auto)');
+  await page.click('.bh-scene[data-sec="chorus"]');
+  await page.waitForTimeout(300);
   ok((await page.locator('#bwHornsJeu .bwhn-jeu.active').getAttribute('data-v')) === 'sig' && (await page.locator('#bwHornsTable [data-player="t1"] .bwhn-nt').count()) > 4, 'refrain : le jeu du style (Mambo 2-3), des notes sur la ligne');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'cuivres-app-etape.png') });
   await page.click('#bwHornsJeu [data-v="coups"]');
@@ -72,6 +85,17 @@ const ok = (c, m) => {
   const hs = w.parts.chorus.inst[Object.keys(w.parts.chorus.inst).find((k) => w.parts.chorus.inst[k].horns)].horns;
   ok(JSON.stringify(hs) === '{"jeu":"coups","off":["t2"],"nu":"f"}', 'jeu, musicien coupé et nuance : réglages de la scène');
   ok((await page.textContent('#bwHornsTable [data-player="t2"] .bwhn-role')) === 'Coupé' && /Coups sur la clave/.test(await page.textContent('.bh-scene[data-sec="chorus"]')), 'la ligne coupée le dit, la colonne des scènes aussi');
+  // lecture : le curseur défile sur chaque ligne, la note qui sonne s'allume
+  if (!/playing/.test(await page.getAttribute('#play', 'class'))) await page.click('#play');
+  await page.waitForTimeout(1200);
+  const ph = await page.evaluate(() => [...document.querySelectorAll('#bwHornsTable .bwhn-ph')].map((e) => !e.hidden && parseFloat(e.style.left)));
+  if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'cuivres-curseur.png') });
+  await page.waitForTimeout(900);
+  const ph2 = await page.evaluate(() => parseFloat(document.querySelector('#bwHornsTable .bwhn-ph').style.left));
+  ok(ph.length === 4 && ph.every((x) => x !== false) && ph2 !== ph[0], `lecture : un curseur par ligne, qui avance (${ph[0]} → ${ph2} %)`);
+  await page.click('#stop');
+  await page.waitForTimeout(200);
+  ok(await page.evaluate(() => [...document.querySelectorAll('#bwHornsTable .bwhn-ph')].every((e) => e.hidden)), 'arrêt : curseur caché');
   // Muet / Solo : écoute seulement
   const before = JSON.stringify((await W()).parts);
   await page.click('#bwHornsTable [data-player="b1"] .bwor-ms.s');
