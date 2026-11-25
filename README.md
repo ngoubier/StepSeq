@@ -1259,6 +1259,17 @@ s'affiche sur toute la chanson sous les tranches. Le geste s'entend aussitôt, y
   dernière valeur continue de s'écrire jusqu'à l'arrêt. Une prise = une étape Ctrl+Z, ou **Annuler la prise**.
 - Code : `js/liveconsole.js` (gestes, écriture, prise ; sans DOM), `js/liveconsolepanel.js` (bandeau), valeurs tenues
   dans `SS.beatAuto.setLive`. Tests : `tests/liveconsole.test.js`, `tests/e2e/live-console.js`. Outil Claude : `consoleLive`.
+- **Mouvement** (pistes avec un phaser ou un flanger) : profondeur de l'effet, de ×0 (immobile) à ×2.
+
+### Phaser et flanger
+
+Deux onglets de la fenêtre **Effets** d'une piste (bouton FX), après Chorus. Chacun a son mélange, sa **vitesse**
+(**Libre** en Hz ou **Au tempo** : 1 temps, 1, 2, 4 ou 8 mesures par balayage), sa profondeur et sa résonance ; le
+phaser choisit son centre et son nombre d'**étages** (4, 6, 8, 12), le flanger son retard (résonance négative = son
+creux). Préréglages : phaser Lent (nappe), Disco 70, Psyché, Piano électrique ; flanger Jet, Léger, Métallique, Creux.
+- Dans la tranche de la piste, avant le volume ; un effet éteint est débranché. Code : `js/audio.js` (`buildPhaser`,
+  `buildFlanger`), `SS.modRate` dans `js/sounds.js`, fenêtre `js/fx.js`. Courbe par temps : **Mouvement** (`mov`).
+- Outil Claude : `effets` (`phaser`, `phaserMesures`, `phaserEtages`, `flanger`…). Test : `tests/e2e/phaser-flanger.js`.
 ### Conditions de déclenchement
 
 Inspirées des « trig conditions » des machines Elektron (et de la probabilité des notes d'Ableton Live) : une note

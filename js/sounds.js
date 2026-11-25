@@ -725,7 +725,24 @@ SS.FX_DEFAULTS = {
   scSource: '', scDepth: 0.6, scRelease: 0.22, // sidechain : piste qui déclenche, profondeur 0..1, relâchement (s)
   sendPlate: 0, sendHall: 0, sendEcho: 0, sendSpace: 0, // envois vers les bus partagés (SS.RETURN_DEFAULTS), 0..1
   gated: 0, // pistes Drum : reverb « gated » des années 80, calculée une fois dans l'échantillon (js/audio.js), 0..1
+  // phaser : mix 0..1, vitesse Hz (ou phaserSync : une période en mesures, 0 = libre), profondeur 0..1, centre Hz,
+  // résonance 0..0,9, nombre d'étages (passe-tout)
+  phaser: 0, phaserRate: 0.3, phaserSync: 0, phaserDepth: 0.7, phaserCenter: 700, phaserFb: 0.4, phaserStages: 6,
+  // flanger : mix 0..1, vitesse Hz (ou flangerSync en mesures), profondeur 0..1, retard ms, résonance −0,9..+0,9
+  flanger: 0, flangerRate: 0.25, flangerSync: 0, flangerDepth: 0.6, flangerDelay: 3.5, flangerFb: 0.5,
 };
+/** Périodes « au tempo » du phaser et du flanger, en mesures (0 = vitesse libre, en Hz). */
+SS.MOD_SYNCS = [
+  { id: 0, label: 'Libre' },
+  { id: 0.25, label: '1 temps' },
+  { id: 1, label: '1 mes.' },
+  { id: 2, label: '2 mes.' },
+  { id: 4, label: '4 mes.' },
+  { id: 8, label: '8 mes.' },
+];
+SS.PHASER_STAGES = [4, 6, 8, 12];
+/** Vitesse du balayage (Hz) : libre, ou une période de `sync` mesures au tempo. */
+SS.modRate = (rate, sync, tempo, beatsPerBar = 4) => (sync > 0 ? tempo / (60 * beatsPerBar * sync) : rate);
 /**
  * Effets suggérés par un preset du synthé intégré (meta fx : cho / dly / rev), en réglages de piste (track.fx) :
  * chorus, écho à la croche pointée, envoi vers la reverb Hall partagée. null si le preset n'en suggère pas.
@@ -743,7 +760,7 @@ SS.presetFx = (family, instrument) => {
 SS.fxParams = (track) => ({ ...SS.FX_DEFAULTS, ...(track.fx || {}) });
 SS.fxActive = (track) => {
   const f = SS.fxParams(track);
-  return f.chorus > 0 || f.delay > 0 || f.room > 0 || f.sendPlate > 0 || f.sendHall > 0 || f.sendEcho > 0 || f.sendSpace > 0 || f.gated > 0 || (!!f.scSource && f.scDepth > 0);
+  return f.chorus > 0 || f.phaser > 0 || f.flanger > 0 || f.delay > 0 || f.room > 0 || f.sendPlate > 0 || f.sendHall > 0 || f.sendEcho > 0 || f.sendSpace > 0 || f.gated > 0 || (!!f.scSource && f.scDepth > 0);
 };
 SS.delaySeconds = (fx, tempo) => {
   const d = SS.DELAY_TIMES.find((x) => x.id === fx.delayTime) || SS.DELAY_TIMES[3];

@@ -78,3 +78,15 @@ test('formes prêtes et affichage des nouveaux réglages', () => {
   assert.equal(BA.fmt('dec', 2), '×2,00');
   assert.equal(BA.fmt('vol', 0.8), '80 %');
 });
+
+test('phaser et flanger : vitesse au tempo, effet actif, bouton Mouvement seulement s’il y en a un', () => {
+  assert.equal(SS.modRate(0.5, 0, 120), 0.5, 'libre : la vitesse en Hz');
+  assert.equal(SS.modRate(0.5, 4, 120), 1 / 8, 'au tempo : 4 mesures à 120 = 8 s');
+  assert.equal(SS.modRate(0.5, 0.25, 120), 2, 'un temps à 120 = 0,5 s');
+  const { t } = setup();
+  assert.ok(!BA.paramsFor(t).some((x) => x.id === 'mov'));
+  t.fx = { phaser: 0.5 };
+  assert.ok(SS.fxActive(t));
+  assert.ok(BA.paramsFor(t).some((x) => x.id === 'mov'), 'avec un phaser : Mouvement');
+  assert.equal(BA.fmt('mov', 1.5), '×1,50');
+});

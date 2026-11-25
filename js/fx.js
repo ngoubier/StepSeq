@@ -1,5 +1,5 @@
 /*
- * Fenêtre « Effets » d'une piste : chorus, delay, reverb, sidechain et envois vers les bus partagés
+ * Fenêtre « Effets » d'une piste : chorus, phaser, flanger, delay, reverb, sidechain et envois vers les bus partagés
  * (reverbs plate / hall et écho communs à tout le morceau, réglés dans project.returns).
  * Delay et reverb reprennent les paramètres de strudel.cc
  * (delay / delaytime / delayfeedback, room / roomsize / roomlp).
@@ -22,6 +22,16 @@ SS.fx = (() => {
     chorus: { label: 'Mix', scale: lin(0, 1), fmt: pct, box: '#fxChorusSliders' },
     chorusRate: { label: 'Vitesse', scale: logf(0.1, 6), fmt: (v) => `${v.toFixed(2)} Hz`, box: '#fxChorusSliders' },
     chorusDepth: { label: 'Profondeur', scale: lin(0, 1), fmt: (v) => `${Math.round(v * 100)} %`, box: '#fxChorusSliders' },
+    phaser: { label: 'Mix', scale: lin(0, 1), fmt: pct, box: '#fxPhaserSliders' },
+    phaserRate: { label: 'Vitesse libre', scale: logf(0.03, 10), fmt: (v) => `${v.toFixed(2)} Hz`, box: '#fxPhaserSliders' },
+    phaserDepth: { label: 'Profondeur', scale: lin(0, 1), fmt: (v) => `${Math.round(v * 100)} %`, box: '#fxPhaserSliders' },
+    phaserCenter: { label: 'Centre', scale: logf(200, 4000), fmt: (v) => (v < 1000 ? `${Math.round(v)} Hz` : `${(v / 1000).toFixed(1)} kHz`), box: '#fxPhaserSliders' },
+    phaserFb: { label: 'Résonance', scale: lin(0, 0.9), fmt: (v) => `${Math.round(v * 100)} %`, box: '#fxPhaserSliders' },
+    flanger: { label: 'Mix', scale: lin(0, 1), fmt: pct, box: '#fxFlangerSliders' },
+    flangerRate: { label: 'Vitesse libre', scale: logf(0.03, 10), fmt: (v) => `${v.toFixed(2)} Hz`, box: '#fxFlangerSliders' },
+    flangerDepth: { label: 'Profondeur', scale: lin(0, 1), fmt: (v) => `${Math.round(v * 100)} %`, box: '#fxFlangerSliders' },
+    flangerDelay: { label: 'Retard', scale: logf(0.5, 10), fmt: (v) => `${v.toFixed(1).replace('.', ',')} ms`, box: '#fxFlangerSliders' },
+    flangerFb: { label: 'Résonance', scale: lin(-0.9, 0.9), fmt: (v) => `${v > 0.005 ? '+' : v < -0.005 ? '−' : ''}${Math.round(Math.abs(v) * 100)} %`, box: '#fxFlangerSliders' },
     delay: { label: 'Mix', scale: lin(0, 1), fmt: pct, box: '#fxDelaySliders' },
     delayFeedback: { label: 'Feedback (répétitions)', scale: lin(0, 0.9), fmt: (v) => `${Math.round(v * 100)} %`, box: '#fxDelaySliders' },
     room: { label: 'Mix', scale: lin(0, 1), fmt: pct, box: '#fxRoomSliders' },
@@ -42,6 +52,20 @@ SS.fx = (() => {
       { label: 'Large', v: { chorus: 0.5, chorusRate: 0.9, chorusDepth: 0.6 } },
       { label: 'Profond', v: { chorus: 0.7, chorusRate: 2.5, chorusDepth: 0.85 } },
       { label: 'Off', v: { chorus: 0 } },
+    ],
+    phaser: [
+      { label: 'Lent (nappe)', v: { phaser: 0.5, phaserRate: 0.12, phaserSync: 0, phaserDepth: 0.75, phaserCenter: 650, phaserFb: 0.4, phaserStages: 6 } },
+      { label: 'Disco 70', v: { phaser: 0.55, phaserSync: 4, phaserDepth: 0.85, phaserCenter: 550, phaserFb: 0.55, phaserStages: 8 } },
+      { label: 'Psyché', v: { phaser: 0.6, phaserRate: 0.55, phaserSync: 0, phaserDepth: 0.9, phaserCenter: 900, phaserFb: 0.75, phaserStages: 12 } },
+      { label: 'Piano électrique', v: { phaser: 0.45, phaserRate: 0.45, phaserSync: 0, phaserDepth: 0.5, phaserCenter: 1100, phaserFb: 0.25, phaserStages: 4 } },
+      { label: 'Off', v: { phaser: 0 } },
+    ],
+    flanger: [
+      { label: 'Jet', v: { flanger: 0.55, flangerSync: 2, flangerDepth: 0.9, flangerDelay: 3.5, flangerFb: 0.7 } },
+      { label: 'Léger', v: { flanger: 0.35, flangerRate: 0.2, flangerSync: 0, flangerDepth: 0.4, flangerDelay: 2.5, flangerFb: 0.2 } },
+      { label: 'Métallique', v: { flanger: 0.5, flangerRate: 0.35, flangerSync: 0, flangerDepth: 0.6, flangerDelay: 1.2, flangerFb: 0.85 } },
+      { label: 'Creux', v: { flanger: 0.5, flangerRate: 0.25, flangerSync: 0, flangerDepth: 0.7, flangerDelay: 3, flangerFb: -0.7 } },
+      { label: 'Off', v: { flanger: 0 } },
     ],
     delay: [
       { label: 'Slapback', v: { delay: 0.3, delayTime: '1/16', delayFeedback: 0.1 } },
@@ -152,6 +176,22 @@ SS.fx = (() => {
       o.textContent = d.label;
       $('#fxDelayTime').append(o);
     });
+    // vitesse du phaser et du flanger : libre (curseur, Hz) ou au tempo (période en mesures) ; étages du phaser
+    const seg = (box, items, key) =>
+      items.forEach(({ id, label }) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.dataset.v = id;
+        b.textContent = label;
+        b.addEventListener('click', () => {
+          set({ [key]: id });
+          preview();
+        });
+        $(box).append(b);
+      });
+    seg('#fxPhaserSync', SS.MOD_SYNCS, 'phaserSync');
+    seg('#fxFlangerSync', SS.MOD_SYNCS, 'flangerSync');
+    seg('#fxPhaserStages', SS.PHASER_STAGES.map((n) => ({ id: n, label: String(n) })), 'phaserStages');
     $('#fxScSource').addEventListener('change', (e) => {
       set({ scSource: e.target.value });
       refresh();
@@ -362,6 +402,22 @@ SS.fx = (() => {
       el.classList.toggle('on', on);
     };
     state('#fxChorusState', f.chorus > 0);
+    state('#fxPhaserState', f.phaser > 0);
+    state('#fxFlangerState', f.flanger > 0);
+    const tempo = app.project().tempo;
+    const bpb = (app.project().timeSig || [4, 4])[0] * (4 / (app.project().timeSig || [4, 4])[1]);
+    for (const [fx, box] of [['phaser', 'Phaser'], ['flanger', 'Flanger']]) {
+      const sync = f[fx + 'Sync'];
+      document.querySelectorAll(`#fx${box}Sync button`).forEach((b) => b.classList.toggle('active', +b.dataset.v === sync));
+      const hz = SS.modRate(f[fx + 'Rate'], sync, tempo, bpb);
+      $(`#fx${box}SyncOut`).textContent = sync > 0 ? `${(1 / hz).toFixed(1).replace('.', ',')} s` : '';
+      inputs.get(fx + 'Rate').input.closest('.sd-row').classList.toggle('dim', !f[fx] || sync > 0);
+      [fx + 'Depth', fx === 'phaser' ? 'phaserCenter' : 'flangerDelay', fx + 'Fb'].forEach((k) => inputs.get(k).input.closest('.sd-row').classList.toggle('dim', !f[fx]));
+      $(`#fx${box}Sync`).closest('.sd-row').classList.toggle('dim', !f[fx]);
+      drawMod($(`#fx${box}Curve`), f[fx], f[fx + 'Depth'], hz, fx === 'flanger');
+    }
+    document.querySelectorAll('#fxPhaserStages button').forEach((b) => b.classList.toggle('active', +b.dataset.v === f.phaserStages));
+    $('#fxPhaserStages').closest('.sd-row').classList.toggle('dim', !f.phaser);
     state('#fxDelayState', f.delay > 0);
     state('#fxRoomState', f.room > 0);
     // envois : nombre de bus utilisés
@@ -389,6 +445,19 @@ SS.fx = (() => {
     ['roomSize', 'roomLp'].forEach((k) => inputs.get(k).input.closest('.sd-row').classList.toggle('dim', !f.room));
     $('#fxGatedBox').hidden = track.type !== 'drum'; // calculée dans l'échantillon : pistes Drum seulement
     $('#fxCode').textContent = strudelCode(f);
+  }
+
+  /** Balayage du phaser ou du flanger sur 8 secondes (sinus, ou triangle pour le flanger). */
+  function drawMod(svg, mix, depth, hz, tri) {
+    const W = 300, H = 50, span = 8;
+    let d = '';
+    for (let x = 0; x <= W; x += 2) {
+      const ph = ((x / W) * span * hz) % 1;
+      const v = tri ? 1 - 4 * Math.abs(ph - 0.5) : Math.sin(2 * Math.PI * ph);
+      d += (x ? 'L' : 'M') + x + ' ' + (H / 2 - v * depth * (H / 2 - 4)).toFixed(1);
+    }
+    svg.querySelector('.line').setAttribute('d', d);
+    svg.classList.toggle('dim', !mix);
   }
 
   /** Schéma du volume sur une mesure à 4 temps (déclenchement sur chaque temps). */
@@ -421,6 +490,8 @@ SS.fx = (() => {
       parts.push(`delay(${r(f.delay)})`, `delaytime(${r(SS.delaySeconds(f, app.project().tempo), 3)})`, `delayfeedback(${r(f.delayFeedback)})`);
     let code = parts.length ? '.' + parts.join('.') : '';
     if (f.chorus > 0) code += `  // + chorus ${Math.round(f.chorus * 100)} % (effet StepSeq)`;
+    if (f.phaser > 0) code += `  // + phaser ${Math.round(f.phaser * 100)} % (effet StepSeq)`;
+    if (f.flanger > 0) code += `  // + flanger ${Math.round(f.flanger * 100)} % (effet StepSeq)`;
     const sends = [['sendPlate', 'plate'], ['sendHall', 'hall'], ['sendEcho', 'écho'], ['sendSpace', 'cosmos']].filter(([k]) => f[k] > 0);
     if (sends.length) code += `  // + bus ${sends.map(([k, n]) => `${n} ${Math.round(f[k] * 100)} %`).join(', ')}`;
     if (f.scSource && f.scDepth > 0) {
