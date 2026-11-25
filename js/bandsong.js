@@ -2295,6 +2295,7 @@ SS.bandSong = (() => {
     spec = withSceneFx(spec, parts); // jeu de la piste Effets réglé scène par scène
     const key = parseKey(spec.key);
     const ids = instIds(tracks);
+    const melCache = {}; // mélodies déjà écrites, par section et instrument (copie « même mélodie » : voir sing)
     // type de chaque piste (null : fx, qui garde son jeu) ; un kit de batterie reste drums
     const kindOfT = new Map();
     tracks.forEach((t, i) => {
@@ -2343,6 +2344,11 @@ SS.bandSong = (() => {
       }) : spans0;
       // as : section du modèle dont une section de reprise reprend le jeu (nuance, automation)
       const as = sec.as || id;
+      // mel : section dont la scène reprend la mélodie (copie « même mélodie » : un refrain final transposé)
+      const mid = sec.mel || id;
+      // empreinte des accords en degrés (le dernier temps ne compte pas : un passage préparé y pose la dominante)
+      const tpc = H().scale(k)[0].pc;
+      const gsig = JSON.stringify(spans.filter((x) => x.step < bars * SPB - BEAT).map((x) => [x.step, Math.min(x.len, bars * SPB - BEAT - x.step), pcOf(x.chord.rootPc - tpc), x.chord.type]));
       // caractère et notes par phrase de cette scène
       const own = mel.scenes && mel.scenes[id];
       let smel = own ? { ...mel, ...own } : mel;
@@ -2434,7 +2440,18 @@ SS.bandSong = (() => {
         const sing = (mrole, m) => {
           const im2 = ie ? Object.fromEntries(['character', 'notes', 'rhythm', 'complexity', 'range', 'ending', 'form'].filter((f) => ie[f] !== undefined).map((f) => [f, ie[f]])) : null;
           const dup = (ids[ti].dup ? `#${ids[ti].dup}` : '') + (extra ? `@${t.band.musician}` : '');
-          return m === 'rise' ? riseEvents(spans, r, k, bars) : melodyPart(spans, k, bars, mrole, im2 && Object.keys(im2).length ? { ...smel, ...im2 } : smel, (ie && ie.plan) || (mel.plans && mel.plans[id]), (ie && ie.seeds) || (mel.seeds && mel.seeds[id]), `${presetId}/${id}/${role}${dup}/${melodySeed}`, m);
+          if (m === 'rise') return riseEvents(spans, r, k, bars);
+          // copie « même mélodie » (refrain final transposé) : la mélodie de la scène d'origine, transposée, si les accords
+          // ont les mêmes degrés dans le même mode (sinon le moteur la récrit avec la même graine)
+          const ck = `${role}${dup}|${m}`;
+          const hit = mid !== id && melCache[`${mid}|${ck}`];
+          if (hit && hit.mode === k.mode && hit.sig === gsig && hit.bars === bars) {
+            const sh = ((tpc - hit.pc + 18) % 12) - 6;
+            return hit.events.map((e) => ({ ...e, notes: e.notes.map((n) => n + sh) }));
+          }
+          const ev = melodyPart(spans, k, bars, mrole, im2 && Object.keys(im2).length ? { ...smel, ...im2 } : smel, (ie && ie.plan) || (mel.plans && (mel.plans[id] || mel.plans[mid])), (ie && ie.seeds) || (mel.seeds && (mel.seeds[id] || mel.seeds[mid])), `${presetId}/${mid}/${role}${dup}/${melodySeed}`, m);
+          if (Array.isArray(ev)) melCache[`${id}|${ck}`] = { events: ev, pc: tpc, mode: k.mode, sig: gsig, bars };
+          return ev;
         };
         // Clavier : motif « k: » (js/keyboardist.js), sinon le moteur de nappe (arpège ou accords, registre du piano)
         const kpat = kk && SIG === '4/4' && o && o.keys && SS.keyboardist && SS.keyboardist.parsePat(o.keys.pat) ? o.keys.pat : null; // motif réécrit dans la fenêtre Avancé

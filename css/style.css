@@ -2614,6 +2614,7 @@ svg.g-big { width: 100%; height: auto; background: var(--c-surface-1); border-ra
 .bwk-to b { color: var(--c-violet-soft); }
 .bwk-tags { display: flex; flex-wrap: wrap; gap: 4px; }
 .bwk-tag { font-size: var(--fs-xs); border: 1px solid var(--tc); color: var(--tc); border-radius: 999px; padding: 0 8px; }
+.bwar-lastk { display: inline-flex; align-items: center; gap: 6px; margin-right: 10px; }
 .bh-kchg { align-self: flex-start; font-size: var(--fs-xs); color: var(--c-violet-soft); background: color-mix(in srgb, var(--c-violet) 18%, transparent); border-radius: 4px; padding: 0 6px; white-space: nowrap; }
 .bwi-state { font-size: var(--fs-sm); color: var(--muted); }
 .hm-ex.on .bwi-state { color: var(--accent-2); }
