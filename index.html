@@ -340,12 +340,20 @@
     </div>
   </section>
 
-  <!-- Fenêtre Song : scènes (panneau vertical) et arrangement, glisser-déposer (js/song.js) -->
+  <!-- Fenêtre Arrangement : scènes en colonne, chanson en blocs, une ligne par piste, automation repliée (js/song.js) -->
   <dialog id="songDialog" class="song-dialog" aria-labelledby="songDlgTitle">
     <div class="song-shell">
       <header class="song-head">
-        <h2 id="songDlgTitle">Arrangement <button type="button" class="help-tip" data-help="Les scènes et l’arrangement de la chanson." data-help-title="Arrangement" aria-label="Aide : Arrangement">?</button></h2>
+        <h2 id="songDlgTitle">Arrangement</h2>
+        <button type="button" class="btn btn-small sg-play" id="sgPlay" title="Écouter (Chanson : à partir du bloc choisi ; Scène : la scène en cours en boucle)"><span class="sg-play-ic" aria-hidden="true">▶</span> <span class="sg-play-txt">Écouter</span></button>
+        <div class="segmented" id="sgMode" role="radiogroup" aria-label="Lecture">
+          <button type="button" data-mode="song" title="La lecture joue la chanson, du bloc choisi jusqu'à la fin">Chanson</button>
+          <button type="button" data-mode="loop" title="La lecture boucle la scène en cours">Scène</button>
+        </div>
+        <label class="song-loop"><input type="checkbox" id="sgLoop"> Boucler</label>
         <span class="spacer"></span>
+        <span id="sgTotal" class="song-total"></span>
+        <button type="button" class="help-tip" data-help="Chaque geste s’annule avec Ctrl+Z." data-help-title="Arrangement" aria-label="Aide : Arrangement">?</button>
         <button type="button" class="btn btn-icon" id="songClose" title="Fermer (Échap)" aria-label="Fermer">
           <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
@@ -354,36 +362,32 @@
         <section class="sg-scenes" aria-labelledby="sgScenesTitle">
           <div class="sg-col-head">
             <h3 id="sgScenesTitle">Scènes</h3>
-            <small class="dlg-hint" data-helpify>clic : éditer · glisser ⠿ pour ranger · sur la frise pour arranger</small>
+            <button type="button" class="help-tip" data-help="Une scène = le contenu de toutes les pistes pour une partie de la chanson. Clic : l’éditer · ▶ : l’écouter en boucle · glisser : ranger, ou déposer dans la chanson · double-clic sur le nom : renommer." data-help-title="Scènes" aria-label="Aide : Scènes">?</button>
           </div>
-          <div class="sg-scene-row">
-            <div id="sgSceneList" class="sg-scene-list" role="list"></div>
-            <button type="button" id="sgNewScene" class="btn sg-new" title="Nouvelle scène vide (mêmes pistes, sans notes)">+ Nouvelle scène</button>
+          <div id="sgSceneList" class="sg-scene-list" role="list"></div>
+          <div class="sg-add">
+            <button type="button" id="sgNewScene" class="btn btn-small" title="Nouvelle scène vide (mêmes pistes, sans notes)">+ Vide</button>
+            <button type="button" id="sgCopyScene" class="btn btn-small" title="Nouvelle scène qui reprend le contenu de la scène en cours">+ Copie</button>
           </div>
         </section>
         <section class="sg-arr" aria-labelledby="sgArrTitle">
           <div class="sg-col-head">
-            <h3 id="sgArrTitle">Arrangement</h3>
-            <small class="dlg-hint" data-helpify>la chanson joue les blocs de gauche à droite · clic : partir de ce bloc · glisser pour déplacer</small>
-            <span class="spacer"></span>
-            <button type="button" class="btn btn-small sg-play" id="sgPlay" title="Écouter la chanson à partir du bloc choisi (mode Chanson)"><span class="sg-play-ic" aria-hidden="true">▶</span> <span class="sg-play-txt">Écouter</span></button>
-            <label class="song-loop"><input type="checkbox" id="sgLoop"> Boucler</label>
-            <span id="sgTotal" class="song-total"></span>
+            <h3 id="sgArrTitle">Chanson</h3>
+            <button type="button" class="help-tip" data-help="La chanson joue les blocs de gauche à droite. Clic : éditer la scène et partir d’ici · glisser : déplacer (Alt : copier) · tirer le bord droit : répétitions · clic droit : plus. Dessous, une ligne par piste : clic sur une case pour couper ou remettre la piste dans cette scène." data-help-title="Chanson" aria-label="Aide : Chanson">?</button>
           </div>
           <div class="sg-timeline" id="sgTimeline">
             <div class="sg-ruler" id="sgRuler" aria-hidden="true"></div>
-            <div id="sgBlocks" class="sg-blocks" role="list" aria-label="Blocs de l'arrangement"></div>
-            <!-- automation par temps sur toute la chanson (js/beatautoui.js) -->
-            <div id="sgAutoTools" class="ba-head sg-auto-tools"></div>
-            <div id="sgAuto" class="sg-auto"></div>
+            <div class="sg-lane sg-lane-blocks"><span class="sg-lane-name">Scènes</span><div id="sgBlocks" class="sg-blocks" role="list" aria-label="Blocs de la chanson"></div></div>
+            <div id="sgLanes" class="sg-lanes" aria-label="Pistes, scène par scène"></div>
             <div class="sg-head" id="sgHead" hidden aria-hidden="true"></div>
           </div>
+          <!-- automation par temps sur toute la chanson (js/beatautoui.js), repliée par défaut -->
+          <details class="sg-auto-box" id="sgAutoBox">
+            <summary>Automation par temps</summary>
+            <div class="sg-auto-wrap"><div id="sgAutoTools" class="ba-head sg-auto-tools"></div><div id="sgAuto" class="sg-auto"></div></div>
+          </details>
         </section>
       </div>
-      <footer class="song-foot">
-        <span class="spacer"></span>
-        <button type="button" class="btn btn-accent" id="songOk">Fermer</button>
-      </footer>
     </div>
   </dialog>
 

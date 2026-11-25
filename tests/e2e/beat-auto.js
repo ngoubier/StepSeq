@@ -72,7 +72,10 @@ const ok = (c, m) => {
   // la scène deux fois dans la chanson : passages, et « Tous » modifie les deux
   await page.click('#songBtn');
   await page.waitForTimeout(300);
-  await page.locator('#sgBlocks .sg-block').first().locator('.sb-tools button').nth(1).click(); // ×2
+  await page.locator('#sgBlocks .sg-block').first().click({ button: 'right' });
+  await page.locator('.pbm-menu button', { hasText: 'Une répétition de plus' }).click(); // ×2
+  await page.waitForTimeout(300);
+  if (!(await page.evaluate(() => document.querySelector('#sgAutoBox').open))) await page.click('#sgAutoBox summary'); // automation repliée
   await page.waitForTimeout(300);
   ok((await page.locator('#sgAuto .ba-row').count()) === 1, 'frise, cutoff : une ligne pour la basse');
   // vélocité : la batterie aussi

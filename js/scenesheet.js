@@ -505,5 +505,5 @@ SS.sceneSheet = (() => {
     });
   }
 
-  return { init, open, close, isOpen, refresh, measureEnergy, paintMutes, chordsByBar, filmPush };
+  return { init, open, close, isOpen, refresh, measureEnergy, paintMutes, chordsByBar, perBar, filmPush };
 })();
