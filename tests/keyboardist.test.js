@@ -101,3 +101,60 @@ test('dans la chanson : le pianiste de l’inspiration joue un motif du Clavier,
   assert.ok(mine.every((e) => !('lh' in e)));
   assert.equal(B.kindOfRole('keys'), 'keys');
 });
+
+test('fenêtre Avancé : motif réécrit, couleurs, étalement, swing, équilibre, octaves', () => {
+  const sp = spans(['i', 'VI']);
+  // motif réécrit : texte de 16 pas, jetons connus seulement
+  assert.ok(K.parsePat('B+C . . . c . . . O+C . . . c . . .'));
+  assert.equal(K.parsePat('B+C . X'), null);
+  assert.equal(K.parsePat('Z . . . . . . . . . . . . . . .'), null);
+  const steps = K.stepsOf('k:blanches');
+  assert.equal(steps.length, 16);
+  assert.equal(steps[0], 'B+C');
+  const pat = K.patText(steps.map((t, i) => (i === 4 ? 'c' : t)));
+  const ev = K.events(sp, 'block4', ctx, pat);
+  assert.ok(ev.some((e) => e.step === 4) && ev.some((e) => e.step === 20), 'le motif réécrit joue, même sur un mode du moteur');
+  assert.equal(K.normalize({ pat }).pat, pat);
+  assert.equal(K.normalize({ pat: 'n’importe quoi' }).pat, undefined);
+  assert.ok(K.advanced({ pat }) && K.advanced({ roll: 20 }) && !K.advanced({ lh: 'oct', energy: 0.9 }));
+  // couleurs : la septième s'ajoute, sus4 remplace la tierce
+  const base = K.events(sp, 'k:blanches', ctx);
+  const rh = (es) => es.filter((e) => Math.min(...e.notes) >= 55 || e.notes.length >= 3);
+  const c0 = sp[0].chord;
+  const rel = (n) => (((n - c0.rootPc) % 12) + 12) % 12;
+  const col = K.shape(base, sp, { col7: true, lh: 'aucune' }, () => 0.5, ctx.tones);
+  assert.ok(col[0].notes.some((n) => rel(n) === 10), 'septième mineure sur i');
+  const sus = K.shape(base, sp, { sus: true, lh: 'aucune' }, () => 0.5, ctx.tones);
+  assert.ok(sus[0].notes.some((n) => rel(n) === 5) && !sus[0].notes.some((n) => rel(n) === 3), 'sus4');
+  assert.ok(rh(col).length);
+  // étalement : une note après l'autre, décalées
+  const roll = K.shape(base, sp, { roll: 60, lh: 'aucune' }, () => 0.5);
+  const first = roll.filter((e) => e.step <= 1);
+  assert.ok(first.length >= 3 && first.some((e) => e.shift || e.step === 1), 'accord étalé');
+  // swing des croches : les contretemps arrivent en retard
+  const pop = K.events(sp, 'k:pop8', ctx);
+  const sw = K.shape(pop, sp, { swing: 1 }, () => 0.5);
+  assert.ok(sw.some((e) => e.shift && e.step === 3), 'croche du contretemps retardée');
+  // équilibre : main droite devant
+  const bal = K.shape(base, sp, { bal: 1 }, () => 0.5);
+  const lhV = bal.find((e) => Math.max(...e.notes) < 55).vel;
+  const rhV = bal.find((e) => Math.min(...e.notes) >= 55).vel;
+  assert.ok(rhV > lhV, 'main droite plus forte');
+  // octaves de l'arpège : la deuxième moitié une octave plus haut
+  const arp = K.events(sp, 'k:up16', ctx);
+  const o2 = K.shape(arp, sp, { oct: 2 }, () => 0.5);
+  assert.equal(o2.find((e) => e.step === 8).notes[0], arp.find((e) => e.step === 8).notes[0] + 12);
+  // jetons approchés d'un mode du moteur
+  const fromEngine = K.patFromEvents(B.chordEvents([{ step: 0, len: 16, chord: { rootPc: 0, type: 'maj' } }], 'block4', () => 0.5, { lo: 57, hi: 79 }));
+  assert.ok(K.parsePat(fromEngine) && /C|c/.test(fromEngine), fromEngine);
+});
+
+test('dans la chanson : le motif réécrit du Clavier', () => {
+  const p = SS.Band.STYLES.flatMap((s) => s.presets).find((x) => x.musicians.some((m) => m.role === 'keys') && SS.BandSongs[x.id].sections && !SS.BandSongs[x.id].meter);
+  const spec = SS.BandSongs[p.id];
+  const tr = p.musicians.filter((m) => !m.injected && !m.kits && !m.horns).map((m) => ({ id: m.role, type: 'instrument', category: 'chord', band: { key: m.role } }));
+  const sec = Object.keys(spec.sections)[0];
+  const pat = 'B+C . . . . . . . . . . . . . . .';
+  const mine = B.build(spec, p.id, tr, { parts: { [sec]: { keys: { mode: 'k:pop8', keys: { pat } } } } }).scenes.find((x) => x.sec === sec).data.keys.events;
+  assert.ok(mine.length && mine.every((e) => e.step % 16 === 0), 'une attaque par mesure');
+});

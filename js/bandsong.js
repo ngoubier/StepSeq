@@ -2417,7 +2417,7 @@ SS.bandSong = (() => {
           mode = o && valid.includes(o.mode) ? o.mode : plan.find((m) => m && valid.includes(m)) || DEFAULT_MODE[kd];
         }
         mode = fitMode(changed ? kd : kindOfRole(role), mode); // autre mesure que 4/4 : un rythme écrit pour elle
-        const one = kd === 'arp' && (role === 'arp' || changed) && !off && o && o.one && SS.Arp ? o.one : null; // Arp One : l'emporte sur le mode
+        const one = ((kd === 'arp' && (role === 'arp' || changed)) || kd === 'keys') && !off && o && o.one && SS.Arp ? o.one : null; // Arp One : l'emporte sur le mode (Arpège, arpégiateur du Clavier)
         const ownL = ie && ie.lead && Array.isArray(ie.lead.events) ? ie.lead.events : t === leadTrack ? ownLead : null; // mélodie imposée de cet instrument
         // mélodie du moteur : réglages de l'instrument par-dessus ceux de la scène ; la graine contient le rôle et le doublon
         const sing = (mrole, m) => {
@@ -2426,9 +2426,10 @@ SS.bandSong = (() => {
           return m === 'rise' ? riseEvents(spans, r, k, bars) : melodyPart(spans, k, bars, mrole, im2 && Object.keys(im2).length ? { ...smel, ...im2 } : smel, (ie && ie.plan) || (mel.plans && mel.plans[id]), (ie && ie.seeds) || (mel.seeds && mel.seeds[id]), `${presetId}/${id}/${role}${dup}/${melodySeed}`, m);
         };
         // Clavier : motif « k: » (js/keyboardist.js), sinon le moteur de nappe (arpège ou accords, registre du piano)
+        const kpat = kk && SIG === '4/4' && o && o.keys && SS.keyboardist && SS.keyboardist.parsePat(o.keys.pat) ? o.keys.pat : null; // motif réécrit dans la fenêtre Avancé
         const keysEv = (m, range = { lo: 57, hi: 79 }) =>
-          /^k:/.test(m) && SS.keyboardist
-            ? SS.keyboardist.events(spans, m, { voice: voiceChord, tones, vel: (v) => vel(r, v) })
+          (/^k:/.test(m) || kpat) && SS.keyboardist
+            ? SS.keyboardist.events(spans, m, { voice: voiceChord, tones, vel: (v) => vel(r, v) }, kpat)
             : ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16', 'ost16', 'dotted', 'toll', ...TRI_ARP].includes(m)
               ? arpEvents(spans, m, r)
               : chordEvents(spans, m, r, { ...range, kp: H().scale(k).map((d) => d.pc) });
@@ -2485,7 +2486,7 @@ SS.bandSong = (() => {
             else events = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16', 'ost16', 'dotted', 'toll', ...TRI_ARP].includes(mode) ? arpEvents(spans, mode, r) : chordEvents(spans, mode, r, { ...range, open: role === 'pad' && !!o && o.voicing === 'open', kp: H().scale(k).map((d) => d.pc) });
           }
         }
-        if (kk) events = SS.keyboardist ? SS.keyboardist.shape(events, spans, o && o.keys, r) : events; // réglages du Clavier (voicing, main gauche, pédale…)
+        if (kk) events = SS.keyboardist ? SS.keyboardist.shape(events, spans, o && o.keys, r, tones) : events; // réglages du Clavier (voicing, main gauche, pédale…)
         // piste Effets d'une scène dont une jonction est réglée : montée, cymbale inversée, impact, descente (voir fxSceneTrack)
         let fxScene = null;
         if (role === 'fx' && !changed && !off && (oj || ij || sec.fxo)) {

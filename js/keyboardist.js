@@ -12,7 +12,9 @@
  *
  * Réglages de la scène (parts[section].inst[id].keys, de 0 à 1 sauf lh) : voice (voicing serré → large), energy,
  * pedal, human, reg (registre de la main droite), accent ; lh = main gauche : 'basse' (comme écrit), 'oct' (octaves),
- * 'aucune' (main droite seule). shape() les applique à tous les modes ; sans réglage, la chanson ne change pas.
+ * 'aucune' (main droite seule). Fenêtre Avancé : pat (motif réécrit, 16 jetons séparés par des espaces, « . » = rien),
+ * col7, col9, sus (couleurs de l'accord), roll (étalement, ms), swing, bal (main gauche 0 ↔ 1 main droite), oct
+ * (octaves de l'arpège, 1 à 3). shape() les applique à tous les modes ; sans réglage, la chanson ne change pas.
  *
  * Jetons d'un motif « k: » (plusieurs par pas, séparés par +) :
  *   main droite : C accord tenu, C9 accord avec la neuvième, c accord court, k accord court et doux, T note haute de
@@ -141,7 +143,50 @@ SS.keyboardist = (() => {
   }
 
   /* ---------- réglages ---------- */
-  const DEF = { voice: 0.3, energy: 0.5, pedal: 0.3, human: 0.3, reg: 0.5, accent: 0.3, lh: 'basse' };
+  const DEF = { voice: 0.3, energy: 0.5, pedal: 0.3, human: 0.3, reg: 0.5, accent: 0.3, lh: 'basse', col7: false, col9: false, sus: false, roll: 0, swing: 0, bal: 0.5, oct: 1, pat: undefined };
+  /** Jetons permis dans un motif réécrit (voir l'en-tête). */
+  const TOKEN = /^(C|C9|c|k|T|M[1358]|1|3|5|7|8|9|10|12|15|B|b|O|F|L[1358])$/;
+  /** Motif réécrit (texte de 16 pas) → { pas: jetons }, ou null s'il n'est pas valable. */
+  function parsePat(pat) {
+    if (typeof pat !== 'string') return null;
+    const st = pat.trim().split(/\s+/);
+    if (st.length !== SPB || !st.every((t) => t === '.' || t.split('+').every((x) => TOKEN.test(x)))) return null;
+    return Object.fromEntries(st.map((t, i) => [i, t === '.' ? null : t]));
+  }
+  /** Pas d'un motif (16 textes, '' = rien) : le motif réécrit, sinon celui du mode « k: ». */
+  function stepsOf(mode, pat) {
+    const P = parsePat(pat) || (ownOf(mode) || {}).pat || {};
+    return Array.from({ length: SPB }, (_, i) => (P[i] ? String(P[i]) : ''));
+  }
+  const patText = (steps) => steps.map((t) => t || '.').join(' ');
+  /**
+   * Jetons approchés d'une mesure de notes jouées sur l'accord de Do majeur (un mode du moteur de nappe), pour que
+   * l'éditeur pas à pas parte du jeu entendu : main gauche sous Sol 3, main droite au-dessus.
+   */
+  function patFromEvents(evs) {
+    const DEG = { 0: '1', 2: '9', 4: '3', 7: '5', 10: '7', 11: '7', 9: '5' };
+    const steps = Array.from({ length: SPB }, () => []);
+    for (const e of evs) {
+      if (!(e.step >= 0 && e.step < SPB)) continue;
+      const lhN = e.notes.filter((n) => n < 55);
+      const md = e.notes.filter((n) => n >= 55);
+      const t = steps[e.step];
+      if (lhN.length) {
+        const lo = Math.min(...lhN);
+        const tok = lhN.some((n) => n === lo + 12) ? 'O' : pcOf(lo) === 7 ? 'F' : e.len <= 2 ? 'b' : 'B';
+        if (!t.some((x) => isLH(x))) t.push(tok);
+      }
+      if (md.length >= 2) {
+        if (!t.some((x) => /^(C|C9|c|k)$/.test(x))) t.push(e.len <= 1 && e.vel < 0.55 ? 'k' : e.len <= 2 ? 'c' : 'C');
+      } else if (md.length === 1) {
+        const n = md[0];
+        const d = DEG[pcOf(n)] || '1';
+        const up = n >= 74 ? { 1: '15', 3: '10', 5: '12', 9: '9', 7: '7' }[d] : n >= 67 && d === '1' ? '8' : d;
+        if (!t.some((x) => /^\d+$/.test(x))) t.push(up);
+      }
+    }
+    return patText(steps.map((t) => t.join('+')));
+  }
   const LH = [['basse', 'Basse', 'La main gauche joue comme écrit dans le motif'], ['oct', 'Octaves', 'La basse doublée à l’octave : plus de poids'], ['aucune', 'Aucune', 'La main droite seule : la place au bassiste']];
   const clamp01 = (v) => Math.max(0, Math.min(1, Number(v)));
   function normalize(s) {
@@ -149,6 +194,11 @@ SS.keyboardist = (() => {
     if (s && typeof s === 'object') {
       for (const k of ['voice', 'energy', 'pedal', 'human', 'reg', 'accent']) if (Number.isFinite(Number(s[k])) && s[k] !== null && s[k] !== '') o[k] = clamp01(s[k]);
       if (LH.some(([v]) => v === s.lh)) o.lh = s.lh;
+      for (const k of ['col7', 'col9', 'sus']) if (typeof s[k] === 'boolean') o[k] = s[k];
+      if (Number.isFinite(Number(s.roll)) && s.roll !== null && s.roll !== '') o.roll = Math.max(0, Math.min(60, Math.round(Number(s.roll))));
+      for (const k of ['swing', 'bal']) if (Number.isFinite(Number(s[k])) && s[k] !== null && s[k] !== '') o[k] = clamp01(s[k]);
+      if ([1, 2, 3].includes(Number(s.oct))) o.oct = Number(s.oct);
+      if (parsePat(s.pat)) o.pat = s.pat.trim().split(/\s+/).join(' ');
     }
     return o;
   }
@@ -173,6 +223,9 @@ SS.keyboardist = (() => {
   const knobPatch = (key, v) => ({ [key]: Math.round(Math.max(0, Math.min(100, v))) / 100 });
   /** Réglages différents des valeurs de départ (pour la pastille « réglé »). */
   const touched = (s) => !!s && Object.keys(DEF).some((k) => s[k] !== undefined && s[k] !== DEF[k]);
+  /** Réglages de la fenêtre Avancé (pour la pastille « ✎ Réglages avancés »). */
+  const ADV = ['pat', 'col7', 'col9', 'sus', 'roll', 'swing', 'bal', 'oct'];
+  const advanced = (s) => !!s && ADV.some((k) => s[k] !== undefined && s[k] !== DEF[k]);
 
   /* ---------- notes ---------- */
   const pcOf = (n) => ((n % 12) + 12) % 12;
@@ -192,12 +245,13 @@ SS.keyboardist = (() => {
    *   notes, tones(chord) → classes de hauteur, vel(v) → vélocité (avec le hasard du moteur) }.
    * Renvoie des notes { step, len, notes, vel, lh? } (lh : main gauche, retiré par shape).
    */
-  function events(spans, mode, ctx) {
+  function events(spans, mode, ctx, pat) {
     const m = ownOf(mode);
-    if (!m || !spans.length) return [];
+    const P = parsePat(pat) || (m && m.pat);
+    if (!P || !spans.length) return [];
     const end = spans.reduce((a, sp) => Math.max(a, sp.step + sp.len), 0);
     const spanAt = (s) => spans.find((sp) => s >= sp.step && s < sp.step + sp.len);
-    const toks = Array.from({ length: SPB }, (_, i) => (m.pat[i] ? String(m.pat[i]).split('+') : []));
+    const toks = Array.from({ length: SPB }, (_, i) => (P[i] ? String(P[i]).split('+') : []));
     const hasHand = (s, lh) => toks[s % SPB].some((t) => isLH(t) === lh);
     const out = [];
     let prev = null;
@@ -269,7 +323,7 @@ SS.keyboardist = (() => {
    * énergie, pédale, main humaine, registre, accent. set absent : les notes ne changent pas (sauf le marqueur lh retiré).
    * r : hasard (0..1) du moteur.
    */
-  function shape(evs, spans, set, r = Math.random) {
+  function shape(evs, spans, set, r = Math.random, tones = null) {
     const clean = (e) => {
       const o = { ...e, notes: [...e.notes] };
       delete o.lh;
@@ -283,6 +337,9 @@ SS.keyboardist = (() => {
       const sp = spans.find((x) => st >= x.step && st < x.step + x.len);
       return sp ? sp.step + sp.len : st + 1;
     };
+    const chordAt = (st) => (spans.find((x) => st >= x.step && st < x.step + x.len) || {}).chord;
+    const end = spans.reduce((a, sp) => Math.max(a, sp.step + sp.len), 0);
+    const odd = evs.some((e) => e.step % 2); // doubles-croches : swing des doubles, sinon des croches
     const out = [];
     for (const e0 of evs) {
       const e = clean(e0);
@@ -300,9 +357,27 @@ SS.keyboardist = (() => {
         if (s.voice < 0.7) md[md.length - 2] -= 12; // drop 2
         else md[1] += 12; // large : la deuxième voix monte d'une octave
       }
+      // couleurs de l'accord : sus4 (la tierce monte à la quarte), septième, neuvième
+      const c = (s.sus || s.col7 || s.col9) && chordAt(e.step);
+      if (c) {
+        const iv = intervals(c, tones ? tones(c) : [c.rootPc, c.rootPc + (/^m(?!aj)|dim/.test(c.type || '') ? 3 : 4), c.rootPc + 7]);
+        const rel = (n) => pcOf(n - c.rootPc);
+        if (s.sus) md = md.map((n) => (rel(n) === iv.third && (iv.third === 3 || iv.third === 4) ? n + (5 - iv.third) : n));
+        if (md.length >= 2) {
+          const top = Math.max(...md);
+          const add = (semi) => {
+            if (md.some((n) => rel(n) === pcOf(semi))) return;
+            md.push(top + (pcOf(c.rootPc + semi - top) || 12)); // au-dessus de l'accord : pas de seconde serrée contre la fondamentale
+          };
+          if (s.col7) add(iv.seventh);
+          if (s.col9) add(14);
+        }
+      }
       // registre de la main droite
       const sh = s.reg < 0.33 ? -12 : s.reg >= 0.67 ? 12 : 0;
       if (sh) md = md.map((n) => n + sh);
+      // octaves de l'arpège : la mesure monte d'une octave par partie (notes seules de la main droite)
+      if (s.oct > 1 && md.length === 1) md = [md[0] + 12 * Math.floor(((e.step % SPB) / SPB) * s.oct)];
       e.notes = [...new Set([...lhN, ...md])].sort((a, b) => a - b);
       if (!e.notes.length) continue;
       // énergie, accent, main humaine
@@ -315,9 +390,43 @@ SS.keyboardist = (() => {
         const room = spanEnd(e.step) - e.step - e.len;
         if (room > 0) e.len += Math.round(room * ((s.pedal - 0.3) / 0.7));
       }
-      out.push(e);
+      // swing : les doubles (ou les croches) du contretemps arrivent en retard
+      const sw = s.swing > 0.02 ? (odd ? (e.step % 2 ? s.swing * 0.33 : 0) : e.step % 4 === 2 ? s.swing * 0.67 : 0) : 0;
+      // équilibre des mains : la main gauche et la main droite séparées, l'une plus forte que l'autre
+      const parts = [];
+      const lhSet = new Set(lhN);
+      if (Math.abs(s.bal - 0.5) > 0.02 && lhN.length && md.length) {
+        parts.push({ ...e, notes: e.notes.filter((n) => lhSet.has(n)), vel: e.vel * (1 + (0.5 - s.bal) * 0.6) });
+        parts.push({ ...e, notes: e.notes.filter((n) => !lhSet.has(n)), vel: e.vel * (1 + (s.bal - 0.5) * 0.6) });
+      } else if (Math.abs(s.bal - 0.5) > 0.02) parts.push({ ...e, vel: e.vel * (1 + (lhN.length ? 0.5 - s.bal : s.bal - 0.5) * 0.6) });
+      else parts.push(e);
+      for (const p of parts) {
+        p.vel = Math.round(Math.max(0.15, Math.min(1, p.vel)) * 100) / 100;
+        // étalement : les notes de l'accord (main droite, trois et plus) l'une après l'autre, de la plus grave à la plus aiguë
+        const rh = p.notes.filter((n) => !lhSet.has(n));
+        if (s.roll > 0 && rh.length >= 3) {
+          const total = s.roll / 125; // ms → pas, au tempo nominal de 120 BPM (comme Arp One)
+          const lh = p.notes.filter((n) => lhSet.has(n));
+          if (lh.length) out.push(place({ ...p, notes: lh }, sw, end));
+          rh.forEach((n, i) => out.push(place({ ...p, notes: [n] }, sw + (total * i) / (rh.length - 1), end)));
+        } else out.push(place(p, sw, end));
+      }
     }
     return out;
+  }
+  /** Décale une note de d pas (pas entier + décalage fin ev.shift, ±0,5 pas), sans dépasser la fin. */
+  function place(e, d, end) {
+    if (!(d > 0.004)) return e;
+    const tot = (e.shift || 0) + d;
+    const k = Math.round(tot);
+    const o = { ...e };
+    if (k && o.step + k >= end) return e;
+    o.step += k;
+    o.len = Math.max(1, o.len - k);
+    const f = Math.round((tot - k) * 100) / 100;
+    if (f) o.shift = f;
+    else delete o.shift;
+    return o;
   }
 
   /** Dessin d'un motif « k: » pour sa carte (SVG en texte, comme SS.padMotifs.svg) : main droite pleine, main gauche pâle. */
@@ -335,5 +444,5 @@ SS.keyboardist = (() => {
     return (draws[mode] = `<svg viewBox="0 0 160 34" preserveAspectRatio="none" aria-hidden="true">${bars}${rects}</svg>`);
   }
 
-  return { svg, JEUX, FAMILIES, STYLES, STYLE_OF, styleOfSong, OWN, ENGINE, ownOf, entryOf, jeuOf, familyOf, stylesOf, inStyle, name, desc, modesOf, ALL, firstOf, surprise, DEF, LH, normalize, KNOBS, knobValue, knobPatch, touched, intervals, events, shape };
+  return { svg, JEUX, FAMILIES, STYLES, STYLE_OF, styleOfSong, OWN, ENGINE, ownOf, entryOf, jeuOf, familyOf, stylesOf, inStyle, name, desc, modesOf, ALL, firstOf, surprise, DEF, LH, normalize, KNOBS, knobValue, knobPatch, touched, ADV, advanced, TOKEN, parsePat, stepsOf, patText, patFromEvents, intervals, events, shape };
 })();

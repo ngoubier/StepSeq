@@ -1024,8 +1024,15 @@ point), **Surprends-moi**, une **Main gauche** *Basse | Octaves | Aucune* et qua
 Pédale, Main humaine ; en Arpèges : Registre, Pédale, Accent, Main humaine). Les motifs « k: » sont écrits pour les
 deux mains (en 4/4 ; hors du 4/4, un rythme de la mesure les remplace) ; les autres sont les modes du moteur de nappe
 que jouent les pianistes des inspirations. Réglages dans `parts…keys`, appliqués à tous les motifs. Le son se choisit à
-l'étape Instruments. Outils Claude : `assistantMusicien({ ajouter: 'clavier' })`, `assistantMotifs`,
-`assistantJeu({ motif: 'k:stride', mainGauche: 'octaves' })`.
+l'étape Instruments. **Avancé…** ouvre la fenêtre du Clavier : un **éditeur pas à pas des deux mains** (main droite :
+accord tenu, court, doux, note haute, octaves ; main gauche : octave, quinte, basse ; en Arpèges, les degrés 1 à 15),
+gardé pour la scène (`keys.pat`, « Motif personnel ») ; un **clavier** qui montre les notes jouées sur chaque accord de
+la scène ; **Voicing** (Serrée, Drop 2, Large ; en Arpèges : 1 à 3 octaves) et Registre ; **Couleurs** 7e, 9e, sus4 ;
+**Étalement** (accord roulé, jusqu'à 60 ms), **Swing**, équilibre **Main gauche ↔ main droite**, Pédale, Main humaine.
+Pour un motif d'arpégiateur, Avancé… ouvre la vraie fenêtre **Arp One** de la scène (comme l'étape Arpège ; réglages
+dans `one`). La pastille « ✎ Réglages avancés » rouvre la fenêtre. Outils Claude : `assistantMusicien({ ajouter:
+'clavier' })`, `assistantMotifs`, `assistantJeu({ motif: 'k:stride', mainGauche: 'octaves', clavier: { septieme: true,
+etalement: 30, pas: 'B+C . . . c . . . O+C . . . c . . .' } })`.
 
 Le mode Guitare est déterministe comme le reste d'Arp One ; la lecture, le rendu et l'export MIDI passent par
 `SS.Arp.renderStep`. Réglages dans `track.arp.guitar` (gardés quand on revient au mode Clavier).
