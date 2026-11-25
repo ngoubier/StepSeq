@@ -65,6 +65,20 @@ const ok = (c, m) => {
   const after = await page.evaluate(() => JSON.stringify(SS.band._state.wiz.mix));
   ok(after !== before && (await page.evaluate(() => SS.wizAutoMix._state().log.length)) === 1, 'Accepter : le mix de l’assistant change, un réglage dans Fait');
   ok((await page.locator('#bwMix .mx-strip.wam-tune').count()) > 0, 'la tranche réglée s’illumine (vert)');
+  // l'illumination ne décale rien : mêmes places pour toutes les tranches (et le bloc d'écoute du panneau garde sa classe)
+  const still = await page.evaluate(() => {
+    const all = [...document.querySelectorAll('#bwMix .mx-strip')];
+    const rect = () => all.map((e) => { const r = e.getBoundingClientRect(); return [r.x, r.y, r.width, r.height].map(Math.round).join(); }).join('|');
+    const a = rect();
+    let same = true;
+    for (const cls of ['wam-hear', 'wam-tune']) {
+      all[0].classList.add(cls);
+      same = same && rect() === a;
+      all[0].classList.remove(cls);
+    }
+    return same && !!document.querySelector('#wizAutoMix .wam-listen');
+  });
+  ok(still, 'tranche illuminée : rien ne se décale');
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'mix-auto-reglage.png') });
   await page.keyboard.press('Control+z');
   await page.waitForTimeout(300);
@@ -91,7 +105,7 @@ const ok = (c, m) => {
   if (await page.locator('#wizAutoMix .wam-card').count()) {
     await page.hover('#wizAutoMix .wam-card >> nth=0');
     await page.waitForTimeout(100);
-    ok((await page.locator('#bwMix .mx-strip.wam-listen').count()) === 1, 'survol d’un conseil : sa tranche s’allume (bleu)');
+    ok((await page.locator('#bwMix .mx-strip.wam-hear').count()) === 1, 'survol d’un conseil : sa tranche s’allume (bleu)');
     await page.mouse.move(10, 10);
   }
 
