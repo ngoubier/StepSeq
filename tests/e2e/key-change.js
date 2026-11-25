@@ -48,6 +48,16 @@ const SHOT = process.env.SHOT;
   ok(/1 ton/.test(await page.textContent('#bandWiz .bh-scene[data-sec="chorus"] .bh-kchg')), 'pastille « ↗ 1 ton » sur le Refrain');
   ok(await page.locator('#bwPlayBar .wpb-key').count() > 0, 'pastilles dans la frise de lecture');
   if (SHOT) await page.screenshot({ path: SHOT + '-accords.png' });
+  // Vérifier : le changement est confirmé (passage préparé) ; essais A/B emprunt et II7 → V
+  await page.click('#bwTab-check'); await page.waitForTimeout(400);
+  const ck = await page.textContent('#bwCkKey').catch(() => '');
+  ok(/Changement de tonalité/.test(ck) && /Passage préparé/.test(ck), 'Vérifier : changement confirmé par le passage préparé');
+  if (SHOT) await page.screenshot({ path: SHOT + '-verifier.png' });
+  await page.click('#bwTab-grid'); await page.waitForTimeout(300);
+  ok(await page.isVisible('#bwAb [data-ab="borrow"]') && await page.isVisible('#bwAb [data-ab="secdom"]'), 'essais A/B : emprunt et II7 → V');
+  await page.click('#bwAb [data-ab="secdom"]'); await page.waitForTimeout(500);
+  ok(await page.evaluate(() => { const a = SS.band._state.wiz.ab; return !!a && a.id === 'secdom' && a.grid.some((c) => c.degree === 1 && c.type === '7'); }), 'II7 → V : la version B a son II7');
+  await page.click('#bwAbCancel'); await page.waitForTimeout(300);
   // Claude : les gestes, puis le pont au relatif mineur avec les accords du geste
   const list = await page.evaluate(() => StepSeq.assistantChangement({ scene: 'bridge' }));
   ok(list.gestes.some((g) => g.geste === 'rel'), 'assistantChangement sans geste : la liste');

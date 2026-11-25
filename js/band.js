@@ -4894,7 +4894,7 @@ SS.band = (() => {
   }
 
   /* ---------- Guide du mode, grilles de la tonalité, essais A/B ---------- */
-  const AB_IDS = ['seventh', 'sus2', 'mode', 'avoid', 'pedal'];
+  const AB_IDS = ['seventh', 'sus2', 'mode', 'avoid', 'pedal', 'borrow', 'secdom'];
   /** Une ligne : la note caractéristique du mode, ce qu'il faut faire entendre et une boucle d'essai (guide MusicEmotion). */
   function modeGuide(k) {
     const H = HM();
@@ -5023,6 +5023,9 @@ SS.band = (() => {
       .filter((T) => T.kind === 'melody' && !mutedIn(sc.sec, T))
       .map((T) => ({ T, r: SS.melody.checkMelody({ events: ((sc.data[T.col.id] || {}).events) || [], chordAt, key: k, spb: SPB(), beat: BEAT() }) }));
     const gridItems = H.gridChecks(k, gch);
+    // la scène change de tonalité par rapport à celle d'avant : le changement est-il confirmé ? (js/keychange.js)
+    const pv = S.wiz.res && kcPrev(S.wiz.res, sc);
+    const keyItems = pv ? SS.keyChange.confirmChecks({ prevKey: pv.sc.key, key: k, grid: g, prevGrid: gridOf(pv.sc) }) : [];
     const warns = gridItems.concat(...mels.map((m) => m.r.items)).filter((i) => i.kind === 'warn').length;
     const open = forceOpen || !!S.wiz.ckOpen;
     return h(
@@ -5031,6 +5034,7 @@ SS.band = (() => {
       h('summary', {}, h('b', {}, 'Vérifier la scène'), h('span', { class: 'hm-pill ' + (warns ? 'warn' : 'ok') }, warns ? `${warns} à vérifier` : 'rien à signaler')),
       h('div', { class: 'bwc-ck-cols' },
         h('div', { class: 'hm-vsec' }, h('h5', {}, 'Accords'), gridItems.length ? list(gridItems) : h('p', { class: 'hm-muted' }, 'Pas d’accords dans cette scène.')),
+        keyItems.length ? h('div', { class: 'hm-vsec', id: 'bwCkKey' }, h('h5', {}, 'Changement de tonalité'), list(keyItems)) : null,
         ...(mels.length
           ? mels.map(({ T, r }) => h('div', { class: 'hm-vsec' }, h('h5', {}, `Mélodie · ${T.name}`, r.stats ? h('small', {}, ` ${r.stats.notes} notes`) : null), r.items.length ? list(r.items) : h('p', { class: 'hm-muted' }, 'Trop peu de notes pour juger.')))
           : [h('div', { class: 'hm-vsec' }, h('h5', {}, 'Mélodie'), h('p', { class: 'hm-muted' }, 'Pas de mélodie dans cette scène.'))])
@@ -5836,7 +5840,8 @@ SS.band = (() => {
     S.wiz.gsel = null;
     if (L.mode) stopListen();
     S.wiz.kc = null;
-    if (w.made.length) S.wiz.hscene = S.wiz.hsec = w.ctx.sec; // on regarde la scène changée (la copie finale)
+    S.wiz.hscene = S.wiz.hsec = w.ctx.sec; // on regarde la scène changée (la copie finale), même si l'écoute était ailleurs
+    S.wiz.follow = true;
     renderWiz();
   }
 

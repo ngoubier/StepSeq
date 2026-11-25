@@ -189,5 +189,40 @@ SS.keyChange = (() => {
     return '→ ' + H().label(to);
   }
 
-  return { FAMS, TAGS, gestures, find, target, fitGrid, adaptGrid, diatonic, prepChord, withPrep, describe, same, tonicPc };
+  /**
+   * « Vérifier la scène » : la nouvelle tonalité est-elle confirmée ? Scène qui change de tonalité par rapport à celle
+   * d'avant (prevKey, prevGrid) : départ sur la tonique, cadence V → I (ou dominante préparée à la fin de la scène
+   * d'avant) en tonalité classique, note caractéristique dans les accords en mode. → [{ kind: ok | tip, text, hint? }]
+   */
+  function confirmChecks({ prevKey, key, grid, prevGrid = [] }) {
+    const label = describe(prevKey, key);
+    if (!label || !grid.length) return [];
+    const Hm = H();
+    const name = (k, c) => Hm.gridChord(k, c.degree, c.type, c.acc || 0, c.bass || 0).name;
+    const tonic = Hm.french(Hm.scale(key)[0].name);
+    const out = [{ kind: 'info', text: `Changement depuis la scène d’avant : ${Hm.label(prevKey)} → ${Hm.label(key)} (${label}).` }];
+    const g0 = grid[0];
+    if (g0.degree === 0 && !(g0.acc || 0) && !g0.bass) out.push({ kind: 'ok', text: `La scène part sur sa nouvelle tonique (${name(key, g0)}) : l’arrivée s’entend dès le premier temps.` });
+    else out.push({ kind: 'tip', text: `La scène ne part pas sur sa nouvelle tonique (${tonic}) : le changement s’entendra plus tard.`, hint: `Fais entendre ${tonic} à la basse sur le premier temps, ou pars de l’accord I.` });
+    const mode = Hm.MODES.find((m) => m.id === key.mode) || {};
+    if (mode.tonal) {
+      const isV = (c) => c && c.degree === 4 && !(c.acc || 0) && ['maj', '7'].includes(c.type);
+      const vPc = (tonicPc(key.tonic) + 7) % 12;
+      const last = prevGrid[prevGrid.length - 1];
+      const prepared = last && ['7', 'maj'].includes(last.type) && Hm.gridChord(prevKey, last.degree, last.type, last.acc || 0).rootPc === vPc;
+      const cad = grid.some((c, i) => isV(c) && grid[i + 1] && grid[i + 1].degree === 0 && !(grid[i + 1].acc || 0));
+      if (prepared) out.push({ kind: 'ok', text: `Passage préparé : ${name(prevKey, last)} finit la scène d’avant et tire vers ${tonic}.` });
+      else if (cad) out.push({ kind: 'ok', text: 'Une cadence V → I confirme la nouvelle tonalité dans la scène.' });
+      else out.push({ kind: 'tip', text: 'Aucune cadence V → I ne confirme la nouvelle tonalité.', hint: 'Essaie un passage préparé (⇅ Changement…) ou finis une phrase par V → I.' });
+    } else if (mode.color != null) {
+      const colorPc = Hm.scale(key)[mode.color].pc;
+      const has = grid.some((c) => Hm.gridChord(key, c.degree, c.type, c.acc || 0, c.bass || 0).notes.some((n) => Hm.pcOf(SS.LETTER_PC[n[0]] + [...n.slice(1)].reduce((a, ch) => a + (ch === '♯' ? 1 : ch === '♭' ? -1 : ch === '𝄪' ? 2 : ch === '𝄫' ? -2 : 0), 0)) === colorPc));
+      const cn = Hm.french(Hm.scale(key)[mode.color].name);
+      if (has) out.push({ kind: 'ok', text: `La note caractéristique du mode (${cn}, ${mode.colorText}) est dans les accords.` });
+      else out.push({ kind: 'tip', text: `La note caractéristique du mode (${cn}) n’est dans aucun accord : le mode s’entendra peu.`, hint: 'Prends les accords du geste (⇅ Changement…) ou fais durer cette note dans la mélodie.' });
+    }
+    return out;
+  }
+
+  return { FAMS, TAGS, gestures, find, target, fitGrid, adaptGrid, diatonic, prepChord, withPrep, describe, confirmChecks, same, tonicPc };
 })();
