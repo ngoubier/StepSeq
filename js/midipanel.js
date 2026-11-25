@@ -11,7 +11,8 @@ SS.midiPanel = (() => {
   let file = null; // { name, buf, als? } fichier en cours d'import (als : projet Ableton converti, voir js/ableton.js)
   let result = null; // dernier résultat d'import (projet + bilan)
   let split = 0.85; // ressemblance des scènes, ou 'clips' : d'après les clips d'un projet Ableton
-  const isAls = (name) => /\.als$/i.test(name || '');
+  const isAls = (name) => /\.(als|zip)$/i.test(name || ''); // projet Ableton, seul ou dans son dossier compressé
+  const isZip = (name) => /\.zip$/i.test(name || '');
 
   function h(tag, attrs = {}, ...kids) {
     const e = document.createElement(tag);
@@ -33,7 +34,7 @@ SS.midiPanel = (() => {
   function pickFile() {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.mid,.midi,.kar,audio/midi,audio/x-midi,.als';
+    input.accept = '.mid,.midi,.kar,audio/midi,audio/x-midi,.als,.zip';
     input.onchange = async () => {
       const f = input.files[0];
       if (!f) return;
@@ -45,7 +46,15 @@ SS.midiPanel = (() => {
   async function analyzeFile() {
     const title = titleOf(file.name);
     try {
-      if (isAls(file.name) && !file.als) file.als = SS.ableton.toMidi(await SS.ableton.unpack(file.buf));
+      if (isAls(file.name) && !file.als) {
+        let bytes = file.buf;
+        if (isZip(file.name)) {
+          const z = await SS.ableton.fromZip(file.buf);
+          bytes = z.als;
+          file.samples = z.samples;
+        }
+        file.als = SS.ableton.toMidi(await SS.ableton.unpack(bytes));
+      }
       const clips = split === 'clips' && file.als;
       result = SS.midi.importFile(file.als ? file.als.bytes : file.buf, {
         title,
@@ -96,6 +105,9 @@ SS.midiPanel = (() => {
     const rows = (list) => h('ul', { class: 'midi-tracks' }, list.map((t) => h('li', {}, h('b', {}, t.name), h('span', {}, t.sound), h('small', {}, `${t.notes} notes${clipsOf(t.name)}`))));
     if (insts.length) box.append(section(`Instruments (${insts.length})`, rows(insts)));
     if (drums.length) box.append(section(`Batterie (${drums.length})`, rows(drums)));
+    const smp = sampleMatches();
+    $('#miSamplesRow').hidden = !smp.length;
+    if (smp.length) $('#miSamplesCount').textContent = `(${smp.length})`;
     if (r.moves && r.moves.length) box.append(section('Mouvements de son', moveRows(r.moves)));
     if (r.warnings.length) box.append(section('Pertes et approximations', h('ul', { class: 'midi-warn' }, r.warnings.map((w) => h('li', {}, w)))));
   }
@@ -121,6 +133,37 @@ SS.midiPanel = (() => {
     return box;
   }
 
+  /**
+   * Pistes de batterie dont l'échantillon d'Ableton est dans le dossier du projet (.zip) : [{ track, sample, read }].
+   * Une piste Ableton est reconnue par sa note General MIDI (son nom : Kick, Snare…).
+   */
+  function sampleMatches() {
+    if (!file || !file.samples || !file.als || !result || result.error) return [];
+    const out = [];
+    for (const a of file.als.info.tracks) {
+      if (!a.drum || a.gmNote == null || !a.sample || !file.samples.has(a.sample)) continue;
+      const type = SS.midi.GM_TO_DRUM[a.gmNote];
+      const t = result.project.tracks.find((x) => x.type === 'drum' && (x.source === 'gm' ? x.bank === String(a.gmNote) : x.sound === type) && !out.some((o) => o.track === x));
+      if (t) out.push({ track: t, sample: a.sample, read: file.samples.get(a.sample), type });
+    }
+    return out;
+  }
+  /** Les échantillons du projet remplacent les sons de batterie choisis (rangés dans le navigateur, js/usersamples.js). */
+  async function useSamples() {
+    let n = 0;
+    for (const m of sampleMatches()) {
+      try {
+        const data = await m.read();
+        const key = await SS.userSamples.put(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength));
+        Object.assign(m.track, { source: 'user', bank: key, sampleName: m.sample, sound: m.type || m.track.sound || 'perc', variant: 0 });
+        n++;
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+    return n;
+  }
+
   function openImport() {
     $('#miFile').textContent = file.name;
     const als = isAls(file.name);
@@ -133,12 +176,14 @@ SS.midiPanel = (() => {
     const dlg = $('#midiImportDialog');
     dlg.returnValue = '';
     dlg.showModal();
+    $('#miCancel').focus(); // pas le « ? » du titre : sa bulle s'ouvrirait toute seule
     setTimeout(analyzeFile, 20); // laisse la fenêtre s'afficher pendant l'analyse
   }
 
   async function confirmImport() {
     if (!result || result.error) return;
     $('#midiImportDialog').close('ok');
+    if (!$('#miSamplesRow').hidden && $('#miSamples').checked) await useSamples();
     await loadImported(result.project, file && file.name, $('#miMachine').value, null, file && file.als ? 'import Ableton' : null);
     result = null;
     file = null;
@@ -153,14 +198,14 @@ SS.midiPanel = (() => {
   }
 
   /* ---------------- Pour Claude (js/claude-tools.js, StepSeq.importerMidi) : mêmes options que la fenêtre ---------------- */
-  const titleOf = (name) => String(name || 'Import MIDI').replace(/\.(mid|midi|kar|als)$/i, '').replace(/[_]+/g, ' ').trim();
+  const titleOf = (name) => String(name || 'Import MIDI').replace(/\.(mid|midi|kar|als|zip)$/i, '').replace(/[_]+/g, ' ').trim();
   /**
    * Analyse un fichier : { project, report } (lève une erreur lisible si le fichier n'est pas un MIDI valable).
    * Un projet Ableton (.als) : asynchrone (décompression), similar 'clips' = scènes d'après les clips.
    */
   async function analyze(buf, { name, similar = 0.85, machine = SS.midi.GM_KIT, quantize = SS.quantizeOn() } = {}) {
     if (!isAls(name)) return SS.midi.importFile(buf, { title: titleOf(name), similar: +similar || 0.85, machine, quantize });
-    const als = SS.ableton.toMidi(await SS.ableton.unpack(buf));
+    const als = SS.ableton.toMidi(await SS.ableton.unpack(isZip(name) ? (await SS.ableton.fromZip(buf)).als : buf));
     const res = SS.midi.importFile(als.bytes, { title: titleOf(name), similar: similar === 'clips' ? 0.85 : similar, cuts: similar === 'clips' ? als.cuts : null, machine, quantize });
     res.report.warnings.unshift(...als.info.warnings, ...als.info.ignored);
     return res;

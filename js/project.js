@@ -782,7 +782,11 @@ SS.normalizeProject = (data) => {
       track.cond = t.cond;
       track.shf = t.shf;
       SS.cleanDrumConds(SS.cleanDrumRatchets(track));
-      if (!SS.DRUM_LIBS.some((l) => l.id === t.source)) track.source = 'tdm';
+      // 'user' : échantillon de l'utilisateur rangé dans le navigateur (batterie d'un projet Ableton importé)
+      if (t.source === 'user' && typeof t.bank === 'string') {
+        if (typeof t.sampleName === 'string') track.sampleName = t.sampleName.slice(0, 80);
+      } else if (!SS.DRUM_LIBS.some((l) => l.id === t.source)) track.source = 'tdm';
+      if (track.source !== 'user') delete track.sampleName;
     } else {
       SS.migrateInstrument(track);
       track.family = SS.locateInstrument(track.family, track.instrument).family.id;
@@ -870,11 +874,11 @@ SS.files = (() => {
   }
 
   // « Ouvrir un fichier… » : un projet, ou un fichier MIDI rendu tel quel ({ midi: { name, buf } }) pour la fenêtre d'import
-  const isMidi = (file) => /\.(mid|midi|kar|als)$/i.test(file.name); // un projet Ableton passe par la même fenêtre d'import
+  const isMidi = (file) => /\.(mid|midi|kar|als|zip)$/i.test(file.name); // un projet Ableton (.als, ou son dossier en .zip) passe par la même fenêtre d'import
   // une partition (image, PDF, MusicXML) : { score: File } pour la fenêtre « Lire une partition » (js/scorepanel.js)
   const isScore = (file) => /\.(pdf|png|jpe?g|gif|webp|bmp|musicxml|xml|mxl)$/i.test(file.name);
   const midiOf = async (file) => ({ midi: { name: file.name, buf: new Uint8Array(await file.arrayBuffer()) } });
-  const openTypes = [{ description: 'Projet StepSeq, fichier MIDI, projet Ableton ou partition', accept: { 'application/json': ['.json'], 'audio/midi': ['.mid', '.midi', '.kar'], 'application/octet-stream': ['.als'], 'application/pdf': ['.pdf'], 'image/*': ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp'], 'application/vnd.recordare.musicxml': ['.musicxml', '.xml', '.mxl'] } }];
+  const openTypes = [{ description: 'Projet StepSeq, fichier MIDI, projet Ableton ou partition', accept: { 'application/json': ['.json'], 'audio/midi': ['.mid', '.midi', '.kar'], 'application/octet-stream': ['.als'], 'application/zip': ['.zip'], 'application/pdf': ['.pdf'], 'image/*': ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp'], 'application/vnd.recordare.musicxml': ['.musicxml', '.xml', '.mxl'] } }];
   async function open() {
     if (window.showOpenFilePicker) {
       try {
@@ -893,7 +897,7 @@ SS.files = (() => {
     return new Promise((resolve, reject) => {
       const input = document.createElement('input');
       input.type = 'file';
-      input.accept = '.json,application/json,.mid,.midi,.kar,audio/midi,audio/x-midi,.als,.pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.musicxml,.xml,.mxl,image/*,application/pdf';
+      input.accept = '.json,application/json,.mid,.midi,.kar,audio/midi,audio/x-midi,.als,.zip,.pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.musicxml,.xml,.mxl,image/*,application/pdf';
       input.onchange = async () => {
         const file = input.files[0];
         if (!file) return resolve(null);

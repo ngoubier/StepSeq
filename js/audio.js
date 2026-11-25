@@ -197,11 +197,18 @@ SS.audio = (() => {
         bufferCache.set(url, entry);
         return entry;
       }
-      entry.promise = fetch(url)
-        .then((r) => {
-          if (!r.ok) throw new Error(r.status + ' ' + url);
-          return r.arrayBuffer();
-        })
+      // échantillon de l'utilisateur, rangé dans le navigateur (« user:<clé> », js/usersamples.js)
+      const user = url.startsWith('user:') ? url.slice(5) : null;
+      entry.promise = (user
+        ? SS.userSamples.get(user).then((ab) => {
+            if (!ab) throw new Error('échantillon absent de ce navigateur ' + url);
+            return ab.slice(0);
+          })
+        : fetch(url).then((r) => {
+            if (!r.ok) throw new Error(r.status + ' ' + url);
+            return r.arrayBuffer();
+          })
+      )
         .then((ab) => decode(ab))
         .then((buf) => (entry.buffer = buf))
         .catch((e) => {
@@ -420,6 +427,7 @@ SS.audio = (() => {
   }
 
   async function bankVariants(lib, bank) {
+    if (lib === 'user') return bank ? ['user:' + bank] : []; // échantillon de l'utilisateur (js/usersamples.js)
     if (lib === 'gm') return SS.gmDrumFiles(bank).map((f) => SS.SOURCES.soundfont + f + '.js');
     const json = await loadJSON(LIB_SOURCE[lib]());
     const list = Array.isArray(json[bank]) ? json[bank] : [];

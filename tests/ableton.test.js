@@ -61,3 +61,28 @@ test('Ableton : un fichier qui n’en est pas un', async () => {
   await assert.rejects(SS.ableton.unpack(new Uint8Array([1, 2, 3])), /Ableton/);
   assert.throws(() => SS.ableton.toMidi('<Ableton><LiveSet><Tracks /></LiveSet></Ableton>'), /aucune piste MIDI/);
 });
+
+test('Ableton : dossier de projet en .zip (le .als, pas sa copie de secours, et les échantillons)', async () => {
+  // zip « stocké » (sans compression) écrit à la main : Backup/vieux.als, Projet/Projet.als, Projet/Samples/Kick.wav
+  const enc = new TextEncoder();
+  const files = [['Projet/Backup/vieux.als', enc.encode('x')], ['Projet/Projet.als', zlib.gzipSync(XML)], ['Projet/Samples/Imported/Kick.wav', enc.encode('RIFF')]];
+  const parts = [];
+  const central = [];
+  let off = 0;
+  const u16 = (v) => [v & 255, (v >> 8) & 255];
+  const u32 = (v) => [v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >>> 24) & 255];
+  for (const [name, data] of files) {
+    const n = enc.encode(name);
+    const local = [...u32(0x04034b50), ...u16(20), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(data.length), ...u32(data.length), ...u16(n.length), ...u16(0), ...n, ...data];
+    central.push(...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(data.length), ...u32(data.length), ...u16(n.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(off), ...n);
+    parts.push(...local);
+    off += local.length;
+  }
+  const eocd = [...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(files.length), ...u16(files.length), ...u32(central.length), ...u32(off), ...u16(0)];
+  require('../js/score-read.js');
+  const z = await SS.ableton.fromZip(new Uint8Array([...parts, ...central, ...eocd]));
+  assert.equal(z.name, 'Projet.als');
+  assert.deepEqual([...z.samples.keys()], ['Kick.wav']);
+  assert.equal(await SS.ableton.unpack(z.als), XML);
+  assert.equal(new TextDecoder().decode(await z.samples.get('Kick.wav')()), 'RIFF');
+});

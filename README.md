@@ -1364,7 +1364,10 @@ Import : **Ouvrir un fichier…** sur un `.mid` ou un projet **Ableton Live** `.
   Découpage **D'après les clips** (par défaut) : une scène commence là où les pistes qui jouent changent. Les sons des
   plugins ne se lisent pas : programme General MIDI choisi d'après le nom de la piste ; un Drum Rack à un son prend la
   note GM de son nom (Kick, Snare, Hats…). Ignorés et listés dans le bilan : pistes audio, vue Session, retours,
-  envois, effets, autres automations ;
+  envois, effets, autres automations. Le **dossier du projet compressé en `.zip`** donne en plus les échantillons
+  de batterie : case **Échantillons du projet pour la batterie** (cochée), chaque piste Drum reconnue (Kick, Snare,
+  Hats…) joue le `.wav` de son Drum Rack (source `user`, rangé dans le navigateur par `js/usersamples.js`, base
+  IndexedDB partagée avec les pistes génératives ; un projet enregistré en fichier et ouvert ailleurs ne l'a pas) ;
 
 - notes placées sur la double-croche, avec leur **décalage d'attaque gardé** en micro-décalage (`ev.shift`, ± ½ pas :
   le jeu humain et les triolets restent à leur place), vélocité, durée (pédale de sustain appliquée) ;

@@ -3,6 +3,7 @@
  *
  *   await SS.ableton.unpack(bytes)  -> texte XML (un .als est un XML compressé en gzip ; DecompressionStream du navigateur)
  *   SS.ableton.toMidi(xml)          -> { bytes (fichier MIDI type 1), cuts: [mesures], info: { version, tempo, tracks, ignored, warnings } }
+ *   await SS.ableton.fromZip(bytes)  -> { als: octets du .als, samples: Map(nom de fichier -> lire()) } (dossier de projet compressé)
  *
  * Le projet devient un fichier MIDI que l'import habituel (SS.midi.importFile) range en scènes : une piste MIDI par piste
  * Ableton (nom, notes des clips de l'Arrangement avec leur boucle, transposition « Pitch »), programme General MIDI choisi
@@ -205,6 +206,10 @@
         if (n) plugins.add(n);
       });
       const drum = all(chain, 'DrumGroupDevice').length > 0;
+      // échantillon du Drum Rack (le premier pad) : nom du fichier, retrouvé ensuite dans le dossier du projet (.zip)
+      const fileRef = drum ? all(chain, 'SampleRef').map((r) => kid(r, 'FileRef')).find(Boolean) : null;
+      const samplePath = fileRef ? val(fileRef, 'Name') || val(fileRef, 'RelativePath') || val(fileRef, 'Path') || '' : '';
+      const sample = samplePath.split(/[\\/]/).pop() || null;
       const pitch = all(chain, 'MidiPitcher').reduce((a, p) => a + num(p, 'Pitch/Manual', 0), 0);
       const clips = all(at(t, 'DeviceChain/MainSequencer/Sample/ArrangerAutomation/Events') || at(t, 'DeviceChain/MainSequencer/ClipTimeable/ArrangerAutomation/Events') || { kids: [] }, 'MidiClip');
       const notes = [];
@@ -268,7 +273,7 @@
       if (val(mixer, 'Speaker/Manual') === 'false') warnings.push(`« ${name} » est coupée dans Ableton : elle est importée quand même.`);
       if (!notes.length) continue;
       if (pitch) warnings.push(`« ${name} » : transposition de ${pitch > 0 ? '+' : ''}${pitch} demi-tons appliquée aux notes.`);
-      midiTracks.push({ name, drum, notes, spans, gain, pan, autos, autoLabels, clips: clips.length });
+      midiTracks.push({ name, drum, notes, spans, gain, pan, autos, autoLabels, clips: clips.length, sample });
     }
     const nt = Object.entries(notTaken).map(([n, set]) => `${n} (${[...set].join(', ')})`);
     if (nt.length) ignored.push(`Automations non reprises : ${nt.join(' ; ')}.`);
@@ -331,7 +336,7 @@
         evs.push({ tick: T(n.t), bytes: [0x90 | chan, key, n.vel] }, { tick: T(n.t + n.d), bytes: [0x80 | chan, key, 0] });
       }
       tracks.push(evs);
-      info.push({ name: tr.name, drum: isDrum, notes: tr.notes.length, clips: tr.clips, automations: tr.autoLabels });
+      info.push({ name: tr.name, drum: isDrum, gmNote: isDrum ? gmNote : null, sample: isDrum ? tr.sample : null, notes: tr.notes.length, clips: tr.clips, automations: tr.autoLabels });
     }
 
     // scènes « d'après les clips » : une mesure où les pistes qui jouent changent
@@ -359,5 +364,15 @@
     };
   }
 
-  SS.ableton = { unpack, toMidi, parseXml, programFor, drumFor };
+  /** Dossier de projet compressé en .zip : le .als principal (pas une copie de « Backup ») et les fichiers audio. */
+  async function fromZip(bytes) {
+    const z = SS.scoreRead.unzip(bytes);
+    const als = z.names.filter((n) => /\.als$/i.test(n) && !/(^|\/)(Backup|__MACOSX)\//i.test(n) && !/(^|\/)\._/.test(n)).sort((a, b) => a.split('/').length - b.split('/').length);
+    if (!als.length) throw new Error('Ce zip ne contient pas de projet Ableton Live (.als).');
+    const samples = new Map();
+    z.names.filter((n) => /\.(wav|aiff?|mp3|flac|ogg)$/i.test(n) && !/(^|\/)(__MACOSX\/|\._)/.test(n)).forEach((n) => samples.set(n.split('/').pop(), () => z.read(n)));
+    return { name: als[0].split('/').pop(), als: await z.read(als[0]), samples };
+  }
+
+  SS.ableton = { unpack, toMidi, fromZip, parseXml, programFor, drumFor };
 })(typeof window !== 'undefined' ? window : globalThis);
