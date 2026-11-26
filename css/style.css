@@ -6587,3 +6587,49 @@ body.wizard-mode #liveBtn, body.wizard-mode #liveDock, body.mixer-open #liveDock
 /* pastilles de couleur des réglages qui bougent, dans la colonne des scènes */
 #bandDialog .bwau-badge .bwau-dots { display: inline-flex; gap: 2px; margin-left: 3px; }
 #bandDialog .bwau-badge .bwau-dots i { width: 10px; height: 7px; border-radius: 2px; display: inline-block; }
+
+/* « Mon motif de basse » (js/bassedit.js) : bouton Avancé… de l'étape Basse, carte « ＋ Nouveau motif… », badge « ✎ À moi » */
+.mot-badge.mine { color: var(--c-violet-soft); text-transform: none; letter-spacing: 0; }
+.mot-card.mot-new { border-style: dashed; color: var(--c-muted); display: grid; place-items: center; min-height: 58px; }
+
+dialog.bbe-dlg { width: min(1040px, 96vw); max-height: 94vh; overflow: auto; padding: 14px 16px; }
+.bbe-head, .bbe-bar, .bbe-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.bbe-head { margin-bottom: 10px; }
+.bbe-head > b { font-size: var(--fs-xl); }
+.bbe-name { width: 220px; font-size: var(--fs-lg); }
+.bbe-bar { margin-bottom: 10px; }
+.bbe-foot { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--c-line); }
+.bbe-field { display: inline-flex; align-items: center; gap: 8px; }
+.bbe-chk { display: inline-flex; align-items: center; gap: 6px; color: var(--c-text-2); }
+.bbe-play { width: 38px; padding: 4px 0; }
+.bbe-play.on { background: var(--c-green-deep); border-color: var(--c-green); }
+.bbe-roll { display: grid; grid-template-columns: 150px 1fr; border: 1px solid var(--c-line); border-radius: 8px; overflow: hidden; background: var(--c-bg); }
+.bbe-labels { border-right: 1px solid var(--c-line); }
+.bbe-lab { height: 22px; display: flex; align-items: center; gap: 6px; padding: 0 8px; font-size: var(--fs-sm); color: var(--c-text-2); border-bottom: 1px solid var(--c-panel); white-space: nowrap; }
+.bbe-lab.sp { color: var(--c-violet-soft); background: var(--c-violet-bg); }
+.bbe-lab.root { color: var(--c-text); font-weight: 600; }
+.bbe-nt { margin-left: auto; color: var(--c-faint); font-size: var(--fs-xs); font-weight: 400; }
+.bbe-vlab { height: 44px; border-top: 1px solid var(--c-line); border-bottom: 0; color: var(--c-muted); }
+.bbe-cells { position: relative; cursor: crosshair; touch-action: none; }
+.bbe-row { height: 22px; display: grid; grid-template-columns: repeat(var(--n), 1fr); border-bottom: 1px solid var(--c-panel); }
+.bbe-row.sp { background: var(--c-violet-bg); }
+.bbe-row.root { background: var(--c-surface-1); }
+.bbe-row i { border-right: 1px solid var(--c-panel); }
+.bbe-row i.beat { border-right-color: var(--c-line); }
+.bbe-row i.bar { border-right-color: var(--c-line-strong); }
+.bbe-note { position: absolute; height: 18px; border-radius: 4px; background: var(--c-green); border: 1px solid var(--c-green-soft); cursor: pointer; }
+.bbe-note.sp { background: var(--c-violet); border-color: var(--c-violet-soft); }
+.bbe-note.slide { box-shadow: -5px 0 0 -1px var(--c-amber); }
+.bbe-note.slide::before { content: '↗'; position: absolute; left: -15px; top: 0; font-size: var(--fs-sm); color: var(--c-amber); }
+.bbe-h { position: absolute; right: 0; top: 0; bottom: 0; width: 7px; cursor: ew-resize; }
+.bbe-cursor { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--c-amber); pointer-events: none; display: none; }
+.bbe-vel { position: relative; height: 44px; border-top: 1px solid var(--c-line); touch-action: none; }
+.bbe-vel span { position: absolute; bottom: 4px; width: 10px; border-radius: 2px 2px 0 0; background: var(--c-green-deep); border-top: 2px solid var(--c-green); cursor: ns-resize; }
+.bbe-hear { margin-top: 12px; }
+.bbe-hear > .bh-lbl { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.bbe-strip { position: relative; height: 92px; background: var(--c-bg); border: 1px solid var(--c-line); border-radius: 8px; overflow: hidden; }
+.bbe-ch { position: absolute; top: 0; height: 16px; font-size: var(--fs-xs); color: var(--c-muted); padding-left: 4px; border-left: 1px solid var(--c-line-strong); white-space: nowrap; overflow: hidden; }
+.bbe-n { position: absolute; height: 6px; border-radius: 2px; background: var(--c-green-soft); min-width: 3px; }
+.bbe-n.sp { background: var(--c-violet-soft); }
+.bbe-nn { position: absolute; font-size: var(--fs-xs); color: var(--c-faint); white-space: nowrap; pointer-events: none; }
+.mot-acts { display: inline-flex; gap: 6px; align-items: center; }

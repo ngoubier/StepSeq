@@ -828,6 +828,12 @@ SS.normalizeProject = (data) => {
     if (data.master.effects && typeof data.master.effects === 'object') p.master.effects = SS.cleanMasterEffects(data.master.effects);
   }
   if (data.returns && typeof data.returns === 'object') p.returns = SS.cleanReturns(data.returns);
+  // motifs de basse écrits (js/mybass.js) joués par les pistes MOTIF : ils voyagent avec le projet
+  const bm = SS.myBass ? SS.myBass.cleanMap(data.bassMotifs) : {};
+  if (Object.keys(bm).length) {
+    p.bassMotifs = bm;
+    SS.myBass.register(bm);
+  }
   // brouillon de l'assistant « Nouvelle chanson » (js/wizdraft.js) : il voyage avec le projet
   const wd = SS.wizDraft && SS.wizDraft.clean(data.wizard);
   if (wd) p.wizard = wd;

@@ -70,7 +70,8 @@ SS.motifPicker = (() => {
    *   count(id) : nombre de motifs d'un style (0 : puce grisée),
    *   fams?: [[id, nom]], fam, onFam(id), familyOf(id), stars?: [ids] (★ Pour cette scène),
    *   ids : motifs du style choisi, cur, insp?, auto?, name(id), desc(id), svg(id), onPick(id), label,
-   *   surprise?: () => …  (bouton Surprends-moi), help?: élément « ? » des styles
+   *   surprise?: () => …  (bouton Surprends-moi), advanced?: bouton à côté (Avancé…), help?: élément « ? » des styles,
+   *   mine?(id) : motif écrit par l'utilisateur (badge « ✎ À moi »), addCard?: carte au bout de la famille « mine »
    * }
    */
   function render(o) {
@@ -88,7 +89,7 @@ SS.motifPicker = (() => {
     const f = famShown(o.fam === undefined && o.cur && stars.length && !stars.includes(o.cur) && o.ids.includes(o.cur) ? 'all' : o.fam, stars);
     const nOf = (fid) => (fid === 'all' ? o.ids.length : fid === 'star' ? stars.length : o.ids.filter((id) => o.familyOf(id) === fid).length);
     const famChip = (id, label, extra = '') => chip('mot-chip mot-fam' + extra, id, f === id, [label, el('span', { class: 'mot-n' }, String(nOf(id)))], () => o.onFam(id), { 'data-f': id });
-    const fams = o.fams || o.surprise
+    const fams = o.fams || o.surprise || o.advanced
       ? el(
           'div',
           { class: 'mot-chips mot-fams', role: 'radiogroup', 'aria-label': 'Familles' },
@@ -96,12 +97,17 @@ SS.motifPicker = (() => {
           ...(o.fams || []).filter(([id]) => nOf(id) || f === id).map(([id, l]) => famChip(id, l)),
           o.fams ? famChip('all', 'Tous') : null,
           el('span', { class: 'spacer' }),
-          o.surprise ? el('button', { type: 'button', class: 'btn btn-small mot-surprise', onclick: o.surprise, title: 'Un motif au hasard parmi ceux affichés' }, 'Surprends-moi') : null
+          el(
+            'span',
+            { class: 'mot-acts' },
+            o.surprise ? el('button', { type: 'button', class: 'btn btn-small mot-surprise', onclick: o.surprise, title: 'Un motif au hasard parmi ceux affichés' }, 'Surprends-moi') : null,
+            o.advanced || null
+          )
         )
       : null;
     const card = (id) => {
       const on = id === o.cur;
-      const badge = on && id === o.auto ? el('em', { class: 'mot-badge auto', title: 'Joué d’office : le premier motif conseillé pour ce type de scène' }, 'auto') : id === o.insp ? el('em', { class: 'mot-badge insp' }, 'Inspiration') : null;
+      const badge = on && id === o.auto ? el('em', { class: 'mot-badge auto', title: 'Joué d’office : le premier motif conseillé pour ce type de scène' }, 'auto') : id === o.insp ? el('em', { class: 'mot-badge insp' }, 'Inspiration') : o.mine && o.mine(id) ? el('em', { class: 'mot-badge mine' }, '✎ À moi') : null;
       return el(
         'button',
         { type: 'button', role: 'radio', 'aria-checked': String(on), class: 'mot-card' + (on ? ' on' : '') + (badge ? (on && id === o.auto ? ' has-auto' : ' has-badge') : ''), 'data-id': id, title: o.desc(id) || null, onclick: () => o.onPick(id) },
@@ -111,7 +117,7 @@ SS.motifPicker = (() => {
       );
     };
     const shown = o.fams || stars.length ? visible(o.ids, { fam: f, stars, familyOf: o.familyOf }) : o.ids;
-    const cards = el('div', { class: 'mot-cards', role: 'radiogroup', 'aria-label': o.label || 'Motifs' }, shown.map(card));
+    const cards = el('div', { class: 'mot-cards', role: 'radiogroup', 'aria-label': o.label || 'Motifs' }, shown.map(card), f === 'mine' && o.addCard ? o.addCard : null);
     return [styles, fams, cards].filter(Boolean);
   }
 

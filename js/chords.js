@@ -279,7 +279,7 @@ window.SS = window.SS || {};
   }
   function motifCached(p, track, f, chords, sc) {
     sc = sc || SS.currentScene(p);
-    const key = sig(['motif', f, sc && sc.id, sc && sc.key, p.bars, chords.map((c) => [c.step, c.len, c.info.rootPc, c.info.type, c.info.bassPc, c.info.pedalPc])]);
+    const key = sig(['motif', f, SS.myBass ? SS.myBass.version() : 0, sc && sc.id, sc && sc.key, p.bars, chords.map((c) => [c.step, c.len, c.info.rootPc, c.info.type, c.info.bassPc, c.info.pedalPc])]);
     const hit = cache.get(track);
     if (hit && hit.key === key) return hit.out;
     const out = motifEvents(p, track, f, chords, sc);

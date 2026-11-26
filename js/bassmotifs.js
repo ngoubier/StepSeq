@@ -8,7 +8,7 @@ window.SS = window.SS || {};
 SS.bassMotifs = (() => {
   /** Styles : [id, nom, motifs]. Un motif peut être dans plusieurs styles ; « Tous » les montre une fois. */
   const GROUPS = [
-    ['synth', 'Synthwave & 80s', ['8', 'gallop', 'oct', 'pulse8', 'sync', 'roll', 'whole', 'half', 'quarter', 'walk', 'drone', 'rootfifth', 'arp', 'pickup', 'sixteen', 'oct16', 'pointee']],
+    ['synth', 'Synthwave & 80s', ['8', 'gallop', 'oct', 'pulse8', 'sync', 'roll', 'whole', 'half', 'quarter', 'walk', 'drone', 'rootfifth', 'arp', 'pickup', 'sixteen', 'oct16', 'pointee', 'sequence8']],
     ['pop', 'Pop-rock', ['rock8', 'ballade', 'b03', 'quarter', 'rootfifth', 'pointee', 'anticip', 'walkup', 'boomchick']],
     ['funk', 'Funk & Disco', ['disco16', 'slap', 'funk', 'oct']],
     ['soul', 'Soul & Jazz', ['motown', 'walking', 'walkskip', 'ballade', 'ballade128', 'pointee', 'chroma', 'walkup']],
@@ -26,15 +26,19 @@ SS.bassMotifs = (() => {
    */
   const FAMS = [
     ['tenue', 'Tenues', ['whole', 'half', 'walk', 'drone', 'pickup', 'ballade', 'sub808', 'reese', 'valseped']],
-    ['regul', 'Régulières', ['8', 'oct', 'pulse8', 'quarter', 'rootfifth', 'sixteen', 'oct16', 'rock8', 'boomchick', 'hades', 'offbeat', 'off16', 'trance', 'valse', 'valsepop', 'valseavance', 'valse8', 'oct68', 'tarentelle', 'marche128', 'shuffle', 'cel_motorik', 'cel_rockabilly', 'cel_wobble']],
+    ['regul', 'Régulières', ['8', 'sequence8', 'oct', 'pulse8', 'quarter', 'rootfifth', 'sixteen', 'oct16', 'rock8', 'boomchick', 'hades', 'offbeat', 'off16', 'trance', 'valse', 'valsepop', 'valseavance', 'valse8', 'oct68', 'tarentelle', 'marche128', 'shuffle', 'cel_motorik', 'cel_rockabilly', 'cel_wobble']],
     ['synco', 'Syncopées', ['gallop', 'sync', 'roll', 'pointee', 'anticip', 'disco16', 'slap', 'funk', 'boombap', 'trap808', 'drill', 'dnbroll', 'tresillo', 'dembow', 'tumbao', 'onedrop', 'roots', 'bossa', 'afro', 'chacha', 'cumbia', 'baiao', 'montuno', 'tumbao23', 'amapiano', 'seismic', 'oracle', 'troy', 'phalanx', 'necropolis', 'styx', 'athens', 'mythos', 'thebes', 'twostep', 'ballade128', 'ballade68', 'galop68', 'slow128', 'berce128', 'gigue', 'cel_chic', 'cel_pfunk', 'cel_thumb', 'cel_studio60', 'cel_gallop', 'cel_steppers', 'cel_lagos', 'cel_surdo', 'cel_gfunk', 'cel_frenchtouch']],
     ['ligne', 'Lignes', ['arp', 'b03', 'walkup', 'motown', 'walking', 'walkskip', 'chroma', 'acid', 'valsejazz', 'boogie128', 'arp68b', 'arp128b', 'shuffle128', 'gospel128', 'cel_hitsville', 'cel_fretless', 'cel_liverpool', 'cel_coldwave', 'cel_staccato80', 'cel_ska', 'cel_boogie', 'cel_neosoul']],
   ];
-  const familyOf = (id) => (FAMS.find((f) => f[2].includes(id)) || ['synco'])[0];
+  // « Mes motifs » : ceux écrits dans la fenêtre « Mon motif de basse » (js/mybass.js), dans tous les styles
+  FAMS.push(['mine', '✎ Mes motifs', []]);
+  const mine = () => (SS.bandSong && SS.bandSong.myBassIds ? SS.bandSong.myBassIds() : []);
+  const isMine = (id) => /^my_/.test(id || '');
+  const familyOf = (id) => (isMine(id) ? 'mine' : (FAMS.find((f) => f[2].includes(id)) || ['synco'])[0]);
   /** Conseillés dans la fenêtre Nouvelle piste. */
   const PICKS = ['8', 'rock8', 'disco16'];
 
-  const modes = () => (SS.band && SS.band.BASS_MODES) || [];
+  const modes = () => [...((SS.band && SS.band.BASS_MODES) || []), ...mine().map((id) => [id, SS.bandSong.myBass(id).name, ''])];
   const entry = (id) => modes().find((m) => m[0] === id);
   const name = (id) => (entry(id) || [id, id])[1];
   const desc = (id) => (entry(id) || [])[2] || '';
@@ -50,7 +54,7 @@ SS.bassMotifs = (() => {
     modes().forEach((m) => !ids.includes(m[0]) && ids.push(m[0]));
     return ids;
   }
-  const inGroup = (g) => (g === 'all' ? all() : ((GROUPS.find((x) => x[0] === g) || [])[2] || []).filter((id) => entry(id)));
+  const inGroup = (g) => (g === 'all' ? all() : [...((GROUPS.find((x) => x[0] === g) || [])[2] || []).filter((id) => entry(id)), ...mine()]);
 
   /** Piste de basse : son rangé dans le rôle Basse (js/catalog.js), ou piste qui joue déjà un motif. */
   function isBass(t) {
@@ -69,7 +73,7 @@ SS.bassMotifs = (() => {
   // les notes décalées (triolets) sont dessinées à leur vraie place
   const draws = {};
   function svg(id, spb, beat0) {
-    const ck = `${id}|${spb || ''}|${beat0 || ''}`;
+    const ck = `${id}|${spb || ''}|${beat0 || ''}${isMine(id) && SS.myBass ? '|' + SS.myBass.version() : ''}`; // un motif écrit change : nouveau dessin
     if (!draws[ck]) {
       const nb = (SS.bandSong.motifBars && SS.bandSong.motifBars(id)) || 1;
       const bl = spb && barOf(id) === 16 ? spb : barOf(id); // pas par mesure (12 en 3/4 et 6/8, 24 en 12/8 ; motif sans mesure : celle du morceau)
@@ -109,7 +113,8 @@ SS.bassMotifs = (() => {
   /**
    * Écran de choix partagé (fenêtre MOTIF de la Grille, étapes Basse et Nappe de Nouvelle chanson) : la carte Motif
    * commune (SS.motifPicker.render). o = { group, cur, insp?, auto?, mark?, onGroup(g), onPick(id), lib?, keep?, spb?,
-   * beat?, fam?, onFam?(f), stars?, surprise? } ; mark : puce marquée d'un point (style de la chanson) ; lib : autre
+   * beat?, fam?, onFam?(f), stars?, surprise?, advanced?, addCard? } ; advanced : bouton « Avancé… » à côté de Surprends-moi ;
+   * addCard : carte « ＋ Nouveau motif… » au bout de la famille « ✎ Mes motifs » ; mark : puce marquée d'un point (style de la chanson) ; lib : autre
    * bibliothèque ({ GROUPS, inGroup, name, desc, svg, FAMS, familyOf, label }, par exemple SS.padMotifs) ; keep(id) :
    * filtre en plus du style ; spb : pas par mesure du morceau (12 en 3/4 et 6/8, 24 en 12/8 : seuls les motifs qui y
    * vont) ; beat : pas par temps (6 en 6/8 et 12/8) ; sans onFam, pas de ligne de familles. Rend [puces, familles, cartes].
@@ -142,8 +147,11 @@ SS.bassMotifs = (() => {
       onPick: o.onPick,
       label: L.label,
       surprise: o.surprise,
+      mine: o.lib ? null : isMine,
+      advanced: o.advanced,
+      addCard: o.addCard,
     });
   }
 
-  return { GROUPS, FAMS, familyOf, PICKS, all, inGroup, name, desc, isBass, svg, picker, groupOfStyle, fits, barOf };
+  return { GROUPS, FAMS, familyOf, isMine, PICKS, all, inGroup, name, desc, isBass, svg, picker, groupOfStyle, fits, barOf };
 })();
