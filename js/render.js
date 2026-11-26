@@ -479,11 +479,11 @@ SS.render = (() => {
   /* ================= Rendu dans le cadre invisible ================= */
 
   /** Un rendu : { left, right, sampleRate }. */
-  function renderOnce(json, { seconds, sampleRate, seed, tap = null }, { onProgress, signal } = {}) {
+  function renderOnce(json, { seconds, sampleRate, seed, tap = null }, { onProgress, onChunk, signal } = {}) {
     return new Promise((resolve, reject) => {
       if (signal && signal.aborted) return reject(new DOMException('Rendu annulé', 'AbortError'));
       const f = document.createElement('iframe');
-      f.name = JSON.stringify({ ssRender: 1, seconds, sampleRate, seed, tap });
+      f.name = JSON.stringify({ ssRender: 1, seconds, sampleRate, seed, tap, stream: !!onChunk });
       f.title = 'Rendu audio';
       f.setAttribute('aria-hidden', 'true');
       f.tabIndex = -1;
@@ -504,7 +504,9 @@ SS.render = (() => {
         try {
           const host = f.contentWindow && f.contentWindow.SS && f.contentWindow.SS.renderHost;
           if (!host) throw new Error('page de rendu introuvable');
-          const r = await host.run(json, { onProgress });
+          // onChunk : le son arrive aussi par morceaux pendant le rendu (écoute pré-calculée qui démarre tout de suite)
+          const chunk = onChunk && ((c) => !settled && onChunk({ frame: c.frame, left: new Float32Array(c.left), right: new Float32Array(c.right) }));
+          const r = await host.run(json, { onProgress, onChunk: chunk });
           if (settled) return;
           const out = { left: new Float32Array(r.left), right: new Float32Array(r.right), sampleRate: r.sampleRate };
           cleanup();

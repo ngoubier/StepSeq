@@ -8,6 +8,8 @@
  *   4. rend le son : le rendu s'arrête tous les STEP secondes, le séquenceur programme les notes suivantes,
  *      puis le rendu reprend. Avance de programmation du moteur : 0,12 s au moins ; STEP = 0,05 s.
  *   Retourne { left, right, sampleRate } (Float32Array).
+ *   onChunk (écoute pré-calculée de l'assistant) : le son rendu arrive aussi par morceaux d'une demi-seconde,
+ *   onChunk({ frame, left, right }), pour que la page principale puisse commencer à jouer avant la fin du rendu.
  */
 window.SS = window.SS || {};
 SS.renderHost = (() => {
@@ -35,7 +37,59 @@ SS.renderHost = (() => {
     await Promise.all(jobs.map((j) => Promise.resolve(j).catch(() => {})));
   }
 
-  async function run(json, { onProgress } = {}) {
+  /** Point d'écoute en continu : le processeur renvoie le son qui va à la sortie, par morceaux de CHUNK images. */
+  function tapModule(scope) {
+    const CHUNK = 24000;
+    class Tap extends scope.AudioWorkletProcessor {
+      constructor() {
+        super();
+        this.l = new Float32Array(CHUNK);
+        this.r = new Float32Array(CHUNK);
+        this.n = 0;
+        this.frame = 0;
+      }
+      flush() {
+        if (!this.n) return;
+        const left = this.l.slice(0, this.n);
+        const right = this.r.slice(0, this.n);
+        this.port.postMessage({ frame: this.frame, left, right }, [left.buffer, right.buffer]);
+        this.frame += this.n;
+        this.n = 0;
+      }
+      process(inputs) {
+        const inp = inputs[0] || [];
+        const a = inp[0];
+        const b = inp[1] || a;
+        const len = (a && a.length) || 128;
+        for (let i = 0; i < len; i++) {
+          this.l[this.n] = a ? a[i] : 0;
+          this.r[this.n] = b ? b[i] : 0;
+          if (++this.n === CHUNK) this.flush();
+        }
+        return true;
+      }
+    }
+    scope.registerProcessor('ss-render-tap', Tap);
+  }
+  async function streamTap(ctx, onChunk) {
+    const url = URL.createObjectURL(new Blob([`(${tapModule.toString()})(globalThis);`], { type: 'application/javascript' }));
+    try {
+      await ctx.audioWorklet.addModule(url);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+    const node = new AudioWorkletNode(ctx, 'ss-render-tap', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1], channelCount: 2, channelCountMode: 'explicit' });
+    node.port.onmessage = (e) => onChunk(e.data);
+    ctx.__sink.connect(node);
+    const mute = ctx.createGain();
+    mute.gain.value = 0;
+    node.connect(mute).connect(realDest(ctx));
+    return node;
+  }
+  // la vraie sortie du rendu (ctx.destination renvoie le point de branchement)
+  const realDest = (ctx) => Object.getOwnPropertyDescriptor(BaseAudioContext.prototype, 'destination').get.call(ctx);
+
+  async function run(json, { onProgress, onChunk } = {}) {
     const cfg = window.__ssRenderCfg;
     if (!cfg) throw new Error('page de rendu ouverte sans configuration');
     const p = SS.normalizeProject(JSON.parse(json));
@@ -50,6 +104,7 @@ SS.renderHost = (() => {
     await Promise.all(mods.map((m) => Promise.resolve(m).catch(() => {})));
     await preload(p);
     if (cfg.tap) SS.audio.freezeTap(cfg.tap); // « Figer » : le son de l'instrument seul
+    const tap = cfg.stream && onChunk && ctx.__sink ? await streamTap(ctx, onChunk) : null;
     SS.audio.applyMaster(p);
     p.tracks.forEach((t) => SS.audio.applyMix(t));
     SS.audio.start(() => p, () => {}, {
@@ -79,6 +134,7 @@ SS.renderHost = (() => {
     }
     const buf = await ctx.startRendering();
     if (onProgress) onProgress(1);
+    if (tap) tap.port.onmessage = null; // la page principale complète la fin avec le son entier
     SS.audio.stop();
     return { left: buf.getChannelData(0), right: buf.getChannelData(1), sampleRate: buf.sampleRate };
   }
