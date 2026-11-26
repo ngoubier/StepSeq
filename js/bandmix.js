@@ -312,6 +312,9 @@ SS.bandMix = (() => {
       const sc = S.sc[role];
       if (kick && sc) Object.assign(fx, { scSource: kick.id, scDepth: sc, scRelease: role === 'bass' ? 0.16 : 0.22 });
       else if (fx.scSource && !sc) delete fx.scSource;
+      // effets écrits dans le plan du modèle (js/band-songs.js, plan.fx[rôle] : phaser du drone, écho de la basse…)
+      const planFx = SS.BandSongs && t.band.preset && SS.BandSongs[t.band.preset] && SS.BandSongs[t.band.preset].fx;
+      if (planFx && planFx[role]) Object.assign(fx, planFx[role]);
       for (const [k, v] of Object.entries(fx)) if (v === SS.FX_DEFAULTS[k]) delete fx[k];
       if (Object.keys(fx).length) t.fx = fx;
       else delete t.fx;

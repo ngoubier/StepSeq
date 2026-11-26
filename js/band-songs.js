@@ -59,6 +59,58 @@ SS.BandSongs = {
     form: 'intro verse chorus verse chorus solo chorus outro',
   },
 
+  // Électro-disco nocturne (dans l'esprit des séquences de Giorgio Moroder, fin des années 70 ; titre, ligne de basse et thème
+  // originaux) : basse séquencée en croches piquées sur deux accords (Dm | Am), pédale de La tenue tout le morceau avec une
+  // voix qui glisse Fa → Mi, thème en appel (son nasal) et réponse (son soufflé) par phrases de quatre mesures, pont
+  // B♭ C B♭ C Gm A7 ; le son bouge plus que les notes : filtre et résonance de la basse, écho qui s'ouvre, phaser lent sur le
+  // drone (sec.auto : courbes de la scène ; fx : effets des pistes ; sec.notes : parties écrites, voir js/bandsong.js)
+  neons: (() => {
+    const B = 16;
+    const SECTION = (bars, fn) => Array.from({ length: bars }, (_, b) => fn(b)).flat();
+    // pédale La2 + La3 tenue toute la scène ; voix du dessus : une note par mesure (Fa4 sur Dm, Mi4 sur Am)
+    const drone = (bars, voices) => [{ step: 0, len: bars * B, notes: [45, 57], vel: 0.62 }, ...SECTION(bars, (b) => [{ step: b * B, len: B, notes: [voices[b % voices.length]], vel: 0.5 }])];
+    // thème par phrases de 4 mesures : appel (mesures 1-2) au thème, réponse (mesures 3-4) au son soufflé
+    const CALL = [[0, 2, 69], [2, 2, 72], [4, 4, 74], [8, 2, 72], [10, 2, 69], [12, 4, 65], [16, 12, 64]];
+    const ANSWER = [[36, 2, 62], [38, 2, 65], [40, 2, 69], [42, 2, 74], [44, 12, 72], [60, 4, 69]];
+    const phrases = (bars, list, oct = false, v = 0.82) =>
+      SECTION(bars / 4, (q) => list.map(([st, len, n]) => ({ step: q * 64 + st, len, notes: oct ? [n, n + 12] : [n], vel: v })));
+    const DM_AM = 'i | v';
+    const PONT = 'VI | VII | VI | VII | iv | V7 | i | i';
+    return {
+      key: 'D minor', groove: 'hinrg', emotion: 'suspense',
+      fx: {
+        pad: { phaser: 0.5, phaserSync: 4, phaserDepth: 0.75, phaserCenter: 650, phaserFb: 0.45, phaserStages: 6 },
+        bass: { sendEcho: 0.14 },
+        lead: { sendEcho: 0.24 },
+        vox: { sendEcho: 0.2 },
+      },
+      sections: {
+        intro: { bars: 16, chords: DM_AM, drums: 'light', bass: 'sequence8', pad: 'sustain', fill: false, name: 'Intro',
+          notes: { pad: drone(16, [65, 64]) },
+          auto: { bass: { filter: [[0, -0.75], [1, -0.45]], res: [[0, 0.15], [1, 0.55]] }, pad: { volume: [[0, 0], [0.5, 0.75], [1, 1]] } } },
+        rise: { bars: 16, chords: DM_AM, drums: 'main', bass: 'sequence8', pad: 'sustain', name: 'Montée',
+          notes: { pad: drone(16, [65, 64]) },
+          auto: { bass: { filter: [[0, -0.6], [0.375, -0.1], [0.5, -0.6], [0.875, -0.05], [1, -0.3]], res: [[0, 0.45]], echo: [[0, 0.05], [1, 0.4]] } } },
+        theme: { bars: 16, chords: DM_AM, drums: 'full', bass: 'sequence8', pad: 'sustain', lead: 'hook', vox: 'answer', name: 'Thème',
+          notes: { lead: phrases(16, CALL), pad: drone(16, [65, 64]), vox: phrases(16, ANSWER, false, 0.74) },
+          auto: { bass: { filter: [[0, -0.3]], res: [[0, 0.35]] } } },
+        breath: { bars: 8, chords: DM_AM, drums: 'break', bass: 'sequence8', pad: 'sustain', fx: 'riser', name: 'Respiration',
+          notes: { pad: drone(8, [65, 64]) },
+          auto: { bass: { filter: [[0, -0.45], [1, -0.2]], res: [[0, 0.65]], echo: [[0, 0.55]] }, pad: { reverb: [[0, 0.5]] } } },
+        bridge: { bars: 8, chords: PONT, drums: 'main', bass: 'sequence8', pad: 'sustain', name: 'Pont',
+          notes: { pad: drone(8, [65, 64, 65, 64, 62, 64, 65, 65]) },
+          auto: { bass: { filter: [[0, -0.3]], res: [[0, 0.3]] } } },
+        theme2: { bars: 16, chords: DM_AM, drums: 'full', bass: 'sequence8', pad: 'sustain', lead: 'hook', vox: 'answer', name: 'Thème 2',
+          notes: { lead: phrases(16, CALL, true), pad: drone(16, [65, 64]), vox: phrases(16, ANSWER, false, 0.78) },
+          auto: { bass: { filter: [[0, 0]], res: [[0, 0.25]] } } },
+        outro: { bars: 16, chords: DM_AM, drums: 'light', bass: 'sequence8', pad: 'sustain', fill: false, name: 'Final',
+          notes: { pad: drone(16, [65, 64]) },
+          auto: { bass: { filter: [[0, -0.15], [1, -0.85]], volume: [[0, 1], [0.6, 1], [1, 0]] }, pad: { filter: [[0, 0], [1, -0.6]] } } },
+      },
+      form: 'intro rise theme breath bridge theme2 bridge outro',
+    };
+  })(),
+
   // Course de nuit à 171 BPM : riff de synthé, refrain euphorique, élan permanent
   blinding: {
     key: 'C minor', groove: 'drive', emotion: 'euphorie',

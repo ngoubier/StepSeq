@@ -131,6 +131,12 @@ voir « Nouvelle chanson » plus bas), sur le projet en cours. Ses deux premièr
    « Les phares s'allument » (`phares`, ballade qui monte, Mi♭ 72 BPM, orgue VCSL, guitare arpégée puis refrain final
    tout ouvert) et « Pluie sur la rocade » (`pluie`, mid-tempo mélancolique en mi dorien, 88 BPM, guitare acoustique
    grattée, violoncelles, harmonica) ; la tuile **✦ D'après une émotion** part de l'un d'eux pour une émotion calme ;
+   le style **Synthwave** a aussi « Néons en fuite » (`neons`, électro-disco dans l'esprit des séquences de Giorgio
+   Moroder, titre, basse et thème originaux) : Ré mineur 124 BPM, Dm | Am, basse en croches piquées (motif « Séquence
+   électro-disco », `sequence8`), drone La2 + La3 avec un phaser lent au tempo, thème en appel et réponse, pont
+   B♭ C B♭ C Gm A7 ; le plan écrit ses parties (`sections[…].notes`, la mélodie seulement tant que l'assistant garde
+   celle de l'inspiration), ses courbes de son par scène (`sections[…].auto` : filtre et résonance de la basse, écho)
+   et les effets de ses pistes (`fx`, appliqués au mixage) ; il se joue bien avec la console **Live** ;
 2. le **type de chanson** : des inspirations par style (Smalltown Boy, Nightcall, Blinding Lights, Sweet Dreams…,
    Levels, Strobe, Opus, Faded…, Powers of Ten, Eternity, Return to Oz, Sky and Sand, Your Mind, Rej…), avec un
    tempo suggéré ;
