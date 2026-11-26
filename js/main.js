@@ -443,6 +443,7 @@
     initViewSwitch();
     $('#openProject').addEventListener('click', openProject);
     $('#saveProject').addEventListener('click', (e) => saveProject(e.shiftKey));
+    $('#closeProject').addEventListener('click', () => closeProject());
   }
 
   /** Nombre de mesures de la scène en cours (sélecteur Mesures, ou tuile de la fenêtre Song). */
@@ -1031,6 +1032,44 @@
     }
   }
 
+  /** Choix de la fenêtre « Fermer … ? » : 'save', 'discard' ou 'cancel' (Échap = Annuler). */
+  function askClose() {
+    const dlg = $('#closeDialog');
+    $('#closeDlgName').textContent = project.title || 'la chanson';
+    dlg.returnValue = 'cancel';
+    return new Promise((resolve) => {
+      dlg.addEventListener('close', () => resolve(dlg.returnValue || 'cancel'), { once: true });
+      dlg.showModal();
+    });
+  }
+
+  /**
+   * Menu ▸ Fermer, depuis la Grille comme depuis l'Assistant : la chanson reste dans « Mes chansons »
+   * (enregistrée à chaque modification) et l'on repart d'une chanson vide (bouton « Nouvelle chanson »).
+   * La question Enregistrer / Ne pas enregistrer / Annuler ne vient que si rien ne la garde (bibliothèque indisponible).
+   * Renvoie false si l'utilisateur annule.
+   */
+  async function closeProject({ ask = true } = {}) {
+    if (ask && !SS.autosave.libraryAvailable() && dirty && project.tracks.length) {
+      const choice = await askClose();
+      if (choice === 'cancel') return false;
+      if (choice === 'save') {
+        await saveProject(false);
+        if (dirty) return false; // enregistrement annulé ou en échec : on ne ferme pas
+      }
+    }
+    if (SS.band.active()) SS.band.close();
+    await SS.autosave.saveNow();
+    SS.files.reset();
+    const fresh = SS.newProject();
+    fresh.bars = 4;
+    fresh.title = await inventTitle();
+    autoNamed = { id: fresh.id, title: fresh.title }; // laissée vide, elle ne restera pas dans « Mes chansons »
+    SS.commitScene(fresh);
+    await loadSong(fresh, { changed: true, origin: { kind: 'chanson fermée', detail: { via: 'menu « Fermer »' } } });
+    return true;
+  }
+
   async function openProject() {
     if (!SS.autosave.libraryAvailable() && dirty && project.tracks.length && !confirm('Ouvrir un autre projet ? Les modifications non enregistrées seront perdues.')) return;
     try {
@@ -1175,7 +1214,7 @@
   SS.load.init({ project: () => project });
   SS.freeze.init({ project: () => project, changed, renderTrack: (t) => SS.ui.renderTrack(t), toast: (m, ms) => SS.ui.toast(m, ms) });
   // window.StepSeq : boîte à outils pour Claude (extension Claude in Chrome, plus tard le panneau intégré), js/claude-tools.js
-  SS.claudeTools.init({ project: () => project, changed, commit: recordHistory, switchScene, afterSceneChange, setBars, play, stop, undo, redo });
+  SS.claudeTools.init({ project: () => project, changed, commit: recordHistory, switchScene, afterSceneChange, setBars, play, stop, undo, redo, closeProject });
   SS.band.init({ project: () => project, changed, setWizardDraft, toast: (m) => SS.ui.toast(m), wizardMode, openTrackDialog: (t, init) => SS.ui.openTrackDialog(t, init), apply: addBandTracks, applySong: addBandSong, bandTracks, hasNotes, writeMelody, loadSong });
   SS.mySongs.init({ project: () => project, loadSong, flush: () => SS.autosave.saveNow() });
   SS.midiPanel.init({ project: () => project, loadSong: (p, opts) => loadSong(p, { changed: true, ...(opts || {}) }), flush: () => SS.autosave.saveNow() });

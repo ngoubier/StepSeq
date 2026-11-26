@@ -13,7 +13,7 @@
  */
 window.SS = window.SS || {};
 SS.claudeTools = (() => {
-  let app = null; // { project, changed, commit, switchScene, afterSceneChange, setBars, play, stop, undo, redo }
+  let app = null; // { project, changed, commit, switchScene, afterSceneChange, setBars, play, stop, undo, redo, closeProject }
   let actions = 0; // écritures depuis l'ouverture de la page (badge « Claude »)
   let group = null; // { titre, n } pendant StepSeq.groupe
 
@@ -1109,6 +1109,14 @@ SS.claudeTools = (() => {
       ...(r.warnings.length ? { pertes: r.warnings } : {}),
     };
   }
+  /** Menu ▸ Fermer : la chanson reste dans « Mes chansons », on repart d’une chanson vide (assistant fermé s’il est ouvert). */
+  async function fermer({ forcer } = {}) {
+    const avant = app.project().title;
+    if (!SS.autosave.libraryAvailable() && !forcer) throw new Error('« Mes chansons » n’est pas disponible : fermer perdrait les modifications non enregistrées (forcer: true pour fermer quand même)');
+    await app.closeProject({ ask: false });
+    return { message: `« ${avant} » fermée${SS.autosave.libraryAvailable() ? ' (elle reste dans « Mes chansons »)' : ''} : chanson vide « ${app.project().title} ».` };
+  }
+
   async function importerMidi({ url, base64, octets, nom, decoupage, batterie, quantize, apercu, fenetre } = {}) {
     const name = nom || (url ? nameOfUrl(url) : 'Import MIDI');
     const als = /\.als$/i.test(name);
@@ -1667,6 +1675,7 @@ SS.claudeTools = (() => {
     { nom: 'accords', lecture: true, description: 'La grille d’accords d’une scène (accord, pas, durée).', params: { scene: SCENE }, faire: accords },
     { nom: 'sons', lecture: true, description: 'Les sons disponibles pour un rôle (ou les kits et éléments de batterie).', params: { role: S('texte', 'batterie, percu, basse, nappe, arpege, lead, piano, guitare, cordes, sax, cuivres, voix, orchestre, effets'), recherche: S('texte', 'un bout de nom : "moog", "strings", "rhodes"…') }, faire: sons },
 
+    { nom: 'fermer', assistant: true, description: 'Menu ▸ Fermer : ferme la chanson en cours (et l’assistant s’il est ouvert) ; elle reste dans « Mes chansons ». On repart d’une chanson vide. Pas d’étape Ctrl+Z : on la rouvre par « Mes chansons ». Asynchrone : await.', params: { forcer: S('booléen', 'fermer même si « Mes chansons » est indisponible (modifications perdues)') }, faire: fermer },
     { nom: 'importerMidi', description: 'Importe un fichier MIDI ou un projet Ableton Live (.als, nom en .als) comme menu ▸ Ouvrir un fichier… : une nouvelle chanson (pistes, scènes, arrangement) remplace celle en cours, qui reste dans « Mes chansons ». Asynchrone : await.', params: { url: S('texte', 'adresse du fichier .mid (le site doit l’autoriser)'), base64: S('texte', 'ou le fichier en base64'), octets: S('liste', 'ou ses octets (Uint8Array ou liste de nombres)'), nom: S('texte', 'nom du fichier (titre de la chanson)'), decoupage: S('texte', 'scènes : fidele, equilibre (défaut), compact ; clips (défaut d’un .als : d’après les clips d’Ableton)'), batterie: S('texte', 'gm (défaut, sons d’origine), RolandTR808, RolandTR909, LinnDrum, RolandTR707'), quantize: S('booléen', 'caler les notes sur la grille (défaut : réglage Quantize de l’app)'), apercu: S('booléen', 'seulement le bilan, sans importer'), fenetre: S('booléen', 'ouvrir la fenêtre d’import réglée ainsi : l’utilisateur relit et confirme') }, faire: importerMidi },
     { nom: 'partition', lecture: true, description: 'État de la fenêtre « Lire une partition » (menu ▸ Lire une partition…) : fichier déposé, pages, contenu (auto, melodie, piano, ensemble), résultat ; et le format attendu par lirePartition.', params: {}, faire: partition },
     { nom: 'partitionPage', lecture: true, description: 'Affiche en grand une page de la partition déposée par l’utilisateur, pour la lire à l’écran.', params: { page: S('nombre', 'n° de page (1 = la première)') }, faire: partitionPage },
