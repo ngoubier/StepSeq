@@ -1247,6 +1247,7 @@ window.SS = window.SS || {};
     const k = kitOfTrack(t);
     if (k) return KITS[k].label;
     const lib = (SS.DRUM_LIBS || []).find((l) => l.id === t.source);
+    if (t.source === 'user') return `échantillon ${t.sampleName || ''}`.trim(); // batterie d'un projet Ableton (js/usersamples.js)
     return t.source && t.source !== 'tdm' ? `${lib ? lib.label + ' · ' : ''}${t.bank}` : t.machine || '';
   }
 

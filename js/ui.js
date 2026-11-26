@@ -212,6 +212,7 @@ SS.ui = (() => {
         const d = SS.findGmDrum(track.bank);
         return `General MIDI · ${d ? d.label : track.bank} (${track.bank}) ${(track.variant || 0) + 1}`;
       }
+      if (track.source === 'user') return `Échantillon · ${(track.sampleName || '').replace(/\.(wav|aiff?|mp3|flac|ogg)$/i, '') || 'importé'}`;
       if (track.source && track.source !== 'tdm') {
         const lib = SS.DRUM_LIBS.find((l) => l.id === track.source);
         return `${lib ? lib.label : track.source} · ${track.bank} ${(track.variant || 0) + 1}`;

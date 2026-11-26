@@ -291,12 +291,13 @@
     const out = new Response(new Blob([bytes]).stream().pipeThrough(ds));
     return new Uint8Array(await out.arrayBuffer());
   }
-  async function unzipMxl(buf) {
+  /** Fichiers d'un zip : { names: [chemins], read(chemin) -> Uint8Array | null } (asynchrone). Lève une erreur si le zip est abîmé. */
+  function unzip(buf) {
     const b = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
     const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
     let eocd = -1;
     for (let i = b.length - 22; i >= Math.max(0, b.length - 65557); i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
-    if (eocd < 0) throw new Error('fichier .mxl illisible (zip abîmé)');
+    if (eocd < 0) throw new Error('fichier zip illisible (abîmé ?)');
     const count = dv.getUint16(eocd + 10, true);
     let p = dv.getUint32(eocd + 16, true);
     const files = new Map();
@@ -318,7 +319,22 @@
       if (!f) return null;
       const start = f.off + 30 + dv.getUint16(f.off + 26, true) + dv.getUint16(f.off + 28, true);
       const data = b.subarray(start, start + f.csize);
-      return dec.decode(f.method === 0 ? data : await inflate(data));
+      return f.method === 0 ? data : inflate(data);
+    };
+    return { names: [...files.keys()], read };
+  }
+  async function unzipMxl(buf) {
+    let z;
+    try {
+      z = unzip(buf);
+    } catch (e) {
+      throw new Error('fichier .mxl illisible (zip abîmé)');
+    }
+    const files = new Set(z.names);
+    const dec = new TextDecoder();
+    const read = async (name) => {
+      const d = await z.read(name);
+      return d ? dec.decode(d) : null;
     };
     let target = null;
     const container = await read('META-INF/container.xml');
@@ -467,5 +483,5 @@
     return F.write({ ppq: PPQ, tracks });
   }
 
-  SS.scoreRead = { fromMusicXML, unzipMxl, fromNotes, toMidi, chordNotes, keyOf, keyLabel, KEYS, PROGRAMS, guessProgram, tempoOfWords };
+  SS.scoreRead = { fromMusicXML, unzip, unzipMxl, fromNotes, toMidi, chordNotes, keyOf, keyLabel, KEYS, PROGRAMS, guessProgram, tempoOfWords };
 })(typeof window !== 'undefined' ? window : globalThis);

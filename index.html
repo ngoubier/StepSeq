@@ -802,6 +802,7 @@
       <div id="miReport" class="midi-report" aria-live="polite"></div>
       <p class="dlg-hint" data-helpify>Un nouveau projet est créé ; la chanson en cours reste dans <b>Chansons</b>.</p>
       <div class="dlg-footer">
+        <label class="midi-check" id="miSamplesRow" hidden><input id="miSamples" type="checkbox" checked> Échantillons du projet pour la batterie <span id="miSamplesCount"></span><button type="button" class="help-tip" data-help="Les sons de batterie du dossier du projet (.wav) remplacent ceux de StepSeq. Ils sont rangés dans ce navigateur : un projet enregistré en fichier et ouvert sur un autre ordinateur ne les aura pas." data-help-title="Échantillons du projet" aria-label="Aide : Échantillons du projet">?</button></label>
         <span class="spacer"></span>
         <button type="button" id="miCancel" class="btn">Annuler</button>
         <button type="submit" id="miOk" class="btn btn-accent">Importer</button>
@@ -1131,6 +1132,7 @@
   <script src="js/master-dsp.js?v=watch-1"></script>
   <script src="js/juno-dsp.js?v=light-1"></script>
   <script src="js/juno.js?v=light-1"></script>
+  <script src="js/usersamples.js"></script>
   <script src="js/ambient.js"></script>
   <script src="js/catalog.js?v=vsco-1"></script>
   <script src="js/expression.js"></script>
