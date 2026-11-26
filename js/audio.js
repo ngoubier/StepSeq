@@ -2965,12 +2965,23 @@ SS.audio = (() => {
    * Écoute pré-calculée (appareil trop lent, js/band.js) : la chanson est d'abord rendue hors temps réel, puis
    * l'enregistrement est joué pendant que le séquenceur tourne sans jouer de notes (curseur, blocs, affichage).
    * backing = { buffer, timeOf(bloc, répétition, pas) -> seconde de l'enregistrement, loop: { start, end } }.
+   * Pendant le rendu, buffer est null et le son arrive par morceaux (chunks), programmés au fur et à mesure.
    * L'enregistrement contient déjà le Master et le mastering : il va droit à la sortie.
    */
   function startBacking(when, offset) {
     const b = seq.backing;
     if (!b) return;
     stopBacking();
+    const g = ctx.createGain();
+    g.connect(ctx.destination);
+    g.connect(masterMeter.node);
+    b.gain = g;
+    if (!b.buffer) {
+      // en cours de rendu : les morceaux déjà rendus sont programmés bout à bout, les suivants à leur arrivée (backingFed)
+      b.play = { when, offset, srcs: [], next: 0 };
+      feedBacking(b);
+      return;
+    }
     const src = ctx.createBufferSource();
     src.buffer = b.buffer;
     if (b.loop) {
@@ -2978,28 +2989,69 @@ SS.audio = (() => {
       src.loopStart = b.loop.start;
       src.loopEnd = b.loop.end;
     }
-    const g = ctx.createGain();
     src.connect(g);
-    g.connect(ctx.destination);
-    g.connect(masterMeter.node);
     const start = Math.max(when, ctx.currentTime);
     src.start(start, Math.max(0, Math.min(b.buffer.duration - 0.01, offset + (start - when))));
     b.src = src;
-    b.gain = g;
+  }
+  /**
+   * Écoute pré-calculée en continu : programme les morceaux arrivés depuis le dernier appel (b.chunks : { start, buf }
+   * dans l'ordre). Une scène en boucle : une fois le son entier rendu, la boucle prend le relais à la fin du 2e passage.
+   */
+  function feedBacking(b) {
+    const pl = b.play;
+    if (!pl || !b.gain) return;
+    const now = ctx.currentTime;
+    const at = (sec) => pl.when + (sec - pl.offset); // heure de sortie d'une seconde de l'enregistrement
+    for (; pl.next < b.chunks.length; pl.next++) {
+      const c = b.chunks[pl.next];
+      const end = c.start + c.buf.duration;
+      if (b.loop && c.start >= b.loop.end) continue; // au-delà de la boucle : jamais entendu
+      const t = at(c.start);
+      const start = Math.max(t, now);
+      const skip = Math.max(0, pl.offset - c.start, start - t);
+      if (skip >= c.buf.duration || at(end) <= now) continue;
+      const src = ctx.createBufferSource();
+      src.buffer = c.buf;
+      src.connect(b.gain);
+      src.start(start, skip, b.loop ? Math.max(0, Math.min(c.buf.duration, b.loop.end - c.start) - skip) : undefined);
+      pl.srcs.push(src);
+    }
+    if (b.loop && b.buffer && !pl.looped && pl.offset < b.loop.end) {
+      pl.looped = true;
+      const src = ctx.createBufferSource();
+      src.buffer = b.buffer;
+      src.loop = true;
+      src.loopStart = b.loop.start;
+      src.loopEnd = b.loop.end;
+      src.connect(b.gain);
+      const t = at(b.loop.end);
+      const start = Math.max(t, now);
+      src.start(start, b.loop.start + ((start - t) % (b.loop.end - b.loop.start)));
+      pl.srcs.push(src);
+    }
+  }
+  /** Un nouveau morceau de l'écoute pré-calculée est arrivé (js/band.js) : il est programmé s'il est en lecture. */
+  function backingFed(b) {
+    if (seq.backing === b && b.play && b.gain) feedBacking(b);
   }
   function stopBacking() {
     const b = seq.backing;
-    if (!b || !b.src) return;
-    const { src, gain } = b;
+    if (!b || !b.gain) return;
+    const { gain } = b;
+    const srcs = (b.src ? [b.src] : []).concat(b.play ? b.play.srcs : []);
     b.src = null;
     b.gain = null;
+    b.play = null;
     const now = ctx.currentTime;
     gain.gain.setTargetAtTime(0, now, 0.01);
-    try {
-      src.stop(now + 0.06);
-    } catch (e) {
-      /* déjà arrêté */
-    }
+    srcs.forEach((src) => {
+      try {
+        src.stop(now + 0.06);
+      } catch (e) {
+        /* déjà arrêté */
+      }
+    });
     setTimeout(() => gain.disconnect(), 200);
   }
 
@@ -3423,6 +3475,7 @@ SS.audio = (() => {
     /** Projet en cours de lecture (celui de l'écoute de l'assistant, par exemple), ou null à l'arrêt. */
     playingProject: () => ((seq.playing || seq.paused) && seq.getProject ? seq.getProject() : null),
     isLoading: () => !!seq.pending,
+    backingFed,
     setOnLoading: (fn) => (onLoading = fn || (() => {})),
     isPaused: () => !!seq.paused,
     pause,

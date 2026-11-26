@@ -27,6 +27,15 @@
       super(2, length, sampleRate);
       this.__allow = false;
       window.__ssRenderCtx = this;
+      // écoute pré-calculée en continu (stream) : tout ce qui va à la sortie passe par un point de branchement
+      // (js/render-host.js y écoute le son rendu pour l'envoyer par morceaux à la page principale)
+      if (cfg.stream) {
+        this.__sink = super.createGain();
+        this.__sink.connect(super.destination);
+      }
+    }
+    get destination() {
+      return this.__sink || super.destination;
     }
     resume() {
       return this.__allow ? super.resume() : Promise.resolve();
@@ -67,5 +76,5 @@
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
   // tap : rendu « Figer » d'une piste (js/freeze.js) : seul le son de son instrument, avant sa tranche de console
-  window.__ssRenderCfg = { seconds, sampleRate, length, tap: typeof cfg.tap === 'string' ? cfg.tap : null };
+  window.__ssRenderCfg = { seconds, sampleRate, length, tap: typeof cfg.tap === 'string' ? cfg.tap : null, stream: !!cfg.stream };
 })();

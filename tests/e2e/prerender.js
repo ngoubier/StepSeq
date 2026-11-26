@@ -1,8 +1,8 @@
 /*
  * Test de bout en bout : écoute pré-calculée de l'assistant « Nouvelle chanson » (appareil trop lent).
  *   node tests/e2e/prerender.js
- * 1. Réglage actif : « Calcul de l'écoute… » puis lecture de l'enregistrement (aucune note calculée en direct),
- *    le curseur avance, pause / reprise / arrêt.
+ * 1. Réglage actif : « Calcul de l'écoute… » puis lecture de l'enregistrement dès les premières secondes calculées
+ *    (aucune note calculée en direct), le curseur avance, pause / reprise / arrêt.
  * 2. Automatique : le son décroche pendant une écoute → le réglage s'active et l'écoute repart pré-calculée.
  */
 const { chromium } = require('playwright');
@@ -41,16 +41,20 @@ const OUT = process.env.SHOTS || '/tmp';
     });
     await page.goto(`http://localhost:${server.address().port}/index.html`);
     await page.waitForFunction(() => window.StepSeq && window.SS && SS.ui);
-    await page.evaluate(() => {
+    const tStart = await page.evaluate(() => {
       StepSeq.assistantOuvrir();
       StepSeq.assistantStyle({ style: 'synthwave', inspiration: 'smalltown' });
       StepSeq.assistantEcouter();
+      return Date.now();
     });
     // 1. calcul, puis lecture
     await page.waitForFunction(() => /Calcul de l’écoute/.test(document.querySelector('#lcdTitle').textContent), null, { timeout: 10000 });
     ok(true, 'afficheur : « ' + (await page.textContent('#lcdTitle')) + ' »');
     await page.screenshot({ path: path.join(OUT, 'prerender-calcul.png') });
     await page.waitForFunction(() => SS.audio.isPlaying(), null, { timeout: 180000 });
+    // le son arrive par morceaux : l'écoute part sans attendre la fin du calcul (45 s pour toute la chanson)
+    const wait = Date.now() - tStart;
+    ok(wait < 8000, `l'écoute part avant la fin du calcul (${wait} ms)`);
     await page.waitForTimeout(2500);
     const a = await page.evaluate(() => {
       const p = SS.audio.probe();
@@ -76,11 +80,11 @@ const OUT = process.env.SHOTS || '/tmp';
     await page.evaluate(() => SS.band.stopListen());
     await page.waitForTimeout(400);
     ok(!(await page.evaluate(() => SS.audio.isPlaying())), 'arrêt');
-    // 2e écoute : déjà calculée (cache), part tout de suite
+    // 2e écoute (la 1re arrêtée en cours de calcul : recalculée), part tout de suite
     const t0 = Date.now();
     await page.evaluate(() => StepSeq.assistantEcouter());
     await page.waitForFunction(() => SS.audio.isPlaying(), null, { timeout: 60000 });
-    ok(Date.now() - t0 < 3000, `2e écoute sans recalcul (${Date.now() - t0} ms)`);
+    ok(Date.now() - t0 < 3000, `2e écoute rapide (${Date.now() - t0} ms)`);
     await page.evaluate(() => SS.band.stopListen());
 
     // 2. automatique : réglage absent, le son décroche
