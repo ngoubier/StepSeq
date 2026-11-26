@@ -99,6 +99,17 @@ const ok = (c, m) => {
   await page.waitForTimeout(300);
   ok((await page.evaluate(() => JSON.stringify(SS.band._state.wiz.mix))) === before, 'Annuler toute la session : le mix d’avant revient');
 
+  // à l'arrêt : le mode Auto accepte quand même les conseils déjà proposés
+  await page.click('#play');
+  await page.waitForTimeout(300);
+  await page.click('#wizAutoMix .wam-sw button[data-auto="true"]');
+  const stopped = await page.waitForFunction(() => SS.wizAutoMix._state().log.some((x) => x.by === 'auto'), null, { timeout: 15000 }).then(() => true, () => false);
+  ok(stopped && !(await page.evaluate(() => SS.band.mixAuto.playing())), 'à l’arrêt, Auto accepte les conseils proposés');
+  await page.click('#wizAutoMix .wam-sw button[data-auto="false"]');
+  await page.click('#wizAutoMix .wam-tabs button[data-tab="log"]');
+  await page.click('#wizAutoMix .wam-undo-all');
+  await page.click('#play');
+
   // survol d'une carte : sa tranche s'allume en bleu
   await page.click('#wizAutoMix .wam-tabs button[data-tab="mix"]');
   await page.waitForTimeout(1600);

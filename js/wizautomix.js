@@ -22,7 +22,8 @@ SS.wizAutoMix = (() => {
   const W = () => SS.wizMix;
   const host = () => SS.band && SS.band.mixAuto;
   const PREFS_KEY = 'stepseq.wizautomix';
-  const AUTO_GAP = 6; // secondes d'écoute entre deux gestes du mode Auto
+  const AUTO_GAP_MS = 2500; // mode Auto : temps entre deux gestes
+  const ANNOUNCE_MS = 1200; // mode Auto : la tranche visée s'allume (écoute) avant le geste
   const clone = (x) => JSON.parse(JSON.stringify(x));
   const fr = (x, d = 1) => (Math.round(x * 10 ** d) / 10 ** d).toString().replace('.', ',').replace('-', '−');
   const h = (tag, attrs = {}, ...children) => {
@@ -63,7 +64,8 @@ SS.wizAutoMix = (() => {
   const decisions = new Map(); // id du conseil -> 'accepted' | 'refused'
   const doses = new Map(); // id -> dosage choisi (0,25..1,5)
   let log = []; // réglages appliqués, du plus récent au plus ancien : { sid, title, track, by, entries }
-  let lastAuto = 0; // secondes d'écoute au dernier geste du mode Auto
+  let lastAuto = 0; // performance.now() du dernier geste du mode Auto
+  let announcedAt = 0;
   let status = '';
   const scDiags = new Map(); // « Chaque scène » : clé de scène -> dernier diagnostic de cette scène
   let curScene = null; // clé de la scène entendue
@@ -175,6 +177,7 @@ SS.wizAutoMix = (() => {
     const it = log[i];
     if (!hp || !it) return false;
     W().revert(hp.mix(), it.entries);
+    glow.tune = []; // le réglage défait ne s'allume plus
     log.splice(i, 1);
     decisions.delete(it.sid);
     if (!log.length) start = null;
@@ -196,6 +199,7 @@ SS.wizAutoMix = (() => {
     if (ab === 'A') setAB('B');
     hp.setMix(clone(start));
     start = null;
+    glow.tune = [];
     log = [];
     decisions.clear();
     status = 'Session de mix annulée';
@@ -243,39 +247,47 @@ SS.wizAutoMix = (() => {
     const sum = LS().summary();
     const now = performance.now();
     if (p && sum && sum.mix.n && ab === 'B' && now - lastDiag > 1500) {
-      diag = A().diagnose(sum, context(p));
+      const d = A().diagnose(sum, context(p));
       lastDiag = now;
-      if (prefs.perScene && curScene && diag.ready) scDiags.set(curScene, diag);
-      if (prefs.auto && hp.playing() && diag.ready) autoStep(sum.secs);
+      // après un geste on réécoute : les conseils déjà là restent jusqu'au diagnostic suivant
+      if (d.ready || !diag || !diag.ready) diag = d;
+      if (prefs.perScene && curScene && d.ready) scDiags.set(curScene, d);
     }
+    if (prefs.auto && ab === 'B') autoStep(now);
     render();
     paint();
   }
-  /** Mode Auto : un geste (le conseil le plus important d'une famille permise), puis on réécoute. */
-  function autoStep(secs) {
-    if (lastAuto && secs - lastAuto < AUTO_GAP - 2) return;
-    const L = pending().filter((x) => !x._scene || x._scene === curScene);
+  /**
+   * Mode Auto : accepte lui-même, un geste toutes les 2,5 s, les conseils en attente des familles permises (le plus
+   * important d'abord). La tranche visée s'allume d'abord (écoute), puis le réglage est appliqué ; l'écoute repart
+   * ensuite de zéro pour juger le mix réglé. Marche aussi à l'arrêt, sur les conseils déjà proposés.
+   */
+  function autoStep(now) {
+    if (!diag || !diag.ready || !listenProj()) return;
+    const L = pending();
     const s = L.find((x) => prefs.scopes[familyOf(x)]);
     if (!s) {
       status = L.length ? 'Le reste attend ton accord' : 'Le mix est en place';
+      announced = null;
       glow.listen = null;
       return;
     }
-    // d'abord on écoute la tranche visée (elle s'allume en bleu), le geste vient au diagnostic suivant
+    if (now - lastAuto < AUTO_GAP_MS) return;
+    // d'abord on écoute la tranche visée (elle s'allume en bleu), le geste vient juste après
     if (announced !== s._key) {
       announced = s._key;
+      announcedAt = now;
       glow.listen = stripOf(s);
       status = `Pilote : écoute ${trackName(s)}…`;
       return;
     }
-    if (lastAuto && secs - lastAuto < AUTO_GAP) return;
+    if (now - announcedAt < ANNOUNCE_MS) return;
     announced = null;
     if (accept(s, 'auto')) {
       status = `Pilote : ${s.title}`;
       LS().reset(); // la suite se juge sur le mix réglé
-      lastAuto = 0.001;
-      diag = null;
-    }
+      lastAuto = now;
+    } else decisions.set(s._key, 'refused'); // conseil impossible à appliquer : on passe au suivant
   }
 
   /* ------------------------------------------------------------------ illumination (étape Mix) */
