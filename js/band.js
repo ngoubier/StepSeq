@@ -3149,7 +3149,8 @@ SS.band = (() => {
     const cols = wizCols();
     const harmony = harmonyOpts(true);
     const parts = partsEff();
-    const sig = JSON.stringify([sigOf(), p.id, cover() && S.cover, film() && !filmTpl() && S.film, S.wiz.seed, melodyOpts(), harmony, JSON.stringify(parts, (k, v) => (k === 'hidden' ? undefined : v)), S.wiz.kinds, S.wiz.form, S.wiz.secs, S.wiz.skey, cols.map((c) => [c.id, c.o]), S.wiz.fx]);
+    if (SS.myBass && S.wiz.myBass) SS.myBass.register(S.wiz.myBass); // motifs de basse écrits de la chanson (brouillon rouvert)
+    const sig = JSON.stringify([sigOf(), SS.myBass ? SS.myBass.version() : 0, p.id, cover() && S.cover, film() && !filmTpl() && S.film, S.wiz.seed, melodyOpts(), harmony, JSON.stringify(parts, (k, v) => (k === 'hidden' ? undefined : v)), S.wiz.kinds, S.wiz.form, S.wiz.secs, S.wiz.skey, cols.map((c) => [c.id, c.o]), S.wiz.fx]);
     if (S.wiz.sig !== sig) {
       const sp = specEff();
       const fake = cols.map((c) => ({ id: c.id, type: c.o.type, sound: c.o.sound, band: c.o.band }));
@@ -9016,6 +9017,9 @@ SS.band = (() => {
         const ids = [...document.querySelectorAll('#bwMotif .mot-card')].map((c) => c.dataset.id).filter((id) => id !== cur);
         if (ids.length) pick(ids[Math.floor(Math.random() * ids.length)]);
       },
+      // « Avancé… » : écrire son motif (le motif joué s'il est à soi, sinon un nouveau qui part du motif joué)
+      advanced: h('button', { type: 'button', class: 'btn btn-small mot-adv', id: 'bwBassAdv', title: 'Écrire son propre motif de basse', onclick: () => openBassAdvanced(sc, T, false) }, 'Avancé…'),
+      addCard: h('button', { type: 'button', class: 'mot-card mot-new', id: 'bwBassNew', onclick: () => openBassAdvanced(sc, T, true) }, '＋ Nouveau motif…'),
     });
     return [
       partHead(sc, T, 'basse', false),
@@ -9045,6 +9049,139 @@ SS.band = (() => {
         )
       ),
     ];
+  }
+
+  /**
+   * Fenêtre « Mon motif de basse » (js/bassedit.js) : écrire son motif, joué en direct dans la scène pendant l'écriture.
+   * fresh : un nouveau motif (sinon le motif joué s'il est à soi). OK : le motif va dans S.wiz.myBass (il voyage avec la
+   * chanson), dans la bibliothèque si « Garder » est coché, et aux scènes choisies au pied ; Annuler remet tout comme avant.
+   */
+  function openBassAdvanced(sc, T, fresh) {
+    if (!SS.bassEdit || !SS.myBass) return;
+    const MB = SS.myBass;
+    const o = partOf(sc.sec, T) || {};
+    const cur = mutedIn(sc.sec, T) ? null : o.mode || planMode(sc, T);
+    const editing = !fresh && MB.isMine(cur) && MB.get(cur);
+    const id = editing ? cur : MB.newId();
+    const spb = SPB();
+    const beat = BEAT();
+    const saved = { parts: clone(S.wiz.parts), my: clone(S.wiz.myBass || {}), was: editing ? clone(MB.get(id)) : null, solo: [...S.wiz.solo], scope: S.wiz.motScope };
+    const meter = MB.meterOf(spb, beat);
+    let name = editing ? editing.name : `Mon motif ${MB.library().length + 1}`;
+    const keepFor = (notes) => ({ id, name, meter, notes });
+    const targets = (extra) => {
+      const list = motifTargets(sc, T);
+      if (extra && !list.some((x) => x.sec === extra.sec)) list.push(extra);
+      return list;
+    };
+    let listenOn = sc.sec; // section de l'écoute (« Écouter sur ») : elle entend le motif même hors des scènes choisies
+    // les scènes changent d'identifiant à chaque calcul de la chanson : on les désigne par leur section
+    const sceneOfSec = (sec) => (wizSong().res || { scenes: [] }).scenes.find((x) => x.sec === sec);
+    let timer = 0;
+    // en direct : le motif est connu du moteur, joué par les scènes visées, et l'écoute repart (une fois le geste fini)
+    const live = (notes) => {
+      const m = keepFor(notes);
+      MB.register([m]);
+      S.wiz.parts = clone(saved.parts);
+      targets(S.wiz.res.scenes.find((x) => x.sec === listenOn)).forEach((x) => {
+        putOff(x.sec, T, false);
+        putPart(x.sec, T, { mode: id });
+      });
+      S.wiz.sig = null;
+      clearTimeout(timer);
+      timer = setTimeout(() => L.mode && relisten(), 200);
+    };
+    const restore = () => {
+      clearTimeout(timer);
+      S.wiz.solo.clear();
+      saved.solo.forEach((x) => S.wiz.solo.add(x));
+      applyListenMutes();
+    };
+    const { res } = wizSong();
+    const names = (x) => {
+      const g = (x.grid && x.grid.chords) || [];
+      return x.spans.map((sp) => {
+        const c = g.find((y) => y.step === sp.step);
+        let tok = sp.chord.tok;
+        try {
+          if (c) tok = HM().gridChord(x.key, c.degree, c.type, c.acc || 0, c.bass || 0).name;
+        } catch (e) {
+          /* nom du plan */
+        }
+        return { ...sp, chord: { ...sp.chord, tok } };
+      });
+    };
+    const scenes = res.scenes.map((x) => ({ id: x.sec, name: x.name, spans: names(x), key: x.key, bars: x.bars }));
+    const groups = SS.bassMotifs.GROUPS.filter((g) => g[0] !== 'ternary' || spb !== 16).map((g) => [g[1], g[2].filter((m) => SS.bassMotifs.fits(m, spb) && BS().MODES().bass.includes(m)).map((m) => [m, SS.bassMotifs.name(m)])]).filter((g) => g[1].length);
+    const mine = BS().myBassIds().filter((m) => m !== id).map((m) => [m, MB.get(m).name]);
+    stopListen();
+    SS.bassEdit.open({
+      name,
+      notes: editing ? editing.notes : cur ? MB.fromMotif(cur, spb, beat) : [],
+      spb,
+      beat,
+      shift: ({ mid: 12, high: 24 }[o.register] || 0) + (specEff().bassShift || 0),
+      scenes,
+      scene: sc.sec,
+      from: [...(cur ? [['Motif joué', [[cur, SS.bassMotifs.name(cur)]]]] : []), ...(mine.length ? [['✎ Mes motifs', mine]] : []), ...groups],
+      fromNotes: (m) => MB.fromMotif(m, spb, beat),
+      scope: S.wiz.motScope || 'one',
+      onScope: (v) => (S.wiz.motScope = v),
+      keep: editing ? MB.inLibrary(id) : true,
+      group: !(saved.solo.length === 1 && saved.solo[0] === T.col.id),
+      setGroup: (on) => {
+        S.wiz.solo.clear();
+        if (!on) S.wiz.solo.add(T.col.id);
+        else saved.solo.forEach((x) => x !== T.col.id && S.wiz.solo.add(x));
+        applyListenMutes();
+      },
+      playing: () => L.mode === 'scene',
+      play: (sec, keepOn) => {
+        listenOn = sec;
+        if (L.mode === 'scene' && L.sec === sec && !keepOn) return stopListen();
+        live(SS.myBass.get(id) ? SS.myBass.get(id).notes : []);
+        clearTimeout(timer);
+        const x = sceneOfSec(sec);
+        if (x) playScene(x.id);
+      },
+      pos: () => (L.mode === 'scene' ? { scene: L.sec, step: L.step } : null),
+      audition: (midi, v) => {
+        const proj = listenProject();
+        const lt = proj && proj.tracks.find((t) => t.col === T.col.id);
+        if (lt && !L.mode) Promise.resolve(SS.audio.preview(lt, midi, Math.max(0.12, (60 / (tempo() || 110)) * 0.45), { velocity: v })).catch(() => {});
+      },
+      onChange: (notes) => {
+        name = (document.getElementById('bbeName') || {}).value || name;
+        live(notes);
+      },
+      ok: (r) => {
+        restore();
+        const m = MB.clean({ id, name: r.name, meter, notes: r.notes });
+        MB.register([m]);
+        S.wiz.myBass = { ...(saved.my || {}), [id]: m };
+        if (r.keep) MB.keep(m);
+        else if (MB.inLibrary(id)) MB.forget(id);
+        S.wiz.parts = clone(saved.parts);
+        targets().forEach((x) => {
+          putOff(x.sec, T, false);
+          putPart(x.sec, T, { mode: id });
+          pruneAccents(x, T);
+        });
+        S.wiz.motFam = 'mine';
+        S.wiz.sig = null;
+        partChanged('#bwBassAdv');
+      },
+      cancel: () => {
+        restore();
+        S.wiz.parts = saved.parts;
+        S.wiz.motScope = saved.scope;
+        if (saved.was) MB.register([saved.was]);
+        else MB.unregister(id);
+        S.wiz.sig = null;
+        stopListen();
+        renderWiz();
+      },
+    });
   }
 
   /* --- Guitare « Avancé » : l'arpégiateur Guitare d'Arp One (schéma, tablature, manche, jeu) sur le premier accord de la scène ---
@@ -14145,6 +14282,21 @@ SS.band = (() => {
       return { musicien: T.title, scenes: secs.map((sec) => ({ scene: secName(sec), joue: String(instSub(T, sceneRef(sec))) })) };
     }
     /** Mélodie imposée d'une scène (notes MIDI absolues, pas depuis le début de la scène). */
+    /**
+     * « Mon motif de basse » écrit par Claude (comme la fenêtre Avancé… de l'étape Basse) : notes au format du moteur ;
+     * le motif va dans la chanson (S.wiz.myBass) et, si garder, dans « Mes motifs » ; renvoie son id pour jeu().
+     */
+    function ecrireBasse(nom, notes, { garder = true, id = null } = {}) {
+      needPlan();
+      const MB = SS.myBass;
+      const m = MB.clean({ id: id && MB.isMine(id) ? id : MB.newId(), name: nom || 'Mon motif', meter: MB.meterOf(SPB(), BEAT()), notes });
+      if (!m.notes.length) err('notes : au moins une note');
+      MB.register([m]);
+      S.wiz.myBass = { ...(S.wiz.myBass || {}), [m.id]: m };
+      if (garder) MB.keep(m);
+      S.wiz.sig = null;
+      return m;
+    }
     function ecrireMelodie(ref, scene, notes, how) {
       needPlan();
       const T = ref != null ? insOf(ref) : insSteps().find((t) => t.kind === 'melody') || err('aucun musicien Mélodie : assistantMusicien({ ajouter: "melodie" })');
@@ -14271,7 +14423,7 @@ SS.band = (() => {
       stop: () => (need(), stopListen()),
       fermer: () => leave(),
       label: labelOf, soundOf: (mu) => soundName(mu),
-      motifs, jeu, jeuScene, ecrireMelodie, versions,
+      motifs, jeu, jeuScene, ecrireMelodie, ecrireBasse, versions,
       // porte « Créer » ou « Reprendre » ; émotion d'une scène (comme la fiche Scène) : « D'après une émotion » (js/emotionsongpanel.js)
       porte: (m) => (need(), setMode(m === 'cover' ? 'cover' : 'create')),
       emotion: (ref, id) => {

@@ -370,7 +370,18 @@ caractère…), et **▶ joue la scène choisie en boucle** (pas toute la chanso
    style de la chanson, une puce sans motif est grisée) ; les **familles** (basse : Tenues, Régulières, Syncopées, Lignes ;
    nappe : Tenues, Rythmées, En mouvement) avec leur nombre, Tous et **Surprends-moi** ; des cartes au même gabarit
    (dessin, badge « Inspiration ») ; au pied **Scènes : Cette scène | Même type | Toutes**. Basse : **hauteur** C1 à C3,
-   **pédale** (aucune, tonique, dominante), note d'approche. Nappe : **voicing** serré / ouvert. La fenêtre MOTIF de la
+   **pédale** (aucune, tonique, dominante), note d'approche. Basse, **Avancé…** (maquette validée le 2026-11-26) : la
+   fenêtre **Mon motif de basse** (`js/bassedit.js`) pour écrire son motif sur une ou deux mesures, en doubles-croches.
+   Les lignes sont des degrés (quinte haute, octave, septième, sixte, quinte, quarte, tierce, seconde, fondamentale,
+   quinte grave) et trois lignes violettes regardent l'accord suivant (approche, accord suivant joué en avance,
+   chromatique) : le motif suit les accords comme ceux de l'appli. Clic : une note ; tirer son bord droit : l'allonger ;
+   clic sur une note : l'effacer ; outil **Glissé** ; barres de **nuance** (fantôme, normale, appuyée) ; **Partir de** un
+   motif de l'appli (celui joué par défaut) ; **Écouter sur** une scène (avec le groupe ou seule), tête de lecture ; « Ce
+   qu'on entend » montre les vraies notes sur les accords. OK : le motif voyage avec la chanson (brouillon de l'assistant,
+   `project.bassMotifs` pour la Grille) et, si « Garder dans Mes motifs » est coché, dans le navigateur pour toutes les
+   chansons (`js/mybass.js`) ; il apparaît dans la famille **✎ Mes motifs** (badge « ✎ À moi », carte « ＋ Nouveau
+   motif… ») de l'étape Basse et du bouton MOTIF de la Grille. Outil Claude : `assistantMotifBasse`. Tests :
+   `node --test tests/mybass.test.js`, `node tests/e2e/bass-custom.js`. Nappe : **voicing** serré / ouvert. La fenêtre MOTIF de la
    Grille montre la même carte. **★ Pour cette scène** (`js/scenestars.js`) : Basse, Nappe, Guitariste et Arpège
    reçoivent leurs ★ selon le type de scène (intro et fin tenues, couplet régulier, montée qui pousse, refrain syncopé ou
    gratté, pont qui respire), dans le style de la chanson et la mesure ; la carte s'ouvre sur eux quand le motif joué en

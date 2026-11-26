@@ -548,6 +548,7 @@ SS.ui = (() => {
     };
     const pick = (id) => {
       const f = cur();
+      if (SS.myBass && SS.myBass.isMine(id)) SS.myBass.toProject(p, id); // motif écrit : il voyage avec le fichier
       if (scope === 'one') f.motifs = { ...(f.motifs || {}), [sc.id]: id };
       else {
         f.motif = id;

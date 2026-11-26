@@ -61,6 +61,7 @@ SS.wizDraft = (() => {
     };
     SETS.forEach((k) => (o.w[k] = [...(w[k] || [])]));
     OBJ.forEach((k) => (o.w[k] = clone(w[k] || {})));
+    if (w.myBass && Object.keys(w.myBass).length) o.w.myBass = clone(w.myBass); // motifs de basse écrits (js/mybass.js) ; empreinte des anciens brouillons inchangée
     return JSON.parse(JSON.stringify(o)); // undefined et fonctions disparaissent
   }
 
@@ -106,6 +107,7 @@ SS.wizDraft = (() => {
     };
     SETS.forEach((k) => (out.w[k] = new Set(list(w[k]).filter((v) => typeof v === 'string' || typeof v === 'number'))));
     OBJ.forEach((k) => (out.w[k] = obj(w[k])));
+    out.w.myBass = SS.myBass ? SS.myBass.cleanMap(w.myBass) : obj(w.myBass);
     // panneau « Accents » : seulement les états connus (ouvert, replié)
     out.w.groove = Object.fromEntries(Object.entries(out.w.groove).filter(([k, v]) => (k === 'swing' || k === 'human') && typeof v === 'number' && v >= 0 && v <= 100)); // groove de la chanson : swing et humanisation en %
     out.w.accView = Object.fromEntries(Object.entries(out.w.accView).filter(([k, v]) => typeof k === 'string' && (v === 'open' || v === 'fold')));

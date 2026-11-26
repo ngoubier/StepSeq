@@ -944,6 +944,7 @@ SS.bandSong = (() => {
       for (let k = 0; k < 2 && !keyPcs.includes(pcOf(m)); k++) m += dir;
       return keyPcs.includes(pcOf(m)) ? m : target + dir;
     };
+    if (/^my_/.test(mode || '') && !BASS_RHYTHMS[mode]) mode = '8'; // motif écrit introuvable (bibliothèque d'un autre ordinateur) : des croches
     if (RECIPES.includes(mode)) {
       recipeBass(spans, mode, keyPcs, pedalPc, shift, add);
       return ev;
@@ -2134,7 +2135,7 @@ SS.bandSong = (() => {
   const DEFAULT_MODE = { bass: '8', chords: 'sustain', keys: 'block4', arp: 'up16', guitar: 'g:pop', melody: 'verse', drums: 'both' };
   const ARP_MODES = ['up16', 'updown16', 'up8', 'bells', 'strobe', 'pluck16', 'rise', 'ost16', 'dotted', 'toll', 'alb3', 'wave6', 'tri8'];
   const MODES = () => ({
-    bass: [...['whole', '8', 'pulse8', 'oct', 'gallop', 'offbeat', 'roll', 'off16', 'half', 'quarter', 'drone', 'sync', 'walk'], ...BASS_NEW.map((b) => b[0])],
+    bass: [...['whole', '8', 'pulse8', 'oct', 'gallop', 'offbeat', 'roll', 'off16', 'half', 'quarter', 'drone', 'sync', 'walk'], ...BASS_NEW.map((b) => b[0]), ...myBassIds()],
     chords: ['sustain', 'swell', 'float', 'ballad', 'pluck', ...Object.keys(RHYTHM), ...Object.keys(PAD_NEW), ...(SS.GuitarArp ? SS.GuitarArp.MOTIFS.map((m) => 'g:' + m.id) : [])],
     // Clavier : ses motifs (« k: », js/keyboardist.js), plus tous les modes du moteur de nappe (ceux des pianistes des inspirations)
     keys: [...(SS.keyboardist ? [...SS.keyboardist.OWN.map((m) => 'k:' + m.id), ...SS.keyboardist.FILE.map((m) => 'kf:' + m.id)] : []), 'sustain', 'swell', 'float', 'ballad', 'pluck', ...Object.keys(RHYTHM), ...Object.keys(PAD_NEW)],
@@ -2946,6 +2947,50 @@ SS.bandSong = (() => {
     gospel128: [[0, 10, 0, 0.88], [10, 2, 7, 0.58], [12, 6, 9, 0.8], [18, 4, 7, 0.74], [22, 2, 'a', 0.66]],
     marche128: [[0, 6, 0, 0.9], [6, 6, 7, 0.74], [12, 6, 12, 0.82], [18, 6, 7, 0.72]],
   };
+  /*
+   * Motifs de basse écrits par l'utilisateur (fenêtre « Mon motif de basse », js/bassedit.js ; bibliothèque js/mybass.js) :
+   * id « my_… », mêmes notes que BASS_RHYTHMS ; rangés ici pour que bassEvents, motifBars et meterOK les jouent comme les autres.
+   */
+  const MY_BASS = {};
+  /** Ajoute ou remplace un motif écrit : { id, name, notes, meter } (meter : '4/4', '3/4', '6/8', '12/8'). */
+  function addMyBass(m) {
+    if (!m || !/^my_[\w-]{1,21}$/.test(m.id) || !Array.isArray(m.notes)) return false;
+    MY_BASS[m.id] = m;
+    BASS_RHYTHMS[m.id] = m.notes.map((x) => [...x]);
+    if (m.meter && m.meter !== '4/4' && METERS[m.meter]) METER[m.id] = m.meter;
+    else delete METER[m.id];
+    return true;
+  }
+  /**
+   * Notes d'un motif en cours d'écriture sur les accords d'une scène (fenêtre « Mon motif de basse ») : `notes` au format de
+   * BASS_RHYTHMS, `key` la tonalité de la scène ({ tonic, mode }) ; o : { spb, beat, shift, approach, pedalPc }.
+   */
+  function previewBass(spans, notes, key, o = {}) {
+    const id = 'my__draft';
+    const was = { r: BASS_RHYTHMS[id], m: METER[id] };
+    BASS_RHYTHMS[id] = notes;
+    const sig = Object.keys(METERS).find((k) => METERS[k][0] === (o.spb || SPB) && METERS[k][1] === (o.beat || BEAT));
+    if (sig && sig !== '4/4') METER[id] = sig;
+    else delete METER[id];
+    try {
+      const kp = H().scale(key).map((d) => d.pc);
+      return bassEvents(spans, id, () => 0.5, kp, { spb: o.spb || SPB, beat: o.beat || BEAT, shift: o.shift || 0, approach: o.approach !== false, pedalPc: o.pedalPc ?? null });
+    } finally {
+      if (was.r) BASS_RHYTHMS[id] = was.r;
+      else delete BASS_RHYTHMS[id];
+      if (was.m) METER[id] = was.m;
+      else delete METER[id];
+    }
+  }
+  /** Oublie un motif écrit (écriture annulée). */
+  function removeMyBass(id) {
+    if (!MY_BASS[id]) return;
+    delete MY_BASS[id];
+    delete BASS_RHYTHMS[id];
+    delete METER[id];
+  }
+  const myBass = (id) => MY_BASS[id] || null;
+  const myBassIds = () => Object.keys(MY_BASS);
   /** Dessin d'une mesure type (niveau 0 = fondamentale, 1 = quinte, tierce, septième ou approche, 2 = octave). */
   const rhythmDraw = (id) => BASS_RHYTHMS[id].filter(([o]) => o < motifBar(id)).map(([o, l, n]) => [o, l, n === 0 ? 0 : n === 12 ? 2 : 1]); // première mesure, en pas (fractions possibles)
 
@@ -3053,5 +3098,5 @@ SS.bandSong = (() => {
     ['marche128', 'Marche lente', 'Une noire pointée par temps : fondamentale, quinte, octave, quinte (12/8)', rhythmDraw('marche128')],
   ];
 
-  return { build, MODES, ambientCurves, ambientApply, ambientOf, AMB_LEVELS, AMB_MOVES, setMeter, meter, METERS, meterOK, fitMode, backbeats, halfBar, levelStep, levelPer, fitLanes, beatOf: (ts) => (ts && ts[1] === 8 && ts[0] % 3 === 0 && ts[0] > 3 ? 6 : Math.max(1, Math.round(16 / ((ts && ts[1]) || 4)))), voiceChord, bassEvents, chordEvents, PAD_NEW, padFxLanes, tomOfStep, junctionDefaults, junctionEff, withSceneFx, PERC_LOOPS, PERC_STYLES, hpHz, hpAmt, HP_MEL, isExtra, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, sceneGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, motifBars, motifBar, METER, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, planCurves, BUILD_LEVELS, BUILD_PRESETS, buildLevels, progLevels, rollBar, rollerOf, hasGridLane, laneKey, _rng: rng };
+  return { build, MODES, ambientCurves, ambientApply, ambientOf, AMB_LEVELS, AMB_MOVES, setMeter, meter, METERS, meterOK, fitMode, backbeats, halfBar, levelStep, levelPer, fitLanes, beatOf: (ts) => (ts && ts[1] === 8 && ts[0] % 3 === 0 && ts[0] > 3 ? 6 : Math.max(1, Math.round(16 / ((ts && ts[1]) || 4)))), voiceChord, bassEvents, chordEvents, PAD_NEW, padFxLanes, tomOfStep, junctionDefaults, junctionEff, withSceneFx, PERC_LOOPS, PERC_STYLES, hpHz, hpAmt, HP_MEL, isExtra, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, sceneGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, motifBars, motifBar, METER, addMyBass, removeMyBass, myBass, myBassIds, previewBass, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, planCurves, BUILD_LEVELS, BUILD_PRESETS, buildLevels, progLevels, rollBar, rollerOf, hasGridLane, laneKey, _rng: rng };
 })();
