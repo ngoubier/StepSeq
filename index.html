@@ -782,12 +782,13 @@
   <!-- Import MIDI (js/midipanel.js) : analyse du fichier, aperçu des pistes et des scènes, puis nouveau projet -->
   <dialog id="midiImportDialog" class="midi-dialog" aria-labelledby="miTitle">
     <form method="dialog" id="miForm">
-      <h2 id="miTitle">Importer un fichier MIDI</h2>
+      <h2 id="miTitle">Importer un fichier MIDI<button type="button" class="help-tip" data-help="StepSeq lit le fichier dans le navigateur : rien n’est envoyé sur Internet. La chanson importée est rangée dans « Mes chansons », sur cet ordinateur. Un projet Ableton Live (.als) donne ses pistes MIDI, ses clips, son tempo, sa console et ses automations de volume et de filtre ; les sons des plugins ne se lisent pas, StepSeq en propose un d’après le nom de chaque piste." data-help-title="Importer un morceau" aria-label="Aide : Importer un morceau">?</button></h2>
       <p class="dlg-sub" id="miFile"></p>
       <div class="midi-options">
         <div class="dlg-row">
           <span class="dlg-label">Découpage en scènes</span>
           <div class="segmented" id="miSplit" role="radiogroup" aria-label="Découpage en scènes">
+            <button type="button" data-v="clips" hidden title="Une nouvelle scène commence là où les pistes qui jouent changent dans l’Arrangement d’Ableton (une piste entre ou sort), ou à chaque repère.">D’après les clips</button>
             <button type="button" data-v="0.95" title="Une scène ne se répète que si elle est presque identique : toutes les variations sont gardées, mais les scènes sont plus longues et plus nombreuses.">Fidèle</button>
             <button type="button" data-v="0.85" title="Les petites différences (jeu humain, une note de plus) sont confondues : bon compromis.">Équilibré</button>
             <button type="button" data-v="0.7" title="Des boucles qui se ressemblent deviennent la même scène : arrangement plus court, quelques variations perdues.">Compact</button>
@@ -1149,6 +1150,7 @@
   <script src="js/transform.js"></script>
   <script src="js/midi-file.js"></script>
   <script src="js/midi.js?v=vsco-1"></script>
+  <script src="js/ableton.js"></script>
   <script src="js/emotions.js"></script>
   <script src="js/melody-profiles.js"></script>
   <script src="js/audio.js?v=ahead-1"></script>

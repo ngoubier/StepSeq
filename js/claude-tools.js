@@ -1067,10 +1067,10 @@ SS.claudeTools = (() => {
   }
 
   /* ---------------- Import MIDI (même chemin que menu ▸ Importer MIDI…, js/midipanel.js) ---------------- */
-  const SPLIT_FR = { fidele: 0.95, equilibre: 0.85, compact: 0.7 };
+  const SPLIT_FR = { fidele: 0.95, equilibre: 0.85, compact: 0.7, clips: 'clips' };
   function midiOpts({ decoupage = 'equilibre', batterie = 'gm', quantize } = {}) {
     const similar = SPLIT_FR[fold(decoupage)];
-    if (!similar) fail(`découpage inconnu : « ${decoupage} » (fidele, equilibre, compact)`);
+    if (!similar) fail(`découpage inconnu : « ${decoupage} » (fidele, equilibre, compact ; clips pour un projet Ableton)`);
     const m = fold(batterie);
     const machine = m === 'gm' || m === 'general midi' ? SS.midi.GM_KIT : Object.keys(SS.midi.MACHINES).find((k) => fold(k) === m || fold(SS.midi.MACHINES[k].label) === m);
     if (!machine) fail(`batterie inconnue : « ${batterie} » (gm, ${Object.keys(SS.midi.MACHINES).join(', ')})`);
@@ -1110,23 +1110,24 @@ SS.claudeTools = (() => {
     };
   }
   async function importerMidi({ url, base64, octets, nom, decoupage, batterie, quantize, apercu, fenetre } = {}) {
-    const o = midiOpts({ decoupage, batterie, quantize });
-    const buf = await midiBytes({ octets, base64, url });
     const name = nom || (url ? nameOfUrl(url) : 'Import MIDI');
+    const als = /\.als$/i.test(name);
+    const o = midiOpts({ decoupage: decoupage || (als ? 'clips' : 'equilibre'), batterie, quantize });
+    const buf = await midiBytes({ octets, base64, url });
     if (fenetre) {
       SS.midiPanel.openWith(name, buf, o);
       return { message: 'Fenêtre « Importer MIDI » ouverte : l’utilisateur relit le bilan et clique Importer', attente: true };
     }
     let res;
     try {
-      res = SS.midiPanel.analyze(buf, { name, ...o });
+      res = await SS.midiPanel.analyze(buf, { name, ...o });
     } catch (e) {
       fail(`import impossible : ${e.message}`);
     }
     const bilan = midiReport(res.report);
     if (apercu) return { message: `Aperçu (rien n’est importé) : ${bilan.mesures} mesures, ${bilan.pistes.length} pistes, ${bilan.scenes} scènes`, bilan };
     const avant = P().title;
-    await SS.midiPanel.loadImported(res.project, name, o.machine, 'Claude');
+    await SS.midiPanel.loadImported(res.project, name, o.machine, 'Claude', als ? 'import Ableton' : null);
     actions++;
     badge();
     return { message: `« ${res.project.title} » importé : nouvelle chanson de ${bilan.pistes.length} pistes, ${bilan.scenes} scènes. « ${avant} » reste dans « Mes chansons ».`, bilan };
@@ -1636,7 +1637,7 @@ SS.claudeTools = (() => {
     { nom: 'accords', lecture: true, description: 'La grille d’accords d’une scène (accord, pas, durée).', params: { scene: SCENE }, faire: accords },
     { nom: 'sons', lecture: true, description: 'Les sons disponibles pour un rôle (ou les kits et éléments de batterie).', params: { role: S('texte', 'batterie, percu, basse, nappe, arpege, lead, piano, guitare, cordes, sax, cuivres, voix, orchestre, effets'), recherche: S('texte', 'un bout de nom : "moog", "strings", "rhodes"…') }, faire: sons },
 
-    { nom: 'importerMidi', description: 'Importe un fichier MIDI comme menu ▸ Importer MIDI… : une nouvelle chanson (pistes, scènes, arrangement) remplace celle en cours, qui reste dans « Mes chansons ». Asynchrone : await.', params: { url: S('texte', 'adresse du fichier .mid (le site doit l’autoriser)'), base64: S('texte', 'ou le fichier en base64'), octets: S('liste', 'ou ses octets (Uint8Array ou liste de nombres)'), nom: S('texte', 'nom du fichier (titre de la chanson)'), decoupage: S('texte', 'scènes : fidele, equilibre (défaut), compact'), batterie: S('texte', 'gm (défaut, sons d’origine), RolandTR808, RolandTR909, LinnDrum, RolandTR707'), quantize: S('booléen', 'caler les notes sur la grille (défaut : réglage Quantize de l’app)'), apercu: S('booléen', 'seulement le bilan, sans importer'), fenetre: S('booléen', 'ouvrir la fenêtre d’import réglée ainsi : l’utilisateur relit et confirme') }, faire: importerMidi },
+    { nom: 'importerMidi', description: 'Importe un fichier MIDI ou un projet Ableton Live (.als, nom en .als) comme menu ▸ Ouvrir un fichier… : une nouvelle chanson (pistes, scènes, arrangement) remplace celle en cours, qui reste dans « Mes chansons ». Asynchrone : await.', params: { url: S('texte', 'adresse du fichier .mid (le site doit l’autoriser)'), base64: S('texte', 'ou le fichier en base64'), octets: S('liste', 'ou ses octets (Uint8Array ou liste de nombres)'), nom: S('texte', 'nom du fichier (titre de la chanson)'), decoupage: S('texte', 'scènes : fidele, equilibre (défaut), compact ; clips (défaut d’un .als : d’après les clips d’Ableton)'), batterie: S('texte', 'gm (défaut, sons d’origine), RolandTR808, RolandTR909, LinnDrum, RolandTR707'), quantize: S('booléen', 'caler les notes sur la grille (défaut : réglage Quantize de l’app)'), apercu: S('booléen', 'seulement le bilan, sans importer'), fenetre: S('booléen', 'ouvrir la fenêtre d’import réglée ainsi : l’utilisateur relit et confirme') }, faire: importerMidi },
     { nom: 'partition', lecture: true, description: 'État de la fenêtre « Lire une partition » (menu ▸ Lire une partition…) : fichier déposé, pages, contenu (auto, melodie, piano, ensemble), résultat ; et le format attendu par lirePartition.', params: {}, faire: partition },
     { nom: 'partitionPage', lecture: true, description: 'Affiche en grand une page de la partition déposée par l’utilisateur, pour la lire à l’écran.', params: { page: S('nombre', 'n° de page (1 = la première)') }, faire: partitionPage },
     { nom: 'lirePartition', lecture: true, description: 'Donne à la fenêtre « Lire une partition » les notes lues sur la partition (ne touche pas à la chanson) : l’utilisateur vérifie les mesures signalées, puis enregistre le .mid ou importe. Rappelle-le corrigé si des mesures sont à vérifier.', params: { titre: S('texte', ''), tempo: S('texte', 'BPM (80) ou mot écrit (Andante)'), mesure: S('texte', '"4/4" (défaut), "3/4", "6/8"…'), tonalite: S('texte', '"Fa majeur", "Ré mineur"…'), portees: S('liste', '[{ nom, instrument, mesures: ["C5:1 D5:0.5 E5:0.5 r:2", …] }] (voir partition().format)', true), accords: S('liste', 'accords chiffrés, une chaîne par mesure : ["Dm7", "G7 C"]'), anacrouse: S('nombre', 'durée de la mesure d’anacrouse en noires (sinon déduite)'), musicxml: S('texte', 'ou une partition MusicXML complète (remplace le reste)') }, faire: lirePartition },

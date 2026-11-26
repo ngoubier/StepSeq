@@ -1353,9 +1353,18 @@ premier enregistrement ; les autres navigateurs téléchargent le fichier.
 
 ### Import / export MIDI (`js/midi-file.js`, `js/midi.js`, `js/midipanel.js`)
 
-Import : **Ouvrir un fichier…** sur un `.mid` ; export : **Exporter…**, format **MIDI** (menu de l'icône de l'application).
+Import : **Ouvrir un fichier…** sur un `.mid` ou un projet **Ableton Live** `.als` ; export : **Exporter…**, format **MIDI** (menu de l'icône de l'application).
 
 **Import** (nouveau projet) :
+
+- **projet Ableton Live** (`.als`, `js/ableton.js`) : le XML compressé est lu dans le navigateur et devient un fichier
+  MIDI que l'import ci-dessous range en scènes. Repris : tempo, mesure, pistes MIDI et notes des clips de
+  l'Arrangement (boucles, début de clip, transposition « Pitch »), volume et panoramique de la console, repères,
+  automations de volume (CC 7), de cutoff (CC 74) et de résonance (CC 71), relatives au réglage le plus joué.
+  Découpage **D'après les clips** (par défaut) : une scène commence là où les pistes qui jouent changent. Les sons des
+  plugins ne se lisent pas : programme General MIDI choisi d'après le nom de la piste ; un Drum Rack à un son prend la
+  note GM de son nom (Kick, Snare, Hats…). Ignorés et listés dans le bilan : pistes audio, vue Session, retours,
+  envois, effets, autres automations ;
 
 - notes placées sur la double-croche, avec leur **décalage d'attaque gardé** en micro-décalage (`ev.shift`, ± ½ pas :
   le jeu humain et les triolets restent à leur place), vélocité, durée (pédale de sustain appliquée) ;

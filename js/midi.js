@@ -971,7 +971,12 @@
         m.get(ti).push({ pos: rel, id: g.drum ? 'd' : n.note });
       }
     });
-    const markers = metas.markers.map((m) => ({ bar: Math.round(m.tick / tps / spb), text: m.text })).filter((m) => m.bar >= 0);
+    // marqueurs du fichier, et coupures imposées (o.cuts, en mesures du fichier : scènes « d'après les clips » d'un projet Ableton)
+    const markers = metas.markers
+      .map((m) => ({ bar: Math.round(m.tick / tps / spb), text: m.text }))
+      .concat((o.cuts || []).map((b) => ({ bar: b - firstBar, text: '' })).filter((c) => !metas.markers.some((m) => Math.round(m.tick / tps / spb) === c.bar)))
+      .filter((m) => m.bar >= 0 && m.bar < totalBars)
+      .sort((a, b) => a.bar - b.bar);
     if (o.debug) o.debug.bars = bars; // tests : contenu des mesures avant analyse
     const A = analyze(bars, { unit: o.unit || 4, periods: o.periods, stepsPerBar: spb, similar: o.similar, markers });
 
