@@ -14,7 +14,7 @@ SS.BAND_DRIVE = {
   runninghill: 10.3,
   midnightcity: 11.7,
   realhero: 7.9,
-  neons: 11.5,
+  neons: 10.8,
   levels: 11.5,
   dywc: 7.4,
   wakemeup: 10.3,

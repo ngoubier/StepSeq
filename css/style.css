@@ -3662,6 +3662,8 @@ button.th-gm.no:hover, button.th-gm.no:focus-visible { background: var(--c-amber
   color: var(--muted);
 }
 .auto-line { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.auto-head .auto-x { flex: none; margin-left: auto; border: 0; background: var(--c-panel-3); color: var(--c-text); border-radius: 5px; width: 24px; height: 24px; cursor: pointer; }
+.auto-head .auto-x:hover { background: var(--c-line-strong); }
 .auto-title { display: inline-grid; place-items: center; color: var(--c); flex: none; }
 .auto-title svg { width: 16px; height: 16px; }
 .auto-head select, .auto-head button {

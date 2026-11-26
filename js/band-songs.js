@@ -61,7 +61,7 @@ SS.BandSongs = {
 
   // Électro-disco nocturne (dans l'esprit des séquences de Giorgio Moroder, fin des années 70 ; titre, ligne de basse et thème
   // originaux) : basse séquencée en croches piquées sur deux accords (Dm | Am), pédale de La tenue tout le morceau avec une
-  // voix qui glisse Fa → Mi, thème en appel (son nasal) et réponse (son soufflé) par phrases de quatre mesures, pont
+  // voix qui glisse Fa → Mi, thème en appel (lead Minimoog) et réponse (lead doux) par phrases de quatre mesures, pont
   // B♭ C B♭ C Gm A7 ; le son bouge plus que les notes : filtre et résonance de la basse, écho qui s'ouvre, phaser lent sur le
   // drone (sec.auto : courbes de la scène ; fx : effets des pistes ; sec.notes : parties écrites, voir js/bandsong.js)
   neons: (() => {
@@ -69,7 +69,7 @@ SS.BandSongs = {
     const SECTION = (bars, fn) => Array.from({ length: bars }, (_, b) => fn(b)).flat();
     // pédale La2 + La3 tenue toute la scène ; voix du dessus : une note par mesure (Fa4 sur Dm, Mi4 sur Am)
     const drone = (bars, voices) => [{ step: 0, len: bars * B, notes: [45, 57], vel: 0.62 }, ...SECTION(bars, (b) => [{ step: b * B, len: B, notes: [voices[b % voices.length]], vel: 0.5 }])];
-    // thème par phrases de 4 mesures : appel (mesures 1-2) au thème, réponse (mesures 3-4) au son soufflé
+    // thème par phrases de 4 mesures : appel (mesures 1-2) au thème, réponse (mesures 3-4) au lead doux
     const CALL = [[0, 2, 69], [2, 2, 72], [4, 4, 74], [8, 2, 72], [10, 2, 69], [12, 4, 65], [16, 12, 64]];
     const ANSWER = [[36, 2, 62], [38, 2, 65], [40, 2, 69], [42, 2, 74], [44, 12, 72], [60, 4, 69]];
     const phrases = (bars, list, oct = false, v = 0.82) =>
