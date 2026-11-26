@@ -447,8 +447,8 @@ caractère…), et **▶ joue la scène choisie en boucle** (pas toute la chanso
    mêle les modes Conseils et Pilote auto d'**Auto Mix** sur l'écoute de l'assistant (écoute toujours en direct tant qu'il est
    ouvert : il mesure chaque piste). Objectif = le style (référence commune `js/mixref.js`), Streaming ou Club ; volume perçu et
    crête face à la cible, notes par critère ; onglets **Instruments**, **Master** et **Fait**. **À la main** : chaque conseil
-   s'accepte (avec un dosage) ou se refuse ; **Auto** : le pilote applique lui-même, un geste toutes les quelques secondes d'écoute,
-   les conseils des familles permises (**Peut toucher** : volumes, égaliseur, compresseur · limiteur, pan, sidechain, envois,
+   s'accepte (avec un dosage) ou se refuse ; **Auto** : le pilote applique lui-même, un geste toutes les 2,5 s (même à l'arrêt, sur les
+   conseils déjà proposés ; l'écoute repart ensuite pour juger le mix réglé), les conseils des familles permises (**Peut toucher** : volumes, égaliseur, compresseur · limiteur, pan, sidechain, envois,
    EQ Master, mastering). Les réglages vont dans le mix de l'assistant (`js/wizmix.js` : fader de la tranche, ou réglages fins de
    console dans `mix.auto` : passe-haut, cloches, compresseur, limiteur de piste, sidechain, gain / plafond / graves mono / largeur
    du mastering…) : ils restent d'une étape à l'autre et passent dans la Grille à « Créer la chanson ». **Ctrl+Z** (ou ↶) défait le
