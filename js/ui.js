@@ -1613,7 +1613,11 @@ SS.ui = (() => {
     const head = h(
       'div',
       { class: 'auto-head' },
-      h('div', { class: 'auto-line' }, h('span', { class: 'auto-title', html: ICONS.auto }), param, shapes),
+      h('div', { class: 'auto-line' }, h('span', { class: 'auto-title', html: ICONS.auto }), param, shapes,
+        h('button', { type: 'button', class: 'auto-x', title: 'Masquer cette ligne (les courbes sont gardées et continuent de jouer)', 'aria-label': `Masquer l'automation par pas de ${track.name}`, onclick: () => {
+          openAutos().delete(track.id);
+          renderTrack(track);
+        } }, '×')),
       h('div', { class: 'auto-line' }, h('span', { class: 'auto-len-label' }, 'Longueur'), lenSel),
       h('div', { class: 'auto-line' }, readout, clear, clearAll)
     );
