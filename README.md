@@ -137,6 +137,14 @@ voir « Nouvelle chanson » plus bas), sur le projet en cours. Ses deux premièr
    B♭ C B♭ C Gm A7 ; le plan écrit ses parties (`sections[…].notes`, la mélodie seulement tant que l'assistant garde
    celle de l'inspiration), ses courbes de son par scène (`sections[…].auto` : filtre et résonance de la basse, écho)
    et les effets de ses pistes (`fx`, appliqués au mixage) ; il se joue bien avec la console **Live** ;
+   dans l'assistant, l'étape de chaque instrument montre ce que le modèle fait bouger : ses **courbes** dans la carte
+   Automation de la scène (badge « Modèle » ; une retouche la rend « À moi », « ↺ Revenir au modèle » la reprend,
+   ✕ la retire : `parts[…].inst[id].autoModel = { réglage: 'off' }`, courbe convertie par `SS.bandSong.planCurves`),
+   ses **effets** en pastilles sous le nom du son (« Phaser · 4 mes. · 6 étages », « Écho 14 % » : un clic ouvre leurs
+   réglages ; une retouche est gardée par musicien, `ms.fxo`, et passe au mixage après les effets du modèle,
+   `band.fxo` dans `js/bandmix.js`), et le bouton **∿ Toute la chanson** ouvre l'aperçu replié des mouvements de son
+   de tous les instruments, scène par scène (clic : la scène ou l'instrument s'ouvre ; `js/wizfx.js`) ; la colonne
+   des scènes marque d'une pastille de couleur chaque réglage qui bouge ;
 2. le **type de chanson** : des inspirations par style (Smalltown Boy, Nightcall, Blinding Lights, Sweet Dreams…,
    Levels, Strobe, Opus, Faded…, Powers of Ten, Eternity, Return to Oz, Sky and Sand, Your Mind, Rej…), avec un
    tempo suggéré ;
@@ -1524,7 +1532,9 @@ chanson ; forme, valeur ou points ; lecture fluide ou paliers) ; console : `cons
 intégré à l'application : le pilotage passe par Claude in Chrome. Test : `node tests/e2e/claude-tools.js`.
 
 Assistant **Nouvelle chanson** (pont `SS.band.claude` dans `js/band.js`) : `assistantStyles`, `assistantEtat`, `assistantSons`,
-`assistantOuvrir` (reprend le brouillon s'il existe), `assistantEtape`, `assistantEcouter` / `assistantStop`, `assistantFermer`,
+`assistantOuvrir` (reprend le brouillon s'il existe), `assistantEtape` (une étape, ou `instrument` : l'étape d'un musicien),
+`assistantSonInstrument` (effets d'un instrument et origine de ses courbes, « modèle » ou « à moi » ; retoucher, revenir
+au modèle, retirer une courbe), `assistantEcouter` / `assistantStop`, `assistantFermer`,
 `assistantStyle` (style, inspiration), `assistantEmotion` (style et émotions → chanson déduite, `appliquer`), `assistantMusicien` (ajouter, son, type, nom, retirer), `assistantTempo`, `assistantTonalite`
 (toutes les scènes transposées), `assistantScene` (mesures, nom, copie, suppression), `assistantStructure`, `assistantAccords` (une
 mesure par élément, répétée sur la scène), `assistantMelodie` (une autre mélodie), effets : `assistantEffets` (transitions, musicien Effets par scène, percussions,

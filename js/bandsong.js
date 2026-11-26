@@ -1631,6 +1631,23 @@ SS.bandSong = (() => {
     }
     return out;
   }
+  /**
+   * Courbes du plan (sec.auto[rôle]) d'une scène de `bars` mesures, en courbes « dessinées » de l'assistant :
+   * { réglage: { shape: 'drawn', points: [[pas, valeur 0..1]] } } ({} si le plan ne fait rien bouger). L'assistant les montre
+   * comme courbes « Modèle » ; une retouche les remplace (parts…inst[id].auto), autoModel[réglage] = 'off' les retire.
+   */
+  function planCurves(sec, role, bars) {
+    const src = sec && sec.auto && sec.auto[role];
+    if (!src || !bars) return {};
+    const out = {};
+    Object.entries(planAuto(src, bars)).forEach(([k, m]) => {
+      let pts = Object.entries(m).map(([st, v]) => [+st, autoNorm(k, v)]).sort((x, y) => x[0] - y[0]);
+      if (!pts.length) return;
+      if (pts.length === 1) pts = [[0, pts[0][1]], [bars * SPB - 1, pts[0][1]]];
+      out[k] = { shape: 'drawn', a: pts[0][1], b: pts[pts.length - 1][1], points: pts };
+    });
+    return out;
+  }
   const RISER_TOP = 0.8; // volume de la montée de bruit à la fin de la montée (elle fait avancer la montée quand le kick se retire)
   const MELODIC = ['pad', 'arp', 'keys', 'strings', 'guitar', 'brass', 'lead', 'vox', 'sax'];
 
@@ -2573,6 +2590,7 @@ SS.bandSong = (() => {
         }
         // mouvements de son écrits dans le plan (sec.auto[rôle] : filtre, résonance, écho… en points [position 0–1, valeur])
         const pa = sec.auto && sec.auto[role] && !off && events.length ? planAuto(sec.auto[role], bars) : null;
+        if (pa && ie && ie.autoModel) Object.keys(pa).forEach((k) => ie.autoModel[k] === 'off' && delete pa[k]); // courbe du modèle retirée dans l'assistant
         if (pa) data[t.id].auto = { ...(data[t.id].auto || {}), ...pa };
         // motif de nappe à mouvement de son (pompe, filtre qui s'ouvre, souffle inversé) : sa courbe passe devant celle du plan
         const pfx = events.length && mode && (kd === 'chords' || gk || kk || (!changed && !['bass', 'fx', 'arp', 'arpchord'].includes(role) && !singer)) ? padFxLanes(mode, bars) : null;
@@ -3035,5 +3053,5 @@ SS.bandSong = (() => {
     ['marche128', 'Marche lente', 'Une noire pointée par temps : fondamentale, quinte, octave, quinte (12/8)', rhythmDraw('marche128')],
   ];
 
-  return { build, MODES, ambientCurves, ambientApply, ambientOf, AMB_LEVELS, AMB_MOVES, setMeter, meter, METERS, meterOK, fitMode, backbeats, halfBar, levelStep, levelPer, fitLanes, beatOf: (ts) => (ts && ts[1] === 8 && ts[0] % 3 === 0 && ts[0] > 3 ? 6 : Math.max(1, Math.round(16 / ((ts && ts[1]) || 4)))), voiceChord, bassEvents, chordEvents, PAD_NEW, padFxLanes, tomOfStep, junctionDefaults, junctionEff, withSceneFx, PERC_LOOPS, PERC_STYLES, hpHz, hpAmt, HP_MEL, isExtra, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, sceneGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, motifBars, motifBar, METER, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, BUILD_LEVELS, BUILD_PRESETS, buildLevels, progLevels, rollBar, rollerOf, hasGridLane, laneKey, _rng: rng };
+  return { build, MODES, ambientCurves, ambientApply, ambientOf, AMB_LEVELS, AMB_MOVES, setMeter, meter, METERS, meterOK, fitMode, backbeats, halfBar, levelStep, levelPer, fitLanes, beatOf: (ts) => (ts && ts[1] === 8 && ts[0] % 3 === 0 && ts[0] > 3 ? 6 : Math.max(1, Math.round(16 / ((ts && ts[1]) || 4)))), voiceChord, bassEvents, chordEvents, PAD_NEW, padFxLanes, tomOfStep, junctionDefaults, junctionEff, withSceneFx, PERC_LOOPS, PERC_STYLES, hpHz, hpAmt, HP_MEL, isExtra, KINDS, DEFAULT_KIND, DEFAULT_MODE, kindOfRole, instIds, checkKind, parseChord, spansOf, spansFromGrid, sceneGrid, SINGERS, NAMES, CHARACTERS, FORMS, LETTERS, RHYTHMS, defaultPlan, fitPlan, BASS_NEW, motifBars, motifBar, METER, ACC_PRESETS, ACC_DEFAULT, ACC_VEL, accentPreset, accentPeriod, normalizeAccents, AUTO_SHAPES, SCENE_AUTO, AUTO_DEF, normalizeAuto, normalizeAutoSpec, newAutoSpec, autoPoints, autoCurve, autoLane, autoAt, autoNorm, autoReal, velMul, planCurves, BUILD_LEVELS, BUILD_PRESETS, buildLevels, progLevels, rollBar, rollerOf, hasGridLane, laneKey, _rng: rng };
 })();

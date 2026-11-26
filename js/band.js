@@ -275,7 +275,8 @@ SS.band = (() => {
   const hformOf = (ms) => SS.horns.formOf(ms && ms.form);
   const hplayersOf = (ms) => SS.horns.players(hformOf(ms).id, (ms && ms.add) || []);
   /** Marque d'une piste créée par Band (gardée dans le projet) : sert à la retrouver pour la remplacer. */
-  const tag = (p, mu, sound) => ({ style: S.styleId, preset: p.id, musician: mu.id, key: mu.role + (sound ? ':' + sound : ''), ...(mu.added ? { label: mu.name } : {}) });
+  // fxo : effets retouchés depuis l'étape de l'instrument (pastilles sous le son, js/wizfx.js), appliqués après ceux du modèle (js/bandmix.js)
+  const tag = (p, mu, sound, ms) => ({ style: S.styleId, preset: p.id, musician: mu.id, key: mu.role + (sound ? ':' + sound : ''), ...(mu.added ? { label: mu.name } : {}), ...(ms && ms.fxo && Object.keys(ms.fxo).length ? { fxo: { ...ms.fxo } } : {}) });
 
   /** Pistes à créer : [{ opts, name, color, band }] */
   function plannedTracks() {
@@ -291,28 +292,28 @@ SS.band = (() => {
           const info = pieceInfo(mu, pc);
           const name = mu.added ? `${mu.name} · ${info.label}` : mu.role === 'perc' ? `Percu · ${info.label}` : info.label;
           // levelKey : clé de la mesure de niveau (js/band-levels.js) qui sert au mixage automatique (js/bandmix.js)
-          out.push({ ...info.opts, name, color, band: tag(p, mu, info.opts.sound), levelKey: pc.custom ? null : `${kitOf(ms)}|${pc.piece}` });
+          out.push({ ...info.opts, name, color, band: tag(p, mu, info.opts.sound, ms), levelKey: pc.custom ? null : `${kitOf(ms)}|${pc.piece}` });
         });
       } else if (mu.amb) {
         // musicien Ambient : une piste générative (js/ambient.js), son module et ses réglages ; la présence vient des scènes
         // (SS.bandSong.build, res.ambient), sauf une courbe dessinée à la main (ms.drawn)
         const ambient = { ...BG().clone(ms.amb || {}), ...(ms.drawn ? { presence: ms.drawn.slice() } : {}) };
         const space = typeof ms.space === 'number' ? ms.space : AMB_SPACE;
-        out.push({ type: 'instrument', family: 'ambient', instrument: ambMod(ms), category: 'mono', name: nameOf0(mu) || roleOf(mu).short, color, band: tag(p, mu), levelKey: null, keep: { ambient, fx: { sendSpace: space } } });
+        out.push({ type: 'instrument', family: 'ambient', instrument: ambMod(ms), category: 'mono', name: nameOf0(mu) || roleOf(mu).short, color, band: tag(p, mu, null, ms), levelKey: null, keep: { ambient, fx: { sendSpace: space } } });
       } else if (mu.horns) {
         // section de cuivres : une piste par musicien de la formation (js/horns.js), clé « formation-musicien »
-        hplayersOf(ms).forEach((x) => out.push({ ...toGm(B().choiceOpts(x.tok, 'mono')), category: 'mono', name: `${mu.name} · ${x.label}`, color, band: tag(p, mu, x.key), levelKey: `horns|${x.tok}|mono` }));
+        hplayersOf(ms).forEach((x) => out.push({ ...toGm(B().choiceOpts(x.tok, 'mono')), category: 'mono', name: `${mu.name} · ${x.label}`, color, band: tag(p, mu, x.key, ms), levelKey: `horns|${x.tok}|mono` }));
       } else if (mu.orch) {
         // orchestre : une piste par pupitre de l'effectif choisi (js/orchestra.js)
         ensOf(ms).parts.forEach((id) => {
           const part = SS.orchestra.PART[id];
-          out.push({ ...toGm(B().choiceOpts(part.tok, 'mono')), category: 'mono', name: `${mu.name} · ${part.label}`, color, band: tag(p, mu, id), levelKey: null });
+          out.push({ ...toGm(B().choiceOpts(part.tok, 'mono')), category: 'mono', name: `${mu.name} · ${part.label}`, color, band: tag(p, mu, id, ms), levelKey: null });
         });
       } else {
         const o = instOpts(mu);
         // arpOn: false : les notes sont déjà jouées par le moteur (Arp One, guitare : js/bandsong.js) ;
         // un 2e passage dans l'arpégiateur de la piste les rejouait au 1/8 (guitare : toujours la note la plus grave)
-        out.push({ ...o, category: o.category || catOf(mu), arpOn: false, name: nameOf0(mu) || roleOf(mu).short, color, band: tag(p, mu), levelKey: instLevelKey(mu, ms) });
+        out.push({ ...o, category: o.category || catOf(mu), arpOn: false, name: nameOf0(mu) || roleOf(mu).short, color, band: tag(p, mu, null, ms), levelKey: instLevelKey(mu, ms) });
       }
     });
     return out;
@@ -3401,7 +3402,7 @@ SS.band = (() => {
     box.classList.toggle('bw-insHead', !!info.ins);
     box.replaceChildren(
       h('div', { class: 'bw-htitle' }, h('h1', {}, h('em', {}, String(n).padStart(2, '0')), info.label, n === ST.fx || info.ins || !info.line ? null : SS.helpTip(info.line, info.label), n === ST.inst ? countBadge() : null, n === ST.inst ? gridBadge() : null), h('div', { class: 'bw-hmix', id: 'bwHeadMix' }, ...(headBar ? [headBar] : []))),
-      ...(info.sub ? [h('div', { class: 'bw-hsub', id: 'bwSound' }, info.sub)] : []),
+      ...(info.sub ? [info.ins ? insSubLine(info.ins, info.sub) : h('div', { class: 'bw-hsub', id: 'bwSound' }, info.sub)] : []),
       // pas de phrase sous le titre : elle est dans le « ? » du titre (instruments et effets : ni phrase ni « ? ») ; le type reste en data-kind
       ...(n === ST.inst || n === ST.chords || info.ins ? [lockWarn()].filter(Boolean) : [])
     );
@@ -6452,12 +6453,46 @@ SS.band = (() => {
   let autoBound = false;
   let autoProj = null;
   const autoKey = (sc, T) => `${T.id}|${sc.sec}`;
-  /** Courbes de la scène pour cet instrument ({} si aucune). */
-  const autoOf = (sec, T) => AU().normalizeAuto((partOf(sec, T) || {}).auto) || {};
+  /** Courbes posées dans l'assistant pour cet instrument dans la scène ({} si aucune). */
+  const ownAuto = (sec, T) => AU().normalizeAuto((partOf(sec, T) || {}).auto) || {};
+  /** Réglages des courbes du modèle pour cet instrument dans la scène : { réglage: 'off' (retirée) | 'hide' (repliée) }. */
+  const modelState = (sec, T) => (partOf(sec, T) || {}).autoModel || {};
+  /** Courbes écrites dans le plan du modèle (sec.auto[rôle], ex. « Néons en fuite ») : { réglage: courbe dessinée }. */
+  function modelAuto(sec, T) {
+    const s = spec() && !cover() && specEff().sections[sec];
+    return s && s.auto ? AU().planCurves(s, T.role, s.bars) : {};
+  }
+  /**
+   * Courbes de la scène pour cet instrument ({} si aucune) : celles du modèle (model: true, tant qu'on ne les a ni retouchées ni
+   * retirées), puis les siennes. Une courbe retouchée remplace celle du modèle (mine: true si le modèle en avait une).
+   */
+  function autoOf(sec, T) {
+    const own = ownAuto(sec, T);
+    const ms = modelState(sec, T);
+    const out = {};
+    Object.entries(modelAuto(sec, T)).forEach(([k, c]) => {
+      if (own[k]) out[k] = { ...own[k], mine: true };
+      else if (ms[k] !== 'off') out[k] = { ...c, model: true, ...(ms[k] === 'hide' ? { hidden: true } : {}) };
+    });
+    return { ...own, ...out };
+  }
   const autoCount = (sec, T) => (mutedIn(sec, T) ? 0 : Object.keys(autoOf(sec, T)).length);
-  /** Écrit les courbes de la scène (sans redessiner) ; aucune courbe : le champ disparaît. */
+  /** Écrit les courbes de la scène (sans redessiner) ; aucune courbe : le champ disparaît. Les courbes du modèle restent à part. */
   function setAuto(sc, T, next) {
-    putPart(sc.sec, T, { auto: Object.keys(next).length ? next : undefined });
+    const own = {};
+    Object.entries(next).forEach(([k, v]) => {
+      if (v.model) return;
+      const { mine, ...o } = v;
+      own[k] = o;
+    });
+    putPart(sc.sec, T, { auto: Object.keys(own).length ? own : undefined });
+  }
+  /** Change l'état d'une courbe du modèle (null : comme dans le modèle). */
+  function setModelState(sc, T, id, v) {
+    const m = { ...modelState(sc.sec, T) };
+    if (v) m[id] = v;
+    else delete m[id];
+    putPart(sc.sec, T, { autoModel: Object.keys(m).length ? m : undefined });
   }
   /** Après un changement : la chanson est refaite et on l'entend (la mélodie : sans remonter son panneau). */
   function autoChanged(sc, T, focus) {
@@ -6499,7 +6534,9 @@ SS.band = (() => {
   function withAutoBadge(line, x, T) {
     const n = autoCount(x.sec, T);
     if (!n) return line;
-    const badge = h('em', { class: 'bwau-badge', title: `${n} courbe${n > 1 ? 's' : ''} d’automation` }, h('i', { html: AU_CURVE_IC }), 'auto');
+    const ps = AU().SCENE_AUTO.filter((p) => autoOf(x.sec, T)[p.id]);
+    const badge = h('em', { class: 'bwau-badge', title: `${n} courbe${n > 1 ? 's' : ''} d’automation : ${ps.map((p) => p.name).join(', ')}` }, h('i', { html: AU_CURVE_IC }), 'auto',
+      h('span', { class: 'bwau-dots' }, ...ps.map((p) => h('i', { style: `background:${p.color}` }))));
     if (line && line.nodeType) return line.append(badge), line;
     return h('span', { class: 'bwa-ssub' }, h('span', {}, line || ''), badge);
   }
@@ -6591,11 +6628,13 @@ SS.band = (() => {
         },
         h('i'),
         h('span', {}, (added ? '✓ ' : '') + (p.menu || p.name), p.sub ? h('small', {}, ` · ${p.sub}`) : null),
-        h('small', {}, added ? 'ajouté' : off ? 'synthés seulement' : p.voice ? 'synthé' : '')
+        h('small', {}, added ? (specs[p.id].model ? 'modèle' : 'ajouté') : off ? 'synthés seulement' : p.voice ? 'synthé' : '')
       );
     });
     const all = (hidden) => () => {
-      setAuto(sc, T, Object.fromEntries(Object.entries(autoOf(sc.sec, T)).map(([k, s]) => [k, { ...s, hidden: hidden || undefined }])));
+      const cur = autoOf(sc.sec, T);
+      setAuto(sc, T, Object.fromEntries(Object.entries(cur).map(([k, s]) => [k, { ...s, hidden: hidden || undefined }])));
+      Object.entries(cur).forEach(([k, s]) => s.model && setModelState(sc, T, k, hidden ? 'hide' : null));
       renderWiz(); // l'affichage seul change : la lecture continue
       const f = $('.bwau-menu .bwau-item');
       if (f) f.focus();
@@ -6645,6 +6684,8 @@ SS.band = (() => {
   /** Réglages (curseurs, période) d'une courbe prête, ou « Revenir à la forme ». */
   function autoControls(sc, T, p, spec, live) {
     const id = p.id;
+    if (spec.mine) return h('div', { class: 'bwau-lcn' }, h('button', { type: 'button', class: 'bwau-rev', onclick: () => revertModel(sc, T, id) }, '↺ Revenir au modèle'));
+    if (spec.model) return null;
     if (spec.shape === 'drawn') {
       const from = spec.from;
       return h('div', { class: 'bwau-lcn' }, h('button', { type: 'button', class: 'bwau-rev', onclick: () => revertAuto(sc, T, id) }, from ? `↺ Revenir à la forme « ${nameOf(AU_SHAPES, from)} »` : '↺ Revenir à une courbe plate'));
@@ -6674,7 +6715,9 @@ SS.band = (() => {
     );
   }
   function commitAuto(sc, T, id, spec, focus) {
-    setAuto(sc, T, { ...autoOf(sc.sec, T), [id]: spec });
+    const { model, ...own } = spec; // une courbe du modèle retouchée devient la sienne (« À moi »)
+    if (model && modelState(sc.sec, T)[id]) setModelState(sc, T, id, null);
+    setAuto(sc, T, { ...autoOf(sc.sec, T), [id]: own });
     autoChanged(sc, T, focus);
   }
   function revertAuto(sc, T, id) {
@@ -6683,15 +6726,27 @@ SS.band = (() => {
     if (s.hidden) back.hidden = true;
     commitAuto(sc, T, id, back, `.bwau-ln[data-param="${id}"] .bwau-xb`);
   }
-  function delAuto(sc, T, id) {
-    const next = { ...autoOf(sc.sec, T) };
+  /** Courbe retouchée : on reprend celle du modèle (repliée si la retouche l'était). */
+  function revertModel(sc, T, id) {
+    const s = autoOf(sc.sec, T)[id];
+    const next = { ...ownAuto(sc.sec, T) };
     delete next[id];
     setAuto(sc, T, next);
+    setModelState(sc, T, id, s && s.hidden ? 'hide' : null);
+    autoChanged(sc, T, `.bwau-ln[data-param="${id}"] .bwau-del`);
+  }
+  /** Supprime la courbe ; celle du modèle (retouchée ou non) est retirée aussi : le réglage ne bouge plus dans la scène. */
+  function delAuto(sc, T, id) {
+    const next = { ...ownAuto(sc.sec, T) };
+    delete next[id];
+    setAuto(sc, T, next);
+    if (modelAuto(sc.sec, T)[id]) setModelState(sc, T, id, 'off');
     autoChanged(sc, T, '#bwAutoBtn');
   }
   function foldAuto(sc, T, id) {
     const s = autoOf(sc.sec, T)[id];
-    setAuto(sc, T, { ...autoOf(sc.sec, T), [id]: { ...s, hidden: s.hidden ? undefined : true } });
+    if (s.model) setModelState(sc, T, id, s.hidden ? null : 'hide');
+    else setAuto(sc, T, { ...autoOf(sc.sec, T), [id]: { ...s, hidden: s.hidden ? undefined : true } });
     renderWiz(); // seul l'affichage change : la lecture continue
     const f = $(`.bwau-ln[data-param="${id}"] .bwau-fold`);
     if (f) f.focus();
@@ -6737,6 +6792,7 @@ SS.band = (() => {
       h('i', { class: 'bwau-sq' }),
       h('b', {}, p.name),
       !fold && p.sub ? h('span', { class: 'bwau-sub' }, p.sub) : null,
+      spec.model || spec.mine ? h('span', { class: 'bwau-own ' + (spec.model ? 'model' : 'mine'), title: spec.model ? 'Courbe du modèle : la retoucher la rend tienne' : 'Courbe retouchée : elle remplace celle du modèle' }, spec.model ? 'Modèle' : 'À moi') : null,
       rd,
       h('span', { class: 'spacer' }),
       fold ? null : autoControls(sc, T, p, spec, () => paint()),
@@ -6862,11 +6918,142 @@ SS.band = (() => {
       h('p', { class: 'dlg-hint', 'data-helpify': true }, 'Retouche : glisse un point (haut/bas et gauche/droite) · double-clic pour en ajouter · clic droit ou Alt+clic sur un point pour l’enlever.')
     );
   }
+  /* ---------- Effets et mouvements de son vus depuis l'étape d'un instrument (js/wizfx.js) ----------
+   * Sous le nom du son : les pastilles d'effet (celles du modèle, plan.fx[rôle], et les retouches, ms.fxo) et le bouton
+   * « ∿ Toute la chanson » qui ouvre l'aperçu des courbes de tous les instruments. Une seule bulle ouverte à la fois.
+   */
+  let fxOpen = null; // { ins: id de l'instrument, id: 'phaser' | 'flanger' | 'echo' } : réglages d'un effet ouverts
+  let ovOpen = false; // aperçu « Toute la chanson » ouvert
+  let fxBound = false;
+  const WFX = () => SS.wizFx;
+  /** Effets du modèle pour cet instrument (même source que js/bandmix.js), ses retouches, et ce qui est joué. */
+  function fxOf(T) {
+    const p = preset();
+    const sp = p && SS.BandSongs && SS.BandSongs[p.id];
+    const base = (sp && sp.fx && sp.fx[T.role]) || {};
+    const ms = musState()[T.musician] || {};
+    const own = ms.fxo || {};
+    return { base, own, eff: { ...base, ...own }, ms };
+  }
+  function bindFxPops() {
+    if (fxBound) return;
+    fxBound = true;
+    const close = () => {
+      if (!fxOpen && !ovOpen) return;
+      fxOpen = null;
+      ovOpen = false;
+      document.querySelectorAll('.wfx-pop, .wfx-ov').forEach((e) => e.remove());
+      document.querySelectorAll('.wfx-chip[aria-expanded="true"], #bwOvBtn[aria-expanded="true"]').forEach((e) => e.setAttribute('aria-expanded', 'false'));
+    };
+    document.addEventListener('pointerdown', (e) => {
+      if (e.target.closest && e.target.closest('.wfx-pop, .wfx-ov, .wfx-chip, #bwOvBtn')) return;
+      close();
+    });
+    document.addEventListener(
+      'keydown',
+      (e) => {
+        if (e.key !== 'Escape' || !(fxOpen || ovOpen)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        close();
+      },
+      true
+    );
+  }
+  /** Retouche d'un effet : ms.fxo du musicien (sans les clés `drop`) ; la chanson est refaite et on l'entend. */
+  function setFx(T, patch, drop) {
+    const { ms } = fxOf(T);
+    const o = Object.fromEntries(Object.entries({ ...(ms.fxo || {}), ...(patch || {}) }).filter(([k]) => !(drop || []).includes(k)));
+    ms.fxo = Object.keys(o).length ? o : undefined;
+    partChanged(fxOpen ? '.wfx-pop [data-k]' : null);
+  }
+  /** Ligne sous le titre d'un instrument : le son, ses effets, l'aperçu de la chanson. */
+  function insSubLine(T, sub) {
+    bindFxPops();
+    const { base, own, eff } = fxOf(T);
+    const list = WFX() ? WFX().chips(eff, base, own) : [];
+    if (fxOpen && (fxOpen.ins !== T.id || !list.some((c) => c.id === fxOpen.id))) fxOpen = null;
+    const line = h('div', { class: 'bw-hsub wfx-sub', id: 'bwSound' }, h('span', {}, sub));
+    list.forEach((c) => {
+      const open = !!fxOpen && fxOpen.id === c.id;
+      line.append(
+        h('button', {
+          type: 'button', class: `wfx-chip ${c.id}` + (c.mine ? ' mine' : ''), 'data-fx': c.id, 'aria-expanded': String(open), title: c.model ? 'Effet du modèle : clic pour le régler' : 'Clic pour régler l’effet',
+          onclick: () => {
+            fxOpen = open ? null : { ins: T.id, id: c.id };
+            ovOpen = false;
+            renderStepHead();
+            const f = $('.wfx-pop [data-k]');
+            if (f) f.focus();
+          },
+        }, c.label)
+      );
+    });
+    const res = S.wiz.res;
+    if (res && res.scenes.length)
+      line.append(
+        h('button', {
+          type: 'button', class: 'btn btn-small wfx-ovbtn', id: 'bwOvBtn', 'aria-expanded': String(ovOpen), title: 'Mouvements de son de toute la chanson',
+          onclick: () => {
+            ovOpen = !ovOpen;
+            fxOpen = null;
+            renderStepHead();
+          },
+        }, '∿ Toute la chanson ▾')
+      );
+    const wrap = h('div', { class: 'wfx-wrap' }, line);
+    if (fxOpen && WFX()) {
+      const c = list.find((x) => x.id === fxOpen.id);
+      wrap.append(
+        WFX().panel({
+          id: c.id, name: T.title, fx: eff, mine: c.mine, model: c.model,
+          onSet: (patch) => setFx(T, patch),
+          onRevert: () => setFx(T, null, WFX().KEYS[c.id]),
+          onClose: () => ((fxOpen = null), renderStepHead()),
+        })
+      );
+    }
+    if (ovOpen && WFX() && res) wrap.append(overviewEl(T, res));
+    return wrap;
+  }
+  /** Aperçu « Toute la chanson » : une ligne par instrument, les courbes de chaque scène. */
+  function overviewEl(T, res) {
+    const sc = res.scenes.find((x) => x.id === S.wiz.hscene) || res.scenes[0];
+    const rows = insSteps().map((I) => {
+      const { base, own, eff } = fxOf(I);
+      const curves = {};
+      res.scenes.forEach((x) => {
+        if (mutedIn(x.sec, I)) return;
+        curves[x.sec] = Object.entries(autoOf(x.sec, I)).map(([k, spec]) => ({ param: k, color: AU().SCENE_AUTO.find((q) => q.id === k).color, points: AU().autoPoints(spec, x.bars * SPB()), mine: !spec.model }));
+      });
+      const fx = WFX().chips(eff, base, own).filter((c) => c.id !== 'echo').map((c) => c.id).join(', ');
+      return { id: I.id, name: I.title, color: KIND_COLOR[I.kind] || 'var(--c-muted)', fx, curves };
+    });
+    return WFX().overview({
+      scenes: res.scenes.map((x) => ({ sec: x.sec, name: x.name, bars: x.bars })), rows, spb: SPB(),
+      cur: { sec: sc && sc.sec, id: T.id },
+      params: AU().SCENE_AUTO.map((q) => ({ name: q.name, color: q.color })),
+      onScene: (sec) => {
+        const x = res.scenes.find((y) => y.sec === sec);
+        ovOpen = false;
+        if (x && x.id !== S.wiz.hscene) pickScene(x);
+        else renderWiz();
+      },
+      onRow: (id) => {
+        ovOpen = false;
+        const n = stepNum({ inst: id });
+        if (n && n !== S.wiz.step) goStep(n, sc);
+        else renderWiz();
+      },
+      onClose: () => ((ovOpen = false), renderStepHead()),
+    });
+  }
+
   /** Copie les courbes de la scène vers les scènes du même type (onglet Mélodie, sans bouton de copie général). */
   function copyAuto(sc, T) {
-    const a = (partOf(sc.sec, T) || {}).auto;
+    const { auto: a, autoModel: am } = partOf(sc.sec, T) || {};
     const to = S.wiz.res.scenes.filter((x) => x.sec !== sc.sec && kindOf(x.sec) === kindOf(sc.sec));
-    to.forEach((x) => putPart(x.sec, T, { auto: a ? JSON.parse(JSON.stringify(a)) : undefined }));
+    to.forEach((x) => putPart(x.sec, T, { auto: a ? JSON.parse(JSON.stringify(a)) : undefined, autoModel: am ? { ...am } : undefined }));
     S.wiz.pmsg = to.length ? `Automation copiée vers ${to.map((x) => x.name).join(', ')}` : 'Aucune autre scène de ce type';
     renderWiz();
   }
@@ -14021,8 +14208,60 @@ SS.band = (() => {
       return [...shots.entries()].map(([nom, v]) => ({ nom, heure: new Date(v.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) }));
     }
 
+    /**
+     * Effets et courbes d'un instrument (pastilles sous le son, carte Automation) : effets = { phaser, phaserSync… } retouchés
+     * (null : effacer la clé), revenirEffets = true : ceux du modèle ; dans `scene` : retirer / revenir = réglages (courbes
+     * du modèle retirées, ou retouches effacées). Renvoie les pastilles et, par scène, les courbes et leur origine.
+     */
+    function sonInstrument(ref, { effets, revenirEffets, scene, retirer, revenir } = {}) {
+      needPlan();
+      const T = insOf(ref);
+      const { ms } = fxOf(T);
+      let wrote = false;
+      if (effets || revenirEffets) {
+        const keys = Object.values(WFX().KEYS).flat();
+        const o = revenirEffets ? {} : { ...(ms.fxo || {}) };
+        Object.entries(effets || {}).forEach(([k, v]) => {
+          if (!keys.includes(k)) err(`effet inconnu : ${k} (${keys.join(', ')})`);
+          if (v == null) delete o[k];
+          else o[k] = +v;
+        });
+        ms.fxo = Object.keys(o).length ? o : undefined;
+        wrote = true;
+      }
+      if (retirer || revenir) {
+        const sc = sceneOf(secId(scene));
+        const params = AU().SCENE_AUTO.map((p) => p.id);
+        const ids = (l) => [].concat(l || []).map((x) => (params.includes(x) ? x : err(`réglage inconnu : ${x} (${params.join(', ')})`)));
+        ids(retirer).forEach((id) => {
+          const own = { ...ownAuto(sc.sec, T) };
+          delete own[id];
+          setAuto(sc, T, own);
+          if (modelAuto(sc.sec, T)[id]) setModelState(sc, T, id, 'off');
+        });
+        ids(revenir).forEach((id) => {
+          const own = { ...ownAuto(sc.sec, T) };
+          delete own[id];
+          setAuto(sc, T, own);
+          setModelState(sc, T, id, null);
+        });
+        wrote = true;
+      }
+      if (wrote) {
+        renderWiz();
+        draftSoon();
+      }
+      const { base, own, eff } = fxOf(T);
+      const courbes = {};
+      Object.keys(specEff().sections).forEach((sec) => {
+        const a = Object.entries(autoOf(sec, T)).map(([k, s]) => ({ reglage: k, origine: s.model ? 'modèle' : s.mine ? 'à moi (remplace le modèle)' : 'à moi' }));
+        if (a.length) courbes[sec] = a;
+      });
+      return { musicien: T.title, effets: WFX().chips(eff, base, own).map((c) => ({ effet: c.id, pastille: c.label, origine: c.model ? 'modèle' : c.mine ? 'à moi' : '' })), reglages: eff, courbes };
+    }
+
     return {
-      effets, transition, effetsScene, mouvements,
+      effets, transition, effetsScene, mouvements, sonInstrument, etapeInstrument: (ref) => (needPlan(), etape({ inst: insOf(ref).id })),
       film: filmEtat, repere: filmRepere, filmScene,
       etat, styles, sons, ouvrir, etape, sceneId: secId, sceneOf, chordName: (key, c) => chordOf(key, c).name,
       style: setStyleOf, ajouter: addMu, musicien: editMu, tonalite: setKey, scene, structure, accords, changement, creer,
