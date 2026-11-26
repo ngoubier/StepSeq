@@ -4,7 +4,8 @@
  *   SS.helpTip(texte, titre)  crée le bouton « ? » (titre : le libellé qu'il explique, repris dans la fenêtre).
  *   En HTML : <button type="button" class="help-tip" data-help="…" data-help-title="…" aria-label="Aide : …">?</button>
  *
- * Survol ou focus clavier : l'aide s'affiche en info-bulle. Appui (écran tactile) : l'info-bulle s'ouvre ou se
+ * Survol ou focus au clavier (touche Tab) : l'aide s'affiche en info-bulle. Le focus que donne une fenêtre à son
+ * premier bouton en s'ouvrant n'ouvre pas la bulle : elle ne s'ouvre jamais d'elle-même. Appui (écran tactile) : l'info-bulle s'ouvre ou se
  * ferme. Une aide longue (plus de LONG caractères) montre son début en info-bulle et s'ouvre en entier dans une
  * fenêtre, avec une croix pour la fermer, quand on clique sur le « ? ».
  * Le comportement est délégué au document : il vaut aussi pour les « ? » ajoutés plus tard.
@@ -80,10 +81,13 @@
 
   let tip = null;
   let owner = null;
+  let sticky = false; // bulle ouverte par un clic ou par Tab : elle reste quand la souris s'en va
+  let tabNav = false; // dernière action = touche Tab (sinon le focus vient d'un clic ou du script)
   function hideTip() {
     if (tip) tip.remove();
     if (owner) owner.removeAttribute('aria-describedby');
     owner = null;
+    sticky = false;
   }
   function showTip(btn) {
     const text = btn.dataset.help || '';
@@ -148,12 +152,17 @@
   });
   document.addEventListener('mouseout', (e) => {
     const b = isTip(e);
-    if (b && b === owner && !(e.relatedTarget && b.contains(e.relatedTarget)) && document.activeElement !== b) hideTip();
+    if (b && b === owner && !(e.relatedTarget && b.contains(e.relatedTarget)) && !sticky) hideTip();
   });
+  document.addEventListener('keydown', (e) => (tabNav = e.key === 'Tab'), true);
+  document.addEventListener('pointerdown', () => (tabNav = false), true);
   document.addEventListener('focusin', (e) => {
     const b = isTip(e);
-    if (b) showTip(b);
-    else if (owner) hideTip();
+    // seulement au clavier : une fenêtre qui s'ouvre donne le focus à son premier bouton, parfois un « ? »
+    if (b && tabNav) {
+      showTip(b);
+      sticky = true;
+    } else if (owner && owner !== b) hideTip();
   });
   document.addEventListener('focusout', (e) => isTip(e) && hideTip());
   document.addEventListener(
@@ -168,8 +177,11 @@
       e.preventDefault();
       e.stopPropagation();
       if ((b.dataset.help || '').length > LONG) openWindow(b);
-      else if (owner === b && tip && tip.isConnected) hideTip();
-      else showTip(b);
+      else if (owner === b && tip && tip.isConnected && sticky) hideTip();
+      else {
+        showTip(b);
+        sticky = true;
+      }
     },
     true
   );

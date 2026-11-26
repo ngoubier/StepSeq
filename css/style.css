@@ -3850,7 +3850,7 @@ dialog.arp-dialog { width: min(940px, calc(100vw - 32px)); }
 /* Aides : « ? » à droite du libellé, info-bulle au survol, fenêtre pour une aide longue (js/help.js) */
 .help-tip { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 18px; height: 18px; margin: 0 0 0 6px; padding: 0; border: 1px solid var(--c-line-strong); border-radius: 50%; background: transparent; color: var(--c-text-2); font: 600 var(--fs-xs)/1 system-ui, sans-serif; letter-spacing: 0; text-transform: none; cursor: help; vertical-align: middle; position: relative; }
 .help-tip::before { content: ''; position: absolute; inset: -9px; } /* zone tactile de 36 px */
-.help-tip:hover, .help-tip:focus-visible, .help-tip[aria-describedby] { border-color: var(--c-violet); color: #fff; background: var(--c-violet-deep); outline: none; }
+.help-tip:hover, .help-tip[aria-describedby] { border-color: var(--c-violet); color: #fff; background: var(--c-violet-deep); outline: none; }
 .help-tip[hidden] { display: none; }
 .sd-segrow { display: flex; align-items: center; gap: 4px; }
 .sd-segrow > .segmented { flex: 0 1 auto; min-width: 0; }
