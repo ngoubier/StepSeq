@@ -327,6 +327,22 @@ window.SS = window.SS || {};
             m('lead', 'j:A14 j:A51 gm_lead_3_calliope syn_triangle gm_pan_flute gm_lead_6_voice'),
           ],
         },
+        {
+          id: 'neons',
+          song: 'Néons en fuite',
+          artist: 'Giorgio Moroder, électro-disco 1978 (esprit)',
+          year: '',
+          tempo: 124,
+          desc: 'Électro-disco de poursuite nocturne : basse séquencée en croches piquées sur deux accords, pédale tenue avec un phaser lent, thème en appel et réponse ; le son bouge plus que les notes (filtre, résonance, écho). Titre, basse et thème originaux.',
+          musicians: [
+            kit('drums', 'bd sd hh oh cr', 'LinnDrum RolandTR808 OberheimDMX RolandTR707 EmuSP12 dirt808'),
+            m('bass', 'syn_moogbass j:A48 syn_sqbass dirt_moog syn_sawbass gm_synth_bass_1', { label: 'Basse séquence', note: 'Croches piquées, le filtre fait la musique' }),
+            m('pad', 'syn_superpad j:A36 syn_softpad gm_pad_warm gm_synth_strings_1 j:B43', { label: 'Drone', note: 'La tenu, voix Fa → Mi, phaser lent' }),
+            m('lead', 'syn_square gm_lead_1_square j:A51 gm_lead_3_calliope syn_saw gm_lead_2_sawtooth', { label: 'Thème (nasal)', note: 'L’appel, par phrases de quatre mesures' }),
+            m('vox', 'gm_pan_flute syn_triangle gm_lead_3_calliope gm_flute gm_synth_choir gm_voice_oohs', { label: 'Réponse (soufflée)', note: 'Monte quand le thème se tait' }),
+            m('fx', FX, { note: 'Montée de bruit avant le pont' }),
+          ],
+        },
       ],
     },
     {

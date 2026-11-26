@@ -1603,6 +1603,34 @@ SS.bandSong = (() => {
     const s0 = Math.min(n - 1, Math.round(n * from));
     return s0 > 0 ? { 0: a, [s0]: a, [n - 1]: b } : { 0: a, [n - 1]: b };
   };
+  /**
+   * Partie écrite dans un plan (sec.notes[rôle]) : [{ step, len, notes, vel }] sur une phrase, rejouée jusqu'à la fin de la
+   * section (période : `loop` pas, sinon la phrase arrondie à la mesure) ; notes coupées à la fin de la section.
+   */
+  function fixedNotes(src, bars) {
+    const list = Array.isArray(src) ? src : src.events || [];
+    const n = bars * SPB;
+    const end = list.reduce((a, e) => Math.max(a, e.step + e.len), 0);
+    const per = (!Array.isArray(src) && src.loop) || Math.max(SPB, Math.ceil(end / SPB) * SPB);
+    const out = [];
+    for (let at = 0; at < n; at += per)
+      list.forEach((e) => {
+        const st = at + e.step;
+        if (st < n && e.notes && e.notes.length) out.push({ step: st, len: Math.max(1, Math.min(e.len, n - st)), notes: [...e.notes], vel: e.vel ?? 0.8 });
+      });
+    return out;
+  }
+  /** Courbes écrites dans un plan (sec.auto[rôle]) : { réglage: [[position 0–1, valeur], …] } → { réglage: { pas: valeur } }. */
+  function planAuto(spec, bars) {
+    const n = bars * SPB;
+    const out = {};
+    for (const [k, pts] of Object.entries(spec)) {
+      if (!sceneParam(k) || !Array.isArray(pts)) continue;
+      out[k] = {};
+      pts.forEach(([f, v]) => (out[k][Math.min(n - 1, Math.max(0, Math.round(f * (n - 1))))] = v));
+    }
+    return out;
+  }
   const RISER_TOP = 0.8; // volume de la montée de bruit à la fin de la montée (elle fait avancer la montée quand le kick se retire)
   const MELODIC = ['pad', 'arp', 'keys', 'strings', 'guitar', 'brass', 'lead', 'vox', 'sax'];
 
@@ -2352,6 +2380,8 @@ SS.bandSong = (() => {
       // caractère et notes par phrase de cette scène
       const own = mel.scenes && mel.scenes[id];
       let smel = own ? { ...mel, ...own } : mel;
+      // mélodie écrite dans le plan (sec.notes du chanteur) : jouée tant que l'assistant garde la mélodie de l'inspiration
+      const writtenSing = !melodySeed && (!smel.character || smel.character === 'inspiration') && !smel.notes && !(mel.plans && (mel.plans[id] || mel.plans[mid])) && !(mel.seeds && (mel.seeds[id] || mel.seeds[mid]));
       // émotion de la scène → profil mélodique (contour, note visée sur les temps forts, registre, fin)
       const emoId = harmony && harmony.emotions && harmony.emotions[id];
       if (emoId && mel.useProfile !== false && SS.resolveMelodyProfile && SS.MELODY_PROFILES[emoId]) smel = { ...smel, profile: SS.resolveMelodyProfile(emoId, {}, k) };
@@ -2518,6 +2548,10 @@ SS.bandSong = (() => {
           }
         }
         if (kk) events = SS.keyboardist ? SS.keyboardist.shape(events, spans, o && o.keys, r, tones) : events; // réglages du Clavier (voicing, main gauche, pédale…)
+        // partie écrite dans le plan (sec.notes[rôle] : pédale tenue, réponse du thème…), sauf si la scène règle un autre jeu
+        // (mélodie écrite : seulement tant que l'assistant garde la mélodie de l'inspiration, sans autre graine ni réglage)
+        const planNotes = !changed && !off && sec.notes && sec.notes[role] && !(o && (o.mode || o.one)) && !ownL && (!singer || writtenSing) ? fixedNotes(sec.notes[role], bars) : null;
+        if (planNotes) events = planNotes;
         // piste Effets d'une scène dont une jonction est réglée : montée, cymbale inversée, impact, descente (voir fxSceneTrack)
         let fxScene = null;
         if (role === 'fx' && !changed && !off && (oj || ij || sec.fxo)) {
@@ -2537,6 +2571,9 @@ SS.bandSong = (() => {
           const auto = fxScene ? fxScene.auto : sectionAuto(as, sec, er, bars, role === 'fx', dynK, !!spec.tech);
           if (auto && events.length) data[t.id].auto = auto;
         }
+        // mouvements de son écrits dans le plan (sec.auto[rôle] : filtre, résonance, écho… en points [position 0–1, valeur])
+        const pa = sec.auto && sec.auto[role] && !off && events.length ? planAuto(sec.auto[role], bars) : null;
+        if (pa) data[t.id].auto = { ...(data[t.id].auto || {}), ...pa };
         // motif de nappe à mouvement de son (pompe, filtre qui s'ouvre, souffle inversé) : sa courbe passe devant celle du plan
         const pfx = events.length && mode && (kd === 'chords' || gk || kk || (!changed && !['bass', 'fx', 'arp', 'arpchord'].includes(role) && !singer)) ? padFxLanes(mode, bars) : null;
         if (pfx) data[t.id].auto = { ...(data[t.id].auto || {}), ...pfx };
@@ -2823,6 +2860,9 @@ SS.bandSong = (() => {
     cel_gallop: [0, 4, 8, 12].flatMap((s) => [[s, 2, s === 12 ? 12 : 0, 0.92], [s + 2, 1, s === 12 ? 12 : 0, 0.72], [s + 3, 1, s === 12 ? 12 : 0, 0.72]]),
     cel_motorik: [[0, 2, 0, 0.9], [2, 2, 0, 0.74], [4, 2, 12, 0.8], [6, 2, 0, 0.74], [8, 2, 0, 0.88], [10, 2, 0, 0.74], [12, 2, 12, 0.8], [14, 2, 0, 0.74]],
     cel_coldwave: [[0, 4, 12, 0.85], [4, 2, 19, 0.78], [6, 2, 17, 0.68], [8, 6, 12, 0.82], [14, 2, 7, 0.72]],
+    // séquence électro-disco (modèle « Néons en fuite ») : huit croches très courtes, octave, quinte et septième qui redescend ;
+    // le silence de chaque double laisse passer le délai
+    sequence8: [[0, 1, 0, 0.92], [2, 1, 12, 0.68], [4, 1, 0, 0.84], [6, 1, 7, 0.7], [8, 1, 0, 0.9], [10, 1, 12, 0.68], [12, 1, 's', 0.74], [14, 1, 7, 0.7]],
     cel_staccato80: [[0, 1, 0, 0.92], [2, 1, 7, 0.75], [4, 1, 12, 0.8], [6, 1, 7, 0.72], [8, 1, 0, 0.9], [10, 1, 7, 0.75], [12, 1, 10, 0.78], [14, 1, 12, 0.74]],
     cel_steppers: [[0, 2, 0, 0.9], [3, 1, 0, 0.4], [4, 2, 0, 0.85], [7, 1, 7, 0.5], [8, 2, 0, 0.9], [11, 1, 0, 0.4], [12, 2, 0, 0.85], [14, 2, 'a', 0.7]],
     cel_ska: [[0, 2, 0, 0.88], [2, 2, 't', 0.74], [4, 2, 7, 0.8], [6, 2, 9, 0.72], [8, 2, 12, 0.86], [10, 2, 9, 0.72], [12, 2, 7, 0.78], [14, 2, 'a', 0.74]],
@@ -2948,6 +2988,7 @@ SS.bandSong = (() => {
     ['cel_gallop', 'Galop heavy', 'Dans l’esprit de Steve Harris (heavy metal) : croche et deux doubles à chaque temps', rhythmDraw('cel_gallop')],
     ['cel_motorik', 'Motorik', 'Dans l’esprit du krautrock (Neu!, Can) : croches implacables, octave en relance', rhythmDraw('cel_motorik')],
     ['cel_coldwave', 'Cold wave', 'Dans l’esprit de Peter Hook : la mélodie jouée dans l’aigu de la basse', rhythmDraw('cel_coldwave')],
+    ['sequence8', 'Séquence électro-disco', 'Croches piquées : fondamentale, octave, quinte, septième qui redescend (les silences laissent passer le délai)', rhythmDraw('sequence8')],
     ['cel_staccato80', 'Pop 80s piquée', 'Dans l’esprit des basses synthé de la pop 80s : doubles courtes, quinte, octave, septième', rhythmDraw('cel_staccato80')],
     ['cel_steppers', 'Steppers', 'Dans l’esprit du reggae steppers (Sly & Robbie) : la fondamentale sur chaque temps, fantômes', rhythmDraw('cel_steppers')],
     ['cel_ska', 'Ska qui marche', 'Dans l’esprit du ska jamaïcain : croches qui montent et descendent l’accord', rhythmDraw('cel_ska')],

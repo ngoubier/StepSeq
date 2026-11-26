@@ -22,7 +22,7 @@ const tracksOf = (p) =>
 const plays = (d) => (d.steps ? d.steps.some((v) => v > 0) : d.events.length > 0);
 
 test('chaque inspiration a un plan de chanson, et toutes les chansons se construisent', () => {
-  assert.equal(PRESETS.length, 55);
+  assert.equal(PRESETS.length, 56);
   for (const p of PRESETS) {
     assert.ok(SS.BandSongs[p.id], `plan manquant : ${p.id}`);
     const s = SS.bandSong.build(SS.BandSongs[p.id], p.id, tracksOf(p));
@@ -116,7 +116,7 @@ test('même inspiration, même chanson (déterministe) ; deux chansons différen
   assert.equal(strip(a), strip(b));
   // grilles : pas toutes identiques d'une chanson à l'autre
   const grids = new Set(PRESETS.map((x) => Object.values(SS.BandSongs[x.id].sections).map((sec) => sec.chords).join(';')));
-  assert.equal(grids.size, 55);
+  assert.equal(grids.size, 56);
 });
 
 /* ---------- Tonalité : toutes les pistes instrumentales sont dans la bonne tonalité ---------- */
@@ -185,7 +185,7 @@ test('nuances : refrain / drop plus forts que l\'intro, accents et ghost notes',
     const s = SS.bandSong.build(SS.BandSongs[p.id], p.id, tr);
     const vels = (sc) => tr.flatMap((t) => (sc.data[t.id].steps ? sc.data[t.id].steps.filter((v) => v > 0) : sc.data[t.id].events.map((e) => e.vel)));
     const intro = s.scenes.find((sc) => sc.name === 'Intro');
-    const peak = s.scenes.find((sc) => ['Refrain', 'Drop', 'Sommet', 'Montuno'].includes(sc.name));
+    const peak = s.scenes.find((sc) => ['Refrain', 'Drop', 'Sommet', 'Montuno'].includes(sc.name)) || s.scenes.find((sc) => sc.name === 'Thème');
     assert.ok(avg(vels(peak)) > avg(vels(intro)) + 0.02, `${p.id} : le ${peak.name} n'est pas plus fort que l'intro`);
     // une partie n'est jamais jouée à vélocité constante : au moins 6 niveaux différents
     for (const t of tr) {
@@ -264,6 +264,9 @@ test('techno mélodique : conditions de déclenchement et trilles sur la batteri
   }
 });
 
+/** Modèle dont le plan écrit ses propres courbes de son (sec.auto, « Néons en fuite ») : automation permise hors EDM et techno. */
+const writesAuto = (p) => Object.values(SS.BandSongs[p.id].sections).some((x) => x.auto);
+
 test('EDM et techno : automation valide (bornes, pas dans la scène) et absente de la synthwave et de l\'ambient', () => {
   for (const p of PRESETS) {
     const tr = tracksOf(p);
@@ -272,7 +275,7 @@ test('EDM et techno : automation valide (bornes, pas dans la scène) et absente 
       tr.forEach((t) => {
         const a = sc.data[t.id].auto;
         if (!a) return;
-        assert.ok(['edm', 'techno'].includes(p.style), `${p.id} : automation hors EDM et techno`);
+        assert.ok(['edm', 'techno'].includes(p.style) || writesAuto(p), `${p.id} : automation hors EDM et techno`);
         for (const [id, lane] of Object.entries(a)) {
           const P = SS.autoParam(id);
           assert.ok(P, `${p.id} : réglage inconnu ${id}`);
@@ -513,7 +516,7 @@ test('EDM et techno : le groove est retenu, la montée avance, le dernier drop e
     }
   }
   // synthwave et ambient : aucune courbe de volume ajoutée
-  for (const p of PRESETS.filter((x) => ['synthwave', 'ambient'].includes(x.style))) {
+  for (const p of PRESETS.filter((x) => ['synthwave', 'ambient'].includes(x.style) && !writesAuto(x))) {
     const s = SS.bandSong.build(SS.BandSongs[p.id], p.id, tracksOf(p));
     s.scenes.forEach((sc) => Object.values(sc.data).forEach((d) => assert.ok(!d.auto, `${p.id} : automation inattendue`)));
   }
