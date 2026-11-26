@@ -4525,6 +4525,9 @@ body.wizard-mode .wiz-key { display: flex; align-items: center; padding: 4px 12p
 #bandDialog .bwau-sq { width: 11px; height: 11px; border-radius: 3px; background: var(--pc); flex: none; }
 #bandDialog .bwau-lh b { font-size: var(--fs-md); }
 #bandDialog .bwau-sub { color: var(--bw-dim); font-size: var(--fs-sm); }
+#bandDialog .bwau-own { font-size: var(--fs-xs); font-weight: 700; letter-spacing: .03em; text-transform: uppercase; padding: 1px 7px; border-radius: 6px; border: 1px solid; }
+#bandDialog .bwau-own.model { background: var(--c-violet-bg); color: var(--c-violet-soft); border-color: var(--c-violet); }
+#bandDialog .bwau-own.mine { background: var(--c-amber-bg); color: var(--c-amber); border-color: var(--c-amber); }
 #bandDialog .bwau-rd { padding: 1px 9px; border: 1px solid color-mix(in srgb, var(--pc) 65%, transparent); border-radius: 999px; background: color-mix(in srgb, var(--pc) 16%, transparent); color: #fff; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
 #bandDialog .bwau-xb { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 1px solid var(--bw-line2); border-radius: var(--bw-r-ctl); background: var(--bw-panel2); color: var(--bw-muted); font-size: var(--fs-lg); line-height: 1; cursor: pointer; }
 #bandDialog .bwau-xb:hover { background: var(--bw-raise); color: var(--bw-text); }
@@ -6550,3 +6553,37 @@ body.wizard-mode #liveBtn, body.wizard-mode #liveDock, body.mixer-open #liveDock
 .fx-modcurve { width: 100%; height: 50px; margin-top: 10px; background: var(--c-bg-deep); border: 1px solid var(--c-line); border-radius: 8px; }
 .fx-modcurve .line { fill: none; stroke: var(--c-violet); stroke-width: 2; vector-effect: non-scaling-stroke; }
 .fx-modcurve.dim { opacity: .35; }
+
+/* Assistant : effets et mouvements de son sous le nom du son (js/wizfx.js) */
+#bandDialog .wfx-wrap { position: relative; width: 100%; }
+#bandDialog .bw-stephead .wfx-sub { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+#bandDialog .wfx-chip { display: inline-flex; align-items: center; border-radius: 999px; padding: 2px 10px; font: inherit; font-size: var(--fs-sm); cursor: pointer; border: 1px solid var(--c-violet); background: var(--c-violet-bg); color: var(--c-violet-soft); }
+#bandDialog .wfx-chip.echo { border-color: var(--c-cyan); background: var(--c-cyan-bg); color: var(--c-cyan); }
+#bandDialog .wfx-chip.mine { border-color: var(--c-amber); background: var(--c-amber-bg); color: var(--c-amber); }
+#bandDialog .wfx-chip[aria-expanded="true"] { box-shadow: 0 0 0 2px var(--c-line-strong); }
+#bandDialog .wfx-ovbtn { margin-left: 4px; }
+#bandDialog .wfx-pop, #bandDialog .wfx-ov { position: absolute; z-index: 30; top: calc(100% + 6px); background: var(--c-panel); border: 1px solid var(--c-line-strong); border-radius: 12px; padding: 10px 14px 12px; box-shadow: 0 12px 40px rgba(0, 0, 0, .55); font-size: var(--fs-sm); color: var(--c-text); }
+#bandDialog .wfx-pop { left: 34px; width: 400px; display: flex; flex-direction: column; gap: 8px; }
+#bandDialog .wfx-ov { left: 34px; right: 0; max-width: 1100px; }
+#bandDialog .wfx-ph { display: flex; align-items: center; gap: 8px; }
+#bandDialog .wfx-ph b { font-size: var(--fs-md); }
+#bandDialog .wfx-r { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 10px; }
+#bandDialog .wfx-r > span:first-child { color: var(--c-text-2); }
+#bandDialog .wfx-r input[type="range"] { grid-column: 1 / -1; width: 100%; }
+#bandDialog .wfx-r .segmented button { padding: 2px 7px; font-size: var(--fs-xs); }
+#bandDialog .wfx-rev { align-self: flex-start; }
+#bandDialog .wfx-ovgrid { display: grid; grid-template-columns: 130px 1fr; gap: 4px 10px; margin-top: 10px; align-items: center; }
+#bandDialog .wfx-ovlab { font-size: var(--fs-sm); color: var(--c-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#bandDialog .wfx-ovlab i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+#bandDialog .wfx-ovlab em { font-style: normal; color: var(--c-violet-soft); }
+#bandDialog .wfx-ovsc { display: flex; height: 22px; }
+#bandDialog .wfx-ovsc button { border: 0; border-left: 1px solid var(--c-line); background: none; color: var(--c-muted); padding: 0 0 0 4px; font: inherit; font-size: var(--fs-xs); text-align: left; overflow: hidden; white-space: nowrap; cursor: pointer; }
+#bandDialog .wfx-ovsc button.cur { color: var(--c-text); background: var(--c-panel-3); border-radius: 4px 4px 0 0; }
+#bandDialog .wfx-ovlane { position: relative; display: block; width: 100%; height: 26px; padding: 0; border: 0; background: var(--c-surface-1); border-radius: 4px; overflow: hidden; cursor: pointer; }
+#bandDialog .wfx-ovlane.cur { outline: 1px solid var(--c-line-strong); }
+#bandDialog .wfx-ovlane svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+#bandDialog .wfx-legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 8px; font-size: var(--fs-xs); color: var(--c-muted); }
+#bandDialog .wfx-legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: 3px; margin-right: 5px; }
+/* pastilles de couleur des réglages qui bougent, dans la colonne des scènes */
+#bandDialog .bwau-badge .bwau-dots { display: inline-flex; gap: 2px; margin-left: 3px; }
+#bandDialog .bwau-badge .bwau-dots i { width: 10px; height: 7px; border-radius: 2px; display: inline-block; }

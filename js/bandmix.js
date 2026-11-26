@@ -315,6 +315,8 @@ SS.bandMix = (() => {
       // effets écrits dans le plan du modèle (js/band-songs.js, plan.fx[rôle] : phaser du drone, écho de la basse…)
       const planFx = SS.BandSongs && t.band.preset && SS.BandSongs[t.band.preset] && SS.BandSongs[t.band.preset].fx;
       if (planFx && planFx[role]) Object.assign(fx, planFx[role]);
+      // effets retouchés dans l'assistant (pastilles sous le son de l'instrument, js/wizfx.js) : par-dessus ceux du modèle
+      if (t.band.fxo) Object.assign(fx, t.band.fxo);
       for (const [k, v] of Object.entries(fx)) if (v === SS.FX_DEFAULTS[k]) delete fx[k];
       if (Object.keys(fx).length) t.fx = fx;
       else delete t.fx;

@@ -1214,10 +1214,20 @@ SS.claudeTools = (() => {
     const wait = box && !box.hidden ? { attente: 'une fenêtre de l’assistant attend le choix de l’utilisateur (reprendre les instruments de la grille, verrouiller des pistes) : demande-lui de choisir' } : {};
     return { message: `Assistant ${r}`, ...wait, etat: W().etat() };
   }
-  function assistantEtape({ etape } = {}) {
+  function assistantEtape({ etape, instrument } = {}) {
+    if (instrument != null) return { message: `Étape ${W().etapeInstrument(instrument)}` };
     const k = STEP_FR[fold(etape)];
     if (!k) fail(`étape inconnue : « ${etape} » (${Object.keys(STEP_FR).filter((x) => !/^(inst|chords|arr|fx|pick|creer|transitions|tonalite)$/.test(x)).join(', ')})`);
     return { message: `Étape ${W().etape(k)}` };
+  }
+  function assistantSonInstrument({ musicien, effets, revenirEffets, scene, retirer, revenir } = {}) {
+    if (!musicien) fail('musicien manquant (voir assistantEtat().musiciens)');
+    if (effets != null && typeof effets !== 'object') fail('effets : un objet { phaser, phaserSync, sendEcho… }');
+    if ((retirer || revenir) && scene == null) fail('scene manquante pour retirer / revenir');
+    const r = W().sonInstrument(musicien, { effets, revenirEffets: !!revenirEffets, scene, retirer, revenir });
+    const wrote = effets || revenirEffets || retirer || revenir;
+    if (wrote) draft(`${r.musicien} : effets et courbes`);
+    return { message: wrote ? `${r.musicien} : réglé (propose à l’utilisateur d’écouter)` : r.musicien, ...r };
   }
   function assistantEcouter() {
     W().ecouter();
@@ -1680,7 +1690,8 @@ SS.claudeTools = (() => {
     { nom: 'assistantEtat', lecture: true, assistant: true, description: 'Assistant : ouvert ou non, étape, style, inspiration, musiciens (id, type, son), tempo, tonalité, scènes (id, mesures, tonalité, grille), structure.', params: {}, faire: assistantEtat },
     { nom: 'assistantSons', lecture: true, assistant: true, description: 'Assistant : les sons conseillés pour un type de musicien (batterie : les kits ; orchestre : les effectifs ; ambient : les modules Jardin, Paysage, Fresque).', params: { type: S('texte', 'batterie, basse, nappe, arpege, melodie, orchestre, ambient', true) }, faire: assistantSons },
     { nom: 'assistantOuvrir', assistant: true, description: 'Ouvre l’assistant « Nouvelle chanson » sur la chanson (reprend son brouillon s’il y en a un).', params: {}, faire: assistantOuvrir },
-    { nom: 'assistantEtape', assistant: true, description: 'Affiche une étape de l’assistant.', params: { etape: S('texte', 'style, instruments, tempo, scenes, accords, arrangement, effets, mix, integration', true) }, faire: assistantEtape },
+    { nom: 'assistantEtape', assistant: true, description: 'Affiche une étape de l’assistant.', params: { etape: S('texte', 'style, instruments, tempo, scenes, accords, arrangement, effets, mix, integration'), instrument: S('texte', 'ou l’étape d’un instrument : id ou nom du musicien') }, faire: assistantEtape },
+    { nom: 'assistantSonInstrument', assistant: true, description: 'Assistant : effets d’un instrument (pastilles sous le nom du son : phaser, flanger, écho, ceux du modèle et les retouches) et origine de ses courbes d’automation par scène (« modèle » ou « à moi »). Sans réglage : lecture. Écrit : effets retouchés, retour aux effets du modèle, courbes du modèle retirées ou retouches effacées dans une scène.', params: { musicien: S('texte', 'id ou nom', true), effets: S('objet', '{ phaser (mix 0–1), phaserSync (0, 0.25, 1, 2, 4, 8 mesures), phaserDepth, phaserFb (0–0.9), phaserStages (4, 6, 8, 12), flanger, flangerSync, flangerDepth, sendEcho (envoi vers l’écho 0–1) } ; null efface une retouche'), revenirEffets: S('booléen', 'efface toutes les retouches : effets du modèle'), scene: SCENE, retirer: S('liste', 'réglages dont la courbe disparaît dans la scène (filter, res, volume, echo, reverb…) ; celle du modèle aussi'), revenir: S('liste', 'réglages dont la retouche est effacée : la courbe du modèle revient') }, faire: assistantSonInstrument },
     { nom: 'assistantEcouter', lecture: true, assistant: true, description: 'Écoute la chanson en cours de création (ou la scène, aux étapes Accords et instruments).', params: {}, faire: assistantEcouter },
     { nom: 'assistantStop', lecture: true, assistant: true, description: 'Arrête l’écoute de l’assistant.', params: {}, faire: assistantStop },
     { nom: 'assistantMixAuto', assistant: true, description: 'Panneau Mix auto de l’assistant (à droite, étapes 3 à 12) : écoute pendant la lecture et propose des conseils de mix et de mastering (volumes, égaliseur, compresseur, limiteur, envois, mastering) rangés dans le mix de l’assistant, pour toute la chanson ou pour chaque scène (volumes, envoi hall). La tranche écoutée ou réglée s’illumine à l’étape Mix. Mode main (accepter un par un) ou auto (le pilote applique, un geste à la fois, les familles permises). Sans paramètre : l’état (conseils, faits).', params: { ouvrir: S('booléen', 'true ouvre, false ferme'), mode: S('texte', 'main ou auto'), toucher: S('objet', 'familles permises au mode auto : { fader, eq, comp, pan, sidechain, sends, mastereq, mastering } → true/false'), parScene: S('booléen', 'true : « Chaque scène » (écoute scène par scène, volumes et envoi hall rangés dans la scène entendue) ; false : toute la chanson'), accepter: S('texte', 'id ou titre d’un conseil'), refuser: S('texte', 'id d’un conseil'), annuler: S('booléen', 'défait le dernier réglage (comme Ctrl+Z)'), annulerSession: S('booléen', 'revient au mix d’avant la session') }, faire: assistantMixAuto },
