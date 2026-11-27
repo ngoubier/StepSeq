@@ -7419,6 +7419,13 @@ SS.band = (() => {
     const k = T.kind === 'drums' ? (T.kit ? drumsSub : drumsLiteSub) : { bass: bassSub, chords: padSub, keys: keysSub, arp: arpSub, guitar: gtrSub, melody: melSub, orch: orchSub, horns: hornsSub, ambient: ambSub }[T.kind];
     return k(x, T);
   }
+  /** Menus « Style » des cartes Motif : le style choisi vaut pour la scène ; dans une autre scène, celui de la chanson revient. */
+  const MOTIF_STYLE_KEYS = ['motGroup', 'motGroupT', 'padGroup', 'padGroupT', 'dStyle', 'gtStyle', 'kbStyle'];
+  function motifStyleScene(sec) {
+    if (S.wiz.motStyleSec === sec) return;
+    S.wiz.motStyleSec = sec;
+    MOTIF_STYLE_KEYS.forEach((k) => delete S.wiz[k]);
+  }
   /** Étape d'un instrument : types, barre de piste, scènes à gauche, éditeur du type choisi (réglages de cet instrument). */
   function renderIns(T) {
     if (T.kind === 'melody') return renderHarmony(T);
@@ -7426,6 +7433,7 @@ SS.band = (() => {
     const box = $('#bandWiz');
     if (!res) return box.replaceChildren(h('p', { class: 'dlg-hint' }, 'Cette inspiration n’a pas de plan de chanson.'));
     const sc = curScene(res);
+    motifStyleScene(sc.sec);
     const body = { drums: () => (T.kit ? drumsBody(sc, T) : drumsLiteBody(sc, T)), bass: () => bassBody(sc, T), chords: () => padBody(sc, T), arp: () => arpBody(sc, T), keys: () => keysBody(sc, T), guitar: () => guitarBody(sc, T), orch: () => orchBody(sc, T), horns: () => hornsBody(sc, T), ambient: () => ambBody(sc, T) }[T.kind]();
     const prev = $('#bwParts');
     const top = prev && prev.dataset.ins === T.id && prev.dataset.kind === T.kind ? prev.scrollTop : 0; // un clic bas dans la liste ne la remonte pas
@@ -8499,6 +8507,7 @@ SS.band = (() => {
     const pick = (id) => pickPattern(sc, T, id ? P[id] : null, motifTargets(sc, T, () => true));
     const out = MP.render({
       styles: meter ? null : MP.STYLES,
+      styleId: 'bwpStyle',
       group: g,
       mark: drumStyleOf(drumStyle()),
       onGroup: (v) => ((S.wiz.dStyle = v), renderWiz()),
@@ -8519,9 +8528,9 @@ SS.band = (() => {
         const pool = MP.visible(list.map((p) => p.id), { fam, stars, familyOf }).filter((id) => id !== cur);
         if (pool.length) pick(pool[Math.floor(Math.random() * pool.length)]);
       },
-      help: SS.helpTip('Les motifs de chaque style ; le point marque celui de la chanson. Calme, Moyen, Intense : la nuance du motif. ★ : la nuance de cette scène (intro calme, couplet moyen, refrain intense). Survolez une carte pour sa description.', 'Style'),
+      help: SS.helpTip('Le menu Style montre les motifs d’un style ; il part du style de la chanson à chaque scène. Calme, Moyen, Intense : la nuance du motif. ★ : la nuance de cette scène (intro calme, couplet moyen, refrain intense). Le dé choisit un motif au hasard. Survolez une carte pour sa description.', 'Style'),
     });
-    const [st, fm, cards] = meter ? [null, ...out] : out;
+    const [fm, cards] = out;
     // les cartes gardent leur bibliothèque (data-st) ; la carte de l'inspiration vient en tête
     cards.querySelectorAll('.mot-card').forEach((c) => c.setAttribute('data-st', P[c.dataset.id].st));
     const inspOn = !muted && !d.pattern && !d.edits;
@@ -8534,7 +8543,6 @@ SS.band = (() => {
         h('span', { class: 'mot-draw', html: miniLanes(inspLanes(sc, T.cols)) })
       )
     );
-    if (st) st.id = 'bwpStyle';
     fm.id = 'bwpFam';
     const sb = fm.querySelector('.mot-surprise');
     if (sb) sb.id = 'bwpSurprise';
@@ -8550,7 +8558,7 @@ SS.band = (() => {
         h('span', { class: 'spacer' }),
         play ? partCheck('bwp-on-drums', 'Joue dans cette scène', !muted, (on) => (putOff(sc.sec, T, !on), partChanged())) : null
       ),
-      meter ? h('div', { class: 'bwp-row mot-fixed' }, h('span', { class: 'bh-info bwp-libmeter', id: 'bwpLib' }, `Mesure ${sigOf()}`)) : st,
+      meter ? h('div', { class: 'bwp-row mot-fixed' }, h('span', { class: 'bh-info bwp-libmeter', id: 'bwpLib' }, `Mesure ${sigOf()}`)) : null,
       fm,
       cards,
       h('div', { class: 'bwp-row mot-foot' }, motifScope())
@@ -8960,7 +8968,7 @@ SS.band = (() => {
     return h('span', { class: 'bwa-ssub' }, h('span', {}, bassSub(x, T, true)), n ? h('em', { class: 'bwa-badge', title: `${n} accent${n > 1 ? 's' : ''}` }, h('i', { html: '<svg viewBox="0 0 8 8" aria-hidden="true"><path d="M1.5 1l4 3-4 3" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>' }), `${n} accent${n > 1 ? 's' : ''}`) : null);
   }
   /**
-   * Basse : le même écran que la fenêtre MOTIF de la Grille (SS.bassMotifs.picker : puces de style, cartes, ★ Célèbres),
+   * Basse : le même écran que la fenêtre MOTIF de la Grille (SS.bassMotifs.picker : menu Style, familles, cartes),
    * puis Scènes (cette scène | toutes celles où la basse joue), Hauteur C1–C3 (register low | mid | high), pédale, note d'approche.
    */
   const REGISTERS = [['low', 'C1'], ['mid', 'C2'], ['high', 'C3']];
@@ -9034,7 +9042,7 @@ SS.band = (() => {
           { class: 'bwp-ch' },
           h('b', {}, `Basse de « ${sc.name} »`),
           h('span', { class: 'mot-now' }, cur ? SS.bassMotifs.name(cur) : 'ne joue pas'),
-          SS.helpTip('Cliquez un motif : il s’entend dans la scène et la basse le joue sur ses accords. Le point marque le style de la chanson ; survolez une carte pour sa description.', 'Motif de basse'),
+          SS.helpTip('Cliquez un motif : il s’entend dans la scène et la basse le joue sur ses accords. Le menu Style part du style de la chanson à chaque scène ; le dé choisit un motif au hasard. Survolez une carte pour sa description.', 'Motif de basse'),
           h('span', { class: 'spacer' }),
           playBox(sc, T, '8')
         ),
@@ -9355,7 +9363,7 @@ SS.band = (() => {
     ];
   }
   /**
-   * Nappe : la carte Motif commune (SS.bassMotifs.picker avec la bibliothèque SS.padMotifs) : puces de style (celle du
+   * Nappe : la carte Motif commune (SS.bassMotifs.picker avec la bibliothèque SS.padMotifs) : menu Style (celui du
    * style de la chanson présélectionnée), familles Tenues | Rythmées | En mouvement, cartes ; puis Scènes et Voicing.
    */
   function padMotifCard(sc, T, o) {
@@ -9402,7 +9410,7 @@ SS.band = (() => {
         { class: 'bwp-ch' },
         h('b', {}, `${isGuitarist(T) ? 'Guitare' : 'Nappe'} de « ${sc.name} »`),
         h('span', { class: 'mot-now' }, cur ? P.name(cur) : m ? nameOf(padModes(T), m) : 'ne joue pas'),
-        SS.helpTip('Cliquez un motif : il s’entend dans la scène et la nappe le joue sur ses accords, avec le son de la piste. Le point marque le style de la chanson ; survolez une carte pour sa description. Dans le dessin, chaque trait est une note de l’accord (grave en bas) ; la ligne claire montre le volume ou le filtre qui bouge.', 'Motif de nappe'),
+        SS.helpTip('Cliquez un motif : il s’entend dans la scène et la nappe le joue sur ses accords, avec le son de la piste. Le menu Style part du style de la chanson à chaque scène ; le dé choisit un motif au hasard. Survolez une carte pour sa description. Dans le dessin, chaque trait est une note de l’accord (grave en bas) ; la ligne claire montre le volume ou le filtre qui bouge.', 'Motif de nappe'),
         h('span', { class: 'spacer' }),
         playBox(sc, T, 'sustain')
       ),
@@ -9639,8 +9647,9 @@ SS.band = (() => {
     const ids = all.filter((id) => id === cur || L.inStyle(id, style));
     let fam = S.wiz[k + 'Fam'];
     if (fam && fam !== 'star' && fam !== 'all' && !L.FAMILIES[jeu].some((f) => f[0] === fam)) fam = undefined; // famille d'un autre jeu
-    const [st, fm, cards] = MP.render({
+    const [fm, cards] = MP.render({
       styles: [...MP.STYLES, ...L.CHIPS],
+      styleId: k === 'gt' ? 'bwgStyle' : 'bwkStyle',
       group: style,
       mark: MP.styleOfSong(S.styleId),
       onGroup: (v) => ((S.wiz[k + 'Style'] = v), renderWiz()),
@@ -9660,13 +9669,12 @@ SS.band = (() => {
       onPick,
       label: 'Motifs',
       surprise,
-      help: SS.helpTip('Les motifs qui sonnent juste dans chaque style ; le point marque celui de la chanson, une puce grise n’a pas de motif pour ce jeu. ★ : conseillé pour ce type de scène (intro, couplet, refrain…). Survolez une carte pour sa description.', 'Style'),
+      help: SS.helpTip('Le menu Style montre les motifs qui sonnent juste dans un style ; il part du style de la chanson à chaque scène. ★ : conseillé pour ce type de scène (intro, couplet, refrain…). Le dé choisit un motif au hasard. Survolez une carte pour sa description.', 'Style'),
     });
-    st.id = k === 'gt' ? 'bwgStyle' : 'bwkStyle';
     fm.id = k === 'gt' ? 'bwgFam' : 'bwkFam';
     const sb = fm.querySelector('.mot-surprise');
-    if (sb) (sb.id = k === 'gt' ? 'bwgSurprise' : 'bwkSurprise'), (sb.title = 'Un motif du style au hasard, et des réglages de jeu au hasard');
-    return [st, fm, cards];
+    if (sb) (sb.id = k === 'gt' ? 'bwgSurprise' : 'bwkSurprise'), (sb.title = 'Surprends-moi : un motif du style au hasard, et des réglages de jeu au hasard');
+    return [fm, cards];
   }
   function guitarBody(sc, T) {
     const G = GT();

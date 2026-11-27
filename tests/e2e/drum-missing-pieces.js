@@ -42,7 +42,7 @@ const ok = (c, m) => {
   ok((await page.getAttribute('#bwParts', 'data-kind')) === 'drums', 'étape Batterie');
   ok((await page.locator('.bwd-chip.miss').count()) === 0, 'motif de l’inspiration : aucune pastille allumée');
 
-  await page.click('#bwpStyle [data-g="all"]');
+  await page.click('#bwpStyle .mot-style-btn'); await page.click('#bwpStyle [data-g="all"]');
   await page.click('#bwpFam [data-f="all"]');
   await page.waitForTimeout(250);
   await page.click('#bwDrumMot .mot-card[data-id="tambourin-pop"]');

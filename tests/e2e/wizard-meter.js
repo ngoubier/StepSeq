@@ -91,7 +91,7 @@ const ok = (c, m) => {
   if (pad) {
     await pad.click();
     await page.waitForTimeout(400);
-    await page.click('#bwPadMotif .mot-chip[data-g="ternary"]').catch(() => {});
+    await page.click('#bwPadMotif .mot-style-btn').catch(() => {}); await page.click('#bwPadMotif .mot-opt[data-g="ternary"]').catch(() => {});
     await page.waitForTimeout(300);
     const ids = await page.$$eval('#bwPadMotif .mot-card', (els) => els.map((e) => e.dataset.id));
     ok(ids.includes('berce68') && !ids.includes('valse3') && !ids.includes('house'), `nappe en 6/8 : motifs de la mesure (${ids.filter((x) => x !== 'none').join(', ')})`);

@@ -93,7 +93,7 @@ const ok = (c, m) => {
   await page.click('#bwpFam [data-f="all"]');
 
   // un autre style : un dembow dans une chanson synthwave, puis « Tous »
-  await page.click('#bwpStyle [data-g="latin"]');
+  await page.click('#bwpStyle .mot-style-btn'); await page.click('#bwpStyle [data-g="latin"]');
   await page.waitForTimeout(250);
   ok((await page.locator('#bwDrumMot .mot-card').count()) === 31, 'style Latin & Reggae : 30 motifs');
   await page.click('#bwDrumMot .mot-card[data-id="dembow"]');
@@ -102,12 +102,12 @@ const ok = (c, m) => {
   const dembow = await page.evaluate(() => SS.drumPattern('latin', 'dembow'));
   ok(dv.pattern === 'dembow' && dv.style === 'latin' && (await page.locator('#bwDrumMot .mot-card.on').getAttribute('data-st')) === 'latin', 'Dembow (Latin) choisi pour le couplet');
   ok(rowsOf(await kick('Couplet'), 1)[0] === lane(dembow.lanes.K), 'le kick suit le dembow');
-  await page.click('#bwpStyle [data-g="all"]');
+  await page.click('#bwpStyle .mot-style-btn'); await page.click('#bwpStyle [data-g="all"]');
   await page.waitForTimeout(250);
   const total = await page.evaluate(() => Object.values(SS.DRUM_PATTERNS).reduce((a, l) => a + l.length, 0));
   ok((await page.locator('#bwDrumMot .mot-card').count()) === total + 1, `Tous les styles : ${total} motifs`);
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'bibliotheque-tous-styles.png') });
-  await page.click('#bwpStyle [data-g="synth"]');
+  await page.click('#bwpStyle .mot-style-btn'); await page.click('#bwpStyle [data-g="synth"]');
   await page.waitForTimeout(250);
 
   // pied « Scènes : Toutes » : le motif choisi va à toutes les scènes
@@ -168,9 +168,9 @@ const ok = (c, m) => {
   await tab('bass');
   ok((await page.locator('#bwMotif .mot-fam.star').count()) === 1 && (await page.locator('#bwMotif .mot-star').count()) >= 1, 'Basse : « ★ Pour cette scène » et ses motifs');
   await page.click('#bwMotif .mot-fam[data-f="all"]');
-  ok((await page.getAttribute('#bwParts', 'data-kind')) === 'bass' && (await page.locator('#bwMotif .mot-chip[data-g]').count()) === 11 && (await page.locator('#bwMotif .mot-fam:not(.star)').count()) === 5 && (await page.locator('#bwMotif .mot-card').count()) > 10, 'étape Basse : la carte Motif commune (Tous, 9 styles communs, Célèbres ; 4 familles et Tous) et ses cartes');
+  ok((await page.getAttribute('#bwParts', 'data-kind')) === 'bass' && (await page.locator('#bwMotif .mot-opt[data-g]').count()) >= 3 && (await page.locator('#bwMotif .mot-opt[data-g]').count()) <= 11 && (await page.locator('#bwMotif .mot-bar').count()) === 1 && (await page.locator('#bwMotif .mot-fam:not(.star)').count()) === 5 && (await page.locator('#bwMotif .mot-card').count()) > 10, 'étape Basse : une seule barre (familles et Tous, menu Style sans les styles vides) et ses cartes');
   ok((await page.locator('#bwMotif .mot-card.on .mot-badge.insp').textContent()) === 'Inspiration', 'basse : le mode de l’inspiration est choisi et repéré');
-  ok((await page.locator('#bwMotif .mot-card[data-id="none"]').count()) === 0 && (await page.locator('#bwMotif .mot-chip[data-g="film"].off').count()) === 1, 'basse : plus de carte Aucune (la case suffit), puce sans motif grisée');
+  ok((await page.locator('#bwMotif .mot-card[data-id="none"]').count()) === 0 && (await page.locator('#bwMotif .mot-opt[data-g="film"]').count()) === 0, 'basse : plus de carte Aucune (la case suffit), style sans motif absent du menu');
   await scene('Couplet');
   await page.click('#bwpPedal [data-v="tonic"]');
   await page.click('#bwpRegister [data-v="mid"]');
@@ -181,7 +181,7 @@ const ok = (c, m) => {
     return [...new Set(sc.data[id].events.flatMap((e) => e.notes.map((n) => n % 12)))];
   });
   ok(pcs.length === 1 && pcs[0] === 0, `la basse reste sur la tonique, Do (${pcs})`);
-  await page.click('#bwMotif .mot-chip[data-g="all"]');
+  await page.click('#bwMotif .mot-style-btn'); await page.click('#bwMotif .mot-opt[data-g="all"]');
   await page.click('#bwMotif .mot-card[data-id="gallop"]');
   ok((await part('verse', 'bass')).mode === 'gallop' && /Galop/.test(await page.textContent('.bh-scene.on .bh-ssub')), 'mode Galop choisi, rappelé dans la colonne des scènes');
 
@@ -190,8 +190,8 @@ const ok = (c, m) => {
   // Nappes : mode et voicing
   await tab('chords');
   if (await page.locator('#bwPadMotif .mot-fam[data-f="all"]:not(.on)').count()) await page.click('#bwPadMotif .mot-fam[data-f="all"]');
-  ok((await page.getAttribute('#bwParts', 'data-kind')) === 'chords' && (await page.locator('#bwPadMotif .mot-chip.on.mark[data-g="synth"]').count()) === 1 && (await page.locator('#bwPadMotif .mot-card').count()) === (await page.evaluate(() => SS.padMotifs.inGroup('synth').length)), 'onglet de la nappe : puce Synthwave (style de la chanson) et ses motifs');
-  await page.click('#bwPadMotif .mot-chip[data-g="all"]');
+  ok((await page.getAttribute('#bwParts', 'data-kind')) === 'chords' && (await page.locator('#bwPadMotif .mot-opt.on.mark[data-g="synth"]').count()) === 1 && (await page.locator('#bwPadMotif .mot-card').count()) === (await page.evaluate(() => SS.padMotifs.inGroup('synth').length)), 'onglet de la nappe : puce Synthwave (style de la chanson) et ses motifs');
+  await page.click('#bwPadMotif .mot-style-btn'); await page.click('#bwPadMotif .mot-opt[data-g="all"]');
   ok((await page.locator('#bwPadMotif .mot-card').count()) === (await page.evaluate(() => SS.padMotifs.all().filter((id) => SS.bandSong.meterOK('chords', id)).length)), 'nappe : tous les motifs de la mesure');
   await page.click('#bwPadMotif .mot-fam[data-f="mouv"]');
   ok((await page.evaluate(() => [...document.querySelectorAll('#bwPadMotif .mot-card')].every((c) => SS.padMotifs.kindOf(c.dataset.id) === 'mouv'))) && (await page.locator('#bwPadMotif .mot-card[data-id="cliche"]').count()) === 1, 'nappe : filtre En mouvement');

@@ -1,7 +1,9 @@
 /*
- * Carte Motif commune des musiciens de l'assistant (maquette « présentation des motifs » validée le 2026-11-25) :
- *   - une seule liste de styles (STYLES), aux noms des styles de chanson, plus des puces propres à un musicien ;
- *   - une ligne de familles : « ★ Pour cette scène » (si la scène a des motifs conseillés), les familles, Tous ;
+ * Carte Motif commune des musiciens de l'assistant (maquettes « présentation des motifs » du 2026-11-25 et « filtres
+ * des motifs » du 2026-11-27) :
+ *   - une seule liste de styles (STYLES), aux noms des styles de chanson, plus des styles propres à un musicien ;
+ *   - une seule ligne de filtres : « ★ Pour cette scène » (si la scène a des motifs conseillés), les familles, Tous,
+ *     puis le menu « Style : … ▾ », le dé Surprends-moi et Avancé ;
  *   - des cartes au même gabarit : ★ devant le nom si conseillé, dessin, badge « auto » ou « Inspiration » en coin ;
  *   - au pied, « Scènes : Cette scène | Même type | Toutes ».
  * Utilisée par l'étape Basse, l'étape Nappe (js/band.js) et la fenêtre MOTIF de la Grille (js/ui.js) à travers
@@ -62,45 +64,52 @@ SS.motifPicker = (() => {
   const chip = (cls, id, on, label, onclick, extra = {}) =>
     el('button', { type: 'button', role: 'radio', 'aria-checked': String(on), class: cls + (on ? ' on' : ''), onclick, ...extra }, ...[].concat(label));
 
+  /** Styles proposés dans le menu : celui de la chanson en tête, puis ceux qui ont des motifs (et le style choisi), puis Tous. */
+  function styleMenuItems(styles, { mark, group, count } = {}) {
+    const has = (id) => id === group || id === mark || !count || count(id) > 0;
+    const first = styles.filter(([id]) => id === mark);
+    const rest = styles.filter(([id]) => id !== mark && has(id));
+    return [...first, ...rest, ['all', 'Tous les styles']];
+  }
+
   /**
-   * Rendu : [puces de style, puces de famille, cartes].
+   * Rendu : [barre, cartes]. La barre tient sur une ligne : « ★ Pour cette scène », les familles et Tous en puces, puis
+   * le menu « Style : … ▾ » (celui de la chanson en tête, sans les styles vides), le dé Surprends-moi et Avancé.
    * o = {
-   *   styles: [[id, nom]] (les styles communs puis les puces propres ; null : pas de ligne de styles, Cuivres et Orchestre),
-   *   group, mark (style de la chanson), onGroup(id),
-   *   count(id) : nombre de motifs d'un style (0 : puce grisée),
+   *   styles: [[id, nom]] (les styles communs puis les puces propres ; null : pas de menu de styles, Cuivres et Orchestre),
+   *   styleId?: id du menu de styles, group, mark (style de la chanson), onGroup(id),
+   *   count(id) : nombre de motifs d'un style (0 : absent du menu),
    *   fams?: [[id, nom]], fam, onFam(id), familyOf(id), stars?: [ids] (★ Pour cette scène),
    *   ids : motifs du style choisi, cur, insp?, auto?, name(id), desc(id), svg(id), onPick(id), label,
-   *   surprise?: () => …  (bouton Surprends-moi), advanced?: bouton à côté (Avancé…), help?: élément « ? » des styles,
+   *   surprise?: () => …  (dé Surprends-moi), advanced?: bouton au bout (Avancé…), help?: élément « ? » après le menu,
    *   mine?(id) : motif écrit par l'utilisateur (badge « ✎ À moi »), addCard?: carte au bout de la famille « mine »
    * }
    */
   function render(o) {
-    const styles = !o.styles ? null : el(
-      'div',
-      { class: 'mot-chips', role: 'radiogroup', 'aria-label': 'Styles' },
-      [['all', 'Tous'], ...o.styles].map(([id, l]) => {
-        const off = id !== 'all' && o.count && !o.count(id) && id !== o.group;
-        return chip('mot-chip' + (o.mark === id ? ' mark' : '') + (off ? ' off' : ''), id, o.group === id, l, off ? null : () => o.onGroup(id), { 'data-g': id, disabled: off || null });
-      }),
-      o.help || null
-    );
     const stars = o.stars || [];
     // sans famille choisie : « ★ Pour cette scène », sauf si le motif joué n'en est pas (on le voit dans Tous)
     const f = famShown(o.fam === undefined && o.cur && stars.length && !stars.includes(o.cur) && o.ids.includes(o.cur) ? 'all' : o.fam, stars);
     const nOf = (fid) => (fid === 'all' ? o.ids.length : fid === 'star' ? stars.length : o.ids.filter((id) => o.familyOf(id) === fid).length);
-    const famChip = (id, label, extra = '') => chip('mot-chip mot-fam' + extra, id, f === id, [label, el('span', { class: 'mot-n' }, String(nOf(id)))], () => o.onFam(id), { 'data-f': id });
-    const fams = o.fams || o.surprise || o.advanced
+    const famChip = (id, label, extra = '') => chip('mot-chip mot-fam' + extra, id, f === id, label, () => o.onFam(id), { 'data-f': id });
+    const menu = o.styles ? styleMenu(o) : null;
+    const bar = o.fams || o.surprise || o.advanced || menu
       ? el(
           'div',
-          { class: 'mot-chips mot-fams', role: 'radiogroup', 'aria-label': 'Familles' },
-          stars.length ? famChip('star', '★ Pour cette scène', ' star') : null,
-          ...(o.fams || []).filter(([id]) => nOf(id) || f === id).map(([id, l]) => famChip(id, l)),
-          o.fams ? famChip('all', 'Tous') : null,
+          { class: 'mot-chips mot-fams mot-bar' },
+          el(
+            'span',
+            { class: 'mot-famset', role: 'radiogroup', 'aria-label': 'Familles' },
+            stars.length ? famChip('star', '★ Pour cette scène', ' star') : null,
+            ...(o.fams || []).filter(([id]) => nOf(id) || f === id).map(([id, l]) => famChip(id, l)),
+            o.fams ? famChip('all', 'Tous') : null
+          ),
           el('span', { class: 'spacer' }),
           el(
             'span',
             { class: 'mot-acts' },
-            o.surprise ? el('button', { type: 'button', class: 'btn btn-small mot-surprise', onclick: o.surprise, title: 'Un motif au hasard parmi ceux affichés' }, 'Surprends-moi') : null,
+            menu,
+            menu ? o.help || null : null,
+            o.surprise ? el('button', { type: 'button', class: 'btn btn-small mot-surprise', onclick: o.surprise, title: 'Surprends-moi : un motif au hasard parmi ceux affichés', 'aria-label': 'Surprends-moi', html: DICE }) : null,
             o.advanced || null
           )
         )
@@ -118,7 +127,54 @@ SS.motifPicker = (() => {
     };
     const shown = o.fams || stars.length ? visible(o.ids, { fam: f, stars, familyOf: o.familyOf }) : o.ids;
     const cards = el('div', { class: 'mot-cards', role: 'radiogroup', 'aria-label': o.label || 'Motifs' }, shown.map(card), f === 'mine' && o.addCard ? o.addCard : null);
-    return [styles, fams, cards].filter(Boolean);
+    return [bar, cards].filter(Boolean);
+  }
+  /** Dé de Surprends-moi. */
+  const DICE = '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="1.5" width="13" height="13" rx="3" style="fill:none;stroke:currentColor;stroke-width:1.4"/><circle cx="5" cy="5" r="1.1" fill="currentColor"/><circle cx="8" cy="8" r="1.1" fill="currentColor"/><circle cx="11" cy="11" r="1.1" fill="currentColor"/></svg>';
+  /** Menu « Style : … ▾ » : un bouton et sa liste (data-g sur chaque style). */
+  function styleMenu(o) {
+    const all = [['all', 'Tous les styles'], ...o.styles];
+    const curName = (all.find((s) => s[0] === o.group) || all[0])[1];
+    const pop = el('span', { class: 'mot-pop', role: 'menu', 'aria-label': 'Styles', hidden: true });
+    const items = styleMenuItems(o.styles, o);
+    items.forEach(([id, l], i) => {
+      if (i && (id === 'all' || (i === 1 && items[0][0] === o.mark))) pop.append(el('span', { class: 'mot-sep', 'aria-hidden': 'true' }));
+      pop.append(
+        el(
+          'button',
+          { type: 'button', role: 'menuitemradio', 'aria-checked': String(o.group === id), class: 'mot-opt' + (o.group === id ? ' on' : '') + (o.mark === id ? ' mark' : ''), 'data-g': id, onclick: () => ((pop.hidden = true), o.onGroup(id)) },
+          el('span', {}, l),
+          o.mark === id ? el('small', {}, 'la chanson') : null
+        )
+      );
+    });
+    const btn = el(
+      'button',
+      { type: 'button', class: 'btn btn-small mot-style-btn', 'aria-haspopup': 'menu', title: 'Style des motifs', onclick: () => (closeMenus(pop), (pop.hidden = !pop.hidden)) },
+      'Style : ',
+      el('b', {}, o.group === 'all' ? 'tous' : curName),
+      ' ▾'
+    );
+    return el('span', { class: 'mot-style', id: o.styleId || null }, btn, pop);
+  }
+  /** Ferme les menus de styles ouverts (sauf `keep`). */
+  function closeMenus(keep) {
+    if (typeof document === 'undefined') return;
+    document.querySelectorAll('.mot-pop:not([hidden])').forEach((p) => p !== keep && (p.hidden = true));
+  }
+  if (typeof document !== 'undefined' && document.addEventListener) {
+    document.addEventListener('click', (e) => !(e.target.closest && e.target.closest('.mot-style')) && closeMenus());
+    // Échap ferme d'abord un menu ouvert (sans fermer la fenêtre autour)
+    window.addEventListener(
+      'keydown',
+      (e) => {
+        if (e.key !== 'Escape' || !document.querySelector('.mot-pop:not([hidden])')) return;
+        closeMenus();
+        e.stopPropagation();
+        e.preventDefault();
+      },
+      true
+    );
   }
 
   /** Segment « Scènes : Cette scène | Même type | Toutes » (classes de l'assistant). */
@@ -131,5 +187,5 @@ SS.motifPicker = (() => {
     );
   }
 
-  return { STYLES, STYLE_IDS, SCOPES, styleOfSong, styleName, matches, famShown, visible, render, scopeSeg, el };
+  return { STYLES, STYLE_IDS, SCOPES, styleOfSong, styleName, matches, famShown, visible, styleMenuItems, render, scopeSeg, el };
 })();
