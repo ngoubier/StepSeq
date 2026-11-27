@@ -57,7 +57,7 @@ const ok = (c, m) => {
   const unsorted = await page.evaluate(() => SS.bassMotifs.all().filter((id) => !SS.bassMotifs.FAMS.some((f) => f[2].includes(id))));
   ok(!unsorted.length, `chaque motif de basse a sa famille (Tenues, Régulières, Syncopées, Lignes)${unsorted.length ? ' : manquent ' + unsorted.join(', ') : ''}`);
   ok((await page.$$('.mot-menu .mot-fam')).length === 5, 'carte Motif commune : quatre familles et Tous');
-  await page.click('.mot-menu .mot-chip >> text=Funk & Disco');
+  await page.click('.mot-menu .mot-style-btn'); await page.click('.mot-menu .mot-opt >> text=Funk & Disco');
   await page.click('.mot-menu .mot-card[data-id="disco16"]');
   let p = await saved();
   let bass = p.tracks.find((t) => t.name === 'Basse');
@@ -67,7 +67,7 @@ const ok = (c, m) => {
   if (SHOTS) await page.screenshot({ path: path.join(SHOTS, 'motif-basse-app.png'), clip: { x: 0, y: 0, width: 1400, height: 700 } });
 
   await page.click('.mot-menu .fol-seg button >> text=Cette scène');
-  await page.click('.mot-menu .mot-chip >> text=Soul & Jazz');
+  await page.click('.mot-menu .mot-style-btn'); await page.click('.mot-menu .mot-opt >> text=Soul & Jazz');
   await page.click('.mot-menu .mot-card[data-id="motown"]');
   p = await saved();
   bass = p.tracks.find((t) => t.name === 'Basse');
@@ -92,7 +92,7 @@ const ok = (c, m) => {
   await page.click(`${bassSel} .th-arp`);
   await page.click('#arpDialog .arp-close');
   await page.click(`${bassSel} .th-mot`);
-  await page.click('.mot-menu .mot-chip >> text=Tous');
+  await page.click('.mot-menu .mot-style-btn'); await page.click('.mot-menu .mot-opt >> text=Tous');
   await page.click('.mot-menu .mot-card[data-id="disco16"]');
   await page.click('.mot-menu .ctx-close');
   p = await saved();

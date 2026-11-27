@@ -296,7 +296,7 @@ caractère…), et **▶ joue la scène choisie en boucle** (pas toute la chanso
 5. **Batterie** : pour la scène choisie, la **carte Motif commune** (`SS.DRUM_PATTERNS`) : « Batterie de « Scène » » et
    le motif joué, « Joue dans cette scène » à droite, styles communs (Électro réunit EDM et techno ; en 3/4, 6/8, 12/8 :
    la mesure, fixe), familles **Calme / Moyen / Intense** avec **« ★ Pour cette scène »** (les quatre premiers motifs de la
-   nuance de la scène : intro, outro, break calmes, montée et pont moyens, refrain, drop et sommet intenses), Surprends-moi,
+   nuance de la scène : intro, outro, break calmes, montée et pont moyens, refrain, drop et sommet intenses), menu Style et dé,
    cartes avec l'aperçu des pistes (description au survol), pied « Scènes : Cette scène | Même type | Toutes ».
    **Motif de l'inspiration** (en tête) est choisi par défaut : tant qu'on ne touche à rien, c'est le groove du plan. Dessous, la **grille** : **une ligne par
    élément coché du kit** (grosse caisse, caisse claire, clap, charleston fermé et ouvert, rimshot, crash, ride, percussions, toms… ce que
@@ -365,11 +365,13 @@ caractère…), et **▶ joue la scène choisie en boucle** (pas toute la chanso
    tests : `node --test tests/chordgrid.test.js` ;
 7. **Basse**, 8. **Nappes**, 9. **Arpèges** : même disposition (scènes à gauche, lecture de la scène en boucle, chaque
    choix s'entend aussitôt). Basse et Nappe ont la **carte Motif commune** (`js/motifpicker.js`, maquette validée le
-   2026-11-25) : en-tête « Basse de « Refrain » » avec le motif en cours et **Joue dans cette scène** ; une seule liste de
-   **styles** pour tous les musiciens (Synthwave & 80s, Pop-rock, Funk & Disco, Soul & Jazz, Hip-hop & Lo-fi, Électro,
-   Drum & bass, Latin & Reggae, Film & ambient, plus Célèbres pour la basse et 3/4 · 6/8 hors 4/4 ; le point marque le
-   style de la chanson, une puce sans motif est grisée) ; les **familles** (basse : Tenues, Régulières, Syncopées, Lignes ;
-   nappe : Tenues, Rythmées, En mouvement) avec leur nombre, Tous et **Surprends-moi** ; des cartes au même gabarit
+   2026-11-25) : en-tête « Basse de « Refrain » » avec le motif en cours et **Joue dans cette scène** ; puis **une seule
+   ligne de filtres**, la même pour tous les musiciens et la fenêtre MOTIF de la Grille (maquette validée le 2026-11-27) :
+   les **familles** en puces (« ★ Pour cette scène », basse : Tenues, Régulières, Syncopées, Lignes ; nappe : Tenues,
+   Rythmées, En mouvement ; Tous), le menu **Style : … ▾** (une seule liste pour tous les musiciens : Synthwave & 80s,
+   Pop-rock, Funk & Disco, Soul & Jazz, Hip-hop & Lo-fi, Électro, Drum & bass, Latin & Reggae, Film & ambient, plus
+   Célèbres pour la basse et 3/4 · 6/8 hors 4/4 ; le style de la chanson en tête, les styles sans motif absents ; il
+   revient au style de la chanson à chaque scène), le **dé** Surprends-moi et Avancé ; des cartes au même gabarit
    (dessin, badge « Inspiration ») ; au pied **Scènes : Cette scène | Même type | Toutes**. Basse : **hauteur** C1 à C3,
    **pédale** (aucune, tonique, dominante), note d'approche. Basse, **Avancé…** (maquette validée le 2026-11-26) : la
    fenêtre **Mon motif de basse** (`js/bassedit.js`) pour écrire son motif sur une ou deux mesures, en doubles-croches.

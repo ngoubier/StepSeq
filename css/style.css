@@ -3904,6 +3904,17 @@ dialog.help-dialog::backdrop { background: #0008; }
 .bwp-mot .mot-chips.mot-fams { margin-top: -4px; }
 .mot-fams .spacer { flex: 1; }
 .mot-pick .mot-fam .mot-n { margin-left: 5px; color: var(--c-faint); font-size: var(--fs-xs); }
+.mot-famset { display: flex; flex-wrap: wrap; gap: inherit; align-items: center; }
+.mot-style { position: relative; display: inline-flex; }
+.mot-style-btn b { font-weight: 600; color: var(--motc, var(--c-green)); margin-left: 3px; }
+.mot-pop { position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; display: flex; flex-direction: column; min-width: 210px; max-height: 340px; overflow: auto; padding: 5px; background: var(--c-panel); border: 1px solid var(--c-line-strong); border-radius: 8px; box-shadow: 0 8px 24px color-mix(in srgb, var(--c-bg-deep) 70%, transparent); }
+.mot-pop[hidden] { display: none; }
+.mot-pick .mot-opt { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; width: 100%; background: none; border: 0; border-radius: 5px; padding: 5px 9px; color: var(--c-text); font: inherit; font-size: var(--fs-md); text-align: left; cursor: pointer; }
+.mot-pick .mot-opt:hover { background: var(--c-panel-2); }
+.mot-pick .mot-opt.on { color: var(--motc, var(--c-green)); font-weight: 600; }
+.mot-opt small { color: var(--c-faint); font-size: var(--fs-xs); font-weight: 400; }
+.mot-sep { height: 1px; background: var(--c-line); margin: 4px 2px; }
+.mot-pick .mot-surprise { display: inline-grid; place-items: center; width: 30px; padding: 0; min-height: 26px; }
 .mot-pick .mot-chip.star { color: var(--c-amber); }
 .mot-pick .mot-chip.star.on { background: var(--c-amber-bg); border-color: var(--c-amber); color: var(--text); }
 .mot-pick .mot-card { position: relative; }

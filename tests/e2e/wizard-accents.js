@@ -82,7 +82,7 @@ const ok = (c, m) => {
   await page.click('#bandWizSteps li[data-kind="bass"] button');
   await page.waitForTimeout(300);
   await scene('Couplet');
-  await page.click('#bwMotif .mot-chip[data-g="all"]');
+  await page.click('#bwMotif .mot-style-btn'); await page.click('#bwMotif .mot-opt[data-g="all"]');
   await page.click('#bwMotif .mot-card[data-id="8"]'); // croches : une note tous les deux pas
   const base = await notes('Couplet');
   // par défaut : ni ligne ni carte « Accents » ; l'entrée du menu les ouvre
@@ -163,16 +163,16 @@ const ok = (c, m) => {
   ok((await acc('verse')).bright === 100 && nf.filter((e) => e.acc).length > 0 && nf.filter((e) => e.acc).every((e) => e.step % 16 % 8 === 0 && e.accAmt === 1) && nf.filter((e) => !e.acc).every((e) => e.accAmt === undefined), 'notes accentuées : accent du séquenceur (acc) et brillance 1');
 
   // changement de mode : on garde les accents qui tombent encore sur une note
-  await page.click('#bwMotif .mot-chip[data-g="all"]');
+  await page.click('#bwMotif .mot-style-btn'); await page.click('#bwMotif .mot-opt[data-g="all"]');
   await page.click('#bwMotif .mot-card[data-id="offbeat"]'); // notes sur les contretemps : pas 2, 6, 10, 14
   ok(!(await acc('verse')) || (await acc('verse')).steps.length === 0, 'Contretemps : plus aucune note sur les pas 0 et 8, accents retirés');
-  await page.click('#bwMotif .mot-chip[data-g="all"]');
+  await page.click('#bwMotif .mot-style-btn'); await page.click('#bwMotif .mot-opt[data-g="all"]');
   await page.click('#bwMotif .mot-card[data-id="8"]');
   await page.click('.bwa-pat[data-id="strong"]');
-  await page.click('#bwMotif .mot-chip[data-g="all"]');
+  await page.click('#bwMotif .mot-style-btn'); await page.click('#bwMotif .mot-opt[data-g="all"]');
   await page.click('#bwMotif .mot-card[data-id="quarter"]'); // noires : pas 0 4 8 12
   ok(JSON.stringify((await acc('verse')).steps) === '[0,8]', 'Noires : les accents 0 et 8 tombent toujours sur des notes, gardés');
-  await page.click('#bwMotif .mot-chip[data-g="all"]');
+  await page.click('#bwMotif .mot-style-btn'); await page.click('#bwMotif .mot-opt[data-g="all"]');
   await page.click('#bwMotif .mot-card[data-id="8"]');
 
   // chaque scène a ses accents

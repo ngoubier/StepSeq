@@ -41,3 +41,11 @@ test('basse et nappe : leurs styles sont les styles communs (plus Célèbres et 
   assert.equal(SS.padMotifs.groupOfStyle('dnb'), 'electro');
   assert.equal(SS.bassMotifs.groupOfStyle('ambient'), 'synth');
 });
+
+test('menu Style : le style de la chanson en tête, sans les styles vides, Tous au bout', () => {
+  const styles = [['synth', 'Synthwave'], ['pop', 'Pop'], ['film', 'Film'], ['jazz', 'Jazz']];
+  const count = (id) => ({ synth: 4, pop: 0, film: 2, jazz: 0 })[id];
+  assert.deepEqual(MP.styleMenuItems(styles, { mark: 'film', group: 'film', count }).map((s) => s[0]), ['film', 'synth', 'all']);
+  assert.deepEqual(MP.styleMenuItems(styles, { mark: 'film', group: 'jazz', count }).map((s) => s[0]), ['film', 'synth', 'jazz', 'all'], 'le style choisi reste, même vide');
+  assert.deepEqual(MP.styleMenuItems(styles, {}).map((s) => s[0]), ['synth', 'pop', 'film', 'jazz', 'all']);
+});
