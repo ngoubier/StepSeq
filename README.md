@@ -40,7 +40,7 @@ puis ouvrir <http://localhost:8000>.
 Un téléphone qui ouvre StepSeq arrive sur une page légère, faite pour écouter et créer :
 
 - **Accueil** : un gros bouton **Nouvelle chanson** et **Mes chansons** (▶ écoute la chanson, ✎ reprend une chanson faite
-  sur le téléphone). L'écoute est toujours calculée à l'avance : elle ne décroche pas.
+  sur le téléphone, ⇪ l'envoie vers l'ordinateur). L'écoute est toujours calculée à l'avance : elle ne décroche pas.
 - **Nouvelle chanson**, en trois écrans : **Tempo et tonalité** (− / ＋, curseur, « Taper » ; 12 notes, Majeur | Mineur),
   **Musiciens** (Batterie, Basse, Clavier, chacun avec son son), **Scènes** (Intro, Couplet, Refrain, Pont, Fin, dans
   l'ordre voulu, avec leurs accords dans la tonalité), **Qui joue quoi** (un tableau musiciens × scènes, rempli avec la
@@ -55,7 +55,8 @@ Un téléphone qui ouvre StepSeq arrive sur une page légère, faite pour écout
   le tableau ; la basse retouchée est un motif écrit (« Mes motifs » de basse) qui voyage avec la chanson.
 - La chanson est construite par le moteur de l'assistant (plan « Créer de zéro ») et rangée dans « Mes chansons » comme
   toute autre chanson. Les chansons restent dans le navigateur de chaque appareil : pour la finir sur l'ordinateur, il faut
-  l'y envoyer en fichier.
+  l'y envoyer en fichier : ⇪ ouvre le partage du téléphone (mail, Drive, Bluetooth…) avec le fichier `.stepseq.json`
+  (sans partage, il est téléchargé), que l'ordinateur ouvre par **Ouvrir un fichier…**.
 - **Version complète** (en haut) ouvre l'application entière pour la session ; `index.html?full=1` aussi.
 
 ## Interface

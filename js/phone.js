@@ -1,7 +1,8 @@
 /*
  * StepSeq sur téléphone (telephone.html) : l'écran.
  *
- *   Accueil     « Nouvelle chanson » et « Mes chansons » (toucher ▶ joue la chanson, ✎ reprend une chanson du téléphone)
+ *   Accueil     « Nouvelle chanson » et « Mes chansons » (toucher ▶ joue la chanson, ✎ reprend une chanson du téléphone,
+ *               ⇪ l'envoie vers l'ordinateur : partage du téléphone, sinon téléchargement du fichier .stepseq.json)
  *   #tempo      tempo (− / ＋, curseur, « Taper ») et tonalité (12 notes, Majeur | Mineur)
  *   #musiciens  Batterie, Basse, Clavier : présents ou non, et leur son
  *   #scenes     les scènes dans l'ordre (ajouter, monter, retirer)
@@ -80,7 +81,7 @@
       ? S.songs.map((s, i) => {
         const on = play && play.id === s.id;
         const meta = s.phone ? `${s.phone.tempo} BPM · ${P.keyLabel(s.phone)}` : `${s.tempo} BPM · ${s.tracks} piste${s.tracks > 1 ? 's' : ''}`;
-        return `<div class="ph-song${on ? ' on' : ''}"><div class="ph-cov" style="background:${COVERS[i % COVERS.length]}"></div><div><div class="t">${esc(s.title)}</div><div class="m">${esc(meta)}</div></div>${s.phone ? `<button class="ph-ic" data-act="edit" data-id="${esc(s.id)}" aria-label="Retoucher">✎</button>` : ''}<button class="ph-ic play${on ? ' on' : ''}" data-act="play" data-id="${esc(s.id)}" aria-label="${on ? 'Arrêter' : 'Écouter'}">${on ? '■' : '▶'}</button></div>`;
+        return `<div class="ph-song${on ? ' on' : ''}"><div class="ph-cov" style="background:${COVERS[i % COVERS.length]}"></div><div><div class="t">${esc(s.title)}</div><div class="m">${esc(meta)}</div></div><button class="ph-ic" data-act="send" data-id="${esc(s.id)}" aria-label="Envoyer vers l’ordinateur">⇪</button>${s.phone ? `<button class="ph-ic" data-act="edit" data-id="${esc(s.id)}" aria-label="Retoucher">✎</button>` : ''}<button class="ph-ic play${on ? ' on' : ''}" data-act="play" data-id="${esc(s.id)}" aria-label="${on ? 'Arrêter' : 'Écouter'}">${on ? '■' : '▶'}</button></div>`;
       }).join('')
       : '<div class="ph-empty">Aucune chanson</div>';
     $('#phBody').innerHTML = `<button class="ph-new" data-act="new"><span>＋</span>Nouvelle chanson</button><div class="ph-lbl">Mes chansons</div>${list}`;
@@ -477,6 +478,36 @@
     startPlay(proj.id, proj);
   }
 
+  /**
+   * Envoie une chanson vers l'ordinateur : le fichier du projet (.stepseq.json), que l'ordinateur ouvre par « Ouvrir un
+   * fichier… ». Le téléphone propose ses moyens habituels (mail, Drive, Bluetooth…) ; sans partage de fichier, il est téléchargé.
+   */
+  async function send(id) {
+    const s = S.songs.find((x) => x.id === id);
+    let text = null;
+    try {
+      text = await SS.store.get(id);
+    } catch (e) {
+      console.warn('envoi', e);
+    }
+    if (!s || !text) return;
+    const name = SS.fileName({ title: s.title });
+    const file = new File([text], name, { type: 'application/json' });
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) return await navigator.share({ files: [file], title: s.title });
+    } catch (e) {
+      if (e.name === 'AbortError') return; // partage annulé
+      console.warn('partage indisponible, téléchargement', e);
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); // comme « Enregistrer » sur l'ordinateur (js/project.js)
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
   /* ---------- Écoute ---------- */
   function stopPlay() {
     S.rec = false;
@@ -582,6 +613,7 @@
     }
     if (act === 'play') return play && play.id === b.dataset.id ? stopPlay() : startPlay(b.dataset.id);
     if (act === 'stop') return stopPlay();
+    if (act === 'send') return void send(b.dataset.id);
     if (act === 'tempo') return setTempo(r.tempo + +b.dataset.d);
     if (act === 'tap') return tap();
     if (act === 'tonic') {
