@@ -1,9 +1,10 @@
 /*
  * StepSeq sur téléphone (telephone.html) : l'écran.
  *
- *   Accueil     « Nouvelle chanson » et « Mes chansons » (toucher ▶ joue la chanson, ✎ reprend une chanson du téléphone
- *               ou une chanson de l'assistant que le téléphone sait refaire (après un avertissement : son mix est refait),
- *               ⇪ l'envoie vers l'ordinateur : partage du téléphone, sinon téléchargement du fichier .stepseq.json)
+ *   Accueil     « Nouvelle chanson » et « Mes chansons » : toucher une chanson la sélectionne ; la barre du bas agit sur
+ *               elle : Écouter (▶ / ■), Exporter (⇪ vers l'ordinateur : partage du téléphone, sinon téléchargement du
+ *               fichier .stepseq.json), Modifier (✎ : une chanson du téléphone, ou de l'assistant que le téléphone sait
+ *               refaire, après un avertissement : son mix est refait), Supprimer (après confirmation)
  *   #tempo      tempo (− / ＋, curseur, « Taper ») et tonalité (12 notes, Majeur | Mineur)
  *   #musiciens  Batterie, Basse, Clavier : présents ou non, et leur son
  *   #scenes     les scènes dans l'ordre (ajouter, monter, retirer)
@@ -32,6 +33,7 @@
   const S = {
     recipe: null, // chanson en cours de création ou de retouche
     editId: null, // chanson de « Mes chansons » retouchée (null : nouvelle)
+    sel: null, // chanson sélectionnée dans « Mes chansons » (id)
     songs: [], // résumés de « Mes chansons » + recette du téléphone (phone) ou chanson de l'assistant compatible (edit)
     taps: [],
     cell: null, // { mu, sc } : la case du tableau ouverte (#partie)
@@ -80,11 +82,12 @@
   function renderHome() {
     $('#phTop').innerHTML = '<span class="ph-logo">Step<b>Seq</b></span><span class="ph-sp"></span><a class="ph-full" href="index.html" data-act="full">Version complète</a>';
     $('#phTop').appendChild(SS.helpTip('Sur téléphone, StepSeq garde l’écoute et la création d’une chanson pas à pas. Tout le reste (Grille, Arrangement, Mix…) est dans la version complète, sur l’ordinateur.', 'StepSeq sur téléphone'));
+    if (!S.songs.some((s) => s.id === S.sel)) S.sel = S.songs.length ? S.songs[0].id : null;
     const list = S.songs.length
       ? S.songs.map((s, i) => {
-        const on = play && play.id === s.id;
         const meta = s.phone ? `${s.phone.tempo} BPM · ${P.keyLabel(s.phone)}` : `${s.tempo} BPM · ${s.tracks} piste${s.tracks > 1 ? 's' : ''}`;
-        return `<div class="ph-song${on ? ' on' : ''}"><div class="ph-cov" style="background:${COVERS[i % COVERS.length]}"></div><div><div class="t">${esc(s.title)}</div><div class="m">${esc(meta)}</div></div><button class="ph-ic" data-act="send" data-id="${esc(s.id)}" aria-label="Envoyer vers l’ordinateur">⇪</button>${s.edit ? `<button class="ph-ic" data-act="edit" data-id="${esc(s.id)}" aria-label="Retoucher">✎</button>` : ''}<button class="ph-ic play${on ? ' on' : ''}" data-act="play" data-id="${esc(s.id)}" aria-label="${on ? 'Arrêter' : 'Écouter'}">${on ? '■' : '▶'}</button></div>`;
+        const playing = play && play.id === s.id;
+        return `<button class="ph-song${s.id === S.sel ? ' on' : ''}" data-act="sel" data-id="${esc(s.id)}" aria-pressed="${s.id === S.sel}"><span class="ph-cov" style="background:${COVERS[i % COVERS.length]}"></span><span class="ph-sx"><span class="t">${esc(s.title)}</span><span class="m">${playing ? '♪ ' : ''}${esc(meta)}</span></span></button>`;
       }).join('')
       : '<div class="ph-empty">Aucune chanson</div>';
     $('#phBody').innerHTML = `<button class="ph-new" data-act="new"><span>＋</span>Nouvelle chanson</button><div class="ph-lbl">Mes chansons</div>${list}`;
@@ -444,13 +447,24 @@
       return;
     }
     if (STEPS.includes(v)) return;
-    if (!play) return void ($('#phFoot').innerHTML = '');
+    $('#phFoot').innerHTML = (play ? playerLine() : '') + actionBar();
+  }
+  /** Chanson en cours d'écoute : titre, scène (ou calcul), frise des blocs. */
+  function playerLine() {
     const proj = play.proj;
     const blk = proj && proj.song[play.block];
     const sc = blk && proj.scenes.find((x) => x.id === blk.scene);
     const meta = play.calc != null ? `Calcul de l’écoute… ${play.calc} %` : play.live ? 'Lecture en direct' : sc ? sc.name : '';
     const frise = proj ? proj.song.map((b, i) => `<i style="flex:${(proj.scenes.find((x) => x.id === b.scene) || { bars: 1 }).bars * b.repeat}" class="${i === play.block ? 'on' : i < play.block ? 'done' : ''}"></i>`).join('') : '';
-    $('#phFoot').innerHTML = `<div class="ph-player"><button class="ph-ic play on" data-act="stop" aria-label="Arrêter">■</button><div><div class="t">${esc(play.title)}</div><div class="m">${esc(meta)}</div><div class="ph-frise">${frise}</div></div></div>`;
+    return `<div class="ph-player ph-now"><div><div class="t">${esc(play.title)}</div><div class="m">${esc(meta)}</div><div class="ph-frise">${frise}</div></div></div>`;
+  }
+  /** Barre du bas de l'accueil : les quatre actions sur la chanson sélectionnée. */
+  function actionBar() {
+    const s = S.songs.find((x) => x.id === S.sel);
+    if (!s) return '';
+    const on = play && play.id === s.id;
+    const b = (act, ic, label, { cls = '', off = false } = {}) => `<button class="ph-act ${cls}" data-act="${act}" data-id="${esc(s.id)}"${off ? ' disabled' : ''}><b>${ic}</b>${label}</button>`;
+    return `<div class="ph-acts">${b('play', on ? '■' : '▶', on ? 'Arrêter' : 'Écouter', { cls: 'play' })}${b('send', '⇪', 'Exporter')}${b('edit', '✎', 'Modifier', { off: !s.edit })}${b('del', '🗑', 'Supprimer', { cls: 'del' })}</div>`;
   }
 
   /* ---------- Mes chansons ---------- */
@@ -464,7 +478,10 @@
     } catch (e) {
       S.songs = [];
     }
-    if (view() === 'home') renderHome();
+    if (view() === 'home') {
+      renderHome();
+      renderFoot();
+    }
   }
   /** Recette d'une chanson pour la modifier ici ({ recipe, phone }), null si le téléphone ne sait pas la refaire. */
   async function recipeOf(id) {
@@ -488,6 +505,30 @@
     el.addEventListener('click', (e) => e.target === el && closeSheet());
     document.body.appendChild(el);
   }
+  /** Confirmation avant de supprimer une chanson (et ses versions) de ce téléphone. */
+  function delSheet(s) {
+    closeSheet();
+    const el = document.createElement('div');
+    el.className = 'ph-veil';
+    el.innerHTML = `<div class="ph-sheet" role="dialog" aria-label="Supprimer"><h3>Supprimer « ${esc(s.title)} » ?</h3>
+      <div class="ph-meta">Elle disparaît de ce téléphone, avec ses versions. Exportez-la d’abord pour la garder.</div>
+      <button class="ph-next ph-danger" data-act="delok" data-id="${esc(s.id)}">Supprimer</button><button class="ph-more" data-act="sheetno">Annuler</button></div>`;
+    el.addEventListener('click', (e) => e.target === el && closeSheet());
+    document.body.appendChild(el);
+  }
+  async function remove(id) {
+    closeSheet();
+    if (play && play.id === id) stopPlay();
+    try {
+      await SS.store.remove(id);
+    } catch (e) {
+      console.warn('suppression', e);
+    }
+    const i = S.songs.findIndex((x) => x.id === id);
+    if (S.sel === id) S.sel = (S.songs[i + 1] || S.songs[i - 1] || {}).id || null; // la voisine est sélectionnée
+    await loadSongs();
+    renderFoot();
+  }
   function closeSheet() {
     document.querySelectorAll('.ph-veil').forEach((x) => x.remove());
   }
@@ -510,6 +551,7 @@
     S.cell = null;
     history.go(-STEPS.length); // une entrée par étape : retour à l'accueil
     await loadSongs();
+    S.sel = proj.id; // la chanson créée est sélectionnée (après la liste : sinon la première l'est)
     startPlay(proj.id, proj);
   }
 
@@ -657,6 +699,16 @@
       return go('tempo');
     }
     if (act === 'sheetno') return closeSheet();
+    if (act === 'sel') {
+      S.sel = b.dataset.id;
+      renderHome();
+      return renderFoot();
+    }
+    if (act === 'del') {
+      const s = S.songs.find((x) => x.id === b.dataset.id);
+      return s && delSheet(s);
+    }
+    if (act === 'delok') return void remove(b.dataset.id);
     if (act === 'play') return play && play.id === b.dataset.id ? stopPlay() : startPlay(b.dataset.id);
     if (act === 'stop') return stopPlay();
     if (act === 'send') return void send(b.dataset.id);

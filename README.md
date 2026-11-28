@@ -39,10 +39,12 @@ puis ouvrir <http://localhost:8000>.
 
 Un téléphone qui ouvre StepSeq arrive sur une page légère, faite pour écouter et créer :
 
-- **Accueil** : un gros bouton **Nouvelle chanson** et **Mes chansons** (▶ écoute la chanson, ✎ reprend une chanson faite
+- **Accueil** : un gros bouton **Nouvelle chanson** et **Mes chansons** ; toucher une chanson la sélectionne, et la barre
+  du bas agit sur elle : **Écouter** (▶ / ■), **Exporter** (⇪ vers l'ordinateur), **Modifier** (✎ : une chanson faite
   sur le téléphone, ou une chanson de l'assistant que le téléphone sait refaire : seulement batterie, basse et clavier, en
   4/4, une seule tonalité, scènes Intro, Couplet, Refrain, Pont, Fin ; ses sons, ses scènes et ses motifs sont repris, son
-  mix est refait après un avertissement, l'ancienne version reste dans les versions ; ⇪ l'envoie vers l'ordinateur). L'écoute est toujours calculée à l'avance : elle ne décroche pas.
+  mix est refait après un avertissement, l'ancienne version reste dans les versions ; grisé sinon), **Supprimer** (après
+  confirmation, de ce téléphone seulement, avec ses versions). L'écoute est toujours calculée à l'avance : elle ne décroche pas.
   Sur téléphone elle est calculée à 24 kHz (moitié moins de calcul) et jouée par un lecteur léger (`js/phoneplayer.js`) :
   le moteur complet ne tourne que pour les pads, et se met en veille ensuite ; un morceau en retard est attendu, pas sauté.
 - **Nouvelle chanson**, en trois écrans : **Tempo et tonalité** (− / ＋, curseur, « Taper » ; 12 notes, Majeur | Mineur),
