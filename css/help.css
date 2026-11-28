@@ -1,0 +1,15 @@
+/* Aides : « ? » à droite du libellé, info-bulle au survol, fenêtre pour une aide longue (js/help.js).
+   Partagé par index.html et telephone.html. */
+.help-tip { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 18px; height: 18px; margin: 0 0 0 6px; padding: 0; border: 1px solid var(--c-line-strong); border-radius: 50%; background: transparent; color: var(--c-text-2); font: 600 var(--fs-xs)/1 system-ui, sans-serif; letter-spacing: 0; text-transform: none; cursor: help; vertical-align: middle; position: relative; }
+.help-tip::before { content: ''; position: absolute; inset: -9px; } /* zone tactile de 36 px */
+.help-tip:hover, .help-tip[aria-describedby] { border-color: var(--c-violet); color: #fff; background: var(--c-violet-deep); outline: none; }
+.help-tip[hidden] { display: none; }
+.help-bubble { position: fixed; z-index: 10000; max-width: 320px; padding: 8px 11px; border-radius: 8px; background: var(--c-bg-deep); border: 1px solid var(--c-line-strong); color: var(--c-text); font: 400 var(--fs-md)/1.45 system-ui, sans-serif; text-transform: none; letter-spacing: 0; box-shadow: 0 6px 24px #0009; pointer-events: none; }
+.help-bubble b { display: block; margin-top: 4px; color: var(--c-violet-soft); font-weight: 600; font-size: var(--fs-sm); }
+dialog.help-dialog { width: min(480px, calc(100vw - 32px)); padding: 18px 20px 20px; border: 1px solid var(--c-line); border-radius: 14px; background: var(--c-panel); color: var(--c-text); }
+dialog.help-dialog::backdrop { background: #0008; }
+.help-dialog-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.help-dialog-head h2 { margin: 0; font-size: var(--fs-xl); flex: 1; }
+.help-close { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: transparent; color: var(--c-text-2); cursor: pointer; }
+.help-close:hover { background: var(--c-panel-3); color: var(--c-text); }
+.help-dialog-text { margin: 0; font-size: var(--fs-md); line-height: 1.6; white-space: pre-line; }
