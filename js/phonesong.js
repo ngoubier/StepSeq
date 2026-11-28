@@ -30,7 +30,13 @@ SS.phoneSong = (() => {
     { id: 'drums', label: 'Batterie', icon: '🥁', color: 'var(--c-pink)' },
     { id: 'bass', label: 'Basse', icon: '🎸', color: 'var(--c-green)' },
     { id: 'keys', label: 'Clavier', icon: '🎹', color: 'var(--c-yellow)' },
+    // téléphone seulement : la nappe (cordes ou pad) du modèle, absente au départ (offAtStart)
+    { id: 'pad', label: 'Nappe', icon: '🎻', color: 'var(--c-blue)', offAtStart: true },
   ];
+  /** Sons de la Nappe : les cordes d'abord, avec des noms simples (les sons du modèle, sans le Juno). */
+  const PAD_SOUNDS = [['gm_string_ensemble_1', 'Cordes'], ['gm_synth_strings_1', 'Cordes synthé'], ['syn_softpad', 'Nappe douce'], ['gm_pad_warm', 'Nappe chaude'], ['syn_superpad', 'Super nappe']];
+  /** Ce que joue la Nappe du modèle dans chaque type de scène (le plan « Créer de zéro » n'en a pas). */
+  const PAD_PLAN = { intro: 'swell', verse: 'sustain', chorus: 'add9', bridge: 'float', outro: 'sustain' };
 
   /** Types de scène proposés : ceux du plan « Créer de zéro ». minor : accords en mineur (le plan est écrit en majeur). */
   const SCENES = [
@@ -53,6 +59,7 @@ SS.phoneSong = (() => {
   function sounds(id) {
     const mu = musician(id);
     if (!mu) return [];
+    if (id === 'pad') return PAD_SOUNDS.map(([tok, label]) => ({ tok, label }));
     if (mu.kits) return mu.kits.map((k) => ({ tok: k, label: (B().KITS[k] || { label: k }).label }));
     return mu.pick.filter((tok) => !tok.startsWith('j:')).map((tok) => ({ tok, label: soundLabel(tok, catOf(mu)) }));
   }
@@ -73,7 +80,7 @@ SS.phoneSong = (() => {
       tempo: preset().tempo,
       tonic: 0,
       mode: 'major',
-      mus: Object.fromEntries(MUSICIANS.map((m) => [m.id, { on: true, pick: 0 }])),
+      mus: Object.fromEntries(MUSICIANS.map((m) => [m.id, { on: !m.offAtStart, pick: 0 }])),
       scenes: ['intro', 'verse', 'chorus', 'verse', 'chorus', 'outro'],
       parts: {},
       edits: {},
@@ -88,7 +95,7 @@ SS.phoneSong = (() => {
     const mus = {};
     MUSICIANS.forEach((m) => {
       const x = (r.mus && r.mus[m.id]) || {};
-      mus[m.id] = { on: x.on !== false, pick: int(x.pick, 0, Math.max(0, sounds(m.id).length - 1), 0) };
+      mus[m.id] = { on: m.offAtStart ? x.on === true : x.on !== false, pick: int(x.pick, 0, Math.max(0, sounds(m.id).length - 1), 0) };
     });
     const scenes = Array.isArray(r.scenes) ? r.scenes.filter((s) => sceneType(s)).slice(0, 24) : f.scenes;
     const parts = {};
@@ -132,6 +139,7 @@ SS.phoneSong = (() => {
       if (sections[id]) return;
       const sec = { ...base.sections[id] };
       if (r.mode === 'minor') sec.chords = sceneType(id).minor;
+      if (PAD_PLAN[id]) sec.pad = PAD_PLAN[id];
       const own = r.chords && r.chords[id];
       if (own && own.length) sec.chords = own.join(' | '); // accords choisis à l'écran Accords
       sections[id] = sec;
@@ -292,7 +300,7 @@ SS.phoneSong = (() => {
    * (js/keyboardist.js, Accords puis Arpèges, ★ du fichier de motifs). */
   const DRUM_STYLE = 'pop';
   /** Identifiant d'instrument de l'assistant (« musicien:clé », js/bandsong.js) : réglages parts[section].inst[id]. */
-  const INST = { bass: 'bass:bass', keys: 'keys:keys' };
+  const INST = { bass: 'bass:bass', keys: 'keys:keys', pad: 'pad:pad' };
   /** Jeu de batterie du plan « Créer de zéro » (sec.drums) : son nom à l'écran. */
   const DRUM_PLAN = { hats: 'Charleston seul', main: 'Groove', full: 'Groove plein', break: 'Break', light: 'Léger' };
   const drumList = () => SS.DRUM_PATTERNS[DRUM_STYLE] || [];
@@ -306,6 +314,7 @@ SS.phoneSong = (() => {
     if (mu === 'drums') return drumList().map((p) => p.id);
     if (mu === 'bass') return SS.bassMotifs ? SS.bassMotifs.inGroup(SS.bassMotifs.groupOfStyle(PRESET)).filter((id) => !SS.bassMotifs.isMine(id) && SS.bassMotifs.fits(id, 16)) : [];
     if (mu === 'keys') return SS.keyboardist ? [...SS.keyboardist.modesOf('acc'), ...SS.keyboardist.modesOf('arp')].filter(in44) : [];
+    if (mu === 'pad') return SS.padMotifs ? SS.padMotifs.all().filter((id) => !SS.padMotifs.meterOf(id) || SS.padMotifs.meterOf(id) === '4/4') : [];
     return [];
   }
   /** ★ : les motifs conseillés pour ce musicien dans ce type de scène. */
@@ -313,6 +322,7 @@ SS.phoneSong = (() => {
     if (mu === 'drums') return drumList().filter((p) => p.energy === energyOf(sc)).slice(0, 4).map((p) => p.id);
     if (mu === 'bass') return SS.sceneStars && SS.bassMotifs ? SS.sceneStars.sceneStars('bass', sc, PRESET, { ok: (id) => SS.bassMotifs.fits(id, 16) }) : [];
     if (mu === 'keys') return SS.keyboardist ? [...SS.keyboardist.stars(sc, 'acc', 'all', in44), ...SS.keyboardist.stars(sc, 'arp', 'all', in44)].slice(0, 4) : [];
+    if (mu === 'pad') return SS.sceneStars ? SS.sceneStars.sceneStars('chords', sc, PRESET, { ok: (id) => motifs('pad').includes(id) }) : [];
     return [];
   }
   /** Nom d'un motif. */
@@ -320,12 +330,13 @@ SS.phoneSong = (() => {
     if (mu === 'drums') return (drumList().find((p) => p.id === id) || { name: id }).name;
     if (mu === 'bass') return SS.bassMotifs ? SS.bassMotifs.name(id) : id;
     if (mu === 'keys') return SS.keyboardist ? SS.keyboardist.name(id) : id;
+    if (mu === 'pad') return SS.padMotifs ? SS.padMotifs.name(id) : id;
     return id;
   }
   /** Ce que joue le plan pour ce musicien dans ce type de scène : { id, name } ; id null si le musicien ne joue pas. */
   function planPart(mu, sc) {
     const sec = plan().sections[sc] || {};
-    const m = mu === 'drums' ? sec.drums : mu === 'bass' ? sec.bass : sec.keys;
+    const m = mu === 'drums' ? sec.drums : mu === 'bass' ? sec.bass : mu === 'pad' ? PAD_PLAN[sc] : sec.keys;
     if (!m) return { id: null, name: 'Ne joue pas' };
     return { id: m, name: mu === 'drums' ? DRUM_PLAN[m] || m : motifName(mu, m) };
   }

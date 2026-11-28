@@ -9,11 +9,11 @@ globalThis.window = globalThis;
 const SS = globalThis.SS;
 const P = SS.phoneSong;
 
-test('recette de départ : Do majeur, trois musiciens, structure courte', () => {
+test('recette de départ : Do majeur, trois musiciens (la Nappe en option), structure courte', () => {
   const r = P.fresh();
   assert.equal(P.keyLabel(r), 'Do majeur');
-  assert.deepEqual(P.MUSICIANS.map((m) => m.id), ['drums', 'bass', 'keys']);
-  assert.ok(P.MUSICIANS.every((m) => r.mus[m.id].on && P.sounds(m.id).length >= 3));
+  assert.deepEqual(P.MUSICIANS.map((m) => m.id), ['drums', 'bass', 'keys', 'pad']);
+  assert.ok(P.MUSICIANS.every((m) => r.mus[m.id].on === (m.id !== 'pad') && P.sounds(m.id).length >= 3));
   assert.ok(P.MUSICIANS.every((m) => P.sounds(m.id).every((s) => !s.tok.startsWith('j:'))), 'pas de synthé Juno sur téléphone');
   assert.equal(P.chordsOf(r, 'verse'), 'C · G · Am · F');
 });
@@ -155,7 +155,7 @@ test('Modifier une chanson existante : compatible ou non', () => {
   const no = (patch, msg) => assert.equal(P.fromProject({ ...d, ...patch }), null, msg);
   no({ timeSig: [3, 4] }, '3/4');
   no({ tracks: [...d.tracks, { type: 'instrument', name: 'Ajoutée', family: 'keys', instrument: 'piano' }] }, 'piste de la Grille');
-  no({ tracks: [...d.tracks, { ...d.tracks[5], band: { ...d.tracks[5].band, key: 'pad' } }] }, 'autre musicien');
+  no({ tracks: [...d.tracks, { ...d.tracks[5], band: { ...d.tracks[5].band, key: 'lead' } }] }, 'autre musicien');
   no({ scenes: d.scenes.map((s, i) => (i ? s : { ...s, key: { tonic: 'E', mode: 'minor' } })) }, 'changement de tonalité');
   no({ scenes: d.scenes.map((s, i) => (i ? s : { ...s, sec: 'prechorus' })) }, 'type de scène inconnu');
 });
@@ -214,4 +214,32 @@ test('Accords par scène : palette, grilles toutes prêtes, chanson construite a
   assert.equal(P.chordList(r, 'intro').length, 4);
   P.setChords(r, 'verse', null);
   assert.equal(P.chordsEdited(r, 'verse'), false);
+});
+
+test('Nappe (téléphone) : absente au départ et dans les recettes déjà faites, modèle par scène, motifs de nappe', () => {
+  const r = P.fresh();
+  assert.equal(r.mus.pad.on, false);
+  const old = JSON.parse(JSON.stringify(r));
+  delete old.mus.pad;
+  assert.equal(P.clean(old).mus.pad.on, false, 'une chanson faite avant la Nappe ne la gagne pas');
+  assert.equal(P.build(r, { id: 't', title: 't' }).tracks.some((t) => t.band.key === 'pad'), false);
+  assert.equal(P.sounds('pad')[0].label, 'Cordes');
+  r.mus.pad.on = true;
+  assert.equal(P.clean(JSON.parse(JSON.stringify(r))).mus.pad.on, true);
+  const evOf = (proj, sc) => {
+    const t = proj.tracks.find((x) => x.band.key === 'pad');
+    return proj.scenes.find((x) => x.sec === sc).data[t.id].events;
+  };
+  const proj = P.build(r, { id: 't', title: 't' });
+  assert.ok(evOf(proj, 'verse').length && evOf(proj, 'verse').every((e) => e.len === 16), 'Couplet : accords tenus');
+  assert.deepEqual(P.planPart('pad', 'intro'), { id: 'swell', name: 'Montée douce' });
+  assert.ok(P.motifs('pad').includes('pulse8') && P.stars('pad', 'chorus').length);
+  P.setPart(r, 'pad', 'verse', 'pulse8');
+  assert.ok(evOf(P.build(r, { id: 't', title: 't' }), 'verse').every((e) => e.len === 2), 'Croches');
+  P.setPart(r, 'pad', 'verse', 'off');
+  assert.equal(evOf(P.build(r, { id: 't', title: 't' }), 'verse').length, 0);
+  // relue par « Modifier » : la Nappe et sa partie restent
+  P.setPart(r, 'pad', 'verse', 'pulse8');
+  const back = P.fromProject(JSON.parse(SS.serialize(P.build(r, { id: 't', title: 't' }))));
+  assert.equal(back.recipe.mus.pad.on, true);
 });
