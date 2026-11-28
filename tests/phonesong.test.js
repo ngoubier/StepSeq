@@ -5,7 +5,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 globalThis.window = globalThis;
-['library.js', 'dirt.js', 'sounds.js', 'harmony.js', 'arp.js', 'project.js', 'band-presets.js', 'band-songs.js', 'band-levels.js', 'band-drive.js', 'mixref.js', 'horns-motifs.js', 'horns.js', 'bandmix.js', 'melody.js', 'bandsong.js', 'phonesong.js'].forEach((f) => require('../js/' + f));
+['library.js', 'dirt.js', 'sounds.js', 'harmony.js', 'arp.js', 'project.js', 'band-presets.js', 'band-songs.js', 'band-levels.js', 'band-drive.js', 'mixref.js', 'horns-motifs.js', 'horns.js', 'bandmix.js', 'melody.js', 'keys-motifs.js', 'motifpicker.js', 'keyboardist.js', 'drum-patterns.js', 'padmotifs.js', 'bandsong.js', 'bassmotifs.js', 'scenestars.js', 'phonesong.js'].forEach((f) => require('../js/' + f));
 const SS = globalThis.SS;
 const P = SS.phoneSong;
 
@@ -54,4 +54,41 @@ test('recette lue : bornée, inutilisable → null', () => {
   assert.ok(r.mus.bass.pick < P.sounds('bass').length);
   assert.deepEqual(r.scenes, ['verse']);
   assert.equal(P.build({ ...r, scenes: [] }), null, 'sans scène, pas de chanson');
+});
+
+test('Qui joue quoi : ★ par scène, partie du modèle, motif choisi', () => {
+  const r = P.fresh();
+  for (const mu of ['drums', 'bass', 'keys']) {
+    assert.ok(P.motifs(mu).length >= 10, `${mu} : des motifs`);
+    for (const sc of ['intro', 'verse', 'chorus']) assert.ok(P.stars(mu, sc).every((id) => P.motifs(mu).includes(id)), `${mu} ${sc} : ★ jouables`);
+  }
+  assert.deepEqual(P.partLabel(r, 'bass', 'intro'), { id: null, name: 'Ne joue pas', plays: false }, 'le modèle ne fait pas jouer la basse dans l’intro');
+  assert.equal(P.partLabel(r, 'bass', 'verse').name, 'Croches');
+  assert.ok(P.motifs('bass').every((id) => SS.bassMotifs.fits(id, 16)), 'basse : motifs en 4/4 seulement');
+  P.setPart(r, 'bass', 'verse', 'gallop');
+  assert.equal(P.partLabel(r, 'bass', 'verse').name, 'Galop');
+  P.setPart(r, 'bass', 'verse', null);
+  assert.deepEqual(r.parts, {}, 'retour au modèle');
+});
+
+test('Qui joue quoi : les parties choisies changent la chanson, et seulement leur scène', () => {
+  const r = P.fresh();
+  const base = P.build(r);
+  const ev = (p, key, sec) => {
+    const t = p.tracks.find((x) => x.band.key === key);
+    const d = p.scenes.find((s) => s.sec === sec).data[t.id];
+    return JSON.stringify(d.steps || d.events);
+  };
+  P.setPart(r, 'bass', 'verse', 'gallop');
+  P.setPart(r, 'drums', 'verse', P.stars('drums', 'verse')[1]);
+  P.setPart(r, 'keys', 'verse', P.stars('keys', 'verse')[0]);
+  P.setPart(r, 'keys', 'chorus', 'off');
+  const p = P.build(r);
+  assert.notEqual(ev(p, 'bass', 'verse'), ev(base, 'bass', 'verse'), 'basse du couplet');
+  assert.notEqual(ev(p, 'drums:bd', 'verse'), ev(base, 'drums:bd', 'verse'), 'grosse caisse du couplet');
+  assert.notEqual(ev(p, 'keys', 'verse'), ev(base, 'keys', 'verse'), 'clavier du couplet');
+  assert.equal(ev(p, 'keys', 'chorus'), '[]', 'clavier coupé au refrain');
+  assert.equal(ev(p, 'bass', 'intro'), ev(base, 'bass', 'intro'), 'intro inchangée');
+  assert.deepEqual(P.clean(JSON.parse(JSON.stringify(p.phone))).parts, r.parts, 'les parties sont gardées dans la chanson');
+  assert.deepEqual(P.clean({ ...r, parts: { verse: { bass: 'inconnu', keys: 'off' }, nope: { bass: 'off' } } }).parts, { verse: { keys: 'off' } });
 });

@@ -4,7 +4,10 @@
  *   Accueil     « Nouvelle chanson » et « Mes chansons » (toucher ▶ joue la chanson, ✎ reprend une chanson du téléphone)
  *   #tempo      tempo (− / ＋, curseur, « Taper ») et tonalité (12 notes, Majeur | Mineur)
  *   #musiciens  Batterie, Basse, Clavier : présents ou non, et leur son
- *   #scenes     les scènes dans l'ordre (ajouter, monter, retirer), puis « Créer la chanson »
+ *   #scenes     les scènes dans l'ordre (ajouter, monter, retirer)
+ *   #parties    « Qui joue quoi » : un tableau musiciens × types de scène, puis « Créer la chanson »
+ *   #partie     la partie d'un musicien dans un type de scène : Ne joue pas, celle du modèle, ★ et tous les motifs ;
+ *               toucher un motif le choisit et fait entendre la scène en boucle
  *
  * La recette et la chanson viennent de js/phonesong.js ; la chanson est enregistrée dans « Mes chansons » (js/store.js)
  * comme un projet ordinaire. L'écoute est toujours pré-calculée (js/prelisten.js) : un téléphone ne décroche pas.
@@ -14,7 +17,8 @@
   const P = SS.phoneSong;
   const $ = (q) => document.querySelector(q);
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-  const STEPS = ['tempo', 'musiciens', 'scenes'];
+  const STEPS = ['tempo', 'musiciens', 'scenes', 'parties'];
+  const SUB = ['partie']; // sous-écran (pas de point d'étape)
   const COVERS = ['var(--c-violet)', 'var(--c-cyan)', 'var(--c-amber)', 'var(--c-green)', 'var(--c-pink)', 'var(--c-orange)', 'var(--c-blue)', 'var(--c-teal)'];
 
   const S = {
@@ -22,6 +26,8 @@
     editId: null, // chanson de « Mes chansons » retouchée (null : nouvelle)
     songs: [], // résumés de « Mes chansons » + recette du téléphone (phone)
     taps: [],
+    cell: null, // { mu, sc } : la case du tableau ouverte (#partie)
+    allOpen: false, // « Tous les motifs » déplié
   };
   // lecture : { id, title, proj, block, calc (pourcent ou null), ctrl, live }
   let play = null;
@@ -29,6 +35,7 @@
   /* ---------- Écrans ---------- */
   const view = () => {
     const h = location.hash.slice(1);
+    if (h === 'partie') return S.recipe && S.cell ? h : 'home';
     return STEPS.includes(h) && S.recipe ? h : 'home';
   };
   function go(v) {
@@ -40,15 +47,18 @@
 
   function render() {
     const v = view();
+    if (play && play.id === DRAFT && v !== 'parties' && v !== 'partie') stopPlay(); // écoute de la chanson en cours : on la quitte
     if (v === 'home') renderHome();
     else if (v === 'tempo') renderTempo();
     else if (v === 'musiciens') renderMus();
-    else renderScenes();
+    else if (v === 'scenes') renderScenes();
+    else if (v === 'parties') renderParts();
+    else renderPart();
     renderFoot();
   }
 
   function top(title) {
-    const i = STEPS.indexOf(view());
+    const i = SUB.includes(view()) ? STEPS.length - 1 : STEPS.indexOf(view());
     $('#phTop').innerHTML = `<button class="ph-back" data-act="back" aria-label="Retour">‹</button><span class="ph-title">${esc(title)}</span><span class="ph-dots">${STEPS.map((_, k) => `<i class="${k <= i ? 'on' : ''}"></i>`).join('')}</span>`;
   }
 
@@ -127,6 +137,63 @@
       ${r.scenes.length ? `<div class="ph-sum">${Math.floor(sec / 60)} min ${String(sec % 60).padStart(2, '0')}</div>` : ''}`;
   }
 
+  /* ---------- Qui joue quoi ---------- */
+  const musOn = () => P.MUSICIANS.filter((m) => S.recipe.mus[m.id].on);
+  function renderParts() {
+    const r = S.recipe;
+    top('Qui joue quoi');
+    const types = P.sceneTypes(r);
+    const head = types.map((id) => `<span class="ph-mxh" style="--sc:${P.sceneType(id).color}">${P.sceneType(id).label}</span>`).join('');
+    const rows = musOn().map((m) => `<span class="ph-mxi" aria-label="${m.label}">${m.icon}</span>` + types.map((sc) => {
+      const p = P.partLabel(r, m.id, sc);
+      return `<button class="ph-mxc${p.plays ? '' : ' off'}${p.id && p.id !== 'off' ? ' own' : ''}" style="--mc:${m.color}" data-act="cell" data-mu="${m.id}" data-sc="${sc}" aria-label="${m.label}, ${P.sceneType(sc).label} : ${esc(p.name)}">${p.plays ? esc(p.name) : '—'}</button>`;
+    }).join('')).join('');
+    $('#phBody').innerHTML = `<div class="ph-mx" style="grid-template-columns:32px repeat(${types.length},minmax(0,1fr))"><span></span>${head}${rows}</div>`;
+    const lbl = document.createElement('div');
+    lbl.className = 'ph-lbl';
+    lbl.append('Parties', SS.helpTip('Chaque case est la partie d’un musicien dans un type de scène (les deux couplets jouent la même). Touchez une case pour la changer. En clair : la partie du modèle ; en couleur : celle que vous avez choisie.', 'Qui joue quoi'));
+    $('#phBody').prepend(lbl);
+  }
+
+  /** Petit dessin d'un motif de batterie : grosse caisse, caisse claire (ou clap), charleston sur 16 pas. */
+  function drumSvg(id) {
+    const p = (SS.DRUM_PATTERNS.pop || []).find((x) => x.id === id);
+    if (!p) return '';
+    const L = p.lanes;
+    const rows = [[L.H || L.O || '', 3], [L.S || L.C || '', 13], [L.K || '', 23]];
+    const rects = rows.flatMap(([lane, y]) => [...lane].map((c, i) => (c === '-' ? '' : `<rect x="${i * 10 + 1}" y="${y}" width="8" height="7" rx="1.5" fill="currentColor" opacity="${c === 'x' ? 1 : c === 'o' ? 0.7 : 0.4}"/>`))).join('');
+    return `<svg viewBox="0 0 160 34" preserveAspectRatio="none" aria-hidden="true">${rects}</svg>`;
+  }
+  function motifSvg(mu, id) {
+    try {
+      if (mu === 'drums') return drumSvg(id);
+      if (mu === 'bass') return SS.bassMotifs.svg(id, 16);
+      return SS.keyboardist.svg(id);
+    } catch (e) {
+      return '';
+    }
+  }
+  function renderPart() {
+    const r = S.recipe;
+    const { mu, sc } = S.cell;
+    const m = P.MUSICIANS.find((x) => x.id === mu);
+    top(`${m.label} · ${P.sceneType(sc).label}`);
+    const cur = P.partLabel(r, mu, sc).id; // motif, 'off' ou null (le modèle)
+    const stars = P.stars(mu, sc);
+    const plan = P.planPart(mu, sc);
+    const row = (id, name, { star = false, svg = '' } = {}) =>
+      `<button class="ph-mo${cur === id ? ' on' : ''}" data-act="motif" data-id="${id === null ? '' : esc(id)}">${svg ? `<span class="ph-mosvg">${svg}</span>` : ''}<span class="t">${esc(name)}</span>${star ? '<span class="ph-star">★</span>' : ''}</button>`;
+    const all = P.motifs(mu).filter((id) => !stars.includes(id));
+    $('#phBody').innerHTML = [
+      row('off', 'Ne joue pas'),
+      plan.id ? row(null, `Modèle : ${plan.name}`, { svg: plan.id && mu !== 'drums' ? motifSvg(mu, plan.id) : '' }) : '',
+      stars.length ? '<div class="ph-lbl">★ Pour cette scène</div>' : '',
+      ...stars.map((id) => row(id, P.motifName(mu, id), { star: true, svg: motifSvg(mu, id) })),
+      S.allOpen ? `<div class="ph-lbl">Tous les motifs (${all.length})</div>` : `<button class="ph-more" data-act="more">Tous les motifs (${all.length})</button>`,
+      ...(S.allOpen ? all.map((id) => row(id, P.motifName(mu, id), { svg: motifSvg(mu, id) })) : []),
+    ].join('');
+  }
+
   /* ---------- Bas d'écran ---------- */
   function renderFoot() {
     const v = view();
@@ -134,10 +201,31 @@
       const none = v === 'musiciens' && !P.MUSICIANS.some((m) => S.recipe.mus[m.id].on);
       $('#phFoot').innerHTML = `<button class="ph-next" data-act="next"${none ? ' disabled' : ''}>Suivant</button>`;
     } else if (v === 'scenes') {
-      $('#phFoot').innerHTML = `<button class="ph-next" data-act="create"${S.recipe.scenes.length ? '' : ' disabled'}>${S.editId ? 'Mettre à jour la chanson' : 'Créer la chanson'}</button>`;
+      $('#phFoot').innerHTML = `<button class="ph-next" data-act="next"${S.recipe.scenes.length ? '' : ' disabled'}>Suivant</button>`;
+    } else if (v === 'parties') {
+      const on = play && play.id === DRAFT;
+      $('#phFoot').innerHTML = `<div class="ph-row"><button class="ph-ic play${on ? ' on' : ''}" data-act="draft" aria-label="${on ? 'Arrêter' : 'Écouter la chanson'}">${on ? '■' : '▶'}</button><button class="ph-next" data-act="create">${S.editId ? 'Mettre à jour la chanson' : 'Créer la chanson'}</button></div>${on ? playerMeta() : ''}`;
     } else renderPlayer();
   }
+  /** Écoute de la chanson en cours de création (pas encore enregistrée). */
+  const DRAFT = '__draft';
+  function playerMeta() {
+    if (!play || !play.proj) return play && play.calc != null ? `<div class="ph-meta">Calcul de l’écoute… ${play.calc} %</div>` : '';
+    const proj = play.proj;
+    const blk = play.scene ? null : proj.song[play.block];
+    const sc = play.scene ? proj.scenes.find((x) => x.id === play.scene) : blk && proj.scenes.find((x) => x.id === blk.scene);
+    const txt = play.calc != null ? `Calcul de l’écoute… ${play.calc} %` : sc ? (play.scene ? `${sc.name} en boucle` : sc.name) : '';
+    return `<div class="ph-meta">${esc(txt)}</div>`;
+  }
   function renderPlayer() {
+    const v = view();
+    if (v === 'parties') return renderFoot();
+    if (v === 'partie') {
+      const on = !!play;
+      $('#phFoot').innerHTML = `<div class="ph-player"><button class="ph-ic play${on ? ' on' : ''}" data-act="${on ? 'stop' : 'loop'}" aria-label="${on ? 'Arrêter' : 'Écouter la scène'}">${on ? '■' : '▶'}</button><div><div class="t">${esc(P.sceneType(S.cell.sc).label)} en boucle</div>${on && play.calc != null ? `<div class="ph-meta">Calcul de l’écoute… ${play.calc} %</div>` : ''}</div></div>`;
+      return;
+    }
+    if (STEPS.includes(v)) return;
     if (!play) return void ($('#phFoot').innerHTML = '');
     const proj = play.proj;
     const blk = proj && proj.song[play.block];
@@ -179,9 +267,11 @@
     } catch (e) {
       console.warn('enregistrement', e);
     }
+    stopPlay();
     S.recipe = null;
     S.editId = null;
-    history.go(-STEPS.length);
+    S.cell = null;
+    history.go(-STEPS.length); // une entrée par étape : retour à l'accueil
     await loadSongs();
     startPlay(proj.id, proj);
   }
@@ -194,10 +284,10 @@
     play = null;
     render();
   }
-  async function startPlay(id, built = null) {
+  async function startPlay(id, built = null, scene = null) {
     stopPlay();
     const s = S.songs.find((x) => x.id === id);
-    const me = (play = { id, title: s ? s.title : (built && built.title) || '', proj: null, block: 0, calc: 0, ctrl: new AbortController(), live: false });
+    const me = (play = { id, title: s ? s.title : (built && built.title) || '', proj: null, block: 0, scene, calc: 0, ctrl: new AbortController(), live: false });
     SS.audio.ensureCtx(); // dans le geste de l'utilisateur
     render();
     let proj = built;
@@ -211,10 +301,10 @@
     if (play !== me) return;
     if (!proj || !proj.song || !proj.song.length) return stopPlay();
     proj.playMode = 'song';
-    SS.loadScene(proj, proj.song[0].scene, { commit: false });
+    SS.loadScene(proj, scene || proj.song[0].scene, { commit: false });
     me.proj = proj;
     renderPlayer();
-    const opts = {
+    const opts = scene ? {} : {
       song: {
         index: 0,
         onBlock: (i) => {
@@ -237,7 +327,7 @@
       SS.audio.start(() => proj, () => {}, backing ? { ...opts, backing } : opts);
       renderPlayer();
     };
-    SS.preListen.render(proj, 'song', 0, {
+    SS.preListen.render(proj, scene ? 'scene' : 'song', 0, {
       signal: me.ctrl.signal,
       ready: begin,
       onProgress: (pc) => {
@@ -251,6 +341,14 @@
       me.live = true; // calcul impossible : lecture en direct
       begin(null);
     });
+  }
+
+  /** Écoute la chanson en cours de création, en entier ou une scène en boucle (sceneType : type de scène). */
+  function playDraft(sceneType) {
+    const proj = P.build(S.recipe, { id: 'telephone', title: 'Écoute' });
+    if (!proj) return;
+    const sc = sceneType ? proj.scenes.find((x) => x.sec === sceneType) : null;
+    startPlay(DRAFT, proj, sc ? sc.id : null);
   }
 
   /* ---------- Gestes ---------- */
@@ -299,6 +397,22 @@
       return renderFoot();
     }
     if (act === 'next') return go(STEPS[STEPS.indexOf(view()) + 1]);
+    if (act === 'cell') {
+      S.cell = { mu: b.dataset.mu, sc: b.dataset.sc };
+      S.allOpen = false;
+      return go('partie');
+    }
+    if (act === 'more') {
+      S.allOpen = true;
+      return renderPart();
+    }
+    if (act === 'motif') {
+      P.setPart(r, S.cell.mu, S.cell.sc, b.dataset.id || null);
+      renderPart();
+      return playDraft(S.cell.sc); // la scène en boucle avec ce motif
+    }
+    if (act === 'loop') return playDraft(S.cell.sc);
+    if (act === 'draft') return play && play.id === DRAFT ? stopPlay() : playDraft(null);
     if (act === 'add') r.scenes.push(b.dataset.id);
     else if (act === 'del') r.scenes.splice(+b.dataset.i, 1);
     else if (act === 'up') {

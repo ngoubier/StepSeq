@@ -43,7 +43,10 @@ Un téléphone qui ouvre StepSeq arrive sur une page légère, faite pour écout
   sur le téléphone). L'écoute est toujours calculée à l'avance : elle ne décroche pas.
 - **Nouvelle chanson**, en trois écrans : **Tempo et tonalité** (− / ＋, curseur, « Taper » ; 12 notes, Majeur | Mineur),
   **Musiciens** (Batterie, Basse, Clavier, chacun avec son son), **Scènes** (Intro, Couplet, Refrain, Pont, Fin, dans
-  l'ordre voulu, avec leurs accords dans la tonalité), puis **Créer la chanson**.
+  l'ordre voulu, avec leurs accords dans la tonalité), **Qui joue quoi** (un tableau musiciens × scènes, rempli avec la
+  partie du modèle ; toucher une case ouvre la partie du musicien dans cette scène : Ne joue pas, celle du modèle, les
+  motifs ★ conseillés pour la scène et tous les motifs de l'assistant ; choisir un motif fait entendre la scène en
+  boucle), puis **Créer la chanson** (▶ à côté écoute la chanson avant de la créer).
 - La chanson est construite par le moteur de l'assistant (plan « Créer de zéro ») et rangée dans « Mes chansons » comme
   toute autre chanson. Les chansons restent dans le navigateur de chaque appareil : pour la finir sur l'ordinateur, il faut
   l'y envoyer en fichier.
