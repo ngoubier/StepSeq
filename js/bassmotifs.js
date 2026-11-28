@@ -1,11 +1,35 @@
 /*
- * Motifs de basse de la Grille : le catalogue des modes de basse de Nouvelle chanson (js/band.js BASS_MODES,
+ * Motifs de basse de la Grille : le catalogue des modes de basse de Nouvelle chanson (MODES, ex-BASS_MODES de js/band.js,
  * moteur js/bandsong.js bassEvents), rangés par style, pour le bouton MOTIF des pistes de basse et la fenêtre
  * Nouvelle piste. La lecture est dans js/chords.js (track.follow = { play: 'motif', motif, motifs, oct }).
  */
 window.SS = window.SS || {};
 
 SS.bassMotifs = (() => {
+  const every = (dt, len, lv = () => 0) => Array.from({ length: 16 / dt }, (_, i) => [i * dt, len, lv(i)]);
+  const perBeat = (f) => [0, 4, 8, 12].flatMap(f);
+  /**
+   * Modes de la basse (js/bandsong.js, bassEvents) : [identifiant, nom, description, dessin, doux]. Le dessin (notes :
+   * [pas, durée, hauteur 0 grave, 1 quinte, 2 octave]) sert aux cartes de l'étape Basse de l'assistant (js/band.js).
+   * Ce fichier doit être chargé après js/bandsong.js (BASS_NEW) et avant js/band.js.
+   */
+  const MODES = [
+    ['whole', 'Tenue', 'Une note par accord, tenue', [[0, 16, 0]]],
+    ['half', 'Blanches', 'Deux attaques par mesure, posé', every(8, 8)],
+    ['quarter', 'Noires', 'Sur chaque temps : pop, rock', every(4, 3)],
+    ['8', 'Croches', 'Huit croches régulières : le moteur synthwave', every(2, 2)],
+    ['gallop', 'Galop', 'Croche et deux doubles : la cavalcade 80s', perBeat((s) => [[s, 2, 0], [s + 2, 1, 0], [s + 3, 1, 0]])],
+    ['offbeat', 'Contretemps', 'Entre les kicks : la basse house', every(4, 2).map(([s, l, v]) => [s + 2, l, v])],
+    ['oct', 'Octaves', 'Grave / aigu en croches : disco, italo', every(2, 2, (i) => (i % 2 ? 2 : 0))],
+    ['roll', 'Roulement', 'Trois doubles par temps, l’octave au milieu', perBeat((s) => [[s + 1, 1, 0], [s + 2, 1, 2], [s + 3, 1, 0]])],
+    ['sync', 'Syncopée', '1, 1a, 2&, 3, 3a, 4& avec octave et quinte', [[0, 3, 0], [3, 2, 2], [6, 2, 0], [8, 3, 1], [11, 2, 2], [14, 2, 0]]],
+    ['walk', 'Marche', 'Fondamentale, puis quinte à la demi-mesure', [[0, 6, 0], [8, 6, 1]]],
+    ['drone', 'Drone', 'Une note tenue par accord, sans attaque marquée', [[0, 16, 0]], true],
+    ['pulse8', 'Croches piquées', 'Huit croches courtes, détachées', every(2, 1)],
+    ['off16', 'Après le kick', 'Deux doubles « et-a » après chaque temps : techno mélodique', perBeat((s) => [[s + 2, 1, 0], [s + 3, 1, 0]])],
+    // modes ajoutés au moteur : fondamentale-quinte, arpège, tresillo, trance, doubles, octaves en doubles, reprise, funk
+    ...((SS.bandSong && SS.bandSong.BASS_NEW) || []),
+  ];
   /** Styles : [id, nom, motifs]. Un motif peut être dans plusieurs styles ; « Tous » les montre une fois. */
   const GROUPS = [
     ['synth', 'Synthwave & 80s', ['8', 'gallop', 'oct', 'pulse8', 'sync', 'roll', 'whole', 'half', 'quarter', 'walk', 'drone', 'rootfifth', 'arp', 'pickup', 'sixteen', 'oct16', 'pointee', 'sequence8']],
@@ -38,7 +62,7 @@ SS.bassMotifs = (() => {
   /** Conseillés dans la fenêtre Nouvelle piste. */
   const PICKS = ['8', 'rock8', 'disco16'];
 
-  const modes = () => [...((SS.band && SS.band.BASS_MODES) || []), ...mine().map((id) => [id, SS.bandSong.myBass(id).name, ''])];
+  const modes = () => [...MODES, ...mine().map((id) => [id, SS.bandSong.myBass(id).name, ''])];
   const entry = (id) => modes().find((m) => m[0] === id);
   const name = (id) => (entry(id) || [id, id])[1];
   const desc = (id) => (entry(id) || [])[2] || '';
@@ -153,5 +177,5 @@ SS.bassMotifs = (() => {
     });
   }
 
-  return { GROUPS, FAMS, familyOf, isMine, PICKS, all, inGroup, name, desc, isBass, svg, picker, groupOfStyle, fits, barOf };
+  return { MODES, GROUPS, FAMS, familyOf, isMine, PICKS, all, inGroup, name, desc, isBass, svg, picker, groupOfStyle, fits, barOf };
 })();

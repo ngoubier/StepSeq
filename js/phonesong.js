@@ -9,6 +9,9 @@
  *
  *   recipe = { v: 1, tempo, tonic: 0..11, mode: 'major' | 'minor', mus: { drums, bass, keys }, scenes: ['intro', 'verse', …] }
  *   mus[id] = { on, pick } : pick = indice du son dans la liste du musicien (SOUNDS)
+ *   parts = { [type de scène]: { [musicien]: motif | 'off' } } : la partie jouée par chaque musicien dans chaque type de
+ *     scène (« Qui joue quoi ») ; absente, le musicien joue la partie du plan. Les scènes de même type (deux couplets)
+ *     jouent la même partie, comme dans l'assistant.
  */
 window.SS = window.SS || {};
 SS.phoneSong = (() => {
@@ -68,6 +71,7 @@ SS.phoneSong = (() => {
       mode: 'major',
       mus: Object.fromEntries(MUSICIANS.map((m) => [m.id, { on: true, pick: 0 }])),
       scenes: ['intro', 'verse', 'chorus', 'verse', 'chorus', 'outro'],
+      parts: {},
     };
   }
 
@@ -82,7 +86,15 @@ SS.phoneSong = (() => {
       mus[m.id] = { on: x.on !== false, pick: int(x.pick, 0, Math.max(0, sounds(m.id).length - 1), 0) };
     });
     const scenes = Array.isArray(r.scenes) ? r.scenes.filter((s) => sceneType(s)).slice(0, 24) : f.scenes;
-    return { v: VERSION, tempo: int(r.tempo, TEMPO_MIN, TEMPO_MAX, f.tempo), tonic: int(r.tonic, 0, 11, 0), mode: r.mode === 'minor' ? 'minor' : 'major', mus, scenes };
+    const parts = {};
+    Object.entries((r.parts && typeof r.parts === 'object' && r.parts) || {}).forEach(([sc, row]) => {
+      if (!sceneType(sc) || !row || typeof row !== 'object') return;
+      MUSICIANS.forEach(({ id }) => {
+        const v = row[id];
+        if (v === 'off' || (typeof v === 'string' && motifs(id).includes(v))) (parts[sc] = parts[sc] || {})[id] = v;
+      });
+    });
+    return { v: VERSION, tempo: int(r.tempo, TEMPO_MIN, TEMPO_MAX, f.tempo), tonic: int(r.tonic, 0, 11, 0), mode: r.mode === 'minor' ? 'minor' : 'major', mus, scenes, parts };
   }
 
   /** Nom de la tonalité à l'écran : « Do majeur », « Do♯ mineur » (la tonique écrite comme dans SS.TONIC_NAMES). */
@@ -162,7 +174,7 @@ SS.phoneSong = (() => {
       levelKeys.set(t.id, o.levelKey);
       return t;
     });
-    const res = SS.bandSong.build(spec(r), PRESET, proj.tracks, { sig: '4/4' });
+    const res = SS.bandSong.build(spec(r), PRESET, proj.tracks, { sig: '4/4', parts: buildParts(r) });
     proj.scenes = res.scenes.map(({ spans, ...sc }) => sc); // eslint-disable-line no-unused-vars -- comme « Créer la chanson » (js/main.js)
     proj.scenes.forEach((sc) => sceneType(sc.sec || sc.id) && (sc.name = sceneType(sc.sec || sc.id).label)); // noms de l'écran (« Fin », pas « Outro »)
     proj.song = res.song;
@@ -177,11 +189,96 @@ SS.phoneSong = (() => {
   }
   const p0 = () => preset().id;
 
+
+  /* ---------- Qui joue quoi : la partie de chaque musicien dans chaque type de scène ----------
+   * Les motifs sont ceux de l'assistant : motifs de batterie du style pop (celui de « Créer de zéro », js/drum-patterns.js,
+   * ★ = la nuance de la scène), modes de basse (js/bassmotifs.js, ★ de js/scenestars.js), motifs du Clavier
+   * (js/keyboardist.js, Accords puis Arpèges, ★ du fichier de motifs). */
+  const DRUM_STYLE = 'pop';
+  /** Identifiant d'instrument de l'assistant (« musicien:clé », js/bandsong.js) : réglages parts[section].inst[id]. */
+  const INST = { bass: 'bass:bass', keys: 'keys:keys' };
+  /** Jeu de batterie du plan « Créer de zéro » (sec.drums) : son nom à l'écran. */
+  const DRUM_PLAN = { hats: 'Charleston seul', main: 'Groove', full: 'Groove plein', break: 'Break', light: 'Léger' };
+  const drumList = () => SS.DRUM_PATTERNS[DRUM_STYLE] || [];
+  /** Nuance d'une scène pour la batterie : 1 calme, 2 moyen, 3 intense (comme l'étape Batterie de l'assistant). */
+  const energyOf = (sc) => (sc === 'intro' || sc === 'outro' ? 1 : sc === 'chorus' ? 3 : 2);
+
+  /** Motif du Clavier jouable en 4/4 (les chansons du téléphone sont en 4/4). */
+  const in44 = (id) => !SS.keyboardist.meterOf(id) || SS.keyboardist.meterOf(id) === '4/4';
+  /** Tous les motifs d'un musicien, dans l'ordre du catalogue. */
+  function motifs(mu) {
+    if (mu === 'drums') return drumList().map((p) => p.id);
+    if (mu === 'bass') return SS.bassMotifs ? SS.bassMotifs.inGroup(SS.bassMotifs.groupOfStyle(PRESET)).filter((id) => !SS.bassMotifs.isMine(id) && SS.bassMotifs.fits(id, 16)) : [];
+    if (mu === 'keys') return SS.keyboardist ? [...SS.keyboardist.modesOf('acc'), ...SS.keyboardist.modesOf('arp')].filter(in44) : [];
+    return [];
+  }
+  /** ★ : les motifs conseillés pour ce musicien dans ce type de scène. */
+  function stars(mu, sc) {
+    if (mu === 'drums') return drumList().filter((p) => p.energy === energyOf(sc)).slice(0, 4).map((p) => p.id);
+    if (mu === 'bass') return SS.sceneStars && SS.bassMotifs ? SS.sceneStars.sceneStars('bass', sc, PRESET, { ok: (id) => SS.bassMotifs.fits(id, 16) }) : [];
+    if (mu === 'keys') return SS.keyboardist ? [...SS.keyboardist.stars(sc, 'acc', 'all', in44), ...SS.keyboardist.stars(sc, 'arp', 'all', in44)].slice(0, 4) : [];
+    return [];
+  }
+  /** Nom d'un motif. */
+  function motifName(mu, id) {
+    if (mu === 'drums') return (drumList().find((p) => p.id === id) || { name: id }).name;
+    if (mu === 'bass') return SS.bassMotifs ? SS.bassMotifs.name(id) : id;
+    if (mu === 'keys') return SS.keyboardist ? SS.keyboardist.name(id) : id;
+    return id;
+  }
+  /** Ce que joue le plan pour ce musicien dans ce type de scène : { id, name } ; id null si le musicien ne joue pas. */
+  function planPart(mu, sc) {
+    const sec = plan().sections[sc] || {};
+    const m = mu === 'drums' ? sec.drums : mu === 'bass' ? sec.bass : sec.keys;
+    if (!m) return { id: null, name: 'Ne joue pas' };
+    return { id: m, name: mu === 'drums' ? DRUM_PLAN[m] || m : motifName(mu, m) };
+  }
+  /** Partie choisie : un motif, 'off', ou null (celle du plan). */
+  const partOf = (r, mu, sc) => (r.parts && r.parts[sc] && r.parts[sc][mu]) || null;
+  /** Partie à l'écran : { id (motif, 'off' ou null : plan), name, plays }. */
+  function partLabel(r, mu, sc) {
+    const p = partOf(r, mu, sc);
+    if (p === 'off') return { id: 'off', name: 'Ne joue pas', plays: false };
+    if (p) return { id: p, name: motifName(mu, p), plays: true };
+    const pl = planPart(mu, sc);
+    return { id: null, name: pl.name, plays: !!pl.id };
+  }
+  /** Choisit la partie (motif, 'off' ou null pour revenir au plan). */
+  function setPart(r, mu, sc, v) {
+    r.parts = r.parts || {};
+    const row = { ...(r.parts[sc] || {}) };
+    if (v) row[mu] = v;
+    else delete row[mu];
+    if (Object.keys(row).length) r.parts[sc] = row;
+    else delete r.parts[sc];
+  }
+  /** Types de scène de la chanson, dans l'ordre de leur première apparition. */
+  const sceneTypes = (r) => [...new Set(r.scenes)];
+
+  /** Réglages par scène pour SS.bandSong.build (option parts). */
+  function buildParts(r) {
+    const out = {};
+    Object.entries(r.parts || {}).forEach(([sc, row]) => {
+      const p = {};
+      const off = [];
+      Object.entries(row).forEach(([mu, v]) => {
+        const role = musician(mu) && musician(mu).role;
+        if (!role) return;
+        if (v === 'off') return off.push(role);
+        if (mu === 'drums') p.drums = { pattern: v, style: DRUM_STYLE };
+        else (p.inst = p.inst || {})[INST[mu]] = { mode: v };
+      });
+      if (off.length) p.off = off;
+      if (Object.keys(p).length) out[sc] = p;
+    });
+    return out;
+  }
+
   /** Durée de la chanson en secondes. */
   function seconds(r) {
     const bars = r.scenes.reduce((a, id) => a + barsOf(id), 0);
     return Math.round((bars * 4 * 60) / r.tempo);
   }
 
-  return { MUSICIANS, SCENES, TEMPO_MIN, TEMPO_MAX, sceneType, sounds, fresh, clean, keyLabel, tonicLabel, spec, barsOf, chordsOf, trackOpts, build, seconds };
+  return { MUSICIANS, SCENES, TEMPO_MIN, TEMPO_MAX, sceneType, sounds, fresh, clean, keyLabel, tonicLabel, spec, barsOf, chordsOf, trackOpts, build, seconds, motifs, stars, motifName, planPart, partLabel, setPart, sceneTypes, buildParts, energyOf };
 })();
