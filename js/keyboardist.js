@@ -314,6 +314,24 @@ SS.keyboardist = (() => {
     }
     return patText(steps.map((t) => t.join('+')));
   }
+  /**
+   * Pas d'un mode tels que l'éditeur pas à pas les montre (16 textes, '' = rien) : le motif réécrit pat, le motif « k: »,
+   * sinon les jetons approchés de ce que joue le mode sur l'accord de Do majeur (motif du fichier, mode du moteur de nappe).
+   * Partagé par la fenêtre Avancé de l'étape Clavier (js/band.js) et l'écran Pas du téléphone (js/phonesong.js).
+   */
+  function startSteps(mode, pat) {
+    const BS = SS.bandSong;
+    if (parsePat(pat) || /^k:/.test(mode || '')) return stepsOf(mode, pat);
+    const bar = [{ step: 0, len: SPB, bar: 0, chord: { rootPc: 0, type: 'maj' } }];
+    let evs = [];
+    try {
+      if (/^kf:/.test(mode)) evs = events(bar, mode, { voice: BS.voiceChord, tones: () => [0, 4, 7], vel: (v) => v }).filter((e) => e.step < SPB).map((e) => ({ ...e, notes: e.lh ? e.notes.map((n) => Math.min(n, 54)) : e.notes.map((n) => Math.max(n, 55)) }));
+      else if (mode) evs = BS.chordEvents(bar, mode, () => 0.5, { lo: 57, hi: 79 });
+    } catch (e) {
+      evs = [];
+    }
+    return stepsOf(null, patFromEvents(evs));
+  }
   const LH = [['basse', 'Basse', 'La main gauche joue comme écrit dans le motif'], ['oct', 'Octaves', 'La basse doublée à l’octave : plus de poids'], ['aucune', 'Aucune', 'La main droite seule : la place au bassiste']];
   const clamp01 = (v) => Math.max(0, Math.min(1, Number(v)));
   function normalize(s) {
@@ -631,5 +649,5 @@ SS.keyboardist = (() => {
     return (draws[mode] = `<svg viewBox="0 0 160 34" preserveAspectRatio="none" aria-hidden="true">${bars}${rects}</svg>`);
   }
 
-  return { svg, JEUX, FAMILIES, STYLES, STYLE_OF, styleOfSong, TAG_STYLE, CHIPS, OWN, ENGINE, ownOf, entryOf, jeuOf, familyOf, stylesOf, inStyle, name, desc, modesOf, ALL, firstOf, surprise, FILE, fileOf, fileEvents, meterOf, sceneKind, stars, styleOfPreset, sceneDefault, DEF, LH, normalize, KNOBS, knobValue, knobPatch, touched, ADV, advanced, TOKEN, parsePat, stepsOf, patText, patFromEvents, intervals, events, shape };
+  return { svg, JEUX, FAMILIES, STYLES, STYLE_OF, styleOfSong, TAG_STYLE, CHIPS, OWN, ENGINE, ownOf, entryOf, jeuOf, familyOf, stylesOf, inStyle, name, desc, modesOf, ALL, firstOf, surprise, FILE, fileOf, fileEvents, meterOf, sceneKind, stars, styleOfPreset, sceneDefault, DEF, LH, normalize, KNOBS, knobValue, knobPatch, touched, ADV, advanced, TOKEN, parsePat, stepsOf, startSteps, patText, patFromEvents, intervals, events, shape };
 })();

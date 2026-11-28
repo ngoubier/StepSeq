@@ -9801,14 +9801,7 @@ SS.band = (() => {
   const kbArpOne = (mode) => !!mode && !/^kf:/.test(mode) && (KB().familyOf(mode) === 'arpeg' || !!ARP_START[mode]) && BS().meter().sig === '4/4';
   /** Pas du motif affiché dans l'éditeur : le motif réécrit, le motif « k: », sinon les jetons approchés du mode du moteur. */
   function keysSteps(mode, ks) {
-    const K = KB();
-    if (ks.pat || /^k:/.test(mode)) return K.stepsOf(mode, ks.pat);
-    if (/^kf:/.test(mode)) return K.stepsOf(null, K.patFromEvents(K.events([{ step: 0, len: 16, bar: 0, chord: { rootPc: 0, type: 'maj' } }], mode, { voice: BS().voiceChord, tones: () => [0, 4, 7], vel: (v) => v }).filter((e) => e.step < 16).map((e) => ({ ...e, notes: e.lh ? e.notes.map((n) => Math.min(n, 54)) : e.notes.map((n) => Math.max(n, 55)) }))));
-    let evs = [];
-    try {
-      evs = BS().chordEvents([{ step: 0, len: 16, bar: 0, chord: { rootPc: 0, type: 'maj' } }], mode, () => 0.5, { lo: 57, hi: 79 });
-    } catch (e) {}
-    return K.stepsOf(null, K.patFromEvents(evs));
+    return KB().startSteps(mode, ks.pat);
   }
   let kbChord = null; // accord affiché sur le clavier de la fenêtre (nom)
   function keysAdvanced(sc, T) {
