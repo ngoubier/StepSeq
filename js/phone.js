@@ -27,7 +27,7 @@
   const $ = (q) => document.querySelector(q);
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const STEPS = ['tempo', 'musiciens', 'scenes', 'parties'];
-  const SUB = ['partie']; // sous-écran (pas de point d'étape)
+  const SUB = ['partie', 'accords']; // sous-écrans (pas de point d'étape)
   const COVERS = ['var(--c-violet)', 'var(--c-cyan)', 'var(--c-amber)', 'var(--c-green)', 'var(--c-pink)', 'var(--c-orange)', 'var(--c-blue)', 'var(--c-teal)'];
 
   const S = {
@@ -43,6 +43,9 @@
     rec: false, // ● Jouer : enregistrement en cours
     recDirty: false, // des notes ont été enregistrées depuis le début de la boucle
     padProj: null, // chanson qui donne le son des pads quand rien ne joue
+    chSc: null, // type de scène ouvert à l'écran Accords (#accords)
+    slot: 0, // case d'accord choisie à l'écran Accords
+    gridsOpen: false, // « Grilles toutes prêtes » dépliées
     mix: { mute: [], solo: [] }, // M et S : écoute seulement, pas enregistrés dans la chanson
   };
   // lecture : { id, title, proj, block, calc (pourcent ou null), ctrl, live }
@@ -52,6 +55,7 @@
   const view = () => {
     const h = location.hash.slice(1);
     if (h === 'partie') return S.recipe && S.cell ? h : 'home';
+    if (h === 'accords') return S.recipe && S.chSc ? h : 'home';
     return STEPS.includes(h) && S.recipe ? h : 'home';
   };
   function go(v) {
@@ -63,19 +67,20 @@
 
   function render() {
     const v = view();
-    if (play && play.id === DRAFT && v !== 'parties' && v !== 'partie') stopPlay(); // écoute de la chanson en cours : on la quitte
+    if (play && play.id === DRAFT && v !== 'parties' && v !== 'partie' && v !== 'accords') stopPlay(); // écoute de la chanson en cours : on la quitte
     if (v !== 'partie') S.rec = false;
     if (v === 'home') renderHome();
     else if (v === 'tempo') renderTempo();
     else if (v === 'musiciens') renderMus();
     else if (v === 'scenes') renderScenes();
     else if (v === 'parties') renderParts();
+    else if (v === 'accords') renderChords();
     else renderPart();
     renderFoot();
   }
 
   function top(title) {
-    const i = SUB.includes(view()) ? STEPS.length - 1 : STEPS.indexOf(view());
+    const i = view() === 'accords' ? STEPS.indexOf('scenes') : SUB.includes(view()) ? STEPS.length - 1 : STEPS.indexOf(view());
     $('#phTop').innerHTML = `<button class="ph-back" data-act="back" aria-label="Retour">‹</button><span class="ph-title">${esc(title)}</span><span class="ph-dots">${STEPS.map((_, k) => `<i class="${k <= i ? 'on' : ''}"></i>`).join('')}</span>`;
   }
 
@@ -147,12 +152,48 @@
     top('Scènes');
     const rows = r.scenes.map((id, i) => {
       const t = P.sceneType(id);
-      return `<div class="ph-sc" style="--sc:${t.color}"><div><div class="t">${t.label}</div><div class="m">${P.barsOf(id)} mesures · ${esc(P.chordsOf(r, id))}</div></div><button data-act="up" data-i="${i}" aria-label="Monter"${i ? '' : ' disabled'}>↑</button><button data-act="del" data-i="${i}" aria-label="Retirer">✕</button></div>`;
+      return `<div class="ph-sc" style="--sc:${t.color}"><button class="ph-scgo" data-act="chords" data-id="${id}" aria-label="Accords : ${t.label}"><span class="t">${t.label}</span><span class="m">${P.barsOf(id)} mesures · <span class="ch">${esc(P.chordsOf(r, id))}${P.chordsEdited(r, id) ? ' ✎' : ''}</span></span><span class="go">›</span></button><button data-act="up" data-i="${i}" aria-label="Monter"${i ? '' : ' disabled'}>↑</button><button data-act="del" data-i="${i}" aria-label="Retirer">✕</button></div>`;
     }).join('');
     const sec = P.seconds(r);
     $('#phBody').innerHTML = `${rows || '<div class="ph-empty">Aucune scène</div>'}
       <div class="ph-adds">${P.SCENES.map((s) => `<button data-act="add" data-id="${s.id}">＋ ${s.label}</button>`).join('')}</div>
       ${r.scenes.length ? `<div class="ph-sum">${Math.floor(sec / 60)} min ${String(sec % 60).padStart(2, '0')}</div>` : ''}`;
+  }
+
+  /* ---------- Accords d'une scène ---------- */
+  function renderChords() {
+    const r = S.recipe;
+    const id = S.chSc;
+    top(`${P.sceneType(id).label} · Accords`);
+    const list = P.chordList(r, id);
+    S.slot = Math.min(S.slot, list.length - 1);
+    const max = Math.min(P.CHORDS_MAX, P.barsOf(id));
+    const slots = list.map((tok, i) => `<button class="ph-slot${i === S.slot ? ' sel' : ''}" data-act="slot" data-i="${i}" data-slot="${i}" aria-pressed="${i === S.slot}"><b>${esc(P.chordName(r, tok))}</b><i>${esc(tok.replace(/^b/, '♭').replace(/^#/, '♯'))}</i></button>`).join('');
+    const cur = list[S.slot];
+    const pal = P.palette(r).map((c) => `<button class="ph-chd${c.tok === cur ? ' on' : ''}${c.borrowed ? ' bor' : ''}" data-act="pick" data-tok="${esc(c.tok)}">${esc(c.name)}<i>${esc(c.numeral)}</i></button>`).join('');
+    const grids = P.readyGrids(r);
+    const same = (g) => g.toks.length === list.length && g.toks.every((t, i) => t === list[i]);
+    const gridRows = S.gridsOpen
+      ? `<div class="ph-lbl">Grilles toutes prêtes</div>${grids.map((g) => `<button class="ph-mo${same(g) ? ' on' : ''}" data-act="grid" data-id="${esc(g.id)}"><span class="ph-sx"><span class="t">${esc(g.names.join(' · '))}</span><span class="m">${esc(g.style)}</span></span></button>`).join('')}`
+      : `<button class="ph-more" data-act="grids">Grilles toutes prêtes (${grids.length})</button>`;
+    $('#phBody').innerHTML = `<div class="ph-lbl" id="phChLbl">Grille</div>
+      <div class="ph-slots" style="grid-template-columns:repeat(${Math.min(4, list.length)},minmax(0,1fr))">${slots}</div>
+      <div class="ph-cnt">Accords<button data-act="chn" data-d="-1" aria-label="Un accord de moins"${list.length > 1 ? '' : ' disabled'}>−</button><b>${list.length}</b><button data-act="chn" data-d="1" aria-label="Un accord de plus"${list.length < max ? '' : ' disabled'}>＋</button></div>
+      <div class="ph-lbl">${esc(P.keyLabel(r))}</div>
+      <div class="ph-pal">${pal}</div>
+      ${gridRows}
+      ${P.chordsEdited(r, id) ? '<button class="ph-more" data-act="chreset">Revenir aux accords du modèle</button>' : ''}`;
+    $('#phChLbl').appendChild(SS.helpTip('Un accord par mesure ; une scène plus longue répète la grille. Touchez une case, puis un accord. Tous les couplets (ou refrains…) partagent les mêmes accords. En pointillé : des accords empruntés, hors de la tonalité.', 'Accords'));
+    nowLoop();
+  }
+  /** Range les accords de la scène ouverte ; la boucle reprend avec eux (plusieurs touches d'affilée : un seul calcul). */
+  let chTimer = null;
+  function saveChords(list) {
+    P.setChords(S.recipe, S.chSc, list);
+    S.padProj = null;
+    renderChords();
+    clearTimeout(chTimer);
+    chTimer = setTimeout(() => view() === 'accords' && playDraft(S.chSc), play ? 600 : 0);
   }
 
   /* ---------- Qui joue quoi ---------- */
@@ -405,12 +446,24 @@
   let nowRaf = 0;
   function nowLoop() {
     cancelAnimationFrame(nowRaf);
-    if (view() !== 'partie' || S.tab === 'motifs') return;
+    const on = () => (view() === 'partie' && S.tab !== 'motifs') || view() === 'accords';
+    if (!on()) return;
     let last = -1;
     let lastChord = '';
     const tick = () => {
-      if (view() !== 'partie' || S.tab === 'motifs') return;
+      if (!on()) return;
       const st = heardStep();
+      if (view() === 'accords') {
+        const n = P.chordList(S.recipe, S.chSc).length;
+        const k = st == null ? -1 : Math.floor(st / P.STEPS) % n; // accord entendu : une mesure chacun
+        if (k !== last) {
+          document.querySelectorAll('#phBody [data-slot].now').forEach((x) => x.classList.remove('now'));
+          if (k >= 0) document.querySelectorAll(`#phBody [data-slot="${k}"]`).forEach((x) => x.classList.add('now'));
+          last = k;
+        }
+        nowRaf = requestAnimationFrame(tick);
+        return;
+      }
       const i = st == null ? -1 : Math.floor(st) % P.STEPS;
       if (i !== last) {
         document.querySelectorAll('#phBody [data-col].now').forEach((x) => x.classList.remove('now'));
@@ -441,6 +494,8 @@
       $('#phFoot').innerHTML = `<div class="ph-row"><button class="ph-ic play${on ? ' on' : ''}" data-act="draft" aria-label="${on ? 'Arrêter' : 'Écouter la chanson'}">${on ? '■' : '▶'}</button><button class="ph-next" data-act="create">${S.editId ? 'Mettre à jour la chanson' : 'Créer la chanson'}</button></div>${on ? playerMeta() : ''}`;
     } else renderPlayer();
   }
+  /** Type de scène écouté en boucle depuis l'écran ouvert (partie d'un musicien, ou Accords). */
+  const loopSc = () => (view() === 'accords' ? S.chSc : S.cell.sc);
   /** Écoute de la chanson en cours de création (pas encore enregistrée). */
   const DRAFT = '__draft';
   function playerMeta() {
@@ -454,9 +509,9 @@
   function renderPlayer() {
     const v = view();
     if (v === 'parties') return renderFoot();
-    if (v === 'partie') {
+    if (v === 'partie' || v === 'accords') {
       const on = !!play;
-      $('#phFoot').innerHTML = `<div class="ph-player"><button class="ph-ic play${on ? ' on' : ''}" data-act="${on ? 'stop' : 'loop'}" aria-label="${on ? 'Arrêter' : 'Écouter la scène'}">${on ? '■' : '▶'}</button><div><div class="t">${esc(P.sceneType(S.cell.sc).label)} en boucle</div>${on && play.calc != null ? `<div class="ph-meta">Calcul de l’écoute… ${play.calc} %</div>` : ''}</div>${mixTag()}</div>`;
+      $('#phFoot').innerHTML = `<div class="ph-player"><button class="ph-ic play${on ? ' on' : ''}" data-act="${on ? 'stop' : 'loop'}" aria-label="${on ? 'Arrêter' : 'Écouter la scène'}">${on ? '■' : '▶'}</button><div><div class="t">${esc(P.sceneType(loopSc()).label)} en boucle</div>${on && play.calc != null ? `<div class="ph-meta">Calcul de l’écoute… ${play.calc} %</div>` : ''}</div>${mixTag()}</div>`;
       return;
     }
     if (STEPS.includes(v)) return;
@@ -720,7 +775,7 @@
       renderHome();
       return renderFoot();
     }
-    if (act === 'del') {
+    if (act === 'del' && view() === 'home') { // ✕ de l'écran Scènes : plus bas
       const s = S.songs.find((x) => x.id === b.dataset.id);
       return s && delSheet(s);
     }
@@ -745,6 +800,39 @@
       return renderFoot();
     }
     if (act === 'next') return go(STEPS[STEPS.indexOf(view()) + 1]);
+    if (act === 'chords') {
+      Object.assign(S, { chSc: b.dataset.id, slot: 0, gridsOpen: false });
+      return go('accords');
+    }
+    if (view() === 'accords' && ['slot', 'pick', 'chn', 'grids', 'grid', 'chreset'].includes(act)) {
+      const list = P.chordList(r, S.chSc);
+      if (act === 'slot') {
+        S.slot = +b.dataset.i;
+        return renderChords();
+      }
+      if (act === 'grids') {
+        S.gridsOpen = true;
+        return renderChords();
+      }
+      if (act === 'pick') {
+        list[S.slot] = b.dataset.tok;
+        if (S.slot < list.length - 1) S.slot++; // la case suivante, pour enchaîner les accords
+        return saveChords(list);
+      }
+      if (act === 'chn') {
+        if (+b.dataset.d > 0) list.push(list[list.length - 1]);
+        else list.pop();
+        S.slot = +b.dataset.d > 0 ? list.length - 1 : Math.min(S.slot, list.length - 1);
+        return saveChords(list);
+      }
+      if (act === 'grid') {
+        const g = P.readyGrids(r).find((x) => x.id === b.dataset.id);
+        S.slot = 0;
+        return g && saveChords(g.toks);
+      }
+      S.slot = 0;
+      return saveChords(null);
+    }
     if (act === 'cell') {
       S.cell = { mu: b.dataset.mu, sc: b.dataset.sc };
       Object.assign(S, { allOpen: false, tab: 'motifs', page: 0, rec: false, padProj: null });
@@ -797,7 +885,7 @@
       renderPart();
       return playDraft(S.cell.sc); // la scène en boucle avec ce motif
     }
-    if (act === 'loop') return playDraft(S.cell.sc);
+    if (act === 'loop') return playDraft(loopSc());
     if (act === 'draft') return play && play.id === DRAFT ? stopPlay() : playDraft(null);
     if (act === 'add') r.scenes.push(b.dataset.id);
     else if (act === 'del') r.scenes.splice(+b.dataset.i, 1);

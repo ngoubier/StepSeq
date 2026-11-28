@@ -49,7 +49,7 @@ Un téléphone qui ouvre StepSeq arrive sur une page légère, faite pour écout
   le moteur complet ne tourne que pour les pads, et se met en veille ensuite ; un morceau en retard est attendu, pas sauté.
 - **Nouvelle chanson**, en trois écrans : **Tempo et tonalité** (− / ＋, curseur, « Taper » ; 12 notes, Majeur | Mineur),
   **Musiciens** (Batterie, Basse, Clavier, chacun avec son son), **Scènes** (Intro, Couplet, Refrain, Pont, Fin, dans
-  l'ordre voulu, avec leurs accords dans la tonalité), **Qui joue quoi** (un tableau musiciens × scènes, rempli avec la
+  l'ordre voulu, avec leurs accords dans la tonalité ; toucher une scène ouvre ses **Accords** : une case par mesure, de 1 à 8, à remplir depuis la palette de la tonalité et quelques emprunts, ou depuis les grilles toutes prêtes de l'assistant ; la scène tourne en boucle pendant qu'on cherche), **Qui joue quoi** (un tableau musiciens × scènes, rempli avec la
   partie du modèle ; toucher une case ouvre la partie du musicien dans cette scène : Ne joue pas, celle du modèle, les
   motifs ★ conseillés pour la scène et tous les motifs de l'assistant ; choisir un motif fait entendre la scène en
   boucle ; à côté de « Ne joue pas », **M** coupe ce musicien et **S** n'entend que lui, pour l'écoute seulement), puis **Créer la chanson** (▶ à côté écoute la chanson avant de la créer).

@@ -175,3 +175,43 @@ test('Écoute : M et S coupent ou isolent un musicien sans toucher à la recette
   });
   assert.equal(JSON.stringify(r), before);
 });
+
+test('Accords par scène : palette, grilles toutes prêtes, chanson construite avec les accords choisis', () => {
+  const P = SS.phoneSong;
+  const r = P.fresh();
+  assert.deepEqual(P.chordList(r, 'verse'), ['I', 'V', 'vi', 'IV']);
+  assert.equal(P.chordsEdited(r, 'verse'), false);
+  // palette en Do majeur
+  const pal = P.palette(r);
+  assert.deepEqual(pal.map((c) => c.name), ['C', 'Dm', 'Em', 'F', 'G', 'Am', 'B°', 'G7', 'B♭', 'Fm', 'A♭', 'E']);
+  // chaque grille toute prête redonne les accords de js/harmony.js
+  const key = { tonic: 'C', mode: 'major' };
+  const grids = P.readyGrids(r);
+  assert.ok(grids.length >= 10);
+  SS.harmony.progressions(key).forEach((pr) => {
+    const g = grids.find((x) => x.id === pr.id);
+    assert.ok(g, pr.id);
+    pr.chords.forEach((c, i) => {
+      const p = SS.bandSong.parseChord(g.toks[i], key);
+      assert.equal(p.rootPc, c.rootPc, pr.id + ' ' + g.toks[i]);
+      assert.equal(p.type, c.type, pr.id + ' ' + g.toks[i]);
+    });
+  });
+  // accords choisis : affichés, construits, gardés en degrés quand la tonalité change
+  P.setChords(r, 'verse', ['vi', 'IV', 'I', 'V', 'nimp']);
+  assert.deepEqual(P.chordList(r, 'verse'), ['vi', 'IV', 'I', 'V']);
+  assert.equal(P.chordsOf(r, 'verse'), 'Am · F · C · G');
+  assert.equal(P.chordAt(r, 'verse', 16).name, 'F');
+  r.tonic = 7;
+  assert.equal(P.chordsOf(r, 'verse'), 'Em · C · G · D');
+  r.tonic = 0;
+  const proj = P.build(r, { id: 't', title: 't' });
+  assert.ok(proj && proj.tracks.length);
+  // relue (fichier, IndexedDB) : les accords restent
+  assert.deepEqual(P.clean(JSON.parse(JSON.stringify(r))).chords, { verse: ['vi', 'IV', 'I', 'V'] });
+  // pas plus d'accords que de mesures (Intro : 4)
+  P.setChords(r, 'intro', ['I', 'ii', 'iii', 'IV', 'V', 'vi']);
+  assert.equal(P.chordList(r, 'intro').length, 4);
+  P.setChords(r, 'verse', null);
+  assert.equal(P.chordsEdited(r, 'verse'), false);
+});
