@@ -453,6 +453,24 @@ SS.phoneSong = (() => {
    * celle d'une chanson de l'assistant compatible (voir plus haut) ; null si le téléphone ne sait pas la refaire.
    * Retourne { recipe, phone } : phone vrai pour une chanson faite sur le téléphone.
    */
+  /** Musicien d'une piste construite (drums, bass, keys), ou null. */
+  const roleOf = (t) => (t && t.band && typeof t.band.key === 'string' ? t.band.key.split(':')[0] : null);
+
+  /**
+   * Écoute seulement : coupe (M) ou isole (S) des musiciens dans une chanson construite, sans toucher à la recette.
+   * mix : { mute: ['bass'], solo: ['drums'] }.
+   */
+  function listenMix(proj, mix) {
+    const mute = (mix && mix.mute) || [];
+    const solo = (mix && mix.solo) || [];
+    (proj && proj.tracks ? proj.tracks : []).forEach((t) => {
+      const role = roleOf(t);
+      t.mute = !!role && mute.includes(role);
+      t.solo = !!role && solo.includes(role);
+    });
+    return proj;
+  }
+
   function fromProject(d) {
     if (!d || typeof d !== 'object') return null;
     const own = clean(d.phone);
@@ -461,7 +479,7 @@ SS.phoneSong = (() => {
     if (ts[0] !== 4 || ts[1] !== 4 || !Array.isArray(d.tracks) || !d.tracks.length || !Array.isArray(d.scenes) || !Array.isArray(d.song) || !d.song.length) return null;
     const byMu = {};
     for (const t of d.tracks) {
-      const role = t && t.band && typeof t.band.key === 'string' ? t.band.key.split(':')[0] : null;
+      const role = roleOf(t);
       if (!MUSICIANS.some((m) => m.id === role) || (role === 'drums') !== (t.type === 'drum')) return null; // autre musicien, ou piste de la Grille
       (byMu[role] = byMu[role] || []).push(t);
     }
@@ -521,5 +539,5 @@ SS.phoneSong = (() => {
     return Math.round((bars * 4 * 60) / r.tempo);
   }
 
-  return { MUSICIANS, SCENES, TEMPO_MIN, TEMPO_MAX, sceneType, sounds, fresh, clean, keyLabel, tonicLabel, spec, barsOf, chordsOf, trackOpts, build, seconds, motifs, stars, motifName, planPart, partLabel, setPart, sceneTypes, buildParts, energyOf, STEPS, DRUM_LANES, BASS_ROWS, rowName, isLH, editOf, setEdit, startEdit, chordAt, rowSemis, toggleBass, toggleKeys, keysPat, bassId, fromProject };
+  return { MUSICIANS, SCENES, TEMPO_MIN, TEMPO_MAX, sceneType, sounds, fresh, clean, keyLabel, tonicLabel, spec, barsOf, chordsOf, trackOpts, build, seconds, motifs, stars, motifName, planPart, partLabel, setPart, sceneTypes, buildParts, energyOf, STEPS, DRUM_LANES, BASS_ROWS, rowName, isLH, editOf, setEdit, startEdit, chordAt, rowSemis, toggleBass, toggleKeys, keysPat, bassId, fromProject, listenMix };
 })();

@@ -159,3 +159,19 @@ test('Modifier une chanson existante : compatible ou non', () => {
   no({ scenes: d.scenes.map((s, i) => (i ? s : { ...s, key: { tonic: 'E', mode: 'minor' } })) }, 'changement de tonalité');
   no({ scenes: d.scenes.map((s, i) => (i ? s : { ...s, sec: 'prechorus' })) }, 'type de scène inconnu');
 });
+
+test('Écoute : M et S coupent ou isolent un musicien sans toucher à la recette', () => {
+  const P = SS.phoneSong;
+  const r = P.fresh();
+  const before = JSON.stringify(r);
+  const proj = P.listenMix(P.build(r, { id: 't', title: 't' }), { mute: ['bass'], solo: [] });
+  const role = (t) => t.band.key.split(':')[0];
+  assert.ok(proj.tracks.some((t) => role(t) === 'bass'));
+  proj.tracks.forEach((t) => assert.equal(t.mute, role(t) === 'bass'));
+  P.listenMix(proj, { mute: [], solo: ['drums'] });
+  proj.tracks.forEach((t) => {
+    assert.equal(t.mute, false);
+    assert.equal(t.solo, role(t) === 'drums');
+  });
+  assert.equal(JSON.stringify(r), before);
+});

@@ -43,6 +43,7 @@
     rec: false, // ● Jouer : enregistrement en cours
     recDirty: false, // des notes ont été enregistrées depuis le début de la boucle
     padProj: null, // chanson qui donne le son des pads quand rien ne joue
+    mix: { mute: [], solo: [] }, // M et S : écoute seulement, pas enregistrés dans la chanson
   };
   // lecture : { id, title, proj, block, calc (pourcent ou null), ctrl, live }
   let play = null;
@@ -204,6 +205,18 @@
     if (tip) $('#phTip').appendChild(SS.helpTip(tip, S.tab === 'pas' ? 'Pas' : 'Jouer'));
     nowLoop();
   }
+  /** Bouton M ou S du musicien ouvert. */
+  function msBtn(kind, label, aria) {
+    const on = S.mix[kind].includes(S.cell.mu);
+    return `<button class="ph-ms ${kind}${on ? ' on' : ''}" data-act="ms" data-kind="${kind}" aria-pressed="${on}" aria-label="${aria}">${label}</button>`;
+  }
+  /** Rappel des M et S en cours, dans la barre d'écoute (« Solo : Basse »). */
+  function mixTag() {
+    const names = (ids) => ids.map((id) => P.MUSICIANS.find((m) => m.id === id).label).join(', ');
+    if (S.mix.solo.length) return `<span class="ph-mixtag solo">Solo : ${esc(names(S.mix.solo))}</span>`;
+    if (S.mix.mute.length) return `<span class="ph-mixtag mute">Coupé : ${esc(names(S.mix.mute))}</span>`;
+    return '';
+  }
   function motifsHtml() {
     const r = S.recipe;
     const { mu, sc } = S.cell;
@@ -216,7 +229,7 @@
     const all = P.motifs(mu).filter((id) => !stars.includes(id));
     return [
       edited ? `<button class="ph-mo on" data-act="tab" data-tab="pas"><span class="t">✎ Ma version (${esc(P.partLabel(r, mu, sc).name)} retouché)</span></button>` : '',
-      row('off', 'Ne joue pas'),
+      `<div class="ph-moline">${row('off', 'Ne joue pas')}${msBtn('mute', 'M', 'Couper ce musicien à l’écoute')}${msBtn('solo', 'S', 'N’entendre que ce musicien')}</div>`,
       plan.id ? row(null, `Modèle : ${plan.name}`, { svg: plan.id && mu !== 'drums' ? motifSvg(mu, plan.id) : '' }) : '',
       stars.length ? '<div class="ph-lbl">★ Pour cette scène</div>' : '',
       ...stars.map((id) => row(id, P.motifName(mu, id), { star: true, svg: motifSvg(mu, id) })),
@@ -443,7 +456,7 @@
     if (v === 'parties') return renderFoot();
     if (v === 'partie') {
       const on = !!play;
-      $('#phFoot').innerHTML = `<div class="ph-player"><button class="ph-ic play${on ? ' on' : ''}" data-act="${on ? 'stop' : 'loop'}" aria-label="${on ? 'Arrêter' : 'Écouter la scène'}">${on ? '■' : '▶'}</button><div><div class="t">${esc(P.sceneType(S.cell.sc).label)} en boucle</div>${on && play.calc != null ? `<div class="ph-meta">Calcul de l’écoute… ${play.calc} %</div>` : ''}</div></div>`;
+      $('#phFoot').innerHTML = `<div class="ph-player"><button class="ph-ic play${on ? ' on' : ''}" data-act="${on ? 'stop' : 'loop'}" aria-label="${on ? 'Arrêter' : 'Écouter la scène'}">${on ? '■' : '▶'}</button><div><div class="t">${esc(P.sceneType(S.cell.sc).label)} en boucle</div>${on && play.calc != null ? `<div class="ph-meta">Calcul de l’écoute… ${play.calc} %</div>` : ''}</div>${mixTag()}</div>`;
       return;
     }
     if (STEPS.includes(v)) return;
@@ -548,6 +561,7 @@
     stopPlay();
     S.recipe = null;
     S.editId = null;
+    S.mix = { mute: [], solo: [] };
     S.cell = null;
     history.go(-STEPS.length); // une entrée par étape : retour à l'accueil
     await loadSongs();
@@ -663,7 +677,7 @@
 
   /** Écoute la chanson en cours de création, en entier ou une scène en boucle (sceneType : type de scène). */
   function playDraft(sceneType) {
-    const proj = P.build(S.recipe, { id: 'telephone', title: 'Écoute' });
+    const proj = P.listenMix(P.build(S.recipe, { id: 'telephone', title: 'Écoute' }), S.mix);
     if (!proj) return;
     const sc = sceneType ? proj.scenes.find((x) => x.sec === sceneType) : null;
     startPlay(DRAFT, proj, sc ? sc.id : null);
@@ -686,6 +700,7 @@
     if (act === 'back') return history.back();
     if (act === 'new') {
       S.recipe = P.fresh();
+      S.mix = { mute: [], solo: [] };
       S.editId = null;
       return go('tempo');
     }
@@ -695,6 +710,7 @@
       if (!s || !s.edit) return;
       if (!s.edit.phone && act === 'edit') return editSheet(s); // chanson de l'ordinateur : on prévient une fois
       S.recipe = JSON.parse(JSON.stringify(s.edit.recipe));
+      S.mix = { mute: [], solo: [] };
       S.editId = s.id;
       return go('tempo');
     }
@@ -767,6 +783,14 @@
     if (act === 'more') {
       S.allOpen = true;
       return renderPart();
+    }
+    if (act === 'ms') {
+      const list = S.mix[b.dataset.kind];
+      const i = list.indexOf(S.cell.mu);
+      if (i >= 0) list.splice(i, 1);
+      else list.push(S.cell.mu);
+      renderPart();
+      return play && play.id === DRAFT ? playDraft(play.scene ? S.cell.sc : null) : renderPlayer();
     }
     if (act === 'motif') {
       P.setPart(r, S.cell.mu, S.cell.sc, b.dataset.id || null);

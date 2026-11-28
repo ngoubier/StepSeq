@@ -52,7 +52,7 @@ Un téléphone qui ouvre StepSeq arrive sur une page légère, faite pour écout
   l'ordre voulu, avec leurs accords dans la tonalité), **Qui joue quoi** (un tableau musiciens × scènes, rempli avec la
   partie du modèle ; toucher une case ouvre la partie du musicien dans cette scène : Ne joue pas, celle du modèle, les
   motifs ★ conseillés pour la scène et tous les motifs de l'assistant ; choisir un motif fait entendre la scène en
-  boucle), puis **Créer la chanson** (▶ à côté écoute la chanson avant de la créer).
+  boucle ; à côté de « Ne joue pas », **M** coupe ce musicien et **S** n'entend que lui, pour l'écoute seulement), puis **Créer la chanson** (▶ à côté écoute la chanson avant de la créer).
 - La partie d'un musicien a trois onglets : **Motifs** (ci-dessus), **Pas** (la partie en une mesure de 16 pas, deux pages
   de 8, qui se répète sur la scène ; elle part du motif choisi : batterie par instrument, basse par note de l'accord en
   cours — fondamentale, tierce, quinte… —, clavier Accord / Basse ; le pas joué s'éclaire, la boucle reprend avec la
