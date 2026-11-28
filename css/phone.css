@@ -212,3 +212,11 @@ button { cursor: pointer; }
 .ph-chd.on i { color: var(--c-bg-deep); }
 .ph-mo .ph-sx .m { font-size: var(--fs-sm); color: var(--c-muted); font-weight: 400; }
 .ph-seg button:disabled { opacity: 0.3; }
+
+/* Style d'une nouvelle chanson */
+.ph-style { display: flex; align-items: center; gap: 12px; width: 100%; padding: 16px; border-radius: 18px; border: 2px solid transparent; background: color-mix(in srgb, var(--st) 18%, var(--c-panel)); color: var(--c-text); text-align: left; }
+.ph-style.on { border-color: var(--st); }
+.ph-style .e { font-size: 34px; line-height: 1; }
+.ph-style .t { font-size: var(--fs-xl); font-weight: 800; }
+.ph-style .m { font-size: var(--fs-sm); color: var(--c-muted); }
+.ph-stchip { align-self: flex-start; border-radius: 999px; padding: 3px 10px; font-size: var(--fs-sm); font-weight: 700; background: color-mix(in srgb, var(--st) 30%, var(--c-panel)); }

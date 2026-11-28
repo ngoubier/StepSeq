@@ -47,7 +47,7 @@ Un téléphone qui ouvre StepSeq arrive sur une page légère, faite pour écout
   confirmation, de ce téléphone seulement, avec ses versions). L'écoute est toujours calculée à l'avance : elle ne décroche pas.
   Sur téléphone elle est calculée à 24 kHz (moitié moins de calcul) et jouée par un lecteur léger (`js/phoneplayer.js`) :
   le moteur complet ne tourne que pour les pads, et se met en veille ensuite ; un morceau en retard est attendu, pas sauté.
-- **Nouvelle chanson**, en trois écrans : **Tempo et tonalité** (− / ＋, curseur, « Taper » ; 12 notes, Majeur | Mineur),
+- **Nouvelle chanson** : d'abord le **Style** (Pop rock, Dance, Latino : tempo et tonalité de départ, sons, motifs et parties du modèle, d'après les modèles « Créer de zéro », EDM « levels » et salsa « Calle » de l'assistant), puis **Tempo et tonalité** (− / ＋, curseur, « Taper » ; 12 notes, Majeur | Mineur),
   **Musiciens** (Batterie, Basse, Clavier, chacun avec son son, et la Nappe en option : cordes ou pad, avec les motifs de nappe de l'assistant, sans Pas ni Jouer), **Scènes** (Intro, Couplet, Refrain, Pont, Fin, dans
   l'ordre voulu, avec leurs accords dans la tonalité ; toucher une scène ouvre ses **Accords** : une case par mesure, de 1 à 8, à remplir depuis la palette de la tonalité et quelques emprunts, ou depuis les grilles toutes prêtes de l'assistant ; la scène tourne en boucle pendant qu'on cherche), **Qui joue quoi** (un tableau musiciens × scènes, rempli avec la
   partie du modèle ; toucher une case ouvre la partie du musicien dans cette scène : Ne joue pas, celle du modèle, les
