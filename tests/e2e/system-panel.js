@@ -94,7 +94,7 @@ const ok = (c, m) => {
       Object.defineProperty(performance, 'memory', { get: () => undefined });
       window.PerformanceObserver = undefined;
     });
-    await mobile.goto(origin + '/index.html');
+    await mobile.goto(origin + '/index.html?full=1');
     await mobile.click('#systemBtn');
     ok((await mobile.locator('[data-metric="ram"]').textContent()).includes('Non accessible'), 'navigateur sans API RAM : message clair');
     ok((await mobile.locator('[data-metric="heapUsed"]').textContent()).includes('Non accessible'), 'navigateur sans API mémoire JavaScript : fonctionnement conservé');

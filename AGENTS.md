@@ -22,7 +22,8 @@ commentaires du code, les messages de commit et les descriptions de PR sont en f
   Harmonie a été retirée (PR #111) : ne pas la recréer. Penser à la Grille : une fonction de l'assistant doit
   survivre au passage Assistant ↔ Grille (`js/gridsync.js`).
 - **Pas de panneau Claude dans l'application.** Claude pilote StepSeq depuis Chrome par `window.StepSeq`.
-- Ne pas relancer le travail mobile (concept « Carnet » abandonné).
+- Téléphone : la page légère `telephone.html` (`js/phone.js`, `js/phonesong.js`) ne charge que les moteurs, pas l'interface
+  de l'ordinateur. Le concept « Carnet » reste abandonné.
 
 ## Architecture
 
@@ -50,7 +51,7 @@ commentaires du code, les messages de commit et les descriptions de PR sont en f
 - **Pas de texte explicatif à l'écran.** Une explication va dans un petit « ? » qui ouvre une bulle d'aide :
   `SS.helpTip(texte, libellé)` en JavaScript, ou un élément marqué `data-helpify` (déplacé automatiquement dans un
   « ? »), ou `SS.setHelp(el, texte)` pour un « ? » existant. Les messages d'état (compteurs, « Aucune chanson ») restent visibles.
-- **Couleurs et tailles par variables.** Couleurs : palette `--c-*` de `css/style.css` (52 couleurs nommées).
+- **Couleurs et tailles par variables.** Couleurs : palette `--c-*` de `css/palette.css` (52 couleurs nommées, partagée avec la page téléphone).
   Tailles de texte : `--fs-xs`, `--fs-sm`, `--fs-md`, `--fs-lg`, `--fs-xl` (11 à 18 px) ; seuls les titres de 20 px
   et plus restent en px. Jamais de couleur ni de taille en dur dans un nouveau CSS ; en JavaScript, passer par
   `var(--c-…)`.

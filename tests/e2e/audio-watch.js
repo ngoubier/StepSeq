@@ -108,7 +108,7 @@ const OUT = process.env.SHOTS || '/tmp';
     const mobile = await browser.newPage({ viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true });
     mobile.on('pageerror', (e) => errors.push(e.message));
     await mobile.addInitScript((p) => localStorage.setItem('stepseq.autosave', JSON.stringify(p)), song);
-    await mobile.goto(origin + '/index.html');
+    await mobile.goto(origin + '/index.html?full=1');
     await mobile.click('#systemBtn');
     const layout = await mobile.evaluate(() => {
       const d = document.querySelector('#systemDialog'), r = d.getBoundingClientRect();

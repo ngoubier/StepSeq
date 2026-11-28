@@ -33,7 +33,7 @@ const ok = (c, m) => {
     demo.tracks = demo.tracks.slice(0, 2);
     demo.tracks.forEach(t => { t.mix = { eq: { on: false }, comp: { on: false }, lim: { on: false } }; });
     await page.addInitScript(p => localStorage.setItem('stepseq.autosave', JSON.stringify(p)), demo);
-    await page.goto(`http://localhost:${server.address().port}/index.html`);
+    await page.goto(`http://localhost:${server.address().port}/index.html?full=1`);
     await page.click('#mixerBtn');
     const reuse = await page.evaluate(() => {
       const track = JSON.parse(localStorage.getItem('stepseq.autosave')).tracks[0];

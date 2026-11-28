@@ -1,75 +1,4 @@
 :root {
-  /* Palette nommée : toute couleur de l'interface vient d'ici (gris, puis 10 familles
-     en 4 nuances : -bg fond teinté, -deep foncé, base, -soft clair). Changer une valeur ici la change partout. */
-  --c-bg-deep: #0e0e10;
-  --c-bg: #161618;
-  --c-surface-1: #1c1c20;
-  --c-panel: #232326;
-  --c-panel-2: #2c2c30;
-  --c-panel-3: #38383d;
-  --c-line: #3e3e44;
-  --c-line-strong: #55555c;
-  --c-faint: #6e6e78;
-  --c-muted: #9a9aa3;
-  --c-text-2: #c4c4cc;
-  --c-text: #ececf1;
-  /* rouge */
-  --c-red-bg: #2a1618;
-  --c-red-deep: #a3262e;
-  --c-red: #e5484d;
-  --c-red-soft: #ff8a8a;
-  /* orange */
-  --c-orange-bg: #2b1d14;
-  --c-orange-deep: #9a4a12;
-  --c-orange: #ff8a3d;
-  --c-orange-soft: #ffb877;
-  /* ambre */
-  --c-amber-bg: #2a2214;
-  --c-amber-deep: #9a6a10;
-  --c-amber: #f5a524;
-  --c-amber-soft: #efbf6d;
-  /* jaune */
-  --c-yellow-bg: #29261a;
-  --c-yellow-deep: #c9a227;
-  --c-yellow: #f5c400;
-  --c-yellow-soft: #ffd75e;
-  /* vert */
-  --c-green-bg: #17261a;
-  --c-green-deep: #2a7a3a;
-  --c-green: #3fcf3f;
-  --c-green-soft: #8fe08f;
-  /* turquoise */
-  --c-teal-bg: #152620;
-  --c-teal-deep: #1f7a5c;
-  --c-teal: #3fcf8e;
-  --c-teal-soft: #8fe8c4;
-  /* cyan */
-  --c-cyan-bg: #14242c;
-  --c-cyan-deep: #1d6f8f;
-  --c-cyan: #4fc3f7;
-  --c-cyan-soft: #9fe0ff;
-  /* bleu (accent) */
-  --c-blue-bg: #152030;
-  --c-blue-deep: #0a64b4;
-  --c-blue: #2b8cff;
-  --c-blue-soft: #8fc3ff;
-  /* violet */
-  --c-violet-bg: #1f1a2e;
-  --c-violet-deep: #5b4590;
-  --c-violet: #a479ff;
-  --c-violet-soft: #c9a6ff;
-  /* rose */
-  --c-pink-bg: #2a1524;
-  --c-pink-deep: #9a1068;
-  --c-pink: #e3179c;
-  --c-pink-soft: #ff7ac8;
-  /* Échelle de texte : 5 tailles, rien sous 11 px (les grands titres ≥ 20 px gardent leur taille) */
-  --fs-xs: 11px;
-  --fs-sm: 12px;
-  --fs-md: 13px;
-  --fs-lg: 15px;
-  --fs-xl: 18px;
-
   --bg: var(--c-bg);
   --panel: var(--c-panel);
   --panel-2: var(--c-panel-2);
@@ -3849,23 +3778,9 @@ dialog.arp-dialog { width: min(940px, calc(100vw - 32px)); }
 .arp-seg button { white-space: nowrap; }
 .arp-fctrl > .arp-chordpick { flex: none; max-width: 100%; }
 
-/* Aides : « ? » à droite du libellé, info-bulle au survol, fenêtre pour une aide longue (js/help.js) */
-.help-tip { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 18px; height: 18px; margin: 0 0 0 6px; padding: 0; border: 1px solid var(--c-line-strong); border-radius: 50%; background: transparent; color: var(--c-text-2); font: 600 var(--fs-xs)/1 system-ui, sans-serif; letter-spacing: 0; text-transform: none; cursor: help; vertical-align: middle; position: relative; }
-.help-tip::before { content: ''; position: absolute; inset: -9px; } /* zone tactile de 36 px */
-.help-tip:hover, .help-tip[aria-describedby] { border-color: var(--c-violet); color: #fff; background: var(--c-violet-deep); outline: none; }
-.help-tip[hidden] { display: none; }
 .sd-segrow { display: flex; align-items: center; gap: 4px; }
 .sd-segrow > .segmented { flex: 0 1 auto; min-width: 0; }
 .bottombar .hint { overflow: visible; }
-.help-bubble { position: fixed; z-index: 10000; max-width: 320px; padding: 8px 11px; border-radius: 8px; background: var(--c-bg-deep); border: 1px solid var(--c-line-strong); color: var(--c-text); font: 400 var(--fs-md)/1.45 system-ui, sans-serif; text-transform: none; letter-spacing: 0; box-shadow: 0 6px 24px #0009; pointer-events: none; }
-.help-bubble b { display: block; margin-top: 4px; color: var(--c-violet-soft); font-weight: 600; font-size: var(--fs-sm); }
-dialog.help-dialog { width: min(480px, calc(100vw - 32px)); padding: 18px 20px 20px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); color: var(--text); }
-dialog.help-dialog::backdrop { background: #0008; }
-.help-dialog-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
-.help-dialog-head h2 { margin: 0; font-size: var(--fs-xl); flex: 1; }
-.help-close { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: transparent; color: var(--c-text-2); cursor: pointer; }
-.help-close:hover { background: var(--panel-3); color: var(--text); }
-.help-dialog-text { margin: 0; font-size: var(--fs-md); line-height: 1.6; white-space: pre-line; }
 
 /* ------------------------------------------------------------------ */
 /* Interrupteurs ARP / ACCORDS d'une piste instrument (js/ui.js)        */

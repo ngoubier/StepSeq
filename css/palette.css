@@ -1,0 +1,73 @@
+/* Palette nommée et échelle de texte, partagées par index.html (css/style.css) et telephone.html (css/phone.css). */
+:root {
+  /* Palette nommée : toute couleur de l'interface vient d'ici (gris, puis 10 familles
+     en 4 nuances : -bg fond teinté, -deep foncé, base, -soft clair). Changer une valeur ici la change partout. */
+  --c-bg-deep: #0e0e10;
+  --c-bg: #161618;
+  --c-surface-1: #1c1c20;
+  --c-panel: #232326;
+  --c-panel-2: #2c2c30;
+  --c-panel-3: #38383d;
+  --c-line: #3e3e44;
+  --c-line-strong: #55555c;
+  --c-faint: #6e6e78;
+  --c-muted: #9a9aa3;
+  --c-text-2: #c4c4cc;
+  --c-text: #ececf1;
+  /* rouge */
+  --c-red-bg: #2a1618;
+  --c-red-deep: #a3262e;
+  --c-red: #e5484d;
+  --c-red-soft: #ff8a8a;
+  /* orange */
+  --c-orange-bg: #2b1d14;
+  --c-orange-deep: #9a4a12;
+  --c-orange: #ff8a3d;
+  --c-orange-soft: #ffb877;
+  /* ambre */
+  --c-amber-bg: #2a2214;
+  --c-amber-deep: #9a6a10;
+  --c-amber: #f5a524;
+  --c-amber-soft: #efbf6d;
+  /* jaune */
+  --c-yellow-bg: #29261a;
+  --c-yellow-deep: #c9a227;
+  --c-yellow: #f5c400;
+  --c-yellow-soft: #ffd75e;
+  /* vert */
+  --c-green-bg: #17261a;
+  --c-green-deep: #2a7a3a;
+  --c-green: #3fcf3f;
+  --c-green-soft: #8fe08f;
+  /* turquoise */
+  --c-teal-bg: #152620;
+  --c-teal-deep: #1f7a5c;
+  --c-teal: #3fcf8e;
+  --c-teal-soft: #8fe8c4;
+  /* cyan */
+  --c-cyan-bg: #14242c;
+  --c-cyan-deep: #1d6f8f;
+  --c-cyan: #4fc3f7;
+  --c-cyan-soft: #9fe0ff;
+  /* bleu (accent) */
+  --c-blue-bg: #152030;
+  --c-blue-deep: #0a64b4;
+  --c-blue: #2b8cff;
+  --c-blue-soft: #8fc3ff;
+  /* violet */
+  --c-violet-bg: #1f1a2e;
+  --c-violet-deep: #5b4590;
+  --c-violet: #a479ff;
+  --c-violet-soft: #c9a6ff;
+  /* rose */
+  --c-pink-bg: #2a1524;
+  --c-pink-deep: #9a1068;
+  --c-pink: #e3179c;
+  --c-pink-soft: #ff7ac8;
+  /* Échelle de texte : 5 tailles, rien sous 11 px (les grands titres ≥ 20 px gardent leur taille) */
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 13px;
+  --fs-lg: 15px;
+  --fs-xl: 18px;
+}

@@ -35,7 +35,7 @@ const SHOTS = process.argv[2];
     const errs = [];
     page.on('pageerror', (e) => errs.push(e.message));
     await page.addInitScript((p) => localStorage.setItem('stepseq.autosave', JSON.stringify(p)), demo);
-    await page.goto(`http://localhost:${server.address().port}/index.html`);
+    await page.goto(`http://localhost:${server.address().port}/index.html?full=1`);
     await page.waitForTimeout(1200);
     const m = await page.evaluate(() => {
       const r = (q) => document.querySelector(q).getBoundingClientRect();
