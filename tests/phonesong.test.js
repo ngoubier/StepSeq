@@ -132,3 +132,30 @@ test('Jouer : accord du pas et lignes de basse', () => {
   assert.deepEqual(P.toggleBass([[0, 4, 0, 0.8]], 0, 0, { keep: true }), [[0, 4, 0, 0.8]], 'enregistré : la note reste');
   assert.deepEqual(P.toggleKeys(['C', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''], 0, 'rh', { tok: 'c', keep: true })[0], 'c');
 });
+
+test('Modifier une chanson existante : compatible ou non', () => {
+  const r = { ...P.fresh(), tempo: 92, tonic: 2, mode: 'minor' };
+  r.mus.drums.pick = 2;
+  r.mus.keys.pick = 1;
+  const d = JSON.parse(SS.serialize(P.build(r)));
+  assert.equal(P.fromProject(d).phone, true, 'faite sur le téléphone');
+  delete d.phone; // comme une chanson de l'assistant
+  const x = P.fromProject(d);
+  assert.equal(x.phone, false);
+  assert.deepEqual([x.recipe.tempo, x.recipe.tonic, x.recipe.mode, x.recipe.scenes], [92, 2, 'minor', r.scenes]);
+  assert.deepEqual(P.MUSICIANS.map((m) => x.recipe.mus[m.id]), P.MUSICIANS.map((m) => r.mus[m.id]), 'mêmes musiciens et mêmes sons');
+  // motifs choisis dans l'assistant (brouillon rangé dans la chanson)
+  const wd = { state: { w: { parts: { verse: { drums: { pattern: P.stars('drums', 'verse')[0], style: 'pop' }, inst: { 'bass:bass': { mode: 'gallop' }, 'keys:keys': { mode: 'block4', keys: { pat: 'C . . . C . . . C . . . C . . .' } } } }, chorus: { off: ['keys'] } } } } };
+  const y = P.fromProject({ ...d, wizard: wd }).recipe;
+  assert.equal(P.partLabel(y, 'bass', 'verse').name, 'Galop');
+  assert.equal(P.partLabel(y, 'drums', 'verse').id, P.stars('drums', 'verse')[0]);
+  assert.ok(P.editOf(y, 'keys', 'verse'), 'motif réécrit du Clavier');
+  assert.equal(P.partLabel(y, 'keys', 'chorus').id, 'off');
+  // incompatibles
+  const no = (patch, msg) => assert.equal(P.fromProject({ ...d, ...patch }), null, msg);
+  no({ timeSig: [3, 4] }, '3/4');
+  no({ tracks: [...d.tracks, { type: 'instrument', name: 'Ajoutée', family: 'keys', instrument: 'piano' }] }, 'piste de la Grille');
+  no({ tracks: [...d.tracks, { ...d.tracks[5], band: { ...d.tracks[5].band, key: 'pad' } }] }, 'autre musicien');
+  no({ scenes: d.scenes.map((s, i) => (i ? s : { ...s, key: { tonic: 'E', mode: 'minor' } })) }, 'changement de tonalité');
+  no({ scenes: d.scenes.map((s, i) => (i ? s : { ...s, sec: 'prechorus' })) }, 'type de scène inconnu');
+});
