@@ -283,3 +283,47 @@ test('Styles : Pop rock, Dance, Latino (salsa) donnent leur départ, leurs sons,
   assert.equal(P.planPart('keys', 'verse', P.fresh('dance')).id, 'house');
   assert.equal(P.chordsOf(P.fresh('latin'), 'chorus'), 'Am · Dm · E7 · Am');
 });
+
+test('Musiciens : ajouter et retirer, un second Clavier avec sa propre partie', () => {
+  const r = P.fresh();
+  assert.deepEqual(P.players(r).map((m) => m.id), ['drums', 'bass', 'keys']);
+  assert.equal(P.canAdd(r, 'drums'), false, 'une seule Batterie');
+  assert.equal(P.addPlayer(r, 'keys'), 'keys2');
+  assert.equal(P.playerInfo('keys2').label, 'Clavier 2');
+  assert.equal(P.canAdd(r, 'keys'), false, 'deux Claviers au plus');
+  // Clavier 2 : sa propre piste (musicien ajouté x2), sa partie dans chaque scène, autre que celle du Clavier
+  let proj = P.build(r);
+  const k2 = proj.tracks.find((t) => P.playerOfTrack(t) === 'keys2');
+  assert.equal(k2.band.musician, 'x2');
+  const verse = proj.scenes.find((s) => s.sec === 'verse');
+  assert.ok(verse.data[k2.id].events.length > 0);
+  assert.notEqual(P.planPart('keys2', 'verse', r).id, P.planPart('keys', 'verse', r).id);
+  // une partie à lui : « Ne joue pas » ne fait taire que lui
+  P.setPart(r, 'keys2', 'verse', 'off');
+  proj = P.build(r);
+  const v2 = proj.scenes.find((s) => s.sec === 'verse');
+  const k1 = proj.tracks.find((t) => P.playerOfTrack(t) === 'keys');
+  assert.equal(v2.data[proj.tracks.find((t) => P.playerOfTrack(t) === 'keys2').id].events.length, 0);
+  assert.ok(v2.data[k1.id].events.length > 0, 'le Clavier joue encore');
+  // M et S par musicien
+  P.listenMix(proj, { mute: ['keys2'], solo: [] });
+  proj.tracks.forEach((t) => assert.equal(t.mute, P.playerOfTrack(t) === 'keys2'));
+  // retour sur le téléphone, et depuis l'ordinateur (musicien ajouté de l'assistant)
+  const d = JSON.parse(SS.serialize(proj));
+  assert.deepEqual(P.players(P.fromProject(d).recipe).map((m) => m.id), ['drums', 'bass', 'keys', 'keys2']);
+  delete d.phone;
+  assert.deepEqual(P.players(P.fromProject(d).recipe).map((m) => m.id), ['drums', 'bass', 'keys', 'keys2']);
+  assert.equal(P.fromProject({ ...d, tracks: [...d.tracks, { ...k2, id: 'zz', band: { ...k2.band, musician: 'x7' } }] }), null, 'trois Claviers');
+  // retirer oublie ses parties et ses retouches ; il reste toujours un musicien
+  P.setEdit(r, 'keys2', 'chorus', 'C . . . C . . . C . . . C . . .');
+  assert.equal(P.hasEdits(r, 'keys2'), true);
+  P.removePlayer(r, 'keys2');
+  assert.equal(P.hasEdits(r, 'keys2'), false);
+  assert.equal(P.partLabel(r, 'keys2', 'verse').id, null);
+  // 6 au plus ; une recette d'avant reste la même
+  ['bass', 'pad', 'keys', 'pad'].forEach((k) => P.addPlayer(r, k));
+  assert.equal(P.players(r).length, P.MAX_PLAYERS);
+  assert.equal(P.addPlayer(r, 'bass'), null);
+  const old = { v: 1, tempo: 100, tonic: 0, mode: 'major', mus: { drums: { on: true, pick: 0 }, bass: { on: true, pick: 0 }, keys: { on: true, pick: 0 } }, scenes: ['verse'] };
+  assert.deepEqual(P.players(P.clean(old)).map((m) => m.id), ['drums', 'bass', 'keys']);
+});

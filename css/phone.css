@@ -68,8 +68,15 @@ button { cursor: pointer; }
 .ph-mus .t { font-weight: 600; }
 .ph-mus select { width: 100%; background: var(--c-panel-2); border: 1px solid var(--c-line); border-radius: 8px; padding: 6px 8px; font-size: var(--fs-md); color: var(--c-text-2); }
 .ph-mus:not(.on) select { opacity: 0.45; }
-.ph-ck { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--c-line); background: none; display: grid; place-items: center; font-size: var(--fs-md); color: var(--c-bg-deep); flex: none; }
-.ph-mus.on .ph-ck { background: var(--mc); border-color: var(--mc); }
+.ph-x { width: 40px; height: 40px; border-radius: 10px; border: none; background: none; display: grid; place-items: center; font-size: var(--fs-lg); color: var(--c-text-2); flex: none; }
+.ph-x:disabled { opacity: 0.25; }
+.ph-addmu { border: 1px dashed var(--c-line-strong); background: none; color: var(--c-text); border-radius: 12px; padding: 14px; font-size: var(--fs-md); }
+.ph-addmu:disabled { opacity: 0.35; }
+.ph-kinds { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.ph-kind { background: var(--c-panel-2); border: none; border-bottom: 3px solid var(--mc); border-radius: 12px; padding: 12px; color: var(--c-text); font-size: var(--fs-md); display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.ph-kind b { font-size: 24px; font-weight: 400; }
+.ph-kind small { color: var(--c-text-2); font-size: var(--fs-xs); }
+.ph-kind:disabled { opacity: 0.35; }
 
 .ph-sc { display: flex; align-items: center; gap: 6px; padding: 8px 6px 8px 10px; border-radius: 10px; background: var(--c-panel); border-left: 4px solid var(--sc); }
 .ph-sc > div { flex: 1; }
@@ -100,7 +107,8 @@ button { cursor: pointer; }
 /* Qui joue quoi : musiciens × types de scène */
 .ph-mx { display: grid; gap: 4px; align-items: stretch; }
 .ph-mxh { font-size: var(--fs-xs); color: var(--c-text-2); text-align: center; font-weight: 600; padding-bottom: 3px; border-bottom: 3px solid var(--sc); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ph-mxi { display: grid; place-items: center; font-size: var(--fs-xl); }
+.ph-mxi { display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: var(--fs-xl); line-height: 1.1; }
+.ph-mxi small { font-size: var(--fs-xs); color: var(--c-text-2); }
 .ph-mxc {
   min-height: 56px; border: 0; border-radius: 8px; padding: 4px 3px; background: var(--c-panel-2); color: var(--c-text-2);
   font-size: var(--fs-xs); line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; word-break: break-word;
