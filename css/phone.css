@@ -119,3 +119,37 @@ button { cursor: pointer; }
 .ph-row { display: flex; gap: 10px; align-items: center; }
 .ph-row .ph-next { flex: 1; }
 .ph-meta { font-size: var(--fs-sm); color: var(--c-muted); margin-top: 4px; }
+
+/* Partie : onglets Motifs | Pas | Jouer */
+.ph-tabrow { display: flex; align-items: center; gap: 4px; }
+.ph-tabs { flex: 1; grid-template-columns: repeat(3, 1fr); }
+.ph-pages { grid-template-columns: 1fr 1fr; }
+.ph-pages button { padding: 7px 0; font-size: var(--fs-sm); }
+
+/* Pas : une mesure de 16 pas, 8 à l'écran */
+.ph-pas { display: grid; grid-template-columns: 74px repeat(8, minmax(0, 1fr)); gap: 4px; align-items: center; }
+.ph-pash { text-align: center; font-size: var(--fs-xs); color: var(--c-faint); border-radius: 4px; }
+.ph-pash.beat { color: var(--c-text-2); font-weight: 700; }
+.ph-pash.now { background: var(--c-amber); color: var(--c-bg-deep); }
+.ph-pasl { font-size: var(--fs-xs); color: var(--c-text-2); line-height: 1.15; overflow: hidden; text-overflow: ellipsis; }
+.ph-pc { height: 44px; border: 0; border-radius: 7px; background: var(--c-panel-2); color: var(--c-bg-deep); font-size: var(--fs-xs); font-weight: 700; padding: 0; overflow: hidden; }
+.ph-pc.beat { background: var(--c-panel-3); }
+.ph-pc.on { background: var(--mc); }
+.ph-pc.on.soft { background: color-mix(in srgb, var(--mc) 55%, var(--c-panel-2)); }
+.ph-pc.hold { background: color-mix(in srgb, var(--mc) 30%, var(--c-panel-2)); }
+.ph-pc.now { outline: 2px solid var(--c-amber); outline-offset: -2px; }
+.ph-row .ph-more { flex: 1; }
+
+/* Jouer : de grands pads */
+.ph-chord { font-size: var(--fs-md); color: var(--c-muted); }
+.ph-chord b { color: var(--c-text); font-size: var(--fs-xl); }
+.ph-pads { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ph-pads.bass { grid-template-columns: 1fr 1fr 1fr; }
+.ph-pad {
+  min-height: 84px; border: 0; border-radius: 14px; background: color-mix(in srgb, var(--mc) 22%, var(--c-panel-2)); color: var(--c-text);
+  font-size: var(--fs-md); font-weight: 600; touch-action: manipulation;
+}
+.ph-pads.bass .ph-pad { min-height: 64px; }
+.ph-pad.hit { background: var(--mc); color: var(--c-bg-deep); }
+.ph-rec { width: 56px; height: 48px; flex: none; border: 1px solid var(--c-line); border-radius: 12px; background: var(--c-panel-2); color: var(--c-red); font-size: var(--fs-xl); }
+.ph-rec.on { background: var(--c-red); border-color: var(--c-red); color: var(--c-text); }

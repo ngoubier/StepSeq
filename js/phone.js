@@ -6,8 +6,12 @@
  *   #musiciens  Batterie, Basse, Clavier : présents ou non, et leur son
  *   #scenes     les scènes dans l'ordre (ajouter, monter, retirer)
  *   #parties    « Qui joue quoi » : un tableau musiciens × types de scène, puis « Créer la chanson »
- *   #partie     la partie d'un musicien dans un type de scène : Ne joue pas, celle du modèle, ★ et tous les motifs ;
- *               toucher un motif le choisit et fait entendre la scène en boucle
+ *   #partie     la partie d'un musicien dans un type de scène, en trois onglets :
+ *               Motifs  Ne joue pas, celle du modèle, ★ et tous les motifs ; toucher un motif le choisit et fait entendre
+ *                       la scène en boucle
+ *               Pas     la partie en une mesure de 16 pas (deux pages de 8) : batterie par instrument, basse par note de
+ *                       l'accord, clavier main droite / main gauche ; toucher un pas le pose ou l'enlève
+ *               Jouer   de grands pads qui sonnent au doigt ; ● enregistre ce qu'on joue pendant la boucle de la scène
  *
  * La recette et la chanson viennent de js/phonesong.js ; la chanson est enregistrée dans « Mes chansons » (js/store.js)
  * comme un projet ordinaire. L'écoute est toujours pré-calculée (js/prelisten.js) : un téléphone ne décroche pas.
@@ -28,6 +32,11 @@
     taps: [],
     cell: null, // { mu, sc } : la case du tableau ouverte (#partie)
     allOpen: false, // « Tous les motifs » déplié
+    tab: 'motifs', // onglet de #partie : motifs | pas | jouer
+    page: 0, // page de l'écran Pas : 0 (pas 1–8) ou 1 (pas 9–16)
+    rec: false, // ● Jouer : enregistrement en cours
+    recDirty: false, // des notes ont été enregistrées depuis le début de la boucle
+    padProj: null, // chanson qui donne le son des pads quand rien ne joue
   };
   // lecture : { id, title, proj, block, calc (pourcent ou null), ctrl, live }
   let play = null;
@@ -48,6 +57,7 @@
   function render() {
     const v = view();
     if (play && play.id === DRAFT && v !== 'parties' && v !== 'partie') stopPlay(); // écoute de la chanson en cours : on la quitte
+    if (v !== 'partie') S.rec = false;
     if (v === 'home') renderHome();
     else if (v === 'tempo') renderTempo();
     else if (v === 'musiciens') renderMus();
@@ -146,7 +156,8 @@
     const head = types.map((id) => `<span class="ph-mxh" style="--sc:${P.sceneType(id).color}">${P.sceneType(id).label}</span>`).join('');
     const rows = musOn().map((m) => `<span class="ph-mxi" aria-label="${m.label}">${m.icon}</span>` + types.map((sc) => {
       const p = P.partLabel(r, m.id, sc);
-      return `<button class="ph-mxc${p.plays ? '' : ' off'}${p.id && p.id !== 'off' ? ' own' : ''}" style="--mc:${m.color}" data-act="cell" data-mu="${m.id}" data-sc="${sc}" aria-label="${m.label}, ${P.sceneType(sc).label} : ${esc(p.name)}">${p.plays ? esc(p.name) : '—'}</button>`;
+      const ed = p.plays && !!P.editOf(r, m.id, sc); // partie retouchée (Pas, Jouer)
+      return `<button class="ph-mxc${p.plays ? '' : ' off'}${(p.id && p.id !== 'off') || ed ? ' own' : ''}" style="--mc:${m.color}" data-act="cell" data-mu="${m.id}" data-sc="${sc}" aria-label="${m.label}, ${P.sceneType(sc).label} : ${esc(p.name)}${ed ? ' retouchée' : ''}">${p.plays ? esc(p.name) + (ed ? ' ✎' : '') : '—'}</button>`;
     }).join('')).join('');
     $('#phBody').innerHTML = `<div class="ph-mx" style="grid-template-columns:32px repeat(${types.length},minmax(0,1fr))"><span></span>${head}${rows}</div>`;
     const lbl = document.createElement('div');
@@ -174,17 +185,30 @@
     }
   }
   function renderPart() {
-    const r = S.recipe;
     const { mu, sc } = S.cell;
     const m = P.MUSICIANS.find((x) => x.id === mu);
     top(`${m.label} · ${P.sceneType(sc).label}`);
-    const cur = P.partLabel(r, mu, sc).id; // motif, 'off' ou null (le modèle)
+    const tabs = [['motifs', 'Motifs'], ['pas', 'Pas'], ['jouer', 'Jouer']].map(([id, l]) => `<button data-act="tab" data-tab="${id}" class="${S.tab === id ? 'on' : ''}">${l}</button>`).join('');
+    const body = S.tab === 'pas' ? pasHtml(m) : S.tab === 'jouer' ? jouerHtml(m) : motifsHtml();
+    $('#phBody').innerHTML = `<div class="ph-tabrow"><div class="ph-seg ph-tabs">${tabs}</div><span id="phTip"></span></div>${body}`;
+    const tip = S.tab === 'pas'
+      ? (mu === 'bass' ? 'Une mesure de 16 pas, qui se répète sur toute la scène. Les lignes suivent l’accord en cours : « Fondamentale » joue la note de l’accord, « Quinte » sa quinte… Une note tient jusqu’à la suivante.' : mu === 'keys' ? 'Une mesure de 16 pas, qui se répète sur toute la scène. « Accord » : la main droite joue l’accord en cours ; « Basse » : la main gauche joue sa fondamentale. Un accord tient jusqu’au suivant.' : 'Une mesure de 16 pas, qui se répète sur toute la scène. Touchez un pas pour poser ou enlever un coup.')
+      : S.tab === 'jouer' ? 'Touchez les pads pour jouer. Avec ● la scène tourne en boucle et ce que vous jouez est posé sur le pas le plus proche ; touchez ● encore pour arrêter et entendre le résultat.' : '';
+    if (tip) $('#phTip').appendChild(SS.helpTip(tip, S.tab === 'pas' ? 'Pas' : 'Jouer'));
+    nowLoop();
+  }
+  function motifsHtml() {
+    const r = S.recipe;
+    const { mu, sc } = S.cell;
+    const edited = !!P.editOf(r, mu, sc) && P.partLabel(r, mu, sc).plays;
+    const cur = edited ? '__edit' : P.partLabel(r, mu, sc).id; // motif, 'off' ou null (le modèle)
     const stars = P.stars(mu, sc);
     const plan = P.planPart(mu, sc);
     const row = (id, name, { star = false, svg = '' } = {}) =>
       `<button class="ph-mo${cur === id ? ' on' : ''}" data-act="motif" data-id="${id === null ? '' : esc(id)}">${svg ? `<span class="ph-mosvg">${svg}</span>` : ''}<span class="t">${esc(name)}</span>${star ? '<span class="ph-star">★</span>' : ''}</button>`;
     const all = P.motifs(mu).filter((id) => !stars.includes(id));
-    $('#phBody').innerHTML = [
+    return [
+      edited ? `<button class="ph-mo on" data-act="tab" data-tab="pas"><span class="t">✎ Ma version (${esc(P.partLabel(r, mu, sc).name)} retouché)</span></button>` : '',
       row('off', 'Ne joue pas'),
       plan.id ? row(null, `Modèle : ${plan.name}`, { svg: plan.id && mu !== 'drums' ? motifSvg(mu, plan.id) : '' }) : '',
       stars.length ? '<div class="ph-lbl">★ Pour cette scène</div>' : '',
@@ -192,6 +216,183 @@
       S.allOpen ? `<div class="ph-lbl">Tous les motifs (${all.length})</div>` : `<button class="ph-more" data-act="more">Tous les motifs (${all.length})</button>`,
       ...(S.allOpen ? all.map((id) => row(id, P.motifName(mu, id), { svg: motifSvg(mu, id) })) : []),
     ].join('');
+  }
+
+  /* ---------- Pas : la partie en 16 pas ---------- */
+  /** Partie à retoucher : celle déjà retouchée, sinon ce que joue le motif choisi (une mesure). */
+  const cellEdit = () => P.startEdit(S.recipe, S.cell.mu, S.cell.sc);
+  /** Lignes de l'écran Pas : { id, name, on(pas) → '' | 'on' | 'hold' | 'soft', txt(pas) }. */
+  function pasRows(mu, e) {
+    if (mu === 'drums') {
+      return P.DRUM_LANES.map(([k, , name]) => ({ id: k, name, cls: (i) => (e[k][i] === '-' ? '' : e[k][i] === 'x' ? 'on' : 'on soft'), txt: () => '' }));
+    }
+    if (mu === 'bass') {
+      const rows = [...P.BASS_ROWS];
+      e.forEach((n) => !rows.includes(n[2]) && rows.push(n[2])); // une ligne du motif d'origine (approche, sixte…) reste visible
+      return rows.map((v) => ({
+        id: String(v),
+        name: P.rowName(v),
+        cls: (i) => {
+          const n = e.find((x) => i >= x[0] && i < x[0] + x[1]);
+          return !n || n[2] !== v ? '' : n[0] === i ? 'on' : 'hold';
+        },
+        txt: () => '',
+      }));
+    }
+    const hand = (lh) => (i) => (e[i] ? e[i].split('+').filter((t) => P.isLH(t) === lh).join('+') : '');
+    return [['rh', 'Accord', false], ['lh', 'Basse', true]].map(([id, name, lh]) => ({ id, name, cls: (i) => (hand(lh)(i) ? 'on' : ''), txt: hand(lh) }));
+  }
+  function pasHtml(m) {
+    const e = cellEdit();
+    const from = S.page * 8;
+    const cols = Array.from({ length: 8 }, (_, k) => from + k);
+    const head = cols.map((i) => `<span class="ph-pash${i % 4 === 0 ? ' beat' : ''}" data-col="${i}">${i % 4 === 0 ? i / 4 + 1 : '·'}</span>`).join('');
+    const rows = pasRows(m.id, e).map((row) => `<span class="ph-pasl">${esc(row.name)}</span>` + cols.map((i) => {
+      const c = row.cls(i);
+      return `<button class="ph-pc ${c}${i % 4 === 0 ? ' beat' : ''}" data-act="pas" data-row="${esc(row.id)}" data-i="${i}" data-col="${i}" aria-label="${esc(row.name)}, pas ${i + 1}${c.startsWith('on') ? ' (posé)' : ''}">${esc(row.txt(i))}</button>`;
+    }).join('')).join('');
+    const edited = !!P.editOf(S.recipe, m.id, S.cell.sc);
+    return `<div class="ph-seg ph-pages"><button data-act="page" data-p="0" class="${S.page ? '' : 'on'}">Pas 1–8</button><button data-act="page" data-p="1" class="${S.page ? 'on' : ''}">Pas 9–16</button></div>
+      <div class="ph-pas" style="--mc:${m.color}"><span></span>${head}${rows}</div>
+      <div class="ph-row"><button class="ph-more" data-act="clear">Effacer</button>${edited ? '<button class="ph-more" data-act="reset">Revenir au motif</button>' : ''}</div>`;
+  }
+  /** Range la partie retouchée ; la boucle reprend avec elle un peu plus tard (plusieurs pas posés d'affilée : un seul calcul). */
+  let relTimer = null;
+  function saveEdit(v, { relaunch = true } = {}) {
+    const r = S.recipe;
+    const { mu, sc } = S.cell;
+    if (P.partLabel(r, mu, sc).id === 'off') P.setPart(r, mu, sc, null); // retoucher une partie muette : le musicien rejoue
+    P.setEdit(r, mu, sc, v);
+    S.padProj = null;
+    if (!relaunch) return;
+    clearTimeout(relTimer);
+    relTimer = setTimeout(() => play && play.id === DRAFT && !S.rec && playDraft(S.cell.sc), 900);
+  }
+  function tapPas(rowId, i) {
+    const { mu } = S.cell;
+    const e = cellEdit();
+    if (mu === 'drums') {
+      const lane = e[rowId];
+      e[rowId] = lane.slice(0, i) + (lane[i] === '-' ? 'x' : '-') + lane.slice(i + 1);
+      saveEdit(e);
+      previewPad(rowId);
+    } else if (mu === 'bass') {
+      const row = /^-?\d+$/.test(rowId) ? +rowId : rowId;
+      const was = e.find((n) => n[0] === i && n[2] === row);
+      saveEdit(P.toggleBass(e, i, row));
+      if (!was) previewPad(row, i);
+    } else {
+      saveEdit(P.keysPat(P.toggleKeys(e, i, rowId)));
+      if (!(e[i] || '').split('+').some((t) => t && P.isLH(t) === (rowId === 'lh'))) previewPad(rowId === 'lh' ? 'B' : 'C', i);
+    }
+  }
+
+  /* ---------- Jouer : des pads au doigt ---------- */
+  const PADS = {
+    drums: P.DRUM_LANES.map(([k, , name]) => [k, name]),
+    bass: P.BASS_ROWS.map((v) => [String(v), P.rowName(v)]),
+    keys: [['C', 'Accord'], ['c', 'Accord court'], ['B', 'Basse'], ['O', 'Octave']],
+  };
+  function jouerHtml(m) {
+    const chord = curChord();
+    const head = m.id === 'drums' ? '' : `<div class="ph-chord">Accord : <b id="phChord">${esc(chord ? chord.name : '')}</b></div>`;
+    return `${head}<div class="ph-pads ${m.id}" style="--mc:${m.color}">${PADS[m.id].map(([id, name]) => `<button class="ph-pad" data-pad="${esc(id)}">${esc(name)}</button>`).join('')}</div>
+      <div class="ph-row"><button class="ph-rec${S.rec ? ' on' : ''}" data-act="rec" aria-label="${S.rec ? 'Arrêter l’enregistrement' : 'Enregistrer'}">●</button><button class="ph-more" data-act="clear">Effacer</button></div>`;
+  }
+  /** Pas de la scène qu'on entend (depuis son début, en boucle), ou null si rien ne joue. */
+  function heardStep() {
+    if (!play || play.id !== DRAFT || play.calc != null || !SS.audio.isPlaying()) return null;
+    const st = SS.audio.stepAt(SS.audio.heardTime());
+    if (st == null || !play.proj) return null;
+    const sc = play.proj.scenes.find((x) => x.id === play.scene);
+    const len = (sc ? sc.bars : 4) * P.STEPS;
+    return ((st % len) + len) % len;
+  }
+  /** Accord en cours : celui qu'on entend, sinon le premier de la scène. */
+  function curChord() {
+    const st = heardStep();
+    return P.chordAt(S.recipe, S.cell.sc, st == null ? 0 : Math.floor(st));
+  }
+  /** Chanson qui donne le son des pads : celle qu'on écoute, sinon une construite pour l'occasion (sons préchargés). */
+  function padTracks() {
+    let proj = play && play.id === DRAFT && play.proj;
+    if (!proj) {
+      if (!S.padProj) {
+        S.padProj = P.build({ ...S.recipe, scenes: [S.cell.sc] });
+        if (S.padProj) S.padProj.tracks.forEach((t) => SS.audio.prepareTrack(t).catch(() => {}));
+      }
+      proj = S.padProj;
+    }
+    return proj ? proj.tracks : [];
+  }
+  const DRUM_SND = Object.fromEntries(P.DRUM_LANES.map(([k, snd]) => [k, snd]));
+  /** Fait entendre un pad : un coup de batterie, une note de basse ou un accord du clavier sur l'accord du pas. */
+  function previewPad(id, step = null) {
+    const { mu, sc } = S.cell;
+    const tracks = padTracks();
+    SS.audio.ensureCtx();
+    if (mu === 'drums') {
+      const t = tracks.find((x) => x.type === 'drum' && x.band && x.band.key === 'drums:' + DRUM_SND[id]);
+      return t && SS.audio.preview(t, null);
+    }
+    const chord = step == null ? curChord() : P.chordAt(S.recipe, sc, step);
+    if (!chord) return;
+    const t = tracks.find((x) => x.band && x.band.key === mu);
+    if (!t) return;
+    if (mu === 'bass') return SS.audio.preview(t, 36 + chord.rootPc + P.rowSemis(typeof id === 'string' && /^-?\d+$/.test(id) ? +id : id, chord), 0.4);
+    const third = P.rowSemis('t', chord);
+    const root = chord.rootPc;
+    const notes = id === 'B' ? [48 + root] : id === 'O' ? [36 + root, 48 + root] : [60 + root, 60 + root + third, 60 + root + 7].map((n) => (n > 72 ? n - 12 : n));
+    return SS.audio.preview(t, notes, id === 'c' ? 0.18 : 0.7);
+  }
+  /** Pad touché : il sonne, et avec ● il est posé sur le pas le plus proche de ce qu'on entend. */
+  function hitPad(id, el) {
+    el.classList.add('hit');
+    setTimeout(() => el.classList.remove('hit'), 120);
+    previewPad(id);
+    if (!S.rec) return;
+    const st = heardStep();
+    if (st == null) return;
+    const i = Math.round(st) % P.STEPS;
+    const { mu } = S.cell;
+    const e = cellEdit();
+    if (mu === 'drums') e[id] = e[id].slice(0, i) + 'x' + e[id].slice(i + 1);
+    const v = mu === 'drums' ? e : mu === 'bass' ? P.toggleBass(e, i, /^-?\d+$/.test(id) ? +id : id, { keep: true }) : P.keysPat(P.toggleKeys(e, i, P.isLH(id) ? 'lh' : 'rh', { tok: id, keep: true }));
+    saveEdit(v, { relaunch: false });
+    S.recDirty = true;
+  }
+  document.addEventListener('pointerdown', (e) => {
+    const b = e.target.closest('[data-pad]');
+    if (!b || view() !== 'partie') return;
+    e.preventDefault();
+    hitPad(b.dataset.pad, b);
+  });
+
+  /** Le pas qu'on entend s'éclaire (écran Pas) ; l'accord en cours s'affiche (écran Jouer). */
+  let nowRaf = 0;
+  function nowLoop() {
+    cancelAnimationFrame(nowRaf);
+    if (view() !== 'partie' || S.tab === 'motifs') return;
+    let last = -1;
+    let lastChord = '';
+    const tick = () => {
+      if (view() !== 'partie' || S.tab === 'motifs') return;
+      const st = heardStep();
+      const i = st == null ? -1 : Math.floor(st) % P.STEPS;
+      if (i !== last) {
+        document.querySelectorAll('#phBody [data-col].now').forEach((x) => x.classList.remove('now'));
+        if (i >= 0) document.querySelectorAll(`#phBody [data-col="${i}"]`).forEach((x) => x.classList.add('now'));
+        last = i;
+      }
+      const ch = $('#phChord');
+      if (ch) {
+        const c = curChord();
+        const n = c ? c.name : '';
+        if (n !== lastChord) ch.textContent = lastChord = n;
+      }
+      nowRaf = requestAnimationFrame(tick);
+    };
+    nowRaf = requestAnimationFrame(tick);
   }
 
   /* ---------- Bas d'écran ---------- */
@@ -278,6 +479,7 @@
 
   /* ---------- Écoute ---------- */
   function stopPlay() {
+    S.rec = false;
     if (!play) return;
     if (play.ctrl) play.ctrl.abort();
     SS.audio.stop();
@@ -399,8 +601,38 @@
     if (act === 'next') return go(STEPS[STEPS.indexOf(view()) + 1]);
     if (act === 'cell') {
       S.cell = { mu: b.dataset.mu, sc: b.dataset.sc };
-      S.allOpen = false;
+      Object.assign(S, { allOpen: false, tab: 'motifs', page: 0, rec: false, padProj: null });
       return go('partie');
+    }
+    if (act === 'tab') {
+      S.tab = b.dataset.tab;
+      if (S.tab === 'jouer') padTracks(); // les sons des pads se chargent tout de suite
+      return renderPart();
+    }
+    if (act === 'page') {
+      S.page = +b.dataset.p;
+      return renderPart();
+    }
+    if (act === 'pas') {
+      tapPas(b.dataset.row, +b.dataset.i);
+      return renderPart();
+    }
+    if (act === 'clear' || act === 'reset') {
+      const { mu } = S.cell;
+      if (act === 'reset') saveEdit(null);
+      else saveEdit(mu === 'drums' ? Object.fromEntries(P.DRUM_LANES.map(([k]) => [k, '-'.repeat(P.STEPS)])) : mu === 'bass' ? [] : P.keysPat(new Array(P.STEPS).fill('')));
+      return renderPart();
+    }
+    if (act === 'rec') {
+      if (S.rec) {
+        S.rec = false;
+        if (S.recDirty) playDraft(S.cell.sc); // la boucle reprend avec ce qui a été joué
+        return renderPart();
+      }
+      if (!(play && play.id === DRAFT && play.scene)) playDraft(S.cell.sc);
+      S.rec = true;
+      S.recDirty = false;
+      return renderPart();
     }
     if (act === 'more') {
       S.allOpen = true;

@@ -12,6 +12,10 @@
  *   parts = { [type de scène]: { [musicien]: motif | 'off' } } : la partie jouée par chaque musicien dans chaque type de
  *     scène (« Qui joue quoi ») ; absente, le musicien joue la partie du plan. Les scènes de même type (deux couplets)
  *     jouent la même partie, comme dans l'assistant.
+ *   edits = { [type de scène]: { drums: { K, S, H, O }, bass: [[pas, durée, ligne, vélocité]], keys: 'motif' } } : la partie
+ *     retouchée dans l'écran Pas (ou jouée au doigt dans Jouer), une mesure qui se répète sur la scène. Batterie : pistes de
+ *     16 caractères (x o . -) de la grille de l'assistant ; basse : notes d'un motif écrit (js/mybass.js, lignes par rapport
+ *     à l'accord) ; clavier : motif réécrit du Clavier (16 jetons, js/keyboardist.js). Une partie « Ne joue pas » l'emporte.
  */
 window.SS = window.SS || {};
 SS.phoneSong = (() => {
@@ -72,6 +76,7 @@ SS.phoneSong = (() => {
       mus: Object.fromEntries(MUSICIANS.map((m) => [m.id, { on: true, pick: 0 }])),
       scenes: ['intro', 'verse', 'chorus', 'verse', 'chorus', 'outro'],
       parts: {},
+      edits: {},
     };
   }
 
@@ -94,7 +99,15 @@ SS.phoneSong = (() => {
         if (v === 'off' || (typeof v === 'string' && motifs(id).includes(v))) (parts[sc] = parts[sc] || {})[id] = v;
       });
     });
-    return { v: VERSION, tempo: int(r.tempo, TEMPO_MIN, TEMPO_MAX, f.tempo), tonic: int(r.tonic, 0, 11, 0), mode: r.mode === 'minor' ? 'minor' : 'major', mus, scenes, parts };
+    const edits = {};
+    Object.entries((r.edits && typeof r.edits === 'object' && r.edits) || {}).forEach(([sc, row]) => {
+      if (!sceneType(sc) || !row || typeof row !== 'object') return;
+      MUSICIANS.forEach(({ id }) => {
+        const v = cleanEdit(id, row[id]);
+        if (v) (edits[sc] = edits[sc] || {})[id] = v;
+      });
+    });
+    return { v: VERSION, tempo: int(r.tempo, TEMPO_MIN, TEMPO_MAX, f.tempo), tonic: int(r.tonic, 0, 11, 0), mode: r.mode === 'minor' ? 'minor' : 'major', mus, scenes, parts, edits };
   }
 
   /** Nom de la tonalité à l'écran : « Do majeur », « Do♯ mineur » (la tonique écrite comme dans SS.TONIC_NAMES). */
@@ -174,6 +187,8 @@ SS.phoneSong = (() => {
       levelKeys.set(t.id, o.levelKey);
       return t;
     });
+    const mine = bassMotifs(r);
+    if (mine.length && SS.myBass) SS.myBass.register(mine); // basse retouchée : le moteur la joue comme un motif écrit
     const res = SS.bandSong.build(spec(r), PRESET, proj.tracks, { sig: '4/4', parts: buildParts(r) });
     proj.scenes = res.scenes.map(({ spans, ...sc }) => sc); // eslint-disable-line no-unused-vars -- comme « Créer la chanson » (js/main.js)
     proj.scenes.forEach((sc) => sceneType(sc.sec || sc.id) && (sc.name = sceneType(sc.sec || sc.id).label)); // noms de l'écran (« Fin », pas « Outro »)
@@ -184,6 +199,7 @@ SS.phoneSong = (() => {
     SS.bandMix.mixMaster(proj, PRESET, SS.bandMix.driveFor(p0(), PRESET));
     proj.groove = { ...(proj.groove || { res: 0, swing: 0.5 }), human: 0.15 };
     proj.phone = JSON.parse(JSON.stringify(r));
+    if (SS.myBass) mine.forEach((m) => SS.myBass.toProject(proj, m.id)); // ils voyagent avec la chanson (Grille)
     SS.loadScene(proj, proj.scenes[0].id, { commit: false });
     return proj;
   }
@@ -245,6 +261,7 @@ SS.phoneSong = (() => {
   }
   /** Choisit la partie (motif, 'off' ou null pour revenir au plan). */
   function setPart(r, mu, sc, v) {
+    setEdit(r, mu, sc, null); // un autre motif : la retouche est oubliée
     r.parts = r.parts || {};
     const row = { ...(r.parts[sc] || {}) };
     if (v) row[mu] = v;
@@ -258,15 +275,24 @@ SS.phoneSong = (() => {
   /** Réglages par scène pour SS.bandSong.build (option parts). */
   function buildParts(r) {
     const out = {};
-    Object.entries(r.parts || {}).forEach(([sc, row]) => {
+    const types = new Set([...Object.keys(r.parts || {}), ...Object.keys(r.edits || {})]);
+    types.forEach((sc) => {
+      const row = (r.parts && r.parts[sc]) || {};
+      const ed = (r.edits && r.edits[sc]) || {};
       const p = {};
       const off = [];
-      Object.entries(row).forEach(([mu, v]) => {
+      MUSICIANS.forEach(({ id: mu }) => {
         const role = musician(mu) && musician(mu).role;
+        const v = row[mu];
         if (!role) return;
         if (v === 'off') return off.push(role);
-        if (mu === 'drums') p.drums = { pattern: v, style: DRUM_STYLE };
-        else (p.inst = p.inst || {})[INST[mu]] = { mode: v };
+        const e = ed[mu];
+        if (mu === 'drums') {
+          if (e) p.drums = { pattern: v || drumList()[0].id, style: DRUM_STYLE, edits: { bars: 1, ...e } };
+          else if (v) p.drums = { pattern: v, style: DRUM_STYLE };
+        } else if (mu === 'bass' && e) (p.inst = p.inst || {})[INST.bass] = { mode: bassId(e) };
+        else if (mu === 'keys' && e) (p.inst = p.inst || {})[INST.keys] = { mode: v || planPart(mu, sc).id || 'sustain', keys: { pat: e } };
+        else if (v) (p.inst = p.inst || {})[INST[mu]] = { mode: v };
       });
       if (off.length) p.off = off;
       if (Object.keys(p).length) out[sc] = p;
@@ -274,11 +300,131 @@ SS.phoneSong = (() => {
     return out;
   }
 
+  /* ---------- Pas : la partie retouchée (une mesure de 16 pas) ---------- */
+  const STEPS = 16;
+  /** Pistes de batterie de l'écran Pas : [lettre de la grille de l'assistant, son du kit, nom]. */
+  const DRUM_LANES = [['K', 'bd', 'Grosse caisse'], ['S', 'sd', 'Caisse claire'], ['H', 'hh', 'Charleston'], ['O', 'oh', 'Charleston ouvert']];
+  /** Lignes de la basse dans l'écran Pas (de l'aigu au grave), par rapport à l'accord en cours (noms de js/mybass.js). */
+  const BASS_ROWS = [12, 's', 7, 5, 't', 0, -5];
+  const rowName = (v) => ((SS.myBass && SS.myBass.ROWS.find((x) => x[0] === v)) || [v, String(v)])[1];
+  /** Jetons de la main gauche du Clavier (les autres sont ceux de la main droite). */
+  const isLH = (t) => /^(B|b|O|F|L[1358])$/.test(t);
+
+  function cleanEdit(mu, v) {
+    if (mu === 'drums') {
+      if (!v || typeof v !== 'object') return null;
+      const out = {};
+      DRUM_LANES.forEach(([k]) => (out[k] = typeof v[k] === 'string' && /^[xo.r-]{16}$/.test(v[k]) ? v[k] : '-'.repeat(STEPS)));
+      return out;
+    }
+    if (mu === 'bass') return Array.isArray(v) && SS.myBass ? SS.myBass.cleanNotes(v, STEPS, 1) : null;
+    if (mu === 'keys') return SS.keyboardist && SS.keyboardist.parsePat(v) ? v.trim().split(/\s+/).join(' ') : null;
+    return null;
+  }
+  /** Identifiant du motif de basse écrit d'après ses notes (le même pour les mêmes notes, sur le téléphone comme sur l'ordinateur). */
+  function bassId(notes) {
+    const txt = JSON.stringify(notes);
+    let h = 2166136261;
+    for (let i = 0; i < txt.length; i++) h = Math.imul(h ^ txt.charCodeAt(i), 16777619);
+    return 'my_tel' + (h >>> 0).toString(36);
+  }
+  /** Motifs de basse écrits d'une recette ({ id, name, meter, notes }), à faire connaître au moteur avant la construction. */
+  function bassMotifs(r) {
+    return Object.entries(r.edits || {}).filter(([, e]) => e.bass).map(([sc, e]) => ({ id: bassId(e.bass), name: `${sceneType(sc).label} (téléphone)`, meter: '4/4', notes: e.bass }));
+  }
+
+  /** Partie retouchée de ce musicien dans ce type de scène, ou null. */
+  const editOf = (r, mu, sc) => (r.edits && r.edits[sc] && r.edits[sc][mu]) || null;
+  /** Range la partie retouchée (null : on revient au motif). */
+  function setEdit(r, mu, sc, v) {
+    r.edits = r.edits || {};
+    const row = { ...(r.edits[sc] || {}) };
+    const c = v == null ? null : cleanEdit(mu, v);
+    if (c) row[mu] = c;
+    else delete row[mu];
+    if (Object.keys(row).length) r.edits[sc] = row;
+    else delete r.edits[sc];
+  }
+
+  /**
+   * Point de départ de l'écran Pas : ce que joue la partie choisie (motif ou modèle), en une mesure. Batterie : { K, S, H, O } ;
+   * basse : notes ; clavier : 16 pas (textes, '' = rien). La partie déjà retouchée l'emporte.
+   */
+  function startEdit(r, mu, sc) {
+    const e = editOf(r, mu, sc);
+    if (mu === 'keys') return e ? SS.keyboardist.stepsOf(null, e) : SS.keyboardist.startSteps(partLabel(r, mu, sc).plays ? partOf(r, mu, sc) || planPart(mu, sc).id : null);
+    if (e) return JSON.parse(JSON.stringify(e));
+    const p = partLabel(r, mu, sc);
+    if (mu === 'bass') return p.plays && SS.myBass ? SS.myBass.fromMotif(partOf(r, mu, sc) || planPart(mu, sc).id).filter((n) => n[0] < STEPS).map((n) => [n[0], Math.min(n[1], STEPS - n[0]), n[2], n[3]]) : [];
+    const empty = Object.fromEntries(DRUM_LANES.map(([k]) => [k, '-'.repeat(STEPS)]));
+    if (!p.plays) return empty;
+    const pat = partOf(r, mu, sc) && SS.drumPattern(DRUM_STYLE, partOf(r, mu, sc));
+    if (pat) return Object.fromEntries(DRUM_LANES.map(([k]) => [k, (pat.lanes[k] || '').padEnd(STEPS, '-').slice(0, STEPS).replace(/[^xo.r-]/g, '-')]));
+    // jeu du modèle (généré, sans motif écrit) : la première mesure de la scène construite
+    const proj = build({ ...r, mus: { ...r.mus, drums: { ...r.mus.drums, on: true } }, scenes: [sc] });
+    const scene = proj && proj.scenes[0];
+    if (!scene) return empty;
+    const lv = (v) => (!v ? '-' : v > 0.8 ? 'x' : v > 0.55 ? 'o' : '.');
+    return Object.fromEntries(DRUM_LANES.map(([k, snd]) => {
+      const t = proj.tracks.find((x) => x.type === 'drum' && x.band && x.band.key === 'drums:' + snd);
+      const st = (t && scene.data[t.id] && scene.data[t.id].steps) || [];
+      return [k, Array.from({ length: STEPS }, (_, i) => lv(st[i])).join('')];
+    }));
+  }
+
+  /** Accord joué au pas `step` (depuis le début de la scène) : { rootPc, type, name }. */
+  function chordAt(r, sc, step) {
+    const sec = spec(r).sections[sc];
+    if (!sec) return null;
+    const key = { tonic: SS.TONIC_NAMES[r.mode][r.tonic], mode: r.mode };
+    const sp = SS.bandSong.spansOf(sec, key, barsOf(sc));
+    const s = sp.find((x) => step >= x.step && step < x.step + x.len) || sp[0];
+    return s ? { rootPc: s.chord.rootPc, type: s.chord.type, name: SS.harmony.chordName(key, { ...s.chord, bassPc: s.chord.rootPc }) } : null;
+  }
+  /** Demi-tons d'une ligne de basse au-dessus de la fondamentale de l'accord ('t' tierce, 's' septième). */
+  function rowSemis(row, chord) {
+    const minor = !!chord && /^(min|dim|m7|m$)/.test(chord.type || '');
+    if (row === 't') return minor ? 3 : 4;
+    if (row === 's') return chord && /maj7/.test(chord.type || '') ? 11 : 10;
+    return typeof row === 'number' ? row : 0;
+  }
+
+  /**
+   * Pose ou retire une note de basse (une note par pas ; elle tient jusqu'à la suivante, un temps au plus). keep : la note
+   * est posée même si elle y était déjà (jeu au doigt enregistré).
+   */
+  function toggleBass(notes, step, row, { vel = 0.8, keep = false } = {}) {
+    const had = notes.find((n) => n[0] === step);
+    let out = notes.filter((n) => n[0] !== step);
+    if (keep || !had || had[2] !== row) out.push([step, 1, row, had ? had[3] : vel]);
+    out = out.sort((a, b) => a[0] - b[0]);
+    return out.map((n, i) => {
+      const next = i + 1 < out.length ? out[i + 1][0] : STEPS;
+      const len = n[0] === step ? Math.min(4, next - n[0]) : Math.min(n[1], next - n[0]);
+      return [n[0], Math.max(1, len), n[2], n[3]];
+    });
+  }
+  /**
+   * Pose ou retire l'accord (main droite) ou la basse (main gauche) du Clavier à un pas. tok : le jeton posé (C accord,
+   * c accord court, B basse, O octave…) ; keep : il remplace celui de la même main au lieu de l'enlever (jeu au doigt).
+   */
+  function toggleKeys(steps, step, hand, { tok = hand === 'lh' ? 'B' : 'C', keep = false } = {}) {
+    const toks = steps[step] ? steps[step].split('+') : [];
+    const mine = toks.filter((t) => (hand === 'lh' ? isLH(t) : !isLH(t)));
+    const rest = toks.filter((t) => !mine.includes(t));
+    const next = mine.length && !keep ? rest : [...rest, tok];
+    const out = steps.slice();
+    out[step] = next.join('+');
+    return out;
+  }
+  /** Les 16 pas du Clavier en motif réécrit (texte). */
+  const keysPat = (steps) => SS.keyboardist.patText(steps);
+
   /** Durée de la chanson en secondes. */
   function seconds(r) {
     const bars = r.scenes.reduce((a, id) => a + barsOf(id), 0);
     return Math.round((bars * 4 * 60) / r.tempo);
   }
 
-  return { MUSICIANS, SCENES, TEMPO_MIN, TEMPO_MAX, sceneType, sounds, fresh, clean, keyLabel, tonicLabel, spec, barsOf, chordsOf, trackOpts, build, seconds, motifs, stars, motifName, planPart, partLabel, setPart, sceneTypes, buildParts, energyOf };
+  return { MUSICIANS, SCENES, TEMPO_MIN, TEMPO_MAX, sceneType, sounds, fresh, clean, keyLabel, tonicLabel, spec, barsOf, chordsOf, trackOpts, build, seconds, motifs, stars, motifName, planPart, partLabel, setPart, sceneTypes, buildParts, energyOf, STEPS, DRUM_LANES, BASS_ROWS, rowName, isLH, editOf, setEdit, startEdit, chordAt, rowSemis, toggleBass, toggleKeys, keysPat, bassId };
 })();

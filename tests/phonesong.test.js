@@ -5,7 +5,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 globalThis.window = globalThis;
-['library.js', 'dirt.js', 'sounds.js', 'harmony.js', 'arp.js', 'project.js', 'band-presets.js', 'band-songs.js', 'band-levels.js', 'band-drive.js', 'mixref.js', 'horns-motifs.js', 'horns.js', 'bandmix.js', 'melody.js', 'keys-motifs.js', 'motifpicker.js', 'keyboardist.js', 'drum-patterns.js', 'padmotifs.js', 'bandsong.js', 'bassmotifs.js', 'scenestars.js', 'phonesong.js'].forEach((f) => require('../js/' + f));
+['library.js', 'dirt.js', 'sounds.js', 'harmony.js', 'arp.js', 'project.js', 'band-presets.js', 'band-songs.js', 'band-levels.js', 'band-drive.js', 'mixref.js', 'horns-motifs.js', 'horns.js', 'bandmix.js', 'melody.js', 'keys-motifs.js', 'motifpicker.js', 'keyboardist.js', 'drum-patterns.js', 'padmotifs.js', 'bandsong.js', 'mybass.js', 'bassmotifs.js', 'scenestars.js', 'phonesong.js'].forEach((f) => require('../js/' + f));
 const SS = globalThis.SS;
 const P = SS.phoneSong;
 
@@ -91,4 +91,44 @@ test('Qui joue quoi : les parties choisies changent la chanson, et seulement leu
   assert.equal(ev(p, 'bass', 'intro'), ev(base, 'bass', 'intro'), 'intro inchangée');
   assert.deepEqual(P.clean(JSON.parse(JSON.stringify(p.phone))).parts, r.parts, 'les parties sont gardées dans la chanson');
   assert.deepEqual(P.clean({ ...r, parts: { verse: { bass: 'inconnu', keys: 'off' }, nope: { bass: 'off' } } }).parts, { verse: { keys: 'off' } });
+});
+
+test('Pas : la partie retouchée remplace le motif dans sa scène, et voyage avec la chanson', () => {
+  const r = P.fresh();
+  const base = P.build(r);
+  const ev = (p, key, sec) => {
+    const t = p.tracks.find((x) => x.band.key === key);
+    const d = p.scenes.find((s) => s.sec === sec).data[t.id];
+    return d.steps || d.events;
+  };
+  const drums = P.startEdit(r, 'drums', 'verse');
+  assert.deepEqual(Object.keys(drums), ['K', 'S', 'H', 'O']);
+  assert.ok(drums.K.includes('x'), 'départ : le groove du modèle');
+  P.setEdit(r, 'drums', 'verse', { ...drums, K: 'x---x---x---x---' });
+  assert.equal(P.toggleBass([], 4, 7).length, 1);
+  P.setEdit(r, 'bass', 'intro', P.toggleBass(P.toggleBass([], 0, 0), 8, 7)); // le modèle ne fait pas jouer la basse dans l'intro
+  const keys = P.toggleKeys(P.startEdit(r, 'keys', 'verse'), 2, 'lh');
+  assert.equal(keys[2], 'B');
+  P.setEdit(r, 'keys', 'verse', P.keysPat(keys));
+  const p = P.build(r);
+  assert.equal(ev(p, 'drums:bd', 'verse').slice(0, 16).map((v) => (v ? 1 : 0)).join(''), '1000100010001000');
+  assert.deepEqual(ev(p, 'bass', 'intro').slice(0, 2).map((e) => [e.step, e.notes[0]]), [[0, 36], [8, 43]], 'Do puis Sol (quinte)');
+  assert.notEqual(JSON.stringify(ev(p, 'keys', 'verse')), JSON.stringify(ev(base, 'keys', 'verse')));
+  assert.equal(JSON.stringify(ev(p, 'bass', 'chorus')), JSON.stringify(ev(base, 'bass', 'chorus')), 'refrain inchangé');
+  assert.deepEqual(Object.keys(p.bassMotifs), [P.bassId(r.edits.intro.bass)], 'la basse écrite voyage avec la chanson');
+  assert.deepEqual(P.clean(JSON.parse(JSON.stringify(p.phone))).edits, r.edits);
+  P.setPart(r, 'bass', 'intro', 'gallop');
+  assert.equal(P.editOf(r, 'bass', 'intro'), null, 'un autre motif oublie la retouche');
+  P.setPart(r, 'keys', 'verse', 'off');
+  assert.ok(!ev(P.build(r), 'keys', 'verse').length, 'Ne joue pas l’emporte');
+});
+
+test('Jouer : accord du pas et lignes de basse', () => {
+  const r = { ...P.fresh(), mode: 'minor', tonic: 9 };
+  assert.equal(P.chordAt(r, 'verse', 0).name, 'Am');
+  assert.equal(P.chordAt(r, 'verse', 16).name, 'F');
+  assert.equal(P.rowSemis('t', P.chordAt(r, 'verse', 0)), 3);
+  assert.equal(P.rowSemis('t', P.chordAt(r, 'verse', 16)), 4);
+  assert.deepEqual(P.toggleBass([[0, 4, 0, 0.8]], 0, 0, { keep: true }), [[0, 4, 0, 0.8]], 'enregistré : la note reste');
+  assert.deepEqual(P.toggleKeys(['C', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''], 0, 'rh', { tok: 'c', keep: true })[0], 'c');
 });

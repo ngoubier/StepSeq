@@ -47,6 +47,12 @@ Un téléphone qui ouvre StepSeq arrive sur une page légère, faite pour écout
   partie du modèle ; toucher une case ouvre la partie du musicien dans cette scène : Ne joue pas, celle du modèle, les
   motifs ★ conseillés pour la scène et tous les motifs de l'assistant ; choisir un motif fait entendre la scène en
   boucle), puis **Créer la chanson** (▶ à côté écoute la chanson avant de la créer).
+- La partie d'un musicien a trois onglets : **Motifs** (ci-dessus), **Pas** (la partie en une mesure de 16 pas, deux pages
+  de 8, qui se répète sur la scène ; elle part du motif choisi : batterie par instrument, basse par note de l'accord en
+  cours — fondamentale, tierce, quinte… —, clavier Accord / Basse ; le pas joué s'éclaire, la boucle reprend avec la
+  retouche ; **Effacer**, **Revenir au motif**) et **Jouer** (de grands pads qui sonnent au doigt sur l'accord en cours ;
+  **●** fait tourner la scène et pose ce que l'on joue sur le pas le plus proche). Une partie retouchée est marquée ✎ dans
+  le tableau ; la basse retouchée est un motif écrit (« Mes motifs » de basse) qui voyage avec la chanson.
 - La chanson est construite par le moteur de l'assistant (plan « Créer de zéro ») et rangée dans « Mes chansons » comme
   toute autre chanson. Les chansons restent dans le navigateur de chaque appareil : pour la finir sur l'ordinateur, il faut
   l'y envoyer en fichier.
