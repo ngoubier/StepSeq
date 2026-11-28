@@ -228,6 +228,7 @@
     try {
       if (mu === 'drums') return drumSvg(id);
       if (mu === 'bass') return SS.bassMotifs.svg(id, 16);
+      if (mu === 'pad') return SS.padMotifs.svg(id);
       return SS.keyboardist.svg(id);
     } catch (e) {
       return '';
@@ -237,7 +238,9 @@
     const { mu, sc } = S.cell;
     const m = P.MUSICIANS.find((x) => x.id === mu);
     top(`${m.label} · ${P.sceneType(sc).label}`);
-    const tabs = [['motifs', 'Motifs'], ['pas', 'Pas'], ['jouer', 'Jouer']].map(([id, l]) => `<button data-act="tab" data-tab="${id}" class="${S.tab === id ? 'on' : ''}">${l}</button>`).join('');
+    const motifsOnly = mu === 'pad'; // la Nappe : ses motifs seulement (pas de Pas ni de Jouer)
+    if (motifsOnly) S.tab = 'motifs';
+    const tabs = [['motifs', 'Motifs'], ['pas', 'Pas'], ['jouer', 'Jouer']].map(([id, l]) => `<button data-act="tab" data-tab="${id}" class="${S.tab === id ? 'on' : ''}"${motifsOnly && id !== 'motifs' ? ' disabled' : ''}>${l}</button>`).join('');
     const body = S.tab === 'pas' ? pasHtml(m) : S.tab === 'jouer' ? jouerHtml(m) : motifsHtml();
     $('#phBody').innerHTML = `<div class="ph-tabrow"><div class="ph-seg ph-tabs">${tabs}</div><span id="phTip"></span></div>${body}`;
     const tip = S.tab === 'pas'

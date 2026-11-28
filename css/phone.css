@@ -211,3 +211,4 @@ button { cursor: pointer; }
 .ph-chd.on { background: var(--c-amber); border-color: var(--c-amber); color: var(--c-bg-deep); }
 .ph-chd.on i { color: var(--c-bg-deep); }
 .ph-mo .ph-sx .m { font-size: var(--fs-sm); color: var(--c-muted); font-weight: 400; }
+.ph-seg button:disabled { opacity: 0.3; }
