@@ -26,7 +26,7 @@
   const P = SS.phoneSong;
   const $ = (q) => document.querySelector(q);
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-  const STEPS = ['tempo', 'musiciens', 'scenes', 'parties'];
+  const STEPS = ['style', 'tempo', 'musiciens', 'scenes', 'parties'];
   const SUB = ['partie', 'accords']; // sous-écrans (pas de point d'étape)
   const COVERS = ['var(--c-violet)', 'var(--c-cyan)', 'var(--c-amber)', 'var(--c-green)', 'var(--c-pink)', 'var(--c-orange)', 'var(--c-blue)', 'var(--c-teal)'];
 
@@ -43,6 +43,7 @@
     rec: false, // ● Jouer : enregistrement en cours
     recDirty: false, // des notes ont été enregistrées depuis le début de la boucle
     padProj: null, // chanson qui donne le son des pads quand rien ne joue
+    entry: 'style', // première étape ouverte : style (nouvelle chanson) ou tempo (chanson modifiée)
     chSc: null, // type de scène ouvert à l'écran Accords (#accords)
     slot: 0, // case d'accord choisie à l'écran Accords
     gridsOpen: false, // « Grilles toutes prêtes » dépliées
@@ -70,6 +71,7 @@
     if (play && play.id === DRAFT && v !== 'parties' && v !== 'partie' && v !== 'accords') stopPlay(); // écoute de la chanson en cours : on la quitte
     if (v !== 'partie') S.rec = false;
     if (v === 'home') renderHome();
+    else if (v === 'style') renderStyle();
     else if (v === 'tempo') renderTempo();
     else if (v === 'musiciens') renderMus();
     else if (v === 'scenes') renderScenes();
@@ -99,11 +101,19 @@
     $('#phBody').innerHTML = `<button class="ph-new" data-act="new"><span>＋</span>Nouvelle chanson</button><div class="ph-lbl">Mes chansons</div>${list}`;
   }
 
+  /* ---------- Style ---------- */
+  function renderStyle() {
+    top('Style');
+    const cur = S.recipe.style;
+    $('#phBody').innerHTML = P.STYLES.map((st) => `<button class="ph-style${st.id === cur ? ' on' : ''}" style="--st:${st.color}" data-act="style" data-id="${st.id}"><span class="e">${st.icon}</span><span class="ph-sx"><span class="t">${esc(st.label)}</span><span class="m">${st.tempo} BPM · ${esc(st.info)}</span></span></button>`).join('');
+  }
+
   /* ---------- Tempo et tonalité ---------- */
   function renderTempo() {
     const r = S.recipe;
     top('Tempo et tonalité');
-    $('#phBody').innerHTML = `
+    const st = P.styleOf(r);
+    $('#phBody').innerHTML = `<span class="ph-stchip" style="--st:${st.color}">${st.icon} ${esc(st.label)}</span>
       <div class="ph-card"><div class="ph-lbl">Tempo</div>
         <div class="ph-tempo"><button data-act="tempo" data-d="-1" aria-label="Moins vite">−</button><output id="phBpm">${r.tempo}</output><button data-act="tempo" data-d="1" aria-label="Plus vite">＋</button></div>
         <input class="ph-range" id="phTempo" type="range" min="${P.TEMPO_MIN}" max="${P.TEMPO_MAX}" value="${r.tempo}" aria-label="Tempo">
@@ -134,7 +144,7 @@
     top('Musiciens');
     $('#phBody').innerHTML = P.MUSICIANS.map((m) => {
       const st = r.mus[m.id];
-      const opts = P.sounds(m.id).map((s, i) => `<option value="${i}"${i === st.pick ? ' selected' : ''}>${esc(s.label)}</option>`).join('');
+      const opts = P.sounds(m.id, r).map((s, i) => `<option value="${i}"${i === st.pick ? ' selected' : ''}>${esc(s.label)}</option>`).join('');
       return `<div class="ph-mus${st.on ? ' on' : ''}" style="--mc:${m.color}" data-act="mus" data-id="${m.id}"><div class="ic">${m.icon}</div><div><div class="t">${m.label}</div><select data-id="${m.id}" aria-label="Son : ${m.label}">${opts}</select></div><button class="ph-ck" data-act="mus" data-id="${m.id}" aria-label="${st.on ? 'Retirer' : 'Ajouter'} : ${m.label}">✓</button></div>`;
     }).join('');
     $('#phBody').querySelectorAll('select').forEach((sel) => sel.addEventListener('change', () => {
@@ -217,7 +227,7 @@
 
   /** Petit dessin d'un motif de batterie : grosse caisse, caisse claire (ou clap), charleston sur 16 pas. */
   function drumSvg(id) {
-    const p = (SS.DRUM_PATTERNS.pop || []).find((x) => x.id === id);
+    const p = (SS.DRUM_PATTERNS[P.styleOf(S.recipe).drums] || []).find((x) => x.id === id);
     if (!p) return '';
     const L = p.lanes;
     const rows = [[L.H || L.O || '', 3], [L.S || L.C || '', 13], [L.K || '', 23]];
@@ -266,19 +276,19 @@
     const { mu, sc } = S.cell;
     const edited = !!P.editOf(r, mu, sc) && P.partLabel(r, mu, sc).plays;
     const cur = edited ? '__edit' : P.partLabel(r, mu, sc).id; // motif, 'off' ou null (le modèle)
-    const stars = P.stars(mu, sc);
-    const plan = P.planPart(mu, sc);
+    const stars = P.stars(mu, sc, r);
+    const plan = P.planPart(mu, sc, r);
     const row = (id, name, { star = false, svg = '' } = {}) =>
       `<button class="ph-mo${cur === id ? ' on' : ''}" data-act="motif" data-id="${id === null ? '' : esc(id)}">${svg ? `<span class="ph-mosvg">${svg}</span>` : ''}<span class="t">${esc(name)}</span>${star ? '<span class="ph-star">★</span>' : ''}</button>`;
-    const all = P.motifs(mu).filter((id) => !stars.includes(id));
+    const all = P.motifs(mu, r).filter((id) => !stars.includes(id));
     return [
       edited ? `<button class="ph-mo on" data-act="tab" data-tab="pas"><span class="t">✎ Ma version (${esc(P.partLabel(r, mu, sc).name)} retouché)</span></button>` : '',
       `<div class="ph-moline">${row('off', 'Ne joue pas')}${msBtn('mute', 'M', 'Couper ce musicien à l’écoute')}${msBtn('solo', 'S', 'N’entendre que ce musicien')}</div>`,
       plan.id ? row(null, `Modèle : ${plan.name}`, { svg: plan.id && mu !== 'drums' ? motifSvg(mu, plan.id) : '' }) : '',
       stars.length ? '<div class="ph-lbl">★ Pour cette scène</div>' : '',
-      ...stars.map((id) => row(id, P.motifName(mu, id), { star: true, svg: motifSvg(mu, id) })),
+      ...stars.map((id) => row(id, P.motifName(mu, id, r), { star: true, svg: motifSvg(mu, id) })),
       S.allOpen ? `<div class="ph-lbl">Tous les motifs (${all.length})</div>` : `<button class="ph-more" data-act="more">Tous les motifs (${all.length})</button>`,
-      ...(S.allOpen ? all.map((id) => row(id, P.motifName(mu, id), { svg: motifSvg(mu, id) })) : []),
+      ...(S.allOpen ? all.map((id) => row(id, P.motifName(mu, id, r), { svg: motifSvg(mu, id) })) : []),
     ].join('');
   }
 
@@ -487,7 +497,8 @@
   /* ---------- Bas d'écran ---------- */
   function renderFoot() {
     const v = view();
-    if (v === 'tempo' || v === 'musiciens') {
+    if (v === 'style') $('#phFoot').innerHTML = ''; // toucher une tuile passe à l'étape suivante
+    else if (v === 'tempo' || v === 'musiciens') {
       const none = v === 'musiciens' && !P.MUSICIANS.some((m) => S.recipe.mus[m.id].on);
       $('#phFoot').innerHTML = `<button class="ph-next" data-act="next"${none ? ' disabled' : ''}>Suivant</button>`;
     } else if (v === 'scenes') {
@@ -621,7 +632,7 @@
     S.editId = null;
     S.mix = { mute: [], solo: [] };
     S.cell = null;
-    history.go(-STEPS.length); // une entrée par étape : retour à l'accueil
+    history.go(-(STEPS.length - STEPS.indexOf(S.entry))); // une entrée par étape depuis la première ouverte : retour à l'accueil
     await loadSongs();
     S.sel = proj.id; // la chanson créée est sélectionnée (après la liste : sinon la première l'est)
     startPlay(proj.id, proj);
@@ -760,7 +771,8 @@
       S.recipe = P.fresh();
       S.mix = { mute: [], solo: [] };
       S.editId = null;
-      return go('tempo');
+      S.entry = 'style';
+      return go('style');
     }
     if (act === 'edit' || act === 'editok') {
       const s = S.songs.find((x) => x.id === b.dataset.id);
@@ -768,6 +780,7 @@
       if (!s || !s.edit) return;
       if (!s.edit.phone && act === 'edit') return editSheet(s); // chanson de l'ordinateur : on prévient une fois
       S.recipe = JSON.parse(JSON.stringify(s.edit.recipe));
+      S.entry = 'tempo';
       S.mix = { mute: [], solo: [] };
       S.editId = s.id;
       return go('tempo');
@@ -803,6 +816,11 @@
       return renderFoot();
     }
     if (act === 'next') return go(STEPS[STEPS.indexOf(view()) + 1]);
+    if (act === 'style') {
+      S.recipe = P.fresh(b.dataset.id); // un autre style : la chanson repart de son modèle
+      S.mix = { mute: [], solo: [] };
+      return go('tempo');
+    }
     if (act === 'chords') {
       Object.assign(S, { chSc: b.dataset.id, slot: 0, gridsOpen: false });
       return go('accords');

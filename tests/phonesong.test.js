@@ -243,3 +243,43 @@ test('Nappe (téléphone) : absente au départ et dans les recettes déjà faite
   const back = P.fromProject(JSON.parse(SS.serialize(P.build(r, { id: 't', title: 't' }))));
   assert.equal(back.recipe.mus.pad.on, true);
 });
+
+test('Styles : Pop rock, Dance, Latino (salsa) donnent leur départ, leurs sons, leurs motifs et une chanson qui joue', () => {
+  assert.deepEqual(P.STYLES.map((s) => s.id), ['pop', 'dance', 'latin']);
+  // une recette d'avant les styles reste en Pop rock
+  const old = P.fresh();
+  delete old.style;
+  assert.equal(P.clean(old).style, 'pop');
+  const role = (t) => t.band.key.split(':')[0];
+  P.STYLES.forEach((st) => {
+    const r = P.fresh(st.id);
+    assert.equal(r.style, st.id);
+    assert.equal(r.tempo, st.tempo);
+    assert.equal(r.mus.pad.on, !!st.padOn);
+    r.mus.pad.on = true;
+    r.scenes = ['intro', 'verse', 'chorus', 'bridge', 'outro'];
+    const proj = P.build(r, { id: 't', title: 't' });
+    assert.ok(proj, st.id);
+    assert.ok(proj.tracks.every((t) => t.band.style === st.band), st.id + ' : pistes du modèle');
+    // chaque musicien qui joue dans le modèle a des notes dans la scène
+    proj.scenes.forEach((sc) => {
+      ['drums', 'bass', 'keys', 'pad'].forEach((mu) => {
+        const n = proj.tracks.filter((t) => role(t) === mu).reduce((a, t) => a + (((sc.data[t.id] || {}).events || []).length + ((sc.data[t.id] || {}).steps || []).filter(Boolean).length), 0);
+        assert.equal(n > 0, P.partLabel(r, mu, sc.sec).plays, `${st.id} ${sc.sec} ${mu}`);
+      });
+    });
+    ['drums', 'bass', 'keys', 'pad'].forEach((mu) => {
+      assert.ok(P.motifs(mu, r).length, `${st.id} ${mu} : motifs`);
+      assert.ok(P.stars(mu, 'verse', r).every((id) => P.motifs(mu, r).includes(id)), `${st.id} ${mu} : ★ parmi les motifs`);
+      assert.ok(P.sounds(mu, r).every((s) => !s.tok.startsWith('j:')), 'pas de Juno');
+    });
+    // relue par Modifier (chanson du téléphone, puis chanson de l'assistant du même modèle)
+    assert.equal(P.fromProject(JSON.parse(SS.serialize(proj))).recipe.style, st.id);
+    const pc = JSON.parse(SS.serialize(proj));
+    delete pc.phone;
+    assert.equal(P.fromProject(pc).recipe.style, st.id);
+  });
+  assert.equal(P.planPart('bass', 'verse', P.fresh('latin')).id, 'tumbao23');
+  assert.equal(P.planPart('keys', 'verse', P.fresh('dance')).id, 'house');
+  assert.equal(P.chordsOf(P.fresh('latin'), 'chorus'), 'Am · Dm · E7 · Am');
+});
