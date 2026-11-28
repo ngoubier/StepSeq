@@ -198,21 +198,90 @@
   function renderScenes() {
     const r = S.recipe;
     top('Scènes');
+    if (S.scSel != null && S.scSel >= r.scenes.length) S.scSel = null;
     const rows = r.scenes.map((id, i) => {
       const t = P.sceneType(id);
-      return `<div class="ph-sc" style="--sc:${t.color}"><button class="ph-scgo" data-act="chords" data-id="${id}" aria-label="Accords : ${t.label}"><span class="t">${t.label}</span><span class="m">${P.barsOf(id)} mesures · <span class="ch">${esc(P.chordsOf(r, id))}${P.chordsEdited(r, id) ? ' ✎' : ''}</span></span><span class="go">›</span></button><button data-act="up" data-i="${i}" aria-label="Monter"${i ? '' : ' disabled'}>↑</button><button data-act="del" data-i="${i}" aria-label="Retirer">✕</button>${repHtml(r, i, t.label)}</div>`;
+      const n = P.repOf(r, i);
+      const sel = S.scSel === i;
+      return `<div class="ph-sc${sel ? ' sel' : ''}" style="--sc:${t.color}" data-act="scsel" data-i="${i}" role="button" aria-pressed="${sel}"><div><div class="t">${t.label}</div><div class="m">${P.barsOf(id)} mesures · <span class="ch">${esc(P.chordsOf(r, id))}${P.chordsEdited(r, id) ? ' ✎' : ''}</span></div></div>${n > 1 ? `<span class="ph-scx">×${n}</span>` : ''}<span class="ph-grip" data-grip="${i}" aria-label="Glisser pour déplacer">⋮⋮</span></div>`;
     }).join('');
     const sec = P.seconds(r);
-    $('#phBody').innerHTML = `${rows || '<div class="ph-empty">Aucune scène</div>'}
+    $('#phBody').innerHTML = `<div class="ph-sclist">${rows || '<div class="ph-empty">Aucune scène</div>'}</div>
       <div class="ph-adds">${P.SCENES.map((s) => `<button data-act="add" data-id="${s.id}">＋ ${s.label}</button>`).join('')}</div>
       ${r.scenes.length ? `<div class="ph-sum">${Math.floor(sec / 60)} min ${String(sec % 60).padStart(2, '0')}</div>` : ''}`;
   }
-
-  /** Réglage − ×2 ＋ : combien de fois la scène est jouée de suite. */
-  function repHtml(r, i, label) {
+  /** Barre du bas de l'écran Scènes quand une scène est sélectionnée : Répéter, Accords, Dupliquer, Supprimer. */
+  function sceneBar() {
+    const r = S.recipe;
+    const i = S.scSel;
     const n = P.repOf(r, i);
-    return `<div class="ph-rep${n > 1 ? ' on' : ''}"><button data-act="rep" data-i="${i}" data-d="-1" aria-label="${label} : une fois de moins"${n > 1 ? '' : ' disabled'}>−</button><b aria-label="${label} : jouée ${n} fois">×${n}</b><button data-act="rep" data-i="${i}" data-d="1" aria-label="${label} : une fois de plus"${n < P.REPS_MAX ? '' : ' disabled'}>＋</button></div>`;
+    const label = P.sceneType(r.scenes[i]).label;
+    return `<div class="ph-acts ph-scacts"><div class="ph-act ph-screp"><span class="ph-repb"><button data-act="rep" data-d="-1" aria-label="${label} : une fois de moins"${n > 1 ? '' : ' disabled'}>−</button><b aria-label="${label} : jouée ${n} fois">×${n}</b><button data-act="rep" data-d="1" aria-label="${label} : une fois de plus"${n < P.REPS_MAX ? '' : ' disabled'}>＋</button></span>Répéter</div><button class="ph-act" data-act="chords" data-id="${r.scenes[i]}"><b>♫</b>Accords</button><button class="ph-act" data-act="scdup"${r.scenes.length < 24 ? '' : ' disabled'}><b>⧉</b>Dupliquer</button><button class="ph-act del" data-act="scdel"><b>🗑</b>Supprimer</button></div>`;
   }
+  const sceneChanged = () => {
+    renderScenes();
+    renderFoot();
+  };
+
+  /* Glisser-déposer des scènes : par ⋮⋮ tout de suite, ou en restant appuyé sur la scène. */
+  let drag = null;
+  document.addEventListener('pointerdown', (e) => {
+    const row = view() === 'scenes' && e.target.closest('.ph-sc[data-i]');
+    if (!row || drag) return;
+    const grip = !!e.target.closest('[data-grip]');
+    drag = { row, from: +row.dataset.i, y0: e.clientY, id: e.pointerId, on: false, timer: null };
+    if (grip) startDrag(e.clientY);
+    else drag.timer = setTimeout(() => drag && startDrag(drag.y0), 450);
+  });
+  function startDrag(y) {
+    const d = drag;
+    d.on = true;
+    d.grab = y - d.row.getBoundingClientRect().top;
+    d.row.classList.add('drag');
+    if (navigator.vibrate) navigator.vibrate(15);
+  }
+  document.addEventListener('pointermove', (e) => {
+    const d = drag;
+    if (!d || e.pointerId !== d.id) return;
+    if (!d.on) {
+      if (Math.abs(e.clientY - d.y0) > 8) endDrag(false); // on fait défiler : pas de glisser
+      return;
+    }
+    e.preventDefault();
+    const list = d.row.parentNode;
+    const others = [...list.querySelectorAll('.ph-sc')].filter((x) => x !== d.row);
+    const before = others.find((x) => {
+      const b = x.getBoundingClientRect();
+      return e.clientY < b.top + b.height / 2;
+    });
+    if (before) {
+      if (d.row.nextElementSibling !== before) list.insertBefore(d.row, before);
+    } else if (list.lastElementChild !== d.row) list.appendChild(d.row);
+    d.row.style.transform = '';
+    const top = d.row.getBoundingClientRect().top;
+    d.row.style.transform = `translateY(${e.clientY - d.grab - top}px)`;
+  }, { passive: false });
+  // le glisser commencé, la page ne défile plus (Android, iOS)
+  document.addEventListener('touchmove', (e) => drag && drag.on && e.cancelable && e.preventDefault(), { passive: false });
+  function endDrag(apply) {
+    const d = drag;
+    drag = null;
+    if (!d) return;
+    clearTimeout(d.timer);
+    if (!d.on) return;
+    d.row.classList.remove('drag');
+    d.row.style.transform = '';
+    S.noClick = Date.now(); // le clic qui suit le lâcher ne sélectionne rien
+    if (!apply) return sceneChanged();
+    const to = [...d.row.parentNode.querySelectorAll('.ph-sc')].indexOf(d.row);
+    const sel = S.scSel;
+    P.moveScene(S.recipe, d.from, to);
+    if (sel === d.from) S.scSel = to; // la scène sélectionnée la suit
+    else if (sel != null) S.scSel = sel + (d.from < sel && to >= sel ? -1 : d.from > sel && to <= sel ? 1 : 0);
+    sceneChanged();
+  }
+  document.addEventListener('pointerup', (e) => drag && e.pointerId === drag.id && endDrag(true));
+  document.addEventListener('pointercancel', (e) => drag && e.pointerId === drag.id && endDrag(false));
 
   /* ---------- Accords d'une scène ---------- */
   function renderChords() {
@@ -548,7 +617,7 @@
       const none = v === 'musiciens' && !P.players(S.recipe).length;
       $('#phFoot').innerHTML = `<button class="ph-next" data-act="next"${none ? ' disabled' : ''}>Suivant</button>`;
     } else if (v === 'scenes') {
-      $('#phFoot').innerHTML = `<button class="ph-next" data-act="next"${S.recipe.scenes.length ? '' : ' disabled'}>Suivant</button>`;
+      $('#phFoot').innerHTML = S.scSel != null && S.scSel < S.recipe.scenes.length ? sceneBar() : `<button class="ph-next" data-act="next"${S.recipe.scenes.length ? '' : ' disabled'}>Suivant</button>`;
     } else if (v === 'parties') {
       const on = play && play.id === DRAFT;
       $('#phFoot').innerHTML = `<div class="ph-row"><button class="ph-ic play${on ? ' on' : ''}" data-act="draft" aria-label="${on ? 'Arrêter' : 'Écouter la chanson'}">${on ? '■' : '▶'}</button><button class="ph-next" data-act="create">${S.editId ? 'Mettre à jour la chanson' : 'Créer la chanson'}</button></div>${on ? playerMeta() : ''}`;
@@ -801,6 +870,10 @@
   /* ---------- Gestes ---------- */
   document.addEventListener('click', (e) => {
     const b = e.target.closest('[data-act]');
+    if (!b && view() === 'scenes' && S.scSel != null && e.target.closest('#phBody') && Date.now() - (S.noClick || 0) > 400) {
+      S.scSel = null; // toucher ailleurs : plus de sélection
+      return sceneChanged();
+    }
     if (!b || e.target.closest('select')) return;
     const act = b.dataset.act;
     const r = S.recipe;
@@ -815,6 +888,7 @@
     if (act === 'back') return history.back();
     if (act === 'new') {
       S.recipe = P.fresh();
+      S.scSel = null;
       S.mix = { mute: [], solo: [] };
       S.editId = null;
       S.entry = 'style';
@@ -826,6 +900,7 @@
       if (!s || !s.edit) return;
       if (!s.edit.phone && act === 'edit') return editSheet(s); // chanson de l'ordinateur : on prévient une fois
       S.recipe = JSON.parse(JSON.stringify(s.edit.recipe));
+      S.scSel = null;
       S.entry = 'tempo';
       S.mix = { mute: [], solo: [] };
       S.editId = s.id;
@@ -837,7 +912,7 @@
       renderHome();
       return renderFoot();
     }
-    if (act === 'del' && view() === 'home') { // ✕ de l'écran Scènes : plus bas
+    if (act === 'del' && view() === 'home') {
       const s = S.songs.find((x) => x.id === b.dataset.id);
       return s && delSheet(s);
     }
@@ -866,6 +941,7 @@
     if (act === 'next') return go(STEPS[STEPS.indexOf(view()) + 1]);
     if (act === 'style') {
       S.recipe = P.fresh(b.dataset.id); // un autre style : la chanson repart de son modèle
+      S.scSel = null;
       S.mix = { mute: [], solo: [] };
       return go('tempo');
     }
@@ -956,11 +1032,19 @@
     }
     if (act === 'loop') return playDraft(loopSc());
     if (act === 'draft') return play && play.id === DRAFT ? stopPlay() : playDraft(null);
-    if (act === 'add') P.addScene(r, b.dataset.id);
-    else if (act === 'del') P.removeScene(r, +b.dataset.i);
-    else if (act === 'up') P.moveUp(r, +b.dataset.i);
-    else if (act === 'rep') P.setRep(r, +b.dataset.i, P.repOf(r, +b.dataset.i) + +b.dataset.d);
-    else if (act === 'create') return void create();
+    if (act === 'add') {
+      P.addScene(r, b.dataset.id);
+      S.scSel = r.scenes.length - 1; // la scène ajoutée est sélectionnée
+    } else if (act === 'scsel') {
+      if (Date.now() - (S.noClick || 0) < 400) return;
+      const i = +b.dataset.i;
+      S.scSel = S.scSel === i ? null : i;
+    } else if (act === 'rep') P.setRep(r, S.scSel, P.repOf(r, S.scSel) + +b.dataset.d);
+    else if (act === 'scdup') S.scSel = Math.max(S.scSel, P.duplicateScene(r, S.scSel));
+    else if (act === 'scdel') {
+      P.removeScene(r, S.scSel);
+      S.scSel = r.scenes.length ? Math.min(S.scSel, r.scenes.length - 1) : null; // la voisine est sélectionnée
+    } else if (act === 'create') return void create();
     else return;
     renderScenes();
     renderFoot();

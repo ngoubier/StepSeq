@@ -336,8 +336,11 @@ test('Répétitions : chaque scène jouée ×1 à ×8, durée, blocs ×n, aller-
   P.setRep(r, 2, 12);
   assert.deepEqual([P.repOf(r, 1), P.repOf(r, 2)], [2, P.REPS_MAX]);
   assert.equal(P.seconds(r) > s0, true);
-  P.moveUp(r, 2);
+  P.moveScene(r, 2, 1);
   assert.deepEqual([r.scenes[1], P.repOf(r, 1), P.repOf(r, 2)], ['chorus', 8, 2]);
+  assert.equal(P.duplicateScene(r, 1), 2);
+  assert.deepEqual([r.scenes[2], P.repOf(r, 2)], ['chorus', 8]);
+  P.removeScene(r, 2);
   P.addScene(r, 'bridge');
   assert.equal(P.repOf(r, r.scenes.length - 1), 1);
   P.removeScene(r, 0);

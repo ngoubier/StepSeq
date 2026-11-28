@@ -812,13 +812,23 @@ SS.phoneSong = (() => {
     list.splice(i, 1);
     storeReps(r, list);
   }
-  /** Monte la scène n° i d'un cran (avec ses répétitions). */
-  function moveUp(r, i) {
-    if (i < 1 || i >= r.scenes.length) return;
+  /** Déplace la scène n° from à la place to (glisser-déposer), avec ses répétitions. */
+  function moveScene(r, from, to) {
+    const n = r.scenes.length;
+    if (from < 0 || from >= n || to < 0 || to >= n || from === to) return;
     const list = repList(r);
-    [r.scenes[i - 1], r.scenes[i]] = [r.scenes[i], r.scenes[i - 1]];
-    [list[i - 1], list[i]] = [list[i], list[i - 1]];
+    r.scenes.splice(to, 0, r.scenes.splice(from, 1)[0]);
+    list.splice(to, 0, list.splice(from, 1)[0]);
     storeReps(r, list);
+  }
+  /** Ajoute la même scène juste après la n° i (même type : même partie, mêmes accords) ; son numéro, ou -1. */
+  function duplicateScene(r, i) {
+    if (i < 0 || i >= r.scenes.length || r.scenes.length >= 24) return -1;
+    const list = repList(r);
+    r.scenes.splice(i + 1, 0, r.scenes[i]);
+    list.splice(i + 1, 0, list[i]);
+    storeReps(r, list);
+    return i + 1;
   }
 
   /** Durée de la chanson en secondes. */
@@ -827,5 +837,5 @@ SS.phoneSong = (() => {
     return Math.round((bars * 4 * 60) / r.tempo);
   }
 
-  return { REPS_MAX, repOf, setRep, addScene, removeScene, moveUp, STYLES, styleOf, MUSICIANS, PLAYERS, MAX_PLAYERS, kindOf, isSecond, playerInfo, players, canAdd, addPlayer, removePlayer, hasEdits, playerOfTrack, SCENES, TEMPO_MIN, TEMPO_MAX, sceneType, sounds, fresh, clean, keyLabel, tonicLabel, spec, barsOf, chordsOf, trackOpts, build, seconds, motifs, stars, motifName, planPart, partLabel, setPart, sceneTypes, buildParts, energyOf, STEPS, DRUM_LANES, BASS_ROWS, rowName, isLH, editOf, setEdit, startEdit, chordAt, rowSemis, toggleBass, toggleKeys, keysPat, bassId, fromProject, listenMix, CHORDS_MAX, romanOf, validRoman, chordName, chordList, chordsEdited, setChords, palette, readyGrids };
+  return { REPS_MAX, repOf, setRep, addScene, removeScene, moveScene, duplicateScene, STYLES, styleOf, MUSICIANS, PLAYERS, MAX_PLAYERS, kindOf, isSecond, playerInfo, players, canAdd, addPlayer, removePlayer, hasEdits, playerOfTrack, SCENES, TEMPO_MIN, TEMPO_MAX, sceneType, sounds, fresh, clean, keyLabel, tonicLabel, spec, barsOf, chordsOf, trackOpts, build, seconds, motifs, stars, motifName, planPart, partLabel, setPart, sceneTypes, buildParts, energyOf, STEPS, DRUM_LANES, BASS_ROWS, rowName, isLH, editOf, setEdit, startEdit, chordAt, rowSemis, toggleBass, toggleKeys, keysPat, bassId, fromProject, listenMix, CHORDS_MAX, romanOf, validRoman, chordName, chordList, chordsEdited, setChords, palette, readyGrids };
 })();
