@@ -15,7 +15,9 @@
  *               Jouer   de grands pads qui sonnent au doigt ; ● enregistre ce qu'on joue pendant la boucle de la scène
  *
  * La recette et la chanson viennent de js/phonesong.js ; la chanson est enregistrée dans « Mes chansons » (js/store.js)
- * comme un projet ordinaire. L'écoute est toujours pré-calculée (js/prelisten.js) : un téléphone ne décroche pas.
+ * comme un projet ordinaire. L'écoute est toujours pré-calculée (js/prelisten.js), à fréquence réduite (RATE : moitié
+ * moins de calcul), et jouée par le lecteur léger (js/phoneplayer.js) : le moteur complet (js/audio.js) ne sert qu'aux
+ * pads, et se met en veille quand on ne les touche plus.
  * Le bouton Retour du téléphone suit les écrans (une entrée d'historique par écran).
  */
 (() => {
@@ -302,8 +304,9 @@
   }
   /** Pas de la scène qu'on entend (depuis son début, en boucle), ou null si rien ne joue. */
   function heardStep() {
-    if (!play || play.id !== DRAFT || play.calc != null || !SS.audio.isPlaying()) return null;
-    const st = SS.audio.stepAt(SS.audio.heardTime());
+    if (!play || play.id !== DRAFT || play.calc != null) return null;
+    const ps = play.live ? null : player().pos();
+    const st = play.live ? (SS.audio.isPlaying() ? SS.audio.stepAt(SS.audio.heardTime()) : null) : ps && ps.step;
     if (st == null || !play.proj) return null;
     const sc = play.proj.scenes.find((x) => x.id === play.scene);
     const len = (sc ? sc.bars : 4) * P.STEPS;
@@ -321,6 +324,7 @@
       if (!S.padProj) {
         S.padProj = P.build({ ...S.recipe, scenes: [S.cell.sc] });
         if (S.padProj) S.padProj.tracks.forEach((t) => SS.audio.prepareTrack(t).catch(() => {}));
+        quietLater();
       }
       proj = S.padProj;
     }
@@ -331,7 +335,8 @@
   function previewPad(id, step = null) {
     const { mu, sc } = S.cell;
     const tracks = padTracks();
-    SS.audio.ensureCtx();
+    SS.audio.ensureCtx(); // réveille le moteur s'il était en veille
+    quietLater();
     if (mu === 'drums') {
       const t = tracks.find((x) => x.type === 'drum' && x.band && x.band.key === 'drums:' + DRUM_SND[id]);
       return t && SS.audio.preview(t, null);
@@ -345,6 +350,16 @@
     const root = chord.rootPc;
     const notes = id === 'B' ? [48 + root] : id === 'O' ? [36 + root, 48 + root] : [60 + root, 60 + root + third, 60 + root + 7].map((n) => (n > 72 ? n - 12 : n));
     return SS.audio.preview(t, notes, id === 'c' ? 0.18 : 0.7);
+  }
+  /** Le moteur complet (pads) se met en veille 4 s après le dernier pad : il ne calcule plus rien pendant l'écoute. */
+  let quietTimer = null;
+  function quietLater() {
+    clearTimeout(quietTimer);
+    quietTimer = setTimeout(() => {
+      if (play && play.live) return; // lecture en direct : c'est lui qui joue
+      const c = SS.audio.ensureCtx();
+      if (c.state === 'running') c.suspend();
+    }, 4000);
   }
   /** Pad touché : il sonne, et avec ● il est posé sur le pas le plus proche de ce qu'on entend. */
   function hitPad(id, el) {
@@ -509,11 +524,15 @@
   }
 
   /* ---------- Écoute ---------- */
+  const RATE = 24000; // fréquence du rendu de l'écoute : moitié moins de calcul qu'à 48 kHz (aigus jusqu'à 12 kHz)
+  let pl = null;
+  const player = () => pl || (pl = SS.phonePlayer.create());
   function stopPlay() {
     S.rec = false;
     if (!play) return;
     if (play.ctrl) play.ctrl.abort();
-    SS.audio.stop();
+    player().stop();
+    if (play.live) SS.audio.stop();
     play = null;
     render();
   }
@@ -521,7 +540,7 @@
     stopPlay();
     const s = S.songs.find((x) => x.id === id);
     const me = (play = { id, title: s ? s.title : (built && built.title) || '', proj: null, block: 0, scene, calc: 0, ctrl: new AbortController(), live: false });
-    SS.audio.ensureCtx(); // dans le geste de l'utilisateur
+    player().resume(); // dans le geste de l'utilisateur (politique autoplay)
     render();
     let proj = built;
     if (!proj) {
@@ -537,27 +556,27 @@
     SS.loadScene(proj, scene || proj.song[0].scene, { commit: false });
     me.proj = proj;
     renderPlayer();
-    const opts = scene ? {} : {
-      song: {
-        index: 0,
-        onBlock: (i) => {
-          const b = proj.song[i];
-          if (b && b.scene !== proj.current) SS.loadScene(proj, b.scene, { commit: false });
-        },
-        onBlockVisible: (i) => {
-          if (play !== me) return;
-          me.block = i;
-          renderPlayer();
-        },
-        onEnd: () => play === me && stopPlay(),
-      },
+    const onBlock = (i) => {
+      if (play !== me) return;
+      me.block = i;
+      renderPlayer();
     };
+    const onEnd = () => play === me && stopPlay();
     let started = false;
     const begin = (backing) => {
       if (started || play !== me || me.ctrl.signal.aborted) return;
       started = true;
       me.calc = null;
-      SS.audio.start(() => proj, () => {}, backing ? { ...opts, backing } : opts);
+      player().play(backing, { blocks: scene ? 0 : proj.song.length, onBlock, onEnd });
+      renderPlayer();
+    };
+    // calcul impossible : lecture en direct par le moteur complet (comme avant)
+    const live = () => {
+      started = true;
+      me.calc = null;
+      me.live = true;
+      const opts = scene ? {} : { song: { index: 0, onBlock: (i) => proj.song[i] && proj.song[i].scene !== proj.current && SS.loadScene(proj, proj.song[i].scene, { commit: false }), onBlockVisible: onBlock, onEnd } };
+      SS.audio.start(() => proj, () => {}, opts);
       renderPlayer();
     };
     SS.preListen.render(proj, scene ? 'scene' : 'song', 0, {
@@ -568,11 +587,15 @@
         me.calc = pc;
         renderPlayer();
       },
+      ctx: player().ctx,
+      fed: () => play === me && started && !me.live && player().fed(),
+      sampleRate: RATE,
+      trust: 0.75, // un téléphone ralentit quand l'écoute démarre : départ plus prudent que sur l'ordinateur
+      margin: 3,
     }).then(begin, (e) => {
       if (me.ctrl.signal.aborted || play !== me || started) return;
       console.warn('écoute pré-calculée', e);
-      me.live = true; // calcul impossible : lecture en direct
-      begin(null);
+      live();
     });
   }
 

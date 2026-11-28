@@ -41,6 +41,8 @@ Un téléphone qui ouvre StepSeq arrive sur une page légère, faite pour écout
 
 - **Accueil** : un gros bouton **Nouvelle chanson** et **Mes chansons** (▶ écoute la chanson, ✎ reprend une chanson faite
   sur le téléphone, ⇪ l'envoie vers l'ordinateur). L'écoute est toujours calculée à l'avance : elle ne décroche pas.
+  Sur téléphone elle est calculée à 24 kHz (moitié moins de calcul) et jouée par un lecteur léger (`js/phoneplayer.js`) :
+  le moteur complet ne tourne que pour les pads, et se met en veille ensuite ; un morceau en retard est attendu, pas sauté.
 - **Nouvelle chanson**, en trois écrans : **Tempo et tonalité** (− / ＋, curseur, « Taper » ; 12 notes, Majeur | Mineur),
   **Musiciens** (Batterie, Basse, Clavier, chacun avec son son), **Scènes** (Intro, Couplet, Refrain, Pont, Fin, dans
   l'ordre voulu, avec leurs accords dans la tonalité), **Qui joue quoi** (un tableau musiciens × scènes, rempli avec la
@@ -1706,7 +1708,7 @@ réel (export, figer, bilan).
 | Domaine | Fichiers |
 |---------|----------|
 | Page et démarrage | `index.html`, `icons/`, `fonts/`, `css/palette.css` (palette `--c-*`, tailles `--fs-*`), `css/style.css`, `css/help.css`, `js/main.js` (démarrage, barre du haut, raccourcis), `js/ui.js` (pistes, grille, piano roll, fenêtre Nouvelle piste), `js/help.js` (« ? » et bulles d'aide), `guide.html` (bouton Aide) |
-| Téléphone | `telephone.html`, `css/phone.css`, `js/phone.js` (écrans), `js/phonesong.js` (recette → chanson), `js/prelisten.js` (écoute pré-calculée, commune avec l'assistant) |
+| Téléphone | `telephone.html`, `css/phone.css`, `js/phone.js` (écrans), `js/phonesong.js` (recette → chanson), `js/phoneplayer.js` (lecteur léger), `js/prelisten.js` (écoute pré-calculée, commune avec l'assistant) |
 | Projet et fichiers | `js/project.js` (modèle, ouverture / enregistrement), `js/store.js` (enregistrement automatique), `js/mysongs.js` (Mes chansons), `js/songname.js` (nom inventé), `js/midi-file.js`, `js/midi.js`, `js/midipanel.js` (MIDI), `js/score-read.js`, `js/scorepanel.js` (Lire une partition), `js/render.js`, `js/audioexport.js`, `render.html`, `js/render-boot.js`, `js/render-host.js` (export audio) |
 | Sons | `js/library.js`, `js/dirt.js`, `js/dirt-tuning.js`, `js/sounds.js`, `js/catalog.js` (sons par rôle), `js/sample-tuning.js`, `js/vsco.js`, `js/libre.js` (orchestre et instruments libres), `samples/` |
 | Moteur audio | `js/audio.js` (voix, séquenceur), `js/filters.js`, `js/modulation.js`, `js/juno.js`, `js/juno-dsp.js`, `js/space-dsp.js` (Cosmos), `js/master-dsp.js`, `js/freeze.js` (❄), `js/calcul.js` (jauge CALCUL), `js/audiowatch.js`, `js/systempanel.js` (fenêtre Système), `js/trackloop.js` |
