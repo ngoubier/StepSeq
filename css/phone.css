@@ -153,3 +153,14 @@ button { cursor: pointer; }
 .ph-pad.hit { background: var(--mc); color: var(--c-bg-deep); }
 .ph-rec { width: 56px; height: 48px; flex: none; border: 1px solid var(--c-line); border-radius: 12px; background: var(--c-panel-2); color: var(--c-red); font-size: var(--fs-xl); }
 .ph-rec.on { background: var(--c-red); border-color: var(--c-red); color: var(--c-text); }
+
+/* Avertissement : modifier une chanson faite sur l'ordinateur */
+.ph-veil { position: fixed; inset: 0; background: color-mix(in srgb, var(--c-bg-deep) 70%, transparent); display: flex; align-items: flex-end; z-index: 20; }
+.ph-sheet {
+  width: 100%; background: var(--c-panel); border-radius: 20px 20px 0 0; display: flex; flex-direction: column; gap: 10px;
+  padding: 18px max(16px, env(safe-area-inset-right, 0px)) max(18px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+}
+.ph-sheet h3 { margin: 0; font-size: var(--fs-xl); }
+.ph-keep, .ph-lose { display: flex; flex-direction: column; gap: 3px; font-size: var(--fs-md); }
+.ph-keep div::before { content: "✓ "; color: var(--c-green); font-weight: 700; }
+.ph-lose div::before { content: "↺ "; color: var(--c-amber); font-weight: 700; }

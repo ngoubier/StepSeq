@@ -1,7 +1,8 @@
 /*
  * StepSeq sur téléphone (telephone.html) : l'écran.
  *
- *   Accueil     « Nouvelle chanson » et « Mes chansons » (toucher ▶ joue la chanson, ✎ reprend une chanson du téléphone,
+ *   Accueil     « Nouvelle chanson » et « Mes chansons » (toucher ▶ joue la chanson, ✎ reprend une chanson du téléphone
+ *               ou une chanson de l'assistant que le téléphone sait refaire (après un avertissement : son mix est refait),
  *               ⇪ l'envoie vers l'ordinateur : partage du téléphone, sinon téléchargement du fichier .stepseq.json)
  *   #tempo      tempo (− / ＋, curseur, « Taper ») et tonalité (12 notes, Majeur | Mineur)
  *   #musiciens  Batterie, Basse, Clavier : présents ou non, et leur son
@@ -31,7 +32,7 @@
   const S = {
     recipe: null, // chanson en cours de création ou de retouche
     editId: null, // chanson de « Mes chansons » retouchée (null : nouvelle)
-    songs: [], // résumés de « Mes chansons » + recette du téléphone (phone)
+    songs: [], // résumés de « Mes chansons » + recette du téléphone (phone) ou chanson de l'assistant compatible (edit)
     taps: [],
     cell: null, // { mu, sc } : la case du tableau ouverte (#partie)
     allOpen: false, // « Tous les motifs » déplié
@@ -83,7 +84,7 @@
       ? S.songs.map((s, i) => {
         const on = play && play.id === s.id;
         const meta = s.phone ? `${s.phone.tempo} BPM · ${P.keyLabel(s.phone)}` : `${s.tempo} BPM · ${s.tracks} piste${s.tracks > 1 ? 's' : ''}`;
-        return `<div class="ph-song${on ? ' on' : ''}"><div class="ph-cov" style="background:${COVERS[i % COVERS.length]}"></div><div><div class="t">${esc(s.title)}</div><div class="m">${esc(meta)}</div></div><button class="ph-ic" data-act="send" data-id="${esc(s.id)}" aria-label="Envoyer vers l’ordinateur">⇪</button>${s.phone ? `<button class="ph-ic" data-act="edit" data-id="${esc(s.id)}" aria-label="Retoucher">✎</button>` : ''}<button class="ph-ic play${on ? ' on' : ''}" data-act="play" data-id="${esc(s.id)}" aria-label="${on ? 'Arrêter' : 'Écouter'}">${on ? '■' : '▶'}</button></div>`;
+        return `<div class="ph-song${on ? ' on' : ''}"><div class="ph-cov" style="background:${COVERS[i % COVERS.length]}"></div><div><div class="t">${esc(s.title)}</div><div class="m">${esc(meta)}</div></div><button class="ph-ic" data-act="send" data-id="${esc(s.id)}" aria-label="Envoyer vers l’ordinateur">⇪</button>${s.edit ? `<button class="ph-ic" data-act="edit" data-id="${esc(s.id)}" aria-label="Retoucher">✎</button>` : ''}<button class="ph-ic play${on ? ' on' : ''}" data-act="play" data-id="${esc(s.id)}" aria-label="${on ? 'Arrêter' : 'Écouter'}">${on ? '■' : '▶'}</button></div>`;
       }).join('')
       : '<div class="ph-empty">Aucune chanson</div>';
     $('#phBody').innerHTML = `<button class="ph-new" data-act="new"><span>＋</span>Nouvelle chanson</button><div class="ph-lbl">Mes chansons</div>${list}`;
@@ -456,20 +457,39 @@
   async function loadSongs() {
     try {
       const list = await SS.store.list();
-      S.songs = await Promise.all(list.map(async (s) => ({ ...s, phone: await recipeOf(s.id) })));
+      S.songs = await Promise.all(list.map(async (s) => {
+        const edit = await recipeOf(s.id);
+        return { ...s, edit, phone: edit && edit.phone ? edit.recipe : null };
+      }));
     } catch (e) {
       S.songs = [];
     }
     if (view() === 'home') renderHome();
   }
-  /** Recette du téléphone rangée dans une chanson (null : chanson faite sur l'ordinateur, ou retouchée depuis). */
+  /** Recette d'une chanson pour la modifier ici ({ recipe, phone }), null si le téléphone ne sait pas la refaire. */
   async function recipeOf(id) {
     try {
-      const data = JSON.parse(await SS.store.get(id));
-      return P.clean(data && data.phone);
+      return P.fromProject(JSON.parse(await SS.store.get(id)));
     } catch (e) {
       return null;
     }
+  }
+
+  /** Avertissement avant de modifier une chanson faite sur l'ordinateur : ce qui est gardé, ce qui est refait. */
+  function editSheet(s) {
+    closeSheet();
+    const el = document.createElement('div');
+    el.className = 'ph-veil';
+    el.innerHTML = `<div class="ph-sheet" role="dialog" aria-label="Modifier sur le téléphone"><h3>Modifier « ${esc(s.title)} » sur le téléphone</h3>
+      <div class="ph-keep"><div>Tempo, tonalité, scènes</div><div>Batterie, basse, clavier et leurs motifs</div></div>
+      <div class="ph-lose"><div>Mix, effets et réglages fins faits sur l’ordinateur : refaits par le téléphone</div></div>
+      <div class="ph-meta">L’ancienne version reste dans les versions de la chanson.</div>
+      <button class="ph-next" data-act="editok" data-id="${esc(s.id)}">Modifier</button><button class="ph-more" data-act="sheetno">Annuler</button></div>`;
+    el.addEventListener('click', (e) => e.target === el && closeSheet());
+    document.body.appendChild(el);
+  }
+  function closeSheet() {
+    document.querySelectorAll('.ph-veil').forEach((x) => x.remove());
   }
 
   async function create() {
@@ -627,13 +647,16 @@
       S.editId = null;
       return go('tempo');
     }
-    if (act === 'edit') {
+    if (act === 'edit' || act === 'editok') {
       const s = S.songs.find((x) => x.id === b.dataset.id);
-      if (!s || !s.phone) return;
-      S.recipe = JSON.parse(JSON.stringify(s.phone));
+      closeSheet();
+      if (!s || !s.edit) return;
+      if (!s.edit.phone && act === 'edit') return editSheet(s); // chanson de l'ordinateur : on prévient une fois
+      S.recipe = JSON.parse(JSON.stringify(s.edit.recipe));
       S.editId = s.id;
       return go('tempo');
     }
+    if (act === 'sheetno') return closeSheet();
     if (act === 'play') return play && play.id === b.dataset.id ? stopPlay() : startPlay(b.dataset.id);
     if (act === 'stop') return stopPlay();
     if (act === 'send') return void send(b.dataset.id);

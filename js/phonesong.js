@@ -420,11 +420,106 @@ SS.phoneSong = (() => {
   /** Les 16 pas du Clavier en motif réécrit (texte). */
   const keysPat = (steps) => SS.keyboardist.patText(steps);
 
+
+  /* ---------- Chanson existante → recette (modifier sur le téléphone) ----------
+   * Une chanson faite sur l'ordinateur avec l'assistant se reprend sur le téléphone si le téléphone sait la refaire :
+   * des musiciens de l'assistant parmi batterie, basse et clavier seulement (aucune piste ajoutée à la main), en 4/4, une
+   * seule tonalité (majeure ou mineure), des scènes des cinq types du téléphone. Les sons, l'ordre des scènes et, si le
+   * brouillon de l'assistant est rangé dans la chanson, les motifs choisis (et motifs réécrits) sont repris ; le mix et
+   * les effets réglés sur l'ordinateur ne le sont pas (la chanson est refaite).
+   */
+  /** Hauteur (0..11) d'un nom de tonique (« D », « F♯ », « Bb »), ou null. */
+  function tonicPc(name) {
+    if (typeof name !== 'string' || !(name[0] in SS.LETTER_PC)) return null;
+    const acc = name.slice(1).replace('#', '♯').replace('b', '♭');
+    const d = acc === '♯' ? 1 : acc === '♭' ? -1 : acc === '' ? 0 : null;
+    return d == null ? null : (((SS.LETTER_PC[name[0]] + d) % 12) + 12) % 12;
+  }
+  /** Son de la liste du musicien que joue une piste de la chanson (indice dans sounds), 0 si introuvable. */
+  function pickOf(id, tracks) {
+    const list = sounds(id);
+    if (id === 'drums') {
+      const t = tracks.find((x) => x.sound === 'bd') || tracks[0];
+      const i = list.findIndex((s) => {
+        const o = B().pieceOpts(s.tok, t.sound).opts;
+        return o.source === t.source && o.machine === t.machine && (o.bank || null) === (t.bank || null);
+      });
+      return Math.max(0, i);
+    }
+    return Math.max(0, list.findIndex((s) => B().choiceOpts(s.tok, catOf(musician(id))).instrument === tracks[0].instrument));
+  }
+  /**
+   * Recette d'une chanson (JSON enregistré, avant SS.normalizeProject) : celle du téléphone si elle y est rangée, sinon
+   * celle d'une chanson de l'assistant compatible (voir plus haut) ; null si le téléphone ne sait pas la refaire.
+   * Retourne { recipe, phone } : phone vrai pour une chanson faite sur le téléphone.
+   */
+  function fromProject(d) {
+    if (!d || typeof d !== 'object') return null;
+    const own = clean(d.phone);
+    if (own) return { recipe: own, phone: true };
+    const ts = d.timeSig || [4, 4];
+    if (ts[0] !== 4 || ts[1] !== 4 || !Array.isArray(d.tracks) || !d.tracks.length || !Array.isArray(d.scenes) || !Array.isArray(d.song) || !d.song.length) return null;
+    const byMu = {};
+    for (const t of d.tracks) {
+      const role = t && t.band && typeof t.band.key === 'string' ? t.band.key.split(':')[0] : null;
+      if (!MUSICIANS.some((m) => m.id === role) || (role === 'drums') !== (t.type === 'drum')) return null; // autre musicien, ou piste de la Grille
+      (byMu[role] = byMu[role] || []).push(t);
+    }
+    const sceneOf = (id) => d.scenes.find((x) => x && x.id === id);
+    const used = d.song.map((b) => sceneOf(b && b.scene));
+    if (used.some((sc) => !sc || !sceneType(sc.sec))) return null;
+    const keys = [...new Set(used.map((sc) => JSON.stringify(sc.key || {})))];
+    if (keys.length !== 1) return null; // changement de tonalité
+    const key = used[0].key || {};
+    const tonic = tonicPc(key.tonic);
+    if (tonic == null || !['major', 'minor'].includes(key.mode)) return null;
+    const r = fresh();
+    r.tempo = Math.min(TEMPO_MAX, Math.max(TEMPO_MIN, Math.round(+d.tempo || r.tempo)));
+    r.tonic = tonic;
+    r.mode = key.mode;
+    MUSICIANS.forEach(({ id }) => (r.mus[id] = byMu[id] ? { on: true, pick: pickOf(id, byMu[id]) } : { on: false, pick: 0 }));
+    r.scenes = d.song.flatMap((b) => Array.from({ length: Math.max(1, Math.min(8, Math.round(+b.repeat || 1))) }, () => sceneOf(b.scene).sec)).slice(0, 24);
+    // motifs choisis dans l'assistant (brouillon rangé dans la chanson)
+    const wp = d.wizard && d.wizard.state && d.wizard.state.w && d.wizard.state.w.parts;
+    if (wp && typeof wp === 'object') {
+      sceneTypes(r).forEach((sc) => {
+        const x = wp[sc];
+        if (!x || typeof x !== 'object') return;
+        const off = Array.isArray(x.off) ? x.off : [];
+        const inst = (x.inst && typeof x.inst === 'object' && x.inst) || {};
+        const instOf = (mu) => Object.entries(inst).find(([k]) => k.split(':')[0] === mu);
+        MUSICIANS.forEach(({ id: mu }) => {
+          if (!r.mus[mu].on) return;
+          if (off.includes(musician(mu).role)) return setPart(r, mu, sc, 'off');
+          if (mu === 'drums') {
+            const dp = x.drums || {};
+            if (dp.pattern && motifs('drums').includes(dp.pattern)) setPart(r, mu, sc, dp.pattern);
+            const ed = dp.edits;
+            if (ed && DRUM_LANES.every(([k]) => !ed[k] || (typeof ed[k] === 'string' && ed[k].length === STEPS))) setEdit(r, mu, sc, ed);
+            return;
+          }
+          const e = instOf(mu);
+          if (!e) return;
+          const o = e[1] || {};
+          if (o.off) return setPart(r, mu, sc, 'off');
+          if (o.mode && motifs(mu).includes(o.mode)) setPart(r, mu, sc, o.mode);
+          if (mu === 'keys' && o.keys && SS.keyboardist && SS.keyboardist.parsePat(o.keys.pat)) setEdit(r, mu, sc, o.keys.pat);
+          const mine = mu === 'bass' && o.mode && d.bassMotifs && d.bassMotifs[o.mode];
+          if (mine && SS.myBass) {
+            const notes = SS.myBass.cleanNotes(mine.notes, STEPS, 1);
+            if (notes.length) setEdit(r, mu, sc, notes);
+          }
+        });
+      });
+    }
+    return { recipe: clean(r), phone: false };
+  }
+
   /** Durée de la chanson en secondes. */
   function seconds(r) {
     const bars = r.scenes.reduce((a, id) => a + barsOf(id), 0);
     return Math.round((bars * 4 * 60) / r.tempo);
   }
 
-  return { MUSICIANS, SCENES, TEMPO_MIN, TEMPO_MAX, sceneType, sounds, fresh, clean, keyLabel, tonicLabel, spec, barsOf, chordsOf, trackOpts, build, seconds, motifs, stars, motifName, planPart, partLabel, setPart, sceneTypes, buildParts, energyOf, STEPS, DRUM_LANES, BASS_ROWS, rowName, isLH, editOf, setEdit, startEdit, chordAt, rowSemis, toggleBass, toggleKeys, keysPat, bassId };
+  return { MUSICIANS, SCENES, TEMPO_MIN, TEMPO_MAX, sceneType, sounds, fresh, clean, keyLabel, tonicLabel, spec, barsOf, chordsOf, trackOpts, build, seconds, motifs, stars, motifName, planPart, partLabel, setPart, sceneTypes, buildParts, energyOf, STEPS, DRUM_LANES, BASS_ROWS, rowName, isLH, editOf, setEdit, startEdit, chordAt, rowSemis, toggleBass, toggleKeys, keysPat, bassId, fromProject };
 })();
