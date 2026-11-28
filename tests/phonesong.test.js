@@ -327,3 +327,32 @@ test('Musiciens : ajouter et retirer, un second Clavier avec sa propre partie', 
   const old = { v: 1, tempo: 100, tonic: 0, mode: 'major', mus: { drums: { on: true, pick: 0 }, bass: { on: true, pick: 0 }, keys: { on: true, pick: 0 } }, scenes: ['verse'] };
   assert.deepEqual(P.players(P.clean(old)).map((m) => m.id), ['drums', 'bass', 'keys']);
 });
+
+test('Répétitions : chaque scène jouée ×1 à ×8, durée, blocs ×n, aller-retour', () => {
+  const r = P.fresh();
+  const s0 = P.seconds(r);
+  assert.equal(r.reps, undefined, 'toutes à ×1 : rien de rangé');
+  P.setRep(r, 1, 2);
+  P.setRep(r, 2, 12);
+  assert.deepEqual([P.repOf(r, 1), P.repOf(r, 2)], [2, P.REPS_MAX]);
+  assert.equal(P.seconds(r) > s0, true);
+  P.moveScene(r, 2, 1);
+  assert.deepEqual([r.scenes[1], P.repOf(r, 1), P.repOf(r, 2)], ['chorus', 8, 2]);
+  assert.equal(P.duplicateScene(r, 1), 2);
+  assert.deepEqual([r.scenes[2], P.repOf(r, 2)], ['chorus', 8]);
+  P.removeScene(r, 2);
+  P.addScene(r, 'bridge');
+  assert.equal(P.repOf(r, r.scenes.length - 1), 1);
+  P.removeScene(r, 0);
+  assert.deepEqual(r.reps.slice(0, 2), [8, 2]);
+  const proj = P.build(r);
+  assert.deepEqual(proj.song.slice(0, 2).map((b) => b.repeat), [8, 2]);
+  assert.deepEqual(P.clean(JSON.parse(JSON.stringify(r))).reps, r.reps);
+  const d = JSON.parse(SS.serialize(proj));
+  delete d.phone; // chanson de l'assistant : le ×n du bloc
+  const x = P.fromProject(d).recipe;
+  assert.deepEqual([x.scenes, x.reps], [r.scenes, r.reps]);
+  P.setRep(r, 0, 1);
+  P.setRep(r, 1, 1);
+  assert.equal(r.reps, undefined);
+});
