@@ -19,7 +19,7 @@
   }
   if (!cfg.ssRender) return;
   const seconds = Math.max(1, +cfg.seconds || 1);
-  const sampleRate = [44100, 48000].includes(+cfg.sampleRate) ? +cfg.sampleRate : 44100;
+  const sampleRate = [22050, 24000, 32000, 44100, 48000].includes(+cfg.sampleRate) ? +cfg.sampleRate : 44100; // 22 050 à 32 000 : écoute allégée du téléphone (js/prelisten.js)
   const length = Math.ceil(seconds * sampleRate);
 
   class RenderContext extends OfflineAudioContext {
@@ -75,6 +75,20 @@
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
+  // écoute allégée du téléphone (fréquence réduite) : les fréquences de filtre au-dessus de la moitié de la fréquence
+  // d'échantillonnage sont ramenées à la limite sans un avertissement par note (des milliers dans la console du téléphone)
+  if (sampleRate < 44100) {
+    const AP = AudioParam.prototype;
+    const fit = (p, v) => (Number.isFinite(v) ? Math.min(p.maxValue, Math.max(p.minValue, v)) : v);
+    ['setValueAtTime', 'linearRampToValueAtTime', 'exponentialRampToValueAtTime', 'setTargetAtTime'].forEach((k) => {
+      const f = AP[k];
+      AP[k] = function (v, ...a) {
+        return f.call(this, fit(this, v), ...a);
+      };
+    });
+    const d = Object.getOwnPropertyDescriptor(AP, 'value');
+    Object.defineProperty(AP, 'value', { ...d, set(v) { d.set.call(this, fit(this, v)); } });
+  }
   // tap : rendu « Figer » d'une piste (js/freeze.js) : seul le son de son instrument, avant sa tranche de console
   window.__ssRenderCfg = { seconds, sampleRate, length, tap: typeof cfg.tap === 'string' ? cfg.tap : null, stream: !!cfg.stream };
 })();

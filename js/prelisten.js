@@ -6,6 +6,9 @@
  *   SS.preListen.render(proj, range, from, { signal, ready, onProgress }) → Promise<backing>
  *     range : 'song' (à partir du bloc `from`) | 'scene' (la scène en cours, deux passages, bouclée sur le second)
  *     ready(backing) : appelé dès que la lecture peut partir ; onProgress(pourcent) : avancement du calcul
+ *     options du téléphone (js/phone.js, sinon comme l'assistant) : ctx (contexte du lecteur léger), fed(backing) (un
+ *     morceau est arrivé ; par défaut SS.audio.backingFed), sampleRate (fréquence du rendu, plus basse = moins de calcul),
+ *     trust et margin (départ plus prudent, voir streamReady)
  */
 window.SS = window.SS || {};
 SS.preListen = (() => {
@@ -14,10 +17,11 @@ SS.preListen = (() => {
    * Seuil de départ de l'écoute pré-calculée en continu : `have` secondes déjà rendues sur `total`, rendues à `rate`
    * secondes de son par seconde. Sans attendre la fin, il faut que le rendu garde de l'avance jusqu'au bout.
    */
-  function streamReady(have, total, rate) {
+  function streamReady(have, total, rate, { trust = 1, margin = STREAM_MARGIN } = {}) {
     if (have >= total) return true;
+    rate *= trust; // trust < 1 : vitesse comptée plus bas (téléphone : le rendu ralentit quand l'écoute démarre)
     if (!(rate > 0)) return false;
-    const need = Math.max(STREAM_MIN, (total - have) * (1 - rate) + STREAM_MARGIN);
+    const need = Math.max(STREAM_MIN, (total - have) * (1 - rate) + margin);
     return have >= need;
   }
   const STREAM_MIN = 2; // secondes d'avance au moins
@@ -27,36 +31,38 @@ SS.preListen = (() => {
    * morceaux : `ready(backing)` est appelé dès qu'il y a assez d'avance pour jouer sans attendre la fin (le reste
    * se calcule pendant l'écoute ; il était attendu en entier avant : 45 s pour une chanson de 2 min 40).
    */
-  async function render(proj, range, from, { signal, ready, onProgress } = {}) {
-    const ctx = SS.audio.ensureCtx();
+  async function render(proj, range, from, { signal, ready, onProgress, sampleRate = null, ctx: own = null, fed = null, trust = 1, margin = STREAM_MARGIN } = {}) {
+    const ctx = own || SS.audio.ensureCtx();
+    const feed = fed || SS.audio.backingFed;
+    const sr = sampleRate || ctx.sampleRate; // fréquence du rendu : celle de la sortie, ou plus basse (téléphone : moitié moins de calcul)
     const PRE = 0.08; // la première note part 0,08 s après le début du rendu (js/render.js, PREROLL)
     const sub = range === 'song' ? { ...proj, song: proj.song.slice(from) } : proj;
     const plan = SS.render.prepare(sub, { range, loops: 2 });
     // chanson : 4 s de queue (reverbs) ; scène : deux passages, on boucle sur le second (il contient les queues du premier)
     const half = plan.songSeconds / 2;
     const seconds = range === 'song' ? PRE + plan.songSeconds + 4 : PRE + plan.songSeconds + 0.05;
-    const key = range + '|' + plan.json;
+    const key = range + '|' + sr + '|' + plan.json;
     const backing = preTiming(proj, range, from, PRE, half);
     const cached = preCache.get(key);
     if (cached) return Object.assign(backing, { buffer: cached });
     backing.chunks = [];
     let have = 0;
     let first = null; // [secondes rendues, heure] au premier morceau : la vitesse se mesure ensuite (sans le chargement des sons)
-    const r = await SS.render.renderOnce(plan.json, { seconds, sampleRate: ctx.sampleRate, seed: 1 }, {
+    const r = await SS.render.renderOnce(plan.json, { seconds, sampleRate: sr, seed: 1 }, {
       signal,
       onProgress: (f) => onProgress && onProgress(Math.min(99, Math.round(f * 100))),
       onChunk: ({ frame, left, right }) => {
         if (signal.aborted) return;
-        const buf = ctx.createBuffer(2, left.length, ctx.sampleRate);
+        const buf = ctx.createBuffer(2, left.length, sr);
         buf.copyToChannel(left, 0);
         buf.copyToChannel(right, 1);
-        backing.chunks.push({ start: frame / ctx.sampleRate, buf });
-        have = (frame + left.length) / ctx.sampleRate;
-        SS.audio.backingFed(backing);
+        backing.chunks.push({ start: frame / sr, buf });
+        have = (frame + left.length) / sr;
+        feed(backing);
         const now = performance.now();
         if (!first) first = [have, now];
         const rate = now > first[1] ? (have - first[0]) / ((now - first[1]) / 1000) : 0;
-        if (ready && backing.chunks.length >= 2 && streamReady(have, seconds, rate)) ready(backing);
+        if (ready && backing.chunks.length >= 2 && streamReady(have, seconds, rate, { trust, margin })) ready(backing);
       },
     });
     const buffer = ctx.createBuffer(2, r.left.length, r.sampleRate);
@@ -73,7 +79,7 @@ SS.preListen = (() => {
       backing.chunks.push({ start: have, buf: tail });
     }
     backing.buffer = buffer;
-    SS.audio.backingFed(backing);
+    feed(backing);
     return backing;
   }
   /** Où tombe chaque pas dans l'enregistrement : { timeOf(bloc, répétition, pas), loop } (sans le son). */
