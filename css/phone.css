@@ -175,3 +175,13 @@ button { cursor: pointer; }
 .ph-act.del b { color: var(--c-red); }
 .ph-act:disabled { opacity: 0.35; }
 .ph-danger { background: var(--c-red); color: var(--c-text); }
+
+/* M et S à côté de « Ne joue pas » (écoute seulement) */
+.ph-moline { display: flex; gap: 6px; }
+.ph-moline .ph-mo { flex: 1; }
+.ph-ms { flex: none; width: 48px; min-height: 48px; border-radius: 10px; border: 1px solid var(--c-line); background: var(--c-panel-2); color: var(--c-muted); font-weight: 800; font-size: var(--fs-lg); }
+.ph-ms.mute.on { background: var(--c-blue); border-color: var(--c-blue); color: var(--c-text); }
+.ph-ms.solo.on { background: var(--c-yellow); border-color: var(--c-yellow); color: var(--c-bg-deep); }
+.ph-mixtag { flex: none; margin-left: auto; border-radius: 6px; padding: 2px 7px; font-size: var(--fs-xs); font-weight: 700; }
+.ph-mixtag.solo { background: var(--c-yellow); color: var(--c-bg-deep); }
+.ph-mixtag.mute { background: var(--c-blue); color: var(--c-text); }
