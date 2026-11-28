@@ -142,18 +142,56 @@
   function renderMus() {
     const r = S.recipe;
     top('Musiciens');
-    $('#phBody').innerHTML = P.MUSICIANS.map((m) => {
+    const list = P.players(r);
+    const rows = list.map((m) => {
       const st = r.mus[m.id];
       const opts = P.sounds(m.id, r).map((s, i) => `<option value="${i}"${i === st.pick ? ' selected' : ''}>${esc(s.label)}</option>`).join('');
-      return `<div class="ph-mus${st.on ? ' on' : ''}" style="--mc:${m.color}" data-act="mus" data-id="${m.id}"><div class="ic">${m.icon}</div><div><div class="t">${m.label}</div><select data-id="${m.id}" aria-label="Son : ${m.label}">${opts}</select></div><button class="ph-ck" data-act="mus" data-id="${m.id}" aria-label="${st.on ? 'Retirer' : 'Ajouter'} : ${m.label}">✓</button></div>`;
+      return `<div class="ph-mus on" style="--mc:${m.color}"><div class="ic">${m.icon}</div><div><div class="t">${m.label}</div><select data-id="${m.id}" aria-label="Son : ${m.label}">${opts}</select></div><button class="ph-x" data-act="mrem" data-id="${m.id}" aria-label="Retirer : ${m.label}"${list.length > 1 ? '' : ' disabled'}>✕</button></div>`;
     }).join('');
+    const full = list.length >= P.MAX_PLAYERS;
+    $('#phBody').innerHTML = `${rows}<button class="ph-addmu" data-act="madd"${full ? ' disabled' : ''}>＋ Ajouter un musicien</button>`;
     $('#phBody').querySelectorAll('select').forEach((sel) => sel.addEventListener('change', () => {
-      const st = S.recipe.mus[sel.dataset.id];
-      st.pick = +sel.value;
-      st.on = true;
+      S.recipe.mus[sel.dataset.id].pick = +sel.value;
       renderMus();
       renderFoot();
     }));
+  }
+  /** Feuille « Ajouter un musicien » : les quatre types (une seule Batterie, deux des autres, 6 musiciens au plus). */
+  function addMusSheet() {
+    closeSheet();
+    const r = S.recipe;
+    const el = document.createElement('div');
+    el.className = 'ph-veil';
+    const tiles = P.MUSICIANS.map((m) => {
+      const ok = P.canAdd(r, m.id);
+      const why = ok ? '' : m.id === 'drums' && r.mus.drums.on ? 'déjà là' : r.mus[m.id].on && r.mus[m.id + '2'] && r.mus[m.id + '2'].on ? 'déjà deux' : '';
+      return `<button class="ph-kind" style="--mc:${m.color}" data-act="maddk" data-k="${m.id}"${ok ? '' : ' disabled'}><b>${m.icon}</b>${m.label}${why ? `<small>${why}</small>` : ''}</button>`;
+    }).join('');
+    el.innerHTML = `<div class="ph-sheet" role="dialog" aria-label="Ajouter un musicien"><h3>Ajouter un musicien</h3><div class="ph-kinds">${tiles}</div><button class="ph-more" data-act="sheetno">Annuler</button></div>`;
+    el.addEventListener('click', (e) => e.target === el && closeSheet());
+    document.body.appendChild(el);
+  }
+  /** Retire un musicien ; avec des parties retouchées (Pas, Jouer), on demande d'abord (pas de Ctrl+Z sur le téléphone). */
+  function removeMus(id, sure = false) {
+    const r = S.recipe;
+    const m = P.playerInfo(id);
+    if (!m || P.players(r).length <= 1) return;
+    if (!sure && P.hasEdits(r, id)) {
+      closeSheet();
+      const el = document.createElement('div');
+      el.className = 'ph-veil';
+      el.innerHTML = `<div class="ph-sheet" role="dialog" aria-label="Retirer"><h3>Retirer ${esc(m.label)} ?</h3>
+        <div class="ph-meta">Ses parties retouchées (Pas, Jouer) seront oubliées.</div>
+        <button class="ph-next ph-danger" data-act="mremok" data-id="${esc(id)}">Retirer</button><button class="ph-more" data-act="sheetno">Annuler</button></div>`;
+      el.addEventListener('click', (e) => e.target === el && closeSheet());
+      document.body.appendChild(el);
+      return;
+    }
+    closeSheet();
+    P.removePlayer(r, id);
+    ['mute', 'solo'].forEach((k) => (S.mix[k] = S.mix[k].filter((x) => x !== id)));
+    renderMus();
+    renderFoot();
   }
 
   /* ---------- Scènes ---------- */
@@ -207,13 +245,13 @@
   }
 
   /* ---------- Qui joue quoi ---------- */
-  const musOn = () => P.MUSICIANS.filter((m) => S.recipe.mus[m.id].on);
+  const musOn = () => P.players(S.recipe);
   function renderParts() {
     const r = S.recipe;
     top('Qui joue quoi');
     const types = P.sceneTypes(r);
     const head = types.map((id) => `<span class="ph-mxh" style="--sc:${P.sceneType(id).color}">${P.sceneType(id).label}</span>`).join('');
-    const rows = musOn().map((m) => `<span class="ph-mxi" aria-label="${m.label}">${m.icon}</span>` + types.map((sc) => {
+    const rows = musOn().map((m) => `<span class="ph-mxi" aria-label="${m.label}">${m.icon}${P.isSecond(m.id) ? '<small>2</small>' : ''}</span>` + types.map((sc) => {
       const p = P.partLabel(r, m.id, sc);
       const ed = p.plays && !!P.editOf(r, m.id, sc); // partie retouchée (Pas, Jouer)
       return `<button class="ph-mxc${p.plays ? '' : ' off'}${(p.id && p.id !== 'off') || ed ? ' own' : ''}" style="--mc:${m.color}" data-act="cell" data-mu="${m.id}" data-sc="${sc}" aria-label="${m.label}, ${P.sceneType(sc).label} : ${esc(p.name)}${ed ? ' retouchée' : ''}">${p.plays ? esc(p.name) + (ed ? ' ✎' : '') : '—'}</button>`;
@@ -234,7 +272,8 @@
     const rects = rows.flatMap(([lane, y]) => [...lane].map((c, i) => (c === '-' ? '' : `<rect x="${i * 10 + 1}" y="${y}" width="8" height="7" rx="1.5" fill="currentColor" opacity="${c === 'x' ? 1 : c === 'o' ? 0.7 : 0.4}"/>`))).join('');
     return `<svg viewBox="0 0 160 34" preserveAspectRatio="none" aria-hidden="true">${rects}</svg>`;
   }
-  function motifSvg(mu, id) {
+  function motifSvg(mu0, id) {
+    const mu = P.kindOf(mu0);
     try {
       if (mu === 'drums') return drumSvg(id);
       if (mu === 'bass') return SS.bassMotifs.svg(id, 16);
@@ -246,15 +285,15 @@
   }
   function renderPart() {
     const { mu, sc } = S.cell;
-    const m = P.MUSICIANS.find((x) => x.id === mu);
+    const m = P.playerInfo(mu);
     top(`${m.label} · ${P.sceneType(sc).label}`);
-    const motifsOnly = mu === 'pad'; // la Nappe : ses motifs seulement (pas de Pas ni de Jouer)
+    const motifsOnly = m.kind === 'pad'; // la Nappe : ses motifs seulement (pas de Pas ni de Jouer)
     if (motifsOnly) S.tab = 'motifs';
     const tabs = [['motifs', 'Motifs'], ['pas', 'Pas'], ['jouer', 'Jouer']].map(([id, l]) => `<button data-act="tab" data-tab="${id}" class="${S.tab === id ? 'on' : ''}"${motifsOnly && id !== 'motifs' ? ' disabled' : ''}>${l}</button>`).join('');
     const body = S.tab === 'pas' ? pasHtml(m) : S.tab === 'jouer' ? jouerHtml(m) : motifsHtml();
     $('#phBody').innerHTML = `<div class="ph-tabrow"><div class="ph-seg ph-tabs">${tabs}</div><span id="phTip"></span></div>${body}`;
     const tip = S.tab === 'pas'
-      ? (mu === 'bass' ? 'Une mesure de 16 pas, qui se répète sur toute la scène. Les lignes suivent l’accord en cours : « Fondamentale » joue la note de l’accord, « Quinte » sa quinte… Une note tient jusqu’à la suivante.' : mu === 'keys' ? 'Une mesure de 16 pas, qui se répète sur toute la scène. « Accord » : la main droite joue l’accord en cours ; « Basse » : la main gauche joue sa fondamentale. Un accord tient jusqu’au suivant.' : 'Une mesure de 16 pas, qui se répète sur toute la scène. Touchez un pas pour poser ou enlever un coup.')
+      ? (m.kind === 'bass' ? 'Une mesure de 16 pas, qui se répète sur toute la scène. Les lignes suivent l’accord en cours : « Fondamentale » joue la note de l’accord, « Quinte » sa quinte… Une note tient jusqu’à la suivante.' : m.kind === 'keys' ? 'Une mesure de 16 pas, qui se répète sur toute la scène. « Accord » : la main droite joue l’accord en cours ; « Basse » : la main gauche joue sa fondamentale. Un accord tient jusqu’au suivant.' : 'Une mesure de 16 pas, qui se répète sur toute la scène. Touchez un pas pour poser ou enlever un coup.')
       : S.tab === 'jouer' ? 'Touchez les pads pour jouer. Avec ● la scène tourne en boucle et ce que vous jouez est posé sur le pas le plus proche ; touchez ● encore pour arrêter et entendre le résultat.' : '';
     if (tip) $('#phTip').appendChild(SS.helpTip(tip, S.tab === 'pas' ? 'Pas' : 'Jouer'));
     nowLoop();
@@ -266,7 +305,7 @@
   }
   /** Rappel des M et S en cours, dans la barre d'écoute (« Solo : Basse »). */
   function mixTag() {
-    const names = (ids) => ids.map((id) => P.MUSICIANS.find((m) => m.id === id).label).join(', ');
+    const names = (ids) => ids.map((id) => (P.playerInfo(id) || { label: id }).label).join(', ');
     if (S.mix.solo.length) return `<span class="ph-mixtag solo">Solo : ${esc(names(S.mix.solo))}</span>`;
     if (S.mix.mute.length) return `<span class="ph-mixtag mute">Coupé : ${esc(names(S.mix.mute))}</span>`;
     return '';
@@ -284,7 +323,7 @@
     return [
       edited ? `<button class="ph-mo on" data-act="tab" data-tab="pas"><span class="t">✎ Ma version (${esc(P.partLabel(r, mu, sc).name)} retouché)</span></button>` : '',
       `<div class="ph-moline">${row('off', 'Ne joue pas')}${msBtn('mute', 'M', 'Couper ce musicien à l’écoute')}${msBtn('solo', 'S', 'N’entendre que ce musicien')}</div>`,
-      plan.id ? row(null, `Modèle : ${plan.name}`, { svg: plan.id && mu !== 'drums' ? motifSvg(mu, plan.id) : '' }) : '',
+      plan.id ? row(null, `Modèle : ${plan.name}`, { svg: plan.id && P.kindOf(mu) !== 'drums' ? motifSvg(mu, plan.id) : '' }) : '',
       stars.length ? '<div class="ph-lbl">★ Pour cette scène</div>' : '',
       ...stars.map((id) => row(id, P.motifName(mu, id, r), { star: true, svg: motifSvg(mu, id) })),
       S.allOpen ? `<div class="ph-lbl">Tous les motifs (${all.length})</div>` : `<button class="ph-more" data-act="more">Tous les motifs (${all.length})</button>`,
@@ -321,7 +360,7 @@
     const from = S.page * 8;
     const cols = Array.from({ length: 8 }, (_, k) => from + k);
     const head = cols.map((i) => `<span class="ph-pash${i % 4 === 0 ? ' beat' : ''}" data-col="${i}">${i % 4 === 0 ? i / 4 + 1 : '·'}</span>`).join('');
-    const rows = pasRows(m.id, e).map((row) => `<span class="ph-pasl">${esc(row.name)}</span>` + cols.map((i) => {
+    const rows = pasRows(m.kind, e).map((row) => `<span class="ph-pasl">${esc(row.name)}</span>` + cols.map((i) => {
       const c = row.cls(i);
       return `<button class="ph-pc ${c}${i % 4 === 0 ? ' beat' : ''}" data-act="pas" data-row="${esc(row.id)}" data-i="${i}" data-col="${i}" aria-label="${esc(row.name)}, pas ${i + 1}${c.startsWith('on') ? ' (posé)' : ''}">${esc(row.txt(i))}</button>`;
     }).join('')).join('');
@@ -343,7 +382,7 @@
     relTimer = setTimeout(() => play && play.id === DRAFT && !S.rec && playDraft(S.cell.sc), 900);
   }
   function tapPas(rowId, i) {
-    const { mu } = S.cell;
+    const mu = P.kindOf(S.cell.mu);
     const e = cellEdit();
     if (mu === 'drums') {
       const lane = e[rowId];
@@ -369,8 +408,8 @@
   };
   function jouerHtml(m) {
     const chord = curChord();
-    const head = m.id === 'drums' ? '' : `<div class="ph-chord">Accord : <b id="phChord">${esc(chord ? chord.name : '')}</b></div>`;
-    return `${head}<div class="ph-pads ${m.id}" style="--mc:${m.color}">${PADS[m.id].map(([id, name]) => `<button class="ph-pad" data-pad="${esc(id)}">${esc(name)}</button>`).join('')}</div>
+    const head = m.kind === 'drums' ? '' : `<div class="ph-chord">Accord : <b id="phChord">${esc(chord ? chord.name : '')}</b></div>`;
+    return `${head}<div class="ph-pads ${m.kind}" style="--mc:${m.color}">${PADS[m.kind].map(([id, name]) => `<button class="ph-pad" data-pad="${esc(id)}">${esc(name)}</button>`).join('')}</div>
       <div class="ph-row"><button class="ph-rec${S.rec ? ' on' : ''}" data-act="rec" aria-label="${S.rec ? 'Arrêter l’enregistrement' : 'Enregistrer'}">●</button><button class="ph-more" data-act="clear">Effacer</button></div>`;
   }
   /** Pas de la scène qu'on entend (depuis son début, en boucle), ou null si rien ne joue. */
@@ -404,7 +443,8 @@
   const DRUM_SND = Object.fromEntries(P.DRUM_LANES.map(([k, snd]) => [k, snd]));
   /** Fait entendre un pad : un coup de batterie, une note de basse ou un accord du clavier sur l'accord du pas. */
   function previewPad(id, step = null) {
-    const { mu, sc } = S.cell;
+    const { sc } = S.cell;
+    const mu = P.kindOf(S.cell.mu);
     const tracks = padTracks();
     SS.audio.ensureCtx(); // réveille le moteur s'il était en veille
     quietLater();
@@ -414,7 +454,7 @@
     }
     const chord = step == null ? curChord() : P.chordAt(S.recipe, sc, step);
     if (!chord) return;
-    const t = tracks.find((x) => x.band && x.band.key === mu);
+    const t = tracks.find((x) => x.band && x.band.key === mu && P.playerOfTrack(x) === S.cell.mu); // Clavier 2 : sa propre piste
     if (!t) return;
     if (mu === 'bass') return SS.audio.preview(t, 36 + chord.rootPc + P.rowSemis(typeof id === 'string' && /^-?\d+$/.test(id) ? +id : id, chord), 0.4);
     const third = P.rowSemis('t', chord);
@@ -441,7 +481,7 @@
     const st = heardStep();
     if (st == null) return;
     const i = Math.round(st) % P.STEPS;
-    const { mu } = S.cell;
+    const mu = P.kindOf(S.cell.mu);
     const e = cellEdit();
     if (mu === 'drums') e[id] = e[id].slice(0, i) + 'x' + e[id].slice(i + 1);
     const v = mu === 'drums' ? e : mu === 'bass' ? P.toggleBass(e, i, /^-?\d+$/.test(id) ? +id : id, { keep: true }) : P.keysPat(P.toggleKeys(e, i, P.isLH(id) ? 'lh' : 'rh', { tok: id, keep: true }));
@@ -499,7 +539,7 @@
     const v = view();
     if (v === 'style') $('#phFoot').innerHTML = ''; // toucher une tuile passe à l'étape suivante
     else if (v === 'tempo' || v === 'musiciens') {
-      const none = v === 'musiciens' && !P.MUSICIANS.some((m) => S.recipe.mus[m.id].on);
+      const none = v === 'musiciens' && !P.players(S.recipe).length;
       $('#phFoot').innerHTML = `<button class="ph-next" data-act="next"${none ? ' disabled' : ''}>Suivant</button>`;
     } else if (v === 'scenes') {
       $('#phFoot').innerHTML = `<button class="ph-next" data-act="next"${S.recipe.scenes.length ? '' : ' disabled'}>Suivant</button>`;
@@ -580,7 +620,7 @@
     const el = document.createElement('div');
     el.className = 'ph-veil';
     el.innerHTML = `<div class="ph-sheet" role="dialog" aria-label="Modifier sur le téléphone"><h3>Modifier « ${esc(s.title)} » sur le téléphone</h3>
-      <div class="ph-keep"><div>Tempo, tonalité, scènes</div><div>Batterie, basse, clavier et leurs motifs</div></div>
+      <div class="ph-keep"><div>Tempo, tonalité, scènes</div><div>Les musiciens et leurs motifs</div></div>
       <div class="ph-lose"><div>Mix, effets et réglages fins faits sur l’ordinateur : refaits par le téléphone</div></div>
       <div class="ph-meta">L’ancienne version reste dans les versions de la chanson.</div>
       <button class="ph-next" data-act="editok" data-id="${esc(s.id)}">Modifier</button><button class="ph-more" data-act="sheetno">Annuler</button></div>`;
@@ -809,12 +849,14 @@
       r.mode = b.dataset.m;
       return renderTempo();
     }
-    if (act === 'mus') {
-      const st = r.mus[b.dataset.id];
-      st.on = !st.on;
+    if (act === 'madd') return addMusSheet();
+    if (act === 'maddk') {
+      closeSheet();
+      P.addPlayer(r, b.dataset.k);
       renderMus();
       return renderFoot();
     }
+    if (act === 'mrem' || act === 'mremok') return removeMus(b.dataset.id, act === 'mremok');
     if (act === 'next') return go(STEPS[STEPS.indexOf(view()) + 1]);
     if (act === 'style') {
       S.recipe = P.fresh(b.dataset.id); // un autre style : la chanson repart de son modèle
@@ -873,7 +915,7 @@
       return renderPart();
     }
     if (act === 'clear' || act === 'reset') {
-      const { mu } = S.cell;
+      const mu = P.kindOf(S.cell.mu);
       if (act === 'reset') saveEdit(null);
       else saveEdit(mu === 'drums' ? Object.fromEntries(P.DRUM_LANES.map(([k]) => [k, '-'.repeat(P.STEPS)])) : mu === 'bass' ? [] : P.keysPat(new Array(P.STEPS).fill('')));
       return renderPart();

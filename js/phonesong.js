@@ -7,8 +7,8 @@
  * ordinaire : elle s'ouvre telle quelle dans la Grille. La recette y est rangée (project.phone) pour être reprise
  * sur le téléphone.
  *
- *   recipe = { v: 1, tempo, tonic: 0..11, mode: 'major' | 'minor', mus: { drums, bass, keys }, scenes: ['intro', 'verse', …] }
- *   mus[id] = { on, pick } : pick = indice du son dans la liste du musicien (SOUNDS)
+ *   recipe = { v: 1, style, tempo, tonic: 0..11, mode: 'major' | 'minor', mus: { drums, bass, bass2, keys, keys2, pad, pad2 }, scenes: ['intro', 'verse', …] }
+ *   mus[id] = { on, pick } : pick = indice du son dans la liste du musicien (sounds). « keys2 » : un second Clavier (PLAYERS)
  *   parts = { [type de scène]: { [musicien]: motif | 'off' } } : la partie jouée par chaque musicien dans chaque type de
  *     scène (« Qui joue quoi ») ; absente, le musicien joue la partie du plan. Les scènes de même type (deux couplets)
  *     jouent la même partie, comme dans l'assistant.
@@ -33,6 +33,61 @@ SS.phoneSong = (() => {
     // téléphone seulement : la nappe (cordes ou pad) du modèle, absente au départ (offAtStart)
     { id: 'pad', label: 'Nappe', icon: '🎻', color: 'var(--c-blue)', offAtStart: true },
   ];
+  /**
+   * Musiciens de la chanson (écran Musiciens : liste où l'on ajoute et retire) : une Batterie au plus, deux Basses, deux
+   * Claviers, deux Nappes, 6 au plus. Le second d'un type (« keys2 ») joue comme un musicien ajouté de l'assistant
+   * (identifiant x1, x2, x3 sur sa piste) : sa propre partie dans chaque scène, le ★ de la scène au départ.
+   */
+  const PLAYERS = ['drums', 'bass', 'bass2', 'keys', 'keys2', 'pad', 'pad2'];
+  const MAX_PLAYERS = 6;
+  const SECOND = { bass: 'x1', keys: 'x2', pad: 'x3' };
+  const kindOf = (id) => String(id || '').replace(/2$/, '');
+  const isSecond = (id) => /2$/.test(String(id || ''));
+  /** Fiche d'un musicien de la chanson : { id, kind, label (« Clavier 2 »), icon, color }. */
+  function playerInfo(id) {
+    const m = MUSICIANS.find((x) => x.id === kindOf(id));
+    return m ? { ...m, id, kind: m.id, label: isSecond(id) ? `${m.label} 2` : m.label } : null;
+  }
+  /** Musiciens présents, dans l'ordre de l'écran. */
+  const players = (r) => PLAYERS.filter((id) => r.mus && r.mus[id] && r.mus[id].on).map(playerInfo);
+  /** Peut-on ajouter un musicien de ce type ? */
+  function canAdd(r, kind) {
+    if (players(r).length >= MAX_PLAYERS || !MUSICIANS.some((m) => m.id === kind)) return false;
+    if (!r.mus[kind].on) return true;
+    return kind !== 'drums' && !r.mus[kind + '2'].on;
+  }
+  /** Ajoute un musicien de ce type (le premier libre) ; son identifiant, ou null. */
+  function addPlayer(r, kind) {
+    if (!canAdd(r, kind)) return null;
+    const id = r.mus[kind].on ? kind + '2' : kind;
+    r.mus[id] = { on: true, pick: 0 };
+    forget(r, id);
+    return id;
+  }
+  /** Retire un musicien : ses parties et ses retouches sont oubliées. */
+  function removePlayer(r, id) {
+    if (!r.mus[id]) return;
+    r.mus[id] = { on: false, pick: 0 };
+    forget(r, id);
+  }
+  function forget(r, id) {
+    ['parts', 'edits'].forEach((k) => Object.keys(r[k] || {}).forEach((sc) => {
+      delete r[k][sc][id];
+      if (!Object.keys(r[k][sc]).length) delete r[k][sc];
+    }));
+  }
+  /** Identifiant du musicien sur sa piste (band.musician) : celui du modèle, ou x1/x2/x3 pour le second d'un type. */
+  const bandMuOf = (id, r) => (isSecond(id) ? SECOND[kindOf(id)] : musician(kindOf(id), r).id);
+  /** Identifiant d'instrument de l'assistant (« musicien:clé », js/bandsong.js) : réglages parts[section].inst[id]. */
+  const instOf = (id, r) => `${bandMuOf(id, r)}:${musician(kindOf(id), r).role}`;
+  /** Musicien de la chanson qui joue une piste construite (« keys2 »), ou null. */
+  function playerOfTrack(t) {
+    const role = roleOf(t);
+    if (!MUSICIANS.some((m) => m.id === role)) return null;
+    return /^x\d+$/.test((t.band && t.band.musician) || '') ? role + '2' : role;
+  }
+  /** Le musicien a-t-il des parties retouchées (Pas, Jouer) ? */
+  const hasEdits = (r, id) => Object.values(r.edits || {}).some((row) => row && row[id]);
   /** Sons de la Nappe : les cordes d'abord, avec des noms simples (les sons du modèle, sans le Juno). */
   const PAD_SOUNDS = [['gm_string_ensemble_1', 'Cordes'], ['gm_synth_strings_1', 'Cordes synthé'], ['syn_softpad', 'Nappe douce'], ['gm_pad_warm', 'Nappe chaude'], ['syn_superpad', 'Super nappe']];
 
@@ -99,7 +154,8 @@ SS.phoneSong = (() => {
    * Sons proposés pour un musicien : les kits de la batterie, les choix de la basse et du piano. Les synthés Juno (« j: »)
    * sont laissés de côté : ils sont trop lourds à calculer sur un téléphone.
    */
-  function sounds(id, x) {
+  function sounds(id0, x) {
+    const id = kindOf(id0);
     const mu = musician(id, x);
     if (!mu) return [];
     if (id === 'pad') {
@@ -129,7 +185,7 @@ SS.phoneSong = (() => {
       tempo: st.tempo,
       tonic: st.tonic,
       mode: st.mode,
-      mus: Object.fromEntries(MUSICIANS.map((m) => [m.id, { on: m.id === 'pad' ? !!st.padOn : !m.offAtStart, pick: 0 }])),
+      mus: Object.fromEntries(PLAYERS.map((id) => [id, { on: isSecond(id) ? false : id === 'pad' ? !!st.padOn : !MUSICIANS.find((m) => m.id === id).offAtStart, pick: 0 }])),
       scenes: ['intro', 'verse', 'chorus', 'verse', 'chorus', 'outro'],
       parts: {},
       edits: {},
@@ -143,15 +199,17 @@ SS.phoneSong = (() => {
     const f = fresh(style);
     const int = (x, lo, hi, d) => (Number.isFinite(x) ? Math.min(hi, Math.max(lo, Math.round(x))) : d);
     const mus = {};
-    MUSICIANS.forEach((m) => {
-      const x = (r.mus && r.mus[m.id]) || {};
-      mus[m.id] = { on: m.offAtStart ? x.on === true : x.on !== false, pick: int(x.pick, 0, Math.max(0, sounds(m.id, style).length - 1), 0) };
+    PLAYERS.forEach((id) => {
+      const x = (r.mus && r.mus[id]) || {};
+      const offAtStart = isSecond(id) || MUSICIANS.find((m) => m.id === id).offAtStart;
+      mus[id] = { on: offAtStart ? x.on === true : x.on !== false, pick: int(x.pick, 0, Math.max(0, sounds(id, style).length - 1), 0) };
     });
+    while (PLAYERS.filter((id) => mus[id].on).length > MAX_PLAYERS) mus[[...PLAYERS].reverse().find((id) => mus[id].on)].on = false;
     const scenes = Array.isArray(r.scenes) ? r.scenes.filter((s) => sceneType(s)).slice(0, 24) : f.scenes;
     const parts = {};
     Object.entries((r.parts && typeof r.parts === 'object' && r.parts) || {}).forEach(([sc, row]) => {
       if (!sceneType(sc) || !row || typeof row !== 'object') return;
-      MUSICIANS.forEach(({ id }) => {
+      PLAYERS.forEach((id) => {
         const v = row[id];
         if (v === 'off' || (typeof v === 'string' && motifs(id, style).includes(v))) (parts[sc] = parts[sc] || {})[id] = v;
       });
@@ -159,7 +217,7 @@ SS.phoneSong = (() => {
     const edits = {};
     Object.entries((r.edits && typeof r.edits === 'object' && r.edits) || {}).forEach(([sc, row]) => {
       if (!sceneType(sc) || !row || typeof row !== 'object') return;
-      MUSICIANS.forEach(({ id }) => {
+      PLAYERS.forEach((id) => {
         const v = cleanEdit(id, row[id]);
         if (v) (edits[sc] = edits[sc] || {})[id] = v;
       });
@@ -294,12 +352,12 @@ SS.phoneSong = (() => {
     const p = preset(r);
     const sty = styleOf(r);
     const out = [];
-    MUSICIANS.forEach(({ id }) => {
+    PLAYERS.forEach((id) => {
       const st = r.mus[id];
-      const mu = musician(id, r);
+      const mu = musician(kindOf(id), r);
       if (!st || !st.on || !mu) return;
       const color = B().ROLES[mu.role].color;
-      const tag = (sound) => ({ style: sty.band, preset: p.id, musician: mu.id, key: mu.role + (sound ? ':' + sound : '') });
+      const tag = (sound) => ({ style: sty.band, preset: p.id, musician: bandMuOf(id, r), key: mu.role + (sound ? ':' + sound : '') });
       const tok = (sounds(id, r)[st.pick] || sounds(id, r)[0]).tok;
       if (mu.kits) {
         mu.pieces.forEach((pc) => {
@@ -308,7 +366,7 @@ SS.phoneSong = (() => {
         });
       } else {
         const cat = catOf(mu);
-        out.push({ ...B().choiceOpts(tok, cat), category: cat, arpOn: false, name: B().ROLES[mu.role].short, color, band: tag(null), levelKey: `${mu.role}|${tok}|${cat}` });
+        out.push({ ...B().choiceOpts(tok, cat), category: cat, arpOn: false, name: B().ROLES[mu.role].short + (isSecond(id) ? ' 2' : ''), color, band: tag(null), levelKey: `${mu.role}|${tok}|${cat}` });
       }
     });
     return out;
@@ -355,8 +413,6 @@ SS.phoneSong = (() => {
    * Les motifs sont ceux de l'assistant : motifs de batterie du style pop (celui de « Créer de zéro », js/drum-patterns.js,
    * ★ = la nuance de la scène), modes de basse (js/bassmotifs.js, ★ de js/scenestars.js), motifs du Clavier
    * (js/keyboardist.js, Accords puis Arpèges, ★ du fichier de motifs). */
-  /** Identifiant d'instrument de l'assistant (« musicien:clé », js/bandsong.js) : réglages parts[section].inst[id]. */
-  const INST = { bass: 'bass:bass', keys: 'keys:keys', pad: 'pad:pad' };
   /** Jeu de batterie du plan « Créer de zéro » (sec.drums) : son nom à l'écran. */
   const DRUM_PLAN = { hats: 'Charleston seul', main: 'Groove', full: 'Groove plein', break: 'Break', light: 'Léger' };
   const drumList = (x) => SS.DRUM_PATTERNS[styleOf(x).drums] || [];
@@ -366,7 +422,8 @@ SS.phoneSong = (() => {
   /** Motif du Clavier jouable en 4/4 (les chansons du téléphone sont en 4/4). */
   const in44 = (id) => !SS.keyboardist.meterOf(id) || SS.keyboardist.meterOf(id) === '4/4';
   /** Tous les motifs d'un musicien, dans l'ordre du catalogue. */
-  function motifs(mu, x) {
+  function motifs(mu0, x) {
+    const mu = kindOf(mu0);
     if (mu === 'drums') return drumList(x).map((p) => p.id);
     if (mu === 'bass') return SS.bassMotifs ? SS.bassMotifs.inGroup(SS.bassMotifs.groupOfStyle(styleOf(x).band)).filter((id) => !SS.bassMotifs.isMine(id) && SS.bassMotifs.fits(id, 16)) : [];
     if (mu === 'keys') return SS.keyboardist ? [...SS.keyboardist.modesOf('acc'), ...SS.keyboardist.modesOf('arp')].filter(in44) : [];
@@ -374,7 +431,8 @@ SS.phoneSong = (() => {
     return [];
   }
   /** ★ : les motifs conseillés pour ce musicien dans ce type de scène. */
-  function stars(mu, sc, x) {
+  function stars(mu0, sc, x) {
+    const mu = kindOf(mu0);
     if (mu === 'drums') return drumList(x).filter((p) => p.energy === energyOf(sc)).slice(0, 4).map((p) => p.id);
     if (mu === 'bass') return SS.sceneStars && SS.bassMotifs ? SS.sceneStars.sceneStars('bass', sc, styleOf(x).band, { ok: (id) => SS.bassMotifs.fits(id, 16) }) : [];
     if (mu === 'keys') {
@@ -387,7 +445,8 @@ SS.phoneSong = (() => {
     return [];
   }
   /** Nom d'un motif. */
-  function motifName(mu, id, x) {
+  function motifName(mu0, id, x) {
+    const mu = kindOf(mu0);
     if (mu === 'drums') return (drumList(x).find((p) => p.id === id) || { name: id }).name;
     if (mu === 'bass') return SS.bassMotifs ? SS.bassMotifs.name(id) : id;
     if (mu === 'keys') return SS.keyboardist ? SS.keyboardist.name(id) : id;
@@ -395,7 +454,15 @@ SS.phoneSong = (() => {
     return id;
   }
   /** Ce que joue le plan pour ce musicien dans ce type de scène : { id, name } ; id null si le musicien ne joue pas. */
-  function planPart(mu, sc, x) {
+  function planPart(mu0, sc, x) {
+    const mu = kindOf(mu0);
+    if (isSecond(mu0)) {
+      // le second d'un type : le premier ★ de la scène qui ne double pas le premier musicien
+      const main = planPart(mu, sc, x).id;
+      const st = stars(mu, sc, x);
+      const id = st.find((m) => m !== main) || st[0] || main || motifs(mu, x)[0];
+      return id ? { id, name: motifName(mu, id, x) } : { id: null, name: 'Ne joue pas' };
+    }
     const sec = sceneType(sc) ? secOf(typeof x === 'object' && x ? x : { style: styleOf(x).id, mode: 'major', scenes: [] }, sc) : {};
     const m = mu === 'drums' ? sec.drums : mu === 'bass' ? sec.bass : mu === 'pad' ? sec.pad : sec.keys;
     if (!m) return { id: null, name: 'Ne joue pas' };
@@ -427,24 +494,34 @@ SS.phoneSong = (() => {
   /** Réglages par scène pour SS.bandSong.build (option parts). */
   function buildParts(r) {
     const out = {};
-    const types = new Set([...Object.keys(r.parts || {}), ...Object.keys(r.edits || {})]);
+    const seconds = PLAYERS.filter((id) => isSecond(id) && r.mus[id] && r.mus[id].on);
+    // un second musicien joue toujours une partie dite (sinon le moteur lui donnerait celle du premier)
+    const types = new Set([...Object.keys(r.parts || {}), ...Object.keys(r.edits || {}), ...(seconds.length ? r.scenes : [])]);
     types.forEach((sc) => {
       const row = (r.parts && r.parts[sc]) || {};
       const ed = (r.edits && r.edits[sc]) || {};
       const p = {};
       const off = [];
-      MUSICIANS.forEach(({ id: mu }) => {
-        const role = musician(mu, r) && musician(mu, r).role;
-        const v = row[mu];
-        if (!role) return;
-        if (v === 'off') return off.push(role);
-        const e = ed[mu];
-        if (mu === 'drums') {
+      const inst = (id, v) => ((p.inst = p.inst || {})[instOf(id, r)] = v);
+      PLAYERS.forEach((id) => {
+        const kind = kindOf(id);
+        const mu = musician(kind, r);
+        if (!mu || !mu.role || !r.mus[id] || !r.mus[id].on) return;
+        const v = row[id];
+        if (kind === 'drums') {
+          if (v === 'off') return off.push(mu.role);
+          const e = ed[id];
           if (e) p.drums = { pattern: v || drumList(r)[0].id, style: styleOf(r).drums, edits: { bars: 1, ...e } };
           else if (v) p.drums = { pattern: v, style: styleOf(r).drums };
-        } else if (mu === 'bass' && e) (p.inst = p.inst || {})[INST.bass] = { mode: bassId(e) };
-        else if (mu === 'keys' && e) (p.inst = p.inst || {})[INST.keys] = { mode: v || planPart(mu, sc, r).id || 'sustain', keys: { pat: e } };
-        else if (v) (p.inst = p.inst || {})[INST[mu]] = { mode: v };
+          return;
+        }
+        if (v === 'off') return inst(id, { off: true }); // seul ce musicien se tait (pas l'autre du même type)
+        const e = ed[id];
+        const m = v || (isSecond(id) ? planPart(id, sc, r).id : null);
+        if (kind === 'bass' && e) inst(id, { mode: bassId(e) });
+        else if (kind === 'keys' && e) inst(id, { mode: m || planPart(id, sc, r).id || 'sustain', keys: { pat: e } });
+        else if (m) inst(id, { mode: m });
+        else if (isSecond(id)) inst(id, { off: true });
       });
       if (off.length) p.off = off;
       if (Object.keys(p).length) out[sc] = p;
@@ -462,7 +539,8 @@ SS.phoneSong = (() => {
   /** Jetons de la main gauche du Clavier (les autres sont ceux de la main droite). */
   const isLH = (t) => /^(B|b|O|F|L[1358])$/.test(t);
 
-  function cleanEdit(mu, v) {
+  function cleanEdit(mu0, v) {
+    const mu = kindOf(mu0);
     if (mu === 'drums') {
       if (!v || typeof v !== 'object') return null;
       const out = {};
@@ -482,7 +560,7 @@ SS.phoneSong = (() => {
   }
   /** Motifs de basse écrits d'une recette ({ id, name, meter, notes }), à faire connaître au moteur avant la construction. */
   function bassMotifs(r) {
-    return Object.entries(r.edits || {}).filter(([, e]) => e.bass).map(([sc, e]) => ({ id: bassId(e.bass), name: `${sceneType(sc).label} (téléphone)`, meter: '4/4', notes: e.bass }));
+    return Object.entries(r.edits || {}).flatMap(([sc, e]) => ['bass', 'bass2'].filter((id) => e[id]).map((id) => ({ id: bassId(e[id]), name: `${sceneType(sc).label}${isSecond(id) ? ' 2' : ''} (téléphone)`, meter: '4/4', notes: e[id] })));
   }
 
   /** Partie retouchée de ce musicien dans ce type de scène, ou null. */
@@ -502,15 +580,16 @@ SS.phoneSong = (() => {
    * Point de départ de l'écran Pas : ce que joue la partie choisie (motif ou modèle), en une mesure. Batterie : { K, S, H, O } ;
    * basse : notes ; clavier : 16 pas (textes, '' = rien). La partie déjà retouchée l'emporte.
    */
-  function startEdit(r, mu, sc) {
-    const e = editOf(r, mu, sc);
-    if (mu === 'keys') return e ? SS.keyboardist.stepsOf(null, e) : SS.keyboardist.startSteps(partLabel(r, mu, sc).plays ? partOf(r, mu, sc) || planPart(mu, sc, r).id : null);
+  function startEdit(r, mu0, sc) {
+    const mu = kindOf(mu0);
+    const e = editOf(r, mu0, sc);
+    if (mu === 'keys') return e ? SS.keyboardist.stepsOf(null, e) : SS.keyboardist.startSteps(partLabel(r, mu0, sc).plays ? partOf(r, mu0, sc) || planPart(mu0, sc, r).id : null);
     if (e) return JSON.parse(JSON.stringify(e));
-    const p = partLabel(r, mu, sc);
-    if (mu === 'bass') return p.plays && SS.myBass ? SS.myBass.fromMotif(partOf(r, mu, sc) || planPart(mu, sc, r).id).filter((n) => n[0] < STEPS).map((n) => [n[0], Math.min(n[1], STEPS - n[0]), n[2], n[3]]) : [];
+    const p = partLabel(r, mu0, sc);
+    if (mu === 'bass') return p.plays && SS.myBass ? SS.myBass.fromMotif(partOf(r, mu0, sc) || planPart(mu0, sc, r).id).filter((n) => n[0] < STEPS).map((n) => [n[0], Math.min(n[1], STEPS - n[0]), n[2], n[3]]) : [];
     const empty = Object.fromEntries(DRUM_LANES.map(([k]) => [k, '-'.repeat(STEPS)]));
     if (!p.plays) return empty;
-    const pat = partOf(r, mu, sc) && SS.drumPattern(styleOf(r).drums, partOf(r, mu, sc));
+    const pat = partOf(r, mu0, sc) && SS.drumPattern(styleOf(r).drums, partOf(r, mu0, sc));
     if (pat) return Object.fromEntries(DRUM_LANES.map(([k]) => [k, (pat.lanes[k] || '').padEnd(STEPS, '-').slice(0, STEPS).replace(/[^xo.r-]/g, '-')]));
     // jeu du modèle (généré, sans motif écrit) : la première mesure de la scène construite
     const proj = build({ ...r, mus: { ...r.mus, drums: { ...r.mus.drums, on: true } }, scenes: [sc] });
@@ -616,9 +695,9 @@ SS.phoneSong = (() => {
     const mute = (mix && mix.mute) || [];
     const solo = (mix && mix.solo) || [];
     (proj && proj.tracks ? proj.tracks : []).forEach((t) => {
-      const role = roleOf(t);
-      t.mute = !!role && mute.includes(role);
-      t.solo = !!role && solo.includes(role);
+      const id = playerOfTrack(t);
+      t.mute = !!id && mute.includes(id);
+      t.solo = !!id && solo.includes(id);
     });
     return proj;
   }
@@ -630,11 +709,21 @@ SS.phoneSong = (() => {
     const ts = d.timeSig || [4, 4];
     if (ts[0] !== 4 || ts[1] !== 4 || !Array.isArray(d.tracks) || !d.tracks.length || !Array.isArray(d.scenes) || !Array.isArray(d.song) || !d.song.length) return null;
     const byMu = {};
+    const bandMu = {}; // identifiant du musicien sur ses pistes (x5 pour un musicien ajouté de l'assistant)
     for (const t of d.tracks) {
       const role = roleOf(t);
       if (!MUSICIANS.some((m) => m.id === role) || (role === 'drums') !== (t.type === 'drum')) return null; // autre musicien, ou piste de la Grille
-      (byMu[role] = byMu[role] || []).push(t);
+      const id = playerOfTrack(t);
+      const bm = (t.band && t.band.musician) || role;
+      if (bandMu[id] && bandMu[id] !== bm) return null; // trois musiciens du même type
+      if (id === 'drums2') return null; // deux batteries
+      bandMu[id] = bm;
+      (byMu[id] = byMu[id] || []).push(t);
     }
+    if (byMu.bass2 && !byMu.bass) (byMu.bass = byMu.bass2), (bandMu.bass = bandMu.bass2), delete byMu.bass2;
+    if (byMu.keys2 && !byMu.keys) (byMu.keys = byMu.keys2), (bandMu.keys = bandMu.keys2), delete byMu.keys2;
+    if (byMu.pad2 && !byMu.pad) (byMu.pad = byMu.pad2), (bandMu.pad = bandMu.pad2), delete byMu.pad2;
+    if (Object.keys(byMu).length > MAX_PLAYERS) return null;
     const sceneOf = (id) => d.scenes.find((x) => x && x.id === id);
     const used = d.song.map((b) => sceneOf(b && b.scene));
     if (used.some((sc) => !sc || !sceneType(sc.sec))) return null;
@@ -650,7 +739,7 @@ SS.phoneSong = (() => {
     r.tempo = Math.min(TEMPO_MAX, Math.max(TEMPO_MIN, Math.round(+d.tempo || r.tempo)));
     r.tonic = tonic;
     r.mode = key.mode;
-    MUSICIANS.forEach(({ id }) => (r.mus[id] = byMu[id] ? { on: true, pick: pickOf(id, byMu[id], r) } : { on: false, pick: 0 }));
+    PLAYERS.forEach((id) => (r.mus[id] = byMu[id] ? { on: true, pick: pickOf(kindOf(id), byMu[id], r) } : { on: false, pick: 0 }));
     r.scenes = d.song.flatMap((b) => Array.from({ length: Math.max(1, Math.min(8, Math.round(+b.repeat || 1))) }, () => sceneOf(b.scene).sec)).slice(0, 24);
     // motifs choisis dans l'assistant (brouillon rangé dans la chanson)
     const wp = d.wizard && d.wizard.state && d.wizard.state.w && d.wizard.state.w.parts;
@@ -660,24 +749,26 @@ SS.phoneSong = (() => {
         if (!x || typeof x !== 'object') return;
         const off = Array.isArray(x.off) ? x.off : [];
         const inst = (x.inst && typeof x.inst === 'object' && x.inst) || {};
-        const instOf = (mu) => Object.entries(inst).find(([k]) => k.split(':')[0] === mu);
-        MUSICIANS.forEach(({ id: mu }) => {
+        const entryOf = (mu) => Object.entries(inst).find(([k]) => k.split(':')[0] === bandMu[mu]);
+        PLAYERS.forEach((mu) => {
           if (!r.mus[mu].on) return;
-          if (off.includes(musician(mu, r).role)) return setPart(r, mu, sc, 'off');
-          if (mu === 'drums') {
+          const kind = kindOf(mu);
+          const extra = /^x\d+$/.test(bandMu[mu] || '');
+          if (!extra && off.includes(musician(kind, r).role)) return setPart(r, mu, sc, 'off');
+          if (kind === 'drums') {
             const dp = x.drums || {};
             if (dp.pattern && motifs('drums', r).includes(dp.pattern)) setPart(r, mu, sc, dp.pattern);
             const ed = dp.edits;
             if (ed && DRUM_LANES.every(([k]) => !ed[k] || (typeof ed[k] === 'string' && ed[k].length === STEPS))) setEdit(r, mu, sc, ed);
             return;
           }
-          const e = instOf(mu);
+          const e = entryOf(mu);
           if (!e) return;
           const o = e[1] || {};
           if (o.off) return setPart(r, mu, sc, 'off');
           if (o.mode && motifs(mu, r).includes(o.mode)) setPart(r, mu, sc, o.mode);
-          if (mu === 'keys' && o.keys && SS.keyboardist && SS.keyboardist.parsePat(o.keys.pat)) setEdit(r, mu, sc, o.keys.pat);
-          const mine = mu === 'bass' && o.mode && d.bassMotifs && d.bassMotifs[o.mode];
+          if (kind === 'keys' && o.keys && SS.keyboardist && SS.keyboardist.parsePat(o.keys.pat)) setEdit(r, mu, sc, o.keys.pat);
+          const mine = kind === 'bass' && o.mode && d.bassMotifs && d.bassMotifs[o.mode];
           if (mine && SS.myBass) {
             const notes = SS.myBass.cleanNotes(mine.notes, STEPS, 1);
             if (notes.length) setEdit(r, mu, sc, notes);
@@ -694,5 +785,5 @@ SS.phoneSong = (() => {
     return Math.round((bars * 4 * 60) / r.tempo);
   }
 
-  return { STYLES, styleOf, MUSICIANS, SCENES, TEMPO_MIN, TEMPO_MAX, sceneType, sounds, fresh, clean, keyLabel, tonicLabel, spec, barsOf, chordsOf, trackOpts, build, seconds, motifs, stars, motifName, planPart, partLabel, setPart, sceneTypes, buildParts, energyOf, STEPS, DRUM_LANES, BASS_ROWS, rowName, isLH, editOf, setEdit, startEdit, chordAt, rowSemis, toggleBass, toggleKeys, keysPat, bassId, fromProject, listenMix, CHORDS_MAX, romanOf, validRoman, chordName, chordList, chordsEdited, setChords, palette, readyGrids };
+  return { STYLES, styleOf, MUSICIANS, PLAYERS, MAX_PLAYERS, kindOf, isSecond, playerInfo, players, canAdd, addPlayer, removePlayer, hasEdits, playerOfTrack, SCENES, TEMPO_MIN, TEMPO_MAX, sceneType, sounds, fresh, clean, keyLabel, tonicLabel, spec, barsOf, chordsOf, trackOpts, build, seconds, motifs, stars, motifName, planPart, partLabel, setPart, sceneTypes, buildParts, energyOf, STEPS, DRUM_LANES, BASS_ROWS, rowName, isLH, editOf, setEdit, startEdit, chordAt, rowSemis, toggleBass, toggleKeys, keysPat, bassId, fromProject, listenMix, CHORDS_MAX, romanOf, validRoman, chordName, chordList, chordsEdited, setChords, palette, readyGrids };
 })();
