@@ -205,7 +205,9 @@ SS.phoneSong = (() => {
       mus[id] = { on: offAtStart ? x.on === true : x.on !== false, pick: int(x.pick, 0, Math.max(0, sounds(id, style).length - 1), 0) };
     });
     while (PLAYERS.filter((id) => mus[id].on).length > MAX_PLAYERS) mus[[...PLAYERS].reverse().find((id) => mus[id].on)].on = false;
-    const scenes = Array.isArray(r.scenes) ? r.scenes.filter((s) => sceneType(s)).slice(0, 24) : f.scenes;
+    const pairs = Array.isArray(r.scenes) ? r.scenes.map((s, i) => [s, int(Array.isArray(r.reps) ? r.reps[i] : 1, 1, REPS_MAX, 1)]).filter(([s]) => sceneType(s)).slice(0, 24) : f.scenes.map((s) => [s, 1]);
+    const scenes = pairs.map(([s]) => s);
+    const reps = pairs.map(([, n]) => n);
     const parts = {};
     Object.entries((r.parts && typeof r.parts === 'object' && r.parts) || {}).forEach(([sc, row]) => {
       if (!sceneType(sc) || !row || typeof row !== 'object') return;
@@ -228,7 +230,7 @@ SS.phoneSong = (() => {
       const ok = list.filter(validRoman).slice(0, Math.min(CHORDS_MAX, barsOf(sc)));
       if (ok.length) chords[sc] = ok;
     });
-    return { v: VERSION, style, tempo: int(r.tempo, TEMPO_MIN, TEMPO_MAX, f.tempo), tonic: int(r.tonic, 0, 11, 0), mode: r.mode === 'minor' ? 'minor' : 'major', mus, scenes, parts, edits, ...(Object.keys(chords).length ? { chords } : {}) };
+    return { v: VERSION, style, tempo: int(r.tempo, TEMPO_MIN, TEMPO_MAX, f.tempo), tonic: int(r.tonic, 0, 11, 0), mode: r.mode === 'minor' ? 'minor' : 'major', mus, scenes, parts, edits, ...(Object.keys(chords).length ? { chords } : {}), ...(reps.some((n) => n > 1) ? { reps } : {}) };
   }
 
   /** Nom de la tonalité à l'écran : « Do majeur », « Do♯ mineur » (la tonique écrite comme dans SS.TONIC_NAMES). */
@@ -247,7 +249,7 @@ SS.phoneSong = (() => {
     r.scenes.forEach((id) => {
       if (!sections[id]) sections[id] = secOf(r, id);
     });
-    return { ...base, key: `${SS.TONIC_NAMES[r.mode][r.tonic]} ${r.mode}`, sections, form: r.scenes.join(' ') };
+    return { ...base, key: `${SS.TONIC_NAMES[r.mode][r.tonic]} ${r.mode}`, sections, form: r.scenes.map((id, i) => (repOf(r, i) > 1 ? `${id}*${repOf(r, i)}` : id)).join(' ') };
   }
   /** Une scène du plan : longueur de « Créer de zéro », jeux du style, accords du style ou choisis. */
   function secOf(r, id) {
@@ -740,7 +742,8 @@ SS.phoneSong = (() => {
     r.tonic = tonic;
     r.mode = key.mode;
     PLAYERS.forEach((id) => (r.mus[id] = byMu[id] ? { on: true, pick: pickOf(kindOf(id), byMu[id], r) } : { on: false, pick: 0 }));
-    r.scenes = d.song.flatMap((b) => Array.from({ length: Math.max(1, Math.min(8, Math.round(+b.repeat || 1))) }, () => sceneOf(b.scene).sec)).slice(0, 24);
+    r.scenes = d.song.map((b) => sceneOf(b.scene).sec).slice(0, 24);
+    storeReps(r, d.song.slice(0, 24).map((b) => Math.max(1, Math.min(REPS_MAX, Math.round(+b.repeat || 1))))); // le ×n de chaque bloc
     // motifs choisis dans l'assistant (brouillon rangé dans la chanson)
     const wp = d.wizard && d.wizard.state && d.wizard.state.w && d.wizard.state.w.parts;
     if (wp && typeof wp === 'object') {
@@ -779,11 +782,50 @@ SS.phoneSong = (() => {
     return { recipe: clean(r), phone: false };
   }
 
+  /* ---------- Répétitions : combien de fois chaque scène de la liste est jouée de suite (×1 à ×8) ---------- */
+  // recipe.reps[i] va avec recipe.scenes[i] ; absent : toutes à ×1 (chansons faites avant). Sur l'ordinateur : le ×n du bloc.
+  const REPS_MAX = 8;
+  const repOf = (r, i) => (Array.isArray(r.reps) && Number.isInteger(r.reps[i]) ? Math.min(REPS_MAX, Math.max(1, r.reps[i])) : 1);
+  const repList = (r) => r.scenes.map((_, i) => repOf(r, i));
+  function storeReps(r, list) {
+    if (list.some((n) => n > 1)) r.reps = list;
+    else delete r.reps;
+  }
+  /** Règle les répétitions de la scène n° i. */
+  function setRep(r, i, n) {
+    const list = repList(r);
+    if (i < 0 || i >= list.length) return;
+    list[i] = Math.min(REPS_MAX, Math.max(1, Math.round(n) || 1));
+    storeReps(r, list);
+  }
+  /** Ajoute une scène (×1) à la fin. */
+  function addScene(r, id) {
+    if (!sceneType(id) || r.scenes.length >= 24) return;
+    const list = repList(r);
+    r.scenes.push(id);
+    storeReps(r, [...list, 1]);
+  }
+  /** Retire la scène n° i. */
+  function removeScene(r, i) {
+    const list = repList(r);
+    r.scenes.splice(i, 1);
+    list.splice(i, 1);
+    storeReps(r, list);
+  }
+  /** Monte la scène n° i d'un cran (avec ses répétitions). */
+  function moveUp(r, i) {
+    if (i < 1 || i >= r.scenes.length) return;
+    const list = repList(r);
+    [r.scenes[i - 1], r.scenes[i]] = [r.scenes[i], r.scenes[i - 1]];
+    [list[i - 1], list[i]] = [list[i], list[i - 1]];
+    storeReps(r, list);
+  }
+
   /** Durée de la chanson en secondes. */
   function seconds(r) {
-    const bars = r.scenes.reduce((a, id) => a + barsOf(id), 0);
+    const bars = r.scenes.reduce((a, id, i) => a + barsOf(id) * repOf(r, i), 0);
     return Math.round((bars * 4 * 60) / r.tempo);
   }
 
-  return { STYLES, styleOf, MUSICIANS, PLAYERS, MAX_PLAYERS, kindOf, isSecond, playerInfo, players, canAdd, addPlayer, removePlayer, hasEdits, playerOfTrack, SCENES, TEMPO_MIN, TEMPO_MAX, sceneType, sounds, fresh, clean, keyLabel, tonicLabel, spec, barsOf, chordsOf, trackOpts, build, seconds, motifs, stars, motifName, planPart, partLabel, setPart, sceneTypes, buildParts, energyOf, STEPS, DRUM_LANES, BASS_ROWS, rowName, isLH, editOf, setEdit, startEdit, chordAt, rowSemis, toggleBass, toggleKeys, keysPat, bassId, fromProject, listenMix, CHORDS_MAX, romanOf, validRoman, chordName, chordList, chordsEdited, setChords, palette, readyGrids };
+  return { REPS_MAX, repOf, setRep, addScene, removeScene, moveUp, STYLES, styleOf, MUSICIANS, PLAYERS, MAX_PLAYERS, kindOf, isSecond, playerInfo, players, canAdd, addPlayer, removePlayer, hasEdits, playerOfTrack, SCENES, TEMPO_MIN, TEMPO_MAX, sceneType, sounds, fresh, clean, keyLabel, tonicLabel, spec, barsOf, chordsOf, trackOpts, build, seconds, motifs, stars, motifName, planPart, partLabel, setPart, sceneTypes, buildParts, energyOf, STEPS, DRUM_LANES, BASS_ROWS, rowName, isLH, editOf, setEdit, startEdit, chordAt, rowSemis, toggleBass, toggleKeys, keysPat, bassId, fromProject, listenMix, CHORDS_MAX, romanOf, validRoman, chordName, chordList, chordsEdited, setChords, palette, readyGrids };
 })();

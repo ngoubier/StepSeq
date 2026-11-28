@@ -200,12 +200,18 @@
     top('Scènes');
     const rows = r.scenes.map((id, i) => {
       const t = P.sceneType(id);
-      return `<div class="ph-sc" style="--sc:${t.color}"><button class="ph-scgo" data-act="chords" data-id="${id}" aria-label="Accords : ${t.label}"><span class="t">${t.label}</span><span class="m">${P.barsOf(id)} mesures · <span class="ch">${esc(P.chordsOf(r, id))}${P.chordsEdited(r, id) ? ' ✎' : ''}</span></span><span class="go">›</span></button><button data-act="up" data-i="${i}" aria-label="Monter"${i ? '' : ' disabled'}>↑</button><button data-act="del" data-i="${i}" aria-label="Retirer">✕</button></div>`;
+      return `<div class="ph-sc" style="--sc:${t.color}"><button class="ph-scgo" data-act="chords" data-id="${id}" aria-label="Accords : ${t.label}"><span class="t">${t.label}</span><span class="m">${P.barsOf(id)} mesures · <span class="ch">${esc(P.chordsOf(r, id))}${P.chordsEdited(r, id) ? ' ✎' : ''}</span></span><span class="go">›</span></button><button data-act="up" data-i="${i}" aria-label="Monter"${i ? '' : ' disabled'}>↑</button><button data-act="del" data-i="${i}" aria-label="Retirer">✕</button>${repHtml(r, i, t.label)}</div>`;
     }).join('');
     const sec = P.seconds(r);
     $('#phBody').innerHTML = `${rows || '<div class="ph-empty">Aucune scène</div>'}
       <div class="ph-adds">${P.SCENES.map((s) => `<button data-act="add" data-id="${s.id}">＋ ${s.label}</button>`).join('')}</div>
       ${r.scenes.length ? `<div class="ph-sum">${Math.floor(sec / 60)} min ${String(sec % 60).padStart(2, '0')}</div>` : ''}`;
+  }
+
+  /** Réglage − ×2 ＋ : combien de fois la scène est jouée de suite. */
+  function repHtml(r, i, label) {
+    const n = P.repOf(r, i);
+    return `<div class="ph-rep${n > 1 ? ' on' : ''}"><button data-act="rep" data-i="${i}" data-d="-1" aria-label="${label} : une fois de moins"${n > 1 ? '' : ' disabled'}>−</button><b aria-label="${label} : jouée ${n} fois">×${n}</b><button data-act="rep" data-i="${i}" data-d="1" aria-label="${label} : une fois de plus"${n < P.REPS_MAX ? '' : ' disabled'}>＋</button></div>`;
   }
 
   /* ---------- Accords d'une scène ---------- */
@@ -950,12 +956,11 @@
     }
     if (act === 'loop') return playDraft(loopSc());
     if (act === 'draft') return play && play.id === DRAFT ? stopPlay() : playDraft(null);
-    if (act === 'add') r.scenes.push(b.dataset.id);
-    else if (act === 'del') r.scenes.splice(+b.dataset.i, 1);
-    else if (act === 'up') {
-      const i = +b.dataset.i;
-      [r.scenes[i - 1], r.scenes[i]] = [r.scenes[i], r.scenes[i - 1]];
-    } else if (act === 'create') return void create();
+    if (act === 'add') P.addScene(r, b.dataset.id);
+    else if (act === 'del') P.removeScene(r, +b.dataset.i);
+    else if (act === 'up') P.moveUp(r, +b.dataset.i);
+    else if (act === 'rep') P.setRep(r, +b.dataset.i, P.repOf(r, +b.dataset.i) + +b.dataset.d);
+    else if (act === 'create') return void create();
     else return;
     renderScenes();
     renderFoot();
