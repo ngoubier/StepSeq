@@ -107,7 +107,13 @@ SS.phoneSong = (() => {
         if (v) (edits[sc] = edits[sc] || {})[id] = v;
       });
     });
-    return { v: VERSION, tempo: int(r.tempo, TEMPO_MIN, TEMPO_MAX, f.tempo), tonic: int(r.tonic, 0, 11, 0), mode: r.mode === 'minor' ? 'minor' : 'major', mus, scenes, parts, edits };
+    const chords = {};
+    Object.entries((r.chords && typeof r.chords === 'object' && r.chords) || {}).forEach(([sc, list]) => {
+      if (!sceneType(sc) || !Array.isArray(list)) return;
+      const ok = list.filter(validRoman).slice(0, Math.min(CHORDS_MAX, barsOf(sc)));
+      if (ok.length) chords[sc] = ok;
+    });
+    return { v: VERSION, tempo: int(r.tempo, TEMPO_MIN, TEMPO_MAX, f.tempo), tonic: int(r.tonic, 0, 11, 0), mode: r.mode === 'minor' ? 'minor' : 'major', mus, scenes, parts, edits, ...(Object.keys(chords).length ? { chords } : {}) };
   }
 
   /** Nom de la tonalité à l'écran : « Do majeur », « Do♯ mineur » (la tonique écrite comme dans SS.TONIC_NAMES). */
@@ -126,6 +132,8 @@ SS.phoneSong = (() => {
       if (sections[id]) return;
       const sec = { ...base.sections[id] };
       if (r.mode === 'minor') sec.chords = sceneType(id).minor;
+      const own = r.chords && r.chords[id];
+      if (own && own.length) sec.chords = own.join(' | '); // accords choisis à l'écran Accords
       sections[id] = sec;
     });
     return { ...base, key: `${SS.TONIC_NAMES[r.mode][r.tonic]} ${r.mode}`, sections, form: r.scenes.join(' ') };
@@ -136,13 +144,85 @@ SS.phoneSong = (() => {
 
   /** Accords d'une scène par leur nom (« Am | F | C | G »). */
   function chordsOf(r, id) {
-    const H = SS.harmony;
     const sp = spec(r);
     const key = { tonic: SS.TONIC_NAMES[r.mode][r.tonic], mode: r.mode };
     const sec = sp.sections[id];
     if (!sec) return '';
     const n = String(sec.chords || '').split('|').length; // une mesure par accord écrit : la grille une seule fois
-    return SS.bandSong.spansOf(sec, key, n).map((s) => H.chordName(key, { ...s.chord, bassPc: s.chord.rootPc })).join(' · ');
+    return SS.bandSong.spansOf(sec, key, n).map((s) => nameOf(r, s.chord, key)).join(' · ');
+  }
+
+  /* ---------- Accords d'une scène (écran Accords) ---------- */
+  // Un accord est rangé en chiffre romain (« vi », « V7 », « bVII »), comme dans les plans de SS.BandSongs : il suit la
+  // tonalité si on la change. La palette : les accords de la tonalité, puis quelques emprunts courants.
+  const PALETTE = {
+    major: { own: ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°', 'V7'], borrowed: ['bVII', 'iv', 'bVI', 'III'] },
+    minor: { own: ['i', 'ii°', 'III', 'iv', 'v', 'VI', 'VII', 'V7'], borrowed: ['V', 'IV', 'bII', 'I'] },
+  };
+  const CHORDS_MAX = 8;
+  const keyOf = (r) => ({ tonic: SS.TONIC_NAMES[r.mode][r.tonic], mode: r.mode });
+  const MINORISH = /^(min|m7|m9|m6|madd9|madd4|dim|dim7|m7b5)$/;
+  const SUFFIX_OF = { maj: '', min: '', 7: '7', m7: '7', maj7: 'maj7', dim: '°', m7b5: 'ø', dim7: 'dim7', 9: '9', m9: '9', 6: '6', m6: '6', sus2: 'sus2', sus4: 'sus4', add9: 'add9', madd9: 'add9', maj9: 'maj9' };
+  /** Chiffre romain d'un accord rangé par degré (0–6), type et altération (format des grilles de js/harmony.js), ou null. */
+  function romanOf(degree, type, acc = 0) {
+    if (!(type in SUFFIX_OF) || degree < 0 || degree > 6) return null;
+    const n = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'][degree];
+    return (acc < 0 ? 'b' : acc > 0 ? '#' : '') + (MINORISH.test(type) ? n.toLowerCase() : n) + SUFFIX_OF[type];
+  }
+  /** Un chiffre romain lisible par le plan (SS.bandSong.parseChord) ? */
+  function validRoman(tok) {
+    try {
+      SS.bandSong.parseChord(tok, { tonic: 'C', mode: 'major' });
+      return typeof tok === 'string' && !tok.includes('>') && !tok.includes('/');
+    } catch (e) {
+      return false;
+    }
+  }
+  /** Nom d'un accord du plan (spansOf) : par son chiffre romain s'il en a un. */
+  function nameOf(r, chord, key) {
+    try {
+      return chordName(r, chord.tok);
+    } catch (e) {
+      return SS.harmony.chordName(key, { ...chord, bassPc: chord.rootPc });
+    }
+  }
+  /** Nom d'un accord dans la tonalité de la chanson (« Am », « B♭ », « G7 »). */
+  function chordName(r, tok) {
+    const key = keyOf(r);
+    const c = SS.bandSong.parseChord(tok, key);
+    const m = tok.match(/^([b#]?)(VII|VI|IV|V|III|II|I|vii|vi|iv|v|iii|ii|i)/);
+    try {
+      // écrit sur la lettre du degré : ♭VII en Do = B♭ (pas A♯)
+      return SS.harmony.makeChord(key, ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii'].indexOf(m[2].toLowerCase()), c.type, m[1] === 'b' ? -1 : m[1] ? 1 : 0).name;
+    } catch (e) {
+      return SS.harmony.chordName(key, { ...c, bassPc: c.rootPc });
+    }
+  }
+  /** Accords d'une scène, un par mesure (chiffres romains) : ceux choisis, sinon ceux du plan. */
+  function chordList(r, id) {
+    const sec = spec(r).sections[id] || (sceneType(id) && { chords: r.mode === 'minor' ? sceneType(id).minor : plan().sections[id].chords });
+    return sec ? String(sec.chords).split(/\s+/).filter((t) => t && t !== '|') : [];
+  }
+  /** Les accords de la scène ont-ils été changés ? */
+  const chordsEdited = (r, id) => !!(r.chords && r.chords[id] && r.chords[id].length);
+  /** Range les accords d'une scène (null : ceux du modèle). Au plus une mesure par accord, 8 au plus. */
+  function setChords(r, id, toks) {
+    r.chords = r.chords || {};
+    const list = (toks || []).filter(validRoman).slice(0, Math.min(CHORDS_MAX, barsOf(id)));
+    if (list.length) r.chords[id] = list;
+    else delete r.chords[id];
+  }
+  /** Palette de l'écran Accords : { tok, name, numeral, borrowed }. */
+  function palette(r) {
+    const P = PALETTE[r.mode];
+    return [...P.own.map((tok) => [tok, false]), ...P.borrowed.map((tok) => [tok, true])].map(([tok, borrowed]) => ({ tok, name: chordName(r, tok), numeral: tok.replace(/^b/, '♭').replace(/^#/, '♯'), borrowed }));
+  }
+  /** Grilles toutes prêtes de l'assistant (js/harmony.js), dans le mode de la chanson : { id, style, toks, names }. */
+  function readyGrids(r) {
+    return SS.harmony.progressions(keyOf(r)).map((pr) => {
+      const toks = pr.seq.map(([d, t, a]) => romanOf(d, t, a || 0));
+      return toks.every((t) => t && validRoman(t)) ? { id: pr.id, style: pr.style, toks, names: toks.map((t) => chordName(r, t)) } : null;
+    }).filter(Boolean);
   }
 
   /** Options de piste (SS.newTrack) des musiciens présents, comme l'assistant les crée (band, levelKey pour le mixage). */
@@ -379,7 +459,7 @@ SS.phoneSong = (() => {
     const key = { tonic: SS.TONIC_NAMES[r.mode][r.tonic], mode: r.mode };
     const sp = SS.bandSong.spansOf(sec, key, barsOf(sc));
     const s = sp.find((x) => step >= x.step && step < x.step + x.len) || sp[0];
-    return s ? { rootPc: s.chord.rootPc, type: s.chord.type, name: SS.harmony.chordName(key, { ...s.chord, bassPc: s.chord.rootPc }) } : null;
+    return s ? { rootPc: s.chord.rootPc, type: s.chord.type, name: nameOf(r, s.chord, key) } : null;
   }
   /** Demi-tons d'une ligne de basse au-dessus de la fondamentale de l'accord ('t' tierce, 's' septième). */
   function rowSemis(row, chord) {
@@ -539,5 +619,5 @@ SS.phoneSong = (() => {
     return Math.round((bars * 4 * 60) / r.tempo);
   }
 
-  return { MUSICIANS, SCENES, TEMPO_MIN, TEMPO_MAX, sceneType, sounds, fresh, clean, keyLabel, tonicLabel, spec, barsOf, chordsOf, trackOpts, build, seconds, motifs, stars, motifName, planPart, partLabel, setPart, sceneTypes, buildParts, energyOf, STEPS, DRUM_LANES, BASS_ROWS, rowName, isLH, editOf, setEdit, startEdit, chordAt, rowSemis, toggleBass, toggleKeys, keysPat, bassId, fromProject, listenMix };
+  return { MUSICIANS, SCENES, TEMPO_MIN, TEMPO_MAX, sceneType, sounds, fresh, clean, keyLabel, tonicLabel, spec, barsOf, chordsOf, trackOpts, build, seconds, motifs, stars, motifName, planPart, partLabel, setPart, sceneTypes, buildParts, energyOf, STEPS, DRUM_LANES, BASS_ROWS, rowName, isLH, editOf, setEdit, startEdit, chordAt, rowSemis, toggleBass, toggleKeys, keysPat, bassId, fromProject, listenMix, CHORDS_MAX, romanOf, validRoman, chordName, chordList, chordsEdited, setChords, palette, readyGrids };
 })();
